@@ -9,3 +9,6 @@ require OAI from "../oai/lean"
 
 @[default_target]
 lean_lib ArtinPrimitiveRoots
+
+-- The target statement, Mathlib definitions only.
+lean_lib Challenge
