@@ -61,14 +61,19 @@ def HeckeChar.idealValue (χ : HeckeChar F) (I : Ideal (𝓞 F)) : ℂ :=
   ((UniqueFactorizationMonoid.normalizedFactors I).map fun P =>
     if h : P.IsPrime ∧ P ≠ ⊥ then χ.primeValue ⟨P, h.1, h.2⟩ else 1).prod
 
-/-- A modulus bound for the conductor: `χ` is trivial on `1 + 𝔪O_v` at every finite `v` and on
-the units at `v ∤ 𝔪` (then the conductor divides `𝔪`). -/
+/-- Exponent of the prime `v` in an ideal. -/
+def idealExp (v : FinPlace F) (I : Ideal (𝓞 F)) : ℕ :=
+  (Associates.mk v.asIdeal).count (Associates.mk I).factors
+
+/-- A modulus bound for the conductor: `χ` is trivial on the local units `u ≡ 1 mod 𝔭_v^{e_v(𝔪)}`
+at every finite `v` (for `e_v(𝔪) = 0`: on all local units); then the conductor divides `𝔪`.
+Corrected 2026-10-07: the first version quantified `∀ x ∈ 𝔪` and was vacuous at `x = 0`
+(A2 agent, `research/design/A2-ThetaCheck.lean`, `conductorDvd_vacuous`). -/
 def HeckeChar.ConductorDvd (χ : HeckeChar F) (𝔪 : Ideal (𝓞 F)) : Prop :=
   ∀ v : FinPlace F, ∀ u : (v.adicCompletion F)ˣ,
     (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F →
     ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈ v.adicCompletionIntegers F →
-    (∀ x ∈ 𝔪, Valued.v ((u : v.adicCompletion F) - 1) ≤
-      Valued.v (algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F x))) →
+    Valued.v ((u : v.adicCompletion F) - 1) ≤ WithZero.exp (-(idealExp v 𝔪 : ℤ)) →
     χ.loc v u = 1
 
 /-- Kummer character `κ_u` (ar:kummer-hecke, 02:285–357): finite order, unramified at exterior
@@ -110,18 +115,36 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
         θ.idealValue I = ((θB ⟨_, ha⟩ : ℂˣ) : ℂ) := by
   sorry
 
+/-- Archimedean angular type of a Hecke character at the complex places. -/
+def HeckeChar.HasAngularType (D : FieldData F) (χ : HeckeChar F) : Prop :=
+  ∀ w : InfinitePlace F, ∃ m : ℤ, (m = 1 ∨ m = -1) ∧
+    ∀ z : ℂˣ,
+      ((χ.locInf w (Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+          (D.isTotallyComplex.isComplex w)).symm.toMonoidHom z) : ℂˣ) : ℂ) =
+        ((z : ℂ) / ‖(z : ℂ)‖) ^ m
+
 /-- lem:gauss-characters (02:411–436): `Λ` unitary, `G` finite order, both unramified at `v ∉ S`,
 with `γ_2(𝔭)³ = -Λ(𝔭)`, `G(𝔭) = conj(χ_𝔭(4))γ_3(𝔭)`, `γ_1(𝔭)γ_2(𝔭) = -Λ(𝔭)G(𝔭)` for every exterior
-prime and allowed generator. Package P-ARITH-GAUSS (Λ: P-ARITH-LAMBDA, G: P-WEIL). -/
+prime and allowed generator. Package P-ARITH-GAUSS (Λ: P-ARITH-LAMBDA, G: P-WEIL).
+Corrected per rev-theta to include `Λ`'s angular type and the cubic-sign character. -/
 theorem gauss_characters (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
     (H : HilbertData F) (Bd : BData S H) :
     ∃ Λ G : HeckeChar F, IsOfFinOrder G ∧
       (∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1) ∧
+      HeckeChar.HasAngularType D Λ ∧
+      (∃ θB : Bd.B →* ℂˣ, ∀ v : FinPlace F, v ∉ S.Sf →
+        ∀ p : Fˣ, ∀ (hpgen : S.IsGen (p : F) v.asIdeal),
+          ∀ (hpAllowed : Bd.Allowed p),
+          (gamma D S A 3 v.asIdeal (p : F) = 1 ∨
+            gamma D S A 3 v.asIdeal (p : F) = -1) ∧
+          gamma D S A 3 v.asIdeal (p : F) =
+            ((θB ⟨(QuotientGroup.mk (S.diagU p) : S.V), hpAllowed⟩ : ℂˣ) : ℂ)) ∧
       ∀ v : FinPlace F, v ∉ S.Sf → Λ.UnramifiedAt v ∧ G.UnramifiedAt v ∧
         ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
-          gamma D S A 2 v.asIdeal p ^ 3 = -Λ.primeValue v ∧
-          G.primeValue v = (starRingEnd ℂ) (chi D v 4) * gamma D S A 3 v.asIdeal p ∧
-          gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
+          gamma D S A 2 v.asIdeal (p : F) ^ 3 = -Λ.primeValue v ∧
+          G.primeValue v = (starRingEnd ℂ) (chi D v 4) * gamma D S A 3 v.asIdeal (p : F) ∧
+          gamma D S A 1 v.asIdeal (p : F) * gamma D S A 2 v.asIdeal (p : F) =
             -(Λ.primeValue v * G.primeValue v) := by
   sorry
 
@@ -140,9 +163,17 @@ def SData.LS (S : SData F CE condη) (ϑ : HeckeChar F) (y : S.FSˣ) : ℂ :=
       else 1
 
 /-- eq:vartheta-s (02:615–625): `ϑ(𝔞) = L_S(a)` for every generator, `L_S = 1` on `U_S`, angular
-type `±1` at complex places, and `γ_1γ_2ϑ = -η` at exterior primes. Package P-ARITH-GAUSS. -/
+type `±1` at complex places, and `γ_1γ_2ϑ = -η` at exterior primes. Package P-ARITH-GAUSS.
+Corrected per rev-theta to require the finite-order and angular hypotheses used by the lemma; C5 of
+`sol-gate-theta` also requires the three characters to be unramified outside `S`. -/
 theorem vartheta_S (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (H : HilbertData F)
     (Bd : BData S H) (η Λ G : HeckeChar F)
+    (hηram : ∀ v : FinPlace F, v ∉ S.Sf → η.UnramifiedAt v)
+    (hΛram : ∀ v : FinPlace F, v ∉ S.Sf → Λ.UnramifiedAt v)
+    (hGram : ∀ v : FinPlace F, v ∉ S.Sf → G.UnramifiedAt v)
+    (hη : IsOfFinOrder η) (hG : IsOfFinOrder G)
+    (hΛunitary : ∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1)
+    (hΛangular : HeckeChar.HasAngularType D Λ)
     (hΛG : ∀ v : FinPlace F, v ∉ S.Sf → ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
       gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
         -(Λ.primeValue v * G.primeValue v)) :
