@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Res
+import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
 
 set_option autoImplicit false
 
@@ -134,7 +135,21 @@ topology. -/
 theorem exists_thetaFamily (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt H v)
     (hRP : HasRestrictedProductTopology P) (𝓛 : Finset (SChar S)) :
     Nonempty (ThetaFamily P.tc 𝓛) := by
-  sorry
+  have hFactor : ThetaFactorizationInput P := by
+    intro G μ Fam hT C
+    exact thetaWhit_factor Fam hT C
+  obtain ⟨N⟩ := theta_normalization_input P hSt hFactor
+  obtain ⟨B⟩ := theta_T5_common_sections P N 𝓛
+  have Q : ThetaFamilyUpstream B := {
+    action := fun m => by
+      have hr := Rderiv_spec B.Fam B.C m B.level B.C.archSmooth
+      exact ⟨hr.1, hr.2.1, hr.2.2.1⟩
+    commutation := fun m => (Rderiv_spec B.Fam B.C m B.level B.C.archSmooth).2.2.2
+    factor := thetaWhit_factor B.Fam B.level B.C
+    finite_unipotent := thetaWhit_nFin B.Fam B.C
+    exterior := WvAll_spec P N.G N.μ
+    torus_fourier := torus_fourier_expansion P }
+  exact ⟨thetaFamily_from_normalized_sections hRP N 𝓛 B Q⟩
 
 /-- **th:theta-interface** under the Steinberg relation (P-COVER gap G1). With G1 resolved by a
 `HilbertData` field, this is the explicit-Steinberg form of the corrected `theta_interface`.
@@ -143,36 +158,10 @@ fix the topology and add joint root smoothness, while C2 returns the compatible 
 The `sol-gate-theta2` correction also returns its canonical restricted-product topology witness. -/
 theorem theta_interface_of_steinberg (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (A : AddCharData F) (hSt : ∀ v, SteinbergAt H v) :
-
     ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P ∧
       ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily P.tc 𝓛) := by
-  sorry
-
-private theorem unitPart_isLocUnit (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
-    IsLocUnit v (unitPart v x) := by
-  have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
-    (Valuation.ne_zero_iff _).mpr x.ne_zero
-  have hxv : Valued.v (x : v.adicCompletion F) = WithZero.exp (-ordv v x) := by
-    rw [← WithZero.exp_log hx0]
-    simp [ordv, WithZero.toAdd_unzero_eq_log hx0]
-  have hπ : Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
-    simpa [unifLoc, toLoc, unif, HeightOneSpectrum.valuedAdicCompletion_eq_valuation'] using
-      (v.valuation_exists_uniformizer F).choose_spec
-  have hval : Valued.v (unitPart v x : v.adicCompletion F) = 1 := by
-    change Valued.v ((x : v.adicCompletion F) *
-      (unifLoc v : v.adicCompletion F) ^ (-ordv v x)) = 1
-    rw [map_mul, map_zpow, hxv, hπ]
-    rw [← WithZero.exp_zsmul, ← WithZero.exp_add]
-    congr 1
-    simp
-  constructor
-  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
-    rw [hval]
-  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
-    have hval' : Valued.v (((unitPart v x)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
-      simp [hval]
-    rw [hval']
-
+  exact theta_interface_from_family_constructor D S H A hSt
+    (fun P hRP 𝓛 => exists_thetaFamily P hSt hRP 𝓛)
 
 /-- **cor:theta-exterior-coefficient** (03:186–222; A2 request), table form. -/
 theorem sphericalTable_product (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
