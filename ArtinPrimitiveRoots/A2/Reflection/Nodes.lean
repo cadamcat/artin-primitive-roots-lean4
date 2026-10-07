@@ -80,8 +80,9 @@ def rfSCharacter (D : ArtinPrimitiveRoots.A1.FieldData F)
     (ϑ : ArtinPrimitiveRoots.A1.HeckeChar F) (ε : S.US) (y : S.FSˣ) : ℂ :=
   S.LS ϑ y * lambdaEpsilon D S H ε y
 
-/-- **rf:S-character-identity** (04-reflection.tex:58-65).  Includes the allowed-generator
-identity, triviality on `U_S`, and dependence only on the class modulo `U_S^6`. -/
+/-- **rf:S-character-identity** (04-reflection.tex:58-65). Includes the allowed-generator
+identity, triviality on `U_S`, and dependence only on the class modulo `U_S^6`. Corrected per
+sol-gate-a2 to require the combined character to be unramified outside `S`. -/
 theorem rf_S_character_identity
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
@@ -94,7 +95,9 @@ theorem rf_S_character_identity
         ArtinPrimitiveRoots.A1.gamma D S A 1 v.asIdeal p *
           ArtinPrimitiveRoots.A1.gamma D S A 2 v.asIdeal p =
             -(Λ.primeValue v * G.primeValue v))
-    (ε : S.US) :
+    (ε : S.US)
+    (houtside : ∀ v : ArtinPrimitiveRoots.A1.FinPlace F, v ∉ S.Sf →
+      (ArtinPrimitiveRoots.A1.vartheta Λ G η).UnramifiedAt v) :
     (∀ (J : Ideal (𝓞 F)) (hJ : S.IsExterior J) (a : Fˣ),
       S.IsGen (a : F) J → Bd.Allowed a →
       rfSCharacter D S H (ArtinPrimitiveRoots.A1.vartheta Λ G η) ε (S.diagU a) =
