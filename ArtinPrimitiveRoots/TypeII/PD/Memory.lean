@@ -360,6 +360,44 @@ def memNormSqOn {K : ℕ} (F : PDFix K) (S : PDScale) (T : Finset (MemPoint S.x 
     (f : MemPoint S.x K → ℂ) : ℝ :=
   ∑ s ∈ T, memMeasure F S s * ‖f s‖ ^ 2
 
+/-- Permutations of the coordinates within each memory list. -/
+abbrev MemoryPermutation {x : ℝ} {K : ℕ} (s : MemPoint x K) :=
+  (i : Fin K) → Equiv.Perm (Fin (s.2.2 i).length)
+
+/-- Reorder each memory list by a permutation of its slots. -/
+def memoryPermute {x : ℝ} {K : ℕ} (s : MemPoint x K) (σ : MemoryPermutation s) :
+    MemPoint x K :=
+  (s.1, s.2.1, fun i => List.ofFn (fun j => (s.2.2 i).get (σ i j)))
+
+/-- The source Hilbert space identifies reorderings of each memory list. Correction from
+refutation lane `sol-gate-b` implements this by averaging over all such reorderings. -/
+noncomputable def memorySym {x : ℝ} {K : ℕ}
+    (f : MemPoint x K → ℂ) (s : MemPoint x K) : ℂ :=
+  (Fintype.card (MemoryPermutation s) : ℂ)⁻¹ *
+    ∑ σ : MemoryPermutation s, f (memoryPermute s σ)
+
+/-- A function is memory-symmetric when reordering list coordinates does not change it. -/
+def IsMemorySymmetric {x : ℝ} {K : ℕ} (f : MemPoint x K → ℂ) : Prop :=
+  ∀ s σ, f (memoryPermute s σ) = f s
+
+/-- Symmetrizing twice has the same effect as symmetrizing once. -/
+theorem memorySym_idempotent {x : ℝ} {K : ℕ} (f : MemPoint x K → ℂ) :
+    memorySym (memorySym f) = memorySym f := by
+  funext s
+  sorry
+
+/-- Averaging over memory permutations contracts the weighted norm on permutation-closed sets. -/
+theorem memorySym_contraction {K : ℕ} (F : PDFix K) (S : PDScale)
+    (T : Finset (MemPoint S.x K)) (f : MemPoint S.x K → ℂ)
+    (hT : ∀ s ∈ T, ∀ σ, memoryPermute s σ ∈ T) :
+    memNormSqOn F S T (memorySym f) ≤ memNormSqOn F S T f := by
+  sorry
+
+/-- The averaged function is invariant under memory-list permutations. -/
+theorem memorySym_isMemorySymmetric {x : ℝ} {K : ℕ} (f : MemPoint x K → ℂ) :
+    IsMemorySymmetric (memorySym f) := by
+  sorry
+
 /-- `‖Π_B Op Π_B‖_{ℋ→ℋ} ≤ c`, tested on finitely supported functions and finite output sets. -/
 def MemOpNormLE {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
     (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (c : ℝ) : Prop :=
@@ -382,11 +420,47 @@ def MemColSchurLE {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
       ∑ s ∈ T, memMeasure F S s * ‖memKernel op s s'‖ * v₀ ^ memSize s ≤
         Cc * memMeasure F S s' * v₀ ^ memSize s'
 
+/-- Operator norm after projecting the input to the symmetric memory space. Correction from
+refutation lane `sol-gate-b` gives the Hilbert-space interface used by the PD memory bounds. -/
+noncomputable def MemOpNormLE_sym {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (c : ℝ) : Prop :=
+  MemOpNormLE F S B (fun f => op (memorySym f)) c
+
+/-- Row Schur bound after projecting the input to the symmetric memory space. -/
+noncomputable def MemRowSchurLE_sym {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (v₀ R : ℝ) : Prop :=
+  MemRowSchurLE F S B (fun f => op (memorySym f)) v₀ R
+
+/-- Column Schur bound after projecting the input to the symmetric memory space. -/
+noncomputable def MemColSchurLE_sym {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (v₀ Cc : ℝ) : Prop :=
+  MemColSchurLE F S B (fun f => op (memorySym f)) v₀ Cc
+
 /-- One piece of `ℰ_j` on `ℋ` (no distinctness): prescribed stored set `St`, promoted set `Pr`,
 raw or comparison multiplier, between the endpoint symmetrizations. -/
 def memEdgePiece {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot) (raw : Bool)
     (St Pr : Finset (Fin K)) (j : ℕ) : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ :=
   plainOp fun f => logSym F S (logEdgePiece F S ρ w j raw St Pr (logSym F S f))
+
+/-- Ghost operators preserve memory symmetry. -/
+theorem memGhost_preserves_memorySym {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) (f : MemPoint S.x K → ℂ) (hf : IsMemorySymmetric f) :
+    IsMemorySymmetric (memGhost F S ρ j f) := by
+  sorry
+
+/-- Edge operators preserve memory symmetry. -/
+theorem memEdge_preserves_memorySym {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (kind : EdgeKind) (j : ℕ)
+    (f : MemPoint S.x K → ℂ) (hf : IsMemorySymmetric f) :
+    IsMemorySymmetric (memEdge F S ρ w kind j f) := by
+  sorry
+
+/-- Each raw or comparison edge piece preserves memory symmetry. -/
+theorem memEdgePiece_preserves_memorySym {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)
+    (f : MemPoint S.x K → ℂ) (hf : IsMemorySymmetric f) :
+    IsMemorySymmetric (memEdgePiece F S ρ w raw St Pr j f) := by
+  sorry
 
 /-- Fixed data with prescribed `q_d, A₀, η, ψ` (the bands and `K` remain free). -/
 def PDFix.Has {K : ℕ} (F : PDFix K) (q_d A₀ : ℝ) (eta psi : ℝ → ℝ) : Prop :=

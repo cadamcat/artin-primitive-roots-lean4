@@ -501,15 +501,16 @@ lemma exists_unit_interval_value_close_to_sSup (f : ℝ → ℝ) (j : ℤ) (ε :
 noncomputable def majorEnergyIntegral (T : ℝ) (B M N : ℝ → ℂ) : ℝ :=
   ∫ t in (-T)..T, ‖B t * M t * N t‖ ^ 2
 
-/-- COPY. `maj:sparse-frequency` — PD `05-major-arcs.tex:165-255`, Lemma 5.3. -/
+/-- COPY. `maj:sparse-frequency` — PD `05-major-arcs.tex:165-255`, Lemma 5.3. Correction from
+refutation lane `sol-gate-b` fixes `C₁` before the asymptotic constants. -/
 theorem sparse_frequency (δ C : ℝ) (hδ : 0 < δ) (hC : 0 < C) :
-    ∀ B A_s : ℝ, 0 < B → 0 < A_s →
+    ∀ C₁ : ℝ, 0 < C₁ → ∀ B A_s : ℝ, 0 < B → 0 < A_s →
       ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 < x₀ ∧
         ∀ x : ℝ, x₀ ≤ x →
           let L := Real.log x
           ∀ X : ℝ, x / 2 ≤ X → X ≤ 2 * x →
-            ∀ P : ℝ, (1 / 20 : ℝ) * Real.rpow L (1 / 10 : ℝ) ≤ Real.log P →
-              ∀ C₁ : ℝ, 0 < C₁ → Real.log P ≤ C₁ * Real.rpow L (1 / 5 : ℝ) →
+          ∀ P : ℝ, (1 / 20 : ℝ) * Real.rpow L (1 / 10 : ℝ) ≤ Real.log P →
+              Real.log P ≤ C₁ * Real.rpow L (1 / 5 : ℝ) →
               ∀ Pset : Finset ℕ,
                 (∀ p ∈ Pset, p.Prime ∧ P ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * P) →
                 ∀ q : ℕ, 1 ≤ q →
@@ -623,20 +624,21 @@ theorem major_energy (δ C c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
 
 /-- `prop:major-term` — PD 05:9-30, Proposition 5.1.  CORRECTED restatement of the frozen
 `major_term`: adds `‖β_n‖ ≤ L^C` and the smoothness/support of `η` (without them the bound is
-false).  Proof: `major_separation` with `D`, then `major_energy` with the resulting `B₁, A'`. -/
+false).  Proof: `major_separation` with `D`, then `major_energy` with the resulting `B₁, A'`.
+Correction from refutation lane `sol-gate-b` fixes the family and cutoffs before `C_D` and `x₀`. -/
 theorem major_term
     (δ C Dstar q_d c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
     (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
     (hqd₀ : 0 < q_d) (hqd₁ : q_d < 1)
     (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) (ha : ValidBands K a) :
     ∀ A₀ : ℝ, 0 < A₀ →
-      ∃ C_D x₀ : ℝ, 0 < C_D ∧ 2 ≤ x₀ ∧
       ∀ family : CoefficientFamily δ C c₁ c₂,
         HasLongCoefficientCancellation family →
         ∀ eta psi : ℝ → ℝ, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta → Function.support eta ⊆ Set.Icc 1 4 →
           (∀ y, 0 ≤ eta y) → IsDyadicPartition eta →
           ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) psi → HasCompactSupport psi →
           (∀ t ∈ Set.Icc (-4) 4, psi t = 1) →
+          ∃ C_D x₀ : ℝ, 0 < C_D ∧ 2 ≤ x₀ ∧
           ∀ x : ℝ, x₀ ≤ x →
             ∀ Y, Y ∈ dyadicScales x K →
             ∀ beta : ℕ → ℂ,
