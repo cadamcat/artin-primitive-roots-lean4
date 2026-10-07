@@ -117,6 +117,14 @@ theorem SData.annihilator_diag_mul (S : SData F CE condη) (D : FieldData F)
       Set.range fun x : S.R => S.diag ((a : F)⁻¹ * (x : F)) := by
   sorry
 
+/-- The norm identity in `lem:s-lattice` with the total-complexity hypothesis made explicit.
+This is the corrected version of the frozen `SData.absS_diag_eq_norm`, whose interface omits
+`FieldData F`. -/
+theorem SData.absS_diag_eq_norm_ofFieldData (S : SData F CE condη) (D : FieldData F)
+    (x : F) (I : Ideal (𝓞 F)) (hI : S.IsExterior I) (hx : S.IsGen x I) :
+    S.absS (S.diag x) = Ideal.absNorm I := by
+  sorry
+
 /-- Scaling Poisson summation from `R` to the exterior fractional ideal `aR`. -/
 theorem SData.poisson_scaled (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (f : S.BruhatSchwartz) (a : Fˣ) (I : Ideal (𝓞 F))
