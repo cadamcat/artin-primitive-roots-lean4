@@ -414,7 +414,7 @@ theorem conjugate_upperHom_formula (σ : SL(2,F)) (μ : F) :
   simp only [Matrix.SpecialLinearGroup.coe_mul]
   rw [hσ, hU, hInv, Matrix.mul_fin_two, Matrix.mul_fin_two]
   ext i j
-  fin_cases i <;> fin_cases j
+  fin_cases i <;> fin_cases j <;> dsimp
   · linear_combination hdet
   · ring
   · ring
@@ -1658,7 +1658,7 @@ theorem R6_two_heights (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] :
         (σ'⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ) 1 0 ≠ 0 →
           normHeight F (σ⁻¹ • z) *
             normHeight F (σ'⁻¹ • ((γ : SL(2,𝓞 F)) • z)) ≤ C) := by
-  rcases G2_x_action (F := F) with ⟨hFormula, hBorel, hUnit, hActionEquiv, hContinuous⟩
+  have hFormula := (G2_x_action (F := F)).1
   have hheightGeneral : ∀ g : SL(2,F), ∀ z : X F, g 1 0 ≠ 0 →
       normHeight F z * normHeight F (g • z) ≤ (absFieldNorm F (g 1 0))⁻¹ := by
     intro g z h10
