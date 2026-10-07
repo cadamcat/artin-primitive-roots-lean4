@@ -627,16 +627,14 @@ theorem pnt :
   sorry
 
 /-- `ext:dirichlet-L` — PP `02-long-prime.tex:312-323`; matching Mathlib
-`DirichletCharacter.LFunction` and `differentiable_LFunction` (`DirichletContinuation.lean:98`). -/
+`DirichletCharacter.LFunction` and `differentiable_LFunction` (`DirichletContinuation.lean:98`).
+Correction 9 from review lane `rev-b` records meromorphic continuation for all characters. -/
 theorem dirichlet_L (q : ℕ) [NeZero q] (χ : DirichletCharacter ℂ q) :
     (∀ s : ℂ, 1 < s.re →
       DirichletCharacter.LFunction χ s = LSeries (χ ·) s) ∧
+    (∀ s : ℂ, MeromorphicAt (DirichletCharacter.LFunction χ) s) ∧
     (χ ≠ 1 → Differentiable ℂ (DirichletCharacter.LFunction χ)) := by
-  constructor
-  · intro s hs
-    exact DirichletCharacter.LFunction_eq_LSeries χ hs
-  · intro hχ
-    exact DirichletCharacter.differentiable_LFunction hχ
+  sorry
 
 private theorem ncard_zero_le_divisor (g : ℂ → ℂ) (c : ℂ) (r R : ℝ)
     (hr : 0 < r) (hR : r < R)

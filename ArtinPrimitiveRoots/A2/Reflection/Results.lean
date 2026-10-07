@@ -45,16 +45,16 @@ theorem prop_reflection
     (K T : Set S.FSˣ) (hK : IsCompact K) (hT : IsCompact T)
     (hTnorm : ∀ t ∈ T, S.absS (t : S.FS) = 1) :
     ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
-      ∀ (Z P Dlen : ℝ), 2 ≤ Z → 1 ≤ P → 1 ≤ Dlen →
+      ∀ (Z P Dlen : ℝ), (hZ : 2 ≤ Z) → 1 ≤ P → 1 ≤ Dlen →
         ∀ t ∈ T,
-          (∑' r : {r : ReflectionRow S // InReflectionBox S K t Z r ∧
+          (∑' r : {r : ReflectionRow S // InReflectionBox D S K t Z (by linarith) r ∧
               P ≤ idealNorm r.h.1 ∧ idealNorm r.h.1 < 2 * P ∧
               Dlen ≤ idealNorm r.d.1 ∧ idealNorm r.d.1 < 2 * Dlen},
             ‖ArtinPrimitiveRoots.A1.Bm D S A
               (ArtinPrimitiveRoots.A1.vartheta Λ G η) cgen (r.1.m : F) Z‖ ^ 2) ≤
               C * Real.rpow Z ε * Real.rpow P (1 / 2 : ℝ) *
                 (Dlen + Dlen ^ 2 * P / Z) ∧
-          (∑' r : {r : ReflectionRow S // InReflectionBox S K t Z r},
+          (∑' r : {r : ReflectionRow S // InReflectionBox D S K t Z (by linarith) r},
             ‖ArtinPrimitiveRoots.A1.Bm D S A
               (ArtinPrimitiveRoots.A1.vartheta Λ G η) cgen (r.1.m : F) Z‖ ^ 2) ≤
               C * Real.rpow Z (2 * M0 - 1 + ε) := by
