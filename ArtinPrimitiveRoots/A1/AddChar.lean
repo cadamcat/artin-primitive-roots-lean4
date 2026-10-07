@@ -220,16 +220,21 @@ theorem SData.e_diag_eq [IsTotallyComplex F] (S : SData F CE condη) (A : AddCha
 /-- lem:s-lattice (e)/(f) (02:63–108; consumed at 05:152): `‖x‖_S = N(xR)` for `x ∈ F^×`
 generating the exterior fractional ideal `I`; in particular `‖x‖_S ≥ 1` for `x ∈ R ∖ 0`.
 Package P-ARITH-BASE. -/
-theorem SData.absS_diag_eq_norm (S : SData F CE condη) (x : F) (I : Ideal (𝓞 F))
+theorem SData.absS_diag_eq_norm [IsTotallyComplex F] (S : SData F CE condη) (x : F) (I : Ideal (𝓞 F))
     (hI : S.IsExterior I) (hx : S.IsGen x I) :
     S.absS (S.diag x) = Ideal.absNorm I := by
   sorry
 
 /-- lem:s-lattice, the self-duality consequence used at 02:397 and 06:76: for an exterior ideal `I`
-with generator `c`, `(n, d) ↦ e(nd/c)` is a perfect pairing on `O_F/I`. Package P-ARITH-BASE. -/
-theorem SData.e_pairing_perfect (S : SData F CE condη) (A : AddCharData F) (I : Ideal (𝓞 F))
-    (hI : S.IsExterior I) (c : F) (hc : S.IsGen c I) (n : 𝓞 F)
-    (hn : ∀ d : 𝓞 F, S.e A (S.diag (algebraMap (𝓞 F) F (n * d) / c)) = 1) : n ∈ I := by
+with generator `c`, `(n, d) ↦ e(nd/c)` is a perfect pairing on `O_F/I`. Package P-ARITH-BASE.
+Corrected per rev-theta to state both annihilator directions under fixed field data. -/
+theorem SData.e_pairing_perfect (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (I : Ideal (𝓞 F)) (hI : S.IsExterior I) (c : F)
+    (hc : S.IsGen c I) :
+    (∀ n : 𝓞 F, n ∈ I → ∀ d : 𝓞 F,
+      S.e A (S.diag (algebraMap (𝓞 F) F (n * d) / c)) = 1) ∧
+    (∀ n : 𝓞 F,
+      (∀ d : 𝓞 F, S.e A (S.diag (algebraMap (𝓞 F) F (n * d) / c)) = 1) → n ∈ I) := by
   sorry
 
 /-- Normalized Gauss sum `γ_j(𝔠) = q_𝔠^{-1/2} Σ_{x mod 𝔠} χ_𝔠(x)^j e(x/c)` for a squarefree

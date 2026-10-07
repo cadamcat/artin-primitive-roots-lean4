@@ -1,4 +1,6 @@
 import ArtinPrimitiveRoots.TypeII.PP.Defs
+import ArtinPrimitiveRoots.TypeII.Marked
+import ArtinPrimitiveRoots.TypeII.Proofs.pp1.HalaszMeanValue
 
 /-! Statements in the Prime Predecessors long-prime chain, PP
 `02-long-prime.tex:8-579`. -/
@@ -18,9 +20,10 @@ theorem mean_value :
               Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
                 Real.rpow (M : ℝ)
                   (2 * (s : ℝ) - ((k : ℝ) * ((k : ℝ) + 1)) / 2 + 1 / 100 : ℝ) := by
-  sorry
+  exact mean_value_from_halasz
 
-/-- `t2:pp.log-phase` — PP `02-long-prime.tex:185-310`, Lemma 3.3; also PD Lemma 2.4. -/
+/-- `t2:pp.log-phase` — PP `02-long-prime.tex:185-310`, Lemma 3.3; also PD Lemma 2.4. `I` is an interval in
+`[N', 2N']`, as in the paper (an arbitrary subset makes it false; lane `pp1`, 2026-10-07). -/
 theorem log_phase :
     ∃ C₃ : ℝ, 0 < C₃ ∧
       ∀ C : ℝ, 0 < C →
@@ -32,8 +35,8 @@ theorem log_phase :
               ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
                 ∀ a : ZMod q, ∀ v : ℝ,
                   Real.exp (L / (2 * T ^ 2)) ≤ |v| → |v| ≤ 4 * Real.rpow x 3 →
-                    ∀ I : Set ℕ, I ⊆ {n : ℕ | N' ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N'} →
-                      ‖residuePhaseSum N' q a v I‖ ≤
+                    ∀ N₁ N₂ : ℝ, N' ≤ N₁ → N₂ ≤ 2 * N' →
+                      ‖residuePhaseSum N' q a v {n : ℕ | N₁ ≤ (n : ℝ) ∧ (n : ℝ) ≤ N₂}‖ ≤
                         C₀ * (N' / q) * Real.exp (-L / Real.rpow T C₃) := by
   sorry
 
@@ -110,7 +113,7 @@ theorem zero_free :
   sorry
 
 /-- `t2:pp.prime-polynomial` — PP `02-long-prime.tex:8-21, 483-579`, Lemma 3.1; also PD
-Lemma 2.3. -/
+Lemma 2.3. Correction 5 from review lane `rev-b` requires the prime set to be an interval. -/
 theorem prime_polynomial :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
       ∃ B₀ C₀ x₀ : ℝ, 0 < B₀ ∧ 0 < C₀ ∧ 2 < x₀ ∧
@@ -118,9 +121,10 @@ theorem prime_polynomial :
           let L := Real.log x
           ∀ N : ℝ, Real.rpow x τ / 2 ≤ N → N ≤ Real.rpow x η →
             ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
-              ∀ hq : 0 < q, ∀ χ : DirichletCharacter ℂ q, ∀ t : ℝ,
+              ∀ χ : DirichletCharacter ℂ q, ∀ t : ℝ,
                 Real.rpow L B₀ ≤ |t| → |t| ≤ Real.rpow x 2 →
-                  ∀ I : Set ℕ, I ⊆ {p : ℕ | N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N} →
+                  ∀ I : Set ℕ, IsNatInterval I →
+                    I ⊆ {p : ℕ | N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N} →
                     ‖primeDirichletPolynomial N q χ t I‖ ≤
                       C₀ * Real.rpow L (-A) := by
   sorry

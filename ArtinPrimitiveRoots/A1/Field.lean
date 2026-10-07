@@ -55,7 +55,22 @@ variable {F : Type} [Field F] [NumberField F]
 
 /-- `μ12 ⊂ F` forces `F` totally complex. Package P-ARITH-BASE. -/
 theorem FieldData.isTotallyComplex (D : FieldData F) : IsTotallyComplex F := by
-  sorry
+  refine ⟨fun v => ?_⟩
+  rw [InfinitePlace.isComplex_iff]
+  intro hreal
+  let ι : F →+* ℝ := hreal.embedding
+  have hprim : IsPrimitiveRoot (ι D.ζ12) 12 :=
+    IsPrimitiveRoot.map_of_injective (f := ι) D.hζ12 (RingHom.injective ι)
+  have hsq : ((ι D.ζ12) ^ 6) ^ 2 = 1 := by
+    calc
+      ((ι D.ζ12) ^ 6) ^ 2 = (ι D.ζ12) ^ (6 * 2) := by rw [pow_mul]
+      _ = (ι D.ζ12) ^ 12 := by norm_num
+      _ = 1 := hprim.pow_eq_one
+  have hnonneg : 0 ≤ (ι D.ζ12) ^ 6 := by positivity
+  rcases sq_eq_one_iff.mp hsq with h | h
+  · exact hprim.pow_ne_one_of_pos_of_lt (by norm_num) (by norm_num) h
+  · have : (ι D.ζ12) ^ 6 = -1 := h
+    linarith
 
 /-- Number of complex places, `r = [F:ℚ]/2`. -/
 def numComplex (F : Type) [Field F] [NumberField F] : ℕ := Fintype.card (InfinitePlace F)
@@ -96,9 +111,10 @@ abbrev SData.US (S : SData F CE condη) : Subgroup Fˣ :=
 def SData.IsExterior (S : SData F CE condη) (I : Ideal (𝓞 F)) : Prop :=
   I ≠ ⊥ ∧ ∀ v ∈ S.Sf, ¬ I ≤ v.asIdeal
 
-/-- `c ∈ F^×` generates the exterior ideal `I` in `R`: equal valuations at all `v ∉ S`. -/
+/-- `c ∈ F^×` generates the exterior ideal `I` in `R`: equal valuations at all `v ∉ S`.
+Corrected per rev-theta to require that `I` is exterior. -/
 def SData.IsGen (S : SData F CE condη) (c : F) (I : Ideal (𝓞 F)) : Prop :=
-  c ≠ 0 ∧ ∀ v : FinPlace F, v ∉ S.Sf →
+  S.IsExterior I ∧ c ≠ 0 ∧ ∀ v : FinPlace F, v ∉ S.Sf →
     FractionalIdeal.count F v (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) =
       FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
 
@@ -124,8 +140,9 @@ def absFin (v : FinPlace F) (x : v.adicCompletion F) : ℝ :=
 def SData.absS (S : SData F CE condη) (y : S.FS) : ℝ :=
   (∏ v : S.Sf, absFin v.1 (y.1 v)) * ∏ w : InfinitePlace F, Complex.normSq (y.2 w)
 
-/-- Norm section `ℓ_T`: finite components 1, component `T^{1/(2r)}` at each complex place. -/
-def SData.ell (S : SData F CE condη) (T : ℝ) : S.FS :=
+/-- Norm section `ℓ_T`: finite components 1, component `T^{1/(2r)}` at each complex place.
+Corrected per rev-theta to require fixed field data and `T > 0`. -/
+def SData.ell (D : FieldData F) (S : SData F CE condη) (T : ℝ) (hT : 0 < T) : S.FS :=
   (fun _ => 1, fun _ => ((T ^ ((1 : ℝ) / (2 * numComplex F)) : ℝ) : ℂ))
 
 /-- `𝒱 = F_S^×/F_S^{×6}`. -/
