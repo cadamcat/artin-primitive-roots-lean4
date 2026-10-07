@@ -3,6 +3,9 @@ import Mathlib.LinearAlgebra.Countable
 import Mathlib.Topology.Bases
 import Mathlib.Data.Set.Finite.Lemmas
 
+-- Preserve the frozen quotient topology used in Geometry.
+attribute [-instance] OAI.CubicEisenstein.complexSLTopology
+
 /-! Remaining reduction-theory nodes R8--R10 and R12--R14. -/
 
 set_option autoImplicit false
