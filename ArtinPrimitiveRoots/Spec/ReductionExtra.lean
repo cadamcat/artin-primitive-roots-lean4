@@ -1,4 +1,11 @@
 import ArtinPrimitiveRoots.Spec.Stage1
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_PROPER.siegel_low_height_overlap_finite
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_PROPER.siegel_high_height_overlap_finite
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_PROPER.free_action_wandering_nbhd
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_PROPER.local_finite_overlap
+
+-- Preserve the frozen quotient topology after the transitive OAI imports.
+attribute [-instance] OAI.CubicEisenstein.complexSLTopology
 
 /-! Remaining reduction-theory nodes R8--R10 and R12--R14. -/
 
@@ -34,7 +41,23 @@ theorem R9_proper (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (∀ (hfree : FreeAction F Γ) (z : X F),
       ∃ U : Set (X F), IsOpen U ∧ z ∈ U ∧
         ∀ γ : Γ, γ ≠ 1 → Disjoint ((fun x => (γ : SL(2,𝓞 F)) • x) '' U) U) := by
-  sorry
+  classical
+  obtain ⟨A, hA, hhigh⟩ := siegel_high_height_overlap_finite Γ d
+  have hlow := siegel_low_height_overlap_finite Γ d A hA
+  refine ⟨fun K K' hK hK' => compact_overlap_finite_SL2O K K' hK hK', ?_,
+    fun hfree z => free_action_wandering_nbhd Γ hfree z⟩
+  apply (hlow.union hhigh).subset
+  rintro γ ⟨z, ⟨i, x, hx, hix⟩, j, y, hy, hjy⟩
+  have htransition : siegelTransition Γ d i j γ x = y := by
+    unfold siegelTransition
+    rw [hix, ← hjy]
+    exact inv_smul_smul (d.σ j) y
+  by_cases hsmall : normHeight F x ≤ A ∧
+      normHeight F (siegelTransition Γ d i j γ x) ≤ A
+  · exact Or.inl ⟨i, j, x, hx, htransition.symm ▸ hy, hsmall⟩
+  · apply Or.inr
+    refine ⟨i, j, x, hx, htransition.symm ▸ hy, ?_⟩
+    exact (not_and_or.mp hsmall).imp lt_of_not_ge lt_of_not_ge
 
 /-- R10 `spec:cusp-separation` — P-SPEC.md:223, 326–328. Above a uniform height threshold,
 large representatives at one cusp differ by its stabilizer; compact sets meet only finitely many
