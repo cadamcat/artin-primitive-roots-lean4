@@ -25,7 +25,8 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- **zf:convexity** (06-zero-free.tex:139-163): the conductor-uniform Hecke convexity bound,
-with the number-field-dependent height exponent chosen before `ε`. -/
+with the number-field-dependent height exponent chosen before `ε`. Uses the corrected nonzero
+primitive-conductor predicate from rev-a2. -/
 theorem zf_convexity :
     ∃ A_F : ℝ, 0 < A_F ∧
       ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
@@ -42,9 +43,23 @@ theorem zf_convexity :
                   C * Real.rpow (2 + |s.im|) A_F) := by
   sorry
 
+/-- Convert zf:convexity (06:139-163) to the exact growth hypothesis used in the corrected
+detector statements; the chosen height exponent remains the same. -/
+theorem zf_convexity_growth_bound :
+    ∃ A_F : ℝ, 0 < A_F ∧ ConductorHeightBound (F := F) A_F := by
+  obtain ⟨A_F, hAF, hconv⟩ := zf_convexity (F := F)
+  refine ⟨A_F, hAF, ?_⟩
+  intro ε hε
+  obtain ⟨C, hC, hbound⟩ := hconv ε hε
+  refine ⟨C, hC, ?_⟩
+  intro ω hω hnon 𝔣 h𝔣 L s hleft hright
+  have hL := hbound ω hω hnon 𝔣 h𝔣 L.value
+    ⟨L.differentiable, L.agrees⟩
+  exact hL.1 s hleft hright
+
 /-- **zf:row-conductor-family** (06-zero-free.tex:13-30): dyadic frequency rows have linear
 count, conductor `O(q_u)`, pairwise distinct primitive twists, and only finitely many fixed
-S-components. -/
+S-components. Corrected per rev-a2 to require the missing quantitative frequency hypotheses. -/
 theorem zf_row_conductor_family
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
@@ -61,9 +76,6 @@ theorem zf_row_conductor_family
               SComponent S (fd.omega u) ∈ 𝓛S) ∧
           (∀ u v, U ≤ fd.q u → fd.q u < 2 * U →
             U ≤ fd.q v → fd.q v < 2 * U → fd.omega u = fd.omega v → u = v) ∧
-          (∀ u v, U ≤ fd.q u → fd.q u < 2 * U →
-            U ≤ fd.q v → fd.q v < 2 * U →
-              (fd.omega u = 1 → fd.omega v = 1 → u = v)) ∧
           (∀ u, fd.kummer u = 1 ↔ u = fd.one) := by
   sorry
 
@@ -151,10 +163,6 @@ theorem ext_ideal_count :
       have hC : B₀ ≤ C := by dsimp [C]; exact le_max_of_le_right (le_of_lt (by linarith))
       have hmul := le_trans hcount hC
       exact hmul.trans (by nlinarith [ht, le_of_lt (by positivity : 0 < C)])
-
-/-- **def:ideal-divisor-count** (06-zero-free.tex:145): the ideal divisor function. -/
-def idealDivisorCount (I : Ideal (𝓞 F)) : ℕ :=
-  Set.ncard {J : Ideal (𝓞 F) | J ∣ I}
 
 namespace Proofs.A2Z1
 open Filter Topology
@@ -408,39 +416,50 @@ def detectorSmoothedSum (U β γ : ℝ) (ω : ArtinPrimitiveRoots.A1.HeckeChar F
 def verticalMellinIntegral (f : ℂ → ℂ) (c : ℝ) : ℂ :=
   (1 / (2 * Real.pi) : ℂ) * ∫ t : ℝ, f (c + t * Complex.I)
 
-/-- **zf:detector-shift** (06-zero-free.tex:226-264): exact zero-detector statement. -/
+/-- **zf:detector-shift** (06-zero-free.tex:226-264): exact zero-detector statement. Corrected per
+rev-a2 to include positive `ε` and continuation values; corrected per sol-gate-a2 to carry the
+field-dependent convexity growth bound used by the shift. -/
 theorem zf_detector_shift
-    (A_F ρ ε U β γ : ℝ) (ω : ArtinPrimitiveRoots.A1.HeckeChar F)
-    (𝔣 : Ideal (𝓞 F))
-    (hprim : IsPrimitiveConductor ω 𝔣) (hfin : IsOfFinOrder ω) (hnon : ω ≠ 1)
-    (hU : 2 ≤ U) (hρ : 0 < ρ ∧ ρ < min (1 / 10) (1 / (A_F + 1)))
-    (hzero : heckeLSeries ω (β + γ * Complex.I) = 0)
-    (hβ : 996 / 1000 ≤ β) (hγ : |γ| ≤ 4 * Real.rpow U ρ)
-    {c : ℝ} (hc : 1 < c) :
-    β ≤ 1 ∧
-      detectorSmoothedSum U β γ ω =
-        verticalMellinIntegral
-          (fun v => heckeLSeries ω (β + γ * Complex.I + v) *
-            mollifier U ω.idealValue (β + γ * Complex.I + v) *
-            Complex.Gamma v * (U : ℂ) ^ (10 * v)) c ∧
-      ∃ C : ℝ, 0 < C ∧
-        ‖detectorSmoothedSum U β γ ω‖ ≤
-          C * Real.rpow U (-(346 / 100 : ℝ) + A_F * ρ + ε) := by
+    (A_F ρ ε C₀ : ℝ) (hAF : 0 < A_F) (hε : 0 < ε) (hC₀ : 0 < C₀)
+    (hρ : 0 < ρ ∧ ρ < min (1 / 10) (1 / (A_F + 1)))
+    (hGrowth : ConductorHeightBound (F := F) A_F) :
+    ∃ C : ℝ, 0 < C ∧
+      ∀ (ω : ArtinPrimitiveRoots.A1.HeckeChar F) (𝔣 : Ideal (𝓞 F)),
+        IsPrimitiveConductor ω 𝔣 → IsOfFinOrder ω → ω ≠ 1 →
+        ∀ (L : HeckeLContinuation ω) (U β γ : ℝ), 2 ≤ U →
+          (Ideal.absNorm 𝔣 : ℝ) ≤ C₀ * U →
+          L.value (β + γ * Complex.I) = 0 →
+          996 / 1000 ≤ β → |γ| ≤ 4 * Real.rpow U ρ →
+          ∀ {c : ℝ}, 1 < c →
+            β ≤ 1 ∧
+            detectorSmoothedSum U β γ ω =
+              verticalMellinIntegral
+                (fun v => L.value (β + γ * Complex.I + v) *
+                  mollifier U ω.idealValue (β + γ * Complex.I + v) *
+                  Complex.Gamma v * (U : ℂ) ^ (10 * v)) c ∧
+            ‖detectorSmoothedSum U β γ ω‖ ≤
+              C * Real.rpow U (-(346 / 100 : ℝ) + A_F * ρ + ε) := by
   sorry
 
 /-- **zf:detector-count** (06-zero-free.tex:266-333): in a dyadic family, the number of
-characters with a zero at `Re s ≥ .996`, `|Im s| ≤ 4 U^ρ`, is `O(U^{.088+ρ+ε})`. -/
+characters with a zero at `Re s ≥ .996`, `|Im s| ≤ 4 U^ρ`, is `O(U^{.088+ρ+ε})`. Corrected per
+rev-a2 to count nonprincipal continuation zeros and per sol-gate-a2 to require the convexity
+growth bound for the supplied field exponent. -/
 theorem zf_detector_count
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (η : ArtinPrimitiveRoots.A1.HeckeChar F) (hη : IsOfFinOrder η)
-    (fd : FrequencyData S D η) (ρ : ℝ) (hρ : 0 < ρ)
-    (ε : ℝ) (hε : 0 < ε) :
+    (fd : FrequencyData S D η)
+    (L : ∀ u : fd.U, fd.omega u ≠ 1 → HeckeLContinuation (fd.omega u))
+    (A_F ρ ε : ℝ) (hAF : 0 < A_F)
+    (hρ : 0 < ρ ∧ ρ < min (1 / 10) (1 / (A_F + 1)))
+    (hε : 0 < ε)
+    (hGrowth : ConductorHeightBound (F := F) A_F) :
     ∃ C : ℝ, 0 < C ∧ ∀ U : ℝ, 2 ≤ U →
       ∀ E : Finset fd.U,
         (∀ u ∈ E, U ≤ fd.q u ∧ fd.q u < 2 * U ∧
-          ∃ s : ℂ, 996 / 1000 ≤ s.re ∧ |s.im| ≤ 4 * Real.rpow U ρ ∧
-            heckeLSeries (fd.omega u) s = 0) →
+          ∃ hnon : fd.omega u ≠ 1, ∃ s : ℂ,
+            996 / 1000 ≤ s.re ∧ |s.im| ≤ 4 * Real.rpow U ρ ∧ (L u hnon).value s = 0) →
         (E.card : ℝ) ≤ C * Real.rpow U (88 / 1000 + ρ + ε) := by
   sorry
 
@@ -450,21 +469,26 @@ def reciprocalExponent : ℝ :=
     Real.log ((1003 / 1000 : ℝ) / (999 / 1000))
 
 /-- **zf:reciprocal-bound** (06-zero-free.tex:335-366): zero-free control for the primitive twist
-implies a `U^ε` bound for the reciprocal incomplete L-function on the smaller rectangle. -/
+implies a `U^ε` bound for the reciprocal incomplete L-function on the smaller rectangle. Corrected
+per rev-a2 to use incomplete analytic continuations and a constant uniform in dyadic `U`. -/
 theorem zf_reciprocal_bound
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (η : ArtinPrimitiveRoots.A1.HeckeChar F) (hη : IsOfFinOrder η)
-    (fd : FrequencyData S D η) (ρ : ℝ) (hρ : 0 < ρ) :
-    ∃ U₀ : ℝ, 2 ≤ U₀ ∧
-      ∀ U : ℝ, U₀ ≤ U →
-        ∀ u, U ≤ fd.q u → fd.q u < 2 * U → fd.omega u ≠ 1 →
-          (∀ s : ℂ, 996 / 1000 ≤ s.re → |s.im| ≤ 4 * Real.rpow U ρ →
-            heckeLSeries (fd.omega u) s ≠ 0) →
-          ∀ ε : ℝ, 0 < ε → ∃ Cε : ℝ, 0 < Cε ∧
-            ∀ ξ : ℂ, 998 / 1000 ≤ ξ.re → |ξ.im| ≤ 2 * Real.rpow U ρ →
-              ‖(incompleteHeckeLSeries S
-                  (η * (fd.kummer u)⁻¹) ξ)⁻¹‖ ≤ Cε * Real.rpow U ε := by
+    (fd : FrequencyData S D η)
+    (Lomega : ∀ u : fd.U, fd.omega u ≠ 1 → HeckeLContinuation (fd.omega u))
+    (Linc : ∀ u : fd.U, fd.omega u ≠ 1 →
+      IncompleteHeckeLContinuation S (η * (fd.kummer u)⁻¹))
+    (ρ : ℝ) (hρ : 0 < ρ) :
+    ∃ U₀ : ℝ, 2 ≤ U₀ ∧ ∀ ε : ℝ, 0 < ε →
+      ∃ Cε : ℝ, 0 < Cε ∧ ∀ U : ℝ, U₀ ≤ U →
+        ∀ u, U ≤ fd.q u → fd.q u < 2 * U →
+          ∀ hnon : fd.omega u ≠ 1,
+          (∀ s : ℂ, 996 / 1000 ≤ s.re →
+            |s.im| ≤ 4 * Real.rpow U ρ → (Lomega u hnon).value s ≠ 0) →
+          ∀ ξ : ℂ, 998 / 1000 ≤ ξ.re →
+            |ξ.im| ≤ 2 * Real.rpow U ρ →
+            ‖((Linc u hnon).value ξ)⁻¹‖ ≤ Cε * Real.rpow U ε := by
   sorry
 
 namespace Proofs.A2Z1
@@ -729,18 +753,26 @@ def completedHeckeValue (L : ℂ → ℂ) (𝔣 : Ideal (𝓞 F)) (s : ℂ) : �
 /-- **ext:hecke-continuation** (Tate, Main Theorem 4.4.1 and §4.5; blueprint:140).
 For a primitive nonprincipal finite-order character of a totally complex number field, the Hecke
 series has an entire continuation, polynomial growth on vertical strips, and the completed
-functional equation with a root number of modulus one. -/
+functional equation with a root number of modulus one. Corrected per sol-gate-a2 to restrict the
+pointwise Gamma product to arguments where both Gamma factors are regular. -/
 theorem ext_hecke_continuation (hTC : IsTotallyComplex F)
     (ω : ArtinPrimitiveRoots.A1.HeckeChar F) (hfin : IsOfFinOrder ω) (hnon : ω ≠ 1)
     (𝔣 : Ideal (𝓞 F)) (h𝔣 : IsPrimitiveConductor ω 𝔣) :
-    ∃ L : ℂ → ℂ, Differentiable ℂ L ∧
+    ∃ L Ldual : ℂ → ℂ,
+      Differentiable ℂ L ∧ Differentiable ℂ Ldual ∧
       (∀ s : ℂ, 1 < s.re → L s = heckeLSeries ω s) ∧
+      (∀ s : ℂ, 1 < s.re → Ldual s = heckeLSeries (ω⁻¹) s) ∧
       (∀ a b : ℝ, a ≤ b → ∃ C A : ℝ, 0 < C ∧ 0 ≤ A ∧
         ∀ s : ℂ, a ≤ s.re → s.re ≤ b →
           ‖L s‖ ≤ C * Real.rpow (2 + |s.im|) A) ∧
+      (∀ a b : ℝ, a ≤ b → ∃ C A : ℝ, 0 < C ∧ 0 ≤ A ∧
+        ∀ s : ℂ, a ≤ s.re → s.re ≤ b →
+          ‖Ldual s‖ ≤ C * Real.rpow (2 + |s.im|) A) ∧
       ∃ W : ℂ, ‖W‖ = 1 ∧ ∀ s : ℂ,
-        completedHeckeValue L 𝔣 s =
-          W * completedHeckeValue (fun z => heckeLSeries (ω⁻¹) z) 𝔣 (1 - s) := by
+        (∀ n : ℕ, s ≠ -(n : ℂ)) →
+        (∀ n : ℕ, 1 - s ≠ -(n : ℂ)) →
+          completedHeckeValue L 𝔣 s =
+            W * completedHeckeValue Ldual 𝔣 (1 - s) := by
   sorry
 
 end ArtinPrimitiveRoots.A2

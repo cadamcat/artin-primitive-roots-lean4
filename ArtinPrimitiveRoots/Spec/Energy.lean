@@ -75,23 +75,28 @@ theorem T3_green_q (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   sorry
 
 /-- T4 `spec:energy-space` — P-SPEC.md:231. The energy space is the closed graph closure of the
-mass and gradient maps; its test graph is dense and its norm splits into the two components. -/
+mass and gradient maps; its test graph is dense and its norm splits into the two components.
+Correction from `sol-gate-spec`: require the maps' actual quotient-representative calibrations. -/
 theorem T4_energy_space (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (toL2 : testSubmodule F Γ →ₗ[ℂ] L2Space F D)
-    (gradL2 : testSubmodule F Γ →ₗ[ℂ] GradientL2Space F D) :
+    (gradL2 : testSubmodule F Γ →ₗ[ℂ] GradientL2Space F D)
+    (hmass_rep : ∀ f, ∀ᵐ z ∂(volX F), z ∈ D → toL2 f z = (f : X F → ℂ) z)
+    (hgradient_rep : ∀ f, ∀ᵐ z ∂(volX F), z ∈ D →
+      gradL2 f z = fullGradient F (f : X F → ℂ) z) :
     ∃ E : FAEnergySpace (L2Space F D) (GradientL2Space F D),
-      ∃ e : EnergyContext (T := testSubmodule F Γ) E,
+      ∃ e : EnergyContext F Γ D E,
         e.toL2 = toL2 ∧ e.gradL2 = gradL2 ∧
         (∀ x : E.V, ‖x‖ ^ 2 = ‖E.M x‖ ^ 2 + ‖E.Gr x‖ ^ 2) := by
   sorry
 
 /-- T5 `spec:cutoff` — P-SPEC.md:232, 354–357. A bounded invariant smooth function with bounded
-gradient is represented by an energy vector with those mass and gradient components. -/
+gradient is represented by an energy vector with those mass and gradient components. Correction
+from `sol-gate-spec`: use a context calibrated to the quotient representatives. -/
 theorem T5_cutoff (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
-    (e : EnergyContext (T := testSubmodule F Γ) E)
+    (e : EnergyContext F Γ D E)
     (f : X F → ℂ) (B : ℝ) (hB : 0 ≤ B)
     (hInv : IsGammaInvariant F Γ f) (hSmooth : IsSmoothX F f)
     (hBound : ∀ z, ‖f z‖ ≤ B)
@@ -103,11 +108,12 @@ theorem T5_cutoff (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   sorry
 
 /-- T6 `spec:rellich` — P-SPEC.md:233, 358–362. Restriction of mass to the orbit of a compact
-set is a compact operator from the energy graph to the quotient `L²` space. -/
+set is a compact operator from the energy graph to the quotient `L²` space. Correction from
+`sol-gate-spec`: tie the energy maps to the geometric representatives. -/
 theorem T6_rellich (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
-    (e : EnergyContext (T := testSubmodule F Γ) E) (K : Set (X F)) (hK : IsCompact K) :
+    (e : EnergyContext F Γ D E) (K : Set (X F)) (hK : IsCompact K) :
     ∃ R : E.V →L[ℂ] L2Space F D,
       IsCompactOperator R ∧
       ∀ x : E.V, ∀ᵐ z ∂(volX F), z ∈ D →
@@ -115,13 +121,19 @@ theorem T6_rellich (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   sorry
 
 /-- T7 `spec:ground-state` — P-SPEC.md:234, 364–368. The ground-state transform gives the
-coercivity estimate with compact error at every height cutoff above all cusp thresholds. -/
+coercivity estimate with compact error at every height cutoff above all cusp thresholds. Correction
+from review lane `rev-spec`: include separation of distinct cusp representatives at the cutoff.
+Correction from `sol-gate-spec`: require a calibrated energy context. -/
 theorem T7_ground_state (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (d : SiegelData F Γ)
     (A₀ : d.ι → ℝ) (hA₀ : ∀ i, 0 < A₀ i)
+    (hA₀sep : ∀ i j : d.ι, ∀ γ γ' : Γ, ∀ z : X F,
+      A₀ i ≤ normHeight F ((d.σ i)⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A₀ j ≤ normHeight F ((d.σ j)⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+      i = j ∧ γ' * γ⁻¹ ∈ cuspStab F Γ (d.σ i))
     (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
-    (e : EnergyContext (T := testSubmodule F Γ) E)
+    (e : EnergyContext F Γ D E)
     (A : ℝ) (hA : ∀ i, A₀ i ≤ A) :
     ∃ K : Set (X F), IsCompact K ∧ ∃ C : ℝ, 0 ≤ C ∧
       ∃ R : E.V →L[ℂ] L2Space F D,

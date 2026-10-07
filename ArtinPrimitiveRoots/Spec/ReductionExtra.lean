@@ -14,7 +14,9 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- R8 `spec:siegel-cover` — P-SPEC.md:221, 308–313. The Siegel sets with the R1 translation
-domains, R4 balance constants, and R7 Minkowski scale cover every point modulo `Γ`. -/
+domains, R4 balance constants, and R7 Minkowski scale cover every point modulo `Γ`. Correction
+from review lane `rev-spec`: use the Siegel sets with the doubled balance bound. Correction from
+`sol-gate-spec`: calibrate the Minkowski scale and require pointwise translation coverage. -/
 theorem R8_siegel_cover (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (d : SiegelData F Γ) :
     ∀ z : X F, ∃ i : d.ι, ∃ γ : Γ,
@@ -36,15 +38,16 @@ theorem R9_proper (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
 
 /-- R10 `spec:cusp-separation` — P-SPEC.md:223, 326–328. Above a uniform height threshold,
 large representatives at one cusp differ by its stabilizer; compact sets meet only finitely many
-high-height cusp cosets. -/
+high-height cusp cosets. Correction from review lane `rev-spec`: require a common sufficiently
+large threshold for each representative set. -/
 theorem R10_cusp_separation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] :
     (∀ σ : SL(2,F), ∃ A₀ : ℝ, 1 ≤ A₀ ∧
-      (∀ A : ℝ, A₀ ≤ A → ∀ γ γ' : Γ, ∀ z : X F,
+      ∀ A : ℝ, A₀ ≤ A → ∀ γ γ' : Γ, ∀ z : X F,
         A ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
         A ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
-        γ' * γ⁻¹ ∈ cuspStab F Γ σ)) ∧
-    (∀ (d : SiegelData F Γ) (A : ℝ), 1 ≤ A →
-      ∀ i j : d.ι, ∀ γ γ' : Γ, ∀ z : X F,
+        γ' * γ⁻¹ ∈ cuspStab F Γ σ) ∧
+    (∀ (d : SiegelData F Γ), ∃ A₀ : ℝ, 1 ≤ A₀ ∧
+      ∀ A : ℝ, A₀ ≤ A → ∀ i j : d.ι, ∀ γ γ' : Γ, ∀ z : X F,
         A ≤ normHeight F ((d.σ i)⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
         A ≤ normHeight F ((d.σ j)⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
         i = j ∧ γ' * γ⁻¹ ∈ cuspStab F Γ (d.σ i)) ∧
@@ -54,7 +57,8 @@ theorem R10_cusp_separation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] :
   sorry
 
 /-- R12 `spec:fund-domain` — P-SPEC.md:225, 338–342. The lexicographically least point in each
-Siegel-covered orbit is a measurable finite-volume fundamental domain when the action is free. -/
+Siegel-covered orbit is a measurable finite-volume fundamental domain when the action is free.
+Correction from `sol-gate-spec`: require calibrated Siegel data so the covering premise holds. -/
 theorem R12_fund_domain (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (hfree : FreeAction F Γ) (d : SiegelData F Γ) :
     let D := fundamentalDomainCandidate F Γ (SiegelData.unionSet F d)
@@ -62,7 +66,8 @@ theorem R12_fund_domain (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   sorry
 
 /-- R13 `spec:compact-part` — P-SPEC.md:226. Bounded cusp heights reduce to the union of the
-compact balanced boxes from the R8 Siegel sets. -/
+compact balanced boxes from the R8 Siegel sets. Correction from `sol-gate-spec`: require calibrated
+Siegel data so the lower height floor comes from R7. -/
 theorem R13_compact_part (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (d : SiegelData F Γ) :
     (∀ A : ℝ, 0 ≤ A → ∀ i : d.ι, IsCompact (SiegelData.compactBox F d i A)) ∧
@@ -73,7 +78,8 @@ theorem R13_compact_part (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   sorry
 
 /-- R14 `spec:cusp-fubini` — P-SPEC.md:227, 344–347. The invariant integral over a high cusp
-tail is the integral over a unit-height domain and a signed-translation domain. -/
+tail is the integral over a unit-height domain and a signed-translation domain. Correction from
+`sol-gate-spec`: assume integrability on the quotient tail used by the change of fundamental domain. -/
 theorem R14_cusp_fubini (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (σ : SL(2,F)) (A₀ A : ℝ) (hA₀ : 1 ≤ A₀) (hA : A₀ ≤ A)
@@ -92,7 +98,7 @@ theorem R14_cusp_fubini (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (hP' : IsAddFundamentalDomain (cuspTranslationExtensionComplex F Γ σ) P')
     (hP'meas : MeasurableSet P')
     (G : X F → ℂ) (hGinv : IsGammaInvariant F Γ G)
-    (hGint : Integrable G (volX F)) :
+    (hGint : IntegrableOn G (D ∩ cuspTail F Γ σ A) (volX F)) :
     ∫ z in D ∩ cuspTail F Γ σ A, G z ∂(volX F) =
       ∫ y in {y ∈ Y | A < ∏ w : InfinitePlace F, y w},
         (∫ x in P', G (σ • ptX' F x y) ∂volume) *

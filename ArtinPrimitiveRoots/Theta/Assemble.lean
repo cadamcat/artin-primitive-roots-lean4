@@ -43,9 +43,15 @@ def Rderiv (P : CoverPackage D S H A) (m : InfinitePlace F → ℤ) (Ψ : P.tc.G
 
 /-- **asm:R-deriv**: `R(X_m)` commutes with left translations, preserves genuineness, automorphy,
 right `Kext`-invariance and smoothness of `θ`, commutes with torus coefficients, and on Whittaker
-coefficients acts at each complex place by the derivative vector `f_{m_w}` of `sphC`. -/
+coefficients acts at each complex place by the derivative vector `f_{m_w}` of `sphC`.
+Corrected per rev-theta to require archimedean smoothness of the residue; C11 of `sol-gate-theta`
+requires the joint root smoothness field on `ContinuedEis`. -/
 theorem Rderiv_spec {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
     (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam) (m : InfinitePlace F → ℤ) :
+    (∀ (g : P.tc.G) (w : InfinitePlace F),
+      ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun z : ℂ => C.theta (g * P.tc.nS
+          (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))) →
     (∀ γ g, Rderiv P m C.theta (P.tc.rat γ * g) = Rderiv P m C.theta g) ∧
     (∀ ζ g, Rderiv P m C.theta (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * Rderiv P m C.theta g) ∧
     (∀ g, ∀ k ∈ P.tc.Kext, Rderiv P m C.theta (g * k) = Rderiv P m C.theta g) ∧
@@ -54,11 +60,13 @@ theorem Rderiv_spec {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v :
   sorry
 
 /-- **asm:fourier**: Fourier expansion along `N(F_∞)` of a smooth function, periodic for
-`infEmb 𝔞`, over the dual lattice `{ν : ψ_∞(ν𝔞) = 1} ⊆ F`. -/
+`infEmb 𝔞`, over the dual lattice `{ν : ψ_∞(ν𝔞) = 1} ⊆ F`. C9 of `sol-gate-theta` uses C-infinity
+regularity for the archimedean input. -/
 theorem torus_fourier_expansion (P : CoverPackage D S H A) (Ψ : P.tc.G → ℂ) (g : P.tc.G)
     (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
     (hper : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ x, Ψ (nInf P (x + infEmbA ξ) * g) = Ψ (nInf P x * g))
-    (hsmooth : ContDiff ℝ ⊤ fun x => Ψ (nInf P x * g)) (Pd : Set (InfinitePlace F → ℂ))
+    (hsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) fun x => Ψ (nInf P x * g))
+    (Pd : Set (InfinitePlace F → ℂ))
     (hPd : IsAddFundamentalDomain ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom)
       Pd volume) (hb : Bornology.IsBounded Pd) :
     HasSum (fun ν : {ν : F // ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf ν (infEmbA ξ) = 1} =>
@@ -117,16 +125,24 @@ theorem thetaWhit_factor {P : CoverPackage D S H A} {G : GlobalDatum P}
   sorry
 
 /-- **asm:main**: for every finite family of admissible S-characters there is a theta family on
-the cover of `P`. -/
+the cover of `P`. Corrected per rev-theta through the regularity fields of `ThetaFamily`; C10/C11
+of `sol-gate-theta` require the cover topology and joint root smoothness. The correction from
+`sol-gate-theta2` also requires the producer's cover to carry the canonical restricted-product
+topology. -/
 theorem exists_thetaFamily (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt H v)
-    (𝓛 : Finset (SChar S)) : Nonempty (ThetaFamily P.tc 𝓛) := by
+    (hRP : HasRestrictedProductTopology P) (𝓛 : Finset (SChar S)) :
+    Nonempty (ThetaFamily P.tc 𝓛) := by
   sorry
 
 /-- **th:theta-interface** under the Steinberg relation (P-COVER gap G1). With G1 resolved by a
-`HilbertData` field, this is the frozen `theta_interface`. -/
+`HilbertData` field, this is the explicit-Steinberg form of the corrected `theta_interface`.
+Corrected per rev-theta through the regularity fields of `ThetaFamily`; C10/C11 of `sol-gate-theta`
+fix the topology and add joint root smoothness, while C2 returns the compatible `CoverPackage`.
+The `sol-gate-theta2` correction also returns its canonical restricted-product topology witness. -/
 theorem theta_interface_of_steinberg (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (A : AddCharData F) (hSt : ∀ v, SteinbergAt H v) :
-    ∃ C : ThetaCover D S H A, ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily C 𝓛) := by
+    ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P ∧
+      ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily P.tc 𝓛) := by
   sorry
 
 /-- **cor:theta-exterior-coefficient** (03:186–222; A2 request), table form. -/
