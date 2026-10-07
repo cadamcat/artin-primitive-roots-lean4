@@ -22,19 +22,23 @@ theorem band_mass (a : ℝ) (ha₀ : 0 < a) (ha₁ : a < 1) :
 
 /-- A scale-varying family of first-variable coefficients, as in the hypothesis
 `eq:type-ii-long-coefficient-interface`. Correction 2 from review lane `rev-b` records that the
-first-variable set is an interval. -/
+first-variable set is an interval. The family-specific asymptotic threshold is the correction from
+refutation lane `sol-gate-b`. -/
 structure CoefficientFamily (δ C c₁ c₂ : ℝ) where
+  /-- First scale at which the family is required to satisfy its asymptotic bounds. -/
+  xMin : ℝ := 2
+  xMin_ge_two : 2 ≤ xMin := by norm_num
   Hm : ℝ → ℝ
   Hn : ℝ → ℝ
   interval : ℝ → Set ℕ
   alpha : ℝ → ℕ → ℂ
   interval_property : ∀ x, IsNatInterval (interval x)
-  scales : ∀ x, 2 ≤ x → Real.rpow x δ ≤ Hm x ∧ Real.rpow x δ ≤ Hn x ∧
+  scales : ∀ x, xMin ≤ x → Real.rpow x δ ≤ Hm x ∧ Real.rpow x δ ≤ Hn x ∧
     c₁ * x ≤ Hm x * Hn x ∧ Hm x * Hn x ≤ c₂ * x
-  interval_bounds : ∀ x, 2 ≤ x → ∀ m ∈ interval x, Hm x ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm x
-  rough_support : ∀ x, 2 ≤ x → ∀ m, alpha x m ≠ 0 →
+  interval_bounds : ∀ x, xMin ≤ x → ∀ m ∈ interval x, Hm x ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm x
+  rough_support : ∀ x, xMin ≤ x → ∀ m, alpha x m ≠ 0 →
     m ∈ interval x ∧ roughAbove m (roughCutoff x)
-  coefficient_bound : ∀ x, 2 ≤ x → ∀ m ∈ interval x,
+  coefficient_bound : ∀ x, xMin ≤ x → ∀ m ∈ interval x,
     ‖alpha x m‖ ≤ Real.rpow (Real.log x) C
 
 /-- Finite interpretation of the interval in a coefficient family. -/
@@ -43,11 +47,12 @@ noncomputable def familyTerms {δ C c₁ c₂ : ℝ}
   (dyadicIntegers (family.Hm x)).filter (fun m => m ∈ family.interval x)
 
 /-- The long Dirichlet-polynomial hypothesis on the first-variable coefficients. Its interval
-domain is the one in correction 2 from review lane `rev-b`. -/
+domain is the one in correction 2 from review lane `rev-b`; its threshold is the asymptotic
+correction from refutation lane `sol-gate-b`. -/
 def HasLongCoefficientCancellation {δ C c₁ c₂ : ℝ}
     (family : CoefficientFamily δ C c₁ c₂) : Prop :=
   ∀ A₀ B A : ℝ, 0 < A₀ → 0 < B → 0 < A →
-    ∃ C' x₀ : ℝ, 0 < C' ∧ 2 ≤ x₀ ∧
+    ∃ C' x₀ : ℝ, 0 < C' ∧ 2 ≤ x₀ ∧ family.xMin ≤ x₀ ∧
       ∀ x : ℝ, x₀ ≤ x →
         ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
           ∀ χ : DirichletCharacter ℂ k, ∀ t : ℝ,

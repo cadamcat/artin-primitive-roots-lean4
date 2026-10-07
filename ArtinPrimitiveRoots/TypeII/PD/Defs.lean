@@ -25,13 +25,14 @@ noncomputable def momentR (x : ℝ) : ℕ :=
 noncomputable def pathLength (x : ℝ) : ℕ := 2 * momentR x
 
 /-- The set of relevant dyadic scales `Y=2^k`; the logarithmic bounds include all products of
-one prime from each fixed marked group. -/
+one prime from each fixed marked group. Correction from refutation lane `sol-gate-b` aligns the
+upper exponent with PD's source exponent `1/5`. -/
 noncomputable def dyadicScales (x : ℝ) (K : ℕ) : Finset ℝ :=
   ((Finset.range (⌊((K + 1 : ℕ) : ℝ) *
-      Real.rpow (Real.log x) (21 / 100 : ℝ) / Real.log 2⌋₊ + 1)).image
+      Real.rpow (Real.log x) (1 / 5 : ℝ) / Real.log 2⌋₊ + 1)).image
       (fun k => (2 : ℝ) ^ k)).filter fun Y =>
         (1 / 20 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ) ≤ Real.log Y ∧
-          Real.log Y ≤ ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ)
+          Real.log Y ≤ ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (1 / 5 : ℝ)
 
 /-- One prime label from each group, used for the products `a` and `b`. -/
 def IsMarkedPrimeTuple (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (t : Fin K → ℕ) : Prop :=
