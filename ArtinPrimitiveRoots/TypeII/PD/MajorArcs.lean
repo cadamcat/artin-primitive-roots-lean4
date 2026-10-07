@@ -2,6 +2,14 @@ import ArtinPrimitiveRoots.TypeII.PD.MemoryResults
 import ArtinPrimitiveRoots.TypeII.PP.Results
 import ArtinPrimitiveRoots.TypeII.Proofs.pd7.PrimeMoments
 import ArtinPrimitiveRoots.TypeII.Proofs.pd7.Cutoffs
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.SparseEnergy
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.Dyads
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.TailPolynomial
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.WeightedIntegral
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.CharacterExpansion
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.MajorArcArithmetic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.SeparationCutoff
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.MajorArcPhase
 
 /-!
 # Design B-PD-MajorArcs: drop-in replacement for `TypeII/PD/MajorArcs.lean` (PD §5)
@@ -2501,14 +2509,15 @@ lemma majorMN_product_mean_square_bound {δ C c₁ c₂ : ℝ}
     (hNpos : ∀ n ∈ dyadicIntegers (family.Hn x), 1 ≤ n)
     (hprod : ∀ m ∈ familyTerms family x, ∀ n ∈ dyadicIntegers (family.Hn x), m * n ≤ N)
     (hN : 1 ≤ N) :
-    ∃ Cmv : ℝ, 0 < Cmv ∧ ∀ u v : ℝ, u ≤ v →
+    ∃ Cmv : ℝ, 0 < Cmv ∧ Cmv = Classical.choose moment_bounds.2.1 ∧ ∀ u v : ℝ, u ≤ v →
       ∫ t in u..v,
         ‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖ ^ 2 ≤
         Cmv * (v - u + (N : ℝ) * Real.log (2 * (N : ℝ))) *
           (∑ n ∈ (Finset.range (N + 1)).filter (fun n => 1 ≤ n),
             ‖(if n = 0 then 0 else majorMNProductCoeff family x beta χm χn n)‖ ^ 2) := by
-  obtain ⟨Cmv, hCmv, hmean⟩ := moment_bounds.2.1
-  refine ⟨Cmv, hCmv, ?_⟩
+  let Cmv := Classical.choose moment_bounds.2.1
+  obtain ⟨hCmv, hmean⟩ := Classical.choose_spec moment_bounds.2.1
+  refine ⟨Cmv, hCmv, rfl, ?_⟩
   intro u v huv
   let coeff : ℕ → ℂ := fun n =>
     if n = 0 then 0 else majorMNProductCoeff family x beta χm χn n
@@ -2537,16 +2546,16 @@ lemma majorMN_product_mean_square_tau_bound {δ C c₁ c₂ : ℝ}
           Real.rpow (Real.log (8 * (family.Hm x * family.Hn x))) Cτ)
     (hAlpha : ∀ m ∈ familyTerms family x, ‖family.alpha x m‖ ≤ A)
     (hBeta : ∀ n ∈ dyadicIntegers (family.Hn x), ‖beta n‖ ≤ A) :
-    ∃ Cmv : ℝ, 0 < Cmv ∧ ∀ u v : ℝ, u ≤ v →
+    ∃ Cmv : ℝ, 0 < Cmv ∧ Cmv = Classical.choose moment_bounds.2.1 ∧ ∀ u v : ℝ, u ≤ v →
       ∫ t in u..v,
         ‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖ ^ 2 ≤
           Cmv * (v - u + (N : ℝ) * Real.log (2 * (N : ℝ))) *
             ((A ^ 4 / (family.Hm x * family.Hn x) ^ 2) *
               (Cτ * (4 * (family.Hm x * family.Hn x)) *
                 Real.rpow (Real.log (8 * (family.Hm x * family.Hn x))) Cτ)) := by
-  obtain ⟨Cmv, hCmv, hmean⟩ := majorMN_product_mean_square_bound family x beta χm χn N
+  obtain ⟨Cmv, hCmv, hCmvEq, hmean⟩ := majorMN_product_mean_square_bound family x beta χm χn N
     hHm hHn hMpos hNpos hprod hN
-  refine ⟨Cmv, hCmv, ?_⟩
+  refine ⟨Cmv, hCmv, hCmvEq, ?_⟩
   intro u v huv
   have hmass := majorMNProductCoeff_sq_mass_bound family x beta χm χn N A Cτ
     hX hA hTau hMpos hNpos hAlpha hBeta
@@ -2586,14 +2595,16 @@ lemma majorMN_product_mean_square_log_bound {δ C c₁ c₂ : ℝ}
     (hAlpha : ∀ m ∈ familyTerms family x,
       ‖family.alpha x m‖ ≤ Real.rpow L C)
     (hBeta : ∀ n ∈ dyadicIntegers (family.Hn x), ‖beta n‖ ≤ Real.rpow L C) :
-    ∃ Cmn C₄ : ℝ, 0 < Cmn ∧ 0 < C₄ ∧ ∀ u v : ℝ, u ≤ v →
+    ∃ Cmn C₄ : ℝ, 0 < Cmn ∧ 0 < C₄ ∧
+      Cmn = 32 * (Classical.choose moment_bounds.2.1) * Cτ * Real.rpow 2 Cτ ∧
+      C₄ = 4 * C + Cτ + 2 ∧ ∀ u v : ℝ, u ≤ v →
       ∫ t in u..v,
         ‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖ ^ 2 ≤
           Cmn * Real.rpow L C₄ * (1 + (v - u) / (family.Hm x * family.Hn x)) := by
   let X : ℝ := family.Hm x * family.Hn x
   let A : ℝ := Real.rpow L C
   let C₄ : ℝ := 4 * C + Cτ + 2
-  obtain ⟨Cmv, hCmv, hmean⟩ := majorMN_product_mean_square_tau_bound family x beta χm χn N A Cτ
+  obtain ⟨Cmv, hCmv, hCmvEq, hmean⟩ := majorMN_product_mean_square_tau_bound family x beta χm χn N A Cτ
     hHm hHn hMpos hNpos hprod hN (by linarith [hX])
     (Real.rpow_nonneg (le_trans (by norm_num) hL) C)
     (by simpa [X, hNfloor] using hTau) (by simpa [A] using hAlpha) (by simpa [A] using hBeta)
@@ -2644,83 +2655,85 @@ lemma majorMN_product_mean_square_log_bound {δ C c₁ c₂ : ℝ}
   have hC₄ : 0 < C₄ := by
     dsimp [C₄]
     linarith
-  refine ⟨Cmn, C₄, hCmn, hC₄, ?_⟩
-  intro u v huv
-  have hq : 0 ≤ (v - u) / X := div_nonneg (sub_nonneg.mpr huv) hXpos.le
-  have hlength : v - u + (N : ℝ) * Real.log (2 * (N : ℝ)) ≤
-      X * 8 * L * (1 + (v - u) / X) := by
-    have hNlog : (N : ℝ) * Real.log (2 * (N : ℝ)) ≤ 8 * X * L := by
+  refine ⟨Cmn, C₄, hCmn, hC₄, ?_, rfl, ?_⟩
+  · dsimp [Cmn]
+    rw [hCmvEq]
+  · intro u v huv
+    have hq : 0 ≤ (v - u) / X := div_nonneg (sub_nonneg.mpr huv) hXpos.le
+    have hlength : v - u + (N : ℝ) * Real.log (2 * (N : ℝ)) ≤
+        X * 8 * L * (1 + (v - u) / X) := by
+      have hNlog : (N : ℝ) * Real.log (2 * (N : ℝ)) ≤ 8 * X * L := by
+        calc
+          _ ≤ (N : ℝ) * (2 * L) := mul_le_mul_of_nonneg_left hlog2N (by positivity)
+          _ ≤ (4 * X) * (2 * L) := mul_le_mul_of_nonneg_right hXle (by positivity)
+          _ = 8 * X * L := by ring
       calc
-        _ ≤ (N : ℝ) * (2 * L) := mul_le_mul_of_nonneg_left hlog2N (by positivity)
-        _ ≤ (4 * X) * (2 * L) := mul_le_mul_of_nonneg_right hXle (by positivity)
-        _ = 8 * X * L := by ring
+        _ ≤ (v - u) + 8 * X * L := add_le_add_right hNlog (v - u)
+        _ = X * ((v - u) / X + 8 * L) := by
+              field_simp [ne_of_gt hXpos]
+        _ ≤ X * (8 * L * (1 + (v - u) / X)) := by
+              apply mul_le_mul_of_nonneg_left _ hXpos.le
+              have h8L : 1 ≤ 8 * L := by nlinarith [hL]
+              nlinarith [mul_nonneg (sub_nonneg.mpr h8L) hq]
+        _ = X * 8 * L * (1 + (v - u) / X) := by ring
+    have hmass := majorMNProductCoeff_sq_mass_bound family x beta χm χn N A Cτ
+      hXpos (Real.rpow_nonneg (le_trans (by norm_num) hL) C) hTau
+      hMpos hNpos hAlpha hBeta
+    have hA_nonneg : 0 ≤ A := Real.rpow_nonneg (le_trans (by norm_num) hL) C
+    have hscaleNonneg : 0 ≤ A ^ 4 / X ^ 2 :=
+      div_nonneg (pow_nonneg hA_nonneg 4) (sq_nonneg X)
+    have hsplitPowNonneg : 0 ≤ Real.rpow 2 Cτ * Real.rpow L Cτ :=
+      mul_nonneg (Real.rpow_nonneg (by norm_num) Cτ)
+        (Real.rpow_nonneg (le_trans (by norm_num) hL) Cτ)
+    have hmassFactorNonneg :
+        0 ≤ (A ^ 4 / X ^ 2) * (Cτ * (4 * X) *
+          (Real.rpow 2 Cτ * Real.rpow L Cτ)) := by
+      exact mul_nonneg hscaleNonneg
+        (mul_nonneg (mul_nonneg hCτ.le (by positivity)) hsplitPowNonneg)
+    have hmass' :
+        (A ^ 4 / X ^ 2) * (Cτ * (4 * X) * Real.rpow (Real.log (8 * X)) Cτ) ≤
+          (A ^ 4 / X ^ 2) *
+            (Cτ * (4 * X) * (Real.rpow 2 Cτ * Real.rpow L Cτ)) := by
+      apply mul_le_mul_of_nonneg_left ?_ hscaleNonneg
+      calc
+        Cτ * (4 * X) * Real.rpow (Real.log (8 * X)) Cτ ≤
+            Cτ * (4 * X) * Real.rpow (2 * L) Cτ :=
+              mul_le_mul_of_nonneg_left hlogPow (by positivity)
+        _ = Cτ * (4 * X) * (Real.rpow 2 Cτ * Real.rpow L Cτ) := by rw [hsplit]
+    have hmnAt := hmean u v huv
     calc
-      _ ≤ (v - u) + 8 * X * L := add_le_add_right hNlog (v - u)
-      _ = X * ((v - u) / X + 8 * L) := by
-            field_simp [ne_of_gt hXpos]
-      _ ≤ X * (8 * L * (1 + (v - u) / X)) := by
-            apply mul_le_mul_of_nonneg_left _ hXpos.le
-            have h8L : 1 ≤ 8 * L := by nlinarith [hL]
-            nlinarith [mul_nonneg (sub_nonneg.mpr h8L) hq]
-      _ = X * 8 * L * (1 + (v - u) / X) := by ring
-  have hmass := majorMNProductCoeff_sq_mass_bound family x beta χm χn N A Cτ
-    hXpos (Real.rpow_nonneg (le_trans (by norm_num) hL) C) hTau
-    hMpos hNpos hAlpha hBeta
-  have hA_nonneg : 0 ≤ A := Real.rpow_nonneg (le_trans (by norm_num) hL) C
-  have hscaleNonneg : 0 ≤ A ^ 4 / X ^ 2 :=
-    div_nonneg (pow_nonneg hA_nonneg 4) (sq_nonneg X)
-  have hsplitPowNonneg : 0 ≤ Real.rpow 2 Cτ * Real.rpow L Cτ :=
-    mul_nonneg (Real.rpow_nonneg (by norm_num) Cτ)
-      (Real.rpow_nonneg (le_trans (by norm_num) hL) Cτ)
-  have hmassFactorNonneg :
-      0 ≤ (A ^ 4 / X ^ 2) * (Cτ * (4 * X) *
-        (Real.rpow 2 Cτ * Real.rpow L Cτ)) := by
-    exact mul_nonneg hscaleNonneg
-      (mul_nonneg (mul_nonneg hCτ.le (by positivity)) hsplitPowNonneg)
-  have hmass' :
-      (A ^ 4 / X ^ 2) * (Cτ * (4 * X) * Real.rpow (Real.log (8 * X)) Cτ) ≤
-        (A ^ 4 / X ^ 2) *
-          (Cτ * (4 * X) * (Real.rpow 2 Cτ * Real.rpow L Cτ)) := by
-    apply mul_le_mul_of_nonneg_left ?_ hscaleNonneg
-    calc
-      Cτ * (4 * X) * Real.rpow (Real.log (8 * X)) Cτ ≤
-          Cτ * (4 * X) * Real.rpow (2 * L) Cτ :=
-            mul_le_mul_of_nonneg_left hlogPow (by positivity)
-      _ = Cτ * (4 * X) * (Real.rpow 2 Cτ * Real.rpow L Cτ) := by rw [hsplit]
-  have hmnAt := hmean u v huv
-  calc
-    _ ≤ Cmv * (v - u + (N : ℝ) * Real.log (2 * (N : ℝ))) *
-        ((A ^ 4 / X ^ 2) * (Cτ * (4 * X) * Real.rpow (Real.log (8 * X)) Cτ)) := hmnAt
-    _ ≤ Cmv * (v - u + (N : ℝ) * Real.log (2 * (N : ℝ))) *
-        ((A ^ 4 / X ^ 2) *
-          (Cτ * (4 * X) * (Real.rpow 2 Cτ * Real.rpow L Cτ))) :=
-          mul_le_mul_of_nonneg_left hmass' (by positivity)
-    _ ≤ Cmn * Real.rpow L (4 * C + Cτ + 1) * (1 + (v - u) / X) := by
-          calc
-            _ ≤ Cmv * (X * 8 * L * (1 + (v - u) / X)) *
-                ((A ^ 4 / X ^ 2) * (Cτ * (4 * X) *
-                  (Real.rpow 2 Cτ * Real.rpow L Cτ))) := by
-                    apply mul_le_mul_of_nonneg_right _ hmassFactorNonneg
-                    exact mul_le_mul_of_nonneg_left hlength hCmv.le
-            _ = (32 * Cmv * Cτ * Real.rpow 2 Cτ) *
-                (A ^ 4 * Real.rpow L Cτ * L) * (1 + (v - u) / X) := by
-                    field_simp [ne_of_gt hXpos]
-                    ring
-            _ = Cmn * Real.rpow L (4 * C + Cτ + 1) *
-                (1 + (v - u) / X) := by
-                    dsimp [Cmn]
-                    exact congrArg
-                      (fun z : ℝ =>
-                        (32 * Cmv * Cτ * Real.rpow 2 Cτ) * z *
-                          (1 + (v - u) / X)) hLpower
-    _ ≤ Cmn * Real.rpow L C₄ * (1 + (v - u) / X) := by
-          apply mul_le_mul_of_nonneg_right
-          · apply mul_le_mul_of_nonneg_left
-            · apply Real.rpow_le_rpow_of_exponent_le hL
-              dsimp [C₄]
-              linarith
-            · exact hCmn.le
-          · positivity
+      _ ≤ Cmv * (v - u + (N : ℝ) * Real.log (2 * (N : ℝ))) *
+          ((A ^ 4 / X ^ 2) * (Cτ * (4 * X) * Real.rpow (Real.log (8 * X)) Cτ)) := hmnAt
+      _ ≤ Cmv * (v - u + (N : ℝ) * Real.log (2 * (N : ℝ))) *
+          ((A ^ 4 / X ^ 2) *
+            (Cτ * (4 * X) * (Real.rpow 2 Cτ * Real.rpow L Cτ))) :=
+            mul_le_mul_of_nonneg_left hmass' (by positivity)
+      _ ≤ Cmn * Real.rpow L (4 * C + Cτ + 1) * (1 + (v - u) / X) := by
+            calc
+              _ ≤ Cmv * (X * 8 * L * (1 + (v - u) / X)) *
+                  ((A ^ 4 / X ^ 2) * (Cτ * (4 * X) *
+                    (Real.rpow 2 Cτ * Real.rpow L Cτ))) := by
+                      apply mul_le_mul_of_nonneg_right _ hmassFactorNonneg
+                      exact mul_le_mul_of_nonneg_left hlength hCmv.le
+              _ = (32 * Cmv * Cτ * Real.rpow 2 Cτ) *
+                  (A ^ 4 * Real.rpow L Cτ * L) * (1 + (v - u) / X) := by
+                      field_simp [ne_of_gt hXpos]
+                      ring
+              _ = Cmn * Real.rpow L (4 * C + Cτ + 1) *
+                  (1 + (v - u) / X) := by
+                      dsimp [Cmn]
+                      exact congrArg
+                        (fun z : ℝ =>
+                          (32 * Cmv * Cτ * Real.rpow 2 Cτ) * z *
+                            (1 + (v - u) / X)) hLpower
+      _ ≤ Cmn * Real.rpow L C₄ * (1 + (v - u) / X) := by
+            apply mul_le_mul_of_nonneg_right
+            · apply mul_le_mul_of_nonneg_left
+              · apply Real.rpow_le_rpow_of_exponent_le hL
+                dsimp [C₄]
+                linarith
+              · exact hCmn.le
+            · positivity
 
 /-- The logarithmic Fourier transform of a compactly supported smooth complex function. -/
 noncomputable def pd7ComplexFourierTransform (f : ℝ → ℂ) (v : ℝ) : ℂ :=
@@ -4041,7 +4054,7 @@ lemma majorBPolynomial_mellin_cons_factorized (x Y lam : ℝ) (eta : ℝ → ℝ
                   Complex.exp (Complex.I * (t + ξ) * Real.log (p : ℝ)) *
                     Complex.exp (Complex.I * (t + ξ) *
                     Real.log (tupleProduct r : ℝ)))) := by
-            rw [← integral_const_mul]
+            rw [integral_const_mul]
             ring
       _ = ((m₀ : ℝ) : ℂ) * ∫ ξ : ℝ, F p r ξ := by
             congr 1
@@ -4122,9 +4135,697 @@ lemma majorBPolynomial_mellin_cons_factorized (x Y lam : ℝ) (eta : ℝ → ℝ
               apply integral_congr_ae
               exact ae_of_all _ hPsum
           rw [hI]
+    _ = _ := by rfl
+
+lemma pd7d_rpow_add {L : ℝ} (hL : 0 < L) (a b : ℝ) :
+    Real.rpow L (a + b) = Real.rpow L a * Real.rpow L b := Real.rpow_add hL a b
+lemma pd7d_rpow_neg {L : ℝ} (hL : 0 ≤ L) (a : ℝ) :
+    Real.rpow L (-a) = (Real.rpow L a)⁻¹ := Real.rpow_neg hL a
+lemma pd7d_rpow_sub {L : ℝ} (hL : 0 < L) (a b : ℝ) :
+    Real.rpow L (a - b) = Real.rpow L a / Real.rpow L b := Real.rpow_sub hL a b
+lemma pd7d_rpow_one (L : ℝ) : Real.rpow L 1 = L := Real.rpow_one L
+lemma pd7d_rpow_zero (L : ℝ) : Real.rpow L 0 = 1 := Real.rpow_zero L
+lemma pd7d_rpow_natCast (L : ℝ) (n : ℕ) : Real.rpow L (n : ℝ) = L ^ n := Real.rpow_natCast L n
+
+/-- The product mean square has constants fixed before the family, coefficients and characters. -/
+lemma pd7d_product_mean_square_eventually (δ C c₁ c₂ : ℝ)
+    (hδ : 0 < δ) (hC : 0 < C) (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :
+    ∃ Cmn C₄ : ℝ, 0 < Cmn ∧ 0 < C₄ ∧
+      ∀ family : CoefficientFamily δ C c₁ c₂,
+        ∃ x₀ : ℝ, 2 ≤ x₀ ∧ family.xMin ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
+          ∀ beta : ℕ → ℂ,
+            (∀ n ∈ dyadicIntegers (family.Hn x), ‖beta n‖ ≤ Real.rpow (Real.log x) C) →
+            ∀ k : ℕ, ∀ χm χn : DirichletCharacter ℂ k, ∀ u v : ℝ, u ≤ v →
+              (∫ t in u..v,
+                ‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖ ^ 2) ≤
+                Cmn * Real.rpow (Real.log x) C₄ * (1 + (v - u) / (family.Hm x * family.Hn x)) := by
+  obtain ⟨Cτ, hCτ, Y₀, hY₀, htau⟩ := moment_bounds.1 2
+  let Cmv := Classical.choose moment_bounds.2.1
+  have hCmv : 0 < Cmv := (Classical.choose_spec moment_bounds.2.1).1
+  let Cmn := 32 * Cmv * Cτ * Real.rpow 2 Cτ
+  let C₄ := 4 * C + Cτ + 2
+  refine ⟨Cmn, C₄, by dsimp [Cmn]; positivity, by dsimp [C₄]; linarith, ?_⟩
+  intro family
+  let x₀ := max family.xMin (max (Real.exp 1)
+    (max (8 * c₂) (max (Y₀ / (4 * c₁)) (1 / c₁))))
+  have hxMin : family.xMin ≤ x₀ := le_max_left _ _
+  refine ⟨x₀, family.xMin_ge_two.trans hxMin, hxMin, ?_⟩
+  intro x hx beta hbeta k χm χn u v huv
+  have hxmin : family.xMin ≤ x := hxMin.trans hx
+  have hx₂ : 2 ≤ x := family.xMin_ge_two.trans hxmin
+  have hxpos : 0 < x := by linarith
+  have hxExp : Real.exp 1 ≤ x :=
+    (le_max_left _ _).trans ((le_max_right _ _).trans hx)
+  have hL : 1 ≤ Real.log x := by
+    have hh := Real.log_le_log (Real.exp_pos 1) hxExp
+    simpa using hh
+  have hx8 : 8 * c₂ ≤ x :=
+    (le_max_left _ _).trans ((le_max_right _ _).trans ((le_max_right _ _).trans hx))
+  have hxtau : Y₀ / (4 * c₁) ≤ x :=
+    (le_max_left _ _).trans ((le_max_right _ _).trans
+      ((le_max_right _ _).trans ((le_max_right _ _).trans hx)))
+  have hxunit : 1 / c₁ ≤ x :=
+    (le_max_right _ _).trans ((le_max_right _ _).trans
+      ((le_max_right _ _).trans ((le_max_right _ _).trans hx)))
+  obtain ⟨hHmlo, hHnlo, hXlo, hXhi⟩ := family.scales x hxmin
+  have hHm : 0 < family.Hm x := (Real.rpow_pos_of_pos hxpos δ).trans_le hHmlo
+  have hHn : 0 < family.Hn x := (Real.rpow_pos_of_pos hxpos δ).trans_le hHnlo
+  let X := family.Hm x * family.Hn x
+  have hX : 1 ≤ X := by
+    have hh := (div_le_iff₀ hc₁).mp hxunit
+    dsimp [X]
+    nlinarith
+  have htauX : Y₀ ≤ 4 * X := by
+    have hh := (div_le_iff₀ (by positivity : 0 < 4 * c₁)).mp hxtau
+    dsimp [X]
+    nlinarith
+  have hlog8 : Real.log (8 * X) ≤ 2 * Real.log x := by
+    have hle : 8 * X ≤ x * x := by
+      have h8X : 8 * X ≤ (8 * c₂) * x := by dsimp [X]; nlinarith
+      exact h8X.trans (mul_le_mul_of_nonneg_right hx8 hxpos.le)
+    calc
+      _ ≤ Real.log (x * x) := Real.log_le_log (by positivity) hle
+      _ = _ := by rw [Real.log_mul (ne_of_gt hxpos) (ne_of_gt hxpos)]; ring
+  let N := ⌊4 * X⌋₊
+  have hN : 1 ≤ N := Nat.le_floor (by norm_num; nlinarith)
+  have hMpos : ∀ m ∈ familyTerms family x, 1 ≤ m := by
+    intro m hm
+    have hmB := (Finset.mem_filter.mp (Finset.mem_filter.mp hm).1).2
+    have hmp : 0 < (m : ℝ) := hHm.trans_le hmB.1
+    have hmn : 0 < m := by exact_mod_cast hmp
+    exact hmn
+  have hNpos : ∀ n ∈ dyadicIntegers (family.Hn x), 1 ≤ n := by
+    intro n hn
+    have hnB := (Finset.mem_filter.mp hn).2
+    have hnp : 0 < (n : ℝ) := hHn.trans_le hnB.1
+    exact_mod_cast hnp
+  have hprod : ∀ m ∈ familyTerms family x,
+      ∀ n ∈ dyadicIntegers (family.Hn x), m * n ≤ N := by
+    intro m hm n hn
+    have hmB := (Finset.mem_filter.mp (Finset.mem_filter.mp hm).1).2
+    have hnB := (Finset.mem_filter.mp hn).2
+    apply Nat.le_floor
+    have hh := mul_le_mul hmB.2 hnB.2 (by positivity : 0 ≤ (n : ℝ)) (by positivity : 0 ≤ 2 * family.Hm x)
+    push_cast
+    try dsimp [X] at hh
+    nlinarith [hh]
+  have hAlpha : ∀ m ∈ familyTerms family x, ‖family.alpha x m‖ ≤ Real.rpow (Real.log x) C := by
+    intro m hm
+    exact family.coefficient_bound x hxmin m (Finset.mem_filter.mp hm).2
+  obtain ⟨Cmn', C₄', hCmn', hC₄', hCmnEq, hC₄Eq, hbound⟩ :=
+    majorMN_product_mean_square_log_bound family x (Real.log x) beta χm χn N C Cτ
+      hHm hHn hMpos hNpos hprod hN hX rfl hL hC hCτ hlog8
+      (by simpa [X, N, show (2 : ℝ) * (4 * (family.Hm x * family.Hn x)) =
+        8 * (family.Hm x * family.Hn x) by ring] using (htau (4 * X) htauX).1) hAlpha hbeta
+  rw [hCmnEq, hC₄Eq] at hbound
+  exact hbound u v huv
+
+/-- The sparse frequency estimate gives the exceptional part of the isolated prime energy. -/
+lemma pd7d_isolated_prime_energy_bound (x X B P A_s Hn xi T m Emean Esp : ℝ)
+    (Pset : Finset ℕ) (chi beta chiN : ℕ → ℂ) (M : ℝ → ℂ)
+    (hL : 0 < Real.log x) (hX : 0 ≤ X) (hP : 1 ≤ P)
+    (hT : 0 ≤ T) (hTwindow : T ≤ 2 * X * Real.rpow (Real.log x) B)
+    (hm : 0 ≤ m) (hM : Continuous M)
+    (hset : ∀ p ∈ Pset, P ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * P)
+    (hchi : ∀ p ∈ Pset, ‖chi p‖ ≤ 1)
+    (hcancel : ∀ t ∈ Set.Icc (-T) T, ‖M t‖ ≤ m)
+    (hmean : (∫ t in (-T)..T, ‖M t * betaFrequency Hn beta chiN t‖ ^ 2) ≤ Emean)
+    (hsparse : (∑' j : ℤ,
+      if j ∈ sparseUnitIntervals x X B P A_s Pset chi xi then
+        betaUnitIntervalEnergy Hn beta chiN j else 0) ≤ Esp) :
+    (∫ t in (-T)..T,
+      ‖bandPrimePolynomial P Pset chi xi t * M t * betaFrequency Hn beta chiN t‖ ^ 2) ≤
+      (Real.rpow (Real.log x) (-A_s)) ^ 2 * Emean + 9 * m ^ 2 * Esp := by
+  classical
+  let bad := sparseUnitIntervals x X B P A_s Pset chi xi
+  have hfinite : bad.Finite := by
+    apply finite_set_of_bounded_unit_intervals
+      (R := 2 * X * Real.rpow (Real.log x) B)
+      (mul_nonneg (mul_nonneg (by norm_num) hX) (Real.rpow_nonneg hL.le B))
+    intro j hj
+    obtain ⟨t, hlow, hhigh, hwindow, _⟩ := hj
+    exact ⟨t, hlow, hhigh, hwindow⟩
+  let J := hfinite.toFinset
+  have hN : Continuous (betaFrequency Hn beta chiN) := by
+    unfold betaFrequency
+    fun_prop
+  have hPcont : Continuous (bandPrimePolynomial P Pset chi xi) := by
+    unfold bandPrimePolynomial
+    fun_prop
+  have hNsup (j : ℤ) : BddAbove
+      ((fun t => ‖betaFrequency Hn beta chiN t‖ ^ 2) ''
+        Set.Icc (j : ℝ) ((j : ℝ) + 1)) :=
+    (isCompact_Icc.image (hN.norm.pow 2)).bddAbove
+  have hsup (j : ℤ) (t : ℝ) (ht : t ∈ Set.Icc (j : ℝ) ((j : ℝ) + 1)) :
+      ‖betaFrequency Hn beta chiN t‖ ^ 2 ≤ betaUnitIntervalEnergy Hn beta chiN j :=
+    le_csSup (hNsup j) (Set.mem_image_of_mem _ ht)
+  have hW (j : ℤ) (hj : j ∈ J) : 0 ≤ betaUnitIntervalEnergy Hn beta chiN j :=
+    (sq_nonneg _).trans (hsup j (j : ℝ) (by simp))
+  have hsum : (∑ j ∈ J, betaUnitIntervalEnergy Hn beta chiN j) ≤ Esp := by
+    have hEq : (∑' j : ℤ, if j ∈ bad then betaUnitIntervalEnergy Hn beta chiN j else 0) =
+        ∑ j ∈ J, betaUnitIntervalEnergy Hn beta chiN j := by
+      rw [tsum_eq_sum (s := J) (fun j hj => by
+        have hnot : j ∉ bad := by simpa [J] using hj
+        simp [hnot])]
+      apply Finset.sum_congr rfl
+      intro j hj
+      have hjbad : j ∈ bad := by simpa [J] using hj
+      simp [hjbad]
+    rw [← hEq]
+    exact hsparse
+  have hprimeBound (t : ℝ) : ‖bandPrimePolynomial P Pset chi xi t‖ ≤ 3 := by
+    calc
+      _ ≤ (Pset.card : ℝ) / P := bandPrimePolynomial_norm_le P (by linarith) Pset chi xi t hchi
+      _ ≤ 3 := (div_le_iff₀ (by linarith : 0 < P)).2
+        (by simpa [mul_comm] using prime_band_card_le_three_mul P hP Pset hset)
+  have hbad (t : ℝ) (ht : t ∈ Set.Icc (-T) T)
+      (hlarge : Real.rpow (Real.log x) (-A_s) < ‖bandPrimePolynomial P Pset chi xi t‖) :
+      ∃ j ∈ J, t ∈ Set.Icc (j : ℝ) ((j : ℝ) + 1) ∧
+        ‖betaFrequency Hn beta chiN t‖ ^ 2 ≤ betaUnitIntervalEnergy Hn beta chiN j := by
+    let j : ℤ := ⌊t⌋
+    have hjt : t ∈ Set.Icc (j : ℝ) ((j : ℝ) + 1) :=
+      ⟨Int.floor_le t, (Int.lt_floor_add_one t).le⟩
+    have hwindow : |t| ≤ 2 * X * Real.rpow (Real.log x) B :=
+      (abs_le.mpr ⟨ht.1, ht.2⟩).trans hTwindow
+    have hpow : Real.rpow (Real.log x) A_s * Real.rpow (Real.log x) (-A_s) = 1 := by
+      rw [← pd7d_rpow_add hL, add_neg_cancel, pd7d_rpow_zero]
+    have hlarge' : 1 < Real.rpow (Real.log x) A_s * ‖bandPrimePolynomial P Pset chi xi t‖ := by
+      rw [← hpow]
+      exact mul_lt_mul_of_pos_left hlarge (Real.rpow_pos_of_pos hL _)
+    have hjbad : j ∈ bad := ⟨t, hjt.1, hjt.2, hwindow, hlarge'⟩
+    exact ⟨j, by simpa [J] using hjbad, hjt, hsup j t hjt⟩
+  have henergy := pd7d_sparse_energy_bound
+    (bandPrimePolynomial P Pset chi xi) M (betaFrequency Hn beta chiN)
+    T (Real.rpow (Real.log x) (-A_s)) 3 m J
+    (betaUnitIntervalEnergy Hn beta chiN) hPcont hM hN hT
+    (Real.rpow_nonneg hL.le _) (by norm_num) hm hW hprimeBound hcancel hbad
+  calc
+    _ ≤ (Real.rpow (Real.log x) (-A_s)) ^ 2 *
+        (∫ t in (-T)..T, ‖M t * betaFrequency Hn beta chiN t‖ ^ 2) +
+          9 * m ^ 2 * ∑ j ∈ J, betaUnitIntervalEnergy Hn beta chiN j := by
+      simpa only [show (3 : ℝ) ^ 2 = 9 by norm_num] using henergy
+    _ ≤ _ := add_le_add
+      (mul_le_mul_of_nonneg_left hmean (sq_nonneg _))
+      (mul_le_mul_of_nonneg_left hsum (by positivity))
+
+lemma pd7d_rpow_sq (L v : ℝ) (hL : 0 ≤ L) : (Real.rpow L v) ^ 2 = Real.rpow L (2 * v) := by
+  calc
+    _ = Real.rpow (Real.rpow L v) (2 : ℝ) := (Real.rpow_natCast _ 2).symm
+    _ = Real.rpow L (v * 2) := (Real.rpow_mul hL v 2).symm
+    _ = _ := by congr 1; ring
+
+/-- PD's isolated energy bound is uniform in the entire real Mellin shift. -/
+lemma pd7d_isolated_prime_energy_eventually (δ C c₁ c₂ A₀ B₁ Aiso : ℝ)
+    (hδ : 0 < δ) (hC : 0 < C) (hc₁ : 0 < c₁) (hc₂ : 0 < c₂)
+    (hA₀ : 0 < A₀) (hB₁ : 0 < B₁) (hAiso : 0 < Aiso)
+    (family : CoefficientFamily δ C c₁ c₂) (hcancel : HasLongCoefficientCancellation family) :
+    ∃ Ciso x₀ : ℝ, 0 < Ciso ∧ 2 ≤ x₀ ∧ family.xMin ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x → ∀ P : ℝ, 1 ≤ P →
+        (1 / 20 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ) ≤ Real.log P →
+        Real.log P ≤ 3 * Real.rpow (Real.log x) (1 / 5 : ℝ) →
+        ∀ Pset : Finset ℕ, (∀ p ∈ Pset, p.Prime ∧ P ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * P) →
+        ∀ beta : ℕ → ℂ,
+          (∀ n ∈ dyadicIntegers (family.Hn x), ‖beta n‖ ≤ Real.rpow (Real.log x) C) →
+        ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
+        ∀ χb χm χn : DirichletCharacter ℂ k, ∀ xi : ℝ,
+          (∫ t in (-(2 * (family.Hm x * family.Hn x) * Real.rpow (Real.log x) B₁))..
+              (2 * (family.Hm x * family.Hn x) * Real.rpow (Real.log x) B₁),
+            ‖bandPrimePolynomial P Pset (fun p => χb (p : ZMod k)) xi t *
+              majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖ ^ 2) ≤
+            Ciso * Real.rpow (Real.log x) (-Aiso) := by
+  obtain ⟨Cmn, C₄, hCmn, hC₄, hmeanFamilies⟩ :=
+    pd7d_product_mean_square_eventually δ C c₁ c₂ hδ hC hc₁ hc₂
+  let A_s := (Aiso + C₄ + B₁ + 2) / 2
+  let A := (Aiso + 2 * C + 3) / 2
+  have hA_s : 0 < A_s := by dsimp [A_s]; positivity
+  have hA : 0 < A := by dsimp [A]; positivity
+  obtain ⟨Csp, xsp, hCsp, hxsp, hsparse⟩ :=
+    sparse_frequency δ C hδ hC 3 (by norm_num) (B₁ + 1) A_s (by linarith) hA_s
+  obtain ⟨CM, xM, hCM, hxM, hxMmin, hMbound⟩ :=
+    hcancel A₀ B₁ A hA₀ hB₁ hA
+  obtain ⟨xmn, hxmn, hxmnmin, hmean⟩ := hmeanFamilies family
+  let Ciso := 5 * Cmn + 9 * CM ^ 2 * Csp
+  have hCiso : 0 < Ciso := by dsimp [Ciso]; positivity
+  have hxpow : ∀ᶠ x : ℝ in atTop, c₂ / 2 ≤ Real.rpow x δ :=
+    (tendsto_rpow_atTop hδ).eventually_ge_atTop (c₂ / 2)
+  have hLlarge : ∀ᶠ x : ℝ in atTop, max 1 c₂ ≤ Real.log x :=
+    Real.tendsto_log_atTop.eventually_ge_atTop (max 1 c₂)
+  have hevent : ∀ᶠ x : ℝ in atTop, xsp ≤ x ∧ xM ≤ x ∧ xmn ≤ x ∧
+      c₂ / 2 ≤ Real.rpow x δ ∧ max 1 c₂ ≤ Real.log x := by
+    filter_upwards [eventually_ge_atTop xsp, eventually_ge_atTop xM,
+      eventually_ge_atTop xmn, hxpow, hLlarge] with x hxsp hxM hxmn hxpow hL
+    exact ⟨hxsp, hxM, hxmn, hxpow, hL⟩
+  obtain ⟨xbase, hxbase⟩ := eventually_atTop.1 hevent
+  let x₀ := max xbase family.xMin
+  refine ⟨Ciso, x₀, hCiso, family.xMin_ge_two.trans (le_max_right _ _), le_max_right _ _, ?_⟩
+  intro x hx P hP hPlo hPhi Pset hPset beta hbeta k hk hkle χb χm χn xi
+  obtain ⟨hxsp', hxM', hxmn', hxpow', hLlarge'⟩ := hxbase x ((le_max_left _ _).trans hx)
+  have hxmin : family.xMin ≤ x := (le_max_right _ _).trans hx
+  have hxpos : 0 < x := by linarith [family.xMin_ge_two]
+  let L := Real.log x
+  let X := family.Hm x * family.Hn x
+  let T := 2 * X * Real.rpow L B₁
+  have hL : 1 ≤ L := (le_max_left _ _).trans hLlarge'
+  have hLpos : 0 < L := by linarith
+  have hpowA : 0 < Real.rpow L (-A) := Real.rpow_pos_of_pos hLpos _
+  have hpowC₄ : 0 < Real.rpow L C₄ := Real.rpow_pos_of_pos hLpos _
+  have hpowB₁ : 0 < Real.rpow L B₁ := Real.rpow_pos_of_pos hLpos _
+  have hLc₂ : c₂ ≤ L := (le_max_right _ _).trans hLlarge'
+  obtain ⟨hHmlo, hHnlo, hXlo, hXhi⟩ := family.scales x hxmin
+  have hHm : 0 < family.Hm x := (Real.rpow_pos_of_pos hxpos δ).trans_le hHmlo
+  have hHn : 0 < family.Hn x := (Real.rpow_pos_of_pos hxpos δ).trans_le hHnlo
+  have hX : 0 < X := mul_pos hHm hHn
+  have hT : 0 ≤ T := by dsimp [T]; positivity
+  have hTwindow : T ≤ 2 * x * Real.rpow L (B₁ + 1) := by
+    rw [pd7d_rpow_add hLpos, pd7d_rpow_one]
+    dsimp [T]
+    have hXL : X ≤ x * L := by
+      calc
+        _ ≤ c₂ * x := hXhi
+        _ ≤ L * x := mul_le_mul_of_nonneg_right hLc₂ hxpos.le
+        _ = _ := mul_comm _ _
+    nlinarith [Real.rpow_pos_of_pos hLpos B₁]
+  have hHnhi : family.Hn x ≤ 2 * x := by
+    have hh : c₂ ≤ 2 * family.Hm x := by linarith
+    nlinarith
+  have hsp := (hsparse x hxsp' x (by linarith) (by linarith) P hPlo hPhi Pset hPset k hk
+    χb xi (family.Hn x) hHnlo hHnhi beta (fun n => χn (n : ZMod k)) hbeta
+    (fun n => χn.norm_le_one _)).2
+  have hMsmall : ∀ t ∈ Set.Icc (-T) T,
+      ‖majorMPolynomial family x χm t‖ ≤ CM * Real.rpow L (-A) := by
+    intro t ht
+    have htbound : |t| ≤ T := abs_le.mpr ht
+    have hh := hMbound x hxM' k hk hkle χm t htbound
+    have hnorm : ‖majorMPolynomial family x χm t‖ =
+        ‖∑ m ∈ familyTerms family x, family.alpha x m * χm (m : ZMod k) *
+          Complex.exp (Complex.I * t * Real.log (m : ℝ))‖ / family.Hm x := by
+      unfold majorMPolynomial alphaFrequency
+      rw [norm_mul, norm_div, norm_one, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hHm]
+      ring
+    rw [hnorm]
+    exact hh
+  have hMcont : Continuous (majorMPolynomial family x χm) := by
+    unfold majorMPolynomial alphaFrequency
+    fun_prop
+  have hproductMean : (∫ t in (-T)..T,
+      ‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖ ^ 2) ≤
+      5 * Cmn * Real.rpow L (C₄ + B₁) := by
+    have hh := hmean x hxmn' beta hbeta k χm χn (-T) T (by linarith)
+    have hratio : 1 + (T - -T) / X = 1 + 4 * Real.rpow L B₁ := by
+      dsimp [T]
+      field_simp
+      <;> ring
+    have hpow : 1 ≤ Real.rpow L B₁ := Real.one_le_rpow hL hB₁.le
+    calc
+      _ ≤ Cmn * Real.rpow L C₄ * (1 + (T - -T) / X) := hh
+      _ ≤ Cmn * Real.rpow L C₄ * (5 * Real.rpow L B₁) := by
+        rw [hratio]
+        exact mul_le_mul_of_nonneg_left (by linarith) (by positivity)
+      _ = _ := by rw [pd7d_rpow_add hLpos]; ring
+  have hiso := pd7d_isolated_prime_energy_bound x x (B₁ + 1) P A_s (family.Hn x) xi T
+    (CM * Real.rpow L (-A)) (5 * Cmn * Real.rpow L (C₄ + B₁))
+    (Csp * Real.rpow L (2 * C + 1)) Pset (fun p => χb (p : ZMod k)) beta
+    (fun n => χn (n : ZMod k)) (majorMPolynomial family x χm)
+    hLpos hxpos.le hP hT hTwindow (by positivity) hMcont
+    (fun p hp => (hPset p hp).2) (fun p _ => χb.norm_le_one _) hMsmall hproductMean hsp
+  have hsmallExponent : -2 * A_s + C₄ + B₁ = -Aiso - 2 := by dsimp [A_s]; ring
+  have hbadExponent : -2 * A + 2 * C + 1 = -Aiso - 2 := by dsimp [A]; ring
+  have hfinalPower : Real.rpow L (-Aiso - 2) ≤ Real.rpow L (-Aiso) :=
+    Real.rpow_le_rpow_of_exponent_le hL (by linarith)
+  change (∫ t in (-T)..T, _) ≤ _
+  calc
+    _ ≤ (Real.rpow L (-A_s)) ^ 2 * (5 * Cmn * Real.rpow L (C₄ + B₁)) +
+        9 * (CM * Real.rpow L (-A)) ^ 2 * (Csp * Real.rpow L (2 * C + 1)) := hiso
+    _ = Ciso * Real.rpow L (-Aiso - 2) := by
+      rw [mul_pow, pd7d_rpow_sq L (-A_s) hLpos.le, pd7d_rpow_sq L (-A) hLpos.le]
+      have hfirst : Real.rpow L (2 * -A_s) * Real.rpow L (C₄ + B₁) =
+          Real.rpow L (-Aiso - 2) := by rw [← pd7d_rpow_add hLpos]; congr 1; linarith
+      have hsecond : Real.rpow L (2 * -A) * Real.rpow L (2 * C + 1) =
+          Real.rpow L (-Aiso - 2) := by rw [← pd7d_rpow_add hLpos]; congr 1; linarith
+      calc
+        _ = 5 * Cmn * (Real.rpow L (2 * -A_s) * Real.rpow L (C₄ + B₁)) +
+            9 * CM ^ 2 * Csp * (Real.rpow L (2 * -A) * Real.rpow L (2 * C + 1)) := by ring
+        _ = _ := by rw [hfirst, hsecond]; dsimp [Ciso]; ring
+    _ ≤ _ := mul_le_mul_of_nonneg_left hfinalPower hCiso.le
+
+lemma pd7d_cutoff_transform_integrable (eta : ℝ → ℝ)
+    (heta : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta)
+    (heta_supp : Function.support eta ⊆ Set.Icc 1 4) (lam : ℝ) :
+    Integrable (pd7MajorCutoffTransform eta lam) := by
+  let f := pd7MajorCutoffLog eta lam
+  have hf : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f := by
+    have hη := Complex.ofRealCLM.contDiff.comp (heta.comp Real.contDiff_exp)
+    have hRarg : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun s => -lam * Real.exp s) := by fun_prop
+    have hCvalue := Complex.ofRealCLM.contDiff.comp hRarg
+    have hCarg : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun s => Complex.I * ((2 * Real.pi : ℂ) * ((-lam * Real.exp s : ℝ) : ℂ))) :=
+      contDiff_const.mul (contDiff_const.mul hCvalue)
+    have hphase : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun s => additiveCharacter (-lam * Real.exp s)) := by
+      unfold additiveCharacter
+      exact Complex.contDiff_exp.comp hCarg
+    change ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      ((fun s => (eta (Real.exp s) : ℂ)) * (fun s => additiveCharacter (-lam * Real.exp s)))
+    exact hη.mul hphase
+  have hsupp : Function.support f ⊆ Set.Icc (0 : ℝ) (Real.log 4) := by
+    intro s hs
+    have hη : eta (Real.exp s) ≠ 0 := by
+      intro hz
+      exact hs (by simp [f, pd7MajorCutoffLog, pd7MajorCutoff, hz])
+    have hband := heta_supp hη
+    constructor
+    · simpa using Real.log_le_log (by norm_num : (0 : ℝ) < 1) hband.1
+    · simpa using Real.log_le_log (Real.exp_pos s) hband.2
+  exact pd7ComplexFourierTransform_integrable f hf
+    (HasCompactSupport.of_support_subset_isCompact isCompact_Icc hsupp)
+
+/-- Finite Mellin separation works for an arbitrary first-prime subset and tail subset. -/
+lemma pd7d_mellin_finite_product {α : Type*} (Pset : Finset ℕ) (Rset : Finset α)
+    (b : α → ℕ) (W Y lam t : ℝ) (eta : ℝ → ℝ) {k : ℕ} (χ : DirichletCharacter ℂ k)
+    (heta : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta)
+    (heta_supp : Function.support eta ⊆ Set.Icc 1 4) (hY : 0 < Y)
+    (hp : ∀ p ∈ Pset, 0 < p) (hb : ∀ r ∈ Rset, 0 < b r) :
+    (∑ p ∈ Pset, ∑ r ∈ Rset,
+      pd7MajorCutoff eta lam (((p * b r : ℕ) : ℝ) / Y) *
+        (W : ℂ) * χ ((p * b r : ℕ) : ZMod k) *
+        Complex.exp (Complex.I * t * Real.log ((p * b r : ℕ) : ℝ))) =
+      ∫ ξ : ℝ, pd7MajorCutoffTransform eta lam ξ *
+        Complex.exp (-Complex.I * ξ * Real.log Y) *
+        (∑ p ∈ Pset, χ (p : ZMod k) * Complex.exp (Complex.I * (t + ξ) * Real.log (p : ℝ))) *
+        (∑ r ∈ Rset, (W : ℂ) * χ (b r : ZMod k) *
+          Complex.exp (Complex.I * (t + ξ) * Real.log (b r : ℝ))) := by
+  classical
+  let phase (p : ℕ) (r : α) (ξ : ℝ) : ℂ :=
+    Complex.exp (-Complex.I * ξ * Real.log Y) *
+      (χ (p : ZMod k) * Complex.exp (Complex.I * (t + ξ) * Real.log (p : ℝ))) *
+      ((W : ℂ) * χ (b r : ZMod k) * Complex.exp (Complex.I * (t + ξ) * Real.log (b r : ℝ)))
+  have hphase : ∀ p r ξ, ‖phase p r ξ‖ ≤ |W| := by
+    intro p r ξ
+    dsimp [phase]
+    have hYphase : ‖Complex.exp (-Complex.I * ξ * Real.log Y)‖ = 1 := by
+      rw [Complex.norm_exp]
+      simp only [Complex.mul_re, Complex.mul_im, Complex.I_re, Complex.I_im,
+        Complex.ofReal_re, Complex.ofReal_im, Complex.neg_re, Complex.neg_im, Complex.add_re, Complex.add_im,
+        zero_mul, mul_zero, one_mul, zero_sub, sub_zero, add_zero, zero_add,
+        neg_zero, Real.exp_zero]
+    have hpPhase : ‖Complex.exp (Complex.I * (t + ξ) * Real.log (p : ℝ))‖ = 1 := by
+      rw [Complex.norm_exp]
+      simp only [Complex.mul_re, Complex.mul_im, Complex.I_re, Complex.I_im,
+        Complex.ofReal_re, Complex.ofReal_im, Complex.neg_re, Complex.neg_im, Complex.add_re, Complex.add_im,
+        zero_mul, mul_zero, one_mul, zero_sub, sub_zero, add_zero, zero_add,
+        neg_zero, Real.exp_zero]
+    have hbPhase : ‖Complex.exp (Complex.I * (t + ξ) * Real.log (b r : ℝ))‖ = 1 := by
+      rw [Complex.norm_exp]
+      simp only [Complex.mul_re, Complex.mul_im, Complex.I_re, Complex.I_im,
+        Complex.ofReal_re, Complex.ofReal_im, Complex.neg_re, Complex.neg_im, Complex.add_re, Complex.add_im,
+        zero_mul, mul_zero, one_mul, zero_sub, sub_zero, add_zero, zero_add,
+        neg_zero, Real.exp_zero]
+    simp only [norm_mul, hYphase, hpPhase, hbPhase, one_mul, mul_one,
+      Complex.norm_real, Real.norm_eq_abs]
+    calc
+      ‖χ (p : ZMod k)‖ * (|W| * ‖χ (b r : ZMod k)‖) ≤ 1 * (|W| * 1) :=
+        mul_le_mul (χ.norm_le_one _) (mul_le_mul_of_nonneg_left (χ.norm_le_one _) (abs_nonneg _))
+          (mul_nonneg (abs_nonneg _) (norm_nonneg _)) (by norm_num)
+      _ = _ := by ring
+  have hTi := pd7d_cutoff_transform_integrable eta heta heta_supp lam
+  have hFi (p : ℕ) (r : α) : Integrable (fun ξ => pd7MajorCutoffTransform eta lam ξ * phase p r ξ) :=
+    hTi.mul_bdd (show Continuous (phase p r) by dsimp [phase]; fun_prop).aestronglyMeasurable (ae_of_all _ fun ξ => hphase p r ξ)
+  have hterm (p : ℕ) (hpp : p ∈ Pset) (r : α) (hrr : r ∈ Rset) :
+      pd7MajorCutoff eta lam (((p * b r : ℕ) : ℝ) / Y) * (W : ℂ) *
+        χ ((p * b r : ℕ) : ZMod k) * Complex.exp (Complex.I * t * Real.log ((p * b r : ℕ) : ℝ)) =
+      ∫ ξ : ℝ, pd7MajorCutoffTransform eta lam ξ * phase p r ξ := by
+    have hpR : 0 < (p : ℝ) := by exact_mod_cast hp p hpp
+    have hbR : 0 < (b r : ℝ) := by exact_mod_cast hb r hrr
+    have hprodR : 0 < ((p * b r : ℕ) : ℝ) / Y := by push_cast; positivity
+    rw [pd7_major_cutoff_mellin_inversion eta heta heta_supp lam _ hprodR,
+      ← integral_mul_const, ← integral_mul_const, ← integral_mul_const]
+    apply integral_congr_ae
+    filter_upwards [] with ξ
+    simp only [Nat.cast_mul, map_mul]
+    have hph := pd7_exp_log_product_ratio (p : ℝ) (b r : ℝ) Y t ξ hpR hbR hY
+    dsimp [phase]
+    calc
+      _ = pd7MajorCutoffTransform eta lam ξ * (W : ℂ) * χ (p : ZMod k) * χ (b r : ZMod k) *
+          (Complex.exp (Complex.I * ξ * Real.log ((p : ℝ) * b r / Y)) *
+            Complex.exp (Complex.I * t * Real.log ((p : ℝ) * b r))) := by ring
+      _ = _ := by rw [hph]; ring
+  calc
+    _ = ∑ p ∈ Pset, ∑ r ∈ Rset, ∫ ξ : ℝ, pd7MajorCutoffTransform eta lam ξ * phase p r ξ := by
+      apply Finset.sum_congr rfl
+      intro p hpp
+      exact Finset.sum_congr rfl (fun r hrr => hterm p hpp r hrr)
+    _ = ∫ ξ : ℝ, ∑ p ∈ Pset, ∑ r ∈ Rset, pd7MajorCutoffTransform eta lam ξ * phase p r ξ := by
+      rw [integral_finsetSum _ (fun p _ => integrable_finsetSum _ (fun r _ => hFi p r))]
+      apply Finset.sum_congr rfl
+      intro p hpp
+      rw [integral_finsetSum _ (fun r _ => hFi p r)]
     _ = _ := by
-          simpa [f, pd7MajorCutoffLog, pd7MajorCutoff, m₀, mR, P, R,
-            mul_assoc, mul_left_comm, mul_comm]
+      apply integral_congr_ae
+      filter_upwards [] with ξ
+      dsimp [phase]
+      simp only [Finset.mul_sum, Finset.sum_mul]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro r hrr
+      apply Finset.sum_congr rfl
+      intro p hpp
+      ring
+
+noncomputable def pd7dMajorDyadPolynomial (x Y lam : ℝ) (eta : ℝ → ℝ)
+    {n : ℕ} (a : Fin (n + 1) → ℝ) (j : ℕ) {k : ℕ}
+    (χ : DirichletCharacter ℂ k) (t : ℝ) : ℂ :=
+  (1 / Y : ℂ) * ∑ p ∈ pd7dPrimeDyad (primeBand x (a 0)) j,
+    ∑ rest ∈ Fintype.piFinset (Fin.tail (fun i : Fin (n + 1) => primeBand x (a i))),
+      (eta ((tupleProduct (Fin.cons p rest) : ℝ) / Y) : ℂ) *
+        additiveCharacter (-lam * (tupleProduct (Fin.cons p rest) : ℝ) / Y) *
+        ((∏ i : Fin (n + 1), (bandMass x (a i))⁻¹ : ℝ) : ℂ) *
+        χ (tupleProduct (Fin.cons p rest) : ZMod k) *
+        Complex.exp (Complex.I * t * Real.log (tupleProduct (Fin.cons p rest) : ℝ))
+
+lemma pd7d_majorB_sum_dyads (x Y lam : ℝ) (eta : ℝ → ℝ)
+    {n : ℕ} (a : Fin (n + 1) → ℝ) {k : ℕ} (χ : DirichletCharacter ℂ k) (t : ℝ) :
+    majorBPolynomial x (n + 1) a Y lam eta χ t =
+      ∑ j ∈ pd7dPrimeDyads (primeBand x (a 0)), pd7dMajorDyadPolynomial x Y lam eta a j χ t := by
+  rw [majorBPolynomial_cons, pd7d_sum_prime_dyads]
+  exact Finset.mul_sum _ _ _
+
+lemma pd7d_major_dyad_mellin (x Y lam : ℝ) (eta : ℝ → ℝ)
+    {n : ℕ} (a : Fin (n + 1) → ℝ) (j : ℕ) {k : ℕ} (χ : DirichletCharacter ℂ k) (t : ℝ)
+    (heta : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta)
+    (heta_supp : Function.support eta ⊆ Set.Icc 1 4) (hY : 0 < Y) :
+    let P := (2 : ℝ) ^ j
+    let S := pd7dPrimeDyad (primeBand x (a 0)) j
+    let Rset := Fintype.piFinset (fun i : Fin n => primeBand x (a i.succ))
+    let W := ∏ i : Fin n, (bandMass x (a i.succ))⁻¹
+    pd7dMajorDyadPolynomial x Y lam eta a j χ t =
+      (((bandMass x (a 0))⁻¹ : ℝ) : ℂ) * ∫ ξ : ℝ,
+        pd7MajorCutoffTransform eta lam ξ * Complex.exp (-Complex.I * ξ * Real.log Y) *
+          bandPrimePolynomial P S (fun p => χ (p : ZMod k)) ξ t *
+          pd7dTailPolynomial Rset tupleProduct W P Y (fun b => χ (b : ZMod k)) (t + ξ) := by
+  classical
+  dsimp only
+  let P := (2 : ℝ) ^ j
+  let S := pd7dPrimeDyad (primeBand x (a 0)) j
+  let Rset := Fintype.piFinset (fun i : Fin n => primeBand x (a i.succ))
+  let W : ℝ := ∏ i : Fin n, (bandMass x (a i.succ))⁻¹
+  let m₀ : ℝ := (bandMass x (a 0))⁻¹
+  let Rsub := Rset.filter (fun r => Y / (2 * P) ≤ (tupleProduct r : ℝ) ∧
+    (tupleProduct r : ℝ) ≤ 4 * Y / P)
+  have hP : 0 < P := by dsimp [P]; positivity
+  have hp (p : ℕ) (hp : p ∈ S) : 0 < p :=
+    (Finset.mem_filter.mp (Finset.mem_filter.mp hp).1).2.1.pos
+  have hb (r : Fin n → ℕ) (hr : r ∈ Rset) : 0 < tupleProduct r :=
+    marked_tuple_pos x n (Fin.tail a) r hr
+  let F (p : ℕ) (r : Fin n → ℕ) : ℂ := pd7MajorCutoff eta lam (((p * tupleProduct r : ℕ) : ℝ) / Y) *
+    (W : ℂ) * χ ((p * tupleProduct r : ℕ) : ZMod k) *
+    Complex.exp (Complex.I * t * Real.log ((p * tupleProduct r : ℕ) : ℝ))
+  have hzero (p : ℕ) (hpp : p ∈ S) (r : Fin n → ℕ) (hrr : r ∈ Rset)
+      (hrout : r ∉ Rsub) : F p r = 0 := by
+    have hpR : 0 < (p : ℝ) := by exact_mod_cast hp p hpp
+    have hbR : 0 < (tupleProduct r : ℝ) := by exact_mod_cast hb r hrr
+    obtain ⟨hpLo, hpHi⟩ := pd7dPrimeDyad_bounds _ j p hpp (hp p hpp)
+    change P ≤ (p : ℝ) at hpLo
+    change (p : ℝ) < 2 * P at hpHi
+    have hηzero : eta (((p * tupleProduct r : ℕ) : ℝ) / Y) = 0 := by
+      by_contra hη
+      have hηband := heta_supp hη
+      simp only [Nat.cast_mul] at hηband
+      have hYlo : Y ≤ (p : ℝ) * tupleProduct r := by
+        simpa only [one_mul] using (le_div_iff₀ hY).mp hηband.1
+      have hYhi : (p : ℝ) * tupleProduct r ≤ 4 * Y := (div_le_iff₀ hY).mp hηband.2
+      apply hrout
+      apply Finset.mem_filter.mpr
+      refine ⟨hrr, ?_, ?_⟩
+      · apply (div_le_iff₀ (by positivity : 0 < 2 * P)).2
+        have hh := mul_le_mul_of_nonneg_right hpHi.le hbR.le
+        nlinarith
+      · apply (le_div_iff₀ hP).2
+        have hh := mul_le_mul_of_nonneg_right hpLo hbR.le
+        nlinarith
+    dsimp only [F, pd7MajorCutoff]
+    rw [hηzero]
+    simp only [Complex.ofReal_zero, zero_mul]
+  have hrestrict : (∑ p ∈ S, ∑ r ∈ Rset, F p r) = ∑ p ∈ S, ∑ r ∈ Rsub, F p r := by
+    apply Finset.sum_congr rfl
+    intro p hpp
+    exact (Finset.sum_subset (Finset.filter_subset _ _) (fun r hr hout => hzero p hpp r hr hout)).symm
+  have hstart : pd7dMajorDyadPolynomial x Y lam eta a j χ t =
+      (m₀ / Y : ℂ) * ∑ p ∈ S, ∑ r ∈ Rset, F p r := by
+    unfold pd7dMajorDyadPolynomial
+    simp only [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro p hpp
+    try simp only [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro r hrr
+    simp only [tupleProduct_cons, markedBandMass_cons]
+    dsimp [F, pd7MajorCutoff, m₀, W]
+    push_cast
+    simp only [mul_div_assoc]
+    ring
+  rw [hstart, hrestrict, pd7d_mellin_finite_product S Rsub tupleProduct W Y lam t eta χ
+    heta heta_supp hY hp (fun r hr => hb r (Finset.mem_filter.mp hr).1)]
+  change (m₀ / Y : ℂ) * (∫ ξ : ℝ, _) = (m₀ : ℂ) * (∫ ξ : ℝ, _)
+  rw [← integral_const_mul, ← integral_const_mul]
+  apply integral_congr_ae
+  filter_upwards [] with ξ
+  dsimp only [bandPrimePolynomial, pd7dTailPolynomial]
+  simp only [Complex.ofReal_add]
+  have hPc : (P : ℂ) ≠ 0 := by exact_mod_cast ne_of_gt hP
+  have hYc : (Y : ℂ) ≠ 0 := by exact_mod_cast ne_of_gt hY
+  have halg (F A B : ℂ) : (m₀ / Y : ℂ) * (F * A * B) =
+      (m₀ : ℂ) * (F * ((1 / P : ℂ) * A) * ((P / Y : ℂ) * B)) := by
+    field_simp [hPc, hYc]
+    <;> ring
+  exact halg _ _ _
+
+lemma pd7d_continuous_first_section (F : ℝ → ℝ → ℂ)
+    (hF : Continuous (Function.uncurry F)) (ξ : ℝ) : Continuous (fun t => F ξ t) := by
+  have hPair : Continuous (fun t : ℝ => (ξ, t)) := continuous_const.prodMk continuous_id
+  exact hF.comp hPair
+
+set_option maxHeartbeats 4000000 in
+lemma pd7d_major_dyad_energy_bound (x Y lam : ℝ) (eta : ℝ → ℝ)
+    {n : ℕ} (a : Fin (n + 1) → ℝ) (j : ℕ) {k : ℕ} (χ : DirichletCharacter ℂ k)
+    (M N : ℝ → ℂ) (T Rm Rn E : ℝ)
+    (heta : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta)
+    (heta_supp : Function.support eta ⊆ Set.Icc 1 4) (hY : 0 < Y)
+    (hMass : ∀ i : Fin n, 0 < bandMass x (a i.succ))
+    (hT : 0 ≤ T) (hM : Continuous M) (hN : Continuous N)
+    (hRm : 0 ≤ Rm) (hRn : 0 ≤ Rn)
+    (hMb : ∀ t, ‖M t‖ ≤ Rm) (hNb : ∀ t, ‖N t‖ ≤ Rn)
+    (hIso : ∀ ξ : ℝ,
+      (∫ t in (-T)..T, ‖bandPrimePolynomial ((2 : ℝ) ^ j)
+        (pd7dPrimeDyad (primeBand x (a 0)) j) (fun p => χ (p : ZMod k)) ξ t * M t * N t‖ ^ 2) ≤ E) :
+    (∫ t in (-T)..T, ‖pd7dMajorDyadPolynomial x Y lam eta a j χ t * M t * N t‖ ^ 2) ≤
+      16 * ((bandMass x (a 0))⁻¹) ^ 2 *
+        (∫ ξ : ℝ, ‖pd7MajorCutoffTransform eta lam ξ‖) ^ 2 * E := by
+  let P := (2 : ℝ) ^ j
+  let S := pd7dPrimeDyad (primeBand x (a 0)) j
+  let Rset := Fintype.piFinset (fun i : Fin n => primeBand x (a i.succ))
+  let W : ℝ := ∏ i : Fin n, (bandMass x (a i.succ))⁻¹
+  let Q := pd7dTailPolynomial Rset tupleProduct W P Y (fun b => χ (b : ZMod k))
+  let Ps := bandPrimePolynomial P S (fun p => χ (p : ZMod k))
+  let U (ξ t : ℝ) : ℂ := Complex.exp (-Complex.I * ξ * Real.log Y) * Ps ξ t * Q (t + ξ) * M t * N t
+  have hP : 0 < P := by dsimp [P]; positivity
+  have hPone : 1 ≤ P := by dsimp [P]; exact one_le_pow₀ (by norm_num)
+  have hW : 0 ≤ W := by
+    dsimp [W]
+    exact (Finset.prod_pos (fun i _ => inv_pos.mpr (hMass i))).le
+  have htailPos (r : Fin n → ℕ) (hr : r ∈ Rset) : 0 < tupleProduct r :=
+    marked_tuple_pos x n (Fin.tail a) r hr
+  have htailMass : (∑ r ∈ Rset, W / (tupleProduct r : ℝ)) = 1 :=
+    marked_reciprocal_mass x n (Fin.tail a) (fun i => ne_of_gt (hMass i))
+  have hQ (u : ℝ) : ‖Q u‖ ≤ 4 := by
+    have hh := pd7dTailPolynomial_norm_le Rset tupleProduct W P Y (fun b => χ (b : ZMod k)) u
+      hW hP hY htailPos (fun _ _ => χ.norm_le_one _)
+    simpa [Q, htailMass] using hh
+  have hPs (ξ t : ℝ) : ‖Ps ξ t‖ ≤ 3 := by
+    have hset : ∀ p ∈ S, P ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * P := by
+      intro p hp
+      have hprime := (Finset.mem_filter.mp (Finset.mem_filter.mp hp).1).2.1
+      obtain ⟨hl, hu⟩ := pd7dPrimeDyad_bounds _ j p hp hprime.pos
+      exact ⟨hl, hu.le⟩
+    have hh := bandPrimePolynomial_norm_le P hP S (fun p => χ (p : ZMod k)) ξ t
+      (fun _ _ => χ.norm_le_one _)
+    exact hh.trans ((div_le_iff₀ hP).2 (by simpa [mul_comm] using
+        (prime_band_card_le_three_mul P hPone S hset)))
+  have hphase (ξ : ℝ) : ‖Complex.exp (-Complex.I * ξ * Real.log Y)‖ = 1 := by
+    have heq : -Complex.I * (ξ : ℂ) * (Real.log Y : ℂ) =
+        Complex.I * ((-ξ : ℝ) : ℂ) * (Real.log Y : ℂ) := by push_cast; ring
+    rw [heq]
+    exact pd7_complex_exp_phase_norm (-ξ) (Real.log Y)
+  have hPsCont : Continuous (fun z : ℝ × ℝ => Ps z.1 z.2) := by
+    change Continuous (fun z : ℝ × ℝ => bandPrimePolynomial P S (fun p => χ (p : ZMod k)) z.1 z.2)
+    unfold bandPrimePolynomial
+    fun_prop
+  have hQCont : Continuous Q := by
+    change Continuous (fun u : ℝ => pd7dTailPolynomial Rset tupleProduct W P Y (fun b => χ (b : ZMod k)) u)
+    unfold pd7dTailPolynomial
+    fun_prop
+  have hphaseCont : Continuous (fun z : ℝ × ℝ => Complex.exp (-Complex.I * z.1 * Real.log Y)) := by fun_prop
+  have hUcont : Continuous (Function.uncurry U) := by
+    change Continuous (fun z : ℝ × ℝ => Complex.exp (-Complex.I * z.1 * Real.log Y) *
+      Ps z.1 z.2 * Q (z.2 + z.1) * M z.2 * N z.2)
+    exact (((hphaseCont.mul hPsCont).mul (hQCont.comp (continuous_snd.add continuous_fst))).mul
+      (hM.comp continuous_snd)).mul (hN.comp continuous_snd)
+  have hUb (ξ t : ℝ) : ‖U ξ t‖ ≤ 12 * Rm * Rn := by
+    dsimp [U]
+    simp only [norm_mul, hphase, one_mul]
+    calc
+      _ ≤ 3 * 4 * Rm * Rn := by
+        gcongr
+        · exact hPs ξ t
+        · exact hQ (t + ξ)
+        · exact hMb t
+        · exact hNb t
+      _ = _ := by ring
+  have hUpoint (ξ t : ℝ) : ‖U ξ t‖ ^ 2 ≤ 16 * ‖Ps ξ t * M t * N t‖ ^ 2 := by
+    have hEq : U ξ t = Complex.exp (-Complex.I * ξ * Real.log Y) * Q (t + ξ) *
+        (Ps ξ t * M t * N t) := by dsimp [U]; ring
+    rw [hEq, norm_mul, norm_mul, hphase, one_mul, mul_pow]
+    exact mul_le_mul_of_nonneg_right
+      (by simpa only [show (4 : ℝ) ^ 2 = 16 by norm_num] using
+        pow_le_pow_left₀ (norm_nonneg _) (hQ (t + ξ)) 2) (sq_nonneg _)
+  have hUInt (ξ : ℝ) : (∫ t in (-T)..T, ‖U ξ t‖ ^ 2) ≤ 16 * E := by
+    have hUξ : Continuous (fun t => U ξ t) := pd7d_continuous_first_section U hUcont ξ
+    have hPsξ : Continuous (Ps ξ) := pd7d_continuous_first_section Ps hPsCont ξ
+    calc
+      _ ≤ ∫ t in (-T)..T, 16 * ‖Ps ξ t * M t * N t‖ ^ 2 :=
+        intervalIntegral.integral_mono_on (by linarith)
+          ((hUξ.norm.pow 2).intervalIntegrable _ _)
+          ((((hPsξ.mul hM).mul hN).norm.pow 2).intervalIntegrable _ _ |>.const_mul 16)
+          (fun t _ => hUpoint ξ t)
+      _ = 16 * (∫ t in (-T)..T, ‖Ps ξ t * M t * N t‖ ^ 2) :=
+        intervalIntegral.integral_const_mul _ _
+      _ ≤ _ := mul_le_mul_of_nonneg_left (hIso ξ) (by norm_num)
+  have hweighted := pd7d_mellin_energy_bound (pd7MajorCutoffTransform eta lam) U T
+    (12 * Rm * Rn) (16 * E) (pd7d_cutoff_transform_integrable eta heta heta_supp lam)
+    hUcont hT (by positivity) hUb hUInt
+  have hfun (t : ℝ) : pd7dMajorDyadPolynomial x Y lam eta a j χ t * M t * N t =
+      (((bandMass x (a 0))⁻¹ : ℝ) : ℂ) * ∫ ξ : ℝ, pd7MajorCutoffTransform eta lam ξ * U ξ t := by
+    rw [pd7d_major_dyad_mellin x Y lam eta a j χ t heta heta_supp hY]
+    calc
+      _ = (((bandMass x (a 0))⁻¹ : ℝ) : ℂ) *
+          ((∫ ξ : ℝ, pd7MajorCutoffTransform eta lam ξ *
+            Complex.exp (-Complex.I * ξ * Real.log Y) * Ps ξ t * Q (t + ξ)) * M t * N t) := by ring
+      _ = _ := by
+        congr 1
+        rw [← integral_mul_const, ← integral_mul_const]
+        apply integral_congr_ae
+        filter_upwards [] with ξ
+        dsimp [U]
+        ring
+  have hnorm (t : ℝ) : ‖pd7dMajorDyadPolynomial x Y lam eta a j χ t * M t * N t‖ ^ 2 =
+      ((bandMass x (a 0))⁻¹) ^ 2 * ‖∫ ξ : ℝ, pd7MajorCutoffTransform eta lam ξ * U ξ t‖ ^ 2 := by
+    rw [hfun, norm_mul, mul_pow, Complex.norm_real, Real.norm_eq_abs, sq_abs]
+  simp_rw [hnorm]
+  rw [intervalIntegral.integral_const_mul]
+  calc
+    _ ≤ ((bandMass x (a 0))⁻¹) ^ 2 *
+        ((∫ ξ : ℝ, ‖pd7MajorCutoffTransform eta lam ξ‖) ^ 2 * (16 * E)) :=
+      mul_le_mul_of_nonneg_left hweighted (sq_nonneg _)
+    _ = _ := by ring
 
 /-- NEW. The energy of (maj:energy): `∫_{|t| ≤ 2XL^{B₁}} |B_λ M_α N_β|²`, one modulus `k`
 for the three characters. -/
@@ -4194,7 +4895,167 @@ theorem major_energy (δ C c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
                   |lam| ≤ 2 * Real.rpow (Real.log x) A₀ →
                     majorEnergy x K a Y lam B₁ eta family beta χb χm χn ≤
                       C' * Real.rpow (Real.log x) (-A') := by
-  sorry
+  intro A₀ B₁ A' hA₀ hB₁ hA' family hcancel
+  cases K with
+  | zero => have hK := ha.1; omega
+  | succ n =>
+    let Aiso := A' + 4 * A₀ + 4
+    have hAiso : 0 < Aiso := by dsimp [Aiso]; positivity
+    obtain ⟨Ciso, xiso, hCiso, hxiso, hxisoMin, hiso⟩ :=
+      pd7d_isolated_prime_energy_eventually δ C c₁ c₂ A₀ B₁ Aiso
+        hδ hC hc₁ hc₂ hA₀ hB₁ hAiso family hcancel
+    obtain ⟨Cη, hCη, hcutoff⟩ := pd7_major_cutoff_transform_L1_bound eta heta heta_supp
+    have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+    let cd : ℝ := 2 / Real.log 2 + 1
+    let Cd : ℝ := 16 * (2 / Real.log 2) ^ 2 * 81 * Cη ^ 2 * Ciso
+    let C' : ℝ := cd ^ 2 * Cd
+    have hCd : 0 < Cd := by dsimp [Cd]; positivity
+    have hC' : 0 < C' := by dsimp [C', cd]; positivity
+    have hbands : ∀ᶠ x : ℝ in atTop, ∀ i : Fin (n + 1),
+        Real.log 2 / 2 ≤ bandMass x (a i) ∧ 0 < bandMass x (a i) := by
+      apply Filter.eventually_all.2
+      intro i
+      have hai := ha.2.1 i
+      obtain ⟨xb, hxb, hband⟩ := band_mass (a i) (by linarith) (by linarith)
+        (Real.log 2 / 2) (by positivity)
+      filter_upwards [eventually_ge_atTop xb] with x hx
+      have hb := hband x hx
+      exact ⟨by have hh := abs_le.mp hb.1; linarith, hb.2⟩
+    have hlarge : ∀ᶠ x : ℝ in atTop,
+        2 * Real.log 2 ≤ Real.rpow (Real.log x) (1 / 10 : ℝ) :=
+      ((tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 10)).comp
+        Real.tendsto_log_atTop).eventually_ge_atTop _
+    have hevent : ∀ᶠ x : ℝ in atTop, xiso ≤ x ∧ 1 ≤ Real.log x ∧
+        2 * Real.log 2 ≤ Real.rpow (Real.log x) (1 / 10 : ℝ) ∧
+        ∀ i : Fin (n + 1), Real.log 2 / 2 ≤ bandMass x (a i) ∧ 0 < bandMass x (a i) := by
+      filter_upwards [eventually_ge_atTop xiso,
+        Real.tendsto_log_atTop.eventually_ge_atTop 1, hlarge, hbands] with x hx hL hlarge hbands
+      exact ⟨hx, hL, hlarge, hbands⟩
+    obtain ⟨xbase, hxbase⟩ := eventually_atTop.1 hevent
+    let x₀ := max 2 xbase
+    refine ⟨C', x₀, hC', le_max_left _ _, ?_⟩
+    intro x hx beta hbetaSupport hbetaBound Y hY k hk hkle χb χm χn lam hlam
+    obtain ⟨hxiso', hL, hlarge', hbands'⟩ := hxbase x ((le_max_right _ _).trans hx)
+    have hxmin : family.xMin ≤ x := hxisoMin.trans hxiso'
+    have hxpos : 0 < x := by linarith [family.xMin_ge_two]
+    let L := Real.log x
+    let X := family.Hm x * family.Hn x
+    let T := 2 * X * Real.rpow L B₁
+    let Dset := pd7dPrimeDyads (primeBand x (a 0))
+    let M := majorMPolynomial family x χm
+    let N := majorNPolynomial (family.Hn x) beta χn
+    have hLpos : 0 < L := by dsimp [L]; linarith
+    obtain ⟨hHmlo, hHnlo, hXlo, hXhi⟩ := family.scales x hxmin
+    have hHm : 0 < family.Hm x := (Real.rpow_pos_of_pos hxpos δ).trans_le hHmlo
+    have hHn : 0 < family.Hn x := (Real.rpow_pos_of_pos hxpos δ).trans_le hHnlo
+    have hpowIso : 0 < Real.rpow L (-Aiso) := Real.rpow_pos_of_pos hLpos _
+    have hpowEnergy : 0 < Real.rpow L (4 * A₀ - Aiso) := Real.rpow_pos_of_pos hLpos _
+    have hpowFour : 0 < Real.rpow L (4 * A₀) := Real.rpow_pos_of_pos hLpos _
+    have hT : 0 ≤ T := by dsimp [T, X]; positivity
+    have hYpos : 0 < Y := by
+      obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp (Finset.mem_filter.mp hY).1
+      positivity
+    have hM : Continuous M := by
+      change Continuous (fun t : ℝ => majorMPolynomial family x χm t)
+      unfold majorMPolynomial alphaFrequency
+      fun_prop
+    have hN : Continuous N := by
+      change Continuous (fun t : ℝ => majorNPolynomial (family.Hn x) beta χn t)
+      unfold majorNPolynomial betaFrequency
+      fun_prop
+    let Rm := (∑ m ∈ familyTerms family x, ‖family.alpha x m * χm (m : ZMod k)‖) / family.Hm x
+    let Rn := (∑ m ∈ dyadicIntegers (family.Hn x), ‖beta m * χn (m : ZMod k)‖) / family.Hn x
+    have hRm : 0 ≤ Rm := by dsimp [Rm]; positivity
+    have hRn : 0 ≤ Rn := by dsimp [Rn]; positivity
+    have hMb (t : ℝ) : ‖M t‖ ≤ Rm :=
+      pd7d_normalized_polynomial_norm_le (family.Hm x) (familyTerms family x)
+        (fun m => family.alpha x m * χm (m : ZMod k)) t hHm
+    have hNb (t : ℝ) : ‖N t‖ ≤ Rn :=
+      pd7d_normalized_polynomial_norm_le (family.Hn x) (dyadicIntegers (family.Hn x))
+        (fun m => beta m * χn (m : ZMod k)) t hHn
+    have hMassInv : (bandMass x (a 0))⁻¹ ≤ 2 / Real.log 2 := by
+      calc
+        _ ≤ 1 / (Real.log 2 / 2) := by
+          simpa only [one_div] using one_div_le_one_div_of_le (by positivity : 0 < Real.log 2 / 2)
+            (hbands' 0).1
+        _ = _ := by field_simp
+    have hMassSq : ((bandMass x (a 0))⁻¹) ^ 2 ≤ (2 / Real.log 2) ^ 2 :=
+      pow_le_pow_left₀ (inv_nonneg.mpr (hbands' 0).2.le) hMassInv 2
+    have hcut : (∫ ξ : ℝ, ‖pd7MajorCutoffTransform eta lam ξ‖) ≤
+        9 * Cη * Real.rpow L (2 * A₀) := by
+      have hpowOne : 1 ≤ Real.rpow L A₀ := Real.one_le_rpow hL hA₀.le
+      have hbase : 1 + |lam| ≤ 3 * Real.rpow L A₀ := by linarith
+      calc
+        _ ≤ Cη * (1 + |lam|) ^ 2 := hcutoff lam
+        _ ≤ Cη * (3 * Real.rpow L A₀) ^ 2 :=
+          mul_le_mul_of_nonneg_left (pow_le_pow_left₀ (by positivity) hbase 2) hCη.le
+        _ = _ := by rw [mul_pow, pd7d_rpow_sq L A₀ hLpos.le]; ring
+    have hcutSq : (∫ ξ : ℝ, ‖pd7MajorCutoffTransform eta lam ξ‖) ^ 2 ≤
+        81 * Cη ^ 2 * Real.rpow L (4 * A₀) := by
+      have hh := pow_le_pow_left₀ (integral_nonneg (fun _ => norm_nonneg _)) hcut 2
+      rw [mul_pow, mul_pow, pd7d_rpow_sq L (2 * A₀) hLpos.le] at hh
+      convert hh using 1 <;> ring
+    have hdyad (j : ℕ) (hj : j ∈ Dset) :
+        (∫ t in (-T)..T, ‖pd7dMajorDyadPolynomial x Y lam eta a j χb t * M t * N t‖ ^ 2) ≤
+          Cd * Real.rpow L (4 * A₀ - Aiso) := by
+      obtain ⟨hPlo, hPhi⟩ := pd7d_prime_band_dyad_sparse_range x (a 0) j hL
+        (ha.2.1 0).1.le (ha.2.1 0).2.le hlarge' hj
+      have hIso (ξ : ℝ) :
+          (∫ t in (-T)..T, ‖bandPrimePolynomial ((2 : ℝ) ^ j)
+            (pd7dPrimeDyad (primeBand x (a 0)) j) (fun p => χb (p : ZMod k)) ξ t * M t * N t‖ ^ 2) ≤
+          Ciso * Real.rpow L (-Aiso) := by
+        have hPset : ∀ p ∈ pd7dPrimeDyad (primeBand x (a 0)) j,
+            p.Prime ∧ (2 : ℝ) ^ j ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * (2 : ℝ) ^ j := by
+          intro p hp
+          have hprime := (Finset.mem_filter.mp (Finset.mem_filter.mp hp).1).2.1
+          obtain ⟨hlo, hhi⟩ := pd7dPrimeDyad_bounds _ j p hp hprime.pos
+          exact ⟨hprime, hlo, hhi.le⟩
+        exact hiso x hxiso' ((2 : ℝ) ^ j) (one_le_pow₀ (by norm_num)) hPlo hPhi _ hPset beta hbetaBound k hk hkle χb χm χn ξ
+      have hh := pd7d_major_dyad_energy_bound x Y lam eta a j χb M N T Rm Rn
+        (Ciso * Real.rpow L (-Aiso)) heta heta_supp hYpos
+        (fun i => (hbands' i.succ).2) hT hM hN hRm hRn hMb hNb hIso
+      calc
+        _ ≤ 16 * ((bandMass x (a 0))⁻¹) ^ 2 *
+            (∫ ξ : ℝ, ‖pd7MajorCutoffTransform eta lam ξ‖) ^ 2 * (Ciso * Real.rpow L (-Aiso)) := hh
+        _ ≤ 16 * (2 / Real.log 2) ^ 2 * (81 * Cη ^ 2 * Real.rpow L (4 * A₀)) *
+            (Ciso * Real.rpow L (-Aiso)) := by gcongr
+        _ = _ := by
+          rw [show 4 * A₀ - Aiso = 4 * A₀ + (-Aiso) by ring, pd7d_rpow_add hLpos]
+          dsimp [Cd]
+          ring
+    have hDcard : (Dset.card : ℝ) ≤ cd * L := pd7d_prime_band_dyads_card x (a 0) hL (by linarith [(ha.2.1 0).2])
+    have hDsq : (Dset.card : ℝ) ^ 2 ≤ cd ^ 2 * L ^ 2 := by
+      have hh := pow_le_pow_left₀ (by positivity : 0 ≤ (Dset.card : ℝ)) hDcard 2
+      simpa [mul_pow] using hh
+    have hFcont (j : ℕ) (hj : j ∈ Dset) :
+        Continuous (fun t => pd7dMajorDyadPolynomial x Y lam eta a j χb t * M t * N t) := by
+      dsimp [pd7dMajorDyadPolynomial]
+      fun_prop
+    have hsum := pd7d_finite_sum_energy_bound Dset
+      (fun j t => pd7dMajorDyadPolynomial x Y lam eta a j χb t * M t * N t) T hT hFcont
+    have hsumLe : (∑ j ∈ Dset, ∫ t in (-T)..T,
+        ‖pd7dMajorDyadPolynomial x Y lam eta a j χb t * M t * N t‖ ^ 2) ≤
+        (Dset.card : ℝ) * (Cd * Real.rpow L (4 * A₀ - Aiso)) := by
+      simpa using Finset.sum_le_sum hdyad
+    unfold majorEnergy majorEnergyIntegral
+    simp_rw [pd7d_majorB_sum_dyads, Finset.sum_mul]
+    calc
+      _ ≤ (Dset.card : ℝ) * (∑ j ∈ Dset, ∫ t in (-T)..T,
+          ‖pd7dMajorDyadPolynomial x Y lam eta a j χb t * M t * N t‖ ^ 2) := hsum
+      _ ≤ (Dset.card : ℝ) ^ 2 * (Cd * Real.rpow L (4 * A₀ - Aiso)) := by
+        have hh := mul_le_mul_of_nonneg_left hsumLe (by positivity : 0 ≤ (Dset.card : ℝ))
+        convert hh using 1 <;> ring
+      _ ≤ (cd ^ 2 * L ^ 2) * (Cd * Real.rpow L (4 * A₀ - Aiso)) :=
+        mul_le_mul_of_nonneg_right hDsq (by positivity)
+      _ = C' * Real.rpow L (2 + (4 * A₀ - Aiso)) := by
+        rw [← pd7d_rpow_natCast L 2, pd7d_rpow_add hLpos]
+        dsimp [C']
+        ring
+      _ ≤ C' * Real.rpow L (-A') := by
+        apply mul_le_mul_of_nonneg_left _ hC'.le
+        apply Real.rpow_le_rpow_of_exponent_le hL
+        dsimp [Aiso]
+        linarith
 
 /-- `prop:major-term` — PD 05:9-30, Proposition 5.1.  CORRECTED restatement of the frozen
 `major_term`: adds `‖β_n‖ ≤ L^C` and the smoothness/support of `η` (without them the bound is
