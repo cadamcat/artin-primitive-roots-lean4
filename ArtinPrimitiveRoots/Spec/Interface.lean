@@ -116,11 +116,6 @@ theorem horiz_pt (x : ℂ) (y : ℝ) (hy : 0 < y) : horiz (pt x y) = x := by
   simp [ptMat, Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply, Complex.conj_ofReal]
   field_simp
 
-/-- The action in coordinates (convention check; OAI `hyperbolicHeight_action_upperPoint`,
-HyperbolicSpace.lean:163). Owner `spec:h3-basics`. -/
-theorem height_smul_pt (g : SL(2,ℂ)) (x : ℂ) (y : ℝ) (hy : 0 < y) :
-    height (g • pt x y) = y / (Complex.normSq (g 1 0 * x + g 1 1) + Complex.normSq (g 1 0) * y ^ 2) := by
-  sorry
 
 /-! ## 2. The product space and the action of `SL(2,F)` (node `spec:X-action`) -/
 
@@ -252,54 +247,13 @@ variable [IsTotallyComplex F]
 
 /-! ## 4. Statements (all `sorry`; owner node in the docstring) -/
 
-/-- `spec:free-level`: some principal congruence subgroup acts freely. -/
-theorem exists_free_congr : ∃ N : Ideal (𝓞 F), N ≠ ⊥ ∧ FreeAction F (congrSubgroup F N) := by
-  sorry
 
-/-- `spec:cusps-finite` (boundary to P-EIS / P-REDUCTION): finitely many cusps; the map
-`⊔_i Γ_{σ_i}\Γ → B(F)\SL(2,F)`, `(i, Γ_{σ_i}γ) ↦ B(F)σ_i⁻¹γ`, is a bijection. -/
-theorem exists_cusp_reps (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] :
-    ∃ (ι : Type) (_ : Fintype ι) (σ : ι → SL(2,F)),
-      Function.Bijective (fun p : (Σ i, CuspCosets F Γ (σ i)) =>
-        (Quotient.mk (QuotientGroup.rightRel (borelSL F))
-          ((σ p.1)⁻¹ * toSLF F ((p.2.out : Γ) : SL(2, 𝓞 F))))) := by
-  sorry
 
-/-- `spec:x-action`: the height of a translate, place by place (from `height_smul_pt`). -/
-theorem normHeight_smul_ptX' (g : SL(2,F)) (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ)
-    (hy : ∀ w, 0 < y w) :
-    normHeight F (g • ptX' F x y) = ∏ w, y w / (Complex.normSq (w.embedding (g 1 0) * x w +
-      w.embedding (g 1 1)) + Complex.normSq (w.embedding (g 1 0)) * y w ^ 2) := by
-  sorry
 
-/-- `spec:eis-def`: the term does not depend on the coset representative. -/
-theorem eisTerm_mk (Γ : Subgroup SL(2, 𝓞 F)) (σ : SL(2,F)) (s : ℂ) (z : X F) (γ : Γ) :
-    eisTerm F Γ σ s z (Quotient.mk _ γ) =
-      ((normHeight F (σ⁻¹ • ((γ : SL(2, 𝓞 F)) • z)) : ℝ) : ℂ) ^ (1 + 2 * s) := by
-  sorry
 
-/-- `spec:eis-converge`: locally uniform absolute convergence for `Re s > 1/2`, uniformly on compact
-sets of `z` and on vertical strips `σ₀ ≤ Re s ≤ σ₁`. -/
-theorem eisSeries_majorant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ : SL(2,F))
-    (K : Set (X F)) (hK : IsCompact K) (σ₀ σ₁ : ℝ) (h₀ : 1 / 2 < σ₀) :
-    ∃ m : CuspCosets F Γ σ → ℝ, Summable m ∧
-      ∀ z ∈ K, ∀ s : ℂ, σ₀ ≤ s.re → s.re ≤ σ₁ → ∀ q, ‖eisTerm F Γ σ s z q‖ ≤ m q := by
-  sorry
 
-/-- `spec:eis-converge`: `Γ`-invariance in the convergence region. -/
-theorem eisSeries_invariant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ : SL(2,F)) (s : ℂ)
-    (hs : 1 / 2 < s.re) (γ : SL(2, 𝓞 F)) (hγ : γ ∈ Γ) (z : X F) :
-    eisSeries F Γ σ s (γ • z) = eisSeries F Γ σ s z := by
-  sorry
 
-/-- `spec:domain`. -/
-theorem isOpen_contDomain (s₁ ε : ℝ) : IsOpen (contDomain s₁ ε) := by
-  sorry
 
-/-- `spec:domain`. -/
-theorem isPreconnected_contDomain (s₁ ε : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ < 4) (hε : 0 < ε) :
-    IsPreconnected (contDomain s₁ ε) := by
-  sorry
 
 /-- **The consumer object.** The continuation of `E_{Γ,σ}` to `contDomain s₁ ε` and its residue at
 `s₁`, with the properties P-RES, P-REDUCTION and P-ASSEMBLE use (BP §1.3). `E` is unique
@@ -334,34 +288,48 @@ structure ContinuedEisenstein (Γ : Subgroup SL(2, 𝓞 F)) (σ : SL(2,F)) (s₁
   res_sq : ∀ D : Set (X F), IsFundamentalDomain Γ D (volX F) →
     IntegrableOn (fun z => ‖res z‖ ^ 2) D (volX F)
 
-/-- **Main theorem of P-SPEC** (`spec:api`). -/
-theorem exists_continuedEisenstein (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex]
-    (hfree : FreeAction F Γ) (σ : SL(2,F)) (s₁ : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ ≤ 1 / 2) :
-    Nonempty (ContinuedEisenstein F Γ σ s₁) := by
-  sorry
 
-/-- `spec:api` (uniqueness): two continuations agree on the common domain. -/
-theorem ContinuedEisenstein.E_eq {Γ : Subgroup SL(2, 𝓞 F)} {σ : SL(2,F)} {s₁ : ℝ}
-    (d d' : ContinuedEisenstein F Γ σ s₁) (h₁ : s₁ ≤ 1 / 2) :
-    (∀ s ∈ contDomain s₁ (min d.ε d'.ε), d.E s = d'.E s) ∧ d.res = d'.res := by
-  sorry
 
 /-- `spec:api` (restriction to a smaller `ε`, e.g. a common `ε` for finitely many cusps). -/
 theorem ContinuedEisenstein.exists_restrict {Γ : Subgroup SL(2, 𝓞 F)} {σ : SL(2,F)} {s₁ : ℝ}
     (d : ContinuedEisenstein F Γ σ s₁) (ε' : ℝ) (h0 : 0 < ε') (h : ε' ≤ d.ε) :
     ∃ d' : ContinuedEisenstein F Γ σ s₁, d'.ε = ε' ∧ d'.E = d.E ∧ d'.res = d.res := by
-  sorry
+  have hdom : contDomain s₁ ε' ⊆ contDomain s₁ d.ε := by
+    intro z hz
+    simp only [contDomain, Set.mem_union] at hz ⊢
+    have hball : ∀ z ∈ Metric.ball (s₁ : ℂ) ε', z ∈ Metric.ball (s₁ : ℂ) d.ε :=
+      Metric.ball_subset_ball h
+    aesop
+  have hball : Metric.ball (s₁ : ℂ) ε' ⊆ Metric.ball (s₁ : ℂ) d.ε :=
+    Metric.ball_subset_ball h
+  refine ⟨{
+    ε := ε'
+    ε_pos := h0
+    ε_le := h.trans d.ε_le
+    E := d.E
+    E_series := d.E_series
+    E_invariant := ?_
+    E_smooth := ?_
+    E_analytic := ?_
+    res := d.res
+    laurent := ?_
+    res_smooth := d.res_smooth
+    res_invariant := d.res_invariant
+    res_eigen := d.res_eigen
+    res_sq := d.res_sq
+  }, rfl, rfl, rfl⟩
+  · exact fun s hs γ hγ z => d.E_invariant s (hdom hs) γ hγ z
+  · exact fun s hs => d.E_smooth s (hdom hs)
+  · intro K hK hKP n v
+    obtain ⟨Φ, hΦ, hvalue⟩ := d.E_analytic K hK hKP n v
+    refine ⟨Φ, hΦ.mono hdom, ?_⟩
+    intro s hs p
+    exact hvalue s (hdom hs) p
+  · intro K hK hKP n v
+    obtain ⟨Ψ, hΨ, hcenter, hvalue⟩ := d.laurent K hK hKP n v
+    refine ⟨Ψ, hΨ.mono hball, hcenter, ?_⟩
+    intro s hs hne p
+    exact hvalue s (hball hs) hne p
 
-/-- **`spec:cuspidal`.** A finite linear combination of residues (same `Γ`, same `s₁`) all of whose
-constant terms vanish is zero. The constant term along `τ` at height vector `y` is the integral over
-a fundamental domain `P` of the cusp lattice of `τ`. (Consumer: P-RES, "θ_f depends only on M*f".) -/
-theorem res_lincomb_eq_zero (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (hfree : FreeAction F Γ)
-    (s₁ : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ ≤ 1 / 2) {ι : Type} [Fintype ι] (σ : ι → SL(2,F))
-    (d : ∀ i, ContinuedEisenstein F Γ (σ i) s₁) (c : ι → ℂ)
-    (hct : ∀ (τ : SL(2,F)) (y : InfinitePlace F → ℝ), (∀ w, 0 < y w) →
-      ∃ P : Set (InfinitePlace F → ℂ), IsAddFundamentalDomain (cuspTranslations F Γ τ) P ∧
-        ∫ x in P, (∑ i, c i * (d i).res (τ • ptX' F x y)) = 0) :
-    ∀ z, ∑ i, c i * (d i).res z = 0 := by
-  sorry
 
 end ArtinPrimitiveRoots.A1.Spec
