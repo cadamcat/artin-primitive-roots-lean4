@@ -10,6 +10,9 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.CharacterExpansion
 import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.MajorArcArithmetic
 import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.SeparationCutoff
 import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.MajorArcPhase
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.ArcGeometry
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.MajorArcIntegral
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.KernelDerivativeMass
 
 /-!
 # Design B-PD-MajorArcs: drop-in replacement for `TypeII/PD/MajorArcs.lean` (PD §5)
