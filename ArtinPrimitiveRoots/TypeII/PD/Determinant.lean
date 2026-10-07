@@ -95,7 +95,7 @@ private lemma endpoint_second_mem_dyadic
 
 private lemma endpointF_pointwise_bound
     {δ C c₁ c₂ x : ℝ} {K : ℕ} {a : Fin K → ℝ}
-    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x)
+    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x) (hMin : family.xMin ≤ x)
     (beta : ℕ → ℂ)
     (hbeta : ∀ n ∈ dyadicIntegers (family.Hn x),
       ‖beta n‖ ≤ Real.rpow (Real.log x) C)
@@ -108,8 +108,8 @@ private lemma endpointF_pointwise_bound
     ‖family.alpha x (P.first / groupLabelProduct P)‖ ≤ Real.rpow (Real.log x) C := by
     by_cases hzero : family.alpha x (P.first / groupLabelProduct P) = 0
     · simpa [hzero] using (Real.rpow_nonneg (le_of_lt hlog) C)
-    · exact family.coefficient_bound x hx _
-        (family.rough_support x hx _ hzero).1
+    · exact family.coefficient_bound x hMin _
+        (family.rough_support x hMin _ hzero).1
   have hβ : ‖beta P.second‖ ≤ Real.rpow (Real.log x) C :=
     hbeta P.second (endpoint_second_mem_dyadic P)
   by_cases hG : Squarefree (groupLabelProduct P)
@@ -120,7 +120,7 @@ private lemma endpointF_pointwise_bound
 
 private lemma endpointG_pointwise_bound
     {δ C c₁ c₂ x : ℝ} {K : ℕ} {a : Fin K → ℝ}
-    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x)
+    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x) (hMin : family.xMin ≤ x)
     (beta : ℕ → ℂ)
     (hbeta : ∀ n ∈ dyadicIntegers (family.Hn x),
       ‖beta n‖ ≤ Real.rpow (Real.log x) C)
@@ -133,8 +133,8 @@ private lemma endpointG_pointwise_bound
     ‖family.alpha x (P.first / groupLabelProduct P)‖ ≤ Real.rpow (Real.log x) C := by
     by_cases hzero : family.alpha x (P.first / groupLabelProduct P) = 0
     · simpa [hzero] using (Real.rpow_nonneg (le_of_lt hlog) C)
-    · exact family.coefficient_bound x hx _
-        (family.rough_support x hx _ hzero).1
+    · exact family.coefficient_bound x hMin _
+        (family.rough_support x hMin _ hzero).1
   have hβ : ‖beta P.second‖ ≤ Real.rpow (Real.log x) C :=
     hbeta P.second (endpoint_second_mem_dyadic P)
   by_cases hG : Squarefree (groupLabelProduct P)
@@ -145,7 +145,7 @@ private lemma endpointG_pointwise_bound
 
 private lemma endpointF_sup_bound
     {δ C c₁ c₂ x : ℝ} {K : ℕ} {a : Fin K → ℝ}
-    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x)
+    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x) (hMin : family.xMin ≤ x)
     (beta : ℕ → ℂ)
     (hbeta : ∀ n ∈ dyadicIntegers (family.Hn x),
       ‖beta n‖ ≤ Real.rpow (Real.log x) C)
@@ -159,13 +159,13 @@ private lemma endpointF_sup_bound
   refine Real.sSup_le ?_ ?_
   · intro y hy
     rcases hy with ⟨P, rfl⟩
-    exact endpointF_pointwise_bound family hx beta hbeta P
+    exact endpointF_pointwise_bound family hx hMin beta hbeta P
   · exact mul_nonneg (Real.rpow_nonneg (le_of_lt hlog) C)
       (Real.rpow_nonneg (le_of_lt hlog) C)
 
 private lemma endpointG_sup_bound
     {δ C c₁ c₂ x : ℝ} {K : ℕ} {a : Fin K → ℝ}
-    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x)
+    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x) (hMin : family.xMin ≤ x)
     (beta : ℕ → ℂ)
     (hbeta : ∀ n ∈ dyadicIntegers (family.Hn x),
       ‖beta n‖ ≤ Real.rpow (Real.log x) C)
@@ -179,7 +179,7 @@ private lemma endpointG_sup_bound
   refine Real.sSup_le ?_ ?_
   · intro y hy
     rcases hy with ⟨P, rfl⟩
-    exact endpointG_pointwise_bound family hx beta hbeta P
+    exact endpointG_pointwise_bound family hx hMin beta hbeta P
   · exact mul_nonneg (Real.rpow_nonneg (le_of_lt hlog) C)
       (Real.rpow_nonneg (le_of_lt hlog) C)
 
@@ -675,7 +675,7 @@ theorem endpoint_bounds
               (B * Real.rpow (Real.log x) C_e) := by
   classical
   refine ⟨2 * C, 6, by positivity, by norm_num, ?_⟩
-  intro K a ha family x hx d₀ hd₀ Y hY beta hbetaSupport hbetaBound
+  intro K a ha family x hx hMin d₀ hd₀ Y hY beta hbetaSupport hbetaBound
   let H' : ℝ := (d₀ : ℝ) * Y
   let Hm : ℝ := family.Hm x
   let Hn : ℝ := family.Hn x
@@ -699,7 +699,7 @@ theorem endpoint_bounds
     rcases Finset.mem_image.mp hY with ⟨k, hk, rfl⟩
     positivity
   have hH'pos : 0 < H' := by dsimp [H']; positivity
-  have hscale := family.scales x hx
+  have hscale := family.scales x hMin
   have hxδ : 0 < Real.rpow x δ := Real.rpow_pos_of_pos hxpos δ
   have hHmpos : 0 < Hm := by
     dsimp [Hm]
@@ -720,8 +720,8 @@ theorem endpoint_bounds
     Finset.univ.filter fun P => endpointF x K a family beta P ≠ 0
   let SG : Finset (PhysicalState x K a H' Hm Hn) :=
     Finset.univ.filter fun P => endpointG x K a family beta P ≠ 0
-  have hSupF := endpointF_sup_bound (K := K) (a := a) family hx beta hbetaBound H'
-  have hSupG := endpointG_sup_bound (K := K) (a := a) family hx beta hbetaBound H'
+  have hSupF := endpointF_sup_bound (K := K) (a := a) family hx hMin beta hbetaBound H'
+  have hSupG := endpointG_sup_bound (K := K) (a := a) family hx hMin beta hbetaBound H'
   have hSupF' : physicalSupNorm x K a Fvec ≤ T * T := by
     simpa [Fvec, Hm, Hn, T] using hSupF
   have hSupG' : physicalSupNorm x K a Gvec ≤ T * T := by
@@ -781,10 +781,10 @@ theorem endpoint_bounds
     simp [Gvec, SG, endpointGVector]
   have hPointF : ∀ P, ‖Fvec P‖ ≤ T * T := by
     intro P
-    exact endpointF_pointwise_bound family hx beta hbetaBound P
+    exact endpointF_pointwise_bound family hx hMin beta hbetaBound P
   have hPointG : ∀ P, ‖Gvec P‖ ≤ T * T := by
     intro P
-    exact endpointG_pointwise_bound family hx beta hbetaBound P
+    exact endpointG_pointwise_bound family hx hMin beta hbetaBound P
   have hSqSumF := endpoint_finite_tsum_norm_sq_le Fvec (T * T)
     (mul_nonneg hTnonneg hTnonneg) SF hSupportF hPointF
   have hSqSumG := endpoint_finite_tsum_norm_sq_le Gvec (T * T)
@@ -1245,12 +1245,1283 @@ private lemma unitKloosterman_global_fourthMoment
 
 /-- `t2:pd.weak-kloosterman` — PD `03-determinant.tex:445-480`. -/
 
+private def factorTriples (m : ℕ) : Finset (ℕ × ℕ × ℕ) :=
+  ((Finset.Icc 1 m) ×ˢ ((Finset.Icc 1 m) ×ˢ (Finset.Icc 1 m))).filter
+    (fun t => t.1 * t.2.1 * t.2.2 = m)
+
+private noncomputable def tau3 (m : ℕ) : ℕ := (factorTriples m).card
+
+private lemma tau3_le_cardDivisors_sq (m : ℕ) (hm : 1 ≤ m) :
+    tau3 m ≤ (m.divisors.card) ^ 2 := by
+  classical
+  letI : Fintype {t // t ∈ factorTriples m} :=
+    Fintype.ofFinset (factorTriples m) (by intro t; rfl)
+  letI : Fintype (m.divisors) := Fintype.ofFinset m.divisors (by intro d; rfl)
+  let f : {t // t ∈ factorTriples m} → m.divisors × m.divisors := fun t =>
+    (⟨t.1.1, by
+        have ht := Finset.mem_filter.mp t.2
+        have hp := Finset.mem_product.mp ht.1
+        have hq := Finset.mem_product.mp hp.2
+        apply Nat.mem_divisors.mpr
+        refine ⟨?_, by omega⟩
+        exact ⟨t.1.2.1 * t.1.2.2, by nlinarith [ht.2]⟩⟩,
+     ⟨t.1.2.1, by
+        have ht := Finset.mem_filter.mp t.2
+        have hp := Finset.mem_product.mp ht.1
+        have hq := Finset.mem_product.mp hp.2
+        apply Nat.mem_divisors.mpr
+        refine ⟨?_, by omega⟩
+        exact ⟨t.1.1 * t.1.2.2, by nlinarith [ht.2]⟩⟩)
+  have hf : Function.Injective f := by
+    intro t u h
+    apply Subtype.ext
+    have h₁ := congrArg (fun z => z.1.val) h
+    have h₂ := congrArg (fun z => z.2.val) h
+    simp [f] at h₁ h₂
+    rcases t with ⟨⟨a, b, c⟩, ht⟩
+    rcases u with ⟨⟨a', b', c'⟩, hu⟩
+    have hprod : a * b * c = m := (Finset.mem_filter.mp ht).2
+    have hprod' : a' * b' * c' = m := (Finset.mem_filter.mp hu).2
+    have haa : a = a' := h₁
+    have hbb : b = b' := h₂
+    subst a
+    subst b
+    have hprod_eq : a' * b' * c = a' * b' * c' := hprod.trans hprod'.symm
+    have hab : 0 < a' * b' := by
+      have hp := Finset.mem_product.mp (Finset.mem_filter.mp ht).1
+      have hq := Finset.mem_product.mp hp.2
+      have ha0 : 0 < a' := (Finset.mem_Icc.mp hp.1).1
+      have hb0 : 0 < b' := (Finset.mem_Icc.mp hq.1).1
+      exact Nat.mul_pos ha0 hb0
+    have hc_eq : c = c' := Nat.mul_left_cancel hab hprod_eq
+    subst c
+    rfl
+  have hc := Fintype.card_le_of_injective f hf
+  simpa [tau3, Fintype.card_coe, Fintype.card_prod, pow_two] using hc
+
+private lemma one_add_mul_le_pow (t : ℝ) (ht : 0 ≤ t) (n : ℕ) :
+    1 + (n : ℝ) * t ≤ (1 + t) ^ n := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      have hn : 0 ≤ (n : ℝ) * t := mul_nonneg (Nat.cast_nonneg n) ht
+      calc
+        1 + ((n + 1 : ℕ) : ℝ) * t = 1 + (n : ℝ) * t + t := by simp [Nat.cast_add]; ring
+        _ ≤ (1 + (n : ℝ) * t) * (1 + t) := by nlinarith [mul_nonneg hn ht]
+        _ ≤ (1 + t) ^ n * (1 + t) := by gcongr
+        _ = (1 + t) ^ (n + 1) := by rw [pow_succ]
+
+private lemma succ_le_two_pow (n : ℕ) : n + 1 ≤ 2 ^ n := by
+  induction n with
+  | zero => decide
+  | succ n ih =>
+      calc
+        n + 1 + 1 ≤ (n + 1) + (n + 1) := by omega
+        _ ≤ 2 ^ n + 2 ^ n := Nat.add_le_add ih ih
+        _ = 2 ^ (n + 1) := by rw [pow_succ]; omega
+
+private noncomputable def divisorLocalConstant (η : ℝ) (P p : ℕ) : ℝ :=
+  if 2 ≤ p ∧ p ≤ P then 1 + 2 / ((p : ℝ) ^ η - 1) else 1
+
+private lemma divisor_local_factor_bound (η : ℝ) (hη : 0 < η) (P : ℕ)
+    (hP : 2 ≤ (P : ℝ) ^ η) {p e : ℕ} (hp : 2 ≤ p) :
+    ((e + 1 : ℕ) : ℝ) ≤ divisorLocalConstant η P p *
+      (p : ℝ) ^ (η * (e : ℝ)) := by
+  by_cases hsmall : p ≤ P
+  · have hp1 : 1 < (p : ℝ) := by exact_mod_cast (by omega : 1 < p)
+    have ht : 0 < (p : ℝ) ^ η - 1 := sub_pos.mpr (Real.one_lt_rpow hp1 hη)
+    have hbern := one_add_mul_le_pow ((p : ℝ) ^ η - 1) (le_of_lt ht) e
+    have hpow : (p : ℝ) ^ (η * (e : ℝ)) = ((p : ℝ) ^ η) ^ e :=
+      Real.rpow_mul_natCast (by positivity) η e
+    have hmain : 1 + (e : ℝ) * ((p : ℝ) ^ η - 1) ≤
+        (p : ℝ) ^ (η * (e : ℝ)) := by simpa [hpow] using hbern
+    have hCpos : 0 < 1 + 2 / ((p : ℝ) ^ η - 1) := by positivity
+    have hnum : (e : ℝ) + 1 ≤
+        (1 + 2 / ((p : ℝ) ^ η - 1)) *
+          (1 + (e : ℝ) * ((p : ℝ) ^ η - 1)) := by
+      by_cases he : e = 0
+      · subst e
+        have ht' : 0 ≤ 2 / ((p : ℝ) ^ η - 1) := le_of_lt (by positivity)
+        nlinarith
+      · have he1 : 1 ≤ e := Nat.one_le_iff_ne_zero.mpr he
+        have heR : 1 ≤ (e : ℝ) := by exact_mod_cast he1
+        have htwo : 2 / ((p : ℝ) ^ η - 1) ≤
+            1 + 2 / ((p : ℝ) ^ η - 1) := by linarith
+        have heterm : (e : ℝ) + 1 ≤ 2 * (e : ℝ) := by nlinarith
+        have hmul : 2 * (e : ℝ) =
+            (2 / ((p : ℝ) ^ η - 1)) * ((e : ℝ) * ((p : ℝ) ^ η - 1)) := by
+          field_simp [ne_of_gt ht]
+        have hle := mul_le_mul htwo
+          (show (e : ℝ) * ((p : ℝ) ^ η - 1) ≤
+            1 + (e : ℝ) * ((p : ℝ) ^ η - 1) by linarith)
+          (by positivity) (by positivity)
+        rw [← hmul] at hle
+        exact heterm.trans hle
+    unfold divisorLocalConstant
+    rw [if_pos ⟨hp, hsmall⟩]
+    calc
+      ((e + 1 : ℕ) : ℝ) ≤
+          (1 + 2 / ((p : ℝ) ^ η - 1)) *
+            (1 + (e : ℝ) * ((p : ℝ) ^ η - 1)) := by exact_mod_cast hnum
+      _ ≤ (1 + 2 / ((p : ℝ) ^ η - 1)) * (p : ℝ) ^ (η * (e : ℝ)) :=
+        mul_le_mul_of_nonneg_left hmain (le_of_lt hCpos)
+  · have hpP : (P : ℝ) ≤ p := by
+      have hpPnat : P ≤ p := by omega
+      exact_mod_cast hpPnat
+    have hpη : 2 ≤ (p : ℝ) ^ η := by
+      calc
+        2 ≤ (P : ℝ) ^ η := hP
+        _ ≤ (p : ℝ) ^ η := Real.rpow_le_rpow (by positivity) hpP hη.le
+    have htwo : ((e + 1 : ℕ) : ℝ) ≤ (2 : ℝ) ^ e := by
+      exact_mod_cast succ_le_two_pow e
+    have hpowbase : (2 : ℝ) ^ e ≤ ((p : ℝ) ^ η) ^ e := by gcongr
+    have hpow : ((p : ℝ) ^ η) ^ e = (p : ℝ) ^ (η * (e : ℝ)) :=
+      (Real.rpow_mul_natCast (by positivity) η e).symm
+    simpa [divisorLocalConstant, hsmall, hpow] using htwo.trans hpowbase
+
+private theorem divisor_card_rpow_bound (η : ℝ) (hη : 0 < η) :
+    ∃ C : ℝ, 0 < C ∧ ∀ m : ℕ, 1 ≤ m →
+      (m.divisors.card : ℝ) ≤ C * (m : ℝ) ^ η := by
+  classical
+  let P : ℕ := Nat.ceil ((2 : ℝ) ^ η⁻¹)
+  let localC : ℕ → ℝ := divisorLocalConstant η P
+  let C : ℝ := ∏ p ∈ Finset.Icc 2 P, localC p
+  have htarget : 1 < (2 : ℝ) ^ η⁻¹ := Real.one_lt_rpow (by norm_num) (inv_pos.mpr hη)
+  have hceil : (2 : ℝ) ^ η⁻¹ ≤ (P : ℝ) := by
+    exact Nat.le_ceil ((2 : ℝ) ^ η⁻¹)
+  have hPgt : 1 < P := by exact_mod_cast htarget.trans_le hceil
+  have hP : 2 ≤ P := by omega
+  have hPη : 2 ≤ (P : ℝ) ^ η := by
+    calc
+      2 = ((2 : ℝ) ^ η⁻¹) ^ η := by rw [Real.rpow_inv_rpow (by norm_num) hη.ne']
+      _ ≤ (P : ℝ) ^ η := Real.rpow_le_rpow (by positivity) hceil hη.le
+  have hlocal1 : ∀ p, 1 ≤ localC p := by
+    intro p
+    by_cases hp2 : 2 ≤ p
+    · by_cases hpP : p ≤ P
+      · simp [localC, divisorLocalConstant, hp2, hpP]
+        have hp1 : 1 < (p : ℝ) := by exact_mod_cast (by omega : 1 < p)
+        have ht : 0 < (p : ℝ) ^ η - 1 := sub_pos.mpr (Real.one_lt_rpow hp1 hη)
+        positivity
+      · simp [localC, divisorLocalConstant, hp2, hpP]
+    · simp [localC, divisorLocalConstant, hp2]
+  have hCpos : 0 < C := Finset.prod_pos fun p hp =>
+    lt_of_lt_of_le zero_lt_one (hlocal1 p)
+  refine ⟨C, hCpos, ?_⟩
+  intro m hm
+  have hm0 : m ≠ 0 := by omega
+  have hcard : (m.divisors.card : ℝ) =
+      ∏ p ∈ m.primeFactors, ((m.factorization p + 1 : ℕ) : ℝ) := by
+    exact_mod_cast (Nat.card_divisors hm0)
+  have hlocal : ∀ p ∈ m.primeFactors,
+      ((m.factorization p + 1 : ℕ) : ℝ) ≤
+        localC p * (p : ℝ) ^ (η * (m.factorization p : ℝ)) := by
+    intro p hp
+    exact divisor_local_factor_bound η hη P hPη
+      ((Nat.prime_of_mem_primeFactors hp).two_le)
+  have hprod := Finset.prod_le_prod₀
+    (fun p hp => by positivity) hlocal
+  have hpow : (∏ p ∈ m.primeFactors,
+      (p : ℝ) ^ (η * (m.factorization p : ℝ))) = (m : ℝ) ^ η := by
+    have hterm (p : ℕ) : (p : ℝ) ^ (η * (m.factorization p : ℝ)) =
+        ((p : ℝ) ^ m.factorization p) ^ η := by
+      rw [Real.rpow_mul_natCast (by positivity) η (m.factorization p)]
+      exact Real.rpow_pow_comm (by positivity) η (m.factorization p)
+    calc
+      _ = ∏ p ∈ m.primeFactors, ((p : ℝ) ^ m.factorization p) ^ η := by
+        apply Finset.prod_congr rfl
+        intro p hp
+        exact hterm p
+      _ = (∏ p ∈ m.primeFactors, (p : ℝ) ^ m.factorization p) ^ η := by
+        exact Real.finsetProd_rpow _ _ (by intro p hp; positivity) η
+      _ = (m : ℝ) ^ η := by
+        have hfac : ∏ p ∈ m.primeFactors, p ^ m.factorization p = m :=
+          Nat.prod_factorization_pow_eq_self hm0
+        exact_mod_cast congrArg (fun z : ℕ => (z : ℝ) ^ η) hfac
+  have hsmallProduct : (∏ p ∈ m.primeFactors, localC p) ≤ C := by
+    let s := m.primeFactors.filter (fun p => p ≤ P)
+    have heq : (∏ p ∈ m.primeFactors, localC p) = ∏ p ∈ s, localC p := by
+      rw [show s = m.primeFactors.filter (fun p => p ≤ P) from rfl, Finset.prod_filter]
+      apply Finset.prod_congr rfl
+      intro p hp
+      by_cases h : p ≤ P <;> simp [localC, divisorLocalConstant, h]
+    rw [heq]
+    apply Finset.prod_le_prod_of_subset_of_one_le₀
+    · intro p hp
+      have hp' := Finset.mem_filter.mp hp
+      exact Finset.mem_Icc.mpr ⟨(Nat.prime_of_mem_primeFactors hp'.1).two_le, hp'.2⟩
+    · intro p hp
+      exact le_trans zero_le_one (hlocal1 p)
+    · intro p hp hnot
+      exact hlocal1 p
+  calc
+    (m.divisors.card : ℝ) = ∏ p ∈ m.primeFactors,
+        ((m.factorization p + 1 : ℕ) : ℝ) := hcard
+    _ ≤ (∏ p ∈ m.primeFactors, localC p) *
+        (∏ p ∈ m.primeFactors,
+          (p : ℝ) ^ (η * (m.factorization p : ℝ))) := by
+      calc
+        _ ≤ ∏ p ∈ m.primeFactors,
+            (localC p * (p : ℝ) ^ (η * (m.factorization p : ℝ))) := hprod
+        _ = _ := Finset.prod_mul_distrib
+    _ ≤ C * (m : ℝ) ^ η := by rw [hpow]; exact mul_le_mul hsmallProduct le_rfl (by positivity) (by positivity)
+
+private theorem tau3_rpow_bound (η : ℝ) (hη : 0 < η) :
+    ∃ Cτ : ℝ, 0 < Cτ ∧ ∀ m : ℕ, 1 ≤ m →
+      (tau3 m : ℝ) ≤ Cτ * (m : ℝ) ^ η := by
+  obtain ⟨C, hC, hdiv⟩ := divisor_card_rpow_bound (η / 2) (by linarith)
+  refine ⟨C ^ 2, sq_pos_of_pos hC, ?_⟩
+  intro m hm
+  have hcard := tau3_le_cardDivisors_sq m hm
+  have hdivm := hdiv m hm
+  have hpow : ((m : ℝ) ^ (η / 2)) ^ 2 = (m : ℝ) ^ η := by
+    rw [← Real.rpow_mul_natCast (by positivity) (η / 2) 2]
+    congr 1
+    ring
+  have hmul : (C * (m : ℝ) ^ (η / 2)) ^ 2 ≤
+      (C ^ 2) * (m : ℝ) ^ η := by rw [mul_pow, hpow]
+  have hmain : (m.divisors.card : ℝ) ^ 2 ≤
+      (C * (m : ℝ) ^ (η / 2)) ^ 2 := by
+    have hdivm' : 0 ≤ (m.divisors.card : ℝ) := Nat.cast_nonneg _
+    have hright : 0 ≤ C * (m : ℝ) ^ (η / 2) := by positivity
+    nlinarith [hdivm]
+  calc
+    (tau3 m : ℝ) ≤ (m.divisors.card : ℝ) ^ 2 := by exact_mod_cast hcard
+    _ ≤ (C * (m : ℝ) ^ (η / 2)) ^ 2 := hmain
+    _ ≤ C ^ 2 * (m : ℝ) ^ η := hmul
+
+private noncomputable def totientLocalConstant (η : ℝ) (P p : ℕ) : ℝ :=
+  if 2 ≤ p ∧ p ≤ P then (p : ℝ) / ((p : ℝ) - 1) else 1
+
+private theorem inverse_totient_rpow_bound (η : ℝ) (hη : 0 < η) :
+    ∃ Cφ : ℝ, 0 < Cφ ∧ ∀ m : ℕ, 1 ≤ m →
+      (m : ℝ) / (Nat.totient m : ℝ) ≤ Cφ * (m : ℝ) ^ η := by
+  classical
+  let P : ℕ := Nat.ceil ((2 : ℝ) ^ η⁻¹)
+  let localC : ℕ → ℝ := totientLocalConstant η P
+  let Cφ : ℝ := ∏ p ∈ Finset.Icc 2 P, localC p
+  have htarget : 1 < (2 : ℝ) ^ η⁻¹ := Real.one_lt_rpow (by norm_num) (inv_pos.mpr hη)
+  have hceil : (2 : ℝ) ^ η⁻¹ ≤ (P : ℝ) := by exact Nat.le_ceil ((2 : ℝ) ^ η⁻¹)
+  have hPgt : 1 < P := by exact_mod_cast htarget.trans_le hceil
+  have hP : 2 ≤ P := by omega
+  have hPη : 2 ≤ (P : ℝ) ^ η := by
+    calc
+      2 = ((2 : ℝ) ^ η⁻¹) ^ η := by rw [Real.rpow_inv_rpow (by norm_num) hη.ne']
+      _ ≤ (P : ℝ) ^ η := Real.rpow_le_rpow (by positivity) hceil hη.le
+  have hlocal1 : ∀ p, 1 ≤ localC p := by
+    intro p
+    by_cases hp2 : 2 ≤ p
+    · by_cases hpP : p ≤ P
+      · simp [localC, totientLocalConstant, hp2, hpP]
+        have hp1 : 1 ≤ (p : ℝ) := by
+          exact_mod_cast (le_trans (by decide : 1 ≤ 2) hp2)
+        have hpReal : 1 < (p : ℝ) := by
+          exact_mod_cast (show 1 < p by omega)
+        have hden : 0 < (p : ℝ) - 1 := by linarith
+        rw [le_div_iff₀ hden]
+        nlinarith
+      · simp [localC, totientLocalConstant, hp2, hpP]
+    · simp [localC, totientLocalConstant, hp2]
+  have hCpos : 0 < Cφ := Finset.prod_pos fun p hp =>
+    lt_of_lt_of_le zero_lt_one (hlocal1 p)
+  refine ⟨Cφ, hCpos, ?_⟩
+  intro m hm
+  have hm0 : m ≠ 0 := by omega
+  have hphi : 0 < Nat.totient m := Nat.totient_pos.mpr (by omega)
+  have hratio : (m : ℝ) / (Nat.totient m : ℝ) =
+      ∏ p ∈ m.primeFactors, (p : ℝ) / ((p : ℝ) - 1) := by
+    have hformNat := Nat.totient_mul_prod_primeFactors m
+    have hform : (Nat.totient m : ℝ) *
+          (∏ p ∈ m.primeFactors, (p : ℝ)) =
+        ((m * ∏ p ∈ m.primeFactors, (p - 1) : ℕ) : ℝ) := by
+      have hcast := congrArg (fun z : ℕ => (z : ℝ)) hformNat
+      simpa only [Nat.cast_mul, Nat.cast_prod] using hcast
+    have hform' : (Nat.totient m : ℝ) *
+          (∏ p ∈ m.primeFactors, (p : ℝ)) =
+        (m : ℝ) * ∏ p ∈ m.primeFactors, ((p : ℝ) - 1) := by
+      calc
+        _ = (m : ℝ) * ∏ p ∈ m.primeFactors, ((p - 1 : ℕ) : ℝ) := by
+          rw [hform]
+          simp only [Nat.cast_mul, Nat.cast_prod]
+        _ = (m : ℝ) * ∏ p ∈ m.primeFactors, ((p : ℝ) - 1) := by
+          congr 1
+          apply Finset.prod_congr rfl
+          intro p hp
+          have hp1 : 1 ≤ p :=
+            Nat.le_of_lt (Nat.prime_of_mem_primeFactors hp).one_lt
+          rw [Nat.cast_sub hp1, Nat.cast_one]
+    have hprodRatio :
+        (∏ p ∈ m.primeFactors, (p : ℝ)) /
+            (∏ p ∈ m.primeFactors, ((p : ℝ) - 1)) =
+          ∏ p ∈ m.primeFactors, (p : ℝ) / ((p : ℝ) - 1) := by
+      rw [← Finset.prod_div_distrib]
+    have hden : (∏ p ∈ m.primeFactors, ((p : ℝ) - 1)) ≠ 0 := by
+      apply ne_of_gt
+      apply Finset.prod_pos
+      intro p hp
+      have hprime := Nat.prime_of_mem_primeFactors hp
+      have hpReal : 1 < (p : ℝ) := by exact_mod_cast hprime.one_lt
+      exact sub_pos.mpr hpReal
+    rw [← hprodRatio]
+    apply (div_eq_div_iff (by positivity) hden).2
+    nlinarith [hform']
+  have hlocal : ∀ p ∈ m.primeFactors,
+      (p : ℝ) / ((p : ℝ) - 1) ≤ localC p * (p : ℝ) ^ η := by
+    intro p hp
+    have hpPrime := Nat.prime_of_mem_primeFactors hp
+    have hp2 : 2 ≤ p := hpPrime.two_le
+    have hp1 : 1 ≤ (p : ℝ) := by
+      exact_mod_cast (le_trans (by decide : 1 ≤ 2) hp2)
+    by_cases hpP : p ≤ P
+    · have hpη : 1 ≤ (p : ℝ) ^ η := by
+        apply Real.one_le_rpow
+        · exact hp1
+        · exact hη.le
+      simp [localC, totientLocalConstant, hp2, hpP]
+      have hratio_nonneg : 0 ≤ (p : ℝ) / ((p : ℝ) - 1) := by positivity
+      simpa using mul_le_mul_of_nonneg_left hpη hratio_nonneg
+    · have hpPcast : (P : ℝ) ≤ p := by
+        have hnat : P ≤ p := by omega
+        exact_mod_cast hnat
+      have hpη : 2 ≤ (p : ℝ) ^ η := by
+        calc
+          2 ≤ (P : ℝ) ^ η := hPη
+          _ ≤ (p : ℝ) ^ η := Real.rpow_le_rpow (by positivity) hpPcast hη.le
+      have hratio2 : (p : ℝ) / ((p : ℝ) - 1) ≤ 2 := by
+        have hpReal : 1 < (p : ℝ) := by exact_mod_cast hpPrime.one_lt
+        have hpReal2 : 2 ≤ (p : ℝ) := by exact_mod_cast hp2
+        have hden : 0 < (p : ℝ) - 1 := by linarith
+        rw [div_le_iff₀ hden]
+        nlinarith [hpReal2]
+      simpa [localC, totientLocalConstant, hp2, hpP] using hratio2.trans hpη
+  have hprod := Finset.prod_le_prod₀
+    (fun p hp => by
+      have hpPrime := Nat.prime_of_mem_primeFactors hp
+      have hpReal : 1 < (p : ℝ) := by exact_mod_cast hpPrime.one_lt
+      positivity) hlocal
+  have hsmallProduct : (∏ p ∈ m.primeFactors, localC p) ≤ Cφ := by
+    let s := m.primeFactors.filter (fun p => p ≤ P)
+    have heq : (∏ p ∈ m.primeFactors, localC p) = ∏ p ∈ s, localC p := by
+      rw [show s = m.primeFactors.filter (fun p => p ≤ P) from rfl, Finset.prod_filter]
+      apply Finset.prod_congr rfl
+      intro p hp
+      by_cases h : p ≤ P <;> simp [localC, totientLocalConstant, h]
+    rw [heq]
+    apply Finset.prod_le_prod_of_subset_of_one_le₀
+    · intro p hp
+      have hp' := Finset.mem_filter.mp hp
+      exact Finset.mem_Icc.mpr ⟨(Nat.prime_of_mem_primeFactors hp'.1).two_le, hp'.2⟩
+    · intro p hp
+      exact le_trans zero_le_one (hlocal1 p)
+    · intro p hp hnot
+      exact hlocal1 p
+  have hrad_dvd : (∏ p ∈ m.primeFactors, p) ∣ m := Nat.prod_primeFactors_dvd m
+  have hrad_le : (∏ p ∈ m.primeFactors, p) ≤ m :=
+    Nat.le_of_dvd (by omega) hrad_dvd
+  have hpow : (∏ p ∈ m.primeFactors, (p : ℝ) ^ η) ≤ (m : ℝ) ^ η := by
+    rw [Real.finsetProd_rpow _ _ (by intro p hp; positivity) η]
+    have hcastprod : (∏ p ∈ m.primeFactors, (p : ℝ)) =
+        ((∏ p ∈ m.primeFactors, p : ℕ) : ℝ) := by
+      exact (Nat.cast_prod (fun p : ℕ => p) m.primeFactors).symm
+    rw [hcastprod]
+    exact Real.rpow_le_rpow (by positivity) (by exact_mod_cast hrad_le) hη.le
+  calc
+    (m : ℝ) / (Nat.totient m : ℝ) =
+        ∏ p ∈ m.primeFactors, (p : ℝ) / ((p : ℝ) - 1) := hratio
+    _ ≤ (∏ p ∈ m.primeFactors, localC p) *
+        (∏ p ∈ m.primeFactors, (p : ℝ) ^ η) := by
+      calc
+        _ ≤ ∏ p ∈ m.primeFactors, (localC p * (p : ℝ) ^ η) := hprod
+        _ = _ := Finset.prod_mul_distrib
+    _ ≤ Cφ * (m : ℝ) ^ η := by
+      exact mul_le_mul hsmallProduct hpow (by positivity) (by positivity)
+
+private lemma card_fin_divisible_le (m d : ℕ) (hd : 0 < d) (hdm : d ∣ m) :
+    (Finset.univ.filter fun i : Fin m => d ∣ i.val).card ≤ m / d := by
+  classical
+  let S : Finset (Fin m) := Finset.univ.filter fun i => d ∣ i.val
+  letI : Fintype {i // i ∈ S} := Fintype.ofFinset S (by intro i; rfl)
+  let f : {i // i ∈ S} → Fin (m / d) := fun i =>
+    ⟨i.1.val / d, by
+      rw [Nat.div_lt_iff_lt_mul hd]
+      have hmd : m / d * d = m := Nat.div_mul_cancel hdm
+      rw [hmd]
+      exact i.1.isLt⟩
+  have hf : Function.Injective f := by
+    intro i j hij
+    apply Subtype.ext
+    apply Fin.ext
+    have hq : i.1.val / d = j.1.val / d := congrArg Fin.val hij
+    have hi : d * (i.1.val / d) = i.1.val := by
+      calc
+        d * (i.1.val / d) = (i.1.val / d) * d := Nat.mul_comm _ _
+        _ = i.1.val := Nat.div_mul_cancel (Finset.mem_filter.mp i.2).2
+    have hj : d * (j.1.val / d) = j.1.val := by
+      calc
+        d * (j.1.val / d) = (j.1.val / d) * d := Nat.mul_comm _ _
+        _ = j.1.val := Nat.div_mul_cancel (Finset.mem_filter.mp j.2).2
+    rw [← hi, ← hj, hq]
+  have hc := Fintype.card_le_of_injective f hf
+  calc
+    (Finset.univ.filter fun i : Fin m => d ∣ i.val).card = S.card := rfl
+    _ = Fintype.card {i // i ∈ S} := (Fintype.card_coe S).symm
+    _ ≤ Fintype.card (Fin (m / d)) := hc
+    _ = m / d := Fintype.card_fin _
+
+private lemma sum_gcd_fin_le (m : ℕ) (hm : 0 < m) :
+    (∑ i : Fin m, Nat.gcd m i.val) ≤ m * m.divisors.card := by
+  classical
+  have hpoint (i : Fin m) :
+      Nat.gcd m i.val ≤
+        ∑ d ∈ m.divisors.filter (fun d => d ∣ i.val), d := by
+    have hmem : Nat.gcd m i.val ∈ m.divisors.filter (fun d => d ∣ i.val) :=
+      Finset.mem_filter.mpr
+        ⟨Nat.mem_divisors.mpr ⟨Nat.gcd_dvd_left m i.val, hm.ne'⟩,
+          Nat.gcd_dvd_right m i.val⟩
+    exact Finset.single_le_sum (fun d hd => Nat.zero_le d) hmem
+  have hswap :
+      (∑ i : Fin m, ∑ d ∈ m.divisors.filter (fun d => d ∣ i.val), d) =
+        ∑ d ∈ m.divisors,
+          d * (Finset.univ.filter fun i : Fin m => d ∣ i.val).card := by
+    calc
+      _ = ∑ i : Fin m, ∑ d ∈ m.divisors, if d ∣ i.val then d else 0 := by
+        apply Finset.sum_congr rfl
+        intro i hi
+        rw [Finset.sum_filter]
+      _ = ∑ d ∈ m.divisors, ∑ i : Fin m, if d ∣ i.val then d else 0 :=
+        Finset.sum_comm
+      _ = _ := by
+        apply Finset.sum_congr rfl
+        intro d hd
+        rw [← Finset.sum_filter]
+        simp [Finset.sum_const, mul_comm]
+  calc
+    (∑ i : Fin m, Nat.gcd m i.val) ≤
+        ∑ i : Fin m, ∑ d ∈ m.divisors.filter (fun d => d ∣ i.val), d :=
+      Finset.sum_le_sum fun i hi => hpoint i
+    _ = _ := hswap
+    _ ≤ ∑ d ∈ m.divisors, m := by
+      apply Finset.sum_le_sum
+      intro d hd
+      have hdiv : d ∣ m := Nat.dvd_of_mem_divisors hd
+      have hpos : 0 < d := Nat.pos_of_dvd_of_pos hdiv hm
+      have hcard := card_fin_divisible_le m d hpos hdiv
+      calc
+        d * (Finset.univ.filter fun i : Fin m => d ∣ i.val).card ≤ d * (m / d) :=
+          Nat.mul_le_mul_left d hcard
+        _ = m := by simpa [Nat.mul_comm] using Nat.div_mul_cancel hdiv
+    _ = m * m.divisors.card := by simp [Finset.sum_const, mul_comm]
+
+private lemma zmod_mul_zero_card (m d : ℕ) [NeZero m] :
+    Fintype.card {c : ZMod m // (d : ZMod m) * c = 0} = Nat.gcd m d := by
+  classical
+  let φ : ZMod m →+ ZMod m := nsmulAddMonoidHom d
+  have hφ (c : ZMod m) : φ c = (d : ZMod m) * c := by
+    simp [φ, nsmulAddMonoidHom_apply, nsmul_eq_mul]
+  let e : {c : ZMod m // (d : ZMod m) * c = 0} ≃ φ.ker :=
+    { toFun := fun c => (⟨c.1, by
+          change φ c.1 = 0
+          rw [hφ c.1]
+          exact c.2⟩ : φ.ker)
+      invFun := fun c => (⟨c.1, by
+          change (d : ZMod m) * c.1 = 0
+          rw [← hφ c.1]
+          exact c.2⟩ : {c : ZMod m // (d : ZMod m) * c = 0})
+      left_inv := by intro c; apply Subtype.ext; rfl
+      right_inv := by intro c; apply Subtype.ext; rfl }
+  calc
+    Fintype.card {c : ZMod m // (d : ZMod m) * c = 0} = Fintype.card φ.ker :=
+      Fintype.card_congr e
+    _ = Nat.card φ.ker := Nat.card_eq_fintype_card.symm
+    _ = Nat.gcd (Nat.card (ZMod m)) d :=
+      IsAddCyclic.card_nsmulAddMonoidHom_ker (ZMod m) d
+    _ = Nat.gcd m d := by simp
+
+private noncomputable def zmodEquivFin (m : ℕ) [NeZero m] : ZMod m ≃ Fin m where
+  toFun a := ⟨a.val, a.val_lt⟩
+  invFun i := (i.val : ZMod m)
+  left_inv := ZMod.natCast_zmod_val
+  right_inv := by
+    intro i
+    apply Fin.ext
+    simp [ZMod.val_natCast_of_lt i.isLt]
+
+private lemma sum_zmod_gcd_val_le (m : ℕ) [NeZero m] :
+    (∑ a : ZMod m, Nat.gcd m a.val) ≤ m * m.divisors.card := by
+  calc
+    (∑ a : ZMod m, Nat.gcd m a.val) =
+        ∑ i : Fin m, Nat.gcd m i.val := by
+          apply Fintype.sum_equiv (zmodEquivFin m)
+          intro a
+          rfl
+    _ ≤ m * m.divisors.card := sum_gcd_fin_le m (NeZero.pos m)
+
+private lemma zmod_mul_zero_card_of_residues {m : ℕ} [NeZero m] (a b : ZMod m) :
+    Fintype.card {c : ZMod m // a * b * c = 0} =
+      Nat.gcd m (a * b).val := by
+  simpa only [ZMod.natCast_zmod_val] using zmod_mul_zero_card m (a * b).val
+
+private lemma zero_product_zmod_card_eq (m : ℕ) [NeZero m] :
+    Fintype.card {t : ZMod m × ZMod m × ZMod m // t.1 * t.2.1 * t.2.2 = 0} =
+      ∑ a : ZMod m, ∑ b : ZMod m, Nat.gcd m (a * b).val := by
+  classical
+  let T := {t : ZMod m × ZMod m × ZMod m // t.1 * t.2.1 * t.2.2 = 0}
+  let E := Σ a : ZMod m, Σ b : ZMod m, {c : ZMod m // a * b * c = 0}
+  let e :
+      {t : ZMod m × ZMod m × ZMod m // t.1 * t.2.1 * t.2.2 = 0} ≃
+        (Σ a : ZMod m, Σ b : ZMod m, {c : ZMod m // a * b * c = 0}) :=
+    { toFun := fun t => ⟨t.1.1, ⟨t.1.2.1, ⟨t.1.2.2, t.2⟩⟩⟩
+      invFun := fun z => ⟨(z.1, (z.2.1, z.2.2.1)), by simpa using z.2.2.2⟩
+      left_inv := by
+        intro t
+        apply Subtype.ext
+        rcases t with ⟨⟨a, b, c⟩, ht⟩
+        rfl
+      right_inv := by
+        intro z
+        rcases z with ⟨a, ⟨b, ⟨c, hc⟩⟩⟩
+        rfl }
+  calc
+    Fintype.card T = Fintype.card E := Fintype.card_congr e
+    _ = ∑ a : ZMod m, ∑ b : ZMod m,
+          Fintype.card {c : ZMod m // a * b * c = 0} := by
+      simp [E, Fintype.card_sigma]
+    _ = ∑ a : ZMod m, ∑ b : ZMod m, Nat.gcd m (a * b).val := by
+      apply Fintype.sum_congr
+      intro a
+      apply Fintype.sum_congr
+      intro b
+      exact zmod_mul_zero_card_of_residues a b
+
+private lemma zero_product_zmod_card_le (m : ℕ) [NeZero m] :
+    Fintype.card {t : ZMod m × ZMod m × ZMod m // t.1 * t.2.1 * t.2.2 = 0} ≤
+      m ^ 2 * (m.divisors.card) ^ 2 := by
+  classical
+  have hpoint (a b : ZMod m) :
+      Nat.gcd m (a * b).val ≤ Nat.gcd m a.val * Nat.gcd m b.val := by
+    have hval : (a * b).val = a.val * b.val % m := ZMod.val_mul a b
+    let g := Nat.gcd m (a * b).val
+    have hgM : g ∣ m := Nat.gcd_dvd_left m (a * b).val
+    have hgval : g ∣ (a * b).val := Nat.gcd_dvd_right m (a * b).val
+    have hgmod : g ∣ a.val * b.val % m := by rw [← hval]; exact hgval
+    have hmodAdd : a.val * b.val % m + m * (a.val * b.val / m) =
+        a.val * b.val := Nat.mod_add_div _ _
+    have hgprod : g ∣ a.val * b.val := by
+      rw [← hmodAdd]
+      exact Nat.dvd_add hgmod (dvd_mul_of_dvd_left hgM _)
+    have hdvd := (Nat.dvd_gcd hgM hgprod).trans
+      (gcd_mul_dvd_mul_gcd m a.val b.val)
+    exact Nat.le_of_dvd
+      (Nat.mul_pos (Nat.gcd_pos_of_pos_left _ (NeZero.pos m))
+        (Nat.gcd_pos_of_pos_left _ (NeZero.pos m))) hdvd
+  have hsum : (∑ a : ZMod m, ∑ b : ZMod m, Nat.gcd m (a * b).val) ≤
+      (∑ a : ZMod m, Nat.gcd m a.val) ^ 2 := by
+    calc
+      _ ≤ ∑ a : ZMod m, ∑ b : ZMod m, Nat.gcd m a.val * Nat.gcd m b.val := by
+        apply Finset.sum_le_sum
+        intro a ha
+        apply Finset.sum_le_sum
+        intro b hb
+        exact hpoint a b
+      _ = (∑ a : ZMod m, Nat.gcd m a.val) *
+          (∑ b : ZMod m, Nat.gcd m b.val) := by rw [Fintype.sum_mul_sum]
+      _ = (∑ a : ZMod m, Nat.gcd m a.val) ^ 2 := by ring
+  have hgcdsum := sum_zmod_gcd_val_le m
+  have hpow : (∑ a : ZMod m, Nat.gcd m a.val) ^ 2 ≤
+      (m * m.divisors.card) ^ 2 := Nat.pow_le_pow_left hgcdsum 2
+  have hcard := zero_product_zmod_card_eq m
+  calc
+    Fintype.card {t : ZMod m × ZMod m × ZMod m // t.1 * t.2.1 * t.2.2 = 0}
+        = ∑ a : ZMod m, ∑ b : ZMod m, Nat.gcd m (a * b).val := hcard
+    _ ≤ (∑ a : ZMod m, Nat.gcd m a.val) ^ 2 := hsum
+    _ ≤ (m * m.divisors.card) ^ 2 := hpow
+    _ = m ^ 2 * (m.divisors.card) ^ 2 := by ring
+
+private def linearForms {m : ℕ} (t : ZMod m × ZMod m × ZMod m) :
+    ZMod m × ZMod m × ZMod m :=
+  (t.1 + t.2.1, (t.2.2 - t.1, t.2.2 - t.2.1))
+
+private lemma linearForms_fiber_card_le_two (m : ℕ) [NeZero m]
+    (v : ZMod m × ZMod m × ZMod m) :
+    Fintype.card {t : ZMod m × ZMod m × ZMod m // linearForms t = v} ≤ 2 := by
+  classical
+  by_cases hne : Nonempty {t : ZMod m × ZMod m × ZMod m // linearForms t = v}
+  · let t₀ := Classical.choice hne
+    let f : {t : ZMod m × ZMod m × ZMod m // linearForms t = v} →
+        {w : ZMod m // (2 : ZMod m) * w = 0} := fun t =>
+      ⟨t.1.1 - t₀.1.1, by
+        have hsame : linearForms t.1 = linearForms t₀.1 := t.2.trans t₀.2.symm
+        have h₁ : t.1.1 + t.1.2.1 = t₀.1.1 + t₀.1.2.1 :=
+          congrArg Prod.fst hsame
+        have h₂ : t.1.2.2 - t.1.1 = t₀.1.2.2 - t₀.1.1 :=
+          congrArg (fun z => z.2.1) hsame
+        have h₃ : t.1.2.2 - t.1.2.1 = t₀.1.2.2 - t₀.1.2.1 :=
+          congrArg (fun z => z.2.2) hsame
+        have hid (x y z : ZMod m) : 2 * x = (x + y) - (z - x) + (z - y) := by ring
+        calc
+          2 * (t.1.1 - t₀.1.1) = 2 * t.1.1 - 2 * t₀.1.1 := by ring
+          _ = ((t.1.1 + t.1.2.1) - (t.1.2.2 - t.1.1) +
+                (t.1.2.2 - t.1.2.1)) -
+              ((t₀.1.1 + t₀.1.2.1) - (t₀.1.2.2 - t₀.1.1) +
+                (t₀.1.2.2 - t₀.1.2.1)) := by rw [hid, hid]
+          _ = 0 := by rw [h₁, h₂, h₃]; ring⟩
+    have hf : Function.Injective f := by
+      intro t u h
+      apply Subtype.ext
+      have hfirst : t.1.1 = u.1.1 := by
+        have h' := congrArg (fun w : ZMod m => w + t₀.1.1) (congrArg Subtype.val h)
+        simpa [f, sub_add_cancel] using h'
+      have hsame : linearForms t.1 = linearForms u.1 := t.2.trans u.2.symm
+      have hsum : t.1.1 + t.1.2.1 = u.1.1 + u.1.2.1 :=
+        congrArg Prod.fst hsame
+      have hsecond : t.1.2.1 = u.1.2.1 := by
+        calc
+          t.1.2.1 = (t.1.1 + t.1.2.1) - t.1.1 := by ring
+          _ = (u.1.1 + u.1.2.1) - t.1.1 := by rw [hsum]
+          _ = u.1.2.1 := by rw [hfirst]; ring
+      have hthird' : t.1.2.2 - t.1.1 = u.1.2.2 - u.1.1 :=
+        congrArg (fun z => z.2.1) hsame
+      have hthird : t.1.2.2 = u.1.2.2 := by
+        calc
+          t.1.2.2 = (t.1.2.2 - t.1.1) + t.1.1 := (sub_add_cancel _ _).symm
+          _ = (u.1.2.2 - u.1.1) + u.1.1 := by rw [hthird', hfirst]
+          _ = u.1.2.2 := sub_add_cancel _ _
+      exact Prod.ext hfirst (Prod.ext hsecond hthird)
+    have hcard := Fintype.card_le_of_injective f hf
+    have hker := zmod_mul_zero_card m 2
+    have hle : Nat.gcd m 2 ≤ 2 :=
+      Nat.gcd_le_right m (by norm_num : 0 < (2 : ℕ))
+    have hker' : Fintype.card {w : ZMod m // (2 : ZMod m) * w = 0} =
+        Nat.gcd m 2 := by simpa using hker
+    calc
+      Fintype.card {t : ZMod m × ZMod m × ZMod m // linearForms t = v} ≤
+          Fintype.card {w : ZMod m // (2 : ZMod m) * w = 0} := hcard
+      _ = Nat.gcd m 2 := hker'
+      _ ≤ 2 := hle
+  · letI : IsEmpty {t : ZMod m × ZMod m × ZMod m // linearForms t = v} :=
+      ⟨fun t => hne ⟨t⟩⟩
+    simp
+
+private def unitQuadTriple {m : ℕ} (q : UnitQuad m) :
+    ZMod m × ZMod m × ZMod m :=
+  ((q.1.1 : ZMod m), ((q.2.1 : ZMod m), (q.1.2 : ZMod m)))
+
+private lemma unitQuad_add_relation {m : ℕ} (q : UnitQuad m)
+    (hq : unitQuadSolution q) :
+    (q.1.1 : ZMod m) + (q.2.1 : ZMod m) =
+      (q.1.2 : ZMod m) + (q.2.2 : ZMod m) := by
+  have h : ((q.1.2 : ZMod m) - q.1.1) +
+      ((q.2.2 : ZMod m) - q.2.1) = 0 := by
+    simpa [unitQuadSolution, unitQuadAddDelta, unitPairAddDelta] using hq.1
+  have hz : ((q.1.2 : ZMod m) + q.2.2) -
+      ((q.1.1 : ZMod m) + q.2.1) = 0 := by
+    calc
+      _ = ((q.1.2 : ZMod m) - q.1.1) +
+          ((q.2.2 : ZMod m) - q.2.1) := by ring
+      _ = 0 := h
+  exact (sub_eq_zero.mp hz).symm
+
+private lemma unitQuad_inverse_relation {m : ℕ} (q : UnitQuad m)
+    (hq : unitQuadSolution q) :
+    ((q.1.1 : ZMod m)⁻¹ + (q.2.1 : ZMod m)⁻¹) =
+      ((q.1.2 : ZMod m)⁻¹ + (q.2.2 : ZMod m)⁻¹) := by
+  have h : ((q.1.2 : ZMod m)⁻¹ - (q.1.1 : ZMod m)⁻¹) +
+      ((q.2.2 : ZMod m)⁻¹ - (q.2.1 : ZMod m)⁻¹) = 0 := by
+    simpa [unitQuadSolution, unitQuadInvDelta, unitPairInvDelta,
+      Units.val_inv_eq_inv_val] using hq.2
+  have hz : ((q.1.1 : ZMod m)⁻¹ + (q.2.1 : ZMod m)⁻¹) -
+      ((q.1.2 : ZMod m)⁻¹ + (q.2.2 : ZMod m)⁻¹) = 0 := by
+    calc
+      _ = -(((q.1.2 : ZMod m)⁻¹ - (q.1.1 : ZMod m)⁻¹) +
+          ((q.2.2 : ZMod m)⁻¹ - (q.2.1 : ZMod m)⁻¹)) := by ring
+      _ = 0 := by rw [h]; ring
+  exact sub_eq_zero.mp hz
+
+private lemma unitQuad_solution_poly_zero {m : ℕ} [NeZero m] (q : UnitQuad m)
+    (hq : unitQuadSolution q) :
+    (linearForms (unitQuadTriple q)).1 *
+      (linearForms (unitQuadTriple q)).2.1 *
+      (linearForms (unitQuadTriple q)).2.2 = 0 := by
+  let y1 : ZMod m := q.1.1
+  let y2 : ZMod m := q.2.1
+  let z1 : ZMod m := q.1.2
+  let z2 : ZMod m := q.2.2
+  have hadd : y1 + y2 = z1 + z2 := by
+    simpa [y1, y2, z1, z2] using unitQuad_add_relation q hq
+  have hinv : y1⁻¹ + y2⁻¹ = z1⁻¹ + z2⁻¹ := by
+    simpa [y1, y2, z1, z2] using unitQuad_inverse_relation q hq
+  have hy1cancel : y1 * y1⁻¹ = 1 := by
+    simpa [y1, Units.val_inv_eq_inv_val] using q.1.1.val_inv
+  have hy2cancel : y2 * y2⁻¹ = 1 := by
+    simpa [y2, Units.val_inv_eq_inv_val] using q.2.1.val_inv
+  have hz1cancel : z1 * z1⁻¹ = 1 := by
+    simpa [z1, Units.val_inv_eq_inv_val] using q.1.2.val_inv
+  have hz2cancel : z2 * z2⁻¹ = 1 := by
+    simpa [z2, Units.val_inv_eq_inv_val] using q.2.2.val_inv
+  let P : ZMod m := y1 * y2 * z1 * z2
+  have hleft : P * (y1⁻¹ + y2⁻¹) = (y1 + y2) * z1 * z2 := by
+    dsimp [P]
+    rw [mul_add]
+    have ht₁ : y1 * y2 * z1 * z2 * y1⁻¹ = y2 * z1 * z2 := by
+      calc
+        _ = (y1 * y1⁻¹) * (y2 * z1 * z2) := by ring
+        _ = _ := by rw [hy1cancel]; ring
+    have ht₂ : y1 * y2 * z1 * z2 * y2⁻¹ = y1 * z1 * z2 := by
+      calc
+        _ = (y2 * y2⁻¹) * (y1 * z1 * z2) := by ring
+        _ = _ := by rw [hy2cancel]; ring
+    rw [ht₁, ht₂]
+    ring
+  have hright : P * (z1⁻¹ + z2⁻¹) = y1 * y2 * (z1 + z2) := by
+    dsimp [P]
+    rw [mul_add]
+    have ht₁ : y1 * y2 * z1 * z2 * z1⁻¹ = y1 * y2 * z2 := by
+      calc
+        _ = (z1 * z1⁻¹) * (y1 * y2 * z2) := by ring
+        _ = _ := by rw [hz1cancel]; ring
+    have ht₂ : y1 * y2 * z1 * z2 * z2⁻¹ = y1 * y2 * z1 := by
+      calc
+        _ = (z2 * z2⁻¹) * (y1 * y2 * z1) := by ring
+        _ = _ := by rw [hz2cancel]; ring
+    rw [ht₁, ht₂]
+    ring
+  have hEq : (y1 + y2) * z1 * z2 = y1 * y2 * (z1 + z2) := by
+    calc
+      _ = P * (y1⁻¹ + y2⁻¹) := hleft.symm
+      _ = P * (z1⁻¹ + z2⁻¹) := congrArg (fun w : ZMod m => P * w) hinv
+      _ = _ := hright
+  have hS : (y1 + y2) * z1 * z2 = y1 * y2 * (y1 + y2) := by
+    simpa [hadd] using hEq
+  have hprod : (y1 + y2) * (y1 * y2 - z1 * z2) = 0 := by
+    calc
+      _ = y1 * y2 * (y1 + y2) - (y1 + y2) * z1 * z2 := by ring
+      _ = 0 := by rw [hS]; ring
+  have hfactor : (z1 - y1) * (z1 - y2) = y1 * y2 - z1 * z2 := by
+    calc
+      _ = z1 * z1 - z1 * (y1 + y2) + y1 * y2 := by ring
+      _ = z1 * z1 - z1 * (z1 + z2) + y1 * y2 := by rw [hadd]
+      _ = _ := by ring
+  have htarget : (y1 + y2) * (z1 - y1) * (z1 - y2) = 0 := by
+    calc
+      _ = (y1 + y2) * ((z1 - y1) * (z1 - y2)) := by ring
+      _ = (y1 + y2) * (y1 * y2 - z1 * z2) := by rw [hfactor]
+      _ = 0 := hprod
+  simpa [linearForms, unitQuadTriple, y1, y2, z1, z2] using htarget
+
+private lemma unitQuadTriple_injective_on_solutions {m : ℕ}
+    (q r : UnitQuad m) (hq : unitQuadSolution q) (hr : unitQuadSolution r)
+    (h : unitQuadTriple q = unitQuadTriple r) : q = r := by
+  apply Prod.ext
+  · apply Prod.ext
+    · apply Units.ext
+      exact congrArg Prod.fst h
+    · apply Units.ext
+      exact congrArg (fun z => z.2.2) h
+  · apply Prod.ext
+    · apply Units.ext
+      exact congrArg (fun z => z.2.1) h
+    · apply Units.ext
+      have hqadd := unitQuad_add_relation q hq
+      have hradd := unitQuad_add_relation r hr
+      have h₁ := congrArg Prod.fst h
+      have h₂ := congrArg (fun z => z.2.1) h
+      have h₃ := congrArg (fun z => z.2.2) h
+      have h₁' : (q.1.1 : ZMod m) = r.1.1 := by simpa [unitQuadTriple] using h₁
+      have h₂' : (q.2.1 : ZMod m) = r.2.1 := by simpa [unitQuadTriple] using h₂
+      have h₃' : (q.1.2 : ZMod m) = r.1.2 := by simpa [unitQuadTriple] using h₃
+      have hqform : (q.2.2 : ZMod m) =
+          (q.1.1 : ZMod m) + (q.2.1 : ZMod m) - q.1.2 := by
+        calc
+          (q.2.2 : ZMod m) =
+              ((q.1.2 : ZMod m) + q.2.2) - q.1.2 := by ring
+          _ = ((q.1.1 : ZMod m) + q.2.1) - q.1.2 := by rw [← hqadd]
+      have hrform : (r.2.2 : ZMod m) =
+          (r.1.1 : ZMod m) + (r.2.1 : ZMod m) - r.1.2 := by
+        calc
+          (r.2.2 : ZMod m) =
+              ((r.1.2 : ZMod m) + r.2.2) - r.1.2 := by ring
+          _ = ((r.1.1 : ZMod m) + r.2.1) - r.1.2 := by rw [← hradd]
+      rw [hqform, hrform, h₁', h₂', h₃']
+
+private lemma unitQuadSolutions_card_le (m : ℕ) [NeZero m] :
+    (unitQuadSolutions m).card ≤
+      2 * (Finset.univ.filter
+        (fun t : ZMod m × ZMod m × ZMod m => t.1 * t.2.1 * t.2.2 = 0)).card := by
+  classical
+  let α := {q : UnitQuad m // q ∈ unitQuadSolutions m}
+  let f : α → ZMod m × ZMod m × ZMod m :=
+    fun q => linearForms (unitQuadTriple q.1)
+  let e : α ≃ Σ t : ZMod m × ZMod m × ZMod m, {q : α // f q = t} :=
+    { toFun := fun q => ⟨f q, ⟨q, rfl⟩⟩
+      invFun := fun z => z.2.1
+      left_inv := by intro q; rfl
+      right_inv := by
+        rintro ⟨t, ⟨q, hq⟩⟩
+        cases hq
+        rfl }
+  have hfiber (t : ZMod m × ZMod m × ZMod m) :
+      Fintype.card {q : α // f q = t} ≤
+        if t.1 * t.2.1 * t.2.2 = 0 then 2 else 0 := by
+    by_cases ht : t.1 * t.2.1 * t.2.2 = 0
+    · let g : {q : α // f q = t} →
+          {s : ZMod m × ZMod m × ZMod m // linearForms s = t} :=
+        fun q => ⟨unitQuadTriple q.1.1, q.2⟩
+      have hg : Function.Injective g := by
+        intro q r h
+        have htriple : unitQuadTriple q.1.1 = unitQuadTriple r.1.1 :=
+          congrArg Subtype.val h
+        have hq : unitQuadSolution q.1.1 := by
+          simpa [unitQuadSolutions] using q.1.2
+        have hr : unitQuadSolution r.1.1 := by
+          simpa [unitQuadSolutions] using r.1.2
+        have hα : q.1 = r.1 := by
+          apply Subtype.ext
+          exact unitQuadTriple_injective_on_solutions q.1.1 r.1.1 hq hr htriple
+        exact Subtype.ext hα
+      have hcard := Fintype.card_le_of_injective g hg
+      simpa [ht] using hcard.trans (linearForms_fiber_card_le_two m t)
+    · letI : IsEmpty {q : α // f q = t} := ⟨fun q =>
+        ht (by
+          have hq : unitQuadSolution q.1.1 := by
+            simpa [unitQuadSolutions] using q.1.2
+          have hz := unitQuad_solution_poly_zero q.1.1 hq
+          simpa [f, q.2] using hz)⟩
+      simp [ht]
+  have hsum : Fintype.card α =
+      ∑ t : ZMod m × ZMod m × ZMod m, Fintype.card {q : α // f q = t} := by
+    calc
+      Fintype.card α = Fintype.card
+          (Σ t : ZMod m × ZMod m × ZMod m, {q : α // f q = t}) :=
+        Fintype.card_congr e
+      _ = _ := Fintype.card_sigma
+  have hsumle :
+      (∑ t : ZMod m × ZMod m × ZMod m, Fintype.card {q : α // f q = t}) ≤
+        2 * (Finset.univ.filter
+          (fun t : ZMod m × ZMod m × ZMod m => t.1 * t.2.1 * t.2.2 = 0)).card := by
+    calc
+      _ ≤ ∑ t : ZMod m × ZMod m × ZMod m,
+          if t.1 * t.2.1 * t.2.2 = 0 then 2 else 0 := by
+        apply Finset.sum_le_sum
+        intro t ht
+        exact hfiber t
+      _ = _ := by
+        rw [← Finset.sum_filter]
+        simp only [Finset.sum_const, nsmul_eq_mul]
+        exact Nat.mul_comm _ _
+  calc
+    (unitQuadSolutions m).card = Fintype.card α := by
+      simp [α, Fintype.card_coe]
+    _ = _ := hsum
+    _ ≤ _ := hsumle
+
+private def kloostermanScalePoint {m : ℕ} (h k : ZMod m)
+    (s : (ZMod m)ˣ) : ZMod m × ZMod m :=
+  (h * (s : ZMod m), k * ((s⁻¹ : (ZMod m)ˣ) : ZMod m))
+
+private lemma kloostermanStabilizer_card_le (m h k : ℕ) [NeZero m] :
+    Fintype.card
+      {s : (ZMod m)ˣ // kloostermanScalePoint (h : ZMod m) (k : ZMod m) s =
+        ((h : ZMod m), (k : ZMod m))} ≤ Nat.gcd (Nat.gcd h k) m := by
+  classical
+  let d := Nat.gcd h k
+  let g := Nat.gcd d m
+  let S := {s : (ZMod m)ˣ //
+    kloostermanScalePoint (h : ZMod m) (k : ZMod m) s = ((h : ZMod m), (k : ZMod m))}
+  let K := {x : ZMod m // (g : ZMod m) * x = 0}
+  have hdInt : (d : ℤ) =
+      (h : ℤ) * (Nat.gcdA h k : ℤ) + (k : ℤ) * (Nat.gcdB h k : ℤ) :=
+    Nat.gcd_eq_gcd_ab h k
+  have hgInt : (g : ℤ) =
+      (d : ℤ) * (Nat.gcdA d m : ℤ) + (m : ℤ) * (Nat.gcdB d m : ℤ) :=
+    Nat.gcd_eq_gcd_ab d m
+  have hdZ : (d : ZMod m) =
+      (Nat.gcdA h k : ZMod m) * h + (Nat.gcdB h k : ZMod m) * k := by
+    have hh := congrArg (fun z : ℤ => (z : ZMod m)) hdInt
+    simpa [Int.cast_mul, Int.cast_add, Int.cast_natCast,
+      mul_comm, mul_left_comm, mul_assoc] using hh
+  have hgZ : (g : ZMod m) =
+      (Nat.gcdA d m : ZMod m) * d + (Nat.gcdB d m : ZMod m) * m := by
+    have hh := congrArg (fun z : ℤ => (z : ZMod m)) hgInt
+    simpa [Int.cast_mul, Int.cast_add, Int.cast_natCast,
+      mul_comm, mul_left_comm, mul_assoc] using hh
+  let f : S → K := fun s =>
+    ⟨(s.1 : ZMod m) - 1, by
+      have hfirst : (h : ZMod m) * ((s.1 : ZMod m) - 1) = 0 := by
+        calc
+          _ = (h : ZMod m) * (s.1 : ZMod m) - h := by ring
+          _ = 0 := by
+            have hs := congrArg Prod.fst s.2
+            dsimp [kloostermanScalePoint] at hs
+            rw [hs]
+            ring
+      have hinv : (k : ZMod m) * (s.1⁻¹ : ZMod m) = k := by
+        simpa [kloostermanScalePoint] using congrArg Prod.snd s.2
+      have hsecondMul : (k : ZMod m) * (s.1 : ZMod m) = k := by
+        have hmul := congrArg (fun z : ZMod m => z * (s.1 : ZMod m)) hinv
+        simpa [mul_assoc, Units.val_inv_eq_inv_val] using hmul.symm
+      have hsecond : (k : ZMod m) * ((s.1 : ZMod m) - 1) = 0 := by
+        calc
+          _ = (k : ZMod m) * (s.1 : ZMod m) - k := by ring
+          _ = 0 := by rw [hsecondMul]; ring
+      have hdx : (d : ZMod m) * ((s.1 : ZMod m) - 1) = 0 := by
+        calc
+          _ = (Nat.gcdA h k : ZMod m) *
+                ((h : ZMod m) * ((s.1 : ZMod m) - 1)) +
+              (Nat.gcdB h k : ZMod m) *
+                ((k : ZMod m) * ((s.1 : ZMod m) - 1)) := by rw [hdZ]; ring
+          _ = 0 := by rw [hfirst, hsecond]; ring
+      calc
+        (g : ZMod m) * ((s.1 : ZMod m) - 1) =
+            (Nat.gcdA d m : ZMod m) *
+                ((d : ZMod m) * ((s.1 : ZMod m) - 1)) +
+              (Nat.gcdB d m : ZMod m) *
+                ((m : ZMod m) * ((s.1 : ZMod m) - 1)) := by rw [hgZ]; ring
+        _ = 0 := by rw [hdx]; simp⟩
+  have hf : Function.Injective f := by
+    intro s t hst
+    apply Subtype.ext
+    apply Units.ext
+    have hval := congrArg Subtype.val hst
+    have hval' : (s.1 : ZMod m) - 1 = (t.1 : ZMod m) - 1 := by
+      simpa [f] using hval
+    calc
+      (s.1 : ZMod m) = ((s.1 : ZMod m) - 1) + 1 := by ring
+      _ = ((t.1 : ZMod m) - 1) + 1 := by rw [hval']
+      _ = (t.1 : ZMod m) := by ring
+  have hcard := Fintype.card_le_of_injective f hf
+  have hker : Fintype.card K = g := by
+    dsimp [K]
+    rw [zmod_mul_zero_card m g]
+    exact Nat.gcd_eq_right (Nat.gcd_dvd_right d m)
+  calc
+    Fintype.card S ≤ Fintype.card K := hcard
+    _ = g := hker
+    _ = Nat.gcd (Nat.gcd h k) m := rfl
+
+private lemma kloostermanScaleFiber_card_le (m h k : ℕ) [NeZero m]
+    (s₀ : (ZMod m)ˣ) :
+    Fintype.card
+      {s : (ZMod m)ˣ //
+        kloostermanScalePoint (h : ZMod m) (k : ZMod m) s =
+          kloostermanScalePoint (h : ZMod m) (k : ZMod m) s₀} ≤
+      Nat.gcd (Nat.gcd h k) m := by
+  classical
+  let Stab := {s : (ZMod m)ˣ //
+    kloostermanScalePoint (h : ZMod m) (k : ZMod m) s = ((h : ZMod m), (k : ZMod m))}
+  let f :
+      {s : (ZMod m)ˣ //
+        kloostermanScalePoint (h : ZMod m) (k : ZMod m) s =
+          kloostermanScalePoint (h : ZMod m) (k : ZMod m) s₀} → Stab :=
+    fun s =>
+      ⟨s.1 * s₀⁻¹, by
+        have hfirst : (h : ZMod m) * (s.1 : ZMod m) =
+            (h : ZMod m) * (s₀ : ZMod m) := by
+          simpa [kloostermanScalePoint] using congrArg Prod.fst s.2
+        have hsecond : (k : ZMod m) * ((s.1⁻¹ : (ZMod m)ˣ) : ZMod m) =
+            (k : ZMod m) * ((s₀⁻¹ : (ZMod m)ˣ) : ZMod m) := by
+          simpa [kloostermanScalePoint] using congrArg Prod.snd s.2
+        change ((h : ZMod m) * ((s.1 * s₀⁻¹ : (ZMod m)ˣ) : ZMod m),
+            (k : ZMod m) * (((s.1 * s₀⁻¹)⁻¹ : (ZMod m)ˣ) : ZMod m)) =
+          ((h : ZMod m), (k : ZMod m))
+        apply Prod.ext
+        · rw [Units.val_mul]
+          have hs₀ : (s₀ : ZMod m) * ((s₀⁻¹ : (ZMod m)ˣ) : ZMod m) = 1 := by
+            simpa using s₀.val_inv
+          calc
+            _ = (h : ZMod m) * (s.1 : ZMod m) * ((s₀⁻¹ : (ZMod m)ˣ) : ZMod m) := by ring
+            _ = (h : ZMod m) * (s₀ : ZMod m) * ((s₀⁻¹ : (ZMod m)ˣ) : ZMod m) := by rw [hfirst]
+            _ = (h : ZMod m) := by rw [mul_assoc, hs₀, mul_one]
+        · let w : (ZMod m)ˣ := s.1 * s₀⁻¹
+          have hu : w⁻¹ = s₀ * s.1⁻¹ := by dsimp [w]; group
+          have hcastInv : ((w⁻¹ : (ZMod m)ˣ) : ZMod m) =
+              (s₀ : ZMod m) * ((s.1⁻¹ : (ZMod m)ˣ) : ZMod m) := by
+            calc
+              _ = ((s₀ * s.1⁻¹ : (ZMod m)ˣ) : ZMod m) :=
+                congrArg (fun u : (ZMod m)ˣ => (u : ZMod m)) hu
+              _ = _ := by simp [Units.val_mul]
+          have hs₀ : ((s₀⁻¹ : (ZMod m)ˣ) : ZMod m) * (s₀ : ZMod m) = 1 := by
+            simpa using s₀.inv_val
+          have htarget : (k : ZMod m) *
+              ((s₀ : ZMod m) * ((s.1⁻¹ : (ZMod m)ˣ) : ZMod m)) = k := by
+            calc
+              _ = (k : ZMod m) * ((s.1⁻¹ : (ZMod m)ˣ) : ZMod m) * (s₀ : ZMod m) := by ring
+              _ = (k : ZMod m) * ((s₀⁻¹ : (ZMod m)ˣ) : ZMod m) * (s₀ : ZMod m) := by rw [hsecond]
+              _ = (k : ZMod m) * (((s₀⁻¹ : (ZMod m)ˣ) : ZMod m) * (s₀ : ZMod m)) := by ring
+              _ = (k : ZMod m) := by rw [hs₀]; simp
+          change (k : ZMod m) * ((w⁻¹ : (ZMod m)ˣ) : ZMod m) = k
+          rw [hcastInv]
+          exact htarget⟩
+  have hf : Function.Injective f := by
+    intro s t hst
+    apply Subtype.ext
+    have hunit : s.1 * s₀⁻¹ = t.1 * s₀⁻¹ := congrArg Subtype.val hst
+    calc
+      s.1 = (s.1 * s₀⁻¹) * s₀ := by group
+      _ = (t.1 * s₀⁻¹) * s₀ := by rw [hunit]
+      _ = t.1 := by group
+  have hcard := Fintype.card_le_of_injective f hf
+  exact hcard.trans (kloostermanStabilizer_card_le m h k)
+
+private lemma kloostermanScaleOrbit_card_lower (m h k : ℕ) [NeZero m] :
+    Nat.totient m ≤ Nat.gcd (Nat.gcd h k) m *
+      (Finset.univ.image
+        (kloostermanScalePoint (h : ZMod m) (k : ZMod m))).card := by
+  classical
+  let U : Finset (ZMod m)ˣ := Finset.univ
+  let ψ : (ZMod m)ˣ → ZMod m × ZMod m :=
+    kloostermanScalePoint (h : ZMod m) (k : ZMod m)
+  let O := U.image ψ
+  have hmaps : (U : Set (ZMod m)ˣ).MapsTo ψ O := by
+    intro s hs
+    exact Finset.mem_image.mpr ⟨s, hs, rfl⟩
+  have hcard :
+      U.card = ∑ y ∈ O, (U.filter fun s => ψ s = y).card := by
+    simpa [U, O] using
+      (Finset.card_eq_sum_card_fiberwise (f := ψ) (s := U) (t := O) hmaps)
+  have hfiber : ∀ y ∈ O, (U.filter fun s => ψ s = y).card ≤
+      Nat.gcd (Nat.gcd h k) m := by
+    intro y hy
+    rcases Finset.mem_image.mp hy with ⟨s₀, hs₀, rfl⟩
+    let T : Finset (ZMod m)ˣ := U.filter fun s => ψ s = ψ s₀
+    letI : Fintype T := Fintype.ofFinset T (by intro s; rfl)
+    let e : {s : (ZMod m)ˣ // ψ s = ψ s₀} ≃ ↥T :=
+      { toFun := fun s => ⟨s.1, by
+          change s.1 ∈ U.filter (fun s => ψ s = ψ s₀)
+          exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, s.2⟩⟩
+        invFun := fun s => ⟨s.1, (Finset.mem_filter.mp s.2).2⟩
+        left_inv := by intro s; apply Subtype.ext; rfl
+        right_inv := by intro s; apply Subtype.ext; rfl }
+    have hcardT : T.card =
+        Fintype.card {s : (ZMod m)ˣ // ψ s = ψ s₀} := by
+      rw [← Fintype.card_coe T]
+      exact (Fintype.card_congr e).symm
+    have hT := kloostermanScaleFiber_card_le m h k s₀
+    exact hcardT.trans_le hT
+  have hU : U.card = Nat.totient m := by
+    simpa [U] using (ZMod.card_units_eq_totient m)
+  calc
+    Nat.totient m = U.card := hU.symm
+    _ = ∑ y ∈ O, (U.filter fun s => ψ s = y).card := hcard
+    _ ≤ ∑ y ∈ O, Nat.gcd (Nat.gcd h k) m := by
+      apply Finset.sum_le_sum
+      intro y hy
+      exact hfiber y hy
+    _ = Nat.gcd (Nat.gcd h k) m * O.card := by simp [Finset.sum_const, mul_comm]
+    _ = _ := by rfl
+
 theorem weak_kloosterman (ε : ℝ) (hε : 0 < ε) :
     ∃ Cε : ℝ, 0 < Cε ∧
       ∀ m h k : ℕ, 1 ≤ m →
         ‖kloostermanSum m h k‖ ≤
           Cε * Real.rpow m (3 / 4 + ε) * Real.rpow (Nat.gcd (Nat.gcd h k) m) (1 / 4 : ℝ) := by
-  sorry
+  classical
+  obtain ⟨Cτ, hCτ, hdiv⟩ := divisor_card_rpow_bound ε hε
+  obtain ⟨Cφ, hCφ, hphiRatio⟩ :=
+    inverse_totient_rpow_bound (2 * ε) (by positivity)
+  let A : ℝ := 2 * Cτ ^ 2 * Cφ
+  let Cε : ℝ := Real.sqrt (Real.sqrt A)
+  have hA : 0 < A := by dsimp [A]; positivity
+  have hCε : 0 < Cε := by dsimp [Cε]; positivity
+  have hCε4 : Cε ^ 4 = A := by
+    dsimp [Cε]
+    calc
+      (Real.sqrt (Real.sqrt A)) ^ 4 =
+          ((Real.sqrt (Real.sqrt A)) ^ 2) ^ 2 := by ring
+      _ = (Real.sqrt A) ^ 2 := by rw [Real.sq_sqrt (Real.sqrt_nonneg A)]
+      _ = A := Real.sq_sqrt (le_of_lt hA)
+  refine ⟨Cε, hCε, ?_⟩
+  intro m h k hm
+  have hmpos : 0 < m := by omega
+  letI : NeZero m := ⟨by omega⟩
+  let H : ZMod m := (h : ZMod m)
+  let K : ZMod m := (k : ZMod m)
+  let g : ℕ := Nat.gcd (Nat.gcd h k) m
+  let O : Finset (ZMod m × ZMod m) :=
+    Finset.univ.image (kloostermanScalePoint H K)
+  let KS : ℂ := unitKloosterman m H K
+  let Base : ℝ := ‖KS‖ ^ 4
+  let τ : ℝ := (m.divisors.card : ℝ)
+  have hOrbitNat : Nat.totient m ≤ g * O.card := by
+    simpa [g, O, H, K] using kloostermanScaleOrbit_card_lower m h k
+  have hOrbitReal : (Nat.totient m : ℝ) ≤ (g : ℝ) * (O.card : ℝ) := by
+    exact_mod_cast hOrbitNat
+  have hscaleSum :
+      (∑ p ∈ O, ‖unitKloosterman m p.1 p.2‖ ^ 4) = (O.card : ℝ) * Base := by
+    calc
+      _ = ∑ p ∈ O, Base := by
+        apply Finset.sum_congr rfl
+        intro p hp
+        rcases Finset.mem_image.mp hp with ⟨s, hs, rfl⟩
+        have hscale := unitKloosterman_scale m H K s
+        have hnorm := congrArg (fun z : ℂ => ‖z‖ ^ 4) hscale
+        simpa [Base, KS, H, K, kloostermanScalePoint] using hnorm
+      _ = _ := by simp [Base, Finset.sum_const, mul_comm]
+  have hglobal :
+      (∑ p : ZMod m × ZMod m, ‖unitKloosterman m p.1 p.2‖ ^ 4) =
+        (m : ℝ) ^ 2 * (unitQuadSolutions m).card := by
+    calc
+      _ = ∑ u : ZMod m, ∑ v : ZMod m, ‖unitKloosterman m u v‖ ^ 4 :=
+        Fintype.sum_prod_type _
+      _ = _ := unitKloosterman_global_fourthMoment m
+  have hOrbitGlobal :
+      (O.card : ℝ) * Base ≤ (m : ℝ) ^ 2 * (unitQuadSolutions m).card := by
+    calc
+      _ = ∑ p ∈ O, ‖unitKloosterman m p.1 p.2‖ ^ 4 := hscaleSum.symm
+      _ ≤ ∑ p : ZMod m × ZMod m, ‖unitKloosterman m p.1 p.2‖ ^ 4 :=
+        Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ O)
+          (by intro p hp hnot; positivity)
+      _ = _ := hglobal
+  let Z₀ : Finset (ZMod m × ZMod m × ZMod m) :=
+    Finset.univ.filter fun t => t.1 * t.2.1 * t.2.2 = 0
+  have hZ₀ : Z₀.card =
+      Fintype.card {t : ZMod m × ZMod m × ZMod m // t.1 * t.2.1 * t.2.2 = 0} := by
+    simpa [Z₀] using
+      (Fintype.card_subtype
+        (fun t : ZMod m × ZMod m × ZMod m => t.1 * t.2.1 * t.2.2 = 0)).symm
+  have hquadNat : (unitQuadSolutions m).card ≤
+      2 * (m ^ 2 * (m.divisors.card) ^ 2) := by
+    calc
+      _ ≤ 2 * Z₀.card := by simpa [Z₀] using unitQuadSolutions_card_le m
+      _ = 2 * Fintype.card
+          {t : ZMod m × ZMod m × ZMod m // t.1 * t.2.1 * t.2.2 = 0} := by rw [hZ₀]
+      _ ≤ 2 * (m ^ 2 * (m.divisors.card) ^ 2) :=
+        Nat.mul_le_mul_left 2 (zero_product_zmod_card_le m)
+  have hquadReal : ((unitQuadSolutions m).card : ℝ) ≤
+      2 * ((m : ℝ) ^ 2 * τ ^ 2) := by
+    dsimp [τ]
+    exact_mod_cast hquadNat
+  have hglobalBound :
+      (m : ℝ) ^ 2 * (unitQuadSolutions m).card ≤
+        2 * (m : ℝ) ^ 4 * τ ^ 2 := by
+    calc
+      _ ≤ (m : ℝ) ^ 2 * (2 * ((m : ℝ) ^ 2 * τ ^ 2)) :=
+        mul_le_mul_of_nonneg_left hquadReal (sq_nonneg (m : ℝ))
+      _ = _ := by ring
+  have hphiPos : 0 < (Nat.totient m : ℝ) := by
+    exact_mod_cast (Nat.totient_pos.mpr hmpos)
+  have hBasePhi :
+      (Nat.totient m : ℝ) * Base ≤ (g : ℝ) *
+        (2 * (m : ℝ) ^ 4 * τ ^ 2) := by
+    calc
+      _ ≤ ((g : ℝ) * (O.card : ℝ)) * Base :=
+        mul_le_mul_of_nonneg_right hOrbitReal (by positivity)
+      _ = (g : ℝ) * ((O.card : ℝ) * Base) := by ring
+      _ ≤ (g : ℝ) * ((m : ℝ) ^ 2 * (unitQuadSolutions m).card) :=
+        mul_le_mul_of_nonneg_left hOrbitGlobal (by positivity)
+      _ ≤ _ := mul_le_mul_of_nonneg_left hglobalBound (by positivity)
+  have hBaseDiv : Base ≤
+      ((g : ℝ) * (2 * (m : ℝ) ^ 4 * τ ^ 2)) / (Nat.totient m : ℝ) :=
+    (le_div_iff₀ hphiPos).2 (by
+      calc
+        Base * (Nat.totient m : ℝ) = (Nat.totient m : ℝ) * Base := by ring
+        _ ≤ _ := hBasePhi)
+  have hτ : τ ≤ Cτ * (m : ℝ) ^ ε := by
+    dsimp [τ]
+    exact hdiv m hm
+  have hτSq : τ ^ 2 ≤ Cτ ^ 2 * (m : ℝ) ^ (2 * ε) := by
+    have hpow : ((m : ℝ) ^ ε) ^ 2 = (m : ℝ) ^ (2 * ε) := by
+      rw [← Real.rpow_mul_natCast (by positivity) ε 2]
+      congr 1
+      ring
+    have hleft : 0 ≤ τ := Nat.cast_nonneg _
+    have hright : 0 ≤ Cτ * (m : ℝ) ^ ε := by positivity
+    calc
+      τ ^ 2 ≤ (Cτ * (m : ℝ) ^ ε) ^ 2 := by nlinarith [hτ]
+      _ = Cτ ^ 2 * (m : ℝ) ^ (2 * ε) := by rw [mul_pow, hpow]
+  have hφratio : (m : ℝ) / (Nat.totient m : ℝ) ≤
+      Cφ * (m : ℝ) ^ (2 * ε) := hphiRatio m (by omega)
+  have hfrac :
+      ((g : ℝ) * (2 * (m : ℝ) ^ 4 * τ ^ 2)) / (Nat.totient m : ℝ) =
+        2 * (g : ℝ) * (m : ℝ) ^ 3 * τ ^ 2 *
+          ((m : ℝ) / (Nat.totient m : ℝ)) := by
+    field_simp [hphiPos.ne', (show (m : ℝ) ≠ 0 by positivity)]
+  have hBaseRaw : Base ≤
+      2 * (g : ℝ) * (m : ℝ) ^ 3 * τ ^ 2 *
+        ((m : ℝ) / (Nat.totient m : ℝ)) := by
+    rw [hfrac] at hBaseDiv
+    exact hBaseDiv
+  have hpow₂ : (m : ℝ) ^ (2 * ε) * (m : ℝ) ^ (2 * ε) =
+      (m : ℝ) ^ (4 * ε) := by
+    rw [← Real.rpow_add (by positivity) (2 * ε) (2 * ε)]
+    congr 1
+    ring
+  have hpow₃ : (m : ℝ) ^ 3 * (m : ℝ) ^ (4 * ε) =
+      (m : ℝ) ^ (3 + 4 * ε) := by
+    have hmposR : 0 < (m : ℝ) := by positivity
+    have hrpowNat : Real.rpow (m : ℝ) (3 : ℝ) = (m : ℝ) ^ 3 :=
+      Real.rpow_natCast _ _
+    rw [← hrpowNat]
+    change Real.rpow (m : ℝ) (3 : ℝ) * Real.rpow (m : ℝ) (4 * ε) =
+      Real.rpow (m : ℝ) (3 + 4 * ε)
+    exact (Real.rpow_add hmposR 3 (4 * ε)).symm
+  have hfinal : Base ≤ A * (g : ℝ) * (m : ℝ) ^ (3 + 4 * ε) := by
+    have hmult :
+        τ ^ 2 * ((m : ℝ) / (Nat.totient m : ℝ)) ≤
+          (Cτ ^ 2 * (m : ℝ) ^ (2 * ε)) * (Cφ * (m : ℝ) ^ (2 * ε)) :=
+      mul_le_mul hτSq hφratio (by positivity) (by positivity)
+    have hBaseRaw' : Base ≤
+        (2 * (g : ℝ) * (m : ℝ) ^ 3) *
+          (τ ^ 2 * ((m : ℝ) / (Nat.totient m : ℝ))) := by
+      calc
+        Base ≤ 2 * (g : ℝ) * (m : ℝ) ^ 3 * τ ^ 2 *
+            ((m : ℝ) / (Nat.totient m : ℝ)) := hBaseRaw
+        _ = _ := by ring
+    calc
+      _ ≤ (2 * (g : ℝ) * (m : ℝ) ^ 3) *
+          ((Cτ ^ 2 * (m : ℝ) ^ (2 * ε)) * (Cφ * (m : ℝ) ^ (2 * ε))) := by
+        calc
+          Base ≤ (2 * (g : ℝ) * (m : ℝ) ^ 3) *
+              (τ ^ 2 * ((m : ℝ) / (Nat.totient m : ℝ))) := hBaseRaw'
+          _ ≤ (2 * (g : ℝ) * (m : ℝ) ^ 3) *
+              ((Cτ ^ 2 * (m : ℝ) ^ (2 * ε)) * (Cφ * (m : ℝ) ^ (2 * ε))) := by
+            exact mul_le_mul_of_nonneg_left hmult (by positivity)
+          _ = _ := by ring
+      _ = 2 * Cτ ^ 2 * Cφ * (g : ℝ) * (m : ℝ) ^ 3 *
+            ((m : ℝ) ^ (2 * ε) * (m : ℝ) ^ (2 * ε)) := by ring
+      _ = A * (g : ℝ) * (m : ℝ) ^ 3 * (m : ℝ) ^ (4 * ε) := by
+        rw [hpow₂]
+      _ = A * (g : ℝ) * (m : ℝ) ^ (3 + 4 * ε) := by
+        calc
+          _ = A * (g : ℝ) * ((m : ℝ) ^ 3 * (m : ℝ) ^ (4 * ε)) := by ring
+          _ = _ := by rw [hpow₃]
+  have hMpow : (Real.rpow (m : ℝ) (3 / 4 + ε)) ^ 4 =
+      Real.rpow (m : ℝ) (3 + 4 * ε) := by
+    calc
+      _ = Real.rpow (m : ℝ) (3 / 4 + ε) ^ (4 : ℝ) :=
+        (Real.rpow_natCast _ _).symm
+      _ = Real.rpow (m : ℝ) ((3 / 4 + ε) * 4) :=
+        (Real.rpow_mul (by positivity) (3 / 4 + ε) 4).symm
+      _ = Real.rpow (m : ℝ) (3 + 4 * ε) := by congr 1 <;> ring
+  have hGpow : (Real.rpow (g : ℝ) (1 / 4 : ℝ)) ^ 4 = (g : ℝ) := by
+    calc
+      _ = Real.rpow (g : ℝ) (1 / 4 : ℝ) ^ (4 : ℝ) :=
+        (Real.rpow_natCast _ _).symm
+      _ = Real.rpow (g : ℝ) ((1 / 4 : ℝ) * 4) :=
+        (Real.rpow_mul (Nat.cast_nonneg g) (1 / 4 : ℝ) 4).symm
+      _ = (g : ℝ) := by norm_num [Real.rpow_one]
+  let RHS : ℝ := Cε * Real.rpow (m : ℝ) (3 / 4 + ε) *
+    Real.rpow (g : ℝ) (1 / 4 : ℝ)
+  have hRHS4 : RHS ^ 4 =
+      A * (g : ℝ) * Real.rpow (m : ℝ) (3 + 4 * ε) := by
+    change (Cε * Real.rpow (m : ℝ) (3 / 4 + ε) *
+      Real.rpow (g : ℝ) (1 / 4 : ℝ)) ^ 4 =
+        A * (g : ℝ) * Real.rpow (m : ℝ) (3 + 4 * ε)
+    calc
+      _ = Cε ^ 4 * (Real.rpow (m : ℝ) (3 / 4 + ε)) ^ 4 *
+          (Real.rpow (g : ℝ) (1 / 4 : ℝ)) ^ 4 := by ring
+      _ = _ := by rw [hCε4, hMpow, hGpow]; ring
+  have hpowBound : ‖KS‖ ^ 4 ≤ RHS ^ 4 := by
+    dsimp [Base] at hfinal
+    calc
+      _ ≤ A * (g : ℝ) * (m : ℝ) ^ (3 + 4 * ε) := hfinal
+      _ = _ := hRHS4.symm
+  have hRHSnonneg : 0 ≤ RHS := by dsimp [RHS]; positivity
+  have hbound := (pow_le_pow_iff_left₀ (norm_nonneg KS) hRHSnonneg
+      (by decide : 4 ≠ 0)).mp hpowBound
+  have hsumEq : kloostermanSum m h k = KS := by
+    simpa [KS, H, K, unitKloosterman] using (kloostermanSum_eq_unit_sum m h k)
+  rw [hsumEq]
+  simpa [RHS, g] using hbound
 
 /-- `lem:root-residue` — PD `03-determinant.tex:413-591`. Primitive roots of determinant-one
 matrices are equidistributed in boxes and residue classes modulo squarefree `S`, with the stated
