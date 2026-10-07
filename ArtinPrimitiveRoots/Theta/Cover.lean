@@ -169,11 +169,16 @@ private def kpPairing : (v.adicCompletion F)ˣ →* (v.adicCompletion F)ˣ →* 
       rw [H.mul_right, muThree_mul]
   }
   map_one' := by
-    ext b
+    apply MonoidHom.ext
+    intro b
+    change muThree D (H.hilb v 1 b) = 1
     rw [hilb_one_left H v b, muThree_one]
   map_mul' := by
     intro a a'
-    ext b
+    apply MonoidHom.ext
+    intro b
+    change muThree D (H.hilb v (a * a') b) =
+      muThree D (H.hilb v a b) * muThree D (H.hilb v a' b)
     rw [H.mul_left, muThree_mul]
 
 private theorem kpPairing_skew (a b : (v.adicCompletion F)ˣ) :
@@ -349,10 +354,23 @@ theorem kpCocycle_scalar (hSt : SteinbergAt H v) (c : (v.adicCompletion F)ˣ)
       kpCocycle D H v g (Matrix.GeneralLinearGroup.scalar (Fin 2) c) := by
   rw [kpCocycle_pairing, kpCocycle_pairing]
   simp only [xU_scalar_left, xU_scalar_right, xU_scalar, detU_scalar]
-  have h₁ : (c * xU v g) / (xU v g * c ^ 2) = c⁻¹ := by abel
-  have h₂ : (c * xU v g) / c = xU v g := by abel
-  have h₃ : (c * xU v g) / (c * detU v g) = xU v g / detU v g := by abel
-  have h₄ : (c * xU v g) / xU v g = c := by abel
+  have h₁ : (c * xU v g) / (xU v g * c ^ 2) = c⁻¹ := by
+    apply Units.ext
+    simp only [Units.val_div_eq_div_val, Units.val_mul, Units.val_pow_eq_pow_val,
+      Units.val_inv_eq_inv_val]
+    field_simp <;> ring
+  have h₂ : (c * xU v g) / c = xU v g := by
+    apply Units.ext
+    simp only [Units.val_div_eq_div_val, Units.val_mul, Units.val_inv_eq_inv_val]
+    field_simp <;> ring
+  have h₃ : (c * xU v g) / (c * detU v g) = xU v g / detU v g := by
+    apply Units.ext
+    simp only [Units.val_div_eq_div_val, Units.val_mul, Units.val_inv_eq_inv_val]
+    field_simp <;> ring
+  have h₄ : (c * xU v g) / xU v g = c := by
+    apply Units.ext
+    simp only [Units.val_div_eq_div_val, Units.val_mul, Units.val_inv_eq_inv_val]
+    field_simp <;> ring
   rw [h₁, h₂, h₃, h₄]
   rw [kpPairing_inv_left, kpPairing_inverse_swap, kpPairing_pow_left,
     kpPairing_square_swap, kpPairing_div_left, kpPairing_pow_right]
@@ -363,8 +381,15 @@ theorem kpCocycle_scalar_scalar (hSt : SteinbergAt H v) (c c' : (v.adicCompletio
       (Matrix.GeneralLinearGroup.scalar (Fin 2) c') = 1 := by
   rw [kpCocycle_pairing]
   simp only [xU_scalar_left, xU_scalar, detU_scalar]
-  have h₁ : (c * c') / (c' * c ^ 2) = c⁻¹ := by abel
-  have h₂ : (c * c') / c = c' := by abel
+  have h₁ : (c * c') / (c' * c ^ 2) = c⁻¹ := by
+    apply Units.ext
+    simp only [Units.val_div_eq_div_val, Units.val_mul, Units.val_pow_eq_pow_val,
+      Units.val_inv_eq_inv_val]
+    field_simp <;> ring
+  have h₂ : (c * c') / c = c' := by
+    apply Units.ext
+    simp only [Units.val_div_eq_div_val, Units.val_mul, Units.val_inv_eq_inv_val]
+    field_simp <;> ring
   rw [h₁, h₂, kpPairing_inv_left, kpPairing_pow_left, kpPairing_pow_right]
   let z := kpPairing D H v c c'
   change z⁻¹ * (z ^ 2) ^ 2 = 1
@@ -372,7 +397,6 @@ theorem kpCocycle_scalar_scalar (hSt : SteinbergAt H v) (c c' : (v.adicCompletio
     z⁻¹ * (z ^ 2) ^ 2 = z⁻¹ * z ^ 4 := by
       congr 1
       rw [← pow_mul]
-      rw [show 2 * 2 = 4 by norm_num]
     _ = z⁻¹ * z := by rw [show z ^ 4 = z by
       simpa [z] using kpPairing_four D H v c c']
     _ = 1 := inv_mul_cancel z
