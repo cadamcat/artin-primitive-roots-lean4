@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.TypeII.PD.MemoryResults
 import ArtinPrimitiveRoots.TypeII.PP.Results
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7.PrimeMoments
 
 /-!
 # Design B-PD-MajorArcs: drop-in replacement for `TypeII/PD/MajorArcs.lean` (PD §5)
@@ -37,6 +38,427 @@ noncomputable def bandPrimePolynomial (P : ℝ) (Pset : Finset ℕ)
   (1 / P) * ∑ p ∈ Pset,
     chiValue p * Complex.exp (Complex.I * (t + xi) * Real.log (p : ℝ))
 
+lemma prime_band_card_le_three_mul (P : ℝ) (hP : 1 ≤ P) (Pset : Finset ℕ)
+    (hset : ∀ p ∈ Pset, P ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * P) :
+    (Pset.card : ℝ) ≤ 3 * P := by
+  have hsub : Pset ⊆ Finset.range (⌊2 * P⌋₊ + 1) := by
+    intro p hp
+    apply Finset.mem_range.mpr
+    have h := hset p hp
+    exact Nat.lt_succ_of_le (Nat.le_floor h.2)
+  have hcard : Pset.card ≤ ⌊2 * P⌋₊ + 1 := by
+    calc
+      Pset.card ≤ (Finset.range (⌊2 * P⌋₊ + 1)).card := Finset.card_le_card hsub
+      _ = ⌊2 * P⌋₊ + 1 := Finset.card_range _
+  have hcardR : (Pset.card : ℝ) ≤ (⌊2 * P⌋₊ : ℝ) + 1 := by exact_mod_cast hcard
+  have hfloor : (⌊2 * P⌋₊ : ℝ) ≤ 2 * P := Nat.floor_le (by linarith)
+  linarith
+
+lemma bandPrimePolynomial_eq_pd7 (P : ℝ) (Pset : Finset ℕ)
+    (chiValue : ℕ → ℂ) (xi t : ℝ) :
+    bandPrimePolynomial P Pset chiValue xi t =
+      (1 / P : ℂ) * pd7PrimePolynomial Pset
+        (fun p => chiValue p * pd7PrimePhase xi p) t := by
+  unfold bandPrimePolynomial pd7PrimePolynomial
+  apply congrArg (fun z : ℂ => (1 / P : ℂ) * z)
+  apply Finset.sum_congr rfl
+  intro p hp
+  have hphase : pd7PrimePhase (t + xi) p =
+      Complex.exp (Complex.I * ((t : ℂ) + (xi : ℂ)) * Real.log (p : ℝ)) := by
+    simpa only [Complex.ofReal_add] using pd7_prime_phase_eq (t + xi) p
+  rw [← hphase, pd7_prime_phase_add t xi p]
+  ring
+
+lemma bandPrimePolynomial_norm_le (P : ℝ) (hP : 0 < P) (Pset : Finset ℕ)
+    (chiValue : ℕ → ℂ) (xi t : ℝ)
+    (hchi : ∀ p ∈ Pset, ‖chiValue p‖ ≤ 1) :
+    ‖bandPrimePolynomial P Pset chiValue xi t‖ ≤ (Pset.card : ℝ) / P := by
+  have hcoef (p : ℕ) (hp : p ∈ Pset) :
+      ‖chiValue p * pd7PrimePhase xi p * pd7PrimePhase t p‖ ≤ 1 := by
+    rw [norm_mul, norm_mul, pd7_prime_phase_norm, pd7_prime_phase_norm]
+    simpa using hchi p hp
+  have hsum :
+      ‖pd7PrimePolynomial Pset (fun p => chiValue p * pd7PrimePhase xi p) t‖ ≤
+        (Pset.card : ℝ) := by
+    unfold pd7PrimePolynomial
+    calc
+      _ ≤ ∑ p ∈ Pset,
+          ‖chiValue p * pd7PrimePhase xi p * pd7PrimePhase t p‖ := norm_sum_le _ _
+      _ ≤ ∑ _p ∈ Pset, (1 : ℝ) := by
+        apply Finset.sum_le_sum
+        intro p hp
+        exact hcoef p hp
+      _ = (Pset.card : ℝ) := by simp
+  have hscale : ‖(1 / P : ℂ)‖ = 1 / P := by
+    rw [norm_div, norm_one, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hP]
+  calc
+    _ = ‖(1 / P : ℂ)‖ *
+        ‖pd7PrimePolynomial Pset (fun p => chiValue p * pd7PrimePhase xi p) t‖ := by
+      rw [bandPrimePolynomial_eq_pd7, norm_mul]
+    _ = (1 / P : ℝ) *
+        ‖pd7PrimePolynomial Pset (fun p => chiValue p * pd7PrimePhase xi p) t‖ := by
+      rw [hscale]
+    _ ≤ (1 / P : ℝ) * (Pset.card : ℝ) :=
+      mul_le_mul_of_nonneg_left hsum (by positivity)
+    _ = (Pset.card : ℝ) / P := by ring
+
+lemma bandPrimePolynomial_separated_moment :
+    ∃ Cmv : ℝ, 0 < Cmv ∧
+      ∀ (P : ℝ), 1 ≤ P → ∀ (Pset : Finset ℕ),
+        (∀ p ∈ Pset, p.Prime ∧ P ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * P) →
+        ∀ (q : ℕ) (χ : DirichletCharacter ℂ q) (xi : ℝ) (r : ℕ),
+        ∀ (S : Finset ℝ) (lo hi : ℝ), lo ≤ hi →
+          (∀ t ∈ S, lo ≤ t ∧ t ≤ hi) →
+          (∀ t₁ ∈ S, ∀ t₂ ∈ S, t₁ ≠ t₂ → 1 ≤ |t₁ - t₂|) →
+          (∑ t ∈ S, ‖bandPrimePolynomial P Pset
+            (fun p => (χ (p : ZMod q) : ℂ)) xi t‖ ^ (2 * r)) ≤
+            Cmv * (hi - lo + 1 + ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ) *
+              Real.log (2 * ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ))) *
+              Real.rpow (Real.log (2 * ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ))) 2 *
+                (r.factorial : ℝ) * (Pset.card : ℝ) ^ r * (1 / P) ^ (2 * r) := by
+  obtain ⟨Cmv, hCmv, hMoment⟩ := pd7_prime_polynomial_separated_moment
+  refine ⟨Cmv, hCmv, ?_⟩
+  intro P hP Pset hPset q χ xi r S lo hi hlohi hS hsep
+  let N : ℕ := ⌊2 * P⌋₊
+  let coeff : ℕ → ℂ := fun p => (χ (p : ZMod q) : ℂ) * pd7PrimePhase xi p
+  have hN0 : 1 ≤ N := by
+    dsimp [N]
+    have htwo : (1 : ℝ) ≤ 2 * P := by linarith
+    exact Nat.le_floor (by exact_mod_cast htwo)
+  have hPprime : ∀ p ∈ Pset, p.Prime := fun p hp => (hPset p hp).1
+  have hNbound : ∀ p ∈ Pset, p ≤ N := by
+    intro p hp
+    dsimp [N]
+    exact Nat.le_floor (by exact_mod_cast (hPset p hp).2.2)
+  have hcoeff (p : ℕ) (hp : p ∈ Pset) : ‖coeff p‖ ≤ 1 := by
+    dsimp [coeff]
+    rw [norm_mul, pd7_prime_phase_norm]
+    simpa using χ.norm_le_one (p : ZMod q)
+  have hcoeffSq : (∑ p ∈ Pset, ‖coeff p‖ ^ 2) ≤ (Pset.card : ℝ) := by
+    calc
+      _ ≤ ∑ _p ∈ Pset, (1 : ℝ) := by
+        apply Finset.sum_le_sum
+        intro p hp
+        simpa using pow_le_pow_left₀ (norm_nonneg _) (hcoeff p hp) 2
+      _ = (Pset.card : ℝ) := by simp
+  have hcoeffSq0 : 0 ≤ ∑ p ∈ Pset, ‖coeff p‖ ^ 2 :=
+    Finset.sum_nonneg fun p hp => sq_nonneg _
+  have hcoeffPow : (∑ p ∈ Pset, ‖coeff p‖ ^ 2) ^ r ≤
+      (Pset.card : ℝ) ^ r :=
+    pow_le_pow_left₀ hcoeffSq0 hcoeffSq r
+  have hNcast : (1 : ℝ) ≤ (N : ℝ) := by exact_mod_cast hN0
+  have hYcast : (1 : ℝ) ≤ ((N ^ r : ℕ) : ℝ) := by
+    rw [Nat.cast_pow]
+    exact one_le_pow₀ hNcast
+  have hlog : 0 ≤ Real.log (2 * ((N ^ r : ℕ) : ℝ)) :=
+    Real.log_nonneg (by nlinarith)
+  have hMoment' := hMoment Pset coeff N r hPprime hNbound hN0 S lo hi
+    hlohi hS hsep
+  have hpolyMoment :
+      (∑ t ∈ S, ‖pd7PrimePolynomial Pset coeff t‖ ^ (2 * r)) ≤
+        Cmv * (hi - lo + 1 + ((N ^ r : ℕ) : ℝ) *
+          Real.log (2 * ((N ^ r : ℕ) : ℝ))) *
+          Real.rpow (Real.log (2 * ((N ^ r : ℕ) : ℝ))) 2 *
+            (r.factorial : ℝ) * (Pset.card : ℝ) ^ r := by
+    calc
+      _ ≤ Cmv * (hi - lo + 1 + ((N ^ r : ℕ) : ℝ) *
+            Real.log (2 * ((N ^ r : ℕ) : ℝ))) *
+          Real.rpow (Real.log (2 * ((N ^ r : ℕ) : ℝ))) 2 *
+            (r.factorial : ℝ) * (∑ p ∈ Pset, ‖coeff p‖ ^ 2) ^ r := hMoment'
+      _ ≤ _ := by
+        have hspan : 0 ≤ hi - lo + 1 := by linarith
+        have hlen : 0 ≤ hi - lo + 1 + ((N ^ r : ℕ) : ℝ) *
+            Real.log (2 * ((N ^ r : ℕ) : ℝ)) :=
+          add_nonneg hspan (mul_nonneg (by positivity) hlog)
+        have hpow : 0 ≤ Real.rpow (Real.log (2 * ((N ^ r : ℕ) : ℝ))) 2 :=
+          Real.rpow_nonneg hlog _
+        have hfac : 0 ≤ Cmv * (hi - lo + 1 + ((N ^ r : ℕ) : ℝ) *
+            Real.log (2 * ((N ^ r : ℕ) : ℝ))) *
+            Real.rpow (Real.log (2 * ((N ^ r : ℕ) : ℝ))) 2 *
+              (r.factorial : ℝ) :=
+          mul_nonneg (mul_nonneg (mul_nonneg hCmv.le hlen) hpow) (by positivity)
+        exact mul_le_mul_of_nonneg_left hcoeffPow hfac
+  have hscale : ‖(1 / P : ℂ)‖ = 1 / P := by
+    rw [norm_div, norm_one, Complex.norm_real, Real.norm_eq_abs,
+      abs_of_pos (by linarith : 0 < P)]
+  have hnorm (t : ℝ) :
+      ‖bandPrimePolynomial P Pset (fun p => (χ (p : ZMod q) : ℂ)) xi t‖ ^ (2 * r) =
+        (1 / P) ^ (2 * r) * ‖pd7PrimePolynomial Pset coeff t‖ ^ (2 * r) := by
+    rw [bandPrimePolynomial_eq_pd7, norm_mul, hscale, mul_pow]
+  have hscale0 : 0 ≤ (1 / P : ℝ) ^ (2 * r) := pow_nonneg (by positivity) _
+  have hsum :
+      (∑ t ∈ S, ‖bandPrimePolynomial P Pset
+          (fun p => (χ (p : ZMod q) : ℂ)) xi t‖ ^ (2 * r)) =
+        (1 / P) ^ (2 * r) *
+          (∑ t ∈ S, ‖pd7PrimePolynomial Pset coeff t‖ ^ (2 * r)) := by
+    calc
+      _ = ∑ t ∈ S, (1 / P) ^ (2 * r) *
+          ‖pd7PrimePolynomial Pset coeff t‖ ^ (2 * r) := by
+        apply Finset.sum_congr rfl
+        intro t ht
+        exact hnorm t
+      _ = _ := by rw [← Finset.mul_sum]
+  calc
+    _ = (1 / P) ^ (2 * r) *
+        (∑ t ∈ S, ‖pd7PrimePolynomial Pset coeff t‖ ^ (2 * r)) := hsum
+    _ ≤ (1 / P) ^ (2 * r) *
+        (Cmv * (hi - lo + 1 + ((N ^ r : ℕ) : ℝ) *
+          Real.log (2 * ((N ^ r : ℕ) : ℝ))) *
+          Real.rpow (Real.log (2 * ((N ^ r : ℕ) : ℝ))) 2 *
+            (r.factorial : ℝ) * (Pset.card : ℝ) ^ r) :=
+      mul_le_mul_of_nonneg_left hpolyMoment hscale0
+    _ = _ := by dsimp [N]; ring
+
+lemma pd7_card_le_high_moment {α : Type*} (S : Finset α) (f : α → ℂ)
+    (T : ℝ) (r : ℕ) (hT : 0 < T)
+    (hlarge : ∀ t ∈ S, T ≤ ‖f t‖) :
+    (S.card : ℝ) * T ^ (2 * r) ≤ ∑ t ∈ S, ‖f t‖ ^ (2 * r) := by
+  calc
+    _ = ∑ _t ∈ S, T ^ (2 * r) := by simp
+    _ ≤ ∑ t ∈ S, ‖f t‖ ^ (2 * r) := by
+      apply Finset.sum_le_sum
+      intro t ht
+      exact pow_le_pow_left₀ hT.le (hlarge t ht) _
+
+lemma pd7_two_color_interval_sample_bound (J : Finset ℤ) (w : ℤ → ℝ)
+    (f : ℝ → ℂ) (V R A : ℝ) (r : ℕ) (hV : 0 < V)
+    (hinterval : ∀ j ∈ J, (j : ℝ) ≤ w j ∧ w j ≤ (j : ℝ) + 1 ∧ |w j| ≤ R)
+    (hlarge : ∀ j ∈ J, V ≤ ‖f (w j)‖)
+    (hmoment : ∀ S : Finset ℝ, (∀ t ∈ S, |t| ≤ R) →
+      (∀ t₁ ∈ S, ∀ t₂ ∈ S, t₁ ≠ t₂ → 1 ≤ |t₁ - t₂|) →
+        (∑ t ∈ S, ‖f t‖ ^ (2 * r)) ≤ A) :
+    (J.card : ℝ) * V ^ (2 * r) ≤ 2 * A := by
+  let J₀ := J.filter fun j => j % 2 = 0
+  let J₁ := J.filter fun j => j % 2 = 1
+  let S₀ := J₀.image w
+  let S₁ := J₁.image w
+  have hcover : J ⊆ J₀ ∪ J₁ := by
+    intro j hj
+    have hmod : j % 2 = 0 ∨ j % 2 = 1 := by omega
+    rcases hmod with h0 | h1
+    · exact Finset.mem_union_left _ (Finset.mem_filter.mpr ⟨hj, h0⟩)
+    · exact Finset.mem_union_right _ (Finset.mem_filter.mpr ⟨hj, h1⟩)
+  have hJcard : J.card ≤ J₀.card + J₁.card := by
+    calc
+      J.card ≤ (J₀ ∪ J₁).card := Finset.card_le_card hcover
+      _ ≤ J₀.card + J₁.card := Finset.card_union_le _ _
+  have hgap0 (j k : ℤ) (hj : j % 2 = 0) (hk : k % 2 = 0) (hjk : j ≠ k) :
+      j + 2 ≤ k ∨ k + 2 ≤ j := by omega
+  have hgap1 (j k : ℤ) (hj : j % 2 = 1) (hk : k % 2 = 1) (hjk : j ≠ k) :
+      j + 2 ≤ k ∨ k + 2 ≤ j := by omega
+  have hinj0 : Set.InjOn w (↑J₀ : Set ℤ) := by
+    intro j hj k hk heq
+    have hj' := Finset.mem_filter.mp hj
+    have hk' := Finset.mem_filter.mp hk
+    by_contra hjk
+    have hgap := hgap0 j k hj'.2 hk'.2 hjk
+    have hji := hinterval j hj'.1
+    have hki := hinterval k hk'.1
+    rcases hgap with hgap | hgap
+    · have hgapR : (j : ℝ) + 2 ≤ (k : ℝ) := by exact_mod_cast hgap
+      have hstrict : w j < w k := by linarith [hji.2.1, hki.1, hgapR]
+      exact (ne_of_lt hstrict) heq
+    · have hgapR : (k : ℝ) + 2 ≤ (j : ℝ) := by exact_mod_cast hgap
+      have hstrict : w k < w j := by linarith [hki.2.1, hji.1, hgapR]
+      exact (ne_of_lt hstrict) heq.symm
+  have hinj1 : Set.InjOn w (↑J₁ : Set ℤ) := by
+    intro j hj k hk heq
+    have hj' := Finset.mem_filter.mp hj
+    have hk' := Finset.mem_filter.mp hk
+    by_contra hjk
+    have hgap := hgap1 j k hj'.2 hk'.2 hjk
+    have hji := hinterval j hj'.1
+    have hki := hinterval k hk'.1
+    rcases hgap with hgap | hgap
+    · have hgapR : (j : ℝ) + 2 ≤ (k : ℝ) := by exact_mod_cast hgap
+      have hstrict : w j < w k := by linarith [hji.2.1, hki.1, hgapR]
+      exact (ne_of_lt hstrict) heq
+    · have hgapR : (k : ℝ) + 2 ≤ (j : ℝ) := by exact_mod_cast hgap
+      have hstrict : w k < w j := by linarith [hki.2.1, hji.1, hgapR]
+      exact (ne_of_lt hstrict) heq.symm
+  have hcardImage0 : S₀.card = J₀.card := Finset.card_image_iff.mpr hinj0
+  have hcardImage1 : S₁.card = J₁.card := Finset.card_image_iff.mpr hinj1
+  have hrange0 : ∀ t ∈ S₀, |t| ≤ R := by
+    intro t ht
+    obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ht
+    exact (hinterval j (Finset.mem_filter.mp hj).1).2.2
+  have hlarge0 : ∀ t ∈ S₀, V ≤ ‖f t‖ := by
+    intro t ht
+    obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ht
+    exact hlarge j (Finset.mem_filter.mp hj).1
+  have hsep0 : ∀ t₁ ∈ S₀, ∀ t₂ ∈ S₀, t₁ ≠ t₂ → 1 ≤ |t₁ - t₂| := by
+    intro t₁ ht₁ t₂ ht₂ hne
+    obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ht₁
+    obtain ⟨k, hk, rfl⟩ := Finset.mem_image.mp ht₂
+    have hj' := Finset.mem_filter.mp hj
+    have hk' := Finset.mem_filter.mp hk
+    have hjk : j ≠ k := by
+      intro h
+      apply hne
+      simpa [h]
+    have hgap := hgap0 j k hj'.2 hk'.2 hjk
+    have hji := hinterval j hj'.1
+    have hki := hinterval k hk'.1
+    rcases hgap with hgap | hgap
+    · have hgapR : (j : ℝ) + 2 ≤ (k : ℝ) := by exact_mod_cast hgap
+      have hdiff : 1 ≤ w k - w j := by linarith [hji.2.1, hki.1, hgapR]
+      rw [abs_of_nonpos (by linarith : w j - w k ≤ 0)]
+      linarith
+    · have hgapR : (k : ℝ) + 2 ≤ (j : ℝ) := by exact_mod_cast hgap
+      have hdiff : 1 ≤ w j - w k := by linarith [hki.2.1, hji.1, hgapR]
+      rw [abs_of_nonneg (by linarith : 0 ≤ w j - w k)]
+      linarith
+  have hbound0 : (S₀.card : ℝ) * V ^ (2 * r) ≤ A := by
+    calc
+      _ ≤ ∑ t ∈ S₀, ‖f t‖ ^ (2 * r) := pd7_card_le_high_moment S₀ f V r hV hlarge0
+      _ ≤ A := hmoment S₀ hrange0 hsep0
+  have hrange1 : ∀ t ∈ S₁, |t| ≤ R := by
+    intro t ht
+    obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ht
+    exact (hinterval j (Finset.mem_filter.mp hj).1).2.2
+  have hlarge1 : ∀ t ∈ S₁, V ≤ ‖f t‖ := by
+    intro t ht
+    obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ht
+    exact hlarge j (Finset.mem_filter.mp hj).1
+  have hsep1 : ∀ t₁ ∈ S₁, ∀ t₂ ∈ S₁, t₁ ≠ t₂ → 1 ≤ |t₁ - t₂| := by
+    intro t₁ ht₁ t₂ ht₂ hne
+    obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ht₁
+    obtain ⟨k, hk, rfl⟩ := Finset.mem_image.mp ht₂
+    have hj' := Finset.mem_filter.mp hj
+    have hk' := Finset.mem_filter.mp hk
+    have hjk : j ≠ k := by
+      intro h
+      apply hne
+      simpa [h]
+    have hgap := hgap1 j k hj'.2 hk'.2 hjk
+    have hji := hinterval j hj'.1
+    have hki := hinterval k hk'.1
+    rcases hgap with hgap | hgap
+    · have hgapR : (j : ℝ) + 2 ≤ (k : ℝ) := by exact_mod_cast hgap
+      have hdiff : 1 ≤ w k - w j := by linarith [hji.2.1, hki.1, hgapR]
+      rw [abs_of_nonpos (by linarith : w j - w k ≤ 0)]
+      linarith
+    · have hgapR : (k : ℝ) + 2 ≤ (j : ℝ) := by exact_mod_cast hgap
+      have hdiff : 1 ≤ w j - w k := by linarith [hki.2.1, hji.1, hgapR]
+      rw [abs_of_nonneg (by linarith : 0 ≤ w j - w k)]
+      linarith
+  have hbound1 : (S₁.card : ℝ) * V ^ (2 * r) ≤ A := by
+    calc
+      _ ≤ ∑ t ∈ S₁, ‖f t‖ ^ (2 * r) := pd7_card_le_high_moment S₁ f V r hV hlarge1
+      _ ≤ A := hmoment S₁ hrange1 hsep1
+  have hcardR : (J.card : ℝ) ≤ (J₀.card : ℝ) + (J₁.card : ℝ) := by
+    exact_mod_cast hJcard
+  calc
+    _ ≤ ((J₀.card : ℝ) + (J₁.card : ℝ)) * V ^ (2 * r) :=
+      mul_le_mul_of_nonneg_right hcardR (pow_nonneg hV.le _)
+    _ = (S₀.card : ℝ) * V ^ (2 * r) + (S₁.card : ℝ) * V ^ (2 * r) := by
+      rw [hcardImage0, hcardImage1]
+      ring
+    _ ≤ A + A := add_le_add hbound0 hbound1
+    _ = 2 * A := by ring
+
+lemma finite_set_of_bounded_unit_intervals {S : Set ℤ} {R : ℝ} (hR : 0 ≤ R)
+    (hS : ∀ j ∈ S, ∃ t : ℝ, (j : ℝ) ≤ t ∧ t ≤ (j : ℝ) + 1 ∧ |t| ≤ R) :
+    S.Finite := by
+  let M : ℕ := ⌈R + 1⌉₊
+  have hM : R + 1 ≤ (M : ℝ) := by
+    dsimp [M]
+    exact Nat.le_ceil _
+  have hsubset : S ⊆ Set.Icc (-(M : ℤ)) (M : ℤ) := by
+    intro j hj
+    obtain ⟨t, hjt, htj, htR⟩ := hS j hj
+    have ht := abs_le.mp htR
+    constructor
+    · have hlow : -(M : ℝ) ≤ (j : ℝ) := by linarith
+      exact_mod_cast hlow
+    · have hhigh : (j : ℝ) ≤ (M : ℝ) := by linarith
+      exact_mod_cast hhigh
+  exact (Set.finite_Icc (-(M : ℤ)) (M : ℤ)).subset hsubset
+
+lemma pd7_sparse_bad_card_bound {bad : Set ℤ} (R V : ℝ) (f : ℝ → ℂ)
+    (r : ℕ) (A : ℝ) (hR : 0 ≤ R) (hV : 0 < V)
+    (hbad : ∀ j ∈ bad, ∃ t : ℝ,
+      (j : ℝ) ≤ t ∧ t ≤ (j : ℝ) + 1 ∧ |t| ≤ R ∧ V ≤ ‖f t‖)
+    (hmoment : ∀ S : Finset ℝ, (∀ t ∈ S, |t| ≤ R) →
+      (∀ t₁ ∈ S, ∀ t₂ ∈ S, t₁ ≠ t₂ → 1 ≤ |t₁ - t₂|) →
+        (∑ t ∈ S, ‖f t‖ ^ (2 * r)) ≤ A) :
+    (bad.ncard : ℝ) ≤ 2 * A / V ^ (2 * r) := by
+  have hfinite : bad.Finite := finite_set_of_bounded_unit_intervals hR (by
+    intro j hj
+    obtain ⟨t, hjt, htj, htR, _⟩ := hbad j hj
+    exact ⟨t, hjt, htj, htR⟩)
+  let J := hfinite.toFinset
+  let w : ℤ → ℝ := fun j => if hj : j ∈ bad then Classical.choose (hbad j hj) else 0
+  have hw (j : ℤ) (hj : j ∈ bad) :
+      (j : ℝ) ≤ w j ∧ w j ≤ (j : ℝ) + 1 ∧ |w j| ≤ R ∧ V ≤ ‖f (w j)‖ := by
+    simp [w, hj, Classical.choose_spec (hbad j hj)]
+  have hinterval : ∀ j ∈ J, (j : ℝ) ≤ w j ∧ w j ≤ (j : ℝ) + 1 ∧ |w j| ≤ R := by
+    intro j hj
+    have hj' : j ∈ bad := hfinite.mem_toFinset.mp hj
+    exact ⟨(hw j hj').1, (hw j hj').2.1, (hw j hj').2.2.1⟩
+  have hlarge : ∀ j ∈ J, V ≤ ‖f (w j)‖ := by
+    intro j hj
+    exact (hw j (hfinite.mem_toFinset.mp hj)).2.2.2
+  have hsample := pd7_two_color_interval_sample_bound J w f V R A r hV
+    hinterval hlarge hmoment
+  have hcard : (bad.ncard : ℝ) = (J.card : ℝ) := by
+    rw [Set.ncard_eq_toFinset_card bad hfinite]
+  have hpow : 0 < V ^ (2 * r) := pow_pos hV _
+  rw [hcard]
+  exact (le_div_iff₀ hpow).2 hsample
+
+theorem bandPrimePolynomial_bad_interval_count :
+    ∃ Cmv : ℝ, 0 < Cmv ∧
+      ∀ (P : ℝ), 1 ≤ P → ∀ (Pset : Finset ℕ),
+        (∀ p ∈ Pset, p.Prime ∧ P ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * P) →
+        ∀ (q : ℕ) (χ : DirichletCharacter ℂ q) (xi R V : ℝ),
+          0 ≤ R → 0 < V → ∀ r : ℕ,
+            let bad : Set ℤ := {j : ℤ | ∃ t : ℝ, (j : ℝ) ≤ t ∧ t ≤ (j : ℝ) + 1 ∧
+              |t| ≤ R ∧ V ≤ ‖bandPrimePolynomial P Pset
+                (fun p => (χ (p : ZMod q) : ℂ)) xi t‖}
+            (bad.ncard : ℝ) ≤
+              2 * Cmv * (2 * R + 1 + ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ) *
+                Real.log (2 * ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ))) *
+                Real.rpow (Real.log (2 * ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ))) 2 *
+                (r.factorial : ℝ) * (Pset.card : ℝ) ^ r * (1 / P) ^ (2 * r) /
+                V ^ (2 * r) := by
+  obtain ⟨Cmv, hCmv, hBand⟩ := bandPrimePolynomial_separated_moment
+  refine ⟨Cmv, hCmv, ?_⟩
+  intro P hP Pset hPset q χ xi R V hR hV r
+  let bad : Set ℤ := {j : ℤ | ∃ t : ℝ, (j : ℝ) ≤ t ∧ t ≤ (j : ℝ) + 1 ∧
+    |t| ≤ R ∧ V ≤ ‖bandPrimePolynomial P Pset
+      (fun p => (χ (p : ZMod q) : ℂ)) xi t‖}
+  have hmoment : ∀ S : Finset ℝ, (∀ t ∈ S, |t| ≤ R) →
+      (∀ t₁ ∈ S, ∀ t₂ ∈ S, t₁ ≠ t₂ → 1 ≤ |t₁ - t₂|) →
+        (∑ t ∈ S, ‖bandPrimePolynomial P Pset
+          (fun p => (χ (p : ZMod q) : ℂ)) xi t‖ ^ (2 * r)) ≤
+          Cmv * (2 * R + 1 + ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ) *
+            Real.log (2 * ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ))) *
+            Real.rpow (Real.log (2 * ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ))) 2 *
+              (r.factorial : ℝ) * (Pset.card : ℝ) ^ r * (1 / P) ^ (2 * r) := by
+    intro S hS hsep
+    have h := hBand P hP Pset hPset q χ xi r S (-R) R
+      (by linarith [hR])
+      (by
+        intro t ht
+        rcases abs_le.mp (hS t ht) with ⟨hlt, hgt⟩
+        constructor <;> linarith)
+      hsep
+    convert h using 1 <;> ring
+  have hbound := pd7_sparse_bad_card_bound (bad := bad) R V
+    (bandPrimePolynomial P Pset (fun p => (χ (p : ZMod q) : ℂ)) xi)
+    r (Cmv * (2 * R + 1 + ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ) *
+      Real.log (2 * ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ))) *
+      Real.rpow (Real.log (2 * ((⌊2 * P⌋₊ ^ r : ℕ) : ℝ))) 2 *
+      (r.factorial : ℝ) * (Pset.card : ℝ) ^ r * (1 / P) ^ (2 * r))
+    hR hV (by
+      intro j hj
+      change ∃ t : ℝ, (j : ℝ) ≤ t ∧ t ≤ (j : ℝ) + 1 ∧ |t| ≤ R ∧
+        V ≤ ‖bandPrimePolynomial P Pset (fun p => (χ (p : ZMod q) : ℂ)) xi t‖ at hj
+      exact hj) hmoment
+  change (bad.ncard : ℝ) ≤ _
+  simpa [mul_assoc, mul_left_comm, mul_comm] using hbound
+
 /-- COPY. The long coefficient polynomial `M_α(t)` with an arbitrary twist. -/
 noncomputable def alphaFrequency {δ C c₁ c₂ : ℝ}
     (family : CoefficientFamily δ C c₁ c₂) (x t : ℝ) (chiValue : ℕ → ℂ) : ℂ :=
@@ -63,6 +485,17 @@ noncomputable def betaUnitIntervalEnergy (Hn : ℝ) (beta chiValue : ℕ → ℂ
     (j : ℤ) : ℝ :=
   sSup ((fun t : ℝ => ‖betaFrequency Hn beta chiValue t‖ ^ 2) ''
     Set.Icc (j : ℝ) ((j : ℝ) + 1))
+
+lemma exists_unit_interval_value_close_to_sSup (f : ℝ → ℝ) (j : ℤ) (ε : ℝ)
+    (hε : 0 < ε) :
+    ∃ t ∈ Set.Icc (j : ℝ) ((j : ℝ) + 1),
+      sSup (f '' Set.Icc (j : ℝ) ((j : ℝ) + 1)) - ε < f t := by
+  have hne : (f '' Set.Icc (j : ℝ) ((j : ℝ) + 1)).Nonempty := by
+    refine ⟨f (j : ℝ), Set.mem_image_of_mem _ ?_⟩
+    simp
+  obtain ⟨y, hy, hlt⟩ := Set.exists_lt_of_lt_csSup hne (sub_lt_self _ hε)
+  obtain ⟨t, ht, rfl⟩ := Set.mem_image.mp hy
+  exact ⟨t, ht, hlt⟩
 
 /-- COPY. The energy integral in `maj:energy`. -/
 noncomputable def majorEnergyIntegral (T : ℝ) (B M N : ℝ → ℂ) : ℝ :=
