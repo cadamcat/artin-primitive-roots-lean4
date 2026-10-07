@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.Defs
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.LocalPhases
 
 set_option autoImplicit false

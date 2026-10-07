@@ -1,5 +1,5 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_positive_choice_rows
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_chronological_model
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_positive_choice_rows
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_chronological_model
 
 set_option autoImplicit false
 set_option linter.unusedVariables false

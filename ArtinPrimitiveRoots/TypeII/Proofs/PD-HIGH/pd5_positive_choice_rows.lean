@@ -1,5 +1,5 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_edge_position_mass_le
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_scale_facts
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_edge_position_mass_le
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_scale_facts
 
 set_option autoImplicit false
 set_option linter.unusedVariables false

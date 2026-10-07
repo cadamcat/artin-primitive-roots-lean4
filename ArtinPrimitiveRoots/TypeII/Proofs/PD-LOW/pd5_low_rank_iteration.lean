@@ -1,7 +1,7 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_boundary_norm_near_one
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_phase_at_births
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_modified_ops_symmetry_domination
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_rank_support_mass
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_boundary_norm_near_one
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_phase_at_births
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_modified_ops_symmetry_domination
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_rank_support_mass
 
 set_option autoImplicit false
 set_option linter.unusedVariables false

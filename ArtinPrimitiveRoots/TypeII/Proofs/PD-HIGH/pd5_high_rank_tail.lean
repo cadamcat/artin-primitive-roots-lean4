@@ -1,5 +1,5 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_fixed_system_abs_estimate
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_rank_support_mass
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_fixed_system_abs_estimate
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_rank_support_mass
 
 set_option autoImplicit false
 set_option linter.unusedVariables false

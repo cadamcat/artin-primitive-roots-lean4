@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_majorKernel_volume_bound
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_majorKernel_volume_bound
 
 set_option autoImplicit false
 set_option linter.unusedVariables false

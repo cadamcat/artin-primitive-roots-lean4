@@ -1,9 +1,9 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_boundary_norm_near_one
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_ghostBirthTwist_preserves_sym
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_edgeBirthTwist_preserves_sym
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_twisted_edge_schur
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.Defs
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_chronological_model
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_boundary_norm_near_one
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_ghostBirthTwist_preserves_sym
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_edgeBirthTwist_preserves_sym
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_twisted_edge_schur
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».Defs
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_chronological_model
 
 set_option autoImplicit false
 set_option linter.unusedVariables false

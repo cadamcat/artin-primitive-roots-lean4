@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_fourier_birth_constraints
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_fourier_birth_constraints
 
 set_option autoImplicit false
 set_option linter.unusedVariables false

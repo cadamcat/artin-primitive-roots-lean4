@@ -1,5 +1,5 @@
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_high_rank_tail
-import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_low_rank_iteration
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_high_rank_tail
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_low_rank_iteration
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.Determinant
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
