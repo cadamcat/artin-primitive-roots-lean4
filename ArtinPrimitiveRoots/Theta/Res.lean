@@ -65,7 +65,8 @@ structure AnalyticFamily (P : CoverPackage D S H A) (G : GlobalDatum P)
     ∀ s g, ∀ k ∈ (P.loc v).Kc m, (sec s).f v (g * k) = (sec s).f v g
 
 /-- **res:continuation** (consumer object): the continuation of `E(·, Φ_s)` to P-SPEC's domain,
-its residue `θ` at `1/6`, and the commutation of the residue with torus integrals. -/
+its residue `θ` at `1/6`, and the commutation of the residue with torus integrals.
+Corrected per rev-theta to include archimedean smoothness of the residue. -/
 structure ContinuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) where
   ε : ℝ
@@ -81,6 +82,10 @@ structure ContinuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
       Ψ (1 / 6) = torusCoeff P theta g Pd ν ∧
       ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 → Ψ s = (s - 1 / 6) * torusCoeff P (E s) g Pd ν
   theta_cont : ∀ g h, Continuous fun y : S.FSˣ => theta (g * P.tc.aS y * h)
+  archSmooth : ∀ (g : P.tc.G) (w : InfinitePlace F),
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun z : ℂ => theta (g * P.tc.nS
+        (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))
 
 /-- **res:continuation** (existence, from P-REDUCTION `red:decompose` and P-SPEC
 `exists_continuedEisenstein`). -/

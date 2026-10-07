@@ -70,14 +70,17 @@ structure ReflectionRow (S : ArtinPrimitiveRoots.A1.SData F CE condη) where
 
 /-- Membership in the compact annular row set `R ∩ ℓ_{Z^{M₀}} K`, translated by a fixed
 norm-one element when the uniformity clause is used (02a:77-96). -/
-def InReflectionBox (S : ArtinPrimitiveRoots.A1.SData F CE condη)
-    (K : Set S.FSˣ) (t : S.FSˣ) (Z : ℝ) (r : ReflectionRow S) : Prop :=
-  ∃ y ∈ K, S.diag (r.m : F) = S.ell (Real.rpow Z M0) * ((t * y : S.FSˣ) : S.FS)
+def InReflectionBox (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (K : Set S.FSˣ) (t : S.FSˣ) (Z : ℝ) (hZ : 0 < Z) (r : ReflectionRow S) : Prop :=
+  ∃ y ∈ K, S.diag (r.m : F) =
+    S.ell D (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0) * ((t * y : S.FSˣ) : S.FS)
 
 /-- Fixed balanced allowed-generator choices supplied by A1 `lem:balanced-generators`
 (02-arithmetic.tex:134-227).
 The compact set and all choices are fixed before the growing norm variables. -/
-structure BalancedChoices (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+structure BalancedChoices (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (H : ArtinPrimitiveRoots.A1.HilbertData F)
     (Bd : ArtinPrimitiveRoots.A1.BData S H) where
   Kbal : Set S.FS
@@ -86,32 +89,41 @@ structure BalancedChoices (S : ArtinPrimitiveRoots.A1.SData F CE condη)
   gen : ArtinPrimitiveRoots.A1.SData.ExtIdeal S → Fˣ
   gen_spec : ∀ I, S.IsGen (gen I : F) I.1 ∧ Bd.Allowed (gen I)
   gen_balanced : ∀ I,
-    S.diag (gen I : F) * S.ell (idealNorm I.1)⁻¹ ∈ Kbal
+    S.diag (gen I : F) * S.ell D (idealNorm I.1)⁻¹ (by
+      have hnorm : 0 < Ideal.absNorm I.1 :=
+        Ideal.absNorm_pos_of_nonZeroDivisors
+          ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr
+            (by simpa [Ideal.zero_eq_bot] using I.2.1)⟩
+      have hnormR : 0 < (Ideal.absNorm I.1 : ℝ) := by exact_mod_cast hnorm
+      exact inv_pos.mpr (by simpa [idealNorm] using hnormR)) ∈ Kbal
 
 /-! ### The balanced row-unit decomposition -/
 
 /-- **def:rf-row-units** (04-reflection.tex:19-35): the row element as a unit of `F`. -/
 def rowElement (S : ArtinPrimitiveRoots.A1.SData F CE condη) (r : ReflectionRow S) : Fˣ :=
-  Units.mk0 (r.m : F) r.generates.1
+  Units.mk0 (r.m : F) r.generates.2.1
 
 /-- **def:rf-row-units** (04-reflection.tex:21-35): the ratio between a row generator and the
 fixed balanced generator is an S-unit. -/
 theorem exists_rowUnit (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    {D : ArtinPrimitiveRoots.A1.FieldData F}
     {H : ArtinPrimitiveRoots.A1.HilbertData F} {Bd : ArtinPrimitiveRoots.A1.BData S H}
-    (bc : BalancedChoices S H Bd) (r : ReflectionRow S) :
+    (bc : BalancedChoices D S H Bd) (r : ReflectionRow S) :
     ∃ ε : S.US, rowElement S r = ε * bc.gen r.ideal := by
   sorry
 
 /-- **def:rf-row-units** (04-reflection.tex:21-35): `ε_m = m/m₀(𝔪)`. -/
 noncomputable def rowEpsilon (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    {D : ArtinPrimitiveRoots.A1.FieldData F}
     {H : ArtinPrimitiveRoots.A1.HilbertData F} {Bd : ArtinPrimitiveRoots.A1.BData S H}
-    (bc : BalancedChoices S H Bd) (r : ReflectionRow S) : S.US :=
+    (bc : BalancedChoices D S H Bd) (r : ReflectionRow S) : S.US :=
   Classical.choose (exists_rowUnit S bc r)
 
 /-- **def:rf-row-units** (04-reflection.tex:30-35): the class `υ_m = ε_m Γ`. -/
 noncomputable def rowUpsilon (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    {D : ArtinPrimitiveRoots.A1.FieldData F}
     {H : ArtinPrimitiveRoots.A1.HilbertData F} {Bd : ArtinPrimitiveRoots.A1.BData S H}
-    (bc : BalancedChoices S H Bd) (r : ReflectionRow S) : UnitSix S :=
+    (bc : BalancedChoices D S H Bd) (r : ReflectionRow S) : UnitSix S :=
   unitSixClass S (rowEpsilon S bc r)
 
 /-- **def:rf-row-units** (04-reflection.tex:37-38): `j_𝔭 = v_𝔭((m)_S) mod 6`. -/

@@ -1,5 +1,10 @@
 import ArtinPrimitiveRoots.Construction.Defs
 import ArtinPrimitiveRoots.TypeII.Marked
+import ArtinPrimitiveRoots.A1.Characters
+import ArtinPrimitiveRoots.A1.Analytic
+import ArtinPrimitiveRoots.Theta.Cover
+import ArtinPrimitiveRoots.Theta.LocalWhit
+import ArtinPrimitiveRoots.Theta.AnalysisS
 
 /-!
 Kernel-checked inhabitance witnesses for the Prop-valued predicates used in part B.
@@ -9,6 +14,7 @@ strictly inside `(1, 2)`.
 
 namespace ArtinPrimitiveRoots.Review
 
+open NumberField IsDedekindDomain
 open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.Construction
 
@@ -120,5 +126,138 @@ example : ∃ family : CoefficientFamily 0 1 1 1,
 #print axioms groupInteger_witness
 #print axioms testFunction_witness
 #print axioms longCancellation_witness
+
+/-! ## Theta/A1 predicate inhabitance -/
+
+open ArtinPrimitiveRoots.A1
+open ArtinPrimitiveRoots.A1.Theta
+
+theorem cyclotomic12_FieldData_witness
+    (σ0 : CyclotomicField 12 ℚ →+* ℂ) :
+    Nonempty (FieldData (CyclotomicField 12 ℚ)) := by
+  exact ⟨cyclotomicFieldData 12 (by norm_num) σ0⟩
+example (σ0 : CyclotomicField 12 ℚ →+* ℂ) :
+    Nonempty (FieldData (CyclotomicField 12 ℚ)) := cyclotomic12_FieldData_witness σ0
+
+theorem isExterior_top_witness {F : Type} [Field F] [NumberField F]
+    {CE : ℕ} {condη : Ideal (𝓞 F)} (S : SData F CE condη) : S.IsExterior ⊤ := by
+  refine ⟨by simp, ?_⟩
+  intro v hv hle
+  have htop : v.asIdeal = ⊤ := top_le_iff.mp hle
+  exact v.isMaximal.ne_top htop
+example {F : Type} [Field F] [NumberField F] {CE : ℕ} {condη : Ideal (𝓞 F)}
+    (S : SData F CE condη) : S.IsExterior ⊤ := isExterior_top_witness S
+
+theorem isGen_one_top_witness {F : Type} [Field F] [NumberField F]
+    {CE : ℕ} {condη : Ideal (𝓞 F)} (S : SData F CE condη) :
+    S.IsGen (1 : F) ⊤ := by
+  refine ⟨isExterior_top_witness S, one_ne_zero, ?_⟩
+  intro v hv
+  rw [FractionalIdeal.spanSingleton_one, FractionalIdeal.coeIdeal_top]
+example {F : Type} [Field F] [NumberField F] {CE : ℕ} {condη : Ideal (𝓞 F)}
+    (S : SData F CE condη) : S.IsGen (1 : F) ⊤ := isGen_one_top_witness S
+
+theorem isGen_implies_isExterior_witness {F : Type} [Field F] [NumberField F]
+    {CE : ℕ} {condη : Ideal (𝓞 F)} (S : SData F CE condη)
+    {c : F} {I : Ideal (𝓞 F)} (h : S.IsGen c I) : S.IsExterior I := h.1
+example {F : Type} [Field F] [NumberField F] {CE : ℕ} {condη : Ideal (𝓞 F)}
+    (S : SData F CE condη) {c : F} {I : Ideal (𝓞 F)} (h : S.IsGen c I) :
+    S.IsExterior I := isGen_implies_isExterior_witness S h
+
+theorem isGen_zero_ideal_impossible {F : Type} [Field F] [NumberField F]
+    {CE : ℕ} {condη : Ideal (𝓞 F)} (S : SData F CE condη) (c : F) :
+    ¬ S.IsGen c ⊥ := by
+  intro h
+  exact h.1.1 rfl
+
+theorem unramified_trivial_character_witness {F : Type} [Field F] [NumberField F]
+    (v : FinPlace F) : (1 : HeckeChar F).UnramifiedAt v := by
+  intro u hu huv
+  simp [HeckeChar.loc]
+example {F : Type} [Field F] [NumberField F] (v : FinPlace F) :
+    (1 : HeckeChar F).UnramifiedAt v := unramified_trivial_character_witness v
+
+theorem conductor_trivial_character_witness {F : Type} [Field F] [NumberField F]
+    (𝔪 : Ideal (𝓞 F)) : (1 : HeckeChar F).ConductorDvd 𝔪 := by
+  intro v u hu huv hcong
+  simp [HeckeChar.loc]
+example {F : Type} [Field F] [NumberField F] (𝔪 : Ideal (𝓞 F)) :
+    (1 : HeckeChar F).ConductorDvd 𝔪 := conductor_trivial_character_witness 𝔪
+
+theorem sheetHypFin_zero_witness {F : Type} [Field F] [NumberField F]
+    (v : FinPlace F) (δ : ℝ) : SheetHypFin v δ (fun _ => 0) := by
+  refine ⟨?_, ⟨1, ?_⟩, ⟨0, ?_⟩⟩
+  · intro x hx
+    refine ⟨Set.univ, isOpen_univ, Set.mem_univ x, ?_⟩
+    intro y hy
+    rfl
+  · intro y hy
+    rfl
+  · intro y hy hsmall
+    simp
+example {F : Type} [Field F] [NumberField F] (v : FinPlace F) (δ : ℝ) :
+    SheetHypFin v δ (fun _ => 0) := sheetHypFin_zero_witness v δ
+
+theorem sheetHypC_zero_witness (δ : ℝ) : SheetHypC δ (fun _ => 0) := by
+  refine ⟨by fun_prop, ?_⟩
+  intro j A hA
+  refine ⟨0, ?_⟩
+  intro y hy
+  simp [normDeriv]
+example (δ : ℝ) :
+    SheetHypC δ (fun _ => 0) := sheetHypC_zero_witness δ
+
+theorem steinbergAt_witness {F : Type} [Field F] [NumberField F]
+    {H : HilbertData F} {v : FinPlace F} : SteinbergAt H v := by
+  intro a h
+  exact H.steinberg v a h
+example {F : Type} [Field F] [NumberField F] {H : HilbertData F} {v : FinPlace F} :
+    SteinbergAt H v := steinbergAt_witness
+
+theorem isLocUnit_one_witness {F : Type} [Field F] [NumberField F]
+    {v : FinPlace F} : IsLocUnit v 1 := by
+  constructor <;> simp [IsLocUnit]
+example {F : Type} [Field F] [NumberField F] {v : FinPlace F} :
+    IsLocUnit v 1 := isLocUnit_one_witness
+
+theorem isSectionC_zero_witness (s : ℂ) : IsSectionC s (fun _ => 0) := by
+  intro x y g
+  simp
+example (s : ℂ) : IsSectionC s (fun _ => 0) := isSectionC_zero_witness s
+
+theorem sheetMultiplier_zero_witness {F : Type} [Field F] [NumberField F]
+    {CE : ℕ} {condη : Ideal (𝓞 F)} (S : SData F CE condη) (L : SChar S) :
+    SheetMultiplier S (fun _ => 0) := by
+  refine ⟨L, 0, fun _ => 0, ⟨0, ?_⟩, ?_⟩
+  · intro x
+    simp
+  · intro y
+    simp
+example {F : Type} [Field F] [NumberField F] {CE : ℕ} {condη : Ideal (𝓞 F)}
+    (S : SData F CE condη) (L : SChar S) : SheetMultiplier S (fun _ => 0) :=
+  sheetMultiplier_zero_witness S L
+
+theorem allowed_one_witness {F : Type} [Field F] [NumberField F]
+    {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE condη} {H : HilbertData F}
+    (Bd : BData S H) : Bd.Allowed 1 := by
+  simp [BData.Allowed]
+example {F : Type} [Field F] [NumberField F] {CE : ℕ} {condη : Ideal (𝓞 F)}
+    {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H) : Bd.Allowed 1 :=
+  allowed_one_witness Bd
+
+#print axioms isExterior_top_witness
+#print axioms cyclotomic12_FieldData_witness
+#print axioms isGen_one_top_witness
+#print axioms isGen_implies_isExterior_witness
+#print axioms isGen_zero_ideal_impossible
+#print axioms unramified_trivial_character_witness
+#print axioms conductor_trivial_character_witness
+#print axioms sheetHypFin_zero_witness
+#print axioms sheetHypC_zero_witness
+#print axioms steinbergAt_witness
+#print axioms isLocUnit_one_witness
+#print axioms isSectionC_zero_witness
+#print axioms sheetMultiplier_zero_witness
+#print axioms allowed_one_witness
 
 end ArtinPrimitiveRoots.Review
