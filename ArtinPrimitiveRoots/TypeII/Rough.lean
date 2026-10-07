@@ -1463,8 +1463,9 @@ private theorem roughTupleKernel_integrableOn_source {n : ℕ} {A l r : ℝ}
       | @insert k s hks ih =>
         rw [Finset.prod_insert hks]
         have hk1 : 1 ≤ t k := le_trans hA1.le (ht.1 k)
+        have hA0 : 0 ≤ A := by linarith
         have hs0 : 0 ≤ ∏ q ∈ s, t q :=
-          Finset.prod_nonneg fun q _ => le_trans (by norm_num) (ht.1 q)
+          Finset.prod_nonneg fun q _ => le_trans hA0 (ht.1 q)
         nlinarith [mul_le_mul_of_nonneg_left hk1 hs0]
     have hrest : 1 ≤ ∏ k ∈ Finset.univ.erase i, t k := hprodOne _
     have hprodEq : t i * ∏ k ∈ Finset.univ.erase i, t k =
@@ -1475,7 +1476,7 @@ private theorem roughTupleKernel_integrableOn_source {n : ℕ} {A l r : ℝ}
         t i = t i * 1 := by ring
         _ ≤ t i * ∏ k ∈ Finset.univ.erase i, t k :=
           mul_le_mul_of_nonneg_left hrest
-            (le_trans (by norm_num) (le_trans hA1.le (ht.1 i)))
+            (le_trans (by norm_num : 0 ≤ (1 : ℝ)) (le_trans hA1.le (ht.1 i)))
         _ = ∏ k : Fin (n + 1), t k := hprodEq
     exact hsingle.trans ht.2.2
   have hlogA : 0 < Real.log A := Real.log_pos hA1
@@ -1485,14 +1486,21 @@ private theorem roughTupleKernel_integrableOn_source {n : ℕ} {A l r : ℝ}
     unfold F
     apply continuous_finsetProd Finset.univ
     intro i hi
-    have hmax : Continuous (fun t : Fin (n + 1) → ℝ => max A (t i)) :=
-      continuous_const.max (continuous_apply i)
     have hlog : Continuous (fun t : Fin (n + 1) → ℝ => Real.log (max A (t i))) := by
       apply continuous_iff_continuousAt.mpr
       intro t
-      exact (Real.continuousAt_log
-        (ne_of_gt (lt_of_lt_of_le (lt_trans zero_lt_one hA1) (le_max_left A (t i))))).comp
-          hmax.continuousAt
+      have hmaxAt : ContinuousAt (fun u : ℝ => max A u) (t i) :=
+        (continuous_const.max continuous_id).continuousAt
+      have hlogAt : ContinuousAt (fun u : ℝ => Real.log (max A u)) (t i) := by
+        have hlogAt' : ContinuousAt Real.log (max A (t i)) :=
+          Real.continuousAt_log
+            (ne_of_gt (lt_of_lt_of_le (lt_trans zero_lt_one hA1) (le_max_left A (t i))))
+        exact ContinuousAt.comp (f := fun u : ℝ => max A u) (g := Real.log)
+          (x := t i) hlogAt' hmaxAt
+      have happly : ContinuousAt (fun u : Fin (n + 1) → ℝ => u i) t :=
+        (continuous_apply i).continuousAt
+      exact ContinuousAt.comp (f := fun u : Fin (n + 1) → ℝ => u i)
+        (g := fun u : ℝ => Real.log (max A u)) (x := t) hlogAt happly
     have hden : Continuous (fun t : Fin (n + 1) → ℝ =>
         max (Real.log A) (Real.log (max A (t i)))) := continuous_const.max hlog
     apply hden.inv₀
@@ -1514,10 +1522,423 @@ private theorem roughTupleKernel_integrableOn_source {n : ℕ} {A l r : ℝ}
   have hf : ContinuousOn
       (fun t : Fin (n + 1) → ℝ => ∏ i, 1 / Real.log (t i)) K :=
     hF.continuousOn.congr fun t ht => (hFeq t ht).symm
-  have hsfinite : volume (roughTupleSource (n := n) A l r) ≠ ∞ :=
+  have hsfinite : volume (roughTupleSource (n := n) A l r) ≠ ⊤ :=
     ne_of_lt (lt_of_le_of_lt (measure_mono hsubset) hK.measure_lt_top)
   exact hf.integrableOn_of_subset_isCompact hK
     (measurableSet_roughTupleSource A l r) hsubset hsfinite
+
+private theorem roughTupleImage_eq_logSimplex {n : ℕ} (x γ l r : ℝ)
+    (hx : 2 ≤ x) (hγ : 0 < γ) (hl : Real.rpow x γ < l) :
+    roughTupleImage x γ l r =
+      {q | (∀ i : Fin n, γ ≤ q (Fin.castSucc i)) ∧
+        l ≤ q (Fin.last n) ∧ q (Fin.last n) ≤ r ∧
+        (∑ i : Fin n, q (Fin.castSucc i)) ≤
+          Real.log (q (Fin.last n)) / Real.log x - γ} := by
+  have hx1 : 1 < x := by linarith
+  have hxpos : 0 < x := by linarith
+  have hL : 0 < Real.log x := Real.log_pos hx1
+  have hA1 : 1 < Real.rpow x γ := Real.one_lt_rpow hx1 hγ
+  have hl1 : 1 < l := lt_trans hA1 hl
+  ext q
+  constructor
+  · rintro ⟨hqγ, hqlo, hqhi, hqprod⟩
+    refine ⟨hqγ, hqlo, hqhi, ?_⟩
+    have hy : 0 < q (Fin.last n) :=
+      lt_trans zero_lt_one (lt_of_lt_of_le hl1 hqlo)
+    have hsumPow :
+        ∏ i : Fin n, Real.rpow x (q (Fin.castSucc i)) =
+          Real.rpow x (∑ i : Fin n, q (Fin.castSucc i)) := by
+      simpa using
+        (Real.rpow_sum_of_pos hxpos
+          (fun i : Fin n => q (Fin.castSucc i)) Finset.univ).symm
+    have hpow : Real.rpow x γ *
+        ∏ i : Fin n, Real.rpow x (q (Fin.castSucc i)) =
+        Real.rpow x (γ + ∑ i : Fin n, q (Fin.castSucc i)) := by
+      calc
+        _ = Real.rpow x γ * Real.rpow x (∑ i : Fin n, q (Fin.castSucc i)) := by rw [hsumPow]
+        _ = Real.rpow x (γ + ∑ i : Fin n, q (Fin.castSucc i)) :=
+          (Real.rpow_add hxpos γ _).symm
+    have hlog := (Real.rpow_le_iff_le_log hxpos hy).1 (hpow ▸ hqprod)
+    have hsum : (∑ i : Fin n, q (Fin.castSucc i)) * Real.log x ≤
+        Real.log (q (Fin.last n)) - γ * Real.log x := by
+      nlinarith [hlog]
+    have hdiv := (le_div_iff₀ hL).2 hsum
+    have hquot :
+        (Real.log (q (Fin.last n)) - γ * Real.log x) / Real.log x =
+          Real.log (q (Fin.last n)) / Real.log x - γ := by
+      field_simp [ne_of_gt hL]
+    rw [hquot] at hdiv
+    exact hdiv
+  · rintro ⟨hqγ, hqlo, hqhi, hsimplex⟩
+    refine ⟨hqγ, hqlo, hqhi, ?_⟩
+    have hy : 0 < q (Fin.last n) :=
+      lt_trans zero_lt_one (lt_of_lt_of_le hl1 hqlo)
+    have hsumPow :
+        ∏ i : Fin n, Real.rpow x (q (Fin.castSucc i)) =
+          Real.rpow x (∑ i : Fin n, q (Fin.castSucc i)) := by
+      simpa using
+        (Real.rpow_sum_of_pos hxpos
+          (fun i : Fin n => q (Fin.castSucc i)) Finset.univ).symm
+    have hpow : Real.rpow x γ *
+        ∏ i : Fin n, Real.rpow x (q (Fin.castSucc i)) =
+        Real.rpow x (γ + ∑ i : Fin n, q (Fin.castSucc i)) := by
+      calc
+        _ = Real.rpow x γ * Real.rpow x (∑ i : Fin n, q (Fin.castSucc i)) := by rw [hsumPow]
+        _ = Real.rpow x (γ + ∑ i : Fin n, q (Fin.castSucc i)) :=
+          (Real.rpow_add hxpos γ _).symm
+    have hquot :
+        (Real.log (q (Fin.last n)) - γ * Real.log x) / Real.log x =
+          Real.log (q (Fin.last n)) / Real.log x - γ := by
+      field_simp [ne_of_gt hL]
+    have hsum :
+        (γ + ∑ i : Fin n, q (Fin.castSucc i)) * Real.log x ≤
+          Real.log (q (Fin.last n)) := by
+      have hscaled : (∑ i : Fin n, q (Fin.castSucc i)) * Real.log x ≤
+          Real.log (q (Fin.last n)) - γ * Real.log x := by
+        calc
+          _ ≤ ((Real.log (q (Fin.last n)) - γ * Real.log x) / Real.log x) * Real.log x :=
+            mul_le_mul_of_nonneg_right
+              (show (∑ i : Fin n, q (Fin.castSucc i)) ≤
+                  (Real.log (q (Fin.last n)) - γ * Real.log x) / Real.log x by
+                rw [hquot]
+                exact hsimplex) hL.le
+          _ = Real.log (q (Fin.last n)) - γ * Real.log x := by
+            field_simp [ne_of_gt hL]
+      nlinarith [hscaled]
+    rw [hpow]
+    exact (Real.rpow_le_iff_le_log hxpos hy).2 hsum
+
+private theorem roughLogProductMap_kernel_identity {n : ℕ} {L A l r : ℝ}
+    (hL : 0 < L) (hA1 : 1 < A) (z : Fin (n + 1) → ℝ)
+    (hz : z ∈ roughTupleSource (n := n) A l r) :
+    |(LinearMap.toContinuousLinearMap
+        (Matrix.toLin' (roughLogProductJac L z))).det| *
+      (L⁻¹ *
+        ((Real.log (roughLogProductMap L z (Fin.last n)) / L -
+            ∑ i : Fin n, roughLogProductMap L z (Fin.castSucc i))⁻¹ *
+          ∏ i : Fin n, (roughLogProductMap L z (Fin.castSucc i))⁻¹)) =
+      ∏ i : Fin (n + 1), (Real.log (z i))⁻¹ := by
+  have hzt : ∀ i, 1 < z i := fun i => lt_of_lt_of_le hA1 (hz.1 i)
+  have hzpos : ∀ i, 0 < z i := fun i => lt_trans zero_lt_one (hzt i)
+  have hlogpos : ∀ i, 0 < Real.log (z i) := fun i => Real.log_pos (hzt i)
+  have hLne : L ≠ 0 := ne_of_gt hL
+  have hqfirst (i : Fin n) :
+      roughLogProductMap L z (Fin.castSucc i) =
+        Real.log (z (Fin.castSucc i)) / L := by
+    simp [roughLogProductMap, Fin.castSucc_ne_last]
+  have hlogq : Real.log (roughLogProductMap L z (Fin.last n)) =
+      ∑ i : Fin (n + 1), Real.log (z i) := by
+    rw [show roughLogProductMap L z (Fin.last n) = ∏ i : Fin (n + 1), z i by
+      simp [roughLogProductMap]]
+    rw [Real.log_prod (fun i hi => ne_of_gt (hzpos i))]
+  have hden :
+      Real.log (roughLogProductMap L z (Fin.last n)) / L -
+        ∑ i : Fin n, roughLogProductMap L z (Fin.castSucc i) =
+      Real.log (z (Fin.last n)) / L := by
+    rw [hlogq, Fin.sum_univ_castSucc]
+    simp_rw [hqfirst]
+    rw [← Finset.sum_div]
+    field_simp [hLne]
+    ring
+  let P : ℝ := ∏ i : Fin n, (Real.log (z (Fin.castSucc i)))⁻¹
+  have hfirstScale :
+      ∏ i : Fin n, (roughLogProductMap L z (Fin.castSucc i))⁻¹ = L ^ n * P := by
+    calc
+      _ = ∏ i : Fin n, L * (Real.log (z (Fin.castSucc i)))⁻¹ := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        rw [hqfirst i]
+        field_simp [hLne, ne_of_gt (hlogpos (Fin.castSucc i))]
+      _ = (∏ _i : Fin n, L) * P := by
+        rw [Finset.prod_mul_distrib]
+      _ = L ^ n * P := by simp [P]
+  have hlastScale :
+      (Real.log (z (Fin.last n)) / L)⁻¹ =
+        L * (Real.log (z (Fin.last n)))⁻¹ := by
+    field_simp [hLne, ne_of_gt (hlogpos (Fin.last n))]
+  have hkernelSplit :
+      ∏ i : Fin (n + 1), (Real.log (z i))⁻¹ =
+        P * ((Real.log (z (Fin.last n)))⁻¹) := by
+    simp [Fin.prod_univ_castSucc, P]
+    ring
+  have hdet :
+      |(LinearMap.toContinuousLinearMap
+          (Matrix.toLin' (roughLogProductJac L z))).det| = L⁻¹ ^ n := by
+    change |LinearMap.det (Matrix.toLin' (roughLogProductJac L z))| = L⁻¹ ^ n
+    rw [LinearMap.det_toLin']
+    exact roughLogProductJac_abs_det z hL hzpos
+  have hLinvL : L⁻¹ * L = 1 := by field_simp [hLne]
+  have hpowL : L⁻¹ ^ n * L ^ n = 1 := by
+    rw [← mul_pow, hLinvL]
+    simp
+  have halgebra :
+      (L⁻¹ ^ n) *
+        (L⁻¹ * ((L * (Real.log (z (Fin.last n)))⁻¹) * (L ^ n * P))) =
+        P * (Real.log (z (Fin.last n)))⁻¹ := by
+    calc
+      _ = (L⁻¹ ^ n * L ^ n) *
+          ((L⁻¹ * L) * ((Real.log (z (Fin.last n)))⁻¹ * P)) := by ring
+      _ = P * (Real.log (z (Fin.last n)))⁻¹ := by
+        rw [hpowL, hLinvL]
+        ring
+  rw [hdet, hden, hlastScale, hfirstScale, hkernelSplit]
+  exact halgebra
+
+private theorem roughTupleIntegral_higher (x γ l r : ℝ) {n : ℕ}
+    (hx : 2 ≤ x) (hγ : 0 < γ) (hl : Real.rpow x γ < l) (hr : l ≤ r)
+    (hn : 1 ≤ n) :
+    roughTupleIntegral x γ l r (n + 1) =
+      (1 / Real.log x) * ∫ y in l..r,
+        ArtinPrimitiveRoots.Sieve.roughDensityTerm γ
+          (Real.log y / Real.log x) (n + 1) := by
+  classical
+  let L : ℝ := Real.log x
+  let A : ℝ := Real.rpow x γ
+  let S : Set (Fin (n + 1) → ℝ) := roughTupleSource A l r
+  let f : (Fin (n + 1) → ℝ) → (Fin (n + 1) → ℝ) :=
+    roughLogProductMap L
+  let J : (Fin (n + 1) → ℝ) →
+      ((Fin (n + 1) → ℝ) →L[ℝ] (Fin (n + 1) → ℝ)) := fun z =>
+    LinearMap.toContinuousLinearMap (Matrix.toLin' (roughLogProductJac L z))
+  let G : (Fin (n + 1) → ℝ) → ℝ := fun q =>
+    L⁻¹ *
+      ((Real.log (q (Fin.last n)) / L -
+          ∑ i : Fin n, q (Fin.castSucc i))⁻¹ *
+        ∏ i : Fin n, (q (Fin.castSucc i))⁻¹)
+  let T : ℝ → Set (Fin n → ℝ) := fun y =>
+    {t | (∀ i, γ ≤ t i) ∧ ∑ i, t i ≤ Real.log y / L - γ}
+  let K : ℝ → (Fin n → ℝ) → ℝ := fun y t =>
+    (Real.log y / L - ∑ i, t i)⁻¹ * ∏ i, (t i)⁻¹
+  let P : Set (ℝ × (Fin n → ℝ)) :=
+    {p | p.1 ∈ Set.Icc l r ∧ p.2 ∈ T p.1}
+  let Gpair : ℝ × (Fin n → ℝ) → ℝ := fun p => L⁻¹ * K p.1 p.2
+  let e : (Fin (n + 1) → ℝ) ≃ᵐ ℝ × (Fin n → ℝ) :=
+    MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) (Fin.last n)
+  have hx1 : 1 < x := by linarith
+  have hxpos : 0 < x := by linarith
+  have hL : 0 < L := by dsimp [L]; exact Real.log_pos hx1
+  have hLne : L ≠ 0 := ne_of_gt hL
+  have hA1 : 1 < A := by
+    dsimp [A]
+    exact Real.one_lt_rpow hx1 hγ
+  have hApos : 0 < A := lt_trans zero_lt_one hA1
+  have hSmeas : MeasurableSet S := by
+    simpa [S] using measurableSet_roughTupleSource A l r
+  have hSourceKernelDiv :
+      IntegrableOn (fun z : Fin (n + 1) → ℝ => ∏ i, 1 / Real.log (z i)) S volume := by
+    simpa [S] using roughTupleKernel_integrableOn_source hA1 hl hr
+  have hSourceKernel :
+      IntegrableOn (fun z : Fin (n + 1) → ℝ => ∏ i, (Real.log (z i))⁻¹) S volume := by
+    exact hSourceKernelDiv.congr
+      (Filter.Eventually.of_forall fun z => by simp [one_div])
+  have hsourceEq :
+      roughTupleIntegral x γ l r (n + 1) =
+        (1 / ((n + 1).factorial : ℝ)) *
+          ∫ z in S, ∏ i : Fin (n + 1), 1 / Real.log (z i) := by
+    simpa [S, A] using roughTupleIntegral_eq_source x γ l r (n := n) hx
+  have hImage : f '' S = roughTupleImage x γ l r := by
+    dsimp [f, S, A]
+    exact roughLogProductMap_image_eq x γ l r hx hγ
+  have hInj : Set.InjOn f S := by
+    dsimp [f, S]
+    exact roughLogProductMap_injOn_source hL hApos
+  have hderiv : ∀ z ∈ S, HasFDerivWithinAt f (J z) S z := by
+    intro z hz
+    have hzA : ∀ i, A ≤ z i := (show z ∈ roughTupleSource A l r from by simpa [S] using hz).1
+    have hzne : ∀ i, z i ≠ 0 := fun i => ne_of_gt
+      (lt_trans zero_lt_one (lt_of_lt_of_le hA1 (hzA i)))
+    simpa [f, J] using
+      (roughLogProductMap_hasFDerivAt (L := L) z hLne hzne).hasFDerivWithinAt
+  have hkernelPoint (z : Fin (n + 1) → ℝ) (hz : z ∈ S) :
+      |(J z).det| • G (f z) = ∏ i : Fin (n + 1), (Real.log (z i))⁻¹ := by
+    have hz' : z ∈ roughTupleSource A l r := by simpa [S] using hz
+    simpa [f, J, G, smul_eq_mul] using
+      roughLogProductMap_kernel_identity hL hA1 z hz'
+  have hweighted :
+      IntegrableOn (fun z => |(J z).det| • G (f z)) S volume := by
+    apply hSourceKernel.congr
+    filter_upwards [ae_restrict_mem hSmeas] with z hz
+    exact (hkernelPoint z hz).symm
+  have hGimage : IntegrableOn G (f '' S) volume :=
+    (MeasureTheory.integrableOn_image_iff_integrableOn_abs_det_fderiv_smul
+      volume hSmeas hderiv hInj G).2 hweighted
+  have hImageIntegral :
+      ∫ q in f '' S, G q ∂volume =
+        ∫ z in S, ∏ i : Fin (n + 1), (Real.log (z i))⁻¹ := by
+    calc
+      ∫ q in f '' S, G q ∂volume =
+          ∫ z in S, |(J z).det| • G (f z) ∂volume :=
+        MeasureTheory.integral_image_eq_integral_abs_det_fderiv_smul
+          volume hSmeas hderiv hInj G
+      _ = ∫ z in S, ∏ i : Fin (n + 1), (Real.log (z i))⁻¹ := by
+        apply integral_congr_ae
+        filter_upwards [ae_restrict_mem hSmeas] with z hz
+        exact hkernelPoint z hz
+  have hImageIntegralDivision :
+      ∫ q in f '' S, G q ∂volume =
+        ∫ z in S, ∏ i : Fin (n + 1), 1 / Real.log (z i) := by
+    rw [hImageIntegral]
+    apply integral_congr_ae
+    filter_upwards with z
+    simp [one_div]
+  have hpre : e ⁻¹' P = f '' S := by
+    rw [hImage, roughTupleImage_eq_logSimplex x γ l r hx hγ hl]
+    ext q
+    have heq : e q =
+        (q (Fin.last n), fun i : Fin n => q (Fin.castSucc i)) := by
+      apply Prod.ext
+      · simp [e]
+      · funext i
+        simp [e, Fin.init]
+    change (e q ∈ P) ↔ q ∈ _
+    rw [heq]
+    simp [P, T, L, Set.mem_Icc, and_assoc, and_left_comm, and_comm]
+  have hGcomp (q : Fin (n + 1) → ℝ) : Gpair (e q) = G q := by
+    simp [Gpair, G, K, e, Fin.init, hLne]
+  have hGpairPre : IntegrableOn (fun q => Gpair (e q)) (e ⁻¹' P) volume := by
+    rw [hpre]
+    exact hGimage.congr (Filter.Eventually.of_forall fun q => (hGcomp q).symm)
+  have hMP0 : MeasurePreserving e volume volume := by
+    simpa [e] using
+      (volume_preserving_piFinSuccAbove (fun _ : Fin (n + 1) => ℝ) (Fin.last n))
+  have hMP : MeasurePreserving e volume (volume.prod volume) := by
+    simpa only [← Measure.volume_eq_prod ℝ (Fin n → ℝ)] using hMP0
+  have hGpairInt : IntegrableOn Gpair P (volume.prod volume) :=
+    (hMP.integrableOn_comp_preimage e.measurableEmbedding).mp hGpairPre
+  have hPairIntegral :
+      ∫ p in P, Gpair p ∂(volume.prod volume) = ∫ q in f '' S, G q ∂volume := by
+    calc
+      ∫ p in P, Gpair p ∂(volume.prod volume) =
+          ∫ q in e ⁻¹' P, Gpair (e q) ∂volume :=
+        (hMP.setIntegral_preimage_emb e.measurableEmbedding Gpair P).symm
+      _ = ∫ q in f '' S, G q ∂volume := by
+        rw [hpre]
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall hGcomp
+  have hTmeas (y : ℝ) : MeasurableSet (T y) := by
+    have hcoords : MeasurableSet {t : Fin n → ℝ | ∀ i, γ ≤ t i} := by
+      have h := MeasurableSet.iInter fun i : Fin n => by
+        have hconst : Measurable (fun _ : Fin n → ℝ => γ) := measurable_const
+        have happly : Measurable (fun t : Fin n → ℝ => t i) := measurable_pi_apply i
+        exact measurableSet_le hconst happly
+      simpa only [Set.iInter_ofPred] using h
+    have hsum : Measurable (fun t : Fin n → ℝ => ∑ i, t i) := by fun_prop
+    have hbound : MeasurableSet {t : Fin n → ℝ | ∑ i, t i ≤ Real.log y / L - γ} :=
+      measurableSet_le hsum measurable_const
+    simpa [T, Set.setOf_and] using hcoords.inter hbound
+  have hPmeas : MeasurableSet P := by
+    have hcoords : MeasurableSet {p : ℝ × (Fin n → ℝ) | ∀ i, γ ≤ p.2 i} := by
+      have h := MeasurableSet.iInter fun i : Fin n => by
+        have happly : Measurable (fun p : ℝ × (Fin n → ℝ) => p.2 i) := by
+          exact (measurable_pi_apply i).comp measurable_snd
+        have hconst : Measurable (fun _ : ℝ × (Fin n → ℝ) => γ) := measurable_const
+        exact measurableSet_le hconst happly
+      simpa only [Set.iInter_ofPred] using h
+    have hsum : Measurable (fun p : ℝ × (Fin n → ℝ) => ∑ i, p.2 i) := by fun_prop
+    have hbound : Measurable (fun p : ℝ × (Fin n → ℝ) => Real.log p.1 / L - γ) := by fun_prop
+    have hsumBound : MeasurableSet
+        {p : ℝ × (Fin n → ℝ) | ∑ i, p.2 i ≤ Real.log p.1 / L - γ} :=
+      measurableSet_le hsum hbound
+    have hinterval : MeasurableSet {p : ℝ × (Fin n → ℝ) | p.1 ∈ Set.Icc l r} :=
+      measurableSet_Icc.preimage measurable_fst
+    simpa [P, T, Set.setOf_and] using hinterval.inter (hcoords.inter hsumBound)
+  have hGpairWhole : Integrable (P.indicator Gpair) (volume.prod volume) :=
+    hGpairInt.integrable_indicator hPmeas
+  have hFiber (y : ℝ) :
+      ∫ t, P.indicator Gpair (y, t) ∂volume =
+        if y ∈ Set.Icc l r then ∫ t in T y, Gpair (y, t) ∂volume else 0 := by
+    by_cases hy : y ∈ Set.Icc l r
+    · have hfun : (fun t => P.indicator Gpair (y, t)) =
+          (T y).indicator (fun t => Gpair (y, t)) := by
+        funext t
+        have hy' : l ≤ y ∧ y ≤ r := by simpa [Set.mem_Icc] using hy
+        have hmem : (y, t) ∈ P ↔ t ∈ T y := by
+          simp [P, T, Set.mem_Icc, hy']
+        simp only [Set.indicator]
+        simp [hmem]
+      rw [hfun, integral_indicator (hTmeas y)]
+      simp [hy]
+    · have hfun : (fun t => P.indicator Gpair (y, t)) = fun _ => 0 := by
+        funext t
+        have hnot : (y, t) ∉ P := by
+          intro hmem
+          exact hy hmem.1
+        simp only [Set.indicator]
+        simp [hnot]
+      simp [hfun, hy]
+  have hinner (y : ℝ) :
+      ∫ t in T y, Gpair (y, t) ∂volume =
+        L⁻¹ * ∫ t in T y, K y t ∂volume := by
+    change ∫ t in T y, L⁻¹ * K y t ∂volume = _
+    rw [integral_const_mul]
+  have hPairIterated :
+      ∫ p in P, Gpair p ∂(volume.prod volume) =
+        L⁻¹ * ∫ y in l..r, ∫ t in T y, K y t ∂volume := by
+    calc
+      ∫ p in P, Gpair p ∂(volume.prod volume) =
+          ∫ p, P.indicator Gpair p ∂(volume.prod volume) := by
+        rw [← integral_indicator hPmeas]
+      _ = ∫ y, ∫ t, P.indicator Gpair (y, t) ∂volume ∂volume :=
+        integral_prod _ hGpairWhole
+      _ = ∫ y in Set.Icc l r, ∫ t in T y, Gpair (y, t) ∂volume := by
+        calc
+          _ = ∫ y, if y ∈ Set.Icc l r then
+                ∫ t in T y, Gpair (y, t) ∂volume else 0 := by
+            apply integral_congr_ae
+            exact Filter.Eventually.of_forall hFiber
+          _ = ∫ y in Set.Icc l r, ∫ t in T y, Gpair (y, t) ∂volume := by
+            have hfun : (fun y : ℝ =>
+                if y ∈ Set.Icc l r then ∫ t in T y, Gpair (y, t) ∂volume else 0) =
+                (Set.Icc l r).indicator
+                  (fun y => ∫ t in T y, Gpair (y, t) ∂volume) := by
+              funext y
+              simp [Set.indicator]
+            rw [hfun, integral_indicator measurableSet_Icc]
+      _ = ∫ y in Set.Icc l r, L⁻¹ * ∫ t in T y, K y t ∂volume := by
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall hinner
+      _ = L⁻¹ * ∫ y in Set.Icc l r, ∫ t in T y, K y t ∂volume := by
+        rw [integral_const_mul]
+      _ = L⁻¹ * ∫ y in l..r, ∫ t in T y, K y t ∂volume := by
+        congr 1
+        rw [integral_Icc_eq_integral_Ioc, ← intervalIntegral.integral_of_le hr]
+  have hterm (y : ℝ) :
+      ArtinPrimitiveRoots.Sieve.roughDensityTerm γ (Real.log y / L) (n + 1) =
+        (1 / ((n + 1).factorial : ℝ)) * ∫ t in T y, K y t ∂volume := by
+    have hj0 : (n + 1 : ℕ) ≠ 0 := by omega
+    have hj1 : (n + 1 : ℕ) ≠ 1 := by omega
+    simp only [ArtinPrimitiveRoots.Sieve.roughDensityTerm,
+      if_neg hj0, if_neg hj1, Nat.succ_sub_one]
+    rw [integral_indicator (hTmeas y)]
+    simp [T, K, one_div]
+  have htermInterval :
+      (1 / ((n + 1).factorial : ℝ)) *
+          ∫ y in l..r, ∫ t in T y, K y t ∂volume =
+        ∫ y in l..r,
+          ArtinPrimitiveRoots.Sieve.roughDensityTerm γ (Real.log y / L) (n + 1) := by
+    rw [show (fun y => ArtinPrimitiveRoots.Sieve.roughDensityTerm γ (Real.log y / L) (n + 1)) =
+        (fun y => (1 / ((n + 1).factorial : ℝ)) * ∫ t in T y, K y t ∂volume) by
+      funext y
+      exact hterm y]
+    rw [intervalIntegral.integral_const_mul]
+  calc
+    roughTupleIntegral x γ l r (n + 1) =
+        (1 / ((n + 1).factorial : ℝ)) *
+          ∫ z in S, ∏ i : Fin (n + 1), 1 / Real.log (z i) := hsourceEq
+    _ = (1 / ((n + 1).factorial : ℝ)) *
+          ∫ q in f '' S, G q ∂volume := by rw [← hImageIntegralDivision]
+    _ = (1 / ((n + 1).factorial : ℝ)) *
+          ∫ p in P, Gpair p ∂(volume.prod volume) := by rw [hPairIntegral]
+    _ = (1 / ((n + 1).factorial : ℝ)) *
+          (L⁻¹ * ∫ y in l..r, ∫ t in T y, K y t ∂volume) := by rw [hPairIterated]
+    _ = L⁻¹ * ((1 / ((n + 1).factorial : ℝ)) *
+          ∫ y in l..r, ∫ t in T y, K y t ∂volume) := by ring
+    _ = L⁻¹ * ∫ y in l..r,
+          ArtinPrimitiveRoots.Sieve.roughDensityTerm γ (Real.log y / L) (n + 1) := by
+      rw [htermInterval]
+    _ = (1 / Real.log x) * ∫ y in l..r,
+          ArtinPrimitiveRoots.Sieve.roughDensityTerm γ (Real.log y / Real.log x) (n + 1) := by
+      simp [L]
 
 /-- `t2:density-pushforward` — 08-type-ii.tex:272-294. -/
 theorem density_pushforward (γ : ℝ) (hγ : 0 < γ) :
@@ -1532,7 +1953,11 @@ theorem density_pushforward (γ : ℝ) (hγ : 0 < γ) :
   by_cases hj₁ : j = 1
   · subst j
     exact roughTupleIntegral_one γ hγ x hx l r hl hr
-  · sorry
+  · let n := j - 1
+    have hn : 1 ≤ n := by dsimp [n]; omega
+    have hjEq : j = n + 1 := by dsimp [n]; omega
+    rw [hjEq]
+    exact roughTupleIntegral_higher x γ l r hx hγ hl hr hn
 
 /-- `t2:density-regularity` — 08-type-ii.tex:296-315. Joint continuity, local Lipschitz
 continuity in the second variable, and bounded variation of `w D_γ(w)`. -/
