@@ -317,9 +317,50 @@ theorem con_rough_pairs (M : ℕ) (Ψ : ℝ → ℝ) (hM : 0 < M)
                       roughSieveProduct (roughCutoff x) ^ 2 := by
   sorry
 
-/-- `co:balanced-cost`, 12-construction.tex:736-775. -/
+/-- The pair estimate supplied by `con_rough_pairs`, at its fixed leading constant. -/
+def HasRoughPairBound (M : ℕ) (Ψ : ℝ → ℝ) (C₁ : ℝ) : Prop :=
+  ∀ c : ℕ, (c = 2 ∨ c = 4) → ∀ u : ℤ,
+    ∀ K : ℕ, ∀ a : Fin K → ℝ, ValidBands K a →
+      ∃ x₀ : ℝ, 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          ∀ H₁ H₂ : ℝ,
+            x / 4 ≤ H₁ * H₂ → H₁ * H₂ ≤ 2 * x →
+            Real.rpow x (46 / 100 : ℝ) / 2 ≤ H₁ →
+            H₁ ≤ 2 * Real.rpow x (54 / 100 : ℝ) →
+            Real.rpow x (46 / 100 : ℝ) / 2 ≤ H₂ →
+            H₂ ≤ 2 * Real.rpow x (54 / 100 : ℝ) →
+              roughPairBoxSum x M c u K a Ψ H₁ H₂ ≤
+                C₁ * conTotalMass x M c u K a Ψ *
+                  roughSieveProduct (roughCutoff x) ^ 2
+
+/-- The balanced box cover supplied by `balanced_boxes` at its fixed dyadic constant. -/
+def HasBalancedBoxCover (Cdyad : ℝ) : Prop :=
+  ∀ M c : ℕ, ∀ u : ℤ, ∀ K : ℕ, ∀ a : Fin K → ℝ,
+    ∀ Ψ : ℝ → ℝ, IsTestFunction Ψ → ∀ κ : ℝ,
+      0 < M → 8 ∣ M → (c = 2 ∨ c = 4) → c ∣ M →
+      Int.gcd u M = 1 → (c : ℤ) ∣ u - 1 →
+      Int.gcd ((u - 1) / c) ((M / c : ℕ) : ℤ) = 1 →
+      ValidBands K a → 0 < κ → κ < 1 / 100 →
+        ∃ x₀ : ℝ, 2 ≤ x₀ ∧
+          ∀ x : ℝ, x₀ ≤ x →
+            ∃ N : ℕ, (N : ℝ) ≤ Cdyad * (κ * Real.log x + 1) ∧
+              ∃ H₁ H₂ : Fin N → ℝ,
+                (∀ i, x / 4 ≤ H₁ i * H₂ i ∧ H₁ i * H₂ i ≤ 2 * x ∧
+                  Real.rpow x (46 / 100 : ℝ) / 2 ≤ H₁ i ∧
+                  H₁ i ≤ 2 * Real.rpow x (54 / 100 : ℝ) ∧
+                  Real.rpow x (46 / 100 : ℝ) / 2 ≤ H₂ i ∧
+                  H₂ i ≤ 2 * Real.rpow x (54 / 100 : ℝ)) ∧
+                (∀ d, 0 < conWeight x M c u K a Ψ d →
+                  roughAbove d (Real.rpow x (1 / 2 - κ)) → ¬ d.Prime →
+                    ∃ i m n, m ∈ dyadicIntegers (H₁ i) ∧
+                      n ∈ dyadicIntegers (H₂ i) ∧ m.Prime ∧ n.Prime ∧ d = m * n)
+
+/-- `co:balanced-cost`, 12-construction.tex:736-775. Correction from refutation lane `sol-gate-b`
+ties `C₁` and `C_dyad` to their preceding estimates and includes `8 ∣ M`. -/
 theorem balanced_cost (M : ℕ) (Ψ : ℝ → ℝ) (C₁ Cdyad : ℝ)
-    (hM : 0 < M) (hΨ : IsTestFunction Ψ) (hC₁ : 0 < C₁) (hCdyad : 0 < Cdyad) :
+    (hM : 0 < M) (h8 : 8 ∣ M) (hΨ : IsTestFunction Ψ)
+    (hC₁ : 0 < C₁) (hCdyad : 0 < Cdyad)
+    (hPairs : HasRoughPairBound M Ψ C₁) (hCover : HasBalancedBoxCover Cdyad) :
     ∀ c : ℕ, (c = 2 ∨ c = 4) → c ∣ M → ∀ u : ℤ,
       ∀ κ b : ℝ, 0 < κ → κ < 1 / 100 → 0 < b →
         Int.gcd u M = 1 → (c : ℤ) ∣ u - 1 →

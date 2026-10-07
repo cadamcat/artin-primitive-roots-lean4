@@ -963,19 +963,20 @@ theorem truncation_adjoint (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁
 `ℋ_B`, with the Schur weight `v₀^{k_tot}`: ghost row and column sums (mem:ghost-row),
 (mem:ghost-column) are `≤ C_K` once `v₀` makes both parentheses `≤ 1` (uses `ρ² > √q_d`), so
 `‖𝒢_j‖ ≤ C_K` (mem:ghost-norm); edge rows and columns are `≤ C_K B^K (1+L^{3A₀}) ≤ L^{C}`
-(mem:edge-crude; columns via the adjoint rules, PD 04:310-348). -/
+(mem:edge-crude; columns via the adjoint rules, PD 04:310-348). Correction from refutation lane
+`sol-gate-b` states these bounds after symmetric-memory projection. -/
 theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
       ∃ v₀ C_K Cexp x₀ : ℝ, 1 < v₀ ∧ 0 < C_K ∧ 0 < Cexp ∧ 2 ≤ x₀ ∧
         ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
           ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j ≤ S.N →
-            MemRowSchurLE F S (memoryCutoff S) (memGhost F S ρ j) v₀ C_K ∧
-            MemColSchurLE F S (memoryCutoff S) (memGhost F S ρ j) v₀ C_K ∧
-            MemOpNormLE F S (memoryCutoff S) (memGhost F S ρ j) C_K ∧
+            MemRowSchurLE_sym F S (memoryCutoff S) (memGhost F S ρ j) v₀ C_K ∧
+            MemColSchurLE_sym F S (memoryCutoff S) (memGhost F S ρ j) v₀ C_K ∧
+            MemOpNormLE_sym F S (memoryCutoff S) (memGhost F S ρ j) C_K ∧
             (j < S.N →
-              MemRowSchurLE F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.full j) v₀
+              MemRowSchurLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.full j) v₀
                 (Real.rpow S.L Cexp) ∧
-              MemColSchurLE F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.full j) v₀
+              MemColSchurLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.full j) v₀
                 (Real.rpow S.L Cexp)) := by
   sorry
 
@@ -1621,14 +1622,15 @@ theorem lattice_shape (C₁ : ℝ) (hC₁ : 1 ≤ C₁) :
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
 determinant-exponential matrix on the box (mem:clean-kernel), Fourier-diagonalize the product
 variable, Dirichlet approximation on `𝕋 ∖ 𝔐` (mem:dirichlet-minor) and the Gram bound
-(mem:bilinear-gram) give `L^{0.2-A₀} + Y^{-0.1} log Y`; `A₀` independent of `K`. -/
+(mem:bilinear-gram) give `L^{0.2-A₀} + Y^{-0.1} log Y`; `A₀` independent of `K`. Correction from
+refutation lane `sol-gate-b` uses the symmetric-memory projection. -/
 theorem lattice_clean (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_d : ℝ) (eta psi : ℝ → ℝ) :
     ∀ G : ℝ, 0 < G → ∃ A₀ : ℝ, 0 < A₀ ∧
       ∀ (K : ℕ) (F : PDFix K), F.Valid → F.Has q_d A₀ eta psi →
         ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
           ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
             ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
-              MemOpNormLE F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.clean j)
+              MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.clean j)
                 (Real.rpow S.L (-G)) := by
   sorry
 
@@ -1637,7 +1639,8 @@ theorem lattice_clean (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_
 sum `≤ ε_K` if `Pr ≠ ∅` (one compatible omission tuple by test (ii), mass `M_J^{-K}`,
 (mem:anchor-congruence)) and `≤ C_K` otherwise, column sum `≤ ε_K` if `St ≠ ∅` and `≤ C_K`
 otherwise (reversal); weighted Schur gives `‖dirty raw‖ ≤ C_K √ε_K ≤ C_K L^{1-K/200}` for large
-`x` (mem:raw-dirty-norm).  Stated for `K ≥ 201`, where `ε_K ≤ 1` eventually. -/
+`x` (mem:raw-dirty-norm).  Stated for `K ≥ 201`, where `ε_K ≤ 1` eventually. Correction from
+refutation lane `sol-gate-b` projects each operator bound to symmetric memory. -/
 theorem dirty_raw (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
     ∀ (K : ℕ), 201 ≤ K → ∀ (F : PDFix K), F.Valid → ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
       ∃ v₀ C_K c x₀ : ℝ, 1 < v₀ ∧ 0 < C_K ∧ 0 < c ∧ 2 ≤ x₀ ∧
@@ -1647,11 +1650,11 @@ theorem dirty_raw (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
             let εK := C_K * ((B : ℝ) / (S.M : ℝ) ^ K +
               (B : ℝ) ^ K * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ)))
             (∀ St Pr : Finset (Fin K), ¬ (St = ∅ ∧ Pr = ∅) →
-              MemRowSchurLE F S B (memEdgePiece F S ρ w true St Pr j) v₀
+              MemRowSchurLE_sym F S B (memEdgePiece F S ρ w true St Pr j) v₀
                   (if Pr.Nonempty then εK else C_K) ∧
-                MemColSchurLE F S B (memEdgePiece F S ρ w true St Pr j) v₀
+                MemColSchurLE_sym F S B (memEdgePiece F S ρ w true St Pr j) v₀
                   (if St.Nonempty then εK else C_K)) ∧
-            MemOpNormLE F S B (memEdge F S ρ w EdgeKind.dirtyRaw j)
+            MemOpNormLE_sym F S B (memEdge F S ρ w EdgeKind.dirtyRaw j)
               (C_K * Real.rpow S.L (1 - (K : ℝ) / 200)) := by
   sorry
 
@@ -1659,12 +1662,13 @@ theorem dirty_raw (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
 Comparison pieces with `(St,Pr) ≠ (∅,∅)`: a promoted index needs one prescribed line at the
 target, one nonzero linear congruence in the lattice box (mem:line-count), row sum
 `ζ_K = C_K L^{3A₀} B^K (p_min^{-1} + Y^{-0.1}) = O_A(L^{-A})`; the opposite side is `≤ L^C`
-(mem:edge-crude); weighted Schur gives every fixed negative power of `L`. -/
+(mem:edge-crude); weighted Schur gives every fixed negative power of `L`. Correction from
+refutation lane `sol-gate-b` projects the operator norm bound to symmetric memory. -/
 theorem dirty_comparison (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ ρ : ℝ, IsMemoryRho F.q_d ρ → ∀ A : ℝ, 0 < A →
       ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
         ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
-          MemOpNormLE F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.dirtyCmp j)
+          MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.dirtyCmp j)
             (C_A * Real.rpow S.L (-A)) := by
   sorry
 
@@ -2191,16 +2195,41 @@ private theorem memOpNormLE_mono {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
   have hopen := h T T' f hsupp hT hT'
   nlinarith
 
+private theorem memOpNormLE_sym_mono {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (c d : ℝ)
+    (hμ : ∀ s, 0 ≤ memMeasure F S s) (h : MemOpNormLE_sym F S B op c)
+    (hc : 0 ≤ c) (hcd : c ≤ d) : MemOpNormLE_sym F S B op d := by
+  change MemOpNormLE F S B (fun f => op (memorySym f)) c at h
+  change MemOpNormLE F S B (fun f => op (memorySym f)) d
+  exact memOpNormLE_mono F S B (fun f => op (memorySym f)) c d hμ h hc hcd
+
+private theorem memOpNormLE_sym_add_sub {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (A D E : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (a d e : ℝ)
+    (hμ : ∀ s, 0 ≤ memMeasure F S s)
+    (hA : MemOpNormLE_sym F S B A a) (hD : MemOpNormLE_sym F S B D d)
+    (hE : MemOpNormLE_sym F S B E e) :
+    MemOpNormLE_sym F S B (fun f s => A f s + D f s - E f s)
+      (Real.sqrt (3 * (a ^ 2 + d ^ 2 + e ^ 2))) := by
+  change MemOpNormLE F S B (fun f => A (memorySym f)) a at hA
+  change MemOpNormLE F S B (fun f => D (memorySym f)) d at hD
+  change MemOpNormLE F S B (fun f => E (memorySym f)) e at hE
+  change MemOpNormLE F S B
+    (fun f s => A (memorySym f) s + D (memorySym f) s - E (memorySym f) s) _
+  exact memOpNormLE_add_sub F S B
+    (fun f => A (memorySym f)) (fun f => D (memorySym f)) (fun f => E (memorySym f))
+    a d e hμ hA hD hE
+
 /-- `t2:pd.signed-edge` (new assembly node) — PD 04:772-782 (mem:signed-edge).  Choose `A₀`
 from `lattice_clean` for `G+1`, then `K₀` with `K₀/200 > G+2`: `‖ℰ_j‖_{ℋ_B} ≤ L^{-G}`
-(`ℰ_j = clean + dirtyRaw - dirtyCmp` by definition). -/
+(`ℰ_j = clean + dirtyRaw - dirtyCmp` by definition). Correction from refutation lane
+`sol-gate-b` composes the symmetric-memory projected bounds. -/
 theorem signed_edge (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_d : ℝ) (eta psi : ℝ → ℝ) :
     ∀ G : ℝ, 0 < G → ∃ A₀ : ℝ, 0 < A₀ ∧ ∃ K₀ : ℕ,
       ∀ (K : ℕ), K₀ ≤ K → ∀ (F : PDFix K), F.Valid → F.Has q_d A₀ eta psi →
         ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
           ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
             ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
-              MemOpNormLE F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.full j)
+              MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.full j)
                 (Real.rpow S.L (-G)) := by
   intro G hG
   have hG3 : 0 < G + 3 := by linarith
@@ -2292,7 +2321,7 @@ theorem signed_edge (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_d 
   have hOneThird : Real.rpow S.L (-(G + 3)) ≤ Real.rpow S.L (-G) / 3 := by
     simpa using hthird 1 (by norm_num) hCoefOne
   have hRawData := hRawAll S hS (le_trans hxRaw₀ hx₀) w hw j hj
-  have hRawOld : MemOpNormLE F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.dirtyRaw j)
+  have hRawOld : MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.dirtyRaw j)
       (C_K * Real.rpow S.L (1 - (K : ℝ) / 200)) := hRawData.2
   have hRawCoeffPos : 0 ≤ C_K * Real.rpow S.L (1 - (K : ℝ) / 200) :=
     mul_nonneg hC_K.le (Real.rpow_pos_of_pos hLpos _).le
@@ -2303,20 +2332,20 @@ theorem signed_edge (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_d 
   have hRawCoeffThird : C_K * Real.rpow S.L (-(G + 3)) ≤ Real.rpow S.L (-G) / 3 :=
     hthird C_K hC_K.le hCoefRaw
   have hCleanOp := hClean S hS (le_trans hxClean₀ hx₀) w hw j hj
-  have hCleanOp' := memOpNormLE_mono F S (memoryCutoff S)
+  have hCleanOp' := memOpNormLE_sym_mono F S (memoryCutoff S)
     (memEdge F S ρ w EdgeKind.clean j) (Real.rpow S.L (-(G + 3)))
     (Real.rpow S.L (-G) / 3) hμ hCleanOp
     (Real.rpow_pos_of_pos hLpos _).le hOneThird
-  have hRawOp' := memOpNormLE_mono F S (memoryCutoff S)
+  have hRawOp' := memOpNormLE_sym_mono F S (memoryCutoff S)
     (memEdge F S ρ w EdgeKind.dirtyRaw j)
     (C_K * Real.rpow S.L (1 - (K : ℝ) / 200)) (C_K * Real.rpow S.L (-(G + 3)))
     hμ hRawOld hRawCoeffPos hRawCoeff
-  have hRawOp'' := memOpNormLE_mono F S (memoryCutoff S)
+  have hRawOp'' := memOpNormLE_sym_mono F S (memoryCutoff S)
     (memEdge F S ρ w EdgeKind.dirtyRaw j) (C_K * Real.rpow S.L (-(G + 3)))
     (Real.rpow S.L (-G) / 3) hμ hRawOp'
     (mul_nonneg hC_K.le (Real.rpow_pos_of_pos hLpos _).le) hRawCoeffThird
   have hCmpData := hCmpAll S hS (le_trans hxCmp₀ hx₀) w hw j hj
-  have hCmpOp := memOpNormLE_mono F S (memoryCutoff S)
+  have hCmpOp := memOpNormLE_sym_mono F S (memoryCutoff S)
     (memEdge F S ρ w EdgeKind.dirtyCmp j)
     (Ccmp * Real.rpow S.L (-(G + 3))) (Real.rpow S.L (-G) / 3) hμ hCmpData
     (mul_nonneg hCcmp.le (Real.rpow_pos_of_pos hLpos _).le)
@@ -2329,7 +2358,7 @@ theorem signed_edge (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_d 
       (Real.rpow S.L (-G) / 3) ^ 2 + (Real.rpow S.L (-G) / 3) ^ 2)) =
       Real.rpow S.L (-G) := by
     rw [hArg, Real.sqrt_sq_eq_abs, abs_of_nonneg hRnonneg]
-  have hTriangle := memOpNormLE_add_sub F S (memoryCutoff S)
+  have hTriangle := memOpNormLE_sym_add_sub F S (memoryCutoff S)
     (memEdge F S ρ w EdgeKind.clean j) (memEdge F S ρ w EdgeKind.dirtyRaw j)
     (memEdge F S ρ w EdgeKind.dirtyCmp j) (Real.rpow S.L (-G) / 3)
     (Real.rpow S.L (-G) / 3) (Real.rpow S.L (-G) / 3) hμ hCleanOp' hRawOp'' hCmpOp
@@ -2376,14 +2405,15 @@ most `2r` operations: write each block indicator by circle orthogonality (mem:lo
 every phase at the operation where its prime is born (an equivariant multiplier of modulus `≤ 1`);
 if every edge satisfies the signed bound `L^{-G}`, then
 `|H_𝒞| ≤ C_K^{N+1} ‖𝐛‖² L^{-G(N-2r)} L^{2Cr}` (mem:low-rank-term) with the crude exponent `C` of
-`ghost_edge_crude` and `‖𝐛‖² ≤ 2` (mem:boundary-norm). -/
+`ghost_edge_crude` and `‖𝐛‖² ≤ 2` (mem:boundary-norm). Correction from refutation lane
+`sol-gate-b` supplies symmetric-memory edge bounds to this history estimate. -/
 theorem history_rank_low (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
       ∃ C_K Ccr x₀ : ℝ, 0 < C_K ∧ 0 < Ccr ∧ 2 ≤ x₀ ∧
         ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x → ∀ w : ArchRoot, w.InRegion S →
           ∀ G : ℝ, 0 < G →
             (∀ j : ℕ, j < S.N →
-              MemOpNormLE F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.full j)
+              MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.full j)
                 (Real.rpow S.L (-G))) →
             ∀ 𝒞 ∈ constraintSystems (birthAddresses S.x K (memoryCutoff S)),
               ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight 𝒞)‖ ≤
@@ -2429,6 +2459,7 @@ theorem goodness_removal (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc�
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ A : ℝ, 0 < A →
       ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
         ∀ family : CoefficientFamily δ C c₁ c₂, FamilyAtScale family S →
+          family.xMin ≤ S.x →
           ∀ beta : ℕ → ℂ, IsSecondCoefficient S C beta →
             ‖detPairing F S family beta - detPairingNoGood F S family beta‖ ≤
               C_A * S.U * S.V * Real.rpow S.L (-A) := by
@@ -2444,7 +2475,7 @@ non-disjoint `(a,b)` in the comparison (mem:unshared-collisions). -/
 theorem pad_stripping (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ : 0 < c₁) :
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ A : ℝ, 0 < A →
       ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
-        ∀ family : CoefficientFamily δ C c₁ c₂, ∀ beta : ℕ → ℂ,
+        ∀ family : CoefficientFamily δ C c₁ c₂, family.xMin ≤ x → ∀ beta : ℕ → ℂ,
           IsFamilySecondCoefficient family x beta → ∀ Y ∈ dyadicScales x K,
             ‖(∑ d₀ ∈ padScales x K,
                 ((d₀ : ℂ))⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta) -
@@ -2461,7 +2492,7 @@ pairing bounds at every pad dyad to the replacement of the Cauchy square: `goodn
 theorem strip_goodness_pads (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ : 0 < c₁) :
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ A : ℝ, 0 < A →
       ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
-        ∀ family : CoefficientFamily δ C c₁ c₂, ∀ beta : ℕ → ℂ,
+        ∀ family : CoefficientFamily δ C c₁ c₂, family.xMin ≤ x → ∀ beta : ℕ → ℂ,
           IsFamilySecondCoefficient family x beta → ∀ Y ∈ dyadicScales x K,
             ∀ E₀ Ce Cp : ℝ,
               (∀ d₀ ∈ padScales x K,

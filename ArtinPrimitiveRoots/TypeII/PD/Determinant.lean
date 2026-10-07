@@ -9,7 +9,9 @@ open ArtinPrimitiveRoots.TypeII
 
 /-- `t2:pd.cauchy` — PD `03-determinant.tex:68-169`. The dyadic decomposition, Cauchy square,
 coprime reduction, and progression-divisor estimate used to reduce the marked bilinear form to
-the determinant moment. Fixed parameters precede all asymptotic constants. -/
+the determinant moment. Fixed parameters precede all asymptotic constants. Correction: `sol-gate-b`
+restricted the arithmetic equivalence to positive products and aligned the dyadic cutoff with PD's
+source exponent `1/5`. -/
 theorem cauchy_decomposition
     (δ C Dstar q_d c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
     (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
@@ -20,7 +22,7 @@ theorem cauchy_decomposition
         0 < C_A ∧ 0 < Cscale ∧ 0 < Cmain ∧ 0 < CDiv ∧ 2 ≤ x₀ ∧
           ∀ family : CoefficientFamily δ C c₁ c₂,
             HasLongCoefficientCancellation family →
-            ∀ x : ℝ, x₀ ≤ x →
+            ∀ x : ℝ, x₀ ≤ x → family.xMin ≤ x →
               ∀ eta : ℝ → ℝ, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta →
                 Function.support eta ⊆ Set.Icc 1 4 →
                 (∀ y, 0 ≤ eta y) → IsDyadicPartition eta →
@@ -46,6 +48,7 @@ theorem cauchy_decomposition
                       IsMarkedPrimeTuple x K a ta → IsMarkedPrimeTuple x K a tb →
                       Nat.Coprime (tupleProduct ta) (tupleProduct tb) →
                       ∀ m n r s : ℕ,
+                        1 ≤ m * n → 1 ≤ r * s →
                         ((∃ h : ℕ, m * n - 1 = tupleProduct ta * h ∧
                           r * s - 1 = tupleProduct tb * h) ↔
                           ((tupleProduct tb : ℕ) : ℤ) * (m : ℤ) * (n : ℤ) -
@@ -85,7 +88,7 @@ theorem endpoint_bounds
     (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :
     ∃ C_e B : ℝ, 0 < C_e ∧ 0 < B ∧
       ∀ K : ℕ, ∀ a : Fin K → ℝ, ValidBands K a →
-      ∀ family : CoefficientFamily δ C c₁ c₂, ∀ x : ℝ, 2 ≤ x →
+      ∀ family : CoefficientFamily δ C c₁ c₂, ∀ x : ℝ, 2 ≤ x → family.xMin ≤ x →
         ∀ d₀ : ℕ, d₀ ∈ padScales x K →
           ∀ Y, Y ∈ dyadicScales x K →
           ∀ beta : ℕ → ℂ,
