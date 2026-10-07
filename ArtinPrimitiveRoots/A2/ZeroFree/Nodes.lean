@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
 import ArtinPrimitiveRoots.A2.FSide
 import ArtinPrimitiveRoots.Hecke.Dedekind
+import ArtinPrimitiveRoots.Hecke.Dictionary
 import Mathlib.Analysis.Complex.PhragmenLindelof
 
 /-!
@@ -36,6 +37,38 @@ theorem zf_convexity :
                 ‖(s - 1) * NumberField.dedekindZeta F s‖ ≤
                   C * Real.rpow (2 + |s.im|) A_F) := by
   sorry
+
+private theorem zf_frequency_omega_eq_twist
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (η : ArtinPrimitiveRoots.A1.HeckeChar F)
+    (fd : FrequencyData S D η) (u : fd.U) :
+    fd.omega u = η * (fd.kummer u)⁻¹ := by
+  apply ArtinPrimitiveRoots.Dictionary.heckeChar_eq_of_primeValue
+    (fd.omega u) (η * (fd.kummer u)⁻¹) S.Sf
+  intro v hv
+  have hω := fd.omega_induces_twist u v hv
+  have hχne : (η * (fd.kummer u)⁻¹).primeValue v ≠ 0 := by
+    rw [← hω.2]
+    simp [ArtinPrimitiveRoots.A1.HeckeChar.primeValue, hω.1]
+  have hχun : (η * (fd.kummer u)⁻¹).UnramifiedAt v := by
+    by_contra h
+    have hzero : (η * (fd.kummer u)⁻¹).primeValue v = 0 := by
+      simp [ArtinPrimitiveRoots.A1.HeckeChar.primeValue, h]
+    exact hχne hzero
+  exact ⟨hω.1, hχun, hω.2⟩
+
+private theorem zf_frequency_kummer_finiteOrder
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (η : ArtinPrimitiveRoots.A1.HeckeChar F) (hη : IsOfFinOrder η)
+    (fd : FrequencyData S D η) (u : fd.U) : IsOfFinOrder (fd.kummer u) := by
+  have htw := zf_frequency_omega_eq_twist S D η fd u
+  have hk : fd.kummer u = η * (fd.omega u)⁻¹ := by
+    rw [htw]
+    abel
+  rw [hk]
+  exact hη.mul (fd.omega_finiteOrder u).inv
 
 /-- **zf:row-conductor-family** (06-zero-free.tex:13-30): dyadic frequency rows have linear
 count, conductor `O(q_u)`, pairwise distinct primitive twists, and only finitely many fixed
