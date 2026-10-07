@@ -9,7 +9,9 @@ open ArtinPrimitiveRoots.TypeII
 
 /-- `t2:pd.cauchy` — PD `03-determinant.tex:68-169`. The dyadic decomposition, Cauchy square,
 coprime reduction, and progression-divisor estimate used to reduce the marked bilinear form to
-the determinant moment. Fixed parameters precede all asymptotic constants. -/
+the determinant moment. Fixed parameters precede all asymptotic constants. Correction: `sol-gate-b`
+restricted the arithmetic equivalence to positive products and aligned the dyadic cutoff with PD's
+source exponent `1/5`. -/
 theorem cauchy_decomposition
     (δ C Dstar q_d c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
     (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
@@ -46,6 +48,7 @@ theorem cauchy_decomposition
                       IsMarkedPrimeTuple x K a ta → IsMarkedPrimeTuple x K a tb →
                       Nat.Coprime (tupleProduct ta) (tupleProduct tb) →
                       ∀ m n r s : ℕ,
+                        1 ≤ m * n → 1 ≤ r * s →
                         ((∃ h : ℕ, m * n - 1 = tupleProduct ta * h ∧
                           r * s - 1 = tupleProduct tb * h) ↔
                           ((tupleProduct tb : ℕ) : ℤ) * (m : ℤ) * (n : ℤ) -
