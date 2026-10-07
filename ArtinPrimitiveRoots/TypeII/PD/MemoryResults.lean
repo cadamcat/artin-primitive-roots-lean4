@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.Determinant
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Geometry
 import Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics
 set_option autoImplicit false
 set_option linter.unusedVariables false
@@ -1617,6 +1618,537 @@ theorem lattice_shape (C₁ : ℝ) (hC₁ : 1 ≤ C₁) :
   exact ⟨a₀, b₀, c₀, d₀, A', B', hdetFinal, hproduct,
     hALower, hAUpper, hBLower, hBUpper, hBox⟩
 
+private theorem permuteLists_valid {K : ℕ} (x : ℝ) (a : Fin K → ℝ)
+    (p : PrimeLists x K) (σ : Fin K → Equiv.Perm (Fin (slotCount x)))
+    (hp : ValidPrimeLists x K a p) : ValidPrimeLists x K a (permuteLists σ p) := by
+  constructor
+  · intro i j
+    exact hp.1 i (σ i j)
+  · intro i j j' hj
+    exact hp.2 i (σ i j) (σ i j') (fun h => hj ((σ i).injective h))
+
+private theorem removeIndices_mem_source {l : List Particle}
+    {D : Finset (Fin l.length)} {e : Particle} (he : e ∈ removeIndices l D) : e ∈ l := by
+  unfold removeIndices at he
+  rw [List.mem_filterMap] at he
+  obtain ⟨k, hk, hmap⟩ := he
+  have hklt : k.val < l.length := by simpa using List.mem_finRange.mp hk
+  have hknot : k ∉ D := by
+    intro hD
+    simp [hD] at hmap
+  have hget : l.get k = e := by simpa [hknot] using hmap
+  rw [← hget]
+  exact List.get_mem l k
+
+private theorem anchorAt_valid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (i : Fin K) (p : ℕ) (z : ℤ × ℤ)
+    (hp : p ∈ primeBand S.x (F.a i)) :
+    (anchorAt p z).1 ∈ primeBand S.x (F.a i) ∧
+      (anchorAt p z).2 ≤ (anchorAt p z).1 := by
+  exact ⟨hp, Nat.le_of_lt_succ (projLine p z).isLt⟩
+
+private theorem edgeNewMemory_preserves_valid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : MemPoint S.x K) (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i)
+    (w : ArchRoot) (z' : ℤ × ℤ) (hs : MemValid F S s)
+    (hadm : EdgeAdmissible F S w s c z') :
+    MemValid F S (z', (edgeTargetLists F S s c, edgeNewMemory F S s c)) := by
+  rcases hs with ⟨_, _, hsourceMemory⟩
+  rcases hadm with ⟨_, hsourceLists, htargetLists, _, _, hprimitive, _, _, _, _⟩
+  refine ⟨hprimitive, ?_, ?_⟩
+  · intro i j
+    exact (htargetLists.1 i j).2
+  · intro i e he
+    change e ∈ removeIndices (s.2.2 i)
+      (match (c i).2 with
+        | Sum.inl k => {k}
+        | Sum.inr _ => ∅) ++
+        (if (c i).1 then [anchorAt (s.2.1 i (lastSlot S.x)) s.1] else []) at he
+    rw [List.mem_append] at he
+    rcases he with hold | hnew
+    · exact hsourceMemory i e (removeIndices_mem_source hold)
+    · by_cases hstore : (c i).1
+      · simp only [if_pos hstore, List.mem_singleton] at hnew
+        subst e
+        refine ⟨(hsourceLists.1 i (lastSlot S.x)).2, ?_⟩
+        exact Nat.le_of_lt_succ (projLine _ _).isLt
+      · simp [hstore] at hnew
+
+private theorem ghostMemory_preserves_valid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : MemPoint S.x K) (hs : MemValid F S s)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (l : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i)) :
+    MemValid F S
+      (s.1, (s.2.1, fun i => removeIndices (s.2.2 i) (D i) ++
+        List.ofFn fun k => anchorAt (new i k) s.1)) := by
+  rcases hs with ⟨hprimitive, hlists, hmemory⟩
+  refine ⟨hprimitive, hlists, ?_⟩
+  intro i e he
+  change e ∈ removeIndices (s.2.2 i) (D i) ++
+    List.ofFn fun k => anchorAt (new i k) s.1 at he
+  rw [List.mem_append] at he
+  rcases he with hold | hnew
+  · exact hmemory i e (removeIndices_mem_source hold)
+  · obtain ⟨k, hk⟩ := List.mem_ofFn.mp hnew
+    rw [← hk]
+    exact anchorAt_valid F S i (new i k) s.1 (new i k).property
+
+private theorem memPoint_permute_valid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) (s : MemPoint S.x K)
+    (hs : MemValid F S s) :
+    MemValid F S (s.1, (permuteLists σ s.2.1, s.2.2)) := by
+  rcases hs with ⟨hprimitive, hlists, hmemory⟩
+  refine ⟨hprimitive, ?_, hmemory⟩
+  intro i j
+  exact hlists i (σ i j)
+
+private theorem logSym_eqOnMemValid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f g : LogPoint S.x K → ℂ)
+    (hfg : ∀ σL, MemValid F S σL.1 → f σL = g σL)
+    (σL : LogPoint S.x K) (hσL : MemValid F S σL.1) :
+    logSym F S f σL = logSym F S g σL := by
+  unfold logSym
+  congr 1
+  apply Finset.sum_congr rfl
+  intro σ hσ
+  exact hfg ((σL.1.1, (permuteLists σ σL.1.2.1, σL.1.2.2)), σL.2)
+    (memPoint_permute_valid F S σ σL.1 hσL)
+
+private theorem logGhost_eqOnMemValid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) (f g : LogPoint S.x K → ℂ)
+    (hfg : ∀ σL, MemValid F S σL.1 → f σL = g σL)
+    (σL : LogPoint S.x K) (hσL : MemValid F S σL.1) :
+    logGhost F S ρ j f σL = logGhost F S ρ j g σL := by
+  classical
+  simp only [logGhost]
+  apply Finset.sum_congr rfl
+  intro D hD
+  apply tsum_congr
+  intro l
+  apply Finset.sum_congr rfl
+  intro new hnew
+  by_cases hsubset : ∀ i, D i ⊆ hitIndices (σL.1.2.2 i) σL.1.1
+  · have hout := ghostMemory_preserves_valid F S σL.1 hσL D l new
+    simp only [if_pos hsubset]
+    rw [hfg ((σL.1.1, (σL.1.2.1, fun i =>
+      removeIndices (σL.1.2.2 i) (D i) ++
+        List.ofFn fun k => anchorAt (new i k) σL.1.1)),
+      σL.2 ++ (List.finRange K).flatMap fun i =>
+        List.ofFn fun k : Fin (l i) =>
+          (BirthAddress.ghost j i k.val, ((new i k : ℕ)))) hout]
+  · simp [hsubset]
+
+private theorem logEdgePiece_eqOnMemValid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (step : ℕ) (raw : Bool) (St Pr : Finset (Fin K))
+    (f g : LogPoint S.x K → ℂ)
+    (hfg : ∀ σL, MemValid F S σL.1 → f σL = g σL)
+    (σL : LogPoint S.x K) (hσL : MemValid F S σL.1) :
+    logEdgePiece F S ρ w step raw St Pr f σL =
+      logEdgePiece F S ρ w step raw St Pr g σL := by
+  classical
+  dsimp only [logEdgePiece]
+  apply Finset.sum_congr rfl
+  intro c hc
+  apply tsum_congr
+  intro z'
+  by_cases hcond : edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧
+      EdgeAdmissible F S w σL.1 c z'
+  · simp only [if_pos hcond]
+    have hout := edgeNewMemory_preserves_valid F S σL.1 c w z' hσL hcond.2.2
+    rw [hfg ((z', (edgeTargetLists F S σL.1 c, edgeNewMemory F S σL.1 c)),
+      σL.2 ++ edgeBirths F S step σL.1 c) hout]
+  · simp [hcond]
+
+private theorem logEdge_eqOnMemValid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (kind : EdgeKind) (step : ℕ)
+    (f g : LogPoint S.x K → ℂ)
+    (hfg : ∀ σL, MemValid F S σL.1 → f σL = g σL)
+    (σL : LogPoint S.x K) (hσL : MemValid F S σL.1) :
+    logEdge F S ρ w kind step f σL = logEdge F S ρ w kind step g σL := by
+  classical
+  cases kind with
+  | full =>
+      dsimp only [logEdge]
+      apply logSym_eqOnMemValid F S _ _ ?_ σL hσL
+      intro τ hτ
+      have hsym (u : LogPoint S.x K) (hu : MemValid F S u.1) :
+          logSym F S f u = logSym F S g u :=
+        logSym_eqOnMemValid F S f g hfg u hu
+      apply Finset.sum_congr rfl
+      intro St hSt
+      apply Finset.sum_congr rfl
+      intro Pr hPr
+      rw [logEdgePiece_eqOnMemValid F S ρ w step true St Pr
+            (logSym F S f) (logSym F S g) hsym τ hτ,
+          logEdgePiece_eqOnMemValid F S ρ w step false St Pr
+            (logSym F S f) (logSym F S g) hsym τ hτ]
+  | clean =>
+      dsimp only [logEdge]
+      apply logSym_eqOnMemValid F S _ _ ?_ σL hσL
+      intro τ hτ
+      have hsym (u : LogPoint S.x K) (hu : MemValid F S u.1) :
+          logSym F S f u = logSym F S g u :=
+        logSym_eqOnMemValid F S f g hfg u hu
+      rw [logEdgePiece_eqOnMemValid F S ρ w step true ∅ ∅
+            (logSym F S f) (logSym F S g) hsym τ hτ,
+          logEdgePiece_eqOnMemValid F S ρ w step false ∅ ∅
+            (logSym F S f) (logSym F S g) hsym τ hτ]
+  | dirtyRaw =>
+      dsimp only [logEdge]
+      apply logSym_eqOnMemValid F S _ _ ?_ σL hσL
+      intro τ hτ
+      have hsym (u : LogPoint S.x K) (hu : MemValid F S u.1) :
+          logSym F S f u = logSym F S g u :=
+        logSym_eqOnMemValid F S f g hfg u hu
+      apply Finset.sum_congr rfl
+      intro St hSt
+      apply Finset.sum_congr rfl
+      intro Pr hPr
+      by_cases hempty : St = ∅ ∧ Pr = ∅
+      · simp [hempty]
+      · simp [hempty, logEdgePiece_eqOnMemValid F S ρ w step true St Pr
+          (logSym F S f) (logSym F S g) hsym τ hτ]
+  | dirtyCmp =>
+      dsimp only [logEdge]
+      apply logSym_eqOnMemValid F S _ _ ?_ σL hσL
+      intro τ hτ
+      have hsym (u : LogPoint S.x K) (hu : MemValid F S u.1) :
+          logSym F S f u = logSym F S g u :=
+        logSym_eqOnMemValid F S f g hfg u hu
+      apply Finset.sum_congr rfl
+      intro St hSt
+      apply Finset.sum_congr rfl
+      intro Pr hPr
+      by_cases hempty : St = ∅ ∧ Pr = ∅
+      · simp [hempty]
+      · simp [hempty, logEdgePiece_eqOnMemValid F S ρ w step false St Pr
+          (logSym F S f) (logSym F S g) hsym τ hτ]
+
+private theorem memGhost_eqOnMemValid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) (f g : MemPoint S.x K → ℂ)
+    (hfg : ∀ s, MemValid F S s → f s = g s)
+    (s : MemPoint S.x K) (hs : MemValid F S s) :
+    memGhost F S ρ j f s = memGhost F S ρ j g s := by
+  unfold memGhost plainOp
+  exact logGhost_eqOnMemValid F S ρ j (fun σL => f σL.1) (fun σL => g σL.1)
+    (fun σL hσL => hfg σL.1 hσL) (s, []) hs
+
+private theorem memEdgePiece_eqOnMemValid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)
+    (f g : MemPoint S.x K → ℂ)
+    (hfg : ∀ s, MemValid F S s → f s = g s)
+    (s : MemPoint S.x K) (hs : MemValid F S s) :
+    memEdgePiece F S ρ w raw St Pr j f s = memEdgePiece F S ρ w raw St Pr j g s := by
+  unfold memEdgePiece plainOp
+  apply logSym_eqOnMemValid F S _ _ ?_ (s, []) hs
+  intro σL hσL
+  apply logEdgePiece_eqOnMemValid F S ρ w j raw St Pr _ _ ?_ σL hσL
+  intro τ hτ
+  exact logSym_eqOnMemValid F S _ _ (fun u hu => hfg u.1 hu) τ hτ
+
+private theorem memEdge_eqOnMemValid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (kind : EdgeKind) (j : ℕ)
+    (f g : MemPoint S.x K → ℂ)
+    (hfg : ∀ s, MemValid F S s → f s = g s)
+    (s : MemPoint S.x K) (hs : MemValid F S s) :
+    memEdge F S ρ w kind j f s = memEdge F S ρ w kind j g s := by
+  unfold memEdge plainOp
+  exact logEdge_eqOnMemValid F S ρ w kind j (fun σL => f σL.1) (fun σL => g σL.1)
+    (fun σL hσL => hfg σL.1 hσL) (s, []) hs
+
+private theorem memMeasure_eq_zero_of_invalid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : MemPoint S.x K) (hs : ¬ MemValid F S s) : memMeasure F S s = 0 := by
+  simp [memMeasure, hs]
+
+private theorem memEdge_zero_for_valid_supported_input {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (kind : EdgeKind) (j : ℕ)
+    (f : MemPoint S.x K → ℂ)
+    (hf : ∀ s, MemValid F S s → f s = 0)
+    (s : MemPoint S.x K) (hs : MemValid F S s) :
+    memEdge F S ρ w kind j f s = 0 := by
+  have heq := memEdge_eqOnMemValid F S ρ w kind j f (fun _ => 0) hf s hs
+  rw [heq]
+  cases kind <;> simp [memEdge, plainOp, logEdge, logSym, logEdgePiece]
+
+private theorem memEdgePiece_zero_for_valid_supported_input {K : ℕ} (F : PDFix K)
+    (S : PDScale) (ρ : ℝ) (w : ArchRoot) (raw : Bool) (St Pr : Finset (Fin K))
+    (j : ℕ) (f : MemPoint S.x K → ℂ)
+    (hf : ∀ s, MemValid F S s → f s = 0)
+    (s : MemPoint S.x K) (hs : MemValid F S s) :
+    memEdgePiece F S ρ w raw St Pr j f s = 0 := by
+  have heq := memEdgePiece_eqOnMemValid F S ρ w raw St Pr j f (fun _ => 0) hf s hs
+  rw [heq]
+  simp [memEdgePiece, plainOp, logSym, logEdgePiece]
+
+private theorem memGhost_zero_for_valid_supported_input {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) (f : MemPoint S.x K → ℂ)
+    (hf : ∀ s, MemValid F S s → f s = 0)
+    (s : MemPoint S.x K) (hs : MemValid F S s) :
+    memGhost F S ρ j f s = 0 := by
+  have heq := memGhost_eqOnMemValid F S ρ j f (fun _ => 0) hf s hs
+  rw [heq]
+  simp [memGhost, plainOp, logGhost]
+
+private theorem memEdge_delta_invalid_source_zero {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (kind : EdgeKind) (j : ℕ)
+    (s t : MemPoint S.x K) (hs : ¬ MemValid F S s) (ht : MemValid F S t) :
+    memEdge F S ρ w kind j (fun u => if u = s then 1 else 0) t = 0 := by
+  apply memEdge_zero_for_valid_supported_input F S ρ w kind j _ _ t ht
+  intro u hu
+  by_cases heq : u = s
+  · subst u
+    exact (hs hu).elim
+  · simp [heq]
+
+private theorem memEdgePiece_delta_invalid_source_zero {K : ℕ} (F : PDFix K)
+    (S : PDScale) (ρ : ℝ) (w : ArchRoot) (raw : Bool) (St Pr : Finset (Fin K))
+    (j : ℕ) (s t : MemPoint S.x K)
+    (hs : ¬ MemValid F S s) (ht : MemValid F S t) :
+    memEdgePiece F S ρ w raw St Pr j (fun u => if u = s then 1 else 0) t = 0 := by
+  apply memEdgePiece_zero_for_valid_supported_input F S ρ w raw St Pr j _ _ t ht
+  intro u hu
+  by_cases heq : u = s
+  · subst u
+    exact (hs hu).elim
+  · simp [heq]
+
+private theorem memGhost_delta_invalid_source_zero {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) (s t : MemPoint S.x K)
+    (hs : ¬ MemValid F S s) (ht : MemValid F S t) :
+    memGhost F S ρ j (fun u => if u = s then 1 else 0) t = 0 := by
+  apply memGhost_zero_for_valid_supported_input F S ρ j _ _ t ht
+  intro u hu
+  by_cases heq : u = s
+  · subst u
+    exact (hs hu).elim
+  · simp [heq]
+
+set_option maxHeartbeats 500000 in
+private theorem envBox_coordinate_bounds {K : ℕ} (δ c₁ c₂ : ℝ)
+    (S : PDScale) (w : ArchRoot) (z : ℤ × ℤ)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S) (hz : envBox S w z) :
+    |(z.1 : ℝ)| ≤ 16 + 544 * S.U * S.V ∧
+      |(z.2 : ℝ)| ≤ 544 * S.U * S.V := by
+  rcases hS with ⟨hx, hHm, hHn, hprodL, hprodU, hY, hd₀⟩
+  rcases hw with ⟨huL, huU, hvL, hvU, hrL, hrU⟩
+  rcases hz with ⟨hz₁L, hz₁U, hz₂L, hz₂U⟩
+  have hxpos : 0 < S.x := by linarith
+  have hHmpos : 0 < S.Hm := lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos _) hHm
+  have hHnpos : 0 < S.Hn := lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos _) hHn
+  rcases Finset.mem_filter.mp hY with ⟨hYimg, hYbounds⟩
+  obtain ⟨kY, hkY, hYeq⟩ := Finset.mem_image.mp hYimg
+  have hYpos : 0 < S.Y := by rw [← hYeq]; positivity
+  obtain ⟨kd, hkd, hd₀eq⟩ := Finset.mem_image.mp hd₀
+  have hd₀pos : 0 < (S.d₀ : ℝ) := by rw [← hd₀eq]; positivity
+  have hUpos : 0 < S.U := by
+    dsimp [PDScale.U, PDScale.H]
+    positivity
+  have hVpos : 0 < S.V := by simpa [PDScale.V] using hHnpos
+  have huPos : 0 < w.u := lt_of_lt_of_le hUpos huL
+  let τ := w.tau z
+  have hτpos : 0 < τ := by
+    have hmul : 0 < w.u * τ := lt_of_lt_of_le hUpos hz₁L
+    exact (mul_pos_iff_of_pos_left huPos).mp hmul
+  have hτL : (1 / 16 : ℝ) ≤ τ := by
+    have hmul := mul_le_mul_of_nonneg_right huU hτpos.le
+    have htotal : S.U ≤ (16 * S.U) * τ := by nlinarith [hz₁L, hmul]
+    have hdiv : S.U / (16 * S.U) ≤ τ :=
+      (div_le_iff₀ (by positivity : 0 < 16 * S.U)).2 (by nlinarith [htotal])
+    have hfrac : S.U / (16 * S.U) = (1 / 16 : ℝ) := by
+      field_simp [hUpos.ne']
+    rw [hfrac] at hdiv
+    exact hdiv
+  have hτU : τ ≤ 16 := by
+    have hmul := mul_le_mul_of_nonneg_right huL hτpos.le
+    have htotal : S.U * τ ≤ 16 * S.U := by nlinarith [hz₁U, hmul]
+    have hdiv : τ ≤ (16 * S.U) / S.U :=
+      (le_div_iff₀ hUpos).2 (by nlinarith [htotal])
+    have hratio : (16 * S.U) / S.U = 16 := by
+      field_simp [hUpos.ne']
+    rw [hratio] at hdiv
+    exact hdiv
+  let vτ := w.v * τ
+  have hvPos : 0 < w.v := lt_of_lt_of_le hVpos hvL
+  have hvτnonneg : 0 ≤ vτ := mul_nonneg hvPos.le hτpos.le
+  have hvτupper : vτ ≤ 32 * S.V := by
+    calc
+      _ ≤ (2 * S.V) * τ := mul_le_mul_of_nonneg_right hvU hτpos.le
+      _ ≤ (2 * S.V) * 16 := mul_le_mul_of_nonneg_left hτU (by positivity)
+      _ = 32 * S.V := by ring
+  have hz₂divLo : -31 * S.V ≤ (z.2 : ℝ) / w.u := by
+    nlinarith [hz₂L, hvτupper]
+  have hz₂divHi : (z.2 : ℝ) / w.u ≤ 2 * S.V := by
+    nlinarith [hz₂U, hvτnonneg]
+  have hmulz : (z.2 : ℝ) = w.u * ((z.2 : ℝ) / w.u) := by
+    field_simp [huPos.ne']
+  have hz₂hi : (z.2 : ℝ) ≤ 32 * S.U * S.V := by
+    rw [hmulz]
+    calc
+      _ ≤ w.u * (2 * S.V) := mul_le_mul_of_nonneg_left hz₂divHi huPos.le
+      _ ≤ (16 * S.U) * (2 * S.V) :=
+        mul_le_mul_of_nonneg_right huU (by positivity)
+      _ = 32 * S.U * S.V := by ring
+  have hlowScale : -496 * S.U * S.V ≤ w.u * (-31 * S.V) := by
+    have hcoeff : -31 * S.V ≤ 0 := by nlinarith [hVpos]
+    have h := mul_le_mul_of_nonpos_left huU hcoeff
+    nlinarith
+  have hz₂lo : -496 * S.U * S.V ≤ (z.2 : ℝ) := by
+    rw [hmulz]
+    exact le_trans hlowScale (mul_le_mul_of_nonneg_left hz₂divLo huPos.le)
+  have hz₂abs : |(z.2 : ℝ)| ≤ 544 * S.U * S.V := by
+    apply abs_le.mpr
+    constructor <;> nlinarith [hz₂lo, hz₂hi, mul_nonneg hUpos.le hVpos.le]
+  have hτabs : |τ| ≤ 16 := by
+    apply abs_le.mpr
+    constructor <;> linarith [hτL, hτU]
+  have hrabs : |w.r| ≤ 1 := abs_le.mpr ⟨by linarith, hrU⟩
+  have hrzabs : |w.r * (z.2 : ℝ)| ≤ 544 * S.U * S.V := by
+    rw [abs_mul]
+    calc
+      |w.r| * |(z.2 : ℝ)| ≤ 1 * (544 * S.U * S.V) :=
+        mul_le_mul hrabs hz₂abs (abs_nonneg _) (by positivity)
+      _ = 544 * S.U * S.V := by ring
+  have hτeq : (z.1 : ℝ) = τ - w.r * (z.2 : ℝ) := by
+    dsimp [τ, ArchRoot.tau]
+    ring
+  refine ⟨?_, hz₂abs⟩
+  rw [hτeq]
+  apply abs_le.mpr
+  have hτLo : -16 ≤ τ := (abs_le.mp hτabs).1
+  have hτHi : τ ≤ 16 := (abs_le.mp hτabs).2
+  have hrzLo : -(544 * S.U * S.V) ≤ w.r * (z.2 : ℝ) := (abs_le.mp hrzabs).1
+  have hrzHi : w.r * (z.2 : ℝ) ≤ 544 * S.U * S.V := (abs_le.mp hrzabs).2
+  constructor <;> nlinarith [hτLo, hτHi, hrzLo, hrzHi]
+
+private theorem envBox_finite {K : ℕ} (δ c₁ c₂ : ℝ)
+    (S : PDScale) (w : ArchRoot)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S) :
+    {z : ℤ × ℤ | envBox S w z}.Finite := by
+  classical
+  let b₁ : ℝ := 16 + 544 * S.U * S.V
+  let b₂ : ℝ := 544 * S.U * S.V
+  let m₁ : ℤ := ⌈b₁⌉
+  let m₂ : ℤ := ⌈b₂⌉
+  let box : Set (ℤ × ℤ) := Set.Icc (-m₁) m₁ ×ˢ Set.Icc (-m₂) m₂
+  have hm₁ : b₁ ≤ (m₁ : ℝ) := by
+    exact Int.le_ceil b₁
+  have hm₂ : b₂ ≤ (m₂ : ℝ) := by
+    exact Int.le_ceil b₂
+  have hboxFinite : box.Finite := by
+    dsimp [box]
+    exact (Set.finite_Icc _ _).prod (Set.finite_Icc _ _)
+  apply hboxFinite.subset
+  intro z hz
+  have hb := envBox_coordinate_bounds δ c₁ c₂ S w z hS hw hz
+  change z.1 ∈ Set.Icc (-m₁) m₁ ∧ z.2 ∈ Set.Icc (-m₂) m₂
+  constructor
+  · constructor
+    · have hreal : (-(m₁ : ℤ) : ℝ) ≤ (z.1 : ℝ) := by
+        have h := (abs_le.mp hb.1).1
+        change -(b₁) ≤ (z.1 : ℝ) at h
+        have hcast : (-(m₁ : ℤ) : ℝ) = -(m₁ : ℝ) := by simp
+        rw [hcast]
+        nlinarith
+      exact_mod_cast hreal
+    · have hreal : (z.1 : ℝ) ≤ (m₁ : ℝ) := by
+        have h := (abs_le.mp hb.1).2
+        change (z.1 : ℝ) ≤ b₁ at h
+        linarith
+      exact_mod_cast hreal
+  · constructor
+    · have hreal : (-(m₂ : ℤ) : ℝ) ≤ (z.2 : ℝ) := by
+        have h := (abs_le.mp hb.2).1
+        change -(b₂) ≤ (z.2 : ℝ) at h
+        have hcast : (-(m₂ : ℤ) : ℝ) = -(m₂ : ℝ) := by simp
+        rw [hcast]
+        nlinarith
+      exact_mod_cast hreal
+    · have hreal : (z.2 : ℝ) ≤ (m₂ : ℝ) := by
+        have h := (abs_le.mp hb.2).2
+        change (z.2 : ℝ) ≤ b₂ at h
+        linarith
+      exact_mod_cast hreal
+
+private theorem edgeAdmissible_supported_summable {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (w : ArchRoot) (s : MemPoint S.x K)
+    (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i)
+    (g : ℤ × ℤ → ℂ) (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S)
+    (hg : ∀ z', ¬ EdgeAdmissible F S w s c z' → g z' = 0) : Summable g := by
+  classical
+  have hbox := envBox_finite δ c₁ c₂ S w hS hw
+  have hsupport : Function.support g ⊆ {z' : ℤ × ℤ | envBox S w z'} := by
+    intro z' hz'
+    change g z' ≠ 0 at hz'
+    by_contra hnotBox
+    apply hz'
+    apply hg
+    intro hadm
+    rcases hadm with ⟨_, _, _, _, _, _, _, htargetBox, _, _⟩
+    exact hnotBox htargetBox
+  exact summable_of_hasFiniteSupport (hbox.subset hsupport)
+
+private theorem comparisonMultiplier_norm_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (D aa bb : ℕ) (t : ℤ) (Ceta Cpsi : ℝ)
+    (hL : 1 ≤ Real.log S.x) (hA₀ : 0 ≤ F.A₀) (hY : 0 < S.Y)
+    (det : ℤ) (hPad : IsPadAdmissible S.d₀ D det) (hd₀ : 0 < (S.d₀ : ℝ))
+    (hEtaA : ‖(F.eta ((aa : ℝ) / S.Y) : ℂ)‖ ≤ Ceta)
+    (hEtaB : ‖(F.eta ((bb : ℝ) / S.Y) : ℂ)‖ ≤ Ceta)
+    (hPsi : ‖(F.psi ((t : ℝ) / S.Y) : ℂ)‖ ≤ Cpsi)
+    (hCeta : 0 ≤ Ceta) (hCpsi : 0 ≤ Cpsi) :
+    ‖comparisonMultiplier F S D aa bb t‖ ≤
+      Ceta ^ 2 * Cpsi * (32 * Real.rpow (Real.log S.x) F.A₀ ^ 3 / S.Y) := by
+  have hMK := majorKernel_norm_le_scaled S.x S.Y F.A₀ (t : ℝ) aa bb F.psi hL hA₀ hY
+  have hLpos : 0 < Real.log S.x := by linarith
+  have hPpos : 0 < Real.rpow (Real.log S.x) F.A₀ :=
+    Real.rpow_pos_of_pos hLpos _
+  have hfacNonneg : 0 ≤ 32 * Real.rpow (Real.log S.x) F.A₀ ^ 3 / S.Y := by
+    exact div_nonneg (mul_nonneg (by norm_num) (pow_nonneg hPpos.le 3)) hY.le
+  have hDpos : 0 < (D : ℝ) := lt_of_lt_of_le hd₀ hPad.1
+  have hRatio :
+      ‖((((S.d₀ : ℝ) / (D : ℝ)) : ℝ) : ℂ)‖ ≤ 1 := by
+    have hnonneg : 0 ≤ (S.d₀ : ℝ) / (D : ℝ) := div_nonneg hd₀.le hDpos.le
+    have hle : (S.d₀ : ℝ) / (D : ℝ) ≤ 1 :=
+      (div_le_iff₀ hDpos).2 (by simpa using hPad.1)
+    simpa [Complex.norm_real, abs_of_nonneg hnonneg] using hle
+  have hMK' :
+      ‖majorKernel S.x S.Y F.A₀ (t : ℝ) aa bb F.psi‖ ≤
+        Cpsi * (32 * Real.rpow (Real.log S.x) F.A₀ ^ 3 / S.Y) := by
+    calc
+      _ ≤ ‖(F.psi ((t : ℝ) / S.Y) : ℂ)‖ *
+          (32 * Real.rpow (Real.log S.x) F.A₀ ^ 3 / S.Y) := hMK
+      _ ≤ Cpsi * (32 * Real.rpow (Real.log S.x) F.A₀ ^ 3 / S.Y) :=
+        mul_le_mul_of_nonneg_right hPsi hfacNonneg
+  have hprod :
+      ‖((((S.d₀ : ℝ) / (D : ℝ)) : ℝ) : ℂ)‖ *
+          ‖(F.eta ((bb : ℝ) / S.Y) : ℂ)‖ *
+          ‖(F.eta ((aa : ℝ) / S.Y) : ℂ)‖ *
+          ‖majorKernel S.x S.Y F.A₀ (t : ℝ) aa bb F.psi‖ ≤
+        1 * Ceta * Ceta *
+          (Cpsi * (32 * Real.rpow (Real.log S.x) F.A₀ ^ 3 / S.Y)) := by
+    gcongr
+  calc
+    ‖comparisonMultiplier F S D aa bb t‖ =
+        ‖((((S.d₀ : ℝ) / (D : ℝ)) : ℝ) : ℂ)‖ *
+          ‖(F.eta ((bb : ℝ) / S.Y) : ℂ)‖ *
+          ‖(F.eta ((aa : ℝ) / S.Y) : ℂ)‖ *
+          ‖majorKernel S.x S.Y F.A₀ (t : ℝ) aa bb F.psi‖ := by
+            simp [comparisonMultiplier, norm_mul]
+    _ ≤ 1 * Ceta * Ceta *
+          (Cpsi * (32 * Real.rpow (Real.log S.x) F.A₀ ^ 3 / S.Y)) := hprod
+    _ = Ceta ^ 2 * Cpsi *
+          (32 * Real.rpow (Real.log S.x) F.A₀ ^ 3 / S.Y) := by ring
+
+private theorem exists_psi_norm_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ Cpsi : ℝ, 0 ≤ Cpsi ∧ ∀ t, ‖(F.psi t : ℂ)‖ ≤ Cpsi := by
+  rcases hF with ⟨_, _, _, _, _, hArc⟩
+  rcases hArc with ⟨hCont, hCompact, _⟩
+  exact exists_compact_psi_norm_bound F.psi hCont.continuous hCompact
+
+private theorem exists_eta_norm_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ Ceta : ℝ, 0 ≤ Ceta ∧ ∀ t, ‖(F.eta t : ℂ)‖ ≤ Ceta := by
+  rcases hF with ⟨_, _, _, _, hEta, _⟩
+  rcases hEta with ⟨hCont, hSupport, _, _⟩
+  exact exists_support_Icc_norm_bound F.eta hCont.continuous hSupport
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
@@ -2194,6 +2726,90 @@ private theorem memOpNormLE_mono {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
   have hsq : c ^ 2 ≤ d ^ 2 := by nlinarith
   have hopen := h T T' f hsupp hT hT'
   nlinarith
+
+private theorem memOpNormLE_of_weighted_schur {K : ℕ} (F : PDFix K) (S : PDScale)
+    (B : ℕ) (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ)
+    (v₀ a b : ℝ) (hμ : ∀ s, 0 ≤ memMeasure F S s)
+    (hμzero : ∀ s, ¬ MemValid F S s → memMeasure F S s = 0)
+    (hv : ∀ s : MemPoint S.x K, 0 < v₀ ^ memSize s) (ha : 0 ≤ a) (hb : 0 ≤ b)
+    (hrow : MemRowSchurLE F S B op v₀ a) (hcol : MemColSchurLE F S B op v₀ b)
+    (hzero : ∀ s t, MemValid F S s → ¬ MemValid F S t → memKernel op s t = 0)
+    (hrep : ∀ (T T' : Finset (MemPoint S.x K)) (f : MemPoint S.x K → ℂ),
+      (∀ s, s ∉ T → f s = 0) → (∀ s ∈ T, memSize s ≤ B) →
+      (∀ s ∈ T', memSize s ≤ B) → ∀ s ∈ T', MemValid F S s →
+        op f s = ∑ t ∈ T,
+          (if MemValid F S s ∧ MemValid F S t then memKernel op s t else 0) * f t) :
+    MemOpNormLE F S B op (Real.sqrt (a * b)) := by
+  classical
+  intro T T' f hsupp hT hT'
+  let k : MemPoint S.x K → MemPoint S.x K → ℂ := fun s t =>
+    if MemValid F S s ∧ MemValid F S t then memKernel op s t else 0
+  have hrow' : ∀ s ∈ T', ∑ t ∈ T, ‖k s t‖ * v₀ ^ memSize t ≤
+      a * v₀ ^ memSize s := by
+    intro s hsT'
+    by_cases hsvalid : MemValid F S s
+    · calc
+        ∑ t ∈ T, ‖k s t‖ * v₀ ^ memSize t ≤
+            ∑ t ∈ T, ‖memKernel op s t‖ * v₀ ^ memSize t := by
+              apply Finset.sum_le_sum
+              intro t ht
+              by_cases htvalid : MemValid F S t
+              · simp [k, hsvalid, htvalid]
+              · simp [k, hsvalid, htvalid, hzero s t hsvalid htvalid]
+        _ ≤ a * v₀ ^ memSize s := hrow s hsvalid (hT' s hsT') T hT
+    · simp [k, hsvalid]
+      exact mul_nonneg ha (hv s).le
+  have hcol' : ∀ t ∈ T, ∑ s ∈ T', memMeasure F S s * ‖k s t‖ *
+      v₀ ^ memSize s ≤ b * memMeasure F S t * v₀ ^ memSize t := by
+    intro t htT
+    by_cases htvalid : MemValid F S t
+    · calc
+        ∑ s ∈ T', memMeasure F S s * ‖k s t‖ * v₀ ^ memSize s =
+            ∑ s ∈ T', memMeasure F S s * ‖memKernel op s t‖ *
+              v₀ ^ memSize s := by
+                apply Finset.sum_congr rfl
+                intro s hsT'
+                by_cases hsvalid : MemValid F S s
+                · simp [k, hsvalid, htvalid]
+                · simp [k, hsvalid, htvalid, hμzero s hsvalid]
+        _ ≤ b * memMeasure F S t * v₀ ^ memSize t :=
+            hcol t htvalid (hT t htT) T' hT'
+    · have hμt := hμzero t htvalid
+      simp [k, htvalid, hμt]
+  have hschur := finite_weighted_schur_norm (memMeasure F S)
+    (fun s => v₀ ^ memSize s) k f T T' a b hμ hv ha hb hrow' hcol'
+  have houtput : memNormSqOn F S T' (op f) =
+      ∑ s ∈ T', memMeasure F S s *
+        ‖∑ t ∈ T, k s t * f t‖ ^ 2 := by
+    unfold memNormSqOn
+    apply Finset.sum_congr rfl
+    intro s hsT'
+    by_cases hsvalid : MemValid F S s
+    · rw [hrep T T' f hsupp hT hT' s hsT' hsvalid]
+    · simp [hμzero s hsvalid]
+  have hsqrt : (Real.sqrt (a * b)) ^ 2 = a * b :=
+    Real.sq_sqrt (mul_nonneg ha hb)
+  rw [houtput]
+  unfold memNormSqOn
+  calc
+    (∑ s ∈ T', memMeasure F S s *
+        ‖∑ t ∈ T, k s t * f t‖ ^ 2) ≤
+      a * b * (∑ t ∈ T, memMeasure F S t * ‖f t‖ ^ 2) := hschur
+    _ = (Real.sqrt (a * b)) ^ 2 *
+        (∑ t ∈ T, memMeasure F S t * ‖f t‖ ^ 2) := by rw [hsqrt]
+
+private theorem det_basis_coordinates (z w z' : ℤ × ℤ)
+    (hdet : det2 z w = 1) :
+    z' = (det2 z' w * z.1 + det2 z z' * w.1,
+      det2 z' w * z.2 + det2 z z' * w.2) := by
+  have hdet' : z.1 * w.2 - z.2 * w.1 = 1 := by simpa [det2] using hdet
+  apply Prod.ext
+  · calc
+      z'.1 = z'.1 * (z.1 * w.2 - z.2 * w.1) := by rw [hdet']; ring
+      _ = det2 z' w * z.1 + det2 z z' * w.1 := by dsimp [det2]; ring
+  · calc
+      z'.2 = z'.2 * (z.1 * w.2 - z.2 * w.1) := by rw [hdet']; ring
+      _ = det2 z' w * z.2 + det2 z z' * w.2 := by dsimp [det2]; ring
 
 private theorem memOpNormLE_sym_mono {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
     (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (c d : ℝ)
