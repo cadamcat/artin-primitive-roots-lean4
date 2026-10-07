@@ -1,8 +1,11 @@
 import ArtinPrimitiveRoots.TypeII.PD.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Circle
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyArithmetic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchySquare
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyDivisor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootArithmetic
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Goodness
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.BandGeometry
 
 /-! Determinant and root-counting statements, PD `03-determinant.tex:68-737`. -/
 
@@ -83,7 +86,10 @@ theorem good_state
               (∫ r in (0 : ℝ)..1,
                 if IsGoodRatio x Y (d₀ : ℝ) K a p r then (0 : ℝ) else 1) ≤
                 Real.exp (-c * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
-  sorry
+  obtain ⟨c, x₀, hc, hx₀, hbound⟩ := pd1c_good_state_bound K a ha
+  refine ⟨c, x₀, hc, hx₀, ?_⟩
+  intro x hx d₀ hd₀ Y hY p hp
+  exact hbound x hx Y hY (d₀ : ℝ) p hp
 
 private lemma endpoint_second_mem_dyadic
     {x Hn : ℝ} {K : ℕ} {a : Fin K → ℝ} {H' Hm : ℝ}
@@ -2526,6 +2532,80 @@ theorem weak_kloosterman (ε : ℝ) (hε : 0 < ε) :
     simpa [KS, H, K, unitKloosterman] using (kloostermanSum_eq_unit_sum m h k)
   rw [hsumEq]
   simpa [RHS, g] using hbound
+
+lemma pd1c_physicalState_finite
+    (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (H' Hm Hn : ℝ) :
+    Finite (PhysicalState x K a H' Hm Hn) :=
+  Finite.of_injective endpointStateCoordinates endpointStateCoordinates_injective
+
+lemma pd1c_residue_indicator (m : ℕ) [NeZero m] (hm : 0 < m) (u v : ZMod m) :
+    (if u = v then (1 : ℂ) else 0) =
+      (m : ℂ)⁻¹ * ∑ j : ZMod m, ZMod.stdAddChar (j * (u - v)) := by
+  letI : NeZero m := ⟨hm.ne'⟩
+  have horth := stdAddChar_orthogonality m (u - v)
+  simp only [mul_comm (u - v)] at horth
+  rw [horth]
+  have hmC : (m : ℂ) ≠ 0 := by exact_mod_cast hm.ne'
+  by_cases h : u = v
+  · simp [h, hmC]
+  · simp [h, sub_ne_zero.mpr h]
+
+lemma pd1c_residue_fourier_expansion {ι : Type*} (s : Finset ι)
+    (m : ℕ) [NeZero m] (hm : 0 < m) (r : ι → ZMod m) (a : ZMod m) (f : ι → ℂ) :
+    (∑ i ∈ s, if r i = a then f i else 0) =
+      (m : ℂ)⁻¹ * ∑ j : ZMod m,
+        ∑ i ∈ s, ZMod.stdAddChar (j * (r i - a)) * f i := by
+  letI : NeZero m := ⟨hm.ne'⟩
+  calc
+    _ = ∑ i ∈ s, (if r i = a then (1 : ℂ) else 0) * f i := by
+      apply Finset.sum_congr rfl
+      intro i hi
+      by_cases h : r i = a <;> simp [h]
+    _ = ∑ i ∈ s, ((m : ℂ)⁻¹ *
+        ∑ j : ZMod m, ZMod.stdAddChar (j * (r i - a))) * f i := by
+      simp_rw [pd1c_residue_indicator m hm]
+    _ = _ := by
+      simp only [Finset.mul_sum, Finset.sum_mul]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro j hj
+      apply Finset.sum_congr rfl
+      intro i hi
+      ring
+
+lemma pd1c_groupLabelProduct_pos
+    {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {H' Hm Hn : ℝ}
+    (P : PhysicalState x K a H' Hm Hn) : 0 < groupLabelProduct P :=
+  groupLabelProduct_pos P
+
+lemma pd1c_groupLabelProduct_dvd_first
+    {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {H' Hm Hn : ℝ}
+    (P : PhysicalState x K a H' Hm Hn) (hSq : Squarefree (groupLabelProduct P)) :
+    groupLabelProduct P ∣ P.first := groupLabelProduct_dvd_first P hSq
+
+lemma pd1c_endpointG_pointwise_general
+    {δ C c₁ c₂ x : ℝ} {K : ℕ} {a : Fin K → ℝ} {H' Hm Hn : ℝ}
+    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x) (hMin : family.xMin ≤ x)
+    (beta : ℕ → ℂ) (hbeta : ∀ n ∈ dyadicIntegers Hn, ‖beta n‖ ≤ Real.rpow (Real.log x) C)
+    (P : PhysicalState x K a H' Hm Hn) :
+    ‖endpointG x K a family beta P‖ ≤ Real.rpow (Real.log x) (2 * C) := by
+  have hlog : 0 < Real.log x := Real.log_pos (by linarith)
+  have hα : ‖family.alpha x (P.first / groupLabelProduct P)‖ ≤ Real.rpow (Real.log x) C := by
+    by_cases hz : family.alpha x (P.first / groupLabelProduct P) = 0
+    · simpa [hz] using Real.rpow_nonneg hlog.le C
+    · exact family.coefficient_bound x hMin _ (family.rough_support x hMin _ hz).1
+  have hβ := hbeta P.second (endpoint_second_mem_dyadic P)
+  by_cases hSq : Squarefree (groupLabelProduct P)
+  · simp only [endpointG, hSq, ite_true, norm_mul, norm_star]
+    calc
+      _ ≤ Real.rpow (Real.log x) C * Real.rpow (Real.log x) C :=
+        mul_le_mul hα hβ (norm_nonneg _) (Real.rpow_nonneg hlog.le _)
+      _ = _ := by
+        simp only [Real.rpow_eq_pow]
+        rw [← Real.rpow_add hlog]
+        congr 1
+        ring
+  · simpa [endpointG, hSq] using Real.rpow_nonneg hlog.le (2 * C)
 
 /-- `lem:root-residue` — PD `03-determinant.tex:413-591`. Primitive roots of determinant-one
 matrices are equidistributed in boxes and residue classes modulo squarefree `S`, with the stated

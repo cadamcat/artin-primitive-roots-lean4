@@ -93,4 +93,26 @@ lemma pd1c_root_completion_unique (u v : ℕ) (hu : 0 < u)
     mul_left_cancel₀ (by exact_mod_cast (Nat.ne_of_gt hu)) hDmul
   exact ⟨hC, hD⟩
 
+
+lemma pd1c_root_completion_exists_unique (u v : ℕ) (hu : 0 < u)
+    (hcop : Nat.Coprime u v) :
+    ∃! cd : ℤ × ℤ, (u : ℤ) * cd.2 - (v : ℤ) * cd.1 = 1 ∧
+      0 ≤ cd.1 ∧ cd.1 < (u : ℤ) := by
+  obtain ⟨c, d, hdet, hc0, hc1⟩ := pd1c_root_completion_exists u v hu hcop
+  refine ⟨(c, d), ⟨hdet, hc0, hc1⟩, ?_⟩
+  rintro ⟨c', d'⟩ ⟨hdet', hc0', hc1'⟩
+  obtain ⟨rfl, rfl⟩ := pd1c_root_completion_unique u v hu hcop
+    c' d' c d hdet' hdet hc0' hc1' hc0 hc1
+  rfl
+
+lemma pd1c_root_det_congruence (u v S : ℕ) (hu : 0 < u) (c d d₀ : ℤ)
+    (hdet : (u : ℤ) * d - (v : ℤ) * c = 1) :
+    ((d : ZMod S) = (d₀ : ZMod S)) ↔
+      ((c * (v : ℤ) : ℤ) : ZMod (u * S)) =
+        (((u : ℤ) * d₀ - 1 : ℤ) : ZMod (u * S)) := by
+  rw [ZMod.intCast_eq_intCast_iff_dvd_sub, ZMod.intCast_eq_intCast_iff_dvd_sub]
+  have heq : (u : ℤ) * d₀ - 1 - c * (v : ℤ) = (u : ℤ) * (d₀ - d) := by
+    nlinarith [hdet]
+  rw [heq, Nat.cast_mul, mul_dvd_mul_iff_left (by exact_mod_cast hu.ne')]
+
 end ArtinPrimitiveRoots.TypeII.PD

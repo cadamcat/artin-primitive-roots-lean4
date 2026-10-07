@@ -1473,12 +1473,15 @@ lemma pd1c_goodTestTwo_markov_bound (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
         _ = (400 * ((pd1c_trialCodeFinset x K a I iStar).card : ℝ) ^ 2) *
             Real.exp (-(3 / 4 : ℝ) * t) := by
           dsimp [e, θ]
-          rw [show 4 * (100 * Real.exp (-t)) =
-            400 * Real.exp (-t) by ring, hratio]
-          ring
+          calc
+            _ = (400 * ((pd1c_trialCodeFinset x K a I iStar).card : ℝ) ^ 2) *
+                (Real.exp (-t) / Real.exp (-(1 / 4 : ℝ) * t)) := by ring
+            _ = _ := by rw [hratio]
     calc
+      _ ≤ (400 * ((pd1c_trialCodeFinset x K a I iStar).card : ℝ) ^ 2) *
+          Real.exp (-(3 / 4 : ℝ) * t) := hmoment''
       _ ≤ Real.exp (t / 8) * Real.exp (-(3 / 4 : ℝ) * t) :=
-        mul_le_mul_of_nonneg_right hmoment'' (Real.exp_nonneg _)
+        mul_le_mul_of_nonneg_right hCard (Real.exp_nonneg _)
       _ = Real.exp (-(5 / 8 : ℝ) * t) := by
         rw [← Real.exp_add]
         congr 1
@@ -1488,6 +1491,221 @@ lemma pd1c_goodTestTwo_markov_bound (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
         have hL : 0 < Real.log x := Real.log_pos (by linarith)
         have ht : 0 ≤ t := Real.rpow_nonneg hL.le _
         nlinarith
-  simpa [f, θ, t] using hmark.trans hmoment'
+  simpa [f, θ, e, t] using hmark.trans hmoment'
+
+
+lemma pd1c_interval_bad_eq_volume (P : ℝ → Prop) [DecidablePred P]
+    (hP : MeasurableSet {r : ℝ | r ∈ Set.Ioc 0 1 ∧ P r}) :
+    (∫ r in (0 : ℝ)..1, if P r then (1 : ℝ) else 0) =
+      volume.real {r : ℝ | r ∈ Set.Ioc 0 1 ∧ P r} := by
+  rw [intervalIntegral.integral_of_le (by norm_num : (0 : ℝ) ≤ 1),
+    ← integral_indicator measurableSet_Ioc]
+  have heq : (Set.Ioc (0 : ℝ) 1).indicator (fun r => if P r then (1 : ℝ) else 0) =
+      {r : ℝ | r ∈ Set.Ioc 0 1 ∧ P r}.indicator (fun _ => (1 : ℝ)) := by
+    funext r
+    by_cases hr : r ∈ Set.Ioc (0 : ℝ) 1 <;> by_cases hp : P r <;>
+      simp_all [Set.indicator]
+  rw [heq]
+  simpa only [smul_eq_mul, mul_one] using integral_indicator_const (1 : ℝ) hP
+
+noncomputable def pd1c_goodTwoFailure (x d₀ : ℝ) (K : ℕ) (a : Fin K → ℝ)
+    (p : PrimeLists x K) (I : Finset (Fin K)) : Set ℝ :=
+  if hI : I.Nonempty then
+    {r | r ∈ Set.Ioc 0 1 ∧
+      Real.exp (-(1 / 4 : ℝ) * Real.rpow (Real.log x) (a (I.max' hI))) <
+        pd1c_goodTestTwoBadWeight x K a p d₀ I (I.max' hI)
+          (100 * Real.exp (-Real.rpow (Real.log x) (a (I.max' hI)))) r}
+  else ∅
+
+lemma pd1c_goodTwoFailure_measurable (x d₀ : ℝ) (K : ℕ) (a : Fin K → ℝ)
+    (p : PrimeLists x K) (I : Finset (Fin K)) :
+    MeasurableSet (pd1c_goodTwoFailure x d₀ K a p I) := by
+  unfold pd1c_goodTwoFailure
+  split_ifs with hI
+  · exact measurableSet_Ioc.inter (measurableSet_lt measurable_const
+      (pd1c_goodTestTwoBadWeight_measurable _ _ _ _ _ _ _ _))
+  · exact MeasurableSet.empty
+
+lemma pd1c_goodTwoFailure_union (x d₀ : ℝ) (K : ℕ) (a : Fin K → ℝ)
+    (p : PrimeLists x K) :
+    {r : ℝ | r ∈ Set.Ioc 0 1 ∧ ¬ goodTestTwo x d₀ K a p r} =
+      ⋃ I : Finset (Fin K), pd1c_goodTwoFailure x d₀ K a p I := by
+  ext r
+  simp only [Set.mem_setOf_eq, Set.mem_iUnion]
+  constructor
+  · rintro ⟨hr, hg⟩
+    simp only [goodTestTwo, not_forall] at hg
+    obtain ⟨I, hI, hbad⟩ := hg
+    refine ⟨I, ?_⟩
+    rw [pd1c_goodTwoFailure, dif_pos hI]
+    refine ⟨hr, ?_⟩
+    rw [pd1c_goodTestTwoBadWeight_eq_tsum]
+    exact lt_of_not_ge hbad
+  · rintro ⟨I, hr⟩
+    by_cases hI : I.Nonempty
+    · rw [pd1c_goodTwoFailure, dif_pos hI] at hr
+      refine ⟨hr.1, ?_⟩
+      intro hg
+      have hb := hg I hI
+      dsimp only at hb
+      rw [← pd1c_goodTestTwoBadWeight_eq_tsum] at hb
+      exact (not_lt_of_ge hb) hr.2
+    · simp [pd1c_goodTwoFailure, hI] at hr
+
+lemma pd1c_goodTwoFailure_uniform_bound (K : ℕ) (a : Fin K → ℝ)
+    (ha : ValidBands K a) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
+      ∀ d₀ : ℝ, ∀ p : PrimeLists x K, ValidPrimeLists x K a p →
+        ∀ I : Finset (Fin K),
+          volume.real (pd1c_goodTwoFailure x d₀ K a p I) ≤
+            Real.exp (-(1 / 2 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+  obtain ⟨Lgap, hLgap, hgap⟩ := pd1c_lowerBandRpow_small K a ha
+  obtain ⟨Lcard, hLcard, hcard⟩ := pd1c_trialCode_card_exp_bound K a ha
+  let L₀ := max Lgap Lcard
+  let x₀ := max 2 (Real.exp L₀)
+  refine ⟨x₀, le_max_left _ _, ?_⟩
+  intro x hx d₀ p hp I
+  have hx2 : 2 ≤ x := (le_max_left _ _).trans hx
+  have hL : L₀ ≤ Real.log x := by
+    have h := Real.log_le_log (Real.exp_pos L₀) ((le_max_right _ _).trans hx)
+    simpa using h
+  have hLg : Lgap ≤ Real.log x := (le_max_left _ _).trans hL
+  have hLc : Lcard ≤ Real.log x := (le_max_right _ _).trans hL
+  have hL1 : 1 ≤ Real.log x := hLgap.trans hLg
+  by_cases hI : I.Nonempty
+  · let iStar := I.max' hI
+    have hCard := hcard x hLc hx2 I iStar (by
+      intro i hi
+      have hiI : i ∈ I := (Finset.mem_erase.mp hi).2
+      have hine : i ≠ iStar := (Finset.mem_erase.mp hi).1
+      have hile : i ≤ iStar := Finset.le_max' I i hiI
+      have hiLt : i.val < iStar.val := by
+        have : i < iStar := lt_of_le_of_ne hile hine
+        exact this
+      exact hgap (Real.log x) hLg i iStar hiLt)
+    have hMark := pd1c_goodTestTwo_markov_bound x K a p d₀ I iStar hx2
+      (pd1c_bandMass_pos_of_validPrimeLists x K a p hp) hCard
+    have hm : MeasurableSet {r : ℝ | r ∈ Set.Ioc 0 1 ∧
+        Real.exp (-(1 / 4 : ℝ) * Real.rpow (Real.log x) (a iStar)) <
+          pd1c_goodTestTwoBadWeight x K a p d₀ I iStar
+            (100 * Real.exp (-Real.rpow (Real.log x) (a iStar))) r} :=
+      measurableSet_Ioc.inter (measurableSet_lt measurable_const
+        (pd1c_goodTestTwoBadWeight_measurable _ _ _ _ _ _ _ _))
+    rw [pd1c_interval_bad_eq_volume _ hm] at hMark
+    rw [pd1c_goodTwoFailure, dif_pos hI]
+    refine hMark.trans ?_
+    apply Real.exp_le_exp.mpr
+    have ht : Real.rpow (Real.log x) (1 / 10 : ℝ) ≤
+        Real.rpow (Real.log x) (a iStar) :=
+      Real.rpow_le_rpow_of_exponent_le hL1 (ha.2.1 iStar).1.le
+    linarith
+  · simp [pd1c_goodTwoFailure, hI, Real.exp_nonneg]
+
+lemma pd1c_good_state_bound (K : ℕ) (a : Fin K → ℝ) (ha : ValidBands K a) :
+    ∃ c x₀ : ℝ, 0 < c ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x → ∀ Y ∈ dyadicScales x K,
+        ∀ d₀ : ℝ, ∀ p : PrimeLists x K, ValidPrimeLists x K a p →
+          (∫ r in (0 : ℝ)..1,
+            if IsGoodRatio x Y d₀ K a p r then (0 : ℝ) else 1) ≤
+              Real.exp (-c * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+  obtain ⟨xOne, hxOne, hOne⟩ := pd1c_goodTestOne_uniform_absorption K a
+  obtain ⟨xTwo, hxTwo, hTwo⟩ := pd1c_goodTwoFailure_uniform_bound K a ha
+  obtain ⟨Ldec, hLdec, hdec⟩ := pd1c_logPower_expDecay 0 1 (1 / 160 : ℝ) (by norm_num)
+  let B : ℝ := 1 + (2 : ℝ) ^ K
+  let L₀ := max Ldec B
+  let x₀ := max (max xOne xTwo) (max 2 (Real.exp L₀))
+  refine ⟨1 / 160, x₀, by norm_num, ?_, ?_⟩
+  · exact (le_max_left 2 _).trans (le_max_right _ _)
+  intro x hx Y hY d₀ p hp
+  have hx1 : xOne ≤ x := (le_max_left _ _).trans ((le_max_left _ _).trans hx)
+  have hx2 : xTwo ≤ x := (le_max_right _ _).trans ((le_max_left _ _).trans hx)
+  have hxTwo' : 2 ≤ x := hxTwo.trans hx2
+  have hL : L₀ ≤ Real.log x := by
+    have hxe : Real.exp L₀ ≤ x :=
+      (le_max_right _ _).trans ((le_max_right _ _).trans hx)
+    simpa using Real.log_le_log (Real.exp_pos L₀) hxe
+  have hLdec' : Ldec ≤ Real.log x := (le_max_left _ _).trans hL
+  have hLB : B ≤ Real.log x := (le_max_right _ _).trans hL
+  have hLone : 1 ≤ Real.log x := hLdec.trans hLdec'
+  have hYpos : 0 < Y := by
+    obtain ⟨k, hk, hkeq⟩ := Finset.mem_image.mp (Finset.mem_filter.mp hY).1
+    rw [← hkeq]
+    positivity
+  let B₁ : Set ℝ := {r | r ∈ Set.Ioc 0 1 ∧ ¬ goodTestOne x Y d₀ p r}
+  let B₂ := ⋃ I : Finset (Fin K), pd1c_goodTwoFailure x d₀ K a p I
+  have hB₁ : MeasurableSet B₁ := by
+    have h := (pd1c_goodOne_badset_measurable x Y d₀ K a p hYpos).inter
+      (measurableSet_Ioc : MeasurableSet (Set.Ioc (0 : ℝ) 1))
+    convert h using 1
+    ext r
+    simp only [B₁, Set.mem_setOf_eq, Set.mem_inter_iff, Set.mem_Icc, Set.mem_Ioc]
+    constructor
+    · rintro ⟨⟨h0, h1⟩, hn⟩
+      exact ⟨⟨⟨h0.le, h1⟩, hn⟩, h0, h1⟩
+    · rintro ⟨⟨_, hn⟩, h0, h1⟩
+      exact ⟨⟨h0, h1⟩, hn⟩
+  have hB₂ : MeasurableSet B₂ := MeasurableSet.iUnion fun I =>
+    pd1c_goodTwoFailure_measurable x d₀ K a p I
+  have hBeq : {r : ℝ | r ∈ Set.Ioc 0 1 ∧ ¬ IsGoodRatio x Y d₀ K a p r} = B₁ ∪ B₂ := by
+    rw [show B₂ = {r : ℝ | r ∈ Set.Ioc 0 1 ∧ ¬ goodTestTwo x d₀ K a p r} from
+      (pd1c_goodTwoFailure_union x d₀ K a p).symm]
+    ext r
+    simp only [IsGoodRatio, B₁, Set.mem_setOf_eq, Set.mem_union]
+    tauto
+  have hBadMeas : MeasurableSet {r : ℝ | r ∈ Set.Ioc 0 1 ∧
+      ¬ IsGoodRatio x Y d₀ K a p r} := by
+    rw [hBeq]
+    exact hB₁.union hB₂
+  have hInt : (∫ r in (0 : ℝ)..1,
+      if IsGoodRatio x Y d₀ K a p r then (0 : ℝ) else 1) = volume.real (B₁ ∪ B₂) := by
+    have heq : (fun r : ℝ => if IsGoodRatio x Y d₀ K a p r then (0 : ℝ) else 1) =
+        (fun r => if ¬ IsGoodRatio x Y d₀ K a p r then (1 : ℝ) else 0) := by
+      funext r
+      by_cases h : IsGoodRatio x Y d₀ K a p r <;> simp [h]
+    rw [heq, pd1c_interval_bad_eq_volume _ hBadMeas, hBeq]
+  have hFirst : volume.real B₁ ≤
+      Real.exp (-(1 / 80 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+    have h := hOne x hx1 Y hY d₀ p hp
+    have heq : (fun r : ℝ => if goodTestOne x Y d₀ p r then (0 : ℝ) else 1) =
+        (fun r => if ¬ goodTestOne x Y d₀ p r then (1 : ℝ) else 0) := by
+      funext r
+      by_cases h : goodTestOne x Y d₀ p r <;> simp [h]
+    rwa [heq, pd1c_interval_bad_eq_volume _ hB₁] at h
+  have hSecond : volume.real B₂ ≤ (2 : ℝ) ^ K *
+      Real.exp (-(1 / 80 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+    calc
+      _ ≤ ∑ I : Finset (Fin K), volume.real (pd1c_goodTwoFailure x d₀ K a p I) :=
+        measureReal_iUnion_fintype_le _
+      _ ≤ ∑ I : Finset (Fin K), Real.exp (-(1 / 80 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+        apply Finset.sum_le_sum
+        intro I hI
+        refine (hTwo x hx2 d₀ p hp I).trans ?_
+        apply Real.exp_le_exp.mpr
+        have ht := Real.rpow_nonneg (le_trans (by norm_num : (0 : ℝ) ≤ 1) hLone) (1 / 10 : ℝ)
+        simp only [Real.rpow_eq_pow] at ht ⊢
+        linarith
+      _ = _ := by simp [Fintype.card_finset, Nat.cast_pow]
+  have hAbsorb : B * Real.exp (-(1 / 160 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) ≤ 1 := by
+    calc
+      _ ≤ Real.log x * Real.exp (-(1 / 160 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) :=
+        mul_le_mul_of_nonneg_right hLB (Real.exp_nonneg _)
+      _ ≤ 1 := by simpa using hdec (Real.log x) hLdec'
+  calc
+    _ = volume.real (B₁ ∪ B₂) := hInt
+    _ ≤ volume.real B₁ + volume.real B₂ := measureReal_union_le _ _
+    _ ≤ B * Real.exp (-(1 / 80 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      calc
+        _ ≤ Real.exp (-(1 / 80 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) +
+            (2 : ℝ) ^ K * Real.exp (-(1 / 80 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) :=
+          add_le_add hFirst hSecond
+        _ = _ := by dsimp only [B]; ring
+    _ = (B * Real.exp (-(1 / 160 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ))) *
+        Real.exp (-(1 / 160 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      rw [mul_assoc, ← Real.exp_add]
+      congr 2
+      ring
+    _ ≤ 1 * Real.exp (-(1 / 160 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ)) :=
+      mul_le_mul_of_nonneg_right hAbsorb (Real.exp_nonneg _)
+    _ = _ := by ring
 
 end ArtinPrimitiveRoots.TypeII.PD

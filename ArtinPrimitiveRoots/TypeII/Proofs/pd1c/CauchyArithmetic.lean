@@ -89,4 +89,30 @@ lemma pd1c_cauchy_arithmetic
     refine ⟨u, hu, ?_⟩
     simpa [huv'] using hv
 
+
+lemma pd1c_dyadicScales_card_bound {x : ℝ} (K : ℕ) (hx : 1 ≤ Real.log x) :
+    ((dyadicScales x K).card : ℝ) ≤
+      (((K + 1 : ℕ) : ℝ) / Real.log 2 + 1) * Real.log x := by
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hL : 0 ≤ Real.log x := le_trans (by norm_num) hx
+  have hpow : Real.rpow (Real.log x) (1 / 5 : ℝ) ≤ Real.log x := by
+    simpa using Real.rpow_le_rpow_of_exponent_le hx (by norm_num : (1 / 5 : ℝ) ≤ 1)
+  let T := ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (1 / 5 : ℝ) / Real.log 2
+  have hT : 0 ≤ T := by dsimp [T]; positivity
+  have hcard : (dyadicScales x K).card ≤ ⌊T⌋₊ + 1 := by
+    unfold dyadicScales
+    exact (Finset.card_filter_le _ _).trans ((Finset.card_image_le).trans (by simp [T]))
+  calc
+    ((dyadicScales x K).card : ℝ) ≤ (⌊T⌋₊ : ℝ) + 1 := by exact_mod_cast hcard
+    _ ≤ T + 1 := by simpa [add_comm] using add_le_add_right (Nat.floor_le hT) 1
+    _ ≤ (((K + 1 : ℕ) : ℝ) / Real.log 2 + 1) * Real.log x := by
+      have hC : 0 ≤ ((K + 1 : ℕ) : ℝ) / Real.log 2 := by positivity
+      have h := mul_le_mul_of_nonneg_left hpow hC
+      calc
+        T + 1 = (((K + 1 : ℕ) : ℝ) / Real.log 2) *
+            Real.rpow (Real.log x) (1 / 5 : ℝ) + 1 := by dsimp only [T]; ring
+        _ ≤ (((K + 1 : ℕ) : ℝ) / Real.log 2) * Real.log x + Real.log x :=
+          add_le_add h hx
+        _ = _ := by ring
+
 end ArtinPrimitiveRoots.TypeII.PD
