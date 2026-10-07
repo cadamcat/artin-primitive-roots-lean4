@@ -307,6 +307,379 @@ theorem root_arch_boundary (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁
 def bonferroniTrunc {ι : Type*} (T : Finset ι) (X : ι → ℝ) (m : ℕ) : ℝ :=
   ∑ T' ∈ T.powerset.filter (fun T' => T'.card ≤ m), (-1 : ℝ) ^ T'.card * ∏ i ∈ T', X i
 
+private lemma bonferroniTrunc_insert {ι : Type*} [DecidableEq ι] (T : Finset ι) (i : ι)
+    (hi : i ∉ T) (X : ι → ℝ) (m : ℕ) :
+    bonferroniTrunc (insert i T) X (m + 1) =
+      bonferroniTrunc T X (m + 1) - X i * bonferroniTrunc T X m := by
+  classical
+  unfold bonferroniTrunc
+  rw [Finset.powerset_insert, Finset.filter_union]
+  have hdis : Disjoint
+      (T.powerset.filter (fun t => t.card ≤ m + 1))
+      ((T.powerset.image (insert i)).filter (fun t => t.card ≤ m + 1)) := by
+    apply Finset.disjoint_left.mpr
+    intro t ht ht'
+    have hit : i ∈ t := by
+      rcases Finset.mem_image.mp (Finset.mem_filter.mp ht').1 with ⟨u, hu, rfl⟩
+      simp
+    exact hi ((Finset.mem_powerset.mp (Finset.mem_filter.mp ht).1) hit)
+  rw [Finset.sum_union hdis]
+  have hfilter :
+      (T.powerset.image (insert i)).filter (fun t => t.card ≤ m + 1) =
+        (T.powerset.filter (fun t => t.card ≤ m)).image (insert i) := by
+    ext t
+    simp only [Finset.mem_filter, Finset.mem_image]
+    constructor
+    · rintro ⟨⟨u, hu, rfl⟩, hcard⟩
+      have hui : i ∉ u := Finset.notMem_of_mem_powerset_of_notMem hu hi
+      refine ⟨u, ⟨hu, ?_⟩, rfl⟩
+      rw [Finset.card_insert_of_notMem hui] at hcard
+      omega
+    · rintro ⟨u, ⟨hu, hcard⟩, rfl⟩
+      have hui : i ∉ u := Finset.notMem_of_mem_powerset_of_notMem hu hi
+      refine ⟨⟨u, hu, rfl⟩, ?_⟩
+      rw [Finset.card_insert_of_notMem hui]
+      omega
+  have hinj : Set.InjOn (insert i)
+      (↑(T.powerset.filter (fun s => s.card ≤ m)) : Set (Finset ι)) := by
+    intro s hs t ht hst
+    ext j
+    have hmem := congrArg (fun q : Finset ι => j ∈ q) hst
+    by_cases hji : j = i
+    · subst j
+      have hs' : s ∈ T.powerset.filter (fun s => s.card ≤ m) := by simpa using hs
+      have ht' : t ∈ T.powerset.filter (fun s => s.card ≤ m) := by simpa using ht
+      have his : i ∉ s :=
+        Finset.notMem_of_mem_powerset_of_notMem (Finset.mem_filter.mp hs').1 hi
+      have hit : i ∉ t :=
+        Finset.notMem_of_mem_powerset_of_notMem (Finset.mem_filter.mp ht').1 hi
+      simp [his, hit]
+    · simpa [hji] using hmem
+  rw [hfilter, Finset.sum_image hinj]
+  have hterm (s : Finset ι) (hs : s ∈ T.powerset.filter (fun s => s.card ≤ m)) :
+      (-1 : ℝ) ^ (insert i s).card * ∏ j ∈ insert i s, X j =
+        -X i * ((-1 : ℝ) ^ s.card * ∏ j ∈ s, X j) := by
+    have his : i ∉ s :=
+      Finset.notMem_of_mem_powerset_of_notMem (Finset.mem_filter.mp hs).1 hi
+    rw [Finset.card_insert_of_notMem his, Finset.prod_insert his, pow_succ]
+    ring
+  rw [Finset.sum_congr rfl hterm, ← Finset.mul_sum]
+  ring
+
+private lemma bonferroniTrunc_zero {ι : Type*} [DecidableEq ι] (T : Finset ι) (X : ι → ℝ) :
+    bonferroniTrunc T X 0 = 1 := by
+  classical
+  unfold bonferroniTrunc
+  have hfilter : T.powerset.filter (fun s => s.card ≤ 0) = {∅} := by
+    ext s
+    simp only [Finset.mem_filter, Finset.mem_powerset, Finset.mem_singleton]
+    constructor
+    · rintro ⟨_, hcard⟩
+      have hc : s.card = 0 := by omega
+      exact Finset.card_eq_zero.mp hc
+    · rintro rfl
+      simp
+  rw [hfilter]
+  simp
+
+private lemma bonferroniTrunc_bounds {ι : Type*} [DecidableEq ι] (T : Finset ι)
+    (X : ι → ℝ) (hX : ∀ i ∈ T, 0 ≤ X i ∧ X i ≤ 1) (m : ℕ) :
+    (Even m → ∏ i ∈ T, (1 - X i) ≤ bonferroniTrunc T X m) ∧
+      (Odd m → bonferroniTrunc T X m ≤ ∏ i ∈ T, (1 - X i)) := by
+  classical
+  induction T using Finset.induction_on generalizing X m with
+  | empty =>
+      have hB : bonferroniTrunc (∅ : Finset ι) X m = 1 := by
+        simp [bonferroniTrunc, Finset.filter_singleton]
+      simp [hB]
+  | @insert i T hi ih =>
+      have hXi := hX i (by simp)
+      have hXT : ∀ j ∈ T, 0 ≤ X j ∧ X j ≤ 1 := by
+        intro j hj
+        exact hX j (by simp [hj])
+      constructor
+      · intro hm
+        cases m with
+        | zero =>
+            have hprod : ∏ j ∈ insert i T, (1 - X j) ≤ 1 := by
+              apply Finset.prod_le_one₀
+              · intro j hj
+                have hjX := hX j hj
+                linarith
+              · intro j hj
+                have hjX := hX j hj
+                linarith
+            have hzero := bonferroniTrunc_zero (insert i T) X
+            simpa [hzero] using hprod
+        | succ n =>
+            have hn : Odd n := by
+              rcases hm with ⟨k, hk⟩
+              cases k with
+              | zero => simp at hk
+              | succ k => refine ⟨k, ?_⟩; omega
+            have hprev := (ih X hXT n).2 hn
+            have hnext := (ih X hXT (n + 1)).1 hm
+            rw [bonferroniTrunc_insert T i hi X n, Finset.prod_insert hi]
+            nlinarith [mul_nonneg hXi.1 (show 0 ≤ ∏ j ∈ T, (1 - X j) - bonferroniTrunc T X n by linarith)]
+      · intro hm
+        cases m with
+        | zero =>
+            have hfalse : ¬ Odd 0 := by simp
+            exact (hfalse hm).elim
+        | succ n =>
+            have hn : Even n := by
+              rcases hm with ⟨k, hk⟩
+              refine ⟨k, ?_⟩
+              omega
+            have hprev := (ih X hXT n).1 hn
+            have hnext := (ih X hXT (n + 1)).2 hm
+            rw [bonferroniTrunc_insert T i hi X n, Finset.prod_insert hi]
+            nlinarith [mul_nonneg hXi.1 (show 0 ≤ bonferroniTrunc T X n - ∏ j ∈ T, (1 - X j) by linarith)]
+
+private lemma bonferroniTrunc_gap {ι : Type*} [DecidableEq ι] (T : Finset ι)
+    (X : ι → ℝ) (m : ℕ) (hm : Even m) :
+    bonferroniTrunc T X m - bonferroniTrunc T X (m + 1) =
+      ∑ U ∈ T.powerset.filter (fun U => U.card = m + 1), ∏ i ∈ U, X i := by
+  classical
+  have hfilter :
+      T.powerset.filter (fun U => U.card ≤ m + 1) =
+        T.powerset.filter (fun U => U.card ≤ m) ∪
+          T.powerset.filter (fun U => U.card = m + 1) := by
+    ext U
+    simp only [Finset.mem_filter, Finset.mem_union]
+    constructor
+    · rintro ⟨hU, hcard⟩
+      by_cases hle : U.card ≤ m
+      · exact Or.inl ⟨hU, hle⟩
+      · right
+        exact ⟨hU, by omega⟩
+    · rintro (⟨hU, hle⟩ | ⟨hU, heq⟩)
+      · exact ⟨hU, by omega⟩
+      · exact ⟨hU, by omega⟩
+  have hdis : Disjoint
+      (T.powerset.filter (fun U => U.card ≤ m))
+      (T.powerset.filter (fun U => U.card = m + 1)) := by
+    apply Finset.disjoint_left.mpr
+    intro U hU hU'
+    have hle := (Finset.mem_filter.mp hU).2
+    have heq := (Finset.mem_filter.mp hU').2
+    omega
+  have hmOdd : Odd (m + 1) := by
+    rcases hm with ⟨k, hk⟩
+    exact ⟨k, by omega⟩
+  unfold bonferroniTrunc
+  rw [hfilter, Finset.sum_union hdis]
+  have hterm (U : Finset ι) (hU : U ∈ T.powerset.filter (fun U => U.card = m + 1)) :
+      (-1 : ℝ) ^ U.card * ∏ i ∈ U, X i = - ∏ i ∈ U, X i := by
+    rw [(Finset.mem_filter.mp hU).2]
+    rw [hmOdd.neg_one_pow]
+    ring
+  rw [Finset.sum_congr rfl hterm, Finset.sum_neg_distrib]
+  ring
+
+private lemma lineAverage_prod {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (T : Finset {p : ℕ // p ∈ markedPrimes x K a})
+    (X : (p : {p : ℕ // p ∈ markedPrimes x K a}) → Fin (p.1 + 1) → ℝ) :
+    lineAverage (fun ℓ : LineData x K a =>
+        ((∏ p ∈ T, X p (ℓ p) : ℝ) : ℂ)) =
+      ((∏ p ∈ T, ((p.1 : ℝ) + 1)⁻¹ * ∑ lam : Fin (p.1 + 1), X p lam : ℝ) : ℂ) := by
+  classical
+  let D : ℝ := ∏ p ∈ markedPrimes x K a, ((p : ℝ) + 1)
+  let g : (p : {p : ℕ // p ∈ markedPrimes x K a}) → Fin (p.1 + 1) → ℝ :=
+    fun p lam => (if p ∈ T then X p lam else 1) / ((p.1 : ℝ) + 1)
+  have hD_attach :
+      (∏ p ∈ (markedPrimes x K a).attach, ((p.1 : ℝ) + 1)) = D := by
+    simpa [D] using
+      (Finset.prod_attach (markedPrimes x K a) (fun q : ℕ => (q : ℝ) + 1))
+  have hnum (ℓ : LineData x K a) :
+      (∏ p : {p : ℕ // p ∈ markedPrimes x K a},
+        (if p ∈ T then X p (ℓ p) else 1)) = ∏ p ∈ T, X p (ℓ p) := by
+    symm
+    apply Finset.prod_subset_one_on_sdiff (Finset.subset_univ T)
+    · intro p hp
+      have hnot : p ∉ T := (Finset.mem_sdiff.mp hp).2
+      simp [hnot]
+    · intro p hp
+      simp [hp]
+  have hnum_attach (ℓ : LineData x K a) :
+      (∏ p ∈ (markedPrimes x K a).attach, (if p ∈ T then X p (ℓ p) else 1)) =
+        ∏ p ∈ T, X p (ℓ p) := by
+    simpa only [Finset.univ_eq_attach] using hnum ℓ
+  have hline (ℓ : LineData x K a) :
+      (∏ p : {p : ℕ // p ∈ markedPrimes x K a}, g p (ℓ p)) =
+        D⁻¹ * ∏ p ∈ T, X p (ℓ p) := by
+    dsimp [g]
+    rw [Finset.prod_div_distrib, hnum_attach ℓ, hD_attach, div_eq_mul_inv]
+    ring
+  have hmean_out (p : {p : ℕ // p ∈ markedPrimes x K a})
+      (hp : p ∈ (Finset.univ : Finset {p : ℕ // p ∈ markedPrimes x K a}) \ T) :
+      (∑ lam : Fin (p.1 + 1), g p lam) = 1 := by
+    have hnot : p ∉ T := (Finset.mem_sdiff.mp hp).2
+    have hc : ((p.1 : ℝ) + 1) ≠ 0 := by positivity
+    simpa [g, hnot, Finset.sum_const, Fintype.card_fin] using (mul_inv_cancel₀ hc)
+  have hmean_in (p : {p : ℕ // p ∈ markedPrimes x K a}) (hp : p ∈ T) :
+      (∑ lam : Fin (p.1 + 1), g p lam) =
+        ((p.1 : ℝ) + 1)⁻¹ * ∑ lam : Fin (p.1 + 1), X p lam := by
+    simp only [g, if_pos hp, div_eq_mul_inv]
+    rw [← Finset.sum_mul]
+    exact mul_comm _ _
+  have hmeans :
+      (∏ p : {p : ℕ // p ∈ markedPrimes x K a}, ∑ lam : Fin (p.1 + 1), g p lam) =
+        ∏ p ∈ T, ((p.1 : ℝ) + 1)⁻¹ * ∑ lam : Fin (p.1 + 1), X p lam := by
+    symm
+    apply Finset.prod_subset_one_on_sdiff (Finset.subset_univ T)
+    · exact hmean_out
+    · intro p hp
+      exact (hmean_in p hp).symm
+  have hreal :
+      D⁻¹ * (∑ ℓ : LineData x K a, ∏ p ∈ T, X p (ℓ p)) =
+        ∏ p ∈ T, ((p.1 : ℝ) + 1)⁻¹ * ∑ lam : Fin (p.1 + 1), X p lam := by
+    calc
+      D⁻¹ * (∑ ℓ : LineData x K a, ∏ p ∈ T, X p (ℓ p)) =
+          ∑ ℓ : LineData x K a, ∏ p : {p : ℕ // p ∈ markedPrimes x K a}, g p (ℓ p) := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro ℓ hℓ
+        exact (hline ℓ).symm
+      _ = ∏ p : {p : ℕ // p ∈ markedPrimes x K a}, ∑ lam : Fin (p.1 + 1), g p lam :=
+        (Fintype.prod_sum g).symm
+      _ = ∏ p ∈ T, ((p.1 : ℝ) + 1)⁻¹ * ∑ lam : Fin (p.1 + 1), X p lam := hmeans
+  simpa [lineAverage, D, map_sum] using congrArg (fun y : ℝ => (y : ℂ)) hreal
+
+private lemma lineAverage_sum {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {ι : Type*}
+    (s : Finset ι) (f : ι → LineData x K a → ℝ) :
+    lineAverage (fun ℓ => ((∑ i ∈ s, f i ℓ : ℝ) : ℂ)) =
+      ∑ i ∈ s, lineAverage (fun ℓ => ((f i ℓ : ℝ) : ℂ)) := by
+  classical
+  unfold lineAverage
+  simp only [Complex.ofReal_sum]
+  have hcomm :
+      (∑ ℓ : LineData x K a, ∑ i ∈ s, (f i ℓ : ℂ)) =
+        ∑ i ∈ s, ∑ ℓ : LineData x K a, (f i ℓ : ℂ) := by
+    simpa using
+      (Finset.sum_comm (s := (Finset.univ : Finset (LineData x K a))) (t := s)
+        (f := fun ℓ i => (f i ℓ : ℂ)))
+  rw [hcomm, Finset.mul_sum]
+
+private def elemSymm {ι : Type*} (T : Finset ι) (μ : ι → ℝ) (k : ℕ) : ℝ :=
+  ∑ U ∈ T.powersetCard k, ∏ i ∈ U, μ i
+
+private lemma elemSymm_insert {ι : Type*} [DecidableEq ι] (T : Finset ι) (i : ι)
+    (hi : i ∉ T) (μ : ι → ℝ) (n : ℕ) :
+    elemSymm (insert i T) μ (n + 1) =
+      elemSymm T μ (n + 1) + μ i * elemSymm T μ n := by
+  classical
+  unfold elemSymm
+  rw [Finset.powersetCard_succ_insert hi n]
+  have hdis : Disjoint (T.powersetCard (n + 1))
+      ((T.powersetCard n).image (insert i)) := by
+    apply Finset.disjoint_left.mpr
+    intro U hU hU'
+    have hiU : i ∈ U := by
+      rcases Finset.mem_image.mp hU' with ⟨s, hs, rfl⟩
+      simp
+    exact hi ((Finset.mem_powersetCard.mp hU).1 hiU)
+  rw [Finset.sum_union hdis]
+  have hinj : Set.InjOn (insert i)
+      (↑(T.powersetCard n) : Set (Finset ι)) := by
+    intro s hs t ht hst
+    ext j
+    have hmem := congrArg (fun q : Finset ι => j ∈ q) hst
+    have hs' : s ∈ T.powersetCard n := by simpa using hs
+    have ht' : t ∈ T.powersetCard n := by simpa using ht
+    have his : i ∉ s := fun h => hi ((Finset.mem_powersetCard.mp hs').1 h)
+    have hit : i ∉ t := fun h => hi ((Finset.mem_powersetCard.mp ht').1 h)
+    by_cases hji : j = i
+    · subst j
+      simp [his, hit]
+    · simpa [hji] using hmem
+  rw [Finset.sum_image hinj]
+  have hterm (s : Finset ι) (hs : s ∈ T.powersetCard n) :
+      ∏ j ∈ insert i s, μ j = μ i * ∏ j ∈ s, μ j := by
+    have his : i ∉ s := fun h => hi ((Finset.mem_powersetCard.mp hs).1 h)
+    simp [Finset.prod_insert, his]
+  rw [Finset.sum_congr rfl hterm, ← Finset.mul_sum]
+
+private lemma pow_add_coeff (s a : ℝ) (hs : 0 ≤ s) (ha : 0 ≤ a) (n : ℕ) :
+    s ^ (n + 1) + (n + 1 : ℝ) * a * s ^ n ≤ (s + a) ^ (n + 1) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      have hsa : 0 ≤ s + a := add_nonneg hs ha
+      have hextra : 0 ≤ (n + 1 : ℝ) * a ^ 2 * s ^ n := by positivity
+      have hident :
+          (s ^ (n + 1) + (n + 1 : ℝ) * a * s ^ n) * (s + a) =
+            (s ^ (n + 1 + 1) + (((n + 1 : ℕ) : ℝ) + 1) * a * s ^ (n + 1)) +
+              (n + 1 : ℝ) * a ^ 2 * s ^ n := by
+        rw [pow_succ s n, pow_succ s (n + 1)]
+        simp only [Nat.cast_add, Nat.cast_one]
+        ring
+      calc
+        s ^ (n + 1 + 1) + (((n + 1 : ℕ) : ℝ) + 1) * a * s ^ (n + 1)
+            ≤ (s ^ (n + 1 + 1) + (((n + 1 : ℕ) : ℝ) + 1) * a * s ^ (n + 1)) +
+                (n + 1 : ℝ) * a ^ 2 * s ^ n := le_add_of_nonneg_right hextra
+        _ = (s ^ (n + 1) + (n + 1 : ℝ) * a * s ^ n) * (s + a) := hident.symm
+        _ ≤ (s + a) ^ (n + 1) * (s + a) := mul_le_mul_of_nonneg_right ih hsa
+        _ = (s + a) ^ (n + 1 + 1) := by simp [pow_succ, Nat.add_assoc]
+
+private lemma elemSymm_le_pow_div_factorial {ι : Type*} [DecidableEq ι]
+    (T : Finset ι) (μ : ι → ℝ) (hμ : ∀ i ∈ T, 0 ≤ μ i) :
+    ∀ k, elemSymm T μ k ≤ (∑ i ∈ T, μ i) ^ k / (k.factorial : ℝ) := by
+  classical
+  induction T using Finset.induction_on generalizing μ with
+  | empty =>
+      intro k
+      cases k with
+      | zero => simp [elemSymm]
+      | succ n =>
+          have hcard : Finset.powersetCard (n + 1) (∅ : Finset ι) = ∅ := by
+            rw [Finset.powersetCard_eq_empty]
+            simp
+          simp [elemSymm, hcard]
+  | @insert i T hi ih =>
+      intro k
+      have hμi := hμ i (by simp)
+      have hμT : ∀ j ∈ T, 0 ≤ μ j := by
+        intro j hj
+        exact hμ j (by simp [hj])
+      cases k with
+      | zero => simp [elemSymm]
+      | succ n =>
+          let s : ℝ := ∑ j ∈ T, μ j
+          have hs : 0 ≤ s := Finset.sum_nonneg hμT
+          have hnext := ih μ hμT (n + 1)
+          have hprev := ih μ hμT n
+          have hfact : ((n + 1).factorial : ℝ) =
+              (n + 1 : ℝ) * (n.factorial : ℝ) := by
+            simp [Nat.factorial_succ, Nat.cast_mul]
+          have hfpos : 0 < ((n + 1).factorial : ℝ) := by positivity
+          have hfnz : (n.factorial : ℝ) ≠ 0 := by positivity
+          have hsecond :
+              μ i * s ^ n / (n.factorial : ℝ) =
+                ((n + 1 : ℝ) * μ i * s ^ n) / ((n + 1).factorial : ℝ) := by
+            rw [hfact]
+            field_simp
+          have hfrac :
+              s ^ (n + 1) / ((n + 1).factorial : ℝ) +
+                μ i * s ^ n / (n.factorial : ℝ) ≤
+              (s + μ i) ^ (n + 1) / ((n + 1).factorial : ℝ) := by
+            rw [hsecond, ← add_div]
+            exact (div_le_div_iff_of_pos_right hfpos).2
+              (pow_add_coeff s (μ i) hs hμi n)
+          rw [elemSymm_insert T i hi μ n]
+          calc
+            elemSymm T μ (n + 1) + μ i * elemSymm T μ n
+                ≤ s ^ (n + 1) / ((n + 1).factorial : ℝ) +
+                    μ i * (s ^ n / (n.factorial : ℝ)) :=
+                  add_le_add hnext (mul_le_mul_of_nonneg_left hprev hμi)
+            _ = s ^ (n + 1) / ((n + 1).factorial : ℝ) +
+                  μ i * s ^ n / (n.factorial : ℝ) := by ring
+            _ ≤ (s + μ i) ^ (n + 1) / ((n + 1).factorial : ℝ) := hfrac
+            _ = (∑ j ∈ insert i T, μ j) ^ (n + 1) /
+                  ((n + 1).factorial : ℝ) := by
+                rw [Finset.sum_insert hi]
+                simp [s, add_comm]
+
 /-- `t2:pd.root-bonferroni` (new node, general) — PD 03:643-665.  Pointwise Bonferroni sandwich
 for numbers in `[0,1]` and the gap bound under independent uniform lines:
 `E[B_m - B_{m+1}] = Σ_{|T'|=m+1} ∏ E X_p ≤ (Σ_p E X_p)^{m+1}/(m+1)!`. -/
@@ -317,12 +690,70 @@ theorem root_bonferroni {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
     (∀ ℓ : LineData x K a,
       bonferroniTrunc T (fun p => X p (ℓ p)) (m + 1) ≤ ∏ p ∈ T, (1 - X p (ℓ p)) ∧
         ∏ p ∈ T, (1 - X p (ℓ p)) ≤ bonferroniTrunc T (fun p => X p (ℓ p)) m) ∧
-    (lineAverage (fun ℓ : LineData x K a =>
+        (lineAverage (fun ℓ : LineData x K a =>
         ((bonferroniTrunc T (fun p => X p (ℓ p)) m -
           bonferroniTrunc T (fun p => X p (ℓ p)) (m + 1) : ℝ) : ℂ))).re ≤
       (∑ p ∈ T, (((p.1 : ℝ) + 1)⁻¹ * ∑ lam : Fin (p.1 + 1), X p lam)) ^ (m + 1) /
         ((m + 1).factorial : ℝ) := by
-  sorry
+  classical
+  constructor
+  · intro ℓ
+    have hXℓ : ∀ p ∈ T, 0 ≤ X p (ℓ p) ∧ X p (ℓ p) ≤ 1 := by
+      intro p hp
+      exact hX p (ℓ p)
+    have hb := bonferroniTrunc_bounds T (fun p => X p (ℓ p)) hXℓ m
+    have hm' : Odd (m + 1) := by
+      rcases hm with ⟨k, hk⟩
+      exact ⟨k, by omega⟩
+    have hbp := bonferroniTrunc_bounds T (fun p => X p (ℓ p)) hXℓ (m + 1)
+    exact ⟨hbp.2 hm', hb.1 hm⟩
+  ·
+    let μ : {p : ℕ // p ∈ markedPrimes x K a} → ℝ := fun p =>
+      ((p.1 : ℝ) + 1)⁻¹ * ∑ lam : Fin (p.1 + 1), X p lam
+    let U := T.powerset.filter (fun W => W.card = m + 1)
+    have hμ : ∀ p ∈ T, 0 ≤ μ p := by
+      intro p hp
+      dsimp [μ]
+      apply mul_nonneg
+      · positivity
+      · apply Finset.sum_nonneg
+        intro lam hlam
+        exact (hX p lam).1
+    have hgapfun :
+        (fun ℓ : LineData x K a =>
+          bonferroniTrunc T (fun p => X p (ℓ p)) m -
+            bonferroniTrunc T (fun p => X p (ℓ p)) (m + 1)) =
+          (fun ℓ => ∑ W ∈ U, ∏ p ∈ W, X p (ℓ p)) := by
+      funext ℓ
+      exact bonferroniTrunc_gap T (fun p => X p (ℓ p)) m hm
+    have hgapcast :
+        (fun ℓ : LineData x K a =>
+          ((bonferroniTrunc T (fun p => X p (ℓ p)) m -
+            bonferroniTrunc T (fun p => X p (ℓ p)) (m + 1) : ℝ) : ℂ)) =
+          (fun ℓ => ((∑ W ∈ U, ∏ p ∈ W, X p (ℓ p) : ℝ) : ℂ)) := by
+      funext ℓ
+      exact congrArg (fun y : ℝ => (y : ℂ)) (congrFun hgapfun ℓ)
+    have hlinear :
+        lineAverage (fun ℓ : LineData x K a =>
+          ((bonferroniTrunc T (fun p => X p (ℓ p)) m -
+            bonferroniTrunc T (fun p => X p (ℓ p)) (m + 1) : ℝ) : ℂ)) =
+          ∑ W ∈ U, lineAverage (fun ℓ : LineData x K a =>
+            ((∏ p ∈ W, X p (ℓ p) : ℝ) : ℂ)) := by
+      rw [hgapcast, lineAverage_sum]
+    have haverage :
+        (lineAverage (fun ℓ : LineData x K a =>
+          ((bonferroniTrunc T (fun p => X p (ℓ p)) m -
+            bonferroniTrunc T (fun p => X p (ℓ p)) (m + 1) : ℝ) : ℂ))).re =
+          ∑ W ∈ U, ∏ p ∈ W,
+            (((p.1 : ℝ) + 1)⁻¹ * ∑ lam : Fin (p.1 + 1), X p lam) := by
+      rw [hlinear, Complex.re_sum]
+      apply Finset.sum_congr rfl
+      intro W hW
+      rw [lineAverage_prod]
+      exact Complex.ofReal_re _
+    rw [haverage]
+    have hbound := elemSymm_le_pow_div_factorial T μ hμ (m + 1)
+    simpa [elemSymm, U, μ, Finset.powersetCard_eq_filter] using hbound
 
 /-- A path contributes when it is admissible, has nonzero coefficient, and its archimedean factor
 is not identically zero on the root region. -/
