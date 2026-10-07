@@ -2449,6 +2449,476 @@ def IsFamilySecondCoefficient {δ C c₁ c₂ : ℝ} (family : CoefficientFamily
   (∀ n, beta n ≠ 0 → n ∈ dyadicIntegers (family.Hn x) ∧ roughAbove n (roughCutoff x)) ∧
     ∀ n ∈ dyadicIntegers (family.Hn x), ‖beta n‖ ≤ Real.rpow (Real.log x) C
 
+/-- A stretched exponential absorbs every fixed power of the logarithmic scale. -/
+private theorem logPower_expDecay (A B c : ℝ) (hc : 0 < c) :
+    ∃ L₀ : ℝ, 1 ≤ L₀ ∧ ∀ L : ℝ, L₀ ≤ L →
+      Real.rpow L B * Real.exp (-c * Real.rpow L (1 / 10 : ℝ)) ≤
+        Real.rpow L (-A) := by
+  have hpowTendsto : Filter.Tendsto (fun L : ℝ => Real.rpow L (1 / 10 : ℝ))
+      Filter.atTop Filter.atTop :=
+    tendsto_rpow_atTop (y := (1 / 10 : ℝ)) (by norm_num)
+  have hcomp :=
+    (tendsto_rpow_mul_exp_neg_mul_atTop_nhds_zero (10 * (A + B)) c hc).comp hpowTendsto
+  have heq : (fun L : ℝ =>
+      Real.rpow (Real.rpow L (1 / 10 : ℝ)) (10 * (A + B)) *
+        Real.exp (-c * Real.rpow L (1 / 10 : ℝ))) =ᶠ[Filter.atTop]
+      (fun L : ℝ => Real.rpow L (A + B) *
+        Real.exp (-c * Real.rpow L (1 / 10 : ℝ))) := by
+    filter_upwards [Filter.eventually_gt_atTop (0 : ℝ)] with L hL
+    have hpower : Real.rpow (Real.rpow L (1 / 10 : ℝ)) (10 * (A + B)) =
+        Real.rpow L (A + B) := by
+      have hlogpow : Real.log (Real.rpow L (1 / 10 : ℝ)) =
+          (1 / 10 : ℝ) * Real.log L := by
+        change Real.log (L ^ (1 / 10 : ℝ)) = _
+        exact Real.log_rpow hL _
+      calc
+        Real.rpow (Real.rpow L (1 / 10 : ℝ)) (10 * (A + B)) =
+            Real.exp (Real.log (Real.rpow L (1 / 10 : ℝ)) * (10 * (A + B))) :=
+              Real.rpow_def_of_pos (Real.rpow_pos_of_pos hL _) _
+        _ = Real.exp (Real.log L * (A + B)) := by
+          rw [hlogpow]
+          congr 1
+          ring
+        _ = Real.rpow L (A + B) := (Real.rpow_def_of_pos hL _).symm
+    rw [hpower]
+  have hlim : Filter.Tendsto (fun L : ℝ =>
+      Real.rpow L (A + B) * Real.exp (-c * Real.rpow L (1 / 10 : ℝ)))
+        Filter.atTop (nhds 0) :=
+    hcomp.congr' heq
+  have hevent : ∀ᶠ L : ℝ in Filter.atTop,
+      Real.rpow L (A + B) * Real.exp (-c * Real.rpow L (1 / 10 : ℝ)) < 1 :=
+    hlim.eventually (Iio_mem_nhds (by norm_num))
+  rcases Filter.eventually_atTop.mp hevent with ⟨L₁, hL₁⟩
+  refine ⟨max 1 L₁, le_max_left _ _, ?_⟩
+  intro L hL
+  have hL₀ : L₁ ≤ L := le_trans (le_max_right _ _) hL
+  have hLone : 1 ≤ L := le_trans (le_max_left _ _) hL
+  have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) hLone
+  have hsmall := (hL₁ L hL₀).le
+  have hpow : Real.rpow L (-A) * Real.rpow L (A + B) = Real.rpow L B := by
+    calc
+      Real.rpow L (-A) * Real.rpow L (A + B) = Real.rpow L (-A + (A + B)) :=
+        (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow L B := by congr 1 <;> ring
+  calc
+    Real.rpow L B * Real.exp (-c * Real.rpow L (1 / 10 : ℝ)) =
+        Real.rpow L (-A) *
+          (Real.rpow L (A + B) * Real.exp (-c * Real.rpow L (1 / 10 : ℝ))) := by
+            rw [← hpow]
+            ring
+    _ ≤ Real.rpow L (-A) * 1 := mul_le_mul_of_nonneg_left hsmall
+      (Real.rpow_nonneg (le_of_lt hLpos) _)
+    _ = Real.rpow L (-A) := by ring
+
+/-- Two fixed marked prime bands are disjoint once the larger exponent separates their endpoints. -/
+private theorem primeBand_disjoint_eventually (a b : ℝ) (hab : a < b) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → Disjoint (primeBand x a) (primeBand x b) := by
+  have hpow : Filter.Tendsto (fun x : ℝ => Real.rpow (Real.log x) (b - a))
+      Filter.atTop Filter.atTop :=
+    (tendsto_rpow_atTop (sub_pos.mpr hab)).comp Real.tendsto_log_atTop
+  have hevent : ∀ᶠ x : ℝ in Filter.atTop, 2 < Real.rpow (Real.log x) (b - a) :=
+    hpow.eventually_gt_atTop 2
+  rcases Filter.eventually_atTop.mp hevent with ⟨x₁, hx₁⟩
+  refine ⟨max 2 x₁, le_max_left _ _, ?_⟩
+  intro x hx
+  have hx₂ : 2 ≤ x := le_trans (le_max_left _ _) hx
+  have hgap : 2 < Real.rpow (Real.log x) (b - a) := hx₁ x (le_trans (le_max_right _ _) hx)
+  have hLpos : 0 < Real.log x := Real.log_pos (by linarith)
+  have hpa : 0 < Real.rpow (Real.log x) a := Real.rpow_pos_of_pos hLpos a
+  have hpowMul : Real.rpow (Real.log x) b =
+      Real.rpow (Real.log x) a * Real.rpow (Real.log x) (b - a) := by
+    calc
+      Real.rpow (Real.log x) b = Real.rpow (Real.log x) (a + (b - a)) := by congr 1 <;> ring
+      _ = Real.rpow (Real.log x) a * Real.rpow (Real.log x) (b - a) :=
+        Real.rpow_add hLpos _ _
+  have hsep : 2 * Real.rpow (Real.log x) a < Real.rpow (Real.log x) b := by
+    rw [hpowMul]
+    nlinarith [mul_lt_mul_of_pos_left hgap hpa]
+  apply Finset.disjoint_left.mpr
+  intro p hp hq
+  rcases Finset.mem_filter.mp hp with ⟨_, ⟨_, _, hpupper⟩⟩
+  rcases Finset.mem_filter.mp hq with ⟨_, ⟨_, hqlower, _⟩⟩
+  have hexp : Real.exp (2 * Real.rpow (Real.log x) a) <
+      Real.exp (Real.rpow (Real.log x) b) := Real.exp_lt_exp.mpr hsep
+  have hupper' : (p : ℝ) < Real.exp (Real.rpow (Real.log x) b) := lt_of_le_of_lt hpupper hexp
+  linarith
+
+/-- Valid ordered band data give one threshold at which all distinct marked bands are disjoint. -/
+private theorem validBands_disjoint_eventually (K : ℕ) (a : Fin K → ℝ)
+    (ha : ValidBands K a) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand x (a i)) (primeBand x (a j)) := by
+  have hevent : ∀ᶠ x : ℝ in Filter.atTop, ∀ ij : Fin K × Fin K,
+      ij.1 = ij.2 ∨ Disjoint (primeBand x (a ij.1)) (primeBand x (a ij.2)) := by
+    rw [Filter.eventually_all]
+    intro ij
+    by_cases hij : ij.1 = ij.2
+    · exact Filter.Eventually.of_forall fun _ => Or.inl hij
+    · rcases lt_or_gt_of_ne hij with hlt | hgt
+      · have hab : a ij.1 < a ij.2 := ha.2.2 _ _ hlt
+        obtain ⟨x₁, hx₁₂, hdis⟩ := primeBand_disjoint_eventually (a ij.1) (a ij.2) hab
+        filter_upwards [Filter.eventually_ge_atTop x₁] with x hx
+        exact Or.inr (hdis x hx)
+      · have hab : a ij.2 < a ij.1 := ha.2.2 _ _ hgt
+        obtain ⟨x₁, hx₁₂, hdis⟩ := primeBand_disjoint_eventually (a ij.2) (a ij.1) hab
+        filter_upwards [Filter.eventually_ge_atTop x₁] with x hx
+        exact Or.inr (disjoint_comm.mp (hdis x hx))
+  rcases Filter.eventually_atTop.mp hevent with ⟨x₁, hx₁⟩
+  refine ⟨max 2 x₁, le_max_left _ _, ?_⟩
+  intro x hx i j hij
+  have hxpair := hx₁ x (le_trans (le_max_right _ _) hx) (i, j)
+  rcases hxpair with heq | hdis
+  · exact (hij heq).elim
+  · exact hdis
+
+/-- A valid prime list has squarefree total product once its distinct marked bands are disjoint. -/
+private theorem primeListProduct_squarefree {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (p : PrimeLists x K) (hp : ValidPrimeLists x K a p)
+    (hbands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (a i)) (primeBand x (a j))) :
+    Squarefree (∏ i : Fin K, ∏ j : Fin (slotCount x), p i j) := by
+  let f : Fin K × Fin (slotCount x) → ℕ := fun ij => p ij.1 ij.2
+  have hpair : Set.Pairwise (↑(Finset.univ : Finset (Fin K × Fin (slotCount x))))
+      (Function.onFun IsRelPrime f) := by
+    intro ij _ ij' _ hne
+    have hprime := (hp.1 ij.1 ij.2).1
+    have hprime' := (hp.1 ij'.1 ij'.2).1
+    have hlabels : p ij.1 ij.2 ≠ p ij'.1 ij'.2 := by
+      intro heq
+      have hgroup : ij.1 = ij'.1 := by
+        by_contra hgroup
+        have hdis := hbands ij.1 ij'.1 hgroup
+        have hnot : p ij.1 ij.2 ∉ primeBand x (a ij'.1) :=
+          (Finset.disjoint_left.mp hdis) (hp.1 ij.1 ij.2).2
+        have hmem : p ij.1 ij.2 ∈ primeBand x (a ij'.1) := by
+          simpa [heq] using (hp.1 ij'.1 ij'.2).2
+        exact hnot hmem
+      have hslot : ij.2 = ij'.2 := by
+        by_contra hslot
+        have hdiff := hp.2 ij.1 ij.2 ij'.2 hslot
+        apply hdiff
+        simpa [hgroup] using heq
+      exact hne (Prod.ext hgroup hslot)
+    exact Nat.coprime_iff_isRelPrime.mp ((Nat.coprime_primes hprime hprime').2 hlabels)
+  have hprod := Finset.squarefree_prod_of_pairwise_isCoprime (s := Finset.univ) hpair
+    (fun (ij : Fin K × Fin (slotCount x)) _ => (hp.1 ij.1 ij.2).1.squarefree)
+  simpa [f, Fintype.prod_prod_type] using hprod
+
+/-- The product of a valid label list is subexponential in the root-line modulus range. -/
+private theorem primeListProduct_le_exp {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (ha : ValidBands K a) (p : PrimeLists x K) (hp : ValidPrimeLists x K a p)
+    (hL : 1 ≤ Real.log x) :
+    (∏ i : Fin K, ∏ j : Fin (slotCount x), (p i j : ℝ)) ≤
+      Real.exp (4 * (K : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ)) := by
+  let L : ℝ := Real.log x
+  have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) hL
+  have hLpow : 1 ≤ Real.rpow L (1 / 100 : ℝ) := Real.one_le_rpow hL (by norm_num)
+  have hM : (slotCount x : ℝ) ≤ 2 * Real.rpow L (1 / 100 : ℝ) := by
+    simp only [slotCount, momentJ, Nat.cast_add, Nat.cast_one]
+    have hfloor : (⌊Real.rpow (Real.log x) (1 / 100 : ℝ)⌋₊ : ℝ) ≤
+        Real.rpow (Real.log x) (1 / 100 : ℝ) := Nat.floor_le (by positivity)
+    have hLpowLog : 1 ≤ Real.rpow (Real.log x) (1 / 100 : ℝ) := by simpa [L] using hLpow
+    calc
+      (⌊Real.rpow (Real.log x) (1 / 100 : ℝ)⌋₊ : ℝ) + 1 ≤
+          Real.rpow (Real.log x) (1 / 100 : ℝ) + Real.rpow (Real.log x) (1 / 100 : ℝ) :=
+        add_le_add hfloor hLpowLog
+      _ = 2 * Real.rpow L (1 / 100 : ℝ) := by simp [L]; ring
+  have hlabel (i : Fin K) (j : Fin (slotCount x)) :
+      (p i j : ℝ) ≤ Real.exp (2 * Real.rpow L (1 / 5 : ℝ)) := by
+    rcases hp.1 i j with ⟨hprime, hmem⟩
+    rcases Finset.mem_filter.mp hmem with ⟨_, ⟨_, _, hup⟩⟩
+    have hai : a i ≤ 1 / 5 := (ha.2.1 i).2.le
+    have hpow : Real.rpow L (a i) ≤ Real.rpow L (1 / 5 : ℝ) :=
+      Real.rpow_le_rpow_of_exponent_le hL hai
+    exact le_trans hup (Real.exp_le_exp.mpr (mul_le_mul_of_nonneg_left hpow (by norm_num)))
+  have hprodBound :
+      (∏ i : Fin K, ∏ j : Fin (slotCount x), (p i j : ℝ)) ≤
+        ∏ i : Fin K, ∏ j : Fin (slotCount x), Real.exp (2 * Real.rpow L (1 / 5 : ℝ)) := by
+    apply Finset.prod_le_prod₀
+    · intro i hi
+      exact Finset.prod_nonneg fun j hj => Nat.cast_nonneg _
+    · intro i hi
+      exact Finset.prod_le_prod₀ (fun j hj => Nat.cast_nonneg _) (fun j hj => hlabel i j)
+  have hconst :
+      (∏ i : Fin K, ∏ j : Fin (slotCount x), Real.exp (2 * Real.rpow L (1 / 5 : ℝ))) =
+        Real.exp (2 * Real.rpow L (1 / 5 : ℝ) * ((K : ℝ) * slotCount x)) := by
+    let E : ℝ := Real.exp (2 * Real.rpow L (1 / 5 : ℝ))
+    calc
+      (∏ i : Fin K, ∏ j : Fin (slotCount x), E) = (E ^ slotCount x) ^ K := by simp [E]
+      _ = (Real.exp (2 * Real.rpow L (1 / 5 : ℝ) * (slotCount x : ℝ))) ^ K := by
+        have hinner : E ^ slotCount x =
+            Real.exp (2 * Real.rpow L (1 / 5 : ℝ) * (slotCount x : ℝ)) := by
+          dsimp [E]
+          calc
+            Real.exp (2 * Real.rpow L (1 / 5 : ℝ)) ^ slotCount x =
+                Real.exp ((slotCount x : ℝ) * (2 * Real.rpow L (1 / 5 : ℝ))) :=
+                  (Real.exp_nat_mul (2 * Real.rpow L (1 / 5 : ℝ)) (slotCount x)).symm
+            _ = Real.exp (2 * Real.rpow L (1 / 5 : ℝ) * (slotCount x : ℝ)) := by congr 1 <;> ring
+        rw [hinner]
+      _ = Real.exp ((K : ℝ) * (2 * Real.rpow L (1 / 5 : ℝ) * (slotCount x : ℝ))) :=
+        (Real.exp_nat_mul (2 * Real.rpow L (1 / 5 : ℝ) * (slotCount x : ℝ)) K).symm
+      _ = Real.exp (2 * Real.rpow L (1 / 5 : ℝ) * ((K : ℝ) * slotCount x)) := by
+        congr 1 <;> ring
+  have hpower : Real.rpow L (1 / 5 : ℝ) * Real.rpow L (1 / 100 : ℝ) =
+      Real.rpow L (21 / 100 : ℝ) := by
+    calc
+      Real.rpow L (1 / 5 : ℝ) * Real.rpow L (1 / 100 : ℝ) =
+          Real.rpow L ((1 / 5 : ℝ) + 1 / 100) := (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow L (21 / 100 : ℝ) := by congr 1 <;> norm_num
+  have hExp : 2 * Real.rpow L (1 / 5 : ℝ) * ((K : ℝ) * slotCount x) ≤
+      4 * (K : ℝ) * Real.rpow L (21 / 100 : ℝ) := by
+    have hKM : (K : ℝ) * slotCount x ≤ (K : ℝ) * (2 * Real.rpow L (1 / 100 : ℝ)) :=
+      mul_le_mul_of_nonneg_left hM (Nat.cast_nonneg K)
+    calc
+      2 * Real.rpow L (1 / 5 : ℝ) * ((K : ℝ) * slotCount x) ≤
+          2 * Real.rpow L (1 / 5 : ℝ) * ((K : ℝ) * (2 * Real.rpow L (1 / 100 : ℝ))) :=
+            mul_le_mul_of_nonneg_left hKM (mul_nonneg (by norm_num)
+              (Real.rpow_nonneg (le_of_lt hLpos) _))
+      _ = 4 * (K : ℝ) * (Real.rpow L (1 / 5 : ℝ) * Real.rpow L (1 / 100 : ℝ)) := by ring
+      _ = 4 * (K : ℝ) * Real.rpow L (21 / 100 : ℝ) := by rw [hpower]
+  calc
+    (∏ i : Fin K, ∏ j : Fin (slotCount x), (p i j : ℝ)) ≤
+        Real.exp (2 * Real.rpow L (1 / 5 : ℝ) * ((K : ℝ) * slotCount x)) :=
+          hprodBound.trans_eq hconst
+    _ ≤ Real.exp (4 * (K : ℝ) * Real.rpow L (21 / 100 : ℝ)) :=
+      Real.exp_le_exp.mpr hExp
+
+/-- Every prime factor of a valid list product is one of its listed labels. -/
+private theorem primeFactor_listProduct_mem {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (p : PrimeLists x K) (hp : ValidPrimeLists x K a p) (q : ℕ)
+    (hq : q ∈ (∏ i : Fin K, ∏ j : Fin (slotCount x), p i j).primeFactors) :
+    ∃ i j, q = p i j := by
+  have hqPrime : q.Prime := Nat.prime_of_mem_primeFactors hq
+  have hqDvd := Nat.dvd_of_mem_primeFactors hq
+  have hqDvdProd : q ∣ ∏ ij : Fin K × Fin (slotCount x), p ij.1 ij.2 := by
+    simpa [Fintype.prod_prod_type] using hqDvd
+  rcases (hqPrime.prime.dvd_finsetProd_iff
+      (fun ij : Fin K × Fin (slotCount x) => p ij.1 ij.2)).mp hqDvdProd with ⟨ij, _, hdiv⟩
+  rcases (Nat.dvd_prime (hp.1 ij.1 ij.2).1).mp hdiv with hqone | hqeq
+  · exact (hqPrime.ne_one hqone).elim
+  · exact ⟨ij.1, ij.2, hqeq⟩
+
+/-- The completion coordinate of a physical state is the canonical modular root residue. -/
+private theorem physical_completionC_eq_rootC {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    {H' Hm Hn : ℝ} (P : PhysicalState x K a H' Hm Hn) (hfirst : 2 ≤ P.first) :
+    P.completionC = (rootC P.first P.second : ℤ) := by
+  letI : NeZero P.first := ⟨by omega⟩
+  letI : Fact (1 < P.first) := ⟨by omega⟩
+  have hdetMod := congrArg (fun z : ℤ => (z : ZMod P.first)) P.det_one
+  have hdetMod' : -((P.second : ZMod P.first) * (P.completionC : ZMod P.first)) = 1 := by
+    simpa using hdetMod
+  have hmul : (P.second : ZMod P.first) * (P.completionC : ZMod P.first) = -1 := by
+    have h := congrArg Neg.neg hdetMod'
+    simpa using h
+  have hv : IsUnit (P.second : ZMod P.first) :=
+    (ZMod.isUnit_iff_coprime P.second P.first).2 P.primitive.symm
+  have hunitInv : (↑(hv.unit⁻¹) : ZMod P.first) = (P.second : ZMod P.first)⁻¹ := by
+    calc
+      (↑(hv.unit⁻¹) : ZMod P.first) = (↑hv.unit : ZMod P.first)⁻¹ :=
+        (ZMod.inv_coe_unit hv.unit).symm
+      _ = (P.second : ZMod P.first)⁻¹ := by rw [hv.unit_spec]
+  have hleft : (↑(hv.unit⁻¹) : ZMod P.first) * (P.second : ZMod P.first) = 1 := by
+    simp [hv.unit_spec]
+  have hcMod : (P.completionC : ZMod P.first) = -((P.second : ZMod P.first)⁻¹) := by
+    calc
+      (P.completionC : ZMod P.first) =
+          1 * (P.completionC : ZMod P.first) := by simp
+      _ = ((↑(hv.unit⁻¹) : ZMod P.first) * (P.second : ZMod P.first)) *
+            (P.completionC : ZMod P.first) := by rw [hleft]
+      _ = ↑(hv.unit⁻¹) *
+            ((P.second : ZMod P.first) * (P.completionC : ZMod P.first)) := by ring
+      _ = ↑(hv.unit⁻¹) * (-1) := by rw [hmul]
+      _ = -((P.second : ZMod P.first)⁻¹) := by rw [hunitInv]; ring
+  have hcast : (P.completionC : ZMod P.first) = (rootC P.first P.second : ZMod P.first) := by
+    rw [hcMod]
+    simp [rootC]
+  have hcastInt : (P.completionC : ZMod P.first) =
+      ((rootC P.first P.second : ℤ) : ZMod P.first) := by
+    simpa using hcast
+  have hmod : P.completionC % P.first = (rootC P.first P.second : ℤ) % P.first :=
+    (ZMod.intCast_eq_intCast_iff' P.completionC (rootC P.first P.second : ℤ) P.first).mp hcastInt
+  have hC := P.completion_range
+  have hroot : (rootC P.first P.second : ℤ) < P.first := by
+    exact_mod_cast (ZMod.val_lt (-((P.second : ZMod P.first)⁻¹)))
+  rw [Int.emod_eq_of_lt hC.1 hC.2,
+    Int.emod_eq_of_lt (Int.natCast_nonneg _) hroot] at hmod
+  exact hmod
+
+/-- A prime dividing the first coordinate has the vertical projective kernel line. -/
+private theorem kernelLine_eq_last_of_dvd (p u c : ℕ) (hpu : p ∣ u) :
+    kernelLine p u c = Fin.last p := by
+  have huZero : (u : ZMod p) = 0 := (ZMod.natCast_eq_zero_iff u p).2 hpu
+  simp [kernelLine, projLine]
+  intro hnot
+  exact (hnot huZero).elim
+
+/-- Every prime in a valid label product has the fixed vertical line when all labels divide `u`. -/
+private theorem rootLines_last_of_list_divides {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (p : PrimeLists x K) (hp : ValidPrimeLists x K a p) (u v : ℕ)
+    (hdiv : ∀ i j, p i j ∣ u) :
+    ∀ q ∈ (∏ i : Fin K, ∏ j : Fin (slotCount x), p i j).primeFactors,
+      kernelLine q u (rootC u v) = Fin.last q := by
+  intro q hq
+  obtain ⟨i, j, rfl⟩ := primeFactor_listProduct_mem p hp q hq
+  exact kernelLine_eq_last_of_dvd _ _ _ (hdiv i j)
+
+/-- At fixed positive scales, the physical-state space is finite. -/
+private theorem physicalState_finite {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    {H' Hm Hn : ℝ} (hH' : 0 < H') (hHm : 0 < Hm) (hHn : 0 < Hn) :
+    Set.Finite (Set.univ : Set (PhysicalState x K a H' Hm Hn)) := by
+  classical
+  let N₁ : ℕ := ⌊16 * H' * Hm⌋₊
+  let N₂ : ℕ := ⌊2 * Hn⌋₊
+  let LabelCode := (i : Fin K) → (j : Fin (slotCount x)) →
+    {q : ℕ // q ∈ primeBand x (a i)}
+  let Code := (Fin (N₁ + 1) × Fin (N₂ + 1)) × LabelCode
+  letI (i : Fin K) : Fintype {q : ℕ // q ∈ primeBand x (a i)} :=
+    Fintype.ofFinset (primeBand x (a i)) (by intro q; rfl)
+  let code (P : PhysicalState x K a H' Hm Hn) : Code :=
+    ((⟨P.first, by
+        have hreal : (P.first : ℝ) ≤ 16 * H' * Hm := P.first_upper
+        exact Nat.lt_succ_of_le ((Nat.le_floor_iff (by positivity)).2 hreal)⟩,
+      ⟨P.second, by
+        have hreal : (P.second : ℝ) ≤ 2 * Hn := P.second_upper
+        exact Nat.lt_succ_of_le ((Nat.le_floor_iff (by positivity)).2 hreal)⟩),
+      fun i j => ⟨P.labels i j, P.label_in_band i j⟩)
+  have hfirstpos (P : PhysicalState x K a H' Hm Hn) : 0 < P.first := by
+    by_contra hnot
+    have hzero : P.first = 0 := by omega
+    have hle : H' * Hm ≤ 0 := by simpa [hzero] using P.first_lower
+    exact (not_le_of_gt (mul_pos hH' hHm)) hle
+  have hinj : Function.Injective code := by
+    intro P Q hPQ
+    have hfirst : P.first = Q.first := congrArg (fun z : Code => z.1.1.val) hPQ
+    have hsecond : P.second = Q.second := congrArg (fun z : Code => z.1.2.val) hPQ
+    have hlabels : ∀ i j, P.labels i j = Q.labels i j := by
+      intro i j
+      have hlabel := congrArg (fun z : Code => z.2 i j) hPQ
+      exact congrArg Subtype.val hlabel
+    have hlabelsFun : P.labels = Q.labels := by
+      funext i
+      funext j
+      exact hlabels i j
+    have hcompletionC : P.completionC = Q.completionC := by
+      by_cases hbig : 2 ≤ P.first
+      · have hP := physical_completionC_eq_rootC P hbig
+        have hQ := physical_completionC_eq_rootC Q (by omega)
+        rw [hP, hQ, hfirst, hsecond]
+      · have hone : P.first = 1 := by
+          have := hfirstpos P
+          omega
+        have hQone : Q.first = 1 := by omega
+        have hPzero : P.completionC = 0 := by
+          rcases P.completion_range with ⟨hlo, hhi⟩
+          rw [hone] at hhi
+          omega
+        have hQzero : Q.completionC = 0 := by
+          rcases Q.completion_range with ⟨hlo, hhi⟩
+          rw [hQone] at hhi
+          omega
+        rw [hPzero, hQzero]
+    have hcompletionD : P.completionD = Q.completionD := by
+      have hQdet : (P.first : ℤ) * Q.completionD -
+          (P.second : ℤ) * P.completionC = 1 := by
+        simpa [hfirst, hsecond, hcompletionC] using Q.det_one
+      have hmul : (P.first : ℤ) * (P.completionD - Q.completionD) = 0 := by
+        rw [Int.mul_sub]
+        nlinarith [P.det_one, hQdet]
+      rcases mul_eq_zero.mp hmul with hzero | hzero
+      · have hfirstInt : (P.first : ℤ) ≠ 0 := by
+          exact_mod_cast (Nat.ne_of_gt (hfirstpos P))
+        exact (hfirstInt hzero).elim
+      · exact sub_eq_zero.mp hzero
+    cases P
+    cases Q
+    simp_all [PhysicalState.mk.injEq]
+  letI : Fintype LabelCode := inferInstance
+  letI : Fintype Code := inferInstance
+  letI : Finite (PhysicalState x K a H' Hm Hn) := Finite.of_injective code hinj
+  exact Set.toFinite _
+
+/-- With a finite physical-state instance, the pairing's outer counting sum is finite. -/
+private theorem detPairing_outer_finite_sum {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] :
+    detPairing F S family beta =
+      (physicalMeasure S.x K F.a : ℂ) *
+        ∑ P : PState F S,
+          endpointF S.x K F.a family beta P *
+            detOp F S (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta) P := by
+  unfold detPairing
+  rw [tsum_fintype]
+
+/-- The no-good pairing's outer counting sum is finite under the same state instance. -/
+private theorem detPairingNoGood_outer_finite_sum {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] :
+    detPairingNoGood F S family beta =
+      (physicalMeasure S.x K F.a : ℂ) *
+        ∑ P : PState F S,
+          endpointF S.x K F.a family beta P *
+            physSym F S (physRow F S (physSym F S
+              (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta))) P := by
+  unfold detPairingNoGood
+  rw [tsum_fintype]
+
+/-- The physical row action is a finite sum whenever the state space has a Fintype instance. -/
+private theorem physRow_finite_sum {K : ℕ} (F : PDFix K) (S : PDScale)
+    [Fintype (PState F S)] (f : PState F S → ℂ) (P : PState F S) :
+    physRow F S f P = ∑ Q : PState F S, physRowKernel F S P Q * f Q := by
+  unfold physRow
+  rw [tsum_fintype]
+
+/-- The no-good pairing as a finite sum over its source and target physical states. -/
+private theorem detPairingNoGood_finiteDoubleSum {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] :
+    detPairingNoGood F S family beta =
+      (physicalMeasure S.x K F.a : ℂ) *
+        ∑ P : PState F S,
+          endpointF S.x K F.a family beta P *
+            physSym F S (fun R : PState F S =>
+              ∑ Q : PState F S, physRowKernel F S R Q *
+                physSym F S (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta) Q) P := by
+  classical
+  rw [detPairingNoGood_outer_finite_sum]
+  have hrow :
+      physRow F S (physSym F S
+        (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta)) =
+      (fun R : PState F S =>
+        ∑ Q : PState F S, physRowKernel F S R Q *
+          physSym F S
+            (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta) Q) := by
+    funext R
+    exact physRow_finite_sum F S _ R
+  rw [hrow]
+
+/-- The good pairing as a finite sum, retaining both goodness projections. -/
+private theorem detPairing_finiteDoubleSum {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] :
+    detPairing F S family beta =
+      (physicalMeasure S.x K F.a : ℂ) *
+        ∑ P : PState F S,
+          endpointF S.x K F.a family beta P *
+            physGood F S
+              (physSym F S (fun R : PState F S =>
+                ∑ Q : PState F S, physRowKernel F S R Q *
+                  physSym F S (physGood F S
+                    (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta)) Q)) P := by
+  classical
+  rw [detPairing_outer_finite_sum]
+  unfold detOp
+  have hrow :
+      physRow F S (physSym F S (physGood F S
+        (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta))) =
+      (fun R : PState F S =>
+        ∑ Q : PState F S, physRowKernel F S R Q *
+          physSym F S (physGood F S
+            (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta)) Q) := by
+    funext R
+    exact physRow_finite_sum F S _ R
+  rw [hrow]
+
 /-- `t2:pd.goodness-removal` (new node, part of `t2:pd.strip-goodness-pads`) — PD 04:970-1008.
 Removing both good-state projections from the pairing costs `O_A(UV L^{-A})`: majorize the bad
 parts absolutely with log-power endpoint suprema; single-edge root replacement (the general
@@ -2479,8 +2949,8 @@ theorem pad_stripping (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ 
           IsFamilySecondCoefficient family x beta → ∀ Y ∈ dyadicScales x K,
             ‖(∑ d₀ ∈ padScales x K,
                 ((d₀ : ℂ))⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta) -
-              ((coprimeCauchySquare x K F.a Y family beta F.eta : ℂ) -
-                majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi)‖ ≤
+                ((coprimeCauchySquare x K F.a Y family beta F.eta : ℂ) -
+                  majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi)‖ ≤
               C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
   sorry
 
@@ -2503,9 +2973,400 @@ theorem strip_goodness_pads (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (
                   majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi‖ ≤
                 ((padScales x K).card : ℝ) * Cp * (family.Hm x * family.Hn x) * Y *
                     Real.rpow (Real.log x) (-E₀ + Ce) +
-                  C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
-  sorry
+                C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
+  intro K F hF A hA
+  by_cases hc₂ : 0 < c₂
+  · let hFKeep : F.Valid := hF
+    rcases hF with ⟨hBands, hqd₀, hqd₁, hA₀, hEtaCut, hPsiCut⟩
+    rcases hEtaCut with ⟨hEtaSmooth, hEtaSupport, hEtaNonneg, hEtaPartition⟩
+    rcases hPsiCut with ⟨hPsiSmooth, hPsiCompact, hPsiOne⟩
+    let Aerr : ℝ := A + 1
+    have hAerr : 0 < Aerr := by dsimp [Aerr]; linarith
+    obtain ⟨Cgood, xGood, hCgood, hxGood₂, goodnessRemoval⟩ :=
+      goodness_removal δ C c₁ c₂ hδ hC hc₁ K F hFKeep Aerr hAerr
+    obtain ⟨Cpad, xPad, hCpad, hxPad₂, padStripping⟩ :=
+      pad_stripping δ C c₁ c₂ hδ hC hc₁ K F hFKeep A hA
+    obtain ⟨Cdec, Cscale, Cmain, CDiv, xDec, hCdec, hCscale, hCmain, hCDiv, hxDec₂,
+      cauchyDecomposition⟩ :=
+      cauchy_decomposition δ C (1 : ℝ) F.q_d c₁ c₂ K F.a hδ hC (by norm_num)
+        hqd₀ hqd₁ hc₁ hc₂ hBands A hA
+    let Ccard : ℝ := ((K + 1 : ℕ) : ℝ) + 1
+    let C_A : ℝ := Ccard * Cgood + Cpad + Cdec
+    let x₀ : ℝ := max xGood (max xPad (max xDec (Real.exp 1)))
+    have hC_A : 0 < C_A := by
+      dsimp [C_A]
+      positivity
+    have hx₀Good : xGood ≤ x₀ := by simp [x₀]
+    have hx₀Pad : xPad ≤ x₀ := by simp [x₀]
+    have hx₀Dec : xDec ≤ x₀ := by simp [x₀]
+    have hx₀Exp : Real.exp 1 ≤ x₀ := by simp [x₀]
+    refine Exists.intro C_A ?_
+    refine Exists.intro x₀ ?_
+    constructor
+    · exact hC_A
+    constructor
+    · exact le_trans hxGood₂ hx₀Good
+    · intro x hx₀x family hfamilyMin beta hbeta Y hY E₀ Ce Cp hPairs
+      have hxGood : xGood ≤ x := le_trans hx₀Good hx₀x
+      have hxPad : xPad ≤ x := le_trans hx₀Pad hx₀x
+      have hxDec : xDec ≤ x := le_trans hx₀Dec hx₀x
+      have hx₂ : 2 ≤ x := le_trans hxGood₂ hxGood
+      have hxExp : Real.exp 1 ≤ x := le_trans hx₀Exp hx₀x
+      have hlog : 1 ≤ Real.log x := by
+        have h := Real.log_le_log (Real.exp_pos 1) hxExp
+        simpa using h
+      have hlogpos : 0 < Real.log x := lt_of_lt_of_le (by norm_num) hlog
+      have hpowCard : Real.rpow (Real.log x) (21 / 100 : ℝ) ≤ Real.log x := by
+        calc
+          Real.rpow (Real.log x) (21 / 100 : ℝ) ≤ Real.rpow (Real.log x) 1 :=
+            Real.rpow_le_rpow_of_exponent_le hlog (by norm_num)
+          _ = Real.log x := by simp
+      let u : ℝ := ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ)
+      have huEq : u = ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ) := rfl
+      have hu : 0 ≤ u := by dsimp [u]; positivity
+      have hfloor : (⌊u⌋₊ : ℝ) ≤ u := Nat.floor_le hu
+      have hcardNat : (padScales x K).card ≤ ⌊u⌋₊ + 1 := by
+        unfold padScales
+        rw [← huEq]
+        calc
+          ((Finset.range (⌊u⌋₊ + 1)).image (fun k => 2 ^ k)).card ≤
+              (Finset.range (⌊u⌋₊ + 1)).card := Finset.card_image_le
+          _ = ⌊u⌋₊ + 1 := by simp
+      have hcard : ((padScales x K).card : ℝ) ≤ Ccard * Real.log x := by
+        calc
+          ((padScales x K).card : ℝ) ≤ (⌊u⌋₊ : ℝ) + 1 := by exact_mod_cast hcardNat
+          _ ≤ u + 1 := add_le_add hfloor le_rfl
+          _ ≤ Ccard * Real.log x := by
+            dsimp [u, Ccard]
+            calc
+              ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ) + 1 ≤
+                  ((K + 1 : ℕ) : ℝ) * Real.log x + Real.log x := by
+                exact add_le_add
+                  (mul_le_mul_of_nonneg_left hpowCard (by positivity)) hlog
+              _ = (((K + 1 : ℕ) : ℝ) + 1) * Real.log x := by ring
+      have hHmLo : Real.rpow x δ ≤ family.Hm x := (family.scales x hfamilyMin).1
+      have hHnLo : Real.rpow x δ ≤ family.Hn x := (family.scales x hfamilyMin).2.1
+      have hxpos : 0 < x := by linarith
+      have hpX : 0 < Real.rpow x δ := Real.rpow_pos_of_pos hxpos δ
+      have hHmPos : 0 < family.Hm x := lt_of_lt_of_le hpX hHmLo
+      have hHnPos : 0 < family.Hn x := lt_of_lt_of_le hpX hHnLo
+      have hXYpos : 0 < family.Hm x * family.Hn x := mul_pos hHmPos hHnPos
+      have hYpos : 0 < Y := by
+        unfold dyadicScales at hY
+        rcases Finset.mem_filter.mp hY with ⟨hImage, _⟩
+        rcases Finset.mem_image.mp hImage with ⟨k, _, hYeq⟩
+        calc
+          0 < (2 : ℝ) ^ k := pow_pos (by norm_num) k
+          _ = Y := hYeq
+      have hScaleValid (d₀ : ℕ) (hd₀ : d₀ ∈ padScales x K) :
+          (familyScale family x Y d₀).Valid K δ c₁ c₂ := by
+        rcases family.scales x hfamilyMin with ⟨hHm, hHn, hprodLo, hprodHi⟩
+        dsimp [PDScale.Valid, familyScale]
+        exact ⟨hx₂, hHm, hHn, hprodLo, hprodHi, hY, hd₀⟩
+      have hFamilyAt (d₀ : ℕ) : FamilyAtScale family (familyScale family x Y d₀) := by
+        constructor <;> rfl
+      have hBetaAt (d₀ : ℕ) : IsSecondCoefficient (familyScale family x Y d₀) C beta := by
+        simpa [IsSecondCoefficient, IsFamilySecondCoefficient, familyScale] using hbeta
+      have hD₀Pos (d₀ : ℕ) (hd₀ : d₀ ∈ padScales x K) : 0 < (d₀ : ℝ) := by
+        unfold padScales at hd₀
+        rcases Finset.mem_image.mp hd₀ with ⟨k, _, hEq⟩
+        have hNat : 0 < d₀ := by
+          calc
+            0 < 2 ^ k := pow_pos (by norm_num : 0 < (2 : ℕ)) k
+            _ = d₀ := hEq
+        exact_mod_cast hNat
+      have hGoodPair : ∀ d₀ ∈ padScales x K,
+          ‖detPairing F (familyScale family x Y d₀) family beta -
+            detPairingNoGood F (familyScale family x Y d₀) family beta‖ ≤
+            Cgood * (familyScale family x Y d₀).U * (familyScale family x Y d₀).V *
+              Real.rpow (Real.log x) (-Aerr) := by
+        intro d₀ hd₀
+        have hGoodAt := goodnessRemoval (familyScale family x Y d₀)
+          (hScaleValid d₀ hd₀) (le_trans hx₀Good hx₀x) family (hFamilyAt d₀)
+          hfamilyMin beta (hBetaAt d₀)
+        simpa [familyScale, PDScale.L] using hGoodAt
+      have hPairTerm (d₀ : ℕ) (hd₀ : d₀ ∈ padScales x K) :
+          ‖((d₀ : ℂ))⁻¹ * detPairing F (familyScale family x Y d₀) family beta‖ ≤
+            Cp * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-E₀ + Ce) := by
+        have hInv : ‖((d₀ : ℂ))⁻¹‖ = (d₀ : ℝ)⁻¹ := by simp
+        have hPairAt := hPairs d₀ hd₀
+        calc
+          ‖((d₀ : ℂ))⁻¹ * detPairing F (familyScale family x Y d₀) family beta‖ =
+              (d₀ : ℝ)⁻¹ * ‖detPairing F (familyScale family x Y d₀) family beta‖ := by
+                rw [norm_mul, hInv]
+          _ ≤ (d₀ : ℝ)⁻¹ *
+              (Cp * (familyScale family x Y d₀).U *
+                (familyScale family x Y d₀).V * Real.rpow (Real.log x) (-E₀ + Ce)) :=
+                mul_le_mul_of_nonneg_left hPairAt (by positivity)
+          _ = Cp * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-E₀ + Ce) := by
+                simp [familyScale, PDScale.U, PDScale.H, PDScale.V, PDScale.L]
+                field_simp [ne_of_gt (hD₀Pos d₀ hd₀)]
+      let GoodSum : ℂ := ∑ d₀ ∈ padScales x K,
+        ((d₀ : ℂ))⁻¹ * detPairing F (familyScale family x Y d₀) family beta
+      let NoGoodSum : ℂ := ∑ d₀ ∈ padScales x K,
+        ((d₀ : ℂ))⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta
+      have hGoodSum : ‖GoodSum‖ ≤ ((padScales x K).card : ℝ) * Cp *
+          (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-E₀ + Ce) := by
+        dsimp [GoodSum]
+        calc
+          ‖∑ d₀ ∈ padScales x K,
+              ((d₀ : ℂ))⁻¹ * detPairing F (familyScale family x Y d₀) family beta‖ ≤
+            ∑ d₀ ∈ padScales x K,
+              ‖((d₀ : ℂ))⁻¹ * detPairing F (familyScale family x Y d₀) family beta‖ :=
+                norm_sum_le _ _
+          _ ≤ ∑ d₀ ∈ padScales x K,
+              Cp * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-E₀ + Ce) :=
+                Finset.sum_le_sum fun d₀ hd₀ => hPairTerm d₀ hd₀
+          _ = ((padScales x K).card : ℝ) * Cp *
+              (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-E₀ + Ce) := by
+                simp [mul_assoc]
+      have hGoodErrorTerm (d₀ : ℕ) (hd₀ : d₀ ∈ padScales x K) :
+          ‖((d₀ : ℂ))⁻¹ *
+              (detPairing F (familyScale family x Y d₀) family beta -
+                detPairingNoGood F (familyScale family x Y d₀) family beta)‖ ≤
+            Cgood * (family.Hm x * family.Hn x) * Y *
+              Real.rpow (Real.log x) (-A - 1) := by
+        have hInv : ‖((d₀ : ℂ))⁻¹‖ = (d₀ : ℝ)⁻¹ := by simp
+        have hGoodAt := hGoodPair d₀ hd₀
+        have hExpErr : -Aerr = -A - 1 := by dsimp [Aerr]; ring
+        rw [hExpErr] at hGoodAt
+        calc
+          ‖((d₀ : ℂ))⁻¹ *
+              (detPairing F (familyScale family x Y d₀) family beta -
+                detPairingNoGood F (familyScale family x Y d₀) family beta)‖ =
+              (d₀ : ℝ)⁻¹ *
+                ‖detPairing F (familyScale family x Y d₀) family beta -
+                  detPairingNoGood F (familyScale family x Y d₀) family beta‖ := by
+                    rw [norm_mul, hInv]
+          _ ≤ (d₀ : ℝ)⁻¹ * (Cgood * (familyScale family x Y d₀).U *
+                (familyScale family x Y d₀).V * Real.rpow (Real.log x) (-A - 1)) :=
+                  mul_le_mul_of_nonneg_left hGoodAt (by positivity)
+          _ = Cgood * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-A - 1) := by
+                  simp [familyScale, PDScale.U, PDScale.H, PDScale.V, PDScale.L]
+                  field_simp [ne_of_gt (hD₀Pos d₀ hd₀)]
+      have hGoodError : ‖GoodSum - NoGoodSum‖ ≤
+          ((padScales x K).card : ℝ) * Cgood * (family.Hm x * family.Hn x) * Y *
+            Real.rpow (Real.log x) (-A - 1) := by
+        have hSumEq : GoodSum - NoGoodSum =
+            ∑ d₀ ∈ padScales x K,
+              ((d₀ : ℂ))⁻¹ *
+                (detPairing F (familyScale family x Y d₀) family beta -
+                  detPairingNoGood F (familyScale family x Y d₀) family beta) := by
+          dsimp [GoodSum, NoGoodSum]
+          rw [← Finset.sum_sub_distrib]
+          apply Finset.sum_congr rfl
+          intro d₀ hd₀
+          ring
+        rw [hSumEq]
+        calc
+          ‖∑ d₀ ∈ padScales x K,
+              ((d₀ : ℂ))⁻¹ *
+                (detPairing F (familyScale family x Y d₀) family beta -
+                  detPairingNoGood F (familyScale family x Y d₀) family beta)‖ ≤
+            ∑ d₀ ∈ padScales x K,
+              ‖((d₀ : ℂ))⁻¹ *
+                (detPairing F (familyScale family x Y d₀) family beta -
+                  detPairingNoGood F (familyScale family x Y d₀) family beta)‖ :=
+                norm_sum_le _ _
+          _ ≤ ∑ d₀ ∈ padScales x K,
+              Cgood * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-A - 1) :=
+                Finset.sum_le_sum fun d₀ hd₀ => hGoodErrorTerm d₀ hd₀
+          _ = ((padScales x K).card : ℝ) * Cgood *
+              (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A - 1) := by
+                simp [mul_assoc]
+      have hpowErr : Real.log x * Real.rpow (Real.log x) (-A - 1) =
+          Real.rpow (Real.log x) (-A) := by
+        calc
+          Real.log x * Real.rpow (Real.log x) (-A - 1) =
+              Real.rpow (Real.log x) (-A - 1) * Real.log x := by ring
+          _ = Real.rpow (Real.log x) ((-A - 1) + 1) :=
+            (Real.rpow_add_one (ne_of_gt hlogpos) (-A - 1)).symm
+          _ = Real.rpow (Real.log x) (-A) := by congr 1 <;> ring
+      have hErrFactor : 0 ≤ Cgood * (family.Hm x * family.Hn x) * Y *
+          Real.rpow (Real.log x) (-A - 1) := by
+        exact le_of_lt (mul_pos (mul_pos (mul_pos hCgood hXYpos) hYpos)
+          (Real.rpow_pos_of_pos hlogpos _))
+      have hGoodErrorSaved : ‖GoodSum - NoGoodSum‖ ≤
+          Ccard * Cgood * (family.Hm x * family.Hn x) * Y *
+            Real.rpow (Real.log x) (-A) := by
+        calc
+          ‖GoodSum - NoGoodSum‖ ≤
+              ((padScales x K).card : ℝ) * Cgood *
+                (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A - 1) :=
+            hGoodError
+          _ = ((padScales x K).card : ℝ) *
+                (Cgood * (family.Hm x * family.Hn x) * Y *
+                  Real.rpow (Real.log x) (-A - 1)) := by ring
+          _ ≤ (Ccard * Real.log x) *
+                (Cgood * (family.Hm x * family.Hn x) * Y *
+                  Real.rpow (Real.log x) (-A - 1)) :=
+                mul_le_mul_of_nonneg_right hcard hErrFactor
+          _ = Ccard * Cgood * (family.Hm x * family.Hn x) * Y *
+                (Real.log x * Real.rpow (Real.log x) (-A - 1)) := by ring
+          _ = Ccard * Cgood * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-A) := by rw [hpowErr]
+      let alphaAtX : ℝ → ℕ → ℂ := fun y m => if y = x then family.alpha x m else 0
+      let familyAtX : CoefficientFamily δ C c₁ c₂ :=
+        { xMin := family.xMin
+          xMin_ge_two := family.xMin_ge_two
+          Hm := family.Hm
+          Hn := family.Hn
+          interval := family.interval
+          alpha := alphaAtX
+          interval_property := family.interval_property
+          scales := family.scales
+          interval_bounds := family.interval_bounds
+          rough_support := by
+            intro y hy m hne
+            by_cases hxy : y = x
+            · subst y
+              have hα : family.alpha x m ≠ 0 := by simpa [alphaAtX] using hne
+              simpa [alphaAtX] using family.rough_support x hy m hα
+            · have hzero : alphaAtX y m = 0 := by simp [alphaAtX, hxy]
+              exact (hne hzero).elim
+          coefficient_bound := by
+            intro y hy m hm
+            by_cases hxy : y = x
+            · subst y
+              simpa [alphaAtX] using family.coefficient_bound x hy m hm
+            · have hy₂ : 2 ≤ y := le_trans family.xMin_ge_two hy
+              have hlogy : 0 < Real.log y := Real.log_pos (by linarith)
+              simp [alphaAtX, hxy]
+              exact (Real.rpow_pos_of_pos hlogy C).le }
+      have hLong : HasLongCoefficientCancellation familyAtX := by
+        intro A₀ B A hA₀ hB hA
+        refine Exists.intro (1 : ℝ) ?_
+        refine Exists.intro (max 2 (x + 1)) ?_
+        constructor
+        · norm_num
+        constructor
+        · exact le_max_left _ _
+        constructor
+        · have hxto : x ≤ max 2 (x + 1) := by
+            exact le_trans (by linarith : x ≤ x + 1) (le_max_right _ _)
+          simpa [familyAtX] using le_trans hfamilyMin hxto
+        · intro y hy k hk₁ hk₂ χ t ht
+          have hxPlus : x + 1 ≤ y := le_trans (le_max_right _ _) hy
+          have hxy : x < y := by linarith
+          have hy₂ : 2 ≤ y := le_trans (le_max_left _ _) hy
+          have hlogy : 0 < Real.log y := Real.log_pos (by linarith)
+          simpa [familyTerms, familyAtX, alphaAtX, ne_of_gt hxy] using
+            (Real.rpow_pos_of_pos hlogy (-A)).le
+      have hBetaParts := hbeta
+      rcases hBetaParts with ⟨hBetaSupport, hBetaBound⟩
+      have hBetaSupportX : ∀ n, beta n ≠ 0 →
+          n ∈ dyadicIntegers (familyAtX.Hn x) ∧ roughAbove n (roughCutoff x) := by
+        simpa [familyAtX] using hBetaSupport
+      have hBetaBoundX : ∀ n ∈ dyadicIntegers (familyAtX.Hn x),
+          ‖beta n‖ ≤ Real.rpow (Real.log x) C := by
+        simpa [familyAtX] using hBetaBound
+      have hOneInvariant : IsMarkedInvariant x K F.a (fun _ : ℕ => (1 : ℂ)) := by
+        constructor
+        · intro n
+          simp
+        · intro p n hp hprime
+          rfl
+      have hDecAt := cauchyDecomposition familyAtX hLong x (le_trans hx₀Dec hx₀x) hfamilyMin
+        F.eta hEtaSmooth hEtaSupport hEtaNonneg hEtaPartition beta
+          hBetaSupportX hBetaBoundX (fun _ : ℕ => (1 : ℂ)) hOneInvariant
+      have hCollX := (hDecAt.2.1 Y hY).2.2
+      have hTerms : familyTerms familyAtX x = familyTerms family x := by
+        simp [familyTerms, familyAtX]
+      have hAlpha : familyAtX.alpha x = family.alpha x := by
+        funext m
+        simp [familyAtX, alphaAtX]
+      have hCauchyEq :
+          cauchySquare x K F.a Y familyAtX beta F.eta =
+            cauchySquare x K F.a Y family beta F.eta := by
+        simp [cauchySquare, hTerms, hAlpha, familyAtX, alphaAtX]
+      have hCoprimeEq :
+          coprimeCauchySquare x K F.a Y familyAtX beta F.eta =
+            coprimeCauchySquare x K F.a Y family beta F.eta := by
+        simp [coprimeCauchySquare, hTerms, hAlpha, familyAtX, alphaAtX]
+      have hColl :
+          |cauchySquare x K F.a Y family beta F.eta -
+            coprimeCauchySquare x K F.a Y family beta F.eta| ≤
+          Cdec * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
+        simpa [hCauchyEq, hCoprimeEq, familyAtX] using hCollX
+      have hPadDirect := padStripping x hxPad family hfamilyMin beta hbeta Y hY
+      let B : ℂ := (coprimeCauchySquare x K F.a Y family beta F.eta : ℂ) -
+        majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi
+      have hPadErr : ‖NoGoodSum - B‖ ≤
+          Cpad * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
+        simpa [NoGoodSum, B] using hPadDirect
+      let Ccol : ℂ :=
+        ((cauchySquare x K F.a Y family beta F.eta -
+          coprimeCauchySquare x K F.a Y family beta F.eta : ℝ) : ℂ)
+      have hCollNorm : ‖Ccol‖ ≤
+          Cdec * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
+        change ‖((cauchySquare x K F.a Y family beta F.eta -
+          coprimeCauchySquare x K F.a Y family beta F.eta : ℝ) : ℂ)‖ ≤ _
+        rw [Complex.norm_real, Real.norm_eq_abs]
+        exact hColl
+      have hDecomp :
+          (cauchySquare x K F.a Y family beta F.eta : ℂ) -
+              majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi =
+            (GoodSum + (NoGoodSum - GoodSum)) + ((B - NoGoodSum) + Ccol) := by
+        have hBase : (cauchySquare x K F.a Y family beta F.eta : ℂ) -
+            majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi = B + Ccol := by
+          dsimp [B, Ccol]
+          push_cast
+          ring
+        rw [hBase]
+        ring
+      have hGoodErrorRev : ‖NoGoodSum - GoodSum‖ ≤
+          Ccard * Cgood * (family.Hm x * family.Hn x) * Y *
+            Real.rpow (Real.log x) (-A) := by
+        calc
+          ‖NoGoodSum - GoodSum‖ = ‖GoodSum - NoGoodSum‖ := by rw [norm_sub_rev]
+          _ ≤ Ccard * Cgood * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-A) := hGoodErrorSaved
+      have hPadErrorRev : ‖B - NoGoodSum‖ ≤
+          Cpad * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
+        calc
+          ‖B - NoGoodSum‖ = ‖NoGoodSum - B‖ := by rw [norm_sub_rev]
+          _ ≤ Cpad * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-A) := hPadErr
+      have hErrSum :
+          ‖NoGoodSum - GoodSum‖ + ‖B - NoGoodSum‖ + ‖Ccol‖ ≤
+            C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
+        calc
+          _ ≤ Ccard * Cgood * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-A) +
+              Cpad * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) +
+              Cdec * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) :=
+                add_le_add (add_le_add hGoodErrorRev hPadErrorRev) hCollNorm
+          _ = C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
+                dsimp [C_A]
+                ring
+      have hTriangle :
+          ‖(cauchySquare x K F.a Y family beta F.eta : ℂ) -
+              majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi‖ ≤
+            ‖GoodSum‖ + ‖NoGoodSum - GoodSum‖ + ‖B - NoGoodSum‖ + ‖Ccol‖ := by
+        rw [hDecomp]
+        calc
+          ‖(GoodSum + (NoGoodSum - GoodSum)) + ((B - NoGoodSum) + Ccol)‖ ≤
+              ‖GoodSum + (NoGoodSum - GoodSum)‖ + ‖(B - NoGoodSum) + Ccol‖ :=
+                norm_add_le _ _
+          _ ≤ (‖GoodSum‖ + ‖NoGoodSum - GoodSum‖) +
+              (‖B - NoGoodSum‖ + ‖Ccol‖) :=
+                add_le_add (norm_add_le _ _) (norm_add_le _ _)
+          _ = ‖GoodSum‖ + ‖NoGoodSum - GoodSum‖ +
+                ‖B - NoGoodSum‖ + ‖Ccol‖ := by ring
+      calc
+        ‖(cauchySquare x K F.a Y family beta F.eta : ℂ) -
+            majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi‖ ≤
+          ‖GoodSum‖ + ‖NoGoodSum - GoodSum‖ + ‖B - NoGoodSum‖ + ‖Ccol‖ := hTriangle
+        _ ≤ ((padScales x K).card : ℝ) * Cp * (family.Hm x * family.Hn x) * Y *
+              Real.rpow (Real.log x) (-E₀ + Ce) +
+            C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
+              simpa [add_assoc] using add_le_add hGoodSum hErrSum
+  · sorry
 
+set_option maxHeartbeats 1000000
 /-- `prop:minor-moment` (moment part) — PD 04:11-22, Proposition 4.1.  REPLACES the first
 conjunct of the frozen `minor_moment`.  For every `E₀` choose `A₀`, then `K₀` (independent of the
 band exponents): the determinant moment is `≤ L^{-E₀N}`.  Proof: `path_expansion`,
@@ -2516,7 +3377,456 @@ theorem minor_moment (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_d
       ∀ (K : ℕ), K₀ ≤ K → ∀ (F : PDFix K), F.Valid → F.Has q_d A₀ eta psi →
         ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
           detMoment F S ≤ Real.rpow S.L (-E₀ * (S.N : ℝ)) := by
-  sorry
+  intro E₀ hE₀
+  obtain ⟨A₀, hA₀, K₀, birthDistinctness⟩ :=
+    birth_distinctness δ c₁ c₂ hδ hc₁ q_d eta psi E₀ hE₀
+  refine ⟨A₀, hA₀, K₀, ?_⟩
+  intro K hK F hF hHas
+  have hBands : ValidBands K F.a := hF.1
+  have hqd₀ : 0 < F.q_d := hF.2.1
+  have hqd₁ : F.q_d < 1 := hF.2.2.1
+  let ρ : ℝ := (1 + Real.sqrt F.q_d) / 2
+  have hsqrt₀ : 0 < Real.sqrt F.q_d := Real.sqrt_pos.2 hqd₀
+  have hsqrt₁ : Real.sqrt F.q_d < 1 :=
+    (Real.sqrt_lt' (by norm_num : (0 : ℝ) < 1)).2 (by nlinarith)
+  have hρ : IsMemoryRho F.q_d ρ := by
+    unfold IsMemoryRho ρ
+    constructor
+    · positivity
+    constructor
+    · nlinarith
+    · nlinarith [sq_nonneg (1 - Real.sqrt F.q_d)]
+  let Aroot : ℝ := E₀ + 1
+  let Atrunc : ℝ := E₀ + 2
+  have hAroot : 0 < Aroot := by dsimp [Aroot]; linarith
+  have hAtrunc : 0 < Atrunc := by dsimp [Atrunc]; linarith
+  obtain ⟨xPath, hxPath₂, pathExpansion⟩ :=
+    path_expansion δ c₁ c₂ hδ hc₁ K F hF
+  obtain ⟨Croot, xRoot, hCroot, hxRoot₂, rootReplacement⟩ :=
+    root_replacement δ c₁ c₂ hδ hc₁ K F hF Aroot hAroot
+  obtain ⟨Ctail, xTail, hCtail, hxTail₂, truncationAdjoint⟩ :=
+    truncation_adjoint δ c₁ c₂ hδ hc₁ K F hF ρ hρ Atrunc hAtrunc
+  obtain ⟨xMem, hxMem₂, memoryIdentity⟩ :=
+    memory_identity δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+  obtain ⟨xBirth, hxBirth₂, birthBound⟩ :=
+    birthDistinctness K hK F hF hHas ρ hρ
+  have hratio : Filter.Tendsto (fun L : ℝ =>
+      Real.exp (Real.rpow L (1 / 10 : ℝ)) /
+        Real.rpow (Real.rpow L (1 / 10 : ℝ)) 20) Filter.atTop Filter.atTop :=
+    (tendsto_exp_div_rpow_atTop (20 : ℝ)).comp
+      (tendsto_rpow_atTop (by norm_num : 0 < (1 / 10 : ℝ)))
+  have hratioEventually : ∀ᶠ L : ℝ in Filter.atTop,
+      1 ≤ Real.exp (Real.rpow L (1 / 10 : ℝ)) /
+        Real.rpow (Real.rpow L (1 / 10 : ℝ)) 20 :=
+    hratio.eventually_ge_atTop 1
+  have hgoodL : ∀ᶠ L : ℝ in Filter.atTop,
+      4 ≤ L ∧ Real.rpow L 2 ≤ Real.exp (Real.rpow L (1 / 10 : ℝ)) := by
+    filter_upwards [Filter.eventually_ge_atTop (4 : ℝ), hratioEventually] with L hL₄ hrat
+    have hLpos : 0 < L := by linarith
+    have hdenpos : 0 < Real.rpow (Real.rpow L (1 / 10 : ℝ)) 20 :=
+      Real.rpow_pos_of_pos (Real.rpow_pos_of_pos hLpos _) _
+    have hdenle : Real.rpow (Real.rpow L (1 / 10 : ℝ)) 20 ≤
+        Real.exp (Real.rpow L (1 / 10 : ℝ)) := (one_le_div hdenpos).mp hrat
+    have hpow : Real.rpow L (2 : ℝ) = Real.rpow (Real.rpow L (1 / 10 : ℝ)) 20 := by
+      calc
+        Real.rpow L (2 : ℝ) = Real.rpow L ((1 / 10 : ℝ) * 20) := by congr 1 <;> norm_num
+        _ = Real.rpow (Real.rpow L (1 / 10 : ℝ)) 20 := Real.rpow_mul hLpos.le _ _
+    have hL2 : Real.rpow L 2 ≤ Real.exp (Real.rpow L (1 / 10 : ℝ)) := by
+      rw [hpow]
+      exact hdenle
+    exact ⟨hL₄, hL2⟩
+  have hgoodX : ∀ᶠ x : ℝ in Filter.atTop,
+      4 ≤ Real.log x ∧ Real.rpow (Real.log x) 2 ≤
+        Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) :=
+    Real.tendsto_log_atTop.eventually hgoodL
+  obtain ⟨xGrowth, hGrowth⟩ := Filter.eventually_atTop.1 hgoodX
+  let Cvol : ℝ := (6 / Real.pi ^ 2) * 15
+  let Csum : ℝ := Croot + Cvol * (Ctail + 1)
+  let L₀ : ℝ := max 4 (max (Ctail + 1) Csum)
+  let xLarge : ℝ := Real.exp L₀
+  let x₀ : ℝ := max xPath
+    (max xRoot (max xTail (max xMem (max xBirth (max xGrowth xLarge)))))
+  have hCvol : 0 < Cvol := by
+    dsimp [Cvol]
+    positivity
+  have hCsum : 0 < Csum := by
+    dsimp [Csum]
+    positivity
+  have hxPath₀ : xPath ≤ x₀ := by simp [x₀]
+  have hxRoot₀ : xRoot ≤ x₀ := by simp [x₀]
+  have hxTail₀ : xTail ≤ x₀ := by simp [x₀]
+  have hxMem₀ : xMem ≤ x₀ := by simp [x₀]
+  have hxBirth₀ : xBirth ≤ x₀ := by simp [x₀]
+  have hxGrowth₀ : xGrowth ≤ x₀ := by simp [x₀]
+  have hxLarge₀ : xLarge ≤ x₀ := by simp [x₀]
+  refine ⟨x₀, ?_, ?_⟩
+  · exact le_trans hxPath₂ hxPath₀
+  · intro S hS hx₀S
+    let x : ℝ := S.x
+    let L : ℝ := Real.log x
+    have hxPathS : xPath ≤ x := le_trans hxPath₀ hx₀S
+    have hxRootS : xRoot ≤ x := le_trans hxRoot₀ hx₀S
+    have hxTailS : xTail ≤ x := le_trans hxTail₀ hx₀S
+    have hxMemS : xMem ≤ x := le_trans hxMem₀ hx₀S
+    have hxBirthS : xBirth ≤ x := le_trans hxBirth₀ hx₀S
+    have hxGrowthS : xGrowth ≤ x := le_trans hxGrowth₀ hx₀S
+    have hxLargeS : xLarge ≤ x := le_trans hxLarge₀ hx₀S
+    have hGrowthS := hGrowth x hxGrowthS
+    have hL₄ : 4 ≤ L := by simpa [L, x] using hGrowthS.1
+    have hGrowthNat : L ^ 2 ≤ Real.exp (Real.rpow L (1 / 10 : ℝ)) := by
+      simpa [L, x, Real.rpow_natCast] using hGrowthS.2
+    have hLpos : 0 < L := by linarith
+    have hLone : 1 ≤ L := by linarith
+    have hL₀ : L₀ ≤ L := by
+      have h := Real.log_le_log (Real.exp_pos L₀) (by simpa [xLarge, x] using hxLargeS)
+      simpa [L, Real.log_exp] using h
+    have hLtail : Ctail + 1 ≤ L := by
+      have h : Ctail + 1 ≤ L₀ := by
+        dsimp [L₀]
+        exact le_trans (le_max_left _ _) (le_max_right _ _)
+      exact le_trans h hL₀
+    have hLsum : Csum ≤ L := by
+      have h : Csum ≤ L₀ := by
+        dsimp [L₀]
+        exact le_trans (le_max_right _ _) (le_max_right _ _)
+      exact le_trans h hL₀
+    have hxpos : 0 < x := by
+      have hxLarge' : Real.exp L₀ ≤ S.x := by simpa [xLarge, x] using hxLargeS
+      exact lt_of_lt_of_le (Real.exp_pos L₀) hxLarge'
+    have hHmLo : Real.rpow x δ ≤ S.Hm := hS.2.1
+    have hHnLo : Real.rpow x δ ≤ S.Hn := hS.2.2.1
+    have hHmPos : 0 < S.Hm := lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ) hHmLo
+    have hHnPos : 0 < S.Hn := lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ) hHnLo
+    have hYmem : S.Y ∈ dyadicScales x K := by simpa [x] using hS.2.2.2.2.2.1
+    have hDmem : S.d₀ ∈ padScales x K := by simpa [x] using hS.2.2.2.2.2.2
+    have hYpos : 0 < S.Y := by
+      unfold dyadicScales at hYmem
+      rcases Finset.mem_filter.mp hYmem with ⟨hImage, _⟩
+      rcases Finset.mem_image.mp hImage with ⟨k, _, hYeq⟩
+      calc
+        0 < (2 : ℝ) ^ k := pow_pos (by norm_num) k
+        _ = S.Y := hYeq
+    have hD₀pos : 0 < (S.d₀ : ℝ) := by
+      unfold padScales at hDmem
+      rcases Finset.mem_image.mp hDmem with ⟨k, _, hk⟩
+      rw [← hk]
+      exact_mod_cast (pow_pos (by norm_num : 0 < (2 : ℕ)) k)
+    have hUpos : 0 < S.U := by
+      unfold PDScale.U PDScale.H
+      exact mul_pos (mul_pos hD₀pos hYpos) hHmPos
+    have hVpos : 0 < S.V := by simpa [PDScale.V] using hHnPos
+    have hPathUpper : (pathLength x : ℝ) ≤ L ^ 2 := by
+      have hceil (t : ℝ) (ht : 0 ≤ t) : (⌈t⌉₊ : ℝ) ≤ t + 1 := by
+        calc
+          (⌈t⌉₊ : ℝ) ≤ (⌊t⌋₊ : ℝ) + 1 := by exact_mod_cast Nat.ceil_le_floor_add_one t
+          _ ≤ t + 1 := add_le_add (Nat.floor_le ht) le_rfl
+      have hMomentR : (momentR x : ℝ) ≤ Real.rpow L (1 / 2 : ℝ) / 2 + 1 := by
+        have ht : 0 ≤ Real.rpow L (1 / 2 : ℝ) / 2 :=
+          div_nonneg (Real.rpow_nonneg hLpos.le _) (by norm_num)
+        simpa [momentR, L, x] using hceil (Real.rpow L (1 / 2 : ℝ) / 2) ht
+      have hsqrt : Real.rpow L (1 / 2 : ℝ) ≤ L := by
+        calc
+          Real.rpow L (1 / 2 : ℝ) ≤ Real.rpow L 1 :=
+            Real.rpow_le_rpow_of_exponent_le hLone (by norm_num : (1 / 2 : ℝ) ≤ 1)
+          _ = L := by simp
+      calc
+        (pathLength x : ℝ) = 2 * (momentR x : ℝ) := by simp [pathLength]
+        _ ≤ 2 * (Real.rpow L (1 / 2 : ℝ) / 2 + 1) :=
+          mul_le_mul_of_nonneg_left hMomentR (by norm_num)
+        _ ≤ L + 2 := by nlinarith [hsqrt]
+        _ ≤ L ^ 2 := by nlinarith [sq_nonneg (L - 2)]
+    have hN₁nat : 1 ≤ pathLength x := by
+      have hR : 0 < momentR x := by
+        unfold momentR
+        apply Nat.ceil_pos.mpr
+        exact div_pos (Real.rpow_pos_of_pos hLpos _) (by norm_num)
+      unfold pathLength
+      omega
+    have hN₁ : 1 ≤ (S.N : ℝ) := by
+      change (1 : ℝ) ≤ (pathLength x : ℝ)
+      exact_mod_cast hN₁nat
+    have hSValid : PDScale.Valid K δ c₁ c₂ S := hS
+    have hqdSqrtLt : Real.sqrt F.q_d < 1 := hsqrt₁
+    have hQpos (j : ℕ) : 0 < memoryQ x F.q_d j := by
+      unfold memoryQ
+      split_ifs <;> positivity
+    have hQlt (j : ℕ) : memoryQ x F.q_d j < 1 := by
+      unfold memoryQ
+      split_ifs <;> assumption
+    have hEtaNonneg (j : ℕ) : 0 ≤ memoryEta x F.q_d j := by
+      rw [memoryEta]
+      linarith [hQlt j]
+    have hEtaLeOne (j : ℕ) : memoryEta x F.q_d j ≤ 1 := by
+      rw [memoryEta]
+      linarith [hQpos j]
+    have hBPrime (p : ℕ) (hp : p ∈ markedPrimes x K F.a) :
+        0 ≤ memoryBPrime x F.q_d p ∧ memoryBPrime x F.q_d p ≤ 1 := by
+      rcases Finset.mem_biUnion.mp hp with ⟨i, _, hpi⟩
+      rcases Finset.mem_filter.mp hpi with ⟨_, hpiProp⟩
+      rcases hpiProp with ⟨_, hpLower, _⟩
+      have ha : (1 / 10 : ℝ) < F.a i := hBands.2.1 i |>.1
+      have hpowBand : Real.rpow L (1 / 10 : ℝ) ≤ Real.rpow L (F.a i) :=
+        Real.rpow_le_rpow_of_exponent_le hLone ha.le
+      have hpExp : Real.exp (Real.rpow L (1 / 10 : ℝ)) ≤ (p : ℝ) :=
+        (Real.exp_le_exp.mpr hpowBand).trans hpLower
+      have hpPath : (pathLength x : ℝ) ≤ (p : ℝ) :=
+        hPathUpper.trans (hGrowthNat.trans hpExp)
+      have hnum : ((pathLength x + 1 : ℕ) : ℝ) ≤ (p : ℝ) + 1 := by
+        exact_mod_cast Nat.succ_le_succ (show pathLength x ≤ p by exact_mod_cast hpPath)
+      have hfrac : ((pathLength x + 1 : ℕ) : ℝ) / ((p : ℝ) + 1) ≤ 1 :=
+        (div_le_one (by positivity)).2 hnum
+      have hpnonneg : 0 ≤ (p : ℝ) := Nat.cast_nonneg p
+      have hdennonneg : 0 ≤ (p : ℝ) + 1 := add_nonneg hpnonneg (by norm_num)
+      have hsum :
+          (∑ j ∈ Finset.range (pathLength x + 1),
+            memoryEta x F.q_d j / ((p : ℝ) + 1)) ≤ 1 := by
+        calc
+          _ ≤ ∑ j ∈ Finset.range (pathLength x + 1), (1 : ℝ) / ((p : ℝ) + 1) := by
+            apply Finset.sum_le_sum
+            intro j hj
+            exact div_le_div_of_nonneg_right (hEtaLeOne j) hdennonneg
+          _ = ((pathLength x + 1 : ℕ) : ℝ) / ((p : ℝ) + 1) := by
+            simp [div_eq_mul_inv]
+          _ ≤ 1 := hfrac
+      have hsumNonneg :
+          0 ≤ ∑ j ∈ Finset.range (pathLength x + 1),
+            memoryEta x F.q_d j / ((p : ℝ) + 1) := by
+        calc
+          0 = ∑ j ∈ Finset.range (pathLength x + 1), (0 : ℝ) := by simp
+          _ ≤ ∑ j ∈ Finset.range (pathLength x + 1),
+                memoryEta x F.q_d j / ((p : ℝ) + 1) := by
+            apply Finset.sum_le_sum
+            intro j hj
+            exact div_nonneg (hEtaNonneg j) hdennonneg
+      unfold memoryBPrime
+      constructor
+      · exact sub_nonneg.mpr hsum
+      · exact sub_le_self _ hsumNonneg
+    have hBaseBounds : 0 ≤ memoryBaseline F S ∧ memoryBaseline F S ≤ 1 := by
+      unfold memoryBaseline
+      constructor
+      · exact Finset.prod_nonneg fun p hp => (hBPrime p hp).1
+      · exact Finset.prod_le_one₀
+          (fun p hp => (hBPrime p hp).1) (fun p hp => (hBPrime p hp).2)
+    have hBaseNorm : ‖(memoryBaseline F S : ℂ)‖ ≤ 1 := by
+      calc
+        ‖(memoryBaseline F S : ℂ)‖ = |memoryBaseline F S| := by
+          simp [Complex.norm_real, Real.norm_eq_abs]
+        _ = memoryBaseline F S := abs_of_nonneg hBaseBounds.1
+        _ ≤ 1 := hBaseBounds.2
+    have htruncBound : ∀ w : ArchRoot, w.InRegion S →
+        ‖historyDistinct F S ρ w - historyDistinctTrunc F S ρ w‖ ≤
+          Ctail * Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := by
+      intro w hw
+      simpa [Atrunc] using truncationAdjoint S hSValid (le_trans hxTail₀ hx₀S) w hw
+    have hbirthBoundAtScale : ∀ w : ArchRoot, w.InRegion S →
+        ‖historyDistinctTrunc F S ρ w‖ ≤
+          Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := by
+      intro w hw
+      exact birthBound S hSValid (le_trans hxBirth₀ hx₀S) w hw
+    have hhistory : ∀ w : ArchRoot, w.InRegion S →
+        ‖historyDistinct F S ρ w‖ ≤
+          (Ctail + 1) * Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := by
+      intro w hw
+      have ht := htruncBound w hw
+      have hb := hbirthBoundAtScale w hw
+      have heq : historyDistinct F S ρ w =
+          (historyDistinct F S ρ w - historyDistinctTrunc F S ρ w) +
+            historyDistinctTrunc F S ρ w := by ring
+      rw [heq]
+      calc
+        ‖(historyDistinct F S ρ w - historyDistinctTrunc F S ρ w) +
+            historyDistinctTrunc F S ρ w‖ ≤
+          ‖historyDistinct F S ρ w - historyDistinctTrunc F S ρ w‖ +
+            ‖historyDistinctTrunc F S ρ w‖ := norm_add_le _ _
+        _ ≤ Ctail * Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) +
+              Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := add_le_add ht hb
+        _ = (Ctail + 1) * Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := by ring
+    let D : ℝ := (Ctail + 1) * Real.rpow L (-(E₀ + 2) * (S.N : ℝ))
+    have hDnonneg : 0 ≤ D := by
+      dsimp [D]
+      positivity
+    have hline (u v r : ℝ) (hu₁ : 1 ≤ u) (hu₂ : u ≤ 16)
+        (hv₁ : 1 ≤ v) (hv₂ : v ≤ 2) (hr₁ : 0 ≤ r) (hr₂ : r ≤ 1) :
+        ‖lineAverage (fun ℓ => envMomentC F S ⟨S.U * u, S.V * v, r⟩ ℓ)‖ ≤ D := by
+      let w : ArchRoot := ⟨S.U * u, S.V * v, r⟩
+      have hw : w.InRegion S := by
+        change S.U ≤ S.U * u ∧ S.U * u ≤ 16 * S.U ∧
+          S.V ≤ S.V * v ∧ S.V * v ≤ 2 * S.V ∧ 0 ≤ r ∧ r ≤ 1
+        constructor
+        · calc
+            S.U = S.U * 1 := by ring
+            _ ≤ S.U * u := mul_le_mul_of_nonneg_left hu₁ hUpos.le
+        constructor
+        · calc
+            S.U * u ≤ S.U * 16 := mul_le_mul_of_nonneg_left hu₂ hUpos.le
+            _ = 16 * S.U := by ring
+        constructor
+        · calc
+            S.V = S.V * 1 := by ring
+            _ ≤ S.V * v := mul_le_mul_of_nonneg_left hv₁ hVpos.le
+        constructor
+        · calc
+            S.V * v ≤ S.V * 2 := mul_le_mul_of_nonneg_left hv₂ hVpos.le
+            _ = 2 * S.V := by ring
+        exact ⟨hr₁, hr₂⟩
+      have hid := memoryIdentity S hSValid (le_trans hxMem₀ hx₀S) w (by simpa [w] using hw)
+      have hh := hhistory w (by simpa [w] using hw)
+      calc
+        ‖lineAverage (fun ℓ => envMomentC F S ⟨S.U * u, S.V * v, r⟩ ℓ)‖ =
+            ‖(memoryBaseline F S : ℂ) * historyDistinct F S ρ w‖ := by
+              rw [hid]
+        _ = ‖(memoryBaseline F S : ℂ)‖ * ‖historyDistinct F S ρ w‖ := norm_mul _ _
+        _ ≤ 1 * ((Ctail + 1) * Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ))) :=
+          mul_le_mul hBaseNorm hh (norm_nonneg _) (by norm_num)
+        _ = D := by simp [D, L, x, PDScale.L]
+    let f : ℝ → ℝ → ℝ → ℝ := fun u v r =>
+      (lineAverage (fun ℓ => envMomentC F S ⟨S.U * u, S.V * v, r⟩ ℓ)).re
+    have hR (u v : ℝ) (hu₁ : 1 ≤ u) (hu₂ : u ≤ 16)
+        (hv₁ : 1 ≤ v) (hv₂ : v ≤ 2) :
+        |∫ r in (0 : ℝ)..1, f u v r| ≤ D := by
+      have hnorm : ‖∫ r in (0 : ℝ)..1, f u v r‖ ≤ D * |(1 : ℝ) - 0| :=
+        intervalIntegral.norm_integral_le_of_norm_le_const
+          (a := (0 : ℝ)) (b := (1 : ℝ)) (f := fun r => f u v r) (C := D) (by
+        intro r hr
+        have hrIoc : r ∈ Set.Ioc (0 : ℝ) 1 := by
+          simpa only [Set.uIoc_of_le (a := (0 : ℝ)) (b := (1 : ℝ))
+            (by norm_num : (0 : ℝ) ≤ 1)] using hr
+        have hpoint := hline u v r hu₁ hu₂ hv₁ hv₂ hrIoc.1.le hrIoc.2
+        calc
+          ‖f u v r‖ = |(lineAverage
+              (fun ℓ => envMomentC F S ⟨S.U * u, S.V * v, r⟩ ℓ)).re| := by
+                simp [f, Real.norm_eq_abs]
+          _ ≤ ‖lineAverage
+              (fun ℓ => envMomentC F S ⟨S.U * u, S.V * v, r⟩ ℓ)‖ :=
+                Complex.abs_re_le_norm _
+          _ ≤ D := hpoint)
+      calc
+        |∫ r in (0 : ℝ)..1, f u v r| = ‖∫ r in (0 : ℝ)..1, f u v r‖ :=
+          (Real.norm_eq_abs _).symm
+        _ ≤ D * |(1 : ℝ) - 0| := hnorm
+        _ = D := by norm_num
+    have hV (u : ℝ) (hu₁ : 1 ≤ u) (hu₂ : u ≤ 16) :
+        |∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1, f u v r| ≤ D := by
+      have hnorm : ‖∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1, f u v r‖ ≤
+          D * |(2 : ℝ) - 1| :=
+        intervalIntegral.norm_integral_le_of_norm_le_const
+          (a := (1 : ℝ)) (b := (2 : ℝ)) (f := fun v => ∫ r in (0 : ℝ)..1, f u v r)
+          (C := D) (by
+        intro v hv
+        have hvIoc : v ∈ Set.Ioc (1 : ℝ) 2 := by
+          simpa only [Set.uIoc_of_le (a := (1 : ℝ)) (b := (2 : ℝ))
+            (by norm_num : (1 : ℝ) ≤ 2)] using hv
+        have hpoint := hR u v hu₁ hu₂ hvIoc.1.le hvIoc.2
+        simpa [Real.norm_eq_abs] using hpoint)
+      calc
+        |∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1, f u v r| =
+            ‖∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1, f u v r‖ :=
+              (Real.norm_eq_abs _).symm
+        _ ≤ D * |(2 : ℝ) - 1| := hnorm
+        _ = D := by norm_num
+    have hOuter :
+        |∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1, f u v r| ≤ 15 * D := by
+      have hnorm : ‖∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2,
+          ∫ r in (0 : ℝ)..1, f u v r‖ ≤ D * |(16 : ℝ) - 1| :=
+        intervalIntegral.norm_integral_le_of_norm_le_const
+          (a := (1 : ℝ)) (b := (16 : ℝ))
+          (f := fun u => ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1, f u v r)
+          (C := D) (by
+        intro u hu
+        have huIoc : u ∈ Set.Ioc (1 : ℝ) 16 := by
+          simpa only [Set.uIoc_of_le (a := (1 : ℝ)) (b := (16 : ℝ))
+            (by norm_num : (1 : ℝ) ≤ 16)] using hu
+        have hpoint := hV u huIoc.1.le huIoc.2
+        simpa [Real.norm_eq_abs] using hpoint)
+      calc
+        |∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1, f u v r| =
+            ‖∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1, f u v r‖ :=
+              (Real.norm_eq_abs _).symm
+        _ ≤ D * |16 - 1| := hnorm
+        _ = 15 * D := by ring
+    have hModel : |modelRootAverage F S| ≤ Cvol * D := by
+      have hOuterModel :
+          |∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1,
+              (lineAverage (fun ℓ => envMomentC F S ⟨S.U * u, S.V * v, r⟩ ℓ)).re| ≤ 15 * D := by
+        simpa [f] using hOuter
+      have hfactor : 0 ≤ 6 / Real.pi ^ 2 := by positivity
+      dsimp [modelRootAverage, Cvol]
+      calc
+        |(6 / Real.pi ^ 2) *
+            (∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1,
+              (lineAverage (fun ℓ => envMomentC F S ⟨S.U * u, S.V * v, r⟩ ℓ)).re)| =
+            (6 / Real.pi ^ 2) *
+              |∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1,
+                (lineAverage (fun ℓ => envMomentC F S ⟨S.U * u, S.V * v, r⟩ ℓ)).re| := by
+                  rw [abs_mul, abs_of_nonneg hfactor]
+        _ ≤ (6 / Real.pi ^ 2) * (15 * D) :=
+          mul_le_mul_of_nonneg_left hOuterModel hfactor
+        _ = (6 / Real.pi ^ 2 * 15) * D := by ring
+    have hpowSaving :
+        Real.rpow L (-(E₀ + 2) * (S.N : ℝ)) ≤
+          Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := by
+      apply Real.rpow_le_rpow_of_exponent_le hLone
+      have hNnonneg : 0 ≤ (S.N : ℝ) := Nat.cast_nonneg _
+      nlinarith
+    have hModelSaving : |modelRootAverage F S| ≤
+        Cvol * (Ctail + 1) * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := by
+      dsimp [D] at hModel
+      have htailNonneg : 0 ≤ Ctail + 1 := by positivity
+      calc
+        |modelRootAverage F S| ≤ Cvol * ((Ctail + 1) *
+            Real.rpow L (-(E₀ + 2) * (S.N : ℝ))) := hModel
+        _ ≤ Cvol * ((Ctail + 1) *
+            Real.rpow L (-(E₀ + 1) * (S.N : ℝ))) :=
+              mul_le_mul_of_nonneg_left
+                (mul_le_mul_of_nonneg_left hpowSaving htailNonneg) hCvol.le
+        _ = Cvol * (Ctail + 1) *
+            Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := by ring
+    have hroot := rootReplacement S hSValid (le_trans hxRoot₀ hx₀S)
+    have hphysical : detMoment F S ≤
+        modelRootAverage F S + Croot * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := by
+      rw [pathExpansion S hSValid (le_trans hxPath₀ hx₀S)]
+      have hdiff := le_abs_self
+        (physicalRootAverage F S - modelRootAverage F S)
+      have hbound : |physicalRootAverage F S - modelRootAverage F S| ≤
+          Croot * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := by
+        simpa [Aroot, L, x, PDScale.L] using hroot
+      linarith
+    have hsumBound : detMoment F S ≤ Csum *
+        Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := by
+      have hmodelLe := le_abs_self (modelRootAverage F S)
+      calc
+        detMoment F S ≤ modelRootAverage F S +
+            Croot * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := hphysical
+        _ ≤ |modelRootAverage F S| +
+            Croot * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := by
+              exact add_le_add hmodelLe le_rfl
+        _ ≤ Cvol * (Ctail + 1) * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) +
+              Croot * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) :=
+                add_le_add hModelSaving le_rfl
+        _ = Csum * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := by
+              dsimp [Csum]
+              ring
+    have hCsumLe : Csum ≤ Real.rpow L (S.N : ℝ) := by
+      calc
+        Csum ≤ L := hLsum
+        _ = Real.rpow L 1 := by simp
+        _ ≤ Real.rpow L (S.N : ℝ) :=
+          Real.rpow_le_rpow_of_exponent_le hLone hN₁
+    have hpowAdd : Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) *
+        Real.rpow L (S.N : ℝ) = Real.rpow L (-E₀ * (S.N : ℝ)) := by
+      calc
+        Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) * Real.rpow L (S.N : ℝ) =
+            Real.rpow L ((-(E₀ + 1) * (S.N : ℝ)) + (S.N : ℝ)) :=
+              (Real.rpow_add hLpos _ _).symm
+        _ = Real.rpow L (-E₀ * (S.N : ℝ)) := by congr 1 <;> ring
+    calc
+      detMoment F S ≤ Csum * Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) := hsumBound
+      _ ≤ Real.rpow L (S.N : ℝ) *
+            Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) :=
+          mul_le_mul_of_nonneg_right hCsumLe (Real.rpow_nonneg (le_of_lt hLpos) _)
+      _ = Real.rpow L (-(E₀ + 1) * (S.N : ℝ)) * Real.rpow L (S.N : ℝ) := by ring
+      _ = Real.rpow L (-E₀ * (S.N : ℝ)) := hpowAdd
 
 /-- `prop:minor-moment` (replacement part, mem:replacement-interface) — PD 04:22-34.  REPLACES the
 second conjunct of the frozen `minor_moment`.  For every `A` choose `E₀ > A + C_e + 3`, then
@@ -2534,7 +3844,163 @@ theorem minor_replacement (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc
                 ‖(cauchySquare x K F.a Y family beta F.eta : ℂ) -
                     majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi‖ ≤
                   C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
-  sorry
+  intro A hA
+  obtain ⟨C_e, hC_e, momentToPairing⟩ :=
+    moment_to_pairing δ C c₁ c₂ hδ hC hc₁ hc₁₂
+  let E₀ : ℝ := A + C_e + 1
+  have hE₀ : 0 < E₀ := by
+    dsimp [E₀]
+    linarith
+  obtain ⟨A₀, hA₀, K₀, minorMoment⟩ :=
+    minor_moment δ c₁ c₂ hδ hc₁ q_d eta psi E₀ hE₀
+  refine ⟨A₀, hA₀, K₀, ?_⟩
+  intro K hK F hF hHas family
+  obtain ⟨xₘ, hxₘ₂, momentBound⟩ := minorMoment K hK F hF hHas
+  obtain ⟨Cpair, xₚ, hCpair, hxₚ₂, pairingBound⟩ := momentToPairing K F hF
+  obtain ⟨Cstrip, xₛ, hCstrip, hxₛ₂, stripBound⟩ :=
+    strip_goodness_pads δ C c₁ c₂ hδ hC hc₁ K F hF A hA
+  let Ccard : ℝ := ((K + 1 : ℕ) : ℝ) + 1
+  let xBase : ℝ := max xₘ (max xₚ (max xₛ (Real.exp 1)))
+  let x₀ : ℝ := max family.xMin xBase
+  have hCcard : 0 < Ccard := by
+    dsimp [Ccard]
+    positivity
+  refine Exists.intro (Ccard * Cpair + Cstrip) ?_
+  refine Exists.intro x₀ ?_
+  constructor
+  · positivity
+  constructor
+  · have hx₀ₘ : xₘ ≤ x₀ := by
+      have hx₀Base : xBase ≤ x₀ := by simp [x₀]
+      have hxₘBase : xₘ ≤ xBase := by simp [xBase]
+      exact le_trans hxₘBase hx₀Base
+    exact le_trans hxₘ₂ hx₀ₘ
+  · intro x hx₀x beta hbeta Y hY
+    have hx₀Base : xBase ≤ x₀ := by simp [x₀]
+    have hfamilyMin₀ : family.xMin ≤ x₀ := by simp [x₀]
+    have hx₀ₘ : xₘ ≤ x₀ := by
+      exact le_trans (by simp [xBase]) hx₀Base
+    have hx₀ₚ : xₚ ≤ x₀ := by
+      exact le_trans (by simp [xBase]) hx₀Base
+    have hx₀ₛ : xₛ ≤ x₀ := by
+      exact le_trans (by simp [xBase]) hx₀Base
+    have hx₀exp : Real.exp 1 ≤ x₀ := by
+      exact le_trans (by simp [xBase]) hx₀Base
+    have hxₘx : xₘ ≤ x := le_trans hx₀ₘ hx₀x
+    have hxₚx : xₚ ≤ x := le_trans hx₀ₚ hx₀x
+    have hxₛx : xₛ ≤ x := le_trans hx₀ₛ hx₀x
+    have hfamilyMin : family.xMin ≤ x := le_trans hfamilyMin₀ hx₀x
+    have hx₂ : 2 ≤ x := le_trans hxₘ₂ hxₘx
+    have hxexp : Real.exp 1 ≤ x := le_trans hx₀exp hx₀x
+    have hlog : 1 ≤ Real.log x := by
+      have h := Real.log_le_log (Real.exp_pos 1) hxexp
+      simpa using h
+    have hlogpos : 0 < Real.log x := lt_of_lt_of_le (by norm_num) hlog
+    have hpowCard : Real.rpow (Real.log x) (21 / 100 : ℝ) ≤ Real.log x := by
+      calc
+        Real.rpow (Real.log x) (21 / 100 : ℝ) ≤ Real.rpow (Real.log x) 1 :=
+          Real.rpow_le_rpow_of_exponent_le hlog (by norm_num)
+        _ = Real.log x := by simp
+    let u : ℝ := ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ)
+    have huEq : u = ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ) := rfl
+    have hu : 0 ≤ u := by
+      dsimp [u]
+      positivity
+    have hfloor : (⌊u⌋₊ : ℝ) ≤ u := Nat.floor_le hu
+    have hcardNat : (padScales x K).card ≤ ⌊u⌋₊ + 1 := by
+      unfold padScales
+      rw [← huEq]
+      calc
+        ((Finset.range (⌊u⌋₊ + 1)).image (fun k => 2 ^ k)).card ≤
+            (Finset.range (⌊u⌋₊ + 1)).card := Finset.card_image_le
+        _ = ⌊u⌋₊ + 1 := by simp
+    have hcard : ((padScales x K).card : ℝ) ≤ Ccard * Real.log x := by
+      calc
+        ((padScales x K).card : ℝ) ≤ (⌊u⌋₊ : ℝ) + 1 := by exact_mod_cast hcardNat
+        _ ≤ u + 1 := add_le_add hfloor le_rfl
+        _ ≤ Ccard * Real.log x := by
+          dsimp [u, Ccard]
+          calc
+            ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ) + 1 ≤
+                ((K + 1 : ℕ) : ℝ) * Real.log x + Real.log x := by
+              exact add_le_add
+                (mul_le_mul_of_nonneg_left hpowCard (by positivity)) hlog
+            _ = (((K + 1 : ℕ) : ℝ) + 1) * Real.log x := by ring
+    have hxX : 0 < family.Hm x * family.Hn x := by
+      rcases family.scales x hfamilyMin with ⟨hHm, hHn, _, _⟩
+      have hxpos : 0 < x := by linarith
+      have hp : 0 < Real.rpow x δ := Real.rpow_pos_of_pos hxpos δ
+      exact mul_pos (lt_of_lt_of_le hp hHm) (lt_of_lt_of_le hp hHn)
+    have hYpos : 0 < Y := by
+      unfold dyadicScales at hY
+      rcases Finset.mem_filter.mp hY with ⟨hImage, _⟩
+      rcases Finset.mem_image.mp hImage with ⟨k, _, rfl⟩
+      exact pow_pos (by norm_num : 0 < (2 : ℝ)) k
+    have hScaleValid (d₀ : ℕ) (hd₀ : d₀ ∈ padScales x K) :
+        (familyScale family x Y d₀).Valid K δ c₁ c₂ := by
+      rcases family.scales x hfamilyMin with ⟨hHm, hHn, hprodLo, hprodHi⟩
+      dsimp [PDScale.Valid, familyScale]
+      exact ⟨hx₂, hHm, hHn, hprodLo, hprodHi, hY, hd₀⟩
+    have hFamilyAt (d₀ : ℕ) : FamilyAtScale family (familyScale family x Y d₀) := by
+      constructor <;> rfl
+    have hBetaAt (d₀ : ℕ) : IsSecondCoefficient (familyScale family x Y d₀) C beta := by
+      simpa [IsSecondCoefficient, IsFamilySecondCoefficient, familyScale] using hbeta
+    have hPairHyp : ∀ d₀ ∈ padScales x K,
+        ‖detPairing F (familyScale family x Y d₀) family beta‖ ≤
+          Cpair * (familyScale family x Y d₀).U * (familyScale family x Y d₀).V *
+            Real.rpow (Real.log x) (-E₀ + C_e) := by
+      intro d₀ hd₀
+      have hvalid := hScaleValid d₀ hd₀
+      have hmoment := momentBound (familyScale family x Y d₀) hvalid hxₘx
+      exact pairingBound (familyScale family x Y d₀) hvalid hxₚx family (hFamilyAt d₀)
+        hfamilyMin beta (hBetaAt d₀) E₀ hE₀ hmoment
+    have hstrip := stripBound x hxₛx family hfamilyMin beta hbeta Y hY E₀ C_e Cpair hPairHyp
+    have hExp : -E₀ + C_e = -A - 1 := by
+      dsimp [E₀]
+      ring
+    have hPow : Real.log x * Real.rpow (Real.log x) (-A - 1) =
+        Real.rpow (Real.log x) (-A) := by
+      calc
+        Real.log x * Real.rpow (Real.log x) (-A - 1) =
+            Real.rpow (Real.log x) (-A - 1) * Real.log x := by ring
+        _ = Real.rpow (Real.log x) ((-A - 1) + 1) :=
+          (Real.rpow_add_one (ne_of_gt hlogpos) (-A - 1)).symm
+        _ = Real.rpow (Real.log x) (-A) := by congr 1 <;> ring
+    have hMain :
+        ((padScales x K).card : ℝ) * Cpair * (family.Hm x * family.Hn x) * Y *
+            Real.rpow (Real.log x) (-E₀ + C_e) ≤
+          Ccard * Cpair * (family.Hm x * family.Hn x) * Y *
+            Real.rpow (Real.log x) (-A) := by
+      rw [hExp]
+      have hpowPos : 0 < Real.rpow (Real.log x) (-A - 1) :=
+        Real.rpow_pos_of_pos hlogpos _
+      have hfac : 0 ≤ Cpair * (family.Hm x * family.Hn x) * Y *
+          Real.rpow (Real.log x) (-A - 1) :=
+        le_of_lt (mul_pos (mul_pos (mul_pos hCpair hxX) hYpos) hpowPos)
+      calc
+        _ = ((padScales x K).card : ℝ) *
+              (Cpair * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-A - 1)) := by ring
+        _ ≤ (Ccard * Real.log x) *
+              (Cpair * (family.Hm x * family.Hn x) * Y *
+                Real.rpow (Real.log x) (-A - 1)) :=
+          mul_le_mul_of_nonneg_right hcard hfac
+        _ = Ccard * Cpair * (family.Hm x * family.Hn x) * Y *
+              (Real.log x * Real.rpow (Real.log x) (-A - 1)) := by ring
+        _ = Ccard * Cpair * (family.Hm x * family.Hn x) * Y *
+              Real.rpow (Real.log x) (-A) := by rw [hPow]
+    calc
+      ‖(cauchySquare x K F.a Y family beta F.eta : ℂ) -
+          majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi‖ ≤
+          ((padScales x K).card : ℝ) * Cpair * (family.Hm x * family.Hn x) * Y *
+              Real.rpow (Real.log x) (-E₀ + C_e) +
+            Cstrip * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := hstrip
+      _ ≤ Ccard * Cpair * (family.Hm x * family.Hn x) * Y *
+              Real.rpow (Real.log x) (-A) +
+            Cstrip * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) :=
+          add_le_add hMain le_rfl
+      _ = (Ccard * Cpair + Cstrip) * (family.Hm x * family.Hn x) * Y *
+            Real.rpow (Real.log x) (-A) := by ring
 
 
 end
