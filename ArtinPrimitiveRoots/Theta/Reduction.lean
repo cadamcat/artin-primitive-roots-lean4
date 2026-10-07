@@ -1,3 +1,4 @@
+import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Eis

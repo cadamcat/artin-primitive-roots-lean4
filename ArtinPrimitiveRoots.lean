@@ -39,3 +39,4 @@ import ArtinPrimitiveRoots.Theta.Assemble
 import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2
 import ArtinPrimitiveRoots.Spec
+import ArtinPrimitiveRoots.Spec.Main
