@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.Determinant
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 set_option autoImplicit false
 set_option linter.unusedVariables false
 
@@ -224,7 +225,7 @@ theorem birth_partition {K : ℕ} (A : Finset (BirthAddress K)) (log : BirthLog 
     (hnodup : (log.map Prod.fst).Nodup) (hA : ∀ e ∈ log, e.1 ∈ A) :
     distinctWeight log =
       ∑ 𝒞 ∈ constraintSystems A, (constraintCoeff 𝒞 : ℂ) * constraintWeight 𝒞 log := by
-  sorry
+  exact birth_partition_from_labels A log hnodup hA
 
 /-- `t2:pd.history-rank-high` (new node) — PD 04:825-904.  High-rank constraint systems are
 negligible in absolute value: with `r₀ = ⌈C' N log L / L^{0.1}⌉` (`C'` large after the crude
