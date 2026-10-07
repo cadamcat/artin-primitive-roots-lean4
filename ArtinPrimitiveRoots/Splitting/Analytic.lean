@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.Splitting.ZeroFree
+import ArtinPrimitiveRoots.Splitting.FieldBounds
 
 /-!
 # §7 smoothed prime-ideal estimate
