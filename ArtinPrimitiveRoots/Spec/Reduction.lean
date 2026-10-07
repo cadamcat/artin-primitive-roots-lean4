@@ -883,6 +883,386 @@ theorem R1_cusp_lattice (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] (σ : SL(2
     · exact ⟨by simpa [cuspTranslationExtension] using cuspLattice_subset_signed Γ σ, hCoset⟩
   · exact exists_bounded_cusp_fundamentalDomain Γ σ hfull
 
+theorem cuspUnitMatrix_one : cuspUnitMatrix F 1 0 = 1 := by
+  apply Subtype.ext
+  ext i j
+  fin_cases i <;> fin_cases j <;> simp [cuspUnitMatrix]
+
+theorem cuspUnitMatrix_mul (ε η : (𝓞 F)ˣ) (μ ν : F) :
+    cuspUnitMatrix F ε μ * cuspUnitMatrix F η ν =
+      cuspUnitMatrix F (ε * η)
+        (algebraMap (𝓞 F) F (ε : 𝓞 F) * ν +
+          μ * (algebraMap (𝓞 F) F (η : 𝓞 F))⁻¹) := by
+  apply Subtype.ext
+  simp only [Matrix.SpecialLinearGroup.coe_mul]
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [cuspUnitMatrix, Matrix.mul_apply, Fin.sum_univ_two, mul_comm]
+
+theorem cuspUnitMatrix_inv (ε : (𝓞 F)ˣ) (μ : F) :
+    (cuspUnitMatrix F ε μ)⁻¹ = cuspUnitMatrix F ε⁻¹ (-μ) := by
+  apply Subtype.ext
+  simp only [Matrix.SpecialLinearGroup.coe_inv]
+  rw [Matrix.adjugate_fin_two]
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [cuspUnitMatrix, Matrix.SpecialLinearGroup.coe_inv, Matrix.adjugate_fin_two]
+
+def cuspUnitSubgroup (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) : Subgroup ((𝓞 F)ˣ) where
+  carrier := cuspUnitSet F Γ σ
+  one_mem' := by
+    refine ⟨0, 1, ?_⟩
+    simp [cuspUnitMatrix_one]
+  mul_mem' := by
+    rintro ε η ⟨μ, γ, hγ⟩ ⟨ν, δ, hδ⟩
+    refine ⟨algebraMap (𝓞 F) F (ε : 𝓞 F) * ν +
+      μ * (algebraMap (𝓞 F) F (η : 𝓞 F))⁻¹, γ * δ, ?_⟩
+    have hmap : toSLF F ((γ * δ : Γ) : SL(2,𝓞 F)) =
+        toSLF F (γ : SL(2,𝓞 F)) * toSLF F (δ : SL(2,𝓞 F)) := by simp
+    have hconj : σ⁻¹ * toSLF F ((γ * δ : Γ) : SL(2,𝓞 F)) * σ =
+        (σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ) *
+          (σ⁻¹ * toSLF F (δ : SL(2,𝓞 F)) * σ) := by rw [hmap]; group
+    rw [hconj, hγ, hδ, cuspUnitMatrix_mul]
+  inv_mem' := by
+    rintro ε ⟨μ, γ, hγ⟩
+    refine ⟨-μ, γ⁻¹, ?_⟩
+    have hmap : toSLF F ((γ⁻¹ : Γ) : SL(2,𝓞 F)) =
+        (toSLF F (γ : SL(2,𝓞 F)))⁻¹ := by simp
+    have hconj : σ⁻¹ * toSLF F ((γ⁻¹ : Γ) : SL(2,𝓞 F)) * σ =
+        (σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ)⁻¹ := by rw [hmap]; group
+    rw [hconj, hγ, cuspUnitMatrix_inv]
+
+theorem cuspUnits_eq_subgroup (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) :
+    cuspUnits F Γ σ = cuspUnitSubgroup Γ σ := by
+  change Subgroup.closure (cuspUnitSubgroup Γ σ : Set ((𝓞 F)ˣ)) = _
+  exact Subgroup.closure_eq _
+
+theorem cuspUnits_mem_iff (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) (ε : (𝓞 F)ˣ) :
+    ε ∈ cuspUnits F Γ σ ↔ ε ∈ cuspUnitSet F Γ σ := by
+  rw [cuspUnits_eq_subgroup]
+  rfl
+
+theorem cuspStab_unit_form (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (γ : cuspStab F Γ σ) :
+    ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧ ∃ μ : F,
+      σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ = cuspUnitMatrix F ε μ := by
+  have htri : σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ ∈ borelSL F := by
+    simpa [cuspStab, MulAut.conj_apply] using γ.property
+  obtain ⟨ε, hε, hnorm⟩ :=
+    ((G2_x_action (F := F)).2.2.1 (γ : SL(2,𝓞 F)) σ htri).1
+  let b : SL(2,F) := σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ
+  have h10 : b 1 0 = 0 := htri
+  have hdet : b 0 0 * b 1 1 = 1 := by
+    have h := b.property
+    rw [Matrix.det_fin_two, h10] at h
+    simpa using h
+  have hd : b 1 1 = (b 0 0)⁻¹ := eq_inv_of_mul_eq_one_right hdet
+  change algebraMap (𝓞 F) F (ε : 𝓞 F) = b 0 0 at hε
+  have hb : b = cuspUnitMatrix F ε (b 0 1) := by
+    apply Subtype.ext
+    funext i j
+    fin_cases i <;> fin_cases j
+    · exact hε.symm
+    · rfl
+    · exact h10
+    · exact hd.trans (congrArg (fun a : F => a⁻¹) hε).symm
+  refine ⟨ε, Subgroup.subset_closure ?_, b 0 1, hb⟩
+  exact ⟨b 0 1, (γ : Γ), hb⟩
+
+theorem conjugated_entry_denominatorBound (σ σ' : SL(2,F)) (i j : Fin 2) :
+    ∃ D : ℕ, 0 < D ∧ ∀ γ : SL(2,𝓞 F),
+      HasDenominatorBound F D ((σ'⁻¹ * toSLF F γ * σ) i j) := by
+  classical
+  let A : Matrix (Fin 2) (Fin 2) F := (σ'⁻¹ : SL(2,F))
+  let B : Matrix (Fin 2) (Fin 2) F := (σ : SL(2,F))
+  obtain ⟨D₁, hD₁, hA⟩ := exists_matrix_denominatorBound A
+  obtain ⟨D₂, hD₂, hB⟩ := exists_matrix_denominatorBound B
+  let E := D₁ * D₂
+  have hD : 0 < ((E * E) * (E * E)) := by dsimp [E]; positivity
+  refine ⟨(E * E) * (E * E), hD, ?_⟩
+  intro γ
+  let q : Fin 2 → Fin 2 → F :=
+    fun k l => A i k * algebraMap (𝓞 F) F (γ k l) * B l j
+  have hγ (k l : Fin 2) : HasDenominatorBound F 1
+      (algebraMap (𝓞 F) F (γ k l)) := ⟨γ k l, by simp⟩
+  have hq (k l : Fin 2) : HasDenominatorBound F E (q k l) := by
+    simpa [q, E, mul_assoc] using
+      hasDenominatorBound_mul (hasDenominatorBound_mul (hA i k) (hγ k l)) (hB l j)
+  have hsum : HasDenominatorBound F ((E * E) * (E * E))
+      (q 0 0 + q 0 1 + (q 1 0 + q 1 1)) := by
+    simpa [Nat.mul_assoc] using
+      hasDenominatorBound_add (hasDenominatorBound_add (hq 0 0) (hq 0 1))
+        (hasDenominatorBound_add (hq 1 0) (hq 1 1))
+  have hentry : (σ'⁻¹ * toSLF F γ * σ) i j =
+      q 0 0 + q 0 1 + (q 1 0 + q 1 1) := by
+    change ((A * (toSLF F γ : Matrix (Fin 2) (Fin 2) F) * B) i j) = _
+    simp [q, toSLF, Matrix.mul_apply, Fin.sum_univ_two]
+    ring
+  exact hentry ▸ hsum
+
+theorem cuspStab_bounded_unit_form (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) :
+    ∃ D : ℕ, 0 < D ∧ ∀ γ : cuspStab F Γ σ,
+      ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧ ∃ μ : F,
+        HasDenominatorBound F D μ ∧
+        σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ = cuspUnitMatrix F ε μ := by
+  obtain ⟨D, hD, hden⟩ := conjugated_entry_denominatorBound σ σ 0 1
+  refine ⟨D, hD, fun γ => ?_⟩
+  obtain ⟨ε, hε, μ, hform⟩ := cuspStab_unit_form Γ σ γ
+  refine ⟨ε, hε, μ, ?_, hform⟩
+  have h := hden (γ : SL(2,𝓞 F))
+  have hμ : (σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ) 0 1 = μ := by
+    rw [hform]
+    rfl
+  rwa [hμ] at h
+
+theorem conjugate_cuspUnitMatrix_zero_entry (σ : SL(2,F)) (ε : (𝓞 F)ˣ) (i j : Fin 2) :
+    (σ * cuspUnitMatrix F ε 0 * σ⁻¹) i j =
+      algebraMap (𝓞 F) F (ε : 𝓞 F) * (σ i 0 * (σ⁻¹ : SL(2,F)) 0 j) +
+        algebraMap (𝓞 F) F ((ε⁻¹ : (𝓞 F)ˣ) : 𝓞 F) *
+          (σ i 1 * (σ⁻¹ : SL(2,F)) 1 j) := by
+  simp only [Matrix.SpecialLinearGroup.coe_mul]
+  simp [cuspUnitMatrix, Matrix.mul_apply, Fin.sum_univ_two]
+  ring
+
+/-- Units congruent to one admit an integral conjugated diagonal homomorphism. -/
+theorem exists_integral_cusp_diagonal_hom (σ : SL(2,F)) :
+    ∃ K : Subgroup ((𝓞 F)ˣ), K.FiniteIndex ∧ ∃ f : K →* SL(2,𝓞 F),
+      ∀ ε : K, toSLF F (f ε) = σ * cuspUnitMatrix F (ε : (𝓞 F)ˣ) 0 * σ⁻¹ := by
+  classical
+  obtain ⟨D, hD, hbound⟩ := exists_common_denominatorBound
+    (fun p : Fin 2 × Fin 2 × Fin 2 => σ p.1 p.2.1 * (σ⁻¹ : SL(2,F)) p.2.1 p.2.2)
+  choose B hB using hbound
+  let J : Ideal (𝓞 F) := Ideal.span {(D : 𝓞 F)}
+  have hJ : J ≠ ⊥ := by
+    change Ideal.span {(D : 𝓞 F)} ≠ ⊥
+    rw [ne_eq, Ideal.span_singleton_eq_bot]
+    exact_mod_cast hD.ne'
+  letI : Finite (𝓞 F ⧸ J) := J.finiteQuotientOfFreeOfNeBot hJ
+  let q : (𝓞 F)ˣ →* (𝓞 F ⧸ J)ˣ := Units.map (Ideal.Quotient.mk J).toMonoidHom
+  let K : Subgroup ((𝓞 F)ˣ) := q.ker
+  have hK : K.FiniteIndex := inferInstance
+  have hdiff (ε : K) : ∃ a : 𝓞 F,
+      ((ε : (𝓞 F)ˣ) : 𝓞 F) - 1 = (D : 𝓞 F) * a := by
+    have hu : q (ε : (𝓞 F)ˣ) = 1 := ε.property
+    have hq : Ideal.Quotient.mk J ((ε : (𝓞 F)ˣ) : 𝓞 F) = 1 := by
+      simpa [q] using congrArg (fun u : (𝓞 F ⧸ J)ˣ => (u : 𝓞 F ⧸ J)) hu
+    have hmem : ((ε : (𝓞 F)ˣ) : 𝓞 F) - 1 ∈ J := by
+      apply Ideal.Quotient.eq_zero_iff_mem.mp
+      simp [map_sub, hq]
+    exact Ideal.mem_span_singleton.mp hmem
+  choose r hr using hdiff
+  have hcoef (ε : K) : algebraMap (𝓞 F) F ((ε : (𝓞 F)ˣ) : 𝓞 F) =
+      1 + (D : F) * algebraMap (𝓞 F) F (r ε) := by
+    have h := congrArg (algebraMap (𝓞 F) F) (hr ε)
+    simp only [map_sub, map_one, map_mul, map_natCast] at h
+    linear_combination h
+  let A₀ : Matrix (Fin 2) (Fin 2) (𝓞 F) := fun i j => B (i, 0, j)
+  let A₁ : Matrix (Fin 2) (Fin 2) (𝓞 F) := fun i j => B (i, 1, j)
+  let M : K → Matrix (Fin 2) (Fin 2) (𝓞 F) :=
+    fun ε => 1 + r ε • A₀ + r ε⁻¹ • A₁
+  have hM (ε : K) : (M ε).map (algebraMap (𝓞 F) F) =
+      (σ * cuspUnitMatrix F (ε : (𝓞 F)ˣ) 0 * σ⁻¹ : SL(2,F)) := by
+    ext i j
+    rw [conjugate_cuspUnitMatrix_zero_entry]
+    simp only [Matrix.map_apply, M, Matrix.add_apply, Matrix.smul_apply,
+      smul_eq_mul, map_add, map_mul]
+    have hI : algebraMap (𝓞 F) F ((1 : Matrix (Fin 2) (Fin 2) (𝓞 F)) i j) =
+        (1 : Matrix (Fin 2) (Fin 2) F) i j := by
+      by_cases hij : i = j <;> simp [Matrix.one_apply, hij]
+    have hInv : algebraMap (𝓞 F) F (((ε : (𝓞 F)ˣ)⁻¹ : (𝓞 F)ˣ) : 𝓞 F) =
+        1 + (D : F) * algebraMap (𝓞 F) F (r ε⁻¹) := hcoef ε⁻¹
+    rw [hI, ← hB (i, 0, j), ← hB (i, 1, j), hcoef ε, hInv]
+    have hmat : (σ : Matrix (Fin 2) (Fin 2) F) *
+        ((σ⁻¹ : SL(2,F)) : Matrix (Fin 2) (Fin 2) F) = 1 :=
+      congrArg (fun g : SL(2,F) => (g : Matrix (Fin 2) (Fin 2) F)) (mul_inv_cancel σ)
+    have hconst : σ i 0 * (σ⁻¹ : SL(2,F)) 0 j +
+        σ i 1 * (σ⁻¹ : SL(2,F)) 1 j = (1 : Matrix (Fin 2) (Fin 2) F) i j := by
+      simpa [Matrix.mul_apply, Fin.sum_univ_two] using
+        congrArg (fun A : Matrix (Fin 2) (Fin 2) F => A i j) hmat
+    linear_combination -hconst
+  have hdet (ε : K) : Matrix.det (M ε) = 1 := by
+    apply RingOfIntegers.coe_injective
+    rw [map_one, (algebraMap (𝓞 F) F).map_det]
+    change Matrix.det ((M ε).map (algebraMap (𝓞 F) F)) = 1
+    rw [hM]
+    exact (σ * cuspUnitMatrix F (ε : (𝓞 F)ˣ) 0 * σ⁻¹).property
+  let g : K → SL(2,𝓞 F) := fun ε => ⟨M ε, hdet ε⟩
+  have hg (ε : K) : toSLF F (g ε) =
+      σ * cuspUnitMatrix F (ε : (𝓞 F)ˣ) 0 * σ⁻¹ := by
+    apply Subtype.ext
+    exact hM ε
+  let f : K →* SL(2,𝓞 F) := {
+    toFun := g
+    map_one' := by
+      apply toSLF_injective
+      rw [(toSLF F).map_one, hg]
+      simp [cuspUnitMatrix_one]
+    map_mul' := by
+      intro ε η
+      apply toSLF_injective
+      rw [(toSLF F).map_mul, hg, hg, hg]
+      have hmul : cuspUnitMatrix F ((ε * η : K) : (𝓞 F)ˣ) 0 =
+          cuspUnitMatrix F (ε : (𝓞 F)ˣ) 0 * cuspUnitMatrix F (η : (𝓞 F)ˣ) 0 := by
+        simpa using (cuspUnitMatrix_mul (ε : (𝓞 F)ˣ) (η : (𝓞 F)ˣ) 0 0).symm
+      rw [hmul]
+      group
+  }
+  exact ⟨K, hK, f, hg⟩
+
+theorem cuspUnits_finiteIndex (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] (σ : SL(2,F)) :
+    (cuspUnits F Γ σ).FiniteIndex := by
+  classical
+  obtain ⟨K, hK, f, hf⟩ := exists_integral_cusp_diagonal_hom σ
+  letI := hK
+  let H : Subgroup K := Γ.comap f
+  let L : Subgroup ((𝓞 F)ˣ) := H.map K.subtype
+  letI : L.FiniteIndex := ⟨by
+    rw [Subgroup.index_map_subtype]
+    exact mul_ne_zero (Subgroup.FiniteIndex.index_ne_zero (H := H)) hK.index_ne_zero⟩
+  apply Subgroup.finiteIndex_of_le (H := L)
+  intro ε hε
+  rcases Subgroup.mem_map.mp hε with ⟨η, hη, rfl⟩
+  apply Subgroup.subset_closure
+  refine ⟨0, ⟨f η, hη⟩, ?_⟩
+  change σ⁻¹ * toSLF F (f η) * σ = cuspUnitMatrix F (η : (𝓞 F)ˣ) 0
+  rw [hf]
+  group
+
+theorem horiz_mk_upper (g : SL(2,ℂ)) (h10 : g 1 0 = 0) :
+    horiz (QuotientGroup.mk g : H3) = g 0 1 / g 1 1 := by
+  have hd : g 1 1 ≠ 0 := by
+    intro hd
+    have h := g.property
+    rw [Matrix.det_fin_two, h10, hd] at h
+    simp at h
+  have hstar : star (g 1 1) ≠ 0 := by
+    intro h
+    apply hd
+    have hh := congrArg star h
+    simpa using hh
+  change (((g : Matrix (Fin 2) (Fin 2) ℂ) * star (g : Matrix (Fin 2) (Fin 2) ℂ)) 0 1) /
+    (((g : Matrix (Fin 2) (Fin 2) ℂ) * star (g : Matrix (Fin 2) (Fin 2) ℂ)) 1 1) = _
+  simp only [Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply,
+    h10, star_zero, zero_mul, mul_zero, zero_add, add_zero]
+  field_simp [hd, hstar] <;> ring
+
+theorem horiz_smul_pt_upper (g : SL(2,ℂ)) (h10 : g 1 0 = 0)
+    (x : ℂ) (y : ℝ) (hy : 0 < y) :
+    horiz (g • pt x y) = (g 0 0)^2 * x + g 0 0 * g 0 1 := by
+  have hdet : g 0 0 * g 1 1 = 1 := by
+    have h := g.property
+    rw [Matrix.det_fin_two, h10] at h
+    simpa using h
+  have ha : g 0 0 ≠ 0 := by
+    intro ha
+    rw [ha, zero_mul] at hdet
+    exact zero_ne_one hdet
+  have hd : g 1 1 = (g 0 0)⁻¹ := eq_inv_of_mul_eq_one_right hdet
+  have hs : (Real.sqrt y : ℂ) ≠ 0 := by exact_mod_cast (Real.sqrt_pos.mpr hy).ne'
+  have hp : (g * ptMat x y hy) 1 0 = 0 := by
+    simp only [Matrix.SpecialLinearGroup.coe_mul]
+    simp [ptMat, Matrix.mul_apply, Fin.sum_univ_two, h10]
+  rw [pt, dif_pos hy]
+  change horiz (QuotientGroup.mk (g * ptMat x y hy) : H3) = _
+  rw [horiz_mk_upper _ hp]
+  simp only [Matrix.SpecialLinearGroup.coe_mul]
+  simp [ptMat, Matrix.mul_apply, Fin.sum_univ_two, h10, hd]
+  field_simp [hs, ha] <;> ring
+
+theorem cuspUnitMatrix_smul_ptX' (ε : (𝓞 F)ˣ) (μ : F)
+    (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :
+    cuspUnitMatrix F ε μ • ptX' F x y =
+      ptX' F (fun w => (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)))^2 * x w +
+        w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) * w.embedding μ)
+        (fun w => Complex.normSq (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) * y w) := by
+  funext w
+  let g : SL(2,ℂ) := Matrix.SpecialLinearGroup.map w.embedding (cuspUnitMatrix F ε μ)
+  let a : ℂ := w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))
+  have h00 : g 0 0 = a := rfl
+  have h01 : g 0 1 = w.embedding μ := rfl
+  have h10 : g 1 0 = 0 := by
+    change w.embedding (0 : F) = 0
+    exact w.embedding.map_zero
+  have h11 : g 1 1 = a⁻¹ := by
+    change w.embedding ((algebraMap (𝓞 F) F (ε : 𝓞 F))⁻¹) = a⁻¹
+    simp [a]
+  have hx : horiz (g • pt (x w) (y w)) = a^2 * x w + a * w.embedding μ := by
+    have h := horiz_smul_pt_upper g h10 (x w) (y w) (hy w)
+    rwa [h00, h01] at h
+  have hh : height (g • pt (x w) (y w)) = Complex.normSq a * y w := by
+    have h := (G1_h3_basics (F := F)).2.2.1 g (x w) (y w) (hy w)
+    rw [h10, h11] at h
+    simpa [Complex.normSq_inv, div_inv_eq_mul, mul_comm] using h
+  change g • pt (x w) (y w) = pt (a^2 * x w + a * w.embedding μ) (Complex.normSq a * y w)
+  calc
+    g • pt (x w) (y w) = pt (horiz (g • pt (x w) (y w)))
+      (height (g • pt (x w) (y w))) := (pt_horiz_height _).symm
+    _ = _ := by rw [hx, hh]
+
+theorem cusp_conjugate_affine_action (γ : SL(2,𝓞 F)) (σ : SL(2,F))
+    (ε : (𝓞 F)ˣ) (μ : F)
+    (hform : σ⁻¹ * toSLF F γ * σ = cuspUnitMatrix F ε μ)
+    (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :
+    γ • (σ • ptX' F x y) =
+      σ • ptX' F (fun w => (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)))^2 * x w +
+        w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) * w.embedding μ)
+        (fun w => Complex.normSq (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) * y w) := by
+  have heq : toSLF F γ * σ = σ * cuspUnitMatrix F ε μ := by
+    calc
+      toSLF F γ * σ = σ * (σ⁻¹ * toSLF F γ * σ) := by group
+      _ = σ * cuspUnitMatrix F ε μ := by rw [hform]
+  change toSLF F γ • (σ • ptX' F x y) = _
+  rw [← mul_smul, heq, mul_smul, cuspUnitMatrix_smul_ptX' ε μ x y hy]
+
+theorem cuspUnits_torsion_sign (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (hfree : FreeAction F Γ) (ε : (𝓞 F)ˣ)
+    (hε : ε ∈ cuspUnits F Γ σ) (hfin : IsOfFinOrder ε) : ε = 1 ∨ ε = -1 := by
+  classical
+  by_cases hsign : ε = 1 ∨ ε = -1
+  · exact hsign
+  obtain ⟨μ, γ, hform⟩ := (cuspUnits_mem_iff Γ σ ε).mp hε
+  have hsq : (algebraMap (𝓞 F) F (ε : 𝓞 F))^2 ≠ 1 := by
+    intro h
+    exact hsign (signedCuspTranslation_sign ε h)
+  let a : InfinitePlace F → ℂ := fun w => w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))
+  have hsqw (w : InfinitePlace F) : (a w)^2 - 1 ≠ 0 := by
+    intro h
+    apply hsq
+    apply w.embedding.injective
+    simpa [a] using sub_eq_zero.mp h
+  have hnorm (w : InfinitePlace F) : Complex.normSq (a w) = 1 := by
+    have hp : (a w) ^ orderOf ε = 1 := by
+      have h := congrArg (fun u : (𝓞 F)ˣ =>
+        w.embedding (algebraMap (𝓞 F) F (u : 𝓞 F))) (pow_orderOf_eq_one ε)
+      simpa only [a, Units.val_pow_eq_pow_val, Units.val_one, map_pow, map_one] using h
+    have hn := Complex.norm_eq_one_of_pow_eq_one hp hfin.orderOf_pos.ne'
+    simp [Complex.normSq_eq_norm_sq, hn]
+  let x : InfinitePlace F → ℂ := fun w => -(a w * w.embedding μ) / ((a w)^2 - 1)
+  have hx : (fun w => (a w)^2 * x w + a w * w.embedding μ) = x := by
+    funext w
+    dsimp [x]
+    field_simp [hsqw w] <;> ring
+  have hy : (fun w => Complex.normSq (a w) * (1 : ℝ)) = fun _ => (1 : ℝ) := by
+    funext w
+    rw [hnorm]
+    simp
+  have hfix := cusp_conjugate_affine_action (γ : SL(2,𝓞 F)) σ ε μ hform
+    x (fun _ => 1) (by intro w; norm_num)
+  change (γ : SL(2,𝓞 F)) • (σ • ptX' F x (fun _ => 1)) =
+    σ • ptX' F (fun w => (a w)^2 * x w + a w * w.embedding μ)
+      (fun w => Complex.normSq (a w) * (1 : ℝ)) at hfix
+  rw [hx, hy] at hfix
+  have hγone : (γ : SL(2,𝓞 F)) = 1 := hfree _ γ.property _ hfix
+  have hmat : cuspUnitMatrix F ε μ = 1 := by
+    rw [← hform, hγone]
+    simp
+  have hentry : algebraMap (𝓞 F) F (ε : 𝓞 F) = 1 := by
+    simpa [cuspUnitMatrix] using congrArg (fun g : SL(2,F) => g 0 0) hmat
+  left
+  apply Units.ext
+  apply RingOfIntegers.coe_injective
+  simpa using hentry
+
 /-- R2 `spec:cusp-units` — P-SPEC.md:215, 277–280. The cusp diagonal units have finite index;
 every stabilizer element has a bounded-denominator upper-triangular form; torsion units under a
 free action are central; and the stabilizer acts by the stated affine and height maps. -/
@@ -906,7 +1286,13 @@ theorem R2_cusp_units (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
               w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) * w.embedding μ)
             (fun w => Complex.normSq (w.embedding
               (algebraMap (𝓞 F) F (ε : 𝓞 F))) * y w)) := by
-  sorry
+  obtain ⟨D, hD, hforms⟩ := cuspStab_bounded_unit_form Γ σ
+  refine ⟨cuspUnits_finiteIndex Γ σ, cuspUnits_mem_iff Γ σ, D, hD, hforms, ?_, ?_⟩
+  · exact fun ε hε hfin => cuspUnits_torsion_sign Γ σ hfree ε hε hfin
+  · intro γ x y hy
+    obtain ⟨ε, hε, μ, hμ, hform⟩ := hforms γ
+    exact ⟨ε, hε, μ, hform,
+      cusp_conjugate_affine_action (γ : SL(2,𝓞 F)) σ ε μ hform x y hy⟩
 
 /-! ### SPEC-R3 helper lemmas -/
 
