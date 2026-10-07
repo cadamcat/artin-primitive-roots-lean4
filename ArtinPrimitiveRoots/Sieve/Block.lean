@@ -1,4 +1,5 @@
 import Mathlib
+import ArtinPrimitiveRoots.Sieve.Block.Main
 
 /-!
 # A block sieve with bounded coefficients (paper: Lemma `lem:block`)
@@ -32,6 +33,6 @@ theorem lem_block (η₀ C₀ : ℝ) (hη₀ : 0 < η₀) :
         |S - main| ≤ K * Real.exp (-(H : ℝ)) * main +
           K * ∑ D ∈ P.powerset with ((∏ p ∈ D, p : ℕ) : ℝ) ≤ z ^ (4 * H + 2), |E D|) ∧
       S ≤ K * main + K * ∑ D ∈ P.powerset with ((∏ p ∈ D, p : ℕ) : ℝ) ≤ z ^ 10, |E D| := by
-  sorry
+  exact lem_block_aux η₀ C₀ hη₀
 
 end ArtinPrimitiveRoots.Sieve
