@@ -14,13 +14,13 @@ noncomputable section
 /-- The fixed cutoff `η` of the Cauchy decomposition (PD 03:90-95): smooth, nonnegative,
 supported in `[1,4]`, a dyadic partition of unity. -/
 def IsCauchyCutoff (eta : ℝ → ℝ) : Prop :=
-  ContDiff ℝ ⊤ eta ∧ Function.support eta ⊆ Set.Icc 1 4 ∧ (∀ y, 0 ≤ eta y) ∧
+  ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta ∧ Function.support eta ⊆ Set.Icc 1 4 ∧ (∀ y, 0 ≤ eta y) ∧
     IsDyadicPartition eta
 
 /-- The fixed cutoff `ψ` of the major-arc replacement (PD 03:153-154): smooth, compactly
 supported, equal to one on `[-4,4]`. -/
 def IsArcCutoff (psi : ℝ → ℝ) : Prop :=
-  ContDiff ℝ ⊤ psi ∧ HasCompactSupport psi ∧ ∀ t ∈ Set.Icc (-4 : ℝ) 4, psi t = 1
+  ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) psi ∧ HasCompactSupport psi ∧ ∀ t ∈ Set.Icc (-4 : ℝ) 4, psi t = 1
 
 /-- Data fixed before `x → ∞` in PD §§3-4 (the number `K` of groups is the type index):
 band exponents `a`, damping `q_d`, arc exponent `A₀`, cutoffs `η, ψ`. -/

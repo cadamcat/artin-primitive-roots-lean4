@@ -137,9 +137,9 @@ product mean square (maj:product-mean) (exponent `C₄(C)`); tails beyond the re
 polynomial `Q'` is covered by the same hypothesis (conjugate characters, `-λ`, `t ↦ -t`). -/
 theorem major_separation (δ C c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
     (hδ : 0 < δ) (hC : 0 < C) (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) (ha : ValidBands K a)
-    (eta psi : ℝ → ℝ) (heta : ContDiff ℝ ⊤ eta) (heta_supp : Function.support eta ⊆ Set.Icc 1 4)
+    (eta psi : ℝ → ℝ) (heta : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta) (heta_supp : Function.support eta ⊆ Set.Icc 1 4)
     (heta_nonneg : ∀ y, 0 ≤ eta y) (heta_part : IsDyadicPartition eta)
-    (hpsi : ContDiff ℝ ⊤ psi) (hpsi_supp : HasCompactSupport psi)
+    (hpsi : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) psi) (hpsi_supp : HasCompactSupport psi)
     (hpsi_one : ∀ t ∈ Set.Icc (-4 : ℝ) 4, psi t = 1) :
     ∀ A₀ D : ℝ, 0 < A₀ → 0 < D →
       ∃ B₁ A' : ℝ, 0 < B₁ ∧ 0 < A' ∧
@@ -170,7 +170,7 @@ Mellin inversion of `f_λ(y) = η(y)e(-λy)` with `L¹` norm `≪ L^{C₅}`; Min
 of PD Lemma 5.2) applied with `B = B₁ + 1`. -/
 theorem major_energy (δ C c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
     (hδ : 0 < δ) (hC : 0 < C) (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) (ha : ValidBands K a)
-    (eta : ℝ → ℝ) (heta : ContDiff ℝ ⊤ eta) (heta_supp : Function.support eta ⊆ Set.Icc 1 4)
+    (eta : ℝ → ℝ) (heta : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta) (heta_supp : Function.support eta ⊆ Set.Icc 1 4)
     (heta_nonneg : ∀ y, 0 ≤ eta y) :
     ∀ A₀ B₁ A' : ℝ, 0 < A₀ → 0 < B₁ → 0 < A' →
       ∀ family : CoefficientFamily δ C c₁ c₂, HasLongCoefficientCancellation family →
@@ -200,9 +200,9 @@ theorem major_term
       ∃ C_D x₀ : ℝ, 0 < C_D ∧ 2 ≤ x₀ ∧
       ∀ family : CoefficientFamily δ C c₁ c₂,
         HasLongCoefficientCancellation family →
-        ∀ eta psi : ℝ → ℝ, ContDiff ℝ ⊤ eta → Function.support eta ⊆ Set.Icc 1 4 →
+        ∀ eta psi : ℝ → ℝ, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta → Function.support eta ⊆ Set.Icc 1 4 →
           (∀ y, 0 ≤ eta y) → IsDyadicPartition eta →
-          ContDiff ℝ ⊤ psi → HasCompactSupport psi →
+          ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) psi → HasCompactSupport psi →
           (∀ t ∈ Set.Icc (-4) 4, psi t = 1) →
           ∀ x : ℝ, x₀ ≤ x →
             ∀ Y, Y ∈ dyadicScales x K →

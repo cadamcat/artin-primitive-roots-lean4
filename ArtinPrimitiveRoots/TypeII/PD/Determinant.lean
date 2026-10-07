@@ -21,7 +21,7 @@ theorem cauchy_decomposition
           ∀ family : CoefficientFamily δ C c₁ c₂,
             HasLongCoefficientCancellation family →
             ∀ x : ℝ, x₀ ≤ x →
-              ∀ eta : ℝ → ℝ, ContDiff ℝ ⊤ eta →
+              ∀ eta : ℝ → ℝ, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta →
                 Function.support eta ⊆ Set.Icc 1 4 →
                 (∀ y, 0 ≤ eta y) → IsDyadicPartition eta →
                 ∀ beta : ℕ → ℂ,
