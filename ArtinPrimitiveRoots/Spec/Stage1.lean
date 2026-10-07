@@ -1,0 +1,5 @@
+import ArtinPrimitiveRoots.Spec.Functional
+import ArtinPrimitiveRoots.Spec.Geometry
+import ArtinPrimitiveRoots.Spec.Reduction
+import ArtinPrimitiveRoots.Spec.Eisenstein
+import ArtinPrimitiveRoots.Spec.Domain

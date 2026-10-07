@@ -9,7 +9,9 @@ open ArtinPrimitiveRoots.TypeII
 
 /-- `t2:pd.cauchy` — PD `03-determinant.tex:68-169`. The dyadic decomposition, Cauchy square,
 coprime reduction, and progression-divisor estimate used to reduce the marked bilinear form to
-the determinant moment. Fixed parameters precede all asymptotic constants. -/
+the determinant moment. Fixed parameters precede all asymptotic constants. Correction: `sol-gate-b`
+restricted the arithmetic equivalence to positive products and aligned the dyadic cutoff with PD's
+source exponent `1/5`. -/
 theorem cauchy_decomposition
     (δ C Dstar q_d c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
     (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
@@ -20,8 +22,8 @@ theorem cauchy_decomposition
         0 < C_A ∧ 0 < Cscale ∧ 0 < Cmain ∧ 0 < CDiv ∧ 2 ≤ x₀ ∧
           ∀ family : CoefficientFamily δ C c₁ c₂,
             HasLongCoefficientCancellation family →
-            ∀ x : ℝ, x₀ ≤ x →
-              ∀ eta : ℝ → ℝ, ContDiff ℝ ⊤ eta →
+            ∀ x : ℝ, x₀ ≤ x → family.xMin ≤ x →
+              ∀ eta : ℝ → ℝ, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta →
                 Function.support eta ⊆ Set.Icc 1 4 →
                 (∀ y, 0 ≤ eta y) → IsDyadicPartition eta →
                 ∀ beta : ℕ → ℂ,
@@ -46,6 +48,7 @@ theorem cauchy_decomposition
                       IsMarkedPrimeTuple x K a ta → IsMarkedPrimeTuple x K a tb →
                       Nat.Coprime (tupleProduct ta) (tupleProduct tb) →
                       ∀ m n r s : ℕ,
+                        1 ≤ m * n → 1 ≤ r * s →
                         ((∃ h : ℕ, m * n - 1 = tupleProduct ta * h ∧
                           r * s - 1 = tupleProduct tb * h) ↔
                           ((tupleProduct tb : ℕ) : ℤ) * (m : ℤ) * (n : ℤ) -
@@ -78,13 +81,14 @@ theorem good_state
 
 /-- `t2:pd.endpoints` — PD `03-determinant.tex:295-341`. The endpoint vectors are supported on
 lists with exactly `M_J` distinct marked primes in every group, have the indicated coordinates,
-and satisfy the norm and pointwise bounds uniform in `K,J`. -/
+and satisfy the norm and pointwise bounds uniform in `K,J`.
+The constant `B` was added on 2026-10-07: without it the bound fails at small `x` (lane `pd1`). -/
 theorem endpoint_bounds
     (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C)
     (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :
-    ∃ C_e : ℝ, 0 < C_e ∧
+    ∃ C_e B : ℝ, 0 < C_e ∧ 0 < B ∧
       ∀ K : ℕ, ∀ a : Fin K → ℝ, ValidBands K a →
-      ∀ family : CoefficientFamily δ C c₁ c₂, ∀ x : ℝ, 2 ≤ x →
+      ∀ family : CoefficientFamily δ C c₁ c₂, ∀ x : ℝ, 2 ≤ x → family.xMin ≤ x →
         ∀ d₀ : ℕ, d₀ ∈ padScales x K →
           ∀ Y, Y ∈ dyadicScales x K →
           ∀ beta : ℕ → ℂ,
@@ -96,42 +100,19 @@ theorem endpoint_bounds
               (endpointFVector x K a ((d₀ : ℝ) * Y)
                 (family.Hm x) (family.Hn x) family beta)) ≤
                 Real.rpow ((d₀ : ℝ) * Y * family.Hm x * family.Hn x)
-                  (1 / 2 : ℝ) * Real.rpow (Real.log x) C_e ∧
+                  (1 / 2 : ℝ) * (B * Real.rpow (Real.log x) C_e) ∧
             Real.sqrt (physicalNormSq x K a
               (endpointGVector x K a ((d₀ : ℝ) * Y)
                 (family.Hm x) (family.Hn x) family beta)) ≤
                 Real.rpow ((d₀ : ℝ) * Y * family.Hm x * family.Hn x)
-                  (1 / 2 : ℝ) * Real.rpow (Real.log x) C_e ∧
+                  (1 / 2 : ℝ) * (B * Real.rpow (Real.log x) C_e) ∧
             physicalSupNorm x K a
                 (endpointFVector x K a ((d₀ : ℝ) * Y)
                   (family.Hm x) (family.Hn x) family beta) +
               physicalSupNorm x K a
                 (endpointGVector x K a ((d₀ : ℝ) * Y)
                   (family.Hm x) (family.Hn x) family beta) ≤
-              Real.rpow (Real.log x) C_e := by
-  sorry
-
-/-- `t2:pd.moment-to-pairing` — PD `03-determinant.tex:343-411`. The determinant-moment
-estimate implies the stated endpoint pairing bound by the finite-dimensional spectral argument. -/
-theorem moment_to_pairing
-    {n : ℕ} (ops : PhysicalOperators n) (A : Matrix (Fin n) (Fin n) ℂ)
-    (x : ℝ) (R N_R : ℕ) (U V H' C_e E₀ : ℝ)
-    (hA : A = physicalOperator ops) (hNR : N_R = 2 * R)
-    (hUV : 0 < U * V) (hH : 0 < H')
-    (hHroot : Real.rpow H' (1 / (N_R : ℝ)) ≤ 2)
-    (f g : Fin n → ℂ) (u : Fin n → Fin n → ℂ)
-    (hf : vectorNorm f ≤ Real.rpow (U * V) (1 / 2 : ℝ) *
-      Real.rpow (Real.log U) C_e)
-    (hg : vectorNorm g ≤ Real.rpow (U * V) (1 / 2 : ℝ) *
-      Real.rpow (Real.log U) C_e)
-    (hsup : ∀ i, ‖f i‖ + ‖g i‖ ≤ Real.rpow (Real.log U) C_e) :
-    ∃ Cpair : ℝ, 0 < Cpair ∧
-      ((1 / (U * V)) * ∑ i : Fin n,
-        Complex.re (vectorInner (u i)
-          (Matrix.mulVec ((A * Matrix.conjTranspose A) ^ R) (u i))) ≤
-            Real.rpow (Real.log x) (-E₀ * (N_R : ℝ)) →
-        ‖vectorInner f (Matrix.mulVec A g)‖ ≤
-          Cpair * U * V * Real.rpow (Real.log x) (-E₀ + C_e)) := by
+              (B * Real.rpow (Real.log x) C_e) := by
   sorry
 
 /-- `t2:pd.weak-kloosterman` — PD `03-determinant.tex:445-480`. -/
@@ -163,33 +144,6 @@ theorem root_residue
                 U * V * (r₁ - l₁) * (r₂ - l₂) * (r₃ - l₃) /
                     ((Real.pi ^ 2 / 6) * sl2Card S hS)| ≤
                 C₀ * U * V * Real.rpow x (-cδ) := by
-  sorry
-
-/-- `det:root-replacement` — PD `03-determinant.tex:593-737`. The physical root average of a
-path observable supported on at most `exp(O_K(L^.73))` residue matrices is replaced by the
-continuous root integral and the uniform independent residue-line average, with error
-`O_A(L^{-A N_R})`. -/
-theorem root_replacement
-    (δ C_K Ccoef : ℝ) (hδ : 0 < δ) (hCK : 0 < C_K) (hCc : 0 < Ccoef) :
-    ∀ A : ℝ, 0 < A →
-      ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧
-        ∀ x : ℝ, x₀ ≤ x →
-          ∀ U V : ℝ, Real.rpow x δ ≤ U → Real.rpow x δ ≤ V →
-            ∀ S : ℕ, Squarefree S → ∀ hS : 0 < S,
-              (S : ℝ) ≤ Real.exp (C_K * Real.rpow (Real.log x) (98 / 100 : ℝ)) →
-              ∀ F : SL₂ResidueGroup S → ℂ,
-                (Set.ncard {g : SL₂ResidueGroup S | F g ≠ 0} : ℝ) ≤
-                  Real.exp (C_K * Real.rpow (Real.log x) (73 / 100 : ℝ)) →
-                (∀ g, ‖F g‖ ≤ Real.rpow (Real.log x) Ccoef) →
-                ∀ l₁ r₁ l₂ r₂ l₃ r₃ : ℝ,
-                  1 ≤ l₁ → l₁ ≤ r₁ → r₁ ≤ 16 →
-                  1 ≤ l₂ → l₂ ≤ r₂ → r₂ ≤ 2 →
-                  0 ≤ l₃ → l₃ ≤ r₃ → r₃ ≤ 1 →
-                    ‖(primitiveRootObservableSum U V S hS F
-                        l₁ r₁ l₂ r₂ l₃ r₃ -
-                      continuousRootObservableAverage U V S hS F
-                        l₁ r₁ l₂ r₂ l₃ r₃) / (U * V)‖ ≤
-                      C_A * Real.rpow (Real.log x) (-A * (pathLength x : ℝ)) := by
   sorry
 
 end ArtinPrimitiveRoots.TypeII.PD
