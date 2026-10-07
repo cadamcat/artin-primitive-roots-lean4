@@ -2,6 +2,226 @@ import ArtinPrimitiveRoots.TypeII.Marked
 import ArtinPrimitiveRoots.TypeII.MarkedTransfer
 import ArtinPrimitiveRoots.TypeII.PD.Defs
 import ArtinPrimitiveRoots.TypeII.PP.Results
+import OAI.NumberTheory.PrimeGaps.Main
+
+namespace ArtinPrimitiveRoots.TypeII.RoughProofs
+
+open ArtinPrimitiveRoots.TypeII
+open ArtinPrimitiveRoots.TypeII.PP
+
+noncomputable def tupleFromList {j : ℕ} (l : List ℕ) (h : l.length = j) : Fin j → ℕ :=
+  fun i => l.get (Fin.cast h.symm i)
+
+theorem ofFn_tupleFromList {j : ℕ} (l : List ℕ) (h : l.length = j) :
+    List.ofFn (tupleFromList l h) = l := by
+  cases h
+  rw [show tupleFromList l rfl = l.get from by
+    funext i
+    simp [tupleFromList]]
+  exact List.ofFn_get l
+
+theorem mem_boundedTuples_of_forall_le {j B : ℕ} (t : Fin j → ℕ)
+    (ht : ∀ i, t i ≤ B) : t ∈ boundedTuples j B := by
+  classical
+  unfold boundedTuples
+  refine Finset.mem_image.mpr ⟨fun i => ⟨t i, Nat.lt_succ_of_le (ht i)⟩,
+    Finset.mem_univ _, ?_⟩
+  funext i
+  rfl
+
+theorem tuple_product_perm_factors {j m : ℕ} (t : Fin j → ℕ)
+    (ht : ∀ i, (t i).Prime) (hprod : (∏ i : Fin j, t i) = m) :
+    List.Perm (List.ofFn t) m.primeFactorsList := by
+  have hlistprod : (List.ofFn t).prod = m := by
+    simpa only [List.prod_ofFn] using hprod
+  have hprime : ∀ p ∈ List.ofFn t, p.Prime := by
+    intro p hp
+    obtain ⟨i, rfl⟩ := List.mem_ofFn.mp hp
+    exact ht i
+  exact Nat.primeFactorsList_unique hlistprod hprime
+
+noncomputable def primeTupleFiber (j B m : ℕ) : Finset (Fin j → ℕ) :=
+  (boundedTuples j B).filter fun t =>
+    (∀ i, (t i).Prime) ∧ (∏ i : Fin j, t i) = m
+
+theorem primeTupleFiber_card_le_factorial (j B m : ℕ) :
+    (primeTupleFiber j B m).card ≤ j.factorial := by
+  classical
+  let l := m.primeFactorsList
+  by_cases hj : j = l.length
+  · subst j
+    have himage : (primeTupleFiber l.length B m).image List.ofFn ⊆ l.permutations.toFinset := by
+      intro q hq
+      rcases Finset.mem_image.mp hq with ⟨t, ht, rfl⟩
+      rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+      have hperm := tuple_product_perm_factors t hprop.1 hprop.2
+      exact List.mem_toFinset.mpr (List.mem_permutations.mpr hperm)
+    calc
+      _ = ((primeTupleFiber l.length B m).image List.ofFn).card := by
+        symm
+        exact Finset.card_image_of_injective _ List.ofFn_injective
+      _ ≤ l.permutations.toFinset.card := Finset.card_le_card himage
+      _ ≤ l.permutations.length := List.toFinset_card_le _
+      _ = l.length.factorial := List.length_permutations _
+      _ = l.length.factorial := rfl
+  · have hempty : primeTupleFiber j B m = ∅ := by
+      apply Finset.eq_empty_iff_forall_notMem.mpr
+      intro t ht
+      rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+      have hperm := tuple_product_perm_factors t hprop.1 hprop.2
+      have hlen : j = l.length := by simpa [l] using hperm.length_eq
+      exact hj hlen
+    simp [hempty]
+
+theorem primeTupleFiber_eq_empty_of_factor_length_ne {j B m : ℕ}
+    (hj : j ≠ m.primeFactorsList.length) : primeTupleFiber j B m = ∅ := by
+  classical
+  apply Finset.eq_empty_iff_forall_notMem.mpr
+  intro t ht
+  rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+  have hperm := tuple_product_perm_factors t hprop.1 hprop.2
+  have hlen : j = m.primeFactorsList.length := by simpa using hperm.length_eq
+  exact hj hlen
+
+theorem primeTupleFiber_card_eq_factorial_of_squarefree
+    (j B m : ℕ) (hm0 : m ≠ 0) (hmSq : Squarefree m)
+    (hj : j = m.primeFactorsList.length)
+    (hB : ∀ p ∈ m.primeFactorsList, p ≤ B) :
+    (primeTupleFiber j B m).card = j.factorial := by
+  classical
+  subst j
+  let l := m.primeFactorsList
+  let P := l.permutations.toFinset
+  have hn : l.Nodup := by simpa [l] using hmSq.nodup_primeFactorsList
+  have hpermNodup : l.permutations.Nodup := List.nodup_permutations l hn
+  have himage₁ : (primeTupleFiber l.length B m).image List.ofFn ⊆ P := by
+    intro q hq
+    rcases Finset.mem_image.mp hq with ⟨t, ht, rfl⟩
+    rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+    have hperm := tuple_product_perm_factors t hprop.1 hprop.2
+    exact List.mem_toFinset.mpr (List.mem_permutations.mpr hperm)
+  have himage₂ : P ⊆ (primeTupleFiber l.length B m).image List.ofFn := by
+    intro q hq
+    have hqperm : q ∈ l.permutations := List.mem_toFinset.mp hq
+    have hperm : List.Perm q l := List.mem_permutations.mp hqperm
+    have hlen : q.length = l.length := hperm.length_eq
+    let t := tupleFromList q hlen
+    have hlist : List.ofFn t = q := ofFn_tupleFromList q hlen
+    have hprimeList : ∀ p ∈ q, p.Prime := by
+      intro p hp
+      exact Nat.prime_of_mem_primeFactorsList (hperm.mem_iff.mp hp)
+    have hprodList : q.prod = m := by
+      calc
+        q.prod = l.prod := hperm.prod_eq
+        _ = m := by simpa [l] using Nat.prod_primeFactorsList hm0
+    have htPrime : ∀ i, (t i).Prime := by
+      intro i
+      exact hprimeList _ (List.get_mem q (Fin.cast hlen.symm i))
+    have htBound : ∀ i, t i ≤ B := by
+      intro i
+      have hqmem : q.get (Fin.cast hlen.symm i) ∈ q :=
+        List.get_mem q (Fin.cast hlen.symm i)
+      have hfactor : t i ∈ m.primeFactorsList := by
+        simpa [t, tupleFromList, l] using hperm.mem_iff.mp hqmem
+      exact hB (t i) hfactor
+    have htProd : (∏ i : Fin l.length, t i) = m := by
+      rw [← List.prod_ofFn, hlist]
+      exact hprodList
+    have htMem : t ∈ primeTupleFiber l.length B m := by
+      unfold primeTupleFiber
+      apply Finset.mem_filter.mpr
+      exact ⟨mem_boundedTuples_of_forall_le t htBound, htPrime, htProd⟩
+    exact Finset.mem_image.mpr ⟨t, htMem, hlist⟩
+  have hImage : (primeTupleFiber l.length B m).image List.ofFn = P :=
+    Finset.Subset.antisymm himage₁ himage₂
+  calc
+    (primeTupleFiber l.length B m).card =
+        ((primeTupleFiber l.length B m).image List.ofFn).card := by
+          symm
+          exact Finset.card_image_of_injective _ List.ofFn_injective
+    _ = P.card := congrArg Finset.card hImage
+    _ = l.permutations.length := by
+      dsimp [P]
+      exact List.toFinset_card_of_nodup hpermNodup
+    _ = l.length.factorial := List.length_permutations l
+    _ = m.primeFactorsList.length.factorial := rfl
+
+theorem prime_square_count_bound (Y M : ℝ) (hY : 2 ≤ Y) (hM : 0 ≤ M) :
+    (∑ p ∈ (primesUpTo (Real.sqrt (2 * M))).filter
+        (fun (p : ℕ) => Y < (p : ℝ)),
+      (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ)) ≤ 4 * M / Y := by
+  classical
+  let k := ⌊Y⌋₊
+  let N := max k (⌊Real.sqrt (2 * M)⌋₊ + 1)
+  have hYpos : 0 < Y := by linarith
+  have hkCast : (k : ℝ) ≤ Y := by
+    dsimp [k]
+    exact Nat.floor_le (by linarith)
+  have hlt : Y < (k + 1 : ℝ) := by
+    dsimp [k]
+    exact Nat.lt_floor_add_one Y
+  have hk0 : k ≠ 0 := by
+    intro hk
+    rw [hk] at hlt
+    norm_num at hlt
+    linarith
+  have hsub :
+      (primesUpTo (Real.sqrt (2 * M))).filter (fun (p : ℕ) => Y < (p : ℝ)) ⊆
+        Finset.Ioo k N := by
+    intro p hp
+    rcases Finset.mem_filter.mp hp with ⟨hp0, hYp⟩
+    rcases Finset.mem_filter.mp hp0 with ⟨hpR, hpPrime⟩
+    have hpRange : p < ⌊Real.sqrt (2 * M)⌋₊ + 1 := by
+      simpa [primesUpTo] using hpR
+    have hkp : k < p := by
+      by_contra h
+      have hp_le_k : p ≤ k := Nat.le_of_not_gt h
+      have hpCast : (p : ℝ) ≤ (k : ℝ) := by exact_mod_cast hp_le_k
+      linarith
+    have hpN : p < N := by
+      apply lt_of_lt_of_le hpRange
+      exact le_max_right _ _
+    exact Finset.mem_Ioo.mpr ⟨hkp, hpN⟩
+  let S := (primesUpTo (Real.sqrt (2 * M))).filter (fun (p : ℕ) => Y < (p : ℝ))
+  let T := Finset.Ioo k N
+  have hpoint :
+      (∑ p ∈ S, (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ)) ≤
+        ∑ p ∈ S, (2 * M) * ((p : ℝ) ^ 2)⁻¹ := by
+    apply Finset.sum_le_sum
+    intro p hp
+    rcases Finset.mem_filter.mp hp with ⟨hp0, hYp⟩
+    rcases Finset.mem_filter.mp hp0 with ⟨hpR, hpPrime⟩
+    have hpPrime' : p.Prime := by simpa [primesUpTo] using hpPrime
+    have hpPos : 0 < (p : ℝ) := by exact_mod_cast hpPrime'.pos
+    have hden : 0 < (p : ℝ) ^ 2 := by positivity
+    have hquot : 0 ≤ 2 * M / (p : ℝ) ^ 2 := by positivity
+    have hfloor : (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) ≤ 2 * M / (p : ℝ) ^ 2 :=
+      Nat.floor_le hquot
+    simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using hfloor
+  have hsubsetSum :
+      (∑ p ∈ S, (2 * M) * ((p : ℝ) ^ 2)⁻¹) ≤
+        ∑ p ∈ T, (2 * M) * ((p : ℝ) ^ 2)⁻¹ := by
+    apply Finset.sum_le_sum_of_subset_of_nonneg (show S ⊆ T from hsub)
+    intro p hp hpT
+    positivity
+  have hsum :
+      (∑ p ∈ S, (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ)) ≤
+        ∑ p ∈ T, (2 * M) * ((p : ℝ) ^ 2)⁻¹ := hpoint.trans hsubsetSum
+  have htail := sum_Ioo_inv_sq_le (α := ℝ) k N
+  have hscaled :
+      ∑ p ∈ Finset.Ioo k N, (2 * M) * ((p : ℝ) ^ 2)⁻¹ ≤
+        (2 * M) * (2 / (k + 1 : ℝ)) := by
+    rw [← Finset.mul_sum]
+    exact mul_le_mul_of_nonneg_left htail (by positivity)
+  have hden : (2 : ℝ) / (k + 1 : ℝ) ≤ 2 / Y :=
+    div_le_div_of_nonneg_left (by norm_num) hYpos (le_of_lt hlt)
+  calc
+    _ ≤ ∑ p ∈ Finset.Ioo k N, (2 * M) * ((p : ℝ) ^ 2)⁻¹ := hsum
+    _ ≤ (2 * M) * (2 / (k + 1 : ℝ)) := hscaled
+    _ ≤ (2 * M) * (2 / Y) := mul_le_mul_of_nonneg_left hden (by positivity)
+    _ = 4 * M / Y := by ring
+
+end ArtinPrimitiveRoots.TypeII.RoughProofs
 
 /-! The rough-factor Type II estimate and its coefficient (`08-type-ii.tex:321-536`). -/
 
@@ -96,6 +316,433 @@ theorem rough_type_ii
                         C' * (Hm * Hn) * Real.rpow (Real.log x) (-Dstar) := by
   sorry
 
+theorem rough_factor_count_le (x γ wMax : ℝ) (m : ℕ)
+    (hx : 1 < x) (hγ : 0 < γ) (hm : 2 ≤ m)
+    (hrough : roughAbove m (Real.rpow x γ))
+    (hmx : (m : ℝ) ≤ Real.rpow x wMax) :
+    m.primeFactorsList.length ≤ ⌊wMax / γ⌋₊ := by
+  classical
+  let l := m.primeFactorsList
+  have hlne : l ≠ [] := by
+    intro h
+    have hm01 : m = 0 ∨ m = 1 := by
+      apply (Nat.primeFactorsList_eq_nil m).mp
+      simpa [l] using h
+    omega
+  have hlpos : 0 < l.length := List.length_pos_of_ne_nil hlne
+  have hleft : (∏ i : Fin l.length, Real.rpow x γ) =
+      (Real.rpow x γ) ^ l.length := by simp
+  have hprodReal : (∏ i : Fin l.length, (l.get i : ℝ)) = (m : ℝ) := by
+    calc
+      (∏ i : Fin l.length, (l.get i : ℝ)) =
+          ((∏ i : Fin l.length, l.get i : ℕ) : ℝ) := by simp
+      _ = (l.prod : ℝ) := by
+        norm_cast
+        rw [← List.prod_ofFn, List.ofFn_get]
+      _ = (m : ℝ) := by
+        have hnat : l.prod = m := by
+          dsimp [l]
+          exact Nat.prod_primeFactorsList (by omega)
+        exact_mod_cast hnat
+  have hprodLower :
+      (∏ i : Fin l.length, Real.rpow x γ) <
+        ∏ i : Fin l.length, (l.get i : ℝ) := by
+    apply Finset.prod_lt_prod_of_nonempty₀
+    · intro i hi
+      exact Real.rpow_pos_of_pos (by linarith) γ
+    · intro i hi
+      have hmem : l.get i ∈ l := List.get_mem l i
+      have hfactor : l.get i ∈ m.primeFactorsList := by exact hmem
+      have hpair : (l.get i).Prime ∧ l.get i ∣ m :=
+        (Nat.mem_primeFactorsList (by omega : m ≠ 0)).mp hfactor
+      exact hrough (l.get i) hpair.1 hpair.2
+    · exact ⟨⟨0, hlpos⟩, Finset.mem_univ _⟩
+  have hpowLt : (Real.rpow x γ) ^ l.length < Real.rpow x wMax := by
+    calc
+      _ = ∏ i : Fin l.length, Real.rpow x γ := hleft.symm
+      _ < (m : ℝ) := hprodLower.trans_eq hprodReal
+      _ ≤ Real.rpow x wMax := hmx
+  have hpowEq : Real.rpow x (γ * (l.length : ℝ)) =
+      (Real.rpow x γ) ^ l.length := by
+    calc
+      Real.rpow x (γ * (l.length : ℝ)) =
+          (Real.rpow x γ) ^ (l.length : ℝ) := Real.rpow_mul (by positivity) γ _
+      _ = (Real.rpow x γ) ^ l.length := Real.rpow_natCast _ _
+  have hExp : Real.rpow x (γ * (l.length : ℝ)) < Real.rpow x wMax := by
+    rw [hpowEq]
+    exact hpowLt
+  have hγlen : γ * (l.length : ℝ) < wMax :=
+    (Real.rpow_lt_rpow_left_iff hx).mp hExp
+  have hlenReal : (l.length : ℝ) < wMax / γ :=
+    (lt_div_iff₀ hγ).2 (by nlinarith)
+  have hlenNat : l.length ≤ ⌊wMax / γ⌋₊ := Nat.le_floor hlenReal.le
+  simpa [l] using hlenNat
+
+theorem roughConvolutionTerm_eq_tupleFiber (x γ M : ℝ) (j m : ℕ)
+    (hrough : roughAbove m (Real.rpow x γ)) :
+    roughConvolutionTerm x γ M j m =
+      (1 / (j.factorial : ℝ)) *
+        (RoughProofs.primeTupleFiber j (⌊2 * M⌋₊ + 1) m).card := by
+  classical
+  let B := ⌊2 * M⌋₊ + 1
+  let P : (Fin j → ℕ) → Prop := fun t =>
+    ((∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+      (∏ i : Fin j, t i) = m)
+  let Q : (Fin j → ℕ) → Prop := fun t =>
+    (∀ i, (t i).Prime) ∧ (∏ i : Fin j, t i) = m
+  have hPQ (t : Fin j → ℕ) : P t ↔ Q t := by
+    constructor
+    · rintro ⟨hp, hprod⟩
+      exact ⟨fun i => (hp i).1, hprod⟩
+    · rintro ⟨hp, hprod⟩
+      refine ⟨?_, hprod⟩
+      intro i
+      refine ⟨hp i, ?_⟩
+      have hdiv : t i ∣ m := by
+        calc
+          t i ∣ ∏ k : Fin j, t k :=
+            Finset.dvd_prod_of_mem (fun k => t k) (Finset.mem_univ i)
+          _ = m := hprod
+      exact hrough (t i) (hp i) hdiv
+  have hfilter : (boundedTuples j B).filter P =
+      RoughProofs.primeTupleFiber j B m := by
+    ext t
+    simp only [Finset.mem_filter, RoughProofs.primeTupleFiber]
+    constructor
+    · rintro ⟨hB, hP⟩
+      exact ⟨hB, (hPQ t).mp hP⟩
+    · rintro ⟨hB, hQ⟩
+      exact ⟨hB, (hPQ t).mpr hQ⟩
+  unfold roughConvolutionTerm
+  change (1 / (j.factorial : ℝ)) *
+      (∑ t ∈ boundedTuples j B, if P t then (1 : ℝ) else 0) = _
+  calc
+    _ = (1 / (j.factorial : ℝ)) *
+        ∑ t ∈ (boundedTuples j B).filter P, (1 : ℝ) := by
+          congr 1
+          exact (Finset.sum_filter (s := boundedTuples j B) P
+            (fun _ => (1 : ℝ))).symm
+    _ = _ := by rw [hfilter]; simp [B]
+
+
+theorem roughConvolutionTerm_nonneg (x γ M : ℝ) (j m : ℕ)
+    (hrough : roughAbove m (Real.rpow x γ)) :
+    0 ≤ roughConvolutionTerm x γ M j m := by
+  rw [roughConvolutionTerm_eq_tupleFiber x γ M j m hrough]
+  positivity
+
+theorem roughConvolutionTerm_le_one (x γ M : ℝ) (j m : ℕ)
+    (hrough : roughAbove m (Real.rpow x γ)) :
+    roughConvolutionTerm x γ M j m ≤ 1 := by
+  rw [roughConvolutionTerm_eq_tupleFiber x γ M j m hrough]
+  let F := RoughProofs.primeTupleFiber j (⌊2 * M⌋₊ + 1) m
+  have hcard := RoughProofs.primeTupleFiber_card_le_factorial j
+    (⌊2 * M⌋₊ + 1) m
+  have hcardReal : (F.card : ℝ) ≤ (j.factorial : ℝ) := by
+    exact_mod_cast hcard
+  have hfact : 0 < (j.factorial : ℝ) := by exact_mod_cast Nat.factorial_pos j
+  calc
+    (1 / (j.factorial : ℝ)) * (F.card : ℝ) =
+        (F.card : ℝ) / (j.factorial : ℝ) := by ring
+    _ ≤ 1 := (div_le_one hfact).2 hcardReal
+
+theorem roughConvolutionTerm_eq_one_of_squarefree (x γ M : ℝ) (j m : ℕ)
+    (hrough : roughAbove m (Real.rpow x γ)) (hm2 : 2 ≤ m)
+    (hmSq : Squarefree m) (hj : j = m.primeFactorsList.length)
+    (hB : ∀ p ∈ m.primeFactorsList, p ≤ ⌊2 * M⌋₊ + 1) :
+    roughConvolutionTerm x γ M j m = 1 := by
+  rw [roughConvolutionTerm_eq_tupleFiber x γ M j m hrough]
+  rw [RoughProofs.primeTupleFiber_card_eq_factorial_of_squarefree j
+    (⌊2 * M⌋₊ + 1) m (by omega) hmSq hj hB]
+  field_simp
+
+theorem roughConvolution_eq_one_of_rough_squarefree
+    (x γ wMax M : ℝ) (m : ℕ)
+    (hx : 1 < x) (hγ : 0 < γ) (hm2 : 2 ≤ m)
+    (hrough : roughAbove m (Real.rpow x γ))
+    (hmUpper : (m : ℝ) ≤ 2 * M) (hScale : 2 * M ≤ Real.rpow x wMax)
+    (hmSq : Squarefree m) :
+    roughConvolution x γ wMax M m = 1 := by
+  let j := m.primeFactorsList.length
+  have hjLower : 1 ≤ j := by
+    have hlist : m.primeFactorsList ≠ [] := by
+      intro h
+      have hm01 : m = 0 ∨ m = 1 := by
+        apply (Nat.primeFactorsList_eq_nil m).mp
+        exact h
+      omega
+    exact List.length_pos_of_ne_nil hlist
+  have hjUpper : j ≤ ⌊wMax / γ⌋₊ :=
+    rough_factor_count_le x γ wMax m hx hγ hm2 hrough (hmUpper.trans hScale)
+  have hjMem : j ∈ Finset.Icc 1 (⌊wMax / γ⌋₊) :=
+    Finset.mem_Icc.mpr ⟨hjLower, hjUpper⟩
+  have hB : ∀ p ∈ m.primeFactorsList, p ≤ ⌊2 * M⌋₊ + 1 := by
+    intro p hp
+    have hpDvd : p ∣ m := Nat.dvd_of_mem_primeFactorsList hp
+    have hpLe : p ≤ m := Nat.le_of_dvd (by omega) hpDvd
+    have hmFloor : m ≤ ⌊2 * M⌋₊ := Nat.le_floor hmUpper
+    exact hpLe.trans (hmFloor.trans (Nat.le_succ _))
+  have hterm : roughConvolutionTerm x γ M j m = 1 :=
+    roughConvolutionTerm_eq_one_of_squarefree x γ M j m hrough hm2 hmSq
+      (by rfl) hB
+  have hzero : ∀ q ∈ Finset.Icc 1 (⌊wMax / γ⌋₊), q ≠ j →
+      roughConvolutionTerm x γ M q m = 0 := by
+    intro q hq hqj
+    rw [roughConvolutionTerm_eq_tupleFiber x γ M q m hrough]
+    rw [RoughProofs.primeTupleFiber_eq_empty_of_factor_length_ne
+      (by simpa [j] using hqj)]
+    simp
+  calc
+    roughConvolution x γ wMax M m =
+        ∑ q ∈ Finset.Icc 1 (⌊wMax / γ⌋₊), roughConvolutionTerm x γ M q m := rfl
+    _ = roughConvolutionTerm x γ M j m :=
+      Finset.sum_eq_single_of_mem j hjMem hzero
+    _ = 1 := hterm
+
+
+theorem roughConvolutionTerm_eq_zero_of_not_rough (x γ M : ℝ) (j m : ℕ)
+    (hnot : ¬ roughAbove m (Real.rpow x γ)) :
+    roughConvolutionTerm x γ M j m = 0 := by
+  classical
+  unfold roughConvolutionTerm
+  have hsum :
+      (∑ t ∈ boundedTuples j (⌊2 * M⌋₊ + 1),
+        if ((∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+            (∏ i : Fin j, t i) = m) then (1 : ℝ) else 0) = 0 := by
+    apply Finset.sum_eq_zero
+    intro t ht
+    by_cases hpred :
+        (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+          (∏ i : Fin j, t i) = m
+    · rcases hpred with ⟨hcoords, hprod⟩
+      have hwitness : ∃ p, p.Prime ∧ p ∣ m ∧ ¬ Real.rpow x γ < (p : ℝ) := by
+        by_contra h
+        apply hnot
+        intro p hp hpdiv
+        by_contra hpnot
+        exact h ⟨p, hp, hpdiv, hpnot⟩
+      rcases hwitness with ⟨p, hp, hpdiv, hpnot⟩
+      have hpDivProd : p ∣ ∏ i : Fin j, t i := by simpa [hprod] using hpdiv
+      rcases (Prime.dvd_finsetProd_iff (Nat.prime_iff.mp hp) (fun i => t i)).mp hpDivProd with
+        ⟨i, _, hpi⟩
+      have heq : p = t i :=
+        (Nat.prime_dvd_prime_iff_eq hp (hcoords i).1).mp hpi
+      exact False.elim (hpnot (by simpa [heq] using (hcoords i).2))
+    · simp only [if_neg hpred]
+  rw [hsum]
+  simp
+
+theorem roughConvolution_bounds_of_rough
+    (x γ wMax M : ℝ) (m : ℕ)
+    (hx : 1 < x) (hγ : 0 < γ) (hm2 : 2 ≤ m)
+    (hrough : roughAbove m (Real.rpow x γ))
+    (hmUpper : (m : ℝ) ≤ 2 * M) (hScale : 2 * M ≤ Real.rpow x wMax) :
+    0 ≤ roughConvolution x γ wMax M m ∧ roughConvolution x γ wMax M m ≤ 1 := by
+  let j := m.primeFactorsList.length
+  have hjLower : 1 ≤ j := by
+    have hlist : m.primeFactorsList ≠ [] := by
+      intro h
+      have hm01 : m = 0 ∨ m = 1 := by
+        apply (Nat.primeFactorsList_eq_nil m).mp h
+      omega
+    exact List.length_pos_of_ne_nil hlist
+  have hjUpper : j ≤ ⌊wMax / γ⌋₊ :=
+    rough_factor_count_le x γ wMax m hx hγ hm2 hrough (hmUpper.trans hScale)
+  have hjMem : j ∈ Finset.Icc 1 (⌊wMax / γ⌋₊) :=
+    Finset.mem_Icc.mpr ⟨hjLower, hjUpper⟩
+  have hzero : ∀ q ∈ Finset.Icc 1 (⌊wMax / γ⌋₊), q ≠ j →
+      roughConvolutionTerm x γ M q m = 0 := by
+    intro q hq hqj
+    rw [roughConvolutionTerm_eq_tupleFiber x γ M q m hrough]
+    rw [RoughProofs.primeTupleFiber_eq_empty_of_factor_length_ne
+      (by simpa [j] using hqj)]
+    simp
+  have hsum : roughConvolution x γ wMax M m = roughConvolutionTerm x γ M j m := by
+    unfold roughConvolution
+    exact Finset.sum_eq_single_of_mem j hjMem hzero
+  constructor
+  · rw [hsum]
+    exact roughConvolutionTerm_nonneg x γ M j m hrough
+  · rw [hsum]
+    exact roughConvolutionTerm_le_one x γ M j m hrough
+
+theorem dyadic_multiples_card_le_floor (M : ℝ) (hM : 1 ≤ M) (p : ℕ)
+    (hp : p.Prime) :
+    ((dyadicIntegers M).filter (fun (m : ℕ) => p ^ 2 ∣ m)).card ≤
+      ⌊2 * M / (p : ℝ) ^ 2⌋₊ := by
+  classical
+  let K := ⌊2 * M / (p : ℝ) ^ 2⌋₊
+  let U := Finset.Ioc 0 K
+  let f : ℕ → ℕ := fun n => p ^ 2 * n
+  have hsubset :
+      (dyadicIntegers M).filter (fun (m : ℕ) => p ^ 2 ∣ m) ⊆ U.image f := by
+    intro m hm
+    rcases Finset.mem_filter.mp hm with ⟨hmD, hdiv⟩
+    change m ∈ (Finset.range (⌊2 * M⌋₊ + 1) : Finset ℕ).filter
+      (fun (n : ℕ) => M ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * M) at hmD
+    rcases Finset.mem_filter.mp hmD with ⟨_, ⟨hmLower, hmUpper⟩⟩
+    rcases hdiv with ⟨n, hn⟩
+    have hnpos : 0 < n := by
+      by_contra hn0
+      have : n = 0 := Nat.eq_zero_of_not_pos hn0
+      simp [this] at hn
+      have hmpos : 0 < m := by
+        have hmcast : (1 : ℝ) ≤ (m : ℝ) := le_trans hM hmLower
+        exact_mod_cast hmcast
+      omega
+    have hnBound : n ≤ K := by
+      apply Nat.le_floor
+      have hpPos : 0 < (p : ℝ) := by exact_mod_cast hp.pos
+      have hden : 0 < (p : ℝ) ^ 2 := by positivity
+      have hcastEq : (m : ℝ) = (p : ℝ) ^ 2 * (n : ℝ) := by
+        rw [hn]
+        push_cast
+        ring
+      apply (le_div_iff₀ hden).2
+      nlinarith [hcastEq]
+    refine Finset.mem_image.mpr ⟨n, ?_, ?_⟩
+    · exact Finset.mem_Ioc.mpr ⟨hnpos, hnBound⟩
+    · dsimp [f]
+      exact hn.symm
+  calc
+    ((dyadicIntegers M).filter (fun m => p ^ 2 ∣ m)).card ≤ (U.image f).card :=
+      Finset.card_le_card hsubset
+    _ ≤ U.card := Finset.card_image_le
+    _ = K := by simp [U]
+
+theorem roughBadDyadic_card_le_square_count (x γ M : ℝ) (hM : 1 ≤ M) :
+    let Y := Real.rpow x γ
+    let Bad := (dyadicIntegers M).filter
+      (fun m => roughAbove m Y ∧ ¬ Squarefree m)
+    Bad.card ≤
+      (∑ p ∈ (primesUpTo (Real.sqrt (2 * M))).filter (fun (p : ℕ) => Y < (p : ℝ)),
+        ⌊2 * M / (p : ℝ) ^ 2⌋₊) := by
+  classical
+  let Y := Real.rpow x γ
+  let P : Finset ℕ := (primesUpTo (Real.sqrt (2 * M))).filter
+    (fun (p : ℕ) => Y < (p : ℝ))
+  let Bad : Finset ℕ := (dyadicIntegers M).filter
+    (fun (m : ℕ) => roughAbove m Y ∧ ¬ Squarefree m)
+  change Bad.card ≤ ∑ p ∈ P, ⌊2 * M / (p : ℝ) ^ 2⌋₊
+  have hsumBad : Bad.card ≤
+      ∑ m ∈ Bad, ∑ p ∈ P, if p ^ 2 ∣ m then 1 else 0 := by
+    calc
+      Bad.card = ∑ m ∈ Bad, 1 := by simp
+      _ ≤ _ := by
+        apply Finset.sum_le_sum
+        intro m hm
+        have hmBad := (Finset.mem_filter.mp hm).2
+        rcases hmBad with ⟨hmrough, hmnotSq⟩
+        obtain ⟨p, hp, hpdiv⟩ : ∃ p, p.Prime ∧ p * p ∣ m := by
+          by_contra h
+          apply hmnotSq
+          apply Nat.squarefree_iff_prime_squarefree.mpr
+          intro p hp hdiv
+          exact h ⟨p, hp, hdiv⟩
+        have hmDy := (Finset.mem_filter.mp hm).1
+        change m ∈ (Finset.range (⌊2 * M⌋₊ + 1) : Finset ℕ).filter
+          (fun (n : ℕ) => M ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * M) at hmDy
+        rcases Finset.mem_filter.mp hmDy with ⟨_, ⟨hmLower, hmUpper⟩⟩
+        have hmpos : 0 < m := by
+          have hmcast : (1 : ℝ) ≤ (m : ℝ) := le_trans hM hmLower
+          exact_mod_cast hmcast
+        have hpSqNat : p * p ≤ m := Nat.le_of_dvd hmpos hpdiv
+        have hpSqReal : (p : ℝ) ^ 2 ≤ 2 * M := by
+          have hcast : ((p * p : ℕ) : ℝ) ≤ (m : ℝ) := by exact_mod_cast hpSqNat
+          rw [Nat.cast_mul] at hcast
+          nlinarith
+        have hpSqrt : (p : ℝ) ≤ Real.sqrt (2 * M) := Real.le_sqrt_of_sq_le hpSqReal
+        have hpFloor : p ≤ ⌊Real.sqrt (2 * M)⌋₊ := Nat.le_floor hpSqrt
+        have hpPrimeSet : p ∈ primesUpTo (Real.sqrt (2 * M)) := by
+          unfold primesUpTo
+          refine Finset.mem_filter.mpr ⟨Finset.mem_range.mpr ?_, hp⟩
+          omega
+        have hpDvd : p ∣ m := dvd_trans (dvd_mul_right p p) hpdiv
+        have hpY : Y < (p : ℝ) := hmrough p hp hpDvd
+        have hpP : p ∈ P := Finset.mem_filter.mpr ⟨hpPrimeSet, hpY⟩
+        have hcount : 1 ≤ (P.filter (fun q => q ^ 2 ∣ m)).card := by
+          apply Nat.succ_le_of_lt
+          exact Finset.card_pos.mpr ⟨p, Finset.mem_filter.mpr
+            ⟨hpP, by simpa [pow_two] using hpdiv⟩⟩
+        have hcountsum :
+            (∑ q ∈ P, if q ^ 2 ∣ m then 1 else 0) =
+              (P.filter (fun q => q ^ 2 ∣ m)).card := by
+          symm
+          exact Finset.card_filter _ _
+        rw [hcountsum]
+        exact hcount
+  calc
+    Bad.card ≤ ∑ m ∈ Bad, ∑ p ∈ P, if p ^ 2 ∣ m then 1 else 0 := hsumBad
+    _ = ∑ p ∈ P, ∑ m ∈ Bad, if p ^ 2 ∣ m then 1 else 0 := Finset.sum_comm
+    _ = ∑ p ∈ P, (Bad.filter (fun m => p ^ 2 ∣ m)).card := by
+      apply Finset.sum_congr rfl
+      intro p hp
+      symm
+      exact Finset.card_filter (fun m => p ^ 2 ∣ m) Bad
+    _ ≤ ∑ p ∈ P, ⌊2 * M / (p : ℝ) ^ 2⌋₊ := by
+      apply Finset.sum_le_sum
+      intro p hp
+      have hpPrime : p.Prime := by
+        rcases Finset.mem_filter.mp hp with ⟨hp₁, _⟩
+        exact (Finset.mem_filter.mp hp₁).2
+      have hsub : Bad.filter (fun (m : ℕ) => p ^ 2 ∣ m) ⊆
+          (dyadicIntegers M).filter (fun (m : ℕ) => p ^ 2 ∣ m) := by
+        intro m hm
+        rcases Finset.mem_filter.mp hm with ⟨hmB, hmdiv⟩
+        exact Finset.mem_filter.mpr ⟨(Finset.mem_filter.mp hmB).1, hmdiv⟩
+      exact (Finset.card_le_card hsub).trans
+        (dyadic_multiples_card_le_floor M hM p hpPrime)
+
+theorem rough_square_error_pointwise (x γ wMax δ M : ℝ) (m : ℕ)
+    (hx : 1 < x) (hγ : 0 < γ) (hδ : 0 < δ) (hM : 1 ≤ M)
+    (hMδ : Real.rpow x δ ≤ M) (hScale : 2 * M ≤ Real.rpow x wMax)
+    (hmDy : m ∈ dyadicIntegers M) :
+    |roughIndicator x γ m - roughConvolution x γ wMax M m| ≤
+      if roughAbove m (Real.rpow x γ) ∧ ¬ Squarefree m then 1 else 0 := by
+  have hδpow : 1 < Real.rpow x δ := by
+    rw [← Real.rpow_zero x]
+    exact Real.rpow_lt_rpow_of_exponent_lt hx hδ
+  have hMgt : 1 < M := lt_of_lt_of_le hδpow hMδ
+  change m ∈ (Finset.range (⌊2 * M⌋₊ + 1) : Finset ℕ).filter
+    (fun (n : ℕ) => M ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * M) at hmDy
+  rcases Finset.mem_filter.mp hmDy with ⟨_, ⟨hmLower, hmUpper⟩⟩
+  have hm2 : 2 ≤ m := by
+    have hmReal : 1 < (m : ℝ) := lt_of_lt_of_le hMgt hmLower
+    have hmNat : 1 < m := by exact_mod_cast hmReal
+    omega
+  by_cases hrough : roughAbove m (Real.rpow x γ)
+  · by_cases hSq : Squarefree m
+    · have hconv := roughConvolution_eq_one_of_rough_squarefree x γ wMax M m
+        hx hγ hm2 hrough hmUpper hScale hSq
+      have hind : roughIndicator x γ m = 1 := by
+        unfold roughIndicator
+        rw [if_pos hrough]
+      rw [hind, hconv]
+      have hrough' : roughAbove m (x ^ γ) := hrough
+      simp [hrough', hSq]
+    · have hconv := roughConvolution_bounds_of_rough x γ wMax M m
+        hx hγ hm2 hrough hmUpper hScale
+      have hdiff : |1 - roughConvolution x γ wMax M m| ≤ 1 := by
+        rw [abs_of_nonneg (sub_nonneg.mpr hconv.2)]
+        exact sub_le_self 1 hconv.1
+      have hind : roughIndicator x γ m = 1 := by
+        unfold roughIndicator
+        rw [if_pos hrough]
+      rw [hind]
+      have hrough' : roughAbove m (x ^ γ) := hrough
+      simpa [hrough', hSq] using hdiff
+  · have hconv : roughConvolution x γ wMax M m = 0 := by
+      unfold roughConvolution
+      apply Finset.sum_eq_zero
+      intro j hj
+      exact roughConvolutionTerm_eq_zero_of_not_rough x γ M j m hrough
+    have hind : roughIndicator x γ m = 0 := by
+      unfold roughIndicator
+      rw [if_neg hrough]
+    rw [hind, hconv]
+    have hrough' : ¬ roughAbove m (x ^ γ) := hrough
+    simp [hrough']
+
 /-- `t2:square-error` — 08-type-ii.tex:351-371. The dyad lies below `x^{wMax}` (`2M ≤ x^{wMax}`), which bounds the
 number of prime factors by `Jγ`; added 2026-10-07 after lane `r2` refuted the form without it. -/
 theorem square_error (γ wMax δ : ℝ) (hγ : 0 < γ) (hδ : 0 < δ)
@@ -109,10 +756,122 @@ theorem square_error (γ wMax δ : ℝ) (hγ : 0 < γ) (hδ : 0 < δ)
               (∑ p ∈ (primesUpTo (Real.sqrt (2 * M))).filter
                   (fun p => Real.rpow x γ < (p : ℝ)),
                 ⌊2 * M / (p : ℝ) ^ 2⌋₊) ∧
-              (∑ p ∈ (primesUpTo (Real.sqrt (2 * M))).filter
+          (∑ p ∈ (primesUpTo (Real.sqrt (2 * M))).filter
                   (fun p => Real.rpow x γ < (p : ℝ)),
                 ⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) ≤ C * M * Real.rpow x (-γ) := by
-  sorry
+  let x₀ : ℝ := max 2 (Real.exp (Real.log 2 / γ))
+  refine ⟨4, x₀, by norm_num, le_max_left _ _, ?_⟩
+  intro x hx M hM hMδ hScale
+  have hx2 : 2 ≤ x := (le_max_left 2 _).trans hx
+  have hx1 : 1 < x := by linarith
+  let xCut : ℝ := Real.exp (Real.log 2 / γ)
+  have hxCut : xCut ≤ x := (le_max_right 2 _).trans hx
+  have hlogCut : Real.log 2 / γ ≤ Real.log x := by
+    have h := Real.log_le_log (Real.exp_pos _) hxCut
+    simpa [xCut] using h
+  have hlogMul : Real.log 2 ≤ γ * Real.log x := by
+    have h := (div_le_iff₀ hγ).mp hlogCut
+    nlinarith
+  have hY2 : 2 ≤ Real.rpow x γ := by
+    have hpow : Real.rpow x γ = Real.exp (Real.log x * γ) :=
+      Real.rpow_def_of_pos (by linarith : 0 < x) γ
+    calc
+      2 = Real.exp (Real.log 2) := by rw [Real.exp_log (by norm_num)]
+      _ ≤ Real.exp (γ * Real.log x) := Real.exp_le_exp.mpr hlogMul
+      _ = Real.rpow x γ := by rw [hpow]; congr 1; ring
+  have hδpow : 1 < Real.rpow x δ := by
+    rw [← Real.rpow_zero x]
+    exact Real.rpow_lt_rpow_of_exponent_lt hx1 hδ
+  have hMgt : 1 < M := lt_of_lt_of_le hδpow hMδ
+  let Y := Real.rpow x γ
+  let P : Finset ℕ := (primesUpTo (Real.sqrt (2 * M))).filter
+    (fun (p : ℕ) => Y < (p : ℝ))
+  let Q : Finset ℝ := ((primesUpTo (Real.sqrt (2 * M))).image
+      (fun (p : ℕ) => (p : ℝ))).filter (fun p => Y < p)
+  have hPMap : P.image (fun (p : ℕ) => (p : ℝ)) = Q := by
+    ext p
+    constructor
+    · intro hp
+      rcases Finset.mem_image.mp hp with ⟨q, hq, rfl⟩
+      rcases Finset.mem_filter.mp hq with ⟨hqPrime, hqY⟩
+      exact Finset.mem_filter.mpr
+        ⟨Finset.mem_image.mpr ⟨q, hqPrime, rfl⟩, hqY⟩
+    · intro hp
+      rcases Finset.mem_filter.mp hp with ⟨hpImage, hpY⟩
+      rcases Finset.mem_image.mp hpImage with ⟨q, hqPrime, rfl⟩
+      exact Finset.mem_image.mpr
+        ⟨q, Finset.mem_filter.mpr ⟨hqPrime, hpY⟩, rfl⟩
+  have hsumImage :
+      (∑ p ∈ P.image (fun (p : ℕ) => (p : ℝ)),
+        (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ)) =
+      ∑ p ∈ P, (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) := by
+    apply Finset.sum_image
+    intro a ha b hb hab
+    exact Nat.cast_injective hab
+  constructor
+  · let Bad := (dyadicIntegers M).filter
+      (fun m => roughAbove m Y ∧ ¬ Squarefree m)
+    have hpoint : ∀ m ∈ dyadicIntegers M,
+        |roughIndicator x γ m - roughConvolution x γ wMax M m| ≤
+          if roughAbove m Y ∧ ¬ Squarefree m then (1 : ℝ) else 0 := by
+      intro m hm
+      exact rough_square_error_pointwise x γ wMax δ M m hx1 hγ hδ hM hMδ hScale hm
+    have hsumBad :
+        (∑ m ∈ dyadicIntegers M,
+          if roughAbove m Y ∧ ¬ Squarefree m then (1 : ℝ) else 0) =
+          (Bad.card : ℝ) := by
+      calc
+        _ = ∑ m ∈ Bad, (1 : ℝ) := by
+          symm
+          exact (Finset.sum_filter (s := dyadicIntegers M)
+            (fun m => roughAbove m Y ∧ ¬ Squarefree m) (fun _ => (1 : ℝ)))
+        _ = _ := by simp [Bad]
+    have hbadNat := roughBadDyadic_card_le_square_count x γ M hM
+    have hbadNat' : Bad.card ≤ ∑ p ∈ P, ⌊2 * M / (p : ℝ) ^ 2⌋₊ := by
+      simpa [Bad, P, Y] using hbadNat
+    have hbadCast : (Bad.card : ℝ) ≤
+        ∑ p ∈ P, (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) := by
+      calc
+        _ ≤ ((∑ p ∈ P, ⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℕ) : ℝ) := by
+          exact_mod_cast hbadNat'
+        _ = _ := by simp
+    have hbadReal : (Bad.card : ℝ) ≤
+        (∑ p ∈ Q, (⌊2 * M / p ^ 2⌋₊ : ℝ)) := by
+      calc
+        _ ≤ ∑ p ∈ P, (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) := hbadCast
+        _ = ∑ p ∈ P.image (fun (p : ℕ) => (p : ℝ)),
+            (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) := hsumImage.symm
+        _ = _ := by rw [hPMap]
+    have hsumQCast : (∑ p ∈ Q, (⌊2 * M / p ^ 2⌋₊ : ℝ)) =
+        ((∑ p ∈ Q, ⌊2 * M / p ^ 2⌋₊ : ℕ) : ℝ) := by
+      rw [Nat.cast_sum]
+    have hbadRealNat : (Bad.card : ℝ) ≤
+        ((∑ p ∈ Q, ⌊2 * M / p ^ 2⌋₊ : ℕ) : ℝ) := by
+      calc
+        _ ≤ ∑ p ∈ Q, (⌊2 * M / p ^ 2⌋₊ : ℝ) := hbadReal
+        _ = _ := hsumQCast
+    calc
+      _ ≤ ∑ m ∈ dyadicIntegers M,
+          if roughAbove m Y ∧ ¬ Squarefree m then (1 : ℝ) else 0 := by
+            apply Finset.sum_le_sum
+            intro m hm
+            exact hpoint m hm
+      _ = (Bad.card : ℝ) := hsumBad
+      _ ≤ _ := by simpa [Bad, Y, Q] using hbadRealNat
+  · have htail := RoughProofs.prime_square_count_bound
+      (Real.rpow x γ) M hY2 (by linarith : 0 ≤ M)
+    have hneg : Real.rpow x (-γ) = (Real.rpow x γ)⁻¹ := by
+      change x ^ (-γ) = (x ^ γ)⁻¹
+      exact Real.rpow_neg (by positivity : 0 ≤ x) γ
+    have htailQ : (∑ p ∈ Q, (⌊2 * M / p ^ 2⌋₊ : ℝ)) ≤
+        4 * M * Real.rpow x (-γ) := by
+      calc
+        _ = ∑ p ∈ P.image (fun (p : ℕ) => (p : ℝ)),
+            (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) := by rw [← hPMap]
+        _ = ∑ p ∈ P, (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) := hsumImage
+        _ ≤ 4 * M / Real.rpow x γ := htail
+        _ = 4 * M * Real.rpow x (-γ) := by rw [hneg]; ring
+    simpa [Q, Y] using htailQ
 
 /-- `t2:sw-slot` — 08-type-ii.tex:385-407, `eq:rough-slot-siegel-walfisz`. -/
 theorem sw_slot (γ : ℝ) (hγ : 0 < γ) :
