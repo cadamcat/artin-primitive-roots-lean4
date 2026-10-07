@@ -1,0 +1,61 @@
+note: using toolchain 'race-4.34.1' from override set on 'runs/lanes/hk-dict/wt'
+note: to remove: elan override unset --path 'runs/lanes/hk-dict/wt' | to suppress: ELAN_NO_OVERRIDE_NOTICE=1
+heavy-slots: waiting for 1 slots and 0 GB (cap 12, day; heavy 13; heavy RSS 12.5 of 64 GB)
+warning: PrimeNumberTheoremAnd: repository 'runs/lanes/hk-dict/wt/.lake/packages/PrimeNumberTheoremAnd' has local changes
+warning: belyi: repository 'runs/lanes/hk-dict/wt/.lake/packages/belyi' has local changes
+warning: formal-schemes: repository 'runs/lanes/hk-dict/wt/.lake/packages/formal-schemes' has local changes
+warning: elliptic-curves: repository 'runs/lanes/hk-dict/wt/.lake/packages/elliptic-curves' has local changes
+warning: tempered-fundamental-groups: repository 'runs/lanes/hk-dict/wt/.lake/packages/tempered-fundamental-groups' has local changes
+warning: oka: repository 'runs/lanes/hk-dict/wt/.lake/packages/oka' has local changes
+warning: orbicurve-cores: repository 'runs/lanes/hk-dict/wt/.lake/packages/orbicurve-cores' has local changes
+warning: pi1: repository 'runs/lanes/hk-dict/wt/.lake/packages/pi1' has local changes
+warning: heights: repository 'runs/lanes/hk-dict/wt/.lake/packages/heights' has local changes
+warning: genl: repository 'runs/lanes/hk-dict/wt/.lake/packages/genl' has local changes
+warning: tate-curves-theta: repository 'runs/lanes/hk-dict/wt/.lake/packages/tate-curves-theta' has local changes
+warning: iut: repository 'runs/lanes/hk-dict/wt/.lake/packages/iut' has local changes
+warning: gromov: repository 'runs/lanes/hk-dict/wt/.lake/packages/gromov' has local changes
+warning: SphereEversion: repository 'runs/lanes/hk-dict/wt/.lake/packages/SphereEversion' has local changes
+warning: schoenflies-lean: repository 'runs/lanes/hk-dict/wt/.lake/packages/schoenflies-lean' has local changes
+warning: ClassFieldTheory: repository 'runs/lanes/hk-dict/wt/.lake/packages/ClassFieldTheory' has local changes
+warning: AINTLIB: repository 'runs/lanes/hk-dict/wt/.lake/packages/AINTLIB' has local changes
+warning: AbsorptionCutoff: repository 'runs/lanes/hk-dict/wt/.lake/packages/AbsorptionCutoff' has local changes
+warning: StrongPNT: repository 'runs/lanes/hk-dict/wt/.lake/packages/StrongPNT' has local changes
+warning: carleson: repository 'runs/lanes/hk-dict/wt/.lake/packages/carleson' has local changes
+warning: rellich-kondrachov: repository 'runs/lanes/hk-dict/wt/.lake/packages/rellich-kondrachov' has local changes
+warning: Zeta3Irrational: repository 'runs/lanes/hk-dict/wt/.lake/packages/Zeta3Irrational' has local changes
+warning: fixed-point-theorems: repository 'runs/lanes/hk-dict/wt/.lake/packages/fixed-point-theorems' has local changes
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:73:7: warning: `NumberField.RingOfIntegers.HeightOneSpectrum.one_lt_absNorm` has been deprecated: Use `NumberField.HeightOneSpectrum.one_lt_absNorm` instead
+
+Note: The updated constant is in a different namespace. Dot notation may need to be changed (e.g., from `x.one_lt_absNorm` to `HeightOneSpectrum.one_lt_absNorm x`).
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:144:8: warning: declaration uses `sorry`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:210:8: warning: `dif_pos` has been deprecated: Use `dite_eq_left` instead
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:279:58: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:288:8: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:328:8: warning: declaration uses `sorry`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:340:8: warning: declaration uses `sorry`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:420:18: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:448:4: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:485:12: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:485:24: warning: `if_pos` has been deprecated: Use `ite_eq_left` instead
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:489:20: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:573:15: warning: This simp argument is unused:
+  hv
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [p, coeHom, hz]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:619:10: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:624:10: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:862:26: warning: `dif_pos` has been deprecated: Use `dite_eq_left` instead
+ArtinPrimitiveRoots/Hecke/Dictionary.lean:862:47: warning: `dif_pos` has been deprecated: Use `dite_eq_left` instead
