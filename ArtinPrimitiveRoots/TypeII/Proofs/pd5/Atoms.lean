@@ -260,12 +260,10 @@ theorem pd5_memoryNu_mass_le_two {x q_d : ℝ} {K : ℕ} {a : Fin K → ℝ}
                 have hp0 : (p : ℝ) ≠ 0 := by
                   exact_mod_cast hprime.ne_zero
                 field_simp [ne_of_gt hmass, hp0]
-                ring
         _ = _ := by rw [← Finset.mul_sum]
     rw [heq]
     simp only [bandMass]
     field_simp [ne_of_gt hMsum]
-    ring
   linarith [hpoint, hdenoms, hsum]
 
 end
