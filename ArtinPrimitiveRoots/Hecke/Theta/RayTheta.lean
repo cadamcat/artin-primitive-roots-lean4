@@ -186,7 +186,7 @@ noncomputable def integralIdealCoordEquiv (J : Ideal (𝓞 K)) (hJ : J ≠ ⊥) 
     apply Subtype.ext
     exact integralIdealCoordPreimage_spec J hJ v
 
-private theorem integralIdealCoordMap_eq_zero_iff (J : Ideal (𝓞 K)) (hJ : J ≠ ⊥)
+theorem integralIdealCoordMap_eq_zero_iff (J : Ideal (𝓞 K)) (hJ : J ≠ ⊥)
     (x : J) : integralIdealCoordMap J hJ x = 0 ↔ x = 0 := by
   constructor
   · intro hx
@@ -222,7 +222,7 @@ noncomputable def integralIdealGaussian (c : index K → ℝ) (x : 𝓞 K) : ℝ
   Real.exp (-Real.pi * ∑ i : index K,
     c i * (embeddingCoords K (algebraMap (𝓞 K) K x) i) ^ 2)
 
-private theorem summable_integralIdealGaussian [IsTotallyComplex K]
+theorem summable_integralIdealGaussian [IsTotallyComplex K]
     (m : RayClassModulus K) (J : Ideal (𝓞 K))
     (hcop : IsCoprimeTo m J) (c : index K → ℝ)
     {a : ℝ} (ha : 0 < a) (hca : ∀ i, a ≤ c i) :
@@ -251,7 +251,7 @@ noncomputable def rayThetaTail [IsTotallyComplex K] (m : RayClassModulus K)
   ∑' x : rayKernelPoints m J,
     if x.1.1 = 0 then 0 else integralIdealGaussian (placeWeights K c) x.1.1
 
-private theorem rayTheta_eq_delta_add_tail [IsTotallyComplex K]
+theorem rayTheta_eq_delta_add_tail [IsTotallyComplex K]
     (m : RayClassModulus K) (J : Ideal (𝓞 K)) (hcop : IsCoprimeTo m J)
     (c : InfinitePlace K → ℝ) {a : ℝ} (ha : 0 < a)
     (hca : ∀ i, a ≤ placeWeights K c i) :

@@ -589,6 +589,127 @@ private theorem exists_rayTheta_small_bound [IsTotallyComplex K]
     ring
   simpa [T, scale, I, hqneg] using htailBound
 
+/-- Integrating the uniform Poisson error gives the normalized small-parameter estimate. -/
+theorem exists_rayF_small_bound [IsTotallyComplex K]
+    (m : RayClassModulus K) (J : Ideal (𝓞 K)) (hcop : IsCoprimeTo m J) :
+    ∃ C c' t₀ : ℝ, 0 < C ∧ 0 < c' ∧ 0 < t₀ ∧
+      ∀ {t : ℝ}, 0 < t → t ≤ t₀ →
+        |rayF m J hcop t - rayDualConstant m * t ^ (-(1 : ℝ) / 2)| ≤
+          C * t ^ (-(1 : ℝ) / 2) *
+            Real.exp (-c' * t ^ (-(1 : ℝ) / (Module.finrank ℚ K))) := by
+  classical
+  obtain ⟨C, c', t₀, hC, hc', ht₀, hbound⟩ := exists_rayTheta_small_bound m J hcop
+  let B := ZSpan.fundamentalDomain
+    ((Module.Free.chooseBasis ℤ (unitLattice K)).ofZLatticeBasis ℝ)
+  have hBmeas : MeasurableSet B := ZSpan.fundamentalDomain_measurableSet _
+  have hBfin : volume B < ⊤ := (ZSpan.fundamentalDomain_isBounded _).measure_lt_top
+  have hvol : (volume B).toReal = unitBoxVol K := by
+    rw [DedekindResidue.unitBoxVol]
+  have hw : 0 < (torsionOrder K : ℝ)⁻¹ := by
+    have htors : 0 < (torsionOrder K : ℝ) := by exact_mod_cast torsionOrder_pos K
+    positivity
+  have hvolpos := DedekindResidue.unitBoxVol_pos K
+  refine ⟨(torsionOrder K : ℝ)⁻¹ * unitBoxVol K * C, c', t₀,
+    by positivity, hc', ht₀, ?_⟩
+  intro t ht htt₀
+  let T : ℝ := (idealNormR K (idealUnit J hcop.1))⁻¹ ^ 2 * heckeBeta K * t
+  let d : ℝ := (residueCount m : ℝ) / (modulusNorm m : ℝ) * t ^ (-(1 : ℝ) / 2)
+  let E : ℝ := C * t ^ (-(1 : ℝ) / 2) *
+    Real.exp (-c' * t ^ (-(1 : ℝ) / (Module.finrank ℚ K)))
+  have hT : 0 < T := by
+    have hN := DedekindResidue.idealNormR_pos K (idealUnit J hcop.1)
+    have hβ := DedekindResidue.heckeBeta_pos K
+    dsimp [T]
+    positivity
+  have hdev : ∀ u ∈ B, |rayTheta m J hcop (heckeWeights K T u) - d| ≤ E :=
+    hbound ht htt₀
+  have hcont : Continuous (fun u : logSpace K =>
+      rayTheta m J hcop (heckeWeights K T u) - d) := by
+    apply Continuous.sub _ continuous_const
+    rw [continuous_iff_continuousAt]
+    intro u
+    exact (continuousAt_rayTheta_heckeWeights m J hcop (p := (T, u)) hT).comp
+      ((continuous_const.prodMk continuous_id).continuousAt)
+  have hint : IntegrableOn (fun u : logSpace K =>
+      rayTheta m J hcop (heckeWeights K T u) - d) B := by
+    refine (integrableOn_const (C := E) (ne_top_of_lt hBfin)).mono'
+      hcont.aestronglyMeasurable.restrict ?_
+    refine (ae_restrict_iff' hBmeas).mpr (Filter.Eventually.of_forall (fun u hu => ?_))
+    simpa only [Real.norm_eq_abs] using hdev u hu
+  have hthetaInt : IntegrableOn (fun u : logSpace K =>
+      rayTheta m J hcop (heckeWeights K T u)) B := by
+    have hi := hint.add (integrableOn_const (C := d) (ne_top_of_lt hBfin))
+    change IntegrableOn (fun u =>
+      (rayTheta m J hcop (heckeWeights K T u) - d) + d) B at hi
+    simpa only [sub_add_cancel] using hi
+  have hid : rayF m J hcop t - rayDualConstant m * t ^ (-(1 : ℝ) / 2) =
+      (torsionOrder K : ℝ)⁻¹ *
+        ∫ u in B, (rayTheta m J hcop (heckeWeights K T u) - d) := by
+    rw [integral_sub hthetaInt (integrableOn_const (C := d) (ne_top_of_lt hBfin)),
+      setIntegral_const, smul_eq_mul, show volume.real B = unitBoxVol K from hvol]
+    dsimp [rayF, rayG, rayDualConstant, T, B, d]
+    ring
+  have hi : |∫ u in B, (rayTheta m J hcop (heckeWeights K T u) - d)| ≤
+      E * (volume B).toReal := by
+    rw [← Real.norm_eq_abs]
+    exact norm_setIntegral_le_of_norm_le_const hBfin
+      (fun u hu => by simpa only [Real.norm_eq_abs] using hdev u hu)
+  rw [hid, abs_mul, abs_of_pos hw]
+  calc
+    (torsionOrder K : ℝ)⁻¹ * |∫ u in B,
+        (rayTheta m J hcop (heckeWeights K T u) - d)|
+      ≤ (torsionOrder K : ℝ)⁻¹ * (E * (volume B).toReal) :=
+        mul_le_mul_of_nonneg_left hi hw.le
+    _ = _ := by rw [hvol]; dsimp [E]; ring
+
+/-- The dual theta approaches its class-independent constant faster than every power. -/
+theorem exists_rayDualF_dev_bound [IsTotallyComplex K]
+    (m : RayClassModulus K) (J : Ideal (𝓞 K)) (hcop : IsCoprimeTo m J) :
+    ∃ C c' t₀ : ℝ, 0 < C ∧ 0 < c' ∧ 1 ≤ t₀ ∧
+      ∀ {t : ℝ}, t₀ ≤ t →
+        |rayDualF m J hcop t - rayDualConstant m| ≤
+          C * Real.exp (-c' * t ^ ((1 : ℝ) / (Module.finrank ℚ K))) := by
+  obtain ⟨C, c', s₀, hC, hc', hs₀, hbound⟩ := exists_rayF_small_bound m J hcop
+  refine ⟨C, c', max 1 s₀⁻¹, hC, hc', le_max_left _ _, ?_⟩
+  intro t ht
+  have htpos : 0 < t := lt_of_lt_of_le one_pos ((le_max_left _ _).trans ht)
+  have htinv : 1 / t ≤ s₀ := by
+    have h := one_div_le_one_div_of_le (inv_pos.mpr hs₀)
+      (le_trans (le_max_right 1 s₀⁻¹) ht)
+    simpa only [one_div, inv_inv] using h
+  have hprod : t ^ (-(1 : ℝ) / 2) * (1 / t) ^ (-(1 : ℝ) / 2) = 1 := by
+    rw [one_div, Real.inv_rpow htpos.le, mul_inv_cancel₀]
+    exact (Real.rpow_pos_of_pos htpos _).ne'
+  have hpow : (1 / t) ^ (-(1 : ℝ) / (Module.finrank ℚ K)) =
+      t ^ ((1 : ℝ) / (Module.finrank ℚ K)) := by
+    rw [one_div, Real.inv_rpow htpos.le]
+    rw [show -(1 : ℝ) / (Module.finrank ℚ K) =
+      -((1 : ℝ) / (Module.finrank ℚ K)) by ring, Real.rpow_neg htpos.le, inv_inv]
+  have hid : rayDualF m J hcop t - rayDualConstant m =
+      t ^ (-(1 : ℝ) / 2) *
+        (rayF m J hcop (1 / t) - rayDualConstant m * (1 / t) ^ (-(1 : ℝ) / 2)) := by
+    dsimp only [rayDualF]
+    calc
+      t ^ (-(1 : ℝ) / 2) * rayF m J hcop (1 / t) - rayDualConstant m =
+          t ^ (-(1 : ℝ) / 2) * rayF m J hcop (1 / t) -
+            rayDualConstant m *
+              (t ^ (-(1 : ℝ) / 2) * (1 / t) ^ (-(1 : ℝ) / 2)) := by
+                rw [hprod, mul_one]
+      _ = _ := by ring
+  have h := mul_le_mul_of_nonneg_left
+    (hbound (one_div_pos.mpr htpos) htinv)
+    (Real.rpow_nonneg htpos.le (-(1 : ℝ) / 2))
+  rw [hid, abs_mul, abs_of_pos (Real.rpow_pos_of_pos htpos _)]
+  calc
+    t ^ (-(1 : ℝ) / 2) *
+        |rayF m J hcop (1 / t) - rayDualConstant m * (1 / t) ^ (-(1 : ℝ) / 2)|
+      ≤ t ^ (-(1 : ℝ) / 2) *
+          (C * (1 / t) ^ (-(1 : ℝ) / 2) *
+            Real.exp (-c' * (1 / t) ^ (-(1 : ℝ) / (Module.finrank ℚ K)))) := h
+    _ = C * (t ^ (-(1 : ℝ) / 2) * (1 / t) ^ (-(1 : ℝ) / 2)) *
+          Real.exp (-c' * t ^ ((1 : ℝ) / (Module.finrank ℚ K))) := by rw [hpow]; ring
+    _ = _ := by rw [hprod, mul_one]
+
 end ArtinPrimitiveRoots.Hecke
 
 end
