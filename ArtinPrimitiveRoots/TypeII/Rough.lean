@@ -89,12 +89,13 @@ theorem rough_type_ii
                         C' * (Hm * Hn) * Real.rpow (Real.log x) (-Dstar) := by
   sorry
 
-/-- `t2:square-error` — 08-type-ii.tex:351-371. -/
+/-- `t2:square-error` — 08-type-ii.tex:351-371. The dyad lies below `x^{wMax}` (`2M ≤ x^{wMax}`), which bounds the
+number of prime factors by `Jγ`; added 2026-10-07 after lane `r2` refuted the form without it. -/
 theorem square_error (γ wMax δ : ℝ) (hγ : 0 < γ) (hδ : 0 < δ)
     (hγw : γ < wMax) :
     ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
       ∀ x : ℝ, x₀ ≤ x →
-        ∀ M : ℝ, 1 ≤ M → Real.rpow x δ ≤ M →
+        ∀ M : ℝ, 1 ≤ M → Real.rpow x δ ≤ M → 2 * M ≤ Real.rpow x wMax →
           let Jγ := ⌊wMax / γ⌋₊
           (∑ m ∈ dyadicIntegers M,
             |roughIndicator x γ m - roughConvolution x γ wMax M m|) ≤
