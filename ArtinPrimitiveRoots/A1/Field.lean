@@ -55,7 +55,22 @@ variable {F : Type} [Field F] [NumberField F]
 
 /-- `μ12 ⊂ F` forces `F` totally complex. Package P-ARITH-BASE. -/
 theorem FieldData.isTotallyComplex (D : FieldData F) : IsTotallyComplex F := by
-  sorry
+  refine ⟨fun v => ?_⟩
+  rw [InfinitePlace.isComplex_iff]
+  intro hreal
+  let ι : F →+* ℝ := hreal.embedding
+  have hprim : IsPrimitiveRoot (ι D.ζ12) 12 :=
+    IsPrimitiveRoot.map_of_injective (f := ι) D.hζ12 (RingHom.injective ι)
+  have hsq : ((ι D.ζ12) ^ 6) ^ 2 = 1 := by
+    calc
+      ((ι D.ζ12) ^ 6) ^ 2 = (ι D.ζ12) ^ (6 * 2) := by rw [pow_mul]
+      _ = (ι D.ζ12) ^ 12 := by norm_num
+      _ = 1 := hprim.pow_eq_one
+  have hnonneg : 0 ≤ (ι D.ζ12) ^ 6 := by positivity
+  rcases sq_eq_one_iff.mp hsq with h | h
+  · exact hprim.pow_ne_one_of_pos_of_lt (by norm_num) (by norm_num) h
+  · have : (ι D.ζ12) ^ 6 = -1 := h
+    linarith
 
 /-- Number of complex places, `r = [F:ℚ]/2`. -/
 def numComplex (F : Type) [Field F] [NumberField F] : ℕ := Fintype.card (InfinitePlace F)
