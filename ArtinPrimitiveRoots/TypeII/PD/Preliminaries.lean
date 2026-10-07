@@ -10,9 +10,11 @@ namespace ArtinPrimitiveRoots.TypeII.PD
 open Classical MeasureTheory
 open ArtinPrimitiveRoots.TypeII
 
-/-- A finite Dirichlet polynomial in logarithmic coordinates. -/
+/-- A finite Dirichlet polynomial in logarithmic coordinates, with its zero index excluded as
+required by correction 1 from review lane `rev-b`. -/
 noncomputable def dirichletPolynomial (Y : ℕ) (coeff : ℕ → ℂ) (t : ℝ) : ℂ :=
-  ∑ n ∈ Finset.range (Y + 1), coeff n * Complex.exp (Complex.I * t * Real.log (n : ℝ))
+  ∑ n ∈ (Finset.range (Y + 1)).filter (fun n => 1 ≤ n),
+    coeff n * Complex.exp (Complex.I * t * Real.log (n : ℝ))
 
 /-- Integers in a real interval that are rough above `W`. -/
 noncomputable def roughIntegersInInterval (lo hi W : ℝ) : Finset ℕ :=
@@ -23,7 +25,8 @@ noncomputable def roughResidueCount (lo hi W : ℝ) (d : ℕ) (b : ZMod d) : ℝ
   (((Finset.range (⌊hi⌋₊ + 1)).filter fun (n : ℕ) =>
     lo ≤ (n : ℝ) ∧ (n : ℝ) ≤ hi ∧ roughAbove n W ∧ (n : ZMod d) = b).card : ℝ)
 
-/-- `t2:pd.moment-bounds` — PD `02-preliminaries.tex:73-114`, Lemma 2.2. -/
+/-- `t2:pd.moment-bounds` — PD `02-preliminaries.tex:73-114`, Lemma 2.2. Correction 1 from
+review lane `rev-b` excludes the zero index and requires positive polynomial length. -/
 theorem moment_bounds :
     (∀ k : ℕ, ∃ Ck : ℝ, 0 < Ck ∧ ∃ Y₀ : ℝ, 2 ≤ Y₀ ∧
       ∀ Y : ℝ, Y₀ ≤ Y →
@@ -32,19 +35,19 @@ theorem moment_bounds :
         (∑ n ∈ Finset.range (⌊Y⌋₊ + 1), (tau n : ℝ) ^ k / (n + 1 : ℝ)) ≤
             Ck * Real.rpow (Real.log (2 * Y)) Ck) ∧
     (∃ C₀ : ℝ, 0 < C₀ ∧
-      ∀ Y : ℕ, ∀ coeff : ℕ → ℂ, ∀ a b : ℝ, a ≤ b →
+      ∀ Y : ℕ, 1 ≤ Y → ∀ coeff : ℕ → ℂ, ∀ a b : ℝ, a ≤ b →
         ∫ t in a..b, ‖dirichletPolynomial Y coeff t‖ ^ 2 ≤
           C₀ * (b - a + (Y : ℝ) * Real.log (2 * (Y : ℝ))) *
-            ∑ n ∈ Finset.range (Y + 1), ‖coeff n‖ ^ 2) ∧
+            ∑ n ∈ (Finset.range (Y + 1)).filter (fun n => 1 ≤ n), ‖coeff n‖ ^ 2) ∧
     (∃ C₁ : ℝ, 0 < C₁ ∧
-      ∀ Y : ℕ, ∀ coeff : ℕ → ℂ, ∀ a b : ℝ, a ≤ b →
+      ∀ Y : ℕ, 1 ≤ Y → ∀ coeff : ℕ → ℂ, ∀ a b : ℝ, a ≤ b →
         ∀ T : Finset ℝ,
           (∀ t ∈ T, a ≤ t ∧ t ≤ b) →
           (∀ t₁ ∈ T, ∀ t₂ ∈ T, t₁ ≠ t₂ → 1 ≤ |t₁ - t₂|) →
             (∑ t ∈ T, ‖dirichletPolynomial Y coeff t‖ ^ 2) ≤
               C₁ * (b - a + 1 + (Y : ℝ) * Real.log (2 * (Y : ℝ))) *
                 Real.rpow (Real.log (2 * (Y : ℝ))) 2 *
-                ∑ n ∈ Finset.range (Y + 1), ‖coeff n‖ ^ 2) := by
+                ∑ n ∈ (Finset.range (Y + 1)).filter (fun n => 1 ≤ n), ‖coeff n‖ ^ 2) := by
   sorry
 
 private lemma nat_range_floor_le_real (r : ℝ) (hr : 0 ≤ r) {n : ℕ}

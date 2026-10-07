@@ -35,11 +35,12 @@ theorem support (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ) (Ψ : ℝ �
 
 /-- `con:type-ii`, 12-construction.tex:92-159. Here `R_γ` and `B_γ` are the rough indicator and
 the Buchstab proxy, and the weight is the actual §12 weight. The threshold for `K` depends on the
-Type II scale parameter only; the estimate is uniform in dyads, intervals, and coefficients. -/
+Type II scale parameter only; the estimate is uniform in dyads, intervals, and coefficients.
+Correction 7 from review lane `rev-b` adds the interval and ordered scale conditions. -/
 theorem con_type_ii
     (δ γ sMin sMax c₁ c₂ : ℝ) (hδ : 0 < δ) (hγ : 0 < γ)
     (hγs : γ < sMin) (hs : sMin < sMax) (hsMax : sMax < 1)
-    (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :
+    (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) (hc₁₂ : c₁ ≤ c₂) :
     ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K → ∀ M c : ℕ, ∀ u : ℤ,
       ∀ a : Fin K → ℝ, ValidBands K a →
       0 < M → 8 ∣ M → (c = 2 ∨ c = 4) → c ∣ M →
@@ -47,7 +48,7 @@ theorem con_type_ii
       Int.gcd ((u - 1) / c) ((M / c : ℕ) : ℤ) = 1 →
       ∀ Ψ : ℝ → ℝ, (∀ y, 0 ≤ Ψ y) → (∀ y, Ψ y ≤ 1) →
         Function.support Ψ ⊆ Set.Ioo 1 2 →
-        ContDiff ℝ ⊤ Ψ → 0 < ∫ y in (1 : ℝ)..2, Ψ y →
+        ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ → 0 < ∫ y in (1 : ℝ)..2, Ψ y →
         ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 ≤ x₀ ∧
           ∀ x : ℝ, x₀ ≤ x →
             ∀ Hm Hn : ℝ,
@@ -55,7 +56,8 @@ theorem con_type_ii
               c₁ * x ≤ Hm * Hn → Hm * Hn ≤ c₂ * x →
               Real.log Hm / Real.log x ∈ Set.Icc sMin sMax →
               Real.log (2 * Hm) / Real.log x ∈ Set.Icc sMin sMax →
-              ∀ I : Set ℕ, I ⊆ {m : ℕ | Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm} →
+              ∀ I : Set ℕ, IsNatInterval I →
+                I ⊆ {m : ℕ | Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm} →
                 ∀ b : ℕ → ℂ,
                   (∀ n, b n ≠ 0 → n ∈ dyadicIntegers Hn ∧
                     roughAbove n (roughCutoff x)) →
@@ -67,7 +69,8 @@ theorem con_type_ii
                     C₀ * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ) := by
   sorry
 
-/-- `con:harmonic`, 12-construction.tex:184-237. -/
+/-- `con:harmonic`, 12-construction.tex:184-237. The tail bound is for `r > x^ε` (every partial sum up to `R`; the
+terms are nonnegative), as in the paper; the first skeleton bounded `r ≤ x^ε` (lane `c2b`, 2026-10-07). -/
 theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
     (K : ℕ) (a : Fin K → ℝ) (hM : 0 < M) (hc : 0 < c)
     (ha : ValidBands K a) (hΨ : IsTestFunction Ψ) :
@@ -81,8 +84,8 @@ theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
         (∀ ε : ℝ, 0 < ε →
           ∃ Cε xε : ℝ, 0 < Cε ∧ 2 ≤ xε ∧
             ∀ x : ℝ, xε ≤ x →
-              ∑ r ∈ (Finset.range (⌊Real.rpow x ε⌋₊ + 1)).filter
-                  (fun r => IsGroupInteger x K a r),
+              ∀ R : ℕ, ∑ r ∈ (Finset.range (R + 1)).filter
+                  (fun r => IsGroupInteger x K a r ∧ Real.rpow x ε < (r : ℝ)),
                 markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) ≤
                       Cε * Real.exp (-ε * Real.rpow (Real.log x)
                         (1 - a ⟨K - 1, by
@@ -103,10 +106,13 @@ theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
           progressionPrimeSum x M c u Ψ r 1 ≤ C * x / (r : ℝ)) := by
   sorry
 
-/-- `co:bv-smoothed`, 12-construction.tex:286-349. -/
+/-- `co:bv-smoothed`, 12-construction.tex:286-349. The progression hypotheses `hc24`, `hu`, `hcu`, `hcu'` (those of
+`prop:controlled`) were added on 2026-10-07: without them the statement is false (lane `c2`, `M = 4, c = 2, u = 1`). -/
 theorem bv_smoothed (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
     (Ψ : ℝ → ℝ) (ε κ : ℝ)
     (hM : 0 < M) (hc : 0 < c) (hcM : c ∣ M)
+    (hc24 : c = 2 ∨ c = 4) (hu : Int.gcd u M = 1) (hcu : (c : ℤ) ∣ u - 1)
+    (hcu' : Int.gcd ((u - 1) / c) ((M / c : ℕ) : ℤ) = 1)
     (hε : 0 < ε) (hεκ : ε < κ) (hκ : κ < 1 / 100)
     (ha : ValidBands K a) (hΨ : IsTestFunction Ψ) :
     ∀ A : ℝ, 0 < A →
@@ -213,9 +219,12 @@ theorem con_bin_mass (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
                 roughSieveProduct (roughCutoff x) := by
   sorry
 
-/-- `co:bin-cost`, 12-construction.tex:505-561. -/
+/-- `co:bin-cost`, 12-construction.tex:505-561. Correction 8 from review lane `rev-b` requires
+the fixed progression assumptions from §12. -/
 theorem bin_cost (M c : ℕ) (u : ℤ) (κ b : ℝ)
-    (hM : 0 < M) (hc : 0 < c) (hcM : c ∣ M)
+    (hM : 0 < M) (h8 : 8 ∣ M) (hc24 : c = 2 ∨ c = 4) (hcM : c ∣ M)
+    (hu : Int.gcd u M = 1) (hcu : (c : ℤ) ∣ u - 1)
+    (hcu' : Int.gcd ((u - 1) / c) ((M / c : ℕ) : ℤ) = 1)
     (hκ : 0 < κ) (hκsmall : κ < 1 / 100) (hb : 0 < b) :
     ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K → ∀ a : Fin K → ℝ, ValidBands K a →
       ∀ Ψ : ℝ → ℝ, IsTestFunction Ψ →
@@ -308,9 +317,50 @@ theorem con_rough_pairs (M : ℕ) (Ψ : ℝ → ℝ) (hM : 0 < M)
                       roughSieveProduct (roughCutoff x) ^ 2 := by
   sorry
 
-/-- `co:balanced-cost`, 12-construction.tex:736-775. -/
+/-- The pair estimate supplied by `con_rough_pairs`, at its fixed leading constant. -/
+def HasRoughPairBound (M : ℕ) (Ψ : ℝ → ℝ) (C₁ : ℝ) : Prop :=
+  ∀ c : ℕ, (c = 2 ∨ c = 4) → ∀ u : ℤ,
+    ∀ K : ℕ, ∀ a : Fin K → ℝ, ValidBands K a →
+      ∃ x₀ : ℝ, 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          ∀ H₁ H₂ : ℝ,
+            x / 4 ≤ H₁ * H₂ → H₁ * H₂ ≤ 2 * x →
+            Real.rpow x (46 / 100 : ℝ) / 2 ≤ H₁ →
+            H₁ ≤ 2 * Real.rpow x (54 / 100 : ℝ) →
+            Real.rpow x (46 / 100 : ℝ) / 2 ≤ H₂ →
+            H₂ ≤ 2 * Real.rpow x (54 / 100 : ℝ) →
+              roughPairBoxSum x M c u K a Ψ H₁ H₂ ≤
+                C₁ * conTotalMass x M c u K a Ψ *
+                  roughSieveProduct (roughCutoff x) ^ 2
+
+/-- The balanced box cover supplied by `balanced_boxes` at its fixed dyadic constant. -/
+def HasBalancedBoxCover (Cdyad : ℝ) : Prop :=
+  ∀ M c : ℕ, ∀ u : ℤ, ∀ K : ℕ, ∀ a : Fin K → ℝ,
+    ∀ Ψ : ℝ → ℝ, IsTestFunction Ψ → ∀ κ : ℝ,
+      0 < M → 8 ∣ M → (c = 2 ∨ c = 4) → c ∣ M →
+      Int.gcd u M = 1 → (c : ℤ) ∣ u - 1 →
+      Int.gcd ((u - 1) / c) ((M / c : ℕ) : ℤ) = 1 →
+      ValidBands K a → 0 < κ → κ < 1 / 100 →
+        ∃ x₀ : ℝ, 2 ≤ x₀ ∧
+          ∀ x : ℝ, x₀ ≤ x →
+            ∃ N : ℕ, (N : ℝ) ≤ Cdyad * (κ * Real.log x + 1) ∧
+              ∃ H₁ H₂ : Fin N → ℝ,
+                (∀ i, x / 4 ≤ H₁ i * H₂ i ∧ H₁ i * H₂ i ≤ 2 * x ∧
+                  Real.rpow x (46 / 100 : ℝ) / 2 ≤ H₁ i ∧
+                  H₁ i ≤ 2 * Real.rpow x (54 / 100 : ℝ) ∧
+                  Real.rpow x (46 / 100 : ℝ) / 2 ≤ H₂ i ∧
+                  H₂ i ≤ 2 * Real.rpow x (54 / 100 : ℝ)) ∧
+                (∀ d, 0 < conWeight x M c u K a Ψ d →
+                  roughAbove d (Real.rpow x (1 / 2 - κ)) → ¬ d.Prime →
+                    ∃ i m n, m ∈ dyadicIntegers (H₁ i) ∧
+                      n ∈ dyadicIntegers (H₂ i) ∧ m.Prime ∧ n.Prime ∧ d = m * n)
+
+/-- `co:balanced-cost`, 12-construction.tex:736-775. Correction from refutation lane `sol-gate-b`
+ties `C₁` and `C_dyad` to their preceding estimates and includes `8 ∣ M`. -/
 theorem balanced_cost (M : ℕ) (Ψ : ℝ → ℝ) (C₁ Cdyad : ℝ)
-    (hM : 0 < M) (hΨ : IsTestFunction Ψ) (hC₁ : 0 < C₁) (hCdyad : 0 < Cdyad) :
+    (hM : 0 < M) (h8 : 8 ∣ M) (hΨ : IsTestFunction Ψ)
+    (hC₁ : 0 < C₁) (hCdyad : 0 < Cdyad)
+    (hPairs : HasRoughPairBound M Ψ C₁) (hCover : HasBalancedBoxCover Cdyad) :
     ∀ c : ℕ, (c = 2 ∨ c = 4) → c ∣ M → ∀ u : ℤ,
       ∀ κ b : ℝ, 0 < κ → κ < 1 / 100 → 0 < b →
         Int.gcd u M = 1 → (c : ℤ) ∣ u - 1 →

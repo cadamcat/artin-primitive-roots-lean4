@@ -93,11 +93,20 @@ theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : B
   sorry
 
 /-- lem:balanced-generators (e): balanced generators — a compact `𝒦_bal ⊂ F_S^1` with
-`a/ℓ_{q_I} ∈ 𝒦_bal` for some allowed generator of every exterior `I`. -/
-theorem BData.exists_balanced {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H) :
+`a/ℓ_{q_I} ∈ 𝒦_bal` for some allowed generator of every exterior `I`.
+Corrected per rev-theta to use the positive norm section under fixed field data. -/
+theorem BData.exists_balanced (D : FieldData F) {S : SData F CE condη} {H : HilbertData F}
+    (Bd : BData S H) :
     ∃ K : Set S.FS, IsCompact K ∧ (∀ y ∈ K, S.absS y = 1) ∧
-      ∀ I : Ideal (𝓞 F), S.IsExterior I → ∃ a : Fˣ, S.IsGen (a : F) I ∧ Bd.Allowed a ∧
-        S.diag (a : F) * S.ell (Ideal.absNorm I : ℝ)⁻¹ ∈ K := by
+      ∀ (I : Ideal (𝓞 F)) (hI : S.IsExterior I), ∃ a : Fˣ,
+        S.IsGen (a : F) I ∧ Bd.Allowed a ∧
+          S.diag (a : F) *
+            S.ell D ((Ideal.absNorm I : ℝ)⁻¹) (by
+              have hnorm : 0 < Ideal.absNorm I :=
+                Ideal.absNorm_pos_of_nonZeroDivisors
+                  ⟨I, mem_nonZeroDivisors_iff_ne_zero.mpr
+                    (by simpa [Ideal.zero_eq_bot] using hI.1)⟩
+              exact inv_pos.mpr (Nat.cast_pos.mpr hnorm)) ∈ K := by
   sorry
 
 /-- eq:sextic-reciprocity (02:257–266): `χ_P(p') = χ_{P'}(p)` for allowed generators of distinct
