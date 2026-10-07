@@ -1,5 +1,9 @@
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.Determinant
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Atoms
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5.HistoryPartition
 import Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics
 set_option autoImplicit false
 set_option linter.unusedVariables false
@@ -4817,7 +4821,7 @@ theorem birth_partition {K : ℕ} (A : Finset (BirthAddress K)) (log : BirthLog 
     (hnodup : (log.map Prod.fst).Nodup) (hA : ∀ e ∈ log, e.1 ∈ A) :
     distinctWeight log =
       ∑ 𝒞 ∈ constraintSystems A, (constraintCoeff 𝒞 : ℂ) * constraintWeight 𝒞 log := by
-  sorry
+  exact birth_partition_from_labels A log hnodup hA
 
 /-- `t2:pd.history-rank-high` (new node) — PD 04:825-904.  High-rank constraint systems are
 negligible in absolute value: with `r₀ = ⌈C' N log L / L^{0.1}⌉` (`C'` large after the crude
@@ -4860,6 +4864,62 @@ theorem history_rank_low (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
                   Real.rpow S.L (2 * Ccr * (constraintRank 𝒞 : ℝ)) := by
   sorry
 
+private theorem pd5_birth_arithmetic_threshold {K : ℕ} {C' eta C_K : ℝ}
+    (hC' : 0 < C') (heta : 0 < eta) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
+      4 ≤ Real.log x ∧ 13 * (K : ℝ) ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) ∧
+      C_K ≤ Real.log x ∧ C_K ^ 2 ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) ∧
+      2 / eta ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) ∧
+      C' * Real.log (Real.log x) / Real.rpow (Real.log x) (1 / 10 : ℝ) ≤ eta / 2 := by
+  have hLog : Tendsto (fun x : ℝ => Real.log x) atTop atTop := Real.tendsto_log_atTop
+  have hHalf : Tendsto (fun x : ℝ => Real.rpow (Real.log x) (1 / 2 : ℝ)) atTop atTop :=
+    (tendsto_rpow_atTop (by norm_num : 0 < (1 / 2 : ℝ))).comp hLog
+  have hRatio : Tendsto (fun t : ℝ => Real.log t / Real.rpow t (1 / 10 : ℝ))
+      atTop (nhds 0) :=
+    (isLittleO_log_rpow_atTop (by norm_num : 0 < (1 / 10 : ℝ))).tendsto_div_nhds_zero
+  have hRatioX := hRatio.comp hLog
+  have hSmallRatio : ∀ᶠ x : ℝ in atTop,
+      Real.log (Real.log x) / Real.rpow (Real.log x) (1 / 10 : ℝ) < eta / (2 * C') :=
+    (tendsto_order.1 hRatioX).2 _ (div_pos heta (mul_pos (by norm_num) hC'))
+  have hSmall : ∀ᶠ x : ℝ in atTop,
+      C' * Real.log (Real.log x) / Real.rpow (Real.log x) (1 / 10 : ℝ) ≤ eta / 2 := by
+    filter_upwards [hSmallRatio] with x hx
+    have hmul := mul_lt_mul_of_pos_left hx hC'
+    have hEq : C' * (eta / (2 * C')) = eta / 2 := by
+      field_simp [ne_of_gt hC']
+    have hEq' : C' *
+        (Real.log (Real.log x) / Real.rpow (Real.log x) (1 / 10 : ℝ)) =
+          C' * Real.log (Real.log x) / Real.rpow (Real.log x) (1 / 10 : ℝ) := by ring
+    rw [hEq'] at hmul
+    rw [hEq] at hmul
+    exact hmul.le
+  have hFour : ∀ᶠ x : ℝ in atTop, 4 ≤ Real.log x := (Filter.tendsto_atTop.1 hLog) 4
+  have hCLog : ∀ᶠ x : ℝ in atTop, C_K ≤ Real.log x :=
+    (Filter.tendsto_atTop.1 hLog) C_K
+  have hHalfBig : ∀ᶠ x : ℝ in atTop,
+      max (13 * (K : ℝ)) (max (2 / eta) (C_K ^ 2)) ≤
+        Real.rpow (Real.log x) (1 / 2 : ℝ) := by
+    exact (Filter.tendsto_atTop.1 hHalf)
+      (max (13 * (K : ℝ)) (max (2 / eta) (C_K ^ 2)))
+  have hX2 : ∀ᶠ x : ℝ in atTop, 2 ≤ x :=
+    Filter.eventually_atTop.2 ⟨2, fun x hx => hx⟩
+  have hAll := hX2.and hFour |>.and hCLog |>.and hHalfBig |>.and hSmall
+  obtain ⟨x₀, hx₀⟩ := Filter.eventually_atTop.1 hAll
+  have hx₀prop := hx₀ x₀ le_rfl
+  rcases hx₀prop with ⟨⟨⟨⟨hx₀₂, hL4₀⟩, hLCK₀⟩, hHalfBig₀⟩, hLsmall₀⟩
+  refine ⟨x₀, hx₀₂, ?_⟩
+  intro x hx
+  obtain ⟨⟨⟨⟨hx₂, hL4⟩, hLCK⟩, hHalfBig⟩, hLsmall⟩ := hx₀ x hx
+  have hLCKsq : C_K ^ 2 ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) :=
+    (le_trans (le_max_right _ _) (le_max_right _ _)).trans hHalfBig
+  have hLhalf : 2 / eta ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) :=
+    (le_trans (le_max_left _ _) (le_max_right _ _)).trans hHalfBig
+  have hL13K : 13 * (K : ℝ) ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) :=
+    (le_max_left _ _).trans hHalfBig
+  exact ⟨hL4, hL13K, hLCK,
+    hLCKsq, hLhalf, hLsmall⟩
+
+set_option maxHeartbeats 0 in
 /-- `t2:pd.birth-distinctness` — PD 04:784-966.  REPLACES the frozen `birth_distinctness`.
 Assembly: the truncated distinct history is `≤ L^{-(E₀+2)N}` uniformly in the root.
 `birth_partition` (logs of truncated histories have distinct addresses in `birthAddresses`),
@@ -4873,7 +4933,506 @@ theorem birth_distinctness (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁
           ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
             ∀ w : ArchRoot, w.InRegion S →
               ‖historyDistinctTrunc F S ρ w‖ ≤ Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := by
-  sorry
+  intro E₀ hE₀
+  let G : ℝ := E₀ + 8
+  have hG : 0 < G := by dsimp [G]; linarith
+  obtain ⟨A₀, hA₀, K₀, hSignedAll⟩ :=
+    signed_edge δ c₁ c₂ hδ hc₁ q_d eta psi G hG
+  refine ⟨A₀, hA₀, ?_⟩
+  refine ⟨K₀, ?_⟩
+  intro K hK F hF hHas ρ hρ
+  obtain ⟨xEdge, hxEdge, hSigned⟩ := hSignedAll K hK F hF hHas ρ hρ
+  obtain ⟨C', xHigh, hC', hxHigh, hHigh⟩ :=
+    history_rank_high δ c₁ c₂ hδ hc₁ K F hF ρ hρ E₀ hE₀
+  obtain ⟨C_K, Ccr, xLow, hC_K, hCcr, hxLow, hLow⟩ :=
+    history_rank_low δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+  let Cbar : ℝ := max 1 C_K
+  have hCbarOne : 1 ≤ Cbar := le_max_left _ _
+  have hCbarPos : 0 < Cbar := lt_of_lt_of_le (by norm_num) hCbarOne
+  have hCkLeBar : C_K ≤ Cbar := le_max_right _ _
+  let D : ℝ := 2 * G + 2 * Ccr + 9
+  have hD : 0 < D := by dsimp [D, G]; positivity
+  let η : ℝ := 1 / (2 * D)
+  have hη : 0 < η := by dsimp [η]; positivity
+  obtain ⟨xArith, hxArith, hArith⟩ :=
+    pd5_birth_arithmetic_threshold (K := K) (C_K := Cbar) hC' hη
+  let x₀ : ℝ := max xEdge (max xHigh (max xLow xArith))
+  have hxEdge₀ : xEdge ≤ x₀ := by
+    change xEdge ≤ max xEdge (max xHigh (max xLow xArith))
+    exact le_max_left _ _
+  have hxHigh₀ : xHigh ≤ x₀ := by
+    change xHigh ≤ max xEdge (max xHigh (max xLow xArith))
+    exact le_trans (le_max_left _ _) (le_max_right _ _)
+  have hxLow₀ : xLow ≤ x₀ := by
+    change xLow ≤ max xEdge (max xHigh (max xLow xArith))
+    exact le_trans (le_max_left _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hxArith₀ : xArith ≤ x₀ := by
+    change xArith ≤ max xEdge (max xHigh (max xLow xArith))
+    exact le_trans (le_max_right _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hx₀ : 2 ≤ x₀ := by
+    exact hxArith.trans hxArith₀
+  refine ⟨x₀, hx₀, ?_⟩
+  intro S hS hx₀S w hw
+  have hxEdgeS : xEdge ≤ S.x := hxEdge₀.trans hx₀S
+  have hxHighS : xHigh ≤ S.x := hxHigh₀.trans hx₀S
+  have hxLowS : xLow ≤ S.x := hxLow₀.trans hx₀S
+  have hxArithS : xArith ≤ S.x := hxArith₀.trans hx₀S
+  have hScale := hArith S.x hxArithS
+  rcases hScale with ⟨hx2, hL4, hLCbar, hLCbarSq, hLhalf, hSmall⟩
+  have hEdgeS := hSigned S hS hxEdgeS w hw
+  have hHighS := hHigh S hS hxHighS w hw
+  have hLowS := hLow S hS hxLowS w hw G (by dsimp [G]; linarith) hEdgeS
+  have hbox : {z : ℤ × ℤ | envBox S w z}.Finite := pd5_envBox_finite_of_valid hS hw
+  let A : Finset (BirthAddress K) := birthAddresses S.x K (memoryCutoff S)
+  have hPartition := pd5_memHistory_partition_sum F S ρ w (memoryCutoff S) A
+    (by intro a ha; exact ha) hbox
+  have hTarget :
+      ‖historyDistinctTrunc F S ρ w‖ ≤
+        ∑ C ∈ constraintSystems A,
+          |(constraintCoeff C : ℝ)| *
+            ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight C)‖ := by
+    rw [historyDistinctTrunc, hPartition]
+    calc
+      ‖∑ C ∈ constraintSystems A,
+          (constraintCoeff C : ℂ) *
+            memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight C)‖ ≤
+          ∑ C ∈ constraintSystems A,
+            ‖(constraintCoeff C : ℂ) *
+              memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight C)‖ :=
+        norm_sum_le _ _
+      _ = ∑ C ∈ constraintSystems A,
+            |(constraintCoeff C : ℝ)| *
+              ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight C)‖ := by
+        apply Finset.sum_congr rfl
+        intro C hC
+        simp [norm_mul, Complex.norm_real]
+  let r₀ : ℕ :=
+    ⌈C' * (S.N : ℝ) * Real.log S.L / Real.rpow S.L (1 / 10 : ℝ)⌉₊
+  let systems := constraintSystems A
+  let highSystems := systems.filter (fun C => r₀ ≤ constraintRank C)
+  let lowSystems := systems.filter (fun C => constraintRank C < r₀)
+  have hHighBound :
+      (∑ C ∈ highSystems,
+        |(constraintCoeff C : ℝ)| *
+          ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight C)‖) ≤
+        Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) := by
+    simpa [highSystems, systems, r₀, A] using hHighS
+  have hLowC {C : Finset (Finset (BirthAddress K))} (hC : C ∈ systems) :
+      ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight C)‖ ≤
+        2 * C_K ^ (S.N + 1) *
+          Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (constraintRank C : ℝ))) *
+          Real.rpow S.L (2 * Ccr * (constraintRank C : ℝ)) := by
+    exact hLowS C hC
+  have hLone : 1 ≤ S.L := le_trans (by norm_num) hx2
+  have hLpos : 0 < S.L := lt_of_lt_of_le (by norm_num) hLone
+  have hCount := pd5_scale_counting_bounds hLone
+  rcases hCount with ⟨hM, hNupper, hNlower, hB⟩
+  have hHalfOne : 1 ≤ Real.rpow S.L (1 / 2 : ℝ) := by
+    calc
+      1 = Real.rpow S.L 0 := by simp
+      _ ≤ Real.rpow S.L (1 / 2 : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le hLone (by norm_num)
+  have hMhalf : (S.M : ℝ) ≤ 2 * Real.rpow S.L (1 / 2 : ℝ) := by
+    have hExpo := Real.rpow_le_rpow_of_exponent_le hLone
+      (by norm_num : (1 / 100 : ℝ) ≤ 1 / 2)
+    calc
+      (S.M : ℝ) ≤ 2 * Real.rpow S.L (1 / 100 : ℝ) := hM
+      _ ≤ 2 * Real.rpow S.L (1 / 2 : ℝ) :=
+        mul_le_mul_of_nonneg_left hExpo (by norm_num)
+  have hNthree : (S.N : ℝ) ≤ 3 * Real.rpow S.L (1 / 2 : ℝ) := by
+    nlinarith [hNupper, hHalfOne]
+  have hNplusFour : (S.N : ℝ) + 1 ≤ 4 * Real.rpow S.L (1 / 2 : ℝ) := by
+    nlinarith [hNthree, hHalfOne]
+  have hLpow2 : S.L ^ 2 = Real.rpow S.L (2 : ℝ) := by
+    exact (Real.rpow_natCast S.L 2).symm
+  have hpowFive : Real.rpow S.L (1 / 2 : ℝ) * S.L ^ 2 =
+      Real.rpow S.L (5 / 2 : ℝ) := by
+    calc
+      _ = Real.rpow S.L (1 / 2 : ℝ) * Real.rpow S.L (2 : ℝ) := by rw [hLpow2]
+      _ = Real.rpow S.L ((1 / 2 : ℝ) + 2) := (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow S.L (5 / 2 : ℝ) := by congr 1 <;> norm_num
+  have hNposReal : 0 < (S.N : ℝ) := by
+    have hNge : 1 ≤ (S.N : ℝ) := by
+      exact le_trans hHalfOne hNlower
+    linarith
+  have hNgeOne : 1 ≤ (S.N : ℝ) := le_trans hHalfOne hNlower
+  have hNpos : 0 < S.N := by exact_mod_cast hNposReal
+  have hAddressNat := pd5_birthAddresses_card_le (x := S.x) K (memoryCutoff S)
+  have hAddressReal : (A.card : ℝ) ≤
+      (K : ℝ) * (S.M : ℝ) + (K : ℝ) * (S.N : ℝ) +
+        (K : ℝ) * ((S.N : ℝ) + 1) * (memoryCutoff S : ℝ) := by
+    exact_mod_cast hAddressNat
+  have hKnonneg : 0 ≤ (K : ℝ) := Nat.cast_nonneg _
+  have hFirstCard : (K : ℝ) * (S.M : ℝ) ≤
+      2 * (K : ℝ) * Real.rpow S.L (1 / 2 : ℝ) := by
+    calc
+      (K : ℝ) * (S.M : ℝ) ≤ (K : ℝ) * (2 * Real.rpow S.L (1 / 2 : ℝ)) :=
+        mul_le_mul_of_nonneg_left hMhalf hKnonneg
+      _ = 2 * (K : ℝ) * Real.rpow S.L (1 / 2 : ℝ) := by ring
+  have hSecondCard : (K : ℝ) * (S.N : ℝ) ≤
+      3 * (K : ℝ) * Real.rpow S.L (1 / 2 : ℝ) := by
+    calc
+      (K : ℝ) * (S.N : ℝ) ≤ (K : ℝ) * (3 * Real.rpow S.L (1 / 2 : ℝ)) :=
+        mul_le_mul_of_nonneg_left hNthree hKnonneg
+      _ = 3 * (K : ℝ) * Real.rpow S.L (1 / 2 : ℝ) := by ring
+  have hThirdCard : (K : ℝ) * ((S.N : ℝ) + 1) * (memoryCutoff S : ℝ) ≤
+      8 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) := by
+    have hprod := mul_le_mul hNplusFour hB (by positivity) (by positivity)
+    have hprodK := mul_le_mul_of_nonneg_left hprod hKnonneg
+    calc
+      (K : ℝ) * ((S.N : ℝ) + 1) * (memoryCutoff S : ℝ) =
+          (K : ℝ) * (((S.N : ℝ) + 1) * (memoryCutoff S : ℝ)) := by ring
+      _ ≤ (K : ℝ) * ((4 * Real.rpow S.L (1 / 2 : ℝ)) * (2 * S.L ^ 2)) := hprodK
+      _ = 8 * (K : ℝ) * (Real.rpow S.L (1 / 2 : ℝ) * S.L ^ 2) := by ring
+      _ = 8 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) := by
+        rw [hpowFive]
+  have hHalfFive : Real.rpow S.L (1 / 2 : ℝ) ≤ Real.rpow S.L (5 / 2 : ℝ) :=
+    Real.rpow_le_rpow_of_exponent_le hLone (by norm_num)
+  have hCardBound : (A.card : ℝ) ≤
+      13 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) := by
+    calc
+      (A.card : ℝ) ≤
+          (K : ℝ) * (S.M : ℝ) + (K : ℝ) * (S.N : ℝ) +
+            (K : ℝ) * ((S.N : ℝ) + 1) * (memoryCutoff S : ℝ) := hAddressReal
+      _ ≤ 2 * (K : ℝ) * Real.rpow S.L (1 / 2 : ℝ) +
+            3 * (K : ℝ) * Real.rpow S.L (1 / 2 : ℝ) +
+            8 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) := by
+          exact add_le_add (add_le_add hFirstCard hSecondCard) hThirdCard
+      _ ≤ 13 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) := by
+          have h2 := mul_le_mul_of_nonneg_left hHalfFive (by positivity : 0 ≤ 2 * (K : ℝ))
+          have h3 := mul_le_mul_of_nonneg_left hHalfFive (by positivity : 0 ≤ 3 * (K : ℝ))
+          calc
+            _ ≤ 2 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) +
+                3 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) +
+                8 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) :=
+              add_le_add (add_le_add h2 h3) le_rfl
+            _ = 13 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) := by ring
+  have hCard : (A.card : ℝ) ≤ Real.rpow S.L 3 := by
+    calc
+      (A.card : ℝ) ≤ 13 * (K : ℝ) * Real.rpow S.L (5 / 2 : ℝ) := hCardBound
+      _ ≤ Real.rpow S.L (1 / 2 : ℝ) * Real.rpow S.L (5 / 2 : ℝ) :=
+        mul_le_mul_of_nonneg_right hL4
+          (Real.rpow_nonneg hLpos.le _)
+      _ = Real.rpow S.L ((1 / 2 : ℝ) + (5 / 2 : ℝ)) :=
+        (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow S.L 3 := by congr 1 <;> norm_num
+  have hCardMax : (max 1 A.card : ℝ) ≤ Real.rpow S.L 3 := by
+    change max (1 : ℝ) (A.card : ℝ) ≤ Real.rpow S.L 3
+    apply max_le
+    · calc
+        1 = Real.rpow S.L 0 := by simp
+        _ ≤ Real.rpow S.L 3 := Real.rpow_le_rpow_of_exponent_le hLone (by norm_num)
+    · exact hCard
+  have hDhalf : 1 / 2 ≤ D := by
+    change 1 / 2 ≤ 2 * G + 2 * Ccr + 9
+    calc
+      1 / 2 ≤ 9 := by norm_num
+      _ ≤ 2 * G + 2 * Ccr + 9 := by nlinarith [hG, hCcr]
+  have hEtaLeOne : η ≤ 1 := by
+    have hDen : 0 < 2 * D := by positivity
+    dsimp [η]
+    rw [div_le_iff₀ hDen]
+    nlinarith [hDhalf]
+  have hNeta : 2 / η ≤ (S.N : ℝ) := le_trans hLhalf hNlower
+  have hInvN : 1 / (S.N : ℝ) ≤ η / 2 := by
+    apply (div_le_iff₀ hNposReal).2
+    have hmul := mul_le_mul_of_nonneg_left hNeta (by positivity : 0 ≤ η / 2)
+    have hmul' : 1 ≤ (η / 2) * (S.N : ℝ) := by
+      have heq : (η / 2) * (2 / η) = 1 := by field_simp [ne_of_gt hη]
+      rw [heq] at hmul
+      exact hmul
+    nlinarith [hmul']
+  have hLge4 : 4 ≤ S.L := by simpa [PDScale.L] using hx2
+  have hLogLpos : 0 < Real.log S.L := Real.log_pos (by linarith [hLge4])
+  have hCeilUpper : (r₀ : ℝ) <
+      C' * (S.N : ℝ) * Real.log S.L / Real.rpow S.L (1 / 10 : ℝ) + 1 := by
+    dsimp [r₀]
+    exact Nat.ceil_lt_add_one (by positivity)
+  have hSmallL : C' * Real.log S.L / Real.rpow S.L (1 / 10 : ℝ) ≤ η / 2 := by
+    simpa [PDScale.L] using hSmall
+  have hR₀div : (r₀ : ℝ) / (S.N : ℝ) ≤ η := by
+    have hDiv : (r₀ : ℝ) / (S.N : ℝ) <
+        C' * Real.log S.L / Real.rpow S.L (1 / 10 : ℝ) + 1 / (S.N : ℝ) := by
+      calc
+        _ < (C' * (S.N : ℝ) * Real.log S.L /
+            Real.rpow S.L (1 / 10 : ℝ) + 1) / (S.N : ℝ) :=
+              div_lt_div_of_pos_right hCeilUpper hNposReal
+        _ = _ := by
+          field_simp [ne_of_gt hNposReal,
+            ne_of_gt (Real.rpow_pos_of_pos hLpos (1 / 10 : ℝ))]
+    calc
+      (r₀ : ℝ) / (S.N : ℝ) ≤
+          C' * Real.log S.L / Real.rpow S.L (1 / 10 : ℝ) + 1 / (S.N : ℝ) := hDiv.le
+      _ ≤ η / 2 + η / 2 := add_le_add hSmallL hInvN
+      _ = η := by ring
+  have hR₀leNreal : (r₀ : ℝ) ≤ (S.N : ℝ) := by
+    have hR₀divOne := hR₀div.trans hEtaLeOne
+    have hmul := (div_le_iff₀ hNposReal).1 hR₀divOne
+    simpa using hmul
+  have hR₀leN : r₀ ≤ S.N := by exact_mod_cast hR₀leNreal
+  have hDr₀ : D * (r₀ : ℝ) ≤ (S.N : ℝ) / 2 := by
+    have hmul := mul_le_mul_of_nonneg_left
+      ((div_le_iff₀ hNposReal).1 hR₀div) hD.le
+    have hEtaD : η * D = 1 / 2 := by dsimp [η]; field_simp [ne_of_gt hD]
+    nlinarith [hmul, hEtaD]
+  have hSqrtLeL : Real.rpow S.L (1 / 2 : ℝ) ≤ S.L := by
+    calc
+      Real.rpow S.L (1 / 2 : ℝ) ≤ Real.rpow S.L 1 :=
+        Real.rpow_le_rpow_of_exponent_le hLone (by norm_num)
+      _ = S.L := Real.rpow_one _
+  have hNleL2 : 2 * (S.N : ℝ) ≤ S.L ^ 2 := by
+    have hNle : (S.N : ℝ) ≤ S.L + 2 := by nlinarith [hNupper, hSqrtLeL]
+    nlinarith [hNle, sq_nonneg (S.L - 3), hLge4]
+  have hTwoNleL2 : 2 * (r₀ : ℝ) ≤ S.L ^ 2 := by
+    exact le_trans (by nlinarith [hR₀leNreal]) hNleL2
+  let f : Finset (Finset (BirthAddress K)) → ℝ := fun C =>
+    |(constraintCoeff C : ℝ)| *
+      ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight C)‖
+  have hLowGrouped :
+      (∑ C ∈ lowSystems, f C) =
+        ∑ r ∈ Finset.range r₀,
+          ∑ C ∈ (constraintSystems A).filter (fun C => constraintRank C = r), f C := by
+    simpa [lowSystems, systems] using
+      pd5_constraint_sum_group_by_rank A r₀ f
+  have hMassPower (r : ℕ) :
+      (max 1 A.card : ℝ) ^ (3 * r) ≤ Real.rpow S.L (9 * (r : ℝ)) := by
+    calc
+      (max 1 A.card : ℝ) ^ (3 * r) ≤ (Real.rpow S.L 3) ^ (3 * r) :=
+        pow_le_pow_left₀ (by positivity) hCardMax _
+      _ = Real.rpow S.L (9 * (r : ℝ)) := by
+        have hL3 : Real.rpow S.L (3 : ℝ) = S.L ^ 3 := Real.rpow_natCast S.L 3
+        calc
+          (Real.rpow S.L 3) ^ (3 * r) = (S.L ^ 3) ^ (3 * r) := by rw [hL3]
+          _ = S.L ^ (9 * r) := by
+            rw [← pow_mul]
+            congr 1
+            omega
+          _ = Real.rpow S.L (9 * (r : ℝ)) := by
+            calc
+              S.L ^ (9 * r) = Real.rpow S.L ((9 * r : ℕ) : ℝ) :=
+                (Real.rpow_natCast S.L (9 * r)).symm
+              _ = Real.rpow S.L (9 * (r : ℝ)) := by congr 1; push_cast; ring
+  have hExponent (r : ℕ) :
+      Real.rpow S.L (9 * (r : ℝ)) *
+          Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+          Real.rpow S.L (2 * Ccr * (r : ℝ)) =
+        Real.rpow S.L (-G * (S.N : ℝ) + D * (r : ℝ)) := by
+    calc
+      _ = (Real.rpow S.L (9 * (r : ℝ)) *
+            Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ)))) *
+            Real.rpow S.L (2 * Ccr * (r : ℝ)) := by ring
+      _ = Real.rpow S.L (9 * (r : ℝ) +
+            (-G * ((S.N : ℝ) - 2 * (r : ℝ)))) *
+            Real.rpow S.L (2 * Ccr * (r : ℝ)) :=
+          congrArg (fun t : ℝ => t * Real.rpow S.L (2 * Ccr * (r : ℝ)))
+            (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow S.L
+            (9 * (r : ℝ) + (-G * ((S.N : ℝ) - 2 * (r : ℝ))) +
+              2 * Ccr * (r : ℝ)) := (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow S.L (-G * (S.N : ℝ) + D * (r : ℝ)) := by
+        congr 1
+        dsimp [D]
+        ring
+  have hRankBound (r : ℕ) (hr : r < r₀) :
+      (∑ C ∈ (constraintSystems A).filter (fun C => constraintRank C = r), f C) ≤
+        2 * Cbar ^ (S.N + 1) *
+          Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2) := by
+    let R := (constraintSystems A).filter (fun C => constraintRank C = r)
+    have hCbarPow : C_K ^ (S.N + 1) ≤ Cbar ^ (S.N + 1) :=
+      pow_le_pow_left₀ (le_of_lt hC_K) hCkLeBar _
+    have hrReal : (r : ℝ) ≤ (r₀ : ℝ) := by exact_mod_cast hr.le
+    have hDr : D * (r : ℝ) ≤ (S.N : ℝ) / 2 := by
+      calc
+        D * (r : ℝ) ≤ D * (r₀ : ℝ) := mul_le_mul_of_nonneg_left hrReal hD.le
+        _ ≤ (S.N : ℝ) / 2 := hDr₀
+    have hExpLe : -G * (S.N : ℝ) + D * (r : ℝ) ≤
+        -G * (S.N : ℝ) + (S.N : ℝ) / 2 :=
+      add_le_add le_rfl hDr
+    have hRpow1 : 0 ≤
+        Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) :=
+      Real.rpow_nonneg hLpos.le _
+    have hRpow2 : 0 ≤ Real.rpow S.L (2 * Ccr * (r : ℝ)) :=
+      Real.rpow_nonneg hLpos.le _
+    have hRpowProd : 0 ≤
+        Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+          Real.rpow S.L (2 * Ccr * (r : ℝ)) := mul_nonneg hRpow1 hRpow2
+    have hFullFactor : 0 ≤ 2 * Cbar ^ (S.N + 1) *
+        Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+        Real.rpow S.L (2 * Ccr * (r : ℝ)) := by
+      exact mul_nonneg
+        (mul_nonneg (mul_nonneg (by norm_num) (pow_nonneg hCbarPos.le _)) hRpow1)
+        hRpow2
+    have hMass := pd5_constraint_coeff_mass_le A r
+    calc
+      (∑ C ∈ R, f C) ≤
+          ∑ C ∈ R,
+            |(constraintCoeff C : ℝ)| *
+              (2 * Cbar ^ (S.N + 1) *
+                Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+                Real.rpow S.L (2 * Ccr * (r : ℝ))) := by
+        apply Finset.sum_le_sum
+        intro C hCR
+        have hCS : C ∈ systems := (Finset.mem_filter.mp hCR).1
+        have hNorm := hLowC hCS
+        have hNormBar :
+            ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight C)‖ ≤
+              2 * Cbar ^ (S.N + 1) *
+                Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+                Real.rpow S.L (2 * Ccr * (r : ℝ)) := by
+          calc
+            _ ≤ 2 * C_K ^ (S.N + 1) *
+                Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (constraintRank C : ℝ))) *
+                Real.rpow S.L (2 * Ccr * (constraintRank C : ℝ)) := hNorm
+            _ = 2 * C_K ^ (S.N + 1) *
+                Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+                Real.rpow S.L (2 * Ccr * (r : ℝ)) := by
+                  rw [(Finset.mem_filter.mp hCR).2]
+            _ ≤ 2 * Cbar ^ (S.N + 1) *
+                Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+                Real.rpow S.L (2 * Ccr * (r : ℝ)) := by
+                  have hbase := mul_le_mul_of_nonneg_left hCbarPow (by norm_num : 0 ≤ (2 : ℝ))
+                  calc
+                    _ = (2 * C_K ^ (S.N + 1)) *
+                        (Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+                          Real.rpow S.L (2 * Ccr * (r : ℝ))) := by ring
+                    _ ≤ (2 * Cbar ^ (S.N + 1)) *
+                        (Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+                          Real.rpow S.L (2 * Ccr * (r : ℝ))) :=
+                      mul_le_mul_of_nonneg_right hbase hRpowProd
+                    _ = _ := by ring
+        exact mul_le_mul_of_nonneg_left hNormBar (abs_nonneg _)
+      _ = (∑ C ∈ R, |(constraintCoeff C : ℝ)|) *
+          (2 * Cbar ^ (S.N + 1) *
+            Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+            Real.rpow S.L (2 * Ccr * (r : ℝ))) := by
+        rw [← Finset.sum_mul]
+      _ ≤ (max 1 A.card : ℝ) ^ (3 * r) *
+          (2 * Cbar ^ (S.N + 1) *
+            Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+            Real.rpow S.L (2 * Ccr * (r : ℝ))) :=
+        mul_le_mul_of_nonneg_right hMass hFullFactor
+      _ ≤ Real.rpow S.L (9 * (r : ℝ)) *
+          (2 * Cbar ^ (S.N + 1) *
+            Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+            Real.rpow S.L (2 * Ccr * (r : ℝ))) :=
+        mul_le_mul_of_nonneg_right (hMassPower r) hFullFactor
+      _ = 2 * Cbar ^ (S.N + 1) *
+          Real.rpow S.L (-G * (S.N : ℝ) + D * (r : ℝ)) := by
+        calc
+          _ = 2 * Cbar ^ (S.N + 1) *
+              (Real.rpow S.L (9 * (r : ℝ)) *
+                Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (r : ℝ))) *
+                Real.rpow S.L (2 * Ccr * (r : ℝ))) := by ring
+          _ = _ := by rw [hExponent r]
+      _ ≤ 2 * Cbar ^ (S.N + 1) *
+          Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2) :=
+        mul_le_mul_of_nonneg_left
+          (Real.rpow_le_rpow_of_exponent_le hLone hExpLe) (by positivity)
+  have hLowAll : (∑ C ∈ lowSystems, f C) ≤
+      (r₀ : ℝ) *
+        (2 * Cbar ^ (S.N + 1) *
+          Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2)) := by
+    rw [hLowGrouped]
+    calc
+      _ ≤ ∑ r ∈ Finset.range r₀,
+          2 * Cbar ^ (S.N + 1) *
+            Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2) := by
+        apply Finset.sum_le_sum
+        intro r hr
+        exact hRankBound r (Finset.mem_range.mp hr)
+      _ = (r₀ : ℝ) *
+          (2 * Cbar ^ (S.N + 1) *
+            Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2)) := by simp
+  have hCbarGrowth : Cbar ^ (S.N + 1) ≤ Real.rpow S.L ((S.N : ℝ) / 2) := by
+    have hNatExp : S.N + 1 ≤ 2 * S.N := by omega
+    calc
+      Cbar ^ (S.N + 1) ≤ Cbar ^ (2 * S.N) := pow_le_pow_right₀ hCbarOne hNatExp
+      _ = (Cbar ^ 2) ^ S.N := by rw [pow_mul]
+      _ ≤ (Real.rpow S.L (1 / 2 : ℝ)) ^ S.N :=
+        pow_le_pow_left₀ (by positivity) hLCbarSq _
+      _ = Real.rpow S.L ((S.N : ℝ) / 2) := by
+        calc
+          (Real.rpow S.L (1 / 2 : ℝ)) ^ S.N =
+              Real.rpow (Real.rpow S.L (1 / 2 : ℝ)) (S.N : ℝ) :=
+            (Real.rpow_natCast _ _).symm
+          _ = Real.rpow S.L ((1 / 2 : ℝ) * (S.N : ℝ)) :=
+            (Real.rpow_mul hLpos.le _ _).symm
+          _ = Real.rpow S.L ((S.N : ℝ) / 2) := by congr 1; ring
+  have hLowBound : (∑ C ∈ lowSystems, f C) ≤
+      Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) := by
+    have hCoeff :
+        2 * (r₀ : ℝ) * Cbar ^ (S.N + 1) ≤
+          S.L ^ 2 * Real.rpow S.L ((S.N : ℝ) / 2) := by
+      calc
+        2 * (r₀ : ℝ) * Cbar ^ (S.N + 1) ≤
+            S.L ^ 2 * Cbar ^ (S.N + 1) := by
+          exact mul_le_mul_of_nonneg_right hTwoNleL2 (by positivity)
+        _ ≤ S.L ^ 2 * Real.rpow S.L ((S.N : ℝ) / 2) :=
+          mul_le_mul_of_nonneg_left hCbarGrowth (by positivity)
+    have hFinalExp : 2 + (S.N : ℝ) / 2 +
+        (-G * (S.N : ℝ) + (S.N : ℝ) / 2) ≤ -(E₀ + 3) * (S.N : ℝ) := by
+      dsimp [G]
+      nlinarith [hNgeOne]
+    calc
+      (∑ C ∈ lowSystems, f C) ≤
+          (r₀ : ℝ) *
+            (2 * Cbar ^ (S.N + 1) *
+              Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2)) := hLowAll
+      _ = (2 * (r₀ : ℝ) * Cbar ^ (S.N + 1)) *
+          Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2) := by ring
+      _ ≤ (S.L ^ 2 * Real.rpow S.L ((S.N : ℝ) / 2)) *
+          Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2) :=
+        mul_le_mul_of_nonneg_right hCoeff
+          (Real.rpow_nonneg hLpos.le _)
+      _ = Real.rpow S.L 2 * Real.rpow S.L ((S.N : ℝ) / 2) *
+          Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2) := by
+        rw [hLpow2]
+      _ = Real.rpow S.L (2 + (S.N : ℝ) / 2) *
+          Real.rpow S.L (-G * (S.N : ℝ) + (S.N : ℝ) / 2) :=
+        (Real.rpow_add hLpos 2 ((S.N : ℝ) / 2)).symm ▸ rfl
+      _ = Real.rpow S.L
+          (2 + (S.N : ℝ) / 2 + (-G * (S.N : ℝ) + (S.N : ℝ) / 2)) :=
+        (Real.rpow_add hLpos (2 + (S.N : ℝ) / 2)
+          (-G * (S.N : ℝ) + (S.N : ℝ) / 2)).symm
+      _ ≤ Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) :=
+        Real.rpow_le_rpow_of_exponent_le hLone hFinalExp
+  have hSplit : (∑ C ∈ systems, f C) =
+      (∑ C ∈ highSystems, f C) + (∑ C ∈ lowSystems, f C) := by
+    simpa [highSystems, lowSystems, systems, not_le] using
+      (Finset.sum_filter_add_sum_filter_not systems
+        (fun C => r₀ ≤ constraintRank C) f).symm
+  have hTwoLeNPower : 2 ≤ Real.rpow S.L (S.N : ℝ) := by
+    calc
+      2 ≤ S.L := by linarith [hLge4]
+      _ = Real.rpow S.L 1 := (Real.rpow_one _).symm
+      _ ≤ Real.rpow S.L (S.N : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le hLone hNgeOne
+  have hCombine :
+      2 * Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) ≤
+        Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := by
+    calc
+      2 * Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) ≤
+          Real.rpow S.L (S.N : ℝ) *
+            Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) :=
+        mul_le_mul_of_nonneg_right hTwoLeNPower
+          (Real.rpow_nonneg hLpos.le _)
+      _ = Real.rpow S.L
+          ((S.N : ℝ) + (-(E₀ + 3) * (S.N : ℝ))) :=
+        (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := by
+        congr 1
+        ring
+  calc
+    ‖historyDistinctTrunc F S ρ w‖ ≤ ∑ C ∈ systems, f C := by
+      simpa [f] using hTarget
+    _ = (∑ C ∈ highSystems, f C) + (∑ C ∈ lowSystems, f C) := hSplit
+    _ ≤ Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) +
+        Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) :=
+      add_le_add hHighBound hLowBound
+    _ = 2 * Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) := by ring
+    _ ≤ Real.rpow S.L (-(E₀ + 2) * (S.N : ℝ)) := hCombine
 
 /-! ## §6 Removing goodness, stripping pads, Proposition 4.1 (PD 04:968-1117, 11-35) -/
 
