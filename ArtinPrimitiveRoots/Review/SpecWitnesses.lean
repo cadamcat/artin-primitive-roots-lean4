@@ -15,7 +15,7 @@ strictly inside `(1, 2)`.
 
 namespace ArtinPrimitiveRoots.Review.SpecWitnesses
 
-open NumberField IsDedekindDomain
+open NumberField IsDedekindDomain MeasureTheory
 open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.Construction
 
@@ -114,10 +114,12 @@ theorem longCancellation_witness : ∃ family : CoefficientFamily 0 1 1 1,
   refine ⟨zeroCancellationFamily, ?_⟩
   intro A₀ B A hA₀ hB hA
   refine ⟨1, 2, by norm_num, by norm_num, ?_⟩
-  intro x hx k hk hkL χ t ht
-  have hlog : 0 < Real.log x := Real.log_pos (by linarith)
-  simp [familyTerms, zeroCancellationFamily]
-  positivity
+  constructor
+  · simp [zeroCancellationFamily]
+  · intro x hx k hk hkL χ t ht
+    have hlog : 0 < Real.log x := Real.log_pos (by linarith)
+    simp [familyTerms, zeroCancellationFamily]
+    positivity
 example : ∃ family : CoefficientFamily 0 1 1 1,
     HasLongCoefficientCancellation family := longCancellation_witness
 
@@ -347,15 +349,112 @@ noncomputable def spec_zeroEnergySpace : FAEnergySpace ℂ ℂ :=
     closedV := by
       exact isClosed_closure }
 
-noncomputable def spec_zeroEnergyContext : EnergyContext (T := ℂ) spec_zeroEnergySpace :=
-  { toL2 := 0
-    gradL2 := 0
-    graph_eq := rfl }
-
 example : Nonempty (FAEnergySpace ℂ ℂ) := ⟨spec_zeroEnergySpace⟩
 
-example : Nonempty (EnergyContext (T := ℂ) spec_zeroEnergySpace) :=
-  ⟨spec_zeroEnergyContext⟩
+theorem spec_zeroEnergyGraph {T H G : Type*} [AddCommGroup T] [Module ℂ T]
+    [NormedAddCommGroup H] [InnerProductSpace ℂ H] [CompleteSpace H]
+    [NormedAddCommGroup G] [InnerProductSpace ℂ G] [CompleteSpace G] :
+    energyGraph (0 : T →ₗ[ℂ] H) (0 : T →ₗ[ℂ] G) = ⊥ := by
+  have hmap : energyGraphMap (0 : T →ₗ[ℂ] H) (0 : T →ₗ[ℂ] G) = 0 := by
+    ext x
+    rfl
+  simp [energyGraph, hmap]
+
+noncomputable def spec_emptyEnergySpace {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] :
+    FAEnergySpace (L2Space F (∅ : Set (X F))) (GradientL2Space F ∅) :=
+  { V := ⊥
+    closedV := Submodule.closed_of_finiteDimensional ⊥ }
+
+noncomputable def spec_emptyEnergyContext {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] (Γ : Subgroup SL(2,𝓞 F)) :
+    EnergyContext F Γ ∅ (spec_emptyEnergySpace (F := F)) :=
+  { toL2 := 0
+    gradL2 := 0
+    graph_eq := by
+      simpa [spec_emptyEnergySpace] using
+        (spec_zeroEnergyGraph (T := testSubmodule F Γ) (H := L2Space F ∅)
+          (G := GradientL2Space F ∅)).symm
+    mass_rep := by
+      intro f
+      apply Filter.Eventually.of_forall
+      intro z hz
+      simp at hz
+    gradient_rep := by
+      intro f
+      apply Filter.Eventually.of_forall
+      intro z hz
+      simp at hz }
+
+example {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
+    (Γ : Subgroup SL(2,𝓞 F)) :
+    Nonempty (EnergyContext F Γ ∅ (spec_emptyEnergySpace (F := F))) :=
+  ⟨spec_emptyEnergyContext Γ⟩
+
+theorem spec_emptyEnergyV_subsingleton {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] :
+    Subsingleton (spec_emptyEnergySpace (F := F)).V := by
+  change Subsingleton (⊥ : Submodule ℂ
+    (WithLp 2 (L2Space F ∅ × GradientL2Space F ∅)))
+  infer_instance
+
+noncomputable def spec_emptySpectralGap {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] (Γ : Subgroup SL(2,𝓞 F)) :
+    SpectralGapData (spec_emptyEnergySpace (F := F)) (1 / 2) where
+  K := 0
+  compact := isCompactOperator_zero
+  c := 1
+  C := 0
+  c_pos := by norm_num
+  C_nonneg := by norm_num
+  estimate := by
+    intro x
+    haveI : Subsingleton (spec_emptyEnergySpace (F := F)).V := spec_emptyEnergyV_subsingleton
+    have hx : x = 0 := Subsingleton.elim _ _
+    subst x
+    simp [FAEnergySpace.M, FAEnergySpace.Gr]
+  below := by norm_num
+
+noncomputable def spec_cutoffData_witness {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] (σ : SL(2,F)) :
+    CutoffData F (⊥ : Subgroup SL(2,𝓞 F)) σ specCutoffOne where
+  A₀ := 1
+  A := 1
+  A₀_ge := le_rfl
+  A_ge := le_rfl
+  separation := by
+    intro γ γ' z _ _
+    have hγ : γ = 1 := Subsingleton.elim _ _
+    have hγ' : γ' = 1 := Subsingleton.elim _ _
+    simpa [hγ, hγ'] using
+      (Subgroup.one_mem (cuspStab F (⊥ : Subgroup SL(2,𝓞 F)) σ))
+  cutoff := spec_cuspCutoff_witness
+
+theorem spec_E4_parameter_set_witness :
+    ∃ Kₛ : Set ℂ, IsCompact Kₛ ∧ Kₛ ⊆ {s : ℂ | 2 < s.re ∧ s.re < 3} := by
+  refine ⟨{(5 / 2 : ℂ)}, isCompact_singleton, ?_⟩
+  rintro s hs
+  rcases Set.mem_singleton_iff.mp hs with rfl
+  norm_num
+
+theorem spec_R14_integrableTail_zero_witness {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (D : Set (X F)) (A : ℝ) :
+    MeasureTheory.IntegrableOn (fun _ : X F => (0 : ℂ))
+      (D ∩ cuspTail F Γ σ A) (volX F) := by
+  simp
+
+/-!
+The new `SiegelData.minkowski` and `SiegelData.P_covers` fields are intentionally not supplied
+by a synthetic witness: their joint witness is the number-field Minkowski bound from R7 and an
+everywhere-covering cusp lattice parallelepiped from R1. Those are the arithmetic content under
+review, and the current R1/R7 theorem bodies remain placeholders. Likewise, the nonempty-domain
+representative calibration for `EnergyContext` needs T2's actual quotient Lp maps; the witness
+above checks that the added fields are consistent, vacuously, on the empty domain. The new S3
+base identity needs the actual E6/E7 Eisenstein-to-L2 equality; smoothing alone cannot witness it.
+E7's new source identity likewise needs E5's analytic seed-defect family and its quotient Lp
+representatives, which are not available as proved inputs in this package yet.
+-/
 
 theorem spec_S2_zeroKernel_refutation {F : Type} [Field F] [NumberField F]
     (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] (σ : SL(2,F)) :
@@ -422,7 +521,14 @@ theorem spec_unsummable_tsum_counterexample :
 #print axioms spec_unitAssociatedRows_reflexive
 #print axioms spec_fullLattice_zeroDim_witness
 #print axioms spec_zeroEnergySpace
-#print axioms spec_zeroEnergyContext
+#print axioms spec_zeroEnergyGraph
+#print axioms spec_emptyEnergySpace
+#print axioms spec_emptyEnergyContext
+#print axioms spec_emptyEnergyV_subsingleton
+#print axioms spec_emptySpectralGap
+#print axioms spec_cutoffData_witness
+#print axioms spec_E4_parameter_set_witness
+#print axioms spec_R14_integrableTail_zero_witness
 #print axioms spec_S2_zeroKernel_refutation
 #print axioms spec_squareRoot_balance_counterexample
 #print axioms spec_unsummable_tsum_counterexample

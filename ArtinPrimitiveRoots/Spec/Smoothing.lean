@@ -64,10 +64,18 @@ theorem S2_smoothing_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
         radialTransform F k₀ (1 + 2 * s) * eisSeries F Γ σ s z) := by
   sorry
 
+/-- The unsmoothed equality on the original convergence ball, needed to identify the continuation
+with the Eisenstein series before applying the smoothing operator. -/
+def S3_unsmoothed_base (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (D : Set (X F)) (τ : ℝ → ℝ) (u : ℂ → L2Space F D) : Prop :=
+  ∀ s ∈ Metric.ball (5 / 2 : ℂ) (1 / 2), ∀ᵐ z ∂(volX F),
+    eisSeed F Γ σ τ s z + l2Lift F Γ D (u s) z = eisSeries F Γ σ s z
+
 /-- S3 `spec:econt` — P-SPEC.md:246, 417–420. The smoothed resolvent correction gives a
 pointwise continuation with the same convergence values and residue as the `L²` continuation.
 Correction from review lane `rev-spec`: supply kernel data and cusp separation, and require the
-transform to be nonzero at the residue center. -/
+transform to be nonzero at the residue center. Correction from `sol-gate-spec`: require the
+unsmoothed base identity on the convergence ball. -/
 theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (hfree : FreeAction F Γ) (σ : SL(2,F)) (s₁ : ℝ)
     (hs₀ : 0 < s₁) (hs₁ : s₁ ≤ 1 / 2)
@@ -86,6 +94,7 @@ theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (hres : ∃ Ψ : ℂ → L2Space F D,
       AnalyticOnNhd ℂ Ψ (Metric.ball (s₁ : ℂ) ε) ∧ Ψ (s₁ : ℂ) = θ ∧
         ∀ s ∈ Metric.ball (s₁ : ℂ) ε, s ≠ s₁ → Ψ s = (s - s₁) • u s)
+    (hbase : S3_unsmoothed_base Γ σ D τ u)
     (hseries : ∀ s ∈ Metric.ball (5 / 2 : ℂ) (1 / 2), ∀ z,
       smoothingOperator F k₀ (fun w => eisSeed F Γ σ τ s w + l2Lift F Γ D (u s) w) z =
         radialTransform F k₀ (1 + 2 * s) * eisSeries F Γ σ s z) :
