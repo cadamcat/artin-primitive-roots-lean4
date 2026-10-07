@@ -66,32 +66,5 @@ noncomputable def markedBilinearSum (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (q_d
       alpha m * beta n * F (m * n - 1) *
         (markedWeight x K a q_d (m * n - 1) : ℂ)
 
-/-- `lem:marked-coefficient-transfer` — `08-type-ii.tex:99-251`. For any coefficient
-family satisfying the long Dirichlet-polynomial interface, the marked bilinear form has arbitrary
-logarithmic saving once the number of marked bands is sufficiently large. The lower bound on `K`
-is chosen before the band exponents and is independent of those exponents and the family. Correction
-2 from review lane `rev-b` requires ordered scale constants and an interval coefficient domain. -/
-theorem marked_coefficient_transfer
-    (δ C Dstar q_d : ℝ)
-    (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
-    (hqd₀ : 0 < q_d) (hqd₁ : q_d < 1) :
-    ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K →
-      ∀ c₁ c₂ : ℝ, 0 < c₁ → 0 < c₂ → c₁ ≤ c₂ →
-      ∀ family : CoefficientFamily δ C c₁ c₂,
-        HasLongCoefficientCancellation family →
-        ∀ a : Fin K → ℝ, ValidBands K a →
-      ∃ C' x₀ : ℝ, 0 < C' ∧ 2 ≤ x₀ ∧
-        ∀ x : ℝ, x₀ ≤ x →
-          ∀ β : ℕ → ℂ,
-            (∀ n, β n ≠ 0 → n ∈ dyadicIntegers (family.Hn x) ∧
-              roughAbove n (roughCutoff x)) →
-            (∀ n ∈ dyadicIntegers (family.Hn x),
-              ‖β n‖ ≤ Real.rpow (Real.log x) C) →
-            ∀ F : ℕ → ℂ, IsMarkedInvariant x K a F →
-              ‖markedBilinearSum x K a q_d F (family.Hm x) (family.Hn x)
-                (family.interval x) (family.alpha x) β‖ ≤
-                  C' * (family.Hm x * family.Hn x) *
-          Real.rpow (Real.log x) (-Dstar) := by
-  sorry
 
 end ArtinPrimitiveRoots.TypeII
