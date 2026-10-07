@@ -390,7 +390,7 @@ private lemma rootCompletionMatrix_kernelLine (Sq p u v : ℕ) (hSq : 0 < Sq)
   have hC : (rootCompletionMatrix Sq u v 0 1).val % p = rootC u v % p := by
     simp [rootCompletionMatrix, ZMod.val_natCast, Nat.mod_mod_of_dvd _ hp]
   rw [hU, hC]
-  simp [kernelLine, projLine, Nat.cast_mod]
+  simp [kernelLine, projLine]
 
 theorem root_lines (δ C_K : ℝ) (hδ : 0 < δ) (hCK : 0 < C_K) :
     ∃ cδ C₀ x₀ : ℝ, cδ = δ / 1000 ∧ 0 < C₀ ∧ 2 ≤ x₀ ∧
@@ -908,6 +908,846 @@ def IsContributingPath {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K
 def pathActivePrimes {x : ℝ} {K : ℕ} (γ : EnvPath x K) : Finset ℕ :=
   Finset.univ.biUnion fun j : Fin (pathLength x + 1) =>
     Finset.univ.biUnion fun i : Fin K => Finset.univ.image fun jj => (γ j).2 i jj
+
+private lemma one_sub_prod_le_sum_one_sub {ι : Type*} [DecidableEq ι]
+    (s : Finset ι) (f : ι → ℝ) (h0 : ∀ i ∈ s, 0 ≤ f i) (h1 : ∀ i ∈ s, f i ≤ 1) :
+    1 - ∏ i ∈ s, f i ≤ ∑ i ∈ s, (1 - f i) := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp
+  | @insert i s hi ih =>
+      have h0i := h0 i (by simp)
+      have h1i := h1 i (by simp)
+      have h0s : ∀ j ∈ s, 0 ≤ f j := by
+        intro j hj
+        exact h0 j (by simp [hj])
+      have h1s : ∀ j ∈ s, f j ≤ 1 := by
+        intro j hj
+        exact h1 j (by simp [hj])
+      have hprod0 : 0 ≤ ∏ j ∈ s, f j := Finset.prod_nonneg fun j hj => h0s j hj
+      have hprod1 : ∏ j ∈ s, f j ≤ 1 := Finset.prod_le_one₀ h0s h1s
+      rw [Finset.prod_insert hi, Finset.sum_insert hi]
+      have hid : 1 - f i * ∏ j ∈ s, f j = (1 - f i) + f i * (1 - ∏ j ∈ s, f j) := by ring
+      rw [hid]
+      calc
+        (1 - f i) + f i * (1 - ∏ j ∈ s, f j)
+            ≤ (1 - f i) + (1 - ∏ j ∈ s, f j) := by
+                have hsub : 0 ≤ 1 - ∏ j ∈ s, f j := by linarith [hprod1]
+                have hmul : f i * (1 - ∏ j ∈ s, f j) ≤ 1 - ∏ j ∈ s, f j := by
+                  calc
+                    f i * (1 - ∏ j ∈ s, f j) ≤ 1 * (1 - ∏ j ∈ s, f j) :=
+                      mul_le_mul_of_nonneg_right h1i hsub
+                    _ = 1 - ∏ j ∈ s, f j := by ring
+                simpa [add_comm] using add_le_add_left hmul (1 - f i)
+        _ ≤ (1 - f i) + ∑ j ∈ s, (1 - f j) := by
+              simpa [add_comm] using add_le_add_left (ih h0s h1s) (1 - f i)
+
+private lemma root_inactive_prime_excess_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (p : ℕ) (hq₀ : 0 < F.q_d) (hq₁ : F.q_d < 1)
+    (hp : p ∉ pathActivePrimes γ) :
+    ((p : ℝ) + 1)⁻¹ * ∑ lam : Fin (p + 1), (1 - pathPrimeFactor F S γ p lam) ≤
+      ((p : ℝ) + 1)⁻¹ * ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val := by
+  classical
+  have hnot : ∀ j : Fin (pathLength S.x + 1), ¬ IsActiveAt γ p j := by
+    intro j hj
+    rcases hj with ⟨i, jj, hij⟩
+    apply hp
+    simp only [pathActivePrimes, Finset.mem_biUnion, Finset.mem_univ, true_and,
+      Finset.mem_image]
+    exact ⟨j, i, jj, hij⟩
+  have heta (j : Fin (pathLength S.x + 1)) :
+      0 ≤ memoryEta S.x F.q_d j.val ∧ memoryEta S.x F.q_d j.val ≤ 1 := by
+    have hq : 0 ≤ memoryQ S.x F.q_d j.val ∧ memoryQ S.x F.q_d j.val ≤ 1 := by
+      dsimp [memoryQ]
+      split_ifs with h
+      · exact ⟨Real.sqrt_nonneg _, Real.sqrt_le_one.mpr hq₁.le⟩
+      · exact ⟨le_of_lt hq₀, hq₁.le⟩
+    dsimp [memoryEta]
+    constructor <;> linarith
+  have hfactor (lam : Fin (p + 1)) :
+      pathPrimeFactor F S γ p lam =
+        ∏ j : Fin (pathLength S.x + 1),
+          (1 - memoryEta S.x F.q_d j.val *
+            (if lam = projLine p (γ j).1 then 1 else 0)) := by
+    simp [pathPrimeFactor, hnot]
+  have hpoint (lam : Fin (p + 1)) :
+      1 - pathPrimeFactor F S γ p lam ≤
+        ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val *
+          (if lam = projLine p (γ j).1 then 1 else 0) := by
+    rw [hfactor]
+    have h₀ : ∀ j : Fin (pathLength S.x + 1),
+        0 ≤ 1 - memoryEta S.x F.q_d j.val *
+          (if lam = projLine p (γ j).1 then 1 else 0) := by
+      intro j
+      by_cases heq : lam = projLine p (γ j).1 <;> simp [heq, (heta j).1, (heta j).2]
+    have h₁ : ∀ j : Fin (pathLength S.x + 1),
+        1 - memoryEta S.x F.q_d j.val *
+          (if lam = projLine p (γ j).1 then 1 else 0) ≤ 1 := by
+      intro j
+      by_cases heq : lam = projLine p (γ j).1 <;> simp [heq, (heta j).1, (heta j).2]
+    have hprod := one_sub_prod_le_sum_one_sub Finset.univ
+      (fun j => 1 - memoryEta S.x F.q_d j.val *
+        (if lam = projLine p (γ j).1 then 1 else 0))
+      (by intro j hj; exact h₀ j) (by intro j hj; exact h₁ j)
+    simpa using hprod
+  have hsum₀ :
+      ∑ lam : Fin (p + 1), (1 - pathPrimeFactor F S γ p lam) ≤
+        ∑ lam : Fin (p + 1),
+          ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val *
+            (if lam = projLine p (γ j).1 then 1 else 0) := by
+    apply Finset.sum_le_sum
+    intro lam hlam
+    exact hpoint lam
+  have hcollapse :
+      ∑ j : Fin (pathLength S.x + 1),
+          ∑ lam : Fin (p + 1), memoryEta S.x F.q_d j.val *
+            (if lam = projLine p (γ j).1 then 1 else 0) =
+        ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val := by
+    apply Finset.sum_congr rfl
+    intro j hj
+    simp
+  have hsum :
+      ∑ lam : Fin (p + 1), (1 - pathPrimeFactor F S γ p lam) ≤
+        ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val := by
+    calc
+      ∑ lam : Fin (p + 1), (1 - pathPrimeFactor F S γ p lam) ≤
+          ∑ lam : Fin (p + 1),
+            ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val *
+              (if lam = projLine p (γ j).1 then 1 else 0) := hsum₀
+      _ = ∑ j : Fin (pathLength S.x + 1),
+            ∑ lam : Fin (p + 1), memoryEta S.x F.q_d j.val *
+              (if lam = projLine p (γ j).1 then 1 else 0) := by rw [Finset.sum_comm]
+      _ = ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val := hcollapse
+  have hden : 0 ≤ ((p : ℝ) + 1)⁻¹ := by positivity
+  calc
+    ((p : ℝ) + 1)⁻¹ * ∑ lam : Fin (p + 1), (1 - pathPrimeFactor F S γ p lam)
+        ≤ ((p : ℝ) + 1)⁻¹ * ∑ j : Fin (pathLength S.x + 1),
+            memoryEta S.x F.q_d j.val := mul_le_mul_of_nonneg_left hsum hden
+
+private lemma root_inactive_total_excess_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (hq₀ : 0 < F.q_d) (hq₁ : F.q_d < 1)
+    (B : ℝ) (hB : 0 ≤ B)
+    (hMass : (∑ p ∈ markedPrimes S.x K F.a, ((p : ℝ) + 1)⁻¹) ≤ B) :
+    (∑ p ∈ (markedPrimes S.x K F.a).filter
+        (fun p => p ∉ pathActivePrimes γ),
+      ((p : ℝ) + 1)⁻¹ *
+        ∑ lam : Fin (p + 1), (1 - pathPrimeFactor F S γ p lam)) ≤
+      B * ((S.N : ℝ) + 1) := by
+  classical
+  let P := markedPrimes S.x K F.a
+  let I := P.filter (fun p => p ∉ pathActivePrimes γ)
+  have hmassI : (∑ p ∈ I, ((p : ℝ) + 1)⁻¹) ≤ B := by
+    have hsub : (∑ p ∈ I, ((p : ℝ) + 1)⁻¹) ≤
+        ∑ p ∈ P, ((p : ℝ) + 1)⁻¹ := by
+      rw [Finset.sum_filter]
+      apply Finset.sum_le_sum
+      intro p hp
+      by_cases hin : p ∉ pathActivePrimes γ <;> simp [hin] <;> positivity
+    exact hsub.trans (by simpa [P] using hMass)
+  have heta (j : Fin (pathLength S.x + 1)) :
+      0 ≤ memoryEta S.x F.q_d j.val ∧ memoryEta S.x F.q_d j.val ≤ 1 := by
+    have hq : 0 ≤ F.q_d ∧ F.q_d ≤ 1 := ⟨le_of_lt hq₀, hq₁.le⟩
+    have hQ : 0 ≤ memoryQ S.x F.q_d j.val ∧ memoryQ S.x F.q_d j.val ≤ 1 := by
+      dsimp [memoryQ]
+      split_ifs with h
+      · exact ⟨Real.sqrt_nonneg _, Real.sqrt_le_one.mpr hq.2⟩
+      · exact hq
+    dsimp [memoryEta]
+    constructor <;> linarith
+  have hEta0 :
+      0 ≤ ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val :=
+    Finset.sum_nonneg fun j _ => (heta j).1
+  have hEtaSum :
+      (∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val) ≤
+        ((S.N : ℝ) + 1) := by
+    have hle :
+        (∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val) ≤
+          ∑ j : Fin (pathLength S.x + 1), (1 : ℝ) := by
+      apply Finset.sum_le_sum
+      intro j hj
+      exact (heta j).2
+    calc
+      _ ≤ ∑ j : Fin (pathLength S.x + 1), (1 : ℝ) := hle
+      _ = ((S.N : ℝ) + 1) := by simp [PDScale.N]
+  calc
+    (∑ p ∈ I, ((p : ℝ) + 1)⁻¹ *
+        ∑ lam : Fin (p + 1), (1 - pathPrimeFactor F S γ p lam)) ≤
+        ∑ p ∈ I, ((p : ℝ) + 1)⁻¹ *
+          ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val := by
+            apply Finset.sum_le_sum
+            intro p hp
+            exact root_inactive_prime_excess_le F S γ p hq₀ hq₁
+              (Finset.mem_filter.mp hp).2
+    _ = (∑ p ∈ I, ((p : ℝ) + 1)⁻¹) *
+          ∑ j : Fin (pathLength S.x + 1), memoryEta S.x F.q_d j.val := by
+            rw [Finset.sum_mul]
+    _ ≤ B * ((S.N : ℝ) + 1) := by
+          exact (mul_le_mul hmassI hEtaSum hEta0 hB)
+
+private lemma sum_union_le_sum_add {ι : Type*} [DecidableEq ι] (s t : Finset ι)
+    (f : ι → ℝ) (hf : ∀ i, 0 ≤ f i) :
+    (∑ i ∈ s ∪ t, f i) ≤ (∑ i ∈ s, f i) + (∑ i ∈ t, f i) := by
+  classical
+  have hsub : (∑ i ∈ s \ t, f i) ≤ ∑ i ∈ s, f i := by
+    exact Finset.sum_le_sum_of_subset_of_nonneg Finset.sdiff_subset
+      (by intro i hi hnot; exact hf i)
+  have hEq : s \ t ∪ t = s ∪ t := by
+    ext i
+    simp [Finset.mem_sdiff]
+  rw [← hEq, Finset.sum_union disjoint_sdiff_self_left]
+  simpa [add_comm] using add_le_add_right hsub (∑ i ∈ t, f i)
+
+private lemma sum_biUnion_le_sum_sum {ι κ : Type*} [DecidableEq κ]
+    (s : Finset ι) (t : ι → Finset κ) (f : κ → ℝ) (hf : ∀ k, 0 ≤ f k) :
+    (∑ k ∈ s.biUnion t, f k) ≤ ∑ i ∈ s, ∑ k ∈ t i, f k := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp
+  | @insert i s hi ih =>
+      rw [Finset.biUnion_insert]
+      calc
+        (∑ k ∈ t i ∪ s.biUnion t, f k) ≤
+            (∑ k ∈ t i, f k) + (∑ k ∈ s.biUnion t, f k) :=
+          sum_union_le_sum_add (t i) (s.biUnion t) f hf
+        _ ≤ (∑ k ∈ t i, f k) + ∑ j ∈ s, ∑ k ∈ t j, f k := by
+          simpa [add_comm] using add_le_add_left ih (∑ k ∈ t i, f k)
+        _ = ∑ j ∈ insert i s, ∑ k ∈ t j, f k := by rw [Finset.sum_insert hi]
+
+private lemma marked_reciprocal_mass_bound {K : ℕ} (a : Fin K → ℝ)
+    (ha : ValidBands K a) :
+    ∃ B x₀ : ℝ, 0 < B ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        (∑ p ∈ markedPrimes x K a, ((p : ℝ) + 1)⁻¹) ≤ B := by
+  classical
+  rcases ha with ⟨hK, ha, horder⟩
+  have hband : ∀ i : Fin K, ∃ xi : ℝ, 2 ≤ xi ∧
+      ∀ x : ℝ, xi ≤ x → bandMass x (a i) ≤ 2 := by
+    intro i
+    have hai := ha i
+    obtain ⟨xi, hxi, hmass⟩ := band_mass (a i)
+      (by linarith [hai.1]) (by linarith [hai.2]) 1 (by norm_num)
+    refine ⟨xi, hxi, ?_⟩
+    intro x hx
+    have habs := (hmass x hx).1
+    have hlog : Real.log 2 ≤ 1 := by
+      have := Real.log_le_sub_one_of_pos (by norm_num : (0 : ℝ) < 2)
+      linarith
+    have hupper := (abs_le.mp habs).2
+    linarith
+  choose X hX using hband
+  let x₀ : ℝ := ∑ i : Fin K, X i
+  let B : ℝ := 2 * K
+  have hKreal : (1 : ℝ) ≤ K := by exact_mod_cast (Nat.succ_le_of_lt hK)
+  have hx₀ : 2 ≤ x₀ := by
+    have hsum : (∑ i : Fin K, (2 : ℝ)) ≤ ∑ i : Fin K, X i := by
+      apply Finset.sum_le_sum
+      intro i hi
+      exact (hX i).1
+    have hsum' : (K : ℝ) * 2 ≤ x₀ := by
+      dsimp [x₀]
+      simpa [Finset.sum_const, nsmul_eq_mul, mul_comm] using hsum
+    nlinarith [hsum', hKreal]
+  have hXi (i : Fin K) : X i ≤ x₀ := by
+    dsimp [x₀]
+    exact Finset.single_le_sum (fun j hj => le_trans (by norm_num) (hX j).1)
+      (Finset.mem_univ i)
+  refine ⟨B, x₀, ?_, hx₀, ?_⟩
+  · dsimp [B]
+    exact mul_pos (by norm_num) (by exact_mod_cast (Nat.pos_of_ne_zero (by omega : K ≠ 0)))
+  · intro x hx
+    have hbandmass (i : Fin K) : bandMass x (a i) ≤ 2 :=
+      (hX i).2 x (le_trans (hXi i) hx)
+    have hsumUnion :
+        (∑ p ∈ markedPrimes x K a, ((p : ℝ) + 1)⁻¹) ≤
+          ∑ i : Fin K, ∑ p ∈ primeBand x (a i), ((p : ℝ) + 1)⁻¹ := by
+      simpa [markedPrimes] using
+        (sum_biUnion_le_sum_sum (Finset.univ : Finset (Fin K))
+          (fun i => primeBand x (a i)) (fun p => ((p : ℝ) + 1)⁻¹)
+          (by intro p; positivity))
+    have hbandSum (i : Fin K) :
+        (∑ p ∈ primeBand x (a i), ((p : ℝ) + 1)⁻¹) ≤ bandMass x (a i) := by
+      rw [bandMass]
+      apply Finset.sum_le_sum
+      intro p hp
+      have hpPrime : p.Prime := (Finset.mem_filter.mp hp).2.1
+      have hpPos : (0 : ℝ) < (p : ℝ) := by exact_mod_cast hpPrime.pos
+      simpa [one_div] using
+        one_div_le_one_div_of_le (a := (p : ℝ)) (b := (p : ℝ) + 1)
+          hpPos (by linarith)
+    have hsumMass :
+        (∑ i : Fin K, ∑ p ∈ primeBand x (a i), ((p : ℝ) + 1)⁻¹) ≤
+          ∑ i : Fin K, (2 : ℝ) := by
+      apply Finset.sum_le_sum
+      intro i hi
+      exact (hbandSum i).trans (hbandmass i)
+    calc
+      (∑ p ∈ markedPrimes x K a, ((p : ℝ) + 1)⁻¹) ≤
+          ∑ i : Fin K, ∑ p ∈ primeBand x (a i), ((p : ℝ) + 1)⁻¹ := hsumUnion
+      _ ≤ ∑ i : Fin K, (2 : ℝ) := hsumMass
+      _ = B := by simp [B, Finset.sum_const, nsmul_eq_mul, mul_comm]
+
+private lemma pathActivePrimes_card_le {x : ℝ} {K : ℕ} (γ : EnvPath x K) :
+    (pathActivePrimes γ).card ≤ (pathLength x + 1) * K * slotCount x := by
+  classical
+  unfold pathActivePrimes
+  calc
+    (Finset.univ.biUnion fun j : Fin (pathLength x + 1) =>
+        Finset.univ.biUnion fun i : Fin K =>
+          Finset.univ.image fun jj => (γ j).2 i jj).card ≤
+      ∑ j : Fin (pathLength x + 1),
+        (Finset.univ.biUnion fun i : Fin K =>
+          Finset.univ.image fun jj => (γ j).2 i jj).card := Finset.card_biUnion_le
+    _ ≤ ∑ j : Fin (pathLength x + 1),
+        ∑ i : Fin K, (Finset.univ.image fun jj => (γ j).2 i jj).card := by
+          apply Finset.sum_le_sum
+          intro j hj
+          exact Finset.card_biUnion_le
+    _ ≤ ∑ j : Fin (pathLength x + 1), ∑ i : Fin K, slotCount x := by
+          apply Finset.sum_le_sum
+          intro j hj
+          apply Finset.sum_le_sum
+          intro i hi
+          calc
+            (Finset.univ.image fun jj => (γ j).2 i jj).card ≤
+                (Finset.univ : Finset (Fin (slotCount x))).card := Finset.card_image_le
+            _ = slotCount x := by simp
+    _ = (pathLength x + 1) * K * slotCount x := by
+          simp [Finset.sum_const, Finset.card_univ, Fintype.card_fin,
+            Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+
+private lemma real_exp_pow_nat (t : ℝ) (n : ℕ) :
+    Real.exp t ^ n = Real.exp (t * (n : ℝ)) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      rw [pow_succ, ih, ← Real.exp_add]
+      congr 1
+      push_cast
+      ring
+
+private lemma compactSupport_abs_bound {f : ℝ → ℝ} (hf : HasCompactSupport f) :
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ t, f t ≠ 0 → |t| ≤ B := by
+  classical
+  have hbounded : Bornology.IsBounded (tsupport f) := hf.isBounded
+  obtain ⟨R, hR⟩ := (Metric.isBounded_iff_subset_closedBall (0 : ℝ)).mp hbounded
+  refine ⟨max R 0, le_max_right _ _, ?_⟩
+  intro t ht
+  have htSupport : t ∈ tsupport f := by
+    apply subset_tsupport
+    simpa [Function.support] using ht
+  have htBall : dist t 0 ≤ R := Metric.mem_closedBall.mp (hR htSupport)
+  have htAbs : |t| ≤ R := by simpa [Real.dist_eq] using htBall
+  exact htAbs.trans (le_max_left _ _)
+
+private lemma pdfix_psi_abs_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ t, F.psi t ≠ 0 → |t| ≤ B := by
+  rcases hF with ⟨_, _, _, _, _, hArc⟩
+  exact compactSupport_abs_bound hArc.2.1
+
+private lemma geometricMultiplier_psi_ne_zero {K : ℕ} (F : PDFix K) (S : PDScale)
+    (D aa bb : ℕ) (t : ℤ)
+    (hgeom : geometricMultiplier F S D aa bb t ≠ 0) :
+    F.psi ((t : ℝ) / S.Y) ≠ 0 := by
+  intro hpsi
+  apply hgeom
+  simp [geometricMultiplier, rawMultiplier, comparisonMultiplier, majorKernel, hpsi]
+
+private lemma slotKernel_nonzero_structure {K : ℕ} (F : PDFix K) (S : PDScale)
+    (p q : PrimeLists S.x K) (dt : ℤ) (h : slotKernel F S p q dt ≠ 0) :
+    IsSlotTransition p q ∧ IsPadAdmissible S.d₀ (sharedProduct p) dt ∧
+      geometricMultiplier F S (sharedProduct p) (lastProduct q) (lastProduct p)
+        (dt / (sharedProduct p : ℤ)) ≠ 0 := by
+  by_cases hcond : IsSlotTransition p q ∧ IsPadAdmissible S.d₀ (sharedProduct p) dt
+  · have hmul :
+        ((∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ : ℝ) : ℂ) *
+          geometricMultiplier F S (sharedProduct p) (lastProduct q) (lastProduct p)
+            (dt / (sharedProduct p : ℤ)) ≠ 0 := by
+      simpa [slotKernel, hcond] using h
+    exact ⟨hcond.1, hcond.2, (mul_ne_zero_iff.mp hmul).2⟩
+  · simp [slotKernel, hcond] at h
+
+private lemma slotKernel_det_bound {K : ℕ} (F : PDFix K) (S : PDScale)
+    (p q : PrimeLists S.x K) (dt : ℤ) (B : ℝ) (hB : 0 ≤ B)
+    (hpsiBound : ∀ t, F.psi t ≠ 0 → |t| ≤ B) (hY : 0 < S.Y)
+    (hkernel : slotKernel F S p q dt ≠ 0) :
+    |(dt : ℝ)| ≤ 2 * B * (S.d₀ : ℝ) * S.Y := by
+  classical
+  rcases slotKernel_nonzero_structure F S p q dt hkernel with ⟨_, hpad, hgeom⟩
+  let D := sharedProduct p
+  have hpsi := geometricMultiplier_psi_ne_zero F S D (lastProduct q) (lastProduct p)
+    (dt / (D : ℤ)) hgeom
+  have hquotient :
+      |((dt / (D : ℤ) : ℤ) : ℝ)| ≤ B * S.Y := by
+    have hratio := hpsiBound (((dt / (D : ℤ) : ℤ) : ℝ) / S.Y) hpsi
+    rw [abs_div, abs_of_pos hY] at hratio
+    exact (div_le_iff₀ hY).mp hratio
+  have hdiv : (D : ℤ) ∣ dt := by simpa [D] using hpad.2.2
+  have hdetInt : (dt / (D : ℤ)) * (D : ℤ) = dt := Int.ediv_mul_cancel hdiv
+  have hdetReal : (dt : ℝ) =
+      ((dt / (D : ℤ) : ℤ) : ℝ) * (D : ℝ) := by
+    exact_mod_cast hdetInt.symm
+  have hDnonneg : 0 ≤ (D : ℝ) := by positivity
+  have hDupper : (D : ℝ) ≤ 2 * (S.d₀ : ℝ) := by
+    dsimp [D]
+    exact hpad.2.1.le
+  have hBY : 0 ≤ B * S.Y := mul_nonneg hB hY.le
+  calc
+    |(dt : ℝ)| =
+        |((dt / (D : ℤ) : ℤ) : ℝ)| * (D : ℝ) := by
+          rw [hdetReal, abs_mul, abs_of_nonneg hDnonneg]
+    _ ≤ (B * S.Y) * (2 * (S.d₀ : ℝ)) :=
+          mul_le_mul hquotient hDupper hDnonneg hBY
+    _ = 2 * B * (S.d₀ : ℝ) * S.Y := by ring
+
+private lemma det2_swap (z z' : ℤ × ℤ) : det2 z' z = -det2 z z' := by
+  unfold det2
+  ring
+
+private lemma symKernel_nonzero_term {K : ℕ} (F : PDFix K) (S : PDScale)
+    (forward : Bool) (s s' : EnvPoint S.x K)
+    (hsym : symKernel F S forward s s' ≠ 0) :
+    ∃ σ σ' : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+      (if forward then
+        slotKernel F S (permuteLists σ s.2) (permuteLists σ' s'.2) (det2 s.1 s'.1)
+      else
+        star (slotKernel F S (permuteLists σ' s'.2) (permuteLists σ s.2)
+          (det2 s'.1 s.1))) ≠ 0 := by
+  classical
+  let A (σ σ' : Fin K → Equiv.Perm (Fin (slotCount S.x))) : ℂ :=
+    if forward then
+      slotKernel F S (permuteLists σ s.2) (permuteLists σ' s'.2) (det2 s.1 s'.1)
+    else
+      star (slotKernel F S (permuteLists σ' s'.2) (permuteLists σ s.2)
+        (det2 s'.1 s.1))
+  have hsum :
+      (∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        ∑ σ' : Fin K → Equiv.Perm (Fin (slotCount S.x)), A σ σ') ≠ 0 := by
+    have hmul :
+        ((permCount S.x K : ℂ))⁻¹ ^ 2 *
+          (∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+            ∑ σ' : Fin K → Equiv.Perm (Fin (slotCount S.x)), A σ σ') ≠ 0 := by
+      simpa [symKernel, A] using hsym
+    exact (mul_ne_zero_iff.mp hmul).2
+  obtain ⟨σ, hσ, hinner⟩ := Finset.exists_ne_zero_of_sum_ne_zero hsum
+  obtain ⟨σ', hσ', hterm⟩ := Finset.exists_ne_zero_of_sum_ne_zero hinner
+  exact ⟨σ, σ', by simpa [A] using hterm⟩
+
+private lemma pathCoefficient_edge_det_bound {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (hcoef : pathCoefficient F S γ ≠ 0)
+    (j : Fin (pathLength S.x)) (B : ℝ) (hB : 0 ≤ B)
+    (hpsiBound : ∀ t, F.psi t ≠ 0 → |t| ≤ B) (hY : 0 < S.Y) :
+    |det2 (γ j.castSucc).1 (γ j.succ).1| ≤ 2 * B * (S.d₀ : ℝ) * S.Y := by
+  classical
+  have hsym :
+      symKernel F S (decide (j.val % 2 = 0)) (γ j.castSucc) (γ j.succ) ≠ 0 := by
+    intro hz
+    apply hcoef
+    unfold pathCoefficient
+    rw [Finset.prod_eq_zero (Finset.mem_univ j) hz]
+    simp
+  obtain ⟨σ, σ', hterm⟩ := symKernel_nonzero_term F S
+    (decide (j.val % 2 = 0)) (γ j.castSucc) (γ j.succ) hsym
+  cases hfwd : decide (j.val % 2 = 0) with
+  | true =>
+      have hslot :
+          slotKernel F S (permuteLists σ (γ j.castSucc).2)
+            (permuteLists σ' (γ j.succ).2)
+            (det2 (γ j.castSucc).1 (γ j.succ).1) ≠ 0 := by
+        simpa [hfwd] using hterm
+      simpa [Int.cast_abs] using
+        (slotKernel_det_bound F S _ _ _ B hB hpsiBound hY hslot)
+  | false =>
+      have hstar : star (slotKernel F S (permuteLists σ' (γ j.succ).2)
+          (permuteLists σ (γ j.castSucc).2)
+          (det2 (γ j.succ).1 (γ j.castSucc).1)) ≠ 0 := by
+        simpa [hfwd] using hterm
+      have hslot : slotKernel F S (permuteLists σ' (γ j.succ).2)
+          (permuteLists σ (γ j.castSucc).2)
+          (det2 (γ j.succ).1 (γ j.castSucc).1) ≠ 0 := by
+        simpa using hstar
+      have hb := slotKernel_det_bound F S _ _ _ B hB hpsiBound hY hslot
+      have hswap := det2_swap (γ j.castSucc).1 (γ j.succ).1
+      rw [hswap, Int.cast_neg, abs_neg] at hb
+      simpa [Int.cast_abs] using hb
+
+private lemma pathArch_box_good {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (γ : EnvPath S.x K) (harch : pathArch F S w γ ≠ 0) :
+    ∀ j : Fin (pathLength S.x + 1),
+      envBox S w (γ j).1 ∧ envGood F S w (γ j) := by
+  intro j
+  have hprod :
+      (∏ j : Fin (pathLength S.x + 1),
+        if envBox S w (γ j).1 ∧ envGood F S w (γ j) then (1 : ℝ) else 0) ≠ 0 := harch
+  have hfactor :
+      (if envBox S w (γ j).1 ∧ envGood F S w (γ j) then (1 : ℝ) else 0) ≠ 0 := by
+    intro hz
+    exact hprod (Finset.prod_eq_zero (Finset.mem_univ j) hz)
+  by_contra hn
+  simp [hn] at hfactor
+
+private lemma envBox_tau_bounds {K : ℕ} (S : PDScale) (w : ArchRoot)
+    (z : ℤ × ℤ) (hw : w.InRegion S) (hU : 0 < S.U)
+    (hbox : envBox S w z) :
+    (1 / 16 : ℝ) ≤ w.tau z ∧ w.tau z ≤ 16 := by
+  rcases hw with ⟨huL, huU, hvL, hvU, hrL, hrU⟩
+  rcases hbox with ⟨hboxL, hboxU, _, _⟩
+  have huPos : 0 < w.u := hU.trans_le huL
+  have hratioL : S.U / w.u ≤ w.tau z := (div_le_iff₀ huPos).2 (by
+    simpa [mul_comm] using hboxL)
+  have hratioL' : (1 / 16 : ℝ) ≤ S.U / w.u :=
+    (le_div_iff₀ huPos).2 (by nlinarith)
+  have hratioU : w.tau z ≤ (16 * S.U) / w.u :=
+    (le_div_iff₀ huPos).2 (by simpa [mul_comm] using hboxU)
+  have hratioU' : (16 * S.U) / w.u ≤ 16 :=
+    (div_le_iff₀ huPos).2 (by nlinarith [huL])
+  exact ⟨hratioL'.trans hratioL, hratioU.trans hratioU'⟩
+
+private lemma det2_archCoord (w : ArchRoot) (hu : w.u ≠ 0) (z z' : ℤ × ℤ) :
+    det2 z z' =
+      (w.u * w.tau z) * (w.v * w.tau z' + (z'.2 : ℝ) / w.u) -
+        (w.v * w.tau z + (z.2 : ℝ) / w.u) * (w.u * w.tau z') := by
+  unfold det2 ArchRoot.tau
+  push_cast
+  field_simp [hu]
+  ring
+
+private def archRootCoordX (w : ArchRoot) (z : ℤ × ℤ) : ℝ := w.u * w.tau z
+
+private def archRootCoordY (w : ArchRoot) (z : ℤ × ℤ) : ℝ :=
+  w.v * w.tau z + (z.2 : ℝ) / w.u
+
+private def archRootSlope (w : ArchRoot) (z : ℤ × ℤ) : ℝ :=
+  archRootCoordY w z / archRootCoordX w z
+
+private lemma archRootSlope_step (w : ArchRoot) (hu : w.u ≠ 0) (z z' : ℤ × ℤ)
+    (hx : 0 < archRootCoordX w z) (hx' : 0 < archRootCoordX w z') :
+    archRootSlope w z' - archRootSlope w z =
+      det2 z z' / (archRootCoordX w z * archRootCoordX w z') := by
+  have hprod : w.u * w.tau z ≠ 0 := by
+    exact ne_of_gt (by simpa [archRootCoordX] using hx)
+  have hprod' : w.u * w.tau z' ≠ 0 := by
+    exact ne_of_gt (by simpa [archRootCoordX] using hx')
+  have htau : w.tau z ≠ 0 := (mul_ne_zero_iff.mp hprod).2
+  have htau' : w.tau z' ≠ 0 := (mul_ne_zero_iff.mp hprod').2
+  rw [archRootSlope, archRootSlope, archRootCoordX, archRootCoordX,
+    archRootCoordY, archRootCoordY, det2_archCoord w hu z z']
+  field_simp [hu, htau, htau']
+
+private lemma abs_fin_path_variation_le {N : ℕ} (f : Fin (N + 1) → ℝ)
+    (B : ℝ) (hB : 0 ≤ B)
+    (hstep : ∀ j : Fin N, |f j.succ - f j.castSucc| ≤ B) :
+    ∀ j : Fin (N + 1), |f j - f 0| ≤ (j.val : ℝ) * B := by
+  have hbound : ∀ n (hn : n ≤ N),
+      |f ⟨n, Nat.lt_succ_of_le hn⟩ - f 0| ≤ (n : ℝ) * B := by
+    intro n
+    induction n with
+    | zero =>
+        intro hn
+        simp
+    | succ n ih =>
+        intro hn
+        have hnle : n ≤ N := Nat.le_of_succ_le hn
+        have hprev := ih hnle
+        let e : Fin N := ⟨n, Nat.lt_of_succ_le hn⟩
+        have hnext := hstep e
+        have hnext' :
+            |f ⟨n + 1, Nat.lt_succ_of_le hn⟩ - f ⟨n, Nat.lt_succ_of_le hnle⟩| ≤ B := by
+          simpa [e] using hnext
+        have hprev' :
+            |f ⟨n, Nat.lt_succ_of_le hnle⟩ - f 0| ≤ (n : ℝ) * B := by
+          simpa using hprev
+        calc
+          |f ⟨n + 1, Nat.lt_succ_of_le hn⟩ - f 0| =
+              |(f ⟨n + 1, Nat.lt_succ_of_le hn⟩ -
+                  f ⟨n, Nat.lt_succ_of_le hnle⟩) +
+                (f ⟨n, Nat.lt_succ_of_le hnle⟩ - f 0)| := by congr 1 <;> ring
+          _ ≤ |f ⟨n + 1, Nat.lt_succ_of_le hn⟩ -
+                f ⟨n, Nat.lt_succ_of_le hnle⟩| +
+              |f ⟨n, Nat.lt_succ_of_le hnle⟩ - f 0| := abs_add_le _ _
+          _ ≤ B + (n : ℝ) * B := add_le_add hnext' hprev'
+          _ = ((n + 1 : ℕ) : ℝ) * B := by rw [Nat.cast_add]; ring
+  intro j
+  exact hbound j.val (Nat.le_of_lt_succ j.isLt)
+
+private lemma path_second_coordinate_bound {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (w : ArchRoot)
+    (hPath : IsEnvPathAdmissible F S γ) (hw : w.InRegion S) (hU : 0 < S.U)
+    (harch : pathArch F S w γ ≠ 0) (hcoef : pathCoefficient F S γ ≠ 0)
+    (B : ℝ) (hB : 0 ≤ B) (hpsiBound : ∀ t, F.psi t ≠ 0 → |t| ≤ B)
+    (hY : 0 < S.Y) :
+    ∀ j : Fin (pathLength S.x + 1),
+      |((γ j).1.2 : ℝ)| ≤ 256 * (j.val : ℝ) *
+        (2 * B * (S.d₀ : ℝ) * S.Y) := by
+  classical
+  have hboxes := pathArch_box_good F S w γ harch
+  have huPos : 0 < w.u := hU.trans_le hw.1
+  have hu : w.u ≠ 0 := ne_of_gt huPos
+  let E : ℝ := 2 * B * (S.d₀ : ℝ) * S.Y
+  let bstep : ℝ := E / S.U ^ 2
+  have hE : 0 ≤ E := by dsimp [E]; positivity
+  have hstepNonneg : 0 ≤ bstep := by
+    dsimp [bstep]
+    exact div_nonneg hE (sq_nonneg _)
+  have hU2 : 0 < S.U ^ 2 := sq_pos_of_pos hU
+  have hSlopeStep : ∀ k : Fin (pathLength S.x),
+      |archRootSlope w ((γ k.succ).1) - archRootSlope w ((γ k.castSucc).1)| ≤ bstep := by
+    intro k
+    have hbox₀ := (hboxes k.castSucc).1
+    have hbox₁ := (hboxes k.succ).1
+    have hbox₀L : S.U ≤ archRootCoordX w (γ k.castSucc).1 := by
+      simpa [archRootCoordX] using hbox₀.1
+    have hbox₁L : S.U ≤ archRootCoordX w (γ k.succ).1 := by
+      simpa [archRootCoordX] using hbox₁.1
+    have hx₀ : 0 < archRootCoordX w (γ k.castSucc).1 := hU.trans_le hbox₀L
+    have hx₁ : 0 < archRootCoordX w (γ k.succ).1 := hU.trans_le hbox₁L
+    have hprodPos :
+        0 < archRootCoordX w (γ k.castSucc).1 * archRootCoordX w (γ k.succ).1 :=
+      mul_pos hx₀ hx₁
+    have hprodLower : S.U ^ 2 ≤
+        archRootCoordX w (γ k.castSucc).1 * archRootCoordX w (γ k.succ).1 := by
+      calc
+        S.U ^ 2 = S.U * S.U := by rw [pow_two]
+        _ ≤ archRootCoordX w (γ k.castSucc).1 * S.U :=
+          mul_le_mul_of_nonneg_right hbox₀L (le_of_lt hU)
+        _ ≤ archRootCoordX w (γ k.castSucc).1 * archRootCoordX w (γ k.succ).1 :=
+          mul_le_mul_of_nonneg_left hbox₁L (le_of_lt hx₀)
+    have hdet := pathCoefficient_edge_det_bound F S γ hcoef k B hB hpsiBound hY
+    have hnum :
+        |det2 (γ k.castSucc).1 (γ k.succ).1| * S.U ^ 2 ≤
+          E * (archRootCoordX w (γ k.castSucc).1 * archRootCoordX w (γ k.succ).1) :=
+      mul_le_mul hdet hprodLower (sq_nonneg S.U) hE
+    have hfrac :
+        |det2 (γ k.castSucc).1 (γ k.succ).1| /
+            (archRootCoordX w (γ k.castSucc).1 * archRootCoordX w (γ k.succ).1) ≤
+          E / S.U ^ 2 := (div_le_div_iff₀ hprodPos hU2).2 hnum
+    rw [archRootSlope_step w hu _ _ hx₀ hx₁, abs_div, abs_of_pos hprodPos]
+    simpa [bstep] using hfrac
+  have hvariation := abs_fin_path_variation_le
+    (fun j => archRootSlope w (γ j).1) bstep hstepNonneg hSlopeStep
+  intro j
+  let z₀ := (γ 0).1
+  let zj := (γ j).1
+  have hzstart : z₀ = (1, 0) := hPath.2.1
+  have hbox₀ := (hboxes 0).1
+  have hboxj := (hboxes j).1
+  have hbox₀L : S.U ≤ archRootCoordX w z₀ := by simpa [archRootCoordX] using hbox₀.1
+  have hboxjL : S.U ≤ archRootCoordX w zj := by simpa [archRootCoordX] using hboxj.1
+  have hx₀pos : 0 < archRootCoordX w z₀ := hU.trans_le hbox₀L
+  have hxjpos : 0 < archRootCoordX w zj := hU.trans_le hboxjL
+  have hx₀upper : archRootCoordX w z₀ ≤ 16 * S.U := by
+    simpa [archRootCoordX] using hbox₀.2.1
+  have hxjupper : archRootCoordX w zj ≤ 16 * S.U := by
+    simpa [archRootCoordX] using hboxj.2.1
+  have hprod0 : 0 ≤ archRootCoordX w z₀ * archRootCoordX w zj :=
+    mul_nonneg (le_of_lt hx₀pos) (le_of_lt hxjpos)
+  have hprodUpper : archRootCoordX w z₀ * archRootCoordX w zj ≤ 256 * S.U ^ 2 := by
+    calc
+      archRootCoordX w z₀ * archRootCoordX w zj ≤
+          (16 * S.U) * (16 * S.U) :=
+        mul_le_mul hx₀upper hxjupper (le_of_lt hxjpos) (by positivity)
+      _ = 256 * S.U ^ 2 := by ring
+  have hdetArch := det2_archCoord w hu z₀ zj
+  have hdetStart : det2 z₀ zj = zj.2 := by
+    rw [hzstart]
+    simp [det2]
+  have hdetStartCast := congrArg (fun d : ℤ => (d : ℝ)) hdetStart
+  rw [hdetStartCast] at hdetArch
+  change (zj.2 : ℝ) =
+    archRootCoordX w z₀ * archRootCoordY w zj -
+      archRootCoordY w z₀ * archRootCoordX w zj at hdetArch
+  have hcoordSlope :
+      archRootCoordX w z₀ * archRootCoordY w zj -
+          archRootCoordY w z₀ * archRootCoordX w zj =
+        archRootCoordX w z₀ * archRootCoordX w zj *
+          (archRootSlope w zj - archRootSlope w z₀) := by
+    have hτ₀ : w.tau z₀ ≠ 0 :=
+      (mul_ne_zero_iff.mp (ne_of_gt (by simpa [archRootCoordX] using hx₀pos))).2
+    have hτj : w.tau zj ≠ 0 :=
+      (mul_ne_zero_iff.mp (ne_of_gt (by simpa [archRootCoordX] using hxjpos))).2
+    dsimp [archRootCoordX, archRootCoordY, archRootSlope]
+    field_simp [hu, hτ₀, hτj]
+  rw [hcoordSlope] at hdetArch
+  have hcoordAbs :
+      |(zj.2 : ℝ)| =
+        archRootCoordX w z₀ * archRootCoordX w zj *
+          |archRootSlope w zj - archRootSlope w z₀| := by
+    rw [hdetArch, abs_mul, abs_of_nonneg hprod0]
+  have hvarj := hvariation j
+  calc
+    |(zj.2 : ℝ)| ≤ 256 * S.U ^ 2 * ((j.val : ℝ) * bstep) := by
+      rw [hcoordAbs]
+      exact mul_le_mul hprodUpper hvarj (abs_nonneg _) (by positivity)
+    _ = 256 * (j.val : ℝ) * E := by
+      dsimp [bstep]
+      field_simp [ne_of_gt hU]
+    _ = 256 * (j.val : ℝ) * (2 * B * (S.d₀ : ℝ) * S.Y) := by rfl
+
+private lemma path_first_coordinate_bound {K : ℕ} (S : PDScale) (γ : EnvPath S.x K)
+    (w : ArchRoot) (hw : w.InRegion S) (hU : 0 < S.U)
+    (hboxes : ∀ j : Fin (pathLength S.x + 1), envBox S w (γ j).1) :
+    ∀ j : Fin (pathLength S.x + 1),
+      |((γ j).1.1 : ℝ)| ≤ 16 + |((γ j).1.2 : ℝ)| := by
+  have hwRegion := hw
+  rcases hw with ⟨_, _, _, _, hr₀, hr₁⟩
+  intro j
+  have htau := envBox_tau_bounds (K := K) S w (γ j).1 hwRegion hU (hboxes j)
+  have htauAbs : |w.tau (γ j).1| ≤ 16 := by
+    rw [abs_of_nonneg (le_trans (by norm_num : (0 : ℝ) ≤ 1 / 16) htau.1)]
+    exact htau.2
+  have hrAbs : |w.r| ≤ 1 := abs_le.mpr ⟨by linarith [hr₀], hr₁⟩
+  have hidentity : ((γ j).1.1 : ℝ) =
+      w.tau (γ j).1 - w.r * ((γ j).1.2 : ℝ) := by
+    dsimp [ArchRoot.tau]
+    ring
+  calc
+    |((γ j).1.1 : ℝ)| ≤ |w.tau (γ j).1| + |w.r * ((γ j).1.2 : ℝ)| := by
+      rw [hidentity]
+      calc
+        |w.tau (γ j).1 - w.r * ((γ j).1.2 : ℝ)| =
+            |w.tau (γ j).1 + -(w.r * ((γ j).1.2 : ℝ))| := by congr 1
+        _ ≤ |w.tau (γ j).1| + |-(w.r * ((γ j).1.2 : ℝ))| := abs_add_le _ _
+        _ = |w.tau (γ j).1| + |w.r * ((γ j).1.2 : ℝ)| := by rw [abs_neg]
+    _ ≤ 16 + |((γ j).1.2 : ℝ)| := by
+      rw [abs_mul]
+      exact add_le_add htauAbs
+        (calc
+          |w.r| * |((γ j).1.2 : ℝ)| ≤ 1 * |((γ j).1.2 : ℝ)| :=
+            mul_le_mul_of_nonneg_right hrAbs (abs_nonneg _)
+          _ = |((γ j).1.2 : ℝ)| := by ring)
+
+private lemma root_active_product_bound {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (hF : F.Valid)
+    (hPath : IsEnvPathAdmissible F S γ) (hL : 1 ≤ S.L) :
+    (∏ p ∈ pathActivePrimes γ, (p : ℝ)) ≤
+      Real.exp (16 * (K : ℝ) * Real.rpow S.L (72 / 100 : ℝ)) := by
+  classical
+  rcases hF.1 with ⟨_, hband, _⟩
+  have hLpow : 1 ≤ Real.rpow S.L (1 / 2 : ℝ) := by
+    have h := Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (0 : ℝ) ≤ 1 / 2)
+    simpa using h
+  have hLpowJ : 1 ≤ Real.rpow S.L (1 / 100 : ℝ) := by
+    have h := Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (0 : ℝ) ≤ 1 / 100)
+    simpa using h
+  have hLpowPos : 0 < S.L := lt_of_lt_of_le zero_lt_one hL
+  have hN : (pathLength S.x : ℝ) + 1 ≤ 4 * Real.rpow S.L (1 / 2 : ℝ) := by
+    have hceil : (momentR S.x : ℝ) < Real.rpow S.L (1 / 2 : ℝ) / 2 + 1 := by
+      dsimp [momentR]
+      exact Nat.ceil_lt_add_one (by positivity)
+    have hN' : 2 * (momentR S.x : ℝ) + 1 <
+        Real.rpow S.L (1 / 2 : ℝ) + 3 := by nlinarith [hceil]
+    have hN'' : Real.rpow S.L (1 / 2 : ℝ) + 3 ≤
+        4 * Real.rpow S.L (1 / 2 : ℝ) := by nlinarith [hLpow]
+    have hN''' : 2 * (momentR S.x : ℝ) + 1 ≤
+        4 * Real.rpow S.L (1 / 2 : ℝ) := hN'.le.trans hN''
+    simpa [pathLength] using hN'''
+  have hM : (slotCount S.x : ℝ) ≤ 2 * Real.rpow S.L (1 / 100 : ℝ) := by
+    have hfloor : (momentJ S.x : ℝ) ≤ Real.rpow S.L (1 / 100 : ℝ) := by
+      dsimp [momentJ]
+      exact Nat.floor_le (by positivity)
+    have hM' : (momentJ S.x : ℝ) + 1 ≤
+        2 * Real.rpow S.L (1 / 100 : ℝ) := by nlinarith [hfloor, hLpowJ]
+    simpa [slotCount] using hM'
+  have hActivePrimeBound : ∀ p ∈ pathActivePrimes γ,
+      (p : ℝ) ≤ Real.exp (2 * Real.rpow S.L (1 / 5 : ℝ)) := by
+    intro p hp
+    have hrepr : ∃ j i jj, (γ j).2 i jj = p := by
+      simpa [pathActivePrimes] using hp
+    rcases hrepr with ⟨j, i, jj, rfl⟩
+    have hValid := hPath.1 j
+    have hPrimeBand := hValid.2.1 i jj
+    have ha_i := hband i
+    have hpow := Real.rpow_le_rpow_of_exponent_le hL ha_i.2.le
+    have hbandUpper :
+        ((γ j).2 i jj : ℝ) ≤ Real.exp (2 * Real.rpow S.L (F.a i)) :=
+      (Finset.mem_filter.mp hPrimeBand.2).2.2.2
+    have hpow2 := mul_le_mul_of_nonneg_left hpow (by norm_num : (0 : ℝ) ≤ 2)
+    exact hbandUpper.trans (Real.exp_le_exp.mpr hpow2)
+  have hprod₀ := Finset.prod_le_prod₀
+    (s := pathActivePrimes γ) (f := fun p : ℕ => (p : ℝ))
+    (g := fun _ : ℕ => Real.exp (2 * Real.rpow S.L (1 / 5 : ℝ)))
+    (by intro p hp; exact Nat.cast_nonneg p) hActivePrimeBound
+  have hprod : (∏ p ∈ pathActivePrimes γ, (p : ℝ)) ≤
+      Real.exp (2 * Real.rpow S.L (1 / 5 : ℝ)) ^ (pathActivePrimes γ).card := by
+    calc
+      (∏ p ∈ pathActivePrimes γ, (p : ℝ)) ≤
+          ∏ p ∈ pathActivePrimes γ, Real.exp (2 * Real.rpow S.L (1 / 5 : ℝ)) := hprod₀
+      _ = Real.exp (2 * Real.rpow S.L (1 / 5 : ℝ)) ^ (pathActivePrimes γ).card := by simp
+  have hcardNat := pathActivePrimes_card_le γ
+  have hcardReal :
+      ((pathActivePrimes γ).card : ℝ) ≤
+        ((pathLength S.x + 1) * K * slotCount S.x : ℕ) := by exact_mod_cast hcardNat
+  have hcardReal' :
+      ((pathActivePrimes γ).card : ℝ) ≤
+        8 * (K : ℝ) * Real.rpow S.L (51 / 100 : ℝ) := by
+    calc
+      ((pathActivePrimes γ).card : ℝ) ≤
+          ((pathLength S.x + 1) * K * slotCount S.x : ℕ) := hcardReal
+      _ = ((pathLength S.x : ℝ) + 1) * (K : ℝ) * (slotCount S.x : ℝ) := by norm_num
+      _ ≤ (4 * Real.rpow S.L (1 / 2 : ℝ)) * (K : ℝ) *
+            (2 * Real.rpow S.L (1 / 100 : ℝ)) := by
+              calc
+                ((pathLength S.x : ℝ) + 1) * (K : ℝ) * (slotCount S.x : ℝ) =
+                    ((pathLength S.x : ℝ) + 1) * ((K : ℝ) * (slotCount S.x : ℝ)) := by ring
+                _ ≤ (4 * Real.rpow S.L (1 / 2 : ℝ)) *
+                    ((K : ℝ) * (slotCount S.x : ℝ)) :=
+                      mul_le_mul_of_nonneg_right hN (by positivity)
+                _ = ((4 * Real.rpow S.L (1 / 2 : ℝ)) * (K : ℝ)) *
+                      (slotCount S.x : ℝ) := by ring
+                _ ≤ ((4 * Real.rpow S.L (1 / 2 : ℝ)) * (K : ℝ)) *
+                      (2 * Real.rpow S.L (1 / 100 : ℝ)) :=
+                        mul_le_mul_of_nonneg_left hM (by positivity)
+                _ = (4 * Real.rpow S.L (1 / 2 : ℝ)) * (K : ℝ) *
+                      (2 * Real.rpow S.L (1 / 100 : ℝ)) := by ring
+      _ = 8 * (K : ℝ) * Real.rpow S.L (51 / 100 : ℝ) := by
+            have hpowMul : Real.rpow S.L (1 / 2 : ℝ) *
+                Real.rpow S.L (1 / 100 : ℝ) = Real.rpow S.L (51 / 100 : ℝ) := by
+              calc
+                Real.rpow S.L (1 / 2 : ℝ) * Real.rpow S.L (1 / 100 : ℝ) =
+                    Real.rpow S.L ((1 / 2 : ℝ) + 1 / 100) :=
+                  (Real.rpow_add hLpowPos (1 / 2 : ℝ) (1 / 100 : ℝ)).symm
+                _ = Real.rpow S.L (51 / 100 : ℝ) := by congr 1 <;> norm_num
+            calc
+              (4 * Real.rpow S.L (1 / 2 : ℝ)) * (K : ℝ) *
+                  (2 * Real.rpow S.L (1 / 100 : ℝ)) =
+                8 * (K : ℝ) * (Real.rpow S.L (1 / 2 : ℝ) *
+                  Real.rpow S.L (1 / 100 : ℝ)) := by ring
+              _ = 8 * (K : ℝ) * Real.rpow S.L (51 / 100 : ℝ) := by rw [hpowMul]
+  have hExpo :
+      (2 * Real.rpow S.L (1 / 5 : ℝ)) * ((pathActivePrimes γ).card : ℝ) ≤
+        16 * (K : ℝ) * Real.rpow S.L (72 / 100 : ℝ) := by
+    have hpow := Real.rpow_le_rpow_of_exponent_le hL
+      (by norm_num : (71 / 100 : ℝ) ≤ 72 / 100)
+    have hfactorNonneg : 0 ≤ 2 * Real.rpow S.L (1 / 5 : ℝ) :=
+      mul_nonneg (by norm_num) (Real.rpow_nonneg (le_of_lt hLpowPos) _)
+    calc
+      (2 * Real.rpow S.L (1 / 5 : ℝ)) * ((pathActivePrimes γ).card : ℝ) ≤
+        (2 * Real.rpow S.L (1 / 5 : ℝ)) *
+            (8 * (K : ℝ) * Real.rpow S.L (51 / 100 : ℝ)) :=
+        mul_le_mul_of_nonneg_left hcardReal' hfactorNonneg
+      _ = 16 * (K : ℝ) * Real.rpow S.L (71 / 100 : ℝ) := by
+            have hpowMul : Real.rpow S.L (1 / 5 : ℝ) *
+                Real.rpow S.L (51 / 100 : ℝ) = Real.rpow S.L (71 / 100 : ℝ) := by
+              calc
+                Real.rpow S.L (1 / 5 : ℝ) * Real.rpow S.L (51 / 100 : ℝ) =
+                    Real.rpow S.L ((1 / 5 : ℝ) + 51 / 100) :=
+                  (Real.rpow_add hLpowPos (1 / 5 : ℝ) (51 / 100 : ℝ)).symm
+                _ = Real.rpow S.L (71 / 100 : ℝ) := by congr 1 <;> norm_num
+            calc
+              (2 * Real.rpow S.L (1 / 5 : ℝ)) *
+                  (8 * (K : ℝ) * Real.rpow S.L (51 / 100 : ℝ)) =
+                16 * (K : ℝ) * (Real.rpow S.L (1 / 5 : ℝ) *
+                  Real.rpow S.L (51 / 100 : ℝ)) := by ring
+              _ = 16 * (K : ℝ) * Real.rpow S.L (71 / 100 : ℝ) := by rw [hpowMul]
+      _ ≤ 16 * (K : ℝ) * Real.rpow S.L (72 / 100 : ℝ) := by
+            exact mul_le_mul_of_nonneg_left hpow
+              (mul_nonneg (by norm_num) (Nat.cast_nonneg K))
+  calc
+    (∏ p ∈ pathActivePrimes γ, (p : ℝ)) ≤
+        Real.exp (2 * Real.rpow S.L (1 / 5 : ℝ)) ^ (pathActivePrimes γ).card := hprod
+    _ = Real.exp ((2 * Real.rpow S.L (1 / 5 : ℝ)) * (pathActivePrimes γ).card) :=
+          real_exp_pow_nat _ _
+    _ ≤ Real.exp (16 * (K : ℝ) * Real.rpow S.L (72 / 100 : ℝ)) :=
+          Real.exp_le_exp.mpr hExpo
 
 /-- `t2:pd.root-budget` (new node) — PD 03:631-641, 645-652, 667-672.  Budgets of the path
 expansion: finitely many contributing paths with `Σ|coefficient| ≤ exp(C L^{0.73})`; on each, the
