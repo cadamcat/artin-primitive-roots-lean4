@@ -66,7 +66,17 @@ def xEntry (g : GL (Fin 2) (v.adicCompletion F)) : v.adicCompletion F :=
   else (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
 
 theorem xEntry_ne_zero (g : GL (Fin 2) (v.adicCompletion F)) : xEntry v g ≠ 0 := by
-  sorry
+  classical
+  unfold xEntry
+  split_ifs with h
+  · exact h
+  · intro h22
+    have h10 : (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by
+      simpa using h
+    have hdet := g.det_ne_zero
+    apply hdet
+    rw [Matrix.det_fin_two]
+    simp [h10, h22]
 
 /-- `x(g)` as a unit. -/
 def xU (g : GL (Fin 2) (v.adicCompletion F)) : (v.adicCompletion F)ˣ :=
@@ -76,12 +86,162 @@ def xU (g : GL (Fin 2) (v.adicCompletion F)) : (v.adicCompletion F)ˣ :=
 def detU (g : GL (Fin 2) (v.adicCompletion F)) : (v.adicCompletion F)ˣ :=
   Matrix.GeneralLinearGroup.det g
 
+private theorem xEntry_scalar_left (c : (v.adicCompletion F)ˣ)
+    (g : GL (Fin 2) (v.adicCompletion F)) :
+    xEntry v (Matrix.GeneralLinearGroup.scalar (Fin 2) c * g) = c * xEntry v g := by
+  classical
+  by_cases h10 : (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0
+  · have hp10 :
+        ((Matrix.GeneralLinearGroup.scalar (Fin 2) c * g : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by
+      simp [Matrix.mul_apply, h10]
+    have hp11 :
+        ((Matrix.GeneralLinearGroup.scalar (Fin 2) c * g : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 =
+          (c : v.adicCompletion F) * (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 := by
+      simp [Matrix.mul_apply]
+    simp [xEntry, h10, hp10, hp11]
+  · have hp10 :
+        ((Matrix.GeneralLinearGroup.scalar (Fin 2) c * g : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 =
+          (c : v.adicCompletion F) * (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 := by
+      simp [Matrix.mul_apply]
+    simp [xEntry, h10, hp10, c.ne_zero]
+
+private theorem xEntry_scalar_right (c : (v.adicCompletion F)ˣ)
+    (g : GL (Fin 2) (v.adicCompletion F)) :
+    xEntry v (g * Matrix.GeneralLinearGroup.scalar (Fin 2) c) = c * xEntry v g := by
+  rw [← Matrix.GeneralLinearGroup.scalar_commute c g]
+  exact xEntry_scalar_left v c g
+
+private theorem xU_scalar_left (c : (v.adicCompletion F)ˣ)
+    (g : GL (Fin 2) (v.adicCompletion F)) :
+    xU v (Matrix.GeneralLinearGroup.scalar (Fin 2) c * g) = c * xU v g := by
+  apply Units.ext
+  simp [xU, xEntry_scalar_left]
+
+private theorem xU_scalar_right (c : (v.adicCompletion F)ˣ)
+    (g : GL (Fin 2) (v.adicCompletion F)) :
+    xU v (g * Matrix.GeneralLinearGroup.scalar (Fin 2) c) = c * xU v g := by
+  rw [← Matrix.GeneralLinearGroup.scalar_commute c g]
+  exact xU_scalar_left v c g
+
+private theorem xU_scalar (c : (v.adicCompletion F)ˣ) :
+    xU v (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = c := by
+  apply Units.ext
+  simp [xU, xEntry, Matrix.GeneralLinearGroup.scalar]
+
+private theorem detU_scalar (c : (v.adicCompletion F)ˣ) :
+    detU v (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = c ^ 2 := by
+  simp [detU]
+
 /-- The KP cocycle with `c = 2`, read in `μ3(ℂ)` through `ι = σ0⁻¹`:
 `σ(g,h) = ι((x(gh)/x(g), x(gh)/(x(h)det g))₃ · (det g, det h)₃²)` with `(a,b)₃ = hilb(a,b)²`;
 equivalently `muThree(hilb(x(gh)/(x(h)det g), x(gh)/x(g))) · muThree(hilb(det g, det h))`. -/
 def kpCocycle (g h : GL (Fin 2) (v.adicCompletion F)) : rootsOfUnity 3 ℂ :=
   muThree D (H.hilb v (xU v (g * h) / (xU v h * detU v g)) (xU v (g * h) / xU v g)) *
     muThree D (H.hilb v (detU v g) (detU v h))
+
+private theorem muThree_one : muThree D (1 : rootsOfUnity 6 F) = 1 := by
+  apply rootsOfUnity.coe_injective
+  simp [muThree]
+
+private theorem muThree_mul (ζ ξ : rootsOfUnity 6 F) :
+    muThree D (ζ * ξ) = muThree D ζ * muThree D ξ := by
+  apply rootsOfUnity.coe_injective
+  simp [muThree, map_mul, mul_pow]
+
+private theorem hilb_one_left (b : (v.adicCompletion F)ˣ) : H.hilb v 1 b = 1 := by
+  exact H.sixth_power v 1 b ⟨1, by simp⟩
+
+private theorem hilb_one_right (a : (v.adicCompletion F)ˣ) : H.hilb v a 1 = 1 := by
+  have h := H.skew v a 1
+  rw [hilb_one_left H v a] at h
+  simpa using h
+
+private def kpPairing : (v.adicCompletion F)ˣ →* (v.adicCompletion F)ˣ →* rootsOfUnity 3 ℂ where
+  toFun a := {
+    toFun := fun b => muThree D (H.hilb v a b)
+    map_one' := by
+      rw [hilb_one_right H v a, muThree_one]
+    map_mul' := by
+      intro b b'
+      rw [H.mul_right, muThree_mul]
+  }
+  map_one' := by
+    ext b
+    rw [hilb_one_left H v b, muThree_one]
+  map_mul' := by
+    intro a a'
+    ext b
+    rw [H.mul_left, muThree_mul]
+
+private theorem kpPairing_skew (a b : (v.adicCompletion F)ˣ) :
+    kpPairing D H v a b * kpPairing D H v b a = 1 := by
+  change muThree D (H.hilb v a b) * muThree D (H.hilb v b a) = 1
+  rw [← muThree_mul, H.skew, muThree_one]
+
+private theorem kpPairing_inv_left (a b : (v.adicCompletion F)ˣ) :
+    kpPairing D H v a⁻¹ b = (kpPairing D H v a b)⁻¹ := by
+  have h := map_inv (kpPairing D H v) a
+  have h' := congrArg (fun f : (v.adicCompletion F)ˣ →* rootsOfUnity 3 ℂ => f b) h
+  simpa using h'
+
+private theorem kpPairing_pow_left (a b : (v.adicCompletion F)ˣ) (n : ℕ) :
+    kpPairing D H v (a ^ n) b = kpPairing D H v a b ^ n := by
+  have h := map_pow (kpPairing D H v) a n
+  have h' := congrArg (fun f : (v.adicCompletion F)ˣ →* rootsOfUnity 3 ℂ => f b) h
+  simpa using h'
+
+private theorem kpPairing_pow_right (a b : (v.adicCompletion F)ˣ) (n : ℕ) :
+    kpPairing D H v a (b ^ n) = kpPairing D H v a b ^ n :=
+  map_pow (kpPairing D H v a) b n
+
+private theorem kpPairing_cube (a b : (v.adicCompletion F)ˣ) :
+    kpPairing D H v a b ^ 3 = 1 := by
+  apply Subtype.ext
+  exact (kpPairing D H v a b).2
+
+private theorem kpPairing_four (a b : (v.adicCompletion F)ˣ) :
+    kpPairing D H v a b ^ 4 = kpPairing D H v a b := by
+  have h := kpPairing_cube D H v a b
+  calc
+    kpPairing D H v a b ^ 4 = kpPairing D H v a b ^ 3 * kpPairing D H v a b := by
+      rw [show 4 = 3 + 1 by norm_num, pow_succ]
+    _ = kpPairing D H v a b := by rw [h, one_mul]
+
+private theorem kpPairing_inv_square (a b : (v.adicCompletion F)ˣ) :
+    (kpPairing D H v a b)⁻¹ ^ 2 = kpPairing D H v a b := by
+  have h := kpPairing_cube D H v a b
+  have h2 : kpPairing D H v a b ^ 2 * kpPairing D H v a b = 1 := by
+    simpa [pow_succ] using h
+  have hinv : (kpPairing D H v a b)⁻¹ = kpPairing D H v a b ^ 2 :=
+    (eq_inv_of_mul_eq_one_left h2).symm
+  calc
+    (kpPairing D H v a b)⁻¹ ^ 2 = (kpPairing D H v a b ^ 2) ^ 2 := by rw [hinv]
+    _ = kpPairing D H v a b ^ 4 := by rw [← pow_mul]
+    _ = kpPairing D H v a b := kpPairing_four D H v a b
+
+private theorem kpPairing_inverse_swap (a b : (v.adicCompletion F)ˣ) :
+    (kpPairing D H v a b)⁻¹ = kpPairing D H v b a := by
+  exact (eq_inv_of_mul_eq_one_right (kpPairing_skew D H v a b)).symm
+
+private theorem kpPairing_square_swap (a b : (v.adicCompletion F)ˣ) :
+    kpPairing D H v a b ^ 2 = kpPairing D H v b a := by
+  have h := kpPairing_skew D H v a b
+  have hab : kpPairing D H v a b = (kpPairing D H v b a)⁻¹ :=
+    eq_inv_of_mul_eq_one_left h
+  rw [hab]
+  exact kpPairing_inv_square D H v b a
+
+private theorem kpPairing_div_left (a b c : (v.adicCompletion F)ˣ) :
+    kpPairing D H v (a / b) c = kpPairing D H v a c * (kpPairing D H v b c)⁻¹ := by
+  simpa [div_eq_mul_inv] using map_div₂ (kpPairing D H v) a b c
+
+private theorem kpCocycle_pairing (g h : GL (Fin 2) (v.adicCompletion F)) :
+    kpCocycle D H v g h =
+      kpPairing D H v (xU v (g * h) / (xU v h * detU v g)) (xU v (g * h) / xU v g) *
+        kpPairing D H v (detU v g) (detU v h) := rfl
 
 /-- The Steinberg relation for the sextic symbol at `v`. **Not a field of the frozen
 `HilbertData`** (A1 report, interface gap G1); ClassFieldTheory supplies it (`IsSteinberg`). -/
@@ -187,12 +347,35 @@ theorem kpCocycle_scalar (hSt : SteinbergAt H v) (c : (v.adicCompletion F)ˣ)
     (g : GL (Fin 2) (v.adicCompletion F)) :
     kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) c) g =
       kpCocycle D H v g (Matrix.GeneralLinearGroup.scalar (Fin 2) c) := by
-  sorry
+  rw [kpCocycle_pairing, kpCocycle_pairing]
+  simp only [xU_scalar_left, xU_scalar_right, xU_scalar, detU_scalar]
+  have h₁ : (c * xU v g) / (xU v g * c ^ 2) = c⁻¹ := by abel
+  have h₂ : (c * xU v g) / c = xU v g := by abel
+  have h₃ : (c * xU v g) / (c * detU v g) = xU v g / detU v g := by abel
+  have h₄ : (c * xU v g) / xU v g = c := by abel
+  rw [h₁, h₂, h₃, h₄]
+  rw [kpPairing_inv_left, kpPairing_inverse_swap, kpPairing_pow_left,
+    kpPairing_square_swap, kpPairing_div_left, kpPairing_pow_right]
+  group
 
 theorem kpCocycle_scalar_scalar (hSt : SteinbergAt H v) (c c' : (v.adicCompletion F)ˣ) :
     kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) c)
       (Matrix.GeneralLinearGroup.scalar (Fin 2) c') = 1 := by
-  sorry
+  rw [kpCocycle_pairing]
+  simp only [xU_scalar_left, xU_scalar, detU_scalar]
+  have h₁ : (c * c') / (c' * c ^ 2) = c⁻¹ := by abel
+  have h₂ : (c * c') / c = c' := by abel
+  rw [h₁, h₂, kpPairing_inv_left, kpPairing_pow_left, kpPairing_pow_right]
+  let z := kpPairing D H v c c'
+  change z⁻¹ * (z ^ 2) ^ 2 = 1
+  calc
+    z⁻¹ * (z ^ 2) ^ 2 = z⁻¹ * z ^ 4 := by
+      congr 1
+      rw [← pow_mul]
+      rw [show 2 * 2 = 4 by norm_num]
+    _ = z⁻¹ * z := by rw [show z ^ 4 = z by
+      simpa [z] using kpPairing_four D H v c c']
+    _ = 1 := inv_mul_cancel z
 
 /-- **cov:tame-splitting** (formula): on `GL₂(O_v)` at `v ∤ 6`,
 `s(k) = ι((k₂₁, k₂₂/det k)₃) = muThree(hilb(k₂₂/det k, k₂₁))` if `0 < ‖k₂₁‖ < 1`, else `1`,
