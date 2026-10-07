@@ -21,7 +21,9 @@ section A
 HyperbolicSpace.lean:163). Owner `spec:h3-basics`. -/
 theorem height_smul_pt (g : SL(2,ℂ)) (x : ℂ) (y : ℝ) (hy : 0 < y) :
     height (g • pt x y) = y / (Complex.normSq (g 1 0 * x + g 1 1) + Complex.normSq (g 1 0) * y ^ 2) := by
-  sorry
+  rw [height_eq_hyperbolicHeight, pt_eq_upperPoint x y hy]
+  rw [Complex.normSq_eq_norm_sq, Complex.normSq_eq_norm_sq]
+  exact OAI.CubicEisenstein.hyperbolicHeight_action_upperPoint g x y hy
 
 end A
 
@@ -51,7 +53,7 @@ theorem normHeight_smul_ptX' (g : SL(2,F)) (x : InfinitePlace F → ℂ) (y : In
     (hy : ∀ w, 0 < y w) :
     normHeight F (g • ptX' F x y) = ∏ w, y w / (Complex.normSq (w.embedding (g 1 0) * x w +
       w.embedding (g 1 1)) + Complex.normSq (w.embedding (g 1 0)) * y w ^ 2) := by
-  sorry
+  simp_rw [normHeight, height_smul_ptX'_at g x y hy]
 
 /-- `spec:eis-def`: the term does not depend on the coset representative. -/
 theorem eisTerm_mk (Γ : Subgroup SL(2, 𝓞 F)) (σ : SL(2,F)) (s : ℂ) (z : X F) (γ : Γ) :
