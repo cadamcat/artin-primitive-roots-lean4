@@ -23,15 +23,17 @@ def SameModuloSIntegers (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (x y : S.FS) : Prop := ∃ r : S.R, x - y = S.diag (r : F)
 
 /-- The compact annulus of S-integer rows used by the additive sieve. -/
-def InAdditiveWindow (S : ArtinPrimitiveRoots.A1.SData F CE condη)
-    (K : Set S.FS) (N : ℝ) (m : S.R) : Prop :=
-  ∃ x ∈ K, S.diag (m : F) = S.ell N * x
+def InAdditiveWindow (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (K : Set S.FS) (N : ℝ) (hN : 0 < N) (m : S.R) : Prop :=
+  ∃ x ∈ K, S.diag (m : F) = S.ell D N hN * x
 
 /-- The frequencies `d/s` with `q_s ≤ V`, using the fixed balanced generators from A1; the
 zero class from the unit ideal is included separately (05:118-152). -/
-def AdditiveCandidates (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+def AdditiveCandidates (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     {H : ArtinPrimitiveRoots.A1.HilbertData F} {Bd : ArtinPrimitiveRoots.A1.BData S H}
-    (bc : BalancedChoices S H Bd) (V : ℝ) : Set S.FS :=
+    (bc : BalancedChoices D S H Bd) (V : ℝ) : Set S.FS :=
   {α | α = 0 ∨ ∃ I : ArtinPrimitiveRoots.A1.SData.ExtIdeal S,
     idealNorm I.1 ≤ V ∧ ∃ d : 𝓞 F,
       IsCoprime (Ideal.span {d}) I.1 ∧
@@ -51,23 +53,24 @@ theorem lem_additive_sieve
     (H : ArtinPrimitiveRoots.A1.HilbertData F)
     (A : ArtinPrimitiveRoots.A1.AddCharData F)
     (Bd : ArtinPrimitiveRoots.A1.BData S H)
-    (bc : BalancedChoices S H Bd)
+    (bc : BalancedChoices D S H Bd)
     (K : Set S.FS) (hK : IsCompact K) :
     ∃ C : ℝ, 0 < C ∧
-      ∀ N V : ℝ, 2 ≤ N → 2 ≤ V →
+      ∀ N V : ℝ, (hN : 2 ≤ N) → (hV : 2 ≤ V) →
         ∀ P : Finset S.FS,
-          (∀ α ∈ P, α ∈ AdditiveCandidates S bc V) ∧
+          (∀ α ∈ P, α ∈ AdditiveCandidates D S bc V) ∧
           (∀ α ∈ P, ∀ β ∈ P, α ≠ β → ¬ SameModuloSIntegers S α β) →
           ∀ b : S.FS → ℂ,
-            (∑' m : {m : S.R // InAdditiveWindow S K N m},
+            (∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
               ‖∑ α ∈ P, b α * additivePhase S A m.1 α‖ ^ 2 ≤
                 C * (N + V ^ 2) * ∑ α ∈ P, ‖b α‖ ^ 2) ∧
             (∀ c : S.R → ℂ,
               ∑ α ∈ P,
-                ‖∑' m : {m : S.R // InAdditiveWindow S K N m},
+                ‖∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
                     c m.1 * additivePhase S A m.1 α‖ ^ 2 ≤
                   C * (N + V ^ 2) *
-                    ∑' m : {m : S.R // InAdditiveWindow S K N m}, ‖c m.1‖ ^ 2) := by
+                    ∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+                      ‖c m.1‖ ^ 2) := by
   sorry
 
 end ArtinPrimitiveRoots.A2

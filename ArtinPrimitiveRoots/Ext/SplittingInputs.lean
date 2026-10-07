@@ -85,9 +85,11 @@ def FrobeniusNormalizedArtinMap {K L : Type*} [Field K] [NumberField K] [Field L
 `finiteAbelianGlobalReciprocity` (`Lean4/ClassFieldTheory/Theorems/GlobalClassFieldTheory/
 FiniteAbelianGlobalReciprocity.lean:31-37`) supplies a modulus, a surjective Artin map, and
 arithmetic-Frobenius normalization. The ray-class types here are the verbatim local copy in
-`Hecke/RayClassCopy.lean`; ClassFieldTheory itself is deliberately not imported. -/
+`Hecke/RayClassCopy.lean`; ClassFieldTheory itself is deliberately not imported.
+The ring algebra must agree with the field algebra (`IsScalarTower`): with an independent ring
+algebra the statement is false (lane `sol-gate-hk7`, `K = ℚ(2^{1/3})`, `L = K(ζ₃)`). -/
 theorem ext_cft_artin {K L : Type*} [Field K] [NumberField K] [Field L] [NumberField L]
-    [Algebra K L] [Algebra (𝓞 K) (𝓞 L)] [IsAbelianGalois K L] :
+    [Algebra K L] [Algebra (𝓞 K) (𝓞 L)] [IsScalarTower (𝓞 K) (𝓞 L) L] [IsAbelianGalois K L] :
     ∃ (m : RayClassModulus K) (Art : RayClassGroup m →* (L ≃ₐ[K] L)),
       Function.Surjective Art ∧ FrobeniusNormalizedArtinMap m Art := by
   sorry
@@ -182,12 +184,15 @@ theorem ext_digamma_strip {a b : ℝ} (ha : 0 < a) :
 `Complex.Hadamard.hadamard_factorization_of_order`
 (`Mathlib/Analysis/Complex/HadamardFactorization/Order.lean:176`) supplies the canonical product;
 its module is not in the shared prebuilt set. The logarithmic-derivative form below is the part
-consumed to choose contour heights. -/
+consumed to choose contour heights. Corrected 2026-10-07 (review lane `rev-7`): growth with `‖s‖ + 1` (the old
+bound forced `‖G 0‖ ≤ 1`) and an explicit `Summable` conclusion. -/
 theorem ext_hadamard_order_one (G : ℂ → ℂ) (hG : Differentiable ℂ G)
     (hG0 : G 0 ≠ 0)
     (hgrowth : ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ,
-      ‖G s‖ ≤ Real.exp (C * ‖s‖ * Real.log (‖s‖ + 2))) :
+      ‖G s‖ ≤ Real.exp (C * (‖s‖ + 1) * Real.log (‖s‖ + 2))) :
     ∃ B : ℂ, ∀ s : ℂ, G s ≠ 0 →
+      Summable (fun ρ : ℂ => if G ρ = 0 then
+        (analyticOrderNatAt G ρ : ℂ) * ((s - ρ)⁻¹ + ρ⁻¹) else 0) ∧
       deriv G s / G s = B + ∑' ρ : ℂ,
         if G ρ = 0 then
           (analyticOrderNatAt G ρ : ℂ) * ((s - ρ)⁻¹ + ρ⁻¹)

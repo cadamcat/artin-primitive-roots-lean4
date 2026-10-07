@@ -187,9 +187,12 @@ def sphericalTable (D : FieldData F) (A : AddCharData F) (v : FinPlace F) (e : �
      else if e % 3 = 1 then ((q ^ (-((e / 3 : ℤ) : ℝ) - 1 / 2) : ℝ) : ℂ) * g2 D A v
      else 0)
 
-/-- **T2–T7** for a fixed finite family `𝓛` of admissible S-characters, on a fixed cover `C`. -/
+/-- **T2–T7** for a fixed finite family `𝓛` of admissible S-characters, on a fixed cover `C`.
+Corrected per rev-theta with archimedean smoothness and locally uniform Fourier convergence. -/
 structure ThetaFamily {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
     {A : AddCharData F} (C : ThetaCover D S H A) (𝓛 : Finset (SChar S)) where
+  /-- The topology used to state compact-uniform convergence; `ThetaCover.G` has no fixed one. -/
+  topology : TopologicalSpace C.G
   θ : SChar S → C.G → ℂ
   θN : SChar S → C.G → ℂ
   W : SChar S → C.G → ℂ
@@ -200,9 +203,19 @@ structure ThetaFamily {D : FieldData F} {S : SData F CE condη} {H : HilbertData
   automorphic : ∀ L ∈ 𝓛, ∀ γ g, θ L (C.rat γ * g) = θ L g
   right_Kext : ∀ L ∈ 𝓛, ∀ g, ∀ k ∈ C.Kext, θ L (g * k) = θ L g
   cont : ∀ L ∈ 𝓛, ∀ g h, Continuous fun y : S.FSˣ => θ L (g * C.aS y * h)
+  /-- Smoothness along each archimedean root subgroup. -/
+  archSmooth : ∀ L ∈ 𝓛, ∀ (g : C.G) (w : InfinitePlace F),
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun z : ℂ => θ L (g * C.nS
+        (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))
   /-- T3: Fourier expansion along `N`, constant term, and its invariances. -/
   fourier : ∀ L ∈ 𝓛, ∀ g, Summable (fun ν : Fˣ => W L (C.rat (diagGL ν) * g)) ∧
     θ L g = θN L g + ∑' ν : Fˣ, W L (C.rat (diagGL ν) * g)
+  /-- The Fourier expansion converges uniformly on compact sets in the chosen topology. -/
+  fourierLocallyUniform : ∀ L ∈ 𝓛, ∀ K : Set C.G, @IsCompact C.G topology K →
+    ∀ ε : ℝ, 0 < ε → ∃ F₀ : Finset Fˣ, ∀ F' : Finset Fˣ, F₀ ⊆ F' → ∀ g ∈ K,
+      ‖θ L g - θN L g -
+        ∑ ν ∈ F', W L (C.rat (diagGL ν) * g)‖ < ε
   θN_left : ∀ L ∈ 𝓛, ∀ (b : GL (Fin 2) F), (b : Matrix (Fin 2) (Fin 2) F) 1 0 = 0 →
     ∀ g, θN L (C.rat b * g) = θN L g
   θN_right : ∀ L ∈ 𝓛, ∀ g, ∀ k ∈ C.Kext, θN L (g * k) = θN L g
@@ -261,7 +274,8 @@ structure ThetaFamily {D : FieldData F} {S : SData F CE condη} {H : HilbertData
 
 /-- **th:theta-interface.** The cover is fixed before the S-characters; for every finite family of
 admissible S-characters there is a theta family. Route C packages P-COVER, P-LOCAL, P-EIS,
-P-SPEC, P-RES, P-ASSEMBLE (A1-DESIGN §3). -/
+P-SPEC, P-RES, P-ASSEMBLE (A1-DESIGN §3).
+Corrected per rev-theta through the regularity fields of `ThetaFamily`. -/
 theorem theta_interface (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (A : AddCharData F) :
     ∃ C : ThetaCover D S H A, ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily C 𝓛) := by

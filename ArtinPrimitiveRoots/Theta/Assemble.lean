@@ -43,9 +43,14 @@ def Rderiv (P : CoverPackage D S H A) (m : InfinitePlace F → ℤ) (Ψ : P.tc.G
 
 /-- **asm:R-deriv**: `R(X_m)` commutes with left translations, preserves genuineness, automorphy,
 right `Kext`-invariance and smoothness of `θ`, commutes with torus coefficients, and on Whittaker
-coefficients acts at each complex place by the derivative vector `f_{m_w}` of `sphC`. -/
+coefficients acts at each complex place by the derivative vector `f_{m_w}` of `sphC`.
+Corrected per rev-theta to require archimedean smoothness of the residue. -/
 theorem Rderiv_spec {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
     (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam) (m : InfinitePlace F → ℤ) :
+    (∀ (g : P.tc.G) (w : InfinitePlace F),
+      ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun z : ℂ => C.theta (g * P.tc.nS
+          (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))) →
     (∀ γ g, Rderiv P m C.theta (P.tc.rat γ * g) = Rderiv P m C.theta g) ∧
     (∀ ζ g, Rderiv P m C.theta (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * Rderiv P m C.theta g) ∧
     (∀ g, ∀ k ∈ P.tc.Kext, Rderiv P m C.theta (g * k) = Rderiv P m C.theta g) ∧
@@ -117,13 +122,14 @@ theorem thetaWhit_factor {P : CoverPackage D S H A} {G : GlobalDatum P}
   sorry
 
 /-- **asm:main**: for every finite family of admissible S-characters there is a theta family on
-the cover of `P`. -/
+the cover of `P`. Corrected per rev-theta through the regularity fields of `ThetaFamily`. -/
 theorem exists_thetaFamily (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt H v)
     (𝓛 : Finset (SChar S)) : Nonempty (ThetaFamily P.tc 𝓛) := by
   sorry
 
 /-- **th:theta-interface** under the Steinberg relation (P-COVER gap G1). With G1 resolved by a
-`HilbertData` field, this is the frozen `theta_interface`. -/
+`HilbertData` field, this is the frozen `theta_interface`.
+Corrected per rev-theta through the regularity fields of `ThetaFamily`. -/
 theorem theta_interface_of_steinberg (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (A : AddCharData F) (hSt : ∀ v, SteinbergAt H v) :
     ∃ C : ThetaCover D S H A, ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily C 𝓛) := by

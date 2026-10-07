@@ -19,30 +19,32 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- Row elements in one fixed exterior ideal fiber. -/
-def reflectionRowFiber (S : ArtinPrimitiveRoots.A1.SData F CE condη)
-    (K : Set S.FSˣ) (t : S.FSˣ) (Z : ℝ)
+def reflectionRowFiber (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (K : Set S.FSˣ) (t : S.FSˣ) (Z : ℝ) (hZ : 0 < Z)
     (I : ArtinPrimitiveRoots.A1.SData.ExtIdeal S) : Set (ReflectionRow S) :=
-  {r | InReflectionBox S K t Z r ∧ r.ideal = I}
+  {r | InReflectionBox D S K t Z hZ r ∧ r.ideal = I}
 
 /-- **rf:element-to-ideal** (04-reflection.tex:19-35, 1028-1029, 1225-1227).  On every fixed
 compact annulus (also after a norm-one translate from the fixed compact `T`), ideal norms are
 comparable to `Z^M₀`, row fibers have bounded cardinality, and the moving unit stays in a compact
 norm-one set. -/
 theorem rf_element_to_ideal
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (H : ArtinPrimitiveRoots.A1.HilbertData F)
     (Bd : ArtinPrimitiveRoots.A1.BData S H)
-    (bc : BalancedChoices S H Bd)
+    (bc : BalancedChoices D S H Bd)
     (K T : Set S.FSˣ) (hK : IsCompact K) (hT : IsCompact T)
     (hTnorm : ∀ t ∈ T, S.absS (t : S.FS) = 1) :
     ∃ c₁ c₂ C : ℝ, 0 < c₁ ∧ c₁ < c₂ ∧ 0 < C ∧
       ∃ K' : Set S.FSˣ, IsCompact K' ∧ (∀ y ∈ K', S.absS (y : S.FS) = 1) ∧
-        ∀ (Z : ℝ), 2 ≤ Z → ∀ t, t ∈ T → ∀ r : ReflectionRow S,
-          InReflectionBox S K t Z r →
+        ∀ (Z : ℝ), (hZ : 2 ≤ Z) → ∀ t, t ∈ T → ∀ r : ReflectionRow S,
+          InReflectionBox D S K t Z (by linarith) r →
             c₁ * Real.rpow Z M0 ≤ idealNorm r.ideal.1 ∧
             idealNorm r.ideal.1 ≤ c₂ * Real.rpow Z M0 ∧
             S.diagU (rowEpsilon S bc r) ∈ K' ∧
-            Set.ncard (reflectionRowFiber S K t Z r.ideal) ≤ ⌊C⌋₊ := by
+            Set.ncard (reflectionRowFiber D S K t Z (by linarith) r.ideal) ≤ ⌊C⌋₊ := by
   sorry
 
 /-- **rf:moving-twist** (04-reflection.tex:37-49).  The zeroth-power convention is A1's masked
@@ -52,7 +54,7 @@ theorem rf_moving_twist
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (H : ArtinPrimitiveRoots.A1.HilbertData F)
     (Bd : ArtinPrimitiveRoots.A1.BData S H)
-    (bc : BalancedChoices S H Bd)
+    (bc : BalancedChoices D S H Bd)
     (r : ReflectionRow S) (J : Ideal (𝓞 F)) (hJ : S.IsExterior J)
     (a : Fˣ) (ha : S.IsGen (a : F) J ∧ Bd.Allowed a) :
     ArtinPrimitiveRoots.A1.chiIdealPow D J (rowElement S r : F) 1 =
