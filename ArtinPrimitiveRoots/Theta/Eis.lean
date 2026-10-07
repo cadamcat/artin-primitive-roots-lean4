@@ -53,7 +53,8 @@ theorem exists_globalDatum (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt 
     Nonempty (GlobalDatum P) := by
   sorry
 
-/-- **def:global-section**: a factorizable section of `I(σ_𝔸, s)`, spherical outside `T0 ⊇ S_f`. -/
+/-- **def:global-section**: a factorizable section of `I(σ_𝔸, s)`, spherical outside `T0 ⊇ S_f`.
+Corrected per rev-theta to include archimedean smoothness along the root subgroups. -/
 structure GlobalSection (P : CoverPackage D S H A) (G : GlobalDatum P) (s : ℂ) where
   T0 : Finset (FinPlace F)
   sub : S.Sf ⊆ T0
@@ -63,6 +64,8 @@ structure GlobalSection (P : CoverPackage D S H A) (G : GlobalDatum P) (s : ℂ)
     ∀ g, ∀ k ∈ (P.tame v (fun h => hv (sub h))).Kmax, f v (g * k) = f v g
   fC : InfinitePlace F → PGL2 ℂ → ℂ
   fC_sec : ∀ w, IsSectionC s (fC w) ∧ Continuous (fC w)
+  fC_smooth : ∀ w (g : PGL2 ℂ),
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun z : ℂ => fC w (g * nC z))
 
 /-- **def:scalar-section**: `Φ(q x) = Π_v lam_v(f_v(x_v)) · Π_w f_w(x_w)` (independent of the lift `x`). -/
 def scalarOf (P : CoverPackage D S H A) (G : GlobalDatum P)
