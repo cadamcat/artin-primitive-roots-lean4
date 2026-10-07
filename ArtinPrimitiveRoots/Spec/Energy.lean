@@ -115,11 +115,16 @@ theorem T6_rellich (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   sorry
 
 /-- T7 `spec:ground-state` — P-SPEC.md:234, 364–368. The ground-state transform gives the
-coercivity estimate with compact error at every height cutoff above all cusp thresholds. -/
+coercivity estimate with compact error at every height cutoff above all cusp thresholds. Correction
+from review lane `rev-spec`: include separation of distinct cusp representatives at the cutoff. -/
 theorem T7_ground_state (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (d : SiegelData F Γ)
     (A₀ : d.ι → ℝ) (hA₀ : ∀ i, 0 < A₀ i)
+    (hA₀sep : ∀ i j : d.ι, ∀ γ γ' : Γ, ∀ z : X F,
+      A₀ i ≤ normHeight F ((d.σ i)⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A₀ j ≤ normHeight F ((d.σ j)⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+      i = j ∧ γ' * γ⁻¹ ∈ cuspStab F Γ (d.σ i))
     (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
     (e : EnergyContext (T := testSubmodule F Γ) E)
     (A : ℝ) (hA : ∀ i, A₀ i ≤ A) :
