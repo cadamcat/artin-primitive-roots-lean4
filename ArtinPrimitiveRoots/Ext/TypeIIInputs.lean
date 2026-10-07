@@ -21,10 +21,11 @@ noncomputable def primeIntervalCount (y₁ y₂ : ℝ) : ℝ :=
 noncomputable def logarithmicIntegral (y : ℝ) : ℝ :=
   ∫ t in (2 : ℝ)..y, 1 / Real.log t
 
-/-- Maximum prime progression error, in the `π` form used by §12. -/
+/-- Maximum prime progression error, in the `π` form used by §12. Binders typed `ℕ` on 2026-10-07: untyped,
+Lean coerced the prime set into `ZMod q` before filtering (lane `c2b`). -/
 noncomputable def primeProgressionError (y : ℝ) (q : ℕ) : ℝ :=
-  ((Finset.range q).filter (fun v => Nat.Coprime v q)).fold max 0 fun v =>
-    |(((primesUpTo y).filter (fun p => (p : ZMod q) = (v : ZMod q))).card : ℝ) -
+  ((Finset.range q).filter (fun v : ℕ => Nat.Coprime v q)).fold max 0 fun v : ℕ =>
+    |(((primesUpTo y).filter (fun p : ℕ => ((p : ℕ) : ZMod q) = ((v : ℕ) : ZMod q))).card : ℝ) -
       logarithmicIntegral y / (Nat.totient q : ℝ)|
 
 /-- `ext:bombieri-vinogradov`, 12-construction.tex:286-292 (`con:bv-input`); matching OAI

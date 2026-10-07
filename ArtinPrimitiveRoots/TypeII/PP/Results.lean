@@ -21,7 +21,8 @@ theorem mean_value :
                   (2 * (s : ℝ) - ((k : ℝ) * ((k : ℝ) + 1)) / 2 + 1 / 100 : ℝ) := by
   exact mean_value_from_halasz
 
-/-- `t2:pp.log-phase` — PP `02-long-prime.tex:185-310`, Lemma 3.3; also PD Lemma 2.4. -/
+/-- `t2:pp.log-phase` — PP `02-long-prime.tex:185-310`, Lemma 3.3; also PD Lemma 2.4. `I` is an interval in
+`[N', 2N']`, as in the paper (an arbitrary subset makes it false; lane `pp1`, 2026-10-07). -/
 theorem log_phase :
     ∃ C₃ : ℝ, 0 < C₃ ∧
       ∀ C : ℝ, 0 < C →
@@ -33,8 +34,8 @@ theorem log_phase :
               ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
                 ∀ a : ZMod q, ∀ v : ℝ,
                   Real.exp (L / (2 * T ^ 2)) ≤ |v| → |v| ≤ 4 * Real.rpow x 3 →
-                    ∀ I : Set ℕ, I ⊆ {n : ℕ | N' ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N'} →
-                      ‖residuePhaseSum N' q a v I‖ ≤
+                    ∀ N₁ N₂ : ℝ, N' ≤ N₁ → N₂ ≤ 2 * N' →
+                      ‖residuePhaseSum N' q a v {n : ℕ | N₁ ≤ (n : ℝ) ∧ (n : ℝ) ≤ N₂}‖ ≤
                         C₀ * (N' / q) * Real.exp (-L / Real.rpow T C₃) := by
   sorry
 

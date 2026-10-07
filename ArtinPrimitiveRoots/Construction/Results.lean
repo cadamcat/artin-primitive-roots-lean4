@@ -67,7 +67,8 @@ theorem con_type_ii
                     C₀ * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ) := by
   sorry
 
-/-- `con:harmonic`, 12-construction.tex:184-237. -/
+/-- `con:harmonic`, 12-construction.tex:184-237. The tail bound is for `r > x^ε` (every partial sum up to `R`; the
+terms are nonnegative), as in the paper; the first skeleton bounded `r ≤ x^ε` (lane `c2b`, 2026-10-07). -/
 theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
     (K : ℕ) (a : Fin K → ℝ) (hM : 0 < M) (hc : 0 < c)
     (ha : ValidBands K a) (hΨ : IsTestFunction Ψ) :
@@ -81,8 +82,8 @@ theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
         (∀ ε : ℝ, 0 < ε →
           ∃ Cε xε : ℝ, 0 < Cε ∧ 2 ≤ xε ∧
             ∀ x : ℝ, xε ≤ x →
-              ∑ r ∈ (Finset.range (⌊Real.rpow x ε⌋₊ + 1)).filter
-                  (fun r => IsGroupInteger x K a r),
+              ∀ R : ℕ, ∑ r ∈ (Finset.range (R + 1)).filter
+                  (fun r => IsGroupInteger x K a r ∧ Real.rpow x ε < (r : ℝ)),
                 markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) ≤
                       Cε * Real.exp (-ε * Real.rpow (Real.log x)
                         (1 - a ⟨K - 1, by
