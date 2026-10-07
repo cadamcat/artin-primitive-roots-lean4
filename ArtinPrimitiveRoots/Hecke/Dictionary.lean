@@ -41,6 +41,113 @@ variable {F : Type} [Field F] [NumberField F]
 def modulusIdeal (m : RayClassModulus F) : Ideal (𝓞 F) :=
   m.finitePart.prod (fun v e => v.asIdeal ^ e)
 
+/-! The reusable product facts below are stated for arbitrary number-field types, then specialized
+to the package's frozen `modulusIdeal` interface. -/
+namespace HKDICTRay
+
+variable {K : Type*} [Field K] [NumberField K]
+
+/-- The integral ideal represented by a finitely supported family of prime exponents. -/
+def modulusIdealOf (e : HeightOneSpectrum (𝓞 K) →₀ ℕ) : Ideal (𝓞 K) :=
+  e.prod (fun v n => v.asIdeal ^ n)
+
+omit [NumberField K] in
+theorem modulusIdealOf_ne_bot (e : HeightOneSpectrum (𝓞 K) →₀ ℕ) :
+    modulusIdealOf e ≠ ⊥ := by
+  classical
+  rw [modulusIdealOf, Finsupp.prod]
+  exact Finset.prod_ne_zero_iff.mpr fun v hv => pow_ne_zero _ v.ne_bot
+
+theorem modulusNorm_pos (m : RayClassModulus K) : 0 < Hecke.modulusNorm m := by
+  classical
+  rw [Hecke.modulusNorm, Finsupp.prod]
+  apply Finset.prod_pos
+  intro v hv
+  exact pow_pos (Nat.zero_lt_of_lt
+    (NumberField.HeightOneSpectrum.one_lt_absNorm v)) _
+
+theorem modulusNorm_one_le (m : RayClassModulus K) :
+    1 ≤ Hecke.modulusNorm m := by
+  exact Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt (modulusNorm_pos m))
+
+end HKDICTRay
+
+namespace HKDICTRay
+
+section TypeZero
+
+variable {K₀ : Type} [Field K₀] [NumberField K₀]
+
+theorem idealExp_modulusIdealOf (e : HeightOneSpectrum (𝓞 K₀) →₀ ℕ)
+    (v : FinPlace K₀) : A1.idealExp v (modulusIdealOf e) = e v := by
+  classical
+  have hcoe : (modulusIdealOf e : FractionalIdeal (nonZeroDivisors (𝓞 K₀)) K₀) =
+      ∏ w ∈ e.support, (w.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 K₀)) K₀) ^ e w := by
+    change (FractionalIdeal.coeIdealHom (nonZeroDivisors (𝓞 K₀)) K₀)
+        (e.prod (fun w n => w.asIdeal ^ n)) = _
+    rw [Finsupp.prod, map_prod]
+    simp only [map_pow, FractionalIdeal.coeIdealHom_apply]
+  have hcount : FractionalIdeal.count K₀ v
+      (modulusIdealOf e : FractionalIdeal (nonZeroDivisors (𝓞 K₀)) K₀) = (e v : ℤ) := by
+    rw [hcoe, FractionalIdeal.count_prod]
+    · have hterm (w : HeightOneSpectrum (𝓞 K₀)) :
+          FractionalIdeal.count K₀ v
+              ((w.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 K₀)) K₀) ^ e w) =
+            if w = v then (e w : ℤ) else 0 := by
+        rw [FractionalIdeal.count_pow]
+        by_cases hwv : w = v
+        · subst w
+          rw [FractionalIdeal.count_self]
+          simp
+        · rw [FractionalIdeal.count_maximal_coprime K₀ v hwv]
+          simp [hwv]
+      simp_rw [hterm]
+      simp only [Finset.sum_ite_eq', Finsupp.mem_support_iff]
+      by_cases hv : e v = 0 <;> simp [hv]
+    · intro w hw
+      exact pow_ne_zero _ (FractionalIdeal.coeIdeal_ne_zero.mpr w.ne_bot)
+  unfold A1.idealExp
+  have hcount' := hcount
+  rw [FractionalIdeal.count_coe K₀ v (modulusIdealOf_ne_bot e)] at hcount'
+  exact_mod_cast hcount'
+
+end TypeZero
+
+variable {K : Type*} [Field K] [NumberField K]
+
+/-- Primitivity is unchanged by inverting a ray class character. -/
+theorem primitive_inv {m f : RayClassModulus K} (ψ : RayClassGroup m →* ℂˣ)
+    (hprimitive : ∀ n : RayClassModulus K, FactorsThrough ψ n → n = f) :
+    ∀ n : RayClassModulus K, FactorsThrough ψ⁻¹ n → n = f := by
+  intro n hn
+  apply hprimitive n
+  refine ⟨hn.1, ?_⟩
+  intro x hx hI
+  have hval := hn.2 x hx hI
+  change (ψ (QuotientGroup.mk ⟨toPrincipalIdeal (𝓞 K) K x, hI⟩))⁻¹ = 1 at hval
+  exact inv_eq_one.mp hval
+
+end HKDICTRay
+
+/-- `modulusIdeal m` is nonzero. -/
+theorem modulusIdeal_ne_bot (m : RayClassModulus F) : modulusIdeal m ≠ ⊥ := by
+  change HKDICTRay.modulusIdealOf m.finitePart ≠ ⊥
+  exact HKDICTRay.modulusIdealOf_ne_bot m.finitePart
+
+/-- The norm of every ray modulus is positive. -/
+theorem modulusNorm_pos (m : RayClassModulus F) : 0 < modulusNorm m :=
+  HKDICTRay.modulusNorm_pos m
+
+/-- The norm of every ray modulus is at least one. -/
+theorem modulusNorm_one_le (m : RayClassModulus F) : 1 ≤ modulusNorm m :=
+  HKDICTRay.modulusNorm_one_le m
+
+/-- The exponent of a prime in `modulusIdeal m` is its finite-part exponent. -/
+theorem idealExp_modulusIdeal (m : RayClassModulus F) (v : FinPlace F) :
+    A1.idealExp v (modulusIdeal m) = m.finitePart v := by
+  simpa [modulusIdeal, HKDICTRay.modulusIdealOf] using
+    (HKDICTRay.idealExp_modulusIdealOf m.finitePart v)
+
 /-- `N𝔪 = N(modulusIdeal 𝔪)`. Consumer: A2 `zf:convexity` (with `kummer_conductor`). -/
 theorem modulusNorm_eq_absNorm (m : RayClassModulus F) :
     modulusNorm m = Ideal.absNorm (modulusIdeal m) := by
@@ -64,13 +171,7 @@ private theorem modulusNorm_mono {n m : RayClassModulus F} (h : n ≤ m) :
   have hdiv : modulusNorm n ∣ modulusNorm m := by
     rw [modulusNorm_eq_absNorm, modulusNorm_eq_absNorm]
     exact Ideal.absNorm_dvd_absNorm_of_le (modulusIdeal_antitone h)
-  have hmpos : 0 < modulusNorm m := by
-    rw [modulusNorm]
-    simp only [Finsupp.prod]
-    apply Finset.prod_pos
-    intro v hv
-    exact pow_pos (Nat.zero_lt_of_lt
-      (NumberField.RingOfIntegers.HeightOneSpectrum.one_lt_absNorm v)) _
+  have hmpos : 0 < modulusNorm m := modulusNorm_pos m
   exact Nat.le_of_dvd hmpos hdiv
 
 private def rayModulusWeight (m : RayClassModulus F) : ℕ :=
@@ -146,7 +247,7 @@ theorem exists_heckeChar_of_rayClass (m : RayClassModulus F) (η : RayClassGroup
       ∀ v : FinPlace F, v ∉ m.finitePart.support →
         χ.UnramifiedAt v ∧ χ.primeValue v = charValue η v.asIdeal := sorry
 
-private theorem normalizedFactor_not_mem_support {m : RayClassModulus F}
+theorem normalizedFactor_not_mem_support {m : RayClassModulus F}
     {I : Ideal (𝓞 F)} (hI : IsCoprimeTo m I) {P : Ideal (𝓞 F)}
     (hP : P ∈ UniqueFactorizationMonoid.normalizedFactors I) :
     ∃ v : FinPlace F, v.asIdeal = P ∧ v ∉ m.finitePart.support := by
@@ -174,7 +275,7 @@ private theorem normalizedFactor_not_mem_support {m : RayClassModulus F}
     simpa [v] using hcountpos
   omega
 
-private theorem charValue_eq_zero_of_mem_support {m : RayClassModulus F}
+theorem charValue_eq_zero_of_mem_support {m : RayClassModulus F}
     (η : RayClassGroup m →* ℂˣ) {v : FinPlace F}
     (hv : v ∈ m.finitePart.support) : charValue η v.asIdeal = 0 := by
   classical
@@ -518,7 +619,7 @@ private theorem exists_rayCongruent_generator_with_prime_valuation
     exact haUnit q (Finset.mem_union_left _ hq) hqv haq
   exact ⟨a, ha0, x, ⟨rfl, ⟨hRay, ⟨hnotMod, ⟨hcountV, hcountOther⟩⟩⟩⟩⟩
 
-private def primeToRayIdeal (m : RayClassModulus F) (v : FinPlace F)
+def primeToRayIdeal (m : RayClassModulus F) (v : FinPlace F)
     (hv : v ∉ m.finitePart.support) : rayClassPrimeToIdeals m :=
   ⟨idealUnit v.asIdeal v.ne_bot, by
     intro w hw
@@ -530,13 +631,13 @@ private def primeToRayIdeal (m : RayClassModulus F) (v : FinPlace F)
     simpa [idealUnit] using
       (FractionalIdeal.count_maximal_coprime F w hne.symm)⟩
 
-private def rayIdealExponent {m : RayClassModulus F}
+def rayIdealExponent {m : RayClassModulus F}
     (I : rayClassPrimeToIdeals m) (v : FinPlace F) : ℤ :=
   FractionalIdeal.count F v
     ((I : NumberFieldFractionalIdealGroup F) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
 
 open Classical in
-private theorem rayIdealFactorization {m : RayClassModulus F}
+theorem rayIdealFactorization {m : RayClassModulus F}
     (I : rayClassPrimeToIdeals m) :
     I = ∏ᶠ v : FinPlace F,
       (if hv : v ∉ m.finitePart.support then primeToRayIdeal m v hv else 1) ^
@@ -587,7 +688,7 @@ private theorem rayIdealFactorization {m : RayClassModulus F}
     _ = (((∏ᶠ v : FinPlace F, p v ^ rayIdealExponent I v : rayClassPrimeToIdeals m) :
         NumberFieldFractionalIdealGroup F) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := rfl
 
-private theorem rayIdealHom_ext {m : RayClassModulus F}
+theorem rayIdealHom_ext {m : RayClassModulus F}
     (f g : rayClassPrimeToIdeals m →* ℂˣ)
     (hprime : ∀ v : FinPlace F, ∀ hv : v ∉ m.finitePart.support,
       f (primeToRayIdeal m v hv) = g (primeToRayIdeal m v hv)) : f = g := by
@@ -897,5 +998,35 @@ theorem exists_primitive {m : RayClassModulus F} (η : RayClassGroup m →* ℂ�
     by_contra hne
     have hweightStrict := rayModulusWeight_strict_mono hn.1 hne
     omega
+
+/-- A primitive inducer of a nontrivial character is nontrivial. -/
+theorem primitive_inducer_ne_one {m f : RayClassModulus F}
+    (hfm : f ≤ m) (η : RayClassGroup m →* ℂˣ) (ψ : RayClassGroup f →* ℂˣ)
+    (hη : η ≠ 1)
+    (hprime : ∀ v : FinPlace F, v ∉ m.finitePart.support →
+      charValue η v.asIdeal = charValue ψ v.asIdeal) : ψ ≠ 1 := by
+  intro hψ
+  have hcopM (v : FinPlace F) (hv : v ∉ m.finitePart.support) :
+      IsCoprimeTo m v.asIdeal := by
+    refine ⟨v.ne_bot, ?_⟩
+    intro w hw
+    exact (primeToRayIdeal m v hv).property w hw
+  have hcopF (v : FinPlace F) (hv : v ∉ m.finitePart.support) :
+      IsCoprimeTo f v.asIdeal := by
+    have hvF : v ∉ f.finitePart.support := by
+      intro hvF
+      exact hv (Finsupp.support_mono hfm.1 hvF)
+    refine ⟨v.ne_bot, ?_⟩
+    intro w hw
+    exact (primeToRayIdeal f v hvF).property w hw
+  have hchar : ∀ v : FinPlace F, v ∉ m.finitePart.support →
+      charValue η v.asIdeal = charValue (1 : RayClassGroup m →* ℂˣ) v.asIdeal := by
+    intro v hv
+    have hval := hprime v hv
+    rw [hψ] at hval
+    simpa [charValue, hcopM v hv, hcopF v hv] using hval
+  have hηone : η = (1 : RayClassGroup m →* ℂˣ) :=
+    rayClassChar_eq_of_charValue η 1 m.finitePart.support hchar
+  exact hη hηone
 
 end ArtinPrimitiveRoots.Dictionary
