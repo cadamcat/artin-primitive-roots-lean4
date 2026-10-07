@@ -30,6 +30,7 @@ import ArtinPrimitiveRoots.Theta.Cover
 import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalInt
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-LOCAL-TOPOLOGY».Helper
 import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Reduction

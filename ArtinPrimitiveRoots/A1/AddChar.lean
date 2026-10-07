@@ -217,13 +217,258 @@ theorem SData.e_diag_eq [IsTotallyComplex F] (S : SData F CE condη) (A : AddCha
   push_cast
   ring
 
+private lemma count_spanSingleton_div_addchar (v : FinPlace F) (x y : F)
+    (hx : x ≠ 0) (hy : y ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x / y)) =
+      FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) x) -
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) y) := by
+  rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
+    FractionalIdeal.count_mul F v
+      (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hx)
+      (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hy)),
+    FractionalIdeal.count_inv]
+  ring
+
+private lemma count_spanSingleton_eq_neg_log_intValuation_addchar (v : FinPlace F)
+    (r : 𝓞 F) (hr : r ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F r)) =
+      -WithZero.log (v.intValuation r) := by
+  have hspan : (Ideal.span {r} : Ideal (𝓞 F)) ≠ 0 := by
+    simpa [ne_eq, Ideal.zero_eq_bot, Ideal.span_singleton_eq_bot] using hr
+  rw [← FractionalIdeal.coeIdeal_span_singleton, FractionalIdeal.count_coe F v hspan,
+    v.intValuation_if_neg hr, WithZero.log_exp]
+  ring
+
+set_option linter.unnecessarySimpa false in
+private lemma count_spanSingleton_eq_neg_log_valuation_addchar (v : FinPlace F)
+    (z : F) (hz : z ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z) =
+      -WithZero.log (HeightOneSpectrum.valuation F v z) := by
+  obtain ⟨n, d, hnd⟩ := IsLocalization.exists_mk'_eq (nonZeroDivisors (𝓞 F)) z
+  have hn : n ≠ 0 := by
+    intro hn
+    apply hz
+    rw [← hnd, IsFractionRing.mk'_eq_div, hn, map_zero, zero_div]
+  have hd : (d : 𝓞 F) ≠ 0 := nonZeroDivisors.ne_zero d.2
+  have hmapn : (algebraMap (𝓞 F) F n) ≠ 0 := by
+    intro h
+    exact hn ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hmapd : (algebraMap (𝓞 F) F (d : 𝓞 F)) ≠ 0 := by
+    intro h
+    exact hd ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hval : HeightOneSpectrum.valuation F v z = v.intValuation n / v.intValuation (d : 𝓞 F) := by
+    rw [← hnd]
+    exact v.valuation_of_mk'
+  rw [hval, ← hnd, IsFractionRing.mk'_eq_div,
+    count_spanSingleton_div_addchar v (algebraMap (𝓞 F) F n) (algebraMap (𝓞 F) F (d : 𝓞 F))
+      hmapn hmapd,
+    count_spanSingleton_eq_neg_log_intValuation_addchar v n hn,
+    count_spanSingleton_eq_neg_log_intValuation_addchar v (d : 𝓞 F) hd,
+    WithZero.log_div (v.intValuation_ne_zero n hn) (v.intValuation_ne_zero (d : 𝓞 F) hd)]
+  ring
+
+lemma norm_embedding_eq_absNorm_zpow (v : FinPlace F) (z : F) (hz : z ≠ 0) :
+    ‖FinitePlace.embedding v z‖ =
+      (Ideal.absNorm v.asIdeal : ℝ) ^ (- FractionalIdeal.count F v (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z)) := by
+  rw [FinitePlace.norm_embedding']
+  have hm : (v.valuation F) z ≠ 0 := (v.valuation F).ne_zero_iff.mpr hz
+  rw [WithZeroMulInt.toNNReal_neg_apply (HeightOneSpectrum.absNorm_ne_zero v) hm]
+  rw [WithZero.toAdd_unzero_eq_log hm]
+  have hlog : WithZero.log (v.valuation F z) =
+      - FractionalIdeal.count F v (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z) := by
+    rw [count_spanSingleton_eq_neg_log_valuation_addchar v z hz, neg_neg]
+  rw [hlog]
+  push_cast
+  rfl
+
+lemma norm_embedding_mul_maxPowDividing_eq_one {S : SData F CE condη} {x : F} {I : Ideal (𝓞 F)}
+    (hx : S.IsGen x I) {v : HeightOneSpectrum (𝓞 F)} (hv : v ∉ S.Sf) :
+    ‖FinitePlace.embedding v x‖ * (Ideal.absNorm (v.maxPowDividing I) : ℝ) = 1 := by
+  rw [norm_embedding_eq_absNorm_zpow v x hx.2.1]
+  rw [hx.2.2 v hv]
+  rw [FractionalIdeal.count_coe F v hx.1.1]
+  dsimp [HeightOneSpectrum.maxPowDividing]
+  rw [map_pow]
+  push_cast
+  rw [← zpow_natCast]
+  rw [zpow_neg]
+  exact inv_mul_cancel₀ (zpow_ne_zero _ (Nat.cast_ne_zero.mpr (ne_of_gt (zero_lt_one.trans (HeightOneSpectrum.one_lt_absNorm v)))))
+
+lemma finitePlace_mk_hasFiniteMulSupport {x : F} (hx : x ≠ 0) :
+    (fun v : HeightOneSpectrum (𝓞 F) => (FinitePlace.mk v) x).HasFiniteMulSupport := by
+  have h := FinitePlace.hasFiniteMulSupport (K := F) hx
+  have hsub : Function.mulSupport ((fun w : FinitePlace F => w x) ∘ FinitePlace.equivHeightOneSpectrum.symm) ⊆
+      FinitePlace.equivHeightOneSpectrum '' (Function.mulSupport (fun w : FinitePlace F => w x)) := by
+    intro v hv
+    simp only [Function.mem_mulSupport, Function.comp_apply] at hv
+    exact ⟨FinitePlace.equivHeightOneSpectrum.symm v, hv, by simp⟩
+  exact (h.image _).subset hsub
+
+lemma absFin_algebraMap (v : FinPlace F) (x : F) :
+    absFin v (algebraMap F (v.adicCompletion F) x) = ‖FinitePlace.embedding v x‖ := by
+  dsimp [absFin]
+  have hpos : (Ideal.absNorm v.asIdeal : NNReal) ≠ 0 :=
+    HeightOneSpectrum.absNorm_ne_zero v
+  rw [dif_pos hpos]
+  rw [← FinitePlace.norm_def]
+  congr 1
+
+lemma maxPowDividing_eq_one_of_not_le {I : Ideal (𝓞 F)} (hI : I ≠ 0)
+    (v : HeightOneSpectrum (𝓞 F)) (hv : ¬ I ≤ v.asIdeal) :
+    v.maxPowDividing I = 1 := by
+  have hcount : (Associates.mk v.asIdeal).count (Associates.mk I).factors = 0 := by
+    by_contra hc
+    have hdvd := (Associates.count_ne_zero_iff_dvd hI v.irreducible).mp hc
+    rw [Ideal.dvd_iff_le] at hdvd
+    exact hv hdvd
+  dsimp [HeightOneSpectrum.maxPowDividing]
+  rw [hcount, pow_zero]
+
+lemma maxPowDividing_eq_one_of_mem_Sf {S : SData F CE condη} {I : Ideal (𝓞 F)}
+    (hI : S.IsExterior I) {v : FinPlace F} (hv : v ∈ S.Sf) :
+    v.maxPowDividing I = 1 :=
+  maxPowDividing_eq_one_of_not_le hI.1 v (hI.2 v hv)
+
+lemma absNorm_maxPowDividing_eq_one_of_mem_Sf {S : SData F CE condη} {I : Ideal (𝓞 F)}
+    (hI : S.IsExterior I) {v : FinPlace F} (hv : v ∈ S.Sf) :
+    (Ideal.absNorm (v.maxPowDividing I) : ℝ) = 1 := by
+  rw [maxPowDividing_eq_one_of_mem_Sf hI hv, Ideal.one_eq_top, Ideal.absNorm_top, Nat.cast_one]
+
+lemma absNorm_eq_finprod_absNorm_maxPowDividing {I : Ideal (𝓞 F)} (hI : I ≠ 0) :
+    (Ideal.absNorm I : ℝ) = ∏ᶠ v : HeightOneSpectrum (𝓞 F), (Ideal.absNorm (v.maxPowDividing I) : ℝ) := by
+  have h_factor : ∏ᶠ v : HeightOneSpectrum (𝓞 F), v.maxPowDividing I = I :=
+    Ideal.finprod_heightOneSpectrum_factorization hI
+  have h_prod : (Ideal.absNorm (∏ᶠ v : HeightOneSpectrum (𝓞 F), v.maxPowDividing I) : ℝ) =
+      ∏ᶠ v : HeightOneSpectrum (𝓞 F), (Ideal.absNorm (v.maxPowDividing I) : ℝ) :=
+    ((Nat.castRingHom ℝ).toMonoidHom.comp Ideal.absNorm.toMonoidHom).map_finprod_of_preimage_one
+      (by simp) _
+  nth_rw 1 [← h_factor]
+  exact h_prod
+
+lemma hasFiniteMulSupport_absNorm_maxPowDividing {I : Ideal (𝓞 F)} (hI : I ≠ 0) :
+    (fun v : HeightOneSpectrum (𝓞 F) => (Ideal.absNorm (v.maxPowDividing I) : ℝ)).HasFiniteMulSupport := by
+  have h_supp : Function.mulSupport (fun v : HeightOneSpectrum (𝓞 F) => (Ideal.absNorm (v.maxPowDividing I) : ℝ)) ⊆
+      Function.mulSupport (fun v : HeightOneSpectrum (𝓞 F) => v.maxPowDividing I) := by
+    intro v hv
+    simp only [Function.mem_mulSupport, ne_eq] at hv ⊢
+    intro h1
+    apply hv
+    rw [h1, Ideal.one_eq_top, Ideal.absNorm_top, Nat.cast_one]
+  exact (Ideal.hasFiniteMulSupport hI).subset h_supp
+
+lemma absNorm_eq_finprod_exterior {S : SData F CE condη} {I : Ideal (𝓞 F)}
+    (hI : S.IsExterior I) :
+    (Ideal.absNorm I : ℝ) = ∏ᶠ v ∉ S.Sf, (Ideal.absNorm (v.maxPowDividing I) : ℝ) := by
+  rw [absNorm_eq_finprod_absNorm_maxPowDividing hI.1]
+  let f := fun v : HeightOneSpectrum (𝓞 F) => (Ideal.absNorm (v.maxPowDividing I) : ℝ)
+  have hf : f.HasFiniteMulSupport := hasFiniteMulSupport_absNorm_maxPowDividing hI.1
+  have h_split : ∏ᶠ v, f v = (∏ᶠ v ∈ (S.Sf : Set (HeightOneSpectrum (𝓞 F))), f v) *
+      ∏ᶠ v ∉ S.Sf, f v := by
+    have h_union := finprod_mem_union' (hst := disjoint_compl_right)
+      (hs := S.Sf.finite_toSet.inter_of_left _)
+      (ht := Set.Finite.subset hf Set.inter_subset_right) (f := f)
+    rw [Set.union_compl_self, finprod_mem_univ] at h_union
+    exact h_union
+  rw [h_split]
+  have h_sf_one : (∏ᶠ v ∈ (S.Sf : Set (HeightOneSpectrum (𝓞 F))), f v) = 1 := by
+    rw [finprod_mem_coe_finset]
+    have : ∀ v ∈ S.Sf, f v = 1 := fun v hv => absNorm_maxPowDividing_eq_one_of_mem_Sf hI hv
+    rw [Finset.prod_congr rfl this, Finset.prod_const_one]
+  rw [h_sf_one, one_mul]
+
+lemma finprod_exterior_norm_embedding_mul_absNorm {S : SData F CE condη} {x : F} {I : Ideal (𝓞 F)}
+    (hI : S.IsExterior I) (hx : S.IsGen x I) :
+    (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v x‖) * (Ideal.absNorm I : ℝ) = 1 := by
+  rw [absNorm_eq_finprod_exterior hI]
+  have hf_supp : (((S.Sf : Set (HeightOneSpectrum (𝓞 F)))ᶜ) ∩
+      Function.mulSupport (fun v => ‖FinitePlace.embedding v x‖)).Finite := by
+    have h_all : (Function.mulSupport (fun v => ‖FinitePlace.embedding v x‖)).Finite :=
+      finitePlace_mk_hasFiniteMulSupport hx.2.1
+    exact Set.Finite.subset h_all Set.inter_subset_right
+  have hg_supp : (((S.Sf : Set (HeightOneSpectrum (𝓞 F)))ᶜ) ∩
+      Function.mulSupport (fun v => (Ideal.absNorm (v.maxPowDividing I) : ℝ))).Finite := by
+    have h := hasFiniteMulSupport_absNorm_maxPowDividing hI.1
+    exact Set.Finite.subset h Set.inter_subset_right
+  have h_one : ∀ v ∈ ((S.Sf : Set (HeightOneSpectrum (𝓞 F)))ᶜ),
+      ‖FinitePlace.embedding v x‖ * (Ideal.absNorm (v.maxPowDividing I) : ℝ) = (1 : ℝ) := by
+    intro v hv
+    exact norm_embedding_mul_maxPowDividing_eq_one hx hv
+  exact ((finprod_mem_mul_distrib' (s := ((S.Sf : Set (HeightOneSpectrum (𝓞 F)))ᶜ)) hf_supp hg_supp).symm).trans
+    ((finprod_mem_congr rfl h_one).trans (finprod_mem_one _))
+
+set_option linter.unusedSectionVars false in
+lemma normSq_embedding_eq [IsTotallyComplex F] (w : InfinitePlace F) (x : F) :
+    Complex.normSq (w.embedding x) = w x ^ w.mult := by
+  rw [IsTotallyComplex.mult_eq w, Complex.normSq_eq_norm_sq, InfinitePlace.norm_embedding_eq]
+
+lemma absS_diag_eq [IsTotallyComplex F] (S : SData F CE condη) (x : F) :
+    S.absS (S.diag x) = (∏ v ∈ S.Sf, ‖FinitePlace.embedding v x‖) * ∏ w : InfinitePlace F, w x ^ w.mult := by
+  dsimp [SData.absS, SData.diag]
+  congr 1
+  · change (∏ v ∈ S.Sf.attach, absFin v.1 (algebraMap F (v.1.adicCompletion F) x)) = _
+    rw [Finset.prod_attach S.Sf (fun v => absFin v (algebraMap F (v.adicCompletion F) x))]
+    refine Finset.prod_congr rfl ?_
+    intro v hv
+    exact absFin_algebraMap v x
+  · change (∏ w : InfinitePlace F, Complex.normSq (w.embedding x)) = _
+    refine Fintype.prod_congr _ _ ?_
+    intro w
+    exact normSq_embedding_eq w x
+
+lemma norm_embedding_le_one_of_valuation_le_one (v : HeightOneSpectrum (𝓞 F)) (z : F)
+    (hz : v.valuation F z ≤ 1) :
+    ‖FinitePlace.embedding v z‖ ≤ 1 := by
+  rw [FinitePlace.norm_embedding']
+  exact NNReal.coe_le_one.mpr
+    ((WithZeroMulInt.toNNReal_le_one_iff (HeightOneSpectrum.one_lt_absNorm_nnreal v)).mpr hz)
+
 /-- lem:s-lattice (e)/(f) (02:63–108; consumed at 05:152): `‖x‖_S = N(xR)` for `x ∈ F^×`
 generating the exterior fractional ideal `I`; in particular `‖x‖_S ≥ 1` for `x ∈ R ∖ 0`.
 Package P-ARITH-BASE. -/
 theorem SData.absS_diag_eq_norm [IsTotallyComplex F] (S : SData F CE condη) (x : F) (I : Ideal (𝓞 F))
     (hI : S.IsExterior I) (hx : S.IsGen x I) :
     S.absS (S.diag x) = Ideal.absNorm I := by
-  sorry
+  have hx0 : x ≠ 0 := hx.2.1
+  have hprod := prod_abs_eq_one hx0
+  have hf_supp : (Function.mulSupport fun v => ‖FinitePlace.embedding v x‖).Finite :=
+    finitePlace_mk_hasFiniteMulSupport hx0
+  have h_split : (∏ᶠ v : HeightOneSpectrum (𝓞 F), ‖FinitePlace.embedding v x‖) =
+      (∏ v ∈ S.Sf, ‖FinitePlace.embedding v x‖) * ∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v x‖ := by
+    have h_union := finprod_mem_union' (hst := disjoint_compl_right)
+      (hs := S.Sf.finite_toSet.inter_of_left _)
+      (ht := Set.Finite.subset hf_supp Set.inter_subset_right)
+      (f := fun v => ‖FinitePlace.embedding v x‖)
+    rw [Set.union_compl_self, finprod_mem_univ] at h_union
+    rw [finprod_mem_coe_finset] at h_union
+    exact h_union
+  have h_prod_decomp : (∏ᶠ w : FinitePlace F, w x) =
+      (∏ v ∈ S.Sf, ‖FinitePlace.embedding v x‖) * ∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v x‖ := by
+    rw [← finprod_comp_equiv FinitePlace.equivHeightOneSpectrum.symm]
+    change (∏ᶠ v : HeightOneSpectrum (𝓞 F), ‖FinitePlace.embedding v x‖) = _
+    exact h_split
+  rw [h_prod_decomp] at hprod
+  have h_absS : S.absS (S.diag x) = (∏ v ∈ S.Sf, ‖FinitePlace.embedding v x‖) * ∏ w : InfinitePlace F, w x ^ w.mult :=
+    absS_diag_eq S x
+  have h_prod_absS : S.absS (S.diag x) * (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v x‖) = 1 := by
+    rw [h_absS]
+    calc ((∏ v ∈ S.Sf, ‖FinitePlace.embedding v x‖) * ∏ w : InfinitePlace F, w x ^ w.mult) *
+          (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v x‖)
+      _ = (∏ w : InfinitePlace F, w x ^ w.mult) *
+          ((∏ v ∈ S.Sf, ‖FinitePlace.embedding v x‖) * ∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v x‖) := by ring
+      _ = 1 := hprod
+  have h_ext := finprod_exterior_norm_embedding_mul_absNorm hI hx
+  calc S.absS (S.diag x)
+    _ = S.absS (S.diag x) * 1 := by rw [mul_one]
+    _ = S.absS (S.diag x) * ((∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v x‖) * (Ideal.absNorm I : ℝ)) := by rw [← h_ext]
+    _ = (S.absS (S.diag x) * (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v x‖)) * (Ideal.absNorm I : ℝ) := by rw [mul_assoc]
+    _ = 1 * (Ideal.absNorm I : ℝ) := by rw [h_prod_absS]
+    _ = (Ideal.absNorm I : ℝ) := by rw [one_mul]
 
 /-- lem:s-lattice, the self-duality consequence used at 02:397 and 06:76: for an exterior ideal `I`
 with generator `c`, `(n, d) ↦ e(nd/c)` is a perfect pairing on `O_F/I`. Package P-ARITH-BASE.
