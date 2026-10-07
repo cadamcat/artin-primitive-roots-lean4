@@ -61,14 +61,19 @@ def HeckeChar.idealValue (χ : HeckeChar F) (I : Ideal (𝓞 F)) : ℂ :=
   ((UniqueFactorizationMonoid.normalizedFactors I).map fun P =>
     if h : P.IsPrime ∧ P ≠ ⊥ then χ.primeValue ⟨P, h.1, h.2⟩ else 1).prod
 
-/-- A modulus bound for the conductor: `χ` is trivial on `1 + 𝔪O_v` at every finite `v` and on
-the units at `v ∤ 𝔪` (then the conductor divides `𝔪`). -/
+/-- Exponent of the prime `v` in an ideal. -/
+def idealExp (v : FinPlace F) (I : Ideal (𝓞 F)) : ℕ :=
+  (Associates.mk v.asIdeal).count (Associates.mk I).factors
+
+/-- A modulus bound for the conductor: `χ` is trivial on the local units `u ≡ 1 mod 𝔭_v^{e_v(𝔪)}`
+at every finite `v` (for `e_v(𝔪) = 0`: on all local units); then the conductor divides `𝔪`.
+Corrected 2026-10-07: the first version quantified `∀ x ∈ 𝔪` and was vacuous at `x = 0`
+(A2 agent, `research/design/A2-ThetaCheck.lean`, `conductorDvd_vacuous`). -/
 def HeckeChar.ConductorDvd (χ : HeckeChar F) (𝔪 : Ideal (𝓞 F)) : Prop :=
   ∀ v : FinPlace F, ∀ u : (v.adicCompletion F)ˣ,
     (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F →
     ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈ v.adicCompletionIntegers F →
-    (∀ x ∈ 𝔪, Valued.v ((u : v.adicCompletion F) - 1) ≤
-      Valued.v (algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F x))) →
+    Valued.v ((u : v.adicCompletion F) - 1) ≤ WithZero.exp (-(idealExp v 𝔪 : ℤ)) →
     χ.loc v u = 1
 
 /-- Kummer character `κ_u` (ar:kummer-hecke, 02:285–357): finite order, unramified at exterior

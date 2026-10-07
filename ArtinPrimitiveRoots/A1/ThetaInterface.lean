@@ -228,10 +228,14 @@ structure ThetaFamily {D : FieldData F} {S : SData F CE condη} {H : HilbertData
     Wv v (C.a v ((toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) ^ e * u)) =
       sphericalTable D A v e u
   WS_equiv : ∀ L ∈ 𝓛, ∀ x g, WS L (C.nS (Multiplicative.ofAdd x) * g) = S.e A x * WS L g
+  /-- `WS` is genuine (added 2026-10-07, A2 alignment M-1: needed by `rf:forward-frequencies`,
+  `rf:S-unfolding`). -/
+  WS_genuine : ∀ L ∈ 𝓛, ∀ (ζ : rootsOfUnity 3 ℂ) (g : C.G), WS L (C.z ζ * g) = ((ζ : ℂˣ) : ℂ) * WS L g
   /-- T5: the chosen S-Whittaker function. -/
   U : Set (∀ v : S.Sf, v.1.adicCompletion F)
   U_spec : IsOpen U ∧ IsCompact U ∧ (1 ∈ U) ∧
     (∀ y ∈ U, ∀ v : S.Sf, y v ∈ v.1.adicCompletionIntegers F) ∧
+    (∀ y ∈ U, ∀ v : S.Sf, Valued.v (y v) = 1) ∧
     (∀ y ∈ U, ∃ c : ∀ v : S.Sf, v.1.adicCompletion F, y = c ^ 6) ∧
     (∀ L ∈ 𝓛, ∀ y : S.FSˣ, y.1.1 ∈ U → (∀ w, y.1.2 w = 1) → L.L y = 1)
   cS : InfinitePlace F → ℝ
