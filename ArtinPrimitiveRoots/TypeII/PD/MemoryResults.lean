@@ -2459,6 +2459,7 @@ theorem goodness_removal (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc�
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ A : ℝ, 0 < A →
       ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
         ∀ family : CoefficientFamily δ C c₁ c₂, FamilyAtScale family S →
+          family.xMin ≤ S.x →
           ∀ beta : ℕ → ℂ, IsSecondCoefficient S C beta →
             ‖detPairing F S family beta - detPairingNoGood F S family beta‖ ≤
               C_A * S.U * S.V * Real.rpow S.L (-A) := by
@@ -2474,7 +2475,7 @@ non-disjoint `(a,b)` in the comparison (mem:unshared-collisions). -/
 theorem pad_stripping (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ : 0 < c₁) :
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ A : ℝ, 0 < A →
       ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
-        ∀ family : CoefficientFamily δ C c₁ c₂, ∀ beta : ℕ → ℂ,
+        ∀ family : CoefficientFamily δ C c₁ c₂, family.xMin ≤ x → ∀ beta : ℕ → ℂ,
           IsFamilySecondCoefficient family x beta → ∀ Y ∈ dyadicScales x K,
             ‖(∑ d₀ ∈ padScales x K,
                 ((d₀ : ℂ))⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta) -
@@ -2491,7 +2492,7 @@ pairing bounds at every pad dyad to the replacement of the Cauchy square: `goodn
 theorem strip_goodness_pads (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ : 0 < c₁) :
     ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ A : ℝ, 0 < A →
       ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
-        ∀ family : CoefficientFamily δ C c₁ c₂, ∀ beta : ℕ → ℂ,
+        ∀ family : CoefficientFamily δ C c₁ c₂, family.xMin ≤ x → ∀ beta : ℕ → ℂ,
           IsFamilySecondCoefficient family x beta → ∀ Y ∈ dyadicScales x K,
             ∀ E₀ Ce Cp : ℝ,
               (∀ d₀ ∈ padScales x K,

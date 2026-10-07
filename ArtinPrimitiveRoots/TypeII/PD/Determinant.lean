@@ -22,7 +22,7 @@ theorem cauchy_decomposition
         0 < C_A ∧ 0 < Cscale ∧ 0 < Cmain ∧ 0 < CDiv ∧ 2 ≤ x₀ ∧
           ∀ family : CoefficientFamily δ C c₁ c₂,
             HasLongCoefficientCancellation family →
-            ∀ x : ℝ, x₀ ≤ x →
+            ∀ x : ℝ, x₀ ≤ x → family.xMin ≤ x →
               ∀ eta : ℝ → ℝ, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) eta →
                 Function.support eta ⊆ Set.Icc 1 4 →
                 (∀ y, 0 ≤ eta y) → IsDyadicPartition eta →
@@ -88,7 +88,7 @@ theorem endpoint_bounds
     (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :
     ∃ C_e B : ℝ, 0 < C_e ∧ 0 < B ∧
       ∀ K : ℕ, ∀ a : Fin K → ℝ, ValidBands K a →
-      ∀ family : CoefficientFamily δ C c₁ c₂, ∀ x : ℝ, 2 ≤ x →
+      ∀ family : CoefficientFamily δ C c₁ c₂, ∀ x : ℝ, 2 ≤ x → family.xMin ≤ x →
         ∀ d₀ : ℕ, d₀ ∈ padScales x K →
           ∀ Y, Y ∈ dyadicScales x K →
           ∀ beta : ℕ → ℂ,
