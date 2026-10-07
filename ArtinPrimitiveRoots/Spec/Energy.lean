@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Spec.GeometryExtra
 import ArtinPrimitiveRoots.Spec.ReductionExtra
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_RELLICH.Assembly
 
 /-! L² and energy-space nodes T1--T7. -/
 
@@ -118,7 +119,33 @@ theorem T6_rellich (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       IsCompactOperator R ∧
       ∀ x : E.V, ∀ᵐ z ∂(volX F), z ∈ D →
         R x z = orbitRestrictedMass F D E Γ K x z := by
-  sorry
+  classical
+  have hT1 := T1_l2 Γ D hD
+  have hT2 := T2_tests Γ D hD
+  obtain ⟨hSat, I, hI⟩ := orbitRestrictedMass_eq_indicator Γ D hD K hK
+  obtain ⟨toL2, gradL2, hmass, hgrad, hpartition⟩ := hT2.2
+  obtain ⟨ψ, hψsmooth, hψcompact, hψnonneg, hψfinite, hψpartition, hreconstruct⟩ :=
+    hpartition K hK
+  let hψ : RellichPartition Γ K ψ :=
+    ⟨hψsmooth, hψcompact, hψnonneg, hψfinite, hψpartition⟩
+  have hlocal := quotient_to_chart_finite_overlap Γ D hD E e hT2.1 hT1.2.1
+  obtain ⟨c⟩ := localized_chart_H1_membership Γ hT2.1 ψ hψsmooth hψcompact
+  obtain ⟨C, hC, hbound⟩ :=
+    localized_chart_H1_bound Γ D hD E e hT2.1 hlocal ψ hψsmooth hψcompact c
+  obtain ⟨A, B, hA, hB, hAB⟩ := localized_chart_extension Γ D E e ψ c C hC hbound
+  obtain ⟨L, hLcompact, hL⟩ := complex_chart_rellich_compact c.support c.compact A B hAB
+  have hLrep := rellich_recombine_test_rep Γ D E e ψ c A B hA hB L hL
+  obtain ⟨C', hC', hmassbound⟩ :=
+    periodization_L2_bound Γ D hD E e hT2.1 hT1.2.1 hT1.2.2.1 K hK ψ hψ I hI L hLrep
+  refine ⟨I.comp E.M, ?_, ?_⟩
+  · apply rellich_compact_of_test_bound Γ D E e (I.comp E.M) L hLcompact C' hC'
+    intro f
+    change ‖I (e.toL2 f)‖ ≤ C' * ‖L (rellichTestVector e f)‖
+    exact hmassbound f
+  · intro x
+    filter_upwards [hI.2 (E.M x)] with z hz
+    intro hzD
+    simpa [orbitRestrictedMass, Set.indicator] using hz hzD
 
 /-- T7 `spec:ground-state` — P-SPEC.md:234, 364–368. The ground-state transform gives the
 coercivity estimate with compact error at every height cutoff above all cusp thresholds. Correction

@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Res
+import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 
 set_option autoImplicit false
 
@@ -83,22 +84,6 @@ theorem thetaWhit_nFin {P : CoverPackage D S H A} {G : GlobalDatum P}
     thetaWhit C (nFin P η * h) = psiInf 1 (infEmbA (-η)) * thetaWhit C h := by
   sorry
 
-/-- The coordinate along `e₀` of a tame basis. -/
-def tameCoord0 {D : FieldData F} {H : HilbertData F} {v : FinPlace F} {T : TorusRep D H v}
-    (B : TameTorusBasis T) : T.V →ₗ[ℂ] ℂ :=
-  (Basis.mk B.linIndep B.spans.ge).coord 0
-
-/-- **def:Wv**: the normalized exterior spherical Whittaker function on `G` (`0` off `Gloc v`):
-`Wv(emb k) = c₀(𝒥(π(k) f°'))`, `c₀` the `e₀`-coordinate of the Weyl basis (`c₀(u) = 1`). -/
-def WvAll (P : CoverPackage D S H A) (G : GlobalDatum P) (μ : ∀ v : FinPlace F, LocHaar v)
-    (v : FinPlace F) (h : P.tc.G) : ℂ :=
-  if hv : v ∉ S.Sf then
-    if hh : ∃ k, P.emb v k = h then
-      tameCoord0 (G.B v hv).weyl
-        (jacquet (P.loc v) A (μ v) (rtr hh.choose (sphWeyl P G v hv (1 / 6))))
-    else 0
-  else 0
-
 /-- **asm:Wv**: the fields `Wv_genuine`, `Wv_equiv`, `Wv_right`, `Wv_table` for `WvAll`. -/
 theorem WvAll_spec (P : CoverPackage D S H A) (G : GlobalDatum P) (μ : ∀ v : FinPlace F, LocHaar v) :
     (∀ v, v ∉ S.Sf → ∀ ζ g, WvAll P G μ v (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * WvAll P G μ v g) ∧
@@ -110,7 +95,7 @@ theorem WvAll_spec (P : CoverPackage D S H A) (G : GlobalDatum P) (μ : ∀ v : 
       ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈ v.adicCompletionIntegers F →
       WvAll P G μ v (P.tc.a v ((toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) ^ e * u)) =
         sphericalTable D A v e u) := by
-  sorry
+  exact WvAll_properties P G μ
 
 /-- **asm:factor** (T4): the Whittaker function of `θ` factors as `W_S · Π_{v∈T} W_v · Π' W_v(a_v(ν))`
 (here `W_S = W`), by induction on `T` with `theta_exterior_whittaker` and
@@ -124,7 +109,7 @@ theorem thetaWhit_factor {P : CoverPackage D S H A} {G : GlobalDatum P}
       thetaWhit C (P.tc.aS (S.diagU ν) * (if ε then P.tc.wS else 1) * gS) *
         (∏ v ∈ T, WvAll P G μ v (P.tc.a v (toLoc v ν) * (if ε then P.tc.w v else 1) * g v)) *
         ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T), WvAll P G μ v (P.tc.a v (toLoc v ν)) := by
-  sorry
+  exact thetaWhit_factor_iteration Fam hT C ν ε gS hgS T hT' g hg
 
 /-- **asm:main**: for every finite family of admissible S-characters there is a theta family on
 the cover of `P`. Corrected per rev-theta through the regularity fields of `ThetaFamily`; C10/C11
@@ -146,6 +131,33 @@ theorem theta_interface_of_steinberg (D : FieldData F) (S : SData F CE condη) (
     ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P ∧
       ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily P.tc 𝓛) := by
   sorry
+
+private theorem unitPart_isLocUnit (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+    IsLocUnit v (unitPart v x) := by
+  have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr x.ne_zero
+  have hxv : Valued.v (x : v.adicCompletion F) = WithZero.exp (-ordv v x) := by
+    rw [← WithZero.exp_log hx0]
+    simp [ordv, WithZero.toAdd_unzero_eq_log hx0]
+  have hπ : Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    change Valued.v ((unif v : F) : v.adicCompletion F) = WithZero.exp (-1 : ℤ)
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact (v.valuation_exists_uniformizer F).choose_spec
+  have hval : Valued.v (unitPart v x : v.adicCompletion F) = 1 := by
+    simp only [unitPart, Units.val_mul, Units.val_zpow_eq_zpow_val]
+    change Valued.v ((x : v.adicCompletion F) *
+      (unifLoc v : v.adicCompletion F) ^ (-ordv v x)) = 1
+    rw [map_mul, map_zpow₀, hxv, hπ]
+    rw [← WithZero.exp_zsmul, ← WithZero.exp_add]
+    congr 1
+    simp
+  constructor
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    rw [hval]
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    have hval' : Valued.v (((unitPart v x)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      simp [hval]
+    rw [hval']
 
 /-- **cor:theta-exterior-coefficient** (03:186–222; A2 request), table form. -/
 theorem sphericalTable_product (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
