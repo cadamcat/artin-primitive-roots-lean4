@@ -486,6 +486,189 @@ theorem G2_x_action :
       (h w : Matrix (Fin 2) (Fin 2) ℂ) * (u : Matrix (Fin 2) (Fin 2) ℂ))
     exact (continuous_subtype_val.comp (continuous_apply w)).mul continuous_const
 
+private theorem herm_pt_matrix (x : ℂ) (y : ℝ) (hy : 0 < y) :
+    herm (pt x y) = !![((Complex.normSq x + y ^ 2 : ℝ) : ℂ) / (y : ℂ),
+      x / (y : ℂ); star x / (y : ℂ), (1 : ℂ) / (y : ℂ)] := by
+  rw [pt, dif_pos hy]
+  change (ptMat x y hy : Matrix (Fin 2) (Fin 2) ℂ) *
+      star (ptMat x y hy : Matrix (Fin 2) (Fin 2) ℂ) = _
+  have hs : (Real.sqrt y : ℂ) ^ 2 = y := by exact_mod_cast Real.sq_sqrt hy.le
+  have hs0 : (Real.sqrt y : ℂ) ≠ 0 := by
+    exact_mod_cast (Real.sqrt_pos.mpr hy).ne'
+  have hsi : (Real.sqrt y : ℂ)⁻¹ ^ 2 = (y : ℂ)⁻¹ := by rw [inv_pow, hs]
+  have hs4 : (Real.sqrt y : ℂ) ^ 4 = (y : ℂ) ^ 2 := by
+    calc
+      (Real.sqrt y : ℂ) ^ 4 = ((Real.sqrt y : ℂ) ^ 2) ^ 2 := by ring
+      _ = (y : ℂ) ^ 2 := by rw [hs]
+  have hnorm : x * (starRingEnd ℂ) x = (Complex.normSq x : ℂ) :=
+    Complex.mul_conj x
+  ext i j
+  fin_cases i <;> fin_cases j
+  · simp [ptMat, Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply,
+      Complex.conj_ofReal]
+    field_simp [hs0, hy.ne']
+    rw [hs4, hnorm]
+    rw [hs]
+    ring
+  · simp [ptMat, Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply,
+      Complex.conj_ofReal]
+    field_simp [hs0, hy.ne']
+    rw [hs]
+  · simp [ptMat, Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply,
+      Complex.conj_ofReal]
+    field_simp [hs0, hy.ne']
+    rw [hs]
+    ring
+  · simp [ptMat, Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply,
+      Complex.conj_ofReal]
+    simpa [pow_two] using hsi
+
+private def gramPair (z z' : H3) : ℝ :=
+  ((Matrix.trace ((herm z).adjugate * herm z')).re) / 2
+
+private theorem adjugate_fin_two (A : Matrix (Fin 2) (Fin 2) ℂ) :
+    A.adjugate = !![A 1 1, -A 0 1; -A 1 0, A 0 0] := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [Matrix.adjugate_apply, Matrix.updateRow, Matrix.det_fin_two,
+      Fin.sum_univ_two, Function.update, Pi.single_apply]
+
+private theorem ppi_eq_gramPair (z z' : H3) : ppi z z' = gramPair z z' := by
+  have hy : 0 < height z := by
+    rw [height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos z
+  have hy' : 0 < height z' := by
+    rw [height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos z'
+  rw [← pt_horiz_height z, ← pt_horiz_height z']
+  rw [ppi, height_pt _ _ hy, height_pt _ _ hy', horiz_pt _ _ hy, horiz_pt _ _ hy']
+  rw [gramPair, herm_pt_matrix _ _ hy, herm_pt_matrix _ _ hy', adjugate_fin_two]
+  simp [Matrix.trace, Matrix.mul_apply, Fin.sum_univ_two, Complex.normSq_sub,
+    Complex.normSq_apply]
+  field_simp [hy.ne', hy'.ne']
+  simp only [← Complex.ofReal_pow, Complex.ofReal_re]
+  ring
+
+private theorem herm_mk (g : SL(2,ℂ)) :
+    herm (QuotientGroup.mk g : H3) = (g : Matrix (Fin 2) (Fin 2) ℂ) *
+      star (g : Matrix (Fin 2) (Fin 2) ℂ) := rfl
+
+private theorem adjugate_sl (g : SL(2,ℂ)) :
+    Matrix.adjugate (g : Matrix (Fin 2) (Fin 2) ℂ) =
+      ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) := by
+  simpa using (Matrix.SpecialLinearGroup.coe_inv (A := g)).symm
+
+private theorem adjugate_star_sl (g : SL(2,ℂ)) :
+    Matrix.adjugate (star (g : Matrix (Fin 2) (Fin 2) ℂ)) =
+      star ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) := by
+  calc
+    Matrix.adjugate (star (g : Matrix (Fin 2) (Fin 2) ℂ)) =
+        star (Matrix.adjugate (g : Matrix (Fin 2) (Fin 2) ℂ)) := by
+          rw [Matrix.star_eq_conjTranspose, ← Matrix.adjugate_conjTranspose,
+            Matrix.star_eq_conjTranspose]
+    _ = star ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) := by rw [adjugate_sl]
+
+private theorem herm_smul (g : SL(2,ℂ)) (z : H3) :
+    herm (g • z) = (g : Matrix (Fin 2) (Fin 2) ℂ) * herm z *
+      star (g : Matrix (Fin 2) (Fin 2) ℂ) := by
+  induction z using Quotient.inductionOn with
+  | _ h =>
+      change (((g * h : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) *
+          star ((g * h : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ)) =
+        (g : Matrix (Fin 2) (Fin 2) ℂ) *
+          ((h : Matrix (Fin 2) (Fin 2) ℂ) * star (h : Matrix (Fin 2) (Fin 2) ℂ)) *
+            star (g : Matrix (Fin 2) (Fin 2) ℂ)
+      simp only [Matrix.SpecialLinearGroup.coe_mul, Matrix.star_mul]
+      noncomm_ring
+
+private theorem trace_conjugatePair (g : SL(2,ℂ))
+    (A B : Matrix (Fin 2) (Fin 2) ℂ) :
+    Matrix.trace (star ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) * A *
+      ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) *
+      ((g : Matrix (Fin 2) (Fin 2) ℂ) * B * star (g : Matrix (Fin 2) (Fin 2) ℂ))) =
+      Matrix.trace (A * B) := by
+  let G : Matrix (Fin 2) (Fin 2) ℂ := g
+  let Gi : Matrix (Fin 2) (Fin 2) ℂ := (g⁻¹ : SL(2,ℂ))
+  let K : Matrix (Fin 2) (Fin 2) ℂ := star G
+  let Ki : Matrix (Fin 2) (Fin 2) ℂ := star Gi
+  have hleft : Gi * G = 1 := by
+    dsimp [Gi, G]
+    simpa [Matrix.SpecialLinearGroup.coe_inv, Matrix.SpecialLinearGroup.det_coe] using
+      (Matrix.adjugate_mul (g : Matrix (Fin 2) (Fin 2) ℂ))
+  have hstar : K * Ki = 1 := by
+    dsimp [K, Ki, G, Gi]
+    simpa [Matrix.SpecialLinearGroup.coe_inv, Matrix.SpecialLinearGroup.det_coe,
+      Matrix.star_mul] using congrArg star
+        (Matrix.adjugate_mul (g : Matrix (Fin 2) (Fin 2) ℂ))
+  change Matrix.trace (Ki * A * Gi * (G * B * K)) = Matrix.trace (A * B)
+  have hcancel : Ki * A * Gi * (G * B * K) = Ki * A * B * K := by
+    calc
+      Ki * A * Gi * (G * B * K) = Ki * A * (Gi * (G * (B * K))) := by
+        simp only [Matrix.mul_assoc]
+      _ = Ki * A * ((Gi * G) * (B * K)) := by
+        congr 1
+        rw [← Matrix.mul_assoc Gi G (B * K)]
+      _ = Ki * A * (B * K) := by rw [hleft]; simp
+      _ = Ki * A * B * K := by simp only [Matrix.mul_assoc]
+  calc
+    Matrix.trace (Ki * A * Gi * (G * B * K)) =
+        Matrix.trace (Ki * A * B * K) := congrArg Matrix.trace hcancel
+    _ = Matrix.trace (A * B) := by
+      calc
+        Matrix.trace (Ki * A * B * K) = Matrix.trace ((A * (B * K)) * Ki) := by
+          simpa only [Matrix.mul_assoc] using Matrix.trace_mul_comm Ki (A * (B * K))
+        _ = Matrix.trace (A * B) := by
+          congr 1
+          calc
+            (A * (B * K)) * Ki = A * (B * (K * Ki)) := by simp only [Matrix.mul_assoc]
+            _ = A * B := by rw [hstar]; simp
+
+private theorem gramPair_smul (g : SL(2,ℂ)) (z z' : H3) :
+    gramPair (g • z) (g • z') = gramPair z z' := by
+  rw [gramPair, gramPair, herm_smul, herm_smul, Matrix.adjugate_mul_distrib,
+    Matrix.adjugate_mul_distrib, adjugate_star_sl, adjugate_sl]
+  exact congrArg (fun t : ℂ => t.re / 2) (by
+    simpa only [Matrix.mul_assoc] using
+      trace_conjugatePair g (herm z).adjugate (herm z'))
+
+private theorem trace_mul_star_eq_normSq (M : Matrix (Fin 2) (Fin 2) ℂ) :
+    Matrix.trace (M * star M) =
+      (∑ i : Fin 2, ∑ j : Fin 2, (Complex.normSq (M i j) : ℂ)) := by
+  simp [Matrix.trace, Matrix.mul_apply, Matrix.star_apply, Fin.sum_univ_two,
+    Complex.normSq_eq_conj_mul_self]
+  ring
+
+private theorem ppi_mk_eq_frobenius (g h : SL(2,ℂ)) :
+    ppi (QuotientGroup.mk g : H3) (QuotientGroup.mk h : H3) =
+      (∑ i : Fin 2, ∑ j : Fin 2,
+        Complex.normSq ((g⁻¹ * h : SL(2,ℂ)) i j)) / 2 := by
+  rw [ppi_eq_gramPair, gramPair, herm_mk, herm_mk, Matrix.adjugate_mul_distrib,
+    adjugate_star_sl, adjugate_sl]
+  have htrace :
+      Matrix.trace (star ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) *
+        ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) *
+        ((h : Matrix (Fin 2) (Fin 2) ℂ) * star (h : Matrix (Fin 2) (Fin 2) ℂ))) =
+      Matrix.trace (((g⁻¹ * h : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) *
+        star ((g⁻¹ * h : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ)) := by
+    calc
+      _ = Matrix.trace ((((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) *
+          (h : Matrix (Fin 2) (Fin 2) ℂ) * star (h : Matrix (Fin 2) (Fin 2) ℂ)) *
+          star ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ)) := by
+            simpa only [Matrix.mul_assoc] using
+              (Matrix.trace_mul_comm
+                (star ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ))
+                (((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) *
+                  ((h : Matrix (Fin 2) (Fin 2) ℂ) * star (h : Matrix (Fin 2) (Fin 2) ℂ))))
+      _ = Matrix.trace ((((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ) *
+          (h : Matrix (Fin 2) (Fin 2) ℂ)) *
+          (star (h : Matrix (Fin 2) (Fin 2) ℂ) *
+            star ((g⁻¹ : SL(2,ℂ)) : Matrix (Fin 2) (Fin 2) ℂ))) := by
+            simp only [Matrix.mul_assoc]
+      _ = _ := by simp only [Matrix.SpecialLinearGroup.coe_mul, Matrix.star_mul]
+  rw [htrace]
+  rw [trace_mul_star_eq_normSq]
+  simp [Complex.ofReal_re]
+
 /-- G3 `spec:volume` — P-SPEC.md:210. Invariance, the coordinate density, local finiteness and
 positivity, and the product measure formula for hyperbolic volume. -/
 theorem G3_volume :
@@ -517,6 +700,134 @@ theorem G6_ppi :
     ∀ w : InfinitePlace F,
       ContDiffOn ℝ ∞ (fun pq : Coord F × Coord F => ppiCoordAt F w pq)
         {pq | pq.1 ∈ posSet F ∧ pq.2 ∈ posSet F} := by
-  sorry
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · intro g z z'
+    rw [ppi_eq_gramPair, ppi_eq_gramPair, gramPair_smul]
+  · exact ppi_mk_eq_frobenius
+  · intro z z'
+    have hy : 0 < height z := by
+      rw [height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos z
+    have hy' : 0 < height z' := by
+      rw [height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos z'
+    have hden : 0 < 2 * height z * height z' := by positivity
+    constructor
+    · dsimp [ppi]
+      rw [le_div_iff₀ hden]
+      nlinarith [Complex.normSq_nonneg (horiz z - horiz z'),
+        sq_nonneg (height z - height z')]
+    · constructor
+      · intro heq
+        dsimp [ppi] at heq
+        have hnum :
+            Complex.normSq (horiz z - horiz z') + height z ^ 2 + height z' ^ 2 =
+              2 * height z * height z' := by
+          field_simp [hden.ne'] at heq
+          linarith
+        have hnorm : Complex.normSq (horiz z - horiz z') = 0 := by
+          nlinarith [Complex.normSq_nonneg (horiz z - horiz z'),
+            sq_nonneg (height z - height z')]
+        have hyEq : height z = height z' := by nlinarith [hnum, hnorm]
+        have hxEq : horiz z = horiz z' := by
+          exact sub_eq_zero.mp (Complex.normSq_eq_zero.mp hnorm)
+        calc
+          z = pt (horiz z) (height z) := (pt_horiz_height z).symm
+          _ = pt (horiz z') (height z') := by rw [hxEq, hyEq]
+          _ = z' := pt_horiz_height z'
+      · intro hz
+        subst z'
+        dsimp [ppi]
+        field_simp [hy.ne']
+        simp [Complex.normSq_zero]
+        ring
+  · intro ρ hρ z hball
+    have hy : 0 < height z := by
+      rw [height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos z
+    let y := height z
+    let x := horiz z
+    have hcenter : ppi (pt 0 1) z =
+        (Complex.normSq x + 1 + y ^ 2) / (2 * y) := by
+      rw [ppi, horiz_pt 0 1 (by norm_num), height_pt 0 1 (by norm_num)]
+      simp [x, y]
+    have hnum : Complex.normSq x + 1 + y ^ 2 ≤ 2 * y * (1 + ρ) := by
+      rw [hcenter] at hball
+      have hden : 0 < 2 * y := by positivity
+      have htmp := (div_le_iff₀ hden).mp hball
+      nlinarith [htmp]
+    have hsum : 1 + y ^ 2 ≤ 2 * y * (1 + ρ) := by
+      nlinarith [hnum, Complex.normSq_nonneg x]
+    have hhalf : (y + y⁻¹) / 2 ≤ 1 + ρ := by
+      have hmul : y * (y + y⁻¹) ≤ y * (2 * (1 + ρ)) := by
+        have hleft : y * (y + y⁻¹) = 1 + y ^ 2 := by
+          rw [mul_add, mul_inv_cancel₀ hy.ne']
+          ring
+        rw [hleft]
+        nlinarith [hsum]
+      have hquot : y + y⁻¹ ≤ 2 * (1 + ρ) := le_of_mul_le_mul_left hmul hy
+      exact (div_le_iff₀ (by norm_num : (0 : ℝ) < 2)).2 (by nlinarith [hquot])
+    have hcosh : Real.cosh (Real.log y) ≤ 1 + ρ := by
+      rw [Real.cosh_log hy]
+      exact hhalf
+    have hcoshAbs : Real.cosh |Real.log y| ≤ 1 + ρ := by
+      simpa only [Real.cosh_abs] using hcosh
+    have harcosh : Real.arcosh (Real.cosh |Real.log y|) ≤ Real.arcosh (1 + ρ) :=
+      (Real.arcosh_le_arcosh (Real.cosh_pos _) (by linarith)).2 hcoshAbs
+    have hlog : |Real.log y| ≤ Real.arcosh (1 + ρ) := by
+      calc
+        |Real.log y| = Real.arcosh (Real.cosh |Real.log y|) :=
+          (Real.arcosh_cosh (abs_nonneg _)).symm
+        _ ≤ Real.arcosh (1 + ρ) := harcosh
+    have hbox : Complex.normSq x + (y - (1 + ρ)) ^ 2 ≤ 2 * ρ + ρ ^ 2 := by
+      nlinarith [hnum, sq_nonneg (y - (1 + ρ))]
+    have hnormSq : Complex.normSq x ≤ 2 * ρ + ρ ^ 2 := by
+      nlinarith [hbox, sq_nonneg (y - (1 + ρ))]
+    have hnormSq' : ‖x‖ ^ 2 ≤ 2 * ρ + ρ ^ 2 := by
+      simpa only [Complex.normSq_eq_norm_sq] using hnormSq
+    have hnorm : ‖x‖ ≤ Real.sqrt (2 * ρ + ρ ^ 2) := by
+      calc
+        ‖x‖ = Real.sqrt (‖x‖ ^ 2) := by
+          rw [Real.sqrt_sq_eq_abs, abs_of_nonneg (norm_nonneg x)]
+        _ ≤ Real.sqrt (2 * ρ + ρ ^ 2) := Real.sqrt_le_sqrt hnormSq'
+    exact ⟨hlog, hnorm⟩
+  · intro w pq hpq
+    letI : NormedSpace ℝ ℝ := RCLike.toInnerProductSpaceReal.toNormedSpace
+    let u : Coord F × Coord F → ℂ := fun q => (q.1 w).1 - (q.2 w).1
+    let y₁ : Coord F × Coord F → ℝ := fun q => (q.1 w).2
+    let y₂ : Coord F × Coord F → ℝ := fun q => (q.2 w).2
+    let num : Coord F × Coord F → ℝ := fun q =>
+      (u q).re ^ 2 + (u q).im ^ 2 + y₁ q ^ 2 + y₂ q ^ 2
+    let den : Coord F × Coord F → ℝ := fun q => 2 * y₁ q * y₂ q
+    have hu : ContDiff ℝ ∞ u := by dsimp [u]; fun_prop
+    have hy₁ : ContDiff ℝ ∞ y₁ := by dsimp [y₁]; fun_prop
+    have hy₂ : ContDiff ℝ ∞ y₂ := by dsimp [y₂]; fun_prop
+    have hRe : ContDiff ℝ ∞ (fun q => (u q).re) := by
+      have hr := Complex.reCLM.contDiff.comp hu
+      convert hr using 1
+      funext q
+      exact (Complex.reCLM_apply (u q)).symm
+    have hIm : ContDiff ℝ ∞ (fun q => (u q).im) := by
+      have hi := Complex.imCLM.contDiff.comp hu
+      convert hi using 1
+      funext q
+      exact (Complex.imCLM_apply (u q)).symm
+    have hnum : ContDiff ℝ ∞ num := by dsimp [num]; fun_prop
+    have hden : ContDiff ℝ ∞ den := by dsimp [den]; fun_prop
+    have hy₁pos : 0 < y₁ pq := by exact hpq.1 w
+    have hy₂pos : 0 < y₂ pq := by exact hpq.2 w
+    have hden_ne : den pq ≠ 0 := by
+      dsimp [den, y₁, y₂]
+      positivity
+    dsimp [ppiCoordAt]
+    simp_rw [Complex.normSq_apply]
+    have hAtDiv : ContDiffWithinAt ℝ ∞
+        ((fun q => num q) / (fun q => den q))
+        {q | q.1 ∈ posSet F ∧ q.2 ∈ posSet F} pq :=
+      (hnum.contDiffAt.div hden.contDiffAt hden_ne).contDiffWithinAt
+    have hAtFun : ContDiffWithinAt ℝ ∞ (fun q => num q / den q)
+        {q | q.1 ∈ posSet F ∧ q.2 ∈ posSet F} pq :=
+      hAtDiv.congr (by intro q hq; rfl) rfl
+    simpa [num, den, u, y₁, y₂, pow_two] using hAtFun
 
 end ArtinPrimitiveRoots.A1.Spec
