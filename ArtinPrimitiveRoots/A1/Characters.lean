@@ -164,9 +164,13 @@ def SData.LS (S : SData F CE condη) (ϑ : HeckeChar F) (y : S.FSˣ) : ℂ :=
 
 /-- eq:vartheta-s (02:615–625): `ϑ(𝔞) = L_S(a)` for every generator, `L_S = 1` on `U_S`, angular
 type `±1` at complex places, and `γ_1γ_2ϑ = -η` at exterior primes. Package P-ARITH-GAUSS.
-Corrected per rev-theta to require the finite-order and angular hypotheses used by the lemma. -/
+Corrected per rev-theta to require the finite-order and angular hypotheses used by the lemma; C5 of
+`sol-gate-theta` also requires the three characters to be unramified outside `S`. -/
 theorem vartheta_S (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (H : HilbertData F)
     (Bd : BData S H) (η Λ G : HeckeChar F)
+    (hηram : ∀ v : FinPlace F, v ∉ S.Sf → η.UnramifiedAt v)
+    (hΛram : ∀ v : FinPlace F, v ∉ S.Sf → Λ.UnramifiedAt v)
+    (hGram : ∀ v : FinPlace F, v ∉ S.Sf → G.UnramifiedAt v)
     (hη : IsOfFinOrder η) (hG : IsOfFinOrder G)
     (hΛunitary : ∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1)
     (hΛangular : HeckeChar.HasAngularType D Λ)
