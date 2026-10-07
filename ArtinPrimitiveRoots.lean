@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Basic
 import ArtinPrimitiveRoots.Target
+import ArtinPrimitiveRoots.Splitting.Counting
 import ArtinPrimitiveRoots.Sieve.Block
 import ArtinPrimitiveRoots.Sieve.RoughDensity
 import ArtinPrimitiveRoots.Hecke.Elementary
