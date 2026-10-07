@@ -1,3 +1,7 @@
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.ValidSupport
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.NormSupport
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.SignSupport
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.SchurSupport
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_boundary_norm_near_one
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_ghostBirthTwist_preserves_sym
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_edgeBirthTwist_preserves_sym
