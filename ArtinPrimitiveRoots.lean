@@ -24,3 +24,4 @@ import ArtinPrimitiveRoots.TypeII.PP.Results
 import ArtinPrimitiveRoots.Hecke.Dictionary
 import ArtinPrimitiveRoots.Arith.SUnit
 import ArtinPrimitiveRoots.A1.AddCharExists
+import ArtinPrimitiveRoots.Spec.Interface
