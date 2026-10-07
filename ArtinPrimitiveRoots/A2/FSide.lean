@@ -122,6 +122,11 @@ def detectorCoeff (U : ℝ) (I : Ideal (𝓞 K)) : ℤ :=
   ∑ T ∈ (UniqueFactorizationMonoid.normalizedFactors I).toFinset.powerset,
     if ((∏ P ∈ T, Ideal.absNorm P : ℕ) : ℝ) ≤ U ^ 2 then (-1) ^ T.card else 0
 
+/-- **def:ideal-divisor-count** (06-zero-free.tex:145): the ideal divisor function. Located here
+per rev-a2 so FSide can state the corrected detector bound without an import cycle. -/
+def idealDivisorCount (I : Ideal (𝓞 K)) : ℕ :=
+  Set.ncard {J : Ideal (𝓞 K) | J ∣ I}
+
 open Classical in
 /-- **def:zf-detector** (06-zero-free.tex:188-215): mollifier `D_U(s,f)`. -/
 def mollifier (U : ℝ) (f : Ideal (𝓞 K) → ℂ) (s : ℂ) : ℂ :=
@@ -575,7 +580,7 @@ private theorem detectorCoeff_divisor_sum (U : ℝ) (hU : 1 ≤ U)
 and `Re s > 1`, `(Σ_𝔞 f(𝔞) N𝔞^{-s}) · D_U(s,f) = Σ_𝔫 α_U(𝔫) f(𝔫) N𝔫^{-s}`;
 `α_U((1)) = 1`; `α_U(𝔫) = 0` for `1 < N𝔫 ≤ U²`; `|α_U(𝔫)| ≤ τ_K(𝔫)`.
 Consumers: A2 `zf:detector-shift`, `zf:detector-count`.  (Ideal sums as `tsum` over the
-nonzero ideals.) -/
+nonzero ideals.) Corrected per rev-a2 to include the divisor-count bound in the conclusion. -/
 theorem detector_identity (U : ℝ) (hU : 1 ≤ U) (f : Ideal (𝓞 K) → ℂ)
     (hmul : ∀ I J, f (I * J) = f I * f J) (hb : ∀ I, ‖f I‖ ≤ 1) {s : ℂ} (hs : 1 < s.re) :
     (∑' I : {I : Ideal (𝓞 K) // I ≠ ⊥}, f I * ((Ideal.absNorm (I : Ideal (𝓞 K)) : ℕ) : ℂ) ^ (-s)) *
@@ -584,8 +589,10 @@ theorem detector_identity (U : ℝ) (hU : 1 ≤ U) (f : Ideal (𝓞 K) → ℂ)
         ((Ideal.absNorm (I : Ideal (𝓞 K)) : ℕ) : ℂ) ^ (-s) ∧
     detectorCoeff U (⊤ : Ideal (𝓞 K)) = 1 ∧
     (∀ I : Ideal (𝓞 K), I ≠ ⊥ → 1 < Ideal.absNorm I → ((Ideal.absNorm I : ℕ) : ℝ) ≤ U ^ 2 →
-      detectorCoeff U I = 0) := by
-  refine ⟨?_, ?_, ?_⟩
+      detectorCoeff U I = 0) ∧
+    (∀ I : Ideal (𝓞 K), I ≠ ⊥ →
+      ‖(detectorCoeff U I : ℂ)‖ ≤ idealDivisorCount I) := by
+  refine ⟨?_, ?_, ?_, ?_⟩
   · classical
     let S := detectorCutoffSet (K := K) U
     let aI (I : detectorNZIdeal (K := K)) :=
@@ -736,6 +743,7 @@ theorem detector_identity (U : ℝ) (hU : 1 ≤ U) (f : Ideal (𝓞 K) → ℂ)
           (-1 : ℤ) ^ T.card else 0) = (-1 : ℤ) ^ T.card
         exact if_pos (hTnorm T hT)
       _ = 0 := Finset.sum_powerset_neg_one_pow_card_of_nonempty hPne
+  · sorry
 
 /-! ## §3 The principal signal and its Mellin transform (06:458-476, 06:691-752) -/
 
@@ -752,8 +760,8 @@ def fEta (H L : ℂ → ℂ) (Z : ℝ) : ℂ :=
 `mellin f w = ∫_0^∞ t^{w-1} f(t) dt`. -/
 def mellinT (f : ℝ → ℂ) (s : ℂ) : ℂ := mellin f (-Cstar s)
 
-/-- **zf:mellin-identification** (06-zero-free.tex:709-752), Mathlib-only form.  Its hypotheses
-include the small-`Z` half of `zf:f-bounds`.
+/-- **zf:mellin-identification** (06-zero-free.tex:709-752), Mathlib-only form. Its hypotheses
+include the small-`Z` half of `zf:f-bounds`. Corrected per rev-a2 to state both endpoint bounds.
 Hypotheses abstract what the earlier nodes deliver: `H = H_η` holomorphic, nonvanishing and
 bounded on `Re s > .998` (`def:po-H-eta`); `L = L^S(·, η)` nonvanishing with `‖L⁻¹‖ ≤ B` on
 `Re s ≥ 2` and holomorphic on `Re s > 1` (§2 of A2-HeckeAPI); the large-`Z` bound of
@@ -766,8 +774,12 @@ theorem mellin_identification (H L : ℂ → ℂ)
     (hL : DifferentiableOn ℂ L {s : ℂ | 1 < s.re})
     (hL0 : ∀ s : ℂ, 1 < s.re → L s ≠ 0)
     (hLb : ∃ B : ℝ, ∀ s : ℂ, 2 ≤ s.re → ‖(L s)⁻¹‖ ≤ B)
-    (hlarge : ∃ C Z₀ : ℝ, ∀ Z : ℝ, Z₀ ≤ Z →
-      ‖fEta H L Z‖ ≤ C * Z ^ ((7 : ℝ) / 15 - 1 / 20000))
+    (hsmall : ∀ A₀ : ℝ, 0 < A₀ → ∃ C : ℝ, 0 < C ∧
+      ∀ Z : ℝ, 0 < Z → Z ≤ 1 →
+        ‖fEta H L Z‖ ≤ C * Real.rpow Z A₀)
+    (hlarge : ∃ C Z₀ : ℝ, 0 < C ∧ 1 ≤ Z₀ ∧
+      ∀ Z : ℝ, Z₀ ≤ Z →
+        ‖fEta H L Z‖ ≤ C * Real.rpow Z (7 / 15 - 1 / 20000))
     (P : Finset ℂ) (Λ : ℂ → ℂ)
     (hΛ : DifferentiableOn ℂ Λ ({s : ℂ | 1 - 1 / 20000 < s.re} \ ↑P))
     (hΛL : ∀ s : ℂ, 1 < s.re → Λ s = L s) :
