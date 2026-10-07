@@ -38,6 +38,10 @@ theorem marked_coefficient_transfer
                 (family.interval x) (family.alpha x) β‖ ≤
                   C' * (family.Hm x * family.Hn x) *
           Real.rpow (Real.log x) (-Dstar) := by
-  sorry
+  obtain ⟨K₀, hcompletion⟩ :=
+    PD.completion δ C Dstar q_d c₁ c₂ hδ hC hD hqd₀ hqd₁ hc₁ hc₂
+  refine ⟨K₀, ?_⟩
+  intro K hK family hfamily a ha
+  exact hcompletion K hK a ha family hfamily
 
 end ArtinPrimitiveRoots.TypeII
