@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.TypeII.Marked
+import ArtinPrimitiveRoots.TypeII.MarkedTransfer
 import ArtinPrimitiveRoots.TypeII.PD.Defs
 import ArtinPrimitiveRoots.TypeII.PP.Results
 
@@ -58,13 +59,15 @@ noncomputable def roughTupleIntegral (x γ lo hi : ℝ) (j : ℕ) : ℝ :=
 /-- `prop:rough-type-ii` — `08-type-ii.tex:321-536`. Fix the parameters in the
 paper. Uniformly over admissible dyads, intervals, real twists, rough second-variable coefficients,
 and marked-invariant multipliers, the coefficient `roughCoefficient` has the Type II saving once
-`K` is sufficiently large. -/
+`K` is sufficiently large. Correction 6 from review lane `rev-b` imposes the interval and ordered
+scale hypotheses. -/
 theorem rough_type_ii
     (γ wMin wMax δ C Dstar q_d c₁ c₂ : ℝ)
     (hγ : 0 < γ) (hγwMin : γ < wMin) (hwMinMax : wMin < wMax)
     (hwMax : wMax < 1)
     (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
-    (hqd₀ : 0 < q_d) (hqd₁ : q_d < 1) (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :
+    (hqd₀ : 0 < q_d) (hqd₁ : q_d < 1) (hc₁ : 0 < c₁) (hc₂ : 0 < c₂)
+    (hc₁₂ : c₁ ≤ c₂) :
     ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K →
       ∀ a : Fin K → ℝ, ValidBands K a →
         ∃ C' x₀ : ℝ, 0 < C' ∧ 2 ≤ x₀ ∧
@@ -74,7 +77,8 @@ theorem rough_type_ii
               c₁ * x ≤ Hm * Hn → Hm * Hn ≤ c₂ * x →
               Real.log Hm / Real.log x ∈ Set.Icc wMin wMax →
               Real.log (2 * Hm) / Real.log x ∈ Set.Icc wMin wMax →
-              ∀ I : Set ℕ, I ⊆ {m : ℕ | Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm} →
+              ∀ I : Set ℕ, IsNatInterval I →
+                I ⊆ {m : ℕ | Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm} →
                 ∀ v : ℝ, |v| ≤ Real.rpow (Real.log x) C →
                   ∀ beta : ℕ → ℂ,
                     (∀ n, beta n ≠ 0 → n ∈ dyadicIntegers Hn ∧
@@ -148,23 +152,27 @@ theorem density_regularity :
         (Set.uIcc w₀ w₁)) := by
   sorry
 
-/-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. -/
+/-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
+from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
-    ∀ A₀ A₁ : ℝ, 0 < A₀ → 0 < A₁ →
+    ∀ wMin wMax : ℝ, γ < wMin → wMin < wMax → wMax < 1 →
+      ∀ A₀ A₁ : ℝ, 0 < A₀ → 0 < A₁ →
       ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
         ∀ x : ℝ, x₀ ≤ x →
           ∀ M : ℝ, Real.rpow x γ ≤ M →
-            ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
-              ∀ χ : DirichletCharacter ℂ k, ∀ l r : ℝ,
-                M ≤ l → l ≤ r → r ≤ 2 * M →
-                  ‖(∑ m ∈ (Finset.range (⌊r⌋₊ + 1)).filter (fun (m : ℕ) =>
-                        l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r),
-                      (roughIndicator x γ m : ℂ) * χ (m : ZMod k)) -
-                    (if χ = 1 then
-                      ((1 / Real.log x) *
-                        ∫ y in l..r, ArtinPrimitiveRoots.Sieve.roughDensity γ
-                          (Real.log y / Real.log x) : ℝ) else 0 : ℂ)‖ ≤
-                    C * M * Real.rpow (Real.log x) (-A₁) := by
+            Real.log M / Real.log x ∈ Set.Icc wMin wMax →
+              Real.log (2 * M) / Real.log x ∈ Set.Icc wMin wMax →
+                ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
+                  ∀ χ : DirichletCharacter ℂ k, ∀ l r : ℝ,
+                    M ≤ l → l ≤ r → r ≤ 2 * M →
+                      ‖(∑ m ∈ (Finset.range (⌊r⌋₊ + 1)).filter (fun (m : ℕ) =>
+                            l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r),
+                          (roughIndicator x γ m : ℂ) * χ (m : ZMod k)) -
+                        (if χ = 1 then
+                          ((1 / Real.log x) *
+                            ∫ y in l..r, ArtinPrimitiveRoots.Sieve.roughDensity γ
+                              (Real.log y / Real.log x) : ℝ) else 0 : ℂ)‖ ≤
+                        C * M * Real.rpow (Real.log x) (-A₁) := by
   sorry
 
 /-- `t2:low-frequency` — 08-type-ii.tex:439-453. -/

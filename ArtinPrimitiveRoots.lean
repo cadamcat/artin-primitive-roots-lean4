@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Basic
 import ArtinPrimitiveRoots.Target
+import ArtinPrimitiveRoots.Splitting.Counting
 import ArtinPrimitiveRoots.Sieve.Block
 import ArtinPrimitiveRoots.Sieve.RoughDensity
 import ArtinPrimitiveRoots.Hecke.Elementary
@@ -27,4 +28,18 @@ import ArtinPrimitiveRoots.Hecke.Dictionary
 import ArtinPrimitiveRoots.Arith.SUnit
 import ArtinPrimitiveRoots.A1.AddCharExists
 import ArtinPrimitiveRoots.Spec.Interface
+import ArtinPrimitiveRoots.Theta.Cover
+import ArtinPrimitiveRoots.Theta.TorusInd
+import ArtinPrimitiveRoots.Theta.Shared
+import ArtinPrimitiveRoots.Theta.LocalInt
+import ArtinPrimitiveRoots.Theta.LocalWhit
+import ArtinPrimitiveRoots.Theta.Eis
+import ArtinPrimitiveRoots.Theta.Reduction
+import ArtinPrimitiveRoots.Theta.Res
+import ArtinPrimitiveRoots.Theta.Assemble
+import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
+import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2
+import ArtinPrimitiveRoots.Spec
+import ArtinPrimitiveRoots.Spec.Main
+import ArtinPrimitiveRoots.Arith.DavenportHasse
