@@ -249,6 +249,149 @@ theorem env_path_form (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
 PD 03:667-678.  Counting primitive roots in a box with prescribed kernel lines at the primes of a
 squarefree `S`: the number of `g₀ ∈ SL₂(ℤ/S)` with prescribed first-row kernel lines is
 `|SL₂(ℤ/S)| ∏_{p∣S} (p+1)⁻¹` (CRT; at each prime the kernel is uniform on the `p+1` lines). -/
+private lemma rootC_lt_of_pos (u v : ℕ) (hu : 0 < u) : rootC u v < u := by
+  letI : NeZero u := ⟨Nat.ne_of_gt hu⟩
+  dsimp [rootC]
+  exact ZMod.val_lt _
+
+private lemma rootC_modular_completion (u v : ℕ) (hu : 0 < u)
+    (hcop : Nat.Coprime u v) :
+    u ∣ v * rootC u v + 1 := by
+  letI : NeZero u := ⟨Nat.ne_of_gt hu⟩
+  have hinv : (v : ZMod u) * (v : ZMod u)⁻¹ = 1 :=
+    ZMod.coe_mul_inv_eq_one v hcop.symm
+  have hroot : (rootC u v : ZMod u) = -((v : ZMod u)⁻¹) := by
+    dsimp [rootC]
+    rw [ZMod.natCast_zmod_val]
+  have hz : ((v * rootC u v + 1 : ℕ) : ZMod u) = 0 := by
+    rw [Nat.cast_add, Nat.cast_mul, hroot, mul_neg, hinv]
+    ring
+  exact (ZMod.natCast_eq_zero_iff _ _).mp hz
+
+private lemma rootC_completion_exists (u v : ℕ) (hu : 0 < u)
+    (hcop : Nat.Coprime u v) :
+    ∃ c d : ℤ, (u : ℤ) * d - (v : ℤ) * c = 1 ∧ 0 ≤ c ∧ c < u := by
+  let c := rootC u v
+  let d := (v * c + 1) / u
+  have hdiv : u ∣ v * c + 1 := by
+    simpa [c] using rootC_modular_completion u v hu hcop
+  have hmul : d * u = v * c + 1 := by
+    dsimp [d]
+    exact Nat.div_mul_cancel hdiv
+  refine ⟨c, d, ?_, ?_, ?_⟩
+  · have hmulZ : (d : ℤ) * (u : ℤ) = (v : ℤ) * (c : ℤ) + 1 := by
+      exact_mod_cast hmul
+    dsimp [c]
+    nlinarith [hmulZ]
+  · exact Int.ofNat_nonneg _
+  · dsimp [c]
+    exact Int.ofNat_lt.mpr (rootC_lt_of_pos u v hu)
+
+private lemma rootC_eq_of_bezout (u v c : ℕ) (hu : 0 < u)
+    (hcop : Nat.Coprime u v) (hc : c < u)
+    (d : ℤ) (hdet : (u : ℤ) * d - (v : ℤ) * c = 1) :
+    c = rootC u v := by
+  letI : NeZero u := ⟨Nat.ne_of_gt hu⟩
+  have hinv : (v : ZMod u) * (v : ZMod u)⁻¹ = 1 :=
+    ZMod.coe_mul_inv_eq_one v hcop.symm
+  have hroot : (rootC u v : ZMod u) = -((v : ZMod u)⁻¹) := by
+    dsimp [rootC]
+    rw [ZMod.natCast_zmod_val]
+  have hInt : (v : ℤ) * c + 1 = (u : ℤ) * d := by
+    nlinarith [hdet]
+  have hcast := congrArg (fun z : ℤ => (z : ZMod u)) hInt
+  have hmul : (v : ZMod u) * (c : ZMod u) + 1 = 0 := by
+    simpa [Int.cast_mul, Int.cast_natCast, ZMod.natCast_self] using hcast
+  have hinv' : (v : ZMod u)⁻¹ * (v : ZMod u) = 1 := by
+    simpa [mul_comm] using hinv
+  have hz : (c : ZMod u) = (rootC u v : ZMod u) := by
+    have hv_mul_c : (v : ZMod u) * (c : ZMod u) = -1 := by
+      linear_combination hmul
+    calc
+      (c : ZMod u) = 1 * (c : ZMod u) := by simp
+      _ = ((v : ZMod u)⁻¹ * (v : ZMod u)) * (c : ZMod u) := by rw [hinv']
+      _ = (v : ZMod u)⁻¹ * ((v : ZMod u) * (c : ZMod u)) := by ac_rfl
+      _ = (v : ZMod u)⁻¹ * (-1) := by rw [hv_mul_c]
+      _ = (rootC u v : ZMod u) := by rw [hroot]; ring
+  have hval := congrArg ZMod.val hz
+  rw [ZMod.val_natCast_of_lt hc,
+    ZMod.val_natCast_of_lt (rootC_lt_of_pos u v hu)] at hval
+  exact hval
+
+private lemma root_completion_unique (u v : ℕ) (hu : 0 < u)
+    (hcop : Nat.Coprime u v) (c d : ℤ) (hc : 0 ≤ c ∧ c < u)
+    (hdet : (u : ℤ) * d - (v : ℤ) * c = 1) :
+    c = rootC u v ∧ d = ((v * rootC u v + 1) / u : ℕ) := by
+  let cn := c.toNat
+  have hcn : (cn : ℤ) = c := Int.toNat_of_nonneg hc.1
+  have hcnLt : cn < u := (Int.toNat_lt hc.1).2 hc.2
+  have hdet' := hdet
+  rw [← hcn] at hdet'
+  have hcnEq : cn = rootC u v :=
+    rootC_eq_of_bezout u v cn hu hcop hcnLt d hdet'
+  constructor
+  · calc
+      c = (cn : ℤ) := hcn.symm
+      _ = rootC u v := by exact_mod_cast hcnEq
+  · let dn := (v * rootC u v + 1) / u
+    have hdiv : u ∣ v * rootC u v + 1 := rootC_modular_completion u v hu hcop
+    have hmul : dn * u = v * rootC u v + 1 := by
+      dsimp [dn]
+      exact Nat.div_mul_cancel hdiv
+    have hmulZ : (dn : ℤ) * (u : ℤ) = (v : ℤ) * (rootC u v : ℤ) + 1 := by
+      exact_mod_cast hmul
+    have hmulInt : (u : ℤ) * (dn : ℤ) = (v : ℤ) * (rootC u v : ℤ) + 1 := by
+      simpa [mul_comm] using hmulZ
+    have hcnEqInt : (cn : ℤ) = (rootC u v : ℤ) := by exact_mod_cast hcnEq
+    have hcEqInt : c = (rootC u v : ℤ) := hcn.symm.trans hcnEqInt
+    have hdetRoot : (u : ℤ) * d - (v : ℤ) * (rootC u v : ℤ) = 1 := by
+      rw [← hcEqInt]
+      exact hdet
+    have hdetInt : (u : ℤ) * d = (v : ℤ) * (rootC u v : ℤ) + 1 := by
+      linarith [hdetRoot]
+    have huInt : (u : ℤ) ≠ 0 := by exact_mod_cast (Nat.ne_of_gt hu)
+    have hmulEq : (u : ℤ) * d = (u : ℤ) * (dn : ℤ) := hdetInt.trans hmulInt.symm
+    exact mul_left_cancel₀ huInt hmulEq
+
+private noncomputable def rootD (u v : ℕ) : ℕ :=
+  (v * rootC u v + 1) / u
+
+private noncomputable def rootCompletionMatrix (Sq u v : ℕ) :
+    Matrix (Fin 2) (Fin 2) (ZMod Sq) :=
+  !![(u : ZMod Sq), (rootC u v : ZMod Sq); (v : ZMod Sq), (rootD u v : ZMod Sq)]
+
+private lemma rootCompletionMatrix_det (Sq u v : ℕ) (hu : 0 < u)
+    (hcop : Nat.Coprime u v) : (rootCompletionMatrix Sq u v).det = 1 := by
+  have hdiv : u ∣ v * rootC u v + 1 := rootC_modular_completion u v hu hcop
+  have hmul : u * rootD u v = v * rootC u v + 1 := by
+    dsimp [rootD]
+    rw [Nat.mul_comm]
+    exact Nat.div_mul_cancel hdiv
+  have hmulMod : (u : ZMod Sq) * (rootD u v : ZMod Sq) =
+      (v : ZMod Sq) * (rootC u v : ZMod Sq) + 1 := by
+    calc
+      (u : ZMod Sq) * (rootD u v : ZMod Sq) =
+          ((u * rootD u v : ℕ) : ZMod Sq) := by simp
+      _ = ((v * rootC u v + 1 : ℕ) : ZMod Sq) :=
+        congrArg (fun n : ℕ => (n : ZMod Sq)) hmul
+      _ = (v : ZMod Sq) * (rootC u v : ZMod Sq) + 1 := by simp
+  rw [Matrix.det_fin_two]
+  change (u : ZMod Sq) * (rootD u v : ZMod Sq) -
+    (rootC u v : ZMod Sq) * (v : ZMod Sq) = 1
+  rw [hmulMod]
+  ring
+
+private lemma rootCompletionMatrix_kernelLine (Sq p u v : ℕ) (hSq : 0 < Sq)
+    (hp : p ∣ Sq) :
+    kernelLine p ((rootCompletionMatrix Sq u v 0 0).val % p)
+        ((rootCompletionMatrix Sq u v 0 1).val % p) = kernelLine p u (rootC u v) := by
+  have hU : (rootCompletionMatrix Sq u v 0 0).val % p = u % p := by
+    simp [rootCompletionMatrix, ZMod.val_natCast, Nat.mod_mod_of_dvd _ hp]
+  have hC : (rootCompletionMatrix Sq u v 0 1).val % p = rootC u v % p := by
+    simp [rootCompletionMatrix, ZMod.val_natCast, Nat.mod_mod_of_dvd _ hp]
+  rw [hU, hC]
+  simp [kernelLine, projLine, Nat.cast_mod]
+
 theorem root_lines (δ C_K : ℝ) (hδ : 0 < δ) (hCK : 0 < C_K) :
     ∃ cδ C₀ x₀ : ℝ, cδ = δ / 1000 ∧ 0 < C₀ ∧ 2 ≤ x₀ ∧
       ∀ x : ℝ, x₀ ≤ x → ∀ U V : ℝ, Real.rpow x δ ≤ U → Real.rpow x δ ≤ V →
