@@ -1,3 +1,4 @@
+import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_truncation_tail_absorb
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_high_rank_tail
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_low_rank_iteration
 import ArtinPrimitiveRoots.TypeII.PD.Memory
@@ -2688,7 +2689,16 @@ private theorem splitByMask_deletionMask (l : List Particle)
     splitByMask (deletionMask l D) l = (removeIndices l D, selectIndices l D) := by
   have hlen : (deletionMask l D).length = l.length := by simp [deletionMask]
   rw [splitByMask_eq_zip (deletionMask l D) l hlen]
-  simp [deletionMask, removeIndices, selectIndices, List.map_get_finRange]
+  have hzip : (deletionMask l D).zip l =
+      (List.finRange l.length).map (fun k => (decide (k ∈ D), l.get k)) := by
+    calc
+      _ = ((List.finRange l.length).map fun k => decide (k ∈ D)).zip
+          ((List.finRange l.length).map fun k => l.get k) := by
+        rw [List.map_get_finRange]
+        rfl
+      _ = _ := List.zip_map'
+  rw [hzip]
+  simp [removeIndices, selectIndices, List.filterMap_map, Function.comp_def]
 
 private theorem remove_select_prod_eq {β : Type*} [CommMonoid β]
     (l : List Particle) (D : Finset (Fin l.length)) (f : Particle → β) :
@@ -2788,7 +2798,32 @@ theorem history_path_value (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁
           memHistory F S ρ w none (some γ) distinctWeight =
             pathCoefficient F S γ * (pathArch F S w γ : ℂ) *
               ((∏ p ∈ markedPrimes S.x K F.a, pathLifespan F S γ p : ℝ) : ℂ) := by
-  sorry
+  classical
+  intro K F hF ρ hρ
+  obtain ⟨xB, hxB, hB⟩ := pd_ordered_birth_bijection δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+  obtain ⟨xC, hxC, hC⟩ := pd_history_scalar_charge δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+  obtain ⟨xP, hxP, hP⟩ := pd_prime_lifespan_product K F hF
+  refine ⟨max xB (max xC xP), hxB.trans (le_max_left _ _), ?_⟩
+  intro S hS hx w hw γ hγ
+  have hxB' : xB ≤ S.x := (le_max_left _ _).trans hx
+  have hxC' : xC ≤ S.x := (le_max_left xC xP).trans ((le_max_right _ _).trans hx)
+  have hxP' : xP ≤ S.x := (le_max_right xC xP).trans ((le_max_right _ _).trans hx)
+  obtain ⟨hNorm, hExpansion⟩ := hB S hS hxB'
+  rw [hExpansion w hw γ hγ none]
+  by_cases hcoef : pathCoefficient F S γ = 0
+  · simp [hcoef]
+  have hCharge := hC S hS hxC' γ hγ hcoef
+  have hRaw : pdRawHistorySum F S ρ γ none =
+      pdActiveNormalization F S * pdLifeChargeSum F S γ := by
+    change (∑ H : PDLifeAssignment F S γ, pdRawAssignmentCharge F S ρ γ H) =
+      pdActiveNormalization F S * ∑ H : PDLifeAssignment F S γ,
+        pdLifeAssignmentCharge F S γ H
+    rw [Finset.mul_sum]
+    exact Finset.sum_congr rfl (fun H _ => hCharge H)
+  have hProduct : pdLifeChargeSum F S γ =
+      ∏ p ∈ markedPrimes S.x K F.a, pathLifespan F S γ p := by
+    simpa only [pdPathLifespan, pdLifespanFormula, pathLifespan, lifespanSum] using hP S hxP' γ
+  rw [hRaw, ← mul_assoc, inv_mul_cancel₀ hNorm, one_mul, hProduct]
 
 /-- `t2:pd.memory-identity` — PD 04:43-274.  For every root of the region: the independent-line average of the
 line-model moment equals the baseline `∏_p b'_p` times the distinct history value.  Proof:
@@ -3175,7 +3210,7 @@ theorem truncation_adjoint (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁
         ∀ w : ArchRoot, w.InRegion S →
           ‖historyDistinct F S ρ w - historyDistinctTrunc F S ρ w‖ ≤
             C_A * Real.rpow S.L (-A * (S.N : ℝ)) := by
-  sorry
+  exact pd_truncation_tail_absorb δ c₁ c₂ hδ hc₁
 
 private theorem memoryBPrime_half_of_large_x {K : ℕ} (F : PDFix K) (hF : F.Valid) :
     ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → ∀ p ∈ markedPrimes x K F.a,
