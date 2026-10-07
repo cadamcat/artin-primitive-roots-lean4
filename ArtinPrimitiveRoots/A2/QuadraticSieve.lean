@@ -1,5 +1,6 @@
 import Mathlib
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-NARROW».NQ
 
 /-!
 # Design draft A2-QuadraticSieve: the narrow quadratic large sieve consumed by A2
@@ -87,7 +88,8 @@ theorem narrow_quadratic_large_sieve
         (∀ T ∈ rows, Disjoint T S ∧ (normT T : ℝ) ≤ Dmax) →
         ∀ z : Finset (HeightOneSpectrum (𝓞 K)) → ℂ,
           ∑ D ∈ rows, ‖∑ T ∈ cols, z T * (quadSymbol D (gen T) : ℂ)‖ ^ 2 ≤
-            C * (Cmax + Dmax) * (Cmax * Dmax) ^ ε * ∑ T ∈ cols, ‖z T‖ ^ 2 := sorry
+            C * (Cmax + Dmax) * (Cmax * Dmax) ^ ε * ∑ T ∈ cols, ‖z T‖ ^ 2 :=
+  qs_narrow_large_sieve hμ S hS
 
 /-- **ext:goldmakher-louvel** (Goldmakher--Louvel 2013, Definition 1 and Theorem 1.1;
 04-reflection.tex:958-1024). A quadratic Hecke family indexed by squarefree ideals prime to a
@@ -152,8 +154,11 @@ theorem ext_goldmakher_louvel (m : ClassFieldTheory.RayClassModulus K)
             ∑ d ∈ rows,
               ‖∑ c ∈ cols, z c * (fam.character c).idealValue d‖ ^ 2 ≤
                 C * (Cmax + Dmax) * Real.rpow (Cmax * Dmax) ε *
-                  ∑ c ∈ cols, ‖z c‖ ^ 2 := by
-  sorry
+                  ∑ c ∈ cols, ‖z c‖ ^ 2 :=
+  qs_goldmakher_louvel m qS ⟨fam.character, fam.conductor, fam.rayFactor,
+    fam.rayFactor_quadratic, fam.trivial_infinite_type, fam.indexCondition,
+    fam.character_order_two, fam.quadraticValues, fam.reciprocity,
+    fam.equalClass_product_conductor⟩
 
 open Classical in
 /-- Rational quadratic residue symbol at an odd prime, with value zero when the numerator is
@@ -183,7 +188,7 @@ theorem ext_heath_brown_quadratic :
           ‖∑ n ∈ oddSquarefreeUpTo N,
             a n * (rationalJacobiSymbol n m : ℂ)‖ ^ 2) ≤
           C * Real.rpow ((M : ℝ) * N) ε * (M + N) *
-            ∑ n ∈ oddSquarefreeUpTo N, ‖a n‖ ^ 2 := by
-  sorry
+            ∑ n ∈ oddSquarefreeUpTo N, ‖a n‖ ^ 2 :=
+  qs_heath_brown
 
 end ArtinPrimitiveRoots.A2
