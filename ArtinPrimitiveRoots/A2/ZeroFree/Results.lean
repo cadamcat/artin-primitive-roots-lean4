@@ -140,6 +140,13 @@ structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     ArtinPrimitiveRoots.A1.residue v (repr u) ≠ 0 →
       (kummer u).UnramifiedAt v ∧
         (kummer u).primeValue v = ArtinPrimitiveRoots.A1.chi D v (repr u)
+  /-- Masked exterior Kummer prime values, including positive valuations. The character value is
+  zero when the representative is divisible by the prime. Added for `prop:euler-product`
+  (05:407–433), following `sol-thin-a2rp/PROOFS.md` 632–640. -/
+  kummer_primeValue_masked : ∀ u (v : ArtinPrimitiveRoots.A1.FinPlace F), v ∉ S.Sf →
+    (kummer u).primeValue v =
+      if ArtinPrimitiveRoots.A1.residue v (repr u) = 0 then 0
+      else ArtinPrimitiveRoots.A1.chi D v (repr u)
 
   q_ge_one : ∀ u, 1 ≤ q u
   dyadic_count : ∃ C : ℝ, 0 < C ∧ ∀ X : ℝ, 2 ≤ X →
@@ -170,57 +177,16 @@ structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
           (Ideal.absNorm m : ℝ) ≤ C * q u)
 
 /-- A1/Characters producer obligation for the complete corrected frequency dictionary
-(02:285-387), including idelic induction, dyadic finiteness, and S-integer conductor bounds. -/
+(02:285-387), including idelic induction, dyadic finiteness, and S-integer conductor bounds.
+Corrected by `sol-gate-a2b`: finite order of `η` is required by the unit row. -/
 theorem FrequencyData.nonempty
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
-    (η : ArtinPrimitiveRoots.A1.HeckeChar F) : Nonempty (FrequencyData S D η) := by
-  sorry
-
-/-- **prop:zero-density** (06-zero-free.tex:165-185). One exceptional family `E(U)` is chosen
-before `ε`, and each reciprocal constant is uniform in the growing dyadic variable. Corrected per
-sol-gate-a2 to keep the same exceptional set for every `ε`. -/
-theorem prop_zero_density
-    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
-    (D : ArtinPrimitiveRoots.A1.FieldData F)
-    (η : ArtinPrimitiveRoots.A1.HeckeChar F) (hη : IsOfFinOrder η)
-    (hηoutsideS : ∀ v : ArtinPrimitiveRoots.A1.FinPlace F,
-      v ∉ S.Sf → η.UnramifiedAt v)
-    (fd : FrequencyData S D η)
-    (L : ∀ u : fd.U, fd.omega u ≠ 1 → HeckeLContinuation (fd.omega u))
-    (Linc : ∀ u : fd.U, fd.omega u ≠ 1 →
-      IncompleteHeckeLContinuation S (η * (fd.kummer u)⁻¹))
-    (A_F : ℝ) (hAF : 0 < A_F) :
-    ∃ ρ U₀ Cexc : ℝ, ∃ E : ℝ → Finset fd.U,
-      0 < ρ ∧ ρ < min (1 / 10) (1 / (A_F + 1)) ∧
-      2 ≤ U₀ ∧ 0 < Cexc ∧
-      (∀ U : ℝ, U₀ ≤ U →
-        (∀ u ∈ E U, U ≤ fd.q u ∧ fd.q u < 2 * U) ∧
-        ((E U).card : ℝ) ≤ Cexc * Real.rpow U (1 / 2 : ℝ) ∧
-        (∀ u, U ≤ fd.q u → fd.q u < 2 * U →
-          (fd.omega u = 1 ∨ ∃ hnon : fd.omega u ≠ 1, ∃ s : ℂ,
-            996 / 1000 ≤ s.re ∧ |s.im| ≤ 4 * Real.rpow U ρ ∧
-              (L u hnon).value s = 0) → u ∈ E U)) ∧
-      (∀ ε : ℝ, 0 < ε → ∃ Cε : ℝ, 0 < Cε ∧
-        ∀ U : ℝ, U₀ ≤ U → ∀ u, U ≤ fd.q u → fd.q u < 2 * U →
-          u ∉ E U → ∀ hnon : fd.omega u ≠ 1, ∀ ξ : ℂ,
-            998 / 1000 ≤ ξ.re → |ξ.im| ≤ 2 * Real.rpow U ρ →
-              ‖((Linc u hnon).value ξ)⁻¹‖ ≤ Cε * Real.rpow U ε) := by
+    (η : ArtinPrimitiveRoots.A1.HeckeChar F) (hη : IsOfFinOrder η) :
+    Nonempty (FrequencyData S D η) := by
   sorry
 
 /-- The frozen A/B boundary width `δ₀ = 10⁻⁶`. -/
 def a2Delta0 : ℝ := 1 / 10 ^ 6
-
-/-- **thm:hecke-zero-free** (06-zero-free.tex:754-764). Every differentiable continuation of a
-ray-class Hecke L-series is nonzero in the frozen half-plane, except for the principal pole point.
--/
-theorem thm_hecke_zero_free (n : ℕ) [NeZero n] (h12 : 12 ∣ n)
-    (m : RayClassModulus (CyclotomicField n ℚ))
-    (η : RayClassGroup m →* ℂˣ) (Λ : ℂ → ℂ)
-    (hΛ : DifferentiableOn ℂ Λ
-      ({s : ℂ | 1 - a2Delta0 < s.re} \ {s | η = 1 ∧ s = 1}))
-    (hL : ∀ s : ℂ, 1 < s.re → Λ s = ArtinPrimitiveRoots.Hecke.LSeriesRay η s) :
-    ∀ s : ℂ, 1 - a2Delta0 < s.re → (η ≠ 1 ∨ s ≠ 1) → Λ s ≠ 0 := by
-  sorry
 
 end ArtinPrimitiveRoots.A2

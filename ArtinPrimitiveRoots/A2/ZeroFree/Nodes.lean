@@ -59,7 +59,8 @@ theorem zf_convexity_growth_bound :
 
 /-- **zf:row-conductor-family** (06-zero-free.tex:13-30): dyadic frequency rows have linear
 count, conductor `O(q_u)`, pairwise distinct primitive twists, and only finitely many fixed
-S-components. Corrected per rev-a2 to require the missing quantitative frequency hypotheses. -/
+S-components. Corrected per rev-a2 to require the quantitative frequency hypotheses; its adapter
+from the complete `FrequencyData` dictionary is proved in this declaration. -/
 theorem zf_row_conductor_family
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
@@ -76,8 +77,34 @@ theorem zf_row_conductor_family
               SComponent S (fd.omega u) ∈ 𝓛S) ∧
           (∀ u v, U ≤ fd.q u → fd.q u < 2 * U →
             U ≤ fd.q v → fd.q v < 2 * U → fd.omega u = fd.omega v → u = v) ∧
-          (∀ u, fd.kummer u = 1 ↔ u = fd.one) := by
-  sorry
+              (∀ u, fd.kummer u = 1 ↔ u = fd.one) := by
+  obtain ⟨Ccount, hCcount, hcount⟩ := fd.dyadic_count
+  obtain ⟨Cf, hCf, hcond⟩ := fd.conductor_bound
+  obtain ⟨LS, hLS⟩ := fd.local_components_finite
+  refine ⟨Ccount, 2 * Cf, hCcount, by positivity, LS, ?_⟩
+  intro U hU
+  obtain ⟨hfinite, hbound⟩ := hcount U hU
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro E hE
+    let shell : Set fd.U := {u | U ≤ fd.q u ∧ fd.q u < 2 * U}
+    have hsubset : (E : Set fd.U) ⊆ shell := by
+      intro u hu
+      exact hE u hu
+    have hcardle := Set.ncard_le_ncard hsubset hfinite
+    calc
+      (E.card : ℝ) = (Set.ncard (E : Set fd.U) : ℝ) := by simp
+      _ ≤ (Set.ncard shell : ℝ) := by exact_mod_cast hcardle
+      _ ≤ Ccount * U := hbound
+  · intro u hu hu2
+    obtain ⟨f, hprim, hnorm⟩ := hcond u
+    refine ⟨f, hprim, ?_, hLS u⟩
+    calc
+      (Ideal.absNorm f : ℝ) ≤ Cf * fd.q u := hnorm
+      _ ≤ Cf * (2 * U) := by nlinarith [hCf]
+      _ = (2 * Cf) * U := by ring
+  · intro u v hu hu2 hv hv2 heq
+    exact fd.omega_injective u v heq
+  · exact fd.kummer_principal_iff
 
 /-- **ext:ideal-count** (06-zero-free.tex:144): the number of integral ideals of norm at most
 `t` is `O_F(t)`. -/
