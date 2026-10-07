@@ -4,6 +4,9 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Atoms
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.HistoryPartition
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.Characters
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.ConstraintWeight
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.HistoryPhases
 import Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics
 set_option autoImplicit false
 set_option linter.unusedVariables false
@@ -4822,6 +4825,38 @@ theorem birth_partition {K : ℕ} (A : Finset (BirthAddress K)) (log : BirthLog 
     distinctWeight log =
       ∑ 𝒞 ∈ constraintSystems A, (constraintCoeff 𝒞 : ℂ) * constraintWeight 𝒞 log := by
   exact birth_partition_from_labels A log hnodup hA
+
+private noncomputable def pd5b_characterModulus {K : ℕ} (F : PDFix K) (S : PDScale) : ℕ :=
+  (markedPrimes S.x K F.a).sup id + 1
+
+private theorem pd5b_characterModulus_neZero {K : ℕ} (F : PDFix K) (S : PDScale) :
+    NeZero (pd5b_characterModulus F S) :=
+  ⟨by simp [pd5b_characterModulus]⟩
+
+private theorem pd5b_markedPrime_lt_characterModulus {K : ℕ} (F : PDFix K) (S : PDScale)
+    {p : ℕ} (hp : p ∈ markedPrimes S.x K F.a) :
+    p < pd5b_characterModulus F S := by
+  dsimp [pd5b_characterModulus]
+  exact Nat.lt_succ_of_le (Finset.le_sup (f := id) hp)
+
+private theorem pd5b_log_labels_lt_characterModulus {K : ℕ} (F : PDFix K) (S : PDScale)
+    (A : Finset (BirthAddress K)) (log : BirthLog K)
+    (hnodup : (log.map Prod.fst).Nodup)
+    (hvalues : ∀ e ∈ log, e.2 ∈ markedPrimes S.x K F.a) :
+    ∀ a ∈ A, ∀ p, pd5b_label log a = some p → p < pd5b_characterModulus F S := by
+  intro a ha p hp
+  have hmem : (a, p) ∈ log := (pd5b_label_spec hnodup a p).1 hp
+  exact pd5b_markedPrime_lt_characterModulus F S (hvalues (a, p) hmem)
+
+private theorem pd5b_birthLog_values_marked_append {K : ℕ} (F : PDFix K) (S : PDScale)
+    (L₁ L₂ : BirthLog K)
+    (h₁ : ∀ e ∈ L₁, e.2 ∈ markedPrimes S.x K F.a)
+    (h₂ : ∀ e ∈ L₂, e.2 ∈ markedPrimes S.x K F.a) :
+    ∀ e ∈ L₁ ++ L₂, e.2 ∈ markedPrimes S.x K F.a := by
+  intro e he
+  rcases List.mem_append.mp he with he | he
+  · exact h₁ e he
+  · exact h₂ e he
 
 /-- `t2:pd.history-rank-high` (new node) — PD 04:825-904.  High-rank constraint systems are
 negligible in absolute value: with `r₀ = ⌈C' N log L / L^{0.1}⌉` (`C'` large after the crude
