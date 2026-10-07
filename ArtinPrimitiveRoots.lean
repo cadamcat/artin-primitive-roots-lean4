@@ -7,3 +7,4 @@ import ArtinPrimitiveRoots.Hecke.Convexity
 import ArtinPrimitiveRoots.Hecke.Dedekind
 import ArtinPrimitiveRoots.Hecke.Boundary
 import ArtinPrimitiveRoots.A1.ThetaInterface
+import ArtinPrimitiveRoots.A2
