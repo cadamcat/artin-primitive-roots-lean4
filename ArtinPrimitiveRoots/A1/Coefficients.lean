@@ -204,7 +204,7 @@ private theorem e_quotient_norm_one (D : FieldData F) (S : SData F CE condη)
       have hcCount : FractionalIdeal.count F v
           (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (c : F)) =
             FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
-        hc.2 v hv
+        hc.2.2 v hv
       have hcountNonneg : 0 ≤ FractionalIdeal.count F v
           (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ((a : F) / (c : F))) := by
         rw [hcountY]
@@ -242,6 +242,7 @@ private theorem e_quotient_norm_one (D : FieldData F) (S : SData F CE condη)
       _ = S.e A (S.diag y) := by simp [y]
       _ = 1 := hdiag
   exact hfinite.norm_eq_one
+
 
 private theorem chi_norm_one (D : FieldData F) (P : FinPlace F) (x : F)
     (hx : residue P x ≠ 0) : ‖chi D P x‖ = 1 := by
