@@ -8,3 +8,11 @@ import ArtinPrimitiveRoots.TypeII.Rough
 import ArtinPrimitiveRoots.Ext.TypeIIInputs
 import ArtinPrimitiveRoots.Construction.Defs
 import ArtinPrimitiveRoots.Construction.Results
+import ArtinPrimitiveRoots.TypeII.PD.Defs
+import ArtinPrimitiveRoots.TypeII.PD.Determinant
+import ArtinPrimitiveRoots.TypeII.PD.Preliminaries
+import ArtinPrimitiveRoots.TypeII.PD.Memory
+import ArtinPrimitiveRoots.TypeII.PD.MemoryResults
+import ArtinPrimitiveRoots.TypeII.PD.MajorArcs
+import ArtinPrimitiveRoots.TypeII.PP.Defs
+import ArtinPrimitiveRoots.TypeII.PP.Results
