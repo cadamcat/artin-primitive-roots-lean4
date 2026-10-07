@@ -103,10 +103,13 @@ theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
           progressionPrimeSum x M c u Ψ r 1 ≤ C * x / (r : ℝ)) := by
   sorry
 
-/-- `co:bv-smoothed`, 12-construction.tex:286-349. -/
+/-- `co:bv-smoothed`, 12-construction.tex:286-349. The progression hypotheses `hc24`, `hu`, `hcu`, `hcu'` (those of
+`prop:controlled`) were added on 2026-10-07: without them the statement is false (lane `c2`, `M = 4, c = 2, u = 1`). -/
 theorem bv_smoothed (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
     (Ψ : ℝ → ℝ) (ε κ : ℝ)
     (hM : 0 < M) (hc : 0 < c) (hcM : c ∣ M)
+    (hc24 : c = 2 ∨ c = 4) (hu : Int.gcd u M = 1) (hcu : (c : ℤ) ∣ u - 1)
+    (hcu' : Int.gcd ((u - 1) / c) ((M / c : ℕ) : ℤ) = 1)
     (hε : 0 < ε) (hεκ : ε < κ) (hκ : κ < 1 / 100)
     (ha : ValidBands K a) (hΨ : IsTestFunction Ψ) :
     ∀ A : ℝ, 0 < A →
