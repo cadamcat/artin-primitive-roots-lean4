@@ -24,7 +24,7 @@ theorem qs_nq0_quadratic_character_exists (D : FieldData K) (H : HilbertData K)
 
 set_option autoImplicit false
 
-open scoped NumberField
+open scoped NumberField Topology
 open ArtinPrimitiveRoots.A1
 
 noncomputable section
@@ -54,5 +54,33 @@ theorem qs_nq0_quadratic_local_square (D : FieldData K) (H : HilbertData K)
   rw [← pow_mul]
   change Units.map D.σ0.toMonoidHom (H.hilb v a u : Kˣ) ^ 6 = 1
   rw [← map_pow, h6, map_one]
+
+/-- Powers with nonzero exponent in the field contain a unit neighborhood of `1`. -/
+theorem qs_nq0_power_units_neighborhood (L : Type*)
+    [NontriviallyNormedField L] [CompleteSpace L]
+    (n : ℕ) (hn : (n : L) ≠ 0) :
+    {u : Lˣ | ∃ b : Lˣ, u = b ^ n} ∈ 𝓝 (1 : Lˣ) := by
+  have hnNat : n ≠ 0 := by
+    intro h
+    apply hn
+    simp [h]
+  have hd : HasStrictDerivAt (fun x : L => x ^ n) (n : L) 1 := by
+    simpa using hasStrictDerivAt_pow n (1 : L)
+  have hm : Filter.map (fun x : L => x ^ n) (𝓝 1) = 𝓝 1 := by
+    simpa using hd.map_nhds_eq hn
+  have hp : {x : L | ∃ y : L, x = y ^ n} ∈
+      Filter.map (fun x : L => x ^ n) (𝓝 1) := by
+    exact Filter.mem_map.mpr (Filter.Eventually.of_forall (fun x => ⟨x, rfl⟩))
+  rw [hm] at hp
+  filter_upwards [(Units.continuous_val.tendsto (1 : Lˣ)).eventually hp] with u hu
+  obtain ⟨y, hy⟩ := hu
+  have hy0 : y ≠ 0 := by
+    intro h
+    apply Units.ne_zero u
+    rw [hy, h, zero_pow hnNat]
+  refine ⟨Units.mk0 y hy0, ?_⟩
+  apply Units.ext
+  change (u : L) = y ^ n
+  exact hy
 
 end ArtinPrimitiveRoots.A2
