@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Hecke.Elementary
 import ArtinPrimitiveRoots.Hecke.Dedekind.SimplePole
+import ArtinPrimitiveRoots.Hecke.Theta.RayMellinAgreement
 
 /-!
 # Hecke L-function package: continuation (H1, H2)
@@ -177,6 +178,16 @@ A2 `zf:convexity`, `zf:detector-shift`, `zf:reciprocal-bound`, `zf:small-rows`,
 `zf:intermediate-rows`. -/
 theorem LSeriesRay_entire [IsTotallyComplex K] {m : RayClassModulus K}
     (η : RayClassGroup m →* ℂˣ) (hη : η ≠ 1) :
-    ∃ Λ : ℂ → ℂ, Differentiable ℂ Λ ∧ ∀ s : ℂ, 1 < s.re → Λ s = LSeriesRay η s := sorry
+    ∃ Λ : ℂ → ℂ, Differentiable ℂ Λ ∧ ∀ s : ℂ, 1 < s.re → Λ s = LSeriesRay η s := by
+  classical
+  obtain ⟨R⟩ := exists_integralRayRepresentatives m
+  apply LSeriesRay_entire_of_real_rayMellinAgreement R η hη
+  intro C σ hσ
+  have h := rayFEPair_Λ_eq_partialZeta_real m
+    ⟨R.ideal C, mem_nonZeroDivisors_of_ne_zero (R.coprime C).1⟩ (R.coprime C) hσ
+  have hclass : (rayClass m (R.ideal C) (R.coprime C))⁻¹ = C := by
+    rw [R.class_eq C]
+    exact inv_inv C
+  simpa only [hclass] using h
 
 end ArtinPrimitiveRoots.Hecke

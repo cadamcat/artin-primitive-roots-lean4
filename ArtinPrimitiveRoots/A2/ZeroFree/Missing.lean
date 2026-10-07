@@ -1,5 +1,6 @@
-import ArtinPrimitiveRoots.A2.Poisson.Missing
 import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
+import ArtinPrimitiveRoots.A2.ZeroFree.Density
+import ArtinPrimitiveRoots.A2.Poisson.Missing
 import ArtinPrimitiveRoots.A2.Interface
 
 /-! A2 statement interfaces derived from the design lane. -/
@@ -78,8 +79,8 @@ theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborho
   principalConstant R sd W HA ≠ 0 ∧ ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
     rowContribution R sd W η U {U.one} Z = principalConstant R sd W HA * principalSignal R η U HA HC Z +
       principalRw R sd W η U HA HC Z + principalRz R sd W η U HA HC Z ∧
-    ‖principalRw R sd W η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 5 / 10000) ∧
-    ‖principalRz R sd W η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 5 / 10000) := by
+    ‖principalRw R sd W η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) ∧
+    ‖principalRz R sd W η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) := by
   sorry
 /-- zf:small-rows, 06:479–551: any subset of a nonprincipal dyad, with explicit cardinal cost. -/
 theorem zf_small_rows : EulerHypotheses R η → ∀ α B ε : ℝ, 0 ≤ α → 0 < B → 0 < ε → ∃ C : ℝ, 0 < C ∧
@@ -125,7 +126,7 @@ def nonprincipalDyad (T Z : ℝ) : ℂ := rowContribution R sd W η U (DE.rows T
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
-  ‖∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤ C * Z ^ (7 / 15 - 4 / 10000) := by
+  ‖∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤ C * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) := by
   sorry
 /-- `zf:probe-asymptotic`, 06:647–681, for the actual probe and exact principal scalar. The
 corrected probe-low route consumes the split Gauss data from `sol-gate-a2b`. -/
@@ -134,7 +135,7 @@ theorem zf_probe_asymptotic
   EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   ‖probe R W (Z ^ a) (Z ^ b) Z - principalConstant R sd W HA * principalSignal R η U HA HC Z‖ ≤
-    C * Z ^ (7 / 15 - 4 / 10000) := by
+    C * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) := by
   sorry
 /-- `zf:f-bounds`, 06:682–707. Both endpoints and continuity are included. The corrected
 `prop:probe-low` dependency carries `GaussSplit` (`sol-gate-a2b`). -/
@@ -144,7 +145,7 @@ theorem zf_f_bounds
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
   ContinuousOn (principalSignal R η U HA HC) (Set.Ioi 0) ∧
   (∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
-    ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 1 / 20000)) ∧
+    ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 1 / 20000 : ℝ))) ∧
   ∀ A0 : ℝ, 0 < A0 → ∃ C : ℝ, 0 < C ∧ ∀ Z, 0 < Z → Z ≤ 1 →
     ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ A0 := by
   sorry
