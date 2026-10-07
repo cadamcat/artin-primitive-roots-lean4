@@ -78,11 +78,12 @@ theorem good_state
 
 /-- `t2:pd.endpoints` — PD `03-determinant.tex:295-341`. The endpoint vectors are supported on
 lists with exactly `M_J` distinct marked primes in every group, have the indicated coordinates,
-and satisfy the norm and pointwise bounds uniform in `K,J`. -/
+and satisfy the norm and pointwise bounds uniform in `K,J`.
+The constant `B` was added on 2026-10-07: without it the bound fails at small `x` (lane `pd1`). -/
 theorem endpoint_bounds
     (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C)
     (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :
-    ∃ C_e : ℝ, 0 < C_e ∧
+    ∃ C_e B : ℝ, 0 < C_e ∧ 0 < B ∧
       ∀ K : ℕ, ∀ a : Fin K → ℝ, ValidBands K a →
       ∀ family : CoefficientFamily δ C c₁ c₂, ∀ x : ℝ, 2 ≤ x →
         ∀ d₀ : ℕ, d₀ ∈ padScales x K →
@@ -96,19 +97,19 @@ theorem endpoint_bounds
               (endpointFVector x K a ((d₀ : ℝ) * Y)
                 (family.Hm x) (family.Hn x) family beta)) ≤
                 Real.rpow ((d₀ : ℝ) * Y * family.Hm x * family.Hn x)
-                  (1 / 2 : ℝ) * Real.rpow (Real.log x) C_e ∧
+                  (1 / 2 : ℝ) * (B * Real.rpow (Real.log x) C_e) ∧
             Real.sqrt (physicalNormSq x K a
               (endpointGVector x K a ((d₀ : ℝ) * Y)
                 (family.Hm x) (family.Hn x) family beta)) ≤
                 Real.rpow ((d₀ : ℝ) * Y * family.Hm x * family.Hn x)
-                  (1 / 2 : ℝ) * Real.rpow (Real.log x) C_e ∧
+                  (1 / 2 : ℝ) * (B * Real.rpow (Real.log x) C_e) ∧
             physicalSupNorm x K a
                 (endpointFVector x K a ((d₀ : ℝ) * Y)
                   (family.Hm x) (family.Hn x) family beta) +
               physicalSupNorm x K a
                 (endpointGVector x K a ((d₀ : ℝ) * Y)
                   (family.Hm x) (family.Hn x) family beta) ≤
-              Real.rpow (Real.log x) C_e := by
+              (B * Real.rpow (Real.log x) C_e) := by
   sorry
 
 /-- `t2:pd.weak-kloosterman` — PD `03-determinant.tex:445-480`. -/
