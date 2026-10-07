@@ -1076,6 +1076,7 @@ private theorem dirichletLFunction_zero_re_le_one {q : ℕ} [NeZero q]
     linarith
   exact (χ.LFunction_ne_zero_of_one_le_re (Or.inr hne) (le_of_lt hgt)) hzero
 
+set_option maxHeartbeats 10000000
 /-- `t2:pp.zero-free` — PP `02-long-prime.tex:426-481`, Lemma 3.6. -/
 theorem zero_free :
     ∀ C : ℝ, 0 < C →
@@ -1291,8 +1292,13 @@ theorem zero_free :
     obtain ⟨R₂, hR₂low, hR₂high, Z₂, hZ₂len, hZ₂mem, hZ₂complete,
       hZ₂boundary, hZ₂formula⟩ := hLocalApply (χ ^ 2) (2 * v)
         (by rw [abs_mul]; norm_num; nlinarith [hvlow])
-        (by rw [abs_mul]; norm_num; nlinarith [hvhighActual,
-          Real.rpow_pos_of_pos hxpos (3 : ℝ)])
+        (by
+          calc
+            |2 * v| = 2 * |v| := by rw [abs_mul]; norm_num
+            _ ≤ 2 * Real.rpow x 3 :=
+              mul_le_mul_of_nonneg_left hvhighActual (by norm_num)
+            _ ≤ (5 / 2 : ℝ) * Real.rpow x 3 := by
+              nlinarith [Real.rpow_nonneg (le_of_lt hxpos) (3 : ℝ)])
     have hZ₂re : ∀ ρ' ∈ Z₂, ρ'.re ≤ 1 := by
       intro ρ' hρ'mem
       rcases hZ₂mem ρ' hρ'mem with ⟨hρ'zero, _⟩
@@ -1331,24 +1337,36 @@ theorem zero_free :
       simpa [D₂, S₂] using hZ₂formula z₂ hz₂dist hz₂ne
     have hE₁ : -(D₁ - S₁).re ≤ CLog * T ^ 2 / rstar := by
       have habs := (abs_re_le_norm (D₁ - S₁)).trans hform₁
-      exact (abs_le.mp habs).1
+      linarith [(abs_le.mp habs).1]
     have hE₂ : -(D₂ - S₂).re ≤ CLog * T ^ 2 / rstar := by
       have habs := (abs_re_le_norm (D₂ - S₂)).trans hform₂
-      exact (abs_le.mp habs).1
+      linarith [(abs_le.mp habs).1]
     have hminus₁ : (-D₁).re ≤ -1 / (σ - β) + CLog * T ^ 2 / rstar := by
-      have heq : (-D₁).re = -S₁.re - (D₁ - S₁).re := by
-        simp [Complex.sub_re]
-        ring
-      rw [heq]
+      have hnegRe : (-D₁).re = -D₁.re := by simp
+      have herror : S₁.re - D₁.re ≤ CLog * T ^ 2 / rstar := by
+        simpa [Complex.sub_re] using hE₁
       have hsum₁' : 1 / (σ - β) ≤ S₁.re := by simpa [S₁] using hsum₁
-      nlinarith [hsum₁', hE₁]
+      have hAminusD : 1 / (σ - β) - D₁.re ≤ CLog * T ^ 2 / rstar := by
+        calc
+          1 / (σ - β) - D₁.re ≤ S₁.re - D₁.re := sub_le_sub_right hsum₁' D₁.re
+          _ ≤ CLog * T ^ 2 / rstar := herror
+      rw [hnegRe]
+      calc
+        -D₁.re = (1 / (σ - β) - D₁.re) - 1 / (σ - β) := by ring
+        _ ≤ CLog * T ^ 2 / rstar - 1 / (σ - β) :=
+          sub_le_sub_right hAminusD (1 / (σ - β))
+        _ = -1 / (σ - β) + CLog * T ^ 2 / rstar := by ring
     have hminus₂ : (-D₂).re ≤ CLog * T ^ 2 / rstar := by
-      have heq : (-D₂).re = -S₂.re - (D₂ - S₂).re := by
-        simp [Complex.sub_re]
-        ring
-      rw [heq]
+      have hnegRe : (-D₂).re = -D₂.re := by simp
+      have herror : S₂.re - D₂.re ≤ CLog * T ^ 2 / rstar := by
+        simpa [Complex.sub_re] using hE₂
       have hsum₂' : 0 ≤ S₂.re := by simpa [S₂] using hsum₂
-      nlinarith [hsum₂', hE₂]
+      rw [hnegRe]
+      calc
+        -D₂.re = (S₂.re - D₂.re) - S₂.re := by ring
+        _ ≤ CLog * T ^ 2 / rstar - S₂.re :=
+          sub_le_sub_right herror S₂.re
+        _ ≤ CLog * T ^ 2 / rstar := by linarith [hsum₂']
     have hζ : (-(deriv riemannZeta (σ : ℂ) / riemannZeta (σ : ℂ))).re ≤
         L / (20 * c * T ^ 2) + Kζ := by
       have hζ' := hζBound (20 * c * T ^ 2 / L) hδpos hδsmall
@@ -1365,17 +1383,39 @@ theorem zero_free :
         (-deriv (DirichletCharacter.LFunction χ) ((σ : ℂ) + Complex.I * v) /
           DirichletCharacter.LFunction χ ((σ : ℂ) + Complex.I * v)).re ≤
             -1 / (σ - β) + CLog * T ^ 2 / rstar := by
-      simpa [D₁, z₁, dirichletLValue] using hminus₁
+      have hfun : dirichletLValue q hq χ = DirichletCharacter.LFunction χ := by
+        funext z
+        simp [dirichletLValue]
+      have hminus₁' := hminus₁
+      dsimp [D₁] at hminus₁'
+      rw [hfun] at hminus₁'
+      have hz₁coord : (⟨σ, v⟩ : ℂ) = (σ : ℂ) + Complex.I * v := by
+        apply Complex.ext_iff.mpr
+        constructor <;> simp
+      dsimp [z₁] at hminus₁'
+      rw [hz₁coord] at hminus₁'
+      simpa only [neg_div, Complex.neg_re] using hminus₁'
     have hχ₂ :
         (-deriv (DirichletCharacter.LFunction (χ ^ 2))
           ((σ : ℂ) + Complex.I * (2 * v)) /
             DirichletCharacter.LFunction (χ ^ 2)
               ((σ : ℂ) + Complex.I * (2 * v))).re ≤ CLog * T ^ 2 / rstar := by
-      simpa [D₂, z₂, dirichletLValue] using hminus₂
+      have hfun : dirichletLValue q hq (χ ^ 2) = DirichletCharacter.LFunction (χ ^ 2) := by
+        funext z
+        simp [dirichletLValue]
+      have hminus₂' := hminus₂
+      dsimp [D₂] at hminus₂'
+      rw [hfun] at hminus₂'
+      have hz₂coord : (⟨σ, 2 * v⟩ : ℂ) = (σ : ℂ) + Complex.I * (2 * v) := by
+        apply Complex.ext_iff.mpr
+        constructor <;> simp
+      dsimp [z₂] at hminus₂'
+      rw [hz₂coord] at hminus₂'
+      simpa only [neg_div, Complex.neg_re] using hminus₂'
     have hgap : σ - β ≤ 21 * c * T ^ 2 / L := by
-      dsimp [σ]
-      dsimp [width] at hβlower
-      linarith [hβlower]
+      calc
+        σ - β ≤ σ - (1 - width) := sub_le_sub_left hβlower σ
+        _ = 21 * c * T ^ 2 / L := by dsimp [σ, width]; ring
     have hrecip : L / (21 * c * T ^ 2) ≤ 1 / (σ - β) := by
       have hgapPos : 0 < σ - β := sub_pos.mpr (lt_of_le_of_lt hβupper hσgt)
       calc
@@ -1385,7 +1425,6 @@ theorem zero_free :
     have herrorEq : CLog * T ^ 2 / rstar = CLog * (L / T ^ 2) := by
       dsimp [rstar]
       field_simp [hLpos.ne', hTpos.ne']
-      ring
     have hlead₁ : L / (20 * c * T ^ 2) = (1 / (20 * c)) * (L / T ^ 2) := by
       field_simp [hc.ne', hTpos.ne']
     have hlead₂ : L / (21 * c * T ^ 2) = (1 / (21 * c)) * (L / T ^ 2) := by
@@ -1398,7 +1437,15 @@ theorem zero_free :
         (-deriv (DirichletCharacter.LFunction χ) ((σ : ℂ) + Complex.I * v) /
           DirichletCharacter.LFunction χ ((σ : ℂ) + Complex.I * v)).re ≤
             -L / (21 * c * T ^ 2) + CLog * T ^ 2 / rstar := by
-      linarith [hχ₁, hrecip]
+      have hrecipNeg : -1 / (σ - β) ≤ -L / (21 * c * T ^ 2) := by
+        simpa only [neg_div] using neg_le_neg hrecip
+      calc
+        _ ≤ -1 / (σ - β) + CLog * T ^ 2 / rstar := hχ₁
+        _ ≤ -L / (21 * c * T ^ 2) + CLog * T ^ 2 / rstar :=
+          add_le_add_left hrecipNeg _
+    have hlead₂neg : -L / (21 * c * T ^ 2) = -((1 / (21 * c)) * (L / T ^ 2)) := by
+      rw [neg_div]
+      exact congrArg Neg.neg hlead₂
     have hupper :
         3 * (-(deriv riemannZeta (σ : ℂ) / riemannZeta (σ : ℂ))).re +
           4 * (-deriv (DirichletCharacter.LFunction χ)
@@ -1416,14 +1463,18 @@ theorem zero_free :
           have hA := mul_le_mul_of_nonneg_left hζfinal (by norm_num : 0 ≤ (3 : ℝ))
           have hB := mul_le_mul_of_nonneg_left hχ₁final (by norm_num : 0 ≤ (4 : ℝ))
           have hC := hχ₂
-          nlinarith [hA, hB, hC]
+          linarith [hA, hB, hC]
         _ = (3 / (20 * c) - 4 / (21 * c) + 3 + 5 * CLog) * (L / T ^ 2) := by
-          rw [herrorEq, hlead₁, hlead₂]
+          rw [herrorEq, hlead₁, hlead₂neg]
           ring
     have hupperneg :
         (3 / (20 * c) - 4 / (21 * c) + 3 + 5 * CLog) * (L / T ^ 2) < 0 :=
       mul_neg_of_neg_of_pos hcoeff hratioPos
-    linarith [h341, hupper, hupperneg]
+    have h341' := h341
+    simp only [neg_div] at h341'
+    have hupper' := hupper
+    simp only [neg_div] at hupper'
+    linarith [h341', hupper', hupperneg]
   refine ⟨hNoZero, ?_⟩
   intro s hsReLow hsReHigh hsImLow hsImHigh
   let v : ℝ := s.im
@@ -1432,9 +1483,11 @@ theorem zero_free :
     exact le_trans (by norm_num : (1 : ℝ) ≤ 2) hsImLow
   have hvActualLow : 2 ≤ |v| := by simpa [v] using hsImLow
   have hvhigh : |v| ≤ (5 / 2 : ℝ) * Real.rpow x 3 := by
-    have hp : 0 < Real.rpow x 3 := Real.rpow_pos_of_pos hxpos _
     dsimp [v]
-    nlinarith [hsImHigh, hp]
+    calc
+      |s.im| ≤ Real.rpow x 3 / 2 := hsImHigh
+      _ ≤ (5 / 2 : ℝ) * Real.rpow x 3 := by
+        nlinarith [Real.rpow_nonneg (le_of_lt hxpos) (3 : ℝ)]
   obtain ⟨R, hRlow, hRhigh, Z, hZlen, hZmem, hZcomplete, hRboundary,
     hformula⟩ := hLocalApply χ v hvlow hvhigh
   let s₀ : ℂ := ⟨1 + rstar, v⟩
@@ -1444,24 +1497,28 @@ theorem zero_free :
     have hinvL : 1 / L ≤ rstar := by
       dsimp [rstar]
       apply (div_le_div_iff₀ hLpos hLpos).2
-      exact hT4ge1
+      simpa only [one_mul] using mul_le_mul_of_nonneg_right hT4ge1 hLpos.le
     have hsReCenter : s.re ≤ 1 + rstar := by linarith
     rw [abs_of_nonpos (by linarith : s.re - (1 + rstar) ≤ 0)]
     have hsReLow' : 1 - width / 2 ≤ s.re := by simpa [L, T, width] using hsReLow
     have hhalfwidth : width / 2 ≤ rstar / 2 := by linarith [hwidthle]
     linarith
+  have hwidthpos : 0 < width := by dsimp [width]; positivity
+  have hsReLow' : 1 - width / 2 ≤ s.re := by simpa [L, T, width] using hsReLow
+  have hsReNoZero : 1 - width ≤ s.re := by
+    have hhalf : 1 - width ≤ 1 - width / 2 := by linarith [hwidthpos]
+    exact hhalf.trans hsReLow'
   have hsnonzero : dirichletLValue q hq χ s ≠ 0 :=
-    hNoZero s (by linarith [hsReLow]) (by
-      dsimp [v]
-      exact le_trans (by norm_num : (1 : ℝ) ≤ 2) hsImLow)
-      (by
-        have hx3Pos : 0 < Real.rpow x 3 := Real.rpow_pos_of_pos hxpos _
-        nlinarith [hsImHigh, hx3Pos])
+    hNoZero s hsReNoZero (le_trans (by norm_num : (1 : ℝ) ≤ 2) hsImLow) (by
+      calc
+        |s.im| ≤ Real.rpow x 3 / 2 := hsImHigh
+        _ ≤ Real.rpow x 3 := by
+          nlinarith [Real.rpow_nonneg (le_of_lt hxpos) (3 : ℝ)])
   let D : ℂ := deriv (dirichletLValue q hq χ) s / dirichletLValue q hq χ s
   let S : ℂ := (Z.map fun ρ ↦ (1 : ℂ) / (s - ρ)).sum
   have hform : ‖D - S‖ ≤ CLog * T ^ 2 / rstar := by
     simpa [D, S] using hformula s hs₀dist hsnonzero
-  have hZre : ∀ ρ ∈ Z, ρ.re ≤ 1 - width := by
+  have hZre : ∀ ρ ∈ Z, ρ.re < 1 - width := by
     intro ρ hρmem
     rcases hZmem ρ hρmem with ⟨hρzero, hρdist⟩
     have hρzeroL : DirichletCharacter.LFunction χ ρ = 0 := by
@@ -1472,7 +1529,8 @@ theorem zero_free :
       have htri : |v| ≤ |ρ.im| + |v - ρ.im| := by
         calc
           |v| = |(v - ρ.im) + ρ.im| := by congr 1; ring
-          _ ≤ |v - ρ.im| + |ρ.im| := abs_add _ _
+          _ ≤ |v - ρ.im| + |ρ.im| := abs_add_le _ _
+          _ = |ρ.im| + |v - ρ.im| := by ring
       have hdiffSmall : |v - ρ.im| < 1 := by
         have hsmall : ‖ρ - s₀‖ < 1 := by
           calc
@@ -1487,7 +1545,8 @@ theorem zero_free :
       have htri : |ρ.im| ≤ |v| + |ρ.im - v| := by
         calc
           |ρ.im| = |(ρ.im - v) + v| := by congr 1; ring
-          _ ≤ |ρ.im - v| + |v| := abs_add _ _
+          _ ≤ |ρ.im - v| + |v| := abs_add_le _ _
+          _ = |v| + |ρ.im - v| := by ring
       have hdiffSmall : |ρ.im - v| < 1 := by
         have hsmall : ‖ρ - s₀‖ < 1 := by
           calc
@@ -1506,8 +1565,7 @@ theorem zero_free :
       have hρge : 1 - width ≤ ρ.re := le_of_not_gt hnot
       have hnz := hNoZero ρ hρge hρimagLow hρimagHigh
       exact hnz hρzero
-    linarith
-  have hwidthpos : 0 < width := by dsimp [width]; positivity
+    exact hρlt
   have htermBound (ρ : ℂ) (hρ : ρ ∈ Z) :
       ‖(1 : ℂ) / (s - ρ)‖ ≤ 2 / width := by
     have hsep : width / 2 < (s - ρ).re := by
@@ -1535,27 +1593,26 @@ theorem zero_free :
       _ = 2 * CLog / c * L := by
         dsimp [width]
         field_simp [hc.ne', hLpos.ne', hTpos.ne']
-        ring
   have hErrLe : CLog * T ^ 2 / rstar ≤ CLog * L := by
     have hT2ge1 : 1 ≤ T ^ 2 := hT2ge1
     have hEq : CLog * T ^ 2 / rstar = CLog * (L / T ^ 2) := by
       dsimp [rstar]
       field_simp [hLpos.ne', hTpos.ne']
-      ring
     rw [hEq]
     exact mul_le_mul_of_nonneg_left (div_le_self hLpos.le hT2ge1) (le_of_lt hCLog)
   have hDnorm : ‖D‖ ≤ (CLog + 2 * CLog / c) * L := by
     calc
       ‖D‖ = ‖(D - S) + S‖ := by congr 1; ring
       _ ≤ ‖D - S‖ + ‖S‖ := norm_add_le _ _
-      _ ≤ CLog * T ^ 2 / rstar + 2 * CLog / c * L := add_le_add hform.le hsumNorm
-      _ ≤ CLog * L + 2 * CLog / c * L := add_le_add_right hErrLe _
+      _ ≤ CLog * T ^ 2 / rstar + 2 * CLog / c * L := add_le_add hform hsumNorm
+      _ ≤ CLog * L + 2 * CLog / c * L := by linarith [hErrLe]
       _ = (CLog + 2 * CLog / c) * L := by ring
   have hDnormOut : ‖D‖ ≤ COut * L := by
     dsimp [COut]
     nlinarith [hDnorm, hLpos]
   simpa [D, dirichletLValue, COut, L] using hDnormOut
 
+set_option maxHeartbeats 200000
 /-- `t2:pp.prime-polynomial` — PP `02-long-prime.tex:8-21, 483-579`, Lemma 3.1; also PD
 Lemma 2.3. Correction 5 from review lane `rev-b` requires the prime set to be an interval. -/
 theorem prime_polynomial :
