@@ -27,4 +27,14 @@ import ArtinPrimitiveRoots.Hecke.Dictionary
 import ArtinPrimitiveRoots.Arith.SUnit
 import ArtinPrimitiveRoots.A1.AddCharExists
 import ArtinPrimitiveRoots.Spec.Interface
+import ArtinPrimitiveRoots.Theta.Cover
+import ArtinPrimitiveRoots.Theta.TorusInd
+import ArtinPrimitiveRoots.Theta.Shared
+import ArtinPrimitiveRoots.Theta.LocalInt
+import ArtinPrimitiveRoots.Theta.LocalWhit
+import ArtinPrimitiveRoots.Theta.Eis
+import ArtinPrimitiveRoots.Theta.Reduction
+import ArtinPrimitiveRoots.Theta.Res
+import ArtinPrimitiveRoots.Theta.Assemble
+import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2
