@@ -35,6 +35,11 @@ def Gamma (S : ArtinPrimitiveRoots.A1.SData F CE condη) : Subgroup S.US :=
 /-- **def:rf-row-units** (04-reflection.tex:30-32): `U_6 = U_S/Γ`. -/
 abbrev UnitSix (S : ArtinPrimitiveRoots.A1.SData F CE condη) := S.US ⧸ Gamma S
 
+/-- **def:rf-row-units** (04-reflection.tex:30-32): the sixth-power unit quotient is finite.
+Added per rev-a2 to record the finiteness assertion omitted by the quotient abbreviation. -/
+def UnitSixFiniteStatement (S : ArtinPrimitiveRoots.A1.SData F CE condη) : Prop :=
+  Finite (UnitSix S)
+
 /-- **def:rf-row-units** (04-reflection.tex:30-35): quotient class modulo sixth powers. -/
 def unitSixClass (S : ArtinPrimitiveRoots.A1.SData F CE condη) (u : S.US) : UnitSix S :=
   QuotientGroup.mk u

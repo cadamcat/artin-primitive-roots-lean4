@@ -55,9 +55,11 @@ def infCompact (P : CoverPackage D S H A) : Set P.tc.G :=
 
 /-- **red:components** (strong approximation for `SL₂`, finiteness of `F^×\𝔸_f^×/det K_f 𝔸_f^{×2}`):
 finitely many finite-adelic points `g_j`; an automorphic, level- and `PU(2)^r`-invariant function
-vanishing on all `g_∞ g_j` vanishes. -/
+vanishing on all `g_∞ g_j` vanishes. C7 of `sol-gate-theta` requires the prescribed level to be at
+least `m0` on `T0`. -/
 theorem exists_classical_components (P : CoverPackage D S H A) (T0 : Finset (FinPlace F))
-    (hT0 : S.Sf ⊆ T0) (m : FinPlace F → ℕ) :
+    (hT0 : S.Sf ⊆ T0) (m : FinPlace F → ℕ)
+    (hm : ∀ v ∈ T0, (P.loc v).m0 ≤ m v) :
     ∃ J : Finset P.tc.G, (∀ gj ∈ J, ∃ x : P.RP, P.q x = gj ∧ ∀ w, P.compC w x = 1) ∧
       ∀ Ψ : P.tc.G → ℂ, (∀ γ g, Ψ (P.tc.rat γ * g) = Ψ g) →
         (∀ g, ∀ k ∈ levelSet P T0 hT0 m, Ψ (g * k) = Ψ g) →
@@ -67,9 +69,11 @@ theorem exists_classical_components (P : CoverPackage D S H A) (T0 : Finset (Fin
 
 /-- **red:congruence** (Kubota's splitting on `Γ(N₀)`, archimedean Iwasawa, free action): for each
 `g_j` there is a finite-index, freely acting `Γ'' ≤ SL₂(O_F)` with
-`rat(γ) n_∞(x) a_∞(y) g_j = n_∞(x′) a_∞(y′) g_j k_∞ k`, `(x′, y′)` the coordinates of `γ • z`. -/
+`rat(γ) n_∞(x) a_∞(y) g_j = n_∞(x′) a_∞(y′) g_j k_∞ k`, `(x′, y′)` the coordinates of `γ • z`.
+C7 of `sol-gate-theta` restricts the level to the guaranteed open range. -/
 theorem exists_good_subgroup [IsTotallyComplex F] (P : CoverPackage D S H A)
-    (T0 : Finset (FinPlace F)) (hT0 : S.Sf ⊆ T0) (m : FinPlace F → ℕ) (gj : P.tc.G)
+    (T0 : Finset (FinPlace F)) (hT0 : S.Sf ⊆ T0) (m : FinPlace F → ℕ)
+    (hm : ∀ v ∈ T0, (P.loc v).m0 ≤ m v) (gj : P.tc.G)
     (hgj : ∃ x : P.RP, P.q x = gj ∧ ∀ w, P.compC w x = 1) :
     ∃ Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)), Γ.FiniteIndex ∧
       ArtinPrimitiveRoots.A1.Spec.FreeAction F Γ ∧
@@ -86,10 +90,12 @@ theorem exists_good_subgroup [IsTotallyComplex F] (P : CoverPackage D S H A)
 /-- **red:decompose** (P-SPEC obligation (1)): for sections with spherical complex components and a
 uniform level, on the component of `g_j` the adelic Eisenstein series is a finite combination of
 P-SPEC Eisenstein series of one good `Γ''`, with coefficients holomorphic on `Re s > 0`; the adelic
-series converges absolutely for `Re s > 1/2`. -/
+series converges absolutely for `Re s > 1/2`. C6/C7 of `sol-gate-theta` strengthen the datum and
+require every prescribed level to satisfy its `m0` bound. -/
 theorem red_decompose [IsTotallyComplex F] (P : CoverPackage D S H A) (G : GlobalDatum P)
     (sec : ∀ s : ℂ, GlobalSection P G s) (T0 : Finset (FinPlace F)) (hT0 : ∀ s, (sec s).T0 = T0)
     (hsub : S.Sf ⊆ T0) (hC : ∀ s w, (sec s).fC w = sphC s) (m : FinPlace F → ℕ)
+    (hm : ∀ v ∈ T0, (P.loc v).m0 ≤ m v)
     (hlevel : ∀ s, ∀ g, ∀ k ∈ levelSet P T0 hsub m,
       scalarOf P G (sec s).f (sec s).fC (g * k) = scalarOf P G (sec s).f (sec s).fC g)
     (han : ∀ v (g : (P.loc v).L), AnalyticOnNhd ℂ (fun s => (sec s).f v g) {s | 0 < s.re})
@@ -109,9 +115,14 @@ theorem red_decompose [IsTotallyComplex F] (P : CoverPackage D S H A) (G : Globa
 
 /-- **red:constant-term**: vanishing adelic constant coefficients (over every adapted lattice at
 every point) give vanishing classical constant terms at every cusp and height, in the form of
-P-SPEC `res_lincomb_eq_zero`. -/
+P-SPEC `res_lincomb_eq_zero`. C8 of `sol-gate-theta` requires finite index and an adapted period at
+each point. -/
 theorem classical_constTerm_eq_zero [IsTotallyComplex F] (P : CoverPackage D S H A)
     (Ψ : P.tc.G → ℂ) (gj : P.tc.G) (Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))
+    (hfinite : Γ.FiniteIndex)
+    (hlevel : ∀ g : P.tc.G, ∃ 𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F,
+      𝔞 ≠ 0 ∧ ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+        Ψ (h * (g⁻¹ * nFin P ξ * g)) = Ψ h)
     (hΓ : ∀ γ ∈ Γ, ∀ z, classicalOf P Ψ gj (γ • z) = classicalOf P Ψ gj z)
     (hΨ : ∀ (g : P.tc.G) (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (Pd : Set (InfinitePlace F → ℂ)),
       𝔞 ≠ 0 → (∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h, Ψ (h * (g⁻¹ * nFin P ξ * g)) = Ψ h) →

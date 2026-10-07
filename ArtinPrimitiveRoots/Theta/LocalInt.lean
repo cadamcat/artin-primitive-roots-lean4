@@ -93,8 +93,9 @@ theorem jacquet_bigCell (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddC
   sorry
 
 /-- **jq:fourier-indicator**: every `1_U ⊗ x` (`U` compact open) is a Fourier transform `φ̂`
-of a locally constant compactly supported `φ`. -/
-theorem exists_fourier_indicator (A : AddCharData F) (μ : LocHaar v) (U : Set (v.adicCompletion F))
+of a locally constant compactly supported `φ`. C3 of `sol-gate-theta` requires a complete target for
+the Bochner integral. -/
+theorem exists_fourier_indicator [CompleteSpace V] (A : AddCharData F) (μ : LocHaar v) (U : Set (v.adicCompletion F))
     (hUc : IsCompact U) (hUo : IsOpen U) (x : V) :
     ∃ φ : v.adicCompletion F → V, IsLocallyConstant φ ∧ HasCompactSupport φ ∧
       ∀ y, ∫ t, A.ψ v (-(y * t)) • φ t ∂μ.μ = U.indicator (fun _ => x) y := by

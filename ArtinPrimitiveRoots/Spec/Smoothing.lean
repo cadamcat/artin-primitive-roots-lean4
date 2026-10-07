@@ -45,9 +45,13 @@ theorem S1_smoothing (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
 
 /-- S2 `spec:Lk-seed` — P-SPEC.md:245, 411–415. Radial powers are eigenfunctions of the
 smoothing kernel, the one-factor transform is entire and nonvanishing in the required ball, and
-the operator commutes with the Eisenstein series in its convergence region. -/
+the operator commutes with the Eisenstein series in its convergence region. Correction from review
+lane `rev-spec`: require the smooth, nonnegative, supported, nonzero kernel hypotheses from S1. -/
 theorem S2_smoothing_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
-    (σ : SL(2,F)) (k₀ : ℝ → ℝ) :
+    (σ : SL(2,F)) (k₀ : ℝ → ℝ)
+    (hkSmooth : ContDiff ℝ ∞ k₀) (hkNonneg : ∀ t, 0 ≤ k₀ t)
+    (hkSupport : {t | k₀ t ≠ 0} ⊆ Set.Icc 1 (1 + 1 / 100))
+    (hkNonzero : ∃ t, k₀ t ≠ 0) :
     (∀ g : InfinitePlace F → SL(2,ℂ), ∀ a : ℂ, ∀ z : X F,
       smoothingOperator F k₀
         (fun w => ((normHeight F (actAtPlaces F g w) : ℝ) : ℂ) ^ a) z =
@@ -61,15 +65,24 @@ theorem S2_smoothing_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   sorry
 
 /-- S3 `spec:econt` — P-SPEC.md:246, 417–420. The smoothed resolvent correction gives a
-pointwise continuation with the same convergence values and residue as the `L²` continuation. -/
+pointwise continuation with the same convergence values and residue as the `L²` continuation.
+Correction from review lane `rev-spec`: supply kernel data and cusp separation, and require the
+transform to be nonzero at the residue center. -/
 theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (hfree : FreeAction F Γ) (σ : SL(2,F)) (s₁ : ℝ)
     (hs₀ : 0 < s₁) (hs₁ : s₁ ≤ 1 / 2)
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
-    (k₀ τ : ℝ → ℝ) (A : ℝ) (hA : 0 < A) (hτ : IsCuspCutoff A τ)
+    (k₀ τ : ℝ → ℝ) (hkSmooth : ContDiff ℝ ∞ k₀)
+    (hkSupport : {t | k₀ t ≠ 0} ⊆ Set.Icc 1 (1 + 1 / 100))
+    (A : ℝ) (hA : 0 < A) (hsep : ∀ γ γ' : Γ, ∀ z : X F,
+      A ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+      γ' * γ⁻¹ ∈ cuspStab F Γ σ)
+    (hτ : IsCuspCutoff A τ)
     (u : ℂ → L2Space F D) (hu : AnalyticOnNhd ℂ u (contDomain s₁ 1))
     (θ : L2Space F D) (ε : ℝ) (hε : 0 < ε ∧ ε ≤ s₁)
     (hhat : ∀ s ∈ contDomain s₁ ε, radialTransform F k₀ (1 + 2 * s) ≠ 0)
+    (hhatCenter : radialTransform F k₀ (1 + 2 * (s₁ : ℂ)) ≠ 0)
     (hres : ∃ Ψ : ℂ → L2Space F D,
       AnalyticOnNhd ℂ Ψ (Metric.ball (s₁ : ℂ) ε) ∧ Ψ (s₁ : ℂ) = θ ∧
         ∀ s ∈ Metric.ball (s₁ : ℂ) ε, s ≠ s₁ → Ψ s = (s - s₁) • u s)
