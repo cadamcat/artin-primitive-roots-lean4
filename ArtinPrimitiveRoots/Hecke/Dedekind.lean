@@ -132,7 +132,7 @@ theorem dedekind_completed (K : Type*) [Field K] [NumberField K] :
   exact ⟨ξ, hξ, hEq, hFE, hξ1⟩
 
 /-- **(D2) Order at most one** (constant may depend on `K`): every entire `ξ` as in (D1)
-satisfies `‖ξ s‖ ≤ exp(C ‖s‖ log(‖s‖ + 2))`.
+satisfies `‖ξ s‖ ≤ exp(C (‖s‖ + 1) log(‖s‖ + 2))` (the form without `+ 1` fails at `s = 0`, lane `hk-ded`).
 Consumers: B `ext:dedekind-fe` (order-one clause), `ext:hadamard-order-one`,
 `spl:explicit-formula`.  Library: AINTLIB strip bound
 `exists_completedDedekindZetaEntire_strip_bound` (`CompletedZeta/AnalyticControl.lean:119`)
@@ -140,6 +140,6 @@ plus Stirling for `Re s ≥ 2` and the functional equation; the global statement
 theorem dedekind_order_one (K : Type*) [Field K] [NumberField K] (ξ : ℂ → ℂ)
     (hξ : Differentiable ℂ ξ)
     (heq : ∀ s : ℂ, 1 < s.re → ξ s = s * (s - 1) * dedekindPrefactor K s * dedekindZeta K s) :
-    ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ, ‖ξ s‖ ≤ Real.exp (C * ‖s‖ * Real.log (‖s‖ + 2)) := sorry
+    ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ, ‖ξ s‖ ≤ Real.exp (C * (‖s‖ + 1) * Real.log (‖s‖ + 2)) := sorry
 
 end ArtinPrimitiveRoots.Hecke
