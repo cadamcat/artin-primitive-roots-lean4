@@ -14,8 +14,10 @@ import ArtinPrimitiveRoots.Ext.TypeIIInputs
 import ArtinPrimitiveRoots.Construction.Defs
 import ArtinPrimitiveRoots.Construction.Results
 import ArtinPrimitiveRoots.TypeII.PD.Defs
-import ArtinPrimitiveRoots.TypeII.PD.Determinant
 import ArtinPrimitiveRoots.TypeII.PD.Preliminaries
+import ArtinPrimitiveRoots.TypeII.PD.Determinant
+import ArtinPrimitiveRoots.TypeII.PD.Physical
+import ArtinPrimitiveRoots.TypeII.PD.RootReplacement
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.MemoryResults
 import ArtinPrimitiveRoots.TypeII.PD.MajorArcs

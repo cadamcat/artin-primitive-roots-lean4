@@ -111,29 +111,6 @@ theorem endpoint_bounds
               Real.rpow (Real.log x) C_e := by
   sorry
 
-/-- `t2:pd.moment-to-pairing` — PD `03-determinant.tex:343-411`. The determinant-moment
-estimate implies the stated endpoint pairing bound by the finite-dimensional spectral argument. -/
-theorem moment_to_pairing
-    {n : ℕ} (ops : PhysicalOperators n) (A : Matrix (Fin n) (Fin n) ℂ)
-    (x : ℝ) (R N_R : ℕ) (U V H' C_e E₀ : ℝ)
-    (hA : A = physicalOperator ops) (hNR : N_R = 2 * R)
-    (hUV : 0 < U * V) (hH : 0 < H')
-    (hHroot : Real.rpow H' (1 / (N_R : ℝ)) ≤ 2)
-    (f g : Fin n → ℂ) (u : Fin n → Fin n → ℂ)
-    (hf : vectorNorm f ≤ Real.rpow (U * V) (1 / 2 : ℝ) *
-      Real.rpow (Real.log U) C_e)
-    (hg : vectorNorm g ≤ Real.rpow (U * V) (1 / 2 : ℝ) *
-      Real.rpow (Real.log U) C_e)
-    (hsup : ∀ i, ‖f i‖ + ‖g i‖ ≤ Real.rpow (Real.log U) C_e) :
-    ∃ Cpair : ℝ, 0 < Cpair ∧
-      ((1 / (U * V)) * ∑ i : Fin n,
-        Complex.re (vectorInner (u i)
-          (Matrix.mulVec ((A * Matrix.conjTranspose A) ^ R) (u i))) ≤
-            Real.rpow (Real.log x) (-E₀ * (N_R : ℝ)) →
-        ‖vectorInner f (Matrix.mulVec A g)‖ ≤
-          Cpair * U * V * Real.rpow (Real.log x) (-E₀ + C_e)) := by
-  sorry
-
 /-- `t2:pd.weak-kloosterman` — PD `03-determinant.tex:445-480`. -/
 theorem weak_kloosterman (ε : ℝ) (hε : 0 < ε) :
     ∃ Cε : ℝ, 0 < Cε ∧
@@ -163,33 +140,6 @@ theorem root_residue
                 U * V * (r₁ - l₁) * (r₂ - l₂) * (r₃ - l₃) /
                     ((Real.pi ^ 2 / 6) * sl2Card S hS)| ≤
                 C₀ * U * V * Real.rpow x (-cδ) := by
-  sorry
-
-/-- `det:root-replacement` — PD `03-determinant.tex:593-737`. The physical root average of a
-path observable supported on at most `exp(O_K(L^.73))` residue matrices is replaced by the
-continuous root integral and the uniform independent residue-line average, with error
-`O_A(L^{-A N_R})`. -/
-theorem root_replacement
-    (δ C_K Ccoef : ℝ) (hδ : 0 < δ) (hCK : 0 < C_K) (hCc : 0 < Ccoef) :
-    ∀ A : ℝ, 0 < A →
-      ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧
-        ∀ x : ℝ, x₀ ≤ x →
-          ∀ U V : ℝ, Real.rpow x δ ≤ U → Real.rpow x δ ≤ V →
-            ∀ S : ℕ, Squarefree S → ∀ hS : 0 < S,
-              (S : ℝ) ≤ Real.exp (C_K * Real.rpow (Real.log x) (98 / 100 : ℝ)) →
-              ∀ F : SL₂ResidueGroup S → ℂ,
-                (Set.ncard {g : SL₂ResidueGroup S | F g ≠ 0} : ℝ) ≤
-                  Real.exp (C_K * Real.rpow (Real.log x) (73 / 100 : ℝ)) →
-                (∀ g, ‖F g‖ ≤ Real.rpow (Real.log x) Ccoef) →
-                ∀ l₁ r₁ l₂ r₂ l₃ r₃ : ℝ,
-                  1 ≤ l₁ → l₁ ≤ r₁ → r₁ ≤ 16 →
-                  1 ≤ l₂ → l₂ ≤ r₂ → r₂ ≤ 2 →
-                  0 ≤ l₃ → l₃ ≤ r₃ → r₃ ≤ 1 →
-                    ‖(primitiveRootObservableSum U V S hS F
-                        l₁ r₁ l₂ r₂ l₃ r₃ -
-                      continuousRootObservableAverage U V S hS F
-                        l₁ r₁ l₂ r₂ l₃ r₃) / (U * V)‖ ≤
-                      C_A * Real.rpow (Real.log x) (-A * (pathLength x : ℝ)) := by
   sorry
 
 end ArtinPrimitiveRoots.TypeII.PD
