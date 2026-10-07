@@ -1,4 +1,8 @@
 import ArtinPrimitiveRoots.TypeII.PD.Physical
+import ArtinPrimitiveRoots.TypeII.Proofs.pd2.MoebiusSeries
+import Mathlib.Topology.MetricSpace.HausdorffDistance
+import Mathlib.Topology.Instances.Int
+import Mathlib.Topology.Order.IntermediateValue
 set_option autoImplicit false
 set_option linter.unusedVariables false
 
@@ -736,17 +740,6 @@ private lemma rootCompletionMatrix_kernelLine (Sq p u v : ℕ) (hSq : 0 < Sq)
   rw [hU, hC]
   simp [kernelLine, projLine]
 
-
-/-- `t2:pd.path-expansion` (new node) — PD 03:595-609.  Exact identity: the determinant moment is
-the physical root average of the line-model moment.  Proof: `P ↦ z = g_P⁻¹ P` is a bijection of
-primitive vectors with `det(gz,gz') = det(z,z')`; for integer `g`, `p ∣ (gz)₁ ⇔ [z]_p` equals the
-kernel line of `(u,c)`; `r_{gz} = τ(w)/τ(z) mod 1` (03:683-685); `𝒢` and the damping commute
-with `𝒮`.  The threshold makes the bands disjoint (so `markedOmega = envOmega`). -/
-theorem path_expansion (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
-    ∀ (K : ℕ) (F : PDFix K), F.Valid →
-      ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
-        detMoment F S = physicalRootAverage F S := by
-  sorry
 
 /-! ### Path terms of the line-model moment -/
 
@@ -2869,8 +2862,8 @@ private lemma finitePathEdgeDiagProduct {M : Type*} [CommMonoid M] {n : ℕ} (hn
       ∏ j : Fin (n + 1),
         if j = 0 ∨ j = Fin.last n then D j else D j ^ 2 := by
   classical
-  let fStart : Fin (n + 1) → ℝ := fun j => if j = Fin.last n then 1 else D j
-  let fEnd : Fin (n + 1) → ℝ := fun j => if j = 0 then 1 else D j
+  let fStart : Fin (n + 1) → M := fun j => if j = Fin.last n then 1 else D j
+  let fEnd : Fin (n + 1) → M := fun j => if j = 0 then 1 else D j
   have hzeroLast : (0 : Fin (n + 1)) ≠ Fin.last n := by
     intro h
     have hv := congrArg Fin.val h
@@ -2908,6 +2901,147 @@ private lemma finitePathEdgeDiagProduct {M : Type*} [CommMonoid M] {n : ℕ} (hn
               simp [fStart, fEnd, h0, hlastZero]
             · simp [fStart, fEnd, h0, hlast, pow_two]
 
+private lemma finitePathEdgeDiagProductPow {M : Type*} [CommMonoid M] {n : ℕ}
+    (hn : 0 < n) (D : Fin (n + 1) → M) :
+    (∏ j : Fin n, D j.castSucc * D j.succ) =
+      ∏ j : Fin (n + 1), D j ^ (if j = 0 ∨ j = Fin.last n then 1 else 2) := by
+  rw [finitePathEdgeDiagProduct hn D]
+  apply Fintype.prod_congr
+  intro j
+  by_cases hj : j = 0 ∨ j = Fin.last n <;> simp [hj]
+
+private lemma envBoxPath_product {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (ℓ : LineData S.x K F.a) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hN : 0 < pathLength S.x) (hqd : 0 < F.q_d)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (γ : Fin (pathLength S.x + 1) → EnvBoxSubtype F S w hU hV) :
+    (physicalMeasure S.x K F.a : ℂ) *
+      finitePathProduct (envBoxKernel F S w ℓ hU hV) true (pathLength S.x) γ =
+      pathCoefficient F S (envBoxPathToEnvPath F S w hU hV γ) *
+        (pathArch F S w (envBoxPathToEnvPath F S w hU hV γ) : ℂ) *
+        ((∏ p : {p : ℕ // p ∈ markedPrimes S.x K F.a},
+          pathPrimeFactor F S (envBoxPathToEnvPath F S w hU hV γ) p.1 (ℓ p) : ℝ) : ℂ) := by
+  classical
+  let D : Fin (pathLength S.x + 1) → ℝ := fun j => envDiag F S w ℓ (γ j).1
+  let k : Fin (pathLength S.x) → ℂ := fun j =>
+    symKernel F S (decide (j.val % 2 = 0)) (γ j.castSucc).1 (γ j.succ).1
+  have hparity (j : Fin (pathLength S.x)) :
+      pathKernelForward true j.val = decide (j.val % 2 = 0) := by
+    by_cases hj : j.val % 2 = 0 <;> simp [pathKernelForward, hj]
+  have hedge : finitePathProduct (envBoxKernel F S w ℓ hU hV) true (pathLength S.x) γ =
+      (∏ j, k j) * ∏ j : Fin (pathLength S.x), ((D j.castSucc : ℂ) * (D j.succ : ℂ)) := by
+    rw [← Finset.prod_mul_distrib]
+    apply Fintype.prod_congr
+    intro j
+    dsimp [finitePathProduct, envBoxKernel, k, D]
+    rw [hparity]
+    ring
+  have hdiag := envPathDiagonalFactor F S w ℓ hU hV hqd hBands γ
+  have hdiagC := congrArg (fun t : ℝ => (t : ℂ)) hdiag
+  have hpair := congrArg (fun t : ℝ => (t : ℂ)) (finitePathEdgeDiagProductPow hN D)
+  push_cast at hpair hdiagC
+  rw [hedge, hpair, hdiagC]
+  change (physicalMeasure S.x K F.a : ℂ) *
+      ((∏ j, k j) *
+        ((pathArch F S w (envBoxPathToEnvPath F S w hU hV γ) : ℂ) * _)) = _
+  dsimp [pathCoefficient, envBoxPathToEnvPath, k]
+  push_cast
+  ring
+
+private lemma envBoxPathToEnvPath_injective {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (hU : 0 < S.U) (hV : 0 < S.V) :
+    Function.Injective (envBoxPathToEnvPath F S w hU hV) := by
+  intro γ γ' h
+  funext j
+  apply Subtype.ext
+  exact congrFun h j
+
+private lemma envPathSummand_support {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (ℓ : LineData S.x K F.a) (hU : 0 < S.U) (hV : 0 < S.V) :
+    Function.support (fun γ : EnvPath S.x K =>
+      if IsEnvPathAdmissible F S γ then
+        pathCoefficient F S γ * (pathArch F S w γ : ℂ) *
+          ((∏ p : {p : ℕ // p ∈ markedPrimes S.x K F.a},
+            pathPrimeFactor F S γ p.1 (ℓ p) : ℝ) : ℂ)
+      else 0) ⊆ Set.range (envBoxPathToEnvPath F S w hU hV) := by
+  classical
+  intro γ hγ
+  have hnz : (if IsEnvPathAdmissible F S γ then
+        pathCoefficient F S γ * (pathArch F S w γ : ℂ) *
+          ((∏ p : {p : ℕ // p ∈ markedPrimes S.x K F.a},
+            pathPrimeFactor F S γ p.1 (ℓ p) : ℝ) : ℂ)
+      else 0) ≠ 0 := hγ
+  have hadm : IsEnvPathAdmissible F S γ := by
+    by_contra h
+    simp [h] at hnz
+  have harch : pathArch F S w γ ≠ 0 := by
+    intro h
+    simp [hadm, h] at hnz
+  have hbox (j : Fin (pathLength S.x + 1)) : envBox S w (γ j).1 := by
+    by_contra h
+    apply harch
+    unfold pathArch
+    apply Finset.prod_eq_zero (Finset.mem_univ j)
+    simp [h]
+  let γ' : Fin (pathLength S.x + 1) → EnvBoxSubtype F S w hU hV := fun j =>
+    ⟨γ j, (Set.Finite.mem_toFinset (envBoxValid_finite F S w hU hV)).2
+      ⟨hadm.1 j, hbox j⟩⟩
+  exact ⟨γ', rfl⟩
+
+private lemma env_path_form_of_pos {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (ℓ : LineData S.x K F.a) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hR : 0 < S.R) (hqd : 0 < F.q_d)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) :
+    envMomentC F S w ℓ =
+      ∑' γ : EnvPath S.x K,
+        if IsEnvPathAdmissible F S γ then
+          pathCoefficient F S γ * (pathArch F S w γ : ℂ) *
+            ((∏ p : {p : ℕ // p ∈ markedPrimes S.x K F.a},
+              pathPrimeFactor F S γ p.1 (ℓ p) : ℝ) : ℂ)
+        else 0 := by
+  classical
+  let G : EnvPath S.x K → ℂ := fun γ =>
+    if IsEnvPathAdmissible F S γ then
+      pathCoefficient F S γ * (pathArch F S w γ : ℂ) *
+        ((∏ p : {p : ℕ // p ∈ markedPrimes S.x K F.a},
+          pathPrimeFactor F S γ p.1 (ℓ p) : ℝ) : ℂ)
+    else 0
+  let Q := EnvBoxSubtype F S w hU hV
+  let κ := envBoxKernel F S w ℓ hU hV
+  have hN : 0 < pathLength S.x := by
+    change 0 < 2 * S.R
+    omega
+  have hsum := (envBoxPathToEnvPath_injective F S w hU hV).tsum_eq
+    (envPathSummand_support F S w ℓ hU hV)
+  rw [tsum_fintype] at hsum
+  have hM := envMoment_boxPathSum F S w ℓ hU hV hR
+  change envMomentC F S w ℓ = (physicalMeasure S.x K F.a : ℂ) *
+    ∑ q : Q, if q.1.1 = (1, 0) then
+      finitePathSum κ (pathLength S.x) true (fun t => e1Vector t.1) q else 0 at hM
+  rw [finitePathSum_sum_start] at hM
+  rw [hM, ← hsum, Finset.mul_sum]
+  apply Fintype.sum_congr
+  intro γ
+  have hv : ∀ j, EnvValid F S (envBoxPathToEnvPath F S w hU hV γ j) := by
+    intro j
+    exact ((Set.Finite.mem_toFinset (envBoxValid_finite F S w hU hV)).1 (γ j).2).1
+  have hfactor := envBoxPath_product F S w ℓ hU hV hN hqd hBands γ
+  by_cases h0 : (γ 0).1.1 = (1, 0)
+  · by_cases hlast : (γ (Fin.last (pathLength S.x))).1.1 = (1, 0)
+    · have hadm : IsEnvPathAdmissible F S (envBoxPathToEnvPath F S w hU hV γ) :=
+        ⟨hv, h0, hlast⟩
+      simpa [κ, e1Vector, h0, hlast, hadm] using hfactor
+    · have hadm : ¬ IsEnvPathAdmissible F S (envBoxPathToEnvPath F S w hU hV γ) := by
+        intro h
+        exact hlast h.2.2
+      simp [G, hadm, e1Vector, h0, hlast]
+  · have hadm : ¬ IsEnvPathAdmissible F S (envBoxPathToEnvPath F S w hU hV γ) := by
+      intro h
+      exact h0 h.2.1
+    simp [G, hadm, h0]
+
 /-- `t2:pd.env-path-form` (new node) — PD 03:595-609, 04:68-80.  Expansion of the line-model
 moment into path terms: `D_env(s_j)^{m_j}` (`m_j = 1` at the ends, `2` inside) splits into the
 archimedean factor and the per-prime factors (the damping `q_d^{m_j(ω-KM)/2}` is
@@ -2923,9 +3057,960 @@ theorem env_path_form (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
                   ((∏ p : {p : ℕ // p ∈ markedPrimes S.x K F.a},
                     pathPrimeFactor F S γ p.1 (ℓ p) : ℝ) : ℂ)
               else 0 := by
-  sorry
+  classical
+  intro K F hF
+  obtain ⟨x₀, hx₀, hBands⟩ := markedBands_eventually_disjoint F.a hF.1
+  refine ⟨x₀, hx₀, ?_⟩
+  intro S hS hx w ℓ
+  have hxpos : 0 < S.x := by linarith [hS.1]
+  have hV : 0 < S.V := (Real.rpow_pos_of_pos hxpos δ).trans_le hS.2.2.1
+  have hY : 0 < S.Y := by
+    rcases Finset.mem_filter.mp hS.2.2.2.2.2.1 with ⟨hm, _⟩
+    rcases Finset.mem_image.mp hm with ⟨n, _, hn⟩
+    rw [← hn]
+    exact pow_pos (by norm_num : (0 : ℝ) < 2) n
+  have hd : 0 < S.d₀ := by
+    rcases Finset.mem_image.mp hS.2.2.2.2.2.2 with ⟨n, _, hn⟩
+    rw [← hn]
+    exact pow_pos (by norm_num : (0 : ℕ) < 2) n
+  have hU : 0 < S.U := by
+    dsimp [PDScale.U, PDScale.H]
+    exact mul_pos (mul_pos (by exact_mod_cast hd) hY)
+      ((Real.rpow_pos_of_pos hxpos δ).trans_le hS.2.1)
+  exact env_path_form_of_pos F S w ℓ hU hV (momentR_pos_of_two hS.1) hF.2.1
+    (hBands S.x hx)
+
+
+private def rootArch (u v : ℕ) : ArchRoot :=
+  ⟨(u : ℝ), (v : ℝ), (rootC u v : ℝ) / (u : ℝ)⟩
+
+private def rootEnvPoint {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (P : PState F S) : EnvPoint S.x K :=
+  (rootTransportInv (u : ℤ) (v : ℤ) (rootC u v : ℤ) (rootD u v : ℤ) P.pos,
+    P.labels)
+
+private def RootEnvCondition {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (s : EnvPoint S.x K) : Prop :=
+  EnvValid F S s ∧ envBox S (rootArch u v) s.1 ∧
+    ∀ i j, lineHit (rootLines F S u v) (s.2 i j) s.1
+
+private lemma rootEnvPoint_transport {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (P : PState F S) :
+    rootTransport (u : ℤ) (v : ℤ) (rootC u v : ℤ) (rootD u v : ℤ)
+      (rootEnvPoint F S u v P).1 = P.pos :=
+  rootTransport_right_inv _ _ _ _ (rootD_completion_identity u v hu hc) P.pos
+
+private lemma rootEnvPoint_valid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (P : PState F S) :
+    EnvValid F S (rootEnvPoint F S u v P) := by
+  have ht := rootEnvPoint_transport F S u v hu hc P
+  have hg := gcd_rootTransport (u : ℤ) (v : ℤ) (rootC u v : ℤ) (rootD u v : ℤ)
+    (rootD_completion_identity u v hu hc) (rootEnvPoint F S u v P).1
+  rw [ht] at hg
+  refine ⟨?_, ⟨?_, ?_⟩⟩
+  · rw [← hg]
+    simpa [PhysicalState.pos] using P.primitive
+  · exact fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩
+  · exact P.label_distinct
+
+private lemma rootEnvPoint_box {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (P : PState F S) :
+    envBox S (rootArch u v) (rootEnvPoint F S u v P).1 := by
+  have ht := rootEnvPoint_transport F S u v hu hc P
+  have hfirst := rootTransport_first_real u v hu (rootEnvPoint F S u v P).1
+  have hsecond := rootTransport_second_real u v hu hc (rootEnvPoint F S u v P).1
+  rw [ht] at hfirst hsecond
+  have h1 : (P.first : ℝ) = (u : ℝ) *
+      (rootArch u v).tau (rootEnvPoint F S u v P).1 := by
+    simpa [PhysicalState.pos, rootArch, ArchRoot.tau] using hfirst
+  have h2 : (P.second : ℝ) = (v : ℝ) *
+      (rootArch u v).tau (rootEnvPoint F S u v P).1 +
+        ((rootEnvPoint F S u v P).1.2 : ℝ) / (u : ℝ) := by
+    simpa [PhysicalState.pos, rootArch, ArchRoot.tau] using hsecond
+  change S.U ≤ (u : ℝ) * (rootArch u v).tau (rootEnvPoint F S u v P).1 ∧
+    (u : ℝ) * (rootArch u v).tau (rootEnvPoint F S u v P).1 ≤ 16 * S.U ∧
+    S.V ≤ (v : ℝ) * (rootArch u v).tau (rootEnvPoint F S u v P).1 +
+      ((rootEnvPoint F S u v P).1.2 : ℝ) / (u : ℝ) ∧
+    (v : ℝ) * (rootArch u v).tau (rootEnvPoint F S u v P).1 +
+      ((rootEnvPoint F S u v P).1.2 : ℝ) / (u : ℝ) ≤ 2 * S.V
+  rw [← h1, ← h2]
+  exact ⟨P.first_lower, by simpa [PDScale.U, mul_assoc] using P.first_upper,
+    P.second_lower, P.second_upper⟩
+
+private lemma rootEnvPoint_condition {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (P : PState F S) :
+    RootEnvCondition F S u v (rootEnvPoint F S u v P) := by
+  have hv := rootEnvPoint_valid F S u v hu hc P
+  refine ⟨hv, rootEnvPoint_box F S u v hu hc P, ?_⟩
+  intro i j
+  have hp : P.labels i j ∈ markedPrimes S.x K F.a :=
+    Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, P.label_in_band i j⟩
+  apply (rootLineHit_iff_dvd K F S u v (P.labels i j)
+    (rootEnvPoint F S u v P).1 hp (P.label_prime i j) hu hc hv.1).2
+  rw [rootEnvPoint_transport F S u v hu hc P]
+  change (P.labels i j : ℤ) ∣ (P.first : ℤ)
+  exact_mod_cast P.label_divides i j
+
+private lemma physicalState_fields_ext {K : ℕ} (F : PDFix K) (S : PDScale)
+    (P Q : PState F S) (hp : P.first = Q.first) (hq : P.second = Q.second)
+    (hl : P.labels = Q.labels) : P = Q := by
+  have hPpos : 0 < P.first := by
+    have h : 0 ≤ P.completionC ∧ P.completionC < (P.first : ℤ) := P.completion_range
+    omega
+  have hQpos : 0 < Q.first := by omega
+  obtain ⟨hPc, hPd⟩ := root_completion_unique P.first P.second hPpos P.primitive
+    P.completionC P.completionD P.completion_range P.det_one
+  obtain ⟨hQc, hQd⟩ := root_completion_unique Q.first Q.second hQpos Q.primitive
+    Q.completionC Q.completionD Q.completion_range Q.det_one
+  have hc : P.completionC = Q.completionC := by
+    rw [hp, hq] at hPc
+    exact hPc.trans hQc.symm
+  have hd : P.completionD = Q.completionD := by
+    rw [hp, hq] at hPd
+    exact hPd.trans hQd.symm
+  cases P
+  cases Q
+  cases hp
+  cases hq
+  cases hc
+  cases hd
+  cases hl
+  rfl
+
+private lemma rootEnvPoint_injective {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) :
+    Function.Injective (rootEnvPoint F S u v) := by
+  intro P Q h
+  have ht : P.pos = Q.pos := by
+    rw [← rootEnvPoint_transport F S u v hu hc P,
+      ← rootEnvPoint_transport F S u v hu hc Q, h]
+  change ((P.first : ℤ), (P.second : ℤ)) = ((Q.first : ℤ), (Q.second : ℤ)) at ht
+  apply physicalState_fields_ext F S P Q
+  · have h1 : (P.first : ℤ) = (Q.first : ℤ) := congrArg Prod.fst ht
+    exact_mod_cast h1
+  · have h2 : (P.second : ℤ) = (Q.second : ℤ) := congrArg Prod.snd ht
+    exact_mod_cast h2
+  · exact congrArg Prod.snd h
+
+private lemma rootEnvPoint_surjective {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (s : EnvPoint S.x K) (hs : RootEnvCondition F S u v s) :
+    ∃ P : PState F S, rootEnvPoint F S u v P = s := by
+  let z := rootTransport (u : ℤ) (v : ℤ) (rootC u v : ℤ) (rootD u v : ℤ) s.1
+  have hdet := rootD_completion_identity u v hu hc
+  have h1 : (z.1 : ℝ) = (rootArch u v).u * (rootArch u v).tau s.1 :=
+    rootTransport_first_real u v hu s.1
+  have h2 : (z.2 : ℝ) = (rootArch u v).v * (rootArch u v).tau s.1 +
+      (s.1.2 : ℝ) / (rootArch u v).u := rootTransport_second_real u v hu hc s.1
+  have hz1 : 0 < z.1 := by
+    have hr : (0 : ℝ) < z.1 := lt_of_lt_of_le hU (h1.symm ▸ hs.2.1.1)
+    exact_mod_cast hr
+  have hz2 : 0 < z.2 := by
+    have hr : (0 : ℝ) < z.2 := lt_of_lt_of_le hV (h2.symm ▸ hs.2.1.2.2.1)
+    exact_mod_cast hr
+  have hcast1 : (z.1.toNat : ℤ) = z.1 := Int.toNat_of_nonneg hz1.le
+  have hcast2 : (z.2.toNat : ℤ) = z.2 := Int.toNat_of_nonneg hz2.le
+  have hcast1R : (z.1.toNat : ℝ) = (z.1 : ℝ) := by exact_mod_cast hcast1
+  have hcast2R : (z.2.toNat : ℝ) = (z.2 : ℝ) := by exact_mod_cast hcast2
+  have hcop : Nat.Coprime z.1.toNat z.2.toNat := by
+    have hg := gcd_rootTransport (u : ℤ) (v : ℤ) (rootC u v : ℤ) (rootD u v : ℤ)
+      hdet s.1
+    have hg' : Int.gcd z.1 z.2 = 1 := hg.trans hs.1.1
+    have hg'' : Int.gcd (z.1.toNat : ℤ) (z.2.toNat : ℤ) = 1 := by
+      rw [hcast1, hcast2]
+      exact hg'
+    change Nat.gcd z.1.toNat z.2.toNat = 1
+    simpa only [Int.gcd_natCast_natCast] using hg''
+  have hp : 0 < z.1.toNat := by omega
+  have hrange : 0 ≤ (rootC z.1.toNat z.2.toNat : ℤ) ∧
+      (rootC z.1.toNat z.2.toNat : ℤ) < (z.1.toNat : ℤ) :=
+    ⟨Nat.cast_nonneg _, by exact_mod_cast rootC_lt_of_pos _ _ hp⟩
+  let P : PState F S :=
+    { first := z.1.toNat
+      second := z.2.toNat
+      completionC := (rootC z.1.toNat z.2.toNat : ℤ)
+      completionD := (rootD z.1.toNat z.2.toNat : ℤ)
+      labels := s.2
+      primitive := hcop
+      first_lower := by rw [hcast1R, h1]; exact hs.2.1.1
+      first_upper := by
+        rw [hcast1R, h1]
+        simpa [PDScale.U, mul_assoc] using hs.2.1.2.1
+      second_lower := by rw [hcast2R, h2]; exact hs.2.1.2.2.1
+      second_upper := by rw [hcast2R, h2]; exact hs.2.1.2.2.2
+      det_one := rootD_completion_identity _ _ hp hcop
+      completion_range := hrange
+      label_prime := fun i j => (hs.1.2.1 i j).1
+      label_in_band := fun i j => (hs.1.2.1 i j).2
+      label_divides := by
+        intro i j
+        have hmem : s.2 i j ∈ markedPrimes S.x K F.a :=
+          Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, (hs.1.2.1 i j).2⟩
+        have hdvd := (rootLineHit_iff_dvd K F S u v (s.2 i j) s.1 hmem
+          (hs.1.2.1 i j).1 hu hc hs.1.1).1 (hs.2.2 i j)
+        change (s.2 i j : ℤ) ∣ z.1 at hdvd
+        rw [← hcast1] at hdvd
+        exact_mod_cast hdvd
+      label_distinct := hs.1.2.2 }
+  refine ⟨P, ?_⟩
+  have hpos : P.pos = z := by
+    apply Prod.ext
+    · exact hcast1
+    · exact hcast2
+  apply Prod.ext
+  · change rootTransportInv _ _ _ _ P.pos = s.1
+    rw [hpos]
+    exact rootTransport_left_inv _ _ _ _ hdet s.1
+  · rfl
+
+private def rootStateEquiv {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V) :
+    PState F S ≃ {s : EnvPoint S.x K // RootEnvCondition F S u v s} :=
+  Equiv.ofBijective
+    (fun P => ⟨rootEnvPoint F S u v P, rootEnvPoint_condition F S u v hu hc P⟩)
+    ⟨by
+      intro P Q h
+      exact rootEnvPoint_injective F S u v hu hc (congrArg Subtype.val h),
+     by
+      intro s
+      obtain ⟨P, hp⟩ := rootEnvPoint_surjective F S u v hu hc hU hV s.1 s.2
+      exact ⟨P, Subtype.ext hp⟩⟩
+
+private lemma physicalState_finite_of_pos {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) : Finite (PState F S) := by
+  let f : PState F S → EnvBoxSubtype F S (rootArch 1 0) hU hV := fun P =>
+    ⟨rootEnvPoint F S 1 0 P,
+      (Set.Finite.mem_toFinset (envBoxValid_finite F S (rootArch 1 0) hU hV)).2
+        ⟨rootEnvPoint_valid F S 1 0 (by decide) (by decide) P,
+          rootEnvPoint_box F S 1 0 (by decide) (by decide) P⟩⟩
+  apply Finite.of_injective f
+  intro P Q h
+  exact rootEnvPoint_injective F S 1 0 (by decide) (by decide) (congrArg Subtype.val h)
+
+private lemma complementVec_det {z : ℤ × ℤ} (hz : Int.gcd z.1 z.2 = 1) :
+    det2 z (complementVec z) = 1 := by
+  have h := Int.gcd_eq_gcd_ab z.1 z.2
+  rw [hz] at h
+  simpa [det2, complementVec, sub_neg_eq_add, mul_comm, add_comm] using h.symm
+
+private lemma rootEnvPoint_good {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U)
+    (P : PState F S) :
+    envGood F S (rootArch u v) (rootEnvPoint F S u v P) ↔
+      IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P) := by
+  let z := (rootEnvPoint F S u v P).1
+  let t := rootTransport (u : ℤ) (v : ℤ) (rootC u v : ℤ) (rootD u v : ℤ)
+    (complementVec z)
+  have hv := rootEnvPoint_valid F S u v hu hc P
+  have ht := rootEnvPoint_transport F S u v hu hc P
+  have hdet := det2_rootTransport (u : ℤ) (v : ℤ) (rootC u v : ℤ)
+    (rootD u v : ℤ) (rootD_completion_identity u v hu hc) z (complementVec z)
+  have hcomp : (P.first : ℤ) * t.2 - (P.second : ℤ) * t.1 = 1 := by
+    change det2 P.pos t = 1
+    rw [← ht]
+    exact hdet.trans (complementVec_det hv.1)
+  have hPpos : 0 < P.first := by
+    have hh : (0 : ℝ) < P.first := hU.trans_le P.first_lower
+    exact_mod_cast hh
+  have hprim : Int.gcd (P.first : ℤ) (P.second : ℤ) = 1 := by
+    simpa using P.primitive
+  obtain ⟨k, hck, hdk⟩ := complements_differ_by_root (P.first : ℤ) (P.second : ℤ)
+    t.1 t.2 P.completionC P.completionD (by exact_mod_cast hPpos.ne')
+    hprim hcomp P.det_one
+  have hfirst := rootTransport_first_real u v hu z
+  rw [ht] at hfirst
+  have hfirst' : (P.first : ℝ) = (u : ℝ) * (rootArch u v).tau z := by
+    simpa [PhysicalState.pos, rootArch, ArchRoot.tau] using hfirst
+  have hcompfirst : (t.1 : ℝ) = (u : ℝ) * (rootArch u v).tau (complementVec z) :=
+    rootTransport_first_real u v hu (complementVec z)
+  have huR : (u : ℝ) ≠ 0 := by exact_mod_cast hu.ne'
+  have htau : (rootArch u v).tau z ≠ 0 := by
+    intro hh
+    have hzero : (P.first : ℝ) = 0 := by simpa [hh] using hfirst'
+    have hpR : (0 : ℝ) < P.first := by exact_mod_cast hPpos
+    linarith
+  have hratio : stateRoot P = transportedRatio (rootArch u v) z + (k : ℝ) := by
+    have hckR : (P.completionC : ℝ) = (t.1 : ℝ) + (k : ℝ) * (P.first : ℝ) := by
+      exact_mod_cast hck
+    unfold stateRoot transportedRatio
+    rw [hckR, hcompfirst, hfirst']
+    field_simp [huR, htau]
+  change IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels
+    (transportedRatio (rootArch u v) z) ↔ _
+  rw [hratio]
+  exact (isGoodRatio_int_shift S.x S.Y (S.d₀ : ℝ) F.a P.labels
+    (transportedRatio (rootArch u v) z) k).symm
+
+private lemma markedOmega_eq_union_card {x : ℝ} {K : ℕ} {a : Fin K → ℝ} (n : ℕ)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (a i)) (primeBand x (a j))) :
+    markedOmega x K a n = ((markedPrimes x K a).filter (fun p => p ∣ n)).card := by
+  classical
+  unfold markedOmega bandOmega markedPrimes
+  rw [Finset.filter_biUnion]
+  symm
+  apply Finset.card_biUnion
+  intro i hi j hj hij
+  exact (hBands i j hij).mono (Finset.filter_subset _ _) (Finset.filter_subset _ _)
+
+private lemma rootEnvPoint_omega {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) (P : PState F S) :
+    envOmega F S (rootLines F S u v) (rootEnvPoint F S u v P).1 =
+      markedOmega S.x K F.a P.first := by
+  classical
+  rw [markedOmega_eq_union_card P.first hBands]
+  unfold envOmega
+  congr 1
+  apply Finset.filter_congr
+  intro p hp
+  obtain ⟨i, hi, hpi⟩ := Finset.mem_biUnion.mp hp
+  have hprime : p.Prime := (Finset.mem_filter.mp hpi).2.1
+  have hline := rootLineHit_iff_dvd K F S u v p (rootEnvPoint F S u v P).1 hp
+    hprime hu hc (rootEnvPoint_valid F S u v hu hc P).1
+  rw [rootEnvPoint_transport F S u v hu hc P] at hline
+  change lineHit (rootLines F S u v) p (rootEnvPoint F S u v P).1 ↔
+    (p : ℤ) ∣ (P.first : ℤ) at hline
+  exact_mod_cast hline
+
+private def physRootDiag {K : ℕ} (F : PDFix K) (S : PDScale) (P : PState F S) : ℝ :=
+  if IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P) then
+    dampingHalf F S P.first else 0
+
+private lemma rootEnvPoint_diag {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) (P : PState F S) :
+    envDiag F S (rootArch u v) (rootLines F S u v) (rootEnvPoint F S u v P) =
+      physRootDiag F S P := by
+  classical
+  have hcond := rootEnvPoint_condition F S u v hu hc P
+  have hgood := rootEnvPoint_good F S u v hu hc hU P
+  by_cases hp : IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P)
+  · have he := hgood.2 hp
+    simp [envDiag, physRootDiag, hcond.1, hcond.2.1, hcond.2.2, he, hp,
+      rootEnvPoint_omega F S u v hu hc hBands, dampingHalf]
+  · have he : ¬ envGood F S (rootArch u v) (rootEnvPoint F S u v P) :=
+      fun h => hp (hgood.1 h)
+    simp [envDiag, physRootDiag, he, hp]
+
+private lemma rootEnvPoint_permute {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (P : PState F S)
+    (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) :
+    rootEnvPoint F S u v (P.permute σ) =
+      ((rootEnvPoint F S u v P).1, permuteLists σ (rootEnvPoint F S u v P).2) := rfl
+
+private lemma rootEnvCondition_permute {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (s : EnvPoint S.x K)
+    (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) :
+    RootEnvCondition F S u v (s.1, permuteLists σ s.2) ↔ RootEnvCondition F S u v s := by
+  unfold RootEnvCondition
+  apply and_congr (envValid_permute F S σ s)
+  apply and_congr Iff.rfl
+  constructor
+  · intro h i j
+    simpa [permuteLists] using h i ((σ i).symm j)
+  · intro h i j
+    exact h i (σ i j)
+
+private def rootExtend {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (f : PState F S → ℂ) (s : EnvPoint S.x K) : ℂ :=
+  if hs : RootEnvCondition F S u v s then
+    f ((rootStateEquiv F S u v hu hc hU hV).symm ⟨s, hs⟩) else 0
+
+private lemma rootExtend_apply {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (f : PState F S → ℂ) (P : PState F S) :
+    rootExtend F S u v hu hc hU hV f (rootEnvPoint F S u v P) = f P := by
+  have hs := rootEnvPoint_condition F S u v hu hc P
+  rw [rootExtend, dif_pos hs]
+  have he : (⟨rootEnvPoint F S u v P, hs⟩ :
+      {s : EnvPoint S.x K // RootEnvCondition F S u v s}) =
+      rootStateEquiv F S u v hu hc hU hV P := rfl
+  rw [he, Equiv.symm_apply_apply]
+
+private lemma envDiag_zero_of_not_rootCondition {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (s : EnvPoint S.x K) (hs : ¬ RootEnvCondition F S u v s) :
+    envDiag F S (rootArch u v) (rootLines F S u v) s = 0 := by
+  unfold envDiag
+  split_ifs with h
+  · exact (hs ⟨h.1, h.2.1, h.2.2.2⟩).elim
+  · rfl
+
+private def physRootMul {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) : PState F S → ℂ :=
+  fun P => (physRootDiag F S P : ℂ) * f P
+
+private lemma rootExtend_mul {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (f : PState F S → ℂ) :
+    rootExtend F S u v hu hc hU hV (physRootMul F S f) =
+      envMul F S (rootArch u v) (rootLines F S u v)
+        (rootExtend F S u v hu hc hU hV f) := by
+  funext s
+  by_cases hs : RootEnvCondition F S u v s
+  · obtain ⟨P, rfl⟩ := rootEnvPoint_surjective F S u v hu hc hU hV s hs
+    rw [rootExtend_apply]
+    simp only [envMul, rootExtend_apply, rootEnvPoint_diag F S u v hu hc hU hBands,
+      physRootMul]
+  · simp [rootExtend, hs, envMul, envDiag_zero_of_not_rootCondition F S u v s hs]
+
+private lemma rootExtend_sym {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (f : PState F S → ℂ) :
+    rootExtend F S u v hu hc hU hV (physSym F S f) =
+      envSym F S (rootExtend F S u v hu hc hU hV f) := by
+  funext s
+  by_cases hs : RootEnvCondition F S u v s
+  · obtain ⟨P, rfl⟩ := rootEnvPoint_surjective F S u v hu hc hU hV s hs
+    rw [rootExtend_apply]
+    unfold physSym envSym
+    congr 1
+    apply Fintype.sum_congr
+    intro σ
+    rw [← rootEnvPoint_permute, rootExtend_apply]
+  · have hz (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) :
+        rootExtend F S u v hu hc hU hV f (s.1, permuteLists σ s.2) = 0 := by
+      have hn : ¬ RootEnvCondition F S u v (s.1, permuteLists σ s.2) :=
+        fun h => hs ((rootEnvCondition_permute F S u v s σ).1 h)
+      simp [rootExtend, hn]
+    rw [rootExtend, dif_neg hs]
+    simp only [envSym, hz, Finset.sum_const_zero, mul_zero]
+
+private def physRawRow {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) : PState F S → ℂ :=
+  fun P => ∑' Q : PState F S,
+    slotKernel F S P.labels Q.labels (det2 P.pos Q.pos) * f Q
+
+private def physRawRowAdj {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) : PState F S → ℂ :=
+  fun P => ∑' Q : PState F S,
+    star (slotKernel F S Q.labels P.labels (det2 Q.pos P.pos)) * f Q
+
+private lemma rootEnvPoint_det {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (P Q : PState F S) :
+    det2 (rootEnvPoint F S u v P).1 (rootEnvPoint F S u v Q).1 = det2 P.pos Q.pos := by
+  have h := det2_rootTransport (u : ℤ) (v : ℤ) (rootC u v : ℤ) (rootD u v : ℤ)
+    (rootD_completion_identity u v hu hc) (rootEnvPoint F S u v P).1
+    (rootEnvPoint F S u v Q).1
+  rw [rootEnvPoint_transport F S u v hu hc P,
+    rootEnvPoint_transport F S u v hu hc Q] at h
+  exact h.symm
+
+private lemma rootExtend_row {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (f : PState F S → ℂ) (P : PState F S) :
+    envRow F S (rootExtend F S u v hu hc hU hV f) (rootEnvPoint F S u v P) =
+      physRawRow F S f P := by
+  classical
+  let G : EnvPoint S.x K → ℂ := fun s =>
+    (if EnvValid F S s then slotKernel F S P.labels s.2
+      (det2 (rootEnvPoint F S u v P).1 s.1) else 0) *
+      rootExtend F S u v hu hc hU hV f s
+  have hsupp : Function.support G ⊆ Set.range (rootEnvPoint F S u v) := by
+    intro s hs
+    have hcond : RootEnvCondition F S u v s := by
+      by_contra h
+      have hz : G s = 0 := by simp [G, rootExtend, h]
+      exact hs hz
+    exact rootEnvPoint_surjective F S u v hu hc hU hV s hcond
+  have hsum := (rootEnvPoint_injective F S u v hu hc).tsum_eq hsupp
+  change (∑' s, G s) = _
+  rw [← hsum]
+  apply tsum_congr
+  intro Q
+  have hv := rootEnvPoint_valid F S u v hu hc Q
+  simp only [G, if_pos hv, rootExtend_apply, rootEnvPoint_det F S u v hu hc]
+  rfl
+
+private lemma rootExtend_rowAdj {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (f : PState F S → ℂ) (P : PState F S) :
+    envRowAdj F S (rootExtend F S u v hu hc hU hV f) (rootEnvPoint F S u v P) =
+      physRawRowAdj F S f P := by
+  classical
+  let G : EnvPoint S.x K → ℂ := fun s =>
+    (if EnvValid F S s then star (slotKernel F S s.2 P.labels
+      (det2 s.1 (rootEnvPoint F S u v P).1)) else 0) *
+      rootExtend F S u v hu hc hU hV f s
+  have hsupp : Function.support G ⊆ Set.range (rootEnvPoint F S u v) := by
+    intro s hs
+    have hcond : RootEnvCondition F S u v s := by
+      by_contra h
+      have hz : G s = 0 := by simp [G, rootExtend, h]
+      exact hs hz
+    exact rootEnvPoint_surjective F S u v hu hc hU hV s hcond
+  have hsum := (rootEnvPoint_injective F S u v hu hc).tsum_eq hsupp
+  change (∑' s, G s) = _
+  rw [← hsum]
+  apply tsum_congr
+  intro Q
+  have hv := rootEnvPoint_valid F S u v hu hc Q
+  simp only [G, if_pos hv, rootExtend_apply, rootEnvPoint_det F S u v hu hc]
+  rfl
+
+private def physDampMul {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) : PState F S → ℂ :=
+  fun P => (dampingHalf F S P.first : ℂ) * f P
+
+private lemma physSym_damp {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) :
+    physSym F S (physDampMul F S f) = physDampMul F S (physSym F S f) := by
+  funext P
+  change ((permCount S.x K : ℂ))⁻¹ *
+      (∑ σ, (dampingHalf F S P.first : ℂ) * f (P.permute σ)) =
+    (dampingHalf F S P.first : ℂ) *
+      (((permCount S.x K : ℂ))⁻¹ * ∑ σ, f (P.permute σ))
+  rw [← Finset.mul_sum]
+  ring
+
+private lemma physDamp_good {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) :
+    physDampMul F S (physGood F S f) = physRootMul F S f := by
+  funext P
+  by_cases h : IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P) <;>
+    simp [physDampMul, physGood, physRootMul, physRootDiag, h]
+
+private lemma physGood_damp {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) :
+    physGood F S (physDampMul F S f) = physRootMul F S f := by
+  funext P
+  by_cases h : IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P) <;>
+    simp [physDampMul, physGood, physRootMul, physRootDiag, h]
+
+private lemma physRow_factor {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) :
+    physRow F S f = physDampMul F S (physRawRow F S (physDampMul F S f)) := by
+  funext P
+  unfold physRow physDampMul physRawRow physRowKernel
+  rw [← tsum_mul_left]
+  apply tsum_congr
+  intro Q
+  push_cast
+  ring
+
+private lemma physRowAdj_factor {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) :
+    physRowAdj F S f = physDampMul F S (physRawRowAdj F S (physDampMul F S f)) := by
+  funext P
+  unfold physRowAdj physDampMul physRawRowAdj physRowKernel
+  rw [← tsum_mul_left]
+  apply tsum_congr
+  intro Q
+  simp only [Complex.ofReal_mul, star_mul, Complex.star_def, Complex.conj_ofReal]
+  ring
+
+private lemma detOp_factor {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) :
+    detOp F S f = physRootMul F S
+      (physSym F S (physRawRow F S (physSym F S (physRootMul F S f)))) := by
+  unfold detOp
+  rw [physRow_factor, physSym_damp, physGood_damp]
+  have hinner : physDampMul F S (physSym F S (physGood F S f)) =
+      physSym F S (physRootMul F S f) := by
+    rw [← physSym_damp, physDamp_good]
+  rw [hinner]
+
+private lemma detOpAdj_factor {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : PState F S → ℂ) :
+    detOpAdj F S f = physRootMul F S
+      (physSym F S (physRawRowAdj F S (physSym F S (physRootMul F S f)))) := by
+  unfold detOpAdj
+  rw [physRowAdj_factor, physSym_damp, physGood_damp]
+  have hinner : physDampMul F S (physSym F S (physGood F S f)) =
+      physSym F S (physRootMul F S f) := by
+    rw [← physSym_damp, physDamp_good]
+  rw [hinner]
+
+private lemma rootExtend_op_at {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (f : PState F S → ℂ) (P : PState F S) :
+    envOp F S (rootArch u v) (rootLines F S u v)
+      (rootExtend F S u v hu hc hU hV f) (rootEnvPoint F S u v P) = detOp F S f P := by
+  unfold envOp
+  rw [← rootExtend_mul F S u v hu hc hU hV hBands f, ← rootExtend_sym]
+  rw [detOp_factor]
+  change (envDiag F S (rootArch u v) (rootLines F S u v) (rootEnvPoint F S u v P) : ℂ) *
+      (((permCount S.x K : ℂ))⁻¹ *
+        ∑ σ, envRow F S (rootExtend F S u v hu hc hU hV
+          (physSym F S (physRootMul F S f)))
+            (rootEnvPoint F S u v (P.permute σ))) =
+    (physRootDiag F S P : ℂ) * (((permCount S.x K : ℂ))⁻¹ *
+      ∑ σ, physRawRow F S (physSym F S (physRootMul F S f)) (P.permute σ))
+  rw [rootEnvPoint_diag F S u v hu hc hU hBands]
+  congr 1
+  congr 1
+  apply Fintype.sum_congr
+  intro σ
+  exact rootExtend_row F S u v hu hc hU hV _ (P.permute σ)
+
+private lemma rootExtend_opAdj_at {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (f : PState F S → ℂ) (P : PState F S) :
+    envOpAdj F S (rootArch u v) (rootLines F S u v)
+      (rootExtend F S u v hu hc hU hV f) (rootEnvPoint F S u v P) = detOpAdj F S f P := by
+  unfold envOpAdj
+  rw [← rootExtend_mul F S u v hu hc hU hV hBands f, ← rootExtend_sym]
+  rw [detOpAdj_factor]
+  change (envDiag F S (rootArch u v) (rootLines F S u v) (rootEnvPoint F S u v P) : ℂ) *
+      (((permCount S.x K : ℂ))⁻¹ *
+        ∑ σ, envRowAdj F S (rootExtend F S u v hu hc hU hV
+          (physSym F S (physRootMul F S f)))
+            (rootEnvPoint F S u v (P.permute σ))) =
+    (physRootDiag F S P : ℂ) * (((permCount S.x K : ℂ))⁻¹ *
+      ∑ σ, physRawRowAdj F S (physSym F S (physRootMul F S f)) (P.permute σ))
+  rw [rootEnvPoint_diag F S u v hu hc hU hBands]
+  congr 1
+  congr 1
+  apply Fintype.sum_congr
+  intro σ
+  exact rootExtend_rowAdj F S u v hu hc hU hV _ (P.permute σ)
+
+private lemma rootExtend_op {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (f : PState F S → ℂ) :
+    envOp F S (rootArch u v) (rootLines F S u v)
+      (rootExtend F S u v hu hc hU hV f) =
+      rootExtend F S u v hu hc hU hV (detOp F S f) := by
+  funext s
+  by_cases hs : RootEnvCondition F S u v s
+  · obtain ⟨P, rfl⟩ := rootEnvPoint_surjective F S u v hu hc hU hV s hs
+    rw [rootExtend_apply]
+    exact rootExtend_op_at F S u v hu hc hU hV hBands f P
+  · simp [envOp, envMul, rootExtend, hs, envDiag_zero_of_not_rootCondition F S u v s hs]
+
+private lemma rootExtend_opAdj {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (f : PState F S → ℂ) :
+    envOpAdj F S (rootArch u v) (rootLines F S u v)
+      (rootExtend F S u v hu hc hU hV f) =
+      rootExtend F S u v hu hc hU hV (detOpAdj F S f) := by
+  funext s
+  by_cases hs : RootEnvCondition F S u v s
+  · obtain ⟨P, rfl⟩ := rootEnvPoint_surjective F S u v hu hc hU hV s hs
+    rw [rootExtend_apply]
+    exact rootExtend_opAdj_at F S u v hu hc hU hV hBands f P
+  · simp [envOpAdj, envMul, rootExtend, hs, envDiag_zero_of_not_rootCondition F S u v s hs]
+
+private lemma envMul_eq_extend_of_restriction {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (f : PState F S → ℂ) (g : EnvPoint S.x K → ℂ)
+    (hfg : ∀ P, g (rootEnvPoint F S u v P) = f P) :
+    envMul F S (rootArch u v) (rootLines F S u v) g =
+      envMul F S (rootArch u v) (rootLines F S u v)
+        (rootExtend F S u v hu hc hU hV f) := by
+  funext s
+  by_cases hs : RootEnvCondition F S u v s
+  · obtain ⟨P, rfl⟩ := rootEnvPoint_surjective F S u v hu hc hU hV s hs
+    simp only [envMul, rootExtend_apply, hfg]
+  · simp [envMul, envDiag_zero_of_not_rootCondition F S u v s hs]
+
+private lemma envOpAdj_eq_extend_of_restriction {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (f : PState F S → ℂ) (g : EnvPoint S.x K → ℂ)
+    (hfg : ∀ P, g (rootEnvPoint F S u v P) = f P) :
+    envOpAdj F S (rootArch u v) (rootLines F S u v) g =
+      rootExtend F S u v hu hc hU hV (detOpAdj F S f) := by
+  have hm := envMul_eq_extend_of_restriction F S u v hu hc hU hV f g hfg
+  calc
+    _ = envOpAdj F S (rootArch u v) (rootLines F S u v)
+          (rootExtend F S u v hu hc hU hV f) := by
+      unfold envOpAdj
+      rw [hm]
+    _ = _ := rootExtend_opAdj F S u v hu hc hU hV hBands f
+
+private lemma rootEnvPoint_e1 {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (P : PState F S) :
+    e1Vector (rootEnvPoint F S u v P) = positionVector F S u v P := by
+  have he : (rootEnvPoint F S u v P).1 = (1, 0) ↔ P.first = u ∧ P.second = v := by
+    constructor
+    · intro h
+      have ht := rootEnvPoint_transport F S u v hu hc P
+      rw [h, rootTransport_e1] at ht
+      change ((u : ℤ), (v : ℤ)) = ((P.first : ℤ), (P.second : ℤ)) at ht
+      constructor
+      · have h1 : (P.first : ℤ) = (u : ℤ) := (congrArg Prod.fst ht).symm
+        exact_mod_cast h1
+      · have h2 : (P.second : ℤ) = (v : ℤ) := (congrArg Prod.snd ht).symm
+        exact_mod_cast h2
+    · rintro ⟨h1, h2⟩
+      have hp : P.pos = ((u : ℤ), (v : ℤ)) := by simp [PhysicalState.pos, h1, h2]
+      have h := rootTransport_left_inv (u : ℤ) (v : ℤ) (rootC u v : ℤ) (rootD u v : ℤ)
+        (rootD_completion_identity u v hu hc) (1, 0)
+      rw [rootTransport_e1] at h
+      simpa [rootEnvPoint, hp] using h
+  simp only [e1Vector, positionVector, he]
+
+private lemma rootEnvIter_restriction {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) (R : ℕ) :
+    ∀ P : PState F S,
+      (((fun f => envOp F S (rootArch u v) (rootLines F S u v)
+        (envOpAdj F S (rootArch u v) (rootLines F S u v) f))^[R]) e1Vector)
+          (rootEnvPoint F S u v P) =
+        (((fun f => detOp F S (detOpAdj F S f))^[R]) (positionVector F S u v)) P := by
+  let HE := fun f => envOp F S (rootArch u v) (rootLines F S u v)
+    (envOpAdj F S (rootArch u v) (rootLines F S u v) f)
+  let HP := fun f => detOp F S (detOpAdj F S f)
+  induction R with
+  | zero =>
+      intro P
+      exact rootEnvPoint_e1 F S u v hu hc P
+  | succ R ih =>
+      intro P
+      have hAdj := envOpAdj_eq_extend_of_restriction F S u v hu hc hU hV hBands
+        ((HP^[R]) (positionVector F S u v)) ((HE^[R]) e1Vector) ih
+      rw [Function.iterate_succ_apply', Function.iterate_succ_apply']
+      change envOp F S (rootArch u v) (rootLines F S u v)
+        (envOpAdj F S (rootArch u v) (rootLines F S u v) ((HE^[R]) e1Vector))
+          (rootEnvPoint F S u v P) =
+        detOp F S (detOpAdj F S ((HP^[R]) (positionVector F S u v))) P
+      rw [hAdj]
+      exact rootExtend_op_at F S u v hu hc hU hV hBands _ P
+
+private lemma rootEnvIter_extend {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) (R : ℕ) (hR : 0 < R) :
+    (((fun f => envOp F S (rootArch u v) (rootLines F S u v)
+        (envOpAdj F S (rootArch u v) (rootLines F S u v) f))^[R]) e1Vector) =
+      rootExtend F S u v hu hc hU hV
+        (((fun f => detOp F S (detOpAdj F S f))^[R]) (positionVector F S u v)) := by
+  obtain ⟨R, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hR.ne'
+  let HE := fun f => envOp F S (rootArch u v) (rootLines F S u v)
+    (envOpAdj F S (rootArch u v) (rootLines F S u v) f)
+  let HP := fun f => detOp F S (detOpAdj F S f)
+  have hAdj := envOpAdj_eq_extend_of_restriction F S u v hu hc hU hV hBands
+    ((HP^[R]) (positionVector F S u v)) ((HE^[R]) e1Vector)
+      (rootEnvIter_restriction F S u v hu hc hU hV hBands R)
+  rw [Function.iterate_succ_apply']
+  change envOp F S (rootArch u v) (rootLines F S u v)
+      (envOpAdj F S (rootArch u v) (rootLines F S u v) ((HE^[R]) e1Vector)) = _
+  rw [hAdj, rootExtend_op F S u v hu hc hU hV hBands]
+  simp only [Function.iterate_succ_apply']
+  rfl
+
+private lemma rootMoment_eq {K : ℕ} (F : PDFix K) (S : PDScale)
+    (u v : ℕ) (hu : 0 < u) (hc : Nat.Coprime u v) (hU : 0 < S.U) (hV : 0 < S.V)
+    (hR : 0 < S.R)
+    (hBands : ∀ i j : Fin K, i ≠ j →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) :
+    envMomentC F S (rootArch u v) (rootLines F S u v) =
+      physInner F S (positionVector F S u v)
+        (((fun f => detOp F S (detOpAdj F S f))^[S.R]) (positionVector F S u v)) := by
+  let HE := fun f => envOp F S (rootArch u v) (rootLines F S u v)
+    (envOpAdj F S (rootArch u v) (rootLines F S u v) f)
+  let HP := fun f => detOp F S (detOpAdj F S f)
+  let G : EnvPoint S.x K → ℂ := fun s =>
+    if EnvValid F S s then star (e1Vector s) * ((HE^[S.R]) e1Vector) s else 0
+  have hiter := rootEnvIter_extend F S u v hu hc hU hV hBands S.R hR
+  have hsupp : Function.support G ⊆ Set.range (rootEnvPoint F S u v) := by
+    intro s hs
+    have hcond : RootEnvCondition F S u v s := by
+      by_contra hn
+      have hz : G s = 0 := by
+        dsimp [G, HE]
+        rw [hiter]
+        simp [rootExtend, hn]
+      exact hs hz
+    exact rootEnvPoint_surjective F S u v hu hc hU hV s hcond
+  have hsum := (rootEnvPoint_injective F S u v hu hc).tsum_eq hsupp
+  unfold envMomentC envInner physInner
+  change (physicalMeasure S.x K F.a : ℂ) * (∑' s, G s) = _
+  rw [← hsum]
+  congr 1
+  apply tsum_congr
+  intro P
+  have hv := rootEnvPoint_valid F S u v hu hc P
+  simp only [G, if_pos hv, rootEnvPoint_e1 F S u v hu hc]
+  congr 1
+  exact rootEnvIter_restriction F S u v hu hc hU hV hBands S.R P
+
+/-- `t2:pd.path-expansion` (new node) — PD 03:595-609.  Exact identity: the determinant moment is
+the physical root average of the line-model moment.  Proof: `P ↦ z = g_P⁻¹ P` is a bijection of
+primitive vectors with `det(gz,gz') = det(z,z')`; for integer `g`, `p ∣ (gz)₁ ⇔ [z]_p` equals the
+kernel line of `(u,c)`; `r_{gz} = τ(w)/τ(z) mod 1` (03:683-685); `𝒢` and the damping commute
+with `𝒮`.  The threshold makes the bands disjoint (so `markedOmega = envOmega`). -/
+theorem path_expansion (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
+    ∀ (K : ℕ) (F : PDFix K), F.Valid →
+      ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
+        detMoment F S = physicalRootAverage F S := by
+  classical
+  intro K F hF
+  obtain ⟨x₀, hx₀, hBands⟩ := markedBands_eventually_disjoint F.a hF.1
+  refine ⟨x₀, hx₀, ?_⟩
+  intro S hS hx
+  have hxpos : 0 < S.x := by linarith [hS.1]
+  have hV : 0 < S.V := (Real.rpow_pos_of_pos hxpos δ).trans_le hS.2.2.1
+  have hY : 0 < S.Y := by
+    rcases Finset.mem_filter.mp hS.2.2.2.2.2.1 with ⟨hm, _⟩
+    rcases Finset.mem_image.mp hm with ⟨n, _, hn⟩
+    rw [← hn]
+    exact pow_pos (by norm_num : (0 : ℝ) < 2) n
+  have hd : 0 < S.d₀ := by
+    rcases Finset.mem_image.mp hS.2.2.2.2.2.2 with ⟨n, _, hn⟩
+    rw [← hn]
+    exact pow_pos (by norm_num : (0 : ℕ) < 2) n
+  have hU : 0 < S.U := by
+    dsimp [PDScale.U, PDScale.H]
+    exact mul_pos (mul_pos (by exact_mod_cast hd) hY)
+      ((Real.rpow_pos_of_pos hxpos δ).trans_le hS.2.1)
+  have hR : 0 < S.R := momentR_pos_of_two hS.1
+  unfold detMoment physicalRootAverage
+  congr 1
+  apply tsum_congr
+  intro uv
+  by_cases hp : IsOmegaPosition S uv.1 uv.2
+  · have hu : 0 < uv.1 := by
+      have hr : (0 : ℝ) < uv.1 := hU.trans_le hp.2.1
+      exact_mod_cast hr
+    simp only [if_pos hp]
+    exact congrArg Complex.re
+      (rootMoment_eq F S uv.1 uv.2 hu hp.1 hU hV hR (hBands S.x hx)).symm
+  · simp [hp]
+
 
 /-! ### Sub-nodes of the root replacement -/
+
+private lemma rootLift_canonical_iff (m u v : ℕ) (g : Matrix (Fin 2) (Fin 2) (ZMod m))
+    (hu : 0 < u) (hc : Nat.Coprime u v) (l r : ℝ) :
+    (∃ c d : ℤ, (u : ℤ) * d - (v : ℤ) * c = 1 ∧
+      0 ≤ c ∧ c < u ∧ l ≤ (c : ℝ) / u ∧ (c : ℝ) / u ≤ r ∧
+      g 0 0 = (u : ZMod m) ∧ g 0 1 = (c : ZMod m) ∧
+        g 1 0 = (v : ZMod m) ∧ g 1 1 = (d : ZMod m)) ↔
+      (l ≤ (rootC u v : ℝ) / u ∧ (rootC u v : ℝ) / u ≤ r ∧
+        g = rootCompletionMatrix m u v) := by
+  constructor
+  · rintro ⟨c, d, hdet, hc0, hclt, hl, hr, h00, h01, h10, h11⟩
+    obtain ⟨hcEq, hdEq⟩ := root_completion_unique u v hu hc c d ⟨hc0, hclt⟩ hdet
+    change d = (rootD u v : ℤ) at hdEq
+    rw [hdEq] at h11
+    refine ⟨?_, ?_, ?_⟩
+    · simpa only [hcEq, Int.cast_natCast] using hl
+    · simpa only [hcEq, Int.cast_natCast] using hr
+    · apply Matrix.ext
+      intro i j
+      fin_cases i <;> fin_cases j
+      · simpa [rootCompletionMatrix] using h00
+      · simpa [rootCompletionMatrix, hcEq] using h01
+      · simpa [rootCompletionMatrix] using h10
+      · simpa [rootCompletionMatrix] using h11
+  · rintro ⟨hl, hr, hg⟩
+    refine ⟨(rootC u v : ℤ), (rootD u v : ℤ), rootD_completion_identity u v hu hc,
+      Nat.cast_nonneg _, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · exact_mod_cast rootC_lt_of_pos u v hu
+    · simpa only [Int.cast_natCast] using hl
+    · simpa only [Int.cast_natCast] using hr
+    · simp [hg, rootCompletionMatrix]
+    · simp [hg, rootCompletionMatrix]
+    · simp [hg, rootCompletionMatrix]
+    · simp [hg, rootCompletionMatrix]
+
+private lemma rootResidueCount_canonical (U V : ℝ) (hU : 0 < U)
+    (m : ℕ) (g : Matrix (Fin 2) (Fin 2) (ZMod m))
+    (l₁ r₁ l₂ r₂ l₃ r₃ : ℝ) (hl₁ : 1 ≤ l₁) :
+    rootResidueCount U V m g l₁ r₁ l₂ r₂ l₃ r₃ =
+      (Set.ncard {uv : ℕ × ℕ | Nat.Coprime uv.1 uv.2 ∧ 0 < uv.1 ∧
+        l₁ ≤ (uv.1 : ℝ) / U ∧ (uv.1 : ℝ) / U ≤ r₁ ∧
+        l₂ ≤ (uv.2 : ℝ) / V ∧ (uv.2 : ℝ) / V ≤ r₂ ∧
+        l₃ ≤ (rootC uv.1 uv.2 : ℝ) / uv.1 ∧ (rootC uv.1 uv.2 : ℝ) / uv.1 ≤ r₃ ∧
+        g = rootCompletionMatrix m uv.1 uv.2} : ℝ) := by
+  unfold rootResidueCount
+  apply congrArg (fun A : Set (ℕ × ℕ) => (A.ncard : ℝ))
+  ext uv
+  constructor
+  · rintro ⟨hc, hl, hr, hlv, hrv, hlift⟩
+    have huR : 0 < (uv.1 : ℝ) := by
+      have hlow : 1 ≤ (uv.1 : ℝ) / U := hl₁.trans hl
+      have hm := (le_div_iff₀ hU).1 hlow
+      linarith
+    have hu : 0 < uv.1 := by exact_mod_cast huR
+    obtain ⟨hlc, hrc, hg⟩ := (rootLift_canonical_iff m uv.1 uv.2 g hu hc l₃ r₃).1 hlift
+    exact ⟨hc, hu, hl, hr, hlv, hrv, hlc, hrc, hg⟩
+  · rintro ⟨hc, hu, hl, hr, hlv, hrv, hlc, hrc, hg⟩
+    exact ⟨hc, hl, hr, hlv, hrv, (rootLift_canonical_iff m uv.1 uv.2 g hu hc l₃ r₃).2
+      ⟨hlc, hrc, hg⟩⟩
+
+private lemma root_box_finite (U V : ℝ) (hU : 0 < U) (hV : 0 < V)
+    (r₁ r₂ : ℝ) (hr₁ : r₁ ≤ 16) (hr₂ : r₂ ≤ 2) :
+    {uv : ℕ × ℕ | (uv.1 : ℝ) / U ≤ r₁ ∧ (uv.2 : ℝ) / V ≤ r₂}.Finite := by
+  let T := Finset.range (⌈16 * U⌉₊ + 1) ×ˢ Finset.range (⌈2 * V⌉₊ + 1)
+  apply T.finite_toSet.subset
+  intro uv huv
+  have hu : (uv.1 : ℝ) ≤ 16 * U :=
+    (div_le_iff₀ hU).1 (huv.1.trans hr₁)
+  have hv : (uv.2 : ℝ) ≤ 2 * V :=
+    (div_le_iff₀ hV).1 (huv.2.trans hr₂)
+  have hu' : uv.1 ≤ ⌈16 * U⌉₊ := by exact_mod_cast hu.trans (Nat.le_ceil _)
+  have hv' : uv.2 ≤ ⌈2 * V⌉₊ := by exact_mod_cast hv.trans (Nat.le_ceil _)
+  exact Finset.mem_product.mpr
+    ⟨Finset.mem_range.mpr (by omega), Finset.mem_range.mpr (by omega)⟩
+
+private lemma root_residue_matrix_partition (U V : ℝ) (hU : 0 < U) (hV : 0 < V)
+    (m : ℕ) (T : Finset (Matrix (Fin 2) (Fin 2) (ZMod m)))
+    (l₁ r₁ l₂ r₂ l₃ r₃ : ℝ) (hl₁ : 1 ≤ l₁) (hr₁ : r₁ ≤ 16) (hr₂ : r₂ ≤ 2) :
+    (Set.ncard {uv : ℕ × ℕ | Nat.Coprime uv.1 uv.2 ∧ 0 < uv.1 ∧
+      l₁ ≤ (uv.1 : ℝ) / U ∧ (uv.1 : ℝ) / U ≤ r₁ ∧
+      l₂ ≤ (uv.2 : ℝ) / V ∧ (uv.2 : ℝ) / V ≤ r₂ ∧
+      l₃ ≤ (rootC uv.1 uv.2 : ℝ) / uv.1 ∧ (rootC uv.1 uv.2 : ℝ) / uv.1 ≤ r₃ ∧
+      rootCompletionMatrix m uv.1 uv.2 ∈ T} : ℝ) =
+      ∑ g ∈ T, rootResidueCount U V m g l₁ r₁ l₂ r₂ l₃ r₃ := by
+  classical
+  let R : Set (ℕ × ℕ) := {uv | Nat.Coprime uv.1 uv.2 ∧ 0 < uv.1 ∧
+    l₁ ≤ (uv.1 : ℝ) / U ∧ (uv.1 : ℝ) / U ≤ r₁ ∧
+    l₂ ≤ (uv.2 : ℝ) / V ∧ (uv.2 : ℝ) / V ≤ r₂ ∧
+    l₃ ≤ (rootC uv.1 uv.2 : ℝ) / uv.1 ∧ (rootC uv.1 uv.2 : ℝ) / uv.1 ≤ r₃}
+  have hR : R.Finite := (root_box_finite U V hU hV r₁ r₂ hr₁ hr₂).subset
+    (fun uv huv => ⟨huv.2.2.2.1, huv.2.2.2.2.2.1⟩)
+  let A := hR.toFinset
+  let M := fun uv : ℕ × ℕ => rootCompletionMatrix m uv.1 uv.2
+  let F := A.filter fun uv => M uv ∈ T
+  have hA (uv : ℕ × ℕ) : uv ∈ A ↔ uv ∈ R := Set.Finite.mem_toFinset hR
+  have hselected : {uv : ℕ × ℕ | uv ∈ R ∧ M uv ∈ T} = (F : Set (ℕ × ℕ)) := by
+    ext uv
+    simp only [Set.mem_setOf_eq, Finset.mem_coe, F, Finset.mem_filter, hA]
+  have hcard := Finset.card_eq_sum_card_fiberwise
+    (f := M) (s := F) (t := T) (fun uv huv => (Finset.mem_filter.mp huv).2)
+  have hcount (g : Matrix (Fin 2) (Fin 2) (ZMod m)) (hg : g ∈ T) :
+      rootResidueCount U V m g l₁ r₁ l₂ r₂ l₃ r₃ =
+        ((F.filter fun uv => M uv = g).card : ℝ) := by
+    rw [rootResidueCount_canonical U V hU m g l₁ r₁ l₂ r₂ l₃ r₃ hl₁]
+    have he : {uv : ℕ × ℕ | uv ∈ R ∧ g = M uv} =
+        ((F.filter fun uv => M uv = g) : Set (ℕ × ℕ)) := by
+      ext uv
+      constructor
+      · rintro ⟨huv, hgm⟩
+        apply Finset.mem_filter.mpr
+        refine ⟨Finset.mem_filter.mpr ⟨(hA uv).2 huv, ?_⟩, hgm.symm⟩
+        simpa only [hgm] using hg
+      · intro huv
+        obtain ⟨huv, hmg⟩ := Finset.mem_filter.mp huv
+        exact ⟨(hA uv).1 (Finset.mem_filter.mp huv).1, hmg.symm⟩
+    have hcountEq := congrArg (fun A : Set (ℕ × ℕ) => (A.ncard : ℝ)) he
+    rw [Set.ncard_coe_finset] at hcountEq
+    simpa only [R, M, Set.mem_setOf_eq, and_assoc] using hcountEq
+  have hmain : (Set.ncard {uv : ℕ × ℕ | uv ∈ R ∧ M uv ∈ T} : ℝ) =
+      ∑ g ∈ T, rootResidueCount U V m g l₁ r₁ l₂ r₂ l₃ r₃ := by
+    rw [hselected, Set.ncard_coe_finset, hcard]
+    push_cast
+    apply Finset.sum_congr rfl
+    intro g hg
+    exact (hcount g hg).symm
+  simpa only [R, M, Set.mem_setOf_eq, and_assoc] using hmain
 
 /-- `t2:pd.root-lines` (new node) — corollary of `lem:root-residue` (frozen `root_residue`),
 PD 03:667-678.  Counting primitive roots in a box with prescribed kernel lines at the primes of a
@@ -2966,24 +4051,1218 @@ def gridIndices (h : ℝ) : Finset (ℤ × ℤ × ℤ) :=
 def IsNonconstantOn (P : ℝ × ℝ × ℝ → Prop) (A : Set (ℝ × ℝ × ℝ)) : Prop :=
   ∃ y ∈ A, ∃ y' ∈ A, P y ∧ ¬ P y'
 
-/-- `t2:pd.root-arch-boundary` (new node) — PD 03:680-711.  For one visit with
-`|z₁|,|z₂| ≤ exp(L^{1/2})` (the tube (det:tube) gives `|z| ≪ N d₀ Y = x^{o(1)}`), the
-box-and-good indicator, as a function of `(u/U, v/V, r)`, is nonconstant on at most
-`exp(L^{0.9}) x^{2ε}` cubes of the grid of side `x^{-ε}` (good tests change only at `exp(o(L))`
-values of `r`; box faces have derivatives `exp(o(L))`, bounded below in the transversal variable). -/
-theorem root_arch_boundary (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
-    ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ ε : ℝ, 0 < ε → ε < 1 →
-      ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
-        ∀ s : EnvPoint S.x K, EnvValid F S s →
-          |(s.1.1 : ℝ)| ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ)) →
-          |(s.1.2 : ℝ)| ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ)) →
-            (((gridIndices (Real.rpow S.x (-ε))).filter fun k =>
-              IsNonconstantOn
-                (fun y => envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s.1 ∧
-                  envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s)
-                (gridCube (Real.rpow S.x (-ε)) k)).card : ℝ) ≤
-              Real.exp (Real.rpow S.L (9 / 10 : ℝ)) * Real.rpow S.x (2 * ε) := by
-  sorry
+private lemma small_integral_complement (z : ℤ × ℤ) (hz : Int.gcd z.1 z.2 = 1) :
+    ∃ t : ℤ × ℤ, det2 z t = 1 ∧
+      |(t.1 : ℝ)| ≤ 1 + max |(z.1 : ℝ)| |(z.2 : ℝ)| ∧
+      |(t.2 : ℝ)| ≤ 1 + max |(z.1 : ℝ)| |(z.2 : ℝ)| := by
+  by_cases hzero : z.1 = 0
+  · have habs : z.2.natAbs = 1 := by simpa [hzero] using hz
+    have habsR : |(z.2 : ℝ)| = 1 := by
+      have h : (z.2.natAbs : ℝ) = 1 := by exact_mod_cast habs
+      simpa only [Nat.cast_natAbs, Int.cast_abs] using h
+    have hsqR : (z.2 : ℝ) * (z.2 : ℝ) = 1 := by nlinarith [sq_abs (z.2 : ℝ)]
+    have hsq : z.2 * z.2 = 1 := by exact_mod_cast hsqR
+    refine ⟨(-z.2, 0), ?_, ?_, ?_⟩
+    · simpa [det2, hzero] using hsq
+    · simp only [Int.cast_neg, abs_neg]
+      linarith [le_max_right |(z.1 : ℝ)| |(z.2 : ℝ)|]
+    · simp only [Int.cast_zero, abs_zero]
+      positivity
+  · let u := z.1.natAbs
+    let v := z.2.natAbs
+    have hu : 0 < u := Int.natAbs_pos.mpr hzero
+    have hcop : Nat.Coprime u v := hz
+    let c := rootC u v
+    let d := rootD u v
+    have hc : c < u := rootC_lt_of_pos u v hu
+    have hdet : (u : ℤ) * (d : ℤ) - (v : ℤ) * (c : ℤ) = 1 :=
+      rootD_completion_identity u v hu hcop
+    have hmul : u * d = v * c + 1 := by
+      have hi : (u : ℤ) * (d : ℤ) = (v : ℤ) * (c : ℤ) + 1 := by linarith
+      exact_mod_cast hi
+    have hd : d ≤ v + 1 := by
+      have hcu : v * c ≤ v * u := Nat.mul_le_mul_left v hc.le
+      nlinarith
+    let t : ℤ × ℤ := (z.2.sign * (c : ℤ), z.1.sign * (d : ℤ))
+    have hsign (n : ℤ) : n.sign.natAbs ≤ 1 := by
+      rw [Int.natAbs_sign]
+      split_ifs <;> omega
+    have ht1 : t.1.natAbs ≤ u := by
+      dsimp [t]
+      simp only [Int.natAbs_mul, Int.natAbs_natCast]
+      calc
+        z.2.sign.natAbs * c ≤ c := by nlinarith [hsign z.2]
+        _ ≤ u := hc.le
+    have ht2 : t.2.natAbs ≤ v + 1 := by
+      dsimp [t]
+      simp only [Int.natAbs_mul, Int.natAbs_natCast]
+      calc
+        z.1.sign.natAbs * d ≤ d := by nlinarith [hsign z.1]
+        _ ≤ v + 1 := hd
+    have huR : (u : ℝ) = |(z.1 : ℝ)| := by simp [u, Nat.cast_natAbs]
+    have hvR : (v : ℝ) = |(z.2 : ℝ)| := by simp [v, Nat.cast_natAbs]
+    have ht1R : |(t.1 : ℝ)| ≤ (u : ℝ) := by
+      have hh : (t.1.natAbs : ℝ) ≤ (u : ℝ) := by exact_mod_cast ht1
+      simpa only [Nat.cast_natAbs, Int.cast_abs] using hh
+    have ht2R : |(t.2 : ℝ)| ≤ (v : ℝ) + 1 := by
+      have hh : (t.2.natAbs : ℝ) ≤ ((v + 1 : ℕ) : ℝ) := by exact_mod_cast ht2
+      simpa only [Nat.cast_natAbs, Int.cast_abs, Nat.cast_add, Nat.cast_one] using hh
+    refine ⟨t, ?_, ?_, ?_⟩
+    · change z.1 * (z.1.sign * (d : ℤ)) - z.2 * (z.2.sign * (c : ℤ)) = 1
+      simpa only [← mul_assoc, Int.mul_sign_self] using hdet
+    · rw [huR] at ht1R
+      linarith [le_max_left |(z.1 : ℝ)| |(z.2 : ℝ)|]
+    · rw [hvR] at ht2R
+      linarith [le_max_right |(z.1 : ℝ)| |(z.2 : ℝ)|]
+
+private lemma envBox_normalized (S : PDScale) (hU : 0 < S.U) (hV : 0 < S.V)
+    (uu vv r : ℝ) (huu : 0 < uu) (z : ℤ × ℤ) :
+    envBox S ⟨S.U * uu, S.V * vv, r⟩ z ↔
+      1 ≤ uu * ((z.1 : ℝ) + r * (z.2 : ℝ)) ∧
+      uu * ((z.1 : ℝ) + r * (z.2 : ℝ)) ≤ 16 ∧
+      1 ≤ vv * ((z.1 : ℝ) + r * (z.2 : ℝ)) + (z.2 : ℝ) / (S.U * S.V * uu) ∧
+      vv * ((z.1 : ℝ) + r * (z.2 : ℝ)) + (z.2 : ℝ) / (S.U * S.V * uu) ≤ 2 := by
+  let tau := (z.1 : ℝ) + r * (z.2 : ℝ)
+  let b := vv * tau + (z.2 : ℝ) / (S.U * S.V * uu)
+  have h1 : (S.U * uu) * tau = S.U * (uu * tau) := by ring
+  have h2 : (S.V * vv) * tau + (z.2 : ℝ) / (S.U * uu) = S.V * b := by
+    dsimp [b]
+    field_simp [hU.ne', hV.ne', huu.ne']
+  change S.U ≤ (S.U * uu) * tau ∧ (S.U * uu) * tau ≤ 16 * S.U ∧
+    S.V ≤ (S.V * vv) * tau + (z.2 : ℝ) / (S.U * uu) ∧
+    (S.V * vv) * tau + (z.2 : ℝ) / (S.U * uu) ≤ 2 * S.V ↔
+    1 ≤ uu * tau ∧ uu * tau ≤ 16 ∧ 1 ≤ b ∧ b ≤ 2
+  rw [h1, h2]
+  constructor
+  · rintro ⟨h1, h2, h3, h4⟩
+    exact ⟨(mul_le_mul_iff_right₀ hU).mp (by simpa using h1),
+      (mul_le_mul_iff_right₀ hU).mp (by simpa only [mul_comm S.U 16] using h2),
+      (mul_le_mul_iff_right₀ hV).mp (by simpa using h3),
+      (mul_le_mul_iff_right₀ hV).mp (by simpa only [mul_comm S.V 2] using h4)⟩
+  · rintro ⟨h1, h2, h3, h4⟩
+    exact ⟨by simpa using (mul_le_mul_iff_right₀ hU).mpr h1,
+      by simpa only [mul_comm S.U 16] using (mul_le_mul_iff_right₀ hU).mpr h2,
+      by simpa using (mul_le_mul_iff_right₀ hV).mpr h3,
+      by simpa only [mul_comm S.V 2] using (mul_le_mul_iff_right₀ hV).mpr h4⟩
+
+private lemma envGood_normalized {K : ℕ} (F : PDFix K) (S : PDScale)
+    (uu vv r : ℝ) (s : EnvPoint S.x K) :
+    envGood F S ⟨S.U * uu, S.V * vv, r⟩ s ↔ envGood F S ⟨1, 1, r⟩ s := Iff.rfl
+
+private lemma circleDistance_eq_infDist (t : ℝ) :
+    circleDistance t = Metric.infDist t (Set.range (fun n : ℤ => (n : ℝ))) := by
+  let A := Set.range (fun n : ℤ => (n : ℝ))
+  have hA : A.Nonempty := ⟨0, ⟨0, by simp⟩⟩
+  have himage : (dist t ·) '' A = Set.range (fun n : ℤ => |t - (n : ℝ)|) := by
+    ext y
+    constructor
+    · rintro ⟨x, ⟨n, rfl⟩, h⟩
+      exact ⟨n, by simpa only [Real.dist_eq] using h⟩
+    · rintro ⟨n, h⟩
+      exact ⟨(n : ℝ), ⟨n, rfl⟩, by simpa only [Real.dist_eq] using h⟩
+  unfold circleDistance
+  rw [← himage]
+  exact (Metric.isGLB_infDist (x := t) hA).csInf_eq (hA.image _)
+
+private lemma circleDistance_continuous : Continuous circleDistance := by
+  have h : circleDistance = fun t : ℝ =>
+      Metric.infDist t (Set.range (fun n : ℤ => (n : ℝ))) :=
+    funext circleDistance_eq_infDist
+  rw [h]
+  exact Metric.continuous_infDist_pt _
+
+private lemma circleDistance_nearest (t : ℝ) :
+    ∃ n : ℤ, circleDistance t = |t - (n : ℝ)| := by
+  have hclosed : IsClosed (Set.range (fun n : ℤ => (n : ℝ))) :=
+    Int.isClosedEmbedding_coe_real.isClosed_range
+  have hne : (Set.range (fun n : ℤ => (n : ℝ))).Nonempty := ⟨0, ⟨0, by simp⟩⟩
+  obtain ⟨y, ⟨n, rfl⟩, hh⟩ := hclosed.exists_infDist_eq_dist hne t
+  refine ⟨n, ?_⟩
+  rw [circleDistance_eq_infDist, hh, Real.dist_eq]
+
+private lemma circleDistance_level (t b : ℝ) (h : circleDistance t = b) :
+    ∃ n : ℤ, t = (n : ℝ) + b ∨ t = (n : ℝ) - b := by
+  obtain ⟨n, hn⟩ := circleDistance_nearest t
+  refine ⟨n, ?_⟩
+  rw [h] at hn
+  rcases le_total 0 (t - (n : ℝ)) with hp | hp
+  · rw [abs_of_nonneg hp] at hn
+    exact Or.inl (by linarith)
+  · rw [abs_of_nonpos hp] at hn
+    exact Or.inr (by linarith)
+
+private lemma continuousOn_le_iff_of_avoid_level {f : ℝ → ℝ} {a b c : ℝ}
+    (hab : a ≤ b) (hf : ContinuousOn f (Set.Icc a b))
+    (havoid : ∀ t ∈ Set.Icc a b, f t ≠ c) :
+    (f a ≤ c ↔ f b ≤ c) := by
+  constructor
+  · intro ha
+    by_contra hb
+    have hc : c ∈ Set.Icc (f a) (f b) := ⟨ha, le_of_lt (lt_of_not_ge hb)⟩
+    obtain ⟨t, ht, he⟩ := intermediate_value_Icc hab hf hc
+    exact havoid t ht he
+  · intro hb
+    by_contra ha
+    have hc : c ∈ Set.Icc (f b) (f a) := ⟨hb, le_of_lt (lt_of_not_ge ha)⟩
+    obtain ⟨t, ht, he⟩ := intermediate_value_Icc' hab hf hc
+    exact havoid t ht he
+
+private def fractionalRatio (z t : ℤ × ℤ) (r : ℝ) : ℝ :=
+  ((t.1 : ℝ) + r * (t.2 : ℝ)) / ((z.1 : ℝ) + r * (z.2 : ℝ))
+
+private lemma fractionalRatio_bound (z t : ℤ × ℤ) (Z r : ℝ)
+    (hZ : 1 ≤ Z) (ht1 : |(t.1 : ℝ)| ≤ Z + 1) (ht2 : |(t.2 : ℝ)| ≤ Z + 1)
+    (hr : -1 ≤ r ∧ r ≤ 2) (htau : (1 / 34 : ℝ) ≤ (z.1 : ℝ) + r * (z.2 : ℝ)) :
+    |fractionalRatio z t r| ≤ 102 * (Z + 1) := by
+  have hrabs : |r| ≤ 2 := abs_le.mpr ⟨by linarith [hr.1], hr.2⟩
+  have hden : 0 < (z.1 : ℝ) + r * (z.2 : ℝ) := by linarith
+  have hnum : |(t.1 : ℝ) + r * (t.2 : ℝ)| ≤ 3 * (Z + 1) := by
+    calc
+      _ ≤ |(t.1 : ℝ)| + |r * (t.2 : ℝ)| := abs_add_le _ _
+      _ = |(t.1 : ℝ)| + |r| * |(t.2 : ℝ)| := by rw [abs_mul]
+      _ ≤ (Z + 1) + 2 * (Z + 1) := by
+        exact add_le_add ht1 (mul_le_mul hrabs ht2 (abs_nonneg _) (by norm_num))
+      _ = 3 * (Z + 1) := by ring
+  rw [fractionalRatio, abs_div, abs_of_pos hden]
+  apply (div_le_iff₀ hden).2
+  nlinarith
+
+private lemma fractionalRatio_level (z t : ℤ × ℤ) (hdet : det2 z t = 1)
+    (m : ℤ) (hm : m ≠ 0) (r y : ℝ)
+    (hden : (z.1 : ℝ) + r * (z.2 : ℝ) ≠ 0)
+    (hlevel : (m : ℝ) * fractionalRatio z t r = y) :
+    r = (y * (z.1 : ℝ) - (m : ℝ) * (t.1 : ℝ)) /
+      ((m : ℝ) * (t.2 : ℝ) - y * (z.2 : ℝ)) := by
+  have hdetR : (z.1 : ℝ) * (t.2 : ℝ) - (z.2 : ℝ) * (t.1 : ℝ) = 1 := by
+    exact_mod_cast hdet
+  have hlin : (m : ℝ) * ((t.1 : ℝ) + r * (t.2 : ℝ)) =
+      y * ((z.1 : ℝ) + r * (z.2 : ℝ)) := by
+    dsimp [fractionalRatio] at hlevel
+    field_simp [hden] at hlevel
+    simpa only [mul_comm y] using hlevel
+  have hcoef : (m : ℝ) * (t.2 : ℝ) - y * (z.2 : ℝ) ≠ 0 := by
+    intro hc
+    have hconst : (m : ℝ) * (t.1 : ℝ) - y * (z.1 : ℝ) = 0 := by
+      linear_combination hlin - r * hc
+    have hmR : (m : ℝ) = 0 := by
+      calc
+        (m : ℝ) = (m : ℝ) *
+          ((z.1 : ℝ) * (t.2 : ℝ) - (z.2 : ℝ) * (t.1 : ℝ)) := by rw [hdetR]; ring
+        _ = (z.1 : ℝ) * ((m : ℝ) * (t.2 : ℝ) - y * (z.2 : ℝ)) -
+          (z.2 : ℝ) * ((m : ℝ) * (t.1 : ℝ) - y * (z.1 : ℝ)) := by ring
+        _ = 0 := by rw [hc, hconst]; ring
+    exact hm (by exact_mod_cast hmR)
+  apply (eq_div_iff hcoef).2
+  linear_combination hlin
+
+private def fractionalBreakpoint (z t : ℤ × ℤ) (i : ℤ × ℤ × ℝ × Bool) : ℝ :=
+  let y := (i.2.1 : ℝ) + if i.2.2.2 then i.2.2.1 else -i.2.2.1
+  (y * (z.1 : ℝ) - (i.1 : ℝ) * (t.1 : ℝ)) /
+    ((i.1 : ℝ) * (t.2 : ℝ) - y * (z.2 : ℝ))
+
+private def fractionalBreakpoints (z t : ℤ × ℤ) (Q T : ℕ) (B : Finset ℝ) : Finset ℝ :=
+  ((Finset.Icc (-2 * (Q : ℤ)) (2 * (Q : ℤ))) ×ˢ
+    ((Finset.Icc (-(T : ℤ)) (T : ℤ)) ×ˢ (B ×ˢ Finset.univ))).image
+      (fractionalBreakpoint z t)
+
+private lemma fractionalBreakpoints_card (z t : ℤ × ℤ) (Q T : ℕ) (B : Finset ℝ) :
+    (fractionalBreakpoints z t Q T B).card ≤ (4 * Q + 1) * (2 * T + 1) * B.card * 2 := by
+  have hQ : (Finset.Icc (-2 * (Q : ℤ)) (2 * (Q : ℤ))).card = 4 * Q + 1 := by
+    rw [Int.card_Icc]
+    omega
+  have hT : (Finset.Icc (-(T : ℤ)) (T : ℤ)).card = 2 * T + 1 := by
+    rw [Int.card_Icc]
+    omega
+  unfold fractionalBreakpoints
+  calc
+    _ ≤ _ := Finset.card_image_le
+    _ = _ := by
+      rw [Finset.card_product, Finset.card_product, Finset.card_product,
+        hQ, hT, Finset.card_univ, Fintype.card_bool]
+      ring
+
+private lemma fractionalBreakpoints_level_mem (z t : ℤ × ℤ) (hdet : det2 z t = 1)
+    (Z : ℝ) (hZ : 1 ≤ Z) (ht1 : |(t.1 : ℝ)| ≤ Z + 1) (ht2 : |(t.2 : ℝ)| ≤ Z + 1)
+    (Q T : ℕ) (hT : 204 * (Q : ℝ) * (Z + 1) + 101 ≤ (T : ℝ))
+    (B : Finset ℝ) (b : ℝ) (hb : b ∈ B) (hb0 : 0 ≤ b) (hb100 : b ≤ 100)
+    (m : ℤ) (hm : m ≠ 0) (hmQ : |m| ≤ 2 * (Q : ℤ)) (r : ℝ)
+    (hr : -1 ≤ r ∧ r ≤ 2) (htau : (1 / 34 : ℝ) ≤ (z.1 : ℝ) + r * (z.2 : ℝ))
+    (hlevel : circleDistance ((m : ℝ) * fractionalRatio z t r) = b) :
+    r ∈ fractionalBreakpoints z t Q T B := by
+  have hden : (z.1 : ℝ) + r * (z.2 : ℝ) ≠ 0 := by linarith
+  have hratio := fractionalRatio_bound z t Z r hZ ht1 ht2 hr htau
+  have hmQreal : |(m : ℝ)| ≤ 2 * (Q : ℝ) := by exact_mod_cast hmQ
+  have hmbound : |(m : ℝ) * fractionalRatio z t r| ≤ 204 * (Q : ℝ) * (Z + 1) := by
+    rw [abs_mul]
+    have hh := mul_le_mul hmQreal hratio (abs_nonneg _) (by positivity : 0 ≤ 2 * (Q : ℝ))
+    nlinarith
+  obtain ⟨k, hk⟩ := circleDistance_level _ b hlevel
+  have hkBound : |(k : ℝ)| ≤ (T : ℝ) := by
+    have hbabs : |b| ≤ 100 := by simpa [abs_of_nonneg hb0] using hb100
+    rcases hk with hk | hk
+    · have he : (k : ℝ) = (m : ℝ) * fractionalRatio z t r - b := by linarith
+      rw [he]
+      have ha : |(m : ℝ) * fractionalRatio z t r - b| ≤
+          |(m : ℝ) * fractionalRatio z t r| + |b| := by
+        simpa using abs_sub_le ((m : ℝ) * fractionalRatio z t r) 0 b
+      linarith
+    · have he : (k : ℝ) = (m : ℝ) * fractionalRatio z t r + b := by linarith
+      rw [he]
+      have ha := abs_add_le ((m : ℝ) * fractionalRatio z t r) b
+      linarith
+  have hkT : |k| ≤ (T : ℤ) := by exact_mod_cast hkBound
+  have hmMem : m ∈ Finset.Icc (-2 * (Q : ℤ)) (2 * (Q : ℤ)) := by
+    apply Finset.mem_Icc.mpr
+    have hh := abs_le.mp hmQ
+    constructor <;> linarith
+  have hkMem : k ∈ Finset.Icc (-(T : ℤ)) (T : ℤ) := Finset.mem_Icc.mpr (abs_le.mp hkT)
+  rcases hk with hk | hk
+  · have hs := fractionalRatio_level z t hdet m hm r ((k : ℝ) + b) hden hk
+    apply Finset.mem_image.mpr
+    refine ⟨(m, k, b, true), ?_, ?_⟩
+    · exact Finset.mem_product.mpr ⟨hmMem,
+        Finset.mem_product.mpr ⟨hkMem, Finset.mem_product.mpr ⟨hb, Finset.mem_univ _⟩⟩⟩
+    · simpa [fractionalBreakpoint] using hs.symm
+  · have hs := fractionalRatio_level z t hdet m hm r ((k : ℝ) - b) hden hk
+    apply Finset.mem_image.mpr
+    refine ⟨(m, k, b, false), ?_, ?_⟩
+    · exact Finset.mem_product.mpr ⟨hmMem,
+        Finset.mem_product.mpr ⟨hkMem, Finset.mem_product.mpr ⟨hb, Finset.mem_univ _⟩⟩⟩
+    · simpa [fractionalBreakpoint, sub_eq_add_neg] using hs.symm
+
+private lemma fractionalBreakpoints_circle_constant (z t : ℤ × ℤ) (hdet : det2 z t = 1)
+    (Z : ℝ) (hZ : 1 ≤ Z) (ht1 : |(t.1 : ℝ)| ≤ Z + 1) (ht2 : |(t.2 : ℝ)| ≤ Z + 1)
+    (Q T : ℕ) (hT : 204 * (Q : ℝ) * (Z + 1) + 101 ≤ (T : ℝ))
+    (B : Finset ℝ) (b : ℝ) (hb : b ∈ B) (hb0 : 0 ≤ b) (hb100 : b ≤ 100)
+    (m : ℤ) (hm : m ≠ 0) (hmQ : |m| ≤ 2 * (Q : ℤ))
+    (a c : ℝ) (ha : -1 ≤ a) (hac : a ≤ c) (hc : c ≤ 2)
+    (hsafe : ∀ r ∈ Set.Icc a c,
+      (1 / 34 : ℝ) ≤ (z.1 : ℝ) + r * (z.2 : ℝ) ∧
+        r ∉ fractionalBreakpoints z t Q T B) :
+    (circleDistance ((m : ℝ) * fractionalRatio z t a) ≤ b ↔
+      circleDistance ((m : ℝ) * fractionalRatio z t c) ≤ b) := by
+  have hden : ∀ r ∈ Set.Icc a c, (z.1 : ℝ) + r * (z.2 : ℝ) ≠ 0 := by
+    intro r hr
+    have hh := (hsafe r hr).1
+    linarith
+  have hratio : ContinuousOn (fractionalRatio z t) (Set.Icc a c) := by
+    unfold fractionalRatio
+    exact (continuous_const.add (continuous_id.mul continuous_const)).continuousOn.div
+      (continuous_const.add (continuous_id.mul continuous_const)).continuousOn hden
+  have hcircle : ContinuousOn (fun r => circleDistance ((m : ℝ) * fractionalRatio z t r))
+      (Set.Icc a c) := circleDistance_continuous.comp_continuousOn
+        (continuous_const.continuousOn.mul hratio)
+  apply continuousOn_le_iff_of_avoid_level hac hcircle
+  intro r hr hlevel
+  exact (hsafe r hr).2 (fractionalBreakpoints_level_mem z t hdet Z hZ ht1 ht2 Q T hT
+    B b hb hb0 hb100 m hm hmQ r ⟨ha.trans hr.1, hr.2.trans hc⟩ (hsafe r hr).1 hlevel)
+
+private lemma complements_differ_by_primitive (z t t' : ℤ × ℤ)
+    (hz : Int.gcd z.1 z.2 = 1) (ht : det2 z t = 1) (ht' : det2 z t' = 1) :
+    ∃ k : ℤ, t'.1 = t.1 + k * z.1 ∧ t'.2 = t.2 + k * z.2 := by
+  by_cases h1 : z.1 = 0
+  · have h2 : z.2 ≠ 0 := by
+      intro h
+      simpa [h1, h] using hz
+    have hcop : Int.gcd z.2 (-z.1) = 1 := by simpa [Int.gcd_comm] using hz
+    have hdet : z.2 * (-t.1) - (-z.1) * t.2 = 1 := by
+      change z.1 * t.2 - z.2 * t.1 = 1 at ht
+      linear_combination ht
+    have hdet' : z.2 * (-t'.1) - (-z.1) * t'.2 = 1 := by
+      change z.1 * t'.2 - z.2 * t'.1 = 1 at ht'
+      linear_combination ht'
+    obtain ⟨k, hk2, hk1⟩ := complements_differ_by_root z.2 (-z.1) t.2 (-t.1)
+      t'.2 (-t'.1) h2 hcop hdet hdet'
+    exact ⟨k, by linear_combination -hk1, hk2⟩
+  · exact complements_differ_by_root z.1 z.2 t.1 t.2 t'.1 t'.2 h1 hz ht ht'
+
+private lemma envGood_fractionalRatio {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : EnvPoint S.x K) (hs : EnvValid F S s) (t : ℤ × ℤ) (ht : det2 s.1 t = 1)
+    (r : ℝ) (hden : (s.1.1 : ℝ) + r * (s.1.2 : ℝ) ≠ 0) :
+    envGood F S ⟨1, 1, r⟩ s ↔
+      IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a s.2 (fractionalRatio s.1 t r) := by
+  obtain ⟨k, hk1, hk2⟩ := complements_differ_by_primitive s.1 (complementVec s.1) t
+    hs.1 (complementVec_det hs.1) ht
+  have hratio : fractionalRatio s.1 t r = transportedRatio ⟨1, 1, r⟩ s.1 + (k : ℝ) := by
+    have h1 : (t.1 : ℝ) = ((complementVec s.1).1 : ℝ) + (k : ℝ) * (s.1.1 : ℝ) := by
+      exact_mod_cast hk1
+    have h2 : (t.2 : ℝ) = ((complementVec s.1).2 : ℝ) + (k : ℝ) * (s.1.2 : ℝ) := by
+      exact_mod_cast hk2
+    unfold fractionalRatio transportedRatio ArchRoot.tau
+    rw [h1, h2]
+    field_simp [hden]
+    ring
+  rw [hratio]
+  exact (isGoodRatio_int_shift S.x S.Y (S.d₀ : ℝ) F.a s.2
+    (transportedRatio ⟨1, 1, r⟩ s.1) k).symm
+
+private lemma primeBand_uniform_upper {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hF : F.Valid) (hL : 1 ≤ S.L) (i : Fin K) (p : ℕ)
+    (hp : p ∈ primeBand S.x (F.a i)) :
+    (p : ℝ) ≤ Real.exp (2 * Real.rpow S.L (1 / 5 : ℝ)) := by
+  have h := (Finset.mem_filter.mp hp).2.2.2
+  have ha : F.a i ≤ 1 / 5 := (hF.1.2.1 i).2.le
+  exact h.trans (Real.exp_le_exp.mpr
+    (mul_le_mul_of_nonneg_left (Real.rpow_le_rpow_of_exponent_le hL ha) (by norm_num)))
+
+private lemma goodnessTrialValue_bound {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hF : F.Valid) (hL : 1 ≤ S.L) (p : PrimeLists S.x K)
+    (I : Finset (Fin K)) (iStar : Fin K) (fresh : Fin K → ℕ) (n : ℕ)
+    (hfresh : IsFreshChoice S.x F.a I fresh)
+    (hn : IsGoodnessTrialValue F.a p (S.d₀ : ℝ) I iStar fresh n) :
+    (n : ℝ) ≤ 2 * (S.d₀ : ℝ) *
+      Real.exp (4 * (K : ℝ) * Real.rpow S.L (1 / 5 : ℝ)) := by
+  classical
+  obtain ⟨omitted, z, hneq, hDlow, hDhi, hz⟩ := hn
+  let P := Real.exp (2 * Real.rpow S.L (1 / 5 : ℝ))
+  have hP : 1 ≤ P := Real.one_le_exp_iff.mpr (by dsimp [P]; positivity)
+  have hZprod : ((∏ i : Fin K, if i ∈ I ∧ i ≠ iStar then z i else 1 : ℕ) : ℝ) ≤ P ^ K := by
+    push_cast
+    calc
+      _ ≤ ∏ i : Fin K, P := by
+        apply Finset.prod_le_prod₀
+        · intro i hi
+          split_ifs <;> positivity
+        · intro i hi
+          split_ifs with hh
+          · exact primeBand_uniform_upper F S hF hL i (z i) (hz i hh)
+          · exact hP
+      _ = P ^ K := by simp
+  have hFprod : ((∏ i : Fin K, if i ∉ I then fresh i else 1 : ℕ) : ℝ) ≤ P ^ K := by
+    push_cast
+    calc
+      _ ≤ ∏ i : Fin K, P := by
+        apply Finset.prod_le_prod₀
+        · intro i hi
+          split_ifs <;> positivity
+        · intro i hi
+          split_ifs with hh
+          · exact hP
+          · exact primeBand_uniform_upper F S hF hL i (fresh i) (hfresh.2 i hh)
+      _ = P ^ K := by simp
+  have hprodnonneg : 0 ≤ ((∏ i : Fin K, if i ∉ I then fresh i else 1 : ℕ) : ℝ) :=
+    Nat.cast_nonneg _
+  have hZnonneg : 0 ≤ P ^ K := by positivity
+  have hprods :
+      ((∏ i : Fin K, if i ∈ I ∧ i ≠ iStar then z i else 1 : ℕ) : ℝ) *
+        ((∏ i : Fin K, if i ∉ I then fresh i else 1 : ℕ) : ℝ) ≤ P ^ K * P ^ K :=
+    mul_le_mul hZprod hFprod hprodnonneg hZnonneg
+  have hPpower : P ^ K * P ^ K =
+      Real.exp (4 * (K : ℝ) * Real.rpow S.L (1 / 5 : ℝ)) := by
+    dsimp [P]
+    simp_rw [← Real.exp_nat_mul]
+    rw [← Real.exp_add]
+    congr 1
+    ring
+  rw [hneq]
+  push_cast
+  calc
+    _ ≤ (2 * (S.d₀ : ℝ)) *
+        (((∏ i : Fin K, if i ∈ I ∧ i ≠ iStar then z i else 1 : ℕ) : ℝ) *
+          ((∏ i : Fin K, if i ∉ I then fresh i else 1 : ℕ) : ℝ)) := by
+      have hDn : 0 ≤ (omissionProduct p omitted : ℝ) := Nat.cast_nonneg _
+      have hprod0 : 0 ≤
+          ((∏ i : Fin K, if i ∈ I ∧ i ≠ iStar then z i else 1 : ℕ) : ℝ) *
+          ((∏ i : Fin K, if i ∉ I then fresh i else 1 : ℕ) : ℝ) := by positivity
+      have hh := mul_le_mul_of_nonneg_right hDhi.le hprod0
+      push_cast at hh
+      convert hh using 1 <;> push_cast <;> ring
+    _ ≤ (2 * (S.d₀ : ℝ)) * (P ^ K * P ^ K) :=
+      mul_le_mul_of_nonneg_left hprods (by positivity)
+    _ = _ := by rw [hPpower]
+
+private def goodThresholds {K : ℕ} (F : PDFix K) (S : PDScale) : Finset ℝ :=
+  insert (Real.rpow S.Y (-(7 / 10 : ℝ)))
+    (Finset.univ.image fun i : Fin K => 100 * Real.exp (-Real.rpow S.L (F.a i)))
+
+private lemma goodThresholds_card {K : ℕ} (F : PDFix K) (S : PDScale) :
+    (goodThresholds F S).card ≤ K + 1 := by
+  unfold goodThresholds
+  exact (Finset.card_insert_le _ _).trans
+    (Nat.add_le_add_right (Finset.card_image_le.trans (by simp)) 1)
+
+private lemma goodThresholds_bounds {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hY : 1 ≤ S.Y) (hL : 1 ≤ S.L) (b : ℝ) (hb : b ∈ goodThresholds F S) :
+    0 ≤ b ∧ b ≤ 100 := by
+  rcases Finset.mem_insert.mp hb with rfl | hb
+  · constructor
+    · exact Real.rpow_nonneg (by linarith) _
+    · exact (Real.rpow_le_one_of_one_le_of_nonpos hY (by norm_num)).trans (by norm_num)
+  · obtain ⟨i, hi, rfl⟩ := Finset.mem_image.mp hb
+    constructor
+    · positivity
+    · have he : Real.exp (-Real.rpow S.L (F.a i)) ≤ 1 :=
+        Real.exp_le_one_iff.mpr (neg_nonpos.mpr (Real.rpow_nonneg (by linarith) _))
+      linarith
+
+private lemma goodTestTwo_congr_of_atoms (x d₀ : ℝ) {K : ℕ} (a : Fin K → ℝ)
+    (p : PrimeLists x K) (r r' : ℝ)
+    (hAtoms : ∀ I : Finset (Fin K), ∀ hI : I.Nonempty, ∀ fresh : Fin K → ℕ,
+      IsFreshChoice x a I fresh → ∀ n₁ n₂ : ℕ,
+      IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₁ →
+      IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₂ → n₁ ≠ n₂ →
+      (circleDistance (((n₁ : ℝ) - n₂) * r) ≤
+        100 * Real.exp (-Real.rpow (Real.log x) (a (I.max' hI))) ↔
+       circleDistance (((n₁ : ℝ) - n₂) * r') ≤
+        100 * Real.exp (-Real.rpow (Real.log x) (a (I.max' hI))))) :
+    goodTestTwo x d₀ K a p r ↔ goodTestTwo x d₀ K a p r' := by
+  classical
+  have hvalue (I : Finset (Fin K)) (hI : I.Nonempty) :
+      (∑' fresh : Fin K → ℕ,
+        if IsFreshChoice x a I fresh ∧
+          ∃ n₁ n₂, IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₁ ∧
+            IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₂ ∧ n₁ ≠ n₂ ∧
+            circleDistance (((n₁ : ℝ) - n₂) * r) ≤
+              100 * Real.exp (-Real.rpow (Real.log x) (a (I.max' hI)))
+        then freshChoiceWeight x a I fresh else 0) =
+      (∑' fresh : Fin K → ℕ,
+        if IsFreshChoice x a I fresh ∧
+          ∃ n₁ n₂, IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₁ ∧
+            IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₂ ∧ n₁ ≠ n₂ ∧
+            circleDistance (((n₁ : ℝ) - n₂) * r') ≤
+              100 * Real.exp (-Real.rpow (Real.log x) (a (I.max' hI)))
+        then freshChoiceWeight x a I fresh else 0) := by
+    apply tsum_congr
+    intro fresh
+    by_cases hfresh : IsFreshChoice x a I fresh
+    · have hpairs :
+          (∃ n₁ n₂, IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₁ ∧
+            IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₂ ∧ n₁ ≠ n₂ ∧
+            circleDistance (((n₁ : ℝ) - n₂) * r) ≤
+              100 * Real.exp (-Real.rpow (Real.log x) (a (I.max' hI)))) ↔
+          (∃ n₁ n₂, IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₁ ∧
+            IsGoodnessTrialValue a p d₀ I (I.max' hI) fresh n₂ ∧ n₁ ≠ n₂ ∧
+            circleDistance (((n₁ : ℝ) - n₂) * r') ≤
+              100 * Real.exp (-Real.rpow (Real.log x) (a (I.max' hI)))) := by
+        constructor
+        · rintro ⟨n₁, n₂, hn₁, hn₂, hne, hc⟩
+          exact ⟨n₁, n₂, hn₁, hn₂, hne, (hAtoms I hI fresh hfresh n₁ n₂ hn₁ hn₂ hne).1 hc⟩
+        · rintro ⟨n₁, n₂, hn₁, hn₂, hne, hc⟩
+          exact ⟨n₁, n₂, hn₁, hn₂, hne, (hAtoms I hI fresh hfresh n₁ n₂ hn₁ hn₂ hne).2 hc⟩
+      simp only [hfresh, true_and, hpairs]
+    · simp [hfresh]
+  unfold goodTestTwo
+  constructor
+  · intro h I hI
+    dsimp only
+    rw [← hvalue I hI]
+    exact h I hI
+  · intro h I hI
+    dsimp only
+    rw [hvalue I hI]
+    exact h I hI
+
+private lemma envGood_breakpoints {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hF : F.Valid) (s : EnvPoint S.x K) (hs : EnvValid F S s)
+    (Z : ℝ) (hZ : 1 ≤ Z) (hz1 : |(s.1.1 : ℝ)| ≤ Z) (hz2 : |(s.1.2 : ℝ)| ≤ Z)
+    (hY : 1 ≤ S.Y) (hD : 1 ≤ S.d₀) (Q T : ℕ)
+    (hQ1 : 2 * (S.d₀ : ℝ) * Real.rpow S.Y (1 / 5 : ℝ) ≤ (Q : ℝ))
+    (hQ2 : 2 * (S.d₀ : ℝ) *
+      Real.exp (4 * (K : ℝ) * Real.rpow S.L (1 / 5 : ℝ)) ≤ (Q : ℝ))
+    (hT : 204 * (Q : ℝ) * (Z + 1) + 101 ≤ (T : ℝ)) (hL : 1 ≤ S.L) :
+    ∃ B : Finset ℝ, B.card ≤ 2 * (K + 1) * (4 * Q + 1) * (2 * T + 1) ∧
+      ∀ r r' : ℝ, -1 ≤ r → r ≤ r' → r' ≤ 2 →
+        (∀ v ∈ Set.Icc r r', (1 / 34 : ℝ) ≤ (v * (s.1.2 : ℝ) + s.1.1) ∧
+          (v * (s.1.2 : ℝ) + s.1.1) ≤ 34 ∧ v ∉ B) →
+        (envGood F S ⟨1, 1, r⟩ s ↔ envGood F S ⟨1, 1, r'⟩ s) := by
+  classical
+  obtain ⟨t, ht, ht1, ht2⟩ := small_integral_complement s.1 hs.1
+  have ht1' : |(t.1 : ℝ)| ≤ Z + 1 := by
+    have hm : max |(s.1.1 : ℝ)| |(s.1.2 : ℝ)| ≤ Z := max_le hz1 hz2
+    linarith
+  have ht2' : |(t.2 : ℝ)| ≤ Z + 1 := by
+    have hm : max |(s.1.1 : ℝ)| |(s.1.2 : ℝ)| ≤ Z := max_le hz1 hz2
+    linarith
+  let B := fractionalBreakpoints s.1 t Q T (goodThresholds F S)
+  refine ⟨B, ?_, ?_⟩
+  · calc
+      B.card ≤ (4 * Q + 1) * (2 * T + 1) * (goodThresholds F S).card * 2 :=
+        fractionalBreakpoints_card _ _ _ _ _
+      _ ≤ (4 * Q + 1) * (2 * T + 1) * (K + 1) * 2 := by
+        gcongr
+        exact goodThresholds_card F S
+      _ = 2 * (K + 1) * (4 * Q + 1) * (2 * T + 1) := by ring
+  · intro r r' hr hrr hr' hsafe
+    have hden (v : ℝ) (hv : v ∈ Set.Icc r r') :
+        (s.1.1 : ℝ) + v * (s.1.2 : ℝ) ≠ 0 := by
+      have hh := (hsafe v hv).1
+      linarith
+    have hAtomic (m : ℤ) (hm : m ≠ 0) (hmQ : |m| ≤ 2 * (Q : ℤ))
+        (b : ℝ) (hb : b ∈ goodThresholds F S) :
+        (circleDistance ((m : ℝ) * fractionalRatio s.1 t r) ≤ b ↔
+          circleDistance ((m : ℝ) * fractionalRatio s.1 t r') ≤ b) := by
+      have hbb := goodThresholds_bounds F S hY hL b hb
+      apply fractionalBreakpoints_circle_constant s.1 t ht Z hZ ht1' ht2' Q T hT
+        (goodThresholds F S) b hb hbb.1 hbb.2 m hm hmQ r r' hr hrr hr'
+      intro v hv
+      refine ⟨?_, (hsafe v hv).2.2⟩
+      simpa [add_comm] using (hsafe v hv).1
+    rw [envGood_fractionalRatio F S s hs t ht r (hden r (Set.left_mem_Icc.mpr hrr)),
+      envGood_fractionalRatio F S s hs t ht r' (hden r' (Set.right_mem_Icc.mpr hrr))]
+    apply and_congr
+    · have hOneAtom (omitted : Fin K → Fin (slotCount S.x))
+          (hlo : (S.d₀ : ℝ) ≤ (omissionProduct s.2 omitted : ℝ))
+          (hhi : (omissionProduct s.2 omitted : ℝ) < 2 * (S.d₀ : ℝ))
+          (l : ℕ) (hl : 1 ≤ l) (hly : (l : ℝ) ≤ Real.rpow S.Y (1 / 5 : ℝ)) :
+          (Real.rpow S.Y (-(7 / 10 : ℝ)) <
+            circleDistance ((l : ℝ) * (omissionProduct s.2 omitted : ℝ) * fractionalRatio s.1 t r) ↔
+           Real.rpow S.Y (-(7 / 10 : ℝ)) <
+            circleDistance ((l : ℝ) * (omissionProduct s.2 omitted : ℝ) * fractionalRatio s.1 t r')) := by
+        let m : ℤ := (l : ℤ) * (omissionProduct s.2 omitted : ℤ)
+        have hDpos : 0 < omissionProduct s.2 omitted := by
+          have hdreal : (1 : ℝ) ≤ S.d₀ := by exact_mod_cast hD
+          have hh : (1 : ℝ) ≤ omissionProduct s.2 omitted := hdreal.trans hlo
+          have hnat : 1 ≤ omissionProduct s.2 omitted := by exact_mod_cast hh
+          omega
+        have hm : m ≠ 0 := mul_ne_zero (by exact_mod_cast (by omega : l ≠ 0))
+          (by exact_mod_cast hDpos.ne')
+        have hmReal : (m : ℝ) = (l : ℝ) * (omissionProduct s.2 omitted : ℝ) := by simp [m]
+        have hm0 : 0 ≤ (m : ℝ) := by rw [hmReal]; positivity
+        have hmBound : (m : ℝ) ≤ (Q : ℝ) := by
+          rw [hmReal]
+          have hh := mul_le_mul hly hhi.le (by positivity : 0 ≤ (omissionProduct s.2 omitted : ℝ))
+            (Real.rpow_nonneg (by linarith : 0 ≤ S.Y) _)
+          have hh' : (l : ℝ) * (omissionProduct s.2 omitted : ℝ) ≤
+              2 * (S.d₀ : ℝ) * Real.rpow S.Y (1 / 5 : ℝ) := by
+            simpa [mul_comm] using hh
+          exact hh'.trans hQ1
+        have hmAbs : |m| ≤ 2 * (Q : ℤ) := by
+          have hh : |(m : ℝ)| ≤ 2 * (Q : ℝ) := by rw [abs_of_nonneg hm0]; linarith
+          exact_mod_cast hh
+        have hc := not_congr (hAtomic m hm hmAbs (Real.rpow S.Y (-(7 / 10 : ℝ)))
+          (Finset.mem_insert_self _ _))
+        simpa only [not_le, hmReal] using hc
+      unfold goodTestOne
+      constructor
+      · intro h omitted hlo hhi l hl hly
+        exact (hOneAtom omitted hlo hhi l hl hly).1 (h omitted hlo hhi l hl hly)
+      · intro h omitted hlo hhi l hl hly
+        exact (hOneAtom omitted hlo hhi l hl hly).2 (h omitted hlo hhi l hl hly)
+    · apply goodTestTwo_congr_of_atoms
+      intro I hI fresh hfresh n₁ n₂ hn₁ hn₂ hne
+      let m : ℤ := (n₁ : ℤ) - (n₂ : ℤ)
+      have hm : m ≠ 0 := by
+        intro hh
+        have he : (n₁ : ℤ) = (n₂ : ℤ) := sub_eq_zero.mp hh
+        exact hne (by exact_mod_cast he)
+      have hmReal : (m : ℝ) = (n₁ : ℝ) - (n₂ : ℝ) := by simp [m]
+      have hn₁Bound : (n₁ : ℝ) ≤ (Q : ℝ) :=
+        (goodnessTrialValue_bound F S hF hL s.2 I (I.max' hI) fresh n₁ hfresh hn₁).trans hQ2
+      have hn₂Bound : (n₂ : ℝ) ≤ (Q : ℝ) :=
+        (goodnessTrialValue_bound F S hF hL s.2 I (I.max' hI) fresh n₂ hfresh hn₂).trans hQ2
+      have hmAbs : |m| ≤ 2 * (Q : ℤ) := by
+        have hh : |(m : ℝ)| ≤ 2 * (Q : ℝ) := by
+          rw [hmReal]
+          apply abs_le.mpr
+          constructor <;> nlinarith
+            [show (0 : ℝ) ≤ (n₁ : ℝ) from Nat.cast_nonneg _,
+              show (0 : ℝ) ≤ (n₂ : ℝ) from Nat.cast_nonneg _]
+        exact_mod_cast hh
+      have hb : 100 * Real.exp (-Real.rpow S.L (F.a (I.max' hI))) ∈ goodThresholds F S :=
+        Finset.mem_insert_of_mem (Finset.mem_image.mpr ⟨I.max' hI, Finset.mem_univ _, rfl⟩)
+      simpa only [hmReal, PDScale.L] using hAtomic m hm hmAbs _ hb
+
+private lemma grid_axis_bounds (h l r : ℝ) (hh : 0 < h) (k : ℤ) (y : ℝ)
+    (hk : k ∈ Finset.Icc (⌊l / h⌋ - 1) ⌈r / h⌉)
+    (hy : (k : ℝ) * h ≤ y ∧ y ≤ ((k : ℝ) + 1) * h) :
+    l - 2 * h ≤ y ∧ y ≤ r + 2 * h := by
+  have hkm := Finset.mem_Icc.mp hk
+  have hklo : (⌊l / h⌋ : ℝ) - 1 ≤ (k : ℝ) := by exact_mod_cast hkm.1
+  have hkhi : (k : ℝ) ≤ (⌈r / h⌉ : ℝ) := by exact_mod_cast hkm.2
+  have hf := mul_lt_mul_of_pos_right (Int.lt_floor_add_one (l / h)) hh
+  have hc := mul_lt_mul_of_pos_right (Int.ceil_lt_add_one (r / h)) hh
+  rw [div_mul_cancel₀ l hh.ne'] at hf
+  rw [add_mul, div_mul_cancel₀ r hh.ne', one_mul] at hc
+  have hkl := mul_le_mul_of_nonneg_right hklo hh.le
+  have hkh := mul_le_mul_of_nonneg_right hkhi hh.le
+  constructor <;> nlinarith [hy.1, hy.2]
+
+private lemma grid_cube_domain_bounds (h : ℝ) (hh : 0 < h) (hhsmall : h ≤ 1 / 8)
+    (k : ℤ × ℤ × ℤ) (hk : k ∈ gridIndices h) (y : ℝ × ℝ × ℝ)
+    (hy : y ∈ gridCube h k) :
+    (1 / 2 : ℝ) ≤ y.1 ∧ y.1 ≤ 17 ∧
+      (1 / 2 : ℝ) ≤ y.2.1 ∧ y.2.1 ≤ 3 ∧ -1 ≤ y.2.2 ∧ y.2.2 ≤ 2 := by
+  have hk' := Finset.mem_product.mp hk
+  have hk'' := Finset.mem_product.mp hk'.2
+  have h1 := grid_axis_bounds h 1 16 hh k.1 y.1 hk'.1 ⟨hy.1, hy.2.1⟩
+  have h2 := grid_axis_bounds h 1 2 hh k.2.1 y.2.1 hk''.1 ⟨hy.2.2.1, hy.2.2.2.1⟩
+  have hk3 : k.2.2 ∈ Finset.Icc (⌊(0 : ℝ) / h⌋ - 1) ⌈1 / h⌉ := by
+    simpa using hk''.2
+  have h3 := grid_axis_bounds h 0 1 hh k.2.2 y.2.2 hk3 ⟨hy.2.2.2.2.1, hy.2.2.2.2.2⟩
+  exact ⟨by linarith [h1.1], by linarith [h1.2], by linarith [h2.1],
+    by linarith [h2.2], by linarith [h3.1], by linarith [h3.2]⟩
+
+private lemma grid_cube_coordinate_diff (h : ℝ) (k : ℤ × ℤ × ℤ)
+    (y y' : ℝ × ℝ × ℝ) (hy : y ∈ gridCube h k) (hy' : y' ∈ gridCube h k) :
+    |y.1 - y'.1| ≤ h ∧ |y.2.1 - y'.2.1| ≤ h ∧ |y.2.2 - y'.2.2| ≤ h := by
+  constructor
+  · apply abs_le.mpr
+    constructor <;> nlinarith [hy.1, hy.2.1, hy'.1, hy'.2.1]
+  · constructor
+    · apply abs_le.mpr
+      constructor <;> nlinarith [hy.2.2.1, hy.2.2.2.1, hy'.2.2.1, hy'.2.2.2.1]
+    · apply abs_le.mpr
+      constructor <;> nlinarith [hy.2.2.2.2.1, hy.2.2.2.2.2,
+        hy'.2.2.2.2.1, hy'.2.2.2.2.2]
+
+private lemma grid_axis_card_le (h l r : ℝ) (hh : 0 < h) (hh1 : h ≤ 1) (hlr : l ≤ r) :
+    ((Finset.Icc (⌊l / h⌋ - 1) ⌈r / h⌉).card : ℝ) ≤ (r - l + 4) / h := by
+  have hfl : (⌊l / h⌋ : ℝ) ≤ (⌈r / h⌉ : ℝ) :=
+    (Int.floor_le _).trans ((div_le_div_of_nonneg_right hlr hh.le).trans (Int.le_ceil _))
+  have hflZ : ⌊l / h⌋ ≤ ⌈r / h⌉ := by exact_mod_cast hfl
+  have hcardZ := Int.card_Icc_of_le _ _ (by omega : ⌊l / h⌋ - 1 ≤ ⌈r / h⌉ + 1)
+  have hcardR : ((Finset.Icc (⌊l / h⌋ - 1) ⌈r / h⌉).card : ℝ) =
+      (⌈r / h⌉ : ℝ) + 1 - ((⌊l / h⌋ : ℝ) - 1) := by exact_mod_cast hcardZ
+  have hcardH := congrArg (fun a : ℝ => a * h) hcardR
+  have hf := mul_lt_mul_of_pos_right (Int.lt_floor_add_one (l / h)) hh
+  have hc := mul_lt_mul_of_pos_right (Int.ceil_lt_add_one (r / h)) hh
+  rw [div_mul_cancel₀ l hh.ne'] at hf
+  rw [add_mul, div_mul_cancel₀ r hh.ne', one_mul] at hc
+  apply (le_div_iff₀ hh).2
+  nlinarith
+
+private lemma grid_vertical_index (h b : ℝ) (hh : 0 < h) (k : ℤ)
+    (hk : (k : ℝ) * h ≤ b ∧ b ≤ ((k : ℝ) + 1) * h) :
+    k ∈ Finset.Icc (⌊b / h⌋ - 1) ⌊b / h⌋ := by
+  have hkl : (k : ℝ) ≤ b / h := (le_div_iff₀ hh).2 hk.1
+  have hku : b / h ≤ (k : ℝ) + 1 := (div_le_iff₀ hh).2 hk.2
+  have hkle : k ≤ ⌊b / h⌋ := Int.le_floor.mpr hkl
+  have hfloor : (⌊b / h⌋ : ℝ) ≤ (k : ℝ) + 1 := (Int.floor_le _).trans hku
+  have hfloorZ : ⌊b / h⌋ ≤ k + 1 := by exact_mod_cast hfloor
+  exact Finset.mem_Icc.mpr ⟨by omega, hkle⟩
+
+private lemma grid_breakpoint_cubes_card (h : ℝ) (hh : 0 < h) (hh1 : h ≤ 1)
+    (B : Finset ℝ) :
+    (((gridIndices h).filter fun k =>
+      ∃ b ∈ B, (k.2.2 : ℝ) * h ≤ b ∧ b ≤ ((k.2.2 : ℝ) + 1) * h).card : ℝ) ≤
+      200 * (B.card : ℝ) / h ^ 2 := by
+  classical
+  let A := Finset.Icc (⌊1 / h⌋ - 1) ⌈16 / h⌉
+  let C := Finset.Icc (⌊1 / h⌋ - 1) ⌈2 / h⌉
+  let R := B.biUnion fun b => Finset.Icc (⌊b / h⌋ - 1) ⌊b / h⌋
+  have hR : R.card ≤ 2 * B.card := by
+    calc
+      R.card ≤ ∑ b ∈ B, (Finset.Icc (⌊b / h⌋ - 1) ⌊b / h⌋).card := Finset.card_biUnion_le
+      _ = 2 * B.card := by
+        have htwo (b : ℝ) : (Finset.Icc (⌊b / h⌋ - 1) ⌊b / h⌋).card = 2 := by
+          rw [Int.card_Icc]
+          omega
+        simp only [htwo, Finset.sum_const, smul_eq_mul]
+        ring
+  have hsub : ((gridIndices h).filter fun k =>
+      ∃ b ∈ B, (k.2.2 : ℝ) * h ≤ b ∧ b ≤ ((k.2.2 : ℝ) + 1) * h) ⊆ A ×ˢ (C ×ˢ R) := by
+    intro k hk
+    obtain ⟨hgrid, b, hb, hlo, hhi⟩ := Finset.mem_filter.mp hk
+    have hg := Finset.mem_product.mp hgrid
+    have hg' := Finset.mem_product.mp hg.2
+    apply Finset.mem_product.mpr
+    refine ⟨hg.1, Finset.mem_product.mpr ⟨hg'.1, ?_⟩⟩
+    exact Finset.mem_biUnion.mpr ⟨b, hb, grid_vertical_index h b hh k.2.2 ⟨hlo, hhi⟩⟩
+  have hA : (A.card : ℝ) ≤ 19 / h := by
+    have hd := grid_axis_card_le h 1 16 hh hh1 (by norm_num)
+    norm_num only at hd
+    simpa only [A] using hd
+  have hC : (C.card : ℝ) ≤ 5 / h := by
+    have hd := grid_axis_card_le h 1 2 hh hh1 (by norm_num)
+    norm_num only at hd
+    simpa only [C] using hd
+  have hRreal : (R.card : ℝ) ≤ 2 * (B.card : ℝ) := by exact_mod_cast hR
+  calc
+    _ ≤ ((A ×ˢ (C ×ˢ R)).card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+    _ = (A.card : ℝ) * ((C.card : ℝ) * (R.card : ℝ)) := by
+      simp only [Finset.card_product, Nat.cast_mul]
+    _ ≤ (19 / h) * ((5 / h) * (2 * (B.card : ℝ))) := by gcongr
+    _ = 190 * (B.card : ℝ) / h ^ 2 := by field_simp; ring
+    _ ≤ 200 * (B.card : ℝ) / h ^ 2 := by gcongr <;> norm_num
+
+private lemma reciprocal_variation_bound {a b : ℝ}
+    (ha : (1 / 34 : ℝ) ≤ a) (hb : (1 / 34 : ℝ) ≤ b) :
+    |1 / a - 1 / b| ≤ 1156 * |a - b| := by
+  have ha0 : 0 < a := by linarith
+  have hb0 : 0 < b := by linarith
+  have he : 1 / a - 1 / b = (b - a) / (a * b) := by field_simp <;> ring
+  have hab : (1 / 1156 : ℝ) ≤ a * b := by nlinarith
+  rw [he, abs_div, abs_of_pos (mul_pos ha0 hb0), abs_sub_comm b a]
+  apply (div_le_iff₀ (mul_pos ha0 hb0)).2
+  have hm := mul_le_mul_of_nonneg_left hab (by positivity : 0 ≤ 1156 * |a - b|)
+  nlinarith
+
+private lemma first_box_face_variation (z : ℤ × ℤ) (Z h u u' r r' c : ℝ)
+    (hZ : 1 ≤ Z) (hh : 0 < h) (hz : |(z.2 : ℝ)| ≤ Z)
+    (hc0 : 0 ≤ c) (hc16 : c ≤ 16) (hr : |r - r'| ≤ h)
+    (htau : (1 / 34 : ℝ) ≤ (z.1 : ℝ) + r * (z.2 : ℝ))
+    (htau' : (1 / 34 : ℝ) ≤ (z.1 : ℝ) + r' * (z.2 : ℝ))
+    (hface : u * ((z.1 : ℝ) + r * (z.2 : ℝ)) = c)
+    (hface' : u' * ((z.1 : ℝ) + r' * (z.2 : ℝ)) = c) :
+    |u - u'| ≤ 18496 * Z * h := by
+  let a := (z.1 : ℝ) + r * (z.2 : ℝ)
+  let b := (z.1 : ℝ) + r' * (z.2 : ℝ)
+  have ha : 0 < a := by dsimp [a]; linarith
+  have hb : 0 < b := by dsimp [b]; linarith
+  have hu : u = c / a := (eq_div_iff ha.ne').mpr hface
+  have hu' : u' = c / b := (eq_div_iff hb.ne').mpr hface'
+  have hab : |a - b| ≤ Z * h := by
+    have he : a - b = (r - r') * (z.2 : ℝ) := by dsimp [a, b]; ring
+    rw [he, abs_mul]
+    exact (mul_le_mul hr hz (abs_nonneg _) hh.le).trans_eq (mul_comm h Z)
+  have hinv := reciprocal_variation_bound htau htau'
+  have hinv' : |1 / a - 1 / b| ≤ 1156 * (Z * h) :=
+    hinv.trans (mul_le_mul_of_nonneg_left hab (by norm_num))
+  have he : u - u' = c * (1 / a - 1 / b) := by rw [hu, hu']; ring
+  rw [he, abs_mul, abs_of_nonneg hc0]
+  have hm := mul_le_mul hc16 hinv' (abs_nonneg _) (by norm_num : (0 : ℝ) ≤ 16)
+  nlinarith
+
+private lemma intFinset_card_le_diameter (A : Finset ℤ) (B : ℝ) (hB : 0 ≤ B)
+    (hdiam : ∀ k ∈ A, ∀ k' ∈ A, |(k : ℝ) - (k' : ℝ)| ≤ B) :
+    (A.card : ℝ) ≤ 2 * B + 3 := by
+  classical
+  by_cases hA : A.Nonempty
+  · obtain ⟨k₀, hk₀⟩ := hA
+    have hceilR : (0 : ℝ) ≤ (⌈B⌉ : ℝ) := hB.trans (Int.le_ceil B)
+    have hceilZ : 0 ≤ ⌈B⌉ := by exact_mod_cast hceilR
+    have hsub : A ⊆ Finset.Icc (k₀ - ⌈B⌉) (k₀ + ⌈B⌉) := by
+      intro k hk
+      have hd := abs_le.mp (hdiam k hk k₀ hk₀)
+      have hc : B ≤ (⌈B⌉ : ℝ) := Int.le_ceil B
+      have hlo : (k₀ : ℝ) - (⌈B⌉ : ℝ) ≤ (k : ℝ) := by linarith [hd.1]
+      have hhi : (k : ℝ) ≤ (k₀ : ℝ) + (⌈B⌉ : ℝ) := by linarith [hd.2]
+      exact Finset.mem_Icc.mpr ⟨by exact_mod_cast hlo, by exact_mod_cast hhi⟩
+    have hcardZ := Int.card_Icc_of_le _ _ (by omega : k₀ - ⌈B⌉ ≤ k₀ + ⌈B⌉ + 1)
+    have hcardR : ((Finset.Icc (k₀ - ⌈B⌉) (k₀ + ⌈B⌉)).card : ℝ) =
+        ((k₀ : ℝ) + (⌈B⌉ : ℝ)) + 1 - ((k₀ : ℝ) - (⌈B⌉ : ℝ)) := by
+      exact_mod_cast hcardZ
+    have hcard : (A.card : ℝ) ≤ ((Finset.Icc (k₀ - ⌈B⌉) (k₀ + ⌈B⌉)).card : ℝ) := by
+      exact_mod_cast Finset.card_le_card hsub
+    rw [hcardR] at hcard
+    linarith [Int.ceil_lt_add_one B]
+  · have hAz : A = ∅ := Finset.not_nonempty_iff_eq_empty.mp hA
+    simp only [hAz, Finset.card_empty, Nat.cast_zero]
+    linarith
+
+private lemma card_product_filter_sum {α β : Type*} [DecidableEq α] [DecidableEq β]
+    (A : Finset α) (B : Finset β) (P : α → β → Prop) [DecidablePred (fun p : α × β => P p.1 p.2)]
+    [∀ b, DecidablePred (fun a => P a b)] :
+    ((A ×ˢ B).filter (fun p => P p.1 p.2)).card =
+      ∑ b ∈ B, (A.filter (fun a => P a b)).card := by
+  simp only [Finset.card_eq_sum_ones, Finset.sum_filter, Finset.sum_product]
+  exact Finset.sum_comm
+
+private lemma card_product_filter_le {α β : Type*} [DecidableEq α] [DecidableEq β]
+    (A : Finset α) (B : Finset β) (P : α → β → Prop) [DecidablePred (fun p : α × β => P p.1 p.2)]
+    [∀ b, DecidablePred (fun a => P a b)] (C : ℝ)
+    (hC : ∀ b ∈ B, ((A.filter (fun a => P a b)).card : ℝ) ≤ C) :
+    (((A ×ˢ B).filter (fun p => P p.1 p.2)).card : ℝ) ≤ (B.card : ℝ) * C := by
+  rw [card_product_filter_sum]
+  push_cast
+  calc
+    _ ≤ ∑ b ∈ B, C := Finset.sum_le_sum hC
+    _ = (B.card : ℝ) * C := by simp
+
+private lemma grid_first_face_card (h Z : ℝ) (hh : 0 < h) (hh1 : h ≤ 1) (hZ : 1 ≤ Z)
+    (z : ℤ × ℤ) (hz : |(z.2 : ℝ)| ≤ Z) (c : ℝ) (hc0 : 0 ≤ c) (hc16 : c ≤ 16) :
+    (((gridIndices h).filter fun k => ∃ y ∈ gridCube h k,
+      (1 / 34 : ℝ) ≤ (z.1 : ℝ) + y.2.2 * (z.2 : ℝ) ∧
+        y.1 * ((z.1 : ℝ) + y.2.2 * (z.2 : ℝ)) = c).card : ℝ) ≤
+      1000000 * (Z + 1) / h ^ 2 := by
+  classical
+  let A := Finset.Icc (⌊1 / h⌋ - 1) ⌈16 / h⌉
+  let V := Finset.Icc (⌊1 / h⌋ - 1) ⌈2 / h⌉
+  let R := Finset.Icc (-1) ⌈1 / h⌉
+  let P : ℤ → ℤ × ℤ → Prop := fun a q => ∃ y ∈ gridCube h (a, q),
+    (1 / 34 : ℝ) ≤ (z.1 : ℝ) + y.2.2 * (z.2 : ℝ) ∧
+      y.1 * ((z.1 : ℝ) + y.2.2 * (z.2 : ℝ)) = c
+  have hfiber (q : ℤ × ℤ) : ((A.filter (fun a => P a q)).card : ℝ) ≤ 36992 * Z + 5 := by
+    have hdiam : ∀ k ∈ A.filter (fun a => P a q),
+        ∀ k' ∈ A.filter (fun a => P a q),
+          |(k : ℝ) - (k' : ℝ)| ≤ 18496 * Z + 1 := by
+      intro k hk k' hk'
+      obtain ⟨_, y, hy, htau, hface⟩ := Finset.mem_filter.mp hk
+      obtain ⟨_, y', hy', htau', hface'⟩ := Finset.mem_filter.mp hk'
+      have hrdiff : |y.2.2 - y'.2.2| ≤ h := by
+        apply abs_le.mpr
+        constructor <;> nlinarith [hy.2.2.2.2.1, hy.2.2.2.2.2,
+          hy'.2.2.2.2.1, hy'.2.2.2.2.2]
+      have hudiff := first_box_face_variation z Z h y.1 y'.1 y.2.2 y'.2.2 c
+        hZ hh hz hc0 hc16 hrdiff htau htau' hface hface'
+      have hdiff := abs_le.mp hudiff
+      apply (mul_le_mul_iff_left₀ hh).mp
+      have he : |(k : ℝ) - (k' : ℝ)| * h = |((k : ℝ) - (k' : ℝ)) * h| := by
+        rw [abs_mul, abs_of_pos hh]
+      rw [he, sub_mul]
+      apply abs_le.mpr
+      constructor <;> nlinarith [hy.1, hy.2.1, hy'.1, hy'.2.1, hdiff.1, hdiff.2]
+    have hc := intFinset_card_le_diameter (A.filter (fun a => P a q))
+      (18496 * Z + 1) (by linarith) hdiam
+    linarith
+  have hVR : ((V ×ˢ R).card : ℝ) ≤ 25 / h ^ 2 := by
+    have hV : (V.card : ℝ) ≤ 5 / h := by
+      have hd := grid_axis_card_le h 1 2 hh hh1 (by norm_num)
+      norm_num only at hd
+      simpa only [V] using hd
+    have hR : (R.card : ℝ) ≤ 5 / h := by
+      have hd := grid_axis_card_le h 0 1 hh hh1 (by norm_num)
+      norm_num only at hd
+      simpa [R] using hd
+    calc
+      _ = (V.card : ℝ) * (R.card : ℝ) := by simp only [Finset.card_product, Nat.cast_mul]
+      _ ≤ (5 / h) * (5 / h) := by gcongr
+      _ = _ := by field_simp; ring
+  have hcard := card_product_filter_le A (V ×ˢ R) P (36992 * Z + 5)
+    (fun q hq => hfiber q)
+  change (((A ×ˢ (V ×ˢ R)).filter (fun k => P k.1 k.2)).card : ℝ) ≤ _
+  calc
+    _ ≤ ((V ×ˢ R).card : ℝ) * (36992 * Z + 5) := hcard
+    _ ≤ (25 / h ^ 2) * (36992 * Z + 5) := by gcongr
+    _ ≤ 1000000 * (Z + 1) / h ^ 2 := by
+      apply (le_div_iff₀ (sq_pos_of_pos hh)).2
+      have hcancel : ((25 / h ^ 2) * (36992 * Z + 5)) * h ^ 2 =
+          25 * (36992 * Z + 5) := by field_simp [hh.ne'] <;> ring
+      rw [hcancel]
+      nlinarith
+
+private lemma reciprocal_variation_bound68 {a b : ℝ}
+    (ha : (1 / 68 : ℝ) ≤ a) (hb : (1 / 68 : ℝ) ≤ b) :
+    |1 / a - 1 / b| ≤ 4624 * |a - b| := by
+  have ha0 : 0 < a := by linarith
+  have hb0 : 0 < b := by linarith
+  have he : 1 / a - 1 / b = (b - a) / (a * b) := by field_simp <;> ring
+  have hab : (1 / 4624 : ℝ) ≤ a * b := by nlinarith
+  rw [he, abs_div, abs_of_pos (mul_pos ha0 hb0), abs_sub_comm b a]
+  apply (div_le_iff₀ (mul_pos ha0 hb0)).2
+  have hm := mul_le_mul_of_nonneg_left hab (by positivity : 0 ≤ 4624 * |a - b|)
+  nlinarith
+
+private lemma second_box_face_variation (z : ℤ × ℤ) (Z h E u u' v v' r r' c : ℝ)
+    (hZ : 1 ≤ Z) (hh : 0 < h) (hz : |(z.2 : ℝ)| ≤ Z)
+    (hE0 : 0 ≤ E) (hE1 : E ≤ 1) (hc0 : 0 ≤ c) (hc2 : c ≤ 2)
+    (hu : (1 / 2 : ℝ) ≤ u) (hu17 : u ≤ 17) (hu' : (1 / 2 : ℝ) ≤ u')
+    (hudiff : |u - u'| ≤ h) (hr : |r - r'| ≤ h)
+    (htau : (1 / 34 : ℝ) ≤ (z.1 : ℝ) + r * (z.2 : ℝ))
+    (htau' : (1 / 34 : ℝ) ≤ (z.1 : ℝ) + r' * (z.2 : ℝ))
+    (htau34' : (z.1 : ℝ) + r' * (z.2 : ℝ) ≤ 34)
+    (hface : v * ((z.1 : ℝ) + r * (z.2 : ℝ)) + (z.2 : ℝ) * E / u = c)
+    (hface' : v' * ((z.1 : ℝ) + r' * (z.2 : ℝ)) + (z.2 : ℝ) * E / u' = c) :
+    |v - v'| ≤ 1000000 * (Z + 1) ^ 2 * h := by
+  let a := (z.1 : ℝ) + r * (z.2 : ℝ)
+  let b := (z.1 : ℝ) + r' * (z.2 : ℝ)
+  have ha : 0 < a := by dsimp [a]; linarith
+  have hb : 0 < b := by dsimp [b]; linarith
+  have hu0 : 0 < u := by linarith
+  have hu0' : 0 < u' := by linarith
+  have hprod : (1 / 68 : ℝ) ≤ u * a := by nlinarith
+  have hprod' : (1 / 68 : ℝ) ≤ u' * b := by nlinarith
+  have hab : |a - b| ≤ Z * h := by
+    have he : a - b = (r - r') * (z.2 : ℝ) := by dsimp [a, b]; ring
+    rw [he, abs_mul]
+    exact (mul_le_mul hr hz (abs_nonneg _) hh.le).trans_eq (mul_comm h Z)
+  have hdenvar : |u * a - u' * b| ≤ (17 * Z + 34) * h := by
+    have he : u * a - u' * b = u * (a - b) + (u - u') * b := by ring
+    rw [he]
+    calc
+      _ ≤ |u * (a - b)| + |(u - u') * b| := abs_add_le _ _
+      _ = u * |a - b| + |u - u'| * b := by
+        rw [abs_mul, abs_mul, abs_of_pos hu0, abs_of_pos hb]
+      _ ≤ 17 * (Z * h) + h * 34 := by
+        exact add_le_add (mul_le_mul hu17 hab (abs_nonneg _) (by norm_num))
+          (mul_le_mul hudiff htau34' hb.le hh.le)
+      _ = _ := by ring
+  have hinv1 : |1 / a - 1 / b| ≤ 1156 * (Z * h) :=
+    (reciprocal_variation_bound htau htau').trans
+      (mul_le_mul_of_nonneg_left hab (by norm_num))
+  have hinv2 : |1 / (u * a) - 1 / (u' * b)| ≤ 4624 * ((17 * Z + 34) * h) :=
+    (reciprocal_variation_bound68 hprod hprod').trans
+      (mul_le_mul_of_nonneg_left hdenvar (by norm_num))
+  have hv : v = c / a - (z.2 : ℝ) * E / (u * a) := by
+    calc
+      v = (c - (z.2 : ℝ) * E / u) / a := (eq_div_iff ha.ne').mpr (by linarith [hface])
+      _ = _ := by field_simp [hu0.ne', ha.ne'] <;> ring
+  have hv' : v' = c / b - (z.2 : ℝ) * E / (u' * b) := by
+    calc
+      v' = (c - (z.2 : ℝ) * E / u') / b := (eq_div_iff hb.ne').mpr (by linarith [hface'])
+      _ = _ := by field_simp [hu0'.ne', hb.ne'] <;> ring
+  have he : v - v' = c * (1 / a - 1 / b) -
+      ((z.2 : ℝ) * E) * (1 / (u * a) - 1 / (u' * b)) := by rw [hv, hv']; ring
+  have hEabs : |(z.2 : ℝ) * E| ≤ Z := by
+    rw [abs_mul, abs_of_nonneg hE0]
+    have hh' := mul_le_mul hz hE1 hE0 (by linarith : 0 ≤ Z)
+    simpa using hh'
+  rw [he]
+  calc
+    _ ≤ |c * (1 / a - 1 / b)| + |((z.2 : ℝ) * E) * (1 / (u * a) - 1 / (u' * b))| := by
+      simpa using abs_sub_le (c * (1 / a - 1 / b)) 0
+        (((z.2 : ℝ) * E) * (1 / (u * a) - 1 / (u' * b)))
+    _ = c * |1 / a - 1 / b| + |(z.2 : ℝ) * E| * |1 / (u * a) - 1 / (u' * b)| := by
+      rw [abs_mul, abs_mul, abs_of_nonneg hc0]
+    _ ≤ 2 * (1156 * (Z * h)) + Z * (4624 * ((17 * Z + 34) * h)) :=
+      add_le_add (mul_le_mul hc2 hinv1 (abs_nonneg _) (by norm_num))
+        (mul_le_mul hEabs hinv2 (abs_nonneg _) (by linarith))
+    _ ≤ 1000000 * (Z + 1) ^ 2 * h := by
+      have hbnd : 2 * (1156 * Z) + Z * (4624 * (17 * Z + 34)) ≤
+          1000000 * (Z + 1) ^ 2 := by nlinarith [sq_nonneg Z]
+      nlinarith [mul_le_mul_of_nonneg_right hbnd hh.le]
+
+private lemma grid_second_face_card (h Z E : ℝ) (hh : 0 < h) (hh1 : h ≤ 1) (hZ : 1 ≤ Z)
+    (z : ℤ × ℤ) (hz : |(z.2 : ℝ)| ≤ Z) (hE0 : 0 ≤ E) (hE1 : E ≤ 1)
+    (c : ℝ) (hc0 : 0 ≤ c) (hc2 : c ≤ 2) :
+    (((gridIndices h).filter fun k => ∃ y ∈ gridCube h k,
+      ((1 / 2 : ℝ) ≤ y.1 ∧ y.1 ≤ 17) ∧
+      ((1 / 34 : ℝ) ≤ (z.1 : ℝ) + y.2.2 * (z.2 : ℝ) ∧
+        (z.1 : ℝ) + y.2.2 * (z.2 : ℝ) ≤ 34) ∧
+      y.2.1 * ((z.1 : ℝ) + y.2.2 * (z.2 : ℝ)) + (z.2 : ℝ) * E / y.1 = c).card : ℝ) ≤
+      200000000 * (Z + 1) ^ 2 / h ^ 2 := by
+  classical
+  let A := Finset.Icc (⌊1 / h⌋ - 1) ⌈16 / h⌉
+  let V := Finset.Icc (⌊1 / h⌋ - 1) ⌈2 / h⌉
+  let R := Finset.Icc (-1) ⌈1 / h⌉
+  let P : ℤ → ℤ × ℤ → Prop := fun v q => ∃ y ∈ gridCube h (q.1, v, q.2),
+    ((1 / 2 : ℝ) ≤ y.1 ∧ y.1 ≤ 17) ∧
+      ((1 / 34 : ℝ) ≤ (z.1 : ℝ) + y.2.2 * (z.2 : ℝ) ∧
+        (z.1 : ℝ) + y.2.2 * (z.2 : ℝ) ≤ 34) ∧
+      y.2.1 * ((z.1 : ℝ) + y.2.2 * (z.2 : ℝ)) + (z.2 : ℝ) * E / y.1 = c
+  have hfiber (q : ℤ × ℤ) : ((V.filter (fun v => P v q)).card : ℝ) ≤
+      2000000 * (Z + 1) ^ 2 + 5 := by
+    have hdiam : ∀ k ∈ V.filter (fun v => P v q), ∀ k' ∈ V.filter (fun v => P v q),
+        |(k : ℝ) - (k' : ℝ)| ≤ 1000000 * (Z + 1) ^ 2 + 1 := by
+      intro k hk k' hk'
+      obtain ⟨_, y, hy, hu, htau, hface⟩ := Finset.mem_filter.mp hk
+      obtain ⟨_, y', hy', hu', htau', hface'⟩ := Finset.mem_filter.mp hk'
+      have hudiff : |y.1 - y'.1| ≤ h := by
+        apply abs_le.mpr
+        constructor <;> nlinarith [hy.1, hy.2.1, hy'.1, hy'.2.1]
+      have hrdiff : |y.2.2 - y'.2.2| ≤ h := by
+        apply abs_le.mpr
+        constructor <;> nlinarith [hy.2.2.2.2.1, hy.2.2.2.2.2,
+          hy'.2.2.2.2.1, hy'.2.2.2.2.2]
+      have hvdiff := second_box_face_variation z Z h E y.1 y'.1 y.2.1 y'.2.1 y.2.2 y'.2.2 c
+        hZ hh hz hE0 hE1 hc0 hc2 hu.1 hu.2 hu'.1 hudiff hrdiff
+        htau.1 htau'.1 htau'.2 hface hface'
+      have hdiff := abs_le.mp hvdiff
+      apply (mul_le_mul_iff_left₀ hh).mp
+      have he : |(k : ℝ) - (k' : ℝ)| * h = |((k : ℝ) - (k' : ℝ)) * h| := by
+        rw [abs_mul, abs_of_pos hh]
+      rw [he, sub_mul]
+      apply abs_le.mpr
+      constructor <;> nlinarith [hy.2.2.1, hy.2.2.2.1, hy'.2.2.1, hy'.2.2.2.1,
+        hdiff.1, hdiff.2]
+    have hc := intFinset_card_le_diameter (V.filter (fun v => P v q))
+      (1000000 * (Z + 1) ^ 2 + 1) (by positivity) hdiam
+    linarith
+  have hAR : ((A ×ˢ R).card : ℝ) ≤ 95 / h ^ 2 := by
+    have hA : (A.card : ℝ) ≤ 19 / h := by
+      have hd := grid_axis_card_le h 1 16 hh hh1 (by norm_num)
+      norm_num only at hd
+      simpa only [A] using hd
+    have hR : (R.card : ℝ) ≤ 5 / h := by
+      have hd := grid_axis_card_le h 0 1 hh hh1 (by norm_num)
+      norm_num only at hd
+      simpa [R] using hd
+    calc
+      _ = (A.card : ℝ) * (R.card : ℝ) := by simp only [Finset.card_product, Nat.cast_mul]
+      _ ≤ (19 / h) * (5 / h) := by gcongr
+      _ = _ := by field_simp <;> ring
+  have he : ((A ×ˢ (V ×ˢ R)).filter (fun k => P k.2.1 (k.1, k.2.2))).card =
+      ((V ×ˢ (A ×ˢ R)).filter (fun k => P k.1 k.2)).card := by
+    simp only [Finset.card_eq_sum_ones, Finset.sum_filter, Finset.sum_product]
+    exact Finset.sum_comm
+  have hcard := card_product_filter_le V (A ×ˢ R) P (2000000 * (Z + 1) ^ 2 + 5)
+    (fun q hq => hfiber q)
+  change (((A ×ˢ (V ×ˢ R)).filter (fun k => P k.2.1 (k.1, k.2.2))).card : ℝ) ≤ _
+  rw [he]
+  calc
+    _ ≤ ((A ×ˢ R).card : ℝ) * (2000000 * (Z + 1) ^ 2 + 5) := hcard
+    _ ≤ (95 / h ^ 2) * (2000000 * (Z + 1) ^ 2 + 5) := by gcongr
+    _ ≤ 200000000 * (Z + 1) ^ 2 / h ^ 2 := by
+      apply (le_div_iff₀ (sq_pos_of_pos hh)).2
+      have hcancel : ((95 / h ^ 2) * (2000000 * (Z + 1) ^ 2 + 5)) * h ^ 2 =
+          95 * (2000000 * (Z + 1) ^ 2 + 5) := by field_simp [hh.ne'] <;> ring
+      rw [hcancel]
+      nlinarith [sq_nonneg Z]
+
+private lemma gridCube_preconnected (h : ℝ) (k : ℤ × ℤ × ℤ) : IsPreconnected (gridCube h k) := by
+  have he : gridCube h k =
+      Set.Icc ((k.1 : ℝ) * h) (((k.1 : ℝ) + 1) * h) ×ˢ
+        (Set.Icc ((k.2.1 : ℝ) * h) (((k.2.1 : ℝ) + 1) * h) ×ˢ
+          Set.Icc ((k.2.2 : ℝ) * h) (((k.2.2 : ℝ) + 1) * h)) := by
+    ext y
+    simp only [gridCube, Set.mem_setOf_eq, Set.mem_prod, Set.mem_Icc, and_assoc]
+  rw [he]
+  exact isPreconnected_Icc.prod (isPreconnected_Icc.prod isPreconnected_Icc)
+
+private lemma arch_boundary_card_of_breakpoints {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (hUV : 1 ≤ S.U * S.V)
+    (s : EnvPoint S.x K) (Z h : ℝ) (hZ : 1 ≤ Z) (hh : 0 < h) (hhsmall : h ≤ 1 / 8)
+    (hz : |(s.1.2 : ℝ)| ≤ Z) (hZh : Z * h ≤ 1 / 68) (B : Finset ℝ)
+    (hB : ∀ r r' : ℝ, -1 ≤ r → r ≤ r' → r' ≤ 2 →
+      (∀ v ∈ Set.Icc r r', (1 / 34 : ℝ) ≤ (v * (s.1.2 : ℝ) + s.1.1) ∧
+        (v * (s.1.2 : ℝ) + s.1.1) ≤ 34 ∧ v ∉ B) →
+      (envGood F S ⟨1, 1, r⟩ s ↔ envGood F S ⟨1, 1, r'⟩ s)) :
+    (((gridIndices h).filter fun k => IsNonconstantOn
+      (fun y => envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s.1 ∧
+        envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s) (gridCube h k)).card : ℝ) ≤
+      (500000000 * (Z + 1) ^ 2 + 200 * (B.card : ℝ)) / h ^ 2 := by
+  classical
+  let tau : ℝ × ℝ × ℝ → ℝ := fun y => (s.1.1 : ℝ) + y.2.2 * (s.1.2 : ℝ)
+  let E := 1 / (S.U * S.V)
+  let f : ℝ × ℝ × ℝ → ℝ := fun y => y.1 * tau y
+  let g : ℝ × ℝ × ℝ → ℝ := fun y => y.2.1 * tau y + (s.1.2 : ℝ) * E / y.1
+  let A : ℝ → Finset (ℤ × ℤ × ℤ) := fun c => (gridIndices h).filter fun k =>
+    ∃ y ∈ gridCube h k, (1 / 34 : ℝ) ≤ tau y ∧ f y = c
+  let C : ℝ → Finset (ℤ × ℤ × ℤ) := fun c => (gridIndices h).filter fun k =>
+    ∃ y ∈ gridCube h k, ((1 / 2 : ℝ) ≤ y.1 ∧ y.1 ≤ 17) ∧
+      ((1 / 34 : ℝ) ≤ tau y ∧ tau y ≤ 34) ∧ g y = c
+  let G := (gridIndices h).filter fun k =>
+    ∃ b ∈ B, (k.2.2 : ℝ) * h ≤ b ∧ b ≤ ((k.2.2 : ℝ) + 1) * h
+  let T := (gridIndices h).filter fun k => IsNonconstantOn
+    (fun y => envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s.1 ∧
+      envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s) (gridCube h k)
+  have hfrac (u : ℝ) (hu : 0 < u) : (s.1.2 : ℝ) / (S.U * S.V * u) =
+      (s.1.2 : ℝ) * E / u := by
+    dsimp [E]
+    field_simp [hU.ne', hV.ne', hu.ne'] <;> ring
+  have hnorm (y : ℝ × ℝ × ℝ) (hy : (1 / 2 : ℝ) ≤ y.1) :
+      envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s.1 ↔
+        1 ≤ f y ∧ f y ≤ 16 ∧ 1 ≤ g y ∧ g y ≤ 2 := by
+    have hu : 0 < y.1 := by linarith
+    rw [envBox_normalized S hU hV y.1 y.2.1 y.2.2 hu s.1, hfrac y.1 hu]
+  have hsub : T ⊆ A 1 ∪ A 16 ∪ C 1 ∪ C 2 ∪ G := by
+    intro k hk
+    obtain ⟨hkgrid, y₀, hy₀, y₁, hy₁, hygood, hybad⟩ := Finset.mem_filter.mp hk
+    have hd₀ := grid_cube_domain_bounds h hh hhsmall k hkgrid y₀ hy₀
+    have hd₁ := grid_cube_domain_bounds h hh hhsmall k hkgrid y₁ hy₁
+    have hb₀ := (hnorm y₀ hd₀.1).1 hygood.1
+    have htau₀pos : 0 < tau y₀ := by
+      by_contra hn
+      have hh' := mul_nonpos_of_nonneg_of_nonpos (by linarith : 0 ≤ y₀.1) (le_of_not_gt hn)
+      dsimp [f] at hb₀
+      linarith [hb₀.1]
+    have htau₀lo : (1 / 17 : ℝ) ≤ tau y₀ := by
+      have hm := mul_le_mul_of_nonneg_right hd₀.2.1 htau₀pos.le
+      dsimp [f] at hb₀
+      nlinarith [hb₀.1]
+    have htau₀hi : tau y₀ ≤ 32 := by
+      have hm := mul_le_mul_of_nonneg_right hd₀.1 htau₀pos.le
+      dsimp [f] at hb₀
+      nlinarith [hb₀.2.1]
+    have hsafe (y : ℝ × ℝ × ℝ) (hy : y ∈ gridCube h k) :
+        (1 / 34 : ℝ) ≤ tau y ∧ tau y ≤ 34 := by
+      have hr := (grid_cube_coordinate_diff h k y y₀ hy hy₀).2.2
+      have he : tau y - tau y₀ = (y.2.2 - y₀.2.2) * (s.1.2 : ℝ) := by dsimp [tau]; ring
+      have hdiff : |tau y - tau y₀| ≤ Z * h := by
+        rw [he, abs_mul]
+        exact (mul_le_mul hr hz (abs_nonneg _) hh.le).trans_eq (mul_comm h Z)
+      have hd := abs_le.mp hdiff
+      constructor <;> nlinarith [hd.1, hd.2]
+    by_cases hG : ∃ b ∈ B, (k.2.2 : ℝ) * h ≤ b ∧ b ≤ ((k.2.2 : ℝ) + 1) * h
+    · have hkG : k ∈ G := Finset.mem_filter.mpr ⟨hkgrid, hG⟩
+      simp only [Finset.mem_union]
+      exact Or.inr hkG
+    · have hgoodsafe (r r' : ℝ) (hr : r ∈ Set.Icc ((k.2.2 : ℝ) * h) (((k.2.2 : ℝ) + 1) * h))
+          (hr' : r' ∈ Set.Icc ((k.2.2 : ℝ) * h) (((k.2.2 : ℝ) + 1) * h))
+          (hrr : r ≤ r') :
+          envGood F S ⟨1, 1, r⟩ s ↔ envGood F S ⟨1, 1, r'⟩ s := by
+        have hy (v : ℝ) (hv : v ∈ Set.Icc r r') : (y₀.1, y₀.2.1, v) ∈ gridCube h k :=
+          ⟨hy₀.1, hy₀.2.1, hy₀.2.2.1, hy₀.2.2.2.1,
+            hr.1.trans hv.1, hv.2.trans hr'.2⟩
+        have hrD := grid_cube_domain_bounds h hh hhsmall k hkgrid
+          (y₀.1, y₀.2.1, r) ⟨hy₀.1, hy₀.2.1, hy₀.2.2.1, hy₀.2.2.2.1, hr.1, hr.2⟩
+        have hrD' := grid_cube_domain_bounds h hh hhsmall k hkgrid
+          (y₀.1, y₀.2.1, r') ⟨hy₀.1, hy₀.2.1, hy₀.2.2.1, hy₀.2.2.2.1, hr'.1, hr'.2⟩
+        apply hB r r' hrD.2.2.2.2.1 hrr hrD'.2.2.2.2.2
+        intro v hv
+        have hst := hsafe (y₀.1, y₀.2.1, v) (hy v hv)
+        refine ⟨by simpa [tau, add_comm] using hst.1,
+          by simpa [tau, add_comm] using hst.2, ?_⟩
+        intro hvB
+        exact hG ⟨v, hvB, hr.1.trans hv.1, hv.2.trans hr'.2⟩
+      have hg₁ : envGood F S ⟨S.U * y₁.1, S.V * y₁.2.1, y₁.2.2⟩ s := by
+        have hg₀ := (envGood_normalized F S y₀.1 y₀.2.1 y₀.2.2 s).1 hygood.2
+        have hr₀ : y₀.2.2 ∈ Set.Icc ((k.2.2 : ℝ) * h) (((k.2.2 : ℝ) + 1) * h) :=
+          ⟨hy₀.2.2.2.2.1, hy₀.2.2.2.2.2⟩
+        have hr₁ : y₁.2.2 ∈ Set.Icc ((k.2.2 : ℝ) * h) (((k.2.2 : ℝ) + 1) * h) :=
+          ⟨hy₁.2.2.2.2.1, hy₁.2.2.2.2.2⟩
+        apply (envGood_normalized F S y₁.1 y₁.2.1 y₁.2.2 s).2
+        rcases le_total y₀.2.2 y₁.2.2 with hrr | hrr
+        · exact (hgoodsafe _ _ hr₀ hr₁ hrr).1 hg₀
+        · exact (hgoodsafe _ _ hr₁ hr₀ hrr).2 hg₀
+      have hb₁ : ¬ (1 ≤ f y₁ ∧ f y₁ ≤ 16 ∧ 1 ≤ g y₁ ∧ g y₁ ≤ 2) := by
+        intro hb
+        exact hybad ⟨(hnorm y₁ hd₁.1).2 hb, hg₁⟩
+      have hcontf : ContinuousOn f (gridCube h k) := by
+        exact (continuous_fst.mul
+          (continuous_const.add ((continuous_snd.comp continuous_snd).mul continuous_const))).continuousOn
+      have hcontg : ContinuousOn g (gridCube h k) := by
+        apply (((continuous_fst.comp continuous_snd).mul
+          (continuous_const.add ((continuous_snd.comp continuous_snd).mul continuous_const))).continuousOn).add
+        apply continuous_const.continuousOn.div continuous_fst.continuousOn
+        intro y hy
+        have hd := grid_cube_domain_bounds h hh hhsmall k hkgrid y hy
+        linarith [hd.1]
+      have hconn := gridCube_preconnected h k
+      have hcases : f y₁ < 1 ∨ 16 < f y₁ ∨ g y₁ < 1 ∨ 2 < g y₁ := by
+        by_cases h1 : 1 ≤ f y₁
+        · by_cases h2 : f y₁ ≤ 16
+          · by_cases h3 : 1 ≤ g y₁
+            · have h4 : ¬ g y₁ ≤ 2 := fun h => hb₁ ⟨h1, h2, h3, h⟩
+              exact Or.inr (Or.inr (Or.inr (lt_of_not_ge h4)))
+            · exact Or.inr (Or.inr (Or.inl (lt_of_not_ge h3)))
+          · exact Or.inr (Or.inl (lt_of_not_ge h2))
+        · exact Or.inl (lt_of_not_ge h1)
+      rcases hcases with hb₁ | hb₁ | hb₁ | hb₁
+      · obtain ⟨y, hy, he⟩ := hconn.intermediate_value hy₁ hy₀ hcontf ⟨hb₁.le, hb₀.1⟩
+        have hm : k ∈ A 1 := Finset.mem_filter.mpr ⟨hkgrid, y, hy, (hsafe y hy).1, he⟩
+        simp only [Finset.mem_union]
+        exact Or.inl (Or.inl (Or.inl (Or.inl hm)))
+      · obtain ⟨y, hy, he⟩ := hconn.intermediate_value hy₀ hy₁ hcontf ⟨hb₀.2.1, hb₁.le⟩
+        have hm : k ∈ A 16 := Finset.mem_filter.mpr ⟨hkgrid, y, hy, (hsafe y hy).1, he⟩
+        simp only [Finset.mem_union]
+        exact Or.inl (Or.inl (Or.inl (Or.inr hm)))
+      · obtain ⟨y, hy, he⟩ := hconn.intermediate_value hy₁ hy₀ hcontg ⟨hb₁.le, hb₀.2.2.1⟩
+        have hd := grid_cube_domain_bounds h hh hhsmall k hkgrid y hy
+        have hm : k ∈ C 1 := Finset.mem_filter.mpr
+          ⟨hkgrid, y, hy, ⟨hd.1, hd.2.1⟩, hsafe y hy, he⟩
+        simp only [Finset.mem_union]
+        exact Or.inl (Or.inl (Or.inr hm))
+      · obtain ⟨y, hy, he⟩ := hconn.intermediate_value hy₀ hy₁ hcontg ⟨hb₀.2.2.2, hb₁.le⟩
+        have hd := grid_cube_domain_bounds h hh hhsmall k hkgrid y hy
+        have hm : k ∈ C 2 := Finset.mem_filter.mpr
+          ⟨hkgrid, y, hy, ⟨hd.1, hd.2.1⟩, hsafe y hy, he⟩
+        simp only [Finset.mem_union]
+        exact Or.inl (Or.inr hm)
+  have hcard : T.card ≤ (A 1).card + (A 16).card + (C 1).card + (C 2).card + G.card := by
+    have h0 := Finset.card_le_card hsub
+    have h1 := Finset.card_union_le (A 1) (A 16)
+    have h2 := Finset.card_union_le (A 1 ∪ A 16) (C 1)
+    have h3 := Finset.card_union_le (A 1 ∪ A 16 ∪ C 1) (C 2)
+    have h4 := Finset.card_union_le (A 1 ∪ A 16 ∪ C 1 ∪ C 2) G
+    omega
+  have hcardR : (T.card : ℝ) ≤ ((A 1).card : ℝ) + ((A 16).card : ℝ) +
+      ((C 1).card : ℝ) + ((C 2).card : ℝ) + (G.card : ℝ) := by exact_mod_cast hcard
+  have hE0 : 0 ≤ E := by dsimp [E]; positivity
+  have hE1 : E ≤ 1 := by
+    dsimp [E]
+    simpa using one_div_le_one_div_of_le (by norm_num : (0 : ℝ) < 1) hUV
+  have hh1 : h ≤ 1 := by linarith
+  have hA1 := grid_first_face_card h Z hh hh1 hZ s.1 hz 1 (by norm_num) (by norm_num)
+  have hA16 := grid_first_face_card h Z hh hh1 hZ s.1 hz 16 (by norm_num) (by norm_num)
+  have hC1 := grid_second_face_card h Z E hh hh1 hZ s.1 hz hE0 hE1 1 (by norm_num) (by norm_num)
+  have hC2 := grid_second_face_card h Z E hh hh1 hZ s.1 hz hE0 hE1 2 (by norm_num) (by norm_num)
+  have hG := grid_breakpoint_cubes_card h hh hh1 B
+  change (T.card : ℝ) ≤ _
+  change ((A 1).card : ℝ) ≤ _ at hA1
+  change ((A 16).card : ℝ) ≤ _ at hA16
+  change ((C 1).card : ℝ) ≤ _ at hC1
+  change ((C 2).card : ℝ) ≤ _ at hC2
+  change (G.card : ℝ) ≤ _ at hG
+  have hh2 := sq_pos_of_pos hh
+  have ht := mul_le_mul_of_nonneg_right hcardR hh2.le
+  have ha1 := (le_div_iff₀ hh2).1 hA1
+  have ha16 := (le_div_iff₀ hh2).1 hA16
+  have hc1 := (le_div_iff₀ hh2).1 hC1
+  have hc2 := (le_div_iff₀ hh2).1 hC2
+  have hg := (le_div_iff₀ hh2).1 hG
+  apply (le_div_iff₀ hh2).2
+  nlinarith [sq_nonneg Z]
 
 /-- Truncated inclusion–exclusion `Σ_{T' ⊆ T, |T'| ≤ m} (-1)^{|T'|} ∏_{i∈T'} X_i`. -/
 def bonferroniTrunc {ι : Type*} (T : Finset ι) (X : ι → ℝ) (m : ℕ) : ℝ :=
@@ -5552,6 +7831,365 @@ theorem root_budget (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
         Bmass * ((S.N : ℝ) + 1) := hInactive
       _ ≤ Cb * ((S.N : ℝ) + 1) :=
         mul_le_mul_of_nonneg_right hCbMass (by positivity)
+
+private lemma constant_exp_bound (c W : ℝ) (hc : 0 ≤ c) (hW : 1 ≤ W) :
+    c ≤ Real.exp ((c + 1) * W) := by
+  have hm := mul_le_mul_of_nonneg_left hW (by linarith : 0 ≤ c + 1)
+  linarith [Real.add_one_le_exp ((c + 1) * W)]
+
+private lemma sum_exp_bound (a b A B W : ℝ) (hA : 0 ≤ A) (hB : 0 ≤ B) (hW : 1 ≤ W)
+    (ha : a ≤ Real.exp (A * W)) (hb : b ≤ Real.exp (B * W)) :
+    a + b ≤ Real.exp ((A + B + 2) * W) := by
+  have hW0 : 0 ≤ W := by linarith
+  have htopA : Real.exp (A * W) ≤ Real.exp ((A + B) * W) :=
+    Real.exp_le_exp.mpr (by nlinarith)
+  have htopB : Real.exp (B * W) ≤ Real.exp ((A + B) * W) :=
+    Real.exp_le_exp.mpr (by nlinarith)
+  have h2 : (2 : ℝ) ≤ Real.exp (2 * W) := by linarith [Real.add_one_le_exp (2 * W)]
+  calc
+    a + b ≤ 2 * Real.exp ((A + B) * W) := by linarith
+    _ ≤ Real.exp (2 * W) * Real.exp ((A + B) * W) :=
+      mul_le_mul_of_nonneg_right h2 (Real.exp_pos _).le
+    _ = _ := by rw [← Real.exp_add]; congr 1 <;> ring
+
+private lemma ceil_exp_bound (a A W : ℝ) (ha0 : 0 ≤ a) (hA : 0 ≤ A) (hW : 1 ≤ W)
+    (ha : a ≤ Real.exp (A * W)) :
+    (⌈a⌉₊ : ℝ) ≤ Real.exp ((A + 2) * W) := by
+  have hc : (⌈a⌉₊ : ℝ) ≤ a + 1 := (Nat.ceil_lt_add_one ha0).le
+  have hs := sum_exp_bound a 1 A 0 W hA (by norm_num) hW ha (by simp)
+  simpa using hc.trans hs
+
+private lemma eventually_const_rpow_le (C a b : ℝ) (hab : a < b) :
+    ∃ L₀ : ℝ, 1 ≤ L₀ ∧ ∀ L : ℝ, L₀ ≤ L →
+      C * Real.rpow L a ≤ Real.rpow L b := by
+  obtain ⟨B, hB⟩ := Filter.tendsto_atTop_atTop.mp
+    (_root_.tendsto_rpow_atTop (sub_pos.mpr hab)) C
+  refine ⟨max 1 B, le_max_left _ _, ?_⟩
+  intro L hL
+  have hL1 : 1 ≤ L := (le_max_left _ _).trans hL
+  have hLp : 0 < L := by linarith
+  have hpow := hB L ((le_max_right _ _).trans hL)
+  calc
+    C * Real.rpow L a ≤ Real.rpow L (b - a) * Real.rpow L a :=
+      mul_le_mul_of_nonneg_right hpow (Real.rpow_nonneg hLp.le _)
+    _ = Real.rpow L ((b - a) + a) := (Real.rpow_add hLp (b - a) a).symm
+    _ = Real.rpow L b := by congr 1 <;> ring
+
+private lemma arch_parameter_exp_bound (K : ℕ) :
+    ∃ C : ℝ, 0 < C ∧ ∀ L D Y : ℝ, 1 ≤ L → 1 ≤ D → 1 ≤ Y →
+      D ≤ Real.exp (((K + 1 : ℕ) : ℝ) * Real.rpow L (21 / 100 : ℝ)) →
+      Y ≤ Real.exp (((K + 1 : ℕ) : ℝ) * Real.rpow L (1 / 5 : ℝ)) →
+      let Z := Real.exp (Real.rpow L (1 / 2 : ℝ))
+      let Q : ℕ := ⌈max 1 (max (2 * D * Real.rpow Y (1 / 5 : ℝ))
+        (2 * D * Real.exp (4 * (K : ℝ) * Real.rpow L (1 / 5 : ℝ))))⌉₊
+      let T : ℕ := ⌈204 * (Q : ℝ) * (Z + 1) + 101⌉₊
+      500000000 * (Z + 1) ^ 2 +
+        200 * (2 * ((K : ℝ) + 1) * (4 * (Q : ℝ) + 1) * (2 * (T : ℝ) + 1)) ≤
+          Real.exp (C * Real.rpow L (1 / 2 : ℝ)) := by
+  let k : ℝ := (K : ℝ) + 1
+  let CQ₀ := 6 * k + 4
+  let CQ := CQ₀ + 2
+  let CT := CQ + 314
+  let CB := 2 * k + 1 + (CQ + 7) + (CT + 5)
+  let C := 500000000 + CB + 210
+  have hk : 1 ≤ k := by dsimp [k]; linarith [Nat.cast_nonneg (α := ℝ) K]
+  have hCQ₀ : 0 ≤ CQ₀ := by dsimp [CQ₀]; linarith
+  have hCQ : 0 ≤ CQ := by dsimp [CQ]; linarith
+  have hCT : 0 ≤ CT := by dsimp [CT]; linarith
+  have hCB : 0 ≤ CB := by dsimp [CB]; linarith
+  refine ⟨C, by dsimp [C]; linarith, ?_⟩
+  intro L D Y hL hD hY hDupper hYupper
+  dsimp only
+  let W := Real.rpow L (1 / 2 : ℝ)
+  let Z := Real.exp W
+  let q := max 1 (max (2 * D * Real.rpow Y (1 / 5 : ℝ))
+    (2 * D * Real.exp (4 * (K : ℝ) * Real.rpow L (1 / 5 : ℝ))))
+  let Q : ℕ := ⌈q⌉₊
+  let t := 204 * (Q : ℝ) * (Z + 1) + 101
+  let T : ℕ := ⌈t⌉₊
+  change 500000000 * (Z + 1) ^ 2 +
+    200 * (2 * k * (4 * (Q : ℝ) + 1) * (2 * (T : ℝ) + 1)) ≤ Real.exp (C * W)
+  have hW : 1 ≤ W := by
+    simpa [W] using Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (0 : ℝ) ≤ 1 / 2)
+  have hW0 : 0 ≤ W := by linarith
+  have h2 : (2 : ℝ) ≤ Real.exp (2 * W) := by linarith [Real.add_one_le_exp (2 * W)]
+  have hDexp : D ≤ Real.exp (k * W) := by
+    have hp := Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (21 / 100 : ℝ) ≤ 1 / 2)
+    apply hDupper.trans
+    apply Real.exp_le_exp.mpr
+    simpa [k, W] using mul_le_mul_of_nonneg_left hp (by positivity : 0 ≤ ((K + 1 : ℕ) : ℝ))
+  have hYexp : Y ≤ Real.exp (k * W) := by
+    have hp := Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (1 / 5 : ℝ) ≤ 1 / 2)
+    apply hYupper.trans
+    apply Real.exp_le_exp.mpr
+    simpa [k, W] using mul_le_mul_of_nonneg_left hp (by positivity : 0 ≤ ((K + 1 : ℕ) : ℝ))
+  have hYpow : Real.rpow Y (1 / 5 : ℝ) ≤ Y := by
+    simpa using Real.rpow_le_rpow_of_exponent_le hY (by norm_num : (1 / 5 : ℝ) ≤ 1)
+  have htrial : Real.exp (4 * (K : ℝ) * Real.rpow L (1 / 5 : ℝ)) ≤
+      Real.exp ((4 * (K : ℝ)) * W) := by
+    apply Real.exp_le_exp.mpr
+    exact mul_le_mul_of_nonneg_left
+      (Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (1 / 5 : ℝ) ≤ 1 / 2))
+      (by positivity)
+  have h2D : 2 * D ≤ Real.exp (2 * W) * Real.exp (k * W) :=
+    mul_le_mul h2 hDexp (by linarith) (Real.exp_pos _).le
+  have ha1 : 2 * D * Real.rpow Y (1 / 5 : ℝ) ≤ Real.exp (CQ₀ * W) := by
+    calc
+      _ ≤ (Real.exp (2 * W) * Real.exp (k * W)) * Real.exp (k * W) :=
+        mul_le_mul h2D (hYpow.trans hYexp) (Real.rpow_nonneg (by linarith) _)
+          (by positivity)
+      _ = Real.exp ((2 + 2 * k) * W) := by
+        rw [← Real.exp_add, ← Real.exp_add]
+        congr 1 <;> ring
+      _ ≤ _ := Real.exp_le_exp.mpr (by dsimp [CQ₀]; nlinarith)
+  have ha2 : 2 * D * Real.exp (4 * (K : ℝ) * Real.rpow L (1 / 5 : ℝ)) ≤
+      Real.exp (CQ₀ * W) := by
+    calc
+      _ ≤ (Real.exp (2 * W) * Real.exp (k * W)) * Real.exp ((4 * (K : ℝ)) * W) :=
+        mul_le_mul h2D htrial (Real.exp_pos _).le (by positivity)
+      _ = Real.exp ((2 + k + 4 * (K : ℝ)) * W) := by
+        rw [← Real.exp_add, ← Real.exp_add]
+        congr 1 <;> ring
+      _ ≤ _ := Real.exp_le_exp.mpr (by dsimp [CQ₀, k] at *; nlinarith)
+  have hq : q ≤ Real.exp (CQ₀ * W) := by
+    apply max_le
+    · exact Real.one_le_exp (mul_nonneg hCQ₀ hW0)
+    · exact max_le ha1 ha2
+  have hQ : (Q : ℝ) ≤ Real.exp (CQ * W) :=
+    ceil_exp_bound q CQ₀ W (by dsimp [q]; positivity) hCQ₀ hW hq
+  have hZplus : Z + 1 ≤ Real.exp (3 * W) := by
+    have hs := sum_exp_bound Z 1 1 0 W (by norm_num) (by norm_num) hW
+      (by simp [Z]) (by simp)
+    norm_num only at hs
+    exact hs
+  have htterm : 204 * (Q : ℝ) * (Z + 1) ≤ Real.exp ((CQ + 208) * W) := by
+    have h204Q := mul_le_mul (constant_exp_bound 204 W (by norm_num) hW) hQ
+      (Nat.cast_nonneg Q) (Real.exp_pos _).le
+    norm_num only at h204Q
+    calc
+      _ ≤ (Real.exp (205 * W) * Real.exp (CQ * W)) * Real.exp (3 * W) :=
+        mul_le_mul h204Q hZplus (by dsimp [Z]; positivity) (by positivity)
+      _ = _ := by rw [← Real.exp_add, ← Real.exp_add]; congr 1 <;> ring
+  have ht : t ≤ Real.exp ((CQ + 312) * W) := by
+    have h101 := constant_exp_bound 101 W (by norm_num) hW
+    norm_num only at h101
+    have hs := sum_exp_bound _ 101 (CQ + 208) 102 W (by linarith) (by norm_num) hW
+      htterm h101
+    convert hs using 1 <;> (try dsimp only [t]) <;> congr 1 <;> ring
+  have hT : (T : ℝ) ≤ Real.exp (CT * W) := by
+    have hc := ceil_exp_bound t (CQ + 312) W (by dsimp [t, Z]; positivity)
+      (by linarith) hW ht
+    convert hc using 1 <;> simp only [T, CT] <;> congr 1 <;> ring
+  have h4Q : 4 * (Q : ℝ) ≤ Real.exp ((CQ + 5) * W) := by
+    have hc := mul_le_mul (constant_exp_bound 4 W (by norm_num) hW) hQ
+      (Nat.cast_nonneg Q) (Real.exp_pos _).le
+    norm_num only at hc
+    calc
+      _ ≤ Real.exp (5 * W) * Real.exp (CQ * W) := hc
+      _ = _ := by rw [← Real.exp_add]; congr 1 <;> ring
+  have h4Q1 : 4 * (Q : ℝ) + 1 ≤ Real.exp ((CQ + 7) * W) := by
+    have hc := sum_exp_bound _ 1 (CQ + 5) 0 W (by linarith) (by norm_num) hW h4Q (by simp)
+    convert hc using 1 <;> congr 1 <;> ring
+  have h2T : 2 * (T : ℝ) ≤ Real.exp ((CT + 3) * W) := by
+    have hc := mul_le_mul (constant_exp_bound 2 W (by norm_num) hW) hT
+      (Nat.cast_nonneg T) (Real.exp_pos _).le
+    norm_num only at hc
+    calc
+      _ ≤ Real.exp (3 * W) * Real.exp (CT * W) := hc
+      _ = _ := by rw [← Real.exp_add]; congr 1 <;> ring
+  have h2T1 : 2 * (T : ℝ) + 1 ≤ Real.exp ((CT + 5) * W) := by
+    have hc := sum_exp_bound _ 1 (CT + 3) 0 W (by linarith) (by norm_num) hW h2T (by simp)
+    convert hc using 1 <;> congr 1 <;> ring
+  have hBprod : 2 * k * (4 * (Q : ℝ) + 1) * (2 * (T : ℝ) + 1) ≤ Real.exp (CB * W) := by
+    have hc1 := mul_le_mul (constant_exp_bound (2 * k) W (by linarith) hW) h4Q1
+      (by positivity : 0 ≤ 4 * (Q : ℝ) + 1) (Real.exp_pos _).le
+    calc
+      _ ≤ (Real.exp ((2 * k + 1) * W) * Real.exp ((CQ + 7) * W)) * Real.exp ((CT + 5) * W) :=
+        mul_le_mul hc1 h2T1 (by positivity : 0 ≤ 2 * (T : ℝ) + 1) (by positivity)
+      _ = _ := by rw [← Real.exp_add, ← Real.exp_add]; congr 1 <;> dsimp [CB] <;> ring
+  have hZsq : (Z + 1) ^ 2 ≤ Real.exp (6 * W) := by
+    have hp := pow_le_pow_left₀ (by dsimp [Z]; positivity : 0 ≤ Z + 1) hZplus 2
+    calc
+      _ ≤ Real.exp (3 * W) ^ 2 := hp
+      _ = _ := by rw [← Real.exp_nat_mul]; congr 1 <;> norm_num <;> ring
+  have hFirst : 500000000 * (Z + 1) ^ 2 ≤ Real.exp (500000007 * W) := by
+    have hc := mul_le_mul (constant_exp_bound 500000000 W (by norm_num) hW) hZsq
+      (sq_nonneg _) (Real.exp_pos _).le
+    norm_num only at hc
+    calc
+      _ ≤ Real.exp (500000001 * W) * Real.exp (6 * W) := hc
+      _ = _ := by rw [← Real.exp_add]; congr 1 <;> ring
+  have hSecond : 200 * (2 * k * (4 * (Q : ℝ) + 1) * (2 * (T : ℝ) + 1)) ≤
+      Real.exp ((CB + 201) * W) := by
+    have hc := mul_le_mul (constant_exp_bound 200 W (by norm_num) hW) hBprod
+      (by positivity : 0 ≤ 2 * k * (4 * (Q : ℝ) + 1) * (2 * (T : ℝ) + 1)) (Real.exp_pos _).le
+    norm_num only at hc
+    calc
+      _ ≤ Real.exp (201 * W) * Real.exp (CB * W) := hc
+      _ = _ := by rw [← Real.exp_add]; congr 1 <;> ring
+  have hc := sum_exp_bound _ _ 500000007 (CB + 201) W (by norm_num) (by linarith) hW hFirst hSecond
+  convert hc using 1 <;> simp only [C] <;> congr 1 <;> ring
+
+/-- `t2:pd.root-arch-boundary` (new node) — PD 03:680-711.  For one visit with
+`|z₁|,|z₂| ≤ exp(L^{1/2})` (the tube (det:tube) gives `|z| ≪ N d₀ Y = x^{o(1)}`), the
+box-and-good indicator, as a function of `(u/U, v/V, r)`, is nonconstant on at most
+`exp(L^{0.9}) x^{2ε}` cubes of the grid of side `x^{-ε}` (good tests change only at `exp(o(L))`
+values of `r`; box faces have derivatives `exp(o(L))`, bounded below in the transversal variable). -/
+theorem root_arch_boundary (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
+    ∀ (K : ℕ) (F : PDFix K), F.Valid → ∀ ε : ℝ, 0 < ε → ε < 1 →
+      ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
+        ∀ s : EnvPoint S.x K, EnvValid F S s →
+          |(s.1.1 : ℝ)| ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ)) →
+          |(s.1.2 : ℝ)| ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ)) →
+            (((gridIndices (Real.rpow S.x (-ε))).filter fun k =>
+              IsNonconstantOn
+                (fun y => envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s.1 ∧
+                  envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ s)
+                (gridCube (Real.rpow S.x (-ε)) k)).card : ℝ) ≤
+              Real.exp (Real.rpow S.L (9 / 10 : ℝ)) * Real.rpow S.x (2 * ε) := by
+  classical
+  intro K F hF ε hε hε1
+  obtain ⟨C, hC, hParameters⟩ := arch_parameter_exp_bound K
+  obtain ⟨LC, hLC, hCgap⟩ := eventually_const_rpow_le C (1 / 2) (9 / 10) (by norm_num)
+  obtain ⟨LE, hLE, hEgap⟩ := eventually_const_rpow_le (2 / ε) (1 / 2) 1 (by norm_num)
+  let L₀ := max 1 (max LC (max LE (2 * Real.log 68 / ε)))
+  let x₀ := max 2 (Real.exp L₀)
+  refine ⟨x₀, le_max_left _ _, ?_⟩
+  intro S hS hx s hs hz1 hz2
+  have hxpos : 0 < S.x := by linarith [hS.1]
+  have hL₀ : L₀ ≤ S.L :=
+    (Real.le_log_iff_exp_le hxpos).2 ((le_max_right 2 (Real.exp L₀)).trans hx)
+  have hL1 : 1 ≤ S.L := (le_max_left _ _).trans hL₀
+  have hLCle : LC ≤ S.L :=
+    (le_trans (le_max_left _ _) (le_max_right _ _)).trans hL₀
+  have hLEle : LE ≤ S.L :=
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))).trans hL₀
+  have h68le : 2 * Real.log 68 / ε ≤ S.L :=
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))).trans hL₀
+  let W := Real.rpow S.L (1 / 2 : ℝ)
+  let Z := Real.exp W
+  let h := Real.rpow S.x (-ε)
+  have hW1 : 1 ≤ W := by
+    simpa [W] using Real.rpow_le_rpow_of_exponent_le hL1 (by norm_num : (0 : ℝ) ≤ 1 / 2)
+  have hZ : 1 ≤ Z := Real.one_le_exp (by dsimp [W]; positivity)
+  have hh : 0 < h := Real.rpow_pos_of_pos hxpos _
+  have hgap : (2 / ε) * W ≤ S.L := by simpa [W] using hEgap S.L hLEle
+  have hWsmall : W ≤ ε * S.L / 2 := by
+    have hm := mul_le_mul_of_nonneg_left hgap (by positivity : 0 ≤ ε / 2)
+    have he : (ε / 2) * (2 / ε) = 1 := by field_simp [hε.ne']
+    rw [← mul_assoc, he, one_mul] at hm
+    nlinarith
+  have h68 : Real.log 68 ≤ ε * S.L / 2 := by
+    have hm := (div_le_iff₀ hε).1 h68le
+    nlinarith
+  have hZh : Z * h ≤ 1 / 68 := by
+    have he : Z * h = Real.exp (W - ε * S.L) := by
+      dsimp [Z, h]
+      rw [Real.rpow_def_of_pos hxpos, ← Real.exp_add]
+      congr 1
+      dsimp [PDScale.L]
+      ring
+    rw [he]
+    calc
+      _ ≤ Real.exp (-Real.log 68) := Real.exp_le_exp.mpr (by linarith)
+      _ = 1 / 68 := by rw [Real.exp_neg, Real.exp_log (by norm_num : (0 : ℝ) < 68)]; norm_num
+  have hhsmall : h ≤ 1 / 8 := by
+    have hm := mul_le_mul_of_nonneg_right hZ hh.le
+    nlinarith
+  have hscalePos := pdScale_positive S δ c₁ c₂ hδ hS
+  have hY1 : 1 ≤ S.Y := by
+    obtain ⟨hm, _⟩ := Finset.mem_filter.mp hS.2.2.2.2.2.1
+    obtain ⟨n, _, hn⟩ := Finset.mem_image.mp hm
+    rw [← hn]
+    exact one_le_pow₀ (by norm_num)
+  have hD1 : (1 : ℝ) ≤ (S.d₀ : ℝ) := by exact_mod_cast hscalePos.2.2
+  have hHm1 : 1 ≤ S.Hm :=
+    (Real.one_le_rpow (by linarith [hS.1] : 1 ≤ S.x) hδ.le).trans hS.2.1
+  have hV1 : 1 ≤ S.V :=
+    (Real.one_le_rpow (by linarith [hS.1] : 1 ≤ S.x) hδ.le).trans hS.2.2.1
+  have hH1 : 1 ≤ S.H := by
+    have hm := mul_le_mul hD1 hY1 (by norm_num : (0 : ℝ) ≤ 1) (by linarith : 0 ≤ (S.d₀ : ℝ))
+    simpa [PDScale.H] using hm
+  have hU1 : 1 ≤ S.U := by
+    have hm := mul_le_mul hH1 hHm1 (by norm_num : (0 : ℝ) ≤ 1) (by linarith : 0 ≤ S.H)
+    simpa [PDScale.U] using hm
+  have hUV : 1 ≤ S.U * S.V := by
+    have hm := mul_le_mul hU1 hV1 (by norm_num : (0 : ℝ) ≤ 1) (by linarith : 0 ≤ S.U)
+    simpa using hm
+  let q := max 1 (max (2 * (S.d₀ : ℝ) * Real.rpow S.Y (1 / 5 : ℝ))
+    (2 * (S.d₀ : ℝ) * Real.exp (4 * (K : ℝ) * Real.rpow S.L (1 / 5 : ℝ))))
+  let Q : ℕ := ⌈q⌉₊
+  let T : ℕ := ⌈204 * (Q : ℝ) * (Z + 1) + 101⌉₊
+  have hqle : q ≤ (Q : ℝ) := Nat.le_ceil _
+  have hQ1 : 2 * (S.d₀ : ℝ) * Real.rpow S.Y (1 / 5 : ℝ) ≤ (Q : ℝ) :=
+    (le_trans (le_max_left _ _) (le_max_right _ _)).trans hqle
+  have hQ2 : 2 * (S.d₀ : ℝ) * Real.exp (4 * (K : ℝ) * Real.rpow S.L (1 / 5 : ℝ)) ≤ (Q : ℝ) :=
+    (le_trans (le_max_right _ _) (le_max_right _ _)).trans hqle
+  have hT : 204 * (Q : ℝ) * (Z + 1) + 101 ≤ (T : ℝ) := Nat.le_ceil _
+  obtain ⟨B, hBcard, hB⟩ := envGood_breakpoints F S hF s hs Z hZ hz1 hz2 hY1
+    hscalePos.2.2 Q T hQ1 hQ2 hT hL1
+  have hBreal : (B.card : ℝ) ≤
+      2 * ((K : ℝ) + 1) * (4 * (Q : ℝ) + 1) * (2 * (T : ℝ) + 1) := by exact_mod_cast hBcard
+  have hscale := budget_scale_bounds F S δ c₁ c₂ hF hS hL1
+  have hcoeffBound := hParameters S.L (S.d₀ : ℝ) S.Y hL1 hD1 hY1 hscale.2.2.1 hscale.2.2.2.1
+  change 500000000 * (Z + 1) ^ 2 +
+    200 * (2 * ((K : ℝ) + 1) * (4 * (Q : ℝ) + 1) * (2 * (T : ℝ) + 1)) ≤
+      Real.exp (C * W) at hcoeffBound
+  have hcoeff : 500000000 * (Z + 1) ^ 2 + 200 * (B.card : ℝ) ≤ Real.exp (C * W) := by
+    calc
+      _ ≤ 500000000 * (Z + 1) ^ 2 +
+          200 * (2 * ((K : ℝ) + 1) * (4 * (Q : ℝ) + 1) * (2 * (T : ℝ) + 1)) :=
+        add_le_add le_rfl (mul_le_mul_of_nonneg_left hBreal (by norm_num))
+      _ ≤ _ := hcoeffBound
+  have hGeom := arch_boundary_card_of_breakpoints F S hscalePos.2.1 (by linarith : 0 < S.V)
+    hUV s Z h hZ hh hhsmall hz2 hZh B hB
+  have hCpower : C * W ≤ Real.rpow S.L (9 / 10 : ℝ) := hCgap S.L hLCle
+  have hpow : h ^ 2 = Real.rpow S.x (-(2 * ε)) := by
+    calc
+      h ^ 2 = Real.rpow (Real.rpow S.x (-ε)) (2 : ℝ) := (Real.rpow_natCast _ 2).symm
+      _ = Real.rpow S.x ((-ε) * 2) := (Real.rpow_mul hxpos.le (-ε) 2).symm
+      _ = _ := by congr 1 <;> ring
+  have hinv : (h ^ 2)⁻¹ = Real.rpow S.x (2 * ε) := by
+    rw [hpow]
+    exact (congrArg (fun r : ℝ => r⁻¹) (Real.rpow_neg hxpos.le (2 * ε))).trans (inv_inv _)
+  calc
+    _ ≤ (500000000 * (Z + 1) ^ 2 + 200 * (B.card : ℝ)) / h ^ 2 := hGeom
+    _ ≤ Real.exp (C * W) / h ^ 2 := div_le_div_of_nonneg_right hcoeff (sq_nonneg h)
+    _ ≤ Real.exp (Real.rpow S.L (9 / 10 : ℝ)) / h ^ 2 :=
+      div_le_div_of_nonneg_right (Real.exp_le_exp.mpr hCpower) (sq_nonneg h)
+    _ = Real.exp (Real.rpow S.L (9 / 10 : ℝ)) * Real.rpow S.x (2 * ε) := by
+      rw [div_eq_mul_inv, hinv]
+
+
+private lemma factorial_lower_bound (n : ℕ) :
+    ((n : ℝ) / Real.exp 1) ^ n ≤ (n.factorial : ℝ) := by
+  have hf : 0 < (n.factorial : ℝ) := Nat.cast_pos.mpr (Nat.factorial_pos n)
+  have hp := (div_le_iff₀ hf).1 (Real.pow_div_factorial_le_exp (n : ℝ) (Nat.cast_nonneg n) n)
+  rw [div_pow, ← Real.exp_nat_mul, mul_one]
+  apply (div_le_iff₀ (Real.exp_pos _)).2
+  simpa only [mul_comm] using hp
+
+private lemma factorial_tail_bound (B : ℝ) (hB : 0 ≤ B) (n : ℕ) (hn : 0 < n) :
+    B ^ n / (n.factorial : ℝ) ≤ (Real.exp 1 * B / (n : ℝ)) ^ n := by
+  have hnR : 0 < (n : ℝ) := Nat.cast_pos.mpr hn
+  have hlow : 0 < ((n : ℝ) / Real.exp 1) ^ n := pow_pos (div_pos hnR (Real.exp_pos _)) _
+  calc
+    B ^ n / (n.factorial : ℝ) ≤ B ^ n / (((n : ℝ) / Real.exp 1) ^ n) :=
+      div_le_div_of_nonneg_left (pow_nonneg hB _) hlow (factorial_lower_bound n)
+    _ = (B / ((n : ℝ) / Real.exp 1)) ^ n := (div_pow _ _ _).symm
+    _ = _ := by congr 1; field_simp [hnR.ne', (Real.exp_pos 1).ne'] <;> ring
+
+private lemma bonferroni_sandwich_transfer (af ap ag bf bp bg : ℝ)
+    (ha : 0 ≤ ap - af ∧ ap - af ≤ ag) (hb : 0 ≤ bp - bf ∧ bp - bf ≤ bg) :
+    |af - bf| ≤ 2 * bg + |ag - bg| + |ap - bp| := by
+  have he : af - bf = (af - ap) + (ap - bp) + (bp - bf) := by ring
+  have hgapA : |af - ap| ≤ ag := by rw [abs_of_nonpos (by linarith : af - ap ≤ 0)]; linarith
+  have hgapB : |bp - bf| ≤ bg := by rw [abs_of_nonneg hb.1]; exact hb.2
+  have hAg : ag ≤ bg + |ag - bg| := by linarith [le_abs_self (ag - bg)]
+  rw [he]
+  have ht1 := abs_add_le ((af - ap) + (ap - bp)) (bp - bf)
+  have ht2 := abs_add_le (af - ap) (ap - bp)
+  linarith
 
 /-- `det:root-replacement` — PD 03:593-737 (Lemma 3.4).  REPLACES the frozen `root_replacement`
 (which concerned one observable on `SL₂(ℤ/S)` with few nonzero values).  Proof: keep exact
