@@ -5,7 +5,6 @@ import ArtinPrimitiveRoots.Sieve.RoughDensity
 import ArtinPrimitiveRoots.Hecke.Elementary
 import ArtinPrimitiveRoots.Hecke.Convexity
 import ArtinPrimitiveRoots.Hecke.Dedekind
-import ArtinPrimitiveRoots.Hecke.Boundary
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.TypeII.Defs
 import ArtinPrimitiveRoots.TypeII.Marked
@@ -31,10 +30,26 @@ import ArtinPrimitiveRoots.Theta.Cover
 import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalInt
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-LOCAL-TOPOLOGY».Helper
 import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Reduction
 import ArtinPrimitiveRoots.Theta.Res
 import ArtinPrimitiveRoots.Theta.Assemble
+import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2
+import ArtinPrimitiveRoots.A2.ZeroFree.Density
+import ArtinPrimitiveRoots.A2.Interface
+import ArtinPrimitiveRoots.A2.Reflection.Missing
+import ArtinPrimitiveRoots.A2.Poisson.Missing
+import ArtinPrimitiveRoots.A2.ZeroFree.Missing
+import ArtinPrimitiveRoots.A2.Coherence
+import ArtinPrimitiveRoots.A2.Endpoint
+import ArtinPrimitiveRoots.Hecke.Boundary
+import ArtinPrimitiveRoots.Splitting.Counting
+import ArtinPrimitiveRoots.Spec
+import ArtinPrimitiveRoots.Spec.Main
+import ArtinPrimitiveRoots.Arith.DavenportHasse
+import /- Local package with a hyphenated directory name. -/ ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
+import /- Local package with a quoted directory name. -/ ArtinPrimitiveRoots.Hecke.Proofs.«HK-FE».hk_fe_export_to_ext_hecke_continuation

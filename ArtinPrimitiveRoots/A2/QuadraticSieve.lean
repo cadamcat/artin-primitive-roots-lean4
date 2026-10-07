@@ -1,5 +1,6 @@
 import Mathlib
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-NARROW».NQ
 
 /-!
 # Design draft A2-QuadraticSieve: the narrow quadratic large sieve consumed by A2
@@ -87,23 +88,30 @@ theorem narrow_quadratic_large_sieve
         (∀ T ∈ rows, Disjoint T S ∧ (normT T : ℝ) ≤ Dmax) →
         ∀ z : Finset (HeightOneSpectrum (𝓞 K)) → ℂ,
           ∑ D ∈ rows, ‖∑ T ∈ cols, z T * (quadSymbol D (gen T) : ℂ)‖ ^ 2 ≤
-            C * (Cmax + Dmax) * (Cmax * Dmax) ^ ε * ∑ T ∈ cols, ‖z T‖ ^ 2 := sorry
+            C * (Cmax + Dmax) * (Cmax * Dmax) ^ ε * ∑ T ∈ cols, ‖z T‖ ^ 2 :=
+  qs_narrow_large_sieve hμ S hS
 
 /-- **ext:goldmakher-louvel** (Goldmakher--Louvel 2013, Definition 1 and Theorem 1.1;
-04-reflection.tex:958-1024).  A quadratic Hecke family indexed by squarefree ideals prime to a
+04-reflection.tex:958-1024). A quadratic Hecke family indexed by squarefree ideals prime to a
 fixed ray modulus, with conductor supported on the index ideal and the fixed modulus, ray-class
-reciprocity, and the equal-class product-conductor condition. -/
+reciprocity, and the equal-class product-conductor condition. Corrected per rev-a2 to require
+nonzero primitive conductors, trivial infinite type, and a quadratic reciprocity factor. -/
 structure QuadraticHeckeFamily (m : ClassFieldTheory.RayClassModulus K)
     (qS : Ideal (𝓞 K)) where
   character : Ideal (𝓞 K) → ArtinPrimitiveRoots.A1.HeckeChar K
   conductor : Ideal (𝓞 K) → Ideal (𝓞 K)
   rayFactor : ClassFieldTheory.RayClassGroup m →
     ClassFieldTheory.RayClassGroup m → ℂˣ
+  rayFactor_quadratic : ∀ g h, rayFactor g h ^ 2 = 1
+  trivial_infinite_type : ∀ I : Ideal (𝓞 K), ∀ w : InfinitePlace K,
+    ∀ u : w.Completionˣ, (character I).locInf w u = 1
   indexCondition : ∀ c : Ideal (𝓞 K),
     Squarefree c → ArtinPrimitiveRoots.Hecke.IsCoprimeTo m c →
       IsOfFinOrder (character c) ∧
       IsPrimitiveConductor (character c) (conductor c) ∧
       (∃ s : Ideal (𝓞 K), conductor c = c * s ∧ s ∣ qS)
+  character_order_two : ∀ c : Ideal (𝓞 K), Squarefree c →
+    ArtinPrimitiveRoots.Hecke.IsCoprimeTo m c → character c ^ 2 = 1
   quadraticValues : ∀ c : Ideal (𝓞 K),
     ∀ hcs : Squarefree c, ∀ hcm : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m c,
       ∀ I : Ideal (𝓞 K),
@@ -129,7 +137,8 @@ structure QuadraticHeckeFamily (m : ClassFieldTheory.RayClassModulus K)
       IsPrimitiveConductor (character c * (character d)⁻¹) (c * d)
 
 /-- **ext:goldmakher-louvel** (Goldmakher--Louvel 2013, Theorem 1.1; 04-reflection.tex:958-1024).
-Uniform quadratic-family large sieve. -/
+Uniform quadratic-family large sieve. Corrected per rev-a2 to use the strengthened family and
+squarefree, coprime row and column conditions. -/
 theorem ext_goldmakher_louvel (m : ClassFieldTheory.RayClassModulus K)
     (qS : Ideal (𝓞 K)) (fam : QuadraticHeckeFamily m qS) :
     ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
@@ -145,8 +154,11 @@ theorem ext_goldmakher_louvel (m : ClassFieldTheory.RayClassModulus K)
             ∑ d ∈ rows,
               ‖∑ c ∈ cols, z c * (fam.character c).idealValue d‖ ^ 2 ≤
                 C * (Cmax + Dmax) * Real.rpow (Cmax * Dmax) ε *
-                  ∑ c ∈ cols, ‖z c‖ ^ 2 := by
-  sorry
+                  ∑ c ∈ cols, ‖z c‖ ^ 2 :=
+  qs_goldmakher_louvel m qS ⟨fam.character, fam.conductor, fam.rayFactor,
+    fam.rayFactor_quadratic, fam.trivial_infinite_type, fam.indexCondition,
+    fam.character_order_two, fam.quadraticValues, fam.reciprocity,
+    fam.equalClass_product_conductor⟩
 
 open Classical in
 /-- Rational quadratic residue symbol at an odd prime, with value zero when the numerator is
@@ -176,7 +188,7 @@ theorem ext_heath_brown_quadratic :
           ‖∑ n ∈ oddSquarefreeUpTo N,
             a n * (rationalJacobiSymbol n m : ℂ)‖ ^ 2) ≤
           C * Real.rpow ((M : ℝ) * N) ε * (M + N) *
-            ∑ n ∈ oddSquarefreeUpTo N, ‖a n‖ ^ 2 := by
-  sorry
+            ∑ n ∈ oddSquarefreeUpTo N, ‖a n‖ ^ 2 :=
+  qs_heath_brown
 
 end ArtinPrimitiveRoots.A2
