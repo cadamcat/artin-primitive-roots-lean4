@@ -3,6 +3,9 @@ import ArtinPrimitiveRoots.TypeII.Rough
 import ArtinPrimitiveRoots.Ext.TypeIIInputs
 import ArtinPrimitiveRoots.Sieve.Block
 import ArtinPrimitiveRoots.Sieve.RoughDensity
+import ArtinPrimitiveRoots.Construction.Proofs.c4.Density
+import ArtinPrimitiveRoots.Construction.Proofs.c4.RoughRemoval
+import ArtinPrimitiveRoots.Construction.Proofs.c4.TestFunction
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
@@ -263,10 +266,242 @@ theorem density_partition :
                 ∀ x : ℝ, x₀ ≤ x →
                   roughConstructionMass x M c u K a Ψ (Real.rpow x (1 / 2 - κ)) ≥
                     (singularProduct M * conTotalMass x M c u K a Ψ / Real.log x) *
-                      (9 / 10 - Real.exp (-Real.eulerMascheroniConstant) / b *
+                (9 / 10 - Real.exp (-Real.eulerMascheroniConstant) / b *
                         (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
                           C_d * Real.exp (-(1 / 20 : ℝ) / b)) - η) := by
-  sorry
+  obtain ⟨C_s, b₂₀, hCs, hb₂₀, hInitial⟩ := initial_lower
+  obtain ⟨b₀, hb₀, C_d, hCd, hCdBound⟩ := ArtinPrimitiveRoots.Sieve.lem_density.2
+  let b₂ : ℝ := min b₂₀ b₀
+  have hb₂ : 0 < b₂ := lt_min hb₂₀ hb₀
+  refine ⟨C_s, C_d, b₂, hCs, hCd, hb₂, ?_⟩
+  intro M c u κ hM hM8 hc hcM hu hcu hcu' hκ hκsmall b hb hbb₂ hbk
+  have hcpos : 0 < c := by rcases hc with h | h <;> simp [h]
+  obtain ⟨K₀, hbinCost⟩ := bin_cost M c u κ b hM hcpos hcM hκ hκsmall hb
+  refine ⟨K₀, ?_⟩
+  intro K hK a ha Ψ hΨ
+  have hbe : b < 1 / 2 - κ := hbk
+  obtain ⟨J, γ, hJ, hγ0, hγend, hγbounds, hγstrict, hBudget⟩ :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.exists_roughDensity_partition_budget
+      b (1 / 2 - κ) hb hbe (by linarith)
+  have hIntegral := ArtinPrimitiveRoots.Construction.Proofs.C4.roughDensity_integral_le
+    b κ hb hκ hκsmall hbe
+  refine ⟨J, γ, hγ0, hγend, hγstrict, hBudget, hIntegral, ?_⟩
+  intro η hη
+  have hJreal : 0 < (J : ℝ) := Nat.cast_pos.mpr hJ
+  let ηbin : ℝ := η / (2 * (J : ℝ))
+  have hηbin : 0 < ηbin := by dsimp [ηbin]; positivity
+  have hcosts : ∀ j : Fin J, ∃ C x₀ : ℝ,
+      0 < C ∧ 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
+        ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+            x M c u K a Ψ (γ j.castSucc) (γ j.succ) ≤
+          (singularProduct M * conTotalMass x M c u K a Ψ / Real.log x) *
+            (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+              Set.Icc (γ j.castSucc) (γ j.succ)) *
+              Real.log (γ j.succ / γ j.castSucc) + ηbin) := by
+    intro j
+    have hγlt : γ j.castSucc < γ j.succ :=
+      hγstrict _ _ (by simp)
+    obtain ⟨C, x₀, hC, hx₀, hCost⟩ :=
+      hbinCost K hK a ha Ψ hΨ (γ j.castSucc) (γ j.succ)
+        (hγbounds j.castSucc).1 hγlt (hγbounds j.succ).2 ηbin hηbin
+    refine ⟨C, x₀, hC, hx₀, ?_⟩
+    intro x hx
+    simpa [ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum] using hCost x hx
+  choose Cj xj hCj hxj hCostj using hcosts
+  have hxjNonneg : ∀ j : Fin J, 0 ≤ xj j := fun j => by linarith [hxj j]
+  let xsum : ℝ := ∑ j : Fin J, xj j
+  have hxsum : 0 ≤ xsum := Finset.sum_nonneg fun j _ => hxjNonneg j
+  have hxjLeSum (j : Fin J) : xj j ≤ xsum := by
+    dsimp [xsum]
+    apply Finset.single_le_sum
+    · intro i hi
+      exact hxjNonneg i
+    · exact Finset.mem_univ j
+  obtain ⟨B, xS, hB, hxS₂, hSupport⟩ :=
+    support M c u K a Ψ hM hc ha hΨ.2.2.1 hΨ.2.2.2.1 hΨ.2.1
+  have hsing : 0 < singularProduct M := (sieve_products M hM).1
+  have hε : 0 < κ / 2 := by linarith
+  have hεκ : κ / 2 < κ := by linarith
+  have hbInitial : b < b₂₀ := lt_of_lt_of_le hbb₂ (min_le_left b₂₀ b₀)
+  obtain ⟨xInit, hxInit₂, hInitialX⟩ :=
+    hInitial M c u K a Ψ hΨ κ (κ / 2) hκ hκsmall hε hεκ
+      hM hc hcM hu hcu hcu' ha b hb hbInitial hbk (η / 2) (by linarith)
+  let xBound : ℝ := xS + xInit + xsum
+  have hxBound₂ : 2 ≤ xBound := by
+    dsimp [xBound]
+    linarith [hxS₂, hxInit₂, hxsum]
+  refine ⟨xBound, hxBound₂, ?_⟩
+  intro x hxBound
+  have hxS : xS ≤ x := by dsimp [xBound] at hxBound; linarith [hxsum]
+  have hxInit : xInit ≤ x := by dsimp [xBound] at hxBound; linarith [hxsum]
+  have hx : 2 ≤ x := le_trans hxBound₂ hxBound
+  have hWeightSupport := hSupport x hxS
+  rcases hWeightSupport with ⟨_, hSupportD, hWeightD⟩
+  have hweight : ∀ d, 0 ≤ conWeight x M c u K a Ψ d := fun d => (hWeightD d).1
+  have hsupport : ∀ d, conWeight x M c u K a Ψ d ≠ 0 →
+      x < (d : ℝ) ∧ (d : ℝ) < 2 * x := by
+    intro d hd
+    rcases hSupportD d hd with ⟨hlo, hrest⟩
+    exact ⟨hlo, hrest.1⟩
+  have htotal : 0 ≤ conTotalMass x M c u K a Ψ := by
+    unfold conTotalMass
+    apply Finset.sum_nonneg
+    intro d hd
+    exact hweight d
+  have hlogx : 0 < Real.log x := Real.log_pos (by linarith : 1 < x)
+  let S : ℝ := singularProduct M * conTotalMass x M c u K a Ψ / Real.log x
+  have hS : 0 ≤ S := by dsimp [S]; positivity
+  have he : (1 / 2 : ℝ) - κ < 1 / 2 := by linarith
+  have hbe : b < (1 / 2 : ℝ) - κ := hbk
+  have hremoval :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.roughConstructionMass_le_binPairSums
+      x M c u K a Ψ b (1 / 2 - κ) J γ hx hb hbe he hJ
+      hγ0 hγend hγbounds hγstrict hweight hsupport
+  have hBinEach (j : Fin J) :
+      ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+          x M c u K a Ψ (γ j.castSucc) (γ j.succ) ≤
+        S * (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+          Set.Icc (γ j.castSucc) (γ j.succ)) *
+          Real.log (γ j.succ / γ j.castSucc) + ηbin) := by
+    have hxj' : xj j ≤ x := (hxjLeSum j).trans (by dsimp [xBound] at hxBound; linarith [hxsum])
+    simpa [S] using hCostj j x hxj'
+  have hEtaSum : (∑ _j : Fin J, ηbin) = η / 2 := by
+    rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+    dsimp [ηbin]
+    field_simp
+  have hBinCostSum :
+      (∑ j : Fin J,
+        ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+          x M c u K a Ψ (γ j.castSucc) (γ j.succ)) ≤
+        S * ((∑ j : Fin J,
+          sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+            Set.Icc (γ j.castSucc) (γ j.succ)) *
+            Real.log (γ j.succ / γ j.castSucc)) + η / 2) := by
+    calc
+      _ ≤ ∑ j : Fin J,
+          S * (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+            Set.Icc (γ j.castSucc) (γ j.succ)) *
+            Real.log (γ j.succ / γ j.castSucc) + ηbin) :=
+              Finset.sum_le_sum fun j _ => hBinEach j
+      _ = S * ((∑ j : Fin J,
+          sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+            Set.Icc (γ j.castSucc) (γ j.succ)) *
+            Real.log (γ j.succ / γ j.castSucc)) + η / 2) := by
+              calc
+                _ = ∑ j : Fin J,
+                    (S * (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+                      Set.Icc (γ j.castSucc) (γ j.succ)) *
+                      Real.log (γ j.succ / γ j.castSucc)) + S * ηbin) := by
+                        apply Finset.sum_congr rfl
+                        intro j hj
+                        ring
+                _ = (∑ j : Fin J,
+                    S * (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+                      Set.Icc (γ j.castSucc) (γ j.succ)) *
+                      Real.log (γ j.succ / γ j.castSucc))) +
+                    (∑ j : Fin J, S * ηbin) := by
+                      rw [Finset.sum_add_distrib]
+                _ = S * (∑ j : Fin J,
+                    sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+                      Set.Icc (γ j.castSucc) (γ j.succ)) *
+                      Real.log (γ j.succ / γ j.castSucc)) +
+                    S * (∑ j : Fin J, ηbin) := by
+                      rw [← Finset.mul_sum, ← Finset.mul_sum]
+                _ = _ := by rw [hEtaSum]; ring
+  have hFcont :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.roughDensity_integrand_continuous
+      b κ hb hκ hκsmall hbk
+  have hFint : IntervalIntegrable
+      (fun t : ℝ => roughDensity t (1 - t) / t) MeasureTheory.volume b (1 / 2 - κ) := by
+    apply ContinuousOn.intervalIntegrable_of_Icc (le_of_lt hbe)
+    apply hFcont.mono
+    intro t ht
+    exact ⟨le_trans le_rfl ht.1, le_trans ht.2 (by linarith)⟩
+  have hconstInt : IntervalIntegrable (fun _ : ℝ => (1 / 10 : ℝ))
+      MeasureTheory.volume b (1 / 2 - κ) := by
+    exact continuousOn_const.intervalIntegrable
+  have hconstVal :
+      (∫ t in b..(1 / 2 - κ), (1 / 10 : ℝ)) = ((1 / 2 - κ) - b) / 10 := by
+    simp [intervalIntegral.integral_const]
+    ring
+  have hBudgetSplit :
+      (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t + 1 / 10) =
+        (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t) +
+          ((1 / 2 - κ) - b) / 10 := by
+    rw [intervalIntegral.integral_add hFint hconstInt, hconstVal]
+  have hlen : ((1 / 2 - κ) - b) / 10 ≤ (1 / 10 : ℝ) := by
+    have hlen' : (1 / 2 - κ) - b ≤ 1 := by linarith
+    nlinarith
+  have hBudgetSplitLe :
+      (∑ j : Fin J,
+        sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+          Set.Icc (γ j.castSucc) (γ j.succ)) *
+          Real.log (γ j.succ / γ j.castSucc)) ≤
+        (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t) + 1 / 10 := by
+    calc
+      _ ≤ ∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t + 1 / 10 := hBudget
+      _ = (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t) +
+          ((1 / 2 - κ) - b) / 10 := hBudgetSplit
+      _ ≤ _ := add_le_add_right hlen _
+  have hIntegralDensity :
+      (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t) + 1 / 10 ≤
+        Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 := by
+    have hDb : roughDensity b 1 ≤
+        Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) :=
+      hCdBound b hb (lt_of_lt_of_le hbb₂ (min_le_right b₂₀ b₀))
+    linarith [hIntegral, hDb]
+  have hBinCostBound :
+      (∑ j : Fin J,
+        ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+          x M c u K a Ψ (γ j.castSucc) (γ j.succ)) ≤
+        S * (Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 + η / 2) := by
+    apply hBinCostSum.trans
+    apply mul_le_mul_of_nonneg_left _ hS
+    simpa [add_comm] using
+      add_le_add_right (hBudgetSplitLe.trans hIntegralDensity) (η / 2)
+  have hrpow : Real.rpow x b ≤ Real.rpow x (1 / 2 - κ / 2) :=
+    Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ x) (by linarith)
+  have hLow :
+      S * (Real.exp (-Real.eulerMascheroniConstant) / b *
+        (1 - C_s * Real.exp (-(1 / 20 : ℝ) / b)) - η / 2) ≤
+        roughConstructionMass x M c u K a Ψ (Real.rpow x b) := by
+    simpa [S] using hInitialX x hxInit hrpow
+  have hCombined :
+      S * (Real.exp (-Real.eulerMascheroniConstant) / b *
+        (1 - C_s * Real.exp (-(1 / 20 : ℝ) / b)) - η / 2) ≤
+        roughConstructionMass x M c u K a Ψ (Real.rpow x (1 / 2 - κ)) +
+          S * (Real.exp (-Real.eulerMascheroniConstant) / b *
+            (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 + η / 2) := by
+    calc
+      _ ≤ roughConstructionMass x M c u K a Ψ (Real.rpow x b) := hLow
+      _ ≤ roughConstructionMass x M c u K a Ψ (Real.rpow x (1 / 2 - κ)) +
+          ∑ j : Fin J,
+            ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+              x M c u K a Ψ (γ j.castSucc) (γ j.succ) := hremoval
+      _ ≤ _ := add_le_add_right hBinCostBound _
+  have hCoeff :
+      (9 / 10 - Real.exp (-Real.eulerMascheroniConstant) / b *
+        (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
+          C_d * Real.exp (-(1 / 20 : ℝ) / b)) - η) =
+      (Real.exp (-Real.eulerMascheroniConstant) / b *
+        (1 - C_s * Real.exp (-(1 / 20 : ℝ) / b)) - η / 2) -
+        (Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 + η / 2) := by
+    ring
+  calc
+    S * (9 / 10 - Real.exp (-Real.eulerMascheroniConstant) / b *
+        (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
+          C_d * Real.exp (-(1 / 20 : ℝ) / b)) - η) =
+        S * ((Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 - C_s * Real.exp (-(1 / 20 : ℝ) / b)) - η / 2) -
+          (Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 + η / 2)) := by
+            rw [hCoeff]
+    _ ≤ roughConstructionMass x M c u K a Ψ (Real.rpow x (1 / 2 - κ)) := by
+      nlinarith [hCombined]
 
 /-- `co:balanced-boxes`, 12-construction.tex:597-616. -/
 theorem balanced_boxes :
