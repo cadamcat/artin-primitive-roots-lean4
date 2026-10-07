@@ -143,6 +143,18 @@ def ppiCoordAt (w : InfinitePlace F) (pq : Coord F × Coord F) : ℝ :=
 def IsCuspCutoff (A : ℝ) (τ : ℝ → ℝ) : Prop :=
   ContDiff ℝ ∞ τ ∧ Monotone τ ∧ (∀ t ≤ A, τ t = 0) ∧ (∀ t, 2 * A ≤ t → τ t = 1)
 
+/-- A cusp cutoff together with a threshold where distinct high cusp representatives separate. -/
+structure CutoffData (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) (τ : ℝ → ℝ) where
+  A₀ : ℝ
+  A : ℝ
+  A₀_ge : 1 ≤ A₀
+  A_ge : A₀ ≤ A
+  separation : ∀ γ γ' : Γ, ∀ z : X F,
+    A₀ ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+    A₀ ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+    γ' * γ⁻¹ ∈ cuspStab F Γ σ
+  cutoff : IsCuspCutoff A τ
+
 /-- The logarithmic balance region for a vector of positive heights. -/
 def IsBalancedHeights (B : ℝ) (y : InfinitePlace F → ℝ) : Prop :=
   (∀ w, 0 < y w) ∧
@@ -331,14 +343,17 @@ def energyGraph {T : Type*} [AddCommGroup T] [Module ℂ T]
     Submodule ℂ (WithLp 2 (H × G)) :=
   (energyGraphMap toL2 gradL2).range.topologicalClosure
 
-/-- Data identifying a closed energy graph with the closure of the test graph. -/
-structure EnergyContext {T H G : Type*} [AddCommGroup T] [Module ℂ T]
-    [NormedAddCommGroup H] [InnerProductSpace ℂ H] [CompleteSpace H]
-    [NormedAddCommGroup G] [InnerProductSpace ℂ G] [CompleteSpace G]
-    (D : FAEnergySpace H G) where
-  toL2 : T →ₗ[ℂ] H
-  gradL2 : T →ₗ[ℂ] G
-  graph_eq : D.V = energyGraph toL2 gradL2
+/-- Data identifying a closed energy graph with the quotient representatives of the test
+functions and their gradients. Correction from `sol-gate-spec`: calibrate both maps to their
+geometric representatives. -/
+structure EnergyContext (Γ : Subgroup SL(2,𝓞 F)) (D : Set (X F))
+    (E : FAEnergySpace (L2Space F D) (GradientL2Space F D)) where
+  toL2 : testSubmodule F Γ →ₗ[ℂ] L2Space F D
+  gradL2 : testSubmodule F Γ →ₗ[ℂ] GradientL2Space F D
+  graph_eq : E.V = energyGraph toL2 gradL2
+  mass_rep : ∀ f, ∀ᵐ z ∂(volX F), z ∈ D → toL2 f z = (f : X F → ℂ) z
+  gradient_rep : ∀ f, ∀ᵐ z ∂(volX F), z ∈ D →
+    gradL2 f z = fullGradient F (f : X F → ℂ) z
 
 /-- The overlap set of two subsets under the `Γ` action. -/
 def overlapSet (Γ : Subgroup SL(2,𝓞 F)) (K K' : Set (X F)) : Set Γ :=
@@ -372,7 +387,9 @@ def cuspTail (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) (A : ℝ) : Set (X F) :
 def unitHeightAction (ε : (𝓞 F)ˣ) (y : InfinitePlace F → ℝ) : InfinitePlace F → ℝ :=
   fun w => Complex.normSq (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) * y w
 
-/-- The reduction data supplied by cusp representatives, unit balance, and Minkowski. -/
+/-- The reduction data supplied by cusp representatives, unit balance, and Minkowski. The
+`sol-gate-spec` correction calibrates `C_M` by the actual Minkowski bound and requires pointwise
+coverage by each cusp translation domain. -/
 structure SiegelData (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] where
   ι : Type
   fintype : Fintype ι
@@ -381,7 +398,13 @@ structure SiegelData (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] where
   B : ι → ℝ
   C_M : ℝ
   C_M_pos : 0 < C_M
+  minkowski : ∀ z : X F, ∃ v : 𝓞 F × 𝓞 F,
+    v ≠ (0, 0) ∧
+      ∏ w : InfinitePlace F,
+        rowHeightForm F (algebraMap (𝓞 F) F v.1, algebraMap (𝓞 F) F v.2) z w ≤ C_M
   P_fundamental : ∀ i, IsAddFundamentalDomain (cuspTranslations F Γ (σ i)) (P i)
+  P_covers : ∀ i (x : InfinitePlace F → ℂ),
+    ∃ μ ∈ cuspTranslations F Γ (σ i), μ + x ∈ P i
   P_bounded : ∀ i, Bornology.IsBounded (P i)
   P_measurable : ∀ i, MeasurableSet (P i)
   balanced : ∀ i (t : InfinitePlace F → ℝ), (∀ w, 0 < t w) →
@@ -400,9 +423,10 @@ variable {Γ : Subgroup SL(2,𝓞 F)} [Γ.FiniteIndex] (d : SiegelData F Γ)
 noncomputable def lowerHeight (i : d.ι) : ℝ :=
   ((((FractionalIdeal.absNorm (bottomRowFractionalIdeal F ((d.σ i)⁻¹))) : ℚ) : ℝ) * d.C_M)⁻¹
 
-/-- The Siegel set at cusp `i`. -/
+/-- The Siegel set at cusp `i`. Correction from review lane `rev-spec`: use `2 * B` because
+unit balance is applied to square-root heights. -/
 def setAt (i : d.ι) : Set (X F) :=
-  siegelSet F (d.P i) (d.B i) (lowerHeight F d i)
+  siegelSet F (d.P i) (2 * d.B i) (lowerHeight F d i)
 
 /-- The union of the cusp Siegel sets after scaling. -/
 def unionSet : Set (X F) :=

@@ -31,7 +31,9 @@ theorem E3_eis_smooth (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
 
 /-- E4 `spec:eis-siegel` — P-SPEC.md:240, 390–395. On each Siegel set there is at most one
 upper-triangular seed coset; the remaining terms and their gradients are uniformly summable on
-compact parameter sets in `2 < Re s < 3`. -/
+compact parameter sets in `2 < Re s < 3`. Correction from review lane `rev-spec`: state pointwise
+summability and use the corrected Siegel set. Correction from `sol-gate-spec`: use the field norm
+of the triangular matrix's upper-left entry in the leading term. -/
 theorem E4_eis_siegel (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (d : SiegelData F Γ) (σ : SL(2,F))
     (Kₛ : Set ℂ) (hKₛ : IsCompact Kₛ)
@@ -41,6 +43,10 @@ theorem E4_eis_siegel (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
         σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∈ borelSL F →
         σ⁻¹ * toSLF F ((q'.out : Γ) : SL(2,𝓞 F)) * d.σ i ∈ borelSL F → q = q') ∧
       (∃ C : ℝ, 0 ≤ C ∧ ∀ s ∈ Kₛ, ∀ z ∈ SiegelData.setAt F d i,
+        Summable (fun q' : {q : CuspCosets F Γ σ //
+          σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∉ borelSL F} =>
+            (‖eisTerm F Γ σ s ((d.σ i) • z) q'.1‖ +
+              ‖fullGradient F (fun x => eisTerm F Γ σ s ((d.σ i) • x) q'.1) z‖)) ∧
         (∑' q' : {q : CuspCosets F Γ σ //
           σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∉ borelSL F},
           (‖eisTerm F Γ σ s ((d.σ i) • z) q'.1‖ +
@@ -48,18 +54,23 @@ theorem E4_eis_siegel (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       (∀ q : CuspCosets F Γ σ,
         σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∈ borelSL F →
         ∀ s ∈ Kₛ, ∀ z ∈ SiegelData.setAt F d i,
-          ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧
+          let b := σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i
           eisTerm F Γ σ s ((d.σ i) • z) q =
-            ((absUnitNorm F ε : ℝ) : ℂ) ^ (-(1 + 2 * s)) *
+            ((absFieldNorm F (b 0 0) : ℝ) : ℂ) ^ (1 + 2 * s) *
               ((normHeight F z : ℝ) : ℂ) ^ (1 + 2 * s)) := by
   sorry
 
 /-- E5 `spec:seed` — P-SPEC.md:241, 131–133. The truncated seed and its defect are locally finite,
 smooth and invariant; the defect is compactly supported modulo `Γ`, entire as an `L²` family, and
-has the explicit height-only formula in the active cusp. -/
+has the explicit height-only formula in the active cusp. Correction from review lane `rev-spec`:
+include the cusp-separation property at the cutoff threshold. -/
 theorem E5_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (σ : SL(2,F)) (A₀ A : ℝ) (hA₀ : 1 ≤ A₀) (hA : A₀ ≤ A)
+    (hsep : ∀ γ γ' : Γ, ∀ z : X F,
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+      γ' * γ⁻¹ ∈ cuspStab F Γ σ)
     (τ : ℝ → ℝ) (hτ : IsCuspCutoff A τ) :
     (∀ s z,
       {q : CuspCosets F Γ σ | seedTerm F Γ σ τ s z q ≠ 0}.Finite ∧
@@ -93,13 +104,14 @@ theorem E5_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
 
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
-resolvent equation with source equal to the negative seed defect. -/
+resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
+require a genuine separated cusp cutoff and calibrated energy representatives. -/
 theorem E6_identify (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
-    (σ : SL(2,F)) (τ : ℝ → ℝ) (s : ℂ)
+    (σ : SL(2,F)) (τ : ℝ → ℝ) (cut : CutoffData F Γ σ τ) (s : ℂ)
     (hs : s ∈ Metric.ball (5 / 2 : ℂ) (1 / 2))
     (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
-    (e : EnergyContext (T := testSubmodule F Γ) E)
+    (e : EnergyContext F Γ D E)
     (gL2 : L2Space F D)
     (hg : ∀ᵐ z ∂(volX F), z ∈ D →
       gL2 z = eisSeedDefect F Γ σ τ s z) :
@@ -110,14 +122,33 @@ theorem E6_identify (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       E.M x = faResolvent E (spectralParameter F s) (-gL2)) := by
   sorry
 
+/-- The compact energy error and strict Fredholm threshold used by E7. The `sol-gate-spec`
+correction makes the compact coercivity input and its center threshold explicit. -/
+structure SpectralGapData {D : Set (X F)}
+    (E : FAEnergySpace (L2Space F D) (GradientL2Space F D)) (s₁ : ℝ) where
+  K : E.V →L[ℂ] L2Space F D
+  compact : IsCompactOperator K
+  c : ℝ
+  C : ℝ
+  c_pos : 0 < c
+  C_nonneg : 0 ≤ C
+  estimate : ∀ x : E.V, ‖E.M x‖ ^ 2 ≤ c * ‖E.Gr x‖ ^ 2 + C * ‖K x‖ ^ 2
+  below : placeCount F * (1 - 4 * s₁ ^ 2) < 1 / c
+
 /-- E7 `spec:l2-cont` — P-SPEC.md:243, 402–404. The correction is analytic on the connected
-continuation domain and has a simple pole at `s₁` with the stated projected-resolvent residue. -/
+continuation domain and has a simple pole at `s₁` with the stated projected-resolvent residue.
+Correction from `sol-gate-spec`: use the actual seed-defect source, calibrated energy graph, and
+compact Fredholm estimate below the center. -/
 theorem E7_l2_cont (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (σ : SL(2,F)) (s₁ : ℝ) (hs₀ : 0 < s₁) (hs₁ : s₁ ≤ 1 / 2)
     (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
+    (e : EnergyContext F Γ D E) (gap : SpectralGapData E s₁)
     (G : ℂ → L2Space F D) (hG : AnalyticOnNhd ℂ G Set.univ)
-    (τ : ℝ → ℝ) (lam₁ : ℝ)
+    (τ : ℝ → ℝ) (cut : CutoffData F Γ σ τ)
+    (hsource : ∀ s, ∀ᵐ z ∂(volX F), z ∈ D →
+      G s z = eisSeedDefect F Γ σ τ s z)
+    (lam₁ : ℝ)
     (hLam1 : lam₁ = placeCount F * (1 - 4 * s₁ ^ 2))
     (P : E.V →L[ℂ] E.V) (N : Submodule ℂ E.V)
     (hP : P.range = N ∧ P.comp P = P ∧ IsSelfAdjoint P ∧

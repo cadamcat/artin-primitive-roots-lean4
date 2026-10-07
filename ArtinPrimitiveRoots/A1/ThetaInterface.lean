@@ -74,11 +74,16 @@ def muThree (D : FieldData F) (ζ : rootsOfUnity 6 F) : rootsOfUnity 3 ℂ :=
 identified with `μ3(ℂ)` through `ι = σ0⁻¹` (forced by eq:theta-effective-cocycle), the S-part
 (`nS, aS, wS, nbarS`), exterior local elements (`n v, a v, w v, nbar v` for `v ∉ S`), the exterior
 compact subgroup `Kext = Π_{v∉S} κ_v(PGL₂(O_v))`, and the rational splitting `rat`.
-Every field used by A2's §4 (A2 blueprint T2 request) is a field here. -/
+Every field used by A2's §4 (A2 blueprint T2 request) is a field here. C10 of `sol-gate-theta`
+attaches the restricted-product quotient topology to the cover. -/
 structure ThetaCover (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (A : AddCharData F) where
   G : Type
   [grp : Group G]
+  /-- The topology induced by the restricted-product quotient in `CoverPackage`, as required by
+  C10 of `sol-gate-theta`. -/
+  topology : TopologicalSpace G
+  topGroup : @IsTopologicalGroup G topology grp
   z : rootsOfUnity 3 ℂ →* G
   z_inj : Function.Injective z
   z_central : ∀ ζ g, z ζ * g = g * z ζ
@@ -159,6 +164,12 @@ structure ThetaCover (D : FieldData F) (S : SData F CE condη) (H : HilbertData 
 
 attribute [instance] ThetaCover.grp
 
+/-- The archimedean unipotent orbit in a theta cover; C11 of `sol-gate-theta` uses it for joint
+root-orbit regularity. -/
+def ThetaCover.nInf {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
+    {A : AddCharData F} (C : ThetaCover D S H A) (x : InfinitePlace F → ℂ) : C.G :=
+  C.nS (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x))
+
 /-- An admissible S-character (03:441–447): continuous unitary character of `F_S^×`, trivial on
 `U_S`, locally constant on the finite part, angular `ω_{m_w}` (`m_w = ±1`) at complex places. -/
 structure SChar (S : SData F CE condη) where
@@ -188,11 +199,15 @@ def sphericalTable (D : FieldData F) (A : AddCharData F) (v : FinPlace F) (e : �
      else 0)
 
 /-- **T2–T7** for a fixed finite family `𝓛` of admissible S-characters, on a fixed cover `C`.
-Corrected per rev-theta with archimedean smoothness and locally uniform Fourier convergence. -/
+Corrected per rev-theta with archimedean smoothness and locally uniform Fourier convergence; C10/C11
+of `sol-gate-theta` fix the topology and add joint root smoothness. The cover topology is also pinned
+by the correction from `sol-gate-theta2`. -/
 structure ThetaFamily {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
     {A : AddCharData F} (C : ThetaCover D S H A) (𝓛 : Finset (SChar S)) where
-  /-- The topology used to state compact-uniform convergence; `ThetaCover.G` has no fixed one. -/
+  /-- The topology used to state compact-uniform convergence. -/
   topology : TopologicalSpace C.G
+  /-- C10 of `sol-gate-theta`: use the restricted-product quotient topology fixed by the cover. -/
+  topology_spec : topology = C.topology
   θ : SChar S → C.G → ℂ
   θN : SChar S → C.G → ℂ
   W : SChar S → C.G → ℂ
@@ -208,6 +223,12 @@ structure ThetaFamily {D : FieldData F} {S : SData F CE condη} {H : HilbertData
     ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
       (fun z : ℂ => θ L (g * C.nS
         (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))
+  /-- Joint smoothness of both root variables, required by C11 of `sol-gate-theta` for mixed
+  derivatives in `Rderiv`. -/
+  jointRootSmooth : ∀ L ∈ 𝓛, ∀ g : C.G,
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun p : (InfinitePlace F → ℂ) × (InfinitePlace F → ℂ) =>
+        θ L (C.nInf p.1 * g * C.nInf p.2))
   /-- T3: Fourier expansion along `N`, constant term, and its invariances. -/
   fourier : ∀ L ∈ 𝓛, ∀ g, Summable (fun ν : Fˣ => W L (C.rat (diagGL ν) * g)) ∧
     θ L g = θN L g + ∑' ν : Fˣ, W L (C.rat (diagGL ν) * g)
@@ -271,15 +292,5 @@ structure ThetaFamily {D : FieldData F} {S : SData F CE condη} {H : HilbertData
   /-- T7: the constant term is radial at every complex place. -/
   T7 : ∀ L ∈ 𝓛, ∀ (w : InfinitePlace F) (zc : ℂˣ), ‖(zc : ℂ)‖ = 1 →
     ∀ g, θN L (C.aS (S.atComplex w zc) * g) = θN L g
-
-/-- **th:theta-interface.** The cover is fixed before the S-characters; for every finite family of
-admissible S-characters there is a theta family. Route C packages P-COVER, P-LOCAL, P-EIS,
-P-SPEC, P-RES, P-ASSEMBLE (A1-DESIGN §3).
-Corrected per rev-theta through the regularity fields of `ThetaFamily`. -/
-theorem theta_interface (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
-    (A : AddCharData F) :
-    ∃ C : ThetaCover D S H A, ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily C 𝓛) := by
-  sorry
-
 
 end ArtinPrimitiveRoots.A1

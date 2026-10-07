@@ -1,3 +1,5 @@
+import Mathlib.Topology.Defs.Induced
+import Mathlib.Topology.Algebra.RestrictedProduct.TopologicalSpace
 import ArtinPrimitiveRoots.A1.ThetaInterface
 
 
@@ -13,6 +15,7 @@ The section `Core` is the **shared theta core**: it is copied verbatim into ever
 set_option autoImplicit false
 
 open NumberField IsDedekindDomain
+open Filter Topology
 open scoped Classical
 
 noncomputable section
@@ -438,7 +441,10 @@ abbrev Place (F : Type) [Field F] [NumberField F] := FinPlace F ⊕ InfinitePlac
 of the local covers (`L v` at finite places, the trivial cover `PGL₂(ℂ) × μ3(ℂ)` at complex
 places) with respect to the tame maximal compacts; `q : RP → G` divides by the
 `N0 = {(ζ_v) : Π ζ_v = 1}`; `tc` is the frozen `ThetaCover` on `G = RP ⧸ N0`, and its local data
-are the images of the local covers. -/
+are the images of the local covers. C2 of `sol-gate-theta` installs the insertion, component,
+quotient-topology, and restricted-tuple compatibility identities used by consumers. The topology
+correction from `sol-gate-theta2` pins `rpTopology` to the canonical restricted-product topology at
+producer boundaries. -/
 structure CoverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)} (S : SData F CE condη)
     (H : HilbertData F) (A : AddCharData F) where
   loc : ∀ v : FinPlace F, FinLocalCover D H v
@@ -461,6 +467,13 @@ structure CoverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)} (S
   q_surj : Function.Surjective q
   compF : ∀ v : FinPlace F, RP →* (loc v).L
   compC : InfinitePlace F → RP →* PGL2 ℂ
+  /-- The restricted-product topology before quotienting by the central phases. -/
+  rpTopology : TopologicalSpace RP
+  rpTopGroup : @IsTopologicalGroup RP rpTopology rpGrp
+  q_quotient : @IsQuotientMap RP tc.G rpTopology tc.topology q
+  compF_cont : ∀ v, @Continuous RP (loc v).L rpTopology (loc v).top (compF v)
+  nS_cont : @Continuous (Multiplicative S.FS) tc.G inferInstance tc.topology tc.nS
+  aS_cont : @Continuous S.FSˣ tc.G inferInstance tc.topology tc.aS
   /-- an element of `RP` is determined by its components -/
   comp_ext : ∀ x y : RP, (∀ v, compF v x = compF v y) → (∀ w, compC w x = compC w y) → x = y
   /-- restricted-product condition: almost all components in the tame compacts -/
@@ -476,18 +489,78 @@ structure CoverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)} (S
     (loc v).sec (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) γ)
   compC_ratRP : ∀ w γ, compC w (ratRP γ) =
     QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding γ)
+  /-- Insert one local element into the restricted product. -/
+  incl : ∀ v : FinPlace F, (loc v).L →* RP
+  incl_compF : ∀ v g, compF v (incl v g) = g
+  incl_compF_other : ∀ v v', v ≠ v' → ∀ g, compF v' (incl v g) = 1
+  incl_compC : ∀ v g w, compC w (incl v g) = 1
+  q_incl : ∀ v g, q (incl v g) = emb v g
+  /-- Any compatible local components with tame support come from the restricted product. -/
+  comp_surj : ∀ (lf : ∀ v : FinPlace F, (loc v).L) (lc : InfinitePlace F → PGL2 ℂ),
+    Set.Finite {v : FinPlace F | ∃ hv : v ∉ S.Sf, lf v ∉ (tame v hv).Kmax} →
+      ∃ x : RP, (∀ v, compF v x = lf v) ∧ ∀ w, compC w x = lc w
+  emb_Gloc : ∀ v, v ∉ S.Sf → (emb v).range = tc.Gloc v
+  emb_Kext_iff : ∀ v (hv : v ∉ S.Sf) g,
+    emb v g ∈ tc.Kext ↔ g ∈ (tame v hv).Kmax
   /-- the S-part restricted to a finite place `v ∈ S` is the local cover there -/
   emb_aS : ∀ v : S.Sf, ∀ y : (v.1.adicCompletion F)ˣ, ∃ yS : S.FSˣ,
     S.compU v yS = y ∧ (∀ v' : S.Sf, v' ≠ v → S.compU v' yS = 1) ∧ (∀ w, S.compC w yS = 1) ∧
     tc.aS yS = emb v.1 ((loc v.1).a y)
+  /-- The global S-unipotent is represented by its local components. -/
+  nS_components : ∀ u : S.FS, ∃ x : RP, q x = tc.nS (Multiplicative.ofAdd u) ∧
+    (∀ v : FinPlace F, compF v x = if hv : v ∈ S.Sf then
+      (loc v).n (Multiplicative.ofAdd (u.1 ⟨v, hv⟩)) else 1) ∧
+    ∀ w, compC w x = QuotientGroup.mk (upperM ℂ (u.2 w))
+  /-- The global S-torus is represented by its local components. -/
+  aS_components : ∀ u : S.FSˣ, ∃ x : RP, q x = tc.aS u ∧
+    (∀ v : FinPlace F, compF v x = if hv : v ∈ S.Sf then
+      (loc v).a (S.compU ⟨v, hv⟩ u) else 1) ∧
+    ∀ w, compC w x = QuotientGroup.mk (diagM ℂ (S.compC w u))
+  /-- The global S-Weyl element is represented by its local components. -/
+  wS_components : ∃ x : RP, q x = tc.wS ∧
+    (∀ v : FinPlace F, compF v x = if v ∈ S.Sf then (loc v).w else 1) ∧
+    ∀ w, compC w x = QuotientGroup.mk (weylM ℂ)
 
 attribute [instance] CoverPackage.rpGrp
 
+variable {CE : ℕ} {condη : Ideal (𝓞 F)}
+variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F} {A : AddCharData F}
+
+/-- Archimedean central phases have already been absorbed into the common finite center
+in this presentation, consistently with the existing `compC` and `q_eq` fields. -/
+def LocalComponent (P : CoverPackage D S H A) : Place F → Type :=
+  Sum.elim (fun v => (P.loc v).L) (fun _ => PGL2 ℂ)
+
+instance localComponentTopology (P : CoverPackage D S H A) (p : Place F) :
+    TopologicalSpace (LocalComponent P p) := by
+  cases p with
+  | inl v => exact (P.loc v).top
+  | inr w => exact inferInstanceAs (TopologicalSpace (PGL2 ℂ))
+
+/-- All components at S are unrestricted; exterior finite components use their actual
+tame compact subgroups. -/
+def referenceSubset (P : CoverPackage D S H A) : (p : Place F) → Set (LocalComponent P p)
+  | .inl v => if hv : v ∉ S.Sf then ((P.tame v hv).Kmax : Set (P.loc v).L) else Set.univ
+  | .inr _ => Set.univ
+
+abbrev CanonicalRP (P : CoverPackage D S H A) :=
+  RestrictedProduct (LocalComponent P) (referenceSubset P) cofinite
+
+/-- This pins the topology, rather than merely naming a supplied group topology.
+The algebraic component equivalence comes from `comp_ext`, `comp_restricted`, and
+`comp_surj`; its homeomorphism property is the missing construction obligation. This is the
+restricted-product topology correction from `sol-gate-theta2`. -/
+def HasRestrictedProductTopology (P : CoverPackage D S H A) : Prop :=
+  ∃ e : @Homeomorph P.RP (CanonicalRP P) P.rpTopology inferInstance,
+    (∀ x v, e x (.inl v) = P.compF v x) ∧
+    ∀ x w, e x (.inr w) = P.compC w x
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
-cover exists. -/
+cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
+`sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
 theorem exists_coverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)}
     (S : SData F CE condη) (H : HilbertData F) (A : AddCharData F)
-    (hSt : ∀ v, SteinbergAt H v) : Nonempty (CoverPackage D S H A) := by
+    (hSt : ∀ v, SteinbergAt H v) : ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P := by
   sorry
 
 end ArtinPrimitiveRoots.A1.Theta
