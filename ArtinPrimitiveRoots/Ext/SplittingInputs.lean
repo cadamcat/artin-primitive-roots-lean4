@@ -182,12 +182,15 @@ theorem ext_digamma_strip {a b : ℝ} (ha : 0 < a) :
 `Complex.Hadamard.hadamard_factorization_of_order`
 (`Mathlib/Analysis/Complex/HadamardFactorization/Order.lean:176`) supplies the canonical product;
 its module is not in the shared prebuilt set. The logarithmic-derivative form below is the part
-consumed to choose contour heights. -/
+consumed to choose contour heights. Corrected 2026-10-07 (review lane `rev-7`): growth with `‖s‖ + 1` (the old
+bound forced `‖G 0‖ ≤ 1`) and an explicit `Summable` conclusion. -/
 theorem ext_hadamard_order_one (G : ℂ → ℂ) (hG : Differentiable ℂ G)
     (hG0 : G 0 ≠ 0)
     (hgrowth : ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ,
-      ‖G s‖ ≤ Real.exp (C * ‖s‖ * Real.log (‖s‖ + 2))) :
+      ‖G s‖ ≤ Real.exp (C * (‖s‖ + 1) * Real.log (‖s‖ + 2))) :
     ∃ B : ℂ, ∀ s : ℂ, G s ≠ 0 →
+      Summable (fun ρ : ℂ => if G ρ = 0 then
+        (analyticOrderNatAt G ρ : ℂ) * ((s - ρ)⁻¹ + ρ⁻¹) else 0) ∧
       deriv G s / G s = B + ∑' ρ : ℂ,
         if G ρ = 0 then
           (analyticOrderNatAt G ρ : ℂ) * ((s - ρ)⁻¹ + ρ⁻¹)
