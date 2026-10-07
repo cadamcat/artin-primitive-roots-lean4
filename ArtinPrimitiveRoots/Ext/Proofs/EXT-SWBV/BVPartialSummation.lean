@@ -1,3 +1,4 @@
+import Mathlib
 import OAI.NumberTheory.PrimeGaps.Main
 import ArtinPrimitiveRoots.TypeII.Defs
 
@@ -596,5 +597,151 @@ lemma divisorCount_div_eq_antidiagonal (q : ℕ) (hq : 0 < q) :
   intro p hp
   have hp' := Nat.mem_divisorsAntidiagonal.mp hp
   rw [← Nat.cast_mul, hp'.1]
+
+lemma sum_reciprocal_totient_le_harmonic_sq (Q : ℕ) :
+    (∑ q ∈ Finset.Icc 1 Q, (1 : ℝ) / (q.totient : ℝ)) ≤
+      (harmonic Q : ℝ) ^ 2 := by
+  let S := Finset.Icc 1 Q
+  let s := Finset.Ioc 0 Q ×ˢ Finset.Ioc 0 Q
+  let g : ℕ × ℕ → ℕ := fun p => p.1 * p.2
+  let f : ℕ × ℕ → ℝ := fun p => (1 : ℝ) / ((p.1 : ℝ) * (p.2 : ℝ))
+  have hle (q : ℕ) (hq : q ∈ S) :
+      (1 : ℝ) / (q.totient : ℝ) ≤ ∑ p ∈ q.divisorsAntidiagonal, f p := by
+    have hqpos : 0 < q := (Finset.mem_Icc.mp hq).1
+    rw [← divisorCount_div_eq_antidiagonal q hqpos]
+    exact totient_reciprocal_le_divisorCount q hqpos
+  have hfiber (q : ℕ) (hq : q ∈ S) :
+      (∑ p ∈ q.divisorsAntidiagonal, f p) =
+        ∑ p ∈ s with g p = q, f p := by
+    have hq1 : 1 ≤ q := (Finset.mem_Icc.mp hq).1
+    have hqQ : q ≤ Q := (Finset.mem_Icc.mp hq).2
+    have hq0 : q ≠ 0 := by omega
+    exact congrArg (fun set => ∑ p ∈ set, f p)
+      (Nat.divisorsAntidiagonal_eq_prod_filter_of_le hq0 hqQ)
+  have hbound : (∑ q ∈ S, ∑ p ∈ s with g p = q, f p) ≤ ∑ p ∈ s, f p := by
+    apply Finset.sum_fiberwise_le_sum_of_sum_fiber_nonneg (s := s) (t := S) (g := g) (f := f)
+    intro y hy
+    exact Finset.sum_nonneg fun p hp => by positivity
+  have hprod :
+      (∑ p ∈ s, f p) =
+        (∑ a ∈ Finset.Ioc 0 Q, (1 : ℝ) / (a : ℝ)) *
+          ∑ b ∈ Finset.Ioc 0 Q, (1 : ℝ) / (b : ℝ) := by
+    dsimp [s, f]
+    rw [Finset.sum_product]
+    have heq (a b : ℕ) : (1 : ℝ) / ((a : ℝ) * (b : ℝ)) = (1 / (a : ℝ)) * (1 / (b : ℝ)) := by
+      ring
+    simp_rw [heq, ← Finset.mul_sum, ← Finset.sum_mul]
+  have hIoc : Finset.Ioc 0 Q = Finset.Icc 1 Q := by
+    ext x
+    simp only [Finset.mem_Ioc, Finset.mem_Icc]
+    omega
+  have hharm : (∑ a ∈ Finset.Ioc 0 Q, (1 : ℝ) / (a : ℝ)) = (harmonic Q : ℝ) := by
+    rw [hIoc, harmonic_eq_sum_Icc]
+    push_cast
+    simp only [one_div]
+  calc
+    (∑ q ∈ S, (1 : ℝ) / (q.totient : ℝ)) ≤
+        ∑ q ∈ S, ∑ p ∈ q.divisorsAntidiagonal, f p := Finset.sum_le_sum hle
+    _ = ∑ q ∈ S, ∑ p ∈ s with g p = q, f p := Finset.sum_congr rfl hfiber
+    _ ≤ ∑ p ∈ s, f p := hbound
+    _ = (harmonic Q : ℝ) * (harmonic Q : ℝ) := by rw [hprod, hharm]
+    _ = (harmonic Q : ℝ) ^ 2 := by ring
+
+lemma logIntegralFromTwo_le {x : ℝ} (hx : 2 ≤ x) :
+    logIntegralFromTwo x ≤ x / Real.log 2 := by
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hintegrable : IntervalIntegrable (fun t : ℝ => 1 / Real.log t) volume 2 x := by
+    rw [intervalIntegrable_iff_integrableOn_Icc_of_le hx]
+    refine ContinuousOn.integrableOn_Icc fun t ht => ?_
+    have ht2 : 2 ≤ t := ht.1
+    have ht0 : t ≠ 0 := by linarith
+    have hlog : Real.log t ≠ 0 := ne_of_gt (Real.log_pos (by linarith))
+    fun_prop
+  have hbound : ∀ t ∈ Set.Icc (2 : ℝ) x, 1 / Real.log t ≤ 1 / Real.log 2 := by
+    intro t ht
+    have ht2 : 2 ≤ t := ht.1
+    have hlogt : Real.log 2 ≤ Real.log t := Real.log_le_log (by norm_num) ht2
+    exact one_div_le_one_div_of_le hlog2 hlogt
+  have hconst : IntervalIntegrable (fun _ : ℝ => 1 / Real.log 2) volume 2 x :=
+    intervalIntegrable_const
+  dsimp [logIntegralFromTwo]
+  have hle := intervalIntegral.integral_mono_on hx hintegrable hconst hbound
+  rw [intervalIntegral.integral_const, smul_eq_mul, sub_mul] at hle
+  have heq : x * (1 / Real.log 2) = x / Real.log 2 := by ring
+  have hpos2 : 0 ≤ 2 * (1 / Real.log 2) := by positivity
+  calc
+    (∫ t in (2 : ℝ)..x, 1 / Real.log t) ≤ x * (1 / Real.log 2) - 2 * (1 / Real.log 2) := hle
+    _ ≤ x / Real.log 2 := by linarith [heq, hpos2]
+
+lemma primeClassCount_le (x : ℝ) (hx : 2 ≤ x) {q c : ℕ} (hq : 0 < q) (hc : c < q) :
+    (primeClassCount x q c : ℝ) ≤ x / (q : ℝ) + 1 := by
+  let S := (primesUpTo x).filter fun n : ℕ => (n : ZMod q) = (c : ZMod q)
+  let T := (Finset.range (⌊x⌋₊ + 1)).filter fun n : ℕ => (n : ZMod q) = (c : ZMod q)
+  have hS_sub : S ⊆ T := by
+    intro n hn
+    have hmem : n ∈ primesUpTo x ∧ (n : ZMod q) = (c : ZMod q) := Finset.mem_filter.mp hn
+    have hrange : n ∈ Finset.range (⌊x⌋₊ + 1) := by
+      have hp := hmem.1
+      unfold primesUpTo at hp
+      exact (Finset.mem_filter.mp hp).1
+    exact Finset.mem_filter.mpr ⟨hrange, hmem.2⟩
+  have hinj : Set.InjOn (fun n : ℕ => n / q) (T : Set ℕ) := by
+    intro n1 hn1 n2 hn2 heq
+    dsimp at heq
+    have h1 := (Finset.mem_filter.mp hn1).2
+    have h2 := (Finset.mem_filter.mp hn2).2
+    rw [ZMod.natCast_eq_natCast_iff', Nat.mod_eq_of_lt hc] at h1 h2
+    have hdiv1 := Nat.div_add_mod n1 q
+    have hdiv2 := Nat.div_add_mod n2 q
+    rw [← hdiv1, ← hdiv2, h1, h2, heq]
+  have hmaps : ∀ n ∈ T, n / q ∈ Finset.range (⌊x⌋₊ / q + 1) := by
+    intro n hn
+    have hnrange := (Finset.mem_filter.mp hn).1
+    rw [Finset.mem_range] at hnrange ⊢
+    have : n ≤ ⌊x⌋₊ := by omega
+    have : n / q ≤ ⌊x⌋₊ / q := Nat.div_le_div_right this
+    omega
+  have hcardT : T.card ≤ (Finset.range (⌊x⌋₊ / q + 1)).card :=
+    Finset.card_le_card_of_injOn (fun n => n / q) hmaps hinj
+  rw [Finset.card_range] at hcardT
+  have hcardS : S.card ≤ ⌊x⌋₊ / q + 1 :=
+    (Finset.card_le_card hS_sub).trans hcardT
+  unfold primeClassCount
+  change (S.card : ℝ) ≤ x / (q : ℝ) + 1
+  have hpos : (0 : ℝ) ≤ x := by linarith
+  have h1 : ((⌊x⌋₊ / q : ℕ) : ℝ) ≤ (⌊x⌋₊ : ℝ) / (q : ℝ) := Nat.cast_div_le
+  have h2 : (⌊x⌋₊ : ℝ) / (q : ℝ) ≤ x / (q : ℝ) :=
+    div_le_div_of_nonneg_right (Nat.floor_le hpos) (by positivity)
+  have h3 : ((⌊x⌋₊ / q : ℕ) : ℝ) ≤ x / (q : ℝ) := h1.trans h2
+  have hcardS_cast : (S.card : ℝ) ≤ ((⌊x⌋₊ / q : ℕ) : ℝ) + 1 := by
+    have : (S.card : ℝ) ≤ ((⌊x⌋₊ / q + 1 : ℕ) : ℝ) := by exact_mod_cast hcardS
+    have heq : ((⌊x⌋₊ / q + 1 : ℕ) : ℝ) = ((⌊x⌋₊ / q : ℕ) : ℝ) + 1 := by simp
+    linarith
+  linarith [hcardS_cast, h3]
+
+lemma primeClassTheta_le_log_mul_count (x : ℝ) (hx : 2 ≤ x) {q c : ℕ} :
+    primeClassTheta x q c ≤ Real.log x * (primeClassCount x q c : ℝ) := by
+  have hlogx_nonneg : 0 ≤ Real.log x := Real.log_nonneg (by linarith)
+  unfold primeClassTheta primeClassWeight primeClassCount
+  have hset :
+      (primesUpTo x).filter (fun n : ℕ => (n : ZMod q) = (c : ZMod q)) =
+        (Finset.Icc 0 ⌊x⌋₊).filter fun n : ℕ => n.Prime ∧ (n : ZMod q) = (c : ZMod q) := by
+    ext n
+    simp only [primesUpTo, Finset.mem_filter, Finset.mem_range, Finset.mem_Icc, Nat.lt_succ_iff,
+      Nat.zero_le, true_and]
+    tauto
+  rw [hset, Finset.card_eq_sum_ones, Nat.cast_sum, Nat.cast_one, Finset.mul_sum]
+  rw [Finset.sum_filter]
+  apply Finset.sum_le_sum
+  intro n hn
+  by_cases hp : n.Prime ∧ (n : ZMod q) = (c : ZMod q)
+  · simp only [if_pos hp, mul_one]
+    have hnle : (n : ℝ) ≤ x := by
+      have := (Finset.mem_Icc.mp hn).2
+      exact (Nat.cast_le.mpr this).trans (Nat.floor_le (by linarith))
+    have hnpos : (0 : ℝ) < (n : ℝ) := by exact_mod_cast hp.1.pos
+    have hlog : Real.log (n : ℝ) ≤ Real.log x := Real.log_le_log hnpos hnle
+    exact hlog
+  · simp [hp]
 
 end ArtinPrimitiveRoots.Ext.Proofs.SWBV
