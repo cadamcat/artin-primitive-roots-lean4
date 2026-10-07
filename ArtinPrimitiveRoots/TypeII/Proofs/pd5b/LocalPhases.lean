@@ -56,7 +56,6 @@ theorem pd5b_localOperationPhase_norm_le_one {K T : ℕ} [NeZero T]
       | none => simp
       | some p =>
           rw [pd5b_finite_birth_character_norm]
-          exact le_rfl
     · simp [factor, hU]
   have hprod :
       pd5b_localOperationPhase A C hC θ U Ops log = ∏ a ∈ Ops, factor a := rfl

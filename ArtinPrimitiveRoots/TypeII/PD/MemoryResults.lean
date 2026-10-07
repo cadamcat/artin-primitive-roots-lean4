@@ -1,3 +1,5 @@
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDHigh.pd5_high_rank_tail
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.PDLow.pd5_low_rank_iteration
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.Determinant
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
@@ -4875,7 +4877,10 @@ theorem history_rank_high (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)
             |(constraintCoeff 𝒞 : ℝ)| *
               ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight 𝒞)‖) ≤
             Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) := by
-  sorry
+  intro K F hF ρ hρ E₀ hE₀
+  exact pd5_high_rank_tail δ c₁ c₂ hδ hc₁ K F hF ρ hρ E₀ hE₀
+    (pd5_fixed_system_abs_estimate δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+      (pd5_positive_choice_rows δ c₁ c₂ hδ hc₁ K F hF ρ hρ))
 
 /-- `t2:pd.history-rank-low` (new node) — PD 04:906-956.  A constraint system of rank `r` changes at
 most `2r` operations: write each block indicator by circle orthogonality (mem:local-phases), attach
@@ -4897,7 +4902,16 @@ theorem history_rank_low (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
                 2 * C_K ^ (S.N + 1) *
                   Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (constraintRank 𝒞 : ℝ))) *
                   Real.rpow S.L (2 * Ccr * (constraintRank 𝒞 : ℝ)) := by
-  sorry
+  intro K F hF ρ hρ
+  rcases ghost_edge_crude δ c₁ c₂ hδ hc₁ K F hF ρ hρ with
+    ⟨v, C_K, Cexp, x₀, hv, hC_K, hCexp, hx₀, hcrude⟩
+  have hghost : PD5GhostCrudeAvailable δ c₁ c₂ F ρ := by
+    refine ⟨v, C_K, x₀, hv, hC_K, hx₀, ?_⟩
+    intro S hS hx w hw j hj
+    exact ⟨(hcrude S hS hx w hw j hj).1, (hcrude S hS hx w hw j hj).2.1⟩
+  exact pd5_low_rank_iteration δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+    (pd5_boundary_norm_near_one δ c₁ c₂ K F hF)
+    (pd5_modified_ops_symmetry_domination δ c₁ c₂ hδ hc₁ K F hF ρ hρ hghost)
 
 private theorem pd5_birth_arithmetic_threshold {K : ℕ} {C' eta C_K : ℝ}
     (hC' : 0 < C') (heta : 0 < eta) :
