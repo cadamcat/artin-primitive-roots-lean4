@@ -46,7 +46,7 @@ theorem exists_cusp_reps (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] :
       Function.Bijective (fun p : (Σ i, CuspCosets F Γ (σ i)) =>
         (Quotient.mk (QuotientGroup.rightRel (borelSL F))
           ((σ p.1)⁻¹ * toSLF F ((p.2.out : Γ) : SL(2, 𝓞 F))))) := by
-  sorry
+  exact (R3_cusps_finite Γ).1
 
 /-- `spec:x-action`: the height of a translate, place by place (from `height_smul_pt`). -/
 theorem normHeight_smul_ptX' (g : SL(2,F)) (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ)
