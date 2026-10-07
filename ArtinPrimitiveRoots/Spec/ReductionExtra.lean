@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Spec.Stage1
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CALIBRATE.R8
 
 /-! Remaining reduction-theory nodes R8--R10 and R12--R14. -/
 
@@ -21,7 +22,7 @@ theorem R8_siegel_cover (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (d : SiegelData F Γ) :
     ∀ z : X F, ∃ i : d.ι, ∃ γ : Γ,
       (d.σ i)⁻¹ • ((γ : SL(2,𝓞 F)) • z) ∈ SiegelData.setAt F d i := by
-  sorry
+  exact r8_siegel_cover_helper Γ d
 
 /-- R9 `spec:proper` — P-SPEC.md:222, 315–324. Arithmetic compact intersections and Siegel-set
 intersections are finite; freeness gives disjoint neighborhoods for nonidentity elements. -/
