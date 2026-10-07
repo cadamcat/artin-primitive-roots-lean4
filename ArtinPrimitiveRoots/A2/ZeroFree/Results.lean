@@ -1,3 +1,4 @@
+import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.conductor_sieve_assemble
 import ArtinPrimitiveRoots.A2.Defs
 import ArtinPrimitiveRoots.A2.Dictionary
 import ArtinPrimitiveRoots.A1.Characters
@@ -19,24 +20,6 @@ namespace ArtinPrimitiveRoots.A2
 
 variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
-
-/-- **ext:primitive-conductor** (06-zero-free.tex:37-73): a modulus of least norm on which the
-idelic character is trivial in A1's local congruence sense. Corrected per rev-a2 to exclude the
-zero ideal from the minimization. -/
-def IsPrimitiveConductor (χ : ArtinPrimitiveRoots.A1.HeckeChar F)
-    (𝔣 : Ideal (𝓞 F)) : Prop :=
-  𝔣 ≠ ⊥ ∧ χ.ConductorDvd 𝔣 ∧
-    ∀ 𝔤 : Ideal (𝓞 F), 𝔤 ≠ ⊥ → χ.ConductorDvd 𝔤 →
-      Ideal.absNorm 𝔣 ≤ Ideal.absNorm 𝔤
-
-/-- The finite-place local components at a fixed finite set `S`. -/
-abbrev SLocalCharacter (S : ArtinPrimitiveRoots.A1.SData F CE condη) :=
-  ∀ v : S.Sf, (v.1.adicCompletion F)ˣ →* ℂˣ
-
-/-- Restriction of an idelic Hecke character to the fixed finite places in `S`. -/
-def SComponent (S : ArtinPrimitiveRoots.A1.SData F CE condη)
-    (χ : ArtinPrimitiveRoots.A1.HeckeChar F) : SLocalCharacter S :=
-  fun v => χ.loc v.1
 
 /-- The raw complete ideal Dirichlet series associated with an idelic character; its stated
 continuation is packaged separately below. Corrected per rev-a2. -/
@@ -100,7 +83,7 @@ theorem lem_conductor_sieve
               C * (N + U ^ 2) * Real.rpow (N * U) ε *
                 ∑ I ∈ (Ideal.finite_setOfPred_absNorm_le
                     (S := 𝓞 F) ⌊N⌋₊).toFinset, ‖b I‖ ^ 2 := by
-  sorry
+  exact conductor_sieve_assemble S C₀ hC₀ 𝓛S
 
 /-- **MISSING A1 frequency interface**: the sixth-power-free representative set `𝒰`, its norm,
 Kummer characters, primitive twists, and the unique factorization map of 02:285-387. Corrected per
