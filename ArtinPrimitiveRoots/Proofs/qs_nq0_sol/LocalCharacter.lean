@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.Generators
+import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
 import ArtinPrimitiveRoots.A1.Characters
 
 /-!
