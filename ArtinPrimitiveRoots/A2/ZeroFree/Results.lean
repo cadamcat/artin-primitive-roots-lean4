@@ -105,7 +105,8 @@ theorem lem_conductor_sieve
 /-- **MISSING A1 frequency interface**: the sixth-power-free representative set `𝒰`, its norm,
 Kummer characters, primitive twists, and the unique factorization map of 02:285-387. Corrected per
 rev-a2 to include the quantitative row, conductor, distinctness, and decomposition hypotheses
-needed by the zero-density argument. -/
+needed by the zero-density argument. Corrected per sol-gate-a2 to express induction as equality
+of full idelic characters, allowing exterior ramification of the Kummer twist. -/
 structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (η : ArtinPrimitiveRoots.A1.HeckeChar F) where

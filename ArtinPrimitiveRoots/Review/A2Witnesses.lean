@@ -20,7 +20,7 @@ theorem zeroSheetHypCInfinity :
   intro j A hA
   refine ⟨0, ?_⟩
   intro y hy
-  simp [normDeriv]
+  simp [ArtinPrimitiveRoots.A1.normDeriv]
 
 theorem initialRegion_witness :
     ArtinPrimitiveRoots.A2.initialRegion (2 : ℂ) 3 1 := by
@@ -46,9 +46,10 @@ Theory-dependent witnesses not constructed in this lane:
   `A1/Characters.lean`; TeX 02:229-387 and 04:99-132).
 - `ClassPairing` requires quotient descent of `HilbertData` to sixth-power classes
   (`A1/Hilbert.lean`; TeX 02:114-132).
-- `SheetGeometry` and `RotatedPresentation` require the normalized Haar disintegration,
-  fundamental domain, and T6 profile producers (`A1/SLattice.lean`, `Theta/Shared.lean`,
-  `Theta/AnalysisS.lean`; TeX 03:474-659).
+- `SheetGeometry`, `RotatedPresentation`, and `ReflectionSetup` require the normalized Haar
+  disintegration, fundamental domain, T6 profile producers, and the combined A1/theta data
+  (`A1/SLattice.lean`, `Theta/Shared.lean`, `Theta/AnalysisS.lean`; TeX 03:474-659,
+  04:19-35).
 - `PoissonWeights`, `WeightSpec`, and `WeightDecay` require a nonzero Bruhat-Schwartz weight
   with the prescribed Mellin value and strip decay (TeX 05:24-75).
 - The finite and complex local Tate functional-equation predicates require Fourier-transform
@@ -56,9 +57,9 @@ Theory-dependent witnesses not constructed in this lane:
 - `HeckeAnalysis` and `ConductorHeightBound` require Hecke continuation, principal zeta
   regularization, residue positivity, and uniform convexity (Hecke/Continuation.lean;
   TeX 06:37-73, 139-163, 413-477).
-- `EulerHypotheses`, `EulerCorrection`, the local-factor bounds, and `ZeroDensityData` require
-  Gauss correction identities, convergent Euler products, and the zero-density/reciprocal
-  estimates (TeX 02:389-625 and 05:596-765, 06:165-366).
+- `EulerHypotheses`, `EulerCorrection`, `HasPoHLocalBounds`, `HasPoHProduct`, the local-factor
+  bounds, and `ZeroDensityData` require Gauss correction identities, convergent Euler products,
+  and the zero-density/reciprocal estimates (TeX 02:389-625 and 05:596-765, 06:165-366).
 - `IsFundamentalAt`, `activeFactor`, `activeNumerator`, and the reflection profile hypotheses
   require the chosen arithmetic rows, compact representatives, and theta estimates
   (TeX 04:19-35, 433-548).

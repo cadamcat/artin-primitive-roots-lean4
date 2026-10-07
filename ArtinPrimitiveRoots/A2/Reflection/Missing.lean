@@ -252,7 +252,7 @@ def inactiveScalar (h f : S.ExtIdeal) : ℂ :=
   ((R.exterior.support h).filter (fun v => v ∉ R.exterior.support f)).prod
     (fun v : FinPlace F => 1 - (qI v.asIdeal : ℂ)⁻¹)
 
-def qI_prime_gt_one (v : FinPlace F) : 1 < qI v.asIdeal := by
+theorem qI_prime_gt_one (v : FinPlace F) : 1 < qI v.asIdeal := by
   dsimp [qI]
   exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
 
