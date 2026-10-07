@@ -974,6 +974,7 @@ private theorem compositum_base_extension (a : ℤ) (q : ℕ) [NeZero q]
       exact (orderOf_dvd_iff_pow_eq_one).mp horderq
   refine ⟨⟨inferInstance, hBranch.1⟩, hBranch.2.1, hBranch.2.2⟩
 
+set_option maxHeartbeats 1000000 in
 /-- **`sp:compositum`**, `07-splitting.tex:70-77`. The chosen top field represents `K_qF_q`.
 Its extension over `F_q` is cyclic of degree dividing `q`; over `K_q` it is abelian of exponent
 two. All three fields are totally imaginary. -/
@@ -1018,28 +1019,284 @@ theorem sp_compositum (a : ℤ) (ha : 1 < |a|) (q : ℕ) [NeZero q] [NeZero (12 
   let Cq : IntermediateField ℚ F := IntermediateField.adjoin ℚ {ζn ^ 12}
   haveI : IsCyclotomicExtension {q} ℚ Cq :=
     hζqF.intermediateField_adjoin_isCyclotomicExtension ℚ
-  have hsplitCq : ((Polynomial.cyclotomic q ℚ).map (algebraMap ℚ Cq)).Splits :=
-    IsCyclotomicExtension.splits_cyclotomic ℚ Cq (n := q) (by simp)
-  have hsplitCycF : ((Polynomial.cyclotomic q ℚ).map (algebraMap ℚ F)).Splits :=
-    hsplitCq.of_isScalarTower F
   letI : Polynomial.IsSplittingField ℚ E (Polynomial.cyclotomic q ℚ) :=
     Polynomial.IsSplittingField.splittingField (Polynomial.cyclotomic q ℚ)
-  let eEF : E →ₐ[ℚ] F :=
-    Polynomial.IsSplittingField.lift E (Polynomial.cyclotomic q ℚ) hsplitCycF
+  let eECq : E ≃ₐ[ℚ] Cq := IsCyclotomicExtension.algEquiv {q} ℚ E Cq
+  let eEF : E →ₐ[ℚ] F := Cq.val.comp eECq.toAlgHom
   letI : Algebra E F := eEF.toRingHom.toAlgebra
+  have hEFmap : algebraMap E F = (eEF : E →+* F) :=
+    RingHom.algebraMap_toAlgebra eEF.toRingHom
   letI : IsScalarTower ℚ E F := IsScalarTower.of_algebraMap_eq' eEF.comp_algebraMap.symm
+  letI : IsScalarTower ℚ F L := IsScalarTower.of_algebraMap_eq' rfl
+  letI : IsScalarTower ℚ E L := IsScalarTower.of_algebraMap_eq fun x => by
+    calc
+      algebraMap ℚ L x = algebraMap F L (algebraMap ℚ F x) :=
+        IsScalarTower.algebraMap_apply ℚ F L x
+      _ = algebraMap F L (algebraMap E F (algebraMap ℚ E x)) := by
+        rw [IsScalarTower.algebraMap_apply ℚ E F]
+      _ = algebraMap E L (algebraMap ℚ E x) :=
+        (IsScalarTower.algebraMap_apply E F L _).symm
   let gE : Polynomial E := kummerPolynomial a q
   let gF : Polynomial F := Polynomial.X ^ q - Polynomial.C (a : F)
   have hEFcast : algebraMap E F (a : E) = (a : F) := map_intCast eEF a
   letI : Polynomial.IsSplittingField E K gE := Polynomial.IsSplittingField.splittingField gE
   letI : Polynomial.IsSplittingField F L gF := Polynomial.IsSplittingField.splittingField gF
   have hmap : gE.map (algebraMap E L) = gF.map (algebraMap F L) := by
-    simp [gE, gF, kummerPolynomial, hEFcast, ← IsScalarTower.algebraMap_apply E F L]
+    simp only [gE, gF, kummerPolynomial, Polynomial.map_sub, Polynomial.map_pow,
+      Polynomial.map_X, Polynomial.map_C]
+    congr 1
+    apply congrArg Polynomial.C
+    calc
+      algebraMap E L (a : E) = algebraMap F L (algebraMap E F (a : E)) :=
+        IsScalarTower.algebraMap_apply E F L _
+      _ = algebraMap F L (a : F) := by rw [hEFcast]
   have hsplitgL : (gE.map (algebraMap E L)).Splits := by
     rw [hmap]
     exact Polynomial.IsSplittingField.splits L gF
   let eKL : K →ₐ[E] L := Polynomial.IsSplittingField.lift K gE hsplitgL
-  sorry
+  letI : Algebra K L := eKL.toRingHom.toAlgebra
+  letI : IsScalarTower E K L := IsScalarTower.of_algebraMap_eq' eKL.comp_algebraMap.symm
+  let fQ : Polynomial ℚ := Polynomial.cyclotomic n ℚ
+  let gQ : Polynomial ℚ := Polynomial.X ^ q - Polynomial.C (a : ℚ)
+  have hfQne : fQ ≠ 0 :=
+    (Polynomial.cyclotomic.irreducible_rat (NeZero.pos n)).ne_zero
+  have hgQne : gQ ≠ 0 := Polynomial.X_pow_sub_C_ne_zero (NeZero.pos q) (a : ℚ)
+  have hmapgQ : gQ.map (algebraMap ℚ F) = gF := by
+    dsimp [gQ, gF]
+    simp only [Polynomial.map_sub, Polynomial.map_pow, Polynomial.map_X, Polynomial.map_C]
+    congr 1
+  letI : Polynomial.IsSplittingField ℚ F fQ :=
+    Polynomial.IsSplittingField.splittingField fQ
+  letI : Polynomial.IsSplittingField F L (gQ.map (algebraMap ℚ F)) := by
+    rw [hmapgQ]
+    exact Polynomial.IsSplittingField.splittingField gF
+  letI : Polynomial.IsSplittingField ℚ L (fQ * gQ) :=
+    Polynomial.IsSplittingField.mul (F := ℚ) (K := F) (L := L) fQ gQ hfQne hgQne
+  letI : Normal ℚ L := Normal.of_isSplittingField (fQ * gQ)
+  letI : Algebra.IsSeparable ℚ L := by infer_instance
+  have hGaloisL : IsGalois ℚ L := ⟨⟩
+  letI : IsScalarTower ℚ K L := IsScalarTower.of_algHom (eKL.restrictScalars ℚ)
+  let eFL : F →ₐ[E] L := IsScalarTower.toAlgHom E F L
+  let eFLQ : F →ₐ[ℚ] L := IsScalarTower.toAlgHom ℚ F L
+  let eKLQ : K →ₐ[ℚ] L := eKL.restrictScalars ℚ
+  let KQ : IntermediateField ℚ L := eKLQ.fieldRange
+  let FQ : IntermediateField ℚ L := eFLQ.fieldRange
+  have hmapgE : gQ.map (algebraMap ℚ E) = gE := by
+    simp [gQ, gE, kummerPolynomial]
+  have hrootG : gQ.rootSet L = gE.rootSet L := by
+    calc
+      gQ.rootSet L = (gQ.map (algebraMap ℚ E)).rootSet L :=
+        (Polynomial.rootSet_map (T := E) (R := L) gQ).symm
+      _ = gE.rootSet L := by rw [hmapgE]
+  have hFadjoin : Algebra.adjoin ℚ (fQ.rootSet L) = eFLQ.range :=
+    Polynomial.IsSplittingField.adjoin_rootSet_eq_range (K := ℚ) (L := F) fQ eFLQ
+  have hKadjoin : Algebra.adjoin E (gE.rootSet L) = eKL.range :=
+    Polynomial.IsSplittingField.adjoin_rootSet_eq_range (K := E) (L := K) gE eKL
+  have hFroot : ∀ x, x ∈ fQ.rootSet L → x ∈ FQ := by
+    intro x hx
+    have hxAdj : x ∈ Algebra.adjoin ℚ (fQ.rootSet L) := Algebra.subset_adjoin hx
+    have hxRange : x ∈ eFLQ.range := by rw [← hFadjoin]; exact hxAdj
+    rcases (AlgHom.mem_range eFLQ).mp hxRange with ⟨y, hy⟩
+    change ∃ y : F, eFLQ y = x
+    exact ⟨y, hy⟩
+  have hKroot : ∀ x, x ∈ gQ.rootSet L → x ∈ KQ := by
+    intro x hx
+    have hxG : x ∈ gE.rootSet L := by rw [← hrootG]; exact hx
+    have hxAdj : x ∈ Algebra.adjoin E (gE.rootSet L) := Algebra.subset_adjoin hxG
+    have hxRange : x ∈ eKL.range := by rw [← hKadjoin]; exact hxAdj
+    rcases (AlgHom.mem_range eKL).mp hxRange with ⟨y, hy⟩
+    change ∃ y : K, eKLQ y = x
+    exact ⟨y, by simpa [eKLQ] using hy⟩
+  have hrootProd : (fQ * gQ).rootSet L = fQ.rootSet L ∪ gQ.rootSet L := by
+    classical
+    rw [Polynomial.rootSet, Polynomial.aroots_mul (mul_ne_zero hfQne hgQne),
+      Multiset.toFinset_add, Finset.coe_union, ← Polynomial.rootSet, ← Polynomial.rootSet]
+  have hrootSubset : (fQ * gQ).rootSet L ⊆ (KQ ⊔ FQ : IntermediateField ℚ L) := by
+    intro x hx
+    rw [hrootProd] at hx
+    rcases hx with hxF | hxK
+    · exact mem_of_le_of_mem le_sup_right (hFroot x hxF)
+    · exact mem_of_le_of_mem le_sup_left (hKroot x hxK)
+  have hrootSubalgebra : (fQ * gQ).rootSet L ⊆ (KQ ⊔ FQ).toSubalgebra := by
+    intro x hx
+    exact hrootSubset hx
+  have hAdjoinLe : Algebra.adjoin ℚ ((fQ * gQ).rootSet L) ≤ (KQ ⊔ FQ).toSubalgebra :=
+    Algebra.adjoin_le_iff.mpr hrootSubalgebra
+  have hAdjoinTop : Algebra.adjoin ℚ ((fQ * gQ).rootSet L) = ⊤ :=
+    Polynomial.IsSplittingField.adjoin_rootSet L (fQ * gQ)
+  have hsupQ : KQ ⊔ FQ = ⊤ := by
+    apply IntermediateField.toSubalgebra_injective
+    apply top_unique
+    intro x hx
+    have hxAdj : x ∈ Algebra.adjoin ℚ ((fQ * gQ).rootSet L) := by
+      rw [hAdjoinTop]
+      exact hx
+    exact hAdjoinLe hxAdj
+  let ζnL : L := algebraMap F L ζn
+  let ζqL : L := algebraMap F L (ζn ^ 12)
+  let ζ12L : L := algebraMap F L (ζn ^ q)
+  have hζnL : IsPrimitiveRoot ζnL n :=
+    hζn.map_of_injective (FaithfulSMul.algebraMap_injective F L)
+  have hζqL : IsPrimitiveRoot ζqL q :=
+    hζqF.map_of_injective (FaithfulSMul.algebraMap_injective F L)
+  have hζ12F : IsPrimitiveRoot (ζn ^ q) 12 := by
+    have hn : 0 < n := by dsimp [n]; exact Nat.mul_pos (by decide) (NeZero.pos q)
+    exact IsPrimitiveRoot.pow hn hζn (by dsimp [n]; ring)
+  have hζ12L : IsPrimitiveRoot ζ12L 12 :=
+    hζ12F.map_of_injective (FaithfulSMul.algebraMap_injective F L)
+  let C12 : IntermediateField ℚ L := IntermediateField.adjoin ℚ {ζ12L}
+  haveI : IsCyclotomicExtension {12} ℚ C12 :=
+    hζ12L.intermediateField_adjoin_isCyclotomicExtension ℚ
+  have hζ12mem : ζ12L ∈ C12 := by
+    change ζ12L ∈ IntermediateField.adjoin ℚ {ζ12L}
+    exact IntermediateField.subset_adjoin ℚ {ζ12L} (Set.mem_singleton_iff.mpr rfl)
+  have hζqCq : (ζn ^ 12) ∈ Cq := by
+    change (ζn ^ 12) ∈ IntermediateField.adjoin ℚ {ζn ^ 12}
+    exact IntermediateField.subset_adjoin ℚ {ζn ^ 12} (Set.mem_singleton_iff.mpr rfl)
+  let ζqCq : Cq := ⟨ζn ^ 12, hζqCq⟩
+  let xE : E := eECq.symm ζqCq
+  have hxEF : eEF xE = ζn ^ 12 := by
+    dsimp [eEF, xE]
+    rw [AlgEquiv.apply_symm_apply]
+  have hxEF' : algebraMap E F xE = ζn ^ 12 := by
+    rw [hEFmap]
+    exact hxEF
+  have hζqK : ζqL ∈ KQ := by
+    change ∃ y : K, eKLQ y = ζqL
+    refine ⟨algebraMap E K xE, ?_⟩
+    calc
+      eKLQ (algebraMap E K xE) = eKL (algebraMap E K xE) := rfl
+      _ = algebraMap E L xE := by simp
+      _ = algebraMap F L (algebraMap E F xE) :=
+        IsScalarTower.algebraMap_apply E F L xE
+      _ = algebraMap F L (ζn ^ 12) := by rw [hxEF']
+  have hgenF : Algebra.adjoin ℚ {ζn} = ⊤ :=
+    IsCyclotomicExtension.adjoin_primitive_root_eq_top hζn
+  have hFQgen : Algebra.adjoin ℚ {ζnL} = FQ.toSubalgebra := by
+    calc
+      Algebra.adjoin ℚ {ζnL} = (Algebra.adjoin ℚ {ζn}).map eFLQ := by
+        rw [AlgHom.map_adjoin_singleton]
+        rfl
+      _ = (⊤ : Subalgebra ℚ F).map eFLQ := by rw [hgenF]
+      _ = eFLQ.range := Algebra.map_top eFLQ
+      _ = FQ.toSubalgebra := by simp [FQ]
+  have hFQgenField : FQ = IntermediateField.adjoin ℚ {ζnL} := by
+    apply IntermediateField.toSubalgebra_injective
+    rw [IntermediateField.adjoin_toSubalgebra]
+    exact hFQgen.symm
+  have hcop : Nat.Coprime 12 q := by
+    apply Nat.Coprime.symm
+    apply hq.coprime_iff_not_dvd.mpr
+    intro hd
+    rcases hq.dvd_mul.mp (show q ∣ 3 * 4 by simpa using hd) with h3 | h4
+    · have hqle : q ≤ 3 := Nat.le_of_dvd (by decide : 0 < 3) h3
+      omega
+    · have hqle : q ≤ 4 := Nat.le_of_dvd (by decide : 0 < 4) h4
+      omega
+  have hLcm : Nat.lcm 12 q = n := by
+    dsimp [n]
+    exact Nat.Coprime.lcm_eq_mul hcop
+  have hζnL_lcm : IsPrimitiveRoot ζnL (Nat.lcm 12 q) := by
+    simpa [hLcm] using hζnL
+  have hpair : Algebra.adjoin ℚ {ζ12L, ζqL} = Algebra.adjoin ℚ {ζnL} :=
+    IsPrimitiveRoot.adjoin_pair_eq ℚ hζ12L hζqL (by norm_num) (NeZero.ne q) hζnL_lcm
+  have hpairLe : Algebra.adjoin ℚ {ζ12L, ζqL} ≤ (KQ ⊔ C12).toSubalgebra := by
+    apply Algebra.adjoin_le_iff.mpr
+    exact Set.pair_subset_iff.mpr
+      ⟨mem_of_le_of_mem le_sup_right hζ12mem, mem_of_le_of_mem le_sup_left hζqK⟩
+  have hζnSup : ζnL ∈ KQ ⊔ C12 := by
+    have hζnAdj : ζnL ∈ Algebra.adjoin ℚ {ζ12L, ζqL} := by
+      rw [hpair]
+      exact Algebra.subset_adjoin (Set.mem_singleton_iff.mpr rfl)
+    exact hpairLe hζnAdj
+  have hFQle : FQ ≤ KQ ⊔ C12 := by
+    change FQ.toSubalgebra ≤ (KQ ⊔ C12).toSubalgebra
+    rw [← hFQgen]
+    apply Algebra.adjoin_le_iff.mpr
+    exact Set.singleton_subset_iff.mpr hζnSup
+  have hsupKC : KQ ⊔ C12 = ⊤ := by
+    apply top_unique
+    rw [← hsupQ]
+    exact sup_le le_sup_left hFQle
+  haveI : IsGalois ℚ C12 := IsCyclotomicExtension.isGalois {12} ℚ C12
+  have hC12pow : ∀ τ : Gal(C12/ℚ), τ ^ 2 = 1 := by
+    have hunitSq : ∀ u : (ZMod 12)ˣ, u ^ 2 = 1 := by decide
+    intro τ
+    apply (IsCyclotomicExtension.Rat.galEquivZMod 12 C12).injective
+    simpa using hunitSq (IsCyclotomicExtension.Rat.galEquivZMod 12 C12 τ)
+  have hC12comm : ∀ σ τ : Gal(C12/ℚ), σ * τ = τ * σ := by
+    intro σ τ
+    apply (IsCyclotomicExtension.Rat.galEquivZMod 12 C12).injective
+    rw [map_mul, map_mul]
+    exact mul_comm _ _
+  have hC12card : Nat.card (Gal(C12/ℚ)) = 4 := by
+    rw [IsGalois.card_aut_eq_finrank ℚ C12,
+      IsCyclotomicExtension.Rat.finrank 12 C12]
+    have htotient : Nat.totient 12 = 4 := by
+      rw [← ZMod.card_units_eq_totient 12]
+      decide
+    exact htotient
+  let resQ : Gal(L/K) →* Gal(L/ℚ) :=
+    MulSemiringAction.toAlgAut Gal(L/K) ℚ L
+  let res12 : Gal(L/K) →* Gal(C12/ℚ) :=
+    (AlgEquiv.restrictNormalHom C12).comp resQ
+  have hfixKQ (σ : Gal(L/K)) {x : L} (hx : x ∈ KQ) : resQ σ x = x := by
+    change ∃ y : K, eKLQ y = x at hx
+    rcases hx with ⟨y, hy⟩
+    rw [← hy]
+    change σ (eKL y) = eKL y
+    exact σ.commutes y
+  have hgenField : IntermediateField.adjoin ℚ ((KQ : Set L) ∪ C12) = ⊤ := by
+    apply top_unique
+    rw [← hsupKC]
+    apply sup_le
+    · intro x hx
+      exact IntermediateField.subset_adjoin ℚ ((KQ : Set L) ∪ C12) (Or.inl hx)
+    · intro x hx
+      exact IntermediateField.subset_adjoin ℚ ((KQ : Set L) ∪ C12) (Or.inr hx)
+  have hgen : Algebra.adjoin ℚ ((KQ : Set L) ∪ C12) = ⊤ := by
+    have h := congrArg (fun F : IntermediateField ℚ L => F.toSubalgebra) hgenField
+    simpa [IntermediateField.adjoin_toSubalgebra] using h
+  have hresinj : Function.Injective res12 := by
+    intro σ τ hστ
+    have hEqOn : Set.EqOn (resQ σ) (resQ τ) ((KQ : Set L) ∪ C12) := by
+      intro x hx
+      rcases hx with hxK | hxC
+      · exact (hfixKQ σ hxK).trans (hfixKQ τ hxK).symm
+      · have h := congrArg (fun f : Gal(C12/ℚ) => (f ⟨x, hxC⟩ : L)) hστ
+        simpa [res12, AlgEquiv.restrictNormalHom_apply] using h
+    have hAlg : (resQ σ : L →ₐ[ℚ] L) = (resQ τ : L →ₐ[ℚ] L) :=
+      AlgHom.ext_of_adjoin_eq_top hgen hEqOn
+    have hσQ : resQ σ = resQ τ := by
+      apply AlgEquiv.ext
+      intro x
+      exact congrArg (fun f : L →ₐ[ℚ] L => f x) hAlg
+    exact AlgEquiv.restrictScalars_injective ℚ hσQ
+  have hKpow : ∀ σ : Gal(L/K), σ ^ 2 = 1 := by
+    intro σ
+    have hres : res12 (σ ^ 2) = res12 1 := by
+      rw [map_pow]
+      simpa using hC12pow (res12 σ)
+    exact hresinj hres
+  have hKcard : Nat.card (Gal(L/K)) ≤ 4 := by
+    calc
+      Nat.card (Gal(L/K)) ≤ Nat.card (Gal(C12/ℚ)) :=
+        Nat.card_le_card_of_injective res12 hresinj
+      _ = 4 := hC12card
+  letI : IsGalois ℚ L := hGaloisL
+  let hGaloisKL : IsGalois K L := IsGalois.tower_top_of_isGalois ℚ K L
+  have hKcomm : ∀ σ τ : Gal(L/K), σ * τ = τ * σ := by
+    intro σ τ
+    apply hresinj
+    calc
+      res12 (σ * τ) = res12 σ * res12 τ := res12.map_mul σ τ
+      _ = res12 τ * res12 σ := hC12comm (res12 σ) (res12 τ)
+      _ = res12 (τ * σ) := (res12.map_mul τ σ).symm
+  letI : IsGalois K L := hGaloisKL
+  letI : IsMulCommutative Gal(L/K) := IsMulCommutative.of_comm hKcomm
+  let hKAb : IsAbelianGalois K L := ⟨⟩
+  let dK : AbelianExtensionData K L := ⟨inferInstance, hKAb⟩
+  refine ⟨dK, dF, hTC_K, hTC_F, hTC_L, hFdegree, hFpow, hKpow, hKcard⟩
 
 end ArtinPrimitiveRoots.Splitting
 

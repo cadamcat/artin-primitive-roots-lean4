@@ -98,8 +98,19 @@ theorem spl_field_bounds (a : ℤ) (ha : 1 < |a|) :
       Gal(kummerField a q / ℚ)]
     exact hPidx
   refine ⟨hdegree, hdiscLog.1, hdiscLog.2, hGalois, hUnram, ?_⟩
-  -- `spl_kummer_zero_free` is in `ZeroFree.lean`, which imports this module.
-  sorry
+  letI : NeZero (12 * q) := ⟨Nat.mul_ne_zero (by decide) (NeZero.ne q)⟩
+  have hq5 : 5 ≤ q := hqₐ.trans hqa
+  obtain ⟨dK, dF, hrest⟩ := sp_compositum a ha q hq hq5
+  letI : AbelianExtensionData (kummerField a q) (compositumField a q) := dK
+  letI : AbelianExtensionData (heckeBaseField q) (compositumField a q) := dF
+  rcases hrest with ⟨hTC_K, hTC_F, hTC_L, hFdegree, hFpow, hKpow, hKcard⟩
+  obtain ⟨m, Art, Ef, X, hsurj, hFrob, hAnalytic, hEnonzero, hEuler, hchars, hcharCont,
+    hTop⟩ := sp_upstairs_factor a q hq hq5
+  letI : IsTotallyComplex (kummerField a q) := hTC_K
+  obtain ⟨Q, hQ, hfactor⟩ := sp_quotient_factor a q hq hq5
+  have hzero := spl_kummer_zero_free a q hq hq5 hTop Q hQ hfactor
+  intro s hs hsne
+  exact hzero s hs
 
 end ArtinPrimitiveRoots.Splitting
 
