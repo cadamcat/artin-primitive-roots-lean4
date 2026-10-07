@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Spec.EisensteinExtra
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SMOOTHING.All
 
 /-! Smoothing and pointwise continuation nodes S1--S4. -/
 
@@ -41,7 +42,27 @@ theorem S1_smoothing (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       (∀ u v : L2Space F D, u = v → ∀ z,
         smoothingOperator F k₀ (l2Lift F Γ D u) z =
           smoothingOperator F k₀ (l2Lift F Γ D v) z) := by
-  sorry
+  obtain ⟨k₀, hkSmooth, hkNonneg, hkSupport, hkNonzero⟩ := radialKernel_bump
+  refine ⟨k₀, hkSmooth, hkNonneg, hkSupport, hkNonzero, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · exact smoothing_isometry_equivariant k₀
+  · intro f hf γ hγ z
+    let g : InfinitePlace F → SL(2,ℂ) := toInf F (toSLF F γ)
+    have hact (x : X F) : actAtPlaces F g x = (γ : SL(2,𝓞 F)) • x := rfl
+    have hinv : (fun x => f (actAtPlaces F g x)) = f := by
+      funext x
+      rw [hact]
+      exact hf γ hγ x
+    have heq := smoothing_isometry_equivariant k₀ g f z
+    rw [hinv] at heq
+    simpa only [hact] using heq.symm
+  · intro K hK hKpos n v
+    obtain ⟨W, C, T, _, _, _, hT⟩ :=
+      smoothing_uniform_eval_bound Γ D hD k₀ hkSmooth hkSupport K hK hKpos n v
+    exact ⟨T, hT⟩
+  · exact smoothing_smooth_representative Γ D hD k₀ hkSmooth hkSupport
+  · exact smoothing_toLp Γ D hD k₀ hkSmooth hkSupport
+  · intro u v huv z
+    exact congrArg (fun t => smoothingOperator F k₀ (l2Lift F Γ D t) z) huv
 
 /-- S2 `spec:Lk-seed` — P-SPEC.md:245, 411–415. Radial powers are eigenfunctions of the
 smoothing kernel, the one-factor transform is entire and nonvanishing in the required ball, and
