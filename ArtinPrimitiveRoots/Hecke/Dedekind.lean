@@ -1,4 +1,6 @@
 import ArtinPrimitiveRoots.Hecke.Defs
+import DedekindResidue.CompletedZeta.Existence
+import DedekindResidue.CompletedZeta.FunctionalEquation
 
 /-!
 # Hecke L-function package: the Dedekind zeta function of a number field (D1, D2)
@@ -25,6 +27,12 @@ def dedekindPrefactor (K : Type*) [Field K] [NumberField K] (s : ℂ) : ℂ :=
     (Complex.Gammaℝ s ^ InfinitePlace.nrRealPlaces K *
       Complex.Gammaℂ s ^ InfinitePlace.nrComplexPlaces K)
 
+theorem dedekindPrefactor_eq_completedZetaPrefactor (K : Type*) [Field K] [NumberField K]
+    (s : ℂ) :
+  dedekindPrefactor K s = DedekindResidue.completedZetaPrefactor K s := by
+  simp [dedekindPrefactor, DedekindResidue.completedZetaPrefactor,
+    DedekindResidue.gammaFactor]
+
 /-- **(D1) Hecke–Tate for `ζ_K`, every number field:** `ξ_K(s) = s(s-1)·prefactor·ζ_K(s)`
 extends to an entire function with `ξ_K(1-s) = ξ_K(s)`, `ξ_K(0) = ξ_K(1) ≠ 0`.
 Consumers: B `ext:dedekind-fe` (and through it `spl:left-line`, `spl:explicit-formula`,
@@ -35,7 +43,93 @@ statement up to the factor `s(s-1)` and the `H`-witness form. -/
 theorem dedekind_completed (K : Type*) [Field K] [NumberField K] :
     ∃ ξ : ℂ → ℂ, Differentiable ℂ ξ ∧
       (∀ s : ℂ, 1 < s.re → ξ s = s * (s - 1) * dedekindPrefactor K s * dedekindZeta K s) ∧
-      (∀ s : ℂ, ξ (1 - s) = ξ s) ∧ ξ 1 ≠ 0 := sorry
+      (∀ s : ℂ, ξ (1 - s) = ξ s) ∧ ξ 1 ≠ 0 := by
+  classical
+  let ξ : ℂ → ℂ := DedekindResidue.completedDedekindZetaEntire K
+  have hξ : Differentiable ℂ ξ := by
+    simpa [ξ] using DedekindResidue.differentiable_completedDedekindZetaEntire K
+  have hFE : ∀ s : ℂ, ξ (1 - s) = ξ s := by
+    have hleft : Differentiable ℂ (fun s : ℂ => ξ (1 - s)) :=
+      hξ.comp (by fun_prop)
+    have hopen : IsOpen {s : ℂ | 1 < s.re} :=
+      isOpen_lt continuous_const Complex.continuous_re
+    have hpre : Set.EqOn (fun s : ℂ => ξ (1 - s)) ξ {s : ℂ | 1 < s.re} := by
+      intro s hs
+      change ξ (1 - s) = ξ s
+      have hs0 : s ≠ 0 := by
+        intro hz
+        rw [hz] at hs
+        norm_num [Complex.zero_re] at hs
+      have hs1 : s ≠ 1 := by
+        intro hz
+        rw [hz] at hs
+        norm_num [Complex.one_re] at hs
+      have h10 : 1 - s ≠ 0 := by
+        intro hz
+        apply hs1
+        calc
+          s = 1 - (1 - s) := by ring
+          _ = 1 := by rw [hz]; norm_num
+      have h11 : 1 - s ≠ 1 := by
+        intro hz
+        apply hs0
+        calc
+          s = 1 - (1 - s) := by ring
+          _ = 0 := by rw [hz]; ring
+      rw [show ξ (1 - s) =
+          (1 - s) * ((1 - s) - 1) * DedekindResidue.completedDedekindZeta K (1 - s) by
+            simpa [ξ] using DedekindResidue.completedDedekindZetaEntire_eq K h10 h11,
+        show ξ s = s * (s - 1) * DedekindResidue.completedDedekindZeta K s by
+            simpa [ξ] using DedekindResidue.completedDedekindZetaEntire_eq K hs0 hs1,
+        DedekindResidue.completedDedekindZeta_one_sub K s]
+      ring
+    have h2mem : (2 : ℂ) ∈ {s : ℂ | 1 < s.re} := by
+      norm_num [Set.mem_ofPred_eq]
+    have hagree := AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq
+      (𝕜 := ℂ) (f := fun s : ℂ => ξ (1 - s)) (g := ξ)
+      (Complex.analyticOnNhd_univ_iff_differentiable.mpr hleft)
+      (Complex.analyticOnNhd_univ_iff_differentiable.mpr hξ)
+      isPreconnected_univ (Set.mem_univ (2 : ℂ))
+      (hpre.eventuallyEq_of_mem (hopen.mem_nhds h2mem))
+    exact fun s => hagree (Set.mem_univ s)
+  have hEq : ∀ s : ℂ, 1 < s.re →
+      ξ s = s * (s - 1) * dedekindPrefactor K s * dedekindZeta K s := by
+    intro s hs
+    have hs0 : s ≠ 0 := by
+      intro hz
+      rw [hz] at hs
+      norm_num [Complex.zero_re] at hs
+    have hs1 : s ≠ 1 := by
+      intro hz
+      rw [hz] at hs
+      norm_num [Complex.one_re] at hs
+    rw [show ξ s = s * (s - 1) * DedekindResidue.completedDedekindZeta K s by
+      simpa [ξ] using DedekindResidue.completedDedekindZetaEntire_eq K hs0 hs1,
+      DedekindResidue.completedDedekindZeta_eq_of_one_lt_re K hs,
+      ← dedekindPrefactor_eq_completedZetaPrefactor K s]
+    ring
+  have hξ1 : ξ 1 ≠ 0 := by
+    have hvalue : ξ 1 = ((DedekindResidue.heckeAdjust K : ℝ) : ℂ)⁻¹ *
+        (2 * ((DedekindResidue.heckeFConst K : ℝ) : ℂ)) := by
+      change DedekindResidue.completedDedekindZetaEntire K 1 = _
+      rw [DedekindResidue.completedDedekindZetaEntire]
+      have hg : (DedekindResidue.heckeFEPair K).g₀ =
+          ((DedekindResidue.heckeFConst K : ℝ) : ℂ) := rfl
+      rw [hg]
+      ring
+    have hconst : 0 < DedekindResidue.heckeFConst K := by
+      rw [DedekindResidue.heckeFConst]
+      have hcard : 0 < (Fintype.card (ClassGroup (𝓞 K)) : ℝ) := by
+        exact_mod_cast Fintype.card_pos
+      have hvol := DedekindResidue.unitBoxVol_pos K
+      have htors : 0 < (NumberField.Units.torsionOrder K : ℝ) := by
+        exact_mod_cast NumberField.Units.torsionOrder_pos K
+      positivity
+    rw [hvalue]
+    refine mul_ne_zero (inv_ne_zero ?_) (mul_ne_zero two_ne_zero ?_)
+    · exact_mod_cast (DedekindResidue.heckeAdjust_pos K).ne'
+    · exact_mod_cast hconst.ne'
+  exact ⟨ξ, hξ, hEq, hFE, hξ1⟩
 
 /-- **(D2) Order at most one** (constant may depend on `K`): every entire `ξ` as in (D1)
 satisfies `‖ξ s‖ ≤ exp(C ‖s‖ log(‖s‖ + 2))`.
