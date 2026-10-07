@@ -1,5 +1,5 @@
 import ArtinPrimitiveRoots.A2.ZeroFree.Missing
-import ArtinPrimitiveRoots.Hecke.Boundary
+import ArtinPrimitiveRoots.Hecke.Defs
 
 set_option autoImplicit false
 set_option maxHeartbeats 800000

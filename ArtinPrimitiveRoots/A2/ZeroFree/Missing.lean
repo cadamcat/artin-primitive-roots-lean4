@@ -1,5 +1,6 @@
-import ArtinPrimitiveRoots.A2.Poisson.Missing
 import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
+import ArtinPrimitiveRoots.A2.ZeroFree.Density
+import ArtinPrimitiveRoots.A2.Poisson.Missing
 import ArtinPrimitiveRoots.A2.Interface
 
 /-! A2 statement interfaces derived from the design lane. -/
