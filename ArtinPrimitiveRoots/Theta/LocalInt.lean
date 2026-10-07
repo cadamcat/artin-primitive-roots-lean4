@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
+import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 
 open MeasureTheory Filter
 
@@ -31,7 +32,46 @@ def qv (v : FinPlace F) : ℝ := (Ideal.absNorm v.asIdeal : ℝ)
 /-- **jq:haar-exists** (Mathlib `Measure.addHaarMeasure` on the compact open `O_v`; compactness of
 `O_v` from TauCeti). -/
 theorem LocHaar.nonempty (v : FinPlace F) : Nonempty (LocHaar v) := by
-  sorry
+  let K := v.adicCompletion F
+  let _ : ValuativeRel K := .ofValuation Valued.v
+  let _ : (Valued.v : Valuation K ℤᵐ⁰).Compatible := .ofValuation _
+  let _ : IsValuativeTopology K := by
+    apply IsValuativeTopology.of_mem_nhds_zero_iff_vle (Valued.v : Valuation K ℤᵐ⁰)
+    intro s
+    exact Valued.is_topological_valuation s
+  let _ : ValuativeRel.IsNontrivial K :=
+    ValuativeRel.isNontrivial_iff_isNontrivial (Valued.v : Valuation K ℤᵐ⁰) |>.mpr inferInstance
+  let _ : (Valued.v : Valuation K ℤᵐ⁰).RankOne :=
+    Valuation.IsRankOneDiscrete.rankOne _ (by norm_num : (1 : NNReal) < 2)
+  let _ : NormedField K := Valued.toNormedField K ℤᵐ⁰
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  let _ : ProperSpace K :=
+    (@properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      K ℤᵐ⁰ _ _ (inferInstance : Valued K ℤᵐ⁰) inferInstance).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  let _ : IsNonarchimedeanLocalField K := ⟨⟩
+  have hcompact : IsCompact (v.adicCompletionIntegers F : Set K) := by
+    have hball := IsNonarchimedeanLocalField.isCompact_closedBall (K := K)
+      (1 : ValueGroupWithZero K)
+    have hset : (v.adicCompletionIntegers F : Set K) =
+        {x | ValuativeRel.valuation K x ≤ 1} := by
+      ext x
+      change Valued.v x ≤ 1 ↔ ValuativeRel.valuation K x ≤ 1
+      exact ((Valuation.vle_one_iff (ValuativeRel.valuation K)).symm.trans
+        (Valuation.vle_one_iff (Valued.v : Valuation K ℤᵐ⁰))).symm
+    rw [hset]
+    exact hball
+  have hopen : IsOpen (v.adicCompletionIntegers F : Set K) := by
+    exact Valued.isOpen_valuationSubring K
+  let U : TopologicalSpace.PositiveCompacts K :=
+    { toCompacts := ⟨v.adicCompletionIntegers F, hcompact⟩
+      interior_nonempty' := by
+        rw [hopen.interior_eq]
+        exact ⟨0, by simp [HeightOneSpectrum.mem_adicCompletionIntegers]⟩ }
+  refine ⟨⟨Measure.addHaarMeasure U, Measure.isAddHaarMeasure_addHaarMeasure U, ?_⟩⟩
+  simpa [U] using (Measure.addHaarMeasure_self (K₀ := U))
 
 /-- **jq:haar-scaling**: `∫ f(y t) dt = ‖y‖⁻¹ ∫ f(t) dt`. -/
 theorem LocHaar.integral_comp_mul (μ : LocHaar v) {E : Type} [NormedAddCommGroup E]
@@ -49,7 +89,19 @@ theorem psi_conductor (A : AddCharData F) (v : FinPlace F) :
 /-- At `v ∤ 𝔇` the conductor exponent is `0`. -/
 theorem psi_conductor_unramified (A : AddCharData F) (v : FinPlace F)
     (hv : ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal) : ∃ x ∈ ball v (-1), A.ψ v x ≠ 1 := by
-  sorry
+  rcases A.unramified v hv with ⟨_, hnontriv⟩
+  let π : F := unif v
+  have hπ : v.valuation F π = WithZero.exp (-1) := by
+    dsimp [π, unif]
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  obtain ⟨x, hx⟩ := hnontriv π hπ
+  refine ⟨algebraMap F (v.adicCompletion F) ((x : F) / π), ?_, hx⟩
+  change Valued.v (algebraMap F (v.adicCompletion F) ((x : F) / π)) ≤ WithZero.exp 1
+  rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation', map_div₀]
+  calc
+    v.valuation F (x : F) / v.valuation F π ≤ 1 / WithZero.exp (-1) := by
+      exact div_le_div_of_nonneg_right (v.valuation_le_one (x : 𝓞 F)) (by positivity)
+    _ = WithZero.exp 1 := by rw [hπ]; simp
 
 variable {V : Type} [NormedAddCommGroup V] [NormedSpace ℂ V]
 
@@ -150,7 +202,8 @@ theorem intertwine_isSection (L : FinLocalCover D H v) (T : TorusRep D H v) (μ 
 /-- **int:rtr**: `M` commutes with right translation. -/
 theorem intertwine_rtr (L : FinLocalCover D H v) (μ : LocHaar v) (f : L.L → V) (g : L.L) :
     intertwine L μ (rtr g f) = rtr g (intertwine L μ f) := by
-  sorry
+  funext h
+  simp [intertwine, rtr, mul_assoc]
 
 /-- The local constant `c_v(s) = (1 - q^{-1-6s})/(1 - q^{-6s})`. -/
 def cv (v : FinPlace F) (s : ℂ) : ℂ :=
