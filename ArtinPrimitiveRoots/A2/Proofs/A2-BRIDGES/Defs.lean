@@ -26,6 +26,12 @@ Guide: sol-thin-a2rp/PROOFS.md:50–54. Uses S.absS. -/
 def BridgeSheet (S : SData F CE condη) (l : ℝ) :=
   {y : S.FSˣ // S.absS (y : S.FS) = l}
 
+/-- The measurable structure of a sheet: the subtype structure inherited from `S.FSˣ`
+(refutation gate `sol-gate-bridges`: the frozen `def` does not let Lean infer it). -/
+instance bridgeSheetMeasurableSpace (S : SData F CE condη) (l : ℝ) :
+    MeasurableSpace (BridgeSheet S l) :=
+  inferInstanceAs (MeasurableSpace {y : S.FSˣ // S.absS (y : S.FS) = l})
+
 /-- The actual prime residue field. Instances are local to these definitions;
 we do not install competing global field instances.
 Guide: sol-thin-a2rp/PROOFS.md:63–64. -/
