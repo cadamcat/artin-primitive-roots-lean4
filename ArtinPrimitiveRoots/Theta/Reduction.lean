@@ -116,9 +116,14 @@ theorem red_decompose [IsTotallyComplex F] (P : CoverPackage D S H A) (G : Globa
 /-- **red:constant-term**: vanishing adelic constant coefficients (over every adapted lattice at
 every point) give vanishing classical constant terms at every cusp and height, in the form of
 P-SPEC `res_lincomb_eq_zero`. C8 of `sol-gate-theta` requires finite index and an adapted period at
-each point. -/
+each point. The `sol-gate-theta2` correction adds the adelic automorphy, right compact invariance,
+and finite-adelic component used by the blueprint's cusp reduction. -/
 theorem classical_constTerm_eq_zero [IsTotallyComplex F] (P : CoverPackage D S H A)
-    (Ψ : P.tc.G → ℂ) (gj : P.tc.G) (Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))
+    (Ψ : P.tc.G → ℂ) (gj : P.tc.G)
+    (hgj : ∃ x : P.RP, P.q x = gj ∧ ∀ w, P.compC w x = 1)
+    (hAut : ∀ γ g, Ψ (P.tc.rat γ * g) = Ψ g)
+    (hInf : ∀ g, ∀ k ∈ infCompact P, Ψ (g * k) = Ψ g)
+    (Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))
     (hfinite : Γ.FiniteIndex)
     (hlevel : ∀ g : P.tc.G, ∃ 𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F,
       𝔞 ≠ 0 ∧ ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
