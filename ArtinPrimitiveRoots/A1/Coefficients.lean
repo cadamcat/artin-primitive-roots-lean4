@@ -123,7 +123,126 @@ private theorem e_quotient_norm_one (D : FieldData F) (S : SData F CE condη)
     (A : AddCharData F) (I : Ideal (𝓞 F)) (hI : S.IsExterior I) (c : Fˣ)
     (hc : S.IsGen (c : F) I) (x : 𝓞 F) :
     ‖S.e A (S.diag (algebraMap (𝓞 F) F x / (c : F)))‖ = 1 := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have he0 : S.e A (S.diag (0 : F)) = 1 := by
+    calc
+      S.e A (S.diag (0 : F)) =
+          Complex.exp (-(2 * Real.pi * Complex.I *
+            (Algebra.trace ℚ F (0 : F) : ℂ))) :=
+        SData.e_diag_eq S A 0 0 (by intro v hv; simp) (by intro v hv; simp)
+      _ = 1 := by simp
+  by_cases hx : x = 0
+  · subst x
+    have hz : algebraMap (𝓞 F) F (0 : 𝓞 F) / (c : F) = (0 : F) := by simp
+    rw [hz]
+    rw [he0]
+    simp
+  let q : ℕ := Ideal.absNorm I
+  let a : 𝓞 F := (q : 𝓞 F) * x
+  let z : F := algebraMap (𝓞 F) F x / (c : F)
+  let y : F := (q : F) * z
+  have hq0 : q ≠ 0 := by
+    dsimp [q]
+    intro h
+    exact hI.1 (Ideal.absNorm_eq_zero_iff.mp h)
+  have ha0 : a ≠ 0 := by
+    dsimp [a]
+    exact mul_ne_zero (by exact_mod_cast hq0)
+      hx
+  have ha_mem : a ∈ I := by
+    dsimp [a]
+    simpa [mul_comm] using I.mul_mem_left x (Ideal.absNorm_mem I)
+  have hya : y = (a : F) / (c : F) := by
+    dsimp [y, z, a, q]
+    push_cast
+    ring
+  have hc0 : (c : F) ≠ 0 := Units.ne_zero c
+  have hqpos : 0 < q := Nat.pos_of_ne_zero hq0
+  have hy0 : y ≠ 0 := by
+    rw [hya, div_ne_zero_iff]
+    exact ⟨(IsFractionRing.injective (𝓞 F) F).ne ha0, hc0⟩
+  have hpow : ∀ n : ℕ, S.e A (S.diag ((n : F) * z)) =
+      (S.e A (S.diag z)) ^ n := by
+    intro n
+    induction n with
+    | zero => simpa using he0
+    | succ n ih =>
+      calc
+        S.e A (S.diag ((↑(n + 1) : F) * z)) =
+            S.e A (S.diag ((↑n : F) * z + z)) := by congr 2; push_cast; ring
+        _ = S.e A (S.diag ((↑n : F) * z)) * S.e A (S.diag z) :=
+          e_diag_add S A _ _
+        _ = (S.e A (S.diag z)) ^ n * S.e A (S.diag z) := by rw [ih]
+        _ = (S.e A (S.diag z)) ^ (n + 1) := by rw [pow_succ]
+  have hdiag : S.e A (S.diag y) = 1 := by
+    have h1 : ∀ v : FinPlace F, v ∉ S.Sf →
+        HeightOneSpectrum.valuation F v (0 - y) ≤ 1 := by
+      intro v hv
+      have hspanA :
+          FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F) ≤
+            (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+        rw [FractionalIdeal.spanSingleton_le_iff_mem]
+        simpa using ha_mem
+      have hspanA0 :
+        FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F) ≠ 0 :=
+        FractionalIdeal.spanSingleton_ne_zero_iff.mpr
+          ((IsFractionRing.injective (𝓞 F) F).ne ha0)
+      have hcountA : FractionalIdeal.count F v
+          (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≤
+            FractionalIdeal.count F v
+              (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) :=
+        FractionalIdeal.count_mono F v hspanA0 hspanA
+      have hcountY : FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ((a : F) / (c : F))) =
+            FractionalIdeal.count F v
+                (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) -
+              FractionalIdeal.count F v
+                (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (c : F)) :=
+        count_spanSingleton_div v (a : F) (c : F)
+          ((IsFractionRing.injective (𝓞 F) F).ne ha0) hc0
+      have hcCount : FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (c : F)) =
+            FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+        hc.2.2 v hv
+      have hcountNonneg : 0 ≤ FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ((a : F) / (c : F))) := by
+        rw [hcountY]
+        linarith
+      have hprincipal : FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ((a : F) / (c : F))) =
+            -WithZero.log (HeightOneSpectrum.valuation F v ((a : F) / (c : F))) := by
+        exact count_spanSingleton_eq_neg_log_valuation v _
+          (div_ne_zero_iff.mpr ⟨(IsFractionRing.injective (𝓞 F) F).ne ha0, hc0⟩)
+      have hlog : WithZero.log (HeightOneSpectrum.valuation F v ((a : F) / (c : F))) ≤ 0 := by
+        have : 0 ≤ -WithZero.log (HeightOneSpectrum.valuation F v ((a : F) / (c : F))) := by
+          rw [← hprincipal]
+          exact hcountNonneg
+        linarith
+      have hvalNe : HeightOneSpectrum.valuation F v ((a : F) / (c : F)) ≠ 0 := by
+        apply (Valuation.ne_zero_iff _).2
+        exact div_ne_zero ((IsFractionRing.injective (𝓞 F) F).ne ha0) hc0
+      have hvalLe : HeightOneSpectrum.valuation F v ((a : F) / (c : F)) ≤ 1 := by
+        calc
+          _ = WithZero.exp (WithZero.log (HeightOneSpectrum.valuation F v ((a : F) / (c : F)))) :=
+            (WithZero.exp_log hvalNe).symm
+          _ ≤ WithZero.exp 0 := WithZero.exp_le_exp.mpr hlog
+          _ = 1 := WithZero.exp_zero
+      simpa [hya, y, z] using hvalLe
+    have h2 : ∀ v : FinPlace F, v ∈ S.Sf →
+        HeightOneSpectrum.valuation F v (0 : F) ≤ 1 := by
+      intro v hv
+      simp
+    simpa using SData.e_diag_eq S A y 0 h1 h2
+  have hfinite : IsOfFinOrder (S.e A (S.diag z)) := by
+    apply (isOfFinOrder_iff_pow_eq_one).2
+    refine ⟨q, hqpos, ?_⟩
+    calc
+      (S.e A (S.diag z)) ^ q = S.e A (S.diag ((q : F) * z)) := (hpow q).symm
+      _ = S.e A (S.diag y) := by simp [y]
+      _ = 1 := hdiag
+  exact hfinite.norm_eq_one
+
 
 private theorem chi_norm_one (D : FieldData F) (P : FinPlace F) (x : F)
     (hx : residue P x ≠ 0) : ‖chi D P x‖ = 1 := by

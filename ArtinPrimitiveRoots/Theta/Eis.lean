@@ -235,9 +235,11 @@ theorem whittakerE_equiv (P : CoverPackage D S H A) (G : GlobalDatum P)
   sorry
 
 /-- **eis:multilinear** (linearity at the places of `S_f`): with the exterior and complex data fixed,
-`W_E(g)` is a multilinear form in the local Jacquet vectors at `S_f`. -/
+`W_E(g)` is a multilinear form in the local Jacquet vectors at `S_f`. The convergence half-plane
+is required per `sol-thin-thglobal` for the defining `tsum`. -/
 theorem whittakerE_multilinear (P : CoverPackage D S H A) (G : GlobalDatum P)
-    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s) (x0 : P.RP) :
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s) (x0 : P.RP)
+    (hs : (1 / 2 : ℝ) < s.re) :
     ∃ Λ : MultilinearMap ℂ (fun v : S.Sf => (G.T v.1).V) ℂ,
       ∀ (Fs' : GlobalSection P G s) (x : P.RP), (∀ v, v ∉ S.Sf → Fs'.f v = Fs.f v) →
         Fs'.fC = Fs.fC → (∀ v, v ∉ S.Sf → P.compF v x = P.compF v x0) →

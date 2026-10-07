@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2
+import ArtinPrimitiveRoots.A2.Coherence
 
 /-!
 # A2 interface witnesses
@@ -41,15 +42,17 @@ example : (0 : ℂ) ^ (0 : ℕ) ≠ 0 :=
 /-!
 Theory-dependent witnesses not constructed in this lane:
 
-- `ExteriorArithmetic`, `ReflectionCharacters`, and the S-integer frequency data require the
-  A1 ideal-generator, residue-ring, and Kummer-character constructions (`A1/Field.lean`,
-  `A1/Characters.lean`; TeX 02:229-387 and 04:99-132).
+- `ExteriorArithmetic`, admissible `ReflectionCharacters`, and the S-integer frequency data
+  require A1's ideal-generator, residue-ring, and Kummer-character constructions
+  (`A1/Field.lean`, `A1/Characters.lean`; TeX 02:229-387 and 04:99-132). The corrected
+  `FrequencyData.nonempty` needs finite order of `η`; its new masked prime field also needs the
+  local Kummer ramification formula at positive valuations (`sol-thin-a2rp/PROOFS.md:632-640`).
 - `ClassPairing` requires quotient descent of `HilbertData` to sixth-power classes
   (`A1/Hilbert.lean`; TeX 02:114-132).
 - `SheetGeometry`, `RotatedPresentation`, and `ReflectionSetup` require the normalized Haar
-  disintegration, fundamental domain, T6 profile producers, and the combined A1/theta data
-  (`A1/SLattice.lean`, `Theta/Shared.lean`, `Theta/AnalysisS.lean`; TeX 03:474-659,
-  04:19-35).
+  disintegration, fundamental domain, T6 profile producers, and the combined A1/theta data.
+  The setup's `GaussSplit` needs the finite-order and angular Gauss characters as well
+  (`A1/SLattice.lean`, `Theta/Shared.lean`, `Theta/AnalysisS.lean`; TeX 03:474-659, 04:19-35).
 - `PoissonWeights`, `WeightSpec`, and `WeightDecay` require a nonzero Bruhat-Schwartz weight
   with the prescribed Mellin value and strip decay (TeX 05:24-75).
 - The finite and complex local Tate functional-equation predicates require Fourier-transform
@@ -57,6 +60,10 @@ Theory-dependent witnesses not constructed in this lane:
 - `HeckeAnalysis` and `ConductorHeightBound` require Hecke continuation, principal zeta
   regularization, residue positivity, and uniform convexity (Hecke/Continuation.lean;
   TeX 06:37-73, 139-163, 413-477).
+- `IncompleteDictionary`, `DensityOutput`, and `RayDeletion` require canonical complete and
+  incomplete continuations, finite Euler deletion, zero coverage, and the ray-class modulus
+  dictionary. The adapter proofs are available once these records are supplied; this witness file
+  does not manufacture the analytic or arithmetic data (TeX 06:165-185, 691-764).
 - `EulerHypotheses`, `EulerCorrection`, `HasPoHLocalBounds`, `HasPoHProduct`, the local-factor
   bounds, and `ZeroDensityData` require Gauss correction identities, convergent Euler products,
   and the zero-density/reciprocal estimates (TeX 02:389-625 and 05:596-765, 06:165-366).
@@ -64,6 +71,9 @@ Theory-dependent witnesses not constructed in this lane:
   require the chosen arithmetic rows, compact representatives, and theta estimates
   (TeX 04:19-35, 433-548).
 - `DyadEnumeration` requires the finite dyadic shell theorem carried by `FrequencyData`.
+- `reflection_row_element_injective` requires the arithmetic uniqueness of rows with the same
+  represented element; finite-sum to subtype-`tsum` conversion is proved once that witness is
+  supplied (TeX 04:1198-1228).
 
 The result theorems in the three A2 missing-node files are the requested analytic obligations;
 their `sorry` proofs are not used as witnesses here.
@@ -75,5 +85,15 @@ their `sorry` proofs are not used as witnesses here.
 #print axioms ArtinPrimitiveRoots.A2.cross_prime_exponent_cancel
 #print axioms ArtinPrimitiveRoots.A2.localC_natural_subtraction_gate
 #print axioms ArtinPrimitiveRoots.A2.zeroth_power_mask_gate
+#print axioms ArtinPrimitiveRoots.A2.cgen_valid
+#print axioms ArtinPrimitiveRoots.A2.gaussSplit_of_data
+#print axioms ArtinPrimitiveRoots.A2.finite_to_tsum
+#print axioms ArtinPrimitiveRoots.A2.assembly_to_total
+#print axioms ArtinPrimitiveRoots.A2.prop_reflection_total_from_assembly_exact
+#print axioms ArtinPrimitiveRoots.A2.density_to_consumer
+#print axioms ArtinPrimitiveRoots.A2.rowFamily_from_data
+#print axioms ArtinPrimitiveRoots.A2.dyadEnumeration_nonempty
+#print axioms ArtinPrimitiveRoots.A2.mellinInputs_of_nodes
+#print axioms ArtinPrimitiveRoots.A2.boundary_from_mellin
 
 end ArtinPrimitiveRoots.Review.A2Witnesses

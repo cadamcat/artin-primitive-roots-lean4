@@ -45,9 +45,11 @@ def Rderiv (P : CoverPackage D S H A) (m : InfinitePlace F → ℤ) (Ψ : P.tc.G
 right `Kext`-invariance and smoothness of `θ`, commutes with torus coefficients, and on Whittaker
 coefficients acts at each complex place by the derivative vector `f_{m_w}` of `sphC`.
 Corrected per rev-theta to require archimedean smoothness of the residue; C11 of `sol-gate-theta`
-requires the joint root smoothness field on `ContinuedEis`. -/
+requires the joint root smoothness field on `ContinuedEis`. The exterior level `Fam.T0 = S.Sf`
+is required per `sol-thin-thglobal` for the stated full `Kext`-invariance. -/
 theorem Rderiv_spec {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
-    (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam) (m : InfinitePlace F → ℤ) :
+    (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam) (m : InfinitePlace F → ℤ)
+    (hT : Fam.T0 = S.Sf) :
     (∀ (g : P.tc.G) (w : InfinitePlace F),
       ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
         (fun z : ℂ => C.theta (g * P.tc.nS

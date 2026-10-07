@@ -119,10 +119,16 @@ structure ReflectionCharacters (D : FieldData F) (S : SData F CE condη)
   rowEps : ReflectionRow S → S.US
   rowEps_spec : ∀ r, rowElement S r = rowEps r * bc.gen r.ideal
 
-/-- A1 producer obligation for the reflection row characters (02:606-625; 04:51-65). -/
+/-- A1 producer obligation for reflection row characters (02:606-625; 04:51-65). Corrected by
+`sol-gate-a2b` and independently by `sol-gate-theta3`: admissibility requires a unitary,
+exterior-unramified character with angular type. -/
 theorem reflectionCharacters_exists (D : FieldData F) (S : SData F CE condη)
     (H : HilbertData F) (Bd : BData S H) (bc : BalancedChoices D S H Bd)
-    (ϑ : HeckeChar F) : Nonempty (ReflectionCharacters D S H Bd bc ϑ) := by
+    (ϑ : HeckeChar F)
+    (hunit : ∀ x, ‖((ϑ x : ℂˣ) : ℂ)‖ = 1)
+    (houtside : ∀ v, v ∉ S.Sf → ϑ.UnramifiedAt v)
+    (hangular : HeckeChar.HasAngularType D ϑ) :
+    Nonempty (ReflectionCharacters D S H Bd bc ϑ) := by
   sorry
 
 /-- Pairing descended to sixth-power classes (HilbertData already kills sixth powers).
