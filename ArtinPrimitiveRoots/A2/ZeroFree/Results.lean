@@ -21,11 +21,13 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- **ext:primitive-conductor** (06-zero-free.tex:37-73): a modulus of least norm on which the
-idelic character is trivial in A1's local congruence sense. -/
+idelic character is trivial in A1's local congruence sense. Corrected per rev-a2 to exclude the
+zero ideal from the minimization. -/
 def IsPrimitiveConductor (χ : ArtinPrimitiveRoots.A1.HeckeChar F)
     (𝔣 : Ideal (𝓞 F)) : Prop :=
-  χ.ConductorDvd 𝔣 ∧ ∀ 𝔤 : Ideal (𝓞 F), χ.ConductorDvd 𝔤 →
-    Ideal.absNorm 𝔣 ≤ Ideal.absNorm 𝔤
+  𝔣 ≠ ⊥ ∧ χ.ConductorDvd 𝔣 ∧
+    ∀ 𝔤 : Ideal (𝓞 F), 𝔤 ≠ ⊥ → χ.ConductorDvd 𝔤 →
+      Ideal.absNorm 𝔣 ≤ Ideal.absNorm 𝔤
 
 /-- The finite-place local components at a fixed finite set `S`. -/
 abbrev SLocalCharacter (S : ArtinPrimitiveRoots.A1.SData F CE condη) :=
@@ -36,19 +38,38 @@ def SComponent (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (χ : ArtinPrimitiveRoots.A1.HeckeChar F) : SLocalCharacter S :=
   fun v => χ.loc v.1
 
-/-- The complete ideal Dirichlet series associated with an idelic character. -/
+/-- The raw complete ideal Dirichlet series associated with an idelic character; its stated
+continuation is packaged separately below. Corrected per rev-a2. -/
 def heckeLSeries (χ : ArtinPrimitiveRoots.A1.HeckeChar F) (s : ℂ) : ℂ :=
   ∑' I : {I : Ideal (𝓞 F) // I ≠ ⊥},
     χ.idealValue I.1 * ((Ideal.absNorm I.1 : ℕ) : ℂ) ^ (-s)
 
-/-- The incomplete ideal Dirichlet series with the Euler factors at `S` omitted. -/
+/-- The raw incomplete ideal Dirichlet series with the Euler factors at `S` omitted; its stated
+continuation is packaged separately below. Corrected per rev-a2. -/
 def incompleteHeckeLSeries (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (χ : ArtinPrimitiveRoots.A1.HeckeChar F) (s : ℂ) : ℂ :=
   ∑' I : {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ ∀ v ∈ S.Sf, ¬ I ≤ v.asIdeal},
     χ.idealValue I.1 * ((Ideal.absNorm I.1 : ℕ) : ℂ) ^ (-s)
 
+/-- Entire continuation of a complete Hecke Dirichlet series, identified with the raw sum only
+where that sum converges absolutely. Added for the rev-a2 continuation correction. -/
+structure HeckeLContinuation (χ : ArtinPrimitiveRoots.A1.HeckeChar F) where
+  value : ℂ → ℂ
+  differentiable : Differentiable ℂ value
+  agrees : ∀ s : ℂ, 1 < s.re → value s = heckeLSeries χ s
+
+/-- Analytic continuation of an incomplete Hecke series to the zero-free half-plane, identified
+with its raw sum only in the absolute-convergence region. Added per rev-a2. -/
+structure IncompleteHeckeLContinuation
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (χ : ArtinPrimitiveRoots.A1.HeckeChar F) where
+  value : ℂ → ℂ
+  differentiableOn : DifferentiableOn ℂ value {s : ℂ | 997 / 1000 < s.re}
+  agrees : ∀ s : ℂ, 1 < s.re → value s = incompleteHeckeLSeries S χ s
+
 /-- **lem:conductor-sieve** (06-zero-free.tex:37-137). Fixed data and `ε` precede both growing
-lengths; the constant is uniform over the family and its coefficients. -/
+lengths; the constant is uniform over the family and its coefficients. Uses the corrected
+nonzero primitive-conductor predicate from rev-a2. -/
 theorem lem_conductor_sieve
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (C₀ : ℝ) (hC₀ : 0 < C₀)
@@ -70,7 +91,9 @@ theorem lem_conductor_sieve
   sorry
 
 /-- **MISSING A1 frequency interface**: the sixth-power-free representative set `𝒰`, its norm,
-Kummer characters, primitive twists, and the unique factorization map of 02:285-387. -/
+Kummer characters, primitive twists, and the unique factorization map of 02:285-387. Corrected per
+rev-a2 to include the quantitative row, conductor, distinctness, and decomposition hypotheses
+needed by the zero-density argument. -/
 structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (η : ArtinPrimitiveRoots.A1.HeckeChar F) where
@@ -106,36 +129,52 @@ structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
       (kummer u).UnramifiedAt v ∧
         (kummer u).primeValue v = ArtinPrimitiveRoots.A1.chi D v (repr u)
 
+  dyadic_count : ∃ C : ℝ, 0 < C ∧ ∀ X : ℝ, 2 ≤ X →
+    (Set.ncard {u : U | X ≤ q u ∧ q u < 2 * X} : ℝ) ≤ C * X
+  kummer_injective : ∀ u v, kummer u = kummer v → u = v
+  omega_injective : ∀ u v, omega u = omega v → u = v
+  conductor_bound : ∃ C : ℝ, 0 < C ∧ ∀ u,
+    ∃ 𝔣 : Ideal (𝓞 F), IsPrimitiveConductor (omega u) 𝔣 ∧
+      (Ideal.absNorm 𝔣 : ℝ) ≤ C * q u
+  local_components_finite : ∃ 𝓛S : Finset (SLocalCharacter S),
+    ∀ u, SComponent S (omega u) ∈ 𝓛S
+  decomposition_surjective : ∀ u : U, ∀ I : ArtinPrimitiveRoots.A1.SData.ExtIdeal S,
+    ∃ x : S.R, (x : F) ≠ 0 ∧ ∃ ε : S.US, ∃ a : Fˣ,
+      S.IsGen (a : F) I.1 ∧
+      (x : F) = (repr u : F) * ((ε : Fˣ) : F) ^ 6 * (a : F) ^ 6
+
 /-- **prop:zero-density** (06-zero-free.tex:165-185). Constants are fixed before the dyadic
 variable, and the exceptional set covers every principal row and every row with a zero in the
-specified rectangle.  The `h_missing_` argument is the explicit frequency dictionary absent from
-the frozen A1 API. -/
+specified rectangle. The `h_missing_` argument is the explicit frequency dictionary absent from
+the frozen A1 API. Corrected per rev-a2 to use analytic continuations and uniform constants. -/
 theorem prop_zero_density
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (η : ArtinPrimitiveRoots.A1.HeckeChar F) (hη : IsOfFinOrder η)
     (hηoutsideS : ∀ v : ArtinPrimitiveRoots.A1.FinPlace F,
       v ∉ S.Sf → η.UnramifiedAt v)
-    (h_missing_frequency_decomposition : FrequencyData S D η) :
-    ∃ ρ U₀ Cexc : ℝ, 0 < ρ ∧ 2 ≤ U₀ ∧ 0 < Cexc ∧
-      ∀ U : ℝ, U₀ ≤ U →
-        ∃ E : Finset h_missing_frequency_decomposition.U,
-          (∀ u ∈ E, U ≤ h_missing_frequency_decomposition.q u ∧
-            h_missing_frequency_decomposition.q u < 2 * U) ∧
-          (E.card : ℝ) ≤ Cexc * Real.rpow U (1 / 2 : ℝ) ∧
-          (∀ u, U ≤ h_missing_frequency_decomposition.q u →
-            h_missing_frequency_decomposition.q u < 2 * U →
-            (h_missing_frequency_decomposition.omega u = 1 ∨
-              ∃ s : ℂ, 996 / 1000 ≤ s.re ∧ ‖s.im‖ ≤ 4 * Real.rpow U ρ ∧
-                heckeLSeries (h_missing_frequency_decomposition.omega u) s = 0) →
-            u ∈ E) ∧
-          ∀ ε : ℝ, 0 < ε → ∃ Cε : ℝ, 0 < Cε ∧
-            ∀ u, U ≤ h_missing_frequency_decomposition.q u →
-              h_missing_frequency_decomposition.q u < 2 * U → u ∉ E →
-              ∀ ξ : ℂ, 998 / 1000 ≤ ξ.re → ‖ξ.im‖ ≤ 2 * Real.rpow U ρ →
-                ‖(incompleteHeckeLSeries S
-                    (η * (h_missing_frequency_decomposition.kummer u)⁻¹) ξ)⁻¹‖ ≤
-                  Cε * Real.rpow U ε := by
+    (fd : FrequencyData S D η)
+    (L : ∀ u : fd.U, fd.omega u ≠ 1 → HeckeLContinuation (fd.omega u))
+    (Linc : ∀ u : fd.U, fd.omega u ≠ 1 →
+      IncompleteHeckeLContinuation S (η * (fd.kummer u)⁻¹))
+    (A_F : ℝ) (hAF : 0 < A_F) :
+    ∃ ρ U₀ Cexc : ℝ,
+      0 < ρ ∧ ρ < min (1 / 10) (1 / (A_F + 1)) ∧
+      2 ≤ U₀ ∧ 0 < Cexc ∧ ∀ ε : ℝ, 0 < ε →
+        ∃ Cε : ℝ, 0 < Cε ∧ ∀ U : ℝ, U₀ ≤ U →
+          ∃ E : Finset fd.U,
+            (∀ u ∈ E, U ≤ fd.q u ∧ fd.q u < 2 * U) ∧
+            (E.card : ℝ) ≤ Cexc * Real.rpow U (1 / 2 : ℝ) ∧
+            (∀ u, U ≤ fd.q u → fd.q u < 2 * U →
+              (fd.omega u = 1 ∨
+                ∃ hnon : fd.omega u ≠ 1, ∃ s : ℂ,
+                  996 / 1000 ≤ s.re ∧ |s.im| ≤ 4 * Real.rpow U ρ ∧
+                    (L u hnon).value s = 0) → u ∈ E) ∧
+            ∀ u, U ≤ fd.q u → fd.q u < 2 * U →
+              u ∉ E → ∀ hnon : fd.omega u ≠ 1,
+                ∀ ξ : ℂ, 998 / 1000 ≤ ξ.re →
+                  |ξ.im| ≤ 2 * Real.rpow U ρ →
+                  ‖((Linc u hnon).value ξ)⁻¹‖ ≤ Cε * Real.rpow U ε := by
   sorry
 
 /-- The frozen A/B boundary width `δ₀ = 10⁻⁶`. -/

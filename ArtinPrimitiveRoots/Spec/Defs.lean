@@ -400,9 +400,10 @@ variable {Γ : Subgroup SL(2,𝓞 F)} [Γ.FiniteIndex] (d : SiegelData F Γ)
 noncomputable def lowerHeight (i : d.ι) : ℝ :=
   ((((FractionalIdeal.absNorm (bottomRowFractionalIdeal F ((d.σ i)⁻¹))) : ℚ) : ℝ) * d.C_M)⁻¹
 
-/-- The Siegel set at cusp `i`. -/
+/-- The Siegel set at cusp `i`. Correction from review lane `rev-spec`: use `2 * B` because
+unit balance is applied to square-root heights. -/
 def setAt (i : d.ι) : Set (X F) :=
-  siegelSet F (d.P i) (d.B i) (lowerHeight F d i)
+  siegelSet F (d.P i) (2 * d.B i) (lowerHeight F d i)
 
 /-- The union of the cusp Siegel sets after scaling. -/
 def unionSet : Set (X F) :=

@@ -41,9 +41,11 @@ def SheetHypFin (v : FinPlace F) (δ : ℝ) (f : v.adicCompletion F → ℂ) : P
   (∃ C : ℝ, ∀ y : v.adicCompletion F, C < absFin v y → f y = 0) ∧
   (∃ C : ℝ, ∀ y : v.adicCompletion F, y ≠ 0 → absFin v y ≤ 1 → ‖f y‖ ≤ C * absFin v y ^ δ)
 
-/-- Hypothesis (b) of lem:sheet-profile at a complex place (03:518–523); `‖y‖_v = |y|²`. -/
+/-- Hypothesis (b) of lem:sheet-profile at a complex place (03:518–523); `‖y‖_v = |y|²`.
+Corrected per rev-a2 to express C-infinity smoothness using the coercion of `⊤ : ℕ∞`; C9 of
+`sol-gate-theta` keeps this form because it is equivalent to `SmoothSheetHypC`. -/
 def SheetHypC (δ : ℝ) (f : ℂ → ℂ) : Prop :=
-  ContDiffOn ℝ ⊤ f {y | y ≠ 0} ∧
+  ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f {y | y ≠ 0} ∧
   ∀ (j : ℕ) (A : ℝ), 0 < A → ∃ C : ℝ, ∀ y : ℂ, y ≠ 0 →
     ‖normDeriv j f y‖ ≤ C * min (Complex.normSq y ^ δ) (Complex.normSq y ^ (-A))
 
