@@ -26,10 +26,11 @@ admissible S-characters there is a theta family. Route C packages P-COVER, P-LOC
 P-SPEC, P-RES, P-ASSEMBLE (A1-DESIGN §3).
 Corrected per rev-theta through the regularity fields of `ThetaFamily`; C10/C11 of
 `sol-gate-theta` fix the restricted-product topology and joint root smoothness; C2 exposes the
-compatible `CoverPackage`. -/
+compatible `CoverPackage`. The `sol-gate-theta2` correction certifies that topology in the output. -/
 theorem theta_interface (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (A : AddCharData F) :
     ∃ P : ArtinPrimitiveRoots.A1.Theta.CoverPackage D S H A,
+      ArtinPrimitiveRoots.A1.Theta.HasRestrictedProductTopology P ∧
       ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily P.tc 𝓛) := by
   apply ArtinPrimitiveRoots.A1.Theta.theta_interface_of_steinberg D S H A
   intro v a h

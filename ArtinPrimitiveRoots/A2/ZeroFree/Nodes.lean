@@ -43,9 +43,24 @@ theorem zf_convexity :
                   C * Real.rpow (2 + |s.im|) A_F) := by
   sorry
 
+/-- Convert zf:convexity (06:139-163) to the exact growth hypothesis used in the corrected
+detector statements; the chosen height exponent remains the same. -/
+theorem zf_convexity_growth_bound :
+    ∃ A_F : ℝ, 0 < A_F ∧ ConductorHeightBound (F := F) A_F := by
+  obtain ⟨A_F, hAF, hconv⟩ := zf_convexity (F := F)
+  refine ⟨A_F, hAF, ?_⟩
+  intro ε hε
+  obtain ⟨C, hC, hbound⟩ := hconv ε hε
+  refine ⟨C, hC, ?_⟩
+  intro ω hω hnon 𝔣 h𝔣 L s hleft hright
+  have hL := hbound ω hω hnon 𝔣 h𝔣 L.value
+    ⟨L.differentiable, L.agrees⟩
+  exact hL.1 s hleft hright
+
 /-- **zf:row-conductor-family** (06-zero-free.tex:13-30): dyadic frequency rows have linear
 count, conductor `O(q_u)`, pairwise distinct primitive twists, and only finitely many fixed
-S-components. Corrected per rev-a2 to require the missing quantitative frequency hypotheses. -/
+S-components. Corrected per rev-a2 to require the quantitative frequency hypotheses; its adapter
+from the complete `FrequencyData` dictionary is proved in this declaration. -/
 theorem zf_row_conductor_family
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
@@ -62,8 +77,34 @@ theorem zf_row_conductor_family
               SComponent S (fd.omega u) ∈ 𝓛S) ∧
           (∀ u v, U ≤ fd.q u → fd.q u < 2 * U →
             U ≤ fd.q v → fd.q v < 2 * U → fd.omega u = fd.omega v → u = v) ∧
-          (∀ u, fd.kummer u = 1 ↔ u = fd.one) := by
-  sorry
+              (∀ u, fd.kummer u = 1 ↔ u = fd.one) := by
+  obtain ⟨Ccount, hCcount, hcount⟩ := fd.dyadic_count
+  obtain ⟨Cf, hCf, hcond⟩ := fd.conductor_bound
+  obtain ⟨LS, hLS⟩ := fd.local_components_finite
+  refine ⟨Ccount, 2 * Cf, hCcount, by positivity, LS, ?_⟩
+  intro U hU
+  obtain ⟨hfinite, hbound⟩ := hcount U hU
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro E hE
+    let shell : Set fd.U := {u | U ≤ fd.q u ∧ fd.q u < 2 * U}
+    have hsubset : (E : Set fd.U) ⊆ shell := by
+      intro u hu
+      exact hE u hu
+    have hcardle := Set.ncard_le_ncard hsubset hfinite
+    calc
+      (E.card : ℝ) = (Set.ncard (E : Set fd.U) : ℝ) := by simp
+      _ ≤ (Set.ncard shell : ℝ) := by exact_mod_cast hcardle
+      _ ≤ Ccount * U := hbound
+  · intro u hu hu2
+    obtain ⟨f, hprim, hnorm⟩ := hcond u
+    refine ⟨f, hprim, ?_, hLS u⟩
+    calc
+      (Ideal.absNorm f : ℝ) ≤ Cf * fd.q u := hnorm
+      _ ≤ Cf * (2 * U) := by nlinarith [hCf]
+      _ = (2 * Cf) * U := by ring
+  · intro u v hu hu2 hv hv2 heq
+    exact fd.omega_injective u v heq
+  · exact fd.kummer_principal_iff
 
 /-- **ext:ideal-count** (06-zero-free.tex:144): the number of integral ideals of norm at most
 `t` is `O_F(t)`. -/
@@ -403,10 +444,12 @@ def verticalMellinIntegral (f : ℂ → ℂ) (c : ℝ) : ℂ :=
   (1 / (2 * Real.pi) : ℂ) * ∫ t : ℝ, f (c + t * Complex.I)
 
 /-- **zf:detector-shift** (06-zero-free.tex:226-264): exact zero-detector statement. Corrected per
-rev-a2 to include uniform conductor growth, positive `ε`, and continuation values. -/
+rev-a2 to include positive `ε` and continuation values; corrected per sol-gate-a2 to carry the
+field-dependent convexity growth bound used by the shift. -/
 theorem zf_detector_shift
     (A_F ρ ε C₀ : ℝ) (hAF : 0 < A_F) (hε : 0 < ε) (hC₀ : 0 < C₀)
-    (hρ : 0 < ρ ∧ ρ < min (1 / 10) (1 / (A_F + 1))) :
+    (hρ : 0 < ρ ∧ ρ < min (1 / 10) (1 / (A_F + 1)))
+    (hGrowth : ConductorHeightBound (F := F) A_F) :
     ∃ C : ℝ, 0 < C ∧
       ∀ (ω : ArtinPrimitiveRoots.A1.HeckeChar F) (𝔣 : Ideal (𝓞 F)),
         IsPrimitiveConductor ω 𝔣 → IsOfFinOrder ω → ω ≠ 1 →
@@ -427,7 +470,8 @@ theorem zf_detector_shift
 
 /-- **zf:detector-count** (06-zero-free.tex:266-333): in a dyadic family, the number of
 characters with a zero at `Re s ≥ .996`, `|Im s| ≤ 4 U^ρ`, is `O(U^{.088+ρ+ε})`. Corrected per
-rev-a2 to count zeros of continuations only for nonprincipal rows and sufficiently small `ρ`. -/
+rev-a2 to count nonprincipal continuation zeros and per sol-gate-a2 to require the convexity
+growth bound for the supplied field exponent. -/
 theorem zf_detector_count
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
@@ -436,7 +480,8 @@ theorem zf_detector_count
     (L : ∀ u : fd.U, fd.omega u ≠ 1 → HeckeLContinuation (fd.omega u))
     (A_F ρ ε : ℝ) (hAF : 0 < A_F)
     (hρ : 0 < ρ ∧ ρ < min (1 / 10) (1 / (A_F + 1)))
-    (hε : 0 < ε) :
+    (hε : 0 < ε)
+    (hGrowth : ConductorHeightBound (F := F) A_F) :
     ∃ C : ℝ, 0 < C ∧ ∀ U : ℝ, 2 ≤ U →
       ∀ E : Finset fd.U,
         (∀ u ∈ E, U ≤ fd.q u ∧ fd.q u < 2 * U ∧
@@ -735,8 +780,8 @@ def completedHeckeValue (L : ℂ → ℂ) (𝔣 : Ideal (𝓞 F)) (s : ℂ) : �
 /-- **ext:hecke-continuation** (Tate, Main Theorem 4.4.1 and §4.5; blueprint:140).
 For a primitive nonprincipal finite-order character of a totally complex number field, the Hecke
 series has an entire continuation, polynomial growth on vertical strips, and the completed
-functional equation with a root number of modulus one. Corrected per rev-a2 so both sides of the
-functional equation use analytic continuations, including the inverse-character value at `1-s`. -/
+functional equation with a root number of modulus one. Corrected per sol-gate-a2 to restrict the
+pointwise Gamma product to arguments where both Gamma factors are regular. -/
 theorem ext_hecke_continuation (hTC : IsTotallyComplex F)
     (ω : ArtinPrimitiveRoots.A1.HeckeChar F) (hfin : IsOfFinOrder ω) (hnon : ω ≠ 1)
     (𝔣 : Ideal (𝓞 F)) (h𝔣 : IsPrimitiveConductor ω 𝔣) :
@@ -751,8 +796,10 @@ theorem ext_hecke_continuation (hTC : IsTotallyComplex F)
         ∀ s : ℂ, a ≤ s.re → s.re ≤ b →
           ‖Ldual s‖ ≤ C * Real.rpow (2 + |s.im|) A) ∧
       ∃ W : ℂ, ‖W‖ = 1 ∧ ∀ s : ℂ,
-        completedHeckeValue L 𝔣 s =
-          W * completedHeckeValue Ldual 𝔣 (1 - s) := by
+        (∀ n : ℕ, s ≠ -(n : ℂ)) →
+        (∀ n : ℕ, 1 - s ≠ -(n : ℂ)) →
+          completedHeckeValue L 𝔣 s =
+            W * completedHeckeValue Ldual 𝔣 (1 - s) := by
   sorry
 
 end ArtinPrimitiveRoots.A2

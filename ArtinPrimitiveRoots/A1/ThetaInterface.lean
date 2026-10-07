@@ -200,7 +200,8 @@ def sphericalTable (D : FieldData F) (A : AddCharData F) (v : FinPlace F) (e : �
 
 /-- **T2–T7** for a fixed finite family `𝓛` of admissible S-characters, on a fixed cover `C`.
 Corrected per rev-theta with archimedean smoothness and locally uniform Fourier convergence; C10/C11
-of `sol-gate-theta` fix the topology and add joint root smoothness. -/
+of `sol-gate-theta` fix the topology and add joint root smoothness. The cover topology is also pinned
+by the correction from `sol-gate-theta2`. -/
 structure ThetaFamily {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
     {A : AddCharData F} (C : ThetaCover D S H A) (𝓛 : Finset (SChar S)) where
   /-- The topology used to state compact-uniform convergence. -/

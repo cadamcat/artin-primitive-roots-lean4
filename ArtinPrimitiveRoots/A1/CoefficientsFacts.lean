@@ -126,9 +126,12 @@ theorem PG_decay (σ : ℝ) :
       rw [show -σ * Real.log t = Real.log t * (-σ) by ring]
       ring
 
-/-- The value at zero from cf:B0 (02a:63–64). -/
+/-- The value at zero from cf:B0 (02a:63–64). The unit-ideal representative is normalized per
+`sol-thin-a1`; representatives at other ideals do not affect this value. -/
 theorem B0_eq_PG (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
-    (ϑ : HeckeChar F) (cgen : S.SqfExtIdeal → F) (Z : ℝ) (hZ : 0 < Z) :
+    (ϑ : HeckeChar F) (cgen : S.SqfExtIdeal → F)
+    (hunit : ∀ I : S.SqfExtIdeal, I.1 = ⊤ → S.IsGen (cgen I) ⊤)
+    (Z : ℝ) (hZ : 0 < Z) :
     Bm D S A ϑ cgen 0 Z = (PG (1 / Z) : ℂ) := by
   sorry
 
