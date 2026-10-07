@@ -88,10 +88,12 @@ structure TameTorusBasis (T : TorusRep D H v) where
     T.σa (unifLoc v ^ j * u) (e k) = (localChi D v u) ^ (2 * (j + 2 * (k.val : ℤ))) • e (k + (j : ZMod 3))
 
 /-- **tor:rep** (top): at every finite place a torus representation exists, of dimension
-`√[K^×:K^{×3}]`; at `v ∤ 6` one with the tame basis. -/
+`√[K^×:K^{×3}]`; at `v ∤ 6` one with the tame basis. The nontrivial-carrier clause is
+installed per `sol-thin-thlocal`, since `GlobalDatum.lam_ne` excludes the zero space. -/
 theorem exists_torusRep (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
     (hSt : SteinbergAt H v) :
-    ∃ T : TorusRep D H v, (6 : 𝓞 F) ∉ v.asIdeal → Nonempty (TameTorusBasis T) := by
+    ∃ T : TorusRep D H v, Nontrivial T.V ∧
+      ((6 : 𝓞 F) ∉ v.asIdeal → Nonempty (TameTorusBasis T)) := by
   sorry
 
 /-- **tor:K-fixed**: at a tame place, the `a(O^×)`-fixed vectors of `V` are the multiples of `e_0`. -/

@@ -33,15 +33,19 @@ def omegaAng (m : ℤ) (y : ℂ) : ℂ := (y / (‖y‖ : ℂ)) ^ m
 def normDeriv (j : ℕ) (f : ℂ → ℂ) (y : ℂ) : ℂ :=
   iteratedDeriv j (fun t : ℝ => f ((Real.exp (t / 2) : ℂ) * y)) 0
 
-/-- Hypothesis (a) of lem:sheet-profile at a finite place (03:515–517). -/
+/-- Hypothesis (a) of lem:sheet-profile at a finite place (03:515–517).
+Corrected per rev-theta to require local constancy near every nonzero point. -/
 def SheetHypFin (v : FinPlace F) (δ : ℝ) (f : v.adicCompletion F → ℂ) : Prop :=
-  IsLocallyConstant (fun y : (v.adicCompletion F)ˣ => f y) ∧
+  (∀ x : v.adicCompletion F, x ≠ 0 →
+    ∃ U : Set (v.adicCompletion F), IsOpen U ∧ x ∈ U ∧ ∀ y ∈ U, f y = f x) ∧
   (∃ C : ℝ, ∀ y : v.adicCompletion F, C < absFin v y → f y = 0) ∧
   (∃ C : ℝ, ∀ y : v.adicCompletion F, y ≠ 0 → absFin v y ≤ 1 → ‖f y‖ ≤ C * absFin v y ^ δ)
 
-/-- Hypothesis (b) of lem:sheet-profile at a complex place (03:518–523); `‖y‖_v = |y|²`. -/
+/-- Hypothesis (b) of lem:sheet-profile at a complex place (03:518–523); `‖y‖_v = |y|²`.
+Corrected per rev-a2 to express C-infinity smoothness using the coercion of `⊤ : ℕ∞`; C9 of
+`sol-gate-theta` keeps this form because it is equivalent to `SmoothSheetHypC`. -/
 def SheetHypC (δ : ℝ) (f : ℂ → ℂ) : Prop :=
-  ContDiffOn ℝ ⊤ f {y | y ≠ 0} ∧
+  ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f {y | y ≠ 0} ∧
   ∀ (j : ℕ) (A : ℝ), 0 < A → ∃ C : ℝ, ∀ y : ℂ, y ≠ 0 →
     ‖normDeriv j f y‖ ≤ C * min (Complex.normSq y ^ δ) (Complex.normSq y ^ (-A))
 
