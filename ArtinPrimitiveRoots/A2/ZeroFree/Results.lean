@@ -140,6 +140,13 @@ structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     ArtinPrimitiveRoots.A1.residue v (repr u) ≠ 0 →
       (kummer u).UnramifiedAt v ∧
         (kummer u).primeValue v = ArtinPrimitiveRoots.A1.chi D v (repr u)
+  /-- Masked exterior Kummer prime values, including positive valuations. The character value is
+  zero when the representative is divisible by the prime. Added for `prop:euler-product`
+  (05:407–433), following `sol-thin-a2rp/PROOFS.md` 632–640. -/
+  kummer_primeValue_masked : ∀ u (v : ArtinPrimitiveRoots.A1.FinPlace F), v ∉ S.Sf →
+    (kummer u).primeValue v =
+      if ArtinPrimitiveRoots.A1.residue v (repr u) = 0 then 0
+      else ArtinPrimitiveRoots.A1.chi D v (repr u)
 
   q_ge_one : ∀ u, 1 ≤ q u
   dyadic_count : ∃ C : ℝ, 0 < C ∧ ∀ X : ℝ, 2 ≤ X →
@@ -170,11 +177,13 @@ structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
           (Ideal.absNorm m : ℝ) ≤ C * q u)
 
 /-- A1/Characters producer obligation for the complete corrected frequency dictionary
-(02:285-387), including idelic induction, dyadic finiteness, and S-integer conductor bounds. -/
+(02:285-387), including idelic induction, dyadic finiteness, and S-integer conductor bounds.
+Corrected by `sol-gate-a2b`: finite order of `η` is required by the unit row. -/
 theorem FrequencyData.nonempty
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
-    (η : ArtinPrimitiveRoots.A1.HeckeChar F) : Nonempty (FrequencyData S D η) := by
+    (η : ArtinPrimitiveRoots.A1.HeckeChar F) (hη : IsOfFinOrder η) :
+    Nonempty (FrequencyData S D η) := by
   sorry
 
 /-- **prop:zero-density** (06-zero-free.tex:165-185). One exceptional family `E(U)` is chosen

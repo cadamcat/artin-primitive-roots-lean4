@@ -26,6 +26,9 @@ structure ReflectionSetup (D : FieldData F) (S : SData F CE condη)
     (μ : ∀ v : FinPlace F, Theta.LocHaar v) (v0 : InfinitePlace F) where
   vartheta_unitary : ∀ x, ‖((ϑ x : ℂˣ) : ℂ)‖ = 1
   vartheta_unramified : ∀ v, v ∉ S.Sf → ϑ.UnramifiedAt v
+  /-- Angular admissibility needed by the corrected `reflectionCharacters_exists` producer;
+  included with the setup producer from `sol-gate-a2b` (02:606-625; 04:51-65). -/
+  vartheta_angular : HeckeChar.HasAngularType D ϑ
   vartheta_generator : ∀ I : S.ExtIdeal, ϑ.idealValue I.1 = S.LS ϑ (S.diagU (bc.gen I))
   exterior : ExteriorArithmetic D S H Bd bc
   sheets : SheetGeometry D S μ v0
@@ -46,12 +49,61 @@ structure ReflectionSetup (D : FieldData F) (S : SData F CE condη)
   K_gaussian : ∀ u, 0 < u →
     ∫ t in Set.Ioi (0 : ℝ), K t * Theta.thetaV S μ v0 T.U T.cS (u * t) / (t : ℂ) = (PG u : ℂ)
 
+/-- A1/Theta producer obligation for the composite reflection input (02:606-625; 03:474-659;
+04:51-65). Corrected by `sol-gate-a2b`: it supplies the split Gauss data and the complete setup,
+including angular admissibility, without assuming a reflection estimate. -/
+theorem reflectionSetup_exists (D : FieldData F) (S : SData F CE condη)
+    (H : HilbertData F) (Bd : BData S H) (A : AddCharData F)
+    (bc : BalancedChoices D S H Bd) (μ : ∀ v : FinPlace F, Theta.LocHaar v)
+    (v0 : InfinitePlace F) :
+    ∀ η Λ G : HeckeChar F, IsOfFinOrder η →
+      (∀ v, v ∉ S.Sf → η.UnramifiedAt v) →
+      (∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1) → HeckeChar.HasAngularType D Λ →
+      IsOfFinOrder G →
+      (∀ v, v ∉ S.Sf → Λ.UnramifiedAt v ∧ G.UnramifiedAt v ∧
+        ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+          gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
+            -(Λ.primeValue v * G.primeValue v)) →
+      Nonempty (ReflectionSetup D S H Bd A (vartheta Λ G η) bc μ v0) := by
+  sorry
+
 section Reflection
 variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
   {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
   {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
   {v0 : InfinitePlace F}
 variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+
+/-- The split Gauss characters consumed by the legacy `prop_reflection` route. The same angular
+field supplies admissibility for `ReflectionCharacters`; corrected by `sol-gate-a2b` (04:51-65,
+05:194-246). -/
+structure GaussSplit (η : HeckeChar F) where
+  Λ : HeckeChar F
+  G : HeckeChar F
+  eta_finite : IsOfFinOrder η
+  eta_exterior : ∀ v, v ∉ S.Sf → η.UnramifiedAt v
+  lambda_unitary : ∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1
+  lambda_angular : HeckeChar.HasAngularType D Λ
+  G_finite : IsOfFinOrder G
+  vartheta_eq : ϑ = vartheta Λ G η
+  gauss : ∀ v, v ∉ S.Sf → Λ.UnramifiedAt v ∧ G.UnramifiedAt v ∧
+    ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+      gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
+        -(Λ.primeValue v * G.primeValue v)
+
+/-- Package the exact Gauss-character hypotheses used by `reflectionSetup_exists` into the
+split input consumed by `prop:probe-low` (04:51–65; 05:194–246). -/
+def gaussSplit_of_data (η Λ G : HeckeChar F)
+    (hη : IsOfFinOrder η) (heta : ∀ v, v ∉ S.Sf → η.UnramifiedAt v)
+    (hΛunit : ∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1)
+    (hΛangular : HeckeChar.HasAngularType D Λ) (hG : IsOfFinOrder G)
+    (hGauss : ∀ v, v ∉ S.Sf → Λ.UnramifiedAt v ∧ G.UnramifiedAt v ∧
+      ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+        gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
+          -(Λ.primeValue v * G.primeValue v)) :
+    GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A)
+      (ϑ := vartheta Λ G η) η := by
+  exact ⟨Λ, G, hη, heta, hΛunit, hΛangular, hG, rfl, hGauss⟩
 
 def primeGen (v : FinPlace F) : Fˣ :=
   if hv : v ∉ S.Sf then bc.gen (R.exterior.prime v hv) else 1
@@ -160,6 +212,14 @@ theorem rf_forward_unfolding :
       Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) := by
   sorry
 def cgen (c : S.SqfExtIdeal) : F := (bc.gen (R.exterior.ofSqf c) : F)
+
+/-- The setup already records balanced generators, so the `cgen` witness required by the
+reflection consumer is a proved projection (04:1198-1228). -/
+theorem cgen_valid : ∀ I : S.SqfExtIdeal, ∃ c : Fˣ,
+    (c : F) = cgen R I ∧ S.IsGen (c : F) I.1 ∧ Bd.Allowed c := by
+  intro I
+  refine ⟨bc.gen (R.exterior.ofSqf I), rfl, ?_, (bc.gen_spec _).2⟩
+  simpa only [R.exterior.ofSqf_val] using (bc.gen_spec (R.exterior.ofSqf I)).1
 def Aideal (c : S.SqfExtIdeal) (n : S.ExtIdeal) : S.ExtIdeal :=
   R.exterior.mul (R.exterior.ofSqf c) (R.exterior.pow n 3)
 def Agen (c : S.SqfExtIdeal) (n : S.ExtIdeal) : Fˣ := bc.gen (R.exterior.ofSqf c) * bc.gen n ^ 3
@@ -648,5 +708,126 @@ theorem rf_active_support_unit_orbit : ∀ h (t : FrozenIndex R h) d c (ν : Fˣ
     bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3 / (bc.gen d * bc.gen t.f) ^ 2 := by
   sorry
 end FrequencyUnitOrbits
+
+/-! ## Finite assembly to the legacy `prop_reflection` sum
+
+The finite-row theorem is already available above. The remaining conversion is elementary once
+the row element determines its row; that arithmetic uniqueness remains a named obligation. -/
+
+section ReflectionAssemblyAdapter
+variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
+  {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
+  {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
+  {v0 : InfinitePlace F}
+variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+
+/-- `rf:reflection-assembly` to `prop:reflection` needs uniqueness of the row represented by
+`m`; this stays explicit until the row-factorization theory proves it (04:1198–1228). -/
+def rowElementInjectiveStatement : Prop :=
+  Function.Injective (fun r : ReflectionRow S => (r.m : F))
+
+/-- Row-factorization obligation for the finite/`tsum` bridge to `prop:reflection`
+(04:1198–1228). -/
+theorem reflection_row_element_injective : rowElementInjectiveStatement (S := S) := by
+  sorry
+
+/-- A uniform finite-set bound gives summability and the same bound for the subtype `tsum`.
+This is the proved finite/`tsum` adapter for `prop:reflection` (04:1027–1228). -/
+theorem finite_to_tsum {ι : Type*} (P : ι → Prop) (f : ι → ℝ) (B : ℝ)
+    (hf : ∀ i, 0 ≤ f i)
+    (hbound : ∀ s : Finset ι, (∀ i ∈ s, P i) → ∑ i ∈ s, f i ≤ B) :
+    Summable (fun i : {i // P i} => f i.1) ∧ (∑' i : {i // P i}, f i.1) ≤ B := by
+  have hb (s : Finset {i // P i}) : ∑ i ∈ s, f i.1 ≤ B := by
+    let t := s.image Subtype.val
+    have hp : ∀ i ∈ t, P i := by
+      intro i hi
+      obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp hi
+      exact j.2
+    have he : ∑ i ∈ t, f i = ∑ j ∈ s, f j.1 :=
+      Finset.sum_image (fun i hi j hj hij => Subtype.ext hij)
+    rw [← he]
+    exact hbound t hp
+  exact ⟨summable_of_sum_le (fun i => hf i.1) hb,
+    Real.tsum_le_of_sum_le (fun i => hf i.1) hb⟩
+
+/-- Finite total-reflection target matching the current `rf_reflection_assembly` output. -/
+def finiteReflectionStatement : Prop :=
+  ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
+    (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ t ∈ T, ∀ rows : Finset (ReflectionRow S),
+        Set.InjOn (fun r : ReflectionRow S => (r.m : F)) (↑rows : Set (ReflectionRow S)) →
+        (∀ r ∈ rows, InReflectionBox D S K t Z (by linarith) r) →
+        (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
+          C * Z ^ (2 * M0 - 1 + ε)
+
+/-- Summable subtype form consumed by the total clause of `prop:reflection`. -/
+def totalReflectionStatement : Prop :=
+  ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
+    (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ t ∈ T,
+        Summable (fun r : {r : ReflectionRow S //
+          InReflectionBox D S K t Z (by linarith) r} =>
+            ‖Bm D S A ϑ (cgen R) (r.1.m : F) Z‖ ^ 2) ∧
+        (∑' r : {r : ReflectionRow S //
+          InReflectionBox D S K t Z (by linarith) r},
+            ‖Bm D S A ϑ (cgen R) (r.1.m : F) Z‖ ^ 2) ≤ C * Z ^ (2 * M0 - 1 + ε)
+
+/-- The finite reflection assembly theorem implies its summable total form, provided each
+element of `F` comes from at most one reflection row. -/
+theorem assembly_to_total (hInj : rowElementInjectiveStatement (S := S))
+    (hfinite : finiteReflectionStatement R) : totalReflectionStatement R := by
+  intro K T hK hT hnorm ε hε
+  obtain ⟨C, hC, hb⟩ := hfinite K T hK hT hnorm ε hε
+  refine ⟨C, hC, ?_⟩
+  intro Z hZ t ht
+  apply finite_to_tsum
+    (fun r : ReflectionRow S => InReflectionBox D S K t Z (by linarith) r)
+    (fun r => ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2)
+    (C * Z ^ (2 * M0 - 1 + ε))
+  · intro r; positivity
+  · intro rows hrows
+    exact hb Z hZ t ht rows hInj.injOn hrows
+
+/-- The total subtype-sum edge of `prop:reflection` is proved from the finite assembly output;
+the dyadic part of that node remains its separate analytic obligation (04:1027–1228). -/
+theorem prop_reflection_total_from_assembly
+    (hInj : rowElementInjectiveStatement (S := S))
+    (hfinite : finiteReflectionStatement R) : totalReflectionStatement R :=
+  assembly_to_total R hInj hfinite
+
+/-- The exact total subtype-sum clause of `prop:reflection` for the split-character notation.
+The dyadic clause is supplied by its separate analytic obligation (04:1027–1228). -/
+def propReflectionTotalStatement (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (η Λ G : HeckeChar F) (cgen : S.SqfExtIdeal → F) : Prop :=
+  ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
+    (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ Z P Dlen : ℝ, (hZ : 2 ≤ Z) → 1 ≤ P → 1 ≤ Dlen → ∀ t ∈ T,
+        Summable (fun r : {r : ReflectionRow S //
+          InReflectionBox D S K t Z (by linarith) r} =>
+            ‖Bm D S A (vartheta Λ G η) cgen (r.1.m : F) Z‖ ^ 2) ∧
+        (∑' r : {r : ReflectionRow S //
+          InReflectionBox D S K t Z (by linarith) r},
+            ‖Bm D S A (vartheta Λ G η) cgen (r.1.m : F) Z‖ ^ 2) ≤
+          C * Z ^ (2 * M0 - 1 + ε)
+
+/-- The proved finite/`tsum` adapter specializes to the exact total clause of `prop:reflection`
+once the Gauss split identifies `ϑ = vartheta Λ G η`; row uniqueness remains an explicit input. -/
+theorem prop_reflection_total_from_assembly_exact
+    (η : HeckeChar F)
+    (hSplit : GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η)
+    (hInj : rowElementInjectiveStatement (S := S))
+    (hfinite : finiteReflectionStatement R) :
+    propReflectionTotalStatement D S A η hSplit.Λ hSplit.G (cgen R) := by
+  have htotal := prop_reflection_total_from_assembly R hInj hfinite
+  intro K T hK hT hnorm ε hε
+  obtain ⟨C, hC, hb⟩ := htotal K T hK hT hnorm ε hε
+  refine ⟨C, hC, ?_⟩
+  intro Z P Dlen hZ hP hD t ht
+  obtain ⟨hsum, hbound⟩ := hb Z hZ t ht
+  refine ⟨?_, ?_⟩
+  · simpa [hSplit.vartheta_eq] using hsum
+  · simpa [hSplit.vartheta_eq] using hbound
+
+end ReflectionAssemblyAdapter
 
 end ArtinPrimitiveRoots.A2
