@@ -31,7 +31,8 @@ theorem E3_eis_smooth (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
 
 /-- E4 `spec:eis-siegel` — P-SPEC.md:240, 390–395. On each Siegel set there is at most one
 upper-triangular seed coset; the remaining terms and their gradients are uniformly summable on
-compact parameter sets in `2 < Re s < 3`. -/
+compact parameter sets in `2 < Re s < 3`. Correction from review lane `rev-spec`: state pointwise
+summability and use the corrected Siegel set. -/
 theorem E4_eis_siegel (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (d : SiegelData F Γ) (σ : SL(2,F))
     (Kₛ : Set ℂ) (hKₛ : IsCompact Kₛ)
@@ -41,6 +42,10 @@ theorem E4_eis_siegel (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
         σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∈ borelSL F →
         σ⁻¹ * toSLF F ((q'.out : Γ) : SL(2,𝓞 F)) * d.σ i ∈ borelSL F → q = q') ∧
       (∃ C : ℝ, 0 ≤ C ∧ ∀ s ∈ Kₛ, ∀ z ∈ SiegelData.setAt F d i,
+        Summable (fun q' : {q : CuspCosets F Γ σ //
+          σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∉ borelSL F} =>
+            (‖eisTerm F Γ σ s ((d.σ i) • z) q'.1‖ +
+              ‖fullGradient F (fun x => eisTerm F Γ σ s ((d.σ i) • x) q'.1) z‖)) ∧
         (∑' q' : {q : CuspCosets F Γ σ //
           σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∉ borelSL F},
           (‖eisTerm F Γ σ s ((d.σ i) • z) q'.1‖ +
@@ -48,7 +53,7 @@ theorem E4_eis_siegel (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       (∀ q : CuspCosets F Γ σ,
         σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∈ borelSL F →
         ∀ s ∈ Kₛ, ∀ z ∈ SiegelData.setAt F d i,
-          ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧
+          ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ (d.σ i) ∧
           eisTerm F Γ σ s ((d.σ i) • z) q =
             ((absUnitNorm F ε : ℝ) : ℂ) ^ (-(1 + 2 * s)) *
               ((normHeight F z : ℝ) : ℂ) ^ (1 + 2 * s)) := by
@@ -56,10 +61,15 @@ theorem E4_eis_siegel (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
 
 /-- E5 `spec:seed` — P-SPEC.md:241, 131–133. The truncated seed and its defect are locally finite,
 smooth and invariant; the defect is compactly supported modulo `Γ`, entire as an `L²` family, and
-has the explicit height-only formula in the active cusp. -/
+has the explicit height-only formula in the active cusp. Correction from review lane `rev-spec`:
+include the cusp-separation property at the cutoff threshold. -/
 theorem E5_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
     (σ : SL(2,F)) (A₀ A : ℝ) (hA₀ : 1 ≤ A₀) (hA : A₀ ≤ A)
+    (hsep : ∀ γ γ' : Γ, ∀ z : X F,
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+      γ' * γ⁻¹ ∈ cuspStab F Γ σ)
     (τ : ℝ → ℝ) (hτ : IsCuspCutoff A τ) :
     (∀ s z,
       {q : CuspCosets F Γ σ | seedTerm F Γ σ τ s z q ≠ 0}.Finite ∧

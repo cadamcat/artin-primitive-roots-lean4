@@ -37,6 +37,7 @@ import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Reduction
 import ArtinPrimitiveRoots.Theta.Res
 import ArtinPrimitiveRoots.Theta.Assemble
+import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2
 import ArtinPrimitiveRoots.Spec

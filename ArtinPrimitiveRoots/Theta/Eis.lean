@@ -29,11 +29,15 @@ variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE 
 /-- **def:global-datum** (10:46–58; KP §II.1 pp. 107–109 made explicit). At every finite place a
 torus representation `T v` with the evaluation functional `lam v` of its induced model, equivariant
 under the Lagrangian subgroup `Alag v` with character `ω v`; tame normalization outside `S`; and the
-global-datum condition: `Π_{v∈S} ω_v(δ) = 1` for rational `δ` in every `Alag v`. -/
+global-datum condition: `Π_{v∈S} ω_v(δ) = 1` for rational `δ` in every `Alag v`. C6 of
+`sol-gate-theta` adds cube containment and the maximal-isotropic condition on each `Alag v`. -/
 structure GlobalDatum (P : CoverPackage D S H A) where
   T : ∀ v : FinPlace F, TorusRep D H v
   B : ∀ v : FinPlace F, v ∉ S.Sf → TameTorusBasis (T v)
   Alag : ∀ v : FinPlace F, Subgroup (v.adicCompletion F)ˣ
+  alag_cubes : ∀ v (t : (v.adicCompletion F)ˣ), t ^ 3 ∈ Alag v
+  alag_lagrangian : ∀ v (x : (v.adicCompletion F)ˣ),
+    x ∈ Alag v ↔ ∀ y ∈ Alag v, torusPairing D H v x y = 1
   lam : ∀ v : FinPlace F, (T v).V →ₗ[ℂ] ℂ
   ω : ∀ v : FinPlace F, (v.adicCompletion F)ˣ → ℂ
   lam_equiv : ∀ v, ∀ y ∈ Alag v, ∀ x, lam v ((T v).σa y x) = ω v y * lam v x
@@ -48,12 +52,15 @@ structure GlobalDatum (P : CoverPackage D S H A) where
 def GlobalDatum.Δ {P : CoverPackage D S H A} (G : GlobalDatum P) : Subgroup Fˣ :=
   ⨅ v : FinPlace F, (G.Alag v).comap (toLoc v)
 
-/-- **eis:global-datum** (existence). -/
+/-- **eis:global-datum** (existence). The strengthened datum is required by C6 of
+`sol-gate-theta`. -/
 theorem exists_globalDatum (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt H v) :
     Nonempty (GlobalDatum P) := by
   sorry
 
-/-- **def:global-section**: a factorizable section of `I(σ_𝔸, s)`, spherical outside `T0 ⊇ S_f`. -/
+/-- **def:global-section**: a factorizable section of `I(σ_𝔸, s)`, spherical outside `T0 ⊇ S_f`.
+Corrected per rev-theta to include archimedean smoothness along the root subgroups; C11 of
+`sol-gate-theta` adds joint smoothness in both root variables. -/
 structure GlobalSection (P : CoverPackage D S H A) (G : GlobalDatum P) (s : ℂ) where
   T0 : Finset (FinPlace F)
   sub : S.Sf ⊆ T0
@@ -63,6 +70,11 @@ structure GlobalSection (P : CoverPackage D S H A) (G : GlobalDatum P) (s : ℂ)
     ∀ g, ∀ k ∈ (P.tame v (fun h => hv (sub h))).Kmax, f v (g * k) = f v g
   fC : InfinitePlace F → PGL2 ℂ → ℂ
   fC_sec : ∀ w, IsSectionC s (fC w) ∧ Continuous (fC w)
+  fC_smooth : ∀ w (g : PGL2 ℂ),
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun z : ℂ => fC w (g * nC z))
+  fC_jointSmooth : ∀ w (g : PGL2 ℂ),
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun p : ℂ × ℂ => fC w (nC p.1 * g * nC p.2))
 
 /-- **def:scalar-section**: `Φ(q x) = Π_v lam_v(f_v(x_v)) · Π_w f_w(x_w)` (independent of the lift `x`). -/
 def scalarOf (P : CoverPackage D S H A) (G : GlobalDatum P)
@@ -104,7 +116,7 @@ def eisenstein (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ} (Fs : Gl
     scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out γ) * g)
 
 /-- **eis:converge** (via P-REDUCTION and P-SPEC `eisSeries_majorant`): absolute convergence for
-`Re s > 1/2`. -/
+`Re s > 1/2`. C6 of `sol-gate-theta` strengthens the input datum to exclude divergent cube repeats. -/
 theorem eisenstein_summable (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ}
     (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G) :
     Summable fun γ : Quotient (QuotientGroup.rightRel (Bstar G)) =>
@@ -127,6 +139,13 @@ def infEmbA : F →+* (InfinitePlace F → ℂ) := RingHom.pi fun w => w.embeddi
 /-- `n(x)` at the archimedean places. -/
 def nInf (P : CoverPackage D S H A) (x : InfinitePlace F → ℂ) : P.tc.G :=
   P.tc.nS (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x))
+
+/-- Joint smoothness on the left and right archimedean root orbits. C11 of `sol-gate-theta`
+uses this condition for mixed derivatives and differentiation under torus integrals. -/
+def JointRootSmooth (P : CoverPackage D S H A) (Ψ : P.tc.G → ℂ) : Prop :=
+  ∀ g : P.tc.G, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+    (fun p : (InfinitePlace F → ℂ) × (InfinitePlace F → ℂ) =>
+      Ψ (nInf P p.1 * g * nInf P p.2))
 
 /-- `n(ξ)` at the finite places, for rational `ξ`: `rat(n(ξ)) · n_∞(-ξ)`. -/
 def nFin (P : CoverPackage D S H A) (ξ : F) : P.tc.G :=

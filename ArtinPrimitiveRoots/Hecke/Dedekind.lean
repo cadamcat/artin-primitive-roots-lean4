@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Hecke.Defs
+import ArtinPrimitiveRoots.Hecke.Dedekind.Bounds
 import DedekindResidue.CompletedZeta.Existence
 import DedekindResidue.CompletedZeta.FunctionalEquation
 
@@ -140,6 +141,44 @@ plus Stirling for `Re s ≥ 2` and the functional equation; the global statement
 theorem dedekind_order_one (K : Type*) [Field K] [NumberField K] (ξ : ℂ → ℂ)
     (hξ : Differentiable ℂ ξ)
     (heq : ∀ s : ℂ, 1 < s.re → ξ s = s * (s - 1) * dedekindPrefactor K s * dedekindZeta K s) :
-    ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ, ‖ξ s‖ ≤ Real.exp (C * (‖s‖ + 1) * Real.log (‖s‖ + 2)) := sorry
+    ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ, ‖ξ s‖ ≤ Real.exp (C * (‖s‖ + 1) * Real.log (‖s‖ + 2)) := by
+  classical
+  let H : ℂ → ℂ := DedekindResidue.completedDedekindZetaEntire K
+  have hHdiff : Differentiable ℂ H := by
+    simpa [H] using DedekindResidue.differentiable_completedDedekindZetaEntire K
+  have hH_eq : ∀ s : ℂ, 1 < s.re →
+      H s = s * (s - 1) * dedekindPrefactor K s * dedekindZeta K s := by
+    intro s hs
+    have hs0 : s ≠ 0 := by
+      intro hz
+      rw [hz] at hs
+      norm_num [Complex.zero_re] at hs
+    have hs1 : s ≠ 1 := by
+      intro hz
+      rw [hz] at hs
+      norm_num [Complex.one_re] at hs
+    rw [show H s = s * (s - 1) * DedekindResidue.completedDedekindZeta K s by
+        simpa [H] using DedekindResidue.completedDedekindZetaEntire_eq K hs0 hs1,
+      DedekindResidue.completedDedekindZeta_eq_of_one_lt_re K hs,
+      ← dedekindPrefactor_eq_completedZetaPrefactor K s]
+    ring
+  have hopen : IsOpen {s : ℂ | 1 < s.re} :=
+    isOpen_lt continuous_const Complex.continuous_re
+  have hpre : Set.EqOn ξ H {s : ℂ | 1 < s.re} := by
+    intro s hs
+    calc ξ s = s * (s - 1) * dedekindPrefactor K s * dedekindZeta K s := heq s hs
+      _ = H s := (hH_eq s hs).symm
+  have h2mem : (2 : ℂ) ∈ {s : ℂ | 1 < s.re} := by norm_num [Complex.ofReal_re]
+  have hagree := AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq
+    (𝕜 := ℂ) (f := ξ) (g := H)
+    (Complex.analyticOnNhd_univ_iff_differentiable.mpr hξ)
+    (Complex.analyticOnNhd_univ_iff_differentiable.mpr hHdiff)
+    isPreconnected_univ (Set.mem_univ (2 : ℂ))
+    (hpre.eventuallyEq_of_mem (hopen.mem_nhds h2mem))
+  have hident : ∀ s : ℂ, ξ s = H s := fun s => hagree (Set.mem_univ s)
+  obtain ⟨C, hC, hbound⟩ := DedekindBounds.exists_completedDedekindZetaEntire_order_one K
+  refine ⟨C, hC, fun s => ?_⟩
+  rw [hident s]
+  simpa [H] using hbound s
 
 end ArtinPrimitiveRoots.Hecke

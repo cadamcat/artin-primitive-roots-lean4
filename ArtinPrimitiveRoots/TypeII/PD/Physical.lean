@@ -253,6 +253,7 @@ theorem moment_to_pairing (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc
         ∃ Cpair x₀ : ℝ, 0 < Cpair ∧ 2 ≤ x₀ ∧
           ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
             ∀ family : CoefficientFamily δ C c₁ c₂, FamilyAtScale family S →
+              family.xMin ≤ S.x →
               ∀ beta : ℕ → ℂ, IsSecondCoefficient S C beta →
                 ∀ E₀ : ℝ, 0 < E₀ →
                   detMoment F S ≤ Real.rpow S.L (-E₀ * (S.N : ℝ)) →

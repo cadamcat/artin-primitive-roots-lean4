@@ -14,7 +14,8 @@ namespace ArtinPrimitiveRoots.A1.Spec
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
 /-- R8 `spec:siegel-cover` — P-SPEC.md:221, 308–313. The Siegel sets with the R1 translation
-domains, R4 balance constants, and R7 Minkowski scale cover every point modulo `Γ`. -/
+domains, R4 balance constants, and R7 Minkowski scale cover every point modulo `Γ`. Correction
+from review lane `rev-spec`: use the Siegel sets with the doubled balance bound. -/
 theorem R8_siegel_cover (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (d : SiegelData F Γ) :
     ∀ z : X F, ∃ i : d.ι, ∃ γ : Γ,
@@ -36,15 +37,16 @@ theorem R9_proper (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
 
 /-- R10 `spec:cusp-separation` — P-SPEC.md:223, 326–328. Above a uniform height threshold,
 large representatives at one cusp differ by its stabilizer; compact sets meet only finitely many
-high-height cusp cosets. -/
+high-height cusp cosets. Correction from review lane `rev-spec`: require a common sufficiently
+large threshold for each representative set. -/
 theorem R10_cusp_separation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] :
     (∀ σ : SL(2,F), ∃ A₀ : ℝ, 1 ≤ A₀ ∧
-      (∀ A : ℝ, A₀ ≤ A → ∀ γ γ' : Γ, ∀ z : X F,
+      ∀ A : ℝ, A₀ ≤ A → ∀ γ γ' : Γ, ∀ z : X F,
         A ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
         A ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
-        γ' * γ⁻¹ ∈ cuspStab F Γ σ)) ∧
-    (∀ (d : SiegelData F Γ) (A : ℝ), 1 ≤ A →
-      ∀ i j : d.ι, ∀ γ γ' : Γ, ∀ z : X F,
+        γ' * γ⁻¹ ∈ cuspStab F Γ σ) ∧
+    (∀ (d : SiegelData F Γ), ∃ A₀ : ℝ, 1 ≤ A₀ ∧
+      ∀ A : ℝ, A₀ ≤ A → ∀ i j : d.ι, ∀ γ γ' : Γ, ∀ z : X F,
         A ≤ normHeight F ((d.σ i)⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
         A ≤ normHeight F ((d.σ j)⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
         i = j ∧ γ' * γ⁻¹ ∈ cuspStab F Γ (d.σ i)) ∧
