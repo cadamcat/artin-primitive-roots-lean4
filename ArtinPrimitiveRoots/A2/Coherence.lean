@@ -56,7 +56,7 @@ structure MellinInputs (H L : ℂ → ℂ) : Prop where
   small : ∀ A0 : ℝ, 0 < A0 → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ,
     0 < Z → Z ≤ 1 → ‖fEta H L Z‖ ≤ C * Z ^ A0
   large : ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z : ℝ,
-    Z0 ≤ Z → ‖fEta H L Z‖ ≤ C * Z ^ (7 / 15 - 1 / 20000)
+    Z0 ≤ Z → ‖fEta H L Z‖ ≤ C * Z ^ ((7 / 15 - 1 / 20000 : ℝ))
 
 /-- Signal endpoint contract with the split Gauss input required by the corrected
 `prop:probe-low` consumer (`sol-gate-a2b`, 06:682–707). -/
@@ -74,7 +74,7 @@ def signalBoundsStatement
     WeightSpec R sd W →
       ContinuousOn (principalSignal R η U HA HC) (Set.Ioi 0) ∧
       (∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
-        ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 1 / 20000)) ∧
+        ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 1 / 20000 : ℝ))) ∧
       ∀ A0 : ℝ, 0 < A0 → ∃ C : ℝ, 0 < C ∧ ∀ Z, 0 < Z → Z ≤ 1 →
         ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ A0
 
@@ -112,7 +112,7 @@ theorem mellinInputs_of_nodes
     (hLb : ∃ B : ℝ, ∀ s : ℂ, 2 ≤ s.re → ‖(HA.LS S η s)⁻¹‖ ≤ B)
     (hends : ContinuousOn (principalSignal R η U HA HC) (Set.Ioi 0) ∧
       (∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
-        ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 1 / 20000)) ∧
+        ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 1 / 20000 : ℝ))) ∧
       ∀ A0 : ℝ, 0 < A0 → ∃ C : ℝ, 0 < C ∧ ∀ Z, 0 < Z → Z ≤ 1 →
         ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ A0) :
     MellinInputs (Heta R η U HC) (HA.LS S η) := by
