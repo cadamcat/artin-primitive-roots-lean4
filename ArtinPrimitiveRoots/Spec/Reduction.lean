@@ -511,6 +511,234 @@ theorem exists_cusp_denominatorBounds (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)
   · intro μ hμ
     exact hBound μ (hSignedEntries μ hμ).1 (hSignedEntries μ hμ).2
 
+theorem toSLF_injective : Function.Injective (toSLF F) := by
+  intro a b hab
+  apply Subtype.ext
+  funext i j
+  apply RingOfIntegers.coe_injective
+  exact congrArg (fun g : SL(2,F) => g i j) hab
+
+/-- Clearing the fixed conjugation coefficients gives an integral unipotent homomorphism. -/
+theorem exists_integral_cusp_translation_hom (σ : SL(2,F)) :
+    ∃ D : ℕ, 0 < D ∧ ∃ f : Multiplicative (𝓞 F) →* SL(2,𝓞 F),
+      ∀ a : 𝓞 F, toSLF F (f (Multiplicative.ofAdd a)) =
+        σ * upperHom F (Multiplicative.ofAdd (algebraMap (𝓞 F) F ((D : 𝓞 F) * a))) *
+          σ⁻¹ := by
+  classical
+  obtain ⟨D, hD, hb⟩ := exists_common_denominatorBound
+    (fun i : Fin 3 => ![(σ 0 0)^2, (σ 1 0)^2, σ 0 0 * σ 1 0] i)
+  obtain ⟨A, hA⟩ := hb 0
+  obtain ⟨B, hB⟩ := hb 1
+  obtain ⟨C, hC⟩ := hb 2
+  change (D : F) * (σ 0 0)^2 = algebraMap (𝓞 F) F A at hA
+  change (D : F) * (σ 1 0)^2 = algebraMap (𝓞 F) F B at hB
+  change (D : F) * (σ 0 0 * σ 1 0) = algebraMap (𝓞 F) F C at hC
+  let M : 𝓞 F → Matrix (Fin 2) (Fin 2) (𝓞 F) :=
+    fun a => !![1 - a * C, a * A; -a * B, 1 + a * C]
+  have hM (a : 𝓞 F) : (M a).map (algebraMap (𝓞 F) F) =
+      (σ * upperHom F (Multiplicative.ofAdd ((D : F) * algebraMap (𝓞 F) F a)) *
+        σ⁻¹ : SL(2,F)) := by
+    rw [conjugate_upperHom_formula]
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [M, Matrix.map_apply, ← hA, ← hB, ← hC] <;> ring
+  have hdet (a : 𝓞 F) : Matrix.det (M a) = 1 := by
+    apply RingOfIntegers.coe_injective
+    rw [map_one, (algebraMap (𝓞 F) F).map_det]
+    change Matrix.det ((M a).map (algebraMap (𝓞 F) F)) = 1
+    rw [hM]
+    exact (σ * upperHom F (Multiplicative.ofAdd ((D : F) * algebraMap (𝓞 F) F a)) *
+      σ⁻¹).property
+  let g : 𝓞 F → SL(2,𝓞 F) := fun a => ⟨M a, hdet a⟩
+  have hg (a : 𝓞 F) : toSLF F (g a) =
+      σ * upperHom F (Multiplicative.ofAdd ((D : F) * algebraMap (𝓞 F) F a)) *
+        σ⁻¹ := by
+    apply Subtype.ext
+    exact hM a
+  let f : Multiplicative (𝓞 F) →* SL(2,𝓞 F) := {
+    toFun := fun a => g a.toAdd
+    map_one' := by
+      apply toSLF_injective
+      change toSLF F (g 0) = toSLF F (1 : SL(2,𝓞 F))
+      rw [(toSLF F).map_one, hg]
+      simp
+    map_mul' := by
+      intro a b
+      apply toSLF_injective
+      change toSLF F (g (a.toAdd + b.toAdd)) =
+        toSLF F (g a.toAdd * g b.toAdd)
+      rw [(toSLF F).map_mul, hg, hg, hg, (algebraMap (𝓞 F) F).map_add, mul_add]
+      change σ * upperHom F
+          (Multiplicative.ofAdd ((D : F) * algebraMap (𝓞 F) F a.toAdd) *
+            Multiplicative.ofAdd ((D : F) * algebraMap (𝓞 F) F b.toAdd)) * σ⁻¹ = _
+      rw [(upperHom F).map_mul]
+      group
+  }
+  refine ⟨D, hD, f, fun a => ?_⟩
+  simpa [f] using hg a
+
+theorem exists_integral_multiple_in_cuspLattice
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] (σ : SL(2,F)) :
+    ∃ m : ℕ, 0 < m ∧ ∀ a : 𝓞 F,
+      algebraMap (𝓞 F) F ((m : 𝓞 F) * a) ∈ cuspLattice F Γ σ := by
+  classical
+  obtain ⟨D, hD, f, hf⟩ := exists_integral_cusp_translation_hom σ
+  let H : Subgroup (Multiplicative (𝓞 F)) := Γ.comap f
+  have hidx : 0 < H.index :=
+    Nat.pos_of_ne_zero (Subgroup.FiniteIndex.index_ne_zero (H := H))
+  refine ⟨D * H.index, Nat.mul_pos hD hidx, fun a => ?_⟩
+  have hpow : (Multiplicative.ofAdd a) ^ H.index ∈ H := H.pow_index_mem _
+  have hγ : f ((Multiplicative.ofAdd a) ^ H.index) ∈ Γ := hpow
+  apply (cuspLattice_mem_iff Γ σ _).2
+  refine ⟨⟨f ((Multiplicative.ofAdd a) ^ H.index), hγ⟩, ?_⟩
+  have heq : algebraMap (𝓞 F) F
+      ((D : 𝓞 F) * ((Multiplicative.ofAdd a) ^ H.index).toAdd) =
+        algebraMap (𝓞 F) F (((D * H.index : ℕ) : 𝓞 F) * a) := by
+    simp [nsmul_eq_mul, Nat.cast_mul, mul_assoc]
+  calc
+    σ * upperHom F (Multiplicative.ofAdd
+        (algebraMap (𝓞 F) F (((D * H.index : ℕ) : 𝓞 F) * a))) * σ⁻¹ =
+      σ * upperHom F (Multiplicative.ofAdd
+        (algebraMap (𝓞 F) F ((D : 𝓞 F) *
+          ((Multiplicative.ofAdd a) ^ H.index).toAdd))) * σ⁻¹ := by rw [heq]
+    _ = toSLF F (f ((Multiplicative.ofAdd a) ^ H.index)) :=
+      (hf (((Multiplicative.ofAdd a) ^ H.index).toAdd)).symm
+
+/-- For a totally complex field the mixed embedding space is the space of chosen complex places. -/
+def complexPlaceLinearEquiv : mixedEmbedding.mixedSpace F ≃ₗ[ℝ] (InfinitePlace F → ℂ) where
+  toFun x w := x.2 ⟨w, IsTotallyComplex.isComplex w⟩
+  invFun x := (fun w => False.elim
+    ((InfinitePlace.not_isReal_iff_isComplex.mpr (IsTotallyComplex.isComplex w.1)) w.2),
+    fun w => x w.1)
+  left_inv x := by
+    apply Prod.ext
+    · funext w
+      exact ((InfinitePlace.not_isReal_iff_isComplex.mpr
+        (IsTotallyComplex.isComplex w.1)) w.2).elim
+    · funext w
+      rfl
+  right_inv x := rfl
+  map_add' x y := rfl
+  map_smul' c x := rfl
+
+def complexIntegerLatticeBasis :
+    Module.Basis (Module.Free.ChooseBasisIndex ℤ (𝓞 F)) ℝ (InfinitePlace F → ℂ) :=
+  (mixedEmbedding.latticeBasis F).map (complexPlaceLinearEquiv (F := F))
+
+theorem complexIntegerLatticeBasis_apply (i : Module.Free.ChooseBasisIndex ℤ (𝓞 F)) :
+    complexIntegerLatticeBasis (F := F) i =
+      infEmb F (algebraMap (𝓞 F) F (RingOfIntegers.basis F i)) := by
+  change complexPlaceLinearEquiv (F := F) (mixedEmbedding.latticeBasis F i) = _
+  rw [mixedEmbedding.latticeBasis_apply, integralBasis_apply]
+  rfl
+
+theorem infEmb_ringInteger_mem_span (a : 𝓞 F) :
+    infEmb F (algebraMap (𝓞 F) F a) ∈
+      Submodule.span ℤ (Set.range (complexIntegerLatticeBasis (F := F))) := by
+  let f : 𝓞 F →ₗ[ℤ] (InfinitePlace F → ℂ) :=
+    ((infEmb F).comp (algebraMap (𝓞 F) F)).toAddMonoidHom.toIntLinearMap
+  have heq : Set.range (complexIntegerLatticeBasis (F := F)) =
+      f '' Set.range (RingOfIntegers.basis F) := by
+    rw [← Set.range_comp]
+    congr 1
+    funext i
+    exact complexIntegerLatticeBasis_apply i
+  rw [heq, ← Submodule.map_span, (RingOfIntegers.basis F).span_eq]
+  exact Submodule.mem_map.mpr ⟨a, Submodule.mem_top, rfl⟩
+
+theorem infEmb_nat_mul (n : ℕ) (a : F) :
+    infEmb F ((n : F) * a) = (n : ℝ) • infEmb F a := by
+  ext w
+  simp [infEmb, Complex.real_smul]
+
+theorem cuspTranslationsZ_eq_toIntSubmodule (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) :
+    cuspTranslationsZ F Γ σ = (cuspTranslations F Γ σ).toIntSubmodule := by
+  change Submodule.span ℤ
+    ((cuspTranslations F Γ σ).toIntSubmodule : Set (InfinitePlace F → ℂ)) = _
+  exact Submodule.span_eq _
+
+theorem cuspTranslationsZ_toAddSubgroup (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) :
+    (cuspTranslationsZ F Γ σ).toAddSubgroup = cuspTranslations F Γ σ := by
+  rw [cuspTranslationsZ_eq_toIntSubmodule]
+  exact AddSubgroup.toIntSubmodule_toAddSubgroup _
+
+theorem cuspTranslations_isFullZLattice (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    {m D : ℕ} (hm : 0 < m)
+    (hmlower : ∀ a : 𝓞 F, algebraMap (𝓞 F) F ((m : 𝓞 F) * a) ∈ cuspLattice F Γ σ)
+    (hD : 0 < D) (hDupper : ∀ μ ∈ cuspLattice F Γ σ, HasDenominatorBound F D μ) :
+    IsFullZLattice (cuspTranslationsZ F Γ σ) := by
+  classical
+  let E := InfinitePlace F → ℂ
+  let b := complexIntegerLatticeBasis (F := F)
+  let L₀ : Submodule ℤ E := Submodule.span ℤ (Set.range b)
+  let scale : E →ₗ[ℝ] E := (D : ℝ) • LinearMap.id
+  have hDne : (D : ℝ) ≠ 0 := by exact_mod_cast hD.ne'
+  have hmne : (m : ℝ) ≠ 0 := by exact_mod_cast hm.ne'
+  have hscaleCont : Continuous scale := LinearMap.continuous_of_finiteDimensional _
+  have hscaleInj : Function.Injective scale := by
+    intro x y hxy
+    have h := congrArg (fun z : E => (D : ℝ)⁻¹ • z) hxy
+    simpa [scale, smul_smul, hDne] using h
+  let U : Submodule ℤ E := ZLattice.comap ℝ L₀ scale
+  letI : DiscreteTopology L₀ := inferInstance
+  have hUdisc : DiscreteTopology U :=
+    ZLattice.comap_discreteTopology ℝ L₀ hscaleCont hscaleInj
+  have hupper : cuspTranslationsZ F Γ σ ≤ U := by
+    change Submodule.span ℤ (cuspTranslations F Γ σ : Set E) ≤ U
+    apply Submodule.span_le.mpr
+    intro x hx
+    rcases AddSubgroup.mem_map.mp hx with ⟨μ, hμ, rfl⟩
+    obtain ⟨a, ha⟩ := hDupper μ hμ
+    change (D : ℝ) • infEmb F μ ∈ L₀
+    have hemb := congrArg (infEmb F) ha
+    rw [infEmb_nat_mul] at hemb
+    rw [hemb]
+    exact infEmb_ringInteger_mem_span a
+  have hdisc : DiscreteTopology (cuspTranslationsZ F Γ σ) :=
+    DiscreteTopology.of_subset hUdisc hupper
+  letI := hdisc
+  have hspan : Submodule.span ℝ (cuspTranslationsZ F Γ σ : Set E) = ⊤ := by
+    apply top_unique
+    rw [← b.span_eq]
+    apply Submodule.span_le.mpr
+    rintro _ ⟨i, rfl⟩
+    have hmulmem : (m : ℝ) • b i ∈ cuspTranslationsZ F Γ σ := by
+      apply Submodule.subset_span
+      apply AddSubgroup.mem_map.mpr
+      refine ⟨algebraMap (𝓞 F) F ((m : 𝓞 F) * RingOfIntegers.basis F i),
+        hmlower _, ?_⟩
+      change infEmb F (algebraMap (𝓞 F) F
+        ((m : 𝓞 F) * RingOfIntegers.basis F i)) = (m : ℝ) • b i
+      rw [(algebraMap (𝓞 F) F).map_mul, map_natCast, infEmb_nat_mul]
+      rw [complexIntegerLatticeBasis_apply]
+    have hreal := Submodule.subset_span (R := ℝ) hmulmem
+    have hs := (Submodule.span ℝ (cuspTranslationsZ F Γ σ : Set E)).smul_mem
+      (m : ℝ)⁻¹ hreal
+    simpa [smul_smul, hmne] using hs
+  exact ⟨hdisc, ⟨hspan⟩⟩
+
+theorem exists_bounded_cusp_fundamentalDomain (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (hfull : IsFullZLattice (cuspTranslationsZ F Γ σ)) :
+    ∃ P : Set (InfinitePlace F → ℂ),
+      IsAddFundamentalDomain (cuspTranslations F Γ σ) P ∧ Bornology.IsBounded P ∧
+        MeasurableSet P := by
+  classical
+  let L := cuspTranslationsZ F Γ σ
+  obtain ⟨hdisc, hL⟩ := hfull
+  letI := hdisc
+  letI := hL
+  letI : Module.Finite ℤ L := ZLattice.module_finite ℝ L
+  letI : Module.Free ℤ L := ZLattice.module_free ℝ L
+  let b := Module.Free.chooseBasis ℤ L
+  have hfd : IsAddFundamentalDomain L.toAddSubgroup
+      (ZSpan.fundamentalDomain (b.ofZLatticeBasis ℝ)) :=
+    ZLattice.isAddFundamentalDomain b volume
+  have hgroup : L.toAddSubgroup = cuspTranslations F Γ σ :=
+    cuspTranslationsZ_toAddSubgroup Γ σ
+  rw [hgroup] at hfd
+  exact ⟨_, hfd, ZSpan.fundamentalDomain_isBounded _,
+    ZSpan.fundamentalDomain_measurableSet _⟩
+
 /-- R1 `spec:cusp-lattice` — P-SPEC.md:214, 271–275. Integral multiples lie in the cusp
 translation group, all translations have bounded denominators, and the embedded lattice has a
 bounded measurable fundamental domain. The signed extension has at most two translation cosets. -/
@@ -540,6 +768,8 @@ theorem R1_cusp_lattice (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] (σ : SL(2
     change AddSubgroup.closure (T : Set F) = T
     exact AddSubgroup.closure_eq T
   obtain ⟨D, hD, hLatD, hSignedD⟩ := exists_cusp_denominatorBounds Γ σ
+  obtain ⟨m, hm, hmlower⟩ := exists_integral_multiple_in_cuspLattice Γ σ
+  have hfull := cuspTranslations_isFullZLattice Γ σ hm hmlower hD hLatD
   have hExtD : ∀ μ ∈ cuspTranslationExtension F Γ σ,
       HasDenominatorBound F D μ := by
     intro μ hμ
@@ -640,7 +870,7 @@ theorem R1_cusp_lattice (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] (σ : SL(2
       · intro μ hμ
         exact Or.inl (hall μ (by simpa [hT, T] using hμ))
   constructor
-  · sorry
+  · exact ⟨m, hm, hmlower⟩
   constructor
   · exact ⟨D, hD, hLatD, hExtD⟩
   constructor
@@ -649,9 +879,9 @@ theorem R1_cusp_lattice (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] (σ : SL(2
     rfl
   constructor
   · refine ⟨?_, ?_⟩
-    · sorry
+    · exact hfull
     · exact ⟨by simpa [cuspTranslationExtension] using cuspLattice_subset_signed Γ σ, hCoset⟩
-  · sorry
+  · exact exists_bounded_cusp_fundamentalDomain Γ σ hfull
 
 /-- R2 `spec:cusp-units` — P-SPEC.md:215, 277–280. The cusp diagonal units have finite index;
 every stabilizer element has a bounded-denominator upper-triangular form; torsion units under a
