@@ -33,7 +33,7 @@ open ArtinPrimitiveRoots.Splitting ArtinPrimitiveRoots.Hecke ClassFieldTheory
 prime and `a` has no `p`th root in a field, `X^p-C(a)` is irreducible. -/
 theorem ext_kummer_irreducible {K : Type*} [Field K] {p : ℕ} (hp : p.Prime) {a : K}
     (ha : ∀ b : K, b ^ p ≠ a) : Irreducible (Polynomial.X ^ p - Polynomial.C a) := by
-  sorry
+  exact X_pow_sub_C_irreducible_of_prime hp ha
 
 /-- **`ext:kummer-galois`**, `07-splitting.tex:44-51`. Mathlib
 `autEquivRootsOfUnity` (`Mathlib/FieldTheory/KummerExtension.lean:398`) identifies the Galois
@@ -44,7 +44,7 @@ theorem ext_kummer_galois {K L : Type*} [Field K] [Field L] [Algebra K L]
     (H : Irreducible (Polynomial.X ^ n - Polynomial.C a))
     [IsSplittingField K L (Polynomial.X ^ n - Polynomial.C a)] :
     Nonempty (Gal(L/K) ≃* rootsOfUnity n K) := by
-  sorry
+  exact ⟨autEquivRootsOfUnity hζ H L⟩
 
 /-- **`ext:frobenius`**, `01a-reduction.tex:83-96`. Mathlib `arithFrobAt` and
 `IsArithFrobAt` (`Mathlib/RingTheory/Frobenius.lean:260-270`) give an arithmetic Frobenius at
@@ -53,7 +53,7 @@ theorem ext_frobenius {R S G : Type*} [CommRing R] [CommRing S] [Algebra R S]
     [Group G] [Finite G] [MulSemiringAction G S] [SMulCommClass G R S] [IsGaloisGroup G R S]
     (Q : Ideal S) [Q.IsPrime] [Finite (S ⧸ Q)] :
     IsArithFrobAt R (arithFrobAt R G Q) Q := by
-  sorry
+  exact IsArithFrobAt.arithFrobAt R G Q
 
 /-- The arithmetic Frobenius congruence at a prime of the integral closure. -/
 def IsArithmeticFrobeniusAt {K L : Type*} [Field K] [NumberField K] [Field L]
@@ -102,7 +102,7 @@ theorem ext_split_criterion (K : Type*) [Field K] [NumberField K] [IsGalois ℚ 
     splitsCompletely K p ↔
       (Ideal.span {(p : ℤ)}).ramificationIdxIn (𝓞 K) = 1 ∧
         (Ideal.span {(p : ℤ)}).inertiaDegIn (𝓞 K) = 1 := by
-  sorry
+  exact NumberField.ncard_primesOver_eq_finrank_iff K p
 
 /-- The norm conclusion for primes above a completely split rational prime. TauCeti
 `Ideal.absNorm_eq_of_ncard_primesOver_eq_finrank` (`SplitsCompletely/Basic.lean:161`). -/
@@ -110,14 +110,21 @@ theorem ext_split_prime_norm (K : Type*) [Field K] [NumberField K] [IsGalois ℚ
     (p : ℕ) [Fact p.Prime] (P : Ideal (𝓞 K))
     (hP : P ∈ (Ideal.span {(p : ℤ)}).primesOver (𝓞 K))
     (hsplit : splitsCompletely K p) : Ideal.absNorm P = p := by
-  sorry
+  haveI : P.IsPrime := hP.1
+  haveI : P.LiesOver (Ideal.span {(p : ℤ)}) := hP.2
+  exact Ideal.absNorm_eq_of_ncard_primesOver_eq_finrank P (by simpa [splitsCompletely] using hsplit)
 
 /-- **`ext:cyclotomic-disc`**, `07-splitting.tex:58-61`. Mathlib
 `IsCyclotomicExtension.Rat.discr_prime` (`Mathlib/NumberTheory/NumberField/Cyclotomic/Basic.lean:651`)
 gives the prime cyclotomic discriminant. -/
 theorem ext_cyclotomic_disc {q : ℕ} [NeZero q] (hq : q.Prime) :
     absoluteDiscriminant (CyclotomicField q ℚ) = (q : ℝ) ^ (q - 2) := by
-  sorry
+  haveI : Fact q.Prime := ⟨hq⟩
+  letI : IsCyclotomicExtension {q} ℚ (CyclotomicField q ℚ) :=
+    CyclotomicField.isCyclotomicExtension q ℚ
+  have hdisc := IsCyclotomicExtension.Rat.discr_prime (p := q)
+    (K := CyclotomicField q ℚ)
+  simp [absoluteDiscriminant, hdisc, abs_mul, abs_pow]
 
 /-- **`ext:disc-tower`**, `07-splitting.tex:63-68`. TauCeti
 `TauCeti.NumberField.relDiscr_tower` (`NumberField/Discriminant/Relative.lean:43-46`) gives
@@ -128,7 +135,7 @@ theorem ext_disc_tower {K L M : Type*} [Field K] [NumberField K]
     TauCeti.relDiscr (𝓞 K) (𝓞 M) =
       TauCeti.relDiscr (𝓞 K) (𝓞 L) ^ Module.finrank L M *
         Ideal.relNorm (𝓞 K) (TauCeti.relDiscr (𝓞 L) (𝓞 M)) := by
-  sorry
+  exact TauCeti.NumberField.relDiscr_tower K
 
 /-- **`ext:fundamental-identity`**, `07-splitting.tex:164-170`. Mathlib
 `Ideal.sum_ramification_inertia` (`Mathlib/NumberTheory/RamificationInertia/Basic.lean:614`) is
@@ -141,7 +148,7 @@ theorem ext_fundamental_identity {R S K L : Type*} [CommRing R] [CommRing S]
     {p : Ideal R} [p.IsMaximal] (hp0 : p ≠ ⊥) :
     ∑ P ∈ IsDedekindDomain.primesOverFinset p S,
       Ideal.ramificationIdx' p P * Ideal.inertiaDeg' p P = Module.finrank K L := by
-  sorry
+  exact Ideal.sum_ramification_inertia (R := R) (S := S) (K := K) (L := L) hp0
 
 /-- **`ext:dedekind-euler-logderiv`**, `07-splitting.tex:132-145`. TauCeti
 `dedekindZeta_eulerProduct_hasProd` (`ArithmeticDirichletSeries/EulerProduct/Analytic.lean:498`)

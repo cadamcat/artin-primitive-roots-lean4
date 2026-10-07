@@ -30,6 +30,7 @@ import ArtinPrimitiveRoots.Theta.Cover
 import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalInt
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-LOCAL-TOPOLOGY».Helper
 import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Reduction
@@ -50,3 +51,5 @@ import ArtinPrimitiveRoots.Splitting.Counting
 import ArtinPrimitiveRoots.Spec
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Arith.DavenportHasse
+import /- Local package with a hyphenated directory name. -/ ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
+import /- Local package with a quoted directory name. -/ ArtinPrimitiveRoots.Hecke.Proofs.«HK-FE».hk_fe_export_to_ext_hecke_continuation
