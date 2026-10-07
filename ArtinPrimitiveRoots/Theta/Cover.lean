@@ -1,4 +1,5 @@
 import Mathlib.Topology.Defs.Induced
+import Mathlib.Topology.Algebra.RestrictedProduct.TopologicalSpace
 import ArtinPrimitiveRoots.A1.ThetaInterface
 
 
@@ -14,7 +15,7 @@ The section `Core` is the **shared theta core**: it is copied verbatim into ever
 set_option autoImplicit false
 
 open NumberField IsDedekindDomain
-open Topology
+open Filter Topology
 open scoped Classical
 
 noncomputable section
@@ -234,7 +235,9 @@ of the local covers (`L v` at finite places, the trivial cover `PGL₂(ℂ) × �
 places) with respect to the tame maximal compacts; `q : RP → G` divides by the
 `N0 = {(ζ_v) : Π ζ_v = 1}`; `tc` is the frozen `ThetaCover` on `G = RP ⧸ N0`, and its local data
 are the images of the local covers. C2 of `sol-gate-theta` installs the insertion, component,
-quotient-topology, and restricted-tuple compatibility identities used by consumers. -/
+quotient-topology, and restricted-tuple compatibility identities used by consumers. The topology
+correction from `sol-gate-theta2` pins `rpTopology` to the canonical restricted-product topology at
+producer boundaries. -/
 structure CoverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)} (S : SData F CE condη)
     (H : HilbertData F) (A : AddCharData F) where
   loc : ∀ v : FinPlace F, FinLocalCover D H v
@@ -313,11 +316,44 @@ structure CoverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)} (S
 
 attribute [instance] CoverPackage.rpGrp
 
+variable {CE : ℕ} {condη : Ideal (𝓞 F)}
+variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F} {A : AddCharData F}
+
+/-- Archimedean central phases have already been absorbed into the common finite center
+in this presentation, consistently with the existing `compC` and `q_eq` fields. -/
+def LocalComponent (P : CoverPackage D S H A) : Place F → Type :=
+  Sum.elim (fun v => (P.loc v).L) (fun _ => PGL2 ℂ)
+
+instance localComponentTopology (P : CoverPackage D S H A) (p : Place F) :
+    TopologicalSpace (LocalComponent P p) := by
+  cases p with
+  | inl v => exact (P.loc v).top
+  | inr w => exact inferInstanceAs (TopologicalSpace (PGL2 ℂ))
+
+/-- All components at S are unrestricted; exterior finite components use their actual
+tame compact subgroups. -/
+def referenceSubset (P : CoverPackage D S H A) : (p : Place F) → Set (LocalComponent P p)
+  | .inl v => if hv : v ∉ S.Sf then ((P.tame v hv).Kmax : Set (P.loc v).L) else Set.univ
+  | .inr _ => Set.univ
+
+abbrev CanonicalRP (P : CoverPackage D S H A) :=
+  RestrictedProduct (LocalComponent P) (referenceSubset P) cofinite
+
+/-- This pins the topology, rather than merely naming a supplied group topology.
+The algebraic component equivalence comes from `comp_ext`, `comp_restricted`, and
+`comp_surj`; its homeomorphism property is the missing construction obligation. This is the
+restricted-product topology correction from `sol-gate-theta2`. -/
+def HasRestrictedProductTopology (P : CoverPackage D S H A) : Prop :=
+  ∃ e : @Homeomorph P.RP (CanonicalRP P) P.rpTopology inferInstance,
+    (∀ x v, e x (.inl v) = P.compF v x) ∧
+    ∀ x w, e x (.inr w) = P.compC w x
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
-cover exists with the component compatibility identities of C2 in `sol-gate-theta`. -/
+cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
+`sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
 theorem exists_coverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)}
     (S : SData F CE condη) (H : HilbertData F) (A : AddCharData F)
-    (hSt : ∀ v, SteinbergAt H v) : Nonempty (CoverPackage D S H A) := by
+    (hSt : ∀ v, SteinbergAt H v) : ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P := by
   sorry
 
 end ArtinPrimitiveRoots.A1.Theta

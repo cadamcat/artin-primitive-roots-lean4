@@ -45,9 +45,11 @@ def Rderiv (P : CoverPackage D S H A) (m : InfinitePlace F → ℤ) (Ψ : P.tc.G
 right `Kext`-invariance and smoothness of `θ`, commutes with torus coefficients, and on Whittaker
 coefficients acts at each complex place by the derivative vector `f_{m_w}` of `sphC`.
 Corrected per rev-theta to require archimedean smoothness of the residue; C11 of `sol-gate-theta`
-requires the joint root smoothness field on `ContinuedEis`. -/
+requires the joint root smoothness field on `ContinuedEis`. The exterior level `Fam.T0 = S.Sf`
+is required per `sol-thin-thglobal` for the stated full `Kext`-invariance. -/
 theorem Rderiv_spec {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
-    (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam) (m : InfinitePlace F → ℤ) :
+    (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam) (m : InfinitePlace F → ℤ)
+    (hT : Fam.T0 = S.Sf) :
     (∀ (g : P.tc.G) (w : InfinitePlace F),
       ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
         (fun z : ℂ => C.theta (g * P.tc.nS
@@ -126,18 +128,22 @@ theorem thetaWhit_factor {P : CoverPackage D S H A} {G : GlobalDatum P}
 
 /-- **asm:main**: for every finite family of admissible S-characters there is a theta family on
 the cover of `P`. Corrected per rev-theta through the regularity fields of `ThetaFamily`; C10/C11
-of `sol-gate-theta` require the cover topology and joint root smoothness. -/
+of `sol-gate-theta` require the cover topology and joint root smoothness. The correction from
+`sol-gate-theta2` also requires the producer's cover to carry the canonical restricted-product
+topology. -/
 theorem exists_thetaFamily (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt H v)
-    (𝓛 : Finset (SChar S)) : Nonempty (ThetaFamily P.tc 𝓛) := by
+    (hRP : HasRestrictedProductTopology P) (𝓛 : Finset (SChar S)) :
+    Nonempty (ThetaFamily P.tc 𝓛) := by
   sorry
 
 /-- **th:theta-interface** under the Steinberg relation (P-COVER gap G1). With G1 resolved by a
 `HilbertData` field, this is the explicit-Steinberg form of the corrected `theta_interface`.
 Corrected per rev-theta through the regularity fields of `ThetaFamily`; C10/C11 of `sol-gate-theta`
-fix the topology and add joint root smoothness, while C2 returns the compatible `CoverPackage`. -/
+fix the topology and add joint root smoothness, while C2 returns the compatible `CoverPackage`.
+The `sol-gate-theta2` correction also returns its canonical restricted-product topology witness. -/
 theorem theta_interface_of_steinberg (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (A : AddCharData F) (hSt : ∀ v, SteinbergAt H v) :
-    ∃ P : CoverPackage D S H A,
+    ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P ∧
       ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily P.tc 𝓛) := by
   sorry
 

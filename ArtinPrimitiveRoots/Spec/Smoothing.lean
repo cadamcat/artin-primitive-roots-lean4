@@ -75,7 +75,7 @@ def S3_unsmoothed_base (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
 pointwise continuation with the same convergence values and residue as the `L²` continuation.
 Correction from review lane `rev-spec`: supply kernel data and cusp separation, and require the
 transform to be nonzero at the residue center. Correction from `sol-gate-spec`: require the
-unsmoothed base identity on the convergence ball. -/
+unsmoothed base identity on the convergence ball.  On 2026-10-07 `hu` was weakened from radius `1` to the returned radius `ε` (the Eisenstein pole at `1/2` made the radius-one input unsatisfiable for small `s₁`; lane `sol-gate-spec2`). -/
 theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (hfree : FreeAction F Γ) (σ : SL(2,F)) (s₁ : ℝ)
     (hs₀ : 0 < s₁) (hs₁ : s₁ ≤ 1 / 2)
@@ -87,8 +87,9 @@ theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       A ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
       γ' * γ⁻¹ ∈ cuspStab F Γ σ)
     (hτ : IsCuspCutoff A τ)
-    (u : ℂ → L2Space F D) (hu : AnalyticOnNhd ℂ u (contDomain s₁ 1))
+    (u : ℂ → L2Space F D)
     (θ : L2Space F D) (ε : ℝ) (hε : 0 < ε ∧ ε ≤ s₁)
+    (hu : AnalyticOnNhd ℂ u (contDomain s₁ ε))
     (hhat : ∀ s ∈ contDomain s₁ ε, radialTransform F k₀ (1 + 2 * s) ≠ 0)
     (hhatCenter : radialTransform F k₀ (1 + 2 * (s₁ : ℂ)) ≠ 0)
     (hres : ∃ Ψ : ℂ → L2Space F D,
