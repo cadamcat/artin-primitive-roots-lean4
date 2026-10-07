@@ -1,4 +1,5 @@
 import Mathlib
+import ArtinPrimitiveRoots.Construction.Results
 
 /-!
 # Primes with controlled predecessors (paper: Proposition `prop:controlled`)
@@ -24,6 +25,6 @@ theorem prop_controlled (M : ℕ) (hM0 : 0 < M) (hM : 8 ∣ M) (c : ℕ) (hc : c
               ∀ ℓ : ℕ, ℓ.Prime → ℓ ∣ r →
                 Real.exp (Real.log x ^ (1 / 10 : ℝ)) < (ℓ : ℝ) ∧
                   (ℓ : ℝ) < Real.exp (Real.log x ^ (3 / 10 : ℝ))} : Set ℕ).ncard : ℝ) := by
-  sorry
+  exact Construction.co_completion M hM0 hM c hc u hu hcu hcu'
 
 end ArtinPrimitiveRoots

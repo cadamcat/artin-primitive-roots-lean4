@@ -2,3 +2,9 @@ import ArtinPrimitiveRoots.Basic
 import ArtinPrimitiveRoots.Target
 import ArtinPrimitiveRoots.Sieve.Block
 import ArtinPrimitiveRoots.Sieve.RoughDensity
+import ArtinPrimitiveRoots.TypeII.Defs
+import ArtinPrimitiveRoots.TypeII.Marked
+import ArtinPrimitiveRoots.TypeII.Rough
+import ArtinPrimitiveRoots.Ext.TypeIIInputs
+import ArtinPrimitiveRoots.Construction.Defs
+import ArtinPrimitiveRoots.Construction.Results
