@@ -40,3 +40,4 @@ import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2
 import ArtinPrimitiveRoots.Spec
 import ArtinPrimitiveRoots.Spec.Main
+import ArtinPrimitiveRoots.Arith.DavenportHasse
