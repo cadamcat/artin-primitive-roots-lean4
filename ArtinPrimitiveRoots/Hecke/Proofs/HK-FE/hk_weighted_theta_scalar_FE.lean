@@ -17,6 +17,18 @@ theorem hk_weighted_theta_scalar_FE [IsTotallyComplex K] {m : RayClassModulus K}
     {t : ℝ} (ht : 0 < t) :
     hkWeightedPhi ψ (1 / t) =
       hkRootNumber χ T * (Real.rpow t ((1 : ℝ) / 2) : ℂ) * hkWeightedPhi (ψ⁻¹) t := by
-  sorry
+  have hq : 0 < (modulusNorm m : ℝ) := by
+    exact_mod_cast ArtinPrimitiveRoots.Dictionary.HKDICTRay.modulusNorm_pos m
+  have harg : (1 / t) / (modulusNorm m : ℝ) =
+      1 / ((modulusNorm m : ℝ) * t) := by field_simp
+  have hdiv : (modulusNorm m : ℝ) * t / (modulusNorm m : ℝ) = t := by
+    field_simp
+  have hdivsq : (modulusNorm m : ℝ) * t / (modulusNorm m : ℝ) ^ 2 =
+      t / (modulusNorm m : ℝ) := by field_simp
+  unfold hkWeightedPhi
+  rw [harg, hk_weighted_class_sum_inversion ψ χ T (mul_pos hq ht), hdiv, hdivsq,
+    Real.sqrt_eq_rpow]
+  simp only [Real.rpow_eq_pow]
+  ring
 
 end ArtinPrimitiveRoots.Hecke
