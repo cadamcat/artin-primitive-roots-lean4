@@ -2,7 +2,226 @@ import ArtinPrimitiveRoots.TypeII.Marked
 import ArtinPrimitiveRoots.TypeII.MarkedTransfer
 import ArtinPrimitiveRoots.TypeII.PD.Defs
 import ArtinPrimitiveRoots.TypeII.PP.Results
-import ArtinPrimitiveRoots.TypeII.Proofs.r2.CharacterConductor
+import OAI.NumberTheory.PrimeGaps.Main
+
+namespace ArtinPrimitiveRoots.TypeII.RoughProofs
+
+open ArtinPrimitiveRoots.TypeII
+open ArtinPrimitiveRoots.TypeII.PP
+
+noncomputable def tupleFromList {j : ℕ} (l : List ℕ) (h : l.length = j) : Fin j → ℕ :=
+  fun i => l.get (Fin.cast h.symm i)
+
+theorem ofFn_tupleFromList {j : ℕ} (l : List ℕ) (h : l.length = j) :
+    List.ofFn (tupleFromList l h) = l := by
+  cases h
+  rw [show tupleFromList l rfl = l.get from by
+    funext i
+    simp [tupleFromList]]
+  exact List.ofFn_get l
+
+theorem mem_boundedTuples_of_forall_le {j B : ℕ} (t : Fin j → ℕ)
+    (ht : ∀ i, t i ≤ B) : t ∈ boundedTuples j B := by
+  classical
+  unfold boundedTuples
+  refine Finset.mem_image.mpr ⟨fun i => ⟨t i, Nat.lt_succ_of_le (ht i)⟩,
+    Finset.mem_univ _, ?_⟩
+  funext i
+  rfl
+
+theorem tuple_product_perm_factors {j m : ℕ} (t : Fin j → ℕ)
+    (ht : ∀ i, (t i).Prime) (hprod : (∏ i : Fin j, t i) = m) :
+    List.Perm (List.ofFn t) m.primeFactorsList := by
+  have hlistprod : (List.ofFn t).prod = m := by
+    simpa only [List.prod_ofFn] using hprod
+  have hprime : ∀ p ∈ List.ofFn t, p.Prime := by
+    intro p hp
+    obtain ⟨i, rfl⟩ := List.mem_ofFn.mp hp
+    exact ht i
+  exact Nat.primeFactorsList_unique hlistprod hprime
+
+noncomputable def primeTupleFiber (j B m : ℕ) : Finset (Fin j → ℕ) :=
+  (boundedTuples j B).filter fun t =>
+    (∀ i, (t i).Prime) ∧ (∏ i : Fin j, t i) = m
+
+theorem primeTupleFiber_card_le_factorial (j B m : ℕ) :
+    (primeTupleFiber j B m).card ≤ j.factorial := by
+  classical
+  let l := m.primeFactorsList
+  by_cases hj : j = l.length
+  · subst j
+    have himage : (primeTupleFiber l.length B m).image List.ofFn ⊆ l.permutations.toFinset := by
+      intro q hq
+      rcases Finset.mem_image.mp hq with ⟨t, ht, rfl⟩
+      rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+      have hperm := tuple_product_perm_factors t hprop.1 hprop.2
+      exact List.mem_toFinset.mpr (List.mem_permutations.mpr hperm)
+    calc
+      _ = ((primeTupleFiber l.length B m).image List.ofFn).card := by
+        symm
+        exact Finset.card_image_of_injective _ List.ofFn_injective
+      _ ≤ l.permutations.toFinset.card := Finset.card_le_card himage
+      _ ≤ l.permutations.length := List.toFinset_card_le _
+      _ = l.length.factorial := List.length_permutations _
+      _ = l.length.factorial := rfl
+  · have hempty : primeTupleFiber j B m = ∅ := by
+      apply Finset.eq_empty_iff_forall_notMem.mpr
+      intro t ht
+      rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+      have hperm := tuple_product_perm_factors t hprop.1 hprop.2
+      have hlen : j = l.length := by simpa [l] using hperm.length_eq
+      exact hj hlen
+    simp [hempty]
+
+theorem primeTupleFiber_eq_empty_of_factor_length_ne {j B m : ℕ}
+    (hj : j ≠ m.primeFactorsList.length) : primeTupleFiber j B m = ∅ := by
+  classical
+  apply Finset.eq_empty_iff_forall_notMem.mpr
+  intro t ht
+  rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+  have hperm := tuple_product_perm_factors t hprop.1 hprop.2
+  have hlen : j = m.primeFactorsList.length := by simpa using hperm.length_eq
+  exact hj hlen
+
+theorem primeTupleFiber_card_eq_factorial_of_squarefree
+    (j B m : ℕ) (hm0 : m ≠ 0) (hmSq : Squarefree m)
+    (hj : j = m.primeFactorsList.length)
+    (hB : ∀ p ∈ m.primeFactorsList, p ≤ B) :
+    (primeTupleFiber j B m).card = j.factorial := by
+  classical
+  subst j
+  let l := m.primeFactorsList
+  let P := l.permutations.toFinset
+  have hn : l.Nodup := by simpa [l] using hmSq.nodup_primeFactorsList
+  have hpermNodup : l.permutations.Nodup := List.nodup_permutations l hn
+  have himage₁ : (primeTupleFiber l.length B m).image List.ofFn ⊆ P := by
+    intro q hq
+    rcases Finset.mem_image.mp hq with ⟨t, ht, rfl⟩
+    rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+    have hperm := tuple_product_perm_factors t hprop.1 hprop.2
+    exact List.mem_toFinset.mpr (List.mem_permutations.mpr hperm)
+  have himage₂ : P ⊆ (primeTupleFiber l.length B m).image List.ofFn := by
+    intro q hq
+    have hqperm : q ∈ l.permutations := List.mem_toFinset.mp hq
+    have hperm : List.Perm q l := List.mem_permutations.mp hqperm
+    have hlen : q.length = l.length := hperm.length_eq
+    let t := tupleFromList q hlen
+    have hlist : List.ofFn t = q := ofFn_tupleFromList q hlen
+    have hprimeList : ∀ p ∈ q, p.Prime := by
+      intro p hp
+      exact Nat.prime_of_mem_primeFactorsList (hperm.mem_iff.mp hp)
+    have hprodList : q.prod = m := by
+      calc
+        q.prod = l.prod := hperm.prod_eq
+        _ = m := by simpa [l] using Nat.prod_primeFactorsList hm0
+    have htPrime : ∀ i, (t i).Prime := by
+      intro i
+      exact hprimeList _ (List.get_mem q (Fin.cast hlen.symm i))
+    have htBound : ∀ i, t i ≤ B := by
+      intro i
+      have hqmem : q.get (Fin.cast hlen.symm i) ∈ q :=
+        List.get_mem q (Fin.cast hlen.symm i)
+      have hfactor : t i ∈ m.primeFactorsList := by
+        simpa [t, tupleFromList, l] using hperm.mem_iff.mp hqmem
+      exact hB (t i) hfactor
+    have htProd : (∏ i : Fin l.length, t i) = m := by
+      rw [← List.prod_ofFn, hlist]
+      exact hprodList
+    have htMem : t ∈ primeTupleFiber l.length B m := by
+      unfold primeTupleFiber
+      apply Finset.mem_filter.mpr
+      exact ⟨mem_boundedTuples_of_forall_le t htBound, htPrime, htProd⟩
+    exact Finset.mem_image.mpr ⟨t, htMem, hlist⟩
+  have hImage : (primeTupleFiber l.length B m).image List.ofFn = P :=
+    Finset.Subset.antisymm himage₁ himage₂
+  calc
+    (primeTupleFiber l.length B m).card =
+        ((primeTupleFiber l.length B m).image List.ofFn).card := by
+          symm
+          exact Finset.card_image_of_injective _ List.ofFn_injective
+    _ = P.card := congrArg Finset.card hImage
+    _ = l.permutations.length := by
+      dsimp [P]
+      exact List.toFinset_card_of_nodup hpermNodup
+    _ = l.length.factorial := List.length_permutations l
+    _ = m.primeFactorsList.length.factorial := rfl
+
+theorem prime_square_count_bound (Y M : ℝ) (hY : 2 ≤ Y) (hM : 0 ≤ M) :
+    (∑ p ∈ (primesUpTo (Real.sqrt (2 * M))).filter
+        (fun (p : ℕ) => Y < (p : ℝ)),
+      (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ)) ≤ 4 * M / Y := by
+  classical
+  let k := ⌊Y⌋₊
+  let N := max k (⌊Real.sqrt (2 * M)⌋₊ + 1)
+  have hYpos : 0 < Y := by linarith
+  have hkCast : (k : ℝ) ≤ Y := by
+    dsimp [k]
+    exact Nat.floor_le (by linarith)
+  have hlt : Y < (k + 1 : ℝ) := by
+    dsimp [k]
+    exact Nat.lt_floor_add_one Y
+  have hk0 : k ≠ 0 := by
+    intro hk
+    rw [hk] at hlt
+    norm_num at hlt
+    linarith
+  have hsub :
+      (primesUpTo (Real.sqrt (2 * M))).filter (fun (p : ℕ) => Y < (p : ℝ)) ⊆
+        Finset.Ioo k N := by
+    intro p hp
+    rcases Finset.mem_filter.mp hp with ⟨hp0, hYp⟩
+    rcases Finset.mem_filter.mp hp0 with ⟨hpR, hpPrime⟩
+    have hpRange : p < ⌊Real.sqrt (2 * M)⌋₊ + 1 := by
+      simpa [primesUpTo] using hpR
+    have hkp : k < p := by
+      by_contra h
+      have hp_le_k : p ≤ k := Nat.le_of_not_gt h
+      have hpCast : (p : ℝ) ≤ (k : ℝ) := by exact_mod_cast hp_le_k
+      linarith
+    have hpN : p < N := by
+      apply lt_of_lt_of_le hpRange
+      exact le_max_right _ _
+    exact Finset.mem_Ioo.mpr ⟨hkp, hpN⟩
+  let S := (primesUpTo (Real.sqrt (2 * M))).filter (fun (p : ℕ) => Y < (p : ℝ))
+  let T := Finset.Ioo k N
+  have hpoint :
+      (∑ p ∈ S, (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ)) ≤
+        ∑ p ∈ S, (2 * M) * ((p : ℝ) ^ 2)⁻¹ := by
+    apply Finset.sum_le_sum
+    intro p hp
+    rcases Finset.mem_filter.mp hp with ⟨hp0, hYp⟩
+    rcases Finset.mem_filter.mp hp0 with ⟨hpR, hpPrime⟩
+    have hpPrime' : p.Prime := by simpa [primesUpTo] using hpPrime
+    have hpPos : 0 < (p : ℝ) := by exact_mod_cast hpPrime'.pos
+    have hden : 0 < (p : ℝ) ^ 2 := by positivity
+    have hquot : 0 ≤ 2 * M / (p : ℝ) ^ 2 := by positivity
+    have hfloor : (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ) ≤ 2 * M / (p : ℝ) ^ 2 :=
+      Nat.floor_le hquot
+    simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using hfloor
+  have hsubsetSum :
+      (∑ p ∈ S, (2 * M) * ((p : ℝ) ^ 2)⁻¹) ≤
+        ∑ p ∈ T, (2 * M) * ((p : ℝ) ^ 2)⁻¹ := by
+    apply Finset.sum_le_sum_of_subset_of_nonneg (show S ⊆ T from hsub)
+    intro p hp hpT
+    positivity
+  have hsum :
+      (∑ p ∈ S, (⌊2 * M / (p : ℝ) ^ 2⌋₊ : ℝ)) ≤
+        ∑ p ∈ T, (2 * M) * ((p : ℝ) ^ 2)⁻¹ := hpoint.trans hsubsetSum
+  have htail := sum_Ioo_inv_sq_le (α := ℝ) k N
+  have hscaled :
+      ∑ p ∈ Finset.Ioo k N, (2 * M) * ((p : ℝ) ^ 2)⁻¹ ≤
+        (2 * M) * (2 / (k + 1 : ℝ)) := by
+    rw [← Finset.mul_sum]
+    exact mul_le_mul_of_nonneg_left htail (by positivity)
+  have hden : (2 : ℝ) / (k + 1 : ℝ) ≤ 2 / Y :=
+    div_le_div_of_nonneg_left (by norm_num) hYpos (le_of_lt hlt)
+  calc
+    _ ≤ ∑ p ∈ Finset.Ioo k N, (2 * M) * ((p : ℝ) ^ 2)⁻¹ := hsum
+    _ ≤ (2 * M) * (2 / (k + 1 : ℝ)) := hscaled
+    _ ≤ (2 * M) * (2 / Y) := mul_le_mul_of_nonneg_left hden (by positivity)
+    _ = 4 * M / Y := by ring
+
+end ArtinPrimitiveRoots.TypeII.RoughProofs
 
 /-! The rough-factor Type II estimate and its coefficient (`08-type-ii.tex:321-536`). -/
 
