@@ -111,9 +111,10 @@ abbrev SData.US (S : SData F CE condη) : Subgroup Fˣ :=
 def SData.IsExterior (S : SData F CE condη) (I : Ideal (𝓞 F)) : Prop :=
   I ≠ ⊥ ∧ ∀ v ∈ S.Sf, ¬ I ≤ v.asIdeal
 
-/-- `c ∈ F^×` generates the exterior ideal `I` in `R`: equal valuations at all `v ∉ S`. -/
+/-- `c ∈ F^×` generates the exterior ideal `I` in `R`: equal valuations at all `v ∉ S`.
+Corrected per rev-theta to require that `I` is exterior. -/
 def SData.IsGen (S : SData F CE condη) (c : F) (I : Ideal (𝓞 F)) : Prop :=
-  c ≠ 0 ∧ ∀ v : FinPlace F, v ∉ S.Sf →
+  S.IsExterior I ∧ c ≠ 0 ∧ ∀ v : FinPlace F, v ∉ S.Sf →
     FractionalIdeal.count F v (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) =
       FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
 
@@ -139,8 +140,9 @@ def absFin (v : FinPlace F) (x : v.adicCompletion F) : ℝ :=
 def SData.absS (S : SData F CE condη) (y : S.FS) : ℝ :=
   (∏ v : S.Sf, absFin v.1 (y.1 v)) * ∏ w : InfinitePlace F, Complex.normSq (y.2 w)
 
-/-- Norm section `ℓ_T`: finite components 1, component `T^{1/(2r)}` at each complex place. -/
-def SData.ell (S : SData F CE condη) (T : ℝ) : S.FS :=
+/-- Norm section `ℓ_T`: finite components 1, component `T^{1/(2r)}` at each complex place.
+Corrected per rev-theta to require fixed field data and `T > 0`. -/
+def SData.ell (D : FieldData F) (S : SData F CE condη) (T : ℝ) (hT : 0 < T) : S.FS :=
   (fun _ => 1, fun _ => ((T ^ ((1 : ℝ) / (2 * numComplex F)) : ℝ) : ℂ))
 
 /-- `𝒱 = F_S^×/F_S^{×6}`. -/

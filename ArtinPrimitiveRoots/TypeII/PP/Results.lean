@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.TypeII.PP.Defs
+import ArtinPrimitiveRoots.TypeII.Marked
 import ArtinPrimitiveRoots.TypeII.Proofs.pp1.HalaszMeanValue
 
 /-! Statements in the Prime Predecessors long-prime chain, PP
@@ -112,7 +113,7 @@ theorem zero_free :
   sorry
 
 /-- `t2:pp.prime-polynomial` — PP `02-long-prime.tex:8-21, 483-579`, Lemma 3.1; also PD
-Lemma 2.3. -/
+Lemma 2.3. Correction 5 from review lane `rev-b` requires the prime set to be an interval. -/
 theorem prime_polynomial :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
       ∃ B₀ C₀ x₀ : ℝ, 0 < B₀ ∧ 0 < C₀ ∧ 2 < x₀ ∧
@@ -120,9 +121,10 @@ theorem prime_polynomial :
           let L := Real.log x
           ∀ N : ℝ, Real.rpow x τ / 2 ≤ N → N ≤ Real.rpow x η →
             ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
-              ∀ hq : 0 < q, ∀ χ : DirichletCharacter ℂ q, ∀ t : ℝ,
+              ∀ χ : DirichletCharacter ℂ q, ∀ t : ℝ,
                 Real.rpow L B₀ ≤ |t| → |t| ≤ Real.rpow x 2 →
-                  ∀ I : Set ℕ, I ⊆ {p : ℕ | N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N} →
+                  ∀ I : Set ℕ, IsNatInterval I →
+                    I ⊆ {p : ℕ | N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N} →
                     ‖primeDirichletPolynomial N q χ t I‖ ≤
                       C₀ * Real.rpow L (-A) := by
   sorry
