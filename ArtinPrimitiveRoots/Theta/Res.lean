@@ -4,6 +4,12 @@ import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Reduction
 import ArtinPrimitiveRoots.Hecke.Continuation
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_uniform_level_components
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_component_reconstruction
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_series_analytic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_torus_charts
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_laurent_torus
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_theta_cont
 
 set_option autoImplicit false
 
@@ -61,8 +67,8 @@ private theorem zetaT0_ne_zero_of_re_gt_one (T0 : Finset (FinPlace F)) {z : ℂ}
     norm_num at hpowNorm
   exact sub_ne_zero.mpr hpow.symm
 
-/-- **res:zeta**: `Π_{v∉T0} c_v(s) = ζ_F^{T0}(6s)/ζ_F^{T0}(6s+1)` for `Re s > 1/6`. -/
 set_option maxHeartbeats 500000 in
+/-- **res:zeta**: `Π_{v∉T0} c_v(s) = ζ_F^{T0}(6s)/ζ_F^{T0}(6s+1)` for `Re s > 1/6`. -/
 theorem cprod_eq_zeta_ratio (T0 : Finset (FinPlace F)) (s : ℂ) (hs : 1 / 6 < s.re) :
     cprod T0 s = zetaT0 T0 (6 * s) / zetaT0 T0 (6 * s + 1) := by
   classical
@@ -104,8 +110,39 @@ theorem cprod_eq_zeta_ratio (T0 : Finset (FinPlace F)) (s : ℂ) (hs : 1 / 6 < s
     linarith
   have hpartial (z : ℂ) (hz : 1 < z.re) :
       HasProd (fun v : {v : FinPlace F // v ∉ T0} => factor z v.1) (zetaT0 T0 z) := by
-    have h := (T0.hasProd_iff_compl (f := fun v : FinPlace F => factor z v)).mp (hfull z hz)
-    simpa [zetaT0, factor, div_eq_mul_inv] using h
+    have hbase (v : FinPlace F) : (1 - (qv v : ℂ) ^ (-z)) ≠ 0 := by
+      have hq : 1 < qv v := by
+        dsimp [qv]
+        exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+      have hnorm : ‖(qv v : ℂ) ^ (-z)‖ < 1 := by
+        rw [Complex.norm_cpow_eq_rpow_re_of_pos (by linarith : 0 < qv v)]
+        exact Real.rpow_lt_one_of_one_lt_of_neg hq (by simpa using
+          (show -z.re < 0 by linarith))
+      apply sub_ne_zero.mpr
+      intro heq
+      rw [← heq] at hnorm
+      norm_num at hnorm
+    let correction : FinPlace F → ℂ := fun v =>
+      if v ∈ T0 then 1 - (qv v : ℂ) ^ (-z) else 1
+    have hcorrection : HasProd correction (∏ v ∈ T0, (1 - (qv v : ℂ) ^ (-z))) := by
+      have h := hasProd_prod_of_ne_finset_one (s := T0) (f := correction)
+        (L := SummationFilter.unconditional (FinPlace F))
+        (fun v hv => by simp [correction, hv])
+      convert h using 1
+      apply Finset.prod_congr rfl
+      intro v hv
+      simp [correction, hv]
+    have h := (hfull z hz).mul hcorrection
+    apply (hasProd_subtype_iff_mulIndicator
+      (s := {v : FinPlace F | v ∉ T0}) (f := factor z)
+      (a := zetaT0 T0 z)).mpr
+    have heq : ∀ v : FinPlace F,
+        ({v : FinPlace F | v ∉ T0}.mulIndicator (factor z)) v = factor z v * correction v := by
+      intro v
+      by_cases hv : v ∈ T0
+      · simp [Set.mulIndicator, factor, correction, hv, hbase v]
+      · simp [Set.mulIndicator, correction, hv]
+    simpa [zetaT0] using h.congr_fun heq
   have hratio := hasProd_div_of_ne_zero _ _ _ _ (hpartial u hu) (hpartial (u + 1) hu1)
     (zetaT0_ne_zero_of_re_gt_one T0 hu1)
   have hlocal (v : FinPlace F) : factor u v / factor (u + 1) v = cv v s := by
@@ -225,7 +262,7 @@ theorem cprod_pole (T0 : Finset (FinPlace F)) :
         {z | LSeries.abscissaOfAbsConv (ArtinPrimitiveRoots.Hecke.coeff η) < z.re} := by
       intro z hz
       exact lt_of_le_of_lt habsc (by exact_mod_cast hz)
-    simpa [L, ArtinPrimitiveRoots.Hecke.LSeriesRay] using
+    simpa [L, ArtinPrimitiveRoots.Hecke.LSeriesRay] using!
       (LSeries_analyticOnNhd (ArtinPrimitiveRoots.Hecke.coeff η)).mono hsub
   have hLnonzero (z : ℂ) (hz : 1 < z.re) : L z ≠ 0 := by
     simpa [L] using
@@ -284,7 +321,8 @@ theorem cprod_pole (T0 : Finset (FinPlace F)) :
     simpa [Ψ] using hnum.div hLcomp hden
   have hΨ0 : Ψ (1 / 6) ≠ 0 := by
     dsimp [Ψ]
-    convert div_ne_zero (mul_ne_zero (by norm_num) hG1ne) hL2ne using 1 <;> norm_num
+    convert div_ne_zero
+      (mul_ne_zero (show (1 / 6 : ℂ) ≠ 0 by norm_num) hG1ne) hL2ne using 1 <;> norm_num
   refine ⟨ε, hε, Ψ, hΨ, hΨ0, ?_⟩
   intro s hsball hs
   have hu : 1 < (6 * s).re := by
@@ -327,7 +365,9 @@ theorem resCprod_ne_zero (T0 : Finset (FinPlace F)) : resCprod T0 ≠ 0 := by
     exact hcenter
   have hlimΨ : Tendsto (fun t : ℝ => Ψ (t : ℂ)) (𝓝[>] (1 / 6 : ℝ))
       (𝓝 (Ψ (1 / 6))) := by
-    simpa only [hcastEq] using (hΨ (1 / 6) hcenter).continuousAt.tendsto.comp hcast
+    have hcast' : Tendsto (fun t : ℝ => (t : ℂ)) (𝓝[>] (1 / 6 : ℝ))
+        (𝓝 (1 / 6 : ℂ)) := by simpa only [hcastEq] using hcast
+    exact (hΨ (1 / 6) hcenter).continuousAt.tendsto.comp hcast'
   have hball : ∀ᶠ t : ℝ in 𝓝[>] (1 / 6 : ℝ), (t : ℂ) ∈ Metric.ball (1 / 6 : ℂ) ε :=
     hcast.eventually (Metric.isOpen_ball.mem_nhds hcenterCast)
   have hmatch : (fun t : ℝ => Ψ (t : ℂ)) =ᶠ[𝓝[>] (1 / 6 : ℝ)]
@@ -388,7 +428,30 @@ structure ContinuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
 `exists_continuedEisenstein`). -/
 theorem exists_continuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) : Nonempty (ContinuedEis Fam) := by
-  sorry
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  let I : ContinuedEisInput P G := {
+    sec := Fam.sec
+    T0 := Fam.T0
+    T0_eq := Fam.T0_eq
+    fC_sph := Fam.fC_sph
+    f_analytic := Fam.f_analytic
+    level := Fam.level }
+  obtain ⟨C⟩ := continuedEis_uniform_level_components I
+  obtain ⟨R⟩ := continuedEis_component_reconstruction C
+  obtain ⟨hseries, hanalytic, hlaurent⟩ := continuedEis_series_analytic R
+  obtain ⟨hcont, harch, hjoint⟩ := continuedEis_theta_cont R
+  exact ⟨{
+    ε := C.ε
+    ε_pos := C.ε_pos
+    E := R.E
+    E_series := hseries
+    E_analytic := hanalytic
+    theta := R.theta
+    laurent := hlaurent
+    laurent_torus := continuedEis_laurent_torus R (continuedEis_torus_charts R)
+    theta_cont := hcont
+    archSmooth := harch
+    jointRoots := hjoint }⟩
 
 /-- The `M(1/6)`-data of a family: `M_v(1/6) f_v` at `v ∈ T0`, `f°'_v` elsewhere. -/
 def famM {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
