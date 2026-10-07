@@ -10,7 +10,7 @@ open ArtinPrimitiveRoots.TypeII
 /-- `def:con-weights` — 12-construction.tex:19-73. The smooth test functions used in §12: a compactly supported smooth function on `(1,2)`,
 bounded between zero and one, with positive integral. -/
 def IsTestFunction (Ψ : ℝ → ℝ) : Prop :=
-  ContDiff ℝ ⊤ Ψ ∧ Function.support Ψ ⊆ Set.Ioo 1 2 ∧
+  ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ ∧ Function.support Ψ ⊆ Set.Ioo 1 2 ∧
     (∀ y, 0 ≤ Ψ y) ∧ (∀ y, Ψ y ≤ 1) ∧ 0 < ∫ y in (1 : ℝ)..2, Ψ y
 
 /-- Integers all of whose prime factors belong to the marked prime groups; `1` is included. -/

@@ -109,7 +109,7 @@ noncomputable def logFourierTransform (Ψ : ℝ → ℝ) (v : ℝ) : ℂ :=
 
 /-- `ext:fourier-inversion`, 12-construction.tex:133-140; matching Mathlib
 `Continuous.fourierInv_fourier_eq` (`Analysis/Fourier/Inversion.lean:174`). -/
-theorem fourier_inversion (Ψ : ℝ → ℝ) (hΨ : ContDiff ℝ ⊤ Ψ)
+theorem fourier_inversion (Ψ : ℝ → ℝ) (hΨ : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ)
     (hsupp : Function.support Ψ ⊆ Set.Ioo 1 2) :
     (∀ y : ℝ, 0 < y →
       (Ψ y : ℂ) = ∫ v : ℝ,
@@ -119,9 +119,9 @@ theorem fourier_inversion (Ψ : ℝ → ℝ) (hΨ : ContDiff ℝ ⊤ Ψ)
         C * Real.rpow (1 + |v|) (-(N : ℝ))) := by
   classical
   let ψlog : ℝ → ℂ := fun s => (Ψ (Real.exp s) : ℂ)
-  have hψreal : ContDiff ℝ ⊤ (fun s => Ψ (Real.exp s)) :=
+  have hψreal : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun s => Ψ (Real.exp s)) :=
     hΨ.comp Real.contDiff_exp
-  have hψsmooth : ContDiff ℝ ⊤ ψlog := by
+  have hψsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) ψlog := by
     dsimp [ψlog]
     exact Complex.ofRealCLM.contDiff.comp hψreal
   have hψsupport : Function.support ψlog ⊆ Set.Icc 0 (Real.log 2) := by
@@ -141,7 +141,7 @@ theorem fourier_inversion (Ψ : ℝ → ℝ) (hΨ : ContDiff ℝ ⊤ Ψ)
       exact le_of_lt (by simpa using h)
   have hψcompact : HasCompactSupport ψlog :=
     HasCompactSupport.of_support_subset_isCompact isCompact_Icc hψsupport
-  let F : SchwartzMap ℝ ℂ := hψcompact.toSchwartzMap (hψsmooth.of_le le_top)
+  let F : SchwartzMap ℝ ℂ := hψcompact.toSchwartzMap hψsmooth
   have hFcoe : (F : ℝ → ℂ) = ψlog := rfl
   have hFT (v : ℝ) :
       logFourierTransform Ψ v =

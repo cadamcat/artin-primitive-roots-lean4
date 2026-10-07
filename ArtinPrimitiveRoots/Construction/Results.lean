@@ -47,7 +47,7 @@ theorem con_type_ii
       Int.gcd ((u - 1) / c) ((M / c : ℕ) : ℤ) = 1 →
       ∀ Ψ : ℝ → ℝ, (∀ y, 0 ≤ Ψ y) → (∀ y, Ψ y ≤ 1) →
         Function.support Ψ ⊆ Set.Ioo 1 2 →
-        ContDiff ℝ ⊤ Ψ → 0 < ∫ y in (1 : ℝ)..2, Ψ y →
+        ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ → 0 < ∫ y in (1 : ℝ)..2, Ψ y →
         ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 ≤ x₀ ∧
           ∀ x : ℝ, x₀ ≤ x →
             ∀ Hm Hn : ℝ,
