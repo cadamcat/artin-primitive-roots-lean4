@@ -30,8 +30,16 @@ theorem prop_reflection
     (Bd : ArtinPrimitiveRoots.A1.BData S H)
     (η Λ G : ArtinPrimitiveRoots.A1.HeckeChar F)
     (hηfin : IsOfFinOrder η)
+    (hηoutsideS : ∀ v : ArtinPrimitiveRoots.A1.FinPlace F,
+      v ∉ S.Sf → η.UnramifiedAt v)
     (hΛunit : ∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1)
     (hGfin : IsOfFinOrder G)
+    (hGauss : ∀ v : ArtinPrimitiveRoots.A1.FinPlace F, v ∉ S.Sf →
+      Λ.UnramifiedAt v ∧ G.UnramifiedAt v ∧
+      ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+        ArtinPrimitiveRoots.A1.gamma D S A 1 v.asIdeal p *
+          ArtinPrimitiveRoots.A1.gamma D S A 2 v.asIdeal p =
+            -(Λ.primeValue v * G.primeValue v))
     (cgen : S.SqfExtIdeal → F)
     (hcgen : ∀ I, ∃ c : Fˣ, (c : F) = cgen I ∧ S.IsGen (c : F) I.1 ∧ Bd.Allowed c)
     (K T : Set S.FSˣ) (hK : IsCompact K) (hT : IsCompact T)

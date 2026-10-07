@@ -1,4 +1,5 @@
 import Mathlib
+import ArtinPrimitiveRoots.A2.ZeroFree.Results
 
 /-!
 # Design draft A2-QuadraticSieve: the narrow quadratic large sieve consumed by A2
@@ -37,12 +38,13 @@ set_option autoImplicit false
 
 open scoped NumberField
 open NumberField IsDedekindDomain
+open ClassFieldTheory
 
 noncomputable section
 
 namespace ArtinPrimitiveRoots.A2
 
-variable {K : Type*} [Field K] [NumberField K]
+variable {K : Type} [Field K] [NumberField K]
 
 open Classical in
 /-- The quadratic residue symbol of `c ∈ 𝓞_K` at a finite prime `v`: the quadratic character of
@@ -73,7 +75,7 @@ def IsExteriorGenerator (S T : Finset (HeightOneSpectrum (𝓞 K))) (c : 𝓞 K)
 quadratic large sieve in the any-integral-representative form (A2-DESIGN.md §4).  Quantifier
 order: `K, S` fixed; for each `ε > 0` one constant `C`
 serves all lengths, all row and column families and all choices of representatives `gen`. -/
-theorem lem_reflection_quadratic_sieve
+theorem narrow_quadratic_large_sieve
     (hμ : ∃ ζ : K, IsPrimitiveRoot ζ 12)
     (S : Finset (HeightOneSpectrum (𝓞 K)))
     (hS : ∀ v : HeightOneSpectrum (𝓞 K), (2 : 𝓞 K) ∈ v.asIdeal → v ∈ S) :
@@ -86,5 +88,95 @@ theorem lem_reflection_quadratic_sieve
         ∀ z : Finset (HeightOneSpectrum (𝓞 K)) → ℂ,
           ∑ D ∈ rows, ‖∑ T ∈ cols, z T * (quadSymbol D (gen T) : ℂ)‖ ^ 2 ≤
             C * (Cmax + Dmax) * (Cmax * Dmax) ^ ε * ∑ T ∈ cols, ‖z T‖ ^ 2 := sorry
+
+/-- **ext:goldmakher-louvel** (Goldmakher--Louvel 2013, Definition 1 and Theorem 1.1;
+04-reflection.tex:958-1024).  A quadratic Hecke family indexed by squarefree ideals prime to a
+fixed ray modulus, with conductor supported on the index ideal and the fixed modulus, ray-class
+reciprocity, and the equal-class product-conductor condition. -/
+structure QuadraticHeckeFamily (m : ClassFieldTheory.RayClassModulus K)
+    (qS : Ideal (𝓞 K)) where
+  character : Ideal (𝓞 K) → ArtinPrimitiveRoots.A1.HeckeChar K
+  conductor : Ideal (𝓞 K) → Ideal (𝓞 K)
+  rayFactor : ClassFieldTheory.RayClassGroup m →
+    ClassFieldTheory.RayClassGroup m → ℂˣ
+  indexCondition : ∀ c : Ideal (𝓞 K),
+    Squarefree c → ArtinPrimitiveRoots.Hecke.IsCoprimeTo m c →
+      IsOfFinOrder (character c) ∧
+      IsPrimitiveConductor (character c) (conductor c) ∧
+      (∃ s : Ideal (𝓞 K), conductor c = c * s ∧ s ∣ qS)
+  quadraticValues : ∀ c : Ideal (𝓞 K),
+    ∀ hcs : Squarefree c, ∀ hcm : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m c,
+      ∀ I : Ideal (𝓞 K),
+        (character c).idealValue I = 0 ∨ (character c).idealValue I ^ 2 = 1
+  reciprocity : ∀ c d : Ideal (𝓞 K),
+    ∀ hc : Squarefree c,
+    ∀ hcm : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m c,
+    ∀ hd : Squarefree d,
+    ∀ hdm : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m d,
+    IsCoprime c d →
+      (character c).idealValue d =
+        ((rayFactor (ArtinPrimitiveRoots.Hecke.rayClass m c hcm)
+          (ArtinPrimitiveRoots.Hecke.rayClass m d hdm) : ℂˣ) : ℂ) *
+          (character d).idealValue c
+  equalClass_product_conductor : ∀ c d : Ideal (𝓞 K),
+    ∀ hc : Squarefree c,
+    ∀ hcm : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m c,
+    ∀ hd : Squarefree d,
+    ∀ hdm : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m d,
+    IsCoprime c d →
+    ArtinPrimitiveRoots.Hecke.rayClass m c hcm =
+      ArtinPrimitiveRoots.Hecke.rayClass m d hdm →
+      IsPrimitiveConductor (character c * (character d)⁻¹) (c * d)
+
+/-- **ext:goldmakher-louvel** (Goldmakher--Louvel 2013, Theorem 1.1; 04-reflection.tex:958-1024).
+Uniform quadratic-family large sieve. -/
+theorem ext_goldmakher_louvel (m : ClassFieldTheory.RayClassModulus K)
+    (qS : Ideal (𝓞 K)) (fam : QuadraticHeckeFamily m qS) :
+    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ Cmax Dmax : ℝ, 1 ≤ Cmax → 1 ≤ Dmax →
+        ∀ (rows cols : Finset (Ideal (𝓞 K))),
+          (∀ I ∈ rows, Squarefree I ∧
+            ArtinPrimitiveRoots.Hecke.IsCoprimeTo m I ∧
+            (Ideal.absNorm I : ℝ) ≤ Dmax) →
+          (∀ I ∈ cols, Squarefree I ∧
+            ArtinPrimitiveRoots.Hecke.IsCoprimeTo m I ∧
+            (Ideal.absNorm I : ℝ) ≤ Cmax) →
+          ∀ z : Ideal (𝓞 K) → ℂ,
+            ∑ d ∈ rows,
+              ‖∑ c ∈ cols, z c * (fam.character c).idealValue d‖ ^ 2 ≤
+                C * (Cmax + Dmax) * Real.rpow (Cmax * Dmax) ε *
+                  ∑ c ∈ cols, ‖z c‖ ^ 2 := by
+  sorry
+
+open Classical in
+/-- Rational quadratic residue symbol at an odd prime, with value zero when the numerator is
+divisible by the prime. -/
+def rationalQuadraticSymbol (a p : ℕ) : ℤ :=
+  if hp : p.Prime then
+    letI : Fact p.Prime := ⟨hp⟩
+    quadraticChar (ZMod p) (a : ZMod p)
+  else 1
+
+open Classical in
+/-- The Jacobi symbol as the product of the local quadratic characters over prime divisors. -/
+def rationalJacobiSymbol (a m : ℕ) : ℤ :=
+  ∏ p ∈ m.primeFactors, rationalQuadraticSymbol a p
+
+open Classical in
+/-- Odd squarefree integers at most `N`. -/
+def oddSquarefreeUpTo (N : ℕ) : Finset ℕ :=
+  (Finset.range (N + 1)).filter (fun n => n % 2 = 1 ∧ Squarefree n)
+
+/-- **ext:heath-brown-quadratic** (Heath-Brown 1995, Theorem 1; 04-reflection.tex:941-957):
+the rational quadratic large sieve for odd squarefree Jacobi symbols. -/
+theorem ext_heath_brown_quadratic :
+    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ M N : ℕ, 1 ≤ M → 1 ≤ N → ∀ a : ℕ → ℂ,
+        (∑ m ∈ oddSquarefreeUpTo M,
+          ‖∑ n ∈ oddSquarefreeUpTo N,
+            a n * (rationalJacobiSymbol n m : ℂ)‖ ^ 2) ≤
+          C * Real.rpow ((M : ℝ) * N) ε * (M + N) *
+            ∑ n ∈ oddSquarefreeUpTo N, ‖a n‖ ^ 2 := by
+  sorry
 
 end ArtinPrimitiveRoots.A2

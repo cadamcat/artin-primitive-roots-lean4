@@ -96,6 +96,7 @@ structure FrequencyData (S : ArtinPrimitiveRoots.A1.SData F CE condη)
   kummer_one : kummer one = 1
   kummer_principal_iff : ∀ u, kummer u = 1 ↔ u = one
   omega : U → ArtinPrimitiveRoots.A1.HeckeChar F
+  omega_finiteOrder : ∀ u, IsOfFinOrder (omega u)
   omega_primitive : ∀ u, ∃ 𝔣 : Ideal (𝓞 F), IsPrimitiveConductor (omega u) 𝔣
   omega_induces_twist : ∀ u (v : ArtinPrimitiveRoots.A1.FinPlace F), v ∉ S.Sf →
     (omega u).UnramifiedAt v ∧ (omega u).primeValue v =
@@ -113,6 +114,8 @@ theorem prop_zero_density
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (η : ArtinPrimitiveRoots.A1.HeckeChar F) (hη : IsOfFinOrder η)
+    (hηoutsideS : ∀ v : ArtinPrimitiveRoots.A1.FinPlace F,
+      v ∉ S.Sf → η.UnramifiedAt v)
     (h_missing_frequency_decomposition : FrequencyData S D η) :
     ∃ ρ U₀ Cexc : ℝ, 0 < ρ ∧ 2 ≤ U₀ ∧ 0 < Cexc ∧
       ∀ U : ℝ, U₀ ≤ U →
