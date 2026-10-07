@@ -111,4 +111,22 @@ theorem qs_nq0_quadratic_local_continuous (D : FieldData K) (H : HilbertData K)
   apply (Filter.tendsto_congr' heq).mpr
   exact tendsto_const_nhds
 
+/-- The finite quadratic local product is trivial on principal ideles. -/
+theorem qs_nq0_quadratic_product_formula (D : FieldData K) (H : HilbertData K)
+    (a b : Kˣ) :
+    (Function.mulSupport (fun v : FinPlace K =>
+      qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b))).Finite ∧
+      ∏ᶠ v : FinPlace K,
+        qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) = 1 := by
+  let g : rootsOfUnity 6 K →* ℂˣ :=
+    (powMonoidHom 3 : ℂˣ →* ℂˣ).comp
+      ((Units.map D.σ0.toMonoidHom).comp (rootsOfUnity 6 K).subtype)
+  obtain ⟨hf, hp⟩ := H.product_formula a b
+  constructor
+  · change Function.HasFiniteMulSupport
+      (fun v : FinPlace K => g (H.hilb v (toLoc v a) (toLoc v b)))
+    exact Function.HasFiniteMulSupport.fun_comp hf g.map_one
+  · change (∏ᶠ v : FinPlace K, g (H.hilb v (toLoc v a) (toLoc v b))) = 1
+    rw [← g.map_finprod hf, hp, g.map_one]
+
 end ArtinPrimitiveRoots.A2
