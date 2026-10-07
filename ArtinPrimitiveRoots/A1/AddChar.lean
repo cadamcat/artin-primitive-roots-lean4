@@ -51,7 +51,7 @@ def SData.e (S : SData F CE condη) (A : AddCharData F) (x : S.FS) : ℂ :=
 
 /-- Global formula for `e` on `F` (derived in A1-DESIGN §2.2): if `z' - z ∈ O_v` at every finite
 `v ∉ S` and `z' ∈ O_v` at `v ∈ S_f`, then `e(z) = exp(-2πi Tr_{F/ℚ} z')`. Package P-PSI. -/
-theorem SData.e_diag_eq (S : SData F CE condη) (A : AddCharData F) (z z' : F)
+theorem SData.e_diag_eq [IsTotallyComplex F] (S : SData F CE condη) (A : AddCharData F) (z z' : F)
     (h1 : ∀ v : FinPlace F, v ∉ S.Sf →
       HeightOneSpectrum.valuation F v (z' - z) ≤ 1)
     (h2 : ∀ v ∈ S.Sf, HeightOneSpectrum.valuation F v z' ≤ 1) :
