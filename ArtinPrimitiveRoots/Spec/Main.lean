@@ -59,7 +59,7 @@ theorem normHeight_smul_ptX' (g : SL(2,F)) (x : InfinitePlace F → ℂ) (y : In
 theorem eisTerm_mk (Γ : Subgroup SL(2, 𝓞 F)) (σ : SL(2,F)) (s : ℂ) (z : X F) (γ : Γ) :
     eisTerm F Γ σ s z (Quotient.mk _ γ) =
       ((normHeight F (σ⁻¹ • ((γ : SL(2, 𝓞 F)) • z)) : ℝ) : ℂ) ^ (1 + 2 * s) := by
-  sorry
+  exact E1_eis_def.1 Γ σ s z γ
 
 /-- `spec:eis-converge`: locally uniform absolute convergence for `Re s > 1/2`, uniformly on compact
 sets of `z` and on vertical strips `σ₀ ≤ Re s ≤ σ₁`. -/
