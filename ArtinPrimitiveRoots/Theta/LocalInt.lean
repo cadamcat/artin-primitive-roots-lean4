@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
+import Mathlib.MeasureTheory.Measure.Haar.MulEquivHaarChar
 
 open MeasureTheory Filter
 
@@ -33,36 +34,22 @@ def qv (v : FinPlace F) : ℝ := (Ideal.absNorm v.asIdeal : ℝ)
 `O_v` from TauCeti). -/
 theorem LocHaar.nonempty (v : FinPlace F) : Nonempty (LocHaar v) := by
   let K := v.adicCompletion F
-  let _ : ValuativeRel K := .ofValuation Valued.v
-  let _ : (Valued.v : Valuation K ℤᵐ⁰).Compatible := .ofValuation _
-  let _ : IsValuativeTopology K := by
-    apply IsValuativeTopology.of_mem_nhds_zero_iff_vle (Valued.v : Valuation K ℤᵐ⁰)
-    intro s
-    exact Valued.is_topological_valuation s
-  let _ : ValuativeRel.IsNontrivial K :=
-    ValuativeRel.isNontrivial_iff_isNontrivial (Valued.v : Valuation K ℤᵐ⁰) |>.mpr inferInstance
-  let _ : (Valued.v : Valuation K ℤᵐ⁰).RankOne :=
-    Valuation.IsRankOneDiscrete.rankOne _ (by norm_num : (1 : NNReal) < 2)
-  let _ : NormedField K := Valued.toNormedField K ℤᵐ⁰
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
   let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
     Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
-  let _ : ProperSpace K :=
-    (@properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
-      K ℤᵐ⁰ _ _ (inferInstance : Valued K ℤᵐ⁰) inferInstance).mpr
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
       ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
         inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
-  let _ : IsNonarchimedeanLocalField K := ⟨⟩
   have hcompact : IsCompact (v.adicCompletionIntegers F : Set K) := by
-    have hball := IsNonarchimedeanLocalField.isCompact_closedBall (K := K)
-      (1 : ValueGroupWithZero K)
-    have hset : (v.adicCompletionIntegers F : Set K) =
-        {x | ValuativeRel.valuation K x ≤ 1} := by
-      ext x
-      change Valued.v x ≤ 1 ↔ ValuativeRel.valuation K x ≤ 1
-      exact ((Valuation.vle_one_iff (ValuativeRel.valuation K)).symm.trans
-        (Valuation.vle_one_iff (Valued.v : Valuation K ℤᵐ⁰))).symm
+    have hset : (v.adicCompletionIntegers F : Set K) = Metric.closedBall (0 : K) 1 := by
+      change (↑((Valued.v : Valuation K (WithZero (Multiplicative ℤ))).integer) : Set K) =
+        Metric.closedBall (0 : K) 1
+      exact Valued.toNormedField.setOfPred_mem_integer_eq_closedBall (L := K)
     rw [hset]
-    exact hball
+    exact hproper.isCompact_closedBall 0 1
   have hopen : IsOpen (v.adicCompletionIntegers F : Set K) := by
     exact Valued.isOpen_valuationSubring K
   let U : TopologicalSpace.PositiveCompacts K :=
@@ -73,11 +60,355 @@ theorem LocHaar.nonempty (v : FinPlace F) : Nonempty (LocHaar v) := by
   refine ⟨⟨Measure.addHaarMeasure U, Measure.isAddHaarMeasure_addHaarMeasure U, ?_⟩⟩
   simpa [U] using (Measure.addHaarMeasure_self (K₀ := U))
 
+theorem qv_gt_one (v : FinPlace F) : 1 < qv v := by
+  unfold qv
+  exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+
+theorem absFin_eq_norm (v : FinPlace F) (x : v.adicCompletion F) :
+    absFin v x = ‖x‖ := by
+  unfold absFin
+  rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v)]
+  exact (FinitePlace.norm_def v x).symm
+
+theorem absFin_pos {v : FinPlace F} {x : v.adicCompletion F} (hx : x ≠ 0) :
+    0 < absFin v x := by
+  rw [absFin_eq_norm]
+  exact norm_pos_iff.mpr hx
+
+theorem absFin_mul (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+    absFin v (x * y) = absFin v x * absFin v y := by
+  simp only [absFin_eq_norm, norm_mul]
+
+private theorem valued_lt_one_iff_ball_one (x : v.adicCompletion F) :
+    Valued.v x < 1 ↔ x ∈ ball v 1 := by
+  change Valued.v x < 1 ↔ Valued.v x ≤ WithZero.exp (-1)
+  by_cases hx : Valued.v x = 0
+  · simp [hx]
+  · lift Valued.v x to ℤ using hx with n hn
+    simp only [← WithZero.exp_zero, WithZero.exp_lt_exp, WithZero.exp_le_exp]
+    omega
+
+private def localMulAddEquiv {K : Type} [NormedField K] (y : Kˣ) : K ≃ₜ+ K :=
+  (ContinuousLinearEquiv.smulLeft (R₁ := K) y).toContinuousAddEquiv
+
+private noncomputable def localHaarFactor {K : Type} [NormedField K]
+    [LocallyCompactSpace K] [MeasurableSpace K] [BorelSpace K] : Kˣ →* NNReal where
+  toFun y := addEquivAddHaarChar (localMulAddEquiv y)
+  map_one' := by
+    have h : localMulAddEquiv (1 : Kˣ) = ContinuousAddEquiv.refl K := by
+      ext t
+      change (1 : K) • t = t
+      exact one_smul K t
+    rw [h, addEquivAddHaarChar_refl]
+  map_mul' x y := by
+    have h : localMulAddEquiv (x * y) =
+        (localMulAddEquiv y).trans (localMulAddEquiv x) := by
+      ext t
+      change ((x * y : K) • t) = (x : K) • ((y : K) • t)
+      simpa only [smul_eq_mul] using (mul_assoc (x : K) (y : K) t)
+    rw [h]
+    rw [addEquivAddHaarChar_trans, mul_comm]
+
+private theorem locHaar_regular (μ : LocHaar v) : MeasureTheory.Measure.Regular μ.μ := by
+  let K := v.adicCompletion F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  let _ : ProperSpace K := hproper
+  haveI : SecondCountableTopology K := inferInstance
+  have hcompact : IsCompact (v.adicCompletionIntegers F : Set K) := by
+    have hset : (v.adicCompletionIntegers F : Set K) = Metric.closedBall (0 : K) 1 := by
+      change (↑((Valued.v : Valuation K (WithZero (Multiplicative ℤ))).integer) : Set K) =
+        Metric.closedBall (0 : K) 1
+      exact Valued.toNormedField.setOfPred_mem_integer_eq_closedBall (L := K)
+    rw [hset]
+    exact hproper.isCompact_closedBall 0 1
+  have hopen : IsOpen (v.adicCompletionIntegers F : Set K) :=
+    Valued.isOpen_valuationSubring K
+  let U : TopologicalSpace.PositiveCompacts K :=
+    { toCompacts := ⟨v.adicCompletionIntegers F, hcompact⟩
+      interior_nonempty' := by
+        rw [hopen.interior_eq]
+        exact ⟨0, by simp [HeightOneSpectrum.mem_adicCompletionIntegers]⟩ }
+  let ν : Measure K := Measure.addHaarMeasure U
+  have hscale : μ.μ = Measure.addHaarScalarFactor μ.μ ν • ν := by
+    exact Measure.isAddLeftInvariant_eq_smul μ.μ ν
+  have hνO : ν (v.adicCompletionIntegers F : Set K) = 1 := by
+    simpa [ν, U] using (Measure.addHaarMeasure_self (K₀ := U))
+  have hc : Measure.addHaarScalarFactor μ.μ ν = 1 := by
+    have hO := congrArg (fun ρ : Measure K => ρ (v.adicCompletionIntegers F : Set K)) hscale
+    have hO' : (1 : ENNReal) = (Measure.addHaarScalarFactor μ.μ ν : ENNReal) := by
+      simpa [μ.norm_O, hνO] using hO
+    exact_mod_cast hO'.symm
+  have hμν : μ.μ = ν := by
+    rw [hscale, hc, one_smul]
+  rw [hμν]
+  simpa [ν] using
+    (inferInstance : MeasureTheory.Measure.Regular (Measure.addHaarMeasure U))
+
+private theorem locHaar_ball_one (μ : LocHaar v) :
+    μ.μ (ball v 1) = (Ideal.absNorm v.asIdeal : ENNReal)⁻¹ := by
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let H : AddSubgroup O := (IsLocalRing.maximalIdeal O).toAddSubgroup
+  have hOopen : IsOpen (O : Set K) := Valued.isOpen_valuationSubring K
+  have hOmeas : MeasurableSet (O : Set K) := hOopen.measurableSet
+  have hballopen : IsOpen (ball v 1) := by
+    exact v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hmax (a : O) : a ∈ IsLocalRing.maximalIdeal O ↔ Valued.v (a : K) < 1 := by
+    change a ∈ IsLocalRing.maximalIdeal
+        ((Valued.v : Valuation K (WithZero (Multiplicative ℤ))).valuationSubring) ↔
+      (Valued.v : Valuation K (WithZero (Multiplicative ℤ))) (a : K) < 1
+    exact Valuation.mem_maximalIdeal_iff
+      (v := (Valued.v : Valuation K (WithZero (Multiplicative ℤ)))) (a := a)
+  have hHpre : (H : Set O) = (Subtype.val : O → K) ⁻¹' ball v 1 := by
+    ext a
+    change a ∈ IsLocalRing.maximalIdeal O ↔ (a : K) ∈ ball v 1
+    exact (hmax a).trans (valued_lt_one_iff_ball_one (a : K))
+  let f : O →+ K :=
+    { toFun := fun a => (a : K)
+      map_zero' := rfl
+      map_add' := fun _ _ => rfl }
+  have hf : MeasurableEmbedding f := by
+    change MeasurableEmbedding (Subtype.val : O → K)
+    exact MeasurableEmbedding.subtype_coe hOmeas
+  have hHmeas : MeasurableSet (H : Set O) := by
+    rw [hHpre]
+    exact hballopen.measurableSet.preimage hf.measurable
+  let μO : Measure O := μ.μ.comap f
+  haveI : MeasureTheory.Measure.IsAddLeftInvariant μO :=
+    MeasureTheory.Measure.IsAddLeftInvariant.comap μ.μ hf
+  have hμO_univ : μO Set.univ = 1 := by
+    change μ.μ.comap f (Set.univ : Set O) = 1
+    rw [hf.comap_apply]
+    rw [Set.image_univ]
+    simpa [f, Subtype.range_coe] using μ.norm_O
+  have hball_subset : ball v 1 ⊆ Set.range f := by
+    intro x hx
+    have hxO : x ∈ O := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      exact hx.trans (by simp)
+    exact ⟨⟨x, hxO⟩, rfl⟩
+  have himage : f '' (H : Set O) = ball v 1 := by
+    rw [hHpre]
+    exact Set.image_preimage_eq_of_subset hball_subset
+  have hμOH : μO H = μ.μ (ball v 1) := by
+    change μ.μ.comap f (H : Set O) = μ.μ (ball v 1)
+    rw [hf.comap_apply]
+    rw [himage]
+  haveI : Finite (O ⧸ H) := by
+    change Finite (IsLocalRing.ResidueField O)
+    exact Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  haveI : H.FiniteIndex := AddSubgroup.finiteIndex_of_finite_quotient
+  have hindex : H.index = Ideal.absNorm v.asIdeal := by
+    rw [AddSubgroup.index_eq_card]
+    change Nat.card (O ⧸ IsLocalRing.maximalIdeal O) = Ideal.absNorm v.asIdeal
+    calc
+      Nat.card (O ⧸ IsLocalRing.maximalIdeal O) = Nat.card (𝓞 F ⧸ v.asIdeal) :=
+        Nat.card_congr (v.residueFieldEquivAdicCompletionIntegers (K := F)).symm.toEquiv
+      _ = Ideal.absNorm v.asIdeal := by
+        simp [Ideal.absNorm_apply, Submodule.cardQuot_apply]
+  have hidxvol : (H.index : ENNReal) * μO H = 1 := by
+    simpa [hμO_univ] using
+      (MeasureTheory.AddSubgroup.index_mul_measure H hHmeas μO)
+  have hnormvol : (Ideal.absNorm v.asIdeal : ENNReal) * μO H = 1 := by
+    simpa [hindex] using hidxvol
+  have hμOH' : μO H = (Ideal.absNorm v.asIdeal : ENNReal)⁻¹ := by
+    exact ENNReal.eq_inv_of_mul_eq_one_left (by simpa [mul_comm] using hnormvol)
+  calc
+    μ.μ (ball v 1) = μO H := hμOH.symm
+    _ = (Ideal.absNorm v.asIdeal : ENNReal)⁻¹ := hμOH'
+
+private theorem localHaarFactor_eq_nnnorm [LocallyCompactSpace (v.adicCompletion F)]
+    (μ : LocHaar v) (y : (v.adicCompletion F)ˣ) :
+    localHaarFactor y = ‖(y : v.adicCompletion F)‖₊ := by
+  let K := v.adicCompletion F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  let hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  letI : ProperSpace K := hproper
+  let _ : MeasureTheory.Measure.Regular μ.μ := locHaar_regular μ
+  let π : Kˣ := unifLoc v
+  let q : NNReal := (Ideal.absNorm v.asIdeal : NNReal)
+  have hunif : v.valuation F (unif (F := F) v) = WithZero.exp (-1 : ℤ) := by
+    simpa [unif] using (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hπval : Valued.v (π : K) = WithZero.exp (-1 : ℤ) := by
+    have hπcoerce : (π : K) = algebraMap F (v.adicCompletion F) (unif (F := F) v) := by
+      simp [π, unifLoc, toLoc]
+    rw [hπcoerce]
+    change Valued.v ((unif (F := F) v : F) : v.adicCompletion F) = WithZero.exp (-1 : ℤ)
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hunif
+  have hπinvval : Valued.v ((π⁻¹ : Kˣ) : K) = WithZero.exp (1 : ℤ) := by
+    calc
+      _ = (Valued.v (π : K))⁻¹ := by simp
+      _ = WithZero.exp (1 : ℤ) := by rw [hπval]; simp
+  have hπnorm : ‖(π : K)‖₊ = q⁻¹ := by
+    apply NNReal.coe_injective
+    rw [coe_nnnorm, ← absFin_eq_norm]
+    unfold absFin
+    rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v), hπval]
+    have hqexp : WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+        (WithZero.exp (-1 : ℤ)) = q⁻¹ := by
+      rw [WithZeroMulInt.toNNReal_neg_apply (HeightOneSpectrum.absNorm_ne_zero v) (by simp)]
+      rw [WithZero.toAdd_unzero_eq_log (by simp)]
+      simp [q]
+    rw [hqexp]
+  have hpreπ : localMulAddEquiv (π⁻¹) ⁻¹' (v.adicCompletionIntegers F : Set K) = ball v 1 := by
+    ext x
+    simp only [Set.mem_preimage, ball, Set.mem_setOf_eq, localMulAddEquiv,
+      ContinuousLinearEquiv.toContinuousAddEquiv_coe,
+      ContinuousLinearEquiv.smulLeft_apply_apply]
+    change (π⁻¹ • x) ∈
+      (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).valuationSubring ↔
+        Valued.v x ≤ WithZero.exp (-1 : ℤ)
+    rw [Valuation.mem_valuationSubring_iff]
+    rw [Units.smul_def, smul_eq_mul]
+    rw [map_mul, hπinvval]
+    by_cases hx : Valued.v x = 0
+    · simp [hx]
+    · lift Valued.v x to ℤ using hx with n hn
+      rw [← WithZero.exp_add, ← WithZero.exp_zero]
+      rw [WithZero.exp_le_exp, WithZero.exp_le_exp]
+      omega
+  have hfactorπinvForm : addEquivAddHaarChar (localMulAddEquiv (π⁻¹)) •
+      μ.μ (ball v 1) = 1 := by
+    simpa [hpreπ, μ.norm_O, locHaar_ball_one μ] using
+      (addEquivAddHaarChar_smul_preimage μ.μ (localMulAddEquiv (π⁻¹))
+        (X := (v.adicCompletionIntegers F : Set K)))
+  have hfactorπinvENN : (addEquivAddHaarChar (localMulAddEquiv (π⁻¹)) : ENNReal) *
+      (Ideal.absNorm v.asIdeal : ENNReal)⁻¹ = 1 := by
+    rw [locHaar_ball_one μ] at hfactorπinvForm
+    simpa [ENNReal.smul_def, smul_eq_mul] using hfactorπinvForm
+  have hfactorπinv : localHaarFactor (π⁻¹) = q := by
+    change addEquivAddHaarChar (localMulAddEquiv (π⁻¹)) = q
+    have h : (addEquivAddHaarChar (localMulAddEquiv (π⁻¹)) : ENNReal) =
+        (q : ENNReal) := by
+      calc
+        _ = ((Ideal.absNorm v.asIdeal : ENNReal)⁻¹)⁻¹ :=
+          ENNReal.eq_inv_of_mul_eq_one_left hfactorπinvENN
+        _ = (q : ENNReal) := by simp [q]
+    exact_mod_cast h
+  have hfactorπ : localHaarFactor π = q⁻¹ := by
+    have h : (localHaarFactor π)⁻¹ = q := by
+      simpa only [map_inv] using hfactorπinv
+    calc
+      localHaarFactor π = ((localHaarFactor π)⁻¹)⁻¹ := by simp
+      _ = q⁻¹ := by rw [h]
+  have hfactor_unit {u : Kˣ} (hu : Valued.v (u : K) = 1) : localHaarFactor u = 1 := by
+    have hpre : localMulAddEquiv u ⁻¹' (v.adicCompletionIntegers F : Set K) =
+        (v.adicCompletionIntegers F : Set K) := by
+      ext x
+      simp only [Set.mem_preimage, localMulAddEquiv,
+        ContinuousLinearEquiv.toContinuousAddEquiv_coe,
+        ContinuousLinearEquiv.smulLeft_apply_apply]
+      change (u • x) ∈
+        (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).valuationSubring ↔
+          x ∈ (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).valuationSubring
+      rw [Valuation.mem_valuationSubring_iff, Valuation.mem_valuationSubring_iff]
+      rw [Units.smul_def, smul_eq_mul]
+      rw [map_mul, hu]
+      simp
+    have hForm := addEquivAddHaarChar_smul_preimage μ.μ (localMulAddEquiv u)
+      (X := (v.adicCompletionIntegers F : Set K))
+    rw [hpre, μ.norm_O] at hForm
+    have h : (addEquivAddHaarChar (localMulAddEquiv u) : ENNReal) = 1 := by
+      simpa [ENNReal.smul_def, smul_eq_mul] using hForm
+    change addEquivAddHaarChar (localMulAddEquiv u) = 1
+    exact_mod_cast h
+  have hnny : Valued.v (y : K) ≠ 0 := by simpa using y.ne_zero
+  let n : ℤ := -WithZero.log (Valued.v (y : K))
+  let u : Kˣ := y * π ^ (-n)
+  have hyval : Valued.v (y : K) = WithZero.exp (-n) := by
+    simpa [n] using (WithZero.exp_log hnny).symm
+  have hπpow : Valued.v ((π ^ (-n) : Kˣ) : K) = Valued.v (π : K) ^ (-n) := by
+    simp
+  have huval : Valued.v (u : K) = 1 := by
+    calc
+      Valued.v (u : K) = Valued.v (y : K) * Valued.v ((π ^ (-n) : Kˣ) : K) := by simp [u]
+      _ = WithZero.exp (-n) * WithZero.exp (-1 : ℤ) ^ (-n) := by rw [hyval, hπpow, hπval]
+      _ = 1 := by
+        rw [← WithZero.exp_zsmul]
+        rw [show (-n : ℤ) • (-1 : ℤ) = n by simp, ← WithZero.exp_add]
+        simp
+  have hnormu : ‖(u : K)‖₊ = 1 := by
+    apply NNReal.coe_injective
+    rw [coe_nnnorm, ← absFin_eq_norm]
+    unfold absFin
+    rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v), huval]
+    simp
+  have hdecomp : y = π ^ n * u := by
+    dsimp [u]
+    calc
+      y = (π ^ n * π ^ (-n)) * y := by simp
+      _ = π ^ n * (y * π ^ (-n)) := by ac_rfl
+  calc
+    localHaarFactor y = localHaarFactor (π ^ n * u) := by rw [hdecomp]
+    _ = localHaarFactor π ^ n * localHaarFactor u := by simp
+    _ = ‖((π ^ n * u : Kˣ) : K)‖₊ := by
+      simp [hfactorπ, hfactor_unit huval, hπnorm, hnormu, nnnorm_mul, nnnorm_zpow]
+    _ = ‖(y : K)‖₊ := by rw [hdecomp]
+
 /-- **jq:haar-scaling**: `∫ f(y t) dt = ‖y‖⁻¹ ∫ f(t) dt`. -/
 theorem LocHaar.integral_comp_mul (μ : LocHaar v) {E : Type} [NormedAddCommGroup E]
     [NormedSpace ℝ E] (y : (v.adicCompletion F)ˣ) (f : v.adicCompletion F → E) :
     ∫ t, f ((y : v.adicCompletion F) * t) ∂μ.μ = (absFin v y)⁻¹ • ∫ t, f t ∂μ.μ := by
-  sorry
+  let K := v.adicCompletion F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  letI : NormedField K := inferInstance
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  letI : ProperSpace K := hproper
+  letI : MeasureTheory.Measure.Regular μ.μ := locHaar_regular μ
+  let e := localMulAddEquiv y
+  let eMeas : K ≃ᵐ K := e.toHomeomorph.toMeasurableEquiv
+  have hfactor : addEquivAddHaarChar e = ‖(y : K)‖₊ := by
+    simpa [localHaarFactor] using localHaarFactor_eq_nnnorm μ y
+  have hcharMap : (‖(y : K)‖₊ : NNReal) • Measure.map e μ.μ = μ.μ := by
+    have h := addEquivAddHaarChar_smul_map μ.μ e
+    rw [hfactor] at h
+    exact h
+  have hyNorm : ‖(y : K)‖₊ ≠ 0 := by simp
+  have hcancel : (‖(y : K)‖₊⁻¹ : NNReal) * ‖(y : K)‖₊ = 1 :=
+    inv_mul_cancel₀ hyNorm
+  have hmap : Measure.map e μ.μ = (‖(y : K)‖₊⁻¹ : NNReal) • μ.μ := by
+    calc
+      Measure.map e μ.μ = 1 • Measure.map e μ.μ := by simp
+      _ = (‖(y : K)‖₊⁻¹ * ‖(y : K)‖₊) • Measure.map e μ.μ := by
+        rw [hcancel]
+        simp
+      _ = ‖(y : K)‖₊⁻¹ • (‖(y : K)‖₊ • Measure.map e μ.μ) := by rw [smul_smul]
+      _ = ‖(y : K)‖₊⁻¹ • μ.μ := by rw [hcharMap]
+  have hcoef : ((‖(y : K)‖₊⁻¹ : NNReal) : ℝ) = (absFin v y)⁻¹ := by
+    rw [NNReal.coe_inv, coe_nnnorm, absFin_eq_norm]
+  calc
+    ∫ t, f ((y : K) * t) ∂μ.μ = ∫ t, f (eMeas t) ∂μ.μ := by
+      congr 1
+    _ = ∫ x, f x ∂Measure.map eMeas μ.μ :=
+      (MeasureTheory.integral_map_equiv eMeas f).symm
+    _ = ((‖(y : K)‖₊⁻¹ : NNReal) : ℝ) • ∫ x, f x ∂μ.μ := by
+      have hmapMeas : Measure.map eMeas μ.μ = (‖(y : K)‖₊⁻¹ : NNReal) • μ.μ := by
+        change Measure.map e μ.μ = (‖(y : K)‖₊⁻¹ : NNReal) • μ.μ
+        exact hmap
+      rw [hmapMeas, integral_smul_nnreal_measure, NNReal.smul_def]
+    _ = (absFin v y)⁻¹ • ∫ x, f x ∂μ.μ := by rw [hcoef]
 
 /-- **jq:psi-conductor**: `ψ_v` is trivial on `𝔭^{-d}` and not on `𝔭^{-d-1}` for some `d ≥ 0`
 (derived from `AddCharData.trivial_on_F` and `integral`). -/
@@ -96,12 +427,15 @@ theorem psi_conductor_unramified (A : AddCharData F) (v : FinPlace F)
     exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
   obtain ⟨x, hx⟩ := hnontriv π hπ
   refine ⟨algebraMap F (v.adicCompletion F) ((x : F) / π), ?_, hx⟩
-  change Valued.v (algebraMap F (v.adicCompletion F) ((x : F) / π)) ≤ WithZero.exp 1
+  change Valued.v (((x : F) / π : F) : v.adicCompletion F) ≤ WithZero.exp 1
   rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation', map_div₀]
   calc
     v.valuation F (x : F) / v.valuation F π ≤ 1 / WithZero.exp (-1) := by
-      exact div_le_div_of_nonneg_right (v.valuation_le_one (x : 𝓞 F)) (by positivity)
-    _ = WithZero.exp 1 := by rw [hπ]; simp
+      rw [hπ]
+      exact div_le_div_of_nonneg_right
+        (v.valuation_le_one (R := 𝓞 F) (K := F) (x : 𝓞 F))
+        (pos_iff_ne_zero.mpr WithZero.exp_ne_zero).le
+    _ = WithZero.exp 1 := by simp
 
 variable {V : Type} [NormedAddCommGroup V] [NormedSpace ℂ V]
 
