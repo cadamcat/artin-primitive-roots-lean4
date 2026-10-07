@@ -1,6 +1,14 @@
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.Determinant
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Geometry
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Omissions
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Mass
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MinorApproximation
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Circle
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Schur
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Atoms
@@ -4590,6 +4598,642 @@ private theorem exists_eta_norm_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
   rcases hF with ⟨_, _, _, _, hEta, _⟩
   rcases hEta with ⟨hCont, hSupport, _, _⟩
   exact exists_support_Icc_norm_bound F.eta hCont.continuous hSupport
+
+private theorem pd4c_logSym_mul {K : ℕ} (F : PDFix K) (S : PDScale)
+    (a : ℂ) (f : LogPoint S.x K → ℂ) :
+    logSym F S (fun t => a * f t) = fun t => a * logSym F S f t := by
+  classical
+  funext t
+  simp only [logSym, ← Finset.mul_sum]
+  ring
+
+private theorem pd4c_logEdgePiece_mul {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ) (raw : Bool) (St Pr : Finset (Fin K))
+    (a : ℂ) (f : LogPoint S.x K → ℂ) :
+    logEdgePiece F S ρ w j raw St Pr (fun t => a * f t) =
+      fun t => a * logEdgePiece F S ρ w j raw St Pr f t := by
+  classical
+  funext t
+  unfold logEdgePiece
+  dsimp only
+  rw [Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro c hc
+  rw [← tsum_mul_left]
+  apply tsum_congr
+  intro z
+  split_ifs <;> ring
+
+private theorem pd4c_memorySym_sum {x : ℝ} {K : ℕ} {ι : Type*}
+    (R : Finset ι) (f : ι → MemPoint x K → ℂ) :
+    memorySym (fun t => ∑ i ∈ R, f i t) =
+      fun t => ∑ i ∈ R, memorySym (f i) t := by
+  classical
+  funext t
+  unfold memorySym
+  rw [Finset.sum_comm, Finset.mul_sum]
+
+private theorem pd4c_memorySym_mul {x : ℝ} {K : ℕ}
+    (a : ℂ) (f : MemPoint x K → ℂ) :
+    memorySym (fun t => a * f t) = fun t => a * memorySym f t := by
+  classical
+  funext t
+  simp only [memorySym, ← Finset.mul_sum]
+  ring
+
+private theorem pd4c_finite_kernel_of_linear {α : Type*} [DecidableEq α]
+    (op : (α → ℂ) → α → ℂ)
+    (hSum : ∀ (T : Finset α) (g : α → α → ℂ),
+      op (fun u => ∑ s ∈ T, g s u) = fun u => ∑ s ∈ T, op (g s) u)
+    (hMul : ∀ (a : ℂ) (g : α → ℂ),
+      op (fun u => a * g u) = fun u => a * op g u)
+    (T : Finset α) (f : α → ℂ) (hf : ∀ s, s ∉ T → f s = 0) (u : α) :
+    op f u = ∑ s ∈ T, op (fun t => if t = s then 1 else 0) u * f s := by
+  have hExpand : f = fun t => ∑ s ∈ T, f s * (if t = s then 1 else 0) := by
+    funext t
+    by_cases ht : t ∈ T
+    · simp [ht]
+    · simp [ht, hf t ht]
+  conv_lhs => rw [hExpand]
+  rw [hSum]
+  apply Finset.sum_congr rfl
+  intro s hs
+  rw [hMul]
+  exact mul_comm _ _
+
+private theorem pd4c_scale_pos {K : ℕ} (δ c₁ c₂ : ℝ) (S : PDScale)
+    (hS : S.Valid K δ c₁ c₂) : 0 < S.U ∧ 0 < S.V := by
+  rcases hS with ⟨hx, hHm, hHn, _, _, hY, hd⟩
+  have hxpos : 0 < S.x := by linarith
+  have hHmpos := lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ) hHm
+  have hHnpos := lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ) hHn
+  have hYpos : 0 < S.Y := by
+    rcases Finset.mem_filter.mp hY with ⟨hY, _⟩
+    rcases Finset.mem_image.mp hY with ⟨n, _, hn⟩
+    rw [← hn]
+    positivity
+  have hdpos : 0 < (S.d₀ : ℝ) := by
+    rcases Finset.mem_image.mp hd with ⟨n, _, hn⟩
+    rw [← hn]
+    positivity
+  exact ⟨by simpa [PDScale.U, PDScale.H] using mul_pos (mul_pos hdpos hYpos) hHmpos,
+    by simpa [PDScale.V] using hHnpos⟩
+
+private theorem pd4c_memEdgePiece_sum {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S)
+    {ι : Type*} (R : Finset ι) (f : ι → MemPoint S.x K → ℂ) :
+    memEdgePiece F S ρ w raw St Pr j (fun t => ∑ i ∈ R, f i t) =
+      fun t => ∑ i ∈ R, memEdgePiece F S ρ w raw St Pr j (f i) t := by
+  classical
+  obtain ⟨hU, hV⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+  let P := (envPoint_valid_box_finite F S w hU hV hw).toFinset
+  have hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1 := by
+    intro t
+    simp [P]
+  have h := fun t => logEdgePiece_sum F S ρ w j raw St Pr R
+    (fun i => logSym F S (fun u => f i u.1)) P hP t
+  have hfun : logEdgePiece F S ρ w j raw St Pr
+      (fun t => ∑ i ∈ R, logSym F S (fun u => f i u.1) t) =
+      fun t => ∑ i ∈ R,
+        logEdgePiece F S ρ w j raw St Pr (logSym F S (fun u => f i u.1)) t := by
+    funext t
+    exact h t
+  funext s
+  unfold memEdgePiece plainOp
+  dsimp only
+  rw [logSym_sum, hfun, logSym_sum]
+
+private theorem pd4c_memEdgePiece_mul {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)
+    (a : ℂ) (f : MemPoint S.x K → ℂ) :
+    memEdgePiece F S ρ w raw St Pr j (fun t => a * f t) =
+      fun t => a * memEdgePiece F S ρ w raw St Pr j f t := by
+  funext s
+  unfold memEdgePiece plainOp
+  dsimp only
+  rw [pd4c_logSym_mul, pd4c_logEdgePiece_mul, pd4c_logSym_mul]
+
+private theorem pd4c_memEdgePiece_finite_kernel {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S)
+    (T : Finset (MemPoint S.x K)) (f : MemPoint S.x K → ℂ)
+    (hf : ∀ s, s ∉ T → f s = 0) (s : MemPoint S.x K) :
+    memEdgePiece F S ρ w raw St Pr j f s =
+      ∑ t ∈ T, memKernel (memEdgePiece F S ρ w raw St Pr j) s t * f t := by
+  exact pd4c_finite_kernel_of_linear _
+    (pd4c_memEdgePiece_sum δ c₁ c₂ F S ρ w raw St Pr j hS hw)
+    (pd4c_memEdgePiece_mul F S ρ w raw St Pr j) T f hf s
+
+private theorem pd4c_memEdgePiece_sym_finite_kernel {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S)
+    (T : Finset (MemPoint S.x K)) (f : MemPoint S.x K → ℂ)
+    (hf : ∀ s, s ∉ T → f s = 0) (s : MemPoint S.x K) :
+    memEdgePiece F S ρ w raw St Pr j (memorySym f) s =
+      ∑ t ∈ T, memKernel (fun g => memEdgePiece F S ρ w raw St Pr j (memorySym g))
+        s t * f t := by
+  apply pd4c_finite_kernel_of_linear _ _ _ T f hf s
+  · intro T g
+    rw [pd4c_memorySym_sum, pd4c_memEdgePiece_sum δ c₁ c₂ F S ρ w raw St Pr j hS hw]
+  · intro a g
+    rw [pd4c_memorySym_mul, pd4c_memEdgePiece_mul]
+
+private theorem pd4c_strip_line_count (C₁ : ℝ) (hC₁ : 1 ≤ C₁) :
+    ∃ C₂ Y₀ : ℝ, 0 < C₂ ∧ 1 ≤ Y₀ ∧ ∀ Y : ℝ, Y₀ ≤ Y → ∀ α : ℝ,
+      (∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow Y (1 / 5 : ℝ) →
+        Real.rpow Y (-(7 / 10 : ℝ)) < circleDistance ((l : ℝ) * α)) →
+      ∀ p : ℕ, p.Prime → ∀ a b : ZMod p, a ≠ 0 ∨ b ≠ 0 →
+        {q : ℤ × ℤ | |(q.2 : ℝ)| ≤ C₁ * Y ∧
+          |(q.1 : ℝ) + (q.2 : ℝ) * α| ≤ C₁ ∧
+          a * (q.1 : ZMod p) + b * (q.2 : ZMod p) = 0}.Finite ∧
+        (({q : ℤ × ℤ | |(q.2 : ℝ)| ≤ C₁ * Y ∧
+          |(q.1 : ℝ) + (q.2 : ℝ) * α| ≤ C₁ ∧
+          a * (q.1 : ZMod p) + b * (q.2 : ZMod p) = 0}.ncard : ℝ)) ≤
+            12 * C₂ * Y * (1 / (p : ℝ) + Real.rpow Y (-(1 / 10 : ℝ))) := by
+  classical
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hShape⟩ := lattice_shape C₁ hC₁
+  refine ⟨C₂, Y₀, hC₂, hY₀, ?_⟩
+  intro Y hY α hα p hp a b hab
+  obtain ⟨a₀, b₀, c₀, d₀, A, D, hdet, hAD, hA, _, hD, _, hcoords⟩ :=
+    hShape Y hY α hα
+  let trans : ℤ × ℤ → ℤ × ℤ :=
+    fun q => (d₀ * q.1 - b₀ * q.2, a₀ * q.2 - c₀ * q.1)
+  let inv : ℤ × ℤ → ℤ × ℤ :=
+    fun q => (a₀ * q.1 + b₀ * q.2, c₀ * q.1 + d₀ * q.2)
+  have hleft : Function.LeftInverse inv trans := by
+    intro q
+    apply Prod.ext
+    · change a₀ * (d₀ * q.1 - b₀ * q.2) + b₀ * (a₀ * q.2 - c₀ * q.1) = q.1
+      calc
+        _ = (a₀ * d₀ - b₀ * c₀) * q.1 := by ring
+        _ = q.1 := by rw [hdet, one_mul]
+    · change c₀ * (d₀ * q.1 - b₀ * q.2) + d₀ * (a₀ * q.2 - c₀ * q.1) = q.2
+      calc
+        _ = (a₀ * d₀ - b₀ * c₀) * q.2 := by ring
+        _ = q.2 := by rw [hdet, one_mul]
+  have hdetp : (a₀ : ZMod p) * (d₀ : ZMod p) - (b₀ : ZMod p) * (c₀ : ZMod p) = 1 := by
+    have h := congrArg (fun n : ℤ => (n : ZMod p)) hdet
+    simpa only [Int.cast_sub, Int.cast_mul, Int.cast_one] using h
+  let a' : ZMod p := a * a₀ + b * c₀
+  let b' : ZMod p := a * b₀ + b * d₀
+  have hnonzero : a' ≠ 0 ∨ b' ≠ 0 := by
+    by_contra h
+    push_neg at h
+    have hrecA : a' * d₀ - b' * c₀ = a := by
+      dsimp [a', b']
+      calc
+        _ = a * ((a₀ : ZMod p) * d₀ - (b₀ : ZMod p) * c₀) := by ring
+        _ = a := by rw [hdetp, mul_one]
+    have hrecB : b' * a₀ - a' * b₀ = b := by
+      dsimp [a', b']
+      calc
+        _ = b * ((a₀ : ZMod p) * d₀ - (b₀ : ZMod p) * c₀) := by ring
+        _ = b := by rw [hdetp, mul_one]
+    rw [h.1, h.2, zero_mul, zero_mul, sub_zero] at hrecA hrecB
+    exact hab.elim (fun ha => ha hrecA.symm) (fun hb => hb hrecB.symm)
+  let T : Set (ℤ × ℤ) := {q | |(q.1 : ℝ)| ≤ A ∧ |(q.2 : ℝ)| ≤ D ∧
+    a' * (q.1 : ZMod p) + b' * (q.2 : ZMod p) = 0}
+  have hTfin : T.Finite := by
+    apply ((Set.finite_Icc (-⌈A⌉) ⌈A⌉).prod (Set.finite_Icc (-⌈D⌉) ⌈D⌉)).subset
+    intro q hq
+    rcases hq with ⟨hqA, hqD, _⟩
+    rcases abs_le.mp hqA with ⟨hAlo, hAhi⟩
+    rcases abs_le.mp hqD with ⟨hDlo, hDhi⟩
+    have hAc := Int.le_ceil A
+    have hDc := Int.le_ceil D
+    constructor <;> constructor
+    · exact_mod_cast (show -(⌈A⌉ : ℝ) ≤ (q.1 : ℝ) by linarith)
+    · exact_mod_cast (show (q.1 : ℝ) ≤ (⌈A⌉ : ℝ) by linarith)
+    · exact_mod_cast (show -(⌈D⌉ : ℝ) ≤ (q.2 : ℝ) by linarith)
+    · exact_mod_cast (show (q.2 : ℝ) ≤ (⌈D⌉ : ℝ) by linarith)
+  have hmap : ∀ q ∈ {q : ℤ × ℤ | |(q.2 : ℝ)| ≤ C₁ * Y ∧
+      |(q.1 : ℝ) + (q.2 : ℝ) * α| ≤ C₁ ∧
+      a * (q.1 : ZMod p) + b * (q.2 : ZMod p) = 0}, trans q ∈ T := by
+    intro q hq
+    obtain ⟨hl, ht, hline⟩ := hq
+    obtain ⟨hx, hy⟩ := hcoords q.1 q.2 hl ht
+    refine ⟨hx, hy, ?_⟩
+    change a' * ((d₀ * q.1 - b₀ * q.2 : ℤ) : ZMod p) +
+      b' * ((a₀ * q.2 - c₀ * q.1 : ℤ) : ZMod p) = 0
+    push_cast
+    dsimp [a', b']
+    calc
+      _ = ((a₀ : ZMod p) * d₀ - (b₀ : ZMod p) * c₀) *
+          (a * (q.1 : ZMod p) + b * (q.2 : ZMod p)) := by ring
+      _ = 0 := by rw [hline, mul_zero]
+  refine ⟨Set.Finite.of_injOn hmap hleft.injective.injOn hTfin, ?_⟩
+  have hcard := Set.ncard_le_ncard_of_injOn trans hmap hleft.injective.injOn hTfin
+  calc
+    _ ≤ (T.ncard : ℝ) := by exact_mod_cast hcard
+    _ ≤ _ := box_line_count_le_balanced p hp Y C₂ A D (1 / 10 : ℝ)
+      (le_trans hY₀ hY) (by norm_num) hAD hA hD a' b' hnonzero
+
+private theorem pd4c_particleHits_line (e : Particle) (he : e.1.Prime) :
+    ∃ a b : ZMod e.1, (a ≠ 0 ∨ b ≠ 0) ∧
+      ∀ z : ℤ × ℤ, particleHits e z →
+        a * (z.1 : ZMod e.1) + b * (z.2 : ZMod e.1) = 0 := by
+  classical
+  letI : Fact e.1.Prime := ⟨he⟩
+  letI : NeZero e.1 := ⟨he.ne_zero⟩
+  by_cases hinfty : e.2 = e.1
+  · refine ⟨0, 1, Or.inr one_ne_zero, ?_⟩
+    intro z hh
+    by_cases hz2 : (z.2 : ZMod e.1) = 0
+    · simp [hz2]
+    · have hval : ((z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹).val < e.1 := ZMod.val_lt _
+      have hmod : ((z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹).val % (e.1 + 1) =
+          ((z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹).val :=
+        Nat.mod_eq_of_lt (by omega)
+      have hhit : e.2 = ((z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹).val := by
+        simpa [particleHits, projLine, hz2, hmod] using hh
+      omega
+  · refine ⟨1, -(e.2 : ZMod e.1), Or.inl one_ne_zero, ?_⟩
+    intro z hh
+    by_cases hz2 : (z.2 : ZMod e.1) = 0
+    · have hhit : e.2 = e.1 := by simpa [particleHits, projLine, hz2] using hh
+      exact (hinfty hhit).elim
+    · have hval : ((z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹).val < e.1 := ZMod.val_lt _
+      have hmod : ((z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹).val % (e.1 + 1) =
+          ((z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹).val :=
+        Nat.mod_eq_of_lt (by omega)
+      have hhit : e.2 = ((z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹).val := by
+        simpa [particleHits, projLine, hz2, hmod] using hh
+      have hcast : (e.2 : ZMod e.1) = (z.1 : ZMod e.1) * (z.2 : ZMod e.1)⁻¹ := by
+        rw [hhit, ZMod.natCast_zmod_val]
+      rw [hcast]
+      field_simp [hz2]
+      ring
+
+private theorem pd4c_memorySym_delta_zero_of_size_ne {x : ℝ} {K : ℕ}
+    (s t : MemPoint x K) (hsize : memSize s ≠ memSize t) :
+    memorySym (fun u => if u = t then (1 : ℂ) else 0) s = 0 := by
+  unfold memorySym
+  have hzero : (∑ σ : MemoryPermutation s,
+      if memoryPermute s σ = t then (1 : ℂ) else 0) = 0 := by
+    apply Finset.sum_eq_zero
+    intro σ hσ
+    have hne : memoryPermute s σ ≠ t := by
+      intro heq
+      have h := congrArg memSize heq
+      apply hsize
+      simpa [memSize, memoryPermute] using h
+    simp [hne]
+  rw [hzero, mul_zero]
+
+private theorem pd4c_memorySym_delta_weight_row {x : ℝ} {K : ℕ}
+    (s : MemPoint x K) (T : Finset (MemPoint x K)) (v : ℝ) (hv : 0 ≤ v) :
+    (∑ t ∈ T, ‖memorySym (fun u => if u = t then (1 : ℂ) else 0) s‖ *
+      v ^ memSize t) ≤ v ^ memSize s := by
+  have hpoint (t : MemPoint x K) :
+      ‖memorySym (fun u => if u = t then (1 : ℂ) else 0) s‖ * v ^ memSize t =
+        ‖memorySym (fun u => if u = t then (1 : ℂ) else 0) s‖ * v ^ memSize s := by
+    by_cases hsize : memSize s = memSize t
+    · rw [hsize]
+    · rw [pd4c_memorySym_delta_zero_of_size_ne s t hsize]
+      simp
+  simp_rw [hpoint]
+  rw [← Finset.sum_mul]
+  simpa using mul_le_mul_of_nonneg_right (memorySym_delta_row_le s T) (pow_nonneg hv _)
+
+private theorem pd4c_logSym_projected_delta_weight_row {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s : MemPoint S.x K)
+    (T : Finset (MemPoint S.x K)) (v : ℝ) (hv : 0 ≤ v) :
+    (∑ t ∈ T,
+      ‖plainOp (logSym F S) (memorySym (fun u => if u = t then (1 : ℂ) else 0)) s‖ *
+        v ^ memSize t) ≤ v ^ memSize s := by
+  let G := Fin K → Equiv.Perm (Fin (slotCount S.x))
+  let d := permCount S.x K
+  have hdpos : 0 < d := by
+    exact Fintype.card_pos_iff.mpr ⟨fun i => Equiv.refl _⟩
+  have hdne : (d : ℝ) ≠ 0 := by exact_mod_cast hdpos.ne'
+  have hnorm : ‖(d : ℂ)⁻¹‖ = (d : ℝ)⁻¹ := by simp
+  let out (σ : G) : MemPoint S.x K := (s.1, permuteLists σ s.2.1, s.2.2)
+  let delta (t : MemPoint S.x K) := fun u => if u = t then (1 : ℂ) else 0
+  have hpoint (t : MemPoint S.x K) :
+      ‖plainOp (logSym F S) (memorySym (delta t)) s‖ * v ^ memSize t ≤
+        (d : ℝ)⁻¹ * ∑ σ : G, ‖memorySym (delta t) (out σ)‖ * v ^ memSize t := by
+    change ‖(d : ℂ)⁻¹ * ∑ σ : G, memorySym (delta t) (out σ)‖ * v ^ memSize t ≤ _
+    calc
+      _ = (d : ℝ)⁻¹ * ‖∑ σ : G, memorySym (delta t) (out σ)‖ * v ^ memSize t := by
+        rw [norm_mul, hnorm]
+      _ ≤ (d : ℝ)⁻¹ * (∑ σ : G, ‖memorySym (delta t) (out σ)‖) * v ^ memSize t := by
+        apply mul_le_mul_of_nonneg_right _ (pow_nonneg hv _)
+        exact mul_le_mul_of_nonneg_left (norm_sum_le _ _) (by positivity)
+      _ = _ := by rw [← Finset.sum_mul]; ring
+  calc
+    _ ≤ ∑ t ∈ T, (d : ℝ)⁻¹ *
+        ∑ σ : G, ‖memorySym (delta t) (out σ)‖ * v ^ memSize t :=
+      Finset.sum_le_sum fun t ht => hpoint t
+    _ = (d : ℝ)⁻¹ * ∑ σ : G, ∑ t ∈ T,
+        ‖memorySym (delta t) (out σ)‖ * v ^ memSize t := by
+      rw [← Finset.mul_sum, Finset.sum_comm]
+    _ ≤ (d : ℝ)⁻¹ * ∑ σ : G, v ^ memSize s := by
+      apply mul_le_mul_of_nonneg_left _ (by positivity)
+      apply Finset.sum_le_sum
+      intro σ hσ
+      exact pd4c_memorySym_delta_weight_row (out σ) T v hv
+    _ = _ := by
+      rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+      change (d : ℝ)⁻¹ * ((d : ℝ) * v ^ memSize s) = v ^ memSize s
+      field_simp
+
+private theorem pd4c_last_omission_eq_shared {x : ℝ} {K : ℕ}
+    (p : PrimeLists x K) : omissionProduct p (fun _ => lastSlot x) = sharedProduct p := by
+  unfold omissionProduct sharedProduct
+  apply Finset.prod_congr rfl
+  intro i hi
+  apply Finset.prod_congr rfl
+  intro j hj
+  have heq : (j ≠ lastSlot x) ↔ j.val < momentJ x := by
+    rw [ne_eq, Fin.ext_iff]
+    have hlt := j.isLt
+    dsimp [slotCount] at hlt
+    dsimp [lastSlot]
+    omega
+  simp only [heq]
+
+private theorem pd4c_promoted_target_count (C₁ : ℝ) (hC₁ : 16 ≤ C₁) :
+    ∃ C₂ Y₀ : ℝ, 0 < C₂ ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale) (w : ArchRoot)
+        (δ c₁ c₂ : ℝ), S.Valid K δ c₁ c₂ → w.InRegion S → Y₀ ≤ S.Y →
+      ∀ (s : MemPoint S.x K)
+        (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i)
+        (i : Fin K) (k : Fin (s.2.2 i).length),
+        MemValid F S s → ValidPrimeLists S.x K F.a s.2.1 →
+        envBox S w s.1 → envGood F S w (s.1, s.2.1) →
+        (S.d₀ : ℝ) ≤ (sharedProduct s.2.1 : ℝ) →
+        (sharedProduct s.2.1 : ℝ) < 2 * (S.d₀ : ℝ) →
+        (c i).2 = Sum.inl k →
+        (∀ i' j, ((s.2.2 i).get k).1 ≠ s.2.1 i' j) →
+        (({z' : ℤ × ℤ | EdgeAdmissible F S w s c z' ∧
+          |((det2 s.1 z' / (sharedProduct s.2.1 : ℤ) : ℤ) : ℝ)| ≤ C₁ * S.Y}.ncard : ℝ)) ≤
+            12 * C₂ * S.Y * (1 / (((s.2.2 i).get k).1 : ℝ) +
+              Real.rpow S.Y (-(1 / 10 : ℝ))) := by
+  classical
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hStrip⟩ := pd4c_strip_line_count C₁ (by linarith)
+  refine ⟨C₂, Y₀, hC₂, hY₀, ?_⟩
+  intro K F S w δ c₁ c₂ hS hw hY s c i k hs hLists hbox hgood hDlo hDhi hc hban
+  let D := sharedProduct s.2.1
+  let z := s.1
+  let v := complementVec z
+  let e := (s.2.2 i).get k
+  let p := e.1
+  let α := (D : ℝ) * transportedRatio w z
+  have hPrime : p.Prime := by
+    have hBand := (hs.2.2 i e (List.get_mem _ k)).1
+    exact (Finset.mem_filter.mp hBand).2.1
+  have hND : ¬ p ∣ D :=
+    pd4c_prime_not_dvd_sharedProduct s.2.1 (fun i j => (hLists.1 i j).1) p hPrime hban
+  have hα : ∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow S.Y (1 / 5 : ℝ) →
+      Real.rpow S.Y (-(7 / 10 : ℝ)) < circleDistance ((l : ℝ) * α) := by
+    intro l hl hly
+    have h := hgood.1 (fun _ => lastSlot S.x)
+      (by simpa [pd4c_last_omission_eq_shared] using hDlo)
+      (by simpa [pd4c_last_omission_eq_shared] using hDhi) l hl hly
+    simpa only [pd4c_last_omission_eq_shared, α, D, z, mul_assoc] using h
+  obtain ⟨a, b, hab, hline⟩ := pd4c_particleHits_line e hPrime
+  have hdet : det2 z v = 1 := by
+    have h := Int.gcd_eq_gcd_ab z.1 z.2
+    rw [hs.1] at h
+    simpa [det2, v, complementVec, sub_neg_eq_add] using h.symm
+  have hdetp : (z.1 : ZMod p) * (((D : ℤ) * v.2 : ℤ) : ZMod p) -
+      (z.2 : ZMod p) * (((D : ℤ) * v.1 : ℤ) : ZMod p) ≠ 0 := by
+    have hcast : (z.1 : ZMod p) * (v.2 : ZMod p) -
+        (z.2 : ZMod p) * (v.1 : ZMod p) = 1 := by
+      have h := congrArg (fun n : ℤ => (n : ZMod p)) hdet
+      simpa [det2] using h
+    have hd : (D : ZMod p) ≠ 0 := fun hd => hND ((ZMod.natCast_eq_zero_iff D p).mp hd)
+    push_cast
+    have heq : (z.1 : ZMod p) * ((D : ZMod p) * (v.2 : ZMod p)) -
+        (z.2 : ZMod p) * ((D : ZMod p) * (v.1 : ZMod p)) = (D : ZMod p) := by
+      calc
+        _ = (D : ZMod p) * ((z.1 : ZMod p) * v.2 - (z.2 : ZMod p) * v.1) := by ring
+        _ = _ := by rw [hcast, mul_one]
+    rw [heq]
+    exact hd
+  let a' : ZMod p := a * z.1 + b * z.2
+  let b' : ZMod p := a * ((D : ℤ) * v.1) + b * ((D : ℤ) * v.2)
+  have hab' : a' ≠ 0 ∨ b' ≠ 0 := by
+    simpa only [a', b', Int.cast_mul] using
+      pd4c_line_coefficients_nonzero p hPrime z.1 z.2 ((D : ℤ) * v.1)
+        ((D : ℤ) * v.2) hdetp a b hab
+  let T : Set (ℤ × ℤ) := {q | |(q.2 : ℝ)| ≤ C₁ * S.Y ∧
+    |(q.1 : ℝ) + (q.2 : ℝ) * α| ≤ C₁ ∧ a' * (q.1 : ZMod p) + b' * (q.2 : ZMod p) = 0}
+  obtain ⟨hTfin, hTcard⟩ := hStrip S.Y hY α hα p hPrime a' b' hab'
+  let φ : ℤ × ℤ → ℤ × ℤ := fun q =>
+    (q.1 * z.1 + (D : ℤ) * q.2 * v.1, q.1 * z.2 + (D : ℤ) * q.2 * v.2)
+  have hsubset : {z' : ℤ × ℤ | EdgeAdmissible F S w s c z' ∧
+      |((det2 s.1 z' / (sharedProduct s.2.1 : ℤ) : ℤ) : ℝ)| ≤ C₁ * S.Y} ⊆ φ '' T := by
+    intro z' hz'
+    obtain ⟨hadm, hbound⟩ := hz'
+    obtain ⟨hU, _⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+    obtain ⟨h, l, hrepr, hl, ht⟩ := pd4c_env_target_strip_coordinates S w z z' D C₁
+      hU hw hs.1 hbox hadm.2.2.2.2.2.2.2.1 hadm.2.2.2.2.1.2.2 hbound
+    have hzline := hline z' (hadm.1 i k hc)
+    refine ⟨(h, l), ⟨hl, le_trans ht hC₁, ?_⟩, hrepr.symm⟩
+    change a' * (h : ZMod p) + b' * (l : ZMod p) = 0
+    rw [hrepr] at hzline
+    push_cast at hzline
+    dsimp [a', b']
+    push_cast
+    linear_combination hzline
+  have hcard :
+      {z' : ℤ × ℤ | EdgeAdmissible F S w s c z' ∧
+        |((det2 s.1 z' / (sharedProduct s.2.1 : ℤ) : ℤ) : ℝ)| ≤ C₁ * S.Y}.ncard ≤ T.ncard :=
+    (Set.ncard_le_ncard hsubset (hTfin.image φ)).trans (Set.ncard_image_le hTfin)
+  exact (show (_ : ℝ) ≤ (T.ncard : ℝ) by exact_mod_cast hcard).trans hTcard
+
+private theorem pd4c_finite_row_mass {α β : Type*} [DecidableEq β]
+    (R : Finset β) (T : Finset α) (coef : β → ℂ) (out : β → α)
+    (d : α → α → ℂ) (v w : α → ℝ)
+    (hv : ∀ t ∈ T, 0 ≤ v t)
+    (hd : ∀ r ∈ R, (∑ t ∈ T, ‖d t (out r)‖ * v t) ≤ w (out r)) :
+    (∑ t ∈ T, ‖∑ r ∈ R, coef r * d t (out r)‖ * v t) ≤
+      ∑ r ∈ R, ‖coef r‖ * w (out r) := by
+  calc
+    _ ≤ ∑ t ∈ T, (∑ r ∈ R, ‖coef r‖ * ‖d t (out r)‖) * v t := by
+      apply Finset.sum_le_sum
+      intro t ht
+      apply mul_le_mul_of_nonneg_right _ (hv t ht)
+      simpa only [norm_mul] using norm_sum_le R (fun r => coef r * d t (out r))
+    _ = ∑ r ∈ R, ‖coef r‖ * (∑ t ∈ T, ‖d t (out r)‖ * v t) := by
+      simp_rw [Finset.sum_mul]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro r hr
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      ring
+    _ ≤ _ := Finset.sum_le_sum fun r hr => mul_le_mul_of_nonneg_left (hd r hr) (norm_nonneg _)
+
+private def pd4c_edgeChoiceCoeff {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ)
+    (j : ℕ) (raw : Bool) (s : MemPoint S.x K)
+    (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ) : ℂ :=
+  ((ρ ^ (∑ i : Fin K, hitCount (s.2.2 i) s.1) *
+    (∏ i : Fin K, match (c i).2 with
+      | Sum.inl _ => (bandMass S.x (F.a i))⁻¹
+      | Sum.inr p => memoryNu S.x K F.a F.q_d i p) *
+    ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z') : ℝ) : ℂ) *
+    edgeMultiplier F S (decide (j % 2 = 0)) raw s.2.1
+      (edgeTargetLists F S s c) s.1 z'
+
+private def pd4c_edgeRowMass {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (j : ℕ) (raw : Bool) (St Pr : Finset (Fin K)) (v : ℝ) (s : MemPoint S.x K) : ℝ :=
+  ∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+    ∑' z' : ℤ × ℤ,
+      if edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧ EdgeAdmissible F S w s c z' then
+        ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ *
+          v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c)
+      else 0
+
+private theorem pd4c_memEdgePiece_projected_row_mass {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S)
+    (s : MemPoint S.x K) (T : Finset (MemPoint S.x K)) (v : ℝ) (hv : 0 ≤ v) :
+    (∑ t ∈ T, ‖memKernel (fun f => memEdgePiece F S ρ w raw St Pr j (memorySym f)) s t‖ *
+      v ^ memSize t) ≤
+        (permCount S.x K : ℝ)⁻¹ *
+          ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+            pd4c_edgeRowMass F S ρ w j raw St Pr v (s.1, permuteLists σ s.2.1, s.2.2) := by
+  classical
+  let G := Fin K → Equiv.Perm (Fin (slotCount S.x))
+  let C := (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i
+  let Z := (envBox_finite δ c₁ c₂ S w hS hw).toFinset
+  let R : Finset (G × C × (ℤ × ℤ)) := Finset.univ ×ˢ (Finset.univ ×ˢ Z)
+  let source (σ : G) : MemPoint S.x K := (s.1, permuteLists σ s.2.1, s.2.2)
+  let good (σ : G) (c : C) (z' : ℤ × ℤ) : Prop :=
+    edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧ EdgeAdmissible F S w (source σ) c z'
+  let target (σ : G) (c : C) (z' : ℤ × ℤ) : MemPoint S.x K :=
+    (z', edgeTargetLists F S (source σ) c, edgeNewMemory F S (source σ) c)
+  let d := permCount S.x K
+  let delta (t u : MemPoint S.x K) : ℂ :=
+    plainOp (logSym F S) (memorySym (fun a => if a = t then (1 : ℂ) else 0)) u
+  let out (r : G × C × (ℤ × ℤ)) := target r.1 r.2.1 r.2.2
+  let coef (r : G × C × (ℤ × ℤ)) : ℂ :=
+    (d : ℂ)⁻¹ * (if good r.1 r.2.1 r.2.2 then
+      pd4c_edgeChoiceCoeff F S ρ j raw (source r.1) r.2.1 r.2.2 else 0)
+  have hpos : ∀ σ c z', good σ c z' → z' ∈ Z := by
+    intro σ c z' hg
+    have hzbox := hg.2.2.2.2.2.2.2.2.2.1
+    simpa [Z] using hzbox
+  have hKernelFin (σ : G) (c : C) (t : MemPoint S.x K) :
+      (∑' z', if good σ c z' then pd4c_edgeChoiceCoeff F S ρ j raw (source σ) c z' *
+          delta t (target σ c z') else 0) =
+        ∑ z' ∈ Z, if good σ c z' then pd4c_edgeChoiceCoeff F S ρ j raw (source σ) c z' *
+          delta t (target σ c z') else 0 := by
+    apply tsum_eq_sum
+    intro z' hz'
+    have hnot : ¬ good σ c z' := fun hg => hz' (hpos σ c z' hg)
+    simp [hnot]
+  have hMassFin (σ : G) (c : C) :
+      (∑' z', if good σ c z' then ‖pd4c_edgeChoiceCoeff F S ρ j raw (source σ) c z'‖ *
+          v ^ memSize (target σ c z') else 0) =
+        ∑ z' ∈ Z, if good σ c z' then ‖pd4c_edgeChoiceCoeff F S ρ j raw (source σ) c z'‖ *
+          v ^ memSize (target σ c z') else 0 := by
+    apply tsum_eq_sum
+    intro z' hz'
+    have hnot : ¬ good σ c z' := fun hg => hz' (hpos σ c z' hg)
+    simp [hnot]
+  have hKernel (t : MemPoint S.x K) :
+      memKernel (fun f => memEdgePiece F S ρ w raw St Pr j (memorySym f)) s t =
+        ∑ r ∈ R, coef r * delta t (out r) := by
+    change ((d : ℂ)⁻¹ * ∑ σ : G, ∑ c : C,
+        ∑' z', if good σ c z' then pd4c_edgeChoiceCoeff F S ρ j raw (source σ) c z' *
+          delta t (target σ c z') else 0) = _
+    simp_rw [hKernelFin]
+    simp only [R, Finset.sum_product]
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro σ hσ
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro c hc
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro z' hz'
+    by_cases hg : good σ c z' <;> simp [coef, out, hg, mul_assoc]
+  have hdpos : 0 < d := by exact Fintype.card_pos_iff.mpr ⟨fun i => Equiv.refl _⟩
+  have hnorm : ‖(d : ℂ)⁻¹‖ = (d : ℝ)⁻¹ := by simp
+  have hRow : (∑ t ∈ T, ‖∑ r ∈ R, coef r * delta t (out r)‖ * v ^ memSize t) ≤
+      ∑ r ∈ R, ‖coef r‖ * v ^ memSize (out r) := by
+    apply pd4c_finite_row_mass R T coef out delta
+      (fun t => v ^ memSize t) (fun t => v ^ memSize t)
+    · intro t ht
+      exact pow_nonneg hv _
+    · intro r hr
+      exact pd4c_logSym_projected_delta_weight_row F S (out r) T v hv
+  have hMass : (∑ r ∈ R, ‖coef r‖ * v ^ memSize (out r)) =
+      (d : ℝ)⁻¹ * ∑ σ : G, pd4c_edgeRowMass F S ρ w j raw St Pr v (source σ) := by
+    simp only [R, Finset.sum_product]
+    change (∑ σ : G, ∑ c : C, ∑ z' ∈ Z, ‖coef (σ, c, z')‖ *
+      v ^ memSize (out (σ, c, z'))) = _
+    change (∑ σ : G, ∑ c : C, ∑ z' ∈ Z, ‖coef (σ, c, z')‖ *
+      v ^ memSize (out (σ, c, z'))) =
+        (d : ℝ)⁻¹ * ∑ σ : G, ∑ c : C,
+          ∑' z', if good σ c z' then ‖pd4c_edgeChoiceCoeff F S ρ j raw (source σ) c z'‖ *
+            v ^ memSize (target σ c z') else 0
+    simp_rw [hMassFin]
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro σ hσ
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro c hc
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro z' hz'
+    by_cases hg : good σ c z' <;> simp [coef, out, hg, norm_mul, hnorm, mul_assoc]
+  simp_rw [hKernel]
+  exact hRow.trans_eq hMass
+
+private theorem pd4c_memorySym_delta_invalid_zero {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s t : MemPoint S.x K) (hs : MemValid F S s) (ht : ¬ MemValid F S t) :
+    memorySym (fun u => if u = t then (1 : ℂ) else 0) s = 0 := by
+  classical
+  unfold memorySym
+  have hzero : (∑ σ : MemoryPermutation s, if memoryPermute s σ = t then (1 : ℂ) else 0) = 0 := by
+    apply Finset.sum_eq_zero
+    intro σ hσ
+    have hvalid := (pd4c_memValid_memoryPermute_iff F S s σ).mpr hs
+    have hne : memoryPermute s σ ≠ t := fun h => ht (h ▸ hvalid)
+    simp [hne]
+  rw [hzero, mul_zero]
+
+private theorem pd4c_memEdgePiece_sym_kernel_invalid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)
+    (s t : MemPoint S.x K) (hs : MemValid F S s) (ht : ¬ MemValid F S t) :
+    memKernel (fun f => memEdgePiece F S ρ w raw St Pr j (memorySym f)) s t = 0 := by
+  apply memEdgePiece_zero_for_valid_supported_input F S ρ w raw St Pr j
+    (memorySym (fun u => if u = t then (1 : ℂ) else 0)) _ s hs
+  intro u hu
+  exact pd4c_memorySym_delta_invalid_zero F S u t hu ht
+
+private theorem pd4c_memEdgePiece_sym_schur {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (raw : Bool) (St Pr : Finset (Fin K)) (j B : ℕ) (v R C : ℝ)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S)
+    (hμ : ∀ s, 0 ≤ memMeasure F S s) (hv : 0 < v) (hR : 0 ≤ R) (hC : 0 ≤ C)
+    (hrow : MemRowSchurLE_sym F S B (memEdgePiece F S ρ w raw St Pr j) v R)
+    (hcol : MemColSchurLE_sym F S B (memEdgePiece F S ρ w raw St Pr j) v C) :
+    MemOpNormLE_sym F S B (memEdgePiece F S ρ w raw St Pr j) (Real.sqrt (R * C)) := by
+  apply pd4c_memOpNormLE_of_weighted_schur F S B
+    (fun f => memEdgePiece F S ρ w raw St Pr j (memorySym f)) v R C hμ
+    (fun s hs => memMeasure_eq_zero_of_invalid F S s hs)
+    (fun s => pow_pos hv _) hR hC hrow hcol
+    (pd4c_memEdgePiece_sym_kernel_invalid F S ρ w raw St Pr j)
+  intro T T' f hf hT hT' s hs hsvalid
+  rw [pd4c_memEdgePiece_sym_finite_kernel δ c₁ c₂ F S ρ w raw St Pr j hS hw T f hf s]
+  apply Finset.sum_congr rfl
+  intro t ht
+  by_cases htvalid : MemValid F S t
+  · simp [hsvalid, htvalid]
+  · simp [hsvalid, htvalid, pd4c_memEdgePiece_sym_kernel_invalid F S ρ w raw St Pr j s t hsvalid htvalid]
 
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list

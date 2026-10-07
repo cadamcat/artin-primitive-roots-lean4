@@ -1926,6 +1926,137 @@ theorem memEdge_preserves_memorySym {K : ℕ} (F : PDFix K) (S : PDScale)
   exact logSym_memoryPermute F S (logEdgeBody F S ρ w kind j g)
     (fun s log σ => logEdgeBody_memoryPermute F S ρ w kind j g hg s σ log) s σ []
 
+private theorem pd4c_finite_average_pairing {α G : Type*} [Fintype α] [Fintype G]
+    (e : G → α ≃ α) (inv : G ≃ G) (heinv : ∀ g, e (inv g) = (e g).symm)
+    (μ : α → ℝ) (hμ : ∀ g s, μ (e g s) = μ s) (f g : α → ℂ) :
+    (∑ s : α, (μ s : ℂ) * star ((Fintype.card G : ℂ)⁻¹ * ∑ a : G, f (e a s)) * g s) =
+      ∑ s : α, (μ s : ℂ) * star (f s) *
+        ((Fintype.card G : ℂ)⁻¹ * ∑ a : G, g (e a s)) := by
+  let r : ℂ := (Fintype.card G : ℂ)⁻¹
+  have hr : star r = r := by simp [r]
+  have hleft :
+      (∑ s : α, (μ s : ℂ) * star (r * ∑ a : G, f (e a s)) * g s) =
+        r * ∑ a : G, ∑ s : α, (μ s : ℂ) * star (f (e a s)) * g s := by
+    calc
+      _ = ∑ s : α, ∑ a : G, r * ((μ s : ℂ) * star (f (e a s)) * g s) := by
+        apply Finset.sum_congr rfl
+        intro s hs
+        rw [star_mul, star_sum, hr]
+        simp only [← Finset.mul_sum, ← Finset.sum_mul]
+        ring
+      _ = _ := by rw [Finset.sum_comm]; simp only [← Finset.mul_sum]
+  have hright :
+      (∑ s : α, (μ s : ℂ) * star (f s) * (r * ∑ a : G, g (e a s))) =
+        r * ∑ a : G, ∑ s : α, (μ s : ℂ) * star (f s) * g (e a s) := by
+    calc
+      _ = ∑ s : α, ∑ a : G, r * ((μ s : ℂ) * star (f s) * g (e a s)) := by
+        apply Finset.sum_congr rfl
+        intro s hs
+        rw [Finset.mul_sum]
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro a ha
+        ring
+      _ = _ := by rw [Finset.sum_comm]; simp only [← Finset.mul_sum]
+  have hmove (a : G) :
+      (∑ s : α, (μ s : ℂ) * star (f (e a s)) * g s) =
+        ∑ s : α, (μ s : ℂ) * star (f s) * g ((e a).symm s) := by
+    simpa only [hμ, Equiv.symm_apply_apply] using
+      Equiv.sum_comp (e a) (fun s => (μ s : ℂ) * star (f s) * g ((e a).symm s))
+  rw [hleft, hright]
+  congr 1
+  simp_rw [hmove, ← heinv]
+  exact Equiv.sum_comp inv (fun a => ∑ s : α, (μ s : ℂ) * star (f s) * g (e a s))
+
+private theorem pd4c_memorySym_pairing_shape {K : ℕ} (F : PDFix K) (S : PDScale)
+    (T : Finset (MemPoint S.x K)) (hT : ∀ s ∈ T, ∀ σ, memoryPermute s σ ∈ T)
+    (f g : MemPoint S.x K → ℂ) (n : MemoryShape K) :
+    (∑ s : MemoryShapeStratum T n, (memMeasure F S s.1 : ℂ) * star (memorySym f s.1) * g s.1) =
+      ∑ s : MemoryShapeStratum T n, (memMeasure F S s.1 : ℂ) * star (f s.1) * memorySym g s.1 := by
+  classical
+  let G := MemoryShapePermutation n
+  let e : G → MemoryShapeStratum T n ≃ MemoryShapeStratum T n :=
+    fun a => memoryShapeStratumEquiv T hT a
+  let inv : G ≃ G := {
+    toFun := fun a i => (a i).symm
+    invFun := fun a i => (a i).symm
+    left_inv := by intro a; funext i; simp
+    right_inv := by intro a; funext i; simp
+  }
+  have heinv (a : G) : e (inv a) = (e a).symm := by
+    apply Equiv.ext
+    intro s
+    apply Subtype.ext
+    rfl
+  have hμ (a : G) (s : MemoryShapeStratum T n) :
+      memMeasure F S (e a s).1 = memMeasure F S s.1 := by
+    exact memoryMeasure_memoryShapeAction F S ⟨s.1, s.2.2⟩ a
+  have hf (s : MemoryShapeStratum T n) :
+      memorySym f s.1 = (Fintype.card G : ℂ)⁻¹ * ∑ a : G, f (e a s).1 := by
+    rw [memorySym_eq_shapeAverage f ⟨s.1, s.2.2⟩]
+    rfl
+  have hg (s : MemoryShapeStratum T n) :
+      memorySym g s.1 = (Fintype.card G : ℂ)⁻¹ * ∑ a : G, g (e a s).1 := by
+    rw [memorySym_eq_shapeAverage g ⟨s.1, s.2.2⟩]
+    rfl
+  simp_rw [hf, hg]
+  exact pd4c_finite_average_pairing e inv heinv (fun s => memMeasure F S s.1)
+    hμ (fun s => f s.1) (fun s => g s.1)
+
+/-- Memory averaging is self-adjoint on every finite permutation-closed set. -/
+theorem pd4c_memorySym_pairing {K : ℕ} (F : PDFix K) (S : PDScale)
+    (T : Finset (MemPoint S.x K)) (hT : ∀ s ∈ T, ∀ σ, memoryPermute s σ ∈ T)
+    (f g : MemPoint S.x K → ℂ) :
+    (∑ s ∈ T, (memMeasure F S s : ℂ) * star (memorySym f s) * g s) =
+      ∑ s ∈ T, (memMeasure F S s : ℂ) * star (f s) * memorySym g s := by
+  classical
+  have hsum (h : MemPoint S.x K → ℂ) :
+      (∑ s ∈ T, h s) = ∑ n : {n : MemoryShape K // n ∈ T.image memoryShape},
+        ∑ s : MemoryShapeStratum T n.1, h s.1 := by
+    rw [finset_sum_attach_eq]
+    have he := Equiv.sum_comp (memoryShapeIndexEquiv T) (fun q : MemoryShapeIndex T => h q.2.1)
+    calc
+      _ = ∑ q : MemoryShapeIndex T, h q.2.1 := by simpa [memoryShapeIndexEquiv] using he
+      _ = _ := Fintype.sum_sigma'
+        (fun (n : {n : MemoryShape K // n ∈ T.image memoryShape})
+          (s : MemoryShapeStratum T n.1) => h s.1)
+  rw [hsum, hsum]
+  apply Finset.sum_congr rfl
+  intro n hn
+  exact pd4c_memorySym_pairing_shape F S T hT f g n.1
+
+/-- A symmetric continuation is fixed by memory averaging. -/
+theorem pd4c_memorySym_eq_self {x : ℝ} {K : ℕ} (f : MemPoint x K → ℂ)
+    (hf : IsMemorySymmetric f) : memorySym f = f :=
+  memorySym_eq_self_of_isMemorySymmetric f hf
+
+/-- Memory reordering preserves state validity in both directions. -/
+theorem pd4c_memValid_memoryPermute_iff {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : MemPoint S.x K) (σ : MemoryPermutation s) :
+    MemValid F S (memoryPermute s σ) ↔ MemValid F S s :=
+  memValid_memoryPermute_iff F S s σ
+
+/-- Transfer a symmetric continuation across arbitrary per-group list reorderings. -/
+theorem pd4c_memory_symmetric_list_perm {x : ℝ} {K : ℕ}
+    (f : MemPoint x K → ℂ) (hf : IsMemorySymmetric f) (s t : MemPoint x K)
+    (hpos : s.1 = t.1) (hactive : s.2.1 = t.2.1)
+    (hmem : ∀ i, List.Perm (s.2.2 i) (t.2.2 i)) : f s = f t :=
+  memorySymmetric_eq_of_list_perm f hf s t hpos hactive hmem
+
+/-- Deletion commutes with a position equivalence, up to retained-list permutation. -/
+theorem pd4c_removeIndices_perm_of_getEquiv {l l' : List Particle}
+    (e : Fin l'.length ≃ Fin l.length)
+    (hget : ∀ j, l'.get j = l.get (e j)) (D : Finset (Fin l'.length)) :
+    List.Perm (removeIndices l' D) (removeIndices l (D.image e)) :=
+  removeIndices_perm_of_getEquiv e hget D
+
+/-- Endpoint slot averaging retains symmetry of the memory continuation. -/
+theorem pd4c_activeSym_preserves_memorySym {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : MemPoint S.x K → ℂ) (hf : IsMemorySymmetric f) :
+    IsMemorySymmetric (plainOp (logSym F S) f) := by
+  intro s σ
+  exact logSym_plain_memorySym F S f hf s σ []
+
 /-- Each raw or comparison edge piece preserves memory symmetry. -/
 theorem memEdgePiece_preserves_memorySym {K : ℕ} (F : PDFix K) (S : PDScale)
     (ρ : ℝ) (w : ArchRoot) (raw : Bool) (St Pr : Finset (Fin K)) (j : ℕ)

@@ -684,6 +684,207 @@ theorem majorKernel_norm_le_scaled (x Y A₀ t : ℝ) (a b : ℕ) (psi : ℝ →
       _ ≤ ‖(psi (t / Y) : ℂ)‖ * (32 * P ^ 3 / Y) :=
         mul_le_mul_of_nonneg_left hvol (norm_nonneg _)
 
+/-- A prescribed nonzero line occupies a vanishing fraction of a balanced lattice box. -/
+theorem box_line_count_le_balanced (p : ℕ) (hp : p.Prime)
+    (Y C A D e : ℝ) (hY : 1 ≤ Y) (he : 0 ≤ e)
+    (hAD : A * D ≤ C * Y) (hA : Real.rpow Y e ≤ A) (hD : Real.rpow Y e ≤ D)
+    (a b : ZMod p) (hab : a ≠ 0 ∨ b ≠ 0) :
+    (({q : ℤ × ℤ | |(q.1 : ℝ)| ≤ A ∧ |(q.2 : ℝ)| ≤ D ∧
+      a * (q.1 : ZMod p) + b * (q.2 : ZMod p) = 0}.ncard : ℝ)) ≤
+        12 * C * Y * (1 / (p : ℝ) + Real.rpow Y (-e)) := by
+  have hYpos : 0 < Y := by linarith
+  have hpow : 0 < Real.rpow Y e := Real.rpow_pos_of_pos hYpos _
+  have hpowone : 1 ≤ Real.rpow Y e := Real.one_le_rpow hY he
+  have hAone : 1 ≤ A := le_trans hpowone hA
+  have hDone : 1 ≤ D := le_trans hpowone hD
+  have hAnonneg : 0 ≤ A := by linarith
+  have hDnonneg : 0 ≤ D := by linarith
+  have hpnonneg : 0 ≤ (p : ℝ) := Nat.cast_nonneg _
+  have hmax : max A D ≤ A * D / Real.rpow Y e := by
+    apply max_le
+    · apply (le_div_iff₀ hpow).2
+      exact mul_le_mul_of_nonneg_left hD hAnonneg
+    · apply (le_div_iff₀ hpow).2
+      calc
+        D * Real.rpow Y e ≤ D * A := mul_le_mul_of_nonneg_left hA hDnonneg
+        _ = A * D := mul_comm _ _
+  calc
+    _ ≤ 12 * (A * D / (p : ℝ) + max A D) :=
+      box_line_count_le p hp A D hAone hDone a b hab
+    _ ≤ 12 * (C * Y / (p : ℝ) + C * Y / Real.rpow Y e) := by
+      gcongr
+      exact le_trans hmax (div_le_div_of_nonneg_right hAD hpow.le)
+    _ = 12 * C * Y * (1 / (p : ℝ) + Real.rpow Y (-e)) := by
+      have hneg : Real.rpow Y (-e) = (Real.rpow Y e)⁻¹ := Real.rpow_neg hYpos.le e
+      rw [hneg]
+      simp only [div_eq_mul_inv, one_mul]
+      ring
+
+/-- A primitive reference position and its Bezout complement form an integral basis. -/
+theorem pd4c_primitive_basis_coordinates (z z' : ℤ × ℤ)
+    (hz : Int.gcd z.1 z.2 = 1) :
+    z' = (det2 z' (complementVec z) * z.1 + det2 z z' * (complementVec z).1,
+      det2 z' (complementVec z) * z.2 + det2 z z' * (complementVec z).2) := by
+  have hBez := Int.gcd_eq_gcd_ab z.1 z.2
+  rw [hz] at hBez
+  have hdet : z.1 * (complementVec z).2 - z.2 * (complementVec z).1 = 1 := by
+    simpa [complementVec, sub_neg_eq_add] using hBez.symm
+  apply Prod.ext
+  · calc
+      z'.1 = z'.1 * (z.1 * (complementVec z).2 - z.2 * (complementVec z).1) := by
+        rw [hdet, mul_one]
+      _ = _ := by dsimp [det2]; ring
+  · calc
+      z'.2 = z'.2 * (z.1 * (complementVec z).2 - z.2 * (complementVec z).1) := by
+        rw [hdet, mul_one]
+      _ = _ := by dsimp [det2]; ring
+
+/-- Box positions with pad divisibility have coordinates in the Diophantine strip. -/
+theorem pd4c_env_target_strip_coordinates (S : PDScale) (w : ArchRoot)
+    (z z' : ℤ × ℤ) (D : ℕ) (C : ℝ)
+    (hU : 0 < S.U) (hw : w.InRegion S)
+    (hz : Int.gcd z.1 z.2 = 1) (hbox : envBox S w z) (hbox' : envBox S w z')
+    (hdiv : (D : ℤ) ∣ det2 z z')
+    (hbound : |((det2 z z' / (D : ℤ) : ℤ) : ℝ)| ≤ C * S.Y) :
+    ∃ h l : ℤ,
+      z' = (h * z.1 + (D : ℤ) * l * (complementVec z).1,
+        h * z.2 + (D : ℤ) * l * (complementVec z).2) ∧
+      |(l : ℝ)| ≤ C * S.Y ∧
+      |(h : ℝ) + (l : ℝ) * ((D : ℝ) * transportedRatio w z)| ≤ 16 := by
+  let h := det2 z' (complementVec z)
+  let l := det2 z z' / (D : ℤ)
+  have hdl : (D : ℤ) * l = det2 z z' := Int.mul_ediv_cancel' hdiv
+  have hrepr := pd4c_primitive_basis_coordinates z z' hz
+  rw [← hdl] at hrepr
+  have hupos : 0 < w.u := lt_of_lt_of_le hU hw.1
+  have htaupos : 0 < w.tau z :=
+    (mul_pos_iff_of_pos_left hupos).mp (lt_of_lt_of_le hU hbox.1)
+  have htau'pos : 0 < w.tau z' :=
+    (mul_pos_iff_of_pos_left hupos).mp (lt_of_lt_of_le hU hbox'.1)
+  have hsource : S.U / w.u ≤ w.tau z :=
+    (div_le_iff₀ hupos).2 (by simpa only [mul_comm] using hbox.1)
+  have htarget : w.tau z' ≤ (16 * S.U) / w.u :=
+    (le_div_iff₀ hupos).2 (by simpa only [mul_comm] using hbox'.2.1)
+  have hratio : w.tau z' / w.tau z ≤ 16 := by
+    apply (div_le_iff₀ htaupos).2
+    calc
+      _ ≤ (16 * S.U) / w.u := htarget
+      _ = 16 * (S.U / w.u) := by ring
+      _ ≤ 16 * w.tau z := mul_le_mul_of_nonneg_left hsource (by norm_num)
+  have htau : w.tau z' = (h : ℝ) * w.tau z + (D : ℝ) * (l : ℝ) * w.tau (complementVec z) := by
+    rw [hrepr]
+    dsimp [ArchRoot.tau]
+    push_cast
+    ring
+  have hlinear : (h : ℝ) + (l : ℝ) * ((D : ℝ) * transportedRatio w z) =
+      w.tau z' / w.tau z := by
+    rw [htau]
+    unfold transportedRatio
+    field_simp [htaupos.ne']
+  refine ⟨h, l, hrepr, hbound, ?_⟩
+  rw [hlinear, abs_of_pos (div_pos htau'pos htaupos)]
+  exact hratio
+
+/-- An invertible change of integer basis preserves the nonzero equation of a line. -/
+theorem pd4c_line_coefficients_nonzero (p : ℕ) (hp : p.Prime)
+    (u v w t : ℤ)
+    (hdet : (u : ZMod p) * (t : ZMod p) - (v : ZMod p) * (w : ZMod p) ≠ 0)
+    (a b : ZMod p) (hab : a ≠ 0 ∨ b ≠ 0) :
+    a * (u : ZMod p) + b * (v : ZMod p) ≠ 0 ∨
+      a * (w : ZMod p) + b * (t : ZMod p) ≠ 0 := by
+  letI : Fact p.Prime := ⟨hp⟩
+  by_contra h
+  push_neg at h
+  have ha : a * ((u : ZMod p) * t - (v : ZMod p) * w) = 0 := by
+    calc
+      _ = (a * (u : ZMod p) + b * (v : ZMod p)) * t -
+          (a * (w : ZMod p) + b * (t : ZMod p)) * v := by ring
+      _ = 0 := by rw [h.1, h.2]; ring
+  have hb : b * ((u : ZMod p) * t - (v : ZMod p) * w) = 0 := by
+    calc
+      _ = (a * (w : ZMod p) + b * (t : ZMod p)) * u -
+          (a * (u : ZMod p) + b * (v : ZMod p)) * w := by ring
+      _ = 0 := by rw [h.1, h.2]; ring
+  have ha0 := (mul_eq_zero.mp ha).resolve_right hdet
+  have hb0 := (mul_eq_zero.mp hb).resolve_right hdet
+  exact hab.elim (fun h => h ha0) (fun h => h hb0)
+
+/-- Relative basis coordinates of box points lie in a strip of fixed width. -/
+theorem pd4c_env_basis_phase_bound (S : PDScale) (w : ArchRoot) (z z' : ℤ × ℤ)
+    (hU : 0 < S.U) (hw : w.InRegion S) (hz : Int.gcd z.1 z.2 = 1)
+    (hbox : envBox S w z) (hbox' : envBox S w z') :
+    |(det2 z' (complementVec z) : ℝ) +
+      (det2 z z' : ℝ) * transportedRatio w z| ≤ 16 := by
+  have hupos : 0 < w.u := lt_of_lt_of_le hU hw.1
+  have hτpos : 0 < w.tau z :=
+    (mul_pos_iff_of_pos_left hupos).mp (lt_of_lt_of_le hU hbox.1)
+  have hτ'pos : 0 < w.tau z' :=
+    (mul_pos_iff_of_pos_left hupos).mp (lt_of_lt_of_le hU hbox'.1)
+  have hsource : S.U / w.u ≤ w.tau z :=
+    (div_le_iff₀ hupos).2 (by simpa only [mul_comm] using hbox.1)
+  have htarget : w.tau z' ≤ (16 * S.U) / w.u :=
+    (le_div_iff₀ hupos).2 (by simpa only [mul_comm] using hbox'.2.1)
+  have hratio : w.tau z' / w.tau z ≤ 16 := by
+    apply (div_le_iff₀ hτpos).2
+    calc
+      _ ≤ (16 * S.U) / w.u := htarget
+      _ = 16 * (S.U / w.u) := by ring
+      _ ≤ 16 * w.tau z := mul_le_mul_of_nonneg_left hsource (by norm_num)
+  have htau : w.tau z' = (det2 z' (complementVec z) : ℝ) * w.tau z +
+      (det2 z z' : ℝ) * w.tau (complementVec z) := by
+    conv_lhs => rw [pd4c_primitive_basis_coordinates z z' hz]
+    dsimp [ArchRoot.tau]
+    push_cast
+    ring
+  have hphase : (det2 z' (complementVec z) : ℝ) +
+      (det2 z z' : ℝ) * transportedRatio w z = w.tau z' / w.tau z := by
+    rw [htau]
+    unfold transportedRatio
+    field_simp [hτpos.ne']
+  rw [hphase, abs_of_pos (div_pos hτ'pos hτpos)]
+  exact hratio
+
+/-- Fixing the determinant leaves a uniformly bounded number of target box positions. -/
+theorem pd4c_env_fixed_det_count (S : PDScale) (w : ArchRoot) (z : ℤ × ℤ) (d : ℤ)
+    (hU : 0 < S.U) (hw : w.InRegion S) (hz : Int.gcd z.1 z.2 = 1)
+    (hbox : envBox S w z) :
+    ({z' : ℤ × ℤ | envBox S w z' ∧ det2 z z' = d}.ncard : ℝ) ≤ 34 := by
+  let lo : ℤ := ⌊-(d : ℝ) * transportedRatio w z - 16⌋
+  let I : Finset ℤ := Finset.Icc lo (lo + 33)
+  let coord : ℤ × ℤ → ℤ := fun z' => det2 z' (complementVec z)
+  have hmap : ∀ z' ∈ {z' : ℤ × ℤ | envBox S w z' ∧ det2 z z' = d}, coord z' ∈ (I : Set ℤ) := by
+    intro z' hz'
+    have hphase := pd4c_env_basis_phase_bound S w z z' hU hw hz hbox hz'.1
+    rw [hz'.2] at hphase
+    rcases abs_le.mp hphase with ⟨hlo, hhi⟩
+    have hfloor := Int.floor_le (-(d : ℝ) * transportedRatio w z - 16)
+    have hfloor' := Int.lt_floor_add_one (-(d : ℝ) * transportedRatio w z - 16)
+    have hcoordLo : (lo : ℝ) ≤ (coord z' : ℝ) := by dsimp [lo, coord]; linarith
+    have hcoordHi : (coord z' : ℝ) ≤ (lo + 33 : ℤ) := by
+      dsimp [lo, coord]
+      push_cast
+      linarith
+    exact Finset.mem_coe.mpr (Finset.mem_Icc.mpr ⟨by exact_mod_cast hcoordLo,
+      by exact_mod_cast hcoordHi⟩)
+  have hinj : Set.InjOn coord {z' : ℤ × ℤ | envBox S w z' ∧ det2 z z' = d} := by
+    intro z₁ hz₁ z₂ hz₂ hcoord
+    have h₁ := pd4c_primitive_basis_coordinates z z₁ hz
+    have h₂ := pd4c_primitive_basis_coordinates z z₂ hz
+    rw [hz₁.2] at h₁
+    rw [hz₂.2] at h₂
+    change det2 z₁ (complementVec z) = det2 z₂ (complementVec z) at hcoord
+    rw [hcoord] at h₁
+    exact h₁.trans h₂.symm
+  have hcard := Set.ncard_le_ncard_of_injOn coord hmap hinj I.finite_toSet
+  have hIcard : I.card = 34 := by
+    simp only [I, Int.card_Icc]
+    have heq : lo + 33 + 1 - lo = 34 := by ring
+    rw [heq]
+    norm_num
+  have hbound : {z' : ℤ × ℤ | envBox S w z' ∧ det2 z z' = d}.ncard ≤ 34 := by
+    simpa [hIcard] using hcard
+  exact_mod_cast hbound
+
 end
 
 end ArtinPrimitiveRoots.TypeII.PD
