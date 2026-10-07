@@ -32,6 +32,10 @@ structure AddCharData (F : Type) [Field F] [NumberField F] where
   trivial_on_F : ∀ z : F, (Function.mulSupport fun v => ψ v (algebraMap F _ z)).Finite ∧
     (∏ᶠ v, ψ v (algebraMap F _ z)) *
       Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = 1
+  /-- `ψ_v` is trivial on `O_v` at every finite place (Tate's `ψ_v` has conductor `𝔇_v⁻¹ ⊇ O_v`).
+  Added 2026-10-07 after lane `a1-psi` showed `SData.e_diag_eq` false without it. -/
+  integral : ∀ (v : FinPlace F) (x : v.adicCompletion F), x ∈ v.adicCompletionIntegers F →
+    ψ v x = 1
   /-- at `v ∤ 𝔇`, `ψ_v` has conductor `O_v`. -/
   unramified : ∀ v : FinPlace F, ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal →
     (∀ x : v.adicCompletion F, x ∈ v.adicCompletionIntegers F → ψ v x = 1) ∧
