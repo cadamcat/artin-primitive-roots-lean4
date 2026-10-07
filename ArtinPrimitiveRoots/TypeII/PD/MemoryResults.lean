@@ -544,6 +544,1449 @@ def pathLifespan {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K) (p :
   lifespanSum p (pathLength S.x) (fun j => projLine p (γ j).1) (IsActiveAt γ p)
     (fun j => memoryEta S.x F.q_d j.val) (memoryBPrime S.x F.q_d p)
 
+private theorem envPoint_band_box_finite {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (hU : 0 < S.U) (hV : 0 < S.V) (hw : w.InRegion S) :
+    {s : EnvPoint S.x K | (∀ i j, s.2 i j ∈ primeBand S.x (F.a i)) ∧
+      envBox S w s.1}.Finite := by
+  classical
+  rcases hw with ⟨huL, huR, hvL, hvR, hrL, hrU⟩
+  have hu : 0 < w.u := lt_of_lt_of_le hU huL
+  have hv : 0 < w.v := lt_of_lt_of_le hV hvL
+  let M : ℝ := 16 + 500 * S.U * S.V
+  let n : ℕ := ⌈M⌉₊
+  have hM : 0 < M := by dsimp [M]; positivity
+  have hn : M ≤ (n : ℝ) := by simpa [n] using (Nat.le_ceil M)
+  have hUV : 0 < S.U * S.V := mul_pos hU hV
+  let I : Set ℤ := Set.Icc (-(n : ℤ)) (n : ℤ)
+  let Z : Set (ℤ × ℤ) := {z | envBox S w z}
+  have hZsub : Z ⊆ I ×ˢ I := by
+    intro z hz
+    have hτlo' : S.U / w.u ≤ w.tau z := by
+      apply (div_le_iff₀ hu).2
+      simpa [mul_comm] using hz.1
+    have hτlo : (1 / 16 : ℝ) ≤ w.tau z := by
+      have haux : (1 / 16 : ℝ) ≤ S.U / w.u := by
+        apply (le_div_iff₀ hu).2
+        nlinarith
+      exact haux.trans hτlo'
+    have hτhi' : w.tau z ≤ (16 * S.U) / w.u := by
+      apply (le_div_iff₀ hu).2
+      simpa [mul_comm] using hz.2.1
+    have hτhi : w.tau z ≤ 16 := by
+      calc
+        w.tau z ≤ (16 * S.U) / w.u := hτhi'
+        _ ≤ 16 := by
+          apply (div_le_iff₀ hu).2
+          nlinarith
+    have hτpos : 0 < w.tau z := by linarith
+    have hvtau : 0 ≤ w.v * w.tau z := (mul_nonneg hv.le hτpos.le)
+    have hvtauU : w.v * w.tau z ≤ 32 * S.V := by
+      calc
+        w.v * w.tau z ≤ w.v * 16 := mul_le_mul_of_nonneg_left hτhi hv.le
+        _ ≤ (2 * S.V) * 16 := mul_le_mul_of_nonneg_right hvR (by norm_num)
+        _ = 32 * S.V := by ring
+    have hz2lo' : -31 * S.V ≤ (z.2 : ℝ) / w.u := by
+      have h := hz.2.2.1
+      linarith
+    have hz2hi' : (z.2 : ℝ) / w.u ≤ 2 * S.V := by
+      have h := hz.2.2.2
+      linarith
+    have hz2lo : (-31 * S.V) * w.u ≤ (z.2 : ℝ) :=
+      (le_div_iff₀ hu).mp hz2lo'
+    have hz2hi : (z.2 : ℝ) ≤ (2 * S.V) * w.u :=
+      (div_le_iff₀ hu).mp hz2hi'
+    have hz2loB : -(496 * S.U * S.V) ≤ (z.2 : ℝ) := by
+      calc
+        -(496 * S.U * S.V) = (-31 * S.V) * (16 * S.U) := by ring
+        _ ≤ (-31 * S.V) * w.u :=
+          mul_le_mul_of_nonpos_left huR (by nlinarith [hV])
+        _ ≤ (z.2 : ℝ) := hz2lo
+    have hz2hiB : (z.2 : ℝ) ≤ 32 * S.U * S.V := by
+      calc
+        (z.2 : ℝ) ≤ (2 * S.V) * w.u := hz2hi
+        _ ≤ (2 * S.V) * (16 * S.U) :=
+          mul_le_mul_of_nonneg_left huR (by positivity)
+        _ = 32 * S.U * S.V := by ring
+    have hz2Real : |(z.2 : ℝ)| ≤ M := by
+      rw [abs_le]
+      constructor
+      · dsimp [M]
+        linarith [hz2loB, hUV]
+      · dsimp [M]
+        linarith [hz2hiB, hUV]
+    have hrzlo : -(496 * S.U * S.V) ≤ w.r * (z.2 : ℝ) := by
+      by_cases hz20 : 0 ≤ (z.2 : ℝ)
+      · have h := mul_nonneg hrL hz20
+        linarith [hUV]
+      · have hrle : w.r - 1 ≤ 0 := by linarith [hrU]
+        have hz2le : (z.2 : ℝ) ≤ 0 := le_of_lt (lt_of_not_ge hz20)
+        have h := mul_nonneg_of_nonpos_of_nonpos hrle hz2le
+        linarith [hz2loB]
+    have hrzhi : w.r * (z.2 : ℝ) ≤ 496 * S.U * S.V := by
+      by_cases hz20 : 0 ≤ (z.2 : ℝ)
+      · have hrOne : 0 ≤ 1 - w.r := by linarith [hrU]
+        have h := mul_nonneg hrOne hz20
+        nlinarith [hz2hiB]
+      · have h := mul_nonpos_of_nonneg_of_nonpos hrL (le_of_lt (lt_of_not_ge hz20))
+        nlinarith [hUV]
+    have hz1lo : -(496 * S.U * S.V) ≤ (z.1 : ℝ) := by
+      have ht : w.tau z = (z.1 : ℝ) + w.r * (z.2 : ℝ) := rfl
+      linarith [ht, hτlo, hrzhi]
+    have hz1hi : (z.1 : ℝ) ≤ 16 + 496 * S.U * S.V := by
+      have ht : w.tau z = (z.1 : ℝ) + w.r * (z.2 : ℝ) := rfl
+      linarith [ht, hτhi, hrzlo]
+    have hz1Real : |(z.1 : ℝ)| ≤ M := by
+      rw [abs_le]
+      constructor <;> dsimp [M] <;> linarith [hz1lo, hz1hi, hUV]
+    have hn1loR : -(n : ℝ) ≤ (z.1 : ℝ) :=
+      (by linarith [hn] : -(n : ℝ) ≤ -M).trans (abs_le.mp hz1Real).1
+    have hn1hiR : (z.1 : ℝ) ≤ (n : ℝ) := (abs_le.mp hz1Real).2.trans hn
+    have hn2loR : -(n : ℝ) ≤ (z.2 : ℝ) :=
+      (by linarith [hn] : -(n : ℝ) ≤ -M).trans (abs_le.mp hz2Real).1
+    have hn2hiR : (z.2 : ℝ) ≤ (n : ℝ) := (abs_le.mp hz2Real).2.trans hn
+    have hn1lo : -(n : ℤ) ≤ z.1 := by exact_mod_cast hn1loR
+    have hn1hi : z.1 ≤ (n : ℤ) := by exact_mod_cast hn1hiR
+    have hn2lo : -(n : ℤ) ≤ z.2 := by exact_mod_cast hn2loR
+    have hn2hi : z.2 ≤ (n : ℤ) := by exact_mod_cast hn2hiR
+    constructor
+    · simpa [I, Set.mem_Icc] using ⟨hn1lo, hn1hi⟩
+    · simpa [I, Set.mem_Icc] using ⟨hn2lo, hn2hi⟩
+  have hZ : Z.Finite := (Set.finite_Icc _ _).prod (Set.finite_Icc _ _) |>.subset hZsub
+  let P : Finset (PrimeLists S.x K) :=
+    Fintype.piFinset fun i : Fin K =>
+      Fintype.piFinset fun j : Fin (slotCount S.x) => primeBand S.x (F.a i)
+  have hP (p : PrimeLists S.x K)
+      (hp : ∀ i j, p i j ∈ primeBand S.x (F.a i)) : p ∈ P := by
+    simp only [P, Fintype.mem_piFinset]
+    intro i j
+    exact hp i j
+  have hset :
+      {s : EnvPoint S.x K | (∀ i j, s.2 i j ∈ primeBand S.x (F.a i)) ∧
+        envBox S w s.1} ⊆ Z ×ˢ (P : Set (PrimeLists S.x K)) := by
+    intro s hs
+    exact ⟨hs.2, Finset.mem_coe.mpr (hP s.2 hs.1)⟩
+  exact (hZ.prod P.finite_toSet).subset hset
+
+private theorem envPoint_valid_box_finite {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (hU : 0 < S.U) (hV : 0 < S.V) (hw : w.InRegion S) :
+    {s : EnvPoint S.x K | EnvValid F S s ∧ envBox S w s.1}.Finite := by
+  apply (envPoint_band_box_finite F S w hU hV hw).subset
+  intro s hs
+  exact ⟨fun i j => (hs.1.2.1 i j).2, hs.2⟩
+
+private def historyDefaultPoint {x : ℝ} {K : ℕ} : EnvPoint x K :=
+  ((0, 0), fun _ _ => 0)
+
+private def historyDefaultPath {x : ℝ} {K : ℕ} : EnvPath x K :=
+  fun _ => historyDefaultPoint
+
+private def historyRouteIndex {x : ℝ} (k : ℕ) : Fin (pathLength x + 1) :=
+  ⟨pathLength x - k, Nat.lt_succ_of_le (Nat.sub_le _ _)⟩
+
+private noncomputable def historyRouteFinset {x : ℝ} {K : ℕ}
+    (P : Finset (EnvPoint x K)) (k : ℕ) : Finset (EnvPath x K) :=
+  Fintype.piFinset fun j : Fin (pathLength x + 1) =>
+    if pathLength x - k ≤ j.val then P else {historyDefaultPoint}
+
+private theorem mem_historyRouteFinset {x : ℝ} {K : ℕ}
+    (P : Finset (EnvPoint x K)) (k : ℕ) (γ : EnvPath x K) :
+    γ ∈ historyRouteFinset P k ↔
+      (∀ j, pathLength x - k ≤ j.val → γ j ∈ P) ∧
+      (∀ j, j.val < pathLength x - k → γ j = historyDefaultPoint) := by
+  simp only [historyRouteFinset, Fintype.mem_piFinset]
+  constructor
+  · intro h
+    constructor
+    · intro j hj
+      simpa [hj] using h j
+    · intro j hj
+      have hnot : ¬ pathLength x - k ≤ j.val := by omega
+      simpa [hnot] using h j
+  · rintro ⟨hP, hD⟩ j
+    by_cases hj : pathLength x - k ≤ j.val
+    · simpa [hj] using hP j hj
+    · simpa [hj] using hD j (by omega)
+
+private theorem historyRouteFinset_zero_sum {x : ℝ} {K : ℕ}
+    (P : Finset (EnvPoint x K)) (f : EnvPath x K → ℂ) :
+    (∑ γ ∈ historyRouteFinset P 0, f γ) =
+      ∑ e ∈ P, f (Function.update historyDefaultPath (Fin.last (pathLength x)) e) := by
+  classical
+  refine Finset.sum_bij
+    (fun γ _ => γ (Fin.last (pathLength x)))
+    ?_ ?_ ?_ ?_
+  · intro γ hγ
+    exact (mem_historyRouteFinset P 0 γ).mp hγ |>.1 _ (by simp)
+  · intro γ₁ h₁ γ₂ h₂ he
+    have h₁' := (mem_historyRouteFinset P 0 γ₁).mp h₁
+    have h₂' := (mem_historyRouteFinset P 0 γ₂).mp h₂
+    funext j
+    by_cases hj : j = Fin.last (pathLength x)
+    · simpa [hj] using he
+    · have hjlt : j.val < pathLength x := by
+        have hle : j.val ≤ pathLength x := by omega
+        have hne : j.val ≠ pathLength x := by
+          intro hval
+          apply hj
+          exact Fin.ext hval
+        omega
+      rw [h₁'.2 j hjlt, h₂'.2 j hjlt]
+  · intro e he
+    let γ := Function.update historyDefaultPath (Fin.last (pathLength x)) e
+    refine ⟨γ, ?_, ?_⟩
+    · rw [mem_historyRouteFinset]
+      constructor
+      · intro j hj
+        have hjlast : j = Fin.last (pathLength x) := by
+          apply Fin.ext
+          simp only [Fin.val_last]
+          omega
+        subst j
+        simpa [γ] using he
+      · intro j hj
+        have hjne : j ≠ Fin.last (pathLength x) := by
+          intro h
+          have := congrArg Fin.val h
+          simp only [Fin.val_last] at this
+          omega
+        simp [γ, historyDefaultPath, Function.update_of_ne hjne]
+    · simp [γ]
+  · intro γ hγ
+    have hγ' := (mem_historyRouteFinset P 0 γ).mp hγ
+    have hEq : γ = Function.update historyDefaultPath (Fin.last (pathLength x))
+        (γ (Fin.last (pathLength x))) := by
+      funext j
+      by_cases hj : j = Fin.last (pathLength x)
+      · subst j
+        simp
+      · have hjlt : j.val < pathLength x := by
+          have hle : j.val ≤ pathLength x := by omega
+          have hne : j.val ≠ pathLength x := by
+            intro heq
+            apply hj
+            exact Fin.ext heq
+          omega
+        have hdef := hγ'.2 j hjlt
+        simp [historyDefaultPath, Function.update_of_ne hj, hdef]
+    exact congrArg f hEq
+
+private theorem historyRouteFinset_succ_sum {x : ℝ} {K : ℕ}
+    (P : Finset (EnvPoint x K)) (k : ℕ) (hk : k < pathLength x)
+    (f : EnvPath x K → ℂ) :
+    (∑ γ ∈ historyRouteFinset P (k + 1), f γ) =
+      ∑ e ∈ P, ∑ γ ∈ historyRouteFinset P k,
+        f (Function.update γ (historyRouteIndex (k + 1)) e) := by
+  classical
+  let idx := historyRouteIndex (x := x) (k + 1)
+  have hidxval : idx.val = pathLength x - (k + 1) := rfl
+  have hidxlt : idx.val < pathLength x - k := by
+    dsimp [idx, historyRouteIndex]
+    omega
+  rw [← Finset.sum_product']
+  refine Finset.sum_bij
+    (fun γ _ => (γ idx, Function.update γ idx historyDefaultPoint))
+    ?_ ?_ ?_ ?_
+  · intro γ hγ
+    have hγ' := (mem_historyRouteFinset P (k + 1) γ).mp hγ
+    apply Finset.mem_product.mpr
+    constructor
+    · exact hγ'.1 idx (by simp [idx, historyRouteIndex])
+    · rw [mem_historyRouteFinset]
+      constructor
+      · intro j hj
+        by_cases hji : j = idx
+        · subst j
+          exact False.elim (not_le_of_gt hidxlt hj)
+        · have hj' : pathLength x - (k + 1) ≤ j.val := by
+            dsimp [idx, historyRouteIndex] at hji
+            omega
+          have hmem := hγ'.1 j hj'
+          simpa [Function.update_of_ne hji] using hmem
+      · intro j hj
+        by_cases hji : j = idx
+        · subst j
+          simp [idx, historyRouteIndex]
+        · have hj' : j.val < pathLength x - (k + 1) := by
+            have hjiVal : j.val ≠ idx.val := by
+              intro heq
+              apply hji
+              exact Fin.ext heq
+            omega
+          have hdef := hγ'.2 j hj'
+          simpa [Function.update_of_ne hji] using hdef
+  · intro γ₁ h₁ γ₂ h₂ heq
+    have he : γ₁ idx = γ₂ idx := congrArg Prod.fst heq
+    have hrest : Function.update γ₁ idx historyDefaultPoint =
+        Function.update γ₂ idx historyDefaultPoint := congrArg Prod.snd heq
+    funext j
+    by_cases hji : j = idx
+    · simpa [hji] using he
+    · have h := congrFun hrest j
+      simpa [Function.update_of_ne hji] using h
+  · intro pair hp
+    rcases Finset.mem_product.mp hp with ⟨he, hγ⟩
+    let γ := Function.update pair.2 idx pair.1
+    refine ⟨γ, ?_, ?_⟩
+    · rw [mem_historyRouteFinset]
+      constructor
+      · intro j hj
+        by_cases hji : j = idx
+        · subst j
+          simpa [γ, idx] using he
+        · have hj' : pathLength x - k ≤ j.val := by
+            have hjiVal : j.val ≠ idx.val := by
+              intro heq
+              apply hji
+              exact Fin.ext heq
+            omega
+          have hγprop := (mem_historyRouteFinset P k pair.2).mp hγ
+          have hmem := hγprop.1 j hj'
+          simpa [γ, Function.update_of_ne hji] using hmem
+      · intro j hj
+        by_cases hji : j = idx
+        · subst j
+          have : ¬ idx.val < pathLength x - (k + 1) := by omega
+          exact False.elim (this hj)
+        · have hj' : j.val < pathLength x - k := by
+            dsimp [idx, historyRouteIndex] at hji
+            omega
+          have hγprop := (mem_historyRouteFinset P k pair.2).mp hγ
+          have hdef := hγprop.2 j hj'
+          simpa [γ, Function.update_of_ne hji] using hdef
+    · apply Prod.ext
+      · simp [γ]
+      · have hγprop := (mem_historyRouteFinset P k pair.2).mp hγ
+        have hdefault : pair.2 idx = historyDefaultPoint := hγprop.2 idx hidxlt
+        funext j
+        by_cases hji : j = idx
+        · subst j
+          simp [γ, hdefault]
+        · simp [γ, Function.update_of_ne hji]
+  · intro γ hγ
+    have hγ' := (mem_historyRouteFinset P (k + 1) γ).mp hγ
+    have hreconstruct : γ = Function.update
+        (Function.update γ idx historyDefaultPoint) idx (γ idx) := by
+      funext j
+      by_cases hji : j = idx <;> simp [hji]
+    exact congrArg f hreconstruct
+
+private theorem validPrimeLists_permute {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (σ : Fin K → Equiv.Perm (Fin (slotCount x))) (p : PrimeLists x K)
+    (hp : ValidPrimeLists x K a p) : ValidPrimeLists x K a (permuteLists σ p) := by
+  constructor
+  · intro i j
+    exact hp.1 i (σ i j)
+  · intro i j j' hj
+    apply hp.2 i (σ i j) (σ i j')
+    intro h
+    exact hj ((σ i).injective h)
+
+private theorem edgeAdmissible_target_valid_box {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) {s : MemPoint S.x K}
+    {c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i} {z' : ℤ × ℤ}
+    (h : EdgeAdmissible F S w s c z') :
+    EnvValid F S (z', edgeTargetLists F S s c) ∧ envBox S w z' := by
+  rcases h with ⟨_, _, hLists, _, _, hGcd, _, hBox, _, _⟩
+  exact ⟨⟨hGcd, hLists⟩, hBox⟩
+
+private theorem tsum_sum_finite_support {α ι : Type*} (T : Finset α) (s : Finset ι)
+    (f : α → ι → ℂ) (hzero : ∀ i a, a ∉ T → f a i = 0) :
+    (∑' a, ∑ i ∈ s, f a i) = ∑ i ∈ s, ∑' a, f a i := by
+  calc
+    _ = ∑ a ∈ T, ∑ i ∈ s, f a i := by
+      apply tsum_eq_sum
+      intro a ha
+      simp [hzero _ _ ha]
+    _ = ∑ i ∈ s, ∑ a ∈ T, f a i := by rw [Finset.sum_comm]
+    _ = _ := by
+      apply Finset.sum_congr rfl
+      intro i hi
+      symm
+      apply tsum_eq_sum
+      intro a ha
+      exact hzero i a ha
+
+private theorem edgeAdmissible_position_mem {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) {s : MemPoint S.x K}
+    {c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i} {z' : ℤ × ℤ}
+    {P : Finset (EnvPoint S.x K)}
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1)
+    (h : EdgeAdmissible F S w s c z') : z' ∈ P.image fun t => t.1 := by
+  apply Finset.mem_image.mpr
+  refine ⟨(z', edgeTargetLists F S s c), ?_, rfl⟩
+  exact hP _ |>.2 (edgeAdmissible_target_valid_box F S w h)
+
+private theorem logEdgePiece_sum {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ)
+    (w : ArchRoot) (step : ℕ) (raw : Bool) (St Pr : Finset (Fin K))
+    {ι : Type*} (R : Finset ι) (f : ι → LogPoint S.x K → ℂ)
+    (P : Finset (EnvPoint S.x K))
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1)
+    (σL : LogPoint S.x K) :
+    logEdgePiece F S ρ w step raw St Pr (fun t => ∑ i ∈ R, f i t) σL =
+      ∑ i ∈ R, logEdgePiece F S ρ w step raw St Pr (f i) σL := by
+  classical
+  let s := σL.1
+  let good (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ) : Prop :=
+    edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧ EdgeAdmissible F S w s c z'
+  let out (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ) :
+      LogPoint S.x K :=
+    ((z', (edgeTargetLists F S s c, edgeNewMemory F S s c)),
+      σL.2 ++ edgeBirths F S step s c)
+  let coef (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ) : ℂ :=
+    (((ρ ^ (∑ i : Fin K, hitCount (s.2.2 i) s.1) *
+        (∏ i : Fin K,
+          match (c i).2 with
+          | Sum.inl _ => (bandMass S.x (F.a i))⁻¹
+          | Sum.inr p => memoryNu S.x K F.a F.q_d i p) *
+        ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z') : ℝ) : ℂ) *
+      edgeMultiplier F S (decide (step % 2 = 0)) raw s.2.1
+        (edgeTargetLists F S s c) s.1 z')
+  change
+    (∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+      ∑' z' : ℤ × ℤ,
+        if good c z' then coef c z' * (∑ i ∈ R, f i (out c z')) else 0) =
+      ∑ i ∈ R,
+        (∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+          ∑' z' : ℤ × ℤ,
+            if good c z' then coef c z' * f i (out c z') else 0)
+  have hpoint (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ) :
+      (if good c z' then coef c z' * (∑ i ∈ R, f i (out c z')) else 0) =
+        ∑ i ∈ R, if good c z' then coef c z' * f i (out c z') else 0 := by
+    by_cases hg : good c z' <;> simp [hg, Finset.mul_sum]
+  simp_rw [hpoint]
+  calc
+    _ = ∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+          ∑ i ∈ R, ∑' z' : ℤ × ℤ,
+            if good c z' then coef c z' * f i (out c z') else 0 := by
+          apply Finset.sum_congr rfl
+          intro c hc
+          apply tsum_sum_finite_support (P.image fun t => t.1) R
+          intro i z' hz'
+          by_cases hg : good c z'
+          · have hzmem := edgeAdmissible_position_mem F S w hP hg.2.2
+            exact (hz' hzmem).elim
+          · simp [hg]
+    _ = _ := by rw [Finset.sum_comm]
+
+private theorem logSym_sum {K : ℕ} (F : PDFix K) (S : PDScale)
+    {ι : Type*} (R : Finset ι) (f : ι → LogPoint S.x K → ℂ) :
+    logSym F S (fun t => ∑ i ∈ R, f i t) =
+      fun t => ∑ i ∈ R, logSym F S (f i) t := by
+  classical
+  funext σL
+  unfold logSym
+  calc
+    ((permCount S.x K : ℂ))⁻¹ *
+        ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          ∑ i ∈ R, f i ((σL.1.1, permuteLists σ σL.1.2.1, σL.1.2.2), σL.2) =
+      ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        ∑ i ∈ R, ((permCount S.x K : ℂ))⁻¹ *
+          f i ((σL.1.1, permuteLists σ σL.1.2.1, σL.1.2.2), σL.2) := by
+            rw [Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro σ hσ
+            rw [Finset.mul_sum]
+    _ = ∑ i ∈ R, ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          ((permCount S.x K : ℂ))⁻¹ *
+            f i ((σL.1.1, permuteLists σ σL.1.2.1, σL.1.2.2), σL.2) := by
+          rw [Finset.sum_comm]
+    _ = ∑ i ∈ R, ((permCount S.x K : ℂ))⁻¹ *
+          ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+            f i ((σL.1.1, permuteLists σ σL.1.2.1, σL.1.2.2), σL.2) := by
+          apply Finset.sum_congr rfl
+          intro i hi
+          rw [Finset.mul_sum]
+    _ = ∑ i ∈ R, logSym F S (f i) σL := rfl
+
+private theorem logEdge_full_sum {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ)
+    (w : ArchRoot) (step : ℕ) {ι : Type*} (R : Finset ι)
+    (f : ι → LogPoint S.x K → ℂ) (P : Finset (EnvPoint S.x K))
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1) :
+    logEdge F S ρ w EdgeKind.full step (fun t => ∑ i ∈ R, f i t) =
+      fun t => ∑ i ∈ R, logEdge F S ρ w EdgeKind.full step (f i) t := by
+  classical
+  have hPiece (raw : Bool) (St Pr : Finset (Fin K)) (σL : LogPoint S.x K) :
+      logEdgePiece F S ρ w step raw St Pr
+          (logSym F S (fun t => ∑ i ∈ R, f i t)) σL =
+        ∑ i ∈ R, logEdgePiece F S ρ w step raw St Pr (logSym F S (f i)) σL := by
+    rw [logSym_sum]
+    exact logEdgePiece_sum F S ρ w step raw St Pr R
+      (fun i => logSym F S (f i)) P hP σL
+  have hInner :
+      (fun σL => ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (logEdgePiece F S ρ w step true St Pr
+            (logSym F S (fun t => ∑ i ∈ R, f i t)) σL -
+          logEdgePiece F S ρ w step false St Pr
+            (logSym F S (fun t => ∑ i ∈ R, f i t)) σL)) =
+      (fun σL => ∑ i ∈ R, ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (logEdgePiece F S ρ w step true St Pr (logSym F S (f i)) σL -
+          logEdgePiece F S ρ w step false St Pr (logSym F S (f i)) σL)) := by
+    funext σL
+    simp_rw [hPiece]
+    simp_rw [← Finset.sum_sub_distrib]
+    calc
+      ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K), ∑ i ∈ R,
+          (logEdgePiece F S ρ w step true St Pr (logSym F S (f i)) σL -
+            logEdgePiece F S ρ w step false St Pr (logSym F S (f i)) σL) =
+        ∑ St : Finset (Fin K), ∑ i ∈ R, ∑ Pr : Finset (Fin K),
+          (logEdgePiece F S ρ w step true St Pr (logSym F S (f i)) σL -
+            logEdgePiece F S ρ w step false St Pr (logSym F S (f i)) σL) := by
+              apply Finset.sum_congr rfl
+              intro St hSt
+              rw [Finset.sum_comm]
+      _ = ∑ i ∈ R, ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+          (logEdgePiece F S ρ w step true St Pr (logSym F S (f i)) σL -
+            logEdgePiece F S ρ w step false St Pr (logSym F S (f i)) σL) := by
+              rw [Finset.sum_comm]
+  funext σL
+  change logSym F S
+      (fun t => ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (logEdgePiece F S ρ w step true St Pr
+            (logSym F S (fun u => ∑ i ∈ R, f i u)) t -
+          logEdgePiece F S ρ w step false St Pr
+            (logSym F S (fun u => ∑ i ∈ R, f i u)) t)) σL = _
+  rw [hInner, logSym_sum]
+  rfl
+
+private theorem envPoint_permute_mem {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (P : Finset (EnvPoint S.x K))
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1)
+    (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) (t : EnvPoint S.x K)
+    (ht : t ∈ P) : (t.1, permuteLists σ t.2) ∈ P := by
+  apply (hP (t.1, permuteLists σ t.2)).mpr
+  have h := (hP t).mp ht
+  refine ⟨⟨h.1.1, validPrimeLists_permute σ t.2 h.1.2⟩, ?_⟩
+  exact h.2
+
+private theorem logSym_congr_on_P {K : ℕ} (F : PDFix K) (S : PDScale)
+    (w : ArchRoot) (P : Finset (EnvPoint S.x K))
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1)
+    (f g : LogPoint S.x K → ℂ)
+    (hfg : ∀ σL, (σL.1.1, σL.1.2.1) ∈ P → f σL = g σL)
+    (σL : LogPoint S.x K) (hσ : (σL.1.1, σL.1.2.1) ∈ P) :
+    logSym F S f σL = logSym F S g σL := by
+  classical
+  unfold logSym
+  congr 1
+  apply Finset.sum_congr rfl
+  intro σ hσ'
+  apply hfg
+  exact envPoint_permute_mem F S w P hP σ (σL.1.1, σL.1.2.1) hσ
+
+private theorem logEdgePiece_congr_on_P {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (step : ℕ) (raw : Bool) (St Pr : Finset (Fin K))
+    (P : Finset (EnvPoint S.x K))
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1)
+    (f g : LogPoint S.x K → ℂ)
+    (hfg : ∀ σL, (σL.1.1, σL.1.2.1) ∈ P → f σL = g σL)
+    (σL : LogPoint S.x K) :
+    logEdgePiece F S ρ w step raw St Pr f σL =
+      logEdgePiece F S ρ w step raw St Pr g σL := by
+  classical
+  let out (c : (i : Fin K) → EdgeChoice S.x F.a (σL.1.2.2 i) i) (z' : ℤ × ℤ) :
+      LogPoint S.x K :=
+    ((z', (edgeTargetLists F S σL.1 c, edgeNewMemory F S σL.1 c)),
+      σL.2 ++ edgeBirths F S step σL.1 c)
+  unfold logEdgePiece
+  apply Finset.sum_congr rfl
+  intro c hc
+  apply tsum_congr
+  intro z'
+  by_cases hg : edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧
+      EdgeAdmissible F S w σL.1 c z'
+  · simp only [if_pos hg]
+    have hout : ((out c z').1.1, (out c z').1.2.1) ∈ P := by
+      have htarget := (hP (z', edgeTargetLists F S σL.1 c)).mpr
+        (edgeAdmissible_target_valid_box F S w hg.2.2)
+      simpa [out] using htarget
+    rw [hfg (out c z') hout]
+  · simp [hg]
+
+private theorem logEdge_full_congr_on_P {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (step : ℕ) (P : Finset (EnvPoint S.x K))
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1)
+    (f g : LogPoint S.x K → ℂ)
+    (hfg : ∀ σL, (σL.1.1, σL.1.2.1) ∈ P → f σL = g σL)
+    (σL : LogPoint S.x K) (hσ : (σL.1.1, σL.1.2.1) ∈ P) :
+    logEdge F S ρ w EdgeKind.full step f σL =
+      logEdge F S ρ w EdgeKind.full step g σL := by
+  classical
+  have hSym : ∀ τ, (τ.1.1, τ.1.2.1) ∈ P →
+      logSym F S f τ = logSym F S g τ := by
+    intro τ hτ
+    exact logSym_congr_on_P F S w P hP f g hfg τ hτ
+  have hInside :
+      (fun τ => ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (logEdgePiece F S ρ w step true St Pr (logSym F S f) τ -
+          logEdgePiece F S ρ w step false St Pr (logSym F S f) τ)) =
+      (fun τ => ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (logEdgePiece F S ρ w step true St Pr (logSym F S g) τ -
+          logEdgePiece F S ρ w step false St Pr (logSym F S g) τ)) := by
+    funext τ
+    apply Finset.sum_congr rfl
+    intro St hSt
+    apply Finset.sum_congr rfl
+    intro Pr hPr
+    rw [logEdgePiece_congr_on_P F S ρ w step true St Pr P hP _ _ hSym τ,
+      logEdgePiece_congr_on_P F S ρ w step false St Pr P hP _ _ hSym τ]
+  change logSym F S (fun τ => ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (logEdgePiece F S ρ w step true St Pr (logSym F S f) τ -
+          logEdgePiece F S ρ w step false St Pr (logSym F S f) τ)) σL =
+      logSym F S (fun τ => ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (logEdgePiece F S ρ w step true St Pr (logSym F S g) τ -
+          logEdgePiece F S ρ w step false St Pr (logSym F S g) τ)) σL
+  exact congrArg (fun H : LogPoint S.x K → ℂ => logSym F S H σL) hInside
+
+private theorem logSym_zero_of_badLog {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : LogPoint S.x K → ℂ)
+    (hf : ∀ σL, ¬ (σL.2.map Prod.snd).Nodup → f σL = 0)
+    (σL : LogPoint S.x K) (hbad : ¬ (σL.2.map Prod.snd).Nodup) :
+    logSym F S f σL = 0 := by
+  classical
+  unfold logSym
+  have hsum :
+      (∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        f ((σL.1.1, permuteLists σ σL.1.2.1, σL.1.2.2), σL.2)) = 0 := by
+    apply Finset.sum_eq_zero
+    intro σ hσ
+    exact hf _ hbad
+  simp [hsum]
+
+private theorem bad_log_append_left {α : Type*} {l₁ l₂ : List α}
+    (h : ¬ l₁.Nodup) : ¬ (l₁ ++ l₂).Nodup := by
+  intro hn
+  exact h (List.Nodup.of_append_left hn)
+
+private theorem bad_log_append_right {α : Type*} {l₁ l₂ : List α}
+    (h : ¬ l₂.Nodup) : ¬ (l₁ ++ l₂).Nodup := by
+  intro hn
+  exact h (List.Nodup.of_append_right hn)
+
+private theorem tsum_zero_of_eq_zero {α : Type*} (f : α → ℂ)
+    (h : ∀ a, f a = 0) : ∑' a, f a = 0 := by
+  have hf : f = fun _ => 0 := funext h
+  rw [hf]
+  simp
+
+private theorem logEdgePiece_zero_of_badLog {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (step : ℕ) (raw : Bool) (St Pr : Finset (Fin K))
+    (f : LogPoint S.x K → ℂ)
+    (hf : ∀ σL, ¬ (σL.2.map Prod.snd).Nodup → f σL = 0)
+    (σL : LogPoint S.x K) (hbad : ¬ (σL.2.map Prod.snd).Nodup) :
+    logEdgePiece F S ρ w step raw St Pr f σL = 0 := by
+  classical
+  unfold logEdgePiece
+  apply Finset.sum_eq_zero
+  intro c hc
+  apply tsum_zero_of_eq_zero
+  intro z'
+  by_cases hg : edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧
+      EdgeAdmissible F S w σL.1 c z'
+  · have hbadOut :
+        ¬ ((σL.2 ++ edgeBirths F S step σL.1 c).map Prod.snd).Nodup := by
+      simpa [List.map_append] using
+        (bad_log_append_left hbad :
+          ¬ (σL.2.map Prod.snd ++ (edgeBirths F S step σL.1 c).map Prod.snd).Nodup)
+    let out : LogPoint S.x K :=
+      ((z', (edgeTargetLists F S σL.1 c, edgeNewMemory F S σL.1 c)),
+        σL.2 ++ edgeBirths F S step σL.1 c)
+    have hfout : f out = 0 := hf out (by simpa [out] using hbadOut)
+    simp [hg, out, hfout]
+  · simp [hg]
+
+private theorem logEdge_full_zero_of_badLog {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (step : ℕ)
+    (f : LogPoint S.x K → ℂ)
+    (hf : ∀ σL, ¬ (σL.2.map Prod.snd).Nodup → f σL = 0)
+    (σL : LogPoint S.x K) (hbad : ¬ (σL.2.map Prod.snd).Nodup) :
+    logEdge F S ρ w EdgeKind.full step f σL = 0 := by
+  classical
+  have hSym : ∀ τ, ¬ (τ.2.map Prod.snd).Nodup → logSym F S f τ = 0 :=
+    fun τ hτ => logSym_zero_of_badLog F S f hf τ hτ
+  have hInside : ∀ τ, ¬ (τ.2.map Prod.snd).Nodup →
+      (∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (logEdgePiece F S ρ w step true St Pr (logSym F S f) τ -
+          logEdgePiece F S ρ w step false St Pr (logSym F S f) τ)) = 0 := by
+    intro τ hτ
+    apply Finset.sum_eq_zero
+    intro St hSt
+    apply Finset.sum_eq_zero
+    intro Pr hPr
+    rw [logEdgePiece_zero_of_badLog F S ρ w step true St Pr (logSym F S f)
+          hSym τ hτ,
+        logEdgePiece_zero_of_badLog F S ρ w step false St Pr (logSym F S f)
+          hSym τ hτ]
+    ring
+  unfold logEdge
+  simp only [EdgeKind.full]
+  apply logSym_zero_of_badLog F S (fun τ =>
+    ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+      (logEdgePiece F S ρ w step true St Pr (logSym F S f) τ -
+        logEdgePiece F S ρ w step false St Pr (logSym F S f) τ)) hInside σL hbad
+
+private theorem logGhost_zero_of_badLog {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) (f : LogPoint S.x K → ℂ)
+    (hf : ∀ σL, ¬ (σL.2.map Prod.snd).Nodup → f σL = 0)
+    (σL : LogPoint S.x K) (hbad : ¬ (σL.2.map Prod.snd).Nodup) :
+    logGhost F S ρ j f σL = 0 := by
+  classical
+  unfold logGhost
+  apply Finset.sum_eq_zero
+  intro D hD
+  apply tsum_zero_of_eq_zero
+  intro l
+  apply Finset.sum_eq_zero
+  intro new hnew
+  by_cases hDsub : ∀ i, D i ⊆ hitIndices (σL.1.2.2 i) σL.1.1
+  · let batch : BirthLog K := (List.finRange K).flatMap (fun i =>
+      List.ofFn fun k : Fin (l i) =>
+        (BirthAddress.ghost j i k.val, ((new i k : ℕ))))
+    have hbadAppend : ¬ (σL.2.map Prod.snd ++ batch.map Prod.snd).Nodup :=
+      bad_log_append_left hbad
+    have hbadOut : ¬ ((σL.2 ++ batch).map Prod.snd).Nodup := by
+      simpa [List.map_append] using hbadAppend
+    let out : LogPoint S.x K :=
+      ((σL.1.1, σL.1.2.1, fun i =>
+          removeIndices (σL.1.2.2 i) (D i) ++
+            List.ofFn fun k : Fin (l i) => anchorAt (new i k) σL.1.1),
+        σL.2 ++ batch)
+    have hfout : f out = 0 := hf out (by simpa [out] using hbadOut)
+    simp only [if_pos hDsub]
+    change (((∏ i : Fin K, ghostGroupCoeff F S ρ j i
+        (hitCount (σL.1.2.2 i) σL.1.1) (D i).card (l i)
+        (List.ofFn fun k => (new i k : ℕ)) : ℝ) : ℂ) * f out) = 0
+    rw [hfout]
+    simp
+  · simp [hDsub]
+
+private theorem logHistoryFn_zero_of_badLog {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (γ : Option (EnvPath S.x K)) :
+    ∀ k σL, ¬ (σL.2.map Prod.snd).Nodup →
+      logHistoryFn F S ρ w none γ distinctWeight k σL = 0 := by
+  intro k
+  induction k with
+  | zero =>
+      intro σL hbad
+      have hboundary : ∀ τ : LogPoint S.x K, ¬ (τ.2.map Prod.snd).Nodup →
+          logBoundaryOut distinctWeight τ = 0 := by
+        intro τ hτ
+        simp [logBoundaryOut, distinctWeight, hτ]
+      have hghost := logGhost_zero_of_badLog F S ρ (pathLength S.x)
+        (logBoundaryOut distinctWeight) hboundary σL hbad
+      have hghostTrunc :
+          logGhost F S ρ (pathLength S.x)
+            (logTrunc none (logBoundaryOut distinctWeight)) σL = 0 := by
+        change logGhost F S ρ (pathLength S.x) (logBoundaryOut distinctWeight) σL = 0
+        exact hghost
+      cases γ with
+      | none => simpa [logHistoryFn, logTrunc, logPathRestrict] using hghostTrunc
+      | some path => simp [logHistoryFn, logTrunc, logPathRestrict, hghostTrunc]
+  | succ k ih =>
+      intro σL hbad
+      have hEdge : ∀ τ, ¬ (τ.2.map Prod.snd).Nodup →
+          logEdge F S ρ w EdgeKind.full (pathLength S.x - (k + 1))
+            (logHistoryFn F S ρ w none γ distinctWeight k) τ = 0 := by
+        intro τ hτ
+        exact logEdge_full_zero_of_badLog F S ρ w (pathLength S.x - (k + 1))
+          (logHistoryFn F S ρ w none γ distinctWeight k) (fun σ hσ => ih σ hσ) τ hτ
+      have hghost := logGhost_zero_of_badLog F S ρ (pathLength S.x - (k + 1))
+        (logEdge F S ρ w EdgeKind.full (pathLength S.x - (k + 1))
+          (logHistoryFn F S ρ w none γ distinctWeight k)) hEdge σL hbad
+      have hghostTrunc :
+          logGhost F S ρ (pathLength S.x - (k + 1))
+            (logTrunc none
+              (logEdge F S ρ w EdgeKind.full (pathLength S.x - (k + 1))
+                (logTrunc none (logHistoryFn F S ρ w none γ distinctWeight k)))) σL = 0 := by
+        change logGhost F S ρ (pathLength S.x - (k + 1))
+          (logEdge F S ρ w EdgeKind.full (pathLength S.x - (k + 1))
+            (logHistoryFn F S ρ w none γ distinctWeight k)) σL = 0
+        exact hghost
+      cases γ with
+      | none => simpa [logHistoryFn, logTrunc, logPathRestrict] using hghostTrunc
+      | some path => simp [logHistoryFn, logTrunc, logPathRestrict, hghostTrunc]
+
+private theorem logHistoryFn_congrPath {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (W : BirthLog K → ℂ) (k : ℕ)
+    (γ γ' : EnvPath S.x K)
+    (hγ : ∀ j, pathLength S.x - k ≤ j.val → γ j = γ' j) :
+    logHistoryFn F S ρ w none (some γ) W k =
+      logHistoryFn F S ρ w none (some γ') W k := by
+  induction k with
+  | zero =>
+      have hlast : γ (Fin.last (pathLength S.x)) = γ' (Fin.last (pathLength S.x)) :=
+        hγ _ (by simp)
+      have hlast' : γ ⟨pathLength S.x, Nat.lt_succ_self _⟩ =
+          γ' ⟨pathLength S.x, Nat.lt_succ_self _⟩ := by
+        simpa [Fin.last] using hlast
+      funext σL
+      simp [logHistoryFn, logTrunc, logPathRestrict, hlast']
+  | succ k ih =>
+      let idx := historyRouteIndex (x := S.x) (k + 1)
+      have hcur : γ idx = γ' idx := hγ idx (by simp [idx, historyRouteIndex])
+      have hcur' : γ ⟨pathLength S.x - (k + 1), by omega⟩ =
+          γ' ⟨pathLength S.x - (k + 1), by omega⟩ := by
+        simpa [idx, historyRouteIndex] using hcur
+      have htail : ∀ j, pathLength S.x - k ≤ j.val → γ j = γ' j := by
+        intro j hj
+        exact hγ j (by omega)
+      have hrec := ih htail
+      funext σL
+      simp only [logHistoryFn, logTrunc]
+      rw [hrec]
+      simp [logPathRestrict, hcur']
+
+private def historyGhostBatchLog {K : ℕ} (F : PDFix K) (S : PDScale) (j : ℕ)
+    (l : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i)) : BirthLog K :=
+  (List.finRange K).flatMap fun i =>
+    List.ofFn fun k : Fin (l i) => (BirthAddress.ghost j i k.val, (new i k : ℕ))
+
+private theorem historyListFinRangeSum {n : ℕ} (g : Fin n → ℕ) :
+    ((List.finRange n).map g).sum = ∑ i : Fin n, g i := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      rw [List.finRange_succ]
+      simp only [List.map_cons, List.map_map, Function.comp_def, List.sum_cons,
+        Fin.sum_univ_succ]
+      simpa using congrArg (fun z => g 0 + z) (ih fun i => g i.succ)
+
+private theorem historyGhostBatch_values_mem {K : ℕ} (F : PDFix K) (S : PDScale)
+    (j : ℕ) (l : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i))
+    {p : ℕ} (hp : p ∈ (historyGhostBatchLog F S j l new).map Prod.snd) :
+    p ∈ markedPrimes S.x K F.a := by
+  classical
+  simp only [historyGhostBatchLog, List.map_flatMap, List.mem_flatMap, List.mem_map] at hp
+  rcases hp with ⟨i, hi, b, hb, hbp⟩
+  rcases List.mem_ofFn.mp hb with ⟨k, hk⟩
+  have hval : (new i k : ℕ) = p := by
+    calc
+      (new i k : ℕ) = (BirthAddress.ghost j i k.val, (new i k : ℕ)).2 := rfl
+      _ = b.2 := congrArg Prod.snd hk
+      _ = p := hbp
+  have hval' : p = (new i k : ℕ) := hval.symm
+  rw [hval']
+  apply Finset.mem_biUnion.mpr
+  exact ⟨i, Finset.mem_univ i, (new i k).property⟩
+
+private theorem historyGhostBatch_values_length {K : ℕ} (F : PDFix K) (S : PDScale)
+    (j : ℕ) (l : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i)) :
+    ((historyGhostBatchLog F S j l new).map Prod.snd).length = ∑ i : Fin K, l i := by
+  classical
+  simp only [historyGhostBatchLog, List.length_map, List.length_flatMap, List.length_ofFn]
+  exact historyListFinRangeSum l
+
+private theorem historyGhostBatch_not_nodup {K : ℕ} (F : PDFix K) (S : PDScale)
+    (j : ℕ) (l : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i))
+    (hl : (markedPrimes S.x K F.a).card < ∑ i : Fin K, l i) :
+    ¬ ((historyGhostBatchLog F S j l new).map Prod.snd).Nodup := by
+  intro hnd
+  have hsubset :
+      ((historyGhostBatchLog F S j l new).map Prod.snd).toFinset ⊆ markedPrimes S.x K F.a := by
+    intro p hp
+    exact historyGhostBatch_values_mem F S j l new (by simpa using hp)
+  have hcard := List.toFinset_card_of_nodup hnd
+  have hlen := historyGhostBatch_values_length F S j l new
+  have hle :
+      ((historyGhostBatchLog F S j l new).map Prod.snd).length ≤
+        (markedPrimes S.x K F.a).card := by
+    calc
+      _ = ((historyGhostBatchLog F S j l new).map Prod.snd).toFinset.card := hcard.symm
+      _ ≤ (markedPrimes S.x K F.a).card := Finset.card_mono hsubset
+  omega
+
+private theorem not_nodup_append_left {α : Type*} {l₁ l₂ : List α}
+    (h : ¬ l₁.Nodup) : ¬ (l₁ ++ l₂).Nodup := by
+  intro hn
+  exact h (List.Nodup.of_append_left hn)
+
+private theorem not_nodup_append_right {α : Type*} {l₁ l₂ : List α}
+    (h : ¬ l₂.Nodup) : ¬ (l₁ ++ l₂).Nodup := by
+  intro hn
+  exact h (List.Nodup.of_append_right hn)
+
+private theorem logGhost_sum_badLog {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) {ι : Type*} (R : Finset ι) (f : ι → LogPoint S.x K → ℂ)
+    (hf : ∀ i σL, ¬ (σL.2.map Prod.snd).Nodup → f i σL = 0) :
+    logGhost F S ρ j (fun σL => ∑ i ∈ R, f i σL) =
+      fun σL => ∑ i ∈ R, logGhost F S ρ j (f i) σL := by
+  classical
+  funext σL
+  let Q := (markedPrimes S.x K F.a).card
+  let L : Finset (Fin K → ℕ) :=
+    (Fintype.piFinset fun _ : Fin K => Finset.range (Q + 1)).filter
+      (fun l => ∑ i : Fin K, l i ≤ Q)
+  let good (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length)) :=
+    ∀ i, D i ⊆ hitIndices (σL.1.2.2 i) σL.1.1
+  let out (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length))
+      (l : Fin K → ℕ) (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i)) :
+      LogPoint S.x K :=
+    ((σL.1.1, σL.1.2.1, fun i => removeIndices (σL.1.2.2 i) (D i) ++
+        List.ofFn fun k : Fin (l i) => anchorAt (new i k) σL.1.1),
+      σL.2 ++ historyGhostBatchLog F S j l new)
+  let coeff (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length)
+      ) (l : Fin K → ℕ) (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i)) : ℂ :=
+    ((∏ i : Fin K, ghostGroupCoeff F S ρ j i (hitCount (σL.1.2.2 i) σL.1.1)
+        (D i).card (l i) (List.ofFn fun k => (new i k : ℕ)) : ℝ) : ℂ)
+  let term (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length)
+      ) (l : Fin K → ℕ) (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i))
+      (i : ι) : ℂ :=
+    if good D then coeff D l new * f i (out D l new) else 0
+  have hnotL (l : Fin K → ℕ) (hl : l ∉ L) :
+      (markedPrimes S.x K F.a).card < ∑ i : Fin K, l i := by
+    by_contra hn
+    have hsum : ∑ i : Fin K, l i ≤ Q := by omega
+    have hbound : ∀ i : Fin K, l i ≤ Q := by
+      intro i
+      have hle : l i ≤ ∑ j : Fin K, l j :=
+        Finset.single_le_sum (s := Finset.univ) (f := l)
+          (fun _ _ => Nat.zero_le _) (Finset.mem_univ i)
+      omega
+    have hpi : l ∈ Fintype.piFinset (fun _ : Fin K => Finset.range (Q + 1)) := by
+      simp only [Fintype.mem_piFinset]
+      intro i
+      exact Finset.mem_range.mpr (by have := hbound i; omega)
+    exact hl (Finset.mem_filter.mpr ⟨hpi, hsum⟩)
+  have hbadTarget
+      (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length)
+      ) (l : Fin K → ℕ)
+      (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i))
+      (hl : l ∉ L) : ¬ ((out D l new).2.map Prod.snd).Nodup := by
+    have hbatch : ¬ ((historyGhostBatchLog F S j l new).map Prod.snd).Nodup :=
+      historyGhostBatch_not_nodup F S j l new (by simpa [Q] using hnotL l hl)
+    have happend :
+        ¬ ((σL.2.map Prod.snd) ++ (historyGhostBatchLog F S j l new).map Prod.snd).Nodup :=
+      bad_log_append_right hbatch
+    simpa [out, List.map_append] using happend
+  have hzero (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length)
+      ) (l : Fin K → ℕ) (hl : l ∉ L) (i : ι) :
+      ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i), term D l new i = 0 := by
+    apply Finset.sum_eq_zero
+    intro new hnew
+    by_cases hg : good D
+    · simp only [term, if_pos hg]
+      have hfout := hf i (out D l new) (hbadTarget D l new hl)
+      simp [hfout]
+    · simp [term, hg]
+  have hterm (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length)
+      ) (l : Fin K → ℕ)
+      (new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i)) :
+      (if good D then coeff D l new * (∑ i ∈ R, f i (out D l new)) else 0) =
+        ∑ i ∈ R, term D l new i := by
+    by_cases hg : good D
+    · simp [term, coeff, hg, Finset.mul_sum]
+    · simp [term, hg]
+  have hswapNew (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length)
+      ) (l : Fin K → ℕ) :
+      (∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i),
+        ∑ i ∈ R, term D l new i) =
+      ∑ i ∈ R, ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i),
+        term D l new i := by
+    rw [Finset.sum_comm]
+  have hswapL (D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length)) :
+      (∑' l : Fin K → ℕ, ∑ i ∈ R,
+        ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i), term D l new i) =
+      ∑ i ∈ R, ∑' l : Fin K → ℕ,
+        ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i), term D l new i :=
+    tsum_sum_finite_support L R
+      (fun l i => ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i), term D l new i)
+      (by intro i l hl; exact hzero D l hl i)
+  unfold logGhost
+  change
+    (∑ D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length),
+      ∑' l : Fin K → ℕ, ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i),
+        if good D then coeff D l new * (∑ i ∈ R, f i (out D l new)) else 0) =
+    ∑ i ∈ R,
+      ∑ D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length),
+        ∑' l : Fin K → ℕ, ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i),
+          term D l new i
+  calc
+    _ = ∑ D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length),
+          ∑' l : Fin K → ℕ, ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i),
+            ∑ i ∈ R, term D l new i := by
+          apply Finset.sum_congr rfl
+          intro D hD
+          apply tsum_congr
+          intro l
+          apply Finset.sum_congr rfl
+          intro new hnew
+          exact hterm D l new
+    _ = ∑ D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length),
+          ∑' l : Fin K → ℕ, ∑ i ∈ R,
+            ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i), term D l new i := by
+          apply Finset.sum_congr rfl
+          intro D hD
+          apply tsum_congr
+          intro l
+          exact hswapNew D l
+    _ = ∑ D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length),
+          ∑ i ∈ R, ∑' l : Fin K → ℕ,
+            ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i), term D l new i := by
+          apply Finset.sum_congr rfl
+          intro D hD
+          exact hswapL D
+    _ = ∑ i ∈ R,
+          ∑ D : (i : Fin K) → Finset (Fin (σL.1.2.2 i).length),
+            ∑' l : Fin K → ℕ,
+              ∑ new : (i : Fin K) → Fin (l i) → primeBand S.x (F.a i), term D l new i := by
+          rw [Finset.sum_comm]
+    _ = _ := rfl
+
+private theorem logGhost_congr_on_P {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) (P : Finset (EnvPoint S.x K))
+    (f g : LogPoint S.x K → ℂ)
+    (hfg : ∀ σL, (σL.1.1, σL.1.2.1) ∈ P → f σL = g σL)
+    (σL : LogPoint S.x K) (hσ : (σL.1.1, σL.1.2.1) ∈ P) :
+    logGhost F S ρ j f σL = logGhost F S ρ j g σL := by
+  classical
+  unfold logGhost
+  apply Finset.sum_congr rfl
+  intro D hD
+  apply tsum_congr
+  intro l
+  apply Finset.sum_congr rfl
+  intro new hnew
+  by_cases hDsub : ∀ i, D i ⊆ hitIndices (σL.1.2.2 i) σL.1.1
+  · simp only [if_pos hDsub]
+    congr 1
+    apply hfg
+    exact hσ
+  · simp [hDsub]
+
+private theorem logHistoryFn_route_sum {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (P : Finset (EnvPoint S.x K))
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1) (k : ℕ)
+    (hk : k ≤ pathLength S.x) :
+    ∀ σL : LogPoint S.x K, (σL.1.1, σL.1.2.1) ∈ P →
+      logHistoryFn F S ρ w none none distinctWeight k σL =
+        ∑ γ ∈ historyRouteFinset P k,
+          logHistoryFn F S ρ w none (some γ) distinctWeight k σL := by
+  induction k with
+  | zero =>
+      intro σL hσ
+      let zσ := (σL.1.1, σL.1.2.1)
+      let G := logGhost F S ρ (pathLength S.x)
+        (logTrunc none (logBoundaryOut distinctWeight))
+      have hbase (e : EnvPoint S.x K) :
+          logHistoryFn F S ρ w none
+              (some (Function.update historyDefaultPath (Fin.last (pathLength S.x)) e))
+              distinctWeight 0 σL = if zσ = e then G σL else 0 := by
+        have hlast :
+            Function.update historyDefaultPath (Fin.last (pathLength S.x)) e
+                ⟨pathLength S.x, Nat.lt_succ_self _⟩ = e := by
+          have hidx :
+              (⟨pathLength S.x, Nat.lt_succ_self _⟩ : Fin (pathLength S.x + 1)) =
+                Fin.last (pathLength S.x) := by
+            apply Fin.ext
+            rfl
+          rw [hidx]
+          simp [Function.update]
+        by_cases he : zσ = e
+        · simp [logHistoryFn, logTrunc, logPathRestrict, zσ, G, he, hlast]
+        · simp [logHistoryFn, logTrunc, logPathRestrict, zσ, G, he, hlast]
+      rw [historyRouteFinset_zero_sum]
+      simp_rw [hbase]
+      change G σL = ∑ e ∈ P, if zσ = e then G σL else 0
+      rw [Finset.sum_eq_single zσ]
+      · simp
+      · intro e he hne
+        simp [Ne.symm hne]
+      · intro hnot
+        exact (hnot hσ).elim
+  | succ k ih =>
+      intro σL hkσ
+      have hklt : k < pathLength S.x := by omega
+      let idx := historyRouteIndex (x := S.x) (k + 1)
+      let j := pathLength S.x - (k + 1)
+      let zσ := (σL.1.1, σL.1.2.1)
+      let routeK := historyRouteFinset P k
+      let tailFn : LogPoint S.x K → ℂ := fun τ =>
+        ∑ γ ∈ routeK, logHistoryFn F S ρ w none (some γ) distinctWeight k τ
+      have hPvToP (τ : LogPoint S.x K)
+          (hτ : (τ.1.1, τ.1.2.1) ∈ P) :
+          logHistoryFn F S ρ w none none distinctWeight k τ = tailFn τ := by
+        exact ih (by omega) τ hτ
+      have hEdgeFun (τ : LogPoint S.x K)
+          (hτ : (τ.1.1, τ.1.2.1) ∈ P) :
+          logEdge F S ρ w EdgeKind.full j
+              (logHistoryFn F S ρ w none none distinctWeight k) τ =
+            logEdge F S ρ w EdgeKind.full j tailFn τ := by
+        exact logEdge_full_congr_on_P F S ρ w j P hP
+          (logHistoryFn F S ρ w none none distinctWeight k) tailFn hPvToP τ hτ
+      have hbadEdge (γ : EnvPath S.x K) :
+          ∀ τ, ¬ (τ.2.map Prod.snd).Nodup →
+            logEdge F S ρ w EdgeKind.full j
+              (logHistoryFn F S ρ w none (some γ) distinctWeight k) τ = 0 := by
+        intro τ hbad
+        exact logEdge_full_zero_of_badLog F S ρ w j
+          (logHistoryFn F S ρ w none (some γ) distinctWeight k)
+          (fun υ hυ => logHistoryFn_zero_of_badLog F S ρ w (some γ) k υ hυ) τ hbad
+      have hleft :
+          logHistoryFn F S ρ w none none distinctWeight (k + 1) σL =
+            ∑ γ ∈ routeK,
+              logGhost F S ρ j
+                (logEdge F S ρ w EdgeKind.full j
+                  (logHistoryFn F S ρ w none (some γ) distinctWeight k)) σL := by
+        change logGhost F S ρ j
+            (logEdge F S ρ w EdgeKind.full j
+              (logHistoryFn F S ρ w none none distinctWeight k)) σL = _
+        have hghostEdge := logGhost_congr_on_P F S ρ j P
+          (logEdge F S ρ w EdgeKind.full j
+            (logHistoryFn F S ρ w none none distinctWeight k))
+          (logEdge F S ρ w EdgeKind.full j tailFn) hEdgeFun σL hkσ
+        rw [hghostEdge]
+        have hlin := logEdge_full_sum F S ρ w j routeK
+          (fun γ => logHistoryFn F S ρ w none (some γ) distinctWeight k)
+          P hP
+        rw [hlin]
+        exact congrFun (logGhost_sum_badLog F S ρ j routeK
+          (fun γ => logEdge F S ρ w EdgeKind.full j
+            (logHistoryFn F S ρ w none (some γ) distinctWeight k)) hbadEdge) σL
+      have hfixed (γ : EnvPath S.x K) :
+          (∑ e ∈ P,
+            logHistoryFn F S ρ w none
+              (some (Function.update γ idx e)) distinctWeight (k + 1) σL) =
+            logGhost F S ρ j
+              (logEdge F S ρ w EdgeKind.full j
+                (logHistoryFn F S ρ w none (some γ) distinctWeight k)) σL := by
+        have hselector (e : EnvPoint S.x K) :
+            logHistoryFn F S ρ w none
+                (some (Function.update γ idx e)) distinctWeight (k + 1) σL =
+              if zσ = e then
+                logGhost F S ρ j
+                  (logEdge F S ρ w EdgeKind.full j
+                    (logHistoryFn F S ρ w none (some γ) distinctWeight k)) σL
+              else 0 := by
+          have htail : ∀ t, pathLength S.x - k ≤ t.val →
+              Function.update γ idx e t = γ t := by
+            intro t ht
+            by_cases hti : t = idx
+            · subst t
+              have hidx : idx.val < pathLength S.x - k := by
+                simp [idx, historyRouteIndex]
+                omega
+              omega
+            · simp [Function.update_of_ne hti]
+          have hcongr := logHistoryFn_congrPath F S ρ w distinctWeight k
+            (Function.update γ idx e) γ htail
+          have hraw :
+              logHistoryFn F S ρ w none
+                  (some (Function.update γ idx e)) distinctWeight (k + 1) σL =
+                if zσ = e then
+                  logGhost F S ρ j
+                    (logTrunc none
+                      (logEdge F S ρ w EdgeKind.full j
+                        (logTrunc none
+                          (logHistoryFn F S ρ w none
+                            (some (Function.update γ idx e)) distinctWeight k)))) σL
+                else 0 := by
+            simp [logHistoryFn, logTrunc, logPathRestrict, idx, historyRouteIndex,
+              Function.update, zσ, j]
+          calc
+            _ = if zσ = e then
+                  logGhost F S ρ j
+                    (logTrunc none
+                      (logEdge F S ρ w EdgeKind.full j
+                        (logTrunc none
+                          (logHistoryFn F S ρ w none
+                            (some (Function.update γ idx e)) distinctWeight k)))) σL
+                else 0 := hraw
+            _ = if zσ = e then
+                  logGhost F S ρ j
+                    (logTrunc none
+                      (logEdge F S ρ w EdgeKind.full j
+                        (logTrunc none
+                          (logHistoryFn F S ρ w none (some γ) distinctWeight k)))) σL
+                else 0 := congrArg (fun H : LogPoint S.x K → ℂ =>
+                  if zσ = e then
+                    logGhost F S ρ j (logTrunc none
+                      (logEdge F S ρ w EdgeKind.full j (logTrunc none H))) σL
+                  else 0) hcongr
+            _ = _ := rfl
+        simp_rw [hselector]
+        rw [Finset.sum_eq_single zσ]
+        · simp
+        · intro e he hne
+          simp [Ne.symm hne]
+        · intro hnot
+          exact (hnot hkσ).elim
+      rw [hleft]
+      rw [historyRouteFinset_succ_sum P k hklt]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro γ hγ
+      exact (hfixed γ).symm
+
+private theorem initialLog_nodup_validLists {x : ℝ} {K : ℕ} (a : Fin K → ℝ)
+    (s : MemPoint x K) (hband : ∀ i j, s.2.1 i j ∈ primeBand x (a i))
+    (hnd : ((initialLog s).map Prod.snd).Nodup) :
+    ValidPrimeLists x K a s.2.1 := by
+  have hflat :
+      ((List.finRange K).flatMap fun i =>
+        (List.finRange (slotCount x)).map fun j => s.2.1 i j).Nodup := by
+    simpa [initialLog, List.map_flatMap, List.map_map, Function.comp_def] using hnd
+  have hrows := (List.nodup_flatMap.mp hflat).1
+  constructor
+  · intro i j
+    constructor
+    · have hmem := hband i j
+      unfold primeBand at hmem
+      exact (Finset.mem_filter.mp hmem).2.1
+    · exact hband i j
+  · intro i j j' hne heq
+    have hrow := hrows i (by simp)
+    have hj : j ∈ List.finRange (slotCount x) := by simp
+    have hj' : j' ∈ List.finRange (slotCount x) := by simp
+    have heqidx := List.inj_on_of_nodup_map hrow hj hj' heq
+    exact hne heqidx
+
+private theorem logGhost_zero_function {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) :
+    logGhost F S ρ j (fun _ => 0) = fun _ => 0 := by
+  funext σL
+  simp [logGhost]
+
+private theorem logEdge_full_zero_function {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ) :
+    logEdge F S ρ w EdgeKind.full j (fun _ => 0) = fun _ => 0 := by
+  funext σL
+  simp [logEdge, logSym, logEdgePiece]
+
+private theorem logHistoryFn_zero_of_path_outside {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (P : Finset (EnvPoint S.x K))
+    (hP : ∀ t, t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1) (k : ℕ)
+    (hk : k ≤ pathLength S.x) :
+    ∀ γ : EnvPath S.x K,
+      (∃ t, pathLength S.x - k ≤ t.val ∧ γ t ∉ P) →
+      ∀ σL, (σL.1.1, σL.1.2.1) ∈ P →
+        logHistoryFn F S ρ w none (some γ) distinctWeight k σL = 0 := by
+  induction k with
+  | zero =>
+      intro γ hbad σL hσ
+      rcases hbad with ⟨t, ht, hnot⟩
+      have htval : t.val = pathLength S.x := by omega
+      have htEq : t = Fin.last (pathLength S.x) := by
+        apply Fin.ext
+        exact htval
+      have hlast : γ (Fin.last (pathLength S.x)) ∉ P := by
+        simpa [htEq] using hnot
+      have hneq : (σL.1.1, σL.1.2.1) ≠ γ (Fin.last (pathLength S.x)) := by
+        intro heq
+        exact hlast (by simpa [heq] using hσ)
+      have hlastIdx :
+          (⟨pathLength S.x, Nat.lt_succ_self _⟩ : Fin (pathLength S.x + 1)) =
+            Fin.last (pathLength S.x) := by
+        apply Fin.ext
+        rfl
+      have hneq' : (σL.1.1, σL.1.2.1) ≠ γ
+          ⟨pathLength S.x, Nat.lt_succ_self _⟩ := by
+        simpa [hlastIdx] using hneq
+      simp [logHistoryFn, logTrunc, logPathRestrict, hneq']
+  | succ k ih =>
+      intro γ hbad σL hσ
+      have hklt : k < pathLength S.x := by omega
+      let idx := historyRouteIndex (x := S.x) (k + 1)
+      let j := pathLength S.x - (k + 1)
+      have hIdxFin :
+          (⟨j, Nat.lt_succ_of_le (Nat.sub_le _ _)⟩ : Fin (pathLength S.x + 1)) = idx := by
+        apply Fin.ext
+        simp [idx, j, historyRouteIndex]
+      have hbad' := hbad
+      rcases hbad' with ⟨t, ht, hnot⟩
+      by_cases hcur : (σL.1.1, σL.1.2.1) = γ idx
+      · have hcurP : γ idx ∈ P := by simpa [hcur] using hσ
+        have hti : t ≠ idx := by
+          intro heq
+          subst t
+          exact hnot hcurP
+        have htTail : pathLength S.x - k ≤ t.val := by
+          have hneVal : t.val ≠ idx.val := by
+            intro heq
+            apply hti
+            exact Fin.ext heq
+          change idx.val ≤ t.val at ht
+          have hltVal : idx.val < t.val := lt_of_le_of_ne ht (Ne.symm hneVal)
+          have hidxplus : idx.val + 1 = pathLength S.x - k := by
+            simp [idx, historyRouteIndex]
+            omega
+          omega
+        have hbadTail : ∃ t, pathLength S.x - k ≤ t.val ∧ γ t ∉ P :=
+          ⟨t, htTail, hnot⟩
+        have hrecZero (τ : LogPoint S.x K)
+            (hτ : (τ.1.1, τ.1.2.1) ∈ P) :
+            logHistoryFn F S ρ w none (some γ) distinctWeight k τ = 0 :=
+          ih (by omega) γ hbadTail τ hτ
+        have hEdgeZero (τ : LogPoint S.x K)
+            (hτ : (τ.1.1, τ.1.2.1) ∈ P) :
+            logEdge F S ρ w EdgeKind.full j
+                (logHistoryFn F S ρ w none (some γ) distinctWeight k) τ = 0 := by
+          rw [logEdge_full_congr_on_P F S ρ w j P hP
+            (logHistoryFn F S ρ w none (some γ) distinctWeight k) (fun _ => 0)
+            (fun υ hυ => hrecZero υ hυ) τ hτ]
+          exact congrFun (logEdge_full_zero_function F S ρ w j) τ
+        have hghostZero := logGhost_congr_on_P F S ρ j P
+          (logEdge F S ρ w EdgeKind.full j
+            (logHistoryFn F S ρ w none (some γ) distinctWeight k)) (fun _ => 0)
+          hEdgeZero σL hσ
+        have hfinal :
+            logGhost F S ρ j
+              (logEdge F S ρ w EdgeKind.full j
+                (logHistoryFn F S ρ w none (some γ) distinctWeight k)) σL = 0 :=
+          hghostZero.trans (congrFun (logGhost_zero_function F S ρ j) σL)
+        have hfinalWrapped :
+            logGhost F S ρ j
+              (logTrunc none
+                (logEdge F S ρ w EdgeKind.full j
+                  (logTrunc none
+                    (logHistoryFn F S ρ w none (some γ) distinctWeight k)))) σL = 0 := by
+          change logGhost F S ρ j
+              (logEdge F S ρ w EdgeKind.full j
+                (logHistoryFn F S ρ w none (some γ) distinctWeight k)) σL = 0
+          exact hfinal
+        have hcurrent : (σL.1.1, σL.1.2.1) = γ
+            ⟨j, Nat.lt_succ_of_le (Nat.sub_le _ _)⟩ := by
+          simpa [hIdxFin] using hcur
+        simpa [logHistoryFn, logTrunc, logPathRestrict, j, hcurrent] using hfinalWrapped
+      · have hcur' : (σL.1.1, σL.1.2.1) ≠ γ
+            ⟨j, Nat.lt_succ_of_le (Nat.sub_le _ _)⟩ := by
+          simpa [hIdxFin] using hcur
+        simp [logHistoryFn, logTrunc, logPathRestrict, j, hcur']
+
+private noncomputable def historyInitialPrimeLists {x : ℝ} {K : ℕ}
+    (a : Fin K → ℝ) : Finset (PrimeLists x K) :=
+  Fintype.piFinset fun i : Fin K =>
+    Fintype.piFinset fun j : Fin (slotCount x) => primeBand x (a i)
+
+private noncomputable def historyInitialStates {x : ℝ} {K : ℕ}
+    (a : Fin K → ℝ) : Finset (MemPoint x K) :=
+  (historyInitialPrimeLists a).image fun p => ((1, 0), p, fun _ => [])
+
+private noncomputable def historyInitialLogs {x : ℝ} {K : ℕ}
+    (a : Fin K → ℝ) : Finset (LogPoint x K) :=
+  (historyInitialStates a).image fun s => (s, initialLog s)
+
+private theorem mem_historyInitialLogs {x : ℝ} {K : ℕ} (a : Fin K → ℝ)
+    (σL : LogPoint x K) :
+    σL ∈ historyInitialLogs a ↔
+      σL.1.1 = (1, 0) ∧ (∀ i, σL.1.2.2 i = []) ∧
+        σL.2 = initialLog σL.1 ∧
+        (∀ i j, σL.1.2.1 i j ∈ primeBand x (a i)) := by
+  classical
+  constructor
+  · intro h
+    rcases Finset.mem_image.mp h with ⟨s, hs, hσ⟩
+    rcases Finset.mem_image.mp hs with ⟨p, hp, rfl⟩
+    subst σL
+    constructor
+    · rfl
+    constructor
+    · intro i
+      rfl
+    constructor
+    · rfl
+    · simpa [historyInitialPrimeLists, Fintype.mem_piFinset] using hp
+  · rintro ⟨hz, hmem, hlog, hband⟩
+    apply Finset.mem_image.mpr
+    refine ⟨σL.1, ?_, ?_⟩
+    · apply Finset.mem_image.mpr
+      refine ⟨σL.1.2.1, ?_, ?_⟩
+      · simpa [historyInitialPrimeLists, Fintype.mem_piFinset] using hband
+      · exact Prod.ext hz.symm (Prod.ext rfl (funext hmem).symm)
+    · exact Prod.ext rfl hlog.symm
+
+private theorem logGhost_zero_of_boundary_pos_ne_e1 {K : ℕ} (F : PDFix K)
+    (S : PDScale) (ρ : ℝ) (j : ℕ) (σL : LogPoint S.x K)
+    (hpos : σL.1.1 ≠ (1, 0)) :
+    logGhost F S ρ j (logBoundaryOut distinctWeight) σL = 0 := by
+  classical
+  unfold logGhost
+  apply Finset.sum_eq_zero
+  intro D hD
+  apply tsum_zero_of_eq_zero
+  intro l
+  apply Finset.sum_eq_zero
+  intro new hnew
+  by_cases hDsub : ∀ i, D i ⊆ hitIndices (σL.1.2.2 i) σL.1.1
+  · have hboundary :
+        logBoundaryOut distinctWeight
+          (((σL.1.1, σL.1.2.1, fun i =>
+            removeIndices (σL.1.2.2 i) (D i) ++
+              List.ofFn fun k : Fin (l i) => anchorAt (new i k) σL.1.1),
+            σL.2 ++ (List.finRange K).flatMap fun i =>
+              List.ofFn fun k : Fin (l i) =>
+                (BirthAddress.ghost j i k.val, (new i k : ℕ)))) = 0 := by
+      simp [logBoundaryOut, memBoundary, hpos]
+    simp [hDsub, hboundary]
+  · simp [hDsub]
+
+private theorem logHistoryFn_zero_of_last_not_e1 {K : ℕ} (F : PDFix K)
+    (S : PDScale) (ρ : ℝ) (w : ArchRoot) (γ : EnvPath S.x K) (k : ℕ)
+    (hlast : (γ (Fin.last (pathLength S.x))).1 ≠ (1, 0)) :
+    logHistoryFn F S ρ w none (some γ) distinctWeight k = fun _ => 0 := by
+  induction k with
+  | zero =>
+      funext σL
+      by_cases hmatch : (σL.1.1, σL.1.2.1) = γ (Fin.last (pathLength S.x))
+      · have hpos : σL.1.1 ≠ (1, 0) := by
+          intro hz
+          apply hlast
+          exact (congrArg Prod.fst hmatch).symm.trans hz
+        have hghost := logGhost_zero_of_boundary_pos_ne_e1 F S ρ
+          (pathLength S.x) σL hpos
+        have hlastIdx :
+            (⟨pathLength S.x, Nat.lt_succ_self _⟩ : Fin (pathLength S.x + 1)) =
+              Fin.last (pathLength S.x) := by
+          apply Fin.ext
+          rfl
+        have hmatch' : (σL.1.1, σL.1.2.1) =
+            γ ⟨pathLength S.x, Nat.lt_succ_self _⟩ := by
+          simpa [hlastIdx] using hmatch
+        have hghostWrapped :
+            logGhost F S ρ (pathLength S.x)
+              (logTrunc none (logBoundaryOut distinctWeight)) σL = 0 := by
+          change logGhost F S ρ (pathLength S.x)
+            (logBoundaryOut distinctWeight) σL = 0
+          exact hghost
+        simpa [logHistoryFn, logTrunc, logPathRestrict, hmatch'] using hghostWrapped
+      · have hlastIdx :
+            (⟨pathLength S.x, Nat.lt_succ_self _⟩ : Fin (pathLength S.x + 1)) =
+              Fin.last (pathLength S.x) := by
+          apply Fin.ext
+          rfl
+        have hmatch' : (σL.1.1, σL.1.2.1) ≠
+            γ ⟨pathLength S.x, Nat.lt_succ_self _⟩ := by
+          simpa [hlastIdx] using hmatch
+        simp [logHistoryFn, logTrunc, logPathRestrict, hmatch']
+  | succ k ih =>
+      funext σL
+      have hrec := ih
+      have hedge : logEdge F S ρ w EdgeKind.full
+          (pathLength S.x - (k + 1))
+          (logTrunc none (logHistoryFn F S ρ w none (some γ) distinctWeight k)) =
+            (fun _ => 0) := by
+        rw [hrec]
+        exact logEdge_full_zero_function F S ρ w _
+      have hghost : logGhost F S ρ (pathLength S.x - (k + 1))
+          (logTrunc none
+            (logEdge F S ρ w EdgeKind.full (pathLength S.x - (k + 1))
+              (logTrunc none
+                (logHistoryFn F S ρ w none (some γ) distinctWeight k)))) =
+            (fun _ => 0) := by
+        have hrec' : logHistoryFn F S ρ w none (some γ) distinctWeight k =
+            (fun _ => 0) := hrec
+        rw [hrec']
+        change logGhost F S ρ (pathLength S.x - (k + 1))
+          (logTrunc none
+            (logEdge F S ρ w EdgeKind.full (pathLength S.x - (k + 1))
+              (fun _ => 0))) = (fun _ => 0)
+        rw [logEdge_full_zero_function]
+        change logGhost F S ρ (pathLength S.x - (k + 1)) (fun _ => 0) = (fun _ => 0)
+        exact logGhost_zero_function F S ρ _
+      simp [logHistoryFn, logTrunc, logPathRestrict, hghost]
+
 /-- `t2:pd.history-paths` (new node) — PD 04:234-246.  Exact decomposition of the distinct
 history by the sequence of positions and active lists at the visits (ghosts do not move them;
 the edges move along the path; distinct initial entries make every visit list valid). -/
@@ -554,7 +1997,595 @@ theorem history_paths (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
           historyDistinct F S ρ w =
             ∑' γ : EnvPath S.x K,
               if IsEnvPathAdmissible F S γ then memHistory F S ρ w none (some γ) distinctWeight else 0 := by
-  sorry
+  classical
+  intro K F hF ρ hρ
+  refine ⟨2, by norm_num, ?_⟩
+  intro S hS hx0 w hw
+  classical
+  rcases hS with ⟨hxS, hHm, hHn, _, _, hY, hpad⟩
+  have hxpos : 0 < S.x := by linarith
+  have hpowpos : 0 < Real.rpow S.x δ := Real.rpow_pos_of_pos hxpos _
+  have hHmpos : 0 < S.Hm := lt_of_lt_of_le hpowpos hHm
+  have hHnpos : 0 < S.Hn := lt_of_lt_of_le hpowpos hHn
+  have hYpos : 0 < S.Y := by
+    unfold dyadicScales at hY
+    rcases Finset.mem_filter.mp hY with ⟨himage, _⟩
+    rcases Finset.mem_image.mp himage with ⟨n, _, hEq⟩
+    rw [← hEq]
+    positivity
+  have hd0pos : 0 < (S.d₀ : ℝ) := by
+    unfold padScales at hpad
+    rcases Finset.mem_image.mp hpad with ⟨n, _, hEq⟩
+    rw [← hEq]
+    positivity
+  have hUpos : 0 < S.U := by
+    dsimp [PDScale.U, PDScale.H]
+    exact mul_pos (mul_pos hd0pos hYpos) hHmpos
+  have hVpos : 0 < S.V := by
+    simpa [PDScale.V] using hHnpos
+  have hlogpos : 0 < Real.log S.x := Real.log_pos (by linarith [hxS])
+  let rArg := Real.rpow (Real.log S.x) (1 / 2 : ℝ) / 2
+  have hrArg : 0 < rArg := by
+    dsimp [rArg]
+    exact div_pos (Real.rpow_pos_of_pos hlogpos _) (by norm_num)
+  have hRpos : 0 < momentR S.x := by
+    change 0 < ⌈rArg⌉₊
+    by_contra hR
+    have hRzero : (⌈rArg⌉₊ : ℕ) = 0 := by omega
+    have hceil : rArg ≤ (⌈rArg⌉₊ : ℕ) := Nat.le_ceil rArg
+    rw [hRzero] at hceil
+    have hceil' : rArg ≤ 0 := by exact_mod_cast hceil
+    exact (not_le_of_gt hrArg) hceil'
+  have hNpos : 0 < pathLength S.x := by
+    dsimp [pathLength]
+    exact Nat.mul_pos (by omega) hRpos
+  have hwRegion := hw
+  rcases hw with ⟨hu1, hu2, hv1, hv2, _, _⟩
+  have he1box : envBox S w (1, 0) := by
+    simpa [envBox, ArchRoot.tau] using ⟨hu1, hu2, hv1, hv2⟩
+  have hPfin := envPoint_valid_box_finite F S w hUpos hVpos hwRegion
+  let P : Finset (EnvPoint S.x K) := hPfin.toFinset
+  have hP (t : EnvPoint S.x K) :
+      t ∈ P ↔ EnvValid F S t ∧ envBox S w t.1 := by
+    simp [P]
+  let R : Finset (EnvPath S.x K) := historyRouteFinset P (pathLength S.x)
+  let T : Finset (LogPoint S.x K) := historyInitialLogs F.a
+  let coeff (σL : LogPoint S.x K) : ℂ :=
+    (memMeasure F S σL.1 : ℂ) * star (logBoundaryIn σL)
+  have hInitFacts (σL : LogPoint S.x K)
+      (hμ : memMeasure F S σL.1 ≠ 0) (hb : logBoundaryIn σL ≠ 0) :
+      σL ∈ T ∧ MemValid F S σL.1 ∧
+        σL.1.1 = (1, 0) ∧ (∀ i, σL.1.2.2 i = []) ∧
+        σL.2 = initialLog σL.1 := by
+    have hlog : σL.2 = initialLog σL.1 := by
+      by_contra hn
+      apply hb
+      simp [logBoundaryIn, hn]
+    have hboundary : σL.1.1 = (1, 0) ∧ (∀ i, σL.1.2.2 i = []) := by
+      by_contra hn
+      apply hb
+      simp [logBoundaryIn, hlog, memBoundary, hn]
+    have hvalid : MemValid F S σL.1 := by
+      by_contra hn
+      apply hμ
+      simp [memMeasure, hn]
+    have hmemT : σL ∈ T := by
+      apply (mem_historyInitialLogs F.a σL).2
+      exact ⟨hboundary.1, hboundary.2, hlog, hvalid.2.1⟩
+    exact ⟨hmemT, hvalid, hboundary.1, hboundary.2, hlog⟩
+  have hcoeffzero : ∀ σL, σL ∉ T → coeff σL = 0 := by
+    intro σL hσ
+    by_cases hμ : memMeasure F S σL.1 = 0
+    · simp [coeff, hμ]
+    · by_cases hb : logBoundaryIn σL = 0
+      · simp [coeff, hb]
+      · exact (hσ (hInitFacts σL hμ hb).1).elim
+  have hroutePoint (σL : LogPoint S.x K) :
+      coeff σL * logHistoryFn F S ρ w none none distinctWeight (pathLength S.x) σL =
+        ∑ γ ∈ R, coeff σL *
+          logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL := by
+    by_cases hμ : memMeasure F S σL.1 = 0
+    · simp [coeff, hμ]
+    · by_cases hb : logBoundaryIn σL = 0
+      · simp [coeff, hb]
+      · obtain ⟨hT, hvalid, hz, hmem, hlog⟩ := hInitFacts σL hμ hb
+        by_cases hnd : (σL.2.map Prod.snd).Nodup
+        · have hndInit : ((initialLog σL.1).map Prod.snd).Nodup := by
+            simpa [hlog] using hnd
+          have hband : ∀ i j, σL.1.2.1 i j ∈ primeBand S.x (F.a i) := hvalid.2.1
+          have hLists := initialLog_nodup_validLists F.a σL.1 hband hndInit
+          have hEnv : EnvValid F S (σL.1.1, σL.1.2.1) := by
+            refine ⟨?_, hLists⟩
+            norm_num [hz, Int.gcd]
+          have hsource : (σL.1.1, σL.1.2.1) ∈ P :=
+            (hP _).2 ⟨hEnv, by simpa [hz] using he1box⟩
+          have hroute := logHistoryFn_route_sum F S ρ w P hP
+            (pathLength S.x) le_rfl σL hsource
+          calc
+            _ = coeff σL *
+                (∑ γ ∈ R,
+                  logHistoryFn F S ρ w none (some γ) distinctWeight
+                    (pathLength S.x) σL) := congrArg (fun z => coeff σL * z) hroute
+            _ = _ := by rw [Finset.mul_sum]
+        · have hzeroNone :=
+            logHistoryFn_zero_of_badLog F S ρ w none (pathLength S.x) σL hnd
+          have hzeroPath (γ : EnvPath S.x K) :=
+            logHistoryFn_zero_of_badLog F S ρ w (some γ) (pathLength S.x) σL hnd
+          simp [hzeroNone, hzeroPath]
+  have hfiniteDecomp :
+      historyDistinct F S ρ w =
+        ∑ γ ∈ R, memHistory F S ρ w none (some γ) distinctWeight := by
+    unfold historyDistinct memHistory logInner
+    change (∑' σL, coeff σL *
+          logHistoryFn F S ρ w none none distinctWeight (pathLength S.x) σL) = _
+    calc
+      _ = ∑' σL, ∑ γ ∈ R, coeff σL *
+            logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL := by
+          apply tsum_congr
+          intro σL
+          exact hroutePoint σL
+      _ = ∑ γ ∈ R, ∑' σL, coeff σL *
+            logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL :=
+          tsum_sum_finite_support T R
+            (fun σL γ => coeff σL *
+              logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL)
+            (by
+              intro γ σL hσ
+              simp [hcoeffzero σL hσ])
+      _ = _ := rfl
+  have hbadOutside (γ : EnvPath S.x K) (hγ : γ ∉ R) :
+      ∃ t, pathLength S.x - pathLength S.x ≤ t.val ∧ γ t ∉ P := by
+    by_contra hn
+    have hall : ∀ t, γ t ∈ P := by
+      intro t
+      by_contra hnot
+      exact hn ⟨t, by omega, hnot⟩
+    have hroute : γ ∈ historyRouteFinset P (pathLength S.x) := by
+      rw [mem_historyRouteFinset]
+      constructor
+      · intro t ht
+        exact hall t
+      · intro t ht
+        have ht0 : t.val < 0 := by simpa using ht
+        omega
+    exact hγ (by simpa [R] using hroute)
+  have hmemZeroOutside (γ : EnvPath S.x K) (hγ : γ ∉ R) :
+      memHistory F S ρ w none (some γ) distinctWeight = 0 := by
+    have hbad := hbadOutside γ hγ
+    unfold memHistory logInner
+    apply tsum_zero_of_eq_zero
+    intro σL
+    by_cases hT : σL ∈ T
+    · rcases (mem_historyInitialLogs F.a σL).mp hT with ⟨hz, hmem, hlog, hband⟩
+      by_cases hnd : (σL.2.map Prod.snd).Nodup
+      · have hndInit : ((initialLog σL.1).map Prod.snd).Nodup := by
+          simpa [hlog] using hnd
+        have hLists := initialLog_nodup_validLists F.a σL.1 hband hndInit
+        have hEnv : EnvValid F S (σL.1.1, σL.1.2.1) := by
+          refine ⟨?_, hLists⟩
+          norm_num [hz, Int.gcd]
+        have hsource : (σL.1.1, σL.1.2.1) ∈ P :=
+          (hP _).2 ⟨hEnv, by simpa [hz] using he1box⟩
+        have hzero := logHistoryFn_zero_of_path_outside F S ρ w P hP
+          (pathLength S.x) le_rfl γ hbad σL hsource
+        change coeff σL *
+          logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL = 0
+        rw [hzero]
+        simp
+      · have hzero :=
+          logHistoryFn_zero_of_badLog F S ρ w (some γ) (pathLength S.x) σL hnd
+        change coeff σL *
+          logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL = 0
+        rw [hzero]
+        simp
+    · have hc :
+          (memMeasure F S σL.1 : ℂ) * star (logBoundaryIn σL) = 0 := by
+        simpa [coeff] using hcoeffzero σL hT
+      change ((memMeasure F S σL.1 : ℂ) * star (logBoundaryIn σL)) *
+        logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL = 0
+      rw [hc]
+      simp
+  have hrestrictedZeroNonAdm (γ : EnvPath S.x K) (hγ : γ ∈ R)
+      (hAdm : ¬ IsEnvPathAdmissible F S γ) :
+      memHistory F S ρ w none (some γ) distinctWeight = 0 := by
+    have hroute := (mem_historyRouteFinset P (pathLength S.x) γ).mp
+      (by simpa [R] using hγ)
+    have hvalidAll : ∀ j, EnvValid F S (γ j) := by
+      intro j
+      have hj : pathLength S.x - pathLength S.x ≤ j.val := by omega
+      exact (hP (γ j)).mp (hroute.1 j hj) |>.1
+    have hfnzero (σL : LogPoint S.x K) (hT : σL ∈ T) :
+        logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL = 0 := by
+      rcases (mem_historyInitialLogs F.a σL).mp hT with ⟨hz, _, _, _⟩
+      by_cases hstart :
+          (γ ⟨0, Nat.zero_lt_succ (pathLength S.x)⟩).1 = (1, 0)
+      · by_cases hlast :
+            (γ (Fin.last (pathLength S.x))).1 = (1, 0)
+        · exact (hAdm ⟨hvalidAll, by simpa using hstart, hlast⟩).elim
+        · exact congrFun (logHistoryFn_zero_of_last_not_e1 F S ρ w γ
+            (pathLength S.x) hlast) σL
+      · obtain ⟨n, hn⟩ := Nat.exists_eq_succ_of_ne_zero hNpos.ne'
+        rw [hn]
+        have hcurrent : (σL.1.1, σL.1.2.1) ≠ γ ⟨0, by omega⟩ := by
+          intro heq
+          apply hstart
+          exact (congrArg Prod.fst heq).symm.trans hz
+        have hcurrent0 : (σL.1.1, σL.1.2.1) ≠ γ 0 := by
+          simpa using hcurrent
+        simp [logHistoryFn, logTrunc, logPathRestrict, hcurrent0, hn]
+    unfold memHistory logInner
+    apply tsum_zero_of_eq_zero
+    intro σL
+    by_cases hT : σL ∈ T
+    · change coeff σL *
+        logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL = 0
+      rw [hfnzero σL hT]
+      simp
+    · have hc :
+          (memMeasure F S σL.1 : ℂ) * star (logBoundaryIn σL) = 0 := by
+        simpa [coeff] using hcoeffzero σL hT
+      change ((memMeasure F S σL.1 : ℂ) * star (logBoundaryIn σL)) *
+        logHistoryFn F S ρ w none (some γ) distinctWeight (pathLength S.x) σL = 0
+      rw [hc]
+      simp
+  have hsumAdm :
+      (∑ γ ∈ R, memHistory F S ρ w none (some γ) distinctWeight) =
+        ∑ γ ∈ R,
+          if IsEnvPathAdmissible F S γ then
+            memHistory F S ρ w none (some γ) distinctWeight else 0 := by
+    apply Finset.sum_congr rfl
+    intro γ hγ
+    by_cases hAdm : IsEnvPathAdmissible F S γ
+    · simp [hAdm]
+    · simp [hAdm, hrestrictedZeroNonAdm γ hγ hAdm]
+  have htsumAll :
+      (∑' γ : EnvPath S.x K,
+        if IsEnvPathAdmissible F S γ then
+          memHistory F S ρ w none (some γ) distinctWeight else 0) =
+        ∑ γ ∈ R,
+          if IsEnvPathAdmissible F S γ then
+            memHistory F S ρ w none (some γ) distinctWeight else 0 := by
+    apply tsum_eq_sum
+    intro γ hγ
+    by_cases hAdm : IsEnvPathAdmissible F S γ
+    · simp [hAdm, hmemZeroOutside γ hγ]
+    · simp [hAdm]
+  calc
+    historyDistinct F S ρ w =
+        ∑ γ ∈ R, memHistory F S ρ w none (some γ) distinctWeight := hfiniteDecomp
+    _ = ∑ γ ∈ R,
+          if IsEnvPathAdmissible F S γ then
+            memHistory F S ρ w none (some γ) distinctWeight else 0 := hsumAdm
+    _ = _ := htsumAll.symm
+
+private theorem zmod_coords_not_both_zero (p : ℕ) (hp : p.Prime) (z : ℤ × ℤ)
+    (hz : Int.gcd z.1 z.2 = 1) :
+    (z.1 : ZMod p) ≠ 0 ∨ (z.2 : ZMod p) ≠ 0 := by
+  classical
+  letI : Fact p.Prime := ⟨hp⟩
+  by_contra h
+  push_neg at h
+  have hdiv1 : (p : ℤ) ∣ z.1 :=
+    (ZMod.intCast_zmod_eq_zero_iff_dvd _ _).mp h.1
+  have hdiv2 : (p : ℤ) ∣ z.2 :=
+    (ZMod.intCast_zmod_eq_zero_iff_dvd _ _).mp h.2
+  have hg : (p : ℤ) ∣ Int.gcd z.1 z.2 := dvd_gcd hdiv1 hdiv2
+  have hzCast : ((Int.gcd z.1 z.2 : ℕ) : ℤ) = 1 := by exact_mod_cast hz
+  have hdiv : (p : ℤ) ∣ 1 := by
+    exact hzCast ▸ hg
+  apply hp.not_dvd_one
+  exact_mod_cast hdiv
+
+private theorem projLine_eq_of_det_dvd (p : ℕ) (hp : p.Prime) (z z' : ℤ × ℤ)
+    (hz : Int.gcd z.1 z.2 = 1) (hz' : Int.gcd z'.1 z'.2 = 1)
+    (hdet : (p : ℤ) ∣ det2 z z') : projLine p z = projLine p z' := by
+  classical
+  letI : Fact p.Prime := ⟨hp⟩
+  have hdetmod :
+      (z.1 : ZMod p) * (z'.2 : ZMod p) -
+        (z.2 : ZMod p) * (z'.1 : ZMod p) = 0 := by
+    rcases hdet with ⟨n, hn⟩
+    have hcast := congrArg (fun t : ℤ => (t : ZMod p)) hn
+    simpa [det2] using hcast
+  have hdetEq :
+      (z.1 : ZMod p) * (z'.2 : ZMod p) =
+        (z.2 : ZMod p) * (z'.1 : ZMod p) := sub_eq_zero.mp hdetmod
+  by_cases hz2 : (z.2 : ZMod p) = 0
+  · have hz1ne : (z.1 : ZMod p) ≠ 0 := by
+      rcases zmod_coords_not_both_zero p hp z hz with h1 | h2
+      · exact h1
+      · exact (h2 hz2).elim
+    have hz'2 : (z'.2 : ZMod p) = 0 := by
+      have hprod : (z.1 : ZMod p) * (z'.2 : ZMod p) = 0 := by
+        simpa [hz2] using hdetmod
+      rcases mul_eq_zero.mp hprod with h1 | h2
+      · exact (hz1ne h1).elim
+      · exact h2
+    simp [projLine, hz2, hz'2]
+  · have hz2ne : (z.2 : ZMod p) ≠ 0 := hz2
+    have hz'2ne : (z'.2 : ZMod p) ≠ 0 := by
+      intro hzero
+      have hprod : (z.2 : ZMod p) * (z'.1 : ZMod p) = 0 := by
+        have h := hdetEq
+        rw [hzero] at h
+        simpa using h.symm
+      rcases mul_eq_zero.mp hprod with h2 | h1
+      · exact (hz2ne h2).elim
+      · have hcoords := zmod_coords_not_both_zero p hp z' hz'
+        rcases hcoords with hleft | hright
+        · exact (hleft h1).elim
+        · exact (hright hzero).elim
+    have hratio :
+        (z.1 : ZMod p) * (z.2 : ZMod p)⁻¹ =
+          (z'.1 : ZMod p) * (z'.2 : ZMod p)⁻¹ := by
+      calc
+        (z.1 : ZMod p) * (z.2 : ZMod p)⁻¹ =
+            ((z.1 : ZMod p) * (z'.2 : ZMod p)) *
+              ((z.2 : ZMod p) * (z'.2 : ZMod p))⁻¹ := by
+                field_simp [hz2ne, hz'2ne] <;> ring
+        _ = ((z.2 : ZMod p) * (z'.1 : ZMod p)) *
+              ((z.2 : ZMod p) * (z'.2 : ZMod p))⁻¹ := by rw [hdetEq]
+        _ = (z'.1 : ZMod p) * (z'.2 : ZMod p)⁻¹ := by
+                field_simp [hz2ne, hz'2ne] <;> ring
+    simp [projLine, hz2, hz'2ne, hratio]
+
+private theorem projLine_eq_of_transition_active {K : ℕ} (F : PDFix K)
+    (S : PDScale) (z z' : ℤ × ℤ) (p q : PrimeLists S.x K)
+    (hpv : ValidPrimeLists S.x K F.a p) (hqv : ValidPrimeLists S.x K F.a q)
+    (hz : Int.gcd z.1 z.2 = 1) (hz' : Int.gcd z'.1 z'.2 = 1)
+    (hslot : IsSlotTransition p q)
+    (hpad : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z'))
+    (r : ℕ) (hr : ∃ i j, p i j = r) (hr' : ∃ i j, q i j = r) :
+    projLine r z = projLine r z' := by
+  classical
+  rcases hr with ⟨i, j, hsource⟩
+  rcases hr' with ⟨i', j', htarget⟩
+  have hrprime : r.Prime := by
+    rw [← hsource]
+    exact (hpv.1 i j).1
+  have hj'lt : j'.val < momentJ S.x := by
+    by_contra hn
+    have hj'le : j'.val ≤ momentJ S.x := by
+      have hlt := j'.isLt
+      dsimp [slotCount] at hlt
+      omega
+    have hj'ge : momentJ S.x ≤ j'.val := Nat.le_of_not_gt hn
+    have hj'val : j'.val = momentJ S.x := by omega
+    have hj'eq : j' = lastSlot S.x := by
+      apply Fin.ext
+      simpa [lastSlot] using hj'val
+    have hqLast : q i' (lastSlot S.x) = r := by simpa [hj'eq] using htarget
+    have heq : q i' (lastSlot S.x) = p i j := hqLast.trans hsource.symm
+    exact (hslot.2 i' i j) heq
+  have hcopy : q i' j' = p i' j' := hslot.1 i' j' hj'lt
+  have hshared : p i' j' = r := hcopy.symm.trans htarget
+  have hdivNat : r ∣ sharedProduct p := by
+    have hfactor : (if j'.val < momentJ S.x then p i' j' else 1) = r := by
+      simp [hj'lt, hshared]
+    have hinner : r ∣ ∏ j : Fin (slotCount S.x),
+        if j.val < momentJ S.x then p i' j else 1 := by
+      rw [← hfactor]
+      exact Finset.dvd_prod_of_mem _ (Finset.mem_univ j')
+    have houter :
+        (∏ j : Fin (slotCount S.x),
+          if j.val < momentJ S.x then p i' j else 1) ∣ sharedProduct p := by
+      exact Finset.dvd_prod_of_mem _ (Finset.mem_univ i')
+    exact hinner.trans houter
+  have hdivInt : (r : ℤ) ∣ (sharedProduct p : ℤ) := by exact_mod_cast hdivNat
+  have hdet : (r : ℤ) ∣ det2 z z' := hdivInt.trans hpad.2.2
+  exact projLine_eq_of_det_dvd r hrprime z z' hz hz' hdet
+
+private theorem ordered_distinct_batch_sum (T : Finset ℕ) (ν : ℕ → ℝ) :
+    (∑ new : Fin T.card → T,
+      if Function.Bijective new then
+        (∏ k, ν (new k).1) / (T.card.factorial : ℝ) else 0) =
+      ∏ p ∈ T, ν p := by
+  classical
+  let n := T.card
+  let B : Type := {f : Fin n → T // Function.Bijective f}
+  let e0 : Fin n ≃ T := (Finset.equivFin T).symm
+  let e : B ≃ Equiv.Perm (Fin n) :=
+    { toFun := fun f => (Equiv.ofBijective f.1 f.2).trans e0.symm
+      invFun := fun σ => ⟨σ.trans e0, (σ.trans e0).bijective⟩
+      left_inv := by
+        intro f
+        apply Subtype.ext
+        funext i
+        simp [e0, Equiv.ofBijective]
+      right_inv := by
+        intro σ
+        ext i
+        simp [e0] }
+  have hcard : Fintype.card B = n.factorial := by
+    calc
+      Fintype.card B = Fintype.card (Equiv.Perm (Fin n)) := Fintype.card_congr e
+      _ = (Fintype.card (Fin n)).factorial := Fintype.card_perm
+      _ = n.factorial := by simp [n]
+  let Q : ℝ := ∏ p ∈ T, ν p
+  have hprod (f : B) : (∏ k : Fin n, ν (f.1 k).1) = Q := by
+    calc
+      (∏ k : Fin n, ν (f.1 k).1) = ∏ t : T, ν t.1 :=
+        Function.Bijective.prod_comp f.2 (fun t : T => ν t.1)
+      _ = Q := by
+        simpa [Q] using (Finset.prod_attach T ν)
+  have hsumB :
+      (∑ f : B, (∏ k : Fin n, ν (f.1 k).1) / (n.factorial : ℝ)) = Q := by
+    calc
+      _ = ∑ f : B, Q / (n.factorial : ℝ) := by
+            apply Finset.sum_congr rfl
+            intro f hf
+            rw [hprod]
+      _ = (Fintype.card B : ℝ) * (Q / (n.factorial : ℝ)) := by simp
+      _ = Q := by rw [hcard]; field_simp
+  change (∑ new : Fin n → T,
+      if Function.Bijective new then
+        (∏ k, ν (new k).1) / (n.factorial : ℝ) else 0) = Q
+  calc
+    _ = ∑ new ∈ (Finset.univ : Finset (Fin n → T)).filter Function.Bijective,
+          (∏ k, ν (new k).1) / (n.factorial : ℝ) := by
+          rw [Finset.sum_filter]
+    _ = ∑ f : B, (∏ k, ν (f.1 k).1) / (n.factorial : ℝ) := by
+          rw [← Finset.sum_subtype_eq_sum_filter]
+          simp [B]
+    _ = Q := hsumB
+
+private theorem pathPrimeFactor_avg_eq_pathLifespan {K : ℕ} (F : PDFix K)
+    (S : PDScale) (γ : EnvPath S.x K) (p : ℕ)
+    (hbp0 : memoryBPrime S.x F.q_d p ≠ 0) :
+    ((p : ℝ) + 1)⁻¹ *
+        ∑ l : Fin (p + 1), pathPrimeFactor F S γ p l =
+      memoryBPrime S.x F.q_d p * pathLifespan F S γ p := by
+  have hbp : memoryBPrime S.x F.q_d p =
+      1 - ∑ j : Fin (pathLength S.x + 1),
+        memoryEta S.x F.q_d j.val / ((p : ℝ) + 1) := by
+    unfold memoryBPrime
+    congr 1
+    rw [← Fin.sum_univ_eq_sum_range]
+  simpa [pathPrimeFactor, pathLifespan, IsActiveAt, eq_comm] using
+    (prime_lifespan p (pathLength S.x)
+      (fun j => projLine p (γ j).1) (IsActiveAt γ p)
+      (fun j => memoryEta S.x F.q_d j.val) (memoryBPrime S.x F.q_d p) hbp hbp0)
+
+private theorem memorySym_delta_row_le {x : ℝ} {K : ℕ} (s : MemPoint x K)
+    (T : Finset (MemPoint x K)) :
+    (∑ t ∈ T, ‖memorySym (fun u => if u = t then (1 : ℂ) else 0) s‖) ≤ 1 := by
+  classical
+  let G := MemoryPermutation s
+  let d := Fintype.card G
+  have hG : Nonempty G := ⟨fun i => Equiv.refl _⟩
+  have hdpos : 0 < d := by
+    dsimp [d]
+    exact Fintype.card_pos_iff.mpr hG
+  have hdne : (d : ℝ) ≠ 0 := by exact_mod_cast (Nat.ne_of_gt hdpos)
+  have hnormInv : ‖(d : ℂ)⁻¹‖ = (d : ℝ)⁻¹ := by
+    rw [norm_inv]
+    simp [d]
+  have hterm (t : MemPoint x K) :
+      ‖memorySym (fun u => if u = t then (1 : ℂ) else 0) s‖ ≤
+        (d : ℝ)⁻¹ * ∑ σ : G, if memoryPermute s σ = t then (1 : ℝ) else 0 := by
+    unfold memorySym
+    calc
+      _ ≤ ‖(d : ℂ)⁻¹‖ *
+            ∑ σ : G, ‖if memoryPermute s σ = t then (1 : ℂ) else 0‖ := by
+          exact (norm_mul_le _ _).trans
+            (mul_le_mul_of_nonneg_left
+              (norm_sum_le (Finset.univ : Finset G)
+                (fun σ : G => if memoryPermute s σ = t then (1 : ℂ) else 0))
+              (norm_nonneg _))
+      _ = _ := by
+        rw [hnormInv]
+        congr 1
+        apply Finset.sum_congr rfl
+        intro σ hσ
+        by_cases h : memoryPermute s σ = t <;> simp [h]
+  have hinner (σ : G) :
+      (∑ t ∈ T, if memoryPermute s σ = t then (1 : ℝ) else 0) ≤ 1 := by
+    by_cases hσ : memoryPermute s σ ∈ T
+    · rw [Finset.sum_eq_single (memoryPermute s σ)]
+      · simp
+      · intro t ht hne
+        simp [Ne.symm hne]
+      · intro hnot
+        exact (hnot hσ).elim
+    · have hzero :
+          (∑ t ∈ T, if memoryPermute s σ = t then (1 : ℝ) else 0) = 0 := by
+        apply Finset.sum_eq_zero
+        intro t ht
+        by_cases heq : memoryPermute s σ = t
+        · subst t
+          exact False.elim (hσ ht)
+        · simp [heq]
+      rw [hzero]
+      norm_num
+  calc
+    _ ≤ ∑ t ∈ T, (d : ℝ)⁻¹ *
+          ∑ σ : G, if memoryPermute s σ = t then (1 : ℝ) else 0 :=
+        Finset.sum_le_sum fun t ht => hterm t
+    _ = (d : ℝ)⁻¹ *
+          ∑ σ : G, ∑ t ∈ T, if memoryPermute s σ = t then (1 : ℝ) else 0 := by
+        rw [← Finset.mul_sum, Finset.sum_comm]
+    _ ≤ (d : ℝ)⁻¹ * ∑ σ : G, (1 : ℝ) := by
+        apply mul_le_mul_of_nonneg_left
+        · exact Finset.sum_le_sum fun σ hσ => hinner σ
+        · positivity
+    _ = 1 := by
+      simp [d]
+
+private theorem sum_powerset_binomial {α : Type*} [DecidableEq α]
+    (H : Finset α) (a b : ℝ) :
+    (∑ D ∈ H.powerset, a ^ D.card * b ^ (H.card - D.card)) = (a + b) ^ H.card := by
+  classical
+  calc
+    _ = ∑ D ∈ H.powerset,
+          (∏ _i ∈ D, a) * ∏ _i ∈ H \ D, b := by
+          apply Finset.sum_congr rfl
+          intro D hD
+          have hsubset : D ⊆ H := Finset.mem_powerset.mp hD
+          simp [Finset.prod_const, Finset.card_sdiff_of_subset hsubset]
+    _ = ∏ i ∈ H, (a + b) := by
+          symm
+          exact Finset.prod_add (fun _ => a) (fun _ => b) H
+    _ = (a + b) ^ H.card := by simp [Finset.prod_const]
+
+private theorem sum_fin_function_prod {α : Type*} [Fintype α] [DecidableEq α]
+    (n : ℕ) (w : α → ℝ) :
+    (∑ g : Fin n → α, ∏ i : Fin n, w (g i)) = (∑ a : α, w a) ^ n := by
+  classical
+  rw [← Fintype.piFinset_univ]
+  calc
+    _ = ∏ i : Fin n, ∑ a : α, w a := by
+      simpa using
+        (Finset.prod_univ_sum (fun _ : Fin n => Finset.univ)
+          (fun _ a => w a)).symm
+    _ = _ := by simp [Finset.prod_const]
+
+private theorem ghost_batch_sum_le_exp {α : Type*} [Fintype α] [DecidableEq α]
+    (ν : α → ℝ) (hν : ∀ a, 0 ≤ ν a) (hνsum : (∑ a, ν a) ≤ 2)
+    (c v : ℝ) (hc : 0 ≤ c) (hv : 0 ≤ v) :
+    (∑' l : ℕ, ∑ f : Fin l → α,
+      (c * v) ^ l / (l.factorial : ℝ) * ∏ k : Fin l, ν (f k)) ≤
+        Real.exp (2 * c * v) := by
+  classical
+  let s : ℝ := ∑ a, ν a
+  have hs : 0 ≤ s := Finset.sum_nonneg fun a ha => hν a
+  have hsle : s ≤ 2 := hνsum
+  have hinner (l : ℕ) :
+      (∑ f : Fin l → α,
+        (c * v) ^ l / (l.factorial : ℝ) * ∏ k : Fin l, ν (f k)) =
+        ((c * v) * s) ^ l / (l.factorial : ℝ) := by
+    calc
+      _ = (c * v) ^ l / (l.factorial : ℝ) *
+            ∑ f : Fin l → α, ∏ k : Fin l, ν (f k) := by rw [← Finset.mul_sum]
+      _ = (c * v) ^ l / (l.factorial : ℝ) * s ^ l := by
+            rw [sum_fin_function_prod]
+      _ = ((c * v) * s) ^ l / (l.factorial : ℝ) := by
+            calc
+              _ = ((c * v) ^ l * s ^ l) / (l.factorial : ℝ) := by ring
+              _ = ((c * v) * s) ^ l / (l.factorial : ℝ) := by rw [← mul_pow]
+  have hseries :
+      (∑' l : ℕ, ((c * v) * s) ^ l / (l.factorial : ℝ)) =
+        Real.exp ((c * v) * s) := by
+    rw [Real.exp_eq_exp_ℝ]
+    exact (NormedSpace.expSeries_div_hasSum_exp ((c * v) * s)).tsum_eq
+  have harg : (c * v) * s ≤ 2 * c * v := by
+    calc
+      (c * v) * s ≤ (c * v) * 2 := mul_le_mul_of_nonneg_left hsle
+        (mul_nonneg hc hv)
+      _ = 2 * c * v := by ring
+  calc
+    _ = ∑' l : ℕ, ((c * v) * s) ^ l / (l.factorial : ℝ) := by
+      apply tsum_congr
+      intro l
+      exact hinner l
+    _ = Real.exp ((c * v) * s) := hseries
+    _ ≤ Real.exp (2 * c * v) := Real.exp_le_exp.mpr harg
+
+private theorem ghost_scalar_cancellations (ρ q eta V : ℝ) (hρ : ρ ≠ 0) :
+    ρ * (q / ρ ^ 2) * ρ = q ∧ (-eta * V / ρ) * ρ = -eta * V ∧
+      (-eta / ρ) * ρ = -eta := by
+  constructor
+  · field_simp [hρ]
+  constructor <;> field_simp [hρ]
 
 /-- `t2:pd.history-path-value` (new node) — PD 04:234-274.  Along a fixed admissible path the
 sum over memory choices with global birth distinctness factorizes over primes into lifespans:
@@ -958,6 +2989,413 @@ theorem truncation_adjoint (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁
           ‖historyDistinct F S ρ w - historyDistinctTrunc F S ρ w‖ ≤
             C_A * Real.rpow S.L (-A * (S.N : ℝ)) := by
   sorry
+
+private theorem memoryBPrime_half_of_large_x {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → ∀ p ∈ markedPrimes x K F.a,
+      (1 / 2 : ℝ) ≤ memoryBPrime x F.q_d p := by
+  rcases hF with ⟨hBands, hqd, hqdlt, _, _, _⟩
+  have hy : Filter.Tendsto (fun x : ℝ => Real.rpow (Real.log x) (1 / 10 : ℝ)) atTop atTop :=
+    (tendsto_rpow_atTop (by norm_num)).comp Real.tendsto_log_atTop
+  have hratio : Filter.Tendsto
+      (fun x : ℝ => Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) /
+        (Real.rpow (Real.log x) (1 / 10 : ℝ)) ^ (5 : ℝ)) atTop atTop :=
+    (tendsto_exp_div_rpow_atTop 5).comp hy
+  obtain ⟨xE, hxE⟩ := Filter.eventually_atTop.1
+    ((Filter.tendsto_atTop.1 hratio) (3 : ℝ))
+  obtain ⟨xY, hxY⟩ := Filter.eventually_atTop.1
+    ((Filter.tendsto_atTop.1 hy) (2 : ℝ))
+  let x₀ := max 2 (max xE (max xY (Real.exp 1)))
+  have h₂ : 2 ≤ x₀ := by dsimp [x₀]; exact le_max_left _ _
+  refine ⟨x₀, h₂, ?_⟩
+  intro x hx p hp
+  have hxE₀ : xE ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_left _ _) (le_max_right _ _)
+  have hxY₀ : xY ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_left _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hexp₀ : Real.exp 1 ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_right _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hxE' : xE ≤ x := hxE₀.trans hx
+  have hxY' : xY ≤ x := hxY₀.trans hx
+  have hexp' : Real.exp 1 ≤ x := hexp₀.trans hx
+  have hL : 1 ≤ Real.log x := by
+    rw [← Real.log_exp 1]
+    exact Real.log_le_log (Real.exp_pos 1) hexp'
+  let y := Real.rpow (Real.log x) (1 / 10 : ℝ)
+  have hyx : 2 ≤ y := by simpa [y] using hxY x hxY'
+  have hrx : 3 ≤ Real.exp y / y ^ (5 : ℝ) := by simpa [y] using hxE x hxE'
+  rcases Finset.mem_biUnion.mp hp with ⟨i, _, hpi⟩
+  have hband := (Finset.mem_filter.mp hpi).2.2.1
+  have hai : (1 / 10 : ℝ) < F.a i := hBands.2.1 i |>.1
+  have hlow : y ≤ Real.rpow (Real.log x) (F.a i) :=
+    Real.rpow_le_rpow_of_exponent_le hL hai.le
+  have hpLower : Real.exp y ≤ (p : ℝ) :=
+    (Real.exp_le_exp.mpr hlow).trans hband
+  have hypos : 0 < y := lt_of_lt_of_le (by norm_num) hyx
+  have hy5pos : 0 < y ^ (5 : ℝ) := Real.rpow_pos_of_pos hypos _
+  have hExpLower : 3 * y ^ (5 : ℝ) ≤ Real.exp y :=
+    (le_div_iff₀ hy5pos).mp hrx
+  have hy5ge : (32 : ℝ) ≤ y ^ (5 : ℝ) := by
+    calc
+      32 = (2 : ℝ) ^ (5 : ℕ) := by norm_num
+      _ ≤ y ^ (5 : ℕ) := by gcongr
+      _ = y ^ (5 : ℝ) := (Real.rpow_natCast y 5).symm
+  have hN : (pathLength x : ℝ) < y ^ (5 : ℝ) + 2 := by
+    have hceil :
+        (⌈Real.rpow (Real.log x) (1 / 2 : ℝ) / 2⌉₊ : ℝ) <
+          Real.rpow (Real.log x) (1 / 2 : ℝ) / 2 + 1 :=
+      Nat.ceil_lt_add_one (div_nonneg (Real.rpow_nonneg (by linarith [hL]) _) (by norm_num))
+    have hceil2 :
+        (2 : ℝ) * (⌈Real.rpow (Real.log x) (1 / 2 : ℝ) / 2⌉₊ : ℝ) <
+          Real.rpow (Real.log x) (1 / 2 : ℝ) + 2 := by
+      have hmul := mul_lt_mul_of_pos_left hceil (by norm_num : (0 : ℝ) < 2)
+      nlinarith
+    have hpath : (pathLength x : ℝ) < Real.rpow (Real.log x) (1 / 2 : ℝ) + 2 := by
+      dsimp [pathLength, momentR]
+      push_cast
+      exact hceil2
+    have hy5 : y ^ (5 : ℝ) = Real.rpow (Real.log x) (1 / 2 : ℝ) := by
+      dsimp [y]
+      rw [← Real.rpow_mul (by linarith [hL]) (1 / 10 : ℝ) (5 : ℝ)]
+      norm_num
+    simpa [hy5] using hpath
+  have hpDouble : 2 * ((pathLength x + 1 : ℕ) : ℝ) < (p : ℝ) := by
+    have hp3 : 3 * y ^ (5 : ℝ) ≤ (p : ℝ) := le_trans hExpLower hpLower
+    have hNatCast : ((pathLength x + 1 : ℕ) : ℝ) = (pathLength x : ℝ) + 1 := by simp
+    have hNplus : ((pathLength x + 1 : ℕ) : ℝ) < y ^ (5 : ℝ) + 3 := by
+      rw [hNatCast]
+      linarith [hN]
+    have hpGap : 2 * (y ^ (5 : ℝ) + 3) ≤ 3 * y ^ (5 : ℝ) := by nlinarith [hy5ge]
+    calc
+      _ < 2 * (y ^ (5 : ℝ) + 3) := by nlinarith [hNplus]
+      _ ≤ 3 * y ^ (5 : ℝ) := hpGap
+      _ ≤ (p : ℝ) := hp3
+  have heta (j : ℕ) : memoryEta x F.q_d j ≤ 1 := by
+    simp only [memoryEta, memoryQ]
+    split_ifs <;> linarith [Real.sqrt_nonneg F.q_d]
+  have hsum :
+      (∑ j ∈ Finset.range (pathLength x + 1), memoryEta x F.q_d j) ≤
+        ((pathLength x + 1 : ℕ) : ℝ) := by
+    calc
+      _ ≤ ∑ j ∈ Finset.range (pathLength x + 1), (1 : ℝ) :=
+        Finset.sum_le_sum fun j _ => heta j
+      _ = ((pathLength x + 1 : ℕ) : ℝ) := by simp
+  have hpplus : 0 < (p : ℝ) + 1 := by positivity
+  have hratio' : ((pathLength x + 1 : ℕ) : ℝ) / ((p : ℝ) + 1) < 1 / 2 := by
+    apply (div_lt_iff₀ hpplus).2
+    nlinarith [hpDouble]
+  have hquot :
+      (∑ j ∈ Finset.range (pathLength x + 1), memoryEta x F.q_d j) /
+          ((p : ℝ) + 1) < 1 / 2 := by
+    calc
+      _ ≤ ((pathLength x + 1 : ℕ) : ℝ) / ((p : ℝ) + 1) :=
+        div_le_div_of_nonneg_right hsum hpplus.le
+      _ < 1 / 2 := hratio'
+  unfold memoryBPrime
+  rw [← Finset.sum_div]
+  linarith
+
+private theorem bandMass_le_two_log_two_of_large_x {K : ℕ} (F : PDFix K)
+    (hF : F.Valid) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → ∀ i : Fin K,
+      bandMass x (F.a i) ≤ 2 * Real.log 2 := by
+  classical
+  let x_i : Fin K → ℝ := fun i =>
+    Classical.choose (band_mass (F.a i)
+      (lt_trans (by norm_num : (0 : ℝ) < 1 / 10) (hF.1.2.1 i).1)
+      (lt_trans (hF.1.2.1 i).2 (by norm_num))
+      (Real.log 2) (Real.log_pos (by norm_num)))
+  have hx_i : ∀ i : Fin K,
+      2 ≤ x_i i ∧ ∀ x : ℝ, x_i i ≤ x →
+        |bandMass x (F.a i) - Real.log 2| ≤ Real.log 2 ∧
+          0 < bandMass x (F.a i) := by
+    intro i
+    exact Classical.choose_spec (band_mass (F.a i)
+      (lt_trans (by norm_num : (0 : ℝ) < 1 / 10) (hF.1.2.1 i).1)
+      (lt_trans (hF.1.2.1 i).2 (by norm_num))
+      (Real.log 2) (Real.log_pos (by norm_num)))
+  let x₀ : ℝ := 2 + ∑ i : Fin K, x_i i
+  have hx₀ : 2 ≤ x₀ := by
+    dsimp [x₀]
+    have hsum : 0 ≤ ∑ i : Fin K, x_i i :=
+      Finset.sum_nonneg fun i hi => by linarith [(hx_i i).1]
+    linarith
+  refine ⟨x₀, hx₀, ?_⟩
+  intro x hx i
+  have hsingle : x_i i ≤ ∑ j : Fin K, x_i j :=
+    Finset.single_le_sum (s := Finset.univ) (f := x_i)
+      (fun j hj => by linarith [(hx_i j).1]) (Finset.mem_univ i)
+  have hxi : x_i i ≤ x₀ := by dsimp [x₀]; linarith
+  have hmass := (hx_i i).2 x (le_trans hxi hx)
+  have habs := (abs_le.mp hmass.1).2
+  linarith
+
+private theorem ghost_parenthesis_le_one {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (v : ℝ)
+    (hv : 2 / (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤ v) {x : ℝ} (j : ℕ) :
+    memoryQ x F.q_d j / ρ ^ 2 + memoryEta x F.q_d j / (ρ * v) ≤ 1 := by
+  rcases hF with ⟨_, hqd, hqdlt, _, _, _⟩
+  rcases hρ with ⟨hρpos, hρlt, hroot⟩
+  have hsquare : (Real.sqrt F.q_d) ^ 2 = F.q_d := Real.sq_sqrt hqd.le
+  have hrootnonneg : 0 ≤ Real.sqrt F.q_d := Real.sqrt_nonneg _
+  have hrootleOne : Real.sqrt F.q_d ≤ 1 := by
+    by_contra h
+    have hgt : 1 < Real.sqrt F.q_d := lt_of_not_ge h
+    nlinarith [sq_nonneg (Real.sqrt F.q_d - 1), hsquare]
+  have hrootle : F.q_d ≤ Real.sqrt F.q_d := by
+    calc
+      F.q_d = Real.sqrt F.q_d * Real.sqrt F.q_d := by nlinarith [hsquare]
+      _ ≤ Real.sqrt F.q_d * 1 :=
+        mul_le_mul_of_nonneg_left hrootleOne hrootnonneg
+      _ = Real.sqrt F.q_d := by ring
+  have hqjpos : 0 < memoryQ x F.q_d j := by
+    unfold memoryQ
+    split_ifs <;> positivity
+  have hqj : memoryQ x F.q_d j ≤ Real.sqrt F.q_d := by
+    unfold memoryQ
+    split_ifs <;> linarith [hrootle]
+  let g : ℝ := 1 - Real.sqrt F.q_d / ρ ^ 2
+  have hg : 0 < g := by
+    dsimp [g]
+    apply sub_pos.mpr
+    exact (div_lt_one (by positivity)).2 hroot
+  have hdenρv : 0 < ρ * v := by
+    have hvpos : 0 < 2 / (ρ * g) := div_pos (by norm_num) (mul_pos hρpos hg)
+    exact mul_pos hρpos (lt_of_lt_of_le (div_pos (by norm_num) (mul_pos hρpos hg)) hv)
+  have hlarge : 2 ≤ ρ * g * v := by
+    have := (div_le_iff₀ (mul_pos hρpos hg)).mp hv
+    nlinarith
+  have hfrac : 1 / (ρ * v) ≤ g / 2 := by
+    rw [div_le_iff₀ hdenρv]
+    nlinarith [hlarge]
+  have hqdiv : memoryQ x F.q_d j / ρ ^ 2 ≤ 1 - g := by
+    calc
+      _ ≤ Real.sqrt F.q_d / ρ ^ 2 :=
+        div_le_div_of_nonneg_right hqj (sq_nonneg ρ)
+      _ = 1 - g := by dsimp [g]; ring
+  have heta : memoryEta x F.q_d j ≤ 1 := by
+    unfold memoryEta
+    linarith [hqjpos]
+  have hetadiv : memoryEta x F.q_d j / (ρ * v) ≤ g / 2 := by
+    calc
+      _ ≤ 1 / (ρ * v) := div_le_div_of_nonneg_right heta hdenρv.le
+      _ ≤ g / 2 := hfrac
+  linarith
+
+private theorem memoryNu_band_mass_le_two {K : ℕ} (F : PDFix K) {x : ℝ}
+    (i : Fin K) (hV : 0 < bandMass x (F.a i))
+    (hbp : ∀ p ∈ markedPrimes x K F.a,
+      (1 / 2 : ℝ) ≤ memoryBPrime x F.q_d p)
+    :
+    ∑ p ∈ primeBand x (F.a i), memoryNu x K F.a F.q_d i p ≤ 2 := by
+  classical
+  have hV' : 0 < bandMass x (F.a i) := hV
+  have hpx (p : ℕ) (hp : p ∈ primeBand x (F.a i)) : p ∈ markedPrimes x K F.a := by
+    exact Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩
+  have hterm (p : ℕ) (hp : p ∈ primeBand x (F.a i)) :
+      memoryNu x K F.a F.q_d i p ≤ 2 / (bandMass x (F.a i) * (p : ℝ)) := by
+    have hpPrime := (Finset.mem_filter.mp hp).2.1
+    have hp0 : (0 : ℝ) < p := by exact_mod_cast hpPrime.pos
+    have hpplus : (0 : ℝ) < (p : ℝ) + 1 := by positivity
+    have hb := hbp p (hpx p hp)
+    have hbpos : 0 < memoryBPrime x F.q_d p := lt_of_lt_of_le (by norm_num) hb
+    have hden₁ : 0 < bandMass x (F.a i) * ((p : ℝ) + 1) * memoryBPrime x F.q_d p :=
+      mul_pos (mul_pos hV' hpplus) hbpos
+    have hden₂ : 0 < bandMass x (F.a i) * (p : ℝ) := mul_pos hV' hp0
+    unfold memoryNu
+    rw [div_le_div_iff₀ hden₁ hden₂]
+    nlinarith
+  calc
+    _ ≤ ∑ p ∈ primeBand x (F.a i),
+          2 / (bandMass x (F.a i) * (p : ℝ)) :=
+        Finset.sum_le_sum fun p hp => hterm p hp
+    _ = (2 / bandMass x (F.a i)) * bandMass x (F.a i) := by
+        calc
+          _ = ∑ p ∈ primeBand x (F.a i),
+                (2 / bandMass x (F.a i)) * (1 / (p : ℝ)) := by
+              apply Finset.sum_congr rfl
+              intro p hp
+              have hpPrime := (Finset.mem_filter.mp hp).2.1
+              have hp0 : (0 : ℝ) < p := by exact_mod_cast hpPrime.pos
+              field_simp [ne_of_gt hV', hp0.ne']
+          _ = (2 / bandMass x (F.a i)) *
+                ∑ p ∈ primeBand x (F.a i), 1 / (p : ℝ) := by
+              rw [← Finset.mul_sum]
+          _ = (2 / bandMass x (F.a i)) * bandMass x (F.a i) := by
+              simp [bandMass]
+    _ = 2 := by field_simp [ne_of_gt hV']
+
+private theorem ghost_group_birth_sum_le_exp {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    {x : ℝ} (i : Fin K) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (v : ℝ) (hv : 0 < v)
+    (hV : 0 < bandMass x (F.a i))
+    (hbp : ∀ p ∈ markedPrimes x K F.a,
+      (1 / 2 : ℝ) ≤ memoryBPrime x F.q_d p) (j : ℕ) :
+    (∑' l : ℕ, ∑ batch : Fin l → {p // p ∈ primeBand x (F.a i)},
+      (memoryEta x F.q_d j * bandMass x (F.a i) / ρ * v) ^ l /
+        (l.factorial : ℝ) * ∏ k : Fin l,
+          memoryNu x K F.a F.q_d i (batch k).1) ≤
+      Real.exp (2 * memoryEta x F.q_d j * bandMass x (F.a i) * v / ρ) := by
+  classical
+  rcases hF with ⟨_, hqd, hqdlt, _, _, _⟩
+  rcases hρ with ⟨hρpos, hρlt, hroot⟩
+  have hρsq : ρ ^ 2 < 1 := by nlinarith
+  have hrootltone : Real.sqrt F.q_d < 1 := lt_trans hroot hρsq
+  have hqjlt : memoryQ x F.q_d j < 1 := by
+    unfold memoryQ
+    split_ifs
+    · exact hrootltone
+    · exact hqdlt
+  have heta : 0 ≤ memoryEta x F.q_d j := by
+    unfold memoryEta
+    linarith
+  let P := primeBand x (F.a i)
+  let α := {p // p ∈ P}
+  letI : Fintype α := Fintype.ofFinset P (by intro p; simp [P])
+  let ν : α → ℝ := fun p => memoryNu x K F.a F.q_d i p.1
+  have hν : ∀ p : α, 0 ≤ ν p := by
+    intro p
+    have hpPrime := (Finset.mem_filter.mp p.2).2.1
+    have hpplus : 0 < (p.1 : ℝ) + 1 := by positivity
+    have hb : 0 < memoryBPrime x F.q_d p.1 :=
+      lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1 / 2)
+        (hbp p.1 (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, p.2⟩))
+    have hden : 0 < bandMass x (F.a i) * ((p.1 : ℝ) + 1) *
+        memoryBPrime x F.q_d p.1 := mul_pos (mul_pos hV hpplus) hb
+    dsimp [ν]
+    unfold memoryNu
+    positivity
+  have hνsum : (∑ p : α, ν p) ≤ 2 := by
+    have hEq : (∑ p : α, ν p) =
+        ∑ p ∈ P, memoryNu x K F.a F.q_d i p := by
+      have hAttach : P.attach = (Finset.univ : Finset α) := by
+        ext p
+        simp [α, P]
+      rw [← hAttach]
+      exact Finset.sum_attach P (fun p => memoryNu x K F.a F.q_d i p)
+    rw [hEq]
+    exact memoryNu_band_mass_le_two F i hV hbp
+  let c := memoryEta x F.q_d j * bandMass x (F.a i) / ρ
+  have hc : 0 ≤ c := div_nonneg (mul_nonneg heta hV.le) hρpos.le
+  have hsum := ghost_batch_sum_le_exp ν hν hνsum c v hc hv.le
+  calc
+    _ = ∑' l : ℕ, ∑ batch : Fin l → α,
+          (c * v) ^ l / (l.factorial : ℝ) * ∏ k : Fin l, ν (batch k) := by
+        apply tsum_congr
+        intro l
+        apply Finset.sum_congr rfl
+        intro batch hbatch
+        dsimp [c, ν]
+    _ ≤ Real.exp (2 * c * v) := hsum
+    _ = Real.exp (2 * memoryEta x F.q_d j * bandMass x (F.a i) * v / ρ) := by
+        congr 1
+        dsimp [c]
+        ring
+
+private theorem ghost_deletion_subset_sum_le_one {α : Type*} [DecidableEq α]
+    (H : Finset α) (a b : ℝ) (ha : 0 ≤ a) (hb : 0 ≤ b) (hab : a + b ≤ 1) :
+    (∑ D ∈ H.powerset, a ^ D.card * b ^ (H.card - D.card)) ≤ 1 := by
+  rw [sum_powerset_binomial]
+  exact pow_le_one₀ (add_nonneg ha hb) hab
+
+private theorem ghost_group_deletions_le_one {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (v : ℝ) (hv0 : 0 < v)
+    (hv : 2 / (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤ v)
+    {x : ℝ} (j : ℕ) (l : List Particle) (z : ℤ × ℤ) :
+    (∑ D ∈ (hitIndices l z).powerset,
+      (memoryEta x F.q_d j / (ρ * v)) ^ D.card *
+        (memoryQ x F.q_d j / ρ ^ 2) ^ ((hitIndices l z).card - D.card)) ≤ 1 := by
+  have hqd : 0 < F.q_d := hF.2.1
+  have hqdlt : F.q_d < 1 := hF.2.2.1
+  have hρpos := hρ.1
+  have hρlt := hρ.2.1
+  have hroot := hρ.2.2
+  have hη : 0 ≤ memoryEta x F.q_d j := by
+    have hqj : memoryQ x F.q_d j < 1 := by
+      have hρsq : ρ ^ 2 < 1 := by nlinarith [hρpos, hρlt]
+      have hrootltone : Real.sqrt F.q_d < 1 := lt_trans hroot hρsq
+      unfold memoryQ
+      split_ifs <;> assumption
+    unfold memoryEta
+    linarith
+  have hqnonneg : 0 ≤ memoryQ x F.q_d j := by
+    unfold memoryQ
+    split_ifs
+    · exact Real.sqrt_nonneg _
+    · exact hF.2.1.le
+  have ha : 0 ≤ memoryEta x F.q_d j / (ρ * v) :=
+    div_nonneg hη (mul_nonneg hρpos.le hv0.le)
+  have hb : 0 ≤ memoryQ x F.q_d j / ρ ^ 2 :=
+    div_nonneg hqnonneg (sq_nonneg ρ)
+  have hab : memoryEta x F.q_d j / (ρ * v) +
+      memoryQ x F.q_d j / ρ ^ 2 ≤ 1 := by
+    have h := ghost_parenthesis_le_one F hF ρ hρ v hv (x := x) j
+    linarith
+  exact ghost_deletion_subset_sum_le_one (hitIndices l z)
+    (memoryEta x F.q_d j / (ρ * v)) (memoryQ x F.q_d j / ρ ^ 2) ha hb hab
+
+private theorem ghost_group_choice_sum_le_exp {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    {x : ℝ} (i : Fin K) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (v : ℝ) (hv : 0 < v)
+    (hvlarge : 2 / (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤ v)
+    (hV : 0 < bandMass x (F.a i))
+    (hbp : ∀ p ∈ markedPrimes x K F.a,
+      (1 / 2 : ℝ) ≤ memoryBPrime x F.q_d p)
+    (j : ℕ) (l : List Particle) (z : ℤ × ℤ) :
+    (∑ D ∈ (hitIndices l z).powerset,
+      (memoryEta x F.q_d j / (ρ * v)) ^ D.card *
+        (memoryQ x F.q_d j / ρ ^ 2) ^ ((hitIndices l z).card - D.card) *
+        (∑' m : ℕ, ∑ batch : Fin m → {p // p ∈ primeBand x (F.a i)},
+          (memoryEta x F.q_d j * bandMass x (F.a i) / ρ * v) ^ m /
+            (m.factorial : ℝ) * ∏ k : Fin m,
+              memoryNu x K F.a F.q_d i (batch k).1)) ≤
+      Real.exp (2 * memoryEta x F.q_d j * bandMass x (F.a i) * v / ρ) := by
+  let a := memoryEta x F.q_d j / (ρ * v)
+  let b := memoryQ x F.q_d j / ρ ^ 2
+  have hρpos := hρ.1
+  have hD := ghost_group_deletions_le_one F hF ρ hρ v hv hvlarge (x := x) j l z
+  have hBirth := ghost_group_birth_sum_le_exp F hF i ρ hρ v hv hV hbp j
+  have hη : 0 ≤ memoryEta x F.q_d j := by
+    have hqj : memoryQ x F.q_d j < 1 := by
+      have hρsq : ρ ^ 2 < 1 := by nlinarith [hρ.1, hρ.2.1]
+      have hrootltone : Real.sqrt F.q_d < 1 := lt_trans hρ.2.2 hρsq
+      unfold memoryQ
+      split_ifs <;> [exact hrootltone; exact hF.2.2.1]
+    unfold memoryEta
+    linarith
+  have ha : 0 ≤ a := by
+    dsimp [a]
+    exact div_nonneg hη (mul_nonneg hρpos.le hv.le)
+  have hqnonneg : 0 ≤ memoryQ x F.q_d j := by
+    unfold memoryQ
+    split_ifs
+    · exact Real.sqrt_nonneg _
+    · exact hF.2.1.le
+  have hb : 0 ≤ b := by
+    dsimp [b]
+    exact div_nonneg hqnonneg (sq_nonneg ρ)
+  have hweight (D : Finset (Fin l.length)) :
+      0 ≤ a ^ D.card * b ^ ((hitIndices l z).card - D.card) :=
+    mul_nonneg (pow_nonneg ha _) (pow_nonneg hb _)
+  have hExp : 0 < Real.exp (2 * memoryEta x F.q_d j * bandMass x (F.a i) * v / ρ) :=
+    Real.exp_pos _
+  calc
+    _ ≤ ∑ D ∈ (hitIndices l z).powerset,
+          a ^ D.card * b ^ ((hitIndices l z).card - D.card) *
+            Real.exp (2 * memoryEta x F.q_d j * bandMass x (F.a i) * v / ρ) := by
+        apply Finset.sum_le_sum
+        intro D hD'
+        exact mul_le_mul_of_nonneg_left hBirth (hweight D)
+    _ = Real.exp (2 * memoryEta x F.q_d j * bandMass x (F.a i) * v / ρ) *
+          ∑ D ∈ (hitIndices l z).powerset,
+            a ^ D.card * b ^ ((hitIndices l z).card - D.card) := by
+        rw [← Finset.sum_mul]
+        ring
+    _ ≤ Real.exp (2 * memoryEta x F.q_d j * bandMass x (F.a i) * v / ρ) * 1 :=
+        mul_le_mul_of_nonneg_left hD hExp.le
+    _ = Real.exp (2 * memoryEta x F.q_d j * bandMass x (F.a i) * v / ρ) := by ring
 
 /-- `t2:pd.ghost-edge-crude` — PD 04:365-435.  REPLACES the frozen `ghost_edge_crude`.  On
 `ℋ_B`, with the Schur weight `v₀^{k_tot}`: ghost row and column sums (mem:ghost-row),
