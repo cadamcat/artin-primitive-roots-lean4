@@ -350,7 +350,42 @@ theorem ContinuedEisenstein.E_eq {Γ : Subgroup SL(2, 𝓞 F)} {σ : SL(2,F)} {s
 theorem ContinuedEisenstein.exists_restrict {Γ : Subgroup SL(2, 𝓞 F)} {σ : SL(2,F)} {s₁ : ℝ}
     (d : ContinuedEisenstein F Γ σ s₁) (ε' : ℝ) (h0 : 0 < ε') (h : ε' ≤ d.ε) :
     ∃ d' : ContinuedEisenstein F Γ σ s₁, d'.ε = ε' ∧ d'.E = d.E ∧ d'.res = d.res := by
-  sorry
+  have hdom : contDomain s₁ ε' ⊆ contDomain s₁ d.ε := by
+    intro z hz
+    simp only [contDomain, Set.mem_union] at hz ⊢
+    have hball : ∀ z ∈ Metric.ball (s₁ : ℂ) ε', z ∈ Metric.ball (s₁ : ℂ) d.ε :=
+      Metric.ball_subset_ball h
+    aesop
+  have hball : Metric.ball (s₁ : ℂ) ε' ⊆ Metric.ball (s₁ : ℂ) d.ε :=
+    Metric.ball_subset_ball h
+  refine ⟨{
+    ε := ε'
+    ε_pos := h0
+    ε_le := h.trans d.ε_le
+    E := d.E
+    E_series := d.E_series
+    E_invariant := ?_
+    E_smooth := ?_
+    E_analytic := ?_
+    res := d.res
+    laurent := ?_
+    res_smooth := d.res_smooth
+    res_invariant := d.res_invariant
+    res_eigen := d.res_eigen
+    res_sq := d.res_sq
+  }, rfl, rfl, rfl⟩
+  · exact fun s hs γ hγ z => d.E_invariant s (hdom hs) γ hγ z
+  · exact fun s hs => d.E_smooth s (hdom hs)
+  · intro K hK hKP n v
+    obtain ⟨Φ, hΦ, hvalue⟩ := d.E_analytic K hK hKP n v
+    refine ⟨Φ, hΦ.mono hdom, ?_⟩
+    intro s hs p
+    exact hvalue s (hdom hs) p
+  · intro K hK hKP n v
+    obtain ⟨Ψ, hΨ, hcenter, hvalue⟩ := d.laurent K hK hKP n v
+    refine ⟨Ψ, hΨ.mono hball, hcenter, ?_⟩
+    intro s hs hne p
+    exact hvalue s (hball hs) hne p
 
 /-- **`spec:cuspidal`.** A finite linear combination of residues (same `Γ`, same `s₁`) all of whose
 constant terms vanish is zero. The constant term along `τ` at height vector `y` is the integral over
