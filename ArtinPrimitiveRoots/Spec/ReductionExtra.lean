@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.Spec.Stage1
 import Mathlib.LinearAlgebra.Countable
 import Mathlib.Topology.Bases
 import Mathlib.Data.Set.Finite.Lemmas
+import Mathlib.Analysis.SpecificLimits.Basic
 
 -- Preserve the frozen quotient topology used in Geometry.
 attribute [-instance] OAI.CubicEisenstein.complexSLTopology
@@ -692,6 +693,95 @@ private theorem siegelDensity_le_of_mem_scaledBox (R lo hi : ℝ) (hlo : 0 < lo)
       ((lo ^ 3)⁻¹) ^ Fintype.card (InfinitePlace F) := by simp
   exact ENNReal.ofReal_le_ofReal (hconst ▸ hprod)
 
+private def weightedCoordVolume : Measure (Coord F) :=
+  (volume.restrict (posSet F)).withDensity
+    (fun p : Coord F => ENNReal.ofReal (∏ w, ((p w).2 ^ 3)⁻¹))
+
+private theorem weightedCoordVolume_box_le (R lo hi : ℝ) (hlo : 0 < lo) :
+    weightedCoordVolume (F := F) (siegelScaledBox R lo hi) ≤
+      (volume (Metric.closedBall (0 : ℂ) R) *
+        ENNReal.ofReal ((lo ^ 3)⁻¹ * hi)) ^ Fintype.card (InfinitePlace F) := by
+  let ρ : Coord F → ENNReal := fun p => ENNReal.ofReal (∏ w, ((p w).2 ^ 3)⁻¹)
+  let M := ENNReal.ofReal (((lo ^ 3)⁻¹) ^ Fintype.card (InfinitePlace F))
+  have hd : 0 ≤ (lo ^ 3)⁻¹ := inv_nonneg.mpr (pow_nonneg hlo.le _)
+  have hbox := siegelScaledBox_measurable (F := F) R lo hi
+  have hbound : ∫⁻ p in siegelScaledBox R lo hi, ρ p ∂(volume.restrict (posSet F)) ≤
+      M * (volume.restrict (posSet F)) (siegelScaledBox R lo hi) := by
+    calc
+      _ ≤ ∫⁻ _p in siegelScaledBox R lo hi, M ∂(volume.restrict (posSet F)) :=
+        setLIntegral_mono measurable_const
+          (fun p hp => siegelDensity_le_of_mem_scaledBox R lo hi hlo p hp)
+      _ = _ := by simp
+  have hvol : (volume.restrict (posSet F)) (siegelScaledBox R lo hi) ≤
+      volume (siegelScaledBox (F := F) R lo hi) :=
+    Measure.le_iff'.mp Measure.restrict_le_self _
+  calc
+    weightedCoordVolume (F := F) (siegelScaledBox R lo hi) =
+        ∫⁻ p in siegelScaledBox R lo hi, ρ p ∂(volume.restrict (posSet F)) := by
+      exact withDensity_apply _ hbox
+    _ ≤ M * volume (siegelScaledBox (F := F) R lo hi) :=
+      hbound.trans (by gcongr)
+    _ = ENNReal.ofReal ((lo ^ 3)⁻¹) ^ Fintype.card (InfinitePlace F) *
+        (volume (Metric.closedBall (0 : ℂ) R) * ENNReal.ofReal (hi - lo)) ^
+          Fintype.card (InfinitePlace F) := by
+      dsimp [M]
+      rw [siegelScaledBox_volume, ENNReal.ofReal_pow hd]
+    _ ≤ ENNReal.ofReal ((lo ^ 3)⁻¹) ^ Fintype.card (InfinitePlace F) *
+        (volume (Metric.closedBall (0 : ℂ) R) * ENNReal.ofReal hi) ^
+          Fintype.card (InfinitePlace F) := by
+      gcongr
+      exact sub_le_self hi hlo.le
+    _ = _ := by
+      rw [ENNReal.ofReal_mul hd]
+      simp only [mul_pow]
+      exact mul_left_comm _ _ _
+
+private theorem scaled_density_width (k h : ℝ) (n : ℕ) :
+    ((k * 4 ^ n) ^ 3)⁻¹ * (h * 4 ^ n) =
+      ((k ^ 3)⁻¹ * h) * ((1 : ℝ) / 16) ^ n := by
+  have hpow : ((4 : ℝ) ^ n) ^ 3 = ((4 : ℝ) ^ 3) ^ n := by
+    rw [← pow_mul, ← pow_mul, Nat.mul_comm n 3]
+  calc
+    _ = ((k ^ 3)⁻¹ * h) * (((((4 : ℝ) ^ 3)⁻¹) ^ n) * 4 ^ n) := by
+      rw [mul_pow, mul_inv, hpow, inv_pow]
+      ring
+    _ = ((k ^ 3)⁻¹ * h) * (((4 : ℝ) ^ 3)⁻¹ * 4) ^ n := by rw [mul_pow]
+    _ = _ := by norm_num
+
+private theorem weightedCoordVolume_scaledBox_union_lt_top (R k h : ℝ)
+    (hk : 0 < k) (hh : 0 < h) :
+    weightedCoordVolume (F := F)
+      (⋃ n : ℕ, siegelScaledBox R (k * 4 ^ n) (h * 4 ^ n)) < ⊤ := by
+  let r := Fintype.card (InfinitePlace F)
+  let C := (volume (Metric.closedBall (0 : ℂ) R) *
+    ENNReal.ofReal ((k ^ 3)⁻¹ * h)) ^ r
+  let q : ENNReal := ENNReal.ofReal ((1 : ℝ) / 16) ^ r
+  have hr : r ≠ 0 := (Fintype.card_pos_iff.mpr
+    (inferInstance : Nonempty (InfinitePlace F))).ne'
+  have hC : C < ⊤ := ENNReal.pow_lt_top
+    (ENNReal.mul_lt_top (isCompact_closedBall (0 : ℂ) R).measure_lt_top
+      ENNReal.ofReal_lt_top)
+  have hq : q < 1 := by
+    exact pow_lt_one₀ (by positivity) (by norm_num) hr
+  have hd : 0 ≤ (k ^ 3)⁻¹ * h := by positivity
+  have hbound (n : ℕ) : weightedCoordVolume (F := F)
+      (siegelScaledBox R (k * 4 ^ n) (h * 4 ^ n)) ≤ C * q ^ n := by
+    calc
+      _ ≤ (volume (Metric.closedBall (0 : ℂ) R) *
+          ENNReal.ofReal (((k * 4 ^ n) ^ 3)⁻¹ * (h * 4 ^ n))) ^ r :=
+        weightedCoordVolume_box_le R _ _ (mul_pos hk (by positivity))
+      _ = C * q ^ n := by
+        rw [scaled_density_width, ENNReal.ofReal_mul hd,
+          ENNReal.ofReal_pow (by norm_num)]
+        dsimp [C, q]
+        rw [← mul_assoc, mul_pow, ← pow_mul, ← pow_mul, Nat.mul_comm n r]
+  calc
+    _ ≤ ∑' n : ℕ, weightedCoordVolume (F := F)
+        (siegelScaledBox R (k * 4 ^ n) (h * 4 ^ n)) := measure_iUnion_le _
+    _ ≤ ∑' n : ℕ, C * q ^ n := ENNReal.tsum_le_tsum hbound
+    _ = C * ∑' n : ℕ, q ^ n := ENNReal.tsum_mul_left
+    _ < ⊤ := ENNReal.mul_lt_top hC (tsum_geometric_lt_top.mpr hq)
+
 private theorem exists_scaled_slab {a t : ℝ} (ha : 0 < a) (hat : a ≤ t) :
     ∃ n : ℕ, a * 4 ^ n ≤ t ∧ t ≤ a * 4 ^ (n + 1) := by
   let q := t / a
@@ -774,22 +864,6 @@ private theorem siegelCoordRegion_boxCover (P : Set (InfinitePlace F → ℂ))
 
 
 
-/-- R12 `spec:fund-domain` — P-SPEC.md:225, 338–342. The lexicographically least point in each
-Siegel-covered orbit is a measurable finite-volume fundamental domain when the action is free.
-Correction from `sol-gate-spec`: require calibrated Siegel data so the covering premise holds. -/
-theorem R12_fund_domain (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
-    (hfree : FreeAction F Γ) (d : SiegelData F Γ) :
-    let D := fundamentalDomainCandidate F Γ (SiegelData.unionSet F d)
-    MeasurableSet D ∧ IsFundamentalDomain Γ D (volX F) ∧ volX F D < ⊤ := by
-  change MeasurableSet (fundamentalDomainCandidate F Γ (SiegelData.unionSet F d)) ∧
-    IsFundamentalDomain Γ (fundamentalDomainCandidate F Γ (SiegelData.unionSet F d))
-      (volX F) ∧ volX F (fundamentalDomainCandidate F Γ (SiegelData.unionSet F d)) < ⊤
-  have hDmeas := fundamentalDomainCandidate_measurable Γ d
-  refine ⟨hDmeas, ?_, ?_⟩
-  · exact IsFundamentalDomain.mk' hDmeas.nullMeasurableSet
-      (candidate_existsUniqueRep Γ hfree d)
-  · sorry
-
 private theorem lowerHeight_pos (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (d : SiegelData F Γ) (i : d.ι) : 0 < SiegelData.lowerHeight F d i := by
   let g : SL(2,F) := (d.σ i)⁻¹
@@ -813,6 +887,76 @@ private theorem lowerHeight_pos (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     by exact_mod_cast hnormQ
   dsimp [SiegelData.lowerHeight]
   exact inv_pos.mpr (mul_pos hnormR d.C_M_pos)
+
+private theorem volX_siegelSet_lt_top (P : Set (InfinitePlace F → ℂ))
+    (hPmeas : MeasurableSet P) (hPbounded : Bornology.IsBounded P)
+    (B c : ℝ) (hc : 0 < c) : volX F (siegelSet F P B c) < ⊤ := by
+  rw [volX_siegelSet_eq_source P hPmeas B c]
+  change weightedCoordVolume (F := F) (siegelCoordRegion P B c) < ⊤
+  obtain ⟨R, a, L, U, hR, ha, hL, hU, hcover⟩ :=
+    siegelCoordRegion_boxCover P hPbounded B c hc
+  have hhi (n : ℕ) : U * a * 4 ^ (n + 1) = (U * a * 4) * 4 ^ n := by
+    rw [pow_succ]
+    ring
+  have hcover' : siegelCoordRegion P B c ⊆
+      ⋃ n : ℕ, siegelScaledBox R ((L * a) * 4 ^ n) ((U * a * 4) * 4 ^ n) := by
+    simpa only [hhi] using hcover
+  exact lt_of_le_of_lt (measure_mono hcover')
+    (weightedCoordVolume_scaledBox_union_lt_top R (L * a) (U * a * 4)
+      (mul_pos hL ha) (mul_pos (mul_pos hU ha) (by norm_num)))
+
+private theorem volX_smul_preimage_eq (g : SL(2,F)) (S : Set (X F))
+    (hS : MeasurableSet S) :
+    volX F ((fun z : X F => g • z) ⁻¹' S) = volX F S := by
+  letI : BorelSpace (X F) := borelSpace_X (F := F)
+  have hf : Measurable (fun z : X F => g • z) :=
+    (continuousSL2FAction (F := F) g).measurable
+  have hmap : Measure.map (fun z : X F => g • z) (volX F) = volX F :=
+    (G3_volume (F := F)).1 (toInf F g)
+  calc
+    _ = Measure.map (fun z : X F => g • z) (volX F) S :=
+      (Measure.map_apply hf hS).symm
+    _ = _ := by rw [hmap]
+
+private theorem volX_siegelUnion_lt_top (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (d : SiegelData F Γ) : volX F (SiegelData.unionSet F d) < ⊤ := by
+  classical
+  letI : Fintype d.ι := d.fintype
+  let S : d.ι → Set (X F) := fun i =>
+    (fun z : X F => (d.σ i)⁻¹ • z) ⁻¹' SiegelData.setAt F d i
+  have hcover : SiegelData.unionSet F d ⊆ ⋃ i : d.ι, S i := by
+    rintro z ⟨i, x, hx, rfl⟩
+    refine Set.mem_iUnion.mpr ⟨i, ?_⟩
+    simpa [S] using hx
+  have hfinite (i : d.ι) : volX F (S i) < ⊤ := by
+    change volX F ((fun z : X F => (d.σ i)⁻¹ • z) ⁻¹'
+      siegelSet F (d.P i) (2 * d.B i) (SiegelData.lowerHeight F d i)) < ⊤
+    rw [volX_smul_preimage_eq _ _
+      (measurableSet_siegelSet (d.P i) (d.P_measurable i) _ _)]
+    exact volX_siegelSet_lt_top (d.P i) (d.P_measurable i) (d.P_bounded i)
+      _ _ (lowerHeight_pos Γ d i)
+  calc
+    _ ≤ volX F (⋃ i : d.ι, S i) := measure_mono hcover
+    _ ≤ ∑ i : d.ι, volX F (S i) := measure_iUnion_fintype_le (volX F) S
+    _ < ⊤ := ENNReal.sum_lt_top.mpr (fun i hi => hfinite i)
+
+/-- R12 `spec:fund-domain` — P-SPEC.md:225, 338–342. The lexicographically least point in each
+Siegel-covered orbit is a measurable finite-volume fundamental domain when the action is free.
+Correction from `sol-gate-spec`: require calibrated Siegel data so the covering premise holds. -/
+theorem R12_fund_domain (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (hfree : FreeAction F Γ) (d : SiegelData F Γ) :
+    let D := fundamentalDomainCandidate F Γ (SiegelData.unionSet F d)
+    MeasurableSet D ∧ IsFundamentalDomain Γ D (volX F) ∧ volX F D < ⊤ := by
+  change MeasurableSet (fundamentalDomainCandidate F Γ (SiegelData.unionSet F d)) ∧
+    IsFundamentalDomain Γ (fundamentalDomainCandidate F Γ (SiegelData.unionSet F d))
+      (volX F) ∧ volX F (fundamentalDomainCandidate F Γ (SiegelData.unionSet F d)) < ⊤
+  have hDmeas := fundamentalDomainCandidate_measurable Γ d
+  refine ⟨hDmeas, ?_, ?_⟩
+  · exact IsFundamentalDomain.mk' hDmeas.nullMeasurableSet
+      (candidate_existsUniqueRep Γ hfree d)
+  · apply lt_of_le_of_lt (measure_mono ?_) (volX_siegelUnion_lt_top Γ d)
+    intro z hz
+    exact hz.1
 
 private theorem balanced_height_bounds (y : InfinitePlace F → ℝ) (B c A : ℝ)
     (hy : ∀ w, 0 < y w)
