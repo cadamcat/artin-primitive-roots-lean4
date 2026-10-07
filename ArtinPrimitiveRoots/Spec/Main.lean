@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Spec.Stage2
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_API.Uniqueness
 
 /-!
 # P-SPEC: the package's top theorems
@@ -93,8 +94,8 @@ theorem exists_continuedEisenstein (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex
 /-- `spec:api` (uniqueness): two continuations agree on the common domain. -/
 theorem ContinuedEisenstein.E_eq {Γ : Subgroup SL(2, 𝓞 F)} {σ : SL(2,F)} {s₁ : ℝ}
     (d d' : ContinuedEisenstein F Γ σ s₁) (h₁ : s₁ ≤ 1 / 2) :
-    (∀ s ∈ contDomain s₁ (min d.ε d'.ε), d.E s = d'.E s) ∧ d.res = d'.res := by
-  sorry
+    (∀ s ∈ contDomain s₁ (min d.ε d'.ε), d.E s = d'.E s) ∧ d.res = d'.res :=
+  continuedEisenstein_E_eq d d' h₁
 
 /-- **`spec:cuspidal`.** A finite linear combination of residues (same `Γ`, same `s₁`) all of whose
 constant terms vanish is zero. The constant term along `τ` at height vector `y` is the integral over
