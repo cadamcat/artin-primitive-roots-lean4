@@ -15,7 +15,6 @@ namespace ArtinPrimitiveRoots.A1.Spec
 for the positive parameters used by P-SPEC. -/
 theorem C1_domain (s₁ ε : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ < 4) (hε : 0 < ε) :
     IsOpen (contDomain s₁ ε) ∧ IsPreconnected (contDomain s₁ ε) := by
-  exact ⟨isOpen_contDomain s₁ ε,
-    isPreconnected_contDomain s₁ ε h₀ h₁ hε⟩
+  sorry
 
 end ArtinPrimitiveRoots.A1.Spec

@@ -1,1 +1,1 @@
-import ArtinPrimitiveRoots.Spec.Stage1
+import ArtinPrimitiveRoots.Spec.Stage2

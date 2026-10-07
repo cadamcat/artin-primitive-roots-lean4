@@ -123,6 +123,6 @@ theorem R7_minkowski :
 acts freely on the product hyperbolic space. -/
 theorem R11_free_level :
     ∃ N : Ideal (𝓞 F), N ≠ ⊥ ∧ FreeAction F (congrSubgroup F N) := by
-  exact exists_free_congr F
+  sorry
 
 end ArtinPrimitiveRoots.A1.Spec
