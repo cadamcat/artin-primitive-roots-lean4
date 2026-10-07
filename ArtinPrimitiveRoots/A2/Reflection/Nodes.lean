@@ -190,17 +190,21 @@ def IsActiveFactor (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (∀ P : ArtinPrimitiveRoots.A1.FinPlace F, P.asIdeal ∣ r.h.1 →
       rowPrimeExponent S r P ≠ 0 → P.asIdeal ∣ f)
 
-/-- **def:rf-active** (04-reflection.tex:478-499): the local Weyl coefficient envelope `β_p(e)`. -/
-def betaPrime (q : ℝ) (e : ℕ) : ℝ :=
+/-- **def:rf-active** (04-reflection.tex:478-499): the local Weyl coefficient envelope `β_p(e)`.
+Corrected per rev-a2 to require the prime-norm domain `1 < q`. -/
+def betaPrime (q : ℝ) (_hq : 1 < q) (e : ℕ) : ℝ :=
   if e = 0 then 1
   else if e % 3 = 1 then Real.rpow q (-((e / 3 : ℕ) : ℝ))
   else if e % 3 = 0 then Real.rpow q (1 / 2 - ((e / 3 : ℕ) : ℝ))
   else 0
 
-/-- **def:rf-active** (04-reflection.tex:478-499): the local Euler sum for `β_p`. -/
-def betaEulerFactor (q σ : ℝ) : ℂ :=
+/-- **def:rf-active** (04-reflection.tex:478-499): the local Euler sum for `β_p`. Corrected per
+rev-a2 to require both `1 < q` and a summability proof. -/
+def betaEulerFactor (q : ℝ) (hq : 1 < q) (σ : ℝ)
+    (_hsum : Summable (fun e : ℕ =>
+      ((betaPrime q hq e * Real.rpow q (-(σ * (e : ℝ))) : ℝ) : ℂ))) : ℂ :=
   ∑' e : ℕ,
-    ((betaPrime q e * Real.rpow q (-(σ * (e : ℝ))):ℝ) : ℂ)
+    ((betaPrime q hq e * Real.rpow q (-(σ * (e : ℝ))):ℝ) : ℂ)
 
 /-- **rf:active-support** (04-reflection.tex:433-503): for a squarefree `𝔣|rad(𝔥)`,
 `q_𝔣² ≤ q_𝔥`. -/
