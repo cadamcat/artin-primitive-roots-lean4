@@ -88,7 +88,14 @@ theorem T4_energy_space (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       ∃ e : EnergyContext F Γ D E,
         e.toL2 = toL2 ∧ e.gradL2 = gradL2 ∧
         (∀ x : E.V, ‖x‖ ^ 2 = ‖E.M x‖ ^ 2 + ‖E.Gr x‖ ^ 2) := by
-  sorry
+  refine ⟨⟨energyGraph toL2 gradL2, ?_⟩, ?_⟩
+  · exact Submodule.isClosed_topologicalClosure _
+  refine ⟨⟨toL2, gradL2, rfl, hmass_rep, hgradient_rep⟩, rfl, rfl, ?_⟩
+  intro x
+  change ‖(x : WithLp 2 (L2Space F D × GradientL2Space F D))‖ ^ 2 =
+    ‖(x : WithLp 2 (L2Space F D × GradientL2Space F D)).fst‖ ^ 2 +
+      ‖(x : WithLp 2 (L2Space F D × GradientL2Space F D)).snd‖ ^ 2
+  exact WithLp.prod_norm_sq_eq_of_L2 _
 
 /-- T5 `spec:cutoff` — P-SPEC.md:232, 354–357. A bounded invariant smooth function with bounded
 gradient is represented by an energy vector with those mass and gradient components. Correction
