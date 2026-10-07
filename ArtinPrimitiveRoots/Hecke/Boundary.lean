@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Hecke.Continuation
+import ArtinPrimitiveRoots.A2.Endpoint
 
 /-!
 # The A/B boundary: Theorem `thm:hecke-zero-free`
@@ -31,7 +32,13 @@ theorem a2_zero_free_every_continuation (n : ℕ) [NeZero n] (h12 : 12 ∣ n)
     (m : RayClassModulus (CyclotomicField n ℚ)) (η : RayClassGroup m →* ℂˣ) (Λ : ℂ → ℂ)
     (hΛ : DifferentiableOn ℂ Λ ({s : ℂ | 1 - δ₀ < s.re} \ {s | η = 1 ∧ s = 1}))
     (hL : ∀ s : ℂ, 1 < s.re → Λ s = LSeriesRay η s) :
-    ∀ s : ℂ, 1 - δ₀ < s.re → (η ≠ 1 ∨ s ≠ 1) → Λ s ≠ 0 := sorry
+    ∀ s : ℂ, 1 - δ₀ < s.re → (η ≠ 1 ∨ s ≠ 1) → Λ s ≠ 0 := by
+  have hΛ' : DifferentiableOn ℂ Λ
+      ({s : ℂ | 1 - ArtinPrimitiveRoots.A2.a2Delta0 < s.re} \
+        {s | η = 1 ∧ s = 1}) := by
+    simpa [δ₀, ArtinPrimitiveRoots.A2.a2Delta0] using hΛ
+  simpa [δ₀, ArtinPrimitiveRoots.A2.a2Delta0] using
+    ArtinPrimitiveRoots.A2.thm_hecke_zero_free n h12 m η Λ hΛ' hL
 
 /-- An analytic function with a nonzero value has order `0`, so `≤ 0`. -/
 theorem meromorphicOrderAt_nonpos_of_analyticAt {f : ℂ → ℂ} {x : ℂ} (hf : AnalyticAt ℂ f x)

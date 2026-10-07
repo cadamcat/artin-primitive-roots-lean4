@@ -1,0 +1,7 @@
+import ArtinPrimitiveRoots.Spec.Stage1
+import ArtinPrimitiveRoots.Spec.GeometryExtra
+import ArtinPrimitiveRoots.Spec.ReductionExtra
+import ArtinPrimitiveRoots.Spec.Energy
+import ArtinPrimitiveRoots.Spec.EisensteinExtra
+import ArtinPrimitiveRoots.Spec.Smoothing
+import ArtinPrimitiveRoots.Spec.API

@@ -25,13 +25,14 @@ noncomputable def momentR (x : ℝ) : ℕ :=
 noncomputable def pathLength (x : ℝ) : ℕ := 2 * momentR x
 
 /-- The set of relevant dyadic scales `Y=2^k`; the logarithmic bounds include all products of
-one prime from each fixed marked group. -/
+one prime from each fixed marked group. Correction from refutation lane `sol-gate-b` aligns the
+upper exponent with PD's source exponent `1/5`. -/
 noncomputable def dyadicScales (x : ℝ) (K : ℕ) : Finset ℝ :=
   ((Finset.range (⌊((K + 1 : ℕ) : ℝ) *
-      Real.rpow (Real.log x) (21 / 100 : ℝ) / Real.log 2⌋₊ + 1)).image
+      Real.rpow (Real.log x) (1 / 5 : ℝ) / Real.log 2⌋₊ + 1)).image
       (fun k => (2 : ℝ) ^ k)).filter fun Y =>
         (1 / 20 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ) ≤ Real.log Y ∧
-          Real.log Y ≤ ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (21 / 100 : ℝ)
+          Real.log Y ≤ ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log x) (1 / 5 : ℝ)
 
 /-- One prime label from each group, used for the products `a` and `b`. -/
 def IsMarkedPrimeTuple (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (t : Fin K → ℕ) : Prop :=
@@ -144,7 +145,7 @@ noncomputable def dyadicCauchyPiece (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (q_d
     (beta : ℕ → ℂ) (F : ℕ → ℂ) (eta : ℝ → ℝ) : ℂ :=
   ∑' h : ℕ,
     if 0 < h then
-      (F h) * (q_d ^ omega h : ℂ) *
+      (F h) * (q_d ^ markedOmega x K a h : ℂ) *
         ∑' t : Fin K → ℕ,
           if IsMarkedPrimeTuple x K a t then
             ((∏ i : Fin K, ((bandMass x (a i))⁻¹ : ℝ)) : ℂ) *
@@ -252,25 +253,6 @@ structure PhysicalState (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
   label_divides : ∀ i j, labels i j ∣ first
   label_distinct : ∀ i j j', j ≠ j' → labels i j ≠ labels i j'
 
-/-- `def:pd-physical` — the determinant row kernel from PD
-`03-determinant.tex:210-219`, on its domain of integral determinant quotients. -/
-noncomputable def determinantRowKernel
-    (x q_d Y A₀ d₀ : ℝ) (K : ℕ) (a : Fin K → ℝ)
-    {H' Hm Hn : ℝ} (P Q : PhysicalState x K a H' Hm Hn) (D aa bb : ℕ)
-    (eta psi : ℝ → ℝ)
-    (hD : (D : ℤ) ∣
-      (P.first : ℤ) * (Q.second : ℤ) - (P.second : ℤ) * (Q.first : ℤ)) : ℂ :=
-  let t := Classical.choose hD
-  let M_J := slotCount x
-  let dampingExponent :=
-    ((omega P.first - K * M_J : ℕ) : ℝ) / 2 +
-      ((omega Q.first - K * M_J : ℕ) : ℝ) / 2
-  (d₀ / (D : ℝ) : ℂ) * (eta ((bb : ℝ) / Y) : ℂ) *
-    (eta ((aa : ℝ) / Y) : ℂ) *
-      ((if t = (bb : ℤ) - aa then (psi ((t : ℝ) / Y) : ℂ) else 0) -
-        majorKernel x Y A₀ (t : ℝ) aa bb psi) *
-      (Real.rpow q_d dampingExponent : ℂ)
-
 /-- The product of all marked labels in a physical state's first coordinate. -/
 noncomputable def groupLabelProduct {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
     {H' Hm Hn : ℝ} (P : PhysicalState x K a H' Hm Hn) : ℕ :=
@@ -324,18 +306,6 @@ noncomputable def endpointGVector (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
     PhysicalState x K a H' Hm Hn → ℂ :=
   fun P => endpointG x K a family beta P
 
-/-- `def:pd-physical` — PD `03-determinant.tex:210-268`. The three physical operators. -/
-structure PhysicalOperators (n : ℕ) where
-  slotSymmetrizer : Matrix (Fin n) (Fin n) ℂ
-  rowOperation : Matrix (Fin n) (Fin n) ℂ
-  goodProjection : Matrix (Fin n) (Fin n) ℂ
-
-/-- `def:pd-physical` — the restricted, symmetrized determinant operator `A=G S T S G`. -/
-noncomputable def physicalOperator {n : ℕ} (M : PhysicalOperators n) :
-    Matrix (Fin n) (Fin n) ℂ :=
-  M.goodProjection * M.slotSymmetrizer * M.rowOperation *
-    M.slotSymmetrizer * M.goodProjection
-
 /-- Euclidean inner product and norm used in the finite-dimensional endpoint estimate. -/
 noncomputable def vectorInner {n : ℕ} (f g : Fin n → ℂ) : ℂ :=
   ∑ i : Fin n, f i * star (g i)
@@ -365,38 +335,5 @@ noncomputable def rootResidueCount (U V : ℝ) (modulus : ℕ)
         0 ≤ c ∧ c < uv.1 ∧ l₃ ≤ (c : ℝ) / uv.1 ∧ (c : ℝ) / uv.1 ≤ r₃ ∧
         g₀ 0 0 = (uv.1 : ZMod modulus) ∧ g₀ 0 1 = (c : ZMod modulus) ∧
           g₀ 1 0 = (uv.2 : ZMod modulus) ∧ g₀ 1 1 = (d : ZMod modulus)}
-
-/-- `det:root-replacement` — the finite special-linear group indexing residue classes. -/
-abbrev SL₂ResidueGroup (S : ℕ) :=
-  {g : Matrix (Fin 2) (Fin 2) (ZMod S) // Matrix.det g = 1}
-
-/-- `det:root-replacement` — average of an observable over `SL₂(ℤ/Sℤ)`. -/
-noncomputable def uniformSL₂Average (S : ℕ) (hS : 0 < S)
-    (F : SL₂ResidueGroup S → ℂ) : ℂ := by
-  letI : NeZero S := ⟨Nat.ne_of_gt hS⟩
-  exact (sl2Card S hS : ℂ)⁻¹ * ∑ g : SL₂ResidueGroup S, F g
-
-/-- `det:root-replacement` — primitive-root sum of an observable on the reduced matrix modulo `S`. -/
-noncomputable def primitiveRootObservableSum (U V : ℝ) (S : ℕ) (hS : 0 < S)
-    (F : SL₂ResidueGroup S → ℂ)
-    (l₁ r₁ l₂ r₂ l₃ r₃ : ℝ) : ℂ :=
-  letI : NeZero S := ⟨Nat.ne_of_gt hS⟩
-  ∑' u : ℕ, ∑' v : ℕ, ∑' c : ℤ, ∑' d : ℤ,
-    ∑ g : SL₂ResidueGroup S,
-      if Nat.Coprime u v ∧
-          l₁ ≤ (u : ℝ) / U ∧ (u : ℝ) / U ≤ r₁ ∧
-          l₂ ≤ (v : ℝ) / V ∧ (v : ℝ) / V ≤ r₂ ∧
-          (u : ℤ) * d - (v : ℤ) * c = 1 ∧ 0 ≤ c ∧ c < u ∧
-          l₃ ≤ (c : ℝ) / u ∧ (c : ℝ) / u ≤ r₃ ∧
-          g.1 0 0 = (u : ZMod S) ∧ g.1 0 1 = (c : ZMod S) ∧
-          g.1 1 0 = (v : ZMod S) ∧ g.1 1 1 = (d : ZMod S)
-      then F g else 0
-
-/-- `det:root-replacement` — continuous root average with independent uniform residue matrices. -/
-noncomputable def continuousRootObservableAverage (U V : ℝ) (S : ℕ) (hS : 0 < S)
-    (F : SL₂ResidueGroup S → ℂ)
-    (l₁ r₁ l₂ r₂ l₃ r₃ : ℝ) : ℂ :=
-  (U * V * (r₁ - l₁) * (r₂ - l₂) * (r₃ - l₃) /
-      (Real.pi ^ 2 / 6 : ℝ) : ℂ) * uniformSL₂Average S hS F
 
 end ArtinPrimitiveRoots.TypeII.PD
