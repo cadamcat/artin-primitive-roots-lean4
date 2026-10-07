@@ -96,10 +96,12 @@ def probeIntegrand (X Y Z : ℝ) (t : S.FSˣ) : ℂ :=
 
 def probe (X Y Z : ℝ) : ℂ := omegaInt R 1 (probeIntegrand R W X Y Z)
 
-/-- po:probe-well-defined, 05:82–112. Finiteness means finite support, not `tsum` definedness. -/
+/-- `po:probe-well-defined`, 05:82–112. Finiteness means finite support, not `tsum` definedness.
+The generator-independence frequency is restricted to `k : S.R` per `sol-thin-a2rp`, since its
+residue phase needs integrality. -/
 theorem po_probe_well_defined :
   (∀ I (a b : Fˣ), S.IsGen (a : F) I.1 → Bd.Allowed a → S.IsGen (b : F) I.1 → Bd.Allowed b →
-    ∀ k, finiteGaussAt R I a k = finiteGaussAt R I b k) ∧
+    ∀ k : S.R, finiteGaussAt R I a (k : F) = finiteGaussAt R I b (k : F)) ∧
   (∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
     (∀ γ : Gamma S, ∀ t, probeIntegrand R W X Y Z (S.diagU (γ.1 : Fˣ) * t) = probeIntegrand R W X Y Z t) ∧
     (∀ t (s : S.ExtIdeal), (Function.support (fun m : S.R =>
@@ -109,9 +111,19 @@ theorem po_probe_well_defined :
       (∫ y in O, onUnits (probeIntegrand R W X Y Z) y ∂(R.sheets.sheet 1)) = probe R W X Y Z)) ∧
   W.W0 0 = 0 := by
   sorry
-/-- prop:probe-low, 05:194–246. ε and fixed weights precede all growing Z. -/
-theorem prop_probe_low : ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
-  ‖probe R W (Z ^ a) (Z ^ b) Z‖ ≤ C * Z ^ (933 / 2000 + ε) := by
+/-- Corrected `prop:probe-low` consumer, `sol-gate-a2b` (05:194–246): the legacy reflection
+route receives the split Gauss characters, including the angular datum used by the admissible
+row-character producer. -/
+def probeLowStatement (η : HeckeChar F) : Prop :=
+  GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η →
+    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
+    ‖probe R W (Z ^ a) (Z ^ b) Z‖ ≤ C * Z ^ (933 / 2000 + ε)
+
+/-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
+theorem prop_probe_low (η : HeckeChar F)
+    (hSplit : GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η) :
+  ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
+    ‖probe R W (Z ^ a) (Z ^ b) Z‖ ≤ C * Z ^ (933 / 2000 + ε) := by
   sorry
 /-- po:finite-poisson-transform, 05:267–282: no coprimality hypothesis on s,I. -/
 theorem po_finite_poisson_transform : ∀ (s I : S.ExtIdeal) (a : Fˣ),
@@ -276,8 +288,10 @@ def HasPoHLocalBounds (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
   ‖normalizedLocal R η U u v hv (p 0) (p 1) (p 2) - 1‖ ≤
     C * qI v.asIdeal ^ (if frequencyValuation η U u v = 0 then (-1 - 1 / 4000 : ℝ) else (-1 / 4000 : ℝ))
 
-theorem po_H_local_bounds (C Q0 : ℝ) :
-  EulerHypotheses R η → HasPoHLocalBounds R η U C Q0 := by
+/-- Corrected by `sol-gate-a2b`: the constants are outputs of the local estimate, not arbitrary
+inputs (`po:H-local-bounds`, 05:660–729). -/
+theorem po_H_local_bounds :
+  EulerHypotheses R η → ∃ C Q0 : ℝ, 0 < C ∧ 1 < Q0 ∧ HasPoHLocalBounds R η U C Q0 := by
   sorry
 /-- H_u is a proposed limit object; its HasProd law is an explicit node conclusion below. -/
 structure EulerCorrection (η : HeckeChar F) (U : FrequencyData S D η) where

@@ -44,6 +44,7 @@ import ArtinPrimitiveRoots.A2.Interface
 import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Poisson.Missing
 import ArtinPrimitiveRoots.A2.ZeroFree.Missing
+import ArtinPrimitiveRoots.A2.Coherence
 import ArtinPrimitiveRoots.Spec
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Arith.DavenportHasse
