@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.TypeII.PP.Defs
+import ArtinPrimitiveRoots.TypeII.Proofs.pp1.HalaszMeanValue
 
 /-! Statements in the Prime Predecessors long-prime chain, PP
 `02-long-prime.tex:8-579`. -/
@@ -18,7 +19,7 @@ theorem mean_value :
               Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
                 Real.rpow (M : ℝ)
                   (2 * (s : ℝ) - ((k : ℝ) * ((k : ℝ) + 1)) / 2 + 1 / 100 : ℝ) := by
-  sorry
+  exact mean_value_from_halasz
 
 /-- `t2:pp.log-phase` — PP `02-long-prime.tex:185-310`, Lemma 3.3; also PD Lemma 2.4. -/
 theorem log_phase :
