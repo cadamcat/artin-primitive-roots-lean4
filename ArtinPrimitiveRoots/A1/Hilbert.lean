@@ -35,6 +35,10 @@ structure HilbertData (F : Type) [Field F] [NumberField F] where
   mul_right : ∀ v a b b', hilb v a (b * b') = hilb v a b * hilb v a b'
   skew : ∀ v a b, hilb v a b * hilb v b a = 1
   sixth_power : ∀ v a b, (∃ c : (v.adicCompletion F)ˣ, a = c ^ 6) → hilb v a b = 1
+  /-- Steinberg relation `(a, 1 - a)_v = 1` (added 2026-10-07: A1 interface gap G1, needed by the
+  Kubota–Kazhdan–Patterson cocycle; ClassFieldTheory `IsSteinberg`). -/
+  steinberg : ∀ (v : FinPlace F) (a : (v.adicCompletion F)ˣ) (h : (1 : v.adicCompletion F) - a ≠ 0),
+    hilb v a (Units.mk0 _ h) = 1
   /-- nondegenerate on `F_v^×/F_v^{×6}` (ext:neukirch-V.3.2) -/
   nondeg : ∀ v a, (∀ b, hilb v a b = 1) → ∃ c : (v.adicCompletion F)ˣ, a = c ^ 6
   /-- Hilbert reciprocity for global elements (ext:neukirch-VI.8.1) -/
