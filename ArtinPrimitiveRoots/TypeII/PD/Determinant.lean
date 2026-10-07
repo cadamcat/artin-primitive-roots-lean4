@@ -1,4 +1,8 @@
 import ArtinPrimitiveRoots.TypeII.PD.Defs
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Circle
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyArithmetic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootArithmetic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Goodness
 
 /-! Determinant and root-counting statements, PD `03-determinant.tex:68-737`. -/
 

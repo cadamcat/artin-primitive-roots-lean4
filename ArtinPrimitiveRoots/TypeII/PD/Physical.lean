@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.TypeII.PD.Defs
+import ArtinPrimitiveRoots.TypeII.PD.Determinant
 set_option autoImplicit false
 set_option linter.unusedVariables false
 
