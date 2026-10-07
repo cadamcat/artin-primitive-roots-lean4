@@ -123,5 +123,63 @@ theorem pd5_twisted_ghost_kernel_invalid {K : ℕ} (F : PDFix K) (S : PDScale)
   intro σL hσ
   rw [pd5_memorySym_delta_invalid F S σL.1 t hσ ht, mul_zero]
 
+theorem pd5_logSym_zero_on_valid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (f : LogPoint S.x K → ℂ) (hf : ∀ uL, MemValid F S uL.1 → f uL = 0)
+    (sL : LogPoint S.x K) (hs : MemValid F S sL.1) : logSym F S f sL = 0 := by
+  unfold logSym
+  have hz : (∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+      f ((sL.1.1, permuteLists σ sL.1.2.1, sL.1.2.2), sL.2)) = 0 := by
+    apply Finset.sum_eq_zero
+    intro σ _
+    exact hf _ (pd5_activePermute_valid F S sL.1 hs σ)
+  rw [hz, mul_zero]
+
+theorem pd5_logEdgePiece_zero_on_valid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ) (raw : Bool) (St Pr : Finset (Fin K))
+    (f : LogPoint S.x K → ℂ) (hf : ∀ uL, MemValid F S uL.1 → f uL = 0)
+    (sL : LogPoint S.x K) (hs : MemValid F S sL.1) :
+    logEdgePiece F S ρ w j raw St Pr f sL = 0 := by
+  unfold logEdgePiece
+  apply Finset.sum_eq_zero
+  intro c _
+  trans ∑' _z : ℤ × ℤ, (0 : ℂ)
+  · apply tsum_congr
+    intro z'
+    split_ifs with hc
+    · have hv := pd5_edge_output_valid F S w sL.1 hs c z' hc.2.2
+      dsimp only
+      rw [hf ((z', edgeTargetLists F S sL.1 c, edgeNewMemory F S sL.1 c),
+        sL.2 ++ edgeBirths F S j sL.1 c) hv]
+      simp
+    · rfl
+  · exact tsum_zero
+
+theorem pd5_logEdge_full_zero_on_valid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ)
+    (f : LogPoint S.x K → ℂ) (hf : ∀ uL, MemValid F S uL.1 → f uL = 0)
+    (sL : LogPoint S.x K) (hs : MemValid F S sL.1) :
+    logEdge F S ρ w .full j f sL = 0 := by
+  have hsym : ∀ uL, MemValid F S uL.1 → logSym F S f uL = 0 :=
+    fun uL hu => pd5_logSym_zero_on_valid F S f hf uL hu
+  unfold logEdge
+  apply pd5_logSym_zero_on_valid F S _ _ sL hs
+  intro uL hu
+  apply Finset.sum_eq_zero
+  intro St _
+  apply Finset.sum_eq_zero
+  intro Pr _
+  rw [pd5_logEdgePiece_zero_on_valid F S ρ w j true St Pr _ hsym uL hu,
+    pd5_logEdgePiece_zero_on_valid F S ρ w j false St Pr _ hsym uL hu]
+  simp
+
+theorem pd5_twisted_edge_kernel_invalid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ) (W : BirthLog K → ℂ)
+    (s t : MemPoint S.x K) (hs : MemValid F S s) (ht : ¬ MemValid F S t) :
+    memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W (memorySym f)) s t = 0 := by
+  unfold memKernel pd5_edgeBirthTwist
+  apply pd5_logEdge_full_zero_on_valid F S ρ w j _ _ (s, []) hs
+  intro uL hu
+  rw [pd5_memorySym_delta_invalid F S uL.1 t hu ht, mul_zero]
+
 end
 end ArtinPrimitiveRoots.TypeII.PD
