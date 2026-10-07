@@ -116,7 +116,7 @@ private theorem idealCount_sum_eq (n : ℕ) :
 
 /-! ## §2 Elementary statements (Re s > 1)
 
-All `sorry`; Mathlib-level.  Sizes in `A2-DESIGN.md` §2. -/
+The generic Euler-product and prime-fiber arguments are factored under `Elementary/EulerProduct/`.  Sizes in `A2-DESIGN.md` §2. -/
 
 /-- `charValue` is completely multiplicative (zero extension included).
 Consumers: A2 `def:zf-detector` (`L·D_U = Σ α_U η`), A2 `po:H-product`; B `sp:upstairs-factor`. -/
