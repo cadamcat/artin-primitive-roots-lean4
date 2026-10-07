@@ -4,6 +4,8 @@ import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Reduction
 import ArtinPrimitiveRoots.Hecke.Continuation
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_FOURIER.theta_constantTerm
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_FOURIER.thetaWhit_equiv
 
 set_option autoImplicit false
 
@@ -396,6 +398,67 @@ def famM {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F
   if hv : v ∈ Fam.T0 then intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v)
   else sphWeyl P G v (fun h => hv ((Fam.T0_eq (1 / 6)) ▸ (Fam.sec (1 / 6)).sub h)) (1 / 6)
 
+/-- Extract the same section family's hypotheses for the acyclic Fourier helper modules. -/
+def AnalyticFamily.fourierHyp {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) :
+    FourierFamilyHyp μ Fam.sec Fam.T0 where
+  T0_eq := Fam.T0_eq
+  fC_sph := Fam.fC_sph
+  f_analytic := Fam.f_analytic
+  M_analytic := Fam.M_analytic
+  J_analytic := Fam.J_analytic
+  level := Fam.level
+
+/-- Extract the existing continuation fields; all functions remain definitionally the same. -/
+def ContinuedEis.fourierData {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} {Fam : AnalyticFamily P G μ}
+    (C : ContinuedEis Fam) : FourierResidueData Fam.sec where
+  ε := C.ε
+  ε_pos := C.ε_pos
+  E := C.E
+  E_series := C.E_series
+  E_analytic := C.E_analytic
+  theta := C.theta
+  laurent := C.laurent
+  laurent_torus := C.laurent_torus
+
+/-- Euler regularization input, reusing the prior lane's partial-zeta identification.
+Guide: sol-thin-thglobal/PROOFS.md:843–845. Uses Hecke trivial continuation,
+resLSeries_eq_zetaT0, and the frozen cprod_eq_zeta_ratio. -/
+theorem fourierEuler_hyp (T0 : Finset (FinPlace F)) : FourierEulerHyp T0 := by
+  let m := resModulus T0
+  let η : ClassFieldTheory.RayClassGroup m →* ℂˣ := 1
+  let L : ℂ → ℂ := ArtinPrimitiveRoots.Hecke.LSeriesRay η
+  obtain ⟨N, hNdiff, hNeq, hN1⟩ :=
+    ArtinPrimitiveRoots.Hecke.LSeriesRay_trivial_continuation (K := F) m
+  have habsc : LSeries.abscissaOfAbsConv (ArtinPrimitiveRoots.Hecke.coeff η) ≤ 1 := by
+    apply LSeries.abscissaOfAbsConv_le_of_forall_lt_LSeriesSummable
+    intro y hy
+    exact ArtinPrimitiveRoots.Hecke.LSeriesSummable_coeff η (s := (y : ℂ)) (by
+      simpa using hy)
+  have hLanalytic : AnalyticOnNhd ℂ L {z | 1 < z.re} := by
+    have hsub : {z : ℂ | 1 < z.re} ⊆
+        {z | LSeries.abscissaOfAbsConv (ArtinPrimitiveRoots.Hecke.coeff η) < z.re} := by
+      intro z hz
+      exact lt_of_le_of_lt habsc (by exact_mod_cast hz)
+    convert! (LSeries_analyticOnNhd (ArtinPrimitiveRoots.Hecke.coeff η)).mono hsub using 1
+      <;> simp only [L, ArtinPrimitiveRoots.Hecke.LSeriesRay]
+  have hLnonzero : ∀ s : ℂ, 1 < s.re → L s ≠ 0 := by
+    intro s hs
+    exact (ArtinPrimitiveRoots.Hecke.norm_LSeriesRay_le (η := η) hs).2.1
+  refine ⟨L, N, hLanalytic, hLnonzero, hNdiff, hNeq, ?_⟩
+  intro s hs
+  have h0 : 1 < (6 * s).re := by
+    have hr : (6 * s).re = 6 * s.re := by simp
+    rw [hr]; nlinarith
+  have h1 : 1 < (6 * s + 1).re := by
+    have hr : (6 * s + 1).re = 6 * s.re + 1 := by simp
+    rw [hr]; nlinarith
+  rw [cprod_eq_zeta_ratio T0 s hs]
+  congr 1
+  · exact (resLSeries_eq_zetaT0 T0 (6 * s) h0).symm
+  · exact (resLSeries_eq_zetaT0 T0 (6 * s + 1) h1).symm
+
 /-- **res:theta-constant**: the constant term of `θ` is `κ_F⁻¹ · res · Σ_δ Θ^M(a(δ)g)`. -/
 theorem theta_constantTerm {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
@@ -409,7 +472,19 @@ theorem theta_constantTerm {P : CoverPackage D S H A} {G : GlobalDatum P}
     torusCoeff P C.theta g Pd 0 = (κF F)⁻¹ * resCprod Fam.T0 *
       ∑' δ : Fˣ ⧸ G.Δ, scalarOf P G (famM Fam) (fun _ => intertwineC (sphC (1 / 6)))
         (P.tc.rat (diagGL (Quotient.out δ)) * g) := by
-  sorry
+  have h := theta_constantTerm_assembly Fam.fourierHyp (fourierEuler_hyp Fam.T0)
+    C.fourierData g 𝔞 h𝔞 hfix Pd hPd hb
+  have hM : fourierRawM μ Fam.sec (1 / 6) =
+      scalarOf P G (famM Fam) (fun _ => intertwineC (sphC (1 / 6))) := by
+    funext h
+    unfold fourierRawM
+    congr 1
+    · funext v
+      unfold famM
+      simp only [Fam.T0_eq]
+    · funext w
+      rw [Fam.fC_sph]
+  simpa only [ContinuedEis.fourierData, resCprod, hM] using h
 
 /-- The Whittaker function of `θ`: its first torus coefficient over an adapted lattice (well
 defined by `theta_fourierCoeff`). -/
@@ -437,7 +512,10 @@ theorem theta_fourierCoeff {P : CoverPackage D S H A} {G : GlobalDatum P}
       Pd volume) (hb : Bornology.IsBounded Pd)
     (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (ν : F) (infEmbA ξ) = 1) :
     torusCoeff P C.theta g Pd (ν : F) = thetaWhit C (P.tc.rat (diagGL ν) * g) := by
-  sorry
+  change torusCoeff P C.fourierData.theta g Pd (ν : F) =
+    fourierFirstCoeff C.fourierData (P.tc.rat (diagGL ν) * g)
+  exact theta_fourierCoeff_assembly Fam.fourierHyp C.fourierData g 𝔞 Pd ν
+    ⟨h𝔞, hfix, hPd, hb, hν⟩
 
 theorem thetaWhit_equiv {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam) :
@@ -445,7 +523,14 @@ theorem thetaWhit_equiv {P : CoverPackage D S H A} {G : GlobalDatum P}
     (∀ x g, thetaWhit C (P.tc.nS (Multiplicative.ofAdd x) * g) = S.e A x * thetaWhit C g) ∧
     (∀ v, v ∉ S.Sf → ∀ x g, thetaWhit C (P.tc.n v (Multiplicative.ofAdd x) * g) =
       A.ψ v x * thetaWhit C g) := by
-  sorry
+  change (∀ ζ g, fourierFirstCoeff C.fourierData (P.tc.z ζ * g) =
+      ((ζ : ℂˣ) : ℂ) * fourierFirstCoeff C.fourierData g) ∧
+    (∀ x g, fourierFirstCoeff C.fourierData (P.tc.nS (Multiplicative.ofAdd x) * g) =
+      S.e A x * fourierFirstCoeff C.fourierData g) ∧
+    (∀ v, v ∉ S.Sf → ∀ x g,
+      fourierFirstCoeff C.fourierData (P.tc.n v (Multiplicative.ofAdd x) * g) =
+        A.ψ v x * fourierFirstCoeff C.fourierData g)
+  exact thetaWhit_equiv_assembly Fam.fourierHyp C.fourierData
 
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
