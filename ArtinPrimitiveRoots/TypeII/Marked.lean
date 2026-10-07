@@ -7,6 +7,11 @@ namespace ArtinPrimitiveRoots.TypeII
 
 open Classical
 
+/-- Convexity in the natural order, expressing that a set of natural numbers is an interval.
+This is correction 2 from review lane `rev-b`. -/
+def IsNatInterval (I : Set ℕ) : Prop :=
+  ∀ ⦃m n k : ℕ⦄, m ∈ I → n ∈ I → min m n ≤ k → k ≤ max m n → k ∈ I
+
 /-- `t2:band-mass`, 08-type-ii.tex:54-56 and 12-construction.tex:29-31. For each fixed
 exponent `a∈(0,1)`, the reciprocal-prime mass of its band tends to `log 2`. -/
 theorem band_mass (a : ℝ) (ha₀ : 0 < a) (ha₁ : a < 1) :
@@ -16,12 +21,14 @@ theorem band_mass (a : ℝ) (ha₀ : 0 < a) (ha₁ : a < 1) :
   sorry
 
 /-- A scale-varying family of first-variable coefficients, as in the hypothesis
-`eq:type-ii-long-coefficient-interface`. -/
+`eq:type-ii-long-coefficient-interface`. Correction 2 from review lane `rev-b` records that the
+first-variable set is an interval. -/
 structure CoefficientFamily (δ C c₁ c₂ : ℝ) where
   Hm : ℝ → ℝ
   Hn : ℝ → ℝ
   interval : ℝ → Set ℕ
   alpha : ℝ → ℕ → ℂ
+  interval_property : ∀ x, IsNatInterval (interval x)
   scales : ∀ x, 2 ≤ x → Real.rpow x δ ≤ Hm x ∧ Real.rpow x δ ≤ Hn x ∧
     c₁ * x ≤ Hm x * Hn x ∧ Hm x * Hn x ≤ c₂ * x
   interval_bounds : ∀ x, 2 ≤ x → ∀ m ∈ interval x, Hm x ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm x
@@ -35,7 +42,8 @@ noncomputable def familyTerms {δ C c₁ c₂ : ℝ}
     (family : CoefficientFamily δ C c₁ c₂) (x : ℝ) : Finset ℕ :=
   (dyadicIntegers (family.Hm x)).filter (fun m => m ∈ family.interval x)
 
-/-- The long Dirichlet-polynomial hypothesis on the first-variable coefficients. -/
+/-- The long Dirichlet-polynomial hypothesis on the first-variable coefficients. Its interval
+domain is the one in correction 2 from review lane `rev-b`. -/
 def HasLongCoefficientCancellation {δ C c₁ c₂ : ℝ}
     (family : CoefficientFamily δ C c₁ c₂) : Prop :=
   ∀ A₀ B A : ℝ, 0 < A₀ → 0 < B → 0 < A →
@@ -61,13 +69,14 @@ noncomputable def markedBilinearSum (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (q_d
 /-- `lem:marked-coefficient-transfer` — `08-type-ii.tex:99-251`. For any coefficient
 family satisfying the long Dirichlet-polynomial interface, the marked bilinear form has arbitrary
 logarithmic saving once the number of marked bands is sufficiently large. The lower bound on `K`
-is chosen before the band exponents and is independent of those exponents and the family. -/
+is chosen before the band exponents and is independent of those exponents and the family. Correction
+2 from review lane `rev-b` requires ordered scale constants and an interval coefficient domain. -/
 theorem marked_coefficient_transfer
     (δ C Dstar q_d : ℝ)
     (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
     (hqd₀ : 0 < q_d) (hqd₁ : q_d < 1) :
     ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K →
-      ∀ c₁ c₂ : ℝ, 0 < c₁ → 0 < c₂ →
+      ∀ c₁ c₂ : ℝ, 0 < c₁ → 0 < c₂ → c₁ ≤ c₂ →
       ∀ family : CoefficientFamily δ C c₁ c₂,
         HasLongCoefficientCancellation family →
         ∀ a : Fin K → ℝ, ValidBands K a →

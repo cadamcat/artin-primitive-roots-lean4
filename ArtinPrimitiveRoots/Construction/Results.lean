@@ -35,11 +35,12 @@ theorem support (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ) (Ψ : ℝ �
 
 /-- `con:type-ii`, 12-construction.tex:92-159. Here `R_γ` and `B_γ` are the rough indicator and
 the Buchstab proxy, and the weight is the actual §12 weight. The threshold for `K` depends on the
-Type II scale parameter only; the estimate is uniform in dyads, intervals, and coefficients. -/
+Type II scale parameter only; the estimate is uniform in dyads, intervals, and coefficients.
+Correction 7 from review lane `rev-b` adds the interval and ordered scale conditions. -/
 theorem con_type_ii
     (δ γ sMin sMax c₁ c₂ : ℝ) (hδ : 0 < δ) (hγ : 0 < γ)
     (hγs : γ < sMin) (hs : sMin < sMax) (hsMax : sMax < 1)
-    (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) :
+    (hc₁ : 0 < c₁) (hc₂ : 0 < c₂) (hc₁₂ : c₁ ≤ c₂) :
     ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K → ∀ M c : ℕ, ∀ u : ℤ,
       ∀ a : Fin K → ℝ, ValidBands K a →
       0 < M → 8 ∣ M → (c = 2 ∨ c = 4) → c ∣ M →
@@ -55,7 +56,8 @@ theorem con_type_ii
               c₁ * x ≤ Hm * Hn → Hm * Hn ≤ c₂ * x →
               Real.log Hm / Real.log x ∈ Set.Icc sMin sMax →
               Real.log (2 * Hm) / Real.log x ∈ Set.Icc sMin sMax →
-              ∀ I : Set ℕ, I ⊆ {m : ℕ | Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm} →
+              ∀ I : Set ℕ, IsNatInterval I →
+                I ⊆ {m : ℕ | Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm} →
                 ∀ b : ℕ → ℂ,
                   (∀ n, b n ≠ 0 → n ∈ dyadicIntegers Hn ∧
                     roughAbove n (roughCutoff x)) →
@@ -217,9 +219,12 @@ theorem con_bin_mass (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
                 roughSieveProduct (roughCutoff x) := by
   sorry
 
-/-- `co:bin-cost`, 12-construction.tex:505-561. -/
+/-- `co:bin-cost`, 12-construction.tex:505-561. Correction 8 from review lane `rev-b` requires
+the fixed progression assumptions from §12. -/
 theorem bin_cost (M c : ℕ) (u : ℤ) (κ b : ℝ)
-    (hM : 0 < M) (hc : 0 < c) (hcM : c ∣ M)
+    (hM : 0 < M) (h8 : 8 ∣ M) (hc24 : c = 2 ∨ c = 4) (hcM : c ∣ M)
+    (hu : Int.gcd u M = 1) (hcu : (c : ℤ) ∣ u - 1)
+    (hcu' : Int.gcd ((u - 1) / c) ((M / c : ℕ) : ℤ) = 1)
     (hκ : 0 < κ) (hκsmall : κ < 1 / 100) (hb : 0 < b) :
     ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K → ∀ a : Fin K → ℝ, ValidBands K a →
       ∀ Ψ : ℝ → ℝ, IsTestFunction Ψ →
