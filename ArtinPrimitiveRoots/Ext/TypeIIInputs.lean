@@ -1,5 +1,6 @@
 import Mathlib
 import ArtinPrimitiveRoots.TypeII.Defs
+import OAI.NumberTheory.PrimeGaps.Main
 
 /-! External analytic inputs used by the Type II and construction arguments. -/
 
@@ -37,6 +38,36 @@ theorem bombieri_vinogradov :
             primeProgressionError y q) ≤ C * y * Real.rpow (Real.log y) (-A) := by
   sorry
 
+lemma primeCharacterPrefix_eq_range {d : ℕ} (χ : DirichletCharacter ℂ d) (x : ℝ) :
+    OAI.LargePrimeGaps.primeCharacterPrefix x χ =
+      (∑ n ∈ Finset.range (⌊x⌋₊ + 1),
+        (χ (n : ZMod d) : ℂ) * (ArithmeticFunction.vonMangoldt n : ℂ)) := by
+  classical
+  let f : ℕ → ℂ := fun n =>
+    (χ (n : ZMod d) : ℂ) * (ArithmeticFunction.vonMangoldt n : ℂ)
+  have hzero : f 0 = 0 := by
+    simp [f, ArithmeticFunction.vonMangoldt_apply, not_isPrimePow_zero]
+  have hrange : Finset.range (⌊x⌋₊ + 1) = Finset.Icc 0 ⌊x⌋₊ := by
+    ext n
+    simp
+  have hioc : Finset.Ioc 0 ⌊x⌋₊ = (Finset.Icc 0 ⌊x⌋₊).erase 0 := by
+    ext n
+    simp
+  have hremove :
+      (∑ n ∈ (Finset.Icc 0 ⌊x⌋₊).erase 0, f n) =
+        ∑ n ∈ Finset.Icc 0 ⌊x⌋₊, f n := by
+    apply Finset.sum_subset (Finset.erase_subset _ _)
+    intro n hn hn'
+    have hn0 : n = 0 := by
+      by_contra hne
+      exact hn' (Finset.mem_erase.mpr ⟨hne, hn⟩)
+    subst n
+    exact hzero
+  change (∑ n ∈ Finset.Ioc 0 ⌊x⌋₊, f n) = _
+  calc
+    _ = ∑ n ∈ Finset.Icc 0 ⌊x⌋₊, f n := by rw [hioc, hremove]
+    _ = ∑ n ∈ Finset.range (⌊x⌋₊ + 1), f n := by rw [← hrange]
+
 /-- `ext:siegel-walfisz`, PP `01-preliminaries.tex:24-40`, Proposition 2.1; matching OAI
 `siegelWalfisz` (`PrimeGaps/Main.lean:142`). -/
 theorem siegel_walfisz :
@@ -50,7 +81,13 @@ theorem siegel_walfisz :
                     (ArithmeticFunction.vonMangoldt n : ℂ)) -
                     (if χ = 1 then (x : ℂ) else 0)‖ ≤
                   C * x * Real.rpow (Real.log x) (-A) := by
-  sorry
+  intro A B hA hB
+  obtain ⟨M, hM, x₀, hx₀, hSW⟩ := OAI.LargePrimeGaps.siegelWalfisz A B hA hB
+  refine ⟨M, x₀, hM, hx₀, ?_⟩
+  intro x hx d hd hdlog χ hχ
+  have h := hSW x hx d hd hdlog χ hχ
+  rw [OAI.LargePrimeGaps.primeCharacterError, primeCharacterPrefix_eq_range] at h
+  exact h
 
 /-- `ext:mertens`, PD Lemma 2.1; 11-sieve.tex:159-164; 12-construction.tex:398-402. The
 first assertion is the second Mertens theorem; the second is its product form. Matching PNT+
