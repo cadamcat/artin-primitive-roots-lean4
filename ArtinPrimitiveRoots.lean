@@ -50,3 +50,4 @@ import ArtinPrimitiveRoots.Splitting.Counting
 import ArtinPrimitiveRoots.Spec
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Arith.DavenportHasse
+import /- Local package with a hyphenated directory name. -/ ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
