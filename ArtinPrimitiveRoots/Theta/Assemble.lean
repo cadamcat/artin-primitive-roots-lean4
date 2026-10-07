@@ -127,7 +127,33 @@ theorem exists_thetaFamily (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt 
 theorem theta_interface_of_steinberg (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (A : AddCharData F) (hSt : ∀ v, SteinbergAt H v) :
     ∃ C : ThetaCover D S H A, ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily C 𝓛) := by
-  sorry
+  obtain ⟨P⟩ := exists_coverPackage D S H A hSt
+  exact ⟨P.tc, fun 𝓛 => exists_thetaFamily P hSt 𝓛⟩
+
+private theorem unitPart_isLocUnit (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+    IsLocUnit v (unitPart v x) := by
+  have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr x.ne_zero
+  have hxv : Valued.v (x : v.adicCompletion F) = WithZero.exp (-ordv v x) := by
+    rw [← WithZero.exp_log hx0]
+    simp [ordv, WithZero.toAdd_unzero_eq_log hx0]
+  have hπ : Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    simpa [unifLoc, toLoc, unif, HeightOneSpectrum.valuedAdicCompletion_eq_valuation'] using
+      (v.valuation_exists_uniformizer F).choose_spec
+  have hval : Valued.v (unitPart v x : v.adicCompletion F) = 1 := by
+    change Valued.v ((x : v.adicCompletion F) *
+      (unifLoc v : v.adicCompletion F) ^ (-ordv v x)) = 1
+    rw [map_mul, map_zpow, hxv, hπ]
+    rw [← WithZero.exp_zsmul, ← WithZero.exp_add]
+    congr 1
+    simp
+  constructor
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    rw [hval]
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    have hval' : Valued.v (((unitPart v x)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      simp [hval]
+    rw [hval']
 
 /-- **cor:theta-exterior-coefficient** (03:186–222; A2 request), table form. -/
 theorem sphericalTable_product (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
