@@ -142,4 +142,55 @@ theorem finiteHistoryTrace_ghost_births_visit_lower_bound {K : ℕ}
       · have hTail := ih υ t.2.2 b hb
         omega
 
+/-- Ghost-birth events are listed in nondecreasing visit order. -/
+theorem finiteHistoryTrace_ghost_births_visit_monotone {K : ℕ}
+    (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (k : ℕ) (σ : LogPoint S.x K)
+    (t : FiniteHistoryTrace F S γ k σ) :
+    List.Pairwise (fun b b' => b.1.val ≤ b'.1.val)
+      (finiteHistoryTraceGhostBirths F S γ k σ t) := by
+  induction k generalizing σ with
+  | zero =>
+      rw [finiteHistoryTraceGhostBirths]
+      apply List.pairwise_of_forall_mem_list
+      intro b hb b' hb'
+      rcases List.mem_flatMap.mp hb with ⟨i, hi, hbi⟩
+      rcases List.mem_map.mp hbi with ⟨p, hp, rfl⟩
+      rcases List.mem_flatMap.mp hb' with ⟨i', hi', hbi'⟩
+      rcases List.mem_map.mp hbi' with ⟨p', hp', rfl⟩
+      exact le_rfl
+  | succ k ih =>
+      let j := pathLength S.x - (k + 1)
+      let τ := ghostTraceOutput F S j σ t.1
+      let z' := (γ ⟨pathLength S.x - k,
+        Nat.lt_succ_of_le (Nat.sub_le _ _)⟩).1
+      let υ := edgeTraceOutput F S j z' τ t.2.1
+      have hBlock : List.Pairwise (fun b b' => b.1.val ≤ b'.1.val)
+          ((List.finRange K).flatMap fun i =>
+            (t.1.2 i).1.toList.map fun p =>
+              ((⟨j, Nat.lt_succ_of_le (Nat.sub_le _ _)⟩ :
+                Fin (pathLength S.x + 1)), i, p)) := by
+        apply List.pairwise_of_forall_mem_list
+        intro b hb b' hb'
+        rcases List.mem_flatMap.mp hb with ⟨i, hi, hbi⟩
+        rcases List.mem_map.mp hbi with ⟨p, hp, rfl⟩
+        rcases List.mem_flatMap.mp hb' with ⟨i', hi', hbi'⟩
+        rcases List.mem_map.mp hbi' with ⟨p', hp', rfl⟩
+        exact le_rfl
+      have hCross : ∀ b ∈ (List.finRange K).flatMap (fun i =>
+          (t.1.2 i).1.toList.map fun p =>
+            ((⟨j, Nat.lt_succ_of_le (Nat.sub_le _ _)⟩ :
+              Fin (pathLength S.x + 1)), i, p)),
+          ∀ b' ∈ finiteHistoryTraceGhostBirths F S γ k υ t.2.2,
+            b.1.val ≤ b'.1.val := by
+        intro b hb b' hb'
+        rcases List.mem_flatMap.mp hb with ⟨i, hi, hbi⟩
+        rcases List.mem_map.mp hbi with ⟨p, hp, rfl⟩
+        have hLater := finiteHistoryTrace_ghost_births_visit_lower_bound
+          F S γ k υ t.2.2 b' hb'
+        dsimp only [j]
+        omega
+      rw [finiteHistoryTraceGhostBirths, List.pairwise_append]
+      exact ⟨hBlock, ih υ t.2.2, hCross⟩
+
 end ArtinPrimitiveRoots.Proofs.pd_lifeb_sol
