@@ -7,6 +7,10 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyPrimes
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyMain
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyDivisor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootArithmetic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootCRTModel
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootAsymptotic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootReversal
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootRestrictedFourier
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Goodness
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.BandGeometry
 
