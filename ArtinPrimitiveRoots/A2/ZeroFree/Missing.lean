@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.ZeroFree.Density
 import ArtinPrimitiveRoots.A2.Poisson.Missing
 import ArtinPrimitiveRoots.A2.Interface
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE_ASYM.FiniteContour
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE_ASYM.SignalEndpoints
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M0
 import ArtinPrimitiveRoots.A2.Proofs.QS_ANALYTIC.RNDict
 
