@@ -3799,6 +3799,77 @@ private theorem rf_active_numerator_mass
   change Summable g ∧ (∑' a, g a) ≤ Eideal R f σ
   exact ⟨summable_of_sum_le hg hbound, Real.tsum_le_of_sum_le hg hbound⟩
 
+private theorem rf_reflected_dirichlet_mass
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (f : S.ExtIdeal) (σ : ℝ) (hσ : 1 / 2 < σ) :
+    Summable (reflectedDirichletTerm R f σ) ∧
+      (∑' p, reflectedDirichletTerm R f σ p) ≤
+        sphericalMajorant (S := S) σ * Eideal R f σ := by
+  classical
+  let aMass : {a : S.ExtIdeal // activeNumerator R f a} → ℝ := fun a =>
+    betaIdeal R f a.1 * qI a.1.1 ^ (-σ)
+  let cnMass : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p =>
+    qI p.1.1 ^ (-1 / 2 - σ) * qI p.2.1 ^ (-1 - 3 * σ)
+  have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+    unfold qI
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hnonneg (I : Ideal (𝓞 F)) : 0 ≤ qI I := by
+    unfold qI
+    exact Nat.cast_nonneg _
+  have hsplit
+      (p : {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal) :
+      reflectedDirichletTerm R f σ p = aMass p.1 * cnMass p.2 := by
+    have ha : 0 < qI p.1.1.1 := hpos p.1.1.1 p.1.1.property.1
+    have hc : 0 < qI p.2.1.1 := hpos p.2.1.1 p.2.1.property.1.1
+    have hn : 0 < qI p.2.2.1 := hpos p.2.2.1 p.2.2.property.1
+    have hn3 : (qI p.2.2.1 ^ (3 : ℕ)) ^ (-σ) = qI p.2.2.1 ^ (-3 * σ) := by
+      rw [← Real.rpow_natCast, ← Real.rpow_mul hn.le]
+      congr 1
+      ring
+    have hpower : (qI p.1.1.1 * qI p.2.1.1 * qI p.2.2.1 ^ (3 : ℕ)) ^ (-σ) =
+        qI p.1.1.1 ^ (-σ) * qI p.2.1.1 ^ (-σ) * qI p.2.2.1 ^ (-3 * σ) := by
+      rw [Real.mul_rpow (mul_nonneg ha.le hc.le) (pow_nonneg hn.le 3),
+        Real.mul_rpow ha.le hc.le, hn3]
+    have hcAdd : qI p.2.1.1 ^ (-(1 / 2 : ℝ)) * qI p.2.1.1 ^ (-σ) =
+        qI p.2.1.1 ^ (-1 / 2 - σ) := by
+      rw [← Real.rpow_add hc]
+      congr 1
+      ring
+    have hnAdd : (qI p.2.2.1)⁻¹ * qI p.2.2.1 ^ (-3 * σ) =
+        qI p.2.2.1 ^ (-1 - 3 * σ) := by
+      rw [← Real.rpow_neg_one, ← Real.rpow_add hn]
+      congr 1
+      ring
+    dsimp only [reflectedDirichletTerm, aMass, cnMass]
+    rw [hpower, ← hcAdd, ← hnAdd, div_eq_mul_inv]
+    ring
+  have haMass := rf_active_numerator_mass R f σ (by linarith : 0 ≤ σ)
+  have hcnMass : Summable cnMass := ((rf_forward_assembly R).2 σ hσ).1
+  have haNonneg (a : {a : S.ExtIdeal // activeNumerator R f a}) : 0 ≤ aMass a :=
+    mul_nonneg (rf_betaIdeal_nonneg R f a.1) (Real.rpow_nonneg (hnonneg a.1.1) _)
+  have hcnNonneg (p : S.SqfExtIdeal × S.ExtIdeal) : 0 ≤ cnMass p :=
+    mul_nonneg (Real.rpow_nonneg (hnonneg p.1.1) _)
+      (Real.rpow_nonneg (hnonneg p.2.1) _)
+  have hprod : Summable (fun p :
+      {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal =>
+        aMass p.1 * cnMass p.2) :=
+    haMass.1.mul_of_nonneg hcnMass haNonneg hcnNonneg
+  have hsum : (∑' p, reflectedDirichletTerm R f σ p) =
+      (∑' a, aMass a) * (∑' p, cnMass p) := by
+    calc
+      _ = ∑' p : {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal,
+          aMass p.1 * cnMass p.2 := tsum_congr hsplit
+      _ = (∑' a, aMass a) * (∑' p, cnMass p) :=
+        (haMass.1.tsum_mul_tsum hcnMass hprod).symm
+  constructor
+  · exact hprod.congr (fun p => (hsplit p).symm)
+  · calc
+      (∑' p, reflectedDirichletTerm R f σ p) =
+          (∑' a, aMass a) * (∑' p, cnMass p) := hsum
+      _ ≤ Eideal R f σ * (∑' p, cnMass p) :=
+        mul_le_mul_of_nonneg_right haMass.2 (tsum_nonneg hcnNonneg)
+      _ = sphericalMajorant (S := S) σ * Eideal R f σ := mul_comm _ _
+
 /-- rf:grouped-absolute, 04:659-706. Absolute sums and the averaged integral use the same majorant. -/
 theorem rf_grouped_absolute : ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ f,
   Summable (reflectedDirichletTerm R f σ) ∧
