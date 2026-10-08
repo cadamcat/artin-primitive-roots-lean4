@@ -377,7 +377,21 @@ theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : B
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
     (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
     ∃ ε ∈ S.US, a = ε ^ 6 * b := by
-  sorry
+  obtain ⟨hu, hlocal⟩ := a1_bdata_sol_allowed_ratio_local_sixth Bd I a b ha hb
+  obtain ⟨ε, heq⟩ := ArtinPrimitiveRoots.Proofs.a1_bdata_sol.global_sixth_of_local
+    (a1_bdata_sol_mu6_of_hilbertData H) (a / b)
+    (a1_bdata_sol_local_sixth_everywhere_of_hilbert S H (a / b) hu hlocal)
+  refine ⟨ε, ?_, div_eq_iff_eq_mul.mp heq⟩
+  intro v hv
+  have hval := hu v hv
+  rw [heq, Units.val_pow_eq_pow_val, map_pow] at hval
+  have hlog := congrArg WithZero.log hval
+  simp only [WithZero.log_pow, WithZero.log_one, nsmul_eq_mul] at hlog
+  have hzero : WithZero.log (v.valuation F (ε : F)) = 0 := by omega
+  calc
+    v.valuation F (ε : F) = WithZero.exp (WithZero.log (v.valuation F (ε : F))) :=
+      (WithZero.exp_log ((v.valuation F).ne_zero_iff.mpr ε.ne_zero)).symm
+    _ = 1 := by rw [hzero, WithZero.exp_zero]
 
 /-- lem:balanced-generators (e): balanced generators — a compact `𝒦_bal ⊂ F_S^1` with
 `a/ℓ_{q_I} ∈ 𝒦_bal` for some allowed generator of every exterior `I`.
