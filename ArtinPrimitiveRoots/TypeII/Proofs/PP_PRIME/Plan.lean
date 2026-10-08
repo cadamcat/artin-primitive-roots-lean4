@@ -2033,6 +2033,69 @@ private theorem ppPrimeDirichletLogDeriv_analyticOnNhd
     exact hLanalytic s (hS hs)
   exact hLanalyticS.deriv.div hLanalyticS hzero
 
+private noncomputable def ppPrimeMellinContourIntegrand
+    (N : ℝ) (q : ℕ) (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    (t : ℝ) (g : ℝ → ℝ) (z : ℂ) : ℂ :=
+  -(mellinKernel g z * Complex.exp (z * (Real.log N : ℂ)) *
+    (deriv (dirichletLValue q hq χ) (1 - Complex.I * (t : ℂ) + z) /
+      dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z)))
+
+private theorem ppPrimeMellinContourIntegrand_analyticOnNhd
+    (N : ℝ) (q : ℕ) (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    (t : ℝ) (g : ℝ → ℝ)
+    (hfc : LocallyIntegrableOn (fun w : ℝ => (g w : ℂ)) (Set.Ioi 0))
+    (hgsupport : Function.support g ⊆ Set.Icc (1 / 2 : ℝ) 3)
+    {S : Set ℂ}
+    (hPole : ∀ z ∈ S, 1 - Complex.I * (t : ℂ) + z ≠ 1)
+    (hzero : ∀ z ∈ S,
+      dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z) ≠ 0) :
+    AnalyticOnNhd ℂ (ppPrimeMellinContourIntegrand N q hq χ t g) S := by
+  letI : NeZero q := ⟨Nat.ne_of_gt hq⟩
+  intro z hz
+  let s : ℂ := 1 - Complex.I * (t : ℂ) + z
+  have hsPole : s ≠ 1 := by simpa [s] using hPole z hz
+  have hsZero : dirichletLValue q hq χ s ≠ 0 := by
+    simpa [s] using hzero z hz
+  have hLdAt : AnalyticAt ℂ
+      (fun w : ℂ => deriv (dirichletLValue q hq χ) w /
+        dirichletLValue q hq χ w) s := by
+    have hLdRegion := ppPrimeDirichletLogDeriv_analyticOnNhd hq χ
+      (S := {s})
+      (by
+        intro w hw
+        have hw' : w = s := by simpa using hw
+        rw [hw']
+        simpa using hsPole)
+      (by
+        intro w hw
+        have hw' : w = s := by simpa using hw
+        rw [hw']
+        exact hsZero)
+    exact hLdRegion s (by simp)
+  let φ : ℂ → ℂ := fun w => 1 - Complex.I * (t : ℂ) + w
+  have hφ : AnalyticAt ℂ φ z := by fun_prop
+  have hpoint : φ z = s := by simp [φ, s]
+  have hLdComp : AnalyticAt ℂ
+      (fun w : ℂ => deriv (dirichletLValue q hq χ)
+          (1 - Complex.I * (t : ℂ) + w) /
+        dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + w)) z := by
+    simpa [φ, Function.comp_def] using hLdAt.comp_of_eq hφ hpoint
+  have hKernel : AnalyticAt ℂ (mellinKernel g) z := by
+    exact (ppPrimeMellinKernel_analyticOnNhd hfc hgsupport) z (Set.mem_univ z)
+  have hExp : AnalyticAt ℂ
+      (fun w : ℂ => Complex.exp (w * (Real.log N : ℂ))) z := by
+    fun_prop
+  have hProduct : AnalyticAt ℂ
+      (fun w : ℂ => -(mellinKernel g w * Complex.exp (w * (Real.log N : ℂ)) *
+        (deriv (dirichletLValue q hq χ) (1 - Complex.I * (t : ℂ) + w) /
+          dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + w)))) z := by
+    exact ((hKernel.mul hExp).mul hLdComp).neg
+  change AnalyticAt ℂ
+    (fun w : ℂ => -(mellinKernel g w * Complex.exp (w * (Real.log N : ℂ)) *
+      (deriv (dirichletLValue q hq χ) (1 - Complex.I * (t : ℂ) + w) /
+        dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + w)))) z
+  exact hProduct
+
 /- Zero-free input passed from `PP.Results`, which imports this plan module. -/
 def ppPrimeZeroFree (C : ℝ) : Prop :=
     0 < C →
