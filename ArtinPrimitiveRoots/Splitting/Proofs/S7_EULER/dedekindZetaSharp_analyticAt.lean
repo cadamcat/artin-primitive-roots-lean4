@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EULER.Defs
+import ArtinPrimitiveRoots.Proofs.s7_euler_b.SharpZeta
 
 set_option autoImplicit false
 open scoped NumberField BigOperators
@@ -13,7 +14,7 @@ real-part gamma regularity; feeds pointwise quotient factorization. -/
 theorem dedekindZetaSharp_analyticAt (T : Type*) [Field T] [NumberField T]
     {s : ℂ} (hs : 0 < s.re) (hs1 : s ≠ 1) :
     AnalyticAt ℂ (dedekindZetaSharp T) s := by
-  sorry
+  exact dedekindZetaSharp_analyticAt_core T hs hs1
 
 end ArtinPrimitiveRoots.Splitting
 end
