@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.ZeroFree.Missing
+import ArtinPrimitiveRoots.A2.Proofs.A2_PRINCIPAL_INPUTS.LSeries
 import ArtinPrimitiveRoots.Hecke.Defs
 
 set_option autoImplicit false
@@ -133,7 +134,13 @@ theorem principal_mellin_inputs
     (sd : S.SelfDualMeasure A) (W : PoissonWeights (S := S)) (η : HeckeChar F)
     (U : FrequencyData S D η) (HA : HeckeAnalysis F) (HC : EulerCorrection R η U) :
     principalMellinInputsStatement R sd W η U HA HC := by
-  sorry
+  intro hSplit hEuler hloc hWeight
+  have hH := po_H_eta_properties R η U HC hEuler hloc
+  have hEnds := zf_f_bounds R sd W η U HA HC hSplit hEuler hloc hWeight
+  have hL := principalLS_right_half_plane_inputs (S := S) η HA hEuler.1
+  obtain ⟨B, hB, hLrecip⟩ := hL.2.2
+  exact mellinInputs_of_nodes R sd W η U HA HC
+    hH hL.1 hL.2.1 ⟨B, hLrecip⟩ hEnds
 
 /-- Mellin transform identity and analytic continuation for the actual `fEta`/amplitude pair;
 the line identity is stated explicitly (06:691–752). -/
