@@ -471,9 +471,10 @@ private theorem covol_arch_fundamental_unique (D : FieldData F) (a : 𝓞 F)
   funext w
   simpa using congrFun h w
 
-private theorem exists_measurable_lattice_fundamental_domain
+private theorem covol_standard_fundamental_domain_measurable_fd
     (S : SData F CE condη) (D : FieldData F) :
-    ∃ K : Set S.FS, MeasurableSet K ∧ S.IsLatticeFundamentalDomain K := by
+    MeasurableSet (covol_standard_fundamental_domain S D) ∧
+      S.IsLatticeFundamentalDomain (covol_standard_fundamental_domain S D) := by
   classical
   letI : MeasurableSpace (∀ v : S.Sf, v.1.adicCompletion F) :=
     borel (∀ v : S.Sf, v.1.adicCompletion F)
@@ -642,7 +643,12 @@ private theorem exists_measurable_lattice_fundamental_domain
     rw [hsr] at hsum
     have hkl : k = l := add_left_cancel hsum
     exact Prod.ext hsr hkl.symm
-  exact ⟨K, hKmeas, hfund⟩
+  have hKdef : K = covol_standard_fundamental_domain S D := rfl
+  constructor
+  · rw [← hKdef]
+    exact hKmeas
+  · rw [← hKdef]
+    exact hfund
 
 private instance covolAdicCompletionSeparableSpace (v : FinPlace F) :
     TopologicalSpace.SeparableSpace (v.adicCompletion F) := by
@@ -2652,9 +2658,10 @@ theorem SData.diagR_covolume_one (S : SData F CE condη) (D : FieldData F)
     (A : AddCharData F)
     (μ : S.SelfDualMeasure A) :
     ∃ K : Set S.FS, MeasurableSet K ∧ S.IsLatticeFundamentalDomain K ∧ μ.measure K = 1 := by
-  obtain ⟨K, hmeas, hfund⟩ := exists_measurable_lattice_fundamental_domain S D
-  exact ⟨K, hmeas, hfund,
-    measurable_fundamental_domain_measure_one S D A μ K ⟨hmeas, hfund⟩⟩
+  obtain ⟨hmeas, hfund⟩ := covol_standard_fundamental_domain_measurable_fd S D
+  refine ⟨covol_standard_fundamental_domain S D, hmeas, hfund, ?_⟩
+  exact measurable_fundamental_domain_measure_one S D A μ
+    (covol_standard_fundamental_domain S D) ⟨hmeas, hfund⟩
 
 /-- Poisson summation on `R` for Bruhat--Schwartz functions on `F_S`, including absolute
 convergence of both lattice sums. -/
