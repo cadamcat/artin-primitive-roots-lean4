@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedComponents
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CocycleQuotient
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.SmallPowers
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.Congruence
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.SubgroupTopology
 
 
 /-!
@@ -2761,6 +2762,17 @@ private theorem finLocalSmallAlgebra_conjugation
           simp only [QuotientGroup.mk_mul, scalarPr, one_mul] <;> rfl
         _ = _ := hk
     exact samePrGood g _ (mulGood (mulGood (mulGood (nGood t) (aGood y)) wGood) (nGood u)) hpr.symm
+
+/-- The small splitting subgroups form an open neighborhood basis for a group topology. -/
+private theorem exists_finLocalSmallTopology
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (C : FinLocalAlgebra D H v)
+    (B : FinLocalSmallAlgebra C) :
+    ∃ t : TopologicalSpace C.L, @IsTopologicalGroup C.L t C.grp ∧
+      (∀ m, B.m0 ≤ m → @IsOpen C.L t (B.Kc m : Set C.L)) ∧
+      (∀ U ∈ @nhds C.L t (1 : C.L), ∃ m, B.m0 ≤ m ∧ (B.Kc m : Set C.L) ⊆ U) := by
+  exact ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_subgroupBasisTopology
+    B.m0 B.Kc B.Kc_anti (finLocalSmallAlgebra_conjugation D H v hSt C B)
 
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
