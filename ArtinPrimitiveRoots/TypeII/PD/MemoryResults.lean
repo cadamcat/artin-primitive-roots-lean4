@@ -12007,7 +12007,109 @@ theorem dirty_raw (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
         ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, ∀ St Pr : Finset (Fin K),
           MemRowSchurLE_sym F S (memoryCutoff S) (memEdgePiece F S ρ w true St Pr j) v
             (if Pr.Nonempty then C * D else C) := by
-    sorry
+    obtain ⟨Ceta, hCeta, hEta⟩ := exists_eta_norm_bound F hF
+    obtain ⟨Cpsi, hCpsi, hPsi⟩ := exists_psi_norm_bound F hF
+    obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+    obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+    obtain ⟨xBands, hxBands, hBands⟩ := pd4c_validBands_disjoint_eventually K F.a hF.1
+    let Cmass := max 2 (2 / Real.log 2)
+    let A := (1 / (1 - ρ) ^ 2) ^ K
+    let Cbase := 34 * Ceta ^ 2 * Cpsi * (2 : ℝ) ^ K
+    let Cempty := Cbase * (4 : ℝ) ^ K
+    let Csmall := Cbase * Cmass ^ K * (2 : ℝ) ^ K
+    let C := 1 + Cempty + Csmall * (1 + A)
+    let xr := max 2 (max xV (max xB (max xBands (Real.exp 1))))
+    have hCM : 2 ≤ Cmass := le_max_left _ _
+    have hA : 0 ≤ A := by dsimp only [A]; positivity
+    have hCempty : 0 ≤ Cempty := by dsimp only [Cempty, Cbase]; positivity
+    have hCsmall : 0 ≤ Csmall := by dsimp only [Csmall, Cbase]; positivity
+    have hC : 0 < C := by dsimp only [C]; positivity
+    have hEmptyC : Cempty ≤ C := by dsimp only [C]; nlinarith
+    have hSmallC : Csmall ≤ C := by dsimp only [C]; nlinarith
+    have hGoodC : Csmall * A ≤ C := by dsimp only [C]; nlinarith
+    refine ⟨2, C, 1 / 4, xr, by norm_num, hC, by norm_num, le_max_left _ _, ?_⟩
+    intro S hS hx
+    dsimp only
+    intro w hw j St Pr
+    have hxV' : xV ≤ S.x := le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+    have hxB' : xB ≤ S.x := le_trans
+      (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+    have hxBands' : xBands ≤ S.x := le_trans
+      (le_trans (le_max_left _ _)
+        (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _)))) hx
+    have hxL : Real.exp 1 ≤ S.x := le_trans
+      (le_trans (le_max_right _ _)
+        (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _)))) hx
+    have hL : 1 ≤ S.L := by
+      have h := Real.log_le_log (Real.exp_pos 1) hxL
+      simpa only [Real.log_exp, PDScale.L] using h
+    have hV (i : Fin K) : 0 < bandMass S.x (F.a i) :=
+      lt_of_lt_of_le (div_pos (Real.log_pos (by norm_num)) (by norm_num))
+        (hVbounds S.x hxV' i).1
+    have hVinv (i : Fin K) : (bandMass S.x (F.a i))⁻¹ ≤ Cmass := by
+      calc
+        _ ≤ (Real.log 2 / 2)⁻¹ := by
+          simpa only [one_div] using one_div_le_one_div_of_le
+            (div_pos (Real.log_pos (by norm_num)) (by norm_num)) (hVbounds S.x hxV' i).1
+        _ = 2 / Real.log 2 := by simp only [inv_div, one_div]
+        _ ≤ _ := le_max_right _ _
+    have hbp := hBbounds S.x hxB'
+    have hb (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+        (1 / 2 : ℝ) ≤ memoryBPrime S.x F.q_d p :=
+      hbp p (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩)
+    have hν (i : Fin K) (p : primeBand S.x (F.a i)) :
+        0 ≤ memoryNu S.x K F.a F.q_d i p :=
+      (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp p.property).2.1.pos (hV i)
+        (hb i p p.property)).1
+    have hνsum (i : Fin K) :
+        (∑ p : primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2 := by
+      have hAttach : (primeBand S.x (F.a i)).attach =
+          (Finset.univ : Finset (primeBand S.x (F.a i))) := by ext p; simp
+      rw [← hAttach, Finset.sum_attach]
+      exact memoryNu_band_mass_le_two F i (hV i) hbp
+    have hB : 1 ≤ memoryCutoff S := by
+      have hceil : (1 : ℝ) ≤ (memoryCutoff S : ℝ) :=
+        le_trans (Real.one_le_rpow hL (by norm_num)) (Nat.le_ceil _)
+      exact_mod_cast hceil
+    by_cases hPr : Pr.Nonempty
+    · rw [if_pos hPr]
+      have hr := pd4d_raw_promoted_row δ c₁ c₂ F S ρ w St Pr (memoryCutoff S) j
+        2 Ceta Cpsi Cmass hF hS hw hρ.1.le hρ.2.1 (by norm_num) hCeta hCpsi hCM
+        hB hL hPr hEta hPsi hV hVinv hν hνsum hb (hBands S.x hxBands')
+      let t := (memoryCutoff S : ℝ) / (S.M : ℝ) ^ K
+      let u := (memoryCutoff S : ℝ) ^ K *
+        Real.exp (-(1 / 4 : ℝ) * Real.rpow S.L (1 / 10 : ℝ))
+      have ht : 0 ≤ t := by dsimp only [t]; positivity
+      have hu : 0 ≤ u := by dsimp only [u]; positivity
+      have hcoef :
+          34 * Ceta ^ 2 * Cpsi * (2 : ℝ) ^ K * Cmass ^ K * (2 : ℝ) ^ K *
+            (A * (memoryCutoff S : ℝ) / (S.M : ℝ) ^ K + u) = Csmall * (A * t + u) := by
+        dsimp only [Csmall, Cbase, t]
+        ring
+      change MemRowSchurLE_sym F S (memoryCutoff S) (memEdgePiece F S ρ w true St Pr j) 2
+        (34 * Ceta ^ 2 * Cpsi * (2 : ℝ) ^ K * Cmass ^ K * (2 : ℝ) ^ K *
+          (A * (memoryCutoff S : ℝ) / (S.M : ℝ) ^ K + u)) at hr
+      rw [hcoef] at hr
+      have hbound : Csmall * (A * t + u) ≤ C * (t + u) := by
+        calc
+          _ = (Csmall * A) * t + Csmall * u := by ring
+          _ ≤ C * t + C * u := add_le_add (mul_le_mul_of_nonneg_right hGoodC ht)
+            (mul_le_mul_of_nonneg_right hSmallC hu)
+          _ = _ := by ring
+      simpa only [MemRowSchurLE_sym] using pd4c_memRowSchurLE_mono F S (memoryCutoff S)
+        (fun f => memEdgePiece F S ρ w true St Pr j (memorySym f)) 2 _ _
+        (by norm_num) hr hbound
+    · rw [if_neg hPr]
+      have hPr0 : Pr = ∅ := Finset.not_nonempty_iff_eq_empty.mp hPr
+      subst Pr
+      have hr := pd4c_raw_no_promotion_row δ c₁ c₂ F S ρ w St (memoryCutoff S) j
+        2 Ceta Cpsi hS hw hρ.1.le hρ.2.1.le (by norm_num) hCeta hCpsi hEta hPsi hV hν hνsum
+      have hcoef : Ceta ^ 2 * Cpsi * (2 : ℝ) ^ K * 34 * (4 : ℝ) ^ K = Cempty := by
+        dsimp only [Cempty, Cbase]
+        ring
+      rw [hcoef] at hr
+      simpa only [MemRowSchurLE_sym] using pd4c_memRowSchurLE_mono F S (memoryCutoff S)
+        (fun f => memEdgePiece F S ρ w true St ∅ j (memorySym f)) 2 _ _ (by norm_num) hr hEmptyC
   obtain ⟨v, Cr, c, xr, hv, hCr, hc, hxr, hRows⟩ := hrows
   obtain ⟨xV, hxV, hV⟩ := pd4c_bandMass_large_bounds F hF
   obtain ⟨xB, hxB, hBands⟩ := pd4c_validBands_disjoint_eventually K F.a hF.1
