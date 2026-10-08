@@ -165,6 +165,18 @@ private def a1gp_chiAlgUnit (P : FinPlace F) (x : F) : Fˣ :=
   Units.map (algebraMap (𝓞 F) F).toMonoidHom
     ((chiAlg P x : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ)
 
+private lemma a1gp_count_ideal_eq_factor_count (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+    (v : FinPlace F) :
+    FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      Multiset.count v.asIdeal (UniqueFactorizationMonoid.normalizedFactors I) := by
+  rw [FractionalIdeal.count_coe F v hI,
+    Ideal.count_associates_factors_eq hI v.isPrime v.ne_bot]
+
+private def a1gp_factorPlace (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+    (P : {Q : Ideal (𝓞 F) // Q ∈ UniqueFactorizationMonoid.normalizedFactors I}) : FinPlace F :=
+  ⟨P.1, (Ideal.mem_normalizedFactors_iff hI).mp P.2 |>.1,
+    UniqueFactorizationMonoid.ne_zero_of_mem_normalizedFactors P.2⟩
+
 theorem sextic_reciprocity (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (Bd : BData S H) (P P' : FinPlace F) (hP : P ∉ S.Sf) (hP' : P' ∉ S.Sf) (hne : P ≠ P')
     (p p' : Fˣ) (hp : S.IsGen (p : F) P.asIdeal ∧ Bd.Allowed p)
@@ -348,7 +360,215 @@ theorem unit_symbol (D : FieldData F) (S : SData F CE condη) (H : HilbertData F
     (Bd : BData S H) (I : Ideal (𝓞 F)) (hI : S.IsExterior I) (a ε : Fˣ)
     (ha : S.IsGen (a : F) I ∧ Bd.Allowed a) (hε : ε ∈ S.US) :
     chiIdealPow D I (ε : F) 1 = D.σ0 (((S.HS H (S.diagU ε) (S.diagU a))⁻¹ : Fˣ) : F) := by
-  sorry
+  classical
+  let εu : S.US := ⟨ε, hε⟩
+  let factorSet := (UniqueFactorizationMonoid.normalizedFactors I).toFinset
+  let factorEmb : {P : Ideal (𝓞 F) // P ∈ factorSet} ↪ FinPlace F :=
+    ⟨fun P => a1gp_factorPlace I hI.1 ⟨P.1, Multiset.mem_toFinset.mp P.2⟩,
+      by
+        intro P Q h
+        apply Subtype.ext
+        exact congrArg (fun v : FinPlace F => v.asIdeal) h⟩
+  let factorPlaces : Finset (FinPlace F) := factorSet.attach.map factorEmb
+  have hfactorDisjoint (v : FinPlace F) (hvS : v ∈ S.Sf) : v ∈ factorPlaces → False := by
+    intro hv
+    rcases Finset.mem_map.mp hv with ⟨P, hP, hPv⟩
+    have hfac : P.1 ∈ UniqueFactorizationMonoid.normalizedFactors I :=
+      Multiset.mem_toFinset.mp P.2
+    have hle : I ≤ P.1 := (Ideal.mem_normalizedFactors_iff hI.1).mp hfac |>.2
+    have hplace : P.1 = v.asIdeal := by
+      have h := congrArg (fun w : FinPlace F => w.asIdeal) hPv
+      exact h
+    exact hI.2 v hvS (hplace ▸ hle)
+  have hdisj : Disjoint S.Sf factorPlaces := by
+    apply Finset.disjoint_left.mpr
+    intro v hvS hvT
+    exact hfactorDisjoint v hvS hvT
+  have hcountε (v : FinPlace F) (hvS : v ∉ S.Sf) :
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (ε : F)) = 0 := by
+    have hval : v.valuation F (ε : F) = 1 := εu.property v hvS
+    rw [ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+      v (ε : F) ε.ne_zero, hval]
+    simp
+  have hresε (v : FinPlace F) (hvS : v ∉ S.Sf) : residue v (ε : F) ≠ 0 := by
+    apply (ArtinPrimitiveRoots.A1.KummerProofs.residue_ne_zero_iff_ord_zero v _).2
+    exact ⟨hcountε v hvS, ε.ne_zero⟩
+  let f : FinPlace F → rootsOfUnity 6 F := fun v => H.hilb v (toLoc v ε) (toLoc v a)
+  have houtside (v : FinPlace F) (hvS : v ∉ S.Sf) (hvT : v ∉ factorPlaces) : f v = 1 := by
+    have hnotfac : v.asIdeal ∉ UniqueFactorizationMonoid.normalizedFactors I := by
+      intro hfac
+      apply hvT
+      let P : {P : Ideal (𝓞 F) // P ∈ factorSet} :=
+        ⟨v.asIdeal, Multiset.mem_toFinset.mpr hfac⟩
+      apply Finset.mem_map.mpr
+      refine ⟨P, Finset.mem_attach _ P, ?_⟩
+      apply HeightOneSpectrum.ext
+      rfl
+    have hcountI := a1gp_count_ideal_eq_factor_count I hI.1 v
+    have hcountZero : FractionalIdeal.count F v
+        (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0 := by
+      rw [hcountI]
+      exact_mod_cast (Multiset.count_eq_zero.mpr hnotfac)
+    have hcounta := ha.1.2.2 v hvS
+    have h6v : (6 : 𝓞 F) ∉ v.asIdeal := by
+      intro hv6
+      exact hvS (S.over6 v hv6)
+    have htame := H.tame v h6v ε a (hresε v hvS)
+    rw [hcounta, hcountZero, zpow_zero] at htame
+    have hback : H.hilb v (toLoc v ε) (toLoc v a) = 1 :=
+      a1gp_hilb_eq_one_of_coe_eq_one H v ε a (by simpa using htame)
+    simpa [f] using hback
+  have hsupport : Function.mulSupport f ⊆ (S.Sf ∪ factorPlaces : Finset (FinPlace F)) := by
+    intro v hv
+    by_contra hnot
+    have hvS : v ∉ S.Sf := by
+      intro h
+      exact hnot (by simp [h])
+    have hvT : v ∉ factorPlaces := by
+      intro h
+      exact hnot (by simp [h])
+    change f v ≠ 1 at hv
+    exact hv (houtside v hvS hvT)
+  have hcomp (v : S.Sf) :
+      S.compU v (S.diagU ε) = toLoc v.1 ε ∧ S.compU v (S.diagU a) = toLoc v.1 a := by
+    constructor <;> apply Units.ext <;> rfl
+  have hsf : (∏ v : S.Sf, f v.1) = S.HS H (S.diagU ε) (S.diagU a) := by
+    unfold SData.HS
+    refine Finset.prod_congr rfl ?_
+    intro v hv
+    rw [(hcomp v).1, (hcomp v).2]
+  have hsfBase : (∏ v ∈ S.Sf, f v) = S.HS H (S.diagU ε) (S.diagU a) := by
+    rw [← Finset.prod_attach S.Sf (fun v => f v)]
+    exact hsf
+  have hfiniteprod : (∏ᶠ v, f v) =
+      (∏ v ∈ S.Sf, f v) * ∏ v ∈ factorPlaces, f v := by
+    rw [finprod_eq_prod_of_mulSupport_subset f hsupport, Finset.prod_union hdisj]
+  have hglobal : (∏ᶠ v, f v) = 1 := H.product_formula ε a |>.2
+  have hcross : S.HS H (S.diagU ε) (S.diagU a) *
+      (∏ v ∈ factorPlaces, f v) = 1 := by
+    rw [hfiniteprod, hsfBase] at hglobal
+    simpa using hglobal
+  have hlocal (v : FinPlace F) (hvT : v ∈ factorPlaces) :
+      D.σ0 (((f v : Fˣ) : F)) =
+        chi D v (ε : F) ^ (UniqueFactorizationMonoid.normalizedFactors I).count v.asIdeal := by
+    have hvS : v ∉ S.Sf := by
+      intro h
+      exact hfactorDisjoint v h hvT
+    have h6v : (6 : 𝓞 F) ∉ v.asIdeal := by
+      intro hv6
+      exact hvS (S.over6 v hv6)
+    have hcounta := ha.1.2.2 v hvS
+    have hcountI := a1gp_count_ideal_eq_factor_count I hI.1 v
+    have htame := H.tame v h6v ε a (hresε v hvS)
+    rw [hcounta, hcountI, zpow_natCast] at htame
+    have hσ := congrArg D.σ0 htame
+    simpa [f, chi, hresε v hvS, a1gp_chiAlgUnit, map_pow] using hσ
+  have hlocalProd :
+      (∏ v ∈ factorPlaces, D.σ0 (((f v : Fˣ) : F))) =
+        ∏ v ∈ factorPlaces,
+          chi D v (ε : F) ^ (UniqueFactorizationMonoid.normalizedFactors I).count v.asIdeal := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    exact hlocal v hv
+  have hcrossUnit :
+      ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) * ∏ v ∈ factorPlaces, (f v : Fˣ)) = 1 := by
+    have h := congrArg (fun z : rootsOfUnity 6 F => (z : Fˣ)) hcross
+    simpa using h
+  have hcrossSigma :
+      D.σ0 ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F) *
+        ∏ v ∈ factorPlaces, D.σ0 (((f v : Fˣ) : F)) = 1 := by
+    have h := congrArg (fun z : Fˣ => D.σ0 (z : F)) hcrossUnit
+    simpa [map_mul] using h
+  have hcrossSigma' :
+      D.σ0 ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F) *
+        ∏ v ∈ factorPlaces,
+          chi D v (ε : F) ^ (UniqueFactorizationMonoid.normalizedFactors I).count v.asIdeal = 1 := by
+    rw [hlocalProd] at hcrossSigma
+    exact hcrossSigma
+  have hchiProd :
+      chiIdealPow D I (ε : F) 1 =
+        ∏ v ∈ factorPlaces,
+          chi D v (ε : F) ^ (UniqueFactorizationMonoid.normalizedFactors I).count v.asIdeal := by
+    unfold chiIdealPow
+    rw [Finset.prod_multiset_map_count]
+    rw [← Finset.prod_attach factorSet]
+    simp only [factorPlaces, Finset.prod_map]
+    apply Finset.prod_congr rfl
+    intro P hP
+    have hfac : P.1 ∈ UniqueFactorizationMonoid.normalizedFactors I :=
+      Multiset.mem_toFinset.mp P.2
+    have hprimePair := (Ideal.mem_normalizedFactors_iff hI.1).mp hfac
+    let v : FinPlace F := a1gp_factorPlace I hI.1 ⟨P.1, hfac⟩
+    have hvS : v ∉ S.Sf := by
+      intro hv
+      apply hfactorDisjoint v hv
+      apply Finset.mem_map.mpr
+      exact ⟨P, Finset.mem_attach _ P, rfl⟩
+    have hres : residue v (ε : F) ≠ 0 := hresε v hvS
+    have hprimeNonzero : P.1 ≠ ⊥ :=
+      UniqueFactorizationMonoid.ne_zero_of_mem_normalizedFactors hfac
+    have hrootEq :
+        (⟨P.1, hprimePair.1, hprimeNonzero⟩ : FinPlace F) = factorEmb P := by
+      apply HeightOneSpectrum.ext
+      rfl
+    have hfacIdeal : (factorEmb P).asIdeal = P.1 := by
+      exact (congrArg (fun w : FinPlace F => w.asIdeal) hrootEq).symm
+    have hcountEq :
+        (UniqueFactorizationMonoid.normalizedFactors I).count P.1 =
+          (UniqueFactorizationMonoid.normalizedFactors I).count (factorEmb P).asIdeal := by
+      rw [hfacIdeal]
+    have hfactorMember : factorEmb P ∈ factorPlaces := by
+      apply Finset.mem_map.mpr
+      exact ⟨P, Finset.mem_attach _ P, rfl⟩
+    have hfactorOutsideS : factorEmb P ∉ S.Sf := by
+      intro hv
+      exact hfactorDisjoint (factorEmb P) hv hfactorMember
+    have hresFactor : residue (factorEmb P) (ε : F) ≠ 0 :=
+      hresε (factorEmb P) hfactorOutsideS
+    rw [dif_pos ⟨hprimePair.1, hprimeNonzero⟩]
+    rw [hcountEq]
+    have hresRoot :
+        residue (⟨P.1, hprimePair.1, hprimeNonzero⟩ : FinPlace F) (ε : F) ≠ 0 := by
+      rw [hrootEq]
+      exact hresFactor
+    have hchiPow :
+        chiPow D ⟨P.1, hprimePair.1, hprimeNonzero⟩ (ε : F) 1 =
+          chi D ⟨P.1, hprimePair.1, hprimeNonzero⟩ (ε : F) := by
+      simp [chiPow, hresRoot]
+    rw [hchiPow, hrootEq]
+  have hglobalComplex :
+      D.σ0 ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F) *
+        chiIdealPow D I (ε : F) 1 = 1 := by
+    rw [hchiProd]
+    exact hcrossSigma'
+  have hHSne : D.σ0 ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F) ≠ 0 := by
+    intro hzero
+    have hzeroF : ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F) = 0 :=
+      (RingHom.injective D.σ0) (by simpa using hzero)
+    exact Units.ne_zero _ hzeroF
+  have hHSinv :
+      D.σ0 (((S.HS H (S.diagU ε) (S.diagU a))⁻¹ : Fˣ) : F) =
+        (D.σ0 ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F))⁻¹ := by
+    simp [Units.val_inv_eq_inv_val, map_inv₀]
+  calc
+    chiIdealPow D I (ε : F) 1 =
+        (D.σ0 ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F))⁻¹ := by
+          let b := D.σ0 ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F)
+          have hcancel : (1 : ℂ) = b⁻¹ * b := (inv_mul_cancel₀ hHSne).symm
+          calc
+            _ = b⁻¹ * (b * chiIdealPow D I (ε : F) 1) := by
+              calc
+                _ = 1 * chiIdealPow D I (ε : F) 1 := by simp
+                _ = (b⁻¹ * b) * chiIdealPow D I (ε : F) 1 := by rw [hcancel]
+                _ = b⁻¹ * (b * chiIdealPow D I (ε : F) 1) := by exact mul_assoc _ _ _
+            _ = b⁻¹ := by
+              have h := congrArg
+                (fun z : ℂ => b⁻¹ * z)
+                hglobalComplex
+              simpa using h
+            _ = (D.σ0 ((S.HS H (S.diagU ε) (S.diagU a) : Fˣ) : F))⁻¹ := rfl
+    _ = D.σ0 (((S.HS H (S.diagU ε) (S.diagU a))⁻¹ : Fˣ) : F) := hHSinv.symm
 
 
 end ArtinPrimitiveRoots.A1
