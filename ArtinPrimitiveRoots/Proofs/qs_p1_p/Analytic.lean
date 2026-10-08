@@ -1,3 +1,4 @@
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».RootNumber
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P0
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M1
 import Mathlib.Analysis.Fourier.FourierTransformDeriv
@@ -593,6 +594,119 @@ private theorem qs_p1_prefactor_inv_differentiable [IsTotallyComplex K] :
     ring
   rw [hEq]
   exact hpowInv.mul (Complex.differentiable_Gammaℂ_inv.pow _)
+
+/-- The completed factor multiplying the Hecke L-series in the P1 functional equation. -/
+def qsP1CompletedFactor [IsTotallyComplex K] (f : Ideal (𝓞 K)) (s : ℂ) : ℂ :=
+  ((Ideal.absNorm f : ℝ) : ℂ) ^ (s / 2) * Hecke.dedekindPrefactor K s
+
+/-- The analytic continuation of the raw Hecke series obtained by dividing out the completed
+factor from the root-number witness. -/
+def qsP1LContinuation [IsTotallyComplex K] (f : Ideal (𝓞 K)) (Λ : ℂ → ℂ) (s : ℂ) : ℂ :=
+  (qsP1CompletedFactor f s)⁻¹ * Λ s
+
+private theorem qs_p1_completedFactor_inv_differentiable [IsTotallyComplex K]
+    (f : Ideal (𝓞 K)) (hf0 : f ≠ ⊥) :
+    Differentiable ℂ (fun s : ℂ => (qsP1CompletedFactor f s)⁻¹) := by
+  let d : ℂ := ((Ideal.absNorm f : ℝ) : ℂ)
+  have hd : d ≠ 0 := by
+    dsimp [d]
+    apply Complex.ofReal_ne_zero.mpr
+    intro h
+    have hN : Ideal.absNorm f = 0 := by exact_mod_cast h
+    exact hf0 (Ideal.absNorm_eq_zero_iff.mp hN)
+  have hpow : Differentiable ℂ (fun s : ℂ => d ^ (s / 2)) := by
+    exact (differentiable_id.div_const (2 : ℂ)).const_cpow (Or.inl hd)
+  have hpowInv : Differentiable ℂ (fun s : ℂ => (d ^ (s / 2))⁻¹) := by
+    apply hpow.inv
+    intro s
+    exact Complex.cpow_ne_zero_iff.mpr (Or.inl hd)
+  have hEq : (fun s : ℂ => (qsP1CompletedFactor f s)⁻¹) =
+      fun s : ℂ => (Hecke.dedekindPrefactor K s)⁻¹ * (d ^ (s / 2))⁻¹ := by
+    funext s
+    simp [qsP1CompletedFactor, d, mul_inv, mul_comm]
+  rw [hEq]
+  exact (qs_p1_prefactor_inv_differentiable (K := K)).mul hpowInv
+
+private theorem qs_p1_completedFactor_ne_zero [IsTotallyComplex K]
+    (f : Ideal (𝓞 K)) (hf0 : f ≠ ⊥) {s : ℂ} (hs : 0 < s.re) :
+    qsP1CompletedFactor f s ≠ 0 := by
+  have hN : Ideal.absNorm f ≠ 0 := by
+    intro h
+    exact hf0 (Ideal.absNorm_eq_zero_iff.mp h)
+  have hd : ((Ideal.absNorm f : ℝ) : ℂ) ≠ 0 := by
+    apply Complex.ofReal_ne_zero.mpr
+    exact_mod_cast hN
+  have hpow : ((Ideal.absNorm f : ℝ) : ℂ) ^ (s / 2) ≠ 0 :=
+    Complex.cpow_ne_zero_iff.mpr (Or.inl hd)
+  have hdisc : ((|(NumberField.discr K : ℝ)| : ℝ) : ℂ) ≠ 0 := by
+    apply Complex.ofReal_ne_zero.mpr
+    exact abs_ne_zero.mpr (by exact_mod_cast NumberField.discr_ne_zero K)
+  have hdiscPow : ((|(NumberField.discr K : ℝ)| : ℝ) : ℂ) ^ (s / 2) ≠ 0 :=
+    Complex.cpow_ne_zero_iff.mpr (Or.inl hdisc)
+  have hbase : (2 * Real.pi : ℂ) ≠ 0 := by
+    exact mul_ne_zero (by norm_num) (Complex.ofReal_ne_zero.mpr Real.pi_ne_zero)
+  have hgammaPow : (2 * Real.pi : ℂ) ^ (-s) ≠ 0 :=
+    Complex.cpow_ne_zero_iff.mpr (Or.inl hbase)
+  have hgamma : Complex.Gamma s ≠ 0 := Complex.Gamma_ne_zero_of_re_pos hs
+  have hGammaC : Complex.Gammaℂ s ≠ 0 := by
+    rw [Complex.Gammaℂ_def]
+    exact mul_ne_zero (mul_ne_zero (by norm_num) hgammaPow) hgamma
+  have hprefactor : Hecke.dedekindPrefactor K s ≠ 0 := by
+    rw [Hecke.dedekindPrefactor, IsTotallyComplex.nrRealPlaces_eq_zero]
+    simp only [pow_zero, one_mul]
+    exact mul_ne_zero hdiscPow (pow_ne_zero _ hGammaC)
+  exact mul_ne_zero hpow hprefactor
+
+/-- Dividing the completed root-number witness gives an entire continuation of the raw Hecke
+Dirichlet series, with the induced functional equation on `0 < Re s < 1`. -/
+theorem qs_p1_Lcont_of_root_number [IsTotallyComplex K]
+    (χ : ArtinPrimitiveRoots.A1.HeckeChar K) (f : Ideal (𝓞 K))
+    (hf : IsPrimitiveConductor χ f) (hsq : χ ^ 2 = 1) (hne : χ ≠ 1)
+    (hinf : ∀ w : InfinitePlace K, ∀ u : w.Completionˣ, χ.locInf w u = 1) :
+    ∃ Λ Lc : ℂ → ℂ, Differentiable ℂ Λ ∧ Differentiable ℂ Lc ∧
+      (∀ s : ℂ, 1 < s.re → Lc s = heckeLSeries χ s) ∧
+      (∀ s : ℂ, 0 < s.re → s.re < 1 →
+        Lc s = (qsP1CompletedFactor f s)⁻¹ *
+          qsP1CompletedFactor f (1 - s) * Lc (1 - s)) := by
+  obtain ⟨Λ, hΛdiff, hΛseries, hΛFE, _⟩ :=
+    qs_quadratic_FE_root_one χ f hf hsq hne hinf
+  let Lc : ℂ → ℂ := qsP1LContinuation f Λ
+  have hLdiff : Differentiable ℂ Lc := by
+    change Differentiable ℂ (fun s : ℂ =>
+      (qsP1CompletedFactor f s)⁻¹ * Λ s)
+    exact (qs_p1_completedFactor_inv_differentiable (K := K) f hf.1).mul hΛdiff
+  refine ⟨Λ, Lc, hΛdiff, hLdiff, ?_, ?_⟩
+  · intro s hs
+    have hQ : qsP1CompletedFactor f s ≠ 0 :=
+      qs_p1_completedFactor_ne_zero (K := K) f hf.1 (by linarith)
+    have hΛ : Λ s = qsP1CompletedFactor f s * heckeLSeries χ s := by
+      simpa [qsP1CompletedFactor] using hΛseries s hs
+    calc
+      Lc s = (qsP1CompletedFactor f s)⁻¹ * Λ s := rfl
+      _ = (qsP1CompletedFactor f s)⁻¹ *
+          (qsP1CompletedFactor f s * heckeLSeries χ s) := by rw [hΛ]
+      _ = heckeLSeries χ s := by simp [hQ, mul_assoc]
+  · intro s hs0 hs1
+    have hs' : 0 < (1 - s).re := by
+      rw [Complex.sub_re, Complex.one_re]
+      linarith
+    have hQs : qsP1CompletedFactor f s ≠ 0 :=
+      qs_p1_completedFactor_ne_zero (K := K) f hf.1 hs0
+    have hQ1 : qsP1CompletedFactor f (1 - s) ≠ 0 :=
+      qs_p1_completedFactor_ne_zero (K := K) f hf.1 hs'
+    have hQmul : qsP1CompletedFactor f (1 - s) * Lc (1 - s) = Λ (1 - s) := by
+      calc
+        qsP1CompletedFactor f (1 - s) * Lc (1 - s) =
+            qsP1CompletedFactor f (1 - s) *
+              ((qsP1CompletedFactor f (1 - s))⁻¹ * Λ (1 - s)) := rfl
+        _ = Λ (1 - s) := by simp [hQ1, mul_assoc]
+    calc
+      Lc s = (qsP1CompletedFactor f s)⁻¹ * Λ s := rfl
+      _ = (qsP1CompletedFactor f s)⁻¹ * Λ (1 - s) := by rw [← hΛFE s]
+      _ = (qsP1CompletedFactor f s)⁻¹ *
+          (qsP1CompletedFactor f (1 - s) * Lc (1 - s)) := by rw [← hQmul]
+      _ = (qsP1CompletedFactor f s)⁻¹ *
+          qsP1CompletedFactor f (1 - s) * Lc (1 - s) := by ring
 
 private theorem qs_p1_prefactor_differentiableAt [IsTotallyComplex K]
     {s : ℂ} (hs : 0 < s.re) :
