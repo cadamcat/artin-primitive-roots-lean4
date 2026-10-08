@@ -241,6 +241,48 @@ theorem th_decompose_part3 [IsTotallyComplex F]
     Summable (fun q => ‖t q‖) ∧
       ∑' q, t q = ∑ i, (∑ δ ∈ Ds i, b i δ) *
         ArtinPrimitiveRoots.A1.Spec.eisSeries F Γ (σ i) s z := by
-  sorry
+  let E (i : ι) := Spec.eisTerm F Γ (σ i) s z
+  let f : (Σ i, U × Spec.CuspCosets F Γ (σ i)) → ℂ :=
+    fun p => b p.1 p.2.1 * E p.1 p.2.2
+  have hE (i : ι) : Summable (fun q => ‖E i q‖) := by
+    obtain ⟨m, hm, hbound⟩ := Spec.eisSeries_majorant F Γ (σ i)
+      {z} isCompact_singleton s.re s.re hs
+    exact hm.of_nonneg_of_le (fun q => norm_nonneg _)
+      (fun q => hbound z (Set.mem_singleton z) s le_rfl le_rfl q)
+  have hcoef (i : ι) : Summable (fun δ => ‖b i δ‖) := by
+    apply summable_of_ne_finset_zero (s := Ds i)
+    intro δ hδ
+    rw [hzero i δ hδ, norm_zero]
+  have hpair (i : ι) : Summable
+      (fun r : U × Spec.CuspCosets F Γ (σ i) => ‖b i r.1 * E i r.2‖) := by
+    simp only [norm_mul]
+    apply (summable_prod_of_nonneg (fun r => mul_nonneg (norm_nonneg _) (norm_nonneg _))).mpr
+    refine ⟨fun δ => (hE i).mul_left ‖b i δ‖, ?_⟩
+    simp_rw [tsum_mul_left]
+    exact (hcoef i).mul_right _
+  have hnorm : Summable (fun p => ‖f p‖) := by
+    apply (summable_sigma_of_nonneg (fun p => norm_nonneg (f p))).mpr
+    exact ⟨hpair, (hasSum_fintype _).summable⟩
+  have hf : Summable f := hnorm.of_norm
+  have hqnorm : Summable (fun q => ‖t q‖) := by
+    apply e.symm.summable_iff.mp
+    change Summable (fun p => ‖t (e.symm p)‖)
+    exact hnorm.congr (fun p => congrArg norm (hterm p).symm)
+  refine ⟨hqnorm, ?_⟩
+  calc
+    ∑' q, t q = ∑' p, f p := by
+      rw [← e.symm.tsum_eq t]
+      exact tsum_congr hterm
+    _ = ∑ i, ∑' r, f ⟨i, r⟩ := by
+      rw [hf.tsum_sigma, tsum_fintype]
+    _ = _ := by
+      apply Finset.sum_congr rfl
+      intro i _
+      rw [(hf.sigma_factor i).tsum_prod]
+      change (∑' δ, ∑' q, b i δ * E i q) = _
+      simp_rw [tsum_mul_left]
+      rw [tsum_eq_sum (s := Ds i)
+        (fun δ hδ => by rw [hzero i δ hδ, zero_mul]), ← Finset.sum_mul]
+      rfl
 
 end ArtinPrimitiveRoots.A1.Theta
