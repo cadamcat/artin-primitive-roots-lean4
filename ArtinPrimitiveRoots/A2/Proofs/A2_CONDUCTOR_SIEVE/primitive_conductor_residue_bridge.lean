@@ -1951,9 +1951,23 @@ theorem primitive_conductor_residue_bridge (S : A1.SData F CE condη)
   constructor
   · exact conductorLambdaS_norm_one_of_components S ℓ τ ω hω hℓ hτ
   · rcases ideal_S_exterior_split_count S with ⟨hsplit, _, _⟩
-    rcases hsplit f hf.1 with ⟨_, hqext, _, _, hqNorm, _⟩
+    rcases hsplit f hf.1 with ⟨hJ, hqext, hfactor, _, hqNorm, _⟩
     let q : S.ExtIdeal := ⟨conductorExteriorPart S f, hqext⟩
     refine ⟨q, rfl, hqNorm, ?_⟩
-    sorry
+    have hfSplit : f = conductorSPart S f * q.1 := hfactor
+    have hexp : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 →
+        A1.idealExp v f = A1.idealExp v q.1 :=
+      conductorExteriorExp_eq_f S (conductorSPart S f) q.1 f hJ q.2 hfSplit
+    obtain ⟨lambdaq, hLambda⟩ :=
+      conductorResidueCharacter_exists S q ω f hf.2.1 hexp
+    have hprimitive : OAI.SevenEighths.FiniteFourier.IsPrimitiveOnIdeals lambdaq :=
+      conductorResidueCharacter_primitive S q ω f hf
+        (conductorSPart S f) hJ hfSplit lambdaq hLambda
+    have hreal : ConductorResidueRealizes S G ρ (SComponent S ω)
+        (conductorInfiniteComponent ω) q lambdaq ω :=
+      conductorResidueCharacter_realizes S G ρ ω f hf
+        (conductorSPart S f) hJ q hfSplit lambdaq hLambda
+    rw [hℓ, hτ] at hreal
+    exact ⟨lambdaq, hprimitive, hreal⟩
 
 end ArtinPrimitiveRoots.A2
