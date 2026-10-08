@@ -7044,6 +7044,84 @@ private theorem rf_pairing_masked_factorization
     _ = sPart * (∏ v ∈ T0, ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, masked v x) * tail := by
       rw [hMass]
 
+private theorem rf_pairing_local_mask_split
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (j : Fin 6) (ν : Fˣ) (e : ℤ) :
+    (∑ᶠ x : 𝓞 F ⧸ v.asIdeal,
+      maskAlpha D A v (primeGen R v) j x *
+        R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+          R.C.n v (Multiplicative.ofAdd (algebraMap F _
+            (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))) =
+      localR R v j e (toLoc v ν * toLoc v (primeGen R v) ^ (2 - e)) +
+      (if j = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 0) := by
+  classical
+  letI := bridgeResidueFintype v
+  let p : Fˣ := primeGen R v
+  let m (x : 𝓞 F ⧸ v.asIdeal) : ℂ :=
+    maskAlpha D A v p j x *
+      R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+        R.C.n v (Multiplicative.ofAdd (algebraMap F _
+          (algebraMap (𝓞 F) F x.out / (p : F)))))
+  have hcancel : toLoc v p ^ (e - 2) *
+      (toLoc v ν * toLoc v p ^ (2 - e)) = toLoc v ν := by
+    calc
+      _ = toLoc v ν * (toLoc v p ^ (e - 2) * toLoc v p ^ (2 - e)) := by
+        ac_rfl
+      _ = toLoc v ν := by
+        rw [← zpow_add, show e - 2 + (2 - e) = 0 by omega]
+        simp
+  have hnonzero :
+      localR R v j e (toLoc v ν * toLoc v p ^ (2 - e)) =
+        ∑ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else m x := by
+    simp only [localR, finsum_eq_sum_of_fintype]
+    have harg : toLoc v (primeGen R v) ^ (e - 2) *
+        (toLoc v ν * toLoc v p ^ (2 - e)) = toLoc v ν := hcancel
+    rw [harg]
+  have hpgen : S.IsGen (p : F) v.asIdeal := by
+    have h := bc.gen_spec (R.exterior.prime v hv)
+    simpa [p, primeGen, hv, R.exterior.prime_val] using h.1
+  have hres0 : residue v (0 : F) = (0 : 𝓞 F ⧸ v.asIdeal) := by
+    simpa using (a2_bridge_SYMBOL D S).residue_algebraMap v (0 : 𝓞 F)
+  have hquot := rf_residue_div_prime_integral v hv p hpgen (0 : F)
+    (by simp) (0 : 𝓞 F ⧸ v.asIdeal) hres0
+  have hquotVal : HeightOneSpectrum.valuation F v
+      (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ v.asIdeal).out / (p : F)) ≤ 1 := by
+    simpa only [zero_sub, neg_div, Valuation.map_neg] using hquot
+  have hquotInt : algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ v.asIdeal).out / (p : F)) ∈
+        v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation']
+    exact hquotVal
+  have hzero : m 0 =
+      if j = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 0 := by
+    dsimp only [m]
+    rw [R.T.Wv_right v hv (R.C.a v (toLoc v ν) * R.C.w v)
+      (R.C.n v (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ v.asIdeal).out / (p : F)))))
+      (R.C.n_Kext v hv _ hquotInt) (R.C.n_mem v _)]
+    by_cases hj : j = 0
+    · subst j
+      simpa [p] using rf_local_zero_digit R v hv ν
+    · simp [maskAlpha, hj]
+  have hsplit : (∑ x : 𝓞 F ⧸ v.asIdeal, m x) =
+      (∑ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else m x) + m 0 := by
+    calc
+      _ = ∑ x : 𝓞 F ⧸ v.asIdeal,
+          ((if x = 0 then 0 else m x) + (if x = 0 then m 0 else 0)) := by
+        apply Finset.sum_congr rfl
+        intro x hx
+        by_cases h : x = 0 <;> simp [h]
+      _ = _ := by rw [Finset.sum_add_distrib]; simp
+  change (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, m x) =
+    localR R v j e (toLoc v ν * toLoc v p ^ (2 - e)) +
+      (if j = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 0)
+  rw [finsum_eq_sum_of_fintype, hnonzero, hsplit, hzero]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
