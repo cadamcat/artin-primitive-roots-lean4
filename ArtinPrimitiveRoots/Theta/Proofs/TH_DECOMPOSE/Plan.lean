@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.QuotientGeometry
+import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.TorusSupport
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
@@ -136,6 +137,8 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
         (P.tc.rat (Quotient.out (d.e.symm p)) * (nInf P x * a y * gj)) =
       b p.1 p.2.1 s * ArtinPrimitiveRoots.A1.Spec.eisTerm F d.Γ (d.σ p.1) s
         (ArtinPrimitiveRoots.A1.Spec.ptX' F x y) p.2.2 := by
+  have hlocal (v : FinPlace F) : (G.Alag v).FiniteIndex :=
+    local_lagrangian_finiteIndex P G v
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/
