@@ -78,12 +78,12 @@ theorem eisSeries_invariant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ :
 
 /-- `spec:domain`. -/
 theorem isOpen_contDomain (s₁ ε : ℝ) : IsOpen (contDomain s₁ ε) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.SpecDomcuspP.contDomain_isOpen s₁ ε
 
 /-- `spec:domain`. -/
 theorem isPreconnected_contDomain (s₁ ε : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ < 4) (hε : 0 < ε) :
     IsPreconnected (contDomain s₁ ε) := by
-  sorry
+  exact (C1_domain s₁ ε h₀ h₁ hε).2
 
 /-- **Main theorem of P-SPEC** (`spec:api`). -/
 theorem exists_continuedEisenstein (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex]
