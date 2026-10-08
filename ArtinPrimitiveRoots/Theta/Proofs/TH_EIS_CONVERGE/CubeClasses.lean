@@ -111,4 +111,77 @@ theorem finite_principal_power_fiber_classes (F : Type*) [Field F] [NumberField 
     Subgroup.finiteIndex_range_powMonoidHom_of_fg φ.ker hn
   exact finite_power_fiber_classes φ n r
 
+open scoped NumberField nonZeroDivisors in
+/-- Rational elements with cubic valuation classes supported in a finite set have finitely many cube classes. -/
+theorem finite_cubic_valuation_classes (F : Type*) [Field F] [NumberField F]
+    (W : Finset (IsDedekindDomain.HeightOneSpectrum (𝓞 F))) :
+    Set.Finite ((QuotientGroup.mk' (powMonoidHom 3 : Fˣ →* Fˣ).range) ''
+      {a : Fˣ | ∀ v, v ∉ W → (3 : ℤ) ∣
+        FractionalIdeal.count F v (toPrincipalIdeal (𝓞 F) F a : FractionalIdeal (𝓞 F)⁰ F)}) := by
+  classical
+  let V := IsDedekindDomain.HeightOneSpectrum (𝓞 F)
+  let FI := FractionalIdeal (𝓞 F)⁰ F
+  let p : V → FIˣ := fun v => Units.mk0 (v.asIdeal : FI)
+    (FractionalIdeal.coeIdeal_ne_zero.mpr v.ne_bot)
+  let e (c : W → Fin 3) (v : V) : ℤ :=
+    if hv : v ∈ W then (c ⟨v, hv⟩).val else 0
+  let offset (c : W → Fin 3) : FIˣ := ∏ v ∈ W, p v ^ e c v
+  let fiber (c : W → Fin 3) : Set (Fˣ ⧸ (powMonoidHom 3 : Fˣ →* Fˣ).range) :=
+    (QuotientGroup.mk' (powMonoidHom 3 : Fˣ →* Fˣ).range) ''
+      {a : Fˣ | ∃ J : FIˣ, toPrincipalIdeal (𝓞 F) F a = J ^ 3 * offset c}
+  have hf : (⋃ c : W → Fin 3, fiber c).Finite :=
+    Set.finite_iUnion fun c => finite_principal_power_fiber_classes F 3 (by decide) (offset c)
+  apply hf.subset
+  rintro q ⟨a, ha, rfl⟩
+  let I : FIˣ := toPrincipalIdeal (𝓞 F) F a
+  let d : V → ℤ := fun v => FractionalIdeal.count F v (I : FI)
+  have hd : (Function.support d).Finite :=
+    Filter.eventually_cofinite.mp (FractionalIdeal.finite_factors (I : FI))
+  let S : Finset V := hd.toFinset ∪ W
+  have hW : W ⊆ S := Finset.subset_union_right
+  have hout (v : V) (hv : v ∉ S) : d v = 0 := by
+    by_contra h
+    exact hv (Finset.mem_union.mpr (Or.inl (hd.mem_toFinset.mpr h)))
+  have hfactor : I = ∏ v ∈ S, p v ^ d v := by
+    apply Units.ext
+    simp only [Units.coe_prod, Units.val_zpow_eq_zpow_val]
+    change (I : FI) = ∏ v ∈ S, (v.asIdeal : FI) ^ d v
+    calc
+      _ = ∏ᶠ v : V, (v.asIdeal : FI) ^ d v :=
+        (FractionalIdeal.finprod_heightOneSpectrum_factorization' F (Units.ne_zero I)).symm
+      _ = _ := finprod_eq_prod_of_mulSupport_subset _
+        (Function.mulSupport_subset_iff'.mpr fun v hv => by rw [hout v hv, zpow_zero])
+  let c : W → Fin 3 := fun v => ⟨(d v.val % 3).toNat, by
+    have h0 := Int.emod_nonneg (d v.val) (by norm_num : (3 : ℤ) ≠ 0)
+    have hlt := Int.emod_lt_of_pos (d v.val) (by norm_num : (0 : ℤ) < 3)
+    omega⟩
+  have he (v : V) : e c v = d v % 3 := by
+    dsimp only [e]
+    split_ifs with hv
+    · change ((d v % 3).toNat : ℤ) = d v % 3
+      exact Int.toNat_of_nonneg (Int.emod_nonneg _ (by norm_num))
+    · exact (Int.emod_eq_zero_of_dvd (ha v hv)).symm
+  let J : FIˣ := ∏ v ∈ S, p v ^ (d v / 3)
+  have hterm (v : V) : p v ^ d v = (p v ^ (d v / 3)) ^ 3 * p v ^ e c v := by
+    have hdecomp : d v = (d v / 3) * 3 + e c v := by rw [he]; omega
+    calc
+      p v ^ d v = p v ^ ((d v / 3) * 3 + e c v) := congrArg (fun k : ℤ => p v ^ k) hdecomp
+      _ = _ := by
+        rw [zpow_add, zpow_mul]
+        exact congrArg (fun t : FIˣ => t * p v ^ e c v)
+          (zpow_natCast (p v ^ (d v / 3)) 3)
+  have hoffset : (∏ v ∈ S, p v ^ e c v) = offset c := by
+    apply (Finset.prod_subset hW ?_).symm
+    intro v hvS hvW
+    simp only [e, dite_eq_right hvW, zpow_zero]
+  have hsplit : I = J ^ 3 * offset c := by
+    calc
+      I = ∏ v ∈ S, p v ^ d v := hfactor
+      _ = ∏ v ∈ S, (p v ^ (d v / 3)) ^ 3 * p v ^ e c v :=
+        Finset.prod_congr rfl fun v _ => hterm v
+      _ = (∏ v ∈ S, p v ^ (d v / 3)) ^ 3 * ∏ v ∈ S, p v ^ e c v := by
+        rw [Finset.prod_mul_distrib, Finset.prod_pow]
+      _ = _ := by rw [hoffset]
+  exact Set.mem_iUnion.mpr ⟨c, a, ⟨J, hsplit⟩, rfl⟩
+
 end ArtinPrimitiveRoots.A1.Theta
