@@ -3062,6 +3062,146 @@ private theorem localCoeff_innerFourier (L : FinLocalCover D H v)
         _ = 0 := by simp
     simpa [hx] using hInt
 
+open ArtinPrimitiveRoots.Proofs.th_lcoeff_sol in
+private theorem inverse_kernel_integral (T : TorusRep D H v) (B : TameTorusBasis T)
+    (A : AddCharData F) (μ : LocHaar v) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (hd : ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal) (s : ℂ) (hs : 0 < s.re)
+    (N : ℕ) (hN : 1 ≤ N) (k : ZMod 3) :
+    (∫ x, inverseKernel T B A s N k x ∂μ.μ) =
+      tauDiag v s k • B.e (-k) +
+        ((qv v : ℂ) ^ (2 * s - 1) * ((qv v : ℂ) ^ ((1 : ℂ) / 2) *
+          gaussLoc D A v (2 * ((k.val : ℤ) - 1)))) • B.e (k + 1) := by
+  classical
+  let q : ℂ := qv v
+  let m : ℕ := (-k).val
+  let ρ : ℂ := q ^ (-6 * s)
+  let c : ℂ := (1 - q⁻¹) * q ^ (-2 * (m : ℂ) * s)
+  let scalar : ℕ → ℂ := fun n =>
+    if (((n : ℤ) + (k.val : ℤ) : ℤ) : ZMod 3) = 0 then
+      (1 - q⁻¹) * q ^ (-2 * (n : ℂ) * s) else 0
+  let geom : ℕ → ℂ := fun r => c * ρ ^ r
+  have hqpos : 0 < qv v := lt_trans zero_lt_one (qv_gt_one v)
+  have hqne : q ≠ 0 := by
+    dsimp [q]
+    exact_mod_cast hqpos.ne'
+  have hρ : ‖ρ‖ < 1 := by
+    dsimp [ρ, q]
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hqpos]
+    apply Real.rpow_lt_one_of_one_lt_of_neg (qv_gt_one v)
+    simpa using (show (-6 : ℝ) * s.re < 0 by linarith)
+  have hprogression (r : ℕ) : scalar (m + 3 * r) = geom r := by
+    have hncast : ((m + 3 * r : ℕ) : ZMod 3) = -k :=
+      (ZMod.natCast_eq_iff 3 (m + 3 * r) (-k)).mpr ⟨r, rfl⟩
+    have hres : ((((m + 3 * r : ℕ) : ℤ) + (k.val : ℤ) : ℤ) : ZMod 3) = 0 := by
+      rw [Int.cast_add, Int.cast_natCast, Int.cast_natCast,
+        hncast, ZMod.natCast_zmod_val, neg_add_cancel]
+    simp only [scalar, if_pos hres, geom, c, ρ]
+    rw [← Complex.cpow_mul_nat]
+    have hp : q ^ (-2 * ((m + 3 * r : ℕ) : ℂ) * s) =
+        q ^ (-2 * (m : ℂ) * s) * q ^ (-6 * s * (r : ℂ)) := by
+      rw [← Complex.cpow_add _ _ hqne]
+      congr 1
+      push_cast
+      ring
+    rw [hp]
+    exact (mul_assoc _ _ _).symm
+  have hscalar : HasSum scalar (tauDiag v s k) := by
+    have hg : HasSum geom (c * (1 - ρ)⁻¹) :=
+      (hasSum_geometric_of_norm_lt_one hρ).mul_left c
+    have hi : Function.Injective (fun r : Function.support geom => m + 3 * r.val) := by
+      intro a b h
+      apply Subtype.ext
+      dsimp only at h
+      omega
+    have hf : Function.support scalar ⊆
+        Set.range (fun r : Function.support geom => m + 3 * r.val) := by
+      intro n hn
+      have hres : (((n : ℤ) + (k.val : ℤ) : ℤ) : ZMod 3) = 0 := by
+        by_contra h
+        apply hn
+        dsimp only [scalar]
+        rw [if_neg h]
+      have hncast : (n : ZMod 3) = -k := by
+        simpa only [Int.cast_add, Int.cast_natCast, ZMod.natCast_zmod_val,
+          add_eq_zero_iff_eq_neg] using hres
+      obtain ⟨r, hr⟩ := (ZMod.natCast_eq_iff 3 n (-k)).mp hncast
+      have hrmem : r ∈ Function.support geom := by
+        change geom r ≠ 0
+        rw [← hprogression r, ← hr]
+        exact hn
+      exact ⟨⟨r, hrmem⟩, hr.symm⟩
+    have hbij := hasSum_iff_hasSum_of_ne_zero_bij (a := tauDiag v s k)
+      (fun r : Function.support geom => m + 3 * r.val) hi hf
+      (fun r => hprogression r.val)
+    apply hbij.mpr
+    simpa only [geom, c, ρ, m, q, tauDiag, div_eq_mul_inv] using hg
+  let term : ℕ → T.V := fun n =>
+    ∫ x in inverseValShell v (-(N : ℤ) + (n : ℤ)),
+      inverseKernel T B A s N k x ∂μ.μ
+  have htailTerm (n : ℕ) : term (n + N) = scalar n • B.e (-k) := by
+    dsimp only [term]
+    rw [show -(N : ℤ) + ((n + N : ℕ) : ℤ) = (n : ℤ) by omega,
+      inverse_kernel_shell_integral T B A μ hv hd]
+    rw [if_pos (by omega : -(N : ℤ) ≤ (n : ℤ)),
+      if_pos (by omega : (0 : ℤ) ≤ (n : ℤ))]
+    by_cases hres : (((n : ℤ) + (k.val : ℤ) : ℤ) : ZMod 3) = 0
+    · have hncast : (n : ZMod 3) = -k := by
+        simpa only [Int.cast_add, Int.cast_natCast, ZMod.natCast_zmod_val,
+          add_eq_zero_iff_eq_neg] using hres
+      have hidx : k + 2 * ((n : ℤ) : ZMod 3) = -k := by
+        rw [Int.cast_natCast, hncast]
+        ring
+      dsimp only [scalar]
+      rw [if_pos hres, if_pos hres]
+      rw [hidx]
+      simp only [Int.cast_natCast]
+      exact congrArg (fun z : ℂ => z • B.e (-k)) (mul_comm _ _)
+    · dsimp only [scalar]
+      rw [if_neg hres, if_neg hres]
+      simp only [mul_zero, zero_smul]
+  have htail : HasSum (fun n => term (n + N)) (tauDiag v s k • B.e (-k)) := by
+    simpa only [htailTerm] using hscalar.smul_const (B.e (-k))
+  let G : ℂ := q ^ (2 * s) *
+    (q ^ (-(1 / 2 : ℂ)) * gaussLoc D A v (2 * ((k.val : ℤ) - 1)))
+  have hprefix : (∑ n ∈ Finset.range N, term n) = G • B.e (k + 1) := by
+    have hsingle : (∑ n ∈ Finset.range N, term n) = term (N - 1) := by
+      apply Finset.sum_eq_single (N - 1)
+      · intro n hn hne
+        have hnlt := Finset.mem_range.mp hn
+        have hnl : -(N : ℤ) ≤ -(N : ℤ) + (n : ℤ) := by omega
+        have hneg : ¬ (0 : ℤ) ≤ -(N : ℤ) + (n : ℤ) := by omega
+        have hnot : -(N : ℤ) + (n : ℤ) ≠ -1 := by omega
+        dsimp only [term]
+        rw [inverse_kernel_shell_integral T B A μ hv hd,
+          if_pos hnl, if_neg hneg, if_neg hnot]
+        simp only [mul_zero, zero_smul]
+      · intro hn
+        exact False.elim (hn (Finset.mem_range.mpr (by omega)))
+    rw [hsingle]
+    dsimp only [term]
+    rw [show -(N : ℤ) + ((N - 1 : ℕ) : ℤ) = -1 by omega,
+      inverse_kernel_shell_integral T B A μ hv hd]
+    have hcut : -(N : ℤ) ≤ -1 := by omega
+    have hidx : k + 2 * (-1 : ZMod 3) = k + 1 := by
+      rw [show 2 * (-1 : ZMod 3) = 1 by decide]
+    simp only [if_pos hcut, show ¬ (0 : ℤ) ≤ -1 by omega, if_false, if_true,
+      Int.cast_neg, Int.cast_one, hidx]
+    change (q ^ (-2 * (-1 : ℂ) * s) *
+      (q ^ (-(1 / 2 : ℂ)) * gaussLoc D A v (2 * ((k.val : ℤ) - 1)))) • _ = _
+    rw [show -2 * (-1 : ℂ) * s = 2 * s by ring]
+  have hsum : HasSum term (tauDiag v s k • B.e (-k) + G • B.e (k + 1)) := by
+    simpa only [hprefix] using (hasSum_nat_add_iff N).mp htail
+  have hGauss : G = q ^ (2 * s - 1) *
+      (q ^ ((1 : ℂ) / 2) * gaussLoc D A v (2 * ((k.val : ℤ) - 1))) := by
+    dsimp [G]
+    rw [← mul_assoc, ← mul_assoc, ← Complex.cpow_add _ _ hqne,
+      ← Complex.cpow_add _ _ hqne]
+    congr 2
+    ring
+  have hintegral := inverse_kernel_hasSum T B A μ hv s hs N k
+  have heq := hintegral.unique hsum
+  simpa only [hGauss, q] using heq
+
 /-- **wh:tau-tame**: `τ(s) e_k = A_k(s) e_{-k} + q^{2s-1} G(ρ^{k-1}) e_{k+1}` with
 `G(ρ^j) = q^{1/2} g_{2j}`. -/
 theorem local_coefficient_tame (L : FinLocalCover D H v) (T : TorusRep D H v)
@@ -3079,17 +3219,17 @@ theorem local_coefficient_tame (L : FinLocalCover D H v) (T : TorusRep D H v)
   let f : L.L → T.V := bigCell L T s φ
   obtain ⟨hint, hfTarget⟩ := intertwine_isSection L T μ s hs f hf
   obtain ⟨NJ, hstable⟩ := jacquet_stable L T.weyl A μ (-s) (intertwine L μ f) hfTarget
-  let N : ℕ := max Nφ NJ
+  let N : ℕ := max 1 (max Nφ NJ)
   have hballMono {a b : ℕ} (hab : a ≤ b) :
       ball v (-(a : ℤ)) ⊆ ball v (-(b : ℤ)) := by
     intro x hx
     simp only [ball, Set.mem_setOf_eq, Int.neg_neg] at hx ⊢
     exact hx.trans (WithZero.exp_le_exp.mpr (by exact_mod_cast hab))
   have hSupportN : tsupport φ ⊆ ball v (-(N : ℤ)) :=
-    hSupport.trans (hballMono (Nat.le_max_left Nφ NJ))
+    hSupport.trans (hballMono ((Nat.le_max_left Nφ NJ).trans (Nat.le_max_right 1 _)))
   have hstableN : jacquetTrunc L A μ N (intertwine L μ f) =
       jacquet L A μ (intertwine L μ f) := by
-    exact hstable N (Nat.le_max_right Nφ NJ)
+    exact hstable N ((Nat.le_max_right Nφ NJ).trans (Nat.le_max_right 1 _))
   calc
     τ (B.e k) = τ (jacquet L A μ f) := by rw [hJ]
     _ = jacquet L A μ (intertwine L μ f) := (hτ f hf).symm
@@ -3109,7 +3249,8 @@ theorem local_coefficient_tame (L : FinLocalCover D H v) (T : TorusRep D H v)
       filter_upwards with x
       simpa [f] using
         (localCoeff_innerFourier L T A μ s φ hφ hφc (B.e k) hhat N hSupportN x)
-  sorry
+    _ = _ := by
+      exact inverse_kernel_integral T B A μ hv hd s hs N (Nat.le_max_left 1 _) k
 
 /-- **wh:tau-rank**: at `s0 = 1/6`, `range τ = ℂ u` with `u = shellVec` of the Weyl basis. -/
 theorem local_coefficient_rank_one (L : FinLocalCover D H v) (T : TorusRep D H v)
