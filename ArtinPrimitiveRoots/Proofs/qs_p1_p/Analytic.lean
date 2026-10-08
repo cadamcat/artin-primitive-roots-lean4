@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P0
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M1
 import Mathlib.Analysis.Fourier.FourierTransformDeriv
 import Mathlib.Analysis.Calculus.IteratedDeriv.FaaDiBruno
+import Mathlib.Analysis.Complex.CauchyIntegral
 
 /-!
 # P1 analytic helpers
@@ -16,8 +17,10 @@ set_option autoImplicit false
 open scoped NumberField
 open NumberField IsDedekindDomain MeasureTheory
 open Asymptotics
+open Set
 open Filter Topology
 open scoped FourierTransform
+open scoped Interval
 
 noncomputable section
 
@@ -1610,6 +1613,177 @@ private theorem qs_p1_fourier_polynomial_decay (g : ℝ → ℂ)
     calc
       ‖𝓕 g w‖ * (1 + |w|) ^ N ≤ Aₙ := hprod
       _ ≤ C := le_max_right _ _
+
+private theorem qs_p1_vertical_integral_shift (F : ℂ → ℂ) (a b : ℝ) (hab : a < b)
+    (hcont : ContinuousOn F {z : ℂ | a ≤ z.re ∧ z.re ≤ b})
+    (hdiff : ∀ z : ℂ, a < z.re → z.re < b → DifferentiableAt ℂ F z)
+    (hdecay : ∃ C : ℝ, 0 ≤ C ∧ ∀ z : ℂ, a ≤ z.re → z.re ≤ b →
+      ‖F z‖ ≤ C / (1 + |z.im|) ^ 2) :
+    ∫ t : ℝ, F ((a : ℂ) + (t : ℂ) * Complex.I) =
+      ∫ t : ℝ, F ((b : ℂ) + (t : ℂ) * Complex.I) := by
+  classical
+  obtain ⟨C, hC, hdecay⟩ := hdecay
+  have hlineInt (c : ℝ) (hca : a ≤ c) (hcb : c ≤ b) :
+      Integrable (fun t : ℝ => F ((c : ℂ) + (t : ℂ) * Complex.I)) := by
+    have hstrip : Set.MapsTo (fun t : ℝ => (c : ℂ) + (t : ℂ) * Complex.I) Set.univ
+        {z : ℂ | a ≤ z.re ∧ z.re ≤ b} := by
+      intro t _
+      simp only [Set.mem_setOf_eq, Complex.add_re, Complex.ofReal_re, Complex.mul_re,
+        Complex.ofReal_im, Complex.I_re, Complex.I_im, zero_mul, mul_zero, sub_zero,
+        zero_add]
+      simpa using ⟨hca, hcb⟩
+    have hlineCont : Continuous (fun t : ℝ => F ((c : ℂ) + (t : ℂ) * Complex.I)) := by
+      change Continuous (F ∘ fun t : ℝ => (c : ℂ) + (t : ℂ) * Complex.I)
+      exact hcont.comp_continuous (by fun_prop) (fun t => hstrip (Set.mem_univ t))
+    have hbound : ∀ t : ℝ,
+        ‖F ((c : ℂ) + (t : ℂ) * Complex.I)‖ ≤ C * (1 + t ^ 2)⁻¹ := by
+      intro t
+      have h := hdecay ((c : ℂ) + (t : ℂ) * Complex.I) (by simpa using hca)
+        (by simpa using hcb)
+      have him : ((c : ℂ) + (t : ℂ) * Complex.I).im = t := by simp
+      rw [him] at h
+      have hden : 1 + t ^ 2 ≤ (1 + |t|) ^ 2 := by
+        nlinarith [sq_abs t, abs_nonneg t]
+      have hpos₁ : 0 < (1 + |t|) ^ 2 := by positivity
+      have hpos₂ : 0 < 1 + t ^ 2 := by positivity
+      have hdiv : C / (1 + |t|) ^ 2 ≤ C / (1 + t ^ 2) := by
+        apply (div_le_div_iff₀ hpos₁ hpos₂).2
+        nlinarith [hC, hden]
+      simpa [Complex.add_im, Complex.ofReal_im, Complex.mul_im,
+        Complex.I_re, Complex.I_im, zero_mul, mul_one, add_zero,
+        div_eq_mul_inv] using h.trans hdiv
+    refine (integrable_inv_one_add_sq.const_mul C).mono' hlineCont.aestronglyMeasurable ?_
+    filter_upwards [] with t
+    simpa [div_eq_mul_inv, mul_comm] using hbound t
+  let Tn : ℕ → ℝ := fun n => (n : ℝ) + 1
+  have hTn : Tendsto Tn atTop atTop := by
+    simpa [Tn] using tendsto_atTop_add_const_right atTop 1 tendsto_natCast_atTop_atTop
+  have hnegTn : Tendsto (fun n : ℕ => -Tn n) atTop atBot := by
+    exact tendsto_neg_atTop_atBot.comp hTn
+  have hdenTn : Tendsto (fun n : ℕ => (1 + Tn n) ^ 2) atTop atTop := by
+    have hbase : Tendsto (fun n : ℕ => Tn n + 1) atTop atTop :=
+      tendsto_atTop_add_const_right atTop (1 : ℝ) hTn
+    have hpow : (fun n : ℕ => (1 + Tn n) ^ 2) = fun n => (Tn n + 1) ^ 2 := by
+      funext n
+      ring
+    rw [hpow]
+    exact (tendsto_pow_atTop (by norm_num : (2 : ℕ) ≠ 0)).comp hbase
+  have hsmall : Tendsto (fun n : ℕ => 2 * C * (b - a) / (1 + Tn n) ^ 2)
+      atTop (𝓝 0) := by
+    have hinv : Tendsto (fun n : ℕ => ((1 + Tn n) ^ 2)⁻¹) atTop (𝓝 0) :=
+      tendsto_inv_atTop_zero.comp hdenTn
+    simpa [div_eq_mul_inv, mul_comm, mul_left_comm, mul_assoc] using
+      hinv.mul_const (2 * C * (b - a))
+  have hR : Tendsto (fun n : ℕ => ∫ t : ℝ in (-(Tn n))..(Tn n),
+      F ((b : ℂ) + (t : ℂ) * Complex.I)) atTop
+      (𝓝 <| ∫ t : ℝ, F ((b : ℂ) + (t : ℂ) * Complex.I)) := by
+    exact intervalIntegral_tendsto_integral (hlineInt b hab.le (le_of_eq rfl)) hnegTn hTn
+  have hL : Tendsto (fun n : ℕ => ∫ t : ℝ in (-(Tn n))..(Tn n),
+      F ((a : ℂ) + (t : ℂ) * Complex.I)) atTop
+      (𝓝 <| ∫ t : ℝ, F ((a : ℂ) + (t : ℂ) * Complex.I)) := by
+    exact intervalIntegral_tendsto_integral (hlineInt a (le_of_eq rfl) hab.le) hnegTn hTn
+  have hdiffLimit : Tendsto (fun n : ℕ =>
+      (∫ t : ℝ in (-(Tn n))..(Tn n), F ((b : ℂ) + (t : ℂ) * Complex.I)) -
+        ∫ t : ℝ in (-(Tn n))..(Tn n), F ((a : ℂ) + (t : ℂ) * Complex.I)) atTop
+      (𝓝 ((∫ t : ℝ, F ((b : ℂ) + (t : ℂ) * Complex.I)) -
+        ∫ t : ℝ, F ((a : ℂ) + (t : ℂ) * Complex.I))) := hR.sub hL
+  have hnorm : Tendsto (fun n : ℕ =>
+      ‖(∫ t : ℝ in (-(Tn n))..(Tn n), F ((b : ℂ) + (t : ℂ) * Complex.I)) -
+        (∫ t : ℝ in (-(Tn n))..(Tn n), F ((a : ℂ) + (t : ℂ) * Complex.I))‖)
+      atTop (𝓝 0) := by
+    have hle : ∀ n : ℕ,
+        ‖(∫ t : ℝ in (-(Tn n))..(Tn n), F ((b : ℂ) + (t : ℂ) * Complex.I)) -
+          (∫ t : ℝ in (-(Tn n))..(Tn n), F ((a : ℂ) + (t : ℂ) * Complex.I))‖ ≤
+          2 * C * (b - a) / (1 + Tn n) ^ 2 := by
+      intro n
+      have hTpos : 0 < Tn n := by dsimp [Tn]; positivity
+      let z : ℂ := (a : ℂ) + ((-Tn n : ℝ) : ℂ) * Complex.I
+      let w : ℂ := (b : ℂ) + ((Tn n : ℝ) : ℂ) * Complex.I
+      have hrectSub : (Set.uIcc z.re w.re ×ℂ Set.uIcc z.im w.im) ⊆
+          {q : ℂ | a ≤ q.re ∧ q.re ≤ b} := by
+        intro q hq
+        rw [Complex.mem_reProdIm] at hq
+        have hqre : q.re ∈ Set.uIcc a b := by simpa [z, w] using hq.1
+        rw [Set.uIcc_of_le hab.le] at hqre
+        exact Set.mem_Icc.mp hqre
+      have hrectCont : ContinuousOn F (Set.uIcc z.re w.re ×ℂ Set.uIcc z.im w.im) :=
+        hcont.mono hrectSub
+      have hrectDiff : DifferentiableOn ℂ F
+          (Set.Ioo (min z.re w.re) (max z.re w.re) ×ℂ
+            Set.Ioo (min z.im w.im) (max z.im w.im)) := by
+        intro q hq
+        rw [Complex.mem_reProdIm] at hq
+        have hqre : q.re ∈ Set.Ioo a b := by
+          simpa [z, w, min_eq_left hab.le, max_eq_right hab.le] using hq.1
+        exact (hdiff q hqre.1 hqre.2).differentiableWithinAt
+      have hCauchy :=
+        Complex.integral_boundary_rect_eq_zero_of_continuousOn_of_differentiableOn
+          F z w hrectCont hrectDiff
+      have hCauchy' :
+          (∫ x : ℝ in a..b, F (x + (-Tn n : ℝ) * Complex.I)) -
+          (∫ x : ℝ in a..b, F (x + (Tn n : ℝ) * Complex.I)) +
+          Complex.I • (∫ t : ℝ in (-(Tn n))..(Tn n), F (b + t * Complex.I)) -
+          Complex.I • (∫ t : ℝ in (-(Tn n))..(Tn n), F (a + t * Complex.I)) = 0 := by
+        simpa [z, w, Complex.add_re, Complex.add_im, Complex.ofReal_re, Complex.ofReal_im,
+          Complex.mul_re, Complex.mul_im, Complex.I_re, Complex.I_im, sub_zero,
+          zero_mul, mul_zero, one_mul, add_zero] using hCauchy
+      have hbottom : ‖∫ x : ℝ in a..b, F (x + (-Tn n : ℝ) * Complex.I)‖ ≤
+          (C / (1 + Tn n) ^ 2) * |b - a| := by
+        apply intervalIntegral.norm_integral_le_of_norm_le_const
+        intro x hx
+        have hx' : a ≤ x ∧ x ≤ b := by
+          rw [Set.uIoc_of_le hab.le, Set.mem_Ioc] at hx
+          exact ⟨hx.1.le, hx.2⟩
+        have h := hdecay (x + (-Tn n : ℝ) * Complex.I)
+          (by simpa using hx'.1) (by simpa using hx'.2)
+        have him : (x + (-Tn n : ℝ) * Complex.I).im = -Tn n := by simp
+        rw [him] at h
+        simpa [abs_neg, abs_of_pos hTpos] using h
+      have htop : ‖∫ x : ℝ in a..b, F (x + (Tn n : ℝ) * Complex.I)‖ ≤
+          (C / (1 + Tn n) ^ 2) * |b - a| := by
+        apply intervalIntegral.norm_integral_le_of_norm_le_const
+        intro x hx
+        have hx' : a ≤ x ∧ x ≤ b := by
+          rw [Set.uIoc_of_le hab.le, Set.mem_Ioc] at hx
+          exact ⟨hx.1.le, hx.2⟩
+        have h := hdecay (x + (Tn n : ℝ) * Complex.I)
+          (by simpa using hx'.1) (by simpa using hx'.2)
+        have him : (x + (Tn n : ℝ) * Complex.I).im = Tn n := by simp
+        rw [him, abs_of_pos hTpos] at h
+        exact h
+      have hvert : Complex.I •
+          ((∫ t : ℝ in (-(Tn n))..(Tn n), F (b + t * Complex.I)) -
+            ∫ t : ℝ in (-(Tn n))..(Tn n), F (a + t * Complex.I)) =
+          (∫ x : ℝ in a..b, F (x + (Tn n : ℝ) * Complex.I)) -
+            ∫ x : ℝ in a..b, F (x + (-Tn n : ℝ) * Complex.I) := by
+        linear_combination hCauchy'
+      have hnormV : ‖(∫ t : ℝ in (-(Tn n))..(Tn n), F (b + t * Complex.I)) -
+          (∫ t : ℝ in (-(Tn n))..(Tn n), F (a + t * Complex.I))‖ ≤
+          ‖∫ x : ℝ in a..b, F (x + (Tn n : ℝ) * Complex.I)‖ +
+            ‖∫ x : ℝ in a..b, F (x + (-Tn n : ℝ) * Complex.I)‖ := by
+        calc
+          _ = ‖Complex.I • ((∫ t : ℝ in (-(Tn n))..(Tn n), F (b + t * Complex.I)) -
+                ∫ t : ℝ in (-(Tn n))..(Tn n), F (a + t * Complex.I))‖ := by simp
+          _ = ‖(∫ x : ℝ in a..b, F (x + (Tn n : ℝ) * Complex.I)) -
+                ∫ x : ℝ in a..b, F (x + (-Tn n : ℝ) * Complex.I)‖ := by rw [hvert]
+          _ ≤ _ := norm_sub_le _ _
+      have hlen : |b - a| = b - a := abs_of_pos (sub_pos.mpr hab)
+      calc
+        _ ≤ ‖∫ x : ℝ in a..b, F (x + (Tn n : ℝ) * Complex.I)‖ +
+            ‖∫ x : ℝ in a..b, F (x + (-Tn n : ℝ) * Complex.I)‖ := hnormV
+        _ ≤ (C / (1 + Tn n) ^ 2) * |b - a| +
+            (C / (1 + Tn n) ^ 2) * |b - a| := add_le_add htop hbottom
+        _ = 2 * C * (b - a) / (1 + Tn n) ^ 2 := by rw [hlen]; ring
+    exact tendsto_of_tendsto_of_tendsto_of_le_of_le
+      (tendsto_const_nhds : Tendsto (fun _ : ℕ => (0 : ℝ)) atTop (𝓝 0)) hsmall
+      (fun n => norm_nonneg _)
+      (fun n => hle n)
+  have hzero : Tendsto (fun n : ℕ =>
+      (∫ t : ℝ in (-(Tn n))..(Tn n), F ((b : ℂ) + (t : ℂ) * Complex.I)) -
+        (∫ t : ℝ in (-(Tn n))..(Tn n), F ((a : ℂ) + (t : ℂ) * Complex.I))) atTop (𝓝 0) := by
+    exact tendsto_zero_iff_norm_tendsto_zero.mpr hnorm
+  have hEq := tendsto_nhds_unique hdiffLimit hzero
+  exact (sub_eq_zero.mp hEq).symm
 
 /-- The Mellin transform of a QS weight decays faster than any fixed polynomial on every
 positive vertical line. -/
