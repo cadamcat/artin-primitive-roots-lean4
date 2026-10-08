@@ -9,6 +9,11 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Schur
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.FourierCutoff
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MemoryAlphabet
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CubeAdjoint
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ScaleDecay
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelTranspose
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Atoms
@@ -5235,6 +5240,828 @@ private theorem pd4c_memEdgePiece_sym_schur {K : ℕ} (δ c₁ c₂ : ℝ)
   · simp [hsvalid, htvalid]
   · simp [hsvalid, htvalid, pd4c_memEdgePiece_sym_kernel_invalid F S ρ w raw St Pr j s t hsvalid htvalid]
 
+private theorem pd4c_edge_memory_size_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : MemPoint S.x K) (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ) :
+    memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) ≤ memSize s + K := by
+  have hlen (i : Fin K) : (edgeNewMemory F S s c i).length ≤ (s.2.2 i).length + 1 := by
+    have hrem (D : Finset (Fin (s.2.2 i).length)) :
+        (removeIndices (s.2.2 i) D).length ≤ (s.2.2 i).length := by
+      unfold removeIndices
+      exact (List.length_filterMap_le _ _).trans_eq (List.length_finRange)
+    unfold edgeNewMemory
+    rw [List.length_append]
+    split_ifs <;> simp only [List.length_singleton, List.length_nil]
+    · exact Nat.add_le_add_right (hrem _) 1
+    · exact (hrem _).trans (Nat.le_add_right _ _)
+  unfold memSize
+  calc
+    _ ≤ ∑ i : Fin K, ((s.2.2 i).length + 1) := Finset.sum_le_sum fun i hi => hlen i
+    _ = _ := by simp [Finset.sum_add_distrib]
+
+private theorem pd4c_edgeChoiceCoeff_norm_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (j : ℕ) (raw : Bool) (s : MemPoint S.x K)
+    (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ) (C : ℝ)
+    (hρ0 : 0 ≤ ρ) (hρ1 : ρ ≤ 1)
+    (hweight : ∀ i, 0 ≤ pd4c_choicePrimeWeight F S s i (c i))
+    (hC : 0 ≤ C)
+    (hgeom : ‖edgeMultiplier F S (decide (j % 2 = 0)) raw s.2.1
+      (edgeTargetLists F S s c) s.1 z'‖ ≤ C) :
+    ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ ≤
+      C * ∏ i : Fin K, pd4c_choicePrimeWeight F S s i (c i) := by
+  let P := ∏ i : Fin K, pd4c_choicePrimeWeight F S s i (c i)
+  let hs := ∑ i : Fin K, hitCount (s.2.2 i) s.1
+  let ht := ∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z'
+  have hP : 0 ≤ P := Finset.prod_nonneg fun i hi => hweight i
+  have hρs : 0 ≤ ρ ^ hs := pow_nonneg hρ0 _
+  have hρt : 0 ≤ ρ ^ ht := pow_nonneg hρ0 _
+  have hρs1 : ρ ^ hs ≤ 1 := pow_le_one₀ hρ0 hρ1
+  have hρt1 : ρ ^ ht ≤ 1 := pow_le_one₀ hρ0 hρ1
+  have hnorm : ‖(((ρ ^ hs * P * ρ ^ ht : ℝ) : ℂ))‖ = ρ ^ hs * P * ρ ^ ht := by
+    rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg (mul_nonneg (mul_nonneg hρs hP) hρt)]
+  change ‖(((ρ ^ hs * P * ρ ^ ht : ℝ) : ℂ)) *
+    edgeMultiplier F S (decide (j % 2 = 0)) raw s.2.1 (edgeTargetLists F S s c) s.1 z'‖ ≤ _
+  rw [norm_mul, hnorm]
+  have hfactor : ρ ^ hs * P * ρ ^ ht ≤ P := by
+    calc
+      _ ≤ 1 * P * 1 := mul_le_mul (mul_le_mul_of_nonneg_right hρs1 hP) hρt1 hρt (by positivity)
+      _ = P := by ring
+  calc
+    _ ≤ P * C := mul_le_mul hfactor hgeom (norm_nonneg _) hP
+    _ = _ := mul_comm _ _
+
+private theorem pd4c_edge_target_weight_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : MemPoint S.x K) (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ)
+    (v : ℝ) (hv : 1 ≤ v) :
+    v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) ≤ v ^ K * v ^ memSize s := by
+  calc
+    _ ≤ v ^ (memSize s + K) := pow_le_pow_right₀ hv (pd4c_edge_memory_size_le F S s c z')
+    _ = _ := by rw [pow_add]; ring
+
+private theorem pd4c_edgeRowMass_le_of_count {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot) (raw : Bool)
+    (St Pr : Finset (Fin K)) (j : ℕ) (v C R : ℝ) (s : MemPoint S.x K)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S)
+    (hρ0 : 0 ≤ ρ) (hρ1 : ρ ≤ 1) (hv : 1 ≤ v) (hC : 0 ≤ C) (hR : 0 ≤ R)
+    (hweight : ∀ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+      ∀ i, 0 ≤ pd4c_choicePrimeWeight F S s i (c i))
+    (hgeom : ∀ c z', EdgeAdmissible F S w s c z' →
+      ‖edgeMultiplier F S (decide (j % 2 = 0)) raw s.2.1
+        (edgeTargetLists F S s c) s.1 z'‖ ≤ C)
+    (hcount : ∀ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i, edgePromotedSet c = Pr →
+      ({z' : ℤ × ℤ | EdgeAdmissible F S w s c z' ∧
+        pd4c_edgeChoiceCoeff F S ρ j raw s c z' ≠ 0}.ncard : ℝ) ≤ R) :
+    pd4c_edgeRowMass F S ρ w j raw St Pr v s ≤
+      C * v ^ K * v ^ memSize s * R *
+        (∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+          if edgePromotedSet c = Pr then ∏ i : Fin K, pd4c_choicePrimeWeight F S s i (c i) else 0) := by
+  classical
+  let Z := (envBox_finite δ c₁ c₂ S w hS hw).toFinset
+  let good (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ) : Prop :=
+    edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧ EdgeAdmissible F S w s c z'
+  let P (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) : ℝ :=
+    ∏ i : Fin K, pd4c_choicePrimeWeight F S s i (c i)
+  have hv0 : 0 ≤ v := by linarith
+  have hP (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) : 0 ≤ P c :=
+    Finset.prod_nonneg fun i hi => hweight c i
+  have hrow (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) :
+      (∑' z', if good c z' then ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ *
+        v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) else 0) ≤
+          if edgePromotedSet c = Pr then C * v ^ K * v ^ memSize s * R * P c else 0 := by
+    by_cases hc : edgePromotedSet c = Pr
+    · rw [if_pos hc]
+      let U := Z.filter fun z' => good c z' ∧ pd4c_edgeChoiceCoeff F S ρ j raw s c z' ≠ 0
+      have hsupport :
+          (∑' z', if good c z' then ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ *
+            v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) else 0) =
+          ∑ z' ∈ U, ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ *
+            v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) := by
+        rw [tsum_eq_sum (s := U)]
+        · apply Finset.sum_congr rfl
+          intro z' hz'
+          have hg := (Finset.mem_filter.mp hz').2.1
+          simp only [if_pos hg]
+        · intro z' hz'
+          by_cases hg : good c z'
+          · have hzbox : envBox S w z' := hg.2.2.2.2.2.2.2.2.2.1
+            have hzZ : z' ∈ Z := by simpa [Z] using hzbox
+            have hzero : pd4c_edgeChoiceCoeff F S ρ j raw s c z' = 0 := by
+              by_contra hn
+              exact hz' (Finset.mem_filter.mpr ⟨hzZ, hg, hn⟩)
+            simp [hg, hzero]
+          · simp [hg]
+      have hUcard : (U.card : ℝ) ≤ R := by
+        have hsub : (U : Set (ℤ × ℤ)) ⊆ {z' | EdgeAdmissible F S w s c z' ∧
+            pd4c_edgeChoiceCoeff F S ρ j raw s c z' ≠ 0} := by
+          intro z' hz'
+          exact ⟨(Finset.mem_filter.mp hz').2.1.2.2, (Finset.mem_filter.mp hz').2.2⟩
+        have hfinite : {z' | EdgeAdmissible F S w s c z' ∧
+            pd4c_edgeChoiceCoeff F S ρ j raw s c z' ≠ 0}.Finite := by
+          apply (envBox_finite δ c₁ c₂ S w hS hw).subset
+          intro z' hz'
+          exact hz'.1.2.2.2.2.2.2.2.1
+        have hcard := Set.ncard_le_ncard hsub hfinite
+        exact (show (U.card : ℝ) ≤ _ by exact_mod_cast (by simpa using hcard)).trans (hcount c hc)
+      have hterm (z' : ℤ × ℤ) (hz' : z' ∈ U) :
+          ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ *
+            v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) ≤
+          C * P c * (v ^ K * v ^ memSize s) := by
+        have hg := (Finset.mem_filter.mp hz').2.1.2.2
+        exact mul_le_mul
+          (pd4c_edgeChoiceCoeff_norm_le F S ρ j raw s c z' C hρ0 hρ1 (hweight c) hC (hgeom c z' hg))
+          (pd4c_edge_target_weight_le F S s c z' v hv)
+          (pow_nonneg hv0 _) (mul_nonneg hC (hP c))
+      rw [hsupport]
+      calc
+        _ ≤ ∑ z' ∈ U, C * P c * (v ^ K * v ^ memSize s) := Finset.sum_le_sum fun z' hz' => hterm z' hz'
+        _ = (U.card : ℝ) * (C * P c * (v ^ K * v ^ memSize s)) := by simp
+        _ ≤ R * (C * P c * (v ^ K * v ^ memSize s)) :=
+          mul_le_mul_of_nonneg_right hUcard
+            (mul_nonneg (mul_nonneg hC (hP c)) (mul_nonneg (pow_nonneg hv0 _) (pow_nonneg hv0 _)))
+        _ = _ := by ring
+    · rw [if_neg hc]
+      have hzero : (∑' z', if good c z' then ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ *
+          v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) else 0) = 0 := by
+        have hfun : (fun z' => if good c z' then ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ *
+            v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) else 0) = fun _ => (0 : ℝ) := by
+          funext z'
+          have hn : ¬ good c z' := fun h => hc h.2.1
+          simp [hn]
+        rw [hfun]
+        exact tsum_zero
+      simpa only [hzero] using (le_rfl : (0 : ℝ) ≤ 0)
+  unfold pd4c_edgeRowMass
+  calc
+    _ ≤ ∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+        if edgePromotedSet c = Pr then C * v ^ K * v ^ memSize s * R * P c else 0 :=
+      Finset.sum_le_sum fun c hc => hrow c
+    _ = _ := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro c hc
+      by_cases heq : edgePromotedSet c = Pr <;> simp [heq, P]
+private theorem pd4c_exists_psi_radius {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ R : ℝ, 16 ≤ R ∧ ∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R := by
+  have hc : IsCompact (tsupport F.psi) := hF.2.2.2.2.2.2.1
+  obtain ⟨R, hR⟩ := hc.isBounded.exists_norm_le
+  refine ⟨max 16 R, le_max_left _ _, ?_⟩
+  intro t ht
+  have hmem : t ∈ tsupport F.psi := subset_closure ht
+  exact (show |t| ≤ R by simpa only [Real.norm_eq_abs] using hR t hmem).trans (le_max_right _ _)
+
+private theorem pd4c_comparison_edge_support {K : ℕ} (F : PDFix K) (S : PDScale)
+    (forward : Bool) (p q : PrimeLists S.x K) (z z' : ℤ × ℤ) (R : ℝ)
+    (hY : 0 < S.Y) (hdiv : (sharedProduct p : ℤ) ∣ det2 z z')
+    (hR : ∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R)
+    (h : edgeMultiplier F S forward false p q z z' ≠ 0) :
+    |((det2 z z' / (sharedProduct p : ℤ) : ℤ) : ℝ)| ≤ R * S.Y := by
+  have hsupport (a b : ℕ) (t : ℤ) (ht : comparisonMultiplier F S (sharedProduct p) a b t ≠ 0) :
+      |(t : ℝ)| ≤ R * S.Y := by
+    have hψ : F.psi ((t : ℝ) / S.Y) ≠ 0 := by
+      intro hz
+      apply ht
+      simp [comparisonMultiplier, majorKernel, hz]
+    have hb := hR ((t : ℝ) / S.Y) hψ
+    rw [abs_div, abs_of_pos hY] at hb
+    exact (div_le_iff₀ hY).mp hb
+  cases forward with
+  | true =>
+    apply hsupport (lastProduct q) (lastProduct p) _
+    intro hz
+    apply h
+    simp [edgeMultiplier, hz]
+  | false =>
+    have hr : comparisonMultiplier F S (sharedProduct p) (lastProduct p) (lastProduct q)
+        (det2 z' z / (sharedProduct p : ℤ)) ≠ 0 := by
+      intro hz
+      apply h
+      simp [edgeMultiplier, hz]
+    have hswap : det2 z' z = -det2 z z' := by dsimp [det2]; ring
+    have hb := hsupport (lastProduct p) (lastProduct q) _ hr
+    rw [hswap, Int.neg_ediv_of_dvd hdiv, Int.cast_neg, abs_neg] at hb
+    exact hb
+
+private theorem pd4c_memEdge_dirtyCmp_eq_piece_sum {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ) :
+    memEdge F S ρ w EdgeKind.dirtyCmp j =
+      (fun f s => ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (if St = ∅ ∧ Pr = ∅ then 0 else
+          memEdgePiece F S ρ w false St Pr j f s)) := by
+  funext f s
+  simp only [memEdge, plainOp, logEdge, memEdgePiece]
+  dsimp [logSym]
+  simp_rw [Finset.mul_sum]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro St hSt
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro Pr hPr
+  by_cases hempty : St = ∅ ∧ Pr = ∅ <;> simp [hempty]
+
+private theorem pd4c_scale_Y_pad_pos {K : ℕ} (δ c₁ c₂ : ℝ) (S : PDScale)
+    (hS : S.Valid K δ c₁ c₂) : 0 < S.Y ∧ 0 < (S.d₀ : ℝ) := by
+  rcases Finset.mem_filter.mp hS.2.2.2.2.2.1 with ⟨hY, _⟩
+  rcases Finset.mem_image.mp hY with ⟨n, hn, hEq⟩
+  have hYpos : 0 < S.Y := by rw [← hEq]; positivity
+  rcases Finset.mem_image.mp hS.2.2.2.2.2.2 with ⟨m, hm, hEq'⟩
+  have hdpos : 0 < (S.d₀ : ℝ) := by rw [← hEq']; positivity
+  exact ⟨hYpos, hdpos⟩
+
+private theorem pd4c_edge_comparison_norm_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (forward : Bool) (p q : PrimeLists S.x K) (z z' : ℤ × ℤ) (Ceta Cpsi : ℝ)
+    (hL : 1 ≤ S.L) (hA : 0 ≤ F.A₀) (hY : 0 < S.Y) (hd : 0 < (S.d₀ : ℝ))
+    (hPad : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z'))
+    (hEta : ∀ t, ‖(F.eta t : ℂ)‖ ≤ Ceta) (hPsi : ∀ t, ‖(F.psi t : ℂ)‖ ≤ Cpsi)
+    (hCeta : 0 ≤ Ceta) (hCpsi : 0 ≤ Cpsi) :
+    ‖edgeMultiplier F S forward false p q z z'‖ ≤
+      Ceta ^ 2 * Cpsi * (32 * Real.rpow S.L F.A₀ ^ 3 / S.Y) := by
+  cases forward with
+  | true =>
+    exact comparisonMultiplier_norm_le F S (sharedProduct p) (lastProduct q) (lastProduct p)
+      _ Ceta Cpsi hL hA hY (det2 z z') hPad hd (hEta _) (hEta _) (hPsi _) hCeta hCpsi
+  | false =>
+    change ‖star (comparisonMultiplier F S (sharedProduct p) (lastProduct p) (lastProduct q)
+      (det2 z' z / (sharedProduct p : ℤ)))‖ ≤ _
+    rw [norm_star]
+    exact comparisonMultiplier_norm_le F S (sharedProduct p) (lastProduct p) (lastProduct q)
+      _ Ceta Cpsi hL hA hY (det2 z z') hPad hd (hEta _) (hEta _) (hPsi _) hCeta hCpsi
+
+private theorem pd4c_band_prime_inverse_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hF : F.Valid) (hL : 1 ≤ S.L) (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+    1 / (p : ℝ) ≤ Real.exp (-Real.rpow S.L (1 / 10 : ℝ)) := by
+  have hpband := (Finset.mem_filter.mp hp).2
+  have hpow : Real.rpow S.L (1 / 10 : ℝ) ≤ Real.rpow S.L (F.a i) :=
+    Real.rpow_le_rpow_of_exponent_le hL (hF.1.2.1 i).1.le
+  have hlower : Real.exp (Real.rpow S.L (1 / 10 : ℝ)) ≤ (p : ℝ) :=
+    (Real.exp_le_exp.mpr hpow).trans hpband.2.1
+  calc
+    _ ≤ 1 / Real.exp (Real.rpow S.L (1 / 10 : ℝ)) :=
+      one_div_le_one_div_of_le (Real.exp_pos _) hlower
+    _ = _ := by rw [one_div, Real.exp_neg]
+
+private theorem pd4c_comparison_support_count (Rψ : ℝ) (hRψ : 16 ≤ Rψ) :
+    ∃ C₂ Y₀ : ℝ, 0 < C₂ ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale) (w : ArchRoot) (δ c₁ c₂ : ℝ),
+      F.Valid → S.Valid K δ c₁ c₂ → w.InRegion S → Y₀ ≤ S.Y → 1 ≤ S.L →
+      (∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ Rψ) →
+      ∀ (ρ : ℝ) (j : ℕ) (s : MemPoint S.x K)
+        (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i),
+      MemValid F S s → (edgePromotedSet c).Nonempty →
+        ({z' : ℤ × ℤ | EdgeAdmissible F S w s c z' ∧
+          pd4c_edgeChoiceCoeff F S ρ j false s c z' ≠ 0}.ncard : ℝ) ≤
+            12 * C₂ * S.Y * (Real.exp (-Real.rpow S.L (1 / 10 : ℝ)) +
+              Real.rpow S.Y (-(1 / 10 : ℝ))) := by
+  classical
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hcount⟩ := pd4c_promoted_target_count Rψ hRψ
+  refine ⟨C₂, Y₀, hC₂, hY₀, ?_⟩
+  intro K F S w δ c₁ c₂ hF hS hw hY hL hRadius ρ j s c hs hPr
+  let A : Set (ℤ × ℤ) := {z' | EdgeAdmissible F S w s c z' ∧
+    pd4c_edgeChoiceCoeff F S ρ j false s c z' ≠ 0}
+  obtain ⟨hYpos, _⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  by_cases hA : A.Nonempty
+  · obtain ⟨z₀, hadm, hcoef⟩ := hA
+    obtain ⟨i, hi⟩ := hPr
+    have hleft : (c i).2.isLeft = true := (Finset.mem_filter.mp hi).2
+    obtain ⟨k, hk⟩ : ∃ k, (c i).2 = Sum.inl k := by
+      cases he : (c i).2 with
+      | inl k => exact ⟨k, rfl⟩
+      | inr p => simp [he] at hleft
+    have hlabel : edgeTargetLists F S s c i (lastSlot S.x) = ((s.2.2 i).get k).1 := by
+      simp [edgeTargetLists, lastSlot, edgeNewLabel, hk]
+    have hban : ∀ i' j', ((s.2.2 i).get k).1 ≠ s.2.1 i' j' := by
+      intro i' j'
+      simpa only [hlabel] using hadm.2.2.2.1.2 i i' j'
+    have hBound := hcount K F S w δ c₁ c₂ hS hw hY s c i k hs hadm.2.1
+      hadm.2.2.2.2.2.2.1 hadm.2.2.2.2.2.2.2.2.1
+      hadm.2.2.2.2.1.1 hadm.2.2.2.2.1.2.1 hk hban
+    let T : Set (ℤ × ℤ) := {z' | EdgeAdmissible F S w s c z' ∧
+      |((det2 s.1 z' / (sharedProduct s.2.1 : ℤ) : ℤ) : ℝ)| ≤ Rψ * S.Y}
+    have hTfinite : T.Finite := by
+      apply (envBox_finite δ c₁ c₂ S w hS hw).subset
+      intro z' hz'
+      exact hz'.1.2.2.2.2.2.2.2.1
+    have hsub : A ⊆ T := by
+      intro z' hz'
+      refine ⟨hz'.1, ?_⟩
+      have hgeom : edgeMultiplier F S (decide (j % 2 = 0)) false s.2.1
+          (edgeTargetLists F S s c) s.1 z' ≠ 0 := by
+        intro hzero
+        exact hz'.2 (by simp [pd4c_edgeChoiceCoeff, hzero])
+      exact pd4c_comparison_edge_support F S _ _ _ _ _ Rψ hYpos
+        hz'.1.2.2.2.2.1.2.2 hRadius hgeom
+    have hprime := (hs.2.2 i _ (List.get_mem _ k)).1
+    have hinv := pd4c_band_prime_inverse_le F S hF hL i _ hprime
+    calc
+      _ ≤ (T.ncard : ℝ) := by exact_mod_cast Set.ncard_le_ncard hsub hTfinite
+      _ ≤ 12 * C₂ * S.Y * (1 / (((s.2.2 i).get k).1 : ℝ) + Real.rpow S.Y (-(1 / 10 : ℝ))) := hBound
+      _ ≤ _ := mul_le_mul_of_nonneg_left (add_le_add hinv le_rfl) (by positivity)
+  · have hEmpty : A = ∅ := Set.not_nonempty_iff_eq_empty.mp hA
+    change (A.ncard : ℝ) ≤ _
+    rw [hEmpty]
+    simp only [Set.ncard_empty, Nat.cast_zero]
+    exact mul_nonneg (mul_nonneg (mul_nonneg (by norm_num) hC₂.le) hYpos.le)
+      (add_nonneg (Real.exp_pos _).le (Real.rpow_nonneg hYpos.le _))
+
+private theorem pd4c_comparison_small_row (Rψ : ℝ) (hRψ : 16 ≤ Rψ) :
+    ∃ C₂ Y₀ : ℝ, 0 < C₂ ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale) (w : ArchRoot) (δ c₁ c₂ : ℝ),
+      F.Valid → S.Valid K δ c₁ c₂ → w.InRegion S → Y₀ ≤ S.Y → 1 ≤ S.L →
+      (∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ Rψ) →
+      ∀ (ρ v Ceta Cpsi Cmass : ℝ) (B j : ℕ) (St Pr : Finset (Fin K)),
+      0 ≤ ρ → ρ ≤ 1 → 1 ≤ v → 0 ≤ Ceta → 0 ≤ Cpsi → 2 ≤ Cmass → 1 ≤ B → Pr.Nonempty →
+      (∀ t, ‖(F.eta t : ℂ)‖ ≤ Ceta) → (∀ t, ‖(F.psi t : ℂ)‖ ≤ Cpsi) →
+      (∀ i, 0 < bandMass S.x (F.a i)) → (∀ i, (bandMass S.x (F.a i))⁻¹ ≤ Cmass) →
+      (∀ i, ∀ p : primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p) →
+      (∀ i, (∑ p : primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2) →
+      MemRowSchurLE_sym F S B (memEdgePiece F S ρ w false St Pr j) v
+        (Ceta ^ 2 * Cpsi * (32 * Real.rpow S.L F.A₀ ^ 3 / S.Y) * v ^ K *
+          (12 * C₂ * S.Y * (Real.exp (-Real.rpow S.L (1 / 10 : ℝ)) + Real.rpow S.Y (-(1 / 10 : ℝ)))) *
+          (2 * Cmass * (B : ℝ)) ^ K) := by
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hcount⟩ := pd4c_comparison_support_count Rψ hRψ
+  refine ⟨C₂, Y₀, hC₂, hY₀, ?_⟩
+  intro K F S w δ c₁ c₂ hF hS hw hY hL hRadius ρ v Ceta Cpsi Cmass B j St Pr
+    hρ0 hρ1 hv hEta0 hPsi0 hMass hB hPr hEta hPsi hV hVinv hν hνsum
+  let Cgeo := Ceta ^ 2 * Cpsi * (32 * Real.rpow S.L F.A₀ ^ 3 / S.Y)
+  let Rcount := 12 * C₂ * S.Y *
+    (Real.exp (-Real.rpow S.L (1 / 10 : ℝ)) + Real.rpow S.Y (-(1 / 10 : ℝ)))
+  obtain ⟨hYpos, hdpos⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  have hLpos : 0 < S.L := by linarith
+  have hv0 : 0 ≤ v := by linarith
+  have hCgeo : 0 ≤ Cgeo := by
+    exact mul_nonneg (mul_nonneg (sq_nonneg _) hPsi0)
+      (div_nonneg (mul_nonneg (by norm_num) (pow_nonneg (Real.rpow_pos_of_pos hLpos _).le _)) hYpos.le)
+  have hRcount : 0 ≤ Rcount := by
+    exact mul_nonneg (mul_nonneg (mul_nonneg (by norm_num) hC₂.le) hYpos.le)
+      (add_nonneg (Real.exp_pos _).le (Real.rpow_nonneg hYpos.le _))
+  intro s hs hsize T hT
+  have hmass (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) :
+      pd4c_edgeRowMass F S ρ w j false St Pr v (s.1, permuteLists σ s.2.1, s.2.2) ≤
+        Cgeo * v ^ K * v ^ memSize s * Rcount * (2 * Cmass * (B : ℝ)) ^ K := by
+    let t : MemPoint S.x K := (s.1, permuteLists σ s.2.1, s.2.2)
+    have ht : MemValid F S t := memPoint_permute_valid F S σ s hs
+    have hweight (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (i : Fin K) :
+        0 ≤ pd4c_choicePrimeWeight F S t i (c i) := by
+      cases he : (c i).2 with
+      | inl k => simpa only [pd4c_choicePrimeWeight, he] using inv_nonneg.mpr (hV i).le
+      | inr p => simpa only [pd4c_choicePrimeWeight, he] using hν i p
+    have hgeom (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (z' : ℤ × ℤ)
+        (hadm : EdgeAdmissible F S w t c z') :
+        ‖edgeMultiplier F S (decide (j % 2 = 0)) false t.2.1 (edgeTargetLists F S t c) t.1 z'‖ ≤ Cgeo :=
+      pd4c_edge_comparison_norm_le F S _ _ _ _ _ Ceta Cpsi hL hF.2.2.2.1.le hYpos hdpos
+        hadm.2.2.2.2.1 hEta hPsi hEta0 hPsi0
+    have htargets (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (hc : edgePromotedSet c = Pr) :
+        ({z' | EdgeAdmissible F S w t c z' ∧ pd4c_edgeChoiceCoeff F S ρ j false t c z' ≠ 0}.ncard : ℝ) ≤ Rcount :=
+      hcount K F S w δ c₁ c₂ hF hS hw hY hL hRadius ρ j t c ht (hc.symm ▸ hPr)
+    have hrow := pd4c_edgeRowMass_le_of_count δ c₁ c₂ F S ρ w false St Pr j v Cgeo Rcount t
+      hS hw hρ0 hρ1 hv hCgeo hRcount hweight hgeom htargets
+    have hlen (i : Fin K) : ((t.2.2 i).length : ℝ) ≤ (B : ℝ) := by
+      have hle : (s.2.2 i).length ≤ memSize s :=
+        Finset.single_le_sum (s := Finset.univ) (f := fun j : Fin K => (s.2.2 j).length)
+          (fun j hj => Nat.zero_le _) (Finset.mem_univ i)
+      exact_mod_cast le_trans hle hsize
+    have hchoices := pd4c_promoted_choice_mass_le F S t Pr (B : ℝ) Cmass
+      (by exact_mod_cast hB) hMass hlen hV hVinv hν hνsum
+    exact hrow.trans (mul_le_mul_of_nonneg_left hchoices
+      (mul_nonneg (mul_nonneg (mul_nonneg hCgeo (pow_nonneg hv0 _)) (pow_nonneg hv0 _)) hRcount))
+  have hrow := pd4c_memEdgePiece_projected_row_mass δ c₁ c₂ F S ρ w false St Pr j hS hw s T v hv0
+  have hd : (permCount S.x K : ℝ) ≠ 0 := by
+    exact_mod_cast (show permCount S.x K ≠ 0 from Fintype.card_ne_zero)
+  calc
+    _ ≤ (permCount S.x K : ℝ)⁻¹ *
+        ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          pd4c_edgeRowMass F S ρ w j false St Pr v (s.1, permuteLists σ s.2.1, s.2.2) := hrow
+    _ ≤ (permCount S.x K : ℝ)⁻¹ *
+        ∑ _ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          Cgeo * v ^ K * v ^ memSize s * Rcount * (2 * Cmass * (B : ℝ)) ^ K := by
+      apply mul_le_mul_of_nonneg_left _ (by positivity)
+      exact Finset.sum_le_sum fun σ hσ => hmass σ
+    _ = _ := by
+      simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+      change (permCount S.x K : ℝ)⁻¹ * ((permCount S.x K : ℝ) * _) = _
+      field_simp [hd] <;> dsimp [Cgeo, Rcount] <;> field_simp [hYpos.ne'] <;> ring
+
+private theorem pd4c_bandMass_large_bounds {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → ∀ i : Fin K,
+      Real.log 2 / 2 ≤ bandMass x (F.a i) ∧ bandMass x (F.a i) ≤ 2 * Real.log 2 := by
+  classical
+  have heps : 0 < Real.log 2 / 2 := div_pos (Real.log_pos (by norm_num)) (by norm_num)
+  have hmass (i : Fin K) := band_mass (F.a i)
+    (lt_trans (by norm_num : (0 : ℝ) < 1 / 10) (hF.1.2.1 i).1)
+    (lt_trans (hF.1.2.1 i).2 (by norm_num)) (Real.log 2 / 2) heps
+  let x_i : Fin K → ℝ := fun i => Classical.choose (hmass i)
+  have hx_i (i : Fin K) : 2 ≤ x_i i ∧ ∀ x : ℝ, x_i i ≤ x →
+      |bandMass x (F.a i) - Real.log 2| ≤ Real.log 2 / 2 ∧ 0 < bandMass x (F.a i) :=
+    Classical.choose_spec (hmass i)
+  let x₀ := 2 + ∑ i : Fin K, x_i i
+  have hx₀ : 2 ≤ x₀ := by
+    have hsum := Finset.sum_nonneg (fun i (_ : i ∈ (Finset.univ : Finset (Fin K))) =>
+      (show 0 ≤ x_i i by linarith [(hx_i i).1]))
+    dsimp [x₀]
+    linarith
+  refine ⟨x₀, hx₀, ?_⟩
+  intro x hx i
+  have hi : x_i i ≤ ∑ j : Fin K, x_i j :=
+    Finset.single_le_sum (fun j hj => by linarith [(hx_i j).1]) (Finset.mem_univ i)
+  have hxi : x_i i ≤ x := by dsimp [x₀] at hx; linarith
+  have ha := (hx_i i).2 x hxi
+  have hlow := (abs_le.mp ha.1).1
+  have hhigh := (abs_le.mp ha.1).2
+  constructor <;> linarith [Real.log_pos (by norm_num : (1 : ℝ) < 2)]
+
+private theorem pd4c_memMeasure_nonneg_eventually {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ S : PDScale, x₀ ≤ S.x → ∀ s, 0 ≤ memMeasure F S s := by
+  obtain ⟨xV, hxV, hV⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hB⟩ := memoryBPrime_half_of_large_x F hF
+  refine ⟨max xV xB, le_trans hxV (le_max_left _ _), ?_⟩
+  intro S hx
+  apply pd4c_memMeasure_nonneg_of_nu F S
+  intro i p hp
+  have hVlower := (hV S.x (le_trans (le_max_left _ _) hx) i).1
+  have hVpos : 0 < bandMass S.x (F.a i) :=
+    lt_of_lt_of_le (div_pos (Real.log_pos (by norm_num)) (by norm_num)) hVlower
+  have hpmark : p ∈ markedPrimes S.x K F.a :=
+    Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩
+  exact (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp hp).2.1.pos hVpos
+    (hB S.x (le_trans (le_max_right _ _) hx) p hpmark)).1
+
+private theorem pd4c_dirty_piece_norm_of_table {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot) (raw : Bool)
+    (St Pr : Finset (Fin K)) (j B : ℕ) (v C D : ℝ)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S) (hμ : ∀ s, 0 ≤ memMeasure F S s)
+    (hv : 0 < v) (hC : 0 ≤ C) (hD : 0 ≤ D) (hD1 : D ≤ 1)
+    (hne : St.Nonempty ∨ Pr.Nonempty)
+    (hrow : MemRowSchurLE_sym F S B (memEdgePiece F S ρ w raw St Pr j) v
+      (if Pr.Nonempty then C * D else C))
+    (hcol : MemColSchurLE_sym F S B (memEdgePiece F S ρ w raw St Pr j) v
+      (if St.Nonempty then C * D else C)) :
+    MemOpNormLE_sym F S B (memEdgePiece F S ρ w raw St Pr j) (C * Real.sqrt D) := by
+  let R := if Pr.Nonempty then C * D else C
+  let Q := if St.Nonempty then C * D else C
+  have hR : 0 ≤ R := by dsimp [R]; split_ifs <;> positivity
+  have hQ : 0 ≤ Q := by dsimp [Q]; split_ifs <;> positivity
+  have hp : R * Q ≤ C ^ 2 * D := by
+    rcases hne with hSt | hPr
+    · dsimp [R, Q]
+      rw [if_pos hSt]
+      by_cases hPr : Pr.Nonempty
+      · rw [if_pos hPr]
+        have h := mul_nonneg (sq_nonneg C) (mul_nonneg hD (sub_nonneg.mpr hD1))
+        nlinarith
+      · rw [if_neg hPr]
+        nlinarith
+    · dsimp [R, Q]
+      rw [if_pos hPr]
+      by_cases hSt : St.Nonempty
+      · rw [if_pos hSt]
+        have h := mul_nonneg (sq_nonneg C) (mul_nonneg hD (sub_nonneg.mpr hD1))
+        nlinarith
+      · rw [if_neg hSt]
+        nlinarith
+  have hn := pd4c_memEdgePiece_sym_schur δ c₁ c₂ F S ρ w raw St Pr j B v R Q
+    hS hw hμ hv hR hQ hrow hcol
+  have hbound : Real.sqrt (R * Q) ≤ C * Real.sqrt D := by
+    calc
+      _ ≤ Real.sqrt (C ^ 2 * D) := Real.sqrt_le_sqrt hp
+      _ = C * Real.sqrt D := by rw [Real.sqrt_mul (sq_nonneg C), Real.sqrt_sq hC]
+  exact pd4c_memOpNormLE_mono F S B
+    (fun f => memEdgePiece F S ρ w raw St Pr j (memorySym f))
+    (Real.sqrt (R * Q)) (C * Real.sqrt D) hμ hn (Real.sqrt_nonneg _) hbound
+
+private theorem pd4c_strip_box_count (C₁ : ℝ) (hC₁ : 1 ≤ C₁) :
+    ∃ C₂ Y₀ : ℝ, 0 < C₂ ∧ 1 ≤ Y₀ ∧ ∀ Y : ℝ, Y₀ ≤ Y → ∀ α : ℝ,
+      (∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow Y (1 / 5 : ℝ) →
+        Real.rpow Y (-(7 / 10 : ℝ)) < circleDistance ((l : ℝ) * α)) →
+      {q : ℤ × ℤ | |(q.2 : ℝ)| ≤ C₁ * Y ∧ |(q.1 : ℝ) + (q.2 : ℝ) * α| ≤ C₁}.Finite ∧
+      ({q : ℤ × ℤ | |(q.2 : ℝ)| ≤ C₁ * Y ∧ |(q.1 : ℝ) + (q.2 : ℝ) * α| ≤ C₁}.ncard : ℝ) ≤
+        9 * C₂ * Y := by
+  classical
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hShape⟩ := lattice_shape C₁ hC₁
+  refine ⟨C₂, Y₀, hC₂, hY₀, ?_⟩
+  intro Y hY α hα
+  obtain ⟨a₀, b₀, c₀, d₀, A, D, hdet, hAD, hA, _, hD, _, hcoords⟩ := hShape Y hY α hα
+  let trans : ℤ × ℤ → ℤ × ℤ := fun q => (d₀ * q.1 - b₀ * q.2, a₀ * q.2 - c₀ * q.1)
+  let inv : ℤ × ℤ → ℤ × ℤ := fun q => (a₀ * q.1 + b₀ * q.2, c₀ * q.1 + d₀ * q.2)
+  have hleft : Function.LeftInverse inv trans := by
+    intro q
+    apply Prod.ext
+    · change a₀ * (d₀ * q.1 - b₀ * q.2) + b₀ * (a₀ * q.2 - c₀ * q.1) = q.1
+      calc
+        _ = (a₀ * d₀ - b₀ * c₀) * q.1 := by ring
+        _ = _ := by rw [hdet, one_mul]
+    · change c₀ * (d₀ * q.1 - b₀ * q.2) + d₀ * (a₀ * q.2 - c₀ * q.1) = q.2
+      calc
+        _ = (a₀ * d₀ - b₀ * c₀) * q.2 := by ring
+        _ = _ := by rw [hdet, one_mul]
+  let T : Set (ℤ × ℤ) := {q | |(q.1 : ℝ)| ≤ A ∧ |(q.2 : ℝ)| ≤ D}
+  have hTfin : T.Finite := by
+    apply ((Set.finite_Icc (-⌈A⌉) ⌈A⌉).prod (Set.finite_Icc (-⌈D⌉) ⌈D⌉)).subset
+    intro q hq
+    rcases abs_le.mp hq.1 with ⟨hlo, hhi⟩
+    rcases abs_le.mp hq.2 with ⟨hlo', hhi'⟩
+    have hcA := Int.le_ceil A
+    have hcD := Int.le_ceil D
+    constructor <;> constructor
+    · exact_mod_cast (show -(⌈A⌉ : ℝ) ≤ (q.1 : ℝ) by linarith)
+    · exact_mod_cast (show (q.1 : ℝ) ≤ (⌈A⌉ : ℝ) by linarith)
+    · exact_mod_cast (show -(⌈D⌉ : ℝ) ≤ (q.2 : ℝ) by linarith)
+    · exact_mod_cast (show (q.2 : ℝ) ≤ (⌈D⌉ : ℝ) by linarith)
+  have hmap : ∀ q ∈ {q : ℤ × ℤ | |(q.2 : ℝ)| ≤ C₁ * Y ∧ |(q.1 : ℝ) + (q.2 : ℝ) * α| ≤ C₁},
+      trans q ∈ T := fun q hq => hcoords q.1 q.2 hq.1 hq.2
+  refine ⟨Set.Finite.of_injOn hmap hleft.injective.injOn hTfin, ?_⟩
+  have hpowone : 1 ≤ Real.rpow Y (1 / 10 : ℝ) := Real.one_le_rpow (le_trans hY₀ hY) (by norm_num)
+  calc
+    _ ≤ (T.ncard : ℝ) := by exact_mod_cast Set.ncard_le_ncard_of_injOn trans hmap hleft.injective.injOn hTfin
+    _ ≤ 9 * A * D := pd4c_box_count_le A D (le_trans hpowone hA) (le_trans hpowone hD)
+    _ ≤ _ := by nlinarith [hAD]
+
+private theorem pd4c_comparison_support_coarse (Rψ : ℝ) (hRψ : 16 ≤ Rψ) :
+    ∃ C₂ Y₀ : ℝ, 0 < C₂ ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale) (w : ArchRoot) (δ c₁ c₂ : ℝ),
+      S.Valid K δ c₁ c₂ → w.InRegion S → Y₀ ≤ S.Y →
+      (∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ Rψ) →
+      ∀ (ρ : ℝ) (j : ℕ) (s : MemPoint S.x K)
+        (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i), MemValid F S s →
+        ({z' : ℤ × ℤ | EdgeAdmissible F S w s c z' ∧
+          pd4c_edgeChoiceCoeff F S ρ j false s c z' ≠ 0}.ncard : ℝ) ≤ 9 * C₂ * S.Y := by
+  classical
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hStrip⟩ := pd4c_strip_box_count Rψ (by linarith)
+  refine ⟨C₂, Y₀, hC₂, hY₀, ?_⟩
+  intro K F S w δ c₁ c₂ hS hw hY hRadius ρ j s c hs
+  let A : Set (ℤ × ℤ) := {z' | EdgeAdmissible F S w s c z' ∧
+    pd4c_edgeChoiceCoeff F S ρ j false s c z' ≠ 0}
+  obtain ⟨hYpos, _⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  by_cases hA : A.Nonempty
+  · obtain ⟨z₀, hadm, hcoef⟩ := hA
+    let D := sharedProduct s.2.1
+    let α := (D : ℝ) * transportedRatio w s.1
+    have hα : ∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow S.Y (1 / 5 : ℝ) →
+        Real.rpow S.Y (-(7 / 10 : ℝ)) < circleDistance ((l : ℝ) * α) := by
+      intro l hl hly
+      have h := hadm.2.2.2.2.2.2.2.2.1.1 (fun _ => lastSlot S.x)
+        (by simpa [pd4c_last_omission_eq_shared] using hadm.2.2.2.2.1.1)
+        (by simpa [pd4c_last_omission_eq_shared] using hadm.2.2.2.2.1.2.1) l hl hly
+      simpa only [pd4c_last_omission_eq_shared, α, D, mul_assoc] using h
+    let T : Set (ℤ × ℤ) := {q | |(q.2 : ℝ)| ≤ Rψ * S.Y ∧ |(q.1 : ℝ) + (q.2 : ℝ) * α| ≤ Rψ}
+    obtain ⟨hTfin, hTcount⟩ := hStrip S.Y hY α hα
+    let φ : ℤ × ℤ → ℤ × ℤ := fun q =>
+      (q.1 * s.1.1 + (D : ℤ) * q.2 * (complementVec s.1).1,
+        q.1 * s.1.2 + (D : ℤ) * q.2 * (complementVec s.1).2)
+    have hsub : A ⊆ φ '' T := by
+      intro z' hz'
+      have hgeom : edgeMultiplier F S (decide (j % 2 = 0)) false s.2.1
+          (edgeTargetLists F S s c) s.1 z' ≠ 0 := by
+        intro hzero
+        exact hz'.2 (by simp [pd4c_edgeChoiceCoeff, hzero])
+      have hsupport := pd4c_comparison_edge_support F S _ _ _ _ _ Rψ hYpos
+        hz'.1.2.2.2.2.1.2.2 hRadius hgeom
+      obtain ⟨hU, _⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+      obtain ⟨h, l, hrepr, hl, ht⟩ := pd4c_env_target_strip_coordinates S w s.1 z' D Rψ
+        hU hw hs.1 hadm.2.2.2.2.2.2.1 hz'.1.2.2.2.2.2.2.2.1
+        hz'.1.2.2.2.2.1.2.2 hsupport
+      exact ⟨(h, l), ⟨hl, le_trans ht hRψ⟩, hrepr.symm⟩
+    calc
+      _ ≤ ((φ '' T).ncard : ℝ) := by exact_mod_cast Set.ncard_le_ncard hsub (hTfin.image φ)
+      _ ≤ (T.ncard : ℝ) := by
+        have hcard : (φ '' T).ncard ≤ T.ncard := Set.ncard_image_le (f := φ) hTfin
+        exact_mod_cast hcard
+      _ ≤ _ := hTcount
+  · have hEmpty : A = ∅ := Set.not_nonempty_iff_eq_empty.mp hA
+    change (A.ncard : ℝ) ≤ _
+    rw [hEmpty]
+    simp only [Set.ncard_empty, Nat.cast_zero]
+    exact mul_nonneg (mul_nonneg (by norm_num) hC₂.le) hYpos.le
+
+private theorem pd4c_comparison_coarse_row (Rψ : ℝ) (hRψ : 16 ≤ Rψ) :
+    ∃ C₂ Y₀ : ℝ, 0 < C₂ ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale) (w : ArchRoot) (δ c₁ c₂ : ℝ),
+      F.Valid → S.Valid K δ c₁ c₂ → w.InRegion S → Y₀ ≤ S.Y → 1 ≤ S.L →
+      (∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ Rψ) →
+      ∀ (ρ v Ceta Cpsi Cmass : ℝ) (B j : ℕ) (St Pr : Finset (Fin K)),
+      0 ≤ ρ → ρ ≤ 1 → 1 ≤ v → 0 ≤ Ceta → 0 ≤ Cpsi → 2 ≤ Cmass → 1 ≤ B →
+      (∀ t, ‖(F.eta t : ℂ)‖ ≤ Ceta) → (∀ t, ‖(F.psi t : ℂ)‖ ≤ Cpsi) →
+      (∀ i, 0 < bandMass S.x (F.a i)) → (∀ i, (bandMass S.x (F.a i))⁻¹ ≤ Cmass) →
+      (∀ i, ∀ p : primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p) →
+      (∀ i, (∑ p : primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2) →
+      MemRowSchurLE_sym F S B (memEdgePiece F S ρ w false St Pr j) v
+        (Ceta ^ 2 * Cpsi * (32 * Real.rpow S.L F.A₀ ^ 3 / S.Y) * v ^ K *
+          (9 * C₂ * S.Y) *
+          (2 * Cmass * (B : ℝ)) ^ K) := by
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hcount⟩ := pd4c_comparison_support_coarse Rψ hRψ
+  refine ⟨C₂, Y₀, hC₂, hY₀, ?_⟩
+  intro K F S w δ c₁ c₂ hF hS hw hY hL hRadius ρ v Ceta Cpsi Cmass B j St Pr
+    hρ0 hρ1 hv hEta0 hPsi0 hMass hB hEta hPsi hV hVinv hν hνsum
+  let Cgeo := Ceta ^ 2 * Cpsi * (32 * Real.rpow S.L F.A₀ ^ 3 / S.Y)
+  let Rcount := 9 * C₂ * S.Y
+  obtain ⟨hYpos, hdpos⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  have hLpos : 0 < S.L := by linarith
+  have hv0 : 0 ≤ v := by linarith
+  have hCgeo : 0 ≤ Cgeo := by
+    exact mul_nonneg (mul_nonneg (sq_nonneg _) hPsi0)
+      (div_nonneg (mul_nonneg (by norm_num) (pow_nonneg (Real.rpow_pos_of_pos hLpos _).le _)) hYpos.le)
+  have hRcount : 0 ≤ Rcount := by
+    exact mul_nonneg (mul_nonneg (by norm_num) hC₂.le) hYpos.le
+  intro s hs hsize T hT
+  have hmass (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) :
+      pd4c_edgeRowMass F S ρ w j false St Pr v (s.1, permuteLists σ s.2.1, s.2.2) ≤
+        Cgeo * v ^ K * v ^ memSize s * Rcount * (2 * Cmass * (B : ℝ)) ^ K := by
+    let t : MemPoint S.x K := (s.1, permuteLists σ s.2.1, s.2.2)
+    have ht : MemValid F S t := memPoint_permute_valid F S σ s hs
+    have hweight (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (i : Fin K) :
+        0 ≤ pd4c_choicePrimeWeight F S t i (c i) := by
+      cases he : (c i).2 with
+      | inl k => simpa only [pd4c_choicePrimeWeight, he] using inv_nonneg.mpr (hV i).le
+      | inr p => simpa only [pd4c_choicePrimeWeight, he] using hν i p
+    have hgeom (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (z' : ℤ × ℤ)
+        (hadm : EdgeAdmissible F S w t c z') :
+        ‖edgeMultiplier F S (decide (j % 2 = 0)) false t.2.1 (edgeTargetLists F S t c) t.1 z'‖ ≤ Cgeo :=
+      pd4c_edge_comparison_norm_le F S _ _ _ _ _ Ceta Cpsi hL hF.2.2.2.1.le hYpos hdpos
+        hadm.2.2.2.2.1 hEta hPsi hEta0 hPsi0
+    have htargets (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (hc : edgePromotedSet c = Pr) :
+        ({z' | EdgeAdmissible F S w t c z' ∧ pd4c_edgeChoiceCoeff F S ρ j false t c z' ≠ 0}.ncard : ℝ) ≤ Rcount :=
+      hcount K F S w δ c₁ c₂ hS hw hY hRadius ρ j t c ht
+    have hrow := pd4c_edgeRowMass_le_of_count δ c₁ c₂ F S ρ w false St Pr j v Cgeo Rcount t
+      hS hw hρ0 hρ1 hv hCgeo hRcount hweight hgeom htargets
+    have hlen (i : Fin K) : ((t.2.2 i).length : ℝ) ≤ (B : ℝ) := by
+      have hle : (s.2.2 i).length ≤ memSize s :=
+        Finset.single_le_sum (s := Finset.univ) (f := fun j : Fin K => (s.2.2 j).length)
+          (fun j hj => Nat.zero_le _) (Finset.mem_univ i)
+      exact_mod_cast le_trans hle hsize
+    have hchoices := pd4c_promoted_choice_mass_le F S t Pr (B : ℝ) Cmass
+      (by exact_mod_cast hB) hMass hlen hV hVinv hν hνsum
+    exact hrow.trans (mul_le_mul_of_nonneg_left hchoices
+      (mul_nonneg (mul_nonneg (mul_nonneg hCgeo (pow_nonneg hv0 _)) (pow_nonneg hv0 _)) hRcount))
+  have hrow := pd4c_memEdgePiece_projected_row_mass δ c₁ c₂ F S ρ w false St Pr j hS hw s T v hv0
+  have hd : (permCount S.x K : ℝ) ≠ 0 := by
+    exact_mod_cast (show permCount S.x K ≠ 0 from Fintype.card_ne_zero)
+  calc
+    _ ≤ (permCount S.x K : ℝ)⁻¹ *
+        ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          pd4c_edgeRowMass F S ρ w j false St Pr v (s.1, permuteLists σ s.2.1, s.2.2) := hrow
+    _ ≤ (permCount S.x K : ℝ)⁻¹ *
+        ∑ _ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          Cgeo * v ^ K * v ^ memSize s * Rcount * (2 * Cmass * (B : ℝ)) ^ K := by
+      apply mul_le_mul_of_nonneg_left _ (by positivity)
+      exact Finset.sum_le_sum fun σ hσ => hmass σ
+    _ = _ := by
+      simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+      change (permCount S.x K : ℝ)⁻¹ * ((permCount S.x K : ℝ) * _) = _
+      field_simp [hd] <;> dsimp [Cgeo, Rcount] <;> field_simp [hYpos.ne'] <;> ring
+
+private theorem pd4c_memEdge_dirtyRaw_eq_piece_sum {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ) :
+    memEdge F S ρ w EdgeKind.dirtyRaw j =
+      (fun f s => ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+        (if St = ∅ ∧ Pr = ∅ then 0 else
+          memEdgePiece F S ρ w true St Pr j f s)) := by
+  funext f s
+  simp only [memEdge, plainOp, logEdge, memEdgePiece]
+  dsimp [logSym]
+  simp_rw [Finset.mul_sum]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro St hSt
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro Pr hPr
+  by_cases hempty : St = ∅ ∧ Pr = ∅ <;> simp [hempty]
+
+/-- Both comparison row entries, with all fixed constants and scale thresholds assembled. -/
+private theorem pd4c_comparison_rows_eventually (δ c₁ c₂ : ℝ) {K : ℕ}
+    (F : PDFix K) (hF : F.Valid) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) :
+    ∃ C P x₀ : ℝ, 0 < C ∧ 0 < P ∧ 2 ≤ x₀ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, ∀ St Pr : Finset (Fin K),
+          MemRowSchurLE_sym F S (memoryCutoff S) (memEdgePiece F S ρ w false St Pr j) 1
+            (if Pr.Nonempty then C * Real.rpow S.L P *
+              Real.exp (-(1 / 200 : ℝ) * Real.rpow S.L (1 / 10 : ℝ))
+             else C * Real.rpow S.L P) := by
+  obtain ⟨Ceta, hCeta, hEta⟩ := exists_eta_norm_bound F hF
+  obtain ⟨Cpsi, hCpsi, hPsi⟩ := exists_psi_norm_bound F hF
+  obtain ⟨Rψ, hRψ, hRadius⟩ := pd4c_exists_psi_radius F hF
+  obtain ⟨Cs, Ys, hCs, hYs, hSmall⟩ := pd4c_comparison_small_row Rψ hRψ
+  obtain ⟨Cc, Yc, hCc, hYc, hCoarse⟩ := pd4c_comparison_coarse_row Rψ hRψ
+  obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+  let Cmass := max 2 (2 / Real.log 2)
+  let Ds := 384 * Ceta ^ 2 * Cpsi * Cs * (2 * Cmass) ^ K
+  let Dc := 288 * Ceta ^ 2 * Cpsi * Cc * (2 * Cmass) ^ K
+  let C := 1 + 2 * Ds * (2 : ℝ) ^ K + Dc * (2 : ℝ) ^ K
+  let P := 3 * F.A₀ + 2 * (K : ℝ)
+  have hCM : 2 ≤ Cmass := le_max_left _ _
+  have hDs : 0 ≤ Ds := by dsimp [Ds]; positivity
+  have hDc : 0 ≤ Dc := by dsimp [Dc]; positivity
+  have hC : 0 < C := by dsimp [C]; positivity
+  have hP : 0 < P := by dsimp [P]; linarith [hF.2.2.2.1, (show (0 : ℝ) ≤ K from Nat.cast_nonneg K)]
+  let Ymin := max Ys Yc
+  have hYmin : 0 < Ymin := lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1)
+    (le_trans hYs (le_max_left _ _))
+  obtain ⟨Ly, hLy⟩ := Filter.eventually_atTop.1
+    ((tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 10)).eventually_ge_atTop
+      (20 * Real.log Ymin))
+  let L₀ := max 1 Ly
+  let x₀ := max 2 (max xV (max xB (Real.exp L₀)))
+  refine ⟨C, P, x₀, hC, hP, le_max_left _ _, ?_⟩
+  intro S hS hx w hw j St Pr
+  have hxV' : xV ≤ S.x := le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxB' : xB ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxL : Real.exp L₀ ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hL₀ : L₀ ≤ S.L := by
+    have h := Real.log_le_log (Real.exp_pos L₀) hxL
+    simpa only [Real.log_exp, PDScale.L] using h
+  have hL : 1 ≤ S.L := le_trans (le_max_left _ _) hL₀
+  have hLpos : 0 < S.L := by linarith
+  obtain ⟨hYpos, _⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  have hYbound : Ymin ≤ S.Y := by
+    have hlarge := hLy S.L (le_trans (le_max_right _ _) hL₀)
+    change 20 * Real.log Ymin ≤ Real.rpow S.L (1 / 10 : ℝ) at hlarge
+    have hlogY := (Finset.mem_filter.mp hS.2.2.2.2.2.1).2.1
+    change (1 / 20 : ℝ) * Real.rpow S.L (1 / 10 : ℝ) ≤ Real.log S.Y at hlogY
+    have hlog : Real.log Ymin ≤ Real.log S.Y := by linarith
+    exact (Real.log_le_log_iff hYmin hYpos).mp hlog
+  have hV (i : Fin K) : 0 < bandMass S.x (F.a i) :=
+    lt_of_lt_of_le (div_pos (Real.log_pos (by norm_num)) (by norm_num))
+      (hVbounds S.x hxV' i).1
+  have hVinv (i : Fin K) : (bandMass S.x (F.a i))⁻¹ ≤ Cmass := by
+    calc
+      _ ≤ (Real.log 2 / 2)⁻¹ := by
+        simpa only [one_div] using one_div_le_one_div_of_le
+          (div_pos (Real.log_pos (by norm_num)) (by norm_num)) (hVbounds S.x hxV' i).1
+      _ = 2 / Real.log 2 := by simp only [inv_div, one_div]
+      _ ≤ _ := le_max_right _ _
+  have hbp := hBbounds S.x hxB'
+  have hν (i : Fin K) (p : primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p :=
+    (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp p.property).2.1.pos (hV i)
+      (hbp p (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, p.property⟩))).1
+  have hνsum (i : Fin K) :
+      (∑ p : primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2 := by
+    have hAttach : (primeBand S.x (F.a i)).attach =
+        (Finset.univ : Finset (primeBand S.x (F.a i))) := by ext p; simp
+    rw [← hAttach, Finset.sum_attach]
+    exact memoryNu_band_mass_le_two F i (hV i) hbp
+  have hB : 1 ≤ memoryCutoff S := by
+    have hceil : (1 : ℝ) ≤ (memoryCutoff S : ℝ) :=
+      le_trans (Real.one_le_rpow hL (by norm_num)) (Nat.le_ceil _)
+    exact_mod_cast hceil
+  have hpow : Real.rpow S.L F.A₀ ^ 3 * Real.rpow S.L (2 * (K : ℝ)) = Real.rpow S.L P := by
+    have hcube : Real.rpow S.L F.A₀ ^ 3 = Real.rpow S.L (3 * F.A₀) := by
+      calc
+        _ = Real.rpow (Real.rpow S.L F.A₀) (3 : ℝ) := (Real.rpow_natCast _ 3).symm
+        _ = Real.rpow S.L (F.A₀ * 3) := (Real.rpow_mul hLpos.le _ _).symm
+        _ = _ := by congr 1; ring
+    rw [hcube]
+    exact (Real.rpow_add hLpos _ _).symm
+  have hCsC : 2 * Ds * (2 : ℝ) ^ K ≤ C := by
+    dsimp [C]
+    linarith [mul_nonneg hDc (pow_nonneg (by norm_num : (0 : ℝ) ≤ 2) K)]
+  have hCcC : Dc * (2 : ℝ) ^ K ≤ C := by
+    dsimp [C]
+    linarith [mul_nonneg (mul_nonneg (by norm_num : (0 : ℝ) ≤ 2) hDs) (pow_nonneg (by norm_num : (0 : ℝ) ≤ 2) K)]
+  by_cases hPr : Pr.Nonempty
+  · have hr := hSmall K F S w δ c₁ c₂ hF hS hw (le_trans (le_max_left _ _) hYbound) hL hRadius
+      ρ 1 Ceta Cpsi Cmass (memoryCutoff S) j St Pr hρ.1.le hρ.2.1.le
+      (le_refl 1) hCeta hCpsi hCM hB hPr hEta hPsi hV hVinv hν hνsum
+    have hcoef : Ceta ^ 2 * Cpsi * (32 * Real.rpow S.L F.A₀ ^ 3 / S.Y) * 1 ^ K *
+        (12 * Cs * S.Y * (Real.exp (-Real.rpow S.L (1 / 10 : ℝ)) + Real.rpow S.Y (-(1 / 10 : ℝ)))) *
+          (2 * Cmass * (memoryCutoff S : ℝ)) ^ K =
+        Ds * Real.rpow S.L F.A₀ ^ 3 * (memoryCutoff S : ℝ) ^ K *
+          (Real.exp (-Real.rpow S.L (1 / 10 : ℝ)) + Real.rpow S.Y (-(1 / 10 : ℝ))) := by
+      dsimp [Ds]
+      simp only [one_pow, mul_one, mul_pow]
+      field_simp [hYpos.ne']
+      <;> ring
+    rw [hcoef] at hr
+    have hscale := pd4c_comparison_row_scale_le δ c₁ c₂ S hS hL F.A₀ Ds hDs
+    have hbound := hscale.trans (mul_le_mul_of_nonneg_right
+      (mul_le_mul_of_nonneg_right hCsC (Real.rpow_pos_of_pos hLpos P).le)
+      (Real.exp_pos _).le)
+    simpa only [if_pos hPr, MemRowSchurLE_sym] using pd4c_memRowSchurLE_mono F S
+      (memoryCutoff S) (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f)) 1 _ _
+        (by norm_num) hr hbound
+  · have hr := hCoarse K F S w δ c₁ c₂ hF hS hw (le_trans (le_max_right _ _) hYbound) hL hRadius
+      ρ 1 Ceta Cpsi Cmass (memoryCutoff S) j St Pr hρ.1.le hρ.2.1.le
+      (le_refl 1) hCeta hCpsi hCM hB hEta hPsi hV hVinv hν hνsum
+    have hcoef : Ceta ^ 2 * Cpsi * (32 * Real.rpow S.L F.A₀ ^ 3 / S.Y) * 1 ^ K *
+        (9 * Cc * S.Y) * (2 * Cmass * (memoryCutoff S : ℝ)) ^ K =
+        Dc * Real.rpow S.L F.A₀ ^ 3 * (memoryCutoff S : ℝ) ^ K := by
+      dsimp [Dc]
+      simp only [one_pow, mul_one, mul_pow]
+      field_simp [hYpos.ne']
+      <;> ring
+    rw [hcoef] at hr
+    have hbound : Dc * Real.rpow S.L F.A₀ ^ 3 * (memoryCutoff S : ℝ) ^ K ≤ C * Real.rpow S.L P := by
+      calc
+        _ ≤ Dc * Real.rpow S.L F.A₀ ^ 3 * ((2 : ℝ) ^ K * Real.rpow S.L (2 * (K : ℝ))) :=
+          mul_le_mul_of_nonneg_left (pd4c_memoryCutoff_pow_le S K hL)
+            (mul_nonneg hDc (pow_nonneg (Real.rpow_pos_of_pos hLpos _).le _))
+        _ = (Dc * (2 : ℝ) ^ K) * Real.rpow S.L P := by rw [← hpow]; ring
+        _ ≤ _ := mul_le_mul_of_nonneg_right hCcC (Real.rpow_pos_of_pos hLpos P).le
+    simpa only [if_neg hPr, MemRowSchurLE_sym] using pd4c_memRowSchurLE_mono F S
+      (memoryCutoff S) (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f)) 1 _ _
+        (by norm_num) hr hbound
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
@@ -5250,7 +6077,79 @@ theorem lattice_clean (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_
             ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
               MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.clean j)
                 (Real.rpow S.L (-G)) := by
-  sorry
+  intro G hG
+  let A₀ := G + 4
+  have hA₀ : 0 < A₀ := by dsimp [A₀]; linarith
+  refine ⟨A₀, hA₀, ?_⟩
+  intro K F hF hHas ρ hρ
+  have hquant : ∃ C P c x₁ : ℝ, 0 < C ∧ 0 < c ∧ 2 ≤ x₁ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₁ ≤ S.x →
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
+          MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.clean j)
+            (C * (Real.rpow S.L ((1 / 5 : ℝ) - A₀) +
+              Real.rpow S.L P * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ)))) := by
+    sorry
+  obtain ⟨C, P, c, x₁, hC, hc, hx₁, hquant⟩ := hquant
+  obtain ⟨L₁, hL₁, hdecay⟩ := pd4c_logPower_expDecay_const (G + 1) P c C hc
+  obtain ⟨xμ, hxμ, hμ⟩ := pd4c_memMeasure_nonneg_eventually F hF
+  let L₀ := max 2 (max C L₁)
+  let x₀ := max 2 (max x₁ (max xμ (Real.exp L₀)))
+  refine ⟨x₀, le_max_left _ _, ?_⟩
+  intro S hS hx w hw j hj
+  have hxbound : x₁ ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxmeasure : xμ ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxexp : Real.exp L₀ ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hL₀ : L₀ ≤ S.L := by
+    have h := Real.log_le_log (Real.exp_pos L₀) hxexp
+    rw [Real.log_exp] at h
+    exact h
+  have hL2 : 2 ≤ S.L := le_trans (le_max_left _ _) hL₀
+  have hLpos : 0 < S.L := by linarith
+  have hCL : C ≤ S.L := le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hL₀
+  have hL₁' : L₁ ≤ S.L := le_trans (le_trans (le_max_right _ _) (le_max_right _ _)) hL₀
+  have hfirst : C * Real.rpow S.L ((1 / 5 : ℝ) - A₀) ≤ Real.rpow S.L (-(G + 1)) := by
+    calc
+      _ ≤ S.L * Real.rpow S.L ((1 / 5 : ℝ) - A₀) :=
+        mul_le_mul_of_nonneg_right hCL (Real.rpow_pos_of_pos hLpos _).le
+      _ = Real.rpow S.L (1 + ((1 / 5 : ℝ) - A₀)) := by
+        have hOne : Real.rpow S.L 1 = S.L := Real.rpow_one S.L
+        calc
+          S.L * Real.rpow S.L ((1 / 5 : ℝ) - A₀) =
+              Real.rpow S.L 1 * Real.rpow S.L ((1 / 5 : ℝ) - A₀) :=
+            congrArg (fun z : ℝ => z * Real.rpow S.L ((1 / 5 : ℝ) - A₀)) hOne.symm
+          _ = _ := (Real.rpow_add hLpos _ _).symm
+      _ ≤ _ := Real.rpow_le_rpow_of_exponent_le (by linarith) (by dsimp [A₀]; linarith)
+  have hsecond := hdecay S.L hL₁'
+  have hsum : C * (Real.rpow S.L ((1 / 5 : ℝ) - A₀) +
+      Real.rpow S.L P * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ))) ≤ Real.rpow S.L (-G) := by
+    have hsplit : C * (Real.rpow S.L ((1 / 5 : ℝ) - A₀) +
+      Real.rpow S.L P * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ))) =
+      C * Real.rpow S.L ((1 / 5 : ℝ) - A₀) +
+        C * Real.rpow S.L P * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ)) := by ring
+    rw [hsplit]
+    calc
+      _ ≤ 2 * Real.rpow S.L (-(G + 1)) := by linarith
+      _ ≤ Real.rpow S.L (-G) := by
+        have hp : Real.rpow S.L (-(G + 1)) = Real.rpow S.L (-G) / S.L := by
+          have h : Real.rpow S.L (-G - 1) = Real.rpow S.L (-G) / Real.rpow S.L 1 :=
+            Real.rpow_sub hLpos (-G) 1
+          have hOne : Real.rpow S.L 1 = S.L := Real.rpow_one S.L
+          rw [hOne] at h
+          simpa only [show -G - 1 = -(G + 1) by ring] using h
+        rw [hp]
+        rw [← mul_div_assoc, div_le_iff₀ hLpos]
+        have hprod : 0 ≤ (S.L - 2) * Real.rpow S.L (-G) :=
+          mul_nonneg (sub_nonneg.mpr hL2) (Real.rpow_pos_of_pos hLpos _).le
+        nlinarith
+  have hbound := hquant S hS hxbound w hw j hj
+  exact pd4c_memOpNormLE_mono F S (memoryCutoff S)
+    (fun f => memEdge F S ρ w EdgeKind.clean j (memorySym f)) _ _ (hμ S hxmeasure) hbound
+    (mul_nonneg hC.le (add_nonneg (Real.rpow_pos_of_pos hLpos _).le
+      (mul_nonneg (Real.rpow_pos_of_pos hLpos _).le (Real.exp_pos _).le))) hsum
+
 
 /-- `t2:pd.dirty-raw` — PD 04:605-714.  REPLACES the frozen `dirty_raw`.  With
 `ε_K = C_K(B/M_J^K + B^K e^{-cL^{0.1}})`: every raw piece with `(St,Pr) ≠ (∅,∅)` has weighted row
@@ -5274,7 +6173,118 @@ theorem dirty_raw (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
                   (if St.Nonempty then εK else C_K)) ∧
             MemOpNormLE_sym F S B (memEdge F S ρ w EdgeKind.dirtyRaw j)
               (C_K * Real.rpow S.L (1 - (K : ℝ) / 200)) := by
-  sorry
+  classical
+  intro K hK F hF ρ hρ
+  obtain ⟨xμ, hxμ, hMeasure⟩ := pd4c_memMeasure_nonneg_eventually F hF
+  have htable : ∃ v C c x₁ : ℝ, 1 < v ∧ 0 < C ∧ 0 < c ∧ 2 ≤ x₁ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₁ ≤ S.x →
+        let D := (memoryCutoff S : ℝ) / (S.M : ℝ) ^ K +
+          (memoryCutoff S : ℝ) ^ K * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ))
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
+          ∀ St Pr : Finset (Fin K), ¬ (St = ∅ ∧ Pr = ∅) →
+            MemRowSchurLE_sym F S (memoryCutoff S) (memEdgePiece F S ρ w true St Pr j) v
+              (if Pr.Nonempty then C * D else C) ∧
+            MemColSchurLE_sym F S (memoryCutoff S) (memEdgePiece F S ρ w true St Pr j) v
+              (if St.Nonempty then C * D else C) := by
+    sorry
+  obtain ⟨v, C, c, x₁, hv, hC, hc, hx₁, htable⟩ := htable
+  obtain ⟨Lraw, hLraw, hRawBounds⟩ := pd4c_raw_scale_bounds K hK c hc
+  let I := Finset (Fin K) × Finset (Fin K)
+  let d := Fintype.card I
+  let C_K := 2 * (d : ℝ) * C
+  have hdpos : 0 < d := Fintype.card_pos
+  have hd1 : (1 : ℝ) ≤ d := by exact_mod_cast hdpos
+  have hCK : 0 < C_K := by dsimp [C_K]; positivity
+  have hCCK : C ≤ C_K := by dsimp [C_K]; nlinarith
+  refine ⟨v, C_K, c, max x₁ (max xμ (Real.exp Lraw)), hv, hCK, hc,
+    le_trans hx₁ (le_max_left _ _), ?_⟩
+  intro S hS hx w hw j hj
+  let B := memoryCutoff S
+  let D := (B : ℝ) / (S.M : ℝ) ^ K +
+    (B : ℝ) ^ K * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ))
+  have hxExp : Real.exp Lraw ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_max_right _ _)) hx
+  have hLrawS : Lraw ≤ S.L := by
+    have h := Real.log_le_log (Real.exp_pos Lraw) hxExp
+    rw [Real.log_exp] at h
+    exact h
+  have hL := le_trans hLraw hLrawS
+  obtain ⟨hD, hD1, hDpow⟩ := hRawBounds S hLrawS
+  have htableS := htable S hS (le_trans (le_max_left _ _) hx)
+  have hμ := hMeasure S (le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hx)
+  have hv0 : 0 < v := by linarith
+  constructor
+  · intro St Pr hne
+    obtain ⟨hrow, hcol⟩ := htableS w hw j hj St Pr hne
+    have hR : (if Pr.Nonempty then C * D else C) ≤ (if Pr.Nonempty then C_K * D else C_K) := by
+      split_ifs
+      · exact mul_le_mul_of_nonneg_right hCCK hD
+      · exact hCCK
+    have hQ : (if St.Nonempty then C * D else C) ≤ (if St.Nonempty then C_K * D else C_K) := by
+      split_ifs
+      · exact mul_le_mul_of_nonneg_right hCCK hD
+      · exact hCCK
+    exact ⟨pd4c_memRowSchurLE_mono F S B
+      (fun f => memEdgePiece F S ρ w true St Pr j (memorySym f)) v _ _ hv0.le hrow hR,
+      pd4c_memColSchurLE_mono F S B
+      (fun f => memEdgePiece F S ρ w true St Pr j (memorySym f)) v _ _ hv0.le hμ hcol hQ⟩
+  · let a := C * Real.sqrt D
+    have ha : 0 ≤ a := mul_nonneg hC.le (Real.sqrt_nonneg D)
+    let ops (i : I) : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ :=
+      fun f s => if i.1 = ∅ ∧ i.2 = ∅ then 0 else
+        memEdgePiece F S ρ w true i.1 i.2 j (memorySym f) s
+    have hops (i : I) : MemOpNormLE F S B (ops i) a := by
+      by_cases hempty : i.1 = ∅ ∧ i.2 = ∅
+      · intro T T' f hf hT hT'
+        have hN := pd4c_memNormSqOn_nonneg F S hμ T f
+        simpa only [ops, if_pos hempty, memNormSqOn, norm_zero, zero_pow (by omega : 2 ≠ 0),
+          mul_zero, Finset.sum_const_zero] using mul_nonneg (sq_nonneg a) hN
+      · have hsome : i.1.Nonempty ∨ i.2.Nonempty := by
+          by_cases hSt : i.1.Nonempty
+          · exact Or.inl hSt
+          · by_cases hPr : i.2.Nonempty
+            · exact Or.inr hPr
+            · exact False.elim (hempty ⟨Finset.not_nonempty_iff_eq_empty.mp hSt,
+                Finset.not_nonempty_iff_eq_empty.mp hPr⟩)
+        obtain ⟨hrow, hcol⟩ := htableS w hw j hj i.1 i.2 hempty
+        have hp := pd4c_dirty_piece_norm_of_table δ c₁ c₂ F S ρ w true i.1 i.2 j B v C D
+          hS hw hμ hv0 hC.le hD hD1 hsome hrow hcol
+        simpa only [ops, if_neg hempty, MemOpNormLE_sym, a] using hp
+    have hsum := pd4c_memOpNormLE_fintype_sum F S B ops (fun _ => a) hμ (fun _ => ha) hops
+    have hconst : Real.sqrt ((d : ℝ) * ∑ _ : I, a ^ 2) = (d : ℝ) * a := by
+      simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+      change Real.sqrt ((d : ℝ) * ((d : ℝ) * a ^ 2)) = _
+      rw [show (d : ℝ) * ((d : ℝ) * a ^ 2) = ((d : ℝ) * a) ^ 2 by ring]
+      exact Real.sqrt_sq (mul_nonneg (Nat.cast_nonneg _) ha)
+    rw [hconst] at hsum
+    have hop : (fun f s => ∑ i : I, ops i f s) =
+        fun f => memEdge F S ρ w EdgeKind.dirtyRaw j (memorySym f) := by
+      funext f s
+      rw [pd4c_memEdge_dirtyRaw_eq_piece_sum]
+      exact Fintype.sum_prod_type (fun i : I => ops i f s)
+    rw [hop] at hsum
+    have hLpos : 0 < S.L := by linarith
+    let q := 1 - (K : ℝ) / 200
+    have hRate : 0 ≤ Real.rpow S.L q := (Real.rpow_pos_of_pos hLpos _).le
+    have hRateSq : (Real.rpow S.L q) ^ 2 = Real.rpow S.L (2 - (K : ℝ) / 100) := by
+      calc
+        _ = Real.rpow (Real.rpow S.L q) (2 : ℝ) := (Real.rpow_natCast _ 2).symm
+        _ = Real.rpow S.L (q * 2) := (Real.rpow_mul hLpos.le q 2).symm
+        _ = _ := by dsimp [q]; congr 1; ring
+    have hSqrt : Real.sqrt D ≤ 2 * Real.rpow S.L q := by
+      have hsqrt := Real.sq_sqrt hD
+      have hnonneg := Real.sqrt_nonneg D
+      nlinarith
+    have hbound : (d : ℝ) * a ≤ C_K * Real.rpow S.L q := by
+      calc
+        _ = ((d : ℝ) * C) * Real.sqrt D := by dsimp [a]; ring
+        _ ≤ ((d : ℝ) * C) * (2 * Real.rpow S.L q) :=
+          mul_le_mul_of_nonneg_left hSqrt (mul_nonneg (Nat.cast_nonneg _) hC.le)
+        _ = _ := by dsimp [C_K]; ring
+    exact pd4c_memOpNormLE_mono F S B
+      (fun f => memEdge F S ρ w EdgeKind.dirtyRaw j (memorySym f)) ((d : ℝ) * a)
+      (C_K * Real.rpow S.L q) hμ hsum (mul_nonneg (Nat.cast_nonneg _) ha) hbound
+
 
 /-- `t2:pd.dirty-comparison` — PD 04:716-770.  REPLACES the frozen `dirty_comparison`.
 Comparison pieces with `(St,Pr) ≠ (∅,∅)`: a promoted index needs one prescribed line at the
@@ -5288,7 +6298,146 @@ theorem dirty_comparison (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
         ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
           MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.dirtyCmp j)
             (C_A * Real.rpow S.L (-A)) := by
-  sorry
+  classical
+  intro K F hF ρ hρ A hA
+  obtain ⟨xμ, hxμ, hMeasure⟩ := pd4c_memMeasure_nonneg_eventually F hF
+  obtain ⟨Cr, P, xr, hCr, hP, hxr, hRows⟩ := pd4c_comparison_rows_eventually δ c₁ c₂ F hF ρ hρ
+  have htranspose : ∃ Cτ xτ : ℝ, 0 < Cτ ∧ 2 ≤ xτ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → xτ ≤ S.x →
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, ∀ St Pr : Finset (Fin K),
+          ∀ s t : MemPoint S.x K, MemValid F S s → memSize s ≤ memoryCutoff S →
+            MemValid F S t → memSize t ≤ memoryCutoff S →
+              memMeasure F S s *
+                ‖memKernel (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f)) s t‖ ≤
+              Cτ * memMeasure F S t *
+                ‖memKernel (fun f => memEdgePiece F S ρ w false Pr St (j + 1) (memorySym f)) t s‖ := by
+    sorry
+  obtain ⟨Cτ, xτ, hCτ, hxτ, hTranspose⟩ := htranspose
+  let Cg := (1 + Cτ) * Cr
+  have hCg : 0 < Cg := mul_pos (by linarith) hCr
+  have hCrCg : Cr ≤ Cg := by dsimp [Cg]; nlinarith
+  have hCτCrCg : Cτ * Cr ≤ Cg := by dsimp [Cg]; nlinarith
+  obtain ⟨Ld, hLd, hDecay⟩ := pd4c_logPower_expDecay_const A P (1 / 400 : ℝ) Cg (by norm_num)
+  have hpieces : ∃ Cpiece x₀ : ℝ, 0 < Cpiece ∧ 2 ≤ x₀ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
+          ∀ St Pr : Finset (Fin K), ¬ (St = ∅ ∧ Pr = ∅) →
+            MemOpNormLE_sym F S (memoryCutoff S) (memEdgePiece F S ρ w false St Pr j)
+              (Cpiece * Real.rpow S.L (-A)) := by
+    let x₀ := max xr (max xτ (max xμ (Real.exp Ld)))
+    refine ⟨1, x₀, by norm_num, le_trans hxr (le_max_left _ _), ?_⟩
+    intro S hS hx w hw j hj St Pr hne
+    have hxr' : xr ≤ S.x := le_trans (le_max_left _ _) hx
+    have hxτ' : xτ ≤ S.x := le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+    have hxμ' : xμ ≤ S.x := le_trans
+      (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+    have hxL : Real.exp Ld ≤ S.x := le_trans
+      (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+    have hLd' : Ld ≤ S.L := by
+      have h := Real.log_le_log (Real.exp_pos Ld) hxL
+      simpa only [Real.log_exp, PDScale.L] using h
+    have hL : 1 ≤ S.L := le_trans hLd hLd'
+    have hLpos : 0 < S.L := by linarith
+    have hμ := hMeasure S hxμ'
+    let E := Real.exp (-(1 / 200 : ℝ) * Real.rpow S.L (1 / 10 : ℝ))
+    let Cb := Cg * Real.rpow S.L P
+    have hE : 0 ≤ E := (Real.exp_pos _).le
+    have hE1 : E ≤ 1 := by
+      apply Real.exp_le_one_iff.mpr
+      exact mul_nonpos_of_nonpos_of_nonneg (by norm_num) (Real.rpow_nonneg hLpos.le _)
+    have hCb : 0 ≤ Cb := (mul_pos hCg (Real.rpow_pos_of_pos hLpos P)).le
+    have hrow₀ := hRows S hS hxr' w hw j St Pr
+    have hrow : MemRowSchurLE_sym F S (memoryCutoff S)
+        (memEdgePiece F S ρ w false St Pr j) 1 (if Pr.Nonempty then Cb * E else Cb) := by
+      apply pd4c_memRowSchurLE_mono F S (memoryCutoff S)
+        (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f)) 1 _ _ (by norm_num) hrow₀
+      by_cases hp : Pr.Nonempty
+      · simp only [if_pos hp]
+        exact mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_right hCrCg (Real.rpow_pos_of_pos hLpos P).le) hE
+      · simp only [if_neg hp]
+        exact mul_le_mul_of_nonneg_right hCrCg (Real.rpow_pos_of_pos hLpos P).le
+    have hrev := hRows S hS hxr' w hw (j + 1) Pr St
+    have hcol₀ := pd4c_colSchur_of_kernelTranspose F S (memoryCutoff S)
+      (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f))
+      (fun f => memEdgePiece F S ρ w false Pr St (j + 1) (memorySym f))
+      _ Cτ hμ hCτ.le (hTranspose S hS hxτ' w hw j St Pr) hrev
+    have hcol : MemColSchurLE_sym F S (memoryCutoff S)
+        (memEdgePiece F S ρ w false St Pr j) 1 (if St.Nonempty then Cb * E else Cb) := by
+      apply pd4c_memColSchurLE_mono F S (memoryCutoff S)
+        (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f)) 1 _ _
+          (by norm_num) hμ hcol₀
+      by_cases hp : St.Nonempty
+      · simp only [if_pos hp]
+        calc
+          Cτ * (Cr * Real.rpow S.L P * E) = (Cτ * Cr) * Real.rpow S.L P * E := by ring
+          _ ≤ _ := mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_right hCτCrCg (Real.rpow_pos_of_pos hLpos P).le) hE
+      · simp only [if_neg hp]
+        calc
+          Cτ * (Cr * Real.rpow S.L P) = (Cτ * Cr) * Real.rpow S.L P := by ring
+          _ ≤ _ := mul_le_mul_of_nonneg_right hCτCrCg (Real.rpow_pos_of_pos hLpos P).le
+    have hsome : St.Nonempty ∨ Pr.Nonempty := by
+      by_cases hSt : St.Nonempty
+      · exact Or.inl hSt
+      · by_cases hPr : Pr.Nonempty
+        · exact Or.inr hPr
+        · exact False.elim (hne ⟨Finset.not_nonempty_iff_eq_empty.mp hSt,
+            Finset.not_nonempty_iff_eq_empty.mp hPr⟩)
+    have hn := pd4c_dirty_piece_norm_of_table δ c₁ c₂ F S ρ w false St Pr j
+      (memoryCutoff S) 1 Cb E hS hw hμ (by norm_num) hCb hE hE1 hsome hrow hcol
+    have hExpSq : Real.exp (-(1 / 400 : ℝ) * Real.rpow S.L (1 / 10 : ℝ)) ^ 2 = E := by
+      rw [pow_two, ← Real.exp_add]
+      dsimp [E]
+      congr 1
+      ring
+    have hbound : Cb * Real.sqrt E ≤ Real.rpow S.L (-A) := by
+      rw [← hExpSq, Real.sqrt_sq (Real.exp_pos _).le]
+      exact hDecay S.L hLd'
+    have hnorm := pd4c_memOpNormLE_mono F S (memoryCutoff S)
+      (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f))
+      (Cb * Real.sqrt E) (Real.rpow S.L (-A)) hμ hn
+      (mul_nonneg hCb (Real.sqrt_nonneg _)) hbound
+    simpa only [one_mul, MemOpNormLE_sym] using hnorm
+  obtain ⟨Cpiece, x₀, hCpiece, hx₀, hpieces⟩ := hpieces
+  let I := Finset (Fin K) × Finset (Fin K)
+  let d := Fintype.card I
+  have hdpos : 0 < d := Fintype.card_pos
+  refine ⟨(d : ℝ) * Cpiece, max x₀ xμ, mul_pos (by exact_mod_cast hdpos) hCpiece,
+    le_trans hx₀ (le_max_left _ _), ?_⟩
+  intro S hS hx w hw j hj
+  have hμ := hMeasure S (le_trans (le_max_right _ _) hx)
+  have hp := hpieces S hS (le_trans (le_max_left _ _) hx)
+  have hLpos : 0 < S.L := Real.log_pos (by linarith [hS.1])
+  let c := Cpiece * Real.rpow S.L (-A)
+  have hc : 0 ≤ c := (mul_pos hCpiece (Real.rpow_pos_of_pos hLpos _)).le
+  let ops (i : I) : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ :=
+    fun f s => if i.1 = ∅ ∧ i.2 = ∅ then 0 else
+      memEdgePiece F S ρ w false i.1 i.2 j (memorySym f) s
+  have hops (i : I) : MemOpNormLE F S (memoryCutoff S) (ops i) c := by
+    by_cases hempty : i.1 = ∅ ∧ i.2 = ∅
+    · intro T T' f hf hT hT'
+      have hN : 0 ≤ memNormSqOn F S T f :=
+        Finset.sum_nonneg fun s hs => mul_nonneg (hμ s) (sq_nonneg _)
+      simpa only [ops, if_pos hempty, memNormSqOn, norm_zero, zero_pow (by omega : 2 ≠ 0),
+        mul_zero, Finset.sum_const_zero] using mul_nonneg (sq_nonneg c) hN
+    · simpa only [ops, if_neg hempty, MemOpNormLE_sym, c] using hp w hw j hj i.1 i.2 hempty
+  have hsum := pd4c_memOpNormLE_fintype_sum F S (memoryCutoff S) ops (fun _ => c) hμ
+    (fun _ => hc) hops
+  have hconst : Real.sqrt ((d : ℝ) * ∑ _ : I, c ^ 2) = (d : ℝ) * c := by
+    simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+    change Real.sqrt ((d : ℝ) * ((d : ℝ) * c ^ 2)) = _
+    rw [show (d : ℝ) * ((d : ℝ) * c ^ 2) = ((d : ℝ) * c) ^ 2 by ring]
+    exact Real.sqrt_sq (mul_nonneg (Nat.cast_nonneg _) hc)
+  rw [hconst] at hsum
+  have hop : (fun f s => ∑ i : I, ops i f s) =
+      fun f => memEdge F S ρ w EdgeKind.dirtyCmp j (memorySym f) := by
+    funext f s
+    rw [pd4c_memEdge_dirtyCmp_eq_piece_sum]
+    exact Fintype.sum_prod_type (fun i : I => ops i f s)
+  rw [hop] at hsum
+  simpa only [MemOpNormLE_sym, c, mul_assoc] using hsum
+
 
 private theorem finite_weighted_schur_norm {α : Type*} [DecidableEq α]
     (μ v : α → ℝ) (k : α → α → ℂ) (f : α → ℂ) (T T' : Finset α) (a b : ℝ)

@@ -13,13 +13,13 @@ open Classical
 def pd4c_word {T : Finset Particle} {n : ℕ} (w : Fin n → T) : List Particle :=
   List.ofFn fun i => (w i : Particle)
 
-private def pd4c_wordFinEquiv {T : Finset Particle} {n : ℕ} (w : Fin n → T) :
+def pd4c_wordFinEquiv {T : Finset Particle} {n : ℕ} (w : Fin n → T) :
     Fin (pd4c_word w).length ≃ Fin n := finCongr (by simp [pd4c_word])
 
 def pd4c_wordIndex {T : Finset Particle} {n : ℕ} (w : Fin n → T) (i : Fin n) :
     Fin (pd4c_word w).length := (pd4c_wordFinEquiv w).symm i
 
-private theorem pd4c_word_get {T : Finset Particle} {n : ℕ} (w : Fin n → T) (i : Fin n) :
+theorem pd4c_word_get {T : Finset Particle} {n : ℕ} (w : Fin n → T) (i : Fin n) :
     (pd4c_word w).get (pd4c_wordIndex w i) = (w i : Particle) := by
   simp [pd4c_word, pd4c_wordIndex, pd4c_wordFinEquiv]
   congr 1
@@ -206,6 +206,23 @@ theorem pd4c_creation_pairing (T : Finset Particle) (ν : Particle → ℝ)
     _ = ((ν e : ℂ) * (pd4c_listDensity ν (pd4c_word w) : ℂ)) *
         F ((e : Particle) :: pd4c_word w) * G (pd4c_word w) := by ring
     _ = _ := by rw [← hDensity]; ring
+
+/-- Reindex indexed retrieval from word positions to the actual list-position type. -/
+theorem pd4c_word_retrieve_sum {T : Finset Particle} {n : ℕ}
+    (w : Fin n → T) (e : Particle) (g : List Particle → ℂ) :
+    (∑ k : Fin (pd4c_word w).length, if (pd4c_word w).get k = e then
+      g (removeIndices (pd4c_word w) {k}) else 0) =
+      ∑ k : Fin n, if (w k : Particle) = e then
+        g (removeIndices (pd4c_word w) {pd4c_wordIndex w k}) else 0 := by
+  have h := Equiv.sum_comp (pd4c_wordFinEquiv w).symm
+    (fun k : Fin (pd4c_word w).length => if (pd4c_word w).get k = e then
+      g (removeIndices (pd4c_word w) {k}) else 0)
+  rw [← h]
+  apply Finset.sum_congr rfl
+  intro k hk
+  change (if (pd4c_word w).get (pd4c_wordIndex w k) = e then
+    g (removeIndices (pd4c_word w) {pd4c_wordIndex w k}) else 0) = _
+  rw [pd4c_word_get]
 
 end
 

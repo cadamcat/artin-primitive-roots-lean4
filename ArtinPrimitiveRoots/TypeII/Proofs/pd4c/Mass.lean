@@ -193,6 +193,30 @@ theorem pd4c_promoted_choice_mass_le {K : ℕ} (F : PDFix K) (S : PDScale)
           nlinarith [hνsum i]
     _ = _ := by simp
 
+/-- Nonnegative modified prime densities give a nonnegative state measure. -/
+theorem pd4c_memMeasure_nonneg_of_nu {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hν : ∀ i, ∀ p ∈ primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p) :
+    ∀ s : MemPoint S.x K, 0 ≤ memMeasure F S s := by
+  intro s
+  by_cases hs : MemValid F S s
+  · rw [memMeasure, if_pos hs]
+    apply mul_nonneg
+    · apply Finset.prod_nonneg
+      intro i hi
+      apply Finset.prod_nonneg
+      intro j hj
+      exact hν i _ (hs.2.1 i j)
+    · apply Finset.prod_nonneg
+      intro i hi
+      apply div_nonneg
+      · apply List.prod_nonneg
+        intro a ha
+        obtain ⟨e, he, hEq⟩ := List.mem_map.mp ha
+        rw [← hEq]
+        exact hν i e.1 (hs.2.2 i e he).1
+      · exact Nat.cast_nonneg _
+  · simp [memMeasure, hs]
+
 end
 
 end ArtinPrimitiveRoots.TypeII.PD

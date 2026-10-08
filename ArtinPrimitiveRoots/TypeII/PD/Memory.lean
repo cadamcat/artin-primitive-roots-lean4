@@ -1968,6 +1968,15 @@ private theorem pd4c_finite_average_pairing {α G : Type*} [Fintype α] [Fintype
   simp_rw [hmove, ← heinv]
   exact Equiv.sum_comp inv (fun a => ∑ s : α, (μ s : ℂ) * star (f s) * g (e a s))
 
+/-- Self-adjointness of a finite average under an invariant real weight. -/
+theorem pd4c_finiteAverage_pairing {α G : Type*} [Fintype α] [Fintype G]
+    (e : G → α ≃ α) (inv : G ≃ G) (heinv : ∀ g, e (inv g) = (e g).symm)
+    (μ : α → ℝ) (hμ : ∀ g s, μ (e g s) = μ s) (f g : α → ℂ) :
+    (∑ s : α, (μ s : ℂ) * star ((Fintype.card G : ℂ)⁻¹ * ∑ a : G, f (e a s)) * g s) =
+      ∑ s : α, (μ s : ℂ) * star (f s) *
+        ((Fintype.card G : ℂ)⁻¹ * ∑ a : G, g (e a s)) :=
+  pd4c_finite_average_pairing e inv heinv μ hμ f g
+
 private theorem pd4c_memorySym_pairing_shape {K : ℕ} (F : PDFix K) (S : PDScale)
     (T : Finset (MemPoint S.x K)) (hT : ∀ s ∈ T, ∀ σ, memoryPermute s σ ∈ T)
     (f g : MemPoint S.x K → ℂ) (n : MemoryShape K) :
@@ -2035,6 +2044,85 @@ theorem pd4c_memValid_memoryPermute_iff {K : ℕ} (F : PDFix K) (S : PDScale)
     (s : MemPoint S.x K) (σ : MemoryPermutation s) :
     MemValid F S (memoryPermute s σ) ↔ MemValid F S s :=
   memValid_memoryPermute_iff F S s σ
+
+/-- Reordering active slots leaves the state measure unchanged. -/
+theorem pd4c_memMeasure_activePermute {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : MemPoint S.x K) (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) :
+    memMeasure F S (s.1, permuteLists σ s.2.1, s.2.2) = memMeasure F S s := by
+  have hv : MemValid F S (s.1, permuteLists σ s.2.1, s.2.2) ↔ MemValid F S s := by
+    constructor
+    · intro h
+      refine ⟨h.1, ?_, h.2.2⟩
+      intro i j
+      simpa only [permuteLists, Equiv.apply_symm_apply] using h.2.1 i ((σ i).symm j)
+    · intro h
+      exact ⟨h.1, (fun i j => h.2.1 i (σ i j)), h.2.2⟩
+  have hprod :
+      (∏ i : Fin K, ∏ j : Fin (slotCount S.x), memoryNu S.x K F.a F.q_d i (permuteLists σ s.2.1 i j)) =
+        ∏ i : Fin K, ∏ j : Fin (slotCount S.x), memoryNu S.x K F.a F.q_d i (s.2.1 i j) := by
+    apply Finset.prod_congr rfl
+    intro i hi
+    exact Equiv.prod_comp (σ i) (fun j => memoryNu S.x K F.a F.q_d i (s.2.1 i j))
+  unfold memMeasure
+  simp only [hv]
+  rw [hprod]
+
+/-- Endpoint slot averaging is self-adjoint on finite sets closed under active permutations. -/
+theorem pd4c_activeSym_pairing {K : ℕ} (F : PDFix K) (S : PDScale)
+    (T : Finset (MemPoint S.x K))
+    (hT : ∀ s ∈ T, ∀ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+      (s.1, permuteLists σ s.2.1, s.2.2) ∈ T)
+    (f g : MemPoint S.x K → ℂ) :
+    (∑ s ∈ T, (memMeasure F S s : ℂ) * star (plainOp (logSym F S) f s) * g s) =
+      ∑ s ∈ T, (memMeasure F S s : ℂ) * star (f s) * plainOp (logSym F S) g s := by
+  classical
+  let G := Fin K → Equiv.Perm (Fin (slotCount S.x))
+  let e (a : G) : {s : MemPoint S.x K // s ∈ T} ≃ {s : MemPoint S.x K // s ∈ T} := {
+    toFun := fun s => ⟨(s.1.1, permuteLists a s.1.2.1, s.1.2.2), hT s.1 s.2 a⟩
+    invFun := fun s => ⟨(s.1.1, permuteLists (fun i => (a i).symm) s.1.2.1, s.1.2.2),
+      hT s.1 s.2 (fun i => (a i).symm)⟩
+    left_inv := by
+      intro s
+      apply Subtype.ext
+      apply Prod.ext
+      · rfl
+      · apply Prod.ext
+        · funext i j
+          simp [permuteLists]
+        · rfl
+    right_inv := by
+      intro s
+      apply Subtype.ext
+      apply Prod.ext
+      · rfl
+      · apply Prod.ext
+        · funext i j
+          simp [permuteLists]
+        · rfl
+  }
+  let inv : G ≃ G := {
+    toFun := fun a i => (a i).symm
+    invFun := fun a i => (a i).symm
+    left_inv := by intro a; funext i; simp
+    right_inv := by intro a; funext i; simp
+  }
+  have heinv (a : G) : e (inv a) = (e a).symm := by
+    apply Equiv.ext
+    intro s
+    apply Subtype.ext
+    rfl
+  have hμ (a : G) (s : {s : MemPoint S.x K // s ∈ T}) :
+      memMeasure F S (e a s).1 = memMeasure F S s.1 :=
+    pd4c_memMeasure_activePermute F S s.1 a
+  rw [finset_sum_attach_eq]
+  conv_rhs => rw [finset_sum_attach_eq]
+  exact pd4c_finite_average_pairing e inv heinv (fun s => memMeasure F S s.1)
+    hμ (fun s => f s.1) (fun s => g s.1)
+
+/-- A list permutation is realized by an equivalence of its indexed positions. -/
+theorem pd4c_finEquiv_of_list_perm {α : Type*} {l l' : List α} (h : l.Perm l') :
+    ∃ e : Fin l'.length ≃ Fin l.length, ∀ j, l'.get j = l.get (e j) :=
+  exists_finEquiv_of_list_perm h
 
 /-- Transfer a symmetric continuation across arbitrary per-group list reorderings. -/
 theorem pd4c_memory_symmetric_list_perm {x : ℝ} {K : ℕ}

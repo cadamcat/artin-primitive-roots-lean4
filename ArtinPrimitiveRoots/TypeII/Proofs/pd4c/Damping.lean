@@ -94,6 +94,30 @@ theorem pd4c_promotion_target_damping (ρ : ℝ) (hρ0 : 0 ≤ ρ) (hρ1 : ρ �
   rw [pd4c_hitCount_append, hlen]
   exact pow_le_pow_of_le_one hρ0 hρ1 (Nat.le_add_right _ _)
 
+theorem pd4c_hitCount_perm {l l' : List Particle} (h : l.Perm l') (z : ℤ × ℤ) :
+    hitCount l z = hitCount l' z := by
+  rw [pd4c_hitCount_eq_countP, pd4c_hitCount_eq_countP]
+  exact h.countP_eq (fun e => decide (particleHits e z))
+
+def pd4c_memoryDamping {K : ℕ} (ρ : ℝ) (z : ℤ × ℤ) (m : Fin K → List Particle) : ℂ :=
+  ((ρ ^ (∑ i : Fin K, hitCount (m i) z) : ℝ) : ℂ)
+
+theorem pd4c_memoryDamping_perm {K : ℕ} (ρ : ℝ) (z : ℤ × ℤ)
+    (m m' : Fin K → List Particle) (h : ∀ i, (m i).Perm (m' i)) :
+    pd4c_memoryDamping ρ z m = pd4c_memoryDamping ρ z m' := by
+  unfold pd4c_memoryDamping
+  have heq : (∑ i : Fin K, hitCount (m i) z) = ∑ i : Fin K, hitCount (m' i) z :=
+    Finset.sum_congr rfl (fun i hi => pd4c_hitCount_perm (h i) z)
+  rw [heq]
+
+theorem pd4c_damped_symmetric {K : ℕ} (ρ : ℝ) (z : ℤ × ℤ)
+    (F : (Fin K → List Particle) → ℂ)
+    (hF : ∀ m m', (∀ i, (m i).Perm (m' i)) → F m = F m') :
+    ∀ m m', (∀ i, (m i).Perm (m' i)) →
+      pd4c_memoryDamping ρ z m * F m = pd4c_memoryDamping ρ z m' * F m' := by
+  intro m m' h
+  rw [pd4c_memoryDamping_perm ρ z m m' h, hF m m' h]
+
 end
 
 end ArtinPrimitiveRoots.TypeII.PD

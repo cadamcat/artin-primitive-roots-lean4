@@ -885,6 +885,26 @@ theorem pd4c_env_fixed_det_count (S : PDScale) (w : ArchRoot) (z : ℤ × ℤ) (
     simpa [hIcard] using hcard
   exact_mod_cast hbound
 
+/-- The full balanced rectangle has at most a constant times its area many integer vectors. -/
+theorem pd4c_box_count_le (A D : ℝ) (hA : 1 ≤ A) (hD : 1 ≤ D) :
+    ({q : ℤ × ℤ | |(q.1 : ℝ)| ≤ A ∧ |(q.2 : ℝ)| ≤ D}.ncard : ℝ) ≤ 9 * A * D := by
+  let X : Finset ℤ := Finset.Icc (-⌊A⌋) ⌊A⌋
+  let Y : Finset ℤ := Finset.Icc (-⌊D⌋) ⌊D⌋
+  have hsub : {q : ℤ × ℤ | |(q.1 : ℝ)| ≤ A ∧ |(q.2 : ℝ)| ≤ D} ⊆ (X ×ˢ Y : Finset (ℤ × ℤ)) := by
+    intro q hq
+    exact Finset.mem_product.mpr ⟨int_abs_bound_mem_Icc_floor A hA q.1 hq.1,
+      int_abs_bound_mem_Icc_floor D hD q.2 hq.2⟩
+  have hc := Set.ncard_le_ncard hsub (X ×ˢ Y).finite_toSet
+  have hX := int_floor_box_card_le A hA
+  have hY := int_floor_box_card_le D hD
+  have hX3 : (X.card : ℝ) ≤ 3 * A := by dsimp [X]; linarith
+  have hY3 : (Y.card : ℝ) ≤ 3 * D := by dsimp [Y]; linarith
+  calc
+    _ ≤ ((X ×ˢ Y).card : ℝ) := by exact_mod_cast (by simpa using hc)
+    _ = (X.card : ℝ) * (Y.card : ℝ) := by simp
+    _ ≤ (3 * A) * (3 * D) := mul_le_mul hX3 hY3 (Nat.cast_nonneg _) (by linarith)
+    _ = _ := by ring
+
 end
 
 end ArtinPrimitiveRoots.TypeII.PD

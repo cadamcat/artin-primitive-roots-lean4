@@ -322,6 +322,127 @@ theorem pd4c_raw_edge_det {K : ℕ} (F : PDFix K) (S : PDScale)
     rw [ht] at hmul
     exact hmul.symm
 
+/-- Copied shared slots make the two shared products identical. -/
+theorem pd4c_sharedProduct_eq_of_slotTransition {x : ℝ} {K : ℕ}
+    (p q : PrimeLists x K) (h : IsSlotTransition p q) : sharedProduct q = sharedProduct p := by
+  unfold sharedProduct
+  apply Finset.prod_congr rfl
+  intro i hi
+  apply Finset.prod_congr rfl
+  intro j hj
+  by_cases hshared : j.val < momentJ x
+  · simp only [if_pos hshared, h.1 i j hshared]
+  · simp only [if_neg hshared]
+
+/-- Disjoint bands supply the global distinctness needed to reverse the cross-edge ban. -/
+theorem pd4c_slotTransition_reverse {x : ℝ} {K : ℕ} (a : Fin K → ℝ)
+    (p q : PrimeLists x K) (hp : ValidPrimeLists x K a p) (hq : ValidPrimeLists x K a q)
+    (hbands : ∀ i i' : Fin K, i ≠ i' → Disjoint (primeBand x (a i)) (primeBand x (a i')))
+    (h : IsSlotTransition p q) : IsSlotTransition q p := by
+  have hinj := pd4c_validPrimeLists_global_injective p hp hbands
+  refine ⟨fun i j hj => (h.1 i j hj).symm, ?_⟩
+  intro i i' j
+  by_cases hj : j.val < momentJ x
+  · rw [h.1 i' j hj]
+    intro heq
+    have hpairs : (i, lastSlot x) = (i', j) := hinj heq
+    have hslots : (lastSlot x).val = j.val := congrArg (fun v => v.2.val) hpairs
+    dsimp [lastSlot] at hslots
+    omega
+  · have hlast : j = lastSlot x := by
+      apply Fin.ext
+      have hlt := j.isLt
+      dsimp [slotCount] at hlt
+      dsimp [lastSlot]
+      omega
+    subst j
+    exact (h.2 i' i (lastSlot x)).symm
+
+/-- Pad admissibility transposes when source and target determinant coordinates are exchanged. -/
+theorem pd4c_padAdmissible_reverse {x : ℝ} {K : ℕ} (d₀ : ℕ)
+    (p q : PrimeLists x K) (z z' : ℤ × ℤ) (hslot : IsSlotTransition p q)
+    (hpad : IsPadAdmissible d₀ (sharedProduct p) (det2 z z')) :
+    IsPadAdmissible d₀ (sharedProduct q) (det2 z' z) := by
+  rw [pd4c_sharedProduct_eq_of_slotTransition p q hslot]
+  have hswap : det2 z' z = -det2 z z' := by dsimp [det2]; ring
+  exact ⟨hpad.1, hpad.2.1, by rw [hswap]; exact dvd_neg.mpr hpad.2.2⟩
+
+/-- The physical restrictions of an edge, independent of its memory transfer choices. -/
+def Pd4cPhysicalEdge {K : ℕ} (F : PDFix K) (S : PDScale) (w : ArchRoot)
+    (p q : PrimeLists S.x K) (z z' : ℤ × ℤ) : Prop :=
+  Int.gcd z.1 z.2 = 1 ∧ Int.gcd z'.1 z'.2 = 1 ∧
+    ValidPrimeLists S.x K F.a p ∧ ValidPrimeLists S.x K F.a q ∧
+    IsSlotTransition p q ∧ IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧
+    envBox S w z ∧ envBox S w z' ∧ envGood F S w (z, p) ∧ envGood F S w (z', q)
+
+theorem pd4c_physicalEdge_reverse {K : ℕ} (F : PDFix K) (S : PDScale) (w : ArchRoot)
+    (p q : PrimeLists S.x K) (z z' : ℤ × ℤ)
+    (hbands : ∀ i i' : Fin K, i ≠ i' → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (h : Pd4cPhysicalEdge F S w p q z z') : Pd4cPhysicalEdge F S w q p z' z := by
+  rcases h with ⟨hz, hz', hp, hq, hslot, hpad, hbox, hbox', hgood, hgood'⟩
+  exact ⟨hz', hz, hq, hp, pd4c_slotTransition_reverse F.a p q hp hq hbands hslot,
+    pd4c_padAdmissible_reverse S.d₀ p q z z' hslot hpad, hbox', hbox, hgood', hgood⟩
+
+theorem pd4c_edgeAdmissible_physical {K : ℕ} (F : PDFix K) (S : PDScale) (w : ArchRoot)
+    (s : MemPoint S.x K) (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ)
+    (hs : MemValid F S s) (h : EdgeAdmissible F S w s c z') :
+    Pd4cPhysicalEdge F S w s.2.1 (edgeTargetLists F S s c) s.1 z' := by
+  rcases h with ⟨hhit, hp, hq, hslot, hpad, hz', hbox, hbox', hgood, hgood'⟩
+  exact ⟨hs.1, hz', hp, hq, hslot, hpad, hbox, hbox', hgood, hgood'⟩
+
+def pd4c_fullPrimeProduct {x : ℝ} {K : ℕ} (p : PrimeLists x K) : ℕ :=
+  ∏ i : Fin K, ∏ j : Fin (slotCount x), p i j
+
+theorem pd4c_fullPrimeProduct_permute {x : ℝ} {K : ℕ} (p : PrimeLists x K)
+    (σ : Fin K → Equiv.Perm (Fin (slotCount x))) :
+    pd4c_fullPrimeProduct (permuteLists σ p) = pd4c_fullPrimeProduct p := by
+  apply Finset.prod_congr rfl
+  intro i hi
+  exact Equiv.prod_comp (σ i) (p i)
+
+/-- Omitting the last slots splits the invariant full product into pad and unshared products. -/
+theorem pd4c_shared_mul_last_eq_full {x : ℝ} {K : ℕ} (p : PrimeLists x K) :
+    sharedProduct p * lastProduct p = pd4c_fullPrimeProduct p := by
+  have hgroup (i : Fin K) :
+      (∏ j : Fin (slotCount x), if j.val < momentJ x then p i j else 1) * p i (lastSlot x) =
+        ∏ j : Fin (slotCount x), p i j := by
+    have hset : (Finset.univ : Finset (Fin (slotCount x))).filter (fun j => j.val < momentJ x) =
+        Finset.univ.erase (lastSlot x) := by
+      ext j
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_erase, and_true]
+      have hjlt := j.isLt
+      dsimp [slotCount] at hjlt
+      constructor
+      · intro hj heq
+        have hval := congrArg Fin.val heq
+        dsimp [lastSlot] at hval
+        omega
+      · intro hn
+        by_contra hnot
+        have heq : lastSlot x = j := by
+          apply Fin.ext
+          dsimp [lastSlot]
+          omega
+        exact hn heq.symm
+    rw [Finset.prod_ite]
+    simp only [Finset.prod_const_one, mul_one]
+    rw [hset]
+    exact Finset.prod_erase_mul Finset.univ (p i) (Finset.mem_univ (lastSlot x))
+  unfold sharedProduct lastProduct pd4c_fullPrimeProduct
+  rw [← Finset.prod_mul_distrib]
+  exact Finset.prod_congr rfl (fun i hi => hgroup i)
+
+/-- Raw support depends on the full source product and the target unshared product. -/
+theorem pd4c_raw_edge_det_full {K : ℕ} (F : PDFix K) (S : PDScale)
+    (forward : Bool) (p q : PrimeLists S.x K) (z z' : ℤ × ℤ)
+    (hdiv : (sharedProduct p : ℤ) ∣ det2 z z')
+    (h : edgeMultiplier F S forward true p q z z' ≠ 0) :
+    det2 z z' = (pd4c_fullPrimeProduct p : ℤ) - (sharedProduct p : ℤ) * lastProduct q := by
+  rw [pd4c_raw_edge_det F S forward p q z z' hdiv h]
+  have hprod : (sharedProduct p : ℤ) * (lastProduct p : ℤ) = (pd4c_fullPrimeProduct p : ℤ) := by
+    exact_mod_cast pd4c_shared_mul_last_eq_full p
+  linear_combination hprod
+
 end
 
 end ArtinPrimitiveRoots.TypeII.PD

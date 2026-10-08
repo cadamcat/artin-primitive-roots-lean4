@@ -170,6 +170,92 @@ theorem pd4c_memOpNormLE_of_weighted_schur {K : ℕ} (F : PDFix K) (S : PDScale)
       a * b * (∑ t ∈ T, memMeasure F S t * ‖f t‖ ^ 2) := hschur
     _ = (Real.sqrt (a * b)) ^ 2 *
         (∑ t ∈ T, memMeasure F S t * ‖f t‖ ^ 2) := by rw [hsqrt]
+theorem pd4c_memOpNormLE_fintype_sum {ι : Type*} [Fintype ι] [DecidableEq ι]
+    {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (ops : ι → (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (c : ι → ℝ)
+    (hμ : ∀ s, 0 ≤ memMeasure F S s) (hc : ∀ i, 0 ≤ c i)
+    (hops : ∀ i, MemOpNormLE F S B (ops i) (c i)) :
+    MemOpNormLE F S B (fun f s => ∑ i, ops i f s)
+      (Real.sqrt ((Fintype.card ι : ℝ) * ∑ i, c i ^ 2)) := by
+  classical
+  intro T T' f hsupp hT hT'
+  have hpoint (s : MemPoint S.x K) :
+      ‖∑ i, ops i f s‖ ^ 2 ≤
+        (Fintype.card ι : ℝ) * ∑ i, ‖ops i f s‖ ^ 2 := by
+    have htri : ‖∑ i, ops i f s‖ ≤ ∑ i, ‖ops i f s‖ := norm_sum_le _ _
+    have hnonneg : 0 ≤ ∑ i, ‖ops i f s‖ := Finset.sum_nonneg fun i hi => norm_nonneg _
+    have hcs : (∑ i, ‖ops i f s‖) ^ 2 ≤
+        (Fintype.card ι : ℝ) * ∑ i, ‖ops i f s‖ ^ 2 := by
+      simpa using (_root_.sq_sum_le_card_mul_sum_sq
+        (s := (Finset.univ : Finset ι)) (f := fun i => ‖ops i f s‖))
+    have hprod := mul_nonneg (sub_nonneg.mpr htri)
+      (add_nonneg (norm_nonneg (∑ i, ops i f s)) hnonneg)
+    nlinarith [hprod, hcs]
+  have hOp (i : ι) := hops i T T' f hsupp hT hT'
+  have hsumOp :
+      (∑ i, ∑ s ∈ T', memMeasure F S s * ‖ops i f s‖ ^ 2) ≤
+        (∑ i, c i ^ 2) * memNormSqOn F S T f := by
+    calc
+      (∑ i, ∑ s ∈ T', memMeasure F S s * ‖ops i f s‖ ^ 2) ≤
+          ∑ i, c i ^ 2 * memNormSqOn F S T f := by
+            apply Finset.sum_le_sum
+            intro i hi
+            exact hOp i
+      _ = (∑ i, c i ^ 2) * memNormSqOn F S T f := by
+            rw [← Finset.sum_mul]
+  unfold memNormSqOn
+  calc
+    (∑ s ∈ T', memMeasure F S s * ‖∑ i, ops i f s‖ ^ 2) ≤
+        ∑ s ∈ T', memMeasure F S s *
+          ((Fintype.card ι : ℝ) * ∑ i, ‖ops i f s‖ ^ 2) := by
+            apply Finset.sum_le_sum
+            intro s hs
+            exact mul_le_mul_of_nonneg_left (hpoint s) (hμ s)
+    _ = (Fintype.card ι : ℝ) *
+          (∑ i, ∑ s ∈ T', memMeasure F S s * ‖ops i f s‖ ^ 2) := by
+            simp_rw [Finset.mul_sum]
+            rw [Finset.sum_comm]
+            apply Finset.sum_congr rfl
+            intro i hi
+            apply Finset.sum_congr rfl
+            intro s hs
+            ring
+    _ ≤ (Fintype.card ι : ℝ) *
+          ((∑ i, c i ^ 2) * (∑ s ∈ T, memMeasure F S s * ‖f s‖ ^ 2)) := by
+            exact mul_le_mul_of_nonneg_left hsumOp (by positivity)
+    _ = (Real.sqrt ((Fintype.card ι : ℝ) * ∑ i, c i ^ 2)) ^ 2 *
+          (∑ s ∈ T, memMeasure F S s * ‖f s‖ ^ 2) := by
+            rw [Real.sq_sqrt (by positivity : 0 ≤ (Fintype.card ι : ℝ) * ∑ i, c i ^ 2)]
+            ring
+
+
+theorem pd4c_memNormSqOn_nonneg {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hμ : ∀ s, 0 ≤ memMeasure F S s) (T : Finset (MemPoint S.x K)) (f : MemPoint S.x K → ℂ) :
+    0 ≤ memNormSqOn F S T f :=
+  Finset.sum_nonneg fun s hs => mul_nonneg (hμ s) (sq_nonneg _)
+
+theorem pd4c_memOpNormLE_mono {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (a b : ℝ)
+    (hμ : ∀ s, 0 ≤ memMeasure F S s) (hop : MemOpNormLE F S B op a)
+    (ha : 0 ≤ a) (hab : a ≤ b) : MemOpNormLE F S B op b := by
+  intro T T' f hf hT hT'
+  exact (hop T T' f hf hT hT').trans
+    (mul_le_mul_of_nonneg_right (by nlinarith) (pd4c_memNormSqOn_nonneg F S hμ T f))
+
+theorem pd4c_memRowSchurLE_mono {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (v a b : ℝ)
+    (hv : 0 ≤ v) (hop : MemRowSchurLE F S B op v a) (hab : a ≤ b) :
+    MemRowSchurLE F S B op v b := by
+  intro s hs hsize T hT
+  exact (hop s hs hsize T hT).trans (mul_le_mul_of_nonneg_right hab (pow_nonneg hv _))
+
+theorem pd4c_memColSchurLE_mono {K : ℕ} (F : PDFix K) (S : PDScale) (B : ℕ)
+    (op : (MemPoint S.x K → ℂ) → MemPoint S.x K → ℂ) (v a b : ℝ)
+    (hv : 0 ≤ v) (hμ : ∀ s, 0 ≤ memMeasure F S s)
+    (hop : MemColSchurLE F S B op v a) (hab : a ≤ b) : MemColSchurLE F S B op v b := by
+  intro s hs hsize T hT
+  exact (hop s hs hsize T hT).trans
+    (mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_right hab (hμ s)) (pow_nonneg hv _))
 
 end
 
