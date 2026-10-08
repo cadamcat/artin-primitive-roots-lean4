@@ -1850,6 +1850,196 @@ private theorem specIdentify_nontriangular_seed_bound
     · change ‖∑' q : Q, (0 : GradientField F)‖ ≤ C
       simpa only [tsum_zero, norm_zero] using hC
 
+set_option maxHeartbeats 1000000 in
+private theorem specIdentify_cusp_bound
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (σ : SL(2,F)) (τ : ℝ → ℝ) (cut : CutoffData F Γ σ τ)
+    (s : ℂ) (hs : s ∈ Metric.ball (5 / 2 : ℂ) (1 / 2))
+    (d : SiegelData F Γ) (i : d.ι) :
+    let w := fun z => eisSeries F Γ σ s z - eisSeed F Γ σ τ s z
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ z ∈ SiegelData.setAt F d i,
+      ‖w ((d.σ i) • z)‖ ≤ B ∧
+      ‖fullGradient F (fun x => w ((d.σ i) • x)) z‖ ≤ B := by
+  classical
+  have hdist : ‖s - (5 / 2 : ℂ)‖ < 1 / 2 := by
+    simpa only [Metric.mem_ball, dist_eq_norm] using hs
+  have hRe : |s.re - (5 / 2 : ℝ)| < 1 / 2 := by
+    have h := Complex.abs_re_le_norm (s - (5 / 2 : ℂ))
+    have heq : (s - (5 / 2 : ℂ)).re = s.re - (5 / 2 : ℝ) := by norm_num
+    rw [heq] at h
+    exact h.trans_lt hdist
+  obtain ⟨hReLo, hReHi⟩ := abs_lt.mp hRe
+  have hstrip : 2 < s.re ∧ s.re < 3 := by
+    constructor <;> linarith only [hReLo, hReHi]
+  have hhalf : 1 / 2 < s.re := by linarith only [hstrip.1]
+  have hnorms : ‖s‖ < 3 := by
+    calc
+      ‖s‖ = ‖(s - (5 / 2 : ℂ)) + (5 / 2 : ℂ)‖ := by rw [sub_add_cancel]
+      _ ≤ ‖s - (5 / 2 : ℂ)‖ + ‖(5 / 2 : ℂ)‖ := norm_add_le _ _
+      _ < 3 := by norm_num; linarith only [hdist]
+  let a : ℂ := 1 + 2 * s
+  have haRe : 0 ≤ a.re := by
+    have haReal : a.re = 1 + 2 * s.re := by
+      dsimp [a]
+      norm_num [Complex.add_re, Complex.mul_re]
+    rw [haReal]
+    linarith only [hstrip.1]
+  have haNorm : ‖a‖ ≤ 7 := by
+    calc
+      ‖a‖ ≤ ‖(1 : ℂ)‖ + ‖2 * s‖ := norm_add_le _ _
+      _ = 1 + 2 * ‖s‖ := by norm_num [norm_mul]
+      _ ≤ 7 := by linarith only [hnorms]
+  obtain ⟨B, hB, hResidual⟩ := specIdentify_cutoffResidual_bound (F := F) τ cut.A
+    (cut.A₀_ge.trans cut.A_ge) a haRe haNorm cut.cutoff
+  obtain ⟨CE, hCE, hNonE⟩ := specIdentify_nontriangular_bound Γ d σ s hstrip i
+  obtain ⟨CS, hCS, hNonS⟩ := specIdentify_nontriangular_seed_bound Γ d σ τ cut s i
+  have hKstrip : ({s} : Set ℂ) ⊆ {s' : ℂ | 2 < s'.re ∧ s'.re < 3} := by
+    intro s' hs'
+    rcases Set.mem_singleton_iff.mp hs' with rfl
+    exact hstrip
+  let tri (q : CuspCosets F Γ σ) : Prop :=
+    σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∈ borelSL F
+  let Tri := {q : CuspCosets F Γ σ // tri q}
+  let Nontri := {q : CuspCosets F Γ σ // ¬ tri q}
+  have hTriUnique : ∀ q q' : CuspCosets F Γ σ, tri q → tri q' → q = q' :=
+    (E4_eis_siegel Γ d σ {s} isCompact_singleton hKstrip i).1
+  letI : Subsingleton Tri := ⟨fun q q' => Subtype.ext (hTriUnique q.1 q'.1 q.2 q'.2)⟩
+  let te (q : CuspCosets F Γ σ) : X F → ℂ := fun x => eisTerm F Γ σ s x q
+  let ts (q : CuspCosets F Γ σ) : X F → ℂ := fun x => seedTerm F Γ σ τ s x q
+  let residual (q : CuspCosets F Γ σ) : X F → ℂ := fun x => te q x - ts q x
+  let w : X F → ℂ := fun x => eisSeries F Γ σ s x - eisSeed F Γ σ τ s x
+  have hE3 := E3_eis_smooth Γ σ s hhalf
+  have hE5 := E5_seed Γ D hD σ cut.A₀ cut.A cut.A₀_ge cut.A_ge cut.separation τ cut.cutoff
+  have hSeedSmooth : IsSmoothX F (eisSeed F Γ σ τ s) := (hE5.2.1 s).1
+  have hSmooth : IsSmoothX F w := by
+    have hsmE : ContDiffOn ℝ ∞ (fun p => eisSeries F Γ σ s (ptX F p)) (posSet F) := hE3.1
+    have hsmS : ContDiffOn ℝ ∞ (fun p => eisSeed F Γ σ τ s (ptX F p)) (posSet F) := hSeedSmooth
+    exact hsmE.sub hsmS
+  have hSeedTermSmooth (q : CuspCosets F Γ σ) : IsSmoothX F (ts q) := by
+    simpa only [one_smul] using specIdentify_seedTerm_smooth_action Γ σ 1 τ cut.cutoff.1 s q
+  have hGradSub (f g : X F → ℂ) (hf : IsSmoothX F f) (hg : IsSmoothX F g) (x : X F) :
+      fullGradient F (fun y => f y - g y) x = fullGradient F f x - fullGradient F g x := by
+    let p : Coord F := coordsX F x
+    have hp : p ∈ posSet F := by
+      intro v
+      change 0 < height (x v)
+      rw [height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos (x v)
+    have hfOn : ContDiffOn ℝ ∞ (fun p' => f (ptX F p')) (posSet F) := hf
+    have hgOn : ContDiffOn ℝ ∞ (fun p' => g (ptX F p')) (posSet F) := hg
+    have hfDiff := (hfOn.contDiffAt ((specIdentify_posSet_open (F := F)).mem_nhds hp))
+      |>.differentiableAt (by norm_num)
+    have hgDiff := (hgOn.contDiffAt ((specIdentify_posSet_open (F := F)).mem_nhds hp))
+      |>.differentiableAt (by norm_num)
+    ext wj
+    rcases wj with ⟨v, j⟩
+    change ((coordsX F x v).2 : ℂ) *
+      fderiv ℝ (fun p' => f (ptX F p') - g (ptX F p')) p (placeDirection F v j) =
+      ((coordsX F x v).2 : ℂ) * fderiv ℝ (fun p' => f (ptX F p')) p (placeDirection F v j) -
+      ((coordsX F x v).2 : ℂ) * fderiv ℝ (fun p' => g (ptX F p')) p (placeDirection F v j)
+    rw [fderiv_fun_sub hfDiff hgDiff]
+    simp only [ContinuousLinearMap.sub_apply, mul_sub]
+  have hResGrad (q : CuspCosets F Γ σ) (x : X F) :
+      fullGradient F (residual q) x = fullGradient F (te q) x - fullGradient F (ts q) x :=
+    hGradSub (te q) (ts q) (specIdentify_eisTerm_smooth Γ σ s q) (hSeedTermSmooth q) x
+  have hResBound (q : CuspCosets F Γ σ) (x : X F) :
+      ‖residual q x‖ ≤ B ∧ ‖fullGradient F (residual q) x‖ ≤ B := by
+    let b : SL(2,F) := σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F))
+    have hact (y : X F) : σ⁻¹ • (((q.out : Γ) : SL(2,𝓞 F)) • y) =
+        actAtPlaces F (toInf F b) y := by
+      change σ⁻¹ • ((toSLF F ((q.out : Γ) : SL(2,𝓞 F))) • y) = b • y
+      rw [← mul_smul]
+    have hEq : residual q = fun y =>
+        ((1 - τ (normHeight F (actAtPlaces F (toInf F b) y)) : ℝ) : ℂ) *
+          (normHeight F (actAtPlaces F (toInf F b) y) : ℂ) ^ a := by
+      funext y
+      dsimp only [residual, te, ts, eisTerm, seedTerm]
+      rw [hact]
+      let t := normHeight F (actAtPlaces F (toInf F b) y)
+      change (t : ℂ) ^ a - (τ t : ℂ) * (t : ℂ) ^ a =
+        ((1 - τ t : ℝ) : ℂ) * (t : ℂ) ^ a
+      rw [Complex.ofReal_sub, Complex.ofReal_one, sub_mul, one_mul]
+    have h := hResidual (toInf F b) x
+    exact ⟨(congrArg (fun f : X F → ℂ => ‖f x‖) hEq).le.trans h.1,
+      (congrArg (fun f : X F → ℂ => ‖fullGradient F f x‖) hEq).le.trans h.2⟩
+  have hTriBound (V : Type) [NormedAddCommGroup V] (f : Tri → V)
+      (hf : ∀ q, ‖f q‖ ≤ B) : ‖∑' q : Tri, f q‖ ≤ B := by
+    by_cases h : Nonempty Tri
+    · obtain ⟨q₀⟩ := h
+      have heq : (∑' q : Tri, f q) = f q₀ :=
+        tsum_eq_single q₀ (fun q hq => (hq (Subsingleton.elim q q₀)).elim)
+      rw [heq]
+      exact hf q₀
+    · have hzero : f = 0 := funext fun q => (h ⟨q⟩).elim
+      rw [hzero]
+      change ‖∑' q : Tri, (0 : V)‖ ≤ B
+      simpa only [tsum_zero, norm_zero] using hB
+  let C : ℝ := B + (CE + CS)
+  have hC : 0 ≤ C := add_nonneg hB (add_nonneg hCE hCS)
+  refine ⟨C, hC, ?_⟩
+  intro z hz
+  let x : X F := (d.σ i) • z
+  obtain ⟨hNEv, hNEg, hNEvBound, hNEgBound⟩ := hNonE z hz
+  obtain ⟨hNSv, hNSg, hNSvBound, hNSgBound⟩ := hNonS z hz
+  let σ₀ : ℝ := (1 / 2 + s.re) / 2
+  have hσ₀ : 1 / 2 < σ₀ := by dsimp [σ₀]; linarith only [hhalf]
+  have hσ₀le : σ₀ ≤ s.re := by dsimp [σ₀]; linarith only [hhalf]
+  obtain ⟨m, hm, hmBound⟩ := (E2_eis_converge (F := F) Γ σ).1
+    {x} isCompact_singleton σ₀ s.re hσ₀
+  have hESum : Summable (fun q : CuspCosets F Γ σ => te q x) :=
+    Summable.of_norm_bounded hm (hmBound x (Set.mem_singleton x) s hσ₀le le_rfl)
+  have hSSum : Summable (fun q : CuspCosets F Γ σ => ts q x) :=
+    summable_of_hasFiniteSupport (hE5.1 s x).1
+  have hResSum : Summable (fun q : CuspCosets F Γ σ => residual q x) := hESum.sub hSSum
+  have hEGrad := specIdentify_eis_gradient_tsum Γ σ s hhalf x
+  have hSGrad : Summable (fun q : CuspCosets F Γ σ => fullGradient F (ts q) x) ∧
+      fullGradient F (eisSeed F Γ σ τ s) x =
+        ∑' q : CuspCosets F Γ σ, fullGradient F (ts q) x := by
+    simpa only [one_smul] using specIdentify_seed_gradient_tsum Γ σ 1 τ cut s x
+  have hResGradSum : Summable (fun q : CuspCosets F Γ σ => fullGradient F (residual q) x) := by
+    simp_rw [hResGrad]
+    exact hEGrad.1.sub hSGrad.1
+  have hwValue : w x = ∑' q : CuspCosets F Γ σ, residual q x :=
+    (hESum.tsum_sub hSSum).symm
+  have hwGrad : fullGradient F w x =
+      ∑' q : CuspCosets F Γ σ, fullGradient F (residual q) x := by
+    rw [hGradSub (eisSeries F Γ σ s) (eisSeed F Γ σ τ s) hE3.1 hSeedSmooth x,
+      hEGrad.2, hSGrad.2]
+    simp_rw [hResGrad]
+    exact (hEGrad.1.tsum_sub hSGrad.1).symm
+  have hValueSplit : w x = (∑' q : Tri, residual q.1 x) +
+      (∑' q : Nontri, residual q.1 x) := by
+    rw [hwValue]
+    exact (hResSum.tsum_subtype_add_tsum_subtype_compl {q | tri q}).symm
+  have hGradSplit : fullGradient F w x =
+      (∑' q : Tri, fullGradient F (residual q.1) x) +
+      (∑' q : Nontri, fullGradient F (residual q.1) x) := by
+    rw [hwGrad]
+    exact (hResGradSum.tsum_subtype_add_tsum_subtype_compl {q | tri q}).symm
+  have hTriV : ‖∑' q : Tri, residual q.1 x‖ ≤ B :=
+    hTriBound ℂ (fun q => residual q.1 x) (fun q => (hResBound q.1 x).1)
+  have hTriG : ‖∑' q : Tri, fullGradient F (residual q.1) x‖ ≤ B :=
+    hTriBound (GradientField F) (fun q => fullGradient F (residual q.1) x)
+      (fun q => (hResBound q.1 x).2)
+  have hNonV : ‖∑' q : Nontri, residual q.1 x‖ ≤ CE + CS := by
+    change ‖∑' q : Nontri, (te q.1 x - ts q.1 x)‖ ≤ CE + CS
+    rw [hNEv.tsum_sub hNSv]
+    exact (norm_sub_le _ _).trans (add_le_add hNEvBound hNSvBound)
+  have hNonG : ‖∑' q : Nontri, fullGradient F (residual q.1) x‖ ≤ CE + CS := by
+    simp_rw [hResGrad]
+    rw [hNEg.tsum_sub hNSg]
+    exact (norm_sub_le _ _).trans (add_le_add hNEgBound hNSgBound)
+  have hValueBound : ‖w x‖ ≤ C := by
+    rw [hValueSplit]
+    exact (norm_add_le _ _).trans (add_le_add hTriV hNonV)
+  have hGradBound : ‖fullGradient F w x‖ ≤ C := by
+    rw [hGradSplit]
+    exact (norm_add_le _ _).trans (add_le_add hTriG hNonG)
+  refine ⟨hValueBound, ?_⟩
+  change ‖fullGradient F (fun y => w (actAtPlaces F (toInf F (d.σ i)) y)) z‖ ≤ C
+  exact (specIdentify_gradient_norm_isometry (toInf F (d.σ i)) w hSmooth z).le.trans hGradBound
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
