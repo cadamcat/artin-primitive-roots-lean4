@@ -121,4 +121,81 @@ theorem qs_nq0_quotient_character_local
   · intro v
     rw [hquot, map_div, (qs_nq0_quadratic_local_mul_div D H v _ _).2]
 
+
+/-!
+The next conductor bound has this exact signature:
+```
+theorem qs_nq0_quotient_conductor_bound
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (I J : Ideal (𝓞 K)) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I) (hb : Sd.IsGen (b : K) J)
+    (χa χb : HeckeChar K)
+    (hloca : ∀ v : FinPlace K,
+      χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : ∀ v : FinPlace K,
+      χb.loc v = qsNQQuadraticLocal D H v (toLoc v b))
+    (hroot : ∃ y : Sd.FSˣ, Sd.diagU (a / b) = y ^ 6) :
+    (χa * χb⁻¹).ConductorDvd (I * J)
+```
+-/
+
+/-- A sixth-power ratio at S removes the S-part of the quotient conductor bound. -/
+theorem qs_nq0_quotient_conductor_bound
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (I J : Ideal (𝓞 K)) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I) (hb : Sd.IsGen (b : K) J)
+    (χa χb : HeckeChar K)
+    (hloca : ∀ v : FinPlace K,
+      χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : ∀ v : FinPlace K,
+      χb.loc v = qsNQQuadraticLocal D H v (toLoc v b))
+    (hroot : ∃ y : Sd.FSˣ, Sd.diagU (a / b) = y ^ 6) :
+    (χa * χb⁻¹).ConductorDvd (I * J) := by
+  classical
+  obtain ⟨hlocprod, hlocquot⟩ :=
+    qs_nq0_quotient_character_local D H a b χa χb hloca hlocb
+  have hgen := qs_nq0_generators_mul Sd I J a b ha hb
+  intro v u hu hui hubound
+  by_cases hv : v ∈ Sd.Sf
+  · obtain ⟨y, hy⟩ := hroot
+    have hcomp : Sd.compU ⟨v, hv⟩ (Sd.diagU (a / b)) = toLoc v (a / b) := by
+      apply Units.ext
+      rfl
+    have hlocalroot := congrArg (Sd.compU ⟨v, hv⟩) hy
+    rw [hcomp, map_pow] at hlocalroot
+    rw [hlocquot v]
+    change Units.map D.σ0.toMonoidHom
+      (H.hilb v (toLoc v (a / b)) u : Kˣ) ^ 3 = 1
+    rw [H.sixth_power v _ u ⟨Sd.compU ⟨v, hv⟩ y, hlocalroot⟩]
+    simp
+  · rw [hlocprod v]
+    have h6 : (6 : 𝓞 K) ∉ v.asIdeal := fun h => hv (Sd.over6 v h)
+    by_cases heIJ : idealExp v (I * J) = 0
+    · have hcount : FractionalIdeal.count K v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) ((a * b : Kˣ) : K)) = 0 := by
+        rw [hgen.2.2 v hv, FractionalIdeal.count_coe K v hgen.1.1]
+        change (idealExp v (I * J) : ℤ) = 0
+        rw [heIJ, Int.natCast_zero]
+      have hlog := qs_nq0_count_spanSingleton_eq_neg_log_valuation v
+        ((a * b : Kˣ) : K) (a * b).ne_zero
+      rw [hcount] at hlog
+      have hz : WithZero.log (v.valuation K ((a * b : Kˣ) : K)) = 0 :=
+        neg_eq_zero.mp hlog.symm
+      have hvab : v.valuation K ((a * b : Kˣ) : K) = 1 := by
+        calc
+          v.valuation K ((a * b : Kˣ) : K) =
+              WithZero.exp (WithZero.log (v.valuation K ((a * b : Kˣ) : K))) :=
+            (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr (a * b).ne_zero)).symm
+          _ = 1 := by rw [hz, WithZero.exp_zero]
+      exact qs_nq0_quadratic_local_unit_trivial D H v h6 (a * b) hvab u ⟨hu, hui⟩
+    · have hlt : WithZero.exp (-(idealExp v (I * J) : ℤ)) < 1 := by
+        calc
+          WithZero.exp (-(idealExp v (I * J) : ℤ)) < WithZero.exp (0 : ℤ) :=
+            WithZero.exp_lt_exp.mpr (by omega)
+          _ = 1 := WithZero.exp_zero
+      exact qs_nq0_quadratic_local_principal_unit_trivial D H v h6 (a * b) u
+        (lt_of_le_of_lt hubound hlt)
+
 end ArtinPrimitiveRoots.A2
