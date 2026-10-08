@@ -94,4 +94,39 @@ theorem th_classical_integer_completion_approx (v : FinPlace F)
   have h := Valued.v.map_add_lt ha' hb
   simpa only [sub_add_sub_cancel] using h
 
+/-- One global integer approximates integral targets at every place in a finite set. -/
+theorem th_classical_integer_finite_approx (T : Finset (FinPlace F))
+    (x : ∀ v : T, v.1.adicCompletion F)
+    (hx : ∀ v : T, Valued.v (x v) ≤ 1) (m : T → ℕ) :
+    ∃ a : 𝓞 F, ∀ v : T,
+      Valued.v (algebraMap (𝓞 F) (v.1.adicCompletion F) a - x v) <
+        WithZero.exp (-(m v : ℤ)) := by
+  classical
+  choose b hb using fun v : T =>
+    th_classical_integer_completion_approx v.1 (x v) (hx v) (m v)
+  let I : T → Ideal (𝓞 F) := fun v => v.1.asIdeal ^ (m v + 1)
+  have hI : Pairwise (fun v w : T => IsCoprime (I v) (I w)) := by
+    intro v w hvw
+    exact HeightOneSpectrum.isCoprime_pow_of_ne v.1 w.1
+      (fun h => hvw (Subtype.ext h)) (m v + 1) (m w + 1)
+  obtain ⟨a, ha⟩ := Ideal.exists_forall_sub_mem_ideal hI b
+  refine ⟨a, ?_⟩
+  intro v
+  have hglob : v.1.intValuation (a - b v) ≤
+      WithZero.exp (-((m v + 1 : ℕ) : ℤ)) :=
+    (v.1.intValuation_le_pow_iff_mem _ _).mpr (ha v)
+  have hprec : WithZero.exp (-((m v + 1 : ℕ) : ℤ)) <
+      WithZero.exp (-(m v : ℤ)) := by
+    rw [WithZero.exp_lt_exp]
+    omega
+  have hcmp : Valued.v (algebraMap (𝓞 F) (v.1.adicCompletion F) a -
+      algebraMap (𝓞 F) (v.1.adicCompletion F) (b v)) <
+        WithZero.exp (-(m v : ℤ)) := by
+    rw [← map_sub, IsScalarTower.algebraMap_apply (𝓞 F) F (v.1.adicCompletion F)]
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.1.valuedAdicCompletion_eq_valuation',
+      v.1.valuation_of_algebraMap] using hglob.trans_lt hprec
+  have h := Valued.v.map_add_lt hcmp (hb v)
+  simpa only [sub_add_sub_cancel] using h
+
 end ArtinPrimitiveRoots.A1.Theta
