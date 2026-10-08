@@ -193,4 +193,34 @@ theorem finiteHistoryTrace_ghost_births_visit_monotone {K : ℕ}
       rw [finiteHistoryTraceGhostBirths, List.pairwise_append]
       exact ⟨hBlock, ih υ t.2.2, hCross⟩
 
+/-- Every recorded ghost deletion occurs at or after the first visit of its trace suffix. -/
+theorem finiteHistoryTrace_ghost_deletions_visit_lower_bound {K : ℕ}
+    (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (k : ℕ) (σ : LogPoint S.x K)
+    (t : FiniteHistoryTrace F S γ k σ) :
+    ∀ d ∈ finiteHistoryTraceGhostDeletions F S γ k σ t,
+      pathLength S.x - k ≤ d.1.val := by
+  induction k generalizing σ with
+  | zero =>
+      intro d hd
+      rw [finiteHistoryTraceGhostDeletions] at hd
+      rcases List.mem_flatMap.mp hd with ⟨i, hi, hdi⟩
+      rcases List.mem_map.mp hdi with ⟨r, hr, rfl⟩
+      simp
+  | succ k ih =>
+      let j := pathLength S.x - (k + 1)
+      let τ := ghostTraceOutput F S j σ t.1
+      let z' := (γ ⟨pathLength S.x - k,
+        Nat.lt_succ_of_le (Nat.sub_le _ _)⟩).1
+      let υ := edgeTraceOutput F S j z' τ t.2.1
+      intro d hd
+      rw [finiteHistoryTraceGhostDeletions] at hd
+      rcases List.mem_append.mp hd with hd | hd
+      · rcases List.mem_flatMap.mp hd with ⟨i, hi, hdi⟩
+        rcases List.mem_map.mp hdi with ⟨r, hr, rfl⟩
+        dsimp only [j]
+        exact le_rfl
+      · have hTail := ih υ t.2.2 d hd
+        omega
+
 end ArtinPrimitiveRoots.Proofs.pd_lifeb_sol
