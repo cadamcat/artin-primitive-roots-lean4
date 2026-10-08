@@ -1141,6 +1141,59 @@ theorem mellinKernel_inversion (g : ℝ → ℝ)
               _ = mellinKernel g (⟨c, v⟩ : ℂ) *
                   Complex.exp (-((⟨c, v⟩ : ℂ) * (Real.log w : ℂ))) := by rw [hphase]
 
+private theorem ppPrimeFinset_real_interval_card_le
+    (S : Finset ℕ) (a b : ℝ) (hab : a ≤ b)
+    (hS : ∀ n ∈ S, a ≤ (n : ℝ) ∧ (n : ℝ) ≤ b) :
+    (S.card : ℝ) ≤ b - a + 1 := by
+  let lo : ℕ := ⌈a⌉₊
+  let hi : ℕ := ⌊b⌋₊
+  by_cases hne : S.Nonempty
+  · obtain ⟨n, hn⟩ := hne
+    have hnlo : lo ≤ n := by
+      dsimp [lo]
+      exact Nat.ceil_le.2 (hS n hn).1
+    have hnhi : n ≤ hi := by
+      dsimp [hi]
+      exact Nat.le_floor (hS n hn).2
+    have hlohi : lo ≤ hi := hnlo.trans hnhi
+    have hsubset : S ⊆ Finset.Icc lo hi := by
+      intro k hk
+      simp only [Finset.mem_Icc]
+      exact ⟨by
+        dsimp [lo]
+        exact Nat.ceil_le.2 (hS k hk).1,
+        by
+        dsimp [hi]
+        exact Nat.le_floor (hS k hk).2⟩
+    have hcard : S.card ≤ hi + 1 - lo := by
+      calc
+        S.card ≤ (Finset.Icc lo hi).card := Finset.card_le_card hsubset
+        _ = hi + 1 - lo := by simp
+    have hsub : lo ≤ hi + 1 := by omega
+    have hcastSub : ((hi + 1 - lo : ℕ) : ℝ) = (hi : ℝ) + 1 - (lo : ℝ) := by
+      rw [Nat.cast_sub hsub, Nat.cast_add, Nat.cast_one]
+    have hcardR : (S.card : ℝ) ≤ (hi + 1 - lo : ℕ) := by exact_mod_cast hcard
+    have hloReal : a ≤ (lo : ℝ) := by
+      dsimp [lo]
+      exact Nat.le_ceil a
+    have hb0 : 0 ≤ b := le_trans (Nat.cast_nonneg n) (hS n hn).2
+    have hhiReal : (hi : ℝ) ≤ b := by
+      dsimp [hi]
+      exact Nat.floor_le hb0
+    rw [hcastSub] at hcardR
+    nlinarith
+  · have hcard : S.card = 0 := by
+      by_contra h
+      have hpos : 0 < S.card := Nat.pos_of_ne_zero h
+      exact hne (Finset.card_pos.mp hpos)
+    rw [hcard]
+    have hba : 0 ≤ b - a := sub_nonneg.mpr hab
+    have hR : (0 : ℝ) ≤ b - a + 1 := by
+      calc
+        0 ≤ b - a := hba
+        _ ≤ b - a + 1 := by linarith
+    simpa using hR
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
