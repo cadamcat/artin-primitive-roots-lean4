@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SHEETS.MeasureSubstrate
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SHEETS.ComplexPolar
+import ArtinPrimitiveRoots.Theta.Proofs.TH_SHEETS.RadialScaling
 
 open MeasureTheory
 open scoped FourierTransform
