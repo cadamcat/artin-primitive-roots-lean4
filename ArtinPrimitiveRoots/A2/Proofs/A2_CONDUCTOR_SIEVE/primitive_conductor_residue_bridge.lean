@@ -1272,6 +1272,32 @@ private theorem conductorResidueCharacter_SInteger
   simpa only [pa, P, Units.val_inv_eq_inv_val] using
     mul_right_cancel₀ (Units.ne_zero (pd⁻¹)) hproduct
 
+private theorem conductorResidue_isUnit_of_not_mem
+    (S : A1.SData F CE condη) (q : S.ExtIdeal) (b : 𝓞 F)
+    (hb : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → b ∉ v.asIdeal) :
+    IsUnit (Ideal.Quotient.mk q.1 b) := by
+  have htop : Ideal.span {b} ⊔ q.1 = ⊤ := by
+    by_contra hne
+    obtain ⟨M, hM, hle⟩ := Ideal.exists_le_maximal _ hne
+    have hqM : q.1 ≤ M := le_trans le_sup_right hle
+    have hM0 : M ≠ ⊥ := by
+      intro hMbot
+      exact q.2.1 (bot_unique (by simpa [hMbot] using hqM))
+    let v : A1.FinPlace F := ⟨M, hM.isPrime, hM0⟩
+    have hvq : v.asIdeal ∣ q.1 := Ideal.dvd_iff_le.mpr hqM
+    have hspan : Ideal.span {b} ≤ v.asIdeal := le_trans le_sup_left hle
+    exact hb v hvq (hspan (Ideal.subset_span (by simp)))
+  have hone : (1 : 𝓞 F) ∈ Ideal.span {b} ⊔ q.1 := by
+    rw [htop]
+    exact Submodule.mem_top
+  obtain ⟨x, hx, y, hy, hxy⟩ := Submodule.mem_sup.mp hone
+  obtain ⟨c, rfl⟩ := Ideal.mem_span_singleton.mp hx
+  apply isUnit_iff_exists_inv.mpr
+  refine ⟨Ideal.Quotient.mk q.1 c, ?_⟩
+  have heq := congrArg (Ideal.Quotient.mk q.1) hxy
+  rw [map_add, map_mul, map_one, Ideal.Quotient.eq_zero_iff_mem.mpr hy, add_zero] at heq
+  simpa [mul_comm] using heq
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
