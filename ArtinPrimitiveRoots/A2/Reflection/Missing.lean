@@ -4349,6 +4349,38 @@ private theorem rf_forwardCoeff_norm (r : ReflectionRow S)
       mul_le_mul_of_nonneg_right hGauss hScalar
     _ = qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 := one_mul _
 
+private theorem rf_forward_theta_bound (σ : ℝ) (hσ : 1 / 2 < σ) :
+    ∃ C : ℝ, 0 < C ∧ ∀ x : ℝ, 0 < x →
+      ‖Theta.thetaV S μ v0 R.T.U R.T.cS x‖ ≤ C * x ^ (-σ) := by
+  obtain ⟨C, hC, hProfile⟩ := rf_t5_envelope_profile_bound R σ hσ
+  refine ⟨C, hC, ?_⟩
+  intro x hx
+  let u : UnitSix S := 1
+  let fR : S.FSˣ → ℂ := fun y => rf_t5_radial R (y : S.FS)
+  let fN : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
+  have hRad := rf_t5_radial_sheet_integral R u σ C hProfile x hx
+  have hNorm := rf_t5_norm_sheet_bound R u σ C hProfile x hx
+  have hPoint (y : S.FS) : ‖onUnits fR y‖ = (onUnits fN y).re := by
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, fR, fN, Complex.ofReal_re]
+      exact rf_t5_radial_norm_eq R u hy.unit
+    · simp [onUnits, hy]
+  calc
+    ‖Theta.thetaV S μ v0 R.T.U R.T.cS x‖ =
+        ‖∫ y, onUnits fR y ∂(R.sheets.sheet x)‖ := by
+      rw [← hRad.2]
+      rfl
+    _ ≤ ∫ y, ‖onUnits fR y‖ ∂(R.sheets.sheet x) :=
+      norm_integral_le_integral_norm _
+    _ = (sheetIntegral R x (fun y => (‖unrotated R u y‖ : ℂ))).re := by
+      change (∫ y, ‖onUnits fR y‖ ∂(R.sheets.sheet x)) =
+        (∫ y, onUnits fN y ∂(R.sheets.sheet x)).re
+      calc
+        _ = ∫ y, (onUnits fN y).re ∂(R.sheets.sheet x) :=
+          integral_congr_ae (Filter.Eventually.of_forall hPoint)
+        _ = (∫ y, onUnits fN y ∂(R.sheets.sheet x)).re := integral_re hNorm.1
+    _ ≤ C * x ^ (-σ) := hNorm.2
+
 /-- rf:forward-assembly, 04:303–327. Constants fixed before l,Z,r; pre-digit cost remains row-dependent. -/
 theorem rf_forward_assembly :
   (∀ v, v ∉ S.Sf → ∀ j : Fin 6,
