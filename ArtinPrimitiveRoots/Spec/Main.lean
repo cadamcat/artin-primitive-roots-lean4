@@ -38,7 +38,7 @@ variable (F : Type) [Field F] [NumberField F]
 variable [IsTotallyComplex F]
 /-- `spec:free-level`: some principal congruence subgroup acts freely. -/
 theorem exists_free_congr : ∃ N : Ideal (𝓞 F), N ≠ ⊥ ∧ FreeAction F (congrSubgroup F N) := by
-  sorry
+  exact R11_free_level (F := F)
 
 /-- `spec:cusps-finite` (boundary to P-EIS / P-REDUCTION): finitely many cusps; the map
 `⊔_i Γ_{σ_i}\Γ → B(F)\SL(2,F)`, `(i, Γ_{σ_i}γ) ↦ B(F)σ_i⁻¹γ`, is a bijection. -/
@@ -78,12 +78,12 @@ theorem eisSeries_invariant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ :
 
 /-- `spec:domain`. -/
 theorem isOpen_contDomain (s₁ ε : ℝ) : IsOpen (contDomain s₁ ε) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.SpecDomcuspP.contDomain_isOpen s₁ ε
 
 /-- `spec:domain`. -/
 theorem isPreconnected_contDomain (s₁ ε : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ < 4) (hε : 0 < ε) :
     IsPreconnected (contDomain s₁ ε) := by
-  sorry
+  exact (C1_domain s₁ ε h₀ h₁ hε).2
 
 /-- **Main theorem of P-SPEC** (`spec:api`). -/
 theorem exists_continuedEisenstein (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex]

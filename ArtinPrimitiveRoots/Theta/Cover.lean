@@ -1760,6 +1760,12 @@ structure CoverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)} (S
   wS_components : ∃ x : RP, q x = tc.wS ∧
     (∀ v : FinPlace F, compF v x = if v ∈ S.Sf then (loc v).w else 1) ∧
     ∀ w, compC w x = QuotientGroup.mk (weylM ℂ)
+  /-- Every element of the exterior compact `Kext = Π_{v∉S} κ_v(PGL₂(O_v))` is represented by
+  components in the tame maximal compacts outside `S`, trivial at the finite places of `S` and at
+  the complex places (theta-iface amendment). -/
+  Kext_components : ∀ k ∈ tc.Kext, ∃ x : RP, q x = k ∧
+    (∀ v (hv : v ∉ S.Sf), compF v x ∈ (tame v hv).Kmax) ∧
+    (∀ v, v ∈ S.Sf → compF v x = 1) ∧ ∀ w, compC w x = 1
 
 attribute [instance] CoverPackage.rpGrp
 

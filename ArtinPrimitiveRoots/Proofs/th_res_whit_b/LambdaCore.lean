@@ -60,7 +60,7 @@ private theorem lambda_exists_zero_family (Fam : AnalyticFamily P G μ) (v0 : Fi
   rw [hcoord s]
   simp [rtr, bigCell, φ]
 
-private theorem lambda_zero_residue (Fam : AnalyticFamily P G μ) (v0 : FinPlace F)
+theorem thetaWhit_zero_local_family (v0 : FinPlace F)
     (Z : AnalyticFamily P G μ) (hZ : ∀ s, (Z.sec s).f v0 = 0)
     (g : P.tc.G) (laws : ThetaResidueLaws P G μ) (C : ContinuedEis Z) :
     thetaWhit C g = 0 := by
@@ -90,7 +90,7 @@ private theorem lambda_exists_combo (Fam : AnalyticFamily P G μ) (v0 : FinPlace
   classical
   obtain ⟨Z, hZ, hZcoord⟩ := lambda_exists_zero_family Fam v0
   let CZ : ContinuedEis Z := Classical.choice (laws.continuation Z)
-  have hZres := lambda_zero_residue Fam v0 Z hZcoord g laws CZ
+  have hZres := thetaWhit_zero_local_family v0 Z hZcoord g laws CZ
   induction x using Finsupp.induction_linear with
   | zero =>
       refine ⟨Z, CZ, hZ, ?_, ?_⟩
@@ -153,6 +153,32 @@ private theorem lambda_exists_combo (Fam : AnalyticFamily P G μ) (v0 : FinPlace
             symm
             exact map_add (lambdaResidueCombination Fam v0 g laws) x y
 
+/-- Every local section at s0 is realized exactly by an analytic family with the fixed exterior
+sections. This is the family-valued form of `sectionSpace_family_spanning`. -/
+theorem analyticFamily_realize_section (Fam : AnalyticFamily P G μ) (v0 : FinPlace F)
+    (f : (P.loc v0).L → (G.T v0).V)
+    (hf : f ∈ sectionSpace (P.loc v0) (G.T v0) (1 / 6))
+    (g : P.tc.G) (laws : ThetaResidueLaws P G μ) :
+    ∃ H' : AnalyticFamily P G μ, ExteriorFamily Fam v0 H' ∧
+      (H'.sec (1 / 6)).f v0 = f := by
+  classical
+  obtain ⟨n, c, fams, hExts, hsum⟩ := sectionSpace_family_spanning Fam v0 f hf
+  let X : LambdaGen Fam v0 →₀ ℂ :=
+    ∑ j : Fin n, Finsupp.single ⟨fams j, hExts j⟩ (c j)
+  obtain ⟨H', C', hHext, hHcoord, _⟩ := lambda_exists_combo Fam v0 g laws X
+  refine ⟨H', hHext, ?_⟩
+  calc
+    (H'.sec (1 / 6)).f v0 = lambdaGenCombination Fam v0 X (1 / 6) := hHcoord _
+    _ = ∑ j, c j • ((fams j).sec (1 / 6)).f v0 := by
+      change Finsupp.linearCombination ℂ
+        (fun i => lambdaGenAt Fam v0 i (1 / 6)) X = _
+      dsimp only [X]
+      rw [map_sum]
+      apply Finset.sum_congr rfl
+      intro j hj
+      simp [lambdaGenAt, Finsupp.linearCombination_single]
+    _ = f := hsum.symm
+
 private theorem lambda_gen_span_top (Fam : AnalyticFamily P G μ) (v0 : FinPlace F)
     (hv0 : v0 ∉ S.Sf) :
     Submodule.span ℂ (Set.range (lambdaGenSection Fam v0)) = ⊤ := by
@@ -185,7 +211,7 @@ theorem theta_lambda_descent_core (Fam : AnalyticFamily P G μ) (v0 : FinPlace F
   have hZext : ExteriorFamily Fam v0 Z := (Classical.choose_spec Zdata).1
   have hZcoord : ∀ s, (Z.sec s).f v0 = 0 := (Classical.choose_spec Zdata).2
   let CZ : ContinuedEis Z := Classical.choice (laws.continuation Z)
-  have hZres := lambda_zero_residue Fam v0 Z hZcoord g laws CZ
+  have hZres := thetaWhit_zero_local_family v0 Z hZcoord g laws CZ
   let toSection : (LambdaGen Fam v0 →₀ ℂ) →ₗ[ℂ] sectionSpace L T (1 / 6 : ℂ) :=
     lambdaFreeToSection Fam v0
   have hspan := lambda_gen_span_top Fam v0 hv0
