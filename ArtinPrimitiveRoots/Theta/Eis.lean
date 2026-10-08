@@ -396,6 +396,165 @@ theorem finite_integral_translate_torus_support
     (P.tame v hSf).Kmax.mul_mem ((P.tame v hSf).Kmax.mul_mem hkc hk) hkr, ?_⟩
   simp only [map_mul, hkpr, hproj]
 
+/-- Finite-place scalar products are uniformly bounded on integral translates of a finite rational family. -/
+theorem finite_scalar_integral_translate_bound
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) {ι : Type} [Fintype ι]
+    (c : ι → GL (Fin 2) F) (r : P.RP) :
+    ∃ C : ℝ, 0 ≤ C ∧
+      ∀ (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)),
+        ‖∏ᶠ v, G.lam v (Fs.f v (P.compF v
+          (P.ratRP (c i * Matrix.SpecialLinearGroup.toGL
+            (ArtinPrimitiveRoots.A1.Spec.toSLF F γ)) * r)))‖ ≤ C := by
+  classical
+  let j : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F) →* GL (Fin 2) F :=
+    Matrix.SpecialLinearGroup.toGL.comp (ArtinPrimitiveRoots.A1.Spec.toSLF F)
+  let jv (v : FinPlace F) :
+      Matrix.SpecialLinearGroup (Fin 2) (𝓞 F) →* GL (Fin 2) (v.adicCompletion F) :=
+    (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))).comp j
+  let Kint (v : FinPlace F) : Set (GL (Fin 2) (v.adicCompletion F)) :=
+    {k | (∀ a b, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) a b ∈
+      v.adicCompletionIntegers F) ∧ ∀ a b,
+        ((k⁻¹ : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) a b ∈ v.adicCompletionIntegers F}
+  let R (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) : P.RP :=
+    P.ratRP (c i * j γ) * r
+  let bcoeff (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) (v : FinPlace F) : ℂ :=
+    G.lam v (Fs.f v (P.compF v (R i γ)))
+  have hentries (v : FinPlace F) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (a b : Fin 2) : (jv v γ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) a b ∈
+        v.adicCompletionIntegers F := by
+    change ((algebraMap (𝓞 F) F (γ a b) : F) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F
+    exact HeightOneSpectrum.coe_algebraMap_mem (𝓞 F) F v (γ a b)
+  have hKint (v : FinPlace F) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) :
+      jv v γ ∈ Kint v := by
+    refine ⟨hentries v γ, ?_⟩
+    intro a b
+    rw [← map_inv]
+    exact hentries v γ⁻¹ a b
+  have hlocal (i : ι) (v : FinPlace F) : ∃ C : ℝ, 0 ≤ C ∧
+      ∀ γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F), ‖bcoeff i γ v‖ ≤ C := by
+    let φ : GL (Fin 2) (v.adicCompletion F) → PGL2 (v.adicCompletion F) :=
+      fun k => QuotientGroup.mk
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) (c i) * k) *
+          (P.loc v).pr (P.compF v r)
+    have hφ : Continuous φ := by
+      dsimp only [φ]
+      have hleft : Continuous (fun k : GL (Fin 2) (v.adicCompletion F) =>
+          Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) (c i) * k) :=
+        continuous_const.mul continuous_id
+      have hquot : Continuous (fun k : GL (Fin 2) (v.adicCompletion F) =>
+          (QuotientGroup.mk
+            (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) (c i) * k) :
+              PGL2 (v.adicCompletion F))) := QuotientGroup.continuous_mk.comp hleft
+      exact hquot.mul continuous_const
+    let K : Set (P.loc v).L := (P.loc v).pr ⁻¹' (φ '' Kint v)
+    have hK : IsCompact K := local_cover_compact_preimage (P.loc v) _
+      ((local_integral_units_compact v).image hφ)
+    obtain ⟨B, hB, hbound⟩ := section_norm_bound_on_compact
+      (P.loc v) (G.T v) (Fs.f v) (Fs.f_sec v) K hK
+    let lam : (G.T v).V →L[ℂ] ℂ := LinearMap.toContinuousLinearMap (G.lam v)
+    refine ⟨‖lam‖ * B, mul_nonneg (norm_nonneg _) hB, ?_⟩
+    intro γ
+    have hmem : P.compF v (R i γ) ∈ K := by
+      refine ⟨jv v γ, hKint v γ, ?_⟩
+      simp only [φ, R, jv, MonoidHom.comp_apply, map_mul, P.compF_ratRP,
+        (P.loc v).sec_pr, QuotientGroup.mk_mul]
+    exact (lam.le_opNorm _).trans
+      (mul_le_mul_of_nonneg_left (hbound _ hmem) (norm_nonneg lam))
+  choose Cv hCv hCvbound using hlocal
+  let W : Finset (FinPlace F) := Fs.T0 ∪ (P.comp_restricted r).toFinset ∪
+    Finset.univ.biUnion (fun i : ι => (P.comp_restricted (P.ratRP (c i))).toFinset)
+  have hW : Fs.T0 ⊆ W := by
+    intro v hv
+    exact Finset.mem_union.mpr (Or.inl (Finset.mem_union.mpr (Or.inl hv)))
+  let pj (v : FinPlace F) (a : GL (Fin 2) F) : PGL2 (v.adicCompletion F) :=
+    (P.loc v).pr (P.compF v (P.ratRP a))
+  have hpj (v : FinPlace F) (a b : GL (Fin 2) F) :
+      pj v (a * b) = pj v a * pj v b := by
+    simp only [pj, P.compF_ratRP, (P.loc v).sec_pr, map_mul, QuotientGroup.mk_mul]
+  have hIntegral (v : FinPlace F) (hSf : v ∉ S.Sf)
+      (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) :
+      pj v (j γ) ∈ (P.loc v).pr '' ((P.tame v hSf).Kmax : Set (P.loc v).L) := by
+    dsimp only [pj]
+    rw [P.compF_ratRP, (P.loc v).sec_pr, (P.tame v hSf).image]
+    refine ⟨jv v γ, hentries v γ, ?_, rfl⟩
+    have hdet : Matrix.GeneralLinearGroup.det (jv v γ) = 1 := by
+      simp [jv, j, Matrix.GeneralLinearGroup.map_det]
+    have hdetinv : (jv v γ)⁻¹.val.det = 1 := by
+      rw [← Matrix.GeneralLinearGroup.val_det_apply, map_inv, hdet]
+      rfl
+    rw [hdetinv]
+    exact (v.adicCompletionIntegers F).one_mem
+  have hprojTame (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (v : FinPlace F) (hv : v ∉ W) :
+      (P.loc v).pr (P.compF v (R i γ)) ∈ (P.loc v).pr ''
+        ((P.tame v (fun h => hv (hW (Fs.sub h)))).Kmax : Set (P.loc v).L) := by
+    have hSf : v ∉ S.Sf := fun h => hv (hW (Fs.sub h))
+    have hVr : v ∉ (P.comp_restricted r).toFinset := by
+      intro h
+      exact hv (Finset.mem_union.mpr (Or.inl (Finset.mem_union.mpr (Or.inr h))))
+    have hVc : v ∉ (P.comp_restricted (P.ratRP (c i))).toFinset := by
+      intro h
+      exact hv (Finset.mem_union.mpr (Or.inr
+        (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, h⟩)))
+    have hkr : P.compF v r ∈ (P.tame v hSf).Kmax := by
+      by_contra h
+      exact hVr ((P.comp_restricted r).mem_toFinset.mpr ⟨hSf, h⟩)
+    have hkc : P.compF v (P.ratRP (c i)) ∈ (P.tame v hSf).Kmax := by
+      by_contra h
+      exact hVc ((P.comp_restricted (P.ratRP (c i))).mem_toFinset.mpr ⟨hSf, h⟩)
+    obtain ⟨k, hk, hkpr⟩ := hIntegral v hSf γ
+    refine ⟨P.compF v (P.ratRP (c i)) * k * P.compF v r,
+      (P.tame v hSf).Kmax.mul_mem ((P.tame v hSf).Kmax.mul_mem hkc hk) hkr, ?_⟩
+    simp only [R, map_mul]
+    change (pj v (c i) * (P.loc v).pr k) * (P.loc v).pr (P.compF v r) =
+      pj v (c i * j γ) * (P.loc v).pr (P.compF v r)
+    rw [hkpr, hpj]
+  have hunitnorm (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (v : FinPlace F) (hv : v ∉ W) : ‖bcoeff i γ v‖ = 1 := by
+    have hT0 : v ∉ Fs.T0 := fun h => hv (hW h)
+    have hSf : v ∉ S.Sf := fun h => hT0 (Fs.sub h)
+    obtain ⟨k, hk, hkpr⟩ := hprojTame i γ v hv
+    have hker : P.compF v (R i γ) * k⁻¹ ∈ (P.loc v).pr.ker := by
+      change (P.loc v).pr (P.compF v (R i γ) * k⁻¹) = 1
+      rw [map_mul, map_inv, ← hkpr, mul_inv_cancel]
+    rw [(P.loc v).pr_ker] at hker
+    obtain ⟨ζ, hζ⟩ := hker
+    have hcomp : P.compF v (R i γ) = (P.loc v).z ζ * k := by
+      rw [hζ]
+      simp only [inv_mul_cancel_right]
+    have hfk : Fs.f v k = Fs.f v 1 := by
+      simpa only [one_mul] using (Fs.f_sph v hT0).2 1 k hk
+    have hcoeff : bcoeff i γ v = ((ζ : ℂˣ) : ℂ) := by
+      dsimp only [bcoeff]
+      rw [hcomp, (Fs.f_sec v).2.1, map_smul, hfk, (Fs.f_sph v hT0).1,
+        G.lam_tame v hSf 0]
+      simp
+    have hζpow : (((ζ : ℂˣ) : ℂ)) ^ 3 = 1 := by
+      simpa only [Units.val_pow_eq_pow_val, Units.val_one] using
+        congrArg (fun u : ℂˣ => (u : ℂ)) ((mem_rootsOfUnity 3 (ζ : ℂˣ)).mp ζ.property)
+    rw [hcoeff]
+    exact (isOfFinOrder_iff_pow_eq_one.mpr ⟨3, by norm_num, hζpow⟩).norm_eq_one
+  let Ci (i : ι) : ℝ := ∏ v ∈ W, Cv i v
+  have hCi (i : ι) : 0 ≤ Ci i := Finset.prod_nonneg fun v _ => hCv i v
+  refine ⟨∑ i, Ci i, Finset.sum_nonneg (fun i _ => hCi i), ?_⟩
+  intro i γ
+  change ‖∏ᶠ v, bcoeff i γ v‖ ≤ ∑ a, Ci a
+  have hsupp : (Function.mulSupport (bcoeff i γ)).Finite :=
+    (scalarOf_q P G Fs (R i γ)).1
+  have heqnorm : ‖∏ᶠ v, bcoeff i γ v‖ = ∏ v ∈ W, ‖bcoeff i γ v‖ := by
+    change (normHom.toMonoidHom : ℂ →* ℝ) (∏ᶠ v, bcoeff i γ v) = _
+    rw [(normHom.toMonoidHom : ℂ →* ℝ).map_finprod hsupp]
+    change (∏ᶠ v, ‖bcoeff i γ v‖) = _
+    exact finprod_eq_prod_of_mulSupport_subset _
+      (Function.mulSupport_subset_iff'.mpr fun v hv => hunitnorm i γ v hv)
+  rw [heqnorm]
+  exact (Finset.prod_le_prod₀ (fun v _ => norm_nonneg (bcoeff i γ v))
+    (fun v _ => hCvbound i v γ)).trans
+      (Finset.single_le_sum (fun a _ => hCi a) (Finset.mem_univ i))
+
 /-- Finite cusp majorants after bounding the complex components by real spherical sections. -/
 theorem eisenstein_finite_majorants (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ}
     (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
