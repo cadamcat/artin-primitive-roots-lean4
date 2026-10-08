@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.MaskTau
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.DigitMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.PrimeGauss
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.SquarefreeGauss
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ThetaMeasurable
 import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import Mathlib.Analysis.Asymptotics.Basic
 
