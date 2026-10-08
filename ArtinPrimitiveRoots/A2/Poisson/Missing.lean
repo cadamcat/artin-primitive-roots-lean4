@@ -8125,6 +8125,19 @@ private theorem po_H_absolute_gamma_norm_one
   rw [hT, ← Real.rpow_add hq]
   norm_num
 
+private theorem po_H_absolute_region_margins (p : Triple)
+    (hp : eulerNeighborhood p) :
+    2 / 3 < (p 0).re ∧ 0 < (p 1).re ∧ 0 < (p 2).re ∧
+    1 / 4000 < (p 0).re + (p 1).re - 1 ∧
+    1 + 1 / 4000 < (p 0).re + 6 * (p 2).re ∧
+    1 + 1 / 4000 < (p 0).re + (p 1).re ∧
+    1 + 1 / 4000 < (p 1).re + 6 * (p 2).re ∧
+    1 + 1 / 4000 < 6 * (p 0).re + 6 * (p 2).re - 4 ∧
+    1 + 1 / 4000 < (p 0).re + (p 1).re + 6 * (p 2).re - 1 := by
+  rcases hp with ⟨hξ, hw, hz⟩ | ⟨hξ, hw, hz⟩ <;>
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+    linarith only [hξ, hw, hz]
+
 /-- po:H-local-bounds: C,Q0 chosen before the field, set S, phases, or frequency.
 This is the absolute-cutoff obligation used when choosing S in A1. -/
 theorem po_H_local_bounds_absolute :
