@@ -505,7 +505,47 @@ theorem whittaker_theta_dim_le_one (L : FinLocalCover D H v) (T : TorusRep D H v
     (hd : ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal) (Λ₁ Λ₂ : (L.L → T.V) →ₗ[ℂ] ℂ)
     (h₁ : IsWhittakerOn L A (thetaSpace L T μ) Λ₁) (h₂ : IsWhittakerOn L A (thetaSpace L T μ) Λ₂) :
     ∀ f ∈ thetaSpace L T μ, ∀ f' ∈ thetaSpace L T μ, Λ₂ f * Λ₁ f' = Λ₂ f' * Λ₁ f := by
-  sorry
+  obtain ⟨himage, hfactor⟩ := whittaker_theta_unique L T B A μ hv hd
+  obtain ⟨c₁, hc₁⟩ := hfactor Λ₁ h₁
+  obtain ⟨c₂, hc₂⟩ := hfactor Λ₂ h₂
+  let e := weylCarrierEquiv T
+  let uW : T.weyl.V := shellVec D A B.weyl
+  let uT : T.V := e uW
+  intro f hf f' hf'
+  let jW : T.weyl.V := jacquet L A μ f
+  let jW' : T.weyl.V := jacquet L A μ f'
+  have hjW : jW ∈ Submodule.span ℂ {uW} := by
+    change jacquet L A μ f ∈ Submodule.span ℂ {shellVec D A B.weyl}
+    exact himage f hf
+  have hjW' : jW' ∈ Submodule.span ℂ {uW} := by
+    change jacquet L A μ f' ∈ Submodule.span ℂ {shellVec D A B.weyl}
+    exact himage f' hf'
+  obtain ⟨a, ha⟩ := Submodule.mem_span_singleton.mp hjW
+  obtain ⟨b, hb⟩ := Submodule.mem_span_singleton.mp hjW'
+  have haT : a • uT = jacquet L A μ f := by
+    calc
+      a • uT = e (a • uW) := (e.map_smul a uW).symm
+      _ = e jW := congrArg e ha
+      _ = jacquet L A μ f := rfl
+  have hbT : b • uT = jacquet L A μ f' := by
+    calc
+      b • uT = e (b • uW) := (e.map_smul b uW).symm
+      _ = e jW' := congrArg e hb
+      _ = jacquet L A μ f' := rfl
+  have h₂f : Λ₂ f = a * c₂ uT := by
+    rw [hc₂ f hf, ← haT]
+    simp only [map_smul, smul_eq_mul]
+  have h₁f' : Λ₁ f' = b * c₁ uT := by
+    rw [hc₁ f' hf', ← hbT]
+    simp only [map_smul, smul_eq_mul]
+  have h₂f' : Λ₂ f' = b * c₂ uT := by
+    rw [hc₂ f' hf', ← hbT]
+    simp only [map_smul, smul_eq_mul]
+  have h₁f : Λ₁ f = a * c₁ uT := by
+    rw [hc₁ f hf, ← haT]
+    simp only [map_smul, smul_eq_mul]
+  rw [h₂f, h₁f', h₂f', h₁f]
+  ring
 
 end LocalWhit
 
