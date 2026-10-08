@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Spec.Stage2
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_API.Uniqueness
 
 /-!
 # P-SPEC: the package's top theorems
@@ -37,7 +38,7 @@ variable (F : Type) [Field F] [NumberField F]
 variable [IsTotallyComplex F]
 /-- `spec:free-level`: some principal congruence subgroup acts freely. -/
 theorem exists_free_congr : ∃ N : Ideal (𝓞 F), N ≠ ⊥ ∧ FreeAction F (congrSubgroup F N) := by
-  sorry
+  exact R11_free_level (F := F)
 
 /-- `spec:cusps-finite` (boundary to P-EIS / P-REDUCTION): finitely many cusps; the map
 `⊔_i Γ_{σ_i}\Γ → B(F)\SL(2,F)`, `(i, Γ_{σ_i}γ) ↦ B(F)σ_i⁻¹γ`, is a bijection. -/
@@ -77,24 +78,24 @@ theorem eisSeries_invariant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ :
 
 /-- `spec:domain`. -/
 theorem isOpen_contDomain (s₁ ε : ℝ) : IsOpen (contDomain s₁ ε) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.SpecDomcuspP.contDomain_isOpen s₁ ε
 
 /-- `spec:domain`. -/
 theorem isPreconnected_contDomain (s₁ ε : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ < 4) (hε : 0 < ε) :
     IsPreconnected (contDomain s₁ ε) := by
-  sorry
+  exact (C1_domain s₁ ε h₀ h₁ hε).2
 
 /-- **Main theorem of P-SPEC** (`spec:api`). -/
 theorem exists_continuedEisenstein (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex]
     (hfree : FreeAction F Γ) (σ : SL(2,F)) (s₁ : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ ≤ 1 / 2) :
-    Nonempty (ContinuedEisenstein F Γ σ s₁) := by
-  sorry
+    Nonempty (ContinuedEisenstein F Γ σ s₁) :=
+  (C2_api Γ hfree σ s₁ h₀ h₁).1
 
 /-- `spec:api` (uniqueness): two continuations agree on the common domain. -/
 theorem ContinuedEisenstein.E_eq {Γ : Subgroup SL(2, 𝓞 F)} {σ : SL(2,F)} {s₁ : ℝ}
     (d d' : ContinuedEisenstein F Γ σ s₁) (h₁ : s₁ ≤ 1 / 2) :
-    (∀ s ∈ contDomain s₁ (min d.ε d'.ε), d.E s = d'.E s) ∧ d.res = d'.res := by
-  sorry
+    (∀ s ∈ contDomain s₁ (min d.ε d'.ε), d.E s = d'.E s) ∧ d.res = d'.res :=
+  continuedEisenstein_E_eq d d' h₁
 
 /-- **`spec:cuspidal`.** A finite linear combination of residues (same `Γ`, same `s₁`) all of whose
 constant terms vanish is zero. The constant term along `τ` at height vector `y` is the integral over

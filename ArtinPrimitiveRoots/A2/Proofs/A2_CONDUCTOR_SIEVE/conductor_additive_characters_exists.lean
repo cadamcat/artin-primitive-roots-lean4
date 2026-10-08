@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.Defs
+import ArtinPrimitiveRoots.Proofs.a2_cond_lead_p.ConductorAdditiveCharacters
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain ClassFieldTheory
@@ -14,6 +14,11 @@ Guide: sol-thin-a2zf/PROOFS.md:694–701.
 Uses exact nonzero exterior ideals; feeds the finite Fourier and additive estimates. -/
 theorem conductor_additive_characters_exists (S : A1.SData F CE condη) :
     Nonempty (ConductorAdditiveCharacters S) := by
-  sorry
+  classical
+  let ψ : ∀ q : S.ExtIdeal, AddChar (ConductorResidueRing q) ℂ :=
+    fun q => Classical.choose (conductor_primitive_addChar_exists S q)
+  refine ⟨⟨ψ, ?_⟩⟩
+  intro q
+  exact Classical.choose_spec (conductor_primitive_addChar_exists S q)
 
 end ArtinPrimitiveRoots.A2

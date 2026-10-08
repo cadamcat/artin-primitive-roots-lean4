@@ -3,6 +3,13 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Reduction
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.square_pairing_nontrivial
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_square_lift
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_square_commutator
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_jacquet_factorization
 import ArtinPrimitiveRoots.Hecke.Continuation
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_uniform_level_components
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_component_reconstruction
@@ -10,6 +17,8 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_series_analytic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_torus_charts
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_laurent_torus
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_theta_cont
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_FOURIER.theta_constantTerm
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_FOURIER.thetaWhit_equiv
 
 set_option autoImplicit false
 
@@ -383,47 +392,6 @@ theorem resCprod_ne_zero (T0 : Finset (FinPlace F)) : resCprod T0 ≠ 0 := by
   rw [hres]
   exact hΨ0
 
-/-- **def:analytic-family**: a family of global sections, holomorphic on `Re s > 0`, with spherical
-complex components (P-SPEC narrowing), a common `T0` and a uniform level. -/
-structure AnalyticFamily (P : CoverPackage D S H A) (G : GlobalDatum P)
-    (μ : ∀ v : FinPlace F, LocHaar v) where
-  sec : ∀ s : ℂ, GlobalSection P G s
-  T0 : Finset (FinPlace F)
-  T0_eq : ∀ s, (sec s).T0 = T0
-  fC_sph : ∀ s w, (sec s).fC w = sphC s
-  f_analytic : ∀ v (g : (P.loc v).L), AnalyticOnNhd ℂ (fun s => (sec s).f v g) {s | 0 < s.re}
-  M_analytic : ∀ v ∈ T0, ∀ g : (P.loc v).L,
-    AnalyticOnNhd ℂ (fun s => intertwine (P.loc v) (μ v) ((sec s).f v) g) {s | 0 < s.re}
-  J_analytic : ∀ v ∈ T0, ∀ g : (P.loc v).L,
-    AnalyticOnNhd ℂ (fun s => jacquet (P.loc v) A (μ v) (rtr g ((sec s).f v))) {s | 0 < s.re}
-  level : ∀ v ∈ T0, ∃ m, (P.loc v).m0 ≤ m ∧
-    ∀ s g, ∀ k ∈ (P.loc v).Kc m, (sec s).f v (g * k) = (sec s).f v g
-
-/-- **res:continuation** (consumer object): the continuation of `E(·, Φ_s)` to P-SPEC's domain,
-its residue `θ` at `1/6`, and the commutation of the residue with torus integrals.
-Corrected per rev-theta to include archimedean smoothness of the residue; C11 of `sol-gate-theta`
-adds joint root-orbit smoothness. -/
-structure ContinuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
-    {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) where
-  ε : ℝ
-  ε_pos : 0 < ε
-  E : ℂ → P.tc.G → ℂ
-  E_series : ∀ s ∈ Metric.ball (5 / 2 : ℂ) (1 / 2), ∀ g, E s g = eisenstein P G (Fam.sec s) g
-  E_analytic : ∀ g, AnalyticOnNhd ℂ (fun s => E s g) (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) ε)
-  theta : P.tc.G → ℂ
-  laurent : ∀ g, ∃ Ψ : ℂ → ℂ, AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) ε) ∧ Ψ (1 / 6) = theta g ∧
-    ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 → Ψ s = (s - 1 / 6) * E s g
-  laurent_torus : ∀ (g : P.tc.G) (Pd : Set (InfinitePlace F → ℂ)), Bornology.IsBounded Pd →
-    MeasurableSet Pd → ∀ ν : F, ∃ Ψ : ℂ → ℂ, AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) ε) ∧
-      Ψ (1 / 6) = torusCoeff P theta g Pd ν ∧
-      ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 → Ψ s = (s - 1 / 6) * torusCoeff P (E s) g Pd ν
-  theta_cont : ∀ g h, Continuous fun y : S.FSˣ => theta (g * P.tc.aS y * h)
-  archSmooth : ∀ (g : P.tc.G) (w : InfinitePlace F),
-    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
-      (fun z : ℂ => theta (g * P.tc.nS
-        (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))
-  jointRoots : JointRootSmooth P theta
-
 /-- **res:continuation** (existence, from P-REDUCTION `red:decompose` and P-SPEC
 `exists_continuedEisenstein`). -/
 theorem exists_continuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
@@ -459,6 +427,67 @@ def famM {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F
   if hv : v ∈ Fam.T0 then intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v)
   else sphWeyl P G v (fun h => hv ((Fam.T0_eq (1 / 6)) ▸ (Fam.sec (1 / 6)).sub h)) (1 / 6)
 
+/-- Extract the same section family's hypotheses for the acyclic Fourier helper modules. -/
+def AnalyticFamily.fourierHyp {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) :
+    FourierFamilyHyp μ Fam.sec Fam.T0 where
+  T0_eq := Fam.T0_eq
+  fC_sph := Fam.fC_sph
+  f_analytic := Fam.f_analytic
+  M_analytic := Fam.M_analytic
+  J_analytic := Fam.J_analytic
+  level := Fam.level
+
+/-- Extract the existing continuation fields; all functions remain definitionally the same. -/
+def ContinuedEis.fourierData {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} {Fam : AnalyticFamily P G μ}
+    (C : ContinuedEis Fam) : FourierResidueData Fam.sec where
+  ε := C.ε
+  ε_pos := C.ε_pos
+  E := C.E
+  E_series := C.E_series
+  E_analytic := C.E_analytic
+  theta := C.theta
+  laurent := C.laurent
+  laurent_torus := C.laurent_torus
+
+/-- Euler regularization input, reusing the prior lane's partial-zeta identification.
+Guide: sol-thin-thglobal/PROOFS.md:843–845. Uses Hecke trivial continuation,
+resLSeries_eq_zetaT0, and the frozen cprod_eq_zeta_ratio. -/
+theorem fourierEuler_hyp (T0 : Finset (FinPlace F)) : FourierEulerHyp T0 := by
+  let m := resModulus T0
+  let η : ClassFieldTheory.RayClassGroup m →* ℂˣ := 1
+  let L : ℂ → ℂ := ArtinPrimitiveRoots.Hecke.LSeriesRay η
+  obtain ⟨N, hNdiff, hNeq, hN1⟩ :=
+    ArtinPrimitiveRoots.Hecke.LSeriesRay_trivial_continuation (K := F) m
+  have habsc : LSeries.abscissaOfAbsConv (ArtinPrimitiveRoots.Hecke.coeff η) ≤ 1 := by
+    apply LSeries.abscissaOfAbsConv_le_of_forall_lt_LSeriesSummable
+    intro y hy
+    exact ArtinPrimitiveRoots.Hecke.LSeriesSummable_coeff η (s := (y : ℂ)) (by
+      simpa using hy)
+  have hLanalytic : AnalyticOnNhd ℂ L {z | 1 < z.re} := by
+    have hsub : {z : ℂ | 1 < z.re} ⊆
+        {z | LSeries.abscissaOfAbsConv (ArtinPrimitiveRoots.Hecke.coeff η) < z.re} := by
+      intro z hz
+      exact lt_of_le_of_lt habsc (by exact_mod_cast hz)
+    convert! (LSeries_analyticOnNhd (ArtinPrimitiveRoots.Hecke.coeff η)).mono hsub using 1
+      <;> simp only [L, ArtinPrimitiveRoots.Hecke.LSeriesRay]
+  have hLnonzero : ∀ s : ℂ, 1 < s.re → L s ≠ 0 := by
+    intro s hs
+    exact (ArtinPrimitiveRoots.Hecke.norm_LSeriesRay_le (η := η) hs).2.1
+  refine ⟨L, N, hLanalytic, hLnonzero, hNdiff, hNeq, ?_⟩
+  intro s hs
+  have h0 : 1 < (6 * s).re := by
+    have hr : (6 * s).re = 6 * s.re := by simp
+    rw [hr]; nlinarith
+  have h1 : 1 < (6 * s + 1).re := by
+    have hr : (6 * s + 1).re = 6 * s.re + 1 := by simp
+    rw [hr]; nlinarith
+  rw [cprod_eq_zeta_ratio T0 s hs]
+  congr 1
+  · exact (resLSeries_eq_zetaT0 T0 (6 * s) h0).symm
+  · exact (resLSeries_eq_zetaT0 T0 (6 * s + 1) h1).symm
+
 /-- **res:theta-constant**: the constant term of `θ` is `κ_F⁻¹ · res · Σ_δ Θ^M(a(δ)g)`. -/
 theorem theta_constantTerm {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
@@ -472,20 +501,19 @@ theorem theta_constantTerm {P : CoverPackage D S H A} {G : GlobalDatum P}
     torusCoeff P C.theta g Pd 0 = (κF F)⁻¹ * resCprod Fam.T0 *
       ∑' δ : Fˣ ⧸ G.Δ, scalarOf P G (famM Fam) (fun _ => intertwineC (sphC (1 / 6)))
         (P.tc.rat (diagGL (Quotient.out δ)) * g) := by
-  sorry
-
-/-- The Whittaker function of `θ`: its first torus coefficient over an adapted lattice (well
-defined by `theta_fourierCoeff`). -/
-def thetaWhit {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
-    {Fam : AnalyticFamily P G μ} (C : ContinuedEis Fam) (g : P.tc.G) : ℂ :=
-  if h : ∃ (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (Pd : Set (InfinitePlace F → ℂ)),
-      𝔞 ≠ 0 ∧ (∀ s, ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
-        scalarOf P G (Fam.sec s).f (Fam.sec s).fC (h * (g⁻¹ * nFin P ξ * g)) =
-          scalarOf P G (Fam.sec s).f (Fam.sec s).fC h) ∧
-      IsAddFundamentalDomain ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom)
-        Pd volume ∧ Bornology.IsBounded Pd ∧
-      ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf 1 (infEmbA ξ) = 1
-  then torusCoeff P C.theta g h.choose_spec.choose 1 else 0
+  have h := theta_constantTerm_assembly Fam.fourierHyp (fourierEuler_hyp Fam.T0)
+    C.fourierData g 𝔞 h𝔞 hfix Pd hPd hb
+  have hM : fourierRawM μ Fam.sec (1 / 6) =
+      scalarOf P G (famM Fam) (fun _ => intertwineC (sphC (1 / 6))) := by
+    funext h
+    unfold fourierRawM
+    congr 1
+    · funext v
+      unfold famM
+      simp only [Fam.T0_eq]
+    · funext w
+      rw [Fam.fC_sph]
+  simpa only [ContinuedEis.fourierData, resCprod, hM] using h
 
 /-- **res:theta-whittaker**: every torus coefficient of `θ` with `ν ≠ 0` over an adapted lattice is
 `W_θ(a(ν) g)`; `W_θ` is genuine and `(N, ψ)`-equivariant at every place. -/
@@ -500,7 +528,10 @@ theorem theta_fourierCoeff {P : CoverPackage D S H A} {G : GlobalDatum P}
       Pd volume) (hb : Bornology.IsBounded Pd)
     (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (ν : F) (infEmbA ξ) = 1) :
     torusCoeff P C.theta g Pd (ν : F) = thetaWhit C (P.tc.rat (diagGL ν) * g) := by
-  sorry
+  change torusCoeff P C.fourierData.theta g Pd (ν : F) =
+    fourierFirstCoeff C.fourierData (P.tc.rat (diagGL ν) * g)
+  exact theta_fourierCoeff_assembly Fam.fourierHyp C.fourierData g 𝔞 Pd ν
+    ⟨h𝔞, hfix, hPd, hb, hν⟩
 
 theorem thetaWhit_equiv {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam) :
@@ -508,7 +539,14 @@ theorem thetaWhit_equiv {P : CoverPackage D S H A} {G : GlobalDatum P}
     (∀ x g, thetaWhit C (P.tc.nS (Multiplicative.ofAdd x) * g) = S.e A x * thetaWhit C g) ∧
     (∀ v, v ∉ S.Sf → ∀ x g, thetaWhit C (P.tc.n v (Multiplicative.ofAdd x) * g) =
       A.ψ v x * thetaWhit C g) := by
-  sorry
+  change (∀ ζ g, fourierFirstCoeff C.fourierData (P.tc.z ζ * g) =
+      ((ζ : ℂˣ) : ℂ) * fourierFirstCoeff C.fourierData g) ∧
+    (∀ x g, fourierFirstCoeff C.fourierData (P.tc.nS (Multiplicative.ofAdd x) * g) =
+      S.e A x * fourierFirstCoeff C.fourierData g) ∧
+    (∀ v, v ∉ S.Sf → ∀ x g,
+      fourierFirstCoeff C.fourierData (P.tc.n v (Multiplicative.ofAdd x) * g) =
+        A.ψ v x * fourierFirstCoeff C.fourierData g)
+  exact thetaWhit_equiv_assembly Fam.fourierHyp C.fourierData
 
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
@@ -533,6 +571,15 @@ theorem theta_linear_translate {P : CoverPackage D S H A} {G : GlobalDatum P}
         ∀ g, C'.theta g = C.theta (g * P.emb v0 h)) := by
   sorry
 
+/-- Supply the package proof modules with the frozen residue interfaces. -/
+private def thetaResidueLaws {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} : ThetaResidueLaws P G μ where
+  continuation := exists_continuedEis
+  fourierCoeff := theta_fourierCoeff
+  equiv := thetaWhit_equiv
+  dependsOnM := theta_depends_on_M
+  linearTranslate := theta_linear_translate
+
 /-- **res:exterior-whittaker**: at `v0 ∉ S`, `M(1/6) f ↦ W_θ(g)` (`g` commuting with the `v0`-part)
 is a well-defined Whittaker functional on `Θ_{v0}`; P-LOCAL-WHIT then makes it unique. -/
 theorem theta_exterior_whittaker {P : CoverPackage D S H A} {G : GlobalDatum P}
@@ -543,13 +590,18 @@ theorem theta_exterior_whittaker {P : CoverPackage D S H A} {G : GlobalDatum P}
       ∀ (Fam' : AnalyticFamily P G μ) (C' : ContinuedEis Fam'),
         Fam'.T0 = insert v0 Fam.T0 → (∀ s, ∀ v, v ≠ v0 → (Fam'.sec s).f v = (Fam.sec s).f v) →
           thetaWhit C' g = Λ (intertwine (P.loc v0) (μ v0) ((Fam'.sec (1 / 6)).f v0)) := by
-  sorry
+  obtain ⟨Λ, hΛ⟩ := theta_lambda_descent Fam v0 hv0 g thetaResidueLaws
+  refine ⟨Λ, theta_lambda_whittaker Fam v0 hv0 g hg thetaResidueLaws Λ hΛ, ?_⟩
+  intro Fam' C' hT hext
+  exact hΛ Fam' C' ⟨hT, hext⟩
 
 /-- **res:root-generation**: at a tame place the root subgroups generate a nontrivial central element. -/
 theorem center_mem_root_closure {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
     (L : FinLocalCover D H v) (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
     ∃ ζ : rootsOfUnity 3 ℂ, ζ ≠ 1 ∧ L.z ζ ∈ Subgroup.closure (Set.range L.n ∪ Set.range L.nbar) := by
-  sorry
+  obtain ⟨t, u, hne⟩ := square_pairing_nontrivial D H v
+  exact ⟨_, hne, root_square_commutator L t u
+    (root_square_lift L t) (root_square_lift L u)⟩
 
 /-- **res:nonzero**: a nonzero `θ` has a nonzero Whittaker coefficient. -/
 theorem thetaWhit_ne_zero {P : CoverPackage D S H A} {G : GlobalDatum P}
@@ -577,7 +629,11 @@ theorem thetaWhit_multilinear {P : CoverPackage D S H A} {G : GlobalDatum P}
           thetaWhit C' (P.q x) =
             Λ (fun v => jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) ((Fam'.sec (1 / 6)).f v.1))) *
               ∏ w, jacquetC (rtr (P.compC w x) (sphC (1 / 6))) := by
-  sorry
+  obtain ⟨W, hW, hmatch⟩ := thetaWhit_section_multilinear Fam x0 thetaResidueLaws
+  obtain ⟨Λ, hfactor⟩ := thetaWhit_jacquet_factorization (μ := μ) W hW
+  refine ⟨Λ, ?_⟩
+  intro Fam' C' x hT hext hx
+  simpa only [hfactor, familySectionCoords] using hmatch Fam' C' x hT hext hx
 
 end Res
 
