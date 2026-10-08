@@ -983,6 +983,52 @@ private theorem conductorLocalValue_eq_primeValue_pow
   rw [hvalue]
   simp [A1.HeckeChar.primeValue, hunr, π]
 
+private theorem conductorIdealValue_eq_prod_primeValue
+    (ω : A1.HeckeChar F) (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) :
+    ω.idealValue I =
+      ∏ v : conductorPrimeSupport I hI, ω.primeValue v.1 ^ A1.idealExp v.1 I := by
+  classical
+  let factors := UniqueFactorizationMonoid.normalizedFactors I
+  let value : Ideal (𝓞 F) → ℂ := fun J =>
+    if h : J.IsPrime ∧ J ≠ ⊥ then ω.primeValue ⟨J, h.1, h.2⟩ else 1
+  let P := conductorPrimeSupport I hI
+  have hI0 : I ≠ 0 := by simpa [Ideal.zero_eq_bot] using hI
+  have hfac : ∀ J ∈ factors.toFinset, J.IsPrime ∧ J ≠ ⊥ ∧ J ∣ I := by
+    intro J hJ
+    have h := (Ideal.mem_normalizedFactors_iff hI).mp (Multiset.mem_toFinset.mp hJ)
+    refine ⟨h.1, ?_, Ideal.dvd_iff_le.mpr h.2⟩
+    intro hJ0
+    exact hI (le_bot_iff.mp (hJ0 ▸ h.2))
+  let place : ∀ J : Ideal (𝓞 F), J ∈ factors.toFinset → P := fun J hJ =>
+    ⟨⟨J, (hfac J hJ).1, (hfac J hJ).2.1⟩,
+      (mem_conductorPrimeSupport I hI _).mpr (hfac J hJ).2.2⟩
+  change (factors.map value).prod = ∏ v : P, ω.primeValue v.1 ^ A1.idealExp v.1 I
+  rw [Finset.prod_multiset_map_count]
+  refine Finset.prod_bij place ?_ ?_ ?_ ?_
+  · intro J hJ
+    exact Finset.mem_univ _
+  · intro J hJ K hK h
+    exact congrArg (fun v : P => v.1.asIdeal) h
+  · intro v hv
+    have hdiv : v.1.asIdeal ∣ I := (mem_conductorPrimeSupport I hI v.1).mp v.2
+    have hmem : v.1.asIdeal ∈ factors.toFinset :=
+      Multiset.mem_toFinset.mpr ((Ideal.mem_normalizedFactors_iff hI).mpr
+        ⟨v.1.isPrime, Ideal.dvd_iff_le.mp hdiv⟩)
+    refine ⟨v.1.asIdeal, hmem, ?_⟩
+    apply Subtype.ext
+    apply HeightOneSpectrum.ext
+    rfl
+  · intro J hJ
+    have hp := hfac J hJ
+    have hcount : factors.count J = A1.idealExp (place J hJ).1 I :=
+      (Ideal.count_associates_factors_eq hI0
+        (place J hJ).1.isPrime (place J hJ).1.ne_bot).symm
+    dsimp only [value]
+    rw [dif_pos ⟨hp.1, hp.2.1⟩]
+    change ω.primeValue (place J hJ).1 ^ factors.count J =
+      ω.primeValue (place J hJ).1 ^ A1.idealExp (place J hJ).1 I
+    rw [hcount]
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
