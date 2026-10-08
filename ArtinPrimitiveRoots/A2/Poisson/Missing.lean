@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
+import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Finite
 import ArtinPrimitiveRoots.A2.Interface
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
@@ -86,7 +87,10 @@ theorem ext_tate_local_FE_complex :
   ∃ c : ℂ → ℂ, c (1 / 6) ≠ 0 ∧ ∀ f : SchwartzMap ℂ ℂ, ∀ s : ℂ, 0 < s.re → s.re < 1 →
     (∫ y : ℂ, (∫ x : ℂ, f x * psiC (-(x * y))) * (Complex.normSq y : ℂ) ^ s ∂Theta.mulHaarC) =
       c s * ∫ y : ℂ, f y * (Complex.normSq y : ℂ) ^ (1 - s) ∂Theta.mulHaarC := by
-  sorry
+  refine ⟨ArtinPrimitiveRoots.Proofs.a2_weights.complexTateFactor,
+    ArtinPrimitiveRoots.Proofs.a2_weights.complexTateFactor_sixth_ne_zero, ?_⟩
+  intro f s hs hs1
+  exact ArtinPrimitiveRoots.Proofs.a2_weights.complexLocalTateEquation f s hs hs1
 /-- def:po-finite-factor: Gauss sum over the actual R/(I), with an explicit allowed generator. -/
 def finiteGaussAt (I : S.ExtIdeal) (a : Fˣ) (k : F) : ℂ :=
   ∑ᶠ x : ResidueRing R.exterior I, chiIdealPow D I.1 (x.out : F) 1 * S.e A (S.diag (k * (x.out : F) / (a : F)))
