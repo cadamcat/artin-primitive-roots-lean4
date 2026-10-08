@@ -841,7 +841,15 @@ private theorem covol_sunit_finite_compact_reduction_core (S : SData F CE condη
         ∃ a : S.US,
           (fun v : S.Sf =>
             ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
-              (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) ∈ K) ∧
+              (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) ∈ K ∧
+          (∀ v : S.Sf,
+            0 ≤ WithZero.log (Valued.v
+              ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
+                (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) ∧
+            WithZero.log (Valued.v
+              ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
+                (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) <
+              (6 * Fintype.card (ClassGroup (𝓞 F)) : ℤ))) ∧
       (∀ e : 𝓞 F, ∀ z, z ∈ K →
         (fun v : S.Sf =>
           algebraMap F (v.1.adicCompletion F) ((e : 𝓞 F) : F) * z v) ∈ K) := by
@@ -858,15 +866,17 @@ private theorem covol_sunit_finite_compact_reduction_core (S : SData F CE condη
   refine ⟨K, hK, ?_, ?_⟩
   · intro x
     obtain ⟨a, ha⟩ := covol_sunit_finite_reduction_core S x
-    refine ⟨a, ?_⟩
-    change ∀ v : S.Sf, v ∈ Set.univ →
-      ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
-        (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F) ∈ Kloc v
-    intro v hv
-    have hcover := (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2.1
-    apply hcover
-    · exact (ha v).1
-    · simpa [M] using (ha v).2
+    refine ⟨a, ?_, ?_⟩
+    · change ∀ v : S.Sf, v ∈ Set.univ →
+        ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
+          (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F) ∈ Kloc v
+      intro v hv
+      have hcover := (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2.1
+      apply hcover
+      · exact (ha v).1
+      · simpa [M] using (ha v).2
+    · intro v
+      simpa [M] using ha v
   · intro e z hz
     change ∀ v : S.Sf, v ∈ Set.univ →
       algebraMap F (v.1.adicCompletion F) ((e : 𝓞 F) : F) * z v ∈ Kloc v
