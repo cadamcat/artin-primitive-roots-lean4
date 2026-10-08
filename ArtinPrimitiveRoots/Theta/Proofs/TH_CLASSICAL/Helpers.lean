@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.CentralKernel
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Arithmetic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.StrongApprox
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Determinant
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
