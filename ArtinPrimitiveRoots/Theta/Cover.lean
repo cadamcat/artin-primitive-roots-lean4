@@ -2,6 +2,7 @@ import Mathlib.Topology.Defs.Induced
 import Mathlib.Topology.Algebra.RestrictedProduct.TopologicalSpace
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedComponents
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CocycleQuotient
 
 
 /-!
@@ -1666,6 +1667,39 @@ theorem tameSplit_mul (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k₁ k₂ : GL (Fin 2) 
 end CocycleThm
 
 /-! ## Local and global outcome -/
+
+/-- The normalized KP extension modulo its central scalar section, before choosing topology
+or the distinguished root and torus maps. -/
+theorem kpCocycle_centralQuotient (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) :
+    Nonempty (TH_COVER.CocycleQuotient
+      (Subgroup.center (GL (Fin 2) (v.adicCompletion F))) (kpCocycle D H v)) := by
+  have hx1 : xU v (1 : GL (Fin 2) (v.adicCompletion F)) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry]
+  have hd1 : detU v (1 : GL (Fin 2) (v.adicCompletion F)) = 1 := by
+    simp [detU]
+  refine TH_COVER.exists_cocycleQuotient _ _ ?_ ?_ ?_ ?_
+  · exact {
+      one_left := fun g => by
+        simp [kpCocycle, hx1, hd1, hilb_one_left, muThree_one]
+      one_right := fun g => by
+        simp [kpCocycle, hx1, hd1, hilb_one_right, muThree_one]
+      assoc := kpCocycle_cocycle D H v hSt
+    }
+  · intro g hg h hh
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hg hh
+    obtain ⟨c, rfl⟩ := hg
+    obtain ⟨c', rfl⟩ := hh
+    exact kpCocycle_scalar_scalar D H v hSt c c'
+  · intro g hg h
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hg
+    obtain ⟨c, rfl⟩ := hg
+    exact Matrix.GeneralLinearGroup.scalar_commute c h
+  · intro g hg h
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hg
+    obtain ⟨c, rfl⟩ := hg
+    exact kpCocycle_scalar D H v hSt c h
 
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
