@@ -198,4 +198,62 @@ theorem qs_nq0_quotient_conductor_bound
       exact qs_nq0_quadratic_local_principal_unit_trivial D H v h6 (a * b) u
         (lt_of_le_of_lt hubound hlt)
 
+
+/-!
+The exact product conductor has this signature:
+```
+theorem qs_nq0_quotient_primitive_conductor
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (I J : Ideal (𝓞 K)) (hI : Squarefree I) (hJ : Squarefree J)
+    (hcoprime : IsCoprime I J) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I) (hb : Sd.IsGen (b : K) J)
+    (χa χb : HeckeChar K)
+    (hloca : ∀ v : FinPlace K,
+      χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : ∀ v : FinPlace K,
+      χb.loc v = qsNQQuadraticLocal D H v (toLoc v b))
+    (hroot : ∃ y : Sd.FSˣ, Sd.diagU (a / b) = y ^ 6) :
+    IsPrimitiveConductor (χa * χb⁻¹) (I * J)
+```
+-/
+
+/-- Coprime squarefree indices and a sixth-power ratio at S give the exact product conductor. -/
+theorem qs_nq0_quotient_primitive_conductor
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (I J : Ideal (𝓞 K)) (hI : Squarefree I) (hJ : Squarefree J)
+    (hcoprime : IsCoprime I J) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I) (hb : Sd.IsGen (b : K) J)
+    (χa χb : HeckeChar K)
+    (hloca : ∀ v : FinPlace K,
+      χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : ∀ v : FinPlace K,
+      χb.loc v = qsNQQuadraticLocal D H v (toLoc v b))
+    (hroot : ∃ y : Sd.FSˣ, Sd.diagU (a / b) = y ^ 6) :
+    IsPrimitiveConductor (χa * χb⁻¹) (I * J) := by
+  have hgen := qs_nq0_generators_mul Sd I J a b ha hb
+  have hsq : Squarefree (I * J) := squarefree_mul_iff.mpr ⟨hcoprime.isRelPrime, hI, hJ⟩
+  have hloc := (qs_nq0_quotient_character_local D H a b χa χb hloca hlocb).1
+  have hbound := qs_nq0_quotient_conductor_bound D Sd H I J a b ha hb
+    χa χb hloca hlocb hroot
+  obtain ⟨f, hf, _⟩ := qs_nq0_primitive_conductor_exists (χa * χb⁻¹)
+    (I * J) hgen.1.1 hbound
+  have hsupport : ∀ v : FinPlace K, (1 : Ideal (𝓞 K)) ≤ v.asIdeal → v ∈ Sd.Sf := by
+    intro v hv
+    have htop : v.asIdeal = ⊤ := top_unique (by simpa only [Ideal.one_eq_top] using hv)
+    exact (v.isPrime.ne_top htop).elim
+  have hbound' : (χa * χb⁻¹).ConductorDvd ((I * J) * 1) := by
+    simpa only [mul_one] using hbound
+  have hexp := qs_nq0_primitive_conductor_exterior_exponents D Sd H
+    (I * J) hsq (a * b) hgen (χa * χb⁻¹) hloc 1 one_ne_zero hsupport f hf hbound'
+  have hdiv := qs_nq0_primitive_conductor_dvd (χa * χb⁻¹) f (I * J) hf hgen.1.1 hbound
+  obtain ⟨s, hs, hsdiv⟩ := qs_nq0_exterior_conductor_factorization Sd
+    (I * J) hgen.1 1 f hf.1 (by simpa only [mul_one] using hdiv) hexp
+  have hsone : s = 1 := by
+    simpa only [Ideal.one_eq_top] using
+      (Ideal.isUnit_iff.mp (isUnit_iff_dvd_one.mpr hsdiv))
+  have hfeq : f = I * J := by simpa only [hsone, mul_one] using hs
+  simpa only [hfeq] using hf
+
 end ArtinPrimitiveRoots.A2
