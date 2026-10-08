@@ -1,6 +1,6 @@
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.Defs
 import ArtinPrimitiveRoots.Proofs.th_continue_b.ThetaRoots
-import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusRatioChart
+import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusContinuous
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
