@@ -75,6 +75,151 @@ structure BData (S : SData F CE condη) (H : HilbertData F) where
     S.HS H x y = 1
   compl : IsCompl S.E B
 
+private theorem a1_bdata_sol_HSQuot_exists (D : FieldData F) (S : SData F CE condη)
+    (H : HilbertData F) :
+    ∃ β : S.V →* (S.V →* rootsOfUnity 6 F),
+      (∀ x y : S.FSˣ, β (QuotientGroup.mk x) (QuotientGroup.mk y) = S.HS H x y) ∧
+      (∀ q : S.V, β q q = 1) ∧
+      (∀ q : S.V, (∀ r : S.V, β q r = 1) → q = 1) := by
+  classical
+  have hr6 (v : FinPlace F) (a b : (v.adicCompletion F)ˣ)
+      (hb : ∃ c : (v.adicCompletion F)ˣ, b = c ^ 6) : H.hilb v a b = 1 := by
+    simpa [H.sixth_power v b a hb] using H.skew v a b
+  have hr1 (v : FinPlace F) (a : (v.adicCompletion F)ˣ) : H.hilb v a 1 = 1 :=
+    hr6 v a 1 ⟨1, by simp⟩
+  let f : S.FSˣ →* (S.FSˣ →* rootsOfUnity 6 F) :=
+    MonoidHom.mk' (fun x => MonoidHom.mk' (fun y => S.HS H x y) (by
+      intro y z
+      simp only [SData.HS, map_mul, H.mul_right, Finset.prod_mul_distrib])) (by
+      intro x z
+      ext y
+      simp only [MonoidHom.mk'_apply, MonoidHom.mul_apply, SData.HS, map_mul,
+        H.mul_left, Finset.prod_mul_distrib])
+  let P := (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range
+  have hright (x : S.FSˣ) : P ≤ (f x).ker := by
+    rintro y ⟨z, rfl⟩
+    change S.HS H x (z ^ 6) = 1
+    apply Finset.prod_eq_one
+    intro v hv
+    exact hr6 v.1 _ _ ⟨S.compU v z, by simp⟩
+  let g : S.FSˣ →* (S.V →* rootsOfUnity 6 F) :=
+    MonoidHom.mk' (fun x => QuotientGroup.lift P (f x) (hright x)) (by
+      intro x z
+      apply MonoidHom.ext
+      intro q
+      induction q using QuotientGroup.induction_on with
+      | H y =>
+        change f (x * z) y = f x y * f z y
+        rw [map_mul, MonoidHom.mul_apply])
+  have hleft : P ≤ g.ker := by
+    rintro x ⟨z, rfl⟩
+    apply MonoidHom.ext
+    intro q
+    induction q using QuotientGroup.induction_on with
+    | H y =>
+      change S.HS H (z ^ 6) y = 1
+      apply Finset.prod_eq_one
+      intro v hv
+      exact H.sixth_power v.1 _ _ ⟨S.compU v z, by simp⟩
+  let β : S.V →* (S.V →* rootsOfUnity 6 F) := QuotientGroup.lift P g hleft
+  have hβ (x y : S.FSˣ) : β (QuotientGroup.mk x) (QuotientGroup.mk y) = S.HS H x y :=
+    rfl
+  have hnegF : D.ζ12 ^ 6 = -1 := by
+    have hroot : IsPrimitiveRoot (D.ζ12 ^ 6) 2 := by
+      simpa using D.hζ12.pow_of_dvd (by norm_num : (6 : ℕ) ≠ 0) (by norm_num : 6 ∣ 12)
+    exact hroot.eq_neg_one_of_two_right
+  have halt (v : FinPlace F) (a : (v.adicCompletion F)ˣ) : H.hilb v a a = 1 := by
+    by_cases ha : a = 1
+    · subst a
+      exact H.sixth_power v 1 1 ⟨1, by simp⟩
+    let φ : (v.adicCompletion F)ˣ →* rootsOfUnity 6 F :=
+      MonoidHom.mk' (H.hilb v a) (H.mul_right v a)
+    have hane : (a : v.adicCompletion F) ≠ 1 := fun h => ha (Units.ext h)
+    have haine : (a⁻¹ : (v.adicCompletion F)ˣ) ≠ 1 := inv_ne_one.mpr ha
+    let s : (v.adicCompletion F)ˣ := Units.mk0 (1 - (a : v.adicCompletion F))
+      (sub_ne_zero.mpr hane.symm)
+    let t : (v.adicCompletion F)ˣ := Units.mk0 (1 - ((a⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F))
+      (sub_ne_zero.mpr (fun h => haine (Units.ext h.symm)))
+    have hs : φ s = 1 := H.steinberg v a _
+    have ht : φ t = 1 := by
+      have h := H.steinberg v a⁻¹ (sub_ne_zero.mpr (fun h => haine (Units.ext h.symm)))
+      let ψ : (v.adicCompletion F)ˣ →* rootsOfUnity 6 F :=
+        MonoidHom.mk' (fun x => H.hilb v x t) (fun x y => H.mul_left v x y t)
+      change ψ a⁻¹ = 1 at h
+      rw [map_inv, inv_eq_one] at h
+      exact h
+    have hts : t = (-1 : (v.adicCompletion F)ˣ) * a⁻¹ * s := by
+      apply Units.ext
+      simp only [t, s, Units.val_mk0, Units.val_mul, Units.val_neg, Units.val_one,
+        Units.val_inv_eq_inv_val]
+      field_simp
+      ring
+    let ξ : (v.adicCompletion F)ˣ :=
+      toLoc v (Units.mk0 D.ζ12 (D.hζ12.ne_zero (by norm_num)))
+    have hξ : ξ ^ 6 = (-1 : (v.adicCompletion F)ˣ) := by
+      apply Units.ext
+      change ((algebraMap F (v.adicCompletion F)) D.ζ12) ^ 6 = -1
+      rw [← map_pow, hnegF, map_neg, map_one]
+    have hn : φ (-1) = 1 := hr6 v a (-1) ⟨ξ, hξ.symm⟩
+    rw [hts, map_mul, map_mul, hn, hs, map_inv, one_mul, mul_one, inv_eq_one] at ht
+    exact ht
+  refine ⟨β, hβ, ?_, ?_⟩
+  · intro q
+    induction q using QuotientGroup.induction_on with
+    | H x =>
+      rw [hβ]
+      apply Finset.prod_eq_one
+      intro v hv
+      exact halt v.1 (S.compU v x)
+  · intro q hq
+    induction q using QuotientGroup.induction_on with
+    | H x =>
+      have hx (y : S.FSˣ) : S.HS H x y = 1 := by
+        rw [← hβ]
+        exact hq _
+      have hfin (v : S.Sf) : ∃ c : (v.1.adicCompletion F)ˣ, S.compU v x = c ^ 6 := by
+        apply H.nondeg
+        intro b
+        let u : ∀ j : S.Sf, (j.1.adicCompletion F)ˣ := Pi.mulSingle v b
+        let y : S.FSˣ :=
+          { val := (fun j => (u j : j.1.adicCompletion F), fun _ => 1)
+            inv := (fun j => ((u j)⁻¹ : j.1.adicCompletion F), fun _ => 1)
+            val_inv := by ext j <;> simp
+            inv_val := by ext j <;> simp }
+        have hc (j : S.Sf) : S.compU j y = u j := Units.ext rfl
+        have hsingle : S.HS H x y = H.hilb v.1 (S.compU v x) b := by
+          unfold SData.HS
+          rw [Finset.prod_eq_single v]
+          · simp only [hc, u, Pi.mulSingle_eq_same]
+          · intro j hj hjv
+            simp only [hc, u, Pi.mulSingle_eq_of_ne hjv]
+            exact hr1 j.1 _
+          · simp
+        rw [← hsingle]
+        exact hx y
+      have hcomplex (w : InfinitePlace F) : ∃ c : ℂˣ, S.compC w x = c ^ 6 := by
+        obtain ⟨z, hz⟩ := IsAlgClosed.exists_pow_nat_eq (S.compC w x : ℂ) (by norm_num : 0 < (6 : ℕ))
+        have hz0 : z ≠ 0 := by
+          intro h
+          rw [h, zero_pow (by norm_num)] at hz
+          exact (S.compC w x).ne_zero hz.symm
+        refine ⟨Units.mk0 z hz0, ?_⟩
+        apply Units.ext
+        exact hz.symm
+      choose c hc using hfin
+      choose d hd using hcomplex
+      let y : S.FSˣ :=
+        { val := (fun v => (c v : v.1.adicCompletion F), fun w => (d w : ℂ))
+          inv := (fun v => ((c v)⁻¹ : v.1.adicCompletion F), fun w => ((d w)⁻¹ : ℂ))
+          val_inv := by ext v <;> simp
+          inv_val := by ext v <;> simp }
+      apply (QuotientGroup.eq_one_iff _).mpr
+      refine ⟨y, ?_⟩
+      apply Units.ext
+      apply Prod.ext <;> funext v
+      · exact congrArg Units.val (hc v).symm
+      · exact congrArg Units.val (hd v).symm
+
 /-- lem:balanced-generators (a)–(c). Package P-ARITH-B. -/
 theorem BData.nonempty (D : FieldData F) (S : SData F CE condη) (H : HilbertData F) :
     Nonempty (BData S H) := by
