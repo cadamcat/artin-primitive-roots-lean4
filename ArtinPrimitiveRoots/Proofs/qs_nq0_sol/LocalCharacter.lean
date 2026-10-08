@@ -442,4 +442,55 @@ theorem qs_nq0_quadratic_ideal_value
     simpa only [chiPow, ite_eq_right hres, zpow_ofNat] using hvalue
   · rfl
 
+/-!
+The finite-place ideal-value step has this exact signature:
+```
+theorem qs_nq0_ideal_value_finprod
+    (χ : HeckeChar K) (I : Ideal (𝓞 K)) (hI : I ≠ ⊥) :
+    χ.idealValue I = ∏ᶠ v : FinPlace K, χ.primeValue v ^ idealExp v I
+```
+-/
+
+/-- The normalized-factor ideal value is the product of prime values with their exponents. -/
+theorem qs_nq0_ideal_value_finprod
+    (χ : HeckeChar K) (I : Ideal (𝓞 K)) (hI : I ≠ ⊥) :
+    χ.idealValue I = ∏ᶠ v : FinPlace K, χ.primeValue v ^ idealExp v I := by
+  classical
+  unfold HeckeChar.idealValue
+  rw [Multiset.prod_map_eq_finprod]
+  rw [← finprod_emb_domain' IsDedekindDomain.HeightOneSpectrum.asIdeal_injective
+    (fun v : FinPlace K => χ.primeValue v ^ idealExp v I)]
+  apply finprod_congr
+  intro P
+  by_cases hp : P.IsPrime ∧ P ≠ ⊥
+  · let v : FinPlace K := ⟨P, hp.1, hp.2⟩
+    have hmem : P ∈ Set.range (fun v : FinPlace K => v.asIdeal) := ⟨v, rfl⟩
+    rw [dif_pos hp, dif_pos hmem]
+    have hv : Classical.choose hmem = v :=
+      IsDedekindDomain.HeightOneSpectrum.asIdeal_injective (Classical.choose_spec hmem)
+    rw [hv]
+    congr 1
+    exact (Ideal.count_associates_factors_eq hI hp.1 hp.2).symm
+  · have hnot : P ∉ Set.range (fun v : FinPlace K => v.asIdeal) := by
+      rintro ⟨v, rfl⟩
+      exact hp ⟨v.isPrime, v.ne_bot⟩
+    simp only [dif_neg hp, one_pow, dif_neg hnot]
+
+/-!
+The next local reciprocity step has this exact signature:
+```
+theorem qs_nq0_quadratic_local_generator_pair
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (I J : Ideal (𝓞 K)) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I) (hb : Sd.IsGen (b : K) J)
+    (hcoprime : IsCoprime I J)
+    (χa χb : HeckeChar K) (v : FinPlace K) (hv : v ∉ Sd.Sf)
+    (hloca : χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : χb.loc v = qsNQQuadraticLocal D H v (toLoc v b)) :
+    ((qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) : ℂˣ) : ℂ) =
+      χa.primeValue v ^ idealExp v J * χb.primeValue v ^ idealExp v I
+```
+-/
+
 end ArtinPrimitiveRoots.A2
