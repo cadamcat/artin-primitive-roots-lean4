@@ -1891,7 +1891,23 @@ def densityProducerStatement (K : IncompleteDictionary η fd HA) : Prop :=
 The analytic theorem remains to be proved (06:165–185). -/
 theorem prop_zero_density_dictionary (K : IncompleteDictionary η fd HA) :
     densityProducerStatement η fd HA K := by
-  sorry
+  intro hη _ AF hAF hG
+  obtain ⟨ρ, U₀, Cexc, E, hρ0, hρ1, hU₀, hC, hmain, hrec⟩ :=
+    Proofs.A2ZeroDetect.zero_density_core S D η hη fd K.complete K.incomplete AF hAF AF hAF hG
+  refine ⟨⟨ρ, hρ0, U₀, hU₀, Cexc, hC, E, ?_, ?_, ?_, ?_⟩, hρ1⟩
+  · intro T hT u hu
+    exact (hmain T hT).1 u hu
+  · intro T hT
+    simpa only [Real.rpow_eq_pow] using (hmain T hT).2.1
+  · intro T hT u hu1 hu2 hbad
+    apply (hmain T hT).2.2 u hu1 hu2
+    simpa only [Real.rpow_eq_pow] using hbad
+  · intro ε hε
+    obtain ⟨C, hC, hb⟩ := hrec ε hε
+    refine ⟨C, hC, ?_⟩
+    intro T hT u hu1 hu2 hgood h s hs ht
+    simpa only [Real.rpow_eq_pow] using
+      hb T hT u hu1 hu2 hgood h s hs (by simpa only [Real.rpow_eq_pow] using ht)
 
 /-- The corrected producer's complete-zero coverage supplies nonvanishing for the unchanged
 `ZeroDensityData` consumer; finite deleted factors are explicit. This adapter for `prop:zero-density`
