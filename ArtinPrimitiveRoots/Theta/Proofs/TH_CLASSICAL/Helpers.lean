@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.CentralKernel
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
