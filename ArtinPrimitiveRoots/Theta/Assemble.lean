@@ -18,6 +18,12 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.NormalizedBasisIntegral
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.LatticeCoefficientChart
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealSmoothTorusChart
 import ArtinPrimitiveRoots.Theta.Res
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».ResidueActions
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».RootActions
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».BoundedIntegralDerivative
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».RootIntegral
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».RootFold
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».ThetaRatUpper
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
 
@@ -80,7 +86,14 @@ theorem Rderiv_spec {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v :
     (∀ g, ∀ k ∈ P.tc.Kext, Rderiv P m C.theta (g * k) = Rderiv P m C.theta g) ∧
     (∀ g Pd ν, Bornology.IsBounded Pd → MeasurableSet Pd →
       torusCoeff P (Rderiv P m C.theta) g Pd ν = Rderiv P m (fun h => torusCoeff P C.theta h Pd ν) g) := by
-  sorry
+  intro _
+  obtain ⟨hAut, hGen, hRight⟩ :=
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.theta_residue_actions Fam C
+  obtain ⟨hAut', hGen', hRight'⟩ :=
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.rderiv_actions P m C.theta
+      C.jointRoots hAut hGen (hRight hT)
+  exact ⟨hAut', hGen', hRight',
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.rderiv_torusCoeff P m C.theta C.jointRoots⟩
 
 /-- **asm:fourier**: Fourier expansion along `N(F_∞)` of a smooth function, periodic for
 `infEmb 𝔞`, over the dual lattice `{ν : ψ_∞(ν𝔞) = 1} ⊆ F`. C9 of `sol-gate-theta` uses C-infinity
@@ -135,7 +148,11 @@ theorem thetaWhit_nFin {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
     (η : F) (h : P.tc.G) :
     thetaWhit C (nFin P η * h) = psiInf 1 (infEmbA (-η)) * thetaWhit C h := by
-  sorry
+  rw [nFin, mul_assoc,
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.thetaWhit_ratUpper Fam C]
+  have hroot := (thetaWhit_equiv Fam C).2.1
+    ((0, -(infEmbA η)) : S.FS) h
+  simpa [nInf, SData.e, psiInf, map_neg] using hroot
 
 /-- **asm:Wv**: the fields `Wv_genuine`, `Wv_equiv`, `Wv_right`, `Wv_table` for `WvAll`. -/
 theorem WvAll_spec (P : CoverPackage D S H A) (G : GlobalDatum P) (μ : ∀ v : FinPlace F, LocHaar v) :
