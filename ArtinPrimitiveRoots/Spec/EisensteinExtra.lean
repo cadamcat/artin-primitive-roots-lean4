@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Spec.Energy
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SMOOTH_SEED.E3
 import Mathlib.LinearAlgebra.Countable
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SIEGEL_BOUND.triangular_transition_unique
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SIEGEL_BOUND.triangular_transition_term
@@ -32,7 +33,7 @@ theorem E3_eis_smooth (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
           ∀ q, ∀ p, p ∈ K →
             ‖iteratedFDeriv ℝ n
               (fun p => eisTerm F Γ σ s (ptX F p) q) p v‖ ≤ m q) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.spec_seed_p.e3Result Γ σ s hs
 
 /-- E4 `spec:eis-siegel` — P-SPEC.md:240, 390–395. On each Siegel set there is at most one
 upper-triangular seed coset; the remaining terms and their gradients are uniformly summable on
@@ -111,7 +112,13 @@ theorem E5_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
                 deriv (fun t : ℝ => (τ t : ℂ))
                   (normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z))) ) *
             ((normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) : ℝ) : ℂ) ^ (1 + 2 * s)) := by
-  sorry
+  rcases ArtinPrimitiveRoots.Proofs.spec_seed_p.e5EasyClauses
+      Γ σ A₀ A hA₀ hA hsep τ hτ with
+    ⟨hfinite, hseed, hcompact, htail⟩
+  rcases ArtinPrimitiveRoots.Proofs.spec_seed_p.e5AnalyticClauses
+      Γ D hD σ A₀ A hA₀ hA hsep τ hτ with
+    ⟨hl2, hderivatives⟩
+  exact ⟨hfinite, hseed, hcompact, hl2, hderivatives, htail⟩
 
 theorem spec_cuspUnits_finiteIndex (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (σ : SL(2,F)) : (cuspUnits F Γ σ).FiniteIndex := by
