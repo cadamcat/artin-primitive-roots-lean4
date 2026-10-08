@@ -698,6 +698,73 @@ private theorem thetaN_fold_sumProd {ι : Type} (T : Finset ι) (a : ι → ℂ)
         simp [hw]
       · simp [huw]
 
+/-! ### Local constancy of the finite factors in the torus parameter -/
+
+private theorem thetaN_muThree_one : muThree D (1 : rootsOfUnity 6 F) = 1 := by
+  apply Subtype.ext
+  apply Units.ext
+  simp [muThree]
+
+private theorem thetaN_hilb_sixth (v : FinPlace F) (u0 u1 : (v.adicCompletion F)ˣ)
+    (h6 : ∃ c : (v.adicCompletion F)ˣ, u1 = c ^ 6) : H.hilb v u0 u1 = 1 := by
+  have h1 := H.sixth_power v u1 u0 h6
+  have h2 := H.skew v u0 u1
+  rw [h1, mul_one] at h2
+  exact h2
+
+/-- Near `u0`, right translation by the torus element `a(u)` before a fixed `Y` does not change
+an intertwined finite section, uniformly in the left argument. -/
+private theorem thetaN_famM_torus_nhds {P : CoverPackage D S H A}
+    {N : ThetaNormalizationInput P} {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛)
+    (v : S.Sf) (u0 : (v.1.adicCompletion F)ˣ) (Y : (P.loc v.1).L) :
+    ∀ᶠ u in 𝓝 u0, ∀ X : (P.loc v.1).L,
+      famM B.Fam v.1 (X * (P.loc v.1).a u * Y) = famM B.Fam v.1 (X * (P.loc v.1).a u0 * Y) := by
+  let L := P.loc v.1
+  obtain ⟨m, hm, hlev⟩ := ((thetaNSection B).f_sec v.1).2.2
+  let W : Set L.L := {k | Y⁻¹ * k * Y ∈ L.Kc m}
+  have hcont : Continuous (fun k : L.L => Y⁻¹ * k * Y) := by fun_prop
+  have hWopen : IsOpen W := by
+    change IsOpen ((fun k : L.L => Y⁻¹ * k * Y) ⁻¹' (L.Kc m : Set L.L))
+    exact (L.Kc_open m hm).preimage hcont
+  have hWone : (1 : L.L) ∈ W := by simp [W]
+  obtain ⟨m', hm', hsub⟩ := L.Kc_nhds W (hWopen.mem_nhds hWone)
+  let K := v.1.adicCompletion F
+  let V : Set K := B.Uv v ∩ (fun x : K => x - 1) ⁻¹' ball v.1 (m' : ℤ)
+  have hballopen : IsOpen (ball v.1 (m' : ℤ)) := by
+    change IsOpen {x : K | Valued.v x ≤ WithZero.exp (-(m' : ℤ))}
+    exact v.1.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hsubcont : Continuous (fun x : K => x - 1) := continuous_sub_right 1
+  have hVopen : IsOpen V := (B.open_Uv v).inter (hballopen.preimage hsubcont)
+  have hVone : (1 : K) ∈ V := by
+    refine ⟨B.one_Uv v, ?_⟩
+    change Valued.v ((1 : K) - 1) ≤ WithZero.exp (-(m' : ℤ))
+    rw [sub_self, map_zero]
+    exact zero_le
+  let φ : Kˣ → K := fun u => ((u0⁻¹ * u : Kˣ) : K)
+  have hφcont : Continuous φ := Units.continuous_val.comp (continuous_const.mul continuous_id)
+  have hφu0 : φ u0 = 1 := by simp [φ]
+  have hnhds : φ ⁻¹' V ∈ 𝓝 u0 := by
+    apply hφcont.continuousAt.preimage_mem_nhds
+    rw [hφu0]
+    exact hVopen.mem_nhds hVone
+  filter_upwards [hnhds] with u hu X
+  obtain ⟨huU, huB⟩ := hu
+  set u1 : Kˣ := u0⁻¹ * u with hu1
+  have hu : u = u0 * u1 := by rw [hu1, mul_inv_cancel_left]
+  have h6 : ∃ c : Kˣ, u1 = c ^ 6 := by
+    obtain ⟨c, hc⟩ := B.sixth_Uv v (u1 : K) huU
+    exact ⟨c, Units.ext hc⟩
+  have hmul : L.a u = L.a u0 * L.a u1 := by
+    have h := L.a_mul u0 u1
+    rw [thetaN_hilb_sixth v.1 u0 u1 h6, thetaN_muThree_one, map_one, one_mul, ← hu] at h
+    exact h.symm
+  have hK : L.a u1 ∈ L.Kc m' := L.a_Kc m' hm' u1 huB
+  have harg : X * L.a u * Y = (X * L.a u0 * Y) * (Y⁻¹ * L.a u1 * Y) := by
+    rw [hmul]; group
+  change famM B.Fam v.1 (X * L.a u * Y) = famM B.Fam v.1 (X * L.a u0 * Y)
+  rw [harg]
+  exact hlev _ _ (hsub hK)
+
 /-- Export the constant-term invariances, torus continuity and T7 radiality for the same normalized constant term.
 Guide: sol-thin-thglobal/PROOFS.md:1200–1210.
 Uses thetaFamilyBaseN, theta_constantTerm, intertwineC_spherical and left-translation commutation with thetaFamilyDeriv. -/
