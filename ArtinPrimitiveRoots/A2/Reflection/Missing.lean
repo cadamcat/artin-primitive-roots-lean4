@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.Interface
+import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
@@ -581,7 +582,96 @@ theorem rf_original_majorant : ∀ σ : ℝ, 1 / 2 < σ →
   sphericalMajorant (S := S) σ ≤ exteriorZeta (S := S) (σ + 1 / 2) * exteriorZeta (S := S) (3 * σ + 1) ∧
   Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(σ + 1 / 2))) ∧
   Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(3 * σ + 1))) := by
-  sorry
+  intro σ hσ
+  let a : S.ExtIdeal → ℝ := fun I => qI I.1 ^ (-1 / 2 - σ)
+  let b : S.ExtIdeal → ℝ := fun I => qI I.1 ^ (-1 - 3 * σ)
+  have haBase := a2_bridge_COUNT_summable (S := S) (σ + 1 / 2) (by linarith)
+  have hbBase := a2_bridge_COUNT_summable (S := S) (3 * σ + 1) (by linarith)
+  have ha : Summable a := by
+    apply haBase.congr
+    intro I
+    dsimp [a, qI, idealNorm]
+    congr 1
+    ring
+  have hb : Summable b := by
+    apply hbBase.congr
+    intro I
+    dsimp [b, qI, idealNorm]
+    congr 1
+    ring
+  have haResult : Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(σ + 1 / 2))) := by
+    simpa [qI, idealNorm] using haBase
+  have hbResult : Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(3 * σ + 1))) := by
+    simpa [qI, idealNorm] using hbBase
+  have ha_nonneg : ∀ I, 0 ≤ a I := by
+    intro I
+    change 0 ≤ Real.rpow (Ideal.absNorm I.1 : ℝ) _
+    exact Real.rpow_nonneg (Nat.cast_nonneg _) _
+  have hb_nonneg : ∀ I, 0 ≤ b I := by
+    intro I
+    change 0 ≤ Real.rpow (Ideal.absNorm I.1 : ℝ) _
+    exact Real.rpow_nonneg (Nat.cast_nonneg _) _
+  let incl : S.SqfExtIdeal → S.ExtIdeal := fun I => ⟨I.1, I.2.1⟩
+  have hincl : Function.Injective incl := by
+    intro I J h
+    apply Subtype.ext
+    change (incl I).1 = (incl J).1
+    exact congrArg (fun x : S.ExtIdeal => x.1) h
+  let aSqf : S.SqfExtIdeal → ℝ := fun I => a (incl I)
+  have haSqf : Summable aSqf := by
+    let e : S.SqfExtIdeal ≃ {I : S.ExtIdeal // Squarefree I.1} :=
+      { toFun := fun I => ⟨incl I, I.2.2⟩
+        invFun := fun I => ⟨I.1.1, ⟨I.1.2, I.2⟩⟩
+        left_inv := by intro I; apply Subtype.ext; rfl
+        right_inv := by intro I; apply Subtype.ext; apply Subtype.ext; rfl }
+    have hsub : Summable (fun I : {I : S.ExtIdeal // Squarefree I.1} => a I.1) :=
+      ha.subtype (fun I : S.ExtIdeal => Squarefree I.1)
+    have heq : aSqf = fun I : S.SqfExtIdeal => a (e I).1 := by
+      funext I
+      rfl
+    rw [heq]
+    exact (Equiv.summable_iff e).mpr hsub
+  have hpair : Summable (fun p : S.SqfExtIdeal × S.ExtIdeal => aSqf p.1 * b p.2) :=
+    haSqf.mul_of_nonneg hb (fun I => ha_nonneg (incl I)) hb_nonneg
+  have hprod :
+      (∑' p : S.SqfExtIdeal × S.ExtIdeal, aSqf p.1 * b p.2) =
+        (∑' I : S.SqfExtIdeal, aSqf I) * (∑' I : S.ExtIdeal, b I) := by
+    calc
+      _ = ∑' I : S.SqfExtIdeal, ∑' J : S.ExtIdeal, aSqf I * b J := hpair.tsum_prod
+      _ = _ := by simp [tsum_mul_left, tsum_mul_right]
+  have hsub : (∑' I : S.SqfExtIdeal, aSqf I) ≤ ∑' I : S.ExtIdeal, a I :=
+    tsum_comp_le_tsum_of_inj ha ha_nonneg hincl
+  have hb_tsum_nonneg : 0 ≤ ∑' I : S.ExtIdeal, b I := tsum_nonneg hb_nonneg
+  have hbound :
+      (∑' p : S.SqfExtIdeal × S.ExtIdeal, aSqf p.1 * b p.2) ≤
+        (∑' I : S.ExtIdeal, a I) * (∑' I : S.ExtIdeal, b I) := by
+    rw [hprod]
+    exact mul_le_mul_of_nonneg_right hsub hb_tsum_nonneg
+  have hmaj_eq : sphericalMajorant (S := S) σ =
+      ∑' p : S.SqfExtIdeal × S.ExtIdeal, aSqf p.1 * b p.2 := by
+    unfold sphericalMajorant
+    apply tsum_congr
+    intro p
+    rfl
+  have hza : (∑' I : S.ExtIdeal, a I) = exteriorZeta (S := S) (σ + 1 / 2) := by
+    unfold exteriorZeta
+    apply tsum_congr
+    intro I
+    dsimp [a]
+    congr 1
+    ring
+  have hzb : (∑' I : S.ExtIdeal, b I) = exteriorZeta (S := S) (3 * σ + 1) := by
+    unfold exteriorZeta
+    apply tsum_congr
+    intro I
+    dsimp [b]
+    congr 1
+    ring
+  refine ⟨?_, haResult, hbResult⟩
+  calc
+    sphericalMajorant (S := S) σ = _ := hmaj_eq
+    _ ≤ (∑' I : S.ExtIdeal, a I) * (∑' I : S.ExtIdeal, b I) := hbound
+    _ = _ := by rw [hza, hzb]
 /-- rf:S-unfolding, 04:804-857. The norm identity and selected frequency class are fixed together. -/
 theorem rf_frozen_frequency_norm_class : ∀ h (t : FrozenIndex R h) d c sd sc,
   cls (S.diagU (bc.gen d)) = sd.1 → cls (S.diagU (bc.gen (R.exterior.ofSqf c))) = sc.1 →
