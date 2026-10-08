@@ -1734,4 +1734,289 @@ theorem inverse_kernel_shell_integral (T : TorusRep D H v) (B : TameTorusBasis T
       else 0)) • B.e (k + 2 * (l : ZMod 3))) (inverse_shell_cpow (v := v) l s)
   · simp [hnl]
 
+private theorem addChar_locallyConstant (A : AddCharData F) :
+    IsLocallyConstant (A.ψ v) := by
+  obtain ⟨d, hψ, -⟩ := psi_conductor A v
+  have hballOpen : IsOpen (ball v (-(d : ℤ))) :=
+    v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  apply (IsLocallyConstant.iff_exists_open (A.ψ v)).mpr
+  intro x
+  let U := (fun x' : v.adicCompletion F => x' - x) ⁻¹' ball v (-(d : ℤ))
+  have hU : IsOpen U := by
+    dsimp [U]
+    exact hballOpen.preimage (continuous_id.sub continuous_const)
+  have hxU : x ∈ U := by
+    dsimp [U]
+    change x - x ∈ ball v (-(d : ℤ))
+    simp only [ball, Int.neg_neg]
+    simp
+  refine ⟨U, hU, hxU, ?_⟩
+  intro x' hx'
+  have hdiff : x' - x ∈ ball v (-(d : ℤ)) := by simpa [U] using hx'
+  let z := x' - x
+  have hz : z ∈ ball v (-(d : ℤ)) := by simpa [z] using hdiff
+  have hxEq : x' = x + z := by dsimp [z]; abel
+  calc
+    A.ψ v x' = A.ψ v (x + z) := by rw [hxEq]
+    _ = A.ψ v x * A.ψ v z := AddChar.map_add_eq_mul (A.ψ v) x z
+    _ = A.ψ v x := by rw [hψ z hz, mul_one]
+
+private theorem localUnitShell_charPower_locallyConstant (D : FieldData F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (j : ℤ) :
+    IsLocallyConstant (localUnitShell.charPower (D := D) (v := v) j) := by
+  apply (IsLocallyConstant.iff_eventually_eq
+    (localUnitShell.charPower (D := D) (v := v) j)).2
+  intro x
+  have hballopen : IsOpen (ball v 1) := by
+    exact v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  let U : Set (localUnitShell v) :=
+    {y | (y : v.adicCompletion F) - x ∈ ball v 1}
+  have hUopen : IsOpen U := by
+    change IsOpen ((fun y : localUnitShell v => (y : v.adicCompletion F) - x) ⁻¹' ball v 1)
+    exact hballopen.preimage (continuous_subtype_val.sub continuous_const)
+  have hxU : x ∈ U := by
+    change (x : v.adicCompletion F) - x ∈ ball v 1
+    simp [ball]
+  filter_upwards [hUopen.mem_nhds hxU] with y hy
+  exact localUnitShell_charPower_congr D hv j x y hy
+
+private theorem unitShell_inv_mem (x : v.adicCompletion F) (hx : x ∈ localUnitShell v) :
+    x⁻¹ ∈ localUnitShell v := by
+  change Valued.v x⁻¹ = 1
+  rw [map_inv₀, show Valued.v x = 1 from hx, inv_one]
+
+private theorem localChiPowerField_continuousOn (D : FieldData F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (j : ℤ) :
+    ContinuousOn (localChiPowerField D j) (localUnitShell v) := by
+  apply continuousOn_iff_continuous_domRestrict.mpr
+  have heq : (localUnitShell v).domRestrict (localChiPowerField D j) =
+      localUnitShell.charPower (D := D) (v := v) j := by
+    funext x
+    simp [localChiPowerField, localUnitShell.charPower, localUnitShell.unit,
+      localUnitShell_ne_zero]
+  rw [heq]
+  exact (localUnitShell_charPower_locallyConstant (v := v) D hv j).continuous
+
+private theorem inverseKernel_shell_continuousOn (T : TorusRep D H v) (B : TameTorusBasis T)
+    (A : AddCharData F) (hv : (6 : 𝓞 F) ∉ v.asIdeal) (s : ℂ)
+    (N : ℕ) (k : ZMod 3) (l : ℤ) :
+    ContinuousOn (inverseKernel T B A s N k) (inverseValShell v l) := by
+  let a : v.adicCompletion F := ((unifLoc v ^ (-l) : (v.adicCompletion F)ˣ) : v.adicCompletion F)
+  let b : v.adicCompletion F := ((unifLoc v ^ l : (v.adicCompletion F)ˣ) : v.adicCompletion F)
+  let scalar : v.adicCompletion F → ℂ := fun y =>
+    if hy : y ≠ 0 then localChi D v (Units.mk0 y hy) ^ (2 * (l + (k.val : ℤ))) *
+      A.ψ v (b * y) else 0
+  have hscalar : ContinuousOn scalar (localUnitShell v) := by
+    have hχ := localChiPowerField_continuousOn D hv (2 * (l + (k.val : ℤ)))
+    have hψ : Continuous (fun y : v.adicCompletion F => A.ψ v (b * y)) :=
+      (addChar_locallyConstant A).continuous.comp (continuous_const.mul continuous_id)
+    apply (hχ.mul hψ.continuousOn).congr
+    intro y hy
+    have hyne : y ≠ 0 := localUnitShell_ne_zero ⟨y, hy⟩
+    simp [scalar, localChiPowerField, hyne]
+  have hinv : ContinuousOn (fun y : v.adicCompletion F => y⁻¹) (localUnitShell v) := by
+    intro y hy
+    exact (continuousAt_inv₀ (localUnitShell_ne_zero ⟨y, hy⟩)).continuousWithinAt
+  have hscalarInv : ContinuousOn (fun y : v.adicCompletion F => scalar y⁻¹)
+      (localUnitShell v) := hscalar.comp hinv (fun y hy => unitShell_inv_mem y hy)
+  let g : v.adicCompletion F → T.V := fun y =>
+    if -(N : ℤ) ≤ l then
+      ((((qv v ^ l : ℝ) : ℂ) ^ (-1 - 2 * s)) * scalar y⁻¹) •
+        B.e (k + 2 * (l : ZMod 3)) else 0
+  have hg : ContinuousOn g (localUnitShell v) := by
+    by_cases hnl : -(N : ℤ) ≤ l
+    · have hw : ContinuousOn (fun y : v.adicCompletion F =>
+          ((((qv v ^ l : ℝ) : ℂ) ^ (-1 - 2 * s)) * scalar y⁻¹))
+          (localUnitShell v) := continuousOn_const.mul hscalarInv
+      simpa only [g, if_pos hnl] using hw.fun_smul
+        (continuousOn_const : ContinuousOn
+          (fun _ : v.adicCompletion F => B.e (k + 2 * (l : ZMod 3))) (localUnitShell v))
+    · simp only [g, if_neg hnl]
+      exact continuousOn_const
+  have hmaps : Set.MapsTo (fun x : v.adicCompletion F => b * x)
+      (inverseValShell v l) (localUnitShell v) := by
+    intro x hx
+    change Valued.v (b * x) = 1
+    dsimp [b]
+    rw [map_mul, uniformizer_zpow_valuation,
+      show Valued.v x = WithZero.exp l from hx, ← WithZero.exp_add]
+    simp
+  apply (hg.comp (continuous_const.mul continuous_id).continuousOn hmaps).congr
+  intro x hx
+  have hback : a * (b * x) = x := by
+    dsimp [a, b]
+    rw [← mul_assoc, ← Units.val_mul]
+    rw [show unifLoc v ^ (-l) * unifLoc v ^ l = 1 by group]
+    simp
+  have hpoint := inverseKernel_scaled_unit T B A hv s N k l (b * x) (hmaps hx)
+  change inverseKernel T B A s N k (a * (b * x)) = g (b * x) at hpoint
+  rw [hback] at hpoint
+  exact hpoint
+
+private theorem localChi_norm_one_unit (D : FieldData F) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) : ‖localChi D v u‖ = 1 := by
+  have hχ6 := (localChi_basic (D := D) (v := v) hv).2.2.2.1 u hu
+  have hfin : IsOfFinOrder (localChi D v u) :=
+    (isOfFinOrder_iff_pow_eq_one).2 ⟨6, by decide, hχ6⟩
+  exact hfin.norm_eq_one
+
+private theorem inverseKernel_scaled_unit_norm (T : TorusRep D H v) (B : TameTorusBasis T)
+    (A : AddCharData F) (hv : (6 : 𝓞 F) ∉ v.asIdeal) (s : ℂ)
+    (N : ℕ) (k : ZMod 3) (l : ℤ) (hl : 0 ≤ l) (x : v.adicCompletion F)
+    (hx : x ∈ localUnitShell v) :
+    ‖inverseKernel T B A s N k
+      (((unifLoc v ^ (-l) : (v.adicCompletion F)ˣ) : v.adicCompletion F) * x)‖ =
+      ‖(((qv v ^ l : ℝ) : ℂ) ^ (-1 - 2 * s))‖ * ‖B.e (k + 2 * (l : ZMod 3))‖ := by
+  have hxinv : x⁻¹ ∈ localUnitShell v := unitShell_inv_mem x hx
+  have hxine : x⁻¹ ≠ 0 := localUnitShell_ne_zero ⟨x⁻¹, hxinv⟩
+  have hχnorm : ‖localChi D v (Units.mk0 x⁻¹ hxine)‖ = 1 :=
+    localChi_norm_one_unit D hv _ (localUnitShell_isLocUnit ⟨x⁻¹, hxinv⟩)
+  have hψ : A.ψ v
+      (((unifLoc v ^ l : (v.adicCompletion F)ˣ) : v.adicCompletion F) * x⁻¹) = 1 := by
+    apply A.integral
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers, map_mul,
+      uniformizer_zpow_valuation, show Valued.v x⁻¹ = 1 from hxinv, mul_one]
+    rw [← WithZero.exp_zero]
+    exact WithZero.exp_le_exp.mpr (by omega)
+  rw [inverseKernel_scaled_unit T B A hv s N k l x hx,
+    if_pos (by omega : -(N : ℤ) ≤ l), dif_pos hxine, hψ]
+  simp [norm_smul, norm_mul, norm_zpow, hχnorm]
+
+private theorem inverseKernel_shell_norm_bound (T : TorusRep D H v) (B : TameTorusBasis T)
+    (A : AddCharData F) (μ : LocHaar v) (hv : (6 : 𝓞 F) ∉ v.asIdeal) (s : ℂ)
+    (N : ℕ) (k : ZMod 3) (l : ℤ) (hl : 0 ≤ l) :
+    (∫ x in inverseValShell v l, ‖inverseKernel T B A s N k x‖ ∂μ.μ) ≤
+      qv v ^ (-2 * (l : ℝ) * s.re) * ∑ i : ZMod 3, ‖B.e i‖ := by
+  classical
+  have hq : 0 < qv v := lt_trans zero_lt_one (qv_gt_one v)
+  let w : ℂ := ((qv v ^ l : ℝ) : ℂ) ^ (-1 - 2 * s)
+  have hweight : qv v ^ l * ‖w‖ = qv v ^ (-2 * (l : ℝ) * s.re) := by
+    have h := congrArg norm (inverse_shell_cpow (v := v) l s)
+    rw [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_pos (zpow_pos hq l),
+      Complex.norm_cpow_eq_rpow_re_of_pos hq] at h
+    simpa [w, Complex.mul_re] using h
+  have hI :
+      (∫ x in localUnitShell v,
+        ‖inverseKernel T B A s N k
+          (((unifLoc v ^ (-l) : (v.adicCompletion F)ˣ) : v.adicCompletion F) * x)‖ ∂μ.μ) =
+      μ.μ.real (localUnitShell v) * (‖w‖ * ‖B.e (k + 2 * (l : ZMod 3))‖) := by
+    calc
+      _ = ∫ x in localUnitShell v, ‖w‖ * ‖B.e (k + 2 * (l : ZMod 3))‖ ∂μ.μ := by
+        apply integral_congr_ae
+        filter_upwards [ae_restrict_mem (localUnitShell_compact v).measurableSet] with x hx
+        exact inverseKernel_scaled_unit_norm T B A hv s N k l hl x hx
+      _ = _ := by simp [setIntegral_const, smul_eq_mul]
+  have hmass : μ.μ.real (localUnitShell v) ≤ 1 := by
+    rw [localUnitShell_realMeasure]
+    exact sub_le_self _ (inv_nonneg.mpr hq.le)
+  have hpow : 0 ≤ qv v ^ (-2 * (l : ℝ) * s.re) := Real.rpow_nonneg hq.le _
+  have hbasis : ‖B.e (k + 2 * (l : ZMod 3))‖ ≤ ∑ i : ZMod 3, ‖B.e i‖ :=
+    Finset.single_le_sum (fun i _ => norm_nonneg (B.e i)) (Finset.mem_univ _)
+  rw [inverseValShell_integral, uniformizer_zpow_absFin, neg_neg, hI]
+  simp only [smul_eq_mul]
+  calc
+    _ = μ.μ.real (localUnitShell v) * (qv v ^ l * ‖w‖) *
+        ‖B.e (k + 2 * (l : ZMod 3))‖ := by ring
+    _ = μ.μ.real (localUnitShell v) * qv v ^ (-2 * (l : ℝ) * s.re) *
+        ‖B.e (k + 2 * (l : ZMod 3))‖ := by rw [hweight]
+    _ ≤ qv v ^ (-2 * (l : ℝ) * s.re) * ‖B.e (k + 2 * (l : ZMod 3))‖ :=
+      mul_le_mul_of_nonneg_right (mul_le_of_le_one_left hpow hmass) (norm_nonneg _)
+    _ ≤ _ := mul_le_mul_of_nonneg_left hbasis hpow
+
+private theorem inverseKernel_shell_union_support (T : TorusRep D H v) (B : TameTorusBasis T)
+    (A : AddCharData F) (s : ℂ) (N : ℕ) (k : ZMod 3) :
+    ∀ x : v.adicCompletion F,
+      x ∉ (⋃ n : ℕ, inverseValShell v (-(N : ℤ) + (n : ℤ))) →
+      inverseKernel T B A s N k x = 0 := by
+  intro x hx
+  by_cases hxne : x ≠ 0
+  · have hvx : Valued.v x ≠ 0 := by
+      intro h
+      have hzero : absFin v x = 0 := by simp [absFin, h]
+      exact (ne_of_gt (absFin_pos hxne)) hzero
+    let l : ℤ := WithZero.log (Valued.v x)
+    have hxval : Valued.v x = WithZero.exp l := (WithZero.exp_log hvx).symm
+    have hlt : l < -(N : ℤ) := by
+      by_contra h
+      have hle : -(N : ℤ) ≤ l := by omega
+      have hnonneg : 0 ≤ l + (N : ℤ) := by omega
+      let n : ℕ := (l + (N : ℤ)).toNat
+      have hn : (n : ℤ) = l + (N : ℤ) := Int.toNat_of_nonneg hnonneg
+      apply hx
+      refine Set.mem_iUnion.mpr ⟨n, ?_⟩
+      change Valued.v x = WithZero.exp (-(N : ℤ) + (n : ℤ))
+      rw [hn, show -(N : ℤ) + (l + (N : ℤ)) = l by ring]
+      exact hxval
+    have hcut : (((Units.mk0 x hxne)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∉
+        ball v (-(N : ℤ)) := by
+      change ¬ Valued.v x⁻¹ ≤ WithZero.exp (-( -(N : ℤ)))
+      rw [map_inv₀, hxval, ← WithZero.exp_neg, WithZero.exp_le_exp]
+      omega
+    unfold inverseKernel
+    rw [dif_pos hxne, if_neg hcut]
+  · have hxzero : x = 0 := not_ne_iff.mp hxne
+    simp [inverseKernel, hxzero]
+
+/-- The supported inverse-parameter shells form a convergent integral decomposition. -/
+theorem inverse_kernel_hasSum (T : TorusRep D H v) (B : TameTorusBasis T)
+    (A : AddCharData F) (μ : LocHaar v) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (s : ℂ) (hs : 0 < s.re) (N : ℕ) (k : ZMod 3) :
+    HasSum (fun n : ℕ =>
+      ∫ x in inverseValShell v (-(N : ℤ) + (n : ℤ)),
+        inverseKernel T B A s N k x ∂μ.μ)
+      (∫ x, inverseKernel T B A s N k x ∂μ.μ) := by
+  classical
+  let shell : ℕ → Set (v.adicCompletion F) := fun n =>
+    inverseValShell v (-(N : ℤ) + (n : ℤ))
+  let f : v.adicCompletion F → T.V := inverseKernel T B A s N k
+  have hInt (n : ℕ) : IntegrableOn f (shell n) μ.μ :=
+    (inverseKernel_shell_continuousOn T B A hv s N k _).integrableOn_compact
+      (inverseValShell_compact _)
+  have hq : 1 < qv v := qv_gt_one v
+  have hqpos : 0 < qv v := lt_trans zero_lt_one hq
+  let ρ : ℝ := qv v ^ (-(2 * s.re))
+  have hρnonneg : 0 ≤ ρ := Real.rpow_nonneg hqpos.le _
+  have hρlt : ρ < 1 := Real.rpow_lt_one_of_one_lt_of_neg hq (by linarith)
+  have hgeom : Summable (fun n : ℕ => ρ ^ n) :=
+    summable_geometric_of_lt_one hρnonneg hρlt
+  have hbound (n : ℕ) :
+      (∫ x in inverseValShell v (n : ℤ), ‖f x‖ ∂μ.μ) ≤
+        (∑ i : ZMod 3, ‖B.e i‖) * ρ ^ n := by
+    have h := inverseKernel_shell_norm_bound T B A μ hv s N k (n : ℤ) (by omega)
+    have hpow : qv v ^ (-2 * (n : ℝ) * s.re) = ρ ^ n := by
+      dsimp [ρ]
+      rw [← Real.rpow_mul_natCast hqpos.le]
+      congr 1
+      ring
+    have h' : (∫ x in inverseValShell v (n : ℤ), ‖f x‖ ∂μ.μ) ≤
+        qv v ^ (-2 * (n : ℝ) * s.re) * ∑ i : ZMod 3, ‖B.e i‖ := by
+      simpa only [Int.cast_natCast] using h
+    rw [hpow] at h'
+    simpa only [mul_comm] using h'
+  have hposSum : Summable (fun n : ℕ =>
+      ∫ x in inverseValShell v (n : ℤ), ‖f x‖ ∂μ.μ) :=
+    Summable.of_nonneg_of_le (fun _ => integral_nonneg fun _ => norm_nonneg _)
+      hbound (hgeom.mul_left (∑ i : ZMod 3, ‖B.e i‖))
+  have hsumNorm : Summable (fun n : ℕ => ∫ x in shell n, ‖f x‖ ∂μ.μ) := by
+    apply (summable_nat_add_iff N).mp
+    simpa [shell, Nat.cast_add] using hposSum
+  have hUnionInt : IntegrableOn f (⋃ n : ℕ, shell n) μ.μ :=
+    integrableOn_iUnion_of_summable_integral_norm hInt hsumNorm
+  have hmeas (n : ℕ) : MeasurableSet (shell n) := (inverseValShell_compact _).measurableSet
+  have hdisj : Pairwise fun n m => Disjoint (shell n) (shell m) := by
+    intro n m hnm
+    apply Set.disjoint_left.mpr
+    intro x hxn hxm
+    have heq : WithZero.exp (-(N : ℤ) + (n : ℤ)) =
+        WithZero.exp (-(N : ℤ) + (m : ℤ)) := hxn.symm.trans hxm
+    have hcast : -(N : ℤ) + (n : ℤ) = -(N : ℤ) + (m : ℤ) :=
+      WithZero.exp_injective heq
+    exact hnm (by omega)
+  have hHasSum := hasSum_integral_iUnion hmeas hdisj hUnionInt
+  have hUnionIntegral : (∫ x in ⋃ n : ℕ, shell n, f x ∂μ.μ) = ∫ x, f x ∂μ.μ :=
+    setIntegral_eq_integral_of_forall_compl_eq_zero
+      (inverseKernel_shell_union_support T B A s N k)
+  rw [hUnionIntegral] at hHasSum
+  exact hHasSum
+
 end ArtinPrimitiveRoots.Proofs.th_lcoeff_sol
