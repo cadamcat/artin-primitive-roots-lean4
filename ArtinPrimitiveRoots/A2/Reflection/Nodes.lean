@@ -353,13 +353,220 @@ theorem lem_reflection_quadratic_sieve
 
 /-- Symbol dictionary consumed by `lem:reflection-quadratic-sieve`: cubing the sextic symbol is
 the quadratic residue symbol at an exterior prime. -/
+private theorem rf_residue_algebraMap
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (c : 𝓞 F) :
+    ArtinPrimitiveRoots.A1.residue P (algebraMap (𝓞 F) F c) =
+      Ideal.Quotient.mk P.asIdeal c := by
+  letI : P.asIdeal.IsMaximal := P.isMaximal
+  letI : Field (𝓞 F ⧸ P.asIdeal) := Ideal.Quotient.field P.asIdeal
+  have hex : ∃ ab : 𝓞 F × 𝓞 F, ab.2 ∉ P.asIdeal ∧
+      algebraMap (𝓞 F) F c * algebraMap (𝓞 F) F ab.2 =
+        algebraMap (𝓞 F) F ab.1 :=
+    ⟨(c, 1), Ideal.IsPrime.one_notMem P.isPrime, by simp⟩
+  have hcross : hex.choose.1 * (1 : 𝓞 F) = c * hex.choose.2 := by
+    apply IsFractionRing.injective (𝓞 F) F
+    simp only [map_mul]
+    rw [← hex.choose_spec.2]
+    simp only [map_one]
+    ring_nf
+  have hqcross := congrArg (Ideal.Quotient.mk P.asIdeal) hcross
+  have hdq : Ideal.Quotient.mk P.asIdeal hex.choose.2 ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hex.choose_spec.1
+  unfold ArtinPrimitiveRoots.A1.residue
+  rw [dif_pos hex, ← div_eq_mul_inv, ← div_one (Ideal.Quotient.mk P.asIdeal c),
+    div_eq_div_iff hdq one_ne_zero]
+  simpa only [map_mul, map_one] using hqcross
+
+private theorem rf_chiAlg_residue_eq_pow
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F)
+    (h6 : (6 : 𝓞 F) ∉ P.asIdeal) (x : F)
+    (hx : ArtinPrimitiveRoots.A1.residue P x ≠ 0) :
+    Ideal.Quotient.mk P.asIdeal
+        ((ArtinPrimitiveRoots.A1.chiAlg P x : (𝓞 F)ˣ) : 𝓞 F) =
+      ArtinPrimitiveRoots.A1.residue P x ^
+        ((Ideal.absNorm P.asIdeal - 1) / 6) := by
+  classical
+  haveI : P.asIdeal.IsMaximal := P.isMaximal
+  let k := 𝓞 F ⧸ P.asIdeal
+  letI : Field k := Ideal.Quotient.field P.asIdeal
+  have hcop := (ArtinPrimitiveRoots.A1.coprime_six_of_not_mem_six P h6).1
+  have hne1 := (ArtinPrimitiveRoots.A1.coprime_six_of_not_mem_six P h6).2
+  have hdvd6 := ArtinPrimitiveRoots.A1.six_dvd_absNorm_sub_one D P h6
+  have hζ6 : IsPrimitiveRoot (D.ζ12 ^ 2) 6 :=
+    D.hζ12.pow_of_dvd (p := 2) (by decide) (by decide)
+  have hprim := hζ6.toInteger_isPrimitiveRoot.idealQuotient_mk
+    (I := P.asIdeal) hne1 hcop
+  let u : kˣ := (hprim.isUnit (by decide)).unit
+  have hprim_u : IsPrimitiveRoot u 6 := IsPrimitiveRoot.coe_units_iff.mp hprim
+  have hru : IsUnit (ArtinPrimitiveRoots.A1.residue P x) :=
+    isUnit_iff_ne_zero.mpr hx
+  let r_u : kˣ := hru.unit
+  have hr_pow : (ArtinPrimitiveRoots.A1.residue P x ^
+      ((Ideal.absNorm P.asIdeal - 1) / 6)) ^ 6 = 1 := by
+    rw [← pow_mul, mul_comm, Nat.mul_div_cancel' hdvd6]
+    have h1 : ((r_u : k) ^ (Ideal.absNorm P.asIdeal - 1)) =
+        (((r_u ^ (Ideal.absNorm P.asIdeal - 1) : kˣ) : k)) := by
+      exact (Units.val_pow_eq_pow_val r_u _).symm
+    have h2 : r_u ^ (Ideal.absNorm P.asIdeal - 1) = 1 := by
+      have hcard : Nat.card kˣ = Ideal.absNorm P.asIdeal - 1 := by
+        rw [Nat.card_units, ← Submodule.cardQuot_apply, ← Ideal.absNorm_apply]
+      rw [← hcard]
+      exact pow_card_eq_one'
+    have hrequ : (r_u : k) = ArtinPrimitiveRoots.A1.residue P x := rfl
+    rw [← hrequ, h1, h2, Units.val_one]
+  obtain ⟨i, hi, heq⟩ := hprim.eq_pow_of_pow_eq_one hr_pow
+  have hζ_pow : (hζ6.toInteger ^ i) ^ 6 = 1 := by
+    rw [← pow_mul, mul_comm, pow_mul, hζ6.toInteger_isPrimitiveRoot.pow_eq_one, one_pow]
+  let ζ₀ : rootsOfUnity 6 (𝓞 F) := rootsOfUnity.mkOfPowEq (hζ6.toInteger ^ i) hζ_pow
+  have h_exist : ∃ ζ : rootsOfUnity 6 (𝓞 F),
+      Ideal.Quotient.mk P.asIdeal ((ζ : (𝓞 F)ˣ) : 𝓞 F) =
+        ArtinPrimitiveRoots.A1.residue P x ^
+          ((Ideal.absNorm P.asIdeal - 1) / 6) := by
+    refine ⟨ζ₀, ?_⟩
+    have hcoe : ((ζ₀ : (𝓞 F)ˣ) : 𝓞 F) = hζ6.toInteger ^ i :=
+      rootsOfUnity.coe_mkOfPowEq hζ_pow
+    rw [hcoe, map_pow]
+    exact heq
+  unfold ArtinPrimitiveRoots.A1.chiAlg
+  rw [dif_pos h_exist]
+  exact h_exist.choose_spec
+
 theorem chi_cube_eq_quadSymbolAt
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (P : ArtinPrimitiveRoots.A1.FinPlace F) (h6 : (6 : 𝓞 F) ∉ P.asIdeal)
     (c : 𝓞 F) (hc : ArtinPrimitiveRoots.A1.residue P (algebraMap (𝓞 F) F c) ≠ 0) :
     ArtinPrimitiveRoots.A1.chi D P (algebraMap (𝓞 F) F c) ^ 3 =
       (quadSymbolAt P c : ℂ) := by
-  sorry
+  classical
+  haveI : P.asIdeal.IsMaximal := P.isMaximal
+  let k := 𝓞 F ⧸ P.asIdeal
+  letI : Field k := Ideal.Quotient.field P.asIdeal
+  haveI : Finite k := Ring.HasFiniteQuotients.finiteQuotient P.ne_bot
+  letI : Fintype k := Fintype.ofFinite k
+  let q := Ideal.absNorm P.asIdeal
+  have hres := rf_residue_algebraMap P c
+  have hdvd6 := ArtinPrimitiveRoots.A1.six_dvd_absNorm_sub_one D P h6
+  have hthird : ((q - 1) / 6) * 3 = q / 2 := by omega
+  have h2not : (2 : 𝓞 F) ∉ P.asIdeal := by
+    intro h2
+    have hmul : (2 : 𝓞 F) * 3 ∈ P.asIdeal := Ideal.mul_mem_right _ _ h2
+    apply h6
+    rw [show (6 : 𝓞 F) = (2 : 𝓞 F) * 3 by norm_num]
+    exact hmul
+  have hmk_two : Ideal.Quotient.mk P.asIdeal (2 : 𝓞 F) = (2 : k) := by
+    rw [show (2 : 𝓞 F) = 1 + 1 by norm_num, map_add, map_one]
+    norm_num
+  have h2q : (2 : k) ≠ 0 := by
+    intro h
+    apply h2not
+    have hmk : Ideal.Quotient.mk P.asIdeal (2 : 𝓞 F) = 0 := by
+      rw [hmk_two, h]
+    exact Ideal.Quotient.eq_zero_iff_mem.mp hmk
+  have hchar : ringChar k ≠ 2 := by
+    intro hchar
+    haveI : CharP k 2 := ringChar.eq_iff.mp hchar
+    exact h2q (CharP.cast_eq_zero k 2)
+  have hqcard : Fintype.card k = q := by
+    dsimp [k, q]
+    simp [Ideal.absNorm_apply, Submodule.cardQuot_apply]
+  let z : 𝓞 F :=
+    ((ArtinPrimitiveRoots.A1.chiAlg P (algebraMap (𝓞 F) F c) : (𝓞 F)ˣ) : 𝓞 F)
+  let β : 𝓞 F := (quadSymbolAt P c : ℤ)
+  have hzres : Ideal.Quotient.mk P.asIdeal z =
+      (Ideal.Quotient.mk P.asIdeal c) ^ ((q - 1) / 6) := by
+    calc
+      Ideal.Quotient.mk P.asIdeal z =
+          ArtinPrimitiveRoots.A1.residue P (algebraMap (𝓞 F) F c) ^
+            ((Ideal.absNorm P.asIdeal - 1) / 6) := by
+        simpa [z] using rf_chiAlg_residue_eq_pow D P h6
+          (algebraMap (𝓞 F) F c) hc
+      _ = (Ideal.Quotient.mk P.asIdeal c) ^ ((q - 1) / 6) := by rw [hres]
+  have hz3res : Ideal.Quotient.mk P.asIdeal (z ^ 3) =
+      (Ideal.Quotient.mk P.asIdeal c) ^ (q / 2) := by
+    calc
+      Ideal.Quotient.mk P.asIdeal (z ^ 3) =
+          (Ideal.Quotient.mk P.asIdeal z) ^ 3 := by simp
+      _ = (Ideal.Quotient.mk P.asIdeal c) ^ (((q - 1) / 6) * 3) := by
+        rw [hzres, ← pow_mul]
+      _ = (Ideal.Quotient.mk P.asIdeal c) ^ (q / 2) := by rw [hthird]
+  have hquad : ((quadSymbolAt P c : ℤ) : k) =
+      (Ideal.Quotient.mk P.asIdeal c) ^ (q / 2) := by
+    have hquad' : ((quadSymbolAt P c : ℤ) : k) =
+        (Ideal.Quotient.mk P.asIdeal c) ^ (Fintype.card k / 2) := by
+      simpa [quadSymbolAt] using
+        (quadraticChar_eq_pow_of_char_ne_two' hchar
+          (Ideal.Quotient.mk P.asIdeal c))
+    simpa [hqcard] using hquad'
+  have hβres : Ideal.Quotient.mk P.asIdeal β = (quadSymbolAt P c : k) := by
+    simp [β]
+  have hβsqInt : (quadSymbolAt P c : ℤ) ^ 2 = 1 := by
+    have hcq : Ideal.Quotient.mk P.asIdeal c ≠ 0 := by
+      rw [← hres]
+      exact hc
+    have h := quadraticChar_sq_one hcq
+    simpa [quadSymbolAt] using h
+  have hβsq : β ^ 2 = 1 := by
+    change ((quadSymbolAt P c : ℤ) : 𝓞 F) ^ 2 = 1
+    exact_mod_cast hβsqInt
+  have hz6 : z ^ 6 = 1 := by
+    dsimp [z]
+    have h := congrArg (fun u : (𝓞 F)ˣ => (u : 𝓞 F))
+      (ArtinPrimitiveRoots.A1.chiAlg P (algebraMap (𝓞 F) F c)).property
+    simpa only [Units.val_pow_eq_pow_val, Units.val_one] using h
+  have hz3sq : (z ^ 3) ^ 2 = 1 := by
+    calc
+      (z ^ 3) ^ 2 = z ^ 6 := by
+        rw [← pow_mul]
+      _ = 1 := hz6
+  have hsquares : (z ^ 3) ^ 2 = β ^ 2 := hz3sq.trans hβsq.symm
+  have hred : Ideal.Quotient.mk P.asIdeal (z ^ 3) =
+      Ideal.Quotient.mk P.asIdeal β := by
+    calc
+      Ideal.Quotient.mk P.asIdeal (z ^ 3) =
+          (Ideal.Quotient.mk P.asIdeal c) ^ (q / 2) := hz3res
+      _ = (quadSymbolAt P c : k) := hquad.symm
+      _ = Ideal.Quotient.mk P.asIdeal β := hβres.symm
+  have hβq : Ideal.Quotient.mk P.asIdeal β ≠ 0 := by
+    intro h
+    have hone : (1 : k) = 0 := by
+      calc
+        1 = (Ideal.Quotient.mk P.asIdeal β) ^ 2 := by
+          rw [← map_pow, hβsq]
+          simp
+        _ = 0 := by rw [h]; simp
+    exact one_ne_zero hone
+  have hnotneg : z ^ 3 ≠ -β := by
+    intro hneg
+    have heq : Ideal.Quotient.mk P.asIdeal β =
+        -Ideal.Quotient.mk P.asIdeal β := by
+      calc
+        Ideal.Quotient.mk P.asIdeal β = Ideal.Quotient.mk P.asIdeal (z ^ 3) := hred.symm
+        _ = Ideal.Quotient.mk P.asIdeal (-β) := by rw [hneg]
+        _ = -Ideal.Quotient.mk P.asIdeal β := map_neg _ _
+    have hmul : (2 : k) * Ideal.Quotient.mk P.asIdeal β = 0 := by
+      calc
+        (2 : k) * Ideal.Quotient.mk P.asIdeal β =
+            Ideal.Quotient.mk P.asIdeal β + Ideal.Quotient.mk P.asIdeal β := by ring
+        _ = 0 := by
+          calc
+            _ = -Ideal.Quotient.mk P.asIdeal β + Ideal.Quotient.mk P.asIdeal β := by
+              nth_rw 1 [heq]
+            _ = 0 := by abel
+    exact (mul_ne_zero h2q hβq) hmul
+  have hroot : z ^ 3 = β := by
+    rcases eq_or_eq_neg_of_sq_eq_sq (z ^ 3) β hsquares with h | h
+    · exact h
+    · exact (hnotneg h).elim
+  have hchiEval : ArtinPrimitiveRoots.A1.chi D P (algebraMap (𝓞 F) F c) =
+      D.σ0 (algebraMap (𝓞 F) F z) := by
+    simp [ArtinPrimitiveRoots.A1.chi, z, hc]
+  calc
+    ArtinPrimitiveRoots.A1.chi D P (algebraMap (𝓞 F) F c) ^ 3 =
+        (D.σ0 (algebraMap (𝓞 F) F z)) ^ 3 := by rw [hchiEval]
+    _ = D.σ0 (algebraMap (𝓞 F) F (z ^ 3)) := by simp
+    _ = D.σ0 (algebraMap (𝓞 F) F β) := by rw [hroot]
+    _ = (quadSymbolAt P c : ℂ) := by simp [β]
 
 /-- **def:rf-active** (04-reflection.tex:433-499): a squarefree active ideal `𝔣|rad(𝔥)` must
 contain every row prime whose exponent modulo six is nonzero. -/
