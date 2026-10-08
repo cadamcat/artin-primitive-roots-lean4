@@ -2493,6 +2493,40 @@ theorem scalarOf_arch_integral_product
       _ = _ := by
         rw [integral_fintype_prod_volume_eq_prod (fun w (z : ℂ) => ‖fc w z‖)]
 
+/-- A rational finite unipotent has the expected finite components and
+trivial complex components in a restricted-product lift. -/
+theorem nFin_components
+    (P : CoverPackage D S H A) (ξ : F) :
+    ∃ r : P.RP, P.q r = nFin P ξ ∧
+      (∀ v : FinPlace F, P.compF v r =
+        (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ))) ∧
+      ∀ w : InfinitePlace F, P.compC w r = 1 := by
+  classical
+  obtain ⟨t, hqt, hft, hct⟩ := P.nS_components
+    ((0 : ∀ v : S.Sf, v.1.adicCompletion F), -infEmbA ξ)
+  have hft1 (v : FinPlace F) : P.compF v t = 1 := by
+    simpa using hft v
+  have hupper {K : Type} [Field K] (ι : F →+* K) :
+      Matrix.GeneralLinearGroup.map ι (upperGL ξ) = upperM K (ι ξ) := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map, upperGL, upperM]
+  have hcancel (z : ℂ) : upperM ℂ z * upperM ℂ (-z) = 1 := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two]
+  refine ⟨P.ratRP (upperGL ξ) * t, ?_, ?_, ?_⟩
+  · simp only [map_mul, P.q_ratRP, hqt, nFin, nInf]
+  · intro v
+    rw [map_mul, hft1, mul_one, P.compF_ratRP, hupper, ← (P.loc v).sec_n]
+  · intro w
+    rw [map_mul, P.compC_ratRP, hupper, hct]
+    change (QuotientGroup.mk (upperM ℂ (w.embedding ξ)) : PGL2 ℂ) *
+      QuotientGroup.mk (upperM ℂ (-w.embedding ξ)) = 1
+    rw [← QuotientGroup.mk_mul, hcancel, QuotientGroup.mk_one]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
