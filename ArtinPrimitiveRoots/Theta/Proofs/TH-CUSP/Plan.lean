@@ -286,7 +286,161 @@ theorem th_cusp_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
       IsAddFundamentalDomain ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom)
         P₀ volume ∧ Bornology.IsBounded P₀ ∧ (0 < (volume P₀).toReal) ∧
       IsAddFundamentalDomain (ArtinPrimitiveRoots.A1.Spec.cuspTranslations F Γ τ) Pτ volume := by
-  sorry
+  classical
+  letI := hfinite
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  have hdom (I : (FractionalIdeal (nonZeroDivisors (𝓞 F)) F)ˣ) :
+      ∃ Pd : Set (InfinitePlace F → ℂ),
+        IsAddFundamentalDomain
+          ((I : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume ∧
+        Bornology.IsBounded Pd ∧ MeasurableSet Pd := by
+    classical
+    let b₀ := NumberField.mixedEmbedding.fractionalIdealLatticeBasis F I
+    let e := ArtinPrimitiveRoots.A1.Spec.complexPlaceLinearEquiv (F := F)
+    let b := b₀.map e
+    let f : NumberField.mixedEmbedding.mixedSpace F →ₗ[ℤ] (InfinitePlace F → ℂ) :=
+      e.toLinearMap.restrictScalars ℤ
+    have hf (y : F) : f (NumberField.mixedEmbedding F y) = infEmbA y := by
+      ext w
+      simp [f, e, ArtinPrimitiveRoots.A1.Spec.complexPlaceLinearEquiv, infEmbA,
+        NumberField.mixedEmbedding]
+    have hrange : Set.range b = f '' Set.range b₀ := by
+      ext x
+      constructor
+      · rintro ⟨i, rfl⟩
+        exact ⟨b₀ i, ⟨i, rfl⟩, rfl⟩
+      · rintro ⟨y, ⟨i, rfl⟩, rfl⟩
+        exact ⟨i, rfl⟩
+    have hspanMap : Submodule.span ℤ (Set.range b) =
+        (Submodule.span ℤ (Set.range b₀)).map f := by
+      rw [hrange, ← Submodule.map_span]
+    have hspan₀ : Submodule.span ℤ (Set.range b₀) =
+        NumberField.mixedEmbedding.idealLattice F I :=
+      NumberField.mixedEmbedding.span_idealLatticeBasis F I
+    have hspan (x : InfinitePlace F → ℂ) :
+        x ∈ Submodule.span ℤ (Set.range b) ↔
+          ∃ y : F, y ∈ (I : Submodule (𝓞 F) F) ∧ infEmbA y = x := by
+      rw [hspanMap, Submodule.mem_map]
+      constructor
+      · rintro ⟨z, hz, rfl⟩
+        rw [hspan₀] at hz
+        obtain ⟨y, hy, rfl⟩ := (NumberField.mixedEmbedding.mem_idealLattice F I).mp hz
+        exact ⟨y, hy, hf y⟩
+      · rintro ⟨y, hy, rfl⟩
+        apply Submodule.mem_map.mpr
+        refine ⟨NumberField.mixedEmbedding F y, ?_, hf y⟩
+        rw [hspan₀]
+        exact (NumberField.mixedEmbedding.mem_idealLattice F I).mpr ⟨y, hy, rfl⟩
+    have hgroup :
+        (Submodule.span ℤ (Set.range b)).toAddSubgroup =
+          (I : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom := by
+      apply AddSubgroup.ext
+      intro x
+      change x ∈ Submodule.span ℤ (Set.range b) ↔
+        x ∈ (I : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom
+      rw [hspan]
+      simp only [AddSubgroup.mem_map]
+      constructor
+      · rintro ⟨y, hy, hxy⟩
+        exact ⟨y, hy, hxy⟩
+      · rintro ⟨y, hy, hxy⟩
+        exact ⟨y, hy, hxy⟩
+    let Pd := ZSpan.fundamentalDomain b
+    have hfd : IsAddFundamentalDomain
+        (Submodule.span ℤ (Set.range b)).toAddSubgroup Pd volume :=
+      ZSpan.isAddFundamentalDomain' b volume
+    rw [hgroup] at hfd
+    exact ⟨Pd, hfd, ZSpan.fundamentalDomain_isBounded b,
+      ZSpan.fundamentalDomain_measurableSet b⟩
+  have hcusp := ArtinPrimitiveRoots.A1.Spec.R1_cusp_lattice Γ τ
+  obtain ⟨m, hm, hmlower⟩ := hcusp.1
+  obtain ⟨d, hd, hdupper, _⟩ := hcusp.2.1
+  obtain ⟨Pτ, hPτ, _, _⟩ := hcusp.2.2.2.2
+  obtain ⟨𝔞₁, h𝔞₁, hfix₁⟩ := hlevel g'
+  obtain ⟨b, hb, hbmem⟩ := FractionalIdeal.exists_ne_zero_mem_isInteger h𝔞₁
+  let J₀ : Ideal (𝓞 F) := (𝔞₁ : Submodule (𝓞 F) F).comap (Algebra.linearMap (𝓞 F) F)
+  let J : Ideal (𝓞 F) := J₀ ⊓ Ideal.span {(m : 𝓞 F)}
+  let z : 𝓞 F := b * m
+  have hz : z ≠ 0 := mul_ne_zero hb (by exact_mod_cast hm.ne')
+  have hz₀ : z ∈ J₀ := by
+    have hsmul := (𝔞₁ : Submodule (𝓞 F) F).smul_mem (m : 𝓞 F) hbmem
+    simpa only [J₀, Submodule.mem_comap, Algebra.linearMap_apply, z,
+      Algebra.smul_def, map_mul, mul_comm] using hsmul
+  have hzJ : z ∈ J := by
+    refine ⟨hz₀, Ideal.mem_span_singleton.mpr ?_⟩
+    exact ⟨b, by simp only [z, mul_comm]⟩
+  have hJ : J ≠ ⊥ := by
+    intro h
+    exact hz (by simpa only [h, Submodule.mem_bot] using hzJ)
+  let 𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F := J
+  have h𝔞 : 𝔞 ≠ 0 := FractionalIdeal.coeIdeal_ne_zero.mpr hJ
+  let Λ₀ := (𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom
+  let Λ := ArtinPrimitiveRoots.A1.Spec.cuspTranslations F Γ τ
+  have hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      Ψ (h * (g'⁻¹ * nFin P ξ * g')) = Ψ h := by
+    intro ξ hξ h
+    obtain ⟨c, hc, rfl⟩ := (FractionalIdeal.mem_coeIdeal (nonZeroDivisors (𝓞 F))).mp hξ
+    exact hfix₁ _ hc.1 h
+  have hle : Λ₀ ≤ Λ := by
+    intro x hx
+    obtain ⟨ξ, hξ, rfl⟩ := AddSubgroup.mem_map.mp hx
+    obtain ⟨c, hc, rfl⟩ := (FractionalIdeal.mem_coeIdeal (nonZeroDivisors (𝓞 F))).mp hξ
+    obtain ⟨a, ha⟩ := Ideal.mem_span_singleton.mp hc.2
+    apply AddSubgroup.mem_map.mpr
+    refine ⟨algebraMap (𝓞 F) F c, ?_, rfl⟩
+    rw [ha]
+    exact hmlower a
+  have hdF : (d : F) ≠ 0 := by exact_mod_cast hd.ne'
+  let u : 𝓞 F →+ (InfinitePlace F → ℂ) := {
+    toFun := fun c => infEmbA ((d : F)⁻¹ * algebraMap (𝓞 F) F c)
+    map_zero' := by simp
+    map_add' := by intro c c'; simp only [map_add, mul_add]
+  }
+  have hupper : Λ ≤ u.range := by
+    intro x hx
+    obtain ⟨ξ, hξ, rfl⟩ := AddSubgroup.mem_map.mp hx
+    obtain ⟨c, hc⟩ := hdupper ξ hξ
+    refine ⟨c, ?_⟩
+    change infEmbA ((d : F)⁻¹ * algebraMap (𝓞 F) F c) = infEmbA ξ
+    rw [← hc, ← mul_assoc, inv_mul_cancel₀ hdF, one_mul]
+  let K : Ideal (𝓞 F) := Ideal.span {(d : 𝓞 F)} * J
+  have hK : K ≠ ⊥ := by
+    have hspan : Ideal.span {(d : 𝓞 F)} ≠ ⊥ := by
+      intro h
+      have hmem : (d : 𝓞 F) ∈ Ideal.span {(d : 𝓞 F)} := Ideal.subset_span (by simp)
+      rw [h] at hmem
+      have hdO : (d : 𝓞 F) ≠ 0 := by exact_mod_cast hd.ne'
+      exact hdO (by simpa only [Submodule.mem_bot] using hmem)
+    exact mul_ne_zero hspan hJ
+  have hbase : (K.toAddSubgroup.map u).relIndex u.range ≠ 0 := by
+    have hi := (Ideal.isFiniteRelIndex hK (⊤ : Ideal (𝓞 F))).map u
+    simpa [AddSubgroup.map_top] using hi.relIndex_ne_zero
+  have hsmall : K.toAddSubgroup.map u ≤ Λ₀ := by
+    intro x hx
+    obtain ⟨c, hc, rfl⟩ := AddSubgroup.mem_map.mp hx
+    obtain ⟨a, ha, rfl⟩ := Ideal.mem_span_singleton_mul.mp hc
+    apply AddSubgroup.mem_map.mpr
+    refine ⟨algebraMap (𝓞 F) F a,
+      (FractionalIdeal.mem_coeIdeal (nonZeroDivisors (𝓞 F))).mpr ⟨a, ha, rfl⟩, ?_⟩
+    change infEmbA (algebraMap (𝓞 F) F a) =
+      infEmbA ((d : F)⁻¹ * algebraMap (𝓞 F) F ((d : 𝓞 F) * a))
+    congr 1
+    rw [map_mul, map_natCast, ← mul_assoc, inv_mul_cancel₀ hdF, one_mul]
+  have hindex : Λ₀.relIndex Λ ≠ 0 := by
+    intro h
+    apply hbase
+    exact AddSubgroup.relIndex_eq_zero_of_le_right hupper
+      (AddSubgroup.relIndex_eq_zero_of_le_left hsmall h)
+  obtain ⟨P₀, hP₀, hbounded, _⟩ := hdom (Units.mk0 𝔞 h𝔞)
+  have hfd : IsAddFundamentalDomain Λ₀ P₀ volume := hP₀
+  have hcount : (Λ₀ : Set (InfinitePlace F → ℂ)).Countable := by
+    change (infEmbA '' ((𝔞 : Submodule (𝓞 F) F) : Set F)).Countable
+    exact (Set.to_countable _).image _
+  letI : Countable Λ₀ := hcount.to_subtype
+  have hnonzero : volume P₀ ≠ 0 := hfd.measure_ne_zero (NeZero.ne volume)
+  have hfiniteVol : volume P₀ ≠ ⊤ := hbounded.measure_lt_top.ne
+  have hvol : 0 < (volume P₀).toReal := ENNReal.toReal_pos hnonzero hfiniteVol
+  exact ⟨𝔞, P₀, Pτ, h𝔞, hfix, hle, hindex, hfd, hbounded, hvol, hPτ⟩
 
 /-- Constant-term integrands are periodic under the rational cusp translations. -/
 theorem th_cusp_periodic [IsTotallyComplex F] (P : CoverPackage D S H A)
