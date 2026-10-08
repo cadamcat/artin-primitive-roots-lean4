@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
+import ArtinPrimitiveRoots.A2.Proofs.A2_ZERO_DETECT.DensityCore
 
 set_option autoImplicit false
 
@@ -42,6 +43,7 @@ theorem prop_zero_density
           u ∉ E U → ∀ hnon : fd.omega u ≠ 1, ∀ ξ : ℂ,
             998 / 1000 ≤ ξ.re → |ξ.im| ≤ 2 * Real.rpow U ρ →
               ‖((Linc u hnon).value ξ)⁻¹‖ ≤ Cε * Real.rpow U ε) := by
-  sorry
+  obtain ⟨A', hA', hG⟩ := zf_convexity_growth_bound (F := F)
+  exact Proofs.A2ZeroDetect.zero_density_core S D η hη fd L Linc A_F hAF A' hA' hG
 
 end ArtinPrimitiveRoots.A2
