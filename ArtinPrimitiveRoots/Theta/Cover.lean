@@ -3359,6 +3359,81 @@ private theorem tameIntegralLift_range_compact_image
     rw [hpr, show ι k = g from hk]
     exact hgq
 
+/-- Integral standard generators have trivial tame correction and belong to the lift range. -/
+private theorem tameIntegralLift_generators_mem
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (L : FinLocalCover D H v)
+    (κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L)
+    (hκ : ∀ k, κ k = tameIntegralLift D H v L k) :
+    (∀ x ∈ v.adicCompletionIntegers F,
+      L.n (Multiplicative.ofAdd x) ∈ κ.range) ∧
+    (∀ u : (v.adicCompletion F)ˣ,
+      (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F →
+      ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+        v.adicCompletionIntegers F → L.a u ∈ κ.range) ∧
+    L.w ∈ κ.range ∧
+    (∀ x : v.adicCompletion F, Valued.v x < 1 →
+      L.nbar (Multiplicative.ofAdd x) ∈ κ.range) := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  have inverseDet (g : GL (Fin 2) K) :
+      g⁻¹.val.det = (((detU v g)⁻¹ : Kˣ) : K) := by
+    change ((Matrix.GeneralLinearGroup.det g⁻¹ : Kˣ) : K) =
+      (((Matrix.GeneralLinearGroup.det g)⁻¹ : Kˣ) : K)
+    rw [map_inv]
+  have lowerDet (x : K) : detU v (lowerM K x) = 1 := by
+    apply Units.ext
+    simp [detU, lowerM, Matrix.det_fin_two]
+  have sec_mem (g : GL (Fin 2) K)
+      (hg : ∀ i j, (g : Matrix (Fin 2) (Fin 2) K) i j ∈ O)
+      (hd : g⁻¹.val.det ∈ O) (hs : tameSplit D H v g = 1) : L.sec g ∈ κ.range := by
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.integralGL2_lift v g hg hd
+    refine ⟨k, ?_⟩
+    rw [hκ]
+    change L.z (tameSplit D H v (Matrix.GeneralLinearGroup.map O.subtype k)) *
+      L.sec (Matrix.GeneralLinearGroup.map O.subtype k) = L.sec g
+    rw [hk, hs, map_one, one_mul]
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro x hx
+    rw [L.sec_n]
+    apply sec_mem (upperM K x)
+    · intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [upperM, O, ValuationSubring.one_mem, ValuationSubring.zero_mem, hx]
+    · rw [inverseDet, detU_upperM]
+      simpa using O.one_mem
+    · simp [tameSplit, upperM]
+  · intro u hu huinv
+    rw [L.sec_a]
+    apply sec_mem (diagM K u)
+    · intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [diagM, O, ValuationSubring.one_mem, ValuationSubring.zero_mem, hu]
+    · rw [inverseDet, detU_diagM]
+      exact huinv
+    · simp [tameSplit, diagM]
+  · rw [L.sec_w]
+    apply sec_mem (weylM K)
+    · intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [weylM, ValuationSubring.one_mem, ValuationSubring.zero_mem]
+    · rw [inverseDet, detU_weylM]
+      simpa using O.toSubring.neg_mem O.one_mem
+    · simp [tameSplit, weylM]
+  · intro x hx
+    have hxi : x ∈ O := hx.le
+    rw [L.sec_nbar]
+    apply sec_mem (lowerM K x)
+    · intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [lowerM, ValuationSubring.one_mem, ValuationSubring.zero_mem, hxi]
+    · rw [inverseDet, lowerDet]
+      simpa using O.one_mem
+    · unfold tameSplit
+      rw [lowerDet]
+      simp [lowerM, hilb_one_left, muThree_one]
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
