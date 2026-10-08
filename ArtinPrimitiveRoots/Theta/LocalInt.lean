@@ -653,7 +653,61 @@ theorem sphC_mk (s : ℂ) (g : GL (Fin 2) ℂ) : sphC s (QuotientGroup.mk g) = s
   exact hout.symm.trans hg
 
 theorem sphC_isSection (s : ℂ) : IsSectionC s (sphC s) ∧ Continuous (sphC s) := by
-  sorry
+  obtain ⟨f, hf, hrep⟩ := sphericalC_isSection s
+  have heq : sphC s = f := by
+    funext q
+    refine QuotientGroup.induction_on q ?_
+    intro g
+    exact (sphC_mk s g).trans (hrep g).symm
+  let base : GL (Fin 2) ℂ → ℝ := fun g =>
+    ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖ /
+      (‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2)
+  have hden : ∀ g : GL (Fin 2) ℂ,
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 ≠ 0 := by
+    intro g h
+    have h00 : ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ = 0 := by
+      have h0 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0)
+      have h1 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+      nlinarith
+    have h01 : ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ = 0 := by
+      have h0 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0)
+      have h1 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+      nlinarith
+    have he0 : (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0 = 0 := norm_eq_zero.mp h00
+    have he1 : (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1 = 0 := norm_eq_zero.mp h01
+    apply g.det_ne_zero
+    simp [Matrix.det_fin_two, he0, he1]
+  have hbase : Continuous base := by
+    apply (by fun_prop : Continuous fun g : GL (Fin 2) ℂ =>
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖).div
+        (by fun_prop : Continuous fun g : GL (Fin 2) ℂ =>
+          ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+            ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2) hden
+  have hbase_ne (g : GL (Fin 2) ℂ) : base g ≠ 0 := by
+    apply div_ne_zero
+    · exact norm_ne_zero_iff.mpr g.det_ne_zero
+    · exact hden g
+  have hsph : Continuous (sphericalC s) := by
+    have hpow : Continuous fun g : GL (Fin 2) ℂ =>
+        ((base g : ℝ) : ℂ) ^ (1 + 2 * s) := by
+      rw [continuous_iff_continuousAt]
+      intro g
+      have hbaseAt : ContinuousAt base g := hbase.continuousAt (x := g)
+      have hpowAt : ContinuousAt (fun x : ℝ => (x : ℂ) ^ (1 + 2 * s)) (base g) :=
+        Complex.continuousAt_ofReal_cpow_const (base g) (1 + 2 * s)
+          (Or.inr (hbase_ne g))
+      exact hpowAt.comp hbaseAt
+    change Continuous (fun g : GL (Fin 2) ℂ =>
+      ((base g : ℝ) : ℂ) ^ (1 + 2 * s))
+    exact hpow
+  have hcont : Continuous (sphC s) := by
+    apply (QuotientGroup.isQuotientMap_mk (Subgroup.center (GL (Fin 2) ℂ))).continuous_iff.mpr
+    convert hsph using 1
+    funext g
+    exact sphC_mk s g
+  exact ⟨by simpa [heq] using hf, hcont⟩
 
 /-- **def:jacquet-C**: `𝒥_ℂ f = ∫_ℂ ψ_w(-x) f(w n(x)) dx` (Lebesgue measure). -/
 def jacquetC (f : PGL2 ℂ → ℂ) : ℂ := ∫ x : ℂ, psiC (-x) * f (wC * nC x)
