@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A1.SLattice
 import ArtinPrimitiveRoots.Theta.LocalInt
 import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2.Proofs.A2_PRODUCERS.Angles
+import ArtinPrimitiveRoots.A2.Proofs.A2_PRODUCERS.HaarInversion
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 import Mathlib.Algebra.Group.Prod
 import Mathlib.LinearAlgebra.Countable
