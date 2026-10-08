@@ -111,4 +111,159 @@ theorem rough_mertens_bounds :
       nlinarith
     exact ⟨hMassLog.trans hbound, by simpa [W] using hVlower⟩
 
+private theorem cast_nat_product_for_cutoff (S : Finset ℕ) :
+    ((∏ p ∈ S, p : ℕ) : ℝ) = ∏ p ∈ S, (p : ℝ) := by
+  classical
+  induction S using Finset.induction_on with
+  | empty => simp
+  | @insert p S hp ih => simp [Finset.prod_insert, hp, ih]
+
+private theorem cast_nat_product_le_pow (W : ℝ) (S : Finset ℕ)
+    (hbound : ∀ p ∈ S, (p : ℝ) ≤ W) :
+    ((∏ p ∈ S, p : ℕ) : ℝ) ≤ W ^ S.card := by
+  rw [cast_nat_product_for_cutoff]
+  calc
+    ∏ p ∈ S, (p : ℝ) ≤ ∏ p ∈ S, W :=
+      Finset.prod_le_prod₀ (fun p hp => Nat.cast_nonneg p) hbound
+    _ = W ^ S.card := by simp
+
+/-- A product of fewer than `lam log log x` primes below the rough cutoff is
+eventually at most `x^(δ/8)`. -/
+theorem retained_subset_product_bound (δ lam : ℝ) (hδ : 0 < δ) (hlam : 0 < lam) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        let L := Real.log x
+        let r : ℕ := ⌈lam * Real.log L⌉₊
+        ∀ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+            (fun S => S.card < r),
+          ((∏ p ∈ S, p : ℕ) : ℝ) ≤ Real.rpow x (δ / 8) := by
+  let α : ℝ := 24 / 100
+  let β : ℝ := 74 / 100
+  let η : ℝ := 26 / 100
+  let K : ℝ := (8 / δ) * (2 * lam + 1)
+  have hα : 0 < α := by norm_num [α]
+  have hη : 0 < η := by norm_num [η]
+  have hK : 0 < K := by dsimp [K]; positivity
+  have hLpow : Tendsto (fun x : ℝ => Real.rpow (Real.log x) η) atTop atTop :=
+    (tendsto_rpow_atTop hη).comp Real.tendsto_log_atTop
+  have hGrowEvent : ∀ᶠ x : ℝ in atTop, K ≤ Real.rpow (Real.log x) η :=
+    hLpow.eventually_ge_atTop K
+  have hLogEvent : ∀ᶠ x : ℝ in atTop, 1 ≤ Real.log x :=
+    Real.tendsto_log_atTop.eventually_ge_atTop 1
+  have hTwoEvent : ∀ᶠ x : ℝ in atTop, 2 ≤ x := eventually_ge_atTop 2
+  have hfinal : ∀ᶠ x : ℝ in atTop,
+      2 ≤ x ∧ 1 ≤ Real.log x ∧ K ≤ Real.rpow (Real.log x) η := by
+    filter_upwards [hTwoEvent, hLogEvent, hGrowEvent] with x hx₂ hL hKx
+    exact ⟨hx₂, hL, hKx⟩
+  obtain ⟨x₀, hx₀⟩ := Filter.eventually_atTop.mp hfinal
+  refine ⟨x₀, ?_, ?_⟩
+  · exact (hx₀ x₀ le_rfl).1
+  · intro x hx
+    dsimp
+    obtain ⟨hx₂, hLone, hGrow⟩ := hx₀ x hx
+    let L : ℝ := Real.log x
+    let W : ℝ := roughCutoff x
+    let r : ℕ := ⌈lam * Real.log L⌉₊
+    have hxpos : 0 < x := by linarith
+    have hLpos : 0 < L := by linarith
+    have hLnonneg : 0 ≤ L := hLpos.le
+    have hWge : 1 ≤ W := by
+      dsimp [W, roughCutoff]
+      exact Real.one_le_exp (Real.rpow_nonneg hLnonneg α)
+    have hLogLnonneg : 0 ≤ Real.log L := Real.log_nonneg hLone
+    have harg : 0 ≤ lam * Real.log L := mul_nonneg hlam.le hLogLnonneg
+    have hrLower : lam * Real.log L ≤ (r : ℝ) := by
+      dsimp [r]
+      exact_mod_cast (Nat.le_ceil (lam * Real.log L))
+    have hrUpper : (r : ℝ) ≤ lam * Real.log L + 1 := by
+      dsimp [r]
+      exact (Nat.ceil_lt_add_one harg).le
+    have hlogHalfRaw := Real.log_le_rpow_div hLnonneg (by norm_num : (0 : ℝ) < 1 / 2)
+    have hlogHalf : Real.log L ≤ 2 * Real.rpow L (1 / 2 : ℝ) := by
+      calc
+        Real.log L ≤ Real.rpow L (1 / 2 : ℝ) / (1 / 2 : ℝ) := hlogHalfRaw
+        _ = 2 * Real.rpow L (1 / 2 : ℝ) := by ring
+    have hpowHalfAlpha :
+        Real.rpow L (1 / 2 : ℝ) * Real.rpow L α = Real.rpow L β := by
+      calc
+        _ = Real.rpow L ((1 / 2 : ℝ) + α) :=
+          (Real.rpow_add hLpos _ _).symm
+        _ = Real.rpow L β := by congr 1 <;> norm_num [α, β]
+    have hpowAlphaBeta : Real.rpow L α ≤ Real.rpow L β :=
+      Real.rpow_le_rpow_of_exponent_le hLone (by norm_num [α, β])
+    have hpowAlphanonneg : 0 ≤ Real.rpow L α := Real.rpow_nonneg hLnonneg α
+    have hpowBetanonneg : 0 ≤ Real.rpow L β := Real.rpow_nonneg hLnonneg β
+    have hcoef : 2 * lam + 1 ≤ (δ / 8) * Real.rpow L η := by
+      have hmul := mul_le_mul_of_nonneg_left hGrow (by positivity : 0 ≤ δ / 8)
+      calc
+        2 * lam + 1 = (δ / 8) * K := by dsimp [K]; field_simp [ne_of_gt hδ]
+        _ ≤ (δ / 8) * Real.rpow L η := hmul
+    have hexponent : (r : ℝ) * Real.rpow L α ≤ (δ / 8) * L := by
+      have hargBound : lam * Real.log L + 1 ≤
+          2 * lam * Real.rpow L (1 / 2 : ℝ) + 1 := by
+        have hmul := mul_le_mul_of_nonneg_left hlogHalf hlam.le
+        nlinarith
+      have hceilMul := mul_le_mul_of_nonneg_right hrUpper hpowAlphanonneg
+      have hargMul := mul_le_mul_of_nonneg_right hargBound hpowAlphanonneg
+      have hhalfProduct :
+          (2 * lam * Real.rpow L (1 / 2 : ℝ) + 1) * Real.rpow L α ≤
+            (2 * lam + 1) * Real.rpow L β := by
+        have hsplit :
+            (2 * lam * Real.rpow L (1 / 2 : ℝ) + 1) * Real.rpow L α =
+              2 * lam * Real.rpow L β + Real.rpow L α := by
+          calc
+            _ = 2 * lam *
+                (Real.rpow L (1 / 2 : ℝ) * Real.rpow L α) + Real.rpow L α := by ring
+            _ = _ := by rw [hpowHalfAlpha]
+        rw [hsplit]
+        have hcoeffNonneg : 0 ≤ 2 * lam := by positivity
+        have hscaled := mul_le_mul_of_nonneg_left hpowAlphaBeta hcoeffNonneg
+        nlinarith
+      calc
+        (r : ℝ) * Real.rpow L α ≤
+            (lam * Real.log L + 1) * Real.rpow L α := hceilMul
+        _ ≤ (2 * lam * Real.rpow L (1 / 2 : ℝ) + 1) * Real.rpow L α := hargMul
+        _ ≤ (2 * lam + 1) * Real.rpow L β := hhalfProduct
+        _ ≤ ((δ / 8) * Real.rpow L η) * Real.rpow L β :=
+          mul_le_mul_of_nonneg_right hcoef hpowBetanonneg
+        _ = (δ / 8) * L := by
+          have hpowEtaBeta : Real.rpow L η * Real.rpow L β = L := by
+            calc
+              _ = Real.rpow L (η + β) := (Real.rpow_add hLpos _ _).symm
+              _ = Real.rpow L 1 := by congr 1 <;> norm_num [η, β]
+              _ = L := Real.rpow_one L
+          calc
+            (δ / 8 * Real.rpow L η) * Real.rpow L β =
+                δ / 8 * (Real.rpow L η * Real.rpow L β) := by ring
+            _ = δ / 8 * L := by rw [hpowEtaBeta]
+    have hWpower : W ^ r = Real.exp ((r : ℝ) * Real.rpow L α) := by
+      change (Real.exp (Real.rpow L α)) ^ r = _
+      exact (Real.exp_nat_mul (Real.rpow L α) r).symm
+    have hxpower : Real.rpow x (δ / 8) = Real.exp ((δ / 8) * L) := by
+      calc
+        Real.rpow x (δ / 8) = Real.exp (Real.log x * (δ / 8)) :=
+          Real.rpow_def_of_pos hxpos _
+        _ = Real.exp ((δ / 8) * L) := by
+          rw [show Real.log x = L by rfl, mul_comm]
+    have hWpowerLe : W ^ r ≤ Real.rpow x (δ / 8) := by
+      rw [hWpower, hxpower]
+      exact Real.exp_le_exp.mpr hexponent
+    intro S hS
+    have hSmem := Finset.mem_filter.mp hS
+    have hSP : S ⊆ primesUpTo W := Finset.mem_powerset.mp hSmem.1
+    have hcard : S.card < r := hSmem.2
+    have hprimeMem (p : ℕ) (hp : p ∈ primesUpTo W) :
+        p.Prime ∧ (p : ℝ) ≤ W := by
+      have hWnonneg : 0 ≤ W := le_of_lt (Real.exp_pos _)
+      simp only [primesUpTo, Finset.mem_filter, Finset.mem_range, Nat.lt_succ_iff,
+        Nat.le_floor_iff hWnonneg] at hp
+      exact and_comm.mp hp
+    have hprimeLe (p : ℕ) (hp : p ∈ S) : (p : ℝ) ≤ W :=
+      (hprimeMem p (hSP hp)).2
+    have hprodBound := cast_nat_product_le_pow W S hprimeLe
+    calc
+      ((∏ p ∈ S, p : ℕ) : ℝ) ≤ W ^ S.card := hprodBound
+      _ ≤ W ^ r := pow_le_pow_right₀ hWge (Nat.le_of_lt hcard)
+      _ ≤ Real.rpow x (δ / 8) := hWpowerLe
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
