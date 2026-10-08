@@ -36,4 +36,28 @@ theorem finiteHistoryTrace_ghost_deletions_nodup_prime {K : ℕ}
     exact Prod.ext hg hp
   simpa only [List.map_map, Function.comp_def] using hPrime
 
+/-- A deleted prime identifies its unique ghost-deletion event. -/
+theorem finiteHistoryTrace_ghost_deletion_eq_of_prime_eq {K : ℕ}
+    (F : PDFix K) (S : PDScale) (w : ArchRoot) (γ : EnvPath S.x K)
+    (k : ℕ) (σ : LogPoint S.x K) (t : FiniteHistoryTrace F S γ k σ)
+    (ht : FiniteHistoryTraceValid F S w γ k σ t)
+    (hσ : LiveLogValid σ) (hMem : MemValid F S σ.1)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    {d e : Fin (pathLength S.x + 1) × Fin K × Particle}
+    (hd : d ∈ finiteHistoryTraceGhostDeletions F S γ k σ t)
+    (he : e ∈ finiteHistoryTraceGhostDeletions F S γ k σ t)
+    (hprime : d.2.2.1 = e.2.2.1) : d = e := by
+  let D := finiteHistoryTraceGhostDeletions F S γ k σ t
+  have hKeys : (D.map fun d => (d.2.1, d.2.2.1)).Nodup :=
+    finiteHistoryTrace_ghost_deletions_nodup_group_prime
+      F S w γ k σ t ht hσ
+  have hD : D.Nodup := hKeys.of_map
+  have hPrime : (D.map fun d => d.2.2.1).Nodup := by
+    simpa only [List.map_map, Function.comp_def] using
+      (finiteHistoryTrace_ghost_deletions_nodup_prime
+        F S w γ k σ t ht hσ hMem hBands)
+  have hInj := (List.nodup_map_iff_inj_on hD).1 hPrime
+  exact hInj d (by simpa [D] using hd) e (by simpa [D] using he) hprime
+
 end ArtinPrimitiveRoots.Proofs.pd_lifeb_sol
