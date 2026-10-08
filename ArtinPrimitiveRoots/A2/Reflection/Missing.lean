@@ -9072,6 +9072,110 @@ private theorem rf_pairing_spherical_tail_split
   rw [← hInactiveProd, ← finprod_mul_distrib hInactive hTail]
   exact finprod_congr hFactor
 
+private theorem rf_pairing_active_product_partition
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) :
+    (∏ v ∈ R.exterior.support r.h,
+      (localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+        (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))) +
+      (if digitExponent r v = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 0))) *
+      (∏ᶠ v : FinPlace F, if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 1) =
+    ∑ᶠ f : {f : S.ExtIdeal // activeFactor R r.h f},
+      inactiveScalar R r.h f.1 *
+        (∏ v ∈ R.exterior.support f.1,
+          localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+            (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))) *
+        ∏ᶠ v : FinPlace F,
+          if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f.1 then
+            R.T.Wv v (R.C.a v (toLoc v ν)) else 1 := by
+  classical
+  let H0 := R.exterior.support r.h
+  let A0 (v : FinPlace F) : ℂ :=
+    localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+      (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))
+  let G0 (v : FinPlace F) : ℂ :=
+    if digitExponent r v = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 0
+  let tail : ℂ := ∏ᶠ v : FinPlace F,
+    if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  let mandatory (s : Finset (FinPlace F)) : Prop :=
+    ∀ v ∈ H0, idealExp v r.h.1 % 6 ≠ 0 → v ∈ s
+  let subs := H0.powerset.filter mandatory
+  let SS := {s : Finset (FinPlace F) // s ⊆ H0 ∧ mandatory s}
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  have hmem (s : Finset (FinPlace F)) :
+      s ∈ subs ↔ s ⊆ H0 ∧ mandatory s := by
+    simp only [subs, Finset.mem_filter, Finset.mem_powerset]
+  letI : Fintype SS := Fintype.ofFinset subs hmem
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  obtain ⟨e, he⟩ := rf_pairing_active_support_equiv R r.h
+  have hdigit := (rf_pairing_row_support R r).2.2.2
+  let poly (s : Finset (FinPlace F)) : ℂ :=
+    (∏ v ∈ s, A0 v) * ∏ v ∈ H0 \ s, G0 v
+  let activeTerm (f : AF) : ℂ :=
+    inactiveScalar R r.h f.1 * (∏ v ∈ R.exterior.support f.1, A0 v) *
+      ∏ᶠ v : FinPlace F,
+        if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f.1 then
+          R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  have hrestrict : (∑ s ∈ subs, poly s) = ∑ s ∈ H0.powerset, poly s := by
+    apply Finset.sum_subset (Finset.filter_subset _ _)
+    intro s hs hn
+    have hsH : s ⊆ H0 := Finset.mem_powerset.mp hs
+    have hmiss : ¬mandatory s := by
+      intro hc
+      exact hn ((hmem s).mpr ⟨hsH, hc⟩)
+    simp only [mandatory, not_forall, not_imp] at hmiss
+    obtain ⟨v, hv, hnonzero, hvs⟩ := hmiss
+    have hj : digitExponent r v ≠ 0 := by
+      intro hj0
+      apply hnonzero
+      exact (hdigit v hv).symm.trans (congrArg (fun j : Fin 6 => j.val) hj0)
+    have hG : (∏ w ∈ H0 \ s, G0 w) = 0 :=
+      Finset.prod_eq_zero (Finset.mem_sdiff.mpr ⟨hv, hvs⟩)
+        (by simp only [G0, if_neg hj])
+    simp only [poly, hG, mul_zero]
+  have hterm (s : SS) : poly s.1 * tail = activeTerm (e s) := by
+    have hj0 (v : FinPlace F) (hv : v ∈ H0 \ s.1) : digitExponent r v = 0 := by
+      apply Fin.ext
+      change (digitExponent r v).val = 0
+      rw [hdigit v (Finset.mem_sdiff.mp hv).1]
+      by_contra hnonzero
+      exact (Finset.mem_sdiff.mp hv).2
+        (s.2.2 v (Finset.mem_sdiff.mp hv).1 hnonzero)
+    have hG : (∏ v ∈ H0 \ s.1, G0 v) =
+        (∏ v ∈ H0 \ s.1, (1 - (qI v.asIdeal : ℂ)⁻¹)) *
+          ∏ v ∈ H0 \ s.1, R.T.Wv v (R.C.a v (toLoc v ν)) := by
+      rw [← Finset.prod_mul_distrib]
+      apply Finset.prod_congr rfl
+      intro v hv
+      simp only [G0, if_pos (hj0 v hv)]
+    have hfilter : H0.filter (fun v => v ∉ s.1) = H0 \ s.1 := by
+      ext v
+      simp only [Finset.mem_filter, Finset.mem_sdiff]
+    have hscalar : (∏ v ∈ H0 \ s.1, (1 - (qI v.asIdeal : ℂ)⁻¹)) =
+        inactiveScalar R r.h (e s).1 := by
+      simp only [inactiveScalar, he s]
+      exact congrArg (fun t : Finset (FinPlace F) =>
+        ∏ v ∈ t, (1 - (qI v.asIdeal : ℂ)⁻¹)) hfilter.symm
+    have htail := rf_pairing_spherical_tail_split R r ν s.1 s.2.1
+    change (∏ v ∈ H0 \ s.1, R.T.Wv v (R.C.a v (toLoc v ν))) * tail = _ at htail
+    dsimp only [poly, activeTerm]
+    rw [hG, hscalar, he s, ← htail]
+    ring
+  change (∏ v ∈ H0, (A0 v + G0 v)) * tail = ∑ᶠ f : AF, activeTerm f
+  calc
+    _ = (∑ s ∈ H0.powerset, poly s) * tail := by
+      rw [Finset.prod_add]
+    _ = (∑ s ∈ subs, poly s) * tail := by rw [hrestrict]
+    _ = ∑ s ∈ subs, poly s * tail := Finset.sum_mul _ _ _
+    _ = ∑ s : SS, poly s.1 * tail :=
+      Finset.sum_subtype subs hmem (fun s => poly s * tail)
+    _ = ∑ᶠ s : SS, poly s.1 * tail := (finsum_eq_sum_of_fintype _).symm
+    _ = ∑ᶠ f : AF, activeTerm f := finsum_eq_of_bijective e e.bijective hterm
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
