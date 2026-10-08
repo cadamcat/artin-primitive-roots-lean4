@@ -11,6 +11,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».GammaHorizontal
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».PrefactorDeriv
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».SharpLogDeriv
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».SharpHeights
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».PrincipalParts
 
 set_option autoImplicit false
 
