@@ -806,6 +806,44 @@ private theorem covol_different_mem_valuation_bound (v : FinPlace F)
   exact (WithZero.log_le_iff_le_exp
     ((v.valuation F).ne_zero_iff.mpr haF0)).mp hlog
 
+private theorem covol_traceDual_of_local_bounds {z : F}
+    (hval : ∀ v : FinPlace F, v.valuation F z ≤ WithZero.exp
+      (FractionalIdeal.count F v
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F))) :
+    z ∈ Submodule.traceDual ℤ ℚ (1 : Submodule (𝓞 F) F) := by
+  by_cases hz0 : z = 0
+  · simp [hz0]
+  let D := differentIdeal ℤ (𝓞 F)
+  have hD0 : D ≠ ⊥ := differentIdeal_ne_bot
+  have hDFrac0 : (D : FractionalIdeal (𝓞 F)⁰ F) ≠ 0 := by
+    exact FractionalIdeal.coeIdeal_ne_zero.mpr hD0
+  have hzInv : z ∈ (D : FractionalIdeal (𝓞 F)⁰ F)⁻¹ := by
+    apply (FractionalIdeal.mem_inv_iff hDFrac0).2
+    intro y hy
+    obtain ⟨a, ha, hya⟩ :=
+      (FractionalIdeal.mem_coeIdeal (nonZeroDivisors (𝓞 F))).mp hy
+    have hprod (v : FinPlace F) : v.valuation F (z * y) ≤ 1 := by
+      rw [map_mul, ← hya]
+      calc
+        v.valuation F z * v.valuation F (algebraMap (𝓞 F) F a) ≤
+            WithZero.exp (FractionalIdeal.count F v
+              (D : FractionalIdeal (𝓞 F)⁰ F)) *
+              WithZero.exp (-FractionalIdeal.count F v
+                (D : FractionalIdeal (𝓞 F)⁰ F)) := by
+                  exact mul_le_mul (hval v)
+                    (covol_different_mem_valuation_bound v ha) bot_le bot_le
+        _ = 1 := by rw [← WithZero.exp_add, add_neg_cancel, WithZero.exp_zero]
+    have hglobal := HeightOneSpectrum.mem_integers_of_valuation_le_one F (z * y) hprod
+    exact (FractionalIdeal.mem_one_iff (nonZeroDivisors (𝓞 F))).mpr hglobal
+  have hDcod : (D : FractionalIdeal (𝓞 F)⁰ F) = covolCodifferent⁻¹ := by
+    simpa [D, covolCodifferent] using (coeIdeal_differentIdeal ℤ ℚ F (𝓞 F))
+  have hzCod : z ∈ covolCodifferent := by
+    rw [hDcod, inv_inv] at hzInv
+    exact hzInv
+  have hzCodSub : z ∈ (covolCodifferent (F := F) : Submodule (𝓞 F) F) :=
+    FractionalIdeal.mem_coe.mpr hzCod
+  simpa [covolCodifferent, FractionalIdeal.coe_dual_one] using hzCodSub
+
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
   have hπcoerce : (unifLoc v : v.adicCompletion F) =
