@@ -3419,11 +3419,504 @@ private theorem rowKernel_right_integrable_of_shell (hEuler : EulerHypotheses R 
   exact Filter.Eventually.of_forall (fun t => by simpa [ξLine] using (hdata t).2)
 
 
+include HA HC in
+private theorem rowContribution_eq_sum (hEuler : EulerHypotheses R η)
+    (T Z : ℝ) (hT : 2 ≤ T) (hZ : 2 ≤ Z) (rows : Finset U.U)
+    (hrows : ∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T) :
+    rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, rowContribution R sd W η U {u} Z := by
+  obtain ⟨ZD⟩ := zeroDensityData_nonempty (η := η) (U := U) (HA := HA)
+  let A1 : ℝ := 2 / ZD.ρ
+  have hA1 : 1 / ZD.ρ < A1 := by
+    dsimp [A1]
+    exact (div_lt_div_of_pos_right (by norm_num : (1 : ℝ) < 2) ZD.ρ_pos)
+  let κ : ℂ := (1 / (2 * Real.pi) : ℂ)
+  let rightLine : ℝ → ℂ := fun t => ((1 + δ1 : ℝ) : ℂ) + t * Complex.I
+  have hInts (u : U.U) (hu : u ∈ rows) :
+      (∀ ξ : ℂ, ξ.re = 1 + δ1 →
+        Integrable (rowKernelHeightFiber R sd W η U HA HC u Z ξ) (volume.prod volume)) ∧
+      Integrable (fun t : ℝ => rowKernelHeightPair R sd W η U HA HC u Z
+        ((1 + δ1 : ℝ) + t * Complex.I)) :=
+    rowKernel_right_integrable_of_shell (R := R) (sd := sd) (W := W) (η := η)
+      (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler 1 A1 (by norm_num) hA1
+      u (hrows u hu).1 T hT (hrows u hu).2 Z hZ
+  obtain ⟨Csmall, hCsmall, hsmall⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler 0 ((rows.card : ℝ) + 1) 1 (by norm_num) (by positivity) (by norm_num)
+  have hshift (C : Finset U.U) (hsub : C ⊆ rows) :
+      rowContribution R sd W η U C Z = tripleVertical (1 + δ1) (3 / 1000) (4 / 10)
+        (fun ξ w z => ∑ u ∈ C, rowKernel R sd W η U HA HC u Z ξ w z) := by
+    have hcard : (C.card : ℝ) ≤ ((rows.card : ℝ) + 1) * T ^ (0 : ℝ) := by
+      rw [Real.rpow_zero, mul_one]
+      have hle : (C.card : ℝ) ≤ rows.card := by exact_mod_cast Finset.card_le_card hsub
+      linarith
+    exact (hsmall T Z (by linarith) hZ C (fun u hu => hrows u (hsub hu)) hcard).1
+  have hPairSum (ξ : ℂ) (hξright : ξ.re = 1 + δ1) :
+      vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z)) =
+        ∑ u ∈ rows, rowKernelHeightPair R sd W η U HA HC u Z ξ := by
+    have hf : ∀ u ∈ rows, Integrable (fun v : ℝ × ℝ =>
+        rowKernel R sd W η U HA HC u Z ξ
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) := by
+      intro u hu
+      rw [Measure.volume_eq_prod ℝ ℝ]
+      exact (hInts u hu).1 ξ hξright
+    have hsum : Integrable (fun v : ℝ × ℝ =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) :=
+      integrable_finsetSum rows hf
+    calc
+      _ = κ ^ 2 * ∫ v : ℝ × ℝ, ∑ u ∈ rows,
+          rowKernel R sd W η U HA HC u Z ξ
+            (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+            (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) :=
+        vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+          (fun w z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) hsum
+      _ = ∑ u ∈ rows, κ ^ 2 * ∫ v : ℝ × ℝ,
+          rowKernel R sd W η U HA HC u Z ξ
+            (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+            (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) := by
+        rw [integral_finsetSum rows hf, Finset.mul_sum]
+      _ = _ := by
+        apply Finset.sum_congr rfl
+        intro u hu
+        exact (vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+          (fun w z => rowKernelAt R sd W η U HA HC u Z ξ w z) (hf u hu)).symm
+  have hRightInt : ∀ u ∈ rows, Integrable (fun t : ℝ =>
+      rowKernelHeightPair R sd W η U HA HC u Z (rightLine t)) := by
+    intro u hu
+    exact (hInts u hu).2
+  have hFull : rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) := by
+    rw [hshift rows (by intro u hu; exact hu)]
+    change κ * (∫ t : ℝ, vertical (3 / 1000) (fun w => vertical (4 / 10)
+      (fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (rightLine t) w z))) =
+        ∑ u ∈ rows, κ * ∫ t : ℝ,
+          rowKernelHeightPair R sd W η U HA HC u Z (rightLine t)
+    calc
+      _ = κ * ∫ t : ℝ, ∑ u ∈ rows,
+          rowKernelHeightPair R sd W η U HA HC u Z (rightLine t) := by
+        congr 1
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall fun t => hPairSum (rightLine t)
+          (by simp [rightLine])
+      _ = _ := by rw [integral_finsetSum rows hRightInt, Finset.mul_sum]
+  have hsingle (u : U.U) (hu : u ∈ rows) :
+      rowContribution R sd W η U {u} Z =
+        vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) := by
+    rw [hshift {u} (by
+      intro v hv
+      rcases Finset.mem_singleton.mp hv with rfl
+      exact hu)]
+    simp only [Finset.sum_singleton]
+    rfl
+  calc
+    _ = ∑ u ∈ rows, vertical (1 + δ1)
+        (rowKernelHeightPair R sd W η U HA HC u Z) := hFull
+    _ = _ := Finset.sum_congr rfl fun u hu => (hsingle u hu).symm
+
+private theorem dyadic_power_small_sum (p x : ℝ) (hp : 0 < p) (hx : 1 ≤ x) :
+    Summable (fun j : ℕ => if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0) ∧
+      (∑' j : ℕ, if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0) ≤
+        ((2 : ℝ) ^ p / ((2 : ℝ) ^ p - 1)) * x ^ p := by
+  classical
+  obtain ⟨N, hNlo, hNhi⟩ := exists_nat_pow_near hx (by norm_num : (1 : ℝ) < 2)
+  let r : ℝ := (2 : ℝ) ^ p
+  let g : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0
+  have hr : 1 < r := Real.one_lt_rpow (by norm_num) hp
+  have hpower (j : ℕ) : ((2 : ℝ) ^ j) ^ p = r ^ j :=
+    (Real.rpow_pow_comm (by norm_num : (0 : ℝ) ≤ 2) p j).symm
+  have hcut (j : ℕ) : (2 : ℝ) ^ j ≤ x ↔ j ∈ Finset.range (N + 1) := by
+    constructor
+    · intro hj
+      apply Finset.mem_range.mpr
+      by_contra hge
+      have hNj : N + 1 ≤ j := Nat.le_of_not_gt hge
+      have hle : (2 : ℝ) ^ (N + 1) ≤ (2 : ℝ) ^ j :=
+        pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hNj
+      linarith
+    · intro hj
+      have hJN : j ≤ N := Nat.lt_succ_iff.mp (Finset.mem_range.mp hj)
+      exact (pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hJN).trans hNlo
+  have hzero : ∀ j ∉ Finset.range (N + 1), g j = 0 := by
+    intro j hj
+    have hnot : ¬ (2 : ℝ) ^ j ≤ x := mt (hcut j).mp hj
+    simp [g, hnot]
+  have hsum : Summable g := summable_of_ne_finset_zero hzero
+  have hpartial : (∑' j, g j) = ∑ j ∈ Finset.range (N + 1), r ^ j := by
+    rw [tsum_eq_sum hzero]
+    apply Finset.sum_congr rfl
+    intro j hj
+    simp only [g, if_pos ((hcut j).mpr hj), hpower j]
+  have hpowLe : r ^ N ≤ x ^ p := by
+    rw [← hpower N]
+    exact Real.rpow_le_rpow (by positivity) hNlo hp.le
+  refine ⟨hsum, ?_⟩
+  change (∑' j, g j) ≤ (r / (r - 1)) * x ^ p
+  calc
+    _ = (r ^ (N + 1) - 1) / (r - 1) := by
+      rw [hpartial, geom_sum_eq (ne_of_gt hr)]
+    _ ≤ r ^ (N + 1) / (r - 1) :=
+      div_le_div_of_nonneg_right (by linarith) (by linarith)
+    _ = (r * r ^ N) / (r - 1) := by rw [pow_succ, mul_comm (r ^ N) r]
+    _ ≤ (r * x ^ p) / (r - 1) :=
+      div_le_div_of_nonneg_right
+        (mul_le_mul_of_nonneg_left hpowLe (by linarith)) (by linarith)
+    _ = _ := by ring
+
+private theorem dyadic_power_tail_sum (p x : ℝ) (hp : p < 0) (hx : 1 ≤ x) :
+    Summable (fun j : ℕ => if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0) ∧
+      (∑' j : ℕ, if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0) ≤
+        x ^ p / (1 - (2 : ℝ) ^ p) := by
+  classical
+  obtain ⟨N, hNlo, hNhi⟩ := exists_nat_pow_near hx (by norm_num : (1 : ℝ) < 2)
+  let J : ℕ := N + 1
+  let r : ℝ := (2 : ℝ) ^ p
+  let g : ℕ → ℝ := fun j => if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0
+  have hrpos : 0 < r := Real.rpow_pos_of_pos (by norm_num) _
+  have hr : r < 1 := Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) hp
+  have hpower (j : ℕ) : ((2 : ℝ) ^ j) ^ p = r ^ j :=
+    (Real.rpow_pow_comm (by norm_num : (0 : ℝ) ≤ 2) p j).symm
+  have hcut (j : ℕ) : x < (2 : ℝ) ^ j ↔ J ≤ j := by
+    constructor
+    · intro hj
+      by_contra hnot
+      have hjN : j ≤ N := by dsimp [J] at hnot; omega
+      have hle : (2 : ℝ) ^ j ≤ x :=
+        (pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hjN).trans hNlo
+      linarith
+    · intro hj
+      have hle : (2 : ℝ) ^ J ≤ (2 : ℝ) ^ j :=
+        pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hj
+      exact lt_of_lt_of_le hNhi hle
+  have hshift (n : ℕ) : g (n + J) = ((2 : ℝ) ^ J) ^ p * r ^ n := by
+    have hmem : x < (2 : ℝ) ^ (n + J) := (hcut (n + J)).mpr (by omega)
+    simp only [g, if_pos hmem]
+    rw [pow_add, Real.mul_rpow (by positivity) (by positivity), hpower n]
+    ring
+  have hsumShift : Summable (fun n : ℕ => g (n + J)) := by
+    exact ((summable_geometric_of_lt_one hrpos.le hr).mul_left (((2 : ℝ) ^ J) ^ p)).congr
+      fun n => (hshift n).symm
+  have hsum : Summable g := (summable_nat_add_iff J).mp hsumShift
+  have hprefix : ∑ j ∈ Finset.range J, g j = 0 := by
+    apply Finset.sum_eq_zero
+    intro j hj
+    have hnot : ¬ x < (2 : ℝ) ^ j := by
+      rw [hcut]
+      exact Nat.not_le.mpr (Finset.mem_range.mp hj)
+    simp [g, hnot]
+  have htsum : (∑' j, g j) = ∑' n, g (n + J) := by
+    have heq := hsum.sum_add_tsum_nat_add J
+    rw [hprefix, zero_add] at heq
+    exact heq.symm
+  have hpowLe : ((2 : ℝ) ^ J) ^ p ≤ x ^ p :=
+    Real.rpow_le_rpow_of_nonpos (by linarith) hNhi.le hp.le
+  refine ⟨hsum, ?_⟩
+  change (∑' j, g j) ≤ x ^ p / (1 - r)
+  calc
+    _ = ((2 : ℝ) ^ J) ^ p * (1 - r)⁻¹ := by
+      rw [htsum]
+      simp_rw [hshift]
+      rw [tsum_mul_left, tsum_geometric_of_lt_one hrpos.le hr]
+    _ ≤ x ^ p * (1 - r)⁻¹ :=
+      mul_le_mul_of_nonneg_right hpowLe (inv_nonneg.mpr (by linarith))
+    _ = _ := (div_eq_mul_inv _ _).symm
+
+include HA HC ZD in
+private theorem nonprincipalDyad_range_bounds (hEuler : EulerHypotheses R η) :
+    ∃ Cs Ce Cg Cf Z0 : ℝ, 0 < Cs ∧ 0 < Ce ∧ 0 < Cg ∧ 0 < Cf ∧ 2 ≤ Z0 ∧
+      ∀ Z T : ℝ, Z0 ≤ Z → 1 ≤ T →
+      (T ≤ Z ^ (9 / 100 : ℝ) →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Cs * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (11 / 10 + 1 / 100000 : ℝ)) ∧
+      (Z ^ (9 / 100 : ℝ) < T → T ≤ Z ^ (10001 / 100000 : ℝ) →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Ce * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (6 / 10 + 1 / 100000 : ℝ) +
+          Cg * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+            T ^ (11 / 10 + 1 / 100000 : ℝ) +
+          Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (-9 / 10 + 1 / 100000 : ℝ)) ∧
+      (Z ^ (10001 / 100000 : ℝ) < T →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Cf * Z ^ (3849 / 1000 + (1 / 10 : ℝ) * 350000) *
+            T ^ (1 - (350000 : ℝ) + 1 / 100000)) := by
+  classical
+  obtain ⟨Ccount, hCcount, hcount⟩ :=
+    (frequency_norm_count_from_data S D η U).2.2
+  obtain ⟨Cs, hCs, hsmall⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler 1 Ccount (1 / 100000) (by norm_num) hCcount (by norm_num)
+  obtain ⟨Ce, hCe, hexc⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler (1 / 2) ZD.Cexc (1 / 100000) (by norm_num) ZD.Cexc_pos (by norm_num)
+  let A1 : ℝ := 2 / ZD.ρ
+  have hA1 : 1 / ZD.ρ < A1 := by
+    dsimp [A1]
+    exact div_lt_div_of_pos_right (by norm_num : (1 : ℝ) < 2) ZD.ρ_pos
+  have hρA1 : ZD.ρ * A1 = 2 := by
+    dsimp [A1]
+    field_simp [ne_of_gt ZD.ρ_pos]
+  obtain ⟨Cg, Zg, hCg, hZg, hgood⟩ := zf_intermediate_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    (ZD := ZD) hEuler (1 / 100000) A1 (by norm_num) hA1
+  obtain ⟨Cf, hCf, hfar⟩ := zf_far_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U)
+    hEuler (1 / 100000) (by norm_num)
+  let Z0 : ℝ := max Zg (ZD.U0 ^ (100 / 9 : ℝ))
+  refine ⟨Cs, Ce, Cg, Cf, Z0, hCs, hCe, hCg, hCf,
+    hZg.trans (le_max_left _ _), ?_⟩
+  intro Z T hZ hT
+  have hZZg : Zg ≤ Z := (le_max_left _ _).trans hZ
+  have hZ2 : 2 ≤ Z := hZg.trans hZZg
+  have hZpos : 0 < Z := by linarith
+  have hTpos : 0 < T := by linarith
+  have hOnset : ZD.U0 ≤ Z ^ (9 / 100 : ℝ) := by
+    have hbase : ZD.U0 ^ (100 / 9 : ℝ) ≤ Z := (le_max_right _ _).trans hZ
+    calc
+      ZD.U0 = (ZD.U0 ^ (100 / 9 : ℝ)) ^ (9 / 100 : ℝ) := by
+        rw [← Real.rpow_mul (by linarith [ZD.U0_two])]
+        norm_num
+      _ ≤ Z ^ (9 / 100 : ℝ) := Real.rpow_le_rpow
+        (Real.rpow_nonneg (by linarith [ZD.U0_two]) _) hbase (by norm_num)
+  have hrows : ∀ u ∈ DE.rows T, u ≠ U.one ∧ u ∈ frequencyDyad η U T :=
+    fun u hu => (DE.mem_rows T hT u).1 hu
+  have hcard : ((DE.rows T).card : ℝ) ≤ Ccount * T ^ (1 : ℝ) := by
+    obtain ⟨hfin, hbound⟩ := hcount T hT
+    have hsub : DE.rows T ⊆ hfin.toFinset := by
+      intro u hu
+      exact hfin.mem_toFinset.mpr (hrows u hu).2
+    calc
+      _ ≤ (hfin.toFinset.card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+      _ ≤ Ccount * T := by
+        simpa only [Set.ncard_eq_toFinset_card _ hfin] using hbound
+      _ = _ := by rw [Real.rpow_one]
+  refine ⟨?_, ?_, ?_⟩
+  · intro hsmallRange
+    have hs := (hsmall T Z hT hZ2 (DE.rows T) hrows hcard).2
+    convert hs using 1 <;> congr 1 <;> ring
+  · intro hTlo hThi
+    have hU0 : ZD.U0 ≤ T := hOnset.trans hTlo.le
+    have hT2 : 2 ≤ T := ZD.U0_two.trans hU0
+    let bad : Finset U.U := (DE.rows T).filter (fun u => u ∈ ZD.E T)
+    let good : Finset U.U := (DE.rows T).filter (fun u => u ∉ ZD.E T)
+    have hbadSub : bad ⊆ DE.rows T := Finset.filter_subset _ _
+    have hgoodSub : good ⊆ DE.rows T := Finset.filter_subset _ _
+    have hbadRows : ∀ u ∈ bad, u ≠ U.one ∧ u ∈ frequencyDyad η U T :=
+      fun u hu => hrows u (hbadSub hu)
+    have hgoodRows : ∀ u ∈ good,
+        u ≠ U.one ∧ u ∈ frequencyDyad η U T ∧ u ∉ ZD.E T := by
+      intro u hu
+      exact ⟨(hrows u (hgoodSub hu)).1, (hrows u (hgoodSub hu)).2,
+        (Finset.mem_filter.mp hu).2⟩
+    have hbadCard : (bad.card : ℝ) ≤ ZD.Cexc * T ^ (1 / 2 : ℝ) := by
+      have hsub : bad ⊆ ZD.E T := by
+        intro u hu
+        exact (Finset.mem_filter.mp hu).2
+      calc
+        _ ≤ ((ZD.E T).card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+        _ ≤ _ := ZD.E_count T hU0
+    have hbadBound : ‖rowContribution R sd W η U bad Z‖ ≤
+        Ce * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (6 / 10 + 1 / 100000 : ℝ) := by
+      have hb := (hexc T Z hT hZ2 bad hbadRows hbadCard).2
+      convert hb using 1 <;> congr 1 <;> ring
+    have hg := hgood Z T hZZg hTlo hThi hU0 good hgoodRows
+    have hrem : ‖rowContribution R sd W η U good Z -
+        goodCentral R sd W η U HA HC ZD good T Z‖ ≤
+        Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (-9 / 10 + 1 / 100000 : ℝ) := by
+      have hr := hg.2
+      rw [hρA1] at hr
+      convert hr using 1 <;> congr 1 <;> ring
+    have hgoodBound : ‖rowContribution R sd W η U good Z‖ ≤
+        Cg * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+          T ^ (11 / 10 + 1 / 100000 : ℝ) +
+        Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (-9 / 10 + 1 / 100000 : ℝ) := by
+      calc
+        _ ≤ ‖goodCentral R sd W η U HA HC ZD good T Z‖ +
+            ‖rowContribution R sd W η U good Z -
+              goodCentral R sd W η U HA HC ZD good T Z‖ := by
+          simpa only [norm_sub_rev] using
+            norm_le_insert (goodCentral R sd W η U HA HC ZD good T Z)
+              (rowContribution R sd W η U good Z)
+        _ ≤ _ := add_le_add hg.1 hrem
+    have hsplit : rowContribution R sd W η U (DE.rows T) Z =
+        rowContribution R sd W η U bad Z + rowContribution R sd W η U good Z := by
+      rw [rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+        (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 (DE.rows T) hrows,
+        rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+          (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 bad hbadRows,
+        rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+          (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 good
+            (fun u hu => hrows u (hgoodSub hu))]
+      exact (Finset.sum_filter_add_sum_filter_not (DE.rows T)
+        (fun u => u ∈ ZD.E T) (fun u => rowContribution R sd W η U {u} Z)).symm
+    change ‖rowContribution R sd W η U (DE.rows T) Z‖ ≤ _
+    rw [hsplit]
+    calc
+      _ ≤ ‖rowContribution R sd W η U bad Z‖ + ‖rowContribution R sd W η U good Z‖ :=
+        norm_add_le _ _
+      _ ≤ _ := by simpa only [add_assoc] using add_le_add hbadBound hgoodBound
+  · intro hfarRange
+    exact hfar Z T hZ2 hfarRange (DE.rows T) hrows
+
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
   ‖∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤ C * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) := by
-  sorry
+  intro hEuler
+  obtain ⟨HA⟩ := heckeAnalysis_exists F
+  let HC : EulerCorrection R η U := canonicalEulerCorrection R η U
+  obtain ⟨ZD⟩ := zeroDensityData_nonempty (η := η) (U := U) (HA := HA)
+  obtain ⟨Cs, Ce, Cg, Cf, Z0, hCs, hCe, hCg, hCf, hZ0, hRanges⟩ :=
+    nonprincipalDyad_range_bounds (R := R) (sd := sd) (W := W) (η := η)
+      (U := U) (HA := HA) (HC := HC) (ZD := ZD) (DE := DE) hEuler
+  let ps : ℝ := 11 / 10 + 1 / 100000
+  let pe : ℝ := 6 / 10 + 1 / 100000
+  let pr : ℝ := -9 / 10 + 1 / 100000
+  generalize hpf_eq : (1 - (350000 : ℝ) + 1 / 100000) = pf
+  let el : ℝ := Estar (1 + δ1) (3 / 1000) (4 / 10)
+  let eg : ℝ := Estar (998 / 1000) (3 / 1000) (4 / 10)
+  let ef : ℝ := 3849 / 1000 + (1 / 10 : ℝ) * 350000
+  let target : ℝ := 7 / 15 - 4 / 10000
+  let Ks : ℝ := (2 : ℝ) ^ ps / ((2 : ℝ) ^ ps - 1)
+  let Ke : ℝ := (2 : ℝ) ^ pe / ((2 : ℝ) ^ pe - 1)
+  let Kr : ℝ := (1 - (2 : ℝ) ^ pr)⁻¹
+  let Kf : ℝ := (1 - (2 : ℝ) ^ pf)⁻¹
+  have hps : 0 < ps := by norm_num [ps]
+  have hpe : 0 < pe := by norm_num [pe]
+  have hpr : pr < 0 := by norm_num [pr]
+  have hpf : pf < 0 := by rw [← hpf_eq]; norm_num
+  have hKs : 0 < Ks := div_pos (Real.rpow_pos_of_pos (by norm_num) _)
+    (sub_pos.mpr (Real.one_lt_rpow (by norm_num) hps))
+  have hKe : 0 < Ke := div_pos (Real.rpow_pos_of_pos (by norm_num) _)
+    (sub_pos.mpr (Real.one_lt_rpow (by norm_num) hpe))
+  have hKr : 0 < Kr := inv_pos.mpr (sub_pos.mpr
+    (Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) hpr))
+  have hKf : 0 < Kf := inv_pos.mpr (sub_pos.mpr
+    (Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) hpf))
+  let C : ℝ := Cs * Ks + Ce * Ke + Cg * Ks + Cg * Kr + Cf * Kf
+  have hC : 0 < C := by
+    dsimp only [C]
+    exact add_pos
+      (add_pos (add_pos (add_pos (mul_pos hCs hKs) (mul_pos hCe hKe))
+        (mul_pos hCg hKs)) (mul_pos hCg hKr)) (mul_pos hCf hKf)
+  refine ⟨C, Z0, hC, hZ0, ?_⟩
+  intro Z hZ
+  have hZ2 : 2 ≤ Z := hZ0.trans hZ
+  have hZ1 : 1 ≤ Z := by linarith
+  have hZpos : 0 < Z := by linarith
+  let xlo : ℝ := Z ^ (9 / 100 : ℝ)
+  let xhi : ℝ := Z ^ (10001 / 100000 : ℝ)
+  have hxlo : 1 ≤ xlo := Real.one_le_rpow hZ1 (by norm_num)
+  have hxhi : 1 ≤ xhi := Real.one_le_rpow hZ1 (by norm_num)
+  let s : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ xlo then ((2 : ℝ) ^ j) ^ ps else 0
+  let e : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ xhi then ((2 : ℝ) ^ j) ^ pe else 0
+  let g : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ xhi then ((2 : ℝ) ^ j) ^ ps else 0
+  let r : ℕ → ℝ := fun j => if xlo < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ pr else 0
+  let f : ℕ → ℝ := fun j => if xhi < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ pf else 0
+  obtain ⟨hss, hsbound⟩ := dyadic_power_small_sum ps xlo hps hxlo
+  obtain ⟨hes, hebound⟩ := dyadic_power_small_sum pe xhi hpe hxhi
+  obtain ⟨hgs, hgbound⟩ := dyadic_power_small_sum ps xhi hps hxhi
+  obtain ⟨hrs, hrbound⟩ := dyadic_power_tail_sum pr xlo hpr hxlo
+  obtain ⟨hfs, hfbound⟩ := dyadic_power_tail_sum pf xhi hpf hxhi
+  have hS : Summable (fun j => Cs * Z ^ el * s j) := hss.mul_left (Cs * Z ^ el)
+  have hE : Summable (fun j => Ce * Z ^ el * e j) := hes.mul_left (Ce * Z ^ el)
+  have hG : Summable (fun j => Cg * Z ^ eg * g j) := hgs.mul_left (Cg * Z ^ eg)
+  have hR : Summable (fun j => Cg * Z ^ el * r j) := hrs.mul_left (Cg * Z ^ el)
+  have hF : Summable (fun j => Cf * Z ^ ef * f j) := hfs.mul_left (Cf * Z ^ ef)
+  let M : ℕ → ℝ := fun j => Cs * Z ^ el * s j + Ce * Z ^ el * e j +
+    Cg * Z ^ eg * g j + Cg * Z ^ el * r j + Cf * Z ^ ef * f j
+  have hM : Summable M := (((hS.add hE).add hG).add hR).add hF
+  have hSpos (j : ℕ) : 0 ≤ Cs * Z ^ el * s j := by
+    dsimp [s]; split_ifs <;> positivity
+  have hEpos (j : ℕ) : 0 ≤ Ce * Z ^ el * e j := by
+    dsimp [e]; split_ifs <;> positivity
+  have hGpos (j : ℕ) : 0 ≤ Cg * Z ^ eg * g j := by
+    dsimp [g]; split_ifs <;> positivity
+  have hRpos (j : ℕ) : 0 ≤ Cg * Z ^ el * r j := by
+    dsimp [r]; split_ifs <;> positivity
+  have hFpos (j : ℕ) : 0 ≤ Cf * Z ^ ef * f j := by
+    dsimp [f]; split_ifs <;> positivity
+  have hmajor (j : ℕ) : ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤ M j := by
+    have hT1 : 1 ≤ (2 : ℝ) ^ j := one_le_pow₀ (by norm_num)
+    have hb := hRanges Z ((2 : ℝ) ^ j) hZ hT1
+    by_cases hsmall : (2 : ℝ) ^ j ≤ xlo
+    · have hs : ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤
+          Cs * Z ^ el * s j := by
+        simpa only [s, if_pos hsmall] using hb.1 hsmall
+      exact hs.trans (by dsimp [M]; linarith [hEpos j, hGpos j, hRpos j, hFpos j])
+    · have hTlo : xlo < (2 : ℝ) ^ j := lt_of_not_ge hsmall
+      by_cases hmid : (2 : ℝ) ^ j ≤ xhi
+      · have hm : ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤
+            Ce * Z ^ el * e j + Cg * Z ^ eg * g j + Cg * Z ^ el * r j := by
+          simpa only [e, g, r, if_pos hmid, if_pos hTlo] using hb.2.1 hTlo hmid
+        exact hm.trans (by dsimp [M]; linarith [hSpos j, hFpos j])
+      · have hThi : xhi < (2 : ℝ) ^ j := lt_of_not_ge hmid
+        have hf : ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤
+            Cf * Z ^ ef * f j := by
+          simpa only [f, if_pos hThi, ← hpf_eq] using hb.2.2 hThi
+        exact hf.trans (by dsimp [M]; linarith [hSpos j, hEpos j, hGpos j, hRpos j])
+  have hnorm : Summable (fun j : ℕ =>
+      ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) :=
+    Summable.of_nonneg_of_le (fun j => norm_nonneg _) hmajor hM
+  have hPower (v β p : ℝ) : Z ^ v * (Z ^ β) ^ p = Z ^ (v + β * p) := by
+    rw [← Real.rpow_mul hZpos.le, ← Real.rpow_add hZpos]
+  have hweight (C0 K v β p Bsum : ℝ) (hC0 : 0 ≤ C0) (hK : 0 ≤ K)
+      (hB : Bsum ≤ K * (Z ^ β) ^ p) (hm : v + β * p ≤ target) :
+      C0 * Z ^ v * Bsum ≤ C0 * K * Z ^ target := by
+    calc
+      _ ≤ C0 * Z ^ v * (K * (Z ^ β) ^ p) :=
+        mul_le_mul_of_nonneg_left hB (mul_nonneg hC0 (Real.rpow_nonneg hZpos.le _))
+      _ = C0 * K * (Z ^ v * (Z ^ β) ^ p) := by ring
+      _ = C0 * K * Z ^ (v + β * p) := by rw [hPower]
+      _ ≤ _ := mul_le_mul_of_nonneg_left
+        (Real.rpow_le_rpow_of_exponent_le hZ1 hm) (mul_nonneg hC0 hK)
+  have hsW : Cs * Z ^ el * (∑' j, s j) ≤ Cs * Ks * Z ^ target :=
+    hweight Cs Ks el (9 / 100) ps (∑' j, s j) hCs.le hKs.le hsbound
+      (by norm_num [el, ps, target, Estar, a, b, h0, δ1])
+  have heW : Ce * Z ^ el * (∑' j, e j) ≤ Ce * Ke * Z ^ target :=
+    hweight Ce Ke el (10001 / 100000) pe (∑' j, e j) hCe.le hKe.le hebound
+      (by norm_num [el, pe, target, Estar, a, b, h0, δ1])
+  have hgW : Cg * Z ^ eg * (∑' j, g j) ≤ Cg * Ks * Z ^ target :=
+    hweight Cg Ks eg (10001 / 100000) ps (∑' j, g j) hCg.le hKs.le hgbound
+      (by norm_num [eg, ps, target, Estar, a, b, h0, δ1])
+  have hrB : (∑' j, r j) ≤ Kr * (Z ^ (9 / 100 : ℝ)) ^ pr := by
+    simpa only [r, Kr, xlo, div_eq_mul_inv, mul_comm] using hrbound
+  have hrW : Cg * Z ^ el * (∑' j, r j) ≤ Cg * Kr * Z ^ target :=
+    hweight Cg Kr el (9 / 100) pr (∑' j, r j) hCg.le hKr.le hrB
+      (by norm_num [el, pr, target, Estar, a, b, h0, δ1])
+  have hfB : (∑' j, f j) ≤ Kf * (Z ^ (10001 / 100000 : ℝ)) ^ pf := by
+    simpa only [f, Kf, xhi, div_eq_mul_inv, mul_comm] using hfbound
+  have hfW : Cf * Z ^ ef * (∑' j, f j) ≤ Cf * Kf * Z ^ target :=
+    hweight Cf Kf ef (10001 / 100000) pf (∑' j, f j) hCf.le hKf.le hfB
+      (by norm_num [ef, target, ← hpf_eq])
+  have htotal : (∑' j, M j) ≤ C * Z ^ target := by
+    have hsplit : (∑' j, M j) =
+        Cs * Z ^ el * (∑' j, s j) + Ce * Z ^ el * (∑' j, e j) +
+        Cg * Z ^ eg * (∑' j, g j) + Cg * Z ^ el * (∑' j, r j) +
+        Cf * Z ^ ef * (∑' j, f j) := by
+      dsimp only [M]
+      rw [(((hS.add hE).add hG).add hR).tsum_add hF,
+        ((hS.add hE).add hG).tsum_add hR,
+        (hS.add hE).tsum_add hG, hS.tsum_add hE]
+      simp only [tsum_mul_left]
+    rw [hsplit]
+    calc
+      _ ≤ Cs * Ks * Z ^ target + Ce * Ke * Z ^ target + Cg * Ks * Z ^ target +
+          Cg * Kr * Z ^ target + Cf * Kf * Z ^ target := by linarith [hsW, heW, hgW, hrW, hfW]
+      _ = _ := by dsimp [C]; ring
+  refine ⟨hnorm, ?_⟩
+  calc
+    _ ≤ ∑' j, ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ :=
+      norm_tsum_le_tsum_norm hnorm
+    _ ≤ ∑' j, M j := hnorm.tsum_le_tsum hmajor hM
+    _ ≤ C * Z ^ target := htotal
 /-- `zf:probe-asymptotic`, 06:647–681, for the actual probe and exact principal scalar. The
 corrected probe-low route consumes the split Gauss data from `sol-gate-a2b`. -/
 theorem zf_probe_asymptotic
