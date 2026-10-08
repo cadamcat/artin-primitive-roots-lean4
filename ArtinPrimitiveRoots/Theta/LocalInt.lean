@@ -3013,7 +3013,168 @@ theorem intertwine_isSection (L : FinLocalCover D H v) (T : TorusRep D H v) (μ 
     (s : ℂ) (hs : 0 < s.re) (f : L.L → T.V) (hf : IsSection L T s f) :
     (∀ g, Integrable (fun x => f (L.w * L.n (Multiplicative.ofAdd x) * g)) μ.μ) ∧
       IsSection L T.weyl (-s) (intertwine L μ f) := by
-  sorry
+  classical
+  let K := v.adicCompletion F
+  refine ⟨?_, ?_⟩
+  · intro g
+    exact section_intertwine_integrable L T μ s hs f hf g
+  · refine ⟨?_, ?_, ?_⟩
+    · intro x y g
+      let yInv : Kˣ := y⁻¹
+      let hfun : K → T.V := fun t => f (L.w * L.n (Multiplicative.ofAdd t) * g)
+      let σ : T.V →L[ℂ] T.V := (T.σa yInv).toContinuousLinearMap
+      let F : K → T.V := fun t => σ (hfun t)
+      have hInt : Integrable hfun μ.μ := by
+        exact section_intertwine_integrable L T μ s hs f hf g
+      have hwa : L.w * L.a y = L.a yInv * L.w := by
+        have hwInv : L.w⁻¹ = L.w := (eq_inv_of_mul_eq_one_left L.w_sq).symm
+        calc
+          L.w * L.a y = (L.w * L.a y * L.w⁻¹) * L.w := by group
+          _ = L.a y⁻¹ * L.w := by rw [L.lift_wa]
+      have htor (z : K) :
+          L.w * L.n (Multiplicative.ofAdd z) * L.a y =
+            L.a yInv * L.w * L.n (Multiplicative.ofAdd (z * (yInv : K))) := by
+        calc
+          L.w * L.n (Multiplicative.ofAdd z) * L.a y =
+              L.w * (L.n (Multiplicative.ofAdd z) * L.a y) := by simp [mul_assoc]
+          _ = L.w * (L.a y * L.n (Multiplicative.ofAdd (z * (yInv : K)))) := by
+            rw [L.lift_na]
+          _ = (L.w * L.a y) * L.n (Multiplicative.ofAdd (z * (yInv : K))) := by
+            simp [mul_assoc]
+          _ = (L.a yInv * L.w) * L.n (Multiplicative.ofAdd (z * (yInv : K))) := by
+            rw [hwa]
+          _ = L.a yInv * L.w * L.n (Multiplicative.ofAdd (z * (yInv : K))) := by
+            simp [mul_assoc]
+      have hgroup (t : K) :
+          L.w * L.n (Multiplicative.ofAdd t) * (L.n (Multiplicative.ofAdd x) * L.a y * g) =
+            L.a yInv * L.w * L.n (Multiplicative.ofAdd ((t + x) * (yInv : K))) * g := by
+        calc
+          L.w * L.n (Multiplicative.ofAdd t) *
+              (L.n (Multiplicative.ofAdd x) * L.a y * g) =
+                (L.w * L.n (Multiplicative.ofAdd (t + x)) * L.a y) * g := by
+                  simp [ofAdd_add, mul_assoc]
+          _ = (L.a yInv * L.w *
+                L.n (Multiplicative.ofAdd ((t + x) * (yInv : K)))) * g := by
+                  rw [htor]
+          _ = L.a yInv * L.w *
+                L.n (Multiplicative.ofAdd ((t + x) * (yInv : K))) * g := by
+                  simp [mul_assoc]
+      have hpoint (t : K) :
+          f (L.w * L.n (Multiplicative.ofAdd t) *
+              (L.n (Multiplicative.ofAdd x) * L.a y * g)) =
+            ((absFin v yInv : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+              F ((yInv : K) * (t + x)) := by
+        rw [hgroup]
+        have h := hf.1 0 yInv
+          (L.w * L.n (Multiplicative.ofAdd ((t + x) * (yInv : K))) * g)
+        have hmul : ((t + x) * (yInv : K)) = (yInv : K) * (t + x) := by ring
+        simpa [F, hfun, σ, hmul, mul_assoc] using h
+      have hshift :
+          (∫ t, F ((yInv : K) * (t + x)) ∂μ.μ) =
+            ∫ t, F ((yInv : K) * t) ∂μ.μ := by
+        calc
+          (∫ t, F ((yInv : K) * (t + x)) ∂μ.μ) =
+              ∫ t, F ((yInv : K) * (x + t)) ∂μ.μ := by
+                apply integral_congr_ae
+                filter_upwards [] with t
+                congr 1
+                ring
+          _ = ∫ t, F ((yInv : K) * t) ∂μ.μ :=
+                locHaar_integral_comp_addLeft μ x (fun t : K => F ((yInv : K) * t))
+      have hscale := LocHaar.integral_comp_mul μ yInv F
+      have hInv : absFin v yInv = (absFin v y)⁻¹ := by
+        have hprod : absFin v y * absFin v yInv = 1 := by
+          simpa [yInv, absFin_eq_norm] using (absFin_mul v y y⁻¹).symm
+        have hAB : absFin v y = (absFin v yInv)⁻¹ :=
+          eq_inv_of_mul_eq_one_left hprod
+        calc
+          absFin v yInv = ((absFin v yInv)⁻¹)⁻¹ := by simp
+          _ = (absFin v y)⁻¹ := by rw [← hAB]
+      let q : ℝ := absFin v y
+      have hqpos : 0 < q := by
+        dsimp [q]
+        exact absFin_pos y.ne_zero
+      have hqComplex : (q : ℂ) ≠ 0 := by exact_mod_cast hqpos.ne'
+      let C : ℂ := ((absFin v yInv : ℝ) : ℂ) ^ ((1 : ℂ) / 2 + s)
+      have hbase : ((absFin v yInv : ℝ) : ℂ) = (q : ℂ)⁻¹ := by
+        dsimp [q]
+        exact_mod_cast hInv
+      have hcoef : C * (q : ℂ) = (q : ℂ) ^ ((1 : ℂ) / 2 - s) := by
+        have hbasePow : C = (q : ℂ) ^ (-((1 : ℂ) / 2 + s)) := by
+          dsimp [C]
+          rw [hbase, Complex.inv_cpow_ofReal_nonneg hqpos.le ((1 : ℂ) / 2 + s)]
+          rw [← Complex.cpow_neg]
+        calc
+          C * (q : ℂ) = (q : ℂ) ^ (-((1 : ℂ) / 2 + s)) * (q : ℂ) := by rw [hbasePow]
+          _ = (q : ℂ) ^ (-((1 : ℂ) / 2 + s)) * (q : ℂ) ^ (1 : ℂ) := by
+            rw [Complex.cpow_one]
+          _ = (q : ℂ) ^ (-((1 : ℂ) / 2 + s) + 1) := by
+            rw [← Complex.cpow_add _ _ hqComplex]
+          _ = (q : ℂ) ^ ((1 : ℂ) / 2 - s) := by congr 1 <;> ring
+      calc
+        intertwine L μ f (L.n (Multiplicative.ofAdd x) * L.a y * g) =
+            ∫ t, f (L.w * L.n (Multiplicative.ofAdd t) *
+              (L.n (Multiplicative.ofAdd x) * L.a y * g)) ∂μ.μ := rfl
+        _ = C • ∫ t, F ((yInv : K) * (t + x)) ∂μ.μ := by
+          rw [show (fun t => f (L.w * L.n (Multiplicative.ofAdd t) *
+              (L.n (Multiplicative.ofAdd x) * L.a y * g))) =
+              (fun t => C • F ((yInv : K) * (t + x))) from funext hpoint]
+          rw [integral_smul]
+        _ = C • ∫ t, F ((yInv : K) * t) ∂μ.μ := by rw [hshift]
+        _ = C • ((absFin v yInv)⁻¹ • ∫ t, F t ∂μ.μ) := by rw [hscale]
+        _ = (C * (q : ℂ)) • (σ (∫ t, hfun t ∂μ.μ)) := by
+          have hreal : ((absFin v yInv)⁻¹ : ℝ) = q := by
+            dsimp [q]
+            rw [hInv]
+            simp
+          have hrealSmul (z : T.V) :
+              (absFin v yInv)⁻¹ • z = (q : ℂ) • z := by
+            rw [hreal]
+            symm
+            exact IsScalarTower.algebraMap_smul (R := ℝ) (A := ℂ) q z
+          rw [hrealSmul, smul_smul]
+          have hmap : (∫ t, F t ∂μ.μ) = σ (∫ t, hfun t ∂μ.μ) := by
+            exact ContinuousLinearMap.integral_comp_comm σ hInt
+          rw [hmap]
+        _ = ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 - s)) •
+              T.σa y⁻¹ (intertwine L μ f g) := by
+          rw [hcoef]
+          simp [σ, hfun, intertwine, yInv, q]
+    · intro ζ g
+      change (∫ x, f (L.w * L.n (Multiplicative.ofAdd x) * (L.z ζ * g)) ∂μ.μ) =
+        ((ζ : ℂˣ) : ℂ) • intertwine L μ f g
+      have hgroup (x : K) :
+          L.w * L.n (Multiplicative.ofAdd x) * (L.z ζ * g) =
+            L.z ζ * (L.w * L.n (Multiplicative.ofAdd x) * g) := by
+        calc
+          L.w * L.n (Multiplicative.ofAdd x) * (L.z ζ * g) =
+              (L.w * L.n (Multiplicative.ofAdd x) * L.z ζ) * g := by group
+          _ = (L.z ζ * (L.w * L.n (Multiplicative.ofAdd x))) * g := by
+              rw [← L.z_central ζ (L.w * L.n (Multiplicative.ofAdd x))]
+          _ = L.z ζ * (L.w * L.n (Multiplicative.ofAdd x) * g) := by group
+      calc
+        _ = ∫ x, f (L.z ζ * (L.w * L.n (Multiplicative.ofAdd x) * g)) ∂μ.μ := by
+          apply integral_congr_ae
+          filter_upwards [] with x
+          exact congrArg f (hgroup x)
+        _ = ∫ x, ((ζ : ℂˣ) : ℂ) •
+              f (L.w * L.n (Multiplicative.ofAdd x) * g) ∂μ.μ := by
+          apply integral_congr_ae
+          filter_upwards [] with x
+          exact hf.2.1 ζ _
+        _ = ((ζ : ℂˣ) : ℂ) • intertwine L μ f g := by
+          rw [integral_smul]
+          rfl
+    · obtain ⟨m, hm, hK⟩ := hf.2.2
+      refine ⟨m, hm, ?_⟩
+      intro g k hk
+      change (∫ x, f (L.w * L.n (Multiplicative.ofAdd x) * (g * k)) ∂μ.μ) =
+        ∫ x, f (L.w * L.n (Multiplicative.ofAdd x) * g) ∂μ.μ
+      apply integral_congr_ae
+      filter_upwards [] with x
+      rw [show L.w * L.n (Multiplicative.ofAdd x) * (g * k) =
+          (L.w * L.n (Multiplicative.ofAdd x) * g) * k by group]
+      exact hK (L.w * L.n (Multiplicative.ofAdd x) * g) k hk
 
 /-- **int:rtr**: `M` commutes with right translation. -/
 theorem intertwine_rtr (L : FinLocalCover D H v) (μ : LocHaar v) (f : L.L → V) (g : L.L) :
