@@ -2247,6 +2247,71 @@ private theorem specIdentify_test_weak_identity
   rw [hGradEq, ← hGreen, hPDEIntegral, hMassEq, hSourceEq]
   ring
 
+set_option maxHeartbeats 1000000 in
+private theorem specIdentify_weak_resolvent
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
+    (e : EnergyContext F Γ D E)
+    (w : X F → ℂ) (hw : IsSmoothX F w) (hinv : IsGammaInvariant F Γ w)
+    (x : E.V) (g : L2Space F D) (lam : ℂ)
+    (hlam : ¬ (lam.im = 0 ∧ 0 ≤ lam.re))
+    (hM : ∀ᵐ z ∂(volX F), z ∈ D → E.M x z = w z)
+    (hGr : ∀ᵐ z ∂(volX F), z ∈ D → E.Gr x z = fullGradient F w z)
+    (hPDE : ∀ᵐ z ∂(volX F), z ∈ D →
+      totalLap F w z - lam * w z = g z) :
+    E.M x = faResolvent E lam g := by
+  classical
+  let pt : testSubmodule F Γ → E.V := fun t =>
+    ⟨energyGraphMap e.toL2 e.gradL2 t, by
+      rw [e.graph_eq]
+      change energyGraphMap e.toL2 e.gradL2 t ∈
+        closure (energyGraphMap e.toL2 e.gradL2).range
+      exact subset_closure ⟨t, rfl⟩⟩
+  have hptM (t : testSubmodule F Γ) : E.M (pt t) = e.toL2 t := rfl
+  have hptGr (t : testSubmodule F Γ) : E.Gr (pt t) = e.gradL2 t := rfl
+  have hDense : DenseRange pt := by
+    rw [Metric.denseRange_iff]
+    intro y ε hε
+    have hy : (y : WithLp 2 (L2Space F D × GradientL2Space F D)) ∈
+        closure (energyGraphMap e.toL2 e.gradL2).range := by
+      change (y : WithLp 2 (L2Space F D × GradientL2Space F D)) ∈
+        energyGraph e.toL2 e.gradL2
+      exact e.graph_eq ▸ y.property
+    obtain ⟨v, hv, hvdist⟩ := (Metric.mem_closure_iff).mp hy ε hε
+    rcases hv with ⟨t, rfl⟩
+    refine ⟨t, ?_⟩
+    change dist (y : WithLp 2 (L2Space F D × GradientL2Space F D))
+      (energyGraphMap e.toL2 e.gradL2 t) < ε
+    exact hvdist
+  let u : E.V := E.A lam x - E.M.adjoint g
+  have hzeroOn (t : testSubmodule F Γ) : inner ℂ (pt t) u = 0 := by
+    change inner ℂ (pt t) (E.A lam x - E.M.adjoint g) = 0
+    rw [inner_sub_right, faA_inner_polarized E lam (pt t) x,
+      E.M.adjoint_inner_right (pt t) g]
+    apply sub_eq_zero.mpr
+    rw [hptGr t, hptM t]
+    exact specIdentify_test_weak_identity Γ D hD E e w hw hinv x g lam hM hGr hPDE t
+  let Z : Set E.V := {v | inner ℂ v u = 0}
+  have hZclosed : IsClosed Z := by
+    change IsClosed ((fun v : E.V => inner ℂ v u) ⁻¹' ({0} : Set ℂ))
+    exact isClosed_singleton.preimage <| continuous_inner.comp
+      ((continuous_id : Continuous fun v : E.V => v).prodMk continuous_const)
+  have hRange : Set.range pt ⊆ Z := by
+    rintro _ ⟨t, rfl⟩
+    exact hzeroOn t
+  have hself : inner ℂ u u = 0 :=
+    (hZclosed.closure_subset_iff.mpr hRange) (hDense u)
+  have hu : u = 0 := (inner_self_eq_zero (𝕜 := ℂ)).mp hself
+  have hAx : E.A lam x = E.M.adjoint g := sub_eq_zero.mp hu
+  have hUnit : IsUnit (E.A lam) := faA_off_cut_isUnit E lam hlam
+  have hinverse : faInverse E lam (E.A lam x) = x := by
+    rw [faInverse_eq_ringInverse E lam hUnit]
+    exact congrArg (fun T : E.V →L[ℂ] E.V => T x)
+      (Ring.inverse_mul_cancel (E.A lam) hUnit)
+  change E.M x = E.M (faInverse E lam (E.M.adjoint g))
+  rw [← hAx, hinverse]
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
