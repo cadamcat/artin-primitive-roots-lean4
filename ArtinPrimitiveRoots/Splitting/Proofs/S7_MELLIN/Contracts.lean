@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.ZeroSum
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».Boundary
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroEndpoint
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroDictionary
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».HadamardTail
 
 set_option autoImplicit false
 
