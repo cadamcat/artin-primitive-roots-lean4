@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueAdditive
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.NormTransport
 
 /-! Transport of the frozen prime-ideal Gauss sums to the residue field. -/
 
@@ -172,5 +173,41 @@ theorem gamma_two_cube_eq_jacobiSum (D : FieldData F) (S : SData F CE condη)
   simp only [Nat.cast_ofNat] at hgamma
   rw [← hgamma, hcard] at hcube
   exact hcube
+
+theorem gamma_two_cube_of_norm_lift (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (c : F) (hc : S.IsGen c v.asIdeal)
+    (χ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hχ : ∀ x : 𝓞 F, χ (Ideal.Quotient.mk v.asIdeal x) =
+      chi D v (algebraMap (𝓞 F) F x)) (hχ6 : χ ^ 6 = 1)
+    {k : Type*} [Field k] [Fintype k] :
+    letI : v.asIdeal.IsMaximal := v.isMaximal
+    letI : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+    letI : Fintype (𝓞 F ⧸ v.asIdeal) := Fintype.ofFinite _
+    ∀ (alg : Algebra k (𝓞 F ⧸ v.asIdeal)),
+    letI : Algebra k (𝓞 F ⧸ v.asIdeal) := alg
+    ∀ (α : MulChar k ℂ), α ≠ 1 → α ^ 3 = 1 →
+      χ ^ 2 = ArtinPrimitiveRoots.Arith.normLift (k := k)
+        (K := 𝓞 F ⧸ v.asIdeal) α →
+      ∀ (z : ℂ),
+        ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) * jacobiSum α α = -z →
+        gamma D S A 2 v.asIdeal c ^ 3 =
+          -(z ^ Module.finrank k (𝓞 F ⧸ v.asIdeal)) := by
+  classical
+  letI : v.asIdeal.IsMaximal := v.isMaximal
+  letI : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  letI : Fintype (𝓞 F ⧸ v.asIdeal) := Fintype.ofFinite _
+  intro alg
+  letI : Algebra k (𝓞 F ⧸ v.asIdeal) := alg
+  intro α hα hα3 hlift z hJ
+  have hcard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+    rw [← Nat.card_eq_fintype_card, ← Submodule.cardQuot_apply, ← Ideal.absNorm_apply]
+  have hgamma := gamma_two_cube_eq_jacobiSum D S A v hv c hc χ hχ hχ6
+  rw [← hcard, hlift] at hgamma
+  have hnorm := normalized_cubic_jacobi_norm_lift
+    (k := k) (K := 𝓞 F ⧸ v.asIdeal) α hα hα3
+  dsimp only at hnorm
+  rw [hJ, neg_neg] at hnorm
+  exact hgamma.trans hnorm
 
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
