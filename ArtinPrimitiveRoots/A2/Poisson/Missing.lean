@@ -1477,6 +1477,61 @@ private theorem po_probe_low_residue_additive_sieve (K : Set S.FS) (hK : IsCompa
     A R.exterior K hK W.W1 W.W1_compact W.W1_positive_support
     W.W1_smooth.continuous W.W1_nonzero
 
+private theorem po_probe_low_gauss_sieve (K : Set S.FS) (hK : IsCompact K) :
+    ∃ B C : ℝ, 2 ≤ B ∧ 0 < C ∧ ∀ Y N : ℝ, 1 ≤ Y → (hN : 2 ≤ N) →
+      ∃ P : Finset S.ExtIdeal,
+        (∀ s : S.ExtIdeal, s ∈ P ↔ W.W1 (qI s.1 / Y) ≠ 0) ∧
+        ∀ ψ : S.ExtIdeal → ℂ, (∀ s, ‖ψ s‖ ≤ 1) →
+          (∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+            ‖(Y : ℂ)⁻¹ * ∑ s ∈ P,
+              ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ψ s *
+                finiteGauss R s (-(m.1 : F))‖ ^ 2) ≤
+            C * (N + (B * Y) ^ 2) / Y := by
+  obtain ⟨B, C, hB, hC, hsieve⟩ := po_probe_low_residue_additive_sieve R W K hK
+  refine ⟨B, C, hB, hC, ?_⟩
+  intro Y N hY hN
+  obtain ⟨P, hP, hbound⟩ := hsieve Y N hY hN
+  refine ⟨P, hP, ?_⟩
+  intro ψ hψ
+  let ρ (s : S.ExtIdeal) (d : ResidueRing R.exterior s) : ℂ :=
+    ψ s * chiIdealPow D s.1 (d.out : F) 1
+  have hρ (s : S.ExtIdeal) (d : ResidueRing R.exterior s) : ‖ρ s d‖ ≤ 1 := by
+    have hchi := (a2_bridge_SYMBOL D S).ideal_norm_le s.1 (d.out : F) 1
+    calc
+      _ = ‖ψ s‖ * ‖chiIdealPow D s.1 (d.out : F) 1‖ := norm_mul _ _
+      _ ≤ 1 * 1 := mul_le_mul (hψ s) hchi (norm_nonneg _) (by norm_num)
+      _ = _ := one_mul _
+  have hmask (s : S.ExtIdeal) (d : ResidueRing R.exterior s)
+      (hd : ¬ IsUnit d) : ρ s d = 0 := by
+    have hchi : chiIdealPow D s.1 (d.out : F) 1 = 0 := by
+      by_contra hne
+      exact hd (po_probe_low_nonzero_residue_symbol_isUnit R s d hne)
+    simp only [ρ, hchi, mul_zero]
+  have hrow (m : S.R) :
+      (Y : ℂ)⁻¹ * (∑ s ∈ P,
+        ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ψ s * finiteGauss R s (-(m : F))) =
+      ∑ s ∈ P, ∑ᶠ d : ResidueRing R.exterior s,
+        (Y : ℂ)⁻¹ * ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ρ s d *
+          S.e A (S.diag (-(m : F) * (d.out : F) / (bc.gen s : F))) := by
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro s hs
+    let : Fintype (ResidueRing R.exterior s) := R.exterior.residueFinite s
+    simp only [finiteGauss, finiteGaussAt, finsum_eq_sum_of_fintype, Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro d hd
+    dsimp only [ρ]
+    ring
+  calc
+    _ = ∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+        ‖∑ s ∈ P, ∑ᶠ d : ResidueRing R.exterior s,
+          (Y : ℂ)⁻¹ * ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ρ s d *
+            S.e A (S.diag (-(m.1 : F) * (d.out : F) / (bc.gen s : F)))‖ ^ 2 := by
+      apply tsum_congr
+      intro m
+      rw [hrow]
+    _ ≤ _ := hbound ρ hρ hmask
+
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
     (hSplit : GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η) :
