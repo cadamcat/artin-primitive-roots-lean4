@@ -726,7 +726,43 @@ def besselConst : ℝ := 2 * Real.pi / Real.Gamma (4 / 3) * (2 * Real.pi) ^ ((1 
 /-- **jq:complex-equiv**: `𝒥_ℂ(π(n(u))f) = ψ_w(u) 𝒥_ℂ(f)` for continuous sections, `Re s > 0`. -/
 theorem jacquetC_equiv (s : ℂ) (hs : 0 < s.re) (f : PGL2 ℂ → ℂ) (hf : IsSectionC s f)
     (hcont : Continuous f) (u : ℂ) : jacquetC (rtr (nC u) f) = psiC u * jacquetC f := by
-  sorry
+  have hn (x z : ℂ) : nC x * nC z = nC (x + z) := by
+    have hmat : upperM ℂ x * upperM ℂ z = upperM ℂ (x + z) := by
+      apply Units.ext
+      ext i j
+      fin_cases i <;> fin_cases j <;>
+        simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+    change ((upperM ℂ x : GL (Fin 2) ℂ) : PGL2 ℂ) *
+        ((upperM ℂ z : GL (Fin 2) ℂ) : PGL2 ℂ) =
+      ((upperM ℂ (x + z) : GL (Fin 2) ℂ) : PGL2 ℂ)
+    rw [← QuotientGroup.mk_mul]
+    exact congrArg (fun g : GL (Fin 2) ℂ => (g : PGL2 ℂ)) hmat
+  have hpsiAdd (z w : ℂ) : psiC (z + w) = psiC z * psiC w := by
+    unfold psiC
+    have harg :
+        -(4 * Real.pi * Complex.I * ((z + w).re : ℂ)) =
+          -(4 * Real.pi * Complex.I * (z.re : ℂ)) +
+            -(4 * Real.pi * Complex.I * (w.re : ℂ)) := by
+      rw [Complex.add_re, Complex.ofReal_add]
+      ring
+    rw [harg, Complex.exp_add]
+  have hpsi (z : ℂ) : psiC (u - z) = psiC u * psiC (-z) := by
+    rw [show u - z = u + (-z) by ring, hpsiAdd]
+  let H : ℂ → ℂ := fun z => psiC (u - z) * f (wC * nC z)
+  have hMP : MeasurePreserving (MeasurableEquiv.addRight u) volume volume := by
+    exact measurePreserving_add_right volume u
+  calc
+    jacquetC (rtr (nC u) f) = ∫ x : ℂ, H (MeasurableEquiv.addRight u x) := by
+      simp [jacquetC, H, rtr, MeasurableEquiv.addRight, hn, mul_assoc] <;> ring
+    _ = ∫ z : ℂ, H z := hMP.integral_comp
+      (MeasurableEquiv.addRight u).measurableEmbedding H
+    _ = ∫ z : ℂ, psiC u * (psiC (-z) * f (wC * nC z)) := by
+      apply integral_congr_ae
+      filter_upwards [] with z
+      simp [H, hpsi z, mul_assoc]
+    _ = psiC u * jacquetC f := by
+      rw [integral_const_mul]
+      rfl
 
 /-- **jq:complex-bessel** (eq:theta-complex-bessel, 03:263–290). -/
 theorem jacquetC_spherical (y : ℂˣ) :
