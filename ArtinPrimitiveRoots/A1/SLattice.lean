@@ -1471,6 +1471,109 @@ private theorem covol_fourier_product_formula
         (∫ y, finTerm y ∂μFin) * ∫ y, archTerm y ∂μArch := hprod
     _ = _ := by rw [hFin, hArch]
 
+private theorem covol_selfdual_measure_candidate_eq
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (μ : S.SelfDualMeasure A) :
+    μ.measure = covol_selfdual_measure_candidate D S A := by
+  classical
+  letI : ∀ v : S.Sf, SecondCountableTopology (v.1.adicCompletion F) :=
+    fun v => inferInstance
+  letI : ∀ v : S.Sf, LocallyCompactSpace (v.1.adicCompletion F) :=
+    fun v => inferInstance
+  letI : SecondCountableTopology S.FS := inferInstance
+  letI : LocallyCompactSpace S.FS := inferInstance
+  letI : Measure.IsAddHaarMeasure μ.measure := μ.isHaar
+  let ν : Measure S.FS := covol_selfdual_measure_candidate D S A
+  letI : Measure.IsAddHaarMeasure ν := covol_selfdual_measure_candidate_isHaar D S A
+  let finite : ∀ v : S.Sf, S.FiniteTest v := fun v =>
+    ⟨(v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)).indicator
+        (fun _ => (1 : ℂ)),
+      ⟨(covol_local_integer_indicator_locallyConstant v.1).continuous,
+        covol_local_integer_indicator_hasCompactSupport v.1,
+        covol_local_integer_indicator_locallyConstant v.1⟩⟩
+  let p : SData.ArchSchwartz F × (∀ v : S.Sf, S.FiniteTest v) :=
+    ⟨covol_arch_test, finite⟩
+  let ffun : S.FS → ℂ := S.tensorFunction p.1 p.2
+  let f : S.BruhatSchwartz := ⟨ffun, Submodule.subset_span ⟨p, rfl⟩⟩
+  let fFin : ∀ v : S.Sf, v.1.adicCompletion F → ℂ := fun v => (finite v).1
+  let fArch : (InfinitePlace F → ℂ) → ℂ := covol_arch_test
+  let fFinHat : ∀ v : S.Sf, v.1.adicCompletion F → ℂ := fun v x =>
+    covol_local_fourier v.1 (A.ψ v.1) (covol_local_selfdual_at D S A v) (fFin v) x
+  let fArchHat : (InfinitePlace F → ℂ) → ℂ :=
+    ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier fArch
+  have hinput :
+      (fun y : S.FS => (∏ v : S.Sf, fFin v (y.1 v)) * fArch y.2) = ffun := by
+    funext y
+    simp [fFin, fArch, ffun, p, SData.tensorFunction]
+    ring
+  have hfinite0 (v : S.Sf) : (finite v).1 0 = 1 := by
+    simp [finite]
+  have hfun0 : ffun 0 = 1 := by
+    simp [ffun, p, SData.tensorFunction, covol_arch_test_zero, hfinite0]
+  have hinner : S.fourier A ν ffun =
+      fun y : S.FS => (∏ v : S.Sf, fFinHat v (y.1 v)) * fArchHat y.2 := by
+    funext y
+    rw [← hinput]
+    simpa [fFinHat, fArchHat, fFin, fArch] using
+      (covol_fourier_product_formula D S A fFin fArch y)
+  have hlocal (v : S.Sf) :
+      covol_local_fourier v.1 (A.ψ v.1) (covol_local_selfdual_at D S A v)
+        (fFinHat v) 0 = 1 := by
+    have h := covol_local_integer_indicator_fourier_inversion D S A v 0
+    simpa [fFinHat, fFin, finite] using h
+  have harch : ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier fArchHat 0 = 1 := by
+    have h := covol_arch_test_fourier_inversion (0 : InfinitePlace F → ℂ)
+    simpa [fArchHat, fArch, covol_arch_test_zero] using h
+  have hdoubleν : S.fourier A ν (S.fourier A ν ffun) 0 = 1 := by
+    calc
+      S.fourier A ν (S.fourier A ν ffun) 0 =
+          S.fourier A ν
+            (fun y : S.FS => (∏ v : S.Sf, fFinHat v (y.1 v)) * fArchHat y.2) 0 := by
+              rw [hinner]
+      _ = (∏ v : S.Sf, covol_local_fourier v.1 (A.ψ v.1)
+            (covol_local_selfdual_at D S A v) (fFinHat v) 0) *
+          ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier fArchHat 0 :=
+            covol_fourier_product_formula D S A fFinHat fArchHat 0
+      _ = 1 := by simp [hlocal, harch]
+  let c : NNReal := Measure.addHaarScalarFactor μ.measure ν
+  have hmeasure : μ.measure = (c : ENNReal) • ν := by
+    simpa [c] using Measure.isAddLeftInvariant_eq_smul μ.measure ν
+  have hF (g : S.FS → ℂ) :
+      S.fourier A μ.measure g = fun y => (c : ℂ) * S.fourier A ν g y := by
+    funext y
+    simp only [SData.fourier]
+    rw [hmeasure, MeasureTheory.integral_smul_measure]
+    simp [c, smul_eq_mul]
+  have hF_smul (d : ℂ) (g : S.FS → ℂ) :
+      S.fourier A ν (fun y => d * g y) = fun x => d * S.fourier A ν g x := by
+    funext x
+    simp only [SData.fourier]
+    rw [← MeasureTheory.integral_const_mul]
+    congr 1
+    funext y
+    ring
+  have hdoubleμ (x : S.FS) :
+      S.fourier A μ.measure (S.fourier A μ.measure ffun) x =
+        (c : ℂ) ^ 2 * S.fourier A ν (S.fourier A ν ffun) x := by
+    calc
+      _ = (c : ℂ) * S.fourier A ν (S.fourier A μ.measure ffun) x := by rw [hF]
+      _ = (c : ℂ) * S.fourier A ν
+          (fun y => (c : ℂ) * S.fourier A ν ffun y) x := by rw [hF ffun]
+      _ = _ := by rw [hF_smul]; ring
+  have hinv := μ.fourier_inversion f 0
+  have hcoe : (f : S.FS → ℂ) = ffun := rfl
+  rw [hcoe, neg_zero] at hinv
+  rw [hdoubleμ, hdoubleν, hfun0] at hinv
+  have hc2 : (c : ℂ) ^ 2 = 1 := by simpa using hinv
+  have hcReal : (c : ℝ) ^ 2 = 1 := by exact_mod_cast hc2
+  have hc : c = 1 := by
+    apply Subtype.ext
+    rcases sq_eq_one_iff.mp hcReal with h | h
+    · exact h
+    · have hcNonneg : 0 ≤ (c : ℝ) := NNReal.coe_nonneg c
+      linarith
+  simpa [hc] using hmeasure
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
