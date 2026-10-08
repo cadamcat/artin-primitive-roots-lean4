@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Proofs.th_family_lead_p.ResidueReconstruction
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.SmoothMatrixCoordinates
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.MatrixIwasawa
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.ComponentMatrixResidue
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.ArchMatrixResidue
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
