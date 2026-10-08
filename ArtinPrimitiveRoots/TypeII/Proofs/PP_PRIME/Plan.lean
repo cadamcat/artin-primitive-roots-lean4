@@ -1593,6 +1593,18 @@ private theorem ppPrimeNatInterval_representation
         (by simpa [max_eq_right hmu] using hn'.2)
   refine ⟨m, u, hm, hu, hEq, (hbound hm).1, (hbound hu).2⟩
 
+private theorem ppPrimeIntegral_tsum_exchange
+    {F : ℕ → ℝ → ℂ} {G : ℝ → ℂ}
+    (hF : ∀ n, Integrable (F n))
+    (hFs : Summable (fun n => ∫ v : ℝ, ‖F n v‖))
+    (hHasSum : ∀ v : ℝ, HasSum (fun n => F n v) (G v)) :
+    ∫ v : ℝ, G v = ∑' n, ∫ v : ℝ, F n v := by
+  have hpoint : (fun v : ℝ => G v) = fun v => ∑' n, F n v := by
+    funext v
+    exact (hHasSum v).tsum_eq.symm
+  rw [hpoint]
+  exact (integral_tsum_of_summable_integral_norm hF hFs).symm
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
