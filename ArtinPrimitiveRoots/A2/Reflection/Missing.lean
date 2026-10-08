@@ -4526,7 +4526,7 @@ private theorem rf_localChi_zpow (D : FieldData F) (v : FinPlace F)
   dsimp [rf_localChiUnitHom] at h
   simpa [u', rf_localUnitSubgroup, Units.val_zpow_eq_zpow_val] using h
 
-private theorem rf_ordv_mul (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+private theorem rf_local_ordv_mul (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
     ordv v (x * y) = ordv v x + ordv v y := by
   have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
     (Valuation.ne_zero_iff _).mpr x.ne_zero
@@ -4542,7 +4542,7 @@ private theorem rf_ordv_mul (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
   rw [hxy, WithZero.log_mul hx0 hy0]
   ring
 
-private theorem rf_ordv_zpow (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (e : ℤ) :
+private theorem rf_local_ordv_zpow (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (e : ℤ) :
     ordv v (x ^ e) = e * ordv v x := by
   have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
     (Valuation.ne_zero_iff _).mpr x.ne_zero
@@ -4703,7 +4703,7 @@ private theorem rf_local_unitPart_primePower
   have hbOrd : ordv v b = 0 := rf_ordv_zero_of_localUnit v b hbLoc
   have htOrd : ordv v t = 0 := rf_ordv_zero_of_localUnit v t ht
   have hOrder : ordv v (pLoc ^ e * t) = e := by
-    rw [rf_ordv_mul, rf_ordv_zpow, hpOrd, htOrd]
+    rw [rf_local_ordv_mul, rf_local_ordv_zpow, hpOrd, htOrd]
     ring
   have hpLoc : pLoc = π * b := by
     dsimp [b]
@@ -5017,11 +5017,11 @@ private theorem rf_localWeyl_nonzero_summand
   have hxOrd : ordv v xLoc = 0 := rf_ordv_zero_of_localUnit v xLoc hxLoc
   have hOrdX : ordv v X = e - 2 := by
     dsimp [X]
-    rw [rf_ordv_mul, rf_ordv_zpow, hpOrd, htOrd]
+    rw [rf_local_ordv_mul, rf_local_ordv_zpow, hpOrd, htOrd]
     ring
   have hOrdU : ordv v U = e := by
     dsimp [U]
-    rw [rf_ordv_mul, rf_ordv_zpow, hpOrd, htOrd]
+    rw [rf_local_ordv_mul, rf_local_ordv_zpow, hpOrd, htOrd]
     ring
   have hminusLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (-1 : (v.adicCompletion F)ˣ) := by
     constructor <;> simp [HeightOneSpectrum.mem_adicCompletionIntegers]
@@ -5038,7 +5038,7 @@ private theorem rf_localWeyl_nonzero_summand
   have hQrel : Q = pLoc ^ (2 : ℤ) * V := by
     simpa [Q, V, Hh] using rf_localWeyl_torus_units xLoc pLoc (1 : (v.adicCompletion F)ˣ) 2
   have hOrdQ : ordv v Q = 2 := by
-    rw [hQrel, rf_ordv_mul, rf_ordv_zpow, hpOrd, hOrdV]
+    rw [hQrel, rf_local_ordv_mul, rf_local_ordv_zpow, hpOrd, hOrdV]
     ring
   have hunitX : unitPart v X = b ^ (e - 2) * t := by
     dsimp [X, pLoc, p]
@@ -5201,7 +5201,7 @@ private theorem rf_localWeyl_nonzero_summand
   have hcentral3 : extCocycle D v (pLoc ^ e) t =
       ((cT ^ (-2 * e) : ℂˣ) : ℂ) := by
     unfold extCocycle
-    rw [hunitP, hunitT, htOrd, rf_ordv_zpow v pLoc e, hpOrd]
+    rw [hunitP, hunitT, htOrd, rf_local_ordv_zpow v pLoc e, hpOrd]
     simp [hCT, Units.val_zpow_eq_zpow_val]
   have hscalar := rf_localWeyl_scalar_factor cT cX hCX6 e
   have htotal : extCocycle D v X Q * (extCocycle D v U V)⁻¹ *
@@ -5394,17 +5394,17 @@ private theorem rf_localWeyl_positive_phase
   have htOrd : ordv v t = 0 := rf_ordv_zero_of_localUnit v t ht
   have hxOrd : ordv v xLoc = 0 := rf_ordv_zero_of_localUnit v xLoc hxLoc
   have huOrd : ordv v (pLoc ^ (e - 1) * t) = e - 1 := by
-    rw [rf_ordv_mul, rf_ordv_zpow, hpOrd, htOrd]
+    rw [rf_local_ordv_mul, rf_local_ordv_zpow, hpOrd, htOrd]
     ring
   have hxInvOrd : ordv v xLoc⁻¹ = 0 := by
-    have h := rf_ordv_zpow v xLoc (-1)
+    have h := rf_local_ordv_zpow v xLoc (-1)
     rw [hxOrd] at h
     simpa using h
   have hphaseOrd : ordv v ((pLoc ^ (e - 1) * t) / xLoc) = e - 1 := by
     calc
       ordv v ((pLoc ^ (e - 1) * t) / xLoc) =
           ordv v ((pLoc ^ (e - 1) * t) * xLoc⁻¹) := by rw [div_eq_mul_inv]
-      _ = ordv v (pLoc ^ (e - 1) * t) + ordv v xLoc⁻¹ := rf_ordv_mul _ _ _
+      _ = ordv v (pLoc ^ (e - 1) * t) + ordv v xLoc⁻¹ := rf_local_ordv_mul _ _ _
       _ = e - 1 := by rw [huOrd, hxInvOrd]; ring
   have hphaseval :
       ((pLoc ^ (e - 1) * t / xLoc : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
