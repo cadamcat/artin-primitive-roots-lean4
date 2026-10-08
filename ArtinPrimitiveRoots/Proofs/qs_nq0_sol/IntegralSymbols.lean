@@ -156,4 +156,33 @@ theorem qs_nq0_integral_exterior_of_isGen
     rw [← v.valuation_of_algebraMap (K := K), hval] at hle
     by_cases hvT : v ∈ T <;> norm_num [hvT] at hle
 
+/-- An exterior generator becomes an integral exterior generator after an S-supported square. -/
+theorem qs_nq0_integral_corrected_generator
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (Sd : SData K CE condη) (T : Finset (FinPlace K)) (a : Kˣ)
+    (ha : Sd.IsGen (a : K) (qsIdealOf T)) :
+    ∃ b c : 𝓞 K, b ≠ 0 ∧
+      (c : K) = (a : K) * (b : K) ^ 2 ∧
+      Sd.IsGen (c : K) (qsIdealOf T) ∧ qsIsExteriorGenerator Sd.Sf T c := by
+  obtain ⟨b, hb, hbsupport, c, hceq⟩ := qs_nq0_integral_square_clearing Sd a
+    (qs_nq0_generator_is_sinteger Sd (qsIdealOf T) (a : K) ha)
+  have hbK : (b : K) ≠ 0 := by
+    intro h
+    exact hb ((IsFractionRing.injective (𝓞 K) K) (by simpa using h))
+  have hcK : (c : K) ≠ 0 := by
+    rw [hceq]
+    exact mul_ne_zero a.ne_zero (pow_ne_zero _ hbK)
+  have hval (v : FinPlace K) (hv : v ∉ Sd.Sf) :
+      v.valuation K (c : K) = v.valuation K (a : K) := by
+    have hbval : v.valuation K (b : K) = 1 :=
+      (qs_nq0_residue_ne_zero_iff_valuation_one v (b : K)).mp (hbsupport v hv)
+    rw [hceq, map_mul, map_pow, hbval, one_pow, mul_one]
+  have hcgen : Sd.IsGen (c : K) (qsIdealOf T) := by
+    refine ⟨ha.1, hcK, ?_⟩
+    intro v hv
+    rw [qs_nq0_count_spanSingleton_eq_neg_log_valuation v (c : K) hcK,
+      hval v hv, ← qs_nq0_count_spanSingleton_eq_neg_log_valuation v (a : K) a.ne_zero]
+    exact ha.2.2 v hv
+  exact ⟨b, c, hb, hceq, hcgen, qs_nq0_integral_exterior_of_isGen Sd T c hcgen⟩
+
 end ArtinPrimitiveRoots.A2
