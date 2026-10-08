@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».CoshControl
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 import Mathlib.MeasureTheory.Measure.Haar.MulEquivHaarChar
 
