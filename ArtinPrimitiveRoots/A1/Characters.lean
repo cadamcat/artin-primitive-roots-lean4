@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.AddChar
+import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.Equality
 
 /-!
 # A1 interface, §5: Hecke, Kummer, class and Gauss correction characters
@@ -81,7 +82,12 @@ def HeckeChar.ConductorDvd (χ : HeckeChar F) (𝔪 : Ideal (𝓞 F)) : Prop :=
 theorem kummer_exists (D : FieldData F) (S : SData F CE condη) (u : Fˣ) :
     ∃ κ : HeckeChar F, IsOfFinOrder κ ∧ ∀ v : FinPlace F, v ∉ S.Sf → residue v (u : F) ≠ 0 →
       κ.UnramifiedAt v ∧ κ.primeValue v = chi D v (u : F) := by
-  sorry
+  obtain ⟨H⟩ := HilbertData.nonempty D
+  obtain ⟨κ, hκ, _, hloc⟩ := KummerProofs.kummer_character_exists D H u
+  refine ⟨κ, isOfFinOrder_iff_pow_eq_one.mpr ⟨6, by decide, hκ⟩, ?_⟩
+  intro P hP hu
+  have h6 : (6 : 𝓞 F) ∉ P.asIdeal := fun h => hP (S.over6 P h)
+  exact KummerProofs.kummer_prime_values D H u κ hloc P h6 hu
 
 /-- eq:kummer-conductor (02:290–298), modulus form: `κ_u` (and `η κ_u^{-1}`) has conductor
 dividing a modulus of norm `≤ C·N rad(uR)`. -/
@@ -103,7 +109,37 @@ theorem kummer_eq_iff (D : FieldData F) (S : SData F CE condη) (u v : Fˣ) (κu
       κv.UnramifiedAt P ∧ κv.primeValue P = chi D P (v : F))
     (hfu : IsOfFinOrder κu) (hfv : IsOfFinOrder κv) :
     κu = κv ↔ ∃ t : Fˣ, u / v = t ^ 6 := by
-  sorry
+  obtain ⟨H⟩ := HilbertData.nonempty D
+  obtain ⟨κu₀, hκu₀, huInf, huloc⟩ := KummerProofs.kummer_character_exists D H u
+  obtain ⟨κv₀, hκv₀, hvInf, hvloc⟩ := KummerProofs.kummer_character_exists D H v
+  have hfu₀ : IsOfFinOrder κu₀ :=
+    isOfFinOrder_iff_pow_eq_one.mpr ⟨6, by decide, hκu₀⟩
+  have hfv₀ : IsOfFinOrder κv₀ :=
+    isOfFinOrder_iff_pow_eq_one.mpr ⟨6, by decide, hκv₀⟩
+  let T := S.Sf ∪ (KummerProofs.residue_zero_finite u).toFinset ∪
+    (KummerProofs.residue_zero_finite v).toFinset
+  have hout (P : FinPlace F) (hP : P ∉ T) :
+      P ∉ S.Sf ∧ residue P (u : F) ≠ 0 ∧ residue P (v : F) ≠ 0 := by
+    simp only [T, Finset.mem_union, Set.Finite.mem_toFinset, Set.mem_setOf_eq, not_or] at hP
+    exact ⟨hP.1.1, hP.1.2, hP.2⟩
+  have heu : κu = κu₀ := by
+    apply KummerProofs.finite_order_good_prime_unique κu κu₀ hfu hfu₀ T
+    intro P hP
+    obtain ⟨hPS, huP, _⟩ := hout P hP
+    have h6 : (6 : 𝓞 F) ∉ P.asIdeal := fun h => hPS (S.over6 P h)
+    have h₁ := hu P hPS huP
+    have h₂ := KummerProofs.kummer_prime_values D H u κu₀ huloc P h6 huP
+    exact ⟨h₁.1, h₂.1, h₁.2.trans h₂.2.symm⟩
+  have hev : κv = κv₀ := by
+    apply KummerProofs.finite_order_good_prime_unique κv κv₀ hfv hfv₀ T
+    intro P hP
+    obtain ⟨hPS, _, hvP⟩ := hout P hP
+    have h6 : (6 : 𝓞 F) ∉ P.asIdeal := fun h => hPS (S.over6 P h)
+    have h₁ := hv P hPS hvP
+    have h₂ := KummerProofs.kummer_prime_values D H v κv₀ hvloc P h6 hvP
+    exact ⟨h₁.1, h₂.1, h₁.2.trans h₂.2.symm⟩
+  rw [heu, hev]
+  exact KummerProofs.kummer_realization_eq_iff D H u v κu₀ κv₀ huInf hvInf huloc hvloc
 
 /-- ar:B-character-extension (02:302–303, 359–366): every character of `B` evaluated on allowed
 generators extends to a finite-order Hecke character unramified outside `S`. Package
