@@ -186,6 +186,73 @@ private theorem covol_arch_fundamental_reduction (D : FieldData F)
   rw [map_add, heDiag, e.apply_symm_apply]
   exact hzM
 
+private theorem covol_arch_fundamental_unique (D : FieldData F) (a : 𝓞 F)
+    {p q : InfinitePlace F → ℂ}
+    (hp : covolArchToMixedEquiv D p ∈ ZSpan.fundamentalDomain
+      (NumberField.mixedEmbedding.latticeBasis F))
+    (hq : covolArchToMixedEquiv D q ∈ ZSpan.fundamentalDomain
+      (NumberField.mixedEmbedding.latticeBasis F))
+    (h : (fun w : InfinitePlace F => w.embedding (a : F)) + p = q) :
+    a = 0 ∧ p = q := by
+  classical
+  let e := covolArchToMixedEquiv D
+  let L : Submodule ℤ (NumberField.mixedEmbedding.mixedSpace F) :=
+    Submodule.span ℤ (Set.range (NumberField.mixedEmbedding.latticeBasis F))
+  letI : Fintype (Module.Free.ChooseBasisIndex ℤ (𝓞 F)) := Fintype.ofFinite _
+  have heDiag : e (fun w : InfinitePlace F => w.embedding (a : F)) =
+      NumberField.mixedEmbedding F (a : F) := by
+    apply Prod.ext
+    · funext w
+      exact False.elim
+        ((NumberField.InfinitePlace.not_isComplex_iff_isReal.mpr w.2)
+          (D.isTotallyComplex.isComplex w.1))
+    · funext w
+      rfl
+  have hmix : NumberField.mixedEmbedding F (a : F) + e p = e q := by
+    have h' := congrArg e h
+    rw [map_add, heDiag] at h'
+    exact h'
+  have haInt' : NumberField.mixedEmbedding F (a : F) ∈
+      NumberField.mixedEmbedding.integerLattice F := by
+    change ∃ b : 𝓞 F, NumberField.mixedEmbedding F (algebraMap (𝓞 F) F b) = _
+    exact ⟨a, rfl⟩
+  have haInt : NumberField.mixedEmbedding F (a : F) ∈ L :=
+    (NumberField.mixedEmbedding.mem_span_latticeBasis F).2 haInt'
+  let d : L := ⟨NumberField.mixedEmbedding F (a : F), haInt⟩
+  have hzero : (0 : L) +ᵥ e q ∈
+      ZSpan.fundamentalDomain (NumberField.mixedEmbedding.latticeBasis F) := by
+    simpa using hq
+  have hshift : (-d) +ᵥ e q ∈
+      ZSpan.fundamentalDomain (NumberField.mixedEmbedding.latticeBasis F) := by
+    have htrans : -(NumberField.mixedEmbedding F (a : F)) + e q = e p := by
+      calc
+        -(NumberField.mixedEmbedding F (a : F)) + e q =
+            -(NumberField.mixedEmbedding F (a : F)) +
+              (NumberField.mixedEmbedding F (a : F) + e p) := by rw [← hmix]
+        _ = e p := by abel
+    have hshiftAdd : ((-d : L) : NumberField.mixedEmbedding.mixedSpace F) + e q ∈
+        ZSpan.fundamentalDomain (NumberField.mixedEmbedding.latticeBasis F) := by
+      change -(NumberField.mixedEmbedding F (a : F)) + e q ∈ _
+      rw [htrans]
+      exact hp
+    change ((-d : L) : NumberField.mixedEmbedding.mixedSpace F) + e q ∈ _
+    exact hshiftAdd
+  have hzeroFloor := (ZSpan.vadd_mem_fundamentalDomain
+    (NumberField.mixedEmbedding.latticeBasis F) (0 : L) (e q)).mp hzero
+  have hshiftFloor := (ZSpan.vadd_mem_fundamentalDomain
+    (NumberField.mixedEmbedding.latticeBasis F) (-d) (e q)).mp hshift
+  have hd : d = 0 := by
+    have h0d : (0 : L) = -d := hzeroFloor.trans hshiftFloor.symm
+    have hneg := congrArg (fun x : L => -x) h0d
+    simpa using hneg.symm
+  have hmix0 : NumberField.mixedEmbedding F (a : F) = 0 := congrArg Subtype.val hd
+  have haF : (a : F) = 0 := NumberField.mixedEmbedding_injective F (by simpa using hmix0)
+  have ha : a = 0 := Subtype.ext haF
+  refine ⟨ha, ?_⟩
+  subst a
+  funext w
+  simpa using congrFun h w
+
 private theorem exists_measurable_lattice_fundamental_domain
     (S : SData F CE condη) (D : FieldData F) :
     ∃ K : Set S.FS, MeasurableSet K ∧ S.IsLatticeFundamentalDomain K := by
