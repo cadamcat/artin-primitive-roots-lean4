@@ -20,6 +20,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.BlockBounds
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ProgressionSieve
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.RoughMass
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.Aggregation
+import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ReciprocalBin
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
