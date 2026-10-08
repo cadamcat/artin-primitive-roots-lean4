@@ -2,6 +2,20 @@ import Mathlib.LinearAlgebra.Basis.Basic
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealLatticeChart
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.DualIdealEquiv
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealCharacterChart
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.FourierCoordinateDerivative
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.PeriodicTorusLift
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.SmoothPeriodicCoordinate
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.TorusDerivativeLift
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.ProductFourierMultiplier
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.ProductFourierDecay
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.SummableQuadraticProduct
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.PeriodicFourierSummable
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.NormalizedBasisIntegral
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.LatticeCoefficientChart
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealSmoothTorusChart
 import ArtinPrimitiveRoots.Theta.Res
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
@@ -75,7 +89,40 @@ theorem torus_fourier_expansion (P : CoverPackage D S H A) (Ψ : P.tc.G → ℂ)
       Pd volume) (hb : Bornology.IsBounded Pd) :
     HasSum (fun ν : {ν : F // ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf ν (infEmbA ξ) = 1} =>
       torusCoeff P Ψ g Pd ν) (Ψ g) := by
-  sorry
+  classical
+  obtain ⟨n, b, e, F₀, hspan, hF₀, hSum, hChar⟩ :=
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.ideal_smooth_torus_chart
+      P Ψ g (Units.mk0 𝔞 h𝔞) hper hsmooth
+  have hPd' : IsAddFundamentalDomain
+      (Submodule.span ℤ (Set.range b)).toAddSubgroup Pd volume := by
+    rw [hspan]
+    exact hPd
+  have hCoeff (ν : {ν : F // ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F),
+      psiInf ν (infEmbA ξ) = 1}) :
+      torusCoeff P Ψ g Pd ν.1 = UnitAddTorus.mFourierCoeff F₀ (e ν) :=
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.torus_coeff_lattice_chart
+      P Ψ g b F₀ hF₀ ν.1 (e ν) (hChar ν) Pd hPd' hb
+  have hn0 : nInf P 0 = 1 := by
+    change P.tc.nS 1 = 1
+    exact map_one _
+  have hEval : F₀ 0 = Ψ g := by
+    have hq0 : (fun _ : Fin (n + 1) => ((0 : ℝ) : UnitAddCircle)) =
+        (0 : UnitAddTorus (Fin (n + 1))) := by
+      ext i
+      simp
+    have h := hF₀ 0
+    simpa only [Pi.zero_apply, hq0, map_zero, hn0, one_mul] using h
+  have hm0 (k : Fin (n + 1) → ℤ) : UnitAddTorus.mFourier k 0 = 1 := by
+    simp only [UnitAddTorus.mFourier, ContinuousMap.coe_mk, Pi.zero_apply,
+      fourier_eval_zero, Finset.prod_const_one]
+  have hSum0 : HasSum (UnitAddTorus.mFourierCoeff F₀) (Ψ g) := by
+    simpa only [hm0, smul_eq_mul, mul_one, hEval] using
+      UnitAddTorus.hasSum_mFourier_series_apply_of_summable hSum 0
+  have hTransport : HasSum
+      (fun ν : {ν : F // ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F),
+          psiInf ν (infEmbA ξ) = 1} => UnitAddTorus.mFourierCoeff F₀ (e ν)) (Ψ g) :=
+    e.hasSum_iff.mpr hSum0
+  exact hTransport.congr_fun hCoeff
 
 /-- **asm:nfin**: `W_θ(nFin(η) h) = ψ_∞(-η) W_θ(h)`; with right invariance this kills `W_θ(a(ν)g)` for
 `ν` outside the dual of an adapted lattice (T3 over all `ν ∈ F^×`). -/
