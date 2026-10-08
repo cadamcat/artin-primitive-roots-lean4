@@ -367,6 +367,205 @@ private theorem localChi_six_of_nezero (D : FieldData F) (v : FinPlace F)
       rw [dif_neg h]
     exact False.elim (hu hzero)
 
+private theorem residue_algebraMap_local (v : FinPlace F) (a : 𝓞 F) :
+    residue v (algebraMap (𝓞 F) F a) = Ideal.Quotient.mk v.asIdeal a := by
+  letI : v.asIdeal.IsMaximal := v.isMaximal
+  letI : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  let h : ∃ ab : 𝓞 F × 𝓞 F, ab.2 ∉ v.asIdeal ∧
+      algebraMap (𝓞 F) F a * algebraMap (𝓞 F) F ab.2 = algebraMap (𝓞 F) F ab.1 :=
+    ⟨(a, 1), Ideal.IsPrime.one_notMem v.isPrime, by simp⟩
+  have hcross : h.choose.1 = a * h.choose.2 := by
+    apply (IsFractionRing.injective (𝓞 F) F)
+    simpa only [map_mul] using h.choose_spec.2.symm
+  have hq : Ideal.Quotient.mk v.asIdeal h.choose.1 =
+      Ideal.Quotient.mk v.asIdeal a * Ideal.Quotient.mk v.asIdeal h.choose.2 := by
+    rw [hcross, map_mul]
+  have hcq : Ideal.Quotient.mk v.asIdeal h.choose.2 ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using h.choose_spec.1
+  unfold residue
+  rw [dif_pos h]
+  rw [hq, mul_assoc, mul_inv_cancel₀ hcq, mul_one]
+
+private theorem chi_eq_of_residue_eq (D : FieldData F) (v : FinPlace F) (x y : F)
+    (h : residue v x = residue v y) : chi D v x = chi D v y := by
+  simp only [chi, chiAlg, h]
+
+private theorem residue_integer_eq_of_valuation_sub_lt_one (v : FinPlace F) (a b : 𝓞 F)
+    (h : HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F (a - b)) < 1) :
+    Ideal.Quotient.mk v.asIdeal a = Ideal.Quotient.mk v.asIdeal b := by
+  have hab : a - b ∈ v.asIdeal := by
+    apply (v.valuation_lt_one_iff_mem (K := F) _).1
+    exact h
+  have hzero := (Ideal.Quotient.eq_zero_iff_mem).2 hab
+  have hsub : Ideal.Quotient.mk v.asIdeal a - Ideal.Quotient.mk v.asIdeal b = 0 := by
+    simpa only [map_sub] using hzero
+  exact sub_eq_zero.mp hsub
+
+private theorem toLoc_isLocUnit_of_valuation_one (v : FinPlace F) (x : Fˣ)
+    (hx : HeightOneSpectrum.valuation F v (x : F) = 1) : IsLocUnit v (toLoc v x) := by
+  have hval : Valued.v ((toLoc v x : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (x : F)) = 1
+    simp only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation', hx]
+  constructor
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hval.le
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    simp only [Units.val_inv_eq_inv_val, map_inv₀, hval, inv_one, le_refl]
+
+private theorem localChi_toLoc_integral (D : FieldData F) (v : FinPlace F)
+    (x : Fˣ) (a : 𝓞 F) (ha : a ∉ v.asIdeal)
+    (hx : (x : F) = algebraMap (𝓞 F) F a) :
+    localChi D v (toLoc v x) = chi D v (x : F) := by
+  have hclose : Valued.v (((toLoc v x : (v.adicCompletion F)ˣ) : v.adicCompletion F) -
+      algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) < 1 := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (x : F) -
+      algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) < 1
+    rw [hx]
+    simp
+  have hex : ∃ b : 𝓞 F, b ∉ v.asIdeal ∧
+      Valued.v (((toLoc v x : (v.adicCompletion F)ˣ) : v.adicCompletion F) -
+        algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F b)) < 1 :=
+    ⟨a, ha, hclose⟩
+  have hchosen : ((toLoc v x : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (x : F) := rfl
+  have hxa : ((toLoc v x : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a) := by
+    rw [hchosen, hx]
+  have hvalSub : Valued.v (algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F a) -
+      algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F hex.choose)) < 1 := by
+    rw [← hxa]
+    exact hex.choose_spec.2
+  have hvalSub' : Valued.v (algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F (a - hex.choose))) < 1 := by
+    simpa only [map_sub] using hvalSub
+  have hglobal : HeightOneSpectrum.valuation F v
+      (algebraMap (𝓞 F) F (a - hex.choose)) < 1 := by
+    change Valued.v ((algebraMap (𝓞 F) F (a - hex.choose) : F) : v.adicCompletion F) < 1 at hvalSub'
+    rw [v.valuedAdicCompletion_eq_valuation'] at hvalSub'
+    exact hvalSub'
+  have hres : residue v (algebraMap (𝓞 F) F a) =
+      residue v (algebraMap (𝓞 F) F hex.choose) := by
+    rw [residue_algebraMap_local, residue_algebraMap_local]
+    exact residue_integer_eq_of_valuation_sub_lt_one v a hex.choose hglobal
+  have hchi := chi_eq_of_residue_eq D v _ _ hres
+  unfold localChi
+  rw [dif_pos hex]
+  simpa [hx] using hchi.symm
+
+private theorem exists_localChi_sq_ne_one (D : FieldData F) (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
+    ∃ u : (v.adicCompletion F)ˣ, IsLocUnit v u ∧
+      (localChi D v u) ^ (6 : ℕ) = 1 ∧ (localChi D v u) ^ 2 ≠ 1 := by
+  classical
+  let κ := 𝓞 F ⧸ v.asIdeal
+  letI : v.asIdeal.IsMaximal := v.isMaximal
+  letI : Field κ := Ideal.Quotient.field v.asIdeal
+  letI : Finite κ := Ring.HasFiniteQuotients.finiteQuotient v.ne_bot
+  letI : Fintype κ := Fintype.ofFinite κ
+  haveI : IsCyclic κˣ := inferInstance
+  let N : ℕ := Ideal.absNorm v.asIdeal - 1
+  have hNpos : 0 < N := by
+    dsimp [N]
+    have h := NumberField.HeightOneSpectrum.one_lt_absNorm v
+    omega
+  have hNdiv6 : 6 ∣ N := by
+    simpa [N] using six_dvd_absNorm_sub_one D v hv
+  have hNdiv3 : 3 ∣ N := dvd_trans (by norm_num : 3 ∣ 6) hNdiv6
+  obtain ⟨g, hg⟩ := IsCyclic.exists_generator (α := κˣ)
+  have hcard : Nat.card κˣ = N := by
+    dsimp [N, κ]
+    rw [Nat.card_units, ← Submodule.cardQuot_apply, ← Ideal.absNorm_apply]
+  have horder : orderOf g = N := by
+    rw [orderOf_eq_card_of_forall_mem_zpowers hg, hcard]
+  have hgenPowNe : g ^ (N / 3) ≠ 1 := by
+    intro hpow
+    have hdvd : orderOf g ∣ N / 3 := orderOf_dvd_of_pow_eq_one hpow
+    rw [horder] at hdvd
+    have hNdiv3pos : 0 < N / 3 := by
+      obtain ⟨q, hq⟩ := hNdiv3
+      omega
+    have hlt : N / 3 < N := Nat.div_lt_self hNpos (by norm_num)
+    exact (Nat.not_lt_of_ge (Nat.le_of_dvd hNdiv3pos hdvd)) hlt
+  have hmul : N / 3 * 3 = N := by
+    obtain ⟨q, hq⟩ := hNdiv3
+    omega
+  have hgenPow : (g ^ (N / 3)) ^ 3 = 1 := by
+    calc
+      (g ^ (N / 3)) ^ 3 = g ^ (N / 3 * 3) := by rw [pow_mul]
+      _ = g ^ N := by rw [hmul]
+      _ = 1 := by rw [← horder]; exact pow_orderOf_eq_one g
+  let a : 𝓞 F := Quotient.out (g : κ)
+  have hmk : Ideal.Quotient.mk v.asIdeal a = (g : κ) := by
+    simpa [a] using (Quotient.out_eq' (g : κ))
+  have ha : a ∉ v.asIdeal := by
+    intro ha
+    have hzero : Ideal.Quotient.mk v.asIdeal a = 0 :=
+      (Ideal.Quotient.eq_zero_iff_mem).2 ha
+    rw [hmk] at hzero
+    exact Units.ne_zero g hzero
+  have ha0 : a ≠ 0 := by
+    intro ha0
+    exact ha (ha0 ▸ Ideal.zero_mem _)
+  have hglobalNe : algebraMap (𝓞 F) F a ≠ 0 := by
+    intro hzero
+    exact ha0 ((IsFractionRing.injective (𝓞 F) F) (by simpa using hzero))
+  let x : Fˣ := Units.mk0 (algebraMap (𝓞 F) F a) hglobalNe
+  have hxval : HeightOneSpectrum.valuation F v (x : F) = 1 := by
+    change HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F a) = 1
+    exact (v.valuation_eq_one_iff_notMem (K := F) (r := a)).2 ha
+  let ξ := chiAlg v (x : F)
+  have hres : residue v (x : F) ≠ 0 := by
+    rw [show (x : F) = algebraMap (𝓞 F) F a by rfl, residue_algebraMap_local]
+    rw [hmk]
+    exact Units.ne_zero g
+  have hcubic := chiAlg_sq_eq_cubic D v (x : F) hv hres
+  have hchiSq : (chi D v (x : F)) ^ 2 ≠ 1 := by
+    intro hχ
+    have hχeq : chi D v (x : F) = D.σ0 (algebraMap (𝓞 F) F ((ξ : (𝓞 F)ˣ) : 𝓞 F)) := by
+      simp [chi, hres, ξ]
+    have hcoe2 : ((((ξ ^ 2 : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F)) =
+        (((ξ : (𝓞 F)ˣ) : 𝓞 F)) ^ 2 := by
+      push_cast
+      rfl
+    have himage : D.σ0 (algebraMap (𝓞 F) F
+        ((((ξ ^ 2 : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F))) = 1 := by
+      calc
+        D.σ0 (algebraMap (𝓞 F) F
+            ((((ξ ^ 2 : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F))) =
+            (D.σ0 (algebraMap (𝓞 F) F ((ξ : (𝓞 F)ˣ) : 𝓞 F))) ^ 2 := by
+              rw [hcoe2, map_pow, map_pow]
+        _ = (chi D v (x : F)) ^ 2 := by rw [hχeq]
+        _ = 1 := hχ
+    have hF : algebraMap (𝓞 F) F
+        ((((ξ ^ 2 : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F)) = 1 := by
+      apply D.σ0.injective
+      simpa using himage
+    have hO : ((((ξ ^ 2 : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F)) = 1 :=
+      (IsFractionRing.injective (𝓞 F) F) hF
+    have hred : Ideal.Quotient.mk v.asIdeal
+        ((((ξ ^ 2 : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F)) = 1 := by
+      rw [hO]
+      simp
+    rw [show (x : F) = algebraMap (𝓞 F) F a by rfl, residue_algebraMap_local] at hcubic
+    have hgenpow : (g : κ) ^ (N / 3) = 1 := by
+      calc
+        (g : κ) ^ (N / 3) = (Ideal.Quotient.mk v.asIdeal a) ^ (N / 3) := by rw [hmk]
+        _ = Ideal.Quotient.mk v.asIdeal
+            ((((ξ ^ 2 : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F)) := hcubic.symm
+        _ = 1 := hred
+    exact hgenPowNe (Units.ext hgenpow)
+  letI : Nontrivial κ := inferInstance
+  have huLoc : IsLocUnit v (toLoc v x) := toLoc_isLocUnit_of_valuation_one v x hxval
+  have hlocal : localChi D v (toLoc v x) = chi D v (x : F) :=
+    localChi_toLoc_integral D v x a ha rfl
+  refine ⟨toLoc v x, huLoc, ?_, ?_⟩
+  · rw [hlocal]
+    exact chi_six_of_residue D v (x : F) hres
+  · rw [hlocal]
+    exact hchiSq
+
 /-- **tor:rep** (top): at every finite place a torus representation exists, of dimension
 `√[K^×:K^{×3}]`; at `v ∤ 6` one with the tame basis. The nontrivial-carrier clause is
 installed per `sol-thin-thlocal`, since `GlobalDatum.lam_ne` excludes the zero space. -/
@@ -379,7 +578,112 @@ theorem exists_torusRep (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
 /-- **tor:K-fixed**: at a tame place, the `a(O^×)`-fixed vectors of `V` are the multiples of `e_0`. -/
 theorem tame_unitFixed (T : TorusRep D H v) (B : TameTorusBasis T) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
     (x : T.V) (hx : ∀ u, IsLocUnit v u → T.σa u x = x) : ∃ c : ℂ, x = c • B.e 0 := by
-  sorry
+  obtain ⟨u, hu, hχ6, hχ2⟩ := exists_localChi_sq_ne_one D v hv
+  let χ := localChi D v u
+  have hχne : χ ≠ 0 := by
+    intro hzero
+    have hχ6' : χ ^ (6 : ℕ) = 1 := by simpa [χ] using hχ6
+    rw [hzero] at hχ6'
+    norm_num at hχ6'
+  have hχ2' : χ ^ 2 ≠ 1 := by simpa [χ] using hχ2
+  have hχ6' : χ ^ (6 : ℕ) = 1 := by simpa [χ] using hχ6
+  have hχ4 : χ ^ 4 ≠ 1 := by
+    intro h4
+    have hpow : χ ^ 6 = χ ^ 4 * χ ^ 2 := by ring
+    rw [hχ6', h4] at hpow
+    exact hχ2' (by simpa using hpow.symm)
+  have hχ8 : χ ^ 8 ≠ 1 := by
+    intro h8
+    have hpow : χ ^ 8 = χ ^ 6 * χ ^ 2 := by ring
+    rw [h8, hχ6'] at hpow
+    exact hχ2' (by simpa using hpow.symm)
+  let b : Module.Basis (ZMod 3) ℂ T.V := Module.Basis.mk B.linIndep B.spans.ge
+  have hbasis (k : ZMod 3) : b k = B.e k := Module.Basis.mk_apply _ _ _
+  have hdiag (k : ZMod 3) :
+      T.σa u (b k) = χ ^ (4 * (k.val : ℤ)) • b k := by
+    rw [hbasis]
+    calc
+      T.σa u (B.e k) = χ ^ (2 * (0 + 2 * (k.val : ℤ))) • B.e k := by
+        simpa [χ] using B.act 0 u hu k
+      _ = χ ^ (4 * (k.val : ℤ)) • B.e k := by congr 1 <;> ring
+  have hTx : T.σa u x =
+      ∑ k : ZMod 3, (χ ^ (4 * (k.val : ℤ)) * b.repr x k) • b k := by
+    have hxsum : x = ∑ k : ZMod 3, b.repr x k • b k := (b.sum_repr x).symm
+    calc
+      T.σa u x = T.σa u (∑ k : ZMod 3, b.repr x k • b k) := by
+        exact congrArg (T.σa u) hxsum
+      _ = ∑ k : ZMod 3, T.σa u (b.repr x k • b k) := map_sum _ _ _
+      _ = ∑ k : ZMod 3, (χ ^ (4 * (k.val : ℤ)) * b.repr x k) • b k := by
+        apply Finset.sum_congr rfl
+        intro k hk
+        rw [map_smul, hdiag, smul_smul]
+        congr 1
+        ring
+  have hcoord (k : ZMod 3) :
+      (χ ^ (4 * (k.val : ℤ)) - 1) * b.repr x k = 0 := by
+    have hfixed := hx u hu
+    have h := congrArg (fun y : T.V => b.repr y k) hfixed
+    rw [hTx] at h
+    simp only [map_sum, map_smul, Module.Basis.repr_self] at h
+    change (∑ i : ZMod 3,
+      (χ ^ (4 * (i.val : ℤ)) * b.repr x i) • Finsupp.single i (1 : ℂ)) k = b.repr x k at h
+    rw [Finsupp.finsetSum_apply] at h
+    simp [Finsupp.smul_apply, Finsupp.single_apply] at h
+    calc
+      (χ ^ (4 * (k.val : ℤ)) - 1) * b.repr x k =
+          χ ^ (4 * (k.val : ℤ)) * b.repr x k - b.repr x k := by ring
+      _ = 0 := by
+        have hp : χ ^ (4 * (k.val : ℤ)) * b.repr x k = b.repr x k := by simpa using h
+        rw [hp]
+        ring
+  have hval1 : (1 : ZMod 3).val = 1 := by
+    rw [ZMod.val_one_eq_one_mod]
+  have hval2 : (2 : ZMod 3).val = 2 := by
+    rw [ZMod.val_two_eq_two_mod]
+  have hrepr1 : b.repr x (1 : ZMod 3) = 0 := by
+    have h := hcoord (1 : ZMod 3)
+    have hf : χ ^ 4 - 1 ≠ 0 := sub_ne_zero.mpr hχ4
+    have hs : (χ ^ 4 - 1) * b.repr x 1 = 0 := by simpa [hval1] using h
+    exact (mul_eq_zero.mp hs).resolve_left hf
+  have hrepr2 : b.repr x (2 : ZMod 3) = 0 := by
+    have h := hcoord (2 : ZMod 3)
+    have hf : χ ^ 8 - 1 ≠ 0 := sub_ne_zero.mpr hχ8
+    have hs : (χ ^ 8 - 1) * b.repr x 2 = 0 := by simpa [hval2] using h
+    exact (mul_eq_zero.mp hs).resolve_left hf
+  have hrepr : ∀ k : ZMod 3, k ≠ 0 → b.repr x k = 0 := by
+    intro k hk
+    have hvalne : k.val ≠ 0 := by
+      intro hzero
+      apply hk
+      apply (ZMod.val_injective 3)
+      simpa [hzero]
+    have hvalCases : k.val = 1 ∨ k.val = 2 := by
+      have hklt := k.val_lt
+      omega
+    rcases hvalCases with hval | hval
+    · have hk1 : k = 1 := by
+        apply (ZMod.val_injective 3)
+        rw [hval1]
+        exact hval
+      rw [hk1]
+      exact hrepr1
+    · have hk2 : k = 2 := by
+        apply (ZMod.val_injective 3)
+        rw [hval2]
+        exact hval
+      rw [hk2]
+      exact hrepr2
+  refine ⟨b.repr x 0, ?_⟩
+  have hsum : (∑ k : ZMod 3, b.repr x k • b k) = b.repr x 0 • b 0 := by
+    rw [Finset.sum_eq_single (0 : ZMod 3)]
+    · intro k hk hk0
+      simp [hrepr k hk0]
+    · intro hnot
+      exact (hnot (Finset.mem_univ 0)).elim
+  calc
+    x = ∑ k : ZMod 3, b.repr x k • b k := (b.sum_repr x).symm
+    _ = b.repr x 0 • b 0 := hsum
+    _ = b.repr x 0 • B.e 0 := by rw [hbasis]
 
 /-- **def:weyl-basis**: `e^w_k := e_{-k}` is a tame basis of the Weyl conjugate `T.weyl`
 (uses `localChi(u⁻¹) = localChi(u)⁻¹` and `localChi(u)^6 = 1` on local units). -/
