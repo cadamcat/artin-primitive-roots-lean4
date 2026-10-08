@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.TypeII.PP.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.LogPhaseLow
 import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.PhaseReindex
+import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.TorusMoment
 
 /-! Exact interfaces for the PP-PHASE decomposition. -/
 
@@ -9,6 +10,7 @@ namespace ArtinPrimitiveRoots.Proofs.pp_phase_p
 open MeasureTheory
 open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.TypeII.PP
+open scoped ComplexConjugate
 
 def phaseMeanValueInput : Prop :=
   ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
@@ -79,13 +81,91 @@ noncomputable def phaseWeylSum (k M : ℕ) (a : Fin k → ℝ) : ℂ :=
 /-- Exact weighted torus moment for the Vinogradov mean-value count. -/
 theorem phase_torus_moment {s k M : ℕ} {D : ℝ} (hD : 0 ≤ D)
     (c : ℕ → ℂ) (hc : ∀ h ∈ Finset.Icc 1 M, ‖c h‖ ≤ D) :
-    ∫ a : Fin k → ℝ,
-      Set.indicator {a | ∀ j, 0 ≤ a j ∧ a j ≤ 1}
-        (fun a => ‖∑ h ∈ Finset.Icc 1 M,
-          c h * additiveCharacter
-            (∑ j : Fin k, a j * (h : ℝ) ^ (j.val + 1))‖ ^ (2 * s)) a ≤
-      D ^ (2 * s) * (vinogradovCount s k M : ℝ) := by
-  sorry
+      ∫ a : Fin k → ℝ,
+        Set.indicator {a | ∀ j, 0 ≤ a j ∧ a j ≤ 1}
+          (fun a => ‖∑ h ∈ Finset.Icc 1 M,
+            c h * additiveCharacter
+              (∑ j : Fin k, a j * (h : ℝ) ^ (j.val + 1))‖ ^ (2 * s)) a ≤
+        D ^ (2 * s) * (vinogradovCount s k M : ℝ) := by
+  classical
+  let cube : Set (Fin k → ℝ) := Set.univ.pi (fun _ => Set.Icc (0 : ℝ) 1)
+  have hcubeEq : {a : Fin k → ℝ | ∀ j, 0 ≤ a j ∧ a j ≤ 1} = cube := by
+    ext a
+    simp [cube, Set.mem_pi, Pi.le_def, forall_and]
+  have hcubeMeas :
+      MeasurableSet {a : Fin k → ℝ | ∀ j, 0 ≤ a j ∧ a j ≤ 1} := by
+    rw [hcubeEq]
+    exact MeasurableSet.univ_pi fun _ => measurableSet_Icc
+  let G := phaseMomentSolutions s k M
+  let coeff (uv : (Fin s → ℕ) × (Fin s → ℕ)) :=
+    phaseTupleWeight c uv.1 * conj (phaseTupleWeight c uv.2)
+  let realMoment : ℝ :=
+    ∫ a in cube,
+      ‖phaseWeightedWeylSum (M := M) c a‖ ^ (2 * s)
+        ∂(volume : Measure (Fin k → ℝ))
+  have hMoment := phaseWeightedWeylSum_moment_integral (s := s) (k := k)
+    (M := M) c
+  have hCast :
+      ∫ a in cube,
+          (‖phaseWeightedWeylSum (M := M) c a‖ ^ (2 * s) : ℂ)
+            ∂(volume : Measure (Fin k → ℝ)) =
+        (realMoment : ℂ) := by
+    dsimp [realMoment]
+    simpa only [Complex.ofReal_pow] using
+      (integral_complex_ofReal
+        (μ := (volume : Measure (Fin k → ℝ)).restrict cube)
+        (f := fun a : Fin k → ℝ =>
+          ‖phaseWeightedWeylSum (M := M) c a‖ ^ (2 * s)))
+  have hreal :
+      realMoment = (∑ uv ∈ G, coeff uv).re := by
+    calc
+      _ = (realMoment : ℂ).re := by simp
+      _ = (∫ a in cube,
+          (‖phaseWeightedWeylSum (M := M) c a‖ ^ (2 * s) : ℂ)
+            ∂(volume : Measure (Fin k → ℝ))).re := by rw [← hCast]
+      _ = (∑ uv ∈ G, coeff uv).re := by
+        exact congrArg Complex.re (by simpa [cube, G, coeff] using hMoment)
+  have hcoef (uv : (Fin s → ℕ) × (Fin s → ℕ)) (huv : uv ∈ G) :
+      ‖coeff uv‖ ≤ D ^ (2 * s) := by
+    have huv' := (Finset.mem_filter.mp huv).1
+    rcases Finset.mem_product.mp huv' with ⟨hu, hv⟩
+    have hwu := phaseTupleWeight_norm_le hD c hc uv.1 hu
+    have hwv := phaseTupleWeight_norm_le hD c hc uv.2 hv
+    calc
+      ‖coeff uv‖ = ‖phaseTupleWeight c uv.1‖ *
+          ‖phaseTupleWeight c uv.2‖ := by simp [coeff, norm_mul]
+      _ ≤ D ^ s * D ^ s :=
+        mul_le_mul hwu hwv (norm_nonneg _) (pow_nonneg hD _)
+      _ = D ^ (2 * s) := by
+        calc
+          _ = D ^ (s + s) := (pow_add D s s).symm
+          _ = D ^ (2 * s) := by congr 1 <;> omega
+  have hcard := phaseMomentSolutions_card_le_vinogradovCount s k M
+  have hsumNorm :
+      ‖∑ uv ∈ G, coeff uv‖ ≤ ∑ uv ∈ G, ‖coeff uv‖ :=
+    norm_sum_le _ _
+  have hsumBound :
+      (∑ uv ∈ G, ‖coeff uv‖) ≤ (G.card : ℝ) * D ^ (2 * s) := by
+    calc
+      _ ≤ ∑ _uv ∈ G, D ^ (2 * s) :=
+        Finset.sum_le_sum fun uv huv => hcoef uv huv
+      _ = (G.card : ℝ) * D ^ (2 * s) := by simp
+  have hfinal :
+      realMoment ≤
+        D ^ (2 * s) * (vinogradovCount s k M : ℝ) := by
+    calc
+      _ = (∑ uv ∈ G, coeff uv).re := hreal
+      _ ≤ ‖∑ uv ∈ G, coeff uv‖ := Complex.re_le_norm _
+      _ ≤ ∑ uv ∈ G, ‖coeff uv‖ := hsumNorm
+      _ ≤ (G.card : ℝ) * D ^ (2 * s) := hsumBound
+      _ ≤ (vinogradovCount s k M : ℝ) * D ^ (2 * s) :=
+        mul_le_mul_of_nonneg_right (by exact_mod_cast hcard) (pow_nonneg hD _)
+      _ = D ^ (2 * s) * (vinogradovCount s k M : ℝ) := by ring
+  rw [integral_indicator hcubeMeas, hcubeEq]
+  change (∫ a in cube,
+      ‖phaseWeightedWeylSum (M := M) c a‖ ^ (2 * s)
+        ∂(volume : Measure (Fin k → ℝ))) ≤ _
+  simpa [realMoment] using hfinal
 
 def phaseClosedBox {k M : ℕ} (r : PhaseBoxIndex k M) : Set (Fin k → ℝ) :=
   {a | ∀ j : Fin k,
