@@ -22,6 +22,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.RoughMass
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.Aggregation
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ReciprocalBin
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedModuli
+import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedDensity
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
