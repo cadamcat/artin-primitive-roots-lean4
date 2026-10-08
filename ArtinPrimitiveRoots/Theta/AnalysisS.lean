@@ -8,6 +8,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».PowerClasses
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».FiniteWeighted
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».ComplexRadial
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».ComplexWeighted
+import Mathlib.MeasureTheory.Integral.Pi
 
 open MeasureTheory
 open scoped FourierTransform
@@ -235,6 +236,197 @@ private theorem thsol_multiplier_continuous (m : S.FS → ℂ) (hm : SheetMultip
       (fun v : S.Sf => v.1.adicCompletion F) (fun _ : InfinitePlace F => ℂ) b
   have hChar := L.cont.zpow₀ k (fun y => Or.inl (L.L y).ne_zero)
   simpa only [hmval, Pi.mul_def] using hChar.mul hbCont
+
+set_option maxHeartbeats 800000 in
+private theorem thsol_profile_weighted [IsTotallyComplex F]
+    (μ : ∀ v : FinPlace F, LocHaar v) (v0 : InfinitePlace F)
+    (δ : ℝ) (hδ : 0 < δ) (J : ℕ)
+    (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
+    (fc : Fin J → InfinitePlace F → ℂ → ℂ)
+    (hff : ∀ ℓ v, SheetHypFin v.1 δ (ff ℓ v))
+    (hfc : ∀ ℓ w, SheetHypC δ (fc ℓ w)) :
+    ∀ (j : ℕ) (σ : ℝ), -δ < σ → ∃ C : ℝ, 0 ≤ C ∧ ∀ u : ℝ, 0 < u →
+      0 ≤ absProfile S μ v0 J ff fc j u ∧
+      absProfile S μ v0 J ff fc j u ≤ C * u ^ (-σ) := by
+  intro j σ hσ
+  have hsub := ArtinPrimitiveRoots.Proofs.thsol_sheets.local_measure_substrate μ
+  have : ∀ v : S.Sf, SigmaFinite (mulHaarFin (μ v.1)) := fun v => (hsub.1 v.1).2.2.2.2
+  have : SigmaFinite mulHaarC := hsub.2.2
+  let W := {w : InfinitePlace F // w ≠ v0}
+  let Xf := ∀ v : S.Sf, v.1.adicCompletion F
+  let Xc := W → ℂ
+  let P := Xf × Xc
+  let νf : Measure Xf := Measure.pi fun v : S.Sf => mulHaarFin (μ v.1)
+  let νc : Measure Xc := Measure.pi fun _ : W => mulHaarC
+  let ν : Measure P := νf.prod νc
+  let η : Measure ℝ := volume.restrict (Set.Ioc (0 : ℝ) 1)
+  let B : P → ℝ := fun p => (∏ v : S.Sf, absFin v.1 (p.1 v)) *
+    ∏ w : W, Complex.normSq (p.2 w)
+  obtain ⟨e, he, hpoint, hB, hpos⟩ := thsol_sheet_geometry S μ v0
+  choose M hM hbound using fun ℓ : Fin J =>
+    (ArtinPrimitiveRoots.Proofs.thsol_sheets.complex_factor_weighted δ σ hσ
+      (fc ℓ v0) (hfc ℓ v0) j).2
+  let Ff (ℓ : Fin J) (s : ℝ) (v : S.Sf) (x : v.1.adicCompletion F) : ℝ :=
+    ‖ff ℓ v x‖ * absFin v.1 x ^ s
+  let Fc (ℓ : Fin J) (s : ℝ) (w : W) (z : ℂ) : ℝ :=
+    ‖fc ℓ w.1 z‖ * Complex.normSq z ^ s
+  let G (ℓ : Fin J) (p : P) : ℝ :=
+    (∏ v : S.Sf, Ff ℓ σ v (p.1 v)) * ∏ w : W, Fc ℓ σ w (p.2 w)
+  let N (ℓ : Fin J) (p : P) : ℝ :=
+    (∏ w : W, ‖fc ℓ w.1 (p.2 w)‖) * ∏ v : S.Sf, ‖ff ℓ v (p.1 v)‖
+  have hFi (ℓ : Fin J) (s : ℝ) (hs : -δ < s) (v : S.Sf) :
+      Integrable (Ff ℓ s v) (mulHaarFin (μ v.1)) :=
+    ArtinPrimitiveRoots.Proofs.thsol_sheets.finite_factor_weighted_integrable
+      (μ v.1) δ s hs (ff ℓ v) (hff ℓ v)
+  have hCi (ℓ : Fin J) (s : ℝ) (hs : -δ < s) (w : W) :
+      Integrable (Fc ℓ s w) mulHaarC := by
+    simpa only [Fc, normDeriv, iteratedDeriv_zero, zero_div, Real.exp_zero,
+      Complex.ofReal_one, one_mul, mulHaarC] using!
+      (ArtinPrimitiveRoots.Proofs.thsol_sheets.complex_factor_weighted
+        δ s hs (fc ℓ w.1) (hfc ℓ w.1) 0).1
+  have hGi (ℓ : Fin J) : Integrable (G ℓ) ν :=
+    (Integrable.fintype_prod_dep (hFi ℓ σ hσ)).mul_prod
+      (Integrable.fintype_prod (hCi ℓ σ hσ))
+  have hNi (ℓ : Fin J) : Integrable (N ℓ) ν := by
+    have hf0 := Integrable.fintype_prod_dep (hFi ℓ 0 (by linarith only [hδ]))
+    have hc0 := Integrable.fintype_prod (hCi ℓ 0 (by linarith only [hδ]))
+    have hi : Integrable (fun p : P =>
+        (∏ v : S.Sf, ‖ff ℓ v (p.1 v)‖) * ∏ w : W, ‖fc ℓ w.1 (p.2 w)‖) ν := by
+      simpa only [Ff, Fc, Real.rpow_zero, mul_one] using hf0.mul_prod hc0
+    apply hi.congr
+    exact Filter.Eventually.of_forall fun p => mul_comm _ _
+  have hNnonneg (ℓ : Fin J) (p : P) : 0 ≤ N ℓ p :=
+    mul_nonneg (Finset.prod_nonneg fun _ _ => norm_nonneg _)
+      (Finset.prod_nonneg fun _ _ => norm_nonneg _)
+  have hGnonneg (ℓ : Fin J) (p : P) : 0 ≤ G ℓ p := by
+    apply mul_nonneg <;> apply Finset.prod_nonneg
+    · intro v hv
+      exact mul_nonneg (norm_nonneg _) (Real.rpow_nonneg (by rw [absFin_eq_norm]; positivity) _)
+    · intro w hw
+      exact mul_nonneg (norm_nonneg _) (Real.rpow_nonneg (Complex.normSq_nonneg _) _)
+  have hGfactor (ℓ : Fin J) (p : P) : G ℓ p = N ℓ p * B p ^ σ := by
+    have hfnonneg (v : S.Sf) : 0 ≤ absFin v.1 (p.1 v) := by rw [absFin_eq_norm]; positivity
+    have hfprod : (∏ v : S.Sf, absFin v.1 (p.1 v) ^ σ) =
+        (∏ v : S.Sf, absFin v.1 (p.1 v)) ^ σ :=
+      Real.finsetProd_rpow _ _ (fun v _ => hfnonneg v) σ
+    have hcprod : (∏ w : W, Complex.normSq (p.2 w) ^ σ) =
+        (∏ w : W, Complex.normSq (p.2 w)) ^ σ :=
+      Real.finsetProd_rpow _ _ (fun w _ => Complex.normSq_nonneg _) σ
+    dsimp only [G, Ff, Fc, N, B]
+    rw [Finset.prod_mul_distrib, Finset.prod_mul_distrib, hfprod, hcprod,
+      Real.mul_rpow (Finset.prod_nonneg fun v _ => hfnonneg v)
+        (Finset.prod_nonneg fun w _ => Complex.normSq_nonneg _)]
+    ring
+  let C (ℓ : Fin J) : ℝ := M ℓ *
+    (∏ v : S.Sf, ∫ x, Ff ℓ σ v x ∂mulHaarFin (μ v.1)) *
+    ∏ w : W, ∫ z, Fc ℓ σ w z ∂mulHaarC
+  have hGval (ℓ : Fin J) : M ℓ * ∫ p, G ℓ p ∂ν = C ℓ := by
+    dsimp only [G, ν, νf, νc, C]
+    rw [integral_prod_mul (fun yf : Xf => ∏ v : S.Sf, Ff ℓ σ v (yf v))
+      (fun yc : Xc => ∏ w : W, Fc ℓ σ w (yc w)),
+      integral_fintype_prod_eq_prod, integral_fintype_prod_eq_prod]
+    ring
+  have hCnonneg (ℓ : Fin J) : 0 ≤ C ℓ := by
+    rw [← hGval ℓ]
+    exact mul_nonneg (hM ℓ) (integral_nonneg (hGnonneg ℓ))
+  have hsummand (ℓ : Fin J) (u : ℝ) (hu : 0 < u) :
+      let a := (sheetInt S μ v0 (fun y => ((‖normDeriv j (fc ℓ v0) (y.2 v0)‖ *
+        (∏ w ∈ Finset.univ.erase v0, ‖fc ℓ w (y.2 w)‖) *
+          ∏ v : S.Sf, ‖ff ℓ v (y.1 v)‖ : ℝ) : ℂ)) u).re
+      0 ≤ a ∧ a ≤ C ℓ * u ^ (-σ) := by
+    let z : P × ℝ → ℂ := fun q =>
+      ArtinPrimitiveRoots.Proofs.thsol_sheets.complexPolarPoint (u / B q.1, q.2)
+    let R : P × ℝ → ℝ := fun q => ‖normDeriv j (fc ℓ v0) (z q)‖ * N ℓ q.1
+    have hzmeas : Measurable z :=
+      ArtinPrimitiveRoots.Proofs.thsol_sheets.complex_polar_measurePreserving.measurable.comp
+        ((measurable_const.div (hB.comp measurable_fst)).prodMk measurable_snd)
+    have hdmeas : Measurable (fun z => ‖normDeriv j (fc ℓ v0) z‖) :=
+      (measurable_of_continuousOn_compl_singleton (0 : ℂ)
+        (ArtinPrimitiveRoots.Proofs.thsol_sheets.complex_normDeriv_contDiff
+          (fc ℓ v0) (hfc ℓ v0).1 j).continuousOn).norm
+    have hRmeas : AEStronglyMeasurable R (ν.prod η) :=
+      (hdmeas.comp hzmeas).aestronglyMeasurable.mul (hNi ℓ).aestronglyMeasurable.comp_fst
+    have hRnonneg (q : P × ℝ) : 0 ≤ R q := mul_nonneg (norm_nonneg _) (hNnonneg ℓ _)
+    have hp : ∀ᵐ q ∂ν.prod η, 0 < B q.1 :=
+      (Measure.quasiMeasurePreserving_fst (μ := ν) (ν := η)).ae hpos
+    have hRbound : ∀ᵐ q ∂ν.prod η, R q ≤ (M ℓ * u ^ (-σ)) * G ℓ q.1 := by
+      filter_upwards [hp] with q hq
+      have hrad : 0 < u / B q.1 := div_pos hu hq
+      have hznorm : Complex.normSq (z q) = u / B q.1 := by
+        dsimp only [z, ArtinPrimitiveRoots.Proofs.thsol_sheets.complexPolarPoint]
+        rw [Complex.normSq_eq_norm_sq, norm_mul, Complex.norm_exp]
+        have hre : (2 * Real.pi * Complex.I * (q.2 : ℂ)).re = 0 := by simp
+        rw [hre, Real.exp_zero, mul_one, Complex.norm_real, Real.norm_eq_abs,
+          abs_of_nonneg (Real.sqrt_nonneg _), Real.sq_sqrt hrad.le]
+      have hz0 : z q ≠ 0 := by
+        intro hz
+        have : Complex.normSq (z q) = 0 := by simp only [hz, map_zero]
+        rw [hznorm] at this
+        exact hrad.ne' this
+      have hlocal := hbound ℓ (z q) hz0
+      rw [hznorm] at hlocal
+      have hweight : ((u / B q.1) ^ σ)⁻¹ = u ^ (-σ) * B q.1 ^ σ := by
+        rw [Real.div_rpow hu.le hq.le, inv_div, Real.rpow_neg hu.le]
+        ring
+      have hd : ‖normDeriv j (fc ℓ v0) (z q)‖ ≤
+          M ℓ * (u ^ (-σ) * B q.1 ^ σ) := by
+        rw [← hweight, ← div_eq_mul_inv]
+        exact (le_div_iff₀ (Real.rpow_pos_of_pos hrad σ)).mpr hlocal
+      calc
+        R q ≤ (M ℓ * (u ^ (-σ) * B q.1 ^ σ)) * N ℓ q.1 :=
+          mul_le_mul_of_nonneg_right hd (hNnonneg ℓ _)
+        _ = (M ℓ * u ^ (-σ)) * G ℓ q.1 := by rw [hGfactor]; ring
+    have hmajor : Integrable (fun q : P × ℝ => (M ℓ * u ^ (-σ)) * G ℓ q.1) (ν.prod η) :=
+      ((hGi ℓ).comp_fst η).const_mul _
+    have hRi : Integrable R (ν.prod η) := by
+      apply hmajor.mono' hRmeas
+      filter_upwards [hRbound] with q hq
+      rwa [Real.norm_eq_abs, abs_of_nonneg (hRnonneg q)]
+    have hRci : Integrable (fun q => (R q : ℂ)) (ν.prod η) := hRi.ofReal
+    have hfree (p : P) (θ : ℝ) :
+        (∏ w ∈ Finset.univ.erase v0, ‖fc ℓ w ((sheetPoint S v0 u p θ).2 w)‖) =
+          ∏ w : W, ‖fc ℓ w.1 (p.2 w)‖ := by
+      rw [Finset.prod_subtype (p := fun w : InfinitePlace F => w ≠ v0)
+        (Finset.univ.erase v0) (by simp [ne_comm])]
+      apply Finset.prod_congr rfl
+      intro w hw
+      simp only [sheetPoint, dite_eq_right w.property]
+    have hRpoint (p : P) (θ : ℝ) :
+        ((‖normDeriv j (fc ℓ v0) ((sheetPoint S v0 u p θ).2 v0)‖ *
+          (∏ w ∈ Finset.univ.erase v0, ‖fc ℓ w ((sheetPoint S v0 u p θ).2 w)‖) *
+            ∏ v : S.Sf, ‖ff ℓ v ((sheetPoint S v0 u p θ).1 v)‖ : ℝ) : ℂ) =
+            (R (p, θ) : ℂ) := by
+      rw [hfree]
+      simp only [sheetPoint, R, z, N,
+        ArtinPrimitiveRoots.Proofs.thsol_sheets.complexPolarPoint, B]
+      push_cast
+      ring
+    have hid : (sheetInt S μ v0 (fun y => ((‖normDeriv j (fc ℓ v0) (y.2 v0)‖ *
+        (∏ w ∈ Finset.univ.erase v0, ‖fc ℓ w (y.2 w)‖) *
+          ∏ v : S.Sf, ‖ff ℓ v (y.1 v)‖ : ℝ) : ℂ)) u).re = ∫ q, R q ∂ν.prod η := by
+      simp only [sheetInt, hRpoint]
+      change (∫ p, ∫ θ, (R (p, θ) : ℂ) ∂η ∂ν).re = _
+      rw [← integral_prod _ hRci, integral_complex_ofReal, Complex.ofReal_re]
+    dsimp only
+    rw [hid]
+    refine ⟨integral_nonneg hRnonneg, ?_⟩
+    calc
+      _ ≤ ∫ q : P × ℝ, (M ℓ * u ^ (-σ)) * G ℓ q.1 ∂ν.prod η :=
+        integral_mono_ae hRi hmajor hRbound
+      _ = C ℓ * u ^ (-σ) := by
+        rw [integral_const_mul, integral_fun_fst]
+        have hη : η.real Set.univ = 1 := by
+          simp [η, Measure.real, Real.volume_Ioc]
+        rw [hη, one_smul]
+        rw [← hGval ℓ]
+        ring
+  refine ⟨∑ ℓ : Fin J, C ℓ, Finset.sum_nonneg fun ℓ _ => hCnonneg ℓ, ?_⟩
+  intro u hu
+  constructor
+  · exact Finset.sum_nonneg fun ℓ _ => (hsummand ℓ u hu).1
+  · change (∑ ℓ : Fin J, _) ≤ _
+    rw [Finset.sum_mul]
+    exact Finset.sum_le_sum fun ℓ _ => (hsummand ℓ u hu).2
 
 /-- **lem:sheet-profile** (03:500–620), profile part: smoothness, eq:sheet-weighted-bound,
 eq:sheet-two-ended-bound, with an admissible multiplier. C4 of `sol-gate-theta` carries its norm
