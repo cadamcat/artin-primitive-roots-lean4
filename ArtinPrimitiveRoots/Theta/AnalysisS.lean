@@ -55,11 +55,106 @@ def sheetInt (μ : ∀ v : FinPlace F, LocHaar v) (v0 : InfinitePlace F) (f : S.
     ∂((Measure.pi fun v : S.Sf => mulHaarFin (μ v.1)).prod
       (Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => mulHaarC))
 
+private theorem thsol_sheet_geometry (μ : ∀ v : FinPlace F, LocHaar v) (v0 : InfinitePlace F) :
+    let P := (∀ v : S.Sf, v.1.adicCompletion F) × ({w : InfinitePlace F // w ≠ v0} → ℂ)
+    let ν : Measure P := (Measure.pi fun v : S.Sf => mulHaarFin (μ v.1)).prod
+      (Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => mulHaarC)
+    let B : P → ℝ := fun p => (∏ v : S.Sf, absFin v.1 (p.1 v)) *
+      ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w)
+    ∃ e : (P × ℂ) ≃ᵐ S.FS, MeasurePreserving e (ν.prod mulHaarC) (mulHaarS S μ) ∧
+      (∀ u p θ, e (p, ArtinPrimitiveRoots.Proofs.thsol_sheets.complexPolarPoint (u / B p, θ)) =
+        sheetPoint S v0 u p θ) ∧ Measurable B ∧ ∀ᵐ p ∂ν, 0 < B p := by
+  let Xf := ∀ v : S.Sf, v.1.adicCompletion F
+  let Xc := {w : InfinitePlace F // w ≠ v0} → ℂ
+  let E := {w : InfinitePlace F // w = v0}
+  let νf : Measure Xf := Measure.pi fun v : S.Sf => mulHaarFin (μ v.1)
+  let νc : Measure Xc := Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => mulHaarC
+  have h := ArtinPrimitiveRoots.Proofs.thsol_sheets.local_measure_substrate μ
+  have : ∀ v : S.Sf, SigmaFinite (mulHaarFin (μ v.1)) := fun v => (h.1 v.1).2.2.2.2
+  have : SigmaFinite mulHaarC := h.2.2
+  have : ∀ v : S.Sf, NullSingletonClass (mulHaarFin (μ v.1)) := fun v => by
+    have : NullSingletonClass (μ v.1).μ := (h.1 v.1).2.2.1
+    dsimp [mulHaarFin]
+    infer_instance
+  have : NullSingletonClass mulHaarC := h.2.1
+  let : Unique E := {
+    default := ⟨v0, rfl⟩
+    uniq := fun w => Subtype.ext w.property }
+  let : Fintype E := Subtype.fintype (fun w : InfinitePlace F => w = v0)
+  let split : (InfinitePlace F → ℂ) ≃ᵐ ((E → ℂ) × Xc) :=
+    MeasurableEquiv.piEquivPiSubtypeProd (fun _ => ℂ) (fun w => w = v0)
+  let collapse : ((E → ℂ) × Xc) ≃ᵐ (ℂ × Xc) :=
+    MeasurableEquiv.prodCongr (MeasurableEquiv.piUnique fun _ : E => ℂ)
+      (MeasurableEquiv.refl Xc)
+  let ec : (InfinitePlace F → ℂ) ≃ᵐ (Xc × ℂ) :=
+    (split.trans collapse).trans (MeasurableEquiv.prodComm : ℂ × Xc ≃ᵐ Xc × ℂ)
+  have hsplit : MeasurePreserving split (Measure.pi fun _ : InfinitePlace F => mulHaarC)
+      ((Measure.pi fun _ : E => mulHaarC).prod νc) :=
+    measurePreserving_piEquivPiSubtypeProd (fun _ : InfinitePlace F => mulHaarC) (fun w => w = v0)
+  have hcollapse : MeasurePreserving collapse ((Measure.pi fun _ : E => mulHaarC).prod νc)
+      (mulHaarC.prod νc) :=
+    (measurePreserving_piUnique (fun _ : E => mulHaarC)).prod (MeasurePreserving.id νc)
+  have hec : MeasurePreserving ec (Measure.pi fun _ : InfinitePlace F => mulHaarC)
+      (νc.prod mulHaarC) :=
+    (Measure.measurePreserving_swap (μ := mulHaarC) (ν := νc)).comp (hcollapse.comp hsplit)
+  let ef : S.FS ≃ᵐ ((Xf × Xc) × ℂ) :=
+    ((MeasurableEquiv.refl Xf).prodCongr ec).trans MeasurableEquiv.prodAssoc.symm
+  have hef : MeasurePreserving ef (mulHaarS S μ) ((νf.prod νc).prod mulHaarC) :=
+    (measurePreserving_prodAssoc νf νc mulHaarC).symm.comp ((MeasurePreserving.id νf).prod hec)
+  have hef_apply (y : S.FS) : ef y = ((y.1, fun w => y.2 w.1), y.2 v0) := by
+    rcases y with ⟨yf, yc⟩
+    rfl
+  refine ⟨ef.symm, hef.symm, ?_, ?_, ?_⟩
+  · intro u p θ
+    apply ef.injective
+    rw [ef.apply_symm_apply, hef_apply]
+    apply Prod.ext
+    · apply Prod.ext
+      · rfl
+      · funext w
+        simp [sheetPoint, w.property]
+    · simp [sheetPoint, ArtinPrimitiveRoots.Proofs.thsol_sheets.complexPolarPoint]
+  · apply Measurable.mul
+    · apply Finset.measurable_fun_prod
+      intro v hv
+      exact (h.1 v.1).1.comp ((measurable_pi_apply v).comp measurable_fst)
+    · apply Finset.measurable_fun_prod
+      intro w hw
+      exact Complex.continuous_normSq.measurable.comp
+        ((measurable_pi_apply w).comp measurable_snd)
+  · have hfn : ∀ᵐ yf ∂νf, ∀ v : S.Sf, yf v ≠ 0 :=
+      ae_all_iff.mpr fun v => Measure.ae_eval_ne (fun v : S.Sf => mulHaarFin (μ v.1)) v 0
+    have hcn : ∀ᵐ yc ∂νc, ∀ w : {w : InfinitePlace F // w ≠ v0}, yc w ≠ 0 :=
+      ae_all_iff.mpr fun w => Measure.ae_eval_ne (fun _ : {w : InfinitePlace F // w ≠ v0} => mulHaarC) w 0
+    have hfn' := (Measure.quasiMeasurePreserving_fst (μ := νf) (ν := νc)).ae hfn
+    have hcn' := (Measure.quasiMeasurePreserving_snd (μ := νf) (ν := νc)).ae hcn
+    filter_upwards [hfn', hcn'] with p hp hc
+    apply mul_pos
+    · exact Finset.prod_pos fun v hv => (h.1 v.1).2.1 (p.1 v) (hp v)
+    · apply Finset.prod_pos
+      intro w hw
+      rw [Complex.normSq_eq_norm_sq]
+      exact sq_pos_of_pos (norm_pos_iff.mpr (hc w))
+
 /-- **eq:sheet-disintegration** (03:487–498): `∫_{F_S^×} f d^×y = π ∫_0^∞ H_f(u) du/u`. -/
 theorem sheet_disintegration [IsTotallyComplex F] (μ : ∀ v : FinPlace F, LocHaar v)
     (v0 : InfinitePlace F) (f : S.FS → ℂ) (hf : Integrable f (mulHaarS S μ)) :
     ∫ y, f y ∂(mulHaarS S μ) = Real.pi * ∫ u in Set.Ioi (0 : ℝ), sheetInt S μ v0 f u / u := by
-  sorry
+  have h := ArtinPrimitiveRoots.Proofs.thsol_sheets.local_measure_substrate μ
+  have : ∀ v : S.Sf, SigmaFinite (mulHaarFin (μ v.1)) := fun v => (h.1 v.1).2.2.2.2
+  have : SigmaFinite mulHaarC := h.2.2
+  let P := (∀ v : S.Sf, v.1.adicCompletion F) × ({w : InfinitePlace F // w ≠ v0} → ℂ)
+  let ν : Measure P := (Measure.pi fun v : S.Sf => mulHaarFin (μ v.1)).prod
+    (Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => mulHaarC)
+  let B : P → ℝ := fun p => (∏ v : S.Sf, absFin v.1 (p.1 v)) *
+    ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w)
+  obtain ⟨e, he, hpoint, hB, hpos⟩ := thsol_sheet_geometry S μ v0
+  have hg := he.integrable_comp_of_integrable hf
+  have hi := (ArtinPrimitiveRoots.Proofs.thsol_sheets.polar_product_disintegration
+    ν B hB hpos (fun q => f (e q)) hg).2
+  calc
+    _ = ∫ q, f (e q) ∂ν.prod mulHaarC := (he.integral_comp' f).symm
+    _ = _ := by simpa only [B, ν, hpoint, sheetInt, mulHaarC] using hi
 
 /-- `D^j H(u) = (u d/du)^j H(u)`. -/
 def normDerivR (j : ℕ) (Hf : ℝ → ℂ) (u : ℝ) : ℂ :=
