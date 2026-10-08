@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.Proofs.th_family_lead_p.CompactFourierDomain
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.RootChartRegularity
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.SpecResidueBounds
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.ResidueReconstruction
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.SmoothMatrixCoordinates
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
