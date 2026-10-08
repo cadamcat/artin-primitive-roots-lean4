@@ -20,6 +20,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.RationalEncoding
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealMajorant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.LocalProduct
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.PeriodLattice
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.FullJacquet
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
@@ -3710,6 +3711,45 @@ theorem whit_atLift (P : CoverPackage D S H A) (G : GlobalDatum P)
   intro w _
   rw [hC w]
 
+/-- The weighted Bruhat split on a bounded ideal domain has only big-cell contributions. -/
+theorem whit_weighted_bruhat (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) = scalarOf P G Fs.f Fs.fC h)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume)
+    (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (ν : F) (infEmbA ξ) = 1) :
+    ∃ B : Set (InfinitePlace F → ℂ), MeasurableSet B ∧ IsCompact (closure B) ∧
+      IsAddFundamentalDomain
+        ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) B volume ∧
+      torusCoeff P (eisenstein P G Fs) g Pd (ν : F) =
+        ((volume B).toReal)⁻¹ * ∑' p : (Fˣ ⧸ G.Δ) × F, ∫ u in B,
+          scalarOf P G Fs.f Fs.fC
+            (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P u * g) *
+              psiInf (-(ν : F)) u := by
+  sorry
+
+/-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
+theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (g : P.tc.G)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) = scalarOf P G Fs.f Fs.fC h)
+    (B : Set (InfinitePlace F → ℂ)) (hB : MeasurableSet B) (hBc : IsCompact (closure B))
+    (hBd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) B volume)
+    (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (ν : F) (infEmbA ξ) = 1)
+    (x : P.RP) (hx : P.q x = P.tc.rat (diagGL ν) * g) :
+    ((volume B).toReal)⁻¹ * ∑' p : (Fˣ ⧸ G.Δ) × F, ∫ u in B,
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P u * g) *
+          psiInf (-(ν : F)) u =
+      (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
+  sorry
+
 /-- The small cell vanishes and the big cell tiles the archimedean integral. -/
 theorem whit_unfold_integral (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
@@ -3724,7 +3764,9 @@ theorem whit_unfold_integral (P : CoverPackage D S H A) (G : GlobalDatum P)
     (x : P.RP) (hx : P.q x = P.tc.rat (diagGL ν) * g) :
     torusCoeff P (eisenstein P G Fs) g Pd (ν : F) =
       (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
-  sorry
+  obtain ⟨B, hB, hBc, hBd, hsplit⟩ :=
+    whit_weighted_bruhat P G hs Fs g 𝔞 h𝔞 hfix Pd hPd ν hν
+  exact hsplit.trans (whit_bigCell_jacquet P G μ hs Fs g 𝔞 h𝔞 hfix B hB hBc hBd ν hν x hx)
 
 /-- **eis:whittaker** (unfolding): the `ν`-th torus coefficient is `W_E(a(ν) g)`, for `ν` in the dual
 lattice. -/
