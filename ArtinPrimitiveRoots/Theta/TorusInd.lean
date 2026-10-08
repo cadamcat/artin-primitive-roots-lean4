@@ -1,10 +1,12 @@
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.Cover
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
+import ArtinPrimitiveRoots.Vendor.TauCeti.NumberTheory.LocalField.PowerSubgroup.Basic
+import ArtinPrimitiveRoots.Vendor.TauCeti.NumberTheory.LocalField.UnitFiltration.Pow
 
 set_option autoImplicit false
 
-open NumberField IsDedekindDomain
+open NumberField IsDedekindDomain ValuativeRel IsLocalRing IsNonarchimedeanLocalField
 open scoped Classical
 
 noncomputable section
@@ -455,6 +457,1220 @@ private theorem localChi_toLoc_integral (D : FieldData F) (v : FinPlace F)
   rw [dif_pos hex]
   simpa [hx] using hchi.symm
 
+private theorem local_unit_approximant (v : FinPlace F) (u : (v.adicCompletion F)ˣ)
+    (hu : IsLocUnit v u) :
+    ∃ a : 𝓞 F, a ∉ v.asIdeal ∧ Valued.v ((u : v.adicCompletion F) -
+      algebraMap F _ (algebraMap (𝓞 F) F a)) < 1 := by
+  let O := v.adicCompletionIntegers F
+  let uO : O := ⟨(u : v.adicCompletion F), hu.1⟩
+  let uInvO : O := ⟨((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F), hu.2⟩
+  have hprod : uO * uInvO = (1 : O) := by
+    apply Subtype.ext
+    simp [uO, uInvO]
+  have hresNe : IsLocalRing.residue O uO ≠ 0 := by
+    intro hz
+    have hp := congrArg (IsLocalRing.residue O) hprod
+    rw [map_mul, map_one, hz, zero_mul] at hp
+    exact zero_ne_one hp
+  let e := v.residueFieldEquivAdicCompletionIntegers (K := F)
+  let r := e.symm (IsLocalRing.residue O uO)
+  obtain ⟨a, ha⟩ := Ideal.Quotient.mk_surjective r
+  have hbar : e (Ideal.Quotient.mk v.asIdeal a) = IsLocalRing.residue O uO := by
+    rw [ha]
+    exact e.apply_symm_apply _
+  have hresA : IsLocalRing.residue O uO =
+      Ideal.Quotient.mk (IsLocalRing.maximalIdeal O) (algebraMap (𝓞 F) O a) := by
+    rw [← hbar, v.residueFieldEquivAdicCompletionIntegers_apply_mk]
+  have ha_not : a ∉ v.asIdeal := by
+    intro hamem
+    have hmk : Ideal.Quotient.mk v.asIdeal a = 0 :=
+      (Ideal.Quotient.eq_zero_iff_mem).2 hamem
+    have hzero : IsLocalRing.residue O uO = 0 := by
+      rw [← hbar, hmk]
+      rfl
+    exact hresNe hzero
+  have hdiff_mem : uO - algebraMap (𝓞 F) O a ∈ IsLocalRing.maximalIdeal O := by
+    apply (Ideal.Quotient.eq_zero_iff_mem).1
+    have hzero : IsLocalRing.residue O (uO - algebraMap (𝓞 F) O a) = 0 := by
+      rw [map_sub]
+      have hresA' : IsLocalRing.residue O uO =
+          IsLocalRing.residue O (algebraMap (𝓞 F) O a) := by
+        change IsLocalRing.residue O uO =
+          Ideal.Quotient.mk (IsLocalRing.maximalIdeal O) (algebraMap (𝓞 F) O a)
+        exact hresA
+      rw [hresA', sub_self]
+    exact hzero
+  have hmax (z : O) : z ∈ IsLocalRing.maximalIdeal O ↔
+      Valued.v (z : v.adicCompletion F) < 1 := by
+    change z ∈ IsLocalRing.maximalIdeal
+        ((Valued.v : Valuation (v.adicCompletion F)
+          (WithZero (Multiplicative ℤ))).valuationSubring) ↔ _
+    exact Valuation.mem_maximalIdeal_iff
+      (v := (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))))
+  have hlt : Valued.v ((uO - algebraMap (𝓞 F) O a : O) : v.adicCompletion F) < 1 :=
+    (hmax _).1 hdiff_mem
+  have hmap : ((algebraMap (𝓞 F) O a : O) : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a) := by
+    exact (HeightOneSpectrum.algebraMap_adicCompletion_eq_algebraMap_adicCompletionIntegers
+      (K := F) (v := v) a).symm
+  have hcoerce : ((uO - algebraMap (𝓞 F) O a : O) : v.adicCompletion F) =
+      (u : v.adicCompletion F) -
+        algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a) := by
+    change (uO : v.adicCompletion F) -
+      ((algebraMap (𝓞 F) O a : O) : v.adicCompletion F) = _
+    rw [hmap]
+  rw [hcoerce] at hlt
+  exact ⟨a, ha_not, hlt⟩
+
+private theorem localChi_of_approx (D : FieldData F) (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ) (a : 𝓞 F) (ha : a ∉ v.asIdeal)
+    (hta : Valued.v ((u : v.adicCompletion F) -
+      algebraMap F _ (algebraMap (𝓞 F) F a)) < 1) :
+    localChi D v u = chi D v (a : F) := by
+  have hex : ∃ b : 𝓞 F, b ∉ v.asIdeal ∧ Valued.v ((u : v.adicCompletion F) -
+      algebraMap F _ (algebraMap (𝓞 F) F b)) < 1 := ⟨a, ha, hta⟩
+  have hcmp : Valued.v (((a : F) : v.adicCompletion F) -
+      ((hex.choose : F) : v.adicCompletion F)) < 1 := by
+    have h := (Valued.v : Valuation (v.adicCompletion F)
+      (WithZero (Multiplicative ℤ))).map_sub_lt hex.choose_spec.2 hta
+    have hEq : ((u : v.adicCompletion F) -
+        algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F hex.choose)) -
+        ((u : v.adicCompletion F) -
+        algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) =
+          algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a) -
+            algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F hex.choose) := by ring
+    rw [hEq] at h
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply] using h
+  have hcmp' : Valued.v (algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F (a - hex.choose))) < 1 := by
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, map_sub] using hcmp
+  have hglobal : HeightOneSpectrum.valuation F v
+      (algebraMap (𝓞 F) F (a - hex.choose)) < 1 := by
+    change Valued.v ((algebraMap (𝓞 F) F (a - hex.choose) : F) : v.adicCompletion F) < 1
+      at hcmp'
+    rw [v.valuedAdicCompletion_eq_valuation'] at hcmp'
+    exact hcmp'
+  have hres : residue v (a : F) = residue v (hex.choose : F) := by
+    rw [residue_algebraMap_local, residue_algebraMap_local]
+    exact residue_integer_eq_of_valuation_sub_lt_one v a hex.choose hglobal
+  have hchi := chi_eq_of_residue_eq D v _ _ hres
+  unfold localChi
+  rw [dif_pos hex]
+  exact hchi.symm
+
+private lemma torus_count_spanSingleton_div (v : FinPlace F) (x y : F)
+    (hx : x ≠ 0) (hy : y ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x / y)) =
+      FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) x) -
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) y) := by
+  rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
+    FractionalIdeal.count_mul F v
+      (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hx)
+      (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hy)),
+    FractionalIdeal.count_inv]
+  ring
+
+private lemma torus_count_spanSingleton_eq_neg_log_intValuation (v : FinPlace F)
+    (a : 𝓞 F) (ha : a ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F a)) = -WithZero.log (v.intValuation a) := by
+  have hspan : (Ideal.span {a} : Ideal (𝓞 F)) ≠ 0 := by
+    simpa [ne_eq, Ideal.zero_eq_bot, Ideal.span_singleton_eq_bot] using ha
+  rw [← FractionalIdeal.coeIdeal_span_singleton, FractionalIdeal.count_coe F v hspan,
+    v.intValuation_if_neg ha, WithZero.log_exp]
+  ring
+
+private lemma torus_count_spanSingleton_eq_neg_log_valuation (v : FinPlace F)
+    (z : F) (hz : z ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z) =
+      -WithZero.log (HeightOneSpectrum.valuation F v z) := by
+  obtain ⟨n, d, hnd⟩ := IsLocalization.exists_mk'_eq (nonZeroDivisors (𝓞 F)) z
+  have hn : n ≠ 0 := by
+    intro hn
+    apply hz
+    rw [← hnd, IsFractionRing.mk'_eq_div, hn, map_zero, zero_div]
+  have hd : (d : 𝓞 F) ≠ 0 := nonZeroDivisors.ne_zero d.2
+  have hmapn : (algebraMap (𝓞 F) F n) ≠ 0 := by
+    intro h
+    exact hn ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hmapd : (algebraMap (𝓞 F) F (d : 𝓞 F)) ≠ 0 := by
+    intro h
+    exact hd ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hval : HeightOneSpectrum.valuation F v z =
+      v.intValuation n / v.intValuation (d : 𝓞 F) := by
+    rw [← hnd]
+    exact v.valuation_of_mk'
+  rw [hval, ← hnd, IsFractionRing.mk'_eq_div,
+    torus_count_spanSingleton_div v (algebraMap (𝓞 F) F n)
+      (algebraMap (𝓞 F) F (d : 𝓞 F)) hmapn hmapd,
+    torus_count_spanSingleton_eq_neg_log_intValuation v n hn,
+    torus_count_spanSingleton_eq_neg_log_intValuation v (d : 𝓞 F) hd,
+    WithZero.log_div (v.intValuation_ne_zero n hn) (v.intValuation_ne_zero (d : 𝓞 F) hd)]
+  ring
+
+private theorem torus_uniformizer_count (v : FinPlace F) :
+    FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (unif v)) = 1 := by
+  have hval : HeightOneSpectrum.valuation F v (unif v) = WithZero.exp (-1 : ℤ) := by
+    dsimp [unif]
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  rw [torus_count_spanSingleton_eq_neg_log_valuation v (unif v) (unif_ne_zero v),
+    hval, WithZero.log_exp]
+  norm_num
+
+private theorem torus_chi_one (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) : chi D v (1 : F) = 1 := by
+  have hres : residue v (1 : F) ≠ 0 := by
+    rw [show (1 : F) = algebraMap (𝓞 F) F 1 by simp, residue_algebraMap_local]
+    simp
+  let π : Fˣ := Units.mk0 (unif v) (unif_ne_zero v)
+  have htame := H.tame v hv (1 : Fˣ) π hres
+  have hcount := torus_uniformizer_count v
+  have htame' : (((H.hilb v 1 (unifLoc v) : rootsOfUnity 6 F) : Fˣ) : F) =
+      algebraMap (𝓞 F) F (((chiAlg v (1 : F) : (𝓞 F)ˣ) : 𝓞 F)) := by
+    simpa [π, unifLoc, hcount] using htame
+  have hχAlg : algebraMap (𝓞 F) F
+      (((chiAlg v (1 : F) : (𝓞 F)ˣ) : 𝓞 F)) = 1 := by
+    simpa [hilb_one_left] using htame'.symm
+  have hχAlgO : (((chiAlg v (1 : F) : (𝓞 F)ˣ) : 𝓞 F)) = 1 :=
+    (IsFractionRing.injective (𝓞 F) F) (by simpa using hχAlg)
+  simp [chi, hres, hχAlgO]
+
+private theorem torus_localChi_nezero (D : FieldData F) (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) : localChi D v u ≠ 0 := by
+  obtain ⟨a, ha, hta⟩ := local_unit_approximant v u hu
+  have hres : residue v (a : F) ≠ 0 := by
+    rw [residue_algebraMap_local]
+    exact fun hz => ha ((Ideal.Quotient.eq_zero_iff_mem).1 hz)
+  have hsix := chi_six_of_residue D v (a : F) hres
+  rw [localChi_of_approx D v u a ha hta]
+  intro hzero
+  rw [hzero] at hsix
+  norm_num at hsix
+
+private theorem torus_localChi_one_of_near_one (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u)
+    (hnear : Valued.v ((u : v.adicCompletion F) - 1) < 1) : localChi D v u = 1 := by
+  obtain ⟨a, ha, hta⟩ := local_unit_approximant v u hu
+  have hcmp : Valued.v ((algebraMap F (v.adicCompletion F) (a : F)) - 1) < 1 := by
+    have h := (Valued.v : Valuation (v.adicCompletion F)
+      (WithZero (Multiplicative ℤ))).map_sub_lt hnear hta
+    have hEq : ((u : v.adicCompletion F) -
+        (1 : v.adicCompletion F)) -
+        ((u : v.adicCompletion F) -
+        algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) =
+          algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a) - 1 := by ring
+    rw [hEq] at h
+    exact h
+  have hglobal : HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F (a - 1)) < 1 := by
+    have hcmp' : Valued.v (algebraMap F (v.adicCompletion F)
+        (algebraMap (𝓞 F) F (a - 1))) < 1 := by
+      simpa only [map_sub, map_one] using hcmp
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using hcmp'
+  have hres : residue v (a : F) = residue v (1 : F) := by
+    calc
+      residue v (a : F) = Ideal.Quotient.mk v.asIdeal a := residue_algebraMap_local v a
+      _ = Ideal.Quotient.mk v.asIdeal 1 :=
+        residue_integer_eq_of_valuation_sub_lt_one v a 1 hglobal
+      _ = residue v (1 : F) := (residue_algebraMap_local v 1).symm
+  calc
+    localChi D v u = chi D v (a : F) := localChi_of_approx D v u a ha hta
+    _ = chi D v (1 : F) := chi_eq_of_residue_eq D v _ _ hres
+    _ = 1 := torus_chi_one D H v hv
+
+private theorem torus_local_unit_sixth_factor (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u)
+    (a : 𝓞 F) (ha : a ∉ v.asIdeal)
+    (hta : Valued.v ((u : v.adicCompletion F) -
+      algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) < 1)
+    (a₀ : Fˣ) (ha₀ : (a₀ : F) = a) :
+    ∃ c : (v.adicCompletion F)ˣ, u = c ^ 6 * toLoc v a₀ := by
+  let aLoc : (v.adicCompletion F)ˣ := toLoc v a₀
+  let O := v.adicCompletionIntegers F
+  let m : Ideal O := IsLocalRing.maximalIdeal O
+  let uO : O := ⟨(u : v.adicCompletion F), hu.1⟩
+  let aO : O := algebraMap (𝓞 F) O a
+  have hvalA : v.valuation F (a : F) = 1 := by
+    apply le_antisymm (v.valuation_le_one (R := 𝓞 F) (K := F) a)
+    apply le_of_not_gt
+    intro hlt
+    exact ha ((v.valuation_lt_one_iff_mem (K := F) a).mp hlt)
+  have hmapA : (aO : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (a : F) := by
+    exact (v.algebraMap_adicCompletion_eq_algebraMap_adicCompletionIntegers a).symm
+  have hvalAO : Valued.v (aO : v.adicCompletion F) = 1 := by
+    rw [hmapA]
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using hvalA
+  have haUnit : IsUnit aO :=
+    (HeightOneSpectrum.adicCompletionIntegers.isUnit_iff_valued_eq_one).2 hvalAO
+  let aOUnit : Oˣ := haUnit.unit
+  have haOUnit : (aOUnit : O) = aO := haUnit.unit_spec
+  let huInvO : O := ⟨((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F), hu.2⟩
+  have huOInv : uO * huInvO = 1 := by
+    apply Subtype.ext
+    simp [uO, huInvO]
+  have huInvO' : huInvO * uO = 1 := by
+    apply Subtype.ext
+    simp [uO, huInvO]
+  have huUnit : IsUnit uO := ⟨⟨uO, huInvO, huOInv, huInvO'⟩, rfl⟩
+  let uOUnit : Oˣ := huUnit.unit
+  have huOUnit : (uOUnit : O) = uO := huUnit.unit_spec
+  let rOUnit : Oˣ := uOUnit * aOUnit⁻¹
+  let rLoc : (v.adicCompletion F)ˣ := u * aLoc⁻¹
+  have hmapA₀ : (aLoc : v.adicCompletion F) = (aO : v.adicCompletion F) := by
+    rw [hmapA]
+    simp [aLoc, toLoc, ha₀]
+  have hratioO : (rOUnit : O) - 1 = (uO - aO) * ((aOUnit⁻¹ : Oˣ) : O) := by
+    have haInv : aO * ((aOUnit⁻¹ : Oˣ) : O) = 1 := by
+      rw [← haOUnit]
+      simp
+    calc
+      (rOUnit : O) - 1 = uO * ((aOUnit⁻¹ : Oˣ) : O) - 1 := by
+        simp [rOUnit, huOUnit]
+      _ = (uO - aO) * ((aOUnit⁻¹ : Oˣ) : O) := by
+        rw [sub_mul, haInv]
+  have hmax (z : O) : z ∈ m ↔ Valued.v (z : v.adicCompletion F) < 1 := by
+    change z ∈ IsLocalRing.maximalIdeal
+        ((Valued.v : Valuation (v.adicCompletion F)
+          (WithZero (Multiplicative ℤ))).valuationSubring) ↔ _
+    exact Valuation.mem_maximalIdeal_iff
+      (v := (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))))
+  have hdiffO : uO - aO ∈ m := by
+    apply (hmax _).2
+    have hcoerce : ((uO - aO : O) : v.adicCompletion F) =
+        (u : v.adicCompletion F) - algebraMap F (v.adicCompletion F) (a : F) := by
+      change (uO : v.adicCompletion F) - (aO : v.adicCompletion F) = _
+      rw [hmapA]
+    rw [hcoerce]
+    exact hta
+  have hrNear : (rOUnit : O) - 1 ∈ m := by
+    rw [hratioO]
+    exact m.mul_mem_right _ hdiffO
+  have h6val : v.valuation F (6 : F) = 1 := by
+    apply le_antisymm (v.valuation_le_one (R := 𝓞 F) (K := F) (6 : 𝓞 F))
+    apply le_of_not_gt
+    intro hlt
+    exact hv ((v.valuation_lt_one_iff_mem (K := F) (6 : 𝓞 F)).mp hlt)
+  have h6map : (6 : O) = algebraMap (𝓞 F) O (6 : 𝓞 F) := by
+    exact (map_natCast (algebraMap (𝓞 F) O) 6).symm
+  have hmap6 : ((algebraMap (𝓞 F) O (6 : 𝓞 F) : O) : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (6 : F) :=
+    (v.algebraMap_adicCompletion_eq_algebraMap_adicCompletionIntegers (6 : 𝓞 F)).symm
+  have hval6O : Valued.v ((6 : O) : v.adicCompletion F) = 1 := by
+    rw [h6map, hmap6]
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using h6val
+  have h6not : (6 : O) ∉ m := by
+    intro h
+    have hlt := (hmax (6 : O)).1 h
+    rw [hval6O] at hlt
+    exact (lt_irrefl 1) hlt
+  have h6Unit : IsUnit (6 : O) := IsLocalRing.notMem_maximalIdeal.mp h6not
+  letI : HenselianRing O m := inferInstance
+  obtain ⟨cO, hcPow, _hcNear⟩ :=
+    TauCeti.HenselianRing.exists_pow_eq_and_sub_one_mem_of_sub_one_mem
+      (I := m) (J := m) le_rfl (n := 6) h6Unit hrNear
+  have hc0 : (cO : O) ≠ 0 := by
+    intro hc
+    have hr0 : (rOUnit : O) = 0 := by rw [← hcPow, hc]; simp
+    exact rOUnit.ne_zero hr0
+  let cLoc : (v.adicCompletion F)ˣ := Units.mk0 (cO : v.adicCompletion F) (by
+    simpa using hc0)
+  let algU : Oˣ →* (v.adicCompletion F)ˣ :=
+    Units.map (algebraMap O (v.adicCompletion F)).toMonoidHom
+  have hmapu : algU uOUnit = u := by
+    apply Units.ext
+    change algebraMap O (v.adicCompletion F) (uOUnit : O) = (u : v.adicCompletion F)
+    rw [huOUnit]
+    rfl
+  have hmapa : algU aOUnit = aLoc := by
+    apply Units.ext
+    change algebraMap O (v.adicCompletion F) (aOUnit : O) = (aLoc : v.adicCompletion F)
+    rw [haOUnit]
+    exact hmapA₀.symm
+  have hmapr : algU rOUnit = rLoc := by
+    calc
+      algU rOUnit = algU uOUnit * (algU aOUnit)⁻¹ := by simp [rOUnit]
+      _ = rLoc := by rw [hmapu, hmapa]
+  have hrOtoK : (rOUnit : v.adicCompletion F) = (rLoc : v.adicCompletion F) := by
+    have h := congrArg (fun z : (v.adicCompletion F)ˣ => (z : v.adicCompletion F)) hmapr
+    change algebraMap O (v.adicCompletion F) (rOUnit : O) = (rLoc : v.adicCompletion F) at h
+    exact h
+  have hcLoc : cLoc ^ 6 = rLoc := by
+    apply Units.ext
+    change ((cO : O) : v.adicCompletion F) ^ 6 = (rLoc : v.adicCompletion F)
+    calc
+      ((cO : O) : v.adicCompletion F) ^ 6 = (rOUnit : v.adicCompletion F) := by
+        exact congrArg (algebraMap O (v.adicCompletion F)) hcPow
+      _ = (rLoc : v.adicCompletion F) := hrOtoK
+  have hfactor : rLoc * aLoc = u := by
+    dsimp [rLoc]
+    group
+  exact ⟨cLoc, by
+    calc
+      u = rLoc * aLoc := hfactor.symm
+      _ = cLoc ^ 6 * aLoc := by rw [← hcLoc]⟩
+
+private theorem torus_muThree_mul (D : FieldData F) (ζ ξ : rootsOfUnity 6 F) :
+    muThree D (ζ * ξ) = muThree D ζ * muThree D ξ := by
+  apply rootsOfUnity.coe_injective
+  simp [muThree, map_mul, mul_pow]
+
+private theorem torus_muThree_one (D : FieldData F) :
+    muThree D (1 : rootsOfUnity 6 F) = 1 := by
+  apply rootsOfUnity.coe_injective
+  simp [muThree]
+
+private theorem torus_hilb_replace_left (H : HilbertData F) (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u)
+    (a : 𝓞 F) (ha : a ∉ v.asIdeal)
+    (hta : Valued.v ((u : v.adicCompletion F) -
+      algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) < 1)
+    (a₀ : Fˣ) (ha₀ : (a₀ : F) = a) (b : (v.adicCompletion F)ˣ) :
+    H.hilb v u b = H.hilb v (toLoc v a₀) b := by
+  obtain ⟨c, hfactor⟩ := torus_local_unit_sixth_factor v hv u hu a ha hta a₀ ha₀
+  rw [hfactor, H.mul_left]
+  rw [H.sixth_power v (c ^ 6) b ⟨c, rfl⟩]
+  simp
+
+private theorem torus_hilb_replace_right (H : HilbertData F) (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (b : (v.adicCompletion F)ˣ) (hb : IsLocUnit v b)
+    (a : 𝓞 F) (ha : a ∉ v.asIdeal)
+    (hta : Valued.v ((b : v.adicCompletion F) -
+      algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) < 1)
+    (a₀ : Fˣ) (ha₀ : (a₀ : F) = a) (x : (v.adicCompletion F)ˣ) :
+    H.hilb v x b = H.hilb v x (toLoc v a₀) := by
+  obtain ⟨c, hfactor⟩ := torus_local_unit_sixth_factor v hv b hb a ha hta a₀ ha₀
+  rw [hfactor, H.mul_right]
+  have hkill : H.hilb v x (c ^ 6) = 1 := by
+    have hskew := H.skew v (c ^ 6) x
+    rw [H.sixth_power v (c ^ 6) x ⟨c, rfl⟩] at hskew
+    simpa using hskew
+  rw [hkill]
+  simp
+
+private theorem torus_hilb_units_one (H : HilbertData F) (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (u u' : (v.adicCompletion F)ˣ)
+    (hu : IsLocUnit v u) (hu' : IsLocUnit v u') : H.hilb v u u' = 1 := by
+  obtain ⟨a, ha, hta⟩ := local_unit_approximant v u hu
+  obtain ⟨b, hb, htb⟩ := local_unit_approximant v u' hu'
+  let a₀ : Fˣ := Units.mk0 (a : F) (by
+    intro hz
+    apply ha
+    have h : a = 0 := IsFractionRing.injective (𝓞 F) F (by simpa using hz)
+    rw [h]
+    exact Ideal.zero_mem _)
+  let b₀ : Fˣ := Units.mk0 (b : F) (by
+    intro hz
+    apply hb
+    have h : b = 0 := IsFractionRing.injective (𝓞 F) F (by simpa using hz)
+    rw [h]
+    exact Ideal.zero_mem _)
+  let aLoc : (v.adicCompletion F)ˣ := toLoc v a₀
+  let bLoc : (v.adicCompletion F)ˣ := toLoc v b₀
+  have hresA : residue v (a : F) ≠ 0 := by
+    rw [residue_algebraMap_local]
+    exact fun hz => ha ((Ideal.Quotient.eq_zero_iff_mem).1 hz)
+  have hresB : residue v (b : F) ≠ 0 := by
+    rw [residue_algebraMap_local]
+    exact fun hz => hb ((Ideal.Quotient.eq_zero_iff_mem).1 hz)
+  have hfirst := torus_hilb_replace_left H v hv u hu a ha hta a₀ rfl u'
+  have hsecond := torus_hilb_replace_right H v hv u' hu' b hb htb b₀ rfl aLoc
+  have hbF : (b : F) ≠ 0 := by
+    intro hb0
+    apply hb
+    have h : b = 0 := IsFractionRing.injective (𝓞 F) F (by simpa using hb0)
+    rw [h]
+    exact Ideal.zero_mem _
+  have hvalB : HeightOneSpectrum.valuation F v (b : F) = 1 := by
+    exact (v.valuation_eq_one_iff_notMem (K := F) (r := b)).2 hb
+  have hcountB : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (b : F)) = 0 := by
+    rw [torus_count_spanSingleton_eq_neg_log_valuation v (b : F) hbF, hvalB]
+    simp
+  have htame := H.tame v hv a₀ b₀ hresA
+  have htame' : (((H.hilb v aLoc bLoc : rootsOfUnity 6 F) : Fˣ) : F) = 1 := by
+    simpa [a₀, b₀, aLoc, bLoc, hcountB] using htame
+  have hGlobal : H.hilb v aLoc bLoc = 1 := by
+    apply rootsOfUnity.coe_injective
+    exact htame'
+  calc
+    H.hilb v u u' = H.hilb v aLoc u' := hfirst
+    _ = H.hilb v aLoc bLoc := hsecond
+    _ = 1 := hGlobal
+
+private theorem torus_muThree_inv (D : FieldData F) (ζ : rootsOfUnity 6 F) :
+    muThree D (ζ⁻¹) = (muThree D ζ)⁻¹ := by
+  have h : muThree D ζ * muThree D (ζ⁻¹) = 1 := by
+    calc
+      _ = muThree D (ζ * ζ⁻¹) := (torus_muThree_mul D ζ ζ⁻¹).symm
+      _ = 1 := by simp [torus_muThree_one]
+  exact eq_inv_of_mul_eq_one_right h
+
+private def torusRhoUnit (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ) : ℂˣ :=
+  ((muThree D (H.hilb v (unifLoc v) u) : ℂˣ))⁻¹
+
+private theorem torusRhoUnit_mul (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (u u' : (v.adicCompletion F)ˣ) :
+    torusRhoUnit D H v (u * u') = torusRhoUnit D H v u * torusRhoUnit D H v u' := by
+  have hmu : muThree D (H.hilb v (unifLoc v) (u * u')) =
+      muThree D (H.hilb v (unifLoc v) u) * muThree D (H.hilb v (unifLoc v) u') := by
+    rw [H.mul_right, torus_muThree_mul]
+  have h := congrArg (fun z : rootsOfUnity 3 ℂ => (z : ℂˣ)⁻¹) hmu
+  simpa [torusRhoUnit, mul_inv_rev, mul_comm] using h
+
+private theorem torusRhoUnit_one (D : FieldData F) (H : HilbertData F) (v : FinPlace F) :
+    torusRhoUnit D H v 1 = 1 := by
+  simp [torusRhoUnit, hilb_one_right, torus_muThree_one]
+
+private theorem torus_muThree_hilb_zpow_left (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) (n : ℤ) :
+    muThree D (H.hilb v (x ^ n) y) = (muThree D (H.hilb v x y)) ^ n := by
+  let φ : (v.adicCompletion F)ˣ →* rootsOfUnity 3 ℂ := {
+    toFun := fun a => muThree D (H.hilb v a y)
+    map_one' := by rw [hilb_one_left, torus_muThree_one]
+    map_mul' := by intro a b; rw [H.mul_left, torus_muThree_mul]
+  }
+  change φ (x ^ n) = φ x ^ n
+  exact φ.map_zpow x n
+
+private theorem torus_muThree_hilb_zpow_right (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) (n : ℤ) :
+    muThree D (H.hilb v x (y ^ n)) = (muThree D (H.hilb v x y)) ^ n := by
+  let φ : (v.adicCompletion F)ˣ →* rootsOfUnity 3 ℂ := {
+    toFun := fun b => muThree D (H.hilb v x b)
+    map_one' := by rw [hilb_one_right, torus_muThree_one]
+    map_mul' := by intro a b; rw [H.mul_right, torus_muThree_mul]
+  }
+  change φ (y ^ n) = φ y ^ n
+  exact φ.map_zpow y n
+
+private theorem torus_muThree_unif_unit (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) :
+    ((muThree D (H.hilb v (unifLoc v) u) : ℂˣ) : ℂ) =
+      (localChi D v u ^ 2)⁻¹ := by
+  obtain ⟨a, ha, hta⟩ := local_unit_approximant v u hu
+  let a₀ : Fˣ := Units.mk0 (a : F) (by
+    intro hz
+    apply ha
+    have h : a = 0 := IsFractionRing.injective (𝓞 F) F (by simpa using hz)
+    rw [h]
+    exact Ideal.zero_mem _)
+  let aLoc : (v.adicCompletion F)ˣ := toLoc v a₀
+  let π : Fˣ := Units.mk0 (unif v) (unif_ne_zero v)
+  have hπval : HeightOneSpectrum.valuation F v (unif v) = WithZero.exp (-1 : ℤ) := by
+    dsimp [unif]
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hcount : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (unif v)) = 1 := by
+    rw [torus_count_spanSingleton_eq_neg_log_valuation v (unif v) (unif_ne_zero v),
+      hπval, WithZero.log_exp]
+    norm_num
+  have hresA : residue v (a : F) ≠ 0 := by
+    rw [residue_algebraMap_local]
+    exact fun hz => ha ((Ideal.Quotient.eq_zero_iff_mem).1 hz)
+  have htame := H.tame v hv a₀ π hresA
+  have htame' : (((H.hilb v aLoc (unifLoc v) : rootsOfUnity 6 F) : Fˣ) : F) =
+      algebraMap (𝓞 F) F (((chiAlg v (a : F) : (𝓞 F)ˣ) : 𝓞 F)) := by
+    simpa [a₀, aLoc, π, unifLoc, hcount, zpow_one] using htame
+  have hchi : D.σ0 ((((H.hilb v aLoc (unifLoc v) : rootsOfUnity 6 F) : Fˣ) : F)) =
+      chi D v (a : F) := by
+    rw [chi, if_neg hresA]
+    exact congrArg D.σ0 htame'
+  have hreplace := torus_hilb_replace_left H v hv u hu a ha hta a₀ rfl (unifLoc v)
+  let ζ : rootsOfUnity 6 F := H.hilb v aLoc (unifLoc v)
+  have hpiu : H.hilb v (unifLoc v) u = ζ⁻¹ := by
+    have hskew := H.skew v (unifLoc v) u
+    rw [hreplace] at hskew
+    exact eq_inv_of_mul_eq_one_left hskew
+  have hmuZeta : ((muThree D ζ : ℂˣ) : ℂ) = chi D v (a : F) ^ 2 := by
+    simp [ζ, muThree, hchi]
+  calc
+    ((muThree D (H.hilb v (unifLoc v) u) : ℂˣ) : ℂ) =
+        ((muThree D (ζ⁻¹) : ℂˣ) : ℂ) := by rw [hpiu]
+    _ = ((muThree D ζ : ℂˣ) : ℂ)⁻¹ := by
+          rw [torus_muThree_inv]
+          simp
+    _ = (chi D v (a : F) ^ 2)⁻¹ := by rw [hmuZeta]
+    _ = (localChi D v u ^ 2)⁻¹ := by rw [← localChi_of_approx D v u a ha hta]
+
+private theorem torus_ordv_mul (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+    ordv v (x * y) = ordv v x + ordv v y := by
+  simp [ordv, map_mul, WithZero.unzero_mul, toAdd_mul] <;> omega
+
+private theorem torus_unitPart_mul (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+    unitPart v (x * y) = unitPart v x * unitPart v y := by
+  simp [unitPart, torus_ordv_mul, zpow_add, mul_comm, mul_left_comm, mul_assoc]
+
+private theorem torus_unifLoc_val (v : FinPlace F) :
+    Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+  change Valued.v (algebraMap F (v.adicCompletion F) (unif v)) = _
+  rw [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+    Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation']
+  exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+
+private theorem torus_ordv_val (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+    Valued.v (x : v.adicCompletion F) = WithZero.exp (-(ordv v x)) := by
+  have hx : Valued.v (x : v.adicCompletion F) ≠ 0 := by
+    exact (Valuation.ne_zero_iff (Valued.v : Valuation (v.adicCompletion F) _)).mpr x.ne_zero
+  have htoAdd : Multiplicative.toAdd (WithZero.unzero hx) = -(ordv v x) := by
+    simp [ordv]
+  change Valued.v (x : v.adicCompletion F) = Multiplicative.ofAdd (-(ordv v x))
+  exact (WithZero.toAdd_unzero_eq_iff hx (-(ordv v x))).1 htoAdd
+
+private theorem torus_ordv_one (v : FinPlace F) : ordv v (1 : (v.adicCompletion F)ˣ) = 0 := by
+  have h := (torus_ordv_val v (1 : (v.adicCompletion F)ˣ)).symm
+  have hExp : WithZero.exp (-(ordv v (1 : (v.adicCompletion F)ˣ))) =
+      WithZero.exp (0 : ℤ) := by simpa using h
+  have hInt := WithZero.exp_injective hExp
+  omega
+
+private theorem torus_unitPart_one (v : FinPlace F) :
+    unitPart v (1 : (v.adicCompletion F)ˣ) = 1 := by
+  simp [unitPart, torus_ordv_one]
+
+private theorem torus_unitPart_val (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+    Valued.v (unitPart v x : v.adicCompletion F) = 1 := by
+  calc
+    Valued.v (unitPart v x : v.adicCompletion F) =
+        Valued.v (x : v.adicCompletion F) *
+          Valued.v (unifLoc v : v.adicCompletion F) ^ (-ordv v x) := by
+      simp [unitPart, unifLoc, map_mul, map_zpow₀]
+    _ = 1 := by
+      rw [torus_ordv_val, torus_unifLoc_val]
+      rw [← WithZero.exp_zsmul (-ordv v x) (-1 : ℤ), ← WithZero.exp_add]
+      simp
+
+private theorem torus_unitPart_isLocUnit (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+    IsLocUnit v (unitPart v x) := by
+  have hval := torus_unitPart_val v x
+  constructor
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hval.le
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    simp only [Units.val_inv_eq_inv_val, map_inv₀, hval, inv_one, le_refl]
+
+private theorem torus_valued_eq_one_of_locUnit (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) :
+    Valued.v (u : v.adicCompletion F) = 1 := by
+  let O := v.adicCompletionIntegers F
+  let uO : O := ⟨(u : v.adicCompletion F), hu.1⟩
+  let uInvO : O := ⟨((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F), hu.2⟩
+  have hprod : uO * uInvO = (1 : O) := by
+    apply Subtype.ext
+    simp [uO, uInvO]
+  have hprod' : uInvO * uO = (1 : O) := by
+    apply Subtype.ext
+    simp [uO, uInvO]
+  have huUnit : IsUnit uO := ⟨⟨uO, uInvO, hprod, hprod'⟩, rfl⟩
+  have hval := (HeightOneSpectrum.adicCompletionIntegers.isUnit_iff_valued_eq_one).mp huUnit
+  simpa [uO] using hval
+
+private theorem torus_ordv_unifLoc (v : FinPlace F) : ordv v (unifLoc v) = 1 := by
+  have h := torus_ordv_val v (unifLoc v)
+  rw [torus_unifLoc_val] at h
+  have hInt := WithZero.exp_injective h
+  omega
+
+private theorem torus_ordv_locUnit_zero (v : FinPlace F) (u : (v.adicCompletion F)ˣ)
+    (hu : IsLocUnit v u) : ordv v u = 0 := by
+  have hval := torus_valued_eq_one_of_locUnit v u hu
+  have h := torus_ordv_val v u
+  rw [hval] at h
+  have hInt : -(ordv v u) = 0 := by
+    simpa using h.symm
+  omega
+
+private theorem torus_ordv_zpow (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (n : ℤ) :
+    ordv v (x ^ n) = n * ordv v x := by
+  have hvalpow : Valued.v ((x ^ n : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      Valued.v (x : v.adicCompletion F) ^ n := by simp
+  have hExp : WithZero.exp (-(ordv v (x ^ n))) =
+      WithZero.exp (-(n * ordv v x)) := by
+    calc
+      WithZero.exp (-(ordv v (x ^ n))) =
+          Valued.v ((x ^ n : (v.adicCompletion F)ˣ) : v.adicCompletion F) :=
+        (torus_ordv_val v (x ^ n)).symm
+      _ = Valued.v (x : v.adicCompletion F) ^ n := hvalpow
+      _ = WithZero.exp (-(ordv v x)) ^ n := by rw [torus_ordv_val]
+      _ = WithZero.exp (-(n * ordv v x)) := by
+        rw [← WithZero.exp_zsmul n (-(ordv v x))]
+        exact congrArg WithZero.exp (by rw [Int.zsmul_eq_mul, mul_neg])
+  have hInt := WithZero.exp_injective hExp
+  omega
+
+private theorem torus_ordv_decomp (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+    x = unifLoc v ^ (ordv v x) * unitPart v x := by
+  unfold unitPart
+  have hpi : unifLoc v ^ ordv v x * unifLoc v ^ (-(ordv v x)) = 1 := by
+    rw [← zpow_add, add_neg_cancel, zpow_zero]
+  calc
+    x = (unifLoc v ^ ordv v x * unifLoc v ^ (-(ordv v x))) * x := by
+      rw [hpi]
+      simp
+    _ = unifLoc v ^ ordv v x *
+        (x * unifLoc v ^ (-(ordv v x))) := by ac_rfl
+
+private theorem torus_ordv_uniformizer_mul_unit (v : FinPlace F) (j : ℤ)
+    (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) :
+    ordv v (unifLoc v ^ j * u) = j := by
+  rw [torus_ordv_mul, torus_ordv_zpow, torus_ordv_unifLoc, torus_ordv_locUnit_zero v u hu]
+  simp
+
+private theorem torus_unitPart_uniformizer_mul_unit (v : FinPlace F) (j : ℤ)
+    (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) :
+    unitPart v (unifLoc v ^ j * u) = u := by
+  have hord := torus_ordv_uniformizer_mul_unit v j u hu
+  unfold unitPart
+  rw [hord]
+  have hpi : unifLoc v ^ j * unifLoc v ^ (-j) = 1 := by
+    rw [← zpow_add, add_neg_cancel, zpow_zero]
+  calc
+    (unifLoc v ^ j * u) * unifLoc v ^ (-j) =
+        (unifLoc v ^ j * unifLoc v ^ (-j)) * u := by ac_rfl
+    _ = u := by rw [hpi]; simp
+
+private theorem torusRhoUnit_val (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) :
+    ((torusRhoUnit D H v u : ℂˣ) : ℂ) = localChi D v u ^ 2 := by
+  have h := torus_muThree_unif_unit D H v hv u hu
+  dsimp [torusRhoUnit]
+  rw [Units.val_inv_eq_inv_val, h]
+  simp
+
+private def torusCVal (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) : ℂ :=
+  ((muThree D (H.hilb v x y) : ℂˣ) : ℂ)
+
+private theorem torusCVal_mul_left (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x x' y : (v.adicCompletion F)ˣ) :
+    torusCVal D H v (x * x') y = torusCVal D H v x y * torusCVal D H v x' y := by
+  simp [torusCVal, H.mul_left, torus_muThree_mul, Units.val_mul]
+
+private theorem torusCVal_mul_right (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x y y' : (v.adicCompletion F)ˣ) :
+    torusCVal D H v x (y * y') = torusCVal D H v x y * torusCVal D H v x y' := by
+  simp [torusCVal, H.mul_right, torus_muThree_mul, Units.val_mul]
+
+private theorem torusCVal_zpow_left (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) (n : ℤ) :
+    torusCVal D H v (x ^ n) y = (torusCVal D H v x y) ^ n := by
+  simpa [torusCVal] using congrArg (fun z : rootsOfUnity 3 ℂ => ((z : ℂˣ) : ℂ))
+    (torus_muThree_hilb_zpow_left D H v x y n)
+
+private theorem torusCVal_zpow_right (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) (n : ℤ) :
+    torusCVal D H v x (y ^ n) = (torusCVal D H v x y) ^ n := by
+  simpa [torusCVal] using congrArg (fun z : rootsOfUnity 3 ℂ => ((z : ℂˣ) : ℂ))
+    (torus_muThree_hilb_zpow_right D H v x y n)
+
+private theorem torusCVal_unifPow_unit (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (j : ℤ) (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
+    torusCVal D H v (unifLoc v ^ j) u =
+      ((torusRhoUnit D H v u : ℂˣ) : ℂ) ^ (-j) := by
+  have hbase : torusCVal D H v (unifLoc v) u =
+      (((torusRhoUnit D H v u : ℂˣ) : ℂ)⁻¹) := by
+    rw [torusCVal, torus_muThree_unif_unit D H v hv u hu,
+      torusRhoUnit_val D H v hv u hu]
+  calc
+    torusCVal D H v (unifLoc v ^ j) u = torusCVal D H v (unifLoc v) u ^ j :=
+      torusCVal_zpow_left D H v (unifLoc v) u j
+    _ = ((torusRhoUnit D H v u : ℂˣ) : ℂ) ^ (-j) := by rw [hbase]; simp [zpow_neg]
+
+private theorem torusCVal_unit_unifPow (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u)
+    (k : ℤ) (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
+    torusCVal D H v u (unifLoc v ^ k) =
+      ((torusRhoUnit D H v u : ℂˣ) : ℂ) ^ k := by
+  have hskew : H.hilb v u (unifLoc v ^ k) =
+      (H.hilb v (unifLoc v ^ k) u)⁻¹ := by
+    exact eq_inv_of_mul_eq_one_left (H.skew v u (unifLoc v ^ k))
+  have hswap : torusCVal D H v u (unifLoc v ^ k) =
+      (torusCVal D H v (unifLoc v ^ k) u)⁻¹ := by
+    change ((muThree D (H.hilb v u (unifLoc v ^ k)) : ℂˣ) : ℂ) = _
+    rw [hskew, torus_muThree_inv]
+    simp [torusCVal, Units.val_inv_eq_inv_val]
+  have hbase : torusCVal D H v (unifLoc v) u =
+      (((torusRhoUnit D H v u : ℂˣ) : ℂ)⁻¹) := by
+    rw [torusCVal, torus_muThree_unif_unit D H v hv u hu,
+      torusRhoUnit_val D H v hv u hu]
+  calc
+    torusCVal D H v u (unifLoc v ^ k) =
+        (torusCVal D H v (unifLoc v ^ k) u)⁻¹ := hswap
+    _ = (torusCVal D H v (unifLoc v) u ^ k)⁻¹ := by
+      rw [torusCVal_zpow_left]
+    _ = ((torusRhoUnit D H v u : ℂˣ) : ℂ) ^ k := by rw [hbase]; simp [zpow_neg]
+
+private theorem torusCVal_unifPowers (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (j k : ℤ) :
+    torusCVal D H v (unifLoc v ^ j) (unifLoc v ^ k) = 1 := by
+  have hskew : (H.hilb v (unifLoc v) (unifLoc v)) ^ 2 = 1 := by
+    simpa [pow_two] using H.skew v (unifLoc v) (unifLoc v)
+  have hbase : muThree D (H.hilb v (unifLoc v) (unifLoc v)) = 1 :=
+    muThree_sq_one D (H.hilb v (unifLoc v) (unifLoc v)) hskew
+  rw [torusCVal_zpow_left, torusCVal_zpow_right]
+  change (torusCVal D H v (unifLoc v) (unifLoc v) ^ k) ^ j = 1
+  rw [show torusCVal D H v (unifLoc v) (unifLoc v) = 1 by
+    simpa [torusCVal] using congrArg (fun z : rootsOfUnity 3 ℂ => ((z : ℂˣ) : ℂ)) hbase]
+  simp
+
+private theorem torus_tame_pair_formula (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (x y : (v.adicCompletion F)ˣ) :
+    torusCVal D H v x y =
+      ((torusRhoUnit D H v (unitPart v x) : ℂˣ) : ℂ) ^ (ordv v y) *
+        ((torusRhoUnit D H v (unitPart v y) : ℂˣ) : ℂ) ^ (-(ordv v x)) := by
+  let π := unifLoc v
+  let j := ordv v x
+  let k := ordv v y
+  let u := unitPart v x
+  let u' := unitPart v y
+  have hu : IsLocUnit v u := torus_unitPart_isLocUnit v x
+  have hu' : IsLocUnit v u' := torus_unitPart_isLocUnit v y
+  have hx : x = π ^ j * u := by
+    simpa [π, j, u] using torus_ordv_decomp v x
+  have hy : y = π ^ k * u' := by
+    simpa [π, k, u'] using torus_ordv_decomp v y
+  have hordx : ordv v (π ^ j * u) = j := by
+    simpa [π] using torus_ordv_uniformizer_mul_unit v j u hu
+  have hordy : ordv v (π ^ k * u') = k := by
+    simpa [π] using torus_ordv_uniformizer_mul_unit v k u' hu'
+  have hpartx : unitPart v (π ^ j * u) = u := by
+    simpa [π] using torus_unitPart_uniformizer_mul_unit v j u hu
+  have hparty : unitPart v (π ^ k * u') = u' := by
+    simpa [π] using torus_unitPart_uniformizer_mul_unit v k u' hu'
+  have hunit : torusCVal D H v u u' = 1 := by
+    change ((muThree D (H.hilb v u u') : ℂˣ) : ℂ) = 1
+    rw [torus_hilb_units_one H v hv u u' hu hu']
+    simp [torusCVal, torus_muThree_one]
+  rw [hx, hy, torusCVal_mul_left, torusCVal_mul_right, torusCVal_mul_right]
+  rw [torusCVal_unifPowers D H v j k, torusCVal_unifPow_unit D H v j u' hu' hv,
+    torusCVal_unit_unifPow D H v u hu k hv, hunit, hpartx, hparty, hordx, hordy]
+  ring
+
+private theorem torusRhoUnit_cube (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
+    torusRhoUnit D H v u ^ 3 = 1 := by
+  have hbase : (muThree D (H.hilb v (unifLoc v) u) : ℂˣ) ^ 3 = 1 :=
+    (mem_rootsOfUnity 3 (muThree D (H.hilb v (unifLoc v) u) : ℂˣ)).mp
+      (muThree D (H.hilb v (unifLoc v) u)).property
+  dsimp [torusRhoUnit]
+  rw [inv_pow, hbase]
+  simp
+
+private theorem torusRhoUnit_sq_cube (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
+    (torusRhoUnit D H v u ^ 2) ^ 3 = 1 := by
+  calc
+    (torusRhoUnit D H v u ^ 2) ^ 3 =
+        torusRhoUnit D H v u ^ (2 * 3) := by rw [pow_mul]
+    _ = torusRhoUnit D H v u ^ (3 * 2) := by congr 1 <;> norm_num
+    _ = (torusRhoUnit D H v u ^ 3) ^ 2 := by rw [pow_mul]
+    _ = 1 := by rw [torusRhoUnit_cube]; simp
+
+private def torusPhaseHom (ρ : ℂˣ) (hρ : ρ ^ 3 = 1) : ZMod 3 →+ Additive ℂˣ :=
+  ZMod.lift 3 ⟨{
+    toFun := fun n => Additive.ofMul (ρ ^ n)
+    map_zero' := by apply Additive.ext; simp
+    map_add' := by intro m n; apply Additive.ext; simp [zpow_add]
+  }, by
+    apply Additive.ext
+    simp [hρ]⟩
+
+private def torusPhaseUnit (ρ : ℂˣ) (hρ : ρ ^ 3 = 1) (k : ZMod 3) : ℂˣ :=
+  (torusPhaseHom ρ hρ k).toMul
+
+private theorem torusPhaseUnit_add (ρ : ℂˣ) (hρ : ρ ^ 3 = 1) (k l : ZMod 3) :
+    torusPhaseUnit ρ hρ (k + l) = torusPhaseUnit ρ hρ k * torusPhaseUnit ρ hρ l := by
+  change (torusPhaseHom ρ hρ (k + l)).toMul = _
+  rw [(torusPhaseHom ρ hρ).map_add]
+  rfl
+
+private theorem torusPhaseUnit_intCast (ρ : ℂˣ) (hρ : ρ ^ 3 = 1) (j : ℤ) :
+    torusPhaseUnit ρ hρ (j : ZMod 3) = ρ ^ j := by
+  simp [torusPhaseUnit, torusPhaseHom, ZMod.lift_coe]
+
+private theorem torusPhaseUnit_val (ρ : ℂˣ) (hρ : ρ ^ 3 = 1) (k : ZMod 3) :
+    torusPhaseUnit ρ hρ k = ρ ^ (k.val : ℤ) := by
+  calc
+    torusPhaseUnit ρ hρ k = torusPhaseUnit ρ hρ (k.val : ZMod 3) := by
+      rw [ZMod.natCast_zmod_val]
+    _ = torusPhaseUnit ρ hρ ((k.val : ℤ) : ZMod 3) := by norm_cast
+    _ = ρ ^ (k.val : ℤ) := torusPhaseUnit_intCast ρ hρ _
+
+private theorem torusPhaseUnit_mul_base (ρ σ : ℂˣ) (hρ : ρ ^ 3 = 1)
+    (hσ : σ ^ 3 = 1) (k : ZMod 3) :
+    torusPhaseUnit (ρ * σ) (by rw [mul_pow, hρ, hσ]; simp) k =
+      torusPhaseUnit ρ hρ k * torusPhaseUnit σ hσ k := by
+  obtain ⟨j, rfl⟩ := ZMod.intCast_surjective k
+  simp [torusPhaseUnit_intCast, mul_zpow]
+
+private theorem torusPhaseUnit_shift (ρ : ℂˣ) (hρ : ρ ^ 3 = 1)
+    (k : ZMod 3) (j : ℤ) :
+    torusPhaseUnit ρ hρ (k + (j : ZMod 3)) =
+      torusPhaseUnit ρ hρ k * ρ ^ j := by
+  rw [torusPhaseUnit_add, torusPhaseUnit_intCast]
+
+private theorem torus_sq_cube (ρ : ℂˣ) (hρ : ρ ^ 3 = 1) : (ρ ^ 2) ^ 3 = 1 := by
+  calc
+    (ρ ^ 2) ^ 3 = ρ ^ (2 * 3) := by rw [pow_mul]
+    _ = ρ ^ (3 * 2) := by congr 1 <;> norm_num
+    _ = (ρ ^ 3) ^ 2 := by rw [pow_mul]
+    _ = 1 := by rw [hρ]; simp
+
+private def torusTameCoeffParam (ρ : ℂˣ) (hρ : ρ ^ 3 = 1) (j : ℤ)
+    (k : ZMod 3) : ℂˣ :=
+  ρ ^ j * torusPhaseUnit (ρ ^ 2) (torus_sq_cube ρ hρ) k
+
+private def torusTameCoeffUnit (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x : (v.adicCompletion F)ˣ) (k : ZMod 3) : ℂˣ :=
+  let ρ := torusRhoUnit D H v (unitPart v x)
+  torusTameCoeffParam ρ (torusRhoUnit_cube D H v (unitPart v x)) (ordv v x) k
+
+private theorem torusTameCoeffParam_mul (ρ σ : ℂˣ) (hρ : ρ ^ 3 = 1)
+    (hσ : σ ^ 3 = 1) (j j' : ℤ) (k : ZMod 3) :
+    torusTameCoeffParam σ hσ j' k *
+        torusTameCoeffParam ρ hρ j (k + (j' : ZMod 3)) =
+      (ρ ^ j' * σ ^ (-j)) *
+        torusTameCoeffParam (ρ * σ) (by rw [mul_pow, hρ, hσ]; simp) (j + j') k := by
+  let hρ2 := torus_sq_cube ρ hρ
+  let hσ2 := torus_sq_cube σ hσ
+  let hρσ : (ρ * σ) ^ 3 = 1 := by rw [mul_pow, hρ, hσ]; simp
+  let hρσ2 := torus_sq_cube (ρ * σ) hρσ
+  have hsquare (a : ℂˣ) (j : ℤ) : (a ^ 2) ^ j = a ^ (2 * j) := by
+    calc
+      (a ^ 2) ^ j = (a ^ (2 : ℤ)) ^ j := by simp
+      _ = a ^ ((2 : ℤ) * j) := by rw [zpow_mul]
+  have hshift : torusPhaseUnit (ρ ^ 2) hρ2 (k + (j' : ZMod 3)) =
+      torusPhaseUnit (ρ ^ 2) hρ2 k * ρ ^ (2 * j') := by
+    rw [torusPhaseUnit_shift]
+    rw [hsquare]
+  have hphase : torusPhaseUnit ((ρ * σ) ^ 2) hρσ2 k =
+      torusPhaseUnit (ρ ^ 2) hρ2 k * torusPhaseUnit (σ ^ 2) hσ2 k := by
+    convert torusPhaseUnit_mul_base (ρ ^ 2) (σ ^ 2) hρ2 hσ2 k using 1 <;>
+      simp [mul_pow]
+  have hrho : ρ ^ (2 * j') = ρ ^ j' * ρ ^ j' := by
+    calc
+      ρ ^ (2 * j') = ρ ^ (j' + j') := by congr 1 <;> ring
+      _ = ρ ^ j' * ρ ^ j' := by rw [zpow_add]
+  have hrho' : ρ ^ (j' * 2) = ρ ^ j' * ρ ^ j' := by
+    have he : j' * 2 = 2 * j' := by ring
+    rw [he]
+    exact hrho
+  have hprod : (ρ * σ) ^ (j + j') =
+      (ρ ^ j * ρ ^ j') * (σ ^ j * σ ^ j') := by
+    rw [mul_zpow, zpow_add, zpow_add]
+  simp only [torusTameCoeffParam]
+  rw [hshift, hphase, hprod]
+  first | rw [hrho] | rw [hrho']
+  have hσcancel : σ ^ (-j) * σ ^ j = 1 := by
+    rw [← zpow_add]
+    simp
+  calc
+    _ = (ρ ^ j * ρ ^ j' * ρ ^ j') *
+        (σ ^ j' * torusPhaseUnit (σ ^ 2) hσ2 k * torusPhaseUnit (ρ ^ 2) hρ2 k) := by ac_rfl
+    _ = ((ρ ^ j * ρ ^ j' * ρ ^ j') *
+        (σ ^ j' * torusPhaseUnit (σ ^ 2) hσ2 k * torusPhaseUnit (ρ ^ 2) hρ2 k)) *
+        (σ ^ (-j) * σ ^ j) := by rw [hσcancel]; simp
+    _ = _ := by ac_rfl
+
+private def torusTameSigma (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x : (v.adicCompletion F)ˣ) :
+    (ZMod 3 → ℂ) →ₗ[ℂ] (ZMod 3 → ℂ) :=
+  (Pi.basisFun ℂ (ZMod 3)).constr ℂ fun k =>
+    ((torusTameCoeffUnit D H v x k : ℂˣ) : ℂ) •
+      Pi.basisFun ℂ (ZMod 3) (k + (ordv v x : ZMod 3))
+
+private def torusRhoRoot (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ) : rootsOfUnity 3 ℂ :=
+  (muThree D (H.hilb v (unifLoc v) u))⁻¹
+
+private def torusTameParamSigma (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (j : ZMod 3) (ζ : rootsOfUnity 3 ℂ) :
+    (ZMod 3 → ℂ) →ₗ[ℂ] (ZMod 3 → ℂ) :=
+  let ρ : ℂˣ := ζ
+  let hρ : ρ ^ 3 = 1 :=
+    (mem_rootsOfUnity 3 (ζ : ℂˣ)).mp ζ.property
+  (Pi.basisFun ℂ (ZMod 3)).constr ℂ fun k =>
+    ((torusTameCoeffParam ρ hρ (j.val : ℤ) k : ℂˣ) : ℂ) •
+      Pi.basisFun ℂ (ZMod 3) (k + j)
+
+private theorem torusTameParamSigma_basis (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (j : ZMod 3) (ζ : rootsOfUnity 3 ℂ) (k : ZMod 3) :
+    torusTameParamSigma D H v j ζ (Pi.basisFun ℂ (ZMod 3) k) =
+      ((torusTameCoeffParam (ζ : ℂˣ)
+          ((mem_rootsOfUnity 3 (ζ : ℂˣ)).mp ζ.property) (j.val : ℤ) k : ℂˣ) : ℂ) •
+        Pi.basisFun ℂ (ZMod 3) (k + j) := by
+  simp [torusTameParamSigma]
+
+private theorem torusTameSigma_basis (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (k : ZMod 3) :
+    torusTameSigma D H v x (Pi.basisFun ℂ (ZMod 3) k) =
+      ((torusTameCoeffUnit D H v x k : ℂˣ) : ℂ) •
+        Pi.basisFun ℂ (ZMod 3) (k + (ordv v x : ZMod 3)) := by
+  simp [torusTameSigma]
+
+private theorem torusTameSigma_eq_param (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+    torusTameSigma D H v x =
+      torusTameParamSigma D H v (ordv v x : ZMod 3) (torusRhoRoot D H v (unitPart v x)) := by
+  apply LinearMap.ext_on_range (Pi.basisFun ℂ (ZMod 3)).span_eq
+  intro k
+  rw [torusTameSigma_basis, torusTameParamSigma_basis]
+  let ρ := torusRhoUnit D H v (unitPart v x)
+  have hρ : ρ ^ 3 = 1 := torusRhoUnit_cube D H v (unitPart v x)
+  have hρroot : (torusRhoRoot D H v (unitPart v x) : ℂˣ) = ρ := by rfl
+  have hpow : ρ ^ (ordv v x) = ρ ^ ((ordv v x : ZMod 3).val : ℤ) := by
+    have hemod := zpow_eq_zpow_emod' (x := ρ) (ordv v x) hρ
+    have hval : ((ordv v x : ZMod 3).val : ℤ) = ordv v x % 3 := by
+      exact ZMod.val_intCast (ordv v x)
+    calc
+      ρ ^ (ordv v x) = ρ ^ (ordv v x % 3) := hemod
+      _ = ρ ^ ((ordv v x : ZMod 3).val : ℤ) := by rw [← hval]
+  have hcoeff : torusTameCoeffUnit D H v x k =
+      torusTameCoeffParam ρ hρ (ordv v x) k := by
+    dsimp [torusTameCoeffUnit, torusTameCoeffParam, ρ]
+  have hcoeffRoot : torusTameCoeffUnit D H v x k =
+      torusTameCoeffParam (torusRhoRoot D H v (unitPart v x))
+        ((mem_rootsOfUnity 3 (torusRhoRoot D H v (unitPart v x) : ℂˣ)).mp
+          (torusRhoRoot D H v (unitPart v x)).property)
+        ((ordv v x : ZMod 3).val : ℤ) k := by
+    simpa [torusTameCoeffParam, hρroot, hpow] using hcoeff
+  have hval := congrArg (fun z : ℂˣ => (z : ℂ)) hcoeffRoot
+  simpa [Units.val_mul] using hval
+
+private theorem torusTameCoeff_act (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (j : ℤ) (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) (k : ZMod 3) :
+    ((torusTameCoeffParam (torusRhoUnit D H v u)
+        (torusRhoUnit_cube D H v u) j k : ℂˣ) : ℂ) =
+      localChi D v u ^ (2 * (j + 2 * (k.val : ℤ))) := by
+  let ρ := torusRhoUnit D H v u
+  have hρval : ((ρ : ℂˣ) : ℂ) = localChi D v u ^ 2 :=
+    torusRhoUnit_val D H v hv u hu
+  have hχne : localChi D v u ≠ 0 := torus_localChi_nezero D v u hu
+  let χu : ℂˣ := Units.mk0 (localChi D v u) hχne
+  have hρχ : ρ = χu ^ 2 := by
+    apply Units.ext
+    simpa [χu, Units.val_pow_eq_pow_val] using hρval
+  have hphase : torusPhaseUnit (ρ ^ 2) (torusRhoUnit_sq_cube D H v u) k =
+      ρ ^ (2 * (k.val : ℤ)) := by
+    rw [torusPhaseUnit_val]
+    calc
+      (ρ ^ 2) ^ (k.val : ℤ) = (ρ ^ (2 : ℤ)) ^ (k.val : ℤ) := by simp
+      _ = ρ ^ (2 * (k.val : ℤ)) := by rw [zpow_mul]
+  have hcoeff : torusTameCoeffParam ρ (torusRhoUnit_cube D H v u) j k =
+      χu ^ (2 * (j + 2 * (k.val : ℤ))) := by
+    dsimp [torusTameCoeffParam]
+    rw [hphase]
+    calc
+      ρ ^ j * ρ ^ (2 * (k.val : ℤ)) = ρ ^ (j + 2 * (k.val : ℤ)) := by
+        rw [← zpow_add]
+      _ = χu ^ (2 * (j + 2 * (k.val : ℤ))) := by
+        rw [hρχ]
+        exact (zpow_mul χu 2 (j + 2 * (k.val : ℤ))).symm
+  have hval := congrArg (fun z : ℂˣ => (z : ℂ)) hcoeff
+  simpa [χu] using hval
+
+private theorem torusPhaseUnit_one (k : ZMod 3) :
+    torusPhaseUnit (1 : ℂˣ) (by simp) k = 1 := by
+  obtain ⟨j, rfl⟩ := ZMod.intCast_surjective k
+  simp [torusPhaseUnit_intCast]
+
+private theorem torusRhoUnit_pow_three (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
+    torusRhoUnit D H v (u ^ 3) = torusRhoUnit D H v u ^ 3 := by
+  calc
+    torusRhoUnit D H v (u ^ 3) = torusRhoUnit D H v (u ^ 2 * u) := by rw [pow_succ]
+    _ = torusRhoUnit D H v (u ^ 2) * torusRhoUnit D H v u := torusRhoUnit_mul D H v _ _
+    _ = torusRhoUnit D H v (u * u) * torusRhoUnit D H v u := by rw [pow_two]
+    _ = torusRhoUnit D H v u * torusRhoUnit D H v u * torusRhoUnit D H v u := by
+      rw [torusRhoUnit_mul]
+    _ = torusRhoUnit D H v u ^ 3 := by simp [pow_succ, pow_two]
+
+private theorem torusUnitPart_pow_three (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ) :
+    unitPart v (u ^ 3) = unitPart v u ^ 3 := by
+  calc
+    unitPart v (u ^ 3) = unitPart v (u ^ 2 * u) := by rw [pow_succ]
+    _ = unitPart v (u ^ 2) * unitPart v u := torus_unitPart_mul v _ _
+    _ = unitPart v (u * u) * unitPart v u := by rw [pow_two]
+    _ = unitPart v u * unitPart v u * unitPart v u := by
+      rw [torus_unitPart_mul v u u]
+    _ = unitPart v u ^ 3 := by simp [pow_succ, pow_two]
+
+private theorem torusTameSigma_one (D : FieldData F) (H : HilbertData F) (v : FinPlace F) :
+    torusTameSigma D H v 1 = LinearMap.id := by
+  apply LinearMap.ext_on_range (Pi.basisFun ℂ (ZMod 3)).span_eq
+  intro k
+  rw [torusTameSigma_basis]
+  simp [torusTameCoeffUnit, torusTameCoeffParam, torusRhoUnit_one,
+    torusPhaseUnit_one, torus_ordv_one, torus_unitPart_one]
+
+private theorem torusTameSigma_cube (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (t : (v.adicCompletion F)ˣ) : torusTameSigma D H v (t ^ 3) = LinearMap.id := by
+  apply LinearMap.ext_on_range (Pi.basisFun ℂ (ZMod 3)).span_eq
+  intro k
+  rw [torusTameSigma_basis]
+  have hρ : torusRhoUnit D H v (unitPart v (t ^ 3)) = 1 := by
+    rw [torusUnitPart_pow_three, torusRhoUnit_pow_three, torusRhoUnit_cube]
+  have hj : ordv v (t ^ 3) = 3 * ordv v t := by
+    simpa using torus_ordv_zpow v t 3
+  have h3 : (3 : ZMod 3) = 0 := by exact ZMod.natCast_self 3
+  have hshift : (3 : ZMod 3) * (ordv v t : ZMod 3) = 0 := by
+    rw [h3]
+    simp
+  simp [torusTameCoeffUnit, torusTameCoeffParam, hρ, hj, hshift, torusPhaseUnit_one]
+
+private def torusCUnit (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) : ℂˣ :=
+  (muThree D (H.hilb v x y) : ℂˣ)
+
+private theorem torusCUnit_tame_formula (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (x y : (v.adicCompletion F)ˣ) :
+    torusCUnit D H v x y =
+      torusRhoUnit D H v (unitPart v x) ^ (ordv v y) *
+        torusRhoUnit D H v (unitPart v y) ^ (-(ordv v x)) := by
+  apply Units.ext
+  simpa [torusCUnit, torusCVal] using torus_tame_pair_formula D H v hv x y
+
+private theorem torusTameCoeffUnit_mul (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (x y : (v.adicCompletion F)ˣ) (k : ZMod 3) :
+    torusTameCoeffUnit D H v y k *
+        torusTameCoeffUnit D H v x (k + (ordv v y : ZMod 3)) =
+      torusCUnit D H v x y * torusTameCoeffUnit D H v (x * y) k := by
+  let u := unitPart v x
+  let u' := unitPart v y
+  let ρ := torusRhoUnit D H v u
+  let σ := torusRhoUnit D H v u'
+  have hu : IsLocUnit v u := torus_unitPart_isLocUnit v x
+  have hu' : IsLocUnit v u' := torus_unitPart_isLocUnit v y
+  have hρ : ρ ^ 3 = 1 := torusRhoUnit_cube D H v u
+  have hσ : σ ^ 3 = 1 := torusRhoUnit_cube D H v u'
+  have hord : ordv v (x * y) = ordv v x + ordv v y := torus_ordv_mul v x y
+  have hpart : unitPart v (x * y) = u * u' := by
+    dsimp [u, u']
+    exact torus_unitPart_mul v x y
+  have hrho : torusRhoUnit D H v (u * u') = ρ * σ := by
+    dsimp [ρ, σ]
+    exact torusRhoUnit_mul D H v u u'
+  have hcoeff := torusTameCoeffParam_mul ρ σ hρ hσ (ordv v x) (ordv v y) k
+  have hcentral := torusCUnit_tame_formula D H v hv x y
+  have hraw : torusTameCoeffUnit D H v y k *
+      torusTameCoeffUnit D H v x (k + (ordv v y : ZMod 3)) =
+        (ρ ^ (ordv v y) * σ ^ (-(ordv v x))) *
+          torusTameCoeffUnit D H v (x * y) k := by
+    simpa [torusTameCoeffUnit, torusTameCoeffParam, u, u', ρ, σ, hpart, hord, hrho] using hcoeff
+  calc
+    _ = (ρ ^ (ordv v y) * σ ^ (-(ordv v x))) *
+        torusTameCoeffUnit D H v (x * y) k := hraw
+    _ = _ := by rw [← hcentral]
+
+private theorem torusTameSigma_mul (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (x y : (v.adicCompletion F)ˣ) :
+    (torusTameSigma D H v x).comp (torusTameSigma D H v y) =
+      ((torusCUnit D H v x y : ℂˣ) : ℂ) • torusTameSigma D H v (x * y) := by
+  apply LinearMap.ext_on_range (Pi.basisFun ℂ (ZMod 3)).span_eq
+  intro k
+  have hindex : k + (ordv v y : ZMod 3) + (ordv v x : ZMod 3) =
+      k + (ordv v (x * y) : ZMod 3) := by
+    simp [torus_ordv_mul, add_comm, add_left_comm, add_assoc]
+  have hcoeff := congrArg (fun c : ℂˣ => (c : ℂ))
+    (torusTameCoeffUnit_mul D H v hv x y k)
+  have hcoeff' := hcoeff
+  simp only [Units.val_mul] at hcoeff'
+  calc
+    (torusTameSigma D H v x).comp (torusTameSigma D H v y)
+        (Pi.basisFun ℂ (ZMod 3) k) =
+        torusTameSigma D H v x
+          (((torusTameCoeffUnit D H v y k : ℂˣ) : ℂ) •
+            Pi.basisFun ℂ (ZMod 3) (k + (ordv v y : ZMod 3))) := by
+              rw [LinearMap.comp_apply, torusTameSigma_basis]
+    _ = ((torusTameCoeffUnit D H v y k : ℂˣ) : ℂ) •
+          torusTameSigma D H v x (Pi.basisFun ℂ (ZMod 3)
+            (k + (ordv v y : ZMod 3))) := by rw [map_smul]
+    _ = ((torusTameCoeffUnit D H v y k : ℂˣ) : ℂ) •
+          (((torusTameCoeffUnit D H v x (k + (ordv v y : ZMod 3)) : ℂˣ) : ℂ) •
+            Pi.basisFun ℂ (ZMod 3)
+              (k + (ordv v y : ZMod 3) + (ordv v x : ZMod 3))) := by
+                rw [torusTameSigma_basis]
+    _ = (((torusTameCoeffUnit D H v y k : ℂˣ) : ℂ) *
+          ((torusTameCoeffUnit D H v x (k + (ordv v y : ZMod 3)) : ℂˣ) : ℂ)) •
+            Pi.basisFun ℂ (ZMod 3)
+              (k + (ordv v y : ZMod 3) + (ordv v x : ZMod 3)) := by rw [smul_smul]
+    _ = (((torusCUnit D H v x y : ℂˣ) : ℂ) *
+          ((torusTameCoeffUnit D H v (x * y) k : ℂˣ) : ℂ)) •
+            Pi.basisFun ℂ (ZMod 3) (k + (ordv v (x * y) : ZMod 3)) := by
+          rw [hcoeff', hindex]
+    _ = ((torusCUnit D H v x y : ℂˣ) : ℂ) •
+          torusTameSigma D H v (x * y) (Pi.basisFun ℂ (ZMod 3) k) := by
+          rw [torusTameSigma_basis, smul_smul]
+
+private theorem torusTameSigma_finite (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) : (Set.range (torusTameSigma D H v)).Finite := by
+  classical
+  let f : ZMod 3 × rootsOfUnity 3 ℂ →
+      (ZMod 3 → ℂ) →ₗ[ℂ] (ZMod 3 → ℂ) := fun p =>
+    torusTameParamSigma D H v p.1 p.2
+  have hfinite : (Set.range f).Finite := Set.finite_range f
+  apply hfinite.subset
+  rintro A ⟨x, rfl⟩
+  exact ⟨((ordv v x : ZMod 3), torusRhoRoot D H v (unitPart v x)),
+    (torusTameSigma_eq_param D H v x).symm⟩
+
+private theorem torusTameSigma_smooth (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
+    ∃ m : ℕ, 0 < m ∧ ∀ u : (v.adicCompletion F)ˣ,
+      ((u : v.adicCompletion F) - 1) ∈ ball v m →
+        torusTameSigma D H v u = LinearMap.id := by
+  refine ⟨1, Nat.one_pos, ?_⟩
+  intro u hu
+  have hball : Valued.v ((u : v.adicCompletion F) - 1) ≤ WithZero.exp (-1 : ℤ) := hu
+  have hexp : WithZero.exp (-1 : ℤ) < 1 := by
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    norm_num
+  have hnear : Valued.v ((u : v.adicCompletion F) - 1) < 1 := lt_of_le_of_lt hball hexp
+  have huVal : Valued.v (u : v.adicCompletion F) = 1 := by
+    have h := Valuation.map_add_eq_of_lt_right
+      (v := (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))))
+      (x := (u : v.adicCompletion F) - 1) (y := (1 : v.adicCompletion F)) (by simpa using hnear)
+    simpa [sub_add_cancel] using h
+  have huLoc : IsLocUnit v u := by
+    constructor
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      exact huVal.le
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      simp only [Units.val_inv_eq_inv_val, map_inv₀, huVal, inv_one, le_refl]
+  have hχ := torus_localChi_one_of_near_one D H v hv u huLoc hnear
+  have hρ : torusRhoUnit D H v u = 1 := by
+    apply Units.ext
+    rw [torusRhoUnit_val D H v hv u huLoc, hχ]
+    simp
+  have hj : ordv v u = 0 := torus_ordv_locUnit_zero v u huLoc
+  have hpart : unitPart v u = u := by simp [unitPart, hj]
+  apply LinearMap.ext_on_range (Pi.basisFun ℂ (ZMod 3)).span_eq
+  intro k
+  rw [torusTameSigma_basis, hj]
+  simp [torusTameCoeffUnit, torusTameCoeffParam, hρ, hpart, torusPhaseUnit_one]
+
 private theorem exists_localChi_sq_ne_one (D : FieldData F) (v : FinPlace F)
     (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
     ∃ u : (v.adicCompletion F)ˣ, IsLocUnit v u ∧
@@ -567,6 +1783,202 @@ private theorem exists_localChi_sq_ne_one (D : FieldData F) (v : FinPlace F)
   · rw [hlocal]
     exact hchiSq
 
+private abbrev TorusCubeQuotient (v : FinPlace F) :=
+  (v.adicCompletion F)ˣ ⧸
+    (powMonoidHom 3 : (v.adicCompletion F)ˣ →* (v.adicCompletion F)ˣ).range
+
+private theorem torus_muThree_pow (D : FieldData F) (ζ : rootsOfUnity 6 F) (n : ℕ) :
+    muThree D (ζ ^ n) = (muThree D ζ) ^ n := by
+  induction n with
+  | zero => simp [torus_muThree_one]
+  | succ n ih => simp [pow_succ, torus_muThree_mul, ih]
+
+private theorem torus_hilb_pow_left (H : HilbertData F) (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) (n : ℕ) :
+    H.hilb v (x ^ n) y = (H.hilb v x y) ^ n := by
+  induction n with
+  | zero => simp [hilb_one_left]
+  | succ n ih => simp [pow_succ, H.mul_left, ih]
+
+private theorem torus_hilb_pow_right (H : HilbertData F) (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) (n : ℕ) :
+    H.hilb v x (y ^ n) = (H.hilb v x y) ^ n := by
+  induction n with
+  | zero => simp [hilb_one_right]
+  | succ n ih => simp [pow_succ, H.mul_right, ih]
+
+private theorem torus_cocycle_cube_left (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x t y : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v (x * t ^ 3) y) = muThree D (H.hilb v x y) := by
+  rw [H.mul_left, torus_muThree_mul, torus_hilb_pow_left, muThree_pow_three_eq_one]
+  simp
+
+private theorem torus_cocycle_cube_right (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x y t : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v x (y * t ^ 3)) = muThree D (H.hilb v x y) := by
+  rw [H.mul_right, torus_muThree_mul, torus_hilb_pow_right, muThree_pow_three_eq_one]
+  simp
+
+private def torusCbarRightHom (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x : (v.adicCompletion F)ˣ) :
+    (v.adicCompletion F)ˣ →* rootsOfUnity 3 ℂ where
+  toFun y := muThree D (H.hilb v x y)
+  map_one' := by rw [hilb_one_right, torus_muThree_one]
+  map_mul' y y' := by rw [H.mul_right, torus_muThree_mul]
+
+private theorem torusCbarRightHom_cube (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (x t : (v.adicCompletion F)ˣ) :
+    torusCbarRightHom D H v x (t ^ 3) = 1 := by
+  change muThree D (H.hilb v x (t ^ 3)) = 1
+  rw [torus_hilb_pow_right, muThree_pow_three_eq_one]
+
+private def torusCbarRightLift (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x : (v.adicCompletion F)ˣ) : TorusCubeQuotient v →* rootsOfUnity 3 ℂ :=
+  QuotientGroup.lift _ (torusCbarRightHom D H v x) (by
+    intro y hy
+    obtain ⟨t, ht⟩ := hy
+    rw [powMonoidHom_apply] at ht
+    rw [← ht]
+    exact torusCbarRightHom_cube D H v x t)
+
+private def torusCbarRawFirstHom (D : FieldData F) (H : HilbertData F) (v : FinPlace F) :
+    (v.adicCompletion F)ˣ →* (TorusCubeQuotient v →* rootsOfUnity 3 ℂ) where
+  toFun x := torusCbarRightLift D H v x
+  map_one' := by
+    apply MonoidHom.ext
+    intro y
+    induction y using QuotientGroup.induction_on with
+    | _ z => simp [torusCbarRightLift, torusCbarRightHom, hilb_one_left, torus_muThree_one]
+  map_mul' x x' := by
+    apply MonoidHom.ext
+    intro y
+    induction y using QuotientGroup.induction_on with
+    | _ z =>
+      simp [torusCbarRightLift, torusCbarRightHom, H.mul_left, torus_muThree_mul]
+
+private def torusCbarHom (D : FieldData F) (H : HilbertData F) (v : FinPlace F) :
+    TorusCubeQuotient v →* (TorusCubeQuotient v →* rootsOfUnity 3 ℂ) :=
+  QuotientGroup.lift _ (torusCbarRawFirstHom D H v) (by
+    intro x hx
+    obtain ⟨t, ht⟩ := hx
+    rw [powMonoidHom_apply] at ht
+    apply MonoidHom.ext
+    intro y
+    induction y using QuotientGroup.induction_on with
+    | _ z =>
+      rw [← ht]
+      change muThree D (H.hilb v (t ^ 3) z) = 1
+      rw [torus_hilb_pow_left, muThree_pow_three_eq_one])
+
+private def torusCbar (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (a b : TorusCubeQuotient v) : rootsOfUnity 3 ℂ := torusCbarHom D H v a b
+
+private theorem torusCbar_mk (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) :
+    torusCbar D H v (QuotientGroup.mk' _ x) (QuotientGroup.mk' _ y) =
+      muThree D (H.hilb v x y) := by
+  simp [torusCbar, torusCbarHom, torusCbarRawFirstHom, torusCbarRightLift,
+    torusCbarRightHom, QuotientGroup.lift_mk]
+
+private theorem torusCbar_mul_left (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (a a' b : TorusCubeQuotient v) :
+    torusCbar D H v (a * a') b = torusCbar D H v a b * torusCbar D H v a' b := by
+  exact congrArg (fun f : TorusCubeQuotient v →* rootsOfUnity 3 ℂ => f b)
+    (map_mul (torusCbarHom D H v) a a')
+
+private theorem torusCbar_mul_right (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (a b b' : TorusCubeQuotient v) :
+    torusCbar D H v a (b * b') = torusCbar D H v a b * torusCbar D H v a b' := by
+  exact map_mul (torusCbarHom D H v a) b b'
+
+private theorem torusCbar_one_left (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (a : TorusCubeQuotient v) : torusCbar D H v 1 a = 1 := by
+  exact congrArg (fun f : TorusCubeQuotient v →* rootsOfUnity 3 ℂ => f a)
+    (map_one (torusCbarHom D H v))
+
+private theorem torusCbar_one_right (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (a : TorusCubeQuotient v) : torusCbar D H v a 1 = 1 := by
+  exact map_one (torusCbarHom D H v a)
+
+private theorem torusCbar_cocycle (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (a b c : TorusCubeQuotient v) :
+    torusCbar D H v a b * torusCbar D H v (a * b) c =
+      torusCbar D H v b c * torusCbar D H v a (b * c) := by
+  calc
+    _ = torusCbar D H v a b *
+        (torusCbar D H v a c * torusCbar D H v b c) := by rw [torusCbar_mul_left]
+    _ = torusCbar D H v b c *
+        (torusCbar D H v a b * torusCbar D H v a c) := by ac_rfl
+    _ = _ := by rw [torusCbar_mul_right]
+
+private def torusCbarCoeff (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (a b : TorusCubeQuotient v) : ℂ :=
+  ((torusCbar D H v a b : ℂˣ) : ℂ)
+
+private theorem torusCbarCoeff_cocycle (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (a b c : TorusCubeQuotient v) :
+    torusCbarCoeff D H v a b * torusCbarCoeff D H v (a * b) c =
+      torusCbarCoeff D H v b c * torusCbarCoeff D H v a (b * c) := by
+  have h := congrArg (fun z : rootsOfUnity 3 ℂ => ((z : ℂˣ) : ℂ))
+    (torusCbar_cocycle D H v a b c)
+  simpa [torusCbarCoeff, Units.val_mul] using h
+
+private def torusRegularOp (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (a : TorusCubeQuotient v) :
+    (TorusCubeQuotient v → ℂ) →ₗ[ℂ] (TorusCubeQuotient v → ℂ) where
+  toFun f r := torusCbarCoeff D H v a (a⁻¹ * r) * f (a⁻¹ * r)
+  map_add' f g := by
+    ext r
+    simp [torusCbarCoeff, mul_add]
+  map_smul' c f := by
+    ext r
+    simp only [Pi.smul_apply, RingHom.id_apply]
+    ring
+
+private theorem torusRegularOp_one (D : FieldData F) (H : HilbertData F) (v : FinPlace F) :
+    torusRegularOp D H v 1 = LinearMap.id := by
+  ext f r
+  change torusCbarCoeff D H v 1 (1⁻¹ * r) * f (1⁻¹ * r) = f r
+  simp only [inv_one]
+  have hr : (1 : TorusCubeQuotient v) * r = r := one_mul r
+  rw [hr]
+  simp [torusCbarCoeff, torusCbar_one_left]
+
+private theorem torusRegularOp_mul (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (a b : TorusCubeQuotient v) :
+    (torusRegularOp D H v a).comp (torusRegularOp D H v b) =
+      torusCbarCoeff D H v a b • torusRegularOp D H v (a * b) := by
+  ext f r
+  let z : TorusCubeQuotient v := b⁻¹ * (a⁻¹ * r)
+  have hbz : b * z = a⁻¹ * r := by
+    dsimp [z]
+    exact (mul_assoc b b⁻¹ (a⁻¹ * r)).symm.trans (by simp)
+  have habz : a * b * z = r := by
+    calc
+      a * b * z = a * (b * z) := mul_assoc a b z
+      _ = a * (a⁻¹ * r) := by rw [hbz]
+      _ = r := (mul_assoc a a⁻¹ r).symm.trans (by simp)
+  have htarget : (a * b)⁻¹ * r = z := by
+    calc
+      (a * b)⁻¹ * r = (a * b)⁻¹ * (a * b * z) := by rw [habz]
+      _ = ((a * b)⁻¹ * (a * b)) * z := (mul_assoc (a * b)⁻¹ (a * b) z).symm
+      _ = z := by simp
+  change torusCbarCoeff D H v a (a⁻¹ * r) *
+      (torusCbarCoeff D H v b (b⁻¹ * (a⁻¹ * r)) * f (b⁻¹ * (a⁻¹ * r))) =
+    torusCbarCoeff D H v a b *
+      (torusCbarCoeff D H v (a * b) ((a * b)⁻¹ * r) * f ((a * b)⁻¹ * r))
+  rw [show b⁻¹ * (a⁻¹ * r) = z by rfl, htarget]
+  have hc := torusCbarCoeff_cocycle D H v a b z
+  rw [hbz] at hc
+  calc
+    torusCbarCoeff D H v a (a⁻¹ * r) *
+        (torusCbarCoeff D H v b z * f z) =
+        (torusCbarCoeff D H v b z * torusCbarCoeff D H v a (a⁻¹ * r)) * f z := by ring
+    _ = (torusCbarCoeff D H v a b * torusCbarCoeff D H v (a * b) z) * f z := by
+          rw [← hc]
+    _ = torusCbarCoeff D H v a b *
+          (torusCbarCoeff D H v (a * b) z * f z) := by ring
+
 /-- **tor:rep** (top): at every finite place a torus representation exists, of dimension
 `√[K^×:K^{×3}]`; at `v ∤ 6` one with the tame basis. The nontrivial-carrier clause is
 installed per `sol-thin-thlocal`, since `GlobalDatum.lam_ne` excludes the zero space. -/
@@ -574,7 +1986,183 @@ theorem exists_torusRep (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
     (hSt : SteinbergAt H v) :
     ∃ T : TorusRep D H v, Nontrivial T.V ∧
       ((6 : 𝓞 F) ∉ v.asIdeal → Nonempty (TameTorusBasis T)) := by
-  sorry
+  classical
+  let K := v.adicCompletion F
+  letI : ValuativeRel K :=
+    ValuativeRel.ofValuation (Valued.v : Valuation K (WithZero (Multiplicative ℤ)))
+  letI : Valuation.Compatible (Valued.v : Valuation K (WithZero (Multiplicative ℤ))) :=
+    Valuation.Compatible.ofValuation _
+  have htopo : IsValuativeTopology K := by
+    refine IsValuativeTopology.of_zero ?_
+    intro s
+    have hconv' := by
+      simpa only [sub_zero] using
+        (Valuation.exists_setOfPred_restrict_le_iff
+          (Valued.v : Valuation K (WithZero (Multiplicative ℤ))) 0 s)
+    exact (Valued.is_topological_valuation (R := K) s).trans hconv'
+  letI : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  letI : LocallyCompactSpace K := inferInstance
+  letI : ValuativeRel.IsNontrivial K :=
+    (ValuativeRel.isNontrivial_iff_isNontrivial
+      (Valued.v : Valuation K (WithZero (Multiplicative ℤ)))).mpr inferInstance
+  letI : IsNonarchimedeanLocalField K := ⟨⟩
+  by_cases htame : (6 : 𝓞 F) ∉ v.asIdeal
+  · let T : TorusRep D H v := {
+      V := ZMod 3 → ℂ
+      σa := torusTameSigma D H v
+      σa_one := torusTameSigma_one D H v
+      σa_mul := by
+        intro x y
+        simpa [torusCUnit] using torusTameSigma_mul D H v htame x y
+      σa_cube := torusTameSigma_cube D H v
+      σa_smooth := torusTameSigma_smooth D H v htame
+      σa_finite := torusTameSigma_finite D H v
+    }
+    let B : TameTorusBasis T := {
+      e := Pi.basisFun ℂ (ZMod 3)
+      linIndep := (Pi.basisFun ℂ (ZMod 3)).linearIndependent
+      spans := (Pi.basisFun ℂ (ZMod 3)).span_eq
+      act := by
+        intro j u hu k
+        have hord : ordv v (unifLoc v ^ j * u) = j :=
+          torus_ordv_uniformizer_mul_unit v j u hu
+        have hpart : unitPart v (unifLoc v ^ j * u) = u :=
+          torus_unitPart_uniformizer_mul_unit v j u hu
+        have hcoeff := torusTameCoeff_act D H v htame j u hu k
+        have hcoeffParam : torusTameCoeffUnit D H v (unifLoc v ^ j * u) k =
+            torusTameCoeffParam (torusRhoUnit D H v u)
+              (torusRhoUnit_cube D H v u) j k := by
+          simp [torusTameCoeffUnit, hpart, hord]
+        calc
+          T.σa (unifLoc v ^ j * u) (Pi.basisFun ℂ (ZMod 3) k) =
+              ((torusTameCoeffUnit D H v (unifLoc v ^ j * u) k : ℂˣ) : ℂ) •
+                Pi.basisFun ℂ (ZMod 3)
+                  (k + (ordv v (unifLoc v ^ j * u) : ZMod 3)) := by
+                  change torusTameSigma D H v (unifLoc v ^ j * u)
+                    (Pi.basisFun ℂ (ZMod 3) k) = _
+                  exact torusTameSigma_basis D H v (unifLoc v ^ j * u) k
+          _ = localChi D v u ^ (2 * (j + 2 * (k.val : ℤ))) •
+                Pi.basisFun ℂ (ZMod 3) (k + (j : ZMod 3)) := by
+                  have hcoeff' : ((torusTameCoeffUnit D H v (unifLoc v ^ j * u) k : ℂˣ) : ℂ) =
+                      localChi D v u ^ (2 * (j + 2 * (k.val : ℤ))) := by
+                    calc
+                      _ = ((torusTameCoeffParam (torusRhoUnit D H v u)
+                          (torusRhoUnit_cube D H v u) j k : ℂˣ) : ℂ) := by rw [hcoeffParam]
+                      _ = _ := hcoeff
+                  rw [hord, hcoeff']
+    }
+    exact ⟨T, inferInstance, fun _ => ⟨B⟩⟩
+  · let Q := TorusCubeQuotient v
+    let P : Subgroup Kˣ :=
+      (powMonoidHom 3 : Kˣ →* Kˣ).range
+    letI : P.FiniteIndex := by
+      change ((powMonoidHom 3 : Kˣ →* Kˣ).range).FiniteIndex
+      exact TauCeti.finiteIndex_range_powMonoidHom (by norm_num : (3 : K) ≠ 0)
+    letI : Finite Q := by
+      dsimp [Q, TorusCubeQuotient]
+      exact Subgroup.finite_quotient_of_finiteIndex
+    letI : Fintype Q := Fintype.ofFinite Q
+    let q : Kˣ →* Q := QuotientGroup.mk' P
+    have h3 : (3 : K) ≠ 0 := by norm_num
+    let e := TauCeti.natCastValuation K 3 h3
+    let i := e + 1
+    let d := i + e
+    have hi : e < i := by dsimp [i]; omega
+    have hdepth : ∀ p : ℕ, p.Prime → ∀ hpK : (p : K) ≠ 0, p ∣ 3 →
+        TauCeti.natCastValuation K p hpK < (p - 1) * i := by
+      intro p hp hpK hpd
+      have hpEq : p = 3 := by
+        rcases (Nat.dvd_prime (by norm_num : Nat.Prime 3)).mp hpd with h | h
+        · exact (hp.ne_one h).elim
+        · exact h
+      subst p
+      exact TauCeti.natCastValuation_lt_sub_one_mul_of_lt_of_dvd h3 hi hp hpK (by norm_num)
+    have hdeep : TauCeti.unitFiltration K d ≤ P := by
+      dsimp [d, i, e, P]
+      exact TauCeti.unitFiltration_le_range_powMonoidHom h3 hdepth
+    have hdpos : 0 < d := by dsimp [d, i, e]; omega
+    have hballMem (u : Kˣ) (hu : (u : K) - 1 ∈ ball v d) :
+        u ∈ TauCeti.unitFiltration K d := by
+      let Ocan : Subring K := Valuation.integer (ValuativeRel.valuation K)
+      have hO : Ocan = (v.adicCompletionIntegers F).toSubring := by
+        ext x
+        change ValuativeRel.valuation K x ≤ 1 ↔ Valued.v x ≤ 1
+        constructor
+        · intro hx
+          have hrel : x ≤ᵥ 1 :=
+            (Valuation.vle_iff_le (v := ValuativeRel.valuation K)).2 hx
+          simpa using (Valuation.vle_iff_le (v := Valued.v)).1 hrel
+        · intro hx
+          have hrel : x ≤ᵥ 1 := (Valuation.vle_iff_le (v := Valued.v)).2 (by simpa using hx)
+          exact (Valuation.vle_iff_le (v := ValuativeRel.valuation K)).1 hrel
+      let eO : Ocan ≃+* v.adicCompletionIntegers F := RingEquiv.subringCongr hO
+      obtain ⟨π, hπ⟩ := IsDiscreteValuationRing.exists_irreducible (R := Ocan)
+      have hπLocal : Irreducible (eO π) := Irreducible.map eO hπ
+      have hπvalLocal := v.valued_algebraMap_eq_exp_neg_one_of_irreducible hπLocal
+      have hπcoe : ((eO π : v.adicCompletionIntegers F) : K) = (π : K) := rfl
+      have hπval : Valued.v (π : K) = WithZero.exp (-1 : ℤ) := by
+        rw [← hπcoe]
+        change Valued.v (algebraMap (v.adicCompletionIntegers F) K (eO π)) = _
+        exact hπvalLocal
+      have hπpow : Valued.v ((π : K) ^ d) = WithZero.exp (-(d : ℤ)) := by
+        rw [map_pow, hπval]
+        simp
+      have hval : Valued.v ((u : K) - 1) ≤ Valued.v ((π : K) ^ d) := by
+        change Valued.v ((u : K) - 1) ≤ WithZero.exp (-(d : ℤ)) at hu
+        rw [hπpow]
+        exact hu
+      have hrel : (u : K) - 1 ≤ᵥ (π : K) ^ d :=
+        (Valuation.vle_iff_le (v := (Valued.v : Valuation K
+          (WithZero (Multiplicative ℤ))))).2 hval
+      have hcan' : ValuativeRel.valuation K ((u : K) - 1) ≤
+          ValuativeRel.valuation K ((π : K) ^ d) :=
+        (Valuation.vle_iff_le (v := ValuativeRel.valuation K)).1 hrel
+      have hcan : ValuativeRel.valuation K ((u : K) - 1) ≤
+          (ValuativeRel.valuation K (π : K)) ^ d := by
+        simpa only [map_pow] using hcan'
+      apply (TauCeti.mem_unitFiltration_iff_valuation_sub_one_le
+        (K := K) (i := d) (by omega) hπ).2
+      exact hcan
+    let T : TorusRep D H v := {
+      V := Q → ℂ
+      σa := fun x => torusRegularOp D H v (q x)
+      σa_one := by
+        simpa [q] using torusRegularOp_one D H v
+      σa_mul := by
+        intro x y
+        rw [map_mul q]
+        have hcoeff : torusCbarCoeff D H v (q x) (q y) =
+            ((muThree D (H.hilb v x y) : ℂˣ) : ℂ) := by
+          dsimp [torusCbarCoeff]
+          rw [torusCbar_mk]
+        simpa [hcoeff] using torusRegularOp_mul D H v (q x) (q y)
+      σa_cube := by
+        intro t
+        have htmem : t ^ 3 ∈ P := by
+          exact ⟨t, by simp [powMonoidHom_apply]⟩
+        have hq : q (t ^ 3) = 1 := (QuotientGroup.eq_one_iff (N := P) (t ^ 3)).2 htmem
+        rw [hq]
+        exact torusRegularOp_one D H v
+      σa_smooth := by
+        refine ⟨d, hdpos, ?_⟩
+        intro u hu
+        have humem := hballMem u hu
+        have hcube : u ∈ P := hdeep humem
+        have hq : q u = 1 := (QuotientGroup.eq_one_iff (N := P) u).2 hcube
+        rw [hq]
+        exact torusRegularOp_one D H v
+      σa_finite := by
+        change (Set.range (fun x => torusRegularOp D H v (q x))).Finite
+        apply (Set.finite_range (fun a : Q => torusRegularOp D H v a)).subset
+        rintro f ⟨x, rfl⟩
+        exact ⟨q x, rfl⟩
+    }
+    have hnontriv : Nontrivial (Q → ℂ) := inferInstance
+    exact ⟨T, hnontriv, fun ht => (htame ht).elim⟩
 
 /-- **tor:K-fixed**: at a tame place, the `a(O^×)`-fixed vectors of `V` are the multiples of `e_0`. -/
 theorem tame_unitFixed (T : TorusRep D H v) (B : TameTorusBasis T) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
