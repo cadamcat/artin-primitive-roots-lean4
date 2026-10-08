@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.Defs
 import ArtinPrimitiveRoots.Proofs.th_continue_b.ThetaRoots
 import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusReduction
 import ArtinPrimitiveRoots.Proofs.th_continue_b.ThetaCoordContinuous
+import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusSL
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
