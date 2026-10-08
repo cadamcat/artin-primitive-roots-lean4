@@ -2169,6 +2169,93 @@ private theorem rf_gamma_sqf_factorization
       apply Finset.prod_congr rfl
       intro v hv
       rw [hchi v hv]
+
+private theorem rf_chi_sqf_gen_product
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (c : S.SqfExtIdeal)
+    (v : FinPlace F) (hv : v ∉ S.Sf)
+    (hvc : v ∉ R.exterior.support (R.exterior.ofSqf c)) (e : ℤ) :
+    chi D v (cgen R c) ^ e =
+      ∏ w ∈ R.exterior.support (R.exterior.ofSqf c),
+        chi D v (primeGen R w : F) ^ e := by
+  classical
+  let s := R.exterior.support (R.exterior.ofSqf c)
+  let g : Fˣ := ∏ w ∈ s, primeGen R w
+  have hgood : ∀ w ∈ s, w ∉ S.Sf :=
+    fun w hw => R.exterior.support_exterior (R.exterior.ofSqf c) w hw
+  have hχone : chi D v (1 : F) = 1 := by
+    simpa using rf_chi_argument_zpow (D := D) (S := S) v hv (1 : Fˣ)
+      (by simp) (0 : ℤ)
+  have hprod : ∀ t ⊆ s,
+      chi D v ((∏ w ∈ t, primeGen R w : Fˣ) : F) =
+        ∏ w ∈ t, chi D v (primeGen R w : F) := by
+    intro t hts
+    induction t using Finset.induction_on with
+    | empty => simp [hχone]
+    | @insert w t hwt ih =>
+      have htTail : t ⊆ s := Finset.Subset.trans (Finset.subset_insert w t) hts
+      have hwS : w ∉ S.Sf := hgood w (hts (Finset.mem_insert_self w t))
+      have hwv : w ≠ v := by
+        intro heq
+        subst w
+        exact hvc (hts (Finset.mem_insert_self v t))
+      have hvNotT : v ∉ t := by
+        intro hmem
+        exact hvc (htTail hmem)
+      have hvalπ := rf_primeGen_globalVal_one_of_ne R w v hwS hv hwv
+      have hvalT := rf_prime_product_gen_unit_at R t
+        (fun z hz => hgood z (htTail hz)) v hv hvNotT
+      have hmul := (a2_bridge_SYMBOL D S).chi_mul v hv
+        (primeGen R w : F) ((∏ z ∈ t, primeGen R z : Fˣ) : F)
+        hvalπ.le hvalT.le
+      calc
+        chi D v ((∏ z ∈ insert w t, primeGen R z : Fˣ) : F) =
+            chi D v (primeGen R w : F) *
+              chi D v ((∏ z ∈ t, primeGen R z : Fˣ) : F) := by
+          simpa only [Finset.prod_insert hwt, Units.val_mul] using hmul
+        _ = ∏ z ∈ insert w t, chi D v (primeGen R z : F) := by
+          rw [ih htTail, Finset.prod_insert hwt]
+  have hfactor : c.1 = ∏ w ∈ s, w.asIdeal := rf_sqfIdeal_factorization R c
+  obtain ⟨I, hIval, hIgen, hIallow⟩ := rf_prime_product_ext R s hgood
+  have hgen : S.IsGen (g : F) c.1 := by
+    simpa only [g, hIval, hfactor] using hIgen
+  have hcgen : S.IsGen (bc.gen (R.exterior.ofSqf c) : F) c.1 ∧
+      Bd.Allowed (bc.gen (R.exterior.ofSqf c)) := by
+    simpa only [R.exterior.ofSqf_val] using bc.gen_spec (R.exterior.ofSqf c)
+  obtain ⟨ε₀, hε₀, heq⟩ := Bd.allowed_unique c.1
+    (bc.gen (R.exterior.ofSqf c)) g hcgen ⟨hgen, hIallow⟩
+  let ε : S.US := ⟨ε₀, hε₀⟩
+  have hceq : bc.gen (R.exterior.ofSqf c) =
+      ((ε ^ (6 : ℕ) : S.US) : Fˣ) * g := by
+    simpa only [ε, SubgroupClass.coe_pow] using heq
+  have hvalε : HeightOneSpectrum.valuation F v ((ε : Fˣ) : F) = 1 :=
+    Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) ε hv
+  have hvalε6 : HeightOneSpectrum.valuation F v
+      (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) = 1 :=
+    Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F)
+      (ε ^ (6 : ℕ)) hv
+  have hvalg : HeightOneSpectrum.valuation F v (g : F) = 1 :=
+    rf_prime_product_gen_unit_at R s hgood v hv hvc
+  have hresε : residue v ((ε : Fˣ) : F) ≠ 0 :=
+    ((a2_bridge_SYMBOL D S).residue_ne_zero v ((ε : Fˣ) : F)
+      hvalε.le).mpr hvalε
+  have hχ6 : chi D v (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) = 1 := by
+    have hp := rf_chi_argument_zpow (D := D) (S := S) v hv
+      (ε : Fˣ) hvalε (6 : ℤ)
+    have h6 := (a2_bridge_SYMBOL D S).chi_six v ((ε : Fˣ) : F) hresε
+    calc
+      chi D v (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) =
+          chi D v ((ε : Fˣ) : F) ^ (6 : ℤ) := by simpa using hp
+      _ = 1 := by simpa using h6
+  have hχcg : chi D v (cgen R c) = chi D v (g : F) := by
+    unfold cgen
+    rw [hceq, Units.val_mul,
+      (a2_bridge_SYMBOL D S).chi_mul v hv
+        (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) (g : F) hvalε6.le hvalg.le,
+      hχ6, one_mul]
+  rw [hχcg, show chi D v (g : F) = ∏ w ∈ s, chi D v (primeGen R w : F)
+    from hprod s (Finset.Subset.refl s)]
+  exact (Finset.prod_zpow (fun w => chi D v (primeGen R w : F)) s e).symm
+
 theorem rf_exterior_factorization :
   (∀ υ h (t : FrozenIndex R h), ‖frozenOmega R υ t‖ ≤ betaIdeal R t.f t.a ∧
     (∀ sd d, ‖frozenRho R υ t sd d‖ ≤ 1) ∧ (∀ sc c, ‖frozenLambda R υ t sc c‖ ≤ 1)) ∧
