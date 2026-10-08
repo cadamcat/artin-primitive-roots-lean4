@@ -262,7 +262,21 @@ theorem whit_finite_mulSupport (P : CoverPackage D S H A) (G : GlobalDatum P)
     (x : P.RP) (δ : Fˣ) :
     (Function.mulSupport fun v => G.lam v ((G.T v).σa (toLoc v δ)
       (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v))))).Finite := by
-  sorry
+  refine ((Fs.T0.finite_toSet.union (P.comp_restricted x)).union
+    (whit_rational_nonunit_finite δ)).subset ?_
+  intro v hv
+  by_contra hvout
+  have hvT : v ∉ Fs.T0 := by
+    intro h
+    exact hvout (Or.inl (Or.inl h))
+  have hvS : v ∉ S.Sf := fun h => hvT (Fs.sub h)
+  have hu : IsLocUnit v (toLoc v δ) := by
+    by_contra h
+    exact hvout (Or.inr h)
+  have hk : P.compF v x ∈ (P.tame v hvS).Kmax := by
+    by_contra h
+    exact hvout (Or.inl (Or.inr ⟨hvS, h⟩))
+  exact hv (whit_good_factor P G μ Fs x δ v hvT hu hk)
 
 /-- The unfolded summand evaluated at a specified restricted-product lift. -/
 def whitLiftTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
