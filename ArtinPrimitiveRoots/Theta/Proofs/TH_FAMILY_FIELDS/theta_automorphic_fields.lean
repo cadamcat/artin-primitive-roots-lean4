@@ -20,5 +20,23 @@ theorem theta_automorphic_fields {P : CoverPackage D S H A}
     (∀ ζ g, thetaFamilyTheta B L (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * thetaFamilyTheta B L g) ∧
     (∀ γ g, thetaFamilyTheta B L (P.tc.rat γ * g) = thetaFamilyTheta B L g) ∧
     (∀ g, ∀ k ∈ P.tc.Kext, thetaFamilyTheta B L (g * k) = thetaFamilyTheta B L g) := by
-  sorry
+  rcases hAction L.m with ⟨hγ, hζ, hk⟩
+  refine ⟨?_, ?_, ?_⟩
+  · intro ζ g
+    change (thetaNormalizationScalar N)⁻¹ *
+        thetaFamilyDeriv P L.m B.C.theta (P.tc.z ζ * g) =
+      ((ζ : ℂˣ) : ℂ) *
+        ((thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m B.C.theta g)
+    rw [hζ ζ g]
+    ring
+  · intro γ g
+    change (thetaNormalizationScalar N)⁻¹ *
+        thetaFamilyDeriv P L.m B.C.theta (P.tc.rat γ * g) =
+      (thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m B.C.theta g
+    rw [hγ γ g]
+  · intro g k hkMem
+    change (thetaNormalizationScalar N)⁻¹ *
+        thetaFamilyDeriv P L.m B.C.theta (g * k) =
+      (thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m B.C.theta g
+    rw [hk g k hkMem]
 end ArtinPrimitiveRoots.A1.Theta
