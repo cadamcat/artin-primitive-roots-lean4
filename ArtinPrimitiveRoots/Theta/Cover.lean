@@ -2837,6 +2837,59 @@ private theorem finLocalSmallTopology_projection
     rintro y ⟨x, hx, rfl⟩
     exact hsub hx
 
+/-- The small splitting subgroups are compact in their constructed local topology. -/
+private theorem finLocalSmallTopology_compact
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (C : FinLocalAlgebra D H v) (B : FinLocalSmallAlgebra C)
+    (t : TopologicalSpace C.L)
+    (htg : @IsTopologicalGroup C.L t C.grp)
+    (hKopen : ∀ m, B.m0 ≤ m → @IsOpen C.L t (B.Kc m : Set C.L))
+    (hKbasis : ∀ U ∈ @nhds C.L t (1 : C.L),
+      ∃ m, B.m0 ≤ m ∧ (B.Kc m : Set C.L) ⊆ U) :
+    ∀ m, B.m0 ≤ m → @IsCompact C.L t (B.Kc m : Set C.L) := by
+  classical
+  let : TopologicalSpace C.L := t
+  let : IsTopologicalGroup C.L := htg
+  obtain ⟨hcont, hopen⟩ := finLocalSmallTopology_projection C B t htg hKopen hKbasis
+  intro m hm
+  let K := v.adicCompletion F
+  let s : Set C.L := B.Kc m
+  let r : s → PGL2 K := fun x => C.pr x
+  have hrc : Continuous r := hcont.comp continuous_subtype_val
+  have hri : Function.Injective r := by
+    intro x y h
+    exact Subtype.ext (B.Kc_inj m hm x.property y.property h)
+  have hro : IsOpenMap r := hopen.comp (hKopen m hm).isOpenMap_subtype_val
+  have hremb := Topology.IsOpenEmbedding.of_continuous_injective_isOpenMap hrc hri hro
+  let Uc : Set (GL (Fin 2) K) := {g | ∀ i j,
+    Valued.v ((g : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ WithZero.exp (-(m : ℤ))}
+  have himage : C.pr '' s = QuotientGroup.mk '' Uc := by
+    change C.pr '' (B.Kc m : Set C.L) = QuotientGroup.mk '' Uc
+    rw [B.Kc_eq m hm]
+    change C.pr '' (C.sec '' Uc) = QuotientGroup.mk '' Uc
+    ext y
+    constructor
+    · rintro ⟨x, ⟨g, hg, rfl⟩, rfl⟩
+      exact ⟨g, hg, (C.sec_pr g).symm⟩
+    · rintro ⟨g, hg, rfl⟩
+      exact ⟨C.sec g, ⟨g, hg, rfl⟩, C.sec_pr g⟩
+  have hcompactImage : IsCompact (C.pr '' s) := by
+    rw [himage]
+    exact (ArtinPrimitiveRoots.Proofs.th_cover_sol.congruenceCompact v m
+      (B.one_le_m0.trans hm)).image QuotientGroup.continuous_mk
+  have hrange : Set.range r = C.pr '' s := by
+    ext y
+    constructor
+    · rintro ⟨x, rfl⟩
+      exact ⟨x.val, x.property, rfl⟩
+    · rintro ⟨x, hx, rfl⟩
+      exact ⟨⟨x, hx⟩, rfl⟩
+  have hcu : IsCompact (Set.univ : Set s) := hremb.isEmbedding.isCompact_iff.mpr (by
+    rw [Set.image_univ, hrange]
+    exact hcompactImage)
+  exact isCompact_iff_isCompact_univ.mpr hcu
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
