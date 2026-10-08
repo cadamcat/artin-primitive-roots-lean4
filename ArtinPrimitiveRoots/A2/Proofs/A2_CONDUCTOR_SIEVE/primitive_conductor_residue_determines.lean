@@ -8,6 +8,15 @@ namespace ArtinPrimitiveRoots.A2
 variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
+private theorem conductorPrimeIdealValue_eq_primeValue
+    (ω : A1.HeckeChar F) (v : A1.FinPlace F) :
+    ω.idealValue v.asIdeal = ω.primeValue v := by
+  classical
+  unfold A1.HeckeChar.idealValue
+  rw [UniqueFactorizationMonoid.normalizedFactors_irreducible v.irreducible,
+    normalize_eq, Multiset.map_singleton, Multiset.prod_singleton]
+  rw [dif_pos ⟨v.isPrime, v.ne_bot⟩]
+
 /-- A common finite/infinite component and residue realization determine the
 full idelic character. Guide: sol-thin-a2zf/PROOFS.md:680–693.
 Uses HK-DICT-RAY prime-value uniqueness off the finite conductor support.
