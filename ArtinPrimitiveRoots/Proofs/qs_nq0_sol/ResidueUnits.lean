@@ -179,4 +179,58 @@ theorem qs_nq0_chiAlg_eq_one_of_residue_one
     simpa only [hx, one_pow, Units.val_one, map_one] using h.choose_spec
   · rfl
 
+/-!
+The exact sextic-symbol reduction has this signature:
+```
+theorem qs_nq0_chiAlg_reduction (D : FieldData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (x : K) (hx : residue v x ≠ 0) :
+    Ideal.Quotient.mk v.asIdeal ((chiAlg v x : (𝓞 K)ˣ) : 𝓞 K) =
+      residue v x ^ ((Ideal.absNorm v.asIdeal - 1) / 6)
+```
+-/
+
+/-- At a unit away from six, the chosen sextic symbol has its defining reduction. -/
+theorem qs_nq0_chiAlg_reduction (D : FieldData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (x : K) (hx : residue v x ≠ 0) :
+    Ideal.Quotient.mk v.asIdeal ((chiAlg v x : (𝓞 K)ˣ) : 𝓞 K) =
+      residue v x ^ ((Ideal.absNorm v.asIdeal - 1) / 6) := by
+  classical
+  let : v.asIdeal.IsMaximal := v.isMaximal
+  let : Field (𝓞 K ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  obtain ⟨hcop, hne1⟩ := coprime_six_of_not_mem_six v h6
+  have hdvd6 := six_dvd_absNorm_sub_one D v h6
+  have hζ6 : IsPrimitiveRoot (D.ζ12 ^ 2) 6 :=
+    D.hζ12.pow_of_dvd (p := 2) (by decide) (by decide)
+  have hprim := hζ6.toInteger_isPrimitiveRoot.idealQuotient_mk
+    (I := v.asIdeal) hne1 hcop
+  let r : (𝓞 K ⧸ v.asIdeal)ˣ := (isUnit_iff_ne_zero.mpr hx).unit
+  have hr_pow : (residue v x ^ ((Ideal.absNorm v.asIdeal - 1) / 6)) ^ 6 = 1 := by
+    rw [← pow_mul, mul_comm, Nat.mul_div_cancel' hdvd6]
+    have hcoe : (r : 𝓞 K ⧸ v.asIdeal) ^ (Ideal.absNorm v.asIdeal - 1) =
+        ((r ^ (Ideal.absNorm v.asIdeal - 1) : (𝓞 K ⧸ v.asIdeal)ˣ) :
+          𝓞 K ⧸ v.asIdeal) := (Units.val_pow_eq_pow_val r _).symm
+    have hcard : Nat.card (𝓞 K ⧸ v.asIdeal)ˣ = Ideal.absNorm v.asIdeal - 1 := by
+      rw [Nat.card_units, ← Submodule.cardQuot_apply, ← Ideal.absNorm_apply]
+    have hr : r ^ (Ideal.absNorm v.asIdeal - 1) = 1 := by
+      rw [← hcard]
+      exact pow_card_eq_one'
+    have hr_eq : (r : 𝓞 K ⧸ v.asIdeal) = residue v x := rfl
+    rw [← hr_eq, hcoe, hr, Units.val_one]
+  obtain ⟨i, _, heq⟩ := hprim.eq_pow_of_pow_eq_one hr_pow
+  have hζ_pow : (hζ6.toInteger ^ i) ^ 6 = 1 := by
+    rw [← pow_mul, mul_comm, pow_mul, hζ6.toInteger_isPrimitiveRoot.pow_eq_one, one_pow]
+  let ζ : rootsOfUnity 6 (𝓞 K) := rootsOfUnity.mkOfPowEq (hζ6.toInteger ^ i) hζ_pow
+  have hex : ∃ z : rootsOfUnity 6 (𝓞 K),
+      Ideal.Quotient.mk v.asIdeal ((z : (𝓞 K)ˣ) : 𝓞 K) =
+        residue v x ^ ((Ideal.absNorm v.asIdeal - 1) / 6) := by
+    refine ⟨ζ, ?_⟩
+    have hcoe : ((ζ : (𝓞 K)ˣ) : 𝓞 K) = hζ6.toInteger ^ i :=
+      rootsOfUnity.coe_mkOfPowEq hζ_pow
+    rw [hcoe, map_pow]
+    exact heq
+  rw [chiAlg, dif_pos hex]
+  exact hex.choose_spec
+
 end ArtinPrimitiveRoots.A2
