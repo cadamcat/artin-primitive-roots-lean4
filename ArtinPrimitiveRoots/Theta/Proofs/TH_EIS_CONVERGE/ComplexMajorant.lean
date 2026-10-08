@@ -247,4 +247,60 @@ theorem complex_spherical_height_product {F : Type} [Field F] [NumberField F]
       Finset.prod_congr rfl fun w _ => hterm σ γ w
     _ = _ := Real.finsetProd_rpow Finset.univ _ (fun w _ => hnonneg γ w) _
 
+/-- Archimedean unipotent translation varies the spherical height point continuously. -/
+theorem complex_spherical_height_product_unipotent {F : Type} [Field F] [NumberField F]
+    (h : NumberField.InfinitePlace F → PGL2 ℂ) :
+    ∃ Z : (NumberField.InfinitePlace F → ℂ) → ArtinPrimitiveRoots.A1.Spec.X F,
+      Continuous Z ∧ ∀ (σ : ℝ) (γ : Matrix.SpecialLinearGroup (Fin 2) F)
+        (x : NumberField.InfinitePlace F → ℂ),
+        (∏ w, ‖sphC (σ : ℂ)
+          (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL
+            (ArtinPrimitiveRoots.A1.Spec.toInf F γ w)) * nC (x w) * h w)‖) =
+          ArtinPrimitiveRoots.A1.Spec.normHeight F (γ • Z x) ^ (1 + 2 * σ) := by
+  classical
+  choose z hz using fun w => complex_spherical_height_point (h w)
+  let u : ℂ → Matrix.SpecialLinearGroup (Fin 2) ℂ := fun t =>
+    ArtinPrimitiveRoots.A1.Spec.upperHom ℂ (Multiplicative.ofAdd t)
+  have hu : Continuous u := by
+    apply Continuous.subtype_mk
+    change Continuous (fun t : ℂ => (!![1, t; 0, 1] : Matrix (Fin 2) (Fin 2) ℂ))
+    apply continuous_matrix
+    intro i j
+    fin_cases i <;> fin_cases j
+    all_goals first | exact continuous_const | exact continuous_id
+  have hup (t : ℂ) :
+      (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL (u t)) : PGL2 ℂ) = nC t := by
+    apply congrArg QuotientGroup.mk
+    apply Units.ext
+    rfl
+  let Z : (NumberField.InfinitePlace F → ℂ) → ArtinPrimitiveRoots.A1.Spec.X F :=
+    fun x w => u (x w) • z w
+  let : ContinuousMul (Matrix.SpecialLinearGroup (Fin 2) ℂ) := ⟨by
+    apply Continuous.subtype_mk
+    exact (continuous_subtype_val.comp continuous_fst).matrix_mul
+      (continuous_subtype_val.comp continuous_snd)⟩
+  have hZ : Continuous Z :=
+    continuous_pi fun w => (hu.comp (continuous_apply w)).smul continuous_const
+  have hterm (σ : ℝ) (γ : Matrix.SpecialLinearGroup (Fin 2) F)
+      (x : NumberField.InfinitePlace F → ℂ) (w : NumberField.InfinitePlace F) :
+      ‖sphC (σ : ℂ) (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL
+        (ArtinPrimitiveRoots.A1.Spec.toInf F γ w)) * nC (x w) * h w)‖ =
+        ArtinPrimitiveRoots.A1.Spec.height ((γ • Z x) w) ^ (1 + 2 * σ) := by
+    have heq := hz w σ (ArtinPrimitiveRoots.A1.Spec.toInf F γ w * u (x w))
+    rw [map_mul, QuotientGroup.mk_mul, hup, mul_smul] at heq
+    exact heq
+  have hnonneg (γ : Matrix.SpecialLinearGroup (Fin 2) F)
+      (x : NumberField.InfinitePlace F → ℂ) (w : NumberField.InfinitePlace F) :
+      0 ≤ ArtinPrimitiveRoots.A1.Spec.height ((γ • Z x) w) := by
+    have heq := hterm 0 γ x w
+    simp only [mul_zero, add_zero, Real.rpow_one] at heq
+    rw [← heq]
+    exact norm_nonneg _
+  refine ⟨Z, hZ, ?_⟩
+  intro σ γ x
+  calc
+    _ = ∏ w, ArtinPrimitiveRoots.A1.Spec.height ((γ • Z x) w) ^ (1 + 2 * σ) :=
+      Finset.prod_congr rfl fun w _ => hterm σ γ x w
+    _ = _ := Real.finsetProd_rpow Finset.univ _ (fun w _ => hnonneg γ x w) _
+
 end ArtinPrimitiveRoots.A1.Theta
