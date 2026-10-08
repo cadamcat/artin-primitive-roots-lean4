@@ -3381,6 +3381,89 @@ theorem rf_exterior_factorization :
     rw [hgroupBase, hLnatEq, hgammaQ, hOmegaEq, hRhoEq, hLambdaEq, ← hPair]
     simp only [Finset.prod_mul_distrib, cgen]
     ring
+private theorem rf_S_orbit_multiplier
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) (γ : Gamma S) (ν : Fˣ) (y : S.FSˣ) :
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+      sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ =
+    (Lvalue R u (S.diagU ν))⁻¹ *
+      (if cls (S.diagU ν) * (cls (S.diagU ((γ.1 : Fˣ) * ν) / y))⁻¹ ∈ Bd.B then 1 else 0) *
+      R.pairing.pair (cls (S.diagU ν)) (cls (S.diagU ((γ.1 : Fˣ) * ν) / y)) ^ 2 *
+      Lvalue R u (S.diagU ((γ.1 : Fˣ) * ν) / y) := by
+  classical
+  let x : S.FSˣ := S.diagU ((γ.1 : Fˣ) * ν)
+  obtain ⟨ε, hε⟩ := γ.property
+  have hεpow : ε ^ (6 : ℕ) = γ.1 := hε
+  have hγF : (γ.1 : Fˣ) = (ε : Fˣ) ^ (6 : ℕ) := by
+    simpa only [SubgroupClass.coe_pow] using
+      congrArg (fun z : S.US => (z : Fˣ)) hεpow.symm
+  have hγclass : cls (S.diagU (γ.1 : Fˣ)) = 1 := by
+    have hmem : S.diagU (γ.1 : Fˣ) ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range := by
+      refine ⟨S.diagU (ε : Fˣ), ?_⟩
+      change (S.diagU (ε : Fˣ)) ^ (6 : ℕ) = S.diagU (γ.1 : Fˣ)
+      rw [hγF, map_pow]
+    exact (QuotientGroup.eq_one_iff (S.diagU (γ.1 : Fˣ))).2 hmem
+  have hxclass : cls x = cls (S.diagU ν) := by
+    calc
+      cls x = cls (S.diagU (γ.1 : Fˣ)) * cls (S.diagU ν) := by
+        simp only [x, map_mul, cls, QuotientGroup.mk_mul]
+      _ = cls (S.diagU ν) := by
+        rw [hγclass]
+        exact one_mul (cls (S.diagU ν))
+  have hyclass : cls y = cls (S.diagU ν) * (cls (x / y))⁻¹ := by
+    calc
+      cls y = cls (x / (x / y)) := by simp
+      _ = cls x * (cls (x / y))⁻¹ := by
+        simp only [cls, QuotientGroup.mk_div, QuotientGroup.mk_mul,
+          QuotientGroup.mk_inv, div_eq_mul_inv]
+      _ = _ := by rw [hxclass]
+  have hLγ : (R.chars.L u).L (S.diagU (γ.1 : Fˣ)) = 1 :=
+    (R.chars.L u).trivial_US (γ.1 : S.US) (γ.1 : S.US).property
+  have hLx : (R.chars.L u).L x = (R.chars.L u).L (S.diagU ν) := by
+    simp only [x, map_mul, hLγ, one_mul]
+  have hLunits : ((R.chars.L u).L y)⁻¹ =
+      ((R.chars.L u).L (S.diagU ν))⁻¹ * (R.chars.L u).L (x / y) := by
+    rw [map_div, hLx]
+    simp [div_eq_mul_inv, mul_assoc]
+  have hLfact : (Lvalue R u y)⁻¹ =
+      (Lvalue R u (S.diagU ν))⁻¹ * Lvalue R u (x / y) := by
+    have h := congrArg (fun z : ℂˣ => (z : ℂ)) hLunits
+    simpa only [Lvalue, Units.val_inv_eq_inv_val, Units.val_mul] using h
+  have hHSmul (a b c : S.FSˣ) :
+      S.HS H a (b * c) = S.HS H a b * S.HS H a c := by
+    simp only [SData.HS, map_mul, H.mul_right, Finset.prod_mul_distrib]
+  have hHSself : (S.HS H x x) ^ (2 : ℕ) = 1 := by
+    simp only [pow_two, SData.HS]
+    rw [← Finset.prod_mul_distrib]
+    apply Finset.prod_eq_one
+    intro v hv
+    exact H.skew v.1 (S.compU v x) (S.compU v x)
+  have hσself : D.σ0 (((S.HS H x x : Fˣ) : F)) ^ (2 : ℕ) = 1 := by
+    have h := congrArg (fun z : rootsOfUnity 6 F => D.σ0 (((z : Fˣ) : F))) hHSself
+    simpa using h
+  have hHSz : S.HS H x (x / y) = S.HS H x x * S.HS H x y⁻¹ := by
+    simpa only [div_eq_mul_inv] using hHSmul x x y⁻¹
+  have hσz : D.σ0 (((S.HS H x (x / y) : Fˣ) : F)) =
+      D.σ0 (((S.HS H x x : Fˣ) : F)) * D.σ0 (((S.HS H x y⁻¹ : Fˣ) : F)) := by
+    have h := congrArg (fun z : rootsOfUnity 6 F => D.σ0 (((z : Fˣ) : F))) hHSz
+    simpa using h
+  have hpair : R.pairing.pair (cls (S.diagU ν)) (cls (x / y)) =
+      D.σ0 (((S.HS H x (x / y) : Fˣ) : F)) := by
+    rw [← hxclass]
+    exact R.pairing.pair_eq x (x / y)
+  have hcocycle : sCocycle (D := D) (H := H) x y⁻¹ =
+      R.pairing.pair (cls (S.diagU ν)) (cls (x / y)) ^ (2 : ℕ) := by
+    rw [hpair, hσz, mul_pow, hσself, one_mul]
+    rfl
+  change bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * sCocycle (D := D) (H := H) x y⁻¹ =
+    (Lvalue R u (S.diagU ν))⁻¹ *
+      (if cls (S.diagU ν) * (cls (x / y))⁻¹ ∈ Bd.B then 1 else 0) *
+      R.pairing.pair (cls (S.diagU ν)) (cls (x / y)) ^ 2 * Lvalue R u (x / y)
+  rw [hLfact, hcocycle]
+  unfold bCut
+  rw [hyclass]
+  ring
+
 /-- rf:S-unfolding, 04:804–857. Inversion changes l to 1/l without a norm Jacobian. -/
 theorem rf_S_unfolding : ∀ u ν l, 0 < l →
   let term := fun γ : Gamma S => omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
