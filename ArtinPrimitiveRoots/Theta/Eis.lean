@@ -1875,6 +1875,57 @@ theorem eisenstein_integral_tsum_on_compact
   simpa only [eisenstein, f, mul_assoc] using
     (integral_tsum_of_summable_integral_norm hint hsum).symm
 
+/-- Integrating the Bruhat cells splits the absolutely convergent Eisenstein series. -/
+theorem eisenstein_bruhat_integral_on_compact
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
+    (K : Set (InfinitePlace F → ℂ)) (hK : IsCompact K)
+    (B : Set (InfinitePlace F → ℂ)) (hB : MeasurableSet B) (hBK : B ⊆ K) :
+    (∫ x in B, eisenstein P G Fs (nInf P x * g)) =
+      (∑' δ : Fˣ ⧸ G.Δ, ∫ x in B, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ)) * nInf P x * g)) +
+      ∑' p : (Fˣ ⧸ G.Δ) × F, ∫ x in B, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) *
+          nInf P x * g) := by
+  classical
+  obtain ⟨_, habs, heq⟩ := eisenstein_integral_tsum_on_compact P G hs Fs g K hK B hB hBK
+  let Q := Quotient (QuotientGroup.rightRel (Bstar G))
+  let I (β : Q) : ℂ := ∫ x in B, scalarOf P G Fs.f Fs.fC
+    (P.tc.rat (Quotient.out β) * nInf P x * g)
+  have hsum : Summable I := habs.of_norm_bounded fun β => norm_integral_le_integral_norm _
+  obtain ⟨e, hsmall, hbig⟩ := rational_bruhat_coset_equiv P G
+  let R : ((Fˣ ⧸ G.Δ) ⊕ ((Fˣ ⧸ G.Δ) × F)) → GL (Fin 2) F :=
+    Sum.elim (fun δ => diagGL (Quotient.out δ))
+      (fun p => diagGL (Quotient.out p.1) * weylGL * upperGL p.2)
+  have he (u) : e u = Quotient.mk (QuotientGroup.rightRel (Bstar G)) (R u) := by
+    cases u with
+    | inl δ => exact hsmall δ
+    | inr p => exact hbig p.1 p.2
+  have hrep (u) : I (e u) = ∫ x in B, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (R u) * nInf P x * g) := by
+    have hb : R u * (Quotient.out (e u))⁻¹ ∈ Bstar G :=
+      QuotientGroup.rightRel_apply.mp (Quotient.exact ((Quotient.out_eq (e u)).trans (he u)))
+    apply integral_congr_ae
+    filter_upwards [] with x
+    simpa only [map_mul, map_inv, mul_assoc, inv_mul_cancel_left] using
+      ((scalarOf_invariance P G Fs).1 (R u * (Quotient.out (e u))⁻¹) hb
+        (P.tc.rat (Quotient.out (e u)) * (nInf P x * g))).symm
+  have hsum' : Summable (fun u => I (e u)) := hsum.comp_injective e.injective
+  calc
+    _ = ∑' β : Q, I β := heq
+    _ = ∑' u, I (e u) := (e.tsum_eq I).symm
+    _ = (∑' δ, I (e (Sum.inl δ))) + ∑' p, I (e (Sum.inr p)) :=
+      (hsum'.comp_injective Sum.inl_injective).tsum_sum
+        (hsum'.comp_injective Sum.inr_injective)
+    _ = _ := by
+      congr 1
+      · apply tsum_congr
+        intro δ
+        exact hrep (Sum.inl δ)
+      · apply tsum_congr
+        intro p
+        exact hrep (Sum.inr p)
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
