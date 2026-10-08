@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.Splitting.Defs
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.Jensen
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.Growth
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.GammaRatio
 
 set_option autoImplicit false
 open scoped NumberField BigOperators
