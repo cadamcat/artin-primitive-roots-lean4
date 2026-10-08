@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Residue
+import ArtinPrimitiveRoots.A1.Proofs.A1_GENERATORS.Generator
 
 /-!
 # A1 interface, §3: Hilbert symbols, H_S, B, allowed generators
@@ -9,6 +10,7 @@ Frozen interface of part A1 (paper §§2, 2a, 3, App. 10). Each `sorry` is owned
 -/
 
 set_option autoImplicit false
+set_option maxHeartbeats 3000000
 
 open NumberField IsDedekindDomain
 open scoped Classical
@@ -84,7 +86,38 @@ def BData.Allowed {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H) (
 theorem BData.exists_allowed {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (hI : S.IsExterior I) :
     ∃ a : Fˣ, S.IsGen (a : F) I ∧ Bd.Allowed a := by
-  sorry
+  classical
+  letI : CommGroup S.V := QuotientGroup.Quotient.commGroup _
+  obtain ⟨a₀, ha₀⟩ :=
+    ArtinPrimitiveRoots.Proofs.A1Generators.exists_generator_of_pid S I hI
+  let q₀ : S.V := (QuotientGroup.mk (S.diagU a₀) : S.V)
+  have hsup : q₀ ∈ S.E ⊔ Bd.B := by
+    rw [Bd.compl.sup_eq_top]
+    exact Subgroup.mem_top q₀
+  obtain ⟨e, he, b, hb, hmul⟩ :=
+    (Subgroup.mem_sup (s := S.E) (t := Bd.B) (x := q₀)).mp hsup
+  change e ∈ S.E at he
+  obtain ⟨ε, hε, hεmap⟩ := Subgroup.mem_map.mp he
+  let εu : S.US := ⟨ε, hε⟩
+  have hεmap' : (QuotientGroup.mk (S.diagU (εu : Fˣ)) : S.V) = e := by
+    simpa using hεmap
+  let a : Fˣ := ((εu⁻¹ : S.US) : Fˣ) * a₀
+  have hgen : S.IsGen (a : F) I := by
+    exact ArtinPrimitiveRoots.Proofs.A1Generators.isGen_mul_sUnit S εu⁻¹ a₀ ha₀
+  have hqa : (QuotientGroup.mk (S.diagU a) : S.V) = b := by
+    change (QuotientGroup.mk
+      (S.diagU (((εu⁻¹ : S.US) : Fˣ) * a₀)) : S.V) = b
+    calc
+      QuotientGroup.mk
+          (S.diagU (((εu⁻¹ : S.US) : Fˣ) * a₀)) =
+        QuotientGroup.mk (S.diagU ((εu⁻¹ : S.US) : Fˣ)) * q₀ := by simp [q₀]
+      _ = (QuotientGroup.mk (S.diagU (εu : Fˣ)))⁻¹ * q₀ := by simp
+      _ = e⁻¹ * q₀ := by rw [hεmap']
+      _ = b := by rw [← hmul]; group
+  refine ⟨a, hgen, ?_⟩
+  change (QuotientGroup.mk (S.diagU a) : S.V) ∈ Bd.B
+  rw [hqa]
+  exact hb
 
 theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
