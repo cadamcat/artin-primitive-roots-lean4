@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SMOOTHING.Defs
+import ArtinPrimitiveRoots.Proofs.spec_smoothing_b.LocalLift
 
 set_option autoImplicit false
 open NumberField Matrix MeasureTheory
@@ -19,6 +19,6 @@ theorem localLiftCLM (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     ∃ T : L2Space F D →L[ℂ] Lp ℂ 2 ((volX F).restrict W),
       ‖T‖ ≤ Real.sqrt (overlapMultiplicity F Γ W : ℝ) ∧
         ∀ u, ∀ᵐ z ∂((volX F).restrict W), T u z = l2Lift F Γ D u z := by
-  sorry
+  exact localLiftCLM_impl Γ D hD W hW
 
 end ArtinPrimitiveRoots.A1.Spec
