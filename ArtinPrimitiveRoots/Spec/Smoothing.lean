@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.SeedProperties
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.ContinuationBasics
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.SmoothingSeedAnalytic
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.Laurent
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.UnsmoothedIdentity
 import Mathlib.Analysis.Complex.CauchyIntegral
 
 /-! Smoothing and pointwise continuation nodes S1--S4. -/
@@ -220,7 +221,8 @@ theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       k₀ hkSmooth hkSupport u θ s₁ ε hhat hhatCenter hres
   · sorry
   · sorry
-  · sorry
+  · exact s3_unsmoothed_identity Γ D hD σ τ A hA hsep hτ k₀ hkSmooth hkSupport u
+      s₁ ε hs₀ (lt_of_le_of_lt hs₁ (by norm_num)) hε.1 hu hbase hseries
 
 /-- S4 `spec:res-props` — P-SPEC.md:247, 422–425. The residue is smooth, invariant, square
 integrable on every fundamental domain, and an eigenfunction of every partial Laplacian. -/
