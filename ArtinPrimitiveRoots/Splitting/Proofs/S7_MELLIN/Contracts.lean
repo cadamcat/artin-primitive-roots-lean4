@@ -14,6 +14,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».SharpHeights
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».PrincipalParts
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».FinitePatch
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».SharpPrincipalParts
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».RectanglePatch
 
 set_option autoImplicit false
 
