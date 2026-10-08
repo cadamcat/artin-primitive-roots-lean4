@@ -1,6 +1,7 @@
 import /- Local package with a quoted directory name. -/ ArtinPrimitiveRoots.Hecke.Proofs.«HK-FE».hk_point_ideal_integral
 import /- Local package with a quoted directory name. -/ ArtinPrimitiveRoots.Hecke.Proofs.«HK-FE».hk_primitive_residue_character
 import /- Local package with a quoted directory name. -/ ArtinPrimitiveRoots.Hecke.Proofs.«HK-FE».hk_primitive_trace_datum
+import ArtinPrimitiveRoots.Proofs.hkfe_poisson_p.WeightedRescale
 
 
 set_option autoImplicit false
@@ -25,6 +26,6 @@ theorem hk_weighted_gaussian_poisson [IsTotallyComplex K] {m : RayClassModulus K
             Real.sqrt ((discr K).natAbs : ℝ) : ℝ) : ℂ) *
           (Real.sqrt (∏ w : InfinitePlace K, c w ^ mult w) : ℂ))) *
         hkWeightedTheta (ψ⁻¹) (hkDualIdeal m I) (fun w => 4 / c w) := by
-  sorry
+  exact hk_weighted_gaussian_poisson_all ψ χ T I c hc
 
 end ArtinPrimitiveRoots.Hecke
