@@ -7165,6 +7165,31 @@ private theorem rf_pairing_row_support
     change idealExp v r.ideal.1 % 6 = idealExp v r.h.1 % 6
     rw [hexp v, hzero, Nat.add_zero]
 
+private theorem rf_pairing_sqf_support_exists
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (s : Finset (FinPlace F)) (hgood : ∀ v ∈ s, v ∉ S.Sf) :
+    ∃ f : S.ExtIdeal, Squarefree f.1 ∧ R.exterior.support f = s := by
+  classical
+  obtain ⟨f, hf, _, _⟩ := rf_prime_product_ext R s hgood
+  refine ⟨f, ?_, ?_⟩
+  · rw [hf]
+    apply Finset.squarefree_prod_of_pairwise_isCoprime
+    · intro v hv w hw hne
+      exact (v.isCoprime_of_ne w hne).isRelPrime
+    · intro v hv
+      exact v.prime.squarefree
+  · ext v
+    constructor
+    · intro hv
+      by_contra hvs
+      have hle : (∏ w ∈ s, w.asIdeal) ≤ v.asIdeal := by
+        rw [← hf]
+        exact Ideal.dvd_iff_le.mp ((R.exterior.mem_support f v).mp hv)
+      exact rf_prime_product_not_le v s (fun w hw heq => hvs (heq ▸ hw)) hle
+    · intro hv
+      rw [R.exterior.mem_support f v, hf]
+      exact Finset.dvd_prod_of_mem (fun w : FinPlace F => w.asIdeal) hv
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
