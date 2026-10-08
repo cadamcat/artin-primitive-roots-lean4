@@ -1521,6 +1521,223 @@ private theorem qs_p1_mellin_vertical_integrable (h : ℝ → ℂ) (hh : IsQSWei
   exact hScaled.congr (Filter.Eventually.of_forall fun t =>
     (qs_p1_mellin_eq_fourier_line h t).symm)
 
+theorem qs_p1_original_mellin_representation [IsTotallyComplex K]
+    (χ : ArtinPrimitiveRoots.A1.HeckeChar K) (hsq : χ ^ 2 = 1)
+    (h : ℝ → ℂ) (hh : IsQSWeight h) (X : ℝ) (hX : 0 < X) :
+    ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+        χ.idealValue a.1 * h ((Ideal.absNorm a.1 : ℝ) / X) =
+      mellinInv 2 (fun s : ℂ => (X : ℂ) ^ s * heckeLSeries χ s * mellin h s) 1 := by
+  classical
+  let y : {I : Ideal (𝓞 K) // I ≠ ⊥} → ℝ :=
+    fun a => (Ideal.absNorm a.1 : ℝ) / X
+  let sline : ℝ → ℂ := fun t => (2 : ℂ) + (t : ℂ) * Complex.I
+  let F : {I : Ideal (𝓞 K) // I ≠ ⊥} → ℝ → ℂ := fun a t =>
+    χ.idealValue a.1 * ((y a : ℂ) ^ (-sline t) * mellin h (sline t))
+  have hy (a : {I : Ideal (𝓞 K) // I ≠ ⊥}) : 0 < y a := by
+    dsimp [y]
+    apply div_pos
+    · apply Nat.cast_pos.mpr
+      have hn0 : Ideal.absNorm a.1 ≠ 0 := by
+        intro hn
+        exact a.2 (Ideal.absNorm_eq_zero_iff.mp hn)
+      exact Nat.pos_iff_ne_zero.mpr hn0
+    · exact hX
+  have hchar (a : {I : Ideal (𝓞 K) // I ≠ ⊥}) : ‖χ.idealValue a.1‖ ≤ 1 :=
+    qs_p1_idealValue_norm_le_one χ hsq a.1
+  have hM : Integrable (fun t : ℝ => mellin h (sline t)) := by
+    have hMv : Complex.VerticalIntegrable (mellin h) 2 :=
+      qs_p1_mellin_vertical_integrable h hh
+    change Integrable (fun t : ℝ => mellin h (sline t))
+    exact hMv
+  let J : ℝ := ∫ t : ℝ, ‖mellin h (sline t)‖
+  have hJ : 0 ≤ J := by
+    dsimp [J]
+    exact integral_nonneg (fun _ => norm_nonneg _)
+  have hJint : Integrable (fun t : ℝ => ‖mellin h (sline t)‖) := hM.norm
+  have hcoeff : Summable (fun a : {I : Ideal (𝓞 K) // I ≠ ⊥} =>
+      ‖χ.idealValue a.1‖ * (y a) ^ (-2 : ℝ)) := by
+    have hnormsum : Summable (fun I : Ideal (𝓞 K) =>
+        ArtinPrimitiveRoots.Hecke.idealNormRpowTerm (K := K) 2 I) :=
+      ArtinPrimitiveRoots.Hecke.summable_idealNormRpow (K := K) (by norm_num)
+    have hbase : Summable (fun a : {I : Ideal (𝓞 K) // I ≠ ⊥} =>
+        X ^ (2 : ℝ) * ArtinPrimitiveRoots.Hecke.idealNormRpowTerm (K := K) 2 a.1) :=
+      (hnormsum.subtype (fun I : Ideal (𝓞 K) => I ≠ ⊥)).mul_left (X ^ (2 : ℝ))
+    apply Summable.of_nonneg_of_le (fun _ => by positivity) (fun a => ?_) hbase
+    have hn0 : Ideal.absNorm a.1 ≠ 0 := by
+      intro hn
+      exact a.2 (Ideal.absNorm_eq_zero_iff.mp hn)
+    have hn : 0 < (Ideal.absNorm a.1 : ℝ) :=
+      Nat.cast_pos.mpr (Nat.pos_iff_ne_zero.mpr hn0)
+    have hscale : (y a) ^ (-2 : ℝ) = X ^ (2 : ℝ) *
+        (Ideal.absNorm a.1 : ℝ) ^ (-2 : ℝ) := by
+      dsimp [y]
+      calc
+        ((Ideal.absNorm a.1 : ℝ) / X) ^ (-2 : ℝ) =
+            (Ideal.absNorm a.1 : ℝ) ^ (-2 : ℝ) / X ^ (-2 : ℝ) :=
+              Real.div_rpow (Nat.cast_nonneg _) hX.le _
+        _ = ((Ideal.absNorm a.1 : ℝ) ^ (2 : ℝ))⁻¹ /
+              (X ^ (2 : ℝ))⁻¹ := by
+                rw [Real.rpow_neg hn.le 2, Real.rpow_neg hX.le 2]
+        _ = X ^ (2 : ℝ) * ((Ideal.absNorm a.1 : ℝ) ^ (2 : ℝ))⁻¹ := by
+              rw [div_eq_mul_inv, inv_inv]
+              exact mul_comm (((Ideal.absNorm a.1 : ℝ) ^ (2 : ℝ))⁻¹)
+                (X ^ (2 : ℝ))
+        _ = X ^ (2 : ℝ) * (Ideal.absNorm a.1 : ℝ) ^ (-2 : ℝ) := by
+              rw [← Real.rpow_neg hn.le 2]
+    have hterm : ArtinPrimitiveRoots.Hecke.idealNormRpowTerm (K := K) 2 a.1 =
+        (Ideal.absNorm a.1 : ℝ) ^ (-2 : ℝ) := by
+      simp [ArtinPrimitiveRoots.Hecke.idealNormRpowTerm, hn0]
+    calc
+      ‖χ.idealValue a.1‖ * (y a) ^ (-2 : ℝ) =
+          ‖χ.idealValue a.1‖ * (X ^ (2 : ℝ) *
+            (Ideal.absNorm a.1 : ℝ) ^ (-2 : ℝ)) := by rw [hscale]
+      _ ≤ 1 * (X ^ (2 : ℝ) * (Ideal.absNorm a.1 : ℝ) ^ (-2 : ℝ)) := by
+        exact mul_le_mul_of_nonneg_right (hchar a) (by positivity)
+      _ = X ^ (2 : ℝ) * ArtinPrimitiveRoots.Hecke.idealNormRpowTerm (K := K) 2 a.1 := by
+        rw [hterm]
+        ring
+  have hphaseNorm (a : {I : Ideal (𝓞 K) // I ≠ ⊥}) (t : ℝ) :
+      ‖(y a : ℂ) ^ (-sline t)‖ = (y a) ^ (-2 : ℝ) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos (hy a)]
+    simp [sline]
+  have hFint (a : {I : Ideal (𝓞 K) // I ≠ ⊥}) : Integrable (F a) := by
+    letI : NeZero (y a : ℂ) := ⟨Complex.ofReal_ne_zero.mpr (hy a).ne'⟩
+    have hphaseCont : Continuous (fun t : ℝ => (y a : ℂ) ^ (-sline t)) := by
+      exact (continuous_const_cpow (y a : ℂ)).comp (by fun_prop)
+    have hprod : Integrable (fun t : ℝ =>
+      ((y a : ℂ) ^ (-sline t)) * mellin h (sline t)) :=
+      hM.bdd_mul hphaseCont.aestronglyMeasurable
+        (Filter.Eventually.of_forall fun t => by rw [hphaseNorm])
+    simpa [F] using hprod.const_mul (χ.idealValue a.1)
+  have hFnorm (a : {I : Ideal (𝓞 K) // I ≠ ⊥}) (t : ℝ) :
+      ‖F a t‖ = (‖χ.idealValue a.1‖ * (y a) ^ (-2 : ℝ)) *
+        ‖mellin h (sline t)‖ := by
+    simp only [F, norm_mul, hphaseNorm]
+    ring
+  have hFsum : Summable (fun a : {I : Ideal (𝓞 K) // I ≠ ⊥} =>
+      ∫ t : ℝ, ‖F a t‖) := by
+    have hmajor := hcoeff.mul_left J
+    refine hmajor.congr ?_
+    intro a
+    calc
+      J * (‖χ.idealValue a.1‖ * (y a) ^ (-2 : ℝ)) =
+          (‖χ.idealValue a.1‖ * (y a) ^ (-2 : ℝ)) * J := by ring
+      _ =
+          ∫ t : ℝ, (‖χ.idealValue a.1‖ * (y a) ^ (-2 : ℝ)) *
+            ‖mellin h (sline t)‖ := by
+              rw [integral_const_mul]
+      _ = ∫ t : ℝ, ‖F a t‖ := by
+              apply integral_congr_ae
+              exact Filter.Eventually.of_forall fun t => (hFnorm a t).symm
+  haveI : Countable {I : Ideal (𝓞 K) // I ≠ ⊥} := by
+    let F₀ : ℕ → Type := fun n =>
+      {I : Ideal (𝓞 K) // I ≠ ⊥ ∧ Ideal.absNorm I ≤ n}
+    haveI : ∀ n, Finite (F₀ n) := by
+      intro n
+      apply (Ideal.finite_setOfPred_absNorm_le n).subset
+      intro I hI
+      exact hI.2
+    let f : (Σ n : ℕ, F₀ n) → {I : Ideal (𝓞 K) // I ≠ ⊥} := fun p =>
+      ⟨p.2.1, p.2.2.1⟩
+    have hsurj : Function.Surjective f := by
+      intro a
+      exact ⟨⟨Ideal.absNorm a.1, ⟨a.1, a.2, le_rfl⟩⟩, rfl⟩
+    have hrange : Set.range f = Set.univ := Set.range_eq_univ.mpr hsurj
+    rw [← Set.countable_univ_iff]
+    rw [← hrange]
+    exact Set.countable_range f
+  have hsumInt := integral_tsum_of_summable_integral_norm hFint hFsum
+  have hpoint (t : ℝ) :
+      ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥}, F a t =
+        (X : ℂ) ^ (sline t) * heckeLSeries χ (sline t) * mellin h (sline t) := by
+    have hpow (a : {I : Ideal (𝓞 K) // I ≠ ⊥}) :
+        ((y a : ℝ) : ℂ) ^ (-sline t) =
+          (X : ℂ) ^ (sline t) *
+            ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t) := by
+      dsimp [y]
+      have hn0 : Ideal.absNorm a.1 ≠ 0 := by
+        intro hn
+        exact a.2 (Ideal.absNorm_eq_zero_iff.mp hn)
+      have hn : 0 < (Ideal.absNorm a.1 : ℝ) :=
+        Nat.cast_pos.mpr (Nat.pos_iff_ne_zero.mpr hn0)
+      rw [Complex.ofReal_div, Complex.div_cpow_ofReal_nonneg hn.le hX.le]
+      calc
+        ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t) / (X : ℂ) ^ (-sline t) =
+            ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t) *
+              ((X : ℂ) ^ (-sline t))⁻¹ := by rw [div_eq_mul_inv]
+        _ = ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t) * (X : ℂ) ^ (sline t) := by
+              congr 1
+              simp [Complex.cpow_neg]
+        _ = (X : ℂ) ^ (sline t) *
+              ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t) := by ring
+    calc
+      ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥}, F a t =
+          ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+            (X : ℂ) ^ (sline t) * ((χ.idealValue a.1 *
+              ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t)) * mellin h (sline t)) := by
+                apply tsum_congr
+                intro a
+                simp [F, hpow, mul_assoc, mul_left_comm, mul_comm]
+      _ = (X : ℂ) ^ (sline t) *
+            (∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+              (χ.idealValue a.1 * ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t)) *
+                mellin h (sline t)) := by rw [tsum_mul_left]
+      _ = (X : ℂ) ^ (sline t) *
+            ((∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+              χ.idealValue a.1 * ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t)) *
+                mellin h (sline t)) := by rw [tsum_mul_right]
+      _ = (X : ℂ) ^ (sline t) * heckeLSeries χ (sline t) * mellin h (sline t) := by
+            rw [heckeLSeries]
+            exact (mul_assoc ((X : ℂ) ^ (sline t))
+              (∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+                χ.idealValue a.1 * ((Ideal.absNorm a.1 : ℕ) : ℂ) ^ (-sline t))
+              (mellin h (sline t))).symm
+  have hterm (a : {I : Ideal (𝓞 K) // I ≠ ⊥}) :
+      χ.idealValue a.1 * h (y a) =
+        ((1 / (2 * Real.pi) : ℝ) : ℂ) • ∫ t : ℝ, F a t := by
+    have hInv := mellinInv_mellin_eq 2 h (hy a)
+      (qs_p1_mellin_convergent h hh (2 : ℂ) (by norm_num))
+      (qs_p1_mellin_vertical_integrable h hh) (hh.1.continuous.continuousAt)
+    rw [← hInv]
+    simp only [mellinInv, RCLike.real_smul_eq_coe_mul (K := ℂ), smul_eq_mul]
+    calc
+      χ.idealValue a.1 *
+          (((1 / (2 * Real.pi) : ℝ) : ℂ) *
+            ∫ t : ℝ, (y a : ℂ) ^ (-(2 + (t : ℂ) * Complex.I)) *
+              mellin h (2 + (t : ℂ) * Complex.I)) =
+          ((1 / (2 * Real.pi) : ℝ) : ℂ) *
+            (χ.idealValue a.1 *
+              ∫ t : ℝ, (y a : ℂ) ^ (-(2 + (t : ℂ) * Complex.I)) *
+                mellin h (2 + (t : ℂ) * Complex.I)) := by ring
+      _ = ((1 / (2 * Real.pi) : ℝ) : ℂ) *
+            ∫ t : ℝ, χ.idealValue a.1 *
+              ((y a : ℂ) ^ (-(2 + (t : ℂ) * Complex.I)) *
+                mellin h (2 + (t : ℂ) * Complex.I)) := by
+              rw [← integral_const_mul]
+      _ = ((1 / (2 * Real.pi) : ℝ) : ℂ) • ∫ t : ℝ, F a t := by
+            change ((1 / (2 * Real.pi) : ℝ) : ℂ) *
+              ∫ t : ℝ, χ.idealValue a.1 *
+                ((y a : ℂ) ^ (-(2 + (t : ℂ) * Complex.I)) *
+                  mellin h (2 + (t : ℂ) * Complex.I)) =
+              ((1 / (2 * Real.pi) : ℝ) : ℂ) * ∫ t : ℝ, F a t
+            apply congrArg (fun z : ℂ => ((1 / (2 * Real.pi) : ℝ) : ℂ) * z)
+            apply integral_congr_ae
+            exact Filter.Eventually.of_forall fun t => by simp [F, sline, smul_eq_mul]
+  calc
+    (∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥}, χ.idealValue a.1 * h (y a)) =
+        ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+          ((1 / (2 * Real.pi) : ℝ) : ℂ) • ∫ t : ℝ, F a t := by
+            apply tsum_congr
+            exact hterm
+    _ = ((1 / (2 * Real.pi) : ℝ) : ℂ) •
+          (∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥}, ∫ t : ℝ, F a t) := by
+            exact tsum_const_smul'' ((1 / (2 * Real.pi) : ℝ) : ℂ)
+    _ = ((1 / (2 * Real.pi) : ℝ) : ℂ) •
+          ∫ t : ℝ, ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥}, F a t := by
+            rw [hsumInt]
+    _ = mellinInv 2 (fun s : ℂ => (X : ℂ) ^ s * heckeLSeries χ s * mellin h s) 1 := by
+          simp [mellinInv, hpoint, sline, smul_eq_mul]
+
 /-- Mellin inversion for a smooth QS weight on a positive input, on the line `Re s = 2`. -/
 theorem qs_p1_mellin_inversion (h : ℝ → ℂ) (hh : IsQSWeight h) (x : ℝ) (hx : 0 < x) :
     mellinInv 2 (mellin h) x = h x := by
