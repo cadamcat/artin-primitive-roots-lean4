@@ -4332,7 +4332,180 @@ theorem initial_lower :
       E / b * τ ≤ E / b * (η * b / (8 * E)) :=
         mul_le_mul_of_nonneg_left hτeta (by positivity)
       _ = η / 8 := by field_simp [ne_of_gt hb, ne_of_gt hE] <;> ring
-  sorry
+  intro _hZD
+  change Scale * (E / b * coef - η) ≤ roughConstructionMass x M c u K a Ψ z
+  have hSpos : 0 < singularProduct M := (sieve_products M hM).1
+  have hX0nonneg : 0 ≤ X0 := conTotalMass_nonneg x M c u K a Ψ hΨ
+  have hScaleNonneg : 0 ≤ Scale :=
+    div_nonneg (mul_nonneg hSpos.le hX0nonneg) hLpos.le
+  by_cases hCoefNonpos : coef ≤ 0
+  · have hFactorNonpos : E / b * coef - η ≤ 0 := by
+      have h := mul_nonpos_of_nonneg_of_nonpos (div_nonneg hE.le hb.le) hCoefNonpos
+      linarith only [h, hη]
+    have hRoughNonneg : 0 ≤ roughConstructionMass x M c u K a Ψ z := by
+      unfold roughConstructionMass
+      apply Finset.sum_nonneg
+      intro d hd
+      split
+      · exact conWeight_nonneg x M c u K a Ψ hΨ d
+      · exact le_rfl
+    exact (mul_nonpos_of_nonneg_of_nonpos hScaleNonneg hFactorNonpos).trans
+      hRoughNonneg
+  · have hCoefPos : 0 < coef := lt_of_not_ge hCoefNonpos
+    have hOneMinus : 0 ≤ 1 - τ := by linarith only [hτsmall]
+    have hH₀ : H₀ ≤ H := by
+      have hbH₀ : b < 1 / (40 * ((H₀ : ℝ) + 4)) :=
+        hbSmall.trans_le (min_le_right _ _)
+      have hMul : b * (40 * ((H₀ : ℝ) + 4)) < 1 :=
+        (lt_div_iff₀ (by positivity)).mp hbH₀
+      have hNatMul : (H₀ : ℝ) * (40 * b) ≤ 1 := by
+        nlinarith only [hMul, hb]
+      have hNatReal : (H₀ : ℝ) ≤ 1 / (40 * b) :=
+        (le_div_iff₀ (by positivity)).mpr hNatMul
+      have hFloor : H₀ ≤ ⌊1 / (40 * b)⌋₊ :=
+        (Nat.le_floor_iff (by positivity)).mpr hNatReal
+      dsimp only [H]
+      omega
+    let P : ℝ := (1 - τ) * (singularProduct M * E) / (b * L)
+    have hPnonneg : 0 ≤ P := by
+      dsimp only [P]
+      exact div_nonneg (mul_nonneg hOneMinus (mul_nonneg hSpos.le hE.le))
+        (mul_nonneg hb.le hLpos.le)
+    have hProduct (r : ℕ) (hr : r ∈ Rε) :
+        P ≤ progressionSieveProductFor M r z := by
+      rcases Finset.mem_filter.mp hr with ⟨hrRange, hrGroup⟩
+      have hrNat : r ≤ ⌊Real.rpow x ε⌋₊ :=
+        Nat.le_of_lt_succ (Finset.mem_range.mp hrRange)
+      have hrReal : (r : ℝ) ≤ Real.rpow x ε :=
+        (Nat.cast_le.mpr hrNat).trans (Nat.floor_le (Real.rpow_nonneg hxpos.le ε))
+      have hrSmall : (r : ℝ) ≤ Real.rpow x (11 / 100 : ℝ) :=
+        hrReal.trans (Real.rpow_le_rpow_of_exponent_le hxone hεsmall.le)
+      exact hProductLower x hxProductReq r hrGroup hrSmall
+    have hPerGroup (r : ℕ) (hr : r ∈ Rε) :
+        coef * progressionPrimeSum x M c u Ψ r 1 *
+            progressionSieveProductFor M r z -
+          Kblock * (∑ ℓ ∈ oddSquarefreeUpTo D,
+            |progressionPrimeSum x M c u Ψ r ℓ -
+              localSieveDensity M r ℓ * progressionPrimeSum x M c u Ψ r 1|) ≤
+          siftedProgressionPrimeSum x M c u Ψ r z := by
+      have hA : 0 ≤ progressionPrimeSum x M c u Ψ r 1 := by
+        unfold progressionPrimeSum
+        exact Finset.sum_nonneg (fun Q _ => hΨ.2.2.1 _)
+      have hProd : 0 ≤ progressionSieveProductFor M r z :=
+        hPnonneg.trans (hProduct r hr)
+      have hMain : 0 ≤ progressionPrimeSum x M c u Ψ r 1 *
+          progressionSieveProductFor M r z := mul_nonneg hA hProd
+      have hCompare := mul_le_mul_of_nonneg_right hCoefLower hMain
+      have hSifted := siftedProgressionPrimeSum_lower M c u Ψ r
+        x z D Kblock Cblock H H₀ hKblock hBlock hBlockBound hc24 hΨ
+        hz2 hDnonneg hCutoff hEvenH hH₀
+      calc
+        _ = coef * (progressionPrimeSum x M c u Ψ r 1 *
+              progressionSieveProductFor M r z) -
+            Kblock * (∑ ℓ ∈ oddSquarefreeUpTo D,
+              |progressionPrimeSum x M c u Ψ r ℓ -
+                localSieveDensity M r ℓ * progressionPrimeSum x M c u Ψ r 1|) := by ring
+        _ ≤ alpha * (progressionPrimeSum x M c u Ψ r 1 *
+              progressionSieveProductFor M r z) -
+            Kblock * (∑ ℓ ∈ oddSquarefreeUpTo D,
+              |progressionPrimeSum x M c u Ψ r ℓ -
+                localSieveDensity M r ℓ * progressionPrimeSum x M c u Ψ r 1|) :=
+          sub_le_sub_right hCompare _
+        _ = progressionPrimeSum x M c u Ψ r 1 * progressionSieveProductFor M r z -
+            Kblock * Real.exp (-(H : ℝ)) *
+              (progressionPrimeSum x M c u Ψ r 1 * progressionSieveProductFor M r z) -
+            Kblock * (∑ ℓ ∈ oddSquarefreeUpTo D,
+              |progressionPrimeSum x M c u Ψ r ℓ -
+                localSieveDensity M r ℓ * progressionPrimeSum x M c u Ψ r 1|) := by
+          dsimp only [alpha]
+          ring
+        _ ≤ _ := hSifted
+    have hWeighted := ArtinPrimitiveRoots.Proofs.c_bins_sol.weighted_sifted_sum_lower
+      M c u K a Ψ Rε x z D coef P Kblock hΨ hCoefPos.le hProduct hPerGroup
+    have hAggregated : coef * P * Xsmall - Kblock * ErrTotal ≤
+        roughConstructionMass x M c u K a Ψ z :=
+      hWeighted.trans (hRoughMass x hxRoughReq)
+    have hLogReq : Lreq ≤ L := hxLog x hxLogReq
+    let Tbound : ℝ := 4 * Kblock * C_A / (η * singularProduct M * c₀)
+    have hTbound : 0 ≤ Tbound := by dsimp only [Tbound]; positivity
+    have hSqrtLe : Real.sqrt Tbound ≤ L :=
+      (le_max_right 1 (Real.sqrt Tbound)).trans hLogReq
+    have hSquare : Tbound ≤ L ^ 2 := by
+      have h := mul_self_le_mul_self (Real.sqrt_nonneg Tbound) hSqrtLe
+      simpa only [← pow_two, Real.sq_sqrt hTbound] using h
+    have hLogNorm : 4 * Kblock * C_A ≤ η * singularProduct M * c₀ * L ^ 2 := by
+      have h := (div_le_iff₀ (mul_pos (mul_pos hη hSpos) hc₀)).mp hSquare
+      convert h using 1 <;> ring
+    have hDenNorm : Kblock * C_A / L ^ 4 ≤
+        (η / 4) * (singularProduct M * c₀ / L ^ 2) := by
+      apply (div_le_iff₀ (pow_pos hLpos 4)).mpr
+      have hEq : ((η / 4) * (singularProduct M * c₀ / L ^ 2)) * L ^ 4 =
+          η * singularProduct M * c₀ * L ^ 2 / 4 := by
+        field_simp [ne_of_gt hLpos]
+      rw [hEq]
+      apply (le_div_iff₀ (by norm_num : (0 : ℝ) < 4)).mpr
+      convert hLogNorm using 1 <;> ring
+    have hRpowNeg : Real.rpow L (-4 : ℝ) = 1 / L ^ 4 := by
+      have hPower : Real.rpow L (4 : ℝ) = L ^ 4 := Real.rpow_natCast L 4
+      calc
+        _ = (Real.rpow L (4 : ℝ))⁻¹ := Real.rpow_neg hLpos.le (4 : ℝ)
+        _ = (L ^ 4)⁻¹ := congrArg (fun t : ℝ => t⁻¹) hPower
+        _ = _ := (one_div (L ^ 4)).symm
+    have hErrDiv : ErrTotal ≤ C_A * x * J / L ^ 4 := by
+      calc
+        _ ≤ C_A * x * J * Real.rpow L (-4 : ℝ) := hErrBound
+        _ = _ := by rw [hRpowNeg, mul_one_div]
+    have hJnonneg : 0 ≤ J := le_trans (by norm_num : (0 : ℝ) ≤ 1) hJlower
+    have hErrLoss : Kblock * ErrTotal ≤ (η / 4) * Scale := by
+      calc
+        _ ≤ Kblock * (C_A * x * J / L ^ 4) :=
+          mul_le_mul_of_nonneg_left hErrDiv hKblock.le
+        _ = (Kblock * C_A / L ^ 4) * (x * J) := by ring
+        _ ≤ ((η / 4) * (singularProduct M * c₀ / L ^ 2)) * (x * J) :=
+          mul_le_mul_of_nonneg_right hDenNorm (mul_nonneg hxpos.le hJnonneg)
+        _ = (η / 4) * (singularProduct M * (c₀ * x * J / L) / L) := by
+          field_simp [ne_of_gt hLpos]
+        _ ≤ (η / 4) * Scale := by
+          apply mul_le_mul_of_nonneg_left _ (by positivity : (0 : ℝ) ≤ η / 4)
+          exact div_le_div_of_nonneg_right
+            (mul_le_mul_of_nonneg_left hMassLower hSpos.le) hLpos.le
+    have hCoefTau : E / b * coef * τ ≤ E / b * τ := by
+      calc
+        _ = coef * (E / b * τ) := by ring
+        _ ≤ 1 * (E / b * τ) :=
+          mul_le_mul_of_nonneg_right hCoefLeOne (mul_nonneg (div_nonneg hE.le hb.le) hτ.le)
+        _ = _ := one_mul _
+    have hQuadNonneg : 0 ≤ coef * τ ^ 2 * (E / b) :=
+      mul_nonneg (mul_nonneg hCoefPos.le (sq_nonneg τ)) (div_nonneg hE.le hb.le)
+    have hCoeffLoss : E / b * coef - coef * (1 - τ) ^ 2 * (E / b) ≤ η / 4 := by
+      calc
+        _ = 2 * (E / b * coef * τ) - coef * τ ^ 2 * (E / b) := by ring
+        _ ≤ 2 * (E / b * coef * τ) := sub_le_self _ hQuadNonneg
+        _ ≤ 2 * (E / b * τ) :=
+          mul_le_mul_of_nonneg_left hCoefTau (by norm_num)
+        _ ≤ 2 * (η / 8) := mul_le_mul_of_nonneg_left hTauScaled (by norm_num)
+        _ = η / 4 := by ring
+    have hCoefficient : E / b * coef - η ≤
+        coef * (1 - τ) ^ 2 * (E / b) - η / 4 := by
+      linarith only [hCoeffLoss, hη]
+    have hSmallMain : coef * P * ((1 - τ) * X0) ≤ coef * P * Xsmall :=
+      mul_le_mul_of_nonneg_left hXsmallLower (mul_nonneg hCoefPos.le hPnonneg)
+    have hMainEq : coef * P * ((1 - τ) * X0) =
+        Scale * (coef * (1 - τ) ^ 2 * (E / b)) := by
+      dsimp only [P, Scale]
+      field_simp [ne_of_gt hLpos, ne_of_gt hb]
+    have hMassBound : Scale * (coef * (1 - τ) ^ 2 * (E / b)) - Kblock * ErrTotal ≤
+        roughConstructionMass x M c u K a Ψ z := by
+      calc
+        _ = coef * P * ((1 - τ) * X0) - Kblock * ErrTotal := by rw [hMainEq]
+        _ ≤ coef * P * Xsmall - Kblock * ErrTotal := sub_le_sub_right hSmallMain _
+        _ ≤ _ := hAggregated
+    have hErrorShift : Scale * (coef * (1 - τ) ^ 2 * (E / b) - η / 4) ≤
+        Scale * (coef * (1 - τ) ^ 2 * (E / b)) - Kblock * ErrTotal := by
+      have h := sub_le_sub_left hErrLoss (Scale * (coef * (1 - τ) ^ 2 * (E / b)))
+      convert h using 1 <;> ring
+    exact (mul_le_mul_of_nonneg_left hCoefficient hScaleNonneg).trans
+      (hErrorShift.trans hMassBound)
 
 /-- `con:bin-mass`, 12-construction.tex:452-503. -/
 theorem con_bin_mass (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
