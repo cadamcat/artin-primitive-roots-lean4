@@ -2,14 +2,32 @@ import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Finite
+import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Exist
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P0
 import ArtinPrimitiveRoots.A2.Interface
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
 set_option maxHeartbeats 800000
 open NumberField IsDedekindDomain MeasureTheory
+open Filter
+open scoped Topology
 open scoped Classical
 noncomputable section
+open Lean Elab Tactic
+
+elab "po_w1_qs_uniform_decay" : tactic => do
+  let mut n := Lean.Name.str Lean.Name.anonymous "_private"
+  for p in ["ArtinPrimitiveRoots", "A2", "Proofs", "A2-QS-POISSON", "P0"] do
+    n := Lean.Name.str n p
+  n := Lean.Name.num n 0
+  for p in ["ArtinPrimitiveRoots", "A2", "qs_mellin_vertical_decay_uniform_of_zero"] do
+    n := Lean.Name.str n p
+  liftMetaTactic fun g => do
+    let e ← Lean.Meta.mkConstWithFreshMVarLevels n
+    g.apply e
+  evalTactic (← `(tactic| all_goals assumption))
+
 namespace ArtinPrimitiveRoots.A2
 open ArtinPrimitiveRoots A1 A2
 variable {F : Type} [Field F] [NumberField F]
@@ -58,6 +76,444 @@ def WeightDecay : Prop :=
       ‖weightW1hat W (σ + τ * Complex.I)‖ ≤ C * (1 + |τ|) ^ (-A0)) ∧
   (∀ σ : ℝ, 0 < σ → Integrable (fun y =>
     ‖weightFourier sd W y‖ * S.absS y ^ σ) R.sheets.mul)
+
+private theorem po_finiteFourier_regular (v : S.Sf)
+    (f : v.1.adicCompletion F → ℂ) (hf : IsLocallyConstant f)
+    (hfc : HasCompactSupport f) :
+    Continuous (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+      v.1 A (μ v.1) f) ∧
+      HasCompactSupport (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+        v.1 A (μ v.1) f) := by
+  obtain ⟨k, hperiod⟩ := ArtinPrimitiveRoots.Proofs.a2_weights.finiteTest_exists_period_ball
+    v.1 f hf hfc
+  constructor
+  · exact (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_isLocallyConstant
+      v.1 A (μ v.1) f hfc).continuous
+  · exact ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_hasCompactSupport_of_period
+      v.1 A (μ v.1) f k hperiod
+
+private def poFiniteMellinLocal (W : PoissonWeights (S := S))
+    (v : S.Sf) (s : ℂ) : ℂ :=
+  ∫ y, ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+    v.1 A (μ v.1) (W.finite v).1 y * (absFin v.1 y : ℂ) ^ s
+    ∂Theta.mulHaarFin (μ v.1)
+
+private def poArchMellinLocal (W : PoissonWeights (S := S))
+    (w : InfinitePlace F) (s : ℂ) : ℂ :=
+  ∫ y, ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz
+    (W.arch w) y * (Complex.normSq y : ℂ) ^ s ∂Theta.mulHaarC
+
+private def poWeightMScale (sd : S.SelfDualMeasure A)
+    (μ : ∀ v : FinPlace F, Theta.LocHaar v) : ℂ :=
+  ArtinPrimitiveRoots.Proofs.a2_weights_p.pSheetMulScale *
+    ArtinPrimitiveRoots.Proofs.a2_weights_p.pWeightFourierScale sd μ
+
+private theorem po_weightM_factorization (W : PoissonWeights (S := S))
+    (hW0ne : ∃ y, W.W0 y ≠ 0) (s : ℂ) (hs : 0 < s.re) :
+    Integrable (fun y => weightFourier sd W y * (S.absS y : ℂ) ^ s) R.sheets.mul ∧
+      weightM R sd W s = poWeightMScale sd μ *
+        ((∏ v : S.Sf, poFiniteMellinLocal (A := A) (μ := μ) W v s) *
+          ∏ w : InfinitePlace F, poArchMellinLocal W w s) := by
+  have hfactor := ArtinPrimitiveRoots.Proofs.a2_weights_p.pWeightM_factorization
+    R sd W.arch W.finite W.W0 W.W0_tensor W.W0_compact hW0ne s hs
+  constructor
+  · simpa [weightFourier] using hfactor.1
+  · unfold weightM weightFourier
+    simpa [poWeightMScale, poFiniteMellinLocal, poArchMellinLocal] using hfactor.2
+
+private theorem po_weightM_differentiable (W : PoissonWeights (S := S))
+    (hW0ne : ∃ y, W.W0 y ≠ 0) :
+    DifferentiableOn ℂ (weightM R sd W) {z | 0 < z.re} := by
+  intro s hs
+  have hFin (v : S.Sf) :
+      DifferentiableAt ℂ (poFiniteMellinLocal (A := A) (μ := μ) W v) s := by
+    obtain ⟨hcont, hcompact⟩ := po_finiteFourier_regular v
+      (W.finite v).1 (W.finite v).2.2.2 (W.finite v).2.2.1
+    change DifferentiableAt ℂ
+      (fun z => ∫ y, ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+        v.1 A (μ v.1) (W.finite v).1 y * (absFin v.1 y : ℂ) ^ z
+          ∂Theta.mulHaarFin (μ v.1)) s
+    exact ArtinPrimitiveRoots.Proofs.a2_weights_p.pFiniteMellin_differentiableAt
+      v.1 (μ v.1)
+      (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+        v.1 A (μ v.1) (W.finite v).1)
+      hcont hcompact s hs
+  have hArch (w : InfinitePlace F) :
+      DifferentiableAt ℂ (poArchMellinLocal W w) s := by
+    change DifferentiableAt ℂ
+      (fun z => ∫ y : ℂ,
+        ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz (W.arch w) y *
+          (Complex.normSq y : ℂ) ^ z ∂Theta.mulHaarC) s
+    exact ArtinPrimitiveRoots.Proofs.a2_weights_p.pComplexMellin_differentiableAt
+      (ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz (W.arch w)) s hs
+  have hFinProd : DifferentiableAt ℂ
+      (fun z : ℂ => ∏ v : S.Sf, poFiniteMellinLocal (A := A) (μ := μ) W v z) s := by
+    apply DifferentiableAt.fun_finsetProd (u := Finset.univ)
+    intro v hv
+    exact hFin v
+  have hArchProd : DifferentiableAt ℂ
+      (fun z : ℂ => ∏ w : InfinitePlace F, poArchMellinLocal W w z) s := by
+    apply DifferentiableAt.fun_finsetProd (u := Finset.univ)
+    intro w hw
+    exact hArch w
+  have hprod : DifferentiableAt ℂ
+      (fun z : ℂ => poWeightMScale sd μ *
+        ((∏ v : S.Sf, poFiniteMellinLocal (A := A) (μ := μ) W v z) *
+          ∏ w : InfinitePlace F, poArchMellinLocal W w z)) s := by
+    exact (differentiableAt_const _).mul (hFinProd.mul hArchProd)
+  have hopen : IsOpen {z : ℂ | 0 < z.re} := isOpen_lt continuous_const Complex.continuous_re
+  have hformula : (weightM R sd W) =ᶠ[𝓝 s]
+      fun z => poWeightMScale sd μ *
+        ((∏ v : S.Sf, poFiniteMellinLocal (A := A) (μ := μ) W v z) *
+          ∏ w : InfinitePlace F, poArchMellinLocal W w z) := by
+    filter_upwards [hopen.mem_nhds hs] with z hz
+    exact (po_weightM_factorization (R := R) (sd := sd) W hW0ne z hz).2
+  exact (hformula.differentiableAt_iff.mpr hprod).differentiableWithinAt
+
+private theorem po_weightM_verticalDecay (W : PoissonWeights (S := S))
+    (hW0ne : ∃ y, W.W0 y ≠ 0)
+    (l r A0 : ℝ) (hl : 0 < l) (hlr : l ≤ r) (hA0 : 0 < A0) :
+    ∃ C : ℝ, 0 < C ∧ ∀ σ τ : ℝ, l ≤ σ → σ ≤ r →
+      ‖weightM R sd W (σ + τ * Complex.I)‖ ≤ C * (1 + |τ|) ^ (-A0) := by
+  classical
+  let m : ℝ := Fintype.card (InfinitePlace F)
+  have hnonempty : Nonempty (InfinitePlace F) := inferInstance
+  have hmNat : 0 < Fintype.card (InfinitePlace F) := Fintype.card_pos_iff.mpr hnonempty
+  have hm : 0 < m := by dsimp [m]; exact_mod_cast hmNat
+  let Aarch : ℝ := A0 / m
+  have hAarch : 0 < Aarch := div_pos hA0 hm
+  let Mfin : S.Sf → ℂ → ℂ := fun v => poFiniteMellinLocal (A := A) (μ := μ) W v
+  let March : InfinitePlace F → ℂ → ℂ := fun w => poArchMellinLocal W w
+  let K : ℂ := ArtinPrimitiveRoots.Proofs.a2_weights_p.pSheetMulScale *
+    ArtinPrimitiveRoots.Proofs.a2_weights_p.pWeightFourierScale sd μ
+  have hformula (s : ℂ) (hs : 0 < s.re) :
+      weightM R sd W s = K * ((∏ v : S.Sf, Mfin v s) * ∏ w : InfinitePlace F, March w s) := by
+    have h := po_weightM_factorization (R := R) (sd := sd) W hW0ne s hs
+    simpa [K, Mfin, March, poFiniteMellinLocal, poArchMellinLocal,
+      poWeightMScale, mul_assoc] using h.2
+  let Cfin : S.Sf → ℝ := fun v =>
+    (∫ y, ‖ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+      v.1 A (μ v.1) (W.finite v).1 y‖ * absFin v.1 y ^ l ∂Theta.mulHaarFin (μ v.1)) +
+    (∫ y, ‖ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+      v.1 A (μ v.1) (W.finite v).1 y‖ * absFin v.1 y ^ r ∂Theta.mulHaarFin (μ v.1)) + 1
+  have hCfin : ∀ v, 0 < Cfin v := by
+    intro v
+    dsimp [Cfin]
+    have hLnonneg : 0 ≤ ∫ y, ‖ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+        v.1 A (μ v.1) (W.finite v).1 y‖ * absFin v.1 y ^ l ∂Theta.mulHaarFin (μ v.1) :=
+      integral_nonneg fun y => mul_nonneg (norm_nonneg _) (Real.rpow_nonneg
+        (by rw [Theta.absFin_eq_norm]; positivity) _)
+    have hRnonneg : 0 ≤ ∫ y, ‖ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+        v.1 A (μ v.1) (W.finite v).1 y‖ * absFin v.1 y ^ r ∂Theta.mulHaarFin (μ v.1) :=
+      integral_nonneg fun y => mul_nonneg (norm_nonneg _) (Real.rpow_nonneg
+        (by rw [Theta.absFin_eq_norm]; positivity) _)
+    linarith
+  let hArchChoice : ∀ w : InfinitePlace F,
+      ∃ C : ℝ, 0 < C ∧ ∀ σ τ : ℝ, l ≤ σ → σ ≤ r →
+        ‖March w (σ + τ * Complex.I)‖ ≤ C * (1 + |τ|) ^ (-Aarch) := by
+    intro w
+    simpa [March, poArchMellinLocal] using
+      (ArtinPrimitiveRoots.Proofs.a2_weights_p.pComplexMellin_vertical_decay
+        (ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz (W.arch w))
+        l r Aarch hl hlr hAarch)
+  let Carch : InfinitePlace F → ℝ := fun w => Classical.choose (hArchChoice w)
+  have hCarch : ∀ w, 0 < Carch w ∧ ∀ (σ τ : ℝ), l ≤ σ → σ ≤ r →
+      ‖March w (σ + τ * Complex.I)‖ ≤ Carch w * (1 + |τ|) ^ (-Aarch) := by
+    intro w
+    exact Classical.choose_spec (hArchChoice w)
+  let CP : ℝ := ∏ v : S.Sf, Cfin v
+  let CA : ℝ := ∏ w : InfinitePlace F, Carch w
+  have hCP : 0 ≤ CP := by
+    dsimp [CP]
+    apply Finset.prod_nonneg
+    intro v hv
+    exact (hCfin v).le
+  have hCA : 0 < CA := by
+    dsimp [CA]
+    apply Finset.prod_pos
+    intro w hw
+    exact hCarch w |>.1
+  let C : ℝ := (‖K‖ + 1) * CP * CA + 1
+  have hC : 0 < C := by dsimp [C]; positivity
+  refine ⟨C, hC, ?_⟩
+  intro σ τ hσl hσr
+  let s : ℂ := (σ : ℂ) + (τ : ℂ) * Complex.I
+  have hs : 0 < s.re := by dsimp [s]; simp; exact lt_of_lt_of_le hl hσl
+  have hsre : s.re = σ := by simp [s]
+  have hsformula := hformula s hs
+  have hfinBound (v : S.Sf) : ‖Mfin v s‖ ≤ Cfin v := by
+    obtain ⟨hcont, hcompact⟩ := po_finiteFourier_regular v
+      (W.finite v).1 (W.finite v).2.2.2 (W.finite v).2.2.1
+    have hnorm := ArtinPrimitiveRoots.Proofs.a2_weights_p.pFiniteMellin_norm_bound
+      v.1 (μ v.1) (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+        v.1 A (μ v.1) (W.finite v).1) hcont hcompact s hs
+    have hstrip := ArtinPrimitiveRoots.Proofs.a2_weights_p.pFiniteWeighted_integral_strip_le
+      v.1 (μ v.1) (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+        v.1 A (μ v.1) (W.finite v).1) hcont hcompact l r σ hl hlr hσl hσr
+    have hnormσ : ‖Mfin v s‖ ≤
+        ∫ y, ‖ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+          v.1 A (μ v.1) (W.finite v).1 y‖ * absFin v.1 y ^ σ
+          ∂Theta.mulHaarFin (μ v.1) := by
+      simpa [Mfin, poFiniteMellinLocal, hsre] using hnorm
+    have hCfinBound :
+        (∫ y, ‖ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+          v.1 A (μ v.1) (W.finite v).1 y‖ * absFin v.1 y ^ l
+          ∂Theta.mulHaarFin (μ v.1)) +
+        ∫ y, ‖ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier
+          v.1 A (μ v.1) (W.finite v).1 y‖ * absFin v.1 y ^ r
+          ∂Theta.mulHaarFin (μ v.1) ≤ Cfin v := by
+      dsimp [Cfin]
+      linarith
+    exact hnormσ.trans hstrip |>.trans hCfinBound
+  have hArchBound (w : InfinitePlace F) :
+      ‖March w s‖ ≤ Carch w * (1 + |τ|) ^ (-Aarch) := by
+    have h := (hCarch w).2 σ τ hσl hσr
+    simpa [March, poArchMellinLocal, s] using h
+  have hFinProd : ∏ v : S.Sf, ‖Mfin v s‖ ≤ CP := by
+    exact Finset.prod_le_prod₀
+      (fun v hv => norm_nonneg _)
+      (fun v hv => hfinBound v)
+  have hArchProd : ∏ w : InfinitePlace F, ‖March w s‖ ≤
+      CA * (1 + |τ|) ^ (-A0) := by
+    let d : ℝ := (1 + |τ|) ^ (-Aarch)
+    have hd : 0 ≤ d := by dsimp [d]; positivity
+    have hprod : ∏ w : InfinitePlace F, ‖March w s‖ ≤
+        ∏ w : InfinitePlace F, Carch w * d := by
+      exact Finset.prod_le_prod₀
+        (fun w hw => norm_nonneg _)
+        (fun w hw => by simpa [d] using hArchBound w)
+    have hprodEq : (∏ w : InfinitePlace F, Carch w * d) = CA * d ^ Fintype.card (InfinitePlace F) := by
+      simp [CA, Finset.prod_mul_distrib]
+    have hpow : d ^ Fintype.card (InfinitePlace F) = (1 + |τ|) ^ (-A0) := by
+      dsimp [d, Aarch, m]
+      rw [← Real.rpow_natCast, ← Real.rpow_mul (by positivity)]
+      congr 1
+      have hmEq : (Fintype.card (InfinitePlace F) : ℝ) = m := rfl
+      rw [hmEq]
+      field_simp [ne_of_gt hm]
+    calc
+      _ ≤ ∏ w : InfinitePlace F, Carch w * d := hprod
+      _ = CA * d ^ Fintype.card (InfinitePlace F) := hprodEq
+      _ = CA * (1 + |τ|) ^ (-A0) := by rw [hpow]
+  have hnormFormula : ‖weightM R sd W s‖ =
+      ‖K‖ * (∏ v : S.Sf, ‖Mfin v s‖) * ∏ w : InfinitePlace F, ‖March w s‖ := by
+    rw [hsformula]
+    simp only [norm_mul, norm_prod]
+    ring
+  have hbound : ‖weightM R sd W s‖ ≤
+      (‖K‖ * CP * CA) * (1 + |τ|) ^ (-A0) := by
+    rw [hnormFormula]
+    calc
+      _ ≤ ‖K‖ * CP * (∏ w : InfinitePlace F, ‖March w s‖) := by
+        gcongr
+      _ ≤ ‖K‖ * CP * (CA * (1 + |τ|) ^ (-A0)) := by
+        exact mul_le_mul_of_nonneg_left hArchProd (mul_nonneg (norm_nonneg _) hCP)
+      _ = _ := by ring
+  have hbound' : ‖weightM R sd W s‖ ≤ C * (1 + |τ|) ^ (-A0) := by
+    dsimp [C]
+    have hdec : 0 ≤ (1 + |τ|) ^ (-A0) := Real.rpow_nonneg (by positivity) _
+    have hcoef : ‖K‖ * CP * CA ≤ (‖K‖ + 1) * CP * CA + 1 := by
+      have hnormK : 0 ≤ ‖K‖ := norm_nonneg _
+      have hCPCA : 0 ≤ CP * CA := mul_nonneg hCP hCA.le
+      calc
+        ‖K‖ * CP * CA = ‖K‖ * (CP * CA) := by ring
+        _ ≤ (‖K‖ + 1) * (CP * CA) :=
+          mul_le_mul_of_nonneg_right (by linarith) hCPCA
+        _ = (‖K‖ + 1) * CP * CA := by ring
+        _ ≤ (‖K‖ + 1) * CP * CA + 1 := le_add_of_nonneg_right (by norm_num)
+    exact hbound.trans (mul_le_mul_of_nonneg_right hcoef hdec)
+  simpa [s] using hbound'
+
+private theorem po_W1_isQSWeight (W : PoissonWeights (S := S)) :
+    ArtinPrimitiveRoots.A2.IsQSWeight W.W1 ∧ W.W1 0 = 0 := by
+  let K : Set ℝ := tsupport W.W1
+  have hKcompact : IsCompact K := W.W1_compact
+  have hKnonempty : K.Nonempty := by
+    obtain ⟨t, ht⟩ := W.W1_nonzero
+    exact ⟨t, subset_closure (Function.mem_support.mpr ht)⟩
+  obtain ⟨tM, htM, hmax⟩ := hKcompact.exists_isMaxOn hKnonempty continuous_abs.continuousOn
+  let B : ℝ := |tM| + 1
+  have htail : ∀ t : ℝ, B ≤ t → W.W1 t = 0 := by
+    intro t ht
+    have htK : t ∉ K := by
+      intro htk
+      have habs : |t| ≤ |tM| := hmax htk
+      have htpos : 0 ≤ t := by
+        dsimp [B] at ht
+        linarith [abs_nonneg tM]
+      rw [abs_of_nonneg htpos] at habs
+      dsimp [B] at ht
+      linarith
+    by_contra hne
+    have htmem : t ∈ K := subset_closure (Function.mem_support.mpr hne)
+    exact htK htmem
+  have hzero : W.W1 0 = 0 := by
+    by_contra hne
+    have hmem : (0 : ℝ) ∈ K := subset_closure (Function.mem_support.mpr hne)
+    have hpos := W.W1_positive_support hmem
+    simpa using hpos
+  have hzeroNotK : (0 : ℝ) ∉ K := by
+    intro h
+    have hpos := W.W1_positive_support h
+    simpa using hpos
+  have hopen : IsOpen Kᶜ := (isClosed_tsupport W.W1).isOpen_compl
+  obtain ⟨δ, hδ, hball⟩ := Metric.mem_nhds_iff.mp (hopen.mem_nhds hzeroNotK)
+  have hnear : ∀ t ∈ Set.Icc (0 : ℝ) (δ / 2), W.W1 t = 0 := by
+    intro t ht
+    have htball : t ∈ Metric.ball (0 : ℝ) δ := by
+      rw [Metric.mem_ball, Real.dist_eq, sub_zero, abs_of_nonneg ht.1]
+      exact lt_of_le_of_lt ht.2 (by linarith [hδ])
+    have htNotK : t ∉ K := by
+      intro htk
+      exact (hball htball) htk
+    by_contra hne
+    have htmem : t ∈ K := subset_closure (Function.mem_support.mpr hne)
+    exact htNotK htmem
+  constructor
+  · refine ⟨W.W1_smooth, ⟨B, htail⟩, ⟨δ / 2, by linarith, ?_⟩⟩
+    intro t ht
+    rw [hnear t ht, hzero]
+  · exact hzero
+
+private theorem po_weightW1hat_eq_mellin (W : PoissonWeights (S := S)) (s : ℂ) :
+    weightW1hat W s = mellin W.W1 s := by
+  unfold weightW1hat
+  rw [mellin]
+  apply setIntegral_congr_fun measurableSet_Ioi
+  intro t ht
+  have htne : (t : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr ht.ne'
+  simp only [smul_eq_mul]
+  rw [Complex.cpow_sub s 1 htne, Complex.cpow_one]
+  ring
+
+private theorem po_weightW1hat_differentiable (W : PoissonWeights (S := S)) :
+    Differentiable ℂ (weightW1hat W) := by
+  have hEq : weightW1hat W = mellin W.W1 := by
+    funext s
+    exact po_weightW1hat_eq_mellin W s
+  rw [hEq]
+  intro s
+  obtain ⟨hQS, hzero⟩ := po_W1_isQSWeight W
+  rcases hQS with ⟨hsm, ⟨B, htail⟩, ⟨δ, hδ, hnear⟩⟩
+  let a : ℝ := s.re + 1
+  let b : ℝ := s.re - 1
+  have hloc : LocallyIntegrableOn W.W1 (Set.Ioi (0 : ℝ)) :=
+    hsm.continuous.continuousOn.locallyIntegrableOn measurableSet_Ioi
+  have htop : W.W1 =O[atTop] (fun x : ℝ => x ^ (-a)) := by
+    rw [Asymptotics.isBigO_iff]
+    refine ⟨1, ?_⟩
+    filter_upwards [eventually_ge_atTop (max B 1)] with x hx
+    have hxB : B ≤ x := (le_max_left B 1).trans hx
+    rw [htail x hxB]
+    simp
+  have hbot : W.W1 =O[𝓝[>] (0 : ℝ)] (fun x : ℝ => x ^ (-b)) := by
+    rw [Asymptotics.isBigO_iff]
+    refine ⟨1, ?_⟩
+    filter_upwards [Ioo_mem_nhdsGT hδ] with x hx
+    have hxEq := hnear x ⟨le_of_lt hx.1, hx.2.le⟩
+    rw [hxEq, hzero]
+    simp
+  exact mellin_differentiableAt_of_isBigO_rpow hloc htop
+    (by dsimp [a]; linarith) hbot (by dsimp [b]; linarith)
+
+private theorem po_weightW1hat_verticalDecay (W : PoissonWeights (S := S))
+    (l r A0 : ℝ) (hlr : l ≤ r) (hA0 : 0 < A0) :
+    ∃ C : ℝ, 0 < C ∧ ∀ σ τ : ℝ, l ≤ σ → σ ≤ r →
+      ‖weightW1hat W (σ + τ * Complex.I)‖ ≤ C * (1 + |τ|) ^ (-A0) := by
+  classical
+  obtain ⟨hQS, hzero⟩ := po_W1_isQSWeight W
+  obtain ⟨n, hn⟩ := exists_nat_gt (2 * A0)
+  let N : ℕ := n
+  have hN2 : 2 * A0 < (N : ℝ) := by exact_mod_cast hn
+  have hlarge : ∃ C0 : ℝ, 0 ≤ C0 ∧ ∀ σ ∈ Set.Icc l r, ∀ τ : ℝ,
+      2 * Real.pi ≤ |τ| →
+      ‖mellin W.W1 ((σ : ℂ) + (τ : ℂ) * Complex.I)‖ ≤ C0 / |τ| ^ N := by
+    po_w1_qs_uniform_decay
+  rcases hlarge with ⟨C0, hC0, hlarge⟩
+  let Kstrip : Set (ℝ × ℝ) := Set.Icc l r ×ˢ Set.Icc (-(2 * Real.pi)) (2 * Real.pi)
+  have hKstrip : IsCompact Kstrip := isCompact_Icc.prod isCompact_Icc
+  have hKne : Kstrip.Nonempty := by
+    refine ⟨(l, 0), ?_⟩
+    simp [Kstrip, hlr, Real.pi_pos.le]
+  let fstrip : ℝ × ℝ → ℝ := fun p => ‖weightW1hat W ((p.1 : ℂ) + (p.2 : ℂ) * Complex.I)‖
+  have hfstrip : ContinuousOn fstrip Kstrip := by
+    have hmap : Continuous (fun p : ℝ × ℝ => ((p.1 : ℂ) + (p.2 : ℂ) * Complex.I)) := by
+      fun_prop
+    exact (((po_weightW1hat_differentiable W).continuous).norm.comp hmap).continuousOn
+  obtain ⟨pmax, hpmax, hmax⟩ := hKstrip.exists_isMaxOn hKne hfstrip
+  let Csmall : ℝ := max (fstrip pmax) 0
+  have hCsmall : 0 ≤ Csmall := le_max_right _ _
+  have hsmall : ∀ σ τ : ℝ, l ≤ σ → σ ≤ r → |τ| ≤ 2 * Real.pi →
+      ‖weightW1hat W ((σ : ℂ) + (τ : ℂ) * Complex.I)‖ ≤ Csmall := by
+    intro σ τ hσl hσr hτ
+    have hp : (σ, τ) ∈ Kstrip := by
+      simp only [Kstrip, Set.mem_prod, Set.mem_Icc]
+      constructor
+      · exact ⟨hσl, hσr⟩
+      · have habs := abs_le.mp hτ
+        exact ⟨by linarith, habs.2⟩
+    have h := hmax hp
+    dsimp [fstrip, Csmall] at h ⊢
+    exact h.trans (le_max_left _ _)
+  let C : ℝ := (C0 + Csmall + 1) * (1 + 2 * Real.pi) ^ A0 + 1
+  have hC : 0 < C := by dsimp [C]; positivity
+  refine ⟨C, hC, ?_⟩
+  intro σ τ hσl hσr
+  have hsEq : ((σ : ℂ) + (τ : ℂ) * Complex.I) = σ + τ * Complex.I := by simp
+  by_cases hτ : |τ| ≤ 2 * Real.pi
+  · have hbase := hsmall σ τ hσl hσr hτ
+    have hdec : 0 < (1 + |τ|) ^ (-A0) := Real.rpow_pos_of_pos (by positivity) _
+    have hle : (1 + |τ|) ^ (-A0) ≥ (1 + 2 * Real.pi) ^ (-A0) := by
+      have hanti := Real.antitoneOn_rpow_Ioi_of_exponent_nonpos
+        (show -A0 ≤ 0 by linarith)
+      exact hanti (by positivity) (by linarith)
+    have hscale : Csmall ≤ C * (1 + 2 * Real.pi) ^ (-A0) := by
+      let a : ℝ := 1 + 2 * Real.pi
+      let x : ℝ := C0 + Csmall + 1
+      have ha : 0 < a := by dsimp [a]; positivity
+      have hpow : a ^ A0 * a ^ (-A0) = 1 := by
+        rw [← Real.rpow_add ha]
+        simp
+      have hcore : Csmall ≤ (x * a ^ A0 + 1) * a ^ (-A0) := by
+        calc
+          Csmall ≤ x := by dsimp [x]; linarith [hC0]
+          _ ≤ x + a ^ (-A0) := le_add_of_nonneg_right
+            (Real.rpow_nonneg ha.le _)
+          _ = (x * a ^ A0 + 1) * a ^ (-A0) := by
+            rw [add_mul, mul_assoc, hpow]
+            simp
+      simpa [C, a, x] using hcore
+    exact hbase.trans (hscale.trans
+      (mul_le_mul_of_nonneg_left hle hC.le))
+  · have hτlarge : 2 * Real.pi ≤ |τ| := le_of_not_ge hτ
+    have hlarge' := hlarge σ ⟨hσl, hσr⟩ τ hτlarge
+    have hτone : 1 ≤ |τ| := by nlinarith [Real.pi_gt_three]
+    have hpow : |τ| ^ (-N : ℝ) ≤ (1 + |τ|) ^ (-A0) := by
+      have hbase : 1 + |τ| ≤ |τ| ^ 2 := by
+        nlinarith [sq_nonneg (|τ| - 2)]
+      have hposPow : (1 + |τ|) ^ A0 ≤ |τ| ^ (2 * A0) :=
+        Real.rpow_le_rpow (by positivity) hbase hA0.le
+      have hpowN : |τ| ^ (2 * A0) ≤ |τ| ^ (N : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le hτone (by linarith [hN2])
+      rw [Real.rpow_neg (by positivity) (N : ℝ),
+        Real.rpow_neg (by positivity) A0]
+      exact one_div_le_one_div_of_le
+        (Real.rpow_pos_of_pos (by positivity) A0) (hposPow.trans hpowN)
+    have hlarge'' : ‖mellin W.W1
+        ((σ : ℂ) + (τ : ℂ) * Complex.I)‖ ≤ C0 * (1 + |τ|) ^ (-A0) := by
+      calc
+        _ ≤ C0 * |τ| ^ (-N : ℝ) := by
+          calc
+            _ ≤ C0 / |τ| ^ N := hlarge'
+            _ = C0 * |τ| ^ (-N : ℝ) := by
+              rw [div_eq_mul_inv, ← Real.rpow_natCast,
+                ← Real.rpow_neg (by positivity : 0 ≤ |τ|)]
+        _ ≤ C0 * (1 + |τ|) ^ (-A0) := mul_le_mul_of_nonneg_left hpow hC0
+    rw [po_weightW1hat_eq_mellin W (σ + τ * Complex.I)]
+    have hC0C : C0 ≤ C := by dsimp [C]; positivity
+    have hcoef := mul_le_mul_of_nonneg_right hC0C
+      (Real.rpow_nonneg (by positivity) (-A0))
+    simpa [hsEq] using hlarge''.trans hcoef
 
 /-- po:weights-exist, 05:37–75. The existence and universal analytic conclusions are separate. -/
 theorem po_weights_exist :
