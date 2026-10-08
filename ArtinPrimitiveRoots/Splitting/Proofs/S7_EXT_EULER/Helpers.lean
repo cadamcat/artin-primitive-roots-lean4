@@ -1,0 +1,139 @@
+import ArtinPrimitiveRoots.Splitting.Defs
+import TauCeti.NumberTheory.ArithmeticDirichletSeries.EulerProduct.Analytic
+import Mathlib.Analysis.Normed.Module.MultipliableUniformlyOn
+import Mathlib.Analysis.Complex.LocallyUniformLimit
+
+set_option autoImplicit false
+
+open scoped NumberField BigOperators Topology
+open NumberField IsDedekindDomain Complex Filter
+
+noncomputable section
+
+namespace ArtinPrimitiveRoots.Splitting.S7ExtEuler
+
+variable {K : Type*} [Field K] [NumberField K]
+
+/-- The local prime-power series is geometric on the Euler half-plane. -/
+lemma prime_power_hasSum (v : HeightOneSpectrum (𝓞 K)) {s : ℂ} (hs : 1 < s.re) :
+    HasSum (fun j : ℕ =>
+      (Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) *
+        (Ideal.absNorm v.asIdeal : ℂ) ^ (-((j + 1 : ℕ) : ℂ) * s))
+      ((Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) /
+        ((Ideal.absNorm v.asIdeal : ℂ) ^ s - 1)) := by
+  sorry
+
+/-- Differentiate the locally uniformly convergent Dedekind Euler product. -/
+lemma euler_logderiv_hasSum (K : Type*) [Field K] [NumberField K]
+    {s : ℂ} (hs : 1 < s.re) :
+    HasSum (fun v : HeightOneSpectrum (𝓞 K) =>
+      (Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) /
+        ((Ideal.absNorm v.asIdeal : ℂ) ^ s - 1))
+      (-logDeriv (dedekindZeta K) s) := by
+  classical
+  let σ : ℝ := (1 + s.re) / 2
+  have hσ : 1 < σ := by dsimp [σ]; linarith
+  have hσs : σ < s.re := by dsimp [σ]; linarith
+  let U : Set ℂ := {z | σ < z.re}
+  let F : HeightOneSpectrum (𝓞 K) → ℂ → ℂ :=
+    fun v z => (1 - (Ideal.absNorm v.asIdeal : ℂ) ^ (-z))⁻¹
+  let q : ℝ := (2 : ℝ) ^ (-σ)
+  have hq : q < 1 := Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) (by linarith)
+  have hqpos : 0 < 1 - q := sub_pos.mpr hq
+  have hU : IsOpen U := isOpen_lt continuous_const Complex.continuous_re
+  have hnorm_le (v : HeightOneSpectrum (𝓞 K)) {z : ℂ} (hz : z ∈ U) :
+      ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-z)‖ ≤
+        ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-(σ : ℂ))‖ :=
+    (v.norm_absNorm_cpow_neg_lt (by simpa [U] using hz)).le
+  have hnorm_q (v : HeightOneSpectrum (𝓞 K)) :
+      ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-(σ : ℂ))‖ ≤ q := by
+    have hv := NumberField.HeightOneSpectrum.one_lt_absNorm v
+    rw [Complex.norm_natCast_cpow_of_pos (by omega)]
+    simp only [Complex.neg_re, Complex.ofReal_re]
+    exact Real.rpow_le_rpow_of_nonpos (by norm_num)
+      (by exact_mod_cast (show 2 ≤ Ideal.absNorm v.asIdeal by omega)) (by linarith)
+  have hden (v : HeightOneSpectrum (𝓞 K)) {z : ℂ} (hz : z ∈ U) :
+      1 - (Ideal.absNorm v.asIdeal : ℂ) ^ (-z) ≠ 0 := by
+    intro he
+    have hlt := (hnorm_le v hz).trans_lt ((hnorm_q v).trans_lt hq)
+    rw [sub_eq_zero] at he
+    rw [← he] at hlt
+    norm_num at hlt
+  have hdiff (v : HeightOneSpectrum (𝓞 K)) {z : ℂ} (hz : z ∈ U) :
+      DifferentiableAt ℂ (F v) z :=
+    ((((hasDerivAt_neg z).const_cpow (Or.inl v.natCast_absNorm_ne_zero)).const_sub 1).inv
+      (hden v hz)).differentiableAt
+  have hideals : Summable (TauCeti.idealTerm K
+      (1 : TauCeti.MultiplicativeIdealWeight K).toIdealArithmeticFunction (σ : ℂ)) := by
+    rw [TauCeti.MultiplicativeIdealWeight.toIdealArithmeticFunction_one]
+    exact TauCeti.summable_idealTerm_one_iff.mpr (by simpa using hσ)
+  have hprimes : Summable (fun v : HeightOneSpectrum (𝓞 K) =>
+      (Ideal.absNorm v.asIdeal : ℂ) ^ (-(σ : ℂ))) := by
+    refine (TauCeti.MultiplicativeIdealWeight.summable_div_of_summable_idealTerm
+      (1 : TauCeti.MultiplicativeIdealWeight K) hideals).congr fun v => ?_
+    rw [TauCeti.MultiplicativeIdealWeight.one_apply, ite_eq_right v.ne_bot,
+      Complex.cpow_neg, one_div]
+  have hmajorant : Summable (fun v : HeightOneSpectrum (𝓞 K) =>
+      ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-(σ : ℂ))‖ / (1 - q)) :=
+    hprimes.norm.div_const (1 - q)
+  have hbound (v : HeightOneSpectrum (𝓞 K)) {z : ℂ} (hz : z ∈ U) :
+      ‖F v z - 1‖ ≤ ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-(σ : ℂ))‖ / (1 - q) := by
+    have hsub : 1 - q ≤ ‖1 - (Ideal.absNorm v.asIdeal : ℂ) ^ (-z)‖ := by
+      calc
+        1 - q ≤ 1 - ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-z)‖ :=
+          sub_le_sub_left ((hnorm_le v hz).trans (hnorm_q v)) 1
+        _ ≤ ‖1 - (Ideal.absNorm v.asIdeal : ℂ) ^ (-z)‖ := by
+          simpa using norm_sub_norm_le (1 : ℂ)
+            ((Ideal.absNorm v.asIdeal : ℂ) ^ (-z))
+    have heq : F v z - 1 = (Ideal.absNorm v.asIdeal : ℂ) ^ (-z) /
+        (1 - (Ideal.absNorm v.asIdeal : ℂ) ^ (-z)) := by
+      dsimp [F]
+      field_simp [hden v hz]
+      ring
+    rw [heq, norm_div]
+    calc
+      _ ≤ ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-z)‖ / (1 - q) :=
+        div_le_div_of_nonneg_left (norm_nonneg _) hqpos hsub
+      _ ≤ _ := (div_le_div_iff_of_pos_right hqpos).mpr (hnorm_le v hz)
+  have hone : TendstoLocallyUniformlyOn
+      (fun t : Finset (HeightOneSpectrum (𝓞 K)) => fun z =>
+        ∏ v ∈ t, (1 + (F v z - 1)))
+      (fun z => ∏' v : HeightOneSpectrum (𝓞 K), (1 + (F v z - 1))) atTop U :=
+    Summable.hasProdLocallyUniformlyOn_one_add (f := fun v z => F v z - 1)
+      hU hmajorant (.of_forall fun v z hz => hbound v hz)
+      (fun v z hz => ((hdiff v hz).sub_const 1).continuousAt.continuousWithinAt)
+  have hlu : TendstoLocallyUniformlyOn
+      (fun t : Finset (HeightOneSpectrum (𝓞 K)) => fun z => ∏ v ∈ t, F v z)
+      (dedekindZeta K) atTop U :=
+    (hone.congr fun t z _ => Finset.prod_congr rfl fun v _ => by ring).congr_right
+      (fun z hz => (tprod_congr fun v => (by ring : 1 + (F v z - 1) = F v z)).trans
+        (TauCeti.dedekindZeta_eulerProduct_hasProd (hσ.trans hz)).tprod_eq)
+  have hsU : s ∈ U := hσs
+  have hsum : HasSum (fun v : HeightOneSpectrum (𝓞 K) => logDeriv (F v) s)
+      (logDeriv (dedekindZeta K) s) := by
+    have key := Complex.logDeriv_tendsto hU hsU hlu
+      (.of_forall fun t => DifferentiableOn.fun_finsetProd
+        fun v _ z hz => (hdiff v hz).differentiableWithinAt)
+      (TauCeti.dedekindZeta_ne_zero_of_one_lt_re hs)
+    rw [HasSum]
+    exact key.congr fun t => logDeriv_fun_prod
+      (fun v _ => inv_ne_zero (hden v hsU)) (fun v _ => hdiff v hsU)
+  have hlocal (v : HeightOneSpectrum (𝓞 K)) :
+      logDeriv (F v) s = -((Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) /
+        ((Ideal.absNorm v.asIdeal : ℂ) ^ s - 1)) := by
+    have hd := (((hasDerivAt_neg s).const_cpow
+      (Or.inl v.natCast_absNorm_ne_zero)).const_sub 1).differentiableAt
+    have hi := logDeriv_fun_zpow hd (-1 : ℤ)
+    simp only [zpow_neg_one, Int.cast_neg, Int.cast_one, neg_one_mul] at hi
+    rw [show logDeriv (F v) s =
+      logDeriv (fun z : ℂ => (1 - (Ideal.absNorm v.asIdeal : ℂ) ^ (-z))⁻¹) s from rfl,
+      hi, v.logDeriv_one_sub_absNorm_cpow_neg (by linarith), ← Complex.natCast_log]
+  exact hsum.neg.congr_fun fun v => by rw [hlocal v, neg_neg]
+
+/-- D1 identifies the chosen continuation and its derivative on the Euler half-plane. -/
+lemma sharp_logderiv_eq (K : Type*) [Field K] [NumberField K]
+    {s : ℂ} (hs : 1 < s.re) :
+    dedekindZetaLogDerivative K s = -logDeriv (dedekindZeta K) s := by
+  sorry
+
+end ArtinPrimitiveRoots.Splitting.S7ExtEuler
