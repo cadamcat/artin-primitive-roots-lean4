@@ -1552,6 +1552,47 @@ theorem ppPrimePositiveCutoff_mangoldt_smoothing_error
         _ ≤ 20 * δ + 20 / N := add_le_add le_rfl hInv4
         _ = 20 * (δ + 1 / N) := by ring
 
+private theorem ppPrimeNatInterval_representation
+    {N : ℝ} {I : Set ℕ} (hI : IsNatInterval I)
+    (hbound : I ⊆ {n : ℕ | N ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N})
+    (hne : I.Nonempty) :
+    ∃ m u : ℕ, m ∈ I ∧ u ∈ I ∧ I = Set.Icc m u ∧
+      N ≤ (m : ℝ) ∧ (u : ℝ) ≤ 2 * N := by
+  have hfin : I.Finite := (Set.finite_Iic ⌊2 * N⌋₊).subset (by
+    intro n hn
+    simp only [Set.mem_Iic]
+    exact Nat.le_floor (hbound hn).2)
+  let F := hfin.toFinset
+  have hneF : F.Nonempty := by
+    rcases hne with ⟨n, hn⟩
+    exact ⟨n, hfin.mem_toFinset.mpr hn⟩
+  let m : ℕ := F.min' hneF
+  let u : ℕ := F.max' hneF
+  have hmF : m ∈ F := by
+    dsimp [m]
+    exact Finset.min'_mem F hneF
+  have huF : u ∈ F := by
+    dsimp [u]
+    exact Finset.max'_mem F hneF
+  have hm : m ∈ I := hfin.mem_toFinset.mp hmF
+  have hu : u ∈ I := hfin.mem_toFinset.mp huF
+  have hmu : m ≤ u := by
+    dsimp [m, u]
+    exact Finset.min'_le F (F.max' hneF) (Finset.max'_mem F hneF)
+  have hEq : I = Set.Icc m u := by
+    ext n
+    constructor
+    · intro hn
+      have hnF : n ∈ F := hfin.mem_toFinset.mpr hn
+      constructor
+      · exact (Finset.min'_le F n hnF)
+      · exact (Finset.le_max' F n hnF)
+    · intro hn
+      have hn' : m ≤ n ∧ n ≤ u := hn
+      exact hI hm hu (by simpa [min_eq_left hmu] using hn'.1)
+        (by simpa [max_eq_right hmu] using hn'.2)
+  refine ⟨m, u, hm, hu, hEq, (hbound hm).1, (hbound hu).2⟩
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
