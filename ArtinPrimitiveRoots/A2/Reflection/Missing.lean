@@ -8965,6 +8965,30 @@ private theorem rf_pairing_active_support_equiv
   have hs : φ (E.symm s) = s := E.apply_symm_apply s
   exact congrArg (fun s : SS => s.1) hs
 
+private theorem rf_pairing_spherical_support_finite
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (ν : Fˣ) :
+    (fun v : FinPlace F =>
+      if v ∉ S.Sf then R.T.Wv v (R.C.a v (toLoc v ν)) else 1).HasFiniteMulSupport := by
+  classical
+  let a := IsDedekindDomain.FiniteAdeleRing.unitEmbedding (𝓞 F) F ν
+  have hfinite := IsDedekindDomain.FiniteAdeleRing.hasFiniteMulSupport_valued a
+  have hval (v : FinPlace F) :
+      Valued.v (a.1 v) = HeightOneSpectrum.valuation F v (ν : F) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (ν : F)) = _
+    simp only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation']
+  apply Set.Finite.subset hfinite
+  intro v hv
+  simp only [Function.mem_mulSupport] at hv ⊢
+  intro hv1
+  by_cases hvS : v ∉ S.Sf
+  · have hν : HeightOneSpectrum.valuation F v (ν : F) = 1 := by
+      rw [← hval v]
+      exact hv1
+    have hW := rf_Wv_one_of_valuation_one R v hvS ν hν
+    exact hv (by simp only [if_pos hvS, hW])
+  · exact hv (by simp only [if_neg hvS])
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
