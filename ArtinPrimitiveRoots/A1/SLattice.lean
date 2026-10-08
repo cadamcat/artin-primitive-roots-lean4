@@ -502,6 +502,74 @@ private theorem covol_self_dual_measure_unique
       linarith
   simpa [hc] using hmeasure
 
+private noncomputable def covol_arch_bump :
+    ContDiffBump (0 : InfinitePlace F → ℂ) :=
+  ⟨1, 2, by norm_num, by norm_num⟩
+
+private noncomputable def covol_arch_test : SData.ArchSchwartz F :=
+  (covol_arch_bump.hasCompactSupport.toSchwartzMap covol_arch_bump.contDiff).postcompCLM
+    Complex.ofRealCLM
+
+private theorem covol_arch_test_zero : covol_arch_test (0 : InfinitePlace F → ℂ) = 1 := by
+  change Complex.ofReal (covol_arch_bump.toFun (0 : InfinitePlace F → ℂ)) =
+    Complex.ofReal (1 : ℝ)
+  exact congrArg Complex.ofReal covol_arch_bump.eventuallyEq_one.eq_of_nhds
+
+private theorem covol_local_integer_compact (v : FinPlace F) :
+    IsCompact (v.adicCompletionIntegers F : Set (v.adicCompletion F)) :=
+  ArtinPrimitiveRoots.Proofs.A1_LATTICE.adicCompletionIntegers_compact v
+
+private theorem covol_local_integer_clopen (v : FinPlace F) :
+    IsClopen (v.adicCompletionIntegers F : Set (v.adicCompletion F)) := by
+  exact ⟨(covol_local_integer_compact v).isClosed,
+    Valued.isOpen_valuationSubring _⟩
+
+private theorem covol_local_integer_indicator_locallyConstant (v : FinPlace F) :
+    IsLocallyConstant
+      ((v.adicCompletionIntegers F : Set (v.adicCompletion F)).indicator
+        (fun _ => (1 : ℂ))) := by
+  rw [IsLocallyConstant.iff_exists_open]
+  intro x
+  by_cases hx : x ∈ v.adicCompletionIntegers F
+  · refine ⟨v.adicCompletionIntegers F, (covol_local_integer_clopen v).isOpen, hx, ?_⟩
+    intro y hy
+    simp [hx, hy]
+  · refine ⟨(v.adicCompletionIntegers F)ᶜ,
+      (covol_local_integer_clopen v).isClosed.isOpen_compl, hx, ?_⟩
+    intro y hy
+    have hy' : y ∉ (v.adicCompletionIntegers F : Set (v.adicCompletion F)) := by
+      simpa only [Set.mem_compl_iff] using hy
+    simp [hx, hy']
+
+private theorem covol_local_integer_indicator_hasCompactSupport (v : FinPlace F) :
+    HasCompactSupport
+      ((v.adicCompletionIntegers F : Set (v.adicCompletion F)).indicator
+        (fun _ => (1 : ℂ))) := by
+  apply HasCompactSupport.intro' (covol_local_integer_compact v)
+    (covol_local_integer_clopen v).isClosed
+  intro x hx
+  simp [hx]
+
+private theorem covol_nonzero_bruhat_test (S : SData F CE condη) :
+    ∃ f : S.BruhatSchwartz, (f : S.FS → ℂ) 0 ≠ 0 := by
+  classical
+  let finite : ∀ v : S.Sf, S.FiniteTest v := fun v =>
+    ⟨(v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)).indicator
+        (fun _ => (1 : ℂ)),
+      ⟨(covol_local_integer_indicator_locallyConstant v.1).continuous,
+        covol_local_integer_indicator_hasCompactSupport v.1,
+        covol_local_integer_indicator_locallyConstant v.1⟩⟩
+  let p : SData.ArchSchwartz F × (∀ v : S.Sf, S.FiniteTest v) :=
+    ⟨covol_arch_test, finite⟩
+  let g : S.FS → ℂ := S.tensorFunction p.1 p.2
+  let f : S.BruhatSchwartz :=
+    ⟨g, Submodule.subset_span ⟨p, rfl⟩⟩
+  refine ⟨f, ?_⟩
+  have hfinite (v : S.Sf) : (finite v).1 0 = 1 := by
+    simp [finite]
+  change g 0 ≠ 0
+  simp [g, SData.tensorFunction, p, covol_arch_test_zero, hfinite]
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
