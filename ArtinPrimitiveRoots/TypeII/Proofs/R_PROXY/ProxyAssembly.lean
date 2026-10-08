@@ -542,4 +542,113 @@ theorem truncated_source_interval_norm_bound
       positivity
     _ = B * M / V := by ring
 
+/-- Apply the retained-divisor phase bounds to every subset in the truncated
+source expansion, then sum using its reciprocal mass. -/
+theorem truncated_source_interval_phase_bound
+    (δ A₀ lam : ℝ) (hδ : 0 < δ) (hA₀ : 0 < A₀) (hlam : 0 < lam) :
+    ∃ C_m c_m C_p C₃p vMin x₀ : ℝ,
+      0 < C_m ∧ 0 < c_m ∧ 0 < C_p ∧ 0 < C₃p ∧ 0 < vMin ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          let L := Real.log x
+          let Tstar := Real.exp (L / Real.log L ^ 2)
+          let r := ⌈lam * Real.log L⌉₊
+          vMin * Real.rpow L (-(24 / 100 : ℝ)) ≤ roughSieveProduct (roughCutoff x) ∧
+          ∀ M : ℝ, Real.rpow x δ ≤ M → 1 < M →
+            M ≤ 2 * Real.rpow x 5 → 1 ≤ Real.log M →
+            ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow L A₀ →
+              ∀ χ : DirichletCharacter ℂ k,
+              ∀ u : ℝ, 1 ≤ |u| → |u| ≤ Real.rpow x 2 →
+                ∀ l rr : ℝ, M ≤ l → l ≤ rr → rr ≤ 2 * M →
+                  ‖∑ m ∈ (Finset.range (⌊rr⌋₊ + 1)).filter
+                      (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ rr),
+                      (smallPrimeTruncation x r m : ℂ) *
+                        ((χ (m : ZMod k) : ℂ) *
+                          Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                            Real.log (m : ℝ))‖ ≤
+                    (if |u| ≤ Tstar then
+                      4 * C_m / Real.log M *
+                        (|u|⁻¹ + Real.rpow x (-c_m))
+                    else
+                      4 * C_p / Real.log M *
+                        Real.exp (-L / Real.rpow (Real.log L) C₃p)) * M /
+                      roughSieveProduct (roughCutoff x) := by
+  obtain ⟨C_m, c_m, C_p, C₃p, xPhase, hCm, hcm, hCp, hC₃p, hxPhase,
+      hPhase⟩ := retained_subset_residue_phase_bound δ A₀ lam hδ hA₀ hlam
+  obtain ⟨_s₀, vMin, xMertens, _hs₀, hvMin, hxMertens, hMertens⟩ :=
+    rough_mertens_bounds
+  let x₀ := max xPhase xMertens
+  have hx₀two : 2 ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans hxPhase (le_max_left _ _)
+  refine ⟨C_m, c_m, C_p, C₃p, vMin, x₀, hCm, hcm, hCp, hC₃p, hvMin,
+    hx₀two, ?_⟩
+  intro x hx
+  dsimp
+  have hxPhase' : xPhase ≤ x := le_trans (le_max_left _ _) hx
+  have hxMertens' : xMertens ≤ x := le_trans (le_max_right _ _) hx
+  have hMertensX := hMertens x hxMertens'
+  rcases hMertensX with ⟨_, hVlower⟩
+  refine ⟨hVlower, ?_⟩
+  intro M hMx hMgt hMupper hlogM k hk hkBound χ u huLower huUpper l rr hl hlr hrr
+  let L : ℝ := Real.log x
+  let Tstar : ℝ := Real.exp (L / Real.log L ^ 2)
+  let r : ℕ := ⌈lam * Real.log L⌉₊
+  let V : ℝ := roughSieveProduct (roughCutoff x)
+  let B : ℝ := if |u| ≤ Tstar then
+      4 * C_m / Real.log M * (|u|⁻¹ + Real.rpow x (-c_m))
+    else
+      4 * C_p / Real.log M *
+        Real.exp (-L / Real.rpow (Real.log L) C₃p)
+  have hMpos : 0 < M := by linarith
+  have hLpos : 0 < L := by
+    dsimp [L]
+    exact Real.log_pos (by linarith [hx₀two.trans hx])
+  have hVlower' : vMin * Real.rpow L (-(24 / 100 : ℝ)) ≤ V := by
+    simpa [L, V] using hVlower
+  have hVpos : 0 < V := by
+    have hpos : 0 < vMin * Real.rpow L (-(24 / 100 : ℝ)) :=
+      mul_pos hvMin (Real.rpow_pos_of_pos hLpos _)
+    exact lt_of_lt_of_le hpos hVlower'
+  have hMass :
+      (∑ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+          (fun S => S.card < r),
+        1 / ((∏ p ∈ S, p : ℕ) : ℝ)) ≤ 1 / V := by
+    have hMassInv :=
+      truncated_divisor_reciprocal_mass_le_inv_sieve_product (roughCutoff x) r
+    simpa [V, one_div] using hMassInv
+  have hB : 0 ≤ B := by
+    dsimp [B]
+    have hlogMpos : 0 < Real.log M := lt_of_lt_of_le (by norm_num) hlogM
+    have hxpos : 0 < x := by linarith [hx₀two.trans hx]
+    split_ifs <;> positivity
+  have hResidue : ∀ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+      (fun S => S.card < r), ∀ a : ZMod k,
+        ‖reciprocalLogResiduePhaseSum (∏ p ∈ S, p) k a u
+            (l / ((∏ p ∈ S, p : ℕ) : ℝ))
+            (rr / ((∏ p ∈ S, p : ℕ) : ℝ))‖ ≤
+          B * (M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (k : ℝ) := by
+    intro S hS a
+    have hBound := hPhase x hxPhase' M hMx hMgt hMupper hlogM k hk
+      (by simpa [L] using hkBound)
+      r (by rfl) S hS a u huLower huUpper l rr hl hlr hrr
+    by_cases huModerate : |u| ≤ Tstar
+    · calc
+        _ ≤ 4 * C_m * ((M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (k : ℝ)) /
+              Real.log M * (|u|⁻¹ + Real.rpow x (-c_m)) := by
+          simpa [L, Tstar, huModerate] using hBound
+        _ = B * (M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (k : ℝ) := by
+          simp [B, huModerate]
+          ring
+    · calc
+        _ ≤ 4 * C_p * ((M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (k : ℝ)) /
+              Real.log M * Real.exp (-L / Real.rpow (Real.log L) C₃p) := by
+          simpa [L, Tstar, huModerate] using hBound
+        _ = B * (M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (k : ℝ) := by
+          simp [B, huModerate]
+          ring
+  letI : NeZero k := ⟨by omega⟩
+  have hTruncated := truncated_source_interval_norm_bound x u M V B r k χ l rr
+    hMpos hB hl hlr hMass hResidue
+  simpa [B, V, L, Tstar, r] using hTruncated
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
