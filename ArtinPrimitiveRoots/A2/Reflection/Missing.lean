@@ -3870,6 +3870,52 @@ private theorem rf_reflected_dirichlet_mass
         mul_le_mul_of_nonneg_right haMass.2 (tsum_nonneg hcnNonneg)
       _ = sphericalMajorant (S := S) σ * Eideal R f σ := mul_comm _ _
 
+private theorem rf_profile_abs_analysis
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (u : UnitSix S) :
+    (∀ x : ℝ, 0 < x → 0 ≤ profileAbs R u x) ∧
+      ∀ x : ℝ, 0 < x →
+        IntegrableOn (fun T : ℝ => ‖R.K T‖ * profileAbs R u (x / T) / T) (Set.Ioi 0) := by
+  classical
+  have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ ((R.rotated u).ff ℓ v) :=
+    (R.rotated u).finite_bound
+  have hfc : ∀ ℓ w, SheetHypC R.T.δ ((R.rotated u).fc ℓ w) :=
+    (R.rotated u).complex_bound
+  constructor
+  · intro x hx
+    have hInt : Integrable (onUnits (fun y => (rotatedAbs R u y : ℂ))) (R.sheets.sheet x) :=
+      a2_bridge_ANALYSIS (G := R.sheets) R.T.δ R.T.δ_pos
+        (R.rotated u).J (R.rotated u).ff (R.rotated u).fc hff hfc x hx
+    have hRe : (∫ y, onUnits (fun y => (rotatedAbs R u y : ℂ)) y
+        ∂(R.sheets.sheet x)).re =
+        ∫ y, (onUnits (fun y => (rotatedAbs R u y : ℂ)) y).re ∂(R.sheets.sheet x) :=
+      (integral_re hInt).symm
+    unfold profileAbs sheetIntegral
+    rw [hRe]
+    apply integral_nonneg
+    intro y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, Complex.ofReal_re]
+      unfold rotatedAbs
+      apply Finset.sum_nonneg
+      intro ℓ hℓ
+      exact mul_nonneg (Finset.prod_nonneg (fun v _ => norm_nonneg _))
+        (Finset.prod_nonneg (fun w _ => norm_nonneg _))
+    · simp [onUnits, hy]
+  · intro x hx
+    let m : S.FSˣ → ℂ := fun _ => 1
+    have hm : Theta.SheetMultiplier S (onUnits m) := by
+      refine ⟨R.chars.L u, 0, (fun _ => 1), ⟨1, ?_⟩, ?_⟩
+      · intro κ
+        simp
+      · intro y
+        have hy : IsUnit (y : S.FS) := Units.isUnit y
+        simp [m, onUnits, hy]
+    have hKmeas : AEStronglyMeasurable R.K (volume.restrict (Set.Ioi (0 : ℝ))) :=
+      R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi
+    exact (a2_bridge_ANALYSIS_convolution (G := R.sheets) R.T.δ R.T.δ_pos
+      (R.rotated u).J (R.rotated u).ff (R.rotated u).fc hff hfc
+      R.K hKmeas R.K_moments m hm x hx).1
+
 /-- rf:grouped-absolute, 04:659-706. Absolute sums and the averaged integral use the same majorant. -/
 theorem rf_grouped_absolute : ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ f,
   Summable (reflectedDirichletTerm R f σ) ∧
