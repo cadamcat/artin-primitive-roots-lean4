@@ -4114,6 +4114,42 @@ def forwardCoeff (r : ReflectionRow S) (p : S.SqfExtIdeal × S.ExtIdeal) : ℂ :
 def sphericalMajorant (σ : ℝ) : ℝ :=
   ∑' p : S.SqfExtIdeal × S.ExtIdeal, qI p.1.1 ^ (-1 / 2 - σ) * qI p.2.1 ^ (-1 - 3 * σ)
 
+private theorem rf_forwardCoeff_norm (r : ReflectionRow S)
+    (p : S.SqfExtIdeal × S.ExtIdeal) :
+    ‖forwardCoeff R r p‖ ≤ qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 := by
+  classical
+  let SB := a2_bridge_SYMBOL D S
+  obtain ⟨c, hcEq, hcGen, hcAllowed⟩ := cgen_valid R p.1
+  have hGauss : ‖gamma D S A 2 p.1.1 (cgen R p.1)‖ ≤ 1 := by
+    rw [← hcEq]
+    exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.gamma_sqf_norm_le_one
+      D S H Bd A p.1.1 p.1.property.1 p.1.property.2 c ⟨hcGen, hcAllowed⟩
+  have hScalar : 0 ≤ qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 :=
+    div_nonneg (Real.rpow_nonneg (Nat.cast_nonneg _) _) (Nat.cast_nonneg _)
+  have hScalarNorm :
+      ‖((qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 : ℝ) : ℂ)‖ =
+        qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 := Complex.norm_of_nonneg hScalar
+  have hL : ‖Lvalue R (rowClass R r) (S.diagU (Agen R p.1 p.2))‖ = 1 := by
+    simpa [Lvalue] using (R.chars.L (rowClass R r)).unitary (S.diagU (Agen R p.1 p.2))
+  have hProd : ‖∏ v ∈ R.exterior.support r.ideal,
+      chiPow D v (Agen R p.1 p.2 : F) (digitExponent r v).1‖ ≤ 1 := by
+    rw [norm_prod]
+    exact Finset.prod_le_one₀ (fun _ _ => norm_nonneg _) (fun v _ =>
+      SB.chiPow_norm_le v (Agen R p.1 p.2 : F) (digitExponent r v).1)
+  simp only [forwardCoeff, norm_mul, hScalarNorm, hL, mul_one]
+  calc
+    ‖gamma D S A 2 p.1.1 (cgen R p.1)‖ *
+        (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) *
+        ‖∏ v ∈ R.exterior.support r.ideal,
+          chiPow D v (Agen R p.1 p.2 : F) (digitExponent r v).1‖ ≤
+        ‖gamma D S A 2 p.1.1 (cgen R p.1)‖ *
+          (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) := by
+      simpa only [mul_one] using
+        mul_le_mul_of_nonneg_left hProd (mul_nonneg (norm_nonneg _) hScalar)
+    _ ≤ 1 * (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) :=
+      mul_le_mul_of_nonneg_right hGauss hScalar
+    _ = qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 := one_mul _
+
 /-- rf:forward-assembly, 04:303–327. Constants fixed before l,Z,r; pre-digit cost remains row-dependent. -/
 theorem rf_forward_assembly :
   (∀ v, v ∉ S.Sf → ∀ j : Fin 6,
