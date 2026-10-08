@@ -1816,7 +1816,7 @@ private theorem rf_prime_product_gen_unit_at (s : Finset (FinPlace F))
     calc
       ordv v (toLoc v (∏ w ∈ s, primeGen R w)) = idealExp v I.1 :=
         rf_ordv_toLoc_ofGen v hv I (∏ w ∈ s, primeGen R w) hIgen
-      _ = 0 := hExp
+      _ = 0 := by exact_mod_cast hExp
   exact rf_globalVal_one_of_ordv_zero v (∏ w ∈ s, primeGen R w) hOrd
 
 private theorem rf_sqfIdeal_factorization (c : S.SqfExtIdeal) :
@@ -1990,7 +1990,7 @@ private theorem rf_gamma_prime_product
           have : w = v := Finset.mem_singleton.mp hw
           subst w
           exact hresV
-        have hchiJ' := rf_chiIdealPow_primeProduct ({v} : Finset (FinPlace F))
+        have hchiJ' := rf_chiIdealPow_primeProduct (D := D) ({v} : Finset (FinPlace F))
           ((pG t : Fˣ) : F) (2 : ℤ) hunitJ
         have hchiJ : chiIdealPow D v.asIdeal ((pG t : Fˣ) : F) 2 =
             chi D v ((pG t : Fˣ) : F) ^ (2 : ℤ) := by
@@ -2001,7 +2001,7 @@ private theorem rf_gamma_prime_product
             (hgoodTail w hw) (Ne.symm (hne w hw))
           exact ((a2_bridge_SYMBOL D S).residue_ne_zero w (primeGen R v : F)
             (by rw [hval])).mpr hval
-        have hchiI' := rf_chiIdealPow_primeProduct t (primeGen R v : F) (2 : ℤ) hunitI
+        have hchiI' := rf_chiIdealPow_primeProduct (D := D) t (primeGen R v : F) (2 : ℤ) hunitI
         have hchiI : chiIdealPow D (pI t) (primeGen R v : F) 2 =
             ∏ w ∈ t, chi D w (primeGen R v : F) ^ (2 : ℤ) := by
           simpa [pI] using hchiI'
@@ -2011,13 +2011,13 @@ private theorem rf_gamma_prime_product
           ext z
           simp only [Finset.mem_erase, Finset.mem_insert]
           constructor
-          · rintro ⟨rfl | hz, hzw⟩
+          · rintro ⟨hzw, rfl | hz⟩
             · exact Or.inl rfl
-            · exact Or.inr ⟨hz, hzw⟩
+            · exact Or.inr ⟨hzw, hz⟩
           · intro hz
-            rcases hz with rfl | ⟨hz, hzw⟩
-            · exact ⟨Or.inl rfl, hvw⟩
-            · exact ⟨Or.inr hz, hzw⟩
+            rcases hz with rfl | ⟨hzw, hz⟩
+            · exact ⟨hvw, Or.inl rfl⟩
+            · exact ⟨hzw, Or.inr hz⟩
         have hcrossTail :
             (∏ w ∈ t, chi D w
               (((∏ z ∈ (insert v t).erase w, primeGen R z : Fˣ) : F)) ^ (2 : ℤ)) =
@@ -2054,14 +2054,14 @@ private theorem rf_gamma_prime_product
                     simpa only [Units.val_mul] using hmul
             _ = (∏ w ∈ t, chi D w (primeGen R v : F) ^ (2 : ℤ)) * cross t := by
                   rw [Finset.prod_mul_distrib]
-                  rfl
         have hcrossRec : cross (insert v t) =
             (∏ w ∈ t, chi D w (primeGen R v : F) ^ (2 : ℤ)) *
               chi D v ((pG t : Fˣ) : F) ^ (2 : ℤ) * cross t := by
-          unfold cross
+          change (∏ w ∈ insert v t, chi D w
+            ((∏ z ∈ (insert v t).erase w, primeGen R z : Fˣ) : F) ^ (2 : ℤ)) = _
           rw [Finset.prod_insert hvt,
             show (insert v t).erase v = t by simp [hvt], hcrossTail]
-          simp [pG]
+          simp only [pG]
           ac_rfl
         have hGammaInsert :
             gamma D S A 2 (pI (insert v t)) ((pG (insert v t) : Fˣ) : F) =
@@ -2079,6 +2079,96 @@ private theorem rf_gamma_prime_product
         exact hGammaInsert
   exact hAll s (Finset.Subset.refl s)
 
+private theorem rf_gamma_sqf_factorization
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (c : S.SqfExtIdeal) :
+    gamma D S A 2 c.1 (cgen R c) =
+      ∏ v ∈ R.exterior.support (R.exterior.ofSqf c),
+        gamma D S A 2 v.asIdeal (primeGen R v : F) *
+          chi D v (cgen R c / (primeGen R v : F)) ^ (2 : ℤ) := by
+  classical
+  let s := R.exterior.support (R.exterior.ofSqf c)
+  let g : Fˣ := ∏ v ∈ s, primeGen R v
+  have hgood : ∀ v ∈ s, v ∉ S.Sf :=
+    fun v hv => R.exterior.support_exterior (R.exterior.ofSqf c) v hv
+  have hfactor : c.1 = ∏ v ∈ s, v.asIdeal := rf_sqfIdeal_factorization R c
+  have hsquarefree : ∀ t ⊆ s, Squarefree (∏ v ∈ t, v.asIdeal) := by
+    intro t ht
+    apply c.property.2.squarefree_of_dvd
+    rw [hfactor]
+    exact Finset.prod_dvd_prod_of_subset t s (fun v => v.asIdeal) ht
+  obtain ⟨I, hIval, hIgen, hIallow⟩ := rf_prime_product_ext R s hgood
+  have hgen : S.IsGen (g : F) c.1 := by
+    simpa only [g, hIval, hfactor] using hIgen
+  have hallow : Bd.Allowed g := hIallow
+  have hcgen : S.IsGen (bc.gen (R.exterior.ofSqf c) : F) c.1 ∧
+      Bd.Allowed (bc.gen (R.exterior.ofSqf c)) := by
+    simpa only [R.exterior.ofSqf_val] using bc.gen_spec (R.exterior.ofSqf c)
+  obtain ⟨e, he, heq⟩ := Bd.allowed_unique c.1
+    (bc.gen (R.exterior.ofSqf c)) g hcgen ⟨hgen, hallow⟩
+  let ε : S.US := ⟨e, he⟩
+  have hceq : bc.gen (R.exterior.ofSqf c) =
+      ((ε ^ (6 : ℕ) : S.US) : Fˣ) * g := by
+    simpa only [ε, SubgroupClass.coe_pow] using heq
+  have hgamma : gamma D S A 2 c.1 (cgen R c) =
+      gamma D S A 2 c.1 (g : F) := by
+    unfold cgen
+    rw [hceq]
+    exact rf_gamma_six_scale R c ε g hgen hallow
+  have hcrt := rf_gamma_prime_product R s hgood hsquarefree
+  have hchi (v : FinPlace F) (hv : v ∈ s) :
+      chi D v (cgen R c / (primeGen R v : F)) ^ (2 : ℤ) =
+        chi D v ((∏ w ∈ s.erase v, primeGen R w : Fˣ) : F) ^ (2 : ℤ) := by
+    let gv : Fˣ := ∏ w ∈ s.erase v, primeGen R w
+    have hvalε : HeightOneSpectrum.valuation F v ((ε : Fˣ) : F) = 1 :=
+      Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) ε (hgood v hv)
+    have hvalε6 : HeightOneSpectrum.valuation F v
+        (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) = 1 :=
+      Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F)
+        (ε ^ (6 : ℕ)) (hgood v hv)
+    have hvalgv : HeightOneSpectrum.valuation F v (gv : F) = 1 :=
+      rf_prime_product_gen_unit_at R (s.erase v)
+        (fun w hw => hgood w (Finset.mem_of_mem_erase hw)) v (hgood v hv) (by simp)
+    have hresε : residue v ((ε : Fˣ) : F) ≠ 0 :=
+      ((a2_bridge_SYMBOL D S).residue_ne_zero v ((ε : Fˣ) : F)
+        (by rw [hvalε])).mpr hvalε
+    have hresε6 : residue v (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) ≠ 0 :=
+      ((a2_bridge_SYMBOL D S).residue_ne_zero v
+        (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) (by rw [hvalε6])).mpr hvalε6
+    have hresgv : residue v (gv : F) ≠ 0 :=
+      ((a2_bridge_SYMBOL D S).residue_ne_zero v (gv : F)
+        (by rw [hvalgv])).mpr hvalgv
+    have hχ6 : chi D v (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) = 1 := by
+      have hp := rf_chi_argument_zpow (D := D) (S := S) v (hgood v hv)
+        (ε : Fˣ) hvalε (6 : ℤ)
+      have h6 := (a2_bridge_SYMBOL D S).chi_six v ((ε : Fˣ) : F) hresε
+      calc
+        chi D v (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) =
+            chi D v ((ε : Fˣ) : F) ^ (6 : ℤ) := by
+          simpa using hp
+        _ = 1 := by simpa using h6
+    have hg : g = gv * primeGen R v := (Finset.prod_erase_mul s (primeGen R) hv).symm
+    have harg : cgen R c / (primeGen R v : F) =
+        (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) * (gv : F) := by
+      unfold cgen
+      rw [hceq, hg]
+      simp only [Units.val_mul]
+      field_simp
+    rw [harg]
+    have hmul := rf_chi_zpow_mul (D := D) (S := S) v (hgood v hv)
+      (((ε ^ (6 : ℕ) : S.US) : Fˣ) : F) (gv : F) hresε6 hresgv
+      (by rw [hvalε6]) (by rw [hvalgv]) (2 : ℤ)
+    simpa only [hχ6, one_zpow, one_mul, gv] using hmul
+  calc
+    gamma D S A 2 c.1 (cgen R c) = gamma D S A 2 c.1 (g : F) := hgamma
+    _ = (∏ v ∈ s, gamma D S A 2 v.asIdeal (primeGen R v : F)) *
+        ∏ v ∈ s, chi D v ((∏ w ∈ s.erase v, primeGen R w : Fˣ) : F) ^ (2 : ℤ) := by
+      simpa only [← hfactor, g] using hcrt
+    _ = ∏ v ∈ s, gamma D S A 2 v.asIdeal (primeGen R v : F) *
+        chi D v (cgen R c / (primeGen R v : F)) ^ (2 : ℤ) := by
+      rw [← Finset.prod_mul_distrib]
+      apply Finset.prod_congr rfl
+      intro v hv
+      rw [hchi v hv]
 theorem rf_exterior_factorization :
   (∀ υ h (t : FrozenIndex R h), ‖frozenOmega R υ t‖ ≤ betaIdeal R t.f t.a ∧
     (∀ sd d, ‖frozenRho R υ t sd d‖ ≤ 1) ∧ (∀ sc c, ‖frozenLambda R υ t sc c‖ ≤ 1)) ∧
