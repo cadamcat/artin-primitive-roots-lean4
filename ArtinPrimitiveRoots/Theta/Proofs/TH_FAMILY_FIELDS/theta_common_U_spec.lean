@@ -21,5 +21,27 @@ theorem theta_common_U_spec {P : CoverPackage D S H A} {N : ThetaNormalizationIn
     (∀ y ∈ thetaCommonU B, ∃ c : ∀ v : S.Sf, v.1.adicCompletion F, y = c ^ 6) ∧
     (∀ L ∈ 𝓛, ∀ y : S.FSˣ, y.1.1 ∈ thetaCommonU B →
       (∀ w, y.1.2 w = 1) → L.L y = 1) := by
-  sorry
+  classical
+  have hUeq : thetaCommonU B = Set.pi Set.univ B.Uv := by
+    ext y
+    simp [thetaCommonU]
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [hUeq]
+    exact isOpen_set_pi Set.finite_univ (fun v _ => B.open_Uv v)
+  · rw [hUeq]
+    exact isCompact_univ_pi B.compact_Uv
+  · intro v
+    exact B.one_Uv v
+  · intro y hy v
+    rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers,
+      B.unit_Uv v (y v) (hy v)]
+  · intro y hy v
+    exact B.unit_Uv v (y v) (hy v)
+  · intro y hy
+    choose c hc using fun v => B.sixth_Uv v (y v) (hy v)
+    refine ⟨fun v => (c v : v.1.adicCompletion F), ?_⟩
+    funext v
+    simpa using hc v
+  · intro L hL y hy hcomplex
+    exact B.character_kernel L hL y (fun v => hy v) hcomplex
 end ArtinPrimitiveRoots.A1.Theta
