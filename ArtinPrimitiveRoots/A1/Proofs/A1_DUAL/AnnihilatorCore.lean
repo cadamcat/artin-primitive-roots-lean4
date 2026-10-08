@@ -121,7 +121,10 @@ theorem sub_diag_preserves_annihilator [IsTotallyComplex F]
     (D : A1.FieldData F) (S : A1.SData F CE condη) (A : A1.AddCharData F)
     (y : S.FS) (h : ∀ r : S.R, S.e A (S.diag (r : F) * y) = 1) (t : S.R) :
     ∀ r : S.R, S.e A (S.diag (r : F) * (y - S.diag (t : F))) = 1 := by
-  sorry
+  intro r
+  rw [mul_sub, ← S.diag.map_mul, sub_eq_add_neg, e_add, e_neg, h r]
+  rw [e_diag_product_eq_one S A r t]
+  simp
 
 /-- Integral finite components of an annihilator point leave the archimedean character trivial on
 the embedded ordinary integers. -/
