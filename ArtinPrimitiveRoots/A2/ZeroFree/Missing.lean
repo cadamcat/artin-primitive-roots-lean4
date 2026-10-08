@@ -4607,7 +4607,49 @@ theorem zf_probe_asymptotic
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   ‖probe R W (Z ^ a) (Z ^ b) Z - principalConstant R sd W HA * principalSignal R η U HA HC Z‖ ≤
     C * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) := by
-  sorry
+  intro hEuler hloc hWeight
+  obtain ⟨hqsum, hCountable, hDE, hPart⟩ := frequency_absolute_dyads (η := η) (U := U)
+  obtain ⟨DE⟩ := hDE
+  obtain ⟨Cr, Zr, hCr, hZr, hRows⟩ := zf_row_sum
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (DE := DE) hEuler
+  obtain ⟨hc0, Cp, Zp, hCp, hZp, hPrincipal⟩ := zf_principal_row
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+      hEuler hloc hWeight
+  let Z0 : ℝ := max Zp Zr
+  refine ⟨2 * Cp + Cr, Z0, by linarith, hZp.trans (le_max_left _ _), ?_⟩
+  intro Z hZ
+  have hZZp : Zp ≤ Z := (le_max_left _ _).trans hZ
+  have hZZr : Zr ≤ Z := (le_max_right _ _).trans hZ
+  have hZ2 : 2 ≤ Z := hZp.trans hZZp
+  have hZ1 : 1 ≤ Z := by linarith
+  have hp := hPrincipal Z hZZp
+  have hr := (hRows Z hZZr).2
+  have hExact := probe_eq_principal_add_dyads
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+      (DE := DE) hEuler hWeight Z hZ2
+  have hSubtract : probe R W (Z ^ a) (Z ^ b) Z -
+      principalConstant R sd W HA * principalSignal R η U HA HC Z =
+        principalRw R sd W η U HA HC Z + principalRz R sd W η U HA HC Z +
+          ∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z := by
+    rw [hExact, hp.1]
+    ring
+  have hPower : Z ^ ((7 / 15 - 5 / 10000 : ℝ)) ≤
+      Z ^ ((7 / 15 - 4 / 10000 : ℝ)) :=
+    Real.rpow_le_rpow_of_exponent_le hZ1 (by norm_num)
+  rw [hSubtract]
+  calc
+    _ ≤ ‖principalRw R sd W η U HA HC Z‖ + ‖principalRz R sd W η U HA HC Z‖ +
+        ‖∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ :=
+      (norm_add_le _ _).trans (add_le_add (norm_add_le _ _) (le_refl _))
+    _ ≤ Cp * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) +
+        Cp * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) + Cr * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) :=
+      add_le_add (add_le_add hp.2.1 hp.2.2) hr
+    _ ≤ Cp * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) +
+        Cp * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) + Cr * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) :=
+      add_le_add (add_le_add
+        (mul_le_mul_of_nonneg_left hPower hCp.le)
+        (mul_le_mul_of_nonneg_left hPower hCp.le)) (le_refl _)
+    _ = _ := by ring
 include U in
 private theorem principalLS_half_plane_inputs (hEuler : EulerHypotheses R η) :
     DifferentiableOn ℂ (HA.LS S η) {s : ℂ | 1 < s.re} ∧
