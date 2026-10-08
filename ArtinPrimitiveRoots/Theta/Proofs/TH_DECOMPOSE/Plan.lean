@@ -1,7 +1,7 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.QuotientGeometry
-import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.ArchHeight
+import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.ScalarHeight
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
@@ -158,6 +158,9 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
   have harch (s : ℂ) (δ : Fˣ) (τ : Matrix.SpecialLinearGroup (Fin 2) F)
       (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :=
     sphC_rational_arch_product s δ τ x y hy
+  have hratio (s : ℂ) (δ : Fˣ) (τ : Matrix.SpecialLinearGroup (Fin 2) F)
+      (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :=
+    scalarOf_rational_height_ratio P G (sec s) (hC s) a ha gj hgj δ τ x y hy
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/
