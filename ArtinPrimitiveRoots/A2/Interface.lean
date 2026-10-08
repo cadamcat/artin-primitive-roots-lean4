@@ -141,7 +141,105 @@ structure ClassPairing (D : FieldData F) (S : SData F CE condη) (H : HilbertDat
 /-- Quotient-descent glue from HilbertData and SData.HS (02:114-132; 04:507-548). -/
 theorem classPairing_exists (D : FieldData F) (S : SData F CE condη)
     (H : HilbertData F) : Nonempty (ClassPairing D S H) := by
-  sorry
+  classical
+  let g : rootsOfUnity 6 F →* ℂ :=
+    (Units.coeHom ℂ).comp
+      ((Units.map D.σ0.toMonoidHom).comp (rootsOfUnity 6 F).subtype)
+  let f : S.FSˣ → S.FSˣ → ℂ := fun x y => g (S.HS H x y)
+  have hmulHSLeft (x x' y : S.FSˣ) :
+      S.HS H (x * x') y = S.HS H x y * S.HS H x' y := by
+    unfold SData.HS
+    rw [← Finset.prod_mul_distrib]
+    apply Finset.prod_congr rfl
+    intro v hv
+    exact H.mul_left v.1 (S.compU v x) (S.compU v x') (S.compU v y)
+  have hmulHSRight (x y y' : S.FSˣ) :
+      S.HS H x (y * y') = S.HS H x y * S.HS H x y' := by
+    unfold SData.HS
+    rw [← Finset.prod_mul_distrib]
+    apply Finset.prod_congr rfl
+    intro v hv
+    exact H.mul_right v.1 (S.compU v x) (S.compU v y) (S.compU v y')
+  have hsixHSLeft (x y : S.FSˣ) : S.HS H (x ^ 6) y = 1 := by
+    unfold SData.HS
+    apply Finset.prod_eq_one
+    intro v hv
+    exact H.sixth_power v.1 (S.compU v (x ^ 6)) (S.compU v y)
+      ⟨S.compU v x, by simp [SData.compU]⟩
+  -- `sixth_power` is stated in the first argument; skewness transfers it to the second.
+  have hsixHSRight' (x y : S.FSˣ) : S.HS H x (y ^ 6) = 1 := by
+    unfold SData.HS
+    apply Finset.prod_eq_one
+    intro v hv
+    have hfirst := H.sixth_power v.1 (S.compU v (y ^ 6)) (S.compU v x)
+      ⟨S.compU v y, by simp [SData.compU]⟩
+    have hskew := H.skew v.1 (S.compU v x) (S.compU v (y ^ 6))
+    rw [hfirst] at hskew
+    simpa using hskew
+  have hmulLeft (x x' y : S.FSˣ) : f (x * x') y = f x y * f x' y := by
+    calc
+      f (x * x') y = g (S.HS H (x * x') y) := rfl
+      _ = g (S.HS H x y * S.HS H x' y) := congrArg g (hmulHSLeft x x' y)
+      _ = f x y * f x' y := g.map_mul _ _
+  have hmulRight (x y y' : S.FSˣ) : f x (y * y') = f x y * f x y' := by
+    calc
+      f x (y * y') = g (S.HS H x (y * y')) := rfl
+      _ = g (S.HS H x y * S.HS H x y') := congrArg g (hmulHSRight x y y')
+      _ = f x y * f x y' := g.map_mul _ _
+  have hsixLeft (x y : S.FSˣ) : f (x ^ 6) y = 1 := by
+    change g (S.HS H (x ^ 6) y) = 1
+    rw [hsixHSLeft]
+    exact g.map_one
+  have hsixRight (x y : S.FSˣ) : f x (y ^ 6) = 1 := by
+    change g (S.HS H x (y ^ 6)) = 1
+    rw [hsixHSRight']
+    exact g.map_one
+  have hnorm (x y : S.FSˣ) : ‖f x y‖ = 1 := by
+    change ‖g (S.HS H x y)‖ = 1
+    have hroot : ((S.HS H x y : Fˣ) : F) ^ 6 = 1 := by
+      have hunit : (S.HS H x y : Fˣ) ^ 6 = 1 :=
+        (mem_rootsOfUnity 6 (S.HS H x y : Fˣ)).mp (S.HS H x y).property
+      simpa using congrArg (fun u : Fˣ => (u : F)) hunit
+    have hpow : (g (S.HS H x y)) ^ 6 = 1 := by
+      change (D.σ0 ((S.HS H x y : Fˣ) : F)) ^ 6 = 1
+      rw [← map_pow, hroot]
+      simp
+    exact ((isOfFinOrder_iff_pow_eq_one).2 ⟨6, by norm_num, hpow⟩).norm_eq_one
+  let pair : S.V → S.V → ℂ := fun x y =>
+    Quotient.liftOn₂ x y f (by
+      intro x y x' y' hx hy
+      have hqx : (QuotientGroup.mk x : S.V) = QuotientGroup.mk x' :=
+        Quotient.sound hx
+      have hqy : (QuotientGroup.mk y : S.V) = QuotientGroup.mk y' :=
+        Quotient.sound hy
+      have hxmem : x / x' ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range :=
+        (QuotientGroup.eq_iff_div_mem).mp hqx
+      have hymem : y / y' ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range :=
+        (QuotientGroup.eq_iff_div_mem).mp hqy
+      obtain ⟨u, hu⟩ := MonoidHom.mem_range.mp hxmem
+      obtain ⟨v, hv⟩ := MonoidHom.mem_range.mp hymem
+      have hxpow : x / x' = u ^ 6 := by simpa only [powMonoidHom_apply] using hu.symm
+      have hypow : y / y' = v ^ 6 := by simpa only [powMonoidHom_apply] using hv.symm
+      have hxfactor : x = u ^ 6 * x' := by
+        calc
+          x = (x / x') * x' := by simp
+          _ = u ^ 6 * x' := by rw [hxpow]
+      have hyfactor : y = v ^ 6 * y' := by
+        calc
+          y = (y / y') * y' := by simp
+          _ = v ^ 6 * y' := by rw [hypow]
+      have hxinv (z : S.FSˣ) : f x z = f x' z := by
+        rw [hxfactor, hmulLeft, hsixLeft, one_mul]
+      have hyinv : f x' y = f x' y' := by
+        rw [hyfactor, hmulRight, hsixRight, one_mul]
+      exact (hxinv y).trans hyinv)
+  refine ⟨pair, ?_, ?_⟩
+  · intro x y
+    rfl
+  · intro x y
+    refine Quotient.inductionOn₂ x y ?_
+    intro x y
+    exact hnorm x y
 
 
 /-- Reuse the corrected smoothness order already fixed in A1/Analytic.lean and ThetaFamily.T6. -/
