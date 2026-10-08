@@ -2172,6 +2172,128 @@ private theorem rowKernel_pair_rectangle_difference (hEuler : EulerHypotheses R 
   rw [hR.1, hL.1, hTop.1, hBot.1]
   linear_combination κ₂ * hintegral
 
+private theorem rowKernel_good_pair_bounds (hEuler : EulerHypotheses R η)
+    (ε A1 : ℝ) (hε : 0 < ε) (hA1 : 1 / ZD.ρ < A1) :
+    ∃ C : ℝ, 0 < C ∧ ∀ Z T : ℝ, 2 ≤ Z → ZD.U0 ≤ T →
+      ∀ u : U.U, u ≠ U.one → u ∈ frequencyDyad η U T → u ∉ ZD.E T →
+      ∀ ξ : ℂ, 998 / 1000 ≤ ξ.re → ξ.re ≤ 1 + δ1 →
+      (ξ.re = 1 + δ1 ∨ |ξ.im| ≤ T ^ ZD.ρ) →
+      Integrable (rowKernelHeightFiber R sd W η U HA HC u Z ξ) (volume.prod volume) ∧
+        ‖rowKernelHeightPair R sd W η U HA HC u Z ξ‖ ≤
+          C * Z ^ Estar ξ.re (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε) *
+            (1 + |ξ.im|) ^ (-(A1 + 2)) := by
+  obtain ⟨AF, Ac, Adec, Cconv, CD, CP, CK, CH,
+      hAF, hAc, hGap, hAcAdec, hCconv, hCD, hCP, hCK, hCH,
+      hconv, hDecay, hPrincipal, hKummer, hHbound⟩ :=
+    rowKernel_good_constants (R := R) (sd := sd) (W := W) (η := η) (U := U)
+      (HA := HA) (HC := HC) (ZD := ZD) hEuler ε A1 hε hA1
+  obtain ⟨Brec, hBrec, hrec⟩ := ZD.reciprocal (ε / 3) (by linarith)
+  let Bright : ℝ := (NumberField.dedekindZeta F (1 + δ1)).re *
+    omittedEulerFactorsInverseConstant (S := S) + 1
+  let B : ℝ := Brec + |Bright| + 1
+  have hB : 0 < B := by dsimp [B]; linarith [abs_nonneg Bright]
+  have hBrecB : Brec ≤ B := by dsimp [B]; linarith [abs_nonneg Bright]
+  have hBrightB : Bright ≤ B := by
+    dsimp [B]
+    linarith [le_abs_self Bright]
+  let Ckernel : ℝ := CD * CP * CK * CH * B * 2 ^ AF *
+    2 ^ (1 / 10 + ε / 3 + ε / 3)
+  let Iw : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-3 : ℝ)
+  let Cpair : ℝ := ‖(1 / (2 * Real.pi) : ℂ) ^ 2‖ * Ckernel * Iw * Cconv
+  have hCkernel : 0 ≤ Ckernel := by dsimp [Ckernel]; positivity
+  have hIw : 0 ≤ Iw := integral_nonneg (fun _ => by positivity)
+  have hCpair : 0 ≤ Cpair := by dsimp [Cpair]; positivity
+  have hAdec : 0 < Adec := by linarith
+  refine ⟨Cpair + 1, by linarith, ?_⟩
+  intro Z T hZ hT u hu hShell hGood ξ hξlo hξhi hregion
+  have hZpos : 0 < Z := by linarith
+  have hT2 : 2 ≤ T := le_trans ZD.U0_two hT
+  have hTpos : 0 < T := by linarith
+  have hTp : 1 ≤ T ^ (ε / 3) := by
+    have hp := Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ T)
+      (by linarith : (0 : ℝ) ≤ ε / 3)
+    simpa only [Real.rpow_zero] using hp
+  have hinv : ‖(HA.LS S (rowTwist η U u) ξ)⁻¹‖ ≤ B * T ^ (ε / 3) := by
+    rcases hregion with hright | hheight
+    · calc
+        _ ≤ Bright := rowTwist_right_inverse_bound (S := S) (η := η) (U := U) (HA := HA) u ξ hright
+        _ ≤ B := hBrightB
+        _ ≤ B * T ^ (ε / 3) := by
+          simpa only [mul_one] using mul_le_mul_of_nonneg_left hTp hB.le
+    · have hheight' : |ξ.im| ≤ 2 * T ^ ZD.ρ := by
+        have hHnonneg := Real.rpow_nonneg hTpos.le ZD.ρ
+        linarith
+      exact ((hrec T hT u hShell hGood ξ hξlo hheight').2).trans
+        (mul_le_mul_of_nonneg_right hBrecB (Real.rpow_nonneg hTpos.le _))
+  let C0 : ℝ := Ckernel * Z ^ Estar ξ.re (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε)
+  have hC0 : 0 ≤ C0 := by dsimp [C0]; positivity
+  have hpoint : ∀ v : ℝ × ℝ,
+      ‖rowKernelHeightFiber R sd W η U HA HC u Z ξ v‖ ≤
+        C0 * Real.exp (-((ξ.im + v.2) ^ 2)) * (1 + |v.2|) ^ (-Adec) *
+          (1 + |v.1|) ^ (-3 : ℝ) := by
+    intro v
+    let w : ℂ := ((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I
+    let z : ℂ := ((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I
+    have hw : w.re = 3 / 1000 := by simp [w]
+    have hz : z.re = 4 / 10 := by simp [z]
+    have hpEuler : eulerNeighborhood ![ξ, w, z] := by
+      left
+      refine ⟨?_, ?_, ?_⟩
+      · change 998 / 1000 - 1 / 100000 < ξ.re
+        linarith
+      · change 3 / 1000 - 1 / 100000 < w.re
+        rw [hw]; norm_num
+      · change 4 / 10 - 1 / 100000 < z.re
+        rw [hz]; norm_num
+    have hrow := rowKernel_shell_height_bound (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) u Z T ε ξ w z hZpos hTpos hε
+      hShell.2.le hCD.le hCP.le hCK.le hCH.le hB.le hAF.le hGap
+      (hDecay ξ w z hξlo hξhi hw hz) (hPrincipal z hz)
+      (hKummer u hu w (by rw [hw]) (by rw [hw]; norm_num))
+      (hHbound u ![ξ, w, z] hpEuler) hinv hw hz
+    simpa [rowKernelHeightFiber, rowKernelAt, C0, Ckernel, w, z] using hrow
+  let B0 : ℝ := C0 * Real.exp (ξ.im ^ 2)
+  have hGaussian : ∀ v : ℝ × ℝ,
+      ‖rowKernelHeightFiber R sd W η U HA HC u Z ξ v‖ ≤
+        B0 * Real.exp (-(1 / 2 : ℝ) * v.2 ^ 2) * (1 + |v.1|) ^ (-3 : ℝ) := by
+    intro v
+    have hpoly : (1 + |v.2|) ^ (-Adec) ≤ 1 :=
+      Real.rpow_le_one_of_one_le_of_nonpos (by nlinarith [abs_nonneg v.2]) (by linarith)
+    have htail : Real.exp (-((ξ.im + v.2) ^ 2)) * (1 + |v.2|) ^ (-Adec) ≤
+        Real.exp (ξ.im ^ 2) * Real.exp (-(1 / 2 : ℝ) * v.2 ^ 2) := by
+      exact (mul_le_of_le_one_right (Real.exp_pos _).le hpoly).trans
+        (gaussian_shift_bound ξ.im v.2)
+    calc
+      _ ≤ C0 * Real.exp (-((ξ.im + v.2) ^ 2)) * (1 + |v.2|) ^ (-Adec) *
+          (1 + |v.1|) ^ (-3 : ℝ) := hpoint v
+      _ = (C0 * (Real.exp (-((ξ.im + v.2) ^ 2)) * (1 + |v.2|) ^ (-Adec))) *
+          (1 + |v.1|) ^ (-3 : ℝ) := by ring
+      _ ≤ (C0 * (Real.exp (ξ.im ^ 2) * Real.exp (-(1 / 2 : ℝ) * v.2 ^ 2))) *
+          (1 + |v.1|) ^ (-3 : ℝ) :=
+        mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left htail hC0)
+          (Real.rpow_nonneg (by positivity) _)
+      _ = _ := by dsimp [B0]; ring
+  have hfKernel := rowKernel_integrable_of_gaussian_bound (R := R) (sd := sd) (W := W)
+    (η := η) (U := U) (HA := HA) (HC := HC) hEuler u hu Z hZpos ξ hξlo B0
+    (fun v => by simpa [rowKernelHeightFiber, rowKernelAt, Complex.ofReal_div] using hGaussian v)
+  have hfiber : Integrable (rowKernelHeightFiber R sd W η U HA HC u Z ξ) (volume.prod volume) := by
+    change Integrable (fun v : ℝ × ℝ => rowKernel R sd W η U HA HC u Z ξ
+      (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+      (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) (volume.prod volume)
+    simpa only [Complex.ofReal_div, Complex.ofReal_ofNat,
+      Measure.volume_eq_prod ℝ ℝ] using hfKernel
+  have hpair := vertical_pair_height_bound (σw := 3 / 1000) (σz := 4 / 10)
+    (fun w z => rowKernelAt R sd W η U HA HC u Z ξ w z) hfiber
+    Adec Ac (A1 + 2) C0 Cconv ξ.im hAdec (by linarith) hAcAdec hC0 hCconv.le
+    hpoint (hconv ξ.im)
+  have hbound : ‖rowKernelHeightPair R sd W η U HA HC u Z ξ‖ ≤
+      Cpair * Z ^ Estar ξ.re (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε) *
+        (1 + |ξ.im|) ^ (-(A1 + 2)) := by
+    simpa [rowKernelHeightPair, Cpair, C0, Iw, mul_assoc, mul_left_comm, mul_comm] using hpair
+  refine ⟨hfiber, hbound.trans ?_⟩
+  gcongr
+  linarith
+
 /-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
 The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
 theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
