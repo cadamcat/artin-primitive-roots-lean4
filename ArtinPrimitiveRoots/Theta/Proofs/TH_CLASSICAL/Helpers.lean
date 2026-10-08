@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Arithmetic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.StrongApprox
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Determinant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Projected
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.TranslatedSection
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
@@ -175,19 +176,6 @@ theorem th_classical_pgl_reconstruction (g : PGL2 ℂ) :
     change Matrix.SpecialLinearGroup.toGL h =
       Matrix.SpecialLinearGroup.toGL a * Matrix.SpecialLinearGroup.toGL (a⁻¹ * h)
     rw [← map_mul, mul_inv_cancel_left]
-
-/-- The Iwasawa coordinates of a special-linear translate are its actual hyperbolic coordinates. -/
-theorem th_classical_sl_reconstruction (g : SL(2, ℂ)) (x : ℂ) (y : ℝ) (hy : 0 < y) :
-    ∃ k : GL (Fin 2) ℂ,
-      (k : Matrix (Fin 2) (Fin 2) ℂ) ∈ Matrix.unitaryGroup (Fin 2) ℂ ∧
-      ∃ hy' : 0 < Spec.height (g • Spec.pt x y),
-        (QuotientGroup.mk (g : GL (Fin 2) ℂ) : PGL2 ℂ) *
-            QuotientGroup.mk (upperM ℂ x * diagM ℂ
-              (Units.mk0 (y : ℂ) (Complex.ofReal_ne_zero.mpr hy.ne'))) =
-          QuotientGroup.mk (upperM ℂ (Spec.horiz (g • Spec.pt x y)) * diagM ℂ
-            (Units.mk0 (Spec.height (g • Spec.pt x y) : ℂ)
-              (Complex.ofReal_ne_zero.mpr hy'.ne')) * k) := by
-  sorry
 
 /-- Finite-component equality in the global cover allows the central tuples killed by `q`. -/
 def th_classical_finiteEq (P : CoverPackage D S H A) (r s : P.RP) : Prop :=
