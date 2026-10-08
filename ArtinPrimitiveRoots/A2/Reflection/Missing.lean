@@ -4275,6 +4275,21 @@ private theorem rf_pairing_activeFactor_finite
     rw [hfactor f hf, hfactor g hg, hs]
   exact Set.Finite.of_injOn hmap hinj (R.exterior.support h).powerset.finite_toSet
 
+private theorem rf_pairing_profile_inverse_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) :
+    ∃ C : ℝ, 0 < C ∧ ∀ u κ x, 0 < x →
+      ‖profilePhi R u κ x‖ ≤ C * x ^ (-1 : ℝ) := by
+  obtain ⟨α, hα, hDecay⟩ := (rf_profile_bound R).2.1
+  obtain ⟨C, hC, hBound⟩ := hDecay 1 (by norm_num) 0
+  refine ⟨C, hC, ?_⟩
+  intro u κ x hx
+  have hzero : Theta.normDerivR 0 (profilePhi R u κ) x = profilePhi R u κ x := by
+    simp only [Theta.normDerivR, iteratedDeriv_zero, Real.exp_log hx]
+  calc
+    ‖profilePhi R u κ x‖ ≤ C * min (x ^ α) (x ^ (-1 : ℝ)) := by
+      simpa only [hzero] using hBound u κ x hx
+    _ ≤ C * x ^ (-1 : ℝ) := mul_le_mul_of_nonneg_left (min_le_right _ _) hC.le
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
