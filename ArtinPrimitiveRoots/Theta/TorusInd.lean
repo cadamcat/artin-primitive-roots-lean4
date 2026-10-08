@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.Cover
+import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 
 set_option autoImplicit false
 
@@ -1949,9 +1950,44 @@ private theorem adicCompletion_toCompletion_inv_ind (x : v.adicCompletion F) :
     (x⁻¹).toCompletion = x.toCompletion⁻¹ := by
   exact map_inv₀ (HeightOneSpectrum.adicCompletion.equiv F v) x
 
+private theorem adicCompletion_toCompletion_add_ind (x y : v.adicCompletion F) :
+    (x + y).toCompletion = x.toCompletion + y.toCompletion := by
+  exact map_add (HeightOneSpectrum.adicCompletion.equiv F v) x y
+
 private theorem adicCompletion_toCompletion_mul_ind (x y : v.adicCompletion F) :
     (x * y).toCompletion = x.toCompletion * y.toCompletion := by
   exact map_mul (HeightOneSpectrum.adicCompletion.equiv F v) x y
+
+private theorem adicCompletion_toCompletion_divUnit_ind (x : v.adicCompletion F)
+    (y : (v.adicCompletion F)ˣ) :
+    (x / y).toCompletion = x.toCompletion / (y : v.adicCompletion F).toCompletion := by
+  simp only [div_eq_mul_inv, adicCompletion_toCompletion_mul_ind,
+    adicCompletion_toCompletion_inv_ind]
+
+private theorem adicCompletion_toCompletion_unitMul_ind (x y : (v.adicCompletion F)ˣ) :
+    ((x * y : (v.adicCompletion F)ˣ) : v.adicCompletion F).toCompletion =
+      (x : v.adicCompletion F).toCompletion * (y : v.adicCompletion F).toCompletion := by
+  simpa using adicCompletion_toCompletion_mul_ind (F := F) (v := v)
+    (x : v.adicCompletion F) (y : v.adicCompletion F)
+
+private theorem adicCompletion_toCompletion_unitInv_ind (x : (v.adicCompletion F)ˣ) :
+    ((x⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F).toCompletion =
+      ((x : v.adicCompletion F).toCompletion)⁻¹ := by
+  simpa using adicCompletion_toCompletion_inv_ind (F := F) (v := v)
+    (x : v.adicCompletion F)
+
+private theorem adicCompletion_toCompletion_unitDiv_ind (x y : (v.adicCompletion F)ˣ) :
+    ((x / y : (v.adicCompletion F)ˣ) : v.adicCompletion F).toCompletion =
+      (x : v.adicCompletion F).toCompletion / (y : v.adicCompletion F).toCompletion := by
+  rw [div_eq_mul_inv, adicCompletion_toCompletion_unitMul_ind,
+    adicCompletion_toCompletion_unitInv_ind]
+  rfl
+
+private theorem adicCompletion_toCompletion_unitPow_two_ind (x : (v.adicCompletion F)ˣ) :
+    ((x ^ 2 : (v.adicCompletion F)ˣ) : v.adicCompletion F).toCompletion =
+      ((x : v.adicCompletion F).toCompletion) ^ 2 := by
+  rw [pow_two, adicCompletion_toCompletion_unitMul_ind]
+  rw [pow_two]
 
 private theorem bigCell_matrix_topRight (a b c d : v.adicCompletion F) (hc : c ≠ 0) :
     b.toCompletion * c.toCompletion⁻¹ =
@@ -2205,6 +2241,1982 @@ private theorem bigCell_leftBorel (L : FinLocalCover D H v) (T : TorusRep D H v)
     rw [dif_neg hleft, dif_neg hg]
     simp [sphericalBorelAction]
 
+private theorem muThree_hilb_one_of_sigmaa_id
+    (T : TorusRep D H v) [Nontrivial T.V] (a u : (v.adicCompletion F)ˣ)
+    (hu : T.σa u = LinearMap.id) : muThree D (H.hilb v a u) = 1 := by
+  let C₁ := muThree D (H.hilb v a u)
+  let C₂ := muThree D (H.hilb v u a)
+  have h1 : T.σa a = ((C₁ : ℂˣ) : ℂ) • T.σa (a * u) := by
+    simpa [C₁, hu] using T.σa_mul a u
+  have h2 : T.σa a = ((C₂ : ℂˣ) : ℂ) • T.σa (a * u) := by
+    simpa [C₂, hu, mul_comm u a] using T.σa_mul u a
+  have hσa : T.σa a ≠ 0 := by
+    intro hz
+    obtain ⟨w, hw⟩ := exists_ne (0 : T.V)
+    have h := congrArg (fun A : T.V →ₗ[ℂ] T.V => A w) (T.σa_mul a a⁻¹)
+    have hc : (((muThree D (H.hilb v a a⁻¹) : ℂˣ) : ℂ)) ≠ 0 := by simp
+    have hwzero : ((muThree D (H.hilb v a a⁻¹) : ℂˣ) : ℂ) • w = 0 := by
+      simpa [hz, T.σa_one, LinearMap.comp_apply, LinearMap.smul_apply] using h.symm
+    exact hw ((smul_eq_zero.mp hwzero).resolve_left hc)
+  have hM : T.σa (a * u) ≠ 0 := by
+    intro hzero
+    apply hσa
+    rw [h1, hzero]
+    simp
+  have hCval : ((C₁ : ℂˣ) : ℂ) = ((C₂ : ℂˣ) : ℂ) := by
+    apply (smul_left_injective ℂ hM)
+    calc
+      ((C₁ : ℂˣ) : ℂ) • T.σa (a * u) = T.σa a := h1.symm
+      _ = ((C₂ : ℂˣ) : ℂ) • T.σa (a * u) := h2
+  have hC : C₁ = C₂ := by
+    apply Subtype.ext
+    exact Units.ext hCval
+  have hprod : C₁ * C₂ = 1 := by
+    calc
+      C₁ * C₂ = muThree D (H.hilb v a u * H.hilb v u a) :=
+        (muThree_mul_ind _ _).symm
+      _ = muThree D 1 := by rw [H.skew]
+      _ = 1 := muThree_one_ind
+  rw [← hC] at hprod
+  have hsq : C₁ ^ 2 = 1 := by simpa [pow_two] using hprod
+  have hcubeVal : (C₁ : ℂˣ) ^ 3 = 1 := by
+    change (C₁ : ℂˣ) ^ 3 = 1
+    exact C₁.property
+  have hcube : C₁ ^ 3 = 1 := by
+    apply Subtype.ext
+    exact hcubeVal
+  calc
+    C₁ = C₁ ^ 3 * (C₁ ^ 2)⁻¹ := by group
+    _ = 1 := by rw [hcube, hsq]; simp
+
+private theorem muThree_hilb_one_left_of_sigmaa_id
+    (T : TorusRep D H v) [Nontrivial T.V] (a : (v.adicCompletion F)ˣ)
+    (ha : T.σa a = LinearMap.id) (u : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v a u) = 1 := by
+  have hright := muThree_hilb_one_of_sigmaa_id T u a ha
+  have hskew := H.skew v a u
+  have hprod : muThree D (H.hilb v a u) * muThree D (H.hilb v u a) = 1 := by
+    calc
+      _ = muThree D (H.hilb v a u * H.hilb v u a) :=
+        (muThree_mul_ind _ _).symm
+      _ = muThree D 1 := by rw [hskew]
+      _ = 1 := muThree_one_ind
+  simpa [hright] using hprod
+
+private theorem muThree_hilb_sq_eq_one_ind (z : rootsOfUnity 6 F)
+    (hz : z ^ 2 = 1) : muThree D z = 1 := by
+  apply rootsOfUnity.coe_injective
+  change D.σ0 ((((z ^ 2 : rootsOfUnity 6 F) : Fˣ) : F)) = 1
+  rw [hz]
+  simp
+
+private theorem hilb_one_right_ind (a : (v.adicCompletion F)ˣ) :
+    H.hilb v a 1 = 1 := by
+  have h := H.skew v a 1
+  rw [hilb_one_left_ind] at h
+  simpa using h
+
+private theorem muThree_hilb_one_right_ind (a : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v a 1) = 1 := by
+  rw [hilb_one_right_ind, muThree_one_ind]
+
+private theorem muThree_hilb_one_left_ind (b : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v 1 b) = 1 := by
+  rw [hilb_one_left_ind, muThree_one_ind]
+
+private theorem muThree_hilb_self_one_ind (a : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v a a) = 1 := by
+  have h := H.skew v a a
+  have hsq : H.hilb v a a ^ 2 = 1 := by simpa [pow_two] using h
+  exact muThree_hilb_sq_eq_one_ind _ hsq
+
+private theorem muThree_hilb_neg_one_right_ind (a : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v a (-1)) = 1 := by
+  have h := H.mul_right v a (-1) (-1)
+  have hneg : (-1 : (v.adicCompletion F)ˣ) * (-1) = 1 := by
+    ext
+    simp
+  rw [hneg, hilb_one_right_ind a] at h
+  have hsq : H.hilb v a (-1) ^ 2 = 1 := by simpa [pow_two] using h.symm
+  exact muThree_hilb_sq_eq_one_ind _ hsq
+
+private theorem xU_upperM_ind (x : v.adicCompletion F) :
+    xU v (upperM (v.adicCompletion F) x) = 1 := by
+  apply Units.ext
+  simp [xU, xEntry, upperM]
+
+private theorem xU_lower_upper_ind (x y : v.adicCompletion F) :
+    xU v (lowerM (v.adicCompletion F) x * upperM (v.adicCompletion F) y) =
+      xU v (lowerM (v.adicCompletion F) x) := by
+  apply Units.ext
+  by_cases hx : x = 0 <;>
+    simp [xU, xEntry, lowerM, upperM, Matrix.mul_apply, Fin.sum_univ_two, hx]
+
+private theorem kpCocycle_lower_upper_ind (x y : v.adicCompletion F) :
+    kpCocycle D H v (lowerM (v.adicCompletion F) x) (upperM (v.adicCompletion F) y) = 1 := by
+  have hx := xU_lower_upper_ind (F := F) (v := v) x y
+  have hy := xU_upperM_ind (F := F) (v := v) y
+  have hdx : detU v (lowerM (v.adicCompletion F) x) = 1 := by
+    apply Units.ext
+    simp [detU, lowerM, Matrix.det_fin_two]
+  have hdy : detU v (upperM (v.adicCompletion F) y) = 1 := by
+    apply Units.ext
+    simp [detU, upperM, Matrix.det_fin_two]
+  rw [kpCocycle, hx, hy, hdx, hdy]
+  simp [muThree_hilb_one_right_ind]
+
+private theorem kpCocycle_lower_upper_w_ind (T : TorusRep D H v) [Nontrivial T.V]
+    (x y : v.adicCompletion F) (A : (v.adicCompletion F)ˣ)
+    (hA : (A : v.adicCompletion F) = 1 + x * y)
+    (hσ : T.σa A = LinearMap.id) :
+    kpCocycle D H v
+      (lowerM (v.adicCompletion F) x * upperM (v.adicCompletion F) y)
+      (weylM (v.adicCompletion F)) = 1 := by
+  have hx : xU v (weylM (v.adicCompletion F)) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry, weylM]
+  have hdet : detU v
+      (lowerM (v.adicCompletion F) x * upperM (v.adicCompletion F) y) = 1 := by
+    apply Units.ext
+    simp [detU, lowerM, upperM, Matrix.det_fin_two]
+  have hprod : xU v
+      (lowerM (v.adicCompletion F) x * upperM (v.adicCompletion F) y *
+        weylM (v.adicCompletion F)) = A := by
+    have hAne : x * y + 1 ≠ 0 := by
+      have hAne' : 1 + x * y ≠ 0 := by rw [← hA]; exact A.ne_zero
+      simpa [add_comm] using hAne'
+    apply Units.ext
+    simp [xU, xEntry, lowerM, upperM, weylM, Matrix.mul_apply, Fin.sum_univ_two,
+      hA, hAne]
+    ring
+  rw [kpCocycle, hprod, hx, hdet]
+  have hfirst := muThree_hilb_one_left_of_sigmaa_id T A hσ
+    (A / xU v (lowerM (v.adicCompletion F) x * upperM (v.adicCompletion F) y))
+  have hsecond := muThree_hilb_one_left_ind (D := D) (H := H) (v := v)
+    (detU v (weylM (v.adicCompletion F)))
+  simp only [one_mul, div_one]
+  rw [hfirst, hsecond]
+  simp
+
+private theorem muThree_hilb_inv_right_ind (a b : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v a b⁻¹) = (muThree D (H.hilb v a b))⁻¹ := by
+  have h := H.mul_right v a b b⁻¹
+  rw [mul_inv_cancel, hilb_one_right_ind a] at h
+  have hprod : H.hilb v a b * H.hilb v a b⁻¹ = 1 := h.symm
+  have hC : muThree D (H.hilb v a b) * muThree D (H.hilb v a b⁻¹) = 1 := by
+    calc
+      _ = muThree D (H.hilb v a b * H.hilb v a b⁻¹) :=
+        (muThree_mul_ind _ _).symm
+      _ = muThree D 1 := by rw [hprod]
+      _ = 1 := muThree_one_ind
+  exact eq_inv_of_mul_eq_one_right hC
+
+private theorem muThree_hilb_square_inv_square_ind (a : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v (a ^ 2) (a⁻¹ * a⁻¹)) = 1 := by
+  have hself := muThree_hilb_self_one_ind (D := D) (H := H) (v := v) a
+  have hinv : muThree D (H.hilb v a a⁻¹) = 1 := by
+    calc
+      _ = (muThree D (H.hilb v a a))⁻¹ :=
+        muThree_hilb_inv_right_ind (D := D) (H := H) (v := v) a a
+      _ = 1 := by simp [hself]
+  have hpowleft : muThree D (H.hilb v (a ^ 2) a⁻¹) = 1 := by
+    rw [show a ^ 2 = a * a by simp [pow_two], muThree_hilb_mul_left_ind]
+    simp [hinv]
+  rw [muThree_hilb_mul_right_ind]
+  simp [hpowleft]
+
+private theorem kpCocycle_upper_diag_ind (x : v.adicCompletion F)
+    (y : (v.adicCompletion F)ˣ) :
+    kpCocycle D H v (upperM (v.adicCompletion F) x) (diagM (v.adicCompletion F) y) = 1 := by
+  have hx : xU v (upperM (v.adicCompletion F) x) = 1 := xU_upperM_ind x
+  have hy : xU v (diagM (v.adicCompletion F) y) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry, diagM]
+  have hxy : xU v (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry, upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hdetx : detU v (upperM (v.adicCompletion F) x) = 1 := by
+    apply Units.ext
+    simp [detU, upperM, Matrix.det_fin_two]
+  rw [kpCocycle, hx, hy, hxy, hdetx]
+  simp [muThree_hilb_one_left_ind]
+
+private theorem kpCocycle_upper_diag_w_ind (x : v.adicCompletion F)
+    (y : (v.adicCompletion F)ˣ) :
+    kpCocycle D H v (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y)
+      (weylM (v.adicCompletion F)) = 1 := by
+  have hx : xU v (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry, upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hy : xU v (weylM (v.adicCompletion F)) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry, weylM]
+  have hxy : xU v
+      (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y *
+        weylM (v.adicCompletion F)) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry, upperM, diagM, weylM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hdetx : detU v (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y) = y := by
+    apply Units.ext
+    simp [detU, upperM, diagM, Matrix.det_fin_two]
+  have hdetw : detU v (weylM (v.adicCompletion F)) = -1 := by
+    apply Units.ext
+    simp [detU, weylM, Matrix.det_fin_two]
+  rw [kpCocycle, hx, hy, hxy]
+  rw [hdetx, hdetw]
+  simp [muThree_hilb_one_right_ind, muThree_hilb_neg_one_right_ind]
+
+private theorem kpCocycle_upper_diag_w_upper_ind (x : v.adicCompletion F)
+    (y : (v.adicCompletion F)ˣ) (t : v.adicCompletion F) :
+    kpCocycle D H v
+      (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y *
+        weylM (v.adicCompletion F))
+      (upperM (v.adicCompletion F) t) = 1 := by
+  have hx : xU v
+      (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y *
+        weylM (v.adicCompletion F)) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry, upperM, diagM, weylM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hy : xU v (upperM (v.adicCompletion F) t) = 1 := xU_upperM_ind t
+  have hxy : xU v
+      (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y *
+        weylM (v.adicCompletion F) * upperM (v.adicCompletion F) t) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry, upperM, diagM, weylM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hdetx : detU v
+      (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y *
+        weylM (v.adicCompletion F)) = -y := by
+    apply Units.ext
+    simp [detU, upperM, diagM, weylM, Matrix.det_fin_two]
+  have hdety : detU v (upperM (v.adicCompletion F) t) = 1 := by
+    apply Units.ext
+    simp [detU, upperM, Matrix.det_fin_two]
+  rw [kpCocycle, hx, hy, hxy, hdety]
+  simp [hdetx, muThree_hilb_one_right_ind]
+
+private theorem muThree_hilb_square_neg_square_ind (a : (v.adicCompletion F)ˣ) :
+    muThree D (H.hilb v (a ^ 2) (-(a⁻¹ * a⁻¹))) = 1 := by
+  have hneg := muThree_hilb_neg_one_right_ind (D := D) (H := H) (v := v) (a ^ 2)
+  have hpow := muThree_hilb_square_inv_square_ind (D := D) (H := H) (v := v) a
+  have hmul := muThree_hilb_mul_right_ind (D := D) (H := H) (v := v)
+    (a ^ 2) (-1) (a⁻¹ * a⁻¹)
+  have hnegmul : (-1 : (v.adicCompletion F)ˣ) * (a⁻¹ * a⁻¹) =
+      -(a⁻¹ * a⁻¹) := by simp
+  rw [← hnegmul, hmul, hneg, hpow]
+  simp
+
+private theorem kpCocycle_scalar_upper_diag_w_upper_ind
+    (a : (v.adicCompletion F)ˣ) (b r : v.adicCompletion F) :
+    kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) a)
+      (upperM (v.adicCompletion F) b * diagM (v.adicCompletion F) (a⁻¹ * a⁻¹) *
+        weylM (v.adicCompletion F) * upperM (v.adicCompletion F) r) = 1 := by
+  let M := upperM (v.adicCompletion F) b * diagM (v.adicCompletion F) (a⁻¹ * a⁻¹) *
+    weylM (v.adicCompletion F) * upperM (v.adicCompletion F) r
+  have hx : xU v (Matrix.GeneralLinearGroup.scalar (Fin 2) a) = a := by
+    apply Units.ext
+    simp [xU, xEntry, Matrix.GeneralLinearGroup.scalar]
+  have hxm : xU v M = 1 := by
+    apply Units.ext
+    simp [M, xU, xEntry, upperM, diagM, weylM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hxprod : xU v (Matrix.GeneralLinearGroup.scalar (Fin 2) a * M) = a := by
+    apply Units.ext
+    simp [M, xU, xEntry, upperM, diagM, weylM, Matrix.GeneralLinearGroup.scalar,
+      Matrix.mul_apply, Fin.sum_univ_two, a.ne_zero]
+  have hdets : detU v (Matrix.GeneralLinearGroup.scalar (Fin 2) a) = a ^ 2 := by
+    apply Units.ext
+    simp [detU, Matrix.GeneralLinearGroup.scalar, Matrix.det_fin_two]
+  have hdetm : detU v M = -(a⁻¹ * a⁻¹) := by
+    apply Units.ext
+    simp [M, detU, upperM, diagM, weylM, Matrix.det_fin_two]
+  rw [kpCocycle, hx, hxm, hxprod, hdets, hdetm]
+  have hratio : a / a ^ 2 = a⁻¹ := by
+    apply Units.ext
+    simp [div_eq_mul_inv, pow_two]
+  have hratio' : a / a = 1 := by
+    rw [div_eq_mul_inv]
+    exact mul_inv_cancel a
+  simp only [one_mul]
+  rw [hratio, hratio']
+  rw [muThree_hilb_one_right_ind, muThree_hilb_square_neg_square_ind]
+  simp
+
+private theorem lower_upper_w_matrix_gauss (q c : v.adicCompletion F)
+    (A : (v.adicCompletion F)ˣ) (hA : (A : v.adicCompletion F) = 1 + q * c) :
+    lowerM (v.adicCompletion F) q * upperM (v.adicCompletion F) c *
+        weylM (v.adicCompletion F) =
+    Matrix.GeneralLinearGroup.scalar (Fin 2) A *
+        (upperM (v.adicCompletion F) (c / A) *
+          diagM (v.adicCompletion F) (A⁻¹ * A⁻¹) *
+          weylM (v.adicCompletion F) * upperM (v.adicCompletion F) (q / A)) := by
+  have hAto : (A : v.adicCompletion F).toCompletion =
+      1 + q.toCompletion * c.toCompletion := by
+    calc
+      _ = (1 + q * c).toCompletion := congrArg (fun z : v.adicCompletion F => z.toCompletion) hA
+      _ = 1 + q.toCompletion * c.toCompletion := by
+        rw [adicCompletion_toCompletion_add_ind, adicCompletion_toCompletion_mul_ind]
+        simp
+  have hAto_ne : (A : v.adicCompletion F).toCompletion ≠ 0 :=
+    (map_ne_zero (HeightOneSpectrum.adicCompletion.equiv F v)).2 A.ne_zero
+  have hden' : 1 + q.toCompletion * c.toCompletion ≠ 0 := by
+    rw [← hAto]
+    exact hAto_ne
+  have hden : 1 + c.toCompletion * q.toCompletion ≠ 0 := by
+    have hdenEq : 1 + c.toCompletion * q.toCompletion = (A : v.adicCompletion F).toCompletion := by
+      rw [hAto]
+      ring
+    rw [hdenEq]
+    exact (map_ne_zero (HeightOneSpectrum.adicCompletion.equiv F v)).2 A.ne_zero
+  have hb : (c / A).toCompletion = c.toCompletion / (A : v.adicCompletion F).toCompletion :=
+    adicCompletion_toCompletion_divUnit_ind c A
+  have hr : (q / A).toCompletion = q.toCompletion / (A : v.adicCompletion F).toCompletion :=
+    adicCompletion_toCompletion_divUnit_ind q A
+  have hb' : (c * (A : v.adicCompletion F)⁻¹).toCompletion =
+      c.toCompletion * ((A : v.adicCompletion F).toCompletion)⁻¹ := by
+    rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+  have hr' : (q * (A : v.adicCompletion F)⁻¹).toCompletion =
+      q.toCompletion * ((A : v.adicCompletion F).toCompletion)⁻¹ := by
+    rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+  have hu₁ : ((A⁻¹ * A⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F).toCompletion =
+      ((A⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F).toCompletion *
+        ((A⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F).toCompletion :=
+    adicCompletion_toCompletion_unitMul_ind A⁻¹ A⁻¹
+  have hu₂ : ((A⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F).toCompletion =
+      ((A : v.adicCompletion F).toCompletion)⁻¹ :=
+    adicCompletion_toCompletion_unitInv_ind A
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [lowerM, upperM, diagM, weylM, Matrix.GeneralLinearGroup.scalar,
+      Matrix.mul_apply, Fin.sum_univ_two, Units.val_inv_eq_inv_val,
+      adicCompletion_toCompletion_add_ind, adicCompletion_toCompletion_mul_ind,
+      adicCompletion_toCompletion_inv_ind, hb, hr, hb', hr', hu₁, hu₂, hAto] <;>
+    field_simp [hden, hden'] <;> ring_nf
+
+private theorem weyl_upper_lower_matrix_ind (t c : v.adicCompletion F) :
+    weylM (v.adicCompletion F) * upperM (v.adicCompletion F) t *
+        lowerM (v.adicCompletion F) c =
+      lowerM (v.adicCompletion F) t * upperM (v.adicCompletion F) c *
+        weylM (v.adicCompletion F) := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [weylM, upperM, lowerM, Matrix.mul_apply, Fin.sum_univ_two,
+      adicCompletion_toCompletion_mul_ind]
+  all_goals ring
+
+private theorem diag_upper_matrix_ind (y : (v.adicCompletion F)ˣ)
+    (b : v.adicCompletion F) :
+    diagM (v.adicCompletion F) y * upperM (v.adicCompletion F) b =
+      upperM (v.adicCompletion F) (b * (y : v.adicCompletion F)) *
+        diagM (v.adicCompletion F) y := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [diagM, upperM, Matrix.mul_apply, Fin.sum_univ_two,
+      adicCompletion_toCompletion_mul_ind, Units.val_mul]
+  all_goals ring
+
+private theorem upper_upper_matrix_ind (x y : v.adicCompletion F) :
+    upperM (v.adicCompletion F) x * upperM (v.adicCompletion F) y =
+      upperM (v.adicCompletion F) (x + y) := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [upperM, Matrix.mul_apply, Fin.sum_univ_two,
+      adicCompletion_toCompletion_add_ind, adicCompletion_toCompletion_mul_ind]
+  all_goals ring
+
+private theorem diag_diag_matrix_ind (y z : (v.adicCompletion F)ˣ) :
+    diagM (v.adicCompletion F) y * diagM (v.adicCompletion F) z =
+      diagM (v.adicCompletion F) (y * z) := by
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [diagM, Matrix.mul_apply, Fin.sum_univ_two, Units.val_mul,
+      adicCompletion_toCompletion_mul_ind]
+  all_goals ring
+
+private theorem bigCell_right_nbar_projective_ind
+    (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ)
+    (t c : v.adicCompletion F) (A : (v.adicCompletion F)ˣ)
+    (hA : (A : v.adicCompletion F) = 1 + t * c) :
+    (QuotientGroup.mk
+        (bigCellMatrix (F := F) x y t * lowerM (v.adicCompletion F) c) :
+          PGL2 (v.adicCompletion F)) =
+      QuotientGroup.mk (bigCellMatrix (F := F)
+        (x + (y : v.adicCompletion F) * (c / (A : v.adicCompletion F)))
+        (y * (A⁻¹ * A⁻¹)) (t / (A : v.adicCompletion F))) := by
+  let K := v.adicCompletion F
+  let b : K := c / (A : K)
+  let r : K := t / (A : K)
+  let u : Kˣ := A⁻¹ * A⁻¹
+  let x' : K := x + (y : K) * b
+  let y' : Kˣ := y * u
+  let P : GL (Fin 2) K := upperM K x * diagM K y * weylM K * upperM K t * lowerM K c
+  let Q : GL (Fin 2) K := upperM K x' * diagM K y' * weylM K * upperM K r
+  have hW : weylM K * upperM K t * lowerM K c =
+      lowerM K t * upperM K c * weylM K := weyl_upper_lower_matrix_ind t c
+  have hGauss := lower_upper_w_matrix_gauss t c A hA
+  have hdiagU := diag_upper_matrix_ind y b
+  have hUU := upper_upper_matrix_ind x (b * (y : K))
+  have hdiagD := diag_diag_matrix_ind y u
+  have hcore : upperM K x * diagM K y *
+        upperM K b * diagM K u * weylM K * upperM K r = Q := by
+    dsimp [Q, x', y']
+    calc
+      _ = upperM K x *
+          (diagM K y * upperM K b) * diagM K u * weylM K * upperM K r := by group
+      _ = upperM K x *
+          (upperM K (b * (y : K)) * diagM K y) * diagM K u * weylM K * upperM K r := by
+            rw [hdiagU]
+      _ = (upperM K x * upperM K (b * (y : K))) *
+          (diagM K y * diagM K u) * weylM K * upperM K r := by group
+      _ = (upperM K x * upperM K (b * (y : K))) *
+          diagM K (y * u) * weylM K * upperM K r := by rw [hdiagD]
+      _ = upperM K (x + b * (y : K)) * diagM K (y * u) * weylM K * upperM K r := by
+            rw [hUU]
+      _ = Q := by
+            have hx' : x + b * (y : K) = x + (y : K) * (c / (A : K)) := by
+              dsimp [b]
+              ring
+            simp [Q, x', y', b, u, r, hx']
+  have hscalar : P = Matrix.GeneralLinearGroup.scalar (Fin 2) A * Q := by
+    dsimp [P]
+    calc
+      _ = upperM K x * diagM K y * (weylM K * upperM K t * lowerM K c) := by group
+      _ = upperM K x * diagM K y * (lowerM K t * upperM K c * weylM K) := by rw [hW]
+      _ = upperM K x * diagM K y *
+          (Matrix.GeneralLinearGroup.scalar (Fin 2) A *
+            (upperM K b * diagM K u * weylM K * upperM K r)) := by rw [hGauss]
+      _ = Matrix.GeneralLinearGroup.scalar (Fin 2) A *
+          (upperM K x * diagM K y * upperM K b * diagM K u * weylM K * upperM K r) := by
+            have hc := Matrix.GeneralLinearGroup.scalar_commute A (upperM K x * diagM K y)
+            calc
+              _ = (upperM K x * diagM K y * Matrix.GeneralLinearGroup.scalar (Fin 2) A) *
+                  (upperM K b * diagM K u * weylM K * upperM K r) := by group
+              _ = (Matrix.GeneralLinearGroup.scalar (Fin 2) A *
+                  (upperM K x * diagM K y)) *
+                  (upperM K b * diagM K u * weylM K * upperM K r) := by rw [← hc]
+              _ = _ := by group
+      _ = Matrix.GeneralLinearGroup.scalar (Fin 2) A * Q := by rw [hcore]
+  apply Matrix.ProjGenLinGroup.mk_eq_mk_iff.mpr
+  refine ⟨A⁻¹, ?_⟩
+  have hscalarInv : Matrix.GeneralLinearGroup.scalar (Fin 2) A *
+      Matrix.GeneralLinearGroup.scalar (Fin 2) A⁻¹ = 1 := by
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two]
+  calc
+    P * Matrix.GeneralLinearGroup.scalar (Fin 2) A⁻¹ =
+      (Matrix.GeneralLinearGroup.scalar (Fin 2) A * Q) *
+          Matrix.GeneralLinearGroup.scalar (Fin 2) A⁻¹ := by rw [hscalar]
+    _ = Q := by
+      calc
+        _ = Matrix.GeneralLinearGroup.scalar (Fin 2) A *
+            (Q * Matrix.GeneralLinearGroup.scalar (Fin 2) A⁻¹) := by group
+        _ = Matrix.GeneralLinearGroup.scalar (Fin 2) A *
+            (Matrix.GeneralLinearGroup.scalar (Fin 2) A⁻¹ * Q) := by
+              rw [← Matrix.GeneralLinearGroup.scalar_commute A⁻¹ Q]
+        _ = (Matrix.GeneralLinearGroup.scalar (Fin 2) A *
+            Matrix.GeneralLinearGroup.scalar (Fin 2) A⁻¹) * Q := by group
+        _ = Q := by rw [hscalarInv]; simp
+
+private theorem gl2_class_not_borel_of_lowerleft_ne
+    (G : GL (Fin 2) (v.adicCompletion F))
+    (h10 : (G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0)
+    (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ)
+    (hclass : (QuotientGroup.mk G : PGL2 (v.adicCompletion F)) =
+      QuotientGroup.mk (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y)) :
+    False := by
+  obtain ⟨q, hmat⟩ := Matrix.ProjGenLinGroup.mk_eq_mk_iff.mp hclass
+  have he := congrArg (fun g : GL (Fin 2) (v.adicCompletion F) =>
+    (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hmat
+  have hzero :
+      ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) * (q : v.adicCompletion F) = 0 := by
+    simpa [Matrix.GeneralLinearGroup.coe_mul, Matrix.GeneralLinearGroup.scalar,
+      Matrix.mul_apply, Fin.sum_univ_two, upperM, diagM] using he
+  exact h10 ((mul_eq_zero.mp hzero).resolve_right q.ne_zero)
+
+private theorem bigCell_gauss_lift (L : FinLocalCover D H v) (T : TorusRep D H v)
+    [Nontrivial T.V] (q c : v.adicCompletion F) (A : (v.adicCompletion F)ˣ)
+    (hA : (A : v.adicCompletion F) = 1 + q * c)
+    (hσ : T.σa A = LinearMap.id) :
+    L.nbar (Multiplicative.ofAdd q) * L.n (Multiplicative.ofAdd c) * L.w =
+      L.n (Multiplicative.ofAdd (c / A)) * L.a (A⁻¹ * A⁻¹) * L.w *
+        L.n (Multiplicative.ofAdd (q / A)) := by
+  let K := v.adicCompletion F
+  let b : K := c / A
+  let u : Kˣ := A⁻¹ * A⁻¹
+  let r : K := q / A
+  let G₁ := lowerM K q
+  let G₂ := upperM K c
+  let W := weylM K
+  let U := upperM K b
+  let Dg := diagM K u
+  let Ur := upperM K r
+  have hκ₁ := kpCocycle_lower_upper_ind (F := F) (D := D) (H := H) (v := v) q c
+  have hκ₂ := kpCocycle_lower_upper_w_ind T q c A hA hσ
+  have hκ₃ := kpCocycle_upper_diag_ind (F := F) (D := D) (H := H) (v := v) b u
+  have hκ₄ := kpCocycle_upper_diag_w_ind (F := F) (D := D) (H := H) (v := v) b u
+  have hκ₅ := kpCocycle_upper_diag_w_upper_ind (F := F) (D := D) (H := H) (v := v) b u r
+  have hκ₆ := kpCocycle_scalar_upper_diag_w_upper_ind (F := F) (D := D) (H := H)
+    (v := v) A b r
+  have hκ₁' : kpCocycle D H v G₁ G₂ = 1 := by simpa [G₁, G₂] using hκ₁
+  have hκ₂' : kpCocycle D H v (G₁ * G₂) W = 1 := by simpa [G₁, G₂, W] using hκ₂
+  have hκ₃' : kpCocycle D H v U Dg = 1 := by simpa [U, Dg] using hκ₃
+  have hκ₄' : kpCocycle D H v (U * Dg) W = 1 := by simpa [U, Dg, W] using hκ₄
+  have hκ₅' : kpCocycle D H v (U * Dg * W) Ur = 1 := by
+    simpa [U, Dg, W, Ur] using hκ₅
+  have hκ₆' : kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) A)
+      (U * Dg * W * Ur) = 1 := by simpa [U, Dg, W, Ur, b, u, r] using hκ₆
+  have hmat : G₁ * G₂ * W =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) A * (U * Dg * W * Ur) := by
+    dsimp [G₁, G₂, W, U, Dg, Ur, b, u, r]
+    exact lower_upper_w_matrix_gauss q c A hA
+  have hleft : L.nbar (Multiplicative.ofAdd q) * L.n (Multiplicative.ofAdd c) * L.w =
+      L.sec (G₁ * G₂ * W) := by
+    calc
+      _ = (L.sec G₁ * L.sec G₂) * L.sec W := by
+        simp [G₁, G₂, W, L.sec_nbar, L.sec_n, L.sec_w] <;> rfl
+      _ = (L.z (kpCocycle D H v G₁ G₂) * L.sec (G₁ * G₂)) * L.sec W := by
+        rw [L.sec_mul]
+      _ = L.sec (G₁ * G₂) * L.sec W := by rw [hκ₁']; simp
+      _ = L.z (kpCocycle D H v (G₁ * G₂) W) * L.sec (G₁ * G₂ * W) := by
+        rw [L.sec_mul]
+      _ = L.sec (G₁ * G₂ * W) := by rw [hκ₂']; simp
+  have hright :
+      L.n (Multiplicative.ofAdd b) * L.a u * L.w * L.n (Multiplicative.ofAdd r) =
+        L.sec (U * Dg * W * Ur) := by
+    calc
+      _ = L.sec U * L.sec Dg * L.sec W * L.sec Ur := by
+        simp [U, Dg, W, Ur, b, u, r, L.sec_n, L.sec_a, L.sec_w] <;> rfl
+      _ = (L.z (kpCocycle D H v U Dg) * L.sec (U * Dg)) * L.sec W * L.sec Ur := by
+        rw [L.sec_mul]
+      _ = L.sec (U * Dg) * L.sec W * L.sec Ur := by rw [hκ₃']; simp
+      _ = L.z (kpCocycle D H v (U * Dg) W) * L.sec (U * Dg * W) * L.sec Ur := by
+        rw [L.sec_mul]
+      _ = L.sec (U * Dg * W) * L.sec Ur := by rw [hκ₄']; simp
+      _ = L.z (kpCocycle D H v (U * Dg * W) Ur) * L.sec (U * Dg * W * Ur) := by
+        rw [L.sec_mul]
+      _ = L.sec (U * Dg * W * Ur) := by rw [hκ₅']; simp
+  have hscalar :
+      L.sec (Matrix.GeneralLinearGroup.scalar (Fin 2) A * (U * Dg * W * Ur)) =
+        L.sec (U * Dg * W * Ur) := by
+    have hmul := L.sec_mul (Matrix.GeneralLinearGroup.scalar (Fin 2) A) (U * Dg * W * Ur)
+    rw [L.sec_scalar, hκ₆'] at hmul
+    simpa using hmul.symm
+  calc
+    _ = L.sec (G₁ * G₂ * W) := hleft
+    _ = L.sec (Matrix.GeneralLinearGroup.scalar (Fin 2) A * (U * Dg * W * Ur)) := by
+      rw [hmat]
+    _ = L.sec (U * Dg * W * Ur) := hscalar
+    _ = _ := hright.symm
+
+private theorem compact_support_ball (T : TorusRep D H v) (φ : v.adicCompletion F → T.V)
+    (hc : HasCompactSupport φ) :
+    ∃ R : ℕ, tsupport φ ⊆ ball v (-(R : ℤ)) := by
+  classical
+  let K := v.adicCompletion F
+  change IsCompact (tsupport φ) at hc
+  obtain ⟨C, hC⟩ :=
+    (Metric.isBounded_iff_subset_closedBall (0 : K)).mp hc.isBounded
+  let qN : NNReal := Ideal.absNorm v.asIdeal
+  have hqN : 1 < qN := by
+    exact HeightOneSpectrum.one_lt_absNorm_nnreal v
+  let q : ℝ := qN
+  have hq : 1 < q := by exact_mod_cast hqN
+  obtain ⟨R, hR⟩ := (tendsto_pow_atTop_atTop_of_one_lt hq).eventually_gt_atTop C |>.exists
+  have hpowNN :
+      WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+        (WithZero.exp (R : ℤ)) = qN ^ R := by
+    rw [WithZeroMulInt.toNNReal_neg_apply
+      (HeightOneSpectrum.absNorm_ne_zero v) (by simp)]
+    rw [WithZero.toAdd_unzero_eq_log (by simp)]
+    simp [qN]
+  have hpow :
+      (WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+        (WithZero.exp (R : ℤ)) : ℝ) = (q ^ R : ℝ) := by
+    simpa [q] using congrArg (fun z : NNReal => (z : ℝ)) hpowNN
+  refine ⟨R, ?_⟩
+  intro x hx
+  have hnorm : ‖x‖ ≤ C := by
+    have hball := hC hx
+    simpa [Metric.mem_closedBall, dist_zero_right] using hball
+  have htoReal :
+      (WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+        (Valued.v x) : ℝ) <
+      (WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+        (WithZero.exp (R : ℤ)) : ℝ) := by
+    calc
+      (WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+          (Valued.v x) : ℝ) = ‖x‖ := by rw [FinitePlace.norm_def]
+      _ ≤ C := hnorm
+      _ < (q ^ R : ℝ) := hR
+      _ = (WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+            (WithZero.exp (R : ℤ)) : ℝ) := hpow.symm
+  have hto :
+      WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v) (Valued.v x) <
+        WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+          (WithZero.exp (R : ℤ)) := by exact_mod_cast htoReal
+  have hval : Valued.v x ≤ WithZero.exp (R : ℤ) :=
+    (WithZeroMulInt.toNNReal_strictMono hqN).le_iff_le.mp hto.le
+  simpa [ball] using hval
+
+set_option maxHeartbeats 400000 in
+private theorem bigCell_phi_add_invariant (T : TorusRep D H v) (φ : v.adicCompletion F → T.V)
+    (hφ : IsLocallyConstant φ) (hc : HasCompactSupport φ) :
+    ∃ k : ℕ, ∀ t u, u ∈ ball v (k : ℤ) → φ (t + u) = φ t := by
+  classical
+  let K := v.adicCompletion F
+  let S : Set K := tsupport φ
+  have hS : IsCompact S := by exact hc
+  let F0 : K × K → T.V := fun p => φ (p.1 + p.2) - φ p.1
+  have hsum : IsLocallyConstant (fun p : K × K => φ (p.1 + p.2)) := by
+    apply hφ.comp_continuous
+    fun_prop
+  have hfst : IsLocallyConstant (fun p : K × K => φ p.1) := by
+    apply hφ.comp_continuous
+    fun_prop
+  have hF0 : IsLocallyConstant F0 :=
+    hsum.comp₂ hfst (fun a b => a - b)
+  let W : Set (K × K) := {p | F0 p = 0}
+  have hWopen : IsOpen W := hF0.isOpen_fiber 0
+  have hWmem (t : K) : W ∈ nhds (t, 0) := by
+    apply hWopen.mem_nhds
+    simp [W, F0]
+  choose U hU V hV hUV using fun t : K => mem_nhds_prod_iff.mp (hWmem t)
+  obtain ⟨fs, hfs, hcover⟩ := hS.elim_nhds_subcover U (fun t _ => hU t)
+  have hVevent : ∀ᶠ u in nhds (0 : K), ∀ t ∈ fs, u ∈ V t := by
+    rw [Filter.eventually_all_finset]
+    intro t ht
+    exact hV t
+  let W0 : Set K := {u | ∀ t ∈ fs, u ∈ V t}
+  have hW0 : W0 ∈ nhds (0 : K) := hVevent
+  obtain ⟨γ, hγ⟩ := Valued.mem_nhds_zero.mp hW0
+  let vHom : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let δ : (WithZero (Multiplicative ℤ))ˣ := Units.map
+    (MonoidWithZeroHom.ValueGroup₀.embedding (f := .ofClass vHom)) γ
+  let k : ℕ := (-WithZero.log (δ : WithZero (Multiplicative ℤ))).toNat + 1
+  have hbound : WithZero.exp (-(k : ℤ)) < (δ : WithZero (Multiplicative ℤ)) := by
+    rw [← WithZero.exp_log (Units.ne_zero δ), WithZero.exp_lt_exp]
+    dsimp only [k]
+    omega
+  have hball : ball v (k : ℤ) ⊆ W0 := by
+    intro u hu
+    have huVal : Valued.v u < (δ : WithZero (Multiplicative ℤ)) :=
+      lt_of_le_of_lt (by simpa [ball] using hu) hbound
+    have huRestrict : Valued.v.restrict u < γ.1 := by
+      change Valued.v.restrict u < γ.1
+      rw [Valuation.restrict_lt_iff_lt_embedding]
+      exact by simpa [δ] using huVal
+    exact hγ huRestrict
+  have hlocal (t : K) (ht : t ∈ S) (u : K) (hu : u ∈ W0) :
+      φ (t + u) = φ t := by
+    rcases Set.mem_iUnion.mp (hcover ht) with ⟨t', ht'⟩
+    rcases Set.mem_iUnion.mp ht' with ⟨ht'fs, ht'U⟩
+    have hFU : F0 (t, u) = 0 := hUV t' ⟨ht'U, hu t' ht'fs⟩
+    exact sub_eq_zero.mp hFU
+  refine ⟨k, ?_⟩
+  intro t u hu
+  have huW : u ∈ W0 := hball hu
+  by_cases ht : t ∈ S
+  · exact hlocal t ht u huW
+  · have hzero : φ t = 0 := image_eq_zero_of_notMem_tsupport ht
+    by_cases htu : t + u ∈ S
+    · have hneg : -u ∈ ball v (k : ℤ) := by
+        simpa [ball] using hu
+      have hback := hlocal (t + u) htu (-u) (hball hneg)
+      have hback' : φ t = φ (t + u) := by simpa [add_assoc] using hback
+      exact hback'.symm
+    · have hzero' : φ (t + u) = 0 := image_eq_zero_of_notMem_tsupport htu
+      simp [hzero, hzero']
+
+private theorem ball_mono_ind {m n : ℤ} (hmn : m ≤ n) {x : v.adicCompletion F}
+    (hx : x ∈ ball v n) : x ∈ ball v m := by
+  change Valued.v x ≤ WithZero.exp (-n) at hx
+  change Valued.v x ≤ WithZero.exp (-m)
+  exact hx.trans (WithZero.exp_le_exp.mpr (by omega))
+
+private theorem ball_add_ind {m : ℤ} {x y : v.adicCompletion F}
+    (hx : x ∈ ball v m) (hy : y ∈ ball v m) : x + y ∈ ball v m := by
+  change Valued.v x ≤ WithZero.exp (-m) at hx
+  change Valued.v y ≤ WithZero.exp (-m) at hy
+  change Valued.v (x + y) ≤ WithZero.exp (-m)
+  exact (Valuation.map_add_le_max' Valued.v x y).trans (max_le hx hy)
+
+private theorem ball_neg_ind {m : ℤ} {x : v.adicCompletion F}
+    (hx : x ∈ ball v m) : -x ∈ ball v m := by
+  simpa [ball] using hx
+
+private theorem ball_mul_ind {m n : ℤ} {x y : v.adicCompletion F}
+    (hx : x ∈ ball v m) (hy : y ∈ ball v n) : x * y ∈ ball v (m + n) := by
+  change Valued.v x ≤ WithZero.exp (-m) at hx
+  change Valued.v y ≤ WithZero.exp (-n) at hy
+  change Valued.v (x * y) ≤ WithZero.exp (-(m + n))
+  rw [map_mul]
+  calc
+    Valued.v x * Valued.v y ≤ WithZero.exp (-m) * Valued.v y :=
+      mul_le_mul_of_nonneg_right hx bot_le
+    _ ≤ WithZero.exp (-m) * WithZero.exp (-n) :=
+      mul_le_mul_of_nonneg_left hy bot_le
+    _ = WithZero.exp (-(m + n)) := by
+      rw [← WithZero.exp_add]
+      congr 1
+      omega
+
+private theorem valued_one_add_eq_one_ind (x : v.adicCompletion F)
+    (hx : Valued.v x < 1) : Valued.v (1 + x) = 1 := by
+  have hneg : Valued.v (-x) < Valued.v (1 : v.adicCompletion F) := by simpa using hx
+  have hval : Valued.v (1 - (-x)) = Valued.v (1 : v.adicCompletion F) :=
+    Valuation.map_sub_eq_of_lt_left _ hneg
+  simpa using hval
+
+private def nearIdMat (N : ℕ) : Set (GL (Fin 2) (v.adicCompletion F)) :=
+  {G | (((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0) - 1 ∈ ball v N) ∧
+    ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 1 ∈ ball v N) ∧
+    ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ∈ ball v N) ∧
+    (((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) - 1 ∈ ball v N)}
+
+private theorem nearIdMat_factor (N : ℕ) (hN : 1 ≤ N)
+    (G : GL (Fin 2) (v.adicCompletion F))
+    (hG : G ∈ nearIdMat (F := F) (v := v) N) :
+    ∃ b c : v.adicCompletion F, ∃ u : (v.adicCompletion F)ˣ,
+      b ∈ ball v N ∧ c ∈ ball v N ∧
+      ((u : v.adicCompletion F) - 1) ∈ ball v N ∧
+      (QuotientGroup.mk G : PGL2 (v.adicCompletion F)) =
+        QuotientGroup.mk (upperM (v.adicCompletion F) b * diagM (v.adicCompletion F) u *
+          lowerM (v.adicCompletion F) c) := by
+  classical
+  let K := v.adicCompletion F
+  let M : Matrix (Fin 2) (Fin 2) K := G
+  let a : K := M 0 0
+  let b₀ : K := M 0 1
+  let c₀ : K := M 1 0
+  let d : K := M 1 1
+  have h00 : a - 1 ∈ ball v N := hG.1
+  have h01 : b₀ ∈ ball v N := hG.2.1
+  have h10 : c₀ ∈ ball v N := hG.2.2.1
+  have h11 : d - 1 ∈ ball v N := hG.2.2.2
+  have hN' : (1 : ℤ) ≤ (N : ℤ) := by exact_mod_cast hN
+  have h11one : d - 1 ∈ ball v 1 := ball_mono_ind hN' h11
+  have hsmall : Valued.v (d - 1) < 1 := by
+    have hb : Valued.v (d - 1) ≤ WithZero.exp (-1 : ℤ) := by
+      change Valued.v (d - 1) ≤ WithZero.exp (-1 : ℤ) at h11one
+      exact h11one
+    exact hb.trans_lt (by rw [← WithZero.exp_zero, WithZero.exp_lt_exp]; norm_num)
+  have hdVal : Valued.v d = 1 := by
+    have := valued_one_add_eq_one_ind (d - 1) hsmall
+    convert this using 1 <;> ring
+  have hd : d ≠ 0 := by
+    intro hd0
+    rw [hd0, map_zero] at hdVal
+    simp at hdVal
+  let du : Kˣ := Units.mk0 d hd
+  let b : K := b₀ * d⁻¹
+  let c : K := c₀ * d⁻¹
+  let δ : K := a * d - b₀ * c₀
+  have hδ : δ ≠ 0 := by
+    intro hδ0
+    apply G.det_ne_zero
+    rw [Matrix.det_fin_two]
+    change a * d - b₀ * c₀ = 0
+    exact hδ0
+  let δU : Kˣ := Units.mk0 δ hδ
+  let u : Kˣ := δU / du ^ 2
+  have hInvSquare : d⁻¹ * d⁻¹ = (d ^ 2)⁻¹ := by
+    simpa [pow_two] using (inv_pow d 2)
+  have hdi : d * d⁻¹ = 1 := mul_inv_cancel₀ hd
+  have hdInvTwo : d * (d⁻¹) ^ 2 = d⁻¹ := by
+    rw [pow_two]
+    calc
+      d * (d⁻¹ * d⁻¹) = (d * d⁻¹) * d⁻¹ := by ring
+      _ = d⁻¹ := by rw [hdi]; simp
+  have hdTwoInvTwo : d ^ 2 * (d⁻¹) ^ 2 = 1 := by
+    calc
+      d ^ 2 * (d⁻¹) ^ 2 = (d * d⁻¹) ^ 2 := by ring
+      _ = 1 := by rw [hdi]; simp
+  have hdInvVal : Valued.v (d⁻¹) = 1 := by rw [map_inv₀, hdVal]; simp
+  have hdInvBall : d⁻¹ ∈ ball v 0 := by
+    change Valued.v (d⁻¹) ≤ WithZero.exp (0 : ℤ)
+    rw [hdInvVal]
+    simp
+  have hbmem : b ∈ ball v N := by
+    have h := ball_mul_ind h01 hdInvBall
+    simpa using h
+  have hcmem : c ∈ ball v N := by
+    have h := ball_mul_ind h10 hdInvBall
+    simpa using h
+  have hdmem : d ∈ ball v 0 := by
+    change Valued.v d ≤ WithZero.exp (0 : ℤ)
+    rw [hdVal]
+    simp
+  have hdiff : a - d ∈ ball v N := by
+    have hneg : -(d - 1) ∈ ball v N := ball_neg_ind h11
+    have hsub : a - d = (a - 1) + -(d - 1) := by ring
+    rw [hsub]
+    exact ball_add_ind h00 hneg
+  have hbc : b₀ * c₀ ∈ ball v (N + N) := ball_mul_ind h01 h10
+  have hbc' : b₀ * c₀ ∈ ball v N := by
+    exact ball_mono_ind (by omega) hbc
+  have hnum : (a - d) * d - b₀ * c₀ ∈ ball v N := by
+    have hmul : (a - d) * d ∈ ball v N := by
+      have h := ball_mul_ind hdiff hdmem
+      simpa using h
+    have hneg : -(b₀ * c₀) ∈ ball v N := ball_neg_ind hbc'
+    have hEq : (a - d) * d - b₀ * c₀ = (a - d) * d + -(b₀ * c₀) := by ring
+    rw [hEq]
+    exact ball_add_ind hmul hneg
+  have hduInvBall : (d⁻¹ * d⁻¹) ∈ ball v 0 := by
+    have h := ball_mul_ind hdInvBall hdInvBall
+    simpa using h
+  have huVal : (u : K) = δ / d ^ 2 := by
+    simp [u, δU, du, Units.val_div_eq_div_val, Units.val_pow_eq_pow_val]
+  have huMinus : (u : K) - 1 = ((a - d) * d - b₀ * c₀) * (d⁻¹ * d⁻¹) := by
+    rw [huVal]
+    rw [div_eq_mul_inv, ← hInvSquare, ← hdTwoInvTwo]
+    dsimp [δ]
+    ring
+  have humem : ((u : K) - 1) ∈ ball v N := by
+    rw [huMinus]
+    have h := ball_mul_ind hnum hduInvBall
+    simpa using h
+  have hbto : b.toCompletion = b₀.toCompletion * d.toCompletion⁻¹ := by
+    dsimp [b]
+    rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+  have hcto : c.toCompletion = c₀.toCompletion * d.toCompletion⁻¹ := by
+    dsimp [c]
+    rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+  have hduTo : (du : K).toCompletion = d.toCompletion := by simp [du]
+  have hInvD : (d⁻¹).toCompletion = d.toCompletion⁻¹ :=
+    adicCompletion_toCompletion_inv_ind d
+  have huTo : (u : K).toCompletion =
+      δ.toCompletion / (d.toCompletion ^ 2) := by
+    dsimp [u, δU]
+    rw [adicCompletion_toCompletion_unitDiv_ind, adicCompletion_toCompletion_unitPow_two_ind,
+      hduTo]
+    simp [du]
+  have h00field : a * d⁻¹ = δ / d ^ 2 + b * c := by
+    symm
+    rw [div_eq_mul_inv, ← hInvSquare]
+    dsimp [b, c, δ]
+    calc
+      (a * d - b₀ * c₀) * (d⁻¹ * d⁻¹) +
+          (b₀ * d⁻¹) * (c₀ * d⁻¹) = a * d * (d⁻¹ * d⁻¹) := by ring
+      _ = a * (d * (d⁻¹ * d⁻¹)) := by ring
+      _ = a * d⁻¹ := by
+        congr 1
+        calc
+          d * (d⁻¹ * d⁻¹) = (d * d⁻¹) * d⁻¹ := by ac_rfl
+          _ = d⁻¹ := by rw [hdi]; simp
+  have h00comp : a.toCompletion * d.toCompletion⁻¹ =
+      (δ / d ^ 2 + b * c).toCompletion := by
+    calc
+      _ = (a * d⁻¹).toCompletion := by
+        rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+      _ = _ := congrArg (fun z : K => z.toCompletion) h00field
+  have h01comp : b₀.toCompletion * d.toCompletion⁻¹ =
+      (b₀ * d⁻¹).toCompletion := by
+    rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+  have h10comp : c₀.toCompletion * d.toCompletion⁻¹ =
+      (c₀ * d⁻¹).toCompletion := by
+    rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+  have h11comp : d.toCompletion * d.toCompletion⁻¹ = 1 := by
+    calc
+      _ = (d * d⁻¹).toCompletion := by
+        rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+      _ = 1 := by
+        rw [hdi]
+        simp
+  have h01field : b₀ * d⁻¹ = b := by rfl
+  have h10field : c₀ * d⁻¹ = c := by rfl
+  have hmat : G * Matrix.GeneralLinearGroup.scalar (Fin 2) du⁻¹ =
+      upperM K b * diagM K u * lowerM K c := by
+    ext i j
+    fin_cases i <;> fin_cases j
+    · simpa [M, a, b₀, c₀, d, b, c, u, δ, du, δU, upperM, diagM, lowerM,
+        Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        Units.val_inv_eq_inv_val, hbto, hcto, huTo, hduTo, hInvD,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind] using h00comp
+    · simpa [M, a, b₀, c₀, d, b, c, u, δ, du, δU, upperM, diagM, lowerM,
+        Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        Units.val_inv_eq_inv_val, hbto, hcto, huTo, hduTo, hInvD,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind] using h01comp
+    · simpa [M, a, b₀, c₀, d, b, c, u, δ, du, δU, upperM, diagM, lowerM,
+        Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        Units.val_inv_eq_inv_val, hbto, hcto, huTo, hduTo, hInvD,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind] using h10comp
+    · simpa [M, a, b₀, c₀, d, b, c, u, δ, du, δU, upperM, diagM, lowerM,
+        Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        Units.val_inv_eq_inv_val, hbto, hcto, huTo, hduTo, hInvD,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind] using h11comp
+  have hclass : (QuotientGroup.mk G : PGL2 K) =
+      QuotientGroup.mk (upperM K b * diagM K u * lowerM K c) := by
+    apply Matrix.ProjGenLinGroup.mk_eq_mk_iff.mpr
+    exact ⟨du⁻¹, hmat⟩
+  exact ⟨b, c, u, hbmem, hcmem, humem, hclass⟩
+
+private theorem nearIdMat_isOpen (N : ℕ) :
+    IsOpen (nearIdMat (F := F) (v := v) N) := by
+  have hball : IsOpen (ball v N) := by
+    exact IsDedekindDomain.HeightOneSpectrum.isOpen_setOf_valued_le
+      (K := F) (v := v) WithZero.exp_ne_zero
+  have h00 : IsOpen {G : GL (Fin 2) (v.adicCompletion F) |
+      ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0) - 1 ∈ ball v N} := by
+    apply hball.preimage
+    fun_prop
+  have h01 : IsOpen {G : GL (Fin 2) (v.adicCompletion F) |
+      ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 1) ∈ ball v N} := by
+    apply hball.preimage
+    fun_prop
+  have h10 : IsOpen {G : GL (Fin 2) (v.adicCompletion F) |
+      ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) ∈ ball v N} := by
+    apply hball.preimage
+    fun_prop
+  have h11 : IsOpen {G : GL (Fin 2) (v.adicCompletion F) |
+      (((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) - 1) ∈ ball v N} := by
+    apply hball.preimage
+    fun_prop
+  have hset : nearIdMat (F := F) (v := v) N =
+      {G : GL (Fin 2) (v.adicCompletion F) |
+        ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0) - 1 ∈ ball v N} ∩
+        ({G : GL (Fin 2) (v.adicCompletion F) |
+          ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 1) ∈ ball v N} ∩
+          ({G : GL (Fin 2) (v.adicCompletion F) |
+            ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) ∈ ball v N} ∩
+            {G : GL (Fin 2) (v.adicCompletion F) |
+              (((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) - 1) ∈ ball v N})) := by
+    ext G
+    simp [nearIdMat]
+  rw [hset]
+  exact h00.inter (h01.inter (h10.inter h11))
+
+private theorem ball_one_valued_lt_one_ind {x : v.adicCompletion F}
+    (hx : x ∈ ball v 1) : Valued.v x < 1 := by
+  change Valued.v x ≤ WithZero.exp (-1 : ℤ) at hx
+  exact hx.trans_lt (by rw [← WithZero.exp_zero, WithZero.exp_lt_exp]; norm_num)
+
+private theorem unit_val_one_of_near_one_ind (N : ℕ) (hN : 1 ≤ N)
+    (u : (v.adicCompletion F)ˣ)
+    (hu : ((u : v.adicCompletion F) - 1) ∈ ball v N) :
+    Valued.v (u : v.adicCompletion F) = 1 := by
+  have hu1 : ((u : v.adicCompletion F) - 1) ∈ ball v 1 :=
+    ball_mono_ind (by exact_mod_cast hN) hu
+  have hsmall := ball_one_valued_lt_one_ind hu1
+  have hone := valued_one_add_eq_one_ind ((u : v.adicCompletion F) - 1) hsmall
+  calc
+    Valued.v (u : v.adicCompletion F) =
+        Valued.v (1 + ((u : v.adicCompletion F) - 1)) := by congr 1 <;> ring
+    _ = 1 := hone
+
+private theorem isLocUnit_of_valued_one_ind (u : (v.adicCompletion F)ˣ)
+    (hu : Valued.v (u : v.adicCompletion F) = 1) : IsLocUnit v u := by
+  have huInv : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    simpa [hu]
+  constructor
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hu]
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers, huInv]
+
+private theorem bigCell_phi_mul_unit_invariant
+    (T : TorusRep D H v) (φ : v.adicCompletion F → T.V) (R M k : ℕ)
+    (hS : tsupport φ ⊆ ball v (-(R : ℤ)))
+    (hadd : ∀ t u, u ∈ ball v (k : ℤ) → φ (t + u) = φ t)
+    (hRM : R + k ≤ M) (u : (v.adicCompletion F)ˣ)
+    (huVal : Valued.v (u : v.adicCompletion F) = 1)
+    (hu : ((u : v.adicCompletion F) - 1) ∈ ball v (M : ℤ)) :
+    ∀ t, φ (t * (u : v.adicCompletion F)) = φ t := by
+  classical
+  intro t
+  let S : Set (v.adicCompletion F) := tsupport φ
+  have huInvBall : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈ ball v 0 := by
+    change Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ≤ WithZero.exp 0
+    have hInvVal : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      simpa [huVal]
+    rw [hInvVal]
+    simp
+  have hshift (ht : t ∈ ball v (-(R : ℤ))) :
+      t * (u : v.adicCompletion F) - t ∈ ball v (k : ℤ) := by
+    have hprod : t * ((u : v.adicCompletion F) - 1) ∈ ball v ((-(R : ℤ)) + (M : ℤ)) :=
+      ball_mul_ind ht hu
+    have hprod' : t * ((u : v.adicCompletion F) - 1) ∈ ball v (k : ℤ) :=
+      ball_mono_ind (by omega) hprod
+    have heq : t * (u : v.adicCompletion F) - t =
+        t * ((u : v.adicCompletion F) - 1) := by ring
+    simpa [heq] using hprod'
+  have htranslate (ht : t ∈ ball v (-(R : ℤ))) :
+      φ (t * (u : v.adicCompletion F)) = φ t := by
+    have h := hadd t (t * (u : v.adicCompletion F) - t) (hshift ht)
+    simpa [add_sub_cancel] using h
+  by_cases ht : t ∈ S
+  · exact htranslate (hS ht)
+  · by_cases htu : t * (u : v.adicCompletion F) ∈ S
+    · have htBound : t ∈ ball v (-(R : ℤ)) := by
+        have hmul := ball_mul_ind (hS htu) huInvBall
+        have heq : (t * (u : v.adicCompletion F)) *
+            ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = t := by
+          simp [mul_assoc]
+        simpa [heq] using hmul
+      exact htranslate htBound
+    · have hzero : φ t = 0 := image_eq_zero_of_notMem_tsupport ht
+      have hzero' : φ (t * (u : v.adicCompletion F)) = 0 :=
+        image_eq_zero_of_notMem_tsupport htu
+      simp [hzero, hzero']
+
+private theorem bigCell_right_n_ind (L : FinLocalCover D H v) (T : TorusRep D H v)
+    (s : ℂ) (φ : v.adicCompletion F → T.V) (k : ℕ)
+    (hadd : ∀ t u, u ∈ ball v (k : ℤ) → φ (t + u) = φ t)
+    (b : v.adicCompletion F) (hb : b ∈ ball v (k : ℤ)) (g : L.L) :
+    bigCell L T s φ (g * L.n (Multiplicative.ofAdd b)) = bigCell L T s φ g := by
+  classical
+  rcases bigCell_bruhat_cover L g with hsmall | hbig
+  · obtain ⟨x, ζ, y, rfl⟩ := hsmall
+    have hmove : L.a y * L.n (Multiplicative.ofAdd b) =
+      L.n (Multiplicative.ofAdd ((b : v.adicCompletion F) * y)) * L.a y := by
+      simpa [Units.val_inv_eq_inv_val] using
+        (L.lift_na ((b : v.adicCompletion F) * y) y).symm
+    have hnn : L.n (Multiplicative.ofAdd x) *
+        L.n (Multiplicative.ofAdd ((b : v.adicCompletion F) * y)) =
+        L.n (Multiplicative.ofAdd (x + (b : v.adicCompletion F) * y)) := by
+      rw [← map_mul]
+      simp
+    have hprod : borelElem L x ζ y * L.n (Multiplicative.ofAdd b) =
+        borelElem L (x + (b : v.adicCompletion F) * y) ζ y := by
+      dsimp [borelElem]
+      calc
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ *
+            (L.a y * L.n (Multiplicative.ofAdd b)) := by group
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ *
+            (L.n (Multiplicative.ofAdd ((b : v.adicCompletion F) * y)) * L.a y) := by
+              rw [hmove]
+        _ = L.n (Multiplicative.ofAdd x) *
+            (L.z ζ * L.n (Multiplicative.ofAdd ((b : v.adicCompletion F) * y))) * L.a y := by
+              group
+        _ = L.n (Multiplicative.ofAdd x) *
+            (L.n (Multiplicative.ofAdd ((b : v.adicCompletion F) * y)) * L.z ζ) * L.a y := by
+              rw [L.z_central ζ (L.n (Multiplicative.ofAdd ((b : v.adicCompletion F) * y)))]
+        _ = (L.n (Multiplicative.ofAdd x) *
+            L.n (Multiplicative.ofAdd ((b : v.adicCompletion F) * y))) * L.z ζ * L.a y := by
+              group
+        _ = _ := by
+          have harg : Multiplicative.ofAdd x *
+              Multiplicative.ofAdd ((b : v.adicCompletion F) * y) =
+              Multiplicative.ofAdd (x + (b : v.adicCompletion F) * y) := by simp
+          exact congrArg (fun q : L.L => q * L.z ζ * L.a y)
+            (hnn.trans (congrArg L.n harg.symm))
+    have hzeroB (x' : v.adicCompletion F) :
+        bigCell L T s φ (borelElem L x' ζ y) = 0 := by
+      classical
+      unfold bigCell
+      split_ifs with h
+      · let x₀ := h.choose
+        let ζ₀ := h.choose_spec.choose
+        let y₀ := h.choose_spec.choose_spec.choose
+        let t₀ := h.choose_spec.choose_spec.choose_spec.choose
+        have hdecomp := h.choose_spec.choose_spec.choose_spec.choose_spec
+        exact (bigcell_ne_borel L x₀ x' ζ₀ ζ y₀ y t₀ hdecomp.symm).elim
+      · rfl
+    have h0 := hzeroB x
+    have h1 : bigCell L T s φ
+        (borelElem L (x + (b : v.adicCompletion F) * y) ζ y) = 0 := hzeroB _
+    rw [hprod, h0, h1]
+  · obtain ⟨x, ζ, y, t, rfl⟩ := hbig
+    have htn : L.n (Multiplicative.ofAdd t) * L.n (Multiplicative.ofAdd b) =
+        L.n (Multiplicative.ofAdd (t + b)) := by
+      rw [← map_mul]
+      simp
+    have hprod :
+        (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) * L.n (Multiplicative.ofAdd b) =
+        L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd (t + b)) := by
+      rw [show (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) * L.n (Multiplicative.ofAdd b) =
+          L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+            (L.n (Multiplicative.ofAdd t) * L.n (Multiplicative.ofAdd b)) by group]
+      rw [htn]
+    rw [hprod]
+    rw [bigCell_eval_decomp L T s φ _ x ζ y (t + b) rfl]
+    rw [bigCell_eval_decomp L T s φ _ x ζ y t rfl]
+    rw [hadd t b hb]
+
+private theorem torus_sigma_inv_square_of_id_ind
+    (T : TorusRep D H v) [Nontrivial T.V] (u : (v.adicCompletion F)ˣ)
+    (hu : T.σa u = LinearMap.id) :
+    T.σa u⁻¹ = LinearMap.id ∧
+      T.σa (u⁻¹ * u⁻¹) = LinearMap.id := by
+  have hself := muThree_hilb_self_one_ind (D := D) (H := H) (v := v) u
+  have hmu : muThree D (H.hilb v u u⁻¹) = 1 := by
+    rw [muThree_hilb_inv_right_ind, hself]
+    simp
+  have hmul := T.σa_mul u u⁻¹
+  have hinv : T.σa u⁻¹ = LinearMap.id := by
+    simpa [hu, T.σa_one, hmu] using hmul
+  have hselfInv := muThree_hilb_self_one_ind (D := D) (H := H) (v := v) u⁻¹
+  have hmul' := T.σa_mul u⁻¹ u⁻¹
+  have hinvSq : T.σa (u⁻¹ * u⁻¹) = LinearMap.id := by
+    simpa [hinv, T.σa_one, hselfInv] using hmul'.symm
+  exact ⟨hinv, hinvSq⟩
+
+private theorem unit_inv_sub_one_mem_ball_ind (N : ℕ)
+    (u : (v.adicCompletion F)ˣ) (huVal : Valued.v (u : v.adicCompletion F) = 1)
+    (hu : ((u : v.adicCompletion F) - 1) ∈ ball v (N : ℤ)) :
+    ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1 ∈ ball v (N : ℤ) := by
+  have huInvVal : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    simpa [huVal]
+  have huInvBall : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈ ball v 0 := by
+    change Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ≤ WithZero.exp 0
+    rw [huInvVal]
+    simp
+  have hprod : ((u : v.adicCompletion F) - 1) *
+      ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈ ball v (N : ℤ) := by
+    have h := ball_mul_ind hu huInvBall
+    simpa using h
+  have hneg : -(((u : v.adicCompletion F) - 1) *
+      ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) ∈ ball v (N : ℤ) :=
+    ball_neg_ind hprod
+  have heq : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1 =
+      -(((u : v.adicCompletion F) - 1) *
+        ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) := by
+    have hmul : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+        (u : v.adicCompletion F) = 1 := by simp
+    calc
+      _ = ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) -
+          ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+            (u : v.adicCompletion F) := by rw [hmul]
+      _ = _ := by ring
+  rw [heq]
+  exact hneg
+
+private theorem bigCell_right_a_ind (L : FinLocalCover D H v) (T : TorusRep D H v)
+    [Nontrivial T.V] (s : ℂ) (φ : v.adicCompletion F → T.V) (R M k : ℕ)
+    (hS : tsupport φ ⊆ ball v (-(R : ℤ)))
+    (hadd : ∀ t z, z ∈ ball v (k : ℤ) → φ (t + z) = φ t)
+    (hRM : R + k ≤ M) (hM1 : 1 ≤ M) (u : (v.adicCompletion F)ˣ)
+    (hu : ((u : v.adicCompletion F) - 1) ∈ ball v (M : ℤ))
+    (hσ : T.σa u = LinearMap.id) (hσinv : T.σa u⁻¹ = LinearMap.id)
+    (huLoc : IsLocUnit v u) :
+    ∀ g, bigCell L T s φ (g * L.a u) = bigCell L T s φ g := by
+  classical
+  have huVal := unit_val_one_of_near_one_ind M hM1 u hu
+  have hInvVal : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    simpa [huVal]
+  have hInvNear := unit_inv_sub_one_mem_ball_ind M u huVal hu
+  have huInvLoc : IsLocUnit v u⁻¹ := by
+    constructor
+    · exact huLoc.2
+    · simpa using huLoc.1
+  have hphiMul := bigCell_phi_mul_unit_invariant T φ R M k hS hadd hRM u⁻¹
+    hInvVal hInvNear
+  have hphaseInv (y : (v.adicCompletion F)ˣ) :
+      muThree D (H.hilb v y u⁻¹) = 1 :=
+    muThree_hilb_one_of_sigmaa_id T y u⁻¹ hσinv
+  have hphaseU (y : (v.adicCompletion F)ˣ) :
+      muThree D (H.hilb v y u) = 1 :=
+    muThree_hilb_one_of_sigmaa_id T y u hσ
+  have hact (y : (v.adicCompletion F)ˣ) : T.σa (y * u⁻¹) = T.σa y := by
+    have hmul := T.σa_mul y u⁻¹
+    rw [hσinv] at hmul
+    have hmul' : T.σa y =
+        ((muThree D (H.hilb v y u⁻¹) : ℂˣ) : ℂ) • T.σa (y * u⁻¹) := by
+      simpa [LinearMap.comp_id] using hmul
+    simpa [hphaseInv] using hmul'.symm
+  have habs (y : (v.adicCompletion F)ˣ) :
+      absFin v (y * u⁻¹ : (v.adicCompletion F)ˣ) = absFin v y := by
+    have h := absFin_mul_ind v y u⁻¹
+    have h' : absFin v (((y * u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) =
+        absFin v (y : v.adicCompletion F) *
+          absFin v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) := by
+      simpa using h
+    have hInvAbs : absFin v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 :=
+      absFin_one_of_locUnit u⁻¹ huInvLoc
+    rw [h', hInvAbs]
+    simp
+  intro g
+  rcases bigCell_bruhat_cover L g with hsmall | hbig
+  · obtain ⟨x, ζ, y, rfl⟩ := hsmall
+    have hprodB : borelElem L x ζ y * L.a u =
+        borelElem L x ζ (y * u) := by
+      have h0 : borelElem L 0 1 u = L.a u := by simp [borelElem, L.a_one]
+      calc
+        _ = borelElem L x ζ y * borelElem L 0 1 u := by rw [h0]
+        _ = borelElem L (x + 0 * (y : v.adicCompletion F))
+            (ζ * 1 * muThree D (H.hilb v y u)) (y * u) :=
+          borelElem_mul L x 0 ζ 1 y u
+        _ = borelElem L x ζ (y * u) := by simp [hphaseU]
+    have hzeroB (x' : v.adicCompletion F) (ζ' : rootsOfUnity 3 ℂ)
+        (y' : (v.adicCompletion F)ˣ) :
+        bigCell L T s φ (borelElem L x' ζ' y') = 0 := by
+      unfold bigCell
+      split_ifs with h
+      · let x₀ := h.choose
+        let ζ₀ := h.choose_spec.choose
+        let y₀ := h.choose_spec.choose_spec.choose
+        let t₀ := h.choose_spec.choose_spec.choose_spec.choose
+        have hdecomp := h.choose_spec.choose_spec.choose_spec.choose_spec
+        exact (bigcell_ne_borel L x₀ x' ζ₀ ζ' y₀ y' t₀ hdecomp.symm).elim
+      · rfl
+    rw [hprodB, hzeroB x ζ (y * u), hzeroB x ζ y]
+  · obtain ⟨x, ζ, y, t, rfl⟩ := hbig
+    have hna : L.n (Multiplicative.ofAdd t) * L.a u =
+        L.a u * L.n (Multiplicative.ofAdd (t / u)) := by
+      simpa [div_eq_mul_inv] using L.lift_na t u
+    have hwa : L.w * L.a u = L.a u⁻¹ * L.w := by
+      calc
+        L.w * L.a u = (L.w * L.a u * L.w⁻¹) * L.w := by group
+        _ = L.a u⁻¹ * L.w := by rw [L.lift_wa]
+    have hmulTor : L.a y * L.a u⁻¹ = L.a (y * u⁻¹) := by
+      have h := L.a_mul y u⁻¹
+      rw [hphaseInv y] at h
+      simpa using h
+    have hprod :
+        (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) * L.a u =
+        L.n (Multiplicative.ofAdd x) * L.z ζ * L.a (y * u⁻¹) * L.w *
+          L.n (Multiplicative.ofAdd (t / u)) := by
+      calc
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+              (L.n (Multiplicative.ofAdd t) * L.a u) := by group
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+              (L.a u * L.n (Multiplicative.ofAdd (t / u))) := by rw [hna]
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y *
+              (L.w * L.a u) * L.n (Multiplicative.ofAdd (t / u)) := by group
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y *
+              (L.a u⁻¹ * L.w) * L.n (Multiplicative.ofAdd (t / u)) := by rw [hwa]
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ *
+              (L.a y * L.a u⁻¹) * L.w * L.n (Multiplicative.ofAdd (t / u)) := by group
+        _ = _ := by rw [hmulTor]
+    rw [hprod]
+    rw [bigCell_eval_decomp L T s φ _ x ζ (y * u⁻¹) (t / u) rfl]
+    rw [bigCell_eval_decomp L T s φ _ x ζ y t rfl]
+    rw [habs y, hact y]
+    have hphi : φ (t / u) = φ t := by simpa [div_eq_mul_inv] using hphiMul t
+    rw [hphi]
+
+private theorem bigCell_borel_zero_ind (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (s : ℂ) (φ : v.adicCompletion F → T.V)
+    (x : v.adicCompletion F) (ζ : rootsOfUnity 3 ℂ)
+    (y : (v.adicCompletion F)ˣ) :
+    bigCell L T s φ (borelElem L x ζ y) = 0 := by
+  classical
+  unfold bigCell
+  split_ifs with h
+  · let x₀ := h.choose
+    let ζ₀ := h.choose_spec.choose
+    let y₀ := h.choose_spec.choose_spec.choose
+    let t₀ := h.choose_spec.choose_spec.choose_spec.choose
+    have hdecomp := h.choose_spec.choose_spec.choose_spec.choose_spec
+    exact (bigcell_ne_borel L x₀ x ζ₀ ζ y₀ y t₀ hdecomp.symm).elim
+  · rfl
+
+private theorem bigCell_right_nbar_nonzero
+    (L : FinLocalCover D H v) (T : TorusRep D H v) [Nontrivial T.V]
+    (s : ℂ) (φ : v.adicCompletion F → T.V) (R M k mT : ℕ)
+    (hS : tsupport φ ⊆ ball v (-(R : ℤ)))
+    (hadd : ∀ t z, z ∈ ball v (k : ℤ) → φ (t + z) = φ t)
+    (hR2k : 2 * R + k ≤ M) (hRmT : R + mT ≤ M) (hR1 : R + 1 ≤ M)
+    (hmT : 0 < mT)
+    (hsm : ∀ u : (v.adicCompletion F)ˣ,
+      ((u : v.adicCompletion F) - 1) ∈ ball v (mT : ℤ) → T.σa u = LinearMap.id)
+    (c : v.adicCompletion F) (hc : c ∈ ball v (M : ℤ))
+    (x : v.adicCompletion F) (ζ : rootsOfUnity 3 ℂ) (y : (v.adicCompletion F)ˣ)
+    (t : v.adicCompletion F) (A : (v.adicCompletion F)ˣ)
+    (hA : (A : v.adicCompletion F) = 1 + t * c)
+    (t' : v.adicCompletion F) (htcoord : t' = t / (A : v.adicCompletion F))
+    (htSupport : t ∈ tsupport φ ∨ t' ∈ tsupport φ) :
+    bigCell L T s φ
+        ((L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) * L.nbar (Multiplicative.ofAdd c)) =
+      bigCell L T s φ
+        (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) := by
+  classical
+  let K := v.adicCompletion F
+  have hAval : Valued.v (A : K) = 1 := by
+    rcases htSupport with htS | ht'S
+    · have htBound := hS htS
+      have htcBound := ball_mul_ind htBound hc
+      have htcBound' : t * c ∈ ball v ((M - R : ℕ) : ℤ) := by
+        have hexp : -(R : ℤ) + (M : ℤ) = ((M - R : ℕ) : ℤ) := by omega
+        simpa [hexp] using htcBound
+      have hR1' : (1 : ℤ) ≤ ((M - R : ℕ) : ℤ) := by
+        have hR1Nat : 1 ≤ M - R := by omega
+        exact_mod_cast hR1Nat
+      have htcOne : t * c ∈ ball v 1 := ball_mono_ind hR1' htcBound'
+      have hsmall := ball_one_valued_lt_one_ind htcOne
+      calc
+        Valued.v (A : K) = Valued.v (1 + t * c) := by rw [hA]
+        _ = 1 := valued_one_add_eq_one_ind (t * c) hsmall
+    · have ht'Bound := hS ht'S
+      have htcBound : t' * c ∈ ball v (mT : ℤ) := by
+        have h := ball_mul_ind ht'Bound hc
+        have hexp : -(R : ℤ) + (M : ℤ) = ((M - R : ℕ) : ℤ) := by omega
+        have h' : t' * c ∈ ball v ((M - R : ℕ) : ℤ) := by simpa [hexp] using h
+        have hmTNat : mT ≤ M - R := by omega
+        exact ball_mono_ind (by exact_mod_cast hmTNat) h'
+      have hmT1 : (1 : ℤ) ≤ (mT : ℤ) := by exact_mod_cast (Nat.succ_le_iff.mpr hmT)
+      have htcOne : t' * c ∈ ball v 1 := ball_mono_ind hmT1 htcBound
+      have hsmall := ball_one_valued_lt_one_ind htcOne
+      have htMul : t' * (A : K) = t := by
+        calc
+          t' * (A : K) = (t / (A : K)) * (A : K) := by rw [htcoord]
+          _ = t := by field_simp [A.ne_zero]
+      have hrel : (A : K) * (1 - t' * c) = 1 := by
+        calc
+          (A : K) * (1 - t' * c) = (A : K) - (t' * (A : K)) * c := by ring
+          _ = 1 := by rw [htMul, hA]; ring
+      have hAinv : ((A⁻¹ : Kˣ) : K) = 1 - t' * c := by
+        simpa using (eq_inv_of_mul_eq_one_right hrel).symm
+      have hsmallNeg : Valued.v (-(t' * c)) < 1 := by simpa using hsmall
+      have hInvVal : Valued.v ((A⁻¹ : Kˣ) : K) = 1 := by
+        rw [hAinv]
+        simpa [sub_eq_add_neg] using valued_one_add_eq_one_ind (-(t' * c)) hsmallNeg
+      calc
+        Valued.v (A : K) = Valued.v (A : K) * 1 := by simp
+        _ = Valued.v (A : K) * Valued.v ((A⁻¹ : Kˣ) : K) := by rw [hInvVal]
+        _ = Valued.v ((A : K) * ((A⁻¹ : Kˣ) : K)) := by rw [← map_mul]
+        _ = 1 := by simp
+  have htBound : t ∈ ball v (-(R : ℤ)) := by
+    rcases htSupport with htS | ht'S
+    · exact hS htS
+    · have ht'Bound := hS ht'S
+      have hABall : (A : K) ∈ ball v 0 := by
+        change Valued.v (A : K) ≤ WithZero.exp 0
+        rw [hAval]
+        simp
+      have htMul : t' * (A : K) = t := by
+        calc
+          t' * (A : K) = (t / (A : K)) * (A : K) := by rw [htcoord]
+          _ = t := by field_simp [A.ne_zero]
+      rw [← htMul]
+      simpa using ball_mul_ind ht'Bound hABall
+  have hRM : R ≤ M := by omega
+  have hM2R : 2 * R ≤ M := by omega
+  have htcBound : t * c ∈ ball v ((M - R : ℕ) : ℤ) := by
+    have h := ball_mul_ind htBound hc
+    have hexp : -(R : ℤ) + (M : ℤ) = ((M - R : ℕ) : ℤ) := by omega
+    simpa [hexp] using h
+  have hAminusMR : (A : K) - 1 ∈ ball v ((M - R : ℕ) : ℤ) := by
+    have heq : (A : K) - 1 = t * c := by rw [hA]; ring
+    rw [heq]
+    exact htcBound
+  have hAminusMT : (A : K) - 1 ∈ ball v (mT : ℤ) := by
+    have hmTNat : mT ≤ M - R := by omega
+    have hmTle : (mT : ℤ) ≤ ((M - R : ℕ) : ℤ) := by exact_mod_cast hmTNat
+    exact ball_mono_ind hmTle hAminusMR
+  have hσA : T.σa A = LinearMap.id := hsm A hAminusMT
+  have hσInvSq := torus_sigma_inv_square_of_id_ind T A hσA
+  let u : Kˣ := A⁻¹ * A⁻¹
+  have hσu : T.σa u = LinearMap.id := by simpa [u] using hσInvSq.2
+  have hAinvVal : Valued.v ((A⁻¹ : Kˣ) : K) = 1 := by simpa [hAval]
+  have hUVal : Valued.v (u : K) = 1 := by
+    change Valued.v (((A⁻¹ : Kˣ) : K) * ((A⁻¹ : Kˣ) : K)) = 1
+    rw [map_mul]
+    simp [hAval]
+  have huLoc : IsLocUnit v u := isLocUnit_of_valued_one_ind u hUVal
+  have hphase : muThree D (H.hilb v y u) = 1 :=
+    muThree_hilb_one_of_sigmaa_id T y u hσu
+  have hact : T.σa (y * u) = T.σa y := by
+    have hmul := T.σa_mul y u
+    rw [hσu] at hmul
+    have hmul' : T.σa y =
+        ((muThree D (H.hilb v y u) : ℂˣ) : ℂ) • T.σa (y * u) := by
+      simpa [LinearMap.comp_id] using hmul
+    simpa [hphase] using hmul'.symm
+  have habs : absFin v (y * u) = absFin v y := by
+    rw [absFin_mul_ind v y u, absFin_one_of_locUnit u huLoc]
+    simp
+  have hAinvBall : ((A⁻¹ : Kˣ) : K) ∈ ball v 0 := by
+    change Valued.v ((A⁻¹ : Kˣ) : K) ≤ WithZero.exp 0
+    have hval : Valued.v ((A⁻¹ : Kˣ) : K) = 1 := by simpa [hAval]
+    rw [hval]
+    simp
+  have ht2cBound : t * (t * c) ∈ ball v ((M - 2 * R : ℕ) : ℤ) := by
+    have h := ball_mul_ind htBound htcBound
+    have hexp : -(R : ℤ) + ((M - R : ℕ) : ℤ) = ((M - 2 * R : ℕ) : ℤ) := by omega
+    simpa [hexp] using h
+  have hshiftEq : t / (A : K) - t = -(t * (t * c) * ((A⁻¹ : Kˣ) : K)) := by
+    rw [div_eq_mul_inv, Units.val_inv_eq_inv_val]
+    field_simp [A.ne_zero]
+    rw [hA]
+    ring
+  have hshiftBound : t / (A : K) - t ∈ ball v ((M - 2 * R : ℕ) : ℤ) := by
+    have h := ball_mul_ind ht2cBound hAinvBall
+    have hneg := ball_neg_ind h
+    have hexp : ((M - 2 * R : ℕ) : ℤ) + 0 = ((M - 2 * R : ℕ) : ℤ) := by omega
+    have hneg' : -(t * (t * c) * ((A⁻¹ : Kˣ) : K)) ∈
+        ball v ((M - 2 * R : ℕ) : ℤ) := by simpa [hexp] using hneg
+    rw [hshiftEq]
+    exact hneg'
+  have hshiftK : t / (A : K) - t ∈ ball v (k : ℤ) :=
+    ball_mono_ind (by omega) hshiftBound
+  have hphi : φ (t / (A : K)) = φ t := by
+    have h := hadd t (t / (A : K) - t) hshiftK
+    calc
+      φ (t / (A : K)) = φ (t + (t / (A : K) - t)) := by congr 1 <;> ring
+      _ = φ t := h
+  let b : K := c / (A : K)
+  let r : K := t / (A : K)
+  let x' : K := x + b * (y : K)
+  let y' : Kˣ := y * u
+  have hWbar : L.w * L.nbar (Multiplicative.ofAdd c) =
+      L.n (Multiplicative.ofAdd c) * L.w := by
+    calc
+      L.w * L.nbar (Multiplicative.ofAdd c) = L.w *
+          (L.w * L.n (Multiplicative.ofAdd c) * L.w) := by rw [← L.w_n_w c]
+      _ = L.n (Multiplicative.ofAdd c) * L.w := by
+        calc
+          _ = (L.w * L.w) * L.n (Multiplicative.ofAdd c) * L.w := by group
+          _ = _ := by rw [L.w_sq]; simp
+  have hWtail : L.w * L.n (Multiplicative.ofAdd t) *
+      L.nbar (Multiplicative.ofAdd c) =
+        L.nbar (Multiplicative.ofAdd t) * L.n (Multiplicative.ofAdd c) * L.w := by
+    calc
+      _ = L.w * L.n (Multiplicative.ofAdd t) * (L.w * L.w) *
+          L.nbar (Multiplicative.ofAdd c) := by rw [L.w_sq]; group
+      _ = (L.w * L.n (Multiplicative.ofAdd t) * L.w) *
+          (L.w * L.nbar (Multiplicative.ofAdd c)) := by group
+      _ = _ := by rw [L.w_n_w t, hWbar]; group
+  have hgauss := bigCell_gauss_lift L T t c A hA hσA
+  have hmove : L.a y * L.n (Multiplicative.ofAdd b) =
+      L.n (Multiplicative.ofAdd (b * (y : K))) * L.a y := by
+    simpa [b, Units.val_inv_eq_inv_val] using
+      (L.lift_na (b * (y : K)) y).symm
+  have hmulN : L.n (Multiplicative.ofAdd x) *
+      L.n (Multiplicative.ofAdd (b * (y : K))) =
+        L.n (Multiplicative.ofAdd (x + b * (y : K))) := by
+    rw [← map_mul]
+    simp
+  have hmulA : L.a y * L.a u = L.a (y * u) := by
+    calc
+      L.a y * L.a u = L.z (muThree D (H.hilb v y u)) * L.a (y * u) := L.a_mul y u
+      _ = L.a (y * u) := by rw [hphase]; simp
+  have hprod : (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+      L.n (Multiplicative.ofAdd t)) * L.nbar (Multiplicative.ofAdd c) =
+        L.n (Multiplicative.ofAdd x') * L.z ζ * L.a y' * L.w *
+          L.n (Multiplicative.ofAdd r) := by
+    calc
+      _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y *
+          (L.w * L.n (Multiplicative.ofAdd t) * L.nbar (Multiplicative.ofAdd c)) := by group
+      _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y *
+          (L.nbar (Multiplicative.ofAdd t) * L.n (Multiplicative.ofAdd c) * L.w) := by
+            rw [hWtail]
+      _ = L.n (Multiplicative.ofAdd x) * L.z ζ *
+          (L.a y * L.n (Multiplicative.ofAdd b)) * L.a u * L.w *
+            L.n (Multiplicative.ofAdd r) := by rw [hgauss]; dsimp [b, u, r]; group
+      _ = L.n (Multiplicative.ofAdd x) * L.z ζ *
+          (L.n (Multiplicative.ofAdd (b * (y : K))) * L.a y) * L.a u * L.w *
+            L.n (Multiplicative.ofAdd r) := by rw [hmove]
+      _ = L.n (Multiplicative.ofAdd x) * L.z ζ *
+          L.n (Multiplicative.ofAdd (b * (y : K))) *
+          (L.a y * L.a u) * L.w * L.n (Multiplicative.ofAdd r) := by
+              group
+      _ = L.n (Multiplicative.ofAdd x) * L.z ζ *
+          L.n (Multiplicative.ofAdd (b * (y : K))) * L.a (y * u) * L.w *
+            L.n (Multiplicative.ofAdd r) := by rw [hmulA]
+      _ = (L.n (Multiplicative.ofAdd x) *
+          L.n (Multiplicative.ofAdd (b * (y : K)))) * L.z ζ * L.a (y * u) *
+            L.w * L.n (Multiplicative.ofAdd r) := by
+              have hz := L.z_central ζ (L.n (Multiplicative.ofAdd (b * (y : K))))
+              calc
+                _ = L.n (Multiplicative.ofAdd x) *
+                    (L.z ζ * L.n (Multiplicative.ofAdd (b * (y : K)))) *
+                      L.a (y * u) * L.w * L.n (Multiplicative.ofAdd r) := by group
+                _ = L.n (Multiplicative.ofAdd x) *
+                    (L.n (Multiplicative.ofAdd (b * (y : K))) * L.z ζ) *
+                      L.a (y * u) * L.w * L.n (Multiplicative.ofAdd r) := by rw [hz]
+                _ = _ := by group
+      _ = L.n (Multiplicative.ofAdd x') * L.z ζ * L.a y' * L.w *
+          L.n (Multiplicative.ofAdd r) := by
+            simpa [x', y'] using
+              (congrArg (fun q : L.L => q * L.z ζ * L.a (y * u) * L.w *
+                L.n (Multiplicative.ofAdd r)) hmulN)
+  calc
+    bigCell L T s φ _ =
+        ((ζ : ℂˣ) : ℂ) • ((absFin v y' : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+          T.σa y' (φ r) := by
+            rw [hprod]
+            exact bigCell_eval_decomp L T s φ _ x' ζ y' r rfl
+    _ = ((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+          T.σa y (φ t) := by
+            dsimp [y']
+            rw [habs, hact, hphi]
+    _ = bigCell L T s φ _ := (bigCell_eval_decomp L T s φ _ x ζ y t rfl).symm
+
+private theorem bigCell_right_nbar_ind (L : FinLocalCover D H v) (T : TorusRep D H v)
+    [Nontrivial T.V] (s : ℂ) (φ : v.adicCompletion F → T.V) (R M k mT : ℕ)
+    (hS : tsupport φ ⊆ ball v (-(R : ℤ)))
+    (hadd : ∀ t z, z ∈ ball v (k : ℤ) → φ (t + z) = φ t)
+    (hR2k : 2 * R + k ≤ M) (hRmT : R + mT ≤ M) (hR1 : R + 1 ≤ M)
+    (hmT : 0 < mT)
+    (hsm : ∀ u : (v.adicCompletion F)ˣ,
+      ((u : v.adicCompletion F) - 1) ∈ ball v (mT : ℤ) → T.σa u = LinearMap.id)
+    (c : v.adicCompletion F) (hc : c ∈ ball v (M : ℤ)) :
+    ∀ x ζ y t,
+      bigCell L T s φ
+        ((L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) * L.nbar (Multiplicative.ofAdd c)) =
+      bigCell L T s φ
+        (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) := by
+  classical
+  intro x ζ y t
+  let g₀ : L.L := L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+    L.n (Multiplicative.ofAdd t)
+  let g : L.L := g₀ * L.nbar (Multiplicative.ofAdd c)
+  let a₀ : v.adicCompletion F := 1 + t * c
+  change bigCell L T s φ g = bigCell L T s φ g₀
+  by_cases ha₀ : a₀ = 0
+  · have hφt : φ t = 0 := by
+      by_contra hφt
+      have htS : t ∈ tsupport φ := by
+        by_contra htS
+        exact hφt (image_eq_zero_of_notMem_tsupport htS)
+      have htBound := hS htS
+      have htc := ball_mul_ind htBound hc
+      have htcBound : t * c ∈ ball v ((M - R : ℕ) : ℤ) := by
+        have hexp : -(R : ℤ) + (M : ℤ) = ((M - R : ℕ) : ℤ) := by omega
+        simpa [hexp] using htc
+      have hR1' : (1 : ℤ) ≤ ((M - R : ℕ) : ℤ) := by
+        have hR1Nat : 1 ≤ M - R := by omega
+        exact_mod_cast hR1Nat
+      have htc1 : t * c ∈ ball v 1 := ball_mono_ind hR1' htcBound
+      have hsmall := ball_one_valued_lt_one_ind htc1
+      have hv := valued_one_add_eq_one_ind (t * c) hsmall
+      have ha : 1 + t * c = 0 := by simpa [a₀] using ha₀
+      rw [ha] at hv
+      simp at hv
+    have htne : t ≠ 0 := by
+      intro ht0
+      simp [a₀, ht0] at ha₀
+    let tu : (v.adicCompletion F)ˣ := Units.mk0 t htne
+    let ti : v.adicCompletion F := ((tu⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)
+    let u₀ : (v.adicCompletion F)ˣ := -(tu⁻¹ * tu⁻¹)
+    have htc : t * c = -1 := by
+      have ha : 1 + t * c = 0 := by simpa [a₀] using ha₀
+      linear_combination ha
+    have hcinv : c = -ti := by
+      calc
+        c = ti * t * c := by
+          have hmul : ti * t = 1 := by
+            dsimp [ti, tu]
+            exact inv_mul_cancel₀ htne
+          calc
+            c = 1 * c := by simp
+            _ = (ti * t) * c := by rw [hmul]
+            _ = _ := by ring
+        _ = ti * (-1) := by rw [show ti * t * c = ti * (t * c) by ring, htc]
+        _ = -ti := by ring
+    have hLift : L.w * L.n (Multiplicative.ofAdd t) =
+        L.n (Multiplicative.ofAdd ti) * L.a u₀ * L.nbar (Multiplicative.ofAdd ti) := by
+      simpa [tu, ti, u₀, Units.val_inv_eq_inv_val] using L.lift_wn tu
+    have hsum : ti + c = 0 := by rw [hcinv]; simp [ti]
+    have hbar : L.nbar (Multiplicative.ofAdd ti) *
+        L.nbar (Multiplicative.ofAdd c) = 1 := by
+      calc
+        _ = L.nbar (Multiplicative.ofAdd ti * Multiplicative.ofAdd c) := by rw [← map_mul]
+        _ = L.nbar (Multiplicative.ofAdd (ti + c)) := by simp
+        _ = L.nbar (Multiplicative.ofAdd 0) := by rw [hsum]
+        _ = 1 := by simp
+    have htail : L.w * L.n (Multiplicative.ofAdd t) *
+        L.nbar (Multiplicative.ofAdd c) =
+        L.n (Multiplicative.ofAdd ti) * L.a u₀ := by
+      calc
+        _ = (L.w * L.n (Multiplicative.ofAdd t)) *
+            L.nbar (Multiplicative.ofAdd c) := rfl
+        _ = (L.n (Multiplicative.ofAdd ti) * L.a u₀ *
+            L.nbar (Multiplicative.ofAdd ti)) * L.nbar (Multiplicative.ofAdd c) := by rw [hLift]
+        _ = L.n (Multiplicative.ofAdd ti) * L.a u₀ *
+            (L.nbar (Multiplicative.ofAdd ti) * L.nbar (Multiplicative.ofAdd c)) := by group
+        _ = _ := by rw [hbar]; simp
+    have htailB : L.n (Multiplicative.ofAdd ti) * L.a u₀ = borelElem L ti 1 u₀ := by
+      simp [borelElem]
+    have hprod : g = borelElem L (x + ti * (y : v.adicCompletion F))
+        (ζ * muThree D (H.hilb v y u₀)) (y * u₀) := by
+      dsimp [g, g₀]
+      calc
+        _ = borelElem L x ζ y * (L.w * L.n (Multiplicative.ofAdd t) *
+            L.nbar (Multiplicative.ofAdd c)) := by dsimp [borelElem]; group
+        _ = borelElem L x ζ y * borelElem L ti 1 u₀ := by rw [← htailB, htail]
+        _ = _ := by simpa using (borelElem_mul L x ti ζ 1 y u₀)
+    rw [hprod, bigCell_borel_zero_ind]
+    rw [bigCell_eval_decomp L T s φ g₀ x ζ y t rfl]
+    simp [hφt]
+  · let A : (v.adicCompletion F)ˣ := Units.mk0 a₀ ha₀
+    have hAval : (A : v.adicCompletion F) = a₀ := rfl
+    let G : GL (Fin 2) (v.adicCompletion F) :=
+      bigCellMatrix (F := F) x y t * lowerM (v.adicCompletion F) c
+    have hz : ∀ η : rootsOfUnity 3 ℂ, L.pr (L.z η) = 1 := by
+      intro η
+      have hker : L.z η ∈ L.pr.ker := by
+        rw [L.pr_ker]
+        exact ⟨η, rfl⟩
+      exact MonoidHom.mem_ker.mp hker
+    have hprG : L.pr g = QuotientGroup.mk (G : GL (Fin 2) (v.adicCompletion F)) := by
+      dsimp [g, g₀, G]
+      simp [bigCellMatrix, map_mul, L.pr_n, L.pr_a, L.pr_w, L.pr_nbar, hz, mul_assoc]
+    rcases bigCell_bruhat_cover L g with hsmall | hbig
+    · obtain ⟨x', ζ', y', hsmallEq⟩ := hsmall
+      have hpsmall : L.pr g = QuotientGroup.mk
+          (upperM (v.adicCompletion F) x' * diagM (v.adicCompletion F) y') := by
+        rw [hsmallEq]
+        simp [borelElem, map_mul, L.pr_n, L.pr_a, hz]
+      have hclass : (QuotientGroup.mk G : PGL2 (v.adicCompletion F)) =
+          QuotientGroup.mk (upperM (v.adicCompletion F) x' * diagM (v.adicCompletion F) y') :=
+        hprG.symm.trans hpsmall
+      have hG10 : (G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0 := by
+        have hto : ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0).toCompletion =
+            (A : v.adicCompletion F).toCompletion := by
+          calc
+            ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0).toCompletion =
+                (1 + t * c).toCompletion := by
+                  simp [G, bigCellMatrix, upperM, diagM, weylM, lowerM, Matrix.mul_apply,
+                    Fin.sum_univ_two, adicCompletion_toCompletion_add_ind,
+                    adicCompletion_toCompletion_mul_ind]
+            _ = (A : v.adicCompletion F).toCompletion :=
+              congrArg (fun z : v.adicCompletion F => z.toCompletion) hAval.symm
+        intro hzero
+        have hzto : ((G : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0).toCompletion = 0 := by
+          rw [hzero]
+          simp
+        have hAt : (A : v.adicCompletion F).toCompletion = 0 := hto.symm.trans hzto
+        have hA0 : (A : v.adicCompletion F) = 0 :=
+          (HeightOneSpectrum.adicCompletion.equiv F v).injective hAt
+        exact A.ne_zero hA0
+      exact (gl2_class_not_borel_of_lowerleft_ne G hG10 x' y' hclass).elim
+    · obtain ⟨x', ζ', y', t', hbigEq⟩ := hbig
+      have hprBig : L.pr g = QuotientGroup.mk (bigCellMatrix (F := F) x' y' t') := by
+        have h := congrArg L.pr hbigEq
+        simpa [bigCellMatrix, map_mul, L.pr_n, L.pr_a, L.pr_w, hz, mul_assoc] using h
+      have hclassBig : (QuotientGroup.mk G : PGL2 (v.adicCompletion F)) =
+          QuotientGroup.mk (bigCellMatrix (F := F) x' y' t') := hprG.symm.trans hprBig
+      have hclassCoord := bigCell_right_nbar_projective_ind x y t c A hAval
+      let x₀ := x + (y : v.adicCompletion F) * (c / (A : v.adicCompletion F))
+      let y₀ := y * (A⁻¹ * A⁻¹)
+      let t₀ := t / (A : v.adicCompletion F)
+      let cand : L.L := L.n (Multiplicative.ofAdd x₀) * L.a y₀ * L.w *
+        L.n (Multiplicative.ofAdd t₀)
+      have hprCand : L.pr cand = QuotientGroup.mk (bigCellMatrix (F := F) x₀ y₀ t₀) := by
+        simp [cand, bigCellMatrix, map_mul, L.pr_n, L.pr_a, L.pr_w]
+      have hpLift : L.pr g = L.pr cand :=
+        hprG.trans (hclassCoord.trans hprCand.symm)
+      obtain ⟨η, hLift⟩ := lift_pr_eq L g cand hpLift
+      have hLiftCanon : g = L.n (Multiplicative.ofAdd x₀) * L.z η * L.a y₀ * L.w *
+          L.n (Multiplicative.ofAdd t₀) := by
+        calc
+          g = L.z η * cand := hLift
+          _ = L.n (Multiplicative.ofAdd x₀) * L.z η * L.a y₀ * L.w *
+              L.n (Multiplicative.ofAdd t₀) := by
+                dsimp [cand]
+                calc
+                  L.z η * (L.n (Multiplicative.ofAdd x₀) * L.a y₀ * L.w *
+                      L.n (Multiplicative.ofAdd t₀)) =
+                      (L.z η * L.n (Multiplicative.ofAdd x₀)) * L.a y₀ * L.w *
+                        L.n (Multiplicative.ofAdd t₀) := by group
+                  _ = (L.n (Multiplicative.ofAdd x₀) * L.z η) * L.a y₀ * L.w *
+                        L.n (Multiplicative.ofAdd t₀) := by
+                          rw [L.z_central η (L.n (Multiplicative.ofAdd x₀))]
+                  _ = _ := by group
+      have hcoords := bigCell_coords_unique L x' x₀ ζ' η y' y₀ t' t₀
+        (hbigEq.symm.trans hLiftCanon)
+      rcases hcoords with ⟨_, _, htcoord, _⟩
+      by_cases hφt : φ t ≠ 0
+      · have htS : t ∈ tsupport φ := by
+          by_contra htS
+          exact hφt (image_eq_zero_of_notMem_tsupport htS)
+        exact bigCell_right_nbar_nonzero L T s φ R M k mT hS hadd hR2k hRmT hR1 hmT hsm
+          c hc x ζ y t A hAval t₀ (by rfl) (Or.inl htS)
+      · by_cases ht0 : φ t₀ ≠ 0
+        · have ht0S : t₀ ∈ tsupport φ := by
+            by_contra hnot
+            exact ht0 (image_eq_zero_of_notMem_tsupport hnot)
+          exact bigCell_right_nbar_nonzero L T s φ R M k mT hS hadd hR2k hRmT hR1 hmT hsm
+            c hc x ζ y t A hAval t₀ (by rfl) (Or.inr ht0S)
+        · rw [bigCell_eval_decomp L T s φ g x' ζ' y' t' hbigEq,
+            bigCell_eval_decomp L T s φ g₀ x ζ y t rfl]
+          have hφt0 : φ t = 0 := not_ne_iff.mp hφt
+          have hφt'0 : φ t₀ = 0 := not_ne_iff.mp ht0
+          simpa [htcoord, hφt0, hφt'0]
+
+private theorem borel_right_nbar_projective_ind
+    (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ)
+    (c : v.adicCompletion F) (C : (v.adicCompletion F)ˣ)
+    (hC : (C : v.adicCompletion F) = c) :
+    (QuotientGroup.mk (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y *
+      lowerM (v.adicCompletion F) c) : PGL2 (v.adicCompletion F)) =
+    QuotientGroup.mk (bigCellMatrix (F := F)
+      (x + (y : v.adicCompletion F) * (C⁻¹ : v.adicCompletion F))
+      (-(y * (C⁻¹ * C⁻¹))) (C⁻¹ : v.adicCompletion F)) := by
+  let K := v.adicCompletion F
+  let G : GL (Fin 2) K := upperM K x * diagM K y * lowerM K c
+  let xp : K := x + (y : K) * (C⁻¹ : K)
+  let yp : Kˣ := -(y * (C⁻¹ * C⁻¹))
+  let tp : K := (C⁻¹ : K)
+  have hCto : (C : K).toCompletion = c.toCompletion :=
+    congrArg (fun z : K => z.toCompletion) hC
+  have hCinvTo : ((C⁻¹ : Kˣ) : K).toCompletion = (c.toCompletion)⁻¹ := by
+    rw [adicCompletion_toCompletion_unitInv_ind, hCto]
+  have hcne : c ≠ 0 := by rw [← hC]; exact C.ne_zero
+  have hcneTo : c.toCompletion ≠ 0 :=
+    (map_ne_zero (HeightOneSpectrum.adicCompletion.equiv F v)).2 hcne
+  have hmat : G * Matrix.GeneralLinearGroup.scalar (Fin 2) C⁻¹ =
+      bigCellMatrix (F := F) xp yp tp := by
+    ext i j
+    fin_cases i <;> fin_cases j
+    · simp [G, xp, yp, tp, bigCellMatrix, upperM, diagM, weylM, lowerM,
+        Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        Units.val_inv_eq_inv_val, adicCompletion_toCompletion_add_ind,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind,
+        adicCompletion_toCompletion_unitInv_ind, adicCompletion_toCompletion_unitMul_ind,
+        hC, hCto, hCinvTo]
+      rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_add_ind,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+      rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+      field_simp [hcneTo]
+      ring_nf
+    · simp [G, xp, yp, tp, bigCellMatrix, upperM, diagM, weylM, lowerM,
+        Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        Units.val_inv_eq_inv_val, adicCompletion_toCompletion_add_ind,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind,
+        adicCompletion_toCompletion_unitInv_ind, adicCompletion_toCompletion_unitMul_ind,
+        hC, hCto, hCinvTo]
+      have hleft : (x * c⁻¹).toCompletion = x.toCompletion * c.toCompletion⁻¹ := by
+        rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+      have hyc : ((y : K) * c⁻¹).toCompletion = (y : K).toCompletion * c.toCompletion⁻¹ := by
+        rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+      have hcinv : c⁻¹.toCompletion = c.toCompletion⁻¹ :=
+        adicCompletion_toCompletion_inv_ind c
+      have hneg : (-((y : K) * (c⁻¹ * c⁻¹))).toCompletion =
+          -((y : K).toCompletion * (c.toCompletion⁻¹ * c.toCompletion⁻¹)) := by
+        calc
+          (-((y : K) * (c⁻¹ * c⁻¹))).toCompletion =
+              -(((y : K) * (c⁻¹ * c⁻¹)).toCompletion) := by
+                exact map_neg (HeightOneSpectrum.adicCompletion.equiv F v) _
+          _ = -((y : K).toCompletion * (c⁻¹ * c⁻¹).toCompletion) := by
+                rw [adicCompletion_toCompletion_mul_ind]
+          _ = -((y : K).toCompletion * (c.toCompletion⁻¹ * c.toCompletion⁻¹)) := by
+                simp [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+      rw [hleft, hyc, hcinv, hneg]
+      field_simp [hcneTo]
+      ring_nf
+    · simp [G, xp, yp, tp, bigCellMatrix, upperM, diagM, weylM, lowerM,
+        Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        Units.val_inv_eq_inv_val, adicCompletion_toCompletion_add_ind,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_unitInv_ind,
+        adicCompletion_toCompletion_unitMul_ind, hC, hCto, hCinvTo] <;>
+        (try rw [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]) <;>
+        field_simp [hcneTo] <;> ring_nf
+    all_goals
+      simp [G, xp, yp, tp, bigCellMatrix, upperM, diagM, weylM, lowerM,
+        Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        Units.val_inv_eq_inv_val, adicCompletion_toCompletion_add_ind,
+        adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind,
+        adicCompletion_toCompletion_unitInv_ind, adicCompletion_toCompletion_unitMul_ind,
+        hC, hCto, hCinvTo] <;>
+        (try simp only [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind,
+          map_neg]) <;>
+        (try rw [adicCompletion_toCompletion_inv_ind]) <;>
+        field_simp [hcneTo] <;> ring_nf
+  apply Matrix.ProjGenLinGroup.mk_eq_mk_iff.mpr
+  refine ⟨C⁻¹, ?_⟩
+  simpa [G, xp, yp, tp] using hmat
+
+private theorem bigCell_right_nbar_small_ind (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (s : ℂ) (φ : v.adicCompletion F → T.V)
+    (R M : ℕ) (hS : tsupport φ ⊆ ball v (-(R : ℤ)))
+    (hR1 : R + 1 ≤ M) (c : v.adicCompletion F) (hc : c ∈ ball v (M : ℤ))
+    (x : v.adicCompletion F) (ζ : rootsOfUnity 3 ℂ) (y : (v.adicCompletion F)ˣ) :
+    bigCell L T s φ (borelElem L x ζ y * L.nbar (Multiplicative.ofAdd c)) =
+      bigCell L T s φ (borelElem L x ζ y) := by
+  classical
+  have hbase : bigCell L T s φ (borelElem L x ζ y) = 0 := by
+    exact bigCell_borel_zero_ind L T s φ x ζ y
+  by_cases hc0 : c = 0
+  · simpa [hc0, borelElem] using hbase
+  · let K := v.adicCompletion F
+    let C : Kˣ := Units.mk0 c hc0
+    have hC : (C : K) = c := rfl
+    let t₀ : K := (C⁻¹ : Kˣ)
+    have ht₀out : t₀ ∉ ball v (-(R : ℤ)) := by
+      intro ht₀
+      have hprod := ball_mul_ind hc ht₀
+      have hprod' : c * t₀ ∈ ball v ((M - R : ℕ) : ℤ) := by
+        have hexp : (M : ℤ) + (-(R : ℤ)) = ((M - R : ℕ) : ℤ) := by omega
+        simpa [hexp] using hprod
+      have hprodEq : c * t₀ = 1 := by
+        calc
+          c * t₀ = (C : K) * ((C⁻¹ : Kˣ) : K) := by rw [hC]
+          _ = 1 := by simp
+      have h1ball : (1 : K) ∈ ball v ((M - R : ℕ) : ℤ) := by
+        simpa [hprodEq] using hprod'
+      have hR1' : (1 : ℤ) ≤ ((M - R : ℕ) : ℤ) := by
+        have hR1Nat : 1 ≤ M - R := by omega
+        exact_mod_cast hR1Nat
+      have h1ball' : (1 : K) ∈ ball v 1 := ball_mono_ind hR1' h1ball
+      have hlt := ball_one_valued_lt_one_ind h1ball'
+      simp at hlt
+    let G : GL (Fin 2) K := upperM K x * diagM K y * lowerM K c
+    let g : L.L := borelElem L x ζ y * L.nbar (Multiplicative.ofAdd c)
+    have hz : ∀ η : rootsOfUnity 3 ℂ, L.pr (L.z η) = 1 := by
+      intro η
+      have hker : L.z η ∈ L.pr.ker := by
+        rw [L.pr_ker]
+        exact ⟨η, rfl⟩
+      exact MonoidHom.mem_ker.mp hker
+    have hprG : L.pr g = QuotientGroup.mk (G : GL (Fin 2) K) := by
+      dsimp [g, G, borelElem]
+      simp [map_mul, L.pr_n, L.pr_a, L.pr_nbar, hz] <;> rfl
+    have hG10 : (G : Matrix (Fin 2) (Fin 2) K) 1 0 ≠ 0 := by
+      simpa [G, upperM, diagM, lowerM, Matrix.mul_apply, Fin.sum_univ_two] using hc0
+    rcases bigCell_bruhat_cover L g with hsmall | hbig
+    · obtain ⟨x', ζ', y', hsmallEq⟩ := hsmall
+      have hpsmall : L.pr g = QuotientGroup.mk
+          (upperM K x' * diagM K y') := by
+        rw [hsmallEq]
+        simp [borelElem, map_mul, L.pr_n, L.pr_a, hz] <;> rfl
+      have hclass : (QuotientGroup.mk G : PGL2 K) =
+          QuotientGroup.mk (upperM K x' * diagM K y') := hprG.symm.trans hpsmall
+      exact (gl2_class_not_borel_of_lowerleft_ne G hG10 x' y' hclass).elim
+    · obtain ⟨x', ζ', y', t', hbigEq⟩ := hbig
+      have hprBig : L.pr g = QuotientGroup.mk (bigCellMatrix (F := F) x' y' t') := by
+        have h := congrArg L.pr hbigEq
+        simpa [bigCellMatrix, map_mul, L.pr_n, L.pr_a, L.pr_w, hz, mul_assoc] using h
+      have hclassBig : (QuotientGroup.mk G : PGL2 K) =
+          QuotientGroup.mk (bigCellMatrix (F := F) x' y' t') := hprG.symm.trans hprBig
+      have hclassCoord := borel_right_nbar_projective_ind x y c C hC
+      let x₀ : K := x + (y : K) * (C⁻¹ : K)
+      let y₀ : Kˣ := -(y * (C⁻¹ * C⁻¹))
+      let cand : L.L := L.n (Multiplicative.ofAdd x₀) * L.a y₀ * L.w *
+        L.n (Multiplicative.ofAdd t₀)
+      have hprCand : L.pr cand = QuotientGroup.mk (bigCellMatrix (F := F) x₀ y₀ t₀) := by
+        simp [cand, bigCellMatrix, map_mul, L.pr_n, L.pr_a, L.pr_w]
+      have hpLift : L.pr g = L.pr cand := hprG.trans (hclassCoord.trans hprCand.symm)
+      obtain ⟨η, hLift⟩ := lift_pr_eq L g cand hpLift
+      have hLiftCanon : g = L.n (Multiplicative.ofAdd x₀) * L.z η * L.a y₀ * L.w *
+          L.n (Multiplicative.ofAdd t₀) := by
+        calc
+          g = L.z η * cand := hLift
+          _ = L.n (Multiplicative.ofAdd x₀) * L.z η * L.a y₀ * L.w *
+              L.n (Multiplicative.ofAdd t₀) := by
+                dsimp [cand]
+                calc
+                  L.z η * (L.n (Multiplicative.ofAdd x₀) * L.a y₀ * L.w *
+                      L.n (Multiplicative.ofAdd t₀)) =
+                      (L.z η * L.n (Multiplicative.ofAdd x₀)) * L.a y₀ * L.w *
+                        L.n (Multiplicative.ofAdd t₀) := by group
+                  _ = (L.n (Multiplicative.ofAdd x₀) * L.z η) * L.a y₀ * L.w *
+                        L.n (Multiplicative.ofAdd t₀) := by
+                          rw [L.z_central η (L.n (Multiplicative.ofAdd x₀))]
+                  _ = _ := by group
+      have hcoords := bigCell_coords_unique L x' x₀ ζ' η y' y₀ t' t₀
+        (hbigEq.symm.trans hLiftCanon)
+      rcases hcoords with ⟨_, _, htcoord, _⟩
+      have hφt₀ : φ t₀ = 0 := image_eq_zero_of_notMem_tsupport (by
+        intro ht
+        exact ht₀out (hS ht))
+      have hφt' : φ t' = 0 := by simpa [htcoord] using hφt₀
+      have hleft : bigCell L T s φ g = 0 := by
+        rw [bigCell_eval_decomp L T s φ g x' ζ' y' t' hbigEq]
+        simp [hφt']
+      rw [hleft, hbase]
+
+private theorem bigCell_right_nbar_all_ind (L : FinLocalCover D H v)
+    (T : TorusRep D H v) [Nontrivial T.V] (s : ℂ)
+    (φ : v.adicCompletion F → T.V) (R M k mT : ℕ)
+    (hS : tsupport φ ⊆ ball v (-(R : ℤ)))
+    (hadd : ∀ t z, z ∈ ball v (k : ℤ) → φ (t + z) = φ t)
+    (hR2k : 2 * R + k ≤ M) (hRmT : R + mT ≤ M) (hR1 : R + 1 ≤ M)
+    (hmT : 0 < mT)
+    (hsm : ∀ u : (v.adicCompletion F)ˣ,
+      ((u : v.adicCompletion F) - 1) ∈ ball v (mT : ℤ) → T.σa u = LinearMap.id)
+    (c : v.adicCompletion F) (hc : c ∈ ball v (M : ℤ)) (g : L.L) :
+    bigCell L T s φ (g * L.nbar (Multiplicative.ofAdd c)) = bigCell L T s φ g := by
+  classical
+  rcases bigCell_bruhat_cover L g with hsmall | hbig
+  · obtain ⟨x, ζ, y, rfl⟩ := hsmall
+    exact bigCell_right_nbar_small_ind L T s φ R M hS hR1 c hc x ζ y
+  · obtain ⟨x, ζ, y, t, rfl⟩ := hbig
+    exact bigCell_right_nbar_ind L T s φ R M k mT hS hadd hR2k hRmT hR1 hmT hsm
+      c hc x ζ y t
+
+private theorem bigCell_rightKc_invariant (L : FinLocalCover D H v)
+    (T : TorusRep D H v) [Nontrivial T.V] (s : ℂ)
+    (φ : v.adicCompletion F → T.V) (hφ : IsLocallyConstant φ)
+    (hc : HasCompactSupport φ) :
+    ∃ m, L.m0 ≤ m ∧ ∀ g, ∀ k ∈ L.Kc m,
+      bigCell L T s φ (g * k) = bigCell L T s φ g := by
+    obtain ⟨R, hR⟩ := compact_support_ball T φ hc
+    obtain ⟨k, hadd⟩ := bigCell_phi_add_invariant T φ hφ hc
+    obtain ⟨mT, hmT, hsm⟩ := T.σa_smooth
+    let N : ℕ := L.m0 + 1 + (2 * R + k) + (R + mT) + (R + 1)
+    have hN : 1 ≤ N := by dsimp [N]; omega
+    have hm0N : L.m0 ≤ N := by dsimp [N]; omega
+    have hkN : k ≤ N := by dsimp [N]; omega
+    have hR2k : 2 * R + k ≤ N := by dsimp [N]; omega
+    have hRk : R + k ≤ N := by dsimp [N]; omega
+    have hRmT : R + mT ≤ N := by dsimp [N]; omega
+    have hR1 : R + 1 ≤ N := by dsimp [N]; omega
+    let U : Set L.L := L.pr ⁻¹' (QuotientGroup.mk ''
+      nearIdMat (F := F) (v := v) N)
+    have hchartOpen : IsOpen (QuotientGroup.mk ''
+        nearIdMat (F := F) (v := v) N : Set (PGL2 (v.adicCompletion F))) := by
+      exact (QuotientGroup.isOpenQuotientMap_mk
+        (N := Subgroup.center (GL (Fin 2) (v.adicCompletion F)))).isOpenMap _
+          (nearIdMat_isOpen N)
+    have hUopen : IsOpen U := hchartOpen.preimage L.pr_cont
+    have hUone : (1 : L.L) ∈ U := by
+      change L.pr 1 ∈ QuotientGroup.mk '' nearIdMat (F := F) (v := v) N
+      rw [map_one]
+      refine ⟨1, ?_, ?_⟩
+      · simp [nearIdMat, ball]
+      · simp
+    have hUnhds : U ∈ nhds (1 : L.L) := hUopen.mem_nhds hUone
+    obtain ⟨m, hm, hsub⟩ := L.Kc_nhds U hUnhds
+    let mFinal : ℕ := max m N
+    have hmFinal : L.m0 ≤ mFinal := le_trans hm (le_max_left m N)
+    have hmFinal_m : m ≤ mFinal := le_max_left m N
+    have hNFinal : N ≤ mFinal := le_max_right m N
+    refine ⟨mFinal, hmFinal, ?_⟩
+    intro g k' hk'
+    have hk_m : k' ∈ L.Kc m := L.Kc_anti m mFinal hm hmFinal_m hk'
+    have hkU : k' ∈ U := hsub hk_m
+    change L.pr k' ∈ QuotientGroup.mk '' nearIdMat (F := F) (v := v) N at hkU
+    obtain ⟨G, hG, hproj⟩ := hkU
+    obtain ⟨b, c, u, hb, hc, hu, hclass⟩ := nearIdMat_factor N hN G hG
+    let q : L.L := L.n (Multiplicative.ofAdd b) * L.a u *
+      L.nbar (Multiplicative.ofAdd c)
+    have hnbK : L.n (Multiplicative.ofAdd b) ∈ L.Kc N := L.n_Kc N hm0N b hb
+    have haK : L.a u ∈ L.Kc N := L.a_Kc N hm0N u hu
+    have hbarK : L.nbar (Multiplicative.ofAdd c) ∈ L.Kc N := L.nbar_Kc N hm0N c hc
+    have hqK : q ∈ L.Kc N := by
+      dsimp [q]
+      exact (L.Kc N).mul_mem ((L.Kc N).mul_mem hnbK haK) hbarK
+    have hp : L.pr k' = L.pr q := by
+      calc
+        L.pr k' = QuotientGroup.mk G := hproj.symm
+        _ = QuotientGroup.mk (upperM (v.adicCompletion F) b *
+            diagM (v.adicCompletion F) u * lowerM (v.adicCompletion F) c) := hclass
+        _ = L.pr q := by
+          dsimp [q]
+          simp [map_mul, L.pr_n, L.pr_a, L.pr_nbar]
+    have hkN' : k' ∈ L.Kc N := L.Kc_anti N mFinal hm0N hNFinal hk'
+    have hkEq : k' = q := (L.Kc_inj N hm0N) hkN' hqK hp
+    have hbK : b ∈ ball v (k : ℤ) :=
+      ball_mono_ind (by exact_mod_cast hkN) hb
+    have huVal : Valued.v (u : v.adicCompletion F) = 1 :=
+      unit_val_one_of_near_one_ind N hN u hu
+    have huLoc : IsLocUnit v u := isLocUnit_of_valued_one_ind u huVal
+    have huMT : ((u : v.adicCompletion F) - 1) ∈ ball v (mT : ℤ) :=
+      ball_mono_ind (by exact_mod_cast (show mT ≤ N by dsimp [N]; omega)) hu
+    have hσu : T.σa u = LinearMap.id := hsm u huMT
+    have hσuinv : T.σa u⁻¹ = LinearMap.id :=
+      (torus_sigma_inv_square_of_id_ind T u hσu).1
+    calc
+      bigCell L T s φ (g * k') = bigCell L T s φ (g * q) := by rw [hkEq]
+      _ = bigCell L T s φ
+          ((g * L.n (Multiplicative.ofAdd b) * L.a u) *
+            L.nbar (Multiplicative.ofAdd c)) := by dsimp [q]; group
+      _ = bigCell L T s φ (g * L.n (Multiplicative.ofAdd b) * L.a u) :=
+        bigCell_right_nbar_all_ind L T s φ R N k mT hR hadd hR2k hRmT hR1 hmT hsm
+          c hc (g * L.n (Multiplicative.ofAdd b) * L.a u)
+      _ = bigCell L T s φ (g * L.n (Multiplicative.ofAdd b)) :=
+        bigCell_right_a_ind L T s φ R N k hR hadd hRk hN u hu hσu hσuinv huLoc
+          (g * L.n (Multiplicative.ofAdd b))
+      _ = bigCell L T s φ g := bigCell_right_n_ind L T s φ k hadd b hbK g
+
 /-- **ind:bigcell-section**: `bigCell φ` is a section when `φ` is locally constant with compact
 support (the decomposition in the big cell is unique). -/
 theorem bigCell_isSection (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
@@ -2225,7 +4237,13 @@ theorem bigCell_isSection (L : FinLocalCover D H v) (T : TorusRep D H v) (s : �
         bigCell_leftBorel L T s φ 0 ζ 1 g
       _ = ((ζ : ℂˣ) : ℂ) • bigCell L T s φ g := by
         simp [sphericalBorelAction, T.σa_one, absFin_eq_norm_ind]
-  · sorry
+  · by_cases hV : Nontrivial T.V
+    · letI : Nontrivial T.V := hV
+      exact bigCell_rightKc_invariant L T s φ hφ hc
+    · letI : Subsingleton T.V := not_nontrivial_iff_subsingleton.mp hV
+      refine ⟨L.m0, le_rfl, ?_⟩
+      intro g k hk
+      exact Subsingleton.elim _ _
 
 /-- **ind:bigcell-apply**: the value of a big-cell section on the big cell (uniqueness of the
 decomposition `n(x) z(ζ) a(y) w n(t)`), and its vanishing on the small cell `B̃`. -/
