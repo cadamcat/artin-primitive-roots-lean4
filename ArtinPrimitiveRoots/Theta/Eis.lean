@@ -13,6 +13,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.OrdinaryClasses
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealEncoding
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.RationalEncoding
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealMajorant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.LocalProduct
 
 set_option autoImplicit false
 
