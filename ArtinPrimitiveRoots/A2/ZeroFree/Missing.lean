@@ -2054,6 +2054,124 @@ private theorem rowKernel_compact_path_integrable (hEuler : EulerHypotheses R η
     simp only [clip, min_eq_right hp.2, max_eq_right hp.1]
   simp only [Function.uncurry, kernel, path, Function.comp_apply, heq]
 
+private theorem rowKernel_pair_rectangle_difference (hEuler : EulerHypotheses R η)
+    (u : U.U) (hu : u ≠ U.one) (T : ℝ) (hT : ZD.U0 ≤ T)
+    (hShell : u ∈ frequencyDyad η U T) (hGood : u ∉ ZD.E T)
+    (Z ε A1 : ℝ) (hZ : 1 ≤ Z) (hε : 0 < ε) (hA1 : 1 / ZD.ρ < A1) :
+    let H := T ^ ZD.ρ
+    Complex.I • ((∫ y : ℝ in -H..H,
+        rowKernelHeightPair R sd W η U HA HC u Z
+          ((1 + δ1 : ℝ) + y * Complex.I)) -
+      ∫ y : ℝ in -H..H,
+        rowKernelHeightPair R sd W η U HA HC u Z
+          ((998 / 1000 : ℝ) + y * Complex.I)) =
+    (∫ x : ℝ in (998 / 1000)..(1 + δ1),
+        rowKernelHeightPair R sd W η U HA HC u Z (x + H * Complex.I)) -
+      ∫ x : ℝ in (998 / 1000)..(1 + δ1),
+        rowKernelHeightPair R sd W η U HA HC u Z (x + (-H) * Complex.I) := by
+  let Ht : ℝ := T ^ ZD.ρ
+  let aξ : ℝ := 998 / 1000
+  let bξ : ℝ := 1 + δ1
+  have hTpos : 0 < T := by linarith [ZD.U0_two]
+  have hHt : 0 ≤ Ht := (Real.rpow_pos_of_pos hTpos _).le
+  have hab : aξ ≤ bξ := by norm_num [aξ, bξ, δ1]
+  have hHH : -Ht ≤ Ht := by linarith
+  let Sξ : Set ℂ := {ξ | 998 / 1000 ≤ ξ.re ∧ ξ.re ≤ 1 + δ1 ∧ |ξ.im| ≤ Ht}
+  have hSsubset : Sξ ⊆ {ξ : ℂ | 998 / 1000 ≤ ξ.re ∧ ξ.re ≤ 1 + δ1 ∧
+      |ξ.im| ≤ 2 * T ^ ZD.ρ} := by
+    intro ξ hξ
+    exact ⟨hξ.1, hξ.2.1, by dsimp [Ht] at hξ hHt; linarith [hξ.2.2]⟩
+  have hdata := rowKernel_pair_continuousOn (R := R) (sd := sd) (W := W)
+    (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler u hu T hT
+    hShell hGood Z ε A1 hZ hε hA1 Sξ hSsubset (fun ξ hξ => hξ.2.2)
+  let J : ℂ → ℝ × ℝ → ℂ := rowKernelHeightFiber R sd W η U HA HC u Z
+  let P : ℂ → ℂ := rowKernelHeightPair R sd W η U HA HC u Z
+  let κ₂ : ℂ := (1 / (2 * Real.pi) : ℂ) ^ 2
+  have hPairEq : ∀ ξ ∈ Sξ, P ξ = κ₂ * ∫ v : ℝ × ℝ, J ξ v := by
+    intro ξ hξ
+    have hf : Integrable (fun v : ℝ × ℝ => rowKernelAt R sd W η U HA HC u Z ξ
+        (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+        (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) := hdata.1 ξ hξ
+    exact vertical_pair_eq_integral_prod
+      (σw := 3 / 1000) (σz := 4 / 10)
+      (fun w z => rowKernelAt R sd W η U HA HC u Z ξ w z) hf
+  have hPath : ∀ l r : ℝ, l ≤ r → ∀ γ : ℝ → ℂ,
+      ContinuousOn γ (Set.Icc l r) → (∀ x ∈ Set.Icc l r, γ x ∈ Sξ) →
+      (∫ x : ℝ in l..r, P (γ x)) = κ₂ * ∫ v : ℝ × ℝ,
+        (∫ x : ℝ in l..r, J (γ x) v) ∧
+      Integrable (fun v : ℝ × ℝ => ∫ x : ℝ in l..r, J (γ x) v) := by
+    intro l r hlr γ hγ hrange
+    have hJoint := rowKernel_compact_path_integrable (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler u hu T hT
+      hShell hGood Z ε A1 hZ hε hA1 l r hlr γ hγ hrange
+    have hJointIoc : Integrable (fun p : ℝ × (ℝ × ℝ) => J (γ p.1) p.2)
+        ((volume.restrict (Set.uIoc l r)).prod volume) := by
+      simpa only [J, Set.uIoc_of_le hlr, restrict_Ioc_eq_restrict_Icc] using hJoint
+    refine ⟨?_, ?_⟩
+    · calc
+        _ = ∫ x : ℝ in l..r, κ₂ * ∫ v : ℝ × ℝ, J (γ x) v := by
+          apply intervalIntegral.integral_congr
+          intro x hx
+          exact hPairEq (γ x) (hrange x (by simpa only [Set.uIcc_of_le hlr] using hx))
+        _ = κ₂ * (∫ x : ℝ in l..r, ∫ v : ℝ × ℝ, J (γ x) v) :=
+          intervalIntegral.integral_const_mul _ _
+        _ = _ := congrArg (fun q : ℂ => κ₂ * q)
+          (intervalIntegral_integral_swap hJointIoc)
+    · simpa only [Set.uIoc_of_le hlr, intervalIntegral.integral_of_le hlr] using
+        hJointIoc.integral_prod_right
+  let γR : ℝ → ℂ := fun y => (bξ : ℂ) + y * Complex.I
+  let γL : ℝ → ℂ := fun y => (aξ : ℂ) + y * Complex.I
+  let γTop : ℝ → ℂ := fun x => (x : ℂ) + Ht * Complex.I
+  let γBot : ℝ → ℂ := fun x => (x : ℂ) + (-Ht) * Complex.I
+  have hR := hPath (-Ht) Ht hHH γR (by fun_prop) (by
+    intro y hy
+    simpa [Sξ, γR, aξ, bξ] using
+      (show aξ ≤ bξ ∧ bξ ≤ bξ ∧ |y| ≤ Ht from ⟨hab, le_rfl, abs_le.mpr hy⟩))
+  have hL := hPath (-Ht) Ht hHH γL (by fun_prop) (by
+    intro y hy
+    simpa [Sξ, γL, aξ, bξ] using
+      (show aξ ≤ aξ ∧ aξ ≤ bξ ∧ |y| ≤ Ht from ⟨le_rfl, hab, abs_le.mpr hy⟩))
+  have hTop := hPath aξ bξ hab γTop (by fun_prop) (by
+    intro x hx
+    simpa [Sξ, γTop, aξ, bξ, abs_of_nonneg hHt] using
+      (show aξ ≤ x ∧ x ≤ bξ ∧ Ht ≤ Ht from ⟨hx.1, hx.2, le_rfl⟩))
+  have hBot := hPath aξ bξ hab γBot (by fun_prop) (by
+    intro x hx
+    simpa [Sξ, γBot, aξ, bξ, abs_of_nonneg hHt] using
+      (show aξ ≤ x ∧ x ≤ bξ ∧ Ht ≤ Ht from ⟨hx.1, hx.2, le_rfl⟩))
+  have hpoint : ∀ v : ℝ × ℝ,
+      Complex.I * ((∫ y : ℝ in -Ht..Ht, J (γR y) v) -
+        ∫ y : ℝ in -Ht..Ht, J (γL y) v) =
+      (∫ x : ℝ in aξ..bξ, J (γTop x) v) -
+        ∫ x : ℝ in aξ..bξ, J (γBot x) v := by
+    intro v
+    have hd := rowKernel_rectangle_difference (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler u hu T hT
+      hShell hGood Z (by linarith)
+      (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+      (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) (by simp) (by simp)
+    simpa [J, rowKernelHeightFiber, rowKernelAt, γR, γL, γTop, γBot,
+      Ht, aξ, bξ, smul_eq_mul] using hd
+  have hintegral : Complex.I * ((∫ v : ℝ × ℝ,
+        ∫ y : ℝ in -Ht..Ht, J (γR y) v) - ∫ v : ℝ × ℝ,
+        ∫ y : ℝ in -Ht..Ht, J (γL y) v) =
+      (∫ v : ℝ × ℝ, ∫ x : ℝ in aξ..bξ, J (γTop x) v) -
+        ∫ v : ℝ × ℝ, ∫ x : ℝ in aξ..bξ, J (γBot x) v := by
+    calc
+      _ = ∫ v : ℝ × ℝ, Complex.I * ((∫ y : ℝ in -Ht..Ht, J (γR y) v) -
+          ∫ y : ℝ in -Ht..Ht, J (γL y) v) := by
+        rw [integral_const_mul, integral_sub hR.2 hL.2]
+      _ = ∫ v : ℝ × ℝ, ((∫ x : ℝ in aξ..bξ, J (γTop x) v) -
+          ∫ x : ℝ in aξ..bξ, J (γBot x) v) :=
+        integral_congr_ae (Filter.Eventually.of_forall hpoint)
+      _ = _ := integral_sub hTop.2 hBot.2
+  change Complex.I • ((∫ y : ℝ in -Ht..Ht, P (γR y)) -
+      ∫ y : ℝ in -Ht..Ht, P (γL y)) =
+    (∫ x : ℝ in aξ..bξ, P (γTop x)) - ∫ x : ℝ in aξ..bξ, P (γBot x)
+  simp only [smul_eq_mul]
+  rw [hR.1, hL.1, hTop.1, hBot.1]
+  linear_combination κ₂ * hintegral
+
 /-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
 The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
 theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
