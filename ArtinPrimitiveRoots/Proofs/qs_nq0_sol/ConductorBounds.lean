@@ -161,4 +161,27 @@ theorem qs_nq0_idealExp_sup (I J : Ideal (𝓞 K))
     rw [hpow (I ⊔ J) hsup k, sup_le_iff, ← hpow I hI k, ← hpow J hJ k, le_min_iff]
   exact le_antisymm ((hiff _).mp le_rfl) ((hiff _).mpr le_rfl)
 
+/-!
+Closure of conductor bounds under supremum has this exact signature:
+```
+theorem qs_nq0_conductorDvd_sup (χ : HeckeChar K)
+    (I J : Ideal (𝓞 K)) (hI : I ≠ ⊥) (hJ : J ≠ ⊥)
+    (hχI : χ.ConductorDvd I) (hχJ : χ.ConductorDvd J) :
+    χ.ConductorDvd (I ⊔ J)
+```
+-/
+
+/-- A character's nonzero conductor bounds are closed under ideal supremum. -/
+theorem qs_nq0_conductorDvd_sup (χ : HeckeChar K)
+    (I J : Ideal (𝓞 K)) (hI : I ≠ ⊥) (hJ : J ≠ ⊥)
+    (hχI : χ.ConductorDvd I) (hχJ : χ.ConductorDvd J) :
+    χ.ConductorDvd (I ⊔ J) := by
+  intro v u hu hui hubound
+  rw [qs_nq0_idealExp_sup I J hI hJ v] at hubound
+  rcases le_total (idealExp v I) (idealExp v J) with hle | hle
+  · rw [min_eq_left hle] at hubound
+    exact hχI v u hu hui hubound
+  · rw [min_eq_right hle] at hubound
+    exact hχJ v u hu hui hubound
+
 end ArtinPrimitiveRoots.A2
