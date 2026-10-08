@@ -269,6 +269,254 @@ theorem edge_slot_facts {K : ℕ} (F : PDFix K) (S : PDScale)
     · rw [slot_eq_last jj hjj] at h
       exact hST.2 i' i (lastSlot S.x) h
 
+theorem bornBefore_succ {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (H : PDLifeAssignment F S γ) (p : ℕ) (j : Fin (pathLength S.x)) :
+    lifeBornBefore F S γ H p j.succ ↔
+      (lifeBornBefore F S γ H p j.castSucc ∨ ∃ i, lifeBornAt F S γ H i p j.castSucc) ∨
+        IsActiveAt γ p j.succ := by
+  unfold lifeBornBefore
+  constructor
+  · rintro (⟨j', hj', hact⟩ | ⟨i, a, ha, hb⟩)
+    · by_cases h : j' = j.succ
+      · subst h; right; exact hact
+      · left; left; left
+        refine ⟨j', ?_, hact⟩
+        simp only [Fin.le_def, Fin.val_succ, Fin.coe_castSucc, Fin.ext_iff] at *
+        omega
+    · by_cases h : a = j.castSucc
+      · subst h; left; right; exact ⟨i, hb⟩
+      · left; left; right
+        refine ⟨i, a, ?_, hb⟩
+        simp only [Fin.lt_def, Fin.val_succ, Fin.coe_castSucc, Fin.ext_iff] at *
+        omega
+  · rintro (((⟨j', hj', hact⟩ | ⟨i, a, ha, hb⟩) | ⟨i, hb⟩) | hact)
+    · exact Or.inl ⟨j', le_trans hj' (le_of_lt (Fin.castSucc_lt_succ)), hact⟩
+    · exact Or.inr ⟨i, a, lt_trans ha (Fin.castSucc_lt_succ), hb⟩
+    · exact Or.inr ⟨i, _, Fin.castSucc_lt_succ, hb⟩
+    · exact Or.inl ⟨j.succ, le_rfl, hact⟩
+
+/-- The forced edge choice leads from the after-ghost life state at `j` to the life state
+at `j+1`. -/
+theorem guided_edge_output {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x)) (τ : LogPoint S.x K)
+    (hτ : IsLifeStateAfter F S γ H j.castSucc τ)
+    (π π' : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+    (hST : IsSlotTransition (permuteLists π (γ j.castSucc).2)
+      (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2))
+    (q : (i : Fin K) → primeBand S.x (F.a i))
+    (hq : ∀ i, (q i).1 =
+      permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 i (lastSlot S.x)) :
+    IsLifeState F S γ H j.succ
+      (edgeTraceOutput F S j.val (γ j.succ).1 τ
+        (π, guidedEdgeChoice F S γ H j τ π q, π')) := by
+  obtain ⟨hpos, hnd, hmem, hlnd, hlmem⟩ := hτ
+  have hz : τ.1.1 = (γ j.castSucc).1 := congrArg Prod.fst hpos
+  have hl : τ.1.2.1 = (γ j.castSucc).2 := congrArg Prod.snd hpos
+  set P := permuteLists π (γ j.castSucc).2 with hPdef
+  set Q := permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 with hQdef
+  have hPv : ValidPrimeLists S.x K F.a P :=
+    guided_validPrimeLists_permute π _ (hγ.1 j.castSucc).2
+  have hQv : ValidPrimeLists S.x K F.a Q :=
+    guided_validPrimeLists_permute _ _ (hγ.1 j.succ).2
+  have hactj : ∀ p, IsActiveAt γ p j.castSucc ↔ ∃ i jj, P i jj = p :=
+    active_iff_permute S γ π _
+  have hactj1 : ∀ p, IsActiveAt γ p j.succ ↔ ∃ i jj, Q i jj = p :=
+    active_iff_permute S γ (fun i => (π' i)⁻¹) _
+  have hfacts := edge_slot_facts F S hBands P Q hPv hQv hST
+  set c := guidedEdgeChoice F S γ H j τ π q with hcdef
+  have hc1 : ∀ i, (c i).1 =
+      decide (lifePendingIn F S γ H i (P i (lastSlot S.x)) false j.succ) := by
+    intro i
+    show decide (lifePendingIn F S γ H i (permuteLists π τ.1.2.1 i (lastSlot S.x))
+      false j.succ) = _
+    rw [hl]
+  have hc2 : ∀ i, (c i).2 = guidedFill F S τ i (q i) := fun i => rfl
+  have hL : edgeTargetLists F S (permuteLogPoint π τ).1 c = Q := by
+    funext i jj
+    unfold edgeTargetLists
+    split_ifs with hjj
+    · show permuteLists π τ.1.2.1 i jj = Q i jj
+      rw [hl]
+      exact (hST.1 i jj hjj).symm
+    · rw [slot_eq_last jj hjj, ← hq i]
+      exact guidedFill_label F S τ i (q i) _
+  have hmemOut : ∀ i, (edgeTraceOutput F S j.val (γ j.succ).1 τ (π, c, π')).1.2.2 i =
+      removeIndices (τ.1.2.2 i) (match guidedFill F S τ i (q i) with
+          | Sum.inl k => {k}
+          | Sum.inr _ => ∅) ++
+        (if (c i).1 then
+          [anchorAt (P i (lastSlot S.x)) (γ j.castSucc).1] else []) := by
+    intro i
+    show edgeNewMemory F S (permuteLogPoint π τ).1 c i = _
+    unfold edgeNewMemory
+    rw [hc2 i]
+    simp only [permuteLogPoint, hl, hz, hPdef]
+    cases guidedFill F S τ i (q i) <;> rfl
+  have hlogOut : (edgeTraceOutput F S j.val (γ j.succ).1 τ (π, c, π')).2.map Prod.snd =
+      τ.2.map Prod.snd ++ (List.finRange K).flatMap (fun i =>
+        match guidedFill F S τ i (q i) with
+        | Sum.inl _ => []
+        | Sum.inr p => [p.1]) := by
+    show (τ.2 ++ edgeBirths F S j.val (permuteLogPoint π τ).1 c).map Prod.snd = _
+    rw [List.map_append]
+    unfold edgeBirths
+    rw [List.map_flatMap]
+    congr 1
+    apply congrArg (fun f => (List.finRange K).flatMap f)
+    funext i
+    rw [hc2 i]
+    cases guidedFill F S τ i (q i) <;> rfl
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · show ((γ j.succ).1, permuteLists π' (edgeTargetLists F S (permuteLogPoint π τ).1 c)) =
+      γ j.succ
+    rw [hL]
+    refine Prod.ext ?_ ?_
+    · rfl
+    funext i jj
+    simp [hQdef, permuteLists]
+  · intro i
+    rw [hmemOut i, List.map_append]
+    refine List.Nodup.append (((removeIndices_sublist' _ _).map Prod.fst).nodup (hnd i)) ?_ ?_
+    · split_ifs <;> simp
+    · intro a ha hb
+      split_ifs at hb with hbit
+      · simp only [List.map_cons, List.map_nil, List.mem_singleton] at hb
+        obtain ⟨y, hy, rfl⟩ := List.mem_map.mp ha
+        obtain ⟨hp, hpend, -⟩ := (hmem i y).mp ((removeIndices_sublist' _ _).subset hy)
+        apply not_pending_of_active S γ _ _ true _ _ hpend
+        rw [hb]
+        exact (hactj _).mpr ⟨i, _, rfl⟩
+      · simp at hb
+  · intro i x
+    rw [hmemOut i, List.mem_append, mem_removeIndices_iff]
+    constructor
+    · rintro (⟨r, hrD, rfl⟩ | hx)
+      · obtain ⟨hp, hpend, hanc⟩ := (hmem i _).mp (List.get_mem _ r)
+        have hnact0 : ¬ IsActiveAt γ ((τ.1.2.2 i).get r).1 j.castSucc :=
+          fun h => not_pending_of_active S γ _ _ true _ h hpend
+        have hnact1 : ¬ IsActiveAt γ ((τ.1.2.2 i).get r).1 j.succ := by
+          intro h1
+          have hqi := (hfacts i _ hp).1 ⟨(hactj1 _).mp h1, fun h => hnact0 ((hactj _).mpr h)⟩
+          apply hrD
+          rcases hf : guidedFill F S τ i (q i) with k | q'
+          · have hk := guidedFill_inl F S τ i (q i) k hf
+            simp only [Finset.mem_singleton]
+            apply index_inj_of_nodup _ (hnd i)
+            rw [hk, hq i, hqi]
+          · exact absurd ⟨r, by rw [hq i, hqi]⟩ (guidedFill_inr F S τ i (q i) q' hf).2
+        exact ⟨hp, (pending_edge_iff S γ _ _ j hnact0 hnact1).mpr hpend, hanc⟩
+      · split_ifs at hx with hbit
+        · rw [List.mem_singleton] at hx
+          subst hx
+          rw [hc1 i] at hbit
+          obtain ⟨hp, hpend⟩ := of_decide_eq_true hbit
+          have hact : IsActiveAt γ (P i (lastSlot S.x)) j.castSucc :=
+            (hactj _).mpr ⟨i, _, rfl⟩
+          refine ⟨hp, hpend, ?_⟩
+          show (projLine (P i (lastSlot S.x)) (γ j.castSucc).1).val =
+            (lifeLine S γ (P i (lastSlot S.x)) (H i ⟨P i (lastSlot S.x), hp⟩).1).val
+          rw [lifeLine_of_active S γ _ _ _ hact]
+        · simp at hx
+    · rintro ⟨hp, hpend, hanc⟩
+      have hn1 : ¬ IsActiveAt γ x.1 j.succ :=
+        fun h => not_pending_of_active S γ _ _ false _ h hpend
+      by_cases h0 : IsActiveAt γ x.1 j.castSucc
+      · right
+        have hx1 := (hfacts i x.1 hp).2.1 ⟨(hactj _).mp h0, fun h => hn1 ((hactj1 _).mpr h)⟩
+        have hbit : (c i).1 = true := by
+          rw [hc1 i, ← hx1]
+          exact decide_eq_true ⟨hp, hpend⟩
+        rw [if_pos hbit, List.mem_singleton]
+        apply Prod.ext
+        · exact hx1
+        · show x.2 = (projLine (P i (lastSlot S.x)) (γ j.castSucc).1).val
+          rw [hanc, lifeLine_of_active S γ _ _ _ h0, hx1]
+      · left
+        have hpt := (pending_edge_iff S γ _ _ j h0 hn1).mp hpend
+        obtain ⟨r, hr⟩ := List.mem_iff_get.mp ((hmem i x).mpr ⟨hp, hpt, hanc⟩)
+        refine ⟨r, ?_, hr⟩
+        rcases hf : guidedFill F S τ i (q i) with k | q'
+        · simp only [Finset.mem_singleton]
+          intro hrk
+          subst hrk
+          have hk := guidedFill_inl F S τ i (q i) r hf
+          rw [hr] at hk
+          apply hn1
+          rw [hk, hq i]
+          exact (hactj1 _).mpr ⟨i, _, rfl⟩
+        · simp
+  · rw [hlogOut]
+    refine List.Nodup.append hlnd ?_ ?_
+    · rw [List.nodup_flatMap]
+      constructor
+      · intro i _
+        cases guidedFill F S τ i (q i) <;> simp
+      · refine (List.nodup_finRange K).imp ?_
+        intro i i' hii a ha ha'
+        rcases hf : guidedFill F S τ i (q i) with k | q1 <;> simp only [hf] at ha <;>
+          simp at ha
+        rcases hf' : guidedFill F S τ i' (q i') with k' | q2 <;> simp only [hf'] at ha' <;>
+          simp at ha'
+        exact Finset.disjoint_left.mp (hBands i i' hii) (ha ▸ q1.2) (ha' ▸ q2.2)
+    · intro a ha hb
+      obtain ⟨i, -, hai⟩ := List.mem_flatMap.mp hb
+      rcases hf : guidedFill F S τ i (q i) with k | q1 <;> simp only [hf] at hai <;>
+        simp at hai
+      obtain ⟨hq1, hnone⟩ := guidedFill_inr F S τ i (q i) q1 hf
+      subst hq1
+      have hlog := (hlmem a).mp ha
+      have h1 : IsActiveAt γ (q i).1 j.succ :=
+        (hactj1 _).mpr ⟨i, lastSlot S.x, (hq i).symm⟩
+      have h0 : ¬ IsActiveAt γ (q i).1 j.castSucc := by
+        intro h
+        apply (hfacts i _ (q i).2).2.2.1
+        rw [← hq i]
+        exact (hactj _).mp h
+      rw [hai] at hlog
+      have hpt := pending_of_entering_logged F S γ H hBands i (q i) j h1 h0 hlog
+      apply hnone
+      obtain ⟨r, hr⟩ := List.mem_iff_get.mp
+        ((hmem i ((q i).1, (lifeLine S γ (q i).1 (H i (q i)).1).val)).mpr ⟨(q i).2, hpt, rfl⟩)
+      exact ⟨r, by rw [hr]⟩
+  · intro a
+    rw [hlogOut, List.mem_append, hlmem, bornBefore_succ]
+    constructor
+    · rintro (hX | hB)
+      · exact Or.inl hX
+      · right
+        obtain ⟨i, -, hai⟩ := List.mem_flatMap.mp hB
+        rcases hf : guidedFill F S τ i (q i) with k | q1 <;> simp only [hf] at hai <;>
+          simp at hai
+        obtain ⟨hq1, -⟩ := guidedFill_inr F S τ i (q i) q1 hf
+        subst hq1
+        rw [hai]
+        exact (hactj1 _).mpr ⟨i, lastSlot S.x, (hq i).symm⟩
+    · rintro (hX | hA)
+      · exact Or.inl hX
+      by_cases h0 : IsActiveAt γ a j.castSucc
+      · exact Or.inl (Or.inl (Or.inl ⟨j.castSucc, le_rfl, h0⟩))
+      obtain ⟨i, jj, hij⟩ := (hactj1 a).mp hA
+      have hp : a ∈ primeBand S.x (F.a i) := hij ▸ (hQv.1 i jj).2
+      have ha := (hfacts i a hp).1 ⟨⟨i, jj, hij⟩, fun h => h0 ((hactj _).mpr h)⟩
+      rcases hf : guidedFill F S τ i (q i) with k | q1
+      · left
+        have hk := guidedFill_inl F S τ i (q i) k hf
+        obtain ⟨hpk, hpend, -⟩ := (hmem i _).mp (List.get_mem _ k)
+        have hlog : lifeBornBefore F S γ H ((τ.1.2.2 i).get k).1 j.castSucc ∨
+            ∃ i', lifeBornAt F S γ H i' ((τ.1.2.2 i).get k).1 j.castSucc :=
+          logged_of_pending_true F S γ H i ⟨_, hpk⟩ j.castSucc hpend
+        rw [hk, hq i, ← ha] at hlog
+        exact hlog
+      · right
+        obtain ⟨hq1, -⟩ := guidedFill_inr F S τ i (q i) q1 hf
+        subst hq1
+        refine List.mem_flatMap.mpr ⟨i, List.mem_finRange i, ?_⟩
+        rw [hf]
+        simp [ha, hq i]
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
