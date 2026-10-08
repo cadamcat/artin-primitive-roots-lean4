@@ -1,11 +1,12 @@
 import ArtinPrimitiveRoots.A2.Interface
 import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
+import Mathlib.Analysis.Distribution.SchwartzSpace.Fourier
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
 set_option maxHeartbeats 800000
 open NumberField IsDedekindDomain MeasureTheory
-open scoped Classical
+open scoped Classical FourierTransform
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
 open ArtinPrimitiveRoots A1 A2
@@ -1861,7 +1862,102 @@ theorem rf_retained_fourier_separation : ∃ α : ℝ, 0 < α ∧ ∀ N : ℝ, 0
     ∃ C : ℝ, 0 < C ∧ ∀ υ κ v, 0 < v →
       Integrable (fun τ => ‖separatedFourier R ρ υ κ v τ‖) ∧
       (∫ τ : ℝ, ‖separatedFourier R ρ υ κ v τ‖) ≤ C * min (v ^ α) (v ^ (-N)) := by
-  sorry
+  obtain ⟨α, hα, hprofile⟩ := (rf_profile_bound R).2.1
+  refine ⟨α, hα, ?_⟩
+  intro N hN ρ hρ hρc
+  classical
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  letI : Fintype S.V := R.sheets.classFinite
+  let Pairs : Type := UnitSix S × S.V
+  have hPhiDeriv (u : UnitSix S) (κ : S.V) :
+      ∀ j : ℕ, j ≤ 2 → ∀ A : ℝ, 0 < A →
+        ∃ C : ℝ, ∀ x : ℝ, 0 < x →
+          ‖Theta.normDerivR j (profilePhi R u κ) x‖ ≤ C * min (x ^ α) (x ^ (-A)) := by
+    intro j hj A hA
+    obtain ⟨C, _, hbound⟩ := hprofile A hA j
+    exact ⟨C, fun x hx => hbound u κ x hx⟩
+  have hPhiSmooth (u : UnitSix S) (κ : S.V) :
+      ContDiffOn ℝ 2 (profilePhi R u κ) (Set.Ioi 0) := by
+    exact ((rf_profile_bound R).1 u κ).of_le (by norm_num)
+  have hSheet (u : UnitSix S) (κ : S.V) :
+      ∃ C : ℝ, ∀ v : ℝ, 0 < v →
+        (∫ τ : ℝ, ‖𝓕 (fun x : ℝ => ρ x * profilePhi R u κ (v * Real.exp x)) τ‖) ≤
+          C * min (v ^ α) (v ^ (-N)) := by
+    exact Theta.sheet_fourier_separation ρ hρ hρc (profilePhi R u κ) α hα
+      (hPhiDeriv u κ) (hPhiSmooth u κ) N hN
+  let Cpair : Pairs → ℝ := fun p => Classical.choose (hSheet p.1 p.2)
+  have hSheetBound (p : Pairs) (v : ℝ) (hv : 0 < v) :
+      (∫ τ : ℝ, ‖𝓕 (fun x : ℝ => ρ x * profilePhi R p.1 p.2 (v * Real.exp x)) τ‖) ≤
+        Cpair p * min (v ^ α) (v ^ (-N)) :=
+    Classical.choose_spec (hSheet p.1 p.2) v hv
+  let C : ℝ := 1 + ∑ p : Pairs, max 0 (Cpair p)
+  have hCpos : 0 < C := by
+    dsimp [C]
+    have hnonneg : 0 ≤ ∑ p : Pairs, max 0 (Cpair p) := by
+      apply Finset.sum_nonneg
+      intro p hp
+      exact le_max_left 0 _
+    linarith
+  have hCpairLe (p : Pairs) : Cpair p ≤ C := by
+    have hsum : max 0 (Cpair p) ≤ ∑ q : Pairs, max 0 (Cpair q) := by
+      exact Finset.single_le_sum (fun q hq => le_max_left 0 (Cpair q))
+        (Finset.mem_univ p)
+    have hmax : Cpair p ≤ max 0 (Cpair p) := le_max_right _ _
+    dsimp [C]
+    linarith
+  have hprofileFourierEq (u : UnitSix S) (κ : S.V) (v : ℝ) (τ : ℝ) :
+      separatedFourier R ρ u κ v τ =
+        𝓕 (fun x : ℝ => ρ x * profilePhi R u κ (v * Real.exp x)) τ := by
+    rw [separatedFourier, Real.fourier_real_eq_integral_exp_smul]
+    apply integral_congr_ae
+    filter_upwards with x
+    simp only [smul_eq_mul]
+    have hexp : -2 * Real.pi * Complex.I * (x : ℂ) * τ =
+        ((-2 * Real.pi * x * τ : ℝ) : ℂ) * Complex.I := by
+      push_cast
+      ring
+    rw [hexp]
+    ring
+  have hFourierIntegrable (u : UnitSix S) (κ : S.V) (v : ℝ) (hv : 0 < v) :
+      Integrable (fun τ : ℝ => ‖separatedFourier R ρ u κ v τ‖) := by
+    let g : ℝ → ℂ := fun x => ρ x * profilePhi R u κ (v * Real.exp x)
+    have hargSmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun x : ℝ => v * Real.exp x) := by fun_prop
+    have hargPos (x : ℝ) : v * Real.exp x ∈ Set.Ioi (0 : ℝ) :=
+      Set.mem_Ioi.mpr (mul_pos hv (Real.exp_pos x))
+    have hprofileComp : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun x : ℝ => profilePhi R u κ (v * Real.exp x)) := by
+      exact (rf_profile_bound R).1 u κ |>.comp_contDiff hargSmooth hargPos
+    have hgsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g := by
+      dsimp [g]
+      exact hρ.mul hprofileComp
+    have hgcompact : HasCompactSupport g := by
+      dsimp [g]
+      exact hρc.mul_right
+    let G : SchwartzMap ℝ ℂ := hgcompact.toSchwartzMap hgsmooth
+    have hGFourier : Integrable (fun τ : ℝ => (𝓕 G) τ) := (𝓕 G).integrable
+    have hGFourierEq (τ : ℝ) :
+        separatedFourier R ρ u κ v τ = (𝓕 G) τ := by
+      rw [SchwartzMap.fourier_coe]
+      exact hprofileFourierEq u κ v τ
+    exact hGFourier.norm.congr (Filter.Eventually.of_forall fun τ => by
+      change ‖(𝓕 G) τ‖ = ‖separatedFourier R ρ u κ v τ‖
+      exact congrArg (fun z : ℂ => ‖z‖) (hGFourierEq τ).symm)
+  refine ⟨C, hCpos, ?_⟩
+  intro u κ v hv
+  refine ⟨hFourierIntegrable u κ v hv, ?_⟩
+  have hnum :
+      (∫ τ : ℝ, ‖separatedFourier R ρ u κ v τ‖) ≤
+        Cpair (u, κ) * min (v ^ α) (v ^ (-N)) := by
+    calc
+      _ = ∫ τ : ℝ, ‖𝓕 (fun x : ℝ => ρ x * profilePhi R u κ (v * Real.exp x)) τ‖ := by
+        apply integral_congr_ae
+        filter_upwards with τ
+        rw [hprofileFourierEq u κ v τ]
+      _ ≤ Cpair (u, κ) * min (v ^ α) (v ^ (-N)) := hSheetBound (u, κ) v hv
+  have hmin : 0 ≤ min (v ^ α) (v ^ (-N)) := by
+    apply le_min <;> positivity
+  exact le_trans hnum (mul_le_mul_of_nonneg_right (hCpairLe (u, κ)) hmin)
 /-- rf:reflection-assembly: dyadic clause, restoring bounded element multiplicity. -/
 theorem rf_reflection_dyadic_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
   (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
