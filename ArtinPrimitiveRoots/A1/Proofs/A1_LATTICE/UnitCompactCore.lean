@@ -837,11 +837,14 @@ private theorem covol_local_log_compact_cover_core (v : FinPlace F) (M : ℕ) :
 
 private theorem covol_sunit_finite_compact_reduction_core (S : SData F CE condη) :
     ∃ K : Set (∀ v : S.Sf, v.1.adicCompletion F), IsCompact K ∧
-      ∀ x : {x : S.FSˣ // S.absS (x : S.FS) = 1},
+      (∀ x : {x : S.FSˣ // S.absS (x : S.FS) = 1},
         ∃ a : S.US,
           (fun v : S.Sf =>
             ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
-              (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) ∈ K := by
+              (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) ∈ K) ∧
+      (∀ e : 𝓞 F, ∀ z, z ∈ K →
+        (fun v : S.Sf =>
+          algebraMap F (v.1.adicCompletion F) ((e : 𝓞 F) : F) * z v) ∈ K) := by
   classical
   let M : ℕ := 6 * Fintype.card (ClassGroup (𝓞 F))
   let Kloc : ∀ v : S.Sf, Set (v.1.adicCompletion F) := fun v =>
@@ -852,18 +855,33 @@ private theorem covol_sunit_finite_compact_reduction_core (S : SData F CE condη
   have hK : IsCompact K := by
     dsimp [K]
     exact isCompact_univ_pi hKloc
-  refine ⟨K, hK, ?_⟩
-  intro x
-  obtain ⟨a, ha⟩ := covol_sunit_finite_reduction_core S x
-  refine ⟨a, ?_⟩
-  change ∀ v : S.Sf, v ∈ Set.univ →
-    ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
-      (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F) ∈ Kloc v
-  intro v hv
-  have hcover := (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2.1
-  apply hcover
-  · exact (ha v).1
-  · simpa [M] using (ha v).2
+  refine ⟨K, hK, ?_, ?_⟩
+  · intro x
+    obtain ⟨a, ha⟩ := covol_sunit_finite_reduction_core S x
+    refine ⟨a, ?_⟩
+    change ∀ v : S.Sf, v ∈ Set.univ →
+      ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
+        (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F) ∈ Kloc v
+    intro v hv
+    have hcover := (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2.1
+    apply hcover
+    · exact (ha v).1
+    · simpa [M] using (ha v).2
+  · intro e z hz
+    change ∀ v : S.Sf, v ∈ Set.univ →
+      algebraMap F (v.1.adicCompletion F) ((e : 𝓞 F) : F) * z v ∈ Kloc v
+    intro v hv
+    have hzv : z v ∈ Kloc v := by
+      change ∀ v : S.Sf, v ∈ Set.univ → z v ∈ Kloc v at hz
+      exact hz v hv
+    have he : algebraMap F (v.1.adicCompletion F) ((e : 𝓞 F) : F) ∈
+        v.1.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      change Valued.v (((e : 𝓞 F) : F) : v.1.adicCompletion F) ≤ 1
+      rw [v.1.valuedAdicCompletion_eq_valuation']
+      exact v.1.valuation_le_one e
+    exact (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2.2
+      _ he (z v) hzv
 
 
 /-- Compact norm-one representatives modulo sixth powers of S-units, stated using only `Field`.
