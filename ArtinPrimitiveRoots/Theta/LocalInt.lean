@@ -595,7 +595,44 @@ theorem jacquet_spherical_unit (L : FinLocalCover D H v) (τ : TameSplitting L) 
     (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) :
     jacquet L A μ (rtr (L.a (unifLoc v ^ e * u)) f0) =
       localChi D v u ^ (2 * e) • jacquet L A μ (rtr (L.a (unifLoc v ^ e)) f0) := by
-  sorry
+  let y := unifLoc v ^ e
+  let ζ := muThree D (H.hilb v y u)
+  have hζ := muThree_hilb_unif_unit (D := D) (H := H) (v := v) hv e u hu
+  have hamul : L.a y * L.a u = L.z ζ * L.a (y * u) := by
+    simpa [ζ] using L.a_mul y u
+  have hζinv : (L.z ζ)⁻¹ = L.z (ζ⁻¹) := by
+    simpa using (map_inv L.z ζ)
+  have ha : L.a (y * u) = L.z (ζ⁻¹) * L.a y * L.a u := by
+    calc
+      L.a (y * u) = (L.z ζ)⁻¹ * L.z ζ * L.a (y * u) := by group
+      _ = (L.z ζ)⁻¹ * (L.z ζ * L.a (y * u)) := by group
+      _ = (L.z ζ)⁻¹ * (L.a y * L.a u) := by rw [hamul.symm]
+      _ = L.z (ζ⁻¹) * L.a y * L.a u := by rw [hζinv]; group
+  have hKu : L.a u ∈ τ.Kmax := τ.a_mem u hu.1 hu.2
+  have huFix : rtr (L.a u) f0 = f0 := by
+    funext g
+    exact hK g (L.a u) hKu
+  have hnew : rtr (L.a (y * u)) f0 = rtr (L.z (ζ⁻¹)) (rtr (L.a y) f0) := by
+    calc
+      rtr (L.a (y * u)) f0 = rtr (L.z (ζ⁻¹) * L.a y * L.a u) f0 := by rw [ha]
+      _ = rtr (L.z (ζ⁻¹)) (rtr (L.a y) (rtr (L.a u) f0)) := by
+        funext g
+        simp [rtr, mul_assoc]
+      _ = rtr (L.z (ζ⁻¹)) (rtr (L.a y) f0) := by rw [huFix]
+  have hequiv := (jacquet_equiv L T A μ s (rtr (L.a y) f0)
+    (IsSection.rtr hf0 (L.a y))).2 (ζ⁻¹)
+  have hscalar : (((ζ⁻¹ : rootsOfUnity 3 ℂ) : ℂˣ) : ℂ) = localChi D v u ^ (2 * e) := by
+    calc
+      (((ζ⁻¹ : rootsOfUnity 3 ℂ) : ℂˣ) : ℂ) =
+          ((((ζ : rootsOfUnity 3 ℂ) : ℂˣ) : ℂ)⁻¹) := by simp
+      _ = (localChi D v u ^ (-(2 * e)))⁻¹ := by rw [hζ]
+      _ = localChi D v u ^ (2 * e) := by simp [zpow_neg]
+  calc
+    jacquet L A μ (rtr (L.a (y * u)) f0) =
+        jacquet L A μ (rtr (L.z (ζ⁻¹)) (rtr (L.a y) f0)) := by rw [hnew]
+    _ = (((ζ⁻¹ : rootsOfUnity 3 ℂ) : ℂˣ) : ℂ) • jacquet L A μ (rtr (L.a y) f0) := by
+      exact hequiv
+    _ = localChi D v u ^ (2 * e) • jacquet L A μ (rtr (L.a y) f0) := by rw [hscalar]
 
 /-- The shell vector `u = e₀ + q^{-1/6} g_{-2} e₂` (eq:app-J-values). -/
 def shellVec (D : FieldData F) (A : AddCharData F) {T : TorusRep D H v} (B : TameTorusBasis T) : T.V :=
