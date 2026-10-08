@@ -253,6 +253,80 @@ theorem finite_torus_scalar_support_uniform (P : CoverPackage D S H A)
   change (QuotientGroup.mk' G.Δ) a = δ
   exact Quotient.out_eq δ
 
+/-- Rational Bstar representatives refine any surjective family of Borel cusp representatives. -/
+theorem rational_cusp_factorization (P : CoverPackage D S H A)
+    (G : GlobalDatum P)
+    (Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))
+    {ι : Type} (σ : ι → Matrix.SpecialLinearGroup (Fin 2) F)
+    (hσ : Function.Surjective
+      (fun p : (Σ i, ArtinPrimitiveRoots.A1.Spec.CuspCosets F Γ (σ i)) =>
+        Quotient.mk
+          (QuotientGroup.rightRel (ArtinPrimitiveRoots.A1.Spec.borelSL F))
+          ((σ p.1)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F
+            ((p.2.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))))
+    (g : GL (Fin 2) F) :
+    ∃ (i : ι) (q : ArtinPrimitiveRoots.A1.Spec.CuspCosets F Γ (σ i))
+      (δ : Fˣ) (b : GL (Fin 2) F), b ∈ Bstar G ∧
+      g = b * diagGL δ * Matrix.SpecialLinearGroup.toGL
+        ((σ i)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F
+          ((q.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))) := by
+  classical
+  have hdiag (δ : Fˣ) : Matrix.GeneralLinearGroup.det (diagGL δ) = δ := by
+    apply Units.ext
+    change (diagGL δ : Matrix (Fin 2) (Fin 2) F).det = (δ : F)
+    simp [diagGL, Matrix.det_fin_two]
+  let d : Fˣ := Matrix.GeneralLinearGroup.det g
+  have hk : (diagGL d)⁻¹ * g ∈ Matrix.GeneralLinearGroup.det.ker := by
+    change Matrix.GeneralLinearGroup.det ((diagGL d)⁻¹ * g) = 1
+    rw [map_mul, map_inv, hdiag]
+    exact inv_mul_cancel d
+  rw [← Matrix.SpecialLinearGroup.range_toGL_eq_ker_det] at hk
+  obtain ⟨γ, hγ⟩ := hk
+  obtain ⟨⟨i, q⟩, hq⟩ := hσ (Quotient.mk _ γ)
+  let c : Matrix.SpecialLinearGroup (Fin 2) F :=
+    (σ i)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F
+      ((q.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+  change Quotient.mk (QuotientGroup.rightRel (ArtinPrimitiveRoots.A1.Spec.borelSL F)) c =
+    Quotient.mk (QuotientGroup.rightRel (ArtinPrimitiveRoots.A1.Spec.borelSL F)) γ at hq
+  let u : Matrix.SpecialLinearGroup (Fin 2) F := γ * c⁻¹
+  have hu : u 1 0 = 0 :=
+    QuotientGroup.rightRel_apply.mp (Quotient.exact hq)
+  let a : GL (Fin 2) F := diagGL d * Matrix.SpecialLinearGroup.toGL u
+  have hga : g = a * Matrix.SpecialLinearGroup.toGL c := by
+    calc
+      g = diagGL d * Matrix.SpecialLinearGroup.toGL γ := by rw [hγ]; group
+      _ = (diagGL d * Matrix.SpecialLinearGroup.toGL (γ * c⁻¹)) *
+          Matrix.SpecialLinearGroup.toGL c := by rw [map_mul, map_inv]; group
+      _ = _ := rfl
+  let M : Matrix (Fin 2) (Fin 2) F := a
+  have h10 : M 1 0 = 0 := by
+    change ((diagGL d : Matrix (Fin 2) (Fin 2) F) *
+      (u : Matrix (Fin 2) (Fin 2) F)) 1 0 = 0
+    simp [diagGL, Matrix.mul_apply, Fin.sum_univ_two, hu]
+  have hdet : M 0 0 * M 1 1 ≠ 0 := by
+    have hd := Matrix.GeneralLinearGroup.det_ne_zero a
+    change M.det ≠ 0 at hd
+    simpa only [Matrix.det_fin_two, h10, mul_zero, sub_zero] using hd
+  have h00 : M 0 0 ≠ 0 := (mul_ne_zero_iff.mp hdet).1
+  have h11 : M 1 1 ≠ 0 := (mul_ne_zero_iff.mp hdet).2
+  let δ : Fˣ := Units.mk0 (M 0 0 / M 1 1) (div_ne_zero h00 h11)
+  let b : GL (Fin 2) F :=
+    scalarGL (Units.mk0 (M 1 1) h11) * upperGL (M 0 1 / M 1 1)
+  have hb : b ∈ Bstar G := by
+    refine ⟨?_, 1, G.Δ.one_mem, ?_⟩
+    · simp [b, scalarGL, upperGL, Matrix.mul_apply, Fin.sum_univ_two]
+    · simp [b, scalarGL, upperGL, Matrix.mul_apply, Fin.sum_univ_two]
+  have ha : a = b * diagGL δ := by
+    apply Units.ext
+    change M = (b : Matrix (Fin 2) (Fin 2) F) * (diagGL δ : Matrix (Fin 2) (Fin 2) F)
+    ext j k
+    fin_cases j <;> fin_cases k
+    all_goals simp [b, δ, scalarGL, upperGL, diagGL, Matrix.mul_apply,
+      Fin.sum_univ_two, h10]
+    all_goals field_simp
+  refine ⟨i, q, δ, b, hb, ?_⟩
+  exact hga.trans (congrArg (fun t => t * Matrix.SpecialLinearGroup.toGL c) ha)
+
 /-- Finite cusp majorants after bounding the complex components by real spherical sections. -/
 theorem eisenstein_finite_majorants (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ}
     (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
