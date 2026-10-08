@@ -1883,6 +1883,54 @@ private theorem conductorResidueCharacter_conductor_lower
     apply hcond v u hu huinv
     simpa only [hfExp] using hbound
 
+private theorem conductorResidueCharacter_primitive
+    (S : A1.SData F CE condη) (q : S.ExtIdeal)
+    (ω : A1.HeckeChar F) (f : Ideal (𝓞 F)) (hf : IsPrimitiveConductor ω f)
+    (J : Ideal (𝓞 F)) (hJ : ConductorSupportedAtS S J)
+    (hfactor : f = J * q.1)
+    (lambdaq : MulChar (ConductorResidueRing q) ℂ)
+    (hLambda : ∀ (b : 𝓞 F) (hb0 : b ≠ 0)
+      (hb : ∀ w : A1.FinPlace F, w.asIdeal ∣ q.1 → b ∉ w.asIdeal)
+      (y : (ConductorResidueRing q)ˣ),
+      Ideal.Quotient.mk q.1 b = (y : ConductorResidueRing q) →
+      lambdaq (y : ConductorResidueRing q) =
+        (((∏ w : conductorPrimeSupport q.1 q.2.1,
+          ω.loc w.1 (conductorLocalIntegerUnitOfOElement w.1 b hb0
+            (hb w.1 ((mem_conductorPrimeSupport q.1 q.2.1 w.1).mp w.2))).val)
+              : ℂˣ)⁻¹ : ℂ)) :
+    OAI.SevenEighths.FiniteFourier.IsPrimitiveOnIdeals lambdaq := by
+  classical
+  intro L hL
+  by_contra hno
+  have hkillL : ∀ y : (ConductorResidueRing q)ˣ,
+      (y : ConductorResidueRing q) - 1 ∈ L →
+        lambdaq (y : ConductorResidueRing q) = 1 := by
+    intro y hy
+    by_contra hne
+    exact hno ⟨y, hy, hne⟩
+  let K := L.comap (Ideal.Quotient.mk q.1)
+  obtain ⟨hKext, hqK, hKnorm⟩ := conductorQuotientIdeal_comap_properties S q L hL
+  have hmapK : Ideal.map (Ideal.Quotient.mk q.1) K = L :=
+    Ideal.map_comap_of_surjective (Ideal.Quotient.mk q.1) Ideal.Quotient.mk_surjective L
+  have hcondLower : ω.ConductorDvd (J * K) :=
+    conductorResidueCharacter_conductor_lower S q ω f hf.2.1 J hJ hfactor
+      lambdaq hLambda K hKext.1 hqK.le (by
+        intro y hy
+        apply hkillL y
+        simpa only [hmapK] using hy)
+  have hLower0 : J * K ≠ ⊥ := by
+    intro hzero
+    rcases Ideal.mul_eq_bot.mp hzero with hJzero | hKzero
+    · exact hJ.1 hJzero
+    · exact hKext.1 hKzero
+  have hJpos : 0 < Ideal.absNorm J :=
+    Ideal.absNorm_pos_iff_mem_nonZeroDivisors.mpr (by
+      simpa [Ideal.zero_eq_bot] using hJ.1)
+  have hdrop : Ideal.absNorm (J * K) < Ideal.absNorm f := by
+    rw [hfactor, map_mul, map_mul]
+    exact Nat.mul_lt_mul_of_pos_left hKnorm hJpos
+  exact not_le_of_gt hdrop (hf.2.2 (J * K) hLower0 hcondLower)
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
