@@ -3847,6 +3847,120 @@ theorem scalarOf_bruhat_arch_integral
   simpa only [hq, hcompF, hcompC] using
     scalarOf_arch_integral_product_lifts P G Fs t r
 
+/-- Local Bruhat period quotients normalize and reindex the rational ideal quotient. -/
+theorem bruhat_ideal_quotient_reindex
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0) (δ : Fˣ) :
+    let H : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v x =>
+      G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+    let Q := fun v : FinPlace F => (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v
+    let L : ∀ v : FinPlace F, Q v → ℂ := fun v η => H v (Quotient.out η)
+    (∃ T : Finset (FinPlace F), ∀ v ∉ T, L v 0 = 1) ∧
+    (∑' η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+      ∏ᶠ v, H v (algebraMap F (v.adicCompletion F) (Quotient.out η))) =
+      (∑' a : Π₀ v : FinPlace F, Q v, ∏ᶠ v, L v (a v)) ∧
+    (Summable (fun η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup =>
+      ‖∏ᶠ v, H v (algebraMap F (v.adicCompletion F) (Quotient.out η))‖) ↔
+      Summable (fun a : Π₀ v : FinPlace F, Q v => ‖∏ᶠ v, L v (a v)‖)) := by
+  classical
+  let Hfn : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v x =>
+    G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+      (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+  let Q := fun v : FinPlace F => (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v
+  let Lfn : ∀ v : FinPlace F, Q v → ℂ := fun v η => Hfn v (Quotient.out η)
+  let J := F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  let M := Π₀ v : FinPlace F, Q v
+  let f (η : J) : ℂ := ∏ᶠ v, Hfn v (algebraMap F (v.adicCompletion F) (Quotient.out η))
+  let k (a : M) : ℂ := ∏ᶠ v, Lfn v (a v)
+  change (∃ T : Finset (FinPlace F), ∀ v ∉ T, Lfn v 0 = 1) ∧
+    (∑' η : J, f η) = (∑' a : M, k a) ∧
+    (Summable (fun η : J => ‖f η‖) ↔ Summable (fun a : M => ‖k a‖))
+  have hperiod (v : FinPlace F) (x y : v.adicCompletion F)
+      (hy : y ∈ idealLocalPeriods 𝔞 v) : Hfn v (x + y) = Hfn v x := by
+    dsimp only [Hfn]
+    simpa only [ofAdd_add, map_mul, mul_assoc] using
+      local_scalar_ideal_periods_of_nonzero P G Fs r 𝔞 h𝔞 hfix hΦ v
+        ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+          (P.loc v).n (Multiplicative.ofAdd x)) y hy
+  have hout0 (v : FinPlace F) :
+      Quotient.out (0 : Q v) ∈ idealLocalPeriods 𝔞 v := by
+    have hc : (QuotientAddGroup.mk (Quotient.out (0 : Q v)) : Q v) =
+        QuotientAddGroup.mk (0 : v.adicCompletion F) :=
+      (QuotientAddGroup.out_eq' (0 : Q v)).trans (by simp)
+    simpa only [sub_zero] using QuotientAddGroup.eq_iff_sub_mem.mp hc
+  have hzero (v : FinPlace F) : Lfn v 0 = Hfn v 0 := by
+    simpa only [Lfn, zero_add] using
+      hperiod v 0 (Quotient.out (0 : Q v)) (hout0 v)
+  let R : P.RP := P.ratRP (diagGL δ) * P.ratRP weylGL * r
+  have hweyl {K : Type} [Field K] (φ : F →+* K) :
+      Matrix.GeneralLinearGroup.map φ (weylGL (F := F)) = weylM K := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map, weylGL, weylM]
+  have haF (v : FinPlace F) : P.compF v (P.ratRP (diagGL δ)) =
+      (P.loc v).a (toLoc v δ) := by
+    rw [P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    rfl
+  have hwF (v : FinPlace F) : P.compF v (P.ratRP weylGL) = (P.loc v).w := by
+    rw [P.compF_ratRP, hweyl, ← (P.loc v).sec_w]
+  have hcompF (v : FinPlace F) : P.compF v R =
+      (P.loc v).a (toLoc v δ) * (P.loc v).w * P.compF v r := by
+    simp only [R, map_mul, haF, hwF]
+  have hraw0 (v : FinPlace F) : Hfn v 0 = G.lam v (Fs.f v (P.compF v R)) := by
+    rw [hcompF]
+    simp only [Hfn, ofAdd_zero, map_one, mul_one]
+  have hfinite : (Function.mulSupport (fun v => Hfn v 0)).Finite := by
+    simpa only [hraw0] using (scalarOf_q P G Fs R).1
+  obtain ⟨E, hE⟩ := ideal_additive_quotient_equiv 𝔞 h𝔞
+  have hclass (η : J) (v : FinPlace F) :
+      (QuotientAddGroup.mk (algebraMap F (v.adicCompletion F) (Quotient.out η)) : Q v) =
+        E η v := by
+    calc
+      _ = E (QuotientAddGroup.mk (Quotient.out η)) v := (hE (Quotient.out η) v).symm
+      _ = E η v := by rw [QuotientAddGroup.out_eq']
+  have hterm (η : J) (v : FinPlace F) :
+      Hfn v (algebraMap F (v.adicCompletion F) (Quotient.out η)) = Lfn v (E η v) := by
+    let x := algebraMap F (v.adicCompletion F) (Quotient.out η)
+    let y := Quotient.out (E η v)
+    have hm : x - y ∈ idealLocalPeriods 𝔞 v :=
+      QuotientAddGroup.eq_iff_sub_mem.mp
+        ((hclass η v).trans (QuotientAddGroup.out_eq' (E η v)).symm)
+    change Hfn v x = Hfn v y
+    have hxy : x = y + (x - y) := by abel
+    rw [hxy]
+    exact hperiod v y (x - y) hm
+  have hprod (η : J) : f η = k (E η) := by
+    dsimp only [f, k]
+    exact finprod_congr (hterm η)
+  refine ⟨?_, ?_, ?_⟩
+  · refine ⟨hfinite.toFinset, ?_⟩
+    intro v hv
+    rw [hzero]
+    have hvnot : ¬Hfn v 0 ≠ 1 := by
+      simpa only [hfinite.mem_toFinset, Function.mem_mulSupport] using hv
+    exact not_not.mp hvnot
+  · calc
+      (∑' η : J, f η) = ∑' η : J, k (E η) := tsum_congr hprod
+      _ = ∑' a : M, k a := E.toEquiv.tsum_eq k
+  · constructor
+    · intro hf
+      have hh := hf.comp_injective E.symm.injective
+      exact hh.congr fun a => by
+        change ‖f (E.symm a)‖ = ‖k a‖
+        rw [hprod, E.apply_symm_apply]
+    · intro hk
+      have hh := hk.comp_injective E.injective
+      exact hh.congr fun η => by
+        change ‖k (E η)‖ = ‖f η‖
+        rw [hprod]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
