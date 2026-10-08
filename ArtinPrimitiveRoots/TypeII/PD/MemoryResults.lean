@@ -2512,6 +2512,135 @@ private theorem memoryPermutation_card {x : ℝ} {K : ℕ} (s : MemPoint x K) :
   classical
   simp [MemoryPermutation, Fintype.card_perm]
 
+private theorem listOfFn_inversePerm {α : Type*} (l : List α)
+    (σ : Equiv.Perm (Fin l.length)) :
+    List.ofFn (fun j : Fin l.length =>
+      (List.ofFn (fun k => l.get (σ k))).get
+        (finCongr (by simp : (List.ofFn (fun k => l.get (σ k))).length = l.length).symm
+          (σ.symm j))) = l := by
+  let q := List.ofFn (fun k => l.get (σ k))
+  have hq : q.length = l.length := by simp [q]
+  calc
+    _ = List.ofFn (fun j : Fin l.length => l.get j) := by
+      congr 1
+      funext j
+      simp [q, hq, List.get, List.getElem_ofFn, Equiv.apply_symm_apply]
+    _ = l := by simpa using (List.ofFn_getElem l)
+
+private theorem listOfFn_finCongr {α : Type*} {n m : ℕ} (h : n = m)
+    (f : Fin n → α) :
+    List.ofFn (fun j : Fin m => f ((finCongr h).symm j)) = List.ofFn f := by
+  apply List.ext_getElem (by simp [h])
+  intro k hk₁ hk₂
+  simp [List.getElem_ofFn, finCongr_symm_apply_coe]
+
+private theorem list_get_eq_ofFn {α : Type*} {n m : ℕ} (h : n = m)
+    (f : Fin n → α) (l : List α) (hEq : List.ofFn f = l)
+    (hLen : l.length = m) (j : Fin m) :
+    l.get (Fin.cast hLen.symm j) = f ((finCongr h).symm j) := by
+  let jL : Fin l.length := Fin.cast hLen.symm j
+  let k : Fin n := (finCongr h).symm j
+  have hjn : j.val < n := by omega
+  have hjl : j.val < l.length := by omega
+  have hleft : (List.ofFn f)[j.val]? = some (f k) := by
+    simp [List.getElem?_ofFn, hjn] <;> congr 1 <;> apply Fin.ext <;> rfl
+  have hright : l[j.val]? = some (l.get jL) := by
+    rw [List.getElem?_eq_getElem hjl]
+    congr 1
+  have hget := congrArg (fun z : List α => z[j.val]?) hEq
+  rw [hleft, hright] at hget
+  exact (Option.some.inj hget).symm
+
+private def memoryPermutationEquivOfLengths {x : ℝ} {K : ℕ}
+    (s t : MemPoint x K) (hlen : ∀ i : Fin K, (s.2.2 i).length = (t.2.2 i).length) :
+    MemoryPermutation s ≃ MemoryPermutation t :=
+  Equiv.piCongrRight fun i => (finCongr (hlen i)).permCongr
+
+private theorem memoryPermute_inverse_of_eq {x : ℝ} {K : ℕ}
+    (s t : MemPoint x K) (σ : MemoryPermutation s)
+    (h : memoryPermute s σ = t) :
+    memoryPermute t
+      (memoryPermutationEquivOfLengths s t
+        (fun i => by
+          have hm := congrArg (fun u : MemPoint x K => u.2.2 i) h
+          simpa [memoryPermute] using congrArg List.length hm)
+        (fun i => (σ i).symm)) = s := by
+  rcases Prod.mk.inj h with ⟨hpos, hrest⟩
+  rcases Prod.mk.inj hrest with ⟨hactive, hmem⟩
+  have hlen (i : Fin K) : (s.2.2 i).length = (t.2.2 i).length := by
+    have hm := congrFun hmem i
+    simpa [memoryPermute] using congrArg List.length hm
+  have hlistInv (i : Fin K) :
+      List.ofFn (fun j : Fin (t.2.2 i).length =>
+        (t.2.2 i).get (((finCongr (hlen i)).permCongr (σ i).symm) j)) =
+          s.2.2 i := by
+    calc
+      _ = List.ofFn (fun j : Fin (t.2.2 i).length =>
+            (s.2.2 i).get ((finCongr (hlen i)).symm j)) := by
+          apply congrArg List.ofFn
+          funext j
+          have hget := list_get_eq_ofFn (hlen i)
+            (fun k => (s.2.2 i).get ((σ i) k)) (t.2.2 i)
+            (congrFun hmem i) rfl
+            (((finCongr (hlen i)).permCongr (σ i).symm) j)
+          simpa [Equiv.permCongr_apply, Equiv.apply_symm_apply] using hget
+      _ = List.ofFn (fun j : Fin (s.2.2 i).length => (s.2.2 i).get j) :=
+        listOfFn_finCongr (hlen i) (fun j => (s.2.2 i).get j)
+      _ = s.2.2 i := by simpa using (List.ofFn_getElem (s.2.2 i))
+  apply Prod.ext
+  · exact hpos.symm
+  · apply Prod.ext
+    · exact hactive.symm
+    · funext i
+      simpa [memoryPermutationEquivOfLengths, memoryPermute] using hlistInv i
+
+private def memoryPermutationInverseEquiv {x : ℝ} {K : ℕ} (s : MemPoint x K) :
+    MemoryPermutation s ≃ MemoryPermutation s where
+  toFun σ := fun i => (σ i).symm
+  invFun σ := fun i => (σ i).symm
+  left_inv σ := by
+    funext i
+    simp
+  right_inv σ := by
+    funext i
+    simp
+
+private theorem memoryPermute_iff_inverse {x : ℝ} {K : ℕ}
+    (s t : MemPoint x K) (hlen : ∀ i : Fin K, (s.2.2 i).length = (t.2.2 i).length)
+    (σ : MemoryPermutation s) :
+    memoryPermute s σ = t ↔
+      memoryPermute t
+        ((memoryPermutationInverseEquiv s).trans
+          (memoryPermutationEquivOfLengths s t hlen) σ) = s := by
+  let inv := memoryPermutationInverseEquiv s
+  let e := memoryPermutationEquivOfLengths s t hlen
+  let u := inv.trans e
+  constructor
+  · intro h
+    simpa [u, inv, e, memoryPermutationInverseEquiv,
+      memoryPermutationEquivOfLengths] using memoryPermute_inverse_of_eq s t σ h
+  · intro h
+    have hback := memoryPermute_inverse_of_eq t s (u σ) h
+    have he : memoryPermutationEquivOfLengths t s (fun i => (hlen i).symm) = e.symm := by
+      have he_i (i : Fin K) :
+          (finCongr (hlen i).symm).permCongr =
+            ((finCongr (hlen i)).permCongr).symm := by
+        rw [Equiv.permCongr_symm, finCongr_symm]
+      apply Equiv.ext
+      intro q
+      funext i
+      exact congrArg (fun f => f (q i)) (he_i i)
+    have hmap :
+        memoryPermutationEquivOfLengths t s (fun i => (hlen i).symm)
+          (fun i => (u σ i).symm) = σ := by
+      rw [he]
+      ext i
+      simp [u, inv, e, memoryPermutationInverseEquiv,
+        memoryPermutationEquivOfLengths, Equiv.permCongr_apply,
+        Equiv.permCongr_symm, Equiv.permCongr_trans, Equiv.permCongr_def]
+    rw [← hmap]
+    exact hback
+
 private theorem memorySym_delta_eq_sum {x : ℝ} {K : ℕ} (s t : MemPoint x K) :
     memorySym (fun u => if u = t then (1 : ℂ) else 0) s =
       (Fintype.card (MemoryPermutation s) : ℂ)⁻¹ *
@@ -2519,6 +2648,89 @@ private theorem memorySym_delta_eq_sum {x : ℝ} {K : ℕ} (s t : MemPoint x K) 
           if memoryPermute s σ = t then (1 : ℂ) else 0 := by
   classical
   simp [memorySym]
+
+private theorem memorySym_delta_symmetric_of_lengths {x : ℝ} {K : ℕ}
+    (s t : MemPoint x K)
+    (hlen : ∀ i : Fin K, (s.2.2 i).length = (t.2.2 i).length) :
+    memorySym (fun u => if u = t then (1 : ℂ) else 0) s =
+      memorySym (fun u => if u = s then (1 : ℂ) else 0) t := by
+  classical
+  let e := memoryPermutationEquivOfLengths s t hlen
+  let inv := memoryPermutationInverseEquiv s
+  let u := inv.trans e
+  have hcard : Fintype.card (MemoryPermutation s) = Fintype.card (MemoryPermutation t) :=
+    Fintype.card_congr e
+  have hcardC : (Fintype.card (MemoryPermutation s) : ℂ) =
+      (Fintype.card (MemoryPermutation t) : ℂ) := by exact_mod_cast hcard
+  have hsum :
+      (∑ σ : MemoryPermutation s,
+        if memoryPermute s σ = t then (1 : ℂ) else 0) =
+      ∑ σ : MemoryPermutation s,
+        if memoryPermute t (u σ) = s then (1 : ℂ) else 0 := by
+    apply Finset.sum_congr rfl
+    intro σ hσ
+    by_cases hσ' : memoryPermute s σ = t
+    · have hInv := (memoryPermute_iff_inverse s t hlen σ).1 hσ'
+      simpa [u, inv, e, memoryPermutationInverseEquiv,
+        memoryPermutationEquivOfLengths, hσ'] using hInv
+    · have hInv : memoryPermute t (u σ) ≠ s := by
+        intro hInv
+        exact hσ' ((memoryPermute_iff_inverse s t hlen σ).2 hInv)
+      simp [hσ', hInv]
+  calc
+    _ = (Fintype.card (MemoryPermutation s) : ℂ)⁻¹ *
+        ∑ σ : MemoryPermutation s,
+          if memoryPermute s σ = t then (1 : ℂ) else 0 :=
+      memorySym_delta_eq_sum s t
+    _ = (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+        ∑ σ : MemoryPermutation s,
+          if memoryPermute t (u σ) = s then (1 : ℂ) else 0 := by rw [hcardC, hsum]
+    _ = (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+        ∑ τ : MemoryPermutation t,
+          if memoryPermute t τ = s then (1 : ℂ) else 0 := by
+      congr 1
+      exact Equiv.sum_comp u (fun τ : MemoryPermutation t =>
+        if memoryPermute t τ = s then (1 : ℂ) else 0)
+    _ = memorySym (fun u => if u = s then (1 : ℂ) else 0) t :=
+      (memorySym_delta_eq_sum t s).symm
+
+private theorem memorySym_delta_zero_of_memory_length_ne {x : ℝ} {K : ℕ}
+    (s t : MemPoint x K)
+    (hlen : ∃ i : Fin K, (s.2.2 i).length ≠ (t.2.2 i).length) :
+    memorySym (fun u => if u = t then (1 : ℂ) else 0) s = 0 := by
+  classical
+  rw [memorySym_delta_eq_sum]
+  obtain ⟨i, hlen⟩ := hlen
+  have hne (σ : MemoryPermutation s) : memoryPermute s σ ≠ t := by
+    intro heq
+    apply hlen
+    have h := congrArg (fun u : MemPoint x K => (u.2.2 i).length) heq
+    simpa [memoryPermute] using h
+  simp [hne]
+
+private theorem memorySym_delta_symmetric {x : ℝ} {K : ℕ}
+    (s t : MemPoint x K) :
+    memorySym (fun u => if u = t then (1 : ℂ) else 0) s =
+      memorySym (fun u => if u = s then (1 : ℂ) else 0) t := by
+  classical
+  by_cases hlen : ∀ i : Fin K, (s.2.2 i).length = (t.2.2 i).length
+  · exact memorySym_delta_symmetric_of_lengths s t hlen
+  · have hne : ∃ i : Fin K, (s.2.2 i).length ≠ (t.2.2 i).length := by
+      push_neg at hlen
+      exact hlen
+    rw [memorySym_delta_zero_of_memory_length_ne s t hne]
+    rw [memorySym_delta_zero_of_memory_length_ne t s (by
+      rcases hne with ⟨i, hi⟩
+      exact ⟨i, Ne.symm hi⟩)]
+
+private theorem memorySym_delta_target_sum {x : ℝ} {K : ℕ}
+    (s t : MemPoint x K) :
+    memorySym (fun u => if u = t then (1 : ℂ) else 0) s =
+      (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+        ∑ σ : MemoryPermutation t,
+          if memoryPermute t σ = s then (1 : ℂ) else 0 := by
+  rw [memorySym_delta_symmetric]
+  exact memorySym_delta_eq_sum t s
 
 private theorem memorySym_delta_row_le {x : ℝ} {K : ℕ} (s : MemPoint x K)
     (T : Finset (MemPoint x K)) :
@@ -2686,6 +2898,109 @@ private theorem weave_splitByMask {α : Type*} (mask : List Bool) (l : List α)
           cases b <;>
             simp [splitByMask, weaveByMask, ih l htail]
 
+private theorem splitByMask_weaveByMask {α : Type*} (mask : List Bool)
+    (kept selected : List α)
+    (hcount : (mask.filter id).length = selected.length)
+    (hlen : mask.length = kept.length + selected.length) :
+    splitByMask mask (weaveByMask mask kept selected) = (kept, selected) := by
+  induction mask generalizing kept selected with
+  | nil =>
+      cases kept <;> cases selected <;> simp_all [splitByMask, weaveByMask]
+  | cons b mask ih =>
+      cases b with
+      | false =>
+          cases kept with
+          | nil =>
+              have hcount' : (mask.filter id).length = selected.length := by
+                simpa using hcount
+              simp only [List.length_cons, List.length_nil] at hlen
+              rw [List.length_eq_length_filter_add (l := mask) id, hcount'] at hlen
+              omega
+          | cons a kept =>
+              have hcount' : (mask.filter id).length = selected.length := by
+                simpa using hcount
+              have hlen' : mask.length = kept.length + selected.length := by
+                simp only [List.length_cons] at hlen
+                omega
+              have hi := ih kept selected hcount' hlen'
+              simpa [splitByMask, weaveByMask] using
+                congrArg (fun p : List α × List α => (a :: p.1, p.2)) hi
+      | true =>
+          cases selected with
+          | nil => simp at hcount
+          | cons a selected =>
+              have hcount' : (mask.filter id).length = selected.length := by
+                simp at hcount
+                omega
+              have hlen' : mask.length = kept.length + selected.length := by
+                simp only [List.length_cons] at hlen
+                omega
+              have hi := ih kept selected hcount' hlen'
+              simpa [splitByMask, weaveByMask] using
+                congrArg (fun p : List α × List α => (p.1, a :: p.2)) hi
+
+private def maskOfFinset {n : ℕ} (D : Finset (Fin n)) : List Bool :=
+  (List.finRange n).map fun k => decide (k ∈ D)
+
+private theorem maskOfFinset_length {n : ℕ} (D : Finset (Fin n)) :
+    (maskOfFinset D).length = n := by
+  simp [maskOfFinset]
+
+private theorem maskOfFinset_true_count {n : ℕ} (D : Finset (Fin n)) :
+    ((maskOfFinset D).filter id).length = D.card := by
+  classical
+  have hfin : (List.finRange n).toFinset = (Finset.univ : Finset (Fin n)) := by
+    ext k
+    simp
+  have hcount :
+      (List.finRange n).countP (fun k => decide (k ∈ D)) =
+        ((List.finRange n).toFinset.filter (fun k => k ∈ D)).card :=
+    (List.nodup_finRange n).card_eq_countP.symm
+  calc
+    _ = (maskOfFinset D).countP id := by rw [List.countP_eq_length_filter]
+    _ = (List.finRange n).countP (fun k => decide (k ∈ D)) := by
+      simp [maskOfFinset, List.countP_map]
+    _ = D.card := by simp [hcount, hfin]
+
+private theorem weaveByMask_length {α : Type*} (mask : List Bool)
+    (kept selected : List α)
+    (hcount : (mask.filter id).length = selected.length)
+    (hlen : mask.length = kept.length + selected.length) :
+    (weaveByMask mask kept selected).length = mask.length := by
+  induction mask generalizing kept selected with
+  | nil =>
+      cases kept <;> cases selected <;> simp_all [weaveByMask]
+  | cons b mask ih =>
+      cases b with
+      | false =>
+          cases kept with
+          | nil =>
+              have hcount' : (mask.filter id).length = selected.length := by
+                simpa using hcount
+              simp only [List.length_cons, List.length_nil] at hlen
+              rw [List.length_eq_length_filter_add (l := mask) id, hcount'] at hlen
+              omega
+          | cons a kept =>
+              have hcount' : (mask.filter id).length = selected.length := by
+                simpa using hcount
+              have hlen' : mask.length = kept.length + selected.length := by
+                simp only [List.length_cons] at hlen
+                omega
+              have hrec := ih kept selected hcount' hlen'
+              simp [weaveByMask, hrec]
+      | true =>
+          cases selected with
+          | nil => simp at hcount
+          | cons a selected =>
+              have hcount' : (mask.filter id).length = selected.length := by
+                simp at hcount
+                omega
+              have hlen' : mask.length = kept.length + selected.length := by
+                simp only [List.length_cons] at hlen
+                omega
+              have hrec := ih kept selected hcount' hlen'
+              simp [weaveByMask, hrec]
+
 private theorem splitByMask_eq_zip {α : Type*} (mask : List Bool) (l : List α)
     (hlen : mask.length = l.length) :
     splitByMask mask l =
@@ -2738,17 +3053,55 @@ private theorem splitByMask_deletionMask (l : List Particle)
     (D : Finset (Fin l.length)) :
     splitByMask (deletionMask l D) l = (removeIndices l D, selectIndices l D) := by
   have hlen : (deletionMask l D).length = l.length := by simp [deletionMask]
-  rw [splitByMask_eq_zip (deletionMask l D) l hlen]
-  have hzip : (deletionMask l D).zip l =
-      (List.finRange l.length).map (fun k => (decide (k ∈ D), l.get k)) := by
+  let r := List.finRange l.length
+  have hzip : List.zip r l = r.map fun k => (k, l.get k) := by
     calc
-      _ = ((List.finRange l.length).map fun k => decide (k ∈ D)).zip
-          ((List.finRange l.length).map fun k => l.get k) := by
-        rw [List.map_get_finRange]
-        rfl
-      _ = _ := List.zip_map'
-  rw [hzip]
-  simp [removeIndices, selectIndices, List.filterMap_map, Function.comp_def]
+      List.zip r l = List.zip r (r.map l.get) :=
+        congrArg (List.zip r) (List.map_get_finRange l).symm
+      _ = (List.zip r r).map (Prod.map id l.get) := by rw [List.zip_map_right]
+      _ = r.map fun k => (k, l.get k) := by
+        rw [List.zip_eq_zipWith, List.zipWith_self]
+        simp
+  rw [splitByMask_eq_zip (deletionMask l D) l hlen]
+  simp [deletionMask, removeIndices, selectIndices, List.zip_map_left,
+    List.filterMap_map, hzip, r]
+
+private theorem weave_remove_select (l : List Particle) (D : Finset (Fin l.length)) :
+    weaveByMask (deletionMask l D) (removeIndices l D) (selectIndices l D) = l := by
+  have hlen : (deletionMask l D).length = l.length := by simp [deletionMask]
+  have h := weave_splitByMask (deletionMask l D) l hlen
+  rw [splitByMask_deletionMask l D] at h
+  simpa using h
+
+private theorem deletionData_eq_of_parts {l l' : List Particle}
+    (D : Finset (Fin l.length)) (D' : Finset (Fin l'.length))
+    (hmask : deletionMask l D = deletionMask l' D')
+    (hremove : removeIndices l D = removeIndices l' D')
+    (hselect : selectIndices l D = selectIndices l' D') :
+    l = l' ∧ HEq D D' := by
+  have hl : l = l' := by
+    calc
+      l = weaveByMask (deletionMask l D) (removeIndices l D) (selectIndices l D) :=
+        (weave_remove_select l D).symm
+      _ = weaveByMask (deletionMask l' D') (removeIndices l' D') (selectIndices l' D') := by
+        rw [hmask, hremove, hselect]
+      _ = l' := weave_remove_select l' D'
+  subst l'
+  have hD : D = D' := by
+    apply Finset.ext
+    intro k
+    have hbool : decide (k ∈ D) = decide (k ∈ D') := by
+      have hget := congrArg (fun q : List Bool => q[k.val]?) hmask
+      simpa [deletionMask] using hget
+    by_cases hk : k ∈ D <;> by_cases hk' : k ∈ D' <;> simp_all
+  cases hD
+  exact ⟨rfl, HEq.rfl⟩
+
+private theorem append_eq_prefix_suffix {α : Type*} (pre suffix target : List α)
+    (h : pre ++ suffix = target) :
+    target.take pre.length = pre ∧ target.drop pre.length = suffix := by
+  rw [← h]
+  simp
 
 private theorem remove_select_prod_eq {β : Type*} [CommMonoid β]
     (l : List Particle) (D : Finset (Fin l.length)) (f : Particle → β) :
@@ -3722,6 +4075,64 @@ private def ghostOutputState {x : ℝ} {K : ℕ}
     removeIndices (s.2.2 i) (D i) ++
       List.ofFn fun k => anchorAt (new i k).1 s.1)
 
+private theorem ghostOutputState_eq_components {x : ℝ} {K : ℕ}
+    (F : PDFix K) (s t : MemPoint x K)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length))
+    (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand x (F.a i)})
+    (h : ghostOutputState F s D m new = t) :
+    s.1 = t.1 ∧ s.2.1 = t.2.1 ∧
+      ∀ i, removeIndices (s.2.2 i) (D i) ++
+          List.ofFn (fun k => anchorAt (new i k).1 s.1) = t.2.2 i := by
+  have h' := h
+  simp only [ghostOutputState] at h'
+  rcases Prod.mk.inj h' with ⟨hpos, hrest⟩
+  rcases Prod.mk.inj hrest with ⟨hactive, hmem⟩
+  exact ⟨hpos, hactive, fun i => congrFun hmem i⟩
+
+private theorem ghostOutputState_split {x : ℝ} {K : ℕ}
+    (F : PDFix K) (s t : MemPoint x K)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand x (F.a i)})
+    (hout : ghostOutputState F s D m new = t) :
+    ∀ i, (t.2.2 i).take (removeIndices (s.2.2 i) (D i)).length =
+        removeIndices (s.2.2 i) (D i) ∧
+      (t.2.2 i).drop (removeIndices (s.2.2 i) (D i)).length =
+        List.ofFn (fun k => anchorAt (new i k).1 s.1) := by
+  have hcomp := ghostOutputState_eq_components F s t D m new hout
+  intro i
+  exact append_eq_prefix_suffix _ _ _ (hcomp.2.2 i)
+
+private theorem ghostOutputState_suffix_hit {x : ℝ} {K : ℕ}
+    (F : PDFix K) (s t : MemPoint x K)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand x (F.a i)})
+    (hout : ghostOutputState F s D m new = t) :
+    ∀ i e, e ∈ (t.2.2 i).drop (removeIndices (s.2.2 i) (D i)).length →
+      particleHits e t.1 := by
+  have hpos := (ghostOutputState_eq_components F s t D m new hout).1
+  have hsplit := ghostOutputState_split F s t D m new hout
+  intro i e he
+  rw [(hsplit i).2] at he
+  rcases List.mem_ofFn.mp he with ⟨k, rfl⟩
+  simpa [particleHits, anchorAt, hpos]
+
+private theorem ghostOutputState_source_reconstruct {x : ℝ} {K : ℕ}
+    (F : PDFix K) (s t : MemPoint x K)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand x (F.a i)})
+    (hout : ghostOutputState F s D m new = t) :
+    ∀ i, weaveByMask (deletionMask (s.2.2 i) (D i))
+        ((t.2.2 i).take (removeIndices (s.2.2 i) (D i)).length)
+        (selectIndices (s.2.2 i) (D i)) = s.2.2 i := by
+  have hsplit := ghostOutputState_split F s t D m new hout
+  intro i
+  calc
+    _ = weaveByMask (deletionMask (s.2.2 i) (D i))
+          (removeIndices (s.2.2 i) (D i)) (selectIndices (s.2.2 i) (D i)) := by
+        rw [(hsplit i).1]
+    _ = s.2.2 i := weave_remove_select _ _
+
 private theorem ghostOutputState_memSize {x : ℝ} {K : ℕ}
     (F : PDFix K) (s : MemPoint x K)
     (D : (i : Fin K) → Finset (Fin (s.2.2 i).length))
@@ -3772,6 +4183,24 @@ private def ghostKernelTerm {K : ℕ}
         (ghostOutputState F s D m new)
   else 0
 
+private theorem ghostKernelTerm_eq_target_perm_sum {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K) (ρ : ℝ) (j : ℕ)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length))
+    (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)}) :
+    ghostKernelTerm F S s ρ j t D m new =
+      if hD : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1 then
+        ((∏ i : Fin K,
+          ghostGroupCoeff F S ρ j i (hitCount (s.2.2 i) s.1) (D i).card (m i)
+            (List.ofFn fun k => (new i k).1) : ℝ) : ℂ) *
+          (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+            ∑ σ : MemoryPermutation t,
+              if memoryPermute t σ = ghostOutputState F s D m new then (1 : ℂ) else 0
+      else 0 := by
+  by_cases hD : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1
+  · simp [ghostKernelTerm, hD, memorySym_delta_target_sum] <;> ring
+  · simp [ghostKernelTerm, hD]
+
 private theorem ghostKernelTerm_zero_of_large_batch {K : ℕ}
     (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K)
     (ρ : ℝ) (j B : ℕ)
@@ -3789,6 +4218,79 @@ private theorem ghostKernelTerm_zero_of_large_batch {K : ℕ}
 
 private abbrev GhostBatchLengths (K B : ℕ) : Finset (Fin K → ℕ) :=
   Fintype.piFinset fun _ : Fin K => Finset.range (2 * B + 1)
+
+private def ghostOrderedKernelTerm {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s : MemPoint S.x K) (ρ : ℝ) (j : ℕ)
+    (t : MemPoint S.x K)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length))
+    (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)}) : ℂ :=
+  if hD : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1 then
+    ((∏ i : Fin K,
+      ghostGroupCoeff F S ρ j i
+        (hitCount (s.2.2 i) s.1) (D i).card (m i)
+        (List.ofFn fun k => (new i k).1) : ℝ) : ℂ) *
+      (if ghostOutputState F s D m new = t then 1 else 0)
+  else 0
+
+private theorem ghostOrderedKernelTerm_zero_of_large_batch {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K)
+    (ρ : ℝ) (j B : ℕ)
+    (hs : memSize s ≤ B) (ht : memSize t ≤ B)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)})
+    (i : Fin K) (hm : 2 * B < m i) :
+    ghostOrderedKernelTerm F S s ρ j t D m new = 0 := by
+  have hout := ghostOutputState_memSize_gt_of_large_batch F s B D m new hs i hm
+  have hne : ghostOutputState F s D m new ≠ t := by
+    intro heq
+    have hsize := congrArg memSize heq
+    omega
+  by_cases hD : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1
+  · simp [ghostOrderedKernelTerm, hD, hne]
+  · simp [ghostOrderedKernelTerm, hD]
+
+private theorem ghostOrderedKernelTerm_zero_of_length_vec_notin {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K)
+    (ρ : ℝ) (j B : ℕ) (hs : memSize s ≤ B) (ht : memSize t ≤ B)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)})
+    (hm : m ∉ GhostBatchLengths K B) :
+    ghostOrderedKernelTerm F S s ρ j t D m new = 0 := by
+  have hnotL : ¬ ∀ i : Fin K, m i ∈ Finset.range (2 * B + 1) := by
+    simpa [GhostBatchLengths, Fintype.mem_piFinset] using hm
+  have hnot : ¬ ∀ i : Fin K, m i ≤ 2 * B := by
+    intro hall
+    apply hnotL
+    intro i
+    have hmi : m i ≤ 2 * B := hall i
+    exact Finset.mem_range.mpr (by omega)
+  rcases not_forall.mp hnot with ⟨i, hi⟩
+  have hmi : 2 * B < m i := by omega
+  exact ghostOrderedKernelTerm_zero_of_large_batch F S s t ρ j B hs ht D m new i hmi
+
+set_option maxHeartbeats 1000000 in
+private theorem memGhostOrderedKernel_finite {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (j : ℕ)
+    (s t : MemPoint S.x K) (B : ℕ)
+    (hs : memSize s ≤ B) (ht : memSize t ≤ B) :
+    memKernel (memGhost F S ρ j) s t =
+      ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostOrderedKernelTerm F S s ρ j t D m new := by
+  classical
+  let δt : MemPoint S.x K → ℂ := fun u => if u = t then 1 else 0
+  change logGhost F S ρ j (fun σL => δt σL.1) (s, []) = _
+  unfold logGhost
+  simp only [ghostOrderedKernelTerm, ghostOutputState]
+  apply Finset.sum_congr rfl
+  intro D hD
+  apply tsum_eq_sum
+  intro m hm
+  apply Finset.sum_eq_zero
+  intro new hnew
+  exact ghostOrderedKernelTerm_zero_of_length_vec_notin F S s t ρ j B hs ht D m new hm
 
 private theorem ghostKernelTerm_zero_of_length_vec_notin {K : ℕ}
     (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K)
@@ -3812,6 +4314,14 @@ private def ghostChoiceKernelTerm {K : ℕ}
     (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K) (ρ : ℝ) (j B : ℕ)
     (choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i) : ℂ :=
   ghostKernelTerm F S s ρ j t
+    (fun i => (choices i).1.1)
+    (fun i => (choices i).2.1.1)
+    (fun i k => (choices i).2.2 k)
+
+private def ghostOrderedChoiceKernelTerm {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K) (ρ : ℝ) (j B : ℕ)
+    (choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i) : ℂ :=
+  ghostOrderedKernelTerm F S s ρ j t
     (fun i => (choices i).1.1)
     (fun i => (choices i).2.1.1)
     (fun i k => (choices i).2.2 k)
@@ -4032,6 +4542,18 @@ private theorem ghostFlatKernelTerm_eq_choice {K : ℕ}
       ghostChoiceKernelTerm F S s t ρ j B (ghostFlatChoiceEquiv F s B c) := by
   rfl
 
+private def ghostFlatOrderedKernelTerm {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K) (ρ : ℝ) (j B : ℕ)
+    (c : GhostFlatChoice F s B) : ℂ :=
+  ghostOrderedKernelTerm F S s ρ j t c.1.1 c.2.1.1 c.2.2
+
+private theorem ghostFlatOrderedKernelTerm_eq_choice {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K) (ρ : ℝ) (j B : ℕ)
+    (c : GhostFlatChoice F s B) :
+    ghostFlatOrderedKernelTerm F S s t ρ j B c =
+      ghostOrderedChoiceKernelTerm F S s t ρ j B (ghostFlatChoiceEquiv F s B c) := by
+  rfl
+
 private theorem memGhostProjectedKernel_choiceSum {K : ℕ}
     (F : PDFix K) (S : PDScale) (ρ : ℝ) (j : ℕ)
     (s t : MemPoint S.x K) (B : ℕ)
@@ -4135,6 +4657,624 @@ private theorem memGhostProjectedKernel_choiceSum {K : ℕ}
           _ = ghostChoiceKernelTerm F S s t ρ j B choices := by
             rw [(ghostFlatChoiceEquiv F s B).apply_symm_apply]
 
+private theorem memGhostOrderedKernel_choiceSum {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (j : ℕ)
+    (s t : MemPoint S.x K) (B : ℕ)
+    (hs : memSize s ≤ B) (ht : memSize t ≤ B) :
+    memKernel (memGhost F S ρ j) s t =
+      ∑ choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i,
+        ghostOrderedChoiceKernelTerm F S s t ρ j B choices := by
+  classical
+  rw [memGhostOrderedKernel_finite F S ρ j s t B hs ht]
+  let DVec := GhostDeletionVec s
+  let DGood := ghostGoodDeletionSet s
+  let P : (i : Fin K) → Type := fun i => GhostPrimeChoice (x := S.x) F i
+  let fD : DVec → ℂ := fun D =>
+    ∑ m ∈ GhostBatchLengths K B,
+      ∑ new : (i : Fin K) → Fin (m i) → P i,
+        ghostOrderedKernelTerm F S s ρ j t D m new
+  have hbad (D : DVec) (hD : D ∉ DGood) : fD D = 0 := by
+    dsimp [fD]
+    apply Finset.sum_eq_zero
+    intro m hm
+    apply Finset.sum_eq_zero
+    intro new hnew
+    have hgood : ¬ ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1 := by
+      intro hg
+      have hset : D ∈ DGood := by
+        dsimp [DGood, ghostGoodDeletionSet]
+        exact Finset.mem_filter.mpr
+          ⟨Finset.mem_univ D, fun i => Finset.mem_powerset.mpr (hg i)⟩
+      exact hD hset
+    simp [ghostOrderedKernelTerm, hgood]
+  have hGoodSet : DGood =
+      (Finset.univ : Finset DVec).filter
+        (fun D => ∀ i, D i ∈ (hitIndices (s.2.2 i) s.1).powerset) := by
+    rfl
+  have hDsum :
+      (∑ D : DVec, fD D) = ∑ D ∈ DGood, fD D := by
+    calc
+      _ = ∑ D ∈ (Finset.univ : Finset DVec), fD D := by simp
+      _ = ∑ D ∈ Finset.univ, if D ∈ DGood then fD D else 0 := by
+        apply Finset.sum_congr rfl
+        intro D hD
+        by_cases hg : D ∈ DGood
+        · simp [hg]
+        · simp [hg, hbad D hg]
+      _ = ∑ D ∈ Finset.univ,
+            if ∀ i, D i ∈ (hitIndices (s.2.2 i) s.1).powerset then fD D else 0 := by
+        apply Finset.sum_congr rfl
+        intro D hD
+        simp [DGood, ghostGoodDeletionSet]
+      _ = ∑ D ∈ DGood, fD D := by
+        symm
+        rw [hGoodSet, Finset.sum_filter]
+  have hDsub :
+      (∑ D ∈ DGood, fD D) = ∑ d : GhostGoodDeletionVec s, fD d.1 := by
+    symm
+    exact sum_subtype_eq_sum_finset DGood fD
+  rw [hDsum, hDsub]
+  have hM (d : GhostGoodDeletionVec s) :
+      (∑ m ∈ GhostBatchLengths K B,
+        ∑ new : (i : Fin K) → Fin (m i) → P i,
+          ghostOrderedKernelTerm F S s ρ j t d.1 m new) =
+        ∑ m : GhostBatchLengthVec K B,
+          ∑ new : GhostBatchVec (x := S.x) F m.1,
+            ghostOrderedKernelTerm F S s ρ j t d.1 m.1 new := by
+    symm
+    exact sum_subtype_eq_sum_finset (GhostBatchLengths K B)
+      (fun m => ∑ new : (i : Fin K) → Fin (m i) → P i,
+        ghostOrderedKernelTerm F S s ρ j t d.1 m new)
+  calc
+    _ = ∑ d : GhostGoodDeletionVec s,
+          ∑ m : GhostBatchLengthVec K B,
+            ∑ new : GhostBatchVec (x := S.x) F m.1,
+              ghostOrderedKernelTerm F S s ρ j t d.1 m.1 new := by
+        apply Finset.sum_congr rfl
+        intro d hd
+        exact hM d
+    _ = ∑ c : GhostFlatChoice F s B, ghostFlatOrderedKernelTerm F S s t ρ j B c := by
+        symm
+        simp only [Fintype.sum_sigma, ghostFlatOrderedKernelTerm]
+    _ = ∑ choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i,
+          ghostFlatOrderedKernelTerm F S s t ρ j B
+            ((ghostFlatChoiceEquiv F s B).symm choices) := by
+        exact Equiv.sum_comp (ghostFlatChoiceEquiv F s B)
+          (fun choices => ghostFlatOrderedKernelTerm F S s t ρ j B
+            ((ghostFlatChoiceEquiv F s B).symm choices))
+    _ = _ := by
+        apply Finset.sum_congr rfl
+        intro choices hchoices
+        calc
+          ghostFlatOrderedKernelTerm F S s t ρ j B
+              ((ghostFlatChoiceEquiv F s B).symm choices) =
+              ghostOrderedChoiceKernelTerm F S s t ρ j B
+                (ghostFlatChoiceEquiv F s B
+                  ((ghostFlatChoiceEquiv F s B).symm choices)) :=
+            ghostFlatOrderedKernelTerm_eq_choice F S s t ρ j B _
+          _ = ghostOrderedChoiceKernelTerm F S s t ρ j B choices := by
+            rw [(ghostFlatChoiceEquiv F s B).apply_symm_apply]
+
+private theorem ghostChoiceKernelTerm_target_perm_sum {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s t : MemPoint S.x K) (ρ : ℝ) (j B : ℕ)
+    (choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i) :
+    ghostChoiceKernelTerm F S s t ρ j B choices =
+      (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+        ∑ σ : MemoryPermutation t,
+          ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices := by
+  classical
+  let D : (i : Fin K) → Finset (Fin (s.2.2 i).length) := fun i => (choices i).1.1
+  let m : Fin K → ℕ := fun i => (choices i).2.1.1
+  let new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)} :=
+    fun i k => (choices i).2.2 k
+  let coeff : ℂ := ((∏ i : Fin K,
+      ghostGroupCoeff F S ρ j i (hitCount (s.2.2 i) s.1) (D i).card (m i)
+        (List.ofFn fun k => (new i k).1) : ℝ) : ℂ)
+  have hgood : (∀ i, D i ⊆ hitIndices (s.2.2 i) s.1) ↔
+      ∀ i, (choices i).1.1 ⊆ hitIndices (s.2.2 i) s.1 := by
+    simp [D]
+  change ghostKernelTerm F S s ρ j t
+      (fun i => (choices i).1.1)
+      (fun i => (choices i).2.1.1)
+      (fun i k => (choices i).2.2 k) = _
+  by_cases hg : ∀ i, (choices i).1.1 ⊆ hitIndices (s.2.2 i) s.1
+  · have hD : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1 := hgood.mpr hg
+    have hsum :
+        (∑ σ : MemoryPermutation t,
+          if memoryPermute t σ = ghostOutputState F s D m new then (1 : ℂ) else 0) =
+        ∑ σ : MemoryPermutation t,
+          if ghostOutputState F s D m new = memoryPermute t σ then (1 : ℂ) else 0 := by
+      apply Finset.sum_congr rfl
+      intro σ hσ
+      simp [eq_comm]
+    have hsumChoice :
+        (∑ σ : MemoryPermutation t,
+          if memoryPermute t σ = ghostOutputState F s
+              (fun i => (choices i).1.1) (fun i => (choices i).2.1.1)
+              (fun i k => (choices i).2.2 k) then (1 : ℂ) else 0) =
+        ∑ σ : MemoryPermutation t,
+          if ghostOutputState F s
+              (fun i => (choices i).1.1) (fun i => (choices i).2.1.1)
+              (fun i k => (choices i).2.2 k) = memoryPermute t σ then (1 : ℂ) else 0 := by
+      simpa [D, m, new] using hsum
+    rw [ghostKernelTerm_eq_target_perm_sum]
+    rw [dif_pos hg]
+    rw [hsumChoice]
+    change coeff * (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+        (∑ σ : MemoryPermutation t,
+          if ghostOutputState F s D m new = memoryPermute t σ then (1 : ℂ) else 0) =
+      (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+        ∑ σ : MemoryPermutation t,
+          ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices
+    calc
+      _ = (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+          (coeff * ∑ σ : MemoryPermutation t,
+            if ghostOutputState F s D m new = memoryPermute t σ then (1 : ℂ) else 0) := by ring
+      _ = (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+          ∑ σ : MemoryPermutation t,
+            coeff * (if ghostOutputState F s D m new = memoryPermute t σ then (1 : ℂ) else 0) := by
+        rw [Finset.mul_sum]
+      _ = (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+          ∑ σ : MemoryPermutation t,
+            ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices := by
+        apply congrArg (fun z : ℂ => (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ * z)
+        apply Finset.sum_congr rfl
+        intro σ hσ
+        simp [ghostOrderedChoiceKernelTerm, ghostOrderedKernelTerm, D, m, new, hD, coeff, eq_comm]
+  · have hD : ¬ ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1 := fun h => hg (hgood.mp h)
+    rw [ghostKernelTerm_eq_target_perm_sum]
+    simp [hg, hD, ghostOrderedChoiceKernelTerm, ghostOrderedKernelTerm, D, m, new]
+
+private theorem memGhostProjectedKernel_target_perm_sum {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (j : ℕ)
+    (s t : MemPoint S.x K) (B : ℕ)
+    (hs : memSize s ≤ B) (ht : memSize t ≤ B) :
+    memKernel (fun f => memGhost F S ρ j (memorySym f)) s t =
+      (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+        ∑ σ : MemoryPermutation t,
+          memKernel (memGhost F S ρ j) s (memoryPermute t σ) := by
+  classical
+  let choicesType := (i : Fin K) → GhostGroupChoice F s (2 * B) i
+  have hprojected := memGhostProjectedKernel_choiceSum F S ρ j s t B hs ht
+  have hordered (σ : MemoryPermutation t) :
+      memKernel (memGhost F S ρ j) s (memoryPermute t σ) =
+        ∑ choices : choicesType,
+          ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices :=
+    memGhostOrderedKernel_choiceSum F S ρ j s (memoryPermute t σ) B hs
+      (by simpa only [memSize_memoryPermute] using ht)
+  calc
+    _ = ∑ choices : choicesType, ghostChoiceKernelTerm F S s t ρ j B choices := hprojected
+    _ = ∑ choices : choicesType,
+          (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+            ∑ σ : MemoryPermutation t,
+              ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices := by
+        apply Finset.sum_congr rfl
+        intro choices hc
+        exact ghostChoiceKernelTerm_target_perm_sum F S s t ρ j B choices
+    _ = (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+          ∑ σ : MemoryPermutation t,
+            ∑ choices : choicesType,
+              ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices := by
+        calc
+          _ = ∑ choices : choicesType,
+                ∑ σ : MemoryPermutation t,
+                  (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+                    ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices := by
+              simp_rw [Finset.mul_sum]
+          _ = ∑ σ : MemoryPermutation t,
+                ∑ choices : choicesType,
+                  (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+                    ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices := by
+              rw [Finset.sum_comm]
+          _ = (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+                ∑ σ : MemoryPermutation t,
+                  ∑ choices : choicesType,
+                    ghostOrderedChoiceKernelTerm F S s (memoryPermute t σ) ρ j B choices := by
+              rw [Finset.mul_sum]
+              apply Finset.sum_congr rfl
+              intro σ hσ
+              rw [Finset.mul_sum]
+    _ = (Fintype.card (MemoryPermutation t) : ℂ)⁻¹ *
+          ∑ σ : MemoryPermutation t,
+            memKernel (memGhost F S ρ j) s (memoryPermute t σ) := by
+        congr 1
+        apply Finset.sum_congr rfl
+        intro σ hσ
+        exact (hordered σ).symm
+
+private def permuteFinset {α : Type*} [DecidableEq α]
+    (s : Finset α) (σ : Equiv.Perm α) : Finset α :=
+  s.map σ.toEmbedding
+
+private theorem permuteFinset_trans {α : Type*} [DecidableEq α]
+    (s : Finset α) (σ τ : Equiv.Perm α) :
+    permuteFinset s (σ.trans τ) = permuteFinset (permuteFinset s σ) τ := by
+  classical
+  simp [permuteFinset, Finset.map_map]
+
+private theorem exists_perm_map_finset {α : Type*} [Fintype α] [DecidableEq α]
+    (s t : Finset α) (hcard : s.card = t.card) :
+    ∃ τ : Equiv.Perm α, permuteFinset s τ = t := by
+  classical
+  let p : α → Prop := fun x => x ∈ (s : Set α)
+  let q : α → Prop := fun x => x ∈ (t : Set α)
+  have hsubcard : Fintype.card {x // p x} = Fintype.card {x // q x} := by
+    rw [Fintype.card_of_subtype s (by intro x; simp [p]),
+      Fintype.card_of_subtype t (by intro x; simp [q])]
+    exact hcard
+  let e : {x // p x} ≃ {x // q x} := Classical.choice (Fintype.card_eq.mp hsubcard)
+  let ec : {x // ¬ p x} ≃ {x // ¬ q x} := Equiv.toCompl e
+  let τ : Equiv.Perm α := Equiv.subtypeCongr e ec
+  have hτ (x : α) (hx : p x) : τ x = (e ⟨x, hx⟩ : α) := by
+    simp [τ, Equiv.subtypeCongr, Equiv.sumCompl_symm_apply_of_pos hx]
+  refine ⟨τ, ?_⟩
+  ext y
+  constructor
+  · intro hy
+    rcases Finset.mem_map.mp hy with ⟨x, hx, hxy⟩
+    have hτx := hτ x (by simpa [p] using hx)
+    have hxy' : τ x = y := by simpa using hxy
+    rw [hxy'] at hτx
+    change q y
+    rw [hτx]
+    exact (e ⟨x, by simpa [p] using hx⟩).property
+  · intro hy
+    obtain ⟨x, hxe⟩ := e.surjective ⟨y, by simpa [q] using hy⟩
+    refine Finset.mem_map.mpr ⟨x.1, ?_, ?_⟩
+    · simpa [p] using x.2
+    · have hτx := hτ x.1 x.2
+      calc
+        τ x.1 = (e x).1 := hτx
+        _ = y := congrArg Subtype.val hxe
+
+private def permuteFinsetFiber {α : Type*} [DecidableEq α]
+    (s t : Finset α) := {σ : Equiv.Perm α // permuteFinset s σ = t}
+
+private noncomputable def permuteFinsetFiberEquiv {α : Type*} [Fintype α] [DecidableEq α]
+    (s d e : Finset α) (hcard : d.card = e.card) :
+    permuteFinsetFiber s d ≃ permuteFinsetFiber s e := by
+  classical
+  let τ : Equiv.Perm α := Classical.choose (exists_perm_map_finset d e hcard)
+  have hτ : permuteFinset d τ = e := Classical.choose_spec (exists_perm_map_finset d e hcard)
+  have hτinv : permuteFinset e τ.symm = d := by
+    calc
+      permuteFinset e τ.symm = permuteFinset (permuteFinset d τ) τ.symm := by rw [hτ]
+      _ = permuteFinset d (τ.trans τ.symm) := (permuteFinset_trans d τ τ.symm).symm
+      _ = d := by simp [permuteFinset]
+  refine
+    { toFun := fun σ => ⟨σ.1.trans τ, ?_⟩
+      invFun := fun σ => ⟨σ.1.trans τ.symm, ?_⟩
+      left_inv := ?_
+      right_inv := ?_ }
+  · rw [permuteFinset_trans, σ.2, hτ]
+  · rw [permuteFinset_trans, σ.2, hτinv]
+  · intro σ
+    apply Subtype.ext
+    ext x
+    simp
+  · intro σ
+    apply Subtype.ext
+    ext x
+    simp
+
+private theorem permuteFinsetFiber_card_eq {α : Type*} [Fintype α] [DecidableEq α]
+    (s d e : Finset α) (hcard : d.card = e.card)
+    [Fintype (permuteFinsetFiber s d)] [Fintype (permuteFinsetFiber s e)] :
+    Fintype.card (permuteFinsetFiber s d) = Fintype.card (permuteFinsetFiber s e) :=
+  Fintype.card_congr (permuteFinsetFiberEquiv s d e hcard)
+
+private noncomputable def permuteFinsetFiberFintype {α : Type*} [Fintype α] [DecidableEq α]
+    (s t : Finset α) : Fintype (permuteFinsetFiber s t) := by
+  classical
+  letI : Finite (Equiv.Perm α) := Finite.of_fintype _
+  letI : Finite (permuteFinsetFiber s t) :=
+    Finite.of_injective Subtype.val Subtype.val_injective
+  exact Fintype.ofFinite _
+
+private theorem permuteFinsetFiber_finset_card {α : Type*} [Fintype α] [DecidableEq α]
+    (s t : Finset α) [Fintype (permuteFinsetFiber s t)] :
+    (Finset.univ.filter (fun σ : Equiv.Perm α => permuteFinset s σ = t)).card =
+      Fintype.card (permuteFinsetFiber s t) := by
+  classical
+  let T := Finset.univ.filter (fun σ : Equiv.Perm α => permuteFinset s σ = t)
+  let e : permuteFinsetFiber s t ≃ T :=
+    { toFun := fun σ => ⟨σ.1, by
+          have hEq : permuteFinset s σ.1 = t := by
+            simpa [permuteFinsetFiber] using σ.2
+          exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, hEq⟩⟩
+      invFun := fun σ => ⟨σ.1, by
+          have hσ : σ.1 ∈ (Finset.univ.filter
+              (fun τ : Equiv.Perm α => permuteFinset s τ = t)) := by
+            simpa [T] using σ.2
+          exact (Finset.mem_filter.mp hσ).2⟩
+      left_inv := by intro σ; apply Subtype.ext; rfl
+      right_inv := by intro σ; apply Subtype.ext; rfl }
+  calc
+    T.card = Fintype.card T := (Fintype.card_coe T).symm
+    _ = Fintype.card (permuteFinsetFiber s t) := (Fintype.card_congr e).symm
+
+private theorem permuteFinset_subset_probability {α : Type*} [Fintype α] [DecidableEq α]
+    (A H : Finset α) (l : ℕ) (hAl : A.card = l) :
+    (Fintype.card (Equiv.Perm α) : ℝ)⁻¹ *
+        (∑ σ : Equiv.Perm α,
+          (if permuteFinset A σ ⊆ H then (1 : ℝ) else 0)) =
+      (Nat.choose H.card l : ℝ) / (Nat.choose (Fintype.card α) l : ℝ) := by
+  classical
+  let good : Finset (Equiv.Perm α) :=
+    Finset.univ.filter fun σ => permuteFinset A σ ⊆ H
+  let allSets : Finset (Finset α) := Finset.univ.powersetCard l
+  let goodSets : Finset (Finset α) := H.powersetCard l
+  letI : Fintype (permuteFinsetFiber A A) := permuteFinsetFiberFintype A A
+  let N : ℕ := Fintype.card (permuteFinsetFiber A A)
+  have hNpos : 0 < N := by
+    dsimp [N]
+    apply Fintype.card_pos_iff.mpr
+    refine ⟨⟨Equiv.refl α, ?_⟩⟩
+    simp [permuteFinsetFiber, permuteFinset]
+  have hFiber (D : Finset α) (hDl : D.card = l)
+      [Fintype (permuteFinsetFiber A D)] :
+      Fintype.card (permuteFinsetFiber A D) = N := by
+    have hDA : D.card = A.card := by rw [hDl, hAl]
+    simpa [N] using permuteFinsetFiber_card_eq A D A hDA
+  have hGoodMaps : ∀ σ ∈ good, permuteFinset A σ ∈ goodSets := by
+    intro σ hσ
+    have hsub : permuteFinset A σ ⊆ H := (Finset.mem_filter.mp hσ).2
+    have hcard : (permuteFinset A σ).card = l := by
+      simp [permuteFinset, hAl]
+    exact Finset.mem_powersetCard.mpr ⟨hsub, hcard⟩
+  have hAllMap : ∀ σ : Equiv.Perm α,
+      permuteFinset A σ ∈ allSets := by
+    intro σ
+    apply Finset.mem_powersetCard.mpr
+    constructor
+    · exact Finset.subset_univ _
+    · simp [allSets, permuteFinset, hAl]
+  have hAllMaps :
+      ((Finset.univ : Finset (Equiv.Perm α)) : Set (Equiv.Perm α)).MapsTo
+        (permuteFinset A) (allSets : Set (Finset α)) := by
+    intro σ hσ
+    exact hAllMap σ
+  have hGoodCard : good.card = goodSets.card * N := by
+    calc
+      good.card = ∑ D ∈ goodSets,
+          (good.filter fun σ => permuteFinset A σ = D).card :=
+        Finset.card_eq_sum_card_fiberwise hGoodMaps
+      _ = ∑ D ∈ goodSets,
+          (Finset.univ.filter fun σ : Equiv.Perm α => permuteFinset A σ = D).card := by
+        apply Finset.sum_congr rfl
+        intro D hD
+        have hsub : D ⊆ H := (Finset.mem_powersetCard.mp hD).1
+        have hEq : good.filter (fun σ => permuteFinset A σ = D) =
+            Finset.univ.filter fun σ : Equiv.Perm α => permuteFinset A σ = D := by
+          ext σ
+          simp only [Finset.mem_filter, Finset.mem_univ, true_and, good]
+          constructor
+          · rintro ⟨_, hEq⟩
+            exact hEq
+          · intro hEq
+            exact ⟨by rw [hEq]; exact hsub, hEq⟩
+        rw [hEq]
+      _ = ∑ D ∈ goodSets, N := by
+        apply Finset.sum_congr rfl
+        intro D hD
+        have hDl := (Finset.mem_powersetCard.mp hD).2
+        letI : Fintype (permuteFinsetFiber A D) := permuteFinsetFiberFintype A D
+        rw [permuteFinsetFiber_finset_card]
+        exact hFiber D hDl
+      _ = goodSets.card * N := by simp
+  have hAllCard : Fintype.card (Equiv.Perm α) = allSets.card * N := by
+    calc
+      Fintype.card (Equiv.Perm α) = (Finset.univ : Finset (Equiv.Perm α)).card := by simp
+      _ = ∑ D ∈ allSets,
+          ((Finset.univ : Finset (Equiv.Perm α)).filter fun σ => permuteFinset A σ = D).card :=
+        Finset.card_eq_sum_card_fiberwise hAllMaps
+      _ = ∑ D ∈ allSets,
+          (Finset.univ.filter fun σ : Equiv.Perm α => permuteFinset A σ = D).card := by
+        apply Finset.sum_congr rfl
+        intro D hD
+        simp
+      _ = ∑ D ∈ allSets, N := by
+        apply Finset.sum_congr rfl
+        intro D hD
+        have hDl := (Finset.mem_powersetCard.mp hD).2
+        letI : Fintype (permuteFinsetFiber A D) := permuteFinsetFiberFintype A D
+        rw [permuteFinsetFiber_finset_card]
+        exact hFiber D hDl
+      _ = allSets.card * N := by simp
+  have hsum :
+      (∑ σ : Equiv.Perm α,
+        (if permuteFinset A σ ⊆ H then (1 : ℝ) else 0)) = (good.card : ℝ) := by
+    simp [good, Finset.sum_filter]
+  have hGoodCast : (good.card : ℝ) =
+      (Nat.choose H.card l : ℝ) * (N : ℝ) := by
+    rw [hGoodCard, Finset.card_powersetCard]
+    norm_cast
+  have hAllCast : (Fintype.card (Equiv.Perm α) : ℝ) =
+      (Nat.choose (Fintype.card α) l : ℝ) * (N : ℝ) := by
+    rw [hAllCard]
+    simp [allSets, Finset.card_powersetCard, Finset.card_univ]
+  have hle : l ≤ Fintype.card α := by
+    rw [← hAl]
+    exact Finset.card_le_univ A
+  have hchoose : 0 < (Nat.choose (Fintype.card α) l : ℝ) := by
+    exact_mod_cast Nat.choose_pos hle
+  have hNreal : (N : ℝ) ≠ 0 := by
+    exact_mod_cast (Nat.ne_of_gt hNpos)
+  rw [hsum, hGoodCast, hAllCast]
+  field_simp [hchoose.ne', hNreal]
+
+private def suffixPosition {n m : ℕ} (hm : m ≤ n) (j : Fin m) : Fin n :=
+  ⟨n - m + j.val, by omega⟩
+
+private def suffixPositionEmbedding {n m : ℕ} (hm : m ≤ n) : Fin m ↪ Fin n where
+  toFun := suffixPosition hm
+  inj' := by
+    intro j k hjk
+    apply Fin.ext
+    have hval := congrArg Fin.val hjk
+    dsimp [suffixPosition] at hval
+    omega
+
+private def suffixPositionSet {n m : ℕ} (hm : m ≤ n) : Finset (Fin n) :=
+  Finset.univ.map (suffixPositionEmbedding hm)
+
+private theorem suffixPositionSet_card {n m : ℕ} (hm : m ≤ n) :
+    (suffixPositionSet hm).card = m := by
+  simp [suffixPositionSet]
+
+private theorem list_drop_ofFn_suffix {α : Type*} {n m : ℕ} (hm : m ≤ n)
+    (f : Fin n → α) :
+    List.drop (n - m) (List.ofFn f) =
+      List.ofFn (fun j : Fin m => f (suffixPosition hm j)) := by
+  have hlen : (List.drop (n - m) (List.ofFn f)).length =
+      (List.ofFn fun j : Fin m => f (suffixPosition hm j)).length := by
+    simp
+    omega
+  apply List.ext_getElem hlen
+  intro j hj₁ hj₂
+  simp [List.getElem_drop, suffixPosition]
+
+private theorem listPermutation_suffixHit_probability (l : List Particle) (m : ℕ)
+    (hm : m ≤ l.length) (z : ℤ × ℤ) :
+    (Fintype.card (Equiv.Perm (Fin l.length)) : ℝ)⁻¹ *
+      ∑ σ : Equiv.Perm (Fin l.length),
+        (if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop (l.length - m),
+            particleHits e z then (1 : ℝ) else 0) =
+      (Nat.choose (hitIndices l z).card m : ℝ) /
+        (Nat.choose l.length m : ℝ) := by
+  classical
+  let A := suffixPositionSet hm
+  have hA : A.card = m := suffixPositionSet_card hm
+  have hEvent (σ : Equiv.Perm (Fin l.length)) :
+      (∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop (l.length - m),
+        particleHits e z) ↔ permuteFinset A σ ⊆ hitIndices l z := by
+    constructor
+    · intro h k hk
+      rcases Finset.mem_map.mp hk with ⟨j, hj, rfl⟩
+      rcases Finset.mem_map.mp hj with ⟨j₀, hj₀, hjEq⟩
+      subst j
+      have he : l.get (σ (suffixPosition hm j₀)) ∈
+          (List.ofFn fun k : Fin l.length => l.get (σ k)).drop (l.length - m) := by
+        rw [list_drop_ofFn_suffix hm]
+        exact List.mem_ofFn.mpr ⟨j₀, rfl⟩
+      have hh := h _ he
+      exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, hh⟩
+    · intro h e he
+      rw [list_drop_ofFn_suffix hm] at he
+      rcases List.mem_ofFn.mp he with ⟨j, rfl⟩
+      have hj : suffixPosition hm j ∈ A := by
+        change suffixPosition hm j ∈ Finset.univ.map (suffixPositionEmbedding hm)
+        exact Finset.mem_map.mpr ⟨j, Finset.mem_univ _, rfl⟩
+      have hσj : σ (suffixPosition hm j) ∈ permuteFinset A σ :=
+        Finset.mem_map.mpr ⟨suffixPosition hm j, hj, rfl⟩
+      have hhit := h hσj
+      exact (Finset.mem_filter.mp hhit).2
+  have hsum :
+      (∑ σ : Equiv.Perm (Fin l.length),
+        if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop (l.length - m),
+            particleHits e z then (1 : ℝ) else 0) =
+      ∑ σ : Equiv.Perm (Fin l.length),
+        if permuteFinset A σ ⊆ hitIndices l z then (1 : ℝ) else 0 := by
+    apply Finset.sum_congr rfl
+    intro σ hσ
+    exact if_congr (hEvent σ) rfl rfl
+  have hprob := permuteFinset_subset_probability A (hitIndices l z) m hA
+  rw [hsum]
+  simpa [hitCount, A] using hprob
+
+/-- Averaging the ordered suffix coefficient replaces the list-length binomial
+factor by the hit-count binomial factor, including repeated particles. -/
+private theorem ghost_suffix_average_polynomial (l : List Particle)
+    (z : ℤ × ℤ) (a b : ℝ) :
+    (Fintype.card (Equiv.Perm (Fin l.length)) : ℝ)⁻¹ *
+      (∑ σ : Equiv.Perm (Fin l.length),
+        ∑ m ∈ Finset.range (l.length + 1),
+          if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+              (l.length - m), particleHits e z then
+            (Nat.choose l.length m : ℝ) * a ^ m * b ^ (hitCount l z - m)
+          else 0) =
+      (a + b) ^ hitCount l z := by
+  classical
+  let h := hitCount l z
+  have hle : h ≤ l.length := by
+    simpa [h, hitCount] using Finset.card_le_univ (hitIndices l z)
+  have hterm (m : ℕ) (hm : m ∈ Finset.range (l.length + 1)) :
+      (Fintype.card (Equiv.Perm (Fin l.length)) : ℝ)⁻¹ *
+        (∑ σ : Equiv.Perm (Fin l.length),
+          if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+              (l.length - m), particleHits e z then
+            (Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)
+          else 0) =
+        (Nat.choose h m : ℝ) * a ^ m * b ^ (h - m) := by
+    have hmle : m ≤ l.length := by simpa using Finset.mem_range.mp hm
+    have hchoose : (Nat.choose l.length m : ℝ) ≠ 0 := by
+      exact_mod_cast (Nat.choose_pos hmle).ne'
+    have hprob := listPermutation_suffixHit_probability l m hmle z
+    have hsum :
+        (∑ σ : Equiv.Perm (Fin l.length),
+          if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+              (l.length - m), particleHits e z then
+            (Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)
+          else 0) =
+        (∑ σ : Equiv.Perm (Fin l.length),
+          if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+              (l.length - m), particleHits e z then (1 : ℝ) else 0) *
+          ((Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)) := by
+      rw [Finset.sum_mul]
+      apply Finset.sum_congr rfl
+      intro σ hσ
+      split_ifs <;> simp
+    rw [hsum, ← mul_assoc, hprob]
+    change ((Nat.choose h m : ℝ) / (Nat.choose l.length m : ℝ)) *
+      ((Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)) = _
+    field_simp [hchoose] <;> ring
+  calc
+    _ = ∑ m ∈ Finset.range (l.length + 1),
+        (Fintype.card (Equiv.Perm (Fin l.length)) : ℝ)⁻¹ *
+          (∑ σ : Equiv.Perm (Fin l.length),
+            if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+                (l.length - m), particleHits e z then
+              (Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)
+            else 0) := by
+      rw [Finset.sum_comm, Finset.mul_sum]
+    _ = ∑ m ∈ Finset.range (l.length + 1),
+        (Nat.choose h m : ℝ) * a ^ m * b ^ (h - m) := by
+      apply Finset.sum_congr rfl
+      exact hterm
+    _ = ∑ m ∈ Finset.range (h + 1),
+        (Nat.choose h m : ℝ) * a ^ m * b ^ (h - m) := by
+      symm
+      apply Finset.sum_subset (Finset.range_mono (Nat.add_le_add_right hle 1))
+      intro m hm hnot
+      have hhm : h < m := by
+        have hnot' : ¬ m < h + 1 := by simpa using hnot
+        omega
+      simp [Nat.choose_eq_zero_of_lt hhm]
+    _ = (a + b) ^ h := by
+      rw [add_pow]
+      apply Finset.sum_congr rfl
+      intro m hm
+      ring
+
+private theorem ghostOutputState_permutation_suffix_hits {x : ℝ} {K : ℕ}
+    (F : PDFix K) (s t : MemPoint x K)
+    (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+    (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand x (F.a i)})
+    (σ : MemoryPermutation t)
+    (hout : ghostOutputState F s D m new = memoryPermute t σ) :
+    ∀ i e, e ∈ (List.ofFn fun k : Fin (t.2.2 i).length => (t.2.2 i).get (σ i k)).drop
+        ((t.2.2 i).length - m i) → particleHits e t.1 := by
+  intro i e he
+  let retained := removeIndices (s.2.2 i) (D i)
+  have hlen : retained.length + m i = (t.2.2 i).length := by
+    have hcomp := (ghostOutputState_eq_components F s (memoryPermute t σ)
+      D m new hout).2.2 i
+    simpa [retained, memoryPermute] using congrArg List.length hcomp
+  have hpre : retained.length = (t.2.2 i).length - m i := by omega
+  rw [← hpre] at he
+  change e ∈ ((memoryPermute t σ).2.2 i).drop retained.length at he
+  exact ghostOutputState_suffix_hit F s (memoryPermute t σ) D m new hout i e he
+
 private theorem ghostChoicePi_sum_flatten {x : ℝ} {K : ℕ}
     (F : PDFix K) (s : MemPoint x K) (B : ℕ)
     (g : ((i : Fin K) → GhostGroupChoice F s B i) → ℝ) :
@@ -4191,6 +5331,564 @@ private theorem ghost_interleave_factorial_active (n d : ℕ) :
   have htotal : 0 < ((n + d).factorial : ℝ) := by positivity
   field_simp [ne_of_gt hn, ne_of_gt hd, ne_of_gt htotal]
   nlinarith [hReal]
+
+/-- The indexed source/deletion pairs with fixed retained and selected lists
+have at most the shuffle multiplicity. The source factorial cancels it. -/
+private theorem ghost_source_shuffle_weight_le
+    (kept selected : List Particle) (T : Finset (List Particle))
+    (c : ℝ) (hc : 0 ≤ c) :
+    (∑ l ∈ T, ∑ D : Finset (Fin l.length),
+      if removeIndices l D = kept ∧ selectIndices l D = selected then
+        c / (l.length.factorial : ℝ) else 0) ≤
+      c / ((kept.length.factorial : ℝ) * (selected.length.factorial : ℝ)) := by
+  classical
+  let A := Σ l : {l : List Particle // l ∈ T}, Finset (Fin l.1.length)
+  let P (q : A) : Prop :=
+    removeIndices q.1.1 q.2 = kept ∧ selectIndices q.1.1 q.2 = selected
+  let good : Finset A := Finset.univ.filter P
+  let n := kept.length + selected.length
+  let d := selected.length
+  let masks : Finset (Finset (Fin n)) := Finset.univ.powersetCard d
+  have hparts (q : good) : P q.1 := (Finset.mem_filter.mp q.2).2
+  have hlen (q : good) : q.1.1.1.length = n := by
+    have hp := remove_select_perm q.1.1.1 q.1.2
+    rw [(hparts q).1, (hparts q).2] at hp
+    simpa [n] using hp.length_eq.symm
+  have hdel (q : good) : q.1.2.card = d := by
+    have h := congrArg List.length (hparts q).2
+    simpa [selectIndices_length, d] using h
+  let toMask : good → {D // D ∈ masks} := fun q =>
+    ⟨q.1.2.map (finCongr (hlen q)).toEmbedding,
+      Finset.mem_powersetCard.mpr ⟨Finset.subset_univ _, by
+        simpa using hdel q⟩⟩
+  have hcast (l : List Particle) (D : Finset (Fin l.length))
+      (n' : ℕ) (h : l.length = n') :
+      deletionMask l D = maskOfFinset (D.map (finCongr h).toEmbedding) := by
+    subst n'
+    simp [deletionMask, maskOfFinset]
+  have hinj : Function.Injective toMask := by
+    intro q r hqr
+    have hm : deletionMask q.1.1.1 q.1.2 = deletionMask r.1.1.1 r.1.2 := by
+      calc
+        _ = maskOfFinset (toMask q).1 := hcast _ _ _ (hlen q)
+        _ = maskOfFinset (toMask r).1 := congrArg (fun D => maskOfFinset D.1) hqr
+        _ = _ := (hcast _ _ _ (hlen r)).symm
+    have heq := deletionData_eq_of_parts q.1.2 r.1.2 hm
+      ((hparts q).1.trans (hparts r).1.symm)
+      ((hparts q).2.trans (hparts r).2.symm)
+    apply Subtype.ext
+    exact Sigma.ext (Subtype.ext heq.1) heq.2
+  have hcard : good.card ≤ Nat.choose n d := by
+    have h := Fintype.card_le_of_injective toMask hinj
+    simpa [masks, Finset.card_powersetCard] using h
+  have hsum :
+      (∑ l ∈ T, ∑ D : Finset (Fin l.length),
+        if removeIndices l D = kept ∧ selectIndices l D = selected then
+          c / (l.length.factorial : ℝ) else 0) =
+      (∑ q : A, if P q then c / (q.1.1.length.factorial : ℝ) else 0) := by
+    symm
+    rw [Fintype.sum_sigma]
+    exact sum_subtype_eq_sum_finset T (fun l =>
+      ∑ D : Finset (Fin l.length),
+        if removeIndices l D = kept ∧ selectIndices l D = selected then
+          c / (l.length.factorial : ℝ) else 0)
+  have hsumGood :
+      (∑ q : A, if P q then c / (q.1.1.length.factorial : ℝ) else 0) =
+        ∑ q ∈ good, c / (n.factorial : ℝ) := by
+    change _ = ∑ q ∈ Finset.univ.filter P, c / (n.factorial : ℝ)
+    rw [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro q hq
+    by_cases hp : P q
+    · have hg : q ∈ good := Finset.mem_filter.mpr ⟨Finset.mem_univ q, hp⟩
+      simp only [P] at hp ⊢
+      simp only [if_pos hp]
+      rw [hlen ⟨q, hg⟩]
+    · simp only [P] at hp ⊢
+      simp only [if_neg hp]
+  calc
+    _ = good.card * (c / (n.factorial : ℝ)) := by
+      rw [hsum, hsumGood]
+      simp
+    _ ≤ (Nat.choose n d : ℝ) * (c / (n.factorial : ℝ)) :=
+      mul_le_mul_of_nonneg_right (Nat.cast_le.mpr hcard)
+        (div_nonneg hc (Nat.cast_nonneg _))
+    _ = c / ((kept.length.factorial : ℝ) * (selected.length.factorial : ℝ)) := by
+      calc
+        _ = c * ((Nat.choose n d : ℝ) / (n.factorial : ℝ)) := by ring
+        _ = c * (1 / ((kept.length.factorial : ℝ) *
+            (selected.length.factorial : ℝ))) := by
+          rw [show (Nat.choose n d : ℝ) / (n.factorial : ℝ) =
+            1 / ((kept.length.factorial : ℝ) * (selected.length.factorial : ℝ)) from
+              ghost_interleave_factorial_measure kept.length selected.length]
+        _ = _ := by ring
+
+set_option maxHeartbeats 1000000 in
+/-- Summing all indexed hitting deletions with a fixed retained list costs
+only the exponential mass of reverse prime batches. -/
+private theorem ghost_source_deletion_mass_le
+    (primes : Finset ℕ) (ν : ℕ → ℝ) (hν : ∀ p ∈ primes, 0 ≤ ν p)
+    (kept : List Particle) (hkept : ∀ e ∈ kept, e.1 ∈ primes)
+    (z : ℤ × ℤ) (r v : ℝ) (hr : 0 ≤ r) (hv : 0 ≤ v)
+    (T : Finset (List Particle)) (B : ℕ)
+    (hsize : ∀ l ∈ T, l.length ≤ B)
+    (hprime : ∀ l ∈ T, ∀ e ∈ l, e.1 ∈ primes) :
+    (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+      if removeIndices l D = kept then
+        ((l.map fun e => ν e.1).prod / (l.length.factorial : ℝ)) *
+          r ^ D.card * v ^ l.length else 0) ≤
+      ((kept.map fun e => ν e.1).prod / (kept.length.factorial : ℝ)) *
+        v ^ kept.length * Real.exp (r * v * ∑ p ∈ primes, ν p) := by
+  classical
+  let C (d : ℕ) (batch : Fin d → primes) : ℝ :=
+    (kept.map fun e => ν e.1).prod * (∏ k : Fin d, ν (batch k).1) *
+      r ^ d * v ^ (kept.length + d)
+  let Q (d : ℕ) (batch : Fin d → primes) (l : List Particle)
+      (D : Finset (Fin l.length)) : ℝ :=
+    if removeIndices l D = kept ∧
+        selectIndices l D = List.ofFn (fun k => anchorAt (batch k).1 z) then
+      C d batch / (l.length.factorial : ℝ) else 0
+  let R (l : List Particle) (D : Finset (Fin l.length)) : ℝ :=
+    ∑ d ∈ Finset.range (B + 1), ∑ batch : Fin d → primes, Q d batch l D
+  let pref : ℝ :=
+    (kept.map fun e => ν e.1).prod / (kept.length.factorial : ℝ) * v ^ kept.length
+  let mass : ℝ := ∑ p ∈ primes, ν p
+  have hkeptProd : 0 ≤ (kept.map fun e => ν e.1).prod := by
+    apply List.prod_nonneg
+    intro t ht
+    rcases List.mem_map.mp ht with ⟨e, he, rfl⟩
+    exact hν e.1 (hkept e he)
+  have hC (d : ℕ) (batch : Fin d → primes) : 0 ≤ C d batch := by
+    have hb : 0 ≤ ∏ k : Fin d, ν (batch k).1 :=
+      Finset.prod_nonneg fun k hk => hν (batch k).1 (batch k).2
+    dsimp [C]
+    positivity
+  have hQ (d : ℕ) (batch : Fin d → primes) (l : List Particle)
+      (D : Finset (Fin l.length)) : 0 ≤ Q d batch l D := by
+    dsimp [Q]
+    split_ifs
+    · exact div_nonneg (hC d batch) (Nat.cast_nonneg _)
+    · exact le_refl _
+  have hR (l : List Particle) (D : Finset (Fin l.length)) : 0 ≤ R l D :=
+    Finset.sum_nonneg fun d hd => Finset.sum_nonneg fun batch hb => hQ d batch l D
+  have hselected (l : List Particle) (hl : l ∈ T)
+      (D : Finset (Fin l.length)) (hD : D ∈ (hitIndices l z).powerset)
+      (e : Particle) (he : e ∈ selectIndices l D) :
+      e.1 ∈ primes ∧ particleHits e z := by
+    have hsub := Finset.mem_powerset.mp hD
+    rcases List.mem_filterMap.mp he with ⟨k, hk, hke⟩
+    by_cases hkD : k ∈ D
+    · have hget : l.get k = e := by simpa [hkD] using hke
+      subst e
+      exact ⟨hprime l hl _ (List.get_mem l k), (Finset.mem_filter.mp (hsub hkD)).2⟩
+    · simp [hkD] at hke
+  have hpoint (l : List Particle) (hl : l ∈ T)
+      (D : Finset (Fin l.length)) (hD : D ∈ (hitIndices l z).powerset) :
+      (if removeIndices l D = kept then
+        ((l.map fun e => ν e.1).prod / (l.length.factorial : ℝ)) *
+          r ^ D.card * v ^ l.length else 0) ≤ R l D := by
+    by_cases hk : removeIndices l D = kept
+    · let sel := selectIndices l D
+      let batch : Fin sel.length → primes := fun k =>
+        ⟨(sel.get k).1, (hselected l hl D hD _ (List.get_mem sel k)).1⟩
+      have hbatch : List.ofFn (fun k => anchorAt (batch k).1 z) = sel := by
+        calc
+          _ = List.ofFn sel.get := by
+            congr 1
+            funext k
+            apply Prod.ext
+            · rfl
+            · exact (hselected l hl D hD _ (List.get_mem sel k)).2.symm
+          _ = sel := List.ofFn_get sel
+      have hprodSel : (sel.map fun e => ν e.1).prod =
+          ∏ k : Fin sel.length, ν (batch k).1 := by
+        have h := congrArg (fun a : List Particle => (a.map fun e => ν e.1).prod) hbatch
+        simpa [List.map_ofFn, List.prod_ofFn, anchorAt] using h.symm
+      have hprod : (l.map fun e => ν e.1).prod =
+          (kept.map fun e => ν e.1).prod * ∏ k : Fin sel.length, ν (batch k).1 := by
+        have h := remove_select_prod_eq l D (fun e => ν e.1)
+        rw [hk] at h
+        exact h.symm.trans (by rw [hprodSel])
+      have hd : D.card = sel.length := (selectIndices_length l D).symm
+      have hlen : l.length = kept.length + sel.length := by
+        have h := (remove_select_perm l D).length_eq
+        rw [hk] at h
+        simpa [sel] using h.symm
+      have hmem : sel.length ∈ Finset.range (B + 1) := by
+        have hdle : D.card ≤ l.length := by simpa using Finset.card_le_univ D
+        exact Finset.mem_range.mpr (by have hs := hsize l hl; omega)
+      have heq :
+          ((l.map fun e => ν e.1).prod / (l.length.factorial : ℝ)) *
+            r ^ D.card * v ^ l.length = Q sel.length batch l D := by
+        dsimp [Q]
+        rw [if_pos ⟨hk, hbatch.symm⟩]
+        rw [hprod, hd, hlen]
+        dsimp [C]
+        ring
+      rw [if_pos hk, heq]
+      calc
+        _ ≤ ∑ batch' : Fin sel.length → primes, Q sel.length batch' l D :=
+          Finset.single_le_sum (fun b hb => hQ sel.length b l D) (Finset.mem_univ batch)
+        _ ≤ R l D :=
+          Finset.single_le_sum
+            (f := fun d => ∑ b : Fin d → primes, Q d b l D)
+            (fun d hd => Finset.sum_nonneg fun b hb => hQ d b l D) hmem
+    · simp only [if_neg hk]
+      exact hR l D
+  have hswap (l : List Particle) :
+      (∑ D : Finset (Fin l.length), R l D) =
+      ∑ d ∈ Finset.range (B + 1), ∑ batch : Fin d → primes,
+        ∑ D : Finset (Fin l.length), Q d batch l D := by
+    dsimp [R]
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl
+    intro d hd
+    rw [Finset.sum_comm]
+  have hshuffle (d : ℕ) (batch : Fin d → primes) :
+      (∑ l ∈ T, ∑ D : Finset (Fin l.length), Q d batch l D) ≤
+        C d batch / ((kept.length.factorial : ℝ) * (d.factorial : ℝ)) := by
+    simpa [Q] using ghost_source_shuffle_weight_le kept
+      (List.ofFn fun k => anchorAt (batch k).1 z) T (C d batch) (hC d batch)
+  have hbatchSum (d : ℕ) :
+      (∑ batch : Fin d → primes,
+        C d batch / ((kept.length.factorial : ℝ) * (d.factorial : ℝ))) =
+      pref * ((r * v * mass) ^ d / (d.factorial : ℝ)) := by
+    have hterm (batch : Fin d → primes) :
+        C d batch / ((kept.length.factorial : ℝ) * (d.factorial : ℝ)) =
+        (pref * (r * v) ^ d / (d.factorial : ℝ)) *
+          ∏ k : Fin d, ν (batch k).1 := by
+      dsimp [C, pref]
+      rw [pow_add, mul_pow]
+      ring
+    simp_rw [hterm]
+    rw [← Finset.mul_sum, sum_fin_function_prod d (fun p : primes => ν p.1)]
+    have hm : (∑ p : primes, ν p.1) = mass :=
+      sum_subtype_eq_sum_finset primes ν
+    rw [hm]
+    simp only [mul_pow]
+    ring
+  have hmass : 0 ≤ mass := Finset.sum_nonneg fun p hp => hν p hp
+  have hpref : 0 ≤ pref := mul_nonneg
+    (div_nonneg hkeptProd (Nat.cast_nonneg _)) (pow_nonneg hv _)
+  have harg : 0 ≤ r * v * mass := mul_nonneg (mul_nonneg hr hv) hmass
+  have hpartial :
+      (∑ d ∈ Finset.range (B + 1), (r * v * mass) ^ d / (d.factorial : ℝ)) ≤
+        Real.exp (r * v * mass) := by
+    have hs := NormedSpace.expSeries_div_hasSum_exp (r * v * mass)
+    calc
+      _ ≤ ∑' d : ℕ, (r * v * mass) ^ d / (d.factorial : ℝ) :=
+        Summable.sum_le_tsum (Finset.range (B + 1))
+          (by intro d hd; exact div_nonneg (pow_nonneg harg _) (Nat.cast_nonneg _))
+          hs.summable
+      _ = Real.exp (r * v * mass) := by
+        rw [Real.exp_eq_exp_ℝ]
+        exact hs.tsum_eq
+  calc
+    _ ≤ ∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset, R l D := by
+      apply Finset.sum_le_sum
+      intro l hl
+      exact Finset.sum_le_sum fun D hD => hpoint l hl D hD
+    _ ≤ ∑ l ∈ T, ∑ D : Finset (Fin l.length), R l D := by
+      apply Finset.sum_le_sum
+      intro l hl
+      apply Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ _)
+      intro D hD hnot
+      exact hR l D
+    _ = ∑ d ∈ Finset.range (B + 1), ∑ batch : Fin d → primes,
+        ∑ l ∈ T, ∑ D : Finset (Fin l.length), Q d batch l D := by
+      simp_rw [hswap]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro d hd
+      rw [Finset.sum_comm]
+    _ ≤ ∑ d ∈ Finset.range (B + 1), ∑ batch : Fin d → primes,
+        C d batch / ((kept.length.factorial : ℝ) * (d.factorial : ℝ)) := by
+      apply Finset.sum_le_sum
+      intro d hd
+      exact Finset.sum_le_sum fun batch hb => hshuffle d batch
+    _ = pref * ∑ d ∈ Finset.range (B + 1), (r * v * mass) ^ d / (d.factorial : ℝ) := by
+      simp_rw [hbatchSum]
+      rw [← Finset.mul_sum]
+    _ ≤ pref * Real.exp (r * v * mass) := mul_le_mul_of_nonneg_left hpartial hpref
+
+set_option maxHeartbeats 1000000 in
+/-- The ordered one-group column is the reverse deletion exponential times
+its suffix-hit polynomial. The subsequent memory average removes the ordered
+binomial multiplicity. -/
+private theorem ghost_group_ordered_column_le
+    (primes : Finset ℕ) (ν : ℕ → ℝ) (hν : ∀ p ∈ primes, 0 ≤ ν p)
+    (target : List Particle) (htarget : ∀ e ∈ target, e.1 ∈ primes)
+    (z : ℤ × ℤ) (r b c v : ℝ)
+    (hr : 0 ≤ r) (hb : 0 ≤ b) (hc : 0 ≤ c) (hv : 0 < v)
+    (T : Finset (List Particle)) (B M : ℕ)
+    (hsize : ∀ l ∈ T, l.length ≤ B)
+    (hprime : ∀ l ∈ T, ∀ e ∈ l, e.1 ∈ primes) (hM : target.length ≤ M) :
+    (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+      ∑ m ∈ Finset.range (M + 1), ∑ batch : Fin m → primes,
+        if removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) = target then
+          ((l.map fun e => ν e.1).prod / (l.length.factorial : ℝ)) * v ^ l.length *
+            r ^ D.card * b ^ (hitCount l z - D.card) *
+            (c ^ m / (m.factorial : ℝ)) * ∏ k : Fin m, ν (batch k).1
+        else 0) ≤
+      ((target.map fun e => ν e.1).prod / (target.length.factorial : ℝ)) *
+        v ^ target.length * Real.exp (r * v * ∑ p ∈ primes, ν p) *
+          ∑ m ∈ Finset.range (target.length + 1),
+            if ∀ e ∈ target.drop (target.length - m), particleHits e z then
+              (Nat.choose target.length m : ℝ) * (c / v) ^ m *
+                b ^ (hitCount target z - m) else 0 := by
+  classical
+  let W (l : List Particle) : ℝ :=
+    (l.map fun e => ν e.1).prod / (l.length.factorial : ℝ) * v ^ l.length
+  let E := Real.exp (r * v * ∑ p ∈ primes, ν p)
+  let H (l : List Particle) (D : Finset (Fin l.length)) (m : ℕ)
+      (batch : Fin m → primes) : ℝ :=
+    if removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) = target then
+      W l * r ^ D.card * b ^ (hitCount l z - D.card) *
+        (c ^ m / (m.factorial : ℝ)) * ∏ k : Fin m, ν (batch k).1 else 0
+  let col (m : ℕ) : ℝ :=
+    ∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset, ∑ batch : Fin m → primes, H l D m batch
+  have hhit (l : List Particle) :
+      hitCount l z = l.countP (fun e => decide (particleHits e z)) := by
+    have huniv : (List.finRange l.length).toFinset =
+        (Finset.univ : Finset (Fin l.length)) := by ext k; simp
+    calc
+      _ = ((List.finRange l.length).toFinset.filter
+          fun k => particleHits (l.get k) z).card := by simp [huniv, hitCount, hitIndices]
+      _ = (List.finRange l.length).countP (fun k => decide (particleHits (l.get k) z)) :=
+        (List.nodup_finRange _).card_eq_countP
+      _ = ((List.finRange l.length).map l.get).countP
+          (fun e => decide (particleHits e z)) := by
+            simp only [List.countP_map, Function.comp_def]
+      _ = _ := by rw [List.map_get_finRange]
+  have hallCount (l : List Particle) (h : ∀ e ∈ l, particleHits e z) :
+      hitCount l z = l.length := by
+    have hf : l.filter (fun e => decide (particleHits e z)) = l := by
+      apply List.filter_eq_self.mpr
+      intro e he
+      simpa using h e he
+    rw [hhit, List.countP_eq_length_filter, hf]
+  have hdel (l : List Particle) (D : Finset (Fin l.length))
+      (hD : D ∈ (hitIndices l z).powerset) :
+      hitCount l z - D.card = hitCount (removeIndices l D) z := by
+    have hs : ∀ e ∈ selectIndices l D, particleHits e z := by
+      intro e he
+      rcases List.mem_filterMap.mp he with ⟨k, hk, hke⟩
+      by_cases hkD : k ∈ D
+      · have hget : l.get k = e := by simpa [hkD] using hke
+        subst e
+        exact (Finset.mem_filter.mp (Finset.mem_powerset.mp hD hkD)).2
+      · simp [hkD] at hke
+    have h := (remove_select_perm l D).countP_eq (fun e => decide (particleHits e z))
+    rw [List.countP_append, ← hhit (removeIndices l D),
+      ← hhit (selectIndices l D), ← hhit l, hallCount (selectIndices l D) hs,
+      selectIndices_length] at h
+    omega
+  have hprodNonneg (l : List Particle) (hl : ∀ e ∈ l, e.1 ∈ primes) :
+      0 ≤ (l.map fun e => ν e.1).prod := by
+    apply List.prod_nonneg
+    intro t ht
+    rcases List.mem_map.mp ht with ⟨e, he, rfl⟩
+    exact hν e.1 (hl e he)
+  have hlarge (m : ℕ) (hm : target.length < m) : col m = 0 := by
+    apply Finset.sum_eq_zero
+    intro l hl
+    apply Finset.sum_eq_zero
+    intro D hD
+    apply Finset.sum_eq_zero
+    intro batch hbatch
+    have hn : removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) ≠ target := by
+      intro h
+      have hlen := congrArg List.length h
+      simp only [List.length_append, List.length_ofFn] at hlen
+      omega
+    simp [H, hn]
+  have hbound (m : ℕ) (hm : m ≤ target.length) :
+      col m ≤ W target * E *
+        (if ∀ e ∈ target.drop (target.length - m), particleHits e z then
+          (Nat.choose target.length m : ℝ) * (c / v) ^ m *
+            b ^ (hitCount target z - m) else 0) := by
+    let pre := target.take (target.length - m)
+    let suffix := target.drop (target.length - m)
+    have hpreLen : pre.length = target.length - m := by
+      simp only [pre, List.length_take]
+      omega
+    have hsufLen : suffix.length = m := by
+      simp only [suffix, List.length_drop]
+      omega
+    have hsplit : pre ++ suffix = target := List.take_append_drop _ _
+    have hparts (l : List Particle) (D : Finset (Fin l.length))
+        (batch : Fin m → primes)
+        (hout : removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) = target) :
+        removeIndices l D = pre ∧
+          List.ofFn (fun k => anchorAt (batch k).1 z) = suffix := by
+      have hlen := congrArg List.length hout
+      simp only [List.length_append, List.length_ofFn] at hlen
+      have hremoveLen : (removeIndices l D).length = target.length - m := by omega
+      have h := append_eq_prefix_suffix _ _ _ hout
+      exact ⟨by simpa [pre, hremoveLen] using h.1.symm,
+        by simpa [suffix, hremoveLen] using h.2.symm⟩
+    by_cases hs : ∀ e ∈ suffix, particleHits e z
+    · have hprePrime : ∀ e ∈ pre, e.1 ∈ primes := by
+        intro e he
+        exact htarget e (List.mem_of_mem_take he)
+      have hsufPrime : ∀ e ∈ suffix, e.1 ∈ primes := by
+        intro e he
+        exact htarget e (List.mem_of_mem_drop he)
+      let u : Fin m → primes := fun k =>
+        ⟨(target.get (suffixPosition hm k)).1,
+          htarget _ (List.get_mem target (suffixPosition hm k))⟩
+      have hsf : suffix = List.ofFn (fun k : Fin m => target.get (suffixPosition hm k)) := by
+        simpa [suffix] using list_drop_ofFn_suffix hm target.get
+      have hu : List.ofFn (fun k => anchorAt (u k).1 z) = suffix := by
+        calc
+          _ = List.ofFn (fun k : Fin m => target.get (suffixPosition hm k)) := by
+            congr 1
+            funext k
+            apply Prod.ext
+            · rfl
+            · have he : target.get (suffixPosition hm k) ∈ suffix := by
+                rw [hsf]
+                exact List.mem_ofFn.mpr ⟨k, rfl⟩
+              exact (hs _ he).symm
+          _ = suffix := hsf.symm
+      have huProd : (∏ k : Fin m, ν (u k).1) = (suffix.map fun e => ν e.1).prod := by
+        have h := congrArg (fun l : List Particle => (l.map fun e => ν e.1).prod) hu
+        simpa [List.map_ofFn, List.prod_ofFn, anchorAt] using h
+      let A := (c ^ m / (m.factorial : ℝ)) *
+        (suffix.map fun e => ν e.1).prod * b ^ hitCount pre z
+      have hA : 0 ≤ A := by
+        have hp := hprodNonneg suffix hsufPrime
+        dsimp [A]
+        positivity
+      have hinner (l : List Particle) (D : Finset (Fin l.length))
+          (hD : D ∈ (hitIndices l z).powerset) :
+          (∑ batch : Fin m → primes, H l D m batch) =
+            A * (if removeIndices l D = pre then W l * r ^ D.card else 0) := by
+        rw [Finset.sum_eq_single u]
+        · by_cases hk : removeIndices l D = pre
+          · have hout : removeIndices l D ++ List.ofFn (fun k => anchorAt (u k).1 z) = target := by
+              rw [hk, hu]
+              exact hsplit
+            dsimp [H]
+            rw [if_pos hout, if_pos hk, hdel l D hD, hk, huProd]
+            dsimp [A]
+            ring
+          · have hn : removeIndices l D ++ List.ofFn (fun k => anchorAt (u k).1 z) ≠ target := by
+              intro hout
+              exact hk (hparts l D u hout).1
+            simp [H, hn, hk]
+        · intro batch hbatch hne
+          have hn : removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) ≠ target := by
+            intro hout
+            have hfun := List.ofFn_inj.mp ((hparts l D batch hout).2.trans hu.symm)
+            have heq : batch = u := by
+              funext k
+              apply Subtype.ext
+              exact congrArg Prod.fst (congrFun hfun k)
+            exact hne heq
+          simp [H, hn]
+        · intro hnot
+          exact (hnot (Finset.mem_univ u)).elim
+      have hcol : col m = A *
+          (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+            if removeIndices l D = pre then W l * r ^ D.card else 0) := by
+        calc
+          _ = ∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+              A * (if removeIndices l D = pre then W l * r ^ D.card else 0) := by
+            apply Finset.sum_congr rfl
+            intro l hl
+            exact Finset.sum_congr rfl fun D hD => hinner l D hD
+          _ = _ := by simp [Finset.mul_sum]
+      have hmass :
+          (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+            if removeIndices l D = pre then W l * r ^ D.card else 0) ≤ W pre * E := by
+        simpa only [W, E, mul_assoc, mul_left_comm, mul_comm] using
+          ghost_source_deletion_mass_le primes ν hν pre hprePrime z r v hr hv.le
+            T B hsize hprime
+      have hcount : hitCount target z - m = hitCount pre z := by
+        have h := congrArg (fun l : List Particle => l.countP (fun e => decide (particleHits e z))) hsplit
+        rw [List.countP_append, ← hhit pre, ← hhit suffix, ← hhit target,
+          hallCount suffix hs, hsufLen] at h
+        omega
+      have htotal : pre.length + m = target.length := by omega
+      have hfac : (Nat.choose target.length m : ℝ) / (target.length.factorial : ℝ) =
+          1 / ((pre.length.factorial : ℝ) * (m.factorial : ℝ)) := by
+        simpa only [htotal] using ghost_interleave_factorial_measure pre.length m
+      have htargetProd : (target.map fun e => ν e.1).prod =
+          (pre.map fun e => ν e.1).prod * (suffix.map fun e => ν e.1).prod := by
+        have h := congrArg (fun l : List Particle => (l.map fun e => ν e.1).prod) hsplit
+        simpa [List.map_append, List.prod_append] using h.symm
+      have hpow : v ^ target.length = v ^ pre.length * v ^ m := by
+        rw [← htotal, pow_add]
+      have hnorm : A * W pre = W target * (Nat.choose target.length m : ℝ) *
+          (c / v) ^ m * b ^ (hitCount target z - m) := by
+        calc
+          _ = (pre.map fun e => ν e.1).prod * (suffix.map fun e => ν e.1).prod *
+              v ^ pre.length * c ^ m * b ^ hitCount pre z *
+                (1 / ((pre.length.factorial : ℝ) * (m.factorial : ℝ))) := by
+            dsimp [A, W]
+            ring
+          _ = (pre.map fun e => ν e.1).prod * (suffix.map fun e => ν e.1).prod *
+              v ^ pre.length * c ^ m * b ^ hitCount pre z *
+                ((Nat.choose target.length m : ℝ) / (target.length.factorial : ℝ)) := by rw [← hfac]
+          _ = _ := by
+            dsimp [W]
+            rw [htargetProd, hpow, hcount]
+            simp only [div_pow]
+            have hn : (target.length.factorial : ℝ) ≠ 0 := by positivity
+            field_simp [pow_ne_zero _ hv.ne', hn] <;> ring
+      change col m ≤ W target * E *
+        (if ∀ e ∈ suffix, particleHits e z then _ else 0)
+      rw [if_pos hs]
+      calc
+        col m = A * _ := hcol
+        _ ≤ A * (W pre * E) := mul_le_mul_of_nonneg_left hmass hA
+        _ = _ := by rw [← mul_assoc, hnorm]; ring
+    · have hz : col m = 0 := by
+        apply Finset.sum_eq_zero
+        intro l hl
+        apply Finset.sum_eq_zero
+        intro D hD
+        apply Finset.sum_eq_zero
+        intro batch hbatch
+        have hn : removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) ≠ target := by
+          intro hout
+          apply hs
+          intro e he
+          rw [← (hparts l D batch hout).2] at he
+          rcases List.mem_ofFn.mp he with ⟨k, rfl⟩
+          simp [particleHits, anchorAt]
+        simp [H, hn]
+      change col m ≤ W target * E *
+        (if ∀ e ∈ suffix, particleHits e z then _ else 0)
+      rw [hz, if_neg hs, mul_zero]
+  change (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+    ∑ m ∈ Finset.range (M + 1), ∑ batch : Fin m → primes, H l D m batch) ≤ _
+  have hswap (l : List Particle) :
+      (∑ D ∈ (hitIndices l z).powerset,
+        ∑ m ∈ Finset.range (M + 1), ∑ batch : Fin m → primes, H l D m batch) =
+      ∑ m ∈ Finset.range (M + 1), ∑ D ∈ (hitIndices l z).powerset,
+        ∑ batch : Fin m → primes, H l D m batch := Finset.sum_comm
+  calc
+    _ = ∑ m ∈ Finset.range (M + 1), col m := by
+      simp_rw [hswap]
+      rw [Finset.sum_comm]
+    _ = ∑ m ∈ Finset.range (target.length + 1), col m := by
+      symm
+      apply Finset.sum_subset (Finset.range_mono (Nat.add_le_add_right hM 1))
+      intro m hm hnot
+      have hlarge' : target.length < m := by
+        have hn : ¬ m < target.length + 1 := by simpa using hnot
+        omega
+      exact hlarge m hlarge'
+    _ ≤ ∑ m ∈ Finset.range (target.length + 1), W target * E *
+        (if ∀ e ∈ target.drop (target.length - m), particleHits e z then
+          (Nat.choose target.length m : ℝ) * (c / v) ^ m *
+            b ^ (hitCount target z - m) else 0) := by
+      apply Finset.sum_le_sum
+      intro m hm
+      exact hbound m (by have h := Finset.mem_range.mp hm; omega)
+    _ = _ := by rw [← Finset.mul_sum]
 
 private theorem ghostGroupFiniteWeight_mul_pow_eq_normCoeff_mul_pow {K : ℕ}
     (F : PDFix K) (S : PDScale) (s : MemPoint S.x K) (B j : ℕ)
@@ -4795,6 +6493,891 @@ private theorem ghostChoiceCoeff_norm_mul_outputWeight_eq {K : ℕ}
     _ = v ^ (base + ds) * ∏ i : Fin K, weight i := by rw [pow_add]; ring
     _ = _ := by rw [← hsource]
 
+set_option maxHeartbeats 1000000 in
+/-- The raw ordered column separates over groups after enlarging the finite
+source set to the product of its group projections. -/
+private theorem ghost_ordered_column_choice_bound {K : ℕ}
+    (F : PDFix K) (hF : F.Valid) (S : PDScale)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (j B : ℕ) (v : ℝ) (hv : 0 < v)
+    (hV : ∀ i, 0 < bandMass S.x (F.a i))
+    (hbp : ∀ p ∈ markedPrimes S.x K F.a,
+      (1 / 2 : ℝ) ≤ memoryBPrime S.x F.q_d p)
+    (t : MemPoint S.x K) (ht : MemValid F S t) (htB : memSize t ≤ B)
+    (T : Finset (MemPoint S.x K)) (hT : ∀ s ∈ T, memSize s ≤ B) :
+    (∑ s ∈ T, memMeasure F S s * ‖memKernel (memGhost F S ρ j) s t‖ *
+      v ^ memSize s) ≤
+      memMeasure F S t * v ^ memSize t *
+        ∏ i : Fin K,
+          (Real.exp (2 * memoryEta S.x F.q_d j * v / ρ) *
+            ∑ m ∈ Finset.range ((t.2.2 i).length + 1),
+              if ∀ e ∈ (t.2.2 i).drop ((t.2.2 i).length - m), particleHits e t.1 then
+                (Nat.choose (t.2.2 i).length m : ℝ) *
+                  (memoryEta S.x F.q_d j * bandMass S.x (F.a i) / (ρ * v)) ^ m *
+                  (memoryQ S.x F.q_d j / ρ ^ 2) ^ (hitCount (t.2.2 i) t.1 - m)
+              else 0) := by
+  classical
+  let ν (i : Fin K) (p : ℕ) := memoryNu S.x K F.a F.q_d i p
+  let r := memoryEta S.x F.q_d j / ρ
+  let b := memoryQ S.x F.q_d j / ρ ^ 2
+  let c (i : Fin K) := memoryEta S.x F.q_d j * bandMass S.x (F.a i) / ρ
+  have hρsq : ρ ^ 2 < 1 := by nlinarith [hρ.1, hρ.2.1]
+  have hqLt : memoryQ S.x F.q_d j < 1 := by
+    unfold memoryQ
+    split_ifs <;> [exact lt_trans hρ.2.2 hρsq; exact hF.2.2.1]
+  have hη : 0 ≤ memoryEta S.x F.q_d j := by unfold memoryEta; linarith
+  have hq : 0 ≤ memoryQ S.x F.q_d j := by
+    unfold memoryQ
+    split_ifs <;> [exact Real.sqrt_nonneg _; exact hF.2.1.le]
+  have hr : 0 ≤ r := div_nonneg hη hρ.1.le
+  have hb : 0 ≤ b := div_nonneg hq (sq_nonneg ρ)
+  have hc (i : Fin K) : 0 ≤ c i := div_nonneg (mul_nonneg hη (hV i).le) hρ.1.le
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) : 0 ≤ ν i p := by
+    have hbpPos : 0 < memoryBPrime S.x F.q_d p :=
+      lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1 / 2)
+        (hbp p (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩))
+    have hden : 0 < bandMass S.x (F.a i) * ((p : ℝ) + 1) *
+        memoryBPrime S.x F.q_d p :=
+      mul_pos (mul_pos (hV i) (by positivity)) hbpPos
+    exact div_nonneg (by norm_num) hden.le
+  let W (i : Fin K) (l : List Particle) :=
+    (l.map fun e => ν i e.1).prod / (l.length.factorial : ℝ) * v ^ l.length
+  let H (i : Fin K) (l : List Particle) (D : Finset (Fin l.length))
+      (m : ℕ) (batch : Fin m → primeBand S.x (F.a i)) :=
+    if removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 t.1) = t.2.2 i then
+      r ^ D.card * b ^ (hitCount l t.1 - D.card) *
+        (c i ^ m / (m.factorial : ℝ)) * ∏ k : Fin m, ν i (batch k).1 else 0
+  let G (i : Fin K) (l : List Particle) :=
+    ∑ D ∈ (hitIndices l t.1).powerset,
+      ∑ m ∈ Finset.range (2 * B + 1), ∑ batch : Fin m → primeBand S.x (F.a i),
+        H i l D m batch
+  let Q (i : Fin K) :=
+    ∑ m ∈ Finset.range ((t.2.2 i).length + 1),
+      if ∀ e ∈ (t.2.2 i).drop ((t.2.2 i).length - m), particleHits e t.1 then
+        (Nat.choose (t.2.2 i).length m : ℝ) * (c i / v) ^ m *
+          b ^ (hitCount (t.2.2 i) t.1 - m) else 0
+  let E := Real.exp (2 * memoryEta S.x F.q_d j * v / ρ)
+  have hH (i : Fin K) (l : List Particle) (D : Finset (Fin l.length))
+      (m : ℕ) (batch : Fin m → primeBand S.x (F.a i)) : 0 ≤ H i l D m batch := by
+    dsimp [H]
+    split_ifs
+    · exact mul_nonneg
+        (mul_nonneg (mul_nonneg (pow_nonneg hr _) (pow_nonneg hb _))
+          (div_nonneg (pow_nonneg (hc i) _) (Nat.cast_nonneg _)))
+        (Finset.prod_nonneg fun k hk => hν i (batch k).1 (batch k).2)
+    · exact le_rfl
+  have hG (i : Fin K) (l : List Particle) : 0 ≤ G i l := by
+    exact Finset.sum_nonneg fun D hD => Finset.sum_nonneg fun m hm =>
+      Finset.sum_nonneg fun batch hbatch => hH i l D m batch
+  have hW (i : Fin K) (l : List Particle)
+      (hl : ∀ e ∈ l, e.1 ∈ primeBand S.x (F.a i)) : 0 ≤ W i l := by
+    apply mul_nonneg
+    · apply div_nonneg
+      · exact List.prod_nonneg fun x hx => by
+          rcases List.mem_map.mp hx with ⟨e, he, rfl⟩
+          exact hν i e.1 (hl e he)
+      · exact Nat.cast_nonneg _
+    · exact pow_nonneg hv.le _
+  have hQ (i : Fin K) : 0 ≤ Q i := by
+    apply Finset.sum_nonneg
+    intro m hm
+    split_ifs
+    · exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) (pow_nonneg (div_nonneg (hc i) hv.le) _))
+        (pow_nonneg hb _)
+    · exact le_rfl
+  have hnormGroup (s : MemPoint S.x K) (i : Fin K)
+      (a : GhostGroupChoice F s (2 * B) i) :
+      ‖((ghostGroupCoeff F S ρ j i (hitCount (s.2.2 i) s.1) a.1.1.card a.2.1.1
+        (List.ofFn fun k => (a.2.2 k).1) : ℝ) : ℂ)‖ =
+        r ^ a.1.1.card * b ^ (hitCount (s.2.2 i) s.1 - a.1.1.card) *
+          (c i ^ a.2.1.1 / (a.2.1.1.factorial : ℝ)) *
+            ∏ k : Fin a.2.1.1, ν i (a.2.2 k).1 := by
+    have hn := ghostGroupFiniteWeight_mul_pow_eq_normCoeff_mul_pow F S s (2 * B) j
+      ρ 1 i a hη hq (hV i).le hρ.1 (by norm_num)
+      (fun k => hν i (a.2.2 k).1 (a.2.2 k).2)
+    simpa only [ghostGroupFiniteWeight, one_pow, mul_one, r, b, c, ν, hitCount,
+      mul_assoc] using hn.symm
+  have hchoiceSum (s : MemPoint S.x K) (hs : s.1 = t.1) (i : Fin K) :
+      (∑ a : GhostGroupChoice F s (2 * B) i,
+        H i (s.2.2 i) a.1.1 a.2.1.1 a.2.2) = G i (s.2.2 i) := by
+    change (∑ a : Σ D : {D // D ∈ (hitIndices (s.2.2 i) s.1).powerset},
+      Σ m : {m // m ∈ Finset.range (2 * B + 1)}, Fin m.1 → primeBand S.x (F.a i),
+        H i (s.2.2 i) a.1.1 a.2.1.1 a.2.2) = _
+    simp only [Fintype.sum_sigma]
+    calc
+      _ = ∑ D : {D // D ∈ (hitIndices (s.2.2 i) s.1).powerset},
+          ∑ m ∈ Finset.range (2 * B + 1), ∑ batch : Fin m → primeBand S.x (F.a i),
+            H i (s.2.2 i) D.1 m batch := by
+        apply Finset.sum_congr rfl
+        intro D hD
+        exact sum_subtype_eq_sum_finset (Finset.range (2 * B + 1))
+          (fun m => ∑ batch : Fin m → primeBand S.x (F.a i), H i (s.2.2 i) D.1 m batch)
+      _ = ∑ D ∈ (hitIndices (s.2.2 i) s.1).powerset,
+          ∑ m ∈ Finset.range (2 * B + 1), ∑ batch : Fin m → primeBand S.x (F.a i),
+            H i (s.2.2 i) D m batch :=
+        sum_subtype_eq_sum_finset (hitIndices (s.2.2 i) s.1).powerset
+          (fun D => ∑ m ∈ Finset.range (2 * B + 1),
+            ∑ batch : Fin m → primeBand S.x (F.a i), H i (s.2.2 i) D m batch)
+      _ = _ := by simp only [hs, G]
+  have hkernel (s : MemPoint S.x K) (hs : memSize s ≤ B) (hpos : s.1 = t.1) :
+      ‖memKernel (memGhost F S ρ j) s t‖ ≤ ∏ i : Fin K, G i (s.2.2 i) := by
+    rw [memGhostOrderedKernel_choiceSum F S ρ j s t B hs htB]
+    calc
+      _ ≤ ∑ choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i,
+          ‖ghostOrderedChoiceKernelTerm F S s t ρ j B choices‖ := norm_sum_le _ _
+      _ ≤ ∑ choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i,
+          ∏ i : Fin K, H i (s.2.2 i) (choices i).1.1 (choices i).2.1.1 (choices i).2.2 := by
+        apply Finset.sum_le_sum
+        intro choices hchoices
+        have hD : ∀ i, (choices i).1.1 ⊆ hitIndices (s.2.2 i) s.1 :=
+          fun i => Finset.mem_powerset.mp (choices i).1.2
+        let τ := ghostOutputState F s (fun i => (choices i).1.1)
+          (fun i => (choices i).2.1.1) (fun i k => (choices i).2.2 k)
+        by_cases hout : τ = t
+        · have hcomp := ghostOutputState_eq_components F s t _ _ _ hout
+          have hhit (i : Fin K) :
+              removeIndices (s.2.2 i) (choices i).1.1 ++
+                List.ofFn (fun k => anchorAt ((choices i).2.2 k).1 t.1) = t.2.2 i := by
+            simpa only [hpos] using hcomp.2.2 i
+          have hn :
+              ‖ghostOrderedChoiceKernelTerm F S s t ρ j B choices‖ =
+              ∏ i : Fin K,
+                ‖((ghostGroupCoeff F S ρ j i (hitCount (s.2.2 i) s.1)
+                  (choices i).1.1.card (choices i).2.1.1
+                  (List.ofFn fun k => ((choices i).2.2 k).1) : ℝ) : ℂ)‖ := by
+            simp [ghostOrderedChoiceKernelTerm, ghostOrderedKernelTerm, hD,
+              show ghostOutputState F s (fun i => (choices i).1.1)
+                (fun i => (choices i).2.1.1) (fun i k => (choices i).2.2 k) = t from hout,
+              Complex.norm_real, Real.norm_eq_abs]
+          rw [hn]
+          apply le_of_eq
+          apply Finset.prod_congr rfl
+          intro i hi
+          rw [hnormGroup]
+          simp only [H, if_pos (hhit i), hpos]
+        · have hz : ghostOrderedChoiceKernelTerm F S s t ρ j B choices = 0 := by
+            simp [ghostOrderedChoiceKernelTerm, ghostOrderedKernelTerm, hD,
+              show ghostOutputState F s (fun i => (choices i).1.1)
+                (fun i => (choices i).2.1.1) (fun i k => (choices i).2.2 k) ≠ t from hout]
+          rw [hz, norm_zero]
+          exact Finset.prod_nonneg fun i hi => hH i _ _ _ _
+      _ = ∏ i : Fin K,
+          ∑ a : GhostGroupChoice F s (2 * B) i, H i (s.2.2 i) a.1.1 a.2.1.1 a.2.2 :=
+        finite_pi_sum_prod (fun i => GhostGroupChoice F s (2 * B) i)
+          (fun i a => H i (s.2.2 i) a.1.1 a.2.1.1 a.2.2)
+      _ = _ := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        exact hchoiceSum s hpos i
+  let T₀ := T.filter fun s => MemValid F S s ∧ s.1 = t.1 ∧ s.2.1 = t.2.1
+  have hzero (s : MemPoint S.x K) (hs : s ∈ T) (hbad : s ∉ T₀) :
+      memMeasure F S s * ‖memKernel (memGhost F S ρ j) s t‖ * v ^ memSize s = 0 := by
+    by_cases hvalid : MemValid F S s
+    · have hnot : ¬ (s.1 = t.1 ∧ s.2.1 = t.2.1) := by
+        intro h
+        exact hbad (Finset.mem_filter.mpr ⟨hs, hvalid, h⟩)
+      have hk : memKernel (memGhost F S ρ j) s t = 0 := by
+        rw [memGhostOrderedKernel_choiceSum F S ρ j s t B (hT s hs) htB]
+        apply Finset.sum_eq_zero
+        intro choices hchoices
+        have hne : ghostOutputState F s (fun i => (choices i).1.1)
+            (fun i => (choices i).2.1.1) (fun i k => (choices i).2.2 k) ≠ t := by
+          intro heq
+          have hcpt := ghostOutputState_eq_components F s t _ _ _ heq
+          exact hnot ⟨hcpt.1, hcpt.2.1⟩
+        simp [ghostOrderedChoiceKernelTerm, ghostOrderedKernelTerm, hne]
+      simp [hk]
+    · simp [memMeasure, hvalid]
+  let A := ∏ i : Fin K, ∏ k : Fin (slotCount S.x), ν i (t.2.1 i k)
+  have hA : 0 ≤ A := Finset.prod_nonneg fun i hi =>
+    Finset.prod_nonneg fun k hk => hν i (t.2.1 i k) (ht.2.1 i k)
+  have hmeasure (s : MemPoint S.x K) (hs : MemValid F S s) (ha : s.2.1 = t.2.1) :
+      memMeasure F S s * v ^ memSize s = A * ∏ i : Fin K, W i (s.2.2 i) := by
+    simp only [memMeasure, if_pos hs, ha, W, Finset.prod_mul_distrib]
+    rw [Finset.prod_pow_eq_pow_sum]
+    simp only [A, ν, memSize, mul_assoc]
+  have hμ (s : MemPoint S.x K) (hs : MemValid F S s) : 0 ≤ memMeasure F S s := by
+    rw [memMeasure, if_pos hs]
+    apply mul_nonneg
+    · exact Finset.prod_nonneg fun i hi =>
+        Finset.prod_nonneg fun k hk => hν i _ (hs.2.1 i k)
+    · apply Finset.prod_nonneg
+      intro i hi
+      apply div_nonneg
+      · exact List.prod_nonneg fun x hx => by
+          rcases List.mem_map.mp hx with ⟨e, he, rfl⟩
+          exact hν i e.1 (hs.2.2 i e he).1
+      · exact Nat.cast_nonneg _
+  let Tᵢ (i : Fin K) : Finset (List Particle) := T₀.image fun s => s.2.2 i
+  have hprime (i : Fin K) (l : List Particle) (hl : l ∈ Tᵢ i) :
+      ∀ e ∈ l, e.1 ∈ primeBand S.x (F.a i) := by
+    rcases Finset.mem_image.mp hl with ⟨s, hs, rfl⟩
+    exact fun e he => ((Finset.mem_filter.mp hs).2.1.2.2 i e he).1
+  have hlength (s : MemPoint S.x K) (i : Fin K) : (s.2.2 i).length ≤ memSize s :=
+    Finset.single_le_sum (s := Finset.univ) (f := fun k : Fin K => (s.2.2 k).length)
+      (fun k hk => Nat.zero_le _) (Finset.mem_univ i)
+  have hgroup (i : Fin K) :
+      (∑ l ∈ Tᵢ i, W i l * G i l) ≤ W i (t.2.2 i) * (E * Q i) := by
+    have hg := ghost_group_ordered_column_le (primeBand S.x (F.a i)) (ν i) (hν i)
+      (t.2.2 i) (fun e he => (ht.2.2 i e he).1) t.1 r b (c i) v hr hb (hc i) hv
+      (Tᵢ i) B (2 * B)
+      (by intro l hl; rcases Finset.mem_image.mp hl with ⟨s, hs, rfl⟩
+          exact (hlength s i).trans (hT s (Finset.mem_filter.mp hs).1))
+      (hprime i) (by have := hlength t i; omega)
+    have hmass := memoryNu_band_mass_le_two F i (hV i) hbp
+    have hExp : Real.exp (r * v * ∑ p ∈ primeBand S.x (F.a i), ν i p) ≤ E := by
+      apply Real.exp_le_exp.mpr
+      calc
+        _ ≤ r * v * 2 := mul_le_mul_of_nonneg_left hmass (mul_nonneg hr hv.le)
+        _ = _ := by dsimp [r]; ring
+    calc
+      _ = ∑ l ∈ Tᵢ i, ∑ D ∈ (hitIndices l t.1).powerset,
+          ∑ m ∈ Finset.range (2 * B + 1), ∑ batch : Fin m → primeBand S.x (F.a i),
+            if removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 t.1) = t.2.2 i then
+              W i l * r ^ D.card * b ^ (hitCount l t.1 - D.card) *
+                (c i ^ m / (m.factorial : ℝ)) * ∏ k : Fin m, ν i (batch k).1 else 0 := by
+        simp only [G, Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro l hl
+        apply Finset.sum_congr rfl
+        intro D hD
+        apply Finset.sum_congr rfl
+        intro m hm
+        apply Finset.sum_congr rfl
+        intro batch hbatch
+        dsimp [H]
+        split_ifs <;> ring
+      _ ≤ W i (t.2.2 i) * Real.exp (r * v * ∑ p ∈ primeBand S.x (F.a i), ν i p) * Q i := hg
+      _ ≤ W i (t.2.2 i) * E * Q i :=
+        mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left hExp (hW i _ (fun e he => (ht.2.2 i e he).1))) (hQ i)
+      _ = _ := by ring
+  let α (i : Fin K) := {l : List Particle // l ∈ Tᵢ i}
+  let toLists : {s // s ∈ T₀} → (i : Fin K) → α i :=
+    fun s i => ⟨s.1.2.2 i, Finset.mem_image.mpr ⟨s.1, s.2, rfl⟩⟩
+  have hinj : Function.Injective toLists := by
+    intro s u hsu
+    have hmem : s.1.2.2 = u.1.2.2 := by
+      funext i
+      exact congrArg Subtype.val (congrFun hsu i)
+    have hs := (Finset.mem_filter.mp s.2).2
+    have hu := (Finset.mem_filter.mp u.2).2
+    apply Subtype.ext
+    exact Prod.ext (hs.2.1.trans hu.2.1.symm)
+      (Prod.ext (hs.2.2.trans hu.2.2.symm) hmem)
+  let f (ls : (i : Fin K) → α i) := ∏ i : Fin K, W i (ls i).1 * G i (ls i).1
+  have hf (ls : (i : Fin K) → α i) : 0 ≤ f ls := Finset.prod_nonneg fun i hi =>
+    mul_nonneg (hW i _ (hprime i _ (ls i).2)) (hG i _)
+  have hprodSum :
+      (∑ s ∈ T₀, ∏ i : Fin K, W i (s.2.2 i) * G i (s.2.2 i)) ≤
+        ∏ i : Fin K, ∑ l ∈ Tᵢ i, W i l * G i l := by
+    calc
+      _ = ∑ s : {s // s ∈ T₀}, f (toLists s) :=
+        (sum_subtype_eq_sum_finset T₀
+          (fun s => ∏ i : Fin K, W i (s.2.2 i) * G i (s.2.2 i))).symm
+      _ = ∑ ls ∈ Finset.univ.image toLists, f ls := by
+        exact (Finset.sum_image (fun s hs u hu h => hinj h)).symm
+      _ ≤ ∑ ls : (i : Fin K) → α i, f ls := by
+        exact Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ _)
+          (fun ls hls hnot => hf ls)
+      _ = ∏ i : Fin K, ∑ l : α i, W i l.1 * G i l.1 :=
+        finite_pi_sum_prod α (fun i l => W i l.1 * G i l.1)
+      _ = _ := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        exact sum_subtype_eq_sum_finset (Tᵢ i) (fun l => W i l * G i l)
+  have hfinal :
+      (∑ s ∈ T, memMeasure F S s * ‖memKernel (memGhost F S ρ j) s t‖ * v ^ memSize s) ≤
+        memMeasure F S t * v ^ memSize t * ∏ i : Fin K, E * Q i := by
+    calc
+      _ = ∑ s ∈ T₀, memMeasure F S s * ‖memKernel (memGhost F S ρ j) s t‖ *
+          v ^ memSize s := by
+        symm
+        apply Finset.sum_subset (Finset.filter_subset _ _)
+        exact hzero
+      _ ≤ ∑ s ∈ T₀, A * ∏ i : Fin K, W i (s.2.2 i) * G i (s.2.2 i) := by
+        apply Finset.sum_le_sum
+        intro s hs
+        have hparts := (Finset.mem_filter.mp hs).2
+        calc
+          _ ≤ memMeasure F S s * (∏ i : Fin K, G i (s.2.2 i)) * v ^ memSize s :=
+            mul_le_mul_of_nonneg_right
+              (mul_le_mul_of_nonneg_left (hkernel s (hT s (Finset.mem_filter.mp hs).1) hparts.2.1)
+                (hμ s hparts.1)) (pow_nonneg hv.le _)
+          _ = _ := by
+            rw [show memMeasure F S s * (∏ i : Fin K, G i (s.2.2 i)) * v ^ memSize s =
+              (memMeasure F S s * v ^ memSize s) * ∏ i : Fin K, G i (s.2.2 i) by ring,
+              hmeasure s hparts.1 hparts.2.2, mul_assoc, ← Finset.prod_mul_distrib]
+      _ = A * ∑ s ∈ T₀, ∏ i : Fin K, W i (s.2.2 i) * G i (s.2.2 i) := by rw [Finset.mul_sum]
+      _ ≤ A * ∏ i : Fin K, ∑ l ∈ Tᵢ i, W i l * G i l := mul_le_mul_of_nonneg_left hprodSum hA
+      _ ≤ A * ∏ i : Fin K, W i (t.2.2 i) * (E * Q i) := by
+        apply mul_le_mul_of_nonneg_left _ hA
+        apply Finset.prod_le_prod₀
+        · intro i hi
+          exact Finset.sum_nonneg fun l hl => mul_nonneg (hW i l (hprime i l hl)) (hG i l)
+        · intro i hi
+          exact hgroup i
+      _ = _ := by rw [Finset.prod_mul_distrib, ← mul_assoc, ← hmeasure t ht rfl]
+  have hcdiv (i : Fin K) : c i / v = memoryEta S.x F.q_d j * bandMass S.x (F.a i) / (ρ * v) := by
+    dsimp [c]
+    ring
+  simpa only [E, Q, b, hcdiv] using hfinal
+
+set_option maxHeartbeats 1000000 in
+/-- Averaging the ordered column over target permutations cancels its
+suffix multiplicities and gives the symmetric-memory column Schur bound. -/
+private theorem memGhostProjected_colSchur_le_of_params {K : ℕ}
+    (F : PDFix K) (hF : F.Valid) (S : PDScale)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (j B : ℕ) (v : ℝ) (hv : 0 < v)
+    (hvlarge : ∀ i, 2 * bandMass S.x (F.a i) /
+      (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤ v)
+    (hV : ∀ i, 0 < bandMass S.x (F.a i))
+    (hbp : ∀ p ∈ markedPrimes S.x K F.a,
+      (1 / 2 : ℝ) ≤ memoryBPrime S.x F.q_d p) :
+    MemColSchurLE_sym F S B (memGhost F S ρ j) v
+      (∏ i : Fin K, Real.exp (2 * memoryEta S.x F.q_d j * v / ρ)) := by
+  classical
+  have hρsq : ρ ^ 2 < 1 := by nlinarith [hρ.1, hρ.2.1]
+  have hqLt : memoryQ S.x F.q_d j < 1 := by
+    unfold memoryQ
+    split_ifs <;> [exact lt_trans hρ.2.2 hρsq; exact hF.2.2.1]
+  have hη : 0 ≤ memoryEta S.x F.q_d j := by unfold memoryEta; linarith
+  have hq : 0 ≤ memoryQ S.x F.q_d j := by
+    unfold memoryQ
+    split_ifs <;> [exact Real.sqrt_nonneg _; exact hF.2.1.le]
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p := by
+    have hbpPos : 0 < memoryBPrime S.x F.q_d p :=
+      lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1 / 2)
+        (hbp p (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩))
+    have hden : 0 < bandMass S.x (F.a i) * ((p : ℝ) + 1) *
+        memoryBPrime S.x F.q_d p :=
+      mul_pos (mul_pos (hV i) (by positivity)) hbpPos
+    exact div_nonneg (by norm_num) hden.le
+  have hμ (s : MemPoint S.x K) : 0 ≤ memMeasure F S s := by
+    by_cases hs : MemValid F S s
+    · rw [memMeasure, if_pos hs]
+      apply mul_nonneg
+      · exact Finset.prod_nonneg fun i hi =>
+          Finset.prod_nonneg fun k hk => hν i _ (hs.2.1 i k)
+      · apply Finset.prod_nonneg
+        intro i hi
+        apply div_nonneg
+        · exact List.prod_nonneg fun x hx => by
+            rcases List.mem_map.mp hx with ⟨e, he, rfl⟩
+            exact hν i e.1 (hs.2.2 i e he).1
+        · exact Nat.cast_nonneg _
+    · simp [memMeasure, hs]
+  let a (i : Fin K) := memoryEta S.x F.q_d j * bandMass S.x (F.a i) / (ρ * v)
+  let b := memoryQ S.x F.q_d j / ρ ^ 2
+  let E := Real.exp (2 * memoryEta S.x F.q_d j * v / ρ)
+  have ha (i : Fin K) : 0 ≤ a i :=
+    div_nonneg (mul_nonneg hη (hV i).le) (mul_nonneg hρ.1.le hv.le)
+  have hb : 0 ≤ b := div_nonneg hq (sq_nonneg ρ)
+  have hab (i : Fin K) : a i + b ≤ 1 := by
+    have hv' : 2 / (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤
+        v / bandMass S.x (F.a i) := by
+      rw [le_div_iff₀ (hV i)]
+      have h := hvlarge i
+      convert h using 1 <;> ring
+    have h := ghost_parenthesis_le_one F hF ρ hρ (v / bandMass S.x (F.a i)) hv'
+      (x := S.x) j
+    have hcancel : memoryEta S.x F.q_d j / (ρ * (v / bandMass S.x (F.a i))) = a i := by
+      dsimp [a]
+      field_simp [ne_of_gt (hV i), ne_of_gt hρ.1, ne_of_gt hv]
+    rw [hcancel] at h
+    dsimp [b]
+    linarith
+  change MemColSchurLE F S B (fun f => memGhost F S ρ j (memorySym f)) v _
+  intro t ht htB T hT
+  have hperm (σ : MemoryPermutation t) (i : Fin K) :
+      ((memoryPermute t σ).2.2 i).Perm (t.2.2 i) := by
+    simpa only [memoryPermute, Function.comp_def, List.ofFn_get] using
+      (σ i).ofFn_comp_perm (t.2.2 i).get
+  have hvalid (σ : MemoryPermutation t) : MemValid F S (memoryPermute t σ) := by
+    refine ⟨ht.1, ht.2.1, ?_⟩
+    intro i e he
+    exact ht.2.2 i e ((hperm σ i).mem_iff.mp he)
+  have hmeasure (σ : MemoryPermutation t) :
+      memMeasure F S (memoryPermute t σ) = memMeasure F S t := by
+    simp only [memMeasure, if_pos (hvalid σ), if_pos ht]
+    change _ * (∏ i : Fin K,
+      (((memoryPermute t σ).2.2 i).map fun e => memoryNu S.x K F.a F.q_d i e.1).prod /
+        (((memoryPermute t σ).2.2 i).length.factorial : ℝ)) = _
+    congr 1
+    apply Finset.prod_congr rfl
+    intro i hi
+    rw [(hperm σ i).length_eq,
+      ((hperm σ i).map (fun e => memoryNu S.x K F.a F.q_d i e.1)).prod_eq]
+  have hcount (l : List Particle) :
+      hitCount l t.1 = l.countP (fun e => decide (particleHits e t.1)) := by
+    have huniv : (List.finRange l.length).toFinset =
+        (Finset.univ : Finset (Fin l.length)) := by ext k; simp
+    calc
+      _ = ((List.finRange l.length).toFinset.filter
+          fun k => particleHits (l.get k) t.1).card := by simp [huniv, hitCount, hitIndices]
+      _ = (List.finRange l.length).countP (fun k => decide (particleHits (l.get k) t.1)) :=
+        (List.nodup_finRange _).card_eq_countP
+      _ = ((List.finRange l.length).map l.get).countP
+          (fun e => decide (particleHits e t.1)) := by
+            simp only [List.countP_map, Function.comp_def]
+      _ = _ := by rw [List.map_get_finRange]
+  have hhit (i : Fin K) (σ : Equiv.Perm (Fin (t.2.2 i).length)) :
+      hitCount (List.ofFn fun k => (t.2.2 i).get (σ k)) t.1 = hitCount (t.2.2 i) t.1 := by
+    rw [hcount, hcount]
+    have hp : (List.ofFn fun k => (t.2.2 i).get (σ k)).Perm (t.2.2 i) := by
+      simpa only [Function.comp_def, List.ofFn_get] using σ.ofFn_comp_perm (t.2.2 i).get
+    exact hp.countP_eq _
+  let Q (i : Fin K) (σ : Equiv.Perm (Fin (t.2.2 i).length)) :=
+    ∑ m ∈ Finset.range ((t.2.2 i).length + 1),
+      if ∀ e ∈ (List.ofFn fun k => (t.2.2 i).get (σ k)).drop ((t.2.2 i).length - m),
+          particleHits e t.1 then
+        (Nat.choose (t.2.2 i).length m : ℝ) * a i ^ m * b ^ (hitCount (t.2.2 i) t.1 - m)
+      else 0
+  let d := (Fintype.card (MemoryPermutation t) : ℝ)
+  have hd : 0 ≤ d⁻¹ := inv_nonneg.mpr (Nat.cast_nonneg _)
+  have hcard : d = ∏ i : Fin K, (Fintype.card (Equiv.Perm (Fin (t.2.2 i).length)) : ℝ) := by
+    simp [d, MemoryPermutation, Fintype.card_pi, Nat.cast_prod]
+  have haverage :
+      d⁻¹ * (∑ σ : MemoryPermutation t, ∏ i : Fin K, E * Q i (σ i)) ≤
+        ∏ i : Fin K, E := by
+    calc
+      _ = ∏ i : Fin K, E *
+          ((Fintype.card (Equiv.Perm (Fin (t.2.2 i).length)) : ℝ)⁻¹ *
+            ∑ σ : Equiv.Perm (Fin (t.2.2 i).length), Q i σ) := by
+        rw [finite_pi_sum_prod (fun i => Equiv.Perm (Fin (t.2.2 i).length))
+          (fun i σ => E * Q i σ), hcard, ← Finset.prod_inv_distrib, ← Finset.prod_mul_distrib]
+        apply Finset.prod_congr rfl
+        intro i hi
+        rw [← Finset.mul_sum]
+        ring
+      _ = ∏ i : Fin K, E * (a i + b) ^ hitCount (t.2.2 i) t.1 := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        rw [show (Fintype.card (Equiv.Perm (Fin (t.2.2 i).length)) : ℝ)⁻¹ *
+          (∑ σ : Equiv.Perm (Fin (t.2.2 i).length), Q i σ) =
+            (a i + b) ^ hitCount (t.2.2 i) t.1 from
+              ghost_suffix_average_polynomial (t.2.2 i) t.1 (a i) b]
+      _ ≤ _ := by
+        apply Finset.prod_le_prod₀
+        · intro i hi
+          exact mul_nonneg (Real.exp_pos _).le (pow_nonneg (add_nonneg (ha i) hb) _)
+        · intro i hi
+          simpa only [mul_one] using mul_le_mul_of_nonneg_left
+            (pow_le_one₀ (add_nonneg (ha i) hb) (hab i)) (Real.exp_pos _).le
+  have hordered (σ : MemoryPermutation t) :
+      (∑ s ∈ T, memMeasure F S s *
+        ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ * v ^ memSize s) ≤
+        memMeasure F S t * v ^ memSize t * ∏ i : Fin K, E * Q i (σ i) := by
+    have h := ghost_ordered_column_choice_bound F hF S ρ hρ j B v hv hV hbp
+      (memoryPermute t σ) (hvalid σ)
+      (by simpa only [memSize_memoryPermute] using htB) T hT
+    rw [hmeasure σ, memSize_memoryPermute] at h
+    simpa only [memoryPermute, List.length_ofFn, hhit, E, Q, a, b] using h
+  have hkernel (s : MemPoint S.x K) (hs : s ∈ T) :
+      ‖memKernel (fun f => memGhost F S ρ j (memorySym f)) s t‖ ≤
+        d⁻¹ * ∑ σ : MemoryPermutation t,
+          ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ := by
+    rw [memGhostProjectedKernel_target_perm_sum F S ρ j s t B (hT s hs) htB]
+    calc
+      _ ≤ ‖(Fintype.card (MemoryPermutation t) : ℂ)⁻¹‖ *
+          ∑ σ : MemoryPermutation t,
+            ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ :=
+        (norm_mul_le _ _).trans (mul_le_mul_of_nonneg_left (norm_sum_le _ _) (norm_nonneg _))
+      _ = _ := by simp [norm_inv, d]
+  calc
+    _ ≤ ∑ s ∈ T, memMeasure F S s *
+        (d⁻¹ * ∑ σ : MemoryPermutation t,
+          ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖) * v ^ memSize s := by
+      apply Finset.sum_le_sum
+      intro s hs
+      exact mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_left (hkernel s hs) (hμ s)) (pow_nonneg hv.le _)
+    _ = ∑ s ∈ T, ∑ σ : MemoryPermutation t,
+        d⁻¹ * (memMeasure F S s *
+          ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ * v ^ memSize s) := by
+      apply Finset.sum_congr rfl
+      intro s hs
+      rw [Finset.mul_sum, Finset.mul_sum, Finset.sum_mul]
+      apply Finset.sum_congr rfl
+      intro σ hσ
+      ring
+    _ = d⁻¹ * ∑ σ : MemoryPermutation t, ∑ s ∈ T,
+        memMeasure F S s *
+          ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ * v ^ memSize s := by
+      rw [Finset.sum_comm, Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro σ hσ
+      rw [Finset.mul_sum]
+    _ ≤ d⁻¹ * ∑ σ : MemoryPermutation t,
+        memMeasure F S t * v ^ memSize t * ∏ i : Fin K, E * Q i (σ i) := by
+      apply mul_le_mul_of_nonneg_left _ hd
+      apply Finset.sum_le_sum
+      intro σ hσ
+      exact hordered σ
+    _ = (memMeasure F S t * v ^ memSize t) *
+        (d⁻¹ * ∑ σ : MemoryPermutation t, ∏ i : Fin K, E * Q i (σ i)) := by
+      rw [← Finset.mul_sum]
+      ring
+    _ ≤ (memMeasure F S t * v ^ memSize t) * ∏ i : Fin K, E :=
+      mul_le_mul_of_nonneg_left haverage (mul_nonneg (hμ t) (pow_nonneg hv.le _))
+    _ = _ := by dsimp [E]; ring
+
+set_option maxHeartbeats 1000000 in
+/-- On finite support below the memory cutoff, the projected ghost operator
+is exactly its finite kernel sum. -/
+private theorem memGhostProjected_finite_kernel {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (j B : ℕ)
+    (s : MemPoint S.x K) (hsB : memSize s ≤ B)
+    (T : Finset (MemPoint S.x K)) (f : MemPoint S.x K → ℂ)
+    (hsupp : ∀ t, t ∉ T → f t = 0) (hT : ∀ t ∈ T, memSize t ≤ B) :
+    memGhost F S ρ j (memorySym f) s =
+      ∑ t ∈ T,
+        memKernel (fun g => memGhost F S ρ j (memorySym g)) s t * f t := by
+  classical
+  have hdecomp (u : MemPoint S.x K) :
+      (∑ t ∈ T, (if u = t then (1 : ℂ) else 0) * f t) = f u := by
+    by_cases hu : u ∈ T
+    · simp [eq_comm, hu]
+    · simp [eq_comm, hu, hsupp u hu]
+  have hsym (u : MemPoint S.x K) :
+      memorySym f u = ∑ t ∈ T, memorySym (fun u' => if u' = t then (1 : ℂ) else 0) u * f t := by
+    simp only [memorySym]
+    calc
+      _ = (Fintype.card (MemoryPermutation u) : ℂ)⁻¹ *
+          ∑ σ : MemoryPermutation u, ∑ t ∈ T,
+            (if memoryPermute u σ = t then (1 : ℂ) else 0) * f t := by
+        congr 1
+        apply Finset.sum_congr rfl
+        intro σ hσ
+        exact (hdecomp (memoryPermute u σ)).symm
+      _ = _ := by
+        rw [Finset.sum_comm, Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro t ht
+        rw [← Finset.sum_mul]
+        ring
+  have hlarge (u : MemPoint S.x K) (hu : B < memSize u) : memorySym f u = 0 := by
+    have hf (σ : MemoryPermutation u) : f (memoryPermute u σ) = 0 := by
+      apply hsupp
+      intro hmem
+      have hsize := hT (memoryPermute u σ) hmem
+      rw [memSize_memoryPermute] at hsize
+      omega
+    simp [memorySym, hf]
+  let H (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+      (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)}) : ℂ :=
+    if hD : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1 then
+      ((∏ i : Fin K,
+        ghostGroupCoeff F S ρ j i (hitCount (s.2.2 i) s.1) (D i).card (m i)
+          (List.ofFn fun k => (new i k).1) : ℝ) : ℂ) *
+        memorySym f (ghostOutputState F s D m new)
+    else 0
+  have hfinite : memGhost F S ρ j (memorySym f) s =
+      ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            H D m new := by
+    change logGhost F S ρ j (fun σL => memorySym f σL.1) (s, []) = _
+    unfold logGhost
+    change (∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+      ∑' m : Fin K → ℕ,
+        ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+          H D m new) = _
+    apply Finset.sum_congr rfl
+    intro D hD
+    apply tsum_eq_sum
+    intro m hm
+    apply Finset.sum_eq_zero
+    intro new hnew
+    have hnot : ¬ ∀ i : Fin K, m i ≤ 2 * B := by
+      intro h
+      apply hm
+      simpa only [GhostBatchLengths, Fintype.mem_piFinset, Finset.mem_range] using
+        (fun i => by have := h i; omega : ∀ i : Fin K, m i < 2 * B + 1)
+    rcases not_forall.mp hnot with ⟨i, hi⟩
+    have hout := ghostOutputState_memSize_gt_of_large_batch F s B D m new hsB i
+      (by omega : 2 * B < m i)
+    by_cases hg : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1
+    · simp only [H, dif_pos hg, hlarge _ hout, mul_zero]
+    · simp only [H, dif_neg hg]
+  have hterm (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+      (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)}) :
+      H D m new = ∑ t ∈ T, ghostKernelTerm F S s ρ j t D m new * f t := by
+    by_cases hg : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1
+    · simp only [H, ghostKernelTerm, dif_pos hg]
+      rw [hsym, Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      ring
+    · simp [H, ghostKernelTerm, hg]
+  have hswap (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) :
+      (∑ m ∈ GhostBatchLengths K B,
+        ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+          ∑ t ∈ T, ghostKernelTerm F S s ρ j t D m new * f t) =
+        ∑ t ∈ T, ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostKernelTerm F S s ρ j t D m new * f t := by
+    calc
+      _ = ∑ m ∈ GhostBatchLengths K B, ∑ t ∈ T,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostKernelTerm F S s ρ j t D m new * f t := by
+        apply Finset.sum_congr rfl
+        intro m hm
+        exact Finset.sum_comm
+      _ = _ := Finset.sum_comm
+  calc
+    _ = ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ∑ t ∈ T, ghostKernelTerm F S s ρ j t D m new * f t := by
+      rw [hfinite]
+      apply Finset.sum_congr rfl
+      intro D hD
+      apply Finset.sum_congr rfl
+      intro m hm
+      apply Finset.sum_congr rfl
+      intro new hnew
+      exact hterm D m new
+    _ = ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length), ∑ t ∈ T,
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostKernelTerm F S s ρ j t D m new * f t := by
+      apply Finset.sum_congr rfl
+      intro D hD
+      exact hswap D
+    _ = ∑ t ∈ T, ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostKernelTerm F S s ρ j t D m new * f t := Finset.sum_comm
+    _ = ∑ t ∈ T,
+        (∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+          ∑ m ∈ GhostBatchLengths K B,
+            ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+              ghostKernelTerm F S s ρ j t D m new) * f t := by
+      simp only [Finset.sum_mul]
+    _ = _ := by
+      apply Finset.sum_congr rfl
+      intro t ht
+      rw [memGhostProjectedKernel_finite F S ρ j s t B hsB (hT t ht)]
+
+set_option maxHeartbeats 1000000 in
+/-- Finite weighted Schur bounds the projected ghost norm, including finite
+supports containing invalid states of zero measure. -/
+private theorem memGhostProjected_norm_of_schur {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (j B : ℕ) (v C : ℝ)
+    (hv : 0 < v) (hC : 0 ≤ C) (hμ : ∀ s, 0 ≤ memMeasure F S s)
+    (hrow : MemRowSchurLE_sym F S B (memGhost F S ρ j) v C)
+    (hcol : MemColSchurLE_sym F S B (memGhost F S ρ j) v C) :
+    MemOpNormLE_sym F S B (memGhost F S ρ j) C := by
+  classical
+  have hSchur
+      (μ v : MemPoint S.x K → ℝ) (k : MemPoint S.x K → MemPoint S.x K → ℂ) (f : MemPoint S.x K → ℂ) (T T' : Finset (MemPoint S.x K)) (a b : ℝ)
+      (hμ : ∀ s, 0 ≤ μ s) (hv : ∀ s, 0 < v s) (ha : 0 ≤ a) (hb : 0 ≤ b)
+      (hrow : ∀ s ∈ T', ∑ t ∈ T, ‖k s t‖ * v t ≤ a * v s)
+      (hcol : ∀ t ∈ T, ∑ s ∈ T', μ s * ‖k s t‖ * v s ≤ b * μ t * v t) :
+      (∑ s ∈ T', μ s * ‖∑ t ∈ T, k s t * f t‖ ^ 2) ≤
+        a * b * (∑ t ∈ T, μ t * ‖f t‖ ^ 2) := by
+    classical
+    have hpoint (s : MemPoint S.x K) :
+        ‖∑ t ∈ T, k s t * f t‖ ^ 2 ≤
+          (∑ t ∈ T, ‖k s t‖ * v t) *
+            ∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t := by
+      have hCS := Finset.sum_sq_le_sum_mul_sum_of_sq_le_mul (s := T)
+        (r := fun t => ‖k s t‖ * ‖f t‖)
+        (f := fun t => ‖k s t‖ * v t)
+        (g := fun t => ‖k s t‖ * ‖f t‖ ^ 2 / v t)
+        (fun t ht => mul_nonneg (norm_nonneg _) (hv t).le)
+        (fun t ht => div_nonneg (mul_nonneg (norm_nonneg _) (sq_nonneg _)) (hv t).le)
+        (fun t ht => by
+          have hvt := hv t
+          have heq : (‖k s t‖ * ‖f t‖) ^ 2 =
+              (‖k s t‖ * v t) * (‖k s t‖ * ‖f t‖ ^ 2 / v t) := by
+            field_simp [hvt.ne']
+          exact heq.le)
+      have htri :
+          ‖∑ t ∈ T, k s t * f t‖ ≤ ∑ t ∈ T, ‖k s t‖ * ‖f t‖ := by
+        calc
+          ‖∑ t ∈ T, k s t * f t‖ ≤ ∑ t ∈ T, ‖k s t * f t‖ := norm_sum_le _ _
+          _ = ∑ t ∈ T, ‖k s t‖ * ‖f t‖ := by simp [norm_mul]
+      have hsumNonneg : 0 ≤ ∑ t ∈ T, ‖k s t‖ * ‖f t‖ :=
+        Finset.sum_nonneg fun t ht => mul_nonneg (norm_nonneg _) (norm_nonneg _)
+      have hsq : ‖∑ t ∈ T, k s t * f t‖ ^ 2 ≤
+          (∑ t ∈ T, ‖k s t‖ * ‖f t‖) ^ 2 := by
+        have hprod := mul_nonneg (sub_nonneg.mpr htri)
+          (add_nonneg (norm_nonneg (∑ t ∈ T, k s t * f t)) hsumNonneg)
+        nlinarith [hprod]
+      exact hsq.trans hCS
+    have hinnerNonneg (s : MemPoint S.x K) :
+        0 ≤ ∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t :=
+      Finset.sum_nonneg fun t ht =>
+        div_nonneg (mul_nonneg (norm_nonneg _) (sq_nonneg _)) (hv t).le
+    have hrowAll (s : MemPoint S.x K) (hs : s ∈ T') :
+        0 ≤ ∑ t ∈ T, ‖k s t‖ * v t :=
+      Finset.sum_nonneg fun t ht => mul_nonneg (norm_nonneg _) (hv t).le
+    have hswap :
+        (∑ s ∈ T', μ s * v s *
+          (∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t)) =
+          ∑ t ∈ T, (‖f t‖ ^ 2 / v t) *
+            (∑ s ∈ T', μ s * ‖k s t‖ * v s) := by
+      simp_rw [Finset.mul_sum]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro t ht
+      apply Finset.sum_congr rfl
+      intro s hs
+      ring
+    calc
+      (∑ s ∈ T', μ s * ‖∑ t ∈ T, k s t * f t‖ ^ 2)
+          ≤ ∑ s ∈ T', μ s *
+            ((∑ t ∈ T, ‖k s t‖ * v t) *
+              ∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t) := by
+            apply Finset.sum_le_sum
+            intro s hs
+            exact mul_le_mul_of_nonneg_left (hpoint s) (hμ s)
+      _ ≤ ∑ s ∈ T', μ s * ((a * v s) *
+            ∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t) := by
+            apply Finset.sum_le_sum
+            intro s hs
+            exact mul_le_mul_of_nonneg_left
+              (mul_le_mul_of_nonneg_right (hrow s hs) (hinnerNonneg s)) (hμ s)
+      _ = a * (∑ s ∈ T', μ s * v s *
+            (∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t)) := by
+            rw [Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro s hs
+            ring
+      _ = a * (∑ t ∈ T, (‖f t‖ ^ 2 / v t) *
+            (∑ s ∈ T', μ s * ‖k s t‖ * v s)) := by rw [hswap]
+      _ ≤ a * (∑ t ∈ T, (‖f t‖ ^ 2 / v t) * (b * μ t * v t)) := by
+            apply mul_le_mul_of_nonneg_left
+            · apply Finset.sum_le_sum
+              intro t ht
+              exact mul_le_mul_of_nonneg_left (hcol t ht)
+                (div_nonneg (sq_nonneg _) (hv t).le)
+            · exact ha
+      _ = a * b * (∑ t ∈ T, μ t * ‖f t‖ ^ 2) := by
+            rw [Finset.mul_sum, Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro t ht
+            have hvt := hv t
+            field_simp [hvt.ne']
+  have hvalidPerm (u : MemPoint S.x K) (hu : MemValid F S u)
+      (σ : MemoryPermutation u) : MemValid F S (memoryPermute u σ) := by
+    refine ⟨hu.1, hu.2.1, ?_⟩
+    intro i e he
+    have hp : ((memoryPermute u σ).2.2 i).Perm (u.2.2 i) := by
+      simpa only [memoryPermute, Function.comp_def, List.ofFn_get] using
+        (σ i).ofFn_comp_perm (u.2.2 i).get
+    exact hu.2.2 i e (hp.mem_iff.mp he)
+  have hvalidOutput (s : MemPoint S.x K) (hs : MemValid F S s)
+      (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+      (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)}) :
+      MemValid F S (ghostOutputState F s D m new) := by
+    refine ⟨hs.1, hs.2.1, ?_⟩
+    intro i e he
+    change e ∈ removeIndices (s.2.2 i) (D i) ++
+      List.ofFn (fun k => anchorAt (new i k).1 s.1) at he
+    rcases List.mem_append.mp he with hkeep | hborn
+    · have he' : e ∈ removeIndices (s.2.2 i) (D i) ++ selectIndices (s.2.2 i) (D i) :=
+        List.mem_append.mpr (Or.inl hkeep)
+      exact hs.2.2 i e ((remove_select_perm (s.2.2 i) (D i)).mem_iff.mp he')
+    · rcases List.mem_ofFn.mp hborn with ⟨k, rfl⟩
+      refine ⟨(new i k).2, ?_⟩
+      exact Nat.le_of_lt_succ (projLine (new i k).1 s.1).isLt
+  have hsymzero (u : MemPoint S.x K) (hu : MemValid F S u)
+      (t : MemPoint S.x K) (ht : ¬ MemValid F S t) :
+      memorySym (fun u' => if u' = t then (1 : ℂ) else 0) u = 0 := by
+    have hne (σ : MemoryPermutation u) : memoryPermute u σ ≠ t := by
+      intro heq
+      apply ht
+      simpa only [heq] using hvalidPerm u hu σ
+    simp [memorySym, hne]
+  have hzero (s : MemPoint S.x K) (hs : MemValid F S s)
+      (t : MemPoint S.x K) (ht : ¬ MemValid F S t) :
+      memKernel (fun g => memGhost F S ρ j (memorySym g)) s t = 0 := by
+    change logGhost F S ρ j
+      (fun σL => memorySym (fun u => if u = t then (1 : ℂ) else 0) σL.1) (s, []) = 0
+    unfold logGhost
+    apply Finset.sum_eq_zero
+    intro D hD
+    calc
+      _ = ∑' m : Fin K → ℕ, (0 : ℂ) := by
+        apply tsum_congr
+        intro m
+        apply Finset.sum_eq_zero
+        intro new hnew
+        by_cases hg : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1
+        · simp only [if_pos hg]
+          change _ * memorySym (fun u => if u = t then (1 : ℂ) else 0)
+            (ghostOutputState F s D m new) = 0
+          rw [hsymzero _ (hvalidOutput s hs D m new) t ht, mul_zero]
+        · simp only [if_neg hg]
+      _ = 0 := by simp
+  let kRaw (s t : MemPoint S.x K) :=
+    memKernel (fun g => memGhost F S ρ j (memorySym g)) s t
+  let k (s t : MemPoint S.x K) := if MemValid F S s ∧ MemValid F S t then kRaw s t else 0
+  have hknorm (s t : MemPoint S.x K) : ‖k s t‖ ≤ ‖kRaw s t‖ := by
+    dsimp [k]
+    split_ifs
+    · exact le_rfl
+    · simpa only [norm_zero] using norm_nonneg (kRaw s t)
+  have hkeq (s : MemPoint S.x K) (hs : MemValid F S s) (t : MemPoint S.x K) :
+      kRaw s t = k s t := by
+    by_cases ht : MemValid F S t
+    · simp [k, hs, ht]
+    · have hz : kRaw s t = 0 := hzero s hs t ht
+      simp [k, ht, hz]
+  change MemOpNormLE F S B (fun g => memGhost F S ρ j (memorySym g)) C
+  intro T T' f hsupp hT hT'
+  have hrowk (s : MemPoint S.x K) (hsT' : s ∈ T') :
+      (∑ t ∈ T, ‖k s t‖ * v ^ memSize t) ≤ C * v ^ memSize s := by
+    by_cases hs : MemValid F S s
+    · calc
+        _ ≤ ∑ t ∈ T, ‖kRaw s t‖ * v ^ memSize t := by
+          apply Finset.sum_le_sum
+          intro t ht
+          exact mul_le_mul_of_nonneg_right (hknorm s t) (pow_nonneg hv.le _)
+        _ ≤ _ := hrow s hs (hT' s hsT') T hT
+    · have hz : (∑ t ∈ T, ‖k s t‖ * v ^ memSize t) = 0 := by simp [k, hs]
+      rw [hz]
+      exact mul_nonneg hC (pow_nonneg hv.le _)
+  have hcolk (t : MemPoint S.x K) (htT : t ∈ T) :
+      (∑ s ∈ T', memMeasure F S s * ‖k s t‖ * v ^ memSize s) ≤
+        C * memMeasure F S t * v ^ memSize t := by
+    by_cases ht : MemValid F S t
+    · calc
+        _ ≤ ∑ s ∈ T', memMeasure F S s * ‖kRaw s t‖ * v ^ memSize s := by
+          apply Finset.sum_le_sum
+          intro s hs
+          exact mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_left (hknorm s t) (hμ s)) (pow_nonneg hv.le _)
+        _ ≤ _ := hcol t ht (hT t htT) T' hT'
+    · have hz : (∑ s ∈ T', memMeasure F S s * ‖k s t‖ * v ^ memSize s) = 0 := by
+        simp [k, ht]
+      rw [hz]
+      exact mul_nonneg (mul_nonneg hC (hμ t)) (pow_nonneg hv.le _)
+  have hnorm :
+      memNormSqOn F S T' (memGhost F S ρ j (memorySym f)) =
+        ∑ s ∈ T', memMeasure F S s * ‖∑ t ∈ T, k s t * f t‖ ^ 2 := by
+    unfold memNormSqOn
+    apply Finset.sum_congr rfl
+    intro s hsT'
+    by_cases hs : MemValid F S s
+    · have hp : memGhost F S ρ j (memorySym f) s = ∑ t ∈ T, k s t * f t := by
+        rw [memGhostProjected_finite_kernel F S ρ j B s (hT' s hsT') T f hsupp hT]
+        change (∑ t ∈ T, kRaw s t * f t) = _
+        apply Finset.sum_congr rfl
+        intro t ht
+        rw [hkeq s hs t]
+      rw [hp]
+    · have hz : memMeasure F S s = 0 := by simp [memMeasure, hs]
+      rw [hz]
+      simp
+  rw [hnorm]
+  have h := hSchur (memMeasure F S) (fun s => v ^ memSize s) k f T T' C C hμ
+    (fun s => pow_pos hv _) hC hC hrowk hcolk
+  simpa only [memNormSqOn, pow_two] using h
+
 private theorem memGhostProjected_rowSchur_le_of_params {K : ℕ}
     (F : PDFix K) (hF : F.Valid) (S : PDScale) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ)
     (j B : ℕ) (v : ℝ) (hv : 0 < v)
@@ -4943,6 +7526,495 @@ private theorem bandMass_pos_of_large_x {K : ℕ} (F : PDFix K) (hF : F.Valid) :
   have hxi : x_i i ≤ x₀ := by dsimp [x₀]; linarith
   exact ((hx_i i).2 x (le_trans hxi hx)).2
 
+private theorem bandMass_half_log_two_of_large_x {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → ∀ i : Fin K,
+      Real.log 2 / 2 ≤ bandMass x (F.a i) := by
+  classical
+  let x_i : Fin K → ℝ := fun i =>
+    Classical.choose (band_mass (F.a i)
+      (lt_trans (by norm_num : (0 : ℝ) < 1 / 10) (hF.1.2.1 i).1)
+      (lt_trans (hF.1.2.1 i).2 (by norm_num))
+      (Real.log 2 / 2) (by positivity))
+  have hx_i : ∀ i : Fin K,
+      2 ≤ x_i i ∧ ∀ x : ℝ, x_i i ≤ x →
+        |bandMass x (F.a i) - Real.log 2| ≤ Real.log 2 / 2 ∧
+          0 < bandMass x (F.a i) := by
+    intro i
+    exact Classical.choose_spec (band_mass (F.a i)
+      (lt_trans (by norm_num : (0 : ℝ) < 1 / 10) (hF.1.2.1 i).1)
+      (lt_trans (hF.1.2.1 i).2 (by norm_num))
+      (Real.log 2 / 2) (by positivity))
+  let x₀ : ℝ := 2 + ∑ i : Fin K, x_i i
+  have hx₀ : 2 ≤ x₀ := by
+    dsimp [x₀]
+    have hsum : 0 ≤ ∑ i : Fin K, x_i i :=
+      Finset.sum_nonneg fun i hi => by linarith [(hx_i i).1]
+    linarith
+  refine ⟨x₀, hx₀, ?_⟩
+  intro x hx i
+  have hsingle : x_i i ≤ ∑ j : Fin K, x_i j :=
+    Finset.single_le_sum (s := Finset.univ) (f := x_i)
+      (fun j hj => by linarith [(hx_i j).1]) (Finset.mem_univ i)
+  have hxi : x_i i ≤ x₀ := by dsimp [x₀]; linarith
+  have habs := (abs_le.mp ((hx_i i).2 x (le_trans hxi hx)).1)
+  linarith
+
+/-- The positive edge choice row is polynomial in the memory cutoff once the
+spatial multiplier sum and the normalized prime masses are bounded. -/
+private theorem memEdge_positive_choice_row_le {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ v H Cgeom : ℝ) (w : ArchRoot)
+    (j B : ℕ) (s : MemPoint S.x K) (Z : Finset (ℤ × ℤ))
+    (hρ : 0 ≤ ρ ∧ ρ ≤ 1) (hv : 1 ≤ v) (hH : 0 ≤ H)
+    (hCgeom : 0 ≤ Cgeom) (hsSize : memSize s ≤ B)
+    (hV : ∀ i : Fin K, 0 < bandMass S.x (F.a i))
+    (hInv : ∀ i : Fin K, (bandMass S.x (F.a i))⁻¹ ≤ H)
+    (hν : ∀ i p, p ∈ primeBand S.x (F.a i) →
+      0 ≤ memoryNu S.x K F.a F.q_d i p)
+    (hMass : ∀ i : Fin K,
+      (∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2)
+    (hgeom : ∀ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+      (∑ z' ∈ Z, if EdgeAdmissible F S w s c z' then
+        ‖edgeMultiplier F S (decide (j % 2 = 0)) true s.2.1
+          (edgeTargetLists F S s c) s.1 z'‖ +
+        ‖edgeMultiplier F S (decide (j % 2 = 0)) false s.2.1
+          (edgeTargetLists F S s c) s.1 z'‖ else 0) ≤ Cgeom) :
+    (∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+      ∑ z' ∈ Z,
+        if EdgeAdmissible F S w s c z' then
+          |ρ ^ (∑ i : Fin K, hitCount (s.2.2 i) s.1) *
+            (∏ i : Fin K, pd5_edgeChoiceMass F S s c i) *
+            ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z')| *
+          (‖edgeMultiplier F S (decide (j % 2 = 0)) true s.2.1
+            (edgeTargetLists F S s c) s.1 z'‖ +
+          ‖edgeMultiplier F S (decide (j % 2 = 0)) false s.2.1
+            (edgeTargetLists F S s c) s.1 z'‖) *
+          v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c)
+        else 0) ≤
+      Cgeom * (2 * v * ((B : ℝ) * H + 2)) ^ K * v ^ memSize s := by
+  classical
+  let choices := (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i
+  let a (i : Fin K) (ci : EdgeChoice S.x F.a (s.2.2 i) i) : ℝ :=
+    match ci.2 with
+    | Sum.inl _ => (bandMass S.x (F.a i))⁻¹
+    | Sum.inr p => memoryNu S.x K F.a F.q_d i p
+  have ha (i : Fin K) (ci : EdgeChoice S.x F.a (s.2.2 i) i) : 0 ≤ a i ci := by
+    rcases ci with ⟨b, k | p⟩
+    · exact (inv_pos.mpr (hV i)).le
+    · exact hν i p p.2
+  have hmassEq (c : choices) (i : Fin K) : pd5_edgeChoiceMass F S s c i = a i (c i) := by
+    rfl
+  let mass (c : choices) : ℝ := ∏ i : Fin K, a i (c i)
+  have hmassNonneg (c : choices) : 0 ≤ mass c := Finset.prod_nonneg fun i _ => ha i (c i)
+  have hcoeff (c : choices) (z' : ℤ × ℤ) :
+      |ρ ^ (∑ i : Fin K, hitCount (s.2.2 i) s.1) *
+        (∏ i : Fin K, pd5_edgeChoiceMass F S s c i) *
+        ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z')| ≤ mass c := by
+    simp only [hmassEq]
+    change |ρ ^ _ * mass c * ρ ^ _| ≤ mass c
+    rw [abs_of_nonneg (mul_nonneg (mul_nonneg (pow_nonneg hρ.1 _) (hmassNonneg c))
+      (pow_nonneg hρ.1 _))]
+    calc
+      _ ≤ 1 * mass c * 1 :=
+        mul_le_mul
+          (mul_le_mul_of_nonneg_right (pow_le_one₀ hρ.1 hρ.2) (hmassNonneg c))
+          (pow_le_one₀ hρ.1 hρ.2) (pow_nonneg hρ.1 _)
+          (mul_nonneg (by norm_num) (hmassNonneg c))
+      _ = mass c := by ring
+  have houtSize (c : choices) (z' : ℤ × ℤ) :
+      memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) ≤ memSize s + K := by
+    have hi (i : Fin K) : (edgeNewMemory F S s c i).length ≤ (s.2.2 i).length + 1 := by
+      have hremove (D : Finset (Fin (s.2.2 i).length)) :
+          (removeIndices (s.2.2 i) D).length ≤ (s.2.2 i).length := by
+        rw [removeIndices_length]
+        exact Nat.sub_le _ _
+      cases hc : (c i).2 with
+      | inl k =>
+        have hrem := hremove {k}
+        cases hb : (c i).1 <;> simp [edgeNewMemory, hc, hb] <;> omega
+      | inr p =>
+        have hrem := hremove ∅
+        cases hb : (c i).1 <;> simp [edgeNewMemory, hc, hb] <;> omega
+    have hsum := Finset.sum_le_sum (s := Finset.univ) (fun i _ => hi i)
+    simpa [memSize, Finset.sum_add_distrib] using hsum
+  have houtWeight (c : choices) (z' : ℤ × ℤ) :
+      v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) ≤
+        v ^ memSize s * v ^ K := by
+    rw [← pow_add]
+    exact pow_le_pow_right₀ hv (houtSize c z')
+  let geom (c : choices) (z' : ℤ × ℤ) : ℝ :=
+    ‖edgeMultiplier F S (decide (j % 2 = 0)) true s.2.1
+      (edgeTargetLists F S s c) s.1 z'‖ +
+    ‖edgeMultiplier F S (decide (j % 2 = 0)) false s.2.1
+      (edgeTargetLists F S s c) s.1 z'‖
+  have hgeomNonneg (c : choices) (z' : ℤ × ℤ) : 0 ≤ geom c z' :=
+    add_nonneg (norm_nonneg _) (norm_nonneg _)
+  have hrow (c : choices) :
+      (∑ z' ∈ Z, if EdgeAdmissible F S w s c z' then
+        |ρ ^ (∑ i : Fin K, hitCount (s.2.2 i) s.1) *
+          (∏ i : Fin K, pd5_edgeChoiceMass F S s c i) *
+          ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z')| *
+        geom c z' * v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c)
+        else 0) ≤ mass c * (v ^ memSize s * v ^ K) * Cgeom := by
+    calc
+      _ ≤ ∑ z' ∈ Z, mass c * (v ^ memSize s * v ^ K) *
+          (if EdgeAdmissible F S w s c z' then geom c z' else 0) := by
+        apply Finset.sum_le_sum
+        intro z' hz'
+        by_cases hadm : EdgeAdmissible F S w s c z'
+        · simp only [if_pos hadm]
+          calc
+            _ ≤ mass c * geom c z' * (v ^ memSize s * v ^ K) :=
+              mul_le_mul (mul_le_mul_of_nonneg_right (hcoeff c z') (hgeomNonneg c z'))
+                (houtWeight c z') (pow_nonneg (by linarith) _)
+                (mul_nonneg (hmassNonneg c) (hgeomNonneg c z'))
+            _ = _ := by ring
+        · simp [hadm]
+      _ = mass c * (v ^ memSize s * v ^ K) *
+          ∑ z' ∈ Z, if EdgeAdmissible F S w s c z' then geom c z' else 0 := by
+        rw [Finset.mul_sum]
+      _ ≤ _ := mul_le_mul_of_nonneg_left (hgeom c)
+        (mul_nonneg (hmassNonneg c) (by positivity))
+  have hgroup (i : Fin K) :
+      (∑ ci : EdgeChoice S.x F.a (s.2.2 i) i, a i ci) ≤ 2 * ((B : ℝ) * H + 2) := by
+    have hlen : (s.2.2 i).length ≤ B :=
+      (Finset.single_le_sum (fun k _ => Nat.zero_le ((s.2.2 k).length))
+        (Finset.mem_univ i)).trans hsSize
+    have hlenR : ((s.2.2 i).length : ℝ) ≤ B := by exact_mod_cast hlen
+    have heq : (∑ ci : EdgeChoice S.x F.a (s.2.2 i) i, a i ci) =
+        2 * (((s.2.2 i).length : ℝ) * (bandMass S.x (F.a i))⁻¹ +
+          ∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) := by
+      simp [EdgeChoice, a, Fintype.sum_prod_type, Fintype.sum_sum_type,
+        Finset.sum_attach, two_mul, mul_add]
+    rw [heq]
+    have hprom := mul_le_mul hlenR (hInv i) (inv_nonneg.mpr (hV i).le) (by positivity)
+    linarith [hMass i]
+  have hchoices : (∑ c : choices, mass c) ≤ (2 * ((B : ℝ) * H + 2)) ^ K := by
+    dsimp [mass, choices]
+    rw [← Fintype.prod_sum a]
+    calc
+      _ ≤ ∏ i : Fin K, 2 * ((B : ℝ) * H + 2) := by
+        apply Finset.prod_le_prod₀
+        · intro i _
+          exact Finset.sum_nonneg fun ci _ => ha i ci
+        · intro i _
+          exact hgroup i
+      _ = _ := by simp
+  calc
+    _ ≤ ∑ c : choices, mass c * (v ^ memSize s * v ^ K) * Cgeom :=
+      Finset.sum_le_sum fun c _ => hrow c
+    _ = (∑ c : choices, mass c) * (v ^ memSize s * v ^ K) * Cgeom := by
+      rw [Finset.sum_mul, Finset.sum_mul]
+    _ ≤ (2 * ((B : ℝ) * H + 2)) ^ K * (v ^ memSize s * v ^ K) * Cgeom := by
+      gcongr
+    _ = _ := by rw [mul_pow, mul_pow]; ring
+
+set_option maxHeartbeats 1000000 in
+/-- The projected edge row grows polynomially in the memory cutoff, uniformly
+in the visit number and the archimedean root. -/
+private theorem memEdgeProjected_rowSchur_crude (δ c₁ c₂ : ℝ)
+    (hδ : 0 < δ) (hc₁ : 0 < c₁) (K : ℕ) (F : PDFix K) (hF : F.Valid)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (v : ℝ) (hv : 1 < v) :
+    ∃ Cedge x₀ : ℝ, 0 < Cedge ∧ 2 ≤ x₀ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ,
+          MemRowSchurLE_sym F S (memoryCutoff S)
+            (memEdge F S ρ w EdgeKind.full j) v
+            (Cedge * ((memoryCutoff S + 1 : ℕ) : ℝ) ^ K *
+              Real.rpow S.L (3 * F.A₀)) := by
+  classical
+  obtain ⟨Cgeom, xG, hCgeom, hxG, hGeom⟩ :=
+    pd5_edge_position_mass_le δ c₁ c₂ hδ hc₁ K F hF
+  obtain ⟨xS, hxS, hScale⟩ := pd5_scale_facts K F hF
+  let H : ℝ := 2 / Real.log 2
+  let Q : ℝ := Fintype.card (Finset (Fin K))
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hH : 0 < H := by dsimp [H]; positivity
+  have hQ : 0 < Q := by
+    dsimp [Q]
+    exact_mod_cast (Fintype.card_pos_iff.mpr ⟨(∅ : Finset (Fin K))⟩)
+  let A : ℝ := 2 * v * (H + 2)
+  let Cedge : ℝ := 2 * Q ^ 2 * Cgeom * A ^ K
+  have hvpos : 0 < v := by linarith
+  have hA : 0 < A := by dsimp [A]; positivity
+  have hCedge : 0 < Cedge := by dsimp [Cedge]; positivity
+  refine ⟨Cedge, max xG xS, hCedge, hxG.trans (le_max_left _ _), ?_⟩
+  intro S hS hx w hw j
+  have hxG' : xG ≤ S.x := (le_max_left _ _).trans hx
+  have hxS' : xS ≤ S.x := (le_max_right _ _).trans hx
+  obtain ⟨hL, _, _, _, _, _, _, hBands⟩ := hScale S hxS'
+  have hV (i : Fin K) : 0 < bandMass S.x (F.a i) :=
+    lt_of_lt_of_le (by positivity : 0 < Real.log 2 / 2) (hBands i).1
+  have hInv (i : Fin K) : (bandMass S.x (F.a i))⁻¹ ≤ H := by
+    have h := mul_le_mul_of_nonneg_left (hBands i).1 hH.le
+    have heq : H * (Real.log 2 / 2) = 1 := by
+      dsimp [H]
+      field_simp
+    apply (inv_le_iff_one_le_mul₀ (hV i)).2
+    exact heq.symm.le.trans h
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p := ((hBands i).2.2.2 p hp).1
+  have hMass (i : Fin K) :
+      (∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2 :=
+    (hBands i).2.2.1
+  let B := memoryCutoff S
+  let Lgeom : ℝ := Cgeom * Real.rpow S.L (3 * F.A₀)
+  let R : ℝ := Lgeom * (2 * v * ((B : ℝ) * H + 2)) ^ K
+  have hLgeom : 0 ≤ Lgeom := by dsimp [Lgeom]; positivity
+  have hR : 0 ≤ R := by dsimp [R]; positivity
+  have hRbound : R ≤ Cgeom * A ^ K * ((B + 1 : ℕ) : ℝ) ^ K *
+      Real.rpow S.L (3 * F.A₀) := by
+    have hbase : 2 * v * ((B : ℝ) * H + 2) ≤ A * ((B + 1 : ℕ) : ℝ) := by
+      have hsmall : (B : ℝ) * H + 2 ≤ (H + 2) * ((B + 1 : ℕ) : ℝ) := by
+        push_cast
+        nlinarith only [hH.le, (Nat.cast_nonneg B : (0 : ℝ) ≤ (B : ℝ))]
+      calc
+        _ ≤ 2 * v * ((H + 2) * ((B + 1 : ℕ) : ℝ)) :=
+          mul_le_mul_of_nonneg_left hsmall (by positivity)
+        _ = _ := by dsimp [A]; ring
+    have hpow := pow_le_pow_left₀ (by positivity : 0 ≤ 2 * v * ((B : ℝ) * H + 2)) hbase K
+    calc
+      R ≤ Lgeom * (A * ((B + 1 : ℕ) : ℝ)) ^ K :=
+        mul_le_mul_of_nonneg_left hpow hLgeom
+      _ = _ := by dsimp [Lgeom]; rw [mul_pow]; ring
+  let Perms := Fin K → Equiv.Perm (Fin (slotCount S.x))
+  let d := permCount S.x K
+  have hdpos : 0 < d := by
+    dsimp [d, permCount]
+    exact Fintype.card_pos_iff.mpr ⟨fun i => Equiv.refl _⟩
+  have hdne : (d : ℝ) ≠ 0 := by exact_mod_cast hdpos.ne'
+  have hdcard : Fintype.card Perms = d := rfl
+  have hnormInv : ‖(d : ℂ)⁻¹‖ = (d : ℝ)⁻¹ := by simp
+  change MemRowSchurLE F S B (fun f => memEdge F S ρ w EdgeKind.full j (memorySym f)) v _
+  intro s hs hsSize T hT
+  let δt (t : MemPoint S.x K) : MemPoint S.x K → ℂ := fun u => if u = t then 1 else 0
+  have hSumRow {ι : Type} (U : Finset ι) (k : ι → MemPoint S.x K → ℂ)
+      (b : ι → ℝ)
+      (hb : ∀ a ∈ U, (∑ t ∈ T, ‖k a t‖ * v ^ memSize t) ≤ b a) :
+      (∑ t ∈ T, ‖∑ a ∈ U, k a t‖ * v ^ memSize t) ≤ ∑ a ∈ U, b a := by
+    calc
+      _ ≤ ∑ t ∈ T, (∑ a ∈ U, ‖k a t‖) * v ^ memSize t := by
+        apply Finset.sum_le_sum
+        intro t ht
+        exact mul_le_mul_of_nonneg_right (norm_sum_le _ _) (pow_nonneg hvpos.le _)
+      _ = ∑ a ∈ U, ∑ t ∈ T, ‖k a t‖ * v ^ memSize t := by
+        simp_rw [Finset.sum_mul]
+        rw [Finset.sum_comm]
+      _ ≤ _ := Finset.sum_le_sum hb
+  have hAverage (k : Perms → MemPoint S.x K → ℂ) (b : ℝ)
+      (hk : ∀ σ : Perms, (∑ t ∈ T, ‖k σ t‖ * v ^ memSize t) ≤ b) :
+      (∑ t ∈ T, ‖(d : ℂ)⁻¹ * ∑ σ : Perms, k σ t‖ * v ^ memSize t) ≤ b := by
+    calc
+      _ = (d : ℝ)⁻¹ * ∑ t ∈ T, ‖∑ σ : Perms, k σ t‖ * v ^ memSize t := by
+        simp_rw [norm_mul, hnormInv]
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro t ht
+        ring
+      _ ≤ (d : ℝ)⁻¹ * ∑ σ : Perms, b := by
+        have hsum : (∑ t ∈ T, ‖∑ σ : Perms, k σ t‖ * v ^ memSize t) ≤
+            ∑ σ : Perms, b :=
+          hSumRow (ι := Perms) (Finset.univ : Finset Perms) k
+            (fun _ : Perms => b) (fun σ _ => hk σ)
+        exact mul_le_mul_of_nonneg_left hsum (inv_nonneg.mpr (Nat.cast_nonneg d))
+      _ = b := by
+        simp only [Finset.sum_const, Finset.card_univ, hdcard, nsmul_eq_mul]
+        rw [← mul_assoc, inv_mul_cancel₀ hdne, one_mul]
+  have hMemoryRow (u : MemPoint S.x K) :
+      (∑ t ∈ T, ‖memorySym (δt t) u‖ * v ^ memSize t) ≤ v ^ memSize u := by
+    calc
+      _ = ∑ t ∈ T, ‖memorySym (δt t) u‖ * v ^ memSize u := by
+        apply Finset.sum_congr rfl
+        intro t ht
+        by_cases hsize : memSize u = memSize t
+        · rw [hsize]
+        · have hz := memorySym_delta_zero_of_memSize_ne u t hsize
+          simp [δt, hz]
+      _ = (∑ t ∈ T, ‖memorySym (δt t) u‖) * v ^ memSize u := by rw [Finset.sum_mul]
+      _ ≤ 1 * v ^ memSize u :=
+        mul_le_mul_of_nonneg_right (memorySym_delta_row_le u T) (pow_nonneg hvpos.le _)
+      _ = _ := one_mul _
+  let g (t : MemPoint S.x K) : LogPoint S.x K → ℂ :=
+    logSym F S (fun uL => memorySym (δt t) uL.1)
+  have hgRow (uL : LogPoint S.x K) :
+      (∑ t ∈ T, ‖g t uL‖ * v ^ memSize t) ≤ v ^ memSize uL.1 := by
+    change (∑ t ∈ T, ‖(d : ℂ)⁻¹ * ∑ σ : Perms,
+      memorySym (δt t) (uL.1.1, permuteLists σ uL.1.2.1, uL.1.2.2)‖ * v ^ memSize t) ≤ _
+    apply hAverage
+    intro σ
+    exact hMemoryRow (uL.1.1, permuteLists σ uL.1.2.1, uL.1.2.2)
+  have hbox := pd5_envBox_finite_of_valid hS hw
+  let Z := hbox.toFinset
+  have hPieceRow (r : MemPoint S.x K) (hr : Int.gcd r.1.1 r.1.2 = 1)
+      (hrSize : memSize r ≤ B) (raw : Bool) (St Pr : Finset (Fin K)) :
+      (∑ t ∈ T, ‖logEdgePiece F S ρ w j raw St Pr (g t) (r, [])‖ * v ^ memSize t) ≤
+        R * v ^ memSize r := by
+    let Choices := (i : Fin K) → EdgeChoice S.x F.a (r.2.2 i) i
+    let out (c : Choices) (z' : ℤ × ℤ) : MemPoint S.x K :=
+      (z', edgeTargetLists F S r c, edgeNewMemory F S r c)
+    let coeff (c : Choices) (z' : ℤ × ℤ) : ℝ :=
+      ρ ^ (∑ i : Fin K, hitCount (r.2.2 i) r.1) *
+        (∏ i : Fin K, pd5_edgeChoiceMass F S r c i) *
+        ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S r c i) z')
+    let geom (c : Choices) (z' : ℤ × ℤ) : ℝ :=
+      ‖edgeMultiplier F S (decide (j % 2 = 0)) true r.2.1
+        (edgeTargetLists F S r c) r.1 z'‖ +
+      ‖edgeMultiplier F S (decide (j % 2 = 0)) false r.2.1
+        (edgeTargetLists F S r c) r.1 z'‖
+    let pos (c : Choices) (z' : ℤ × ℤ) : ℝ :=
+      if EdgeAdmissible F S w r c z' then
+        |coeff c z'| * geom c z' * v ^ memSize (out c z') else 0
+    let term (c : Choices) (z' : ℤ × ℤ) (t : MemPoint S.x K) : ℂ :=
+      if edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧ EdgeAdmissible F S w r c z' then
+        (coeff c z' : ℂ) * edgeMultiplier F S (decide (j % 2 = 0)) raw
+          r.2.1 (edgeTargetLists F S r c) r.1 z' *
+          g t (out c z', edgeBirths F S j r c)
+      else 0
+    have hpoint (c : Choices) (z' : ℤ × ℤ) :
+        (∑ t ∈ T, ‖term c z' t‖ * v ^ memSize t) ≤ pos c z' := by
+      by_cases hc : edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧ EdgeAdmissible F S w r c z'
+      · have hmul : ‖edgeMultiplier F S (decide (j % 2 = 0)) raw
+            r.2.1 (edgeTargetLists F S r c) r.1 z'‖ ≤ geom c z' := by
+          cases raw <;> dsimp [geom] <;> linarith [norm_nonneg
+            (edgeMultiplier F S (decide (j % 2 = 0)) true r.2.1
+              (edgeTargetLists F S r c) r.1 z'), norm_nonneg
+            (edgeMultiplier F S (decide (j % 2 = 0)) false r.2.1
+              (edgeTargetLists F S r c) r.1 z')]
+        dsimp [term, pos]
+        simp only [if_pos hc, if_pos hc.2.2, norm_mul, Complex.norm_real, Real.norm_eq_abs]
+        calc
+          _ = |coeff c z'| * ‖edgeMultiplier F S (decide (j % 2 = 0)) raw
+                r.2.1 (edgeTargetLists F S r c) r.1 z'‖ *
+                ∑ t ∈ T, ‖g t (out c z', edgeBirths F S j r c)‖ * v ^ memSize t := by
+            rw [Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro t ht
+            ring
+          _ ≤ |coeff c z'| * ‖edgeMultiplier F S (decide (j % 2 = 0)) raw
+                r.2.1 (edgeTargetLists F S r c) r.1 z'‖ * v ^ memSize (out c z') :=
+            mul_le_mul_of_nonneg_left (hgRow _) (mul_nonneg (abs_nonneg _) (norm_nonneg _))
+          _ ≤ _ := mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_left hmul (abs_nonneg _)) (pow_nonneg hvpos.le _)
+      · have hzero : (∑ t ∈ T, ‖term c z' t‖ * v ^ memSize t) = 0 := by simp [term, hc]
+        rw [hzero]
+        dsimp [pos, geom]
+        split_ifs <;> positivity
+    have hgeomChoice (c : Choices) :
+        (∑ z' ∈ Z, if EdgeAdmissible F S w r c z' then geom c z' else 0) ≤ Lgeom := by
+      by_cases hex : ∃ z' ∈ Z, EdgeAdmissible F S w r c z'
+      · obtain ⟨z', hz', he⟩ := hex
+        rcases he with ⟨_, _, _, _, hpad, _, hrBox, _, _, _⟩
+        have hD : S.d₀ ≤ sharedProduct r.2.1 := by exact_mod_cast hpad.1
+        calc
+          _ ≤ ∑ z' ∈ Z, if envBox S w z' ∧ (sharedProduct r.2.1 : ℤ) ∣ det2 r.1 z'
+              then geom c z' else 0 := by
+            apply Finset.sum_le_sum
+            intro z' hz'
+            by_cases he : EdgeAdmissible F S w r c z'
+            · have hData := he
+              rcases hData with ⟨_, _, _, _, hp, _, _, hb, _, _⟩
+              simp only [if_pos he, if_pos (And.intro hb hp.2.2)]
+              exact le_rfl
+            · simp only [if_neg he]
+              split_ifs
+              · exact add_nonneg (norm_nonneg _) (norm_nonneg _)
+              · exact le_rfl
+          _ ≤ Lgeom := hGeom S hS hxG' w hw r.1 hr hrBox r.2.1
+            (edgeTargetLists F S r c) hD (decide (j % 2 = 0)) Z
+      · have hzero : (∑ z' ∈ Z, if EdgeAdmissible F S w r c z' then geom c z' else 0) = 0 := by
+          apply Finset.sum_eq_zero
+          intro z' hz'
+          have he : ¬ EdgeAdmissible F S w r c z' := fun h => hex ⟨z', hz', h⟩
+          simp [he]
+        rw [hzero]
+        exact hLgeom
+    calc
+      _ = ∑ t ∈ T, ‖∑ c : Choices, ∑ z' ∈ Z, term c z' t‖ * v ^ memSize t := by
+        apply Finset.sum_congr rfl
+        intro t ht
+        rw [pd5_logEdgePiece_finite F S ρ w j raw St Pr (g t) (r, []) hbox]
+        rfl
+      _ ≤ ∑ c : Choices, ∑ z' ∈ Z, pos c z' :=
+        hSumRow (ι := Choices) (Finset.univ : Finset Choices)
+          (fun c t => ∑ z' ∈ Z, term c z' t)
+          (fun c => ∑ z' ∈ Z, pos c z')
+          (fun c _ => hSumRow Z (term c) (pos c) (fun z' _ => hpoint c z'))
+      _ ≤ R * v ^ memSize r :=
+        memEdge_positive_choice_row_le F S ρ v H Lgeom w j B r Z
+          ⟨hρ.1.le, hρ.2.1.le⟩ hv.le hH.le hLgeom hrSize hV hInv hν hMass hgeomChoice
+  let pieceSum (r : MemPoint S.x K) (t : MemPoint S.x K) : ℂ :=
+    ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+      (logEdgePiece F S ρ w j true St Pr (g t) (r, []) -
+        logEdgePiece F S ρ w j false St Pr (g t) (r, []))
+  have hPiecesRow (r : MemPoint S.x K) (hr : Int.gcd r.1.1 r.1.2 = 1)
+      (hrSize : memSize r ≤ B) :
+      (∑ t ∈ T, ‖pieceSum r t‖ * v ^ memSize t) ≤ 2 * Q ^ 2 * R * v ^ memSize r := by
+    have hpair (St Pr : Finset (Fin K)) :
+        (∑ t ∈ T, ‖logEdgePiece F S ρ w j true St Pr (g t) (r, []) -
+          logEdgePiece F S ρ w j false St Pr (g t) (r, [])‖ * v ^ memSize t) ≤
+            2 * R * v ^ memSize r := by
+      calc
+        _ ≤ ∑ t ∈ T, (‖logEdgePiece F S ρ w j true St Pr (g t) (r, [])‖ +
+              ‖logEdgePiece F S ρ w j false St Pr (g t) (r, [])‖) * v ^ memSize t := by
+          apply Finset.sum_le_sum
+          intro t ht
+          exact mul_le_mul_of_nonneg_right (norm_sub_le _ _) (pow_nonneg hvpos.le _)
+        _ = (∑ t ∈ T, ‖logEdgePiece F S ρ w j true St Pr (g t) (r, [])‖ * v ^ memSize t) +
+            ∑ t ∈ T, ‖logEdgePiece F S ρ w j false St Pr (g t) (r, [])‖ * v ^ memSize t := by
+          simp_rw [add_mul, Finset.sum_add_distrib]
+        _ ≤ R * v ^ memSize r + R * v ^ memSize r :=
+          add_le_add (hPieceRow r hr hrSize true St Pr) (hPieceRow r hr hrSize false St Pr)
+        _ = _ := by ring
+    calc
+      _ ≤ ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K), 2 * R * v ^ memSize r := by
+        change (∑ t ∈ T, ‖∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+          (logEdgePiece F S ρ w j true St Pr (g t) (r, []) -
+            logEdgePiece F S ρ w j false St Pr (g t) (r, []))‖ * v ^ memSize t) ≤ _
+        apply hSumRow (ι := Finset (Fin K)) (Finset.univ : Finset (Finset (Fin K)))
+        intro St hSt
+        exact hSumRow (ι := Finset (Fin K)) (Finset.univ : Finset (Finset (Fin K)))
+          (fun Pr t => logEdgePiece F S ρ w j true St Pr (g t) (r, []) -
+            logEdgePiece F S ρ w j false St Pr (g t) (r, []))
+          (fun _ => 2 * R * v ^ memSize r) (fun Pr _ => hpair St Pr)
+      _ = _ := by simp [Q, pow_two]; ring
+  have hrowR : (∑ t ∈ T,
+      ‖memKernel (fun f => memEdge F S ρ w EdgeKind.full j (memorySym f)) s t‖ * v ^ memSize t) ≤
+      2 * Q ^ 2 * R * v ^ memSize s := by
+    change (∑ t ∈ T, ‖(d : ℂ)⁻¹ * ∑ σ : Perms,
+      pieceSum (s.1, permuteLists σ s.2.1, s.2.2) t‖ * v ^ memSize t) ≤ _
+    apply hAverage
+    intro σ
+    exact hPiecesRow (s.1, permuteLists σ s.2.1, s.2.2) hs.1 hsSize
+  calc
+    _ ≤ 2 * Q ^ 2 * R * v ^ memSize s := hrowR
+    _ ≤ (2 * Q ^ 2 * (Cgeom * A ^ K * ((B + 1 : ℕ) : ℝ) ^ K *
+        Real.rpow S.L (3 * F.A₀))) * v ^ memSize s := by
+      exact mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_left hRbound (by positivity)) (pow_nonneg hvpos.le _)
+    _ = _ := by dsimp [Cedge]; ring
+
+/-- The constant birth twist specializes the frozen edge estimates to the plain edge. -/
+private theorem memEdgeProjected_crude_schur (δ c₁ c₂ : ℝ)
+    (hδ : 0 < δ) (hc₁ : 0 < c₁) (K : ℕ) (F : PDFix K) (hF : F.Valid)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (v : ℝ) (hv : 1 < v) :
+    ∃ Cexp x₀ : ℝ, 0 < Cexp ∧ 2 ≤ x₀ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
+          MemRowSchurLE_sym F S (memoryCutoff S)
+            (memEdge F S ρ w EdgeKind.full j) v (Real.rpow S.L Cexp) ∧
+          MemColSchurLE_sym F S (memoryCutoff S)
+            (memEdge F S ρ w EdgeKind.full j) v (Real.rpow S.L Cexp) := by
+  obtain ⟨Cexp, x₀, hCexp, hx₀, hEdge⟩ :=
+    pd5_twisted_edge_schur δ c₁ c₂ hδ hc₁ K F hF ρ hρ v hv
+  refine ⟨Cexp, x₀, hCexp, hx₀, ?_⟩
+  intro S hS hx w hw j hj
+  have hOp : pd5_edgeBirthTwist F S ρ w j (fun _ => (1 : ℂ)) =
+      memEdge F S ρ w EdgeKind.full j := by
+    funext f s
+    exact congrArg (fun g => logEdge F S ρ w EdgeKind.full j g (s, []))
+      (funext fun tL => one_mul (f tL.1))
+  rw [← hOp]
+  exact hEdge S hS hx w hw j hj (fun _ => (1 : ℂ)) (by intro log; simp)
+
 /-- `t2:pd.ghost-edge-crude` — PD 04:365-435.  REPLACES the frozen `ghost_edge_crude`.  On
 `ℋ_B`, with the Schur weight `v₀^{k_tot}`: ghost row and column sums (mem:ghost-row),
 (mem:ghost-column) are `≤ C_K` once `v₀` makes both parentheses `≤ 1` (uses `ρ² > √q_d`), so
@@ -4966,6 +8038,7 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
   obtain ⟨xB, hxB, hBPrime⟩ := memoryBPrime_half_of_large_x F hF
   obtain ⟨xV, hxV, hBandMass⟩ := bandMass_le_two_log_two_of_large_x F hF
   obtain ⟨xPos, hxPos, hBandMassPos⟩ := bandMass_pos_of_large_x F hF
+  obtain ⟨xMass, hxMass, hBandMassLower⟩ := bandMass_half_log_two_of_large_x F hF
   let g := 1 - Real.sqrt F.q_d / ρ ^ 2
   have hρsqpos : 0 < ρ ^ 2 := sq_pos_of_pos hρ.1
   have hratio : Real.sqrt F.q_d / ρ ^ 2 < 1 :=
@@ -4994,16 +8067,34 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
       _ = vbase * 1 := by ring
       _ ≤ vbase * vscale := mul_le_mul_of_nonneg_left hvscale1 hvbasepos
       _ = v₀ := rfl
-  let C_K := (Real.exp (4 * Real.log 2 * v₀ / ρ)) ^ K
-  let Cexp : ℝ := 1
-  let x₀ := max xB (max xV xPos)
+  obtain ⟨Cexp, xEdge, hCexp, hxEdge, hEdge⟩ :=
+    memEdgeProjected_crude_schur δ c₁ c₂ hδ hc₁ K F hF ρ hρ v₀ hv₀
+  let C_K := (Real.exp ((2 + 4 * Real.log 2) * v₀ / ρ)) ^ K
+  let x₀ := max (max xB xV) (max xPos (max xMass xEdge))
   have hC_K : 0 < C_K := by
     dsimp [C_K]
     exact pow_pos (Real.exp_pos _) _
-  have hCexp : 0 < Cexp := by norm_num [Cexp]
   have hx₀ : 2 ≤ x₀ := by
     dsimp [x₀]
-    exact le_trans hxB (le_max_left _ _)
+    exact le_trans hxB (le_trans (le_max_left _ _) (le_max_left _ _))
+  have hxB₀ : xB ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_left _ _) (le_max_left _ _)
+  have hxV₀ : xV ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_right _ _) (le_max_left _ _)
+  have hxPos₀ : xPos ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_left _ _) (le_max_right _ _)
+  have hxMass₀ : xMass ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_left _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hxEdge₀ : xEdge ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_right _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hlogtwo : 0 ≤ Real.log 2 := (Real.log_pos (by norm_num : (1 : ℝ) < 2)).le
   have hηone (x : ℝ) (j : ℕ) : memoryEta x F.q_d j ≤ 1 := by
     have hqj : 0 ≤ memoryQ x F.q_d j := by
       unfold memoryQ
@@ -5016,10 +8107,9 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
       (j : ℕ) :
       (∏ i : Fin K,
         Real.exp (2 * memoryEta S.x F.q_d j * bandMass S.x (F.a i) * v₀ / ρ)) ≤ C_K := by
-    have hxB' : xB ≤ S.x := (le_max_left _ _).trans hx
-    have hxV' : xV ≤ S.x := (le_trans (le_max_left _ _) (le_max_right _ _)).trans hx
-    have hxPos' : xPos ≤ S.x :=
-      (le_trans (le_max_right _ _) (le_max_right _ _)).trans hx
+    have hxB' : xB ≤ S.x := hxB₀.trans hx
+    have hxV' : xV ≤ S.x := hxV₀.trans hx
+    have hxPos' : xPos ≤ S.x := hxPos₀.trans hx
     have hmassPos (i : Fin K) : 0 < bandMass S.x (F.a i) :=
       hBandMassPos S.x hxPos' i
     have hmassLe (i : Fin K) : bandMass S.x (F.a i) ≤ 2 * Real.log 2 := by
@@ -5028,7 +8118,7 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
     have hfac : 0 ≤ 2 * v₀ / ρ := div_nonneg (by positivity) hρ.1.le
     have hexpArg (i : Fin K) :
         2 * memoryEta S.x F.q_d j * bandMass S.x (F.a i) * v₀ / ρ ≤
-          4 * Real.log 2 * v₀ / ρ := by
+          (2 + 4 * Real.log 2) * v₀ / ρ := by
       have hηVraw := mul_le_mul_of_nonneg_right heta (hmassPos i).le
       have hηV : memoryEta S.x F.q_d j * bandMass S.x (F.a i) ≤
           bandMass S.x (F.a i) := by simpa using hηVraw
@@ -5041,20 +8131,47 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
           mul_le_mul_of_nonneg_left hηV hfac
         _ ≤ (2 * v₀ / ρ) * (2 * Real.log 2) := hV
         _ = 4 * Real.log 2 * v₀ / ρ := by ring
+        _ ≤ 4 * Real.log 2 * v₀ / ρ + 2 * v₀ / ρ :=
+          le_add_of_nonneg_right hfac
+        _ = (2 + 4 * Real.log 2) * v₀ / ρ := by ring
     calc
-      _ ≤ ∏ i : Fin K, Real.exp (4 * Real.log 2 * v₀ / ρ) := by
+      _ ≤ ∏ i : Fin K, Real.exp ((2 + 4 * Real.log 2) * v₀ / ρ) := by
         apply Finset.prod_le_prod₀
         · intro i hi
           exact (Real.exp_pos _).le
         · intro i hi
           exact Real.exp_le_exp.mpr (hexpArg i)
       _ = C_K := by simp [C_K]
+  have hmeasure (S : PDScale) (hx : x₀ ≤ S.x) (s : MemPoint S.x K) :
+      0 ≤ memMeasure F S s := by
+    have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+        0 ≤ memoryNu S.x K F.a F.q_d i p := by
+      have hbpPos : 0 < memoryBPrime S.x F.q_d p :=
+        lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1 / 2)
+          (hBPrime S.x (hxB₀.trans hx) p
+            (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩))
+      have hden : 0 < bandMass S.x (F.a i) * ((p : ℝ) + 1) *
+          memoryBPrime S.x F.q_d p :=
+        mul_pos (mul_pos (hBandMassPos S.x (hxPos₀.trans hx) i) (by positivity)) hbpPos
+      exact div_nonneg (by norm_num) hden.le
+    by_cases hs : MemValid F S s
+    · rw [memMeasure, if_pos hs]
+      apply mul_nonneg
+      · exact Finset.prod_nonneg fun i hi =>
+          Finset.prod_nonneg fun k hk => hν i _ (hs.2.1 i k)
+      · apply Finset.prod_nonneg
+        intro i hi
+        apply div_nonneg
+        · exact List.prod_nonneg fun x hx => by
+            rcases List.mem_map.mp hx with ⟨e, he, rfl⟩
+            exact hν i e.1 (hs.2.2 i e he).1
+        · exact Nat.cast_nonneg _
+    · simp [memMeasure, hs]
   have hrow (S : PDScale) (hS : S.Valid K δ c₁ c₂) (hx : x₀ ≤ S.x)
       (j : ℕ) :
       MemRowSchurLE_sym F S (memoryCutoff S) (memGhost F S ρ j) v₀ C_K := by
-    have hxB' : xB ≤ S.x := (le_max_left _ _).trans hx
-    have hxPos' : xPos ≤ S.x :=
-      (le_trans (le_max_right _ _) (le_max_right _ _)).trans hx
+    have hxB' : xB ≤ S.x := hxB₀.trans hx
+    have hxPos' : xPos ≤ S.x := hxPos₀.trans hx
     have hmass (i : Fin K) : 0 < bandMass S.x (F.a i) :=
       hBandMassPos S.x hxPos' i
     have hbp (p : ℕ) (hp : p ∈ markedPrimes S.x K F.a) :
@@ -5070,10 +8187,66 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
             v₀ ^ memSize s := hparam s hs hsSize T hT
       _ ≤ C_K * v₀ ^ memSize s :=
         mul_le_mul_of_nonneg_right (hExpBound S hS hx j) (pow_nonneg hv₀pos.le _)
+  have hcol (S : PDScale) (hS : S.Valid K δ c₁ c₂) (hx : x₀ ≤ S.x)
+      (j : ℕ) :
+      MemColSchurLE_sym F S (memoryCutoff S) (memGhost F S ρ j) v₀ C_K := by
+    have hmass (i : Fin K) : 0 < bandMass S.x (F.a i) :=
+      hBandMassPos S.x (hxPos₀.trans hx) i
+    have hbp (p : ℕ) (hp : p ∈ markedPrimes S.x K F.a) :
+        (1 / 2 : ℝ) ≤ memoryBPrime S.x F.q_d p :=
+      hBPrime S.x (hxB₀.trans hx) p hp
+    have hvlarge (i : Fin K) :
+        2 * bandMass S.x (F.a i) /
+          (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤ v₀ := by
+      have hV : bandMass S.x (F.a i) ≤ vscale :=
+        (hBandMass S.x (hxV₀.trans hx) i).trans (le_max_right _ _)
+      calc
+        _ = (2 / (ρ * g)) * bandMass S.x (F.a i) := by dsimp [g]; ring
+        _ ≤ vbase * vscale :=
+          mul_le_mul (le_max_right _ _) hV (hmass i).le hvbasepos
+        _ = v₀ := rfl
+    have hparam := memGhostProjected_colSchur_le_of_params F hF S ρ hρ j
+      (memoryCutoff S) v₀ hv₀pos hvlarge hmass hbp
+    have hfac : 0 ≤ 2 * v₀ / ρ := div_nonneg (by positivity) hρ.1.le
+    have hexpArg : 2 * memoryEta S.x F.q_d j * v₀ / ρ ≤
+        (2 + 4 * Real.log 2) * v₀ / ρ := by
+      calc
+        _ = (2 * v₀ / ρ) * memoryEta S.x F.q_d j := by ring
+        _ ≤ 2 * v₀ / ρ := by
+          simpa using mul_le_mul_of_nonneg_left (hηone S.x j) hfac
+        _ ≤ 2 * v₀ / ρ + 4 * Real.log 2 * v₀ / ρ :=
+          le_add_of_nonneg_right
+            (div_nonneg (mul_nonneg (mul_nonneg (by norm_num) hlogtwo) hv₀pos.le) hρ.1.le)
+        _ = (2 + 4 * Real.log 2) * v₀ / ρ := by ring
+    have hExpCol :
+        (∏ i : Fin K, Real.exp (2 * memoryEta S.x F.q_d j * v₀ / ρ)) ≤ C_K := by
+      calc
+        _ ≤ ∏ i : Fin K, Real.exp ((2 + 4 * Real.log 2) * v₀ / ρ) := by
+          apply Finset.prod_le_prod₀
+          · intro i hi
+            exact (Real.exp_pos _).le
+          · intro i hi
+            exact Real.exp_le_exp.mpr hexpArg
+        _ = C_K := by simp [C_K]
+    change MemColSchurLE F S (memoryCutoff S)
+      (fun f => memGhost F S ρ j (memorySym f)) v₀ C_K
+    intro t ht htSize T hT
+    calc
+      _ ≤ (∏ i : Fin K, Real.exp (2 * memoryEta S.x F.q_d j * v₀ / ρ)) *
+          memMeasure F S t * v₀ ^ memSize t := hparam t ht htSize T hT
+      _ ≤ C_K * memMeasure F S t * v₀ ^ memSize t :=
+        mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_right hExpCol (hmeasure S hx t))
+          (pow_nonneg hv₀pos.le _)
   refine ⟨v₀, C_K, Cexp, x₀, hv₀, hC_K, hCexp, hx₀, ?_⟩
   intro S hS hx w hw j hj
-  refine ⟨hrow S hS hx j, ?_⟩
-  sorry
+  have hrow' := hrow S hS hx j
+  have hcol' := hcol S hS hx j
+  refine ⟨hrow', hcol', ?_, ?_⟩
+  · exact memGhostProjected_norm_of_schur F S ρ j (memoryCutoff S) v₀ C_K
+      hv₀pos hC_K.le (hmeasure S hx) hrow' hcol'
+  · intro hjlt
+    exact hEdge S hS (hxEdge₀.trans hx) w hw j hjlt
 
 /-- `t2:pd.lattice-clean` (a) — PD 04:439-497.  Lattice box at a source passing good test (i):
 in the coordinates `(h,l)` of `z' = h z + l D w_z`, the region `|l| ≤ C₁ Y`, `|h + lα| ≤ C₁`
