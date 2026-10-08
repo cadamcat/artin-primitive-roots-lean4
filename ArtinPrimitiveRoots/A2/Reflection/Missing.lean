@@ -3739,6 +3739,66 @@ private theorem rf_active_numerator_weight
         betaPrime (qI v.asIdeal) (qI_prime_gt_one v) (idealExp v a.1.1) *
           qI v.asIdeal ^ (-σ * (idealExp v a.1.1 : ℝ)))).symm
 
+private theorem rf_active_numerator_mass
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (f : S.ExtIdeal) (σ : ℝ) (hσ : 0 ≤ σ) :
+    Summable (fun a : {a : S.ExtIdeal // activeNumerator R f a} =>
+      betaIdeal R f a.1 * qI a.1.1 ^ (-σ)) ∧
+      (∑' a : {a : S.ExtIdeal // activeNumerator R f a},
+        betaIdeal R f a.1 * qI a.1.1 ^ (-σ)) ≤ Eideal R f σ := by
+  classical
+  let V := {v : FinPlace F // v ∈ R.exterior.support f}
+  let e : {a : S.ExtIdeal // activeNumerator R f a} → V → ℕ :=
+    fun a v => idealExp v.1 a.1.1
+  let w : V → ℕ → ℝ := fun v n =>
+    betaPrime (qI v.1.asIdeal) (qI_prime_gt_one v.1) n *
+      qI v.1.asIdeal ^ (-σ * (n : ℝ))
+  let g : {a : S.ExtIdeal // activeNumerator R f a} → ℝ :=
+    fun a => betaIdeal R f a.1 * qI a.1.1 ^ (-σ)
+  have hinj : Function.Injective e := rf_active_exponent_injective R f
+  have hw (v : V) (n : ℕ) : 0 ≤ w v n :=
+    mul_nonneg (rf_betaPrime_nonneg v.1 n)
+      (Real.rpow_nonneg (le_trans zero_le_one (qI_prime_gt_one v.1).le) _)
+  have hlocal (v : V) : Summable (w v) :=
+    ((rf_active_support_bounds R).2.2.1 v.1
+      (R.exterior.support_exterior f v.1 v.2) σ hσ).1
+  have hweight (a : {a : S.ExtIdeal // activeNumerator R f a}) :
+      g a = ∏ v : V, w v (e a v) := rf_active_numerator_weight R f σ a
+  have hg (a : {a : S.ExtIdeal // activeNumerator R f a}) : 0 ≤ g a := by
+    rw [hweight]
+    exact Finset.prod_nonneg (fun v _ => hw v (e a v))
+  have hprod : (∏ v : V, Eprime v.1 σ) = Eideal R f σ :=
+    Finset.prod_coe_sort (R.exterior.support f) (fun v => Eprime v σ)
+  have hbound (t : Finset {a : S.ExtIdeal // activeNumerator R f a}) :
+      (∑ a ∈ t, g a) ≤ Eideal R f σ := by
+    let box : V → Finset ℕ := fun v => t.image (fun a => e a v)
+    have hsub : t.image e ⊆ Fintype.piFinset box := by
+      intro b hb
+      obtain ⟨a, ha, rfl⟩ := Finset.mem_image.mp hb
+      apply Fintype.mem_piFinset.mpr
+      intro v
+      exact Finset.mem_image.mpr ⟨a, ha, rfl⟩
+    calc
+      (∑ a ∈ t, g a) = ∑ a ∈ t, ∏ v : V, w v (e a v) :=
+        Finset.sum_congr rfl (fun a _ => hweight a)
+      _ = ∑ b ∈ t.image e, ∏ v : V, w v (b v) :=
+        (Finset.sum_image (s := t) (f := fun b : V → ℕ => ∏ v : V, w v (b v))
+          (fun a _ b _ hab => hinj hab)).symm
+      _ ≤ ∑ b ∈ Fintype.piFinset box, ∏ v : V, w v (b v) :=
+        Finset.sum_le_sum_of_subset_of_nonneg hsub
+          (fun b _ _ => Finset.prod_nonneg (fun v _ => hw v (b v)))
+      _ = ∏ v : V, ∑ n ∈ box v, w v n := (Finset.prod_univ_sum box w).symm
+      _ ≤ ∏ v : V, Eprime v.1 σ := by
+        apply Finset.prod_le_prod₀
+        · intro v hv
+          exact Finset.sum_nonneg (fun n _ => hw v n)
+        · intro v hv
+          change (∑ n ∈ box v, w v n) ≤ ∑' n, w v n
+          exact (hlocal v).sum_le_tsum (box v) (fun n _ => hw v n)
+      _ = Eideal R f σ := hprod
+  change Summable g ∧ (∑' a, g a) ≤ Eideal R f σ
+  exact ⟨summable_of_sum_le hg hbound, Real.tsum_le_of_sum_le hg hbound⟩
+
 /-- rf:grouped-absolute, 04:659-706. Absolute sums and the averaged integral use the same majorant. -/
 theorem rf_grouped_absolute : ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ f,
   Summable (reflectedDirichletTerm R f σ) ∧
