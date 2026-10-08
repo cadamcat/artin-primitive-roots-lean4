@@ -1882,7 +1882,72 @@ theorem zf_f_bounds
     ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 1 / 20000 : ℝ))) ∧
   ∀ A0 : ℝ, 0 < A0 → ∃ C : ℝ, 0 < C ∧ ∀ Z, 0 < Z → Z ≤ 1 →
     ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ A0 := by
-  sorry
+  intro hEuler hloc hWeight
+  have hH := po_H_eta_properties (R := R) (η := η) (U := U) (HC := HC) hEuler hloc
+  have hHdiff : DifferentiableOn ℂ (Heta R η U HC) {s : ℂ | 998 / 1000 < s.re} :=
+    hH.1.mono (by intro s hs; change 998 / 1000 < s.re at hs; change 998 / 1000 - 1 / 100000 < s.re; linarith)
+  obtain ⟨BH, hBH, hHbound⟩ := hH.2.2
+  have hHb : ∃ B : ℝ, ∀ s : ℂ, 998 / 1000 < s.re → ‖Heta R η U HC s‖ ≤ B :=
+    ⟨BH, fun s hs => hHbound s (by linarith)⟩
+  have hL := principalLS_half_plane_inputs (R := R) (η := η) (U := U) (HA := HA) hEuler
+  obtain ⟨BL, hBL, hLbound⟩ := hL.2.2
+  have hLb : ∃ B : ℝ, ∀ s : ℂ, 2 ≤ s.re → ‖(HA.LS S η s)⁻¹‖ ≤ B := ⟨BL, hLbound⟩
+  have hcont : ContinuousOn (principalSignal R η U HA HC) (Set.Ioi 0) :=
+    fEta_continuousOn_of_bounds _ _ hHdiff hL.1 hL.2.1 hHb hLb
+  have hsmall : ∀ A0 : ℝ, 0 < A0 → ∃ C : ℝ, 0 < C ∧ ∀ Z,
+      0 < Z → Z ≤ 1 → ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ A0 :=
+    ArtinPrimitiveRoots.Proofs.a2_pasym_sol.fEta_small_bounds_of_bounds
+      _ _ hHdiff hL.1 hL.2.1 hHb hLb
+  have hc0 : principalConstant R sd W HA ≠ 0 :=
+    (zf_principal_row (R := R) (sd := sd) (W := W) (η := η) (U := U)
+      (HA := HA) (HC := HC) hEuler hloc hWeight).1
+  have hc0norm : 0 < ‖principalConstant R sd W HA‖ := norm_pos_iff.mpr hc0
+  obtain ⟨CL, hCL, hLow⟩ := prop_probe_low (R := R) (W := W) η hSplit
+    (1 / 100000) (by norm_num)
+  obtain ⟨CErr, Z0, hCErr, hZ0, hErr⟩ :=
+    zf_probe_asymptotic (R := R) (sd := sd) (W := W) (η := η) (U := U)
+      (HA := HA) (HC := HC) hSplit hEuler hloc hWeight
+  have hlarge : ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
+      ‖principalSignal R η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 1 / 20000 : ℝ)) := by
+    refine ⟨(CL + CErr) / ‖principalConstant R sd W HA‖, Z0,
+      div_pos (add_pos hCL hCErr) hc0norm, hZ0, ?_⟩
+    intro Z hZ
+    have hZ2 : 2 ≤ Z := hZ0.trans hZ
+    have hZ1 : 1 ≤ Z := (by norm_num : (1 : ℝ) ≤ 2).trans hZ2
+    have hLowPower : Z ^ ((933 / 2000 : ℝ) + 1 / 100000) ≤
+        Z ^ ((7 / 15 - 1 / 20000 : ℝ)) :=
+      Real.rpow_le_rpow_of_exponent_le hZ1 (by norm_num)
+    have hErrPower : Z ^ ((7 / 15 - 4 / 10000 : ℝ)) ≤
+        Z ^ ((7 / 15 - 1 / 20000 : ℝ)) :=
+      Real.rpow_le_rpow_of_exponent_le hZ1 (by norm_num)
+    have hprod : ‖principalConstant R sd W HA‖ * ‖principalSignal R η U HA HC Z‖ ≤
+        (CL + CErr) * Z ^ ((7 / 15 - 1 / 20000 : ℝ)) := by
+      calc
+        _ = ‖principalConstant R sd W HA * principalSignal R η U HA HC Z‖ :=
+          (norm_mul _ _).symm
+        _ ≤ ‖probe R W (Z ^ a) (Z ^ b) Z‖ +
+            ‖probe R W (Z ^ a) (Z ^ b) Z -
+              principalConstant R sd W HA * principalSignal R η U HA HC Z‖ := by
+          exact norm_le_insert (probe R W (Z ^ a) (Z ^ b) Z)
+            (principalConstant R sd W HA * principalSignal R η U HA HC Z)
+        _ ≤ CL * Z ^ ((933 / 2000 : ℝ) + 1 / 100000) +
+            CErr * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) :=
+          add_le_add (hLow Z hZ2) (hErr Z hZ)
+        _ ≤ CL * Z ^ ((7 / 15 - 1 / 20000 : ℝ)) +
+            CErr * Z ^ ((7 / 15 - 1 / 20000 : ℝ)) :=
+          add_le_add (mul_le_mul_of_nonneg_left hLowPower hCL.le)
+            (mul_le_mul_of_nonneg_left hErrPower hCErr.le)
+        _ = _ := by ring
+    have hdiv : ‖principalSignal R η U HA HC Z‖ ≤
+        ((CL + CErr) * Z ^ ((7 / 15 - 1 / 20000 : ℝ))) /
+          ‖principalConstant R sd W HA‖ :=
+      (le_div_iff₀ hc0norm).2 (by simpa only [mul_comm] using hprod)
+    calc
+      ‖principalSignal R η U HA HC Z‖ ≤
+          ((CL + CErr) * Z ^ ((7 / 15 - 1 / 20000 : ℝ))) /
+            ‖principalConstant R sd W HA‖ := hdiv
+      _ = _ := by ring
+  exact ⟨hcont, hlarge, hsmall⟩
 end ZeroFree
 
 section ZeroFreeSupplement
