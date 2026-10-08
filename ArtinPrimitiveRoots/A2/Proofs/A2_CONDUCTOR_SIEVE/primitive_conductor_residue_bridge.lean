@@ -1673,6 +1673,27 @@ private theorem conductorLocalCharacter_eq_of_approximation
     ω.loc v ub.val = (ω.loc v ub.val / ω.loc v u.val) * ω.loc v u.val := hmul.symm
     _ = ω.loc v u.val := by rw [hquot]; simp
 
+private theorem conductorIdeal_mem_of_local_bounds
+    (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) (b : 𝓞 F)
+    (hb : ∀ v : A1.FinPlace F, v.asIdeal ∣ I →
+      Valued.v (algebraMap F (v.adicCompletion F) (b : F)) ≤
+        WithZero.exp (-(A1.idealExp v I : ℤ))) :
+    b ∈ I := by
+  have hI0 : I ≠ 0 := by simpa [Ideal.zero_eq_bot] using hI
+  rw [← Ideal.iInf_maxPowDividing_eq hI0, Ideal.mem_iInf]
+  intro v
+  change b ∈ v.asIdeal ^ A1.idealExp v I
+  by_cases hv : v.asIdeal ∣ I
+  · apply (v.intValuation_le_pow_iff_mem b (A1.idealExp v I)).mp
+    have hval : Valued.v (algebraMap F (v.adicCompletion F) (b : F)) =
+        v.intValuation b := by
+      calc
+        _ = v.valuation F (b : F) := v.valuedAdicCompletion_eq_valuation' _
+        _ = v.intValuation b := v.valuation_of_algebraMap b
+    exact hval.symm.trans_le (hb v hv)
+  · simp only [conductor_idealExp_zero_of_not_dvd I hI v hv,
+      pow_zero, Ideal.one_eq_top, Submodule.mem_top]
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
