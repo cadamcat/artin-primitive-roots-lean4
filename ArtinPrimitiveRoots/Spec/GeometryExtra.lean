@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Spec.Stage1
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_GREEN.G4
 
 /-! Differential-geometry nodes G4--G5. -/
 
@@ -25,7 +26,11 @@ theorem G4_energy (g : InfinitePlace F → SL(2,ℂ)) (f f' : X F → ℂ)
     (∀ z, totalGradNormSq F (fun x => f (actAtPlaces F g x)) z =
       totalGradNormSq F f (actAtPlaces F g z)) ∧
     ∀ z, totalGradNormSq F (logNormHeight F) z = placeCount F := by
-  sorry
+  refine ⟨?_, ?_, greenTotalGradNormSq_logNormHeight⟩
+  · intro w z
+    exact greenPlaceGradInner_action g f f' hf hf' w z
+  · intro z
+    exact greenTotalGradNormSq_action g f hf z
 
 /-- G5 `spec:green-x` — P-SPEC.md:212, 262–265. Coordinate integration by parts gives the
 Green identity and symmetry; each partial Laplacian commutes with the product isometry action. -/
