@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».CoshControl
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».PolynomialControl
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogDerivative
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 import Mathlib.MeasureTheory.Measure.Haar.MulEquivHaarChar
 import OAI.NumberTheory.DirichletL.Eisenstein.CuspAverage
