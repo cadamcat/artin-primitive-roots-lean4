@@ -21,7 +21,28 @@ lemma prime_power_hasSum (v : HeightOneSpectrum (𝓞 K)) {s : ℂ} (hs : 1 < s.
         (Ideal.absNorm v.asIdeal : ℂ) ^ (-((j + 1 : ℕ) : ℂ) * s))
       ((Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) /
         ((Ideal.absNorm v.asIdeal : ℂ) ^ s - 1)) := by
-  sorry
+  have hv := NumberField.HeightOneSpectrum.one_lt_absNorm v
+  have hr : ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ < 1 := by
+    rw [Complex.norm_natCast_cpow_of_pos (by omega), Complex.neg_re]
+    exact Real.rpow_lt_one_of_one_lt_of_neg (by exact_mod_cast hv) (by linarith)
+  have hp : (Ideal.absNorm v.asIdeal : ℂ) ^ s ≠ 0 :=
+    Complex.cpow_ne_zero_iff.mpr (Or.inl v.natCast_absNorm_ne_zero)
+  have hd := v.absNorm_cpow_sub_one_ne_zero (s := s) (by linarith)
+  have hsum := (hasSum_geometric_of_norm_lt_one hr).mul_left
+    ((Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) *
+      (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))
+  have heq : ((Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) *
+      (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) *
+        (1 - (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))⁻¹ =
+      (Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) /
+        ((Ideal.absNorm v.asIdeal : ℂ) ^ s - 1) := by
+    rw [Complex.cpow_neg]
+    field_simp [hp, hd]
+  rw [← heq]
+  refine hsum.congr_fun fun j => ?_
+  rw [show -((j + 1 : ℕ) : ℂ) * s = ((j + 1 : ℕ) : ℂ) * (-s) by ring,
+    Complex.cpow_nat_mul, pow_succ]
+  ring
 
 /-- Differentiate the locally uniformly convergent Dedekind Euler product. -/
 lemma euler_logderiv_hasSum (K : Type*) [Field K] [NumberField K]
