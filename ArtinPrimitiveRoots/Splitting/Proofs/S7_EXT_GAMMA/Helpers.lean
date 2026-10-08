@@ -371,9 +371,206 @@ lemma hasSum_digamma_of_re_pos {z₀ : ℂ} (hz₀ : 0 < z₀.re) :
     ring
   exact ht ▸ hsm.hasSum
 
-lemma exists_norm_digamma_le_log {a b : ℝ} (ha : 0 < a) :
+/-- A summable telescoping series whose terms tend to zero sums to its first term. -/
+lemma hasSum_sub_succ_of_tendsto_zero {E : Type*} [AddCommGroup E] [TopologicalSpace E]
+    [IsTopologicalAddGroup E] [T2Space E] {a : ℕ → E} (h0 : Tendsto a atTop (𝓝 0))
+    (hs : Summable fun n => a n - a (n + 1)) :
+    HasSum (fun n => a n - a (n + 1)) (a 0) := by
+  have h1 : Tendsto (fun n => ∑ i ∈ Finset.range n, (a i - a (i + 1))) atTop (𝓝 (a 0)) := by
+    have he : ∀ n, ∑ i ∈ Finset.range n, (a i - a (i + 1)) = a 0 - a n :=
+      fun n => Finset.sum_range_sub' a n
+    simp only [he]
+    simpa using tendsto_const_nhds.sub h0
+  have h2 := hs.hasSum
+  rwa [tendsto_nhds_unique h2.tendsto_sum_nat h1] at h2
+
+/-- The tail of the series `∑ 1 / (m + 1) ^ 2` past `N` is at most `1 / N`. -/
+lemma tsum_one_div_natCast_add_add_one_sq_le {N : ℕ} (hN : 1 ≤ N) :
+    ∑' i : ℕ, 1 / (((i + N : ℕ) : ℝ) + 1) ^ 2 ≤ (N : ℝ)⁻¹ := by
+  have hNR : (1 : ℝ) ≤ (N : ℝ) := by exact_mod_cast hN
+  have hpos : ∀ i : ℕ, (0 : ℝ) < (i : ℝ) + N := fun i => by
+    have : (0 : ℝ) ≤ i := Nat.cast_nonneg i
+    linarith
+  set u : ℕ → ℝ := fun i => ((i : ℝ) + N)⁻¹ with hu_def
+  have h0 : Tendsto u atTop (𝓝 0) := by
+    apply Filter.Tendsto.inv_tendsto_atTop
+    exact tendsto_atTop_add_const_right atTop _ tendsto_natCast_atTop_atTop
+  have hdiff : ∀ i : ℕ, u i - u (i + 1) = (((i : ℝ) + N) * ((i : ℝ) + 1 + N))⁻¹ := by
+    intro i
+    simp only [hu_def]
+    have h1 : ((i : ℝ) + N) ≠ 0 := (hpos i).ne'
+    have h2 : ((i : ℝ) + 1 + N) ≠ 0 := by
+      have := hpos i
+      intro h
+      linarith
+    push_cast
+    rw [inv_sub_inv h1 h2]
+    have e1 : (i : ℝ) + 1 + N - ((i : ℝ) + N) = 1 := by ring
+    rw [e1, one_div]
+  have hsumu : Summable (fun i : ℕ => u i - u (i + 1)) := by
+    apply Summable.of_nonneg_of_le (f := fun i : ℕ => 1 / ((i : ℝ) + 1) ^ 2) ?_ ?_
+      summable_one_div_natCast_add_one_sq
+    · intro i
+      rw [hdiff i]
+      positivity
+    · intro i
+      rw [hdiff i, ← one_div]
+      apply one_div_le_one_div_of_le (by positivity)
+      have h3 : (0 : ℝ) ≤ i := Nat.cast_nonneg i
+      nlinarith
+  have htel := hasSum_sub_succ_of_tendsto_zero h0 hsumu
+  have hu0 : u 0 = (N : ℝ)⁻¹ := by
+    simp only [hu_def]
+    norm_num
+  have hsumL : Summable (fun i : ℕ => 1 / (((i + N : ℕ) : ℝ) + 1) ^ 2) :=
+    (summable_nat_add_iff N).mpr summable_one_div_natCast_add_one_sq
+  have hcomp : ∀ i : ℕ, 1 / (((i + N : ℕ) : ℝ) + 1) ^ 2 ≤ u i - u (i + 1) := by
+    intro i
+    rw [hdiff i, ← one_div]
+    have h3 : (0 : ℝ) ≤ i := Nat.cast_nonneg i
+    have h4 : (0 : ℝ) < ((i : ℝ) + N) * ((i : ℝ) + 1 + N) := by
+      have := hpos i
+      nlinarith
+    push_cast
+    apply one_div_le_one_div_of_le h4
+    nlinarith
+  calc ∑' i : ℕ, 1 / (((i + N : ℕ) : ℝ) + 1) ^ 2
+      ≤ ∑' i : ℕ, (u i - u (i + 1)) := hsumL.tsum_le_tsum hcomp htel.summable
+    _ = u 0 := htel.tsum_eq
+    _ = (N : ℝ)⁻¹ := hu0
+
+set_option maxHeartbeats 800000 in
+/-- The digamma function grows at most logarithmically on vertical strips inside the right
+half-plane: on `a ≤ z.re ≤ b` with `0 < a`, `‖digamma z‖ ≤ C * Real.log (|z.im| + 2)`. -/
+theorem exists_norm_digamma_le_log {a b : ℝ} (ha : 0 < a) :
     ∃ C : ℝ, 0 < C ∧ ∀ z : ℂ, a ≤ z.re → z.re ≤ b →
-      ‖Complex.digamma z‖ ≤ C * Real.log (|z.im| + 2) := by
-  sorry
+      ‖digamma z‖ ≤ C * Real.log (|z.im| + 2) := by
+  set c : ℝ := min a 1 with hc_def
+  have hc : 0 < c := lt_min ha one_pos
+  have hc1 : c ≤ 1 := min_le_right _ _
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  set D : ℝ := |Real.eulerMascheroniConstant| + 2 / c + (|b| + 2) / c with hD_def
+  have hD0 : 0 ≤ D := by positivity
+  refine ⟨D / Real.log 2 + 2 / c, ?_, fun z hza hzb => ?_⟩
+  · have h1 : 0 ≤ D / Real.log 2 := div_nonneg hD0 hlog2.le
+    have h2 : 0 < 2 / c := by positivity
+    linarith
+  have hre : 0 < z.re := lt_of_lt_of_le ha hza
+  have hzc : c ≤ z.re := le_trans (min_le_left _ _) hza
+  have hb0 : 0 < b := lt_of_lt_of_le hre hzb
+  have hsum : HasSum (fun n : ℕ => ((n : ℂ) + 1)⁻¹ - (z + n)⁻¹)
+      (digamma z + Real.eulerMascheroniConstant) := hasSum_digamma_of_re_pos hre
+  -- the splitting index
+  set N : ℕ := ⌈|z.im|⌉₊ + 1 with hN_def
+  have him0 : (0 : ℝ) ≤ |z.im| := abs_nonneg _
+  have hN1 : 1 ≤ N := Nat.le_add_left 1 _
+  have hN1R : (1 : ℝ) ≤ (N : ℝ) := by exact_mod_cast hN1
+  have hNpos : (0 : ℝ) < (N : ℝ) := by linarith
+  have hNim : |z.im| ≤ (N : ℝ) := by
+    rw [hN_def]
+    push_cast
+    have := Nat.le_ceil |z.im|
+    linarith
+  have hNle : (N : ℝ) ≤ |z.im| + 2 := by
+    rw [hN_def]
+    push_cast
+    have := Nat.ceil_lt_add_one him0
+    linarith
+  set L : ℝ := Real.log (|z.im| + 2) with hL_def
+  have hL2 : Real.log 2 ≤ L := by
+    rw [hL_def]
+    exact Real.log_le_log (by norm_num) (by linarith)
+  -- summability of the norm series and its majorant
+  have hmaj : Summable (fun m : ℕ => (‖z‖ + 1) / (c * ((m : ℝ) + 1) ^ 2)) := by
+    refine (summable_one_div_natCast_add_one_sq.mul_left ((‖z‖ + 1) / c)).congr fun m => ?_
+    rw [mul_one_div, div_div]
+  have hnormsum : Summable (fun n : ℕ => ‖((n : ℂ) + 1)⁻¹ - (z + n)⁻¹‖) :=
+    Summable.of_nonneg_of_le (fun n => norm_nonneg _)
+      (fun n => norm_inv_add_one_sub_inv_le hc hc1 hzc (le_refl ‖z‖) n) hmaj
+  -- head estimate: the first `N` terms contribute at most a multiple of `log`
+  have hhead : ∑ n ∈ Finset.range N, ‖((n : ℂ) + 1)⁻¹ - (z + n)⁻¹‖
+      ≤ 2 / c + 2 / c * L := by
+    calc ∑ n ∈ Finset.range N, ‖((n : ℂ) + 1)⁻¹ - (z + n)⁻¹‖
+        ≤ ∑ n ∈ Finset.range N, 2 / (c * ((n : ℝ) + 1)) :=
+          Finset.sum_le_sum fun n _ => norm_inv_add_one_sub_inv_le' hc hc1 hzc n
+      _ = 2 / c * ∑ n ∈ Finset.range N, ((n : ℝ) + 1)⁻¹ := by
+          rw [Finset.mul_sum]
+          exact Finset.sum_congr rfl fun n _ => by rw [← div_div, div_eq_mul_inv]
+      _ = 2 / c * ((harmonic N : ℚ) : ℝ) := by rw [sum_inv_natCast_add_one_real]
+      _ ≤ 2 / c * (1 + Real.log N) :=
+          mul_le_mul_of_nonneg_left (harmonic_le_one_add_log N) (by positivity)
+      _ ≤ 2 / c * (1 + L) := by
+          have h3 : Real.log N ≤ L := by
+            rw [hL_def]
+            exact Real.log_le_log hNpos hNle
+          exact mul_le_mul_of_nonneg_left (by linarith) (by positivity)
+      _ = 2 / c + 2 / c * L := by ring
+  -- tail estimate: past `N` the series contributes a bounded amount
+  have hshift_norm : Summable (fun i : ℕ => ‖(((i + N : ℕ) : ℂ) + 1)⁻¹ - (z + (i + N : ℕ))⁻¹‖) :=
+    (summable_nat_add_iff N).mpr hnormsum
+  have hshift_maj : Summable (fun i : ℕ => (‖z‖ + 1) / (c * (((i + N : ℕ) : ℝ) + 1) ^ 2)) :=
+    (summable_nat_add_iff N).mpr hmaj
+  have htail : ‖∑' i : ℕ, ((((i + N : ℕ) : ℂ) + 1)⁻¹ - (z + (i + N : ℕ))⁻¹)‖
+      ≤ (b + 2) / c := by
+    have hz_norm : ‖z‖ ≤ b + |z.im| := by
+      have h1 : ‖z‖ ≤ |z.re| + |z.im| := norm_le_abs_re_add_abs_im z
+      have h2 : |z.re| = z.re := abs_of_pos hre
+      linarith
+    have hN_key : ‖z‖ + 1 ≤ (b + 2) * (N : ℝ) := by
+      have h1 : b * 1 ≤ b * (N : ℝ) := mul_le_mul_of_nonneg_left hN1R hb0.le
+      have h2 : (b + 2) * (N : ℝ) = b * N + 2 * N := by ring
+      rw [h2]
+      linarith
+    calc ‖∑' i : ℕ, ((((i + N : ℕ) : ℂ) + 1)⁻¹ - (z + (i + N : ℕ))⁻¹)‖
+        ≤ ∑' i : ℕ, ‖(((i + N : ℕ) : ℂ) + 1)⁻¹ - (z + (i + N : ℕ))⁻¹‖ :=
+          norm_tsum_le_tsum_norm hshift_norm
+      _ ≤ ∑' i : ℕ, (‖z‖ + 1) / (c * (((i + N : ℕ) : ℝ) + 1) ^ 2) :=
+          hshift_norm.tsum_le_tsum
+            (fun i => norm_inv_add_one_sub_inv_le hc hc1 hzc (le_refl ‖z‖) (i + N)) hshift_maj
+      _ = (‖z‖ + 1) / c * ∑' i : ℕ, 1 / (((i + N : ℕ) : ℝ) + 1) ^ 2 := by
+          rw [← tsum_mul_left]
+          exact tsum_congr fun i => by rw [mul_one_div, div_div]
+      _ ≤ (‖z‖ + 1) / c * (N : ℝ)⁻¹ :=
+          mul_le_mul_of_nonneg_left (tsum_one_div_natCast_add_add_one_sq_le hN1)
+            (by positivity)
+      _ = ((‖z‖ + 1) * (N : ℝ)⁻¹) / c := by ring
+      _ ≤ (b + 2) / c := by
+          have h2 : (‖z‖ + 1) * (N : ℝ)⁻¹ ≤ b + 2 := by
+            rw [← div_eq_mul_inv, div_le_iff₀ hNpos]
+            linarith
+          gcongr
+  -- split the series and assemble
+  have hsplit : (∑ n ∈ Finset.range N, (((n : ℂ) + 1)⁻¹ - (z + n)⁻¹))
+      + ∑' i : ℕ, ((((i + N : ℕ) : ℂ) + 1)⁻¹ - (z + (i + N : ℕ))⁻¹)
+      = ∑' n : ℕ, (((n : ℂ) + 1)⁻¹ - (z + n)⁻¹) :=
+    hsum.summable.sum_add_tsum_nat_add N
+  have h5 : ‖∑' n : ℕ, (((n : ℂ) + 1)⁻¹ - (z + n)⁻¹)‖
+      ≤ (2 / c + 2 / c * L) + (b + 2) / c := by
+    rw [← hsplit]
+    refine le_trans (norm_add_le _ _) ?_
+    exact _root_.add_le_add (le_trans (norm_sum_le _ _) hhead) htail
+  have hdig_eq : digamma z = (∑' n : ℕ, (((n : ℂ) + 1)⁻¹ - (z + n)⁻¹))
+      - (Real.eulerMascheroniConstant : ℂ) := by
+    rw [hsum.tsum_eq]
+    ring
+  have h7 : ‖digamma z‖
+      ≤ |Real.eulerMascheroniConstant| + ((2 / c + 2 / c * L) + (b + 2) / c) := by
+    rw [hdig_eq]
+    refine le_trans (norm_sub_le _ _) ?_
+    have h8 : ‖((Real.eulerMascheroniConstant : ℝ) : ℂ)‖ = |Real.eulerMascheroniConstant| := by
+      rw [norm_real, Real.norm_eq_abs]
+    rw [h8]
+    linarith [h5]
+  -- absorb the constants into the logarithm
+  have habs : D ≤ D / Real.log 2 * L := by
+    calc D = D / Real.log 2 * Real.log 2 := by field_simp
+      _ ≤ D / Real.log 2 * L :=
+          mul_le_mul_of_nonneg_left hL2 (div_nonneg hD0 hlog2.le)
+  have hb_abs : (b + 2) / c ≤ (|b| + 2) / c := by
+    gcongr
+    exact le_abs_self b
+  have hexpand : (D / Real.log 2 + 2 / c) * L = D / Real.log 2 * L + 2 / c * L := by ring
+  rw [hexpand]
+  linarith [h7, habs, hb_abs]
 
 end ArtinPrimitiveRoots.Proofs.s7sol_gamma
