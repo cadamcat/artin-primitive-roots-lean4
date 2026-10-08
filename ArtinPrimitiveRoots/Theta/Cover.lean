@@ -2226,6 +2226,196 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_mul_weyl
     rw [hsk, hsK, hσ, tame_pair_units D H v hv _ _ hvdδ hvdc]
     simp
 
+private theorem tame_pair_principal_left (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (a b : (v.adicCompletion F)ˣ)
+    (ha : Valued.v ((a : v.adicCompletion F) - 1) < 1) : kpPairing D H v a b = 1 := by
+  rw [← kpPairing_inverse_swap D H v b a, tame_pair_principal D H v hv b a ha, inv_one]
+
+private theorem tame_triangular_left_unit (h : GL (Fin 2) (v.adicCompletion F))
+    (hh : ∀ i j, (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hd : Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (h10 : (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0) :
+    Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0) = 1 := by
+  have hright := tame_row_right_unit v h hh hd (by rw [h10, map_zero]; exact zero_lt_one)
+  have hdet : (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det =
+      (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0 *
+        (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 := by
+    simp [Matrix.det_fin_two, h10]
+  have hprod : Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0) *
+      Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) = 1 := by
+    rw [← map_mul, ← hdet]
+    exact hd
+  rw [hright, mul_one] at hprod
+  exact hprod
+
+private theorem tame_triangular_symbol (c d a δ : (v.adicCompletion F)ˣ)
+    (hunit : kpPairing D H v (d / δ) a = 1) :
+    kpPairing D H v (d / (δ * a)) (c * a) =
+      kpPairing D H v (d / δ) c * kpPairing D H v c a := by
+  have hratio : d / (δ * a) = (d / δ) / a := by
+    simp [div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+  rw [hratio]
+  simp only [kpPairing_div_left, kpPairing_mul_right, kpPairing_self, hunit,
+    mul_one, mul_inv, inv_one]
+  rw [kpPairing_inverse_swap D H v a c]
+
+/-- The tame section is multiplicative for an integral upper-triangular right factor. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_mul_triangular
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k h : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hh : ∀ i j, (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hdk : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (hdh : Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (h10 : (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0) :
+    tameSplit D H v (k * h) = tameSplit D H v k * tameSplit D H v h * kpCocycle D H v k h := by
+  classical
+  let a0 := (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0
+  let b0 := (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 1
+  let q0 := (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
+  let c0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0
+  let d0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
+  let e0 := c0 * b0 + d0 * q0
+  let δ := detU v k
+  have hva0 : Valued.v a0 = 1 := tame_triangular_left_unit v h hh hdh h10
+  have hvq0 : Valued.v q0 = 1 :=
+    tame_row_right_unit v h hh hdh (by rw [h10, map_zero]; exact zero_lt_one)
+  have ha0 : a0 ≠ 0 := tame_ne_zero_of_valuation_one v a0 hva0
+  have hq0 : q0 ≠ 0 := tame_ne_zero_of_valuation_one v q0 hvq0
+  let aU : (v.adicCompletion F)ˣ := Units.mk0 a0 ha0
+  let qU : (v.adicCompletion F)ˣ := Units.mk0 q0 hq0
+  have hva : Valued.v (aU : v.adicCompletion F) = 1 := hva0
+  have hvq : Valued.v (qU : v.adicCompletion F) = 1 := hvq0
+  have hvδ : Valued.v (δ : v.adicCompletion F) = 1 := hdk
+  have hδh : detU v h = aU * qU := by
+    apply Units.ext
+    simp [detU, Matrix.det_fin_two, h10, aU, qU, a0, q0]
+  have hC : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = c0 * a0 := by
+    simpa only [c0, a0, h10, mul_zero, add_zero] using matrix_mul_21 v k h
+  have hE : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 = e0 := by
+    simpa only [e0, c0, d0, b0, q0] using matrix_mul_22 v k h
+  have hxH : xU v h = qU := by
+    apply Units.ext
+    simp [xU, xEntry, h10, qU, q0]
+  have hdetPair : kpPairing D H v (detU v k) (detU v h) = 1 :=
+    tame_pair_units D H v hv _ _ hdk hdh
+  have hσ : kpCocycle D H v k h =
+      kpPairing D H v (xU v (k * h) / (qU * δ)) (xU v (k * h) / xU v k) := by
+    rw [kpCocycle_pairing, hxH, hdetPair, mul_one]
+  rw [tameSplit_of_zero_left D H v h h10, mul_one]
+  by_cases hc0 : c0 = 0
+  · have hcs : Valued.v c0 < 1 := by rw [hc0, map_zero]; exact zero_lt_one
+    have hvd0 : Valued.v d0 = 1 := tame_row_right_unit v k hk hdk hcs
+    have hd0 : d0 ≠ 0 := tame_ne_zero_of_valuation_one v d0 hvd0
+    let dU : (v.adicCompletion F)ˣ := Units.mk0 d0 hd0
+    have hvd : Valued.v (dU : v.adicCompletion F) = 1 := hvd0
+    have hz : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by rw [hC, hc0, zero_mul]
+    have hxk : xU v k = dU := by
+      apply Units.ext
+      simp [xU, xEntry, c0, d0, dU, hc0]
+    have hxK : xU v (k * h) = dU * qU := by
+      apply Units.ext
+      change xEntry v (k * h) = d0 * q0
+      unfold xEntry
+      rw [if_neg (by simp [hz]), hE]
+      simp only [e0, hc0, zero_mul, zero_add]
+    have hsk : tameSplit D H v k = 1 := tameSplit_of_zero_left D H v k hc0
+    have hsK : tameSplit D H v (k * h) = 1 := tameSplit_of_zero_left D H v _ hz
+    rw [hxk, hxK] at hσ
+    have hr1 : (dU * qU) / (qU * δ) = dU / δ := by
+      simp [div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+    have hr2 : (dU * qU) / dU = qU := by simp [mul_comm]
+    have hvdδ : Valued.v ((dU / δ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvd, hvδ]
+      simp
+    rw [hr1, hr2, tame_pair_units D H v hv _ _ hvdδ hvq] at hσ
+    rw [hsk, hsK, hσ]
+    simp
+  let cU : (v.adicCompletion F)ˣ := Units.mk0 c0 hc0
+  have hcn : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0 := by
+    rw [hC]
+    exact mul_ne_zero hc0 ha0
+  have hxk : xU v k = cU := xU_eq_lowerLeft v k hc0
+  have hxK : xU v (k * h) = cU * aU := by
+    apply Units.ext
+    change xEntry v (k * h) = c0 * a0
+    unfold xEntry
+    rw [if_pos hcn, hC]
+  rw [hxk, hxK] at hσ
+  have hvRatio : Valued.v ((aU / (qU * δ) : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    rw [Units.val_div_eq_div_val, map_div₀, Units.val_mul, map_mul, hva, hvq, hvδ]
+    simp
+  have hr1 : (cU * aU) / (qU * δ) = cU * (aU / (qU * δ)) := by
+    simp [div_eq_mul_inv, mul_assoc]
+  have hr2 : (cU * aU) / cU = aU := by simp [mul_comm]
+  rw [hr1, hr2, kpPairing_mul_left, tame_pair_units D H v hv _ _ hvRatio hva, mul_one] at hσ
+  by_cases hcs : Valued.v c0 < 1
+  · have hvd0 : Valued.v d0 = 1 := tame_row_right_unit v k hk hdk hcs
+    have hd0 : d0 ≠ 0 := tame_ne_zero_of_valuation_one v d0 hvd0
+    let dU : (v.adicCompletion F)ˣ := Units.mk0 d0 hd0
+    have hvd : Valued.v (dU : v.adicCompletion F) = 1 := hvd0
+    have hvb : Valued.v b0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hh 0 1)
+    have hcb : Valued.v (c0 * b0) < 1 := by
+      rw [map_mul]
+      exact lt_of_le_of_lt (mul_le_mul' le_rfl hvb) (by simpa using hcs)
+    have hdq : Valued.v (d0 * q0) = 1 := by rw [map_mul, hvd0, hvq0, one_mul]
+    have hve0 : Valued.v e0 = 1 := by
+      have hne : Valued.v (c0 * b0) ≠ Valued.v (d0 * q0) := by rw [hdq]; exact ne_of_lt hcb
+      change Valued.v (c0 * b0 + d0 * q0) = 1
+      rw [Valuation.map_add_of_distinct_val _ hne, hdq, max_eq_right hcb.le]
+    have he0 : e0 ≠ 0 := tame_ne_zero_of_valuation_one v e0 hve0
+    let eU : (v.adicCompletion F)ˣ := Units.mk0 e0 he0
+    let r : (v.adicCompletion F)ˣ := eU / (dU * qU)
+    have hrVal : (r : v.adicCompletion F) - 1 = c0 * b0 / (d0 * q0) := by
+      simp only [r, Units.val_div_eq_div_val, Units.val_mul]
+      change e0 / (d0 * q0) - 1 = c0 * b0 / (d0 * q0)
+      field_simp
+      dsimp [e0]
+      ring
+    have hnear : Valued.v ((r : v.adicCompletion F) - 1) < 1 := by
+      rw [hrVal, map_div₀, hdq, div_one]
+      exact hcb
+    have hCs : Valued.v (((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by
+      rw [hC, map_mul, hva0, mul_one]
+      exact hcs
+    have hEn : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0 := by rw [hE]; exact he0
+    have hsK := tameSplit_of_small D H v (k * h) hcn hCs hEn
+    have hcu : Units.mk0 (((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hcn = cU * aU := by
+      apply Units.ext
+      exact hC
+    have heu : Units.mk0 (((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hEn = eU := by
+      apply Units.ext
+      exact hE
+    rw [hcu, heu, detU_mul, hδh] at hsK
+    change tameSplit D H v (k * h) = kpPairing D H v (eU / (δ * (aU * qU))) (cU * aU) at hsK
+    have hfactor : eU / (δ * (aU * qU)) = r * (dU / (δ * aU)) := by
+      simp [r, div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+    have hpr : kpPairing D H v r (cU * aU) = 1 := tame_pair_principal_left D H v hv _ _ hnear
+    rw [hfactor, kpPairing_mul_left, hpr, one_mul] at hsK
+    have hvdδ : Valued.v ((dU / δ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvd, hvδ]
+      simp
+    have hpda : kpPairing D H v (dU / δ) aU = 1 := tame_pair_units D H v hv _ _ hvdδ hva
+    rw [tame_triangular_symbol D H v cU dU aU δ hpda] at hsK
+    have hsk : tameSplit D H v k = kpPairing D H v (dU / δ) cU :=
+      tameSplit_of_small D H v k hc0 hcs hd0
+    rw [hsK, hsk, hσ]
+  · have hvcle : Valued.v c0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk 1 0)
+    have hvc : Valued.v c0 = 1 := le_antisymm hvcle (le_of_not_gt hcs)
+    have hvcU : Valued.v (cU : v.adicCompletion F) = 1 := hvc
+    have hsk : tameSplit D H v k = 1 := tameSplit_of_unit_left D H v k hvc
+    have hsK : tameSplit D H v (k * h) = 1 :=
+      tameSplit_of_unit_left D H v _ (by rw [hC, map_mul, hvc, hva0, one_mul])
+    rw [hsK, hsk, hσ, tame_pair_units D H v hv _ _ hvcU hva]
+    simp
+
 theorem tameSplit_mul (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k₁ k₂ : GL (Fin 2) (v.adicCompletion F))
     (hk₁ : ∀ i j, (k₁ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
     (hk₂ : ∀ i j, (k₂ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
