@@ -7509,6 +7509,155 @@ private theorem bandMass_half_log_two_of_large_x {K : ℕ} (F : PDFix K) (hF : F
   have habs := (abs_le.mp ((hx_i i).2 x (le_trans hxi hx)).1)
   linarith
 
+/-- The positive edge choice row is polynomial in the memory cutoff once the
+spatial multiplier sum and the normalized prime masses are bounded. -/
+private theorem memEdge_positive_choice_row_le {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ v H Cgeom : ℝ) (w : ArchRoot)
+    (j B : ℕ) (s : MemPoint S.x K) (Z : Finset (ℤ × ℤ))
+    (hρ : 0 ≤ ρ ∧ ρ ≤ 1) (hv : 1 ≤ v) (hH : 0 ≤ H)
+    (hCgeom : 0 ≤ Cgeom) (hsSize : memSize s ≤ B)
+    (hV : ∀ i : Fin K, 0 < bandMass S.x (F.a i))
+    (hInv : ∀ i : Fin K, (bandMass S.x (F.a i))⁻¹ ≤ H)
+    (hν : ∀ i p, p ∈ primeBand S.x (F.a i) →
+      0 ≤ memoryNu S.x K F.a F.q_d i p)
+    (hMass : ∀ i : Fin K,
+      (∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2)
+    (hgeom : ∀ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+      (∑ z' ∈ Z, if EdgeAdmissible F S w s c z' then
+        ‖edgeMultiplier F S (decide (j % 2 = 0)) true s.2.1
+          (edgeTargetLists F S s c) s.1 z'‖ +
+        ‖edgeMultiplier F S (decide (j % 2 = 0)) false s.2.1
+          (edgeTargetLists F S s c) s.1 z'‖ else 0) ≤ Cgeom) :
+    (∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+      ∑ z' ∈ Z,
+        if EdgeAdmissible F S w s c z' then
+          |ρ ^ (∑ i : Fin K, hitCount (s.2.2 i) s.1) *
+            (∏ i : Fin K, pd5_edgeChoiceMass F S s c i) *
+            ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z')| *
+          (‖edgeMultiplier F S (decide (j % 2 = 0)) true s.2.1
+            (edgeTargetLists F S s c) s.1 z'‖ +
+          ‖edgeMultiplier F S (decide (j % 2 = 0)) false s.2.1
+            (edgeTargetLists F S s c) s.1 z'‖) *
+          v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c)
+        else 0) ≤
+      Cgeom * (2 * v * ((B : ℝ) * H + 2)) ^ K * v ^ memSize s := by
+  classical
+  let choices := (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i
+  let a (i : Fin K) (ci : EdgeChoice S.x F.a (s.2.2 i) i) : ℝ :=
+    match ci.2 with
+    | Sum.inl _ => (bandMass S.x (F.a i))⁻¹
+    | Sum.inr p => memoryNu S.x K F.a F.q_d i p
+  have ha (i : Fin K) (ci : EdgeChoice S.x F.a (s.2.2 i) i) : 0 ≤ a i ci := by
+    rcases ci with ⟨b, k | p⟩
+    · exact (inv_pos.mpr (hV i)).le
+    · exact hν i p p.2
+  have hmassEq (c : choices) (i : Fin K) : pd5_edgeChoiceMass F S s c i = a i (c i) := by
+    rfl
+  let mass (c : choices) : ℝ := ∏ i : Fin K, a i (c i)
+  have hmassNonneg (c : choices) : 0 ≤ mass c := Finset.prod_nonneg fun i _ => ha i (c i)
+  have hcoeff (c : choices) (z' : ℤ × ℤ) :
+      |ρ ^ (∑ i : Fin K, hitCount (s.2.2 i) s.1) *
+        (∏ i : Fin K, pd5_edgeChoiceMass F S s c i) *
+        ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z')| ≤ mass c := by
+    simp only [hmassEq]
+    change |ρ ^ _ * mass c * ρ ^ _| ≤ mass c
+    rw [abs_of_nonneg (mul_nonneg (mul_nonneg (pow_nonneg hρ.1 _) (hmassNonneg c))
+      (pow_nonneg hρ.1 _))]
+    calc
+      _ ≤ 1 * mass c * 1 :=
+        mul_le_mul
+          (mul_le_mul_of_nonneg_right (pow_le_one₀ hρ.1 hρ.2) (hmassNonneg c))
+          (pow_le_one₀ hρ.1 hρ.2) (pow_nonneg hρ.1 _)
+          (mul_nonneg (by norm_num) (hmassNonneg c))
+      _ = mass c := by ring
+  have houtSize (c : choices) (z' : ℤ × ℤ) :
+      memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) ≤ memSize s + K := by
+    have hi (i : Fin K) : (edgeNewMemory F S s c i).length ≤ (s.2.2 i).length + 1 := by
+      have hremove (D : Finset (Fin (s.2.2 i).length)) :
+          (removeIndices (s.2.2 i) D).length ≤ (s.2.2 i).length := by
+        rw [removeIndices_length]
+        exact Nat.sub_le _ _
+      cases hc : (c i).2 with
+      | inl k =>
+        have hrem := hremove {k}
+        cases hb : (c i).1 <;> simp [edgeNewMemory, hc, hb] <;> omega
+      | inr p =>
+        have hrem := hremove ∅
+        cases hb : (c i).1 <;> simp [edgeNewMemory, hc, hb] <;> omega
+    have hsum := Finset.sum_le_sum (s := Finset.univ) (fun i _ => hi i)
+    simpa [memSize, Finset.sum_add_distrib] using hsum
+  have houtWeight (c : choices) (z' : ℤ × ℤ) :
+      v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c) ≤
+        v ^ memSize s * v ^ K := by
+    rw [← pow_add]
+    exact pow_le_pow_right₀ hv (houtSize c z')
+  let geom (c : choices) (z' : ℤ × ℤ) : ℝ :=
+    ‖edgeMultiplier F S (decide (j % 2 = 0)) true s.2.1
+      (edgeTargetLists F S s c) s.1 z'‖ +
+    ‖edgeMultiplier F S (decide (j % 2 = 0)) false s.2.1
+      (edgeTargetLists F S s c) s.1 z'‖
+  have hgeomNonneg (c : choices) (z' : ℤ × ℤ) : 0 ≤ geom c z' :=
+    add_nonneg (norm_nonneg _) (norm_nonneg _)
+  have hrow (c : choices) :
+      (∑ z' ∈ Z, if EdgeAdmissible F S w s c z' then
+        |ρ ^ (∑ i : Fin K, hitCount (s.2.2 i) s.1) *
+          (∏ i : Fin K, pd5_edgeChoiceMass F S s c i) *
+          ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z')| *
+        geom c z' * v ^ memSize (z', edgeTargetLists F S s c, edgeNewMemory F S s c)
+        else 0) ≤ mass c * (v ^ memSize s * v ^ K) * Cgeom := by
+    calc
+      _ ≤ ∑ z' ∈ Z, mass c * (v ^ memSize s * v ^ K) *
+          (if EdgeAdmissible F S w s c z' then geom c z' else 0) := by
+        apply Finset.sum_le_sum
+        intro z' hz'
+        by_cases hadm : EdgeAdmissible F S w s c z'
+        · simp only [if_pos hadm]
+          calc
+            _ ≤ mass c * geom c z' * (v ^ memSize s * v ^ K) :=
+              mul_le_mul (mul_le_mul_of_nonneg_right (hcoeff c z') (hgeomNonneg c z'))
+                (houtWeight c z') (pow_nonneg (by linarith) _)
+                (mul_nonneg (hmassNonneg c) (hgeomNonneg c z'))
+            _ = _ := by ring
+        · simp [hadm]
+      _ = mass c * (v ^ memSize s * v ^ K) *
+          ∑ z' ∈ Z, if EdgeAdmissible F S w s c z' then geom c z' else 0 := by
+        rw [Finset.mul_sum]
+      _ ≤ _ := mul_le_mul_of_nonneg_left (hgeom c)
+        (mul_nonneg (hmassNonneg c) (by positivity))
+  have hgroup (i : Fin K) :
+      (∑ ci : EdgeChoice S.x F.a (s.2.2 i) i, a i ci) ≤ 2 * ((B : ℝ) * H + 2) := by
+    have hlen : (s.2.2 i).length ≤ B :=
+      (Finset.single_le_sum (fun k _ => Nat.zero_le ((s.2.2 k).length))
+        (Finset.mem_univ i)).trans hsSize
+    have hlenR : ((s.2.2 i).length : ℝ) ≤ B := by exact_mod_cast hlen
+    have heq : (∑ ci : EdgeChoice S.x F.a (s.2.2 i) i, a i ci) =
+        2 * (((s.2.2 i).length : ℝ) * (bandMass S.x (F.a i))⁻¹ +
+          ∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) := by
+      simp [EdgeChoice, a, Fintype.sum_prod_type, Fintype.sum_sum_type,
+        Finset.sum_attach, two_mul, mul_add]
+    rw [heq]
+    have hprom := mul_le_mul hlenR (hInv i) (inv_nonneg.mpr (hV i).le) (by positivity)
+    linarith [hMass i]
+  have hchoices : (∑ c : choices, mass c) ≤ (2 * ((B : ℝ) * H + 2)) ^ K := by
+    dsimp [mass, choices]
+    rw [← Fintype.prod_sum a]
+    calc
+      _ ≤ ∏ i : Fin K, 2 * ((B : ℝ) * H + 2) := by
+        apply Finset.prod_le_prod₀
+        · intro i _
+          exact Finset.sum_nonneg fun ci _ => ha i ci
+        · intro i _
+          exact hgroup i
+      _ = _ := by simp
+  calc
+    _ ≤ ∑ c : choices, mass c * (v ^ memSize s * v ^ K) * Cgeom :=
+      Finset.sum_le_sum fun c _ => hrow c
+    _ = (∑ c : choices, mass c) * (v ^ memSize s * v ^ K) * Cgeom := by
+      rw [Finset.sum_mul, Finset.sum_mul]
+    _ ≤ (2 * ((B : ℝ) * H + 2)) ^ K * (v ^ memSize s * v ^ K) * Cgeom := by
+      gcongr
+    _ = _ := by rw [mul_pow, mul_pow]; ring
+
 /-- `t2:pd.ghost-edge-crude` — PD 04:365-435.  REPLACES the frozen `ghost_edge_crude`.  On
 `ℋ_B`, with the Schur weight `v₀^{k_tot}`: ghost row and column sums (mem:ghost-row),
 (mem:ghost-column) are `≤ C_K` once `v₀` makes both parentheses `≤ 1` (uses `ρ² > √q_d`), so
