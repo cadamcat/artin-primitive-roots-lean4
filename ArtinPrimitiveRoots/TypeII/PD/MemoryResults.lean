@@ -5561,6 +5561,285 @@ private theorem ghost_source_deletion_mass_le
       rw [← Finset.mul_sum]
     _ ≤ pref * Real.exp (r * v * mass) := mul_le_mul_of_nonneg_left hpartial hpref
 
+set_option maxHeartbeats 1000000 in
+/-- The ordered one-group column is the reverse deletion exponential times
+its suffix-hit polynomial. The subsequent memory average removes the ordered
+binomial multiplicity. -/
+private theorem ghost_group_ordered_column_le
+    (primes : Finset ℕ) (ν : ℕ → ℝ) (hν : ∀ p ∈ primes, 0 ≤ ν p)
+    (target : List Particle) (htarget : ∀ e ∈ target, e.1 ∈ primes)
+    (z : ℤ × ℤ) (r b c v : ℝ)
+    (hr : 0 ≤ r) (hb : 0 ≤ b) (hc : 0 ≤ c) (hv : 0 < v)
+    (T : Finset (List Particle)) (B M : ℕ)
+    (hsize : ∀ l ∈ T, l.length ≤ B)
+    (hprime : ∀ l ∈ T, ∀ e ∈ l, e.1 ∈ primes) (hM : target.length ≤ M) :
+    (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+      ∑ m ∈ Finset.range (M + 1), ∑ batch : Fin m → primes,
+        if removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) = target then
+          ((l.map fun e => ν e.1).prod / (l.length.factorial : ℝ)) * v ^ l.length *
+            r ^ D.card * b ^ (hitCount l z - D.card) *
+            (c ^ m / (m.factorial : ℝ)) * ∏ k : Fin m, ν (batch k).1
+        else 0) ≤
+      ((target.map fun e => ν e.1).prod / (target.length.factorial : ℝ)) *
+        v ^ target.length * Real.exp (r * v * ∑ p ∈ primes, ν p) *
+          ∑ m ∈ Finset.range (target.length + 1),
+            if ∀ e ∈ target.drop (target.length - m), particleHits e z then
+              (Nat.choose target.length m : ℝ) * (c / v) ^ m *
+                b ^ (hitCount target z - m) else 0 := by
+  classical
+  let W (l : List Particle) : ℝ :=
+    (l.map fun e => ν e.1).prod / (l.length.factorial : ℝ) * v ^ l.length
+  let E := Real.exp (r * v * ∑ p ∈ primes, ν p)
+  let H (l : List Particle) (D : Finset (Fin l.length)) (m : ℕ)
+      (batch : Fin m → primes) : ℝ :=
+    if removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) = target then
+      W l * r ^ D.card * b ^ (hitCount l z - D.card) *
+        (c ^ m / (m.factorial : ℝ)) * ∏ k : Fin m, ν (batch k).1 else 0
+  let col (m : ℕ) : ℝ :=
+    ∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset, ∑ batch : Fin m → primes, H l D m batch
+  have hhit (l : List Particle) :
+      hitCount l z = l.countP (fun e => decide (particleHits e z)) := by
+    have huniv : (List.finRange l.length).toFinset =
+        (Finset.univ : Finset (Fin l.length)) := by ext k; simp
+    calc
+      _ = ((List.finRange l.length).toFinset.filter
+          fun k => particleHits (l.get k) z).card := by simp [huniv, hitCount, hitIndices]
+      _ = (List.finRange l.length).countP (fun k => decide (particleHits (l.get k) z)) :=
+        (List.nodup_finRange _).card_eq_countP
+      _ = ((List.finRange l.length).map l.get).countP
+          (fun e => decide (particleHits e z)) := by
+            simp only [List.countP_map, Function.comp_def]
+      _ = _ := by rw [List.map_get_finRange]
+  have hallCount (l : List Particle) (h : ∀ e ∈ l, particleHits e z) :
+      hitCount l z = l.length := by
+    have hf : l.filter (fun e => decide (particleHits e z)) = l := by
+      apply List.filter_eq_self.mpr
+      intro e he
+      simpa using h e he
+    rw [hhit, List.countP_eq_length_filter, hf]
+  have hdel (l : List Particle) (D : Finset (Fin l.length))
+      (hD : D ∈ (hitIndices l z).powerset) :
+      hitCount l z - D.card = hitCount (removeIndices l D) z := by
+    have hs : ∀ e ∈ selectIndices l D, particleHits e z := by
+      intro e he
+      rcases List.mem_filterMap.mp he with ⟨k, hk, hke⟩
+      by_cases hkD : k ∈ D
+      · have hget : l.get k = e := by simpa [hkD] using hke
+        subst e
+        exact (Finset.mem_filter.mp (Finset.mem_powerset.mp hD hkD)).2
+      · simp [hkD] at hke
+    have h := (remove_select_perm l D).countP_eq (fun e => decide (particleHits e z))
+    rw [List.countP_append, ← hhit (removeIndices l D),
+      ← hhit (selectIndices l D), ← hhit l, hallCount (selectIndices l D) hs,
+      selectIndices_length] at h
+    omega
+  have hprodNonneg (l : List Particle) (hl : ∀ e ∈ l, e.1 ∈ primes) :
+      0 ≤ (l.map fun e => ν e.1).prod := by
+    apply List.prod_nonneg
+    intro t ht
+    rcases List.mem_map.mp ht with ⟨e, he, rfl⟩
+    exact hν e.1 (hl e he)
+  have hlarge (m : ℕ) (hm : target.length < m) : col m = 0 := by
+    apply Finset.sum_eq_zero
+    intro l hl
+    apply Finset.sum_eq_zero
+    intro D hD
+    apply Finset.sum_eq_zero
+    intro batch hbatch
+    have hn : removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) ≠ target := by
+      intro h
+      have hlen := congrArg List.length h
+      simp only [List.length_append, List.length_ofFn] at hlen
+      omega
+    simp [H, hn]
+  have hbound (m : ℕ) (hm : m ≤ target.length) :
+      col m ≤ W target * E *
+        (if ∀ e ∈ target.drop (target.length - m), particleHits e z then
+          (Nat.choose target.length m : ℝ) * (c / v) ^ m *
+            b ^ (hitCount target z - m) else 0) := by
+    let pre := target.take (target.length - m)
+    let suffix := target.drop (target.length - m)
+    have hpreLen : pre.length = target.length - m := by
+      simp only [pre, List.length_take]
+      omega
+    have hsufLen : suffix.length = m := by
+      simp only [suffix, List.length_drop]
+      omega
+    have hsplit : pre ++ suffix = target := List.take_append_drop _ _
+    have hparts (l : List Particle) (D : Finset (Fin l.length))
+        (batch : Fin m → primes)
+        (hout : removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) = target) :
+        removeIndices l D = pre ∧
+          List.ofFn (fun k => anchorAt (batch k).1 z) = suffix := by
+      have hlen := congrArg List.length hout
+      simp only [List.length_append, List.length_ofFn] at hlen
+      have hremoveLen : (removeIndices l D).length = target.length - m := by omega
+      have h := append_eq_prefix_suffix _ _ _ hout
+      exact ⟨by simpa [pre, hremoveLen] using h.1.symm,
+        by simpa [suffix, hremoveLen] using h.2.symm⟩
+    by_cases hs : ∀ e ∈ suffix, particleHits e z
+    · have hprePrime : ∀ e ∈ pre, e.1 ∈ primes := by
+        intro e he
+        exact htarget e (List.mem_of_mem_take he)
+      have hsufPrime : ∀ e ∈ suffix, e.1 ∈ primes := by
+        intro e he
+        exact htarget e (List.mem_of_mem_drop he)
+      let u : Fin m → primes := fun k =>
+        ⟨(target.get (suffixPosition hm k)).1,
+          htarget _ (List.get_mem target (suffixPosition hm k))⟩
+      have hsf : suffix = List.ofFn (fun k : Fin m => target.get (suffixPosition hm k)) := by
+        simpa [suffix] using list_drop_ofFn_suffix hm target.get
+      have hu : List.ofFn (fun k => anchorAt (u k).1 z) = suffix := by
+        calc
+          _ = List.ofFn (fun k : Fin m => target.get (suffixPosition hm k)) := by
+            congr 1
+            funext k
+            apply Prod.ext
+            · rfl
+            · have he : target.get (suffixPosition hm k) ∈ suffix := by
+                rw [hsf]
+                exact List.mem_ofFn.mpr ⟨k, rfl⟩
+              exact (hs _ he).symm
+          _ = suffix := hsf.symm
+      have huProd : (∏ k : Fin m, ν (u k).1) = (suffix.map fun e => ν e.1).prod := by
+        have h := congrArg (fun l : List Particle => (l.map fun e => ν e.1).prod) hu
+        simpa [List.map_ofFn, List.prod_ofFn, anchorAt] using h
+      let A := (c ^ m / (m.factorial : ℝ)) *
+        (suffix.map fun e => ν e.1).prod * b ^ hitCount pre z
+      have hA : 0 ≤ A := by
+        have hp := hprodNonneg suffix hsufPrime
+        dsimp [A]
+        positivity
+      have hinner (l : List Particle) (D : Finset (Fin l.length))
+          (hD : D ∈ (hitIndices l z).powerset) :
+          (∑ batch : Fin m → primes, H l D m batch) =
+            A * (if removeIndices l D = pre then W l * r ^ D.card else 0) := by
+        rw [Finset.sum_eq_single u]
+        · by_cases hk : removeIndices l D = pre
+          · have hout : removeIndices l D ++ List.ofFn (fun k => anchorAt (u k).1 z) = target := by
+              rw [hk, hu]
+              exact hsplit
+            dsimp [H]
+            rw [if_pos hout, if_pos hk, hdel l D hD, hk, huProd]
+            dsimp [A]
+            ring
+          · have hn : removeIndices l D ++ List.ofFn (fun k => anchorAt (u k).1 z) ≠ target := by
+              intro hout
+              exact hk (hparts l D u hout).1
+            simp [H, hn, hk]
+        · intro batch hbatch hne
+          have hn : removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) ≠ target := by
+            intro hout
+            have hfun := List.ofFn_inj.mp ((hparts l D batch hout).2.trans hu.symm)
+            have heq : batch = u := by
+              funext k
+              apply Subtype.ext
+              exact congrArg Prod.fst (congrFun hfun k)
+            exact hne heq
+          simp [H, hn]
+        · intro hnot
+          exact (hnot (Finset.mem_univ u)).elim
+      have hcol : col m = A *
+          (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+            if removeIndices l D = pre then W l * r ^ D.card else 0) := by
+        calc
+          _ = ∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+              A * (if removeIndices l D = pre then W l * r ^ D.card else 0) := by
+            apply Finset.sum_congr rfl
+            intro l hl
+            exact Finset.sum_congr rfl fun D hD => hinner l D hD
+          _ = _ := by simp [Finset.mul_sum]
+      have hmass :
+          (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+            if removeIndices l D = pre then W l * r ^ D.card else 0) ≤ W pre * E := by
+        simpa only [W, E, mul_assoc, mul_left_comm, mul_comm] using
+          ghost_source_deletion_mass_le primes ν hν pre hprePrime z r v hr hv.le
+            T B hsize hprime
+      have hcount : hitCount target z - m = hitCount pre z := by
+        have h := congrArg (fun l : List Particle => l.countP (fun e => decide (particleHits e z))) hsplit
+        rw [List.countP_append, ← hhit pre, ← hhit suffix, ← hhit target,
+          hallCount suffix hs, hsufLen] at h
+        omega
+      have htotal : pre.length + m = target.length := by omega
+      have hfac : (Nat.choose target.length m : ℝ) / (target.length.factorial : ℝ) =
+          1 / ((pre.length.factorial : ℝ) * (m.factorial : ℝ)) := by
+        simpa only [htotal] using ghost_interleave_factorial_measure pre.length m
+      have htargetProd : (target.map fun e => ν e.1).prod =
+          (pre.map fun e => ν e.1).prod * (suffix.map fun e => ν e.1).prod := by
+        have h := congrArg (fun l : List Particle => (l.map fun e => ν e.1).prod) hsplit
+        simpa [List.map_append, List.prod_append] using h.symm
+      have hpow : v ^ target.length = v ^ pre.length * v ^ m := by
+        rw [← htotal, pow_add]
+      have hnorm : A * W pre = W target * (Nat.choose target.length m : ℝ) *
+          (c / v) ^ m * b ^ (hitCount target z - m) := by
+        calc
+          _ = (pre.map fun e => ν e.1).prod * (suffix.map fun e => ν e.1).prod *
+              v ^ pre.length * c ^ m * b ^ hitCount pre z *
+                (1 / ((pre.length.factorial : ℝ) * (m.factorial : ℝ))) := by
+            dsimp [A, W]
+            ring
+          _ = (pre.map fun e => ν e.1).prod * (suffix.map fun e => ν e.1).prod *
+              v ^ pre.length * c ^ m * b ^ hitCount pre z *
+                ((Nat.choose target.length m : ℝ) / (target.length.factorial : ℝ)) := by rw [← hfac]
+          _ = _ := by
+            dsimp [W]
+            rw [htargetProd, hpow, hcount]
+            simp only [div_pow]
+            have hn : (target.length.factorial : ℝ) ≠ 0 := by positivity
+            field_simp [pow_ne_zero _ hv.ne', hn] <;> ring
+      change col m ≤ W target * E *
+        (if ∀ e ∈ suffix, particleHits e z then _ else 0)
+      rw [if_pos hs]
+      calc
+        col m = A * _ := hcol
+        _ ≤ A * (W pre * E) := mul_le_mul_of_nonneg_left hmass hA
+        _ = _ := by rw [← mul_assoc, hnorm]; ring
+    · have hz : col m = 0 := by
+        apply Finset.sum_eq_zero
+        intro l hl
+        apply Finset.sum_eq_zero
+        intro D hD
+        apply Finset.sum_eq_zero
+        intro batch hbatch
+        have hn : removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 z) ≠ target := by
+          intro hout
+          apply hs
+          intro e he
+          rw [← (hparts l D batch hout).2] at he
+          rcases List.mem_ofFn.mp he with ⟨k, rfl⟩
+          simp [particleHits, anchorAt]
+        simp [H, hn]
+      change col m ≤ W target * E *
+        (if ∀ e ∈ suffix, particleHits e z then _ else 0)
+      rw [hz, if_neg hs, mul_zero]
+  change (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+    ∑ m ∈ Finset.range (M + 1), ∑ batch : Fin m → primes, H l D m batch) ≤ _
+  have hswap (l : List Particle) :
+      (∑ D ∈ (hitIndices l z).powerset,
+        ∑ m ∈ Finset.range (M + 1), ∑ batch : Fin m → primes, H l D m batch) =
+      ∑ m ∈ Finset.range (M + 1), ∑ D ∈ (hitIndices l z).powerset,
+        ∑ batch : Fin m → primes, H l D m batch := Finset.sum_comm
+  calc
+    _ = ∑ m ∈ Finset.range (M + 1), col m := by
+      simp_rw [hswap]
+      rw [Finset.sum_comm]
+    _ = ∑ m ∈ Finset.range (target.length + 1), col m := by
+      symm
+      apply Finset.sum_subset (Finset.range_mono (Nat.add_le_add_right hM 1))
+      intro m hm hnot
+      have hlarge' : target.length < m := by
+        have hn : ¬ m < target.length + 1 := by simpa using hnot
+        omega
+      exact hlarge m hlarge'
+    _ ≤ ∑ m ∈ Finset.range (target.length + 1), W target * E *
+        (if ∀ e ∈ target.drop (target.length - m), particleHits e z then
+          (Nat.choose target.length m : ℝ) * (c / v) ^ m *
+            b ^ (hitCount target z - m) else 0) := by
+      apply Finset.sum_le_sum
+      intro m hm
+      exact hbound m (by have h := Finset.mem_range.mp hm; omega)
+    _ = _ := by rw [← Finset.mul_sum]
+
 private theorem ghostGroupFiniteWeight_mul_pow_eq_normCoeff_mul_pow {K : ℕ}
     (F : PDFix K) (S : PDScale) (s : MemPoint S.x K) (B j : ℕ)
     (ρ v : ℝ) (i : Fin K)
