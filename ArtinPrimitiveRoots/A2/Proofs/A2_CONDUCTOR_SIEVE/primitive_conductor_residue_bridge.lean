@@ -1171,6 +1171,107 @@ private theorem conductorGeneratorPrincipalProduct
         (((sval * aval : ℂˣ) : ℂ))⁻¹ * (((qval : ℂˣ) : ℂ))⁻¹
       simp only [Units.val_mul, Units.val_inv_eq_inv_val]
 
+private theorem conductorResidueCharacter_SInteger
+    (S : A1.SData F CE condη) (ρ : ConductorResidues S) (q : S.ExtIdeal)
+    (ω : A1.HeckeChar F) (lambdaq : MulChar (ConductorResidueRing q) ℂ)
+    (hLambda : ∀ (b : 𝓞 F) (hb0 : b ≠ 0)
+      (hb : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → b ∉ v.asIdeal)
+      (y : (ConductorResidueRing q)ˣ),
+      Ideal.Quotient.mk q.1 b = (y : ConductorResidueRing q) →
+      lambdaq (y : ConductorResidueRing q) =
+        (((∏ v : conductorPrimeSupport q.1 q.2.1,
+          ω.loc v.1 (conductorLocalIntegerUnitOfOElement v.1 b hb0
+            (hb v.1 ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2))).val)
+              : ℂˣ)⁻¹ : ℂ))
+    (a : S.R) (ha0 : (a : F) ≠ 0)
+    (ha : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → v.valuation F (a : F) = 1)
+    (x : (ConductorResidueRing q)ˣ)
+    (hx : ρ.red q a = (x : ConductorResidueRing q)) :
+    lambdaq (ρ.red q a) =
+      (((∏ v : conductorPrimeSupport q.1 q.2.1,
+        ω.loc v.1 (A1.toLoc v.1 (Units.mk0 (a : F) ha0))) : ℂˣ)⁻¹ : ℂ) := by
+  classical
+  obtain ⟨b, d, had⟩ := conductorSInteger_fraction S a
+  have hd0 : ((d : 𝓞 F) : F) ≠ 0 :=
+    (FaithfulSMul.algebraMap_injective (𝓞 F) F).ne d.property.1
+  have hbF0 : (b : F) ≠ 0 := by
+    rw [← had]
+    exact mul_ne_zero ha0 hd0
+  have hb0 : b ≠ 0 := by
+    intro h
+    exact hbF0 (by simp [h])
+  have hdval : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 →
+      v.valuation F ((d : 𝓞 F) : F) = 1 := by
+    intro v hv
+    apply d.property.2 v
+    intro hvS
+    exact q.2.2 v hvS (Ideal.dvd_iff_le.mp hv)
+  have hd : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → (d : 𝓞 F) ∉ v.asIdeal := by
+    intro v hv
+    exact v.valuation_eq_one_iff_notMem.mp (hdval v hv)
+  have hb : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → b ∉ v.asIdeal := by
+    intro v hv
+    have hbval : v.valuation F (b : F) = 1 := by
+      rw [← had, map_mul, ha v hv, hdval v hv, one_mul]
+    exact v.valuation_eq_one_iff_notMem.mp hbval
+  have hadR : a * algebraMap (𝓞 F) S.R (d : 𝓞 F) =
+      algebraMap (𝓞 F) S.R b := by
+    apply Subtype.ext
+    exact had
+  letI : IsLocalization (conductorDenominators S) S.R :=
+    conductorSInteger_isLocalization S
+  have hdunit : IsUnit (ρ.red q (algebraMap (𝓞 F) S.R (d : 𝓞 F))) :=
+    (IsLocalization.map_units S.R d).map (ρ.red q).toMonoidHom
+  obtain ⟨yd, hyd⟩ := hdunit
+  have hmkD : Ideal.Quotient.mk q.1 (d : 𝓞 F) = (yd : ConductorResidueRing q) := by
+    rw [← ρ.integral]
+    exact hyd.symm
+  have hmkB : Ideal.Quotient.mk q.1 b = ((x * yd : (ConductorResidueRing q)ˣ) :
+      ConductorResidueRing q) := by
+    rw [← ρ.integral, ← hadR, map_mul, hx, ρ.integral, hmkD]
+    rfl
+  let P := conductorPrimeSupport q.1 q.2.1
+  let pa : ℂˣ := ∏ v : P, ω.loc v.1 (A1.toLoc v.1 (Units.mk0 (a : F) ha0))
+  let pd : ℂˣ := ∏ v : P, ω.loc v.1
+    (conductorLocalIntegerUnitOfOElement v.1 (d : 𝓞 F) d.property.1
+      (hd v.1 ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2))).val
+  let pb : ℂˣ := ∏ v : P, ω.loc v.1
+    (conductorLocalIntegerUnitOfOElement v.1 b hb0
+      (hb v.1 ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2))).val
+  have hmul : pb = pa * pd := by
+    dsimp only [pb, pa, pd]
+    rw [← Finset.prod_mul_distrib]
+    apply Finset.prod_congr rfl
+    intro v hv
+    have hloc :
+        (conductorLocalIntegerUnitOfOElement v.1 b hb0
+          (hb v.1 ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2))).val =
+        A1.toLoc v.1 (Units.mk0 (a : F) ha0) *
+          (conductorLocalIntegerUnitOfOElement v.1 (d : 𝓞 F) d.property.1
+            (hd v.1 ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2))).val := by
+      apply Units.ext
+      change algebraMap F (v.1.adicCompletion F) (b : F) =
+        algebraMap F (v.1.adicCompletion F) (a : F) *
+          algebraMap F (v.1.adicCompletion F) ((d : 𝓞 F) : F)
+      rw [← map_mul, had]
+    rw [hloc, map_mul]
+  have hLambdaD : lambdaq (yd : ConductorResidueRing q) = ((pd⁻¹ : ℂˣ) : ℂ) :=
+    by simpa only [pd, P, Units.val_inv_eq_inv_val] using
+      hLambda (d : 𝓞 F) d.property.1 hd yd hmkD
+  have hLambdaB : lambdaq ((x * yd : (ConductorResidueRing q)ˣ) :
+      ConductorResidueRing q) = ((pb⁻¹ : ℂˣ) : ℂ) :=
+    by simpa only [pb, P, Units.val_inv_eq_inv_val] using
+      hLambda b hb0 hb (x * yd) hmkB
+  have hproduct : lambdaq (ρ.red q a) * ((pd⁻¹ : ℂˣ) : ℂ) =
+      ((pa⁻¹ : ℂˣ) : ℂ) * ((pd⁻¹ : ℂˣ) : ℂ) := by
+    rw [hx, ← hLambdaD, ← map_mul]
+    change lambdaq ((x * yd : (ConductorResidueRing q)ˣ) :
+      ConductorResidueRing q) = _
+    rw [hLambdaB, hLambdaD, hmul, mul_inv_rev, Units.val_mul]
+    exact mul_comm _ _
+  simpa only [pa, P, Units.val_inv_eq_inv_val] using
+    mul_right_cancel₀ (Units.ne_zero (pd⁻¹)) hproduct
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
