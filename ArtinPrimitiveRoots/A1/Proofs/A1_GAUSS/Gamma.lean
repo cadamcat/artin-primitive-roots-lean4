@@ -115,4 +115,29 @@ theorem gamma_duplication (D : FieldData F) (S : SData F CE condη)
   simpa only [hinv] using
     normalized_sextic_duplication χ ψ hχne hχ2 hχ6 hquad hneg hodd hψprim
 
+theorem gamma_three_sign (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (c : F) (hc : S.IsGen c v.asIdeal) :
+    gamma D S A 3 v.asIdeal c = 1 ∨ gamma D S A 3 v.asIdeal c = -1 := by
+  classical
+  let : v.asIdeal.IsMaximal := v.isMaximal
+  let : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  let : Fintype (𝓞 F ⧸ v.asIdeal) := Fintype.ofFinite _
+  have h6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  obtain ⟨χ, hχ, hχ6⟩ := residue_character_exists D v h6
+  obtain ⟨ψ, hψ, hψprim⟩ := residue_additive_character_exists D S A v hc.1 c hc
+  have hχ3 : χ ^ 3 ≠ 1 :=
+    residue_character_pow_ne_one D v h6 χ hχ 3 (by decide) (by decide)
+  have hχ32 : (χ ^ 3) ^ 2 = 1 := by
+    simpa only [← pow_mul] using hχ6
+  have hquad : (χ ^ 3).IsQuadratic := MulChar.isQuadratic_iff_sq_eq_one.mpr hχ32
+  have hneg : (χ ^ 3) (-1) = 1 := by
+    rw [χ.pow_apply' (by decide : (3 : ℕ) ≠ 0),
+      residue_character_neg_one D v h6 χ hχ, one_pow]
+  have hsq := normalized_quadratic_gauss_sq (χ ^ 3) ψ hχ3 hquad hneg hψprim
+  have hgamma := gamma_prime_eq_normalizedGauss D S A v c χ hχ ψ hψ 3 (by decide)
+  simp only [Nat.cast_ofNat] at hgamma
+  rw [← hgamma] at hsq
+  exact sq_eq_one_iff.mp hsq
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
