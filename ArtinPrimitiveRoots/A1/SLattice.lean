@@ -1116,6 +1116,52 @@ private theorem covol_local_addchar_conductor_eq_different
   have hcd : c = d := le_antisymm hcdUpper hdcLower
   exact ⟨c, hc0, by simpa [d] using hcd, hc, hcBoundary⟩
 
+private noncomputable def covol_local_conductor_exponent
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : S.Sf) : ℕ :=
+  (Classical.choose (covol_local_addchar_conductor D S A v)).toNat
+
+private theorem covol_local_conductor_exponent_eq_different
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (v : S.Sf) :
+    covol_local_conductor_exponent D S A v =
+      (FractionalIdeal.count F v.1
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat := by
+  classical
+  let c := Classical.choose (covol_local_addchar_conductor D S A v)
+  have hc : 0 ≤ c ∧
+      (∀ x, Valued.v x ≤ WithZero.exp c → A.ψ v.1 x = 1) ∧
+      ∃ x, Valued.v x ≤ WithZero.exp (c + 1) ∧ A.ψ v.1 x ≠ 1 := by
+    simpa [c] using Classical.choose_spec (covol_local_addchar_conductor D S A v)
+  obtain ⟨cD, hcD0, hcD_eq, hcD_triv, hcD_boundary⟩ :=
+    covol_local_addchar_conductor_eq_different D S A v
+  have hcD_eq' : cD = FractionalIdeal.count F v.1
+      (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F) := hcD_eq
+  let d := FractionalIdeal.count F v.1
+    (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)
+  have hcD_eq'' : cD = d := by simpa [d] using hcD_eq'
+  subst cD
+  have hcUpper : c ≤ d := by
+    by_contra hnot
+    have hlt : d < c := lt_of_not_ge hnot
+    have hstep : d + 1 ≤ c := by omega
+    obtain ⟨x, hx, hxne⟩ := hcD_boundary
+    have hx' : Valued.v x ≤ WithZero.exp c :=
+      hx.trans (WithZero.exp_le_exp.mpr hstep)
+    exact hxne (hc.2.1 x hx')
+  have hcLower : d ≤ c := by
+    by_contra hnot
+    have hlt : c < d := lt_of_not_ge hnot
+    have hstep : c + 1 ≤ d := by omega
+    obtain ⟨x, hx, hxne⟩ := hc.2.2
+    have hx' : Valued.v x ≤ WithZero.exp d :=
+      hx.trans (WithZero.exp_le_exp.mpr hstep)
+    exact hxne (hcD_triv x hx')
+  have hcd : c = d := le_antisymm hcUpper hcLower
+  unfold covol_local_conductor_exponent
+  change c.toNat = (FractionalIdeal.count F v.1
+    (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat
+  simpa [d] using congrArg Int.toNat hcd
+
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
   have hπcoerce : (unifLoc v : v.adicCompletion F) =
@@ -1561,10 +1607,6 @@ private theorem covol_local_fourier_ball_inversion (v : FinPlace F)
 
 private noncomputable def covol_base_locHaar (v : FinPlace F) : LocHaar v :=
   Classical.choice (LocHaar.nonempty v)
-
-private noncomputable def covol_local_conductor_exponent
-    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : S.Sf) : ℕ :=
-  (Classical.choose (covol_local_addchar_conductor D S A v)).toNat
 
 private noncomputable def covol_local_selfdual_at
     (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : S.Sf) :
