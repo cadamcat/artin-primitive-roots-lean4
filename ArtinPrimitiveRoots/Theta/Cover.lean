@@ -4026,6 +4026,200 @@ private theorem exists_coverEmbeddingBase (B : CoverQuotientBase D S H) :
       intro heq
       exact hv (Sum.inl.inj heq)) g h
 
+/-- The S-part and exterior compact are exact images of their supported tuple subgroups. -/
+private structure CoverSubgroupBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) where
+  GS : Subgroup B.quotient.Q
+  Kext : Subgroup B.quotient.Q
+  GS_components : ∀ g ∈ GS, ∃ x : CoverRP B.family,
+    B.quotient.q x = g ∧ ∀ v, v ∉ S.Sf → x (.inl v) = 1
+  GS_of_components : ∀ x : CoverRP B.family,
+    (∀ v, v ∉ S.Sf → x (.inl v) = 1) → B.quotient.q x ∈ GS
+  Kext_components : ∀ k ∈ Kext, ∃ x : CoverRP B.family,
+    B.quotient.q x = k ∧
+    (∀ v (hv : v ∉ S.Sf), x (.inl v) ∈ (B.family.tame v hv).Kmax) ∧
+    (∀ v, v ∈ S.Sf → x (.inl v) = 1) ∧ ∀ w, x (.inr w) = 1
+  Kext_of_components : ∀ x : CoverRP B.family,
+    (∀ v (hv : v ∉ S.Sf), x (.inl v) ∈ (B.family.tame v hv).Kmax) →
+    (∀ v, v ∈ S.Sf → x (.inl v) = 1) →
+    (∀ w, x (.inr w) = 1) → B.quotient.q x ∈ Kext
+  comm_S : ∀ v, v ∉ S.Sf → ∀ g ∈ (E.emb v).range, ∀ h ∈ GS,
+    g * h = h * g
+  Kext_comm_S : ∀ k ∈ Kext, ∀ h ∈ GS, k * h = h * k
+  emb_Kext_iff : ∀ v (hv : v ∉ S.Sf) g,
+    E.emb v g ∈ Kext ↔ g ∈ (B.family.tame v hv).Kmax
+
+private theorem exists_coverSubgroupBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) : Nonempty (CoverSubgroupBase B E) := by
+  classical
+  let U : Subgroup (CoverRP B.family) := {
+    carrier := {x | ∀ v, v ∉ S.Sf → x (.inl v) = 1}
+    one_mem' := by intro v hv; rfl
+    mul_mem' := by
+      intro x y hx hy v hv
+      change x (.inl v) * y (.inl v) = 1
+      rw [hx v hv, hy v hv, one_mul]
+    inv_mem' := by
+      intro x hx v hv
+      change (x (.inl v))⁻¹ = 1
+      rw [hx v hv, inv_one]
+  }
+  let K : Subgroup (CoverRP B.family) := {
+    carrier := {x |
+      (∀ v (hv : v ∉ S.Sf), x (.inl v) ∈ (B.family.tame v hv).Kmax) ∧
+      (∀ v, v ∈ S.Sf → x (.inl v) = 1) ∧ ∀ w, x (.inr w) = 1}
+    one_mem' := by
+      refine ⟨?_, ?_, ?_⟩
+      · intro v hv
+        exact (B.family.tame v hv).Kmax.one_mem
+      · intro v hv; rfl
+      · intro w; rfl
+    mul_mem' := by
+      rintro x y ⟨hx, hxS, hxC⟩ ⟨hy, hyS, hyC⟩
+      refine ⟨?_, ?_, ?_⟩
+      · intro v hv
+        exact (B.family.tame v hv).Kmax.mul_mem (hx v hv) (hy v hv)
+      · intro v hv
+        change x (.inl v) * y (.inl v) = 1
+        rw [hxS v hv, hyS v hv, one_mul]
+      · intro w
+        change x (.inr w) * y (.inr w) = 1
+        rw [hxC w, hyC w, one_mul]
+    inv_mem' := by
+      rintro x ⟨hx, hxS, hxC⟩
+      refine ⟨?_, ?_, ?_⟩
+      · intro v hv
+        exact (B.family.tame v hv).Kmax.inv_mem (hx v hv)
+      · intro v hv
+        change (x (.inl v))⁻¹ = 1
+        rw [hxS v hv, inv_one]
+      · intro w
+        change (x (.inr w))⁻¹ = 1
+        rw [hxC w, inv_one]
+  }
+  let GS := U.map B.quotient.q
+  let Kext := K.map B.quotient.q
+  have hprz (v : FinPlace F) (ζ : rootsOfUnity 3 ℂ) :
+      (B.family.loc v).pr ((B.family.loc v).z ζ) = 1 := by
+    have hk : (B.family.loc v).z ζ ∈ (B.family.loc v).pr.ker := by
+      rw [(B.family.loc v).pr_ker]
+      exact ⟨ζ, rfl⟩
+    exact hk
+  have hphase (v : FinPlace F) (hv : v ∉ S.Sf) (ζ : rootsOfUnity 3 ℂ)
+      (hζ : (B.family.loc v).z ζ ∈ (B.family.tame v hv).Kmax) : ζ = 1 := by
+    have heq : (B.family.loc v).z ζ = 1 :=
+      (B.family.tame v hv).inj hζ (B.family.tame v hv).Kmax.one_mem
+        (by rw [hprz, map_one])
+    exact (B.family.loc v).z_inj (by simpa only [map_one] using heq)
+  have hiff (v : FinPlace F) (hv : v ∉ S.Sf) (g : (B.family.loc v).L) :
+      E.emb v g ∈ Kext ↔ g ∈ (B.family.tame v hv).Kmax := by
+    constructor
+    · intro hg
+      obtain ⟨x, hx, hqx⟩ := hg
+      have hq : B.quotient.q (E.incl v g) = B.quotient.q x := by
+        rw [E.q_incl, hqx]
+      obtain ⟨ζ, hfinite, hprod, hF, hC⟩ := (B.quotient.q_eq _ _).mp hq
+      have hother (v' : FinPlace F) (hne : v' ≠ v) : ζ v' = 1 := by
+        have hcomp := hF v'
+        rw [E.incl_compF_other v v' hne.symm] at hcomp
+        have hz : (B.family.loc v').z (ζ v') = (x (.inl v'))⁻¹ := by
+          calc
+            (B.family.loc v').z (ζ v') =
+                ((B.family.loc v').z (ζ v') * x (.inl v')) * (x (.inl v'))⁻¹ := by
+              simp [mul_assoc]
+            _ = (x (.inl v'))⁻¹ := by rw [← hcomp, one_mul]
+        by_cases hv' : v' ∉ S.Sf
+        · apply hphase v' hv' (ζ v')
+          rw [hz]
+          exact (B.family.tame v' hv').Kmax.inv_mem (hx.1 v' hv')
+        · have hvS : v' ∈ S.Sf := by simpa using hv'
+          rw [hx.2.1 v' hvS, inv_one] at hz
+          exact (B.family.loc v').z_inj (by simpa only [map_one] using hz)
+      have hvphase : ζ v = 1 := (finprod_eq_single ζ v hother).symm.trans hprod
+      have hcomp := hF v
+      rw [E.incl_compF, hvphase, map_one, one_mul] at hcomp
+      rw [hcomp]
+      exact hx.1 v hv
+    · intro hg
+      refine ⟨E.incl v g, ?_, E.q_incl v g⟩
+      refine ⟨?_, ?_, E.incl_compC v g⟩
+      · intro v' hv'
+        by_cases heq : v = v'
+        · subst v'
+          rw [E.incl_compF]
+          exact hg
+        · rw [E.incl_compF_other v v' heq]
+          exact (B.family.tame v' hv').Kmax.one_mem
+      · intro v' hvS
+        have hne : v ≠ v' := by
+          intro heq
+          subst v'
+          exact hv hvS
+        exact E.incl_compF_other v v' hne g
+  refine ⟨{
+    GS := GS
+    Kext := Kext
+    GS_components := ?_
+    GS_of_components := ?_
+    Kext_components := ?_
+    Kext_of_components := ?_
+    comm_S := ?_
+    Kext_comm_S := ?_
+    emb_Kext_iff := hiff
+  }⟩
+  · intro g hg
+    obtain ⟨x, hx, hqx⟩ := hg
+    exact ⟨x, hqx, hx⟩
+  · intro x hx
+    exact ⟨x, hx, rfl⟩
+  · intro k hk
+    obtain ⟨x, hx, hqx⟩ := hk
+    exact ⟨x, hqx, hx⟩
+  · intro x hx hxS hxC
+    exact ⟨x, ⟨hx, hxS, hxC⟩, rfl⟩
+  · intro v hv g hg h hh
+    obtain ⟨g0, rfl⟩ := hg
+    obtain ⟨y, hy, rfl⟩ := hh
+    have heq : E.incl v g0 * y = y * E.incl v g0 := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v' =>
+        change E.incl v g0 (.inl v') * y (.inl v') =
+          y (.inl v') * E.incl v g0 (.inl v')
+        by_cases hvv : v = v'
+        · subst v'
+          rw [E.incl_compF, hy v hv]
+          simp
+        · rw [E.incl_compF_other v v' hvv]
+          simp
+      | inr w =>
+        change E.incl v g0 (.inr w) * y (.inr w) =
+          y (.inr w) * E.incl v g0 (.inr w)
+        rw [E.incl_compC]
+        simp
+    simpa only [map_mul, E.q_incl] using congrArg B.quotient.q heq
+  · intro k hk h hh
+    obtain ⟨x, hx, rfl⟩ := hk
+    obtain ⟨y, hy, rfl⟩ := hh
+    have heq : x * y = y * x := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        change x (.inl v) * y (.inl v) = y (.inl v) * x (.inl v)
+        by_cases hv : v ∉ S.Sf
+        · rw [hy v hv]
+          simp
+        · have hvS : v ∈ S.Sf := by simpa using hv
+          rw [hx.2.1 v hvS]
+          simp
+      | inr w =>
+        change x (.inr w) * y (.inr w) = y (.inr w) * x (.inr w)
+        rw [hx.2.2 w]
+        simp
+    simpa only [map_mul] using congrArg B.quotient.q heq
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
