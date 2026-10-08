@@ -254,11 +254,11 @@ private theorem qs_p1_iteratedDeriv_logKernel_integrable
   exact qs_p1_integrable_of_tails hdercont A C hAC hleft hright
 
 private theorem qs_p1_mellin_convergent (h : ℝ → ℂ) (hh : IsQSWeight h)
-    (s : ℂ) (hs : 0 < s.re) (hs3 : s.re < 3) : MellinConvergent h s := by
+    (s : ℂ) (hs : 0 < s.re) : MellinConvergent h s := by
   obtain ⟨B, hB⟩ := hh.2.1
   have hlocal : LocallyIntegrableOn h (Set.Ioi (0 : ℝ)) :=
     hh.1.continuous.continuousOn.locallyIntegrableOn measurableSet_Ioi
-  have htop : h =O[atTop] (fun x : ℝ => x ^ (-3 : ℝ)) := by
+  have htop : h =O[atTop] (fun x : ℝ => x ^ (-(s.re + 1) : ℝ)) := by
     rw [Asymptotics.isBigO_iff_eventually]
     filter_upwards [eventually_atTop.2 ⟨1, fun _ hc => hc⟩] with C hC
     filter_upwards [eventually_atTop.2 ⟨max B 1, fun _ hx => hx⟩] with x hx
@@ -269,8 +269,123 @@ private theorem qs_p1_mellin_convergent (h : ℝ → ℂ) (hh : IsQSWeight h)
   have hbot : h =O[nhdsWithin 0 (Set.Ioi (0 : ℝ))] (fun _ : ℝ => (1 : ℂ)) := by
     simpa using
       (hh.1.continuous.continuousAt.mono_left nhdsWithin_le_nhds).isBigO_one ℂ
-  exact mellinConvergent_of_isBigO_rpow (a := 3) (b := 0) hlocal htop hs3
-    (by simpa using hbot) hs
+  exact mellinConvergent_of_isBigO_rpow (a := s.re + 1) (b := 0) hlocal htop
+    (by linarith) (by simpa using hbot) hs
+
+/-- The Mellin transform of the indicator of `(0, δ]`. -/
+private theorem qs_p1_mellin_indicator_Ioc {δ : ℝ} (hδ : 0 < δ) (s : ℂ)
+    (hs : 0 < s.re) :
+    mellin (Set.indicator (Set.Ioc (0 : ℝ) δ) (fun _ : ℝ => (1 : ℂ))) s =
+      (δ : ℂ) ^ s / s := by
+  let f : ℝ → ℂ := Set.indicator (Set.Ioc (0 : ℝ) δ) (fun _ => 1)
+  have hscaled : (fun t : ℝ => f (δ * t)) =
+      Set.indicator (Set.Ioc (0 : ℝ) 1) (fun _ => (1 : ℂ)) := by
+    funext t
+    by_cases ht : t ∈ Set.Ioc (0 : ℝ) 1
+    · have hδt : δ * t ∈ Set.Ioc (0 : ℝ) δ := by
+        constructor
+        · exact mul_pos hδ ht.1
+        · nlinarith [mul_le_mul_of_nonneg_left ht.2 hδ.le]
+      simp [f, ht, hδt]
+    · have hδt : δ * t ∉ Set.Ioc (0 : ℝ) δ := by
+        intro h
+        apply ht
+        constructor
+        · exact (mul_pos_iff_of_pos_left hδ).mp h.1
+        · exact (mul_le_mul_iff_of_pos_left hδ).mp (by simpa using h.2)
+      simp [f, ht, hδt]
+  have hbase := (hasMellin_one_Ioc hs).2
+  have hcomp := mellin_comp_mul_left f s hδ
+  rw [hscaled] at hcomp
+  rw [hbase] at hcomp
+  simp only [smul_eq_mul] at hcomp
+  have hδpow : (δ : ℂ) ^ s ≠ 0 := by
+    apply Complex.cpow_ne_zero_iff.mpr
+    left
+    exact_mod_cast hδ.ne'
+  calc
+    mellin (Set.indicator (Set.Ioc 0 δ) fun _ : ℝ => (1 : ℂ)) s =
+        (δ : ℂ) ^ s * ((δ : ℂ) ^ (-s) *
+          mellin (Set.indicator (Set.Ioc 0 δ) fun _ : ℝ => (1 : ℂ)) s) := by
+            rw [Complex.cpow_neg]
+            simp [hδpow, mul_assoc]
+    _ = (δ : ℂ) ^ s * (1 / s) := by
+          exact congrArg (fun z : ℂ => (δ : ℂ) ^ s * z) hcomp.symm
+    _ = (δ : ℂ) ^ s / s := by ring
+
+/-- Mellin transform with the constant near zero separated as its meromorphic term. -/
+def qsP1Mellin (h : ℝ → ℂ) (δ : ℝ) (s : ℂ) : ℂ :=
+  mellin (fun x => h x - (if x ≤ δ then h 0 else 0)) s +
+    ((δ : ℂ) ^ s * h 0 / s)
+
+/-- On the half-plane of convergence, the regularized transform equals the raw Mellin transform. -/
+theorem qs_p1_regularized_mellin_agrees (h : ℝ → ℂ) (hh : IsQSWeight h)
+    (δ : ℝ) (hδ : 0 < δ)
+    (hconst : ∀ x ∈ Set.Icc (0 : ℝ) δ, h x = h 0) (s : ℂ) (hs : 0 < s.re) :
+    qsP1Mellin h δ s = mellin h s := by
+  let c : ℝ → ℂ := fun x => if x ≤ δ then h 0 else 0
+  let i : ℝ → ℂ := Set.indicator (Set.Ioc (0 : ℝ) δ) (fun _ => h 0)
+  have hci : ∀ x ∈ Set.Ioi (0 : ℝ), c x = i x := by
+    intro x hx
+    by_cases hxd : x ≤ δ
+    · have hxi : x ∈ Set.Ioc (0 : ℝ) δ := ⟨hx, hxd⟩
+      simp [c, i, hxd, hxi]
+    · have hxi : x ∉ Set.Ioc (0 : ℝ) δ := by
+        intro hmem
+        exact hxd hmem.2
+      simp [c, i, hxd, hxi]
+  have hconstM : MellinConvergent i s := by
+    have hbase := (hasMellin_one_Ioc hs).1
+    let f : ℝ → ℂ := Set.indicator (Set.Ioc (0 : ℝ) δ) (fun _ => (1 : ℂ))
+    have heq : (fun x : ℝ => f (δ * x)) =
+        Set.indicator (Set.Ioc (0 : ℝ) 1) (fun _ => (1 : ℂ)) := by
+      funext x
+      by_cases hx : x ∈ Set.Ioc (0 : ℝ) 1
+      · have hδx : δ * x ∈ Set.Ioc (0 : ℝ) δ := by
+          constructor
+          · exact mul_pos hδ hx.1
+          · nlinarith [mul_le_mul_of_nonneg_left hx.2 hδ.le]
+        simp [f, hx, hδx]
+      · have hδx : δ * x ∉ Set.Ioc (0 : ℝ) δ := by
+          intro hmem
+          apply hx
+          constructor
+          · exact (mul_pos_iff_of_pos_left hδ).mp hmem.1
+          · exact (mul_le_mul_iff_of_pos_left hδ).mp (by simpa using hmem.2)
+        simp [f, hx, hδx]
+    have hscaled : MellinConvergent (fun x : ℝ => f (δ * x)) s := by
+      rw [heq]
+      exact hbase
+    have hfM : MellinConvergent f s :=
+      (MellinConvergent.comp_mul_left (f := f) (s := s) hδ).1 hscaled
+    have hconstM' := hfM.const_smul (h 0)
+    have hieq : i = fun x => h 0 • f x := by
+      funext x
+      by_cases hx : x ∈ Set.Ioc (0 : ℝ) δ <;> simp [i, f, hx]
+    rw [hieq]
+    exact hconstM'
+  have hcM : MellinConvergent c s := by
+    change IntegrableOn (fun x : ℝ => (x : ℂ) ^ (s - 1) • c x) (Set.Ioi 0)
+    exact hconstM.congr_fun (fun x hx => by rw [hci x hx]) measurableSet_Ioi
+  have hraw : MellinConvergent h s := qs_p1_mellin_convergent h hh s hs
+  have hsub := hasMellin_sub hraw hcM
+  have hciM : mellin c s = mellin i s := by
+    unfold mellin
+    change (∫ x in Set.Ioi (0 : ℝ), (x : ℂ) ^ (s - 1) • c x) =
+      ∫ x in Set.Ioi (0 : ℝ), (x : ℂ) ^ (s - 1) • i x
+    apply integral_congr_ae
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with x hx
+    rw [hci x hx]
+  have hiM : mellin i s = (δ : ℂ) ^ s * h 0 / s := by
+    have hi : i = fun t => h 0 • Set.indicator (Set.Ioc (0 : ℝ) δ) (fun _ => (1 : ℂ)) t := by
+      funext x
+      by_cases hx : x ∈ Set.Ioc (0 : ℝ) δ <;> simp [i, hx]
+    rw [hi, mellin_const_smul, qs_p1_mellin_indicator_Ioc hδ s hs]
+    ring
+  unfold qsP1Mellin
+  rw [show (fun x : ℝ => h x - (if x ≤ δ then h 0 else 0)) = fun x => h x - c x by rfl]
+  rw [hsub.2, hciM, hiM]
+  ring
 
 private theorem qs_p1_mellin_eq_fourier_line (h : ℝ → ℂ) (t : ℝ) :
     mellin h ((2 : ℂ) + (t : ℂ) * Complex.I) =
@@ -418,7 +533,7 @@ private theorem qs_p1_mellin_vertical_integrable (h : ℝ → ℂ) (hh : IsQSWei
 theorem qs_p1_mellin_inversion (h : ℝ → ℂ) (hh : IsQSWeight h) (x : ℝ) (hx : 0 < x) :
     mellinInv 2 (mellin h) x = h x := by
   exact mellinInv_mellin_eq 2 h hx
-    (qs_p1_mellin_convergent h hh (2 : ℂ) (by norm_num) (by norm_num))
+    (qs_p1_mellin_convergent h hh (2 : ℂ) (by norm_num))
     (qs_p1_mellin_vertical_integrable h hh) (hh.1.continuous.continuousAt)
 
 end ArtinPrimitiveRoots.A2
