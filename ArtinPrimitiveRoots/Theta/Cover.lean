@@ -1701,6 +1701,325 @@ theorem kpCocycle_centralQuotient (D : FieldData F) (H : HilbertData F) (v : Fin
     obtain ⟨c, rfl⟩ := hg
     exact kpCocycle_scalar D H v hSt c h
 
+/-- The algebraic fields of the finite local cover, before constructing its topology. -/
+structure FinLocalAlgebra (D : FieldData F) (H : HilbertData F) (v : FinPlace F) where
+  L : Type
+  [grp : Group L]
+  z : rootsOfUnity 3 ℂ →* L
+  z_inj : Function.Injective z
+  z_central : ∀ ζ g, z ζ * g = g * z ζ
+  pr : L →* PGL2 (v.adicCompletion F)
+  pr_surj : Function.Surjective pr
+  pr_ker : pr.ker = z.range
+  n : Multiplicative (v.adicCompletion F) →* L
+  nbar : Multiplicative (v.adicCompletion F) →* L
+  a : (v.adicCompletion F)ˣ → L
+  w : L
+  /-- the set-theoretic section `g ↦ (g, 1)` of the KP construction -/
+  sec : GL (Fin 2) (v.adicCompletion F) → L
+  sec_mul : ∀ g h, sec g * sec h = z (kpCocycle D H v g h) * sec (g * h)
+  sec_pr : ∀ g, pr (sec g) = QuotientGroup.mk g
+  sec_scalar : ∀ c, sec (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1
+  sec_n : ∀ x, n (Multiplicative.ofAdd x) = sec (upperM _ x)
+  sec_nbar : ∀ x, nbar (Multiplicative.ofAdd x) = sec (lowerM _ x)
+  sec_a : ∀ y, a y = sec (diagM _ y)
+  sec_w : w = sec (weylM _)
+  pr_n : ∀ x, pr (n (Multiplicative.ofAdd x)) = QuotientGroup.mk (upperM _ x)
+  pr_nbar : ∀ x, pr (nbar (Multiplicative.ofAdd x)) = QuotientGroup.mk (lowerM _ x)
+  pr_a : ∀ y, pr (a y) = QuotientGroup.mk (diagM _ y)
+  pr_w : pr w = QuotientGroup.mk (weylM (v.adicCompletion F))
+  a_one : a 1 = 1
+  /-- torus law `a(x)a(y) = C(x,y)a(xy)`, `C = muThree ∘ hilb` (10:96–97 with `ι = σ0⁻¹`). -/
+  a_mul : ∀ x y, a x * a y = z (muThree D (H.hilb v x y)) * a (x * y)
+  /-- exact lift identities (eq:theta-lift-identities, 10:206–248). -/
+  lift_na : ∀ (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ),
+    n (Multiplicative.ofAdd x) * a y = a y * n (Multiplicative.ofAdd (x * ↑y⁻¹))
+  lift_wa : ∀ y, w * a y * w⁻¹ = a y⁻¹
+  lift_wn : ∀ Hh : (v.adicCompletion F)ˣ,
+    w * n (Multiplicative.ofAdd (Hh : v.adicCompletion F)) =
+      n (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) *
+        a (-(Hh⁻¹ * Hh⁻¹)) *
+          nbar (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F))
+  w_sq : w * w = 1
+  w_n_w : ∀ x, w * n (Multiplicative.ofAdd x) * w = nbar (Multiplicative.ofAdd x)
+
+attribute [instance] FinLocalAlgebra.grp
+
+/-- Add the distinguished root, torus, and Weyl lifts to the KP scalar quotient. -/
+theorem exists_finLocalAlgebra (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) : Nonempty (FinLocalAlgebra D H v) := by
+  classical
+  obtain ⟨Q⟩ := kpCocycle_centralQuotient D H v hSt
+  let K := v.adicCompletion F
+  have upper_zero : upperM K 0 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [upperM]
+  have upper_add : ∀ x y : K, upperM K (x + y) = upperM K x * upperM K y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  have diag_one : diagM K 1 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [diagM]
+  have diag_mul : ∀ x y : Kˣ, diagM K (x * y) = diagM K x * diagM K y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  have weyl_sq : weylM K * weylM K = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+  have weyl_upper : ∀ x : K, weylM K * upperM K x * weylM K = lowerM K x := by
+    intro x
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, upperM, lowerM, Matrix.mul_apply, Fin.sum_univ_two]
+  have weyl_diag : ∀ y : Kˣ, weylM K * diagM K y * weylM K =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) y * diagM K y⁻¹ := by
+    intro y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, diagM, Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply,
+        Fin.sum_univ_two]
+  have upper_diag : ∀ (x : K) (y : Kˣ), upperM K x * diagM K y =
+      diagM K y * upperM K (x * (y⁻¹ : Kˣ)) := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+    all_goals
+      rw [mul_left_comm]
+      have hy : (y : K) * (y : K)⁻¹ = 1 := mul_inv_cancel₀ (a := (y : K)) y.ne_zero
+      rw [hy, mul_one]
+  have wn_factor : ∀ t : Kˣ, weylM K * upperM K (t : K) =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) t *
+        (upperM K ((t⁻¹ : Kˣ) : K) * diagM K (-(t⁻¹ * t⁻¹)) *
+          lowerM K ((t⁻¹ : Kˣ) : K)) := by
+    intro t
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, upperM, diagM, lowerM, Matrix.GeneralLinearGroup.scalar,
+        Matrix.mul_apply, Fin.sum_univ_two] <;> try field_simp <;> ring
+  have sec_one : Q.sec (1 : GL (Fin 2) K) = 1 := Q.sec_triv _ (Subgroup.one_mem _)
+  have scalar_sec : ∀ c : Kˣ, Q.sec (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1 := by
+    intro c
+    apply Q.sec_triv
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar]
+    exact ⟨c, rfl⟩
+  have scalar_cancel : ∀ (c : Kˣ) (g : GL (Fin 2) K),
+      kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) c) g = 1 →
+      Q.sec (Matrix.GeneralLinearGroup.scalar (Fin 2) c * g) = Q.sec g := by
+    intro c g hc
+    have h := Q.sec_mul (Matrix.GeneralLinearGroup.scalar (Fin 2) c) g
+    rw [scalar_sec, one_mul, hc, map_one, one_mul] at h
+    exact h.symm
+  have pair_inv_right : ∀ a b : Kˣ,
+      kpPairing D H v a b⁻¹ = (kpPairing D H v a b)⁻¹ := by
+    intro a b
+    exact map_inv (kpPairing D H v a) b
+  have upper_diag_sigma : ∀ (x : K) (y : Kˣ),
+      kpCocycle D H v (upperM K x) (diagM K y) = 1 := by
+    intro x y
+    rw [kpCocycle_diagM_formula, detU_upperM]
+    simp [upperM, kpPairing_one_left]
+  have diag_sigma : ∀ x y : Kˣ,
+      kpCocycle D H v (diagM K x) (diagM K y) = muThree D (H.hilb v x y) := by
+    intro x y
+    rw [kpCocycle_diagM_formula, detU_diagM]
+    simp [diagM, kpPairing]
+  have lower_det : ∀ x : K, detU v (lowerM K x) = 1 := by
+    intro x
+    apply Units.ext
+    simp [detU, lowerM, Matrix.det_fin_two]
+  -- The big-cell lift is checked before the remaining root-map assembly.
+  have wn_sec : ∀ t : Kˣ, Q.sec (weylM K) * Q.sec (upperM K (t : K)) =
+      Q.sec (upperM K ((t⁻¹ : Kˣ) : K)) * Q.sec (diagM K (-(t⁻¹ * t⁻¹))) *
+        Q.sec (lowerM K ((t⁻¹ : Kˣ) : K)) := by
+    intro t
+    let u : Kˣ := t⁻¹
+    let Y := upperM K (u : K) * diagM K (-(u * u)) * lowerM K (u : K)
+    have hY : weylM K * upperM K (t : K) =
+        Matrix.GeneralLinearGroup.scalar (Fin 2) t * Y := wn_factor t
+    have hxY : xU v Y = u := by
+      have h := congrArg (xU v) hY
+      rw [xU_mul_upperM, xU_weylM, xU_scalar_left] at h
+      calc
+        xU v Y = t⁻¹ * (t * xU v Y) := by simp [mul_assoc]
+        _ = t⁻¹ := by rw [← h]; simp
+    have hdY : detU v Y = -(u * u) := by
+      dsimp [Y]
+      rw [detU_mul, detU_mul, detU_upperM, detU_diagM, lower_det]
+      simp
+    have hxL : xU v (lowerM K (u : K)) = u := by
+      apply Units.ext
+      simp [xU, xEntry, lowerM, u.ne_zero]
+    have hxUA : xU v (upperM K (u : K) * diagM K (-(u * u))) = 1 := by
+      rw [xU_mul_diagM, xU_upperM]
+      simp [upperM]
+    have hdUA : detU v (upperM K (u : K) * diagM K (-(u * u))) = -(u * u) := by
+      rw [detU_mul, detU_upperM, detU_diagM, one_mul]
+    have hdiv : u / (u * -(u * u)) = -(t * t) := by
+      simp [u, div_eq_mul_inv, mul_inv_rev, mul_comm, mul_left_comm, mul_assoc]
+    have hlast : kpCocycle D H v
+        (upperM K (u : K) * diagM K (-(u * u))) (lowerM K (u : K)) = 1 := by
+      rw [kpCocycle_pairing]
+      change kpPairing D H v (xU v Y / (xU v (lowerM K (u : K)) *
+          detU v (upperM K (u : K) * diagM K (-(u * u)))))
+          (xU v Y / xU v (upperM K (u : K) * diagM K (-(u * u)))) *
+        kpPairing D H v (detU v (upperM K (u : K) * diagM K (-(u * u))))
+          (detU v (lowerM K (u : K))) = 1
+      rw [hxY, hxL, hxUA, hdUA, lower_det, hdiv]
+      rw [kpPairing_one_right, mul_one, div_one, kpPairing_neg_mul_left, kpPairing_mul_left]
+      change kpPairing D H v t t⁻¹ * kpPairing D H v t t⁻¹ = 1
+      have hp : kpPairing D H v t t⁻¹ = 1 := by
+        rw [pair_inv_right, kpPairing_self, inv_one]
+      simp only [hp, one_mul]
+    have hscalar : kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) t) Y = 1 := by
+      rw [kpCocycle_scalar D H v hSt, kpCocycle_scalar_right_formula, hxY, hdY]
+      rw [kpPairing_neg_mul_left, kpPairing_mul_left]
+      change kpPairing D H v t⁻¹ t *
+        (kpPairing D H v t⁻¹ t * kpPairing D H v t⁻¹ t) = 1
+      have hp : kpPairing D H v t⁻¹ t = 1 := by
+        rw [kpPairing_inv_left, kpPairing_self, inv_one]
+      simp only [hp, one_mul]
+    have hUA : Q.sec (upperM K (u : K)) * Q.sec (diagM K (-(u * u))) =
+        Q.sec (upperM K (u : K) * diagM K (-(u * u))) := by
+      rw [Q.sec_mul, upper_diag_sigma, map_one, one_mul]
+    have hUAL : Q.sec (upperM K (u : K) * diagM K (-(u * u))) *
+        Q.sec (lowerM K (u : K)) = Q.sec Y := by
+      rw [Q.sec_mul, hlast, map_one, one_mul]
+    calc
+      _ = Q.sec (weylM K * upperM K (t : K)) := by
+        rw [Q.sec_mul, kpCocycle_upperM, map_one, one_mul]
+      _ = Q.sec (Matrix.GeneralLinearGroup.scalar (Fin 2) t * Y) := congrArg Q.sec hY
+      _ = Q.sec Y := scalar_cancel t Y hscalar
+      _ = _ := by rw [← hUAL, ← hUA]
+  have hx1 : xU v (1 : GL (Fin 2) K) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry]
+  have w_sigma : kpCocycle D H v (weylM K) (weylM K) = 1 := by
+    rw [kpCocycle_pairing, weyl_sq, hx1, xU_weylM, detU_weylM]
+    simp [kpPairing_one_right, kpPairing_neg_one_left]
+  have ww : Q.sec (weylM K) * Q.sec (weylM K) = 1 := by
+    rw [Q.sec_mul, w_sigma, map_one, one_mul, weyl_sq, sec_one]
+  have winv : (Q.sec (weylM K))⁻¹ = Q.sec (weylM K) := by
+    exact inv_eq_of_mul_eq_one_right ww
+  have wupper_sigma : ∀ x : K,
+      kpCocycle D H v (weylM K * upperM K x) (weylM K) = 1 := by
+    intro x
+    rw [kpCocycle_pairing, weyl_upper, xU_mul_upperM, xU_weylM,
+      detU_mul, detU_weylM, detU_upperM]
+    simp [kpPairing_neg_mul_left, kpPairing_self, kpPairing_neg_one_left]
+  have wupper_sec : ∀ x : K,
+      Q.sec (weylM K) * Q.sec (upperM K x) * Q.sec (weylM K) = Q.sec (lowerM K x) := by
+    intro x
+    rw [Q.sec_mul, kpCocycle_upperM, map_one, one_mul, Q.sec_mul,
+      wupper_sigma, map_one, one_mul, weyl_upper]
+  have wdiag_sigma : ∀ y : Kˣ, kpCocycle D H v (weylM K) (diagM K y) = 1 := by
+    intro y
+    rw [kpCocycle_diagM_formula, xU_weylM]
+    simp [weylM, kpPairing_one_left]
+  have wdiag_w_sigma : ∀ y : Kˣ,
+      kpCocycle D H v (weylM K * diagM K y) (weylM K) = 1 := by
+    intro y
+    rw [kpCocycle_pairing, weyl_diag, xU_scalar_left, xU_diagM,
+      xU_weylM, detU_mul, detU_weylM, detU_diagM, xU_mul_diagM]
+    rw [xU_weylM]
+    simp [weylM, kpPairing_one_right, kpPairing_neg_one_right]
+  have scalar_diag_sigma : ∀ y : Kˣ,
+      kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) y) (diagM K y⁻¹) = 1 := by
+    intro y
+    rw [kpCocycle_scalar D H v hSt, kpCocycle_scalar_right_formula,
+      xU_diagM, detU_diagM]
+    simp [kpPairing_one_left, kpPairing_inv_left, kpPairing_self]
+  have wdiag_sec : ∀ y : Kˣ,
+      Q.sec (weylM K) * Q.sec (diagM K y) * (Q.sec (weylM K))⁻¹ = Q.sec (diagM K y⁻¹) := by
+    intro y
+    rw [winv, Q.sec_mul, wdiag_sigma, map_one, one_mul, Q.sec_mul,
+      wdiag_w_sigma, map_one, one_mul, weyl_diag]
+    exact scalar_cancel y (diagM K y⁻¹) (scalar_diag_sigma y)
+  let n : Multiplicative K →* Q.E := {
+    toFun := fun x => Q.sec (upperM K (Multiplicative.toAdd x))
+    map_one' := by
+      change Q.sec (upperM K 0) = 1
+      rw [upper_zero, sec_one]
+    map_mul' := by
+      intro x y
+      change Q.sec (upperM K (Multiplicative.toAdd x + Multiplicative.toAdd y)) = _
+      rw [upper_add, Q.sec_mul, kpCocycle_upperM, map_one, one_mul]
+  }
+  let nbar : Multiplicative K →* Q.E := (MulAut.conj (Q.sec (weylM K))).toMonoidHom.comp n
+  have nbar_sec : ∀ x : K, nbar (Multiplicative.ofAdd x) = Q.sec (lowerM K x) := by
+    intro x
+    change Q.sec (weylM K) * Q.sec (upperM K x) * (Q.sec (weylM K))⁻¹ = _
+    rw [winv]
+    exact wupper_sec x
+  refine ⟨{
+    L := Q.E
+    grp := Q.grp
+    z := Q.z
+    z_inj := Q.z_inj
+    z_central := Q.z_central
+    pr := Q.pr
+    pr_surj := Q.pr_surj
+    pr_ker := Q.pr_ker
+    n := n
+    nbar := nbar
+    a := fun y => Q.sec (diagM K y)
+    w := Q.sec (weylM K)
+    sec := Q.sec
+    sec_mul := Q.sec_mul
+    sec_pr := Q.sec_pr
+    sec_scalar := scalar_sec
+    sec_n := fun _ => rfl
+    sec_nbar := nbar_sec
+    sec_a := fun _ => rfl
+    sec_w := rfl
+    pr_n := fun _ => Q.sec_pr _
+    pr_nbar := ?_
+    pr_a := fun _ => Q.sec_pr _
+    pr_w := Q.sec_pr _
+    a_one := by rw [diag_one, sec_one]
+    a_mul := ?_
+    lift_na := ?_
+    lift_wa := wdiag_sec
+    lift_wn := ?_
+    w_sq := ww
+    w_n_w := ?_
+  }⟩
+  · intro x
+    rw [nbar_sec]
+    exact Q.sec_pr _
+  · intro x y
+    rw [Q.sec_mul, diag_sigma, ← diag_mul]
+  · intro x y
+    change Q.sec (upperM K x) * Q.sec (diagM K y) =
+      Q.sec (diagM K y) * Q.sec (upperM K (x * (y⁻¹ : Kˣ)))
+    rw [Q.sec_mul, upper_diag_sigma, map_one, one_mul, Q.sec_mul,
+      kpCocycle_upperM, map_one, one_mul, upper_diag]
+  · intro t
+    change Q.sec (weylM K) * Q.sec (upperM K (t : K)) =
+      Q.sec (upperM K ((t⁻¹ : Kˣ) : K)) * Q.sec (diagM K (-(t⁻¹ * t⁻¹))) *
+        nbar (Multiplicative.ofAdd ((t⁻¹ : Kˣ) : K))
+    rw [nbar_sec]
+    exact wn_sec t
+  · intro x
+    change Q.sec (weylM K) * Q.sec (upperM K x) * Q.sec (weylM K) =
+      nbar (Multiplicative.ofAdd x)
+    rw [nbar_sec]
+    exact wupper_sec x
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
