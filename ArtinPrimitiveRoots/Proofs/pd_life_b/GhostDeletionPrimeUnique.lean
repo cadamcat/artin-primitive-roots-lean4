@@ -112,4 +112,34 @@ theorem finiteHistoryTrace_ghost_birth_existsUnique_of_mem_prime {K : ℕ}
   exact finiteHistoryTrace_ghost_birth_eq_of_prime_eq F S w γ k σ t ht
     hb'.1 hb hb'.2
 
+/-- Every recorded ghost birth occurs at or after the first visit of its trace suffix. -/
+theorem finiteHistoryTrace_ghost_births_visit_lower_bound {K : ℕ}
+    (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (k : ℕ) (σ : LogPoint S.x K)
+    (t : FiniteHistoryTrace F S γ k σ) :
+    ∀ b ∈ finiteHistoryTraceGhostBirths F S γ k σ t,
+      pathLength S.x - k ≤ b.1.val := by
+  induction k generalizing σ with
+  | zero =>
+      intro b hb
+      rw [finiteHistoryTraceGhostBirths] at hb
+      rcases List.mem_flatMap.mp hb with ⟨i, hi, hbi⟩
+      rcases List.mem_map.mp hbi with ⟨p, hp, rfl⟩
+      simp
+  | succ k ih =>
+      let j := pathLength S.x - (k + 1)
+      let τ := ghostTraceOutput F S j σ t.1
+      let z' := (γ ⟨pathLength S.x - k,
+        Nat.lt_succ_of_le (Nat.sub_le _ _)⟩).1
+      let υ := edgeTraceOutput F S j z' τ t.2.1
+      intro b hb
+      rw [finiteHistoryTraceGhostBirths] at hb
+      rcases List.mem_append.mp hb with hb | hb
+      · rcases List.mem_flatMap.mp hb with ⟨i, hi, hbi⟩
+        rcases List.mem_map.mp hbi with ⟨p, hp, rfl⟩
+        dsimp only [j]
+        exact le_rfl
+      · have hTail := ih υ t.2.2 b hb
+        omega
+
 end ArtinPrimitiveRoots.Proofs.pd_lifeb_sol
