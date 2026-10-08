@@ -102,13 +102,6 @@ theorem th_classical_sl_reconstruction (g : SL(2, ℂ)) (x : ℂ) (y : ℝ) (hy 
               (Complex.ofReal_ne_zero.mpr hy'.ne')) * k) := by
   sorry
 
-/-- The prescribed finite level, before applying the global central quotient. -/
-def th_classical_finiteLevel (P : CoverPackage D S H A) (T0 : Finset (FinPlace F))
-    (hT0 : S.Sf ⊆ T0) (m : FinPlace F → ℕ) (k : P.RP) : Prop :=
-  (∀ w, P.compC w k = 1) ∧
-    (∀ v ∈ T0, P.compF v k ∈ (P.loc v).Kc (m v)) ∧
-    ∀ v (hv : v ∉ T0), P.compF v k ∈ (P.tame v (fun h => hv (hT0 h))).Kmax
-
 /-- Finite-component equality in the global cover allows the central tuples killed by `q`. -/
 def th_classical_finiteEq (P : CoverPackage D S H A) (r s : P.RP) : Prop :=
   ∃ ζ : FinPlace F → rootsOfUnity 3 ℂ,
