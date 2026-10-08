@@ -115,7 +115,32 @@ def thetaSpace (L : FinLocalCover D H v) (T : TorusRep D H v) (μ : LocHaar v) :
 
 theorem thetaSpace_le (L : FinLocalCover D H v) (T : TorusRep D H v) (μ : LocHaar v) :
     thetaSpace L T μ ≤ sectionSpace L T.weyl (-(1 / 6)) ∧ IsRtrStable (thetaSpace L T μ) := by
-  sorry
+  have hs : (0 : ℝ) < (1 / 6 : ℂ).re := by norm_num
+  constructor
+  · apply Submodule.span_le.mpr
+    rintro _ ⟨f, hf, rfl⟩
+    change IsSection L T.weyl (-(1 / 6 : ℂ)) (intertwine L μ f)
+    exact (intertwine_isSection L T μ (1 / 6) hs f hf).2
+  · intro f hf g
+    change f ∈ Submodule.span ℂ (intertwine L μ '' {f | IsSection L T (1 / 6) f}) at hf
+    change rtr g f ∈ Submodule.span ℂ (intertwine L μ '' {f | IsSection L T (1 / 6) f})
+    refine Submodule.span_induction
+      (p := fun x _ => rtr g x ∈ Submodule.span ℂ
+        (intertwine L μ '' {f | IsSection L T (1 / 6) f})) ?_ ?_ ?_ ?_ hf
+    · intro x hx
+      rcases hx with ⟨f₀, hf₀, rfl⟩
+      rw [← intertwine_rtr]
+      exact Submodule.subset_span ⟨rtr g f₀, IsSection.rtr hf₀ g, rfl⟩
+    · change (0 : L.L → T.V) ∈ _
+      exact Submodule.zero_mem _
+    · intro x y hx hy hpx hpy
+      change rtr g (x + y) ∈ _
+      rw [show rtr g (x + y) = rtr g x + rtr g y by rfl]
+      exact Submodule.add_mem _ hpx hpy
+    · intro c x hx hpx
+      change rtr g (c • x) ∈ _
+      rw [show rtr g (c • x) = c • rtr g x by rfl]
+      exact Submodule.smul_mem _ c hpx
 
 /-- **wh:theta-unique** (top; replaces KP Cor. I.3.6): on `Θ_v`, `𝒥` takes values in `ℂ u`, and every
 Whittaker functional is `c ∘ 𝒥`. -/
