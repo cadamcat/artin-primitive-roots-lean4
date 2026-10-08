@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_SHEETS.MeasureSubstrate
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SHEETS.ComplexPolar
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SHEETS.RadialScaling
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SHEETS.ProductPolar
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».PowerClasses
 
 open MeasureTheory
 open scoped FourierTransform
@@ -220,6 +221,17 @@ private theorem thsol_multiplier_radial (m : S.FS → ℂ) (hm : SheetMultiplier
         exact congrArg (fun q : S.V => ((L.L y : ℂˣ) : ℂ) ^ k * b q)
           (mul_one (QuotientGroup.mk y : S.V))
       _ = _ := (hmval y).symm
+
+private theorem thsol_multiplier_continuous (m : S.FS → ℂ) (hm : SheetMultiplier S m) :
+    Continuous (fun y : S.FSˣ => m (y : S.FS)) := by
+  obtain ⟨L, k, b, hb, hmval⟩ := hm
+  let : ∀ v : S.Sf, NontriviallyNormedField (v.1.adicCompletion F) := fun v =>
+    Valued.toNontriviallyNormedField (v.1.adicCompletion F) (WithZero (Multiplicative ℤ))
+  have hbCont : Continuous (fun y : S.FSˣ => b (QuotientGroup.mk y)) :=
+    ArtinPrimitiveRoots.Proofs.thsol_sheets.power_quotient_factor_continuous
+      (fun v : S.Sf => v.1.adicCompletion F) (fun _ : InfinitePlace F => ℂ) b
+  have hChar := L.cont.zpow₀ k (fun y => Or.inl (L.L y).ne_zero)
+  simpa only [hmval, Pi.mul_def] using hChar.mul hbCont
 
 /-- **lem:sheet-profile** (03:500–620), profile part: smoothness, eq:sheet-weighted-bound,
 eq:sheet-two-ended-bound, with an admissible multiplier. C4 of `sol-gate-theta` carries its norm
