@@ -274,4 +274,40 @@ theorem finiteHistoryTrace_ghost_deletions_visit_monotone {K : ℕ}
       rw [finiteHistoryTraceGhostDeletions, List.pairwise_append]
       exact ⟨hBlock, ih υ t.2.2, hCross⟩
 
+/-- The selected visit of the unique ghost-birth event for a prime, when one exists. -/
+noncomputable def finiteHistoryTraceGhostBirthEndpoint {K : ℕ}
+    (F : PDFix K) (S : PDScale) (w : ArchRoot) (γ : EnvPath S.x K)
+    (k : ℕ) (σ : LogPoint S.x K)
+    (t : FiniteHistoryTrace F S γ k σ)
+    (ht : FiniteHistoryTraceValid F S w γ k σ t) (p : ℕ) :
+    Option (Fin (pathLength S.x + 1)) :=
+  if hp : p ∈ (finiteHistoryTraceGhostBirths F S γ k σ t).map
+      (fun b => b.2.2) then
+    some (Classical.choose
+      (finiteHistoryTrace_ghost_birth_existsUnique_of_mem_prime
+        F S w γ k σ t ht p hp)).1
+  else none
+
+theorem finiteHistoryTrace_ghost_birth_endpoint_eq_of_mem
+    {K : ℕ} (F : PDFix K) (S : PDScale) (w : ArchRoot)
+    (γ : EnvPath S.x K) (k : ℕ) (σ : LogPoint S.x K)
+    (t : FiniteHistoryTrace F S γ k σ)
+    (ht : FiniteHistoryTraceValid F S w γ k σ t) (p : ℕ)
+    (hp : p ∈ (finiteHistoryTraceGhostBirths F S γ k σ t).map
+      (fun b => b.2.2))
+    (b : Fin (pathLength S.x + 1) × Fin K × ℕ)
+    (hb : b ∈ finiteHistoryTraceGhostBirths F S γ k σ t)
+    (hbp : b.2.2 = p) :
+    finiteHistoryTraceGhostBirthEndpoint F S w γ k σ t ht p = some b.1 := by
+  classical
+  unfold finiteHistoryTraceGhostBirthEndpoint
+  rw [dite_eq_left hp]
+  let huniq := finiteHistoryTrace_ghost_birth_existsUnique_of_mem_prime
+    F S w γ k σ t ht p hp
+  have hchosen := Classical.choose_spec huniq
+  have heq : Classical.choose huniq = b :=
+    finiteHistoryTrace_ghost_birth_eq_of_prime_eq F S w γ k σ t ht
+      hchosen.1.1 hb (hchosen.1.2.trans hbp.symm)
+  rw [heq]
+
 end ArtinPrimitiveRoots.Proofs.pd_lifeb_sol
