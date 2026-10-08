@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 import Mathlib.MeasureTheory.Measure.Haar.MulEquivHaarChar
+import OAI.NumberTheory.DirichletL.Eisenstein.CuspAverage
 
 open MeasureTheory Filter
 
@@ -765,10 +766,201 @@ theorem jacquetC_equiv (s : ℂ) (hs : 0 < s.re) (f : PGL2 ℂ → ℂ) (hf : Is
       rfl
 
 /-- **jq:complex-bessel** (eq:theta-complex-bessel, 03:263–290). -/
+private theorem besselCubic_eq_prebuilt (x : ℝ) (hx : 0 < x) :
+    (besselK (1 / 3) x : ℂ) = OAI.CubicEisenstein.schlafliBesselK (1 / 3) x := by
+  rw [besselK_eq_schlafli (1 / 3) x hx,
+    OAI.CubicEisenstein.schlafliBesselK_cubic_real x hx]
+  rw [show -(1 / 3 : ℝ) = -(1 : ℝ) / 3 by ring]
+  congr 1
+  congr 1
+  apply setIntegral_congr_fun measurableSet_Ioi
+  intro t ht
+  dsimp only [OAI.CubicEisenstein.cubicBesselDensity]
+  congr 1
+  congr 1
+  ring
+
+private theorem sphC_w_n_a (y : ℂˣ) (x : ℂ) :
+    sphC (1 / 6) (wC * nC x * aC y) =
+      ((‖(y : ℂ)‖ / (‖(y : ℂ)‖ ^ 2 + ‖x‖ ^ 2) : ℝ) : ℂ) ^ (4 / 3 : ℂ) := by
+  have hprod : wC * nC x * aC y =
+      QuotientGroup.mk (weylM ℂ * upperM ℂ x * diagM ℂ y) := by
+    change (QuotientGroup.mk (weylM ℂ) * QuotientGroup.mk (upperM ℂ x)) *
+        QuotientGroup.mk (diagM ℂ y) = _
+    simp only [QuotientGroup.mk_mul]
+  rw [hprod, sphC_mk]
+  simp [sphericalC, weylM, upperM, diagM, Matrix.det_fin_two,
+    Matrix.mul_apply, Fin.sum_univ_two]
+  norm_num
+
+private theorem psiC_neg_eq_breveE (z : ℂ) :
+    psiC (-z) = OAI.ShortDraftTrace.breveE z := by
+  change Complex.exp (-(4 * Real.pi * Complex.I * ((-z).re : ℂ))) =
+    Complex.exp (2 * Real.pi * Complex.I * (z + starRingEnd ℂ z))
+  congr 1
+  apply Complex.ext <;> simp [Complex.mul_re, Complex.mul_im] <;> ring
+
 theorem jacquetC_spherical (y : ℂˣ) :
     jacquetC (rtr (aC y) (sphC (1 / 6))) =
       ((besselConst * ‖(y : ℂ)‖ * besselK (1 / 3) (4 * Real.pi * ‖(y : ℂ)‖) : ℝ) : ℂ) := by
-  sorry
+  let r : ℝ := ‖(y : ℂ)‖
+  have hr : 0 < r := norm_pos_iff.mpr y.ne_zero
+  let F : ℂ → ℂ := fun x =>
+    psiC (-x) * (((r / (r ^ 2 + ‖x‖ ^ 2) : ℝ) : ℂ) ^ (4 / 3 : ℂ))
+  have hformula : jacquetC (rtr (aC y) (sphC (1 / 6))) = ∫ x : ℂ, F x := by
+    simp only [jacquetC, rtr]
+    apply integral_congr_ae
+    filter_upwards [] with x
+    change psiC (-x) * sphC (1 / 6) (wC * nC x * aC y) =
+      psiC (-x) * (((r / (r ^ 2 + ‖x‖ ^ 2) : ℝ) : ℂ) ^ (4 / 3 : ℂ))
+    rw [sphC_w_n_a]
+  let H : ℂ → ℂ := fun z =>
+    OAI.CubicEisenstein.hyperbolicKernel (4 / 3) z *
+      OAI.ShortDraftTrace.breveE ((r : ℂ) * z)
+  have hscale : (∫ x : ℂ, F x) = (r ^ 2 : ℝ) • ∫ z : ℂ, F (r • z) := by
+    have h := Measure.integral_comp_inv_smul_of_nonneg (μ := volume)
+      (fun z : ℂ => F (r • z)) (R := r) hr.le
+    simpa [Complex.finrank_real_complex, smul_smul, hr.ne'] using h
+  have hF (z : ℂ) : F (r • z) = ((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) * H z := by
+    let D : ℝ := 1 + ‖z‖ ^ 2
+    have hnorm : ‖r • z‖ = r * ‖z‖ := by
+      rw [norm_smul, Real.norm_eq_abs, abs_of_pos hr]
+    have hDnonneg : 0 ≤ D := by dsimp [D]; positivity
+    have hratio : r / (r ^ 2 + ‖r • z‖ ^ 2) = 1 / (r * D) := by
+      rw [hnorm]
+      dsimp [D]
+      field_simp <;> ring
+    have hphase : psiC (-(r • z)) = OAI.ShortDraftTrace.breveE ((r : ℂ) * z) := by
+      rw [show (r • z : ℂ) = (r : ℂ) * z by simp [smul_eq_mul]]
+      exact psiC_neg_eq_breveE ((r : ℂ) * z)
+    have hpow : (((1 / (r * D) : ℝ) : ℂ) ^ (4 / 3 : ℂ)) =
+        ((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) *
+          ((D : ℝ) : ℂ) ^ (-(4 / 3 : ℂ)) := by
+      have hri : 0 ≤ r⁻¹ := inv_nonneg.mpr hr.le
+      have hDi : 0 ≤ D⁻¹ := inv_nonneg.mpr (by dsimp [D]; positivity)
+      have hrpow : ((r⁻¹ : ℝ) : ℂ) ^ (4 / 3 : ℂ) =
+          ((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) := by
+        calc
+          ((r⁻¹ : ℝ) : ℂ) ^ (4 / 3 : ℂ) =
+              (((r⁻¹) ^ (4 / 3 : ℝ) : ℝ) : ℂ) :=
+                by
+                  simpa only [show (4 / 3 : ℂ) = ((4 / 3 : ℝ) : ℂ) by norm_num] using
+                    (Complex.ofReal_cpow hri (4 / 3 : ℝ)).symm
+          _ = ((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) := by
+            congr 1
+            rw [← Real.rpow_neg_eq_inv_rpow]
+      have hDpow : ((D⁻¹ : ℝ) : ℂ) ^ (4 / 3 : ℂ) =
+          ((D : ℝ) : ℂ) ^ (-(4 / 3 : ℂ)) := by
+        calc
+          ((D⁻¹ : ℝ) : ℂ) ^ (4 / 3 : ℂ) =
+              (((D⁻¹) ^ (4 / 3 : ℝ) : ℝ) : ℂ) :=
+                by
+                  simpa only [show (4 / 3 : ℂ) = ((4 / 3 : ℝ) : ℂ) by norm_num] using
+                    (Complex.ofReal_cpow hDi (4 / 3 : ℝ)).symm
+          _ = ((D ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) := by
+            congr 1
+            rw [← Real.rpow_neg_eq_inv_rpow]
+          _ = ((D : ℝ) : ℂ) ^ (-(4 / 3 : ℂ)) :=
+            by
+              have h := Complex.ofReal_cpow hDnonneg (-(4 / 3 : ℝ))
+              have hposExp : ((4 / 3 : ℝ) : ℂ) = (4 / 3 : ℂ) := by norm_num
+              rw [Complex.ofReal_neg, hposExp] at h
+              exact h
+      calc
+        (((1 / (r * D) : ℝ) : ℂ) ^ (4 / 3 : ℂ)) =
+            ((r⁻¹ * D⁻¹ : ℝ) : ℂ) ^ (4 / 3 : ℂ) := by
+          congr 2
+          field_simp <;> ring
+        _ = ((r⁻¹ : ℝ) : ℂ) ^ (4 / 3 : ℂ) * ((D⁻¹ : ℝ) : ℂ) ^ (4 / 3 : ℂ) := by
+          rw [Complex.ofReal_mul]
+          exact Complex.mul_cpow_ofReal_nonneg hri hDi _
+        _ = ((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) *
+              ((D : ℝ) : ℂ) ^ (-(4 / 3 : ℂ)) := by
+          rw [hrpow, hDpow]
+    change psiC (-(r • z)) *
+        (((r / (r ^ 2 + ‖r • z‖ ^ 2) : ℝ) : ℂ) ^ (4 / 3 : ℂ)) = _
+    rw [hphase, hratio, hpow]
+    simp only [H, OAI.CubicEisenstein.hyperbolicKernel]
+    ring
+  have hscaled : (∫ z : ℂ, F (r • z)) =
+      ((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) * ∫ z : ℂ, H z := by
+    calc
+      (∫ z : ℂ, F (r • z)) =
+          ∫ z : ℂ, ((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) * H z := by
+            apply integral_congr_ae
+            filter_upwards [] with z
+            exact hF z
+      _ = _ := by rw [integral_const_mul]
+  have hresult : (∫ x : ℂ, F x) =
+      ((r ^ (2 / 3 : ℝ) : ℝ) : ℂ) * ∫ z : ℂ, H z := by
+    calc
+      (∫ x : ℂ, F x) = (r ^ 2 : ℝ) • ∫ z : ℂ, F (r • z) := hscale
+      _ = (r ^ 2 : ℝ) •
+          (((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) * ∫ z : ℂ, H z) := by rw [hscaled]
+      _ = ((r ^ (2 / 3 : ℝ) : ℝ) : ℂ) * ∫ z : ℂ, H z := by
+        change ((r ^ 2 : ℝ) : ℂ) *
+            (((r ^ (-(4 / 3 : ℝ)) : ℝ) : ℂ) * ∫ z : ℂ, H z) = _
+        rw [← mul_assoc, ← Complex.ofReal_mul]
+        apply congrArg (fun c : ℂ => c * ∫ z : ℂ, H z)
+        have hp : r ^ 2 * r ^ (-(4 / 3 : ℝ)) = r ^ (2 / 3 : ℝ) := by
+          rw [← Real.rpow_natCast r 2, ← Real.rpow_add hr]
+          norm_num
+        exact congrArg (fun a : ℝ => (a : ℂ)) hp
+  have hkernel : (∫ z : ℂ, H z) =
+      OAI.CubicEisenstein.sourceFourierKernel (4 / 3) (-(r : ℂ)) := by
+    simp [H, OAI.CubicEisenstein.sourceFourierKernel,
+      OAI.CubicEisenstein.hyperbolicKernel, mul_assoc]
+  have hfreq : (-(r : ℂ)) ≠ 0 := by
+    exact neg_ne_zero.mpr (Complex.ofReal_ne_zero.mpr hr.ne')
+  have hOAI := OAI.CubicEisenstein.sourceFourierKernel_four_thirds (-(r : ℂ)) hfreq
+  have harg : 0 < 4 * Real.pi * r := by positivity
+  calc
+    jacquetC (rtr (aC y) (sphC (1 / 6))) =
+        ((r ^ (2 / 3 : ℝ) : ℝ) : ℂ) *
+          OAI.CubicEisenstein.sourceFourierKernel (4 / 3) (-(r : ℂ)) := by
+      rw [hformula, hresult, hkernel]
+    _ = ((besselConst * r * besselK (1 / 3) (4 * Real.pi * r) : ℝ) : ℂ) := by
+      rw [hOAI, show ‖-(r : ℂ)‖ = r by simp [r, Real.norm_eq_abs, abs_of_pos hr],
+        ← besselCubic_eq_prebuilt (4 * Real.pi * r) harg]
+      have hbase : 2 * (Real.pi : ℂ) * (r : ℂ) = ((2 * Real.pi * r : ℝ) : ℂ) := by
+        push_cast
+        ring
+      let b : ℝ := 2 * Real.pi * r
+      have hb : 0 < b := by dsimp [b]; positivity
+      have hbase' : ((2 * Real.pi * r : ℝ) : ℂ) = (b : ℂ) := by rfl
+      have hpowBase : ((b ^ (1 / 3 : ℝ) : ℝ) : ℂ) =
+          (b : ℂ) ^ (1 / 3 : ℂ) := by
+        simpa only [show (1 / 3 : ℂ) = ((1 / 3 : ℝ) : ℂ) by norm_num] using
+          Complex.ofReal_cpow hb.le (1 / 3 : ℝ)
+      have hGamma : Complex.Gamma (4 / 3 : ℂ) = (Real.Gamma (4 / 3 : ℝ) : ℂ) := by
+        rw [show (4 / 3 : ℂ) = ((4 / 3 : ℝ) : ℂ) by norm_num, Complex.Gamma_ofReal]
+      rw [hbase, hbase', ← hpowBase, hGamma]
+      push_cast [besselConst]
+      let p : ℝ := 2 * Real.pi
+      have hpowB : b ^ (1 / 3 : ℝ) =
+          p ^ (1 / 3 : ℝ) * r ^ (1 / 3 : ℝ) := by
+        dsimp [b, p]
+        rw [Real.mul_rpow (by positivity) hr.le]
+      have hpowBC : ((b ^ (1 / 3 : ℝ) : ℝ) : ℂ) =
+          ((p ^ (1 / 3 : ℝ) : ℝ) : ℂ) * ((r ^ (1 / 3 : ℝ) : ℝ) : ℂ) :=
+        (congrArg (fun t : ℝ => (t : ℂ)) hpowB).trans (Complex.ofReal_mul _ _)
+      rw [hpowBC]
+      have hp : r ^ (2 / 3 : ℝ) * r ^ (1 / 3 : ℝ) = r := by
+        rw [← Real.rpow_add hr]
+        norm_num
+      have hpC : ((r ^ (2 / 3 : ℝ) : ℝ) : ℂ) *
+          ((r ^ (1 / 3 : ℝ) : ℝ) : ℂ) = (r : ℂ) := by
+        calc
+          _ = ((r ^ (2 / 3 : ℝ) * r ^ (1 / 3 : ℝ) : ℝ) : ℂ) :=
+            (Complex.ofReal_mul _ _).symm
+          _ = (r : ℂ) := congrArg (fun t : ℝ => (t : ℂ)) hp
+      calc
+        _ = (2 * (Real.pi : ℂ) / ((Real.Gamma (4 / 3 : ℝ)) : ℂ)) *
+              ((p ^ (1 / 3 : ℝ) : ℝ) : ℂ) *
+              (((r ^ (2 / 3 : ℝ) : ℝ) : ℂ) *
+                ((r ^ (1 / 3 : ℝ) : ℝ) : ℂ) *
+                (besselK (1 / 3) (4 * Real.pi * r) : ℂ)) := by ring
+        _ = _ := by rw [hpC]; ring
 
 /-- **jq:complex-derivative** (eq:theta-complex-derivative, 03:292–312). -/
 theorem jacquetC_derivative (m : ℤ) (hm : m = 1 ∨ m = -1) (y : ℂˣ) :
