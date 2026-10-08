@@ -547,4 +547,44 @@ theorem dfinsupp_tsum_support_limit
     · simp only [ite_eq_right ha, norm_zero]
       exact norm_nonneg _
 
+/-- A direct-sum support cutoff is an actual finite-coordinate reindexing of the series. -/
+theorem dfinsupp_tsum_cutoff
+    {ι : Type} {Q : ι → Type} [∀ i, Zero (Q i)]
+    (f : (Π₀ i, Q i) → ℂ) (t : Finset ι) :
+    (∑' a : Π₀ i, Q i, if a.support ⊆ t then f a else 0) =
+      ∑' b : ∀ i : t, Q i, f (DFinsupp.mk t b) := by
+  classical
+  let A := Π₀ i, Q i
+  let S : Set A := {a | a.support ⊆ t}
+  let E : (∀ i : t, Q i) ≃ S :=
+    { toFun := fun b => ⟨DFinsupp.mk t b, DFinsupp.support_mk_subset⟩
+      invFun := fun a i => (a : A) i
+      left_inv := by
+        intro b
+        funext i
+        exact DFinsupp.mk_of_mem i.property
+      right_inv := by
+        intro a
+        apply Subtype.ext
+        apply DFinsupp.ext
+        intro i
+        change DFinsupp.mk t (fun j => (a : A) j) i = (a : A) i
+        by_cases hi : i ∈ t
+        · rw [DFinsupp.mk_of_mem hi]
+        · rw [DFinsupp.mk_of_notMem hi]
+          exact (DFinsupp.notMem_support_iff.mp (fun hs => hi (a.property hs))).symm }
+  have hsub : (∑' a : S, f (a : A)) =
+      ∑' a : A, if a.support ⊆ t then f a else 0 := by
+    calc
+      _ = ∑' a : A, S.indicator f a := tsum_subtype S f
+      _ = _ := by
+        apply tsum_congr
+        intro a
+        by_cases ha : a.support ⊆ t
+        · rw [Set.indicator_of_mem ha, ite_eq_left ha]
+        · rw [Set.indicator_of_notMem ha, ite_eq_right ha]
+  calc
+    _ = ∑' a : S, f (a : A) := hsub.symm
+    _ = ∑' b : ∀ i : t, Q i, f (DFinsupp.mk t b) := (E.tsum_eq (fun a : S => f (a : A))).symm
+
 end ArtinPrimitiveRoots.A1.Theta
