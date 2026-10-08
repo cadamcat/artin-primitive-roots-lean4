@@ -310,4 +310,48 @@ theorem finiteHistoryTrace_ghost_birth_endpoint_eq_of_mem
       hchosen.1.1 hb (hchosen.1.2.trans hbp.symm)
   rw [heq]
 
+/-- The selected visit of the unique ghost-deletion event for a prime, when one exists. -/
+noncomputable def finiteHistoryTraceGhostDeletionEndpoint {K : ℕ}
+    (F : PDFix K) (S : PDScale) (w : ArchRoot) (γ : EnvPath S.x K)
+    (k : ℕ) (σ : LogPoint S.x K)
+    (t : FiniteHistoryTrace F S γ k σ)
+    (ht : FiniteHistoryTraceValid F S w γ k σ t)
+    (hσ : LiveLogValid σ) (hMem : MemValid F S σ.1)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (p : ℕ) : Option (Fin (pathLength S.x + 1)) :=
+  if hp : p ∈ (finiteHistoryTraceGhostDeletions F S γ k σ t).map
+      (fun d => d.2.2.1) then
+    some (Classical.choose
+      (finiteHistoryTrace_ghost_deletion_existsUnique_of_mem_prime
+        F S w γ k σ t ht hσ hMem hBands p hp)).1
+  else none
+
+theorem finiteHistoryTrace_ghost_deletion_endpoint_eq_of_mem
+    {K : ℕ} (F : PDFix K) (S : PDScale) (w : ArchRoot)
+    (γ : EnvPath S.x K) (k : ℕ) (σ : LogPoint S.x K)
+    (t : FiniteHistoryTrace F S γ k σ)
+    (ht : FiniteHistoryTraceValid F S w γ k σ t)
+    (hσ : LiveLogValid σ) (hMem : MemValid F S σ.1)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (p : ℕ)
+    (hp : p ∈ (finiteHistoryTraceGhostDeletions F S γ k σ t).map
+      (fun d => d.2.2.1))
+    (d : Fin (pathLength S.x + 1) × Fin K × Particle)
+    (hd : d ∈ finiteHistoryTraceGhostDeletions F S γ k σ t)
+    (hdp : d.2.2.1 = p) :
+    finiteHistoryTraceGhostDeletionEndpoint F S w γ k σ t ht hσ hMem hBands p =
+      some d.1 := by
+  classical
+  unfold finiteHistoryTraceGhostDeletionEndpoint
+  rw [dite_eq_left hp]
+  let huniq := finiteHistoryTrace_ghost_deletion_existsUnique_of_mem_prime
+    F S w γ k σ t ht hσ hMem hBands p hp
+  have hchosen := Classical.choose_spec huniq
+  have heq : Classical.choose huniq = d :=
+    finiteHistoryTrace_ghost_deletion_eq_of_prime_eq F S w γ k σ t ht
+      hσ hMem hBands hchosen.1.1 hd (hchosen.1.2.trans hdp.symm)
+  rw [heq]
+
 end ArtinPrimitiveRoots.Proofs.pd_lifeb_sol
