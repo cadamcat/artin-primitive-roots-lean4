@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A1.Residue
 import ArtinPrimitiveRoots.A1.Proofs.A1_GENERATORS.Generator
+import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.ResidueCompatibility
 
 /-!
 # A1 interface, §3: Hilbert symbols, H_S, B, allowed generators
@@ -144,12 +145,203 @@ theorem BData.exists_balanced (D : FieldData F) {S : SData F CE condη} {H : Hil
 
 /-- eq:sextic-reciprocity (02:257–266): `χ_P(p') = χ_{P'}(p)` for allowed generators of distinct
 exterior primes. Package P-ARITH-RECIP. -/
+private lemma a1gp_count_prime_self (P : FinPlace F) :
+    FractionalIdeal.count F P
+      (P.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 1 := by
+  simpa using (FractionalIdeal.count_maximal (K := F) P P)
+
+private lemma a1gp_count_prime_other (P P' : FinPlace F) (hne : P ≠ P') :
+    FractionalIdeal.count F P
+      (P'.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0 := by
+  exact FractionalIdeal.count_maximal_coprime (K := F) P hne.symm
+
+private lemma a1gp_hilb_eq_one_of_coe_eq_one (H : HilbertData F) (v : FinPlace F)
+    (a b : Fˣ) (h : ((H.hilb v (toLoc v a) (toLoc v b) : Fˣ) : F) = 1) :
+    H.hilb v (toLoc v a) (toLoc v b) = 1 := by
+  apply Subtype.ext
+  exact Units.ext h
+
+private def a1gp_chiAlgUnit (P : FinPlace F) (x : F) : Fˣ :=
+  Units.map (algebraMap (𝓞 F) F).toMonoidHom
+    ((chiAlg P x : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ)
+
 theorem sextic_reciprocity (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
     (Bd : BData S H) (P P' : FinPlace F) (hP : P ∉ S.Sf) (hP' : P' ∉ S.Sf) (hne : P ≠ P')
     (p p' : Fˣ) (hp : S.IsGen (p : F) P.asIdeal ∧ Bd.Allowed p)
     (hp' : S.IsGen (p' : F) P'.asIdeal ∧ Bd.Allowed p') :
     chi D P (p' : F) = chi D P' (p : F) := by
-  sorry
+  classical
+  have hcountP : FractionalIdeal.count F P
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p : F)) = 1 := by
+    calc
+      _ = FractionalIdeal.count F P
+          (P.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := hp.1.2.2 P hP
+      _ = 1 := a1gp_count_prime_self P
+  have hcountP' : FractionalIdeal.count F P'
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p' : F)) = 1 := by
+    calc
+      _ = FractionalIdeal.count F P'
+          (P'.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := hp'.1.2.2 P' hP'
+      _ = 1 := a1gp_count_prime_self P'
+  have hcountpAtP' : FractionalIdeal.count F P'
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p : F)) = 0 := by
+    calc
+      _ = FractionalIdeal.count F P' (P.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+        hp.1.2.2 P' hP'
+      _ = 0 := a1gp_count_prime_other P' P hne.symm
+  have hcountp'AtP : FractionalIdeal.count F P
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p' : F)) = 0 := by
+    calc
+      _ = FractionalIdeal.count F P (P'.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+        hp'.1.2.2 P hP
+      _ = 0 := a1gp_count_prime_other P P' hne
+  have hresP : residue P (p' : F) ≠ 0 := by
+    apply (ArtinPrimitiveRoots.A1.KummerProofs.residue_ne_zero_iff_ord_zero P _).2
+    exact ⟨hcountp'AtP, p'.ne_zero⟩
+  have hresP' : residue P' (p : F) ≠ 0 := by
+    apply (ArtinPrimitiveRoots.A1.KummerProofs.residue_ne_zero_iff_ord_zero P' _).2
+    exact ⟨hcountpAtP', p.ne_zero⟩
+  have h6P : (6 : 𝓞 F) ∉ P.asIdeal := by
+    intro h
+    exact hP (S.over6 P h)
+  have h6P' : (6 : 𝓞 F) ∉ P'.asIdeal := by
+    intro h
+    exact hP' (S.over6 P' h)
+  let f : FinPlace F → rootsOfUnity 6 F := fun v => H.hilb v (toLoc v p) (toLoc v p')
+  have houtside (v : FinPlace F) (hvS : v ∉ S.Sf) (hvP : v ≠ P) (hvP' : v ≠ P') :
+      f v = 1 := by
+    have h6v : (6 : 𝓞 F) ∉ v.asIdeal := by
+      intro h
+      exact hvS (S.over6 v h)
+    have hcountv : FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p : F)) = 0 := by
+      calc
+        _ = FractionalIdeal.count F v (P.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+          hp.1.2.2 v hvS
+        _ = 0 := a1gp_count_prime_other v P hvP
+    have hcountv' : FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p' : F)) = 0 := by
+      calc
+        _ = FractionalIdeal.count F v (P'.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+          hp'.1.2.2 v hvS
+        _ = 0 := a1gp_count_prime_other v P' hvP'
+    have hresv : residue v (p' : F) ≠ 0 := by
+      apply (ArtinPrimitiveRoots.A1.KummerProofs.residue_ne_zero_iff_ord_zero v _).2
+      exact ⟨hcountv', p'.ne_zero⟩
+    have htame := H.tame v h6v p' p hresv
+    rw [hcountv, zpow_zero] at htame
+    have hback : H.hilb v (toLoc v p') (toLoc v p) = 1 :=
+      a1gp_hilb_eq_one_of_coe_eq_one H v p' p (by simpa using htame)
+    have hskew := H.skew v (toLoc v p) (toLoc v p')
+    rw [hback, mul_one] at hskew
+    change H.hilb v (toLoc v p) (toLoc v p') = 1
+    exact hskew
+  have hsupport : Function.mulSupport f ⊆ (S.Sf ∪ {P} ∪ {P'} : Finset (FinPlace F)) := by
+    intro v hv
+    by_contra hnot
+    have hvnot : v ∉ S.Sf ∧ v ≠ P ∧ v ≠ P' := by
+      refine ⟨?_, ?_, ?_⟩
+      · intro hvS
+        exact hnot (by simp [hvS])
+      · intro heq
+        subst v
+        exact hnot (by simp)
+      · intro heq
+        subst v
+        exact hnot (by simp)
+    change f v ≠ 1 at hv
+    exact hv (houtside v hvnot.1 hvnot.2.1 hvnot.2.2)
+  have hdisjInner : Disjoint S.Sf {P} := Finset.disjoint_singleton_right.mpr hP
+  have hP'not : P' ∉ S.Sf ∪ {P} := by
+    simp only [Finset.mem_union, Finset.mem_singleton, not_or]
+    exact ⟨hP', hne.symm⟩
+  have hdisjOuter : Disjoint (S.Sf ∪ {P}) {P'} :=
+    Finset.disjoint_singleton_right.mpr hP'not
+  have hfiniteprod : (∏ᶠ v, f v) = (∏ v ∈ S.Sf, f v) * f P * f P' := by
+    rw [finprod_eq_prod_of_mulSupport_subset (s := S.Sf ∪ {P} ∪ {P'}) f hsupport,
+      Finset.prod_union hdisjOuter, Finset.prod_union hdisjInner,
+      Finset.prod_singleton, Finset.prod_singleton]
+  have hcomp (v : S.Sf) :
+      S.compU v (S.diagU p) = toLoc v.1 p ∧ S.compU v (S.diagU p') = toLoc v.1 p' := by
+    constructor <;> apply Units.ext <;> rfl
+  have hsfAttach : (∏ v : S.Sf, H.hilb v.1 (toLoc v.1 p) (toLoc v.1 p')) = 1 := by
+    calc
+      _ = S.HS H (S.diagU p) (S.diagU p') := by
+        unfold SData.HS
+        refine Finset.prod_congr rfl ?_
+        intro v hv
+        rw [(hcomp v).1, (hcomp v).2]
+      _ = 1 := Bd.isotropic (S.diagU p) (S.diagU p') hp.2 hp'.2
+  have hsf : (∏ v ∈ S.Sf, f v) = 1 := by
+    rw [← Finset.prod_attach S.Sf (fun v => f v)]
+    simpa [f] using hsfAttach
+  have hglobal : (∏ᶠ v, f v) = 1 := H.product_formula p p' |>.2
+  have hcross : f P * f P' = 1 := by
+    rw [hfiniteprod, hsf] at hglobal
+    simpa using hglobal
+  have hunitP : (H.hilb P (toLoc P p') (toLoc P p) : Fˣ) = a1gp_chiAlgUnit P (p' : F) := by
+    have htame := H.tame P h6P p' p hresP
+    rw [hcountP, zpow_one] at htame
+    apply Units.ext
+    simpa [a1gp_chiAlgUnit] using htame
+  have hunitP' : (H.hilb P' (toLoc P' p) (toLoc P' p') : Fˣ) =
+      a1gp_chiAlgUnit P' (p : F) := by
+    have htame := H.tame P' h6P' p p' hresP'
+    rw [hcountP', zpow_one] at htame
+    apply Units.ext
+    simpa [a1gp_chiAlgUnit] using htame
+  have hchiP : chi D P (p' : F) =
+      D.σ0 (((a1gp_chiAlgUnit P (p' : F) : Fˣ) : F)) := by
+    simp [chi, hresP, a1gp_chiAlgUnit]
+  have hchiP' : chi D P' (p : F) =
+      D.σ0 (((a1gp_chiAlgUnit P' (p : F) : Fˣ) : F)) := by
+    simp [chi, hresP', a1gp_chiAlgUnit]
+  have hchiP_ne : chi D P (p' : F) ≠ 0 := by
+    rw [chi, if_neg hresP]
+    intro hzero
+    have hzeroF : algebraMap (𝓞 F) F
+        (((chiAlg P (p' : F) : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F) = 0 :=
+      (RingHom.injective D.σ0) (by simpa using hzero)
+    have hzeroO : (((chiAlg P (p' : F) : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F) = 0 :=
+      (IsFractionRing.injective (𝓞 F) F) hzeroF
+    exact Units.ne_zero _ (congrArg (fun z : 𝓞 F => z) hzeroO)
+  have hskewP := H.skew P (toLoc P p) (toLoc P p')
+  have hskewSigmaP :
+      D.σ0 (((f P : Fˣ) : F)) * D.σ0 (((H.hilb P (toLoc P p') (toLoc P p) : Fˣ) : F)) = 1 := by
+    have hval := congrArg (fun z : rootsOfUnity 6 F => ((z : Fˣ) : F)) hskewP
+    have hval' : ((f P : Fˣ) : F) *
+        ((H.hilb P (toLoc P p') (toLoc P p) : Fˣ) : F) = 1 := by
+      simpa [f] using hval
+    simpa [map_mul] using congrArg D.σ0 hval'
+  have hcrossUnit : (f P : Fˣ) * (f P' : Fˣ) = 1 := by
+    have hval := congrArg (fun z : rootsOfUnity 6 F => (z : Fˣ)) hcross
+    simpa [f] using hval
+  have hcrossSigma : D.σ0 (((f P : Fˣ) : F)) * D.σ0 (((f P' : Fˣ) : F)) = 1 := by
+    have hval := congrArg (fun z : Fˣ => D.σ0 (z : F)) hcrossUnit
+    simpa [map_mul] using hval
+  have hchiP_inv : D.σ0 (((f P : Fˣ) : F)) = (chi D P (p' : F))⁻¹ := by
+    rw [hunitP, ← hchiP] at hskewSigmaP
+    calc
+      D.σ0 (((f P : Fˣ) : F)) =
+          D.σ0 (((f P : Fˣ) : F)) *
+            (chi D P (p' : F) * (chi D P (p' : F))⁻¹) := by
+              rw [mul_inv_cancel₀ hchiP_ne, mul_one]
+      _ = (D.σ0 (((f P : Fˣ) : F)) * chi D P (p' : F)) *
+          (chi D P (p' : F))⁻¹ := by rw [mul_assoc]
+      _ = (chi D P (p' : F))⁻¹ := by rw [hskewSigmaP, one_mul]
+  have hchiP'tame : chi D P' (p : F) =
+      D.σ0 (((H.hilb P' (toLoc P' p) (toLoc P' p') : Fˣ) : F)) := by
+    rw [hchiP', ← hunitP']
+  have hchiEq : (chi D P (p' : F))⁻¹ * chi D P' (p : F) = 1 := by
+    have hcrossSigma' := hcrossSigma
+    rw [hchiP_inv, ← hchiP'tame] at hcrossSigma'
+    exact hcrossSigma'
+  calc
+    chi D P (p' : F) = chi D P (p' : F) *
+        ((chi D P (p' : F))⁻¹ * chi D P' (p : F)) := by rw [hchiEq, mul_one]
+    _ = (chi D P (p' : F) * (chi D P (p' : F))⁻¹) * chi D P' (p : F) := by
+        rw [mul_assoc]
+    _ = chi D P' (p : F) := by rw [mul_inv_cancel₀ hchiP_ne, one_mul]
 
 /-- eq:unit-symbol (02:279–283): `χ_I(ε) = H_S(ε,a)^{-1}` (read through `σ0`). -/
 theorem unit_symbol (D : FieldData F) (S : SData F CE condη) (H : HilbertData F)
