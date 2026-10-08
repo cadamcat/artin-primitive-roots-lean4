@@ -7,6 +7,7 @@ set_option autoImplicit false
 open NumberField NumberField.InfinitePlace IsDedekindDomain Module
 open scoped Classical
 open scoped ComplexConjugate
+open scoped nonZeroDivisors
 
 noncomputable section
 
@@ -448,6 +449,113 @@ theorem arch_trace_dual_element [IsTotallyComplex F]
       simpa only [map_mul] using htraceR
     exact hm'.trans htraceR'.symm
   exact ⟨m', by exact_mod_cast hcast.symm⟩
+
+private theorem a1_spanSingleton_div_count (v : A1.FinPlace F) (x y : F)
+    (hx : x ≠ 0) (hy : y ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x / y)) =
+      FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) x) -
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) y) := by
+  rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
+    FractionalIdeal.count_mul F v
+      (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hx)
+      (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hy)),
+    FractionalIdeal.count_inv]
+  ring
+
+private theorem a1_spanSingleton_intValuation_count (v : A1.FinPlace F)
+    (r : 𝓞 F) (hr : r ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F r)) = -WithZero.log (v.intValuation r) := by
+  have hspan : (Ideal.span {r} : Ideal (𝓞 F)) ≠ 0 := by
+    simpa [ne_eq, Ideal.zero_eq_bot, Ideal.span_singleton_eq_bot] using hr
+  rw [← FractionalIdeal.coeIdeal_span_singleton, FractionalIdeal.count_coe F v hspan,
+    v.intValuation_if_neg hr, WithZero.log_exp]
+  ring
+
+private theorem a1_spanSingleton_count (v : A1.FinPlace F) (z : F)
+    (hz : z ≠ 0) :
+    FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z) =
+        -WithZero.log (v.valuation F z) := by
+  obtain ⟨n, d, hnd⟩ := IsLocalization.exists_mk'_eq (nonZeroDivisors (𝓞 F)) z
+  have hn : n ≠ 0 := by
+    intro hn
+    apply hz
+    rw [← hnd, IsFractionRing.mk'_eq_div, hn, map_zero, zero_div]
+  have hd : (d : 𝓞 F) ≠ 0 := nonZeroDivisors.ne_zero d.2
+  have hmapn : (algebraMap (𝓞 F) F n) ≠ 0 := by
+    intro h
+    exact hn ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hmapd : (algebraMap (𝓞 F) F (d : 𝓞 F)) ≠ 0 := by
+    intro h
+    exact hd ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hval : v.valuation F z = v.intValuation n / v.intValuation (d : 𝓞 F) := by
+    rw [← hnd]
+    exact v.valuation_of_mk'
+  rw [hval, ← hnd, IsFractionRing.mk'_eq_div,
+    a1_spanSingleton_div_count v (algebraMap (𝓞 F) F n)
+      (algebraMap (𝓞 F) F (d : 𝓞 F)) hmapn hmapd,
+    a1_spanSingleton_intValuation_count v n hn,
+    a1_spanSingleton_intValuation_count v (d : 𝓞 F) hd,
+    WithZero.log_div (v.intValuation_ne_zero n hn)
+      (v.intValuation_ne_zero (d : 𝓞 F) hd)]
+  ring
+
+/-- Integral trace pairing against the ring of integers places an element in the codifferent;
+away from the support of the different it is integral. -/
+theorem trace_integral_mem_S_R (S : A1.SData F CE condη) (t : F)
+    (h : ∀ n : 𝓞 F, ∃ m : ℤ, Algebra.trace ℚ F ((n : F) * t) = m) :
+    t ∈ S.R := by
+  classical
+  have hdual : t ∈ Submodule.traceDual ℤ ℚ (1 : Submodule (𝓞 F) F) := by
+    rw [Submodule.mem_traceDual]
+    intro a ha
+    obtain ⟨n, hn⟩ := Submodule.mem_one.mp ha
+    obtain ⟨m, hm⟩ := h n
+    have htr : Algebra.trace ℚ F (t * a) = (m : ℚ) := by
+      rw [← hn, mul_comm]
+      exact hm
+    refine ⟨m, ?_⟩
+    exact_mod_cast htr.symm
+  let codifferent : FractionalIdeal (𝓞 F)⁰ F :=
+    FractionalIdeal.dual ℤ ℚ (1 : FractionalIdeal (𝓞 F)⁰ F)
+  have htCod : t ∈ (codifferent : Submodule (𝓞 F) F) := by
+    simpa [codifferent, FractionalIdeal.coe_dual_one] using hdual
+  let D := differentIdeal ℤ (𝓞 F)
+  have hD0 : D ≠ ⊥ := differentIdeal_ne_bot
+  have hDcod : (D : FractionalIdeal (𝓞 F)⁰ F) = codifferent⁻¹ := by
+    simpa [D, codifferent] using (coeIdeal_differentIdeal ℤ ℚ F (𝓞 F))
+  change ∀ v : A1.FinPlace F, v ∉ S.Sf → v.valuation F t ≤ 1
+  intro v hvS
+  by_cases ht0 : t = 0
+  · simp [ht0]
+  have hDnot : ¬ D ≤ v.asIdeal := by
+    intro hle
+    exact hvS (S.different_mem v hle)
+  have hDcount : FractionalIdeal.count F v (D : FractionalIdeal (𝓞 F)⁰ F) = 0 := by
+    rw [FractionalIdeal.count_coe F v hD0]
+    have hcount : (Associates.mk v.asIdeal).count (Associates.mk D).factors = 0 := by
+      by_contra hcount
+      have hdvd := (Associates.count_ne_zero_iff_dvd hD0 v.irreducible).mp hcount
+      exact hDnot (Ideal.dvd_iff_le.mp hdvd)
+    exact_mod_cast hcount
+  have hcodcount : FractionalIdeal.count F v codifferent = 0 := by
+    rw [hDcod, FractionalIdeal.count_inv] at hDcount
+    linarith
+  have hspanle : FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) t ≤
+      codifferent := FractionalIdeal.spanSingleton_le_iff_mem.mpr htCod
+  have hcountle := FractionalIdeal.count_mono F v
+    (FractionalIdeal.spanSingleton_ne_zero_iff.mpr ht0) hspanle
+  have hcountt := a1_spanSingleton_count v t ht0
+  have hlogle : WithZero.log (v.valuation F t) ≤ 0 := by
+    rw [hcountt] at hcountle
+    linarith
+  simpa using (WithZero.log_le_iff_le_exp
+    ((v.valuation F).ne_zero_iff.mpr ht0)).mp hlogle
 
 /-- The archimedean annihilator of the integral lattice is the embedded inverse trace-dual
 lattice; all its elements lie in the S-integers because the different is supported in `S`. -/
