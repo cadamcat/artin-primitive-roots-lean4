@@ -221,26 +221,7 @@ theorem ext_hadamard_order_one (G : ℂ → ℂ) (hG : Differentiable ℂ G)
         if G ρ = 0 then
           (analyticOrderNatAt G ρ : ℂ) * ((s - ρ)⁻¹ + ρ⁻¹)
         else 0 := by
-  obtain hsq := ArtinPrimitiveRoots.Proofs.s7sol_zeros.inverse_square_summable G hG hG0 hgrowth
-  obtain ⟨A, B, hfac⟩ :=
-    ArtinPrimitiveRoots.Proofs.s7sol_zeros.genus_one_affine_factorization G hG hG0 hsq hgrowth
-  refine ⟨B, fun s hs => ?_⟩
-  obtain ⟨hsum, hder⟩ :=
-    ArtinPrimitiveRoots.Proofs.s7sol_zeros.genus_one_hasDerivAt G hG hG0 hsq s hs
-  refine ⟨hsum, ?_⟩
-  have heder : HasDerivAt (fun z : ℂ => Complex.exp (A + B * z))
-      (Complex.exp (A + B * s) * B) s := by
-    simpa using (((hasDerivAt_id s).const_mul B).const_add A).cexp
-  have hGder := (heder.mul hder).congr_of_eventuallyEq
-    (Filter.Eventually.of_forall hfac)
-  have hprod : ArtinPrimitiveRoots.Proofs.s7sol_zeros.genusOneProduct G s ≠ 0 := by
-    intro h
-    apply hs
-    rw [hfac s, h, mul_zero]
-  rw [hGder.deriv, hfac s]
-  change _ = B + ∑' z : ℂ, ArtinPrimitiveRoots.Proofs.s7sol_zeros.zeroLogTerms G s z
-  field_simp [Complex.exp_ne_zero, hprod]
-  <;> ring
+  exact ArtinPrimitiveRoots.Proofs.s7sol_zeros.hadamard_logDeriv_order_one G hG hG0 hgrowth
 
 /-- The multiplicity-weighted number of nontrivial zeros of `ζ_K^♮` in a unit-height window. -/
 noncomputable def dedekindZeroWindowCount (K : Type*) [Field K] [NumberField K]
