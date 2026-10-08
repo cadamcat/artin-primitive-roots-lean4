@@ -3736,6 +3736,64 @@ theorem local_bruhat_coset_hasSum
   rw [hfinal] at hsum
   exact ⟨hsum, hnorm⟩
 
+/-- Integration between two restricted-product lifts separates the complex coordinates. -/
+theorem scalarOf_arch_integral_product_lifts
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (t r : P.RP) :
+    (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r)) =
+      (∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))) *
+        ∏ w, ∫ z : ℂ, Fs.fC w
+          (P.compC w t * nC z * P.compC w r) ∧
+    (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r)‖) =
+      ‖∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))‖ *
+        ∏ w, ∫ z : ℂ, ‖Fs.fC w
+          (P.compC w t * nC z * P.compC w r)‖ := by
+  classical
+  choose rn hqn hfn hcn using fun x : InfinitePlace F → ℂ =>
+    P.nS_components ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x)
+  have hfn1 (x : InfinitePlace F → ℂ) (v : FinPlace F) : P.compF v (rn x) = 1 := by
+    simpa using hfn x v
+  let R (x : InfinitePlace F → ℂ) : P.RP := t * rn x * r
+  let cf : ℂ := ∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))
+  let fc (w : InfinitePlace F) (z : ℂ) : ℂ :=
+    Fs.fC w (P.compC w (t) * nC z * P.compC w r)
+  have hq (x : InfinitePlace F → ℂ) :
+      P.q (R x) = P.q t * nInf P x * P.q r := by
+    simp only [R, map_mul, hqn, nInf]
+  have hcompF (x : InfinitePlace F → ℂ) (v : FinPlace F) :
+      P.compF v (R x) = P.compF v (t * r) := by
+    simp only [R, map_mul, hfn1, mul_one]
+  have hcompC (x : InfinitePlace F → ℂ) (w : InfinitePlace F) :
+      P.compC w (R x) = P.compC w (t) * nC (x w) * P.compC w r := by
+    simp only [R, map_mul, hcn, nC]
+  have hformula (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC (P.q t * nInf P x * P.q r) =
+        cf * ∏ w, fc w (x w) := by
+    rw [← hq, (scalarOf_q P G Fs (R x)).2]
+    simp only [cf, fc, hcompF, hcompC]
+  constructor
+  · change (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r)) = cf * ∏ w, ∫ z : ℂ, fc w z
+    calc
+      _ = ∫ x : InfinitePlace F → ℂ, cf * ∏ w, fc w (x w) := by
+        apply integral_congr_ae
+        filter_upwards [] with x
+        exact hformula x
+      _ = cf * ∫ x : InfinitePlace F → ℂ, ∏ w, fc w (x w) := integral_const_mul _ _
+      _ = _ := by rw [integral_fintype_prod_volume_eq_prod]
+  · change (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r)‖) = ‖cf‖ * ∏ w, ∫ z : ℂ, ‖fc w z‖
+    calc
+      _ = ∫ x : InfinitePlace F → ℂ, ‖cf‖ * ∏ w, ‖fc w (x w)‖ := by
+        apply integral_congr_ae
+        filter_upwards [] with x
+        rw [hformula, norm_mul, norm_prod]
+      _ = ‖cf‖ * ∫ x : InfinitePlace F → ℂ, ∏ w, ‖fc w (x w)‖ := integral_const_mul _ _
+      _ = _ := by
+        rw [integral_fintype_prod_volume_eq_prod (fun w (z : ℂ) => ‖fc w z‖)]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
