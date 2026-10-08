@@ -137,31 +137,96 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
         (P.tc.rat (Quotient.out (d.e.symm p)) * (nInf P x * a y * gj)) =
       b p.1 p.2.1 s * ArtinPrimitiveRoots.A1.Spec.eisTerm F d.Γ (d.σ p.1) s
         (ArtinPrimitiveRoots.A1.Spec.ptX' F x y) p.2.2 := by
-  have hlocal (v : FinPlace F) : (G.Alag v).FiniteIndex :=
-    local_lagrangian_finiteIndex P G v
-  have hclasses (T : Finset (FinPlace F)) := finite_exterior_lagrangian_classes P G T
-  have htame (v : FinPlace F) (hv : v ∉ S.Sf) (x : (v.adicCompletion F)ˣ)
-      (hx : x ∉ G.Alag v) := tame_lam_sigma_eq_zero P G v hv x hx
-  have hsupport (g : P.tc.G) := finite_diagonal_scalar_support P G sec T0 hT0 g
-  have hparameter (g : P.tc.G) := scalarOf_parameter_analytic P G sec T0 hT0 hC han g
-  have hunitary (s : ℂ) (g : PGL2 ℂ) (k : GL (Fin 2) ℂ)
-      (hk : (k : Matrix (Fin 2) (Fin 2) ℂ) ∈ Matrix.unitaryGroup (Fin 2) ℂ) :=
-    sphC_right_unitary s g k hk
+  let g (i : d.ι) := P.tc.rat (Matrix.SpecialLinearGroup.toGL (d.σ i)⁻¹) * gj
+  let N (i : d.ι) := Spec.normHeight F
+    ((d.σ i)⁻¹ • Spec.ptX' F (fun _ => 0) (fun _ => 1))
+  let b (i : d.ι) (δ : Fˣ ⧸ G.Δ) (s : ℂ) :=
+    scalarOf P G (sec s).f (sec s).fC (P.tc.rat (diagGL δ.out) * g i) /
+      (N i : ℂ) ^ (1 + 2 * s)
+  have hNpos (i : d.ι) : 0 < N i := by
+    unfold N Spec.normHeight
+    apply Finset.prod_pos
+    intro w _
+    rw [Spec.height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos _
+  have hNne (i : d.ι) : (N i : ℂ) ≠ 0 :=
+    Complex.ofReal_ne_zero.mpr (hNpos i).ne'
+  have hpowne (i : d.ι) (s : ℂ) : (N i : ℂ) ^ (1 + 2 * s) ≠ 0 :=
+    Complex.cpow_ne_zero_iff.mpr (Or.inl (hNne i))
+  have hsupport (i : d.ι) := finite_diagonal_scalar_support P G sec T0 hT0 (g i)
+  let Ds (i : d.ι) := Classical.choose (hsupport i)
+  have hzero (i : d.ι) := Classical.choose_spec (hsupport i)
   have hcompact (s : ℂ) (g k : P.tc.G) (hk : k ∈ redCompact P) :
       scalarOf P G (sec s).f (sec s).fC (g * k) =
         scalarOf P G (sec s).f (sec s).fC g := by
     obtain ⟨r, hr, hf, hi⟩ := hk
     rw [← hr]
     exact scalarOf_right_unitary_lift P G (sec s) (hC s) g r hf hi
-  have hheight (s : ℂ) (γ : Matrix.SpecialLinearGroup (Fin 2) ℂ)
-      (x : ℂ) (y : ℝ) (hy : 0 < y) := sphC_sl2_height s γ x y hy
-  have harch (s : ℂ) (δ : Fˣ) (τ : Matrix.SpecialLinearGroup (Fin 2) F)
-      (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :=
-    sphC_rational_arch_product s δ τ x y hy
-  have hratio (s : ℂ) (δ : Fˣ) (τ : Matrix.SpecialLinearGroup (Fin 2) F)
-      (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :=
-    scalarOf_rational_height_ratio P G (sec s) (hC s) a ha gj hgj δ τ x y hy
-  sorry
+  have hquot (s : ℂ) (α β : GL (Fin 2) F)
+      (heq : (Quotient.mk (QuotientGroup.rightRel (Bstar G)) α) =
+        Quotient.mk (QuotientGroup.rightRel (Bstar G)) β) (u : P.tc.G) :
+      scalarOf P G (sec s).f (sec s).fC (P.tc.rat α * u) =
+        scalarOf P G (sec s).f (sec s).fC (P.tc.rat β * u) := by
+    have hmem : α * β⁻¹ ∈ Bstar G :=
+      QuotientGroup.rightRel_apply.mp (Quotient.exact heq.symm)
+    have hinv := (scalarOf_invariance P G (sec s)).1
+      (α * β⁻¹) hmem (P.tc.rat β * u)
+    simpa only [map_mul, map_inv, mul_assoc, inv_mul_cancel_left] using hinv
+  refine ⟨Ds, b, ?_, ?_, ?_⟩
+  · intro i δ s hs
+    have hnum := scalarOf_parameter_analytic P G sec T0 hT0 hC han
+      (P.tc.rat (diagGL δ.out) * g i) s hs
+    have hden : AnalyticAt ℂ (fun t : ℂ => (N i : ℂ) ^ (1 + 2 * t)) s := by
+      simp_rw [Complex.cpow_def_of_ne_zero (hNne i)]
+      exact (analyticAt_const.mul
+        (analyticAt_const.add (analyticAt_const.mul analyticAt_id))).cexp'
+    exact hnum.div hden (hpowne i s)
+  · intro i δ hδ s
+    have hz := hzero i δ hδ s
+    change scalarOf P G (sec s).f (sec s).fC
+      (P.tc.rat (diagGL δ.out) * g i) / (N i : ℂ) ^ (1 + 2 * s) = 0
+    rw [hz, zero_div]
+  · intro s _ x y hy p
+    let γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F) := p.2.2.out.1
+    let z := γ • Spec.ptX' F x y
+    let β := diagGL p.2.1.out * Matrix.SpecialLinearGroup.toGL
+      ((d.σ p.1)⁻¹ * Spec.toSLF F γ)
+    let u := nInf P x * a y * gj
+    let cuspFactor := P.tc.rat (diagGL p.2.1.out *
+      Matrix.SpecialLinearGroup.toGL (d.σ p.1)⁻¹)
+    let c := nInf P (fun w => Spec.horiz (z w)) *
+      a (fun w => Spec.height (z w)) * gj
+    have hrep : (Quotient.mk (QuotientGroup.rightRel (Bstar G))
+        (Quotient.out (d.e.symm p))) = Quotient.mk _ β :=
+      (Quotient.out_eq (d.e.symm p)).trans (d.repr p)
+    have hγ : γ ∈ d.Γ := p.2.2.out.property
+    obtain ⟨k, hk, kinf, hkinf, hact⟩ := d.action γ hγ x y hy
+    have harg : P.tc.rat β * u = (cuspFactor * c) * kinf * k := by
+      calc
+        _ = cuspFactor * (P.tc.rat (Matrix.SpecialLinearGroup.toGL
+            (Spec.toSLF F γ)) * nInf P x * a y * gj) := by
+          simp only [β, cuspFactor, u, map_mul, mul_assoc]
+        _ = cuspFactor * (c * (kinf * k)) := congrArg (fun t => cuspFactor * t) hact
+        _ = _ := by simp only [mul_assoc]
+    have hzpos (w : InfinitePlace F) : 0 < Spec.height (z w) := by
+      rw [Spec.height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos _
+    have hzcoords : Spec.ptX' F (fun w => Spec.horiz (z w))
+        (fun w => Spec.height (z w)) = z := by
+      funext w
+      exact Spec.pt_horiz_height (z w)
+    have hratio := scalarOf_rational_height_ratio P G (sec s) (hC s) a ha gj hgj
+      p.2.1.out (d.σ p.1)⁻¹
+      (fun w => Spec.horiz (z w)) (fun w => Spec.height (z w)) hzpos
+    rw [hzcoords] at hratio
+    calc
+      _ = scalarOf P G (sec s).f (sec s).fC (P.tc.rat β * u) :=
+        hquot s _ β hrep u
+      _ = scalarOf P G (sec s).f (sec s).fC (cuspFactor * c) := by
+        rw [harg, hlevel s _ k hk, hcompact s _ kinf hkinf]
+      _ = _ := by
+        simpa only [cuspFactor, c, b, g, N, Spec.eisTerm, z, γ, map_mul, mul_assoc]
+          using hratio
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/
 theorem th_decompose_part3 [IsTotallyComplex F]
