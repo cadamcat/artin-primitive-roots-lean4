@@ -1020,6 +1020,115 @@ def canonicalEulerCorrection : EulerCorrection R η U where
     normalizedLocal R η U u v.1 v.2 (p 0) (p 1) (p 2)
   H_eq _ _ := rfl
 
+private lemma euler_frequency_valuation_one_eq_zero (v : FinPlace F) (hv : v ∉ S.Sf)
+    (hcount : 0 ≤ FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (U.repr U.one : F))) :
+    frequencyValuation η U U.one v = 0 := by
+  classical
+  let x : S.R := U.repr U.one
+  have hx : (x : F) ≠ 0 := U.repr_nonzero U.one
+  have hxnorm : S.absS (S.diag (x : F)) = 1 := by
+    rw [← U.q_eq_absS U.one, U.q_one]
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have hprod := prod_abs_eq_one hx
+  have hf_supp : (Function.mulSupport fun w => ‖FinitePlace.embedding w (x : F)‖).Finite :=
+    finitePlace_mk_hasFiniteMulSupport hx
+  have h_split : (∏ᶠ w : HeightOneSpectrum (𝓞 F),
+      ‖FinitePlace.embedding w (x : F)‖) =
+      (∏ w ∈ S.Sf, ‖FinitePlace.embedding w (x : F)‖) *
+        ∏ᶠ w ∉ S.Sf, ‖FinitePlace.embedding w (x : F)‖ := by
+    have h_union := finprod_mem_union' (hst := disjoint_compl_right)
+      (hs := S.Sf.finite_toSet.inter_of_left _)
+      (ht := Set.Finite.subset hf_supp Set.inter_subset_right)
+      (f := fun w => ‖FinitePlace.embedding w (x : F)‖)
+    rw [Set.union_compl_self, finprod_mem_univ] at h_union
+    rw [finprod_mem_coe_finset] at h_union
+    exact h_union
+  have h_prod_decomp : (∏ᶠ w : FinitePlace F, w (x : F)) =
+      (∏ w ∈ S.Sf, ‖FinitePlace.embedding w (x : F)‖) *
+        ∏ᶠ w ∉ S.Sf, ‖FinitePlace.embedding w (x : F)‖ := by
+    rw [← finprod_comp_equiv FinitePlace.equivHeightOneSpectrum.symm]
+    change (∏ᶠ w : HeightOneSpectrum (𝓞 F),
+      ‖FinitePlace.embedding w (x : F)‖) = _
+    exact h_split
+  rw [h_prod_decomp] at hprod
+  have h_absS : S.absS (S.diag (x : F)) =
+      (∏ w ∈ S.Sf, ‖FinitePlace.embedding w (x : F)‖) *
+        ∏ w : InfinitePlace F, w (x : F) ^ w.mult := absS_diag_eq S (x : F)
+  have h_prod_absS : S.absS (S.diag (x : F)) *
+      (∏ᶠ w ∉ S.Sf, ‖FinitePlace.embedding w (x : F)‖) = 1 := by
+    rw [h_absS]
+    calc
+      ((∏ w ∈ S.Sf, ‖FinitePlace.embedding w (x : F)‖) *
+          ∏ w : InfinitePlace F, w (x : F) ^ w.mult) *
+          (∏ᶠ w ∉ S.Sf, ‖FinitePlace.embedding w (x : F)‖)
+        = (∏ w : InfinitePlace F, w (x : F) ^ w.mult) *
+            ((∏ w ∈ S.Sf, ‖FinitePlace.embedding w (x : F)‖) *
+              ∏ᶠ w ∉ S.Sf, ‖FinitePlace.embedding w (x : F)‖) := by ring
+      _ = 1 := hprod
+  have hext : ∏ᶠ w ∉ S.Sf, ‖FinitePlace.embedding w (x : F)‖ = 1 := by
+    simpa [hxnorm] using h_prod_absS
+  have h_eq : (∏ᶠ w ∉ S.Sf, ‖FinitePlace.embedding w (x : F)‖) =
+      ∏ w ∈ hf_supp.toFinset with w ∉ S.Sf, ‖FinitePlace.embedding w (x : F)‖ :=
+    finprod_mem_eq_prod_filter (fun w => ‖FinitePlace.embedding w (x : F)‖)
+      ((S.Sf : Set (HeightOneSpectrum (𝓞 F)))ᶜ) hf_supp
+  have hprod_fin : (∏ w ∈ hf_supp.toFinset with w ∉ S.Sf,
+      ‖FinitePlace.embedding w (x : F)‖) = 1 := by
+    rw [← h_eq]
+    exact hext
+  have hle : ∀ w ∈ hf_supp.toFinset.filter (fun w => w ∉ S.Sf),
+      ‖FinitePlace.embedding w (x : F)‖₊ ≤ 1 := by
+    intro w hw
+    have hws := Finset.mem_filter.mp hw
+    exact_mod_cast norm_embedding_le_one_of_valuation_le_one w (x : F)
+      (x.property w hws.2)
+  have hprod_fin_nn : (∏ w ∈ hf_supp.toFinset with w ∉ S.Sf,
+      ‖FinitePlace.embedding w (x : F)‖₊) = 1 := by
+    apply NNReal.coe_injective
+    simpa using hprod_fin
+  have hterms := (Finset.prod_eq_one_iff_of_le_one hle).mp hprod_fin_nn
+  have hnorm_v : ‖FinitePlace.embedding v (x : F)‖ = 1 := by
+    by_cases hmem : v ∈ hf_supp.toFinset
+    · have hterm := hterms v (Finset.mem_filter.mpr ⟨hmem, hv⟩)
+      have htermR : (‖FinitePlace.embedding v (x : F)‖₊ : ℝ) = 1 := by
+        exact_mod_cast hterm
+      simpa using htermR
+    · have hnot : v ∉ Function.mulSupport
+          (fun w => ‖FinitePlace.embedding w (x : F)‖) := by
+        intro h
+        apply hmem
+        simpa using h
+      have hnot' : ¬ ‖FinitePlace.embedding v (x : F)‖ ≠ 1 := by
+        intro hne
+        exact hnot ((Function.mem_mulSupport).2 hne)
+      exact not_not.mp hnot'
+  have hpow : (Ideal.absNorm v.asIdeal : ℝ) ^
+      (-FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x : F))) = 1 := by
+    rw [← norm_embedding_eq_absNorm_zpow v (x : F) hx, hnorm_v]
+  have hq : 1 < (Ideal.absNorm v.asIdeal : ℝ) := by
+    exact_mod_cast HeightOneSpectrum.one_lt_absNorm v
+  have htoNat : (FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x : F))).toNat = 0 := by
+    by_contra hn
+    let n := (FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x : F))).toNat
+    have hnpos : 0 < n := Nat.pos_of_ne_zero hn
+    have hncast : (n : ℤ) = FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x : F)) :=
+      Int.toNat_of_nonneg hcount
+    have hpow' : (Ideal.absNorm v.asIdeal : ℝ) ^ (-(n : ℤ)) = 1 := by
+      rw [hncast]
+      exact hpow
+    have hgt : 1 < (Ideal.absNorm v.asIdeal : ℝ) ^
+        n :=
+      one_lt_pow₀ hq hnpos.ne'
+    have hlt : (Ideal.absNorm v.asIdeal : ℝ) ^ (-(n : ℤ)) < 1 := by
+      rw [zpow_neg, zpow_natCast]
+      exact (inv_lt_one₀ (pow_pos (by positivity) _)).2 hgt
+    linarith
+  simpa [frequencyValuation, x] using htoNat
+
 /-- po:H-local-bounds: installing the numerical cutoff in the frozen CE parameter implies
 small principal factors on the entire enlarged neighborhoods. -/
 theorem po_H_principal_cutoff (C Q0 : ℝ) (Q1 : ℕ) :
@@ -1027,6 +1136,32 @@ theorem po_H_principal_cutoff (C Q0 : ℝ) (Q1 : ℕ) :
   (∀ Q : ℝ, (Q1 : ℝ) < Q → C * Q ^ (-(1 + 1 / 4000 : ℝ)) < 1 / 2) →
   ∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2 := by
-  sorry
+  intro hEuler hBounds hQ0 hQ1 hCut v hv p hp
+  have hreprCount : 0 ≤ FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (U.repr U.one : F)) :=
+    (U.sixth_power_free U.one v hv).1
+  have hfreq := euler_frequency_valuation_one_eq_zero (D := D) (S := S)
+    (η := η) (U := U) v hv hreprCount
+  have hnorm : (Q1 : ℝ) < qI v.asIdeal := by
+    have hnot : ¬ Ideal.absNorm v.asIdeal ≤ CE := by
+      intro hle
+      exact hv (S.euler_mem v hle)
+    have hCE : CE < Ideal.absNorm v.asIdeal := Nat.lt_of_not_ge hnot
+    have hqCE : (CE : ℝ) < qI v.asIdeal := by
+      change (CE : ℝ) < (Ideal.absNorm v.asIdeal : ℝ)
+      exact_mod_cast hCE
+    have hQ1CE : (Q1 : ℝ) ≤ (CE : ℝ) := by exact_mod_cast hQ1
+    exact lt_of_le_of_lt hQ1CE hqCE
+  have hnorm0 : Q0 < qI v.asIdeal := lt_trans hQ0 hnorm
+  rcases hBounds with ⟨hC, hQ0pos, hLocal⟩
+  have hlocal := (hLocal U.one v hv p hnorm0 hp).2
+  have hcut := hCut (qI v.asIdeal) hnorm
+  have hexp : (-1 - 1 / 4000 : ℝ) = -(1 + 1 / 4000 : ℝ) := by ring
+  have hlocal' : ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ ≤
+      C * qI v.asIdeal ^ (-(1 + 1 / 4000 : ℝ)) := by
+    rw [if_pos hfreq] at hlocal
+    rw [hexp] at hlocal
+    exact hlocal
+  exact lt_of_le_of_lt hlocal' hcut
 end CanonicalEulerObject
 end ArtinPrimitiveRoots.A2
