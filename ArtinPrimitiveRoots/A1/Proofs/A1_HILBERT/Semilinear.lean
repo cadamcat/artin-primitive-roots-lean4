@@ -19,7 +19,7 @@ noncomputable section
 
 namespace ArtinPrimitiveRoots.Proofs.a1_hilbert_sol
 
-private theorem simpleKummerSplits
+theorem simpleKummerSplits
     (K E : Type) [Field K] [Field E] [Algebra K E]
     (n : ℕ+) (hmu : (primitiveRoots (n : ℕ) K).Nonempty)
     (b : K) (β : E)
@@ -95,7 +95,7 @@ private theorem simpleKummerSemilinearEquiv
       (Polynomial.IsSplittingField.algEquiv E' p).symm
   exact ⟨eL.toRingEquiv, fun x => eL.commutes x⟩
 
-private theorem simpleSymbolRootQuotient
+theorem simpleSymbolRootQuotient
     (K : Type) [Field K] [ValuativeRel K] [TopologicalSpace K]
     [IsNonarchimedeanLocalField K]
     (n : ℕ+) (hnK : ((n : ℕ) : K) ≠ 0)
@@ -114,7 +114,7 @@ private theorem simpleSymbolRootQuotient
   exact hmap.trans
     (congrArg Subtype.val (chosenSimpleKummerRootCharacter_apply K n hnK hmu b σ))
 
-private theorem rootQuotientSamePow
+theorem rootQuotientSamePow
     (K E : Type) [Field K] [Field E] [Algebra K E]
     (n : ℕ+) (hmu : (primitiveRoots (n : ℕ) K).Nonempty)
     (b : Kˣ) (β γ : Eˣ)
