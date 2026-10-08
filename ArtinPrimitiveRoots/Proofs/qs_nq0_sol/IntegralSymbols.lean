@@ -80,4 +80,20 @@ theorem qs_nq0_chi_cube_quad_symbol
     rw [hcube, hz, map_neg, map_one, map_neg, map_one, hquad,
       Int.cast_neg, Int.cast_one]
 
+/-- A generator of an exterior integral ideal belongs to the ring of S-integers. -/
+theorem qs_nq0_generator_is_sinteger
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (Sd : SData K CE condη) (I : Ideal (𝓞 K)) (c : K)
+    (hc : Sd.IsGen c I) : c ∈ Sd.R := by
+  change ∀ v : FinPlace K, v ∉ Sd.Sf → v.valuation K c ≤ 1
+  intro v hv
+  have hcount := qs_nq0_count_spanSingleton_eq_neg_log_valuation v c hc.2.1
+  rw [hc.2.2 v hv] at hcount
+  have hnonneg := FractionalIdeal.count_coe_nonneg K v I
+  have hnonpos : WithZero.log (v.valuation K c) ≤ 0 := by omega
+  calc
+    v.valuation K c = WithZero.exp (WithZero.log (v.valuation K c)) :=
+      (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr hc.2.1)).symm
+    _ ≤ 1 := WithZero.exp_le_one_iff.mpr hnonpos
+
 end ArtinPrimitiveRoots.A2
