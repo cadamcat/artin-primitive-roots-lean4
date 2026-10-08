@@ -19,7 +19,7 @@ set_option autoImplicit false
 
 open NumberField IsDedekindDomain MeasureTheory
 open ArtinPrimitiveRoots.A1.Theta
-open scoped Classical SchwartzMap
+open scoped Classical SchwartzMap nonZeroDivisors
 
 noncomputable section
 
@@ -691,6 +691,93 @@ private theorem covol_addchar_eq_trace_exp (S : SData F CE condη)
     rw [Complex.exp_neg] at h
     exact ((inv_inj).mp h).symm
   simpa [f] using hψ
+
+private lemma covol_count_spanSingleton_div (v : FinPlace F) (x y : F)
+    (hx : x ≠ 0) (hy : y ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x / y)) =
+      FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) x) -
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) y) := by
+  rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
+    FractionalIdeal.count_mul F v
+      (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hx)
+      (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hy)),
+    FractionalIdeal.count_inv]
+  ring
+
+private lemma covol_count_spanSingleton_eq_neg_log_intValuation
+    (v : FinPlace F) (r : 𝓞 F) (hr : r ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F r)) = -WithZero.log (v.intValuation r) := by
+  have hspan : (Ideal.span {r} : Ideal (𝓞 F)) ≠ 0 := by
+    simpa [ne_eq, Ideal.zero_eq_bot, Ideal.span_singleton_eq_bot] using hr
+  rw [← FractionalIdeal.coeIdeal_span_singleton, hspan |> fun h =>
+      FractionalIdeal.count_coe F v h, v.intValuation_if_neg hr, WithZero.log_exp]
+  ring
+
+set_option linter.unnecessarySimpa false in
+private lemma covol_count_spanSingleton_eq_neg_log_valuation
+    (v : FinPlace F) (z : F) (hz : z ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z) =
+      -WithZero.log (HeightOneSpectrum.valuation F v z) := by
+  obtain ⟨n, d, hnd⟩ := IsLocalization.exists_mk'_eq (nonZeroDivisors (𝓞 F)) z
+  have hn : n ≠ 0 := by
+    intro hn
+    apply hz
+    rw [← hnd, IsFractionRing.mk'_eq_div, hn, map_zero, zero_div]
+  have hd : (d : 𝓞 F) ≠ 0 := nonZeroDivisors.ne_zero d.2
+  have hmapn : (algebraMap (𝓞 F) F n) ≠ 0 := by
+    intro h
+    exact hn ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hmapd : (algebraMap (𝓞 F) F (d : 𝓞 F)) ≠ 0 := by
+    intro h
+    exact hd ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hval : HeightOneSpectrum.valuation F v z =
+      v.intValuation n / v.intValuation (d : 𝓞 F) := by
+    rw [← hnd]
+    exact v.valuation_of_mk'
+  rw [hval, ← hnd, IsFractionRing.mk'_eq_div,
+    covol_count_spanSingleton_div v (algebraMap (𝓞 F) F n)
+      (algebraMap (𝓞 F) F (d : 𝓞 F)) hmapn hmapd,
+    covol_count_spanSingleton_eq_neg_log_intValuation v n hn,
+    covol_count_spanSingleton_eq_neg_log_intValuation v (d : 𝓞 F) hd,
+    WithZero.log_div (v.intValuation_ne_zero n hn) (v.intValuation_ne_zero (d : 𝓞 F) hd)]
+  ring
+
+private abbrev covolCodifferent : FractionalIdeal (𝓞 F)⁰ F :=
+  FractionalIdeal.dual ℤ ℚ (1 : FractionalIdeal (𝓞 F)⁰ F)
+
+private theorem covol_traceDual_valuation_bound (v : FinPlace F) {z : F}
+    (hz0 : z ≠ 0)
+    (hdual : z ∈ Submodule.traceDual ℤ ℚ (1 : Submodule (𝓞 F) F)) :
+    v.valuation F z ≤ WithZero.exp
+      (FractionalIdeal.count F v (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)) := by
+  let D := differentIdeal ℤ (𝓞 F)
+  have hD0 : D ≠ ⊥ := differentIdeal_ne_bot
+  have hDcod : (D : FractionalIdeal (𝓞 F)⁰ F) = covolCodifferent⁻¹ := by
+    simpa [D, covolCodifferent] using (coeIdeal_differentIdeal ℤ ℚ F (𝓞 F))
+  have hcodcount : FractionalIdeal.count F v covolCodifferent =
+      -FractionalIdeal.count F v (D : FractionalIdeal (𝓞 F)⁰ F) := by
+    rw [hDcod, FractionalIdeal.count_inv]
+    ring
+  have hzCod : z ∈ (covolCodifferent (F := F) : Submodule (𝓞 F) F) := by
+    simpa [covolCodifferent, FractionalIdeal.coe_dual_one] using hdual
+  have hspanle : FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z ≤
+      covolCodifferent :=
+    FractionalIdeal.spanSingleton_le_iff_mem.mpr hzCod
+  have hcountle := FractionalIdeal.count_mono F v
+    (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hz0) hspanle
+  have hcountz := covol_count_spanSingleton_eq_neg_log_valuation v z hz0
+  have hlogle : WithZero.log (v.valuation F z) ≤
+      FractionalIdeal.count F v (D : FractionalIdeal (𝓞 F)⁰ F) := by
+    rw [hcountz, hcodcount] at hcountle
+    linarith
+  exact (WithZero.log_le_iff_le_exp
+    ((v.valuation F).ne_zero_iff.mpr hz0)).mp hlogle
 
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
