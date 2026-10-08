@@ -513,7 +513,175 @@ theorem spl_smooth_estimate (δ : ℝ) (hδ : 0 < δ) (hδ' : δ < 1 / 2)
         primeIdealTheta K f x ≤
           C * (x + Real.rpow x (1 - δ) *
             (Real.log (absoluteDiscriminant K) + Module.finrank ℚ K)) := by
-  sorry
+  obtain ⟨Ce, hCe, hExplicit⟩ := spl_explicit_formula f hf
+  obtain ⟨Cz, hCz, hZeroSum⟩ := spl_zero_sum f hf δ hδ hδ'
+  let C : ℝ := 1 + ‖mellinTransform f 1‖ + 2 * Cz + Ce
+  have hC : 0 < C := by
+    dsimp [C]
+    positivity
+  refine ⟨C, hC, ?_⟩
+  intro K _ _ hzero x hx
+  have hxpos : 0 < x := by linarith
+  have hxone : 1 ≤ x := by linarith
+  have hδexp : 0 < 1 - δ := by linarith
+  have hpowPos : 0 < Real.rpow x (1 - δ) := Real.rpow_pos_of_pos hxpos _
+  have hpowOne : 1 ≤ Real.rpow x (1 - δ) := by
+    calc
+      1 = Real.rpow x 0 := by simp
+      _ ≤ Real.rpow x (1 - δ) :=
+        Real.rpow_le_rpow_of_exponent_le hxone (by linarith)
+  have hpowTail : Real.rpow x (-1 / 2 : ℝ) ≤ Real.rpow x (1 - δ) :=
+    Real.rpow_le_rpow_of_exponent_le hxone (by linarith)
+
+  have hdiscNat : (NumberField.discr K).natAbs ≠ 0 :=
+    Int.natAbs_ne_zero.mpr (NumberField.discr_ne_zero K)
+  have hdiscCast : ((NumberField.discr K).natAbs : ℝ) = absoluteDiscriminant K := by
+    simp [absoluteDiscriminant, Nat.cast_natAbs]
+  have hdiscNatOne : 1 ≤ (NumberField.discr K).natAbs :=
+    Nat.one_le_iff_ne_zero.mpr hdiscNat
+  have hdisc : 1 ≤ absoluteDiscriminant K := by
+    rw [← hdiscCast]
+    exact_mod_cast hdiscNatOne
+  have hlogD : 0 ≤ Real.log (absoluteDiscriminant K) := Real.log_nonneg hdisc
+  have hdegree : 0 < Module.finrank ℚ K := Module.finrank_pos
+  have hdegreeR : 0 < (Module.finrank ℚ K : ℝ) := Nat.cast_pos.mpr hdegree
+  let W : ℝ := Real.log (absoluteDiscriminant K) + (Module.finrank ℚ K : ℝ)
+  have hW : 0 < W := by dsimp [W]; positivity
+  have hdegree_le_W : (Module.finrank ℚ K : ℝ) ≤ W := by
+    dsimp [W]
+    linarith
+
+  obtain ⟨R, hExplicitSummable, hExplicitFormula, hR⟩ := hExplicit K x hx
+  obtain ⟨hZeroSummable, hZeroBound, hResidueBound⟩ := hZeroSum K hzero x hx
+  let zeroTerm : ℂ → ℂ := fun ρ =>
+    if ρ ∈ nontrivialZeros K then
+      (zeroMultiplicity K ρ : ℂ) * Complex.cpow (x : ℂ) ρ * mellinTransform f ρ
+    else 0
+  let zeroNorm : ℂ → ℝ := fun ρ =>
+    if ρ ∈ nontrivialZeros K then
+      (zeroMultiplicity K ρ : ℝ) *
+        ‖Complex.cpow (x : ℂ) ρ * mellinTransform f ρ‖
+    else 0
+  have hNormEq : (fun ρ : ℂ => ‖zeroTerm ρ‖) = zeroNorm := by
+    funext ρ
+    by_cases hρ : ρ ∈ nontrivialZeros K
+    · simp [zeroTerm, zeroNorm, hρ, norm_mul]
+      ring
+    · simp [zeroTerm, zeroNorm, hρ]
+  have hNormSummable : Summable (fun ρ : ℂ => ‖zeroTerm ρ‖) := by
+    rw [hNormEq]
+    exact hZeroSummable
+  have hComplexZeroBound :
+      ‖∑' ρ : ℂ, zeroTerm ρ‖ ≤ Cz * Real.rpow x (1 - δ) * W := by
+    calc
+      _ ≤ ∑' ρ : ℂ, ‖zeroTerm ρ‖ := norm_tsum_le_tsum_norm hNormSummable
+      _ = ∑' ρ : ℂ, zeroNorm ρ := by rw [hNormEq]
+      _ ≤ Cz * Real.rpow x (1 - δ) * W := by
+        simpa [zeroNorm, W] using hZeroBound
+
+  have hResidueNorm :
+      ‖((InfinitePlace.nrRealPlaces K + InfinitePlace.nrComplexPlaces K - 1 : ℕ) : ℂ) *
+        mellinTransform f 0‖ ≤ Cz * (Module.finrank ℚ K : ℝ) := by
+    simpa only [norm_mul, Complex.norm_natCast] using hResidueBound
+
+  have hTriangle :
+      ‖(x : ℂ) * mellinTransform f 1 - (∑' ρ : ℂ, zeroTerm ρ) -
+        ((InfinitePlace.nrRealPlaces K + InfinitePlace.nrComplexPlaces K - 1 : ℕ) : ℂ) *
+          mellinTransform f 0 + R‖ ≤
+        ‖(x : ℂ) * mellinTransform f 1‖ +
+          ‖∑' ρ : ℂ, zeroTerm ρ‖ +
+          ‖((InfinitePlace.nrRealPlaces K + InfinitePlace.nrComplexPlaces K - 1 : ℕ) : ℂ) *
+            mellinTransform f 0‖ + ‖R‖ := by
+    calc
+      _ ≤ ‖(x : ℂ) * mellinTransform f 1 - (∑' ρ : ℂ, zeroTerm ρ) -
+          ((InfinitePlace.nrRealPlaces K + InfinitePlace.nrComplexPlaces K - 1 : ℕ) : ℂ) *
+            mellinTransform f 0‖ + ‖R‖ := norm_add_le _ _
+      _ ≤ (‖(x : ℂ) * mellinTransform f 1 - (∑' ρ : ℂ, zeroTerm ρ)‖ +
+          ‖((InfinitePlace.nrRealPlaces K + InfinitePlace.nrComplexPlaces K - 1 : ℕ) : ℂ) *
+            mellinTransform f 0‖) + ‖R‖ := by
+        have hsub := norm_sub_le
+          ((x : ℂ) * mellinTransform f 1 - (∑' ρ : ℂ, zeroTerm ρ))
+          (((InfinitePlace.nrRealPlaces K + InfinitePlace.nrComplexPlaces K - 1 : ℕ) : ℂ) *
+            mellinTransform f 0)
+        nlinarith
+      _ ≤ (‖(x : ℂ) * mellinTransform f 1‖ + ‖∑' ρ : ℂ, zeroTerm ρ‖ +
+          ‖((InfinitePlace.nrRealPlaces K + InfinitePlace.nrComplexPlaces K - 1 : ℕ) : ℂ) *
+            mellinTransform f 0‖) + ‖R‖ := by
+        have hsub := norm_sub_le ((x : ℂ) * mellinTransform f 1) (∑' ρ : ℂ, zeroTerm ρ)
+        linarith
+      _ = _ := by ring
+
+  have hthetaNorm :
+      ‖(primeIdealTheta K f x : ℂ)‖ ≤
+        ‖mellinTransform f 1‖ * x +
+          Cz * Real.rpow x (1 - δ) * W + Cz * (Module.finrank ℚ K : ℝ) +
+            Ce * Real.rpow x (-1 / 2 : ℝ) * W := by
+    rw [hExplicitFormula]
+    calc
+      _ ≤ ‖(x : ℂ) * mellinTransform f 1‖ +
+          ‖∑' ρ : ℂ, zeroTerm ρ‖ +
+          ‖((InfinitePlace.nrRealPlaces K + InfinitePlace.nrComplexPlaces K - 1 : ℕ) : ℂ) *
+            mellinTransform f 0‖ + ‖R‖ := hTriangle
+      _ ≤ ‖mellinTransform f 1‖ * x +
+          Cz * Real.rpow x (1 - δ) * W + Cz * (Module.finrank ℚ K : ℝ) +
+            Ce * Real.rpow x (-1 / 2 : ℝ) * W := by
+        have hmain : ‖(x : ℂ) * mellinTransform f 1‖ =
+            ‖mellinTransform f 1‖ * x := by
+          simp only [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hxpos]
+          ring
+        rw [hmain]
+        dsimp [W] at *
+        nlinarith [hComplexZeroBound, hResidueNorm, hR]
+
+  have hthetaLeNorm : primeIdealTheta K f x ≤ ‖(primeIdealTheta K f x : ℂ)‖ := by
+    rw [Complex.norm_real]
+    exact le_abs_self _
+  have hXWnonneg : 0 ≤ Real.rpow x (1 - δ) * W := by positivity
+  have hTailAbsorb :
+      Ce * Real.rpow x (-1 / 2 : ℝ) * W ≤ Ce * Real.rpow x (1 - δ) * W := by
+    exact mul_le_mul_of_nonneg_right
+      (mul_le_mul_of_nonneg_left hpowTail hCe.le) hW.le
+  have hResidueAbsorb :
+      Cz * (Module.finrank ℚ K : ℝ) ≤ Cz * Real.rpow x (1 - δ) * W := by
+    calc
+      _ ≤ Cz * W := mul_le_mul_of_nonneg_left hdegree_le_W hCz.le
+      _ ≤ Cz * (Real.rpow x (1 - δ) * W) := by
+        have := mul_le_mul_of_nonneg_right hpowOne hW.le
+        nlinarith [hCz.le]
+      _ = Cz * Real.rpow x (1 - δ) * W := by ring
+  have hcombined :
+      primeIdealTheta K f x ≤
+        ‖mellinTransform f 1‖ * x + (2 * Cz + Ce) *
+          (Real.rpow x (1 - δ) * W) := by
+    calc
+      _ ≤ ‖(primeIdealTheta K f x : ℂ)‖ := hthetaLeNorm
+      _ ≤ ‖mellinTransform f 1‖ * x +
+          Cz * Real.rpow x (1 - δ) * W + Cz * (Module.finrank ℚ K : ℝ) +
+            Ce * Real.rpow x (-1 / 2 : ℝ) * W := hthetaNorm
+      _ ≤ ‖mellinTransform f 1‖ * x + (2 * Cz + Ce) *
+          (Real.rpow x (1 - δ) * W) := by
+        have hsumAbsorb := add_le_add hResidueAbsorb hTailAbsorb
+        dsimp [W] at *
+        nlinarith [hsumAbsorb]
+
+  have hcoeffX : ‖mellinTransform f 1‖ ≤ C := by
+    dsimp [C]
+    have hn : 0 ≤ ‖mellinTransform f 1‖ := norm_nonneg _
+    linarith [hCz, hCe]
+  have hcoeffY : 2 * Cz + Ce ≤ C := by
+    dsimp [C]
+    have hn : 0 ≤ ‖mellinTransform f 1‖ := norm_nonneg _
+    linarith
+  calc
+    primeIdealTheta K f x ≤
+        ‖mellinTransform f 1‖ * x + (2 * Cz + Ce) *
+          (Real.rpow x (1 - δ) * W) := hcombined
+    _ ≤ C * (x + Real.rpow x (1 - δ) * W) := by
+      have hfirst := mul_le_mul_of_nonneg_right hcoeffX hxpos.le
+      have hsecond := mul_le_mul_of_nonneg_right hcoeffY hXWnonneg
+      calc
+        _ ≤ C * x + C * (Real.rpow x (1 - δ) * W) := add_le_add hfirst hsecond
+        _ = C * (x + Real.rpow x (1 - δ) * W) := by ring
 
 end ArtinPrimitiveRoots.Splitting
 
