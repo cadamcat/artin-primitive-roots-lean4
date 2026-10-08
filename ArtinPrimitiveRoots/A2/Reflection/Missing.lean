@@ -805,7 +805,57 @@ theorem rf_frozen_frequency_norm_class : ∀ h (t : FrozenIndex R h) d c sd sc,
     S.absS (S.diagU (frozenFrequency R t d c) : S.FS) =
       qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 / (qI d.1 ^ 2 * qI t.f.1 ^ 2) ∧
     cls (S.diagU (frozenFrequency R t d c)) = kappaSix R t sd sc := by
-  sorry
+  intro h t d c sd sc hsd hsc
+  constructor
+  · have hbridge := a2_bridge_NORM D S
+    have hmul (x y : S.FSˣ) :
+        S.absS ((x * y : S.FSˣ) : S.FS) =
+          S.absS (x : S.FS) * S.absS (y : S.FS) := by
+      exact hbridge.2.1 (x : S.FS) (y : S.FS)
+    have hdiv (x y : S.FSˣ) :
+        S.absS ((x / y : S.FSˣ) : S.FS) =
+          S.absS (x : S.FS) / S.absS (y : S.FS) := hbridge.2.2.2.2.1 x y
+    have hpow2 (x : S.FSˣ) :
+        S.absS ((x ^ 2 : S.FSˣ) : S.FS) = S.absS (x : S.FS) ^ 2 := by
+      simpa [pow_succ] using hmul x x
+    have hpow3 (x : S.FSˣ) :
+        S.absS ((x ^ 3 : S.FSˣ) : S.FS) = S.absS (x : S.FS) ^ 3 := by
+      calc
+        S.absS ((x ^ 3 : S.FSˣ) : S.FS) =
+            S.absS ((x ^ (3 : ℤ) : S.FSˣ) : S.FS) := by
+          exact (congrArg (fun z : S.FSˣ => S.absS (z : S.FS))
+            (zpow_natCast x 3)).symm
+        _ = S.absS (x : S.FS) ^ (3 : ℤ) := hbridge.2.2.2.2.2 x (3 : ℤ)
+        _ = S.absS (x : S.FS) ^ 3 := rfl
+    have heps : S.absS (S.diagU (R.sheets.eps t.u) : S.FS) = 1 :=
+      hbridge.2.2.2.1 (R.sheets.eps t.u)
+    have ha := a2_bridge_NORM_gen D S H Bd bc t.a
+    have hc := a2_bridge_NORM_gen D S H Bd bc (R.exterior.ofSqf c)
+    have hn := a2_bridge_NORM_gen D S H Bd bc t.n
+    have hd := a2_bridge_NORM_gen D S H Bd bc d
+    have hf := a2_bridge_NORM_gen D S H Bd bc t.f
+    change S.absS (S.diagU (frozenFrequency R t d c) : S.FS) = _
+    simp only [frozenFrequency, map_div, map_mul, map_pow]
+    simp only [hdiv, hmul, hpow2, hpow3]
+    rw [heps, ha, hc, hn, hd, hf]
+    simp only [idealNorm, qI, R.exterior.ofSqf_val]
+    ring
+  · simp only [frozenFrequency, kappaSix, map_div, map_mul, map_pow]
+    dsimp only [cls] at hsd hsc ⊢
+    simp only [QuotientGroup.mk_div, QuotientGroup.mk_mul, QuotientGroup.mk_pow] at *
+    rw [hsd, hsc]
+    have hden (x y : S.V) : ((x * y) ^ 2)⁻¹ = x ^ (-2 : ℤ) * y ^ (-2 : ℤ) := by
+      calc
+        ((x * y) ^ 2)⁻¹ = (x * y) ^ (-2 : ℤ) := by
+          rw [show (-2 : ℤ) = Int.negSucc 1 by rfl, zpow_negSucc]
+        _ = x ^ (-2 : ℤ) * y ^ (-2 : ℤ) := mul_zpow x y (-2 : ℤ)
+    rw [div_eq_mul_inv, hden]
+    let pref : S.V := cls (S.diagU (R.sheets.eps t.u)) *
+      cls (S.diagU (bc.gen t.a)) * sc.1 * cls (S.diagU (bc.gen t.n)) ^ 3
+    change pref * (sd.1 ^ (-2 : ℤ) * cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ)) =
+      (pref * sd.1 ^ (-2 : ℤ)) * cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ)
+    exact (mul_assoc pref (sd.1 ^ (-2 : ℤ))
+      (cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ))).symm
 def activePartial (retained : Bool) (υ : UnitSix S) (h d f : S.ExtIdeal)
     (u : UnitSix S) (sd sc : Bd.B) (Z R0 : ℝ) : ℂ :=
   ∑' p : {t : FrozenIndex R h // t.f = f ∧ t.u = u} × S.SqfExtIdeal,
@@ -1004,7 +1054,106 @@ theorem rf_S_averaged : ∀ u (ν : Fˣ) Z, 0 < Z →
       sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
         rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))) / (T : ℂ)) =
       (Lvalue R u (S.diagU ν))⁻¹ * profilePhi R u (cls (S.diagU ν)) (Z * S.absS (S.diagU ν : S.FS)) := by
-  sorry
+  intro u ν Z hZ
+  let κ : S.V := cls (S.diagU ν)
+  let m : S.FSˣ → ℂ := fun y =>
+    (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+      R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y
+  let b : S.V → ℂ := fun x =>
+    (if κ * x⁻¹ ∈ Bd.B then 1 else 0) * R.pairing.pair κ x ^ 2
+  have hb : ∀ x, ‖b x‖ ≤ 1 := by
+    intro x
+    by_cases hx : κ * x⁻¹ ∈ Bd.B <;> simp [b, hx, R.pairing.unitary κ x]
+  have hm : Theta.SheetMultiplier S (onUnits m) := by
+    refine ⟨R.chars.L u, 1, b, ⟨1, hb⟩, ?_⟩
+    intro y
+    have hunit : IsUnit (y : S.FS) := Units.isUnit y
+    have hunit_eq : hunit.unit = y := by
+      apply Units.ext
+      exact hunit.unit_spec
+    change (if h : IsUnit (y : S.FS) then m h.unit else 0) =
+      (((R.chars.L u).L y : ℂˣ) : ℂ) ^ (1 : ℤ) * b (cls y)
+    rw [dif_pos hunit, hunit_eq]
+    by_cases hy : κ * (cls y)⁻¹ ∈ Bd.B
+    · simp [m, b, Lvalue, hy, mul_comm, mul_left_comm]
+    · simp [m, b, Lvalue, hy]
+  have hprofile (ℓ : Fin (R.rotated u).J) (x : ℝ) :
+      profileH R u κ ℓ x =
+        bridgeProfileH R.sheets m (R.rotated u).J (R.rotated u).ff (R.rotated u).fc ℓ x := by
+    rfl
+  have hKmeas : AEStronglyMeasurable R.K (volume.restrict (Set.Ioi (0 : ℝ))) :=
+    R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi
+  have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ ((R.rotated u).ff ℓ v) :=
+    (R.rotated u).finite_bound
+  have hfc : ∀ ℓ w, SheetHypC R.T.δ ((R.rotated u).fc ℓ w) :=
+    (R.rotated u).complex_bound
+  have hconv := a2_bridge_ANALYSIS_convolution (G := R.sheets) R.T.δ R.T.δ_pos
+    (R.rotated u).J (R.rotated u).ff (R.rotated u).fc hff hfc R.K hKmeas
+    R.K_moments m hm
+  have hnormν : 0 < S.absS (S.diagU ν : S.FS) :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU ν)
+  let x : ℝ := Z * S.absS (S.diagU ν : S.FS)
+  have hx : 0 < x := mul_pos hZ hnormν
+  have hprofInt (ℓ : Fin (R.rotated u).J) :
+      IntegrableOn (fun T : ℝ =>
+        R.K T * profileH R u κ ℓ (x / T) / (T : ℂ)) (Set.Ioi 0) := by
+    simpa only [← hprofile] using (hconv x hx).2.2 ℓ
+  have hpoint (T : ℝ) (hT : 0 < T) :
+      (∑' γ : Gamma S, omegaInt R (T / Z) (fun y => bCut (Bd := Bd) y *
+        (Lvalue R u y)⁻¹ *
+          sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+            rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))) =
+        (Lvalue R u (S.diagU ν))⁻¹ *
+          ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ (x / T) := by
+    have hu := rf_S_unfolding R u ν (T / Z) (div_pos hT hZ)
+    have harg : S.absS (S.diagU ν : S.FS) / (T / Z) = x / T := by
+      dsimp [x]
+      field_simp [ne_of_gt hT, ne_of_gt hZ]
+    simpa only [harg] using hu.2
+  have hcongr :
+      (fun T : ℝ => R.K T *
+        (∑' γ : Gamma S, omegaInt R (T / Z) (fun y => bCut (Bd := Bd) y *
+          (Lvalue R u y)⁻¹ *
+            sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+              rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))) / (T : ℂ)) =ᵐ[
+        volume.restrict (Set.Ioi (0 : ℝ))]
+      fun T => (Lvalue R u (S.diagU ν))⁻¹ *
+        ∑ ℓ : Fin (R.rotated u).J,
+          R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    calc
+      _ = (Lvalue R u (S.diagU ν))⁻¹ *
+          ((R.K T / (T : ℂ)) *
+            ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ (x / T)) := by
+        rw [hpoint T hT]
+        ring
+      _ = (Lvalue R u (S.diagU ν))⁻¹ *
+          ∑ ℓ : Fin (R.rotated u).J,
+            R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+        rw [Finset.mul_sum]
+        apply congrArg (fun z : ℂ => (Lvalue R u (S.diagU ν))⁻¹ * z)
+        apply Finset.sum_congr rfl
+        intro ℓ hℓ
+        ring
+  calc
+    (∫ T in Set.Ioi (0 : ℝ), R.K T *
+        (∑' γ : Gamma S, omegaInt R (T / Z) (fun y => bCut (Bd := Bd) y *
+          (Lvalue R u y)⁻¹ *
+            sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+              rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))) / (T : ℂ)) =
+        ∫ T in Set.Ioi (0 : ℝ), (Lvalue R u (S.diagU ν))⁻¹ *
+          ∑ ℓ : Fin (R.rotated u).J,
+            R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+      exact integral_congr_ae hcongr
+    _ = (Lvalue R u (S.diagU ν))⁻¹ *
+        ∑ ℓ : Fin (R.rotated u).J,
+          ∫ T in Set.Ioi (0 : ℝ),
+            R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+      rw [integral_const_mul, integral_finsetSum]
+      intro ℓ hℓ
+      exact hprofInt ℓ
+    _ = (Lvalue R u (S.diagU ν))⁻¹ * profilePhi R u κ x := by
+      simp [profilePhi, profilePhiTerm]
 /-- rf:retained-mass, 04:1143-1167. A single retained column with its fixed profile. -/
 def retainedColumn (υ : UnitSix S) {h : S.ExtIdeal} (t : FrozenIndex R h) (sd sc : Bd.B)
     (d : S.ExtIdeal) (C Z R0 : ℝ) : ℂ :=
