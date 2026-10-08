@@ -844,6 +844,103 @@ private theorem covol_traceDual_of_local_bounds {z : F}
     FractionalIdeal.mem_coe.mpr hzCod
   simpa [covolCodifferent, FractionalIdeal.coe_dual_one] using hzCodSub
 
+private theorem covol_local_character_trivial_on_different_ball
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (v : S.Sf) (x : v.1.adicCompletion F)
+    (hx : Valued.v x ≤ WithZero.exp
+      (FractionalIdeal.count F v.1
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F))) :
+    A.ψ v.1 x = 1 := by
+  classical
+  let d := FractionalIdeal.count F v.1
+    (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)
+  let target : ∀ q : S.Sf, q.1.adicCompletion F := fun q =>
+    dite (q = v) (fun h => h.symm ▸ x) (fun _ => 0)
+  obtain ⟨r, hrApprox⟩ :=
+    ArtinPrimitiveRoots.Proofs.A1_LATTICE.s_integer_finite_approx S target
+  have hres : x - algebraMap F (v.1.adicCompletion F) (r : F) ∈
+      v.1.adicCompletionIntegers F := by
+    simpa [target] using hrApprox v
+  have hcompletionIntVal (q : FinPlace F) {y : q.adicCompletion F}
+      (hy : y ∈ q.adicCompletionIntegers F) : Valued.v y ≤ 1 := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers] at hy
+    exact hy
+  have hd_nonneg : 0 ≤ d := by
+    simpa [d] using (FractionalIdeal.count_coe_nonneg F v.1
+      (differentIdeal ℤ (𝓞 F)))
+  have hOneLeD : 1 ≤ WithZero.exp d := WithZero.one_le_exp_iff.mpr hd_nonneg
+  have hresVal : Valued.v (x - algebraMap F (v.1.adicCompletion F) (r : F)) ≤ 1 :=
+    hcompletionIntVal v.1 hres
+  have hresBound : Valued.v (x - algebraMap F (v.1.adicCompletion F) (r : F)) ≤
+      WithZero.exp d := hresVal.trans hOneLeD
+  have hrValComp : Valued.v (algebraMap F (v.1.adicCompletion F) (r : F)) ≤
+      WithZero.exp d := by
+    have h := (Valued.v : Valuation (v.1.adicCompletion F) _).map_sub_le hx hresBound
+    simpa [sub_sub_cancel] using h
+  have hrVal : v.1.valuation F (r : F) ≤ WithZero.exp d := by
+    change Valued.v ((r : F) : v.1.adicCompletion F) ≤ WithZero.exp d at hrValComp
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation'] at hrValComp
+    exact hrValComp
+  have hother (q : S.Sf) (hqv : q ≠ v) :
+      algebraMap F (q.1.adicCompletion F) (r : F) ∈ q.1.adicCompletionIntegers F := by
+    have hneg : -(algebraMap F (q.1.adicCompletion F) (r : F)) ∈
+        q.1.adicCompletionIntegers F := by
+      simpa [target, hqv] using hrApprox q
+    simpa using (q.1.adicCompletionIntegers F).neg_mem _ hneg
+  have hDnonneg (q : FinPlace F) :
+      0 ≤ FractionalIdeal.count F q
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F) := by
+    simpa using (FractionalIdeal.count_coe_nonneg F q (differentIdeal ℤ (𝓞 F)))
+  have hrGlobalBound (q : FinPlace F) : q.valuation F (r : F) ≤
+      WithZero.exp (FractionalIdeal.count F q
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)) := by
+    have hOneLe : 1 ≤ WithZero.exp (FractionalIdeal.count F q
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)) :=
+      WithZero.one_le_exp_iff.mpr (hDnonneg q)
+    by_cases hqS : q ∈ S.Sf
+    · let qS : S.Sf := ⟨q, hqS⟩
+      by_cases hqv : qS = v
+      · have hq : q = v.1 := congrArg Subtype.val hqv
+        rw [hq]
+        simpa [d] using hrVal
+      · have hqInt := hother qS hqv
+        have hqValComp := hcompletionIntVal q hqInt
+        change Valued.v ((r : F) : qS.1.adicCompletion F) ≤ 1 at hqValComp
+        rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation'] at hqValComp
+        exact hqValComp.trans hOneLe
+    · exact (r.property q hqS).trans hOneLe
+  have hrDual : (r : F) ∈ Submodule.traceDual ℤ ℚ (1 : Submodule (𝓞 F) F) :=
+    covol_traceDual_of_local_bounds hrGlobalBound
+  have htrace := (Submodule.mem_traceDual.mp hrDual) 1 (by simp)
+  have htraceRange : Algebra.trace ℚ F (r : F) ∈ (algebraMap ℤ ℚ).range := by
+    simpa only [Algebra.traceForm_apply, mul_one] using htrace
+  obtain ⟨n, hn⟩ := RingHom.mem_range.mp htraceRange
+  have htraceC : (Algebra.trace ℚ F (r : F) : ℂ) = (n : ℂ) := by
+    exact_mod_cast hn.symm
+  have hexp : Complex.exp (2 * Real.pi * Complex.I *
+      (Algebra.trace ℚ F (r : F) : ℂ)) = 1 := by
+    rw [htraceC]
+    have harg : 2 * Real.pi * Complex.I * (n : ℂ) =
+        (n : ℂ) * (2 * Real.pi * Complex.I) := by ring
+    rw [harg]
+    exact Complex.exp_int_mul_two_pi_mul_I n
+  have hrq : ∀ q : S.Sf, q ≠ v →
+      algebraMap F (q.1.adicCompletion F) (r : F) ∈ q.1.adicCompletionIntegers F :=
+    fun q hqv => hother q hqv
+  have hψr := covol_addchar_eq_trace_exp S A v r hrq
+  rw [hexp] at hψr
+  have hsum : x = algebraMap F (v.1.adicCompletion F) (r : F) +
+      (x - algebraMap F (v.1.adicCompletion F) (r : F)) := by abel
+  calc
+    A.ψ v.1 x = A.ψ v.1
+        (algebraMap F (v.1.adicCompletion F) (r : F) +
+          (x - algebraMap F (v.1.adicCompletion F) (r : F))) :=
+            congrArg (A.ψ v.1) hsum
+    _ = A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F)) *
+        A.ψ v.1 (x - algebraMap F (v.1.adicCompletion F) (r : F)) :=
+          (A.ψ v.1).map_add_eq_mul _ _
+    _ = 1 := by rw [hψr, A.integral v.1 _ hres]; simp
+
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
   have hπcoerce : (unifLoc v : v.adicCompletion F) =
