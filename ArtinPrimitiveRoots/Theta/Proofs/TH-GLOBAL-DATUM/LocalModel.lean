@@ -146,7 +146,54 @@ theorem globalLocal_wild_model (D : FieldData F) (H : HilbertData F) (v : FinPla
     (hl : ∀ x : (v.adicCompletion F)ˣ,
       x ∈ L ↔ ∀ y ∈ L, torusPairing D H v x y = 1) :
     ∃ M : GlobalLocalModel D H v False, M.Alag = L := by
-  sorry
+  classical
+  obtain ⟨seed, hseed, _⟩ := exists_torusRep D H v (H.steinberg v)
+  letI : Nontrivial seed.V := hseed
+  let control := torusRep_cube_control seed
+  letI : Finite (LocalCubeQuotient v) := control.finite
+  letI : Fintype (LocalCubeQuotient v) := Fintype.ofFinite _
+  obtain ⟨B⟩ := exists_cubeHilbertData D H v L (fun x hx y hy => (hl x).mp hx y hy)
+  obtain ⟨M⟩ := FiniteTorusInduction.exists_model (LocalCubeQuotient v)
+    B.c (L.map (localCubeMap v)) B.c_isotropic
+  have hker : (localCubeMap v).ker =
+      (powMonoidHom 3 : (v.adicCompletion F)ˣ →* (v.adicCompletion F)ˣ).range :=
+    QuotientGroup.ker_mk' _
+  have hcube (t : (v.adicCompletion F)ˣ) : localCubeMap v (t ^ 3) = 1 := by
+    apply MonoidHom.mem_ker.mp
+    rw [hker]
+    exact ⟨t, rfl⟩
+  let T : TorusRep D H v := {
+    V := M.V
+    σa := fun y => M.σ (localCubeMap v y)
+    σa_one := by rw [map_one, M.σ_one]
+    σa_mul := by
+      intro x y
+      rw [M.σ_mul, ← map_mul, B.c_mk]
+    σa_cube := by intro t; rw [hcube, M.σ_one]
+    σa_smooth := by
+      obtain ⟨m, hm, hs⟩ := seed.σa_smooth
+      refine ⟨m, hm, ?_⟩
+      intro u hu
+      obtain ⟨t, ht⟩ := control.scalar_cube u ⟨1, by simpa using hs u hu⟩
+      rw [ht, hcube, M.σ_one]
+    σa_finite := M.σ_finite.subset (by
+      rintro _ ⟨y, rfl⟩
+      exact ⟨localCubeMap v y, rfl⟩)
+  }
+  refine ⟨{
+    T := T
+    B := fun h => False.elim h
+    Alag := L
+    cubes := hc
+    lagrangian := hl
+    lam := M.lam
+    lam_fixed := ?_
+    lam_ne := M.lam_ne
+    alag_tame := fun h => False.elim h
+    lam_tame := fun h => False.elim h
+  }, rfl⟩
+  intro y hy x
+  exact M.lam_fixed (localCubeMap v y) (Subgroup.mem_map_of_mem _ hy) x
 
 /-- At a tame place use the valuation classes and their coordinate at zero. -/
 theorem globalLocal_tame_model (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
