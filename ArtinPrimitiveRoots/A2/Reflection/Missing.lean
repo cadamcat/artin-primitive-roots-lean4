@@ -4255,6 +4255,26 @@ private theorem rf_pairing_S_averaged
     _ = (Lvalue R u (S.diagU ν))⁻¹ * profilePhi R u κ x := by
       simp [profilePhi, profilePhiTerm]
 
+private theorem rf_pairing_activeFactor_finite
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (h : S.ExtIdeal) :
+    Set.Finite {f : S.ExtIdeal | activeFactor R h f} := by
+  classical
+  have hfactor (f : S.ExtIdeal) (hf : activeFactor R h f) :
+      f.1 = ∏ v ∈ R.exterior.support f, v.asIdeal := by
+    let c : S.SqfExtIdeal := ⟨f.1, f.property, hf.1⟩
+    have hof : R.exterior.ofSqf c = f :=
+      Subtype.ext (R.exterior.ofSqf_val c)
+    simpa only [hof] using rf_sqfIdeal_factorization R c
+  have hmap : Set.MapsTo R.exterior.support {f : S.ExtIdeal | activeFactor R h f}
+      (↑(R.exterior.support h).powerset : Set (Finset (FinPlace F))) := by
+    intro f hf
+    exact Finset.mem_powerset.mpr hf.2.1
+  have hinj : Set.InjOn R.exterior.support {f : S.ExtIdeal | activeFactor R h f} := by
+    intro f hf g hg hs
+    apply Subtype.ext
+    rw [hfactor f hf, hfactor g hg, hs]
+  exact Set.Finite.of_injOn hmap hinj (R.exterior.support h).powerset.finite_toSet
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
