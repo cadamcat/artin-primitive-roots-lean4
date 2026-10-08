@@ -14,6 +14,9 @@ def quadraticComplex : MulChar k ℂ := by
   classical
   exact (quadraticChar k).ringHomComp (Int.castRingHom ℂ)
 
+def normalizedGauss (χ : MulChar k ℂ) (ψ : AddChar k ℂ) : ℂ :=
+  ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) * gaussSum χ ψ
+
 theorem jacobiSum_duplication (χ : MulChar k ℂ) (hχ : χ ≠ 1)
     (hodd : ringChar k ≠ 2) :
     χ 4 * jacobiSum χ χ = jacobiSum (quadraticComplex (k := k)) χ := by
@@ -59,5 +62,91 @@ theorem jacobiSum_duplication (χ : MulChar k ℂ) (hχ : χ ≠ 1)
       rw [Finset.sum_const, nsmul_eq_mul, hcount]
     _ = jacobiSum (quadraticComplex (k := k)) χ := by
       simp only [add_mul, one_mul, Finset.sum_add_distrib, hsum, add_zero, jacobiSum]
+
+theorem normalized_sextic_duplication (χ : MulChar k ℂ) (ψ : AddChar k ℂ)
+    (hχ : χ ≠ 1) (hχ2 : χ ^ 2 ≠ 1) (hχ6 : χ ^ 6 = 1)
+    (hquad : χ ^ 3 = quadraticComplex (k := k)) (hneg : χ (-1) = 1)
+    (hodd : ringChar k ≠ 2) (hψ : ψ.IsPrimitive) :
+    normalizedGauss χ ψ * normalizedGauss (χ ^ 2) ψ =
+      (χ 4)⁻¹ * normalizedGauss (χ ^ 3) ψ * normalizedGauss (χ ^ 2) ψ ^ 3 := by
+  let g1 := gaussSum χ ψ
+  let g2 := gaussSum (χ ^ 2) ψ
+  let g3 := gaussSum (χ ^ 3) ψ
+  let g4 := gaussSum (χ ^ 4) ψ
+  let n : ℂ := Fintype.card k
+  let c : ℂ := ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ)
+  have hn0 : (Fintype.card k : ℂ) ≠ 0 := by
+    exact_mod_cast (Fintype.card_ne_zero : Fintype.card k ≠ 0)
+  have hg1 : g1 ≠ 0 := gaussSum_ne_zero_of_nontrivial hn0 hχ hψ
+  have hχ4inv : χ ^ 4 = (χ ^ 2)⁻¹ := by
+    apply (inv_eq_of_mul_eq_one_right ?_).symm
+    rw [← pow_add]
+    exact hχ6
+  have hχ4 : χ ^ 4 ≠ 1 := by
+    rw [hχ4inv, inv_ne_one]
+    exact hχ2
+  have hneg4 : (χ ^ 4) (-1) = 1 := by
+    rw [MulChar.pow_apply' χ (by decide : (4 : ℕ) ≠ 0), hneg, one_pow]
+  have hprod : g2 * g4 = n := by
+    have hshift := mul_gaussSum_inv_eq_gaussSum (χ ^ 4) ψ
+    rw [hneg4, one_mul] at hshift
+    have h := gaussSum_mul_gaussSum_eq_card hχ2 hψ
+    rw [← hχ4inv, hshift] at h
+    exact h
+  have hself : g2 * jacobiSum χ χ = g1 * g1 := by
+    simpa only [g1, g2, pow_two] using
+      jacobiSum_mul_nontrivial (show χ * χ ≠ 1 by simpa only [pow_two] using hχ2) ψ
+  have h31 : χ ^ 3 * χ = χ ^ 4 := by rw [← pow_succ]
+  have hcross : g4 * jacobiSum (χ ^ 3) χ = g3 * g1 := by
+    simpa only [g1, g3, g4, h31] using
+      jacobiSum_mul_nontrivial (show χ ^ 3 * χ ≠ 1 by rw [h31]; exact hχ4) ψ
+  have hdup := jacobiSum_duplication χ hχ hodd
+  rw [← hquad] at hdup
+  have hraw : χ 4 * g1 * g4 = g2 * g3 := by
+    apply mul_right_cancel₀ hg1
+    calc
+      (χ 4 * g1 * g4) * g1 = χ 4 * (g1 * g1) * g4 := by ring
+      _ = χ 4 * (g2 * jacobiSum χ χ) * g4 := by rw [hself]
+      _ = g2 * (g4 * (χ 4 * jacobiSum χ χ)) := by ring
+      _ = g2 * (g4 * jacobiSum (χ ^ 3) χ) := by rw [hdup]
+      _ = g2 * (g3 * g1) := by rw [hcross]
+      _ = (g2 * g3) * g1 := by ring
+  have htwo : (2 : k) ≠ 0 := by
+    intro h
+    apply hodd
+    apply neg_one_eq_one_iff.mp
+    linear_combination -h
+  have hfour : (4 : k) ≠ 0 := by
+    convert mul_ne_zero htwo htwo using 1 <;> norm_num
+  have hval4 : χ 4 ≠ 0 := χ.apply_ne_zero_iff.mpr (isUnit_iff_ne_zero.mpr hfour)
+  have hrel : χ 4 * (g1 * n) = g2 ^ 2 * g3 := by
+    calc
+      χ 4 * (g1 * n) = χ 4 * (g1 * (g2 * g4)) := by rw [hprod]
+      _ = (χ 4 * g1 * g4) * g2 := by ring
+      _ = g2 ^ 2 * g3 := by rw [hraw]; ring
+  have hrel' : g1 * n = (χ 4)⁻¹ * g2 ^ 2 * g3 := by
+    apply mul_left_cancel₀ hval4
+    calc
+      χ 4 * (g1 * n) = g2 ^ 2 * g3 := hrel
+      _ = χ 4 * ((χ 4)⁻¹ * g2 ^ 2 * g3) := by field_simp
+  have hpos : 0 < (Fintype.card k : ℝ) := by
+    exact_mod_cast (Fintype.card_pos : 0 < Fintype.card k)
+  have hscale : ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ))) ^ 2 *
+      (Fintype.card k : ℝ) = 1 := by
+    calc
+      ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ))) ^ 2 * (Fintype.card k : ℝ) =
+          (Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ) * 2) * (Fintype.card k : ℝ) := by
+            congr 1
+            simpa using (Real.rpow_mul_natCast (le_of_lt hpos) (-(1 / 2 : ℝ)) 2).symm
+      _ = (Fintype.card k : ℝ) ^ (-1 : ℝ) * (Fintype.card k : ℝ) := by norm_num
+      _ = 1 := by rw [Real.rpow_neg_one, inv_mul_cancel₀ hpos.ne']
+  have hc : c ^ 2 * n = 1 := by
+    dsimp [c, n]
+    exact_mod_cast hscale
+  change (c * g1) * (c * g2) = (χ 4)⁻¹ * (c * g3) * (c * g2) ^ 3
+  calc
+    (c * g1) * (c * g2) = (c ^ 2 * n) * (c ^ 2 * g1 * g2) := by rw [hc]; ring
+    _ = c ^ 4 * g2 * (g1 * n) := by ring
+    _ = (χ 4)⁻¹ * (c * g3) * (c * g2) ^ 3 := by rw [hrel']; ring
 
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
