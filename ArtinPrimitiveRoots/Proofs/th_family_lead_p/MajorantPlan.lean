@@ -17,6 +17,8 @@ import ArtinPrimitiveRoots.Proofs.th_family_lead_p.IteratedDirectionalFourier
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.DirectionalFourierBound
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.IntegerProductDecay
 import Mathlib.LinearAlgebra.Countable
+import Mathlib.Analysis.PSeries
+import Mathlib.Topology.Algebra.InfiniteSum.Real
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
@@ -348,6 +350,38 @@ theorem theta_periodic_fourier_product_bound {P : CoverPackage D S H A}
 
 /-- Summability over the full integer lattice, before restriction to the field frequencies. -/
 theorem theta_lattice_weight_summable (n : ℕ) : Summable (thetaLatticeWeight n) := by
-  sorry
+  let w : ℤ → ℝ := fun k => ((1 + |(k : ℝ)|) ^ 2)⁻¹
+  have hbase : Summable (fun k : ℕ => ((k : ℝ) ^ 2)⁻¹) := by
+    simpa only [one_div] using (Real.summable_one_div_nat_pow (p := 2)).mpr (by decide)
+  have hnat : Summable (fun k : ℕ => ((1 + (k : ℝ)) ^ 2)⁻¹) := by
+    have hs := (summable_nat_add_iff 1).mpr hbase
+    simpa only [Nat.cast_add, Nat.cast_one, add_comm] using hs
+  have hw : Summable w := by
+    apply Summable.of_nat_of_neg
+    · simpa [w, abs_of_nonneg] using hnat
+    · simpa [w, abs_of_nonneg] using hnat
+  have hw0 (k : ℤ) : 0 ≤ w k := by dsimp only [w]; positivity
+  have hW0 (m : ℕ) (k : Fin m → ℤ) : 0 ≤ thetaLatticeWeight m k :=
+    Finset.prod_nonneg fun i _ => inv_nonneg.mpr (sq_nonneg _)
+  induction n with
+  | zero =>
+    let : Finite (Fin 0 → ℤ) := Finite.of_injective (fun _ : Fin 0 → ℤ => ()) (by
+      intro f g h
+      funext i
+      exact Fin.elim0 i)
+    exact Summable.of_finite
+  | succ n ih =>
+    let e := Fin.consEquiv (fun _ : Fin (n + 1) => ℤ)
+    apply e.summable_iff.mp
+    have hp : Summable (fun p : ℤ × (Fin n → ℤ) => w p.1 * thetaLatticeWeight n p.2) := by
+      apply (summable_prod_of_nonneg (fun p => mul_nonneg (hw0 p.1) (hW0 n p.2))).mpr
+      constructor
+      · intro k
+        exact ih.mul_left (w k)
+      · simpa only [tsum_mul_left] using hw.mul_right (∑' k, thetaLatticeWeight n k)
+    convert hp using 1
+    funext p
+    simp only [Function.comp_apply, e, Fin.consEquiv_apply, thetaLatticeWeight,
+      Fin.prod_univ_succ, Fin.cons_zero, Fin.cons_succ, w]
 
 end ArtinPrimitiveRoots.A1.Theta
