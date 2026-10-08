@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».CompletionTrace
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».TraceIntegral
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».RationalCharacter
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».TraceCharacters
+import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».NativeTraceCharacters
 
 /-!
 # Existence of the standard additive character data
