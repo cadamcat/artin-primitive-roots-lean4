@@ -23,6 +23,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».RootActions
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».BoundedIntegralDerivative
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».RootIntegral
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».RootFold
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».ThetaRatUpper
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
 
@@ -147,7 +148,11 @@ theorem thetaWhit_nFin {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
     (η : F) (h : P.tc.G) :
     thetaWhit C (nFin P η * h) = psiInf 1 (infEmbA (-η)) * thetaWhit C h := by
-  sorry
+  rw [nFin, mul_assoc,
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.thetaWhit_ratUpper Fam C]
+  have hroot := (thetaWhit_equiv Fam C).2.1
+    ((0, -(infEmbA η)) : S.FS) h
+  simpa [nInf, SData.e, psiInf, map_neg] using hroot
 
 /-- **asm:Wv**: the fields `Wv_genuine`, `Wv_equiv`, `Wv_right`, `Wv_table` for `WvAll`. -/
 theorem WvAll_spec (P : CoverPackage D S H A) (G : GlobalDatum P) (μ : ∀ v : FinPlace F, LocHaar v) :
