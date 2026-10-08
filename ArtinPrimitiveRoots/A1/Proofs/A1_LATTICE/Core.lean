@@ -159,7 +159,44 @@ theorem s_integer_finite_approx (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     ∃ r : S.R, ∀ v : S.Sf,
       x v - algebraMap F (v.1.adicCompletion F) (r : F) ∈
         v.1.adicCompletionIntegers F := by
-  sorry
+  classical
+  let f : F → ∀ v : S.Sf, v.1.adicCompletion F := fun a v =>
+    algebraMap F (v.1.adicCompletion F) a
+  have hdense : DenseRange f := by
+    simpa [f] using finite_diag_dense S
+  let O : ∀ v : S.Sf, Set (v.1.adicCompletion F) :=
+    fun v => v.1.adicCompletionIntegers F
+  have hOopen (v : S.Sf) : IsOpen (O v) := by
+    exact Valued.isOpen_valuationSubring _
+  let B : Set (∀ v : S.Sf, v.1.adicCompletion F) := Set.pi Set.univ O
+  have hBopen : IsOpen B := by
+    apply isOpen_set_pi Set.finite_univ
+    intro v hv
+    exact hOopen v
+  let U : Set (∀ v : S.Sf, v.1.adicCompletion F) := {y | x - y ∈ B}
+  have hUopen : IsOpen U := hBopen.preimage (continuous_const.sub continuous_id)
+  have hUnonempty : U.Nonempty := by
+    refine ⟨x, ?_⟩
+    simp [U, B, O]
+  obtain ⟨a, ha⟩ := hdense.exists_mem_open hUopen hUnonempty
+  have happrox : ∀ v : S.Sf,
+      x v - algebraMap F (v.1.adicCompletion F) a ∈ v.1.adicCompletionIntegers F := by
+    intro v
+    have h := ha
+    change x - f a ∈ B at h
+    have hv := h v (by simp)
+    simpa [f, O] using hv
+  obtain ⟨r, hr⟩ := s_integer_adjust S a
+  refine ⟨r, ?_⟩
+  intro v
+  have hidentity :
+      x v - algebraMap F (v.1.adicCompletion F) (r : F) =
+        (x v - algebraMap F (v.1.adicCompletion F) a) +
+          algebraMap F (v.1.adicCompletion F) (a - (r : F)) := by
+    rw [map_sub]
+    abel
+  rw [hidentity]
+  exact (v.1.adicCompletionIntegers F).add_mem _ _ (happrox v) (hr v)
 
 theorem arch_integer_compact_reduction (D : ArtinPrimitiveRoots.A1.FieldData F) :
     ∃ C : Set (InfinitePlace F → ℂ), IsCompact C ∧
