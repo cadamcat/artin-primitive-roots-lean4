@@ -342,4 +342,61 @@ theorem qs_nq0_primitive_conductor_exterior_exponents
       χ (hloc v) f hf.2.1
     omega
 
+/-!
+The exterior conductor-factorization step has this exact signature:
+```
+theorem qs_nq0_exterior_conductor_factorization
+    (Sd : SData K CE condη)
+    (I : Ideal (𝓞 K)) (hI : Sd.IsExterior I)
+    (qS f : Ideal (𝓞 K)) (hf : f ≠ ⊥)
+    (hdiv : f ∣ I * qS)
+    (hexp : ∀ v : FinPlace K, v ∉ Sd.Sf → idealExp v f = idealExp v I) :
+    ∃ s : Ideal (𝓞 K), f = I * s ∧ s ∣ qS
+```
+-/
+
+/-- Exact exterior exponents split a conductor bound into I and a divisor of qS. -/
+theorem qs_nq0_exterior_conductor_factorization
+    (Sd : SData K CE condη)
+    (I : Ideal (𝓞 K)) (hI : Sd.IsExterior I)
+    (qS f : Ideal (𝓞 K)) (hf : f ≠ ⊥)
+    (hdiv : f ∣ I * qS)
+    (hexp : ∀ v : FinPlace K, v ∉ Sd.Sf → idealExp v f = idealExp v I) :
+    ∃ s : Ideal (𝓞 K), f = I * s ∧ s ∣ qS := by
+  classical
+  have hI0 : I ≠ 0 := hI.1
+  obtain ⟨sI, hIs⟩ := Associates.factors_eq_some_iff_ne_zero.mpr
+    (Associates.mk_ne_zero.mpr hI0)
+  obtain ⟨sf, hfs⟩ := Associates.factors_eq_some_iff_ne_zero.mpr
+    (Associates.mk_ne_zero.mpr hf)
+  have hle : Associates.mk I ≤ Associates.mk f := by
+    rw [← Associates.factors_le, hIs, hfs, WithTop.coe_le_coe]
+    apply Multiset.le_iff_count.mpr
+    intro p
+    have hcounts : p.val.count (Associates.mk I).factors ≤
+        p.val.count (Associates.mk f).factors := by
+      obtain ⟨P, hP⟩ := Associates.mk_surjective p.val
+      have hPir : Irreducible P := by
+        apply Associates.irreducible_mk.mp
+        rw [hP]
+        exact p.property
+      let v : FinPlace K := ⟨P, Ideal.isPrime_of_prime (irreducible_iff_prime.mp hPir),
+        hPir.ne_zero⟩
+      rw [← hP]
+      change idealExp v I ≤ idealExp v f
+      by_cases hv : v ∈ Sd.Sf
+      · have hzero : idealExp v I = 0 := by
+          by_contra hne
+          have hIdvd : v.asIdeal ∣ I :=
+            (Associates.count_ne_zero_iff_dvd hI0 v.irreducible).mp hne
+          exact hI.2 v hv (Ideal.dvd_iff_le.mp hIdvd)
+        rw [hzero]
+        exact Nat.zero_le _
+      · exact (hexp v hv).ge
+    simpa only [hIs, hfs, Associates.count_some p.property] using hcounts
+  obtain ⟨s, hs⟩ := Associates.mk_le_mk_iff_dvd.mp hle
+  refine ⟨s, hs, ?_⟩
+  rw [hs] at hdiv
+  exact (mul_dvd_mul_iff_left hI0).mp hdiv
+
 end ArtinPrimitiveRoots.A2
