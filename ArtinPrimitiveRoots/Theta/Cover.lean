@@ -10,6 +10,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CongruenceTopology
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CompletionCompact
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CongruenceCompact
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.IntegralGL
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.LocalEffective
 
 
 /-!
@@ -3611,6 +3612,16 @@ theorem coverPackage_components_equiv (P : CoverPackage D S H A) :
     | inr w => rfl
   rw [href] at he
   exact he
+
+/-- The effective exterior coefficient agrees with the actual local torus product. -/
+private theorem cover_local_effectiveLaw (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (L : FinLocalCover D H v) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (x y : (v.adicCompletion F)ˣ) :
+    ∃ ζ : rootsOfUnity 3 ℂ, ((ζ : ℂˣ) : ℂ) = extCocycle D v x y ∧
+      L.a x * L.a y = L.z ζ * L.a (x * y) := by
+  exact ⟨muThree D (H.hilb v x y),
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.muThree_hilb_eq_extCocycle D H v hv x y,
+    L.a_mul x y⟩
 
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
