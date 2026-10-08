@@ -2130,8 +2130,159 @@ def ppPrimeZeroFree (C : ℝ) : Prop :=
                   ‖deriv (dirichletLValue q hq χ) s /
                     dirichletLValue q hq χ s‖ ≤ C₀ * L)
 
+def ppPrimeZetaLogDerivBound : Prop :=
+  ∃ K ε : ℝ, 0 < K ∧ 0 < ε ∧
+    ∀ δ : ℝ, 0 < δ → δ < ε →
+      (-(deriv riemannZeta (1 + (δ : ℂ)) /
+        riemannZeta (1 + (δ : ℂ)))).re ≤ 1 / δ + K
+
+private theorem ppPrimeRightLineLogDeriv_bound
+    (hzeta : ppPrimeZetaLogDerivBound) :
+    ∃ L₀ : ℝ, 1 ≤ L₀ ∧
+      ∀ L : ℝ, L₀ ≤ L →
+        ∀ q : ℕ, ∀ hq : 0 < q,
+          ∀ χ : DirichletCharacter ℂ q, ∀ t v : ℝ,
+            ‖deriv (dirichletLValue q hq χ)
+                (1 - Complex.I * (t : ℂ) + (⟨1 / L, v⟩ : ℂ)) /
+              dirichletLValue q hq χ
+                (1 - Complex.I * (t : ℂ) + (⟨1 / L, v⟩ : ℂ))‖ ≤ 2 * L := by
+  obtain ⟨K, ε, hK, hε, hζ⟩ := hzeta
+  let L₀ : ℝ := max K ε⁻¹ + 2
+  have hL₀ : 1 ≤ L₀ := by
+    dsimp [L₀]
+    have hmax : 0 ≤ max K ε⁻¹ := le_of_lt (lt_of_lt_of_le hK (le_max_left _ _))
+    linarith
+  refine ⟨L₀, hL₀, ?_⟩
+  intro L hL q hq χ t v
+  have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) (le_trans hL₀ hL)
+  have hKle : K ≤ L := by
+    have hK₀ : K ≤ L₀ := by
+      dsimp [L₀]
+      have hmax : K ≤ max K ε⁻¹ := le_max_left _ _
+      linarith
+    exact hK₀.trans hL
+  have hεinvLt : ε⁻¹ < L := by
+    have hεinv₀ : ε⁻¹ + 1 ≤ L₀ := by
+      dsimp [L₀]
+      have hmax : ε⁻¹ ≤ max K ε⁻¹ := le_max_right _ _
+      linarith
+    have hεinv : ε⁻¹ + 1 ≤ L := hεinv₀.trans hL
+    linarith
+  have hδε : 1 / L < ε := by
+    apply (div_lt_iff₀ hLpos).2
+    calc
+      1 = ε * ε⁻¹ := by field_simp
+      _ < ε * L := mul_lt_mul_of_pos_left hεinvLt hε
+  let δ : ℝ := 1 / L
+  let σ : ℂ := Complex.ofReal (1 + δ)
+  let s : ℂ := 1 - Complex.I * (t : ℂ) + (⟨δ, v⟩ : ℂ)
+  let f : ℕ → ℂ := fun n => χ (n : ZMod q) *
+    (ArithmeticFunction.vonMangoldt n : ℂ)
+  let g : ℕ → ℂ := fun n => (ArithmeticFunction.vonMangoldt n : ℂ)
+  have hδpos : 0 < δ := by dsimp [δ]; positivity
+  have hδε' : δ < ε := by simpa [δ] using hδε
+  have hσ : 1 < σ.re := by
+    dsimp [σ]
+    simp
+    linarith [hδpos]
+  have hs : 1 < s.re := by
+    dsimp [s]
+    simp
+    linarith [hδpos]
+  have hsRe : s.re = σ.re := by simp [s, σ]
+  have htwist : LSeriesSummable f s := by
+    change LSeriesSummable
+      ((fun n : ℕ => χ (n : ZMod q)) *
+        (fun n => (ArithmeticFunction.vonMangoldt n : ℂ))) s
+    exact DirichletCharacter.LSeriesSummable_twist_vonMangoldt χ hs
+  have hbase : LSeriesSummable g σ := by
+    change LSeriesSummable
+      (fun n : ℕ => (ArithmeticFunction.vonMangoldt n : ℂ)) σ
+    exact ArithmeticFunction.LSeriesSummable_vonMangoldt hσ
+  have hcoef (n : ℕ) : ‖f n‖ ≤ ‖g n‖ := by
+    dsimp [f, g]
+    calc
+      ‖χ (n : ZMod q) * (ArithmeticFunction.vonMangoldt n : ℂ)‖ =
+          ‖χ (n : ZMod q)‖ * ‖(ArithmeticFunction.vonMangoldt n : ℂ)‖ := norm_mul _ _
+      _ ≤ 1 * ‖(ArithmeticFunction.vonMangoldt n : ℂ)‖ :=
+        mul_le_mul_of_nonneg_right (χ.norm_le_one _) (norm_nonneg _)
+      _ = _ := by ring
+  have htermBound (n : ℕ) :
+      ‖LSeries.term f s n‖ ≤ ‖LSeries.term g σ n‖ := by
+    calc
+      ‖LSeries.term f s n‖ ≤ ‖LSeries.term g s n‖ :=
+        LSeries.norm_term_le s (hcoef n)
+      _ = ‖LSeries.term g σ n‖ := by
+        rw [LSeries.norm_term_eq, LSeries.norm_term_eq, hsRe]
+  have hnormSum :
+      (∑' n : ℕ, ‖LSeries.term f s n‖) ≤
+        ∑' n : ℕ, ‖LSeries.term g σ n‖ :=
+    htwist.norm.tsum_le_tsum htermBound hbase.norm
+  have htermReal (n : ℕ) :
+      ‖LSeries.term g σ n‖ = (LSeries.term g σ n).re := by
+    by_cases hn : n = 0
+    · simp [LSeries.term, hn]
+    · have hΛ : 0 ≤ ArithmeticFunction.vonMangoldt n :=
+        ArithmeticFunction.vonMangoldt_nonneg
+      have hden : 0 < (n : ℝ) ^ (1 + δ) := by
+        apply Real.rpow_pos_of_pos
+        exact_mod_cast Nat.pos_of_ne_zero hn
+      have hcoefNonneg :
+          0 ≤ ArithmeticFunction.vonMangoldt n / (n : ℝ) ^ (1 + δ) :=
+        div_nonneg hΛ hden.le
+      have hpow : (n : ℂ) ^ σ = Complex.ofReal ((n : ℝ) ^ (1 + δ)) := by
+        dsimp [σ]
+        rw [← Complex.ofReal_natCast,
+          Complex.ofReal_cpow (Nat.cast_nonneg n) (1 + δ)]
+      have hterm : LSeries.term g σ n =
+          ((ArithmeticFunction.vonMangoldt n / (n : ℝ) ^ (1 + δ) : ℝ) : ℂ) := by
+        rw [LSeries.term_of_ne_zero hn]
+        dsimp [g]
+        rw [hpow, ← Complex.ofReal_div]
+      rw [hterm, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hcoefNonneg]
+      simp
+  have hsumReal :
+      (∑' n : ℕ, ‖LSeries.term g σ n‖) = (LSeries g σ).re := by
+    calc
+      (∑' n : ℕ, ‖LSeries.term g σ n‖) =
+          ∑' n : ℕ, (LSeries.term g σ n).re := by
+            apply tsum_congr
+            intro n
+            exact htermReal n
+      _ = (LSeries g σ).re := by
+        simpa only [LSeries] using (Complex.re_tsum hbase).symm
+  have hbaseZeta : LSeries g σ =
+      -(deriv riemannZeta σ / riemannZeta σ) := by
+    have h := ArithmeticFunction.LSeries_vonMangoldt_eq_deriv_riemannZeta_div hσ
+    simpa [g, neg_div] using h
+  have hsumZeta : (LSeries g σ).re ≤ 1 / δ + K := by
+    rw [hbaseZeta]
+    simpa [σ] using hζ δ hδpos hδε'
+  have hnormL : ‖LSeries f s‖ ≤ ∑' n : ℕ, ‖LSeries.term f s n‖ := by
+    simpa only [LSeries] using norm_tsum_le_tsum_norm htwist.norm
+  have hlog : LSeries f s =
+      -deriv (dirichletLValue q hq χ) s / dirichletLValue q hq χ s := by
+    simpa [f] using ppPrimeTwistedMangoldt_lseries_eq hq χ hs
+  have hratio :
+      ‖deriv (dirichletLValue q hq χ) s / dirichletLValue q hq χ s‖ ≤ 1 / δ + K := by
+    calc
+      _ = ‖LSeries f s‖ := by rw [hlog]; simp
+      _ ≤ ∑' n : ℕ, ‖LSeries.term f s n‖ := hnormL
+      _ ≤ ∑' n : ℕ, ‖LSeries.term g σ n‖ := hnormSum
+      _ = (LSeries g σ).re := hsumReal
+      _ ≤ 1 / δ + K := hsumZeta
+  have hδinv : 1 / δ = L := by
+    dsimp [δ]
+    field_simp
+  have hratio' :
+      ‖deriv (dirichletLValue q hq χ) s / dirichletLValue q hq χ s‖ ≤ 2 * L := by
+    rw [hδinv] at hratio
+    nlinarith [hratio, hKle]
+  simpa [s, δ] using hratio'
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
-theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C) :
+theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
+    (hzeta : ppPrimeZetaLogDerivBound) :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
       ∃ B₀ K x₀ : ℝ, 0 < B₀ ∧ 0 < K ∧ 2 < x₀ ∧
         ∀ x : ℝ, x₀ ≤ x →
@@ -2159,7 +2310,8 @@ theorem prime_power_removal {N : ℝ} (hN : 4 ≤ N) (q : ℕ)
   sorry
 
 /-- Final interval Abel transfer and logarithm removal, to be assembled from the preceding bounds. -/
-theorem prime_polynomial_core (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C) :
+theorem prime_polynomial_core (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
+    (hzeta : ppPrimeZetaLogDerivBound) :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
       ∃ B₀ C₀ x₀ : ℝ, 0 < B₀ ∧ 0 < C₀ ∧ 2 < x₀ ∧
         ∀ x : ℝ, x₀ ≤ x →

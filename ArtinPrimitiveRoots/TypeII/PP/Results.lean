@@ -1631,5 +1631,6 @@ theorem prime_polynomial :
                       C₀ * Real.rpow L (-A) := by
   exact ArtinPrimitiveRoots.Proofs.PP_PRIME.prime_polynomial_core
     (by intro C; exact zero_free C)
+    zeta_logderiv_bound_near_one
 
 end ArtinPrimitiveRoots.TypeII.PP
