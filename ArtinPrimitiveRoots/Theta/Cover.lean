@@ -4867,6 +4867,240 @@ private theorem exists_coverSLawBase (B : CoverQuotientBase D S H)
     refine ⟨yS, hself, hother, hcomplex, ?_⟩
     rw [htuple, E.q_incl]
 
+/-- Exterior generator tuples and their rational S/exterior decomposition. -/
+private structure CoverExteriorBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (U : CoverSubgroupBase B E)
+    (R : CoverRationalBase B) (T : CoverSTupleBase B) where
+  nRP : Multiplicative F →* CoverRP B.family
+  aRP : Fˣ → CoverRP B.family
+  wRP : CoverRP B.family
+  nF : ∀ x : F, ∀ v : FinPlace F,
+    nRP (Multiplicative.ofAdd x) (.inl v) = if v ∉ S.Sf then
+      (B.family.loc v).n (Multiplicative.ofAdd (algebraMap F _ x)) else 1
+  nC : ∀ x : F, ∀ w, nRP (Multiplicative.ofAdd x) (.inr w) = 1
+  aF : ∀ u : Fˣ, ∀ v : FinPlace F,
+    aRP u (.inl v) = if v ∉ S.Sf then (B.family.loc v).a (toLoc v u) else 1
+  aC : ∀ u : Fˣ, ∀ w, aRP u (.inr w) = 1
+  wF : ∀ v : FinPlace F, wRP (.inl v) = if v ∉ S.Sf then (B.family.loc v).w else 1
+  wC : ∀ w, wRP (.inr w) = 1
+  rat_upper : ∀ x : F, R.ratRP (upperGL x) =
+    T.nRP (Multiplicative.ofAdd (S.diag x)) * nRP (Multiplicative.ofAdd x)
+  rat_diag : ∀ u : Fˣ, R.ratRP (diagGL u) = T.aRP (S.diagU u) * aRP u
+  rat_weyl : R.ratRP weylGL = T.wRP * wRP
+  w_mem : B.quotient.q wRP ∈ U.Kext
+  a_unit : ∀ u ∈ S.US, B.quotient.q (aRP u) ∈ U.Kext
+
+private theorem exists_coverExteriorBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (U : CoverSubgroupBase B E)
+    (R : CoverRationalBase B) (T : CoverSTupleBase B) :
+    Nonempty (CoverExteriorBase B E U R T) := by
+  classical
+  let C := B.family
+  have hproj : ∃ p : CoverRP C →* CoverRP C,
+      (∀ x v, p x (.inl v) = if v ∉ S.Sf then x (.inl v) else 1) ∧
+      ∀ x w, p x (.inr w) = 1 := by
+    let f : CoverRP C → CoverRP C := fun x =>
+      ⟨fun p => match p with
+        | .inl v => if v ∉ S.Sf then x (.inl v) else 1
+        | .inr _ => 1, by
+        filter_upwards [x.2] with p hp
+        cases p with
+        | inl v =>
+          change (if v ∉ S.Sf then x (.inl v) else 1) ∈ coverFamilyReference C v
+          change x (.inl v) ∈ coverFamilyReference C v at hp
+          by_cases hv : v ∉ S.Sf
+          · simpa only [ite_eq_left hv] using hp
+          · simp only [ite_eq_right hv, OneMemClass.one_mem]
+        | inr w =>
+          simp [ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference]⟩
+    let p : CoverRP C →* CoverRP C := {
+      toFun := f
+      map_one' := by
+        apply RestrictedProduct.ext
+        intro i
+        cases i with
+        | inl v =>
+          change (if v ∉ S.Sf then (1 : (C.loc v).L) else 1) = 1
+          split_ifs <;> rfl
+        | inr w => rfl
+      map_mul' := by
+        intro x y
+        apply RestrictedProduct.ext
+        intro i
+        cases i with
+        | inl v =>
+          change (if v ∉ S.Sf then x (.inl v) * y (.inl v) else 1) =
+            (if v ∉ S.Sf then x (.inl v) else 1) *
+              (if v ∉ S.Sf then y (.inl v) else 1)
+          split_ifs <;> simp
+        | inr w =>
+          change (1 : PGL2 ℂ) = 1 * 1
+          rw [one_mul]
+    }
+    exact ⟨p, fun _ _ => rfl, fun _ _ => rfl⟩
+  obtain ⟨p, pF, pC⟩ := hproj
+  have upper_map {K : Type} [Field K] (f : F →+* K) (x : F) :
+      Matrix.GeneralLinearGroup.map f (upperGL x) = upperM K (f x) := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map_apply, upperGL, upperM]
+  have diag_map {K : Type} [Field K] (f : F →+* K) (u : Fˣ) :
+      Matrix.GeneralLinearGroup.map f (diagGL u) =
+        diagM K (Units.map f.toMonoidHom u) := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map_apply, diagGL, diagM]
+  have weyl_map {K : Type} [Field K] (f : F →+* K) :
+      Matrix.GeneralLinearGroup.map f weylGL = weylM K := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map_apply, weylGL, weylM]
+  have ratNF (x : F) (v : FinPlace F) : R.ratRP (upperGL x) (.inl v) =
+      (C.loc v).n (Multiplicative.ofAdd (algebraMap F _ x)) := by
+    rw [R.compF, upper_map, ← (C.loc v).sec_n]
+  have ratAF (u : Fˣ) (v : FinPlace F) : R.ratRP (diagGL u) (.inl v) =
+      (C.loc v).a (toLoc v u) := by
+    rw [R.compF, diag_map]
+    exact ((C.loc v).sec_a _).symm
+  have ratWF (v : FinPlace F) : R.ratRP weylGL (.inl v) = (C.loc v).w := by
+    rw [R.compF, weyl_map, ← (C.loc v).sec_w]
+  have ratNC (x : F) (w : InfinitePlace F) : R.ratRP (upperGL x) (.inr w) =
+      QuotientGroup.mk (upperM ℂ (w.embedding x)) := by rw [R.compC, upper_map]
+  have ratAC (u : Fˣ) (w : InfinitePlace F) : R.ratRP (diagGL u) (.inr w) =
+      QuotientGroup.mk (diagM ℂ (Units.map w.embedding.toMonoidHom u)) := by
+    rw [R.compC, diag_map]
+  have ratWC (w : InfinitePlace F) : R.ratRP weylGL (.inr w) =
+      QuotientGroup.mk (weylM ℂ) := by rw [R.compC, weyl_map]
+  let nraw (x : F) := p (R.ratRP (upperGL x))
+  let a (u : Fˣ) := p (R.ratRP (diagGL u))
+  let w := p (R.ratRP weylGL)
+  have nF (x : F) (v : FinPlace F) : nraw x (.inl v) = if v ∉ S.Sf then
+      (C.loc v).n (Multiplicative.ofAdd (algebraMap F _ x)) else 1 := by
+    rw [pF, ratNF]
+  have aF (u : Fˣ) (v : FinPlace F) : a u (.inl v) = if v ∉ S.Sf then
+      (C.loc v).a (toLoc v u) else 1 := by rw [pF, ratAF]
+  have wF (v : FinPlace F) : w (.inl v) = if v ∉ S.Sf then (C.loc v).w else 1 := by
+    rw [pF, ratWF]
+  let n : Multiplicative F →* CoverRP C := {
+    toFun := fun x => nraw x.toAdd
+    map_one' := by
+      apply RestrictedProduct.ext
+      intro i
+      cases i with
+      | inl v =>
+        change nraw 0 (.inl v) = 1
+        rw [nF]
+        simp
+      | inr w => exact pC _ _
+    map_mul' := by
+      intro x y
+      apply RestrictedProduct.ext
+      intro i
+      cases i with
+      | inl v =>
+        change nraw (x.toAdd + y.toAdd) (.inl v) =
+          nraw x.toAdd (.inl v) * nraw y.toAdd (.inl v)
+        rw [nF, nF, nF]
+        by_cases hv : v ∉ S.Sf <;>
+          simp [hv, map_add, ofAdd_add, map_mul]
+      | inr w =>
+        change p (R.ratRP (upperGL (x.toAdd + y.toAdd))) (.inr w) =
+          p (R.ratRP (upperGL x.toAdd)) (.inr w) *
+            p (R.ratRP (upperGL y.toAdd)) (.inr w)
+        rw [pC, pC, pC, one_mul]
+  }
+  have compU_diag (u : Fˣ) (v : S.Sf) : S.compU v (S.diagU u) = toLoc v.1 u := by
+    apply Units.ext
+    rfl
+  have compC_diag (u : Fˣ) (v : InfinitePlace F) :
+      S.compC v (S.diagU u) = Units.map v.embedding.toMonoidHom u := by
+    apply Units.ext
+    rfl
+  refine ⟨{
+    nRP := n
+    aRP := a
+    wRP := w
+    nF := nF
+    nC := fun _ _ => pC _ _
+    aF := aF
+    aC := fun _ _ => pC _ _
+    wF := wF
+    wC := fun _ => pC _ _
+    rat_upper := ?_
+    rat_diag := ?_
+    rat_weyl := ?_
+    w_mem := ?_
+    a_unit := ?_
+  }⟩
+  · intro x
+    apply RestrictedProduct.ext
+    intro i
+    cases i with
+    | inl v =>
+      change R.ratRP (upperGL x) (.inl v) =
+        T.nRP (Multiplicative.ofAdd (S.diag x)) (.inl v) * nraw x (.inl v)
+      rw [ratNF, T.nF, nF]
+      by_cases hv : v ∈ S.Sf <;> simp [hv, SData.diag, C]
+    | inr w =>
+      change R.ratRP (upperGL x) (.inr w) =
+        T.nRP (Multiplicative.ofAdd (S.diag x)) (.inr w) *
+          p (R.ratRP (upperGL x)) (.inr w)
+      rw [ratNC, T.nC, pC, mul_one]
+      rfl
+  · intro u
+    apply RestrictedProduct.ext
+    intro i
+    cases i with
+    | inl v =>
+      change R.ratRP (diagGL u) (.inl v) = T.aRP (S.diagU u) (.inl v) * a u (.inl v)
+      rw [ratAF, T.aF, aF]
+      by_cases hv : v ∈ S.Sf <;> simp [hv, compU_diag, C]
+    | inr w =>
+      change R.ratRP (diagGL u) (.inr w) =
+        T.aRP (S.diagU u) (.inr w) * p (R.ratRP (diagGL u)) (.inr w)
+      rw [ratAC, T.aC, pC, mul_one, compC_diag]
+  · apply RestrictedProduct.ext
+    intro i
+    cases i with
+    | inl v =>
+      change R.ratRP weylGL (.inl v) = T.wRP (.inl v) * w (.inl v)
+      rw [ratWF, T.wF, wF]
+      by_cases hv : v ∈ S.Sf <;> simp [hv, C]
+    | inr v =>
+      change R.ratRP weylGL (.inr v) = T.wRP (.inr v) * p (R.ratRP weylGL) (.inr v)
+      rw [ratWC, T.wC, pC, mul_one]
+  · apply U.Kext_of_components
+    · intro v hv
+      rw [wF, if_pos hv]
+      exact (C.tame v hv).w_mem
+    · intro v hv
+      rw [wF, if_neg (not_not.mpr hv)]
+    · intro v
+      exact pC _ _
+  · intro u hu
+    apply U.Kext_of_components
+    · intro v hv
+      rw [aF, if_pos hv]
+      apply (C.tame v hv).a_mem
+      · change Valued.v (algebraMap F (v.adicCompletion F) (u : F)) ≤ 1
+        have hval : v.valuation F (u : F) = 1 := hu v hv
+        simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+          Algebra.algebraMap_self, RingHom.id_apply,
+          v.valuedAdicCompletion_eq_valuation'] using hval.le
+      · rw [← map_inv]
+        change Valued.v (algebraMap F (v.adicCompletion F) ((u⁻¹ : Fˣ) : F)) ≤ 1
+        have hval : v.valuation F ((u⁻¹ : Fˣ) : F) = 1 := (S.US.inv_mem hu) v hv
+        simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+          Algebra.algebraMap_self, RingHom.id_apply,
+          v.valuedAdicCompletion_eq_valuation'] using hval.le
+    · intro v hv
+      rw [aF, if_neg (not_not.mpr hv)]
+    · intro v
+      exact pC _ _
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
