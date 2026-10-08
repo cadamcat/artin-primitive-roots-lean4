@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Hilbert
+import ArtinPrimitiveRoots.A1.Proofs.A1_DUAL.PairingCore
 import ArtinPrimitiveRoots.A1.Proofs.«A1-CRT».Localization
 import OAI.NumberTheory.DirichletL.GaussSum.ChineseRemainder
 
@@ -473,6 +474,139 @@ theorem SData.absS_diag_eq_norm [IsTotallyComplex F] (S : SData F CE condη) (x 
     _ = 1 * (Ideal.absNorm I : ℝ) := by rw [h_prod_absS]
     _ = (Ideal.absNorm I : ℝ) := by rw [one_mul]
 
+private theorem e_diag_R_eq_one (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (r : S.R) :
+    S.e A (S.diag (r : F)) = 1 := by
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have hrmem : (r : F) ∈ (S.Sf : Set (FinPlace F)).integer F := r.property
+  have hr : ∀ v : FinPlace F, v ∉ S.Sf → v.valuation F (r : F) ≤ 1 := by
+    intro v hv
+    change ∀ v ∉ S.Sf, v.valuation F (r : F) ≤ 1 at hrmem
+    exact hrmem v hv
+  have h1 : ∀ v : FinPlace F, v ∉ S.Sf →
+      v.valuation F (0 - (r : F)) ≤ 1 := by
+    intro v hv
+    rw [zero_sub, Valuation.map_neg]
+    exact hr v hv
+  have h2 : ∀ v : FinPlace F, v ∈ S.Sf → v.valuation F (0 : F) ≤ 1 := by
+    intro v hv
+    simp
+  rw [S.e_diag_eq A (r : F) 0 h1 h2]
+  simp
+
+private theorem integral_div_gen (S : SData F CE condη) (I : Ideal (𝓞 F))
+    (c : F) (hc : S.IsGen c I) (n : 𝓞 F) (hn : n ∈ I) :
+    algebraMap (𝓞 F) F n / c ∈ S.R := by
+  classical
+  by_cases hn0 : n = 0
+  · subst n
+    simp
+  change ∀ v : FinPlace F, v ∉ S.Sf →
+    v.valuation F (algebraMap (𝓞 F) F n / c) ≤ 1
+  intro v hv
+  have hnmap : algebraMap (𝓞 F) F n ≠ 0 := by
+    intro h
+    exact hn0 ((FaithfulSMul.algebraMap_injective (𝓞 F) F) h)
+  have hspan : FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+      (algebraMap (𝓞 F) F n) ≤ (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    rw [FractionalIdeal.spanSingleton_le_iff_mem]
+    simpa using hn
+  have hspanNe : FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+      (algebraMap (𝓞 F) F n) ≠ 0 := FractionalIdeal.spanSingleton_ne_zero_iff.mpr hnmap
+  have hmono : FractionalIdeal.count F v
+      (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≤
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F n)) :=
+    FractionalIdeal.count_mono F v hspanNe hspan
+  have hcount : FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) ≤
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F n)) := by
+    calc
+      _ = FractionalIdeal.count F v
+          (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := hc.2.2 v hv
+      _ ≤ FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+            (algebraMap (𝓞 F) F n)) := hmono
+  have hcount' := hcount
+  rw [count_spanSingleton_eq_neg_log_valuation_addchar v c hc.2.1,
+    count_spanSingleton_eq_neg_log_valuation_addchar v
+      (algebraMap (𝓞 F) F n) hnmap] at hcount'
+  have hlog : WithZero.log (v.valuation F (algebraMap (𝓞 F) F n)) ≤
+      WithZero.log (v.valuation F c) := by linarith
+  have hnvalNe : v.valuation F (algebraMap (𝓞 F) F n) ≠ 0 :=
+    (v.valuation F).ne_zero_iff.mpr hnmap
+  have hcvalNe : v.valuation F c ≠ 0 := (v.valuation F).ne_zero_iff.mpr hc.2.1
+  have hval : v.valuation F (algebraMap (𝓞 F) F n) ≤ v.valuation F c := by
+    calc
+      v.valuation F (algebraMap (𝓞 F) F n) =
+          WithZero.exp (WithZero.log (v.valuation F (algebraMap (𝓞 F) F n))) :=
+        (WithZero.exp_log hnvalNe).symm
+      _ ≤ WithZero.exp (WithZero.log (v.valuation F c)) := WithZero.exp_le_exp.mpr hlog
+      _ = v.valuation F c := WithZero.exp_log hcvalNe
+  rw [map_div₀]
+  exact (div_le_one₀ (by
+    rw [← WithZero.exp_log hcvalNe]
+    exact WithZero.exp_pos)).2 hval
+
+private theorem mem_ideal_of_div_mem_R (S : SData F CE condη) (I : Ideal (𝓞 F))
+    (hI : S.IsExterior I) (c : F) (hc : S.IsGen c I) (n : 𝓞 F)
+    (hn : algebraMap (𝓞 F) F n / c ∈ S.R) : n ∈ I := by
+  classical
+  by_cases hn0 : n = 0
+  · subst n
+    exact I.zero_mem
+  change ∀ q : FinPlace F, q ∉ S.Sf →
+    q.valuation F (algebraMap (𝓞 F) F n / c) ≤ 1 at hn
+  rw [← Ideal.iInf_maxPowDividing_eq hI.1]
+  simp only [Submodule.mem_iInf]
+  intro q
+  change n ∈ q.maxPowDividing I
+  let e : ℕ := (Associates.mk q.asIdeal).count (Associates.mk I).factors
+  change n ∈ q.asIdeal ^ e
+  by_cases hqS : q ∈ S.Sf
+  · have hezero : e = 0 := by
+      dsimp [e]
+      by_contra he
+      have hdvd := (Associates.count_ne_zero_iff_dvd hI.1 q.irreducible).mp he
+      rw [Ideal.dvd_iff_le] at hdvd
+      exact hI.2 q hqS hdvd
+    rw [hezero]
+    simp
+  · have hcountI : FractionalIdeal.count F q
+        (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = (e : ℤ) := by
+      rw [FractionalIdeal.count_coe F q hI.1]
+    have hcountC : FractionalIdeal.count F q
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) = (e : ℤ) := by
+      rw [hc.2.2 q hqS, hcountI]
+    have hcountCLog :=
+      count_spanSingleton_eq_neg_log_valuation_addchar q c hc.2.1
+    rw [hcountC] at hcountCLog
+    have hlogC : WithZero.log (q.valuation F c) = -(e : ℤ) := by
+      linarith
+    have hcValNe : q.valuation F c ≠ 0 := (q.valuation F).ne_zero_iff.mpr hc.2.1
+    have hvalC : q.valuation F c = WithZero.exp (-(e : ℤ)) := by
+      calc
+        q.valuation F c = WithZero.exp (WithZero.log (q.valuation F c)) :=
+          (WithZero.exp_log hcValNe).symm
+        _ = WithZero.exp (-(e : ℤ)) := by rw [hlogC]
+    have hqR := hn q hqS
+    rw [map_div₀] at hqR
+    have hcValPos : 0 < q.valuation F c := by
+      rw [hvalC]
+      exact WithZero.exp_pos
+    have hvalN : q.valuation F (algebraMap (𝓞 F) F n) ≤
+        WithZero.exp (-(e : ℤ)) := by
+      have h := (div_le_one₀ hcValPos).1 hqR
+      rw [hvalC] at h
+      exact h
+    have hIntVal : q.intValuation n ≤ WithZero.exp (-(e : ℤ)) := by
+      rw [← q.valuation_of_algebraMap (K := F)]
+      exact hvalN
+    exact (q.intValuation_le_pow_iff_mem n e).1 hIntVal
+
 /-- lem:s-lattice, the self-duality consequence used at 02:397 and 06:76: for an exterior ideal `I`
 with generator `c`, `(n, d) ↦ e(nd/c)` is a perfect pairing on `O_F/I`. Package P-ARITH-BASE.
 Corrected per rev-theta to state both annihilator directions under fixed field data. -/
@@ -483,7 +617,29 @@ theorem SData.e_pairing_perfect (D : FieldData F) (S : SData F CE condη)
       S.e A (S.diag (algebraMap (𝓞 F) F (n * d) / c)) = 1) ∧
     (∀ n : 𝓞 F,
       (∀ d : 𝓞 F, S.e A (S.diag (algebraMap (𝓞 F) F (n * d) / c)) = 1) → n ∈ I) := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  constructor
+  · intro n hn d
+    have hnd : n * d ∈ I := by
+      simpa [mul_comm] using I.mul_mem_left d hn
+    have hdiv := integral_div_gen S I c hc (n * d) hnd
+    exact e_diag_R_eq_one D S A ⟨_, hdiv⟩
+  · intro n htriv
+    by_contra hnI
+    let z : F := algebraMap (𝓞 F) F n / c
+    have hzR : z ∉ S.R := by
+      intro hz
+      exact hnI (mem_ideal_of_div_mem_R S I hI c hc n (by simpa [z] using hz))
+    obtain ⟨d, hdetect⟩ :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.external_character_detector S A.ψ
+        A.trivial_on_F A.integral A.unramified z hzR
+    have hdetect' : S.e A (S.diag (z * (d : F))) ≠ 1 := by
+      simpa [SData.e, psiC, ArtinPrimitiveRoots.Proofs.a1_dual_p.eOnFS] using hdetect
+    have hzmul : z * (d : F) = algebraMap (𝓞 F) F (n * d) / c := by
+      simp [z, map_mul]
+      ring
+    exact hdetect' (by rw [hzmul]; exact htriv d)
 
 /-- Normalized Gauss sum `γ_j(𝔠) = q_𝔠^{-1/2} Σ_{x mod 𝔠} χ_𝔠(x)^j e(x/c)` for a squarefree
 exterior ideal `I = 𝔠` with allowed generator `c` (eq:normalized-gauss, 02:391). The finite sum is a
