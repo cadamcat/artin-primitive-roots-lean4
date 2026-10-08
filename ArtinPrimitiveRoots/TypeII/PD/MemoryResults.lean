@@ -8017,13 +8017,13 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
       _ = vbase * 1 := by ring
       _ ≤ vbase * vscale := mul_le_mul_of_nonneg_left hvscale1 hvbasepos
       _ = v₀ := rfl
-  let C_K := (Real.exp (4 * Real.log 2 * v₀ / ρ)) ^ K
-  let Cexp : ℝ := 1
-  let x₀ := max (max xB xV) (max xPos xMass)
+  obtain ⟨Cexp, xEdge, hCexp, hxEdge, hEdge⟩ :=
+    memEdgeProjected_crude_schur δ c₁ c₂ hδ hc₁ K F hF ρ hρ v₀ hv₀
+  let C_K := (Real.exp ((2 + 4 * Real.log 2) * v₀ / ρ)) ^ K
+  let x₀ := max (max xB xV) (max xPos (max xMass xEdge))
   have hC_K : 0 < C_K := by
     dsimp [C_K]
     exact pow_pos (Real.exp_pos _) _
-  have hCexp : 0 < Cexp := by norm_num [Cexp]
   have hx₀ : 2 ≤ x₀ := by
     dsimp [x₀]
     exact le_trans hxB (le_trans (le_max_left _ _) (le_max_left _ _))
@@ -8038,7 +8038,13 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
     exact le_trans (le_max_left _ _) (le_max_right _ _)
   have hxMass₀ : xMass ≤ x₀ := by
     dsimp [x₀]
-    exact le_trans (le_max_right _ _) (le_max_right _ _)
+    exact le_trans (le_max_left _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hxEdge₀ : xEdge ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans (le_max_right _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hlogtwo : 0 ≤ Real.log 2 := (Real.log_pos (by norm_num : (1 : ℝ) < 2)).le
   have hηone (x : ℝ) (j : ℕ) : memoryEta x F.q_d j ≤ 1 := by
     have hqj : 0 ≤ memoryQ x F.q_d j := by
       unfold memoryQ
@@ -8062,7 +8068,7 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
     have hfac : 0 ≤ 2 * v₀ / ρ := div_nonneg (by positivity) hρ.1.le
     have hexpArg (i : Fin K) :
         2 * memoryEta S.x F.q_d j * bandMass S.x (F.a i) * v₀ / ρ ≤
-          4 * Real.log 2 * v₀ / ρ := by
+          (2 + 4 * Real.log 2) * v₀ / ρ := by
       have hηVraw := mul_le_mul_of_nonneg_right heta (hmassPos i).le
       have hηV : memoryEta S.x F.q_d j * bandMass S.x (F.a i) ≤
           bandMass S.x (F.a i) := by simpa using hηVraw
@@ -8075,14 +8081,42 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
           mul_le_mul_of_nonneg_left hηV hfac
         _ ≤ (2 * v₀ / ρ) * (2 * Real.log 2) := hV
         _ = 4 * Real.log 2 * v₀ / ρ := by ring
+        _ ≤ 4 * Real.log 2 * v₀ / ρ + 2 * v₀ / ρ :=
+          le_add_of_nonneg_right hfac
+        _ = (2 + 4 * Real.log 2) * v₀ / ρ := by ring
     calc
-      _ ≤ ∏ i : Fin K, Real.exp (4 * Real.log 2 * v₀ / ρ) := by
+      _ ≤ ∏ i : Fin K, Real.exp ((2 + 4 * Real.log 2) * v₀ / ρ) := by
         apply Finset.prod_le_prod₀
         · intro i hi
           exact (Real.exp_pos _).le
         · intro i hi
           exact Real.exp_le_exp.mpr (hexpArg i)
       _ = C_K := by simp [C_K]
+  have hmeasure (S : PDScale) (hx : x₀ ≤ S.x) (s : MemPoint S.x K) :
+      0 ≤ memMeasure F S s := by
+    have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+        0 ≤ memoryNu S.x K F.a F.q_d i p := by
+      have hbpPos : 0 < memoryBPrime S.x F.q_d p :=
+        lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1 / 2)
+          (hBPrime S.x (hxB₀.trans hx) p
+            (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩))
+      have hden : 0 < bandMass S.x (F.a i) * ((p : ℝ) + 1) *
+          memoryBPrime S.x F.q_d p :=
+        mul_pos (mul_pos (hBandMassPos S.x (hxPos₀.trans hx) i) (by positivity)) hbpPos
+      exact div_nonneg (by norm_num) hden.le
+    by_cases hs : MemValid F S s
+    · rw [memMeasure, if_pos hs]
+      apply mul_nonneg
+      · exact Finset.prod_nonneg fun i hi =>
+          Finset.prod_nonneg fun k hk => hν i _ (hs.2.1 i k)
+      · apply Finset.prod_nonneg
+        intro i hi
+        apply div_nonneg
+        · exact List.prod_nonneg fun x hx => by
+            rcases List.mem_map.mp hx with ⟨e, he, rfl⟩
+            exact hν i e.1 (hs.2.2 i e he).1
+        · exact Nat.cast_nonneg _
+    · simp [memMeasure, hs]
   have hrow (S : PDScale) (hS : S.Valid K δ c₁ c₂) (hx : x₀ ≤ S.x)
       (j : ℕ) :
       MemRowSchurLE_sym F S (memoryCutoff S) (memGhost F S ρ j) v₀ C_K := by
@@ -8103,10 +8137,66 @@ theorem ghost_edge_crude (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
             v₀ ^ memSize s := hparam s hs hsSize T hT
       _ ≤ C_K * v₀ ^ memSize s :=
         mul_le_mul_of_nonneg_right (hExpBound S hS hx j) (pow_nonneg hv₀pos.le _)
+  have hcol (S : PDScale) (hS : S.Valid K δ c₁ c₂) (hx : x₀ ≤ S.x)
+      (j : ℕ) :
+      MemColSchurLE_sym F S (memoryCutoff S) (memGhost F S ρ j) v₀ C_K := by
+    have hmass (i : Fin K) : 0 < bandMass S.x (F.a i) :=
+      hBandMassPos S.x (hxPos₀.trans hx) i
+    have hbp (p : ℕ) (hp : p ∈ markedPrimes S.x K F.a) :
+        (1 / 2 : ℝ) ≤ memoryBPrime S.x F.q_d p :=
+      hBPrime S.x (hxB₀.trans hx) p hp
+    have hvlarge (i : Fin K) :
+        2 * bandMass S.x (F.a i) /
+          (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤ v₀ := by
+      have hV : bandMass S.x (F.a i) ≤ vscale :=
+        (hBandMass S.x (hxV₀.trans hx) i).trans (le_max_right _ _)
+      calc
+        _ = (2 / (ρ * g)) * bandMass S.x (F.a i) := by dsimp [g]; ring
+        _ ≤ vbase * vscale :=
+          mul_le_mul (le_max_right _ _) hV (hmass i).le hvbasepos
+        _ = v₀ := rfl
+    have hparam := memGhostProjected_colSchur_le_of_params F hF S ρ hρ j
+      (memoryCutoff S) v₀ hv₀pos hvlarge hmass hbp
+    have hfac : 0 ≤ 2 * v₀ / ρ := div_nonneg (by positivity) hρ.1.le
+    have hexpArg : 2 * memoryEta S.x F.q_d j * v₀ / ρ ≤
+        (2 + 4 * Real.log 2) * v₀ / ρ := by
+      calc
+        _ = (2 * v₀ / ρ) * memoryEta S.x F.q_d j := by ring
+        _ ≤ 2 * v₀ / ρ := by
+          simpa using mul_le_mul_of_nonneg_left (hηone S.x j) hfac
+        _ ≤ 2 * v₀ / ρ + 4 * Real.log 2 * v₀ / ρ :=
+          le_add_of_nonneg_right
+            (div_nonneg (mul_nonneg (mul_nonneg (by norm_num) hlogtwo) hv₀pos.le) hρ.1.le)
+        _ = (2 + 4 * Real.log 2) * v₀ / ρ := by ring
+    have hExpCol :
+        (∏ i : Fin K, Real.exp (2 * memoryEta S.x F.q_d j * v₀ / ρ)) ≤ C_K := by
+      calc
+        _ ≤ ∏ i : Fin K, Real.exp ((2 + 4 * Real.log 2) * v₀ / ρ) := by
+          apply Finset.prod_le_prod₀
+          · intro i hi
+            exact (Real.exp_pos _).le
+          · intro i hi
+            exact Real.exp_le_exp.mpr hexpArg
+        _ = C_K := by simp [C_K]
+    change MemColSchurLE F S (memoryCutoff S)
+      (fun f => memGhost F S ρ j (memorySym f)) v₀ C_K
+    intro t ht htSize T hT
+    calc
+      _ ≤ (∏ i : Fin K, Real.exp (2 * memoryEta S.x F.q_d j * v₀ / ρ)) *
+          memMeasure F S t * v₀ ^ memSize t := hparam t ht htSize T hT
+      _ ≤ C_K * memMeasure F S t * v₀ ^ memSize t :=
+        mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_right hExpCol (hmeasure S hx t))
+          (pow_nonneg hv₀pos.le _)
   refine ⟨v₀, C_K, Cexp, x₀, hv₀, hC_K, hCexp, hx₀, ?_⟩
   intro S hS hx w hw j hj
-  refine ⟨hrow S hS hx j, ?_⟩
-  sorry
+  have hrow' := hrow S hS hx j
+  have hcol' := hcol S hS hx j
+  refine ⟨hrow', hcol', ?_, ?_⟩
+  · exact memGhostProjected_norm_of_schur F S ρ j (memoryCutoff S) v₀ C_K
+      hv₀pos hC_K.le (hmeasure S hx) hrow' hcol'
+  · intro hjlt
+    exact hEdge S hS (hxEdge₀.trans hx) w hw j hjlt
 
 /-- `t2:pd.lattice-clean` (a) — PD 04:439-497.  Lattice box at a source passing good test (i):
 in the coordinates `(h,l)` of `z' = h z + l D w_z`, the region `|l| ≤ C₁ Y`, `|h + lα| ≤ C₁`
