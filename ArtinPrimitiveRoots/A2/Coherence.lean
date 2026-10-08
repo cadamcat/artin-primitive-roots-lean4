@@ -3,8 +3,9 @@ import ArtinPrimitiveRoots.Hecke.Defs
 
 set_option autoImplicit false
 set_option maxHeartbeats 800000
-open NumberField IsDedekindDomain MeasureTheory ClassFieldTheory
+open NumberField IsDedekindDomain MeasureTheory ClassFieldTheory Filter Asymptotics
 open scoped Classical
+open scoped Topology
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
 open ArtinPrimitiveRoots A1 A2
@@ -147,7 +148,83 @@ def mellinIdentificationStatement : Prop := ∀ H L : ℂ → ℂ, MellinInputs 
 
 /-- New analytic producer obligation for `mellinIdentificationStatement` (06:691–752). -/
 theorem mellin_identification_from_inputs : mellinIdentificationStatement := by
-  sorry
+  intro H L hI
+  let p : ℝ := (7 : ℝ) / 15 - 1 / 20000
+  have hlarge : ∃ C Z0 : ℝ, 0 < C ∧ 1 ≤ Z0 ∧ ∀ Z : ℝ, Z0 ≤ Z →
+      ‖fEta H L Z‖ ≤ C * Real.rpow Z (7 / 15 - 1 / 20000) := by
+    obtain ⟨C, Z0, hC, hZ0, hbound⟩ := hI.large
+    exact ⟨C, Z0, hC, le_trans (by norm_num) hZ0, hbound⟩
+  have hcont := fEta_continuousOn_of_bounds H L hI.H_holomorphic hI.L_holomorphic
+    hI.L_nonzero hI.H_bound hI.L_reciprocal_bound
+  have hloc : LocallyIntegrableOn (fEta H L) (Set.Ioi 0) :=
+    hcont.locallyIntegrableOn measurableSet_Ioi
+  have htop : fEta H L =O[atTop] (fun Z : ℝ => Z ^ p) := by
+    obtain ⟨C, Z0, hC, hZ0, hbound⟩ := hI.large
+    apply IsBigO.of_bound (C + 1)
+    filter_upwards [eventually_ge_atTop Z0] with Z hZ
+    have hZpos : 0 < Z := lt_of_lt_of_le (by linarith) hZ
+    have hpow : 0 ≤ Z ^ p := Real.rpow_nonneg hZpos.le _
+    calc
+      ‖fEta H L Z‖ ≤ C * Z ^ p := by simpa [p] using hbound Z hZ
+      _ ≤ (C + 1) * Z ^ p :=
+        mul_le_mul_of_nonneg_right (by linarith) hpow
+      _ = (C + 1) * ‖Z ^ p‖ := by
+        rw [Real.norm_eq_abs, abs_of_nonneg hpow]
+  have hbot (A0 : ℝ) (hA0 : 0 < A0) :
+      fEta H L =O[𝓝[>] (0 : ℝ)] (fun Z : ℝ => Z ^ A0) := by
+    obtain ⟨C, hC, hbound⟩ := hI.small A0 hA0
+    apply IsBigO.of_bound C
+    filter_upwards [self_mem_nhdsWithin,
+      mem_nhdsWithin_of_mem_nhds (Iic_mem_nhds (show (0 : ℝ) < 1 by norm_num))]
+        with Z hZ hZ1
+    have hZpos : 0 < Z := by simpa using hZ
+    have hZle : Z ≤ 1 := by simpa using hZ1
+    have hsmall := hbound Z hZpos hZle
+    have hpow : 0 ≤ Z ^ A0 := Real.rpow_nonneg hZpos.le _
+    calc
+      ‖fEta H L Z‖ ≤ C * Z ^ A0 := hsmall
+      _ = C * ‖Z ^ A0‖ := by
+        rw [Real.norm_eq_abs, abs_of_nonneg hpow]
+  have hdifferentiable : DifferentiableOn ℂ (mellinT (fEta H L))
+      {s : ℂ | 1 - 1 / 20000 < s.re} := by
+    intro s hs
+    let A0 : ℝ := max 0 (s.re - 8 / 15) + 1
+    have hA0 : 0 < A0 := by
+      dsimp [A0]
+      linarith [le_max_left 0 (s.re - 8 / 15)]
+    have hAgt : s.re - 8 / 15 < A0 := by
+      dsimp [A0]
+      linarith [le_max_right 0 (s.re - 8 / 15)]
+    have hqre : (-Cstar s).re = 8 / 15 - s.re := by simp [Cstar]
+    change 1 - 1 / 20000 < s.re at hs
+    have htop' : fEta H L =O[atTop] (fun Z : ℝ => Z ^ (-(-p))) := by
+      simpa only [neg_neg] using htop
+    have hbot' : fEta H L =O[𝓝[>] (0 : ℝ)]
+        (fun Z : ℝ => Z ^ (-(-A0))) := by
+      simpa only [neg_neg] using hbot A0 hA0
+    have hqtop : (-Cstar s).re < -p := by
+      rw [hqre]
+      dsimp [p]
+      linarith [hs]
+    have hqbot : -A0 < (-Cstar s).re := by
+      rw [hqre]
+      linarith [hAgt]
+    have hmellin : DifferentiableAt ℂ (mellin (fEta H L)) (-Cstar s) :=
+      mellin_differentiableAt_of_isBigO_rpow (a := -p) (b := -A0)
+        hloc htop' hqtop hbot' hqbot
+    have hcomp : DifferentiableAt ℂ (fun z : ℂ => -Cstar z) s := by
+      fun_prop [Cstar]
+    have hAt : DifferentiableAt ℂ (mellinT (fEta H L)) s := by
+      change DifferentiableAt ℂ (mellin (fEta H L) ∘ (fun z : ℂ => -Cstar z)) s
+      exact hmellin.comp s hcomp
+    exact hAt.differentiableWithinAt
+  have hline : ∀ t : ℝ,
+      mellinT (fEta H L) (2 + t * Complex.I) = amplitude H L (2 + t * Complex.I) :=
+    fun t => mellinT_fEta_line_eq_amplitude_of_bounds H L hI.H_holomorphic
+      hI.L_holomorphic hI.L_nonzero hI.H_bound hI.L_reciprocal_bound hlarge t
+  refine ⟨hdifferentiable, hline, ?_⟩
+  exact mellin_identification H L hI.H_holomorphic hI.H_nonzero hI.H_bound
+    hI.L_holomorphic hI.L_nonzero hI.L_reciprocal_bound hI.small hlarge
 
 /-- Boundary-width version of Mellin identification. It matches the frozen `δ₀ = 10⁻⁶`
 continuation domain in `Hecke/Boundary.lean`; its analytic proof is a separate obligation
