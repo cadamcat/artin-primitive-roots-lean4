@@ -30,6 +30,7 @@ theorem continuedEis_theta_cont {P : CoverPackage D S H A} {G : GlobalDatum P}
         (fun z : ℂ => R.theta (g * P.tc.nS
           (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))) ∧
     JointRootSmooth P R.theta := by
-  sorry
+  exact ⟨continuedEis_theta_torus_cont R,
+    continuedEis_theta_rightRoot R, continuedEis_theta_jointRoots R⟩
 
 end ArtinPrimitiveRoots.A1.Theta
