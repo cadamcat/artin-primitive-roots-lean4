@@ -765,6 +765,227 @@ private theorem thetaN_famM_torus_nhds {P : CoverPackage D S H A}
   rw [harg]
   exact hlev _ _ (hsub hK)
 
+/-! ### Continuity of the archimedean factors -/
+
+private theorem thetaN_diagM_mul (y y' : ℂˣ) : diagM ℂ (y * y') = diagM ℂ y * diagM ℂ y' := by
+  apply Matrix.GeneralLinearGroup.ext
+  intro i j
+  fin_cases i <;> fin_cases j <;> simp [diagM, Matrix.mul_apply, Fin.sum_univ_two]
+
+private theorem thetaN_diagM_one : diagM ℂ (1 : ℂˣ) = 1 := by
+  apply Matrix.GeneralLinearGroup.ext
+  intro i j
+  fin_cases i <;> fin_cases j <;> simp [diagM]
+
+private theorem thetaN_diagM_continuous : Continuous (fun y : ℂˣ => diagM ℂ y) := by
+  have hmat (f : ℂˣ → ℂ) (hf : Continuous f) :
+      Continuous (fun y : ℂˣ => (!![f y, 0; 0, 1] : Matrix (Fin 2) (Fin 2) ℂ)) := by
+    apply continuous_pi
+    intro i
+    apply continuous_pi
+    intro j
+    fin_cases i <;> fin_cases j <;> simp [hf, continuous_const]
+  rw [Units.continuous_iff]
+  constructor
+  · exact hmat (fun y => (y : ℂ)) Units.continuous_val
+  · have hinv (y : ℂˣ) : (diagM ℂ y)⁻¹ = diagM ℂ y⁻¹ := by
+      rw [eq_comm, ← mul_eq_one_iff_eq_inv, ← thetaN_diagM_mul, inv_mul_cancel, thetaN_diagM_one]
+    have h := hmat (fun y => ((y⁻¹ : ℂˣ) : ℂ)) Units.continuous_coe_inv
+    refine h.congr ?_
+    intro y
+    rw [hinv]
+    rfl
+
+private theorem thetaN_compC_continuous (w : InfinitePlace F) :
+    Continuous (fun y : S.FSˣ => S.compC w y) := by
+  apply Continuous.units_map
+  exact (continuous_apply w).comp continuous_snd
+
+private theorem thetaN_derivVecC_fC (m : ℤ) (A : PGL2 ℂ) :
+    derivVecC m thetaN_fC A =
+      (Real.pi / (2 * (1 / 6 : ℂ))) * derivVecC m (sphC (-(1 / 6))) A := by
+  set c : ℂ := Real.pi / (2 * (1 / 6 : ℂ)) with hc
+  have hc0 : c ≠ 0 := by
+    have hpi : (Real.pi : ℂ) ≠ 0 := by exact_mod_cast Real.pi_ne_zero
+    exact div_ne_zero hpi (by norm_num)
+  let Φ : ℂ → ℂ := fun z => sphC (-(1 / 6)) (A * nC z)
+  let cUnit : ℂˣ := Units.mk0 c hc0
+  let cEquiv : ℂ ≃L[ℝ] ℂ := (cUnit.mulLeftLinearEquiv ℝ ℂ).toContinuousLinearEquiv
+  have hcEquiv (z : ℂ) : cEquiv z = c * z := by
+    simp [cEquiv, cUnit, Units.mulLeftLinearEquiv_apply]
+  have hcurve : (fun z : ℂ => thetaN_fC (A * nC z)) = fun z => cEquiv (Φ z) := by
+    funext z
+    rw [hcEquiv, thetaN_fC_eq]
+  have hval (v : ℂ) : fderiv ℝ (fun z : ℂ => cEquiv (Φ z)) 0 v = c * fderiv ℝ Φ 0 v := by
+    have h := cEquiv.comp_fderiv (f := Φ) (x := 0)
+    have h' := congrArg (fun T : ℂ →L[ℝ] ℂ => T v) h
+    change fderiv ℝ (cEquiv ∘ Φ) 0 v = _
+    rw [h']
+    exact hcEquiv _
+  unfold derivVecC
+  rw [hcurve, hval, hval]
+  ring
+
+private theorem thetaN_derivVecC_fC_continuous (m : ℤ) :
+    Continuous (derivVecC m thetaN_fC) := by
+  have h := (derivVecC_isSection m (-(1 / 6))).2
+  have heq : derivVecC m thetaN_fC =
+      fun A => (Real.pi / (2 * (1 / 6 : ℂ))) * derivVecC m (sphC (-(1 / 6))) A := by
+    funext A
+    exact thetaN_derivVecC_fC m A
+  rw [heq]
+  exact continuous_const.mul h
+
+/-! ### Torus continuity of the differentiated constant term -/
+
+private theorem thetaN_torus_cont {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (L : SChar S) (g h : P.tc.G) :
+    Continuous fun y : S.FSˣ => thetaFamilyThetaN B L (g * P.tc.aS y * h) := by
+  classical
+  obtain ⟨xg, rfl⟩ := P.q_surj g
+  obtain ⟨xh, rfl⟩ := P.q_surj h
+  choose xa hxaq hxaF hxaC using P.aS_components
+  choose xn' hxnq hxnF hxnC using P.nS_components
+  let xn : (InfinitePlace F → ℂ) → P.RP := fun x =>
+    xn' (((0 : ∀ v : S.Sf, v.1.adicCompletion F), x) : S.FS)
+  let R : Fˣ → S.FSˣ → P.RP := fun a y => P.ratRP (diagGL a) * xg * xa y * xh
+  have hRq (a : Fˣ) (y : S.FSˣ) (x : InfinitePlace F → ℂ) :
+      P.q (R a y * xn x) =
+        P.tc.rat (diagGL a) * (P.q xg * P.tc.aS y * P.q xh * nInf P x) := by
+    simp only [R, xn, map_mul, P.q_ratRP, hxaq, hxnq, mul_assoc]
+    rfl
+  have hnF (x : InfinitePlace F → ℂ) (v : FinPlace F) : P.compF v (xn x) = 1 := by
+    simp only [xn]
+    rw [hxnF _ v]
+    split_ifs
+    · change (P.loc v).n (Multiplicative.ofAdd 0) = 1
+      rw [ofAdd_zero, map_one]
+    · rfl
+  have hnC (x : InfinitePlace F → ℂ) (w : InfinitePlace F) :
+      P.compC w (xn x) = nC (x w) := hxnC _ w
+  let fin : Fˣ → S.FSˣ → ℂ := fun a y =>
+    ∏ᶠ v, N.G.lam v (famM B.Fam v (P.compF v (R a y)))
+  have hΦ (a : Fˣ) (y : S.FSˣ) (x : InfinitePlace F → ℂ) :
+      thetaNPhi B (P.tc.rat (diagGL a) * (P.q xg * P.tc.aS y * P.q xh * nInf P x)) =
+        fin a y * ∏ w, thetaN_fC (P.compC w (R a y) * nC (x w)) := by
+    rw [← hRq, thetaNPhi_q]
+    congr 1
+    · apply finprod_congr
+      intro v
+      rw [map_mul, hnF, mul_one]
+    · apply Finset.prod_congr rfl
+      intro w _
+      rw [map_mul, hnC]
+  have hnInf0 : nInf P (0 : InfinitePlace F → ℂ) = 1 := by
+    change P.tc.nS (1 : Multiplicative S.FS) = 1
+    exact map_one P.tc.nS
+  rw [continuous_iff_continuousAt]
+  intro y0
+  -- the finite factors are locally constant in the torus parameter
+  have hloc : ∀ᶠ y in 𝓝 y0, ∀ a : Fˣ, fin a y = fin a y0 := by
+    have hall : ∀ᶠ y in 𝓝 y0, ∀ v : S.Sf, ∀ X : (P.loc v.1).L,
+        famM B.Fam v.1 (X * (P.loc v.1).a (S.compU v y) * P.compF v.1 xh) =
+          famM B.Fam v.1 (X * (P.loc v.1).a (S.compU v y0) * P.compF v.1 xh) := by
+      rw [Filter.eventually_all]
+      intro v
+      have hcont : Continuous (fun y : S.FSˣ => S.compU v y) := by
+        apply Continuous.units_map
+        exact (continuous_apply v).comp continuous_fst
+      exact hcont.continuousAt.eventually
+        (thetaN_famM_torus_nhds B v (S.compU v y0) (P.compF v.1 xh))
+    filter_upwards [hall] with y hy a
+    apply finprod_congr
+    intro v
+    have hf : famM B.Fam v (P.compF v (R a y)) = famM B.Fam v (P.compF v (R a y0)) := by
+      simp only [R, map_mul]
+      rw [hxaF y v, hxaF y0 v]
+      by_cases hv : v ∈ S.Sf
+      · rw [dif_pos hv, dif_pos hv]
+        exact hy ⟨v, hv⟩ _
+      · rw [dif_neg hv, dif_neg hv]
+    rw [hf]
+  -- finite support at the base point
+  obtain ⟨T, hT, -, -⟩ :=
+    constantCell_finite_analytic B.Fam.fourierHyp (P.q xg * P.tc.aS y0 * P.q xh)
+  have hM : fourierRawM N.μ B.Fam.sec (1 / 6) = thetaNPhi B := by
+    funext X
+    unfold fourierRawM thetaNPhi
+    congr 1
+    · funext v
+      unfold famM
+      simp only [B.Fam.T0_eq]
+    · funext w
+      rw [B.Fam.fC_sph]
+  have hzero : ∀ δ : Fˣ ⧸ N.G.Δ, δ ∉ T → fin (Quotient.out δ) y0 = 0 := by
+    intro δ hδ
+    have h0 := (hT (1 / 6) (by norm_num) δ hδ).2
+    rw [hM] at h0
+    have h1 := hΦ (Quotient.out δ) y0 0
+    rw [hnInf0, mul_one, h0] at h1
+    have hprod : ∏ w, thetaN_fC (P.compC w (R (Quotient.out δ) y0) * nC ((0 : InfinitePlace F → ℂ) w)) ≠ 0 :=
+      Finset.prod_ne_zero_iff.mpr fun w _ => thetaN_fC_ne_zero _
+    rcases mul_eq_zero.mp h1.symm with h | h
+    · exact h
+    · exact absurd h hprod
+  -- representation of the root chart as a finite sum of products
+  let c0 : ℂ := (κF F)⁻¹ * resCprod B.Fam.T0
+  let φ : S.FSˣ → (Fˣ ⧸ N.G.Δ) → InfinitePlace F → ℂ → ℂ := fun y δ w z =>
+    thetaN_fC (P.compC w (R (Quotient.out δ) y) * nC z)
+  let a : (Fˣ ⧸ N.G.Δ) → ℂ := fun δ => c0 * fin (Quotient.out δ) y0
+  have hrep : ∀ᶠ y in 𝓝 y0,
+      (fun x => thetaFamilyBaseN B (P.q xg * P.tc.aS y * P.q xh * nInf P x)) =
+        thetaN_sumProd T a (φ y) := by
+    filter_upwards [hloc] with y hy
+    funext x
+    rw [thetaFamilyBaseN_eq]
+    have hterm : ∀ δ : Fˣ ⧸ N.G.Δ,
+        thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) *
+          (P.q xg * P.tc.aS y * P.q xh * nInf P x)) =
+          fin (Quotient.out δ) y0 * ∏ u, φ y δ u (x u) := by
+      intro δ
+      rw [hΦ, hy]
+    rw [tsum_congr hterm, tsum_eq_sum (s := T) (fun δ hδ => by rw [hzero δ hδ, zero_mul]),
+      Finset.mul_sum]
+    unfold thetaN_sumProd
+    apply Finset.sum_congr rfl
+    intro δ _
+    simp only [a]
+    ring
+  have hdiff : ∀ (y : S.FSˣ) (δ : Fˣ ⧸ N.G.Δ) (u : InfinitePlace F),
+      Differentiable ℝ (φ y δ u) := fun y δ u =>
+    (thetaN_fC_smooth _).differentiable (by simp)
+  let Gfun : S.FSˣ → ℂ := fun y => (thetaNormalizationScalar N)⁻¹ *
+    ∑ δ ∈ T, a δ * ∏ u, derivVecC (L.m u) thetaN_fC (P.compC u (R (Quotient.out δ) y))
+  have hGeq : ∀ᶠ y in 𝓝 y0, Gfun y = thetaFamilyThetaN B L (P.q xg * P.tc.aS y * P.q xh) := by
+    filter_upwards [hrep] with y hy
+    change _ = (thetaNormalizationScalar N)⁻¹ *
+      thetaFamilyDeriv P L.m (thetaFamilyBaseN B) (P.q xg * P.tc.aS y * P.q xh)
+    rw [thetaN_deriv_chart, hy, thetaN_fold_sumProd T a L.m (φ y) (hdiff y) _
+      (Finset.nodup_toList _)]
+    unfold thetaN_sumProd
+    simp only [Finset.mem_toList, Finset.mem_univ, if_true, Pi.zero_apply]
+    rfl
+  have hRC (δ : Fˣ ⧸ N.G.Δ) (u : InfinitePlace F) :
+      Continuous fun y : S.FSˣ => P.compC u (R (Quotient.out δ) y) := by
+    have heq : (fun y : S.FSˣ => P.compC u (R (Quotient.out δ) y)) = fun y =>
+        P.compC u (P.ratRP (diagGL (Quotient.out δ))) * P.compC u xg *
+          (QuotientGroup.mk (diagM ℂ (S.compC u y)) : PGL2 ℂ) * P.compC u xh := by
+      funext y
+      simp only [R, map_mul, hxaC y u]
+    rw [heq]
+    have hd : Continuous fun y : S.FSˣ => (QuotientGroup.mk (diagM ℂ (S.compC u y)) : PGL2 ℂ) :=
+      continuous_quotient_mk'.comp (thetaN_diagM_continuous.comp (thetaN_compC_continuous u))
+    exact ((continuous_const.mul hd).mul continuous_const)
+  have hGcont : Continuous Gfun := by
+    apply continuous_const.mul
+    apply continuous_finset_sum
+    intro δ _
+    apply continuous_const.mul
+    apply continuous_finset_prod
+    intro u _
+    exact (thetaN_derivVecC_fC_continuous (L.m u)).comp (hRC δ u)
+  exact hGcont.continuousAt.congr hGeq
+
 /-- Export the constant-term invariances, torus continuity and T7 radiality for the same normalized constant term.
 Guide: sol-thin-thglobal/PROOFS.md:1200–1210.
 Uses thetaFamilyBaseN, theta_constantTerm, intertwineC_spherical and left-translation commutation with thetaFamilyDeriv. -/
@@ -807,7 +1028,7 @@ theorem thetaN_fields {P : CoverPackage D S H A}
       funext fun x => thetaFamilyBaseN_genuine B ζ x
     rw [thetaN_deriv_left, hfun, thetaN_deriv_const_mul]
     ring
-  · sorry
+  · exact fun g h => thetaN_torus_cont B L g h
   · intro w zc hzc g
     change (thetaNormalizationScalar N)⁻¹ *
         thetaFamilyDeriv P L.m (thetaFamilyBaseN B) (P.tc.aS (S.atComplex w zc) * g) =
