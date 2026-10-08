@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.Cosets
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexMajorant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexIntegral
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.FiniteProduct
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.CubeClasses
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.LocalValuation
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.FiniteMajorant
