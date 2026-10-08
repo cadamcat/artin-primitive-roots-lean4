@@ -614,7 +614,7 @@ private theorem conductorLocalCharacter_eq_of_congruence
     intro h
     exact hb0 ((IsFractionRing.injective (𝓞 F) F) (by simpa [bF] using h))
   have hbLocal : algebraMap F (v.adicCompletion F) bF ≠ 0 :=
-    (map_ne_zero (algebraMap F (v.adicCompletion F)) bF).2 hbF
+    (map_ne_zero (algebraMap F (v.adicCompletion F))).2 hbF
   have hratio : (u.val : v.adicCompletion F) =
       (algebraMap F (v.adicCompletion F) aF) /
         algebraMap F (v.adicCompletion F) bF := by
@@ -622,9 +622,8 @@ private theorem conductorLocalCharacter_eq_of_congruence
   have hdelta : (u.val : v.adicCompletion F) - 1 =
       algebraMap F (v.adicCompletion F) (aF - bF) /
         algebraMap F (v.adicCompletion F) bF := by
-    rw [hratio]
-    field_simp [hbLocal]
-    ring
+    rw [hratio, map_sub]
+    exact div_sub_one hbLocal
   have hbound : Valued.v ((u.val : v.adicCompletion F) - 1) ≤
       WithZero.exp (-(n : ℤ)) := by
     rw [hdelta]
