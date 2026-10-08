@@ -2891,6 +2891,197 @@ private theorem finiteOrder_idealTerm_summable (χ : HeckeChar F)
       exact hfiber n
   exact summable_norm_iff.mp hnorm
 
+open scoped nonZeroDivisors in
+open ArtinPrimitiveRoots.Hecke.EulerProduct in
+private theorem incompleteHeckeLSeries_eq_complete_factors
+    (χ : HeckeChar F) (hχ : IsOfFinOrder χ) (s : ℂ) (hs : 1 < s.re) :
+    incompleteHeckeLSeries S χ s = heckeLSeries χ s *
+      ∏ v ∈ S.Sf, (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+  classical
+  let f : IdealArithmeticFunction F := fun I => χ.idealValue I
+  have hmul (I J : Ideal (𝓞 F)) (hI : I ≠ ⊥) (hJ : J ≠ ⊥) :
+      χ.idealValue (I * J) = χ.idealValue I * χ.idealValue J := by
+    simp only [HeckeChar.idealValue,
+      UniqueFactorizationMonoid.normalizedFactors_mul hI hJ,
+      Multiset.map_add, Multiset.prod_add]
+  have hone : χ.idealValue (1 : Ideal (𝓞 F)) = 1 := by
+    unfold HeckeChar.idealValue
+    rw [UniqueFactorizationMonoid.normalizedFactors_one]
+    simp
+  have hprime (v : FinPlace F) : χ.idealValue v.asIdeal = χ.primeValue v := by
+    unfold HeckeChar.idealValue
+    rw [UniqueFactorizationMonoid.normalizedFactors_irreducible
+      (Ideal.prime_of_isPrime v.ne_bot v.isPrime).irreducible, normalize_eq]
+    simp only [Multiset.map_singleton, Multiset.prod_singleton]
+    by_cases h : v.asIdeal.IsPrime ∧ v.asIdeal ≠ ⊥
+    · simp [h]
+    · exact (h ⟨v.isPrime, v.ne_bot⟩).elim
+  have hpow (v : FinPlace F) (n : ℕ) :
+      χ.idealValue (v.asIdeal ^ n) = χ.primeValue v ^ n := by
+    induction n with
+    | zero => simpa using hone
+    | succ n ih =>
+      rw [pow_succ, hmul _ _ (pow_ne_zero _ v.ne_bot) v.ne_bot, ih, hprime, pow_succ]
+  have hf : f.IsMultiplicative := by
+    refine ⟨hone, ?_⟩
+    intro I J hIJ
+    change χ.idealValue ((I : Ideal (𝓞 F)) * (J : Ideal (𝓞 F))) = _
+    exact hmul _ _ (mem_nonZeroDivisors_iff_ne_zero.mp I.property)
+      (mem_nonZeroDivisors_iff_ne_zero.mp J.property)
+  have hsum : Summable (idealTerm f s) := finiteOrder_idealTerm_summable χ hχ s hs
+  have hratio (P : FinPlace F) :
+      ‖χ.primeValue P * (Ideal.absNorm P.asIdeal : ℂ) ^ (-s)‖ < 1 := by
+    have hN : 1 < Ideal.absNorm P.asIdeal := NumberField.HeightOneSpectrum.one_lt_absNorm P
+    have hNreal : 1 < (Ideal.absNorm P.asIdeal : ℝ) := by exact_mod_cast hN
+    have hnormPow : ‖(Ideal.absNorm P.asIdeal : ℂ) ^ (-s)‖ =
+        (Ideal.absNorm P.asIdeal : ℝ) ^ (-s.re) := by
+      rw [Complex.norm_natCast_cpow_of_pos (Nat.zero_lt_of_lt hN)]
+      rfl
+    rw [norm_mul, hnormPow]
+    calc
+      _ ≤ 1 * (Ideal.absNorm P.asIdeal : ℝ) ^ (-s.re) :=
+        mul_le_mul_of_nonneg_right (primeValue_norm_le_one χ hχ P) (by positivity)
+      _ < 1 := by
+        rw [one_mul]
+        exact Real.rpow_lt_one_of_one_lt_of_neg hNreal (by linarith)
+  have hfactor (P : FinPlace F) : eulerFactor f P s =
+      (1 - χ.primeValue P * (Ideal.absNorm P.asIdeal : ℂ) ^ (-s))⁻¹ := by
+    rw [eulerFactor_eq_tsum]
+    have hpowRatio (n : ℕ) : idealTerm f s (P.primeIdealPow n) =
+        (χ.primeValue P / (Ideal.absNorm P.asIdeal : ℂ) ^ s) ^ n := by
+      dsimp only [idealTerm, f]
+      rw [P.absNorm_primeIdealPow, P.coe_primeIdealPow,
+        hpow, Nat.cast_pow, ← Complex.natCast_cpow_natCast_mul,
+        Complex.cpow_nat_mul, div_pow]
+    have hterm (n : ℕ) : idealTerm f s (P.primeIdealPow n) =
+        (χ.primeValue P * (Ideal.absNorm P.asIdeal : ℂ) ^ (-s)) ^ n := by
+      rw [hpowRatio, div_eq_mul_inv, Complex.cpow_neg]
+    rw [tsum_congr hterm]
+    exact tsum_geometric_of_norm_lt_one (hratio P)
+  let e : (Ideal (𝓞 F))⁰ ≃ {I : Ideal (𝓞 F) // I ≠ ⊥} := {
+    toFun := fun I => ⟨(I : Ideal (𝓞 F)), mem_nonZeroDivisors_iff_ne_zero.mp I.property⟩
+    invFun := fun I => ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr I.2⟩
+    left_inv := fun I => Subtype.ext rfl
+    right_inv := fun I => Subtype.ext rfl }
+  have hseries : LSeries (normCoeff F f) s = heckeLSeries χ s := by
+    rw [LSeries_normCoeff hsum]
+    unfold heckeLSeries
+    calc
+      _ = ∑' I : {I : Ideal (𝓞 F) // I ≠ ⊥}, idealTerm f s (e.symm I) :=
+        Equiv.tsum_eq e (fun I => idealTerm f s (e.symm I))
+      _ = _ := by
+        apply tsum_congr
+        intro I
+        change χ.idealValue I.1 / (Ideal.absNorm I.1 : ℂ) ^ s =
+          χ.idealValue I.1 * (Ideal.absNorm I.1 : ℂ) ^ (-s)
+        rw [div_eq_mul_inv, Complex.cpow_neg]
+  let g := IdealArithmeticFunction.supportedPart f (S.Sf : Set (FinPlace F))ᶜ
+  have hgsum : Summable (idealTerm g s) := summable_idealTerm_supportedPart hsum _
+  have hprimeTo (I : Ideal (𝓞 F)) :
+      Ideal.IsPrimeTo I (S.Sf : Set (FinPlace F)) ↔
+        I ≠ ⊥ ∧ ∀ v ∈ S.Sf, ¬ I ≤ v.asIdeal := by
+    simp only [Ideal.isPrimeTo_iff, Finset.mem_coe, Ideal.dvd_iff_le]
+  let ep : {I : (Ideal (𝓞 F))⁰ // Ideal.IsPrimeTo (I : Ideal (𝓞 F))
+      (S.Sf : Set (FinPlace F))} ≃
+      {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ ∀ v ∈ S.Sf, ¬ I ≤ v.asIdeal} := {
+    toFun := fun I => ⟨(I.1 : Ideal (𝓞 F)), (hprimeTo _).mp I.2⟩
+    invFun := fun I => ⟨⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr I.2.1⟩,
+      (hprimeTo _).mpr I.2⟩
+    left_inv := fun I => Subtype.ext (Subtype.ext rfl)
+    right_inv := fun I => Subtype.ext rfl }
+  have hgseries : LSeries (normCoeff F g) s = incompleteHeckeLSeries S χ s := by
+    rw [LSeries_normCoeff hgsum]
+    change (∑' I : (Ideal (𝓞 F))⁰, idealTerm
+      (IdealArithmeticFunction.supportedPart f (S.Sf : Set (FinPlace F))ᶜ) s I) = _
+    rw [idealTerm_supportedPart]
+    simp only [compl_compl]
+    rw [← tsum_subtype]
+    unfold incompleteHeckeLSeries
+    calc
+      _ = ∑' I : {I : Ideal (𝓞 F) // I ≠ ⊥ ∧ ∀ v ∈ S.Sf, ¬ I ≤ v.asIdeal},
+          idealTerm f s (ep.symm I).1 :=
+        Equiv.tsum_eq ep (fun I => idealTerm f s (ep.symm I).1)
+      _ = _ := by
+        apply tsum_congr
+        intro I
+        change χ.idealValue I.1 / (Ideal.absNorm I.1 : ℂ) ^ s =
+          χ.idealValue I.1 * (Ideal.absNorm I.1 : ℂ) ^ (-s)
+        rw [div_eq_mul_inv, Complex.cpow_neg]
+  have hmask (P : FinPlace F) : eulerFactor g P s =
+      if P ∈ S.Sf then 1 else eulerFactor f P s := by
+    by_cases hP : P ∈ S.Sf
+    · rw [if_pos hP, eulerFactor_eq_tsum]
+      have hterm (n : ℕ) : idealTerm g s (P.primeIdealPow n) =
+          if n = 0 then 1 else 0 := by
+        by_cases hn : n = 0
+        · subst n
+          have htop : χ.idealValue (⊤ : Ideal (𝓞 F)) = 1 := by
+            simpa only [Ideal.one_eq_top] using hone
+          simp [idealTerm_def, g, f, htop]
+        · rw [if_neg hn, idealTerm_def]
+          have hnot : ¬ Ideal.IsPrimeTo (P.asIdeal ^ n) (S.Sf : Set (FinPlace F)) := by
+            rw [Ideal.isPrimeTo_pow_iff hn, Ideal.isPrimeTo_asIdeal_iff]
+            simpa using hP
+          have hnot' : ¬ Ideal.IsPrimeTo
+              ((P.primeIdealPow n : (Ideal (𝓞 F))⁰) : Ideal (𝓞 F))
+              (S.Sf : Set (FinPlace F))ᶜᶜ := by
+            simpa only [P.coe_primeIdealPow, compl_compl] using hnot
+          change IdealArithmeticFunction.supportedPart f (S.Sf : Set (FinPlace F))ᶜ
+            (P.primeIdealPow n) / _ = 0
+          rw [IdealArithmeticFunction.supportedPart_apply_of_not_isPrimeTo_compl hnot',
+            zero_div]
+      rw [tsum_congr hterm]
+      simp
+    · rw [if_neg hP, eulerFactor_eq_tsum, eulerFactor_eq_tsum]
+      apply tsum_congr
+      intro n
+      have hpt : Ideal.IsPrimeTo (P.asIdeal ^ n) (S.Sf : Set (FinPlace F)) :=
+        (Ideal.isPrimeTo_asIdeal_iff.mpr hP).pow n
+      rw [idealTerm_def, idealTerm_def]
+      change IdealArithmeticFunction.supportedPart f (S.Sf : Set (FinPlace F))ᶜ
+        (P.primeIdealPow n) / _ = _
+      rw [IdealArithmeticFunction.supportedPart_apply_of_isPrimeTo_compl
+        (by simpa only [P.coe_primeIdealPow, compl_compl] using hpt)]
+  have hfinite : HasProd ((S.Sf : Set (FinPlace F)).mulIndicator
+      (fun P => eulerFactor f P s)) (∏ P ∈ S.Sf, eulerFactor f P s) :=
+    hasProd_subtype_iff_mulIndicator.mp (S.Sf.hasProd (fun P => eulerFactor f P s))
+  have hmasked := hasProd_eulerFactor g (hf.supportedPart _) hgsum
+  have hfull := hasProd_eulerFactor f hf hsum
+  have hproduct := hmasked.mul hfinite
+  have hid : (fun P : FinPlace F => eulerFactor g P s *
+      (S.Sf : Set (FinPlace F)).mulIndicator (fun P => eulerFactor f P s) P) =
+      (fun P => eulerFactor f P s) := by
+    funext P
+    by_cases hP : P ∈ S.Sf
+    · simp [hmask, hP, Set.mulIndicator_of_mem]
+    · simp [hmask, hP, Set.mulIndicator_of_notMem]
+  rw [hid] at hproduct
+  have hrel := hfull.unique hproduct
+  have hnonzero (P : FinPlace F) :
+      1 - χ.primeValue P * (Ideal.absNorm P.asIdeal : ℂ) ^ (-s) ≠ 0 := by
+    intro hzero
+    have heq := sub_eq_zero.mp hzero
+    have hh := hratio P
+    rw [← heq] at hh
+    norm_num at hh
+  have hcancel : (∏ P ∈ S.Sf, eulerFactor f P s) *
+      (∏ P ∈ S.Sf, (1 - χ.primeValue P * (Ideal.absNorm P.asIdeal : ℂ) ^ (-s))) = 1 := by
+    rw [← Finset.prod_mul_distrib]
+    apply Finset.prod_eq_one
+    intro P hP
+    rw [hfactor]
+    exact inv_mul_cancel₀ (hnonzero P)
+  rw [← hgseries, ← hseries]
+  calc
+    _ = LSeries (normCoeff F g) s * 1 := (mul_one _).symm
+    _ = LSeries (normCoeff F g) s * ((∏ P ∈ S.Sf, eulerFactor f P s) *
+        (∏ P ∈ S.Sf, (1 - χ.primeValue P * (Ideal.absNorm P.asIdeal : ℂ) ^ (-s)))) := by
+      rw [hcancel]
+    _ = (LSeries (normCoeff F g) s * (∏ P ∈ S.Sf, eulerFactor f P s)) *
+        (∏ P ∈ S.Sf, (1 - χ.primeValue P * (Ideal.absNorm P.asIdeal : ℂ) ^ (-s))) :=
+      (mul_assoc _ _ _).symm
+    _ = _ := by rw [← hrel]
+
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
