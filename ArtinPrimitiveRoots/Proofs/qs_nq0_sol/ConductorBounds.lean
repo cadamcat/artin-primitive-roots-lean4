@@ -228,4 +228,49 @@ theorem qs_nq0_primitive_conductor_dvd (χ : HeckeChar K)
   rw [hfeq]
   exact le_sup_right
 
+/-!
+The conductor lower-bound step has this exact signature:
+```
+theorem qs_nq0_quadratic_conductor_exponent_pos
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ)
+    (ha : FractionalIdeal.count K v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (a : K)) = 1)
+    (χ : HeckeChar K)
+    (hloc : χ.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (f : Ideal (𝓞 K)) (hf : χ.ConductorDvd f) :
+    0 < idealExp v f
+```
+-/
+
+/-- A conductor bound contains every exterior prime of generator exponent one. -/
+theorem qs_nq0_quadratic_conductor_exponent_pos
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ)
+    (ha : FractionalIdeal.count K v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (a : K)) = 1)
+    (χ : HeckeChar K)
+    (hloc : χ.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (f : Ideal (𝓞 K)) (hf : χ.ConductorDvd f) :
+    0 < idealExp v f := by
+  by_contra hpos
+  have hezero : idealExp v f = 0 := Nat.eq_zero_of_not_pos hpos
+  obtain ⟨b, hbval, hbnontrivial⟩ := qs_nq0_quadratic_local_nontrivial D H v h6 a ha
+  let L := v.adicCompletion K
+  have hval : Valued.v ((toLoc v b : Lˣ) : L) = 1 := by
+    change Valued.v (algebraMap K L (b : K)) = 1
+    exact (v.valuedAdicCompletion_eq_valuation' (b : K)).trans hbval
+  have hunit : toLoc v b ∈ (v.adicCompletionIntegers K).units :=
+    HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one.mpr hval
+  have hsub : Valued.v (((toLoc v b : Lˣ) : L) - 1) ≤ 1 := by
+    exact (Valued.v : Valuation L ℤᵐ⁰).map_sub_le hval.le (by simp only [map_one, le_refl])
+  have hbound : Valued.v (((toLoc v b : Lˣ) : L) - 1) ≤
+      WithZero.exp (-(idealExp v f : ℤ)) := by
+    simpa only [hezero, Int.natCast_zero, neg_zero, WithZero.exp_zero] using hsub
+  apply hbnontrivial
+  rw [← hloc]
+  exact hf v (toLoc v b) hunit.1 hunit.2 hbound
+
 end ArtinPrimitiveRoots.A2
