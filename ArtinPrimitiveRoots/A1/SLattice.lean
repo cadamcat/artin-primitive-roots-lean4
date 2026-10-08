@@ -1346,6 +1346,131 @@ private theorem covol_selfdual_measure_candidate_isHaar
   change Measure.IsAddHaarMeasure (covol_selfdual_measure_candidate D S A)
   exact hDown
 
+private theorem covol_local_selfdual_at_sigmaFinite
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : S.Sf) :
+    SigmaFinite (covol_local_selfdual_at D S A v) := by
+  letI : SigmaCompactSpace (v.1.adicCompletion F) := inferInstance
+  letI : Measure.IsAddHaarMeasure (covol_local_selfdual_at D S A v) :=
+    covol_local_selfdual_at_isHaar D S A v
+  infer_instance
+
+private theorem covol_fourier_product_formula
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (fFin : ∀ v : S.Sf, v.1.adicCompletion F → ℂ)
+    (fArch : (InfinitePlace F → ℂ) → ℂ) (x : S.FS) :
+    S.fourier A (covol_selfdual_measure_candidate D S A)
+      (fun y : S.FS => (∏ v : S.Sf, fFin v (y.1 v)) * fArch y.2) x =
+      (∏ v : S.Sf, covol_local_fourier v.1 (A.ψ v.1)
+        (covol_local_selfdual_at D S A v) (fFin v) (x.1 v)) *
+        ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier fArch x.2 := by
+  classical
+  let μFin : Measure (∀ v : S.Sf, v.1.adicCompletion F) :=
+    Measure.pi fun v : S.Sf => covol_local_selfdual_at D S A v
+  let μArch : Measure (InfinitePlace F → ℂ) :=
+    ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar (InfinitePlace F)
+  have hfinHaar : Measure.IsAddHaarMeasure μFin :=
+    covol_isAddHaarMeasure_pi (fun v : S.Sf => covol_local_selfdual_at D S A v)
+      (fun v => covol_local_selfdual_at_isHaar D S A v)
+  letI : ∀ v : S.Sf, SigmaFinite (covol_local_selfdual_at D S A v) :=
+    fun v => covol_local_selfdual_at_sigmaFinite D S A v
+  letI : Measure.IsAddHaarMeasure μFin := hfinHaar
+  letI : Measure.IsAddHaarMeasure μArch :=
+    ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar_isAddHaar
+  have hFinSigma : SigmaFinite μFin := inferInstance
+  letI : SigmaFinite μFin := hFinSigma
+  letI : SigmaCompactSpace (InfinitePlace F → ℂ) := inferInstance
+  letI : SigmaFinite μArch := Measure.IsAddHaarMeasure.sigmaFinite μArch
+  letI : SFinite μFin := inferInstance
+  letI : SFinite μArch := inferInstance
+  let finTerm : (∀ v : S.Sf, v.1.adicCompletion F) → ℂ := fun y =>
+    ∏ v : S.Sf, fFin v (y v) * A.ψ v.1 (-(x.1 v * y v))
+  let archTerm : (InfinitePlace F → ℂ) → ℂ := fun y =>
+    fArch y * ∏ w : InfinitePlace F, psiC (-(x.2 w * y w))
+  have hintegrand (p : S.FS) :
+      (∏ v : S.Sf, fFin v (p.1 v)) * fArch p.2 * S.e A (-(p * x)) =
+        finTerm p.1 * archTerm p.2 := by
+    rcases p with ⟨pf, pa⟩
+    simp only [Prod.fst, Prod.snd]
+    simp only [finTerm, archTerm]
+    change ((∏ v : S.Sf, fFin v (pf v)) * fArch pa) *
+        ((∏ v : S.Sf, A.ψ v.1 (-(pf v * x.1 v))) *
+          ∏ w : InfinitePlace F, psiC (-(pa w * x.2 w))) =
+      (∏ v : S.Sf, fFin v (pf v) * A.ψ v.1 (-(x.1 v * pf v))) *
+        (fArch pa * ∏ w : InfinitePlace F, psiC (-(x.2 w * pa w)))
+    have hswap (v : S.Sf) :
+        A.ψ v.1 (-(pf v * x.1 v)) = A.ψ v.1 (-(x.1 v * pf v)) := by
+      congr 1
+      rw [mul_comm]
+    have harchSwap (w : InfinitePlace F) :
+        psiC (-(pa w * x.2 w)) = psiC (-(x.2 w * pa w)) := by
+      congr 1
+      rw [mul_comm]
+    calc
+      _ = (∏ v : S.Sf, fFin v (pf v)) *
+          (∏ v : S.Sf, A.ψ v.1 (-(pf v * x.1 v))) *
+          (fArch pa * ∏ w : InfinitePlace F, psiC (-(pa w * x.2 w))) := by ring
+      _ = (∏ v : S.Sf, fFin v (pf v)) *
+          (∏ v : S.Sf, A.ψ v.1 (-(x.1 v * pf v))) *
+          (fArch pa * ∏ w : InfinitePlace F, psiC (-(x.2 w * pa w))) := by
+            congr 2
+            · exact congrArg _ (funext hswap)
+            · exact congrArg _ (funext harchSwap)
+      _ = (∏ v : S.Sf, fFin v (pf v) * A.ψ v.1 (-(x.1 v * pf v))) *
+          (fArch pa * ∏ w : InfinitePlace F, psiC (-(x.2 w * pa w))) := by
+            congr 1
+            simpa only [Finset.prod_mul_distrib]
+  have hglobal : S.fourier A (covol_selfdual_measure_candidate D S A)
+      (fun y : S.FS => (∏ v : S.Sf, fFin v (y.1 v)) * fArch y.2) x =
+      ∫ p, finTerm p.1 * archTerm p.2 ∂(μFin.prod μArch) := by
+    unfold ArtinPrimitiveRoots.A1.SData.fourier covol_selfdual_measure_candidate
+    rw [MeasureTheory.integral_map_equiv (covol_sFSDownBorelMeasEquiv S)]
+    rw [MeasureTheory.integral_map_equiv (covol_sFSUpProdMeasEquiv S)]
+    unfold covol_selfdual_measure_prod
+    apply integral_congr_ae
+    filter_upwards with p
+    simpa [covol_sFSUpProdMeasEquiv, covol_sFSDownBorelMeasEquiv,
+      covol_sFSUpAddEquiv, covol_sFSDownAddEquiv] using hintegrand p
+  have hprod : (∫ p, finTerm p.1 * archTerm p.2 ∂(μFin.prod μArch)) =
+      (∫ y, finTerm y ∂μFin) * ∫ y, archTerm y ∂μArch :=
+    MeasureTheory.integral_prod_mul (μ := μFin) (ν := μArch) finTerm archTerm
+  have hFin : (∫ y, finTerm y ∂μFin) =
+      ∏ v : S.Sf, covol_local_fourier v.1 (A.ψ v.1)
+        (covol_local_selfdual_at D S A v) (fFin v) (x.1 v) := by
+    dsimp [finTerm, μFin]
+    have hPi :
+        (∫ y : ∀ v : S.Sf, v.1.adicCompletion F,
+          ∏ v : S.Sf, fFin v (y v) * A.ψ v.1 (-(x.1 v * y v))
+            ∂(Measure.pi fun v : S.Sf => covol_local_selfdual_at D S A v)) =
+          ∏ v : S.Sf, ∫ y, fFin v y * A.ψ v.1 (-(x.1 v * y))
+            ∂(covol_local_selfdual_at D S A v) :=
+      MeasureTheory.integral_fintype_prod_eq_prod
+        (fun v y => fFin v y * A.ψ v.1 (-(x.1 v * y)))
+    calc
+      _ = ∏ v : S.Sf, ∫ y, fFin v y * A.ψ v.1 (-(x.1 v * y))
+            ∂(covol_local_selfdual_at D S A v) := hPi
+      _ = ∏ v : S.Sf, covol_local_fourier v.1 (A.ψ v.1)
+            (covol_local_selfdual_at D S A v) (fFin v) (x.1 v) := by
+              apply Finset.prod_congr rfl
+              intro v hv
+              unfold covol_local_fourier
+              apply integral_congr_ae
+              filter_upwards with y
+              ring
+  have hArch : (∫ y, archTerm y ∂μArch) =
+      ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier fArch x.2 := by
+    unfold ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier
+    dsimp [archTerm, μArch]
+    apply integral_congr_ae
+    filter_upwards with y
+    change fArch y * ∏ w : InfinitePlace F, psiC (-(x.2 w * y w)) =
+      (∏ w : InfinitePlace F, psiC (-(x.2 w * y w))) * fArch y
+    ring
+  rw [hglobal]
+  calc
+    (∫ p, finTerm p.1 * archTerm p.2 ∂(μFin.prod μArch)) =
+        (∫ y, finTerm y ∂μFin) * ∫ y, archTerm y ∂μArch := hprod
+    _ = _ := by rw [hFin, hArch]
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
