@@ -184,4 +184,28 @@ lemma primeSet_dvd_prod_iff (P D : Finset ℕ) (hP : ∀ p ∈ P, p.Prime) (hD :
         · intro q hq
           exact (dvd_mul_of_dvd_right (Finset.dvd_prod_of_mem _ hq) p).trans h
 
+/-- A squarefree product of distinct primes determines its prime set. -/
+lemma primeSetProduct_injective (P : Finset ℕ) (hP : ∀ p ∈ P, p.Prime) :
+    ∀ D ∈ P.powerset, ∀ E ∈ P.powerset,
+      (∏ p ∈ D, p : ℕ) = ∏ p ∈ E, p → D = E := by
+  classical
+  intro D hD E hE hprod
+  apply Finset.Subset.antisymm
+  · intro p hpD
+    have hpPrime : p.Prime := hP p ((Finset.mem_powerset.mp hD) hpD)
+    have hpdivD : p ∣ ∏ q ∈ D, q := Finset.dvd_prod_of_mem _ hpD
+    have hpdivE : p ∣ ∏ q ∈ E, q := by rw [← hprod]; exact hpdivD
+    obtain ⟨q, hqE, hpq⟩ := (hpPrime.prime.dvd_finsetProd_iff id).mp hpdivE
+    have hqPrime : q.Prime := hP q ((Finset.mem_powerset.mp hE) hqE)
+    have hpqeq : p = q := (Nat.prime_dvd_prime_iff_eq hpPrime hqPrime).mp hpq
+    simpa [hpqeq] using hqE
+  · intro p hpE
+    have hpPrime : p.Prime := hP p ((Finset.mem_powerset.mp hE) hpE)
+    have hpdivE : p ∣ ∏ q ∈ E, q := Finset.dvd_prod_of_mem _ hpE
+    have hpdivD : p ∣ ∏ q ∈ D, q := by rw [hprod]; exact hpdivE
+    obtain ⟨q, hqD, hpq⟩ := (hpPrime.prime.dvd_finsetProd_iff id).mp hpdivD
+    have hqPrime : q.Prime := hP q ((Finset.mem_powerset.mp hD) hqD)
+    have hpqeq : p = q := (Nat.prime_dvd_prime_iff_eq hpPrime hqPrime).mp hpq
+    simpa [hpqeq] using hqD
+
 end ArtinPrimitiveRoots.Proofs.b_density_sol
