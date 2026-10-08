@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroEndpoint
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroDictionary
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».HadamardTail
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroWindows
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».Heights
 
 set_option autoImplicit false
 
