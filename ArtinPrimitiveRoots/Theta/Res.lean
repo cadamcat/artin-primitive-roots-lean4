@@ -599,7 +599,9 @@ theorem theta_exterior_whittaker {P : CoverPackage D S H A} {G : GlobalDatum P}
 theorem center_mem_root_closure {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
     (L : FinLocalCover D H v) (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
     ∃ ζ : rootsOfUnity 3 ℂ, ζ ≠ 1 ∧ L.z ζ ∈ Subgroup.closure (Set.range L.n ∪ Set.range L.nbar) := by
-  sorry
+  obtain ⟨t, u, hne⟩ := square_pairing_nontrivial D H v
+  exact ⟨_, hne, root_square_commutator L t u
+    (root_square_lift L t) (root_square_lift L u)⟩
 
 /-- **res:nonzero**: a nonzero `θ` has a nonzero Whittaker coefficient. -/
 theorem thetaWhit_ne_zero {P : CoverPackage D S H A} {G : GlobalDatum P}
