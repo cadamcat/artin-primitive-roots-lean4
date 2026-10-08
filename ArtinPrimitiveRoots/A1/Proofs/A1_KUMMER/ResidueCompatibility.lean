@@ -37,7 +37,7 @@ theorem chiAlg_spec (D : FieldData F) (P : FinPlace F)
     (h6 : (6 : 𝓞 F) ∉ P.asIdeal) (x : F) (hx : residue P x ≠ 0) :
     Ideal.Quotient.mk P.asIdeal ((chiAlg P x : (𝓞 F)ˣ) : 𝓞 F) =
       residue P x ^ ((Ideal.absNorm P.asIdeal - 1) / 6) := by
-  sorry
+  exact A2.qs_nq0_chiAlg_reduction D P h6 x hx
 
 theorem residue_zero_finite (a : Fˣ) :
     {P : FinPlace F | residue P (a : F) = 0}.Finite := by
