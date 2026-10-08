@@ -17,6 +17,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.NormalizedBasisIntegral
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.LatticeCoefficientChart
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealSmoothTorusChart
 import ArtinPrimitiveRoots.Theta.Res
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RDERIV».ResidueActions
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
 
