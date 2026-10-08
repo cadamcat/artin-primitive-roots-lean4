@@ -9,7 +9,8 @@ import ArtinPrimitiveRoots.A2.Proofs.QS_ANALYTIC.RNDict
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
 set_option maxHeartbeats 800000
-open NumberField IsDedekindDomain MeasureTheory ClassFieldTheory
+open NumberField IsDedekindDomain MeasureTheory ClassFieldTheory Filter Asymptotics
+open scoped ComplexOrder Topology
 open Set
 open scoped Classical
 noncomputable section
@@ -148,42 +149,6 @@ def principalRz (Z : ℝ) : ℂ := HA.RS S * weightW1hat W 1 *
     (Z : ℂ) ^ ((a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * z) * Complex.exp ((ξ + z - 1) ^ 2) *
       weightM R sd W z * HA.LS S 1 (6 * z) * HC.H U.one ![ξ,1,z] / HA.LS S η ξ))
 
-/-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
-theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
-    ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
-  principalConstant R sd W HA ≠ 0 ∧ ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
-    rowContribution R sd W η U {U.one} Z = principalConstant R sd W HA * principalSignal R η U HA HC Z +
-      principalRw R sd W η U HA HC Z + principalRz R sd W η U HA HC Z ∧
-    ‖principalRw R sd W η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) ∧
-    ‖principalRz R sd W η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) := by
-  sorry
-/-- zf:small-rows, 06:479–551: any subset of a nonprincipal dyad, with explicit cardinal cost. -/
-theorem zf_small_rows : EulerHypotheses R η → ∀ α B ε : ℝ, 0 ≤ α → 0 < B → 0 < ε → ∃ C : ℝ, 0 < C ∧
-  ∀ T Z : ℝ, 1 ≤ T → 2 ≤ Z → ∀ rows : Finset U.U,
-    (∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T) → (rows.card : ℝ) ≤ B * T ^ α →
-      rowContribution R sd W η U rows Z = tripleVertical (1 + δ1) (3 / 1000) (4 / 10)
-        (fun ξ w z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) ∧
-      ‖rowContribution R sd W η U rows Z‖ ≤
-        C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (α + 1 / 2 - 4 / 10 + ε) := by
-  sorry
-variable (ZD : ZeroDensityData η U HA)
-/-- Actual central part of the good rows after the truncated ξ shift. -/
-def goodCentral (rows : Finset U.U) (T Z : ℝ) : ℂ :=
-  (1 / (2 * Real.pi) : ℂ) * ∫ t in Set.Icc (-(T ^ ZD.ρ)) (T ^ ZD.ρ),
-    vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z =>
-      ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (998 / 1000 + t * Complex.I) w z))
-
-/-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
-The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
-theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
-  ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z T, Z0 ≤ Z → Z ^ (9 / 100 : ℝ) < T →
-    T ≤ Z ^ (10001 / 100000 : ℝ) → ZD.U0 ≤ T → ∀ rows : Finset U.U,
-    (∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T ∧ u ∉ ZD.E T) →
-      ‖goodCentral R sd W η U HA HC ZD rows T Z‖ ≤
-        C * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε) ∧
-      ‖rowContribution R sd W η U rows Z - goodCentral R sd W η U HA HC ZD rows T Z‖ ≤
-        C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε - ZD.ρ * A1) := by
-  sorry
 /-- Finite-order Hecke characters take unit-modulus values on ideles. -/
 private theorem rows_char_unitary (χ : HeckeChar F) (hχ : IsOfFinOrder χ) :
     ∀ x, ‖((χ x : ℂˣ) : ℂ)‖ = 1 := by
@@ -1166,6 +1131,2082 @@ private theorem rows_initial_rowContribution_eq (hEuler : EulerHypotheses R η)
       _ = _ := by rw [Finset.mul_sum]
   exact hsum.symm
 
+private theorem rows_small_LS_differentiable (χ : HeckeChar F)
+    (hχ : IsOfFinOrder χ) (hχne : χ ≠ 1) :
+    Differentiable ℂ (HA.LS S χ) := by
+  obtain ⟨L, hL⟩ := HA.2.2.1 χ hχ hχne
+  have hcomplete : Differentiable ℂ (HA.L χ) := by
+    change Differentiable ℂ (HA.1.1 χ)
+    rw [← hL]
+    exact L.differentiable
+  have hfactor : Differentiable ℂ (fun s : ℂ =>
+      ∏ v ∈ S.Sf, (1 - χ.primeValue v *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s))) := by
+    refine Differentiable.fun_finsetProd ?_
+    intro v hv
+    have hn : ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ≠ 0 := by
+      exact_mod_cast (Nat.ne_of_gt (Nat.zero_lt_of_lt
+        (NumberField.HeightOneSpectrum.one_lt_absNorm v)))
+    have hpow : Differentiable ℂ (fun s : ℂ =>
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)) := by
+      intro s
+      exact (differentiable_id.neg s).const_cpow (Or.inl hn)
+    exact (differentiable_const (1 : ℂ)).sub
+      ((differentiable_const (χ.primeValue v)).mul hpow)
+  change Differentiable ℂ (HA.L χ * fun s : ℂ =>
+    ∏ v ∈ S.Sf, (1 - χ.primeValue v *
+      ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)))
+  exact hcomplete.mul hfactor
+
+private theorem rows_small_LS_differentiableOn (χ : HeckeChar F)
+    (hχ : IsOfFinOrder χ) :
+    DifferentiableOn ℂ (HA.LS S χ) {s | 1 < s.re} := by
+  by_cases hχne : χ = 1
+  · subst χ
+    exact rows_LS_trivial_differentiableOn HA S
+  · exact (rows_small_LS_differentiable (HA := HA) (S := S) χ hχ hχne).differentiableOn
+
+private theorem rows_small_kernel_differentiableOn_xi
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 0 < Z)
+    (u : U.U) (w z : ℂ)
+    (hw : 3 / 1000 - 1 / 100000 < w.re)
+    (hz : 4 / 10 - 1 / 100000 < z.re) :
+    DifferentiableOn ℂ (fun ξ => rowKernel R sd W η U HA HC u Z ξ w z)
+      {ξ | 1 + δ1 ≤ ξ.re ∧ ξ.re ≤ 4} := by
+  let strip : Set ℂ := {ξ | 1 + δ1 ≤ ξ.re ∧ ξ.re ≤ 4}
+  obtain ⟨hMdiff, _, _, _, _⟩ := (po_weights_exist R sd).2 W
+  have hMellin : Differentiable ℂ
+      (fun ξ => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z) := by
+    unfold mellinWeight
+    have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZ.ne'
+    have hZexp : Differentiable ℂ (fun ξ : ℂ => ξ + z - 1) := by fun_prop
+    have hZpow : Differentiable ℂ (fun ξ : ℂ => (Z : ℂ) ^ (ξ + z - 1)) := by
+      intro ξ
+      exact (hZexp ξ).const_cpow (Or.inl hZbase)
+    have hX : Differentiable ℂ (fun _ξ : ℂ =>
+        ((Z ^ a : ℝ) : ℂ) ^ ((1 / 2 : ℂ) - z)) := differentiable_const _
+    have hY : Differentiable ℂ (fun _ξ : ℂ =>
+        ((Z ^ b : ℝ) : ℂ) ^ (w - 1)) := differentiable_const _
+    have hG : Differentiable ℂ (fun ξ : ℂ => Complex.exp ((ξ + z - 1) ^ 2)) := by
+      fun_prop
+    have hM : Differentiable ℂ (fun _ξ : ℂ => weightM R sd W z) := differentiable_const _
+    have hW : Differentiable ℂ (fun _ξ : ℂ => weightW1hat W w) := differentiable_const _
+    have h₁ := hX.mul hZpow
+    have h₂ := h₁.mul hY
+    have h₃ := h₂.mul hG
+    have h₄ := h₃.mul hM
+    exact h₄.mul hW
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℂ → Triple := fun ξ => ![ξ, w, z]
+  have hpmap : Differentiable ℂ pmap := by
+    intro ξ
+    apply differentiableAt_pi.2
+    intro j
+    fin_cases j <;> simp [pmap] <;> fun_prop
+  have hMaps : MapsTo pmap strip {p | eulerNeighborhood p} := by
+    intro ξ hξ
+    left
+    change (998 / 1000 - 1 / 100000 < ξ.re ∧
+      3 / 1000 - 1 / 100000 < w.re ∧ 4 / 10 - 1 / 100000 < z.re)
+    refine ⟨?_, hw, hz⟩
+    · exact lt_of_lt_of_le (by norm_num [δ1]) hξ.1
+  have hHC : DifferentiableOn ℂ (fun ξ => HC.H u ![ξ, w, z]) strip := by
+    exact (hHP.2.1 u).comp hpmap.differentiableOn hMaps
+  have htw : rowTwist η U u = U.omega u := by
+    simpa [rowTwist] using (U.omega_induces_twist u).symm
+  have htwfin : IsOfFinOrder (rowTwist η U u) := by
+    rw [htw]
+    exact U.omega_finiteOrder u
+  obtain ⟨f, hf⟩ := U.omega_primitive u
+  have htwprim : IsPrimitiveConductor (rowTwist η U u) f := by
+    rw [htw]
+    exact hf
+  have hLdiff := rows_small_LS_differentiableOn (HA := HA) (S := S)
+    (rowTwist η U u) htwfin
+  have hLdiff' : DifferentiableOn ℂ (HA.LS S (rowTwist η U u)) strip := by
+    apply hLdiff.mono
+    intro ξ hξ
+    change 1 < ξ.re
+    have hδ : 0 < δ1 := by norm_num [δ1]
+    linarith [hξ.1]
+  have hLne : ∀ ξ ∈ strip, HA.LS S (rowTwist η U u) ξ ≠ 0 := by
+    intro ξ hξ
+    have hξone : 1 < ξ.re := by
+      have hδ : 0 < δ1 := by norm_num [δ1]
+      linarith [hξ.1]
+    exact (rows_LS_inverse_bound HA S (rowTwist η U u) htwfin f htwprim hξone).1
+  have hInv : DifferentiableOn ℂ
+      (fun ξ => (HA.LS S (rowTwist η U u) ξ)⁻¹) strip := by
+    exact hLdiff'.inv hLne
+  have hLz : Differentiable ℂ (fun _ξ : ℂ => HA.LS S 1 (6 * z)) :=
+    differentiable_const _
+  have hK : Differentiable ℂ (fun _ξ : ℂ => HA.LS S (U.kummer u) w) :=
+    differentiable_const _
+  have hq : Differentiable ℂ (fun _ξ : ℂ => (U.q u : ℂ) ^ (-z)) :=
+    differentiable_const _
+  unfold rowKernel
+  change DifferentiableOn ℂ (fun ξ =>
+      (mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z * (U.q u : ℂ) ^ (-z) *
+        HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z]) /
+          HA.LS S (rowTwist η U u) ξ) strip
+  simp only [div_eq_mul_inv]
+  have hMellinOn : DifferentiableOn ℂ
+      (fun ξ => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z) strip :=
+    hMellin.differentiableOn
+  have hqOn : DifferentiableOn ℂ (fun ξ => (U.q u : ℂ) ^ (-z)) strip :=
+    hq.differentiableOn
+  have hLzOn : DifferentiableOn ℂ (fun ξ => HA.LS S 1 (6 * z)) strip :=
+    hLz.differentiableOn
+  have hKOn : DifferentiableOn ℂ (fun ξ => HA.LS S (U.kummer u) w) strip :=
+    hK.differentiableOn
+  have hprod₁ : DifferentiableOn ℂ
+      (fun ξ => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z * (U.q u : ℂ) ^ (-z)) strip :=
+    hMellinOn.mul hqOn
+  have hprod₂ : DifferentiableOn ℂ
+      (fun ξ => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z * (U.q u : ℂ) ^ (-z) *
+        HA.LS S 1 (6 * z)) strip := hprod₁.mul hLzOn
+  have hprod₃ : DifferentiableOn ℂ
+      (fun ξ => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z * (U.q u : ℂ) ^ (-z) *
+        HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w) strip := hprod₂.mul hKOn
+  have hprod₄ := hprod₃.mul hHC
+  exact hprod₄.mul hInv
+
+private theorem rows_small_kernel_differentiableOn_z
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 0 < Z)
+    (u : U.U) (ξ w : ℂ)
+    (hξ : 998 / 1000 - 1 / 100000 < ξ.re)
+    (hw : 3 / 1000 - 1 / 100000 < w.re) :
+    DifferentiableOn ℂ (fun z => rowKernel R sd W η U HA HC u Z ξ w z)
+      {z | 4 / 10 ≤ z.re ∧ z.re ≤ 2} := by
+  let strip : Set ℂ := {z | 4 / 10 ≤ z.re ∧ z.re ≤ 2}
+  obtain ⟨hMdiff, _, _, _, _⟩ := (po_weights_exist R sd).2 W
+  have hMstrip : DifferentiableOn ℂ (weightM R sd W) strip := by
+    apply hMdiff.mono
+    intro z hz
+    exact lt_of_lt_of_le (by norm_num) hz.1
+  have hXbase : ((Z ^ a : ℝ) : ℂ) ≠ 0 := by
+    exact Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.rpow_pos_of_pos hZ a))
+  have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZ.ne'
+  have hYbase : ((Z ^ b : ℝ) : ℂ) ≠ 0 := by
+    exact Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.rpow_pos_of_pos hZ b))
+  have hXexp : Differentiable ℂ (fun z : ℂ => (1 / 2 : ℂ) - z) := by fun_prop
+  have hX : Differentiable ℂ (fun z : ℂ =>
+      ((Z ^ a : ℝ) : ℂ) ^ ((1 / 2 : ℂ) - z)) := by
+    intro z
+    exact (hXexp z).const_cpow (Or.inl hXbase)
+  have hZexp : Differentiable ℂ (fun z : ℂ => ξ + z - 1) := by fun_prop
+  have hZpow : Differentiable ℂ (fun z : ℂ => (Z : ℂ) ^ (ξ + z - 1)) := by
+    intro z
+    exact (hZexp z).const_cpow (Or.inl hZbase)
+  have hY : Differentiable ℂ (fun _z : ℂ =>
+      ((Z ^ b : ℝ) : ℂ) ^ (w - 1)) := differentiable_const _
+  have hGauss : Differentiable ℂ (fun z : ℂ => Complex.exp ((ξ + z - 1) ^ 2)) := by
+    fun_prop
+  have hW : Differentiable ℂ (fun z : ℂ => weightW1hat W w) := differentiable_const _
+  have hMellin : DifferentiableOn ℂ
+      (fun z => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z) strip := by
+    unfold mellinWeight
+    exact (((((hX.differentiableOn.mul hZpow.differentiableOn).mul
+      hY.differentiableOn).mul hGauss.differentiableOn).mul hMstrip).mul
+        hW.differentiableOn)
+  have hqbase : (U.q u : ℂ) ≠ 0 :=
+    Complex.ofReal_ne_zero.mpr (ne_of_gt (U.q_pos u))
+  have hqpow : Differentiable ℂ (fun z : ℂ => (U.q u : ℂ) ^ (-z)) := by
+    intro z
+    exact (differentiable_id.neg z).const_cpow (Or.inl hqbase)
+  have hLz : DifferentiableOn ℂ (fun z => HA.LS S 1 (6 * z)) strip := by
+    apply (rows_LS_trivial_differentiableOn HA S).comp
+      ((show Differentiable ℂ (fun z : ℂ => 6 * z) by fun_prop).differentiableOn)
+    intro z hz
+    change 1 < (6 * z).re
+    have hre : (6 * z).re = 6 * z.re := by simp
+    rw [hre]
+    nlinarith [hz.1]
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℂ → Triple := fun z => ![ξ, w, z]
+  have hpmap : Differentiable ℂ pmap := by
+    intro z
+    apply differentiableAt_pi.2
+    intro j
+    fin_cases j <;> simp [pmap] <;> fun_prop
+  have hMaps : MapsTo pmap strip {p | eulerNeighborhood p} := by
+    intro z hz
+    left
+    change (998 / 1000 - 1 / 100000 < ξ.re ∧
+      3 / 1000 - 1 / 100000 < w.re ∧ 4 / 10 - 1 / 100000 < z.re)
+    exact ⟨hξ, hw, lt_of_lt_of_le (by norm_num) hz.1⟩
+  have hHC : DifferentiableOn ℂ (fun z => HC.H u ![ξ, w, z]) strip :=
+    (hHP.2.1 u).comp hpmap.differentiableOn hMaps
+  have hK : Differentiable ℂ (fun _z : ℂ => HA.LS S (U.kummer u) w) :=
+    differentiable_const _
+  have hInv : Differentiable ℂ (fun _z : ℂ =>
+      (HA.LS S (rowTwist η U u) ξ)⁻¹) := differentiable_const _
+  have hq : DifferentiableOn ℂ (fun z => (U.q u : ℂ) ^ (-z)) strip :=
+    hqpow.differentiableOn
+  have hK' : DifferentiableOn ℂ (fun z => HA.LS S (U.kummer u) w) strip :=
+    hK.differentiableOn
+  have hInv' : DifferentiableOn ℂ (fun z => (HA.LS S (rowTwist η U u) ξ)⁻¹) strip :=
+    hInv.differentiableOn
+  unfold rowKernel
+  change DifferentiableOn ℂ
+    (fun z => (mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z * (U.q u : ℂ) ^ (-z) *
+      HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z]) /
+        HA.LS S (rowTwist η U u) ξ) strip
+  simp only [div_eq_mul_inv]
+  have h₁ := hMellin.mul hq
+  have h₂ := h₁.mul hLz
+  have h₃ := h₂.mul hK'
+  have h₄ := h₃.mul hHC
+  exact h₄.mul hInv'
+
+private theorem rows_small_kernel_differentiableOn_w
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 0 < Z)
+    (u : U.U) (ξ z : ℂ) (hu : u ≠ U.one)
+    (hξ : 998 / 1000 - 1 / 100000 < ξ.re)
+    (hz : 4 / 10 - 1 / 100000 < z.re) :
+    DifferentiableOn ℂ (fun w => rowKernel R sd W η U HA HC u Z ξ w z)
+      {w | 3 / 1000 ≤ w.re ∧ w.re ≤ 4} := by
+  let strip : Set ℂ := {w | 3 / 1000 ≤ w.re ∧ w.re ≤ 4}
+  have hYbase : ((Z ^ b : ℝ) : ℂ) ≠ 0 := by
+    exact Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.rpow_pos_of_pos hZ b))
+  have hYexp : Differentiable ℂ (fun w : ℂ => w - 1) := by fun_prop
+  have hY : Differentiable ℂ (fun w : ℂ =>
+      ((Z ^ b : ℝ) : ℂ) ^ (w - 1)) := by
+    intro w
+    exact (hYexp w).const_cpow (Or.inl hYbase)
+  have hG : Differentiable ℂ (fun w : ℂ => Complex.exp ((ξ + z - 1) ^ 2)) :=
+    differentiable_const _
+  have hMellin : Differentiable ℂ
+      (fun w => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z) := by
+    obtain ⟨_, hWdiff, _, _, _⟩ := (po_weights_exist R sd).2 W
+    unfold mellinWeight
+    have hX : Differentiable ℂ (fun _w : ℂ =>
+        ((Z ^ a : ℝ) : ℂ) ^ ((1 / 2 : ℂ) - z)) := differentiable_const _
+    have hZpow : Differentiable ℂ (fun _w : ℂ =>
+        (Z : ℂ) ^ (ξ + z - 1)) := differentiable_const _
+    have hY' : Differentiable ℂ (fun w : ℂ =>
+        ((Z ^ b : ℝ) : ℂ) ^ (w - 1)) := hY
+    have hG' : Differentiable ℂ (fun _w : ℂ => Complex.exp ((ξ + z - 1) ^ 2)) :=
+      differentiable_const _
+    have hM : Differentiable ℂ (fun _w : ℂ => weightM R sd W z) :=
+      differentiable_const _
+    exact (((((hX.mul hZpow).mul hY').mul hG').mul hM).mul hWdiff)
+  have hKfin : IsOfFinOrder (U.kummer u) := rows_kummer_finiteOrder R η U hEuler u
+  have hKne : U.kummer u ≠ 1 := by
+    intro h
+    exact hu ((U.kummer_principal_iff u).mp h)
+  have hK : Differentiable ℂ (HA.LS S (U.kummer u)) :=
+    rows_small_LS_differentiable (HA := HA) (S := S)
+      (U.kummer u) hKfin hKne
+  have hK' : DifferentiableOn ℂ (fun w => HA.LS S (U.kummer u) w) strip :=
+    hK.differentiableOn
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℂ → Triple := fun w => ![ξ, w, z]
+  have hpmap : Differentiable ℂ pmap := by
+    intro w
+    apply differentiableAt_pi.2
+    intro j
+    fin_cases j <;> simp [pmap] <;> fun_prop
+  have hMaps : MapsTo pmap strip {p | eulerNeighborhood p} := by
+    intro w hw
+    left
+    change (998 / 1000 - 1 / 100000 < ξ.re ∧
+      3 / 1000 - 1 / 100000 < w.re ∧ 4 / 10 - 1 / 100000 < z.re)
+    exact ⟨hξ, lt_of_lt_of_le (by norm_num) hw.1, hz⟩
+  have hHC : DifferentiableOn ℂ (fun w => HC.H u ![ξ, w, z]) strip :=
+    (hHP.2.1 u).comp hpmap.differentiableOn hMaps
+  have hq : Differentiable ℂ (fun _w : ℂ => (U.q u : ℂ) ^ (-z)) :=
+    differentiable_const _
+  have hLz : Differentiable ℂ (fun _w : ℂ => HA.LS S 1 (6 * z)) :=
+    differentiable_const _
+  have hInv : Differentiable ℂ (fun _w : ℂ =>
+      (HA.LS S (rowTwist η U u) ξ)⁻¹) := differentiable_const _
+  unfold rowKernel
+  change DifferentiableOn ℂ (fun w =>
+    (mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z * (U.q u : ℂ) ^ (-z) *
+      HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z]) /
+        HA.LS S (rowTwist η U u) ξ) strip
+  simp only [div_eq_mul_inv]
+  have hq' : DifferentiableOn ℂ (fun _w : ℂ => (U.q u : ℂ) ^ (-z)) strip :=
+    hq.differentiableOn
+  have hLz' : DifferentiableOn ℂ (fun _w : ℂ => HA.LS S 1 (6 * z)) strip :=
+    hLz.differentiableOn
+  have hInv' : DifferentiableOn ℂ (fun _w : ℂ =>
+      (HA.LS S (rowTwist η U u) ξ)⁻¹) strip := hInv.differentiableOn
+  have hMellin' : DifferentiableOn ℂ
+      (fun w => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z) strip :=
+    hMellin.differentiableOn
+  have h₁ := hMellin'.mul hq'
+  have h₂ := h₁.mul hLz'
+  have h₃ := h₂.mul hK'
+  have h₄ := h₃.mul hHC
+  exact h₄.mul hInv'
+
+private theorem rows_small_kummer_LS_bound (hEuler : EulerHypotheses R η)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ AF C : ℝ, 0 < AF ∧ 0 < C ∧
+      ∀ u, u ≠ U.one → ∀ w : ℂ, 3 / 1000 ≤ w.re → w.re ≤ 4 →
+        ‖HA.LS S (U.kummer u) w‖ ≤
+          C * (U.q u) ^ (1 / 2 + ε) * (1 + |w.im|) ^ AF := by
+  obtain ⟨AF, hAF, hconvex⟩ := zf_convexity (F := F)
+  have hδ : 0 < ε / 4 := by positivity
+  obtain ⟨CK, hCK, hconvex⟩ := hconvex (ε / 4) hδ
+  obtain ⟨Ccond, hCcond, hcond⟩ :=
+    U.kummer_twist_conductor_bound hEuler.1 hEuler.2.1
+  let γ : ℝ := 1 / 2 + ε / 4
+  let Cpre : ℝ := CK * Ccond ^ γ * 2 ^ AF * 2 ^ S.Sf.card
+  let C : ℝ := Cpre + 1
+  have hCpre : 0 ≤ Cpre := by dsimp [Cpre]; positivity
+  have hC : 0 < C := by dsimp [C]; linarith
+  refine ⟨AF, C, hAF, hC, ?_⟩
+  intro u hu w hwlo hwhi
+  have hKfin : IsOfFinOrder (U.kummer u) := rows_kummer_finiteOrder R η U hEuler u
+  have hKne : U.kummer u ≠ 1 := by
+    intro h
+    exact hu ((U.kummer_principal_iff u).mp h)
+  obtain ⟨m, hm0, hmdvd, hmnorm⟩ := (hcond u).1
+  obtain ⟨f, hf⟩ := rows_exists_primitive_conductor
+    (U.kummer u) ⟨m, hm0, hmdvd⟩
+  have hfnorm : (Ideal.absNorm f : ℝ) ≤ Ccond * U.q u := by
+    calc
+      (Ideal.absNorm f : ℝ) ≤ Ideal.absNorm m := by
+        exact_mod_cast hf.2.2 m hm0 hmdvd
+      _ ≤ Ccond * U.q u := hmnorm
+  obtain ⟨L, hL⟩ := HA.2.2.1 (U.kummer u) hKfin hKne
+  have hconv := hconvex (U.kummer u) hKfin hKne f hf L.value
+    ⟨L.differentiable, L.agrees⟩
+  have hLbound : ‖HA.L (U.kummer u) w‖ ≤
+      CK * (Ideal.absNorm f : ℝ) ^ γ * (2 + |w.im|) ^ AF := by
+    change ‖HA.1.1 (U.kummer u) w‖ ≤ _
+    rw [← hL]
+    exact hconv.1 w hwlo hwhi
+  have hfactor (v : FinPlace F) :
+      ‖1 - (U.kummer u).primeValue v *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-w)‖ ≤ 2 := by
+    have hn : 0 < Ideal.absNorm v.asIdeal :=
+      Nat.zero_lt_of_lt (NumberField.HeightOneSpectrum.one_lt_absNorm v)
+    have hnNat : 2 ≤ Ideal.absNorm v.asIdeal := by
+      have hv := NumberField.HeightOneSpectrum.one_lt_absNorm v
+      exact_mod_cast hv
+    have hnreal : 1 ≤ (Ideal.absNorm v.asIdeal : ℝ) := by
+      exact_mod_cast (Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hn))
+    have hpow : ‖((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-w)‖ =
+        (Ideal.absNorm v.asIdeal : ℝ) ^ (-w.re) := by
+      rw [Complex.norm_natCast_cpow_of_pos (by exact_mod_cast hn)]
+      rfl
+    have hpowle : (Ideal.absNorm v.asIdeal : ℝ) ^ (-w.re) ≤ 1 :=
+      Real.rpow_le_one_of_one_le_of_nonpos hnreal (by linarith)
+    calc
+      _ ≤ ‖(1 : ℂ)‖ + ‖(U.kummer u).primeValue v *
+          ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-w)‖ := norm_sub_le _ _
+      _ = 1 + ‖(U.kummer u).primeValue v‖ *
+          ‖((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-w)‖ := by simp [norm_mul]
+      _ ≤ 2 := by
+        have hprime := rows_primeValue_norm_le_one (U.kummer u) hKfin v
+        have hprodle := mul_le_one₀ hprime (norm_nonneg
+          (((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-w))) (by rw [hpow]; exact hpowle)
+        linarith
+  have hprod : ‖∏ v ∈ S.Sf,
+      (1 - (U.kummer u).primeValue v *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-w))‖ ≤ 2 ^ S.Sf.card := by
+    calc
+      _ ≤ ∏ v ∈ S.Sf, ‖1 - (U.kummer u).primeValue v *
+          ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-w)‖ := Finset.norm_prod_le _ _
+      _ ≤ ∏ _v ∈ S.Sf, (2 : ℝ) := by
+        apply Finset.prod_le_prod₀
+        · intro v hv
+          exact norm_nonneg _
+        · intro v hv
+          exact hfactor v
+      _ = 2 ^ S.Sf.card := by simp
+  have hLS : ‖HA.LS S (U.kummer u) w‖ ≤
+      CK * (Ideal.absNorm f : ℝ) ^ γ * (2 + |w.im|) ^ AF * 2 ^ S.Sf.card := by
+    change ‖HA.L (U.kummer u) w * ∏ v ∈ S.Sf,
+      (1 - (U.kummer u).primeValue v *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-w))‖ ≤ _
+    rw [norm_mul]
+    exact mul_le_mul hLbound hprod (norm_nonneg _) (by positivity)
+  have hγ : 0 ≤ γ := by dsimp [γ]; positivity
+  have hqpos := U.q_pos u
+  have hfnormPow : (Ideal.absNorm f : ℝ) ^ γ ≤ (Ccond * U.q u) ^ γ :=
+    Real.rpow_le_rpow (by positivity) hfnorm hγ
+  have hsplit : (Ccond * U.q u) ^ γ = Ccond ^ γ * (U.q u) ^ γ :=
+    Real.mul_rpow (le_of_lt hCcond) (le_of_lt hqpos)
+  have himBase : 2 + |w.im| ≤ 2 * (1 + |w.im|) := by
+    have := abs_nonneg w.im
+    linarith
+  have himPow : (2 + |w.im|) ^ AF ≤ 2 ^ AF * (1 + |w.im|) ^ AF := by
+    calc
+      _ ≤ (2 * (1 + |w.im|)) ^ AF := Real.rpow_le_rpow (by positivity) himBase hAF.le
+      _ = 2 ^ AF * (1 + |w.im|) ^ AF := Real.mul_rpow (by norm_num) (by positivity)
+  calc
+    _ ≤ CK * (Ccond ^ γ * (U.q u) ^ γ) *
+        (2 ^ AF * (1 + |w.im|) ^ AF) * 2 ^ S.Sf.card := by
+      calc
+        _ ≤ CK * (Ideal.absNorm f : ℝ) ^ γ *
+            (2 + |w.im|) ^ AF * 2 ^ S.Sf.card := hLS
+        _ ≤ CK * (Ccond * U.q u) ^ γ *
+            (2 + |w.im|) ^ AF * 2 ^ S.Sf.card := by gcongr
+        _ ≤ CK * (Ccond ^ γ * (U.q u) ^ γ) *
+            (2 ^ AF * (1 + |w.im|) ^ AF) * 2 ^ S.Sf.card := by
+          rw [hsplit]
+          gcongr
+    _ = Cpre * (U.q u) ^ γ * (1 + |w.im|) ^ AF := by
+      dsimp [Cpre]
+      ring
+    _ ≤ C * (U.q u) ^ γ * (1 + |w.im|) ^ AF := by
+      have hrest : 0 ≤ (U.q u) ^ γ * (1 + |w.im|) ^ AF := by positivity
+      have hCprele : Cpre ≤ C := by dsimp [C]; linarith
+      calc
+        _ = Cpre * ((U.q u) ^ γ * (1 + |w.im|) ^ AF) := by ring
+        _ ≤ C * ((U.q u) ^ γ * (1 + |w.im|) ^ AF) :=
+          mul_le_mul_of_nonneg_right hCprele hrest
+        _ = _ := by ring
+    _ ≤ C * (U.q u) ^ (1 / 2 + ε) * (1 + |w.im|) ^ AF := by
+      have hqpow : (U.q u) ^ γ ≤ (U.q u) ^ (1 / 2 + ε) := by
+        apply Real.rpow_le_rpow_of_exponent_le (U.q_ge_one u)
+        dsimp [γ]
+        linarith
+      have hcoeff : C * (U.q u) ^ γ ≤ C * (U.q u) ^ (1 / 2 + ε) :=
+        mul_le_mul_of_nonneg_left hqpow hC.le
+      have hheight : 0 ≤ (1 + |w.im|) ^ AF := by positivity
+      calc
+        _ = (C * (U.q u) ^ γ) * (1 + |w.im|) ^ AF := by ring
+        _ ≤ (C * (U.q u) ^ (1 / 2 + ε)) * (1 + |w.im|) ^ AF :=
+          mul_le_mul_of_nonneg_right hcoeff hheight
+        _ = _ := by ring
+
+private def rows_small_idealCount (n : ℕ) : ℕ :=
+  Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n}
+
+private theorem rows_small_idealCount_sum_eq (n : ℕ) :
+    Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I ≤ n} =
+      ∑ k ∈ Finset.Icc 0 n, rows_small_idealCount (F := F) k := by
+  classical
+  unfold rows_small_idealCount
+  rw [← Finset.card_preimage_eq_sum_card_image_eq
+    (fun k _ => Ideal.finite_setOfPred_absNorm_eq (S := 𝓞 F) k)]
+  simp [Set.coe_eq_subtype]
+
+private theorem rows_small_idealCount_summable {s : ℂ} (hs : 1 < s.re) :
+    LSeriesSummable (fun n => (rows_small_idealCount (F := F) n : ℂ)) s := by
+  have hcountLim : Tendsto
+      (fun n : ℕ => (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I ≤ n} : ℝ) /
+        (n : ℝ)) atTop (𝓝 (NumberField.dedekindZeta_residue F)) := by
+    have h := (Ideal.tendsto_norm_le_div_atTop F).comp tendsto_natCast_atTop_atTop
+    convert h using 1
+    · funext n
+      congr 1
+      exact_mod_cast (Nat.card_congr
+        (Equiv.subtypeEquivRight (fun _ => by norm_cast)))
+    · simp [NumberField.dedekindZeta_residue]
+  have hcountLim' : Tendsto
+      (fun n : ℕ => (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I ≤ n} : ℝ) /
+        (n : ℝ) ^ (1 : ℝ)) atTop (𝓝 (NumberField.dedekindZeta_residue F)) := by
+    simpa only [Real.rpow_one] using hcountLim
+  have hcount : (fun n : ℕ =>
+      (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I ≤ n} : ℝ)) =O[atTop]
+        fun n : ℕ => (n : ℝ) ^ (1 : ℝ) :=
+    isBigO_atTop_natCast_rpow_of_tendsto_div_rpow (r := 1) hcountLim'
+  have hpartial : (fun n : ℕ =>
+      ∑ k ∈ Finset.Icc 1 n, (rows_small_idealCount (F := F) k : ℝ)) =O[atTop]
+        fun n : ℕ => (n : ℝ) ^ (1 : ℝ) := by
+    apply (isBigO_of_le (l := atTop) ?_).trans hcount
+    intro n
+    rw [Real.norm_of_nonneg (Finset.sum_nonneg fun k hk => Nat.cast_nonneg _),
+      Real.norm_of_nonneg (Nat.cast_nonneg _)]
+    calc
+      ∑ k ∈ Finset.Icc 1 n, (rows_small_idealCount (F := F) k : ℝ) ≤
+          ∑ k ∈ Finset.Icc 0 n, (rows_small_idealCount (F := F) k : ℝ) := by
+        apply Finset.sum_le_sum_of_subset_of_nonneg
+          (Finset.Icc_subset_Icc (by omega) le_rfl)
+        intro k hk hk'
+        exact Nat.cast_nonneg _
+      _ = (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I ≤ n} : ℝ) := by
+        exact_mod_cast (rows_small_idealCount_sum_eq (F := F) n).symm
+  have hO : (fun n : ℕ =>
+      ∑ k ∈ Finset.Icc 1 n,
+        ‖(rows_small_idealCount (F := F) k : ℂ)‖) =O[atTop]
+        fun n : ℕ => (n : ℝ) ^ (1 : ℝ) := by
+    simpa only [Complex.norm_natCast] using hpartial
+  exact LSeriesSummable_of_sum_norm_bigO hO zero_le_one (by simpa using hs)
+
+private theorem rows_small_idealCount_abscissa_le_one :
+    LSeries.abscissaOfAbsConv (fun n => (rows_small_idealCount (F := F) n : ℂ)) ≤ 1 := by
+  apply LSeries.abscissaOfAbsConv_le_of_forall_lt_LSeriesSummable
+  intro y hy
+  exact rows_small_idealCount_summable (F := F) (s := (y : ℂ)) (by simpa using hy)
+
+private theorem rows_small_dedekindZeta_re_eq_tsum_norm {σ : ℝ} (hσ : 1 < σ) :
+    (NumberField.dedekindZeta F (σ : ℂ)).re =
+      ∑' n, ‖LSeries.term
+        (fun n => (rows_small_idealCount (F := F) n : ℂ)) (σ : ℂ) n‖ := by
+  have hsum := rows_small_idealCount_summable (F := F) (s := (σ : ℂ)) (by simpa using hσ)
+  have hterm (n : ℕ) :
+      0 ≤ LSeries.term (fun n => (rows_small_idealCount (F := F) n : ℂ))
+        (σ : ℂ) n := by
+    exact LSeries.term_nonneg (by positivity) σ
+  calc
+    (NumberField.dedekindZeta F (σ : ℂ)).re =
+        (∑' n, LSeries.term
+          (fun n => (rows_small_idealCount (F := F) n : ℂ)) (σ : ℂ) n).re := by
+            rfl
+    _ = ∑' n, (LSeries.term
+        (fun n => (rows_small_idealCount (F := F) n : ℂ)) (σ : ℂ) n).re :=
+          Complex.re_tsum hsum
+    _ = _ := by
+      apply tsum_congr
+      intro n
+      exact congrArg Complex.re (Complex.eq_coe_norm_of_nonneg (hterm n))
+
+private theorem rows_small_dedekindZeta_real_antitone {s t : ℝ}
+    (hs : 1 < s) (hst : s ≤ t) :
+    (NumberField.dedekindZeta F (t : ℂ)).re ≤
+      (NumberField.dedekindZeta F (s : ℂ)).re := by
+  have hsummableS := rows_small_idealCount_summable (F := F) (s := (s : ℂ)) (by simpa using hs)
+  have hsummableT := rows_small_idealCount_summable (F := F) (s := (t : ℂ))
+    (by have ht : 1 < t := lt_of_lt_of_le hs hst; simpa using ht)
+  have hterm (n : ℕ) :
+      ‖LSeries.term (fun n => (rows_small_idealCount (F := F) n : ℂ)) (t : ℂ) n‖ ≤
+        ‖LSeries.term (fun n => (rows_small_idealCount (F := F) n : ℂ)) (s : ℂ) n‖ := by
+    rw [LSeries.norm_term_eq, LSeries.norm_term_eq]
+    split_ifs with hn
+    · rfl
+    · simp only [Complex.norm_natCast]
+      have hn1 : 1 ≤ (n : ℝ) := by
+        exact_mod_cast (Nat.one_le_iff_ne_zero.mpr hn)
+      have hden : (n : ℝ) ^ s ≤ (n : ℝ) ^ t :=
+        Real.rpow_le_rpow_of_exponent_le hn1 hst
+      exact div_le_div_of_nonneg_left (Nat.cast_nonneg _) (Real.rpow_pos_of_pos
+        (Nat.cast_pos.mpr (Nat.pos_of_ne_zero hn)) s) hden
+  calc
+    _ = ∑' n, ‖LSeries.term
+        (fun n => (rows_small_idealCount (F := F) n : ℂ)) (t : ℂ) n‖ :=
+          rows_small_dedekindZeta_re_eq_tsum_norm (F := F) (show 1 < t by linarith)
+    _ ≤ ∑' n, ‖LSeries.term
+        (fun n => (rows_small_idealCount (F := F) n : ℂ)) (s : ℂ) n‖ :=
+          hsummableT.norm.tsum_le_tsum hterm hsummableS.norm
+    _ = _ := (rows_small_dedekindZeta_re_eq_tsum_norm (F := F) hs).symm
+
+private theorem rows_small_dedekindZeta_real_nonneg (s : ℝ) (hs : 1 < s) :
+    0 ≤ (NumberField.dedekindZeta F (s : ℂ)).re := by
+  rw [rows_small_dedekindZeta_re_eq_tsum_norm (F := F) hs]
+  exact tsum_nonneg fun _ => norm_nonneg _
+
+set_option maxHeartbeats 2000000 in
+private theorem rows_small_kernel_control (hEuler : EulerHypotheses R η)
+    (ε : ℝ) (hε : 0 < ε) :
+    ∃ AF Adec Aconv C0 Cconv : ℝ, 0 < AF ∧ 1 < Aconv ∧
+      Adec = Aconv + AF + 2 ∧ 0 < Adec ∧ 0 < C0 ∧ 0 < Cconv ∧
+      (∀ T : ℝ, ∫ v : ℝ, Real.exp (-((T + v) ^ 2)) *
+        (1 + |v|) ^ (-Aconv) ≤ Cconv * (1 + |T|) ^ (-2 : ℝ)) ∧
+      ∀ Z, 2 ≤ Z → ∀ u, u ≠ U.one → ∀ ξ w z,
+        1 + δ1 ≤ ξ.re → ξ.re ≤ 4 →
+        3 / 1000 ≤ w.re → w.re ≤ 4 →
+        4 / 10 ≤ z.re → z.re ≤ 2 →
+        ‖rowKernel R sd W η U HA HC u Z ξ w z‖ ≤
+          C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+            Real.exp (-((ξ.im + z.im) ^ 2)) *
+              (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) := by
+  obtain ⟨Aconv, Cconv, hAconv, hCconv, hconv⟩ :=
+    zf_height_convolution (2 : ℝ) (by norm_num)
+  obtain ⟨AF, Ck, hAF, hCk, hKbound⟩ :=
+    rows_small_kummer_LS_bound R η U HA hEuler (ε / 4) (by linarith)
+  obtain ⟨CH, hCHpos, hHbound⟩ := (po_H_product R η U HC hEuler).2.2.2 (ε / 4) (by linarith)
+  obtain ⟨Cht, hCht, hheight⟩ := zf_height_decay R sd W
+    (1 + δ1) 4 (3 / 1000) 4 (4 / 10) 2 (Aconv + AF + 2)
+    (by norm_num [δ1]) (by norm_num) (by norm_num) (by norm_num) (by positivity)
+  let Adec : ℝ := Aconv + AF + 2
+  let KLS : ℝ := rows_absNorm_majorant (F := F) * 2 ^ S.Sf.card
+  have hKLS : 0 ≤ KLS := by
+    dsimp [KLS]
+    exact mul_nonneg (rows_absNorm_majorant_nonneg (F := F)) (by positivity)
+  let Cinv : ℝ := (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re * 2 ^ S.Sf.card
+  let Cbase : ℝ := Cht * KLS * Ck * CH * Cinv
+  let C0 : ℝ := Cbase + 1
+  have hAdec : 1 < Adec := by dsimp [Adec]; linarith
+  have hCinv : 0 ≤ Cinv := by
+    change 0 ≤ (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re * 2 ^ S.Sf.card
+    obtain ⟨fη, hfη⟩ := rows_eta_primitive_conductor R η U hEuler
+    have hηinv := rows_LS_inverse_bound HA S η hEuler.1 fη hfη
+      (s := (1 + δ1 : ℂ)) (by norm_num [δ1])
+    have hprod : 0 ≤ (NumberField.dedekindZeta F ((1 + δ1 : ℝ) : ℂ)).re * 2 ^ S.Sf.card :=
+      le_trans (norm_nonneg _) hηinv.2
+    simpa only [Complex.ofReal_add, Complex.ofReal_one] using hprod
+  have hCbase : 0 ≤ Cbase := by dsimp [Cbase]; positivity
+  have hC0 : 0 < C0 := by dsimp [C0]; linarith
+  have hCconv' : 0 < Cconv := hCconv
+  have hconv' : ∀ T : ℝ, ∫ v : ℝ, Real.exp (-((T + v) ^ 2)) *
+      (1 + |v|) ^ (-Aconv) ≤ Cconv * (1 + |T|) ^ (-2 : ℝ) := hconv
+  have hbound : ∀ Z, 2 ≤ Z → ∀ u, u ≠ U.one → ∀ ξ w z,
+      1 + δ1 ≤ ξ.re → ξ.re ≤ 4 →
+      3 / 1000 ≤ w.re → w.re ≤ 4 →
+      4 / 10 ≤ z.re → z.re ≤ 2 →
+      ‖rowKernel R sd W η U HA HC u Z ξ w z‖ ≤
+        C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+          Real.exp (-((ξ.im + z.im) ^ 2)) *
+            (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) := by
+    intro Z hZ u hu ξ w z hξlo hξhi hwlo hwhi hzlo hzhi
+    have hZpos : 0 < Z := by linarith
+    have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+    have hHCbound := hHbound u ![ξ, w, z] (by
+      left
+      change (998 / 1000 - 1 / 100000 < ξ.re ∧
+        3 / 1000 - 1 / 100000 < w.re ∧ 4 / 10 - 1 / 100000 < z.re)
+      refine ⟨?_, ?_, ?_⟩
+      · have hδ : 0 < δ1 := by norm_num [δ1]
+        linarith
+      · linarith
+      · linarith)
+    have hheight := hheight ξ w z hξlo hξhi hwlo hwhi hzlo hzhi
+    have hK := hKbound u hu w hwlo hwhi
+    have hOne : IsOfFinOrder (1 : HeckeChar F) := by simp
+    have hZeta : ‖HA.LS S 1 (6 * z)‖ ≤ KLS := by
+      have hreal : (6 * z).re = 6 * z.re := by simp
+      have h := rows_LS_norm_bound HA S 1 hOne (s := 6 * z) (by
+        rw [hreal]
+        nlinarith [hzlo])
+      simpa [KLS] using h
+    have htw : rowTwist η U u = U.omega u := by
+      simpa [rowTwist] using (U.omega_induces_twist u).symm
+    have htwfin : IsOfFinOrder (rowTwist η U u) := by
+      rw [htw]
+      exact U.omega_finiteOrder u
+    obtain ⟨fω, hfω⟩ := U.omega_primitive u
+    have htwprim : IsPrimitiveConductor (rowTwist η U u) fω := by
+      rw [htw]
+      exact hfω
+    have hξone : 1 < ξ.re := by
+      have hδ : 0 < δ1 := by norm_num [δ1]
+      linarith
+    obtain ⟨_, hrecip⟩ := rows_LS_inverse_bound HA S
+      (rowTwist η U u) htwfin fω htwprim hξone
+    have hζmono : (NumberField.dedekindZeta F (ξ.re : ℂ)).re ≤
+        (NumberField.dedekindZeta F ((1 + δ1 : ℝ) : ℂ)).re :=
+      rows_small_dedekindZeta_real_antitone (F := F) (by norm_num [δ1]) hξlo
+    have hζmono' : (NumberField.dedekindZeta F (ξ.re : ℂ)).re ≤
+        (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re := by
+      simpa only [Complex.ofReal_add, Complex.ofReal_one] using hζmono
+    have hCinvbound : ‖(HA.LS S (rowTwist η U u) ξ)⁻¹‖ ≤ Cinv := by
+      calc
+        _ ≤ (NumberField.dedekindZeta F ξ.re).re * 2 ^ S.Sf.card := hrecip
+        _ ≤ (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re * 2 ^ S.Sf.card :=
+          mul_le_mul_of_nonneg_right hζmono' (by positivity)
+        _ = Cinv := by rfl
+    have hqneg : (U.q u) ^ (-z.re) ≤ (U.q u) ^ (-(4 / 10 : ℝ)) :=
+      Real.rpow_le_rpow_of_exponent_le (U.q_ge_one u) (by linarith)
+    have hqpos := U.q_pos u
+    have hqprod : (U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + ε / 4) *
+        (U.q u) ^ (ε / 4) ≤ (U.q u) ^ (1 / 10 + ε) := by
+      have h₁ : (U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + ε / 4) ≤
+          (U.q u) ^ (-(4 / 10 : ℝ)) * (U.q u) ^ (1 / 2 + ε / 4) :=
+        mul_le_mul_of_nonneg_right hqneg (Real.rpow_nonneg hqpos.le _)
+      calc
+        _ ≤ (U.q u) ^ (-(4 / 10 : ℝ)) * (U.q u) ^ (1 / 2 + ε / 4) *
+            (U.q u) ^ (ε / 4) :=
+              mul_le_mul_of_nonneg_right h₁ (Real.rpow_nonneg hqpos.le _)
+        _ = (U.q u) ^ (-(4 / 10 : ℝ) + (1 / 2 + ε / 4) + ε / 4) := by
+              rw [← Real.rpow_add hqpos, ← Real.rpow_add hqpos]
+        _ ≤ (U.q u) ^ (1 / 10 + ε) := by
+              apply Real.rpow_le_rpow_of_exponent_le (U.q_ge_one u)
+              ring_nf
+              linarith
+    have hpolyZ : (1 + |z.im|) ^ (-Adec) ≤
+        (1 + |z.im|) ^ (-Aconv) := by
+      apply Real.rpow_le_rpow_of_exponent_le (by nlinarith [abs_nonneg z.im])
+      dsimp [Adec]
+      linarith
+    have hpolyW : (1 + |w.im|) ^ (-Adec) *
+        (1 + |w.im|) ^ AF ≤ (1 + |w.im|) ^ (-2 : ℝ) := by
+      rw [← Real.rpow_add (by positivity : 0 < 1 + |w.im|)]
+      apply Real.rpow_le_rpow_of_exponent_le (by nlinarith [abs_nonneg w.im])
+      dsimp [Adec]
+      linarith [hAconv]
+    have hkernel := rows_rowKernel_norm_eq R sd W η U HA HC Z hZpos u ξ w z
+    rw [hkernel]
+    have hnormBound :
+        Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (-z.re) *
+          ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ *
+          ‖HA.LS S 1 (6 * z)‖ * ‖HA.LS S (U.kummer u) w‖ *
+          ‖HC.H u ![ξ, w, z]‖ * ‖(HA.LS S (rowTwist η U u) ξ)⁻¹‖ ≤
+        Cbase * Z ^ Estar ξ.re w.re z.re *
+          ((U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + ε / 4) * (U.q u) ^ (ε / 4)) *
+            Real.exp (-((ξ.im + z.im) ^ 2)) *
+            (1 + |z.im|) ^ (-Adec) * (1 + |w.im|) ^ (-Adec) * (1 + |w.im|) ^ AF := by
+      have hZpow : 0 ≤ Z ^ Estar ξ.re w.re z.re := Real.rpow_nonneg hZpos.le _
+      have hqpow : 0 ≤ (U.q u) ^ (-z.re) := Real.rpow_nonneg hqpos.le _
+      have hKP : 0 ≤ KLS := hKLS
+      have hCP : 0 ≤ Ck := le_of_lt hCk
+      have hHT : 0 ≤ CH := hCHpos.le
+      have hIP : 0 ≤ Cinv := hCinv
+      calc
+        _ ≤ Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (-z.re) *
+            (Cht * Real.exp (-((ξ.im + z.im) ^ 2)) *
+              (1 + |z.im|) ^ (-Adec) * (1 + |w.im|) ^ (-Adec)) *
+            KLS * (Ck * (U.q u) ^ (1 / 2 + ε / 4) * (1 + |w.im|) ^ AF) *
+            (CH * (U.q u) ^ (ε / 4)) * Cinv := by
+              gcongr
+        _ = Cbase * Z ^ Estar ξ.re w.re z.re *
+            ((U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + ε / 4) * (U.q u) ^ (ε / 4)) *
+              Real.exp (-((ξ.im + z.im) ^ 2)) *
+              (1 + |z.im|) ^ (-Adec) * (1 + |w.im|) ^ (-Adec) * (1 + |w.im|) ^ AF := by
+                dsimp [Cbase]
+                ring
+    have hrest : 0 ≤ Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+        Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv) *
+          (1 + |w.im|) ^ (-2 : ℝ) := by positivity
+    have hCbasele : Cbase ≤ C0 := by dsimp [C0]; linarith
+    calc
+      _ ≤ Cbase * Z ^ Estar ξ.re w.re z.re *
+          ((U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + ε / 4) * (U.q u) ^ (ε / 4)) *
+            Real.exp (-((ξ.im + z.im) ^ 2)) *
+            (1 + |z.im|) ^ (-Adec) * (1 + |w.im|) ^ (-Adec) *
+              (1 + |w.im|) ^ AF := hnormBound
+      _ ≤ Cbase * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+          Real.exp (-((ξ.im + z.im) ^ 2)) *
+            (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) := by
+        calc
+          _ ≤ Cbase * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+              Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+                (1 + |w.im|) ^ (-Adec) * (1 + |w.im|) ^ AF := by
+                  have hrestQ : 0 ≤ Cbase * Z ^ Estar ξ.re w.re z.re *
+                      Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+                        (1 + |w.im|) ^ (-Adec) * (1 + |w.im|) ^ AF := by positivity
+                  calc
+                    _ = (Cbase * Z ^ Estar ξ.re w.re z.re *
+                        Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+                          (1 + |w.im|) ^ (-Adec) * (1 + |w.im|) ^ AF) *
+                          ((U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + ε / 4) * (U.q u) ^ (ε / 4)) := by ring
+                    _ ≤ _ := mul_le_mul_of_nonneg_left hqprod hrestQ
+                    _ = _ := by ring
+          _ ≤ Cbase * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+              Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv) *
+                (1 + |w.im|) ^ (-Adec) * (1 + |w.im|) ^ AF := by
+                  have hrestZ : 0 ≤ Cbase * Z ^ Estar ξ.re w.re z.re *
+                      (U.q u) ^ (1 / 10 + ε) * Real.exp (-((ξ.im + z.im) ^ 2)) *
+                        (1 + |w.im|) ^ (-Adec) * (1 + |w.im|) ^ AF := by positivity
+                  calc
+                    _ = (Cbase * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+                        Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |w.im|) ^ (-Adec) *
+                          (1 + |w.im|) ^ AF) * (1 + |z.im|) ^ (-Adec) := by ring
+                    _ ≤ _ := mul_le_mul_of_nonneg_left hpolyZ hrestZ
+                    _ = _ := by ring
+          _ ≤ Cbase * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+              Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv) *
+                (1 + |w.im|) ^ (-2 : ℝ) := by
+                  have hrestW : 0 ≤ Cbase * Z ^ Estar ξ.re w.re z.re *
+                      (U.q u) ^ (1 / 10 + ε) * Real.exp (-((ξ.im + z.im) ^ 2)) *
+                        (1 + |z.im|) ^ (-Aconv) := by positivity
+                  calc
+                    _ = (Cbase * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+                        Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv)) *
+                          ((1 + |w.im|) ^ (-Adec) * (1 + |w.im|) ^ AF) := by ring
+                    _ ≤ _ := mul_le_mul_of_nonneg_left hpolyW hrestW
+                    _ = _ := by ring
+      _ ≤ C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+          Real.exp (-((ξ.im + z.im) ^ 2)) *
+            (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) := by
+        calc
+          _ = Cbase * (Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+              Real.exp (-((ξ.im + z.im) ^ 2)) *
+                (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) := by ring
+          _ ≤ C0 * _ := mul_le_mul_of_nonneg_right hCbasele hrest
+          _ = _ := by ring
+  refine ⟨AF, Adec, Aconv, C0, Cconv, hAF, hAconv, rfl, by linarith, hC0,
+    hCconv', hconv', hbound⟩
+
+private theorem rows_small_real_majorant_integrable (Aconv Cconv : ℝ)
+    (hAconv : 1 < Aconv) (hCconv : 0 < Cconv)
+    (hconv : ∀ T : ℝ, ∫ v : ℝ, Real.exp (-((T + v) ^ 2)) *
+      (1 + |v|) ^ (-Aconv) ≤ Cconv * (1 + |T|) ^ (-2 : ℝ)) :
+    Integrable (fun p : ℝ × (ℝ × ℝ) =>
+      Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+        (1 + |p.2.1|) ^ (-2 : ℝ)) (volume.prod (volume.prod volume)) := by
+  let fW : ℝ → ℝ := fun t => (1 + |t|) ^ (-2 : ℝ)
+  let fZ : ℝ → ℝ → ℝ := fun x z =>
+    Real.exp (-((x + z) ^ 2)) * (1 + |z|) ^ (-Aconv)
+  let g : ℝ × (ℝ × ℝ) → ℝ := fun p => fZ p.1 p.2.2 * fW p.2.1
+  have hWint : Integrable fW := by
+    simpa [fW] using rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
+  have hWnonneg : ∀ t, 0 ≤ fW t := by intro t; dsimp [fW]; positivity
+  have hZint (x : ℝ) : Integrable (fZ x) := by
+    simpa [fZ] using rows_integrable_shifted_gaussian_poly Aconv x hAconv
+  have hpowcont (q : ℝ) : Continuous (fun t : ℝ => (1 + |t|) ^ q) := by
+    have hbase : Continuous (fun t : ℝ => 1 + |t|) := by fun_prop
+    apply hbase.rpow_const
+    intro t
+    exact Or.inl (ne_of_gt (by positivity))
+  have hgauss : Continuous (fun p : ℝ × (ℝ × ℝ) =>
+      Real.exp (-((p.1 + p.2.2) ^ 2))) := by fun_prop
+  have hpolyZ : Continuous (fun p : ℝ × (ℝ × ℝ) =>
+      (1 + |p.2.2|) ^ (-Aconv)) := by
+    have hmap : Continuous (fun p : ℝ × (ℝ × ℝ) => p.2.2) := by fun_prop
+    exact (hpowcont (-Aconv)).comp hmap
+  have hpolyW : Continuous (fun p : ℝ × (ℝ × ℝ) =>
+      (1 + |p.2.1|) ^ (-2 : ℝ)) := by
+    have hmap : Continuous (fun p : ℝ × (ℝ × ℝ) => p.2.1) := by fun_prop
+    exact (hpowcont (-2 : ℝ)).comp hmap
+  have hGcont : Continuous g := by
+    dsimp [g, fW, fZ]
+    exact (hgauss.mul hpolyZ).mul hpolyW
+  have hGmeas : AEStronglyMeasurable g (volume.prod (volume.prod volume)) :=
+    hGcont.aestronglyMeasurable
+  have hsection (x : ℝ) :
+      Integrable (fun p : ℝ × ℝ => fW p.1 * fZ x p.2) (volume.prod volume) :=
+    hWint.mul_prod (hZint x)
+  let Iw : ℝ := ∫ t : ℝ, fW t
+  have hIw : 0 ≤ Iw := by
+    dsimp [Iw]
+    exact integral_nonneg fun t => hWnonneg t
+  have hsectionNormEq (x : ℝ) :
+      (∫ p : ℝ × ℝ, ‖fW p.1 * fZ x p.2‖) =
+        ∫ p : ℝ × ℝ, fW p.1 * fZ x p.2 := by
+    apply integral_congr_ae
+    filter_upwards [] with p
+    rw [Real.norm_eq_abs, abs_of_nonneg]
+    positivity
+  have hsectionIntegral (x : ℝ) :
+      (∫ p : ℝ × ℝ, fW p.1 * fZ x p.2) = Iw * ∫ z : ℝ, fZ x z := by
+    calc
+      _ = ∫ t : ℝ, ∫ z : ℝ, fW t * fZ x z :=
+        integral_prod _ (hsection x)
+      _ = ∫ t : ℝ, fW t * (∫ z : ℝ, fZ x z) := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        rw [integral_const_mul]
+      _ = Iw * ∫ z : ℝ, fZ x z := by
+        rw [integral_mul_const]
+  have hsectionBound (x : ℝ) :
+      (∫ p : ℝ × ℝ, ‖fW p.1 * fZ x p.2‖) ≤
+        (Iw * Cconv) * (1 + |x|) ^ (-2 : ℝ) := by
+    rw [hsectionNormEq, hsectionIntegral]
+    calc
+      _ ≤ Iw * (Cconv * (1 + |x|) ^ (-2 : ℝ)) :=
+        mul_le_mul_of_nonneg_left (hconv x) hIw
+      _ = _ := by ring
+  have hpolyInt : Integrable (fun x : ℝ => (1 + |x|) ^ (-2 : ℝ)) :=
+    rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
+  let gout : ℝ → ℝ := fun x => (Iw * Cconv) * (1 + |x|) ^ (-2 : ℝ)
+  have hgout : Integrable gout := by
+    simpa [gout, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using
+      hpolyInt.const_mul (Iw * Cconv)
+  have hnormMeas : AEStronglyMeasurable
+      (fun x : ℝ => ∫ p : ℝ × ℝ, ‖g (x, p)‖) volume :=
+    hGmeas.norm.integral_prod_right'
+  have hnormFunction : Integrable
+      (fun x : ℝ => ∫ p : ℝ × ℝ, ‖g (x, p)‖) := by
+    apply hgout.mono' hnormMeas
+    filter_upwards [] with x
+    have hnon : 0 ≤ ∫ p : ℝ × ℝ, ‖g (x, p)‖ :=
+      integral_nonneg fun p => norm_nonneg _
+    have houter : 0 ≤ gout x := by dsimp [gout]; positivity
+    have hboundG : (∫ p : ℝ × ℝ, ‖g (x, p)‖) ≤ gout x := by
+      calc
+        _ = ∫ p : ℝ × ℝ, ‖fW p.1 * fZ x p.2‖ := by
+          apply integral_congr_ae
+          filter_upwards [] with p
+          simp [g, fW, fZ, mul_comm]
+        _ ≤ _ := by simpa [gout] using hsectionBound x
+    have hnormBound :
+        ‖∫ p : ℝ × ℝ, ‖g (x, p)‖‖ ≤ gout x := by
+      rw [Real.norm_eq_abs, abs_of_nonneg hnon]
+      exact hboundG
+    exact hnormBound
+  exact (integrable_prod_iff hGmeas).2
+    ⟨ae_of_all _ (fun x => by simpa [g, mul_comm] using hsection x), hnormFunction⟩
+
+private theorem rows_small_kernel_line_continuous (hEuler : EulerHypotheses R η)
+    (Z : ℝ) (hZ : 0 < Z) (u : U.U) (hu : u ≠ U.one)
+    (σξ σw σz : ℝ)
+    (hξlo : 1 + δ1 ≤ σξ) (hξhi : σξ ≤ 4)
+    (hwlo : 3 / 1000 ≤ σw) (hwhi : σw ≤ 4)
+    (hzlo : 4 / 10 ≤ σz) (hzhi : σz ≤ 2) :
+    Continuous (fun p : ℝ × (ℝ × ℝ) =>
+      rowKernel R sd W η U HA HC u Z
+        (σξ + p.1 * Complex.I) (σw + p.2.1 * Complex.I) (σz + p.2.2 * Complex.I)) := by
+  let ξp : ℝ × (ℝ × ℝ) → ℂ := fun p => σξ + p.1 * Complex.I
+  let wp : ℝ × (ℝ × ℝ) → ℂ := fun p => σw + p.2.1 * Complex.I
+  let zp : ℝ × (ℝ × ℝ) → ℂ := fun p => σz + p.2.2 * Complex.I
+  have hξcont : Continuous ξp := by fun_prop
+  have hwcont : Continuous wp := by fun_prop
+  have hzcont : Continuous zp := by fun_prop
+  have hξre (p : ℝ × (ℝ × ℝ)) : (ξp p).re = σξ := by simp [ξp]
+  have hwre (p : ℝ × (ℝ × ℝ)) : (wp p).re = σw := by simp [wp]
+  have hzre (p : ℝ × (ℝ × ℝ)) : (zp p).re = σz := by simp [zp]
+  obtain ⟨hMdiff, hWdiff, _, _, _⟩ := (po_weights_exist R sd).2 W
+  have hMlineOn : ContinuousOn (fun p : ℝ × (ℝ × ℝ) => weightM R sd W (zp p)) Set.univ := by
+    apply hMdiff.continuousOn.comp hzcont.continuousOn
+    intro p hp
+    change 0 < (zp p).re
+    rw [hzre]
+    exact lt_of_lt_of_le (by norm_num) hzlo
+  have hMline : Continuous (fun p : ℝ × (ℝ × ℝ) => weightM R sd W (zp p)) :=
+    continuousOn_univ.mp hMlineOn
+  have hWline : Continuous (fun p : ℝ × (ℝ × ℝ) => weightW1hat W (wp p)) :=
+    hWdiff.continuous.comp hwcont
+  have hXbase : ((Z ^ a : ℝ) : ℂ) ≠ 0 := by
+    exact Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.rpow_pos_of_pos hZ a))
+  have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZ.ne'
+  have hYbase : ((Z ^ b : ℝ) : ℂ) ≠ 0 := by
+    exact Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.rpow_pos_of_pos hZ b))
+  have hMellin : Continuous (fun p : ℝ × (ℝ × ℝ) =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξp p) (wp p) (zp p)) := by
+    unfold mellinWeight
+    have hXexp : Continuous (fun p : ℝ × (ℝ × ℝ) => (1 / 2 : ℂ) - zp p) := by fun_prop
+    have hZexp : Continuous (fun p : ℝ × (ℝ × ℝ) => ξp p + zp p - 1) := by fun_prop
+    have hYexp : Continuous (fun p : ℝ × (ℝ × ℝ) => wp p - 1) := by fun_prop
+    have hX : Continuous (fun p => ((Z ^ a : ℝ) : ℂ) ^ ((1 / 2 : ℂ) - zp p)) := by
+      exact hXexp.const_cpow (Or.inl hXbase)
+    have hZ : Continuous (fun p => (Z : ℂ) ^ (ξp p + zp p - 1)) := by
+      exact hZexp.const_cpow (Or.inl hZbase)
+    have hY : Continuous (fun p => ((Z ^ b : ℝ) : ℂ) ^ (wp p - 1)) := by
+      exact hYexp.const_cpow (Or.inl hYbase)
+    have hG : Continuous (fun p => Complex.exp ((ξp p + zp p - 1) ^ 2)) := by fun_prop
+    exact (((((hX.mul hZ).mul hY).mul hG).mul hMline).mul hWline)
+  have hKfin : IsOfFinOrder (U.kummer u) := rows_kummer_finiteOrder R η U hEuler u
+  have hKne : U.kummer u ≠ 1 := by
+    intro h
+    exact hu ((U.kummer_principal_iff u).mp h)
+  have hKdiff : Differentiable ℂ (HA.LS S (U.kummer u)) :=
+    rows_small_LS_differentiable (HA := HA) (S := S) (U.kummer u) hKfin hKne
+  have hKline : Continuous (fun p : ℝ × (ℝ × ℝ) => HA.LS S (U.kummer u) (wp p)) :=
+    hKdiff.continuous.comp hwcont
+  have hLzDiff : DifferentiableOn ℂ (HA.LS S (1 : HeckeChar F)) {s | 1 < s.re} :=
+    rows_LS_trivial_differentiableOn HA S
+  let zsix : ℝ × (ℝ × ℝ) → ℂ := fun p => 6 * zp p
+  have hzsixCont : Continuous zsix := by fun_prop
+  have hzsixMaps : MapsTo zsix Set.univ {s | 1 < s.re} := by
+    intro p hp
+    change 1 < (6 * zp p).re
+    rw [show (6 * zp p).re = 6 * (zp p).re by simp, hzre]
+    nlinarith [hzlo]
+  have hLzOn : ContinuousOn (fun p : ℝ × (ℝ × ℝ) => HA.LS S 1 (zsix p)) Set.univ := by
+    apply hLzDiff.continuousOn.comp hzsixCont.continuousOn
+    exact hzsixMaps
+  have hLzline : Continuous (fun p : ℝ × (ℝ × ℝ) => HA.LS S 1 (zsix p)) :=
+    continuousOn_univ.mp hLzOn
+  have htw : rowTwist η U u = U.omega u := by
+    simpa [rowTwist] using (U.omega_induces_twist u).symm
+  have htwfin : IsOfFinOrder (rowTwist η U u) := by rw [htw]; exact U.omega_finiteOrder u
+  obtain ⟨fω, hfω⟩ := U.omega_primitive u
+  have htwprim : IsPrimitiveConductor (rowTwist η U u) fω := by rw [htw]; exact hfω
+  have hInvDiff : DifferentiableOn ℂ (HA.LS S (rowTwist η U u)) {s | 1 < s.re} :=
+    rows_small_LS_differentiableOn (HA := HA) (S := S) (rowTwist η U u) htwfin
+  have hInvNe : ∀ s, 1 < s.re → HA.LS S (rowTwist η U u) s ≠ 0 := by
+    intro s hs
+    exact (rows_LS_inverse_bound HA S (rowTwist η U u) htwfin fω htwprim hs).1
+  have hInvOn : DifferentiableOn ℂ
+      (fun s => (HA.LS S (rowTwist η U u) s)⁻¹) {s | 1 < s.re} := by
+    apply hInvDiff.inv
+    intro s hs
+    exact hInvNe s hs
+  have hξMaps : MapsTo ξp Set.univ {s | 1 < s.re} := by
+    intro p hp
+    change 1 < (ξp p).re
+    rw [hξre]
+    have hδ : 0 < δ1 := by norm_num [δ1]
+    linarith [hξlo]
+  have hInvOnLine : ContinuousOn
+      (fun p : ℝ × (ℝ × ℝ) => (HA.LS S (rowTwist η U u) (ξp p))⁻¹) Set.univ := by
+    apply hInvOn.continuousOn.comp hξcont.continuousOn
+    exact hξMaps
+  have hInvLine : Continuous
+      (fun p : ℝ × (ℝ × ℝ) => (HA.LS S (rowTwist η U u) (ξp p))⁻¹) :=
+    continuousOn_univ.mp hInvOnLine
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℝ × (ℝ × ℝ) → Triple := fun p => ![ξp p, wp p, zp p]
+  have hpmap : Continuous pmap := by fun_prop
+  have hMaps : MapsTo pmap Set.univ {p | eulerNeighborhood p} := by
+    intro p hp
+    left
+    change (998 / 1000 - 1 / 100000 < (ξp p).re ∧
+      3 / 1000 - 1 / 100000 < (wp p).re ∧ 4 / 10 - 1 / 100000 < (zp p).re)
+    refine ⟨?_, ?_, ?_⟩
+    · rw [hξre]
+      have hδ : 0 < δ1 := by norm_num [δ1]
+      linarith [hξlo]
+    · rw [hwre]
+      linarith [hwlo]
+    · rw [hzre]
+      linarith [hzlo]
+  have hHCOn : ContinuousOn (fun p : ℝ × (ℝ × ℝ) => HC.H u (pmap p)) Set.univ := by
+    apply (hHP.2.1 u).continuousOn.comp hpmap.continuousOn
+    exact hMaps
+  have hHCline : Continuous (fun p : ℝ × (ℝ × ℝ) => HC.H u ![ξp p, wp p, zp p]) := by
+    have h := continuousOn_univ.mp hHCOn
+    simpa [pmap] using h
+  have hqbase : (U.q u : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr (ne_of_gt (U.q_pos u))
+  have hqexp : Continuous (fun p : ℝ × (ℝ × ℝ) => -zp p) := by fun_prop
+  have hqline : Continuous (fun p : ℝ × (ℝ × ℝ) => (U.q u : ℂ) ^ (-zp p)) := by
+    exact hqexp.const_cpow (Or.inl hqbase)
+  change Continuous (fun p : ℝ × (ℝ × ℝ) =>
+    (mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξp p) (wp p) (zp p) *
+      (U.q u : ℂ) ^ (-zp p) * HA.LS S 1 (zsix p) * HA.LS S (U.kummer u) (wp p) *
+        HC.H u ![ξp p, wp p, zp p]) / HA.LS S (rowTwist η U u) (ξp p))
+  simp only [div_eq_mul_inv]
+  have h₁ := hMellin.mul hqline
+  have h₂ := h₁.mul hLzline
+  have h₃ := h₂.mul hKline
+  have h₄ := h₃.mul hHCline
+  exact h₄.mul hInvLine
+
+set_option maxHeartbeats 2000000 in
+private theorem rows_small_kernel_sum_integrable (hEuler : EulerHypotheses R η)
+    (ε : ℝ) (hε : 0 < ε) (Z : ℝ) (hZ : 2 ≤ Z) (rows : Finset U.U)
+    (huRows : ∀ u ∈ rows, u ≠ U.one)
+    (σξ σw σz : ℝ)
+    (hξlo : 1 + δ1 ≤ σξ) (hξhi : σξ ≤ 4)
+    (hwlo : 3 / 1000 ≤ σw) (hwhi : σw ≤ 4)
+    (hzlo : 4 / 10 ≤ σz) (hzhi : σz ≤ 2) :
+    Integrable
+      (fun p : ℝ × (ℝ × ℝ) =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z
+          (σξ + p.1 * Complex.I) (σw + p.2.1 * Complex.I) (σz + p.2.2 * Complex.I))
+      (volume.prod (volume.prod volume)) := by
+  obtain ⟨AF, Adec, Aconv, C0, Cconv, hAF, hAconv, hAeq, hAdecPos,
+      hC0, hCconv, hconv, hkernel⟩ :=
+    rows_small_kernel_control R sd W η U HA HC hEuler ε hε
+  have hmajor := rows_small_real_majorant_integrable Aconv Cconv hAconv hCconv hconv
+  let M : ℝ := ∑ u ∈ rows,
+    C0 * Z ^ Estar σξ σw σz * (U.q u) ^ (1 / 10 + ε)
+  have hM : 0 ≤ M := by
+    dsimp [M]
+    apply Finset.sum_nonneg
+    intro u hu
+    exact mul_nonneg
+      (mul_nonneg hC0.le (Real.rpow_nonneg (by linarith : 0 ≤ Z) _))
+      (Real.rpow_nonneg (le_of_lt (U.q_pos u)) _)
+  let f : ℝ × (ℝ × ℝ) → ℂ := fun p =>
+    ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z
+      (σξ + p.1 * Complex.I) (σw + p.2.1 * Complex.I) (σz + p.2.2 * Complex.I)
+  have hfcont : Continuous f := by
+    dsimp [f]
+    classical
+    exact continuous_finsetSum rows fun u hu =>
+      rows_small_kernel_line_continuous R sd W η U HA HC hEuler Z (by linarith)
+        u (huRows u hu) σξ σw σz hξlo hξhi hwlo hwhi hzlo hzhi
+  have hpoint (p : ℝ × (ℝ × ℝ)) : ‖f p‖ ≤ M *
+      (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+        (1 + |p.2.1|) ^ (-2 : ℝ)) := by
+    let ξ : ℂ := σξ + p.1 * Complex.I
+    let w : ℂ := σw + p.2.1 * Complex.I
+    let z : ℂ := σz + p.2.2 * Complex.I
+    have hξre : ξ.re = σξ := by simp [ξ]
+    have hwre : w.re = σw := by simp [w]
+    have hzre : z.re = σz := by simp [z]
+    have hξim : ξ.im = p.1 := by simp [ξ]
+    have hwim : w.im = p.2.1 := by simp [w]
+    have hzim : z.im = p.2.2 := by simp [z]
+    have hsumNorm := norm_sum_le rows
+      (fun u => rowKernel R sd W η U HA HC u Z ξ w z)
+    have hsumBound : (∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖) ≤
+        ∑ u ∈ rows, C0 * Z ^ Estar σξ σw σz * (U.q u) ^ (1 / 10 + ε) *
+          (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+            (1 + |p.2.1|) ^ (-2 : ℝ)) := by
+      apply Finset.sum_le_sum
+      intro u hu
+      have h := hkernel Z hZ u (huRows u hu) ξ w z
+        (by rw [hξre]; exact hξlo) (by rw [hξre]; exact hξhi)
+        (by rw [hwre]; exact hwlo) (by rw [hwre]; exact hwhi)
+        (by rw [hzre]; exact hzlo) (by rw [hzre]; exact hzhi)
+      simpa [ξ, w, z, hξre, hwre, hzre, hξim, hwim, hzim,
+        mul_assoc, mul_left_comm, mul_comm] using h
+    have hsumEq :
+        (∑ u ∈ rows, C0 * Z ^ Estar σξ σw σz * (U.q u) ^ (1 / 10 + ε) *
+          (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+            (1 + |p.2.1|) ^ (-2 : ℝ))) = M *
+          (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+            (1 + |p.2.1|) ^ (-2 : ℝ)) := by
+      dsimp [M]
+      rw [← Finset.sum_mul]
+    calc
+      ‖f p‖ ≤ ∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖ := by
+        simpa [f] using hsumNorm
+      _ ≤ _ := hsumBound
+      _ = _ := hsumEq
+  have hdom : Integrable (fun p : ℝ × (ℝ × ℝ) =>
+      M * (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+        (1 + |p.2.1|) ^ (-2 : ℝ))) (volume.prod (volume.prod volume)) := by
+    simpa [smul_eq_mul, mul_assoc, mul_left_comm, mul_comm] using hmajor.const_mul M
+  exact hdom.mono' hfcont.aestronglyMeasurable (ae_of_all _ hpoint)
+
+private theorem rows_small_raw_swap_wz (f : ℝ → ℝ → ℂ)
+    (hf : Integrable (Function.uncurry f) (volume.prod volume)) :
+    ∫ tw : ℝ, ∫ tz : ℝ, f tw tz = ∫ tz : ℝ, ∫ tw : ℝ, f tw tz :=
+  integral_integral_swap hf
+
+private theorem rows_small_raw_swap_outer (f : ℝ → ℝ → ℝ → ℂ)
+    (hf : Integrable (fun p : ℝ × (ℝ × ℝ) => f p.1 p.2.1 p.2.2)
+      (volume.prod (volume.prod volume))) :
+    ∫ tξ : ℝ, ∫ tw : ℝ, ∫ tz : ℝ, f tξ tw tz =
+      ∫ tw : ℝ, ∫ tz : ℝ, ∫ tξ : ℝ, f tξ tw tz := by
+  let F : ℝ → (ℝ × ℝ) → ℂ := fun tξ p => f tξ p.1 p.2
+  have hF : Integrable (Function.uncurry F) (volume.prod (volume.prod volume)) := by
+    change Integrable (fun p : ℝ × (ℝ × ℝ) => f p.1 p.2.1 p.2.2)
+      (volume.prod (volume.prod volume))
+    exact hf
+  have hSections := hF.prod_right_ae
+  have hInner :
+      (∫ tξ : ℝ, ∫ tw : ℝ, ∫ tz : ℝ, f tξ tw tz) =
+        ∫ tξ : ℝ, MeasureTheory.integral (volume.prod volume) (fun p : ℝ × ℝ => F tξ p) := by
+    apply integral_congr_ae
+    filter_upwards [hSections] with tξ hsec
+    simpa [F] using (integral_prod (fun p : ℝ × ℝ => F tξ p) hsec).symm
+  calc
+    _ = ∫ tξ : ℝ, MeasureTheory.integral (volume.prod volume)
+        (fun p : ℝ × ℝ => F tξ p) := hInner
+    _ = MeasureTheory.integral (volume.prod volume)
+        (fun p : ℝ × ℝ => ∫ tξ : ℝ, F tξ p) := integral_integral_swap hF
+    _ = ∫ tw : ℝ, ∫ tz : ℝ, ∫ tξ : ℝ, f tξ tw tz := by
+      simpa [F] using integral_prod _ hF.integral_prod_right
+
+private theorem rows_small_raw_swap_wz_outer (f : ℝ → ℝ → ℝ → ℂ)
+    (hf : Integrable (fun p : ℝ × (ℝ × ℝ) => f p.1 p.2.1 p.2.2)
+      (volume.prod (volume.prod volume))) :
+    ∫ tξ : ℝ, ∫ tw : ℝ, ∫ tz : ℝ, f tξ tw tz =
+      ∫ tξ : ℝ, ∫ tz : ℝ, ∫ tw : ℝ, f tξ tw tz := by
+  let F : ℝ → (ℝ × ℝ) → ℂ := fun tξ p => f tξ p.1 p.2
+  have hF : Integrable (Function.uncurry F) (volume.prod (volume.prod volume)) := by
+    change Integrable (fun p : ℝ × (ℝ × ℝ) => f p.1 p.2.1 p.2.2)
+      (volume.prod (volume.prod volume))
+    exact hf
+  have hSections := hF.prod_right_ae
+  apply integral_congr_ae
+  filter_upwards [hSections] with tξ hsec
+  exact rows_small_raw_swap_wz (fun tw tz => f tξ tw tz) hsec
+
+private theorem rows_small_triple_swap_wz
+    (σξ σw σz : ℝ) (f : ℝ → ℝ → ℝ → ℂ)
+    (hInt : Integrable (fun p : ℝ × (ℝ × ℝ) => f p.1 p.2.1 p.2.2)
+      (volume.prod (volume.prod volume))) :
+    tripleVertical σξ σw σz
+      (fun ξ w z => f ξ.im w.im z.im) =
+    tripleVertical σξ σz σw
+      (fun ξ z w => f ξ.im w.im z.im) := by
+  unfold tripleVertical vertical
+  simp only [Complex.add_im, Complex.ofReal_im, Complex.mul_im, Complex.I_re,
+    Complex.I_im, mul_zero, zero_mul, zero_add, add_zero, mul_one, integral_const_mul]
+  exact congrArg
+    (fun q : ℂ => (1 / (2 * Real.pi) : ℂ) *
+      ((1 / (2 * Real.pi) : ℂ) * ((1 / (2 * Real.pi) : ℂ) * q)))
+    (rows_small_raw_swap_wz_outer f hInt)
+
+private theorem rows_small_triple_swap_outer
+    (σξ σw σz : ℝ) (f : ℝ → ℝ → ℝ → ℂ)
+    (hInt : Integrable (fun p : ℝ × (ℝ × ℝ) => f p.1 p.2.1 p.2.2)
+      (volume.prod (volume.prod volume))) :
+    tripleVertical σξ σw σz (fun ξ w z => f ξ.im w.im z.im) =
+      vertical σw (fun w => vertical σz (fun z => vertical σξ (fun ξ => f ξ.im w.im z.im))) := by
+  unfold tripleVertical vertical
+  simp only [Complex.add_im, Complex.ofReal_im, Complex.mul_im, Complex.I_re,
+    Complex.I_im, mul_zero, zero_mul, zero_add, add_zero, mul_one, integral_const_mul]
+  exact congrArg
+    (fun q : ℂ => (1 / (2 * Real.pi) : ℂ) *
+      ((1 / (2 * Real.pi) : ℂ) * ((1 / (2 * Real.pi) : ℂ) * q)))
+    (rows_small_raw_swap_outer f hInt)
+
+set_option maxHeartbeats 1600000 in
+private theorem rows_small_shift_z (hEuler : EulerHypotheses R η)
+    (ε : ℝ) (hε : 0 < ε) (Z : ℝ) (hZ : 2 ≤ Z) (rows : Finset U.U)
+    (huRows : ∀ u ∈ rows, u ≠ U.one) (ξ w : ℂ)
+    (hξlo : 1 + δ1 ≤ ξ.re) (hξhi : ξ.re ≤ 4)
+    (hw : w.re = 4) :
+    vertical 2 (fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) =
+      vertical (4 / 10) (fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) := by
+  let strip : Set ℂ := {z | 4 / 10 ≤ z.re ∧ z.re ≤ 2}
+  let G : ℂ → ℂ := fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z
+  obtain ⟨AF, Adec, Aconv, C0, Cconv, hAF, hAconv, hAeq, hAdecPos,
+      hC0, hCconv, hconv, hcontrol⟩ :=
+    rows_small_kernel_control R sd W η U HA HC hEuler ε hε
+  have hGdiff : DifferentiableOn ℂ G strip := by
+    change DifferentiableOn ℂ
+      (fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) strip
+    apply DifferentiableOn.fun_sum
+    intro u hu
+    have hξhp : 998 / 1000 - 1 / 100000 < ξ.re := by
+      have hδ : 0 < δ1 := by norm_num [δ1]
+      linarith
+    have hwhp : 3 / 1000 - 1 / 100000 < w.re := by rw [hw]; norm_num
+    exact rows_small_kernel_differentiableOn_z R sd W η U HA HC hEuler
+      Z (by positivity) u ξ w hξhp hwhp
+  let Cshift : ℝ := ∑ u ∈ rows,
+    C0 * Z ^ Estar ξ.re 4 2 * (U.q u) ^ (1 / 10 + ε)
+  have hCshift : 0 ≤ Cshift := by
+    dsimp [Cshift]
+    apply Finset.sum_nonneg
+    intro u hu
+    exact mul_nonneg
+      (mul_nonneg hC0.le (Real.rpow_nonneg (by linarith : 0 ≤ Z) _))
+      (Real.rpow_nonneg (le_of_lt (U.q_pos u)) _)
+  have hline (x : ℝ) (hx : x ∈ Set.Icc (4 / 10 : ℝ) 2) (y : ℝ) :
+      ‖G ((x : ℂ) + y * Complex.I)‖ ≤
+        Cshift * Real.exp (-((ξ.im + y) ^ 2)) := by
+    have hxlo : 4 / 10 ≤ x := hx.1
+    have hxhi : x ≤ 2 := hx.2
+    let z : ℂ := (x : ℂ) + y * Complex.I
+    have hzre : z.re = x := by simp [z]
+    have hzim : z.im = y := by simp [z]
+    have hEstar : Estar ξ.re w.re z.re ≤ Estar ξ.re 4 2 := by
+      rw [hw, hzre]
+      norm_num [Estar, a, b, h0]
+      nlinarith [hxhi]
+    have hZpow : Z ^ Estar ξ.re w.re z.re ≤ Z ^ Estar ξ.re 4 2 :=
+      Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z) hEstar
+    have hpolyZ : (1 + |z.im|) ^ (-Aconv) ≤ 1 :=
+      Real.rpow_le_one_of_one_le_of_nonpos (by nlinarith [abs_nonneg z.im])
+        (by linarith [hAconv])
+    have hpolyW : (1 + |w.im|) ^ (-2 : ℝ) ≤ 1 :=
+      Real.rpow_le_one_of_one_le_of_nonpos (by nlinarith [abs_nonneg w.im]) (by norm_num)
+    have hpoly : (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) ≤ 1 :=
+      mul_le_one₀ hpolyZ (Real.rpow_nonneg (by nlinarith [abs_nonneg w.im]) _) hpolyW
+    have hcoef (u : U.U) :
+        C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) ≤
+          C0 * Z ^ Estar ξ.re 4 2 * (U.q u) ^ (1 / 10 + ε) := by
+      have hqnon : 0 ≤ (U.q u) ^ (1 / 10 + ε) :=
+        Real.rpow_nonneg (U.q_pos u).le _
+      calc
+        _ = (C0 * Z ^ Estar ξ.re w.re z.re) * (U.q u) ^ (1 / 10 + ε) := by ring
+        _ ≤ (C0 * Z ^ Estar ξ.re 4 2) * (U.q u) ^ (1 / 10 + ε) :=
+          mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_left hZpow hC0.le) hqnon
+        _ = _ := by ring
+    have hrow (u : U.U) (hu : u ∈ rows) :
+        ‖rowKernel R sd W η U HA HC u Z ξ w z‖ ≤
+          (C0 * Z ^ Estar ξ.re 4 2 * (U.q u) ^ (1 / 10 + ε)) *
+            Real.exp (-((ξ.im + y) ^ 2)) := by
+      have h := hcontrol Z hZ u (huRows u hu) ξ w z hξlo hξhi
+        (by norm_num [hw]) (by norm_num [hw])
+        (by rw [hzre]; exact hxlo) (by rw [hzre]; exact hxhi)
+      have hcoeffnon : 0 ≤ C0 * Z ^ Estar ξ.re w.re z.re *
+          (U.q u) ^ (1 / 10 + ε) := by
+        exact mul_nonneg
+          (mul_nonneg hC0.le (Real.rpow_nonneg (by linarith : 0 ≤ Z) _))
+          (Real.rpow_nonneg (le_of_lt (U.q_pos u)) _)
+      have hcoeffgauss : 0 ≤ C0 * Z ^ Estar ξ.re w.re z.re *
+          (U.q u) ^ (1 / 10 + ε) * Real.exp (-((ξ.im + y) ^ 2)) :=
+        mul_nonneg hcoeffnon (Real.exp_pos _).le
+      rw [show Real.exp (-((ξ.im + z.im) ^ 2)) =
+        Real.exp (-((ξ.im + y) ^ 2)) by rw [hzim]] at h
+      calc
+        _ ≤ C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+            Real.exp (-((ξ.im + y) ^ 2)) *
+              ((1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) := by
+                simpa [mul_assoc, mul_left_comm, mul_comm] using h
+        _ ≤ C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+            Real.exp (-((ξ.im + y) ^ 2)) * 1 :=
+              mul_le_mul_of_nonneg_left hpoly hcoeffgauss
+        _ ≤ (C0 * Z ^ Estar ξ.re 4 2 * (U.q u) ^ (1 / 10 + ε)) *
+            Real.exp (-((ξ.im + y) ^ 2)) := by
+              have hExp : 0 ≤ Real.exp (-((ξ.im + y) ^ 2)) := (Real.exp_pos _).le
+              calc
+                _ = (C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε)) *
+                    Real.exp (-((ξ.im + y) ^ 2)) := by ring
+                _ ≤ (C0 * Z ^ Estar ξ.re 4 2 * (U.q u) ^ (1 / 10 + ε)) *
+                    Real.exp (-((ξ.im + y) ^ 2)) :=
+                      mul_le_mul_of_nonneg_right (hcoef u) hExp
+    have hsumNorm := norm_sum_le rows
+      (fun u => rowKernel R sd W η U HA HC u Z ξ w z)
+    have hsumBound :
+        (∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖) ≤
+          ∑ u ∈ rows,
+            (C0 * Z ^ Estar ξ.re 4 2 * (U.q u) ^ (1 / 10 + ε)) *
+              Real.exp (-((ξ.im + y) ^ 2)) :=
+      Finset.sum_le_sum fun u hu => hrow u hu
+    have hsumEq :
+        (∑ u ∈ rows,
+          (C0 * Z ^ Estar ξ.re 4 2 * (U.q u) ^ (1 / 10 + ε)) *
+            Real.exp (-((ξ.im + y) ^ 2))) = Cshift * Real.exp (-((ξ.im + y) ^ 2)) := by
+      dsimp [Cshift]
+      rw [← Finset.sum_mul]
+    calc
+      ‖G ((x : ℂ) + y * Complex.I)‖ ≤
+          ∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖ := by
+            simpa [G] using hsumNorm
+      _ ≤ _ := hsumBound
+      _ = _ := hsumEq
+  let trans : ℂ → ℂ := fun z => z - ξ.im * Complex.I
+  let Fcont : ℂ → ℂ := fun z => G (trans z)
+  have hTransDiff : Differentiable ℂ trans := by fun_prop
+  have hTransOn : DifferentiableOn ℂ trans strip := hTransDiff.differentiableOn
+  have hTransMaps : MapsTo trans strip strip := by
+    intro z hz
+    have hreal : (trans z).re = z.re := by simp [trans]
+    constructor
+    · rw [hreal]
+      exact hz.1
+    · rw [hreal]
+      exact hz.2
+  have hFdiff : DifferentiableOn ℂ Fcont strip := by
+    have h := hGdiff.comp hTransOn hTransMaps
+    simpa only [Fcont, Function.comp_def] using h
+  have hFbound : ∀ x ∈ Set.Icc (4 / 10 : ℝ) 2, ∀ y : ℝ,
+      ‖Fcont ((x : ℂ) + y * Complex.I)‖ ≤ Cshift * Real.exp (-y ^ 2) := by
+    intro x hx y
+    have hz : trans ((x : ℂ) + y * Complex.I) = (x : ℂ) + (y - ξ.im) * Complex.I := by
+      dsimp [trans]
+      apply Complex.ext <;> simp <;> ring
+    have h := hline x hx (y - ξ.im)
+    change ‖G (trans ((x : ℂ) + y * Complex.I))‖ ≤ Cshift * Real.exp (-y ^ 2)
+    rw [hz]
+    rw [Complex.ofReal_sub] at h
+    have hy : ξ.im + (y - ξ.im) = y := by ring
+    rw [hy] at h
+    exact h
+  have hcontour := OAI.SevenEighths.Continuation.vertical_integral_eq_of_gaussian_bound
+    Fcont (a := 4 / 10) (b := 2) (C := Cshift) (by norm_num) hFdiff hFbound
+  have htranslate (σ : ℝ) :
+      (∫ t : ℝ, Fcont ((σ : ℂ) + t * Complex.I)) =
+        ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := by
+    have hcomp : (∫ t : ℝ, G ((σ : ℂ) + (t - ξ.im) * Complex.I)) =
+        ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := by
+      have h := (measurePreserving_add_left (volume : Measure ℝ) (-ξ.im)).integral_comp
+        (Homeomorph.addLeft (-ξ.im)).measurableEmbedding
+        (fun t : ℝ => G ((σ : ℂ) + t * Complex.I))
+      simpa [Function.comp_def, sub_eq_add_neg, add_assoc, add_comm, add_left_comm] using h
+    have harg (t : ℝ) :
+        ((σ : ℂ) + t * Complex.I) - ξ.im * Complex.I =
+          (σ : ℂ) + (t - ξ.im) * Complex.I := by
+      apply Complex.ext <;> simp <;> ring
+    calc
+      (∫ t : ℝ, Fcont ((σ : ℂ) + t * Complex.I)) =
+          ∫ t : ℝ, G ((σ : ℂ) + (t - ξ.im) * Complex.I) := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        change G (((σ : ℂ) + t * Complex.I) - ξ.im * Complex.I) =
+          G ((σ : ℂ) + (t - ξ.im) * Complex.I)
+        rw [harg]
+      _ = ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := hcomp
+  have hshiftV : vertical (4 / 10) Fcont = vertical 2 Fcont := by
+    unfold vertical
+    rw [hcontour]
+  calc
+    vertical 2 G = vertical 2 Fcont := by
+      unfold vertical
+      rw [← htranslate 2]
+    _ = vertical (4 / 10) Fcont := hshiftV.symm
+    _ = vertical (4 / 10) G := by
+      unfold vertical
+      rw [htranslate (4 / 10)]
+
+
+set_option maxHeartbeats 4000000 in
+private theorem rows_small_shift_w (hEuler : EulerHypotheses R η)
+    (ε : ℝ) (hε : 0 < ε) (Z : ℝ) (hZ : 2 ≤ Z) (rows : Finset U.U)
+    (huRows : ∀ u ∈ rows, u ≠ U.one) (ξ z : ℂ)
+    (hξlo : 1 + δ1 ≤ ξ.re) (hξhi : ξ.re ≤ 4)
+    (hz : z.re = 4 / 10) :
+    vertical 4 (fun w => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) =
+      vertical (3 / 1000) (fun w => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) := by
+  let strip : Set ℂ := {w | 3 / 1000 ≤ w.re ∧ w.re ≤ 4}
+  let G : ℂ → ℂ := fun w => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z
+  obtain ⟨AF, Adec, Aconv, C0, Cconv, hAF, hAconv, hAeq, hAdecPos,
+      hC0, hCconv, hconv, hcontrol⟩ := rows_small_kernel_control R sd W η U HA HC hEuler ε hε
+  have hGdiff : DifferentiableOn ℂ G strip := by
+    change DifferentiableOn ℂ
+      (fun w => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) strip
+    apply DifferentiableOn.fun_sum
+    intro u hu
+    have hξhp : 998 / 1000 - 1 / 100000 < ξ.re := by
+      have hδ : 0 < δ1 := by norm_num [δ1]
+      linarith
+    have hzhp : 4 / 10 - 1 / 100000 < z.re := by rw [hz]; norm_num
+    exact rows_small_kernel_differentiableOn_w R sd W η U HA HC hEuler
+      Z (by positivity) u ξ z (huRows u hu) hξhp hzhp
+  let Cshift : ℝ := ∑ u ∈ rows,
+    C0 * Z ^ Estar ξ.re 4 z.re * (U.q u) ^ (1 / 10 + ε) *
+      Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv)
+  have hCshift : 0 ≤ Cshift := by
+    dsimp [Cshift]
+    apply Finset.sum_nonneg
+    intro u hu
+    have hcoef : 0 ≤ C0 * Z ^ Estar ξ.re 4 z.re * (U.q u) ^ (1 / 10 + ε) :=
+      mul_nonneg
+        (mul_nonneg hC0.le (Real.rpow_nonneg (by linarith : 0 ≤ Z) _))
+        (Real.rpow_nonneg (le_of_lt (U.q_pos u)) _)
+    exact mul_nonneg
+      (mul_nonneg hcoef (Real.exp_pos _).le)
+      (Real.rpow_nonneg (by positivity) _)
+  have hline (x : ℝ) (hx : x ∈ Set.Icc (3 / 1000 : ℝ) 4) (t : ℝ) :
+      ‖G ((x : ℂ) + t * Complex.I)‖ ≤ Cshift * (1 + |t|) ^ (-2 : ℝ) := by
+    have hxlo : 3 / 1000 ≤ x := hx.1
+    have hxhi : x ≤ 4 := hx.2
+    let w : ℂ := (x : ℂ) + t * Complex.I
+    have hwre : w.re = x := by simp [w]
+    have hwim : w.im = t := by simp [w]
+    have hEstar : Estar ξ.re w.re z.re ≤ Estar ξ.re 4 z.re := by
+      rw [hwre]
+      norm_num [Estar, a, b, h0]
+      nlinarith [hxhi]
+    have hZpow : Z ^ Estar ξ.re w.re z.re ≤ Z ^ Estar ξ.re 4 z.re :=
+      Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z) hEstar
+    have hcoef (u : U.U) :
+        C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+          Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv) ≤
+        C0 * Z ^ Estar ξ.re 4 z.re * (U.q u) ^ (1 / 10 + ε) *
+          Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv) := by
+      have hrest : 0 ≤ (U.q u) ^ (1 / 10 + ε) *
+          Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv) := by
+        exact mul_nonneg
+          (mul_nonneg (Real.rpow_nonneg (U.q_pos u).le _) (Real.exp_pos _).le)
+          (Real.rpow_nonneg (by positivity) _)
+      calc
+        _ = (C0 * Z ^ Estar ξ.re w.re z.re) *
+            ((U.q u) ^ (1 / 10 + ε) * Real.exp (-((ξ.im + z.im) ^ 2)) *
+              (1 + |z.im|) ^ (-Aconv)) := by ring
+        _ ≤ (C0 * Z ^ Estar ξ.re 4 z.re) *
+            ((U.q u) ^ (1 / 10 + ε) * Real.exp (-((ξ.im + z.im) ^ 2)) *
+              (1 + |z.im|) ^ (-Aconv)) :=
+              mul_le_mul_of_nonneg_right
+                (mul_le_mul_of_nonneg_left hZpow hC0.le) hrest
+        _ = _ := by ring
+    have hsumNorm := norm_sum_le rows
+      (fun u => rowKernel R sd W η U HA HC u Z ξ w z)
+    have hsumBound :
+        (∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖) ≤
+          ∑ u ∈ rows,
+            (C0 * Z ^ Estar ξ.re 4 z.re * (U.q u) ^ (1 / 10 + ε) *
+              Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv)) *
+              (1 + |t|) ^ (-2 : ℝ) := by
+      exact Finset.sum_le_sum fun u hu => by
+        have h := hcontrol Z hZ u (huRows u hu) ξ w z hξlo hξhi
+          (by rw [hwre]; exact hxlo) (by rw [hwre]; exact hxhi)
+          (by norm_num [hz]) (by norm_num [hz])
+        rw [hwim] at h
+        calc
+          _ ≤ (C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+              Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv)) *
+                (1 + |t|) ^ (-2 : ℝ) := by simpa [mul_assoc] using h
+          _ ≤ _ := mul_le_mul_of_nonneg_right (hcoef u) (Real.rpow_nonneg (by positivity) _)
+    have hsumEq :
+        (∑ u ∈ rows,
+          (C0 * Z ^ Estar ξ.re 4 z.re * (U.q u) ^ (1 / 10 + ε) *
+            Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Aconv)) *
+              (1 + |t|) ^ (-2 : ℝ)) = Cshift * (1 + |t|) ^ (-2 : ℝ) := by
+      dsimp [Cshift]
+      rw [← Finset.sum_mul]
+    calc
+      ‖G ((x : ℂ) + t * Complex.I)‖ ≤
+          ∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖ := by
+            simpa [G] using hsumNorm
+      _ ≤ _ := hsumBound
+      _ = _ := hsumEq
+  let E : ℝ → ℝ := fun t => (1 + |t|) ^ (-2 : ℝ)
+  have hEint : Integrable E := by
+    simpa [E] using rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
+  have hEven : ∀ t : ℝ, E (-t) = E t := by intro t; simp [E, abs_neg]
+  have hineq : ∀ t : ℝ, t ≤ 1 + |t| := by
+    intro t
+    calc
+      t ≤ |t| := le_abs_self _
+      _ ≤ 1 + |t| := by linarith [abs_nonneg t]
+  have hBase : Tendsto (fun t : ℝ => 1 + |t|) atTop atTop :=
+    tendsto_atTop_mono hineq tendsto_id
+  have hLim : Tendsto E atTop (𝓝 0) := by
+    have hpow := (tendsto_rpow_neg_atTop (by norm_num : 0 < (2 : ℝ))).comp hBase
+    have hpow' : Tendsto (fun t : ℝ => ((1 + |t|) ^ (2 : ℝ))⁻¹) atTop (𝓝 0) := by
+      convert hpow using 1
+      funext t
+      change ((1 + |t|) ^ (2 : ℝ))⁻¹ = (1 + |t|) ^ (-(2 : ℝ))
+      exact (Real.rpow_neg (by positivity : 0 ≤ 1 + |t|) (2 : ℝ)).symm
+    have hEq : (fun t : ℝ => E t) = fun t => ((1 + |t|) ^ (2 : ℝ))⁻¹ := by
+      funext t
+      dsimp [E]
+      rw [Real.rpow_neg (by positivity : 0 ≤ 1 + |t|)]
+    change Tendsto (fun t : ℝ => E t) atTop (𝓝 0)
+    rw [hEq]
+    exact hpow'
+  have hab : (3 / 1000 : ℝ) ≤ 4 := by norm_num
+  have hLineContinuous (x : ℝ) (hx : x ∈ Set.Icc (3 / 1000 : ℝ) 4) :
+      Continuous (fun t : ℝ => G ((x : ℂ) + t * Complex.I)) := by
+    apply continuousOn_univ.mp
+    apply hGdiff.continuousOn.comp
+      (by fun_prop : ContinuousOn (fun t : ℝ => (x : ℂ) + t * Complex.I) Set.univ)
+    intro t ht
+    have hre : ((x : ℂ) + t * Complex.I).re = x := by simp
+    change 3 / 1000 ≤ ((x : ℂ) + t * Complex.I).re ∧
+      ((x : ℂ) + t * Complex.I).re ≤ 4
+    rw [hre]
+    exact hx
+  have hEndpoint (x : ℝ) (hx : x ∈ Set.Icc (3 / 1000 : ℝ) 4) :
+      Integrable (fun t : ℝ => G ((x : ℂ) + t * Complex.I)) := by
+    apply (hEint.const_mul Cshift).mono' (hLineContinuous x hx).aestronglyMeasurable
+    filter_upwards [] with t
+    exact hline x hx t
+  have hIntervalBound (T : ℝ) :
+      ‖∫ x in (3 / 1000)..4, G ((x : ℂ) + T * Complex.I)‖ ≤
+        Cshift * E T * |4 - 3 / 1000| := by
+    apply intervalIntegral.norm_integral_le_of_norm_le_const
+    intro x hx
+    have hx' : x ∈ Set.Icc (3 / 1000 : ℝ) 4 := by
+      simpa [uIcc_of_le hab] using uIoc_subset_uIcc hx
+    exact hline x hx' T
+  have hTop : Tendsto
+      (fun T : ℝ => ∫ x in (3 / 1000)..4, G ((x : ℂ) + T * Complex.I)) atTop (𝓝 0) := by
+    apply tendsto_zero_iff_norm_tendsto_zero.mpr
+    exact squeeze_zero (fun _ => norm_nonneg _) hIntervalBound
+      (by simpa [E] using (hLim.const_mul Cshift).mul_const |4 - 3 / 1000|)
+  have hBottom : Tendsto
+      (fun T : ℝ => ∫ x in (3 / 1000)..4, G ((x : ℂ) + (-T) * Complex.I)) atTop (𝓝 0) := by
+    apply tendsto_zero_iff_norm_tendsto_zero.mpr
+    have hbound (T : ℝ) :
+        ‖∫ x in (3 / 1000)..4, G ((x : ℂ) + (-T) * Complex.I)‖ ≤
+          Cshift * E T * |4 - 3 / 1000| := by
+      calc
+        _ ≤ Cshift * E (-T) * |4 - 3 / 1000| := by
+          simpa [Complex.ofReal_neg] using hIntervalBound (-T)
+        _ = _ := by rw [hEven]
+    exact squeeze_zero (fun _ => norm_nonneg _) hbound
+      (by simpa [E] using (hLim.const_mul Cshift).mul_const |4 - 3 / 1000|)
+  have hshift := OAI.SevenEighths.Continuation.vertical_integral_eq_of_horizontal_vanish
+    G hab hGdiff (hEndpoint (3 / 1000) ⟨le_rfl, by norm_num⟩)
+    (hEndpoint 4 ⟨by norm_num, le_rfl⟩) hBottom hTop
+  unfold vertical
+  exact congrArg (fun v : ℂ => (1 / (2 * Real.pi) : ℂ) * v) hshift.symm
+
+private theorem rows_small_shift_xi (hEuler : EulerHypotheses R η)
+    (ε : ℝ) (hε : 0 < ε) (Z : ℝ) (hZ : 2 ≤ Z) (rows : Finset U.U)
+    (huRows : ∀ u ∈ rows, u ≠ U.one) (w z : ℂ)
+    (hw : w.re = 3 / 1000) (hz : z.re = 4 / 10) :
+    vertical 4 (fun ξ => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) =
+      vertical (1 + δ1) (fun ξ => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) := by
+  let strip : Set ℂ := {ξ | 1 + δ1 ≤ ξ.re ∧ ξ.re ≤ 4}
+  let G : ℂ → ℂ := fun ξ => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z
+  obtain ⟨AF, Adec, Aconv, C0, Cconv, hAF, hAconv, hAeq, hAdecPos,
+      hC0, hCconv, hconv, hcontrol⟩ := rows_small_kernel_control R sd W η U HA HC hEuler ε hε
+  have hGdiff : DifferentiableOn ℂ G strip := by
+    change DifferentiableOn ℂ
+      (fun ξ => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) strip
+    apply DifferentiableOn.fun_sum
+    intro u hu
+    have hwhp : 3 / 1000 - 1 / 100000 < w.re := by rw [hw]; norm_num
+    have hzhp : 4 / 10 - 1 / 100000 < z.re := by rw [hz]; norm_num
+    exact rows_small_kernel_differentiableOn_xi R sd W η U HA HC hEuler
+      Z (by positivity) u w z hwhp hzhp
+  let Cshift : ℝ := ∑ u ∈ rows,
+    C0 * Z ^ Estar 4 w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+      (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)
+  have hCshift : 0 ≤ Cshift := by
+    dsimp [Cshift]
+    apply Finset.sum_nonneg
+    intro u hu
+    have hCZ : 0 ≤ C0 * Z ^ Estar 4 w.re z.re :=
+      mul_nonneg hC0.le (Real.rpow_nonneg (by linarith : 0 ≤ Z) _)
+    have hq : 0 ≤ (U.q u) ^ (1 / 10 + ε) :=
+      Real.rpow_nonneg (le_of_lt (U.q_pos u)) _
+    have hpz : 0 ≤ (1 + |z.im|) ^ (-Aconv) :=
+      Real.rpow_nonneg (by positivity) _
+    have hpw : 0 ≤ (1 + |w.im|) ^ (-2 : ℝ) :=
+      Real.rpow_nonneg (by positivity) _
+    exact mul_nonneg (mul_nonneg (mul_nonneg hCZ hq) hpz) hpw
+  have hline (x : ℝ) (hx : x ∈ Set.Icc (1 + δ1 : ℝ) 4) (t : ℝ) :
+      ‖G ((x : ℂ) + t * Complex.I)‖ ≤
+        Cshift * Real.exp (-((t + z.im) ^ 2)) := by
+    have hxlo : 1 + δ1 ≤ x := hx.1
+    have hxhi : x ≤ 4 := hx.2
+    let ξ : ℂ := (x : ℂ) + t * Complex.I
+    have hξre : ξ.re = x := by simp [ξ]
+    have hξim : ξ.im = t := by simp [ξ]
+    have hEstar : Estar ξ.re w.re z.re ≤ Estar 4 w.re z.re := by
+      rw [hξre]
+      norm_num [Estar, a, b, h0]
+      nlinarith [hxhi]
+    have hZpow : Z ^ Estar ξ.re w.re z.re ≤ Z ^ Estar 4 w.re z.re :=
+      Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z) hEstar
+    have hcoef (u : U.U) :
+        C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+          (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) ≤
+        C0 * Z ^ Estar 4 w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+          (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) := by
+      have hrest : 0 ≤ (U.q u) ^ (1 / 10 + ε) *
+          (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) :=
+        mul_nonneg
+          (mul_nonneg (Real.rpow_nonneg (U.q_pos u).le _) (Real.rpow_nonneg (by positivity) _))
+          (Real.rpow_nonneg (by positivity) _)
+      calc
+        _ = (C0 * Z ^ Estar ξ.re w.re z.re) *
+            ((U.q u) ^ (1 / 10 + ε) *
+              (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) := by ring
+        _ ≤ (C0 * Z ^ Estar 4 w.re z.re) *
+            ((U.q u) ^ (1 / 10 + ε) *
+              (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) :=
+              mul_le_mul_of_nonneg_right
+                (mul_le_mul_of_nonneg_left hZpow hC0.le) hrest
+        _ = _ := by ring
+    have hrow (u : U.U) (hu : u ∈ rows) :
+        ‖rowKernel R sd W η U HA HC u Z ξ w z‖ ≤
+          (C0 * Z ^ Estar 4 w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+            (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) *
+              Real.exp (-((t + z.im) ^ 2)) := by
+      have h := hcontrol Z hZ u (huRows u hu) ξ w z
+        (by rw [hξre]; exact hxlo) (by rw [hξre]; exact hxhi)
+        (by norm_num [hw]) (by norm_num [hw])
+        (by norm_num [hz]) (by norm_num [hz])
+      rw [hξim] at h
+      calc
+        _ ≤ C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+            Real.exp (-((t + z.im) ^ 2)) *
+              (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) := by
+                simpa [mul_assoc] using h
+        _ = (C0 * Z ^ Estar ξ.re w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+            (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) *
+              Real.exp (-((t + z.im) ^ 2)) := by ring
+        _ ≤ _ := mul_le_mul_of_nonneg_right (hcoef u) (Real.exp_pos _).le
+    have hsumNorm := norm_sum_le rows
+      (fun u => rowKernel R sd W η U HA HC u Z ξ w z)
+    have hsumBound :
+        (∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖) ≤
+          ∑ u ∈ rows,
+            (C0 * Z ^ Estar 4 w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+              (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) *
+                Real.exp (-((t + z.im) ^ 2)) :=
+      Finset.sum_le_sum fun u hu => hrow u hu
+    have hsumEq :
+        (∑ u ∈ rows,
+          (C0 * Z ^ Estar 4 w.re z.re * (U.q u) ^ (1 / 10 + ε) *
+            (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) *
+              Real.exp (-((t + z.im) ^ 2))) =
+          Cshift * Real.exp (-((t + z.im) ^ 2)) := by
+      dsimp [Cshift]
+      rw [← Finset.sum_mul]
+    calc
+      ‖G ((x : ℂ) + t * Complex.I)‖ ≤
+          ∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖ := by
+            simpa [G] using hsumNorm
+      _ ≤ _ := hsumBound
+      _ = _ := hsumEq
+  let trans : ℂ → ℂ := fun ξ => ξ - z.im * Complex.I
+  let Fcont : ℂ → ℂ := fun ξ => G (trans ξ)
+  have hTransDiff : Differentiable ℂ trans := by fun_prop
+  have hTransOn : DifferentiableOn ℂ trans strip := hTransDiff.differentiableOn
+  have hTransMaps : MapsTo trans strip strip := by
+    intro ξ hξ
+    change 1 + δ1 ≤ ξ.re ∧ ξ.re ≤ 4 at hξ
+    have hreal : (trans ξ).re = ξ.re := by simp [trans]
+    constructor
+    · rw [hreal]
+      exact hξ.1
+    · rw [hreal]
+      exact hξ.2
+  have hFdiff : DifferentiableOn ℂ Fcont strip := by
+    have h := hGdiff.comp hTransOn hTransMaps
+    simpa only [Fcont, Function.comp_def] using h
+  have hFbound : ∀ x ∈ Set.Icc (1 + δ1 : ℝ) 4, ∀ y : ℝ,
+      ‖Fcont ((x : ℂ) + y * Complex.I)‖ ≤ Cshift * Real.exp (-y ^ 2) := by
+    intro x hx y
+    have harg : trans ((x : ℂ) + y * Complex.I) =
+        (x : ℂ) + (y - z.im) * Complex.I := by
+      dsimp [trans]
+      apply Complex.ext <;> simp <;> ring
+    have h := hline x hx (y - z.im)
+    change ‖G (trans ((x : ℂ) + y * Complex.I))‖ ≤ Cshift * Real.exp (-y ^ 2)
+    rw [harg]
+    rw [Complex.ofReal_sub] at h
+    have hy : (y - z.im) + z.im = y := by ring
+    rw [hy] at h
+    exact h
+  have hcontour := OAI.SevenEighths.Continuation.vertical_integral_eq_of_gaussian_bound
+    Fcont (a := 1 + δ1) (b := 4) (C := Cshift) (by norm_num [δ1]) hFdiff hFbound
+  have htranslate (σ : ℝ) :
+      (∫ t : ℝ, Fcont ((σ : ℂ) + t * Complex.I)) =
+        ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := by
+    have hcomp : (∫ t : ℝ, G ((σ : ℂ) + (t - z.im) * Complex.I)) =
+        ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := by
+      have h := (measurePreserving_add_left (volume : Measure ℝ) (-z.im)).integral_comp
+        (Homeomorph.addLeft (-z.im)).measurableEmbedding
+        (fun t : ℝ => G ((σ : ℂ) + t * Complex.I))
+      simpa [Function.comp_def, sub_eq_add_neg, add_assoc, add_comm, add_left_comm] using h
+    have harg (t : ℝ) :
+        ((σ : ℂ) + t * Complex.I) - z.im * Complex.I =
+          (σ : ℂ) + (t - z.im) * Complex.I := by
+      apply Complex.ext <;> simp <;> ring
+    calc
+      (∫ t : ℝ, Fcont ((σ : ℂ) + t * Complex.I)) =
+          ∫ t : ℝ, G ((σ : ℂ) + (t - z.im) * Complex.I) := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        change G (((σ : ℂ) + t * Complex.I) - z.im * Complex.I) =
+          G ((σ : ℂ) + (t - z.im) * Complex.I)
+        rw [harg]
+      _ = ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := hcomp
+  have hshiftV : vertical (1 + δ1) Fcont = vertical 4 Fcont := by
+    unfold vertical
+    rw [hcontour]
+  calc
+    vertical 4 G = vertical 4 Fcont := by
+      unfold vertical
+      rw [← htranslate 4]
+    _ = vertical (1 + δ1) Fcont := hshiftV.symm
+    _ = vertical (1 + δ1) G := by
+      unfold vertical
+      rw [htranslate (1 + δ1)]
+
+/-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
+theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
+    ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
+  principalConstant R sd W HA ≠ 0 ∧ ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
+    rowContribution R sd W η U {U.one} Z = principalConstant R sd W HA * principalSignal R η U HA HC Z +
+      principalRw R sd W η U HA HC Z + principalRz R sd W η U HA HC Z ∧
+    ‖principalRw R sd W η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) ∧
+    ‖principalRz R sd W η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) := by
+  sorry
+/-- zf:small-rows, 06:479–551: any subset of a nonprincipal dyad, with explicit cardinal cost. -/
+theorem zf_small_rows : EulerHypotheses R η → ∀ α B ε : ℝ, 0 ≤ α → 0 < B → 0 < ε → ∃ C : ℝ, 0 < C ∧
+  ∀ T Z : ℝ, 1 ≤ T → 2 ≤ Z → ∀ rows : Finset U.U,
+    (∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T) → (rows.card : ℝ) ≤ B * T ^ α →
+      rowContribution R sd W η U rows Z = tripleVertical (1 + δ1) (3 / 1000) (4 / 10)
+        (fun ξ w z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) ∧
+      ‖rowContribution R sd W η U rows Z‖ ≤
+        C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (α + 1 / 2 - 4 / 10 + ε) := by
+  intro hEuler α B ε hα hB hε
+  obtain ⟨AF, Adec, Aconv, C0, Cconv, hAF, hAconv, hAeq, hAdecPos,
+      hC0, hCconv, hconv, hcontrol⟩ :=
+    rows_small_kernel_control R sd W η U HA HC hEuler ε hε
+  let I : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-2 : ℝ)
+  have hIint : Integrable (fun t : ℝ => (1 + |t|) ^ (-2 : ℝ)) :=
+    rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
+  have hI0 : 0 ≤ I := by
+    dsimp [I]
+    exact integral_nonneg fun t => by positivity
+  let p : ℝ := 1 / 10 + ε
+  have hp : 0 < p := by dsimp [p]; linarith
+  let Cpre : ℝ := C0 * Cconv * I * I * B * 2 ^ p
+  let C : ℝ := Cpre + 1
+  have hCpre : 0 ≤ Cpre := by dsimp [Cpre]; positivity
+  have hC : 0 < C := by dsimp [C]; linarith
+  refine ⟨C, hC, ?_⟩
+  intro T Z hT hZ rows hrows hcard
+  have hTpos : 0 < T := by linarith
+  have hZpos : 0 < Z := by linarith
+  let K : ℂ → ℂ → ℂ → ℂ := fun ξ w z =>
+    ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z
+  have huRows : ∀ u ∈ rows, u ≠ U.one := fun u hu => (hrows u hu).1
+  have hIntAt (σξ σw σz : ℝ)
+      (hξlo : 1 + δ1 ≤ σξ) (hξhi : σξ ≤ 4)
+      (hwlo : 3 / 1000 ≤ σw) (hwhi : σw ≤ 4)
+      (hzlo : 4 / 10 ≤ σz) (hzhi : σz ≤ 2) :
+      Integrable (fun q : ℝ × (ℝ × ℝ) =>
+        K (σξ + q.1 * Complex.I) (σw + q.2.1 * Complex.I)
+          (σz + q.2.2 * Complex.I)) (volume.prod (volume.prod volume)) := by
+    simpa [K] using rows_small_kernel_sum_integrable R sd W η U HA HC hEuler ε hε Z hZ
+      rows huRows σξ σw σz hξlo hξhi hwlo hwhi hzlo hzhi
+  have hSwapWZ (σξ σw σz : ℝ)
+      (hInt : Integrable (fun q : ℝ × (ℝ × ℝ) =>
+        K (σξ + q.1 * Complex.I) (σw + q.2.1 * Complex.I)
+          (σz + q.2.2 * Complex.I)) (volume.prod (volume.prod volume))) :
+      tripleVertical σξ σw σz K =
+        tripleVertical σξ σz σw (fun ξ z w => K ξ w z) := by
+    let f : ℝ → ℝ → ℝ → ℂ := fun tξ tw tz =>
+      K (σξ + tξ * Complex.I) (σw + tw * Complex.I) (σz + tz * Complex.I)
+    have hleft : tripleVertical σξ σw σz K =
+        tripleVertical σξ σw σz (fun ξ w z => f ξ.im w.im z.im) := by
+      apply rows_tripleVertical_congr_lines
+      intro tξ tw tz
+      simp [f]
+    have hf : Integrable (fun q : ℝ × (ℝ × ℝ) => f q.1 q.2.1 q.2.2)
+        (volume.prod (volume.prod volume)) := by
+      simpa [f] using hInt
+    have hmid := rows_small_triple_swap_wz σξ σw σz f hf
+    have hright : tripleVertical σξ σz σw (fun ξ z w => f ξ.im w.im z.im) =
+        tripleVertical σξ σz σw (fun ξ z w => K ξ w z) := by
+      apply rows_tripleVertical_congr_lines
+      intro tξ tz tw
+      simp [f]
+    exact hleft.trans (hmid.trans hright)
+  have hSwapOuter (σξ σw σz : ℝ)
+      (hInt : Integrable (fun q : ℝ × (ℝ × ℝ) =>
+        K (σξ + q.1 * Complex.I) (σw + q.2.1 * Complex.I)
+          (σz + q.2.2 * Complex.I)) (volume.prod (volume.prod volume))) :
+      tripleVertical σξ σw σz K =
+        vertical σw (fun w => vertical σz (fun z => vertical σξ (fun ξ => K ξ w z))) := by
+    let f : ℝ → ℝ → ℝ → ℂ := fun tξ tw tz =>
+      K (σξ + tξ * Complex.I) (σw + tw * Complex.I) (σz + tz * Complex.I)
+    have hleft : tripleVertical σξ σw σz K =
+        tripleVertical σξ σw σz (fun ξ w z => f ξ.im w.im z.im) := by
+      apply rows_tripleVertical_congr_lines
+      intro tξ tw tz
+      simp [f]
+    have hf : Integrable (fun q : ℝ × (ℝ × ℝ) => f q.1 q.2.1 q.2.2)
+        (volume.prod (volume.prod volume)) := by
+      simpa [f] using hInt
+    have hmid := rows_small_triple_swap_outer σξ σw σz f hf
+    have hright :
+        vertical σw (fun w => vertical σz (fun z => vertical σξ (fun ξ => f ξ.im w.im z.im))) =
+          vertical σw (fun w => vertical σz (fun z => vertical σξ (fun ξ => K ξ w z))) := by
+      apply rows_vertical_congr σw
+      intro tw
+      apply rows_vertical_congr σz
+      intro tz
+      apply rows_vertical_congr σξ
+      intro tξ
+      simp [f]
+    exact hleft.trans (hmid.trans hright)
+  have hI44z := hIntAt 4 4 (4 / 10)
+    (by norm_num [δ1]) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+  have hI4wz := hIntAt 4 (3 / 1000) (4 / 10)
+    (by norm_num [δ1]) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+  have hI1wz := hIntAt (1 + δ1) (3 / 1000) (4 / 10)
+    (by rfl) (by norm_num [δ1]) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+  have hShiftZ : tripleVertical 4 4 2 K = tripleVertical 4 4 (4 / 10) K := by
+    unfold tripleVertical
+    apply rows_vertical_congr 4
+    intro tξ
+    let ξ : ℂ := 4 + tξ * Complex.I
+    have hξ : ξ.re = 4 := by simp [ξ]
+    apply rows_vertical_congr 4
+    intro tw
+    let w : ℂ := 4 + tw * Complex.I
+    have hw : w.re = 4 := by simp [w]
+    simpa [K, ξ, w] using
+      (rows_small_shift_z R sd W η U HA HC hEuler ε hε Z hZ rows
+        huRows ξ w (by norm_num [hξ, δ1]) (by norm_num [hξ]) hw)
+  have hShiftWswap :
+      tripleVertical 4 (4 / 10) 4 (fun ξ z w => K ξ w z) =
+        tripleVertical 4 (4 / 10) (3 / 1000) (fun ξ z w => K ξ w z) := by
+    unfold tripleVertical
+    apply rows_vertical_congr 4
+    intro tξ
+    let ξ : ℂ := 4 + tξ * Complex.I
+    have hξ : ξ.re = 4 := by simp [ξ]
+    apply rows_vertical_congr (4 / 10)
+    intro tz
+    let z : ℂ := (4 / 10 : ℝ) + tz * Complex.I
+    have hz : z.re = 4 / 10 := by simp [z]
+    simpa [K, ξ, z] using
+      (rows_small_shift_w R sd W η U HA HC hEuler ε hε Z hZ rows
+        huRows ξ z (by norm_num [hξ, δ1]) (by norm_num [hξ]) hz)
+  have hSwapStart := hSwapWZ 4 4 (4 / 10) hI44z
+  have hSwapEnd := hSwapWZ 4 (3 / 1000) (4 / 10) hI4wz
+  have hShiftW : tripleVertical 4 4 (4 / 10) K =
+      tripleVertical 4 (3 / 1000) (4 / 10) K := by
+    exact hSwapStart.trans (hShiftWswap.trans hSwapEnd.symm)
+  have hSwapOuterStart := hSwapOuter 4 (3 / 1000) (4 / 10) hI4wz
+  have hShiftXiNested :
+      vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z => vertical 4 (fun ξ => K ξ w z))) =
+        vertical (3 / 1000) (fun w =>
+          vertical (4 / 10) (fun z => vertical (1 + δ1) (fun ξ => K ξ w z))) := by
+    apply rows_vertical_congr (3 / 1000)
+    intro tw
+    let w : ℂ := (3 / 1000 : ℝ) + tw * Complex.I
+    have hw : w.re = 3 / 1000 := by simp [w]
+    apply rows_vertical_congr (4 / 10)
+    intro tz
+    let z : ℂ := (4 / 10 : ℝ) + tz * Complex.I
+    have hz : z.re = 4 / 10 := by simp [z]
+    simpa [K, w, z] using
+      (rows_small_shift_xi R sd W η U HA HC hEuler ε hε Z hZ rows huRows w z hw hz)
+  have hSwapOuterEnd := hSwapOuter (1 + δ1) (3 / 1000) (4 / 10) hI1wz
+  have hShiftXi : tripleVertical 4 (3 / 1000) (4 / 10) K =
+      tripleVertical (1 + δ1) (3 / 1000) (4 / 10) K := by
+    exact hSwapOuterStart.trans (hShiftXiNested.trans hSwapOuterEnd.symm)
+  have hinitial := rows_initial_rowContribution_eq R sd W η U HA HC hEuler Z rows
+  have hrowEq : rowContribution R sd W η U rows Z =
+      tripleVertical (1 + δ1) (3 / 1000) (4 / 10) K := by
+    simpa [K] using hinitial.trans (hShiftZ.trans (hShiftW.trans hShiftXi))
+  have hqsum :
+      (∑ u ∈ rows, (U.q u) ^ p) ≤ B * 2 ^ p * T ^ (α + p) := by
+    calc
+      _ ≤ ∑ _u ∈ rows, (2 * T) ^ p := by
+        apply Finset.sum_le_sum
+        intro u hu
+        have hfreq := (hrows u hu).2
+        change T ≤ U.q u ∧ U.q u < 2 * T at hfreq
+        exact Real.rpow_le_rpow (U.q_pos u).le hfreq.2.le (by linarith [hp])
+      _ = (rows.card : ℝ) * (2 * T) ^ p := by simp
+      _ ≤ (B * T ^ α) * (2 * T) ^ p :=
+        mul_le_mul_of_nonneg_right hcard (Real.rpow_nonneg (by positivity) _)
+      _ = B * 2 ^ p * T ^ (α + p) := by
+        have hmul : (2 * T) ^ p = 2 ^ p * T ^ p :=
+          Real.mul_rpow (by norm_num) (by linarith)
+        rw [hmul]
+        calc
+          _ = B * 2 ^ p * (T ^ α * T ^ p) := by ring
+          _ = _ := by rw [← Real.rpow_add hTpos]
+  let M : ℝ := C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+    (B * 2 ^ p * T ^ (α + p))
+  have hM : 0 ≤ M := by dsimp [M]; positivity
+  have hline (tξ tw tz : ℝ) :
+      ‖K ((1 + δ1 : ℝ) + tξ * Complex.I)
+          ((3 / 1000 : ℝ) + tw * Complex.I) ((4 / 10 : ℝ) + tz * Complex.I)‖ ≤
+        M * (Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv) *
+          (1 + |tw|) ^ (-2 : ℝ)) := by
+    let ξ : ℂ := (1 + δ1 : ℝ) + tξ * Complex.I
+    let w : ℂ := (3 / 1000 : ℝ) + tw * Complex.I
+    let z : ℂ := (4 / 10 : ℝ) + tz * Complex.I
+    have hξre : ξ.re = 1 + δ1 := by simp [ξ]
+    have hwre : w.re = 3 / 1000 := by simp [w]
+    have hzre : z.re = 4 / 10 := by simp [z]
+    have hξim : ξ.im = tξ := by simp [ξ]
+    have hwim : w.im = tw := by simp [w]
+    have hzim : z.im = tz := by simp [z]
+    let H : ℝ := Real.exp (-((tξ + tz) ^ 2)) *
+      (1 + |tz|) ^ (-Aconv) * (1 + |tw|) ^ (-2 : ℝ)
+    have hsumNorm := norm_sum_le rows (fun u => rowKernel R sd W η U HA HC u Z ξ w z)
+    have hrow (u : U.U) (hu : u ∈ rows) :
+        ‖rowKernel R sd W η U HA HC u Z ξ w z‖ ≤
+          C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * (U.q u) ^ p * H := by
+      have h := hcontrol Z hZ u (huRows u hu) ξ w z
+        (by simpa [hξre]) (by norm_num [hξre, δ1])
+        (by simpa [hwre]) (by norm_num [hwre])
+        (by simpa [hzre]) (by norm_num [hzre])
+      have hpq : p = 1 / 10 + ε := by rfl
+      simpa [ξ, w, z, H, hξre, hwre, hzre, hξim, hwim, hzim, hpq,
+        mul_assoc, mul_left_comm, mul_comm] using h
+    have hsumBound :
+        (∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖) ≤
+          ∑ u ∈ rows,
+            C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * (U.q u) ^ p * H :=
+      Finset.sum_le_sum fun u hu => hrow u hu
+    have hsumEq :
+        (∑ u ∈ rows,
+          C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * (U.q u) ^ p * H) =
+            (C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * H) *
+              ∑ u ∈ rows, (U.q u) ^ p := by
+      calc
+        _ = ∑ u ∈ rows,
+            (C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * H) * (U.q u) ^ p := by
+              apply Finset.sum_congr rfl
+              intro u hu
+              ring
+        _ = _ := by rw [Finset.mul_sum]
+    have hleft : 0 ≤ C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * H := by
+      dsimp [H]
+      positivity
+    have hcoeff :
+        (C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * H) *
+            ∑ u ∈ rows, (U.q u) ^ p ≤ M * H := by
+      calc
+        _ ≤ (C0 * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * H) *
+            (B * 2 ^ p * T ^ (α + p)) := mul_le_mul_of_nonneg_left hqsum hleft
+        _ = M * H := by dsimp [M]; ring
+    calc
+      ‖K ξ w z‖ ≤ ∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z ξ w z‖ := by
+        simpa [K] using hsumNorm
+      _ ≤ _ := hsumBound
+      _ = _ := hsumEq
+      _ ≤ _ := hcoeff
+      _ = _ := by simp [H, mul_assoc, mul_left_comm, mul_comm]
+  have hinnerZ (tξ tw : ℝ) :
+      ‖vertical (4 / 10) (fun z => K
+          ((1 + δ1 : ℝ) + tξ * Complex.I) ((3 / 1000 : ℝ) + tw * Complex.I) z)‖ ≤
+        M * Cconv * (1 + |tξ|) ^ (-2 : ℝ) * (1 + |tw|) ^ (-2 : ℝ) := by
+    let gZ : ℝ → ℝ := fun tz =>
+      (M * (1 + |tw|) ^ (-2 : ℝ)) *
+        (Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv))
+    have hgZ : Integrable gZ := by
+      simpa [gZ, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using
+        (rows_integrable_shifted_gaussian_poly Aconv tξ hAconv).const_mul
+          (M * (1 + |tw|) ^ (-2 : ℝ))
+    have hgZ0 : ∀ tz, 0 ≤ gZ tz := by intro tz; dsimp [gZ]; positivity
+    have hboundZ : ∀ tz : ℝ, ‖(fun z => K
+        ((1 + δ1 : ℝ) + tξ * Complex.I) ((3 / 1000 : ℝ) + tw * Complex.I) z)
+          ((4 / 10 : ℝ) + tz * Complex.I)‖ ≤ gZ tz := by
+      intro tz
+      have h := hline tξ tw tz
+      simpa [gZ, mul_assoc, mul_left_comm, mul_comm] using h
+    have hv := rows_vertical_norm_le_integral (4 / 10)
+      (fun z => K ((1 + δ1 : ℝ) + tξ * Complex.I) ((3 / 1000 : ℝ) + tw * Complex.I) z)
+      gZ hgZ hgZ0 hboundZ
+    calc
+      _ ≤ ∫ tz : ℝ, gZ tz := hv
+      _ = (M * (1 + |tw|) ^ (-2 : ℝ)) *
+          ∫ tz : ℝ, Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv) := by
+            dsimp [gZ]
+            rw [integral_const_mul]
+      _ ≤ (M * (1 + |tw|) ^ (-2 : ℝ)) *
+          (Cconv * (1 + |tξ|) ^ (-2 : ℝ)) :=
+            mul_le_mul_of_nonneg_left (hconv tξ) (by positivity)
+      _ = M * Cconv * (1 + |tξ|) ^ (-2 : ℝ) * (1 + |tw|) ^ (-2 : ℝ) := by ring
+  have hinnerW (tξ : ℝ) :
+      ‖vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z => K
+          ((1 + δ1 : ℝ) + tξ * Complex.I) w z))‖ ≤
+        M * Cconv * I * (1 + |tξ|) ^ (-2 : ℝ) := by
+    let fW : ℂ → ℂ := fun w => vertical (4 / 10) (fun z => K
+      ((1 + δ1 : ℝ) + tξ * Complex.I) w z)
+    let gW : ℝ → ℝ := fun tw =>
+      (M * Cconv * (1 + |tξ|) ^ (-2 : ℝ)) * (1 + |tw|) ^ (-2 : ℝ)
+    have hgW : Integrable gW := by
+      simpa [gW, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using
+        hIint.const_mul (M * Cconv * (1 + |tξ|) ^ (-2 : ℝ))
+    have hgW0 : ∀ tw, 0 ≤ gW tw := by intro tw; dsimp [gW]; positivity
+    have hboundW : ∀ tw : ℝ, ‖fW ((3 / 1000 : ℝ) + tw * Complex.I)‖ ≤ gW tw := by
+      intro tw
+      have h := hinnerZ tξ tw
+      simpa [fW, gW, mul_assoc, mul_left_comm, mul_comm] using h
+    have hv := rows_vertical_norm_le_integral (3 / 1000) fW gW hgW hgW0 hboundW
+    calc
+      _ ≤ ∫ tw : ℝ, gW tw := hv
+      _ = (M * Cconv * (1 + |tξ|) ^ (-2 : ℝ)) * I := by
+        dsimp [gW, I]
+        rw [integral_const_mul]
+      _ = M * Cconv * I * (1 + |tξ|) ^ (-2 : ℝ) := by ring
+  have htriple :
+      ‖tripleVertical (1 + δ1) (3 / 1000) (4 / 10) K‖ ≤ M * Cconv * I * I := by
+    let fξ : ℂ → ℂ := fun ξ => vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z =>
+      K ξ w z))
+    let gξ : ℝ → ℝ := fun tξ => (M * Cconv * I) * (1 + |tξ|) ^ (-2 : ℝ)
+    have hgξ : Integrable gξ := by
+      simpa [gξ, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using
+        hIint.const_mul (M * Cconv * I)
+    have hgξ0 : ∀ tξ, 0 ≤ gξ tξ := by intro tξ; dsimp [gξ]; positivity
+    have hboundξ : ∀ tξ : ℝ,
+        ‖fξ ((1 + δ1 : ℝ) + tξ * Complex.I)‖ ≤ gξ tξ := by
+      intro tξ
+      have h := hinnerW tξ
+      simpa [fξ, gξ, mul_assoc, mul_left_comm, mul_comm] using h
+    have hv := rows_vertical_norm_le_integral (1 + δ1) fξ gξ hgξ hgξ0 hboundξ
+    change ‖vertical (1 + δ1) fξ‖ ≤ M * Cconv * I * I
+    calc
+      _ ≤ ∫ tξ : ℝ, gξ tξ := hv
+      _ = (M * Cconv * I) * I := by
+        dsimp [gξ, I]
+        rw [integral_const_mul]
+      _ = M * Cconv * I * I := by ring
+  have hMbound : M * Cconv * I * I =
+      Cpre * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (α + p) := by
+    dsimp [M, Cpre]
+    ring
+  have hbaseNonneg :
+      0 ≤ Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (α + p) := by
+    positivity
+  have hCprele : Cpre ≤ C := by dsimp [C]; linarith
+  have htargetExp : α + p = α + 1 / 2 - 4 / 10 + ε := by
+    dsimp [p]
+    ring
+  refine ⟨?_, ?_⟩
+  · exact hrowEq
+  · calc
+      ‖rowContribution R sd W η U rows Z‖ =
+          ‖tripleVertical (1 + δ1) (3 / 1000) (4 / 10) K‖ := by rw [hrowEq]
+      _ ≤ M * Cconv * I * I := htriple
+      _ = Cpre * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (α + p) := hMbound
+      _ ≤ C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (α + p) := by
+        calc
+          _ = (Cpre * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10)) * T ^ (α + p) := by ring
+          _ ≤ (C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10)) * T ^ (α + p) :=
+            mul_le_mul_of_nonneg_right
+              (mul_le_mul_of_nonneg_right hCprele (Real.rpow_nonneg hZpos.le _))
+              (Real.rpow_nonneg hTpos.le _)
+          _ = _ := by ring
+      _ = C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (α + 1 / 2 - 4 / 10 + ε) := by rw [htargetExp]
+variable (ZD : ZeroDensityData η U HA)
+/-- Actual central part of the good rows after the truncated ξ shift. -/
+def goodCentral (rows : Finset U.U) (T Z : ℝ) : ℂ :=
+  (1 / (2 * Real.pi) : ℂ) * ∫ t in Set.Icc (-(T ^ ZD.ρ)) (T ^ ZD.ρ),
+    vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z =>
+      ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (998 / 1000 + t * Complex.I) w z))
+
+/-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
+The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
+theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
+  ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z T, Z0 ≤ Z → Z ^ (9 / 100 : ℝ) < T →
+    T ≤ Z ^ (10001 / 100000 : ℝ) → ZD.U0 ≤ T → ∀ rows : Finset U.U,
+    (∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T ∧ u ∉ ZD.E T) →
+      ‖goodCentral R sd W η U HA HC ZD rows T Z‖ ≤
+        C * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε) ∧
+      ‖rowContribution R sd W η U rows Z - goodCentral R sd W η U HA HC ZD rows T Z‖ ≤
+        C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε - ZD.ρ * A1) := by
+  sorry
 /-- zf:far-rows, 06:607–630. Large but fixed z-line; constants independent of T,Z. -/
 theorem zf_far_rows : EulerHypotheses R η → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z T, 2 ≤ Z →
   Z ^ (10001 / 100000 : ℝ) < T → ∀ rows : Finset U.U,
