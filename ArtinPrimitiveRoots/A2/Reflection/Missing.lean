@@ -14,6 +14,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.CharacterValue
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.IntegralSeries
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.KernelSeries
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FrequencyIndex
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ExteriorGenerator
 import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import Mathlib.Analysis.Asymptotics.Basic
 
