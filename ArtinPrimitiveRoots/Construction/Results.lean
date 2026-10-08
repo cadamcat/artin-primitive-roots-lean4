@@ -6,12 +6,20 @@ import ArtinPrimitiveRoots.TypeII.Rough
 import ArtinPrimitiveRoots.Ext.TypeIIInputs
 import ArtinPrimitiveRoots.Sieve.Block
 import ArtinPrimitiveRoots.Sieve.RoughDensity
+import ArtinPrimitiveRoots.Construction.Proofs.c4.Density
+import ArtinPrimitiveRoots.Construction.Proofs.c4.RoughRemoval
+import ArtinPrimitiveRoots.Construction.Proofs.c4.TestFunction
+import ArtinPrimitiveRoots.Construction.Proofs.c4.BalancedHelpers
+import ArtinPrimitiveRoots.Construction.Proofs.c4.RoughPairResidues
+import ArtinPrimitiveRoots.Construction.Proofs.c4.PairBlock
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
 namespace ArtinPrimitiveRoots.Construction
 
 open Classical
+open Filter
+open scoped Topology
 open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.TypeII.Rough
 
@@ -1778,10 +1786,242 @@ theorem density_partition :
                 ∀ x : ℝ, x₀ ≤ x →
                   roughConstructionMass x M c u K a Ψ (Real.rpow x (1 / 2 - κ)) ≥
                     (singularProduct M * conTotalMass x M c u K a Ψ / Real.log x) *
-                      (9 / 10 - Real.exp (-Real.eulerMascheroniConstant) / b *
+                (9 / 10 - Real.exp (-Real.eulerMascheroniConstant) / b *
                         (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
                           C_d * Real.exp (-(1 / 20 : ℝ) / b)) - η) := by
-  sorry
+  obtain ⟨C_s, b₂₀, hCs, hb₂₀, hInitial⟩ := initial_lower
+  obtain ⟨b₀, hb₀, C_d, hCd, hCdBound⟩ := ArtinPrimitiveRoots.Sieve.lem_density.2
+  let b₂ : ℝ := min b₂₀ b₀
+  have hb₂ : 0 < b₂ := lt_min hb₂₀ hb₀
+  refine ⟨C_s, C_d, b₂, hCs, hCd, hb₂, ?_⟩
+  intro M c u κ hM hM8 hc hcM hu hcu hcu' hκ hκsmall b hb hbb₂ hbk
+  obtain ⟨K₀, hbinCost⟩ :=
+    bin_cost M c u κ b hM hM8 hc hcM hu hcu hcu' hκ hκsmall hb
+  refine ⟨K₀, ?_⟩
+  intro K hK a ha Ψ hΨ
+  have hbe : b < 1 / 2 - κ := hbk
+  obtain ⟨J, γ, hJ, hγ0, hγend, hγbounds, hγstrict, hBudget⟩ :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.exists_roughDensity_partition_budget
+      b (1 / 2 - κ) hb hbe (by linarith)
+  have hIntegral := ArtinPrimitiveRoots.Construction.Proofs.C4.roughDensity_integral_le
+    b κ hb hκ hκsmall hbe
+  refine ⟨J, γ, hγ0, hγend, hγstrict, hBudget, hIntegral, ?_⟩
+  intro η hη
+  have hJreal : 0 < (J : ℝ) := Nat.cast_pos.mpr hJ
+  let ηbin : ℝ := η / (2 * (J : ℝ))
+  have hηbin : 0 < ηbin := by dsimp [ηbin]; positivity
+  have hcosts : ∀ j : Fin J, ∃ C x₀ : ℝ,
+      0 < C ∧ 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
+        ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+            x M c u K a Ψ (γ j.castSucc) (γ j.succ) ≤
+          (singularProduct M * conTotalMass x M c u K a Ψ / Real.log x) *
+            (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+              Set.Icc (γ j.castSucc) (γ j.succ)) *
+              Real.log (γ j.succ / γ j.castSucc) + ηbin) := by
+    intro j
+    have hγlt : γ j.castSucc < γ j.succ :=
+      hγstrict _ _ (by simp)
+    obtain ⟨C, x₀, hC, hx₀, hCost⟩ :=
+      hbinCost K hK a ha Ψ hΨ (γ j.castSucc) (γ j.succ)
+        (hγbounds j.castSucc).1 hγlt (hγbounds j.succ).2 ηbin hηbin
+    refine ⟨C, x₀, hC, hx₀, ?_⟩
+    intro x hx
+    simpa [ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum] using hCost x hx
+  choose Cj xj hCj hxj hCostj using hcosts
+  have hxjNonneg : ∀ j : Fin J, 0 ≤ xj j := fun j => by linarith [hxj j]
+  let xsum : ℝ := ∑ j : Fin J, xj j
+  have hxsum : 0 ≤ xsum := Finset.sum_nonneg fun j _ => hxjNonneg j
+  have hxjLeSum (j : Fin J) : xj j ≤ xsum := by
+    dsimp [xsum]
+    apply Finset.single_le_sum
+    · intro i hi
+      exact hxjNonneg i
+    · exact Finset.mem_univ j
+  obtain ⟨B, xS, hB, hxS₂, hSupport⟩ :=
+    support M c u K a Ψ hM hc ha hΨ.2.2.1 hΨ.2.2.2.1 hΨ.2.1
+  have hsing : 0 < singularProduct M := (sieve_products M hM).1
+  have hε : 0 < κ / 2 := by linarith
+  have hεκ : κ / 2 < κ := by linarith
+  have hbInitial : b < b₂₀ := lt_of_lt_of_le hbb₂ (min_le_left b₂₀ b₀)
+  obtain ⟨xInit, hxInit₂, hInitialX⟩ :=
+    hInitial M c u K a Ψ hΨ κ (κ / 2) hκ hκsmall hε hεκ
+      hM hc hcM hu hcu hcu' ha b hb hbInitial hbk (η / 2) (by linarith)
+  let xBound : ℝ := xS + xInit + xsum
+  have hxBound₂ : 2 ≤ xBound := by
+    dsimp [xBound]
+    linarith [hxS₂, hxInit₂, hxsum]
+  refine ⟨xBound, hxBound₂, ?_⟩
+  intro x hxBound
+  have hxS : xS ≤ x := by dsimp [xBound] at hxBound; linarith [hxsum]
+  have hxInit : xInit ≤ x := by dsimp [xBound] at hxBound; linarith [hxsum]
+  have hx : 2 ≤ x := le_trans hxBound₂ hxBound
+  have hWeightSupport := hSupport x hxS
+  rcases hWeightSupport with ⟨_, hSupportD, hWeightD⟩
+  have hweight : ∀ d, 0 ≤ conWeight x M c u K a Ψ d := fun d => (hWeightD d).1
+  have hsupport : ∀ d, conWeight x M c u K a Ψ d ≠ 0 →
+      x < (d : ℝ) ∧ (d : ℝ) < 2 * x := by
+    intro d hd
+    rcases hSupportD d hd with ⟨hlo, hrest⟩
+    exact ⟨hlo, hrest.1⟩
+  have htotal : 0 ≤ conTotalMass x M c u K a Ψ := by
+    unfold conTotalMass
+    apply Finset.sum_nonneg
+    intro d hd
+    exact hweight d
+  have hlogx : 0 < Real.log x := Real.log_pos (by linarith : 1 < x)
+  let S : ℝ := singularProduct M * conTotalMass x M c u K a Ψ / Real.log x
+  have hS : 0 ≤ S := by dsimp [S]; positivity
+  have he : (1 / 2 : ℝ) - κ < 1 / 2 := by linarith
+  have hbe : b < (1 / 2 : ℝ) - κ := hbk
+  have hremoval :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.roughConstructionMass_le_binPairSums
+      x M c u K a Ψ b (1 / 2 - κ) J γ hx hb hbe he hJ
+      hγ0 hγend hγbounds hγstrict hweight hsupport
+  have hBinEach (j : Fin J) :
+      ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+          x M c u K a Ψ (γ j.castSucc) (γ j.succ) ≤
+        S * (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+          Set.Icc (γ j.castSucc) (γ j.succ)) *
+          Real.log (γ j.succ / γ j.castSucc) + ηbin) := by
+    have hxj' : xj j ≤ x := (hxjLeSum j).trans (by dsimp [xBound] at hxBound; linarith [hxsum])
+    simpa [S] using hCostj j x hxj'
+  have hEtaSum : (∑ _j : Fin J, ηbin) = η / 2 := by
+    rw [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul]
+    dsimp [ηbin]
+    field_simp
+  have hBinCostSum :
+      (∑ j : Fin J,
+        ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+          x M c u K a Ψ (γ j.castSucc) (γ j.succ)) ≤
+        S * ((∑ j : Fin J,
+          sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+            Set.Icc (γ j.castSucc) (γ j.succ)) *
+            Real.log (γ j.succ / γ j.castSucc)) + η / 2) := by
+    calc
+      _ ≤ ∑ j : Fin J,
+          S * (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+            Set.Icc (γ j.castSucc) (γ j.succ)) *
+            Real.log (γ j.succ / γ j.castSucc) + ηbin) :=
+              Finset.sum_le_sum fun j _ => hBinEach j
+      _ = S * ((∑ j : Fin J,
+          sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+            Set.Icc (γ j.castSucc) (γ j.succ)) *
+            Real.log (γ j.succ / γ j.castSucc)) + η / 2) := by
+              calc
+                _ = ∑ j : Fin J,
+                    (S * (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+                      Set.Icc (γ j.castSucc) (γ j.succ)) *
+                      Real.log (γ j.succ / γ j.castSucc)) + S * ηbin) := by
+                        apply Finset.sum_congr rfl
+                        intro j hj
+                        ring
+                _ = (∑ j : Fin J,
+                    S * (sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+                      Set.Icc (γ j.castSucc) (γ j.succ)) *
+                      Real.log (γ j.succ / γ j.castSucc))) +
+                    (∑ j : Fin J, S * ηbin) := by
+                      rw [Finset.sum_add_distrib]
+                _ = S * (∑ j : Fin J,
+                    sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+                      Set.Icc (γ j.castSucc) (γ j.succ)) *
+                      Real.log (γ j.succ / γ j.castSucc)) +
+                    S * (∑ j : Fin J, ηbin) := by
+                      rw [← Finset.mul_sum, ← Finset.mul_sum]
+                _ = _ := by rw [hEtaSum]; ring
+  have hFcont :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.roughDensity_integrand_continuous
+      b κ hb hκ hκsmall hbk
+  have hFint : IntervalIntegrable
+      (fun t : ℝ => roughDensity t (1 - t) / t) MeasureTheory.volume b (1 / 2 - κ) := by
+    apply ContinuousOn.intervalIntegrable_of_Icc (le_of_lt hbe)
+    apply hFcont.mono
+    intro t ht
+    exact ⟨le_trans le_rfl ht.1, le_trans ht.2 (by linarith)⟩
+  have hconstInt : IntervalIntegrable (fun _ : ℝ => (1 / 10 : ℝ))
+      MeasureTheory.volume b (1 / 2 - κ) := by
+    exact continuousOn_const.intervalIntegrable
+  have hconstVal :
+      (∫ t in b..(1 / 2 - κ), (1 / 10 : ℝ)) = ((1 / 2 - κ) - b) / 10 := by
+    simp [intervalIntegral.integral_const]
+    ring
+  have hBudgetSplit :
+      (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t + 1 / 10) =
+        (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t) +
+          ((1 / 2 - κ) - b) / 10 := by
+    rw [intervalIntegral.integral_add hFint hconstInt, hconstVal]
+  have hlen : ((1 / 2 - κ) - b) / 10 ≤ (1 / 10 : ℝ) := by
+    have hlen' : (1 / 2 - κ) - b ≤ 1 := by linarith
+    nlinarith
+  have hBudgetSplitLe :
+      (∑ j : Fin J,
+        sSup ((fun t : ℝ => roughDensity (γ j.castSucc) (1 - t)) ''
+          Set.Icc (γ j.castSucc) (γ j.succ)) *
+          Real.log (γ j.succ / γ j.castSucc)) ≤
+        (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t) + 1 / 10 := by
+    calc
+      _ ≤ ∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t + 1 / 10 := hBudget
+      _ = (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t) +
+          ((1 / 2 - κ) - b) / 10 := hBudgetSplit
+      _ ≤ _ := add_le_add_right hlen _
+  have hIntegralDensity :
+      (∫ t in b..(1 / 2 - κ), roughDensity t (1 - t) / t) + 1 / 10 ≤
+        Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 := by
+    have hDb : roughDensity b 1 ≤
+        Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) :=
+      hCdBound b hb (lt_of_lt_of_le hbb₂ (min_le_right b₂₀ b₀))
+    linarith [hIntegral, hDb]
+  have hBinCostBound :
+      (∑ j : Fin J,
+        ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+          x M c u K a Ψ (γ j.castSucc) (γ j.succ)) ≤
+        S * (Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 + η / 2) := by
+    apply hBinCostSum.trans
+    apply mul_le_mul_of_nonneg_left _ hS
+    simpa [add_comm] using
+      add_le_add_right (hBudgetSplitLe.trans hIntegralDensity) (η / 2)
+  have hrpow : Real.rpow x b ≤ Real.rpow x (1 / 2 - κ / 2) :=
+    Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ x) (by linarith)
+  have hLow :
+      S * (Real.exp (-Real.eulerMascheroniConstant) / b *
+        (1 - C_s * Real.exp (-(1 / 20 : ℝ) / b)) - η / 2) ≤
+        roughConstructionMass x M c u K a Ψ (Real.rpow x b) := by
+    simpa [S] using hInitialX x hxInit hrpow
+  have hCombined :
+      S * (Real.exp (-Real.eulerMascheroniConstant) / b *
+        (1 - C_s * Real.exp (-(1 / 20 : ℝ) / b)) - η / 2) ≤
+        roughConstructionMass x M c u K a Ψ (Real.rpow x (1 / 2 - κ)) +
+          S * (Real.exp (-Real.eulerMascheroniConstant) / b *
+            (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 + η / 2) := by
+    calc
+      _ ≤ roughConstructionMass x M c u K a Ψ (Real.rpow x b) := hLow
+      _ ≤ roughConstructionMass x M c u K a Ψ (Real.rpow x (1 / 2 - κ)) +
+          ∑ j : Fin J,
+            ArtinPrimitiveRoots.Construction.Proofs.C4.binPairSum
+              x M c u K a Ψ (γ j.castSucc) (γ j.succ) := hremoval
+      _ ≤ _ := add_le_add_right hBinCostBound _
+  have hCoeff :
+      (9 / 10 - Real.exp (-Real.eulerMascheroniConstant) / b *
+        (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
+          C_d * Real.exp (-(1 / 20 : ℝ) / b)) - η) =
+      (Real.exp (-Real.eulerMascheroniConstant) / b *
+        (1 - C_s * Real.exp (-(1 / 20 : ℝ) / b)) - η / 2) -
+        (Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 + η / 2) := by
+    ring
+  calc
+    S * (9 / 10 - Real.exp (-Real.eulerMascheroniConstant) / b *
+        (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
+          C_d * Real.exp (-(1 / 20 : ℝ) / b)) - η) =
+        S * ((Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 - C_s * Real.exp (-(1 / 20 : ℝ) / b)) - η / 2) -
+          (Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 9 / 10 + η / 2)) := by
+            rw [hCoeff]
+    _ ≤ roughConstructionMass x M c u K a Ψ (Real.rpow x (1 / 2 - κ)) := by
+      nlinarith [hCombined]
 
 set_option maxHeartbeats 1000000
 /-- `co:balanced-boxes`, 12-construction.tex:597-616. -/
@@ -2140,6 +2380,7 @@ theorem balanced_boxes :
     have hnBox' : n ∈ dyadicIntegers (H₂ k) :=
       mem_dyadicIntegers_of_bounds hnBox.1 hnBox.2
     exact ⟨k, m, n, hmBox, hnBox', hm, hn, hmn⟩
+
 set_option maxHeartbeats 200000
 /-- `con:rough-pairs`, 12-construction.tex:617-734. Its leading constant is uniform in the marked
 data and sieve parameters; only the progression and smoothing data affect it. -/
@@ -2199,6 +2440,7 @@ def HasBalancedBoxCover (Cdyad : ℝ) : Prop :=
                     ∃ i m n, m ∈ dyadicIntegers (H₁ i) ∧
                       n ∈ dyadicIntegers (H₂ i) ∧ m.Prime ∧ n.Prime ∧ d = m * n)
 
+set_option maxHeartbeats 8000000 in
 /-- `co:balanced-cost`, 12-construction.tex:736-775. Correction from refutation lane `sol-gate-b`
 ties `C₁` and `C_dyad` to their preceding estimates and includes `8 ∣ M`. -/
 theorem balanced_cost (M : ℕ) (Ψ : ℝ → ℝ) (C₁ Cdyad : ℝ)
@@ -2218,8 +2460,1071 @@ theorem balanced_cost (M : ℕ) (Ψ : ℝ → ℝ) (C₁ Cdyad : ℝ)
                     conWeight x M c u K a Ψ d else 0) ≤
                   C₂ * (κ + 1 / Real.log x) * conTotalMass x M c u K a Ψ /
                     Real.log x + η * conTotalMass x M c u K a Ψ / Real.log x := by
-  sorry
+  classical
+  intro c hc hcM u κ b hκ hκsmall hb hu hcu hcu'
+  let δ : ℝ := min (b / 2) (1 / 5)
+  have hδ : 0 < δ := by dsimp [δ]; positivity
+  obtain ⟨Ktype, hTypeK⟩ := con_type_ii δ (2 / 5) (45 / 100) (55 / 100)
+    (1 / 4) 2 hδ (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+    (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨Ktype, ?_⟩
+  intro K hK a ha
+  obtain ⟨Ctype, xType, hCtype, hxType₂, hTypeAt⟩ :=
+    hTypeK K hK M c u a ha hM h8 hc hcM hu hcu hcu' Ψ
+      hΨ.2.2.1 hΨ.2.2.2.1 hΨ.2.1 hΨ.1 hΨ.2.2.2.2
+  obtain ⟨xCover, hxCover₂, hCoverAt⟩ :=
+    hCover M c u K a Ψ hΨ κ hM h8 hc hcM hu hcu hcu' ha hκ hκsmall
+  obtain ⟨xPair, hxPair₂, hPairAt⟩ := hPairs c hc u K a ha
+  obtain ⟨B, xSupport, hB, hxSupport₂, hSupportAt⟩ :=
+    support M c u K a Ψ hM hc ha hΨ.2.2.1 hΨ.2.2.2.1 hΨ.2.1
+  have hcpos : 0 < c := by rcases hc with h | h <;> simp [h]
+  obtain ⟨c₀, C₀, hc₀, hC₀, hDistribution⟩ := con_distribution M Ψ hM hΨ
+  have hε : 0 < κ / 2 := by linarith
+  have hεκ : κ / 2 < κ := by linarith
+  obtain ⟨xDistribution, hxDistribution₂, hDistributionErrors, hMass⟩ :=
+    hDistribution c hc hcM u hu hcu hcu' K a ha (κ / 2) κ hε hεκ hκsmall
+  obtain ⟨Cmass, xMass, hCmass, hxMass₂, hHarmonic⟩ :=
+    con_harmonic M c u Ψ K a hM hcpos ha hΨ
+  dsimp only
+  intro η hη
+  let E : ℝ := Real.exp (-Real.eulerMascheroniConstant)
+  have hE : 0 < E := by positivity
+  obtain ⟨yMertens, hyMertens, hMertens⟩ :=
+    Ext.TypeIIInputs.mertens.2 (E / 2) (by positivity)
+  have hW_atTop : Tendsto (fun x : ℝ => roughCutoff x) atTop atTop := by
+    unfold roughCutoff
+    have hpow : Tendsto (fun x : ℝ => Real.rpow (Real.log x) (24 / 100 : ℝ))
+        atTop atTop := (tendsto_rpow_atTop (by norm_num)).comp Real.tendsto_log_atTop
+    exact Real.tendsto_exp_atTop.comp hpow
+  have hWevent : ∀ᶠ x : ℝ in atTop, yMertens ≤ roughCutoff x :=
+    hW_atTop.eventually (eventually_ge_atTop yMertens)
+  obtain ⟨xW, hxW⟩ := Filter.eventually_atTop.mp hWevent
+  let Cpow : ℝ := E / 2 * (45 / 100 : ℝ)
+  have hCpow : 0 < Cpow := by dsimp [Cpow]; positivity
+  have hLpow : Tendsto (fun x : ℝ => Real.rpow (Real.log x) (76 / 100 : ℝ))
+      atTop atTop := (tendsto_rpow_atTop (by norm_num)).comp Real.tendsto_log_atTop
+  have hCpowL : Tendsto (fun x : ℝ => Cpow * Real.rpow (Real.log x) (76 / 100 : ℝ))
+      atTop atTop := hLpow.const_mul_atTop hCpow
+  have hCpowEvent : ∀ᶠ x : ℝ in atTop,
+      1 ≤ Cpow * Real.rpow (Real.log x) (76 / 100 : ℝ) :=
+    hCpowL.eventually (eventually_ge_atTop 1)
+  obtain ⟨xProxy, hxProxy⟩ := Filter.eventually_atTop.mp hCpowEvent
+  have hInvLog : Tendsto (fun x : ℝ => (Real.log x)⁻¹) atTop (𝓝 0) :=
+    tendsto_inv_atTop_zero.comp Real.tendsto_log_atTop
+  have hConstLog2 : Tendsto (fun _ : ℝ => Real.log 2) atTop (𝓝 (Real.log 2)) :=
+    tendsto_const_nhds
+  have hLog2OverLog : Tendsto (fun x : ℝ => Real.log 2 / Real.log x)
+      atTop (𝓝 0) := by
+    have h := hConstLog2.mul hInvLog
+    convert h using 1 <;> simp [div_eq_mul_inv]
+  let qfun : ℝ → ℝ := fun x => (46 / 100 : ℝ) - Real.log 2 / Real.log x
+  have hqfun : Tendsto qfun atTop (𝓝 (46 / 100 : ℝ)) := by
+    have hconst : Tendsto (fun _ : ℝ => (46 / 100 : ℝ)) atTop
+        (𝓝 (46 / 100 : ℝ)) := tendsto_const_nhds
+    have h := hconst.sub hLog2OverLog
+    simpa [qfun] using h
+  have hqCorrection : Tendsto
+      (fun x : ℝ => (qfun x)⁻¹ ^ 2 - (46 / 100 : ℝ)⁻¹ ^ 2)
+      atTop (𝓝 0) := by
+    have hqInv := hqfun.inv₀ (by norm_num : (46 / 100 : ℝ) ≠ 0)
+    have hqInvSq := hqInv.pow 2
+    have hconstSq : Tendsto (fun _ : ℝ => (46 / 100 : ℝ)⁻¹ ^ 2) atTop
+        (𝓝 ((46 / 100 : ℝ)⁻¹ ^ 2)) := tendsto_const_nhds
+    have h := hqInvSq.sub hconstSq
+    simpa [qfun] using h
+  let ηcoeff : ℝ := η / (4 * (C₁ * Cdyad + 1))
+  have hηcoeff : 0 < ηcoeff := by dsimp [ηcoeff]; positivity
+  have hCoeffEvent : ∀ᶠ x : ℝ in atTop,
+      (qfun x)⁻¹ ^ 2 - (46 / 100 : ℝ)⁻¹ ^ 2 < ηcoeff :=
+    hqCorrection.eventually (Iio_mem_nhds hηcoeff)
+  obtain ⟨xCoeff, hxCoeff⟩ := Filter.eventually_atTop.mp hCoeffEvent
+  let ηerror : ℝ := c₀ * η / (16 * Ctype * Cdyad)
+  have hηerror : 0 < ηerror := by dsimp [ηerror]; positivity
+  have hInvL3 : Tendsto (fun x : ℝ => Real.rpow (Real.log x) (-3 : ℝ))
+      atTop (𝓝 0) :=
+    (tendsto_rpow_neg_atTop (by norm_num : (0 : ℝ) < 3)).comp Real.tendsto_log_atTop
+  have hErrorEvent : ∀ᶠ x : ℝ in atTop,
+      Real.rpow (Real.log x) (-3 : ℝ) < ηerror :=
+    hInvL3.eventually (Iio_mem_nhds hηerror)
+  obtain ⟨xError, hxError⟩ := Filter.eventually_atTop.mp hErrorEvent
+  let xCore : ℝ := max (Real.exp 200)
+    (max xCover (max xPair (max xType (max xSupport (max xDistribution xMass)))) )
+  let x₀ : ℝ := max xCore (max xW (max xProxy (max xCoeff xError)))
+  have hExp200 : 2 ≤ Real.exp (200 : ℝ) := by
+    have h := Real.add_one_le_exp (200 : ℝ)
+    nlinarith
+  have hxCore0 : xCore ≤ x₀ := by dsimp [x₀]; exact le_max_left _ _
+  have hx₀₂ : 2 ≤ x₀ := by
+    have hExpCore : Real.exp (200 : ℝ) ≤ xCore := by
+      dsimp [xCore]
+      exact le_max_left _ _
+    exact hExp200.trans (hExpCore.trans hxCore0)
+  refine ⟨x₀, hx₀₂, ?_⟩
+  intro x hx
+  have hxCore : xCore ≤ x := hxCore0.trans hx
+  have hxCoverCore : xCover ≤ xCore := by simp [xCore]
+  have hxPairCore : xPair ≤ xCore := by simp [xCore]
+  have hxTypeCore : xType ≤ xCore := by simp [xCore]
+  have hxSupportCore : xSupport ≤ xCore := by simp [xCore]
+  have hxDistributionCore : xDistribution ≤ xCore := by simp [xCore]
+  have hxMassCore : xMass ≤ xCore := by simp [xCore]
+  have hxCover : xCover ≤ x := hxCoverCore.trans hxCore
+  have hxPair : xPair ≤ x := hxPairCore.trans hxCore
+  have hxType : xType ≤ x := hxTypeCore.trans hxCore
+  have hxSupport : xSupport ≤ x := hxSupportCore.trans hxCore
+  have hxDistribution : xDistribution ≤ x := hxDistributionCore.trans hxCore
+  have hxMass : xMass ≤ x := hxMassCore.trans hxCore
+  have hxEvents : max xW (max xProxy (max xCoeff xError)) ≤ x := by
+    have hle : max xW (max xProxy (max xCoeff xError)) ≤ x₀ := by
+      dsimp [x₀]
+      exact le_max_right _ _
+    exact hle.trans hx
+  have hxW' : xW ≤ x := by
+    have hle : xW ≤ max xW (max xProxy (max xCoeff xError)) := le_max_left _ _
+    exact hle.trans hxEvents
+  have hxProxy' : xProxy ≤ x := by
+    have hle : xProxy ≤ max xProxy (max xCoeff xError) := le_max_left _ _
+    exact (le_trans hle (le_max_right xW _)).trans hxEvents
+  have hxCoeff' : xCoeff ≤ x := by
+    have hle : xCoeff ≤ max xCoeff xError := le_max_left _ _
+    exact (le_trans hle (le_max_right xProxy _)).trans (le_max_right xW _ |>.trans hxEvents)
+  have hxError' : xError ≤ x := by
+    have hle : xError ≤ max xCoeff xError := le_max_right _ _
+    exact (le_trans hle (le_max_right xProxy _)).trans (le_max_right xW _ |>.trans hxEvents)
+  have hxExp : Real.exp (200 : ℝ) ≤ x := by
+    have hExpCore : Real.exp (200 : ℝ) ≤ xCore := by dsimp [xCore]; exact le_max_left _ _
+    exact hExpCore.trans hxCore
+  have hx2 : 2 ≤ x := hExp200.trans hxExp
+  have hxlarge : 1 < x := by linarith
+  have hLlarge : 200 ≤ Real.log x := by
+    have h := Real.log_le_log (Real.exp_pos (200 : ℝ)) hxExp
+    simpa using h
+  have hLpos : 0 < Real.log x := Real.log_pos hxlarge
+  have hCutoff : roughCutoff x < Real.rpow x (2 / 5 : ℝ) :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.roughCutoff_lt_two_fifths hxlarge hLlarge
+  have hyW : yMertens ≤ roughCutoff x := hxW x hxW'
+  have hMertensX := hMertens (roughCutoff x) hyW
+  have hlogW : Real.log (roughCutoff x) =
+      Real.rpow (Real.log x) (24 / 100 : ℝ) := by simp [roughCutoff]
+  have hVprod : E / 2 ≤ roughSieveProduct (roughCutoff x) *
+      Real.rpow (Real.log x) (24 / 100 : ℝ) := by
+    have habs := abs_le.mp hMertensX
+    rw [hlogW] at habs
+    dsimp [E] at habs ⊢
+    linarith
+  have hLpow24pos : 0 < Real.rpow (Real.log x) (24 / 100 : ℝ) :=
+    Real.rpow_pos_of_pos hLpos _
+  have hVpos : 0 < roughSieveProduct (roughCutoff x) := by
+    by_contra hn
+    have hle : roughSieveProduct (roughCutoff x) ≤ 0 := le_of_not_gt hn
+    have hmul : roughSieveProduct (roughCutoff x) *
+        Real.rpow (Real.log x) (24 / 100 : ℝ) ≤ 0 :=
+      mul_nonpos_of_nonpos_of_nonneg hle hLpow24pos.le
+    linarith [hVprod]
+  have hVlower : E / 2 / Real.rpow (Real.log x) (24 / 100 : ℝ) ≤
+      roughSieveProduct (roughCutoff x) :=
+    (div_le_iff₀ hLpow24pos).2 (by simpa [mul_comm] using hVprod)
+  have hxProxyLarge := hxProxy x hxProxy'
+  have hlog2le1 : Real.log 2 ≤ 1 := by
+    have he : 2 ≤ Real.exp (1 : ℝ) := by
+      have hh := Real.add_one_le_exp (1 : ℝ)
+      norm_num at hh ⊢
+      linarith
+    calc
+      Real.log 2 ≤ Real.log (Real.exp 1) := Real.log_le_log (by norm_num) he
+      _ = 1 := Real.log_exp 1
+  have hlog2ratio : Real.log 2 / Real.log x ≤ 1 / 200 := by
+    apply (div_le_iff₀ hLpos).2
+    nlinarith [hlog2le1, hLlarge]
+  have hqLower : (45 / 100 : ℝ) ≤ qfun x := by
+    dsimp [qfun]
+    linarith [hlog2ratio]
+  have hqPos : 0 < qfun x := lt_of_lt_of_le (by norm_num) hqLower
+  have hLpow24 : Real.rpow (Real.log x) (24 / 100 : ℝ) ≠ 0 :=
+    (ne_of_gt hLpow24pos)
+  have hRatioPow : Real.rpow (Real.log x) (76 / 100 : ℝ) =
+      Real.log x / Real.rpow (Real.log x) (24 / 100 : ℝ) := by
+    calc
+      _ = Real.rpow (Real.log x) (1 - 24 / 100) := by congr 1 <;> norm_num
+      _ = Real.rpow (Real.log x) 1 /
+          Real.rpow (Real.log x) (24 / 100 : ℝ) := Real.rpow_sub hLpos 1 (24 / 100 : ℝ)
+      _ = _ := by simp
+  have hCpowEq : Cpow * Real.rpow (Real.log x) (76 / 100 : ℝ) =
+      (E / 2 / Real.rpow (Real.log x) (24 / 100 : ℝ)) *
+        ((45 / 100 : ℝ) * Real.log x) := by
+    rw [hRatioPow]
+    dsimp [Cpow]
+    field_simp [hLpow24]
+    <;> ring
+  have hLogmLower (H : ℝ) (hHlo : Real.rpow x (46 / 100 : ℝ) / 2 ≤ H)
+      (m : ℕ) (hm : m ∈ dyadicIntegers H) :
+      qfun x * Real.log x ≤ Real.log (m : ℝ) := by
+    have hmBounds :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval H hm
+    have hmBounds' :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.mem_dyadicCoordinateInterval_iff H m |>.mp hmBounds
+    have hHpos : 0 < H := lt_of_lt_of_le
+      (div_pos (Real.rpow_pos_of_pos (by linarith : 0 < x) _) (by norm_num)) hHlo
+    have hmpos : 0 < (m : ℝ) := lt_of_lt_of_le hHpos hmBounds'.1
+    have hlogHM := Real.log_le_log hHpos hmBounds'.1
+    have hlogH := ArtinPrimitiveRoots.Construction.Proofs.C4.dyadic_log_lower_exact
+      hxlarge hHlo
+    have hqExact : qfun x * Real.log x =
+        (46 / 100 : ℝ) * Real.log x - Real.log 2 := by
+      dsimp [qfun]
+      field_simp [ne_of_gt hLpos]
+      <;> ring
+    linarith
+  have hVLogm (H : ℝ) (hHlo : Real.rpow x (46 / 100 : ℝ) / 2 ≤ H)
+      (m : ℕ) (hm : m ∈ dyadicIntegers H) :
+      1 ≤ roughSieveProduct (roughCutoff x) * Real.log (m : ℝ) := by
+    have hlogmLower := hLogmLower H hHlo m hm
+    have hlogm45 : (45 / 100 : ℝ) * Real.log x ≤ Real.log (m : ℝ) :=
+      le_trans (mul_le_mul_of_nonneg_right hqLower hLpos.le) hlogmLower
+    calc
+      1 ≤ Cpow * Real.rpow (Real.log x) (76 / 100 : ℝ) := hxProxyLarge
+      _ = (E / 2 / Real.rpow (Real.log x) (24 / 100 : ℝ)) *
+          ((45 / 100 : ℝ) * Real.log x) := hCpowEq
+      _ ≤ roughSieveProduct (roughCutoff x) * ((45 / 100 : ℝ) * Real.log x) :=
+        mul_le_mul_of_nonneg_right hVlower (by positivity)
+      _ ≤ roughSieveProduct (roughCutoff x) * Real.log (m : ℝ) :=
+        mul_le_mul_of_nonneg_left hlogm45 hVpos.le
+  have hProxyEq (H : ℝ) (hHlo : Real.rpow x (46 / 100 : ℝ) / 2 ≤ H)
+      (hHhi : H ≤ 2 * Real.rpow x (54 / 100 : ℝ)) (m : ℕ)
+      (hm : m ∈ dyadicIntegers H) :
+      roughProxy x (2 / 5) m =
+        if roughAbove m (roughCutoff x) then
+          1 / (roughSieveProduct (roughCutoff x) * Real.log (m : ℝ)) else 0 := by
+    have hmBounds :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval H hm
+    have hmBounds' :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.mem_dyadicCoordinateInterval_iff H m |>.mp hmBounds
+    have hHpos : 0 < H := lt_of_lt_of_le
+      (div_pos (Real.rpow_pos_of_pos (by linarith : 0 < x) _) (by norm_num)) hHlo
+    have hmpos : 0 < (m : ℝ) := by
+      have : H ≤ (m : ℝ) := hmBounds'.1
+      exact lt_of_lt_of_le hHpos this
+    have hm2pos : 0 < 2 * H := by positivity
+    have hlogmUpper := Real.log_le_log hmpos hmBounds'.2
+    have hwin := ArtinPrimitiveRoots.Construction.Proofs.C4.dyadic_log_scales_in_window
+      hxlarge hLlarge hHlo hHhi
+    have hlog2Hupper : Real.log (2 * H) ≤ (55 / 100 : ℝ) * Real.log x :=
+      (div_le_iff₀ hLpos).1 hwin.2.2
+    have hsUpper : Real.log (m : ℝ) / Real.log x ≤ 55 / 100 :=
+      (div_le_iff₀ hLpos).2 (hlogmUpper.trans hlog2Hupper)
+    have hlogmPos : 0 < Real.log (m : ℝ) := by
+      have hlogmLower := hLogmLower H hHlo m hm
+      have hlogm45 : (45 / 100 : ℝ) * Real.log x ≤ Real.log (m : ℝ) :=
+        le_trans (mul_le_mul_of_nonneg_right hqLower hLpos.le) hlogmLower
+      exact lt_of_lt_of_le (mul_pos (by norm_num) hLpos) hlogm45
+    have hwidth : Real.log (m : ℝ) / Real.log x < 2 * (2 / 5 : ℝ) := by
+      norm_num
+      linarith
+    have hD := ArtinPrimitiveRoots.Construction.Proofs.C4.roughDensity_eq_one_div
+      (2 / 5) (Real.log (m : ℝ) / Real.log x) (by norm_num) hwidth
+    exact ArtinPrimitiveRoots.Construction.Proofs.C4.roughProxy_eq_one_div_log
+      hLpos hVpos hlogmPos hD
+  have hProxyLeOne (H : ℝ) (hHlo : Real.rpow x (46 / 100 : ℝ) / 2 ≤ H)
+      (hHhi : H ≤ 2 * Real.rpow x (54 / 100 : ℝ)) (m : ℕ)
+      (hm : m ∈ dyadicIntegers H) :
+      0 ≤ roughProxy x (2 / 5) m ∧ roughProxy x (2 / 5) m ≤ 1 := by
+    rw [hProxyEq H hHlo hHhi m hm]
+    by_cases hrough : roughAbove m (roughCutoff x)
+    · simp only [if_pos hrough]
+      have hlogmPos : 0 < Real.log (m : ℝ) := by
+        have hmBounds :=
+          ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval H hm
+        have hmBounds' :=
+          ArtinPrimitiveRoots.Construction.Proofs.C4.mem_dyadicCoordinateInterval_iff H m |>.mp hmBounds
+        have hHpos : 0 < H := lt_of_lt_of_le
+          (div_pos (Real.rpow_pos_of_pos (by linarith : 0 < x) _) (by norm_num)) hHlo
+        have hmpos : 0 < (m : ℝ) := lt_of_lt_of_le hHpos hmBounds'.1
+        have hlogm := ArtinPrimitiveRoots.Construction.Proofs.C4.dyadic_log_lower_exact
+          hxlarge hHlo
+        have hlogm1 := Real.log_le_log hHpos hmBounds'.1
+        have hlogm45 : (45 / 100 : ℝ) * Real.log x ≤ Real.log (m : ℝ) := by
+          have hh := hLogmLower H hHlo m hm
+          linarith [hqLower]
+        exact lt_of_lt_of_le (mul_pos (by norm_num) hLpos) hlogm45
+      have hdenpos : 0 < roughSieveProduct (roughCutoff x) * Real.log (m : ℝ) :=
+        mul_pos hVpos hlogmPos
+      exact ⟨one_div_nonneg.mpr hdenpos.le,
+        (div_le_one hdenpos).2 (hVLogm H hHlo m hm)⟩
+    · simp [hrough]
+  have hProxyLeScale (H : ℝ) (hHlo : Real.rpow x (46 / 100 : ℝ) / 2 ≤ H)
+      (hHhi : H ≤ 2 * Real.rpow x (54 / 100 : ℝ)) (m : ℕ)
+      (hm : m ∈ dyadicIntegers H) :
+      roughProxy x (2 / 5) m ≤
+        1 / (roughSieveProduct (roughCutoff x) * (qfun x * Real.log x)) := by
+    rw [hProxyEq H hHlo hHhi m hm]
+    by_cases hrough : roughAbove m (roughCutoff x)
+    · simp only [if_pos hrough]
+      have hlogmLower := hLogmLower H hHlo m hm
+      have hdenLower : roughSieveProduct (roughCutoff x) *
+          (qfun x * Real.log x) ≤
+            roughSieveProduct (roughCutoff x) * Real.log (m : ℝ) :=
+        mul_le_mul_of_nonneg_left hlogmLower hVpos.le
+      have hdenpos : 0 < roughSieveProduct (roughCutoff x) *
+          (qfun x * Real.log x) := mul_pos hVpos (mul_pos hqPos hLpos)
+      exact one_div_le_one_div_of_le hdenpos hdenLower
+    · simp [hrough]
+      positivity
+  obtain ⟨N, hNbound, H₁, H₂, hBoxBounds, hCoverPairs⟩ := hCoverAt x hxCover
+  let gamma : ℝ := 2 / 5
+  let P : ℕ → ℝ := fun m => roughIndicator x gamma m
+  let Bp : ℕ → ℝ := fun m => roughProxy x gamma m
+  let E₁ : Fin N → ℝ := fun i =>
+    ∑ m ∈ dyadicIntegers (H₁ i), ∑ n ∈ dyadicIntegers (H₂ i),
+      (P m - Bp m) * P n * conWeight x M c u K a Ψ (m * n)
+  let E₂ : Fin N → ℝ := fun i =>
+    ∑ m ∈ dyadicIntegers (H₂ i), ∑ n ∈ dyadicIntegers (H₁ i),
+      (P m - Bp m) * Bp n * conWeight x M c u K a Ψ (m * n)
+  have hTypeErrors (i : Fin N) :
+      ∃ z₁ z₂ : ℂ,
+        z₁ = (E₁ i : ℂ) ∧ z₂ = (E₂ i : ℂ) ∧
+        ‖z₁‖ ≤ Ctype * (H₁ i * H₂ i) * Real.rpow (Real.log x) (-6 : ℝ) ∧
+        ‖z₂‖ ≤ Ctype * (H₂ i * H₁ i) * Real.rpow (Real.log x) (-6 : ℝ) := by
+    rcases hBoxBounds i with ⟨hprodlo, hprodupp, hH₁lo, hH₁hi, hH₂lo, hH₂hi⟩
+    have hxone : 1 ≤ x := by linarith
+    have hpowδ : Real.rpow x δ ≤ Real.rpow x (1 / 5 : ℝ) :=
+      Real.rpow_le_rpow_of_exponent_le hxone (by dsimp [δ]; exact min_le_right _ _)
+    have hpowBox :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.rpow_one_fifth_le_dyadic_lower
+        hxlarge hLlarge
+    have hδH₁ : Real.rpow x δ ≤ H₁ i := hpowδ.trans (hpowBox.trans hH₁lo)
+    have hδH₂ : Real.rpow x δ ≤ H₂ i := hpowδ.trans (hpowBox.trans hH₂lo)
+    have hscale₁ :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.dyadic_log_scales_in_window
+        hxlarge hLlarge hH₁lo hH₁hi
+    have hscale₂ :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.dyadic_log_scales_in_window
+        hxlarge hLlarge hH₂lo hH₂hi
+    let I₁ : Set ℕ :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicCoordinateInterval (H₁ i)
+    let I₂ : Set ℕ :=
+      ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicCoordinateInterval (H₂ i)
+    letI : DecidablePred (fun m : ℕ => m ∈ I₁) := fun _ => Classical.propDecidable _
+    letI : DecidablePred (fun m : ℕ => m ∈ I₂) := fun _ => Classical.propDecidable _
+    let D₁ : Finset ℕ := @Finset.filter ℕ (fun m => m ∈ I₁)
+      (fun _ => Classical.propDecidable _) (dyadicIntegers (H₁ i))
+    let D₂ : Finset ℕ := @Finset.filter ℕ (fun m => m ∈ I₂)
+      (fun _ => Classical.propDecidable _) (dyadicIntegers (H₂ i))
+    have hI₁ : ArtinPrimitiveRoots.TypeII.IsNatInterval I₁ := by
+      exact ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicCoordinateInterval_isNatInterval
+        (H₁ i)
+    have hI₂ : ArtinPrimitiveRoots.TypeII.IsNatInterval I₂ := by
+      exact ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicCoordinateInterval_isNatInterval
+        (H₂ i)
+    have hI₁sub : I₁ ⊆ {m : ℕ | H₁ i ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * H₁ i} := by
+      intro m hm
+      exact ArtinPrimitiveRoots.Construction.Proofs.C4.mem_dyadicCoordinateInterval_iff
+        (H₁ i) m |>.mp hm
+    have hI₂sub : I₂ ⊆ {m : ℕ | H₂ i ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * H₂ i} := by
+      intro m hm
+      exact ArtinPrimitiveRoots.Construction.Proofs.C4.mem_dyadicCoordinateInterval_iff
+        (H₂ i) m |>.mp hm
+    have hfilter₁ :
+        (dyadicIntegers (H₁ i)).filter (fun m => m ∈ I₁) = dyadicIntegers (H₁ i) := by
+      ext m
+      simp only [Finset.mem_filter]
+      constructor
+      · exact fun h => h.1
+      · intro hm
+        exact ⟨hm, ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval
+          (H₁ i) hm⟩
+    have hfilter₂ :
+        (dyadicIntegers (H₂ i)).filter (fun m => m ∈ I₂) = dyadicIntegers (H₂ i) := by
+      ext m
+      simp only [Finset.mem_filter]
+      constructor
+      · exact fun h => h.1
+      · intro hm
+        exact ⟨hm, ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval
+          (H₂ i) hm⟩
+    have hD₁ : D₁ = dyadicIntegers (H₁ i) := by
+      ext m
+      simp only [D₁, Finset.mem_filter]
+      constructor
+      · exact fun h => h.1
+      · intro hm
+        exact ⟨hm, ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval
+          (H₁ i) hm⟩
+    have hD₂ : D₂ = dyadicIntegers (H₂ i) := by
+      ext m
+      simp only [D₂, Finset.mem_filter]
+      constructor
+      · exact fun h => h.1
+      · intro hm
+        exact ⟨hm, ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval
+          (H₂ i) hm⟩
+    let βP : ℕ → ℂ := fun n =>
+      if n ∈ dyadicIntegers (H₂ i) then (roughIndicator x gamma n : ℂ) else 0
+    let βB : ℕ → ℂ := fun n =>
+      if n ∈ dyadicIntegers (H₁ i) then (roughProxy x gamma n : ℂ) else 0
+    have hβPsupport : ∀ n, βP n ≠ 0 →
+        n ∈ dyadicIntegers (H₂ i) ∧ roughAbove n (roughCutoff x) := by
+      intro n hn
+      dsimp [βP] at hn
+      split_ifs at hn with hmem
+      · have hR : roughIndicator x gamma n ≠ 0 := by exact_mod_cast hn
+        have hrough : roughAbove n (Real.rpow x gamma) := by
+          dsimp [roughIndicator] at hR
+          split_ifs at hR with hrough
+          · exact hrough
+          · simp at hR
+        exact ⟨hmem, ArtinPrimitiveRoots.Construction.Proofs.C4.roughAbove_mono_cutoff
+          hCutoff.le hrough⟩
+      · simp at hn
+    have hβPbound : ∀ n ∈ dyadicIntegers (H₂ i), ‖βP n‖ ≤ 1 := by
+      intro n hn
+      simp [βP, hn, roughIndicator]
+      <;> split_ifs <;> norm_num
+    have hβBsupport : ∀ n, βB n ≠ 0 →
+        n ∈ dyadicIntegers (H₁ i) ∧ roughAbove n (roughCutoff x) := by
+      intro n hn
+      dsimp [βB] at hn
+      split_ifs at hn with hmem
+      · have hR : roughProxy x gamma n ≠ 0 := by exact_mod_cast hn
+        have hEq := hProxyEq (H₁ i) hH₁lo hH₁hi n hmem
+        rw [hEq] at hR
+        by_cases hrough : roughAbove n (roughCutoff x)
+        · exact ⟨hmem, hrough⟩
+        · simp [hrough] at hR
+      · simp at hn
+    have hβBbound : ∀ n ∈ dyadicIntegers (H₁ i), ‖βB n‖ ≤ 1 := by
+      intro n hn
+      simp only [βB, if_pos hn]
+      have hB := hProxyLeOne (H₁ i) hH₁lo hH₁hi n hn
+      have hAbs : |roughProxy x gamma n| ≤ 1 := by
+        rw [abs_le]
+        exact ⟨by linarith [hB.1], hB.2⟩
+      simpa using hAbs
+    have hβPval : ∀ n ∈ dyadicIntegers (H₂ i), βP n = (P n : ℂ) := by
+      intro n hn
+      simp [βP, P, hn]
+    have hβBval : ∀ n ∈ dyadicIntegers (H₁ i), βB n = (Bp n : ℂ) := by
+      intro n hn
+      simp [βB, Bp, hn]
+    let z₁ : ℂ :=
+      ∑ m ∈ D₁,
+        ∑ n ∈ dyadicIntegers (H₂ i),
+          ((roughIndicator x (2 / 5) m - roughProxy x (2 / 5) m : ℝ) : ℂ) *
+            βP n * (conWeight x M c u K a Ψ (m * n) : ℂ)
+    let z₂ : ℂ :=
+      ∑ m ∈ D₂,
+        ∑ n ∈ dyadicIntegers (H₁ i),
+          ((roughIndicator x (2 / 5) m - roughProxy x (2 / 5) m : ℝ) : ℂ) *
+            βB n * (conWeight x M c u K a Ψ (m * n) : ℂ)
+    have hz₁Eq : z₁ = (E₁ i : ℂ) := by
+      calc
+        z₁ = ∑ m ∈ dyadicIntegers (H₁ i), ∑ n ∈ dyadicIntegers (H₂ i),
+            (((P m - Bp m) * P n * conWeight x M c u K a Ψ (m * n) : ℝ) : ℂ) := by
+          dsimp [z₁]
+          rw [hD₁]
+          apply Finset.sum_congr rfl
+          intro m hm
+          apply Finset.sum_congr rfl
+          intro n hn
+          rw [hβPval n hn]
+          simp only [Complex.ofReal_sub, Complex.ofReal_mul]
+          ring
+        _ = (E₁ i : ℂ) := by
+          dsimp [E₁]
+          simp only [Complex.ofReal_sum]
+    have hz₂Eq : z₂ = (E₂ i : ℂ) := by
+      calc
+        z₂ = ∑ m ∈ dyadicIntegers (H₂ i), ∑ n ∈ dyadicIntegers (H₁ i),
+            (((P m - Bp m) * Bp n * conWeight x M c u K a Ψ (m * n) : ℝ) : ℂ) := by
+          dsimp [z₂]
+          rw [hD₂]
+          apply Finset.sum_congr rfl
+          intro m hm
+          apply Finset.sum_congr rfl
+          intro n hn
+          rw [hβBval n hn]
+          simp only [Complex.ofReal_sub, Complex.ofReal_mul]
+          ring
+        _ = (E₂ i : ℂ) := by
+          dsimp [E₂]
+          simp only [Complex.ofReal_sum]
+    refine ⟨z₁, z₂, hz₁Eq, hz₂Eq, ?_, ?_⟩
+    ·
+      have hprodlo' : (1 / 4 : ℝ) * x ≤ H₁ i * H₂ i := by nlinarith [hprodlo]
+      simpa [z₁, D₁] using hTypeAt x hxType (H₁ i) (H₂ i) hδH₁ hδH₂ hprodlo' hprodupp
+        hscale₁.1 hscale₁.2 I₁ hI₁ hI₁sub βP hβPsupport hβPbound
+    ·
+      have hprodlo' : (1 / 4 : ℝ) * x ≤ H₂ i * H₁ i := by nlinarith [hprodlo]
+      have hprodupp' : H₂ i * H₁ i ≤ 2 * x := by nlinarith [hprodupp]
+      simpa [z₂, D₂] using hTypeAt x hxType (H₂ i) (H₁ i) hδH₂ hδH₁ hprodlo' hprodupp'
+        hscale₂.1 hscale₂.2 I₂ hI₂ hI₂sub βB hβBsupport hβBbound
+  choose z₁ z₂ hZ₁Eq hZ₂Eq hZ₁Bound hZ₂Bound using hTypeErrors
+  have hE₁Abs (i : Fin N) : |E₁ i| ≤
+      Ctype * (H₁ i * H₂ i) * Real.rpow (Real.log x) (-6 : ℝ) := by
+    have h := hZ₁Bound i
+    rw [hZ₁Eq i] at h
+    simpa using h
+  have hE₂Abs (i : Fin N) : |E₂ i| ≤
+      Ctype * (H₂ i * H₁ i) * Real.rpow (Real.log x) (-6 : ℝ) := by
+    have h := hZ₂Bound i
+    rw [hZ₂Eq i] at h
+    simpa using h
+  let w : ℕ → ℝ := conWeight x M c u K a Ψ
+  have hWeightNonneg (d : ℕ) : 0 ≤ w d := by
+    have h := hSupportAt x hxSupport
+    exact (h.2.2 d).1
+  let rawPairBox : Fin N → ℝ := fun i =>
+    ∑ m ∈ dyadicIntegers (H₁ i), ∑ n ∈ dyadicIntegers (H₂ i),
+      P m * P n * w (m * n)
+  let proxyPairBox : Fin N → ℝ := fun i =>
+    ∑ m ∈ dyadicIntegers (H₁ i), ∑ n ∈ dyadicIntegers (H₂ i),
+      Bp m * Bp n * w (m * n)
+  have hE₂reorder (i : Fin N) : E₂ i =
+      ∑ m ∈ dyadicIntegers (H₁ i), ∑ n ∈ dyadicIntegers (H₂ i),
+        Bp m * (P n - Bp n) * w (m * n) := by
+    dsimp [E₂]
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl
+    intro m hm
+    apply Finset.sum_congr rfl
+    intro n hn
+    rw [Nat.mul_comm n m]
+    ring
+  have hPairIdentity (i : Fin N) :
+      rawPairBox i - proxyPairBox i = E₁ i + E₂ i := by
+    rw [hE₂reorder]
+    dsimp [rawPairBox, proxyPairBox, E₁, P, Bp, w]
+    simp_rw [← Finset.sum_sub_distrib, ← Finset.sum_add_distrib]
+    apply Finset.sum_congr rfl
+    intro m hm
+    apply Finset.sum_congr rfl
+    intro n hn
+    ring
+  let scale : ℝ := 1 / (roughSieveProduct (roughCutoff x) * (qfun x * Real.log x))
+  have hscalePos : 0 < scale := by
+    dsimp [scale]
+    positivity
+  have hProxyPairBound (i : Fin N) :
+      proxyPairBox i ≤ scale ^ 2 * roughPairBoxSum x M c u K a Ψ (H₁ i) (H₂ i) := by
+    rcases hBoxBounds i with ⟨hprodlo, hprodupp, hH₁lo, hH₁hi, hH₂lo, hH₂hi⟩
+    have hterm (m : ℕ) (hm : m ∈ dyadicIntegers (H₁ i))
+        (n : ℕ) (hn : n ∈ dyadicIntegers (H₂ i)) :
+        Bp m * Bp n * w (m * n) ≤ scale ^ 2 *
+          (if roughAbove m (roughCutoff x) ∧ roughAbove n (roughCutoff x)
+            then w (m * n) else 0) := by
+      by_cases hmrough : roughAbove m (roughCutoff x)
+      · by_cases hnrough : roughAbove n (roughCutoff x)
+        · have hBm := hProxyLeScale (H₁ i) hH₁lo hH₁hi m hm
+          have hBn := hProxyLeScale (H₂ i) hH₂lo hH₂hi n hn
+          have hBnonneg := (hProxyLeOne (H₂ i) hH₂lo hH₂hi n hn).1
+          have hmult : Bp m * Bp n ≤ scale * scale :=
+            mul_le_mul hBm hBn hBnonneg hscalePos.le
+          have hw := hWeightNonneg (m * n)
+          calc
+            _ ≤ (scale * scale) * w (m * n) := mul_le_mul_of_nonneg_right hmult hw
+            _ = scale ^ 2 * (if roughAbove m (roughCutoff x) ∧
+                roughAbove n (roughCutoff x) then w (m * n) else 0) := by
+                  simp [hmrough, hnrough, pow_two]
+        · have hBnZero : Bp n = 0 := by
+            dsimp [Bp]
+            rw [hProxyEq (H₂ i) hH₂lo hH₂hi n hn]
+            simp [hnrough]
+          simp [hnrough, hBnZero]
+      · have hBmZero : Bp m = 0 := by
+          dsimp [Bp]
+          rw [hProxyEq (H₁ i) hH₁lo hH₁hi m hm]
+          simp [hmrough]
+        simp [hmrough, hBmZero]
+    calc
+      proxyPairBox i ≤
+          ∑ m ∈ dyadicIntegers (H₁ i), ∑ n ∈ dyadicIntegers (H₂ i),
+            scale ^ 2 *
+              (if roughAbove m (roughCutoff x) ∧ roughAbove n (roughCutoff x)
+                then w (m * n) else 0) := by
+          dsimp [proxyPairBox]
+          apply Finset.sum_le_sum
+          intro m hm
+          apply Finset.sum_le_sum
+          intro n hn
+          exact hterm m hm n hn
+      _ = scale ^ 2 * roughPairBoxSum x M c u K a Ψ (H₁ i) (H₂ i) := by
+          dsimp [roughPairBoxSum, w]
+          simp_rw [← Finset.mul_sum]
+  have hPairBoundAt (i : Fin N) :
+      roughPairBoxSum x M c u K a Ψ (H₁ i) (H₂ i) ≤
+        C₁ * conTotalMass x M c u K a Ψ * roughSieveProduct (roughCutoff x) ^ 2 := by
+    rcases hBoxBounds i with ⟨hprodlo, hprodupp, hH₁lo, hH₁hi, hH₂lo, hH₂hi⟩
+    exact hPairAt x hxPair (H₁ i) (H₂ i) hprodlo hprodupp hH₁lo hH₁hi hH₂lo hH₂hi
+  have hProxyPairUpper (i : Fin N) :
+      proxyPairBox i ≤
+        (C₁ * conTotalMass x M c u K a Ψ) / (qfun x * Real.log x) ^ 2 := by
+    have h := hProxyPairBound i
+    have hPair := hPairBoundAt i
+    have hmassNonneg : 0 ≤ conTotalMass x M c u K a Ψ := by
+      have hWeights := hSupportAt x hxSupport |>.2.2
+      unfold conTotalMass
+      apply Finset.sum_nonneg
+      intro d hd
+      exact hWeights d |>.1
+    calc
+      proxyPairBox i ≤ scale ^ 2 * roughPairBoxSum x M c u K a Ψ (H₁ i) (H₂ i) := h
+      _ ≤ scale ^ 2 *
+          (C₁ * conTotalMass x M c u K a Ψ * roughSieveProduct (roughCutoff x) ^ 2) :=
+        mul_le_mul_of_nonneg_left hPair (sq_nonneg scale)
+      _ = (C₁ * conTotalMass x M c u K a Ψ) / (qfun x * Real.log x) ^ 2 := by
+        dsimp [scale]
+        field_simp [ne_of_gt hVpos, ne_of_gt hqPos, ne_of_gt hLpos]
+        <;> ring
+  have hRawPairUpper (i : Fin N) :
+      rawPairBox i ≤
+        (C₁ * conTotalMass x M c u K a Ψ) / (qfun x * Real.log x) ^ 2 +
+          4 * Ctype * x * Real.rpow (Real.log x) (-6 : ℝ) := by
+    rcases hBoxBounds i with ⟨hprodlo, hprodupp, hH₁lo, hH₁hi, hH₂lo, hH₂hi⟩
+    have hEupper : E₁ i + E₂ i ≤ |E₁ i| + |E₂ i| :=
+      add_le_add (le_abs_self _) (le_abs_self _)
+    have hE₂Abs' : |E₂ i| ≤
+        Ctype * (H₁ i * H₂ i) * Real.rpow (Real.log x) (-6 : ℝ) := by
+      simpa [mul_comm] using hE₂Abs i
+    have hEsmall : E₁ i + E₂ i ≤
+        2 * Ctype * (H₁ i * H₂ i) * Real.rpow (Real.log x) (-6 : ℝ) := by
+      calc
+        _ ≤ |E₁ i| + |E₂ i| := hEupper
+        _ ≤ Ctype * (H₁ i * H₂ i) * Real.rpow (Real.log x) (-6 : ℝ) +
+              Ctype * (H₁ i * H₂ i) * Real.rpow (Real.log x) (-6 : ℝ) :=
+            add_le_add (hE₁Abs i) hE₂Abs'
+        _ = _ := by ring
+    have hTypeCoefficient :
+        2 * Ctype * (H₁ i * H₂ i) ≤ 4 * Ctype * x := by
+      calc
+        2 * Ctype * (H₁ i * H₂ i) ≤ (2 * Ctype) * (2 * x) :=
+          mul_le_mul_of_nonneg_left hprodupp (by positivity)
+        _ = 4 * Ctype * x := by ring
+    have hTypeErr :
+        2 * Ctype * (H₁ i * H₂ i) * Real.rpow (Real.log x) (-6 : ℝ) ≤
+          4 * Ctype * x * Real.rpow (Real.log x) (-6 : ℝ) :=
+      mul_le_mul_of_nonneg_right hTypeCoefficient
+        (Real.rpow_nonneg hLpos.le _)
+    calc
+      rawPairBox i = proxyPairBox i + (E₁ i + E₂ i) := by linarith [hPairIdentity i]
+      _ ≤ proxyPairBox i +
+          2 * Ctype * (H₁ i * H₂ i) * Real.rpow (Real.log x) (-6 : ℝ) :=
+        by simpa [add_comm] using add_le_add_right hEsmall (proxyPairBox i)
+      _ ≤ (C₁ * conTotalMass x M c u K a Ψ) / (qfun x * Real.log x) ^ 2 +
+          4 * Ctype * x * Real.rpow (Real.log x) (-6 : ℝ) := by
+        exact add_le_add (hProxyPairUpper i) hTypeErr
+  have hPrimeRough (p : ℕ) (hp : p.Prime) (hpt :
+      Real.rpow x (2 / 5 : ℝ) < (p : ℝ)) :
+      roughIndicator x (2 / 5) p = 1 := by
+    have hrough := ArtinPrimitiveRoots.Construction.Proofs.C4.roughAbove_of_prime_gt hp hpt
+    unfold roughIndicator
+    rw [if_pos hrough]
+  let R : Finset ℕ := Finset.range (⌊2 * x⌋₊ + 1)
+  let compositePred : ℕ → Prop := fun d =>
+    roughAbove d (Real.rpow x (1 / 2 - κ)) ∧ ¬ d.Prime
+  let A : Finset ℕ := R.filter (fun d => compositePred d ∧ 0 < w d)
+  let compositeMass : ℝ := ∑ d ∈ R, if compositePred d then w d else 0
+  have hCompositeEq : compositeMass = ∑ d ∈ A, w d := by
+    dsimp [compositeMass, A, compositePred]
+    calc
+      _ = ∑ d ∈ R,
+            if (roughAbove d (Real.rpow x (1 / 2 - κ)) ∧ ¬ d.Prime) ∧ 0 < w d
+              then w d else 0 := by
+            apply Finset.sum_congr rfl
+            intro d hd
+            by_cases hbad : roughAbove d (Real.rpow x (1 / 2 - κ)) ∧ ¬ d.Prime
+            · by_cases hpos : 0 < w d
+              · simp [hbad, hpos]
+              · have hzero : w d = 0 := le_antisymm (le_of_not_gt hpos) (hWeightNonneg d)
+                simp [hbad, hpos, hzero]
+            · have hbad' :
+                  ¬ ((roughAbove d (Real.rpow x (1 / 2 - κ)) ∧ ¬ d.Prime) ∧ 0 < w d) :=
+                fun h => hbad h.1
+              change (if roughAbove d (Real.rpow x (1 / 2 - κ)) ∧ ¬ d.Prime
+                then w d else 0) =
+                if (roughAbove d (Real.rpow x (1 / 2 - κ)) ∧ ¬ d.Prime) ∧ 0 < w d
+                  then w d else 0
+              simp only [if_neg hbad, if_neg hbad']
+      _ = ∑ d ∈ R.filter
+            (fun d => (roughAbove d (Real.rpow x (1 / 2 - κ)) ∧ ¬ d.Prime) ∧ 0 < w d),
+            w d := by
+            symm
+            rw [Finset.sum_filter]
+  have hCoverExist (d : ℕ) (hd : d ∈ A) :
+      ∃ v : Fin N × (ℕ × ℕ),
+        v.2.1 ∈ dyadicIntegers (H₁ v.1) ∧
+        v.2.2 ∈ dyadicIntegers (H₂ v.1) ∧
+        (v.2.1).Prime ∧ (v.2.2).Prime ∧ d = v.2.1 * v.2.2 := by
+    simp only [A, Finset.mem_filter] at hd
+    rcases hd with ⟨_, ⟨hbad, hwd⟩⟩
+    rcases hCoverPairs d hwd hbad.1 hbad.2 with
+      ⟨i, m, n, hm, hn, hmp, hnp, hEq⟩
+    exact ⟨(i, (m, n)), hm, hn, hmp, hnp, hEq⟩
+  let chosen (d : ℕ) (hd : d ∈ A) : Fin N × (ℕ × ℕ) :=
+    Classical.choose (hCoverExist d hd)
+  have hChosen (d : ℕ) (hd : d ∈ A) :
+      (chosen d hd).2.1 ∈ dyadicIntegers (H₁ (chosen d hd).1) ∧
+      (chosen d hd).2.2 ∈ dyadicIntegers (H₂ (chosen d hd).1) ∧
+      ((chosen d hd).2.1).Prime ∧ ((chosen d hd).2.2).Prime ∧
+        d = (chosen d hd).2.1 * (chosen d hd).2.2 := by
+    exact Classical.choose_spec (hCoverExist d hd)
+  let boxFamily (i : Fin N) : Finset (Fin N × (ℕ × ℕ)) :=
+    ((dyadicIntegers (H₁ i)).product (dyadicIntegers (H₂ i))).image
+      (fun mn => (i, mn))
+  let boxUnion : Finset (Fin N × (ℕ × ℕ)) :=
+    Finset.univ.biUnion boxFamily
+  let pairWeight (v : Fin N × (ℕ × ℕ)) : ℝ :=
+    P v.2.1 * P v.2.2 * w (v.2.1 * v.2.2)
+  let B : Finset (Option (Fin N × (ℕ × ℕ))) := boxUnion.image some
+  let f (d : ℕ) : Option (Fin N × (ℕ × ℕ)) :=
+    if hd : d ∈ A then some (chosen d hd) else none
+  let wb (v : Option (Fin N × (ℕ × ℕ))) : ℝ :=
+    v.elim 0 pairWeight
+  have hBoxDisjoint : Set.PairwiseDisjoint
+      (↑(Finset.univ : Finset (Fin N)) : Set (Fin N)) boxFamily := by
+    intro i hi j hj hij
+    change Disjoint (boxFamily i) (boxFamily j)
+    apply Finset.disjoint_left.mpr
+    intro v hvi hvj
+    change v ∈ ((dyadicIntegers (H₁ i)).product (dyadicIntegers (H₂ i))).image
+      (fun mn => (i, mn)) at hvi
+    change v ∈ ((dyadicIntegers (H₁ j)).product (dyadicIntegers (H₂ j))).image
+      (fun mn => (j, mn)) at hvj
+    obtain ⟨mn, _, hmn⟩ := Finset.mem_image.mp hvi
+    obtain ⟨mn', _, hmn'⟩ := Finset.mem_image.mp hvj
+    have hij' : i = j := by
+      have hEq : (i, mn) = (j, mn') := hmn.trans hmn'.symm
+      exact congrArg Prod.fst hEq
+    exact hij hij'
+  have hFamilyInjective (i : Fin N) : Set.InjOn (fun mn => (i, mn))
+      (↑((dyadicIntegers (H₁ i)).product (dyadicIntegers (H₂ i))) : Set (ℕ × ℕ)) := by
+    intro mn hmn mn' hmn' hEq
+    exact congrArg Prod.snd hEq
+  have hBoxUnionSum :
+      (∑ v ∈ boxUnion, pairWeight v) = ∑ i : Fin N, rawPairBox i := by
+    calc
+      _ = ∑ i ∈ (Finset.univ : Finset (Fin N)),
+            ∑ mn ∈ (dyadicIntegers (H₁ i)).product (dyadicIntegers (H₂ i)),
+              pairWeight (i, mn) := by
+          dsimp [boxUnion]
+          rw [Finset.sum_biUnion hBoxDisjoint]
+          apply Finset.sum_congr rfl
+          intro j hj
+          dsimp [boxFamily]
+          exact Finset.sum_image (hFamilyInjective j)
+      _ = ∑ i : Fin N, rawPairBox i := by
+          simp [Finset.sum_product, pairWeight, rawPairBox, P, w]
+  have hCoverMap (d : ℕ) (hd : d ∈ A) : f d ∈ B := by
+    have hv := hChosen d hd
+    have hfd : f d = some (chosen d hd) := by simp [f, hd]
+    rw [hfd]
+    apply Finset.mem_image.mpr
+    refine ⟨chosen d hd, ?_, rfl⟩
+    change chosen d hd ∈ Finset.univ.biUnion boxFamily
+    rw [Finset.mem_biUnion]
+    refine ⟨(chosen d hd).1, Finset.mem_univ _, ?_⟩
+    change chosen d hd ∈ boxFamily (chosen d hd).1
+    dsimp [boxFamily]
+    apply Finset.mem_image.mpr
+    refine ⟨(chosen d hd).2, Finset.mem_product.mpr ⟨hv.1, hv.2.1⟩, rfl⟩
+  have hinj : Set.InjOn f A := by
+    intro d hd e he hde
+    change d ∈ A at hd
+    change e ∈ A at he
+    have hfd : f d = some (chosen d hd) := by
+      dsimp [f]
+      rw [dif_pos hd]
+    have hfe : f e = some (chosen e he) := by
+      dsimp [f]
+      rw [dif_pos he]
+    rw [hfd, hfe] at hde
+    have hchosen : chosen d hd = chosen e he := Option.some.inj hde
+    calc
+      d = (chosen d hd).2.1 * (chosen d hd).2.2 := (hChosen d hd).2.2.2.2
+      _ = (chosen e he).2.1 * (chosen e he).2.2 := by rw [hchosen]
+      _ = e := (hChosen e he).2.2.2.2.symm
+  have hPnonneg (m : ℕ) : 0 ≤ P m := by
+    dsimp [P, roughIndicator]
+    split_ifs <;> norm_num
+  have hBound (d : ℕ) (hd : d ∈ A) : w d ≤ wb (f d) := by
+    have hv := hChosen d hd
+    have hmLarge : Real.rpow x (2 / 5 : ℝ) < ((chosen d hd).2.1 : ℝ) := by
+      rcases hBoxBounds (chosen d hd).1 with ⟨_, _, hHlo, _, _, _⟩
+      have hmBounds :=
+        ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval
+          (H₁ (chosen d hd).1) hv.1
+      have hmLower :=
+        ArtinPrimitiveRoots.Construction.Proofs.C4.mem_dyadicCoordinateInterval_iff
+          (H₁ (chosen d hd).1) (chosen d hd).2.1 |>.mp hmBounds
+      exact lt_of_lt_of_le
+        (ArtinPrimitiveRoots.Construction.Proofs.C4.two_fifths_lt_dyadic_lower
+          hxlarge hLlarge) (hHlo.trans hmLower.1)
+    have hnLarge : Real.rpow x (2 / 5 : ℝ) < ((chosen d hd).2.2 : ℝ) := by
+      rcases hBoxBounds (chosen d hd).1 with ⟨_, _, _, _, hHlo, _⟩
+      have hnBounds :=
+        ArtinPrimitiveRoots.Construction.Proofs.C4.dyadicIntegers_subset_coordinateInterval
+          (H₂ (chosen d hd).1) hv.2.1
+      have hnLower :=
+        ArtinPrimitiveRoots.Construction.Proofs.C4.mem_dyadicCoordinateInterval_iff
+          (H₂ (chosen d hd).1) (chosen d hd).2.2 |>.mp hnBounds
+      exact lt_of_lt_of_le
+        (ArtinPrimitiveRoots.Construction.Proofs.C4.two_fifths_lt_dyadic_lower
+          hxlarge hLlarge) (hHlo.trans hnLower.1)
+    have hPm : P (chosen d hd).2.1 = 1 := by
+      change roughIndicator x (2 / 5 : ℝ) (chosen d hd).2.1 = 1
+      exact hPrimeRough _ hv.2.2.1 hmLarge
+    have hPn : P (chosen d hd).2.2 = 1 := by
+      change roughIndicator x (2 / 5 : ℝ) (chosen d hd).2.2 = 1
+      exact hPrimeRough _ hv.2.2.2.1 hnLarge
+    have hfd : f d = some (chosen d hd) := by simp [f, hd]
+    rw [hfd]
+    simp only [wb, Option.elim_some]
+    dsimp [pairWeight]
+    rw [hPm, hPn, ← hv.2.2.2.2]
+    simp
+  have hBnonneg (v : Option (Fin N × (ℕ × ℕ))) (hv : v ∈ B) : 0 ≤ wb v := by
+    change v ∈ boxUnion.image some at hv
+    obtain ⟨t, _, rfl⟩ := Finset.mem_image.mp hv
+    simp only [wb, Option.elim_some]
+    dsimp [pairWeight]
+    exact mul_nonneg (mul_nonneg (hPnonneg _) (hPnonneg _)) (hWeightNonneg _)
+  have hCompositeBox : (∑ d ∈ A, w d) ≤ ∑ v ∈ B, wb v :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.finite_sum_le_superset_of_injective
+      A B f w wb hinj hCoverMap hBound hBnonneg
+  have hBoxWeightedSum : (∑ v ∈ B, wb v) = ∑ i : Fin N, rawPairBox i := by
+    calc
+      _ = ∑ v ∈ boxUnion, wb (some v) := by
+        dsimp [B]
+        exact Finset.sum_image (by
+          intro v hv v' hv' hEq
+          exact Option.some.inj hEq)
+      _ = ∑ v ∈ boxUnion, pairWeight v := by simp [wb]
+      _ = ∑ i : Fin N, rawPairBox i := hBoxUnionSum
+  let L : ℝ := Real.log x
+  let mass : ℝ := conTotalMass x M c u K a Ψ
+  let Acoef : ℝ := C₁ * Cdyad
+  let kappaPlusInvL : ℝ := κ + 1 / L
+  have hLpos' : 0 < L := by simpa [L] using hLpos
+  have hxpos' : 0 < x := by linarith
+  have hmassNonnegFinal : 0 ≤ mass := by
+    dsimp [mass, conTotalMass]
+    apply Finset.sum_nonneg
+    intro d hd
+    exact hWeightNonneg d
+  have hJ₀ : 1 ≤ groupHarmonicMass x K a := (hHarmonic x hxMass).2.1
+  have hmassLower : c₀ * x / L ≤ mass := by
+    have hnum : c₀ * x * 1 ≤ c₀ * x * groupHarmonicMass x K a :=
+      mul_le_mul_of_nonneg_left hJ₀ (mul_nonneg hc₀.le (by linarith))
+    calc
+      c₀ * x / L = c₀ * x * 1 / L := by ring
+      _ ≤ c₀ * x * groupHarmonicMass x K a / L :=
+        div_le_div_of_nonneg_right hnum hLpos.le
+      _ ≤ conTotalMass x M c u K a Ψ := (hMass x hxDistribution).1
+      _ = mass := by rfl
+  have hmassOverL : c₀ * x / L ^ 2 ≤ mass / L := by
+    have h := div_le_div_of_nonneg_right hmassLower hLpos.le
+    calc
+      c₀ * x / L ^ 2 = (c₀ * x / L) / L := by field_simp [ne_of_gt hLpos]
+      _ ≤ mass / L := h
+  have hLbig : 200 ≤ L := by simpa [L] using hLlarge
+  have hcountBound : κ * L + 1 ≤ 2 * L := by
+    have hκL : κ * L ≤ L / 100 := by
+      calc
+        κ * L ≤ (1 / 100 : ℝ) * L :=
+          mul_le_mul_of_nonneg_right (le_of_lt hκsmall) hLpos'.le
+        _ = L / 100 := by ring
+    have hOne : (1 : ℝ) ≤ L / 200 := by
+      apply (le_div_iff₀ (by norm_num : (0 : ℝ) < 200)).2
+      nlinarith [hLbig]
+    nlinarith [hκL, hOne, hLbig]
+  have hInvL : 1 / L ≤ 1 / 200 := by
+    apply (div_le_iff₀ hLpos).2
+    nlinarith [hLbig]
+  have hkappaPlusNonneg : 0 ≤ kappaPlusInvL := by
+    dsimp [kappaPlusInvL]
+    positivity
+  have hkappaPlusLeOne : kappaPlusInvL ≤ 1 := by
+    dsimp [kappaPlusInvL]
+    linarith [hκsmall, hInvL]
+  have hPerBoxNonneg :
+      0 ≤ C₁ * mass / (qfun x * L) ^ 2 +
+        4 * Ctype * x * Real.rpow L (-6 : ℝ) := by
+    apply add_nonneg
+    · exact div_nonneg (mul_nonneg hC₁.le hmassNonnegFinal) (sq_nonneg _)
+    · exact mul_nonneg (by positivity)
+        (Real.rpow_nonneg hLpos'.le (-6 : ℝ))
+  have hSummed :
+      compositeMass ≤ Cdyad * (κ * L + 1) *
+        (C₁ * mass / (qfun x * L) ^ 2 +
+          4 * Ctype * x * Real.rpow L (-6 : ℝ)) := by
+    have hRaw :
+        compositeMass ≤ (N : ℝ) *
+          (C₁ * mass / (qfun x * L) ^ 2 +
+            4 * Ctype * x * Real.rpow L (-6 : ℝ)) := by
+      calc
+        compositeMass = ∑ d ∈ A, w d := hCompositeEq
+        _ ≤ ∑ v ∈ B, wb v := hCompositeBox
+        _ = ∑ i : Fin N, rawPairBox i := hBoxWeightedSum
+        _ ≤ ∑ i : Fin N,
+              (C₁ * mass / (qfun x * L) ^ 2 +
+                4 * Ctype * x * Real.rpow L (-6 : ℝ)) := by
+              apply Finset.sum_le_sum
+              intro i hi
+              simpa [mass, L] using hRawPairUpper i
+        _ = (N : ℝ) *
+              (C₁ * mass / (qfun x * L) ^ 2 +
+                4 * Ctype * x * Real.rpow L (-6 : ℝ)) := by
+              simp [Finset.sum_add_distrib]
+              <;> ring
+    calc
+      compositeMass ≤ (N : ℝ) *
+          (C₁ * mass / (qfun x * L) ^ 2 +
+            4 * Ctype * x * Real.rpow L (-6 : ℝ)) := hRaw
+      _ ≤ Cdyad * (κ * L + 1) *
+            (C₁ * mass / (qfun x * L) ^ 2 +
+              4 * Ctype * x * Real.rpow L (-6 : ℝ)) :=
+          mul_le_mul_of_nonneg_right hNbound hPerBoxNonneg
+  have hSummedRewrite :
+      Cdyad * (κ * L + 1) *
+          (C₁ * mass / (qfun x * L) ^ 2 +
+            4 * Ctype * x * Real.rpow L (-6 : ℝ)) =
+        Acoef * kappaPlusInvL * (qfun x)⁻¹ ^ 2 * mass / L +
+          Cdyad * (κ * L + 1) * 4 * Ctype * x * Real.rpow L (-6 : ℝ) := by
+    dsimp [Acoef, kappaPlusInvL, L]
+    field_simp [ne_of_gt hLpos, ne_of_gt hqPos]
+    <;> ring
+  have hSummedRaw :
+      compositeMass ≤
+        Acoef * kappaPlusInvL * (qfun x)⁻¹ ^ 2 * mass / L +
+          Cdyad * (κ * L + 1) * 4 * Ctype * x * Real.rpow L (-6 : ℝ) :=
+    hSummed.trans_eq hSummedRewrite
+  have hqSquareBound :
+      (qfun x)⁻¹ ^ 2 ≤ (46 / 100 : ℝ)⁻¹ ^ 2 + ηcoeff := by
+    have h := hxCoeff x hxCoeff'
+    linarith
+  have hCoeffAbsorb : Acoef * kappaPlusInvL * ηcoeff ≤ η / 2 := by
+    have hA : 0 ≤ Acoef := by dsimp [Acoef]; positivity
+    have hAk : Acoef * kappaPlusInvL ≤ Acoef := by
+      simpa using mul_le_mul_of_nonneg_left hkappaPlusLeOne hA
+    have hAkη : Acoef * kappaPlusInvL * η ≤ Acoef * η :=
+      mul_le_mul_of_nonneg_right hAk hη.le
+    have hden : 0 < 4 * (C₁ * Cdyad + 1) := by positivity
+    dsimp [Acoef, ηcoeff]
+    field_simp [ne_of_gt hden]
+    nlinarith [hAkη]
+  have hProxyBudget :
+      Acoef * kappaPlusInvL * (qfun x)⁻¹ ^ 2 * mass / L ≤
+        ((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) *
+            kappaPlusInvL * mass / L + (η / 2) * mass / L := by
+    have hfactor : 0 ≤ Acoef * kappaPlusInvL * mass / L := by positivity
+    calc
+      _ = (Acoef * kappaPlusInvL * mass / L) * (qfun x)⁻¹ ^ 2 := by ring
+      _ ≤ (Acoef * kappaPlusInvL * mass / L) *
+            ((46 / 100 : ℝ)⁻¹ ^ 2 + ηcoeff) :=
+          mul_le_mul_of_nonneg_left hqSquareBound hfactor
+      _ = ((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) *
+            kappaPlusInvL * mass / L +
+            (Acoef * kappaPlusInvL * ηcoeff) * (mass / L) := by
+          dsimp [Acoef]
+          ring
+      _ ≤ ((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) *
+            kappaPlusInvL * mass / L + (η / 2) * (mass / L) := by
+          let baseTerm :=
+            ((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) * kappaPlusInvL * mass / L
+          have hterm := mul_le_mul_of_nonneg_right hCoeffAbsorb
+            (div_nonneg hmassNonnegFinal hLpos'.le)
+          calc
+            _ = (Acoef * kappaPlusInvL * ηcoeff * (mass / L)) + baseTerm := by
+              dsimp [baseTerm]
+              ring
+            _ ≤ (η / 2) * (mass / L) + baseTerm :=
+              add_le_add_left hterm baseTerm
+            _ = baseTerm + (η / 2) * (mass / L) := by ring
+      _ = ((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) *
+            kappaPlusInvL * mass / L + (η / 2) * mass / L := by ring
+  have hErrCount :
+      Cdyad * (κ * L + 1) * 4 * Ctype * x * Real.rpow L (-6 : ℝ) ≤
+        8 * Ctype * Cdyad * x * Real.rpow L (-5 : ℝ) := by
+    have hcoeff := mul_le_mul_of_nonneg_left hcountBound hCdyad.le
+    calc
+      _ = (Cdyad * (κ * L + 1)) *
+          (4 * Ctype * x * Real.rpow L (-6 : ℝ)) := by ring
+      _ ≤ (Cdyad * (2 * L)) *
+          (4 * Ctype * x * Real.rpow L (-6 : ℝ)) :=
+          mul_le_mul_of_nonneg_right hcoeff (by
+            exact mul_nonneg (by positivity)
+              (Real.rpow_nonneg hLpos'.le (-6 : ℝ)))
+      _ = 8 * Ctype * Cdyad * x * Real.rpow L (-5 : ℝ) := by
+          have hpow : L * Real.rpow L (-6 : ℝ) = Real.rpow L (-5 : ℝ) := by
+            calc
+              _ = Real.rpow L 1 * Real.rpow L (-6 : ℝ) := by simp
+              _ = Real.rpow L (1 + (-6 : ℝ)) := (Real.rpow_add hLpos _ _).symm
+              _ = Real.rpow L (-5 : ℝ) := by congr 1 <;> norm_num
+          calc
+            _ = 8 * Ctype * Cdyad * x *
+                (L * Real.rpow L (-6 : ℝ)) := by ring
+            _ = _ := by rw [hpow]
+  have hpowCombine : L ^ 2 * Real.rpow L (-5 : ℝ) = Real.rpow L (-3 : ℝ) := by
+    have hRpow2 : Real.rpow L (2 : ℝ) = L ^ 2 := Real.rpow_natCast L 2
+    calc
+      _ = Real.rpow L (2 : ℝ) * Real.rpow L (-5 : ℝ) := by
+        rw [← hRpow2]
+      _ = Real.rpow L ((2 : ℝ) + (-5 : ℝ)) := (Real.rpow_add hLpos' _ _).symm
+      _ = Real.rpow L (-3 : ℝ) := by congr 1 <;> norm_num
+  have hErrScale :
+      16 * Ctype * Cdyad * Real.rpow L (-3 : ℝ) < c₀ * η := by
+    have h := hxError x hxError'
+    have h' : Real.rpow L (-3 : ℝ) < c₀ * η / (16 * Ctype * Cdyad) := by
+      simpa [L, ηerror] using h
+    have hden : 0 < 16 * Ctype * Cdyad := by positivity
+    have hmul := (lt_div_iff₀ hden).1 h'
+    nlinarith [hmul]
+  have hErrDirect :
+      8 * Ctype * Cdyad * x * Real.rpow L (-5 : ℝ) ≤
+        (η / 2) * (c₀ * x / L ^ 2) := by
+    rw [show (η / 2) * (c₀ * x / L ^ 2) = (η * c₀ * x) / (2 * L ^ 2) by
+      field_simp [ne_of_gt hLpos]
+      <;> ring]
+    apply (le_div_iff₀ (by positivity : 0 < 2 * L ^ 2)).2
+    have hmul := mul_lt_mul_of_pos_right hErrScale (by linarith : 0 < x)
+    have hmul' :
+        16 * Ctype * Cdyad * x * (L ^ 2 * Real.rpow L (-5 : ℝ)) ≤
+          c₀ * η * x := by
+      rw [hpowCombine]
+      nlinarith [hmul]
+    calc
+      8 * Ctype * Cdyad * x * Real.rpow L (-5 : ℝ) * (2 * L ^ 2) =
+          16 * Ctype * Cdyad * x * (L ^ 2 * Real.rpow L (-5 : ℝ)) := by ring
+      _ ≤ c₀ * η * x := hmul'
+      _ = η * c₀ * x := by ring
+  have hErrBudget :
+      Cdyad * (κ * L + 1) * 4 * Ctype * x * Real.rpow L (-6 : ℝ) ≤
+        (η / 2) * mass / L := by
+    calc
+      _ ≤ 8 * Ctype * Cdyad * x * Real.rpow L (-5 : ℝ) := hErrCount
+      _ ≤ (η / 2) * (c₀ * x / L ^ 2) := hErrDirect
+      _ ≤ (η / 2) * (mass / L) :=
+        mul_le_mul_of_nonneg_left hmassOverL (by positivity)
+      _ = (η / 2) * mass / L := by ring
+  have hFinalBound :
+      compositeMass ≤
+        ((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) *
+            kappaPlusInvL * mass / L + η * mass / L := by
+    calc
+      compositeMass ≤
+          Acoef * kappaPlusInvL * (qfun x)⁻¹ ^ 2 * mass / L +
+            Cdyad * (κ * L + 1) * 4 * Ctype * x * Real.rpow L (-6 : ℝ) :=
+        hSummedRaw
+      _ ≤ (((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) *
+            kappaPlusInvL * mass / L + (η / 2) * mass / L) +
+            (η / 2) * mass / L := add_le_add hProxyBudget hErrBudget
+      _ = ((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) *
+            kappaPlusInvL * mass / L + η * mass / L := by ring
+  change compositeMass ≤
+    ((46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad) *
+      (κ + 1 / Real.log x) * conTotalMass x M c u K a Ψ / Real.log x +
+      η * conTotalMass x M c u K a Ψ / Real.log x
+  simpa [L, mass, kappaPlusInvL] using hFinalBound
 
+set_option maxHeartbeats 8000000 in
 /-- `co:completion`, 12-construction.tex:777-818. This is the frozen conclusion of
 `ArtinPrimitiveRoots.prop_controlled`, so the target file uses this node as glue without changing
 the proposition. -/
@@ -2237,6 +3542,522 @@ theorem co_completion (M : ℕ) (hM0 : 0 < M) (hM : 8 ∣ M) (c : ℕ)
                 Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) < (ℓ : ℝ) ∧
                   (ℓ : ℝ) < Real.exp (Real.rpow (Real.log x) (3 / 10 : ℝ))} :
             Set ℕ).ncard : ℝ) := by
-  sorry
+  classical
+  let Ψ : ℝ → ℝ := c4TestFunction
+  have hΨ : IsTestFunction Ψ := by
+    simpa [Ψ] using c4TestFunction_isTestFunction
+  obtain ⟨C₁, hC₁, hRoughPairs⟩ := con_rough_pairs M Ψ hM0 hΨ
+  have hPairs : HasRoughPairBound M Ψ C₁ := by
+    intro c' hc' u' K' a' ha'
+    exact hRoughPairs c' hc' u' K' a' ha'
+  obtain ⟨Cdyad, hCdyad, hBoxes⟩ := balanced_boxes
+  have hCover : HasBalancedBoxCover Cdyad := by
+    unfold HasBalancedBoxCover
+    exact hBoxes
+  obtain ⟨C_s, C_d, b₂, hCs, hCd, hb₂, hDensityNode⟩ := density_partition
+  have hS : 0 < singularProduct M := (sieve_products M hM0).1
+  let E : ℝ := Real.exp (-Real.eulerMascheroniConstant)
+  have hE : 0 < E := by positivity
+  let C₂ : ℝ := (46 / 100 : ℝ)⁻¹ ^ 2 * C₁ * Cdyad
+  have hC₂ : 0 < C₂ := by dsimp [C₂]; positivity
+  let κ : ℝ := min (1 / 200) (singularProduct M / (8 * (C₂ + 1)))
+  have hκ : 0 < κ := by dsimp [κ]; positivity
+  have hκsmall : κ < 1 / 100 := by
+    have hκle : κ ≤ 1 / 200 := min_le_left _ _
+    linarith
+  have hκC₂ : C₂ * κ < singularProduct M / 4 := by
+    have hden : 0 < 8 * (C₂ + 1) := by positivity
+    have hκle : κ ≤ singularProduct M / (8 * (C₂ + 1)) := min_le_right _ _
+    have hmul := (le_div_iff₀ hden).mp hκle
+    nlinarith [hmul, hS]
+  obtain ⟨b, hb, hbb₂, hbk, hbsmall, hSmallError⟩ :=
+    ArtinPrimitiveRoots.Construction.exists_small_completion_b
+      C_s C_d b₂ κ E hCs hCd hb₂ hκ hκsmall hE
+  have hcM : c ∣ M := by
+    rcases hc with hc2 | hc4
+    · subst c
+      exact dvd_trans (by norm_num : 2 ∣ 8) hM
+    · subst c
+      exact dvd_trans (by norm_num : 4 ∣ 8) hM
+  obtain ⟨Kden, hDensityK⟩ :=
+    hDensityNode M c u κ hM0 hM hc hcM hu hcu hcu' hκ hκsmall
+      b hb hbb₂ hbk
+  obtain ⟨Kbal, hBalancedK⟩ :=
+    balanced_cost M Ψ C₁ Cdyad hM0 hM hΨ hC₁ hCdyad hPairs hCover
+      c hc hcM u κ b hκ hκsmall hb hu hcu hcu'
+  let K : ℕ := max 1 (max Kden Kbal)
+  have hK : 0 < K := by dsimp [K]; omega
+  have hKden : Kden ≤ K := by
+    dsimp [K]
+    exact le_trans (le_max_left Kden Kbal) (le_max_right 1 (max Kden Kbal))
+  have hKbal : Kbal ≤ K := by
+    dsimp [K]
+    exact le_trans (le_max_right Kden Kbal) (le_max_right 1 (max Kden Kbal))
+  let a : Fin K → ℝ := fun i =>
+    (1 / 10 : ℝ) + (1 / 10 : ℝ) *
+      (((i.val + 1 : ℕ) : ℝ) / ((K + 1 : ℕ) : ℝ))
+  have ha : ValidBands K a := by
+    refine ⟨hK, ?_, ?_⟩
+    · intro i
+      have hnumPos : (0 : ℝ) < ((i.val + 1 : ℕ) : ℝ) := by
+        exact_mod_cast Nat.succ_pos i.val
+      have hnumLtNat : i.val + 1 < K + 1 := by omega
+      have hnumLt : ((i.val + 1 : ℕ) : ℝ) < ((K + 1 : ℕ) : ℝ) := by
+        exact_mod_cast hnumLtNat
+      have hdenPos : (0 : ℝ) < ((K + 1 : ℕ) : ℝ) := by
+        exact_mod_cast Nat.succ_pos K
+      have hratioPos : 0 < ((i.val + 1 : ℕ) : ℝ) / ((K + 1 : ℕ) : ℝ) :=
+        div_pos hnumPos hdenPos
+      have hratioLt : ((i.val + 1 : ℕ) : ℝ) / ((K + 1 : ℕ) : ℝ) < 1 :=
+        (div_lt_one hdenPos).2 hnumLt
+      have hprodPos : 0 < (1 / 10 : ℝ) *
+          (((i.val + 1 : ℕ) : ℝ) / ((K + 1 : ℕ) : ℝ)) :=
+        mul_pos (by norm_num) hratioPos
+      have hprodLt : (1 / 10 : ℝ) *
+          (((i.val + 1 : ℕ) : ℝ) / ((K + 1 : ℕ) : ℝ)) < 1 / 10 := by
+        simpa only [mul_one] using
+          (mul_lt_mul_of_pos_left hratioLt
+            (by norm_num : (0 : ℝ) < 1 / 10))
+      have hLower : (1 / 10 : ℝ) < a i := by
+        dsimp [a]
+        simpa using add_lt_add_right hprodPos (1 / 10 : ℝ)
+      have hUpper : a i < 1 / 5 := by
+        dsimp [a]
+        calc
+          _ < (1 / 10 : ℝ) + 1 / 10 := by
+            simpa using add_lt_add_right hprodLt (1 / 10 : ℝ)
+          _ = 1 / 5 := by norm_num
+      exact ⟨hLower, hUpper⟩
+    · intro i j hij
+      have hij' : ((i.val + 1 : ℕ) : ℝ) < ((j.val + 1 : ℕ) : ℝ) := by
+        have hijNat : i.val + 1 < j.val + 1 := by omega
+        exact_mod_cast hijNat
+      have hdenPos : (0 : ℝ) < ((K + 1 : ℕ) : ℝ) := by
+        exact_mod_cast Nat.succ_pos K
+      have hratio :
+          ((i.val + 1 : ℕ) : ℝ) / ((K + 1 : ℕ) : ℝ) <
+            ((j.val + 1 : ℕ) : ℝ) / ((K + 1 : ℕ) : ℝ) :=
+        div_lt_div_of_pos_right hij' hdenPos
+      dsimp [a]
+      nlinarith
+  have hε : 0 < κ / 2 := by positivity
+  have hεκ : κ / 2 < κ := by linarith
+  obtain ⟨c₀, C₀, hc₀, hC₀, hDistribution⟩ := con_distribution M Ψ hM0 hΨ
+  obtain ⟨xDistribution, hxDistribution₂, hDistributionErrors, hMass⟩ :=
+    hDistribution c hc hcM u hu hcu hcu' K a ha (κ / 2) κ hε hεκ hκsmall
+  have hcpos : 0 < c := by rcases hc with h | h <;> simp [h]
+  obtain ⟨Cmass, xMass, hCmass, hxMass₂, hHarmonic⟩ :=
+    con_harmonic M c u Ψ K a hM0 hcpos ha hΨ
+  obtain ⟨B, xSupport, hB, hxSupport₂, hSupport⟩ :=
+    support M c u K a Ψ hM0 hc ha hΨ.2.2.1 hΨ.2.2.2.1 hΨ.2.1
+  have hηdensity : 0 < (1 / 20 : ℝ) := by norm_num
+  obtain ⟨J, γ, hγ0, hγend, hγstrict, hBudget, hIntegral, hDensityAfter⟩ :=
+    hDensityK K hKden a ha Ψ hΨ
+  obtain ⟨xDensity, hxDensity₂, hDensityMass⟩ :=
+    hDensityAfter (1 / 20 : ℝ) hηdensity
+  let ηbalanced : ℝ := singularProduct M / 20
+  have hηbalanced : 0 < ηbalanced := by dsimp [ηbalanced]; positivity
+  obtain ⟨xBalanced, hxBalanced₂, hCompositeBound⟩ :=
+    hBalancedK K hKbal a ha ηbalanced hηbalanced
+  let Lthreshold : ℝ := max 4096 (20 * C₂ / singularProduct M + 1)
+  let xScale : ℝ := Real.exp Lthreshold
+  let xInner : ℝ := max xDistribution (max xMass (max xDensity xBalanced))
+  let xLarge : ℝ := max xSupport xInner
+  let X : ℝ := max xScale xLarge
+  have hC : 0 < singularProduct M * c₀ / (4 * B) := by positivity
+  refine ⟨singularProduct M * c₀ / (4 * B), hC, X, ?_⟩
+  intro x hx
+  have hxScale : xScale ≤ x := le_trans (le_max_left _ _) hx
+  have hxLarge : xLarge ≤ x := le_trans (le_max_right _ _) hx
+  have hxSupport : xSupport ≤ x := le_trans (le_max_left _ _) hxLarge
+  have hxInner : xInner ≤ x := le_trans (le_max_right _ _) hxLarge
+  have hxDistSub : xDistribution ≤ xInner := le_max_left _ _
+  have hxMassSub : xMass ≤ xInner :=
+    le_trans (le_max_left _ _) (le_max_right _ _)
+  have hxDensitySub : xDensity ≤ xInner :=
+    le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hxBalancedSub : xBalanced ≤ xInner :=
+    le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))
+  have hxDistribution : xDistribution ≤ x := le_trans hxDistSub hxInner
+  have hxMass : xMass ≤ x := le_trans hxMassSub hxInner
+  have hxDensity : xDensity ≤ x := le_trans hxDensitySub hxInner
+  have hxBalanced : xBalanced ≤ x := le_trans hxBalancedSub hxInner
+  have hxpos : 0 < x := by
+    have hxScalePos : 0 < xScale := Real.exp_pos _
+    exact lt_of_lt_of_le hxScalePos hxScale
+  have hxone : 1 < x := by
+    have hThresholdLarge : (1 : ℝ) < Lthreshold := by
+      have hLarge : (4096 : ℝ) ≤ Lthreshold := by
+        dsimp [Lthreshold]
+        exact le_max_left _ _
+      linarith
+    have hScaleOne : 1 < xScale := by
+      dsimp [xScale]
+      have hExp : Lthreshold + 1 ≤ Real.exp Lthreshold := Real.add_one_le_exp Lthreshold
+      linarith
+    exact lt_of_lt_of_le hScaleOne (le_trans (le_max_left _ _) hx)
+  let L : ℝ := Real.log x
+  have hLpos : 0 < L := Real.log_pos hxone
+  have hLlarge : 4096 ≤ L := by
+    have hLog := Real.log_le_log (Real.exp_pos Lthreshold) hxScale
+    have hThr : 4096 ≤ Lthreshold := by dsimp [Lthreshold]; exact le_max_left _ _
+    have hlogX : Lthreshold ≤ L := by
+      simpa [L, xScale, Real.log_exp] using hLog
+    exact hThr.trans hlogX
+  have hC₂L : C₂ / L ≤ singularProduct M / 20 := by
+    have hratio : 20 * C₂ / singularProduct M < L := by
+      have hThr : 20 * C₂ / singularProduct M + 1 ≤ Lthreshold := by
+        dsimp [Lthreshold]
+        exact le_max_right _ _
+      have hLog := Real.log_le_log (Real.exp_pos Lthreshold) hxScale
+      have hlogX : Lthreshold ≤ L := by
+        simpa [L, xScale, Real.log_exp] using hLog
+      linarith [hThr.trans hlogX]
+    have hmul := (div_lt_iff₀ hS).1 hratio
+    apply (div_le_iff₀ hLpos).2
+    nlinarith [hmul]
+  have hCutoff : roughCutoff x < Real.rpow x (2 / 5 : ℝ) :=
+    ArtinPrimitiveRoots.Construction.Proofs.C4.roughCutoff_lt_two_fifths
+      hxone (by linarith [hLlarge])
+  have hCutoffX : roughCutoff x < x := by
+    calc
+      roughCutoff x < Real.rpow x (2 / 5 : ℝ) := hCutoff
+      _ < Real.rpow x 1 := Real.rpow_lt_rpow_of_exponent_lt hxone (by norm_num)
+      _ = x := by simp [Real.rpow_one]
+  let weight : ℕ → ℝ := conWeight x M c u K a Ψ
+  have hSupportAt := hSupport x hxSupport
+  have hWeightNonneg (d : ℕ) : 0 ≤ weight d := by
+    simpa [weight] using (hSupportAt.2.2 d).1
+  have hWeightLe (d : ℕ) : weight d ≤ B := by
+    simpa [weight] using (hSupportAt.2.2 d).2
+  let mass : ℝ := conTotalMass x M c u K a Ψ
+  have hmassNonneg : 0 ≤ mass := by
+    dsimp [mass, conTotalMass]
+    apply Finset.sum_nonneg
+    intro d hd
+    exact hWeightNonneg d
+  have hMassAt := hMass x hxDistribution
+  have hJ₀ : 1 ≤ groupHarmonicMass x K a := (hHarmonic x hxMass).2.1
+  have hmassLower : c₀ * x / L ≤ mass := by
+    have hdistLower :
+        c₀ * x * groupHarmonicMass x K a / L ≤ mass := by
+      simpa [mass, L] using hMassAt.1
+    have hnum : c₀ * x ≤ c₀ * x * groupHarmonicMass x K a := by
+      have hmul := mul_le_mul_of_nonneg_left hJ₀ (mul_nonneg hc₀.le hxpos.le)
+      simpa using hmul
+    calc
+      c₀ * x / L = (c₀ * x) / L := rfl
+      _ ≤ (c₀ * x * groupHarmonicMass x K a) / L :=
+        div_le_div_of_nonneg_right hnum hLpos.le
+      _ ≤ mass := hdistLower
+  have hmassOverL : c₀ * x / L ^ 2 ≤ mass / L := by
+    have h := div_le_div_of_nonneg_right hmassLower hLpos.le
+    calc
+      c₀ * x / L ^ 2 = (c₀ * x / L) / L := by field_simp [ne_of_gt hLpos]
+      _ ≤ mass / L := h
+  let y := Real.rpow x (1 / 2 - κ)
+  let roughMass := roughConstructionMass x M c u K a Ψ y
+  let primeMass : ℝ :=
+    ∑ d ∈ Finset.range (⌊2 * x⌋₊ + 1), if d.Prime then weight d else 0
+  let compositeMass : ℝ :=
+    ∑ d ∈ Finset.range (⌊2 * x⌋₊ + 1),
+      if roughAbove d y ∧ ¬ d.Prime then weight d else 0
+  have hyx : y < x := by
+    dsimp [y]
+    have hexp : (1 / 2 : ℝ) - κ < 1 := by nlinarith [hκ]
+    simpa [Real.rpow_one] using Real.rpow_lt_rpow_of_exponent_lt hxone hexp
+  have hPrimeRough : ∀ d : ℕ, d.Prime → 0 < weight d → roughAbove d y := by
+    intro d hdPrime hdweight
+    have hdSupport := hSupportAt.2.1 d (ne_of_gt hdweight)
+    intro p hp hpd
+    have hpEq : p = d := by
+      rcases (Nat.dvd_prime hdPrime).mp hpd with hpOne | hpD
+      · exact False.elim (hp.ne_one hpOne)
+      · exact hpD
+    have hdy : y < (d : ℝ) := lt_trans hyx hdSupport.1
+    simpa [hpEq] using hdy
+  have hroughSplit : roughMass = primeMass + compositeMass := by
+    dsimp [roughMass, primeMass, compositeMass, roughConstructionMass]
+    rw [← Finset.sum_add_distrib]
+    apply Finset.sum_congr rfl
+    intro d hd
+    by_cases hzero : weight d = 0
+    · simp [weight, hzero]
+    have hdweight : 0 < weight d := by
+      by_contra hn
+      have hle : weight d ≤ 0 := le_of_not_gt hn
+      exact hzero (le_antisymm hle (hWeightNonneg d))
+    by_cases hdPrime : d.Prime
+    · have hrough := hPrimeRough d hdPrime hdweight
+      simp [hdPrime, hrough, weight]
+    · simp [hdPrime, weight]
+  have hηdensity : 0 < (1 / 20 : ℝ) := by norm_num
+  have hDensityAt := hDensityMass x hxDensity
+  have hDenseCoefficient :
+      (13 / 20 : ℝ) ≤ 9 / 10 -
+        E / b * (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
+          C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 1 / 20 := by
+    linarith [hSmallError]
+  have hDensityLower :
+      (13 / 20 : ℝ) * singularProduct M * mass / L ≤ roughMass := by
+    have hfactor : 0 ≤ singularProduct M * mass / L := by positivity
+    have hDenseAt :
+        roughMass ≥ (singularProduct M * mass / L) *
+          (9 / 10 - E / b *
+            (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
+              C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 1 / 20) := by
+      simpa [roughMass, mass, L, y] using hDensityAt
+    calc
+      (13 / 20 : ℝ) * singularProduct M * mass / L =
+          (singularProduct M * mass / L) * (13 / 20 : ℝ) := by ring
+      _ ≤ (singularProduct M * mass / L) *
+          (9 / 10 - E / b *
+            (C_s * Real.exp (-(1 / 20 : ℝ) / b) +
+              C_d * Real.exp (-(1 / 20 : ℝ) / b)) - 1 / 20) :=
+        mul_le_mul_of_nonneg_left hDenseCoefficient hfactor
+      _ ≤ roughMass := hDenseAt
+  have hBalancedAt := hCompositeBound x hxBalanced
+  have hCompCoefficient :
+      C₂ * (κ + 1 / L) + ηbalanced ≤ (7 / 20 : ℝ) * singularProduct M := by
+    dsimp [ηbalanced]
+    rw [show C₂ * (κ + 1 / L) = C₂ * κ + C₂ / L by ring]
+    have hcoef := add_le_add hκC₂.le hC₂L
+    calc
+      (C₂ * κ + C₂ / L) + singularProduct M / 20 ≤
+          (singularProduct M / 4 + singularProduct M / 20) + singularProduct M / 20 :=
+        by linarith [hcoef]
+      _ = (7 / 20 : ℝ) * singularProduct M := by ring
+  have hCompositeUpper :
+      compositeMass ≤ (7 / 20 : ℝ) * singularProduct M * mass / L := by
+    have hfactor : 0 ≤ mass / L := by positivity
+    have hcomp : compositeMass ≤
+        C₂ * (κ + 1 / L) * mass / L + ηbalanced * mass / L := by
+      simpa [compositeMass, mass, L, C₂, weight, y] using hBalancedAt
+    have hcomp' : compositeMass ≤
+        (C₂ * (κ + 1 / L) + ηbalanced) * (mass / L) := by
+      calc
+        compositeMass ≤
+            C₂ * (κ + 1 / L) * mass / L + ηbalanced * mass / L := hcomp
+        _ = (C₂ * (κ + 1 / L) + ηbalanced) * (mass / L) := by
+          field_simp [ne_of_gt hLpos]
+          <;> ring
+    calc
+      compositeMass ≤ (C₂ * (κ + 1 / L) + ηbalanced) * (mass / L) := hcomp'
+      _ ≤ ((7 / 20 : ℝ) * singularProduct M) * (mass / L) :=
+        mul_le_mul_of_nonneg_right hCompCoefficient hfactor
+      _ = (7 / 20 : ℝ) * singularProduct M * mass / L := by ring
+  have hPrimeMassLower :
+      (3 / 10 : ℝ) * (singularProduct M * (mass / L)) ≤ primeMass := by
+    let roughScale : ℝ := singularProduct M * (mass / L)
+    have hDensityScale : (13 / 20 : ℝ) * roughScale ≤ roughMass := by
+      convert hDensityLower using 1 <;> dsimp [roughScale] <;> ring
+    have hCompositeScale : compositeMass ≤ (7 / 20 : ℝ) * roughScale := by
+      convert hCompositeUpper using 1 <;> dsimp [roughScale] <;> ring
+    have hres :
+        (3 / 10 : ℝ) * roughScale ≤ roughMass - compositeMass := by
+      linarith [hDensityScale, hCompositeScale]
+    have hres' :
+        (3 / 10 : ℝ) * (singularProduct M * (mass / L)) ≤
+          roughMass - compositeMass := by
+      simpa [roughScale] using hres
+    calc
+      _ ≤ roughMass - compositeMass := hres'
+      _ = primeMass := by rw [hroughSplit]; ring
+  let Good : Finset ℕ :=
+    (Finset.range (⌊2 * x⌋₊ + 1)).filter (fun p => p.Prime ∧ 0 < weight p)
+  have hPrimeMassEq : primeMass = ∑ p ∈ Good, weight p := by
+    have hpoint (p : ℕ) :
+        (if p.Prime then weight p else 0) =
+          if p.Prime ∧ 0 < weight p then weight p else 0 := by
+      by_cases hp : p.Prime
+      · by_cases hw : 0 < weight p
+        · simp [hp, hw]
+        · have hz : weight p = 0 := le_antisymm (le_of_not_gt hw) (hWeightNonneg p)
+          simp [hp, hw, hz]
+      · simp [hp]
+    calc
+      primeMass =
+          ∑ p ∈ Finset.range (⌊2 * x⌋₊ + 1),
+            (if p.Prime ∧ 0 < weight p then weight p else 0) := by
+              dsimp [primeMass]
+              apply Finset.sum_congr rfl
+              intro p hp
+              exact hpoint p
+      _ = ∑ p ∈ Good, weight p := by
+        dsimp [Good]
+        rw [Finset.sum_filter]
+  have hPrimeMassUpper : primeMass ≤ (Good.card : ℝ) * B := by
+    rw [hPrimeMassEq]
+    calc
+      _ ≤ ∑ p ∈ Good, B := by
+        apply Finset.sum_le_sum
+        intro p hp
+        exact hWeightLe p
+      _ = (Good.card : ℝ) * B := by simp
+  have hPrimeMassLowerX :
+      (3 / 10 : ℝ) * singularProduct M * c₀ * x / L ^ 2 ≤ primeMass := by
+    have hmult := mul_le_mul_of_nonneg_left hmassOverL
+      (mul_nonneg (by norm_num : (0 : ℝ) ≤ 3 / 10) hS.le)
+    calc
+      (3 / 10 : ℝ) * singularProduct M * c₀ * x / L ^ 2 =
+          (3 / 10 : ℝ) * singularProduct M * (c₀ * x / L ^ 2) := by ring
+      _ ≤ (3 / 10 : ℝ) * singularProduct M * (mass / L) := hmult
+      _ = (3 / 10 : ℝ) * (singularProduct M * (mass / L)) := by ring
+      _ ≤ primeMass := hPrimeMassLower
+  have hCoeffFinal :
+      (singularProduct M * c₀ / (4 * B)) * B ≤
+        (3 / 10 : ℝ) * singularProduct M * c₀ := by
+    have hcoeff : (singularProduct M * c₀ / (4 * B)) * B =
+        singularProduct M * c₀ / 4 := by
+      field_simp [ne_of_gt hB]
+      <;> ring
+    rw [hcoeff]
+    have hpos : 0 < singularProduct M * c₀ := mul_pos hS hc₀
+    nlinarith
+  have hGoodCard :
+      singularProduct M * c₀ / (4 * B) * x / L ^ 2 ≤ (Good.card : ℝ) := by
+    apply le_of_mul_le_mul_right _ hB
+    calc
+      (singularProduct M * c₀ / (4 * B) * x / L ^ 2) * B =
+          ((singularProduct M * c₀ / (4 * B)) * B) * (x / L ^ 2) := by ring
+      _ ≤ ((3 / 10 : ℝ) * singularProduct M * c₀) * (x / L ^ 2) :=
+        mul_le_mul_of_nonneg_right hCoeffFinal (div_nonneg hxpos.le (sq_nonneg L))
+      _ = (3 / 10 : ℝ) * singularProduct M * c₀ * x / L ^ 2 := by ring
+      _ ≤ (Good.card : ℝ) * B := hPrimeMassLowerX.trans hPrimeMassUpper
+  let Target : Set ℕ := {p : ℕ |
+    p.Prime ∧ x < (p : ℝ) ∧ (p : ℝ) < 2 * x ∧
+      (p : ℤ) ≡ u [ZMOD M] ∧
+      ∃ r Q : ℕ, p - 1 = c * r * Q ∧ Q.Prime ∧
+        Real.rpow x (9 / 10 : ℝ) < (Q : ℝ) ∧ 0 < r ∧
+        ∀ ℓ : ℕ, ℓ.Prime → ℓ ∣ r →
+          Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) < (ℓ : ℝ) ∧
+            (ℓ : ℝ) < Real.exp (Real.rpow (Real.log x) (3 / 10 : ℝ))}
+  have hGoodSubset : (Good : Set ℕ) ⊆ Target := by
+    intro p hp
+    change p ∈ Good at hp
+    rcases Finset.mem_filter.mp hp with ⟨hpRange, hpData⟩
+    rcases hpData with ⟨hpPrime, hpWeight⟩
+    have hSupportP := hSupportAt.2.1 p (ne_of_gt hpWeight)
+    rcases hSupportP with ⟨hpLo, hpHi, hFactorData⟩
+    rcases hFactorData with
+      ⟨r, Q, hfactor, hQ, hQlarge, hrGroup, hrBound, hMarkedWeight⟩
+    have hconCond : 1 < p ∧ (p : ℤ) ≡ u [ZMOD M] := by
+      by_contra hn
+      have hzeroP : weight p = 0 := by simp [weight, conWeight, hn]
+      exact (ne_of_gt hpWeight) hzeroP
+    have hrpos : 0 < r := by
+      by_contra hnot
+      have hrzero : r = 0 := Nat.eq_zero_of_not_pos hnot
+      have hpminus : p - 1 = 0 := by simpa [hrzero] using hfactor
+      omega
+    have hLbase : 1 < L := by linarith [hLlarge]
+    have hPowerBase : (2 : ℝ) ^ 10 < L := by
+      norm_num at hLlarge ⊢
+      linarith
+    have hLogPower : 10 * Real.log 2 < Real.log L := by
+      have h := Real.log_lt_log (by norm_num : (0 : ℝ) < (2 : ℝ) ^ 10) hPowerBase
+      rw [Real.log_pow] at h
+      simpa [mul_comm] using h
+    have hLogRatio : Real.log 2 < Real.log L / 10 := by
+      have hLogPower' : Real.log 2 * 10 < Real.log L := by
+        nlinarith [hLogPower]
+      exact (lt_div_iff₀ (by norm_num : (0 : ℝ) < 10)).2 hLogPower'
+    have hLpowTen : 2 < Real.rpow L (1 / 10 : ℝ) := by
+      have hexp : Real.exp (Real.log 2) <
+          Real.exp (Real.log L * (1 / 10 : ℝ)) :=
+        Real.exp_lt_exp.mpr (by
+          calc
+            Real.log 2 < Real.log L / 10 := hLogRatio
+            _ = Real.log L * (1 / 10 : ℝ) := by ring)
+      have hTwo : Real.exp (Real.log 2) = 2 := Real.exp_log (by norm_num)
+      have hRpow : Real.rpow L (1 / 10 : ℝ) =
+          Real.exp (Real.log L * (1 / 10 : ℝ)) :=
+        Real.rpow_def_of_pos hLpos _
+      calc
+        2 = Real.exp (Real.log 2) := hTwo.symm
+        _ < Real.exp (Real.log L * (1 / 10 : ℝ)) := hexp
+        _ = Real.rpow L (1 / 10 : ℝ) := hRpow.symm
+    have hRpowMul : Real.rpow L (3 / 10 : ℝ) =
+        Real.rpow L (1 / 5 : ℝ) * Real.rpow L (1 / 10 : ℝ) := by
+      have hsum : (1 / 5 : ℝ) + 1 / 10 = 3 / 10 := by norm_num
+      rw [← hsum]
+      exact Real.rpow_add hLpos _ _
+    have hPrimeDivs : ∀ ℓ : ℕ, ℓ.Prime → ℓ ∣ r →
+        Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) < (ℓ : ℝ) ∧
+          (ℓ : ℝ) < Real.exp (Real.rpow (Real.log x) (3 / 10 : ℝ)) := by
+      intro ℓ hℓ hℓr
+      have hℓmarked : ℓ ∈ markedPrimes x K a := hrGroup ℓ hℓ hℓr
+      simp only [markedPrimes, Finset.mem_biUnion, Finset.mem_univ, true_and] at hℓmarked
+      rcases hℓmarked with ⟨i, hℓband⟩
+      rcases (Finset.mem_filter.mp hℓband).2 with ⟨hℓprimeBand, hℓlower, hℓupper⟩
+      have haLower : (1 / 10 : ℝ) < a i := (ha.2.1 i).1
+      have haUpper : a i < 1 / 5 := (ha.2.1 i).2
+      have hLpowLower : Real.rpow L (1 / 10 : ℝ) < Real.rpow L (a i) :=
+        Real.rpow_lt_rpow_of_exponent_lt hLbase haLower
+      have hLpowUpper : Real.rpow L (a i) ≤ Real.rpow L (1 / 5 : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le hLbase.le haUpper.le
+      have hPrimeDivLower :
+          Real.exp (Real.rpow L (1 / 10 : ℝ)) < (ℓ : ℝ) :=
+        lt_of_lt_of_le (Real.exp_lt_exp.mpr hLpowLower) hℓlower
+      have hPrimeDivUpper :
+          (ℓ : ℝ) < Real.exp (Real.rpow L (3 / 10 : ℝ)) := by
+        have hExponent : 2 * Real.rpow L (a i) < Real.rpow L (3 / 10 : ℝ) := by
+          calc
+            2 * Real.rpow L (a i) ≤ 2 * Real.rpow L (1 / 5 : ℝ) :=
+              mul_le_mul_of_nonneg_left hLpowUpper (by norm_num)
+            _ < Real.rpow L (1 / 5 : ℝ) * Real.rpow L (1 / 10 : ℝ) := by
+              have hmul := mul_lt_mul_of_pos_left hLpowTen
+                (Real.rpow_pos_of_pos hLpos (1 / 5 : ℝ))
+              nlinarith [hmul]
+            _ = Real.rpow L (3 / 10 : ℝ) := hRpowMul.symm
+        exact lt_of_le_of_lt hℓupper (Real.exp_lt_exp.mpr hExponent)
+      have hPrimeDivLower' :
+          Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) < (ℓ : ℝ) := by
+        simpa [L] using hPrimeDivLower
+      have hPrimeDivUpper' :
+          (ℓ : ℝ) < Real.exp (Real.rpow (Real.log x) (3 / 10 : ℝ)) := by
+        simpa [L] using hPrimeDivUpper
+      exact ⟨hPrimeDivLower', hPrimeDivUpper'⟩
+    have hclass : (p : ℤ) ≡ u [ZMOD M] := hconCond.2
+    refine ⟨hpPrime, hpLo, hpHi, hclass, r, Q, hfactor, hQ, hQlarge, hrpos, ?_⟩
+    intro ℓ hℓ hℓr
+    exact hPrimeDivs ℓ hℓ hℓr
+  have hTargetFinite : Target.Finite := by
+    apply (Finset.finite_toSet (Finset.range (⌊2 * x⌋₊ + 1))).subset
+    intro p hp
+    simp only [Target, Set.mem_setOf_eq] at hp
+    have h2x : 0 ≤ 2 * x := by positivity
+    have hpFloor : p ≤ ⌊2 * x⌋₊ :=
+      (Nat.le_floor_iff h2x).2 (le_of_lt hp.2.2.1)
+    exact Finset.mem_range.mpr (by omega)
+  have hCard : Good.card ≤ Target.ncard := by
+    calc
+      Good.card = (Good : Set ℕ).ncard := (Set.ncard_coe_finset Good).symm
+      _ ≤ Target.ncard := Set.ncard_le_ncard hGoodSubset hTargetFinite
+  have hCardReal : (Good.card : ℝ) ≤ (Target.ncard : ℝ) := by exact_mod_cast hCard
+  have hPrimeWeightCoeff :
+      singularProduct M * c₀ / (4 * B) * B ≤
+        (3 / 10 : ℝ) * singularProduct M * c₀ := by
+    have hEq : singularProduct M * c₀ / (4 * B) * B = singularProduct M * c₀ / 4 := by
+      field_simp [ne_of_gt hB]
+      <;> ring
+    rw [hEq]
+    have hpos : 0 < singularProduct M * c₀ := mul_pos hS hc₀
+    nlinarith
+  have hGoodCard :
+      singularProduct M * c₀ / (4 * B) * x / L ^ 2 ≤ (Good.card : ℝ) := by
+    apply le_of_mul_le_mul_right _ hB
+    calc
+      (singularProduct M * c₀ / (4 * B) * x / L ^ 2) * B =
+          ((singularProduct M * c₀ / (4 * B)) * B) * (x / L ^ 2) := by ring
+      _ ≤ ((3 / 10 : ℝ) * singularProduct M * c₀) * (x / L ^ 2) :=
+        mul_le_mul_of_nonneg_right hPrimeWeightCoeff (div_nonneg hxpos.le (sq_nonneg L))
+      _ = (3 / 10 : ℝ) * singularProduct M * c₀ * x / L ^ 2 := by ring
+      _ ≤ primeMass := hPrimeMassLowerX
+      _ ≤ (Good.card : ℝ) * B := hPrimeMassUpper
+  calc
+    singularProduct M * c₀ / (4 * B) * x / Real.log x ^ 2 ≤ (Good.card : ℝ) := by
+      simpa [L] using hGoodCard
+    _ ≤ (Target.ncard : ℝ) := hCardReal
 
 end ArtinPrimitiveRoots.Construction
