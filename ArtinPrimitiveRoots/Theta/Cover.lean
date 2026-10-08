@@ -4600,6 +4600,273 @@ private theorem exists_coverSTupleBase (B : CoverQuotientBase D S H) :
     a_cont := ha
   }⟩
 
+/-- Quotient torus and exact lift identities for the native S-generators. -/
+private structure CoverSLawBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (T : CoverSTupleBase B) where
+  a_mul : ∀ x y : S.FSˣ,
+    B.quotient.q (T.aRP x) * B.quotient.q (T.aRP y) =
+      E.z (muThree D (S.HS H x y)) * B.quotient.q (T.aRP (x * y))
+  lift_na : ∀ (x : S.FS) (y : S.FSˣ),
+    T.nRP (Multiplicative.ofAdd x) * T.aRP y =
+      T.aRP y * T.nRP (Multiplicative.ofAdd (x * ↑y⁻¹))
+  lift_wa : ∀ y : S.FSˣ, T.wRP * T.aRP y * T.wRP⁻¹ = T.aRP y⁻¹
+  lift_wn : ∀ u : S.FSˣ,
+    T.wRP * T.nRP (Multiplicative.ofAdd (u : S.FS)) =
+      T.nRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) *
+        T.aRP (-(u⁻¹ * u⁻¹)) *
+          T.nbarRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS))
+  emb_a : ∀ v : S.Sf, ∀ y : (v.1.adicCompletion F)ˣ, ∃ yS : S.FSˣ,
+    S.compU v yS = y ∧ (∀ v' : S.Sf, v' ≠ v → S.compU v' yS = 1) ∧
+    (∀ w, S.compC w yS = 1) ∧
+      B.quotient.q (T.aRP yS) = E.emb v.1 ((B.family.loc v.1).a y)
+
+private theorem exists_coverSLawBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (T : CoverSTupleBase B) :
+    Nonempty (CoverSLawBase B E T) := by
+  classical
+  have aMul (x y : S.FSˣ) :
+      B.quotient.q (T.aRP x) * B.quotient.q (T.aRP y) =
+        E.z (muThree D (S.HS H x y)) * B.quotient.q (T.aRP (x * y)) := by
+    let ζ : FinPlace F → rootsOfUnity 3 ℂ := fun v => if hv : v ∈ S.Sf then
+      muThree D (H.hilb v (S.compU ⟨v, hv⟩ x) (S.compU ⟨v, hv⟩ y)) else 1
+    have hs : Function.mulSupport ζ ⊆ (S.Sf : Set (FinPlace F)) := by
+      intro v hv
+      by_contra hn
+      change v ∉ S.Sf at hn
+      change ζ v ≠ 1 at hv
+      exact hv (by simp only [ζ, dif_neg hn])
+    have hfinite : (Function.mulSupport ζ).Finite := S.Sf.finite_toSet.subset hs
+    let p : rootsOfUnity 6 F →* rootsOfUnity 3 ℂ := {
+      toFun := muThree D
+      map_one' := muThree_one D
+      map_mul' := muThree_mul D
+    }
+    have hprod : (∏ᶠ v, ζ v) = muThree D (S.HS H x y) := by
+      rw [finprod_eq_prod_of_mulSupport_subset ζ hs, ← Finset.prod_coe_sort S.Sf ζ]
+      have hp : (∏ v : S.Sf, ζ v) =
+          ∏ v : S.Sf, p (H.hilb v.1 (S.compU v x) (S.compU v y)) := by
+        apply Finset.prod_congr rfl
+        intro v _
+        simp [ζ, p, v.2]
+      rw [hp]
+      change (∏ v : S.Sf, p (H.hilb v.1 (S.compU v x) (S.compU v y))) =
+        p (∏ v : S.Sf, H.hilb v.1 (S.compU v x) (S.compU v y))
+      exact (_root_.map_prod p
+        (fun v : S.Sf => H.hilb v.1 (S.compU v x) (S.compU v y)) Finset.univ).symm
+    have diag_mul : ∀ a b : ℂˣ, diagM ℂ (a * b) = diagM ℂ a * diagM ℂ b := by
+      intro a b
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;> simp [diagM, Matrix.mul_apply, Fin.sum_univ_two]
+    have hq : B.quotient.q (T.aRP x * T.aRP y * (T.aRP (x * y))⁻¹) = E.z (∏ᶠ v, ζ v) := by
+      apply coverEmbedding_phaseProduct B E _ ζ hfinite
+      · intro v
+        change T.aRP x (.inl v) * T.aRP y (.inl v) * (T.aRP (x * y) (.inl v))⁻¹ =
+          (B.family.loc v).z (ζ v)
+        rw [T.aF, T.aF, T.aF]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          rw [map_mul, (B.family.loc v).a_mul]
+          simp [ζ, hv]
+        · simp [ζ, hv]
+      · intro w
+        change T.aRP x (.inr w) * T.aRP y (.inr w) * (T.aRP (x * y) (.inr w))⁻¹ = 1
+        have h : T.aRP x (.inr w) * T.aRP y (.inr w) = T.aRP (x * y) (.inr w) := by
+          rw [T.aC, T.aC, T.aC, map_mul, ← QuotientGroup.mk_mul, ← diag_mul]
+        rw [h, mul_inv_cancel]
+    have hq' : B.quotient.q (T.aRP x) * B.quotient.q (T.aRP y) *
+        (B.quotient.q (T.aRP (x * y)))⁻¹ = E.z (muThree D (S.HS H x y)) := by
+      simpa only [map_mul, map_inv, hprod] using hq
+    have h := congrArg (fun g : B.quotient.Q => g * B.quotient.q (T.aRP (x * y))) hq'
+    simpa only [mul_assoc, inv_mul_cancel, mul_one] using h
+  let qC : GL (Fin 2) ℂ →* PGL2 ℂ := QuotientGroup.mk' _
+  have scalar_q (c : ℂˣ) : qC (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1 := by
+    apply (QuotientGroup.eq_one_iff _).mpr
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar]
+    exact ⟨c, rfl⟩
+  have diag_one : diagM ℂ 1 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [diagM]
+  have weyl_sq : weylM ℂ * weylM ℂ = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+  have weyl_inv : (weylM ℂ)⁻¹ = weylM ℂ :=
+    (eq_inv_of_mul_eq_one_left weyl_sq).symm
+  have upper_diag : ∀ (x : ℂ) (y : ℂˣ), upperM ℂ x * diagM ℂ y =
+      diagM ℂ y * upperM ℂ (x * (y⁻¹ : ℂˣ)) := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+    all_goals
+      rw [mul_left_comm]
+      have hy : (y : ℂ) * (y : ℂ)⁻¹ = 1 := mul_inv_cancel₀ (a := (y : ℂ)) y.ne_zero
+      rw [hy, mul_one]
+  have weyl_diag : ∀ y : ℂˣ, weylM ℂ * diagM ℂ y * weylM ℂ =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) y * diagM ℂ y⁻¹ := by
+    intro y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, diagM, Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two]
+  have wn_factor : ∀ t : ℂˣ, weylM ℂ * upperM ℂ (t : ℂ) =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) t *
+        (upperM ℂ ((t⁻¹ : ℂˣ) : ℂ) * diagM ℂ (-(t⁻¹ * t⁻¹)) *
+          lowerM ℂ ((t⁻¹ : ℂˣ) : ℂ)) := by
+    intro t
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, upperM, diagM, lowerM, Matrix.GeneralLinearGroup.scalar,
+        Matrix.mul_apply, Fin.sum_univ_two] <;> try field_simp <;> ring
+  have compU_neg (v : S.Sf) (u : S.FSˣ) : S.compU v (-u) = -S.compU v u := by
+    apply Units.ext
+    simp [SData.compU]
+  have compC_neg (w : InfinitePlace F) (u : S.FSˣ) : S.compC w (-u) = -S.compC w u := by
+    apply Units.ext
+    simp [SData.compC]
+  refine ⟨{
+    a_mul := aMul
+    lift_na := ?_
+    lift_wa := ?_
+    lift_wn := ?_
+    emb_a := ?_
+  }⟩
+  · intro x y
+    apply RestrictedProduct.ext
+    intro p
+    cases p with
+    | inl v =>
+      change T.nRP (Multiplicative.ofAdd x) (.inl v) * T.aRP y (.inl v) =
+        T.aRP y (.inl v) * T.nRP (Multiplicative.ofAdd (x * ↑y⁻¹)) (.inl v)
+      simp only [T.nF, T.aF]
+      by_cases hv : v ∈ S.Sf
+      · simp only [dif_pos hv]
+        simpa [SData.compU] using (B.family.loc v).lift_na (x.1 ⟨v, hv⟩) (S.compU ⟨v, hv⟩ y)
+      · simp [hv]
+    | inr w =>
+      change T.nRP (Multiplicative.ofAdd x) (.inr w) * T.aRP y (.inr w) =
+        T.aRP y (.inr w) * T.nRP (Multiplicative.ofAdd (x * ↑y⁻¹)) (.inr w)
+      simp only [T.nC, T.aC]
+      change qC (upperM ℂ (x.2 w)) * qC (diagM ℂ (S.compC w y)) =
+        qC (diagM ℂ (S.compC w y)) * qC (upperM ℂ ((x * ↑y⁻¹).2 w))
+      rw [← map_mul, ← map_mul, upper_diag]
+      congr 2
+  · intro y
+    apply RestrictedProduct.ext
+    intro p
+    cases p with
+    | inl v =>
+      change T.wRP (.inl v) * T.aRP y (.inl v) * (T.wRP (.inl v))⁻¹ = T.aRP y⁻¹ (.inl v)
+      simp only [T.wF, T.aF]
+      by_cases hv : v ∈ S.Sf
+      · simp only [if_pos hv, dif_pos hv, map_inv]
+        exact (B.family.loc v).lift_wa _
+      · simp [hv]
+    | inr w =>
+      change T.wRP (.inr w) * T.aRP y (.inr w) * (T.wRP (.inr w))⁻¹ = T.aRP y⁻¹ (.inr w)
+      simp only [T.wC, T.aC]
+      change qC (weylM ℂ) * qC (diagM ℂ (S.compC w y)) * (qC (weylM ℂ))⁻¹ =
+        qC (diagM ℂ (S.compC w y⁻¹))
+      rw [map_inv, ← map_inv qC, weyl_inv, ← map_mul, ← map_mul, weyl_diag,
+        map_mul, scalar_q, one_mul]
+  · intro u
+    apply RestrictedProduct.ext
+    intro p
+    cases p with
+    | inl v =>
+      change T.wRP (.inl v) * T.nRP (Multiplicative.ofAdd (u : S.FS)) (.inl v) =
+        T.nRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) (.inl v) *
+          T.aRP (-(u⁻¹ * u⁻¹)) (.inl v) *
+            T.nbarRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) (.inl v)
+      rw [T.wF, T.nF, T.nF, T.aF, T.nbarF]
+      by_cases hv : v ∈ S.Sf
+      · simp only [if_pos hv, dif_pos hv, compU_neg, map_mul, map_inv]
+        simpa [SData.compU] using (B.family.loc v).lift_wn (S.compU ⟨v, hv⟩ u)
+      · simp [hv]
+    | inr w =>
+      change T.wRP (.inr w) * T.nRP (Multiplicative.ofAdd (u : S.FS)) (.inr w) =
+        T.nRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) (.inr w) *
+          T.aRP (-(u⁻¹ * u⁻¹)) (.inr w) *
+            T.nbarRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) (.inr w)
+      rw [T.wC, T.nC, T.nC, T.aC, T.nbarC]
+      simp only [compC_neg, map_mul, map_inv]
+      change qC (weylM ℂ) * qC (upperM ℂ ((S.compC w u : ℂˣ) : ℂ)) =
+        qC (upperM ℂ (((S.compC w u)⁻¹ : ℂˣ) : ℂ)) *
+          qC (diagM ℂ (-((S.compC w u)⁻¹ * (S.compC w u)⁻¹))) *
+            qC (lowerM ℂ (((S.compC w u)⁻¹ : ℂˣ) : ℂ))
+      rw [← map_mul, wn_factor, map_mul, scalar_q, one_mul, map_mul, map_mul]
+  · intro v y
+    let yS : S.FSˣ := {
+      val := (Function.update (fun v' : S.Sf => (1 : v'.1.adicCompletion F)) v
+        (y : v.1.adicCompletion F), fun _ : InfinitePlace F => (1 : ℂ))
+      inv := (Function.update (fun v' : S.Sf => (1 : v'.1.adicCompletion F)) v
+        ((y⁻¹ : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F),
+        fun _ : InfinitePlace F => (1 : ℂ))
+      val_inv := by
+        apply Prod.ext
+        · funext v'
+          by_cases hv : v' = v
+          · subst v'
+            simp
+          · simp [Function.update_of_ne hv]
+        · funext w
+          simp
+      inv_val := by
+        apply Prod.ext
+        · funext v'
+          by_cases hv : v' = v
+          · subst v'
+            simp
+          · simp [Function.update_of_ne hv]
+        · funext w
+          simp
+    }
+    have hself : S.compU v yS = y := by
+      apply Units.ext
+      change Function.update (fun v' : S.Sf => (1 : v'.1.adicCompletion F)) v
+        (y : v.1.adicCompletion F) v = (y : v.1.adicCompletion F)
+      simp
+    have hother : ∀ v' : S.Sf, v' ≠ v → S.compU v' yS = 1 := by
+      intro v' hv
+      apply Units.ext
+      change Function.update (fun v' : S.Sf => (1 : v'.1.adicCompletion F)) v
+        (y : v.1.adicCompletion F) v' = (1 : v'.1.adicCompletion F)
+      simp [Function.update_of_ne hv]
+    have hcomplex : ∀ w, S.compC w yS = 1 := by
+      intro w
+      apply Units.ext
+      rfl
+    have htuple : T.aRP yS = E.incl v.1 ((B.family.loc v.1).a y) := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v' =>
+        rw [T.aF]
+        by_cases hs : v' ∈ S.Sf
+        · rw [dif_pos hs]
+          by_cases hv : v' = v.1
+          · subst v'
+            change (B.family.loc v.1).a (S.compU v yS) =
+              E.incl v.1 ((B.family.loc v.1).a y) (.inl v.1)
+            rw [hself, E.incl_compF]
+          · have hne : (⟨v', hs⟩ : S.Sf) ≠ v := by
+              intro heq
+              exact hv (congrArg Subtype.val heq)
+            rw [hother _ hne, (B.family.loc v').a_one,
+              E.incl_compF_other v.1 v' (Ne.symm hv)]
+        · rw [dif_neg hs, E.incl_compF_other v.1 v' (by
+            intro heq
+            exact hs (heq ▸ v.2))]
+      | inr w =>
+        rw [T.aC, hcomplex w, diag_one, QuotientGroup.mk_one, E.incl_compC]
+    refine ⟨yS, hself, hother, hcomplex, ?_⟩
+    rw [htuple, E.q_incl]
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
