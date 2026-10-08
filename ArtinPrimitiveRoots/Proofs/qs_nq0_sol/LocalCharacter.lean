@@ -308,4 +308,53 @@ theorem qs_nq0_quadratic_local_principal_unit_trivial
   rw [htloc]
   exact hglobal (Units.mk0 b hb0) hbval
 
+/-!
+The exterior exponent-one nontriviality step has this exact signature:
+```
+theorem qs_nq0_quadratic_local_nontrivial
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ)
+    (ha : FractionalIdeal.count K v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (a : K)) = 1) :
+    ∃ b : Kˣ, v.valuation K (b : K) = 1 ∧
+      qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) ≠ 1
+```
+-/
+
+/-- Exterior exponent one forces the quadratic character to detect a local integral unit. -/
+theorem qs_nq0_quadratic_local_nontrivial
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ)
+    (ha : FractionalIdeal.count K v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (a : K)) = 1) :
+    ∃ b : Kˣ, v.valuation K (b : K) = 1 ∧
+      qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) ≠ 1 := by
+  obtain ⟨b, hbval, hbpow⟩ := qs_nq0_residue_quadratic_nontrivial v h6
+  have hbunit : residue v (b : K) ≠ 0 :=
+    (qs_nq0_residue_ne_zero_iff_valuation_one v (b : K)).mpr hbval
+  refine ⟨b, hbval, ?_⟩
+  intro hlocal
+  have hcomplex := congrArg (fun z : ℂˣ => (z : ℂ)) hlocal
+  change D.σ0 (((H.hilb v (toLoc v a) (toLoc v b) : Kˣ) : K)) ^ 3 = 1 at hcomplex
+  have hab : (((H.hilb v (toLoc v a) (toLoc v b) : Kˣ) : K)) ^ 3 = 1 := by
+    apply D.σ0.injective
+    simpa only [map_pow, map_one] using hcomplex
+  have hskew := congrArg (fun z : rootsOfUnity 6 K => ((z : Kˣ) : K))
+    (H.skew v (toLoc v a) (toLoc v b))
+  change (((H.hilb v (toLoc v a) (toLoc v b) : Kˣ) : K)) *
+    (((H.hilb v (toLoc v b) (toLoc v a) : Kˣ) : K)) = 1 at hskew
+  have hba : (((H.hilb v (toLoc v b) (toLoc v a) : Kˣ) : K)) ^ 3 = 1 := by
+    have hcubed := congrArg (fun z : K => z ^ 3) hskew
+    rwa [mul_pow, hab, one_mul, one_pow] at hcubed
+  have htame := H.tame v h6 b a hbunit
+  rw [ha, zpow_one] at htame
+  have hintegral : (((chiAlg v (b : K) : (𝓞 K)ˣ) : 𝓞 K)) ^ 3 = 1 := by
+    apply IsFractionRing.injective (𝓞 K) K
+    rw [map_pow, ← htame, map_one]
+    exact hba
+  apply hbpow
+  rw [← qs_nq0_chiAlg_cube_reduction D v h6 (b : K) hbunit, hintegral, map_one]
+
 end ArtinPrimitiveRoots.A2
