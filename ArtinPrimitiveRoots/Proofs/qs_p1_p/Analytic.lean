@@ -4091,6 +4091,146 @@ private theorem qs_p1_dual_mellin_line_to_sum [IsTotallyComplex K]
             (Y * (Ideal.absNorm a.1 : ℝ)) := by
           simp [y]
 
+set_option maxHeartbeats 600000 in
+theorem qs_p1_poisson_identity [IsTotallyComplex K]
+    (χ : ArtinPrimitiveRoots.A1.HeckeChar K) (f : Ideal (𝓞 K))
+    (hf : IsPrimitiveConductor χ f) (hsq : χ ^ 2 = 1) (hne : χ ≠ 1)
+    (hinf : ∀ w : InfinitePlace K, ∀ u : w.Completionˣ, χ.locInf w u = 1)
+    (h : ℝ → ℂ) (hh : IsQSWeight h) (X : ℝ) (hX : 0 < X) :
+    ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+        χ.idealValue a.1 * h ((Ideal.absNorm a.1 : ℝ) / X) =
+      ((X / Real.sqrt (Ideal.absNorm f : ℝ) : ℝ) : ℂ) *
+        ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+          χ.idealValue a.1 * qsTransform K h
+            (X * (Ideal.absNorm a.1 : ℝ) / (Ideal.absNorm f : ℝ)) := by
+  classical
+  obtain ⟨_, Lc, _, hLc, hAgree, hFE, hgrowth⟩ :=
+    qs_p1_root_number_convexity_data χ f hf hsq hne hinf
+  obtain ⟨C, α, hC, hα, hbound⟩ := hgrowth
+  have hboundData : ∃ C α : ℝ, 0 ≤ C ∧ 0 ≤ α ∧
+      ∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 →
+        ‖Lc s‖ ≤ C * (2 + |s.im|) ^ α := ⟨C, α, hC, hα, hbound⟩
+  have hf0 : f ≠ ⊥ := hf.1
+  have hNf0 : Ideal.absNorm f ≠ 0 := by
+    intro hNf
+    exact hf0 (Ideal.absNorm_eq_zero_iff.mp hNf)
+  have hNf : 0 < (Ideal.absNorm f : ℝ) :=
+    Nat.cast_pos.mpr (Nat.pos_iff_ne_zero.mpr hNf0)
+  let Y : ℝ := X / (Ideal.absNorm f : ℝ)
+  have hY : 0 < Y := by
+    dsimp [Y]
+    exact div_pos hX hNf
+  let s2 : ℝ → ℂ := fun t => (2 : ℂ) + (t : ℂ) * Complex.I
+  let sc : ℝ → ℂ := fun t => (1 / 2 : ℂ) + (t : ℂ) * Complex.I
+  let sd : ℝ → ℂ := fun t => (3 / 2 : ℂ) + (t : ℂ) * Complex.I
+  let c : ℂ := ((1 / (2 * Real.pi) : ℝ) : ℂ)
+  let scale : ℂ := ((X / Real.sqrt (Ideal.absNorm f : ℝ) : ℝ) : ℂ)
+  let G : ℝ → ℂ := fun t =>
+    (Y : ℂ) ^ (-sc t) * Lc (sc t) * mellin (qsTransform K h) (sc t)
+  let H : ℝ → ℂ := fun t =>
+    (Y : ℂ) ^ (-sd t) * Lc (sd t) * mellin (qsTransform K h) (sd t)
+  have hrepLine :
+      ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+          χ.idealValue a.1 * h ((Ideal.absNorm a.1 : ℝ) / X) =
+        c • ∫ t : ℝ,
+          (X : ℂ) ^ (s2 t) * Lc (s2 t) * mellin h (s2 t) := by
+    calc
+      _ = mellinInv 2
+          (fun s : ℂ => (X : ℂ) ^ s * heckeLSeries χ s * mellin h s) 1 :=
+            qs_p1_original_mellin_representation χ hsq h hh X hX
+      _ = c • ∫ t : ℝ,
+          (X : ℂ) ^ (s2 t) * Lc (s2 t) * mellin h (s2 t) := by
+            have hInt :
+                ∫ t : ℝ,
+                  (1 : ℂ) ^ (-(s2 t)) *
+                    ((X : ℂ) ^ (s2 t) * heckeLSeries χ (s2 t) * mellin h (s2 t)) =
+                ∫ t : ℝ,
+                  (X : ℂ) ^ (s2 t) * Lc (s2 t) * mellin h (s2 t) := by
+              apply integral_congr_ae
+              exact Filter.Eventually.of_forall fun t => by
+                change (1 : ℂ) ^ (-(s2 t)) *
+                    ((X : ℂ) ^ (s2 t) * heckeLSeries χ (s2 t) * mellin h (s2 t)) =
+                  (X : ℂ) ^ (s2 t) * Lc (s2 t) * mellin h (s2 t)
+                have hAgreeAt := hAgree (s2 t) (by norm_num [s2])
+                calc
+                  _ = (X : ℂ) ^ (s2 t) *
+                      heckeLSeries χ (s2 t) * mellin h (s2 t) := by simp
+                  _ = (X : ℂ) ^ (s2 t) * Lc (s2 t) * mellin h (s2 t) := by
+                        rw [← hAgreeAt]
+            have hInt' := congrArg (fun z : ℂ => c * z) hInt
+            simpa [mellinInv, c, s2, RCLike.real_smul_eq_coe_mul (K := ℂ),
+              smul_eq_mul] using hInt'
+  have hshiftOrig :=
+    qs_p1_original_mellin_vertical_shift h hh X hX Lc hLc hboundData
+  have hshiftOrig' :
+      (∫ t : ℝ, (X : ℂ) ^ (s2 t) * Lc (s2 t) * mellin h (s2 t)) =
+      (∫ t : ℝ, (X : ℂ) ^ (sc t) * Lc (sc t) * mellin h (sc t)) := by
+    simpa [s2, sc] using hshiftOrig
+  have hcrit :
+      ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+          χ.idealValue a.1 * h ((Ideal.absNorm a.1 : ℝ) / X) =
+        c • ∫ t : ℝ,
+          (X : ℂ) ^ (sc t) * Lc (sc t) * mellin h (sc t) := by
+    calc
+      _ = c • ∫ t : ℝ,
+          (X : ℂ) ^ (s2 t) * Lc (s2 t) * mellin h (s2 t) := hrepLine
+      _ = c • ∫ t : ℝ,
+          (X : ℂ) ^ (sc t) * Lc (sc t) * mellin h (sc t) := by rw [hshiftOrig']
+  have hmidpoint (t : ℝ) :
+      (X : ℂ) ^ (sc t) * Lc (sc t) * mellin h (sc t) =
+        scale * G (-t) := by
+    have hs : (sc t).re = 1 / 2 := by simp [sc]
+    have hu : 1 - sc t = sc (-t) := by
+      apply Complex.ext <;> simp [sc] <;> ring
+    have hmid := qs_p1_midpoint_integrand_identity χ f hf h hh X hX Lc hFE
+      (sc t) hs
+    simpa [G, scale, Y, hu] using hmid
+  have hneg : (∫ t : ℝ, G (-t)) = ∫ t : ℝ, G t := by
+    simpa using Measure.integral_comp_mul_left (fun t : ℝ => G t) (-1)
+  have hmidline :
+      (∫ t : ℝ, (X : ℂ) ^ (sc t) * Lc (sc t) * mellin h (sc t)) =
+        scale * ∫ t : ℝ, G t := by
+    calc
+      _ = ∫ t : ℝ, scale * G (-t) := by
+            apply integral_congr_ae
+            exact Filter.Eventually.of_forall hmidpoint
+      _ = scale * ∫ t : ℝ, G (-t) := by rw [integral_const_mul]
+      _ = scale * ∫ t : ℝ, G t := by rw [hneg]
+  have hshiftDual := qs_p1_dual_mellin_vertical_shift (K := K) h hh Y hY Lc hLc hboundData
+  have hshiftDual' : (∫ t : ℝ, G t) = ∫ t : ℝ, H t := by
+    simpa [G, H, sc, sd] using hshiftDual
+  have hlineSum := qs_p1_dual_mellin_line_to_sum χ hsq h hh Y hY Lc hAgree
+  have hlineSum' :
+      c • ∫ t : ℝ, H t =
+        ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+          χ.idealValue a.1 * qsTransform K h (Y * (Ideal.absNorm a.1 : ℝ)) := by
+    simpa [c, H, sd] using hlineSum
+  have hscaleArg (a : {I : Ideal (𝓞 K) // I ≠ ⊥}) :
+      Y * (Ideal.absNorm a.1 : ℝ) =
+        X * (Ideal.absNorm a.1 : ℝ) / (Ideal.absNorm f : ℝ) := by
+    dsimp [Y]
+    ring
+  calc
+    _ = c • ∫ t : ℝ,
+          (X : ℂ) ^ (sc t) * Lc (sc t) * mellin h (sc t) := hcrit
+    _ = c • (scale * ∫ t : ℝ, G t) := by rw [hmidline]
+    _ = scale * (c • ∫ t : ℝ, G t) := by
+          simp only [smul_eq_mul]
+          ring
+    _ = scale * (c • ∫ t : ℝ, H t) := by rw [hshiftDual']
+    _ = scale *
+          (∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+            χ.idealValue a.1 * qsTransform K h
+              (Y * (Ideal.absNorm a.1 : ℝ))) := by rw [hlineSum']
+    _ = scale *
+          (∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥},
+            χ.idealValue a.1 * qsTransform K h
+              (X * (Ideal.absNorm a.1 : ℝ) / (Ideal.absNorm f : ℝ))) := by
+            congr 1
+            apply tsum_congr
+            intro a
+            rw [hscaleArg a]
+
 /-- Mellin inversion for a smooth QS weight on a positive input, on the line `Re s = 2`. -/
 theorem qs_p1_mellin_inversion (h : ℝ → ℂ) (hh : IsQSWeight h) (x : ℝ) (hx : 0 < x) :
     mellinInv 2 (mellin h) x = h x := by
