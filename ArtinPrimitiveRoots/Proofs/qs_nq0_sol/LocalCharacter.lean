@@ -357,4 +357,47 @@ theorem qs_nq0_quadratic_local_nontrivial
   apply hbpow
   rw [← qs_nq0_chiAlg_cube_reduction D v h6 (b : K) hbunit, hintegral, map_one]
 
+/-!
+The unramified prime-value step has this exact signature:
+```
+theorem qs_nq0_quadratic_prime_value
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ) (ha : v.valuation K (a : K) = 1)
+    (χ : HeckeChar K)
+    (hloc : χ.loc v = qsNQQuadraticLocal D H v (toLoc v a)) :
+    χ.UnramifiedAt v ∧ χ.primeValue v = chi D v (a : K) ^ 3
+```
+-/
+
+/-- Away from six, the unramified quadratic prime value is the cubed sextic residue symbol. -/
+theorem qs_nq0_quadratic_prime_value
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ) (ha : v.valuation K (a : K) = 1)
+    (χ : HeckeChar K)
+    (hloc : χ.loc v = qsNQQuadraticLocal D H v (toLoc v a)) :
+    χ.UnramifiedAt v ∧ χ.primeValue v = chi D v (a : K) ^ 3 := by
+  classical
+  have hunram : χ.UnramifiedAt v := by
+    intro u hu hui
+    rw [hloc]
+    exact qs_nq0_quadratic_local_unit_trivial D H v h6 a ha u ⟨hu, hui⟩
+  have hres : residue v (a : K) ≠ 0 :=
+    (qs_nq0_residue_ne_zero_iff_valuation_one v (a : K)).mpr ha
+  have hval : v.valuation K (unif v) = WithZero.exp (-1 : ℤ) :=
+    (IsDedekindDomain.HeightOneSpectrum.valuation_exists_uniformizer K v).choose_spec
+  have hcount : FractionalIdeal.count K v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (unif v)) = 1 := by
+    rw [qs_nq0_count_spanSingleton_eq_neg_log_valuation v (unif v) (unif_ne_zero v),
+      hval, WithZero.log_exp]
+    norm_num
+  have htame := H.tame v h6 a (Units.mk0 (unif v) (unif_ne_zero v)) hres
+  simp only [Units.val_mk0, hcount, zpow_one] at htame
+  refine ⟨hunram, ?_⟩
+  rw [HeckeChar.primeValue, if_pos hunram, hloc]
+  change D.σ0 (((H.hilb v (toLoc v a)
+    (toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) : Kˣ) : K)) ^ 3 = chi D v (a : K) ^ 3
+  rw [htame, chi, if_neg hres]
+
 end ArtinPrimitiveRoots.A2
