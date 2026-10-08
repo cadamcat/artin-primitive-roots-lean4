@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
