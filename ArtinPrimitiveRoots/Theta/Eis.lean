@@ -24,6 +24,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.LocalProduct
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.PeriodLattice
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.FullJacquet
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.FourierDilation
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.ComplexFourier
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
