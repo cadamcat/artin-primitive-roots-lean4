@@ -4007,7 +4007,75 @@ theorem whit_finite_period (P : CoverPackage D S H A) (G : GlobalDatum P)
       ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
         scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) =
           scalarOf P G Fs.f Fs.fC h := by
-  sorry
+  classical
+  obtain ⟨x, hx⟩ := P.q_surj g
+  let bad : Set (FinPlace F) :=
+    {v | ∃ hv : v ∉ S.Sf, P.compF v x ∉ (P.tame v hv).Kmax}
+  have hbad : bad.Finite := P.comp_restricted x
+  let E : Finset (FinPlace F) := Fs.T0 ∪ hbad.toFinset
+  have hsmooth (v : E) : ∃ m, (P.loc v.1).m0 ≤ m ∧
+      ∀ h, ∀ k ∈ (P.loc v.1).Kc m,
+        rtr (P.compF v.1 x) (Fs.f v.1) (h * k) =
+          rtr (P.compF v.1 x) (Fs.f v.1) h :=
+    ((Fs.f_sec v.1).rtr (P.compF v.1 x)).2.2
+  choose m hm hfix using hsmooth
+  obtain ⟨I, hI, hIval⟩ := whit_small_ideal E m
+  refine ⟨(I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F),
+    FractionalIdeal.coeIdeal_ne_zero.mpr hI, ?_, ?_⟩
+  · intro ξ hξ
+    obtain ⟨a, haI, haξ⟩ :=
+      (FractionalIdeal.mem_coeIdeal (nonZeroDivisors (𝓞 F))).mp hξ
+    exact ⟨a, haξ⟩
+  · intro ξ hξ h
+    obtain ⟨a, haI, rfl⟩ :=
+      (FractionalIdeal.mem_coeIdeal (nonZeroDivisors (𝓞 F))).mp hξ
+    have hloc (v : FinPlace F) (u : (P.loc v).L) :
+        Fs.f v (u * ((P.compF v x)⁻¹ *
+          (P.loc v).n (Multiplicative.ofAdd
+            (algebraMap F (v.adicCompletion F) (a : F))) * P.compF v x)) = Fs.f v u := by
+      by_cases hvE : v ∈ E
+      · let vE : E := ⟨v, hvE⟩
+        have hball : algebraMap F (v.adicCompletion F) (a : F) ∈ ball v (m vE) := by
+          change Valued.v (algebraMap F (v.adicCompletion F) (a : F)) ≤
+            WithZero.exp (-(m vE : ℤ))
+          have hval := hIval a haI vE
+          change Valued.v (algebraMap (𝓞 F) (v.adicCompletion F) a) ≤
+            WithZero.exp (-(m vE : ℤ)) at hval
+          rw [IsScalarTower.algebraMap_apply (𝓞 F) F (v.adicCompletion F)] at hval
+          exact hval
+        have hlocal := hfix vE (u * (P.compF v x)⁻¹)
+          ((P.loc v).n (Multiplicative.ofAdd
+            (algebraMap F (v.adicCompletion F) (a : F))))
+          ((P.loc v).n_Kc (m vE) (hm vE) _ hball)
+        simpa only [vE, rtr, mul_assoc, inv_mul_cancel, mul_one] using hlocal
+      · have hvT : v ∉ Fs.T0 := fun hv => hvE (Finset.mem_union.mpr (Or.inl hv))
+        have hvS : v ∉ S.Sf := fun hv => hvT (Fs.sub hv)
+        have hxK : P.compF v x ∈ (P.tame v hvS).Kmax := by
+          by_contra hout
+          apply hvE
+          apply Finset.mem_union.mpr
+          exact Or.inr (hbad.mem_toFinset.mpr ⟨hvS, hout⟩)
+        have haint : algebraMap F (v.adicCompletion F) (a : F) ∈
+            v.adicCompletionIntegers F := by
+          change ((a : F) : v.adicCompletion F) ∈ v.adicCompletionIntegers F
+          rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+            v.valuedAdicCompletion_eq_valuation']
+          exact v.valuation_le_one a
+        have hnK := (P.tame v hvS).n_mem _ haint
+        exact (Fs.f_sph v hvT).2 u _
+          ((P.tame v hvS).Kmax.mul_mem
+            ((P.tame v hvS).Kmax.mul_mem ((P.tame v hvS).Kmax.inv_mem hxK) hnK) hxK)
+    obtain ⟨y, hy, hyF, hyC⟩ := whit_nFin_lift P (a : F)
+    obtain ⟨z, hz⟩ := P.q_surj h
+    have hq : P.q (z * (x⁻¹ * y * x)) = h * (g⁻¹ * nFin P (a : F) * g) := by
+      simp only [map_mul, map_inv, hx, hy, hz]
+    rw [← hq, ← hz]
+    apply scalarOf_lift_components Fs (z * (x⁻¹ * y * x)) z
+    · intro v
+      simp only [map_mul, map_inv, hyF v]
+      exact congrArg (G.lam v) (hloc v (P.compF v z))
+    · intro w
+      simp only [map_mul, map_inv, hyC w, mul_one, inv_mul_cancel, one_mul]
 
 /-- Choose an adapted period ideal, a domain, and the dual character condition. -/
 theorem whit_period_exists (P : CoverPackage D S H A) (G : GlobalDatum P)
