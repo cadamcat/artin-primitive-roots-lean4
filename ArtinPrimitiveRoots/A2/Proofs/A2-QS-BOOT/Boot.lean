@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».Block
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M2
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».S0Slice
 
 /-!
 # A2-QS-BOOT: monotone row norm, finite descent, bootstrap and the core theorem
@@ -196,7 +197,7 @@ theorem qs_row_split_B (F : QSFamily m qS) (W : ℝ → ℝ) (hW : IsCapWeight W
 
 /-- B0 (SOL-LEAD; RETIER `qs_boot_parameters_B0`): the high-core norm in the optimized range,
 by `r ≥ 40/ε` successive gcd descents with the original `G = N^{1/r}` (`qs_gcd_descent_S0`),
-class/dyad slicing (`qs_class_dyad_slice_S0`), the residual form (`qs_residual_form_S0`), the
+class/dyad slicing (`qs_class_dyad_slice_pos_S0`; rows are empty at `M = 0`), the residual form (`qs_residual_form_S0`), the
 block bound (`qs_residual_block_bound_C4`) with `n = N/N g`, `𝔮 = qsBadRad · g`,
 `Σ_{N g ≤ G} (N𝔮)^8 ≪ G^{9+η}`, and the terminal unit-column case.  Here
 `κ = N²/M · (MN)^η` and `2N(MN)^η ≤ M ≤ N²`. -/
