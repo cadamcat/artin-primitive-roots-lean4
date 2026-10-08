@@ -148,41 +148,150 @@ def digitSum (r : ReflectionRow S) (minus constant : Bool) (y : S.FSˣ) : ℂ :=
 def thetaAverage (r : ReflectionRow S) (l : ℝ) : ℂ :=
   omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r false false y)
 
-/-- rf:descent, 04:133–183: automorphy and all four Γ-invariances. -/
-theorem rf_descent :
-  (∀ r y, digitSum R r false false y = digitSum R r true false y) ∧
-  (∀ r (γ : Gamma S) y (minus constant : Bool),
-    digitSum R r minus constant (S.diagU (γ.1 : Fˣ) * y) = digitSum R r minus constant y) ∧
-  (∀ (γ : Gamma S) y, bCut (Bd := Bd) (S.diagU (γ.1 : Fˣ) * y) = bCut (Bd := Bd) y) ∧
-  (∀ u (γ : Gamma S), Lvalue R u (S.diagU (γ.1 : Fˣ)) = 1) := by
-  sorry
-/-- Fundamental sets are measurable and use the actual diagonal Γ, with unique representatives. -/
-def IsFundamentalAt (O : Set S.FS) (l : ℝ) : Prop :=
-  MeasurableSet O ∧ (∀ y ∈ O, IsUnit y ∧ S.absS y = l) ∧
-  ∀ y : S.FSˣ, S.absS (y : S.FS) = l →
-    ∃! γ : Gamma S, ((S.diagU (γ.1 : Fˣ))⁻¹ * y : S.FSˣ).val ∈ O
+private theorem rf_gamma_residue_six (D : FieldData F) (γ : Gamma S)
+    (v : FinPlace F) (hv : v ∉ S.Sf) :
+    ∃ a : 𝓞 F ⧸ v.asIdeal, a ≠ 0 ∧
+      residue v ((γ.1 : Fˣ) : F) = a ^ 6 := by
+  classical
+  letI := bridgeResidueField v
+  obtain ⟨ε, hε⟩ : ∃ ε : S.US, (γ.1 : S.US) = ε ^ 6 := by
+    have hmem : (γ.1 : S.US) ∈ (sixthPowerOnUS S).range := γ.2
+    rcases MonoidHom.mem_range.mp hmem with ⟨ε, hε⟩
+    change ε ^ 6 = γ.1 at hε
+    exact ⟨ε, hε.symm⟩
+  have hεval : HeightOneSpectrum.valuation F v ((ε : Fˣ) : F) = 1 :=
+    Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) ε hv
+  have hglobal : ((γ.1 : S.US) : Fˣ) = (ε : Fˣ) ^ 6 :=
+    congrArg (fun z : S.US => (z : Fˣ)) hε
+  have hglobalF : ((γ.1 : Fˣ) : F) = ((ε : Fˣ) : F) ^ 6 :=
+    congrArg (fun z : Fˣ => (z : F)) hglobal
+  have hresPow (n : ℕ) :
+      residue v (((ε : Fˣ) : F) ^ n) = residue v ((ε : Fˣ) : F) ^ n := by
+    induction n with
+    | zero =>
+        have h := (a2_bridge_SYMBOL D S).residue_algebraMap v (1 : 𝓞 F)
+        simpa using h
+    | succ n ih =>
+        have hvaln : HeightOneSpectrum.valuation F v
+            (((ε : Fˣ) : F) ^ n) ≤ 1 := by
+          rw [map_pow, hεval]
+          simp
+        rw [pow_succ, (a2_bridge_SYMBOL D S).residue_mul v
+          (((ε : Fˣ) : F) ^ n) ((ε : Fˣ) : F) hvaln hεval.le, ih, pow_succ]
+  have hεres : residue v ((ε : Fˣ) : F) ≠ 0 := by
+    exact ((a2_bridge_SYMBOL D S).residue_ne_zero v ((ε : Fˣ) : F)
+      hεval.le).mpr hεval
+  refine ⟨residue v ((ε : Fˣ) : F), hεres, ?_⟩
+  calc
+    residue v ((γ.1 : Fˣ) : F) =
+        residue v (((ε : Fˣ) : F) ^ 6) := by rw [hglobalF]
+    _ = residue v ((ε : Fˣ) : F) ^ 6 := hresPow 6
 
-/-- rf:descent, 04:133-183. The integral identity uses the same sheet measure on the chosen domain. -/
-theorem rf_descent_integral :
-  ∀ r l, 0 < l → ∀ O, IsFundamentalAt O l →
-    ∫ y in O, onUnits (fun y => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
-      digitSum R r false false y) y ∂(R.sheets.sheet l) = thetaAverage R r l := by
-  sorry
-/-- rf:angular-cancellation, 04:185–220. Neither constant term is claimed Weyl-invariant. -/
-theorem rf_angular_cancellation :
-  ∀ r l, 0 < l →
-    (∀ minus : Bool, omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
-      digitSum R r minus true y) = 0) ∧
-    thetaAverage R r l = omegaInt R l (fun y => bCut (Bd := Bd) y *
-      (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r true false y) := by
-  sorry
-def unrotated (u : UnitSix S) (y : S.FSˣ) : ℂ := R.T.WS (R.chars.L u) (R.C.aS y)
-def rotated (u : UnitSix S) (y : S.FSˣ) : ℂ := R.T.WS (R.chars.L u) (R.C.aS y * R.C.wS)
-def sCocycle (x y : S.FSˣ) : ℂ := D.σ0 (((S.HS H x y : Fˣ) : F)) ^ 2
+private theorem rf_gamma_chi_one (D : FieldData F) (γ : Gamma S)
+    (v : FinPlace F) (hv : v ∉ S.Sf) :
+    chi D v ((γ.1 : Fˣ) : F) = 1 := by
+  classical
+  letI := bridgeResidueField v
+  obtain ⟨a, ha, hγres⟩ := rf_gamma_residue_six D γ v hv
+  let z : F := algebraMap (𝓞 F) F a.out
+  have hzres : residue v z = a := by
+    simpa [z] using (a2_bridge_SYMBOL D S).residue_algebraMap v a.out
+  have hzpow : residue v (z ^ 6) = a ^ 6 := by
+    dsimp [z]
+    rw [← map_pow, (a2_bridge_SYMBOL D S).residue_algebraMap]
+    simp
+  have hresEq : residue v ((γ.1 : Fˣ) : F) = residue v (z ^ 6) := by
+    rw [hγres, hzpow]
+  have hvalOne : HeightOneSpectrum.valuation F v (1 : F) ≤ 1 := by simp
+  have hresOne : residue v (1 : F) ≠ 0 := by
+    apply ((a2_bridge_SYMBOL D S).residue_ne_zero v 1 hvalOne).2
+    simp
+  have hchiOneNe : chi D v 1 ≠ 0 := by
+    intro hzero
+    have hnorm := (a2_bridge_SYMBOL D S).chi_norm v 1 hresOne
+    rw [hzero] at hnorm
+    norm_num at hnorm
+  have hchiMulOne := (a2_bridge_SYMBOL D S).chi_mul v hv (1 : F) 1
+    hvalOne hvalOne
+  have hchiOne : chi D v 1 = 1 := by
+    have hcc : chi D v 1 = chi D v 1 * chi D v 1 := by simpa using hchiMulOne
+    have hcancel : chi D v 1 * chi D v 1 = chi D v 1 * 1 := by
+      calc
+        chi D v 1 * chi D v 1 = chi D v 1 := hcc.symm
+        _ = chi D v 1 * 1 := by simp
+    exact mul_left_cancel₀ hchiOneNe hcancel
+  have hchiPow (n : ℕ) : chi D v (z ^ n) = chi D v z ^ n := by
+    induction n with
+    | zero => simpa [hchiOne]
+    | succ n ih =>
+        have hzval : HeightOneSpectrum.valuation F v z ≤ 1 := by
+          dsimp [z]
+          exact v.valuation_le_one a.out
+        have hznval : HeightOneSpectrum.valuation F v (z ^ n) ≤ 1 := by
+          rw [← map_pow]
+          exact v.valuation_le_one (a.out ^ n)
+        rw [pow_succ, (a2_bridge_SYMBOL D S).chi_mul v hv (z ^ n) z hznval hzval,
+          ih, pow_succ]
+  have hzresNe : residue v z ≠ 0 := by simpa [hzres] using ha
+  have hchiSix : chi D v z ^ 6 = 1 :=
+    (a2_bridge_SYMBOL D S).chi_six v z hzresNe
+  rw [(a2_bridge_SYMBOL D S).chi_congr v ((γ.1 : Fˣ) : F) (z ^ 6) hresEq,
+    hchiPow 6, hchiSix]
 
-def forwardTerm (r : ReflectionRow S) (ν : Fˣ) (y : S.FSˣ) : ℂ :=
-  bCut (Bd := Bd) y * ∑ᶠ d : Digits R r, digitAlpha R r d *
-    R.T.W (R.chars.L (rowClass R r)) (R.C.rat (diagGL ν) * digitPoint R r y d)
+private theorem rf_maskAlpha_gamma_residue_mul (D : FieldData F)
+    (A : AddCharData F) (v : FinPlace F) (hv : v ∉ S.Sf) (p : Fˣ)
+    (γ : Gamma S) (j : Fin 6) (x : 𝓞 F ⧸ v.asIdeal) :
+    maskAlpha D A v p j (residue v ((γ.1 : Fˣ) : F) * x) =
+      maskAlpha D A v p j x := by
+  classical
+  letI := bridgeResidueField v
+  let g : F := (γ.1 : Fˣ)
+  have hγval : HeightOneSpectrum.valuation F v g = 1 :=
+    Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F)
+      (γ.1 : S.US) hv
+  have hγresNe : residue v g ≠ 0 := by
+    exact ((a2_bridge_SYMBOL D S).residue_ne_zero v g hγval.le).mpr hγval
+  have hzero : residue v g * x = 0 ↔ x = 0 := by
+    constructor
+    · intro h
+      exact (mul_eq_zero.mp h).resolve_left hγresNe
+    · rintro rfl
+      simp
+  by_cases hj : j = 0
+  · simp [maskAlpha, hj, hzero, g]
+  · by_cases hx : x = 0
+    · have hy : residue v g * x = 0 := by simp [hx]
+      simp [maskAlpha, hj, hx, hy, g]
+    · have hy : residue v g * x ≠ 0 := by
+        intro h
+        exact hx ((mul_eq_zero.mp h).resolve_left hγresNe)
+      let x' := residue v g * x
+      have hvalx : HeightOneSpectrum.valuation F v
+          (algebraMap (𝓞 F) F x.out) ≤ 1 := v.valuation_le_one x.out
+      have hresx : residue v (algebraMap (𝓞 F) F x.out) = x := by
+        simpa using (a2_bridge_SYMBOL D S).residue_algebraMap v x.out
+      have hresx' : residue v (algebraMap (𝓞 F) F x'.out) = x' := by
+        simpa using (a2_bridge_SYMBOL D S).residue_algebraMap v x'.out
+      have hresProduct : residue v (g * algebraMap (𝓞 F) F x.out) =
+          residue v g * x := by
+        rw [(a2_bridge_SYMBOL D S).residue_mul v g
+          (algebraMap (𝓞 F) F x.out) hγval.le hvalx, hresx]
+      have hresEq : residue v (algebraMap (𝓞 F) F x'.out) =
+          residue v (g * algebraMap (𝓞 F) F x.out) := by
+        rw [hresx', hresProduct]
+      have hchi : chi D v (algebraMap (𝓞 F) F x'.out) =
+          chi D v (algebraMap (𝓞 F) F x.out) := by
+        calc
+          chi D v (algebraMap (𝓞 F) F x'.out) =
+              chi D v (g * algebraMap (𝓞 F) F x.out) :=
+            (a2_bridge_SYMBOL D S).chi_congr v _ _ hresEq
+          _ = chi D v g * chi D v (algebraMap (𝓞 F) F x.out) :=
+            (a2_bridge_SYMBOL D S).chi_mul v hv g
+              (algebraMap (𝓞 F) F x.out) hγval.le hvalx
+          _ = chi D v (algebraMap (𝓞 F) F x.out) := by
+            rw [rf_gamma_chi_one D γ v hv]
+            simp
+      simp [maskAlpha, hj, hx, hy, x', g, hchi]
 
 private lemma rf_count_spanSingleton_div (v : FinPlace F) (x y : F)
     (hx : x ≠ 0) (hy : y ≠ 0) :
@@ -272,6 +381,720 @@ private lemma rf_residue_rep (v : FinPlace F) (x : F) (a b : 𝓞 F)
       rw [div_eq_mul_inv]
     _ = Ideal.Quotient.mk v.asIdeal a / Ideal.Quotient.mk v.asIdeal b :=
       (div_eq_div_iff hdq hbq).2 hqcross'
+
+private theorem rf_residue_div_prime_integral (v : FinPlace F)
+    (hv : v ∉ S.Sf)
+    (p : Fˣ) (hp : S.IsGen (p : F) v.asIdeal) (z : F)
+    (hz : HeightOneSpectrum.valuation F v z ≤ 1) (x : 𝓞 F ⧸ v.asIdeal)
+    (hx : residue v z = x) :
+    HeightOneSpectrum.valuation F v ((z - (x.out : F)) / (p : F)) ≤ 1 := by
+  letI := bridgeResidueField v
+  obtain ⟨a, ⟨b, hb⟩, hzb⟩ := v.exists_primeCompl_mul_eq_of_integer z hz
+  change b ∉ v.asIdeal at hb
+  have hrep : residue v z = Ideal.Quotient.mk v.asIdeal a / Ideal.Quotient.mk v.asIdeal b :=
+    rf_residue_rep v z a b hb hzb
+  have hbq : Ideal.Quotient.mk v.asIdeal b ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hb
+  have hquot : x * Ideal.Quotient.mk v.asIdeal b = Ideal.Quotient.mk v.asIdeal a := by
+    rw [← hx, hrep]
+    exact div_mul_cancel₀ _ hbq
+  have hmem : a - x.out * b ∈ v.asIdeal := by
+    apply Ideal.Quotient.eq_zero_iff_mem.mp
+    calc
+      Ideal.Quotient.mk v.asIdeal (a - x.out * b) =
+          Ideal.Quotient.mk v.asIdeal a - x * Ideal.Quotient.mk v.asIdeal b := by simp
+      _ = 0 := by rw [hquot]; simp
+  have hnumVal : HeightOneSpectrum.valuation F v
+      (algebraMap (𝓞 F) F (a - x.out * b)) ≤ WithZero.exp (-1 : ℤ) := by
+    rw [HeightOneSpectrum.valuation_of_algebraMap]
+    have hmemPow : a - x.out * b ∈ v.asIdeal ^ (1 : ℕ) := by simpa using hmem
+    exact (v.intValuation_le_pow_iff_mem _ 1).2 hmemPow
+  have hbF : algebraMap (𝓞 F) F b ≠ 0 := by
+    intro h
+    have hbzero : b = 0 := (IsFractionRing.injective (𝓞 F) F) (by simpa using h)
+    exact hb (by rw [hbzero]; exact Ideal.zero_mem _)
+  have hbVal : HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F b) = 1 :=
+    (v.valuation_eq_one_iff_notMem (K := F) (r := b)).2 hb
+  have hdiffEq : z - (x.out : F) =
+      algebraMap (𝓞 F) F (a - x.out * b) / algebraMap (𝓞 F) F b := by
+    apply (eq_div_iff hbF).2
+    calc
+      (z - (x.out : F)) * algebraMap (𝓞 F) F b =
+          z * algebraMap (𝓞 F) F b - (x.out : F) * algebraMap (𝓞 F) F b := by ring
+      _ = algebraMap (𝓞 F) F a - (x.out : F) * algebraMap (𝓞 F) F b := by rw [hzb]
+      _ = algebraMap (𝓞 F) F (a - x.out * b) := by simp [map_sub, map_mul]
+  have hdiffVal : HeightOneSpectrum.valuation F v (z - (x.out : F)) ≤
+      WithZero.exp (-1 : ℤ) := by
+    rw [hdiffEq, map_div₀, hbVal, div_one]
+    exact hnumVal
+  have hpCount : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p : F)) = 1 := by
+    calc
+      _ = FractionalIdeal.count F v (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+        hp.2.2 v hv
+      _ = 1 := FractionalIdeal.count_self F v
+  have hpLog : WithZero.log (HeightOneSpectrum.valuation F v (p : F)) = -1 := by
+    have h := rf_count_spanSingleton_eq_neg_log_valuation v (p : F) (Units.ne_zero p)
+    rw [hpCount] at h
+    linarith
+  have hpne : HeightOneSpectrum.valuation F v (p : F) ≠ 0 :=
+    (v.valuation F).ne_zero_iff.mpr (Units.ne_zero p)
+  have hpVal : HeightOneSpectrum.valuation F v (p : F) = WithZero.exp (-1 : ℤ) := by
+    calc
+      _ = WithZero.exp (WithZero.log (HeightOneSpectrum.valuation F v (p : F))) :=
+        (WithZero.exp_log hpne).symm
+      _ = WithZero.exp (-1 : ℤ) := by rw [hpLog]
+  rw [map_div₀, hpVal]
+  have hpos : 0 < WithZero.exp (-1 : ℤ) :=
+    lt_of_le_of_ne zero_le (Ne.symm WithZero.exp_ne_zero)
+  exact (div_le_one₀ hpos).2 hdiffVal
+
+private theorem rf_list_interleave {α G : Type} [Monoid G] (l : List α)
+    (f g : α → G) (hnodup : l.Nodup)
+    (hcross : ∀ a ∈ l, ∀ b ∈ l, a ≠ b → Commute (f a) (g b)) :
+    (l.map f).prod * (l.map g).prod = (l.map (fun a => f a * g a)).prod := by
+  induction l with
+  | nil => simp
+  | cons a l ih =>
+      have haNot : a ∉ l := (List.nodup_cons.mp hnodup).1
+      have hcrossTail : ∀ x ∈ l, ∀ y ∈ l, x ≠ y → Commute (f x) (g y) := by
+        intro x hx y hy hxy
+        exact hcross x (by simp [hx]) y (by simp [hy]) hxy
+      have hcrossHead : ∀ x ∈ l, Commute (f x) (g a) := by
+        intro x hx
+        apply hcross x (by simp [hx]) a (by simp)
+        intro h
+        subst x
+        exact haNot hx
+      have hmoveAux : ∀ l' : List α,
+          (∀ x ∈ l', Commute (f x) (g a)) →
+          (l'.map f).prod * g a = g a * (l'.map f).prod := by
+        intro l' h
+        induction l' with
+        | nil => simp
+        | cons b l' ihMove =>
+            have hba : Commute (f b) (g a) := h b (by simp)
+            have htail : ∀ x ∈ l', Commute (f x) (g a) := by
+              intro x hx
+              exact h x (by simp [hx])
+            have hmoveTail := ihMove htail
+            simp only [List.map_cons, List.prod_cons]
+            calc
+              (f b * (l'.map f).prod) * g a =
+                  f b * ((l'.map f).prod * g a) := by rw [mul_assoc]
+              _ = f b * (g a * (l'.map f).prod) := by rw [hmoveTail]
+              _ = (f b * g a) * (l'.map f).prod := by rw [← mul_assoc]
+              _ = (g a * f b) * (l'.map f).prod := by rw [hba.eq]
+              _ = g a * (f b * (l'.map f).prod) := by rw [mul_assoc]
+      have hmove := hmoveAux l hcrossHead
+      have hih := ih (List.nodup_cons.mp hnodup).2 hcrossTail
+      simp only [List.map_cons, List.prod_cons]
+      calc
+        (f a * (l.map f).prod) * (g a * (l.map g).prod) =
+            f a * ((l.map f).prod * (g a * (l.map g).prod)) := by rw [mul_assoc]
+        _ = f a * (((l.map f).prod * g a) * (l.map g).prod) := by
+          congr 1
+          exact (mul_assoc _ _ _).symm
+        _ = f a * ((g a * (l.map f).prod) * (l.map g).prod) := by
+          congr 1
+          rw [hmove]
+        _ = f a * (g a * ((l.map f).prod * (l.map g).prod)) := by
+          congr 1
+          exact mul_assoc _ _ _
+        _ = (f a * g a) * ((l.map f).prod * (l.map g).prod) := by
+          exact (mul_assoc _ _ _).symm
+        _ = (f a * g a) * (l.map (fun x => f x * g x)).prod := by rw [hih]
+
+private theorem rf_commute_left_list_prod {α G : Type} [Monoid G]
+    (k : G) (l : List α) (f : α → G)
+    (hcomm : ∀ x ∈ l, k * f x = f x * k) :
+    k * (l.map f).prod = (l.map f).prod * k := by
+  induction l with
+  | nil => simp
+  | cons a l ih =>
+      have ha := hcomm a (by simp)
+      have htail : ∀ x ∈ l, k * f x = f x * k := by
+        intro x hx
+        exact hcomm x (by simp [hx])
+      have hrest := ih htail
+      simp only [List.map_cons, List.prod_cons]
+      calc
+        k * (f a * (l.map f).prod) = (k * f a) * (l.map f).prod := by rw [mul_assoc]
+        _ = (f a * k) * (l.map f).prod := by rw [ha]
+        _ = f a * (k * (l.map f).prod) := by rw [← mul_assoc]
+        _ = f a * ((l.map f).prod * k) := by rw [hrest]
+        _ = (f a * (l.map f).prod) * k := by rw [mul_assoc]
+
+private theorem rf_list_prod_mem {α G : Type} [Group G]
+    (H : Subgroup G) (l : List α) (f : α → G)
+    (hmem : ∀ x ∈ l, f x ∈ H) : (l.map f).prod ∈ H := by
+  induction l with
+  | nil => simp
+  | cons a l ih =>
+      have htail : ∀ x ∈ l, f x ∈ H := by
+        intro x hx
+        exact hmem x (by simp [hx])
+      simp only [List.map_cons, List.prod_cons]
+      exact H.mul_mem (hmem a (by simp)) (ih htail)
+
+/-- rf:descent, 04:133–183: automorphy and all four Γ-invariances. -/
+theorem rf_descent :
+  (∀ r y, digitSum R r false false y = digitSum R r true false y) ∧
+  (∀ r (γ : Gamma S) y (minus constant : Bool),
+    digitSum R r minus constant (S.diagU (γ.1 : Fˣ) * y) = digitSum R r minus constant y) ∧
+  (∀ (γ : Gamma S) y, bCut (Bd := Bd) (S.diagU (γ.1 : Fˣ) * y) = bCut (Bd := Bd) y) ∧
+  (∀ u (γ : Gamma S), Lvalue R u (S.diagU (γ.1 : Fˣ)) = 1) := by
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro r y
+    unfold digitSum
+    apply finsum_congr
+    intro d
+    simp only [Bool.false_eq_true, if_false, one_mul]
+    congr 1
+    exact (R.T.automorphic (R.chars.L (rowClass R r))
+      (R.mem_family (rowClass R r)) weylGL (digitPoint R r y d)).symm
+  · intro r γ y minus constant
+    classical
+    let T0 := R.exterior.support r.ideal
+    let V := {v : FinPlace F // v ∈ T0}
+    letI : ∀ v : V, Field (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueField v.1
+    letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+    letI : Fintype (Digits R r) := inferInstance
+    have hvS (v : V) : v.1 ∉ S.Sf :=
+      R.exterior.support_exterior r.ideal v.1 v.2
+    have hroot (v : V) : ∃ a : 𝓞 F ⧸ v.1.asIdeal, a ≠ 0 ∧
+        residue v.1 ((γ.1 : Fˣ) : F) = a ^ 6 :=
+      rf_gamma_residue_six D γ v.1 (hvS v)
+    choose a ha hresRoot using hroot
+    let rho : ∀ v : V, (𝓞 F ⧸ v.1.asIdeal)ˣ := fun v =>
+      Units.mk0 (a v ^ 6) (pow_ne_zero 6 (ha v))
+    have hrhoVal (v : V) : (rho v : 𝓞 F ⧸ v.1.asIdeal) =
+        residue v.1 ((γ.1 : Fˣ) : F) := by
+      calc
+        (rho v : 𝓞 F ⧸ v.1.asIdeal) = a v ^ 6 := by
+          change (a v) ^ 6 = a v ^ 6
+          rfl
+        _ = residue v.1 ((γ.1 : Fˣ) : F) := (hresRoot v).symm
+    let e : Digits R r ≃ Digits R r := {
+      toFun := fun d v => (rho v : 𝓞 F ⧸ v.1.asIdeal) * d v
+      invFun := fun d v => ((rho v)⁻¹ : 𝓞 F ⧸ v.1.asIdeal) * d v
+      left_inv := by
+        intro d
+        funext v
+        exact Units.inv_mul_cancel_left (rho v) (d v)
+      right_inv := by
+        intro d
+        funext v
+        exact Units.mul_inv_cancel_left (rho v) (d v) }
+    have hmask (v : V) (x : 𝓞 F ⧸ v.1.asIdeal) :
+        maskAlpha D A v.1 (primeGen R v.1) (digitExponent r v.1)
+          ((rho v : 𝓞 F ⧸ v.1.asIdeal) * x) =
+        maskAlpha D A v.1 (primeGen R v.1) (digitExponent r v.1) x := by
+      rw [hrhoVal v]
+      exact rf_maskAlpha_gamma_residue_mul D A v.1 (hvS v) (primeGen R v.1)
+        γ (digitExponent r v.1) x
+    have hAlpha (d : Digits R r) : digitAlpha R r (e d) = digitAlpha R r d := by
+      unfold digitAlpha
+      apply Finset.prod_congr rfl
+      intro v hv
+      simpa [e] using hmask v (d v)
+    let gammaF : Fˣ := γ.1
+    let digitLocArg : (d : Digits R r) → (v : FinPlace F) →
+        (hv : v ∈ T0) → v.adicCompletion F := fun d v hv =>
+      algebraMap F (v.adicCompletion F)
+        (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F))
+    let nOld : Digits R r → FinPlace F → R.C.G := fun d0 v =>
+      if hv : v ∈ T0 then R.C.n v (Multiplicative.ofAdd (digitLocArg d0 v hv)) else 1
+    let nNew : Digits R r → FinPlace F → R.C.G := fun d0 v =>
+      if hv : v ∈ T0 then R.C.n v (Multiplicative.ofAdd (digitLocArg (e d0) v hv)) else 1
+    let aLoc : FinPlace F → R.C.G := fun v => R.C.a v (toLoc v gammaF)
+    let err : Digits R r → ∀ v : FinPlace F, v.adicCompletion F := fun d0 v =>
+      if hv : v ∈ T0 then
+        digitLocArg d0 v hv * (toLoc v gammaF : v.adicCompletion F) -
+          digitLocArg (e d0) v hv
+      else 0
+    let kLoc : Digits R r → FinPlace F → R.C.G := fun d0 v =>
+      R.C.n v (Multiplicative.ofAdd (err d0 v)) * aLoc v
+    have hT0 : ∀ v ∈ T0, v ∉ S.Sf := by
+      intro v hv
+      exact R.exterior.support_exterior r.ideal v hv
+    have hgammaVal (v : FinPlace F) (hv : v ∉ S.Sf) :
+        HeightOneSpectrum.valuation F v (gammaF : F) = 1 :=
+      Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F)
+        (γ.1 : S.US) hv
+    have hgammaLocVal (v : FinPlace F) (hv : v ∉ S.Sf) :
+        Valued.v (toLoc v gammaF : v.adicCompletion F) = 1 := by
+      change Valued.v (algebraMap F (v.adicCompletion F) (gammaF : F)) = 1
+      simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+        Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation',
+        hgammaVal v hv]
+    have hgammaLocInt (v : FinPlace F) (hv : v ∉ S.Sf) :
+        (toLoc v gammaF : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers, hgammaLocVal v hv]
+    have hgammaLocInvInt (v : FinPlace F) (hv : v ∉ S.Sf) :
+        (((toLoc v gammaF)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+          v.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      simp only [Units.val_inv_eq_inv_val, map_inv₀, hgammaLocVal v hv, inv_one, le_refl]
+    have herrInt (d0 : Digits R r) (v : FinPlace F) (hvT : v ∈ T0) :
+        err d0 v ∈ v.adicCompletionIntegers F := by
+      classical
+      let dv : 𝓞 F ⧸ v.asIdeal := d0 ⟨v, hvT⟩
+      let dv' : 𝓞 F ⧸ v.asIdeal := e d0 ⟨v, hvT⟩
+      let p : Fˣ := primeGen R v
+      have hv : v ∉ S.Sf := hT0 v hvT
+      have hvalD : HeightOneSpectrum.valuation F v
+          (algebraMap (𝓞 F) F dv.out) ≤ 1 := v.valuation_le_one dv.out
+      have hresD : residue v (algebraMap (𝓞 F) F dv.out) = dv := by
+        simpa using (a2_bridge_SYMBOL D S).residue_algebraMap v dv.out
+      have hresZ : residue v
+          ((gammaF : F) * algebraMap (𝓞 F) F dv.out) = dv' := by
+        calc
+          residue v ((gammaF : F) * algebraMap (𝓞 F) F dv.out) =
+              residue v (gammaF : F) * residue v (algebraMap (𝓞 F) F dv.out) :=
+            (a2_bridge_SYMBOL D S).residue_mul v (gammaF : F)
+              (algebraMap (𝓞 F) F dv.out) (hgammaVal v hv).le hvalD
+          _ = residue v (gammaF : F) * dv := by rw [hresD]
+          _ = (rho ⟨v, hvT⟩ : 𝓞 F ⧸ v.asIdeal) * dv := by rw [← hrhoVal ⟨v, hvT⟩]
+          _ = dv' := by
+            dsimp [dv, dv', e]
+      have hvalZ : HeightOneSpectrum.valuation F v
+          ((gammaF : F) * algebraMap (𝓞 F) F dv.out) ≤ 1 := by
+        rw [map_mul]
+        calc
+          _ ≤ 1 * 1 := mul_le_mul (hgammaVal v hv).le hvalD (by exact bot_le) (by exact bot_le)
+          _ = 1 := by simp
+      have hpgen : S.IsGen (p : F) v.asIdeal := by
+        have h := bc.gen_spec (R.exterior.prime v hv)
+        simpa [p, primeGen, hv, R.exterior.prime_val] using h.1
+      have hquotVal := rf_residue_div_prime_integral v hv p hpgen
+        ((gammaF : F) * algebraMap (𝓞 F) F dv.out) hvalZ dv' hresZ
+      have hargEq : err d0 v = algebraMap F (v.adicCompletion F)
+          (((gammaF : F) * algebraMap (𝓞 F) F dv.out - (dv'.out : F)) / (p : F)) := by
+        simp only [err, dif_pos hvT, digitLocArg, dv, dv', p]
+        rw [show (toLoc v gammaF : v.adicCompletion F) =
+          algebraMap F (v.adicCompletion F) (gammaF : F) by rfl]
+        simp only [map_div₀, map_mul, map_sub]
+        ring_nf
+      rw [hargEq, HeightOneSpectrum.mem_adicCompletionIntegers,
+        HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+        Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation']
+      exact hquotVal
+    have hlocal (d0 : Digits R r) (v : FinPlace F) (hvT : v ∈ T0) :
+        aLoc v * nOld d0 v = nNew d0 v * kLoc d0 v := by
+      let xold := digitLocArg d0 v hvT
+      let xnew := digitLocArg (e d0) v hvT
+      let gval := (toLoc v gammaF : v.adicCompletion F)
+      have hparam : xold * gval = xnew + err d0 v := by
+        dsimp only [xold, xnew, err]
+        rw [dif_pos hvT]
+        abel
+      have hNadd : R.C.n v (Multiplicative.ofAdd (xold * gval)) =
+          R.C.n v (Multiplicative.ofAdd xnew) * R.C.n v (Multiplicative.ofAdd (err d0 v)) := by
+        calc
+          R.C.n v (Multiplicative.ofAdd (xold * gval)) =
+              R.C.n v (Multiplicative.ofAdd (xnew + err d0 v)) := by rw [hparam]
+          _ = R.C.n v (Multiplicative.ofAdd xnew * Multiplicative.ofAdd (err d0 v)) := by
+            congr 1
+          _ = _ := map_mul _ _ _
+      have hLift := R.C.lift_na v (xold * gval) (toLoc v gammaF)
+      have hmove : R.C.n v (Multiplicative.ofAdd (xold * gval)) * aLoc v =
+          aLoc v * R.C.n v (Multiplicative.ofAdd xold) := by
+        simpa [aLoc, gval, mul_assoc] using hLift
+      calc
+        aLoc v * nOld d0 v = R.C.n v (Multiplicative.ofAdd (xold * gval)) * aLoc v := by
+          simpa [nOld, xold, digitLocArg, hvT] using hmove.symm
+        _ = (R.C.n v (Multiplicative.ofAdd xnew) *
+              R.C.n v (Multiplicative.ofAdd (err d0 v))) * aLoc v := by rw [hNadd]
+        _ = nNew d0 v * kLoc d0 v := by
+          simp [nNew, kLoc, xnew, digitLocArg, hvT, mul_assoc]
+    have haLocMem (v : FinPlace F) : aLoc v ∈ R.C.Gloc v :=
+      R.C.a_mem v (toLoc v gammaF)
+    have hnOldMem (d0 : Digits R r) (v : FinPlace F) (hvT : v ∈ T0) :
+        nOld d0 v ∈ R.C.Gloc v := by
+      simp only [nOld, dif_pos hvT]
+      exact R.C.n_mem v _
+    have hnNewMem (d0 : Digits R r) (v : FinPlace F) (hvT : v ∈ T0) :
+        nNew d0 v ∈ R.C.Gloc v := by
+      simp only [nNew, dif_pos hvT]
+      exact R.C.n_mem v _
+    have hkLocGloc (d0 : Digits R r) (v : FinPlace F) : kLoc d0 v ∈ R.C.Gloc v := by
+      change R.C.n v (Multiplicative.ofAdd (err d0 v)) * aLoc v ∈ R.C.Gloc v
+      exact (R.C.Gloc v).mul_mem (R.C.n_mem v _) (haLocMem v)
+    have hkLocKext (d0 : Digits R r) (v : FinPlace F) (hvT : v ∈ T0) :
+        kLoc d0 v ∈ R.C.Kext := by
+      change R.C.n v (Multiplicative.ofAdd (err d0 v)) * aLoc v ∈ R.C.Kext
+      exact R.C.Kext.mul_mem
+        (R.C.n_Kext v (hT0 v hvT) (err d0 v) (herrInt d0 v hvT))
+        (R.C.a_Kext v (hT0 v hvT) (toLoc v gammaF)
+          (hgammaLocInt v (hT0 v hvT))
+          (by simpa only [Units.val_inv_eq_inv_val] using hgammaLocInvInt v (hT0 v hvT)))
+    have hgammaUS : gammaF ∈ S.US := (γ.1 : S.US).property
+    have haExtK : R.C.aExt gammaF ∈ R.C.Kext :=
+      R.C.aExt_unit gammaF hgammaUS
+    have hresOutside : ∀ v : FinPlace F, v ∉ S.Sf → v ∉ T0 →
+        residue v (gammaF : F) ≠ 0 ∧ residue v ((gammaF⁻¹ : Fˣ) : F) ≠ 0 := by
+      intro v hvS hvT
+      have hγv := hgammaVal v hvS
+      have hγinv : HeightOneSpectrum.valuation F v ((gammaF⁻¹ : Fˣ) : F) = 1 := by
+        exact Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F)
+          ((γ.1 : S.US)⁻¹) hvS
+      constructor
+      · exact ((a2_bridge_SYMBOL D S).residue_ne_zero v (gammaF : F) hγv.le).mpr hγv
+      · exact ((a2_bridge_SYMBOL D S).residue_ne_zero v
+          ((gammaF⁻¹ : Fˣ) : F) hγinv.le).mpr hγinv
+    obtain ⟨k0, hk0Mem, hk0Comm, hsplitA⟩ :=
+      R.C.aExt_split gammaF T0 hT0 hresOutside
+    obtain ⟨ε, hε⟩ : ∃ ε : S.US, (γ.1 : S.US) = ε ^ 6 := by
+      have hmem : (γ.1 : S.US) ∈ (sixthPowerOnUS S).range := γ.2
+      rcases MonoidHom.mem_range.mp hmem with ⟨ε, hε⟩
+      change ε ^ 6 = γ.1 at hε
+      exact ⟨ε, hε.symm⟩
+    have hglobalPow : gammaF = (ε : Fˣ) ^ 6 :=
+      congrArg (fun z : S.US => (z : Fˣ)) hε
+    have hHSone : S.HS H (S.diagU gammaF) y = 1 := by
+      unfold SData.HS
+      apply Finset.prod_eq_one
+      intro v hv
+      have hcomp : S.compU v (S.diagU gammaF) =
+          (S.compU v (S.diagU (ε : Fˣ))) ^ 6 := by
+        rw [hglobalPow]
+        simp only [map_pow]
+      exact H.sixth_power v.1 (S.compU v (S.diagU gammaF)) (S.compU v y)
+        ⟨S.compU v (S.diagU (ε : Fˣ)), hcomp⟩
+    have hmu : muThree D (S.HS H (S.diagU gammaF) y) = 1 := by
+      rw [hHSone]
+      apply Subtype.ext
+      apply Units.ext
+      simp [muThree]
+    have hSprod : R.C.aS (S.diagU gammaF) * R.C.aS y =
+        R.C.aS (S.diagU gammaF * y) := by
+      have h := R.C.aS_mul (S.diagU gammaF) y
+      rw [hmu] at h
+      simpa using h
+    have hk0OldComm (d0 : Digits R r) :
+        k0 * (T0.toList.map (nOld d0)).prod =
+          (T0.toList.map (nOld d0)).prod * k0 := by
+      apply rf_commute_left_list_prod
+      intro v hvList
+      have hvT : v ∈ T0 := Finset.mem_toList.mp hvList
+      exact hk0Comm v hvT (nOld d0 v) (hnOldMem d0 v hvT)
+    have hcrossAOld (d0 : Digits R r) :
+        ∀ v ∈ T0.toList, ∀ w ∈ T0.toList, v ≠ w →
+          Commute (aLoc v) (nOld d0 w) := by
+      intro v hvList w hwList hvw
+      have hvT : v ∈ T0 := Finset.mem_toList.mp hvList
+      have hwT : w ∈ T0 := Finset.mem_toList.mp hwList
+      exact R.C.comm_loc v w hvw (aLoc v) (haLocMem v) (nOld d0 w)
+        (hnOldMem d0 w hwT)
+    have hcrossNewK (d0 : Digits R r) :
+        ∀ v ∈ T0.toList, ∀ w ∈ T0.toList, v ≠ w →
+          Commute (nNew d0 v) (kLoc d0 w) := by
+      intro v hvList w hwList hvw
+      have hvT : v ∈ T0 := Finset.mem_toList.mp hvList
+      have hwT : w ∈ T0 := Finset.mem_toList.mp hwList
+      exact R.C.comm_loc v w hvw (nNew d0 v) (hnNewMem d0 v hvT) (kLoc d0 w)
+        (hkLocGloc d0 w)
+    have hpairLocal (d0 : Digits R r) :
+        T0.toList.map (fun v => aLoc v * nOld d0 v) =
+          T0.toList.map (fun v => nNew d0 v * kLoc d0 v) := by
+      apply List.map_congr_left
+      intro v hvList
+      exact hlocal d0 v (Finset.mem_toList.mp hvList)
+    let kTot : Digits R r → R.C.G := fun d0 =>
+      (T0.toList.map (kLoc d0)).prod * k0
+    have hkTot (d0 : Digits R r) : kTot d0 ∈ R.C.Kext := by
+      dsimp [kTot]
+      exact R.C.Kext.mul_mem
+        (rf_list_prod_mem R.C.Kext T0.toList (kLoc d0)
+          (fun v hvList => hkLocKext d0 v (Finset.mem_toList.mp hvList))) hk0Mem
+    have hExtTimesN (d0 : Digits R r) :
+        R.C.aExt gammaF * (T0.toList.map (nOld d0)).prod =
+          (T0.toList.map (nNew d0)).prod * kTot d0 := by
+      dsimp [kTot]
+      rw [hsplitA]
+      calc
+        ((T0.toList.map aLoc).prod * k0) * (T0.toList.map (nOld d0)).prod =
+            (T0.toList.map aLoc).prod *
+              (k0 * (T0.toList.map (nOld d0)).prod) := by rw [mul_assoc]
+        _ = (T0.toList.map aLoc).prod *
+              ((T0.toList.map (nOld d0)).prod * k0) := by rw [hk0OldComm d0]
+        _ = ((T0.toList.map aLoc).prod * (T0.toList.map (nOld d0)).prod) * k0 := by
+              rw [← mul_assoc]
+        _ = ((T0.toList.map (fun v => aLoc v * nOld d0 v)).prod) * k0 := by
+              rw [rf_list_interleave T0.toList aLoc (nOld d0) T0.nodup_toList
+                (hcrossAOld d0)]
+        _ = ((T0.toList.map (fun v => nNew d0 v * kLoc d0 v)).prod) * k0 := by
+              rw [hpairLocal d0]
+        _ = ((T0.toList.map (nNew d0)).prod * (T0.toList.map (kLoc d0)).prod) * k0 := by
+              rw [← rf_list_interleave T0.toList (nNew d0) (kLoc d0)
+                T0.nodup_toList (hcrossNewK d0)]
+        _ = (T0.toList.map (nNew d0)).prod *
+              ((T0.toList.map (kLoc d0)).prod * k0) := by rw [mul_assoc]
+    have hmapPerm : (T0.attach.toList.map Subtype.val).Perm T0.toList := by
+      apply List.perm_of_nodup_nodup_toFinset_eq
+      · exact (T0.attach.nodup_toList).map Subtype.val_injective
+      · exact T0.nodup_toList
+      · ext v
+        simp
+    have hmapOld (d0 : Digits R r) :
+        T0.attach.toList.map (fun v =>
+          R.C.n v.1 (Multiplicative.ofAdd (digitLocArg d0 v.1 v.2))) =
+        T0.attach.toList.map (fun v => nOld d0 v.1) := by
+      apply List.map_congr_left
+      intro v hvList
+      simp [nOld, digitLocArg, v.2]
+    have hmapNew (d0 : Digits R r) :
+        T0.attach.toList.map (fun v =>
+          R.C.n v.1 (Multiplicative.ofAdd (digitLocArg (e d0) v.1 v.2))) =
+        T0.attach.toList.map (fun v => nNew d0 v.1) := by
+      apply List.map_congr_left
+      intro v hvList
+      simp [nNew, digitLocArg, v.2]
+    have hpermOld (d0 : Digits R r) :
+        (T0.attach.toList.map (fun v => nOld d0 v.1)).Perm
+          (T0.toList.map (nOld d0)) := by
+      change List.Perm (List.map (nOld d0 ∘ Subtype.val) T0.attach.toList)
+        (List.map (nOld d0) T0.toList)
+      simpa only [List.map_map] using hmapPerm.map (nOld d0)
+    have hpermNew (d0 : Digits R r) :
+        (T0.attach.toList.map (fun v => nNew d0 v.1)).Perm
+          (T0.toList.map (nNew d0)) := by
+      change List.Perm (List.map (nNew d0 ∘ Subtype.val) T0.attach.toList)
+        (List.map (nNew d0) T0.toList)
+      simpa only [List.map_map] using hmapPerm.map (nNew d0)
+    have hpairOld (d0 : Digits R r) :
+        (T0.attach.toList.map (fun v => nOld d0 v.1)).Pairwise Commute := by
+      have hcomm : ∀ v w : V, v ≠ w → Commute (nOld d0 v.1) (nOld d0 w.1) := by
+        intro v w hvw
+        change nOld d0 v.1 * nOld d0 w.1 = nOld d0 w.1 * nOld d0 v.1
+        have hvw' : v.1 ≠ w.1 := by
+          intro hEq
+          apply hvw
+          exact Subtype.ext hEq
+        exact R.C.comm_loc v.1 w.1 hvw' (nOld d0 v.1) (hnOldMem d0 v.1 v.2)
+          (nOld d0 w.1) (hnOldMem d0 w.1 w.2)
+      exact List.Pairwise.map (fun v => nOld d0 v.1) hcomm
+        (List.nodup_iff_pairwise_ne.mp T0.attach.nodup_toList)
+    have hpairNew (d0 : Digits R r) :
+        (T0.attach.toList.map (fun v => nNew d0 v.1)).Pairwise Commute := by
+      have hcomm : ∀ v w : V, v ≠ w → Commute (nNew d0 v.1) (nNew d0 w.1) := by
+        intro v w hvw
+        change nNew d0 v.1 * nNew d0 w.1 = nNew d0 w.1 * nNew d0 v.1
+        have hvw' : v.1 ≠ w.1 := by
+          intro hEq
+          apply hvw
+          exact Subtype.ext hEq
+        exact R.C.comm_loc v.1 w.1 hvw' (nNew d0 v.1) (hnNewMem d0 v.1 v.2)
+          (nNew d0 w.1) (hnNewMem d0 w.1 w.2)
+      exact List.Pairwise.map (fun v => nNew d0 v.1) hcomm
+        (List.nodup_iff_pairwise_ne.mp T0.attach.nodup_toList)
+    have hpointOld (d0 : Digits R r) :
+        digitPoint R r y d0 = R.C.aS y * (T0.toList.map (nOld d0)).prod := by
+      unfold digitPoint
+      rw [hmapOld d0]
+      congr 1
+      exact List.Perm.prod_eq' (hpermOld d0) (hpairOld d0)
+    have hpointNew (d0 : Digits R r) :
+        digitPoint R r (S.diagU gammaF * y) (e d0) =
+          R.C.aS (S.diagU gammaF * y) * (T0.toList.map (nNew d0)).prod := by
+      unfold digitPoint
+      rw [hmapNew d0]
+      congr 1
+      exact List.Perm.prod_eq' (hpermNew d0) (hpairNew d0)
+    let kTotFun : Digits R r → R.C.G := kTot
+    have hmain (d0 : Digits R r) :
+        R.C.rat (diagGL gammaF) * digitPoint R r y d0 =
+          digitPoint R r (S.diagU gammaF * y) (e d0) * kTotFun d0 := by
+      have hcommAS : R.C.aExt gammaF * R.C.aS y = R.C.aS y * R.C.aExt gammaF :=
+        R.C.Kext_comm_S (R.C.aExt gammaF) haExtK (R.C.aS y) (R.C.aS_mem y)
+      calc
+        _ = (R.C.aS (S.diagU gammaF) * R.C.aExt gammaF) *
+              (R.C.aS y * (T0.toList.map (nOld d0)).prod) := by
+                rw [R.C.rat_diag, hpointOld d0]
+        _ = (R.C.aS (S.diagU gammaF) * R.C.aS y) *
+              (R.C.aExt gammaF * (T0.toList.map (nOld d0)).prod) := by
+                calc
+                  _ = R.C.aS (S.diagU gammaF) *
+                        (R.C.aExt gammaF * R.C.aS y) * (T0.toList.map (nOld d0)).prod := by
+                          group
+                  _ = R.C.aS (S.diagU gammaF) *
+                        (R.C.aS y * R.C.aExt gammaF) * (T0.toList.map (nOld d0)).prod := by
+                          rw [hcommAS]
+                  _ = (R.C.aS (S.diagU gammaF) * R.C.aS y) *
+                        (R.C.aExt gammaF * (T0.toList.map (nOld d0)).prod) := by group
+        _ = R.C.aS (S.diagU gammaF * y) *
+              ((T0.toList.map (nNew d0)).prod * kTotFun d0) := by
+                rw [hSprod, hExtTimesN d0]
+        _ = digitPoint R r (S.diagU gammaF * y) (e d0) * kTotFun d0 := by
+                rw [hpointNew d0]
+                exact (mul_assoc (R.C.aS (S.diagU gammaF * y))
+                  (T0.toList.map (nNew d0)).prod (kTotFun d0)).symm
+    have hpoint (d0 : Digits R r) :
+        ∃ k ∈ R.C.Kext, digitPoint R r (S.diagU gammaF * y) (e d0) =
+          R.C.rat (diagGL gammaF) * digitPoint R r y d0 * k⁻¹ := by
+      refine ⟨kTotFun d0, hkTot d0, ?_⟩
+      have hmul := congrArg (fun z : R.C.G => z * (kTotFun d0)⁻¹) (hmain d0)
+      have hmul' : (R.C.rat (diagGL gammaF) * digitPoint R r y d0) *
+            (kTotFun d0)⁻¹ = digitPoint R r (S.diagU gammaF * y) (e d0) := by
+        simpa [mul_assoc] using hmul
+      exact hmul'.symm
+    have hWeylDiag : R.C.rat weylGL * R.C.rat (diagGL gammaF) =
+        R.C.rat (diagGL (gammaF⁻¹)) * R.C.rat weylGL := by
+      have hm : weylGL * diagGL gammaF =
+          scalarGL gammaF * (diagGL (gammaF⁻¹) * weylGL) := by
+        ext i j
+        fin_cases i <;> fin_cases j <;>
+          simp [weylGL, diagGL, scalarGL, Matrix.mul_apply]
+      calc
+        _ = R.C.rat (weylGL * diagGL gammaF) := by rw [← map_mul]
+        _ = R.C.rat (scalarGL gammaF * (diagGL (gammaF⁻¹) * weylGL)) := by rw [hm]
+        _ = R.C.rat (scalarGL gammaF) * R.C.rat (diagGL (gammaF⁻¹) * weylGL) := by
+          rw [map_mul]
+        _ = 1 * (R.C.rat (diagGL (gammaF⁻¹)) * R.C.rat weylGL) := by
+          rw [R.C.rat_scalar, map_mul]
+        _ = _ := by simp
+    have hthetaTrans (f : R.C.G → ℂ)
+        (hleft : ∀ δ : Fˣ, ∀ g : R.C.G,
+          f (R.C.rat (diagGL δ) * g) = f g)
+        (hright : ∀ g k, k ∈ R.C.Kext → f (g * k) = f g)
+        (d0 : Digits R r) :
+        f ((if minus then R.C.rat weylGL else 1) *
+            digitPoint R r (S.diagU gammaF * y) (e d0)) =
+          f ((if minus then R.C.rat weylGL else 1) * digitPoint R r y d0) := by
+      obtain ⟨k, hk, hpt⟩ := hpoint d0
+      have hki : k⁻¹ ∈ R.C.Kext := R.C.Kext.inv_mem hk
+      cases minus with
+      | false =>
+          simp only [Bool.false_eq_true, if_false, one_mul]
+          calc
+            f (digitPoint R r (S.diagU gammaF * y) (e d0)) =
+                f (R.C.rat (diagGL gammaF) * digitPoint R r y d0 * k⁻¹) := by rw [hpt]
+            _ =
+                f (R.C.rat (diagGL gammaF) * digitPoint R r y d0) :=
+              hright _ _ hki
+            _ = f (digitPoint R r y d0) := hleft gammaF _
+      | true =>
+          have hptW : R.C.rat weylGL *
+                (digitPoint R r (S.diagU gammaF * y) (e d0)) =
+              (R.C.rat (diagGL (gammaF⁻¹)) *
+                (R.C.rat weylGL * digitPoint R r y d0)) * k⁻¹ := by
+            calc
+              _ = R.C.rat weylGL *
+                    (R.C.rat (diagGL gammaF) * digitPoint R r y d0 * k⁻¹) := by rw [hpt]
+              _ = (R.C.rat weylGL * R.C.rat (diagGL gammaF) *
+                    digitPoint R r y d0) * k⁻¹ := by group
+              _ = (R.C.rat (diagGL (gammaF⁻¹)) *
+                    (R.C.rat weylGL * digitPoint R r y d0)) * k⁻¹ := by
+                      rw [hWeylDiag]
+                      group
+          calc
+            f (R.C.rat weylGL * digitPoint R r (S.diagU gammaF * y) (e d0)) =
+                f ((R.C.rat (diagGL (gammaF⁻¹)) *
+                  (R.C.rat weylGL * digitPoint R r y d0)) * k⁻¹) := by rw [hptW]
+            _ = f (R.C.rat (diagGL (gammaF⁻¹)) *
+                  (R.C.rat weylGL * digitPoint R r y d0)) := hright _ _ hki
+            _ = f (R.C.rat weylGL * digitPoint R r y d0) := hleft (gammaF⁻¹) _
+    let L := R.chars.L (rowClass R r)
+    have htheta (d0 : Digits R r) :
+        ((if constant then R.T.θN else R.T.θ) L)
+            ((if minus then R.C.rat weylGL else 1) *
+              digitPoint R r (S.diagU gammaF * y) (e d0)) =
+        ((if constant then R.T.θN else R.T.θ) L)
+            ((if minus then R.C.rat weylGL else 1) * digitPoint R r y d0) := by
+      cases constant
+      · exact hthetaTrans (R.T.θ L)
+          (fun δ g => R.T.automorphic L (R.mem_family (rowClass R r)) (diagGL δ) g)
+          (fun g k hk => R.T.right_Kext L (R.mem_family (rowClass R r)) g k hk) d0
+      · exact hthetaTrans (R.T.θN L)
+          (fun δ g => R.T.θN_left L (R.mem_family (rowClass R r)) (diagGL δ)
+            (by simp [diagGL]) g)
+          (fun g k hk => R.T.θN_right L (R.mem_family (rowClass R r)) g k hk) d0
+    let newTerm : Digits R r → ℂ := fun d0 => digitAlpha R r d0 *
+      (if constant then R.T.θN else R.T.θ) (R.chars.L (rowClass R r))
+        ((if minus then R.C.rat weylGL else 1) *
+          digitPoint R r (S.diagU (γ.1 : Fˣ) * y) d0)
+    let oldTerm : Digits R r → ℂ := fun d0 => digitAlpha R r d0 *
+      (if constant then R.T.θN else R.T.θ) (R.chars.L (rowClass R r))
+        ((if minus then R.C.rat weylGL else 1) * digitPoint R r y d0)
+    have hterm (d0 : Digits R r) : newTerm (e d0) = oldTerm d0 := by
+      dsimp [newTerm, oldTerm]
+      calc
+        _ = digitAlpha R r d0 *
+              ((if constant then R.T.θN else R.T.θ) L)
+                ((if minus then R.C.rat weylGL else 1) *
+                  digitPoint R r (S.diagU gammaF * y) (e d0)) := by rw [hAlpha d0]
+        _ = digitAlpha R r d0 *
+              ((if constant then R.T.θN else R.T.θ) L)
+                ((if minus then R.C.rat weylGL else 1) * digitPoint R r y d0) := by
+          rw [htheta d0]
+    unfold digitSum
+    change (∑ᶠ d0 : Digits R r, newTerm d0) = ∑ᶠ d0 : Digits R r, oldTerm d0
+    calc
+      (∑ᶠ d0 : Digits R r, newTerm d0) = ∑ d0 : Digits R r, newTerm d0 :=
+        finsum_eq_sum_of_fintype _
+      _ = ∑ d0 : Digits R r, newTerm (e d0) := (Equiv.sum_comp e newTerm).symm
+      _ = ∑ d0 : Digits R r, oldTerm d0 := by
+        apply Finset.sum_congr rfl
+        intro d0 hd0
+        exact hterm d0
+      _ = ∑ᶠ d0 : Digits R r, oldTerm d0 :=
+        (finsum_eq_sum_of_fintype _).symm
+  · intro γ y
+    have hroot : ∃ ε : S.US, (γ.1 : S.US) = ε ^ 6 := by
+      have hmem : (γ.1 : S.US) ∈ (sixthPowerOnUS S).range := γ.2
+      rcases MonoidHom.mem_range.mp hmem with ⟨ε, hε⟩
+      change ε ^ 6 = γ.1 at hε
+      exact ⟨ε, hε.symm⟩
+    obtain ⟨ε, hε⟩ := hroot
+    have hdiag : cls (S.diagU (γ.1 : Fˣ)) = 1 := by
+      have hpow : S.diagU (γ.1 : Fˣ) = S.diagU (ε : Fˣ) ^ 6 := by
+        have hε' : (γ.1 : Fˣ) = ((ε ^ 6 : S.US) : Fˣ) :=
+          congrArg (fun z : S.US => (z : Fˣ)) hε
+        rw [hε']
+        exact map_pow (S.diagU) (ε : Fˣ) 6
+      change (QuotientGroup.mk (S.diagU (γ.1 : Fˣ)) : S.V) = 1
+      rw [QuotientGroup.eq_one_iff]
+      change S.diagU (γ.1 : Fˣ) ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range
+      exact MonoidHom.mem_range.mpr ⟨S.diagU (ε : Fˣ), hpow.symm⟩
+    have hclass : cls (S.diagU (γ.1 : Fˣ) * y) = cls y := by
+      calc
+        cls (S.diagU (γ.1 : Fˣ) * y) =
+            cls (S.diagU (γ.1 : Fˣ)) * cls y := by simp [cls]
+        _ = cls y := by rw [hdiag]; exact one_mul (cls y)
+    unfold bCut
+    rw [hclass]
+  · intro u γ
+    change (((R.chars.L u).L (S.diagU (γ.1 : S.US)) : ℂˣ) : ℂ) = 1
+    have h := (R.chars.L u).trivial_US (γ.1 : S.US) (γ.1).property
+    exact congrArg (fun z : ℂˣ => (z : ℂ)) h
+/-- Fundamental sets are measurable and use the actual diagonal Γ, with unique representatives. -/
+def IsFundamentalAt (O : Set S.FS) (l : ℝ) : Prop :=
+  MeasurableSet O ∧ (∀ y ∈ O, IsUnit y ∧ S.absS y = l) ∧
+  ∀ y : S.FSˣ, S.absS (y : S.FS) = l →
+    ∃! γ : Gamma S, ((S.diagU (γ.1 : Fˣ))⁻¹ * y : S.FSˣ).val ∈ O
+
+/-- rf:descent, 04:133-183. The integral identity uses the same sheet measure on the chosen domain. -/
+theorem rf_descent_integral :
+  ∀ r l, 0 < l → ∀ O, IsFundamentalAt O l →
+    ∫ y in O, onUnits (fun y => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+      digitSum R r false false y) y ∂(R.sheets.sheet l) = thetaAverage R r l := by
+  sorry
+/-- rf:angular-cancellation, 04:185–220. Neither constant term is claimed Weyl-invariant. -/
+theorem rf_angular_cancellation :
+  ∀ r l, 0 < l →
+    (∀ minus : Bool, omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+      digitSum R r minus true y) = 0) ∧
+    thetaAverage R r l = omegaInt R l (fun y => bCut (Bd := Bd) y *
+      (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r true false y) := by
+  sorry
+def unrotated (u : UnitSix S) (y : S.FSˣ) : ℂ := R.T.WS (R.chars.L u) (R.C.aS y)
+def rotated (u : UnitSix S) (y : S.FSˣ) : ℂ := R.T.WS (R.chars.L u) (R.C.aS y * R.C.wS)
+def sCocycle (x y : S.FSˣ) : ℂ := D.σ0 (((S.HS H x y : Fˣ) : F)) ^ 2
+
+def forwardTerm (r : ReflectionRow S) (ν : Fˣ) (y : S.FSˣ) : ℂ :=
+  bCut (Bd := Bd) y * ∑ᶠ d : Digits R r, digitAlpha R r d *
+    R.T.W (R.chars.L (rowClass R r)) (R.C.rat (diagGL ν) * digitPoint R r y d)
 
 private theorem rf_local_phase_eq_residue (v : FinPlace F) (hv : v ∉ S.Sf)
     (p : Fˣ) (hp : S.IsGen (p : F) v.asIdeal) (z : F)
