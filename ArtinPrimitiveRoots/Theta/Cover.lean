@@ -11,6 +11,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CompletionCompact
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CongruenceCompact
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.IntegralGL
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.LocalEffective
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedCentralQuotient
 
 
 /-!
@@ -3622,6 +3623,47 @@ private theorem cover_local_effectiveLaw (D : FieldData F) (H : HilbertData F)
   exact ⟨muThree D (H.hilb v x y),
     ArtinPrimitiveRoots.Proofs.th_cover_sol.muThree_hilb_eq_extCocycle D H v hv x y,
     L.a_mul x y⟩
+
+/-- Local factors chosen before constructing their adelic quotient. -/
+private structure CoverLocalFamily (D : FieldData F) (S : SData F CE condη)
+    (H : HilbertData F) where
+  loc : ∀ v : FinPlace F, FinLocalCover D H v
+  tame : ∀ v : FinPlace F, v ∉ S.Sf → TameSplitting (loc v)
+
+private def coverFamilyReference (C : CoverLocalFamily D S H) (v : FinPlace F) :
+    Subgroup (C.loc v).L :=
+  if hv : v ∉ S.Sf then (C.tame v hv).Kmax else ⊤
+
+private theorem coverFamilyReference_open (C : CoverLocalFamily D S H) (v : FinPlace F) :
+    IsOpen (coverFamilyReference C v : Set (C.loc v).L) := by
+  by_cases hv : v ∉ S.Sf
+  · simpa [coverFamilyReference, hv] using (C.tame v hv).open_
+  · simp [coverFamilyReference, hv]
+
+/-- The canonical tuple and quotient foundation for the global producer. -/
+private structure CoverQuotientBase (D : FieldData F) (S : SData F CE condη)
+    (H : HilbertData F) where
+  family : CoverLocalFamily D S H
+  quotient : ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.CentralQuotient
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference family)
+    (fun v => (family.loc v).z)
+
+private theorem exists_coverQuotientBase (D : FieldData F) (S : SData F CE condη)
+    (H : HilbertData F) (hSt : ∀ v, SteinbergAt H v) :
+    Nonempty (CoverQuotientBase D S H) := by
+  classical
+  choose loc hloc using fun v => exists_finLocalCover D H v (hSt v)
+  let C : CoverLocalFamily D S H := {
+    loc := loc
+    tame := fun v hv => Classical.choice (hloc v (fun h => hv (S.over6 v h)))
+  }
+  obtain ⟨Q⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.exists_centralQuotient
+      (H := fun _ : InfinitePlace F => PGL2 ℂ)
+      (coverFamilyReference C) (coverFamilyReference_open C)
+      (fun v => (C.loc v).z) (fun v => (C.loc v).z_inj)
+      (fun v => (C.loc v).z_central)
+  exact ⟨{ family := C, quotient := Q }⟩
 
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
