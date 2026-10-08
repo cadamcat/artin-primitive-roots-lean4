@@ -1,4 +1,6 @@
 import ArtinPrimitiveRoots.Splitting.Defs
+import /- Reciprocity is prebuilt on the Mac. -/ Mathlib
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-EXT-ARTIN».Core
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_GAMMA.Helpers
 import Mathlib.FieldTheory.KummerPolynomial
 import Mathlib.FieldTheory.KummerExtension
@@ -83,6 +85,15 @@ def FrobeniusNormalizedArtinMap {K L : Type*} [Field K] [NumberField K] [Field L
       ∃ σ : L ≃ₐ[K] L, Art (rayClass m p hcop) = σ ∧
         IsArithmeticFrobeniusAt p P σ
 
+private theorem normalized_artin_of_data {K L : Type*}
+    [Field K] [NumberField K] [Field L] [NumberField L]
+    [Algebra K L] [Algebra (𝓞 K) (𝓞 L)] [IsScalarTower (𝓞 K) (𝓞 L) L]
+    [IsAbelianGalois K L]
+    (D : ClassFieldTheory.FiniteAbelianReciprocityData K L) :
+    ∃ (m : RayClassModulus K) (Art : RayClassGroup m →* (L ≃ₐ[K] L)),
+      Function.Surjective Art ∧ FrobeniusNormalizedArtinMap m Art := by
+  sorry
+
 /-- **`ext:cft-artin`**, `07-splitting.tex:78-91`. ClassFieldTheory
 `finiteAbelianGlobalReciprocity` (`Lean4/ClassFieldTheory/Theorems/GlobalClassFieldTheory/
 FiniteAbelianGlobalReciprocity.lean:31-37`) supplies a modulus, a surjective Artin map, and
@@ -94,7 +105,8 @@ theorem ext_cft_artin {K L : Type*} [Field K] [NumberField K] [Field L] [NumberF
     [Algebra K L] [Algebra (𝓞 K) (𝓞 L)] [IsScalarTower (𝓞 K) (𝓞 L) L] [IsAbelianGalois K L] :
     ∃ (m : RayClassModulus K) (Art : RayClassGroup m →* (L ≃ₐ[K] L)),
       Function.Surjective Art ∧ FrobeniusNormalizedArtinMap m Art := by
-  sorry
+  obtain ⟨D⟩ := ArtinPrimitiveRoots.Proofs.s7sol_gamma.Artin.reciprocity_data (K := K) (L := L)
+  exact normalized_artin_of_data D
 
 /-- **`ext:split-criterion`**, `07-splitting.tex:231-233`. TauCeti
 `NumberField.ncard_primesOver_eq_finrank_iff` (`TauCeti/NumberField/SplitsCompletely/Basic.lean:82`)
