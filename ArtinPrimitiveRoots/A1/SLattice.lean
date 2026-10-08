@@ -832,6 +832,268 @@ private theorem covol_local_selfdual_measure_ball_pair (v : FinPlace F)
           rw [hpow'']
     _ = 1 := covol_local_selfdual_scale_square v d
 
+private theorem covol_local_ball_add (v : FinPlace F) (n : ℤ)
+    {x y : v.adicCompletion F} (hx : x ∈ ball v n) (hy : y ∈ ball v n) :
+    x + y ∈ ball v n := by
+  change Valued.v (x + y) ≤ WithZero.exp (-n)
+  exact (Valued.v.map_add x y).trans (max_le hx hy)
+
+private theorem covol_local_ball_neg (v : FinPlace F) (n : ℤ)
+    {x : v.adicCompletion F} (hx : x ∈ ball v n) : -x ∈ ball v n := by
+  change Valued.v (-x) ≤ WithZero.exp (-n)
+  change Valued.v x ≤ WithZero.exp (-n) at hx
+  simpa using hx
+
+private def covol_local_ann_set (v : FinPlace F) (ψ : AddChar (v.adicCompletion F) ℂ)
+    (n : ℤ) : Set (v.adicCompletion F) :=
+  {a | ∀ x, Valued.v x ≤ WithZero.exp (-n) → ψ (a * x) = 1}
+
+private theorem covol_local_ann_ball (v : FinPlace F)
+    (ψ : AddChar (v.adicCompletion F) ℂ) (c n : ℤ)
+    (hc : ∀ x, Valued.v x ≤ WithZero.exp c → ψ x = 1)
+    (hboundary : ∃ x, Valued.v x ≤ WithZero.exp (c + 1) ∧ ψ x ≠ 1) :
+    covol_local_ann_set v ψ n = {y | Valued.v y ≤ WithZero.exp (c + n)} := by
+  unfold covol_local_ann_set
+  ext y
+  constructor
+  · intro hy
+    by_cases hy0 : y = 0
+    · simp [hy0]
+    · have hyv : Valued.v y ≠ 0 := by simpa using hy0
+      lift Valued.v y to ℤ using hyv with k hk
+      by_contra hnot
+      have hnotExp : ¬ WithZero.exp k ≤ WithZero.exp (c + n) := by
+        intro hle
+        exact hnot (by simpa [hk] using hle)
+      have hkn : c + n < k := by
+        have hnk : ¬ k ≤ c + n := by
+          intro hle
+          exact hnotExp ((WithZero.exp_le_exp).2 hle)
+        omega
+      obtain ⟨z, hzv, hzψ⟩ := hboundary
+      have hz0 : z ≠ 0 := by
+        intro hz
+        subst z
+        exact hzψ ψ.map_zero_eq_one
+      have hzv0 : Valued.v z ≠ 0 := by simpa using hz0
+      lift Valued.v z to ℤ using hzv0 with j hj
+      have hjle : j ≤ c + 1 := (WithZero.exp_le_exp).1 hzv
+      have hxval : Valued.v (z / y) ≤ WithZero.exp (-n) := by
+        have hval : Valued.v (z / y) = WithZero.exp (j - k) := by
+          rw [map_div₀, ← hj, ← hk, ← WithZero.exp_sub]
+        rw [hval]
+        exact (WithZero.exp_le_exp).2 (by omega)
+      have hxy : y * (z / y) = z := by
+        calc
+          y * (z / y) = (z / y) * y := mul_comm _ _
+          _ = z := div_mul_cancel₀ z hy0
+      have hψ : ψ (y * (z / y)) = 1 := hy (z / y) hxval
+      rw [hxy] at hψ
+      exact hzψ hψ
+  · intro hy x hx
+    by_cases hy0 : y = 0
+    · simp [hy0]
+    · have hyv : Valued.v y ≠ 0 := by simpa using hy0
+      lift Valued.v y to ℤ using hyv with k hk
+      have hval : Valued.v (x * y) ≤ WithZero.exp c := by
+        calc
+          Valued.v (x * y) = Valued.v x * Valued.v y := by simp
+          _ ≤ WithZero.exp (-n) * WithZero.exp k := by
+            exact mul_le_mul' hx (by rw [← hk])
+          _ = WithZero.exp (-n + k) := by rw [← WithZero.exp_add]
+          _ ≤ WithZero.exp c := (WithZero.exp_le_exp).2 (by
+            have hybound : k ≤ c + n := by
+              have hy' : WithZero.exp k ≤ WithZero.exp (c + n) := by
+                rw [hk]
+                exact hy
+              exact (WithZero.exp_le_exp).1 hy'
+            omega)
+      exact hc _ (by simpa [mul_comm] using hval)
+
+private theorem covol_local_char_integral_ball (v : FinPlace F)
+    (ψ : AddChar (v.adicCompletion F) ℂ) (μ : Measure (v.adicCompletion F))
+    [Measure.IsAddHaarMeasure μ] (n : ℤ) (a : v.adicCompletion F) :
+    ∫ x, (ball v n).indicator (fun x => ψ (-(a * x))) x ∂μ =
+      (covol_local_ann_set v ψ n).indicator
+        (fun _ => (μ.real (ball v n) : ℂ)) a := by
+  classical
+  have hBopen : IsOpen (ball v n) :=
+    v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  by_cases ha : a ∈ covol_local_ann_set v ψ n
+  · have hf : (fun x => (ball v n).indicator (fun x => ψ (-(a * x))) x) =
+        (ball v n).indicator (fun _ => (1 : ℂ)) := by
+      funext x
+      by_cases hx : x ∈ ball v n
+      · have hψ : ψ (-(a * x)) = 1 := by
+          rw [ψ.map_neg_eq_inv, ha x (by simpa [ball] using hx), inv_one]
+        simp [hx, hψ]
+      · simp [hx]
+    have hmass : ∫ x, (ball v n).indicator (fun x => ψ (-(a * x))) x ∂μ =
+        (μ.real (ball v n) : ℂ) := by
+      calc
+        _ = ∫ x, (ball v n).indicator (fun _ => (1 : ℂ)) x ∂μ := by rw [hf]
+        _ = μ.real (ball v n) • (1 : ℂ) :=
+          integral_indicator_const (1 : ℂ) hBopen.measurableSet
+        _ = (μ.real (ball v n) : ℂ) := by simp
+    have hind : (covol_local_ann_set v ψ n).indicator
+        (fun _ => (μ.real (ball v n) : ℂ)) a =
+        (μ.real (ball v n) : ℂ) := by simp [ha]
+    exact hmass.trans hind.symm
+  · have hfalse : ¬ (∀ x, Valued.v x ≤ WithZero.exp (-n) → ψ (a * x) = 1) := by
+      simpa [covol_local_ann_set] using ha
+    push Not at hfalse
+    obtain ⟨b, hb, hψb⟩ := hfalse
+    have hψbneg : ψ (-(a * b)) ≠ 1 := by
+      rw [ψ.map_neg_eq_inv]
+      intro h
+      exact hψb (inv_eq_one.mp h)
+    let f : v.adicCompletion F → ℂ :=
+      fun x => (ball v n).indicator (fun x => ψ (-(a * x))) x
+    have hcoset (x : v.adicCompletion F) : b + x ∈ ball v n ↔ x ∈ ball v n := by
+      constructor
+      · intro hbx
+        have h := covol_local_ball_add v n hbx (covol_local_ball_neg v n hb)
+        simpa [add_assoc] using h
+      · intro hx
+        have h := covol_local_ball_add v n hb hx
+        simpa [add_comm] using h
+    have hchar (x : v.adicCompletion F) :
+        ψ (-(a * (b + x))) = ψ (-(a * b)) * ψ (-(a * x)) := by
+      calc
+        ψ (-(a * (b + x))) = ψ (-(a * b) + -(a * x)) := by congr 1 <;> ring
+        _ = ψ (-(a * b)) * ψ (-(a * x)) := ψ.map_add_eq_mul _ _
+    have htrans (x : v.adicCompletion F) :
+        f (b + x) = ψ (-(a * b)) * f x := by
+      by_cases hx : x ∈ ball v n
+      · have hbx : b + x ∈ ball v n := (hcoset x).2 hx
+        simp [f, hx, hbx, hchar x]
+      · have hbx : b + x ∉ ball v n := fun h => hx ((hcoset x).1 h)
+        simp [f, hx, hbx]
+    let I : ℂ := ∫ x, f x ∂μ
+    have hI : I = ψ (-(a * b)) * I := by
+      calc
+        I = ∫ x, f (b + x) ∂μ := (integral_add_left_eq_self f b).symm
+        _ = ∫ x, ψ (-(a * b)) * f x ∂μ := by
+          rw [show (fun x => f (b + x)) =
+            fun x => ψ (-(a * b)) * f x from funext htrans]
+        _ = ψ (-(a * b)) * I := by rw [integral_const_mul]
+    have hprod : (ψ (-(a * b)) - 1) * I = 0 := by
+      calc
+        (ψ (-(a * b)) - 1) * I = ψ (-(a * b)) * I - I := by ring
+        _ = I - I := by rw [← hI]
+        _ = 0 := by ring
+    have hI0 : I = 0 := by
+      rcases mul_eq_zero.mp hprod with h | h
+      · exact (hψbneg (sub_eq_zero.mp h)).elim
+      · exact h
+    have hmass : ∫ x, (ball v n).indicator (fun x => ψ (-(a * x))) x ∂μ = 0 := by
+      simpa [I, f] using hI0
+    have hind : (covol_local_ann_set v ψ n).indicator
+        (fun _ => (μ.real (ball v n) : ℂ)) a = 0 := by simp [ha]
+    exact hmass.trans hind.symm
+
+private noncomputable def covol_local_fourier (v : FinPlace F)
+    (ψ : AddChar (v.adicCompletion F) ℂ) (μ : Measure (v.adicCompletion F))
+    (f : v.adicCompletion F → ℂ) (x : v.adicCompletion F) : ℂ :=
+  ∫ y, ψ (-(x * y)) * f y ∂μ
+
+private theorem covol_local_fourier_ball_formula (v : FinPlace F)
+    (ψ : AddChar (v.adicCompletion F) ℂ) (μ : Measure (v.adicCompletion F))
+    [Measure.IsAddHaarMeasure μ] (n : ℤ) (a : v.adicCompletion F) :
+    covol_local_fourier v ψ μ ((ball v n).indicator (fun _ => (1 : ℂ))) a =
+      (covol_local_ann_set v ψ n).indicator
+        (fun _ => (μ.real (ball v n) : ℂ)) a := by
+  have hfun : (fun y => ψ (-(a * y)) *
+      (ball v n).indicator (fun _ => (1 : ℂ)) y) =
+      (ball v n).indicator (fun y => ψ (-(a * y))) := by
+    funext y
+    by_cases hy : y ∈ ball v n <;> simp [hy]
+  change ∫ y, ψ (-(a * y)) * (ball v n).indicator (fun _ => (1 : ℂ)) y ∂μ = _
+  rw [hfun]
+  exact covol_local_char_integral_ball v ψ μ n a
+
+private theorem covol_local_fourier_const_mul (v : FinPlace F)
+    (ψ : AddChar (v.adicCompletion F) ℂ) (μ : Measure (v.adicCompletion F))
+    (c : ℂ) (f : v.adicCompletion F → ℂ) (x : v.adicCompletion F) :
+    covol_local_fourier v ψ μ (fun y => c * f y) x =
+      c * covol_local_fourier v ψ μ f x := by
+  unfold covol_local_fourier
+  have hfun : (fun y => ψ (-(x * y)) * (c * f y)) =
+      fun y => c * (ψ (-(x * y)) * f y) := by
+    funext y
+    ring
+  rw [hfun, integral_const_mul]
+
+private theorem covol_local_fourier_ball_inversion (v : FinPlace F)
+    (ψ : AddChar (v.adicCompletion F) ℂ) (μ : Measure (v.adicCompletion F))
+    [Measure.IsAddHaarMeasure μ] (c n : ℤ)
+    (hc : ∀ x, Valued.v x ≤ WithZero.exp c → ψ x = 1)
+    (hboundary : ∃ x, Valued.v x ≤ WithZero.exp (c + 1) ∧ ψ x ≠ 1)
+    (hvol : μ.real (ball v n) * μ.real (ball v (-c - n)) = 1)
+    (x : v.adicCompletion F) :
+    covol_local_fourier v ψ μ
+      (covol_local_fourier v ψ μ ((ball v n).indicator (fun _ => (1 : ℂ))) ) x =
+        (ball v n).indicator (fun _ => (1 : ℂ)) (-x) := by
+  let B' : Set (v.adicCompletion F) := ball v (-c - n)
+  let mB : ℂ := (μ.real (ball v n) : ℂ)
+  have hAnn1Set : covol_local_ann_set v ψ n = B' := by
+    have h := covol_local_ann_ball v ψ c n hc hboundary
+    have hs : -(-c - n) = c + n := by omega
+    simpa [B', ball, hs] using h
+  have hAnn2Set : covol_local_ann_set v ψ (-c - n) = ball v n := by
+    have h := covol_local_ann_ball v ψ c (-c - n) hc hboundary
+    have hs : c + (-c - n) = -n := by omega
+    rw [hs] at h
+    simpa [ball] using h
+  have hFhat : covol_local_fourier v ψ μ
+      ((ball v n).indicator (fun _ => (1 : ℂ))) =
+      B'.indicator (fun _ => mB) := by
+    funext y
+    calc
+      covol_local_fourier v ψ μ ((ball v n).indicator (fun _ => (1 : ℂ))) y =
+          (covol_local_ann_set v ψ n).indicator
+            (fun _ => (μ.real (ball v n) : ℂ)) y :=
+              covol_local_fourier_ball_formula v ψ μ n y
+      _ = B'.indicator (fun _ => mB) y := by rw [hAnn1Set]
+  have htrans (y : v.adicCompletion F) :
+      ψ (-(x * y)) * B'.indicator (fun _ => mB) y =
+        mB * B'.indicator (fun y => ψ (-(x * y))) y := by
+    by_cases hy : y ∈ B' <;> simp [hy, mul_comm]
+  have hsecond : covol_local_fourier v ψ μ (B'.indicator (fun _ => mB)) x =
+      mB * (ball v n).indicator (fun _ => (μ.real B' : ℂ)) x := by
+    unfold covol_local_fourier
+    rw [show (fun y => ψ (-(x * y)) * B'.indicator (fun _ => mB) y) =
+      fun y => mB * B'.indicator (fun y => ψ (-(x * y))) y from funext htrans,
+      integral_const_mul, covol_local_char_integral_ball]
+    rw [hAnn2Set]
+  have hvolC : mB * (μ.real B' : ℂ) = 1 := by
+    dsimp [mB, B']
+    exact_mod_cast hvol
+  have hxneg : -x ∈ ball v n ↔ x ∈ ball v n := by
+    constructor
+    · intro hx
+      simpa using covol_local_ball_neg v n hx
+    · intro hx
+      exact covol_local_ball_neg v n hx
+  have hresult : covol_local_fourier v ψ μ
+      (covol_local_fourier v ψ μ ((ball v n).indicator (fun _ => (1 : ℂ)))) x =
+      mB * (ball v n).indicator (fun _ => (μ.real B' : ℂ)) x := by
+    calc
+      _ = covol_local_fourier v ψ μ (B'.indicator (fun _ => mB)) x := by rw [hFhat]
+      _ = mB * (ball v n).indicator (fun _ => (μ.real B' : ℂ)) x := hsecond
+  by_cases hx : x ∈ ball v n
+  · calc
+      covol_local_fourier v ψ μ
+          (covol_local_fourier v ψ μ ((ball v n).indicator (fun _ => (1 : ℂ)))) x =
+          mB * (μ.real B' : ℂ) := by rw [hresult]; simp [hx]
+      _ = 1 := hvolC
+      _ = (ball v n).indicator (fun _ => (1 : ℂ)) (-x) := by simp [hxneg, hx]
+  · calc
+      covol_local_fourier v ψ μ
+          (covol_local_fourier v ψ μ ((ball v n).indicator (fun _ => (1 : ℂ)))) x =
+          0 := by rw [hresult]; simp [hx]
+      _ = (ball v n).indicator (fun _ => (1 : ℂ)) (-x) := by simp [hxneg, hx]
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
