@@ -18,7 +18,18 @@ theorem frobenius_residue_root (D : FieldData F) (H : HilbertData F)
     (ha : residue P (a : F) ≠ 0) :
     ((kummerLocal D H P (toLoc P a) (toLoc P (uniformizerUnit P)) : ℂˣ) : ℂ) =
       chi D P (a : F) := by
-  sorry
+  have hv : P.valuation F (uniformizerUnit P : F) = WithZero.exp (-1) :=
+    (HeightOneSpectrum.valuation_exists_uniformizer F P).choose_spec
+  have hcount : FractionalIdeal.count F P
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+        (uniformizerUnit P : F)) = 1 := by
+    rw [A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation P _
+      (uniformizerUnit P).ne_zero, hv, WithZero.log_exp]
+    rfl
+  have htame := H.tame P h6 a (uniformizerUnit P) ha
+  rw [hcount, zpow_one] at htame
+  change D.σ0 ((H.hilb P (toLoc P a) (toLoc P (uniformizerUnit P)) : Fˣ) : F) = _
+  rw [htame, chi, ite_eq_right ha]
 
 theorem kummer_prime_values (D : FieldData F) (H : HilbertData F) (a : Fˣ)
     (κ : KummerChar F)
