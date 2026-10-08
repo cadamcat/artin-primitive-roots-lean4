@@ -148,4 +148,39 @@ theorem rectangle_simple_pole_integral (A : ℂ) (a b c d : ℝ)
   <;> simp [Complex.I_sq]
   <;> ring
 
+/-- Translating a simple pole to the origin preserves its rectangle integral. -/
+theorem rectangle_shifted_pole_integral (A p : ℂ) (a b c d : ℝ)
+    (ha : a < p.re) (hb : p.re < b) (hc : c < p.im) (hd : p.im < d) :
+    (∫ t : ℝ in a..b, A / ((t : ℂ) + (c : ℂ) * Complex.I - p)) -
+      (∫ t : ℝ in a..b, A / ((t : ℂ) + (d : ℂ) * Complex.I - p)) +
+      Complex.I * (∫ t : ℝ in c..d, A / ((b : ℂ) + (t : ℂ) * Complex.I - p)) -
+      Complex.I * (∫ t : ℝ in c..d, A / ((a : ℂ) + (t : ℂ) * Complex.I - p)) =
+      2 * (Real.pi : ℂ) * Complex.I * A := by
+  have hden (x y : ℝ) : (x : ℂ) + (y : ℂ) * Complex.I - p =
+      ((x - p.re : ℝ) : ℂ) + ((y - p.im : ℝ) : ℂ) * Complex.I := by
+    apply Complex.ext <;> simp
+  have hH (y : ℝ) :
+      (∫ t : ℝ in a..b, A / ((t : ℂ) + (y : ℂ) * Complex.I - p)) =
+        ∫ t : ℝ in a - p.re..b - p.re,
+          A / ((t : ℂ) + ((y - p.im : ℝ) : ℂ) * Complex.I) := by
+    calc
+      _ = ∫ t : ℝ in a..b,
+          A / (((t - p.re : ℝ) : ℂ) + ((y - p.im : ℝ) : ℂ) * Complex.I) :=
+        integral_congr fun t _ => congrArg (fun z : ℂ => A / z) (hden t y)
+      _ = _ := integral_comp_sub_right
+        (fun t : ℝ => A / ((t : ℂ) + ((y - p.im : ℝ) : ℂ) * Complex.I)) p.re
+  have hV (x : ℝ) :
+      (∫ t : ℝ in c..d, A / ((x : ℂ) + (t : ℂ) * Complex.I - p)) =
+        ∫ t : ℝ in c - p.im..d - p.im,
+          A / (((x - p.re : ℝ) : ℂ) + (t : ℂ) * Complex.I) := by
+    calc
+      _ = ∫ t : ℝ in c..d,
+          A / (((x - p.re : ℝ) : ℂ) + ((t - p.im : ℝ) : ℂ) * Complex.I) :=
+        integral_congr fun t _ => congrArg (fun z : ℂ => A / z) (hden x t)
+      _ = _ := integral_comp_sub_right
+        (fun t : ℝ => A / (((x - p.re : ℝ) : ℂ) + (t : ℂ) * Complex.I)) p.im
+  rw [hH c, hH d, hV b, hV a]
+  exact rectangle_simple_pole_integral A (a - p.re) (b - p.re) (c - p.im) (d - p.im)
+    (sub_neg.mpr ha) (sub_pos.mpr hb) (sub_neg.mpr hc) (sub_pos.mpr hd)
+
 end ArtinPrimitiveRoots.Proofs.s7sol_mellin
