@@ -15,6 +15,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameLocalSymbol
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameResidueDictionary
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameGlobalUnit
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameValuation
+import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameRootData
 import ArtinPrimitiveRoots.A1.Proofs.A1_GENERATORS.Generator
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.ResidueCompatibility
 
