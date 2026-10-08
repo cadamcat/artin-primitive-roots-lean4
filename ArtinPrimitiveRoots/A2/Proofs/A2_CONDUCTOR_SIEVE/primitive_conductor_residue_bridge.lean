@@ -643,6 +643,70 @@ private theorem conductorLocalCharacter_eq_of_congruence
     ω.loc v ua.val = (ω.loc v ua.val / ω.loc v ub.val) * ω.loc v ub.val := hmul.symm
     _ = ω.loc v ub.val := by rw [hquot]; simp
 
+private theorem conductorResidueLocalCharacter_exists
+    (S : A1.SData F CE condη) (q : S.ExtIdeal)
+    (ω : A1.HeckeChar F) (f : Ideal (𝓞 F))
+    (hcond : ω.ConductorDvd f) (v : A1.FinPlace F)
+    (hv : v.asIdeal ∣ q.1)
+    (hexp : A1.idealExp v f = A1.idealExp v q.1) :
+    ∃ χ : (ConductorResidueRing q)ˣ →* ℂˣ,
+      ∀ (a : 𝓞 F) (ha0 : a ≠ 0) (ha : a ∉ v.asIdeal)
+        (x : (ConductorResidueRing q)ˣ),
+        Ideal.Quotient.mk q.1 a = (x : ConductorResidueRing q) →
+        χ x = ω.loc v
+          (conductorLocalIntegerUnitOfOElement v a ha0 ha).val := by
+  let lift := conductorResidueLift S q
+  have hlift : ∀ x, lift x ∉ v.asIdeal :=
+    fun x => conductorResidueLift_not_mem_prime S q x v hv
+  have hlift0 : ∀ x, lift x ≠ 0 := by
+    intro x h
+    exact hlift x (h ▸ v.asIdeal.zero_mem)
+  let φ := fun x => ω.loc v
+    (conductorLocalIntegerUnitOfOElement v (lift x) (hlift0 x) (hlift x)).val
+  have hφ : ∀ (a : 𝓞 F) (ha0 : a ≠ 0) (ha : a ∉ v.asIdeal)
+      (x : (ConductorResidueRing q)ˣ),
+      Ideal.Quotient.mk q.1 a = (x : ConductorResidueRing q) →
+      φ x = ω.loc v (conductorLocalIntegerUnitOfOElement v a ha0 ha).val := by
+    intro a ha0 ha x hx
+    exact conductorLocalCharacter_eq_of_congruence ω f q.1 hcond v
+      (A1.idealExp v q.1) hexp
+      (conductorExterior_le_prime_power q.1 q.2.1 v)
+      (lift x) a (hlift0 x) ha0 (hlift x) ha
+      ((Ideal.Quotient.mk_eq_mk_iff_sub_mem (lift x) a).mp
+        ((conductorResidueLift_spec S q x).trans hx.symm))
+  have hOne : (1 : 𝓞 F) ∉ v.asIdeal := by
+    intro h
+    exact v.isPrime.ne_top (v.asIdeal.eq_top_iff_one.mpr h)
+  let χ : (ConductorResidueRing q)ˣ →* ℂˣ := {
+    toFun := φ
+    map_one' := by
+      have h := hφ 1 one_ne_zero hOne 1 (by simp)
+      simpa [conductorLocalIntegerUnitOfOElement, A1.toLoc] using h
+    map_mul' := by
+      intro x y
+      have hmul0 : lift x * lift y ≠ 0 := mul_ne_zero (hlift0 x) (hlift0 y)
+      have hmul : lift x * lift y ∉ v.asIdeal := by
+        intro h
+        exact (v.isPrime.mem_or_mem h).elim (hlift x) (hlift y)
+      have hred : Ideal.Quotient.mk q.1 (lift x * lift y) =
+          ((x * y : (ConductorResidueRing q)ˣ) : ConductorResidueRing q) := by
+        rw [map_mul, conductorResidueLift_spec S q x,
+          conductorResidueLift_spec S q y]
+        rfl
+      rw [hφ (lift x * lift y) hmul0 hmul (x * y) hred]
+      have hlocal :
+          (conductorLocalIntegerUnitOfOElement v (lift x * lift y) hmul0 hmul).val =
+          (conductorLocalIntegerUnitOfOElement v (lift x) (hlift0 x) (hlift x)).val *
+          (conductorLocalIntegerUnitOfOElement v (lift y) (hlift0 y) (hlift y)).val := by
+        apply Units.ext
+        change algebraMap F (v.adicCompletion F)
+            (algebraMap (𝓞 F) F (lift x * lift y)) =
+          algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F (lift x)) *
+            algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F (lift y))
+        simp only [map_mul]
+      rw [hlocal, map_mul] }
+  exact ⟨χ, hφ⟩
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
