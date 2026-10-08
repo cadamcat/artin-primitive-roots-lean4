@@ -4071,6 +4071,134 @@ theorem bruhat_local_quotient_hasProd
   rw [← hseries] at hp
   exact hp
 
+set_option backward.isDefEq.respectTransparency false in
+/-- Extract ideal and spherical corrections from the normalized local Bruhat product. -/
+theorem bruhat_intertwine_product_normalization
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (δ : Fˣ) {z : ℂ}
+    (hz : HasProd (fun v : FinPlace F =>
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+        ((absFin v (toLoc v δ) : ℂ) * G.lam v
+          (intertwine (P.loc v) (μ v) (Fs.f v)
+            ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r)))) z) :
+    let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+      if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+      else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+    z = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) *
+      (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) * cprod Fs.T0 s *
+        (∏ᶠ v : FinPlace F, G.lam v
+          (fM v ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))) := by
+  classical
+  let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+    if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+    else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+  let β : FinPlace F → ℂ := fun v => G.lam v
+    (fM v ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))
+  let m : FinPlace F → ℂ := fun v =>
+    (((qv v) ^ (FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)
+  let d : FinPlace F → ℂ := fun v => (absFin v (toLoc v δ) : ℂ)
+  let b : FinPlace F → ℂ := fun v => if v ∈ Fs.T0 then 1 else cv v s
+  let a : FinPlace F → ℂ := fun v => m v * (d v * β v)
+  change z = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) *
+    (∏ᶠ v, d v) * cprod Fs.T0 s * (∏ᶠ v, β v)
+  let R : P.RP := P.ratRP (diagGL δ⁻¹) * r
+  have hcompF (v : FinPlace F) : P.compF v R =
+      (P.loc v).a (toLoc v δ)⁻¹ * P.compF v r := by
+    dsimp only [R]
+    rw [map_mul, P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    simp only [toLoc, map_inv]
+  have hβ : Function.HasFiniteMulSupport β := by
+    have hh := (scalarM_q P G μ hs Fs R).1
+    simpa only [Function.HasFiniteMulSupport, β, fM, hcompF] using hh
+  have hlocal (v : FinPlace F) :
+      G.lam v (intertwine (P.loc v) (μ v) (Fs.f v)
+        ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r)) = b v * β v := by
+    by_cases hv : v ∈ Fs.T0
+    · simp only [b, ite_eq_left hv, β, fM, dite_eq_left hv, one_mul]
+    · have hvS : v ∉ S.Sf := fun h => hv (Fs.sub h)
+      have hsph := (spherical_section (P.loc v) (P.tame v hvS) (G.T v).weyl
+        (G.B v hvS).weyl (fun h => hvS (S.over6 v h)) (-s)).choose_spec
+      have hM : intertwine (P.loc v) (μ v) (Fs.f v) =
+          cv v s • sphWeyl P G v hvS s :=
+        intertwine_spherical (P.loc v) (P.tame v hvS) (G.T v) (G.B v hvS)
+          (μ v) (fun h => hvS (S.over6 v h)) s hs
+          (Fs.f v) (Fs.f_sec v) (Fs.f_sph v hv).1 (Fs.f_sph v hv).2
+          (sphWeyl P G v hvS s) hsph.1 hsph.2.1 hsph.2.2.1
+      have heval := congrArg (fun f : (P.loc v).L → (G.T v).V =>
+        G.lam v (f ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))) hM
+      simpa only [b, ite_eq_right hv, β, fM, dite_eq_right hv, Pi.smul_apply,
+        map_smul, smul_eq_mul] using heval
+  have hm (v : FinPlace F) :
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) = m v := by
+    simp only [m, zpow_neg, Complex.ofReal_inv, inv_inv]
+  have hcounts : (Function.support (fun v : FinPlace F =>
+      FractionalIdeal.count F v 𝔞)).Finite :=
+    Filter.eventually_cofinite.mp (FractionalIdeal.finite_factors 𝔞)
+  have hmfinite : Function.HasFiniteMulSupport m := by
+    apply hcounts.subset
+    intro v hv
+    change FractionalIdeal.count F v 𝔞 ≠ 0
+    intro hc
+    exact hv (by simp only [m, hc, zpow_zero, Complex.ofReal_one])
+  have hreal : Function.HasFiniteMulSupport
+      (fun v : FinPlace F => absFin v (toLoc v δ)) := by
+    have hn : Function.HasFiniteMulSupport
+        (fun v : FinPlace F => ‖FinitePlace.embedding v (δ : F)‖) := by
+      simpa using finitePlace_mk_hasFiniteMulSupport (Units.ne_zero δ)
+    have heq (v : FinPlace F) :
+        absFin v (toLoc v δ) = ‖FinitePlace.embedding v (δ : F)‖ := by
+      simpa [toLoc] using absFin_algebraMap v (δ : F)
+    simpa only [heq] using hn
+  have hd : Function.HasFiniteMulSupport d := by
+    apply hreal.subset
+    intro v hv
+    change absFin v (toLoc v δ) ≠ 1
+    intro heq
+    exact hv (by simp only [d, heq, Complex.ofReal_one])
+  have hafinite : Function.HasFiniteMulSupport a := hmfinite.mul (hd.mul hβ)
+  have hz' : HasProd (fun v => a v * b v) z := by
+    convert hz using 1
+    funext v
+    rw [hm, hlocal]
+    dsimp only [a, d]
+    ac_rfl
+  have hb : (∏' v, b v) = cprod Fs.T0 s := by
+    have hsub := tprod_subtype ({v : FinPlace F | v ∉ Fs.T0})
+      (fun v : FinPlace F => cv v s)
+    calc
+      (∏' v, b v) = ∏' v, ({v : FinPlace F | v ∉ Fs.T0}).mulIndicator
+          (fun v => cv v s) v := by
+        apply tprod_congr
+        intro v
+        by_cases hv : v ∈ Fs.T0 <;> simp [b, hv, Set.mulIndicator]
+      _ = cprod Fs.T0 s := hsub.symm
+  have hmprod : (∏ᶠ v, m v) = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) := by
+    have hfinite : Function.HasFiniteMulSupport (fun v : FinPlace F =>
+        ((qv v) ^ (FractionalIdeal.count F v 𝔞) : ℝ)) := by
+      apply hcounts.subset
+      intro v hv
+      change FractionalIdeal.count F v 𝔞 ≠ 0
+      intro hc
+      exact hv (by simp only [hc, zpow_zero])
+    calc
+      (∏ᶠ v, m v) = Complex.ofRealHom.toMonoidHom
+          (∏ᶠ v : FinPlace F, (qv v) ^ (FractionalIdeal.count F v 𝔞)) :=
+        (Complex.ofRealHom.toMonoidHom.map_finprod hfinite).symm
+      _ = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) := by
+        rw [← fractionalIdeal_absNorm_finprod 𝔞 h𝔞]
+        rfl
+  have haprod : (∏ᶠ v, a v) =
+      ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) * ((∏ᶠ v, d v) * ∏ᶠ v, β v) := by
+    dsimp only [a]
+    rw [finprod_mul_distrib (f := m) (g := fun v => d v * β v)
+      hmfinite (hd.mul hβ), finprod_mul_distrib (f := d) (g := β) hd hβ, hmprod]
+  calc
+    z = (∏ᶠ v, a v) * ∏' v, b v := hasProd_finite_factor_tprod a b hafinite hz'
+    _ = _ := by rw [haprod, hb]; ac_rfl
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
