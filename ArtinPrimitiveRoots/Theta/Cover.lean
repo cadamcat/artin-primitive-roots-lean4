@@ -2775,6 +2775,66 @@ private theorem exists_finLocalSmallTopology
   exact ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_subgroupBasisTopology
     B.m0 B.Kc B.Kc_anti (finLocalSmallAlgebra_conjugation D H v hSt C B)
 
+/-- The small subgroup basis makes the projection to canonical PGL₂ continuous and open. -/
+private theorem finLocalSmallTopology_projection
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (C : FinLocalAlgebra D H v) (B : FinLocalSmallAlgebra C)
+    (t : TopologicalSpace C.L)
+    (htg : @IsTopologicalGroup C.L t C.grp)
+    (hKopen : ∀ m, B.m0 ≤ m → @IsOpen C.L t (B.Kc m : Set C.L))
+    (hKbasis : ∀ U ∈ @nhds C.L t (1 : C.L),
+      ∃ m, B.m0 ≤ m ∧ (B.Kc m : Set C.L) ⊆ U) :
+    @Continuous C.L (PGL2 (v.adicCompletion F)) t inferInstance C.pr ∧
+      @IsOpenMap C.L (PGL2 (v.adicCompletion F)) t inferInstance C.pr := by
+  classical
+  letI : TopologicalSpace C.L := t
+  letI : IsTopologicalGroup C.L := htg
+  let K := v.adicCompletion F
+  let Uc : ℕ → Set (GL (Fin 2) K) := fun m => {g | ∀ i j,
+    Valued.v ((g : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ WithZero.exp (-(m : ℤ))}
+  have hcong := ArtinPrimitiveRoots.Proofs.th_cover_sol.congruenceTopology v
+  have himage (m : ℕ) (hm : B.m0 ≤ m) :
+      C.pr '' (B.Kc m : Set C.L) = QuotientGroup.mk '' Uc m := by
+    rw [B.Kc_eq m hm]
+    change C.pr '' (C.sec '' Uc m) = QuotientGroup.mk '' Uc m
+    ext y
+    constructor
+    · rintro ⟨x, ⟨g, hg, rfl⟩, rfl⟩
+      exact ⟨g, hg, (C.sec_pr g).symm⟩
+    · rintro ⟨g, hg, rfl⟩
+      exact ⟨C.sec g, ⟨g, hg, rfl⟩, C.sec_pr g⟩
+  have hpopen (m : ℕ) (hm : B.m0 ≤ m) :
+      IsOpen (C.pr '' (B.Kc m : Set C.L)) := by
+    rw [himage m hm]
+    exact QuotientGroup.isOpenQuotientMap_mk.isOpenMap _ (hcong.1 m)
+  have hKnhds (m : ℕ) (hm : B.m0 ≤ m) : (B.Kc m : Set C.L) ∈ nhds (1 : C.L) :=
+    (hKopen m hm).mem_nhds (B.Kc m).one_mem
+  refine ⟨continuous_of_tendsto_nhds_one C.pr ?_, ?_⟩
+  · change Filter.map C.pr (nhds (1 : C.L)) ≤ nhds (1 : PGL2 K)
+    intro U hU
+    have hq : QuotientGroup.mk ⁻¹' U ∈ nhds (1 : GL (Fin 2) K) := by
+      exact QuotientGroup.continuous_mk.continuousAt.preimage_mem_nhds (by simpa using hU)
+    obtain ⟨m, hm, hsmall⟩ := hcong.2 B.m0 _ hq
+    change C.pr ⁻¹' U ∈ nhds (1 : C.L)
+    apply Filter.mem_of_superset (hKnhds m hm)
+    intro x hx
+    have hximage : C.pr x ∈ QuotientGroup.mk '' Uc m := by
+      rw [← himage m hm]
+      exact ⟨x, hx, rfl⟩
+    obtain ⟨g, hg, heq⟩ := hximage
+    change C.pr x ∈ U
+    rw [← heq]
+    exact hsmall hg
+  · apply IsTopologicalGroup.isOpenMap_iff_nhds_one.mpr
+    intro U hU
+    obtain ⟨m, hm, hsub⟩ := hKbasis (C.pr ⁻¹' U) (Filter.mem_map.mp hU)
+    have hI : C.pr '' (B.Kc m : Set C.L) ∈ nhds (1 : PGL2 K) :=
+      (hpopen m hm).mem_nhds ⟨1, (B.Kc m).one_mem, C.pr.map_one⟩
+    apply Filter.mem_of_superset hI
+    rintro y ⟨x, hx, rfl⟩
+    exact hsub hx
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
