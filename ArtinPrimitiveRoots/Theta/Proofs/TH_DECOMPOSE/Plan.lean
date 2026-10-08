@@ -139,6 +139,7 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
         (ArtinPrimitiveRoots.A1.Spec.ptX' F x y) p.2.2 := by
   have hlocal (v : FinPlace F) : (G.Alag v).FiniteIndex :=
     local_lagrangian_finiteIndex P G v
+  have hclasses (T : Finset (FinPlace F)) := finite_exterior_lagrangian_classes P G T
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/

@@ -94,4 +94,35 @@ theorem local_lagrangian_finiteIndex (P : CoverPackage D S H A) (G : GlobalDatum
   let : Finite ((v.adicCompletion F)ˣ ⧸ G.Alag v) := Finite.of_surjective q hq
   exact Subgroup.finiteIndex_of_finite_quotient
 
+/-- Rational torus classes with trivial exterior local classes form a finite set. -/
+theorem finite_exterior_lagrangian_classes (P : CoverPackage D S H A)
+    (G : GlobalDatum P) (T : Finset (FinPlace F)) :
+    Set.Finite {δ : Fˣ ⧸ G.Δ | ∀ v, v ∉ T → toLoc v δ.out ∈ G.Alag v} := by
+  let C : Set (Fˣ ⧸ G.Δ) := {δ | ∀ v, v ∉ T → toLoc v δ.out ∈ G.Alag v}
+  let (v : FinPlace F) : (G.Alag v).FiniteIndex := local_lagrangian_finiteIndex P G v
+  let f : C → (∀ v : T, (v.val.adicCompletion F)ˣ ⧸ G.Alag v.val) :=
+    fun δ v => Quotient.mk _ (toLoc v.val δ.val.out)
+  have hf : Function.Injective f := by
+    intro δ η h
+    apply Subtype.ext
+    have hratio : δ.val.out⁻¹ * η.val.out ∈ G.Δ := by
+      change δ.val.out⁻¹ * η.val.out ∈
+        ⨅ v : FinPlace F, (G.Alag v).comap (toLoc v)
+      rw [Subgroup.mem_iInf]
+      intro v
+      change toLoc v (δ.val.out⁻¹ * η.val.out) ∈ G.Alag v
+      rw [map_mul, map_inv]
+      by_cases hv : v ∈ T
+      · have hlocal : (Quotient.mk _ (toLoc v δ.val.out) :
+            (v.adicCompletion F)ˣ ⧸ G.Alag v) = Quotient.mk _ (toLoc v η.val.out) :=
+          congrFun h ⟨v, hv⟩
+        exact QuotientGroup.leftRel_apply.mp (Quotient.exact hlocal)
+      · exact (G.Alag v).mul_mem ((G.Alag v).inv_mem (δ.property v hv))
+          (η.property v hv)
+    have hq : (Quotient.mk _ δ.val.out : Fˣ ⧸ G.Δ) = Quotient.mk _ η.val.out :=
+      Quotient.sound (QuotientGroup.leftRel_apply.mpr hratio)
+    simpa only [Quotient.out_eq] using hq
+  let : Finite C := Finite.of_injective f hf
+  exact C.toFinite
+
 end ArtinPrimitiveRoots.A1.Theta
