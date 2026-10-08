@@ -8723,6 +8723,50 @@ private theorem rf_pairing_sqf_support_exists
       rw [R.exterior.mem_support f v, hf]
       exact Finset.dvd_prod_of_mem (fun w : FinPlace F => w.asIdeal) hv
 
+private theorem rf_pairing_active_support_equiv
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (h : S.ExtIdeal) :
+    ∃ e :
+      {s : Finset (FinPlace F) // s ⊆ R.exterior.support h ∧
+        ∀ v ∈ R.exterior.support h, idealExp v h.1 % 6 ≠ 0 → v ∈ s} ≃
+      {f : S.ExtIdeal // activeFactor R h f},
+      ∀ s, R.exterior.support (e s).1 = s.1 := by
+  classical
+  let SS := {s : Finset (FinPlace F) // s ⊆ R.exterior.support h ∧
+    ∀ v ∈ R.exterior.support h, idealExp v h.1 % 6 ≠ 0 → v ∈ s}
+  let AF := {f : S.ExtIdeal // activeFactor R h f}
+  let φ : AF → SS := fun f => ⟨R.exterior.support f.1, f.2.2.1, f.2.2.2⟩
+  have hfactor (f : AF) : f.1.1 = ∏ v ∈ R.exterior.support f.1, v.asIdeal := by
+    let c : S.SqfExtIdeal := ⟨f.1.1, f.1.property, f.2.1⟩
+    have hof : R.exterior.ofSqf c = f.1 := Subtype.ext (R.exterior.ofSqf_val c)
+    simpa only [hof] using rf_sqfIdeal_factorization R c
+  have hinj : Function.Injective φ := by
+    intro f g heq
+    have hs : R.exterior.support f.1 = R.exterior.support g.1 :=
+      congrArg (fun s : SS => s.1) heq
+    apply Subtype.ext
+    apply Subtype.ext
+    rw [hfactor f, hfactor g, hs]
+  have hsurj : Function.Surjective φ := by
+    intro s
+    have hgood : ∀ v ∈ s.1, v ∉ S.Sf := fun v hv =>
+      R.exterior.support_exterior h v (s.2.1 hv)
+    obtain ⟨f, hfsq, hs⟩ := rf_pairing_sqf_support_exists R s.1 hgood
+    have hfactive : activeFactor R h f := by
+      refine ⟨hfsq, ?_, ?_⟩
+      · intro v hv
+        exact s.2.1 (hs ▸ hv)
+      · intro v hv hnon
+        rw [hs]
+        exact s.2.2 v hv hnon
+    refine ⟨⟨f, hfactive⟩, ?_⟩
+    apply Subtype.ext
+    exact hs
+  let E : AF ≃ SS := Equiv.ofBijective φ ⟨hinj, hsurj⟩
+  refine ⟨E.symm, ?_⟩
+  intro s
+  have hs : φ (E.symm s) = s := E.apply_symm_apply s
+  exact congrArg (fun s : SS => s.1) hs
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
