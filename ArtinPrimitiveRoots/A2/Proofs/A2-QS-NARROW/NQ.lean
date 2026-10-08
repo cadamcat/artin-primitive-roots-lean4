@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-BOOT».Boot
 import ArtinPrimitiveRoots.A1.Residue
+import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.IntegralSymbols
 
 /-!
 # A2-QS-NARROW: canonical narrow family, representatives, and the three frozen endpoints
@@ -21,6 +22,7 @@ set_option autoImplicit false
 open scoped NumberField
 open NumberField IsDedekindDomain
 open ClassFieldTheory
+open scoped nonZeroDivisors Classical
 
 noncomputable section
 
@@ -33,7 +35,23 @@ variable {K : Type} [Field K] [NumberField K]
 /-- NQ (IMPL): a field with a primitive 12th (indeed 4th) root of unity is totally complex. -/
 theorem qs_totallyComplex_of_mu12_NQ (hμ : ∃ ζ : K, IsPrimitiveRoot ζ 12) :
     IsTotallyComplex K := by
-  sorry
+  obtain ⟨ζ, hζ⟩ := hμ
+  refine ⟨fun v => ?_⟩
+  rw [InfinitePlace.isComplex_iff]
+  intro hreal
+  let ι : K →+* ℝ := hreal.embedding
+  have hprim : IsPrimitiveRoot (ι ζ) 12 :=
+    IsPrimitiveRoot.map_of_injective (f := ι) hζ (RingHom.injective ι)
+  have hsq : ((ι ζ) ^ 6) ^ 2 = 1 := by
+    calc
+      ((ι ζ) ^ 6) ^ 2 = (ι ζ) ^ (6 * 2) := by rw [pow_mul]
+      _ = (ι ζ) ^ 12 := by norm_num
+      _ = 1 := hprim.pow_eq_one
+  have hnonneg : 0 ≤ (ι ζ) ^ 6 := by positivity
+  rcases sq_eq_one_iff.mp hsq with h | h
+  · exact hprim.pow_ne_one_of_pos_of_lt (by norm_num) (by norm_num) h
+  · have : (ι ζ) ^ 6 = -1 := h
+    linarith
 
 /-- NQ0 (SOL-LEAD; RETIER `qs_canonical_family_NQ0`, found:585-592): enlarge `S` to `S'`
 (primes over 6, the different, class-group generators; `O_{S'}` a PID), build the canonical
@@ -52,7 +70,32 @@ theorem qs_canonical_family_NQ0 (hμ : ∃ ζ : K, IsPrimitiveRoot ζ 12)
         QSAdm m qS (qsIdealOf T) ∧ qsIsExteriorGenerator S' T (gen₀ T)) ∧
       (∀ T D : Finset (HeightOneSpectrum (𝓞 K)), Disjoint T S' → Disjoint D S' →
         (F.character (qsIdealOf T)).idealValue (qsIdealOf D) = (qsQuadSymbol D (gen₀ T) : ℂ)) := by
-  sorry
+  classical
+  obtain ⟨D⟩ := qs_nq0_field_data hμ
+  obtain ⟨CE, Sd, hSS⟩ := qs_nq0_sdata_enlargement S
+  obtain ⟨H⟩ := ArtinPrimitiveRoots.A1.HilbertData.nonempty D
+  obtain ⟨Bd⟩ := ArtinPrimitiveRoots.A1.BData.nonempty D Sd H
+  obtain ⟨a, ha⟩ := qs_nq0_allowed_generators Sd H Bd
+  have hcharacters (I : Ideal (𝓞 K)) := qs_nq0_quadratic_character_exists D H (a I)
+  choose χ hχ hinf hlocal using hcharacters
+  have hscalar (I : Ideal (𝓞 K)) (v : HeightOneSpectrum (𝓞 K))
+      (u : (v.adicCompletion K)ˣ) :
+      (((χ I).loc v u : ℂˣ) : ℂ) =
+        D.σ0 (((H.hilb v (ArtinPrimitiveRoots.A1.toLoc v (a I)) u : Kˣ) : K)) ^ 3 := by
+    rw [hlocal I v]
+    rfl
+  obtain ⟨m, qS, F, hqS, hm, hsupport, hray, hF⟩ :=
+    qs_nq0_conductor_family D Sd H Bd a ha χ hχ hinf hscalar
+  obtain ⟨gen₀, hgen, hsym⟩ := qs_nq0_integral_symbol_representatives D Sd H a
+    (fun I hI => (ha I hI).1) χ hscalar
+  refine ⟨Sd.Sf, m, qS, F, gen₀, hSS, hqS, hray, ?_, ?_⟩
+  · intro T hT
+    have hadm := qs_nq0_support_admissible Sd m hm qS hqS hsupport T hT
+    exact ⟨hadm.2, hgen T hT⟩
+  · intro T U hT hU
+    have hexterior := (qs_nq0_support_admissible Sd m hm qS hqS hsupport T hT).1
+    rw [hF (qsIdealOf T) hexterior]
+    exact hsym T U hT hU
 
 /-- NQ0a (IMPL): the core bound transported to finite prime supports
 (`T ↦ ∏_{v∈T} 𝔭_v` is injective on finite sets of primes, `N(qsIdealOf T) = qsNormT T`;
@@ -72,7 +115,84 @@ theorem qs_core_symbol_bound_NQ0a (S' : Finset (HeightOneSpectrum (𝓞 K)))
         ∀ z : Finset (HeightOneSpectrum (𝓞 K)) → ℂ,
           ∑ D ∈ rows, ‖∑ T ∈ cols, z T * (qsQuadSymbol D (gen₀ T) : ℂ)‖ ^ 2 ≤
             C * (Cmax + Dmax) * (Cmax * Dmax) ^ ε * ∑ T ∈ cols, ‖z T‖ ^ 2 := by
-  sorry
+  classical
+  have hnorm (T : Finset (HeightOneSpectrum (𝓞 K))) :
+      Ideal.absNorm (qsIdealOf T) = qsNormT T := by
+    simp [qsIdealOf, qsNormT]
+  have hmem_iff (T : Finset (HeightOneSpectrum (𝓞 K)))
+      (v : HeightOneSpectrum (𝓞 K)) :
+      v ∈ T ↔ qsIdealOf T ≤ v.asIdeal := by
+    constructor
+    · intro hv
+      rw [qsIdealOf, v.isPrime.prod_le]
+      exact ⟨v, hv, le_rfl⟩
+    · intro h
+      have h' : (∏ w ∈ T, w.asIdeal) ≤ v.asIdeal := by simpa [qsIdealOf] using h
+      obtain ⟨w, hw, hwv⟩ := v.isPrime.prod_le.mp h'
+      have heq : w.asIdeal = v.asIdeal := w.isMaximal.eq_of_le v.isPrime.ne_top hwv
+      have : w = v := HeightOneSpectrum.ext heq
+      simpa [this] using hw
+  have hIdealInj : Function.Injective (qsIdealOf (K := K)) := by
+    intro T U hTU
+    apply Finset.ext
+    intro v
+    rw [hmem_iff, hmem_iff, hTU]
+  intro ε hε
+  obtain ⟨C, hC, hfinite⟩ := qs_finite_energy_of_core_M0 F hcore ε hε
+  refine ⟨C, hC, ?_⟩
+  intro Cmax Dmax hCmax hDmax cols rows hcols hrows z
+  let rowsI : Finset (Ideal (𝓞 K)) := rows.image qsIdealOf
+  let colsI : Finset (Ideal (𝓞 K)) := cols.image qsIdealOf
+  let zI : Ideal (𝓞 K) → ℂ := fun I => ∑ T ∈ cols, if qsIdealOf T = I then z T else 0
+  have hrowsI (I : Ideal (𝓞 K)) (hI : I ∈ rowsI) :
+      QSAdm m qS I ∧ (Ideal.absNorm I : ℝ) ≤ Dmax := by
+    obtain ⟨D, hD, rfl⟩ := Finset.mem_image.mp hI
+    obtain ⟨hdisj, hnormD⟩ := hrows D hD
+    refine ⟨hadm D hdisj, ?_⟩
+    rw [hnorm]
+    exact hnormD
+  have hcolsI (I : Ideal (𝓞 K)) (hI : I ∈ colsI) :
+      QSAdm m qS I ∧ (Ideal.absNorm I : ℝ) ≤ Cmax := by
+    obtain ⟨T, hT, rfl⟩ := Finset.mem_image.mp hI
+    obtain ⟨hdisj, hnormT⟩ := hcols T hT
+    refine ⟨hadm T hdisj, ?_⟩
+    rw [hnorm]
+    exact hnormT
+  have hzI (T : Finset (HeightOneSpectrum (𝓞 K))) (hT : T ∈ cols) :
+      zI (qsIdealOf T) = z T := by
+    dsimp [zI]
+    rw [Finset.sum_eq_single_of_mem T hT]
+    · simp
+    · intro U hU hUT
+      have hne : qsIdealOf U ≠ qsIdealOf T := by
+        intro heq
+        exact hUT (hIdealInj heq)
+      simp [hne]
+  have henergy := hfinite Cmax Dmax hCmax hDmax rowsI colsI hrowsI hcolsI zI
+  have hrowinj : Set.InjOn qsIdealOf rows := hIdealInj.injOn
+  have hcolinj : Set.InjOn qsIdealOf cols := hIdealInj.injOn
+  have hsumInner (D : Finset (HeightOneSpectrum (𝓞 K))) (hD : D ∈ rows) :
+      (∑ J ∈ colsI, zI J * (F.character J).idealValue (qsIdealOf D)) =
+        ∑ T ∈ cols, z T * (qsQuadSymbol D (gen₀ T) : ℂ) := by
+    rw [Finset.sum_image hcolinj]
+    refine Finset.sum_congr rfl ?_
+    intro T hT
+    rw [hzI T hT, hsym T D (hcols T hT).1 (hrows D hD).1]
+  have hsumRows :
+      (∑ I ∈ rowsI, ‖∑ J ∈ colsI, zI J * (F.character J).idealValue I‖ ^ 2) =
+        ∑ D ∈ rows, ‖∑ T ∈ cols, z T * (qsQuadSymbol D (gen₀ T) : ℂ)‖ ^ 2 := by
+    rw [Finset.sum_image hrowinj]
+    refine Finset.sum_congr rfl ?_
+    intro D hD
+    exact congrArg (fun x : ℂ => ‖x‖ ^ 2) (hsumInner D hD)
+  have hsumCoeff :
+      (∑ I ∈ colsI, ‖zI I‖ ^ 2) = ∑ T ∈ cols, ‖z T‖ ^ 2 := by
+    rw [Finset.sum_image hcolinj]
+    refine Finset.sum_congr rfl ?_
+    intro T hT
+    rw [hzI T hT]
+  rw [hsumRows, hsumCoeff] at henergy
+  exact henergy
 
 /-- NQ1 (IMPL; found:593-598): arbitrary integral representatives and the smaller set `S`.
 Split rows and columns by their (finitely many) intersections with `S' \ S` (deletion is
@@ -122,8 +242,76 @@ theorem qs_narrow_large_sieve (hμ : ∃ ζ : K, IsPrimitiveRoot ζ 12)
   obtain ⟨S', m, qS, F, gen₀, hSS', hqS, hrf, hadm, hsym⟩ := qs_canonical_family_NQ0 hμ S hS
   haveI : IsTotallyComplex K := qs_totallyComplex_of_mu12_NQ hμ
   exact qs_arbitrary_representatives_NQ1 hμ S S' hSS' hS gen₀ (fun T hT => (hadm T hT).2)
-    (qs_core_symbol_bound_NQ0a S' m qS F gen₀ (fun T hT => (hadm T hT).1) hsym
-      (qs_core_large_sieve_B2 F hrf hqS))
+      (qs_core_symbol_bound_NQ0a S' m qS F gen₀ (fun T hT => (hadm T hT).1) hsym
+        (qs_core_large_sieve_B2 F hrf hqS))
+
+private theorem qs_fractional_count_span_power_NQ2
+    (v w : HeightOneSpectrum (𝓞 K)) (n : ℕ) {a : 𝓞 K}
+    (ha : Ideal.span {a} = v.asIdeal ^ n) :
+    FractionalIdeal.count K w (Ideal.span {a} : FractionalIdeal (𝓞 K)⁰ K) =
+      if w = v then n else 0 := by
+  classical
+  rw [ha, FractionalIdeal.coeIdeal_pow]
+  by_cases hwv : w = v
+  · subst w
+    simpa using (FractionalIdeal.count_pow_self K v n)
+  · have hvw : v ≠ w := Ne.symm hwv
+    rw [FractionalIdeal.count_pow, FractionalIdeal.count_maximal_coprime K w hvw]
+    simp [hwv]
+
+private theorem qs_valuation_eq_exp_neg_fractional_count_NQ2
+    (v : HeightOneSpectrum (𝓞 K)) {a : 𝓞 K} (ha : a ≠ 0) :
+    v.valuation K (a : K) =
+      WithZero.exp (-FractionalIdeal.count K v
+        (Ideal.span {a} : FractionalIdeal (𝓞 K)⁰ K)) := by
+  rw [v.valuation_of_algebraMap, v.intValuation_if_neg ha]
+  congr 1
+  have hspan : Ideal.span {a} ≠ ⊥ := by
+    intro h
+    exact ha (Ideal.span_singleton_eq_bot.mp h)
+  have hfrac : (Ideal.span {a} : FractionalIdeal (𝓞 K)⁰ K) ≠ 0 :=
+    FractionalIdeal.coeIdeal_ne_zero.mpr hspan
+  rw [FractionalIdeal.count_well_defined K v hfrac (a := 1)
+    (J := Ideal.span {a}) (by simp)]
+  rw [Ideal.span_singleton_one, ← Ideal.one_eq_top, Associates.mk_one,
+    Associates.factors_one, Associates.count_zero v.associates_irreducible]
+  ring
+
+private theorem qs_residue_ne_zero_of_not_mem_NQ2 (v : ArtinPrimitiveRoots.A1.FinPlace K)
+    {a : 𝓞 K} (ha : a ∉ v.asIdeal) :
+    ArtinPrimitiveRoots.A1.residue v (a : K) ≠ 0 := by
+  let hx : ∃ ab : 𝓞 K × 𝓞 K, ab.2 ∉ v.asIdeal ∧
+      (a : K) * algebraMap (𝓞 K) K ab.2 = algebraMap (𝓞 K) K ab.1 :=
+    ⟨(a, 1), by
+      intro h
+      exact v.isMaximal.ne_top ((Ideal.eq_top_iff_one _).mpr h), by simp⟩
+  letI : v.asIdeal.IsMaximal := v.isMaximal
+  letI : Field (𝓞 K ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  unfold ArtinPrimitiveRoots.A1.residue
+  rw [dif_pos hx]
+  have hspec := hx.choose_spec
+  have hd : Ideal.Quotient.mk v.asIdeal hx.choose.2 ≠ 0 := by
+    intro hz
+    exact hspec.1 (Ideal.Quotient.eq_zero_iff_mem.mp hz)
+  have hmulK : algebraMap (𝓞 K) K (a * hx.choose.2) = algebraMap (𝓞 K) K hx.choose.1 := by
+    simpa [map_mul] using hspec.2
+  have hmul : a * hx.choose.2 = hx.choose.1 :=
+    (IsFractionRing.injective (𝓞 K) K) hmulK
+  have hnum : Ideal.Quotient.mk v.asIdeal hx.choose.1 =
+      Ideal.Quotient.mk v.asIdeal a * Ideal.Quotient.mk v.asIdeal hx.choose.2 := by
+    calc
+      Ideal.Quotient.mk v.asIdeal hx.choose.1 =
+          Ideal.Quotient.mk v.asIdeal (a * hx.choose.2) := by rw [hmul]
+      _ = Ideal.Quotient.mk v.asIdeal a * Ideal.Quotient.mk v.asIdeal hx.choose.2 := map_mul _ _ _
+  have hres : Ideal.Quotient.mk v.asIdeal hx.choose.1 *
+      (Ideal.Quotient.mk v.asIdeal hx.choose.2)⁻¹ = Ideal.Quotient.mk v.asIdeal a := by
+    rw [hnum]
+    simp [mul_assoc, hd]
+  change Ideal.Quotient.mk v.asIdeal hx.choose.1 *
+      (Ideal.Quotient.mk v.asIdeal hx.choose.2)⁻¹ ≠ 0
+  rw [hres]
+  intro hz
+  exact ha (Ideal.Quotient.eq_zero_iff_mem.mp hz)
 
 /-- NQ2 (IMPL; consumer helper for `lem_reflection_quadratic_sieve`, found:599-602 and
 `runs/lanes/sol-thin-a2rp/PROOFS.md:374-382`; schema `IntegralSquareClearing` in
@@ -136,7 +324,139 @@ theorem qs_integralize_generators_NQ2 {CE : ℕ} {condη : Ideal (𝓞 K)}
       (∀ v : ArtinPrimitiveRoots.A1.FinPlace K, v ∉ S.Sf →
         ArtinPrimitiveRoots.A1.residue v (b : K) ≠ 0) ∧
       ∃ a : 𝓞 K, (a : K) = (c : K) * (b : K) ^ 2 := by
-  sorry
+  classical
+  intro c hR
+  let h : ℕ := Fintype.card (ClassGroup (𝓞 K))
+  have hh : 0 < h := by
+    dsimp [h]
+    exact (Fintype.card_pos : 0 < Fintype.card (ClassGroup (𝓞 K)))
+  have hpower (v : ArtinPrimitiveRoots.A1.FinPlace K) :
+      ∃ a : 𝓞 K, Ideal.span {a} = v.asIdeal ^ h := by
+    let p₀ : (Ideal (𝓞 K))⁰ :=
+      ⟨v.asIdeal, mem_nonZeroDivisors_iff_ne_zero.mpr v.ne_bot⟩
+    have hClass : ClassGroup.mk0 p₀ ^ h = 1 := by
+      simpa [h, p₀] using (pow_card_eq_one (x := ClassGroup.mk0 p₀))
+    have hpow0 : v.asIdeal ^ h ≠ ⊥ := pow_ne_zero _ v.ne_bot
+    have hClassPow :
+        ClassGroup.mk0 ⟨v.asIdeal ^ h, mem_nonZeroDivisors_iff_ne_zero.mpr hpow0⟩ = 1 := by
+      change ClassGroup.mk0 (p₀ ^ h) = 1
+      rw [map_pow]
+      exact hClass
+    have hPrincipal : (v.asIdeal ^ h).IsPrincipal :=
+      (ClassGroup.mk0_eq_one_iff (mem_nonZeroDivisors_iff_ne_zero.mpr hpow0)).mp hClassPow
+    obtain ⟨a, ha⟩ := hPrincipal.principal
+    exact ⟨a, ha.symm⟩
+  let π : ArtinPrimitiveRoots.A1.FinPlace K → 𝓞 K := fun v => Classical.choose (hpower v)
+  have hπ (v : ArtinPrimitiveRoots.A1.FinPlace K) : Ideal.span {π v} = v.asIdeal ^ h :=
+    Classical.choose_spec (hpower v)
+  have hπ_ne (v : ArtinPrimitiveRoots.A1.FinPlace K) : π v ≠ 0 := by
+    intro hz
+    have hpow0 : v.asIdeal ^ h ≠ ⊥ := pow_ne_zero _ v.ne_bot
+    apply hpow0
+    calc
+      v.asIdeal ^ h = Ideal.span {π v} := (hπ v).symm
+      _ = ⊥ := by simp [hz]
+  let e : ℕ := ∑ v ∈ S.Sf, (WithZero.log (v.valuation K (c : K))).toNat
+  let b : 𝓞 K := ∏ v ∈ S.Sf, (π v) ^ e
+  have hb_ne : b ≠ 0 := by
+    dsimp [b]
+    apply Finset.prod_ne_zero_iff.mpr
+    intro v hv
+    exact pow_ne_zero _ (hπ_ne v)
+  have hvalπ (w v : ArtinPrimitiveRoots.A1.FinPlace K) :
+      w.valuation K (π v : K) = if w = v then WithZero.exp (-(h : ℤ)) else 1 := by
+    rw [qs_valuation_eq_exp_neg_fractional_count_NQ2 w (hπ_ne v),
+      qs_fractional_count_span_power_NQ2 v w h (hπ v)]
+    by_cases hwv : w = v <;> simp [hwv]
+  have hvalb (w : ArtinPrimitiveRoots.A1.FinPlace K) :
+      w.valuation K (b : K) =
+        if w ∈ S.Sf then WithZero.exp ((e : ℕ) • (-(h : ℤ))) else 1 := by
+    dsimp [b]
+    change w.valuation K
+      (algebraMap (𝓞 K) K (∏ v ∈ S.Sf, (π v) ^ e)) = _
+    rw [map_prod, map_prod]
+    simp_rw [map_pow]
+    by_cases hw : w ∈ S.Sf
+    · rw [if_pos hw, Finset.prod_eq_single w]
+      · rw [hvalπ]
+        by_cases hEq : w = w
+        · rw [if_pos hEq]
+          rw [← WithZero.exp_nsmul]
+          congr 1
+        · exact False.elim (hEq rfl)
+      · intro v hv hne
+        rw [hvalπ]
+        have hwv : w ≠ v := by
+          intro hEq
+          exact hne hEq.symm
+        simp [hwv]
+      · intro hnot
+        exact (hnot hw).elim
+    · rw [if_neg hw, Finset.prod_eq_one]
+      intro v hv
+      rw [hvalπ]
+      have hwv : w ≠ v := by
+        intro hEq
+        exact hw (hEq ▸ hv)
+      simp [hwv]
+  have htoNat (z : ℤ) : z ≤ (z.toNat : ℤ) := by
+    by_cases hz : 0 ≤ z
+    · rw [Int.toNat_of_nonneg hz]
+    · have hneg : z < 0 := lt_of_not_ge hz
+      have hzNat : z.toNat = 0 := by omega
+      rw [hzNat]
+      omega
+  have heBound (v : ArtinPrimitiveRoots.A1.FinPlace K) (hv : v ∈ S.Sf) :
+      WithZero.log (v.valuation K (c : K)) ≤ (e : ℤ) := by
+    let z := WithZero.log (v.valuation K (c : K))
+    have hsum := Finset.single_le_sum
+      (s := S.Sf) (f := fun w => (WithZero.log (w.valuation K (c : K))).toNat)
+      (fun _ _ => Nat.zero_le _) hv
+    dsimp [e, z]
+    calc
+      z ≤ (z.toNat : ℤ) := htoNat z
+      _ ≤ (e : ℤ) := by exact_mod_cast hsum
+  have hvalCorrected (v : ArtinPrimitiveRoots.A1.FinPlace K) :
+      v.valuation K ((c : K) * (b : K) ^ 2) ≤ 1 := by
+    have hc_ne : v.valuation K (c : K) ≠ 0 := by simp [c.ne_zero]
+    have hbval_ne : v.valuation K (b : K) ≠ 0 := by
+      rw [hvalb]
+      split_ifs <;> simp
+    have hx_ne : v.valuation K ((c : K) * (b : K) ^ 2) ≠ 0 := by
+      have hx : (c : K) * (b : K) ^ 2 ≠ 0 := mul_ne_zero c.ne_zero (pow_ne_zero _ (by exact_mod_cast hb_ne))
+      simp [hx, hb_ne]
+    have hlog : WithZero.log (v.valuation K ((c : K) * (b : K) ^ 2)) =
+        WithZero.log (v.valuation K (c : K)) +
+          2 * WithZero.log (v.valuation K (b : K)) := by
+      rw [map_mul, map_pow, WithZero.log_mul hc_ne (pow_ne_zero _ hbval_ne), WithZero.log_pow]
+      norm_num
+    by_cases hv : v ∈ S.Sf
+    · rw [← WithZero.exp_log hx_ne, ← WithZero.exp_zero, WithZero.exp_le_exp]
+      rw [hlog, hvalb, if_pos hv]
+      simp only [WithZero.log_exp]
+      have he_nonneg : (0 : ℤ) ≤ (e : ℤ) := by exact_mod_cast Nat.zero_le e
+      have hh_ge : (1 : ℤ) ≤ (h : ℤ) := by exact_mod_cast hh
+      have hprod : (0 : ℤ) ≤ (e : ℤ) * ((h : ℤ) - 1) :=
+        mul_nonneg he_nonneg (by omega)
+      have hbound := heBound v hv
+      simp only [nsmul_eq_mul]
+      nlinarith
+    · have hc_int : v.valuation K (c : K) ≤ 1 := by
+        change (c : K) ∈ ((S.Sf : Set (ArtinPrimitiveRoots.A1.FinPlace K)).integer K) at hR
+        exact hR v hv
+      calc
+        v.valuation K ((c : K) * (b : K) ^ 2) =
+            v.valuation K (c : K) * v.valuation K (b : K) ^ 2 := by rw [map_mul, map_pow]
+        _ = v.valuation K (c : K) := by rw [hvalb, if_neg hv]; simp
+        _ ≤ 1 := hc_int
+  obtain ⟨a, ha⟩ := HeightOneSpectrum.mem_integers_of_valuation_le_one K
+    ((c : K) * (b : K) ^ 2) hvalCorrected
+  refine ⟨b, hb_ne, ?_, a, ha⟩
+  intro v hv
+  have hbval : v.valuation K (b : K) = 1 := by rw [hvalb, if_neg hv]
+  have hbnot : b ∉ v.asIdeal :=
+    (HeightOneSpectrum.valuation_eq_one_iff_notMem v).mp hbval
+  exact qs_residue_ne_zero_of_not_mem_NQ2 v hbnot
 
 /-! ### General family route (off the narrow critical path) -/
 

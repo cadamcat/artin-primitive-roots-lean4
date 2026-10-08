@@ -1,4 +1,7 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».Defs
+import ArtinPrimitiveRoots.A2.Proofs.QS_ANALYTIC.RNDict
+import ArtinPrimitiveRoots.A2.Proofs.QS_ANALYTIC.RNStrip
+import ArtinPrimitiveRoots.A2.Proofs.QS_ANALYTIC.RNRootOne
 
 /-!
 # A2-QS-POISSON, part RN: functional equation with root number `+1` for quadratic characters
@@ -40,6 +43,14 @@ theorem qs_quadratic_FE_root_one [IsTotallyComplex K]
           heckeLSeries χ s) ∧
       (∀ s : ℂ, Λ (1 - s) = Λ s) ∧
       (∀ a b : ℝ, ∃ C : ℝ, ∀ s : ℂ, a ≤ s.re → s.re ≤ b → ‖Λ s‖ ≤ C) := by
-  sorry
+  obtain ⟨m, ψ, hN, hψ1, hinv, hprim, hL⟩ := qsa_ray_of_quadratic χ f hf hsq hne
+  have hexp := Hecke.hk_fe_export_to_ext_hecke_continuation ψ hψ1 hprim
+  refine ⟨Hecke.hkCompleted ψ, hexp.2.2.2.2.1, ?_, ?_, ?_⟩
+  · intro s hs
+    rw [qsa_hkCompleted_eq_series ψ hψ1 hs, hN, hL s hs]
+  · intro s
+    exact qsa_hkCompleted_one_sub ψ hψ1 hinv hprim s
+  · intro a b
+    exact qsa_hkCompleted_strip_bound ψ hψ1 a b
 
 end ArtinPrimitiveRoots.A2

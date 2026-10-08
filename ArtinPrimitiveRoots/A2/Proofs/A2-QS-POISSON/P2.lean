@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P0
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M1
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».Defs
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P2.CaseB
 
 /-!
 # A2-QS-POISSON, part P2: unweighted ideal Poisson with the residue functional at zero
@@ -40,7 +41,9 @@ theorem qs_unweighted_poisson_residue_P2 [IsTotallyComplex K]
         (qsResidueOne K : ℂ) * (Y : ℂ) * mellin f 1 + qsResidueZero K f +
           (Y : ℂ) * ∑' b : {I : Ideal (𝓞 K) // I ≠ ⊥},
             qsTransform K f (Y * (Ideal.absNorm b.1 : ℝ)) := by
-  sorry
+  obtain ⟨h, hh, rfl | rfl⟩ := hf
+  · exact QSP2.p2_core (QSP2.caseAData hh) Y hY
+  · exact QSP2.p2_core (QSP2.caseBData hh) Y hY
 
 /-- P2' (IMPL): the coprime square-variable sum split into the five pieces
 (Möbius `Σ_{e∣𝔫} μ(e) 1_{e∣b}`, P2 at scale `Z/N e` for `N e ≤ Zhi`, direct sums for

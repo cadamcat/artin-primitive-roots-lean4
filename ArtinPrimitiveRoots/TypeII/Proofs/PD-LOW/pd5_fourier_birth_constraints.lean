@@ -20,7 +20,7 @@ theorem pd5_fourier_birth_constraints {K T : ℕ} [NeZero T]
       (Fintype.card ({p : A × A // p ∈ pd5_systemPairs A C hC} → ZMod T) : ℂ)⁻¹ *
         ∑ θ : {p : A × A // p ∈ pd5_systemPairs A C hC} → ZMod T,
           memHistory F S ρ w (some B) none (pd5b_systemPairPhase A C hC · θ) := by
-  sorry
+  exact pd5b_memHistory_constraint_fourier F S ρ w B A C hC hA hT hbox
 
 end
 end ArtinPrimitiveRoots.TypeII.PD
