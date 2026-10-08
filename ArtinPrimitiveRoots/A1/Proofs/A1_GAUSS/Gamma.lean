@@ -140,4 +140,37 @@ theorem gamma_three_sign (D : FieldData F) (S : SData F CE condη)
   rw [← hgamma] at hsq
   exact sq_eq_one_iff.mp hsq
 
+theorem gamma_two_cube_eq_jacobiSum (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (c : F) (hc : S.IsGen c v.asIdeal)
+    (χ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hχ : ∀ x : 𝓞 F, χ (Ideal.Quotient.mk v.asIdeal x) =
+      chi D v (algebraMap (𝓞 F) F x)) (hχ6 : χ ^ 6 = 1) :
+    letI : v.asIdeal.IsMaximal := v.isMaximal
+    letI : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+    letI : Fintype (𝓞 F ⧸ v.asIdeal) := Fintype.ofFinite _
+    gamma D S A 2 v.asIdeal c ^ 3 =
+      ((Ideal.absNorm v.asIdeal : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) *
+        jacobiSum (χ ^ 2) (χ ^ 2) := by
+  classical
+  let : v.asIdeal.IsMaximal := v.isMaximal
+  let : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  let : Fintype (𝓞 F ⧸ v.asIdeal) := Fintype.ofFinite _
+  have h6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  obtain ⟨ψ, hψ, hψprim⟩ := residue_additive_character_exists D S A v hc.1 c hc
+  have hχ2 : χ ^ 2 ≠ 1 :=
+    residue_character_pow_ne_one D v h6 χ hχ 2 (by decide) (by decide)
+  have hχ23 : (χ ^ 2) ^ 3 = 1 := by
+    simpa only [← pow_mul] using hχ6
+  have hneg : (χ ^ 2) (-1) = 1 := by
+    rw [χ.pow_apply' (by decide : (2 : ℕ) ≠ 0),
+      residue_character_neg_one D v h6 χ hχ, one_pow]
+  have hcube := normalized_cubic_gauss_cube (χ ^ 2) ψ hχ2 hχ23 hneg hψprim
+  have hcard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+    rw [← Nat.card_eq_fintype_card, ← Submodule.cardQuot_apply, ← Ideal.absNorm_apply]
+  have hgamma := gamma_prime_eq_normalizedGauss D S A v c χ hχ ψ hψ 2 (by decide)
+  simp only [Nat.cast_ofNat] at hgamma
+  rw [← hgamma, hcard] at hcube
+  exact hcube
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
