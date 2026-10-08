@@ -73,7 +73,7 @@ theorem eisSeries_majorant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ : 
 theorem eisSeries_invariant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ : SL(2,F)) (s : ℂ)
     (hs : 1 / 2 < s.re) (γ : SL(2, 𝓞 F)) (hγ : γ ∈ Γ) (z : X F) :
     eisSeries F Γ σ s (γ • z) = eisSeries F Γ σ s z := by
-  sorry
+  exact (E2_eis_converge Γ σ).2.1 s hs γ hγ z
 
 /-- `spec:domain`. -/
 theorem isOpen_contDomain (s₁ ε : ℝ) : IsOpen (contDomain s₁ ε) := by
