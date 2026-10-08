@@ -123,7 +123,28 @@ def rtr {G V : Type} [Mul G] (g : G) (f : G → V) : G → V := fun h => f (h * 
 /-- **ind:rtr**: sections are stable under right translation (`g⁻¹ Kc(m') g ⊆ Kc(m)` for large `m'`). -/
 theorem IsSection.rtr {L : FinLocalCover D H v} {T : TorusRep D H v} {s : ℂ} {f : L.L → T.V}
     (hf : IsSection L T s f) (g : L.L) : IsSection L T s (rtr g f) := by
-  sorry
+  rcases hf with ⟨hN, hZ, ⟨m, hm, hfix⟩⟩
+  refine ⟨?_, ?_, ?_⟩
+  · intro x y u
+    change f ((L.n (Multiplicative.ofAdd x) * L.a y * u) * g) =
+      ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) • T.σa y (f (u * g))
+    simpa [mul_assoc] using hN x y (u * g)
+  · intro ζ u
+    change f ((L.z ζ * u) * g) = ((ζ : ℂˣ) : ℂ) • f (u * g)
+    simpa [mul_assoc] using hZ ζ (u * g)
+  · have hconj : Continuous (fun k : L.L => g⁻¹ * k * g) :=
+      (continuous_const.mul continuous_id).mul continuous_const
+    have hopen : IsOpen {k : L.L | g⁻¹ * k * g ∈ L.Kc m} :=
+      IsOpen.preimage hconj (L.Kc_open m hm)
+    have hnhds : {k : L.L | g⁻¹ * k * g ∈ L.Kc m} ∈ nhds (1 : L.L) := by
+      apply hopen.mem_nhds
+      simp
+    obtain ⟨m', hm', hsub⟩ := L.Kc_nhds _ hnhds
+    refine ⟨m', hm', ?_⟩
+    intro u k hk
+    change f ((u * k) * g) = f (u * g)
+    rw [show (u * k) * g = (u * g) * (g⁻¹ * k * g) by group]
+    exact hfix (u * g) (g⁻¹ * k * g) (hsub hk)
 
 /-- **ind:iwasawa** (tame): `L = B̃ · Kmax`. -/
 theorem iwasawa_tame (L : FinLocalCover D H v) (τ : TameSplitting L) (g : L.L) :
