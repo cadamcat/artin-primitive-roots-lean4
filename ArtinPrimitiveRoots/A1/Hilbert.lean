@@ -75,7 +75,18 @@ structure HilbertData (F : Type) [Field F] [NumberField F] where
 /-- Existence (ClassFieldTheory: `finitePlaceHilbertSymbol`, `localHilbertSymbol_tame_formula`,
 `hilbertSymbol_allPlaces_product_eq_one`). Package P-CFT-GLUE. -/
 theorem HilbertData.nonempty (D : FieldData F) : Nonempty (HilbertData F) := by
-  sorry
+  let h1 := ArtinPrimitiveRoots.Proofs.a1_hilbert_sol.hilbert_mul_norm_criterion_H1 D
+  let h2 := ArtinPrimitiveRoots.Proofs.a1_hilbert_sol.hilbert_steinberg_skew_H2 D
+  exact ⟨{
+    hilb := ArtinPrimitiveRoots.Proofs.a1_hilbert_sol.hilb D
+    mul_left := h1.1
+    mul_right := h1.2
+    skew := h2.1
+    sixth_power := h2.2.1
+    steinberg := h2.2.2
+    nondeg := ArtinPrimitiveRoots.Proofs.a1_hilbert_sol.hilbert_nondegenerate_H3 D
+    product_formula := ArtinPrimitiveRoots.Proofs.a1_hilbert_sol.hilbert_global_reciprocity_H5 D
+    tame := ArtinPrimitiveRoots.Proofs.a1_hilbert_sol.hilbert_tame_formula_H4 D }⟩
 
 /-- `H_S(x,y) = Π_{v∈S_f} (x_v,y_v)_{6,v}` on `F_S^×` (02:129). -/
 def SData.HS (S : SData F CE condη) (H : HilbertData F) (x y : S.FSˣ) : rootsOfUnity 6 F :=
