@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.AddChar
+import ArtinPrimitiveRoots.A1.Proofs.A1_DUAL.AnnihilatorCore
 import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.Core
 import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.UnitCompactCore
 import ArtinPrimitiveRoots.Theta.LocalInt
@@ -96,7 +97,82 @@ theorem SData.diagR_discrete_cocompact (S : SData F CE condη) (D : FieldData F)
 theorem SData.diagR_eq_annihilator (S : SData F CE condη) (D : FieldData F)
     (A : AddCharData F) :
     S.diagR = S.annihilator A S.diagR := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  change Set.range (fun r : S.R => S.diag (r : F)) =
+    {y : S.FS | ∀ x : S.FS,
+      x ∈ Set.range (fun r : S.R => S.diag (r : F)) → S.e A (x * y) = 1}
+  ext y
+  constructor
+  · rintro ⟨r, rfl⟩
+    intro x hx
+    rcases hx with ⟨s, rfl⟩
+    calc
+      S.e A (S.diag (s : F) * S.diag (r : F)) =
+          S.e A (S.diag ((s : F) * (r : F))) := by rw [← map_mul]
+      _ = 1 := ArtinPrimitiveRoots.Proofs.a1_dual_p.e_diag_product_eq_one S A s r
+  · intro hy
+    change ∀ x : S.FS,
+      x ∈ Set.range (fun r : S.R => S.diag (r : F)) → S.e A (x * y) = 1 at hy
+    obtain ⟨r₀, happrox⟩ :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.s_integer_finite_approx S y.1
+    let y₁ : S.FS := y - S.diag (r₀ : F)
+    have hyann : ∀ r : S.R, S.e A (S.diag (r : F) * y) = 1 := by
+      intro r
+      exact hy (S.diag (r : F)) ⟨r, rfl⟩
+    have hyann₁ : ∀ r : S.R, S.e A (S.diag (r : F) * y₁) = 1 := by
+      simpa [y₁] using
+        (ArtinPrimitiveRoots.Proofs.a1_dual_p.sub_diag_preserves_annihilator
+          D S A y hyann r₀)
+    have hfinite₁ : ∀ v : S.Sf, y₁.1 v ∈ v.1.adicCompletionIntegers F := by
+      intro v
+      simpa [y₁, SData.diag] using happrox v
+    have harch₁ :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.arch_condition_of_integral_finite_annihilator
+        S A y₁ hfinite₁ hyann₁
+    obtain ⟨t, htArch, htR⟩ :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.arch_trace_dual_lattice D S y₁.2 harch₁
+    let tR : S.R := ⟨t, htR⟩
+    let y₂ : S.FS := y₁ - S.diag (tR : F)
+    have hyann₂ : ∀ r : S.R, S.e A (S.diag (r : F) * y₂) = 1 := by
+      simpa [y₂] using
+        (ArtinPrimitiveRoots.Proofs.a1_dual_p.sub_diag_preserves_annihilator
+          D S A y₁ hyann₁ tR)
+    have harch₂ : ∀ w : InfinitePlace F, y₂.2 w = 0 := by
+      intro w
+      change y₁.2 w - w.embedding t = 0
+      rw [← htArch w]
+      exact sub_self _
+    have hfiniteR : ∀ r : S.R,
+        (∏ v : S.Sf,
+          A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y₂.1 v)) = 1 :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.finite_character_condition_of_zero_arch
+        S A y₂ hyann₂ harch₂
+    have hfiniteAll :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.finite_character_trivial_of_s_integer
+        S A y₂.1 hfiniteR
+    have hcoords : ∀ v : S.Sf, y₂.1 v = 0 := by
+      intro v
+      apply ArtinPrimitiveRoots.Proofs.a1_dual_p.psi_local_nondegenerate D S A v
+      intro x
+      exact ArtinPrimitiveRoots.Proofs.a1_dual_p.finite_component_from_trivial
+        S A y₂.1 hfiniteAll v x
+    have hy₂zero : y₂ = 0 := by
+      apply Prod.ext
+      · exact funext hcoords
+      · exact funext harch₂
+    have hy₁eq : y - S.diag (r₀ : F) = S.diag (tR : F) := by
+      change (y - S.diag (r₀ : F)) - S.diag (tR : F) = 0 at hy₂zero
+      exact sub_eq_zero.mp hy₂zero
+    have hyadd : y = S.diag (r₀ : F) + S.diag (tR : F) := by
+      calc
+        y = (y - S.diag (r₀ : F)) + S.diag (r₀ : F) := by abel
+        _ = S.diag (tR : F) + S.diag (r₀ : F) := by rw [hy₁eq]
+        _ = S.diag (r₀ : F) + S.diag (tR : F) := by abel
+    refine ⟨r₀ + tR, ?_⟩
+    calc
+      S.diag ((r₀ + tR : F)) = S.diag (r₀ : F) + S.diag (tR : F) := map_add _ _ _
+      _ = y := hyadd.symm
 
 private noncomputable def covolArchToMixedEquiv (D : FieldData F) :
     (InfinitePlace F → ℂ) ≃L[ℝ] NumberField.mixedEmbedding.mixedSpace F := by
