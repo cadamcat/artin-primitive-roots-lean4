@@ -821,6 +821,36 @@ private theorem covol_local_log_compact_cover_core (v : FinPlace F) (M : ℕ) :
       _ = z := by simp
   exact hzK
 
+private theorem covol_sunit_finite_compact_reduction_core (S : SData F CE condη) :
+    ∃ K : Set (∀ v : S.Sf, v.1.adicCompletion F), IsCompact K ∧
+      ∀ x : {x : S.FSˣ // S.absS (x : S.FS) = 1},
+        ∃ a : S.US,
+          (fun v : S.Sf =>
+            ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
+              (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) ∈ K := by
+  classical
+  let M : ℕ := 6 * Fintype.card (ClassGroup (𝓞 F))
+  let Kloc : ∀ v : S.Sf, Set (v.1.adicCompletion F) := fun v =>
+    Classical.choose (covol_local_log_compact_cover_core v.1 M)
+  have hKloc (v : S.Sf) : IsCompact (Kloc v) := by
+    exact (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).1
+  let K : Set (∀ v : S.Sf, v.1.adicCompletion F) := Set.pi Set.univ Kloc
+  have hK : IsCompact K := by
+    dsimp [K]
+    exact isCompact_univ_pi hKloc
+  refine ⟨K, hK, ?_⟩
+  intro x
+  obtain ⟨a, ha⟩ := covol_sunit_finite_reduction_core S x
+  refine ⟨a, ?_⟩
+  change ∀ v : S.Sf, v ∈ Set.univ →
+    ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
+      (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F) ∈ Kloc v
+  intro v hv
+  have hcover := (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2
+  apply hcover
+  · exact (ha v).1
+  · simpa [M] using (ha v).2
+
 
 /-- Compact norm-one representatives modulo sixth powers of S-units, stated using only `Field`.
 The norm-one condition on every point of `K` is needed by the balanced-generator target. -/
