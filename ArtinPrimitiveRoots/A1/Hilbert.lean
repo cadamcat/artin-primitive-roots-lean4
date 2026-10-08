@@ -157,6 +157,64 @@ private theorem a1_bdata_sol_allowed_ratio_local_sixth
   obtain ⟨x, hx⟩ := (QuotientGroup.eq_one_iff _).mp hclass
   exact ⟨hu, x, hx.symm⟩
 
+private theorem a1_bdata_sol_exterior_symbol_trivial (S : SData F CE condη)
+    (H : HilbertData F) (u : Fˣ) (hu : u ∈ S.US)
+    (hlocal : ∃ x : S.FSˣ, S.diagU u = x ^ 6) :
+    ∀ P : FinPlace F, P ∉ S.Sf → chiAlg P (u : F) = 1 := by
+  classical
+  obtain ⟨x, hx⟩ := hlocal
+  intro P hP
+  have hPext : S.IsExterior P.asIdeal := by
+    refine ⟨P.ne_bot, ?_⟩
+    intro v hv hle
+    have heq : P.asIdeal = v.asIdeal := P.isMaximal.eq_of_le v.isPrime.ne_top hle
+    have hplace : P = v := HeightOneSpectrum.ext heq
+    exact hP (hplace ▸ hv)
+  obtain ⟨c, hc⟩ :=
+    ArtinPrimitiveRoots.Proofs.A1Generators.exists_generator_of_pid S P.asIdeal hPext
+  have hres (v : FinPlace F) (hv : v ∉ S.Sf) : residue v (u : F) ≠ 0 :=
+    (ArtinPrimitiveRoots.A2.qs_nq0_residue_ne_zero_iff_valuation_one v (u : F)).mpr
+      (hu v hv)
+  have h6 (v : FinPlace F) (hv : v ∉ S.Sf) : (6 : 𝓞 F) ∉ v.asIdeal := by
+    intro h
+    exact hv (S.over6 v h)
+  let f : FinPlace F → rootsOfUnity 6 F := fun v => H.hilb v (toLoc v u) (toLoc v c)
+  have hoff (v : FinPlace F) (hvP : v ≠ P) : f v = 1 := by
+    by_cases hvS : v ∈ S.Sf
+    · let vs : S.Sf := ⟨v, hvS⟩
+      have hcomp : S.compU vs (S.diagU u) = toLoc v u := by
+        apply Units.ext
+        rfl
+      have hpow := congrArg (S.compU vs) hx
+      rw [hcomp, map_pow] at hpow
+      exact H.sixth_power v (toLoc v u) (toLoc v c) ⟨S.compU vs x, hpow⟩
+    · have hcount : FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (c : F)) = 0 := by
+        calc
+          _ = FractionalIdeal.count F v
+              (P.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := hc.2.2 v hvS
+          _ = 0 := FractionalIdeal.count_maximal_coprime (K := F) v hvP.symm
+      have htame := H.tame v (h6 v hvS) u c (hres v hvS)
+      rw [hcount, zpow_zero] at htame
+      apply Subtype.ext
+      exact Units.ext htame
+  have hpair : H.hilb P (toLoc P u) (toLoc P c) = 1 := by
+    change f P = 1
+    rw [← finprod_eq_single f P hoff]
+    exact (H.product_formula u c).2
+  have hcountP : FractionalIdeal.count F P
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (c : F)) = 1 := by
+    calc
+      _ = FractionalIdeal.count F P
+          (P.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := hc.2.2 P hP
+      _ = 1 := by simpa using (FractionalIdeal.count_maximal (K := F) P P)
+  have htame := H.tame P (h6 P hP) u c (hres P hP)
+  rw [hpair, hcountP, zpow_one] at htame
+  apply Subtype.ext
+  apply Units.ext
+  apply IsFractionRing.injective (𝓞 F) F
+  simpa using htame.symm
+
 theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
     (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
