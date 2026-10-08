@@ -20,6 +20,43 @@ theorem rellich_compact_of_test_bound
     (hbound : ∀ f : testSubmodule F Γ,
       ‖R (rellichTestVector e f)‖ ≤ C * ‖L (rellichTestVector e f)‖) :
     IsCompactOperator R := by
-  sorry
+  have htestDense : DenseRange (rellichTestVector e) := by
+    change DenseRange ((energyGraphMap e.toL2 e.gradL2).codRestrict E.V _)
+    rw [DenseRange, Subtype.dense_iff, ← Set.range_comp]
+    change (E.V : Set (WithLp 2 (L2Space F D × GradientL2Space F D))) ⊆
+      closure (Set.range (energyGraphMap e.toL2 e.gradL2))
+    rw [e.graph_eq]
+    rfl
+  have hboundClosed : IsClosed {x : E.V | ‖R x‖ ≤ C * ‖L x‖} :=
+    isClosed_le (R.continuous.norm) (continuous_const.mul L.continuous.norm)
+  have hboundAll (x : E.V) : ‖R x‖ ≤ C * ‖L x‖ :=
+    htestDense.induction_on x hboundClosed hbound
+
+  let S : Submodule ℂ (RellichChartL2 F) :=
+    (LinearMap.range L.toLinearMap).topologicalClosure
+  have hSclosed : IsClosed (S : Set (RellichChartL2 F)) :=
+    (LinearMap.range L.toLinearMap).isClosed_topologicalClosure
+  have hLmem : ∀ x, L x ∈ S := fun x =>
+    (LinearMap.range L.toLinearMap).le_topologicalClosure ⟨x, rfl⟩
+  let Lrange : E.V →L[ℂ] S := L.codRestrict S hLmem
+  have hLrangeDense : DenseRange Lrange := by
+    rw [DenseRange, Subtype.dense_iff, ← Set.range_comp]
+    change closure (Set.range (L : E.V → RellichChartL2 F)) ⊆
+      closure (Set.range (L : E.V → RellichChartL2 F))
+    exact Set.Subset.rfl
+  have hLrangeCompact : IsCompactOperator Lrange := by
+    change IsCompactOperator (Set.codRestrict L S hLmem)
+    exact hL.codRestrict hLmem hSclosed
+
+  have hnormRange : ∀ x : E.V, ‖R.toLinearMap x‖ ≤ C * ‖Lrange.toLinearMap x‖ := by
+    intro x
+    exact hboundAll x
+  let Q : S →L[ℂ] L2Space F D :=
+    R.toLinearMap.extendOfNorm Lrange.toLinearMap
+  have hfactor : R = Q.comp Lrange := by
+    exact ContinuousLinearMap.ext fun x =>
+      (LinearMap.extendOfNorm_eq hLrangeDense ⟨C, hnormRange⟩ x).symm
+  rw [hfactor]
+  exact hLrangeCompact.clm_comp Q
 
 end ArtinPrimitiveRoots.A1.Spec
