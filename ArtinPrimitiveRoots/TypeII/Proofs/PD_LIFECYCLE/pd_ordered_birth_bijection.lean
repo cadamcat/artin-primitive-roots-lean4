@@ -15,6 +15,7 @@ import ArtinPrimitiveRoots.Proofs.pd_life_b.EdgeLive
 import ArtinPrimitiveRoots.Proofs.pd_life_b.InitialLive
 import ArtinPrimitiveRoots.Proofs.pd_life_b.SymmetryLive
 import ArtinPrimitiveRoots.Proofs.pd_life_b.MemoryPrimeIndex
+import ArtinPrimitiveRoots.Proofs.pd_life_b.MemoryPrimeDelete
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_lifecycle_parameters
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_ordered_distinct_batch_sum
