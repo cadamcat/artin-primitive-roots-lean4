@@ -4546,6 +4546,45 @@ private theorem rf_forward_series_summable (r : ReflectionRow S) (l : ℝ)
         (mul_nonneg hC.le (Real.rpow_nonneg hl.le _))
   exact Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hle hd
 
+private theorem rf_forward_kernel_integral (r : ReflectionRow S) (Z : ℝ)
+    (hZ : 0 < Z) :
+    IntegrableOn (fun t : ℝ => R.K t *
+      (∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)) /
+          (t : ℂ)) (Set.Ioi 0) ∧
+    (∫ t in Set.Ioi (0 : ℝ), R.K t *
+      (∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)) /
+          (t : ℂ)) =
+      ∑' p : S.SqfExtIdeal × S.ExtIdeal,
+        forwardCoeff R r p * (PG (qI (Aideal R p.1 p.2).1 / Z) : ℂ) := by
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable (𝓞 F) := inferInstance
+  have hspan : Function.Surjective
+      (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+    intro I
+    exact Ideal.fg_of_isNoetherianRing I
+  letI : Countable (Ideal (𝓞 F)) := hspan.countable
+  letI : Countable S.ExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+  letI : Countable S.SqfExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+  let q : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => qI (Aideal R p.1 p.2).1
+  have hq (p : S.SqfExtIdeal × S.ExtIdeal) : 0 < q p := by
+    dsimp [q, qI]
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h =>
+      (Aideal R p.1 p.2).property.1 (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hV : Measurable (Theta.thetaV S μ v0 R.T.U R.T.cS) :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.thetaV_measurable
+      S μ v0 R.T.U R.T.U_spec.1.measurableSet R.T.cS
+  have hK : AEStronglyMeasurable R.K (volume.restrict (Set.Ioi (0 : ℝ))) :=
+    R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi
+  obtain ⟨C, hC, hAbs⟩ := ((rf_forward_assembly R).2 1 (by norm_num)).2
+  have hSeries (l : ℝ) (hl : 0 < l) := rf_forward_series_summable R r l hl
+  exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_kernel_series
+    q hq (forwardCoeff R r) (Theta.thetaV S μ v0 R.T.U R.T.cS) hV
+    R.K hK hSeries (fun u => (PG u : ℂ)) R.K_gaussian Z hZ (hAbs r Z hZ).1
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
