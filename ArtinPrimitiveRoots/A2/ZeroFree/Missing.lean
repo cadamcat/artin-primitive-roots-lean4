@@ -5398,6 +5398,178 @@ private theorem rows_sol_principal_initial_xi (hEuler : EulerHypotheses R η)
       unfold vertical
       rw [htranslate (1 + δ1)]
 
+private theorem rows_sol_principal_initial_z (hEuler : EulerHypotheses R η)
+    (Z : ℝ) (hZ : 2 ≤ Z) (ξ w : ℂ)
+    (hξlo : 1 + δ1 ≤ ξ.re) (hξhi : ξ.re ≤ 4) (hw : w.re = 4) :
+    vertical 2 (fun z => rowKernel R sd W η U HA HC U.one Z ξ w z) =
+      vertical (1 / 6 + δ1) (fun z => rowKernel R sd W η U HA HC U.one Z ξ w z) := by
+  let strip : Set ℂ := {z | 1 / 6 + δ1 ≤ z.re ∧ z.re ≤ 2}
+  let G : ℂ → ℂ := fun z => rowKernel R sd W η U HA HC U.one Z ξ w z
+  have hZpos : 0 < Z := by linarith
+  have hδ : 0 < δ1 := by norm_num [δ1]
+  obtain ⟨C, hC, hcontrol⟩ := rows_sol_principal_right_kernel_control
+    R sd W η U HA HC hEuler (2 : ℝ) (by norm_num)
+  have hGdiff : DifferentiableOn ℂ G strip := by
+    obtain ⟨hMdiff, _, _, _, _⟩ := (po_weights_exist R sd).2 W
+    have hMstrip : DifferentiableOn ℂ (weightM R sd W) strip := by
+      apply hMdiff.mono
+      intro z hz
+      exact lt_of_lt_of_le (by norm_num [δ1]) hz.1
+    have hXbase : ((Z ^ a : ℝ) : ℂ) ≠ 0 :=
+      Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.rpow_pos_of_pos hZpos a))
+    have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZpos.ne'
+    have hXexp : Differentiable ℂ (fun z : ℂ => (1 / 2 : ℂ) - z) := by fun_prop
+    have hX : Differentiable ℂ (fun z : ℂ =>
+        ((Z ^ a : ℝ) : ℂ) ^ ((1 / 2 : ℂ) - z)) := by
+      intro z
+      exact (hXexp z).const_cpow (Or.inl hXbase)
+    have hZexp : Differentiable ℂ (fun z : ℂ => ξ + z - 1) := by fun_prop
+    have hZpow : Differentiable ℂ (fun z : ℂ => (Z : ℂ) ^ (ξ + z - 1)) := by
+      intro z
+      exact (hZexp z).const_cpow (Or.inl hZbase)
+    have hY : Differentiable ℂ (fun _z : ℂ =>
+        ((Z ^ b : ℝ) : ℂ) ^ (w - 1)) := differentiable_const _
+    have hGauss : Differentiable ℂ (fun z : ℂ => Complex.exp ((ξ + z - 1) ^ 2)) := by
+      fun_prop
+    have hW : Differentiable ℂ (fun _z : ℂ => weightW1hat W w) := differentiable_const _
+    have hMellin : DifferentiableOn ℂ
+        (fun z => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z) strip := by
+      unfold mellinWeight
+      exact (((((hX.differentiableOn.mul hZpow.differentiableOn).mul
+        hY.differentiableOn).mul hGauss.differentiableOn).mul hMstrip).mul
+          hW.differentiableOn)
+    have hLz : DifferentiableOn ℂ (fun z => HA.LS S 1 (6 * z)) strip := by
+      apply (rows_LS_trivial_differentiableOn HA S).comp
+        ((show Differentiable ℂ (fun z : ℂ => 6 * z) by fun_prop).differentiableOn)
+      intro z hz
+      change 1 < (6 * z).re
+      have hre : (6 * z).re = 6 * z.re := by simp
+      rw [hre]
+      nlinarith [hz.1]
+    have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+    let pmap : ℂ → Triple := fun z => ![ξ, w, z]
+    have hpmap : Differentiable ℂ pmap := by
+      intro z
+      apply differentiableAt_pi.2
+      intro j
+      fin_cases j <;> simp [pmap] <;> fun_prop
+    have hMaps : MapsTo pmap strip {p | eulerNeighborhood p} := by
+      intro z hz
+      right
+      change 998 / 1000 - 1 / 100000 < ξ.re ∧
+        95 / 100 - 1 / 100000 < w.re ∧ 16 / 100 - 1 / 100000 < z.re
+      refine ⟨lt_of_lt_of_le (by norm_num [δ1]) hξlo, ?_,
+        lt_of_lt_of_le (by norm_num [δ1]) hz.1⟩
+      rw [hw]
+      norm_num
+    have hHC : DifferentiableOn ℂ (fun z => HC.H U.one ![ξ, w, z]) strip :=
+      (hHP.2.1 U.one).comp hpmap.differentiableOn hMaps
+    have hLw : DifferentiableOn ℂ (fun _z : ℂ => HA.LS S 1 w) strip :=
+      (differentiable_const _).differentiableOn
+    have hInv : DifferentiableOn ℂ (fun _z : ℂ => (HA.LS S η ξ)⁻¹) strip :=
+      (differentiable_const _).differentiableOn
+    have hGeq : G = fun z => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z *
+        HA.LS S 1 (6 * z) * HA.LS S 1 w * HC.H U.one ![ξ, w, z] / HA.LS S η ξ := by
+      funext z
+      exact rows_principalKernel_eq R sd W η U HA HC Z ξ w z
+    rw [hGeq]
+    simp only [div_eq_mul_inv]
+    exact (((hMellin.mul hLz).mul hLw).mul hHC).mul hInv
+  let Cshift : ℝ := C * Z ^ Estar ξ.re 4 2
+  have hline (x : ℝ) (hx : x ∈ Set.Icc (1 / 6 + δ1 : ℝ) 2) (t : ℝ) :
+      ‖G ((x : ℂ) + t * Complex.I)‖ ≤
+        Cshift * Real.exp (-((ξ.im + t) ^ 2)) := by
+    have hkernel := hcontrol Z hZ ξ w ((x : ℂ) + t * Complex.I) hξlo hξhi hw
+      (by simpa using hx.1) (by simpa using hx.2)
+    have hEstar : Estar ξ.re 4 x ≤ Estar ξ.re 4 2 := by
+      norm_num [Estar, a, b, h0]
+      nlinarith [hx.2]
+    have hZpow : Z ^ Estar ξ.re 4 x ≤ Z ^ Estar ξ.re 4 2 :=
+      Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z) hEstar
+    have hpolyZ : (1 + |t|) ^ (-2 : ℝ) ≤ 1 :=
+      Real.rpow_le_one_of_one_le_of_nonpos (by linarith [abs_nonneg t]) (by norm_num)
+    have hpolyW : (1 + |w.im|) ^ (-2 : ℝ) ≤ 1 :=
+      Real.rpow_le_one_of_one_le_of_nonpos (by linarith [abs_nonneg w.im]) (by norm_num)
+    have hpoly : (1 + |t|) ^ (-2 : ℝ) * (1 + |w.im|) ^ (-2 : ℝ) ≤ 1 :=
+      mul_le_one₀ hpolyZ (Real.rpow_nonneg (by positivity) _) hpolyW
+    calc
+      ‖G ((x : ℂ) + t * Complex.I)‖ ≤ C * Z ^ Estar ξ.re 4 x *
+          Real.exp (-((ξ.im + t) ^ 2)) *
+            (1 + |t|) ^ (-2 : ℝ) * (1 + |w.im|) ^ (-2 : ℝ) := by
+        simpa [G, hw] using hkernel
+      _ = (C * Z ^ Estar ξ.re 4 x * Real.exp (-((ξ.im + t) ^ 2))) *
+          ((1 + |t|) ^ (-2 : ℝ) * (1 + |w.im|) ^ (-2 : ℝ)) := by ring
+      _ ≤ (C * Z ^ Estar ξ.re 4 x * Real.exp (-((ξ.im + t) ^ 2))) * 1 :=
+        mul_le_mul_of_nonneg_left hpoly (by positivity)
+      _ ≤ Cshift * Real.exp (-((ξ.im + t) ^ 2)) := by
+        simpa only [mul_one, Cshift] using
+          mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left hZpow hC.le)
+            (Real.exp_pos (-((ξ.im + t) ^ 2))).le
+  let trans : ℂ → ℂ := fun z => z - ξ.im * Complex.I
+  let Fcont : ℂ → ℂ := fun z => G (trans z)
+  have hTransDiff : Differentiable ℂ trans := by fun_prop
+  have hTransMaps : MapsTo trans strip strip := by
+    intro z hz
+    change 1 / 6 + δ1 ≤ z.re ∧ z.re ≤ 2 at hz
+    have hreal : (trans z).re = z.re := by simp [trans]
+    constructor
+    · rw [hreal]
+      exact hz.1
+    · rw [hreal]
+      exact hz.2
+  have hFdiff : DifferentiableOn ℂ Fcont strip := by
+    have h := hGdiff.comp hTransDiff.differentiableOn hTransMaps
+    simpa only [Fcont, Function.comp_def] using h
+  have hFbound : ∀ x ∈ Set.Icc (1 / 6 + δ1 : ℝ) 2, ∀ y : ℝ,
+      ‖Fcont ((x : ℂ) + y * Complex.I)‖ ≤ Cshift * Real.exp (-y ^ 2) := by
+    intro x hx y
+    have harg : trans ((x : ℂ) + y * Complex.I) =
+        (x : ℂ) + (y - ξ.im) * Complex.I := by
+      dsimp [trans]
+      apply Complex.ext <;> simp <;> ring
+    have h := hline x hx (y - ξ.im)
+    change ‖G (trans ((x : ℂ) + y * Complex.I))‖ ≤ Cshift * Real.exp (-y ^ 2)
+    rw [harg]
+    rw [Complex.ofReal_sub] at h
+    have hy : ξ.im + (y - ξ.im) = y := by ring
+    rw [hy] at h
+    exact h
+  have hcontour := OAI.SevenEighths.Continuation.vertical_integral_eq_of_gaussian_bound
+    Fcont (a := 1 / 6 + δ1) (b := 2) (C := Cshift) (by norm_num [δ1]) hFdiff hFbound
+  have htranslate (σ : ℝ) :
+      (∫ t : ℝ, Fcont ((σ : ℂ) + t * Complex.I)) =
+        ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := by
+    have hcomp : (∫ t : ℝ, G ((σ : ℂ) + (t - ξ.im) * Complex.I)) =
+        ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := by
+      have h := (measurePreserving_add_left (volume : Measure ℝ) (-ξ.im)).integral_comp
+        (Homeomorph.addLeft (-ξ.im)).measurableEmbedding
+        (fun t : ℝ => G ((σ : ℂ) + t * Complex.I))
+      simpa [Function.comp_def, sub_eq_add_neg, add_assoc, add_comm, add_left_comm] using h
+    have harg (t : ℝ) :
+        ((σ : ℂ) + t * Complex.I) - ξ.im * Complex.I =
+          (σ : ℂ) + (t - ξ.im) * Complex.I := by
+      apply Complex.ext <;> simp <;> ring
+    calc
+      (∫ t : ℝ, Fcont ((σ : ℂ) + t * Complex.I)) =
+          ∫ t : ℝ, G ((σ : ℂ) + (t - ξ.im) * Complex.I) := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        change G (((σ : ℂ) + t * Complex.I) - ξ.im * Complex.I) =
+          G ((σ : ℂ) + (t - ξ.im) * Complex.I)
+        rw [harg]
+      _ = ∫ t : ℝ, G ((σ : ℂ) + t * Complex.I) := hcomp
+  have hshiftV : vertical (1 / 6 + δ1) Fcont = vertical 2 Fcont := by
+    unfold vertical
+    rw [hcontour]
+  calc
+    vertical 2 G = vertical 2 Fcont := by
+      unfold vertical
+      rw [← htranslate 2]
+    _ = vertical (1 / 6 + δ1) Fcont := hshiftV.symm
+    _ = vertical (1 / 6 + δ1) G := by
+      unfold vertical
+      rw [htranslate (1 / 6 + δ1)]
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
