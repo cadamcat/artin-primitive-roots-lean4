@@ -4404,6 +4404,109 @@ theorem bruhat_ideal_quotient_integral_eq_scalarM
     simpa only [C, fc] using
       bruhat_scalarM_product_normalization P G μ hs Fs r 𝔞 h𝔞 δ hp Pd hPd
 
+set_option backward.isDefEq.respectTransparency false in
+/-- The unfolded big cell equals the intertwined scalar at the inverse quotient class. -/
+theorem eisenstein_bigCell_eq_scalarM_on_compact
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (g : P.tc.G)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ h : P.tc.G, scalarOf P G Fs.f Fs.fC h ≠ 0)
+    (K : Set (InfinitePlace F → ℂ)) (hK : IsCompact K)
+    (B : Set (InfinitePlace F → ℂ)) (hB : MeasurableSet B) (hBK : B ⊆ K)
+    (hBd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) B volume)
+    (δ : Fˣ ⧸ G.Δ) :
+    letI : G.Δ.Normal := Subgroup.normal_of_isMulCommutative G.Δ
+    letI : CommGroup (Fˣ ⧸ G.Δ) := QuotientGroup.Quotient.commGroup G.Δ
+    ((volume B).toReal)⁻¹ •
+      (∑' ξ : F, ∫ x in B, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL ξ) * nInf P x * g)) =
+      scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out (δ⁻¹))) * g) := by
+  classical
+  letI : G.Δ.Normal := Subgroup.normal_of_isMulCommutative G.Δ
+  letI : CommGroup (Fˣ ⧸ G.Δ) := QuotientGroup.Quotient.commGroup G.Δ
+  have hs0 : 0 < s.re := (by norm_num : (0 : ℝ) < 1 / 2).trans hs
+  obtain ⟨r, hr⟩ := P.q_surj g
+  let J := F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  let a : Fˣ := (Quotient.out (δ⁻¹))⁻¹
+  have ha : (QuotientGroup.mk a : Fˣ ⧸ G.Δ) = δ := by
+    simp only [a, QuotientGroup.mk_inv, QuotientGroup.out_eq', inv_inv]
+  let ε : Fˣ := (Quotient.out δ) * a⁻¹
+  have hε : ε ∈ G.Δ := by
+    have heq : (QuotientGroup.mk (Quotient.out δ) : Fˣ ⧸ G.Δ) =
+        QuotientGroup.mk a := (QuotientGroup.out_eq' δ).trans ha.symm
+    simpa only [ε, div_eq_mul_inv] using QuotientGroup.eq_iff_div_mem.mp heq
+  have hdiag (u t : Fˣ) : diagGL (u * t) = diagGL u * diagGL t := by
+    apply Units.ext
+    ext j l
+    fin_cases j <;> fin_cases l <;>
+      simp [diagGL, Matrix.mul_apply, Fin.sum_univ_two]
+  have hBstar : diagGL ε ∈ Bstar G := by
+    change (diagGL ε : Matrix (Fin 2) (Fin 2) F) 1 0 = 0 ∧
+      ∃ d ∈ G.Δ, (diagGL ε : Matrix (Fin 2) (Fin 2) F) 0 0 =
+        (d : F) * (diagGL ε : Matrix (Fin 2) (Fin 2) F) 1 1
+    exact ⟨by simp [diagGL], ε, hε, by simp [diagGL]⟩
+  have hmat : diagGL (Quotient.out δ) * weylGL =
+      diagGL ε * (diagGL a * weylGL) := by
+    have hd : Quotient.out δ = ε * a := by dsimp only [ε]; group
+    rw [hd, hdiag, mul_assoc]
+  have hrep (h : P.tc.G) :
+      scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL (Quotient.out δ) * weylGL) * h) =
+      scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL a * weylGL) * h) := by
+    rw [hmat, map_mul, mul_assoc]
+    exact (scalarOf_invariance P G Fs).1 (diagGL ε) hBstar _
+  have hfinite (ξ : F) (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL) * nFin P ξ * nInf P x * g) =
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P ξ * nInf P x * g) := by
+    simpa only [mul_assoc] using hrep (nFin P ξ * nInf P x * g)
+  obtain ⟨hint, habs0, hunfold⟩ :=
+    eisenstein_bigCell_unfold_periods P G hs Fs g 𝔞 hfix K hK B hB hBK hBd δ
+  have hshift (η : J) := scalarOf_finitePeriod_arch_integral P G Fs g
+    (diagGL (Quotient.out δ) * weylGL) (Quotient.out η) (hint η)
+  have hnorm (η : J) :
+      (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL (Quotient.out η)) *
+          nInf P x * g)‖) =
+      ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)‖ := by
+    rw [(hshift η).2.2, hr]
+    apply integral_congr_ae
+    filter_upwards [] with x
+    exact congrArg norm (hfinite (Quotient.out η) x)
+  have habs : Summable (fun η : J =>
+      ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)‖) :=
+    habs0.congr hnorm
+  have hcomplex (η : J) :
+      (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL (Quotient.out η)) *
+          nInf P x * g)) =
+      ∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r) := by
+    rw [(hshift η).2.1, hr]
+    apply integral_congr_ae
+    filter_upwards [] with x
+    exact hfinite (Quotient.out η) x
+  have hsum :
+      (∑' ξ : F, ∫ x in B, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL ξ) * nInf P x * g)) =
+      ∑' η : J, ∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r) :=
+    hunfold.trans (tsum_congr hcomplex)
+  have hfixR : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) =
+        scalarOf P G Fs.f Fs.fC h := by
+    simpa only [hr] using hfix
+  have hp := bruhat_ideal_quotient_integral_eq_scalarM P G μ hs0 Fs r
+    𝔞 h𝔞 hfixR hΦ a habs B hBd
+  rw [hsum]
+  simpa only [a, inv_inv, hr] using hp
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
