@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.ReciprocalGamma
+import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.Quotient
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.LocalMellin
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.FiniteHaar
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.WeightedHaar
