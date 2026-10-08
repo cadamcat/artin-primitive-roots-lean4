@@ -632,7 +632,40 @@ theorem whit_tensor_formula (P : CoverPackage D S H A) (G : GlobalDatum P)
       ((κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0
         (fun v => jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) (Fs'.f v.1))) δ) *
       ∏ w, jacquetC (rtr (P.compC w x) (Fs'.fC w)) := by
-  sorry
+  let z (v : S.Sf) : (G.T v.1).V :=
+    jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) (Fs'.f v.1))
+  let a (δ : Fˣ ⧸ G.Δ) (v : FinPlace F) : ℂ :=
+    G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+      (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs'.f v))))
+  let C := ∏ w, jacquetC (rtr (P.compC w x) (Fs'.fC w))
+  have hprod (δ : Fˣ ⧸ G.Δ) : (∏ᶠ v, a δ v) = whitTensorTerm P G μ Fs x0 z δ := by
+    have hfin : (Function.mulSupport (a δ)).Finite :=
+      whit_finite_mulSupport P G μ Fs' x (Quotient.out δ)
+    have hsplit := finprod_mem_union' (f := a δ)
+      (show Disjoint (S.Sf : Set (FinPlace F)) (S.Sf : Set (FinPlace F))ᶜ
+        from disjoint_compl_right)
+      (hfin.subset (fun _ hv => hv.2)) (hfin.subset (fun _ hv => hv.2))
+    simp only [Set.union_compl_self, finprod_mem_univ] at hsplit
+    rw [← finprod_set_coe_eq_finprod_mem (S.Sf : Set (FinPlace F)),
+      ← finprod_set_coe_eq_finprod_mem (S.Sf : Set (FinPlace F))ᶜ] at hsplit
+    change (∏ᶠ v, a δ v) = (∏ᶠ v : S.Sf, a δ v.1) *
+      (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, a δ v.1) at hsplit
+    rw [finprod_eq_prod_of_fintype (fun v : S.Sf => a δ v.1)] at hsplit
+    have hExt : (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, a δ v.1) =
+        whitExteriorTerm P G μ Fs x0 δ := by
+      unfold whitExteriorTerm
+      apply finprod_congr
+      intro v
+      dsimp only [a]
+      rw [hext v.1 v.property, hx v.1 v.property]
+    rw [hExt] at hsplit
+    simpa only [whitTensorTerm, a, z, mul_comm] using hsplit
+  rw [whit_atLift P G μ hs Fs' x]
+  change (κF F)⁻¹ * (∑' δ, (∏ᶠ v, a δ v) * C) =
+    ((κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0 z δ) * C
+  simp_rw [hprod]
+  rw [((whitTensorTerm_summable P G μ hs Fs x0 z).of_norm).tsum_mul_right C]
+  simp only [mul_assoc]
 
 /-- **eis:multilinear** (linearity at the places of `S_f`): with the exterior and complex data fixed,
 `W_E(g)` is a multilinear form in the local Jacquet vectors at `S_f`. The convergence half-plane
