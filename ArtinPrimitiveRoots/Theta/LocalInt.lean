@@ -716,6 +716,119 @@ def jacquetC (f : PGL2 ℂ → ℂ) : ℂ := ∫ x : ℂ, psiC (-x) * f (wC * nC
 /-- **def:intertwine-C**. -/
 def intertwineC (f : PGL2 ℂ → ℂ) (g : PGL2 ℂ) : ℂ := ∫ x : ℂ, f (wC * nC x * g)
 
+private theorem sphC_w_n_right_mk (s : ℂ) (g : GL (Fin 2) ℂ) (x : ℂ) :
+    sphC s (wC * nC x * QuotientGroup.mk g) =
+      (↑(‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖ /
+          (‖(g : Matrix (Fin 2) (Fin 2) ℂ) 0 0 +
+              x * (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+            ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 0 1 +
+              x * (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2)) : ℂ) ^ (1 + 2 * s) := by
+  have hq : wC * nC x * QuotientGroup.mk g =
+      QuotientGroup.mk (weylM ℂ * upperM ℂ x * g) := by
+    change (QuotientGroup.mk (weylM ℂ) * QuotientGroup.mk (upperM ℂ x)) *
+      QuotientGroup.mk g = _
+    simp only [QuotientGroup.mk_mul]
+  rw [hq, sphC_mk]
+  unfold sphericalC
+  have hdet : ‖Matrix.det ((weylM ℂ * upperM ℂ x * g : GL (Fin 2) ℂ) :
+      Matrix (Fin 2) (Fin 2) ℂ)‖ = ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖ := by
+    change ‖((Matrix.GeneralLinearGroup.det (weylM ℂ * upperM ℂ x * g) : ℂˣ) : ℂ)‖ = _
+    rw [map_mul, map_mul]
+    simp [weylM, upperM]
+  have hrow :
+      ‖((weylM ℂ * upperM ℂ x * g : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖((weylM ℂ * upperM ℂ x * g : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 =
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 0 0 + x * (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 0 1 + x * (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 := by
+    simp [weylM, upperM, Matrix.mul_apply, Fin.sum_univ_two]
+  rw [hdet, hrow]
+
+private theorem complex_complete_square (a b c d x : ℂ)
+    (hA : Complex.normSq c + Complex.normSq d ≠ 0) :
+    Complex.normSq (a + x * c) + Complex.normSq (b + x * d) =
+      (Complex.normSq c + Complex.normSq d) *
+          Complex.normSq (x + (a * star c + b * star d) /
+            ((Complex.normSq c + Complex.normSq d : ℝ) : ℂ)) +
+        (Complex.normSq (a * d - b * c)) /
+          (Complex.normSq c + Complex.normSq d) := by
+  let A : ℝ := Complex.normSq c + Complex.normSq d
+  have hAcne : (A : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr (by simpa [A] using hA)
+  have hAcomplex : (A : ℂ) = star c * c + star d * d := by
+    simp [A, Complex.normSq_eq_conj_mul_self]
+  have hcast :
+      ((Complex.normSq (a + x * c) + Complex.normSq (b + x * d) : ℝ) : ℂ) =
+        ((A * Complex.normSq (x + (a * star c + b * star d) / (A : ℂ)) +
+          Complex.normSq (a * d - b * c) / A : ℝ) : ℂ) := by
+    simp only [Complex.ofReal_add, Complex.ofReal_mul, Complex.ofReal_div,
+      Complex.normSq_eq_conj_mul_self]
+    simp only [map_add, map_mul, map_sub, map_div₀, starRingEnd_apply, star_star,
+      Complex.conj_ofReal]
+    field_simp [hAcne]
+    rw [hAcomplex]
+    simp only [star_add, star_mul, star_star]
+    ring_nf
+  exact Complex.ofReal_injective hcast
+
+private theorem integral_sphC_radial (s : ℂ) (hs : 0 < s.re) (r : ℝ) (hr : 0 < r) :
+    (∫ x : ℂ, (((r / (r ^ 2 + ‖x‖ ^ 2) : ℝ) : ℂ) ^ (1 + 2 * s))) =
+      (Real.pi / (2 * s)) * (r : ℂ) ^ (1 - 2 * s) := by
+  let lam : ℂ := 1 + 2 * s
+  let H : ℂ → ℂ := fun z => OAI.CubicEisenstein.hyperbolicKernel lam z
+  let F : ℂ → ℂ := fun z => (((r / (r ^ 2 + ‖z‖ ^ 2) : ℝ) : ℂ) ^ lam)
+  have hlam : 1 < lam.re := by
+    dsimp [lam]
+    simp
+    linarith
+  have hD (z : ℂ) : 0 < 1 + ‖z‖ ^ 2 := by positivity
+  have hnorm (z : ℂ) : ‖(r • z : ℂ)‖ = r * ‖z‖ := by
+    rw [norm_smul, Real.norm_eq_abs, abs_of_pos hr]
+  have hratio (z : ℂ) : r / (r ^ 2 + ‖r • z‖ ^ 2) =
+      r⁻¹ * (1 + ‖z‖ ^ 2)⁻¹ := by
+    rw [hnorm]
+    field_simp [hr.ne']
+  have hF (z : ℂ) : F (r • z) = (r : ℂ) ^ (-lam) * H z := by
+    change (((r / (r ^ 2 + ‖r • z‖ ^ 2) : ℝ) : ℂ) ^ lam) = _
+    rw [hratio z, Complex.ofReal_mul,
+      Complex.mul_cpow_ofReal_nonneg (inv_nonneg.mpr hr.le)
+        (inv_nonneg.mpr (le_of_lt (hD z))) lam]
+    rw [Complex.ofReal_inv, Complex.inv_cpow_ofReal_nonneg hr.le,
+      ← Complex.cpow_neg, Complex.ofReal_inv,
+      Complex.inv_cpow_ofReal_nonneg (le_of_lt (hD z)), ← Complex.cpow_neg]
+    simp [H, OAI.CubicEisenstein.hyperbolicKernel, lam]
+  have hscale : (∫ x : ℂ, F x) = (r ^ 2 : ℝ) • ∫ z : ℂ, F (r • z) := by
+    have h := Measure.integral_comp_inv_smul_of_nonneg (μ := volume)
+      (fun z : ℂ => F (r • z)) (R := r) hr.le
+    simpa [Complex.finrank_real_complex, smul_smul, hr.ne'] using h
+  have hscaled : (∫ z : ℂ, F (r • z)) = (r : ℂ) ^ (-lam) * ∫ z : ℂ, H z := by
+    calc
+      (∫ z : ℂ, F (r • z)) = ∫ z : ℂ, (r : ℂ) ^ (-lam) * H z := by
+        apply integral_congr_ae
+        filter_upwards [] with z
+        exact hF z
+      _ = _ := by rw [integral_const_mul]
+  have hresult : (∫ x : ℂ, F x) =
+      (r : ℂ) ^ (2 - lam) * ∫ z : ℂ, H z := by
+    calc
+      (∫ x : ℂ, F x) = (r ^ 2 : ℝ) • ∫ z : ℂ, F (r • z) := hscale
+      _ = (r : ℂ) ^ (2 : ℂ) * ((r : ℂ) ^ (-lam) * ∫ z : ℂ, H z) := by
+        rw [hscaled]
+        simp [Complex.ofReal_pow, Complex.cpow_natCast]
+      _ = _ := by
+        rw [← mul_assoc]
+        rw [← Complex.cpow_add _ _ (Complex.ofReal_ne_zero.mpr hr.ne')]
+        congr 2 <;> ring
+  have hkernel := OAI.CubicEisenstein.integral_hyperbolicKernel lam hlam
+  have hden : lam - 1 = 2 * s := by dsimp [lam]; ring
+  have hexp : (2 : ℂ) - lam = 1 - 2 * s := by dsimp [lam]; ring
+  calc
+    (∫ x : ℂ, (((r / (r ^ 2 + ‖x‖ ^ 2) : ℝ) : ℂ) ^ (1 + 2 * s))) =
+        ∫ x : ℂ, F x := by simp [F, lam]
+    _ = (r : ℂ) ^ (2 - lam) * ∫ z : ℂ, H z := hresult
+    _ = (r : ℂ) ^ (1 - 2 * s) * (Real.pi : ℂ) / (2 * s) := by
+      rw [hexp, hkernel, hden]
+      ring
+    _ = _ := by ring
+
 /-- **def:derivative-vector** (03:300–312): `f_m = (∂₁ - m i ∂₂) π(n(x₁ + i x₂)) f |₀`. -/
 def derivVecC (m : ℤ) (f : PGL2 ℂ → ℂ) (g : PGL2 ℂ) : ℂ :=
   fderiv ℝ (fun z : ℂ => f (g * nC z)) 0 1 -
@@ -987,7 +1100,87 @@ theorem sheetHypC_bessel (m : ℤ) (hm : m = 1 ∨ m = -1) (c : ℂ) :
 /-- **int:complex-spherical**: `M_ℂ(s) f°_s = (π/(2s)) f°_{-s}` for `Re s > 0`. -/
 theorem intertwineC_spherical (s : ℂ) (hs : 0 < s.re) :
     intertwineC (sphC s) = fun g => (Real.pi / (2 * s)) * sphC (-s) g := by
-  sorry
+  funext q
+  refine QuotientGroup.induction_on q ?_
+  intro g
+  let M : Matrix (Fin 2) (Fin 2) ℂ := (g : Matrix (Fin 2) (Fin 2) ℂ)
+  let a : ℂ := M 0 0
+  let b : ℂ := M 0 1
+  let c : ℂ := M 1 0
+  let d : ℂ := M 1 1
+  let A : ℝ := Complex.normSq c + Complex.normSq d
+  have hApos : 0 < A := by
+    have hAnonneg : 0 ≤ A := by
+      dsimp [A]
+      exact add_nonneg (Complex.normSq_nonneg c) (Complex.normSq_nonneg d)
+    by_contra hn
+    have hAz : A = 0 := le_antisymm (not_lt.mp hn) hAnonneg
+    have hcN : Complex.normSq c = 0 := by
+      dsimp [A] at hAz
+      nlinarith [Complex.normSq_nonneg c, Complex.normSq_nonneg d]
+    have hdN : Complex.normSq d = 0 := by
+      dsimp [A] at hAz
+      nlinarith [Complex.normSq_nonneg c, Complex.normSq_nonneg d]
+    have hc0 : c = 0 := Complex.normSq_eq_zero.mp hcN
+    have hd0 : d = 0 := Complex.normSq_eq_zero.mp hdN
+    apply g.det_ne_zero
+    simp [Matrix.det_fin_two, M, a, b, c, d, hc0, hd0]
+  have hAne : Complex.normSq c + Complex.normSq d ≠ 0 := by
+    exact ne_of_gt hApos
+  let shift : ℂ := (a * star c + b * star d) / (A : ℂ)
+  let r : ℝ := ‖M.det‖ / A
+  have hrpos : 0 < r := by
+    dsimp [r]
+    exact div_pos (norm_pos_iff.mpr g.det_ne_zero) hApos
+  let lam : ℂ := 1 + 2 * s
+  let F : ℂ → ℂ := fun z => (((r / (r ^ 2 + ‖z‖ ^ 2) : ℝ) : ℂ) ^ lam)
+  have hdet : M.det = a * d - b * c := by
+    simp [Matrix.det_fin_two, M, a, b, c, d]
+  have hconst : Complex.normSq (a * d - b * c) / A = A * r ^ 2 := by
+    rw [← hdet]
+    dsimp [r]
+    rw [Complex.normSq_eq_norm_sq]
+    field_simp [hApos.ne']
+  have hden (x : ℂ) :
+      Complex.normSq (a + x * c) + Complex.normSq (b + x * d) =
+        A * (Complex.normSq (x + shift) + r ^ 2) := by
+    rw [complex_complete_square a b c d x hAne, hconst]
+    ring
+  have hdenNorm (x : ℂ) :
+      ‖a + x * c‖ ^ 2 + ‖b + x * d‖ ^ 2 = A * (‖x + shift‖ ^ 2 + r ^ 2) := by
+    simpa only [Complex.normSq_eq_norm_sq] using hden x
+  have hbase (x : ℂ) :
+      ‖M.det‖ / (‖a + x * c‖ ^ 2 + ‖b + x * d‖ ^ 2) =
+        r / (r ^ 2 + ‖x + shift‖ ^ 2) := by
+    rw [hdenNorm x]
+    dsimp [r]
+    field_simp [hApos.ne']
+    ring
+  have hpoint (x : ℂ) : sphC s (wC * nC x * QuotientGroup.mk g) = F (x + shift) := by
+    rw [sphC_w_n_right_mk]
+    have hb := congrArg (fun t : ℝ => ((t : ℂ) ^ (1 + 2 * s))) (hbase x)
+    simpa [F, lam, M, a, b, c, d] using hb
+  have hshift : (∫ x : ℂ, F (x + shift)) = ∫ x : ℂ, F x := by
+    have hMP : MeasurePreserving (MeasurableEquiv.addRight shift) volume volume := by
+      exact measurePreserving_add_right volume shift
+    exact hMP.integral_comp (MeasurableEquiv.addRight shift).measurableEmbedding F
+  have hnegative : sphC (-s) (QuotientGroup.mk g) = (r : ℂ) ^ (1 - 2 * s) := by
+    rw [sphC_mk]
+    unfold sphericalC
+    have hb0 : ‖M.det‖ / (‖c‖ ^ 2 + ‖d‖ ^ 2) = r := by
+      dsimp [r, A, M, c, d]
+      rw [← Complex.normSq_eq_norm_sq, ← Complex.normSq_eq_norm_sq]
+    rw [hb0, show 1 + 2 * -s = 1 - 2 * s by ring]
+  calc
+    intertwineC (sphC s) (QuotientGroup.mk g) = ∫ x : ℂ, F (x + shift) := by
+      rw [intertwineC]
+      apply integral_congr_ae
+      filter_upwards [] with x
+      exact hpoint x
+    _ = ∫ x : ℂ, F x := hshift
+    _ = (Real.pi / (2 * s)) * (r : ℂ) ^ (1 - 2 * s) := by
+      simpa [F, lam] using integral_sphC_radial s hs r hrpos
+    _ = (Real.pi / (2 * s)) * sphC (-s) (QuotientGroup.mk g) := by rw [hnegative]
 
 end ComplexInt
 
