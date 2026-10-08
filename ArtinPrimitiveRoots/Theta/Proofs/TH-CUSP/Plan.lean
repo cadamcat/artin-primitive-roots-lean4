@@ -100,7 +100,171 @@ theorem classical_constTerm_eq_zero_part1 [IsTotallyComplex F]
     (hy : ∀ w, 0 < y w) :
     ∃ g', ∀ x, cuspClassical P a Ψ gj (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) =
       Ψ (nInf P x * g') := by
-  sorry
+  have hN (x : InfinitePlace F → ℂ) :
+      ∃ n : P.RP, P.q n = nInf P x ∧ (∀ v, P.compF v n = 1) ∧
+        ∀ w, P.compC w n = QuotientGroup.mk (upperM ℂ (x w)) := by
+    obtain ⟨n, hq, hf, hc⟩ := P.nS_components (0, x)
+    refine ⟨n, hq, ?_, hc⟩
+    intro v
+    rw [hf]
+    split_ifs <;> simp
+  have hA (t : InfinitePlace F → ℝ) (ht : ∀ w, 0 < t w) :
+      ∃ b : P.RP, P.q b = a t ∧ (∀ v, P.compF v b = 1) ∧
+        ∀ w, P.compC w b = QuotientGroup.mk
+          (diagM ℂ (Units.mk0 (t w : ℂ) (Complex.ofReal_ne_zero.mpr (ht w).ne'))) := by
+    let z (w : InfinitePlace F) : ℂˣ :=
+      Units.mk0 (t w : ℂ) (Complex.ofReal_ne_zero.mpr (ht w).ne')
+    choose b hq hf hc using fun w => P.aS_components (S.atComplex w (z w))
+    have hu (v : S.Sf) (w : InfinitePlace F) : S.compU v (S.atComplex w (z w)) = 1 := by
+      rfl
+    have hbF (w : InfinitePlace F) (v : FinPlace F) : P.compF v (b w) = 1 := by
+      rw [hf]
+      split_ifs <;> simp [hu, (P.loc v).a_one]
+    let bAll := ((Finset.univ : Finset (InfinitePlace F)).toList.map b).prod
+    refine ⟨bAll, ?_, ?_, ?_⟩
+    · rw [ha]
+      simp only [dite_eq_left ht]
+      simp only [bAll, map_list_prod, List.map_map, Function.comp_def, hq]
+      rfl
+    · intro v
+      simp only [bAll, map_list_prod, List.map_map, Function.comp_def]
+      apply List.prod_eq_one
+      intro k hk
+      obtain ⟨w, _, rfl⟩ := List.mem_map.mp hk
+      exact hbF w v
+    · intro w
+      have hcSelf : S.compC w (S.atComplex w (z w)) = z w := by
+        ext
+        simp [SData.compC, SData.atComplex]
+      have hcOther (w' : InfinitePlace F) (hne : w' ≠ w) :
+          S.compC w (S.atComplex w' (z w')) = 1 := by
+        ext
+        simp [SData.compC, SData.atComplex, Function.update_of_ne hne.symm]
+      have hother : ∀ w' : InfinitePlace F, w' ≠ w →
+          w' ∈ (Finset.univ : Finset (InfinitePlace F)).toList → P.compC w (b w') = 1 := by
+        intro w' hne _
+        rw [hc, hcOther w' hne]
+        have hd : diagM ℂ (1 : ℂˣ) = 1 := by
+          ext i j
+          fin_cases i <;> fin_cases j <;> simp [diagM]
+        rw [hd, QuotientGroup.mk_one]
+      calc
+        P.compC w bAll = ((Finset.univ : Finset (InfinitePlace F)).toList.map
+          (fun w' => P.compC w (b w'))).prod := by
+            simp only [bAll, map_list_prod, List.map_map, Function.comp_def]
+        _ = P.compC w (b w) := by
+          have hcount : List.count w (Finset.univ : Finset (InfinitePlace F)).toList = 1 :=
+            List.count_eq_one_of_mem (Finset.nodup_toList _) (by simp)
+          simpa only [hcount, pow_one] using
+            List.prod_map_eq_pow_single w (fun w' => P.compC w (b w')) hother
+        _ = _ := by rw [hc, hcSelf]
+  have hcomm (f b : P.RP) (hf : ∀ w, P.compC w f = 1) (hb : ∀ v, P.compF v b = 1) :
+      f * b = b * f := by
+    apply P.comp_ext
+    · intro v
+      simp only [map_mul, hb, mul_one, one_mul]
+    · intro w
+      simp only [map_mul, hf, mul_one, one_mul]
+  let r := P.ratRP (Matrix.SpecialLinearGroup.toGL τ)
+  obtain ⟨tf, htfF, htfC⟩ := P.comp_surj (fun v => P.compF v r) (fun _ => 1)
+    (P.comp_restricted r)
+  let ti := tf⁻¹ * r
+  have htiF (v : FinPlace F) : P.compF v ti = 1 := by
+    simp only [ti, map_mul, map_inv, htfF, inv_mul_cancel]
+  have hmap (w : InfinitePlace F) :
+      Matrix.GeneralLinearGroup.map w.embedding (Matrix.SpecialLinearGroup.toGL τ) =
+        Matrix.SpecialLinearGroup.toGL (Matrix.SpecialLinearGroup.map w.embedding τ) := by
+    ext i j
+    rfl
+  have htiC (w : InfinitePlace F) : P.compC w ti = QuotientGroup.mk
+      (Matrix.SpecialLinearGroup.toGL (Matrix.SpecialLinearGroup.map w.embedding τ)) := by
+    simp only [ti, map_mul, map_inv, htfC, inv_one, one_mul,
+      r, P.compC_ratRP, hmap]
+  have hrat : P.tc.rat (Matrix.SpecialLinearGroup.toGL τ) = P.q ti * P.q tf := by
+    calc
+      _ = P.q r := (P.q_ratRP _).symm
+      _ = P.q (tf * ti) := by
+        congr 1
+        dsimp only [ti]
+        group
+      _ = P.q (ti * tf) := congrArg P.q (hcomm tf ti htfC htiF)
+      _ = _ := map_mul _ _ _
+  obtain ⟨j, hj, hjC⟩ := hgj
+  obtain ⟨ay, hay, hayF, hayC⟩ := hA y hy
+  refine ⟨a y * (P.q tf)⁻¹ * gj, ?_⟩
+  intro x
+  let z := τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y
+  let x' := fun w => ArtinPrimitiveRoots.A1.Spec.horiz (z w)
+  let y' := fun w => ArtinPrimitiveRoots.A1.Spec.height (z w)
+  have hy' : ∀ w, 0 < y' w := by
+    intro w
+    change 0 < ArtinPrimitiveRoots.A1.Spec.height (z w)
+    rw [ArtinPrimitiveRoots.A1.Spec.height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos _
+  obtain ⟨nx, hnx, hnxF, hnxC⟩ := hN x
+  obtain ⟨nx', hnx', hnx'F, hnx'C⟩ := hN x'
+  obtain ⟨ay', hay', hay'F, hay'C⟩ := hA y' hy'
+  have hcoord (w : InfinitePlace F) :
+      Matrix.SpecialLinearGroup.map w.embedding τ • ArtinPrimitiveRoots.A1.Spec.pt (x w) (y w) =
+        ArtinPrimitiveRoots.A1.Spec.pt (x' w) (y' w) := by
+    change z w = ArtinPrimitiveRoots.A1.Spec.pt
+      (ArtinPrimitiveRoots.A1.Spec.horiz (z w)) (ArtinPrimitiveRoots.A1.Spec.height (z w))
+    exact (ArtinPrimitiveRoots.A1.Spec.pt_horiz_height _).symm
+  have hiwa (w : InfinitePlace F) := cusp_arch_iwasawa
+    (Matrix.SpecialLinearGroup.map w.embedding τ) (x w) (x' w) (y w) (y' w)
+      (hy w) (hy' w) (hcoord w)
+  let k (w : InfinitePlace F) : GL (Fin 2) ℂ := Classical.choose (hiwa w)
+  have hk (w : InfinitePlace F) : (k w : Matrix (Fin 2) (Fin 2) ℂ) ∈
+      Matrix.unitaryGroup (Fin 2) ℂ := (Classical.choose_spec (hiwa w)).1
+  have hki (w : InfinitePlace F) := (Classical.choose_spec (hiwa w)).2
+  obtain ⟨kinf, hkinfF, hkinfC⟩ := P.comp_surj (fun _ => 1)
+    (fun w => QuotientGroup.mk (k w)) (by simp)
+  have hI : ti * nx * ay = nx' * ay' * kinf := by
+    apply P.comp_ext
+    · intro v
+      simp only [map_mul, htiF, hnxF, hayF, hnx'F, hay'F, hkinfF, one_mul]
+    · intro w
+      simpa only [map_mul, htiC, hnxC, hayC, hnx'C, hay'C, hkinfC] using hki w
+  have hIG : P.q ti * nInf P x * a y = nInf P x' * a y' * P.q kinf := by
+    simpa only [map_mul, hnx, hay, hnx', hay'] using congrArg P.q hI
+  have hcompact : P.q kinf ∈ {g | ∃ b : P.RP, P.q b = g ∧
+      (∀ v, P.compF v b = 1) ∧ ∀ w, ∃ k : GL (Fin 2) ℂ,
+      (k : Matrix (Fin 2) (Fin 2) ℂ) ∈ Matrix.unitaryGroup (Fin 2) ℂ ∧
+        P.compC w b = QuotientGroup.mk k} :=
+    ⟨kinf, rfl, hkinfF, fun w => ⟨k w, hk w, hkinfC w⟩⟩
+  have hKJ : P.q kinf * gj = gj * P.q kinf := by
+    rw [← hj]
+    simpa only [map_mul] using congrArg P.q (hcomm j kinf hjC hkinfF).symm
+  have hTN : P.q tf * nInf P x = nInf P x * P.q tf := by
+    rw [← hnx]
+    simpa only [map_mul] using congrArg P.q (hcomm tf nx htfC hnxF)
+  have hTA : P.q tf * a y = a y * P.q tf := by
+    rw [← hay]
+    simpa only [map_mul] using congrArg P.q (hcomm tf ay htfC hayF)
+  have hTNA : P.q tf * (nInf P x * a y) = (nInf P x * a y) * P.q tf := by
+    rw [← mul_assoc, hTN, mul_assoc, hTA, ← mul_assoc]
+  have heq : P.tc.rat (Matrix.SpecialLinearGroup.toGL τ) *
+      (nInf P x * a y * (P.q tf)⁻¹ * gj) = P.q ti * nInf P x * a y * gj := by
+    rw [hrat]
+    calc
+      _ = P.q ti * (P.q tf * (nInf P x * a y)) * (P.q tf)⁻¹ * gj := by group
+      _ = P.q ti * ((nInf P x * a y) * P.q tf) * (P.q tf)⁻¹ * gj := by rw [hTNA]
+      _ = _ := by group
+  have haut := hAut (Matrix.SpecialLinearGroup.toGL τ)
+    (nInf P x * a y * (P.q tf)⁻¹ * gj)
+  rw [heq] at haut
+  change Ψ (nInf P x' * a y' * gj) = Ψ (nInf P x * (a y * (P.q tf)⁻¹ * gj))
+  calc
+    _ = Ψ ((nInf P x' * a y' * gj) * P.q kinf) := (hInf _ _ hcompact).symm
+    _ = Ψ (P.q ti * nInf P x * a y * gj) := by
+      congr 1
+      rw [hIG]
+      calc
+        _ = (nInf P x' * a y') * (gj * P.q kinf) := by group
+        _ = (nInf P x' * a y') * (P.q kinf * gj) := by rw [hKJ]
+        _ = _ := by group
+    _ = Ψ (nInf P x * a y * (P.q tf)⁻¹ * gj) := haut
+    _ = _ := by congr 1; group
 
 /-- A common adapted ideal is a finite-index sublattice of the cusp translations. -/
 theorem th_cusp_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
