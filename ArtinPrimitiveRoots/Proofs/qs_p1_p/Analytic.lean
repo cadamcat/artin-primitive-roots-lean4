@@ -716,6 +716,33 @@ theorem qs_p1_Lcont_of_root_number [IsTotallyComplex K]
       _ = (qsP1CompletedFactor f s)⁻¹ *
           qsP1CompletedFactor f (1 - s) * Lc (1 - s) := by ring
 
+private theorem qs_p1_root_number_convexity_data [IsTotallyComplex K]
+    (χ : ArtinPrimitiveRoots.A1.HeckeChar K) (f : Ideal (𝓞 K))
+    (hf : IsPrimitiveConductor χ f) (hsq : χ ^ 2 = 1) (hne : χ ≠ 1)
+    (hinf : ∀ w : InfinitePlace K, ∀ u : w.Completionˣ, χ.locInf w u = 1) :
+    ∃ Λ Lc : ℂ → ℂ, Differentiable ℂ Λ ∧ Differentiable ℂ Lc ∧
+      (∀ s : ℂ, 1 < s.re → Lc s = heckeLSeries χ s) ∧
+      (∀ s : ℂ, 0 < s.re → s.re < 1 →
+        Lc s = (qsP1CompletedFactor f s)⁻¹ *
+          qsP1CompletedFactor f (1 - s) * Lc (1 - s)) ∧
+      ∃ C α : ℝ, 0 ≤ C ∧ 0 ≤ α ∧
+        ∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 →
+          ‖Lc s‖ ≤ C * (2 + |s.im|) ^ α := by
+  obtain ⟨Λ, Lc, hΛdiff, hLcdiff, hAgree, hFE⟩ :=
+    qs_p1_Lcont_of_root_number χ f hf hsq hne hinf
+  obtain ⟨A, hA, hconvexity⟩ := ArtinPrimitiveRoots.A2.zf_convexity (F := K)
+  obtain ⟨C, hC, hbound⟩ := hconvexity 1 (by norm_num)
+  have hfin : IsOfFinOrder χ :=
+    isOfFinOrder_iff_pow_eq_one.mpr ⟨2, by norm_num, hsq⟩
+  have hLbound := hbound χ hfin hne f hf Lc ⟨hLcdiff, hAgree⟩
+  have hfN : 0 ≤ (Ideal.absNorm f : ℝ) := by positivity
+  let C' : ℝ := C * Real.rpow (Ideal.absNorm f : ℝ) (1 / 2 + 1)
+  have hC' : 0 ≤ C' := by dsimp [C']; positivity
+  refine ⟨Λ, Lc, hΛdiff, hLcdiff, hAgree, hFE, C', A, hC', hA.le, ?_⟩
+  intro s hs₀ hs₁
+  have h := hLbound.1 s hs₀ hs₁
+  simpa [C', Real.rpow_natCast] using h
+
 private theorem qs_p1_prefactor_differentiableAt [IsTotallyComplex K]
     {s : ℂ} (hs : 0 < s.re) :
     DifferentiableAt ℂ (Hecke.dedekindPrefactor K) s := by
