@@ -17,6 +17,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».SharpPrincipalParts
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».RectanglePatch
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».PoleIntegrals
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».RectangleResidues
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».WeightedRectangle
 
 set_option autoImplicit false
 
