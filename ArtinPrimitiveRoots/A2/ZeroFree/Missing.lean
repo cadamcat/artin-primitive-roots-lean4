@@ -3917,6 +3917,125 @@ theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0
       norm_tsum_le_tsum_norm hnorm
     _ ≤ ∑' j, M j := hnorm.tsum_le_tsum hmajor hM
     _ ≤ C * Z ^ target := htotal
+/-- Absolute L-series bounds on the initial probe contours. -/
+private theorem initial_contour_LS_bounds :
+    ∃ CP CK B : ℝ, 0 < CP ∧ 0 < CK ∧ 0 < B ∧
+      (∀ s : ℂ, s.re = 12 → ‖HA.LS S 1 s‖ ≤ CP) ∧
+      (∀ s : ℂ, s.re = 4 → ‖HA.LS S 1 s‖ ≤ CK) ∧
+      (∀ u : U.U, ∀ s : ℂ, s.re = 4 →
+        ‖(HA.LS S (rowTwist η U u) s)⁻¹‖ ≤ B) := by
+  have hPrincipal (σ : ℝ) (hσ : 1 < σ) :
+      ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ, s.re = σ → ‖HA.LS S 1 s‖ ≤ C := by
+    obtain ⟨m, ψ, hmod, hseries⟩ :=
+      primitive_heckeLSeries_eq_ray (1 : HeckeChar F) one_finiteOrder ⊤ one_primitiveConductor
+    let CS : ℝ := 2 ^ S.Sf.card
+    let s₀ : ℂ := (σ : ℝ)
+    let Cζ : ℝ := (NumberField.dedekindZeta F s₀.re).re
+    let C : ℝ := Cζ * CS + 1
+    have hs₀ : 1 < s₀.re := by simpa [s₀] using hσ
+    have hray0 := Hecke.norm_LSeriesRay_le (K := F) (s := s₀) ψ hs₀
+    have hζpos : 0 ≤ Cζ := by
+      dsimp [Cζ]
+      exact le_trans (norm_nonneg (Hecke.LSeriesRay ψ s₀)) hray0.1
+    refine ⟨C, by dsimp [C]; positivity, ?_⟩
+    intro s hs
+    have hsone : 1 < s.re := by rw [hs]; exact hσ
+    have hray := Hecke.norm_LSeriesRay_le (K := F) (s := s) ψ hsone
+    have hcomplete : HA.L 1 s = Hecke.LSeriesRay ψ s := by
+      calc
+        HA.L 1 s = heckeLSeries (1 : HeckeChar F) s := HA.2.1 1 s hsone
+        _ = Hecke.LSeriesRay ψ s := hseries s hsone
+    have hfactor := omittedEulerFactors_norm_le (S := S)
+      (χ := (1 : HeckeChar F)) one_finiteOrder s (by rw [hs]; linarith)
+    have hLS : HA.LS S 1 s = Hecke.LSeriesRay ψ s *
+        ∏ v ∈ S.Sf, (1 - (1 : HeckeChar F).primeValue v *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+      unfold HeckeAnalysis.LS
+      rw [hcomplete]
+    have hζ : (NumberField.dedekindZeta F s.re).re = Cζ := by
+      simp [Cζ, s₀, hs]
+    have hCS : (2 ^ S.Sf.card : ℝ) = CS := rfl
+    have hRayUpper : ‖Hecke.LSeriesRay ψ s‖ ≤ Cζ := by
+      have h := hray.1
+      rw [hζ] at h
+      exact h
+    have hFactorUpper :
+        ‖∏ v ∈ S.Sf, (1 - (1 : HeckeChar F).primeValue v *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))‖ ≤ CS := by
+      rw [← hCS]
+      exact hfactor
+    calc
+      ‖HA.LS S 1 s‖ = ‖Hecke.LSeriesRay ψ s‖ *
+          ‖∏ v ∈ S.Sf, (1 - (1 : HeckeChar F).primeValue v *
+            (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))‖ := by
+        rw [hLS, norm_mul]
+      _ ≤ Cζ * CS := mul_le_mul hRayUpper hFactorUpper (norm_nonneg _) hζpos
+      _ ≤ C := by dsimp [C]; linarith
+  obtain ⟨CP, hCP, hCPbound⟩ := hPrincipal 12 (by norm_num)
+  obtain ⟨CK, hCK, hCKbound⟩ := hPrincipal 4 (by norm_num)
+  let B : ℝ := (NumberField.dedekindZeta F (4 : ℂ)).re *
+    omittedEulerFactorsInverseConstant (S := S) + 1
+  have hζpos : 0 ≤ (NumberField.dedekindZeta F (4 : ℂ)).re := by
+    obtain ⟨m, ψ, hmod, hseries⟩ :=
+      primitive_heckeLSeries_eq_ray (1 : HeckeChar F) one_finiteOrder ⊤ one_primitiveConductor
+    exact le_trans (norm_nonneg (Hecke.LSeriesRay ψ (4 : ℂ)))
+      (by simpa using (Hecke.norm_LSeriesRay_le (K := F) (s := (4 : ℂ)) ψ (by norm_num)).1)
+  have hB : 0 < B := by
+    have hCF := (omittedEulerFactors_inv_bound (S := S) (1 : HeckeChar F) one_finiteOrder).1
+    dsimp [B]
+    positivity
+  refine ⟨CP, CK, B, hCP, hCK, hB, hCPbound, hCKbound, ?_⟩
+  intro u
+  obtain ⟨f, hf⟩ := U.omega_primitive u
+  obtain ⟨m, ψ, hmod, hseries⟩ :=
+    primitive_heckeLSeries_eq_ray (U.omega u) (U.omega_finiteOrder u) f hf
+  have hF := omittedEulerFactors_inv_bound (S := S) (U.omega u) (U.omega_finiteOrder u)
+  let Cζ : ℝ := (NumberField.dedekindZeta F (4)).re
+  let s₀ : ℂ := (4 : ℝ)
+  have hζpos : 0 ≤ Cζ := by
+    have hs₀ : 1 < s₀.re := by norm_num [s₀, δ1]
+    have hray := Hecke.norm_LSeriesRay_le (K := F) (s := s₀) ψ hs₀
+    dsimp [Cζ]
+    have hnonneg : 0 ≤ (NumberField.dedekindZeta F s₀.re).re :=
+      le_trans (norm_nonneg ((Hecke.LSeriesRay ψ s₀)⁻¹)) hray.2.2
+    simpa [s₀] using hnonneg
+  intro s hsEq
+  have hs : 1 < s.re := by rw [hsEq]; norm_num [δ1]
+  have hRay := Hecke.norm_LSeriesRay_le (K := F) ψ hs
+  have hcompleteRay : HA.L (U.omega u) s = Hecke.LSeriesRay ψ s := by
+    calc
+      HA.L (U.omega u) s = heckeLSeries (U.omega u) s := HA.2.1 (U.omega u) s hs
+      _ = Hecke.LSeriesRay ψ s := hseries s hs
+  have hfactorBound := hF.2 s (by rw [hsEq]; norm_num [δ1])
+  have hLSfactor : HA.LS S (U.omega u) s = Hecke.LSeriesRay ψ s *
+      ∏ v ∈ S.Sf, (1 - (U.omega u).primeValue v *
+        (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+    unfold HeckeAnalysis.LS
+    rw [hcompleteRay]
+  have hInvEq : ‖(HA.LS S (U.omega u) s)⁻¹‖ =
+      ‖(Hecke.LSeriesRay ψ s)⁻¹‖ *
+        ‖(∏ v ∈ S.Sf, (1 - (U.omega u).primeValue v *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)))⁻¹‖ := by
+    rw [hLSfactor, mul_inv_rev, norm_mul]
+    ring
+  have hζ : (NumberField.dedekindZeta F s.re).re = Cζ := by
+    simp [Cζ, hsEq]
+  have hRayInv := hRay.2.2
+  rw [hζ] at hRayInv
+  calc
+    ‖(HA.LS S (rowTwist η U u) s)⁻¹‖ = ‖(HA.LS S (U.omega u) s)⁻¹‖ := by
+      congr 1
+      rw [rowTwist, ← U.omega_induces_twist u]
+    _ = ‖(Hecke.LSeriesRay ψ s)⁻¹‖ *
+        ‖(∏ v ∈ S.Sf, (1 - (U.omega u).primeValue v *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)))⁻¹‖ := hInvEq
+    _ ≤ Cζ * omittedEulerFactorsInverseConstant (S := S) :=
+      mul_le_mul hRayInv hfactorBound.2 (norm_nonneg _) hζpos
+    _ ≤ (NumberField.dedekindZeta F (4)).re *
+        omittedEulerFactorsInverseConstant (S := S) + 1 := by
+      dsimp [Cζ]
+      linarith
+
 /-- `zf:probe-asymptotic`, 06:647–681, for the actual probe and exact principal scalar. The
 corrected probe-low route consumes the split Gauss data from `sol-gate-a2b`. -/
 theorem zf_probe_asymptotic
