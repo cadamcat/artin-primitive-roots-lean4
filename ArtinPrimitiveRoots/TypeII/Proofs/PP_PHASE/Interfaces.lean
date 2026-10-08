@@ -1246,6 +1246,85 @@ def phaseClosedBox {k M : ℕ} (r : PhaseBoxIndex k M) : Set (Fin k → ℝ) :=
 noncomputable def phaseBoxExponent (k : ℕ) : ℕ :=
   ∑ j : Fin k, (j.val + 1)
 
+private def phaseBoxUnitCube (k : ℕ) : Set (Fin k → ℝ) :=
+  {x | ∀ j, 0 ≤ x j ∧ x j ≤ 1}
+
+private noncomputable def phaseBoxPoint {k M : ℕ} (r : PhaseBoxIndex k M)
+    (x : Fin k → ℝ) : Fin k → ℝ :=
+  fun j => (((r j).val : ℝ) + x j) / (M : ℝ) ^ (j.val + 1)
+
+private noncomputable def phaseBoxRescaledSum {k M : ℕ}
+    (r : PhaseBoxIndex k M) (x : Fin k → ℝ) : ℂ :=
+  phaseWeylSum k M (phaseBoxPoint r x)
+
+private noncomputable def phaseBoxMixedWeylSum {k M : ℕ}
+    (r : PhaseBoxIndex k M) (e : Finset (Fin k)) (x : Fin k → ℝ) : ℂ :=
+  ∑ h ∈ Finset.Icc 1 M,
+    (∏ j ∈ e, (2 * Real.pi * Complex.I) *
+      (((((h : ℝ) / (M : ℝ)) ^ (j.val + 1)) : ℝ) : ℂ)) *
+      additiveCharacter (∑ j : Fin k,
+        phaseBoxPoint r x j * (h : ℝ) ^ (j.val + 1))
+
+private theorem phase_box_rescaled_mem {k M : ℕ}
+    (r : PhaseBoxIndex k M) (a : Fin k → ℝ) (hM : 0 < M) :
+    a ∈ phaseClosedBox r ↔
+      ∀ j : Fin k,
+        0 ≤ (M : ℝ) ^ (j.val + 1) * a j - (r j).val ∧
+          (M : ℝ) ^ (j.val + 1) * a j - (r j).val ≤ 1 := by
+  constructor
+  · intro ha j
+    rcases ha j with ⟨hlo, hhi⟩
+    have hd : 0 < (M : ℝ) ^ (j.val + 1) := by positivity
+    rw [div_le_iff₀ hd] at hlo
+    rw [le_div_iff₀ hd] at hhi
+    constructor <;> nlinarith
+  · intro ha j
+    have hd : 0 < (M : ℝ) ^ (j.val + 1) := by positivity
+    constructor
+    · apply (div_le_iff₀ hd).2
+      have hj := (ha j).1
+      nlinarith
+    · apply (le_div_iff₀ hd).2
+      have hj := (ha j).2
+      nlinarith
+
+private theorem phase_box_rescaled_eq {k M : ℕ}
+    (r : PhaseBoxIndex k M) (a : Fin k → ℝ) (hM : 0 < M)
+    (ha : a ∈ phaseClosedBox r) :
+    phaseWeylSum k M a = phaseBoxRescaledSum r
+      (fun j => (M : ℝ) ^ (j.val + 1) * a j - (r j).val) := by
+  sorry
+
+private theorem phase_box_mixed_derivative {k M : ℕ}
+    (r : PhaseBoxIndex k M) (e : Finset (Fin k)) (j : Fin k)
+    (hM : 0 < M) (hje : j ∉ e) (x : Fin k → ℝ) :
+    HasDerivAt
+      (fun t => phaseBoxMixedWeylSum r e (Function.update x j t))
+      (phaseBoxMixedWeylSum r (insert j e) x) (x j) := by
+  sorry
+
+private theorem phase_box_sobolev (k M : ℕ) (hM : 0 < M)
+    (r : PhaseBoxIndex k M) (x : Fin k → ℝ)
+    (hx : x ∈ phaseBoxUnitCube k) :
+    ‖phaseBoxMixedWeylSum r ∅ x‖ ≤
+      ∑ e : Finset (Fin k),
+        ∫ y in phaseBoxUnitCube k, ‖phaseBoxMixedWeylSum r e y‖ := by
+  sorry
+
+private theorem phase_box_mixed_moment (s k M : ℕ) (hM : 0 < M)
+    (r : PhaseBoxIndex k M) (e : Finset (Fin k)) :
+    ∫ x in phaseBoxUnitCube k,
+        ‖phaseBoxMixedWeylSum r e x‖ ^ (2 * s) ≤
+      (2 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) := by
+  sorry
+
+private theorem phase_box_single_sup_bound (s k M : ℕ) (hM : 0 < M)
+    (r : PhaseBoxIndex k M) :
+    (sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+      z = ‖phaseWeylSum k M a‖}) ^ (2 * s) ≤
+      (4 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) := by
+  sorry
+
 /-- Sum of the suprema over all closed coefficient boxes. -/
 theorem phase_box_suprema (s k M : ℕ) (hM : 0 < M) :
     ∑ r : PhaseBoxIndex k M,
@@ -1253,7 +1332,22 @@ theorem phase_box_suprema (s k M : ℕ) (hM : 0 < M) :
         z = ‖phaseWeylSum k M a‖}) ^ (2 * s) ≤
       (4 * Real.pi : ℝ) ^ (2 * s * k) *
         (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ) := by
-  sorry
+  classical
+  have hcard : Fintype.card (PhaseBoxIndex k M) = M ^ phaseBoxExponent k := by
+    simp [PhaseBoxIndex, phaseBoxExponent, Fintype.card_pi,
+      Finset.prod_pow_eq_pow_sum]
+  calc
+    _ ≤ (Fintype.card (PhaseBoxIndex k M) : ℝ) *
+        ((4 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ)) := by
+      calc
+        _ ≤ ∑ _r : PhaseBoxIndex k M,
+            (4 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) :=
+          Finset.sum_le_sum fun r _ => phase_box_single_sup_bound s k M hM r
+        _ = _ := by simp
+    _ = (4 * Real.pi : ℝ) ^ (2 * s * k) *
+        (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ) := by
+      rw [hcard, Nat.cast_pow]
+      ring
 
 /-- The common target window restricted to a given frequency regime. -/
 def phaseWindowBound (freq : ℝ → ℝ → Prop) (C C₀ x₀ : ℝ) : Prop :=
