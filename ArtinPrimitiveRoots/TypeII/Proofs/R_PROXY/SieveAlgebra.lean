@@ -552,4 +552,48 @@ theorem positive_multiple_count_bound (M : ℝ) (d : ℕ)
     _ ≤ (⌊2 * M / (d : ℝ)⌋₊ : ℝ) := by exact_mod_cast (hcard.trans_eq hHcard)
     _ ≤ 2 * M / (d : ℝ) := Nat.floor_le hqnonneg
 
+/-- If the truncation order is at least twice `e` times the reciprocal-prime
+mass, the elementary symmetric remainder has exponentially small factorial
+tail. -/
+theorem factorial_tail_bound (s : ℝ) (r : ℕ) (hs : 0 ≤ s) (hr : 1 ≤ r)
+    (hrs : 2 * Real.exp 1 * s ≤ (r : ℝ)) :
+    s ^ r / (r.factorial : ℝ) ≤ (1 / 2 : ℝ) ^ r := by
+  have hrNat : 0 < r := by omega
+  have hrReal : 1 ≤ (r : ℝ) := by exact_mod_cast hr
+  have hrPos : 0 < (r : ℝ) := by positivity
+  have htwoPi : 1 ≤ 2 * Real.pi := by nlinarith [Real.pi_gt_three]
+  have hrootArg : 1 ≤ 2 * Real.pi * (r : ℝ) := by
+    calc
+      1 = 1 * 1 := by norm_num
+      _ ≤ (2 * Real.pi) * (r : ℝ) :=
+        mul_le_mul htwoPi hrReal (by norm_num) (by positivity)
+  have hroot : 1 ≤ Real.sqrt (2 * Real.pi * (r : ℝ)) :=
+    Real.one_le_sqrt.mpr hrootArg
+  let a : ℝ := (r : ℝ) / Real.exp 1
+  have ha : 0 < a := by dsimp [a]; positivity
+  have hfac : a ^ r ≤ (r.factorial : ℝ) := by
+    dsimp [a]
+    calc
+      ((r : ℝ) / Real.exp 1) ^ r =
+          1 * ((r : ℝ) / Real.exp 1) ^ r := by ring
+      _ ≤ Real.sqrt (2 * Real.pi * (r : ℝ)) *
+          ((r : ℝ) / Real.exp 1) ^ r :=
+        mul_le_mul_of_nonneg_right hroot (by positivity)
+      _ ≤ (r.factorial : ℝ) := Stirling.le_factorial_stirling r
+  have hbase : s / a ≤ (1 / 2 : ℝ) := by
+    dsimp [a]
+    rw [div_le_iff₀ (div_pos hrPos (Real.exp_pos 1))]
+    field_simp
+    nlinarith [hrs]
+  have hpow : (s / a) ^ r ≤ (1 / 2 : ℝ) ^ r :=
+    pow_le_pow_left₀ (div_nonneg hs ha.le) hbase r
+  have hnum : s ^ r ≤ (1 / 2 : ℝ) ^ r * (r.factorial : ℝ) := by
+    have hmul : (s / a) ^ r * a ^ r ≤
+        (1 / 2 : ℝ) ^ r * (r.factorial : ℝ) :=
+      mul_le_mul hpow hfac (by positivity) (by positivity)
+    have hrewrite : (s / a) ^ r * a ^ r = s ^ r := by
+      rw [← mul_pow, div_mul_cancel₀ s ha.ne']
+    simpa [hrewrite] using hmul
+  exact (div_le_iff₀ (by positivity : (0 : ℝ) < (r.factorial : ℝ))).2 hnum
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
