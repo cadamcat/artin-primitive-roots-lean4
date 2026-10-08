@@ -4431,6 +4431,47 @@ private theorem rows_principalRz_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
     _ ≤ C * Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
       mul_le_mul_of_nonneg_right hCprele htarget
 
+private theorem rows_sol_simple_pole_shift (a b p : ℝ) (A F : ℂ → ℂ)
+    (hap : a < p) (hpb : p < b)
+    (hA : DifferentiableOn ℂ A {z : ℂ | a ≤ z.re ∧ z.re ≤ b})
+    (hF : ∀ z : ℂ, a ≤ z.re → z.re ≤ b → z ≠ p → F z = A z / (z - p))
+    (ha : Integrable (fun t : ℝ => F ((a : ℂ) + t * Complex.I)))
+    (hb : Integrable (fun t : ℝ => F ((b : ℂ) + t * Complex.I)))
+    (hbot : Tendsto (fun T : ℝ => ∫ x : ℝ in a..b,
+      F ((x : ℂ) + (-T) * Complex.I)) atTop (𝓝 0))
+    (htop : Tendsto (fun T : ℝ => ∫ x : ℝ in a..b,
+      F ((x : ℂ) + T * Complex.I)) atTop (𝓝 0)) :
+    vertical b F = vertical a F + A p := by
+  obtain ⟨G, hG, hreg⟩ := rows_regularize_simple_pole a b p A F hap hpb hA hF
+  have hLine (x t : ℝ) :
+      ((x : ℂ) + t * Complex.I) - p = ((x - p : ℝ) : ℂ) + t * Complex.I := by
+    rw [Complex.ofReal_sub]
+    ring
+  have hKa : Integrable (fun t : ℝ =>
+      Complex.exp ((((a : ℂ) + t * Complex.I) - p) ^ 2) /
+        (((a : ℂ) + t * Complex.I) - p)) := by
+    simpa only [hLine] using rows_gaussian_pole_line_integrable (a - p)
+      (sub_ne_zero.mpr (ne_of_lt hap))
+  have hKb : Integrable (fun t : ℝ =>
+      Complex.exp ((((b : ℂ) + t * Complex.I) - p) ^ 2) /
+        (((b : ℂ) + t * Complex.I) - p)) := by
+    simpa only [hLine] using rows_gaussian_pole_line_integrable (b - p)
+      (sub_ne_zero.mpr (ne_of_gt hpb))
+  have hVa : (1 / (2 * Real.pi) : ℂ) * (∫ t : ℝ,
+      Complex.exp ((((a : ℂ) + t * Complex.I) - p) ^ 2) /
+        (((a : ℂ) + t * Complex.I) - p)) = (-1 / 2 : ℂ) := by
+    simpa only [vertical, hLine] using
+      rows_vertical_gaussian_pole_neg (a - p) (sub_neg.mpr hap)
+  have hVb : (1 / (2 * Real.pi) : ℂ) * (∫ t : ℝ,
+      Complex.exp ((((b : ℂ) + t * Complex.I) - p) ^ 2) /
+        (((b : ℂ) + t * Complex.I) - p)) = (1 / 2 : ℂ) := by
+    simpa only [vertical, hLine] using
+      rows_vertical_gaussian_pole_pos (b - p) (sub_pos.mpr hpb)
+  simpa only [vertical] using
+    ArtinPrimitiveRoots.Proofs.a2_rows_sol.simple_pole_shift_of_regularization
+      a b p F G (A p) (1 / (2 * Real.pi) : ℂ) hap hpb hG hreg
+      ha hb hKa hKb hVa hVb hbot htop
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
