@@ -2406,6 +2406,94 @@ private theorem exists_finLocalSmallAlgebra
     intro i j
     fin_cases i <;> fin_cases j <;> simp [diagM] <;> first | exact hu | exact hzero m
 
+/-- Every small lift has a Gauss decomposition with all three parameters small. -/
+private theorem finLocalSmallAlgebra_decomposition
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (C : FinLocalAlgebra D H v) (B : FinLocalSmallAlgebra C)
+    (m : ℕ) (hm : B.m0 ≤ m) (x : C.L) (hx : x ∈ B.Kc m) :
+    ∃ α β : v.adicCompletion F, ∃ u : (v.adicCompletion F)ˣ,
+      α ∈ ball v m ∧ β ∈ ball v m ∧ ((u : v.adicCompletion F) - 1) ∈ ball v m ∧
+        x = C.n (Multiplicative.ofAdd α) * C.a u * C.nbar (Multiplicative.ofAdd β) := by
+  classical
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let r := WithZero.exp (-(m : ℤ))
+  have hm1 : 1 ≤ m := B.one_le_m0.trans hm
+  have hr : r < 1 := by
+    dsimp [r]
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    omega
+  have hxK := hx
+  change x ∈ (B.Kc m : Set C.L) at hx
+  rw [B.Kc_eq m hm] at hx
+  obtain ⟨g, hg, rfl⟩ := hx
+  let M : Matrix (Fin 2) (Fin 2) K := g
+  change ∀ i j, V (M i j - (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ r at hg
+  have ha : V (M 0 0 - 1) ≤ r := by simpa using hg 0 0
+  have hd : V (M 1 1 - 1) ≤ r := by simpa using hg 1 1
+  have hb : V (M 0 1) ≤ r := by simpa using hg 0 1
+  have hc : V (M 1 0) ≤ r := by simpa using hg 1 0
+  have hdval : V (M 1 1) = 1 := by
+    simpa using V.map_eq_of_sub_lt (x := 1) (y := M 1 1) (by simpa using hd.trans_lt hr)
+  have hdne : M 1 1 ≠ 0 := by
+    intro h
+    simp [h] at hdval
+  let α : K := M 0 1 / M 1 1
+  let β : K := M 1 0 / M 1 1
+  let u : Kˣ := Units.mk0 (M.det / (M 1 1) ^ 2)
+    (div_ne_zero g.det_ne_zero (pow_ne_zero 2 hdne))
+  let dU : Kˣ := Units.mk0 (M 1 1) hdne
+  have hα : α ∈ ball v m := by
+    change V (M 0 1 / M 1 1) ≤ r
+    rw [map_div₀, hdval, div_one]
+    exact hb
+  have hβ : β ∈ ball v m := by
+    change V (M 1 0 / M 1 1) ≤ r
+    rw [map_div₀, hdval, div_one]
+    exact hc
+  have had : V (M 0 0 - M 1 1) ≤ r := by
+    have heq : M 0 0 - M 1 1 = (M 0 0 - 1) - (M 1 1 - 1) := by ring
+    rw [heq]
+    exact V.map_sub_le ha hd
+  have hdetdiff : V (M.det - (M 1 1) ^ 2) ≤ r := by
+    have heq : M.det - (M 1 1) ^ 2 =
+        (M 0 0 - M 1 1) * M 1 1 - M 0 1 * M 1 0 := by
+      rw [Matrix.det_fin_two]
+      ring
+    rw [heq]
+    apply V.map_sub_le
+    · rw [map_mul, hdval, mul_one]
+      exact had
+    · rw [map_mul]
+      simpa only [mul_one] using mul_le_mul' hb (hc.trans hr.le)
+  have hu : ((u : K) - 1) ∈ ball v m := by
+    change V (M.det / (M 1 1) ^ 2 - 1) ≤ r
+    have heq : M.det / (M 1 1) ^ 2 - 1 =
+        (M.det - (M 1 1) ^ 2) / (M 1 1) ^ 2 := by
+      rw [sub_div, div_self (pow_ne_zero 2 hdne)]
+    rw [heq, map_div₀, map_pow, hdval, one_pow, div_one]
+    exact hdetdiff
+  have hmat : g = Matrix.GeneralLinearGroup.scalar (Fin 2) dU *
+      (upperM K α * diagM K u * lowerM K β) := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, diagM, lowerM, Matrix.GeneralLinearGroup.scalar,
+        Matrix.mul_apply, Fin.sum_univ_two, α, β, u, dU, Matrix.det_fin_two, M] <;>
+      field_simp [hdne, M] <;> ring
+  have hscalar : (QuotientGroup.mk (Matrix.GeneralLinearGroup.scalar (Fin 2) dU) : PGL2 K) = 1 := by
+    rw [← C.sec_pr, C.sec_scalar, map_one]
+  let p : C.L := C.n (Multiplicative.ofAdd α) * C.a u * C.nbar (Multiplicative.ofAdd β)
+  have hp : p ∈ B.Kc m :=
+    (B.Kc m).mul_mem
+      ((B.Kc m).mul_mem (B.n_Kc m hm α hα) (B.a_Kc m hm u hu))
+      (B.nbar_Kc m hm β hβ)
+  have hpr : C.pr (C.sec g) = C.pr p := by
+    rw [C.sec_pr, hmat, QuotientGroup.mk_mul, hscalar, one_mul]
+    simp only [p, map_mul, C.pr_n, C.pr_a, C.pr_nbar, QuotientGroup.mk_mul]
+    rfl
+  exact ⟨α, β, u, hα, hβ, hu, B.Kc_inj m hm hxK hp hpr⟩
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
