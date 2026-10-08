@@ -2277,7 +2277,209 @@ theorem phase_box_suprema (s k M : ℕ) (hM : 0 < M) :
         z = ‖phaseWeylSum k M a‖}) ^ (2 * s) ≤
       (4 * Real.pi : ℝ) ^ (2 * s * k) *
         (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ) := by
-  sorry
+  classical
+  let cube : Set (Fin k → ℝ) := phaseBoxUnitCube k
+  have hcubeEq : cube = Set.univ.pi (fun _ : Fin k => Set.Icc (0 : ℝ) 1) := by
+    ext x
+    simp [cube, phaseBoxUnitCube, Set.mem_pi, Pi.le_def, forall_and]
+  have hcubeCompact : IsCompact cube := by
+    rw [hcubeEq]
+    exact isCompact_univ_pi fun _ => isCompact_Icc
+  have hcubeMeas : MeasurableSet cube := by
+    rw [hcubeEq]
+    exact MeasurableSet.univ_pi fun _ => measurableSet_Icc
+  have hcubeVol : volume cube = 1 := by
+    rw [hcubeEq, volume_pi, Measure.pi_pi]
+    simp
+  let μ : Measure (Fin k → ℝ) := volume.restrict cube
+  have hμprob : IsProbabilityMeasure μ := by
+    rw [isProbabilityMeasure_iff]
+    simp [μ, hcubeVol]
+  letI : IsProbabilityMeasure μ := hμprob
+  let n : ℕ := 2 * s
+  have hindexCard : Fintype.card (PhaseBoxIndex k M) = M ^ phaseBoxExponent k := by
+    simp [PhaseBoxIndex, phaseBoxExponent, Fintype.card_pi]
+    rw [← Finset.prod_pow_eq_pow_sum]
+  have hsubsetCard : Fintype.card (Finset (Fin k)) = 2 ^ k := by
+    simp [Fintype.card_finset]
+  by_cases hs : 0 < s
+  · have hn : 1 ≤ n := by dsimp [n]; omega
+    let boxIntegral (r : PhaseBoxIndex k M) (e : Finset (Fin k)) : ℝ :=
+      ∫ x in cube, ‖phaseBoxMixedWeylSum r e x‖
+    have hboxIntegralNonneg (r : PhaseBoxIndex k M) (e : Finset (Fin k)) :
+        0 ≤ boxIntegral r e := by
+      dsimp [boxIntegral]
+      exact setIntegral_nonneg hcubeMeas fun x hx => norm_nonneg _
+    have hboxIntegralPow (r : PhaseBoxIndex k M) (e : Finset (Fin k)) :
+        (boxIntegral r e) ^ n ≤
+          ∫ x in cube, ‖phaseBoxMixedWeylSum r e x‖ ^ n := by
+      dsimp [boxIntegral]
+      have hfcont : Continuous (fun x : Fin k → ℝ =>
+          ‖phaseBoxMixedWeylSum r e x‖) := by
+        exact (phase_box_mixed_continuous k M r e).norm
+      have hfi : Integrable (fun x : Fin k → ℝ =>
+          ‖phaseBoxMixedWeylSum r e x‖) μ := by
+        exact (hfcont.continuousOn.integrableOn_compact hcubeCompact).integrable
+      have hfiPow : Integrable (fun x : Fin k → ℝ =>
+          ‖phaseBoxMixedWeylSum r e x‖ ^ n) μ := by
+        exact ((hfcont.pow n).continuousOn.integrableOn_compact hcubeCompact).integrable
+      have hnonneg : ∀ x : Fin k → ℝ,
+          0 ≤ ‖phaseBoxMixedWeylSum r e x‖ := fun _ => norm_nonneg _
+      have hJensen := (convexOn_pow n).map_integral_le
+        ((continuous_id.pow n).continuousOn) isClosed_Ici
+        (ae_of_all μ fun x => hnonneg x) hfi
+        (by
+          convert hfiPow using 1 <;> rfl)
+      simpa [μ, cube, Function.comp_apply] using hJensen
+    have hboxCompact (r : PhaseBoxIndex k M) : IsCompact (phaseClosedBox r) := by
+      have hboxEq : phaseClosedBox r = Set.univ.pi (fun j : Fin k =>
+          Set.Icc (((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1))
+            ((((r j).val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1))) := by
+        ext a
+        simp [phaseClosedBox, Set.mem_pi, Set.mem_Icc, Pi.le_def, forall_and]
+      rw [hboxEq]
+      exact isCompact_univ_pi fun j => isCompact_Icc
+    have hboxNonempty (r : PhaseBoxIndex k M) : (phaseClosedBox r).Nonempty := by
+      refine ⟨fun j => ((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1), ?_⟩
+      intro j
+      have hd : 0 < (M : ℝ) ^ (j.val + 1) := by positivity
+      constructor
+      · exact le_rfl
+      · apply (div_le_div_iff_of_pos_right hd).2
+        norm_num
+    have hvalueSet (r : PhaseBoxIndex k M) :
+        {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+          z = ‖phaseWeylSum k M a‖} =
+          (fun a : Fin k → ℝ => ‖phaseWeylSum k M a‖) '' phaseClosedBox r := by
+      ext z
+      constructor
+      · rintro ⟨a, ha, rfl⟩
+        exact ⟨a, ha, rfl⟩
+      · rintro ⟨a, ha, rfl⟩
+        exact ⟨a, ha, rfl⟩
+    have hsup (r : PhaseBoxIndex k M) :
+        ∃ a ∈ phaseClosedBox r,
+          sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+            z = ‖phaseWeylSum k M a‖} = ‖phaseWeylSum k M a‖ := by
+      rw [hvalueSet]
+      exact (hboxCompact r).exists_sSup_image_eq (hboxNonempty r) (by
+        have hc : Continuous (fun a : Fin k → ℝ => ‖phaseWeylSum k M a‖) := by
+          dsimp [phaseWeylSum, additiveCharacter]
+          fun_prop
+        exact hc.continuousOn)
+    have hboxSobolev (r : PhaseBoxIndex k M) :
+        (sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+          z = ‖phaseWeylSum k M a‖}) ^ n ≤
+          (Fintype.card (Finset (Fin k)) : ℝ) ^ (n - 1) *
+            ∑ e : Finset (Fin k), (boxIntegral r e) ^ n := by
+      obtain ⟨a, ha, hsupEq⟩ := hsup r
+      let x : Fin k → ℝ := fun j =>
+        (M : ℝ) ^ (j.val + 1) * a j - (r j).val
+      have hx : x ∈ phaseBoxUnitCube k := by
+        rw [phase_box_rescaled_mem r a hM] at ha
+        simpa [x, phaseBoxUnitCube] using ha
+      have hsob := phase_box_sobolev k M hM r x hx
+      have hbase : ‖phaseWeylSum k M a‖ ≤
+          ∑ e : Finset (Fin k), boxIntegral r e := by
+        rw [phase_box_rescaled_eq r a hM ha]
+        simpa [x, boxIntegral, phaseBoxRescaledSum, phaseBoxMixedWeylSum,
+          phaseWeylSum] using hsob
+      have hsumNonneg : 0 ≤ ∑ e : Finset (Fin k), boxIntegral r e :=
+        Finset.sum_nonneg fun e _ => hboxIntegralNonneg r e
+      have hpowBase :
+          (sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+            z = ‖phaseWeylSum k M a‖}) ^ n ≤
+            (∑ e : Finset (Fin k), boxIntegral r e) ^ n := by
+        rw [hsupEq]
+        exact pow_le_pow_left₀ (norm_nonneg _) hbase n
+      have hsumPow := pow_sum_le_card_mul_sum_pow
+        (s := (Finset.univ : Finset (Finset (Fin k))))
+        (f := boxIntegral r)
+        (fun e he => hboxIntegralNonneg r e) (n - 1)
+      have hnsub : (n - 1) + 1 = n := by omega
+      rw [hnsub] at hsumPow
+      exact hpowBase.trans (by simpa [n] using hsumPow)
+    have haggregate (e : Finset (Fin k)) :
+        ∑ r : PhaseBoxIndex k M, (boxIntegral r e) ^ n ≤
+          (M : ℝ) ^ phaseBoxExponent k *
+            (2 * Real.pi : ℝ) ^ (n * k) * (vinogradovCount s k M : ℝ) := by
+      calc
+        _ ≤ ∑ r : PhaseBoxIndex k M,
+            ∫ x in cube, ‖phaseBoxMixedWeylSum r e x‖ ^ n :=
+          Finset.sum_le_sum fun r _ => hboxIntegralPow r e
+        _ = ∑ r : PhaseBoxIndex k M,
+            ∫ x in phaseBoxUnitCube k,
+              ‖phaseBoxMixedWeylSum r e x‖ ^ (2 * s) := by
+          simp [cube, n]
+        _ ≤ _ := by
+          simpa [n] using phase_box_summed_mixed_moment s k M hM e
+    have hsumAggregate :
+        ∑ r : PhaseBoxIndex k M,
+          ∑ e : Finset (Fin k), (boxIntegral r e) ^ n ≤
+          (Fintype.card (Finset (Fin k)) : ℝ) *
+            ((M : ℝ) ^ phaseBoxExponent k *
+              (2 * Real.pi : ℝ) ^ (n * k) * (vinogradovCount s k M : ℝ)) := by
+      rw [Finset.sum_comm]
+      calc
+        _ ≤ ∑ e : Finset (Fin k),
+            (M : ℝ) ^ phaseBoxExponent k *
+              (2 * Real.pi : ℝ) ^ (n * k) * (vinogradovCount s k M : ℝ) :=
+          Finset.sum_le_sum fun e _ => haggregate e
+        _ = _ := by simp
+    calc
+      _ ≤ ∑ r : PhaseBoxIndex k M,
+            (Fintype.card (Finset (Fin k)) : ℝ) ^ (n - 1) *
+              ∑ e : Finset (Fin k), (boxIntegral r e) ^ n :=
+        Finset.sum_le_sum fun r _ => hboxSobolev r
+      _ = (Fintype.card (Finset (Fin k)) : ℝ) ^ (n - 1) *
+          ∑ r : PhaseBoxIndex k M,
+            ∑ e : Finset (Fin k), (boxIntegral r e) ^ n := by
+        rw [Finset.mul_sum]
+      _ ≤ (Fintype.card (Finset (Fin k)) : ℝ) ^ (n - 1) *
+          ((Fintype.card (Finset (Fin k)) : ℝ) *
+            ((M : ℝ) ^ phaseBoxExponent k *
+              (2 * Real.pi : ℝ) ^ (n * k) * (vinogradovCount s k M : ℝ))) :=
+        mul_le_mul_of_nonneg_left hsumAggregate (by positivity)
+      _ = (4 * Real.pi : ℝ) ^ (n * k) *
+          (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ) := by
+        have hconst :
+            (2 : ℝ) ^ (k * (n - 1)) * (2 : ℝ) ^ k *
+                (2 * Real.pi : ℝ) ^ (n * k) =
+              (4 * Real.pi : ℝ) ^ (n * k) := by
+          calc
+            _ = (2 : ℝ) ^ (k * (n - 1) + k) *
+                (2 * Real.pi : ℝ) ^ (n * k) := by rw [← pow_add]
+            _ = (2 : ℝ) ^ (n * k) *
+                (2 * Real.pi : ℝ) ^ (n * k) := by
+              rw [show k * (n - 1) + k = n * k by
+                calc
+                  k * (n - 1) + k = k * ((n - 1) + 1) := by rw [Nat.mul_add, Nat.mul_one]
+                  _ = k * n := by rw [Nat.sub_add_cancel hn]
+                  _ = n * k := Nat.mul_comm _ _]
+            _ = ((2 : ℝ) * (2 * Real.pi : ℝ)) ^ (n * k) :=
+              (mul_pow _ _ _).symm
+            _ = _ := by congr 1 <;> ring
+        have hpowCard :
+            ((Fintype.card (Finset (Fin k)) : ℝ) ^ (n - 1)) *
+                (Fintype.card (Finset (Fin k)) : ℝ) =
+              (2 : ℝ) ^ (k * (n - 1)) * (2 : ℝ) ^ k := by
+          rw [hsubsetCard]
+          simp [← pow_mul]
+        calc
+          _ = (((Fintype.card (Finset (Fin k)) : ℝ) ^ (n - 1) *
+                (Fintype.card (Finset (Fin k)) : ℝ)) *
+              (2 * Real.pi : ℝ) ^ (n * k)) *
+              ((M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ)) := by ring
+          _ = ((2 : ℝ) ^ (k * (n - 1)) * (2 : ℝ) ^ k *
+                (2 * Real.pi : ℝ) ^ (n * k)) *
+              ((M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ)) := by
+            rw [hpowCard]
+          _ = _ := by rw [hconst]; ring
+  · have hs0 : s = 0 := Nat.eq_zero_of_not_pos hs
+    subst s
+    have hcount : vinogradovCount 0 k M = 1 := by
+      simp [vinogradovCount, boundedTuples]
+    simpa [n, hcount, hindexCard]
 
 /-- The common target window restricted to a given frequency regime. -/
 def phaseWindowBound (freq : ℝ → ℝ → Prop) (C C₀ x₀ : ℝ) : Prop :=
