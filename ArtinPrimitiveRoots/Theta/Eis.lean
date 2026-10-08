@@ -12,6 +12,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.ValuationGeometry
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.OrdinaryClasses
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealEncoding
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.RationalEncoding
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealMajorant
 
 set_option autoImplicit false
 
