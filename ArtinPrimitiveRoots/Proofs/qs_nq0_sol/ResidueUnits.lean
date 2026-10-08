@@ -233,4 +233,30 @@ theorem qs_nq0_chiAlg_reduction (D : FieldData K)
   rw [chiAlg, dif_pos hex]
   exact hex.choose_spec
 
+/-!
+The cube reduction has this exact signature:
+```
+theorem qs_nq0_chiAlg_cube_reduction (D : FieldData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (x : K) (hx : residue v x ≠ 0) :
+    Ideal.Quotient.mk v.asIdeal (((chiAlg v x : (𝓞 K)ˣ) : 𝓞 K) ^ 3) =
+      residue v x ^ ((Ideal.absNorm v.asIdeal - 1) / 2)
+```
+-/
+
+/-- The cubed sextic symbol reduces to the quadratic residue power. -/
+theorem qs_nq0_chiAlg_cube_reduction (D : FieldData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (x : K) (hx : residue v x ≠ 0) :
+    Ideal.Quotient.mk v.asIdeal (((chiAlg v x : (𝓞 K)ˣ) : 𝓞 K) ^ 3) =
+      residue v x ^ ((Ideal.absNorm v.asIdeal - 1) / 2) := by
+  have hdiv : 3 * ((Ideal.absNorm v.asIdeal - 1) / 6) =
+      (Ideal.absNorm v.asIdeal - 1) / 2 := by
+    obtain ⟨k, hk⟩ := six_dvd_absNorm_sub_one D v h6
+    rw [hk, Nat.mul_div_cancel_left _ (by decide : 6 > 0)]
+    have he : 6 * k = 2 * (3 * k) := by omega
+    rw [he, Nat.mul_div_cancel_left _ (by decide : 2 > 0)]
+  rw [map_pow, qs_nq0_chiAlg_reduction D v h6 x hx, ← pow_mul,
+    mul_comm ((Ideal.absNorm v.asIdeal - 1) / 6) 3, hdiv]
+
 end ArtinPrimitiveRoots.A2
