@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Theta.LocalInt
+import ArtinPrimitiveRoots.Spec.Interface
 import Mathlib.Analysis.CStarAlgebra.Matrix
 import Mathlib.Analysis.CStarAlgebra.Basic
 import Mathlib.Topology.Instances.Matrix
@@ -170,5 +171,49 @@ theorem sectionC_norm_majorant (s : ℂ) (f : PGL2 ℂ → ℂ)
     simp
   rw [hnorm, mul_comm _ ‖f k‖]
   exact mul_le_mul_of_nonneg_right ((hC k hk).trans (le_max_left _ _)) (norm_nonneg _)
+
+/-- A projective complex matrix determines the hyperbolic point whose height is its spherical norm. -/
+theorem complex_spherical_height_point (h : PGL2 ℂ) :
+    ∃ z : ArtinPrimitiveRoots.A1.Spec.H3,
+      ∀ (σ : ℝ) (γ : Matrix.SpecialLinearGroup (Fin 2) ℂ),
+        ‖sphC (σ : ℂ) (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL γ) * h)‖ =
+          ArtinPrimitiveRoots.A1.Spec.height (γ • z) ^ (1 + 2 * σ) := by
+  classical
+  let e : PGL2 ℂ ≃* Matrix.ProjectiveSpecialLinearGroup (Fin 2) ℂ :=
+    Matrix.ProjectiveSpecialLinearGroup.isoPSLOfAlgClosedOfNonempty
+  obtain ⟨u, hu⟩ := QuotientGroup.mk_surjective (e h)
+  have hu' : (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL u) : PGL2 ℂ) = h := by
+    change Matrix.ProjectiveSpecialLinearGroup.toPGL (QuotientGroup.mk u) = h
+    rw [hu]
+    exact e.symm_apply_apply h
+  have hheight (v : Matrix.SpecialLinearGroup (Fin 2) ℂ) :
+      ArtinPrimitiveRoots.A1.Spec.height (QuotientGroup.mk v) =
+        (‖v 1 0‖ ^ 2 + ‖v 1 1‖ ^ 2)⁻¹ := by
+    simp [ArtinPrimitiveRoots.A1.Spec.height, ArtinPrimitiveRoots.A1.Spec.herm,
+      Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply,
+      Complex.mul_conj, Complex.normSq_eq_norm_sq, -Complex.ofReal_pow]
+  have hpos (v : Matrix.SpecialLinearGroup (Fin 2) ℂ) :
+      0 < ‖v 1 0‖ ^ 2 + ‖v 1 1‖ ^ 2 := by
+    by_cases h10 : v 1 0 = 0
+    · have h11 : v 1 1 ≠ 0 := by
+        intro h11
+        have hvdet := v.property
+        rw [Matrix.det_fin_two, h10, h11] at hvdet
+        norm_num at hvdet
+      positivity
+    · positivity
+  refine ⟨QuotientGroup.mk u, ?_⟩
+  intro σ γ
+  have hprod : (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL γ) : PGL2 ℂ) * h =
+      QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL (γ * u)) := by
+    rw [← hu', map_mul, QuotientGroup.mk_mul]
+  rw [hprod]
+  change ‖sphC (σ : ℂ) (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL (γ * u)))‖ =
+    ArtinPrimitiveRoots.A1.Spec.height (QuotientGroup.mk (γ * u)) ^ (1 + 2 * σ)
+  rw [hheight]
+  simp only [sphC_mk, sphericalC, Matrix.SpecialLinearGroup.coe_GL_coe_matrix,
+    (γ * u).property, norm_one, one_div]
+  rw [Complex.norm_cpow_eq_rpow_re_of_pos (inv_pos.mpr (hpos (γ * u)))]
+  simp
 
 end ArtinPrimitiveRoots.A1.Theta
