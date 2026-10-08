@@ -2,6 +2,8 @@ import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Eis
+import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.Plan
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-CUSP».Plan
 
 set_option autoImplicit false
 
@@ -111,7 +113,23 @@ theorem red_decompose [IsTotallyComplex F] (P : CoverPackage D S H A) (G : Globa
           eisenstein P G (sec s) (nInf P x * aInf P y * gj) =
             ∑ i, c i s * ArtinPrimitiveRoots.A1.Spec.eisSeries F Γ (σ i) s
               (ArtinPrimitiveRoots.A1.Spec.ptX' F x y) := by
-  sorry
+  have hgood := exists_good_subgroup P T0 hsub m hm gj hgj
+  obtain ⟨d⟩ := red_decompose_part1 P G (aInf P) rfl T0 hsub m hm gj hgj
+    (by simpa only [redLevel, levelSet, redCompact, infCompact] using hgood)
+  obtain ⟨Ds, b, hb, hzero, hterm⟩ := th_decompose_part2 P G sec T0 hT0 hsub hC m hm
+    (by simpa only [redLevel, levelSet] using hlevel) han (aInf P) rfl gj hgj d
+  letI := d.fintype
+  letI := d.hfinite
+  refine ⟨d.Γ, d.hfinite, d.hfree, d.ι, d.fintype, d.σ,
+    (fun i s => ∑ δ ∈ Ds i, b i δ s), ?_, ?_⟩
+  · intro i
+    exact Finset.analyticOnNhd_fun_sum (Ds i) (fun δ _ => hb i δ)
+  · intro s hs x y hy
+    exact th_decompose_part3 d.Γ d.σ d.e Ds (fun i δ => b i δ s)
+      (fun q => scalarOf P G (sec s).f (sec s).fC
+        (P.tc.rat (Quotient.out q) * (nInf P x * aInf P y * gj)))
+      s hs (ArtinPrimitiveRoots.A1.Spec.ptX' F x y)
+      (fun i δ hδ => hzero i δ hδ s) (hterm s hs x y hy)
 
 /-- **red:constant-term**: vanishing adelic constant coefficients (over every adapted lattice at
 every point) give vanishing classical constant terms at every cusp and height, in the form of
@@ -137,7 +155,27 @@ theorem classical_constTerm_eq_zero [IsTotallyComplex F] (P : CoverPackage D S H
       ∃ Pτ : Set (InfinitePlace F → ℂ),
         IsAddFundamentalDomain (ArtinPrimitiveRoots.A1.Spec.cuspTranslations F Γ τ) Pτ volume ∧
         ∫ x in Pτ, classicalOf P Ψ gj (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) = 0 := by
-  sorry
+  intro τ y hy
+  obtain ⟨g', htransport⟩ := classical_constTerm_eq_zero_part1 P (aInf P) rfl Ψ gj hgj hAut
+    (by simpa only [infCompact] using hInf) τ y hy
+  obtain ⟨𝔞, P₀, Pτ, h𝔞, hfix, hle, hindex, hP₀, hbounded, hvol, hPτ⟩ :=
+    th_cusp_part2 P Ψ g' Γ hfinite τ hlevel
+  have hcoeff := hΨ g' 𝔞 P₀ h𝔞 hfix hP₀ hbounded
+  have hnorm : ((((volume P₀).toReal)⁻¹ : ℝ) : ℂ) ≠ 0 := by
+    exact_mod_cast (inv_ne_zero hvol.ne')
+  have hzero' : ∫ x in P₀, Ψ (nInf P x * g') = 0 := by
+    have hproduct : ((((volume P₀).toReal)⁻¹ : ℝ) : ℂ) *
+        (∫ x in P₀, Ψ (nInf P x * g')) = 0 := by
+      simpa [torusCoeff, psiInf, psiC] using hcoeff
+    exact (mul_eq_zero.mp hproduct).resolve_left hnorm
+  refine ⟨Pτ, hPτ, ?_⟩
+  change ∫ x in Pτ, cuspClassical P (aInf P) Ψ gj
+    (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) = 0
+  apply th_cusp_part3 _ _ hle hindex P₀ Pτ hP₀ hPτ
+    (fun x => cuspClassical P (aInf P) Ψ gj (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y))
+  · exact th_cusp_periodic P (aInf P) Ψ gj Γ
+      (by simpa only [cuspClassical, classicalOf] using hΓ) τ y hy
+  · simpa only [htransport] using hzero'
 
 end Reduction
 
