@@ -27,9 +27,50 @@ variable {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
 def sectionSpace (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ) :
     Submodule ℂ (L.L → T.V) where
   carrier := {f | IsSection L T s f}
-  add_mem' := by sorry
-  zero_mem' := by sorry
-  smul_mem' := by sorry
+  add_mem' := by
+    intro f g hf hg
+    change IsSection L T s f at hf
+    change IsSection L T s g at hg
+    rcases hf with ⟨hf₁, hf₂, mf, hmf, hfr⟩
+    rcases hg with ⟨hg₁, hg₂, mg, hmg, hgr⟩
+    refine ⟨?_, ?_, max mf mg, le_trans hmf (Nat.le_max_left _ _), ?_⟩
+    · intro x y h
+      simp only [Pi.add_apply, hf₁, hg₁, map_add, smul_add]
+    · intro ζ h
+      calc
+        (f + g) (L.z ζ * h) = f (L.z ζ * h) + g (L.z ζ * h) := rfl
+        _ = ((ζ : ℂˣ) : ℂ) • f h + ((ζ : ℂˣ) : ℂ) • g h := by rw [hf₂, hg₂]
+        _ = ((ζ : ℂˣ) : ℂ) • (f h + g h) := (smul_add _ _ _).symm
+    · intro h k hk
+      have hkf : k ∈ L.Kc mf := L.Kc_anti mf (max mf mg) hmf
+        (Nat.le_max_left _ _) hk
+      have hkg : k ∈ L.Kc mg := L.Kc_anti mg (max mf mg) hmg
+        (Nat.le_max_right _ _) hk
+      simp [Pi.add_apply, hfr h k hkf, hgr h k hkg]
+  zero_mem' := by
+    refine ⟨?_, ?_, L.m0, le_rfl, ?_⟩
+    · intro x y g
+      simp
+    · intro ζ g
+      simp
+    · intro g k hk
+      simp
+  smul_mem' := by
+    intro c f hf
+    change IsSection L T s f at hf
+    rcases hf with ⟨hf₁, hf₂, m, hm, hfr⟩
+    refine ⟨?_, ?_, m, hm, ?_⟩
+    · intro x y g
+      change c • f (L.n (Multiplicative.ofAdd x) * L.a y * g) =
+        ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) • T.σa y (c • f g)
+      rw [hf₁, map_smul]
+      exact smul_comm c ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) (T.σa y (f g))
+    · intro ζ g
+      change c • f (L.z ζ * g) = ((ζ : ℂˣ) : ℂ) • (c • f g)
+      rw [hf₂]
+      exact smul_comm c ((ζ : ℂˣ) : ℂ) (f g)
+    · intro g k hk
+      simp [Pi.smul_apply, hfr g k hk]
 
 /-- A subspace of functions stable under right translation. -/
 def IsRtrStable {L : FinLocalCover D H v} {V : Type} [AddCommGroup V] [Module ℂ V]

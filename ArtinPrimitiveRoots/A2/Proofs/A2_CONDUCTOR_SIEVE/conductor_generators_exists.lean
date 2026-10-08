@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.Defs
+import ArtinPrimitiveRoots.Proofs.a2_cond_lead_p.ConductorGeneratorBalance
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain ClassFieldTheory
@@ -14,6 +14,6 @@ Guide: sol-thin-a2zf/PROOFS.md:658–665,723–732 (general-field extension).
 Uses only the existing SData; feeds conductor_additive_sieve_apply. -/
 theorem conductor_generators_exists (S : A1.SData F CE condη) :
     Nonempty (ConductorGenerators S) := by
-  sorry
+  exact conductor_generators_exists_helper S
 
 end ArtinPrimitiveRoots.A2
