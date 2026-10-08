@@ -423,4 +423,103 @@ theorem idealLocalPeriods_haar_mass
   rw [mul_one, ← mul_assoc, mul_inv_cancel₀ hR.ne', one_mul] at hm
   exact ⟨hcompact, hopen, hm.symm⟩
 
+/-- Integrable functions periodic under local ideal periods disintegrate over their cosets. -/
+theorem idealLocalPeriods_integral_cosets
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (v : FinPlace F) (μ : LocHaar v) (f : v.adicCompletion F → ℂ)
+    (hf : Integrable f μ.μ)
+    (hperiod : ∀ x y : v.adicCompletion F,
+      y ∈ idealLocalPeriods 𝔞 v → f (x + y) = f x) :
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        ((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) • f (Quotient.out η))
+      (∫ x, f x ∂μ.μ) ∧
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        (qv v) ^ (-FractionalIdeal.count F v 𝔞) * ‖f (Quotient.out η)‖)
+      (∫ x, ‖f x‖ ∂μ.μ) := by
+  classical
+  let K := v.adicCompletion F
+  let U := idealLocalPeriods 𝔞 v
+  let Q := K ⧸ U
+  let R : ℝ := (qv v) ^ (-FractionalIdeal.count F v 𝔞)
+  obtain ⟨_, hopen, hmass⟩ := idealLocalPeriods_haar_mass 𝔞 v μ
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  let _ : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  let _ : SecondCountableTopology K := inferInstance
+  let _ : DiscreteTopology Q := QuotientAddGroup.discreteTopology hopen
+  let _ : Countable Q := (TopologicalSpace.separableSpace_iff_countable (α := Q)).mp inferInstance
+  let C (η : Q) : Set K := {x | (QuotientAddGroup.mk x : Q) = η}
+  have hC (η : Q) : MeasurableSet (C η) := by
+    have heq : C η = (fun t : K => t - Quotient.out η) ⁻¹' (U : Set K) := by
+      ext t
+      change (QuotientAddGroup.mk t : Q) = η ↔ t - Quotient.out η ∈ U
+      constructor
+      · intro ht
+        exact QuotientAddGroup.eq_iff_sub_mem.mp (ht.trans (Quotient.out_eq η).symm)
+      · intro ht
+        exact (QuotientAddGroup.eq_iff_sub_mem.mpr ht).trans (Quotient.out_eq η)
+    rw [heq]
+    exact (hopen.preimage (continuous_id.sub continuous_const)).measurableSet
+  have hdisj : Pairwise (fun η θ : Q => Disjoint (C η) (C θ)) := by
+    intro η θ hne
+    apply Set.disjoint_left.mpr
+    intro x hxη hxθ
+    exact hne (hxη.symm.trans hxθ)
+  have hcover : (⋃ η : Q, C η) = Set.univ := by
+    ext x
+    constructor
+    · intro _; trivial
+    · intro _
+      exact Set.mem_iUnion.mpr ⟨QuotientAddGroup.mk x, rfl⟩
+  have hpre (η : Q) : (fun t : K => Quotient.out η + t) ⁻¹' C η = U := by
+    ext t
+    change (QuotientAddGroup.mk (Quotient.out η + t) : Q) = η ↔ t ∈ U
+    rw [QuotientAddGroup.mk_add, QuotientAddGroup.out_eq' η]
+    rw [add_eq_left]
+    exact QuotientAddGroup.eq_zero_iff t
+  have hmassC (η : Q) : μ.μ.real (C η) = R := by
+    have hm := measure_preimage_add μ.μ (Quotient.out η) (C η)
+    rw [hpre] at hm
+    change (μ.μ (C η)).toReal = R
+    rw [← hm]
+    exact hmass
+  have hpoint (η : Q) (x : K) (hx : x ∈ C η) : f x = f (Quotient.out η) := by
+    have hmem : x - Quotient.out η ∈ U := by
+      apply QuotientAddGroup.eq_iff_sub_mem.mp
+      exact hx.trans (Quotient.out_eq η).symm
+    have ht := hperiod (Quotient.out η) (x - Quotient.out η) hmem
+    have heq : Quotient.out η + (x - Quotient.out η) = x := by abel
+    rwa [heq] at ht
+  have hcoset (η : Q) : (∫ x in C η, f x ∂μ.μ) = R • f (Quotient.out η) := by
+    calc
+      _ = ∫ _ in C η, f (Quotient.out η) ∂μ.μ := by
+        apply integral_congr_ae
+        filter_upwards [ae_restrict_mem (hC η)] with x hx
+        exact hpoint η x hx
+      _ = μ.μ.real (C η) • f (Quotient.out η) := setIntegral_const _
+      _ = _ := by rw [hmassC]
+  have hcosetNorm (η : Q) : (∫ x in C η, ‖f x‖ ∂μ.μ) = R * ‖f (Quotient.out η)‖ := by
+    calc
+      _ = ∫ _ in C η, ‖f (Quotient.out η)‖ ∂μ.μ := by
+        apply integral_congr_ae
+        filter_upwards [ae_restrict_mem (hC η)] with x hx
+        exact congrArg norm (hpoint η x hx)
+      _ = μ.μ.real (C η) • ‖f (Quotient.out η)‖ := setIntegral_const _
+      _ = _ := by rw [hmassC, smul_eq_mul]
+  have hintUnion : IntegrableOn f (⋃ η : Q, C η) μ.μ := by
+    simpa only [hcover, integrableOn_univ] using hf
+  have hnormUnion : IntegrableOn (fun x => ‖f x‖) (⋃ η : Q, C η) μ.μ := by
+    simpa only [hcover, integrableOn_univ] using hf.norm
+  have hsum := (hasSum_integral_iUnion hC hdisj hintUnion).congr_fun (fun η => (hcoset η).symm)
+  have hsumNorm := (hasSum_integral_iUnion hC hdisj hnormUnion).congr_fun (fun η => (hcosetNorm η).symm)
+  simp only [hcover, setIntegral_univ] at hsum
+  simp only [hcover, setIntegral_univ] at hsumNorm
+  exact ⟨hsum, hsumNorm⟩
+
 end ArtinPrimitiveRoots.A1.Theta
