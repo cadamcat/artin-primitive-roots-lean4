@@ -4398,7 +4398,81 @@ theorem rf_forward_assembly :
         (∑' p : S.SqfExtIdeal × S.ExtIdeal, ‖forwardCoeff R r p *
           Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)‖) / t) ≤
         C * Z ^ σ * Theta.absMoment R.K (-σ) * sphericalMajorant (S := S) σ := by
-  sorry
+  classical
+  constructor
+  · intro v hv j
+    have hp : S.IsGen (primeGen R v : F) v.asIdeal := by
+      simpa only [primeGen, dif_pos hv, R.exterior.prime_val] using
+        (bc.gen_spec (R.exterior.prime v hv)).1
+    simpa only [qI] using
+      ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.maskAlpha_mass D S A v hv (primeGen R v) hp j
+  · intro σ hσ
+    let w : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p =>
+      qI p.1.1 ^ (-1 / 2 - σ) * qI p.2.1 ^ (-1 - 3 * σ)
+    have hSum : Summable w := by
+      simpa only [w, qI, idealNorm] using
+        ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.spherical_mass_summable S σ hσ
+    refine ⟨hSum, ?_⟩
+    obtain ⟨C, hC, hBound⟩ := rf_forward_theta_bound R σ hσ
+    refine ⟨C, hC, ?_⟩
+    intro r Z hZ
+    letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+    letI : Countable (𝓞 F) := inferInstance
+    have hspan : Function.Surjective
+        (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+      intro I
+      exact Ideal.fg_of_isNoetherianRing I
+    letI : Countable (Ideal (𝓞 F)) := hspan.countable
+    letI : Countable S.ExtIdeal :=
+      inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+    letI : Countable S.SqfExtIdeal :=
+      inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+    let q : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => qI (Aideal R p.1 p.2).1
+    have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+      unfold qI
+      exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+    have hq (p : S.SqfExtIdeal × S.ExtIdeal) : 0 < q p :=
+      hpos (Aideal R p.1 p.2).1 (Aideal R p.1 p.2).property.1
+    have hqA (c : S.SqfExtIdeal) (n : S.ExtIdeal) :
+        qI (Aideal R c n).1 = qI c.1 * qI n.1 ^ (3 : ℕ) := by
+      simp only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+        R.exterior.pow_val, qI, map_mul, map_pow, Nat.cast_mul, Nat.cast_pow]
+    have hWeight (p : S.SqfExtIdeal × S.ExtIdeal) :
+        ‖forwardCoeff R r p‖ * q p ^ (-σ) ≤ w p := by
+      have hc : 0 < qI p.1.1 := hpos p.1.1 p.1.property.1.1
+      have hn : 0 < qI p.2.1 := hpos p.2.1 p.2.property.1
+      have hn3 : (qI p.2.1 ^ (3 : ℕ)) ^ (-σ) = qI p.2.1 ^ (-3 * σ) := by
+        rw [← Real.rpow_natCast, ← Real.rpow_mul hn.le]
+        congr 1
+        ring
+      have hcAdd : qI p.1.1 ^ (-(1 / 2 : ℝ)) * qI p.1.1 ^ (-σ) =
+          qI p.1.1 ^ (-1 / 2 - σ) := by
+        rw [← Real.rpow_add hc]
+        congr 1
+        ring
+      have hnAdd : (qI p.2.1)⁻¹ * qI p.2.1 ^ (-3 * σ) =
+          qI p.2.1 ^ (-1 - 3 * σ) := by
+        rw [← Real.rpow_neg_one, ← Real.rpow_add hn]
+        congr 1
+        ring
+      calc
+        _ ≤ (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) * q p ^ (-σ) :=
+          mul_le_mul_of_nonneg_right (rf_forwardCoeff_norm R r p)
+            (Real.rpow_nonneg (hq p).le _)
+        _ = w p := by
+          dsimp only [q, w]
+          rw [hqA, Real.mul_rpow hc.le (pow_nonneg hn.le 3), hn3,
+            ← hcAdd, ← hnAdd, div_eq_mul_inv]
+          ring
+    have hV : Measurable (Theta.thetaV S μ v0 R.T.U R.T.cS) :=
+      ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.thetaV_measurable
+        S μ v0 R.T.U R.T.U_spec.1.measurableSet R.T.cS
+    have hK : AEStronglyMeasurable R.K (volume.restrict (Set.Ioi (0 : ℝ))) :=
+      R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi
+    have hData := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.theta_series_majorant
+      q hq (forwardCoeff R r) w σ C hC.le hWeight hSum
+      (Theta.thetaV S μ v0 R.T.U R.T.cS) hV hBound R.K hK (R.K_moments (-σ))
+    simpa only [q, w, sphericalMajorant] using hData.2 Z hZ
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
