@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.TruncatedSource
 import ArtinPrimitiveRoots.TypeII.PD.Preliminaries
 import ArtinPrimitiveRoots.TypeII.PP.Results
+import Mathlib.Algebra.BigOperators.Module
 import Mathlib.Algebra.Order.Chebyshev
 
 /-!
@@ -67,6 +68,58 @@ theorem norm_sum_range_weighted_le_of_prefix
       Complex.norm_le_abs_re_add_abs_im _
     _ ≤ B * w 0 + B * w 0 := add_le_add hRe hIm
     _ = 2 * B * w 0 := by ring
+
+/-- Abel summation for real weights controlled by their total variation. -/
+theorem norm_sum_range_weighted_le_of_variation
+    (a : ℕ → ℂ) (w : ℕ → ℝ) (n : ℕ) (B V : ℝ)
+    (hB : 0 ≤ B)
+    (hprefix : ∀ k ≤ n, ‖∑ i ∈ Finset.range k, a i‖ ≤ B)
+    (hvariation : |w (n - 1)| +
+      ∑ i ∈ Finset.range (n - 1), |w (i + 1) - w i| ≤ V) :
+    ‖∑ i ∈ Finset.range n, (w i : ℂ) * a i‖ ≤ B * V := by
+  have hsumByParts :
+      (∑ i ∈ Finset.range n, (w i : ℂ) * a i) =
+        (w (n - 1) : ℂ) * (∑ i ∈ Finset.range n, a i) -
+          ∑ i ∈ Finset.range (n - 1),
+            ((w (i + 1) - w i : ℝ) : ℂ) *
+              (∑ j ∈ Finset.range (i + 1), a j) := by
+    have h := Finset.sum_range_by_parts (f := w) (g := a) (n := n)
+    simpa only [Complex.real_smul] using h
+  have hlast :
+      ‖(w (n - 1) : ℂ) * (∑ i ∈ Finset.range n, a i)‖ ≤
+        |w (n - 1)| * B := by
+    rw [norm_mul, Complex.norm_real]
+    exact mul_le_mul_of_nonneg_left (hprefix n le_rfl) (abs_nonneg _)
+  have hvariationSum :
+      ‖∑ i ∈ Finset.range (n - 1),
+          ((w (i + 1) - w i : ℝ) : ℂ) *
+            (∑ j ∈ Finset.range (i + 1), a j)‖ ≤
+        ∑ i ∈ Finset.range (n - 1), |w (i + 1) - w i| * B := by
+    calc
+      _ ≤ ∑ i ∈ Finset.range (n - 1),
+            ‖((w (i + 1) - w i : ℝ) : ℂ) *
+              (∑ j ∈ Finset.range (i + 1), a j)‖ := norm_sum_le _ _
+      _ ≤ ∑ i ∈ Finset.range (n - 1), |w (i + 1) - w i| * B := by
+        apply Finset.sum_le_sum
+        intro i hi
+        rw [norm_mul, Complex.norm_real]
+        have hi' : i < n - 1 := Finset.mem_range.mp hi
+        exact mul_le_mul_of_nonneg_left
+          (hprefix (i + 1) (by omega)) (abs_nonneg _)
+  calc
+    ‖∑ i ∈ Finset.range n, (w i : ℂ) * a i‖ =
+        ‖(w (n - 1) : ℂ) * (∑ i ∈ Finset.range n, a i) -
+          ∑ i ∈ Finset.range (n - 1),
+            ((w (i + 1) - w i : ℝ) : ℂ) *
+              (∑ j ∈ Finset.range (i + 1), a j)‖ := by rw [hsumByParts]
+    _ ≤ |w (n - 1)| * B +
+        ∑ i ∈ Finset.range (n - 1), |w (i + 1) - w i| * B := by
+      exact (norm_sub_le _ _).trans (add_le_add hlast hvariationSum)
+    _ = B * (|w (n - 1)| +
+          ∑ i ∈ Finset.range (n - 1), |w (i + 1) - w i|) := by
+      rw [← Finset.sum_mul]
+      ring
+    _ ≤ B * V := mul_le_mul_of_nonneg_left hvariation hB
 
 /-- One residue-class phase sum with the reciprocal logarithm attached. -/
 noncomputable def reciprocalLogResiduePhaseSum
