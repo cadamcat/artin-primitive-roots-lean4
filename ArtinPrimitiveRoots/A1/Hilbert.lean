@@ -120,6 +120,43 @@ theorem BData.exists_allowed {S : SData F CE condη} {H : HilbertData F} (Bd : B
   rw [hqa]
   exact hb
 
+private theorem a1_bdata_sol_allowed_ratio_local_sixth
+    {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
+    (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
+    (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
+    a / b ∈ S.US ∧ ∃ x : S.FSˣ, S.diagU (a / b) = x ^ 6 := by
+  classical
+  letI : CommGroup S.V := QuotientGroup.Quotient.commGroup _
+  have hu : a / b ∈ S.US := by
+    intro v hv
+    have hcount : FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ((a / b : Fˣ) : F)) = 0 := by
+      rw [Units.val_div_eq_div_val]
+      rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
+        FractionalIdeal.count_mul F v
+          (FractionalIdeal.spanSingleton_ne_zero_iff.mpr a.ne_zero)
+          (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr b.ne_zero)),
+        FractionalIdeal.count_inv, ha.1.2.2 v hv, hb.1.2.2 v hv, add_neg_cancel]
+    have hc := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+      v ((a / b : Fˣ) : F) (a / b).ne_zero
+    rw [hcount] at hc
+    have hlog : WithZero.log (v.valuation F ((a / b : Fˣ) : F)) = 0 :=
+      neg_eq_zero.mp hc.symm
+    calc
+      v.valuation F ((a / b : Fˣ) : F) =
+          WithZero.exp (WithZero.log (v.valuation F ((a / b : Fˣ) : F))) :=
+        (WithZero.exp_log ((v.valuation F).ne_zero_iff.mpr (a / b).ne_zero)).symm
+      _ = 1 := by rw [hlog, WithZero.exp_zero]
+  have hE : (QuotientGroup.mk (S.diagU (a / b)) : S.V) ∈ S.E := by
+    exact Subgroup.mem_map.mpr ⟨a / b, hu, rfl⟩
+  have hB : (QuotientGroup.mk (S.diagU (a / b)) : S.V) ∈ Bd.B := by
+    have hdiv := Bd.B.div_mem ha.2 hb.2
+    simpa only [map_div, QuotientGroup.mk_div] using hdiv
+  have hclass : (QuotientGroup.mk (S.diagU (a / b)) : S.V) = 1 :=
+    Subgroup.disjoint_def.mp Bd.compl.disjoint hE hB
+  obtain ⟨x, hx⟩ := (QuotientGroup.eq_one_iff _).mp hclass
+  exact ⟨hu, x, hx.symm⟩
+
 theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
     (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
