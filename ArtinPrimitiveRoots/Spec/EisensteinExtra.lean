@@ -1657,6 +1657,199 @@ private theorem specIdentify_nontriangular_bound
       ((hgradNormSumm.tsum_le_tsum hgradDom hm').trans hsum')
   exact ⟨hvalueSumm, hgradSumm, hvalueBound, hgradBound⟩
 
+private theorem specIdentify_nontriangular_seed_bound
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (d : SiegelData F Γ) (σ : SL(2,F)) (τ : ℝ → ℝ)
+    (cut : CutoffData F Γ σ τ) (s : ℂ) (i : d.ι) :
+    let Q := {q : CuspCosets F Γ σ //
+      σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∉ borelSL F}
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ z ∈ SiegelData.setAt F d i,
+      Summable (fun q : Q => seedTerm F Γ σ τ s ((d.σ i) • z) q.1) ∧
+      Summable (fun q : Q =>
+        fullGradient F (fun x => seedTerm F Γ σ τ s x q.1) ((d.σ i) • z)) ∧
+      ‖∑' q : Q, seedTerm F Γ σ τ s ((d.σ i) • z) q.1‖ ≤ C ∧
+      ‖∑' q : Q,
+        fullGradient F (fun x => seedTerm F Γ σ τ s x q.1) ((d.σ i) • z)‖ ≤ C := by
+  classical
+  let Q := {q : CuspCosets F Γ σ //
+    σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∉ borelSL F}
+  let a : ℂ := 1 + 2 * s
+  let b (q : CuspCosets F Γ σ) : SL(2,F) :=
+    σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F))
+  let heightAt (q : CuspCosets F Γ σ) (x : X F) : ℝ :=
+    normHeight F (actAtPlaces F (toInf F (b q)) x)
+  let f (q : CuspCosets F Γ σ) : X F → ℂ := fun x => seedTerm F Γ σ τ s x q
+  have hact (q : CuspCosets F Γ σ) (x : X F) :
+      σ⁻¹ • (((q.out : Γ) : SL(2,𝓞 F)) • x) =
+        actAtPlaces F (toInf F (b q)) x := by
+    change σ⁻¹ • ((toSLF F ((q.out : Γ) : SL(2,𝓞 F))) • x) = b q • x
+    rw [← mul_smul]
+  have hheight (q : CuspCosets F Γ σ) (x : X F) :
+      heightAt q x = normHeight F (σ⁻¹ • (((q.out : Γ) : SL(2,𝓞 F)) • x)) :=
+    congrArg (normHeight F) (hact q x).symm
+  have hseed (q : CuspCosets F Γ σ) : f q =
+      fun x => (τ (heightAt q x) : ℂ) * (heightAt q x : ℂ) ^ a := by
+    funext x
+    simp only [f, seedTerm, hact, heightAt, a]
+  obtain ⟨R, hRpos, hR⟩ := (R6_two_heights (F := F) Γ).2 (d.σ i) σ
+  have hLower : 0 < SiegelData.lowerHeight F d i := by
+    unfold SiegelData.lowerHeight
+    have hI : bottomRowFractionalIdeal F ((d.σ i)⁻¹) ≠ 0 :=
+      (R3_cusps_finite (F := F) Γ).2.1 ((d.σ i)⁻¹)
+    have hnormNe : FractionalIdeal.absNorm
+        (bottomRowFractionalIdeal F ((d.σ i)⁻¹)) ≠ 0 := by
+      intro hh
+      exact hI (FractionalIdeal.absNorm_eq_zero_iff.mp hh)
+    have hnormPos : 0 < FractionalIdeal.absNorm
+        (bottomRowFractionalIdeal F ((d.σ i)⁻¹)) :=
+      lt_of_le_of_ne (FractionalIdeal.absNorm_nonneg _) (Ne.symm hnormNe)
+    have hrealPos : 0 <
+        ((FractionalIdeal.absNorm (bottomRowFractionalIdeal F ((d.σ i)⁻¹)) : ℚ) : ℝ) := by
+      exact_mod_cast hnormPos
+    exact inv_pos.mpr (mul_pos hrealPos d.C_M_pos)
+  let H : ℝ := max (2 * cut.A) (R / SiegelData.lowerHeight F d i)
+  have hAone : 1 ≤ cut.A := cut.A₀_ge.trans cut.A_ge
+  have hApos : 0 < cut.A := lt_of_lt_of_le zero_lt_one hAone
+  have hAH : cut.A ≤ H := by
+    have hA2 : cut.A ≤ 2 * cut.A := by linarith only [hApos]
+    exact hA2.trans (le_max_left _ _)
+  obtain ⟨Mv, hMv, hprofile⟩ := specIdentify_profile_interval_bound τ a cut.cutoff.1
+    (Real.log cut.A) (Real.log H) (Real.log_le_log hApos hAH)
+  obtain ⟨Mg, hMg, hderiv⟩ := specIdentify_seedProfile_deriv_bound τ cut.A hAone
+    cut.cutoff a H (le_max_left _ _)
+  let C : ℝ := max Mv (Mg * Real.sqrt (placeCount F))
+  have hC : 0 ≤ C := hMv.trans (le_max_left _ _)
+  have htermBound (q : CuspCosets F Γ σ) (x : X F) (htH : heightAt q x ≤ H) :
+      ‖f q x‖ ≤ C ∧ ‖fullGradient F (f q) x‖ ≤ C := by
+    let t : ℝ := heightAt q x
+    have ht : 0 < t := specIdentify_normHeight_pos _
+    constructor
+    · by_cases htA : t ≤ cut.A
+      · rw [hseed q]
+        change ‖(τ t : ℂ) * (t : ℂ) ^ a‖ ≤ C
+        rw [cut.cutoff.2.2.1 t htA]
+        simpa only [Complex.ofReal_zero, zero_mul, norm_zero] using hC
+      · have hlog : Real.log t ∈ Set.Icc (Real.log cut.A) (Real.log H) :=
+          ⟨Real.log_le_log hApos (le_of_not_ge htA), Real.log_le_log ht htH⟩
+        rw [hseed q]
+        change ‖(τ t : ℂ) * (t : ℂ) ^ a‖ ≤ C
+        rw [← specIdentifyRadialProfile_log τ a ht]
+        exact ((hprofile (Real.log t) hlog).1).trans (le_max_left _ _)
+    · rw [hseed q]
+      change ‖fullGradient F (fun y =>
+        (τ (normHeight F (actAtPlaces F (toInf F (b q)) y)) : ℂ) *
+          (normHeight F (actAtPlaces F (toInf F (b q)) y) : ℂ) ^ a) x‖ ≤ C
+      rw [specIdentify_radial_action_gradient_norm (toInf F (b q)) τ a cut.cutoff.1 x]
+      exact (mul_le_mul_of_nonneg_right (hderiv t ht htH) (Real.sqrt_nonneg _)).trans
+        (le_max_right _ _)
+  have hupper (z : X F) (hz : z ∈ SiegelData.setAt F d i) (q : Q) :
+      heightAt q.1 ((d.σ i) • z) ≤ H := by
+    have hNy : SiegelData.lowerHeight F d i ≤ normHeight F z := by
+      have hz' := hz
+      simp only [SiegelData.setAt, siegelSet] at hz'
+      rcases hz' with ⟨x, y, hEq, hx, hbal, hNy⟩
+      rw [← hEq] at hNy
+      exact hNy
+    have hentry : (σ⁻¹ * toSLF F ((q.1.out : Γ) : SL(2,𝓞 F)) * d.σ i) 1 0 ≠ 0 := by
+      intro h0
+      apply q.2
+      change (σ⁻¹ * toSLF F ((q.1.out : Γ) : SL(2,𝓞 F)) * d.σ i) 1 0 = 0
+      exact h0
+    have hproduct : normHeight F z * heightAt q.1 ((d.σ i) • z) ≤ R := by
+      have h := hR q.1.out ((d.σ i) • z) hentry
+      simpa only [inv_smul_smul, ← hheight] using h
+    have ht : 0 < heightAt q.1 ((d.σ i) • z) := specIdentify_normHeight_pos _
+    have hquot : heightAt q.1 ((d.σ i) • z) ≤ R / SiegelData.lowerHeight F d i := by
+      apply (le_div_iff₀ hLower).2
+      calc
+        heightAt q.1 ((d.σ i) • z) * SiegelData.lowerHeight F d i ≤
+            heightAt q.1 ((d.σ i) • z) * normHeight F z :=
+          mul_le_mul_of_nonneg_left hNy ht.le
+        _ = normHeight F z * heightAt q.1 ((d.σ i) • z) := mul_comm _ _
+        _ ≤ R := hproduct
+    exact hquot.trans (le_max_right _ _)
+  have hUnique (x : X F) (q q' : CuspCosets F Γ σ)
+      (hq : cut.A₀ ≤ heightAt q x) (hq' : cut.A₀ ≤ heightAt q' x) : q = q' := by
+    have hsep := cut.separation q.out q'.out x (hheight q x ▸ hq) (hheight q' x ▸ hq')
+    have hrel : QuotientGroup.rightRel (cuspStab F Γ σ) q.out q'.out :=
+      QuotientGroup.rightRel_apply.mpr hsep
+    calc
+      q = Quotient.mk _ q.out := (Quotient.out_eq' q).symm
+      _ = Quotient.mk _ q'.out := Quotient.sound hrel
+      _ = q' := Quotient.out_eq' q'
+  have hlowValue (q : CuspCosets F Γ σ) (x : X F) (hlt : heightAt q x < cut.A₀) :
+      f q x = 0 := by
+    rw [hseed q]
+    change (τ (heightAt q x) : ℂ) * (heightAt q x : ℂ) ^ a = 0
+    rw [cut.cutoff.2.2.1 (heightAt q x) (hlt.le.trans cut.A_ge)]
+    simp only [Complex.ofReal_zero, zero_mul]
+  have hlow (q : CuspCosets F Γ σ) (x : X F) (hlt : heightAt q x < cut.A₀) :
+      f q x = 0 ∧ fullGradient F (f q) x = 0 := by
+    refine ⟨hlowValue q x hlt, ?_⟩
+    let p : Coord F := coordsX F x
+    have hp : p ∈ posSet F := by
+      intro w
+      change 0 < height (x w)
+      rw [height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos (x w)
+    have hpt : ptX F p = x := (G1_h3_basics (F := F)).2.2.2.2.2.2.2.1 x
+    have hCont : ContinuousAt (fun p' : Coord F => heightAt q (ptX F p')) p := by
+      have hSm : ContDiffOn ℝ ∞ (fun p' : Coord F => heightAt q (ptX F p')) (posSet F) :=
+        specIdentify_heightAction_smooth (b q)
+      exact (hSm.contDiffAt ((specIdentify_posSet_open (F := F)).mem_nhds hp)).continuousAt
+    have hlt' : heightAt q (ptX F p) < cut.A₀ := hpt.symm ▸ hlt
+    have hlocal : (fun p' : Coord F => f q (ptX F p')) =ᶠ[𝓝 p] (fun _ => (0 : ℂ)) := by
+      filter_upwards [hCont.eventually (isOpen_Iio.mem_nhds hlt')] with p' hp'
+      exact hlowValue q (ptX F p') hp'
+    have hder := Filter.EventuallyEq.fderiv_eq (𝕜 := ℝ) hlocal
+    ext wj
+    rcases wj with ⟨w, j⟩
+    change ((coordsX F x w).2 : ℂ) *
+      fderiv ℝ (fun p' => f q (ptX F p')) p (placeDirection F w j) = 0
+    rw [hder]
+    simp
+  refine ⟨C, hC, ?_⟩
+  intro z hz
+  let x : X F := (d.σ i) • z
+  change Summable (fun q : Q => f q.1 x) ∧
+    Summable (fun q : Q => fullGradient F (f q.1) x) ∧
+    ‖∑' q : Q, f q.1 x‖ ≤ C ∧
+    ‖∑' q : Q, fullGradient F (f q.1) x‖ ≤ C
+  by_cases hex : ∃ q : Q, cut.A₀ ≤ heightAt q.1 x
+  · obtain ⟨q₀, hq₀⟩ := hex
+    have hother (q : Q) (hq : q ≠ q₀) :
+        f q.1 x = 0 ∧ fullGradient F (f q.1) x = 0 := by
+      apply hlow q.1 x
+      apply lt_of_not_ge
+      intro hqHigh
+      exact hq (Subtype.ext (hUnique x q.1 q₀.1 hqHigh hq₀))
+    have hvalueSumm : Summable (fun q : Q => f q.1 x) :=
+      summable_of_ne_finset_zero (s := {q₀}) (fun q hq =>
+        (hother q (by simpa only [Finset.mem_singleton] using hq)).1)
+    have hgradSumm : Summable (fun q : Q => fullGradient F (f q.1) x) :=
+      summable_of_ne_finset_zero (s := {q₀}) (fun q hq =>
+        (hother q (by simpa only [Finset.mem_singleton] using hq)).2)
+    have hvalueSum : (∑' q : Q, f q.1 x) = f q₀.1 x :=
+      tsum_eq_single q₀ (fun q hq => (hother q hq).1)
+    have hgradSum : (∑' q : Q, fullGradient F (f q.1) x) = fullGradient F (f q₀.1) x :=
+      tsum_eq_single q₀ (fun q hq => (hother q hq).2)
+    have hbnd := htermBound q₀.1 x (hupper z hz q₀)
+    refine ⟨hvalueSumm, hgradSumm, ?_, ?_⟩
+    · rw [hvalueSum]
+      exact hbnd.1
+    · rw [hgradSum]
+      exact hbnd.2
+  · have hzero (q : Q) : f q.1 x = 0 ∧ fullGradient F (f q.1) x = 0 :=
+      hlow q.1 x (lt_of_not_ge (fun h => hex ⟨q, h⟩))
+    have hvzero : (fun q : Q => f q.1 x) = 0 := funext fun q => (hzero q).1
+    have hgzero : (fun q : Q => fullGradient F (f q.1) x) = 0 := funext fun q => (hzero q).2
+    rw [hvzero, hgzero]
+    refine ⟨summable_zero, summable_zero, ?_, ?_⟩
+    · change ‖∑' q : Q, (0 : ℂ)‖ ≤ C
+      simpa only [tsum_zero, norm_zero] using hC
+    · change ‖∑' q : Q, (0 : GradientField F)‖ ≤ C
+      simpa only [tsum_zero, norm_zero] using hC
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
