@@ -256,7 +256,175 @@ private theorem covol_arch_fundamental_unique (D : FieldData F) (a : 𝓞 F)
 private theorem exists_measurable_lattice_fundamental_domain
     (S : SData F CE condη) (D : FieldData F) :
     ∃ K : Set S.FS, MeasurableSet K ∧ S.IsLatticeFundamentalDomain K := by
-  sorry
+  classical
+  letI : MeasurableSpace (∀ v : S.Sf, v.1.adicCompletion F) :=
+    borel (∀ v : S.Sf, v.1.adicCompletion F)
+  letI : BorelSpace (∀ v : S.Sf, v.1.adicCompletion F) := ⟨rfl⟩
+  let O : ∀ v : S.Sf, Set (v.1.adicCompletion F) :=
+    fun v => v.1.adicCompletionIntegers F
+  let B : Set (∀ v : S.Sf, v.1.adicCompletion F) := Set.pi Set.univ O
+  have hOopen (v : S.Sf) : IsOpen (O v) := Valued.isOpen_valuationSubring _
+  have hBopen : IsOpen B := by
+    apply isOpen_set_pi Set.finite_univ
+    intro v hv
+    exact hOopen v
+  have hBmeas : MeasurableSet B := hBopen.measurableSet
+  have hcompletion (v : S.Sf) (z : F) (hz : v.1.valuation F z ≤ 1) :
+      algebraMap F (v.1.adicCompletion F) z ∈ v.1.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    change Valued.v (z : v.1.adicCompletion F) ≤ 1
+    rw [v.1.valuedAdicCompletion_eq_valuation']
+    exact hz
+  let e := covolArchToMixedEquiv D
+  let P : Set (NumberField.mixedEmbedding.mixedSpace F) :=
+    ZSpan.fundamentalDomain (NumberField.mixedEmbedding.latticeBasis F)
+  let C : Set (InfinitePlace F → ℂ) := e.symm '' P
+  have hPmeas : MeasurableSet P := ZSpan.fundamentalDomain_measurableSet _
+  have hCeq : C = e ⁻¹' P := by
+    ext z
+    constructor
+    · rintro ⟨p, hp, rfl⟩
+      simpa using hp
+    · intro hz
+      exact ⟨e z, hz, e.symm_apply_apply z⟩
+  have hCmeas : MeasurableSet C := by
+    rw [hCeq]
+    exact e.continuous.measurable hPmeas
+  let K : Set S.FS := B ×ˢ C
+  have hKeq : K = Prod.fst ⁻¹' B ∩ Prod.snd ⁻¹' C := by
+    ext z
+    simp [K]
+  have hKmeas : MeasurableSet K := by
+    rw [hKeq]
+    exact (continuous_fst.measurable hBmeas).inter
+      (continuous_snd.measurable hCmeas)
+  have hfund : S.IsLatticeFundamentalDomain K := by
+    intro x
+    obtain ⟨r₀, hr₀⟩ := ArtinPrimitiveRoots.Proofs.A1_LATTICE.s_integer_finite_approx S x.1
+    obtain ⟨a, p, hp, harch⟩ := covol_arch_fundamental_reduction D
+      (x.2 - fun w => w.embedding (r₀ : F))
+    let aR : S.R := algebraMap (𝓞 F) (S.R) a
+    let r : S.R := r₀ + aR
+    have hrCast : (r : F) = (r₀ : F) + (a : F) := by
+      simp [r, aR]
+    let k : S.FS := x - S.diag (r : F)
+    have hkB : k.1 ∈ B := by
+      change ∀ v : S.Sf, v ∈ Set.univ → k.1 v ∈ O v
+      intro v _
+      have h₁ := hr₀ v
+      have h₂ : algebraMap F (v.1.adicCompletion F) (a : F) ∈ O v := by
+        simpa [O] using hcompletion v (a : F) (v.1.valuation_le_one a)
+      have hsub := (v.1.adicCompletionIntegers F).sub_mem h₁ h₂
+      change x.1 v - algebraMap F (v.1.adicCompletion F) (r : F) ∈ O v
+      rw [hrCast, map_add]
+      simpa [O, sub_eq_add_neg, add_assoc, add_left_comm, add_comm] using hsub
+    have hkArch : k.2 ∈ C := by
+      have hfun : (fun w : InfinitePlace F => x.2 w - w.embedding (r : F)) = p := by
+        funext w
+        have hw := congrFun harch w
+        have hw' : x.2 w - w.embedding (r₀ : F) = w.embedding (a : F) + p w := by
+          simpa using hw
+        rw [hrCast, map_add]
+        calc
+          x.2 w - (w.embedding (r₀ : F) + w.embedding (a : F)) =
+              (x.2 w - w.embedding (r₀ : F)) - w.embedding (a : F) := by abel
+          _ = (w.embedding (a : F) + p w) - w.embedding (a : F) := by rw [hw']
+          _ = p w := by abel
+      change (fun w : InfinitePlace F => x.2 w - w.embedding (r : F)) ∈ C
+      rw [hfun]
+      exact hp
+    have hk : k ∈ K := ⟨hkB, hkArch⟩
+    have hrep : x = S.diag (r : F) + k := by
+      dsimp [k]
+      abel
+    refine ⟨(r, k), ⟨hk, hrep⟩, ?_⟩
+    intro q hq
+    rcases q with ⟨s, l⟩
+    have hlB : l.1 ∈ B := hq.1.1
+    have hlC : l.2 ∈ C := hq.1.2
+    have hKfinite (z : S.FS) (hz : z ∈ K) (v : S.Sf) : z.1 v ∈ O v := by
+      have hzB : z.1 ∈ B := hz.1
+      exact hzB v (by simp)
+    have hkO (v : S.Sf) : k.1 v ∈ O v := hKfinite k hk v
+    have hlO (v : S.Sf) : l.1 v ∈ O v := by
+      exact hKfinite l ⟨hlB, hlC⟩ v
+    have hdeltaLocal (v : S.Sf) :
+        algebraMap F (v.1.adicCompletion F) ((s : F) - (r : F)) ∈
+          v.1.adicCompletionIntegers F := by
+      have hkr : x.1 v =
+          algebraMap F (v.1.adicCompletion F) (r : F) + k.1 v := by
+        have h := congrArg (fun z : S.FS => z.1 v) hrep
+        simpa [ArtinPrimitiveRoots.A1.SData.diag] using h
+      have hsl : x.1 v =
+          algebraMap F (v.1.adicCompletion F) (s : F) + l.1 v := by
+        have h := congrArg (fun z : S.FS => z.1 v) hq.2
+        simpa [ArtinPrimitiveRoots.A1.SData.diag] using h
+      have hR : algebraMap F (v.1.adicCompletion F) (r : F) = x.1 v - k.1 v := by
+        calc
+          algebraMap F (v.1.adicCompletion F) (r : F) =
+              (algebraMap F (v.1.adicCompletion F) (r : F) + k.1 v) - k.1 v := by abel
+          _ = x.1 v - k.1 v := by rw [← hkr]
+      have hS : algebraMap F (v.1.adicCompletion F) (s : F) = x.1 v - l.1 v := by
+        calc
+          algebraMap F (v.1.adicCompletion F) (s : F) =
+              (algebraMap F (v.1.adicCompletion F) (s : F) + l.1 v) - l.1 v := by abel
+          _ = x.1 v - l.1 v := by rw [← hsl]
+      have hdelta : algebraMap F (v.1.adicCompletion F) ((s : F) - (r : F)) =
+          k.1 v - l.1 v := by
+        rw [map_sub]
+        calc
+          algebraMap F (v.1.adicCompletion F) (s : F) -
+              algebraMap F (v.1.adicCompletion F) (r : F) =
+              (x.1 v - l.1 v) - (x.1 v - k.1 v) := by rw [hS, hR]
+          _ = k.1 v - l.1 v := by abel
+      rw [hdelta]
+      exact (v.1.adicCompletionIntegers F).sub_mem (hkO v) (hlO v)
+    have hval (v : HeightOneSpectrum (𝓞 F)) : v.valuation F ((s : F) - (r : F)) ≤ 1 := by
+      by_cases hv : v ∈ S.Sf
+      · let vS : S.Sf := ⟨v, hv⟩
+        have hvint := hdeltaLocal vS
+        simp [HeightOneSpectrum.algebraMap_adicCompletion] at hvint
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers] at hvint
+        rw [vS.1.valuedAdicCompletion_eq_valuation'] at hvint
+        exact hvint
+      · exact (s - r).property v hv
+    obtain ⟨b, hb⟩ := HeightOneSpectrum.mem_integers_of_valuation_le_one F
+      ((s : F) - (r : F)) hval
+    have hlC' : l.2 ∈ C := hq.1.2
+    change l.2 ∈ e.symm '' P at hlC'
+    change k.2 ∈ e.symm '' P at hkArch
+    obtain ⟨pL, hpL, hpLeq⟩ := hlC'
+    obtain ⟨pK, hpK, hpKeq⟩ := hkArch
+    have heL : e l.2 = pL := by rw [← hpLeq]; exact e.apply_symm_apply pL
+    have heK : e k.2 = pK := by rw [← hpKeq]; exact e.apply_symm_apply pK
+    have harchRel : (fun w : InfinitePlace F => w.embedding (b : F)) + l.2 = k.2 := by
+      funext w
+      have hkr : x.2 w = w.embedding (r : F) + k.2 w := by
+        have h := congrArg (fun z : S.FS => z.2 w) hrep
+        simpa [ArtinPrimitiveRoots.A1.SData.diag] using h
+      have hsl : x.2 w = w.embedding (s : F) + l.2 w := by
+        have h := congrArg (fun z : S.FS => z.2 w) hq.2
+        simpa [ArtinPrimitiveRoots.A1.SData.diag] using h
+      calc
+        w.embedding (b : F) + l.2 w =
+            w.embedding ((s : F) - (r : F)) + l.2 w := by rw [← hb]
+        _ = (w.embedding (s : F) - w.embedding (r : F)) + l.2 w := by rw [map_sub]
+        _ = (w.embedding (s : F) + l.2 w) - w.embedding (r : F) := by abel
+        _ = x.2 w - w.embedding (r : F) := by rw [← hsl]
+        _ = (w.embedding (r : F) + k.2 w) - w.embedding (r : F) := by rw [hkr]
+        _ = k.2 w := by abel
+    have hbL : e l.2 ∈ P := by rw [heL]; exact hpL
+    have hbK : e k.2 ∈ P := by rw [heK]; exact hpK
+    obtain ⟨hb0, hklArch⟩ := covol_arch_fundamental_unique D b hbL hbK harchRel
+    have hdelta0 : (s : F) - (r : F) = 0 := by
+      rw [hb0] at hb
+      simpa using hb.symm
+    have hsr : s = r := Subtype.ext (sub_eq_zero.mp hdelta0)
+    have hsum : S.diag (r : F) + k = S.diag (s : F) + l := hrep.symm.trans hq.2
+    rw [hsr] at hsum
+    have hkl : k = l := add_left_cancel hsum
+    exact Prod.ext hsr hkl.symm
+  exact ⟨K, hKmeas, hfund⟩
 
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
