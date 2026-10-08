@@ -1,6 +1,7 @@
 import Mathlib
 import ArtinPrimitiveRoots.TypeII.Defs
 import OAI.NumberTheory.PrimeGaps.Main
+import PrimeNumberTheoremAnd.Erdos970.MertensClassical
 
 /-! External analytic inputs used by the Type II and construction arguments. -/
 
@@ -1950,6 +1951,28 @@ theorem siegel_walfisz :
 first assertion is the second Mertens theorem; the second is its product form. Matching PNT+
 `mertens_second_theorem` (`RosserSchoenfeldPrime.lean:824-825`) and `E₃.bound''`
 (`Mertens.lean:2419). -/
+private lemma mertens_primesUpTo_eq_Ioc (y : ℝ) :
+    primesUpTo y = (Finset.Ioc 0 ⌊y⌋₊).filter Nat.Prime := by
+  classical
+  ext p
+  simp only [primesUpTo, Finset.mem_filter, Finset.mem_range, Nat.lt_succ_iff,
+    Finset.mem_Ioc]
+  constructor
+  · rintro ⟨hp, hprime⟩
+    exact ⟨⟨Nat.Prime.pos hprime, hp⟩, hprime⟩
+  · rintro ⟨⟨hp0, hp⟩, hprime⟩
+    exact ⟨hp, hprime⟩
+
+private lemma mertens_reciprocal_sum_eq (y : ℝ) :
+    (∑ p ∈ primesUpTo y, 1 / (p : ℝ)) =
+      ∑ p ∈ (Finset.Ioc 0 ⌊y⌋₊).filter Nat.Prime, (1 : ℝ) / p := by
+  rw [mertens_primesUpTo_eq_Ioc y]
+
+private lemma mertens_roughSieveProduct_eq (y : ℝ) :
+    roughSieveProduct y =
+      ∏ p ∈ (Finset.Ioc 0 ⌊y⌋₊).filter Nat.Prime, (1 - (1 : ℝ) / p) := by
+  rw [roughSieveProduct, mertens_primesUpTo_eq_Ioc y]
+
 theorem mertens :
     (∀ ε : ℝ, 0 < ε → ∃ y₀ : ℝ, 2 < y₀ ∧
       ∀ y : ℝ, y₀ ≤ y →
@@ -1958,7 +1981,81 @@ theorem mertens :
     (∀ ε : ℝ, 0 < ε → ∃ y₀ : ℝ, 2 < y₀ ∧
       ∀ y : ℝ, y₀ ≤ y →
         |roughSieveProduct y * Real.log y - Real.exp (-Real.eulerMascheroniConstant)| ≤ ε) := by
-  sorry
+  constructor
+  · let f : ℝ → ℝ := fun y =>
+      (∑ p ∈ primesUpTo y, 1 / (p : ℝ)) - Real.log (Real.log y)
+    have hEq : f =ᶠ[Filter.atTop] fun y =>
+        Erdos970.Mertens.M + Erdos970.Mertens.E₂p y := by
+      filter_upwards [Filter.eventually_ge_atTop (2 : ℝ)] with y hy
+      simp only [f]
+      rw [mertens_reciprocal_sum_eq y, Erdos970.Mertens.sum_prime_div_eq]
+      ring
+    have hE₂p : Filter.Tendsto Erdos970.Mertens.E₂p Filter.atTop (nhds 0) :=
+      (Asymptotics.isLittleO_one_iff ℝ).mp Erdos970.Mertens.E₂p.bound'
+    have hbase : Filter.Tendsto
+        (fun y => Erdos970.Mertens.M + Erdos970.Mertens.E₂p y)
+        Filter.atTop (nhds Erdos970.Mertens.M) := by
+      simpa only [add_zero] using
+        Filter.Tendsto.const_add Erdos970.Mertens.M hE₂p
+    have hf : Filter.Tendsto f Filter.atTop (nhds Erdos970.Mertens.M) :=
+      Filter.Tendsto.congr' hEq.symm hbase
+    have hconstant : meisselMertensConstant = Erdos970.Mertens.M := by
+      unfold meisselMertensConstant
+      exact hf.limUnder_eq
+    intro ε hε
+    obtain ⟨Y, hY⟩ : ∃ Y : ℝ, ∀ y ≥ Y, |Erdos970.Mertens.E₂p y| ≤ ε := by
+      have h := Erdos970.Mertens.E₂p.bound'.def hε
+      simp only [Real.norm_eq_abs, abs_one, mul_one] at h
+      rw [Filter.eventually_atTop] at h
+      exact h
+    refine ⟨max 3 Y, ?_, ?_⟩
+    · have : (3 : ℝ) ≤ max 3 Y := le_max_left _ _
+      linarith
+    · intro y hy
+      have hyY : Y ≤ y := (le_max_right 3 Y).trans hy
+      have hsum := mertens_reciprocal_sum_eq y
+      rw [hsum, Erdos970.Mertens.sum_prime_div_eq, hconstant]
+      have hrewrite :
+          (Real.log (Real.log y) + Erdos970.Mertens.M + Erdos970.Mertens.E₂p y) -
+              Real.log (Real.log y) - Erdos970.Mertens.M = Erdos970.Mertens.E₂p y := by
+        ring
+      rw [hrewrite]
+      exact hY y hyY
+  · let c : ℝ := Real.exp (-Real.eulerMascheroniConstant)
+    have hE₃ : Filter.Tendsto Erdos970.Mertens.E₃ Filter.atTop (nhds 0) :=
+      (Asymptotics.isLittleO_one_iff ℝ).mp Erdos970.Mertens.E₃.bound'
+    have hexp : Filter.Tendsto (fun y => Real.exp (Erdos970.Mertens.E₃ y))
+        Filter.atTop (nhds 1) := by
+      change Filter.Tendsto (Real.exp ∘ Erdos970.Mertens.E₃) Filter.atTop (nhds 1)
+      simpa using Real.continuous_exp.continuousAt.tendsto.comp hE₃
+    have hbase : Filter.Tendsto
+        (fun y => c * Real.exp (Erdos970.Mertens.E₃ y))
+        Filter.atTop (nhds c) := by
+      simpa only [mul_one] using Filter.Tendsto.const_mul c hexp
+    have hEq : (fun y => roughSieveProduct y * Real.log y) =ᶠ[Filter.atTop]
+        (fun y => c * Real.exp (Erdos970.Mertens.E₃ y)) := by
+      filter_upwards [Filter.eventually_ge_atTop (3 : ℝ)] with y hy
+      have hy1 : 1 < y := by linarith
+      rw [mertens_roughSieveProduct_eq y,
+        Erdos970.Mertens.prod_one_minus_div_prime_eq hy1]
+      dsimp [c]
+      have hlog : Real.log y ≠ 0 := ne_of_gt (Real.log_pos hy1)
+      field_simp
+    have hprod : Filter.Tendsto (fun y => roughSieveProduct y * Real.log y)
+        Filter.atTop (nhds c) := Filter.Tendsto.congr' hEq.symm hbase
+    intro ε hε
+    rw [Metric.tendsto_nhds] at hprod
+    have h := hprod ε hε
+    rw [Filter.eventually_atTop] at h
+    obtain ⟨Y, hY⟩ := h
+    refine ⟨max 3 Y, ?_, ?_⟩
+    · have : (3 : ℝ) ≤ max 3 Y := le_max_left _ _
+      linarith
+    · intro y hy
+      have hyY : Y ≤ y := (le_max_right 3 Y).trans hy
+      have hdist := hY y hyY
+      rw [Real.dist_eq] at hdist
+      exact le_of_lt (by simpa [c] using hdist)
 
 /-- `ext:dirichlet-orthogonality`, 12-construction.tex:116-120; matching Mathlib
 `DirichletCharacter.sum_char_inv_mul_char_eq` (`Orthogonality.lean:79`). -/

@@ -20,11 +20,15 @@ the finite residue sums with smooth archimedean coordinate charts. Single-place 
 smoothness is included in the exact form required by the frozen consumer.
 Guide: `runs/lanes/sol-thin-thglobal/PROOFS.md:824–832`.
 Uses component reconstruction, common finite level and `Spec.ContinuedEisenstein.res_smooth`.
-Consumed by frozen `exists_continuedEis`; no `hRP` hypothesis. -/
+Consumed by frozen `exists_continuedEis`; no `hRP` hypothesis.
+Amended (`runs/lanes/theta-iface-opus/AMENDMENT.md`): the first conjunct is continuity in the
+torus parameter of every iterated right root derivative, not only of the residue itself. -/
 theorem continuedEis_theta_cont {P : CoverPackage D S H A} {G : GlobalDatum P}
     {I : ContinuedEisInput P G} {C : ContinuedEisComponents I}
     (R : ContinuedEisReconstruction C) :
-    (∀ g h, Continuous fun y : S.FSˣ => R.theta (g * P.tc.aS y * h)) ∧
+    (∀ (g h : P.tc.G) (n : ℕ), Continuous fun y : S.FSˣ =>
+      iteratedFDeriv ℝ n
+        (fun x : InfinitePlace F → ℂ => R.theta (g * P.tc.aS y * h * nInf P x)) 0) ∧
     (∀ (g : P.tc.G) (w : InfinitePlace F),
       ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
         (fun z : ℂ => R.theta (g * P.tc.nS
