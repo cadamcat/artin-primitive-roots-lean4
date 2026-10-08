@@ -2575,6 +2575,179 @@ private theorem rowKernel_single_remainder_bound (hEuler : EulerHypotheses R η)
     _ = Ctot * Z ^ Etop * T ^ (1 / 10 + ε - ZD.ρ * A1) := by rw [hPower]
     _ ≤ _ := by gcongr; linarith
 
+private theorem goodRemainder_bound (hEuler : EulerHypotheses R η)
+    (ε A1 : ℝ) (hε : 0 < ε) (hA1 : 1 / ZD.ρ < A1) :
+    ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z T : ℝ, Z0 ≤ Z →
+      Z ^ (9 / 100 : ℝ) < T → T ≤ Z ^ (10001 / 100000 : ℝ) → ZD.U0 ≤ T →
+      ∀ rows : Finset U.U,
+      (∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T ∧ u ∉ ZD.E T) →
+      ‖rowContribution R sd W η U rows Z -
+        goodCentral R sd W η U HA HC ZD rows T Z‖ ≤
+          C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (11 / 10 + ε - ZD.ρ * A1) := by
+  obtain ⟨Crow, hCrow, hrow⟩ := rowKernel_single_remainder_bound
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    (ZD := ZD) hEuler ε A1 hε hA1
+  obtain ⟨Cpair, hCpair, hpairs⟩ := rowKernel_good_pair_bounds
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    (ZD := ZD) hEuler ε A1 hε hA1
+  obtain ⟨Ccount, hCcount, hcount⟩ := U.dyadic_count
+  obtain ⟨Csmall, hCsmall, hsmall⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler 1 Ccount ε (by norm_num) hCcount hε
+  refine ⟨Ccount * Crow, 2, mul_pos hCcount hCrow, le_rfl, ?_⟩
+  intro Z T hZ _ _ hT rows hrows
+  have hT2 : 2 ≤ T := le_trans ZD.U0_two hT
+  have hTpos : 0 < T := by linarith
+  have hZ1 : 1 ≤ Z := by linarith
+  let Ht : ℝ := T ^ ZD.ρ
+  let κ : ℂ := (1 / (2 * Real.pi) : ℂ)
+  let leftLine : ℝ → ℂ := fun t => ((998 / 1000 : ℝ) : ℂ) + t * Complex.I
+  let rightLine : ℝ → ℂ := fun t => ((1 + δ1 : ℝ) : ℂ) + t * Complex.I
+  have hHt : 0 < Ht := Real.rpow_pos_of_pos hTpos ZD.ρ
+  obtain ⟨hfinite, hcard⟩ := hcount T hT2
+  have hsub : rows ⊆ hfinite.toFinset := by
+    intro u hu
+    exact hfinite.mem_toFinset.mpr (hrows u hu).2.1
+  have hrowsCard : (rows.card : ℝ) ≤ Ccount * T := by
+    calc
+      _ ≤ (hfinite.toFinset.card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+      _ ≤ Ccount * T := by
+        simpa only [Set.ncard_eq_toFinset_card _ hfinite] using hcard
+  have hPairSum (ξ : ℂ) (hξlo : 998 / 1000 ≤ ξ.re) (hξhi : ξ.re ≤ 1 + δ1)
+      (hregion : ξ.re = 1 + δ1 ∨ |ξ.im| ≤ T ^ ZD.ρ) :
+      vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z)) =
+        ∑ u ∈ rows, rowKernelHeightPair R sd W η U HA HC u Z ξ := by
+    have hf : ∀ u ∈ rows, Integrable (fun v : ℝ × ℝ =>
+        rowKernel R sd W η U HA HC u Z ξ
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) := by
+      intro u hu
+      obtain ⟨hne, hShell, hGood⟩ := hrows u hu
+      rw [Measure.volume_eq_prod ℝ ℝ]
+      exact (hpairs Z T hZ hT u hne hShell hGood ξ hξlo hξhi hregion).1
+    have hsum : Integrable (fun v : ℝ × ℝ =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) :=
+      integrable_finsetSum rows hf
+    calc
+      _ = κ ^ 2 * ∫ v : ℝ × ℝ, ∑ u ∈ rows,
+          rowKernel R sd W η U HA HC u Z ξ
+            (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+            (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) :=
+        vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+          (fun w z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) hsum
+      _ = ∑ u ∈ rows, κ ^ 2 * ∫ v : ℝ × ℝ,
+          rowKernel R sd W η U HA HC u Z ξ
+            (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+            (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) := by
+        rw [integral_finsetSum rows hf, Finset.mul_sum]
+      _ = _ := by
+        apply Finset.sum_congr rfl
+        intro u hu
+        exact (vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+          (fun w z => rowKernelAt R sd W η U HA HC u Z ξ w z) (hf u hu)).symm
+  have hRightInt : ∀ u ∈ rows, Integrable (fun t : ℝ =>
+      rowKernelHeightPair R sd W η U HA HC u Z (rightLine t)) := by
+    intro u hu
+    obtain ⟨hne, hShell, hGood⟩ := hrows u hu
+    exact rowKernel_right_pair_integrable (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD)
+      hEuler ε A1 hε hA1 u hne T hT hShell hGood Z hZ
+  have hFull : rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) := by
+    have hnonprincipal : ∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T :=
+      fun u hu => ⟨(hrows u hu).1, (hrows u hu).2.1⟩
+    have hcard1 : (rows.card : ℝ) ≤ Ccount * T ^ (1 : ℝ) := by
+      simpa only [Real.rpow_one] using hrowsCard
+    rw [(hsmall T Z (by linarith) hZ rows hnonprincipal hcard1).1]
+    change κ * (∫ t : ℝ, vertical (3 / 1000) (fun w => vertical (4 / 10)
+      (fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (rightLine t) w z))) =
+        ∑ u ∈ rows, κ * ∫ t : ℝ,
+          rowKernelHeightPair R sd W η U HA HC u Z (rightLine t)
+    calc
+      _ = κ * ∫ t : ℝ, ∑ u ∈ rows,
+          rowKernelHeightPair R sd W η U HA HC u Z (rightLine t) := by
+        congr 1
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall fun t => hPairSum (rightLine t)
+          (by simp [rightLine]; norm_num [δ1]) (by simp [rightLine])
+          (Or.inl (by simp [rightLine]))
+      _ = _ := by rw [integral_finsetSum rows hRightInt, Finset.mul_sum]
+  let Sξ : Set ℂ := {ξ | 998 / 1000 ≤ ξ.re ∧ ξ.re ≤ 1 + δ1 ∧ |ξ.im| ≤ Ht}
+  have hSsubset : Sξ ⊆ {ξ : ℂ | 998 / 1000 ≤ ξ.re ∧ ξ.re ≤ 1 + δ1 ∧
+      |ξ.im| ≤ 2 * T ^ ZD.ρ} := by
+    intro ξ hξ
+    exact ⟨hξ.1, hξ.2.1, by dsimp [Ht] at hξ hHt; linarith [hξ.2.2]⟩
+  have hLeftMem (t : ℝ) (ht : t ∈ Set.Icc (-Ht) Ht) : leftLine t ∈ Sξ := by
+    have htAbs : |t| ≤ Ht := abs_le.mpr ht
+    change 998 / 1000 ≤ (leftLine t).re ∧ (leftLine t).re ≤ 1 + δ1 ∧
+      |(leftLine t).im| ≤ Ht
+    simpa [leftLine, δ1] using
+      (show (998 / 1000 : ℝ) ≤ 998 / 1000 ∧ 998 / 1000 ≤ 1 + δ1 ∧ |t| ≤ Ht
+        from ⟨le_rfl, by norm_num [δ1], htAbs⟩)
+  have hLeftInt : ∀ u ∈ rows, IntegrableOn (fun t : ℝ =>
+      rowKernelHeightPair R sd W η U HA HC u Z (leftLine t)) (Set.Icc (-Ht) Ht) := by
+    intro u hu
+    obtain ⟨hne, hShell, hGood⟩ := hrows u hu
+    have hdata := rowKernel_pair_continuousOn (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD)
+      hEuler u hne T hT hShell hGood Z ε A1 hZ1 hε hA1 Sξ hSsubset
+      (fun ξ hξ => hξ.2.2)
+    have hline : ContinuousOn leftLine (Set.Icc (-Ht) Ht) := by
+      exact (show Continuous leftLine by fun_prop).continuousOn
+    exact (hdata.2.comp hline hLeftMem).integrableOn_Icc
+  have hLeft : goodCentral R sd W η U HA HC ZD rows T Z =
+      ∑ u ∈ rows, κ * ∫ t in Set.Icc (-Ht) Ht,
+        rowKernelHeightPair R sd W η U HA HC u Z (leftLine t) := by
+    calc
+      _ = κ * (∫ t in Set.Icc (-Ht) Ht, vertical (3 / 1000) (fun w =>
+          vertical (4 / 10) (fun z => ∑ u ∈ rows,
+            rowKernel R sd W η U HA HC u Z (leftLine t) w z))) := by
+        simp only [goodCentral, κ, Ht, leftLine, Complex.ofReal_div, Complex.ofReal_ofNat]
+      _ = κ * ∫ t in Set.Icc (-Ht) Ht, ∑ u ∈ rows,
+          rowKernelHeightPair R sd W η U HA HC u Z (leftLine t) := by
+        congr 1
+        apply integral_congr_ae
+        filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht
+        have hmem := hLeftMem t ht
+        exact hPairSum (leftLine t) hmem.1 hmem.2.1 (Or.inr hmem.2.2)
+      _ = _ := by rw [integral_finsetSum rows hLeftInt, Finset.mul_sum]
+  have hpower : T * T ^ (1 / 10 + ε - ZD.ρ * A1) =
+      T ^ (11 / 10 + ε - ZD.ρ * A1) := by
+    calc
+      _ = T ^ (1 : ℝ) * T ^ (1 / 10 + ε - ZD.ρ * A1) := by rw [Real.rpow_one]
+      _ = T ^ (1 + (1 / 10 + ε - ZD.ρ * A1)) :=
+        (Real.rpow_add hTpos _ _).symm
+      _ = _ := by congr 1; ring
+  calc
+    _ = ‖∑ u ∈ rows, (vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) -
+        κ * ∫ t in Set.Icc (-Ht) Ht,
+          rowKernelHeightPair R sd W η U HA HC u Z (leftLine t))‖ := by
+      rw [hFull, hLeft, Finset.sum_sub_distrib]
+    _ ≤ ∑ u ∈ rows, ‖vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) -
+        κ * ∫ t in Set.Icc (-Ht) Ht,
+          rowKernelHeightPair R sd W η U HA HC u Z (leftLine t)‖ := norm_sum_le _ _
+    _ ≤ ∑ _u ∈ rows, Crow * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+        T ^ (1 / 10 + ε - ZD.ρ * A1) := by
+      apply Finset.sum_le_sum
+      intro u hu
+      obtain ⟨hne, hShell, hGood⟩ := hrows u hu
+      exact hrow Z T hZ hT u hne hShell hGood
+    _ = (rows.card : ℝ) * (Crow * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+        T ^ (1 / 10 + ε - ZD.ρ * A1)) := by simp
+    _ ≤ (Ccount * T) * (Crow * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+        T ^ (1 / 10 + ε - ZD.ρ * A1)) :=
+      mul_le_mul_of_nonneg_right hrowsCard (by positivity)
+    _ = (Ccount * Crow) * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+        T ^ (11 / 10 + ε - ZD.ρ * A1) := by
+      calc
+        _ = (Ccount * Crow) * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          (T * T ^ (1 / 10 + ε - ZD.ρ * A1)) := by ring
+        _ = _ := by rw [hpower]
+
 /-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
 The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
 theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
