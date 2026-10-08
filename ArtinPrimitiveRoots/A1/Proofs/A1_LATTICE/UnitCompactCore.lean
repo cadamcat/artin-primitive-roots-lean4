@@ -316,6 +316,26 @@ theorem absS_diag_eq_norm_core (D : FieldData F) (S : SData F CE condη)
       simpa only [outsideNorm, h_prod_absS]
     _ = Ideal.absNorm I := by rw [one_mul]
 
+private theorem covol_absS_diag_sunit_eq_one_core (D : FieldData F)
+    (S : SData F CE condη) (u : S.US) :
+    S.absS (S.diag ((u : Fˣ) : F)) = 1 := by
+  have hI : S.IsExterior (⊤ : Ideal (𝓞 F)) := by
+    refine ⟨by simp, ?_⟩
+    intro v hv htop
+    have heq : v.asIdeal = ⊤ := top_le_iff.mp htop
+    exact v.isPrime.ne_top heq
+  have hx : S.IsGen ((u : Fˣ) : F) (⊤ : Ideal (𝓞 F)) := by
+    refine ⟨hI, Units.ne_zero (u : Fˣ), ?_⟩
+    intro v hv
+    have hcount := count_spanSingleton_eq_neg_log_valuation_addchar v
+      ((u : Fˣ) : F) (Units.ne_zero (u : Fˣ))
+    have hval : v.valuation F ((u : Fˣ) : F) = 1 := u.property v hv
+    rw [hval] at hcount
+    rw [FractionalIdeal.coeIdeal_top, FractionalIdeal.count_one]
+    simpa using hcount
+  have hnorm := absS_diag_eq_norm_core D S ((u : Fˣ) : F) ⊤ hI hx
+  simpa using hnorm
+
 open Module NumberField.Units NumberField.Units.dirichletUnitTheorem
 
 theorem covol_unit_balance_core (D : FieldData F)
