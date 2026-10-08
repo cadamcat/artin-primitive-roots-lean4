@@ -77,7 +77,22 @@ theorem whit_fractional_lattice_domain (D : FieldData F)
 theorem whit_integral_inf_character (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)}
     (S : SData F CE condη) (A : AddCharData F) (a : 𝓞 F) :
     (∏ w : InfinitePlace F, psiC (w.embedding (a : F))) = 1 := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have hloc (v : FinPlace F) :
+      A.ψ v (algebraMap F (v.adicCompletion F) (a : F)) = 1 := by
+    apply A.integral
+    change ((a : F) : v.adicCompletion F) ∈ v.adicCompletionIntegers F
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      v.valuedAdicCompletion_eq_valuation']
+    exact v.valuation_le_one a
+  have hfin : (∏ᶠ v : FinPlace F,
+      A.ψ v (algebraMap F (v.adicCompletion F) (a : F))) = 1 := by
+    simp [hloc]
+  have hglobal := (A.trivial_on_F (a : F)).2
+  rw [hfin, one_mul] at hglobal
+  simpa only [psiC] using
+    (ArtinPrimitiveRoots.Proofs.a1_dual_p.arch_product_eq_trace (a : F)).trans hglobal
 
 /-- A nonzero ideal can impose finitely many prescribed local unipotent radii. -/
 theorem whit_small_ideal (E : Finset (FinPlace F)) (m : E → ℕ) :
