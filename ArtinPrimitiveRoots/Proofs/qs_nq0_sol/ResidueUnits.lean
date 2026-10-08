@@ -259,4 +259,28 @@ theorem qs_nq0_chiAlg_cube_reduction (D : FieldData K)
   rw [map_pow, qs_nq0_chiAlg_reduction D v h6 x hx, ← pow_mul,
     mul_comm ((Ideal.absNorm v.asIdeal - 1) / 6) 3, hdiv]
 
+/-!
+The integral-residue bridge has this exact signature:
+```
+theorem qs_nq0_residue_algebraMap (v : FinPlace K) (x : 𝓞 K) :
+    residue v (algebraMap (𝓞 K) K x) = Ideal.Quotient.mk v.asIdeal x
+```
+-/
+
+/-- The residue of an integral element is its image in the residue field. -/
+theorem qs_nq0_residue_algebraMap (v : FinPlace K) (x : 𝓞 K) :
+    residue v (algebraMap (𝓞 K) K x) = Ideal.Quotient.mk v.asIdeal x := by
+  classical
+  let : v.asIdeal.IsMaximal := v.isMaximal
+  let : Field (𝓞 K ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  unfold residue
+  split_ifs with h
+  · have hdq : Ideal.Quotient.mk v.asIdeal h.choose.2 ≠ 0 :=
+      (not_congr Ideal.Quotient.eq_zero_iff_mem).mpr h.choose_spec.1
+    have hn : h.choose.1 = x * h.choose.2 := by
+      apply IsFractionRing.injective (𝓞 K) K
+      rw [← h.choose_spec.2, map_mul]
+    rw [hn, map_mul, mul_assoc, mul_inv_cancel₀ hdq, mul_one]
+  · exact (h ⟨(x, 1), v.isPrime.one_notMem, by simp⟩).elim
+
 end ArtinPrimitiveRoots.A2
