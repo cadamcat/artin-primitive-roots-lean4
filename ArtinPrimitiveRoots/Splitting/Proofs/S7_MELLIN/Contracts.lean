@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Ext.SplittingInputs
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.ZeroSum
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».Boundary
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroEndpoint
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroDictionary
@@ -74,7 +75,7 @@ theorem zero_family_summable (f : ℝ → ℝ)
     Summable (fun ρ : ℂ => if ρ ∈ nontrivialZeros K then
       (zeroMultiplicity K ρ : ℂ) * Complex.cpow (x : ℂ) ρ * mellinTransform f ρ
       else 0) := by
-  sorry
+  exact zero_family_summable_of_decay f hdecay K x hx
 
 theorem contour_shift (f : ℝ → ℝ)
     (hf : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f ∧ HasCompactSupport f ∧
