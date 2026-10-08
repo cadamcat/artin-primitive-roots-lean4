@@ -5373,6 +5373,194 @@ private theorem ghost_source_shuffle_weight_le
               ghost_interleave_factorial_measure kept.length selected.length]
         _ = _ := by ring
 
+set_option maxHeartbeats 1000000 in
+/-- Summing all indexed hitting deletions with a fixed retained list costs
+only the exponential mass of reverse prime batches. -/
+private theorem ghost_source_deletion_mass_le
+    (primes : Finset ℕ) (ν : ℕ → ℝ) (hν : ∀ p ∈ primes, 0 ≤ ν p)
+    (kept : List Particle) (hkept : ∀ e ∈ kept, e.1 ∈ primes)
+    (z : ℤ × ℤ) (r v : ℝ) (hr : 0 ≤ r) (hv : 0 ≤ v)
+    (T : Finset (List Particle)) (B : ℕ)
+    (hsize : ∀ l ∈ T, l.length ≤ B)
+    (hprime : ∀ l ∈ T, ∀ e ∈ l, e.1 ∈ primes) :
+    (∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset,
+      if removeIndices l D = kept then
+        ((l.map fun e => ν e.1).prod / (l.length.factorial : ℝ)) *
+          r ^ D.card * v ^ l.length else 0) ≤
+      ((kept.map fun e => ν e.1).prod / (kept.length.factorial : ℝ)) *
+        v ^ kept.length * Real.exp (r * v * ∑ p ∈ primes, ν p) := by
+  classical
+  let C (d : ℕ) (batch : Fin d → primes) : ℝ :=
+    (kept.map fun e => ν e.1).prod * (∏ k : Fin d, ν (batch k).1) *
+      r ^ d * v ^ (kept.length + d)
+  let Q (d : ℕ) (batch : Fin d → primes) (l : List Particle)
+      (D : Finset (Fin l.length)) : ℝ :=
+    if removeIndices l D = kept ∧
+        selectIndices l D = List.ofFn (fun k => anchorAt (batch k).1 z) then
+      C d batch / (l.length.factorial : ℝ) else 0
+  let R (l : List Particle) (D : Finset (Fin l.length)) : ℝ :=
+    ∑ d ∈ Finset.range (B + 1), ∑ batch : Fin d → primes, Q d batch l D
+  let pref : ℝ :=
+    (kept.map fun e => ν e.1).prod / (kept.length.factorial : ℝ) * v ^ kept.length
+  let mass : ℝ := ∑ p ∈ primes, ν p
+  have hkeptProd : 0 ≤ (kept.map fun e => ν e.1).prod := by
+    apply List.prod_nonneg
+    intro t ht
+    rcases List.mem_map.mp ht with ⟨e, he, rfl⟩
+    exact hν e.1 (hkept e he)
+  have hC (d : ℕ) (batch : Fin d → primes) : 0 ≤ C d batch := by
+    have hb : 0 ≤ ∏ k : Fin d, ν (batch k).1 :=
+      Finset.prod_nonneg fun k hk => hν (batch k).1 (batch k).2
+    dsimp [C]
+    positivity
+  have hQ (d : ℕ) (batch : Fin d → primes) (l : List Particle)
+      (D : Finset (Fin l.length)) : 0 ≤ Q d batch l D := by
+    dsimp [Q]
+    split_ifs
+    · exact div_nonneg (hC d batch) (Nat.cast_nonneg _)
+    · exact le_refl _
+  have hR (l : List Particle) (D : Finset (Fin l.length)) : 0 ≤ R l D :=
+    Finset.sum_nonneg fun d hd => Finset.sum_nonneg fun batch hb => hQ d batch l D
+  have hselected (l : List Particle) (hl : l ∈ T)
+      (D : Finset (Fin l.length)) (hD : D ∈ (hitIndices l z).powerset)
+      (e : Particle) (he : e ∈ selectIndices l D) :
+      e.1 ∈ primes ∧ particleHits e z := by
+    have hsub := Finset.mem_powerset.mp hD
+    rcases List.mem_filterMap.mp he with ⟨k, hk, hke⟩
+    by_cases hkD : k ∈ D
+    · have hget : l.get k = e := by simpa [hkD] using hke
+      subst e
+      exact ⟨hprime l hl _ (List.get_mem l k), (Finset.mem_filter.mp (hsub hkD)).2⟩
+    · simp [hkD] at hke
+  have hpoint (l : List Particle) (hl : l ∈ T)
+      (D : Finset (Fin l.length)) (hD : D ∈ (hitIndices l z).powerset) :
+      (if removeIndices l D = kept then
+        ((l.map fun e => ν e.1).prod / (l.length.factorial : ℝ)) *
+          r ^ D.card * v ^ l.length else 0) ≤ R l D := by
+    by_cases hk : removeIndices l D = kept
+    · let sel := selectIndices l D
+      let batch : Fin sel.length → primes := fun k =>
+        ⟨(sel.get k).1, (hselected l hl D hD _ (List.get_mem sel k)).1⟩
+      have hbatch : List.ofFn (fun k => anchorAt (batch k).1 z) = sel := by
+        calc
+          _ = List.ofFn sel.get := by
+            congr 1
+            funext k
+            apply Prod.ext
+            · rfl
+            · exact (hselected l hl D hD _ (List.get_mem sel k)).2.symm
+          _ = sel := List.ofFn_get sel
+      have hprodSel : (sel.map fun e => ν e.1).prod =
+          ∏ k : Fin sel.length, ν (batch k).1 := by
+        have h := congrArg (fun a : List Particle => (a.map fun e => ν e.1).prod) hbatch
+        simpa [List.map_ofFn, List.prod_ofFn, anchorAt] using h.symm
+      have hprod : (l.map fun e => ν e.1).prod =
+          (kept.map fun e => ν e.1).prod * ∏ k : Fin sel.length, ν (batch k).1 := by
+        have h := remove_select_prod_eq l D (fun e => ν e.1)
+        rw [hk] at h
+        exact h.symm.trans (by rw [hprodSel])
+      have hd : D.card = sel.length := (selectIndices_length l D).symm
+      have hlen : l.length = kept.length + sel.length := by
+        have h := (remove_select_perm l D).length_eq
+        rw [hk] at h
+        simpa [sel] using h.symm
+      have hmem : sel.length ∈ Finset.range (B + 1) := by
+        have hdle : D.card ≤ l.length := by simpa using Finset.card_le_univ D
+        exact Finset.mem_range.mpr (by have hs := hsize l hl; omega)
+      have heq :
+          ((l.map fun e => ν e.1).prod / (l.length.factorial : ℝ)) *
+            r ^ D.card * v ^ l.length = Q sel.length batch l D := by
+        dsimp [Q]
+        rw [if_pos ⟨hk, hbatch.symm⟩]
+        rw [hprod, hd, hlen]
+        dsimp [C]
+        ring
+      rw [if_pos hk, heq]
+      calc
+        _ ≤ ∑ batch' : Fin sel.length → primes, Q sel.length batch' l D :=
+          Finset.single_le_sum (fun b hb => hQ sel.length b l D) (Finset.mem_univ batch)
+        _ ≤ R l D :=
+          Finset.single_le_sum
+            (f := fun d => ∑ b : Fin d → primes, Q d b l D)
+            (fun d hd => Finset.sum_nonneg fun b hb => hQ d b l D) hmem
+    · simp only [if_neg hk]
+      exact hR l D
+  have hswap (l : List Particle) :
+      (∑ D : Finset (Fin l.length), R l D) =
+      ∑ d ∈ Finset.range (B + 1), ∑ batch : Fin d → primes,
+        ∑ D : Finset (Fin l.length), Q d batch l D := by
+    dsimp [R]
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl
+    intro d hd
+    rw [Finset.sum_comm]
+  have hshuffle (d : ℕ) (batch : Fin d → primes) :
+      (∑ l ∈ T, ∑ D : Finset (Fin l.length), Q d batch l D) ≤
+        C d batch / ((kept.length.factorial : ℝ) * (d.factorial : ℝ)) := by
+    simpa [Q] using ghost_source_shuffle_weight_le kept
+      (List.ofFn fun k => anchorAt (batch k).1 z) T (C d batch) (hC d batch)
+  have hbatchSum (d : ℕ) :
+      (∑ batch : Fin d → primes,
+        C d batch / ((kept.length.factorial : ℝ) * (d.factorial : ℝ))) =
+      pref * ((r * v * mass) ^ d / (d.factorial : ℝ)) := by
+    have hterm (batch : Fin d → primes) :
+        C d batch / ((kept.length.factorial : ℝ) * (d.factorial : ℝ)) =
+        (pref * (r * v) ^ d / (d.factorial : ℝ)) *
+          ∏ k : Fin d, ν (batch k).1 := by
+      dsimp [C, pref]
+      rw [pow_add, mul_pow]
+      ring
+    simp_rw [hterm]
+    rw [← Finset.mul_sum, sum_fin_function_prod d (fun p : primes => ν p.1)]
+    have hm : (∑ p : primes, ν p.1) = mass :=
+      sum_subtype_eq_sum_finset primes ν
+    rw [hm]
+    simp only [mul_pow]
+    ring
+  have hmass : 0 ≤ mass := Finset.sum_nonneg fun p hp => hν p hp
+  have hpref : 0 ≤ pref := mul_nonneg
+    (div_nonneg hkeptProd (Nat.cast_nonneg _)) (pow_nonneg hv _)
+  have harg : 0 ≤ r * v * mass := mul_nonneg (mul_nonneg hr hv) hmass
+  have hpartial :
+      (∑ d ∈ Finset.range (B + 1), (r * v * mass) ^ d / (d.factorial : ℝ)) ≤
+        Real.exp (r * v * mass) := by
+    have hs := NormedSpace.expSeries_div_hasSum_exp (r * v * mass)
+    calc
+      _ ≤ ∑' d : ℕ, (r * v * mass) ^ d / (d.factorial : ℝ) :=
+        Summable.sum_le_tsum (Finset.range (B + 1))
+          (by intro d hd; exact div_nonneg (pow_nonneg harg _) (Nat.cast_nonneg _))
+          hs.summable
+      _ = Real.exp (r * v * mass) := by
+        rw [Real.exp_eq_exp_ℝ]
+        exact hs.tsum_eq
+  calc
+    _ ≤ ∑ l ∈ T, ∑ D ∈ (hitIndices l z).powerset, R l D := by
+      apply Finset.sum_le_sum
+      intro l hl
+      exact Finset.sum_le_sum fun D hD => hpoint l hl D hD
+    _ ≤ ∑ l ∈ T, ∑ D : Finset (Fin l.length), R l D := by
+      apply Finset.sum_le_sum
+      intro l hl
+      apply Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ _)
+      intro D hD hnot
+      exact hR l D
+    _ = ∑ d ∈ Finset.range (B + 1), ∑ batch : Fin d → primes,
+        ∑ l ∈ T, ∑ D : Finset (Fin l.length), Q d batch l D := by
+      simp_rw [hswap]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro d hd
+      rw [Finset.sum_comm]
+    _ ≤ ∑ d ∈ Finset.range (B + 1), ∑ batch : Fin d → primes,
+        C d batch / ((kept.length.factorial : ℝ) * (d.factorial : ℝ)) := by
+      apply Finset.sum_le_sum
+      intro d hd
+      exact Finset.sum_le_sum fun batch hb => hshuffle d batch
+    _ = pref * ∑ d ∈ Finset.range (B + 1), (r * v * mass) ^ d / (d.factorial : ℝ) := by
+      simp_rw [hbatchSum]
+      rw [← Finset.mul_sum]
+    _ ≤ pref * Real.exp (r * v * mass) := mul_le_mul_of_nonneg_left hpartial hpref
+
 private theorem ghostGroupFiniteWeight_mul_pow_eq_normCoeff_mul_pow {K : ℕ}
     (F : PDFix K) (S : PDScale) (s : MemPoint S.x K) (B j : ℕ)
     (ρ v : ℝ) (i : Fin K)
