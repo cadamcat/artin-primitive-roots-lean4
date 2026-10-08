@@ -3460,7 +3460,8 @@ every `v ∤ 6` a tame splitting. -/
 theorem exists_finLocalCover (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
     (hSt : SteinbergAt H v) :
     ∃ L : FinLocalCover D H v, (6 : 𝓞 F) ∉ v.asIdeal → Nonempty (TameSplitting L) := by
-  sorry
+  obtain ⟨L⟩ := exists_finLocalCoverBase D H v hSt
+  exact ⟨L, fun hv => exists_finLocalTameSplitting D H v hSt L hv⟩
 
 /-- The places of `F`. -/
 abbrev Place (F : Type) [Field F] [NumberField F] := FinPlace F ⊕ InfinitePlace F
