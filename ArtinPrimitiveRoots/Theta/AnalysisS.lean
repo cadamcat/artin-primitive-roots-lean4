@@ -423,7 +423,25 @@ theorem gaussian_smoothing [IsTotallyComplex F] (μ : ∀ v : FinPlace F, LocHaa
           ∫ T in Set.Ioi (0 : ℝ), K T * thetaV S μ v0 U cS (u * T) / T = (PG u : ℂ)) ∧
         (∀ s : ℂ, -(5 / 6 : ℝ) < s.re →
           mellin K (-s) = Complex.exp (s ^ 2) / mellin (fun u : ℝ => thetaV S μ v0 U cS u) s) := by
-  sorry
+  obtain ⟨C₀, A₀, hC₀, hA₀, hM⟩ :=
+    ArtinPrimitiveRoots.Proofs.thsol_smooth.gaussian_smoothing_part1
+      S μ v0 U hUo hUc hU1 hUunit cS hcS
+  refine ⟨C₀, A₀, hC₀, hA₀, hM,
+    ArtinPrimitiveRoots.Proofs.thsol_smooth.smoothingKernel C₀ A₀ (numComplex F),
+    (ArtinPrimitiveRoots.Proofs.thsol_smooth.smoothing_kernel_regular
+      C₀ A₀ hC₀ hA₀ _).1, ?_, ?_, ?_⟩
+  · intro N j
+    obtain ⟨B, _, hb⟩ := (ArtinPrimitiveRoots.Proofs.thsol_smooth.smoothing_kernel_regular
+      C₀ A₀ hC₀ hA₀ _).2 N j
+    exact ⟨B, hb⟩
+  · intro u hu
+    exact ArtinPrimitiveRoots.Proofs.thsol_smooth.smoothing_kernel_convolution
+      C₀ A₀ hC₀ hA₀ (numComplex F) (thetaV S μ v0 U cS) hM u hu
+  · intro s hs
+    rw [(ArtinPrimitiveRoots.Proofs.thsol_smooth.smoothing_kernel_hasMellin
+      C₀ A₀ hC₀ hA₀ _ s).2,
+      (ArtinPrimitiveRoots.Proofs.thsol_smooth.smoothing_quotient_control
+        C₀ A₀ hC₀ hA₀ _).2.1 s, hM s hs]
 
 end AnalysisS
 
