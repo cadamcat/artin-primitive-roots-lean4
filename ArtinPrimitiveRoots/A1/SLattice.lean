@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A1.AddChar
 import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.Core
 import ArtinPrimitiveRoots.Theta.LocalInt
+import ArtinPrimitiveRoots.A2.Proofs.A2_ZF_TOP.ArchFourier
 import Mathlib.MeasureTheory.Group.Measure
 
 /-!
@@ -1151,6 +1152,12 @@ private theorem covol_local_integer_indicator_fourier_inversion
   have hinv := covol_local_fourier_ball_inversion v.1 (A.ψ v.1) ν c 0 hc hbdy hvol x
   have hO := covol_local_integer_ball v.1
   simpa [ν, hO] using hinv
+
+private theorem covol_arch_test_fourier_inversion (x : InfinitePlace F → ℂ) :
+    ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier
+      (fun y => ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier
+        (covol_arch_test : (InfinitePlace F → ℂ) → ℂ) y) x = covol_arch_test (-x) :=
+  ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier_inversion covol_arch_test x
 
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
