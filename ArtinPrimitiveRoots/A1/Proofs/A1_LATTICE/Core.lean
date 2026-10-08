@@ -299,10 +299,143 @@ theorem arch_integer_compact_reduction (D : ArtinPrimitiveRoots.A1.FieldData F) 
     rw [map_add, heDiag, e.apply_symm_apply]
     exact hzM
 
+private theorem archToMixedEquiv_apply_diag (D : ArtinPrimitiveRoots.A1.FieldData F) (x : F) :
+    archToMixedEquiv D (fun w : InfinitePlace F => w.embedding x) =
+      NumberField.mixedEmbedding F x := by
+  apply Prod.ext
+  · funext w
+    exact False.elim
+      ((NumberField.InfinitePlace.not_isComplex_iff_isReal.mpr w.2)
+        (D.isTotallyComplex.isComplex w.1))
+  · funext w
+    rfl
+
 theorem diagR_isDiscrete (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F) :
     IsDiscrete (Set.range fun r : S.R => S.diag (r : F)) := by
-  sorry
+  classical
+  let e := archToMixedEquiv D
+  let L := NumberField.mixedEmbedding.integerLattice F
+  have hLtype : DiscreteTopology L := inferInstance
+  have hLdisc : DiscreteTopology (L : Set (NumberField.mixedEmbedding.mixedSpace F)) :=
+    isDiscrete_iff_discreteTopology.mp
+      (SetLike.isDiscrete_iff_discreteTopology.mpr hLtype)
+  have hLzero : (0 : NumberField.mixedEmbedding.mixedSpace F) ∈
+      (L : Set (NumberField.mixedEmbedding.mixedSpace F)) := L.zero_mem
+  obtain ⟨W, hWopen, hWinter⟩ :=
+    (discreteTopology_subtype_iff' (S :=
+      (L : Set (NumberField.mixedEmbedding.mixedSpace F)))).mp hLdisc 0 hLzero
+  let U : Set (InfinitePlace F → ℂ) := e ⁻¹' W
+  have hUopen : IsOpen U := hWopen.preimage e.continuous
+  have hWzero : (0 : NumberField.mixedEmbedding.mixedSpace F) ∈ W := by
+    have hpair : (0 : NumberField.mixedEmbedding.mixedSpace F) ∈
+        W ∩ (L : Set (NumberField.mixedEmbedding.mixedSpace F)) := by
+      rw [hWinter]
+      simp
+    exact hpair.1
+  have hUzero : (0 : InfinitePlace F → ℂ) ∈ U := by
+    change e 0 ∈ W
+    simpa using hWzero
+  let O : ∀ v : S.Sf, Set (v.1.adicCompletion F) :=
+    fun v => v.1.adicCompletionIntegers F
+  have hOopen (v : S.Sf) : IsOpen (O v) := Valued.isOpen_valuationSubring _
+  let B : Set (∀ v : S.Sf, v.1.adicCompletion F) := Set.pi Set.univ O
+  have hBopen : IsOpen B := by
+    apply isOpen_set_pi Set.finite_univ
+    intro v hv
+    exact hOopen v
+  have hBzero : (0 : ∀ v : S.Sf, v.1.adicCompletion F) ∈ B := by
+    simp [B, O]
+  let N : Set S.FS := B ×ˢ U
+  have hNopen : IsOpen N := hBopen.prod hUopen
+  have hNzero : (0 : S.FS) ∈ N := ⟨hBzero, hUzero⟩
+  have hzeroR (r : S.R) (hrN : S.diag (r : F) ∈ N) : r = 0 := by
+    have hrB : (S.diag (r : F)).1 ∈ B := hrN.1
+    have hrU : (S.diag (r : F)).2 ∈ U := hrN.2
+    have hlocal (v : S.Sf) :
+        algebraMap F (v.1.adicCompletion F) (r : F) ∈
+          v.1.adicCompletionIntegers F := by
+      have hv := hrB v (by simp)
+      simpa [B, O, ArtinPrimitiveRoots.A1.SData.diag] using hv
+    have hval (v : HeightOneSpectrum (𝓞 F)) : v.valuation F (r : F) ≤ 1 := by
+      by_cases hv : v ∈ S.Sf
+      · let vS : S.Sf := ⟨v, hv⟩
+        have hvint : algebraMap F (v.adicCompletion F) (r : F) ∈
+            v.adicCompletionIntegers F := by
+          simpa [vS] using hlocal vS
+        change (r : v.adicCompletion F) ∈ v.adicCompletionIntegers F at hvint
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers] at hvint
+        rw [v.valuedAdicCompletion_eq_valuation'] at hvint
+        exact hvint
+      · exact Set.integer_valuation_le_one
+          (S.Sf : Set (HeightOneSpectrum (𝓞 F))) F r hv
+    obtain ⟨a, ha⟩ :=
+      HeightOneSpectrum.mem_integers_of_valuation_le_one F (r : F) hval
+    have hdiagArch : (ArtinPrimitiveRoots.A1.SData.diag S (r : F)).2 =
+        (fun w : InfinitePlace F => w.embedding (r : F)) := by
+      ext w
+      rfl
+    have harch : e (fun w : InfinitePlace F => w.embedding (r : F)) ∈ W := by
+      rw [← hdiagArch]
+      simpa [U] using hrU
+    have harchEq :
+        e (fun w : InfinitePlace F => w.embedding (r : F)) =
+          NumberField.mixedEmbedding F (a : F) := by
+      calc
+        e (fun w : InfinitePlace F => w.embedding (r : F)) =
+            e (fun w : InfinitePlace F => w.embedding (algebraMap (𝓞 F) F a)) := by
+              rw [← ha]
+        _ = NumberField.mixedEmbedding F (algebraMap (𝓞 F) F a) :=
+          archToMixedEquiv_apply_diag D _
+        _ = NumberField.mixedEmbedding F (a : F) := rfl
+    have haW : NumberField.mixedEmbedding F (a : F) ∈ W := by
+      rw [← harchEq]
+      exact harch
+    have haL : NumberField.mixedEmbedding F (a : F) ∈
+        (L : Set (NumberField.mixedEmbedding.mixedSpace F)) := by
+      change ∃ b : 𝓞 F,
+        NumberField.mixedEmbedding F (algebraMap (𝓞 F) F b) =
+          NumberField.mixedEmbedding F (a : F)
+      exact ⟨a, rfl⟩
+    have ha0 : NumberField.mixedEmbedding F (a : F) = 0 := by
+      have hmem : NumberField.mixedEmbedding F (a : F) ∈
+          W ∩ (L : Set (NumberField.mixedEmbedding.mixedSpace F)) := ⟨haW, haL⟩
+      have hmem0 : NumberField.mixedEmbedding F (a : F) ∈ ({0} :
+          Set (NumberField.mixedEmbedding.mixedSpace F)) := by
+        rw [← hWinter]
+        exact hmem
+      simpa using hmem0
+    have hmapzero : NumberField.mixedEmbedding F (a : F) =
+        NumberField.mixedEmbedding F 0 := by simpa using ha0
+    have haF0 : (a : F) = 0 := NumberField.mixedEmbedding_injective F hmapzero
+    apply Subtype.ext
+    calc
+      (r : F) = algebraMap (𝓞 F) F a := ha.symm
+      _ = 0 := haF0
+  refine (isDiscrete_iff_forall_mem_exists_isOpen).2 ?_
+  intro x hx
+  obtain ⟨r, rfl⟩ := hx
+  let Ux : Set S.FS := {y | y - S.diag (r : F) ∈ N}
+  refine ⟨Ux, hNopen.preimage (continuous_id.sub continuous_const), ?_⟩
+  ext y
+  simp only [Set.mem_inter_iff, Set.mem_setOf_eq, Set.mem_range, Set.mem_singleton_iff]
+  constructor
+  · rintro ⟨hy, s, hs⟩
+    have hyN : y - S.diag (r : F) ∈ N := by
+      change y - S.diag (r : F) ∈ N at hy
+      exact hy
+    have hdiff : S.diag ((s - r : S.R) : F) ∈ N := by
+      simpa [hs] using hyN
+    have hsr : s - r = 0 := hzeroR (s - r) hdiff
+    have hsreq : s = r := sub_eq_zero.mp hsr
+    calc
+      y = S.diag (s : F) := hs.symm
+      _ = S.diag (r : F) := by simpa [hsreq]
+  · intro hy
+    subst y
+    refine ⟨?_, ⟨r, rfl⟩⟩
+    change S.diag (r : F) - S.diag (r : F) ∈ N
+    simpa using hNzero
 
 theorem diagR_has_compact_cover (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F) :
