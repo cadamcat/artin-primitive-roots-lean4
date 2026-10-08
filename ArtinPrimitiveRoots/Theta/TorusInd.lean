@@ -146,11 +146,329 @@ theorem IsSection.rtr {L : FinLocalCover D H v} {T : TorusRep D H v} {s : ℂ} {
     rw [show (u * k) * g = (u * g) * (g⁻¹ * k * g) by group]
     exact hfix (u * g) (g⁻¹ * k * g) (hsub hk)
 
+private theorem iwasawa_right_denominator (g : GL (Fin 2) (v.adicCompletion F))
+    (hd : (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0)
+    (hcd : Valued.v ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) ≤
+      Valued.v ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1)) :
+    ∃ x : v.adicCompletion F, ∃ y : (v.adicCompletion F)ˣ,
+    ∃ k : GL (Fin 2) (v.adicCompletion F),
+        k = lowerM (v.adicCompletion F)
+          (((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) /
+            ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1)) ∧
+        (∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+          v.adicCompletionIntegers F) ∧
+        (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det ∈ v.adicCompletionIntegers F ∧
+        Matrix.ProjGenLinGroup.mk g =
+          Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+            Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+              Matrix.ProjGenLinGroup.mk k := by
+  classical
+  let M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F) := g
+  let a := M 0 0
+  let b := M 0 1
+  let c := M 1 0
+  let d := M 1 1
+  have hdet : M.det ≠ 0 := by simpa [M] using g.det_ne_zero
+  have hratioVal : Valued.v (c / d) ≤ 1 := by
+    rw [map_div₀]
+    exact div_le_one_of_le₀ (by simpa [c, d, M] using hcd) (bot_le : 0 ≤ Valued.v d)
+  have hratio : c / d ∈ v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hratioVal
+  have hyval : M.det / d ^ 2 ≠ 0 := by
+    exact div_ne_zero hdet (pow_ne_zero 2 (by simpa [d, M] using hd))
+  let x : v.adicCompletion F := b / d
+  let y : (v.adicCompletion F)ˣ := Units.mk0 (M.det / d ^ 2) hyval
+  let k : GL (Fin 2) (v.adicCompletion F) := lowerM (v.adicCompletion F) (c / d)
+  have heq : g = Matrix.GeneralLinearGroup.scalar (Fin 2) (Units.mk0 d hd) *
+      upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y * k := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [M, a, b, c, d, x, y, k, Matrix.GeneralLinearGroup.scalar,
+        upperM, diagM, lowerM, Matrix.mul_apply, Fin.sum_univ_two,
+        Matrix.det_fin_two] <;>
+      field_simp [hd, hdet] <;> ring
+  have hkentries : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+      v.adicCompletionIntegers F := by
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [k, lowerM, hratio]
+  have hinv : k⁻¹ = lowerM (v.adicCompletion F) (-(c / d)) := by
+    have hmul : k * lowerM (v.adicCompletion F) (-(c / d)) = 1 := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [k, lowerM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+    calc
+      k⁻¹ = k⁻¹ * 1 := by simp
+      _ = k⁻¹ * (k * lowerM (v.adicCompletion F) (-(c / d))) := by rw [hmul]
+      _ = lowerM (v.adicCompletion F) (-(c / d)) := by group
+  have hdetinv : (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det = 1 := by
+    rw [hinv]
+    simp [lowerM, Matrix.det_fin_two]
+  refine ⟨x, y, k, rfl, hkentries, ?_, ?_⟩
+  · rw [hdetinv]
+    exact (v.adicCompletionIntegers F).one_mem
+  · rw [heq]
+    change Matrix.ProjGenLinGroup.mk
+      (Matrix.GeneralLinearGroup.scalar (Fin 2) (Units.mk0 d hd) *
+        upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y * k) = _
+    simp only [map_mul, Matrix.ProjGenLinGroup.mk_scalar, one_mul]
+
+private theorem iwasawa_matrix_decomposition (g : GL (Fin 2) (v.adicCompletion F)) :
+    ∃ x : v.adicCompletion F, ∃ y : (v.adicCompletion F)ˣ,
+      ∃ k : GL (Fin 2) (v.adicCompletion F),
+        (∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+          v.adicCompletionIntegers F) ∧
+        (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det ∈ v.adicCompletionIntegers F ∧
+        Matrix.ProjGenLinGroup.mk g =
+          Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+            Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+              Matrix.ProjGenLinGroup.mk k := by
+  classical
+  let c := (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0
+  let d := (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
+  have hrow : c ≠ 0 ∨ d ≠ 0 := by
+    by_contra h
+    push_neg at h
+    have hdet : (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det ≠ 0 := by
+      simpa using g.det_ne_zero
+    apply hdet
+    rw [Matrix.det_fin_two]
+    simp [c, d, h.1, h.2]
+  by_cases hd : d = 0
+  · have hc : c ≠ 0 := by
+      rcases hrow with hc | hd'; exact hc
+      exact (hd' hd).elim
+    have hleft : (g * weylM (v.adicCompletion F) :
+        GL (Fin 2) (v.adicCompletion F)) 1 0 = d := by
+      simp [weylM, Matrix.mul_apply, Fin.sum_univ_two, c, d]
+    have hright : (g * weylM (v.adicCompletion F) :
+        GL (Fin 2) (v.adicCompletion F)) 1 1 = c := by
+      simp [weylM, Matrix.mul_apply, Fin.sum_univ_two, c, d]
+    have hval : Valued.v d ≤ Valued.v c := by rw [hd]; simp
+    obtain ⟨x, y, k₀, hk₀, hkentries, hdetinv, hq⟩ :=
+      iwasawa_right_denominator (g * weylM (v.adicCompletion F)) (by simpa [hright] using hc)
+        (by simpa [hleft, hright] using hval)
+    subst k₀
+    let k : GL (Fin 2) (v.adicCompletion F) :=
+      lowerM (v.adicCompletion F) (d / c) * weylM (v.adicCompletion F)
+    have hratio : d / c ∈ v.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers, map_div₀]
+      exact div_le_one_of_le₀ hval (by simp)
+    have hkentries' : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+        v.adicCompletionIntegers F := by
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [k, lowerM, weylM, Matrix.mul_apply, Fin.sum_univ_two, hratio]
+    have hdetk : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det = -1 := by
+      simp [k, lowerM, weylM, Matrix.mul_apply, Fin.sum_univ_two, Matrix.det_fin_two]
+    have hmul : ((k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val) *
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) = 1 := by
+      exact congrArg (fun q : GL (Fin 2) (v.adicCompletion F) =>
+        (q : Matrix (Fin 2) (Fin 2) (v.adicCompletion F))) (inv_mul_cancel k)
+    have hdetmul : (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det *
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det = 1 := by
+      simpa only [Matrix.det_mul, Matrix.det_one] using congrArg Matrix.det hmul
+    have hdetinv' : (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det = -1 := by
+      rw [hdetk] at hdetmul
+      calc
+        (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det =
+            (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det * (-1 * -1) := by ring
+        _ = ((k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det * -1) * -1 := by ring
+        _ = 1 * -1 := by rw [hdetmul]
+        _ = -1 := by ring
+    have hminus : (-1 : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      simp
+    have hq' : Matrix.ProjGenLinGroup.mk g =
+        Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+          Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+            Matrix.ProjGenLinGroup.mk k := by
+      have hw : weylM (v.adicCompletion F) * weylM (v.adicCompletion F) = 1 := by
+        apply Matrix.GeneralLinearGroup.ext
+        intro i j
+        fin_cases i <;> fin_cases j <;>
+          simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+      have hg : g = (g * weylM (v.adicCompletion F)) * weylM (v.adicCompletion F) := by
+        calc
+          g = g * 1 := by simp
+          _ = g * (weylM (v.adicCompletion F) * weylM (v.adicCompletion F)) := by rw [hw]
+          _ = (g * weylM (v.adicCompletion F)) * weylM (v.adicCompletion F) :=
+            (mul_assoc _ _ _).symm
+      have hq'0 := hq
+      rw [hleft, hright] at hq'0
+      calc
+        Matrix.ProjGenLinGroup.mk g =
+            Matrix.ProjGenLinGroup.mk (g * weylM (v.adicCompletion F)) *
+              Matrix.ProjGenLinGroup.mk (weylM (v.adicCompletion F)) := by
+                calc
+                  Matrix.ProjGenLinGroup.mk g =
+                      Matrix.ProjGenLinGroup.mk
+                        ((g * weylM (v.adicCompletion F)) * weylM (v.adicCompletion F)) :=
+                    congrArg Matrix.ProjGenLinGroup.mk hg
+                  _ = Matrix.ProjGenLinGroup.mk (g * weylM (v.adicCompletion F)) *
+                        Matrix.ProjGenLinGroup.mk (weylM (v.adicCompletion F)) := by rw [map_mul]
+        _ = (Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+              Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+                Matrix.ProjGenLinGroup.mk (lowerM (v.adicCompletion F) (d / c))) *
+              Matrix.ProjGenLinGroup.mk (weylM (v.adicCompletion F)) := by rw [hq'0]
+        _ = Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+              Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+                (Matrix.ProjGenLinGroup.mk (lowerM (v.adicCompletion F) (d / c)) *
+                  Matrix.ProjGenLinGroup.mk (weylM (v.adicCompletion F))) := by ac_rfl
+        _ = Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+              Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+                Matrix.ProjGenLinGroup.mk k := by rw [map_mul]
+    refine ⟨x, y, k, hkentries', ?_, hq'⟩
+    rw [hdetinv']
+    exact hminus
+  · by_cases hc : c = 0
+    · have hval : Valued.v c ≤ Valued.v d := by rw [hc]; simp
+      obtain ⟨x, y, k, hkform, hk, hdet, hq⟩ :=
+        iwasawa_right_denominator g (by simpa [d] using hd) (by simpa [c, d] using hval)
+      exact ⟨x, y, k, hk, hdet, hq⟩
+    · by_cases hval : Valued.v c ≤ Valued.v d
+      · obtain ⟨x, y, k, hkform, hk, hdet, hq⟩ :=
+          iwasawa_right_denominator g (by simpa [d] using hd) (by simpa [c, d] using hval)
+        exact ⟨x, y, k, hk, hdet, hq⟩
+      · have hdc : Valued.v d ≤ Valued.v c := le_of_not_ge hval
+        have hleft : (g * weylM (v.adicCompletion F) :
+            GL (Fin 2) (v.adicCompletion F)) 1 0 = d := by
+          simp [weylM, Matrix.mul_apply, Fin.sum_univ_two, c, d]
+        have hright : (g * weylM (v.adicCompletion F) :
+            GL (Fin 2) (v.adicCompletion F)) 1 1 = c := by
+          simp [weylM, Matrix.mul_apply, Fin.sum_univ_two, c, d]
+        obtain ⟨x, y, k₀, hk₀, hkentries, hdetinv, hq⟩ :=
+          iwasawa_right_denominator (g * weylM (v.adicCompletion F)) (by simpa [hright] using hc)
+            (by simpa [hleft, hright] using hdc)
+        subst k₀
+        let k : GL (Fin 2) (v.adicCompletion F) :=
+          lowerM (v.adicCompletion F) (d / c) * weylM (v.adicCompletion F)
+        have hratio : d / c ∈ v.adicCompletionIntegers F := by
+          rw [HeightOneSpectrum.mem_adicCompletionIntegers, map_div₀]
+          exact div_le_one_of_le₀ hdc (by simp)
+        have hkentries' : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+            v.adicCompletionIntegers F := by
+          intro i j
+          fin_cases i <;> fin_cases j <;>
+            simp [k, lowerM, weylM, Matrix.mul_apply, Fin.sum_univ_two, hratio]
+        have hdetk : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det = -1 := by
+          simp [k, lowerM, weylM, Matrix.mul_apply, Fin.sum_univ_two, Matrix.det_fin_two]
+        have hmul : ((k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val) *
+            (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) = 1 := by
+          exact congrArg (fun q : GL (Fin 2) (v.adicCompletion F) =>
+            (q : Matrix (Fin 2) (Fin 2) (v.adicCompletion F))) (inv_mul_cancel k)
+        have hdetmul : (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det *
+            (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det = 1 := by
+          simpa only [Matrix.det_mul, Matrix.det_one] using congrArg Matrix.det hmul
+        have hdetinv' : (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det = -1 := by
+          rw [hdetk] at hdetmul
+          calc
+            (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det =
+                (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det * (-1 * -1) := by ring
+            _ = ((k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det * -1) * -1 := by ring
+            _ = 1 * -1 := by rw [hdetmul]
+            _ = -1 := by ring
+        have hminus : (-1 : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+          rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+          simp
+        have hq' : Matrix.ProjGenLinGroup.mk g =
+            Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+              Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+                Matrix.ProjGenLinGroup.mk k := by
+          have hw : weylM (v.adicCompletion F) * weylM (v.adicCompletion F) = 1 := by
+            apply Matrix.GeneralLinearGroup.ext
+            intro i j
+            fin_cases i <;> fin_cases j <;>
+              simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+          have hg : g = (g * weylM (v.adicCompletion F)) * weylM (v.adicCompletion F) := by
+            calc
+              g = g * 1 := by simp
+              _ = g * (weylM (v.adicCompletion F) * weylM (v.adicCompletion F)) := by rw [hw]
+              _ = (g * weylM (v.adicCompletion F)) * weylM (v.adicCompletion F) :=
+                (mul_assoc _ _ _).symm
+          have hq'0 := hq
+          rw [hleft, hright] at hq'0
+          calc
+            Matrix.ProjGenLinGroup.mk g =
+                Matrix.ProjGenLinGroup.mk (g * weylM (v.adicCompletion F)) *
+                  Matrix.ProjGenLinGroup.mk (weylM (v.adicCompletion F)) := by
+                    calc
+                      Matrix.ProjGenLinGroup.mk g =
+                          Matrix.ProjGenLinGroup.mk
+                            ((g * weylM (v.adicCompletion F)) * weylM (v.adicCompletion F)) :=
+                        congrArg Matrix.ProjGenLinGroup.mk hg
+                      _ = Matrix.ProjGenLinGroup.mk (g * weylM (v.adicCompletion F)) *
+                            Matrix.ProjGenLinGroup.mk (weylM (v.adicCompletion F)) := by rw [map_mul]
+            _ = (Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+                  Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+                    Matrix.ProjGenLinGroup.mk (lowerM (v.adicCompletion F) (d / c))) *
+                  Matrix.ProjGenLinGroup.mk (weylM (v.adicCompletion F)) := by rw [hq'0]
+            _ = Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+                  Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+                    (Matrix.ProjGenLinGroup.mk (lowerM (v.adicCompletion F) (d / c)) *
+                      Matrix.ProjGenLinGroup.mk (weylM (v.adicCompletion F))) := by ac_rfl
+            _ = Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+                  Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+                    Matrix.ProjGenLinGroup.mk k := by rw [map_mul]
+        refine ⟨x, y, k, hkentries', ?_, hq'⟩
+        rw [hdetinv']
+        exact hminus
+
 /-- **ind:iwasawa** (tame): `L = B̃ · Kmax`. -/
 theorem iwasawa_tame (L : FinLocalCover D H v) (τ : TameSplitting L) (g : L.L) :
     ∃ (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ) (ζ : rootsOfUnity 3 ℂ) (k : L.L),
       k ∈ τ.Kmax ∧ g = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * k := by
-  sorry
+  classical
+  obtain ⟨G, hG⟩ := Matrix.ProjGenLinGroup.mk_surjective (L.pr g)
+  obtain ⟨x, y, kMat, hkentries, hkdetinv, hmatrix⟩ := iwasawa_matrix_decomposition G
+  have himage : L.pr '' (τ.Kmax : Set L.L) =
+      {q | ∃ k : GL (Fin 2) (v.adicCompletion F),
+        (∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+          v.adicCompletionIntegers F) ∧
+        (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det ∈ v.adicCompletionIntegers F ∧
+        QuotientGroup.mk k = q} := τ.image
+  have hkmem : Matrix.ProjGenLinGroup.mk kMat ∈ L.pr '' (τ.Kmax : Set L.L) := by
+    rw [himage]
+    exact ⟨kMat, hkentries, hkdetinv, rfl⟩
+  obtain ⟨k, hkK, hkpr⟩ := hkmem
+  let b : L.L := L.n (Multiplicative.ofAdd x) * L.a y * k
+  have hprB : L.pr b =
+      Matrix.ProjGenLinGroup.mk (upperM (v.adicCompletion F) x) *
+        Matrix.ProjGenLinGroup.mk (diagM (v.adicCompletion F) y) *
+          Matrix.ProjGenLinGroup.mk kMat := by
+    dsimp [b]
+    simp only [map_mul, L.pr_n, L.pr_a, hkpr]
+    rfl
+  have hprdecomp : L.pr g = L.pr b := by
+    exact hG.symm.trans (hmatrix.trans hprB.symm)
+  let q : L.L := b⁻¹ * g
+  have hqker : q ∈ L.pr.ker := by
+    change L.pr (b⁻¹ * g) = 1
+    calc
+      L.pr (b⁻¹ * g) = (L.pr b)⁻¹ * L.pr g := by simp only [map_mul, map_inv]
+      _ = 1 := by rw [← hprdecomp]; simp
+  rw [L.pr_ker] at hqker
+  obtain ⟨ζ, hζ⟩ := hqker
+  have hg : g = b * L.z ζ := by
+    calc
+      g = b * q := by dsimp [q]; group
+      _ = b * L.z ζ := by rw [← hζ]
+  have horder : b * L.z ζ =
+      L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * k := by
+    change (L.n (Multiplicative.ofAdd x) * L.a y * k) * L.z ζ =
+      L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * k
+    calc
+      (L.n (Multiplicative.ofAdd x) * L.a y * k) * L.z ζ =
+          (L.n (Multiplicative.ofAdd x) * L.a y) * (k * L.z ζ) := by group
+      _ = (L.n (Multiplicative.ofAdd x) * L.a y) * (L.z ζ * k) := by
+            rw [← L.z_central ζ k]
+      _ = L.n (Multiplicative.ofAdd x) * (L.a y * L.z ζ) * k := by group
+      _ = L.n (Multiplicative.ofAdd x) * (L.z ζ * L.a y) * k := by
+            rw [← L.z_central ζ (L.a y)]
+      _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * k := by group
+  exact ⟨x, y, ζ, k, hkK, hg.trans horder⟩
 
 /-- **ind:spherical** (KP Lemma I.1.3 replaced): at a tame place there is a unique
 `Kmax`-invariant section with `f°(1) = e_0`, and every `Kmax`-invariant section is a multiple. -/
