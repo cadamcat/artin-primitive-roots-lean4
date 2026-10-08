@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierFamily
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LabeledAdditiveSieve
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeAdditiveCandidates
@@ -1447,6 +1448,17 @@ private theorem po_probe_low_additive_candidates (P : Finset S.ExtIdeal) (V : �
         ∀ x ∈ Q, ∀ y ∈ Q, x ≠ y → ¬ SameModuloSIntegers S x y := by
   exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_additive_candidates
     R.exterior P V hcutoff
+
+private theorem po_probe_low_labeled_sieve (K : Set S.FS) (hK : IsCompact K) :
+    ∃ C : ℝ, 0 < C ∧ ∀ N V : ℝ, (hN : 2 ≤ N) → (hV : 2 ≤ V) →
+      ∀ (L : Type) [Fintype L] (α : L → S.FS),
+        (∀ p, α p ∈ AdditiveCandidates D S bc V) →
+        (∀ p q, p ≠ q → ¬ SameModuloSIntegers S (α p) (α q)) →
+        ∀ c : L → ℂ,
+          (∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+            ‖∑ p : L, c p * additivePhase S A m.1 (α p)‖ ^ 2) ≤
+            C * (N + V ^ 2) * ∑ p : L, ‖c p‖ ^ 2 := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.additive_sieve_labeled D S H A Bd bc K hK
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
