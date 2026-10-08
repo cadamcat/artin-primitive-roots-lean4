@@ -276,6 +276,1839 @@ def localOmega (v : FinPlace F) : ℂ :=
 
 def localB (j : Fin 6) (e : ℕ) : ℤ := if e = 0 then 8 - (j.1 : ℤ) else 4 + 2 * (e : ℤ)
 
+private theorem rf_local_primeGen_valuation (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (v : FinPlace F) (hv : v ∉ S.Sf) :
+    v.valuation F (primeGen R v : F) = WithZero.exp (-1 : ℤ) := by
+  have hp : S.IsGen (primeGen R v : F) v.asIdeal := by
+    simpa [primeGen, hv, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime v hv)).1
+  have hcountSelf : (UniqueFactorizationMonoid.normalizedFactors v.asIdeal).count v.asIdeal =
+      idealExp v v.asIdeal := by
+    unfold idealExp
+    exact (Ideal.count_associates_factors_eq v.ne_bot v.isPrime v.ne_bot).symm
+  have hexp : idealExp v v.asIdeal = 1 := by
+    calc
+      idealExp v v.asIdeal =
+          (UniqueFactorizationMonoid.normalizedFactors v.asIdeal).count v.asIdeal :=
+        hcountSelf.symm
+      _ = 1 := by
+        rw [UniqueFactorizationMonoid.normalizedFactors_irreducible v.irreducible]
+        simp
+  have hcount : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (primeGen R v : F)) =
+        (idealExp v v.asIdeal : ℤ) := by
+    rw [hp.2.2 v hv, FractionalIdeal.count_coe F v hp.1.1]
+    rfl
+  have hlog := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+    v (primeGen R v : F) (by
+      intro h
+      exact (primeGen R v).ne_zero h)
+  rw [hcount, hexp] at hlog
+  have hLog : WithZero.log (v.valuation F (primeGen R v : F)) = -1 := by
+    have hlog' := congrArg (fun z : ℤ => -z) hlog.symm
+    simpa using hlog'
+  have hval0 : v.valuation F (primeGen R v : F) ≠ 0 :=
+    (Valuation.ne_zero_iff (v.valuation F)).mpr (primeGen R v).ne_zero
+  calc
+    v.valuation F (primeGen R v : F) =
+        WithZero.exp (WithZero.log (v.valuation F (primeGen R v : F))) :=
+      (WithZero.exp_log hval0).symm
+    _ = WithZero.exp (-1 : ℤ) := by rw [hLog]
+
+private theorem rf_local_primeGen_ord (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (v : FinPlace F) (hv : v ∉ S.Sf) :
+    ordv v (toLoc v (primeGen R v)) = 1 := by
+  have hval : Valued.v (toLoc v (primeGen R v) : v.adicCompletion F) =
+      WithZero.exp (-1 : ℤ) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (primeGen R v : F)) = _
+    calc
+      _ = v.valuation F (primeGen R v : F) :=
+        v.valuedAdicCompletion_eq_valuation' (primeGen R v : F)
+      _ = WithZero.exp (-1 : ℤ) := rf_local_primeGen_valuation R v hv
+  have hne : Valued.v (toLoc v (primeGen R v) : v.adicCompletion F) ≠ 0 := by
+    rw [hval]
+    exact WithZero.exp_ne_zero
+  unfold ordv
+  rw [WithZero.toAdd_unzero_eq_log hne, hval]
+  simp
+
+private theorem rf_local_primeGen_ratio_isLocUnit
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf) :
+    Valued.v ((toLoc v (primeGen R v) /
+      toLoc v (Units.mk0 (unif v) (unif_ne_zero v)) : (v.adicCompletion F)ˣ) :
+        v.adicCompletion F) = 1 ∧
+    ArtinPrimitiveRoots.A1.Theta.IsLocUnit v
+      (toLoc v (primeGen R v) /
+        toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) := by
+  let pLoc := toLoc v (primeGen R v)
+  let π := toLoc v (Units.mk0 (unif v) (unif_ne_zero v))
+  have hpVal : Valued.v (pLoc : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (primeGen R v : F)) = _
+    calc
+      _ = v.valuation F (primeGen R v : F) :=
+        v.valuedAdicCompletion_eq_valuation' (primeGen R v : F)
+      _ = WithZero.exp (-1 : ℤ) := rf_local_primeGen_valuation R v hv
+  have hπVal : Valued.v (π : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (unif v)) = _
+    calc
+      _ = v.valuation F (unif v) := v.valuedAdicCompletion_eq_valuation' (unif v)
+      _ = WithZero.exp (-1 : ℤ) :=
+        (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hratioVal : Valued.v ((pLoc / π : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    calc
+      _ = Valued.v (pLoc : v.adicCompletion F) / Valued.v (π : v.adicCompletion F) := by simp
+      _ = 1 := by rw [hpVal, hπVal]; simp
+  refine ⟨hratioVal, ?_⟩
+  constructor
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hratioVal]
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    have hinv : Valued.v (((pLoc / π)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      simp [Units.val_inv_eq_inv_val, hpVal, hπVal]
+    rw [hinv]
+
+private theorem rf_localW_table
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) : localW R v e = sphericalTable D A v e
+      ((toLoc v (primeGen R v) /
+        toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) ^ e) := by
+  let pLoc := toLoc v (primeGen R v)
+  let π := toLoc v (Units.mk0 (unif v) (unif_ne_zero v))
+  let b := pLoc / π
+  have hbprops := rf_local_primeGen_ratio_isLocUnit R v hv
+  have hbVal : Valued.v (b : v.adicCompletion F) = 1 := by
+    simpa [b, pLoc, π] using hbprops.1
+  have hbpVal : Valued.v ((b ^ e : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    simp [Units.val_zpow_eq_zpow_val, hbVal]
+  have hbPowLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (b ^ e) := by
+    constructor
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hbpVal]
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      have hinv : Valued.v (((b ^ e)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+        have hvalInv : Valued.v (((b ^ e)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+            (Valued.v ((b ^ e : (v.adicCompletion F)ˣ) : v.adicCompletion F))⁻¹ := by simp
+        rw [hvalInv, hbpVal]
+        simp
+      rw [hinv]
+  have hpow : pLoc ^ e = π ^ e * b ^ e := by
+    dsimp [b]
+    rw [div_zpow]
+    calc
+      pLoc ^ e = (pLoc ^ e * π ^ e) / π ^ e := by simp
+      _ = (π ^ e * pLoc ^ e) / π ^ e := by rw [mul_comm]
+      _ = π ^ e * (pLoc ^ e / π ^ e) := mul_div_assoc _ _ _
+  have htable : localW R v e = sphericalTable D A v e (b ^ e) := by
+    dsimp [localW, pLoc]
+    rw [hpow]
+    simpa [π] using R.T.Wv_table v hv e (b ^ e) hbPowLoc.1 hbPowLoc.2
+  simpa [b, pLoc, π] using htable
+
+private theorem rf_localW_zero_of_negative
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (he : e < 0) : localW R v e = 0 := by
+  rw [rf_localW_table R v hv e]
+  simp [sphericalTable, he]
+
+private def rf_localUnitSubgroup (v : FinPlace F) :
+    Subgroup ((v.adicCompletion F)ˣ) where
+  carrier := ArtinPrimitiveRoots.A1.Theta.IsLocUnit v
+  one_mem' := by
+    constructor <;> simp [HeightOneSpectrum.mem_adicCompletionIntegers]
+  mul_mem' := by
+    intro a b ha hb
+    constructor
+    · exact mul_mem ha.1 hb.1
+    · simpa [Units.val_inv_eq_inv_val] using (mul_mem hb.2 ha.2)
+  inv_mem' := by
+    intro a ha
+    exact ⟨ha.2, ha.1⟩
+
+private def rf_localChiUnitHom (D : FieldData F) (v : FinPlace F)
+    (hv6 : (6 : 𝓞 F) ∉ v.asIdeal) : rf_localUnitSubgroup v →* ℂˣ where
+  toFun u := Units.mk0 (localChi D v u.1) (by
+    have h6 := (ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) (v := v) hv6).2.2.2.1
+      u.1 u.2
+    intro hzero
+    rw [hzero] at h6
+    norm_num at h6)
+  map_one' := by
+    apply Units.ext
+    exact (ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) (v := v) hv6).1
+  map_mul' := by
+    intro u u'
+    apply Units.ext
+    exact (ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) (v := v) hv6).2.2.1
+      u.1 u'.1 u.2 u'.2
+
+private theorem rf_localChi_zpow (D : FieldData F) (v : FinPlace F)
+    (hv6 : (6 : 𝓞 F) ∉ v.asIdeal) (u : (v.adicCompletion F)ˣ)
+    (hu : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v u) (e : ℤ) :
+    localChi D v (u ^ e) = localChi D v u ^ e := by
+  let u' : rf_localUnitSubgroup v := ⟨u, hu⟩
+  have h := congrArg (fun z : ℂˣ => (z : ℂ))
+    ((rf_localChiUnitHom D v hv6).map_zpow u' e)
+  dsimp [rf_localChiUnitHom] at h
+  simpa [u', rf_localUnitSubgroup, Units.val_zpow_eq_zpow_val] using h
+
+private theorem rf_ordv_mul (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+    ordv v (x * y) = ordv v x + ordv v y := by
+  have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr x.ne_zero
+  have hy0 : Valued.v (y : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr y.ne_zero
+  have hxy0 : Valued.v ((x * y : (v.adicCompletion F)ˣ) : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr (mul_ne_zero x.ne_zero y.ne_zero)
+  have hxy : Valued.v ((x * y : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      Valued.v (x : v.adicCompletion F) * Valued.v (y : v.adicCompletion F) := by simp
+  unfold ordv
+  rw [WithZero.toAdd_unzero_eq_log hxy0,
+    WithZero.toAdd_unzero_eq_log hx0, WithZero.toAdd_unzero_eq_log hy0]
+  rw [hxy, WithZero.log_mul hx0 hy0]
+  ring
+
+private theorem rf_ordv_zpow (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (e : ℤ) :
+    ordv v (x ^ e) = e * ordv v x := by
+  have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr x.ne_zero
+  have he0 : Valued.v ((x ^ e : (v.adicCompletion F)ˣ) : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr (Units.ne_zero (x ^ e))
+  have hpow : Valued.v ((x ^ e : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      (Valued.v (x : v.adicCompletion F)) ^ e := by simp
+  unfold ordv
+  rw [WithZero.toAdd_unzero_eq_log he0, WithZero.toAdd_unzero_eq_log hx0]
+  rw [hpow, WithZero.log_zpow]
+  simp [zsmul_eq_mul]
+
+private theorem rf_ordv_zero_of_localUnit (v : FinPlace F) (x : (v.adicCompletion F)ˣ)
+    (hx : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v x) : ordv v x = 0 := by
+  have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr x.ne_zero
+  have hxle : Valued.v (x : v.adicCompletion F) ≤ 1 := by
+    rw [← HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hx.1
+  have hInvLe : (Valued.v (x : v.adicCompletion F))⁻¹ ≤ 1 := by
+    have hle : Valued.v (((x⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) ≤ 1 := by
+      rw [← HeightOneSpectrum.mem_adicCompletionIntegers]
+      exact hx.2
+    have hvalInv : Valued.v (((x⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) =
+        (Valued.v (x : v.adicCompletion F))⁻¹ := by simp
+    rw [← hvalInv]
+    exact hle
+  have hxpos : 0 < Valued.v (x : v.adicCompletion F) :=
+    pos_iff_ne_zero.mpr hx0
+  have hxge : 1 ≤ Valued.v (x : v.adicCompletion F) :=
+    (inv_le_one₀ hxpos).mp hInvLe
+  have hval : Valued.v (x : v.adicCompletion F) = 1 := le_antisymm hxle hxge
+  unfold ordv
+  rw [WithZero.toAdd_unzero_eq_log hx0, hval]
+  simp
+
+private theorem rf_valued_eq_exp_neg_ordv (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+    Valued.v (x : v.adicCompletion F) = WithZero.exp (-ordv v x) := by
+  have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
+    (Valuation.ne_zero_iff _).mpr x.ne_zero
+  rw [← WithZero.exp_log hx0]
+  simp [ordv, WithZero.toAdd_unzero_eq_log hx0]
+
+private theorem rf_local_addchar_trivial_of_ord_nonneg (v : FinPlace F)
+    (x : (v.adicCompletion F)ˣ) (hx : 0 ≤ ordv v x) : A.ψ v (x : v.adicCompletion F) = 1 := by
+  have hval : Valued.v (x : v.adicCompletion F) = WithZero.exp (-ordv v x) :=
+    rf_valued_eq_exp_neg_ordv v x
+  have hle : Valued.v (x : v.adicCompletion F) ≤ 1 := by
+    rw [hval]
+    exact WithZero.exp_le_one_iff.mpr (by omega)
+  have hmem : (x : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hle
+  exact A.integral v (x : v.adicCompletion F) hmem
+
+private theorem rf_valued_lt_one_le_exp_neg_one (v : FinPlace F)
+    (z : v.adicCompletion F) (hz : Valued.v z < 1) :
+    Valued.v z ≤ WithZero.exp (-1 : ℤ) := by
+  by_cases hz0 : Valued.v z = 0
+  · simp [hz0]
+  · lift Valued.v z to ℤ using hz0 with n hn
+    have hnlt : n < 0 := by
+      have hz' : WithZero.exp n < WithZero.exp 0 := by simpa [hn] using hz
+      exact (WithZero.exp_lt_exp).mp hz'
+    have hnle : n ≤ -1 := by omega
+    have hle' : WithZero.exp n ≤ WithZero.exp (-1 : ℤ) :=
+      (WithZero.exp_le_exp).2 hnle
+    simpa [hn] using hle'
+
+private theorem rf_localChi_has_approximant (D : FieldData F) (v : FinPlace F)
+    (hv6 : (6 : 𝓞 F) ∉ v.asIdeal) (u : (v.adicCompletion F)ˣ)
+    (hu : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v u) :
+    ∃ a : 𝓞 F, a ∉ v.asIdeal ∧
+      Valued.v ((u : v.adicCompletion F) - algebraMap F _ (algebraMap (𝓞 F) F a)) < 1 := by
+  have hchi6 :=
+    ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) (v := v) hv6 |>.2.2.2.1 u hu
+  have hchiNe : localChi D v u ≠ 0 := by
+    intro hzero
+    rw [hzero] at hchi6
+    norm_num at hchi6
+  by_contra hno
+  have hzero : localChi D v u = 0 := by
+    rw [ArtinPrimitiveRoots.A1.localChi, dif_neg hno]
+  exact hchiNe hzero
+
+private theorem rf_local_phase_approximant
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (u : (v.adicCompletion F)ˣ) (a : 𝓞 F) (ha : a ∉ v.asIdeal)
+    (hclose : Valued.v ((u : v.adicCompletion F) -
+      algebraMap F _ (algebraMap (𝓞 F) F a)) < 1) :
+    A.ψ v ((toLoc v (primeGen R v))⁻¹ * (u : v.adicCompletion F)) =
+      A.ψ v (algebraMap F (v.adicCompletion F)
+        ((algebraMap (𝓞 F) F a) / (primeGen R v : F))) := by
+  let pLoc := toLoc v (primeGen R v)
+  let aF : F := algebraMap (𝓞 F) F a
+  have hpVal : Valued.v (pLoc : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (primeGen R v : F)) = _
+    calc
+      Valued.v (algebraMap F (v.adicCompletion F) (primeGen R v : F)) =
+          v.valuation F (primeGen R v : F) :=
+            v.valuedAdicCompletion_eq_valuation' (primeGen R v : F)
+      _ = WithZero.exp (-1 : ℤ) := rf_local_primeGen_valuation R v hv
+  have hnumle : Valued.v ((u : v.adicCompletion F) - algebraMap F _ aF) ≤
+      WithZero.exp (-1 : ℤ) := rf_valued_lt_one_le_exp_neg_one v _ hclose
+  have hdivval : Valued.v (((u : v.adicCompletion F) - algebraMap F _ aF) / pLoc) ≤ 1 := by
+    rw [map_div₀, hpVal]
+    have hpPos : 0 < WithZero.exp (-1 : ℤ) :=
+      lt_of_le_of_ne zero_le (Ne.symm WithZero.exp_ne_zero)
+    exact (div_le_one₀ hpPos).2 hnumle
+  have herrorInt :
+      (((u : v.adicCompletion F) - algebraMap F _ aF) / pLoc) ∈
+        v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hdivval
+  have herror : A.ψ v (((u : v.adicCompletion F) - algebraMap F _ aF) / pLoc) = 1 :=
+    A.integral v _ herrorInt
+  have hsum :
+      (u : v.adicCompletion F) / pLoc =
+        (algebraMap F (v.adicCompletion F) aF) / pLoc +
+          ((u : v.adicCompletion F) - algebraMap F _ aF) / pLoc := by
+    field_simp [pLoc, Units.ne_zero (primeGen R v)]
+    ring
+  have hfirst :
+      (algebraMap F (v.adicCompletion F) aF) / pLoc =
+        algebraMap F (v.adicCompletion F) (aF / (primeGen R v : F)) := by
+    change (algebraMap F (v.adicCompletion F) aF) /
+        algebraMap F (v.adicCompletion F) (primeGen R v : F) = _
+    rw [← map_div₀]
+  calc
+    A.ψ v ((toLoc v (primeGen R v))⁻¹ * (u : v.adicCompletion F)) =
+        A.ψ v ((u : v.adicCompletion F) / pLoc) := by
+          congr 1
+          simp [pLoc, div_eq_mul_inv, mul_comm]
+    _ = A.ψ v ((algebraMap F (v.adicCompletion F) aF) / pLoc +
+          ((u : v.adicCompletion F) - algebraMap F _ aF) / pLoc) := by rw [hsum]
+    _ = A.ψ v ((algebraMap F (v.adicCompletion F) aF) / pLoc) *
+          A.ψ v (((u : v.adicCompletion F) - algebraMap F _ aF) / pLoc) :=
+            (A.ψ v).map_add_eq_mul _ _
+    _ = A.ψ v (algebraMap F (v.adicCompletion F) (aF / (primeGen R v : F))) := by
+          rw [hfirst, herror, mul_one]
+    _ = _ := by rfl
+
+private theorem rf_local_unitPart_primePower
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (t : (v.adicCompletion F)ˣ)
+    (ht : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t) :
+    unitPart v (toLoc v (primeGen R v) ^ e * t) =
+      (toLoc v (primeGen R v) /
+        toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) ^ e * t := by
+  let pLoc := toLoc v (primeGen R v)
+  let π := toLoc v (Units.mk0 (unif v) (unif_ne_zero v))
+  let b := pLoc / π
+  have hbProps := rf_local_primeGen_ratio_isLocUnit R v hv
+  have hbLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v b := by
+    simpa [b, pLoc, π] using hbProps.2
+  have hpOrd : ordv v pLoc = 1 := by
+    simpa [pLoc] using rf_local_primeGen_ord R v hv
+  have hbOrd : ordv v b = 0 := rf_ordv_zero_of_localUnit v b hbLoc
+  have htOrd : ordv v t = 0 := rf_ordv_zero_of_localUnit v t ht
+  have hOrder : ordv v (pLoc ^ e * t) = e := by
+    rw [rf_ordv_mul, rf_ordv_zpow, hpOrd, htOrd]
+    ring
+  have hpLoc : pLoc = π * b := by
+    dsimp [b]
+    calc
+      pLoc = (pLoc / π) * π := (div_mul_cancel _ _).symm
+      _ = π * (pLoc / π) := by rw [mul_comm]
+  calc
+    unitPart v (pLoc ^ e * t) = pLoc ^ e * t * π ^ (-e) := by
+      dsimp [unitPart, π]
+      rw [hOrder]
+    _ = (π ^ e * b ^ e) * t * π ^ (-e) := by rw [hpLoc, mul_zpow]
+    _ = b ^ e * t := by simp [zpow_neg, mul_assoc, mul_left_comm, mul_comm]
+
+private theorem rf_localChi_algInt_unit (D : FieldData F) (S : SData F CE condη)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (a : 𝓞 F) (ha : a ∉ v.asIdeal) :
+    localChi D v (toLoc v (Units.mk0 (algebraMap (𝓞 F) F a)
+      (by
+        intro hzero
+        exact ha (by
+          have hmem : a ∈ v.asIdeal := by
+            apply (Ideal.Quotient.eq_zero_iff_mem).1
+            calc
+              Ideal.Quotient.mk v.asIdeal a = residue v (algebraMap (𝓞 F) F a) :=
+                ((ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).residue_algebraMap v a).symm
+              _ = residue v 0 := by rw [hzero]
+              _ = 0 := by
+                have h0 := (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).residue_algebraMap
+                  v (0 : 𝓞 F)
+                simpa using h0
+          exact hmem)))) = chi D v (algebraMap (𝓞 F) F a) := by
+  let x : F := algebraMap (𝓞 F) F a
+  have hxres : residue v x ≠ 0 := by
+    have h := (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).residue_algebraMap v a
+    rw [h]
+    exact fun hz => ha ((Ideal.Quotient.eq_zero_iff_mem).1 hz)
+  have hxval : v.valuation F x = 1 := by
+    apply ((ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).residue_ne_zero v x
+      (by simpa [x] using v.valuation_le_one a)).1
+    exact hxres
+  have hx0 : x ≠ 0 := by
+    intro hzero
+    apply hxres
+    calc
+      residue v x = residue v 0 := by rw [hzero]
+      _ = 0 := by
+        have h0 := (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).residue_algebraMap
+          v (0 : 𝓞 F)
+        simpa using h0
+  let u : Fˣ := Units.mk0 x hx0
+  let t := toLoc v u
+  have htLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t := by
+    have htval : Valued.v (t : v.adicCompletion F) = 1 := by
+      change Valued.v (algebraMap F (v.adicCompletion F) x) = 1
+      simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+        Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation', hxval]
+    constructor
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers, htval]
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      have hinv : Valued.v (((t⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+        simp [Units.val_inv_eq_inv_val, htval]
+      rw [hinv]
+  have hclose : Valued.v ((t : v.adicCompletion F) -
+      algebraMap F _ (algebraMap (𝓞 F) F a)) < 1 := by
+    have htEq : (t : v.adicCompletion F) = algebraMap F _ x := by
+      change algebraMap F _ (u : F) = algebraMap F _ x
+      simp [u]
+    rw [htEq]
+    simp [x]
+  simpa [t, u, x] using
+    (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).localChi_approximant v hv t htLoc a ha hclose
+
+private theorem rf_local_residue_not_mem (D : FieldData F) (S : SData F CE condη)
+    (v : FinPlace F) (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) : x.out ∉ v.asIdeal := by
+  intro hmem
+  have hzero : (Ideal.Quotient.mk v.asIdeal x.out : 𝓞 F ⧸ v.asIdeal) = 0 :=
+    (Ideal.Quotient.eq_zero_iff_mem).2 hmem
+  apply hx
+  calc
+    x = Ideal.Quotient.mk v.asIdeal x.out := by simp
+    _ = 0 := hzero
+
+private theorem rf_local_residue_val_one (D : FieldData F) (S : SData F CE condη)
+    (v : FinPlace F) (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+    v.valuation F (algebraMap (𝓞 F) F x.out) = 1 := by
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hres : residue v (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  have hxres : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+    rw [hres]
+    exact hx
+  exact (SB.residue_ne_zero v (algebraMap (𝓞 F) F x.out)
+    (v.valuation_le_one x.out)).mp hxres
+
+private theorem rf_localWeyl_phase_units {v : FinPlace F}
+    (x p t : (v.adicCompletion F)ˣ) (e : ℤ) :
+    (x / p)⁻¹ * (p ^ (e - 2) * t) = (p ^ (e - 1) * t) / x := by
+  have hp : p * p ^ (e - 2) = p ^ (e - 1) := by
+    calc
+      p * p ^ (e - 2) = p ^ (1 : ℤ) * p ^ (e - 2) := by simp
+      _ = p ^ ((1 : ℤ) + (e - 2)) := (zpow_add p _ _).symm
+      _ = p ^ (e - 1) := by congr 1 <;> omega
+  rw [inv_div]
+  calc
+    p / x * (p ^ (e - 2) * t) = (p * p ^ (e - 2) * t) / x := by
+      simp only [div_eq_mul_inv]
+      ac_rfl
+    _ = (p ^ (e - 1) * t) / x := by rw [hp]
+
+private theorem rf_localWeyl_torus_units {v : FinPlace F}
+    (x p t : (v.adicCompletion F)ˣ) (e : ℤ) :
+    (p ^ (e - 2) * t) * -((x / p)⁻¹ * (x / p)⁻¹) =
+      (p ^ e * t) * -(x ^ (-2 : ℤ)) := by
+  have hsq : (p / x) * (p / x) = p ^ 2 / x ^ 2 := by
+    calc
+      (p / x) * (p / x) = p * p / (x * x) := div_mul_div_comm _ _ _ _
+      _ = p ^ 2 / x ^ 2 := by simp [pow_two]
+  have hpow : p ^ (e - 2) * p ^ 2 = p ^ e := by
+    calc
+      p ^ (e - 2) * p ^ 2 = p ^ (e - 2) * p ^ (2 : ℤ) := by congr 1
+      _ = p ^ ((e - 2) + 2) := (zpow_add p _ _).symm
+      _ = p ^ e := by congr 1 <;> omega
+  have hxpow : (x ^ 2)⁻¹ = x ^ (-2 : ℤ) := by
+    calc
+      (x ^ (2 : ℕ))⁻¹ = (x ^ (2 : ℤ))⁻¹ :=
+        congrArg Inv.inv (zpow_natCast x 2).symm
+      _ = x ^ (-(2 : ℤ)) := (zpow_neg x 2).symm
+      _ = x ^ (-2 : ℤ) := by norm_num
+  have hpos : (p ^ (e - 2) * t) * (p ^ 2 / x ^ 2) =
+      (p ^ e * t) * x ^ (-2 : ℤ) := by
+    calc
+      (p ^ (e - 2) * t) * (p ^ 2 / x ^ 2) =
+          (p ^ (e - 2) * p ^ 2 * t) * (x ^ 2)⁻¹ := by
+            rw [div_eq_mul_inv]
+            ac_rfl
+      _ = (p ^ e * t) * (x ^ 2)⁻¹ := by rw [hpow]
+      _ = (p ^ e * t) * x ^ (-2 : ℤ) := by rw [hxpow]
+  rw [inv_div, hsq]
+  calc
+    (p ^ (e - 2) * t) * -(p ^ 2 / x ^ 2) =
+        -((p ^ (e - 2) * t) * (p ^ 2 / x ^ 2)) := by rw [mul_neg]
+    _ = -((p ^ e * t) * x ^ (-2 : ℤ)) := congrArg Neg.neg hpos
+    _ = (p ^ e * t) * -(x ^ (-2 : ℤ)) := (mul_neg _ _).symm
+
+private theorem rf_localWeyl_scalar_factor (ct cx : ℂˣ) (hcx6 : cx ^ (6 : ℕ) = 1)
+    (e : ℤ) :
+    (ct ^ (4 : ℤ) * cx ^ (4 * (e - 2))) * (cx ^ (4 * e))⁻¹ *
+        (ct ^ (-2 * e))⁻¹ = ct ^ (4 + 2 * e) * cx ^ (4 : ℤ) := by
+  have hred : cx ^ (-8 : ℤ) = cx ^ (4 : ℤ) := by
+    simpa using (zpow_eq_zpow_emod' (-8 : ℤ) hcx6)
+  have hct : ct ^ (4 : ℤ) * (ct ^ (-2 * e))⁻¹ = ct ^ (4 + 2 * e) := by
+    rw [← zpow_neg]
+    rw [show -(-2 * e) = 2 * e by ring]
+    exact (zpow_add ct (4 : ℤ) (2 * e)).symm
+  have hcx : cx ^ (4 * (e - 2)) * (cx ^ (4 * e))⁻¹ = cx ^ (-8 : ℤ) := by
+    rw [← zpow_neg]
+    rw [(zpow_add cx (4 * (e - 2)) (-(4 * e))).symm]
+    congr 1 <;> ring
+  calc
+    _ = (ct ^ (4 : ℤ) * (ct ^ (-2 * e))⁻¹) *
+          (cx ^ (4 * (e - 2)) * (cx ^ (4 * e))⁻¹) := by ac_rfl
+    _ = ct ^ (4 + 2 * e) * cx ^ (-8 : ℤ) := by rw [hct, hcx]
+    _ = ct ^ (4 + 2 * e) * cx ^ (4 : ℤ) := by rw [hred]
+
+private theorem rf_localWeyl_cover_group
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (Hh X : (v.adicCompletion F)ˣ) :
+    ∃ ζ : rootsOfUnity 3 ℂ,
+      ((ζ : ℂˣ) : ℂ) = extCocycle D v X (-(Hh⁻¹ * Hh⁻¹)) ∧
+      R.C.a v X * R.C.w v * R.C.n v (Multiplicative.ofAdd (Hh : v.adicCompletion F)) =
+        R.C.z ζ *
+          (R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) *
+            R.C.a v (X * (-(Hh⁻¹ * Hh⁻¹))) *
+            R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _))) := by
+  obtain ⟨ζ, hζ, hmul⟩ := R.C.a_mul v hv X (-(Hh⁻¹ * Hh⁻¹))
+  have hna :
+      R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) *
+        R.C.a v X =
+      R.C.a v X * R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)) := by
+    simpa [mul_assoc] using R.C.lift_na v
+      ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F) X
+  refine ⟨ζ, hζ, ?_⟩
+  calc
+    R.C.a v X * R.C.w v * R.C.n v (Multiplicative.ofAdd (Hh : v.adicCompletion F)) =
+        R.C.a v X * (R.C.w v * R.C.n v (Multiplicative.ofAdd (Hh : v.adicCompletion F))) := by
+          rw [mul_assoc]
+    _ = R.C.a v X *
+        (R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)) *
+          R.C.a v (-(Hh⁻¹ * Hh⁻¹)) *
+          R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _))) := by
+          rw [R.C.lift_wn v Hh]
+    _ = (R.C.a v X *
+          R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _))) *
+          R.C.a v (-(Hh⁻¹ * Hh⁻¹)) *
+          R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)) := by
+          simp [mul_assoc]
+    _ = (R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) *
+          R.C.a v X) * R.C.a v (-(Hh⁻¹ * Hh⁻¹)) *
+          R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)) := by
+          rw [← hna]
+    _ = R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) *
+          (R.C.a v X * R.C.a v (-(Hh⁻¹ * Hh⁻¹))) *
+          R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)) := by
+          simp [mul_assoc]
+    _ = R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) *
+          (R.C.z ζ * R.C.a v (X * (-(Hh⁻¹ * Hh⁻¹)))) *
+          R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)) := by
+          rw [hmul]
+    _ = R.C.z ζ *
+          (R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) *
+            R.C.a v (X * (-(Hh⁻¹ * Hh⁻¹))) *
+            R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _))) := by
+          calc
+            _ = (R.C.n v (Multiplicative.ofAdd
+                  ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) * R.C.z ζ) *
+                  (R.C.a v (X * (-(Hh⁻¹ * Hh⁻¹))) *
+                    R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _))) := by
+                  simp [mul_assoc]
+            _ = (R.C.z ζ * R.C.n v (Multiplicative.ofAdd
+                  ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _))) *
+                  (R.C.a v (X * (-(Hh⁻¹ * Hh⁻¹))) *
+                    R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _))) := by
+                  rw [R.C.z_central ζ]
+            _ = _ := by simp [mul_assoc]
+
+private theorem rf_localWeyl_nonzero_summand
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (t : (v.adicCompletion F)ˣ)
+    (ht : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t)
+    (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+    R.T.Wv v (R.C.a v (toLoc v (primeGen R v) ^ (e - 2) * t) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F x.out / (primeGen R v : F))))) =
+    localW R v e * localChi D v t ^ (4 + 2 * e) *
+      chi D v (algebraMap (𝓞 F) F x.out) ^ 4 *
+        A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * t :
+          (v.adicCompletion F)ˣ) : _) / algebraMap F _ (algebraMap (𝓞 F) F x.out)) := by
+  classical
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  let xF : F := algebraMap (𝓞 F) F x.out
+  have hres : residue v xF = x := by simpa [xF] using SB.residue_algebraMap v x.out
+  have hnotMem : x.out ∉ v.asIdeal := rf_local_residue_not_mem D S v x hx
+  have hxFne : xF ≠ 0 := by
+    intro hz
+    have hzero : residue v (0 : F) = 0 := by
+      have h := SB.residue_algebraMap v (0 : 𝓞 F)
+      simpa using h
+    apply hx
+    calc
+      x = residue v xF := hres.symm
+      _ = residue v 0 := by rw [hz]
+      _ = 0 := hzero
+  let xu : Fˣ := Units.mk0 xF hxFne
+  let xLoc : (v.adicCompletion F)ˣ := toLoc v xu
+  have hxVal : v.valuation F xF = 1 := rf_local_residue_val_one D S v x hx
+  have hxLocVal : Valued.v (xLoc : v.adicCompletion F) = 1 := by
+    change Valued.v (algebraMap F (v.adicCompletion F) xF) = 1
+    simp only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation', hxVal]
+  have hxLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v xLoc := by
+    constructor
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hxLocVal]
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      have hi : Valued.v (((xLoc⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+        simp [Units.val_inv_eq_inv_val, hxLocVal]
+      rw [hi]
+  have hchiX : localChi D v xLoc = chi D v xF :=
+    rf_localChi_algInt_unit D S v hv x.out hnotMem
+  let p : Fˣ := primeGen R v
+  let pLoc : (v.adicCompletion F)ˣ := toLoc v p
+  let π : (v.adicCompletion F)ˣ := toLoc v (Units.mk0 (unif v) (unif_ne_zero v))
+  let b : (v.adicCompletion F)ˣ := pLoc / π
+  let X : (v.adicCompletion F)ˣ := pLoc ^ (e - 2) * t
+  let Hh : (v.adicCompletion F)ˣ := xLoc / pLoc
+  let Q : (v.adicCompletion F)ˣ := -(Hh⁻¹ * Hh⁻¹)
+  let U : (v.adicCompletion F)ˣ := pLoc ^ e * t
+  let V : (v.adicCompletion F)ˣ := -(xLoc ^ (-2 : ℤ))
+  have hxLocMap : (xLoc : v.adicCompletion F) = algebraMap F (v.adicCompletion F) xF := by
+    change algebraMap F (v.adicCompletion F) (xu : F) = _
+    simp [xu]
+  have hpLocMap : (pLoc : v.adicCompletion F) = algebraMap F (v.adicCompletion F) (p : F) := by
+    change algebraMap F (v.adicCompletion F) (p : F) = _
+    rfl
+  have hHroot : (Hh : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (xF / (p : F)) := by
+    dsimp [Hh]
+    rw [Units.val_div_eq_div_val, hxLocMap, hpLocMap, ← map_div₀]
+  have hHinvRoot : (Hh⁻¹ : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) ((p : F) / xF) := by
+    calc
+      (Hh⁻¹ : v.adicCompletion F) = ((Hh : v.adicCompletion F)⁻¹) := by simp
+      _ = (algebraMap F (v.adicCompletion F) (xF / (p : F)))⁻¹ := by rw [hHroot]
+      _ = algebraMap F (v.adicCompletion F) ((xF / (p : F))⁻¹) := by simp
+      _ = algebraMap F (v.adicCompletion F) ((p : F) / xF) := by rw [inv_div]
+  have hHinvVal : Valued.v (Hh⁻¹ : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    rw [hHinvRoot]
+    calc
+      Valued.v (algebraMap F (v.adicCompletion F) ((p : F) / xF)) =
+          v.valuation F ((p : F) / xF) := v.valuedAdicCompletion_eq_valuation' ((p : F) / xF)
+      _ = v.valuation F (p : F) / v.valuation F xF := by rw [map_div₀]
+      _ = WithZero.exp (-1 : ℤ) := by
+        rw [rf_local_primeGen_valuation R v hv, hxVal]
+        simp
+  have hHinvLT : Valued.v (Hh⁻¹ : v.adicCompletion F) < 1 := by
+    rw [hHinvVal, WithZero.exp_lt_one_iff]
+    norm_num
+  have hbProps := rf_local_primeGen_ratio_isLocUnit R v hv
+  have hbLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v b := by
+    simpa [b, pLoc, π, p] using hbProps.2
+  have hpOrd : ordv v pLoc = 1 := by simpa [pLoc, p] using rf_local_primeGen_ord R v hv
+  have htOrd : ordv v t = 0 := rf_ordv_zero_of_localUnit v t ht
+  have hxOrd : ordv v xLoc = 0 := rf_ordv_zero_of_localUnit v xLoc hxLoc
+  have hOrdX : ordv v X = e - 2 := by
+    dsimp [X]
+    rw [rf_ordv_mul, rf_ordv_zpow, hpOrd, htOrd]
+    ring
+  have hOrdU : ordv v U = e := by
+    dsimp [U]
+    rw [rf_ordv_mul, rf_ordv_zpow, hpOrd, htOrd]
+    ring
+  have hminusLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (-1 : (v.adicCompletion F)ˣ) := by
+    constructor <;> simp [HeightOneSpectrum.mem_adicCompletionIntegers]
+  have hVLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v V := by
+    change V ∈ rf_localUnitSubgroup v
+    have hxPow : xLoc ^ (-2 : ℤ) ∈ rf_localUnitSubgroup v :=
+      (rf_localUnitSubgroup v).zpow_mem hxLoc _
+    have hneg : (-1 : (v.adicCompletion F)ˣ) ∈ rf_localUnitSubgroup v := hminusLoc
+    have hmul := (rf_localUnitSubgroup v).mul_mem hneg hxPow
+    change -(xLoc ^ (-2 : ℤ)) ∈ rf_localUnitSubgroup v
+    rw [neg_eq_neg_one_mul]
+    exact hmul
+  have hOrdV : ordv v V = 0 := rf_ordv_zero_of_localUnit v V hVLoc
+  have hQrel : Q = pLoc ^ (2 : ℤ) * V := by
+    simpa [Q, V, Hh] using rf_localWeyl_torus_units xLoc pLoc (1 : (v.adicCompletion F)ˣ) 2
+  have hOrdQ : ordv v Q = 2 := by
+    rw [hQrel, rf_ordv_mul, rf_ordv_zpow, hpOrd, hOrdV]
+    ring
+  have hunitX : unitPart v X = b ^ (e - 2) * t := by
+    dsimp [X, pLoc, p]
+    exact rf_local_unitPart_primePower R v hv (e - 2) t ht
+  have hunitU : unitPart v U = b ^ e * t := by
+    dsimp [U, pLoc, p]
+    exact rf_local_unitPart_primePower R v hv e t ht
+  have hunitV : unitPart v V = V := by simp [unitPart, hOrdV]
+  have hpLoc : pLoc = π * b := by
+    dsimp [b]
+    calc
+      pLoc = (pLoc / π) * π := (div_mul_cancel _ _).symm
+      _ = π * (pLoc / π) := by rw [mul_comm]
+  have hunitQ : unitPart v Q = V * b ^ (2 : ℤ) := by
+    calc
+      unitPart v Q = Q * π ^ (-(2 : ℤ)) := by
+        simp only [unitPart]
+        rw [hOrdQ]
+      _ = pLoc ^ (2 : ℤ) * V * π ^ (-(2 : ℤ)) := by rw [hQrel]
+      _ = (π ^ (2 : ℤ) * b ^ (2 : ℤ) * V) * π ^ (-(2 : ℤ)) := by
+        rw [hpLoc, mul_zpow]
+      _ = V * b ^ (2 : ℤ) := by
+        simp only [zpow_neg]
+        calc
+          π ^ (2 : ℤ) * b ^ (2 : ℤ) * V * (π ^ (2 : ℤ))⁻¹ =
+              (π ^ (2 : ℤ) * (π ^ (2 : ℤ))⁻¹) * (V * b ^ (2 : ℤ)) := by ac_rfl
+          _ = V * b ^ (2 : ℤ) := by simp
+  let hv6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  have hbasic := ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) (v := v) hv6
+  have hchiT6 : localChi D v t ^ (6 : ℕ) = 1 := hbasic.2.2.2.1 t ht
+  have hchiB6 : localChi D v b ^ (6 : ℕ) = 1 := hbasic.2.2.2.1 b hbLoc
+  have hchiXLoc6 : localChi D v xLoc ^ (6 : ℕ) = 1 := hbasic.2.2.2.1 xLoc hxLoc
+  have hBne : localChi D v b ≠ 0 := by
+    intro hzero
+    rw [hzero] at hchiB6
+    norm_num at hchiB6
+  have hTne : localChi D v t ≠ 0 := by
+    intro hzero
+    rw [hzero] at hchiT6
+    norm_num at hchiT6
+  have hXne : localChi D v xLoc ≠ 0 := by
+    intro hzero
+    rw [hzero] at hchiXLoc6
+    norm_num at hchiXLoc6
+  let cB : ℂˣ := Units.mk0 (localChi D v b) hBne
+  let cT : ℂˣ := Units.mk0 (localChi D v t) hTne
+  let cX : ℂˣ := Units.mk0 (localChi D v xLoc) hXne
+  have hCB : (cB : ℂ) = localChi D v b := rfl
+  have hCT : (cT : ℂ) = localChi D v t := rfl
+  have hCX : (cX : ℂ) = chi D v xF := hchiX
+  have hCX6 : cX ^ (6 : ℕ) = 1 := by
+    apply Units.ext
+    exact hchiXLoc6
+  have hBpow : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (b ^ (e - 2)) := by
+    change b ^ (e - 2) ∈ rf_localUnitSubgroup v
+    exact (rf_localUnitSubgroup v).zpow_mem hbLoc _
+  have hChiUnitX : localChi D v (unitPart v X) =
+      ((cB ^ (e - 2) * cT : ℂˣ) : ℂ) := by
+    rw [hunitX]
+    calc
+      localChi D v (b ^ (e - 2) * t) =
+          localChi D v (b ^ (e - 2)) * localChi D v t := hbasic.2.2.1 _ _ hBpow ht
+      _ = ((cB ^ (e - 2) : ℂˣ) : ℂ) * (cT : ℂ) := by
+        rw [rf_localChi_zpow D v hv6 b hbLoc (e - 2)]
+        simp only [← hCB, ← hCT, Units.val_zpow_eq_zpow_val]
+      _ = ((cB ^ (e - 2) * cT : ℂˣ) : ℂ) := by simp
+  have hB2Loc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (b ^ (2 : ℤ)) := by
+    change b ^ (2 : ℤ) ∈ rf_localUnitSubgroup v
+    exact (rf_localUnitSubgroup v).zpow_mem hbLoc _
+  have hXminus2Loc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (xLoc ^ (-2 : ℤ)) := by
+    change xLoc ^ (-2 : ℤ) ∈ rf_localUnitSubgroup v
+    exact (rf_localUnitSubgroup v).zpow_mem hxLoc _
+  have hChiV : localChi D v V = ((cX ^ (-2 : ℤ) : ℂˣ) : ℂ) := by
+    have hVmul : V = (-1 : (v.adicCompletion F)ˣ) * xLoc ^ (-2 : ℤ) := by
+      dsimp [V]
+      exact neg_eq_neg_one_mul _
+    have hmul := hbasic.2.2.1 (-1) (xLoc ^ (-2 : ℤ)) hminusLoc hXminus2Loc
+    calc
+      localChi D v V = localChi D v ((-1 : (v.adicCompletion F)ˣ) * xLoc ^ (-2 : ℤ)) := by
+        rw [hVmul]
+      _ = localChi D v (-1) * localChi D v (xLoc ^ (-2 : ℤ)) := hmul
+      _ = (cX ^ (-2 : ℤ) : ℂˣ) := by
+        rw [hbasic.2.1, rf_localChi_zpow D v hv6 xLoc hxLoc (-2), hchiX, ← hCX]
+        simp only [one_mul, Units.val_zpow_eq_zpow_val]
+      _ = ((cX ^ (-2 : ℤ) : ℂˣ) : ℂ) := rfl
+  have hChiUnitQ : localChi D v (unitPart v Q) =
+      ((cX ^ (-2 : ℤ) * cB ^ (2 : ℤ) : ℂˣ) : ℂ) := by
+    rw [hunitQ]
+    have hmul := hbasic.2.2.1 V (b ^ (2 : ℤ)) hVLoc hB2Loc
+    calc
+      localChi D v (V * b ^ (2 : ℤ)) = localChi D v V * localChi D v (b ^ (2 : ℤ)) := hmul
+      _ = ((cX ^ (-2 : ℤ) : ℂˣ) : ℂ) *
+          ((cB ^ (2 : ℤ) : ℂˣ) : ℂ) := by
+        rw [hChiV, rf_localChi_zpow D v hv6 b hbLoc (2 : ℤ)]
+        simp only [← hCB, Units.val_zpow_eq_zpow_val]
+      _ = ((cX ^ (-2 : ℤ) * cB ^ (2 : ℤ) : ℂˣ) : ℂ) := by simp
+  have hChiUnitU : localChi D v (unitPart v U) =
+      ((cB ^ e * cT : ℂˣ) : ℂ) := by
+    rw [hunitU]
+    have hBpow' : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (b ^ e) := by
+      change b ^ e ∈ rf_localUnitSubgroup v
+      exact (rf_localUnitSubgroup v).zpow_mem hbLoc _
+    calc
+      localChi D v (b ^ e * t) = localChi D v (b ^ e) * localChi D v t :=
+        hbasic.2.2.1 _ _ hBpow' ht
+      _ = ((cB ^ e : ℂˣ) : ℂ) * (cT : ℂ) := by
+        rw [rf_localChi_zpow D v hv6 b hbLoc e]
+        simp only [← hCB, ← hCT, Units.val_zpow_eq_zpow_val]
+      _ = ((cB ^ e * cT : ℂˣ) : ℂ) := by simp
+  have hscalar1Unit :
+      (cB ^ (e - 2) * cT) ^ (4 : ℤ) *
+        (cX ^ (-2 : ℤ) * cB ^ (2 : ℤ)) ^ (-2 * (e - 2)) =
+      cT ^ (4 : ℤ) * cX ^ (4 * (e - 2)) := by
+    calc
+      _ = (cB ^ (e - 2)) ^ (4 : ℤ) * cT ^ (4 : ℤ) *
+          ((cX ^ (-2 : ℤ)) ^ (-2 * (e - 2)) *
+            (cB ^ (2 : ℤ)) ^ (-2 * (e - 2))) := by
+              rw [mul_zpow, mul_zpow]
+      _ = cB ^ ((e - 2) * 4) * cT ^ (4 : ℤ) *
+          (cX ^ ((-2 : ℤ) * (-2 * (e - 2))) *
+            cB ^ (2 * (-2 * (e - 2)))) := by
+              rw [← zpow_mul, ← zpow_mul, ← zpow_mul]
+      _ = (cB ^ ((e - 2) * 4) * cB ^ (2 * (-2 * (e - 2)))) *
+          cT ^ (4 : ℤ) * cX ^ ((-2 : ℤ) * (-2 * (e - 2))) := by ac_rfl
+      _ = cB ^ ((e - 2) * 4 + 2 * (-2 * (e - 2))) * cT ^ (4 : ℤ) *
+          cX ^ ((-2 : ℤ) * (-2 * (e - 2))) := by
+              rw [← zpow_add]
+      _ = cT ^ (4 : ℤ) * cX ^ (4 * (e - 2)) := by
+            have hBexp : (e - 2) * 4 + 2 * (-2 * (e - 2)) = 0 := by ring
+            have hXexp : (-2 : ℤ) * (-2 * (e - 2)) = 4 * (e - 2) := by ring
+            rw [hBexp, hXexp, zpow_zero]
+            simp
+  have hcentral1 : extCocycle D v X Q =
+      ((cT ^ (4 : ℤ) * cX ^ (4 * (e - 2)) : ℂˣ) : ℂ) := by
+    unfold extCocycle
+    rw [hOrdQ, hOrdX, hChiUnitX, hChiUnitQ]
+    norm_num
+    simpa [Units.val_mul, Units.val_zpow_eq_zpow_val] using
+      congrArg (fun z : ℂˣ => (z : ℂ)) hscalar1Unit
+  have hscalar2Unit :
+      (cX ^ (-2 : ℤ)) ^ (-2 * e) = cX ^ (4 * e) := by
+    calc
+      (cX ^ (-2 : ℤ)) ^ (-2 * e) = cX ^ ((-2 : ℤ) * (-2 * e)) :=
+        (zpow_mul cX (-2 : ℤ) (-2 * e)).symm
+      _ = cX ^ (4 * e) := by congr 1 <;> ring
+  have hcentral2 : extCocycle D v U V =
+      ((cX ^ (4 * e) : ℂˣ) : ℂ) := by
+    unfold extCocycle
+    rw [hOrdV, hOrdU, hChiUnitU, hunitV, hChiV]
+    simp only [mul_zero, zpow_zero, one_mul]
+    have hmap := congrArg (fun z : ℂˣ => (z : ℂ)) hscalar2Unit
+    rw [Units.val_zpow_eq_zpow_val] at hmap
+    convert hmap using 1 <;> ring
+  have hOneLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (1 : (v.adicCompletion F)ˣ) := by
+    constructor <;> simp [HeightOneSpectrum.mem_adicCompletionIntegers]
+  have hunitP : unitPart v (pLoc ^ e) = b ^ e := by
+    simpa using rf_local_unitPart_primePower R v hv e 1 hOneLoc
+  have hunitT : unitPart v t = t := by
+    simp [unitPart, htOrd]
+  have hcentral3 : extCocycle D v (pLoc ^ e) t =
+      ((cT ^ (-2 * e) : ℂˣ) : ℂ) := by
+    unfold extCocycle
+    rw [hunitP, hunitT, htOrd, rf_ordv_zpow v pLoc e, hpOrd]
+    simp [hCT, Units.val_zpow_eq_zpow_val]
+  have hscalar := rf_localWeyl_scalar_factor cT cX hCX6 e
+  have htotal : extCocycle D v X Q * (extCocycle D v U V)⁻¹ *
+      (extCocycle D v (pLoc ^ e) t)⁻¹ =
+      localChi D v t ^ (4 + 2 * e) * chi D v xF ^ 4 := by
+    calc
+      _ = ((cT ^ (4 : ℤ) * cX ^ (4 * (e - 2)) : ℂˣ) : ℂ) *
+          (((cX ^ (4 * e) : ℂˣ) : ℂ))⁻¹ * (((cT ^ (-2 * e) : ℂˣ) : ℂ))⁻¹ := by
+            rw [hcentral1, hcentral2, hcentral3]
+      _ = ((cT ^ (4 : ℤ) * cX ^ (4 * (e - 2)) *
+            (cX ^ (4 * e))⁻¹ * (cT ^ (-2 * e))⁻¹ : ℂˣ) : ℂ) := by simp
+      _ = ((cT ^ (4 + 2 * e) * cX ^ (4 : ℤ) : ℂˣ) : ℂ) :=
+        congrArg (fun z : ℂˣ => (z : ℂ)) hscalar
+      _ = localChi D v t ^ (4 + 2 * e) * chi D v xF ^ 4 := by
+        simp [hCT, hCX, Units.val_zpow_eq_zpow_val, Units.val_mul]
+  have hXQ : X * Q = U * V := by
+    simpa [X, Q, U, V, Hh] using rf_localWeyl_torus_units xLoc pLoc t e
+  obtain ⟨ζ₁, hζ₁, hcover⟩ := rf_localWeyl_cover_group R v hv Hh X
+  have hnarg :
+      algebraMap F (v.adicCompletion F)
+          (algebraMap (𝓞 F) F x.out / (primeGen R v : F)) =
+        (Hh : v.adicCompletion F) := by
+    simpa [xF, p] using hHroot.symm
+  have hHinvLTunit : Valued.v ((Hh⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) < 1 := by
+    simpa using hHinvLT
+  have hinput :
+      R.C.a v X * R.C.w v * R.C.n v (Multiplicative.ofAdd
+          (algebraMap F (v.adicCompletion F)
+            (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) =
+        R.C.a v X * R.C.w v * R.C.n v (Multiplicative.ofAdd (Hh : v.adicCompletion F)) := by
+    rw [hnarg]
+  have hbarK : R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)) ∈ R.C.Kext :=
+    R.C.nbar_Kext v hv ((Hh⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) hHinvLTunit
+  have hbarLoc : R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)) ∈ R.C.Gloc v :=
+    R.C.nbar_mem v ((Hh⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)
+  have hbarRight := R.T.Wv_right v hv (R.C.a v (X * Q))
+    (R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _))) hbarK hbarLoc
+  obtain ⟨ζ₂, hζ₂, hmul₂⟩ := R.C.a_mul v hv U V
+  have hVcompact : R.C.a v V ∈ R.C.Kext := R.C.a_Kext v hv V hVLoc.1 hVLoc.2
+  have hVright := R.T.Wv_right v hv (R.C.a v U) (R.C.a v V) hVcompact (R.C.a_mem v V)
+  have hζ₂ne : ((ζ₂ : ℂˣ) : ℂ) ≠ 0 := Units.ne_zero (ζ₂ : ℂˣ)
+  have hUVlocal : R.T.Wv v (R.C.a v (U * V)) =
+      ((ζ₂ : ℂˣ) : ℂ)⁻¹ * R.T.Wv v (R.C.a v U) := by
+    calc
+      R.T.Wv v (R.C.a v (U * V)) =
+          ((ζ₂ : ℂˣ) : ℂ)⁻¹ * (((ζ₂ : ℂˣ) : ℂ) * R.T.Wv v (R.C.a v (U * V))) := by
+            rw [← mul_assoc, inv_mul_cancel₀ hζ₂ne, one_mul]
+      _ = ((ζ₂ : ℂˣ) : ℂ)⁻¹ * R.T.Wv v (R.C.a v U) := by
+            rw [← hVright, hmul₂, R.T.Wv_genuine v hv ζ₂ (R.C.a v (U * V))]
+  obtain ⟨ζ₃, hζ₃, hmul₃⟩ := R.C.a_mul v hv (pLoc ^ e) t
+  have htcompact : R.C.a v t ∈ R.C.Kext := R.C.a_Kext v hv t ht.1 ht.2
+  have htright := R.T.Wv_right v hv (R.C.a v (pLoc ^ e)) (R.C.a v t)
+    htcompact (R.C.a_mem v t)
+  have hζ₃ne : ((ζ₃ : ℂˣ) : ℂ) ≠ 0 := Units.ne_zero (ζ₃ : ℂˣ)
+  have hUlocal : R.T.Wv v (R.C.a v U) =
+      ((ζ₃ : ℂˣ) : ℂ)⁻¹ * localW R v e := by
+    calc
+      R.T.Wv v (R.C.a v U) =
+          ((ζ₃ : ℂˣ) : ℂ)⁻¹ * (((ζ₃ : ℂˣ) : ℂ) * R.T.Wv v (R.C.a v U)) := by
+            rw [← mul_assoc, inv_mul_cancel₀ hζ₃ne, one_mul]
+      _ = ((ζ₃ : ℂˣ) : ℂ)⁻¹ * R.T.Wv v (R.C.a v (pLoc ^ e)) := by
+            rw [← htright, hmul₃, R.T.Wv_genuine v hv ζ₃ (R.C.a v U)]
+      _ = ((ζ₃ : ℂˣ) : ℂ)⁻¹ * localW R v e := by rfl
+  have hWeylTable : R.T.Wv v (R.C.a v (X * Q)) =
+      (extCocycle D v U V)⁻¹ *
+        ((extCocycle D v (pLoc ^ e) t)⁻¹ * localW R v e) := by
+    calc
+      R.T.Wv v (R.C.a v (X * Q)) = R.T.Wv v (R.C.a v (U * V)) := by rw [hXQ]
+      _ = ((ζ₂ : ℂˣ) : ℂ)⁻¹ * R.T.Wv v (R.C.a v U) := hUVlocal
+      _ = ((ζ₂ : ℂˣ) : ℂ)⁻¹ * (((ζ₃ : ℂˣ) : ℂ)⁻¹ * localW R v e) := by rw [hUlocal]
+      _ = (extCocycle D v U V)⁻¹ *
+          ((extCocycle D v (pLoc ^ e) t)⁻¹ * localW R v e) := by rw [hζ₂, hζ₃]
+  have hfactor : ((ζ₁ : ℂˣ) : ℂ) * (extCocycle D v U V)⁻¹ *
+      (extCocycle D v (pLoc ^ e) t)⁻¹ =
+      localChi D v t ^ (4 + 2 * e) * chi D v xF ^ 4 := by
+    rw [hζ₁]
+    exact htotal
+  calc
+    R.T.Wv v (R.C.a v (toLoc v (primeGen R v) ^ (e - 2) * t) * R.C.w v *
+        R.C.n v (Multiplicative.ofAdd (algebraMap F _
+          (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) ) =
+        R.T.Wv v (R.C.a v X * R.C.w v *
+          R.C.n v (Multiplicative.ofAdd (Hh : v.adicCompletion F)) ) := by
+            rw [← hinput]
+    _ = R.T.Wv v (R.C.z ζ₁ *
+          (R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) *
+            R.C.a v (X * Q) *
+            R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)))) := by
+              rw [hcover]
+    _ = ((ζ₁ : ℂˣ) : ℂ) *
+          R.T.Wv v (R.C.n v (Multiplicative.ofAdd ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : _)) *
+            (R.C.a v (X * Q) *
+              R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)))) := by
+              rw [R.T.Wv_genuine v hv ζ₁]
+              congr 1
+              simp only [mul_assoc]
+    _ = ((ζ₁ : ℂˣ) : ℂ) *
+          (A.ψ v ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+            R.T.Wv v (R.C.a v (X * Q) *
+              R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)))) := by
+              rw [R.T.Wv_equiv v hv
+                ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F)
+                (R.C.a v (X * Q) *
+                  R.C.nbar v (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : _)))]
+    _ = ((ζ₁ : ℂˣ) : ℂ) *
+          (A.ψ v ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+            R.T.Wv v (R.C.a v (X * Q))) := by rw [hbarRight]
+    _ = (((ζ₁ : ℂˣ) : ℂ) *
+          (A.ψ v ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F))) *
+          ((extCocycle D v U V)⁻¹ *
+            ((extCocycle D v (pLoc ^ e) t)⁻¹ * localW R v e)) := by rw [hWeylTable]; ac_rfl
+    _ = localW R v e * localChi D v t ^ (4 + 2 * e) * chi D v xF ^ 4 *
+          A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * t : (v.adicCompletion F)ˣ) : _) /
+            algebraMap F _ (algebraMap (𝓞 F) F x.out)) := by
+              have hphase : Hh⁻¹ * X = (pLoc ^ (e - 1) * t) / xLoc := by
+                simpa [Hh, X] using rf_localWeyl_phase_units xLoc pLoc t e
+              have hphaseArg :
+                  ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+                    (((pLoc ^ (e - 1) * t : (v.adicCompletion F)ˣ) : v.adicCompletion F) /
+                      algebraMap F (v.adicCompletion F) xF) := by
+                rw [hphase, Units.val_div_eq_div_val, hxLocMap]
+              have hphaseRhs :
+                  (((pLoc ^ (e - 1) * t : (v.adicCompletion F)ˣ) : v.adicCompletion F) /
+                      algebraMap F (v.adicCompletion F) xF) =
+                    (((toLoc v (primeGen R v) ^ (e - 1) * t : (v.adicCompletion F)ˣ) : _) /
+                      algebraMap F _ (algebraMap (𝓞 F) F x.out)) := by
+                simp [pLoc, p, xF]
+              calc
+                ((ζ₁ : ℂˣ) : ℂ) *
+                    (A.ψ v ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F)) *
+                    ((extCocycle D v U V)⁻¹ *
+                      ((extCocycle D v (pLoc ^ e) t)⁻¹ * localW R v e)) =
+                  localW R v e *
+                    (((ζ₁ : ℂˣ) : ℂ) * (extCocycle D v U V)⁻¹ *
+                      (extCocycle D v (pLoc ^ e) t)⁻¹) *
+                    A.ψ v ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F) := by ac_rfl
+                _ = localW R v e *
+                    (localChi D v t ^ (4 + 2 * e) * chi D v xF ^ 4) *
+                    A.ψ v ((Hh⁻¹ * X : (v.adicCompletion F)ˣ) : v.adicCompletion F) := by
+                      rw [hfactor]
+                _ = localW R v e * localChi D v t ^ (4 + 2 * e) * chi D v xF ^ 4 *
+                    A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * t : (v.adicCompletion F)ˣ) : _) /
+                      algebraMap F _ (algebraMap (𝓞 F) F x.out)) := by
+                  have hψeq := congrArg (A.ψ v) (hphaseArg.trans hphaseRhs)
+                  rw [hψeq] <;> ac_rfl
+
+private theorem rf_localWeyl_positive_phase
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (he : 0 < e) (t : (v.adicCompletion F)ˣ)
+    (ht : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t)
+    (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+    A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * t : (v.adicCompletion F)ˣ) : _) /
+      algebraMap F _ (algebraMap (𝓞 F) F x.out)) = 1 := by
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  let xF : F := algebraMap (𝓞 F) F x.out
+  have hres : residue v xF = x := by simpa [xF] using SB.residue_algebraMap v x.out
+  have hnotMem : x.out ∉ v.asIdeal := rf_local_residue_not_mem D S v x hx
+  have hxFne : xF ≠ 0 := by
+    intro hz
+    have hzero : residue v (0 : F) = 0 := by
+      have h := SB.residue_algebraMap v (0 : 𝓞 F)
+      simpa using h
+    apply hx
+    calc
+      x = residue v xF := hres.symm
+      _ = residue v 0 := by rw [hz]
+      _ = 0 := hzero
+  let xu : Fˣ := Units.mk0 xF hxFne
+  let xLoc : (v.adicCompletion F)ˣ := toLoc v xu
+  have hxVal : v.valuation F xF = 1 := rf_local_residue_val_one D S v x hx
+  have hxLocMap : (xLoc : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) xF := by
+    change algebraMap F (v.adicCompletion F) (xu : F) = _
+    simp [xu]
+  have hxLocVal : Valued.v (xLoc : v.adicCompletion F) = 1 := by
+    calc
+      Valued.v (xLoc : v.adicCompletion F) =
+          Valued.v (algebraMap F (v.adicCompletion F) xF) := by rw [hxLocMap]
+      _ = v.valuation F xF := v.valuedAdicCompletion_eq_valuation' xF
+      _ = 1 := hxVal
+  have hxLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v xLoc := by
+    constructor
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hxLocVal]
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      have hinv : Valued.v (((xLoc⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+        simp [Units.val_inv_eq_inv_val, hxLocVal]
+      rw [hinv]
+  let pLoc := toLoc v (primeGen R v)
+  have hpOrd : ordv v pLoc = 1 := rf_local_primeGen_ord R v hv
+  have htOrd : ordv v t = 0 := rf_ordv_zero_of_localUnit v t ht
+  have hxOrd : ordv v xLoc = 0 := rf_ordv_zero_of_localUnit v xLoc hxLoc
+  have huOrd : ordv v (pLoc ^ (e - 1) * t) = e - 1 := by
+    rw [rf_ordv_mul, rf_ordv_zpow, hpOrd, htOrd]
+    ring
+  have hxInvOrd : ordv v xLoc⁻¹ = 0 := by
+    have h := rf_ordv_zpow v xLoc (-1)
+    rw [hxOrd] at h
+    simpa using h
+  have hphaseOrd : ordv v ((pLoc ^ (e - 1) * t) / xLoc) = e - 1 := by
+    calc
+      ordv v ((pLoc ^ (e - 1) * t) / xLoc) =
+          ordv v ((pLoc ^ (e - 1) * t) * xLoc⁻¹) := by rw [div_eq_mul_inv]
+      _ = ordv v (pLoc ^ (e - 1) * t) + ordv v xLoc⁻¹ := rf_ordv_mul _ _ _
+      _ = e - 1 := by rw [huOrd, hxInvOrd]; ring
+  have hphaseval :
+      ((pLoc ^ (e - 1) * t / xLoc : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+        (((toLoc v (primeGen R v) ^ (e - 1) * t : (v.adicCompletion F)ˣ) : _) /
+          algebraMap F _ (algebraMap (𝓞 F) F x.out)) := by
+    rw [Units.val_div_eq_div_val, hxLocMap]
+  rw [← hphaseval]
+  apply rf_local_addchar_trivial_of_ord_nonneg v _ ?_
+  rw [hphaseOrd]
+  omega
+
+private theorem rf_localR_formula
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (j : Fin 6) (e : ℤ) (t : (v.adicCompletion F)ˣ)
+    (ht : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t) :
+    localR R v j e t = localW R v e * localChi D v t ^ (4 + 2 * e) *
+      ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j x * chi D v (algebraMap (𝓞 F) F x.out) ^ 4 *
+          A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * t :
+            (v.adicCompletion F)ˣ) : _) /
+              algebraMap F _ (algebraMap (𝓞 F) F x.out)) := by
+  classical
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueFintype v
+  let c := localW R v e * localChi D v t ^ (4 + 2 * e)
+  let f : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x =>
+    if x = 0 then 0 else maskAlpha D A v (primeGen R v) j x *
+      R.T.Wv v (R.C.a v (toLoc v (primeGen R v) ^ (e - 2) * t) * R.C.w v *
+        R.C.n v (Multiplicative.ofAdd (algebraMap F _
+          (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))
+  let g : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x =>
+    if x = 0 then 0 else maskAlpha D A v (primeGen R v) j x *
+      chi D v (algebraMap (𝓞 F) F x.out) ^ 4 *
+        A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * t :
+          (v.adicCompletion F)ˣ) : _) /
+            algebraMap F _ (algebraMap (𝓞 F) F x.out))
+  have hfinsum := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f
+  have hginsum := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v g
+  have hpoint (x : 𝓞 F ⧸ v.asIdeal) : f x = c * g x := by
+    by_cases hx : x = 0
+    · simp [f, g, hx]
+    · simp only [f, g, if_neg hx]
+      rw [rf_localWeyl_nonzero_summand R v hv e t ht x hx]
+      ring
+  calc
+    localR R v j e t = ∑ x : 𝓞 F ⧸ v.asIdeal, f x := by
+      unfold localR
+      rw [hfinsum]
+    _ = c * ∑ x : 𝓞 F ⧸ v.asIdeal, g x := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro x _
+      exact hpoint x
+    _ = localW R v e * localChi D v t ^ (4 + 2 * e) * ∑ᶠ x, g x := by
+      rw [← hginsum]
+    _ = _ := by rfl
+
+private theorem rf_local_addchar_out_phase
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ψ : AddChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hψval : ∀ a b, ψ (a * b) = A.ψ v (algebraMap F _
+      (algebraMap (𝓞 F) F b.out * algebraMap (𝓞 F) F a.out /
+        (primeGen R v : F))))
+    (b : 𝓞 F) (hb : b ∉ v.asIdeal) :
+    ψ (Ideal.Quotient.mk v.asIdeal b) = A.ψ v (algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F b / (primeGen R v : F))) := by
+  classical
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  let y : 𝓞 F ⧸ v.asIdeal := Ideal.Quotient.mk v.asIdeal b
+  let yRep : 𝓞 F := y.out
+  let oneRep : 𝓞 F := (1 : 𝓞 F ⧸ v.asIdeal).out
+  let yF : F := algebraMap (𝓞 F) F yRep
+  let oneF : F := algebraMap (𝓞 F) F oneRep
+  let bF : F := algebraMap (𝓞 F) F b
+  let deltaO : 𝓞 F := yRep * oneRep - b
+  let deltaF : F := algebraMap (𝓞 F) F deltaO
+  let pLoc := toLoc v (primeGen R v)
+  have hyRep : Ideal.Quotient.mk v.asIdeal yRep = y := by
+    simp [yRep]
+  have hmkOne : Ideal.Quotient.mk v.asIdeal oneRep = 1 := by
+    simp [oneRep]
+  have hdeltaMk : Ideal.Quotient.mk v.asIdeal deltaO = 0 := by
+    dsimp [deltaO]
+    rw [map_sub, map_mul, hyRep, hmkOne]
+    simp [y]
+  have hdeltaRes : residue v deltaF = 0 := by
+    rw [SB.residue_algebraMap]
+    exact hdeltaMk
+  have hdeltaLe : v.valuation F deltaF ≤ 1 := by
+    exact v.valuation_le_one deltaO
+  have hdeltaLt : v.valuation F deltaF < 1 := by
+    by_contra hnot
+    have heq : v.valuation F deltaF = 1 := le_antisymm hdeltaLe (le_of_not_gt hnot)
+    exact ((SB.residue_ne_zero v deltaF hdeltaLe).2 heq) hdeltaRes
+  have hdeltaComp : Valued.v (algebraMap F (v.adicCompletion F) deltaF) ≤
+      WithZero.exp (-1 : ℤ) :=
+    rf_valued_lt_one_le_exp_neg_one v _ (by
+      calc
+        Valued.v (algebraMap F (v.adicCompletion F) deltaF) =
+            v.valuation F deltaF := v.valuedAdicCompletion_eq_valuation' deltaF
+        _ < 1 := hdeltaLt)
+  have hdeltaValExp : v.valuation F deltaF ≤ WithZero.exp (-1 : ℤ) := by
+    calc
+      v.valuation F deltaF = Valued.v (algebraMap F (v.adicCompletion F) deltaF) :=
+        (v.valuedAdicCompletion_eq_valuation' deltaF).symm
+      _ ≤ WithZero.exp (-1 : ℤ) := hdeltaComp
+  have hpPos : 0 < WithZero.exp (-1 : ℤ) :=
+    lt_of_le_of_ne zero_le (Ne.symm WithZero.exp_ne_zero)
+  have hdeltaLoc : Valued.v
+      (algebraMap F (v.adicCompletion F) (deltaF / (primeGen R v : F))) ≤ 1 := by
+    calc
+      Valued.v (algebraMap F (v.adicCompletion F) (deltaF / (primeGen R v : F))) =
+          v.valuation F (deltaF / (primeGen R v : F)) :=
+            v.valuedAdicCompletion_eq_valuation' _
+      _ = v.valuation F deltaF / v.valuation F (primeGen R v : F) := by
+        rw [map_div₀]
+      _ ≤ 1 := by
+        rw [rf_local_primeGen_valuation R v hv]
+        exact (div_le_one₀ hpPos).2 hdeltaValExp
+  have hdeltaInt : algebraMap F (v.adicCompletion F) (deltaF / (primeGen R v : F)) ∈
+      v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hdeltaLoc
+  have hargsF : yF * oneF / (primeGen R v : F) =
+      bF / (primeGen R v : F) + deltaF / (primeGen R v : F) := by
+    dsimp [deltaF, deltaO, yF, oneF, bF]
+    rw [map_sub, map_mul]
+    field_simp [Units.ne_zero (primeGen R v)]
+    ring
+  have hargs : algebraMap F (v.adicCompletion F) (yF * oneF / (primeGen R v : F)) =
+      algebraMap F (v.adicCompletion F) (bF / (primeGen R v : F)) +
+        algebraMap F (v.adicCompletion F) (deltaF / (primeGen R v : F)) := by
+    calc
+      _ = algebraMap F (v.adicCompletion F)
+          (bF / (primeGen R v : F) + deltaF / (primeGen R v : F)) :=
+            congrArg (algebraMap F (v.adicCompletion F)) hargsF
+      _ = _ := by rw [map_add]
+  have hψ := hψval (1 : 𝓞 F ⧸ v.asIdeal) y
+  have hψ' : ψ y = A.ψ v (algebraMap F (v.adicCompletion F)
+      (yF * oneF / (primeGen R v : F))) := by
+    simpa [y, yF, oneF] using hψ
+  calc
+    ψ y = A.ψ v (algebraMap F (v.adicCompletion F)
+        (yF * oneF / (primeGen R v : F))) := hψ'
+    _ = A.ψ v (algebraMap F (v.adicCompletion F)
+        (bF / (primeGen R v : F))) := by
+          rw [hargs, (A.ψ v).map_add_eq_mul, A.integral v _ hdeltaInt, mul_one]
+
+private theorem rf_local_inverse_phase_residue
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (xF : F) (xLoc : (v.adicCompletion F)ˣ)
+    (hxLocMap : (xLoc : v.adicCompletion F) = algebraMap F _ xF)
+    (t u : (v.adicCompletion F)ˣ)
+    (huEq : u = t / xLoc)
+    (b : 𝓞 F) (hb : b ∉ v.asIdeal)
+    (hclose : Valued.v ((u : v.adicCompletion F) -
+      algebraMap F _ (algebraMap (𝓞 F) F b)) < 1)
+    (ψ : AddChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hψval : ∀ a b, ψ (a * b) = A.ψ v (algebraMap F _
+      (algebraMap (𝓞 F) F b.out * algebraMap (𝓞 F) F a.out /
+        (primeGen R v : F)))) :
+    A.ψ v ((((toLoc v (primeGen R v))⁻¹ * t : (v.adicCompletion F)ˣ) : _) /
+      algebraMap F _ xF) = ψ (Ideal.Quotient.mk v.asIdeal b) := by
+  classical
+  let pLoc := toLoc v (primeGen R v)
+  have hunit : (pLoc⁻¹ * t) / xLoc = pLoc⁻¹ * u := by
+    rw [div_eq_mul_inv, huEq, div_eq_mul_inv]
+    ac_rfl
+  have hphaseArg :
+      ((((pLoc⁻¹ * t : (v.adicCompletion F)ˣ) : v.adicCompletion F) /
+        algebraMap F (v.adicCompletion F) xF)) =
+        (((pLoc⁻¹ * u : (v.adicCompletion F)ˣ) : v.adicCompletion F)) := by
+    calc
+      _ = ((pLoc⁻¹ * t : (v.adicCompletion F)ˣ) : v.adicCompletion F) /
+          (xLoc : v.adicCompletion F) := by rw [hxLocMap]
+      _ = ((((pLoc⁻¹ * t) / xLoc : (v.adicCompletion F)ˣ) :
+          v.adicCompletion F)) := (Units.val_div_eq_div_val _ _).symm
+      _ = (((pLoc⁻¹ * u : (v.adicCompletion F)ˣ) :
+          v.adicCompletion F)) := congrArg Units.val hunit
+  calc
+    A.ψ v ((((pLoc⁻¹ * t : (v.adicCompletion F)ˣ) :
+        v.adicCompletion F) /
+          algebraMap F (v.adicCompletion F) xF)) =
+        A.ψ v (((pLoc⁻¹ * u : (v.adicCompletion F)ˣ) :
+          v.adicCompletion F)) := by rw [hphaseArg]
+    _ = A.ψ v (algebraMap F (v.adicCompletion F)
+        (algebraMap (𝓞 F) F b / (primeGen R v : F))) :=
+          rf_local_phase_approximant R v hv u b hb hclose
+    _ = ψ (Ideal.Quotient.mk v.asIdeal b) := by
+      exact (rf_local_addchar_out_phase R v hv ψ hψval b hb).symm
+
+private theorem rf_local_residue_t_mul_digit
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) (xF : F)
+    (hxF : xF = algebraMap (𝓞 F) F x.out)
+    (xLoc : (v.adicCompletion F)ˣ)
+    (hxLocMap : (xLoc : v.adicCompletion F) = algebraMap F _ xF)
+    (hxLocVal : Valued.v (xLoc : v.adicCompletion F) = 1)
+    (t u : (v.adicCompletion F)ˣ) (huEq : u = t / xLoc)
+    (a : 𝓞 F) (ha : a ∉ v.asIdeal)
+    (hcloseT : Valued.v ((t : v.adicCompletion F) -
+      algebraMap F _ (algebraMap (𝓞 F) F a)) < 1)
+    (b : 𝓞 F) (hb : b ∉ v.asIdeal)
+    (hcloseU : Valued.v ((u : v.adicCompletion F) -
+      algebraMap F _ (algebraMap (𝓞 F) F b)) < 1) :
+    Ideal.Quotient.mk v.asIdeal b * x = residue v (algebraMap (𝓞 F) F a) := by
+  classical
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueField v
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  let aF : F := algebraMap (𝓞 F) F a
+  let bF : F := algebraMap (𝓞 F) F b
+  have hresX : residue v xF = x := by
+    rw [hxF]
+    simpa using SB.residue_algebraMap v x.out
+  have hxresne : residue v xF ≠ 0 := by
+    rw [hresX]
+    exact hx
+  have hxvalLe : v.valuation F xF ≤ 1 := by
+    rw [hxF]
+    exact v.valuation_le_one x.out
+  have hxval : v.valuation F xF = 1 :=
+    (SB.residue_ne_zero v xF hxvalLe).1 hxresne
+  have hxFne : xF ≠ 0 := by
+    intro hz
+    rw [hz] at hxval
+    norm_num at hxval
+  have hresAne : residue v aF ≠ 0 := by
+    rw [SB.residue_algebraMap]
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using ha
+  have haval : v.valuation F aF = 1 :=
+    (SB.residue_ne_zero v aF (v.valuation_le_one a)).1 hresAne
+  have hresBne : residue v bF ≠ 0 := by
+    rw [SB.residue_algebraMap]
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hb
+  have hbval : v.valuation F bF = 1 :=
+    (SB.residue_ne_zero v bF (v.valuation_le_one b)).1 hresBne
+  have hratioVal : v.valuation F (aF / xF) = 1 := by
+    rw [map_div₀, haval, hxval]
+    simp
+  have hratioMap : algebraMap F (v.adicCompletion F) (aF / xF) =
+      algebraMap F (v.adicCompletion F) aF /
+        algebraMap F (v.adicCompletion F) xF := by
+    rw [map_div₀]
+  have huVal : (u : v.adicCompletion F) =
+      (t : v.adicCompletion F) / (xLoc : v.adicCompletion F) := by
+    rw [huEq, Units.val_div_eq_div_val]
+  have hcloseNeg : Valued.v
+      (algebraMap F (v.adicCompletion F) aF - (t : v.adicCompletion F)) < 1 := by
+    have hneg : algebraMap F (v.adicCompletion F) aF - (t : v.adicCompletion F) =
+        -((t : v.adicCompletion F) - algebraMap F (v.adicCompletion F) aF) := by ring
+    rw [hneg]
+    simpa only [(Valued.v).map_neg] using hcloseT
+  have hfracDiff :
+      algebraMap F (v.adicCompletion F) (aF / xF) - (u : v.adicCompletion F) =
+        (algebraMap F (v.adicCompletion F) aF - (t : v.adicCompletion F)) /
+          (xLoc : v.adicCompletion F) := by
+    calc
+      _ = algebraMap F (v.adicCompletion F) aF /
+          algebraMap F (v.adicCompletion F) xF - (t : v.adicCompletion F) /
+            (xLoc : v.adicCompletion F) := by rw [hratioMap, huVal]
+      _ = algebraMap F (v.adicCompletion F) aF /
+          (xLoc : v.adicCompletion F) - (t : v.adicCompletion F) /
+            (xLoc : v.adicCompletion F) := by rw [← hxLocMap]
+      _ = (algebraMap F (v.adicCompletion F) aF - (t : v.adicCompletion F)) /
+            (xLoc : v.adicCompletion F) := by rw [← sub_div]
+  have hcloseFrac : Valued.v
+      (algebraMap F (v.adicCompletion F) (aF / xF) - (u : v.adicCompletion F)) < 1 := by
+    rw [hfracDiff, map_div₀, hxLocVal]
+    simpa using hcloseNeg
+  have hcloseRatio : Valued.v
+      (algebraMap F (v.adicCompletion F) (aF / xF) -
+        algebraMap F (v.adicCompletion F) bF) < 1 := by
+    have hdecomp :
+        algebraMap F (v.adicCompletion F) (aF / xF) -
+            algebraMap F (v.adicCompletion F) bF =
+          (algebraMap F (v.adicCompletion F) (aF / xF) - (u : v.adicCompletion F)) +
+            ((u : v.adicCompletion F) - algebraMap F (v.adicCompletion F) bF) := by
+      abel
+    rw [hdecomp]
+    exact (Valued.v).map_add_lt hcloseFrac hcloseU
+  have hcloseField : v.valuation F (aF / xF - bF) < 1 := by
+    calc
+      v.valuation F (aF / xF - bF) =
+          Valued.v (algebraMap F (v.adicCompletion F) (aF / xF - bF)) :=
+            (v.valuedAdicCompletion_eq_valuation' (aF / xF - bF)).symm
+      _ = Valued.v (algebraMap F (v.adicCompletion F) (aF / xF) -
+          algebraMap F (v.adicCompletion F) bF) := by rw [map_sub]
+      _ < 1 := hcloseRatio
+  have hresRatio : residue v (aF / xF) = residue v bF :=
+    SB.residue_congr v (aF / xF) bF (le_of_eq hratioVal) (le_of_eq hbval) hcloseField
+  have hprod : residue v ((aF / xF) * xF) =
+      residue v (aF / xF) * residue v xF :=
+    SB.residue_mul v (aF / xF) xF (le_of_eq hratioVal) (le_of_eq hxval)
+  have hprodF : (aF / xF) * xF = aF := by
+    exact div_mul_cancel₀ aF hxFne
+  calc
+    Ideal.Quotient.mk v.asIdeal b * x = residue v bF * residue v xF := by
+      rw [SB.residue_algebraMap, hresX]
+    _ = residue v (aF / xF) * residue v xF := by rw [← hresRatio]
+    _ = residue v ((aF / xF) * xF) := hprod.symm
+    _ = residue v aF := by rw [hprodF]
+
+private theorem rf_gauss_sum_norm_sq
+    {K : Type*} [Field K] [Fintype K] (χ : MulChar K ℂ) (ψ : AddChar K ℂ)
+    (hχ : χ ≠ 1) (hψ : ψ.IsPrimitive) :
+    ‖gaussSum χ ψ‖ ^ 2 = (Fintype.card K : ℝ) := by
+  have hprod : gaussSum χ ψ * star (gaussSum χ ψ) = (Fintype.card K : ℂ) := by
+    rw [star_gaussSum_eq χ ψ]
+    exact gaussSum_mul_gaussSum_eq_card hχ hψ
+  have hnorm := congrArg (fun z : ℂ => ‖z‖) hprod
+  simpa [norm_mul, pow_two] using hnorm
+
+private theorem rf_local_mulchar_zpow_eval
+    (D : FieldData F) (S : SData F CE condη) (v : FinPlace F)
+    (χ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hχval : ∀ x, χ x = chiPow D v (algebraMap (𝓞 F) F x.out) 1)
+    (e : ℤ) (x : 𝓞 F ⧸ v.asIdeal) :
+    (χ ^ e) x = chiPow D v (algebraMap (𝓞 F) F x.out) e := by
+  classical
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueField v
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueFintype v
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hres (y : 𝓞 F ⧸ v.asIdeal) :
+      residue v (algebraMap (𝓞 F) F y.out) = y := by
+    simpa using SB.residue_algebraMap v y.out
+  by_cases hx : x = 0
+  · subst x
+    have hz : residue v
+        (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ v.asIdeal).out) = 0 := by rw [hres]
+    rw [MulChar.map_nonunit _ (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ v.asIdeal)),
+      SB.chiPow_zero v _ e hz]
+  · let u : (𝓞 F ⧸ v.asIdeal)ˣ := Units.mk0 x hx
+    have hEval : (χ ^ e) (u : 𝓞 F ⧸ v.asIdeal) = (χ u) ^ e := by
+      calc
+        (χ ^ e) (u : 𝓞 F ⧸ v.asIdeal) = χ (u ^ e : (𝓞 F ⧸ v.asIdeal)ˣ) :=
+          MulChar.zpow_apply_coe χ e u
+        _ = (χ u) ^ e := by
+          change ((χ.toUnitHom (u ^ e) : ℂˣ) : ℂ) =
+            ((χ.toUnitHom u : ℂˣ) : ℂ) ^ e
+          rw [map_zpow, Units.val_zpow_eq_zpow_val]
+    have hresne : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+      rw [hres x]
+      exact hx
+    calc
+      (χ ^ e) x = (χ x) ^ e := by
+        change (χ ^ e) (u : 𝓞 F ⧸ v.asIdeal) = (χ u) ^ e
+        exact hEval
+      _ = (chiPow D v (algebraMap (𝓞 F) F x.out) 1) ^ e := by rw [hχval x]
+      _ = chiPow D v (algebraMap (𝓞 F) F x.out) e := by
+        rw [SB.chiPow_nonzero v _ 1 hresne, SB.chiPow_nonzero v _ e hresne]
+        simp
+
+private theorem rf_local_mulchar_zpow_ne_one
+    {K : Type*} [Field K] {χ : MulChar K ℂ} (horder : orderOf χ = 6)
+    (e : ℤ) (he : ¬ (6 : ℤ) ∣ e) : χ ^ e ≠ 1 := by
+  intro hpow
+  have hdiv : (orderOf χ : ℤ) ∣ e := (orderOf_dvd_iff_zpow_eq_one).2 hpow
+  rw [horder] at hdiv
+  exact he hdiv
+
+private theorem rf_local_positive_alpha_chi_sum
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : FinPlace F)
+    (p : Fˣ) (χ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hχval : ∀ x, χ x = chiPow D v (algebraMap (𝓞 F) F x.out) 1)
+    (horder : orderOf χ = 6) (j : Fin 6) :
+    (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+      maskAlpha D A v p j x * chi D v (algebraMap (𝓞 F) F x.out) ^ 4) =
+    if j = 4 then ((Ideal.absNorm v.asIdeal : ℂ) - 1) / maskTau D A v p 4 else 0 := by
+  classical
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueField v
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueFintype v
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hres (x : 𝓞 F ⧸ v.asIdeal) : residue v (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  have hcharPower (k : ℤ) (x : 𝓞 F ⧸ v.asIdeal) :
+      (χ ^ k) x = chiPow D v (algebraMap (𝓞 F) F x.out) k :=
+    rf_local_mulchar_zpow_eval D S v χ hχval k x
+  have hchiNonzero (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+      chi D v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+    have hresne : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by rw [hres]; exact hx
+    have h6 := SB.chi_six v (algebraMap (𝓞 F) F x.out) hresne
+    intro hz
+    rw [hz] at h6
+    norm_num at h6
+  by_cases hj0 : j = 0
+  · subst j
+    have h4ne : χ ^ (4 : ℤ) ≠ 1 := by
+      apply rf_local_mulchar_zpow_ne_one horder 4
+      norm_num
+    let q : ℂ := (Ideal.absNorm v.asIdeal : ℂ)
+    have hsum0 :
+        (∑ x : 𝓞 F ⧸ v.asIdeal,
+          if x = 0 then 0 else chi D v (algebraMap (𝓞 F) F x.out) ^ 4) = 0 := by
+      calc
+        _ = ∑ x : 𝓞 F ⧸ v.asIdeal, (χ ^ (4 : ℤ)) x := by
+          apply Finset.sum_congr rfl
+          intro x _
+          by_cases hx : x = 0
+          · subst x
+            simp only [if_pos rfl]
+            exact (MulChar.map_nonunit (χ ^ (4 : ℤ))
+              (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ v.asIdeal))).symm
+          · simp only [if_neg hx]
+            have hresne : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by rw [hres]; exact hx
+            calc
+              chi D v (algebraMap (𝓞 F) F x.out) ^ 4 =
+                  chiPow D v (algebraMap (𝓞 F) F x.out) 4 :=
+                    (SB.chiPow_nonzero v _ 4 hresne).symm
+              _ = (χ ^ (4 : ℤ)) x := (hcharPower 4 x).symm
+        _ = 0 := MulChar.sum_eq_zero_of_ne_one h4ne
+    have hfinsum :
+        (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+          maskAlpha D A v p 0 x * chi D v (algebraMap (𝓞 F) F x.out) ^ 4) =
+          ∑ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+            maskAlpha D A v p 0 x * chi D v (algebraMap (𝓞 F) F x.out) ^ 4 :=
+      ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v _
+    rw [hfinsum]
+    have hsum :
+        (∑ x : 𝓞 F ⧸ v.asIdeal,
+          if x = 0 then 0 else maskAlpha D A v p 0 x *
+            chi D v (algebraMap (𝓞 F) F x.out) ^ 4) =
+          -(q⁻¹) * ∑ x : 𝓞 F ⧸ v.asIdeal,
+            if x = 0 then 0 else chi D v (algebraMap (𝓞 F) F x.out) ^ 4 := by
+      calc
+        _ = ∑ x : 𝓞 F ⧸ v.asIdeal,
+            -(q⁻¹) * (if x = 0 then 0 else chi D v (algebraMap (𝓞 F) F x.out) ^ 4) := by
+              apply Finset.sum_congr rfl
+              intro x _
+              by_cases hx : x = 0 <;> simp [maskAlpha, hx, q]
+        _ = _ := by rw [Finset.mul_sum]
+    rw [hsum, hsum0]
+    simp
+  · by_cases hj4 : j = 4
+    · subst j
+      let f : 𝓞 F ⧸ v.asIdeal → ℂ := fun x =>
+        if x = 0 then 0 else maskAlpha D A v p 4 x *
+          chi D v (algebraMap (𝓞 F) F x.out) ^ 4
+      have hfinsum := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f
+      rw [hfinsum]
+      have hone : (∑ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then (0 : ℂ) else 1) =
+          (Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ : ℂ) := by
+        calc
+          _ = ∑ x : 𝓞 F ⧸ v.asIdeal, (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) x := by
+            apply Finset.sum_congr rfl
+            intro x _
+            by_cases hx : x = 0
+            · subst x
+              have hzero : (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) 0 = 0 :=
+                MulChar.map_nonunit _ (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ v.asIdeal))
+              calc
+                (if (0 : 𝓞 F ⧸ v.asIdeal) = 0 then (0 : ℂ) else 1) = 0 := by simp
+                _ = (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) 0 := hzero.symm
+            · let u : (𝓞 F ⧸ v.asIdeal)ˣ := Units.mk0 x hx
+              have hOne : (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) (u : 𝓞 F ⧸ v.asIdeal) = 1 :=
+                MulChar.one_apply_coe u
+              calc
+                (if x = 0 then (0 : ℂ) else 1) = 1 := by simp [hx]
+                _ = (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) (u : 𝓞 F ⧸ v.asIdeal) := hOne.symm
+                _ = (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) x := by rfl
+          _ = (Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ : ℂ) := by
+            exact_mod_cast (MulChar.sum_one_eq_card_units :
+              (∑ x : 𝓞 F ⧸ v.asIdeal, (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) x) =
+                Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ)
+      have hnormCard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+        rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+      have hcardle : 1 ≤ Fintype.card (𝓞 F ⧸ v.asIdeal) :=
+        Nat.succ_le_iff.mpr (Nat.pos_of_ne_zero (Nat.ne_of_gt Fintype.card_pos))
+      have hqcast : (Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ : ℂ) =
+          (Ideal.absNorm v.asIdeal : ℂ) - 1 := by
+        have hcardunits : Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ =
+            Fintype.card (𝓞 F ⧸ v.asIdeal) - 1 := by
+          calc
+            Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ = Nat.card (𝓞 F ⧸ v.asIdeal)ˣ :=
+              (Nat.card_eq_fintype_card (α := (𝓞 F ⧸ v.asIdeal)ˣ)).symm
+            _ = Nat.card (𝓞 F ⧸ v.asIdeal) - 1 :=
+              Nat.card_units (𝓞 F ⧸ v.asIdeal)
+            _ = Fintype.card (𝓞 F ⧸ v.asIdeal) - 1 := by
+              rw [Nat.card_eq_fintype_card]
+        have hcastCard : (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) =
+            (Ideal.absNorm v.asIdeal : ℂ) := by exact_mod_cast hnormCard
+        have habsle : 1 ≤ Ideal.absNorm v.asIdeal := by rw [← hnormCard]; exact hcardle
+        calc
+          (Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ : ℂ) =
+              ((Fintype.card (𝓞 F ⧸ v.asIdeal) - 1 : ℕ) : ℂ) := by
+                exact_mod_cast hcardunits
+          _ = (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) - 1 := by
+                rw [Nat.cast_sub hcardle]
+                norm_num
+          _ = (Ideal.absNorm v.asIdeal : ℂ) - 1 := by rw [hcastCard]
+
+      have hcancel (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+          chi D v (algebraMap (𝓞 F) F x.out) ^ (-4 : ℤ) *
+            chi D v (algebraMap (𝓞 F) F x.out) ^ 4 = 1 := by
+        have hchiNe := hchiNonzero x hx
+        rw [show (-4 : ℤ) = -(4 : ℤ) by norm_num, zpow_neg]
+        exact inv_mul_cancel₀ (zpow_ne_zero _ hchiNe)
+      have hsum : (∑ x : 𝓞 F ⧸ v.asIdeal, f x) =
+          (maskTau D A v p 4)⁻¹ * Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ := by
+        calc
+          _ = ∑ x : 𝓞 F ⧸ v.asIdeal, (maskTau D A v p 4)⁻¹ *
+                (if x = 0 then (0 : ℂ) else 1) := by
+            apply Finset.sum_congr rfl
+            intro x _
+            by_cases hx : x = 0
+            · simp [f, hx]
+            · simp only [f, if_neg hx]
+              have hα : maskAlpha D A v p 4 x =
+                  (maskTau D A v p 4)⁻¹ *
+                    chi D v (algebraMap (𝓞 F) F x.out) ^ (-4 : ℤ) := by
+                simp [maskAlpha, hx]
+              calc
+                _ = (maskTau D A v p 4)⁻¹ *
+                    (chi D v (algebraMap (𝓞 F) F x.out) ^ (-4 : ℤ) *
+                      chi D v (algebraMap (𝓞 F) F x.out) ^ 4) := by rw [hα]; ac_rfl
+                _ = (maskTau D A v p 4)⁻¹ * 1 := by rw [hcancel x hx]
+          _ = (maskTau D A v p 4)⁻¹ * Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ := by
+            calc
+              _ = (maskTau D A v p 4)⁻¹ *
+                    ∑ x : 𝓞 F ⧸ v.asIdeal, (if x = 0 then (0 : ℂ) else 1) := by
+                      rw [← Finset.mul_sum]
+              _ = _ := by rw [hone]
+      rw [hsum, hqcast]
+      simp [div_eq_mul_inv, mul_comm]
+    · let k : ℤ := 4 - (j.1 : ℤ)
+      have hk : ¬ (6 : ℤ) ∣ k := by
+        intro hdiv
+        change (6 : ℤ) ∣ 4 - (j.1 : ℤ) at hdiv
+        have hjne : j.1 ≠ 0 := by
+          intro h
+          exact hj0 (Fin.ext h)
+        have hjpos : 0 < j.1 := Nat.pos_of_ne_zero hjne
+        have hjlt : j.1 < 6 := j.isLt
+        have hj4val : j.1 = 4 := by omega
+        exact hj4 (Fin.ext hj4val)
+      have hknontriv : χ ^ k ≠ 1 := by
+        exact rf_local_mulchar_zpow_ne_one horder k hk
+      have hpowMul : χ ^ (-(j.1 : ℤ)) * χ ^ (4 : ℤ) = χ ^ k := by
+        dsimp [k]
+        rw [← zpow_add]
+        congr 1 <;> ring
+      let f : 𝓞 F ⧸ v.asIdeal → ℂ := fun x =>
+        if x = 0 then 0 else maskAlpha D A v p j x *
+          chi D v (algebraMap (𝓞 F) F x.out) ^ 4
+      have hfinsum := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f
+      rw [hfinsum]
+      have hsum : (∑ x : 𝓞 F ⧸ v.asIdeal, f x) =
+          (maskTau D A v p j)⁻¹ * ∑ x : 𝓞 F ⧸ v.asIdeal, (χ ^ k) x := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro x _
+        by_cases hx : x = 0
+        · have hzero : (χ ^ k) (0 : 𝓞 F ⧸ v.asIdeal) = 0 :=
+            MulChar.map_nonunit _ (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ v.asIdeal))
+          simp [f, hx, hzero]
+        · have hresne : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by rw [hres]; exact hx
+          have hglobalPow (m : ℤ) :
+              chi D v (algebraMap (𝓞 F) F x.out) ^ m = (χ ^ m) x := by
+            calc
+              _ = chiPow D v (algebraMap (𝓞 F) F x.out) m :=
+                (SB.chiPow_nonzero v _ m hresne).symm
+              _ = (χ ^ m) x := (hcharPower m x).symm
+          have hglobalPow4 :
+              chi D v (algebraMap (𝓞 F) F x.out) ^ (4 : ℕ) =
+                (χ ^ (4 : ℤ)) x := by
+            calc
+              _ = chi D v (algebraMap (𝓞 F) F x.out) ^ (4 : ℤ) :=
+                (zpow_natCast (chi D v (algebraMap (𝓞 F) F x.out)) 4).symm
+              _ = (χ ^ (4 : ℤ)) x := hglobalPow 4
+          have hcoeff :
+              chi D v (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) *
+                chi D v (algebraMap (𝓞 F) F x.out) ^ 4 = (χ ^ k) x := by
+            calc
+              _ = (χ ^ (-(j.1 : ℤ))) x * (χ ^ (4 : ℤ)) x := by
+                rw [hglobalPow (-(j.1 : ℤ)), hglobalPow4]
+              _ = ((χ ^ (-(j.1 : ℤ))) * χ ^ (4 : ℤ)) x := by rfl
+              _ = (χ ^ k) x := by rw [hpowMul]
+          simp only [f, if_neg hx]
+          have hα : maskAlpha D A v p j x =
+              (maskTau D A v p j)⁻¹ * chi D v (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) := by
+            simp [maskAlpha, hj0, hx]
+          calc
+            _ = (maskTau D A v p j)⁻¹ *
+                (chi D v (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) *
+                  chi D v (algebraMap (𝓞 F) F x.out) ^ 4) := by rw [hα]; ac_rfl
+            _ = (maskTau D A v p j)⁻¹ * (χ ^ k) x := by rw [hcoeff]
+      rw [hsum]
+      have hsumChar : (∑ x : 𝓞 F ⧸ v.asIdeal, (χ ^ k) x) = 0 :=
+        MulChar.sum_eq_zero_of_ne_one hknontriv
+      rw [hsumChar]
+      simp [hj4]
+
+private theorem rf_local_maskTau_gaussSum
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (v : FinPlace F) (p : Fˣ) (χ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (ψ : AddChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hχval : ∀ x, χ x = chiPow D v (algebraMap (𝓞 F) F x.out) 1)
+    (hψval : ∀ t x, ψ (t * x) = A.ψ v (algebraMap F _
+      (algebraMap (𝓞 F) F x.out * algebraMap (𝓞 F) F t.out / (p : F))))
+    (j : Fin 6) :
+    letI := ArtinPrimitiveRoots.A2.bridgeResidueField v
+    letI := ArtinPrimitiveRoots.A2.bridgeResidueFintype v
+    maskTau D A v p j = gaussSum (χ ^ (-(j.1 : ℤ))) ψ := by
+  classical
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueField v
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueFintype v
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hres (x : 𝓞 F ⧸ v.asIdeal) : residue v (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  have hphase (t x : 𝓞 F ⧸ v.asIdeal) :
+      maskPhase A v p t x = ψ (t * x) := by
+    unfold maskPhase
+    exact (hψval t x).symm
+  have hfinsum := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v
+    (fun x : 𝓞 F ⧸ v.asIdeal => if x = 0 then 0 else
+      chi D v (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) *
+        maskPhase A v p 1 x)
+  unfold maskTau
+  rw [hfinsum]
+  change (∑ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+      chi D v (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) * maskPhase A v p 1 x) =
+    ∑ x : 𝓞 F ⧸ v.asIdeal, (χ ^ (-(j.1 : ℤ))) x * ψ x
+  apply Finset.sum_congr rfl
+  intro x _
+  by_cases hx : x = 0
+  · subst x
+    have hchiZero : (χ ^ (-(j.1 : ℤ))) (0 : 𝓞 F ⧸ v.asIdeal) = 0 :=
+      MulChar.map_nonunit _ (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ v.asIdeal))
+    calc
+      (if (0 : 𝓞 F ⧸ v.asIdeal) = 0 then 0 else
+          chi D v (algebraMap (𝓞 F) F (Quotient.out 0)) ^ (-(j.1 : ℤ)) *
+            maskPhase A v p 1 0) = 0 := by simp
+      _ = (χ ^ (-(j.1 : ℤ))) 0 * ψ 0 := by
+        rw [hchiZero]
+        simp
+  · have hresne : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by rw [hres]; exact hx
+    have hcoeff : chi D v (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) =
+        (χ ^ (-(j.1 : ℤ))) x := by
+      calc
+        _ = chiPow D v (algebraMap (𝓞 F) F x.out) (-(j.1 : ℤ)) :=
+          (SB.chiPow_nonzero v _ _ hresne).symm
+        _ = (χ ^ (-(j.1 : ℤ))) x :=
+          (rf_local_mulchar_zpow_eval D S v χ hχval (-(j.1 : ℤ)) x).symm
+    simp only [if_neg hx]
+    rw [hcoeff, hphase]
+    simp
+
+private theorem rf_gauss_sum_norm
+    {K : Type*} [Field K] [Fintype K] (χ : MulChar K ℂ) (ψ : AddChar K ℂ)
+    (hχ : χ ≠ 1) (hψ : ψ.IsPrimitive) :
+    ‖gaussSum χ ψ‖ = Real.sqrt (Fintype.card K : ℝ) := by
+  have hsq := rf_gauss_sum_norm_sq χ ψ hχ hψ
+  have hqpos : 0 < (Fintype.card K : ℝ) := by exact_mod_cast Fintype.card_pos
+  have hsqrtpos : 0 < Real.sqrt (Fintype.card K : ℝ) := Real.sqrt_pos.2 hqpos
+  have hsqrtsq : (Real.sqrt (Fintype.card K : ℝ)) ^ 2 =
+      (Fintype.card K : ℝ) := Real.sq_sqrt hqpos.le
+  have hsumpos : 0 < ‖gaussSum χ ψ‖ + Real.sqrt (Fintype.card K : ℝ) :=
+    add_pos_of_nonneg_of_pos (norm_nonneg _) hsqrtpos
+  have hprod :
+      (‖gaussSum χ ψ‖ - Real.sqrt (Fintype.card K : ℝ)) *
+        (‖gaussSum χ ψ‖ + Real.sqrt (Fintype.card K : ℝ)) = 0 := by
+    nlinarith
+  rcases mul_eq_zero.mp hprod with hdiff | hsum
+  · linarith
+  · exact (False.elim (ne_of_gt hsumpos hsum))
+
+private def rf_localResidueInversion
+    {K : Type*} [Field K] (a x : K) : K :=
+  if hx : x = 0 then 0 else a / x
+
+private theorem rf_localResidueInversion_involutive
+    {K : Type*} [Field K] (a : K) (ha : a ≠ 0) :
+    Function.Involutive (rf_localResidueInversion a) := by
+  classical
+  intro x
+  by_cases hx : x = 0
+  · simp [rf_localResidueInversion, hx]
+  · have hphi : rf_localResidueInversion a x = a / x := by
+      simp [rf_localResidueInversion, hx]
+    have hyne : a / x ≠ 0 := div_ne_zero ha hx
+    have houter : rf_localResidueInversion a (a / x) = a / (a / x) := by
+      change (if h : a / x = 0 then 0 else a / (a / x)) = a / (a / x)
+      exact if_neg hyne
+    calc
+      rf_localResidueInversion a (rf_localResidueInversion a x) =
+          rf_localResidueInversion a (a / x) := congrArg (rf_localResidueInversion a) hphi
+      _ = a / (a / x) := houter
+      _ = x := by field_simp [ha, hx]
+
+private theorem rf_localResidueInversion_of_mul_eq
+    {K : Type*} [Field K] (a : K) (ha : a ≠ 0)
+    (x : K) (hx : x ≠ 0) (y : K) (hy : y ≠ 0)
+    (hxy : y * x = a) :
+    y = rf_localResidueInversion a x := by
+  have hphi : rf_localResidueInversion a x = a / x := by
+    change (if h : x = 0 then 0 else a / x) = a / x
+    exact if_neg hx
+  rw [hphi]
+  apply (eq_div_iff hx).2
+  exact hxy
+
+private theorem rf_localOmega_numerator_maskTau
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ψ : AddChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hψval : ∀ a b, ψ (a * b) = A.ψ v (algebraMap F _
+      (algebraMap (𝓞 F) F b.out * algebraMap (𝓞 F) F a.out /
+        (primeGen R v : F)))) :
+    (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, chiPow D v
+      (algebraMap (𝓞 F) F x.out) 3 *
+        A.ψ v (algebraMap F _
+          (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) =
+      maskTau D A v (primeGen R v) 3 := by
+  classical
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueField v
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hres (x : 𝓞 F ⧸ v.asIdeal) : residue v
+      (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  have hpoint (x : 𝓞 F ⧸ v.asIdeal) :
+      chiPow D v (algebraMap (𝓞 F) F x.out) 3 *
+          A.ψ v (algebraMap F _
+            (algebraMap (𝓞 F) F x.out / (primeGen R v : F))) =
+        if x = 0 then 0 else
+          chi D v (algebraMap (𝓞 F) F x.out) ^ (-(3 : ℤ)) *
+            maskPhase A v (primeGen R v) 1 x := by
+    by_cases hx : x = 0
+    · subst x
+      have hres0 : residue v
+          (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ v.asIdeal).out) = 0 := by
+        rw [SB.residue_algebraMap]
+        simp
+      have hχ0 := SB.chiPow_zero v _ 3 hres0
+      simp [hχ0]
+    · have hxrep : x.out ∉ v.asIdeal := rf_local_residue_not_mem D S v x hx
+      have hresne : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+        rw [hres x]
+        exact hx
+      have hχ6 := SB.chi_six v (algebraMap (𝓞 F) F x.out) hresne
+      have hχne : chi D v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+        intro hzero
+        rw [hzero] at hχ6
+        norm_num at hχ6
+      have hχ6z : chi D v (algebraMap (𝓞 F) F x.out) ^ (6 : ℤ) = 1 := by
+        simpa using hχ6
+      have hchiPow3 : chiPow D v (algebraMap (𝓞 F) F x.out) 3 =
+          chi D v (algebraMap (𝓞 F) F x.out) ^ (-(3 : ℤ)) := by
+        rw [SB.chiPow_nonzero v _ (3 : ℤ) hresne]
+        calc
+          chi D v (algebraMap (𝓞 F) F x.out) ^ (3 : ℤ) =
+              chi D v (algebraMap (𝓞 F) F x.out) ^ ((-3 : ℤ) + 6) := by
+                congr 1 <;> norm_num
+          _ = chi D v (algebraMap (𝓞 F) F x.out) ^ (-3 : ℤ) *
+              chi D v (algebraMap (𝓞 F) F x.out) ^ (6 : ℤ) :=
+                zpow_add₀ hχne _ _
+          _ = _ := by rw [hχ6z]; simp
+      have hphase : A.ψ v (algebraMap F _
+          (algebraMap (𝓞 F) F x.out / (primeGen R v : F))) = ψ x := by
+        have hmk : Ideal.Quotient.mk v.asIdeal x.out = x := by
+          calc
+            Ideal.Quotient.mk v.asIdeal x.out = residue v
+                (algebraMap (𝓞 F) F x.out) := (SB.residue_algebraMap v x.out).symm
+            _ = x := hres x
+        simpa [hmk] using
+          (rf_local_addchar_out_phase R v hv ψ hψval x.out hxrep).symm
+      have hmask : maskPhase A v (primeGen R v) 1 x = ψ x := by
+        unfold maskPhase
+        simpa using (hψval 1 x).symm
+      simp only [if_neg hx]
+      rw [hphase, hmask, hchiPow3]
+  calc
+    (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, chiPow D v
+        (algebraMap (𝓞 F) F x.out) 3 *
+          A.ψ v (algebraMap F _
+            (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) =
+        ∑ᶠ x : 𝓞 F ⧸ v.asIdeal,
+          if x = 0 then 0 else
+            chi D v (algebraMap (𝓞 F) F x.out) ^ (-(3 : ℤ)) *
+              maskPhase A v (primeGen R v) 1 x :=
+          finsum_congr hpoint
+    _ = maskTau D A v (primeGen R v) 3 := by
+      unfold maskTau
+      rfl
+
 /-- lem:reflection-local-Weyl, 04:339-431. The three power ranges and zero digit are separate. -/
 theorem lem_reflection_local_Weyl :
   ∀ v, v ∉ S.Sf → ∀ j : Fin 6, ∀ e : ℤ, ∀ t : (v.adicCompletion F)ˣ,
@@ -294,7 +2127,1152 @@ theorem lem_reflection_local_Weyl :
     (0 ≤ e → localR R v j e t = localR R v j e 1 * localChi D v t ^ localB j e.toNat) ∧
     (0 < e → j ≠ 4 → localR R v j e 1 = 0) ∧
     (0 ≤ e → e % 3 = 2 → localR R v j e 1 = 0) := by
-  sorry
+  classical
+  intro v hv j e t ht htinv
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueField v
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueFintype v
+  have htLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t := ⟨ht, htinv⟩
+  have hOneLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (1 : (v.adicCompletion F)ˣ) := by
+    constructor <;> simp [HeightOneSpectrum.mem_adicCompletionIntegers]
+  have hpgen : S.IsGen (primeGen R v : F) v.asIdeal := by
+    simpa [primeGen, hv, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime v hv)).1
+  obtain ⟨_, ⟨χ, hχorder, hχval⟩, ⟨ψ, hψprim, hψval⟩⟩ :=
+    ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR D S A v hv (primeGen R v) hpgen
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hlocalChiNorm : ‖localChi D v t‖ = 1 := SB.localChi_norm v hv t htLoc
+  have htau (j' : Fin 6) :
+      maskTau D A v (primeGen R v) j' = gaussSum (χ ^ (-(j'.1 : ℤ))) ψ :=
+    rf_local_maskTau_gaussSum D S A v (primeGen R v) χ ψ hχval hψval j'
+  have hnormCard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  have hphaseSum (he : 0 < e) (u : (v.adicCompletion F)ˣ)
+      (hu : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v u) :
+      (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j x * chi D v
+          (algebraMap (𝓞 F) F x.out) ^ 4 *
+          A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * u :
+            (v.adicCompletion F)ˣ) : _) /
+              algebraMap F _ (algebraMap (𝓞 F) F x.out))) =
+      ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j x * chi D v
+          (algebraMap (𝓞 F) F x.out) ^ 4 := by
+    let f : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+      maskAlpha D A v (primeGen R v) j x * chi D v
+        (algebraMap (𝓞 F) F x.out) ^ 4 *
+        A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * u :
+          (v.adicCompletion F)ˣ) : _) /
+            algebraMap F _ (algebraMap (𝓞 F) F x.out))
+    let g : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+      maskAlpha D A v (primeGen R v) j x * chi D v
+        (algebraMap (𝓞 F) F x.out) ^ 4
+    have hf := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f
+    have hg := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v g
+    calc
+      (∑ᶠ x, f x) = ∑ x, f x := hf
+      _ = ∑ x, g x := by
+        apply Finset.sum_congr rfl
+        intro x _
+        by_cases hx : x = 0
+        · simp [f, g, hx]
+        · simp only [f, g, if_neg hx]
+          rw [rf_localWeyl_positive_phase R v hv e he u hu x hx]
+          simp
+      _ = ∑ᶠ x, g x := hg.symm
+  have hv6 : (6 : 𝓞 F) ∉ v.asIdeal := by
+    intro h6
+    exact hv (S.over6 v h6)
+  obtain ⟨a, ha, hcloseT⟩ := rf_localChi_has_approximant D v hv6 t htLoc
+  let aF : F := algebraMap (𝓞 F) F a
+  let τ : 𝓞 F ⧸ v.asIdeal := residue v aF
+  have hτeq : τ = Ideal.Quotient.mk v.asIdeal a := by
+    simpa [τ, aF] using SB.residue_algebraMap v a
+  have hτne : τ ≠ 0 := by
+    intro hzero
+    apply ha
+    exact (Ideal.Quotient.eq_zero_iff_mem).1 (hτeq.symm.trans hzero)
+  have hlocalChiA : localChi D v t = chi D v aF :=
+    SB.localChi_approximant v hv t htLoc a ha hcloseT
+  have hresτ (x : 𝓞 F ⧸ v.asIdeal) : residue v
+      (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  have hchiTau : χ τ = localChi D v t := by
+    have hresTauNe : residue v (algebraMap (𝓞 F) F τ.out) ≠ 0 := by
+      rw [hresτ]
+      exact hτne
+    have hresSame : residue v (algebraMap (𝓞 F) F τ.out) = residue v aF := by
+      rw [hresτ]
+    calc
+      χ τ = chiPow D v (algebraMap (𝓞 F) F τ.out) 1 := hχval τ
+      _ = chi D v (algebraMap (𝓞 F) F τ.out) := by
+        rw [SB.chiPow_nonzero v _ 1 hresTauNe]
+        simp
+      _ = chi D v aF := SB.chi_congr v _ _ hresSame
+      _ = localChi D v t := hlocalChiA.symm
+  have hlocalChiSix : localChi D v t ^ (6 : ℕ) = 1 :=
+    SB.localChi_six v hv t htLoc
+  let phi : (𝓞 F ⧸ v.asIdeal) → (𝓞 F ⧸ v.asIdeal) :=
+    rf_localResidueInversion τ
+  have hphiInvol : Function.Involutive phi := rf_localResidueInversion_involutive τ hτne
+  have hphiBij : Function.Bijective phi := hphiInvol.bijective
+  have hphi0 : phi 0 = 0 := by
+    change (if h : (0 : 𝓞 F ⧸ v.asIdeal) = 0 then 0 else τ / 0) = 0
+    exact if_pos (show (0 : 𝓞 F ⧸ v.asIdeal) = 0 by rfl)
+  have hphiProduct (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) : phi x * x = τ := by
+    have hphiX : phi x = τ / x := by
+      change (if h : x = 0 then 0 else τ / x) = τ / x
+      exact if_neg hx
+    rw [hphiX]
+    exact div_mul_cancel₀ τ hx
+  have hchiEval (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+      chi D v (algebraMap (𝓞 F) F x.out) = χ x := by
+    have hresne : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+      rw [hresτ x]
+      exact hx
+    calc
+      chi D v (algebraMap (𝓞 F) F x.out) =
+          chiPow D v (algebraMap (𝓞 F) F x.out) 1 := by
+            rw [SB.chiPow_nonzero v _ 1 hresne]
+            simp
+      _ = (χ ^ (1 : ℤ)) x :=
+        (rf_local_mulchar_zpow_eval D S v χ hχval (1 : ℤ) x).symm
+      _ = χ x := by simp
+  have hchiMinus3 (y : 𝓞 F ⧸ v.asIdeal) (hy : y ≠ 0) :
+      (χ y) ^ (-(3 : ℤ)) = (χ ^ (-(3 : ℤ))) y := by
+    have hyresne : residue v (algebraMap (𝓞 F) F y.out) ≠ 0 := by
+      rw [hresτ y]
+      exact hy
+    calc
+      (χ y) ^ (-(3 : ℤ)) =
+          chi D v (algebraMap (𝓞 F) F y.out) ^ (-(3 : ℤ)) := by rw [hchiEval y hy]
+      _ = chiPow D v (algebraMap (𝓞 F) F y.out) (-(3 : ℤ)) :=
+        (SB.chiPow_nonzero v _ _ hyresne).symm
+      _ = (χ ^ (-(3 : ℤ))) y :=
+        (rf_local_mulchar_zpow_eval D S v χ hχval (-(3 : ℤ)) y).symm
+  have hphaseZero (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+      A.ψ v ((((toLoc v (primeGen R v))⁻¹ * t : (v.adicCompletion F)ˣ) : _) /
+        algebraMap F _ (algebraMap (𝓞 F) F x.out)) = ψ (phi x) := by
+    have hxrep : x.out ∉ v.asIdeal := rf_local_residue_not_mem D S v x hx
+    let xF : F := algebraMap (𝓞 F) F x.out
+    have hxFne : xF ≠ 0 := by
+      intro hzero
+      have hxval : v.valuation F xF = 1 := rf_local_residue_val_one D S v x hx
+      rw [hzero] at hxval
+      norm_num at hxval
+    let xu : Fˣ := Units.mk0 xF hxFne
+    let xLoc : (v.adicCompletion F)ˣ := toLoc v xu
+    have hxLocMap : (xLoc : v.adicCompletion F) =
+        algebraMap F (v.adicCompletion F) xF := by
+      change algebraMap F (v.adicCompletion F) (xu : F) = _
+      simp [xu]
+    have hxLocVal : Valued.v (xLoc : v.adicCompletion F) = 1 := by
+      calc
+        Valued.v (xLoc : v.adicCompletion F) =
+            Valued.v (algebraMap F (v.adicCompletion F) xF) := by rw [hxLocMap]
+        _ = v.valuation F xF := v.valuedAdicCompletion_eq_valuation' xF
+        _ = 1 := rf_local_residue_val_one D S v x hx
+    have hxLocUnit : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v xLoc := by
+      constructor
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hxLocVal]
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        have hinv : Valued.v
+            (((xLoc⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+          simp [Units.val_inv_eq_inv_val, hxLocVal]
+        rw [hinv]
+    let u : (v.adicCompletion F)ˣ := t / xLoc
+    have huLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v u := by
+      change u ∈ rf_localUnitSubgroup v
+      exact Subgroup.div_mem _ htLoc hxLocUnit
+    obtain ⟨b, hb, hcloseU⟩ := rf_localChi_has_approximant D v hv6 u huLoc
+    have hresProduct := rf_local_residue_t_mul_digit R v hv x hx xF rfl
+      xLoc hxLocMap hxLocVal t u rfl a ha hcloseT b hb hcloseU
+    have hbQne : (Ideal.Quotient.mk v.asIdeal b : 𝓞 F ⧸ v.asIdeal) ≠ 0 := by
+      simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hb
+    have hphiEq := rf_localResidueInversion_of_mul_eq τ hτne x hx
+      (Ideal.Quotient.mk v.asIdeal b) hbQne hresProduct
+    calc
+      A.ψ v ((((toLoc v (primeGen R v))⁻¹ * t : (v.adicCompletion F)ˣ) : _) /
+          algebraMap F _ (algebraMap (𝓞 F) F x.out)) =
+          A.ψ v ((((toLoc v (primeGen R v))⁻¹ * t : (v.adicCompletion F)ˣ) : _) /
+            algebraMap F _ xF) := by rfl
+      _ = ψ (Ideal.Quotient.mk v.asIdeal b) :=
+        rf_local_inverse_phase_residue R v hv xF xLoc hxLocMap t u rfl b hb hcloseU
+          ψ hψval
+      _ = ψ (phi x) := by rw [hphiEq]
+  have hphaseOne (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+      A.ψ v ((((toLoc v (primeGen R v))⁻¹ * (1 : (v.adicCompletion F)ˣ) :
+        (v.adicCompletion F)ˣ) : _) /
+          algebraMap F _ (algebraMap (𝓞 F) F x.out)) = ψ (x⁻¹) := by
+    have hxrep : x.out ∉ v.asIdeal := rf_local_residue_not_mem D S v x hx
+    let xF : F := algebraMap (𝓞 F) F x.out
+    have hxFne : xF ≠ 0 := by
+      intro hzero
+      have hxval : v.valuation F xF = 1 := rf_local_residue_val_one D S v x hx
+      rw [hzero] at hxval
+      norm_num at hxval
+    let xu : Fˣ := Units.mk0 xF hxFne
+    let xLoc : (v.adicCompletion F)ˣ := toLoc v xu
+    have hxLocMap : (xLoc : v.adicCompletion F) = algebraMap F _ xF := by
+      change algebraMap F (v.adicCompletion F) (xu : F) = _
+      simp [xu]
+    have hxLocVal : Valued.v (xLoc : v.adicCompletion F) = 1 := by
+      calc
+        Valued.v (xLoc : v.adicCompletion F) =
+            Valued.v (algebraMap F (v.adicCompletion F) xF) := by rw [hxLocMap]
+        _ = v.valuation F xF := v.valuedAdicCompletion_eq_valuation' xF
+        _ = 1 := rf_local_residue_val_one D S v x hx
+    have hxLocUnit : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v xLoc := by
+      constructor
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hxLocVal]
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        have hinv : Valued.v
+            (((xLoc⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+          simp [Units.val_inv_eq_inv_val, hxLocVal]
+        rw [hinv]
+    let u : (v.adicCompletion F)ˣ := (1 : (v.adicCompletion F)ˣ) / xLoc
+    have huLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v u := by
+      change u ∈ rf_localUnitSubgroup v
+      exact Subgroup.div_mem _ hOneLoc hxLocUnit
+    obtain ⟨b, hb, hcloseU⟩ := rf_localChi_has_approximant D v hv6 u huLoc
+    have h1not : (1 : 𝓞 F) ∉ v.asIdeal := by
+      intro hmem
+      exact v.isPrime.ne_top (Ideal.eq_top_of_isUnit_mem v.asIdeal hmem isUnit_one)
+    have hcloseOne : Valued.v
+        ((1 : v.adicCompletion F) - algebraMap F _ (algebraMap (𝓞 F) F 1)) < 1 := by
+      simp
+    have hresProduct := rf_local_residue_t_mul_digit R v hv x hx xF rfl
+      xLoc hxLocMap hxLocVal 1 u rfl 1 h1not hcloseOne b hb hcloseU
+    have hresOne : residue v (algebraMap (𝓞 F) F (1 : 𝓞 F)) = 1 := by
+      simpa using SB.residue_algebraMap v (1 : 𝓞 F)
+    have hresB : Ideal.Quotient.mk v.asIdeal b * x = 1 := by
+      rw [hresOne] at hresProduct
+      exact hresProduct
+    have hBInv : Ideal.Quotient.mk v.asIdeal b = x⁻¹ := by
+      exact (mul_eq_one_iff_eq_inv₀ hx).1 hresB
+    calc
+      A.ψ v ((((toLoc v (primeGen R v))⁻¹ * (1 : (v.adicCompletion F)ˣ) :
+          (v.adicCompletion F)ˣ) : _) /
+            algebraMap F _ (algebraMap (𝓞 F) F x.out)) =
+          ψ (Ideal.Quotient.mk v.asIdeal b) := by
+            simpa [xF, u] using
+              (rf_local_inverse_phase_residue R v hv xF xLoc hxLocMap 1 u rfl
+                b hb hcloseU ψ hψval)
+      _ = ψ (x⁻¹) := by rw [hBInv]
+  have hphiScale (y : 𝓞 F ⧸ v.asIdeal) (hy : y ≠ 0) :
+      phi (τ * y) = y⁻¹ := by
+    have hxy : τ * y ≠ 0 := mul_ne_zero hτne hy
+    have hprod := hphiProduct (τ * y) hxy
+    have hprod' : (phi (τ * y) * y) * τ = 1 * τ := by
+      calc
+        (phi (τ * y) * y) * τ = phi (τ * y) * (y * τ) := by ac_rfl
+        _ = phi (τ * y) * (τ * y) := by rw [mul_comm y τ]
+        _ = τ := hprod
+        _ = 1 * τ := by simp
+    have hmul : phi (τ * y) * y = 1 := mul_right_cancel₀ hτne hprod'
+    exact (mul_eq_one_iff_eq_inv₀ hy).1 hmul
+  have hpSpec : S.IsGen (primeGen R v : F) v.asIdeal ∧ Bd.Allowed (primeGen R v) := by
+    have h := bc.gen_spec (R.exterior.prime v hv)
+    simpa [primeGen, hv, R.exterior.prime_val] using h
+  have hmaskFourierOne (k : Fin 6) :
+      (∑ᶠ x : 𝓞 F ⧸ v.asIdeal,
+        maskAlpha D A v (primeGen R v) k x * maskPhase A v (primeGen R v) 1 x) = 1 := by
+    have h := ArtinPrimitiveRoots.A2.rf_mask_identity D S H Bd A v hv
+      (primeGen R v) hpSpec k (1 : 𝓞 F ⧸ v.asIdeal)
+    have hresOne : residue v (algebraMap (𝓞 F) F
+        (1 : 𝓞 F ⧸ v.asIdeal).out) = 1 := hresτ 1
+    have hresOneNe : residue v (algebraMap (𝓞 F) F
+        (1 : 𝓞 F ⧸ v.asIdeal).out) ≠ 0 := by rw [hresOne]; norm_num
+    have hχone : χ (1 : 𝓞 F ⧸ v.asIdeal) = 1 := MulChar.map_one χ
+    have hχpowone : chiPow D v
+        (algebraMap (𝓞 F) F (1 : 𝓞 F ⧸ v.asIdeal).out) 1 = 1 :=
+      (hχval 1).symm.trans hχone
+    have hchiRepOne : chi D v
+        (algebraMap (𝓞 F) F (1 : 𝓞 F ⧸ v.asIdeal).out) = 1 := by
+      calc
+        _ = chiPow D v
+            (algebraMap (𝓞 F) F (1 : 𝓞 F ⧸ v.asIdeal).out) 1 := by
+              rw [SB.chiPow_nonzero v _ 1 hresOneNe]
+              simp
+        _ = 1 := hχpowone
+    have hχpow : chiPow D v
+        (algebraMap (𝓞 F) F (1 : 𝓞 F ⧸ v.asIdeal).out) (k.1 : ℤ) = 1 := by
+      calc
+        _ = chi D v (algebraMap (𝓞 F) F (1 : 𝓞 F ⧸ v.asIdeal).out) ^ (k.1 : ℤ) :=
+          SB.chiPow_nonzero v _ _ hresOneNe
+        _ = 1 := by rw [hchiRepOne]; simp
+    rw [hχpow] at h
+    simpa using h
+  have hOmegaRatio : localOmega R v =
+      maskTau D A v (primeGen R v) 3 / maskTau D A v (primeGen R v) 1 := by
+    unfold localOmega
+    rw [rf_localOmega_numerator_maskTau R v hv ψ hψval]
+  have hchiZpowEval (n : ℤ) (y : 𝓞 F ⧸ v.asIdeal) (hy : y ≠ 0) :
+      (χ ^ n) y = (χ y) ^ n := by
+    have hyresne : residue v (algebraMap (𝓞 F) F y.out) ≠ 0 := by
+      rw [hresτ y]
+      exact hy
+    calc
+      (χ ^ n) y = chiPow D v (algebraMap (𝓞 F) F y.out) n :=
+        rf_local_mulchar_zpow_eval D S v χ hχval n y
+      _ = chi D v (algebraMap (𝓞 F) F y.out) ^ n :=
+        SB.chiPow_nonzero v _ n hyresne
+      _ = (χ y) ^ n := by rw [hchiEval y hy]
+  have hchiQuot (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0)
+      (hy : phi x ≠ 0) : χ x = localChi D v t / χ (phi x) := by
+    have hprodχ : χ (phi x) * χ x = χ τ := by
+      calc
+        χ (phi x) * χ x = χ (phi x * x) := (map_mul χ (phi x) x).symm
+        _ = χ τ := by rw [hphiProduct x hx]
+    have hyχne : χ (phi x) ≠ 0 :=
+      (MulChar.apply_ne_zero_iff).2 (isUnit_iff_ne_zero.mpr hy)
+    rw [eq_div_iff hyχne]
+    calc
+      χ x * χ (phi x) = χ (phi x) * χ x := by ring
+      _ = χ τ := hprodχ
+      _ = localChi D v t := hchiTau
+  have hchiOrbitPow (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0)
+      (hy : phi x ≠ 0) (n : ℤ) :
+      (χ x) ^ n = localChi D v t ^ n * (χ (phi x)) ^ (-n) := by
+    rw [hchiQuot x hx hy, div_zpow, div_eq_mul_inv, zpow_neg]
+  have hchiOrbitPowNorm (n : ℤ) : ‖localChi D v t ^ n‖ = 1 := by
+    rw [norm_zpow, hlocalChiNorm]
+    simp
+  have hmaskedGauss (n : ℤ) :
+      (∑ y : 𝓞 F ⧸ v.asIdeal, if y = 0 then 0 else (χ ^ n) y * ψ y) =
+        gaussSum (χ ^ n) ψ := by
+    classical
+    rw [gaussSum]
+    apply Finset.sum_congr rfl
+    intro y _
+    by_cases hy : y = 0
+    · subst y
+      simp only [if_pos rfl]
+      have hzero : (χ ^ n) (0 : 𝓞 F ⧸ v.asIdeal) = 0 :=
+        MulChar.map_nonunit _ (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ v.asIdeal))
+      rw [hzero]
+      simp
+    · simp [hy]
+  have hψne : ψ ≠ 1 := by
+    intro h
+    apply hψprim (a := (1 : 𝓞 F ⧸ v.asIdeal)) one_ne_zero
+    simpa [h]
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · intro he
+    rw [rf_localR_formula R v hv j e t htLoc]
+    rw [rf_localW_zero_of_negative R v hv e he]
+    simp
+  · intro he
+    exact rf_localR_formula R v hv j e t htLoc
+  · intro hj1 he
+    subst j
+    rw [rf_localR_formula R v hv 1 e t htLoc, hphaseSum he t htLoc]
+    rw [rf_local_positive_alpha_chi_sum D S A v (primeGen R v) χ hχval hχorder 1]
+    norm_num
+  · intro hj1 he0
+    subst j
+    subst e
+    have hW0 : localW R v 0 = 1 := by
+      rw [rf_localW_table R v hv 0]
+      simp [sphericalTable]
+    let c : ℂ := (maskTau D A v (primeGen R v) 1)⁻¹ *
+      localChi D v t ^ (3 : ℕ)
+    let f : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+      maskAlpha D A v (primeGen R v) 1 x *
+        chi D v (algebraMap (𝓞 F) F x.out) ^ 4 * ψ (phi x)
+    let fψ : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+      maskAlpha D A v (primeGen R v) 1 x *
+        chi D v (algebraMap (𝓞 F) F x.out) ^ 4 *
+          A.ψ v (((toLoc v (primeGen R v) ^ ((0 : ℤ) - 1) * t :
+            (v.adicCompletion F)ˣ) : _) /
+              algebraMap F _ (algebraMap (𝓞 F) F x.out))
+    have hfψ := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v fψ
+    have hf := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f
+    have hphaseFinsum : (∑ᶠ x, fψ x) = ∑ᶠ x, f x := by
+      calc
+        (∑ᶠ x, fψ x) = ∑ x, fψ x := hfψ
+        _ = ∑ x, f x := by
+          apply Finset.sum_congr rfl
+          intro x _
+          by_cases hx : x = 0
+          · simp [fψ, f, hx]
+          · simp only [fψ, f, if_neg hx]
+            have hphase := hphaseZero x hx
+            have hphase' : A.ψ v (((toLoc v (primeGen R v) ^
+                ((0 : ℤ) - 1) * t : (v.adicCompletion F)ˣ) : _) /
+                  algebraMap F _ (algebraMap (𝓞 F) F x.out)) = ψ (phi x) := by
+              simpa using hphase
+            rw [hphase']
+        _ = ∑ᶠ x, f x := hf.symm
+    have hcoef (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+        maskAlpha D A v (primeGen R v) 1 x *
+          chi D v (algebraMap (𝓞 F) F x.out) ^ 4 =
+        c * ((χ ^ (-(3 : ℤ))) (phi x)) := by
+      have hy : phi x ≠ 0 := by
+        intro hzero
+        have hEq : phi x = phi 0 := by rw [hzero, hphi0]
+        exact hx (hphiBij.1 hEq)
+      have hxchi := hchiEval x hx
+      have hychi := hchiEval (phi x) hy
+      have hprodχ : χ (phi x) * χ x = χ τ := by
+        calc
+          χ (phi x) * χ x = χ (phi x * x) := (map_mul χ (phi x) x).symm
+          _ = χ τ := by rw [hphiProduct x hx]
+      have hyχne : χ (phi x) ≠ 0 :=
+        (MulChar.apply_ne_zero_iff).2 (isUnit_iff_ne_zero.mpr hy)
+      have hxχne : χ x ≠ 0 :=
+        (MulChar.apply_ne_zero_iff).2 (isUnit_iff_ne_zero.mpr hx)
+      have hquotχ : χ x = localChi D v t / χ (phi x) := by
+        rw [eq_div_iff hyχne]
+        calc
+          χ x * χ (phi x) = χ (phi x) * χ x := by ring
+          _ = χ τ := hprodχ
+          _ = localChi D v t := hchiTau
+      have hpowχ : (χ x) ^ (3 : ℤ) =
+          localChi D v t ^ (3 : ℤ) * χ (phi x) ^ (-(3 : ℤ)) := by
+        rw [hquotχ]
+        field_simp [hyχne]
+      have hchiYpow : (χ ^ (-(3 : ℤ))) (phi x) =
+          (χ (phi x)) ^ (-(3 : ℤ)) := by
+        have hyresne : residue v
+            (algebraMap (𝓞 F) F (phi x).out) ≠ 0 := by
+          rw [hresτ (phi x)]
+          exact hy
+        calc
+          (χ ^ (-(3 : ℤ))) (phi x) = chiPow D v
+              (algebraMap (𝓞 F) F (phi x).out) (-(3 : ℤ)) :=
+            rf_local_mulchar_zpow_eval D S v χ hχval (-(3 : ℤ)) (phi x)
+          _ = chi D v (algebraMap (𝓞 F) F (phi x).out) ^ (-(3 : ℤ)) :=
+            SB.chiPow_nonzero v _ (-(3 : ℤ)) hyresne
+          _ = (χ (phi x)) ^ (-(3 : ℤ)) := by rw [hychi]
+      have hα : maskAlpha D A v (primeGen R v) 1 x =
+          (maskTau D A v (primeGen R v) 1)⁻¹ *
+            chi D v (algebraMap (𝓞 F) F x.out) ^ (-1 : ℤ) := by
+        simp [maskAlpha, hx]
+      have hcombine : (χ x) ^ (-1 : ℤ) * (χ x) ^ (4 : ℤ) =
+          (χ x) ^ (3 : ℤ) := by
+        calc
+          _ = (χ x) ^ ((-1 : ℤ) + 4) := (zpow_add₀ hxχne _ _).symm
+          _ = _ := by congr 1 <;> norm_num
+      calc
+        maskAlpha D A v (primeGen R v) 1 x *
+            chi D v (algebraMap (𝓞 F) F x.out) ^ 4 =
+          (maskTau D A v (primeGen R v) 1)⁻¹ *
+            ((χ x) ^ (-1 : ℤ) * (χ x) ^ (4 : ℤ)) := by
+              rw [hα, hxchi]
+              ac_rfl
+        _ = (maskTau D A v (primeGen R v) 1)⁻¹ * (χ x) ^ (3 : ℤ) := by
+          rw [hcombine]
+        _ = (maskTau D A v (primeGen R v) 1)⁻¹ *
+            (localChi D v t ^ (3 : ℤ) * χ (phi x) ^ (-(3 : ℤ))) := by
+          rw [hpowχ]
+        _ = c * ((χ ^ (-(3 : ℤ))) (phi x)) := by
+          dsimp [c]
+          rw [← hchiYpow]
+          ac_rfl
+    let g : (𝓞 F ⧸ v.asIdeal) → ℂ := fun y => if y = 0 then 0 else
+      c * (χ y) ^ (-(3 : ℤ)) * ψ y
+    have hpoint (x : 𝓞 F ⧸ v.asIdeal) : f x = g (phi x) := by
+      by_cases hx : x = 0
+      · subst x
+        simp [f, g, hphi0]
+      · have hy : phi x ≠ 0 := by
+          intro hzero
+          have hEq : phi x = phi 0 := by rw [hzero, hphi0]
+          exact hx (hphiBij.1 hEq)
+        simp only [f, g, if_neg hx, if_neg hy]
+        rw [hcoef x hx]
+        rw [hchiMinus3 (phi x) hy]
+    have hsumChange : (∑ x : 𝓞 F ⧸ v.asIdeal, f x) =
+        ∑ y : 𝓞 F ⧸ v.asIdeal, g y :=
+      Fintype.sum_bijective phi hphiBij f g hpoint
+    have hcharSum :
+        (∑ y : 𝓞 F ⧸ v.asIdeal, if y = 0 then 0 else
+          (χ ^ (-(3 : ℤ))) y * ψ y) = maskTau D A v (primeGen R v) 3 := by
+      have hgauss : (∑ y : 𝓞 F ⧸ v.asIdeal,
+          if y = 0 then 0 else (χ ^ (-(3 : ℤ))) y * ψ y) =
+          gaussSum (χ ^ (-(3 : ℤ))) ψ := by
+        change (∑ y : 𝓞 F ⧸ v.asIdeal,
+          if y = 0 then 0 else (χ ^ (-(3 : ℤ))) y * ψ y) =
+          ∑ y : 𝓞 F ⧸ v.asIdeal, (χ ^ (-(3 : ℤ))) y * ψ y
+        apply Finset.sum_congr rfl
+        intro y _
+        by_cases hy : y = 0
+        · subst y
+          have hzeroChar : (χ ^ (-(3 : ℤ)))
+              (0 : 𝓞 F ⧸ v.asIdeal) = 0 :=
+            MulChar.map_nonunit _ (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ v.asIdeal))
+          simp only [if_pos rfl]
+          rw [hzeroChar]
+          simp
+        · simp [hy]
+      calc
+        _ = gaussSum (χ ^ (-(3 : ℤ))) ψ := hgauss
+        _ = maskTau D A v (primeGen R v) 3 := (htau 3).symm
+    have hsumG : (∑ y : 𝓞 F ⧸ v.asIdeal, g y) = c *
+      maskTau D A v (primeGen R v) 3 := by
+      calc
+        (∑ y, g y) = ∑ y, c * (if y = 0 then 0 else
+            (χ ^ (-(3 : ℤ))) y * ψ y) := by
+          apply Finset.sum_congr rfl
+          intro y _
+          by_cases hy : y = 0
+          · simp [g, hy]
+          · simp only [g, if_neg hy]
+            rw [hchiMinus3 y hy]
+            ac_rfl
+        _ = c * ∑ y, if y = 0 then 0 else
+            (χ ^ (-(3 : ℤ))) y * ψ y := by rw [Finset.mul_sum]
+        _ = _ := by rw [hcharSum]
+    have hzeroFinsum : (∑ᶠ x, f x) = c *
+        maskTau D A v (primeGen R v) 3 := by
+      calc
+        (∑ᶠ x, f x) = ∑ x, f x := hf
+        _ = c * maskTau D A v (primeGen R v) 3 := hsumChange.trans hsumG
+    have hformula := rf_localR_formula R v hv 1 0 t htLoc
+    rw [hformula, hW0, hphaseFinsum, hzeroFinsum]
+    have hchiPow7 : localChi D v t ^ (7 : ℕ) = localChi D v t := by
+      rw [show (7 : ℕ) = 6 + 1 by norm_num, pow_add, hlocalChiSix]
+      simp
+    rw [hOmegaRatio]
+    simp only [mul_zero, add_zero, one_mul]
+    change localChi D v t ^ (4 : ℕ) * (c * maskTau D A v (primeGen R v) 3) =
+      (maskTau D A v (primeGen R v) 3 / maskTau D A v (primeGen R v) 1) *
+        localChi D v t
+    dsimp [c]
+    rw [div_eq_mul_inv]
+    calc
+      _ = localChi D v t ^ (7 : ℕ) *
+          (maskTau D A v (primeGen R v) 1)⁻¹ *
+            maskTau D A v (primeGen R v) 3 := by ring
+      _ = localChi D v t *
+          (maskTau D A v (primeGen R v) 1)⁻¹ *
+            maskTau D A v (primeGen R v) 3 := by rw [hchiPow7]
+      _ = maskTau D A v (primeGen R v) 3 /
+          maskTau D A v (primeGen R v) 1 * localChi D v t := by
+            rw [div_eq_mul_inv]
+            ring
+  · have hΩ : localOmega R v =
+        maskTau D A v (primeGen R v) 3 / maskTau D A v (primeGen R v) 1 := by
+      unfold localOmega
+      rw [rf_localOmega_numerator_maskTau R v hv ψ hψval]
+    have hχneg3ne : χ ^ (-(3 : ℤ)) ≠ 1 := by
+      apply rf_local_mulchar_zpow_ne_one hχorder (-3)
+      norm_num
+    have hχneg1ne : χ ^ (-(1 : ℤ)) ≠ 1 := by
+      apply rf_local_mulchar_zpow_ne_one hχorder (-1)
+      norm_num
+    have hnorm3 : ‖maskTau D A v (primeGen R v) 3‖ =
+        Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+      rw [htau 3]
+      exact rf_gauss_sum_norm (χ ^ (-(3 : ℤ))) ψ hχneg3ne hψprim
+    have hnorm1 : ‖maskTau D A v (primeGen R v) 1‖ =
+        Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+      rw [htau 1]
+      exact rf_gauss_sum_norm (χ ^ (-(1 : ℤ))) ψ hχneg1ne hψprim
+    have hcardpos : 0 < (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+      exact_mod_cast Fintype.card_pos
+    rw [hΩ, norm_div, hnorm3, hnorm1]
+    exact div_self (ne_of_gt (Real.sqrt_pos.2 hcardpos))
+  ·
+    let qC : ℂ := (Ideal.absNorm v.asIdeal : ℂ)
+    have hqC : qC = (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := by
+      dsimp [qC]
+      exact_mod_cast hnormCard.symm
+    have hqRgt : 1 < (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+      rw [hnormCard]
+      exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+    have hqRpos : 0 < (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by positivity
+    let fψ : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+      maskAlpha D A v (primeGen R v) j x *
+        chi D v (algebraMap (𝓞 F) F x.out) ^ 4 *
+          A.ψ v (((toLoc v (primeGen R v) ^ ((0 : ℤ) - 1) * t :
+            (v.adicCompletion F)ˣ) : _) /
+              algebraMap F _ (algebraMap (𝓞 F) F x.out))
+    let f : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+      maskAlpha D A v (primeGen R v) j x *
+        chi D v (algebraMap (𝓞 F) F x.out) ^ 4 * ψ (phi x)
+    have hfψ := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v fψ
+    have hf := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f
+    have hphaseFinsum : (∑ᶠ x, fψ x) = ∑ᶠ x, f x := by
+      calc
+        (∑ᶠ x, fψ x) = ∑ x, fψ x := hfψ
+        _ = ∑ x, f x := by
+          apply Finset.sum_congr rfl
+          intro x _
+          by_cases hx : x = 0
+          · simp [fψ, f, hx]
+          · simp only [fψ, f, if_neg hx]
+            have hphase := hphaseZero x hx
+            have hphase' : A.ψ v (((toLoc v (primeGen R v) ^
+                ((0 : ℤ) - 1) * t : (v.adicCompletion F)ˣ) : _) /
+                  algebraMap F _ (algebraMap (𝓞 F) F x.out)) = ψ (phi x) := by
+              simpa using hphase
+            rw [hphase']
+        _ = ∑ᶠ x, f x := hf.symm
+    have hW0 : localW R v 0 = 1 := by
+      rw [rf_localW_table R v hv 0]
+      simp [sphericalTable]
+    have hyne (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) : phi x ≠ 0 := by
+      intro hzero
+      have hEq : phi x = phi 0 := by rw [hzero, hphi0]
+      exact hx (hphiBij.1 hEq)
+    have hOrbitZero (j0 : Fin 6) (hj0 : j0 = 0) :
+        (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+          maskAlpha D A v (primeGen R v) j0 x *
+            chi D v (algebraMap (𝓞 F) F x.out) ^ 4 * ψ (phi x)) =
+        (-qC⁻¹ * localChi D v t ^ (4 : ℤ)) *
+          gaussSum (χ ^ (-(4 : ℤ))) ψ := by
+      subst j0
+      let f0 : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+        maskAlpha D A v (primeGen R v) 0 x *
+          chi D v (algebraMap (𝓞 F) F x.out) ^ 4 * ψ (phi x)
+      let g : (𝓞 F ⧸ v.asIdeal) → ℂ := fun y => if y = 0 then 0 else
+        (-qC⁻¹ * localChi D v t ^ (4 : ℤ)) *
+          ((χ ^ (-(4 : ℤ))) y * ψ y)
+      have hf0 := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f0
+      have hpoint (x : 𝓞 F ⧸ v.asIdeal) : f0 x = g (phi x) := by
+        by_cases hx : x = 0
+        · subst x
+          simp [f0, g, hphi0]
+        · have hy := hyne x hx
+          have hα : maskAlpha D A v (primeGen R v) 0 x = -qC⁻¹ := by
+            simp [maskAlpha, hx, qC]
+          have hpow := hchiOrbitPow x hx hy (4 : ℤ)
+          simp only [f0, g, if_neg hx, if_neg hy]
+          rw [hα, hchiEval x hx]
+          have hnat : (χ x) ^ (4 : ℕ) = (χ x) ^ (4 : ℤ) :=
+            (zpow_natCast (χ x) 4).symm
+          rw [hnat, hpow, ← hchiZpowEval (-(4 : ℤ)) (phi x) hy]
+          ring
+      have hsumChange : (∑ x, f0 x) = ∑ y, g y :=
+        Fintype.sum_bijective phi hphiBij f0 g hpoint
+      have hsumG : (∑ y, g y) =
+          (-qC⁻¹ * localChi D v t ^ (4 : ℤ)) *
+            gaussSum (χ ^ (-(4 : ℤ))) ψ := by
+        calc
+          (∑ y, g y) = ∑ y, (-qC⁻¹ * localChi D v t ^ (4 : ℤ)) *
+              (if y = 0 then 0 else (χ ^ (-(4 : ℤ))) y * ψ y) := by
+                apply Finset.sum_congr rfl
+                intro y _
+                by_cases hy : y = 0 <;> simp [g, hy]
+          _ = (-qC⁻¹ * localChi D v t ^ (4 : ℤ)) *
+              ∑ y, if y = 0 then 0 else (χ ^ (-(4 : ℤ))) y * ψ y := by
+                rw [Finset.mul_sum]
+          _ = _ := by rw [hmaskedGauss]
+      calc
+        (∑ᶠ x, f0 x) = ∑ x, f0 x := hf0
+        _ = _ := hsumChange.trans hsumG
+    have hOrbitNonzero (j : Fin 6) (hj0 : j ≠ 0) :
+        (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+          maskAlpha D A v (primeGen R v) j x *
+            chi D v (algebraMap (𝓞 F) F x.out) ^ 4 * ψ (phi x)) =
+          (maskTau D A v (primeGen R v) j)⁻¹ *
+            localChi D v t ^ ((4 : ℤ) - j.1) *
+              gaussSum (χ ^ ((j.1 : ℤ) - 4)) ψ := by
+      let n : ℤ := (j.1 : ℤ) - 4
+      let k : ℤ := (4 : ℤ) - j.1
+      let fj : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j x *
+          chi D v (algebraMap (𝓞 F) F x.out) ^ 4 * ψ (phi x)
+      let gj : (𝓞 F ⧸ v.asIdeal) → ℂ := fun y => if y = 0 then 0 else
+        (maskTau D A v (primeGen R v) j)⁻¹ * localChi D v t ^ k *
+          ((χ ^ n) y * ψ y)
+      have hfinsum := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v fj
+      have hpoint (x : 𝓞 F ⧸ v.asIdeal) : fj x = gj (phi x) := by
+        by_cases hx : x = 0
+        · subst x
+          simp [fj, gj, hphi0]
+        · have hy := hyne x hx
+          have hα : maskAlpha D A v (primeGen R v) j x =
+              (maskTau D A v (primeGen R v) j)⁻¹ *
+                chi D v (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) := by
+            simp [maskAlpha, hj0, hx]
+          have hpow := hchiOrbitPow x hx hy k
+          have hnat : (χ x) ^ (4 : ℕ) = (χ x) ^ (4 : ℤ) :=
+            (zpow_natCast _ 4).symm
+          have hcombine : (χ x) ^ (-(j.1 : ℤ)) * (χ x) ^ (4 : ℤ) =
+              (χ x) ^ k := by
+            calc
+              _ = (χ x) ^ ((-(j.1 : ℤ)) + 4) := (zpow_add₀
+                ((MulChar.apply_ne_zero_iff).2 (isUnit_iff_ne_zero.mpr hx)) _ _).symm
+              _ = _ := by congr 1 <;> dsimp [k] <;> ring
+          simp only [fj, gj, if_neg hx, if_neg hy]
+          rw [hα, hchiEval x hx, hnat]
+          calc
+            _ = ((maskTau D A v (primeGen R v) j)⁻¹ *
+                (χ x ^ (-(j.1 : ℤ)) * χ x ^ (4 : ℤ))) * ψ (phi x) := by ac_rfl
+            _ = ((maskTau D A v (primeGen R v) j)⁻¹ * (χ x ^ k)) * ψ (phi x) := by
+              rw [hcombine]
+            _ = (maskTau D A v (primeGen R v) j)⁻¹ * localChi D v t ^ k *
+                ((χ ^ n) (phi x) * ψ (phi x)) := by
+              rw [hpow]
+              have hnEq : n = -k := by dsimp [n, k]; ring
+              have hchar : (χ (phi x)) ^ (-k) = (χ ^ n) (phi x) := by
+                rw [← hnEq]
+                exact (hchiZpowEval n (phi x) hy).symm
+              rw [hchar]
+              ring
+      have hsumChange : (∑ x, fj x) = ∑ y, gj y :=
+        Fintype.sum_bijective phi hphiBij fj gj hpoint
+      have hsumG : (∑ y, gj y) =
+          (maskTau D A v (primeGen R v) j)⁻¹ * localChi D v t ^ k *
+            gaussSum (χ ^ n) ψ := by
+        calc
+          (∑ y, gj y) = ∑ y, (maskTau D A v (primeGen R v) j)⁻¹ *
+              localChi D v t ^ k *
+                (if y = 0 then 0 else (χ ^ n) y * ψ y) := by
+                  apply Finset.sum_congr rfl
+                  intro y _
+                  by_cases hy : y = 0 <;> simp [gj, hy]
+          _ = (maskTau D A v (primeGen R v) j)⁻¹ * localChi D v t ^ k *
+              ∑ y, if y = 0 then 0 else (χ ^ n) y * ψ y := by
+                rw [Finset.mul_sum]
+          _ = _ := by rw [hmaskedGauss]
+      calc
+        _ = ∑ x, fj x := hfinsum
+        _ = ∑ y, gj y := hsumChange
+        _ = _ := hsumG
+    rw [rf_localR_formula R v hv j 0 t htLoc, hphaseFinsum, hW0]
+    simp only [mul_zero, add_zero, one_mul]
+    by_cases hj0 : j = 0
+    · have hsum0 : (∑ᶠ x, f x) =
+          (-qC⁻¹ * localChi D v t ^ (4 : ℤ)) *
+            gaussSum (χ ^ (-(4 : ℤ))) ψ := by
+        simpa [f, hj0] using hOrbitZero j hj0
+      rw [hsum0]
+      have hχm4ne : χ ^ (-(4 : ℤ)) ≠ 1 := by
+        apply rf_local_mulchar_zpow_ne_one hχorder
+        norm_num
+      have hgaussNorm : ‖gaussSum (χ ^ (-(4 : ℤ))) ψ‖ =
+          Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) :=
+        rf_gauss_sum_norm _ _ hχm4ne hψprim
+      have hqcnorm : ‖qC‖ = (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+        rw [hqC]
+        simp
+      have hbound : (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ)⁻¹ *
+          Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) ≤ 1 := by
+        have hsqrt : 1 ≤ Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+          calc
+            1 = Real.sqrt 1 := by norm_num
+            _ ≤ Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) :=
+              Real.sqrt_le_sqrt hqRgt.le
+        have hrootpos := Real.sqrt_pos.2 hqRpos
+        have hprod : (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ)⁻¹ *
+            Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) =
+              1 / Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+          field_simp [ne_of_gt hqRpos, ne_of_gt hrootpos]
+          nlinarith [Real.sq_sqrt hqRpos.le]
+        rw [hprod]
+        exact (div_le_one₀ hrootpos).2 hsqrt
+      calc
+        ‖localChi D v t ^ (4 : ℤ) *
+            ((-qC⁻¹ * localChi D v t ^ (4 : ℤ)) *
+              gaussSum (χ ^ (-(4 : ℤ))) ψ)‖ =
+              (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ)⁻¹ *
+                Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+          have hcharpow : χ ^ (-(4 : ℤ)) = (χ ^ (4 : ℤ))⁻¹ := by
+            rw [zpow_neg]
+          rw [hcharpow] at hgaussNorm
+          simp [norm_mul, norm_zpow, hlocalChiNorm, hqcnorm]
+          exact hgaussNorm
+        _ ≤ 1 := hbound
+    · rw [hOrbitNonzero j hj0]
+      have hτne : χ ^ (-(j.1 : ℤ)) ≠ 1 := by
+        apply rf_local_mulchar_zpow_ne_one hχorder
+        have hjpos : 0 < j.1 := Nat.pos_of_ne_zero (by
+          intro h
+          exact hj0 (Fin.ext h))
+        have hjlt : j.1 < 6 := j.isLt
+        omega
+      have hτnorm : ‖maskTau D A v (primeGen R v) j‖ =
+          Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+        rw [htau j]
+        exact rf_gauss_sum_norm _ _ hτne hψprim
+      have hkEval : (4 : ℤ) - j.1 + ((j.1 : ℤ) - 4) = 0 := by ring
+      have hnumCase : j = 4 ∨ j ≠ 4 := eq_or_ne j 4
+      rcases hnumCase with hj4 | hj4
+      · subst j
+        have hgaussOne : gaussSum (χ ^ ((4 : ℤ) - 4)) ψ = -1 := by
+          convert gaussSum_one_left hψne using 1 <;> rfl
+        have hrootpos : 0 < Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) :=
+          Real.sqrt_pos.2 hqRpos
+        have hdenpos : 0 < ‖maskTau D A v (primeGen R v) (4 : Fin 6)‖ := by
+          rw [hτnorm]
+          exact hrootpos
+        calc
+          ‖localChi D v t ^ (4 : ℤ) *
+              ((maskTau D A v (primeGen R v) (4 : Fin 6))⁻¹ *
+                localChi D v t ^ (4 - 4 : ℤ) *
+                  gaussSum (χ ^ ((4 : ℤ) - 4)) ψ)‖ =
+              ‖maskTau D A v (primeGen R v) (4 : Fin 6)‖⁻¹ := by
+            rw [hgaussOne]
+            simp only [norm_mul, norm_zpow, hlocalChiNorm, inv_one, mul_one,
+              norm_inv, norm_neg, norm_one]
+            ring
+          _ ≤ 1 := by
+            rw [hτnorm]
+            have hsqrt : 1 ≤ Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+              calc
+                1 = Real.sqrt 1 := by norm_num
+                _ ≤ Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) :=
+                  Real.sqrt_le_sqrt hqRgt.le
+            simpa [one_div] using (div_le_one₀ hrootpos).2 hsqrt
+      · have hnne : (j.1 : ℤ) - 4 ≠ 0 := by
+          intro h
+          apply hj4
+          apply Fin.ext
+          omega
+        have hnumNe : χ ^ ((j.1 : ℤ) - 4) ≠ 1 := by
+          apply rf_local_mulchar_zpow_ne_one hχorder
+          have hjpos : 0 < j.1 := Nat.pos_of_ne_zero (by
+            intro h
+            exact hj0 (Fin.ext h))
+          have hjlt : j.1 < 6 := j.isLt
+          omega
+        have hnumNorm : ‖gaussSum (χ ^ ((j.1 : ℤ) - 4)) ψ‖ =
+            Real.sqrt (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) :=
+          rf_gauss_sum_norm _ _ hnumNe hψprim
+        calc
+          ‖localChi D v t ^ (4 : ℤ) *
+              ((maskTau D A v (primeGen R v) j)⁻¹ *
+                localChi D v t ^ ((4 : ℤ) - j.1) *
+                  gaussSum (χ ^ ((j.1 : ℤ) - 4)) ψ)‖ = 1 := by
+            simp [norm_mul, hchiOrbitPowNorm, hτnorm, hnumNorm,
+              Real.sqrt_ne_zero'.mpr hqRpos]
+            rw [hlocalChiNorm]
+            norm_num
+          _ ≤ 1 := le_rfl
+  · intro he
+    by_cases hj4 : j = 4
+    · subst j
+      have hR : localR R v 4 e t =
+          localW R v e * localChi D v t ^ (4 + 2 * e) *
+            (((Ideal.absNorm v.asIdeal : ℂ) - 1) / maskTau D A v (primeGen R v) 4) := by
+        rw [rf_localR_formula R v hv 4 e t htLoc, hphaseSum he t htLoc]
+        rw [rf_local_positive_alpha_chi_sum D S A v (primeGen R v) χ hχval hχorder 4]
+        simp
+      let q : ℝ := qI v.asIdeal
+      have hqpos : 1 < q := by
+        dsimp [q, qI]
+        exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+      have hqcard : (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) = q := by
+        dsimp [q, qI]
+        exact_mod_cast hnormCard
+      have hχ4ne : χ ^ (-(4 : ℤ)) ≠ 1 := by
+        apply rf_local_mulchar_zpow_ne_one hχorder
+        norm_num
+      have hτ4norm : ‖maskTau D A v (primeGen R v) 4‖ = Real.sqrt q := by
+        rw [htau 4]
+        have h := rf_gauss_sum_norm (χ ^ (-(4 : ℤ))) ψ hχ4ne hψprim
+        rw [hqcard] at h
+        exact h
+      have hchiPowNorm (n : ℤ) : ‖localChi D v t ^ n‖ = 1 := by
+        rw [norm_zpow, hlocalChiNorm]
+        simp
+      have hqminuspos : 0 < q - 1 := by linarith
+      have hnumNorm : ‖((Ideal.absNorm v.asIdeal : ℂ) - 1)‖ = q - 1 := by
+        have hcast : (Ideal.absNorm v.asIdeal : ℂ) - 1 = ((q - 1 : ℝ) : ℂ) := by
+          simp [q, qI]
+        rw [hcast, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hqminuspos]
+      have hcoeffNorm :
+          ‖((Ideal.absNorm v.asIdeal : ℂ) - 1) / maskTau D A v (primeGen R v) 4‖ =
+            (q - 1) / Real.sqrt q := by
+        rw [norm_div, hnumNorm, hτ4norm]
+      have hrootPos : 0 < Real.sqrt q := Real.sqrt_pos.2 (by linarith)
+      have hrootSq : (Real.sqrt q) ^ 2 = q := Real.sq_sqrt (by linarith : 0 ≤ q)
+      have hcoeffBound : (q - 1) / Real.sqrt q ≤ Real.sqrt q := by
+        apply (div_le_iff₀ hrootPos).2
+        nlinarith [hrootSq]
+      have hRzero : localR R v 4 e t =
+          localW R v e * localChi D v t ^ (4 + 2 * e) *
+            (((Ideal.absNorm v.asIdeal : ℂ) - 1) / maskTau D A v (primeGen R v) 4) := hR
+      calc
+        ‖localR R v 4 e t‖ = ‖localW R v e‖ * ((q - 1) / Real.sqrt q) := by
+          rw [hRzero]
+          simp only [norm_mul, hchiPowNorm, hcoeffNorm, mul_one]
+        _ ≤ ‖localW R v e‖ * Real.sqrt q :=
+          mul_le_mul_of_nonneg_left hcoeffBound (norm_nonneg _)
+        _ = Real.sqrt q * ‖localW R v e‖ := by ring
+        _ = qI v.asIdeal ^ (1 / 2 : ℝ) * ‖localW R v e‖ := by
+          rw [Real.sqrt_eq_rpow]
+    · have hRzero : localR R v j e t = 0 := by
+        rw [rf_localR_formula R v hv j e t htLoc, hphaseSum he t htLoc]
+        rw [rf_local_positive_alpha_chi_sum D S A v (primeGen R v) χ hχval hχorder j]
+        simp [hj4]
+      rw [hRzero]
+      simp only [norm_zero]
+      have hqnonneg : 0 ≤ qI v.asIdeal := by
+        dsimp [qI]
+        positivity
+      exact mul_nonneg (Real.rpow_nonneg hqnonneg _) (norm_nonneg _)
+  · intro he
+    by_cases he0 : e = 0
+    · subst e
+      let qC : ℂ := (Ideal.absNorm v.asIdeal : ℂ)
+      have hWzero : localW R v 0 = 1 := by
+        rw [rf_localW_table R v hv 0]
+        simp [sphericalTable]
+      let ftψ : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j x *
+          chi D v (algebraMap (𝓞 F) F x.out) ^ 4 *
+            A.ψ v (((toLoc v (primeGen R v) ^ ((0 : ℤ) - 1) * t :
+              (v.adicCompletion F)ˣ) : _) /
+                algebraMap F _ (algebraMap (𝓞 F) F x.out))
+      let ft : (𝓞 F ⧸ v.asIdeal) → ℂ := fun x => if x = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j x *
+          chi D v (algebraMap (𝓞 F) F x.out) ^ 4 * ψ (phi x)
+      have hftψ := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v ftψ
+      have hft := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v ft
+      have hphaseFinsumT : (∑ᶠ x, ftψ x) = ∑ᶠ x, ft x := by
+        calc
+          (∑ᶠ x, ftψ x) = ∑ x, ftψ x := hftψ
+          _ = ∑ x, ft x := by
+            apply Finset.sum_congr rfl
+            intro x _
+            by_cases hx : x = 0
+            · simp [ftψ, ft, hx]
+            · simp only [ftψ, ft, if_neg hx]
+              have hphase := hphaseZero x hx
+              have hphase' : A.ψ v (((toLoc v (primeGen R v) ^
+                  ((0 : ℤ) - 1) * t : (v.adicCompletion F)ˣ) : _) /
+                    algebraMap F _ (algebraMap (𝓞 F) F x.out)) = ψ (phi x) := by
+                simpa using hphase
+              rw [hphase']
+          _ = ∑ᶠ x, ft x := hft.symm
+      let f1ψ : (𝓞 F ⧸ v.asIdeal) → ℂ := fun y => if y = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j y *
+          chi D v (algebraMap (𝓞 F) F y.out) ^ 4 *
+            A.ψ v (((toLoc v (primeGen R v) ^ ((0 : ℤ) - 1) *
+              (1 : (v.adicCompletion F)ˣ) : (v.adicCompletion F)ˣ) : _) /
+                algebraMap F _ (algebraMap (𝓞 F) F y.out))
+      let f1 : (𝓞 F ⧸ v.asIdeal) → ℂ := fun y => if y = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j y *
+          chi D v (algebraMap (𝓞 F) F y.out) ^ 4 * ψ (y⁻¹)
+      have hf1ψ := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f1ψ
+      have hf1 := ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum v f1
+      have hphaseFinsumOne : (∑ᶠ y, f1ψ y) = ∑ᶠ y, f1 y := by
+        calc
+          (∑ᶠ y, f1ψ y) = ∑ y, f1ψ y := hf1ψ
+          _ = ∑ y, f1 y := by
+            apply Finset.sum_congr rfl
+            intro y _
+            by_cases hy : y = 0
+            · simp [f1ψ, f1, hy]
+            · simp only [f1ψ, f1, if_neg hy]
+              have hphase := hphaseOne y hy
+              have hphase' : A.ψ v (((toLoc v (primeGen R v) ^
+                  ((0 : ℤ) - 1) * (1 : (v.adicCompletion F)ˣ) :
+                    (v.adicCompletion F)ˣ) : _) /
+                    algebraMap F _ (algebraMap (𝓞 F) F y.out)) = ψ (y⁻¹) := by
+                simpa using hphase
+              rw [hphase']
+          _ = ∑ᶠ y, f1 y := hf1.symm
+      have hlocalChiOne : localChi D v (1 : (v.adicCompletion F)ˣ) = 1 :=
+        (ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) (v := v) hv6).1
+      have hlocalChiNe : localChi D v t ≠ 0 := by
+        intro hzero
+        rw [hzero] at hlocalChiNorm
+        norm_num at hlocalChiNorm
+      have hchiInv (y : 𝓞 F ⧸ v.asIdeal) (hy : y ≠ 0) :
+          χ (y⁻¹) = (χ y)⁻¹ := by
+        have hχyne : χ y ≠ 0 :=
+          (MulChar.apply_ne_zero_iff).2 (isUnit_iff_ne_zero.mpr hy)
+        have hprod : χ (y⁻¹) * χ y = 1 := by
+          calc
+            χ (y⁻¹) * χ y = χ (y⁻¹ * y) := (map_mul χ (y⁻¹) y).symm
+            _ = χ 1 := congrArg χ (inv_mul_cancel₀ hy)
+            _ = 1 := MulChar.map_one χ
+        have hdiv : χ (y⁻¹) = 1 / χ y := (eq_div_iff hχyne).2 hprod
+        simpa [one_div] using hdiv
+      have hcoeffScale (y : 𝓞 F ⧸ v.asIdeal) (hy : y ≠ 0) :
+          maskAlpha D A v (primeGen R v) j (τ * y) *
+              chi D v (algebraMap (𝓞 F) F (τ * y).out) ^ 4 =
+            localChi D v t ^ ((4 : ℤ) - j.1) *
+              (maskAlpha D A v (primeGen R v) j y *
+                chi D v (algebraMap (𝓞 F) F y.out) ^ 4) := by
+        let x : 𝓞 F ⧸ v.asIdeal := τ * y
+        have hx : x ≠ 0 := mul_ne_zero hτne hy
+        have hphix : phi x ≠ 0 := by
+          rw [show x = τ * y by rfl, hphiScale y hy]
+          exact inv_ne_zero hy
+        have hχx : chi D v (algebraMap (𝓞 F) F x.out) = χ x := hchiEval x hx
+        have hχy : chi D v (algebraMap (𝓞 F) F y.out) = χ y := hchiEval y hy
+        have hnatX : (χ x) ^ (4 : ℕ) = (χ x) ^ (4 : ℤ) :=
+          (zpow_natCast (χ x) 4).symm
+        have hnatY : (χ y) ^ (4 : ℕ) = (χ y) ^ (4 : ℤ) :=
+          (zpow_natCast (χ y) 4).symm
+        by_cases hj0 : j = 0
+        · subst j
+          have hαx : maskAlpha D A v (primeGen R v) 0 x = -qC⁻¹ := by
+            simp [maskAlpha, hx, qC]
+          have hαy : maskAlpha D A v (primeGen R v) 0 y = -qC⁻¹ := by
+            simp [maskAlpha, hy, qC]
+          have horbit := hchiOrbitPow x hx hphix (4 : ℤ)
+          have hinvpow : χ (y⁻¹) ^ (-(4 : ℤ)) = (χ y) ^ (4 : ℤ) := by
+            rw [hchiInv y hy, inv_zpow]
+            simp
+          calc
+            _ = (-qC⁻¹) * (χ x) ^ (4 : ℤ) := by
+              rw [hαx, hχx, hnatX]
+            _ = (-qC⁻¹) *
+                (localChi D v t ^ (4 : ℤ) * χ (phi x) ^ (-(4 : ℤ))) := by
+              rw [horbit]
+            _ = localChi D v t ^ (4 : ℤ) *
+                (maskAlpha D A v (primeGen R v) 0 y *
+                  chi D v (algebraMap (𝓞 F) F y.out) ^ 4) := by
+              rw [show phi x = y⁻¹ by
+                rw [show x = τ * y by rfl, hphiScale y hy], hinvpow,
+                hαy, hχy, hnatY]
+              ring
+        · have hαxG : maskAlpha D A v (primeGen R v) j x =
+              (maskTau D A v (primeGen R v) j)⁻¹ *
+                chi D v (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) := by
+            simp [maskAlpha, hj0, hx]
+          have hαyG : maskAlpha D A v (primeGen R v) j y =
+              (maskTau D A v (primeGen R v) j)⁻¹ *
+                chi D v (algebraMap (𝓞 F) F y.out) ^ (-(j.1 : ℤ)) := by
+            simp [maskAlpha, hj0, hy]
+          have hαx : maskAlpha D A v (primeGen R v) j x =
+              (maskTau D A v (primeGen R v) j)⁻¹ * (χ x) ^ (-(j.1 : ℤ)) := by
+            rw [hαxG, hχx]
+          have hαy : maskAlpha D A v (primeGen R v) j y =
+              (maskTau D A v (primeGen R v) j)⁻¹ * (χ y) ^ (-(j.1 : ℤ)) := by
+            rw [hαyG, hχy]
+          have hχxne : χ x ≠ 0 :=
+            (MulChar.apply_ne_zero_iff).2 (isUnit_iff_ne_zero.mpr hx)
+          have hχyne : χ y ≠ 0 :=
+            (MulChar.apply_ne_zero_iff).2 (isUnit_iff_ne_zero.mpr hy)
+          let k : ℤ := (4 : ℤ) - j.1
+          have hcombineX : (χ x) ^ (-(j.1 : ℤ)) * (χ x) ^ (4 : ℤ) = (χ x) ^ k := by
+            calc
+              _ = (χ x) ^ ((-(j.1 : ℤ)) + 4) :=
+                (zpow_add₀ hχxne _ _).symm
+              _ = _ := by congr 1 <;> dsimp [k] <;> ring
+          have hcombineY : (χ y) ^ (-(j.1 : ℤ)) * (χ y) ^ (4 : ℤ) = (χ y) ^ k := by
+            calc
+              _ = (χ y) ^ ((-(j.1 : ℤ)) + 4) :=
+                (zpow_add₀ hχyne _ _).symm
+              _ = _ := by congr 1 <;> dsimp [k] <;> ring
+          have horbit := hchiOrbitPow x hx hphix k
+          have hinvpow : χ (y⁻¹) ^ (-k) = (χ y) ^ k := by
+            rw [hchiInv y hy, inv_zpow]
+            simp
+          calc
+            _ = (maskTau D A v (primeGen R v) j)⁻¹ *
+                ((χ x) ^ (-(j.1 : ℤ)) * (χ x) ^ (4 : ℤ)) := by
+              rw [hαx, hχx, hnatX]
+              ac_rfl
+            _ = (maskTau D A v (primeGen R v) j)⁻¹ * (χ x) ^ k := by
+              rw [hcombineX]
+            _ = (maskTau D A v (primeGen R v) j)⁻¹ *
+                (localChi D v t ^ k * χ (phi x) ^ (-k)) := by
+              rw [horbit]
+            _ = localChi D v t ^ k *
+                ((maskTau D A v (primeGen R v) j)⁻¹ * (χ y) ^ k) := by
+              rw [show phi x = y⁻¹ by
+                rw [show x = τ * y by rfl, hphiScale y hy], hinvpow]
+              ac_rfl
+            _ = localChi D v t ^ k *
+                (maskAlpha D A v (primeGen R v) j y *
+                  chi D v (algebraMap (𝓞 F) F y.out) ^ 4) := by
+              rw [hαy, hχy, hnatY, ← hcombineY]
+              ac_rfl
+      let g : (𝓞 F ⧸ v.asIdeal) → ℂ := fun y => ft (τ * y)
+      have hbijInv : Function.Bijective (fun x : 𝓞 F ⧸ v.asIdeal => τ⁻¹ * x) :=
+        mulLeft_bijective₀ τ⁻¹ (inv_ne_zero hτne)
+      have hsumReindex : (∑ x : 𝓞 F ⧸ v.asIdeal, ft x) =
+          ∑ y : 𝓞 F ⧸ v.asIdeal, ft (τ * y) := by
+        have hτcancel : τ * τ⁻¹ = 1 := mul_inv_cancel₀ hτne
+        have hmul (x : 𝓞 F ⧸ v.asIdeal) : τ * (τ⁻¹ * x) = x := by
+          calc
+            τ * (τ⁻¹ * x) = (τ * τ⁻¹) * x := by ac_rfl
+            _ = 1 * x := congrArg (fun z : 𝓞 F ⧸ v.asIdeal => z * x) hτcancel
+            _ = x := by simp
+        have hpoint (x : 𝓞 F ⧸ v.asIdeal) : ft x = g (τ⁻¹ * x) := by
+          dsimp [g]
+          exact (congrArg ft (hmul x)).symm
+        simpa [g] using Fintype.sum_bijective
+          (fun x : 𝓞 F ⧸ v.asIdeal => τ⁻¹ * x) hbijInv ft g hpoint
+      have hsumScale : (∑ᶠ x, ft x) =
+          localChi D v t ^ ((4 : ℤ) - j.1) * ∑ᶠ y, f1 y := by
+        calc
+          (∑ᶠ x, ft x) = ∑ x, ft x := hft
+          _ = ∑ y, ft (τ * y) := hsumReindex
+          _ = ∑ y, localChi D v t ^ ((4 : ℤ) - j.1) * f1 y := by
+            apply Finset.sum_congr rfl
+            intro y _
+            by_cases hy : y = 0
+            · subst y
+              simp [ft, f1]
+            · have hxy := hcoeffScale y hy
+              have hph := hphiScale y hy
+              simp only [ft, f1, if_neg (mul_ne_zero hτne hy), if_neg hy]
+              rw [hxy, hph]
+              ring
+          _ = localChi D v t ^ ((4 : ℤ) - j.1) * ∑ y, f1 y := by
+            rw [Finset.mul_sum]
+          _ = localChi D v t ^ ((4 : ℤ) - j.1) * ∑ᶠ y, f1 y := by rw [← hf1]
+      have hlocalChiOne : localChi D v (1 : (v.adicCompletion F)ˣ) = 1 :=
+        (ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) (v := v) hv6).1
+      have hRt : localR R v j 0 t =
+          localChi D v t ^ (4 : ℤ) * ∑ᶠ x, ft x := by
+        rw [rf_localR_formula R v hv j 0 t htLoc, hphaseFinsumT, hWzero]
+        simp only [mul_zero, add_zero, one_mul]
+      have hRone : localR R v j 0 1 = ∑ᶠ y, f1 y := by
+        rw [rf_localR_formula R v hv j 0 1 hOneLoc, hphaseFinsumOne, hWzero]
+        simp [hlocalChiOne]
+      have hlocalChiNonzero : localChi D v t ≠ 0 := by
+        intro hz
+        rw [hz] at hlocalChiNorm
+        norm_num at hlocalChiNorm
+      have hB : localB j (Int.toNat (0 : ℤ)) =
+          (4 : ℤ) + ((4 : ℤ) - j.1) := by
+        simp [localB]
+        ring
+      rw [hRt, hRone, hsumScale]
+      calc
+        localChi D v t ^ (4 : ℤ) *
+            (localChi D v t ^ ((4 : ℤ) - j.1) * ∑ᶠ y, f1 y) =
+          localChi D v t ^ ((4 : ℤ) + ((4 : ℤ) - j.1)) * ∑ᶠ y, f1 y := by
+            calc
+              _ = (localChi D v t ^ (4 : ℤ) *
+                    localChi D v t ^ ((4 : ℤ) - j.1)) * ∑ᶠ y, f1 y := by ac_rfl
+              _ = localChi D v t ^ ((4 : ℤ) + ((4 : ℤ) - j.1)) * ∑ᶠ y, f1 y := by
+                exact congrArg (fun z : ℂ => z * ∑ᶠ y, f1 y)
+                  ((zpow_add₀ hlocalChiNonzero (4 : ℤ) ((4 : ℤ) - j.1)).symm)
+        _ = (∑ᶠ y, f1 y) *
+            localChi D v t ^ localB j (Int.toNat (0 : ℤ)) := by
+              rw [hB]
+              ac_rfl
+    · have hepos : 0 < e := by omega
+      have hlocalChiOne : localChi D v (1 : (v.adicCompletion F)ˣ) = 1 :=
+        (ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) (v := v) hv6).1
+      have hnatPos : e.toNat ≠ 0 := by omega
+      have hnat : (e.toNat : ℤ) = e := Int.toNat_of_nonneg he
+      have hB : localB j e.toNat = (4 : ℤ) + 2 * e := by
+        simp [localB, hnatPos, hnat]
+      let sum0 : ℂ := ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
+        maskAlpha D A v (primeGen R v) j x *
+          chi D v (algebraMap (𝓞 F) F x.out) ^ 4
+      have hRt : localR R v j e t =
+          localW R v e * localChi D v t ^ (4 + 2 * e) * sum0 := by
+        rw [rf_localR_formula R v hv j e t htLoc, hphaseSum hepos t htLoc]
+      have hRone : localR R v j e 1 =
+          localW R v e * localChi D v (1 : (v.adicCompletion F)ˣ) ^ (4 + 2 * e) * sum0 := by
+        rw [rf_localR_formula R v hv j e 1 hOneLoc, hphaseSum hepos 1 hOneLoc]
+      rw [hRt, hRone, hlocalChiOne, hB]
+      rw [one_zpow]
+      ring
+  · intro he hj4
+    rw [rf_localR_formula R v hv j e 1 hOneLoc, hphaseSum he 1 hOneLoc]
+    rw [rf_local_positive_alpha_chi_sum D S A v (primeGen R v) χ hχval hχorder j]
+    simp [hj4]
+  · intro he hmod
+    have hWzero : localW R v e = 0 := by
+      rw [rf_localW_table R v hv e]
+      simp [sphericalTable, not_lt.mpr he, hmod]
+    rw [rf_localR_formula R v hv j e 1 hOneLoc, hWzero]
+    simp
 /-- lem:reflection-local-Weyl, 04:339-431. The zero residue has its own masked value. -/
 theorem rf_local_zero_digit : ∀ v, v ∉ S.Sf → ∀ ν : Fˣ,
   maskAlpha D A v (primeGen R v) 0 0 * R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v) =
