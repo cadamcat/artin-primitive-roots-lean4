@@ -7942,6 +7942,29 @@ private theorem memEdgeProjected_rowSchur_crude (δ c₁ c₂ : ℝ)
         (mul_le_mul_of_nonneg_left hRbound (by positivity)) (pow_nonneg hvpos.le _)
     _ = _ := by dsimp [Cedge]; ring
 
+/-- The constant birth twist specializes the frozen edge estimates to the plain edge. -/
+private theorem memEdgeProjected_crude_schur (δ c₁ c₂ : ℝ)
+    (hδ : 0 < δ) (hc₁ : 0 < c₁) (K : ℕ) (F : PDFix K) (hF : F.Valid)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (v : ℝ) (hv : 1 < v) :
+    ∃ Cexp x₀ : ℝ, 0 < Cexp ∧ 2 ≤ x₀ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, j < S.N →
+          MemRowSchurLE_sym F S (memoryCutoff S)
+            (memEdge F S ρ w EdgeKind.full j) v (Real.rpow S.L Cexp) ∧
+          MemColSchurLE_sym F S (memoryCutoff S)
+            (memEdge F S ρ w EdgeKind.full j) v (Real.rpow S.L Cexp) := by
+  obtain ⟨Cexp, x₀, hCexp, hx₀, hEdge⟩ :=
+    pd5_twisted_edge_schur δ c₁ c₂ hδ hc₁ K F hF ρ hρ v hv
+  refine ⟨Cexp, x₀, hCexp, hx₀, ?_⟩
+  intro S hS hx w hw j hj
+  have hOp : pd5_edgeBirthTwist F S ρ w j (fun _ => (1 : ℂ)) =
+      memEdge F S ρ w EdgeKind.full j := by
+    funext f s
+    exact congrArg (fun g => logEdge F S ρ w EdgeKind.full j g (s, []))
+      (funext fun tL => one_mul (f tL.1))
+  rw [← hOp]
+  exact hEdge S hS hx w hw j hj (fun _ => (1 : ℂ)) (by intro log; simp)
+
 /-- `t2:pd.ghost-edge-crude` — PD 04:365-435.  REPLACES the frozen `ghost_edge_crude`.  On
 `ℋ_B`, with the Schur weight `v₀^{k_tot}`: ghost row and column sums (mem:ghost-row),
 (mem:ghost-column) are `≤ C_K` once `v₀` makes both parentheses `≤ 1` (uses `ρ² > √q_d`), so
