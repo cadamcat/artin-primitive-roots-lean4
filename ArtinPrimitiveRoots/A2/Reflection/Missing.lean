@@ -812,6 +812,26 @@ def activePartial (retained : Bool) (υ : UnitSix S) (h d f : S.ExtIdeal)
     if (qI p.1.1.a.1 * qI p.2.1 * qI p.1.1.n.1 ^ 3 ≤ R0) = retained then
       reflectedTerm R υ h d Z (p.1.1, sd, sc, p.2) else 0
 
+private lemma rf_qI_pos_ge_one (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) :
+    0 < qI I ∧ 1 ≤ qI I := by
+  have hn : 0 < Ideal.absNorm I :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨I, mem_nonZeroDivisors_iff_ne_zero.mpr (by simpa [Ideal.zero_eq_bot] using hI)⟩
+  constructor
+  · dsimp [qI]
+    exact_mod_cast hn
+  · dsimp [qI]
+    exact_mod_cast (Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hn))
+
+private lemma rf_betaIdeal_nonneg (f a : S.ExtIdeal) : 0 ≤ betaIdeal R f a := by
+  unfold betaIdeal
+  apply Finset.prod_nonneg
+  intro v hv
+  have hq : 0 < qI v.asIdeal := lt_of_lt_of_le (by norm_num) (le_of_lt (qI_prime_gt_one v))
+  dsimp [betaPrime]
+  split_ifs <;> positivity
+
+set_option maxHeartbeats 4000000
 /-- rf:tail-mass: pointwise active/slice bound, before summing squares over powerful parts. -/
 theorem rf_tail_bound : ∀ δ σ N : ℝ, 0 < δ → 1 / 2 < σ → σ < N →
   ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z h d f u sd sc,
@@ -821,7 +841,350 @@ theorem rf_tail_bound : ∀ δ σ N : ℝ, 0 < δ → 1 / 2 < σ → σ < N →
       C * reflectionColumnLength P D0 Z ^ σ *
         max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-(N - σ)) *
           sphericalMajorant (S := S) σ * Eideal R f σ := by
-  sorry
+  intro δ σ N hδ hσ hN
+  have hNpos : 0 < N := by linarith
+  obtain ⟨α, hα, hprofN⟩ := (rf_profile_bound R).2.1
+  obtain ⟨Cprof, hCprof, hprof⟩ := hprofN N hNpos 0
+  obtain ⟨_, _, hGrouped⟩ := rf_grouped_absolute R σ hσ
+  refine ⟨Cprof, hCprof, ?_⟩
+  intro υ P D0 Z h d f u sd sc hP hD0 hZ hPh hPhigh hDd hDhigh hPower hActive
+  have hPpos : 0 < P := by linarith
+  have hDpos : 0 < D0 := by linarith
+  have hZpos : 0 < Z := by linarith
+  rcases rf_qI_pos_ge_one h.1 h.2.1 with ⟨hqH, hqHone⟩
+  rcases rf_qI_pos_ge_one d.1 d.2.1 with ⟨hqD, hqDone⟩
+  rcases rf_qI_pos_ge_one f.1 f.2.1 with ⟨hqF, hqFone⟩
+  have hqFSquare : qI f.1 ^ 2 ≤ qI h.1 :=
+    (rf_active_support_bounds R).1 h f hPower hActive
+  have hqFSquareLt : qI f.1 ^ 2 < 2 * P := lt_of_le_of_lt hqFSquare hPhigh
+  let L : ℝ := reflectionColumnLength P D0 Z
+  let Tscale : ℝ := qI d.1 ^ 2 * qI f.1 ^ 2 / Z
+  let R0 : ℝ := reflectionColumnCutoff P D0 Z δ
+  let J : ℝ := max (Z ^ δ) L⁻¹
+  let Cfac : ℝ := Cprof * L ^ σ * J ^ (-(N - σ))
+  have hLpos : 0 < L := by
+    dsimp [L, reflectionColumnLength]
+    positivity
+  have hTpos : 0 < Tscale := by
+    dsimp [Tscale]
+    positivity
+  have hZδpos : 0 < Z ^ δ := Real.rpow_pos_of_pos hZpos δ
+  have hJpos : 0 < J := lt_of_lt_of_le hZδpos (le_max_left _ _)
+  have hCfac : 0 < Cfac := by dsimp [Cfac]; positivity
+  have hZδT : 1 ≤ Z ^ δ := Real.one_le_rpow (by linarith) hδ.le
+  have hqdSquare : qI d.1 ^ 2 ≤ 4 * D0 ^ 2 := by
+    nlinarith [mul_nonneg (by linarith : 0 ≤ 2 * D0 - qI d.1)
+      (by positivity : 0 ≤ 2 * D0 + qI d.1)]
+  have hqfSquare : qI f.1 ^ 2 ≤ 2 * P := hqFSquareLt.le
+  have hnum : qI d.1 ^ 2 * qI f.1 ^ 2 ≤ 8 * D0 ^ 2 * P := by
+    calc
+      qI d.1 ^ 2 * qI f.1 ^ 2 ≤ (4 * D0 ^ 2) * (2 * P) :=
+        mul_le_mul hqdSquare hqfSquare (by positivity) (by positivity)
+      _ = 8 * D0 ^ 2 * P := by ring
+  have hTL : Tscale ≤ L := by
+    dsimp [Tscale, L, reflectionColumnLength]
+    exact div_le_div_of_nonneg_right hnum hZpos.le
+  have hTpow : Tscale ^ σ ≤ L ^ σ := Real.rpow_le_rpow hTpos.le hTL (by linarith)
+  have hR0formula : R0 = Z ^ δ * L := by
+    rfl
+  have hJpow : 0 < J ^ (-(N - σ)) := Real.rpow_pos_of_pos hJpos (-(N - σ))
+  let Src : Type := {t : FrozenIndex R h // t.f = f ∧ t.u = u} × S.SqfExtIdeal
+  let Dst : Type := {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal
+  have transportNumerator (t : FrozenIndex R h) (htf : t.f = f) :
+      activeNumerator R f t.a := by
+    rw [← htf]
+    exact t.numerator
+  let ψ : Src → Dst := fun p =>
+    ((⟨p.1.1.a, transportNumerator p.1.1 p.1.2.1⟩ :
+        {a : S.ExtIdeal // activeNumerator R f a}), (p.2, p.1.1.n))
+  have hψ : Function.Injective ψ := by
+    intro p q hpq
+    rcases p with ⟨⟨t, ht⟩, c⟩
+    rcases q with ⟨⟨t', ht'⟩, c'⟩
+    change (((⟨t.a, transportNumerator t ht.1⟩ :
+        {a : S.ExtIdeal // activeNumerator R f a}), (c, t.n)) =
+      ((⟨t'.a, transportNumerator t' ht'.1⟩ :
+        {a : S.ExtIdeal // activeNumerator R f a}), (c', t'.n))) at hpq
+    have hsub := congrArg Prod.fst hpq
+    have hpair := congrArg Prod.snd hpq
+    have ha := congrArg Subtype.val hsub
+    have hc := congrArg Prod.fst hpair
+    have hn := congrArg Prod.snd hpair
+    have htf : t.f = t'.f := ht.1.trans ht'.1.symm
+    have hta : t.a = t'.a := ha
+    have htn : t.n = t'.n := hn
+    have htu : t.u = t'.u := ht.2.trans ht'.2.symm
+    have htEq : t = t' := by
+      cases t
+      cases t'
+      simp_all
+    apply Prod.ext
+    · apply Subtype.ext
+      exact htEq
+    · exact hc
+  obtain ⟨hDir, hDirBound, _⟩ := hGrouped f
+  have hMappedSum : Summable (fun p : Src => reflectedDirichletTerm R f σ (ψ p)) :=
+    hDir.comp_injective hψ
+  have hWeightNonneg : ∀ p : Dst, 0 ≤ reflectedDirichletTerm R f σ p := by
+    intro p
+    have hβ : 0 ≤ betaIdeal R f p.1.1 := rf_betaIdeal_nonneg R f p.1.1
+    have hqa : 0 < qI p.1.1.1 :=
+      (rf_qI_pos_ge_one p.1.1.1 p.1.1.2.1).1
+    have hqc : 0 < qI p.2.1.1 :=
+      (rf_qI_pos_ge_one p.2.1.1 p.2.1.2.1.1).1
+    have hqn : 0 < qI p.2.2.1 := (rf_qI_pos_ge_one p.2.2.1 p.2.2.2.1).1
+    unfold reflectedDirichletTerm
+    apply mul_nonneg
+    · apply div_nonneg
+      · exact mul_nonneg hβ (Real.rpow_nonneg hqc.le _)
+      · exact hqn.le
+    · have hQ : 0 ≤ qI p.1.1.1 * qI p.2.1.1 * qI p.2.2.1 ^ 3 := by
+        exact mul_nonneg (mul_nonneg hqa.le hqc.le) (pow_nonneg hqn.le 3)
+      exact Real.rpow_nonneg hQ _
+  have hMappedBound :
+      (∑' p : Src, reflectedDirichletTerm R f σ (ψ p)) ≤
+        sphericalMajorant (S := S) σ * Eideal R f σ := by
+    calc
+      (∑' p : Src, reflectedDirichletTerm R f σ (ψ p)) ≤
+          ∑' p : Dst, reflectedDirichletTerm R f σ p :=
+        tsum_comp_le_tsum_of_inj hDir hWeightNonneg hψ
+      _ ≤ sphericalMajorant (S := S) σ * Eideal R f σ := hDirBound
+  have hScaledSum : Summable (fun p : Src => Cfac * reflectedDirichletTerm R f σ (ψ p)) :=
+    hMappedSum.mul_left Cfac
+  have hScaledNonneg : ∀ p : Src,
+      0 ≤ Cfac * reflectedDirichletTerm R f σ (ψ p) := by
+    intro p
+    exact mul_nonneg hCfac.le (hWeightNonneg (ψ p))
+  have hScaledNorm : Summable (fun p : Src => ‖Cfac * reflectedDirichletTerm R f σ (ψ p)‖) := by
+    exact hScaledSum.norm.congr fun p => by
+      simp [abs_of_nonneg (hScaledNonneg p)]
+  let act : Src → ℂ := fun p =>
+    if R0 < qI p.1.1.a.1 * qI p.2.1 * qI p.1.1.n.1 ^ 3 then
+      reflectedTerm R υ h d Z (p.1.1, sd, sc, p.2) else 0
+  have hpoint : ∀ p : Src, ‖act p‖ ≤ Cfac * reflectedDirichletTerm R f σ (ψ p) := by
+    intro p
+    rcases p with ⟨⟨t, htu⟩, c⟩
+    by_cases hle : qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0
+    · have hnot : ¬R0 < qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 := not_lt_of_ge hle
+      simpa [act, hnot] using hScaledNonneg ⟨⟨t, htu⟩, c⟩
+    · have hQlt : R0 < qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 := lt_of_not_ge hle
+      let qa : ℝ := qI t.a.1
+      let qc : ℝ := qI c.1
+      let qn : ℝ := qI t.n.1
+      let Q : ℝ := qa * qc * qn ^ 3
+      let x : ℝ := Q / Tscale
+      have hqa : 0 < qa ∧ 1 ≤ qa := rf_qI_pos_ge_one t.a.1 t.a.2.1
+      have hqc : 0 < qc ∧ 1 ≤ qc :=
+        rf_qI_pos_ge_one c.1 (by simpa using c.2.1.1)
+      have hqn : 0 < qn ∧ 1 ≤ qn := rf_qI_pos_ge_one t.n.1 t.n.2.1
+      have hQpos : 0 < Q := by
+        dsimp [Q]
+        exact mul_pos (mul_pos hqa.1 hqc.1) (pow_pos hqn.1 3)
+      have hQone : 1 ≤ Q := by
+        have hqn3 : 1 ≤ qn ^ 3 := one_le_pow₀ hqn.2
+        have hqac : 1 ≤ qa * qc := by
+          calc
+            1 = 1 * 1 := by ring
+            _ ≤ qa * qc :=
+              mul_le_mul hqa.2 hqc.2 (by norm_num) (le_trans (by norm_num) hqa.2)
+        calc
+          1 ≤ qa * qc := hqac
+          _ ≤ qa * qc * qn ^ 3 := by
+            have hmul := mul_le_mul_of_nonneg_left hqn3 (by positivity : 0 ≤ qa * qc)
+            simpa using hmul
+      have hxpos : 0 < x := by dsimp [x]; positivity
+      have hxarg :
+          Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+              (qI d.1 ^ 2 * qI t.f.1 ^ 2) = x := by
+        dsimp [x, Q, qa, qc, qn, Tscale]
+        rw [htu.1]
+        field_simp [ne_of_gt hZpos, ne_of_gt hqD, ne_of_gt hqF]
+        <;> ring
+      have hR0ltQ : Z ^ δ * L < Q := by
+        simpa [R0, reflectionColumnCutoff, L, Q, qa, qc, qn] using hQlt
+      have hZδT : Z ^ δ * Tscale < Q := by
+        exact lt_of_le_of_lt
+          (mul_le_mul_of_nonneg_left hTL (Real.rpow_nonneg hZpos.le δ)) hR0ltQ
+      have hxZ : Z ^ δ < x := by
+        dsimp [x]
+        exact (lt_div_iff₀ hTpos).2 hZδT
+      have hInv : L⁻¹ ≤ Tscale⁻¹ := (inv_le_inv₀ hLpos hTpos).2 hTL
+      have hDiv : Tscale⁻¹ ≤ Q / Tscale := by
+        calc
+          Tscale⁻¹ = 1 / Tscale := by rw [one_div]
+          _ ≤ Q / Tscale := div_le_div_of_nonneg_right hQone hTpos.le
+      have hxInv : L⁻¹ ≤ x := by dsimp [x]; exact hInv.trans hDiv
+      have hJle : J ≤ x := max_le_iff.mpr ⟨hxZ.le, hxInv⟩
+      have hJpos : 0 < J := lt_of_lt_of_le hZδpos (le_max_left _ _)
+      have hgap : 0 ≤ N - σ := by linarith
+      have hdecayPow : x ^ (-N) ≤ J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ) := by
+        have hsplit : x ^ (-N) = x ^ (-(N - σ)) * x ^ (-σ) := by
+          calc
+            x ^ (-N) = x ^ (-(N - σ) + (-σ)) := by congr 1 <;> ring
+            _ = x ^ (-(N - σ)) * x ^ (-σ) := Real.rpow_add hxpos _ _
+        have hanti := Real.rpow_le_rpow_of_nonpos hJpos hJle (neg_nonpos.mpr hgap)
+        have hInvX : x⁻¹ = Tscale / Q := by
+          dsimp [x]
+          field_simp [ne_of_gt hTpos, ne_of_gt hQpos]
+          <;> ring
+        have hneg : x ^ (-σ) = Tscale ^ σ * Q ^ (-σ) := by
+          rw [Real.rpow_neg_eq_inv_rpow, hInvX, Real.div_rpow hTpos.le hQpos.le] <;>
+            rw [Real.rpow_neg hQpos.le σ] <;> ring
+        calc
+          x ^ (-N) = x ^ (-(N - σ)) * x ^ (-σ) := hsplit
+          _ ≤ J ^ (-(N - σ)) * x ^ (-σ) :=
+            mul_le_mul_of_nonneg_right hanti (Real.rpow_nonneg hxpos.le _)
+          _ = J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ) := by rw [hneg] <;> ring
+      have hPhi :
+          ‖profilePhi R υ (kappaSix R t sd sc) x‖ ≤
+            Cprof * min (x ^ α) (x ^ (-N)) := by
+        have h := hprof υ (kappaSix R t sd sc) x hxpos
+        simpa [Theta.normDerivR, Real.exp_log hxpos] using h
+      have hPhiTail :
+          ‖profilePhi R υ (kappaSix R t sd sc) x‖ ≤
+            Cprof * (J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ)) := by
+        calc
+          ‖profilePhi R υ (kappaSix R t sd sc) x‖ ≤
+              Cprof * min (x ^ α) (x ^ (-N)) := hPhi
+          _ ≤ Cprof * x ^ (-N) :=
+            mul_le_mul_of_nonneg_left (min_le_right _ _) hCprof.le
+          _ ≤ Cprof * (J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ)) :=
+            mul_le_mul_of_nonneg_left hdecayPow hCprof.le
+      have hPhiTailAssoc :
+          ‖profilePhi R υ (kappaSix R t sd sc) x‖ ≤
+            Cprof * J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ) := by
+        calc
+          _ ≤ Cprof * (J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ)) := hPhiTail
+          _ = Cprof * J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ) := by ring
+      let coeff : ℝ := qc ^ (-(1 / 2 : ℝ)) / qn
+      have hcoeffPos : 0 < coeff := by
+        change 0 < qc ^ (-(1 / 2 : ℝ)) / qn
+        exact div_pos (Real.rpow_pos_of_pos hqc.1 _) hqn.1
+      have hcoeffNorm : ‖(coeff : ℂ)‖ = coeff := by
+        rw [Complex.norm_real, Real.norm_eq_abs, abs_of_pos hcoeffPos]
+      have hfac := (rf_exterior_factorization R).1 υ h t
+      have hOmega : ‖frozenOmega R υ t‖ ≤ betaIdeal R f t.a := by
+        simpa [htu.1] using hfac.1
+      have hRho : ‖frozenRho R υ t sd d‖ ≤ 1 := hfac.2.1 sd d
+      have hLambda : ‖frozenLambda R υ t sc c‖ ≤ 1 := hfac.2.2 sc c
+      have hBeta : 0 ≤ betaIdeal R f t.a := le_trans (norm_nonneg _) hOmega
+      have hchi : ‖chiIdealPow D d.1 (cgen R c) 3‖ ≤ 1 :=
+        (a2_bridge_SYMBOL D S).ideal_norm_le d.1 (cgen R c) 3
+      have hcoeffProduct :
+          ‖frozenOmega R υ t * frozenRho R υ t sd d * frozenLambda R υ t sc c *
+              (coeff : ℝ) * chiIdealPow D d.1 (cgen R c) 3‖ ≤
+            betaIdeal R f t.a * coeff := by
+        have hprod :
+            ‖frozenOmega R υ t * frozenRho R υ t sd d * frozenLambda R υ t sc c *
+                (coeff : ℝ) * chiIdealPow D d.1 (cgen R c) 3‖ =
+              ‖frozenOmega R υ t‖ * ‖frozenRho R υ t sd d‖ *
+                ‖frozenLambda R υ t sc c‖ * coeff *
+                  ‖chiIdealPow D d.1 (cgen R c) 3‖ := by
+          simp only [norm_mul, hcoeffNorm]
+        rw [hprod]
+        calc
+          ‖frozenOmega R υ t‖ * ‖frozenRho R υ t sd d‖ *
+              ‖frozenLambda R υ t sc c‖ * coeff * ‖chiIdealPow D d.1 (cgen R c) 3‖ ≤
+            betaIdeal R f t.a * 1 * 1 * coeff * 1 := by
+              gcongr
+          _ = betaIdeal R f t.a * coeff := by ring
+      have htermExpr :
+          reflectedTerm R υ h d Z (t, sd, sc, c) =
+            (frozenOmega R υ t * frozenRho R υ t sd d * frozenLambda R υ t sc c *
+              (coeff : ℝ) * chiIdealPow D d.1 (cgen R c) 3) *
+                profilePhi R υ (kappaSix R t sd sc) x := by
+        simp [reflectedTerm, coeff, qc, qn, hxarg]
+      have hdirEval :
+          reflectedDirichletTerm R f σ (ψ ((⟨t, htu⟩, c))) =
+            betaIdeal R f t.a * coeff * Q ^ (-σ) := by
+        change betaIdeal R f t.a * qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1 *
+            (qI t.a.1 * qI c.1 * qI t.n.1 ^ 3) ^ (-σ) =
+          betaIdeal R f t.a * coeff * Q ^ (-σ)
+        dsimp [coeff, Q, qa, qc, qn] <;> ring
+      have hTfac : Cprof * J ^ (-(N - σ)) * Tscale ^ σ ≤
+          Cprof * L ^ σ * J ^ (-(N - σ)) := by
+        calc
+          Cprof * J ^ (-(N - σ)) * Tscale ^ σ ≤
+              Cprof * J ^ (-(N - σ)) * L ^ σ :=
+            mul_le_mul_of_nonneg_left hTpow (by positivity)
+          _ = Cprof * L ^ σ * J ^ (-(N - σ)) := by ring
+      have hterm :
+          ‖reflectedTerm R υ h d Z (t, sd, sc, c)‖ ≤
+            Cfac * reflectedDirichletTerm R f σ (ψ ((⟨t, htu⟩, c))) := by
+        calc
+          ‖reflectedTerm R υ h d Z (t, sd, sc, c)‖ =
+              ‖frozenOmega R υ t * frozenRho R υ t sd d * frozenLambda R υ t sc c *
+                (coeff : ℝ) * chiIdealPow D d.1 (cgen R c) 3‖ *
+                  ‖profilePhi R υ (kappaSix R t sd sc) x‖ := by
+            rw [htermExpr, norm_mul]
+          _ ≤ betaIdeal R f t.a * coeff *
+                (Cprof * J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ)) :=
+              mul_le_mul hcoeffProduct hPhiTailAssoc (norm_nonneg _)
+                (mul_nonneg hBeta hcoeffPos.le)
+          _ ≤ Cprof * L ^ σ * J ^ (-(N - σ)) *
+                (betaIdeal R f t.a * coeff * Q ^ (-σ)) := by
+              calc
+                betaIdeal R f t.a * coeff *
+                    (Cprof * J ^ (-(N - σ)) * Tscale ^ σ * Q ^ (-σ)) =
+                  (betaIdeal R f t.a * coeff * Q ^ (-σ)) *
+                    (Cprof * J ^ (-(N - σ)) * Tscale ^ σ) := by ring
+                _ ≤ (betaIdeal R f t.a * coeff * Q ^ (-σ)) *
+                    (Cprof * L ^ σ * J ^ (-(N - σ))) := by
+                  exact mul_le_mul_of_nonneg_left hTfac (by positivity)
+                _ = Cprof * L ^ σ * J ^ (-(N - σ)) *
+                    (betaIdeal R f t.a * coeff * Q ^ (-σ)) := by ring
+          _ = Cfac * (betaIdeal R f t.a * coeff * Q ^ (-σ)) := by
+              dsimp [Cfac] <;> ring
+          _ = Cfac * reflectedDirichletTerm R f σ (ψ ((⟨t, htu⟩, c))) := by
+              rw [hdirEval] <;> rfl
+      simpa [act, hQlt, ψ] using hterm
+  have hpointNorm : ∀ p : Src,
+      ‖act p‖ ≤ ‖(Cfac * reflectedDirichletTerm R f σ (ψ p) : ℝ)‖ := by
+    intro p
+    rw [Real.norm_eq_abs, abs_of_nonneg (hScaledNonneg p)]
+    exact hpoint p
+  have hActSummable : Summable act :=
+    Summable.of_norm_bounded hScaledNorm hpointNorm
+  have hActNorm : Summable (fun p : Src => ‖act p‖) := hActSummable.norm
+  have hsumNorm : ‖∑' p : Src, act p‖ ≤ ∑' p : Src, ‖act p‖ :=
+    norm_tsum_le_tsum_norm hActNorm
+  have hsumPoint :
+      (∑' p : Src, ‖act p‖) ≤
+        ∑' p : Src, Cfac * reflectedDirichletTerm R f σ (ψ p) :=
+    hActNorm.tsum_le_tsum hpoint hScaledSum
+  have hsumScaled :
+      (∑' p : Src, Cfac * reflectedDirichletTerm R f σ (ψ p)) =
+        Cfac * ∑' p : Src, reflectedDirichletTerm R f σ (ψ p) := by
+    rw [tsum_mul_left]
+  have hsumDir :
+      Cfac * ∑' p : Src, reflectedDirichletTerm R f σ (ψ p) ≤
+        Cfac * (sphericalMajorant (S := S) σ * Eideal R f σ) :=
+    mul_le_mul_of_nonneg_left hMappedBound (le_of_lt hCfac)
+  have hActPartial :
+      activePartial R false υ h d f u sd sc Z (reflectionColumnCutoff P D0 Z δ) =
+        ∑' p : Src, act p := by
+    unfold activePartial
+    apply tsum_congr
+    intro p
+    rcases p with ⟨⟨t, htu⟩, c⟩
+    change (if (qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0) = false then
+        reflectedTerm R υ h d Z (t, sd, sc, c) else 0) =
+      (if R0 < qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 then
+        reflectedTerm R υ h d Z (t, sd, sc, c) else 0)
+    by_cases hle : qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0
+    · simp [hle, not_lt_of_ge hle]
+    · simp [hle, lt_of_not_ge hle]
+  rw [hActPartial]
+  change ‖∑' p : Src, act p‖ ≤
+    Cprof * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ * Eideal R f σ
+  calc
+    ‖∑' p : Src, act p‖ ≤ ∑' p : Src, ‖act p‖ := hsumNorm
+    _ ≤ ∑' p : Src, Cfac * reflectedDirichletTerm R f σ (ψ p) := hsumPoint
+    _ = Cfac * ∑' p : Src, reflectedDirichletTerm R f σ (ψ p) := hsumScaled
+    _ ≤ Cfac * (sphericalMajorant (S := S) σ * Eideal R f σ) := hsumDir
+    _ = Cprof * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ * Eideal R f σ := by
+      simp [Cfac, mul_assoc]
+set_option maxHeartbeats 800000
 /-- rf:tail-mass: the explicit large-N condition giving arbitrary negative powers of Z. -/
 theorem rf_tail_negligible : ∀ C0 δ δ₁ σ N A0 : ℝ, 0 < C0 → 0 < δ → 0 < δ₁ →
   1 / 2 < σ → σ < N → 0 < A0 →
