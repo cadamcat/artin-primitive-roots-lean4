@@ -3305,6 +3305,60 @@ private theorem tameIntegralLift_range_open
   exact κ.range.isOpen_of_mem_nhds
     (Filter.mem_of_superset (hWopen.mem_nhds hWone) hsub)
 
+/-- The compact integral lift range projects exactly onto the integral PGL₂ image. -/
+private theorem tameIntegralLift_range_compact_image
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (L : FinLocalCover D H v)
+    (κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L)
+    (hκ : ∀ k, κ k = tameIntegralLift D H v L k)
+    (hκcont : Continuous κ) :
+    IsCompact (κ.range : Set L.L) ∧
+      L.pr '' (κ.range : Set L.L) =
+        {g | ∃ k : GL (Fin 2) (v.adicCompletion F),
+          (∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+            v.adicCompletionIntegers F) ∧
+          (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det ∈
+            v.adicCompletionIntegers F ∧ QuotientGroup.mk k = g} := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let : CompactSpace O := ArtinPrimitiveRoots.Proofs.th_cover_sol.compact_adicCompletionIntegers v
+  let : CompactSpace (Matrix (Fin 2) (Fin 2) O) :=
+    inferInstanceAs (CompactSpace (Fin 2 → Fin 2 → O))
+  let j : O →+* K := O.subtype
+  let ι : GL (Fin 2) O →* GL (Fin 2) K := Matrix.GeneralLinearGroup.map j
+  have hc : IsCompact (κ.range : Set L.L) := isCompact_range hκcont
+  have hz (ζ : rootsOfUnity 3 ℂ) : L.pr (L.z ζ) = 1 := by
+    change L.z ζ ∈ L.pr.ker
+    rw [L.pr_ker]
+    exact ⟨ζ, rfl⟩
+  have hpr (k : GL (Fin 2) O) : L.pr (κ k) = QuotientGroup.mk (ι k) := by
+    rw [hκ]
+    change L.pr (L.z (tameSplit D H v (ι k)) * L.sec (ι k)) = QuotientGroup.mk (ι k)
+    rw [map_mul, hz, L.sec_pr, one_mul]
+  have integralDetInv (k : GL (Fin 2) O) : (ι k)⁻¹.val.det ∈ O := by
+    have hinv : (ι k)⁻¹ = ι k⁻¹ := (map_inv ι k).symm
+    have hdet : (ι k⁻¹ : Matrix (Fin 2) (Fin 2) K).det = j (k⁻¹.val.det) :=
+      (j.map_det ((k⁻¹ : GL (Fin 2) O) : Matrix (Fin 2) (Fin 2) O)).symm
+    rw [hinv]
+    change (ι k⁻¹ : Matrix (Fin 2) (Fin 2) K).det ∈ O
+    rw [hdet]
+    exact (k⁻¹.val.det).property
+  refine ⟨hc, ?_⟩
+  ext q
+  constructor
+  · rintro ⟨x, hx, hqx⟩
+    obtain ⟨k, rfl⟩ := hx
+    refine ⟨ι k, ?_, integralDetInv k, ?_⟩
+    · intro i j
+      exact ((k : Matrix (Fin 2) (Fin 2) O) i j).property
+    · exact (hpr k).symm.trans hqx
+  · rintro ⟨g, hg, hd, hgq⟩
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.integralGL2_lift v g hg hd
+    refine ⟨κ k, ⟨k, rfl⟩, ?_⟩
+    rw [hpr, show ι k = g from hk]
+    exact hgq
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
