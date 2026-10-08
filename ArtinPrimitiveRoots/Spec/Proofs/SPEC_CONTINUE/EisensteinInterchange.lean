@@ -9,7 +9,9 @@ open scoped MatrixGroups ContDiff BoundedContinuousFunction Topology
 
 noncomputable section
 
-namespace ArtinPrimitiveRoots.A1.Spec
+open ArtinPrimitiveRoots.A1.Spec
+
+namespace ArtinPrimitiveRoots.Proofs.spec_continue_p
 
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
@@ -325,8 +327,8 @@ theorem smoothing_eisSeries_interchange (Γ : Subgroup SL(2, 𝓞 F)) [Γ.Finite
     exact Subtype.ext h
   letI : Countable (SL(2, 𝓞 F)) := hSLinj.countable
   letI : Countable Γ := inferInstance
-  letI : Countable (CuspCosets F Γ σ) := by
-    dsimp [CuspCosets]
+  letI : Countable (ArtinPrimitiveRoots.A1.Spec.CuspCosets F Γ σ) := by
+    dsimp [ArtinPrimitiveRoots.A1.Spec.CuspCosets]
     infer_instance
   have hInterchange : ∑' q, ∫ w, f q w ∂(volX F) =
       ∫ w, ∑' q, f q w ∂(volX F) :=
@@ -359,4 +361,4 @@ theorem smoothing_eisSeries_interchange (Γ : Subgroup SL(2, 𝓞 F)) [Γ.Finite
     _ = radialTransform F k₀ (1 + 2 * s) * eisSeries F Γ σ s z := by
       rw [eisSeries, ← hTermAtCenter.tsum_mul_left]
 
-end ArtinPrimitiveRoots.A1.Spec
+end ArtinPrimitiveRoots.Proofs.spec_continue_p

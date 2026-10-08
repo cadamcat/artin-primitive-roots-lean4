@@ -10,7 +10,9 @@ open Lean Elab Term
 
 noncomputable section
 
-namespace ArtinPrimitiveRoots.A1.Spec
+open ArtinPrimitiveRoots.A1.Spec
+
+namespace ArtinPrimitiveRoots.Proofs.spec_continue_p
 
 elab "volH3_sigmaFiniteExact" : term => do
   let n := Name.num (Name.str (Name.str (Name.str `_private "ArtinPrimitiveRoots")
@@ -271,4 +273,4 @@ theorem smoothing_radial_power (k₀ : ℝ → ℝ) (a : ℂ) (z : X F) :
       rw [smoothing_radial_power_at_base]
       ring
 
-end ArtinPrimitiveRoots.A1.Spec
+end ArtinPrimitiveRoots.Proofs.spec_continue_p

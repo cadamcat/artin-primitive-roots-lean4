@@ -15,7 +15,9 @@ open Lean Elab Term
 
 noncomputable section
 
-namespace ArtinPrimitiveRoots.A1.Spec
+open ArtinPrimitiveRoots.A1.Spec
+
+namespace ArtinPrimitiveRoots.Proofs.spec_continue_p
 
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
@@ -655,4 +657,4 @@ theorem radialTransform₀_differentiableAt (F : Type) [Field F] [NumberField F]
     all_goals first | rfl | simp [radialTransform₀, Ffun, radialTransformIntegrand]
   exact hradial.differentiableAt
 
-end ArtinPrimitiveRoots.A1.Spec
+end ArtinPrimitiveRoots.Proofs.spec_continue_p
