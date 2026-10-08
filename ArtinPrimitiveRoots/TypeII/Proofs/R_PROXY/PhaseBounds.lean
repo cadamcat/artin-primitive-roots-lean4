@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.TruncatedSource
+import ArtinPrimitiveRoots.TypeII.PD.Preliminaries
 import ArtinPrimitiveRoots.TypeII.PP.Results
 import Mathlib.Algebra.Order.Chebyshev
 
@@ -91,7 +92,295 @@ theorem moderate_reciprocal_log_residue_bound
                   ‖reciprocalLogResiduePhaseSum d q a u l r‖ ≤
                     4 * C₀ * (N / (q : ℝ)) / Real.log M *
                       (|u|⁻¹ + Real.rpow x (-cδ)) := by
-  sorry
+  obtain ⟨C₀, cδ, x₀, hC₀, hcδ, hx₀, hMain⟩ :=
+    ArtinPrimitiveRoots.TypeII.PD.moderate_phase δ C hδ hC
+  refine ⟨C₀, cδ, x₀, hC₀, hcδ, hx₀, ?_⟩
+  intro x hx
+  dsimp
+  intro N M hN hM hlogM d hd hMN q hq hqBound a u huLower huUpper l r hl hlr hr
+  have hdR : 0 < (d : ℝ) := by exact_mod_cast hd
+  have hNpos : 0 < N := by nlinarith [hMN, hM]
+  have hlpos : 0 < l := lt_of_lt_of_le hNpos hl
+  have hrNonneg : 0 ≤ r := by linarith
+  have hxpos : 0 < x := lt_of_lt_of_le (by linarith : 0 < x₀) hx
+  have hErrorNonneg : 0 ≤ |u|⁻¹ + Real.rpow x (-cδ) :=
+    add_nonneg (inv_nonneg.mpr (abs_nonneg u)) (Real.rpow_nonneg hxpos.le _)
+  have hMod := hMain x hx N hN q hq hqBound a u huLower huUpper
+  let nLo : ℕ := ⌈l⌉₊
+  let nHi : ℕ := ⌊r⌋₊
+  have hloCast : l ≤ (nLo : ℝ) := by
+    dsimp [nLo]
+    exact Nat.le_ceil l
+  have hhiCast : (nHi : ℝ) ≤ r := by
+    dsimp [nHi]
+    exact Nat.floor_le hrNonneg
+  have hNlo : N ≤ (nLo : ℝ) := le_trans hl hloCast
+  have hloPos : 0 < nLo := by
+    by_contra hnot
+    have hzero : nLo = 0 := Nat.eq_zero_of_not_pos hnot
+    rw [hzero] at hloCast
+    have hloCast' : l ≤ 0 := by simpa using hloCast
+    exact (not_le_of_gt hlpos) hloCast'
+  have hhiUpper : (nHi : ℝ) ≤ 2 * N := le_trans hhiCast hr
+  by_cases hNonempty : nLo ≤ nHi
+  · let w : ℕ → ℝ := fun j =>
+      if nLo ≤ j then 1 / Real.log ((d * j : ℕ) : ℝ)
+      else 1 / Real.log ((d * nLo : ℕ) : ℝ)
+    let phase : ℕ → ℂ := fun j =>
+      if nLo ≤ j ∧ j ≤ nHi ∧ (j : ZMod q) = a then
+        Complex.exp (Complex.I * u * Real.log (j : ℝ)) else 0
+    let E : ℝ := |u|⁻¹ + Real.rpow x (-cδ)
+    let B : ℝ := C₀ * (N / (q : ℝ)) * E
+    have hqpos : 0 < (q : ℝ) := by exact_mod_cast (Nat.zero_lt_of_lt hq)
+    have hcastMul (j : ℕ) : ((d * j : ℕ) : ℝ) =
+        (d : ℝ) * (j : ℝ) := by norm_cast
+    have hprodLo : M ≤ ((d * nLo : ℕ) : ℝ) := by
+      calc
+        M ≤ (d : ℝ) * N := hMN
+        _ ≤ (d : ℝ) * (nLo : ℝ) :=
+          mul_le_mul_of_nonneg_left hNlo hdR.le
+        _ = ((d * nLo : ℕ) : ℝ) := (hcastMul nLo).symm
+    have hlogProdLo : 0 < Real.log ((d * nLo : ℕ) : ℝ) :=
+      Real.log_pos (lt_of_lt_of_le hM hprodLo)
+    have hprodPosLo : 0 < ((d * nLo : ℕ) : ℝ) := by
+      exact lt_of_lt_of_le (lt_trans (by norm_num) hM) hprodLo
+    have hprodLe (j : ℕ) (hj : nLo ≤ j) :
+        ((d * nLo : ℕ) : ℝ) ≤ ((d * j : ℕ) : ℝ) := by
+      rw [hcastMul, hcastMul]
+      exact mul_le_mul_of_nonneg_left (by exact_mod_cast hj) hdR.le
+    have hlogPosAt (j : ℕ) (hj : nLo ≤ j) :
+        0 < Real.log ((d * j : ℕ) : ℝ) :=
+      Real.log_pos (lt_of_lt_of_le hM (le_trans hprodLo (hprodLe j hj)))
+    have hwNonneg : ∀ j, 0 ≤ w j := by
+      intro j
+      by_cases hj : nLo ≤ j
+      · simp [w, hj]
+        simpa only [hcastMul] using (hlogPosAt j hj).le
+      · simp [w, hj]
+        simpa only [hcastMul] using hlogProdLo.le
+    have hwAnti : AntitoneOn w (Set.Iio (nHi + 1)) := by
+      intro i hi j hj hij
+      by_cases hil : nLo ≤ i
+      · have hjl : nLo ≤ j := le_trans hil hij
+        simp [w, hil, hjl]
+        have hprodIJ : ((d * i : ℕ) : ℝ) ≤ ((d * j : ℕ) : ℝ) := by
+          rw [hcastMul, hcastMul]
+          exact mul_le_mul_of_nonneg_left (by exact_mod_cast hij) hdR.le
+        have hprodPosI := lt_of_lt_of_le hprodPosLo (hprodLe i hil)
+        have hlogIJ := Real.log_le_log hprodPosI hprodIJ
+        calc
+          (Real.log ((d : ℝ) * (j : ℝ)))⁻¹ =
+              1 / Real.log ((d * j : ℕ) : ℝ) := by
+            rw [← hcastMul]
+            exact (one_div _).symm
+          _ ≤ 1 / Real.log ((d * i : ℕ) : ℝ) :=
+            one_div_le_one_div_of_le (hlogPosAt i hil) hlogIJ
+          _ = (Real.log ((d : ℝ) * (i : ℝ)))⁻¹ := by
+            rw [← hcastMul]
+            exact one_div _
+      · by_cases hjl : nLo ≤ j
+        · simp [w, hil, hjl]
+          have hlogLe := Real.log_le_log hprodPosLo (hprodLe j hjl)
+          calc
+            (Real.log ((d : ℝ) * (j : ℝ)))⁻¹ =
+                1 / Real.log ((d * j : ℕ) : ℝ) := by
+              rw [← hcastMul]
+              exact (one_div _).symm
+            _ ≤ 1 / Real.log ((d * nLo : ℕ) : ℝ) :=
+              one_div_le_one_div_of_le hlogProdLo hlogLe
+            _ = (Real.log ((d : ℝ) * (nLo : ℝ)))⁻¹ := by
+              rw [← hcastMul]
+              exact one_div _
+        · simp [w, hil, hjl]
+    have hPrefix : ∀ k ≤ nHi + 1,
+        ‖∑ i ∈ Finset.range k, phase i‖ ≤ B := by
+      intro k hk
+      by_cases hkLo : k ≤ nLo
+      · have hzero : ∀ i ∈ Finset.range k, phase i = 0 := by
+          intro i hi
+          have hik : i < k := Finset.mem_range.mp hi
+          have hnot : ¬ nLo ≤ i := by omega
+          simp [phase, hnot]
+        rw [Finset.sum_eq_zero hzero]
+        have hB : 0 ≤ B := by
+          dsimp [B, E]
+          exact mul_nonneg (mul_nonneg hC₀.le
+            (div_nonneg hNpos.le (by positivity))) hErrorNonneg
+        simpa using hB
+      · have hkLo' : nLo < k := Nat.lt_of_not_ge hkLo
+        let j : ℕ := k - 1
+        have hjLo : nLo ≤ j := by dsimp [j]; omega
+        have hjHi : j ≤ nHi := by dsimp [j]; omega
+        let Ssrc : Finset ℕ := (Finset.range k).filter
+          (fun n => nLo ≤ n ∧ n ≤ nHi ∧ (n : ZMod q) = a)
+        let Sdst : Finset ℕ := (Finset.range (j + 1)).filter
+          (fun n => nLo ≤ n ∧ (n : ZMod q) = a)
+        have hSset : Ssrc = Sdst := by
+          ext i
+          simp only [Ssrc, Sdst, Finset.mem_filter, Finset.mem_range,
+            Nat.lt_succ_iff]
+          constructor
+          · rintro ⟨hik, hlo, hhi, hmod⟩
+            have hij : i ≤ j := by dsimp [j]; omega
+            exact ⟨hij, hlo, hmod⟩
+          · rintro ⟨hij, hlo, hmod⟩
+            have hik : i < k := by dsimp [j] at hij ⊢; omega
+            have hhi : i ≤ nHi := le_trans hij hjHi
+            exact ⟨hik, hlo, hhi, hmod⟩
+        have hSumSource :
+            (∑ i ∈ Finset.range k, phase i) =
+              ∑ i ∈ Ssrc, Complex.exp (Complex.I * u * Real.log (i : ℝ)) := by
+          dsimp [phase, Ssrc]
+          rw [← Finset.sum_filter]
+        have hjfloor : ⌊(j : ℝ)⌋₊ = j := Nat.floor_natCast j
+        have hSdst : Sdst =
+            (Finset.range (⌊(j : ℝ)⌋₊ + 1)).filter (fun (n : ℕ) =>
+              (nLo : ℝ) ≤ (n : ℝ) ∧ (n : ℝ) ≤ (j : ℝ) ∧
+                (n : ZMod q) = a) := by
+          rw [hjfloor]
+          ext i
+          simp only [Sdst, Finset.mem_filter, Finset.mem_range,
+            Nat.lt_succ_iff]
+          constructor
+          · rintro ⟨hij, hlo, hmod⟩
+            exact ⟨hij, by exact_mod_cast hlo, by exact_mod_cast hij, hmod⟩
+          · rintro ⟨hij, hlo, hhi, hmod⟩
+            exact ⟨hij, by exact_mod_cast hlo, hmod⟩
+        have hSumDest :
+            ArtinPrimitiveRoots.TypeII.PD.integerResiduePhaseSum q a u
+                (nLo : ℝ) (j : ℝ) =
+              ∑ i ∈ Sdst, Complex.exp (Complex.I * u * Real.log (i : ℝ)) := by
+          unfold ArtinPrimitiveRoots.TypeII.PD.integerResiduePhaseSum
+          rw [← hSdst]
+        have hSumEq :
+            (∑ i ∈ Finset.range k, phase i) =
+              ArtinPrimitiveRoots.TypeII.PD.integerResiduePhaseSum q a u
+                (nLo : ℝ) (j : ℝ) := by
+          calc
+            _ = ∑ i ∈ Ssrc, Complex.exp (Complex.I * u * Real.log (i : ℝ)) :=
+              hSumSource
+            _ = ∑ i ∈ Sdst, Complex.exp (Complex.I * u * Real.log (i : ℝ)) := by
+              rw [hSset]
+            _ = _ := hSumDest.symm
+        have hNloCast : N ≤ (nLo : ℝ) := hNlo
+        have hjLoCast : (nLo : ℝ) ≤ (j : ℝ) := by exact_mod_cast hjLo
+        have hjUpperCast : (j : ℝ) ≤ 2 * N := by
+          calc
+            (j : ℝ) ≤ (nHi : ℝ) := by exact_mod_cast hjHi
+            _ ≤ 2 * N := hhiUpper
+        have hModInterval := hMod (nLo : ℝ) (j : ℝ)
+          hNloCast hjLoCast hjUpperCast
+        have hrelative := hModInterval.2.2
+        have hfactor : (q : ℝ) / N * (N / (q : ℝ)) = 1 := by
+          field_simp [ne_of_gt hNpos, ne_of_gt hqpos]
+        have hUnweighted :
+            ‖ArtinPrimitiveRoots.TypeII.PD.integerResiduePhaseSum q a u
+                (nLo : ℝ) (j : ℝ)‖ ≤ C₀ * (N / (q : ℝ)) * E := by
+          calc
+            _ = ((q : ℝ) / N * (N / (q : ℝ))) *
+                  ‖ArtinPrimitiveRoots.TypeII.PD.integerResiduePhaseSum q a u
+                    (nLo : ℝ) (j : ℝ)‖ := by rw [hfactor]; ring
+            _ = ((q : ℝ) / N *
+                  ‖ArtinPrimitiveRoots.TypeII.PD.integerResiduePhaseSum q a u
+                    (nLo : ℝ) (j : ℝ)‖) * (N / (q : ℝ)) := by ring
+            _ ≤ (C₀ * E) * (N / (q : ℝ)) :=
+              mul_le_mul_of_nonneg_right hrelative (by positivity)
+            _ = C₀ * (N / (q : ℝ)) * E := by ring
+        rw [hSumEq]
+        simpa [B, E] using hUnweighted
+    let Slocal : Finset ℕ :=
+      (Finset.range (⌊r⌋₊ + 1)).filter (fun h =>
+        l ≤ (h : ℝ) ∧ (h : ℝ) ≤ r ∧ (h : ZMod q) = a)
+    let Ssupport : Finset ℕ :=
+      (Finset.range (nHi + 1)).filter (fun h =>
+        nLo ≤ h ∧ h ≤ nHi ∧ (h : ZMod q) = a)
+    have hInterval (h : ℕ) :
+        (l ≤ (h : ℝ) ∧ (h : ℝ) ≤ r) ↔ nLo ≤ h ∧ h ≤ nHi := by
+      have hcast := Nat.cast_mem_Icc_iff (n := h) (a := l) (b := r) hrNonneg
+      simpa [Set.mem_Icc, Finset.mem_Icc, nLo, nHi] using hcast
+    have hLocalSet : Slocal = Ssupport := by
+      ext h
+      simp only [Slocal, Ssupport, Finset.mem_filter, Finset.mem_range,
+        Nat.lt_succ_iff]
+      constructor
+      · rintro ⟨_, hloReal, hhiReal, hmod⟩
+        have hnat := (hInterval h).mp ⟨hloReal, hhiReal⟩
+        exact ⟨hnat.2, hnat.1, hnat.2, hmod⟩
+      · rintro ⟨hrange, hloNat, hhiNat, hmod⟩
+        have hreal := (hInterval h).mpr ⟨hloNat, hhiNat⟩
+        exact ⟨hrange, hreal.1, hreal.2, hmod⟩
+    have hWeightEq :
+        (∑ i ∈ Finset.range (nHi + 1), (w i : ℂ) * phase i) =
+          ∑ i ∈ Ssupport,
+            Complex.exp (Complex.I * u * Real.log (i : ℝ)) /
+              Real.log ((d * i : ℕ) : ℝ) := by
+      calc
+        _ = ∑ i ∈ Finset.range (nHi + 1),
+              if nLo ≤ i ∧ i ≤ nHi ∧ (i : ZMod q) = a then
+                Complex.exp (Complex.I * u * Real.log (i : ℝ)) /
+                  Real.log ((d * i : ℕ) : ℝ) else 0 := by
+          apply Finset.sum_congr rfl
+          intro i hi
+          by_cases hs : nLo ≤ i ∧ i ≤ nHi ∧ (i : ZMod q) = a
+          · simp [phase, w, hs]
+            ring
+          · simp [phase, hs]
+        _ = _ := by rw [← Finset.sum_filter]
+    have hLocalEq :
+        ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.reciprocalLogResiduePhaseSum
+            d q a u l r =
+          ∑ i ∈ Finset.range (nHi + 1), (w i : ℂ) * phase i := by
+      unfold reciprocalLogResiduePhaseSum
+      change (∑ i ∈ Slocal,
+        Complex.exp (Complex.I * u * Real.log (i : ℝ)) /
+          Real.log ((d * i : ℕ) : ℝ)) = _
+      rw [hLocalSet]
+      exact hWeightEq.symm
+    have hAbel := norm_sum_range_weighted_le_of_prefix
+      phase w (nHi + 1) B hPrefix (fun _ => hwNonneg _) hwAnti
+    rw [hLocalEq]
+    have hBnonneg : 0 ≤ C₀ * (N / (q : ℝ)) * E := by
+      dsimp [E]
+      exact mul_nonneg (mul_nonneg hC₀.le
+        (div_nonneg hNpos.le (by positivity))) hErrorNonneg
+    have hw0 : w 0 ≤ 1 / Real.log M := by
+      have hzero : w 0 = 1 / Real.log ((d * nLo : ℕ) : ℝ) := by
+        simp [w, Nat.not_le_of_gt hloPos]
+      rw [hzero]
+      apply one_div_le_one_div_of_le (by linarith : 0 < Real.log M)
+      exact Real.log_le_log (by linarith : 0 < M) hprodLo
+    calc
+      ‖∑ i ∈ Finset.range (nHi + 1), (w i : ℂ) * phase i‖ ≤
+          2 * B * w 0 := hAbel
+      _ ≤ 2 * B * (1 / Real.log M) :=
+        mul_le_mul_of_nonneg_left hw0 (by positivity)
+      _ = 2 * (C₀ * (N / (q : ℝ)) * E) / Real.log M := by
+        dsimp [B]
+        ring
+      _ ≤ 4 * (C₀ * (N / (q : ℝ)) * E) / Real.log M := by
+        rw [div_eq_mul_inv, div_eq_mul_inv]
+        have hcoeff : 2 * (C₀ * (N / (q : ℝ)) * E) ≤
+            4 * (C₀ * (N / (q : ℝ)) * E) := by
+          nlinarith [hBnonneg]
+        exact mul_le_mul_of_nonneg_right hcoeff
+          (inv_nonneg.mpr (le_of_lt (by linarith)))
+      _ = 4 * C₀ * (N / (q : ℝ)) / Real.log M * E := by ring
+  · have hempty : nHi < nLo := by omega
+    have hLocalEmpty :
+        (Finset.range (⌊r⌋₊ + 1)).filter (fun (h : ℕ) =>
+          l ≤ (h : ℝ) ∧ (h : ℝ) ≤ r ∧ (h : ZMod q) = a) = ∅ := by
+      apply Finset.eq_empty_iff_forall_notMem.mpr
+      intro h hh
+      rcases Finset.mem_filter.mp hh with ⟨_, ⟨hlo, hhi, _⟩⟩
+      have hceil : nLo ≤ h := by
+        dsimp [nLo]
+        exact Nat.ceil_le.mpr hlo
+      have hfloor : h ≤ nHi := (Nat.le_floor_iff hrNonneg).2 hhi
+      omega
+    unfold reciprocalLogResiduePhaseSum
+    rw [hLocalEmpty]
+    simp
+    positivity
 
 /-- High-phase residue sums after Abel weighting by `1/log(d*h)`. -/
 theorem high_reciprocal_log_residue_bound :
