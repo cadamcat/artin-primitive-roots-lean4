@@ -1204,6 +1204,1549 @@ theorem prop_probe_low (η : HeckeChar F)
   ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
     ‖probe R W (Z ^ a) (Z ^ b) Z‖ ≤ C * Z ^ (933 / 2000 + ε) := by
   sorry
+
+set_option maxHeartbeats 10000000 in
+private theorem po_e_residue_norm_one (I : S.ExtIdeal) (a : Fˣ)
+    (ha : S.IsGen (a : F) I.1) (x : S.R)
+    (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0) :
+    ‖S.e A (S.diag ((x : F) / (a : F)))‖ = 1 := by
+  classical
+  let Q : Type := ResidueRing R0.exterior I
+  let g : S.R := R0.exterior.genR I
+  let J : Ideal S.R := Ideal.span {g}
+  let q : ℕ := Ideal.absNorm I.1
+  letI : Fintype Q := R0.exterior.residueFinite I
+  have hcard : Fintype.card Q = q := by
+    dsimp [Q, q]
+    exact R0.exterior.residue_card I
+  let qMap : S.R →+* Q := Ideal.Quotient.mk J
+  have hclass : qMap ((q : S.R) * x) = 0 := by
+    have hkill : (Fintype.card Q) • qMap x = 0 := card_nsmul_eq_zero
+    calc
+      qMap ((q : S.R) * x) = qMap (q • x) := by simp [nsmul_eq_mul]
+      _ = q • qMap x := map_nsmul qMap q x
+      _ = 0 := by rw [← hcard]; exact hkill
+  have hmem : (q : S.R) * x ∈ J := Ideal.Quotient.eq_zero_iff_mem.mp hclass
+  obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp (by simpa [J] using hmem)
+  have hgenRatio : ((R0.exterior.genR I : F) / (a : F)) ∈ S.R :=
+    po_gen_ratio_mem_R (R := R0) I a ha
+  let gdiv : S.R := ⟨((R0.exterior.genR I : S.R) : F) / (a : F), hgenRatio⟩
+  let y : S.R := gdiv * r
+  have hy : (y : F) = (q : F) * ((x : F) / (a : F)) := by
+    dsimp [y, gdiv]
+    have hrcast := congrArg (fun z : S.R => (z : F)) hr
+    change (r : F) * (R0.exterior.genR I : F) = (q : F) * (x : F) at hrcast
+    calc
+      (R0.exterior.genR I : F) / (a : F) * (r : F) =
+          ((r : F) * (R0.exterior.genR I : F)) / (a : F) := by
+            field_simp [a.ne_zero] <;> ring
+      _ = ((q : F) * (x : F)) / (a : F) := by rw [hrcast]
+      _ = (q : F) * ((x : F) / (a : F)) := by ring
+  let eDiag : AddChar F ℂ := {
+    toFun := fun z => S.e A (S.diag z)
+    map_zero_eq_one' := po_e_diagR_one S D A 0
+    map_add_eq_mul' := by
+      intro z₁ z₂
+      calc
+        S.e A (S.diag (z₁ + z₂)) = S.e A (S.diag z₁ + S.diag z₂) := by rw [map_add]
+        _ = S.e A (S.diag z₁) * S.e A (S.diag z₂) := po_e_add S A _ _ }
+  have hphasePow (n : ℕ) :
+      S.e A (S.diag ((n : F) * ((x : F) / (a : F)))) =
+        (S.e A (S.diag ((x : F) / (a : F)))) ^ n := by
+    simpa [eDiag, nsmul_eq_mul] using
+      (eDiag.map_nsmul_eq_pow n ((x : F) / (a : F)))
+  have hphaseOne :
+      S.e A (S.diag ((q : F) * ((x : F) / (a : F)))) = 1 := by
+    rw [← hy]
+    exact po_e_diagR_one S D A y
+  have hqpos : 0 < q := by
+    dsimp [q]
+    have hI0 : I.1 ≠ 0 := by
+      simpa only [Ideal.zero_eq_bot] using I.2.1
+    exact Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr hI0⟩
+  have hpow := hphasePow q
+  rw [hphaseOne] at hpow
+  have hfin : IsOfFinOrder (S.e A (S.diag ((x : F) / (a : F)))) :=
+    (isOfFinOrder_iff_pow_eq_one).2 ⟨q, hqpos, hpow.symm⟩
+  exact hfin.norm_eq_one
+
+private theorem po_chi_norm_one (D : FieldData F) (P : FinPlace F) (x : F)
+    (hx : residue P x ≠ 0) : ‖chi D P x‖ = 1 := by
+  let ζ : rootsOfUnity 6 (𝓞 F) := chiAlg P x
+  have hζ : (ζ : (𝓞 F)ˣ) ^ 6 = 1 :=
+    (mem_rootsOfUnity 6 (ζ : (𝓞 F)ˣ)).mp ζ.property
+  let ζ0 : 𝓞 F := ((ζ : (𝓞 F)ˣ) : 𝓞 F)
+  have hζOF : ζ0 ^ 6 = 1 := by
+    simpa [ζ0] using congrArg Units.val hζ
+  have hζC : (D.σ0 (algebraMap (𝓞 F) F ζ0)) ^ 6 = 1 := by
+    calc
+      _ = D.σ0 (algebraMap (𝓞 F) F (ζ0 ^ 6)) := by simp only [map_pow]
+      _ = 1 := by rw [hζOF]; simp
+  have hpow : (chi D P x) ^ 6 = 1 := by
+    rw [chi, if_neg hx]
+    exact hζC
+  have hfin : IsOfFinOrder (chi D P x) :=
+    (isOfFinOrder_iff_pow_eq_one).2 ⟨6, by norm_num, hpow⟩
+  exact hfin.norm_eq_one
+
+private theorem po_chiPow_norm_le_one (D : FieldData F) (P : FinPlace F)
+    (x : F) (j : ℤ) : ‖chiPow D P x j‖ ≤ 1 := by
+  by_cases hx : residue P x = 0
+  · simp [chiPow, hx]
+  · simp [chiPow, hx, po_chi_norm_one D P x hx]
+
+private theorem po_multiset_map_prod_norm_le_one {α : Type*} (s : Multiset α)
+    (f : α → ℂ) (hf : ∀ x, x ∈ s → ‖f x‖ ≤ 1) : ‖(s.map f).prod‖ ≤ 1 := by
+  induction s using Multiset.induction_on with
+  | empty => simp
+  | @cons a s ih =>
+      rw [Multiset.map_cons, Multiset.prod_cons, norm_mul]
+      exact mul_le_one₀ (hf a (by simp)) (norm_nonneg _)
+        (ih fun x hx => hf x (Multiset.mem_cons_of_mem hx))
+
+private theorem po_chiIdealPow_norm_le_one (D : FieldData F) (I : Ideal (𝓞 F))
+    (x : F) (j : ℤ) : ‖chiIdealPow D I x j‖ ≤ 1 := by
+  unfold chiIdealPow
+  apply po_multiset_map_prod_norm_le_one
+  intro P hP
+  by_cases h : P.IsPrime ∧ P ≠ ⊥
+  · simpa [h] using po_chiPow_norm_le_one D ⟨P, h.1, h.2⟩ x j
+  · simp [h]
+
+set_option maxHeartbeats 3000000 in
+private theorem po_finiteGaussAt_norm_le (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (I : S.ExtIdeal) (a : Fˣ) (ha : S.IsGen (a : F) I.1) (k : S.R) :
+    ‖finiteGaussAt R0 I a (k : F)‖ ≤ qI I.1 := by
+  classical
+  let Q : Type := ResidueRing R0.exterior I
+  letI : Fintype Q := R0.exterior.residueFinite I
+  let f (x : Q) : ℂ :=
+    chiIdealPow D I.1 (x.out : F) 1 *
+      S.e A (S.diag ((k : F) * (x.out : F) / (a : F)))
+  have hf (x : Q) : ‖f x‖ ≤ 1 := by
+    dsimp [f]
+    have hchi : ‖chiIdealPow D I.1 (x.out : F) 1‖ ≤ 1 :=
+      po_chiIdealPow_norm_le_one D (I.1) (x.out : F) 1
+    have he := po_e_residue_norm_one I a ha (k * x.out) R0
+    have harg : ((k * x.out : S.R) : F) / (a : F) =
+        (k : F) * (x.out : F) / (a : F) := by simp
+    rw [harg] at he
+    rw [norm_mul]
+    exact mul_le_one₀ hchi (norm_nonneg _) he.le
+  have hsumEq : finiteGaussAt R0 I a (k : F) = ∑ x : Q, f x := by
+    dsimp [finiteGaussAt, f]
+    exact finsum_eq_sum_of_fintype _
+  have hcard : (Fintype.card Q : ℝ) = qI I.1 := by
+    change (Fintype.card Q : ℝ) = (Ideal.absNorm I.1 : ℝ)
+    exact_mod_cast R0.exterior.residue_card I
+  calc
+    ‖finiteGaussAt R0 I a (k : F)‖ = ‖∑ x : Q, f x‖ := by rw [hsumEq]
+    _ ≤ ∑ x : Q, ‖f x‖ := norm_sum_le _ _
+    _ ≤ ∑ _x : Q, (1 : ℝ) := Finset.sum_le_sum fun x hx => hf x
+    _ = (Fintype.card Q : ℝ) := by simp
+    _ = qI I.1 := hcard
+
+set_option maxHeartbeats 3000000 in
+private theorem po_finiteFactor_norm_le (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (s I : S.ExtIdeal) (a : Fˣ) (ha : S.IsGen (a : F) I.1) (h : F) :
+    ‖finiteFactor R0 s I a h‖ ≤ qI s.1 * qI I.1 := by
+  classical
+  let Q : Type := ResidueRing R0.exterior s
+  letI : Fintype Q := R0.exterior.residueFinite s
+  let term (d : Q) : ℂ :=
+    if ∃ x : S.R, h - (a : F) * (d.out : F) =
+        (bc.gen s : F) * (x : F) then
+      chiIdealPow D s.1 (d.out : F) 1 *
+        finiteGaussAt R0 I a ((h - (a : F) * (d.out : F)) / (bc.gen s : F))
+    else 0
+  have hterm (d : Q) : ‖term d‖ ≤ qI I.1 := by
+    dsimp [term]
+    by_cases hc : ∃ x : S.R, h - (a : F) * (d.out : F) =
+        (bc.gen s : F) * (x : F)
+    · obtain ⟨x, hx⟩ := hc
+      have hb0 : (bc.gen s : F) ≠ 0 := Units.ne_zero (bc.gen s)
+      have harg : (h - (a : F) * (d.out : F)) / (bc.gen s : F) = (x : F) := by
+        rw [hx]
+        field_simp [hb0]
+      rw [if_pos (show ∃ x : S.R, h - (a : F) * (d.out : F) =
+        (bc.gen s : F) * (x : F) from ⟨x, hx⟩), harg]
+      have hchi : ‖chiIdealPow D s.1 (d.out : F) 1‖ ≤ 1 :=
+        po_chiIdealPow_norm_le_one D s.1 (d.out : F) 1
+      have hgauss : ‖finiteGaussAt R0 I a (x : F)‖ ≤ qI I.1 :=
+        po_finiteGaussAt_norm_le R0 I a ha x
+      calc
+        ‖chiIdealPow D s.1 (d.out : F) 1 * finiteGaussAt R0 I a (x : F)‖ =
+            ‖chiIdealPow D s.1 (d.out : F) 1‖ *
+              ‖finiteGaussAt R0 I a (x : F)‖ := norm_mul _ _
+        _ ≤ 1 * qI I.1 := mul_le_mul hchi hgauss (norm_nonneg _) (by positivity)
+        _ = qI I.1 := one_mul _
+    · simp [hc, qI]
+  have hsumEq : finiteFactor R0 s I a h = ∑ d : Q, term d := by
+    dsimp [finiteFactor, term]
+    exact finsum_eq_sum_of_fintype _
+  have hcard : (Fintype.card Q : ℝ) = qI s.1 := by
+    change (Fintype.card Q : ℝ) = (Ideal.absNorm s.1 : ℝ)
+    exact_mod_cast R0.exterior.residue_card s
+  have hqnonneg : 0 ≤ qI I.1 := by dsimp [qI]; positivity
+  calc
+    ‖finiteFactor R0 s I a h‖ = ‖∑ d : Q, term d‖ := by rw [hsumEq]
+    _ ≤ ∑ d : Q, ‖term d‖ := norm_sum_le _ _
+    _ ≤ ∑ _d : Q, qI I.1 := Finset.sum_le_sum fun d hd => hterm d
+    _ = (Fintype.card Q : ℝ) * qI I.1 := by simp
+    _ = qI s.1 * qI I.1 := by rw [hcard]
+
+private theorem po_isGen_mul (I J : Ideal (𝓞 F)) (a b : Fˣ)
+    (ha : S.IsGen (a : F) I) (hb : S.IsGen (b : F) J) :
+    S.IsGen ((a * b : Fˣ) : F) (I * J) := by
+  have hExt : S.IsExterior (I * J) := by
+    constructor
+    · exact mul_ne_zero ha.1.1 hb.1.1
+    · intro v hvS hsub
+      have hdiv := v.isPrime.mul_le.mp hsub
+      rcases hdiv with hI | hJ
+      · exact ha.1.2 v hvS hI
+      · exact hb.1.2 v hvS hJ
+  have hI0 : (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≠ 0 := by
+    simpa [Ideal.zero_eq_bot] using ha.1.1
+  have hJ0 : (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≠ 0 := by
+    simpa [Ideal.zero_eq_bot] using hb.1.1
+  have hcoe : ((I * J : Ideal (𝓞 F)) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) *
+        (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+    FractionalIdeal.coeIdeal_mul I J
+  refine ⟨hExt, mul_ne_zero a.ne_zero b.ne_zero, ?_⟩
+  intro v hvS
+  calc
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ((a : F) * (b : F))) =
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F) *
+            FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (b : F)) := by
+      rw [← FractionalIdeal.spanSingleton_mul_spanSingleton]
+    _ = FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) +
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (b : F)) :=
+      FractionalIdeal.count_mul F v
+        (FractionalIdeal.spanSingleton_ne_zero_iff.mpr a.ne_zero)
+        (FractionalIdeal.spanSingleton_ne_zero_iff.mpr b.ne_zero)
+    _ = FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) +
+        FractionalIdeal.count F v (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+      rw [ha.2.2 v hvS, hb.2.2 v hvS]
+    _ = FractionalIdeal.count F v
+        ((I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) *
+          (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)) :=
+      (FractionalIdeal.count_mul F v hI0 hJ0).symm
+    _ = FractionalIdeal.count F v
+        ((I * J : Ideal (𝓞 F)) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+      exact congrArg (FractionalIdeal.count F v) hcoe.symm
+
+private theorem po_allowed_generator_lift (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (I : S.ExtIdeal) (a : Fˣ) (ha : S.IsGen (a : F) I.1) (hallowed : Bd.Allowed a) :
+    ∃ u : S.Rˣ, ((u ^ 6 * R0.exterior.genR I : S.R) : F) = (a : F) := by
+  obtain ⟨ε, hε, hrel⟩ :=
+    Bd.allowed_unique I.1 a (bc.gen I) ⟨ha, hallowed⟩ (bc.gen_spec I)
+  let epsUS : S.US := ⟨ε, hε⟩
+  let epsR : S.Rˣ := Set.unitEquivUnitsInteger (S.Sf : Set (FinPlace F)) F epsUS
+  have hrelF : (a : F) = ((ε : Fˣ) : F) ^ 6 * (bc.gen I : F) := by
+    have h := congrArg (fun z : Fˣ => (z : F)) hrel
+    simpa using h
+  have hepsR : ((epsR : S.Rˣ) : F) = (ε : Fˣ) := by rfl
+  refine ⟨epsR, ?_⟩
+  calc
+    ((epsR ^ 6 * R0.exterior.genR I : S.R) : F) =
+        ((epsR : S.Rˣ) : F) ^ 6 * ((R0.exterior.genR I : S.R) : F) := by simp
+    _ = ((ε : Fˣ) : F) ^ 6 * (bc.gen I : F) := by
+      rw [hepsR, R0.exterior.genR_val]
+    _ = (a : F) := hrelF.symm
+
+private theorem po_quotientProd_diff_mem {R : Type*} [CommRing R]
+    (a b : R) (m : R ⧸ Ideal.span {a * b}) :
+    m.out - (Ideal.Quotient.mk (Ideal.span {a}) m.out).out ∈ Ideal.span {a} := by
+  have heq : Ideal.Quotient.mk (Ideal.span {a}) m.out =
+      Ideal.Quotient.mk (Ideal.span {a})
+        (Ideal.Quotient.mk (Ideal.span {a}) m.out).out := by
+    rw [Ideal.Quotient.mk_out]
+  exact (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp heq
+
+private noncomputable def po_quotientProdSecond {R : Type*} [CommRing R]
+    (a b : R) (m : R ⧸ Ideal.span {a * b}) : R :=
+  Classical.choose (Ideal.mem_span_singleton'.mp (po_quotientProd_diff_mem a b m))
+
+private theorem po_quotientProdSecond_spec {R : Type*} [CommRing R]
+    (a b : R) (m : R ⧸ Ideal.span {a * b}) :
+    po_quotientProdSecond a b m * a =
+      m.out - (Ideal.Quotient.mk (Ideal.span {a}) m.out).out :=
+  Classical.choose_spec (Ideal.mem_span_singleton'.mp (po_quotientProd_diff_mem a b m))
+
+private noncomputable def po_quotientProdMap {R : Type*} [CommRing R]
+    (a b : R) (m : R ⧸ Ideal.span {a * b}) :
+    (R ⧸ Ideal.span {a}) × (R ⧸ Ideal.span {b}) :=
+  (Ideal.Quotient.mk (Ideal.span {a}) m.out,
+    Ideal.Quotient.mk (Ideal.span {b}) (po_quotientProdSecond a b m))
+
+private theorem po_quotientProdMap_injective {R : Type*} [CommRing R]
+    (a b : R) :
+    Function.Injective (po_quotientProdMap a b) := by
+  intro m n h
+  have hv : Ideal.Quotient.mk (Ideal.span {a}) m.out =
+      Ideal.Quotient.mk (Ideal.span {a}) n.out := congrArg Prod.fst h
+  have hj : Ideal.Quotient.mk (Ideal.span {b}) (po_quotientProdSecond a b m) =
+      Ideal.Quotient.mk (Ideal.span {b}) (po_quotientProdSecond a b n) := congrArg Prod.snd h
+  have hvOut : (Ideal.Quotient.mk (Ideal.span {a}) m.out).out =
+      (Ideal.Quotient.mk (Ideal.span {a}) n.out).out := congrArg Quotient.out hv
+  have hrdiff : po_quotientProdSecond a b m - po_quotientProdSecond a b n ∈
+      Ideal.span {b} := (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp hj
+  obtain ⟨t, ht⟩ := Ideal.mem_span_singleton'.mp hrdiff
+  have hdiff : m.out - n.out =
+      (po_quotientProdSecond a b m - po_quotientProdSecond a b n) * a := by
+    calc
+      m.out - n.out =
+          (m.out - (Ideal.Quotient.mk (Ideal.span {a}) m.out).out) -
+            (n.out - (Ideal.Quotient.mk (Ideal.span {a}) n.out).out) := by
+              rw [hvOut]
+              ring
+      _ = _ := by rw [← po_quotientProdSecond_spec a b m,
+        ← po_quotientProdSecond_spec a b n]; ring
+  have hmem : m.out - n.out ∈ Ideal.span {a * b} := by
+    apply Ideal.mem_span_singleton'.mpr
+    refine ⟨t, ?_⟩
+    calc
+      t * (a * b) = (t * b) * a := by ring
+      _ = (po_quotientProdSecond a b m - po_quotientProdSecond a b n) * a := by rw [ht]
+      _ = m.out - n.out := hdiff.symm
+  have hmk : Ideal.Quotient.mk (Ideal.span {a * b}) m.out =
+      Ideal.Quotient.mk (Ideal.span {a * b}) n.out :=
+    (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).2 hmem
+  simpa only [Ideal.Quotient.mk_out] using hmk
+
+private noncomputable def po_quotientProdEquiv {R : Type*} [CommRing R]
+    (a b : R) [Fintype (R ⧸ Ideal.span {a * b})]
+    [Fintype (R ⧸ Ideal.span {a})] [Fintype (R ⧸ Ideal.span {b})]
+    (hcard : Fintype.card (R ⧸ Ideal.span {a * b}) =
+      Fintype.card ((R ⧸ Ideal.span {a}) × (R ⧸ Ideal.span {b}))) :
+    (R ⧸ Ideal.span {a * b}) ≃ (R ⧸ Ideal.span {a}) × (R ⧸ Ideal.span {b}) :=
+  Equiv.ofBijective (po_quotientProdMap a b)
+    ((Fintype.bijective_iff_injective_and_card _).2
+      ⟨po_quotientProdMap_injective a b, hcard⟩)
+
+private theorem po_quotientProdEquiv_symm_mk {R : Type*} [CommRing R] [IsDomain R]
+    (a b : R) (ha : a ≠ 0) [Fintype (R ⧸ Ideal.span {a * b})]
+    [Fintype (R ⧸ Ideal.span {a})] [Fintype (R ⧸ Ideal.span {b})]
+    (hcard : Fintype.card (R ⧸ Ideal.span {a * b}) =
+      Fintype.card ((R ⧸ Ideal.span {a}) × (R ⧸ Ideal.span {b})))
+    (v : R ⧸ Ideal.span {a}) (j : R ⧸ Ideal.span {b}) :
+    (po_quotientProdEquiv a b hcard).symm (v, j) =
+      Ideal.Quotient.mk (Ideal.span {a * b}) (v.out + a * j.out) := by
+  let C : Ideal R := Ideal.span {a * b}
+  let A : Ideal R := Ideal.span {a}
+  let B : Ideal R := Ideal.span {b}
+  let m : R ⧸ C := Ideal.Quotient.mk C (v.out + a * j.out)
+  let v' : R ⧸ A := Ideal.Quotient.mk A m.out
+  have hCsubA : C ≤ A := by
+    apply Ideal.span_singleton_le_span_singleton.mpr
+    exact ⟨b, by ring⟩
+  have hmOut : Ideal.Quotient.mk C m.out = Ideal.Quotient.mk C (v.out + a * j.out) := by
+    rw [Ideal.Quotient.mk_out]
+  have hmDiff : m.out - (v.out + a * j.out) ∈ C :=
+    (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp hmOut
+  have hma : Ideal.Quotient.mk A m.out =
+      Ideal.Quotient.mk A (v.out + a * j.out) :=
+    (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).2 (hCsubA hmDiff)
+  have hAj : a * j.out ∈ A := Ideal.mem_span_singleton'.mpr ⟨j.out, by ring⟩
+  have hxa : Ideal.Quotient.mk A (v.out + a * j.out) = v := by
+    calc
+      Ideal.Quotient.mk A (v.out + a * j.out) =
+          Ideal.Quotient.mk A v.out + Ideal.Quotient.mk A (a * j.out) := by rw [map_add]
+      _ = v + 0 := by rw [Ideal.Quotient.mk_out, Ideal.Quotient.eq_zero_iff_mem.mpr hAj]
+      _ = v := by simp
+  have hfirst : v' = v := hma.trans hxa
+  have hsecond :
+      Ideal.Quotient.mk B (po_quotientProdSecond a b m) = j := by
+    have hr := po_quotientProdSecond_spec a b m
+    have hvOut : v'.out = v.out := congrArg Quotient.out hfirst
+    let t := Classical.choose (Ideal.mem_span_singleton'.mp hmDiff)
+    have hChoose : t * (a * b) = m.out - (v.out + a * j.out) :=
+      Classical.choose_spec (Ideal.mem_span_singleton'.mp hmDiff)
+    have hsplit : m.out - v.out = a * j.out + (m.out - (v.out + a * j.out)) := by ring
+    have hsecondMul : po_quotientProdSecond a b m * a = (j.out + t * b) * a := by
+      rw [hr, hvOut, hsplit, hChoose.symm]
+      ring
+    have hrEq : po_quotientProdSecond a b m =
+        j.out + t * b :=
+      mul_right_cancel₀ ha hsecondMul
+    have htMem : t * b ∈ B := Ideal.mem_span_singleton'.mpr ⟨t, by ring⟩
+    calc
+      Ideal.Quotient.mk B (po_quotientProdSecond a b m) =
+          Ideal.Quotient.mk B (j.out + t * b) := by rw [hrEq]
+      _ = Ideal.Quotient.mk B j.out := by
+        rw [map_add, Ideal.Quotient.eq_zero_iff_mem.mpr htMem, add_zero]
+      _ = j := Ideal.Quotient.mk_out j
+  have hmap : po_quotientProdMap a b m = (v, j) := by
+    apply Prod.ext
+    · dsimp [po_quotientProdMap, m, v']
+      exact hfirst
+    · exact hsecond
+  let e := po_quotientProdEquiv a b hcard
+  apply e.injective
+  rw [e.apply_symm_apply]
+  change (v, j) = po_quotientProdMap a b m
+  exact hmap.symm
+
+set_option maxHeartbeats 5000000 in
+private theorem po_residueProductDecomp (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (s I : S.ExtIdeal) (a : Fˣ) (ha : S.IsGen (a : F) I.1)
+    (hallowed : Bd.Allowed a) :
+    ∃ (aR : S.R), (aR : F) = (a : F) ∧
+      Ideal.span {R0.exterior.genR I} = Ideal.span {aR} ∧
+      Ideal.span {R0.exterior.genR (R0.exterior.mul s I)} =
+        Ideal.span {aR * R0.exterior.genR s} ∧
+      ∃ u : S.Rˣ, aR * R0.exterior.genR s = u * R0.exterior.genR (R0.exterior.mul s I) := by
+  classical
+  obtain ⟨uI, huI⟩ := po_allowed_generator_lift R0 I a ha hallowed
+  let aR : S.R := uI ^ 6 * R0.exterior.genR I
+  have haRVal : (aR : F) = (a : F) := by simpa [aR] using huI
+  let gI : S.R := R0.exterior.genR I
+  let gS : S.R := R0.exterior.genR s
+  let total : S.ExtIdeal := R0.exterior.mul s I
+  let gTotal : S.R := R0.exterior.genR total
+  have hAssocA : Associated aR gI := by
+    dsimp [aR, gI]
+    exact associated_unit_mul_left (R0.exterior.genR I) (uI ^ 6) (uI ^ 6).isUnit
+  have hSpanA : Ideal.span {gI} = Ideal.span {aR} := by
+    exact Ideal.span_singleton_eq_span_singleton.mpr hAssocA.symm
+  have hProdGen : S.IsGen ((bc.gen s * a : Fˣ) : F) total.1 := by
+    dsimp [total]
+    rw [R0.exterior.mul_val]
+    exact po_isGen_mul s.1 I.1 (bc.gen s) a (bc.gen_spec s).1 ha
+  have hProdAllowed : Bd.Allowed (bc.gen s * a) := by
+    change (QuotientGroup.mk (S.diagU (bc.gen s * a)) : S.V) ∈ Bd.B
+    rw [map_mul]
+    exact Bd.B.mul_mem (bc.gen_spec s).2 hallowed
+  obtain ⟨ε, hε, hrel⟩ :=
+    Bd.allowed_unique total.1 (bc.gen s * a) (bc.gen total)
+      ⟨hProdGen, hProdAllowed⟩ (bc.gen_spec total)
+  let epsUS : S.US := ⟨ε, hε⟩
+  let epsR : S.Rˣ := Set.unitEquivUnitsInteger (S.Sf : Set (FinPlace F)) F epsUS
+  have hepsR : ((epsR : S.Rˣ) : F) = (ε : Fˣ) := by rfl
+  have hrelF : ((bc.gen s * a : Fˣ) : F) =
+      ((ε : Fˣ) : F) ^ 6 * (bc.gen total : F) := by
+    simpa using congrArg (fun z : Fˣ => (z : F)) hrel
+  have hprodVal : ((gS * aR : S.R) : F) =
+      ((epsR ^ 6 * gTotal : S.R) : F) := by
+    change ((gS : S.R) : F) * (aR : F) =
+      ((epsR ^ 6 * gTotal : S.R) : F)
+    calc
+      _ = (bc.gen s : F) * (aR : F) := by rw [R0.exterior.genR_val s]
+      _ = (bc.gen s : F) * (a : F) := by rw [haRVal]
+      _ = ((ε : Fˣ) : F) ^ 6 * (bc.gen total : F) := hrelF
+      _ = ((epsR ^ 6 * gTotal : S.R) : F) := by
+        dsimp [gTotal]
+        rw [hepsR, R0.exterior.genR_val]
+  have hprodEq : gS * aR = epsR ^ 6 * gTotal := Subtype.ext hprodVal
+  have hprodEq' : aR * gS = epsR ^ 6 * gTotal := by
+    rw [mul_comm, hprodEq]
+  have hAssocTotal : Associated (aR * gS) gTotal := by
+    rw [hprodEq']
+    exact associated_unit_mul_left gTotal (epsR ^ 6) (epsR ^ 6).isUnit
+  have hSpanTotal : Ideal.span {gTotal} = Ideal.span {aR * gS} :=
+    Ideal.span_singleton_eq_span_singleton.mpr hAssocTotal.symm
+  exact ⟨aR, haRVal, hSpanA, hSpanTotal, epsR ^ 6, hprodEq'⟩
+
+private theorem po_chiIdealPow_eq_of_mod (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (I : S.ExtIdeal) (x y : S.R)
+    (hxy : (x : S.R) - y ∈ Ideal.span {R0.exterior.genR I}) :
+    chiIdealPow D I.1 (x : F) 1 = chiIdealPow D I.1 (y : F) 1 := by
+  apply po_chiIdealPow_congr I.1 I.2 (x : F) (y : F)
+  intro v hvI
+  have hvS : v ∉ S.Sf := by
+    intro hv
+    exact I.2.2 v hv (Ideal.le_of_dvd hvI)
+  have hx : HeightOneSpectrum.valuation F v (x : F) ≤ 1 := x.property v hvS
+  have hy : HeightOneSpectrum.valuation F v (y : F) ≤ 1 := y.property v hvS
+  obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp hxy
+  have hdiff : (x : F) - (y : F) = (r : F) * (R0.exterior.genR I : F) := by
+    have := congrArg (fun z : S.R => (z : F)) hr
+    simpa using this.symm
+  have hrval : HeightOneSpectrum.valuation F v (r : F) ≤ 1 := r.property v hvS
+  have hgen : HeightOneSpectrum.valuation F v (R0.exterior.genR I : F) < 1 :=
+    po_gen_lt_one (R := R0) I v hvI
+  have hdiffval : HeightOneSpectrum.valuation F v ((x : F) - (y : F)) < 1 := by
+    rw [hdiff, map_mul]
+    exact mul_lt_one_of_nonneg_of_lt_one_right hrval zero_le hgen
+  exact ⟨hx, hy, hdiffval⟩
+
+private theorem po_finiteGaussAt_quotientEq
+    (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0) (I : S.ExtIdeal)
+    (a : Fˣ) (aR : S.R) (haR : (aR : F) = (a : F))
+    (hspan : Ideal.span {R0.exterior.genR I} = Ideal.span {aR}) (k : S.R) :
+    finiteGaussAt R0 I a (k : F) =
+      ∑ᶠ v : S.R ⧸ Ideal.span {aR},
+        chiIdealPow D I.1 (v.out : F) 1 *
+          S.e A (S.diag ((k : F) * (v.out : F) / (a : F))) := by
+  classical
+  let QI := ResidueRing R0.exterior I
+  let QA := S.R ⧸ Ideal.span {aR}
+  let e : QI ≃ QA := Ideal.quotEquivOfEq hspan
+  letI : Fintype QI := R0.exterior.residueFinite I
+  letI : Fintype QA := Fintype.ofEquiv QI e
+  let f : QI → ℂ := fun x =>
+    chiIdealPow D I.1 (x.out : F) 1 *
+      S.e A (S.diag ((k : F) * (x.out : F) / (a : F)))
+  let g : QA → ℂ := fun x =>
+    chiIdealPow D I.1 (x.out : F) 1 *
+      S.e A (S.diag ((k : F) * (x.out : F) / (a : F)))
+  have headd (x y : F) :
+      S.e A (S.diag (x + y)) = S.e A (S.diag x) * S.e A (S.diag y) := by
+    calc
+      S.e A (S.diag (x + y)) = S.e A (S.diag x + S.diag y) := by rw [map_add]
+      _ = S.e A (S.diag x) * S.e A (S.diag y) := po_e_add S A _ _
+  have hterm (x : QI) : f x = g (e x) := by
+    dsimp [f, g]
+    have hclass : Ideal.Quotient.mk (Ideal.span {aR}) (e x).out =
+        Ideal.Quotient.mk (Ideal.span {aR}) x.out := by
+      calc
+        Ideal.Quotient.mk (Ideal.span {aR}) (e x).out = e x :=
+          Ideal.Quotient.mk_out (e x)
+        _ = Ideal.Quotient.mk (Ideal.span {aR}) x.out :=
+          by simpa [e] using Ideal.quotEquivOfEq_mk hspan x.out
+    have hmem : (e x).out - x.out ∈ Ideal.span {aR} :=
+      (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp hclass
+    obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp hmem
+    have hrep : ((e x).out : F) = (x.out : F) + (r : F) * (aR : F) := by
+      have hcast := congrArg (fun z : S.R => (z : F)) hr
+      change (r : F) * (aR : F) = ((e x).out : F) - (x.out : F) at hcast
+      calc
+        ((e x).out : F) = (x.out : F) +
+            (((e x).out : F) - (x.out : F)) := by ring
+        _ = (x.out : F) + (r : F) * (aR : F) := by rw [← hcast]
+    have hmemI : (e x).out - x.out ∈ Ideal.span {R0.exterior.genR I} :=
+      (congrArg (fun J : Ideal S.R => (e x).out - x.out ∈ J) hspan.symm).mp hmem
+    have hchar : chiIdealPow D I.1 ((e x).out : F) 1 =
+        chiIdealPow D I.1 (x.out : F) 1 :=
+      po_chiIdealPow_eq_of_mod R0 I (e x).out x.out hmemI
+    have harg : (k : F) * ((e x).out : F) / (a : F) =
+        (k : F) * (x.out : F) / (a : F) + (k : F) * (r : F) := by
+      rw [hrep, haR]
+      field_simp [a.ne_zero]
+    have hphase : S.e A (S.diag ((k : F) * ((e x).out : F) / (a : F))) =
+        S.e A (S.diag ((k : F) * (x.out : F) / (a : F))) := by
+      rw [harg, headd]
+      have hkr : (k : F) * (r : F) = ((k * r : S.R) : F) := by simp
+      rw [hkr, po_e_diagR_one S D A (k * r)]
+      simp
+    rw [hchar, hphase]
+  change (∑ᶠ x : QI, f x) = ∑ᶠ x : QA, g x
+  rw [finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype]
+  exact Fintype.sum_bijective e e.bijective f g (by
+    intro x
+    exact hterm x)
+
+private instance po_residueFintype (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (I : S.ExtIdeal) : Fintype (ResidueRing R0.exterior I) :=
+  R0.exterior.residueFinite I
+
+private theorem po_finiteGaussAt_add_aR (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (I : S.ExtIdeal) (a : Fˣ) (k r : S.R) :
+    finiteGaussAt R0 I a ((k : F) + (a : F) * (r : F)) =
+      finiteGaussAt R0 I a (k : F) := by
+  classical
+  letI := R0.exterior.residueFinite I
+  unfold finiteGaussAt
+  simp only [finsum_eq_sum_of_fintype]
+  apply Finset.sum_congr rfl
+  intro x hx
+  have harg : ((k : F) + (a : F) * (r : F)) * (x.out : F) / (a : F) =
+      (k : F) * (x.out : F) / (a : F) + (r : F) * (x.out : F) := by
+    field_simp [a.ne_zero]
+  rw [harg, map_add,
+    po_e_add S A (S.diag ((k : F) * (x.out : F) / (a : F)))
+      (S.diag ((r : F) * (x.out : F)))]
+  have htriv : S.e A (S.diag ((r * x.out : S.R) : F)) = 1 :=
+    po_e_diagR_one S D A (r * x.out)
+  rw [show (r : F) * (x.out : F) = ((r * x.out : S.R) : F) by simp, htriv]
+  simp
+
+private theorem po_finiteGaussAt_gamma_scale
+    (I : S.ExtIdeal) (a : Fˣ) (ha : S.IsGen (a : F) I.1)
+    (γ : Gamma S) (k : S.R) :
+    finiteGaussAt R I a (((γ.1 : Fˣ) : F) * (k : F)) =
+      finiteGaussAt R I a (k : F) := by
+  classical
+  obtain ⟨eps, heps⟩ := γ.2
+  have heps6 : eps ^ 6 = γ.1 := by simpa [sixthPowerOnUS] using heps
+  let gammaF : Fˣ := (γ.1 : Fˣ)
+  have hgammaF : gammaF = (eps : Fˣ) ^ 6 :=
+    congrArg (fun u : S.US => (u : Fˣ)) heps6.symm
+  let gammaR : S.Rˣ := Set.unitEquivUnitsInteger (S.Sf : Set (FinPlace F)) F γ.1
+  have hgammaRVal : ((gammaR : S.Rˣ) : F) = (gammaF : F) := by rfl
+  let gI : S.R := R.exterior.genR I
+  have hgIdiv : ((gI : F) / (a : F)) ∈ S.R :=
+    po_gen_ratio_mem_R (R := R) I a ha
+  let ratioR : S.R := ⟨(gI : F) / (a : F), hgIdiv⟩
+  let Q : Type := ResidueRing R.exterior I
+  let J : Ideal S.R := Ideal.span {gI}
+  let qMap : S.R →+* Q := Ideal.Quotient.mk J
+  let gammaQ : Qˣ := Units.map qMap gammaR
+  letI : Fintype Q := R.exterior.residueFinite I
+  let e : Q ≃ Q := {
+    toFun x := (gammaQ : Q) * x
+    invFun x := ((gammaQ⁻¹ : Qˣ) : Q) * x
+    left_inv := by intro x; simp [mul_assoc]
+    right_inv := by intro x; simp [mul_assoc] }
+  have hEclass (x : Q) :
+      e x = Ideal.Quotient.mk J ((gammaR : S.R) * x.out) := by
+    simp [e, gammaQ, qMap, map_mul]
+  let f (x : Q) : ℂ :=
+    chiIdealPow D I.1 (x.out : F) 1 *
+      S.e A (S.diag (((gammaF : F) * (k : F)) * (x.out : F) / (a : F)))
+  let g (x : Q) : ℂ :=
+    chiIdealPow D I.1 (x.out : F) 1 *
+      S.e A (S.diag ((k : F) * (x.out : F) / (a : F)))
+  have hEadd (x y : F) :
+      S.e A (S.diag (x + y)) = S.e A (S.diag x) * S.e A (S.diag y) := by
+    calc
+      S.e A (S.diag (x + y)) = S.e A (S.diag x + S.diag y) := by rw [map_add]
+      _ = S.e A (S.diag x) * S.e A (S.diag y) := po_e_add S A _ _
+  have hterm (x : Q) : f x = g (e x) := by
+    dsimp [f, g]
+    have hclass : Ideal.Quotient.mk J (e x).out =
+        Ideal.Quotient.mk J ((gammaR : S.R) * x.out) := by
+      calc
+        Ideal.Quotient.mk J (e x).out = e x := Ideal.Quotient.mk_out (e x)
+        _ = Ideal.Quotient.mk J ((gammaR : S.R) * x.out) := hEclass x
+    have hmem : (e x).out - (gammaR : S.R) * x.out ∈ J :=
+      (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp hclass
+    obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp hmem
+    have hrep : (e x).out = (gammaR : S.R) * x.out + r * gI := by
+      calc
+        (e x).out = (gammaR : S.R) * x.out +
+            ((e x).out - (gammaR : S.R) * x.out) := by ring
+        _ = (gammaR : S.R) * x.out + r * gI := by rw [← hr]
+    have hmemI : (e x).out - (gammaR : S.R) * x.out ∈
+        Ideal.span {R.exterior.genR I} := by
+      change (e x).out - (gammaR : S.R) * x.out ∈ J
+      exact hmem
+    have hcharRep : chiIdealPow D I.1 ((e x).out : F) 1 =
+        chiIdealPow D I.1 (((gammaR : S.R) * x.out : S.R) : F) 1 :=
+      po_chiIdealPow_eq_of_mod R I (e x).out ((gammaR : S.R) * x.out) hmemI
+    have hcharSix : chiIdealPow D I.1
+        (((gammaR : S.R) * x.out : S.R) : F) 1 =
+          chiIdealPow D I.1 (x.out : F) 1 := by
+      have hGammaProd : (((gammaR : S.R) * x.out : S.R) : F) =
+          (gammaF : F) * (x.out : F) := by simp [hgammaRVal]
+      rw [hGammaProd, hgammaF]
+      exact po_chiIdealPow_US_six D S I.1 I.2 eps x.out
+    have hchar : chiIdealPow D I.1 ((e x).out : F) 1 =
+        chiIdealPow D I.1 (x.out : F) 1 := hcharRep.trans hcharSix
+    have hrepF : ((e x).out : F) = (gammaF : F) * (x.out : F) +
+        (r : F) * (gI : F) := by
+      have h := congrArg (fun z : S.R => (z : F)) hrep
+      simpa [hgammaRVal] using h
+    have harg : (k : F) * ((e x).out : F) / (a : F) =
+        (((gammaF : F) * (k : F)) * (x.out : F) / (a : F)) +
+          (k : F) * (r : F) * (ratioR : F) := by
+      rw [hrepF]
+      dsimp [ratioR]
+      field_simp [a.ne_zero] <;> ring
+    have hphase : S.e A (S.diag ((k : F) * ((e x).out : F) / (a : F))) =
+        S.e A (S.diag ((((gammaF : F) * (k : F)) * (x.out : F) / (a : F)))) := by
+      rw [harg]
+      have hz : (k : F) * (r : F) * (ratioR : F) =
+          ((k * r * ratioR : S.R) : F) := by simp
+      rw [hz, hEadd, po_e_diagR_one S D A (k * r * ratioR)]
+      simp
+    rw [hchar, hphase]
+  change (∑ᶠ x : Q, f x) = ∑ᶠ x : Q, g x
+  rw [finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype]
+  exact Fintype.sum_bijective e e.bijective f g (by
+    intro x
+    exact hterm x)
+
+private noncomputable def po_exteriorResidueProductEquiv
+    (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0) (s I : S.ExtIdeal) (aR : S.R)
+    (hI : Ideal.span {R0.exterior.genR I} = Ideal.span {aR})
+    (hT : Ideal.span {R0.exterior.genR (R0.exterior.mul s I)} =
+      Ideal.span {aR * R0.exterior.genR s}) :
+    ResidueRing R0.exterior (R0.exterior.mul s I) ≃
+      (S.R ⧸ Ideal.span {aR}) × ResidueRing R0.exterior s := by
+  classical
+  let QI := ResidueRing R0.exterior I
+  let QS := ResidueRing R0.exterior s
+  let QT := ResidueRing R0.exterior (R0.exterior.mul s I)
+  let QA := S.R ⧸ Ideal.span {aR}
+  let QP := S.R ⧸ Ideal.span {aR * R0.exterior.genR s}
+  let total := R0.exterior.mul s I
+  let eI : QI ≃ QA := Ideal.quotEquivOfEq hI
+  let eT : QT ≃ QP := Ideal.quotEquivOfEq hT
+  letI : Fintype QI := R0.exterior.residueFinite I
+  letI : Fintype QS := R0.exterior.residueFinite s
+  letI : Fintype QT := R0.exterior.residueFinite total
+  letI : Fintype QA := Fintype.ofEquiv QI eI
+  letI : Fintype QP := Fintype.ofEquiv QT eT
+  have hcardA : Fintype.card QA = Ideal.absNorm I.1 := by
+    calc
+      Fintype.card QA = Fintype.card QI := Fintype.card_congr eI.symm
+      _ = Ideal.absNorm I.1 := R0.exterior.residue_card I
+  have hcardS : Fintype.card QS = Ideal.absNorm s.1 := R0.exterior.residue_card s
+  have hcardT : Fintype.card QT = Ideal.absNorm total.1 :=
+    R0.exterior.residue_card total
+  have hnorm : Ideal.absNorm total.1 = Ideal.absNorm s.1 * Ideal.absNorm I.1 := by
+    dsimp [total]
+    rw [R0.exterior.mul_val]
+    exact map_mul Ideal.absNorm s.1 I.1
+  have hcard : Fintype.card QP =
+      Fintype.card (QA × QS) := by
+    calc
+      Fintype.card QP = Fintype.card QT := (Fintype.card_congr eT).symm
+      _ = Ideal.absNorm total.1 := hcardT
+      _ = Ideal.absNorm s.1 * Ideal.absNorm I.1 := hnorm
+      _ = Fintype.card QA * Fintype.card QS := by
+        rw [hcardA, hcardS, mul_comm]
+      _ = Fintype.card (QA × QS) := by rw [Fintype.card_prod]
+  exact eT.trans (po_quotientProdEquiv aR (R0.exterior.genR s) hcard)
+
+private theorem po_exteriorResidueProductEquiv_symm_mk
+    (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0) (s I : S.ExtIdeal) (aR : S.R)
+    (haR : aR ≠ 0)
+    (hI : Ideal.span {R0.exterior.genR I} = Ideal.span {aR})
+    (hT : Ideal.span {R0.exterior.genR (R0.exterior.mul s I)} =
+      Ideal.span {aR * R0.exterior.genR s})
+    (v : S.R ⧸ Ideal.span {aR}) (j : ResidueRing R0.exterior s) :
+    (po_exteriorResidueProductEquiv R0 s I aR hI hT).symm (v, j) =
+      Ideal.Quotient.mk (Ideal.span {R0.exterior.genR (R0.exterior.mul s I)})
+        (v.out + aR * j.out) := by
+  classical
+  let QI := ResidueRing R0.exterior I
+  let QS := ResidueRing R0.exterior s
+  let QT := ResidueRing R0.exterior (R0.exterior.mul s I)
+  let QA := S.R ⧸ Ideal.span {aR}
+  let QP := S.R ⧸ Ideal.span {aR * R0.exterior.genR s}
+  let total := R0.exterior.mul s I
+  let eI : QI ≃ QA := Ideal.quotEquivOfEq hI
+  let eT : QT ≃ QP := Ideal.quotEquivOfEq hT
+  letI : Fintype QI := R0.exterior.residueFinite I
+  letI : Fintype QS := R0.exterior.residueFinite s
+  letI : Fintype QT := R0.exterior.residueFinite total
+  letI : Fintype QA := Fintype.ofEquiv QI eI
+  letI : Fintype QP := Fintype.ofEquiv QT eT
+  have hcardA : Fintype.card QA = Ideal.absNorm I.1 := by
+    calc
+      Fintype.card QA = Fintype.card QI := Fintype.card_congr eI.symm
+      _ = Ideal.absNorm I.1 := R0.exterior.residue_card I
+  have hcardS : Fintype.card QS = Ideal.absNorm s.1 := R0.exterior.residue_card s
+  have hcardT : Fintype.card QT = Ideal.absNorm total.1 :=
+    R0.exterior.residue_card total
+  have hnorm : Ideal.absNorm total.1 = Ideal.absNorm s.1 * Ideal.absNorm I.1 := by
+    dsimp [total]
+    rw [R0.exterior.mul_val]
+    exact map_mul Ideal.absNorm s.1 I.1
+  have hcard : Fintype.card QP =
+      Fintype.card (QA × QS) := by
+    calc
+      Fintype.card QP = Fintype.card QT := (Fintype.card_congr eT).symm
+      _ = Ideal.absNorm total.1 := hcardT
+      _ = Ideal.absNorm s.1 * Ideal.absNorm I.1 := hnorm
+      _ = Fintype.card QA * Fintype.card QS := by
+        rw [hcardA, hcardS, mul_comm]
+      _ = Fintype.card (QA × QS) := by rw [Fintype.card_prod]
+  change (eT.trans (po_quotientProdEquiv aR (R0.exterior.genR s) hcard)).symm
+      (v, j) = _
+  rw [Equiv.symm_trans_apply]
+  rw [po_quotientProdEquiv_symm_mk aR (R0.exterior.genR s) haR]
+  change (Ideal.quotEquivOfEq hT).symm
+      (Ideal.Quotient.mk (Ideal.span {aR * R0.exterior.genR s}) (v.out + aR * j.out)) = _
+  rw [Ideal.quotEquivOfEq_symm]
+  exact Ideal.quotEquivOfEq_mk hT.symm _
+
+set_option maxHeartbeats 5000000 in
+private theorem po_residue_addPhase_sum (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (s : S.ExtIdeal) (c : S.R) :
+    (∑ j : ResidueRing R0.exterior s,
+      S.e A (S.diag ((c : F) * (j.out : F) / (R0.exterior.genR s : F)))) =
+      if ∃ x : S.R, (c : F) = (R0.exterior.genR s : F) * (x : F) then
+        (Ideal.absNorm s.1 : ℂ) else 0 := by
+  classical
+  let Q : Type := ResidueRing R0.exterior s
+  let g : S.R := R0.exterior.genR s
+  have hg0 : (g : F) ≠ 0 := by
+    rw [R0.exterior.genR_val]
+    exact Units.ne_zero (bc.gen s)
+  let phase (j : Q) : ℂ := S.e A (S.diag ((c : F) * (j.out : F) / (g : F)))
+  have hEadd (x y : F) :
+      S.e A (S.diag (x + y)) = S.e A (S.diag x) * S.e A (S.diag y) := by
+    calc
+      S.e A (S.diag (x + y)) = S.e A (S.diag x + S.diag y) := by rw [map_add]
+      _ = S.e A (S.diag x) * S.e A (S.diag y) := po_e_add S A _ _
+  have hphaseAdd (j k : Q) : phase (j + k) = phase j * phase k := by
+    dsimp [phase]
+    let z : Q := j + k
+    have hclass : Ideal.Quotient.mk (Ideal.span {g}) z.out =
+        Ideal.Quotient.mk (Ideal.span {g}) (j.out + k.out) := by
+      calc
+        Ideal.Quotient.mk (Ideal.span {g}) z.out = z := Ideal.Quotient.mk_out z
+        _ = j + k := rfl
+        _ = Ideal.Quotient.mk (Ideal.span {g}) j.out +
+              Ideal.Quotient.mk (Ideal.span {g}) k.out := by
+                rw [Ideal.Quotient.mk_out j, Ideal.Quotient.mk_out k]
+        _ = Ideal.Quotient.mk (Ideal.span {g}) (j.out + k.out) := by rw [map_add]
+    have hmem : z.out - (j.out + k.out) ∈ Ideal.span {g} :=
+      (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp hclass
+    obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp (by simpa [g] using hmem)
+    have harg : (c : F) * (z.out : F) / (g : F) =
+        ((c : F) * (j.out : F) / (g : F) +
+          (c : F) * (k.out : F) / (g : F)) + (c : F) * (r : F) := by
+      have hrep : (z.out : F) = (j.out : F) + (k.out : F) + (r : F) * (g : F) := by
+        have hcast := congrArg (fun w : S.R => (w : F)) hr
+        change (r : F) * (g : F) = (z.out : F) - ((j.out : F) + (k.out : F)) at hcast
+        calc
+          (z.out : F) = (j.out : F) + (k.out : F) +
+              ((z.out : F) - ((j.out : F) + (k.out : F))) := by ring
+          _ = (j.out : F) + (k.out : F) + (r : F) * (g : F) := by rw [← hcast]
+      rw [hrep]
+      field_simp [hg0]
+
+    rw [harg]
+    calc
+      S.e A (S.diag (((c : F) * (j.out : F) / (g : F) +
+          (c : F) * (k.out : F) / (g : F)) + (c : F) * (r : F))) =
+        S.e A (S.diag ((c : F) * (j.out : F) / (g : F) +
+          (c : F) * (k.out : F) / (g : F))) *
+          S.e A (S.diag ((c : F) * (r : F))) := by
+            exact hEadd _ _
+      _ = (S.e A (S.diag ((c : F) * (j.out : F) / (g : F))) *
+          S.e A (S.diag ((c : F) * (k.out : F) / (g : F)))) *
+          S.e A (S.diag ((c : F) * (r : F))) := by
+            rw [hEadd]
+      _ = phase j * phase k := by
+        have htriv : S.e A (S.diag ((c * r : S.R) : F)) = 1 := po_e_diagR_one S D A (c * r)
+        rw [show S.e A (S.diag ((c : F) * (j.out : F) / (g : F))) = phase j by rfl,
+          show S.e A (S.diag ((c : F) * (k.out : F) / (g : F))) = phase k by rfl]
+        rw [show S.e A (S.diag ((c : F) * (r : F))) = 1 by simpa using htriv]
+        ring
+  have hphaseOne_of_condition
+      (hc : ∃ x : S.R, (c : F) = (g : F) * (x : F)) (j : Q) : phase j = 1 := by
+    obtain ⟨x, hx⟩ := hc
+    dsimp [phase]
+    have harg : (c : F) * (j.out : F) / (g : F) = (x : F) * (j.out : F) := by
+      rw [hx]
+      field_simp [hg0]
+    rw [harg]
+    simpa using po_e_diagR_one S D A (x * j.out)
+  by_cases hc : ∃ x : S.R, (c : F) = (g : F) * (x : F)
+  · rw [if_pos hc]
+    calc
+      (∑ j : Q, S.e A (S.diag ((c : F) * (j.out : F) / (g : F)))) =
+          ∑ _j : Q, (1 : ℂ) := by
+            apply Finset.sum_congr rfl
+            intro j hj
+            exact hphaseOne_of_condition hc j
+      _ = (Fintype.card Q : ℂ) := by simp
+      _ = (Ideal.absNorm s.1 : ℂ) := by exact_mod_cast R0.exterior.residue_card s
+  · rw [if_neg hc]
+    have hnontrivial : ∃ j : Q, phase j ≠ 1 := by
+      by_contra hnone
+      push_neg at hnone
+      have hrow (m : S.R) :
+          S.e A (S.diag ((c : F) * (m : F) / (g : F))) = 1 := by
+        let j : Q := Ideal.Quotient.mk (Ideal.span {g}) m
+        have hclass : Ideal.Quotient.mk (Ideal.span {g}) m =
+            Ideal.Quotient.mk (Ideal.span {g}) j.out := by
+          simp [j]
+        have hmem : m - j.out ∈ Ideal.span {g} :=
+          (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp hclass
+        obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp hmem
+        have hrep : (m : F) = (j.out : F) + (r : F) * (g : F) := by
+          have hcast := congrArg (fun w : S.R => (w : F)) hr
+          change (r : F) * (g : F) = (m : F) - (j.out : F) at hcast
+          calc
+            (m : F) = (j.out : F) + ((m : F) - (j.out : F)) := by ring
+            _ = (j.out : F) + (r : F) * (g : F) := by rw [← hcast]
+        have harg : (c : F) * (m : F) / (g : F) =
+            (c : F) * (j.out : F) / (g : F) + (c : F) * (r : F) := by
+          rw [hrep]
+          field_simp [hg0]
+
+        rw [harg]
+        calc
+          S.e A (S.diag ((c : F) * (j.out : F) / (g : F) + (c : F) * (r : F))) =
+              phase j * S.e A (S.diag ((c : F) * (r : F))) := by
+                simpa [phase] using hEadd
+                  ((c : F) * (j.out : F) / (g : F)) ((c : F) * (r : F))
+          _ = 1 := by
+            rw [hnone j]
+            simpa using po_e_diagR_one S D A (c * r)
+      have hAnn : S.diag ((c : F) / (g : F)) ∈ S.annihilator A S.diagR := by
+        intro y hy
+        obtain ⟨m, rfl⟩ := hy
+        have hmul : S.diag (m : F) * S.diag ((c : F) / (g : F)) =
+            S.diag ((c : F) * (m : F) / (g : F)) := by
+          calc
+            S.diag (m : F) * S.diag ((c : F) / (g : F)) =
+                S.diag ((m : F) * ((c : F) / (g : F))) := (map_mul (S.diag) _ _).symm
+            _ = S.diag ((c : F) * (m : F) / (g : F)) := by
+              congr 1
+              field_simp [hg0]
+        rw [hmul]
+        exact hrow m
+      have hdiagMem : S.diag ((c : F) / (g : F)) ∈ S.diagR := by
+        rw [S.diagR_eq_annihilator D A]
+        exact hAnn
+      obtain ⟨r, hr⟩ := hdiagMem
+      have hdiagInj : Function.Injective (S.diag : F →+* S.FS) := by
+        intro x y hxy
+        apply v0.embedding.injective
+        change (S.diag x).2 v0 = (S.diag y).2 v0
+        exact congrArg (fun z : S.FS => z.2 v0) hxy
+      have hratio : (r : F) = (c : F) / (g : F) := hdiagInj hr
+      apply hc
+      refine ⟨r, ?_⟩
+      calc
+        (c : F) = (c : F) / (g : F) * (g : F) := by field_simp [hg0]
+        _ = (r : F) * (g : F) := by rw [hratio]
+        _ = (g : F) * (r : F) := by ring
+    obtain ⟨j₀, hj₀⟩ := hnontrivial
+    let e : Q ≃ Q := Equiv.addRight (-j₀)
+    have hsumReindex : (∑ j : Q, phase j) = ∑ j : Q, phase (j + j₀) := by
+      exact Fintype.sum_bijective e e.bijective phase (fun j => phase (j + j₀)) (by
+        intro j
+        simp [e, add_assoc, add_comm, add_left_comm])
+    have hsumFactor : (∑ j : Q, phase (j + j₀)) =
+        (∑ j : Q, phase j) * phase j₀ := by
+      calc
+        _ = ∑ j : Q, phase j * phase j₀ := by
+          apply Finset.sum_congr rfl
+          intro j hj
+          rw [hphaseAdd]
+        _ = _ := by rw [Finset.sum_mul]
+    have hmul : (∑ j : Q, phase j) * (1 - phase j₀) = 0 := by
+      calc
+        _ = (∑ j : Q, phase j) - (∑ j : Q, phase j) * phase j₀ := by ring
+        _ = 0 := by rw [← hsumFactor, hsumReindex]; ring
+    have hne : 1 - phase j₀ ≠ 0 := by
+      intro h
+      apply hj₀
+      exact (sub_eq_zero.mp h).symm
+    have hzero : (∑ j : Q, phase j) = 0 := (mul_eq_zero.mp hmul).resolve_right hne
+    simpa [phase] using hzero
+
+set_option maxHeartbeats 10000000 in
+private theorem po_finite_poisson_identity
+    (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0) (s I : S.ExtIdeal) (a : Fˣ)
+    (ha : S.IsGen (a : F) I.1) (hallowed : Bd.Allowed a) (h : S.R) :
+    (∑ᶠ m : ResidueRing R0.exterior (R0.exterior.mul s I),
+      (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R0 s (-(m.out : F)) *
+        chiIdealPow D I.1 (m.out : F) 1 *
+          S.e A (S.diag ((h : F) * (m.out : F) /
+            ((bc.gen s : F) * (a : F))))) =
+      (qI s.1 ^ (1 / 2 : ℝ) : ℝ) * finiteFactor R0 s I a (h : F) := by
+  classical
+  let total := R0.exterior.mul s I
+  let gI : S.R := R0.exterior.genR I
+  let gS : S.R := R0.exterior.genR s
+  let gT : S.R := R0.exterior.genR total
+  obtain ⟨aR, haR, hSpanI, hSpanT, huExists⟩ :=
+    po_residueProductDecomp R0 s I a ha hallowed
+  obtain ⟨u, hu⟩ := huExists
+  have haR0 : aR ≠ 0 := by
+    intro hz
+    apply a.ne_zero
+    have hzF : (aR : F) = 0 := congrArg (fun x : S.R => (x : F)) hz
+    simpa [haR] using hzF
+  have haF0 : (aR : F) ≠ 0 := by simpa [haR] using a.ne_zero
+  have hgS0 : (gS : F) ≠ 0 := by
+    dsimp [gS]
+    rw [R0.exterior.genR_val]
+    exact (bc.gen s).ne_zero
+  have hgSval : (gS : F) = ((bc.gen s : Fˣ) : F) := R0.exterior.genR_val s
+  let uInvR : S.R := (u⁻¹ : S.Rˣ)
+  have huF0 : (((u : S.Rˣ) : S.R) : F) ≠ 0 := by
+    intro hz
+    have huS0 : ((u : S.Rˣ) : S.R) ≠ 0 := Units.ne_zero u
+    apply huS0
+    apply Subtype.ext
+    exact hz
+  have huValF : (aR : F) * (gS : F) =
+      (((u : S.Rˣ) : S.R) : F) * (gT : F) :=
+    congrArg (fun x : S.R => (x : F)) hu
+  have hgTval : (gT : F) = (uInvR : F) * (aR : F) * (gS : F) := by
+    have hInvMul : (uInvR : F) * (((u : S.Rˣ) : S.R) : F) = 1 := by
+      have hInvMulR : uInvR * ((u : S.Rˣ) : S.R) = 1 := by simp [uInvR]
+      exact congrArg (fun z : S.R => (z : F)) hInvMulR
+    calc
+      (gT : F) = 1 * (gT : F) := by simp
+      _ = (uInvR : F) * (((u : S.Rˣ) : S.R) : F) * (gT : F) := by
+        rw [hInvMul]
+      _ = (uInvR : F) * ((((u : S.Rˣ) : S.R) : F) * (gT : F)) := by ring
+      _ = (uInvR : F) * ((aR : F) * (gS : F)) := by rw [← huValF]
+      _ = (uInvR : F) * (aR : F) * (gS : F) := by ring
+  let QI := ResidueRing R0.exterior I
+  let QS := ResidueRing R0.exterior s
+  let QT := ResidueRing R0.exterior total
+  let QA := S.R ⧸ Ideal.span {aR}
+  let eA : QI ≃ QA := Ideal.quotEquivOfEq hSpanI
+  letI : Fintype QI := R0.exterior.residueFinite I
+  letI : Fintype QS := R0.exterior.residueFinite s
+  letI : Fintype QT := R0.exterior.residueFinite total
+  letI : Fintype QA := Fintype.ofEquiv QI eA
+  let eSplit := po_exteriorResidueProductEquiv R0 s I aR hSpanI hSpanT
+  have hSplitInv (v : QA) (j : QS) :
+      eSplit.symm (v, j) =
+        Ideal.Quotient.mk (Ideal.span {gT}) (v.out + aR * j.out) :=
+    po_exteriorResidueProductEquiv_symm_mk R0 s I aR haR0 hSpanI hSpanT v j
+  have hprodLE : Ideal.span {aR * gS} ≤ Ideal.span {aR} := by
+    apply Ideal.span_singleton_le_span_singleton.mpr
+    exact ⟨gS, by ring⟩
+  let cR (d : QS) : S.R := h - aR * d.out
+  let cond (d : QS) : Prop :=
+    ∃ x : S.R, (h : F) - (a : F) * (d.out : F) =
+      ((bc.gen s : Fˣ) : F) * (x : F)
+  let phaseNeg (m : QT) (d : QS) : ℂ :=
+    S.e A (S.diag (-((m.out : F) * (d.out : F)) / (gS : F)))
+  let phaseH (m : QT) : ℂ :=
+    S.e A (S.diag ((h : F) * (m.out : F) / ((gS : F) * (aR : F))))
+  let phaseV (d : QS) (v : QA) : ℂ :=
+    S.e A (S.diag ((cR d : F) * (v.out : F) / ((gS : F) * (aR : F))))
+  let phaseJ (d : QS) (j : QS) : ℂ :=
+    S.e A (S.diag ((cR d : F) * (j.out : F) / (gS : F)))
+  let term (m : QT) (d : QS) : ℂ :=
+    chiIdealPow D s.1 (d.out : F) 1 * phaseNeg m d *
+      chiIdealPow D I.1 (m.out : F) 1 * phaseH m
+  let K (d : QS) (v : QA) : ℂ :=
+    chiIdealPow D s.1 (d.out : F) 1 * chiIdealPow D I.1 (v.out : F) 1 * phaseV d v
+  let qminus : ℝ := qI s.1 ^ (-(1 / 2 : ℝ))
+  have hEadd (x y : F) :
+      S.e A (S.diag (x + y)) = S.e A (S.diag x) * S.e A (S.diag y) := by
+    calc
+      S.e A (S.diag (x + y)) = S.e A (S.diag x + S.diag y) := by rw [map_add]
+      _ = S.e A (S.diag x) * S.e A (S.diag y) := po_e_add S A _ _
+  have hGauss (m : QT) :
+      finiteGauss R0 s (-(m.out : F)) =
+        ∑ d : QS, chiIdealPow D s.1 (d.out : F) 1 * phaseNeg m d := by
+    letI := R0.exterior.residueFinite s
+    unfold finiteGauss finiteGaussAt
+    rw [finsum_eq_sum_of_fintype]
+    apply Finset.sum_congr rfl
+    intro d hd
+    dsimp [phaseNeg]
+    rw [← hgSval]
+    congr 1
+    congr 1
+    ring
+  have hargPair (m : QT) (d : QS) :
+      (h : F) * (m.out : F) / ((gS : F) * (aR : F)) +
+          (-((m.out : F) * (d.out : F)) / (gS : F)) =
+        (cR d : F) * (m.out : F) / ((gS : F) * (aR : F)) := by
+    have hc : (cR d : F) = (h : F) - (aR : F) * (d.out : F) := by
+      simp [cR]
+    rw [hc]
+    field_simp [haF0, hgS0] <;> ring
+  have hpairPhase (m : QT) (d : QS) :
+      phaseNeg m d * phaseH m =
+        S.e A (S.diag ((cR d : F) * (m.out : F) / ((gS : F) * (aR : F)))) := by
+    dsimp [phaseNeg, phaseH]
+    calc
+      _ = S.e A (S.diag ((h : F) * (m.out : F) / ((gS : F) * (aR : F)))) *
+          S.e A (S.diag (-((m.out : F) * (d.out : F)) / (gS : F))) := by ring
+      _ = S.e A (S.diag ((h : F) * (m.out : F) / ((gS : F) * (aR : F)) +
+          (-((m.out : F) * (d.out : F)) / (gS : F)))) := (hEadd _ _).symm
+      _ = _ := by rw [hargPair]
+  have hterm (v : QA) (j : QS) (d : QS) :
+      term (eSplit.symm (v, j)) d =
+        chiIdealPow D s.1 (d.out : F) 1 *
+          chiIdealPow D I.1 (v.out : F) 1 * phaseV d v * phaseJ d j := by
+    let m : QT := eSplit.symm (v, j)
+    have hmclass : Ideal.Quotient.mk (Ideal.span {gT}) (v.out + aR * j.out) = m :=
+      (hSplitInv v j).symm
+    have hclass : Ideal.Quotient.mk (Ideal.span {gT}) m.out =
+        Ideal.Quotient.mk (Ideal.span {gT}) (v.out + aR * j.out) :=
+      (Ideal.Quotient.mk_out m).trans hmclass.symm
+    have hmem : m.out - (v.out + aR * j.out) ∈ Ideal.span {gT} :=
+      (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp hclass
+    obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp hmem
+    have hmOut : m.out = v.out + aR * j.out + r * gT := by
+      calc
+        m.out = (v.out + aR * j.out) + (m.out - (v.out + aR * j.out)) := by ring
+        _ = (v.out + aR * j.out) + r * gT := by rw [← hr]
+    have hmProd : m.out - (v.out + aR * j.out) ∈ Ideal.span {aR * gS} :=
+      (congrArg (fun J : Ideal S.R => m.out - (v.out + aR * j.out) ∈ J) hSpanT).mp hmem
+    have hDiffA : m.out - v.out ∈ Ideal.span {aR} := by
+      rw [show m.out - v.out = (m.out - (v.out + aR * j.out)) + aR * j.out by ring]
+      exact Ideal.add_mem _ (hprodLE hmProd)
+        (Ideal.mem_span_singleton'.mpr ⟨j.out, by ring⟩)
+    have hDiffI : m.out - v.out ∈ Ideal.span {gI} :=
+      (congrArg (fun J : Ideal S.R => m.out - v.out ∈ J) hSpanI.symm).mp hDiffA
+    have hchar : chiIdealPow D I.1 (m.out : F) 1 =
+        chiIdealPow D I.1 (v.out : F) 1 :=
+      po_chiIdealPow_eq_of_mod R0 I m.out v.out hDiffI
+    have hmOutF : (m.out : F) = (v.out : F) + (aR : F) * (j.out : F) +
+        (r : F) * (gT : F) := by
+      have h := congrArg (fun z : S.R => (z : F)) hmOut
+      simpa using h
+    have harg : (cR d : F) * (m.out : F) / ((gS : F) * (aR : F)) =
+        (cR d : F) * (v.out : F) / ((gS : F) * (aR : F)) +
+          (cR d : F) * (j.out : F) / (gS : F) +
+            (cR d : F) * (r : F) * (uInvR : F) := by
+      rw [hmOutF, hgTval]
+      field_simp [haF0, hgS0] <;> ring
+    have hphase :
+        S.e A (S.diag ((cR d : F) * (m.out : F) / ((gS : F) * (aR : F)))) =
+          phaseV d v * phaseJ d j := by
+      rw [harg]
+      calc
+        S.e A (S.diag ((cR d : F) * (v.out : F) / ((gS : F) * (aR : F)) +
+            (cR d : F) * (j.out : F) / (gS : F) +
+              (cR d : F) * (r : F) * (uInvR : F))) =
+            S.e A (S.diag ((cR d : F) * (v.out : F) / ((gS : F) * (aR : F)) +
+              (cR d : F) * (j.out : F) / (gS : F))) *
+              S.e A (S.diag ((cR d : F) * (r : F) * (uInvR : F))) := by
+                exact hEadd _ _
+        _ = phaseV d v * phaseJ d j := by
+          rw [hEadd]
+          have hErr : (cR d : F) * (r : F) * (uInvR : F) =
+              ((cR d * r * uInvR : S.R) : F) := by simp
+          rw [hErr, po_e_diagR_one S D A (cR d * r * uInvR)]
+          dsimp [phaseV, phaseJ]
+          ring
+    calc
+      term (eSplit.symm (v, j)) d =
+          chiIdealPow D s.1 (d.out : F) 1 *
+            (phaseNeg m d * phaseH m) * chiIdealPow D I.1 (m.out : F) 1 := by
+              dsimp [term]
+              ring
+      _ = chiIdealPow D s.1 (d.out : F) 1 *
+            (S.e A (S.diag ((cR d : F) * (m.out : F) / ((gS : F) * (aR : F)))) *
+              chiIdealPow D I.1 (v.out : F) 1) := by rw [hpairPhase, hchar]; ring
+      _ = chiIdealPow D s.1 (d.out : F) 1 *
+            chiIdealPow D I.1 (v.out : F) 1 * phaseV d v * phaseJ d j := by
+              rw [hphase]
+              ring
+  have hSumJ (d : QS) (v : QA) :
+      (∑ j : QS, term (eSplit.symm (v, j)) d) =
+        K d v * ∑ j : QS, phaseJ d j := by
+    calc
+      _ = ∑ j : QS, K d v * phaseJ d j := by
+        apply Finset.sum_congr rfl
+        intro j hj
+        simpa [K] using hterm v j d
+      _ = _ := by rw [← Finset.mul_sum (s := Finset.univ)]
+  have hKsum (d : QS) :
+      (∑ v : QA, K d v) = chiIdealPow D s.1 (d.out : F) 1 *
+        ∑ v : QA, chiIdealPow D I.1 (v.out : F) 1 * phaseV d v := by
+    dsimp [K]
+    calc
+      (∑ v : QA, chiIdealPow D s.1 (d.out : F) 1 *
+          chiIdealPow D I.1 (v.out : F) 1 * phaseV d v) =
+        ∑ v : QA, chiIdealPow D s.1 (d.out : F) 1 *
+          (chiIdealPow D I.1 (v.out : F) 1 * phaseV d v) := by
+            apply Finset.sum_congr rfl
+            intro v hv
+            ring
+      _ = chiIdealPow D s.1 (d.out : F) 1 *
+          ∑ v : QA, chiIdealPow D I.1 (v.out : F) 1 * phaseV d v := by
+            rw [← Finset.mul_sum (s := Finset.univ)]
+  have horth (d : QS) :
+      (∑ j : QS, phaseJ d j) =
+        if cond d then (Ideal.absNorm s.1 : ℂ) else 0 := by
+    simpa [phaseJ, cond, cR, gS, haR, hgSval] using
+      (po_residue_addPhase_sum R0 s (cR d))
+  have hArgV (d : QS) (x : S.R) (hx :
+      (cR d : F) = (gS : F) * (x : F)) (v : QA) :
+      (cR d : F) * (v.out : F) / ((gS : F) * (aR : F)) =
+        (x : F) * (v.out : F) / (a : F) := by
+    rw [hx, haR]
+    field_simp [hgS0] <;> ring
+  have hGaussAt (d : QS) (x : S.R) (hx :
+      (cR d : F) = (gS : F) * (x : F)) :
+      finiteGaussAt R0 I a (x : F) =
+        ∑ v : QA, chiIdealPow D I.1 (v.out : F) 1 * phaseV d v := by
+    have hraw := po_finiteGaussAt_quotientEq R0 I a aR haR hSpanI x
+    rw [finsum_eq_sum_of_fintype] at hraw
+    calc
+      finiteGaussAt R0 I a (x : F) =
+          ∑ v : QA, chiIdealPow D I.1 (v.out : F) 1 *
+            S.e A (S.diag ((x : F) * (v.out : F) / (a : F))) := hraw
+      _ = ∑ v : QA, chiIdealPow D I.1 (v.out : F) 1 * phaseV d v := by
+        apply Finset.sum_congr rfl
+        intro v hv
+        rw [← hArgV d x hx v]
+  have hInner (d : QS) :
+      (∑ v : QA, ∑ j : QS, term (eSplit.symm (v, j)) d) =
+        if cond d then
+          (Ideal.absNorm s.1 : ℂ) * chiIdealPow D s.1 (d.out : F) 1 *
+            finiteGaussAt R0 I a
+              (((h : F) - (a : F) * (d.out : F)) /
+                ((bc.gen s : Fˣ) : F))
+        else 0 := by
+    by_cases hc : cond d
+    · obtain ⟨x, hx⟩ := hc
+      have hcond : cond d := ⟨x, hx⟩
+      have hx' : (cR d : F) = (gS : F) * (x : F) := by
+        simpa [cond, cR, haR, hgSval] using hx
+      have hgauss := hGaussAt d x hx'
+      have hdiv : (((h : F) - (a : F) * (d.out : F)) /
+            ((bc.gen s : Fˣ) : F)) = (x : F) := by
+        rw [← hgSval]
+        have hcVal : (h : F) - (a : F) * (d.out : F) = (cR d : F) := by
+          simp [cR, haR]
+        rw [hcVal, hx']
+        field_simp [hgS0]
+      rw [if_pos hcond]
+      calc
+        _ = ∑ v : QA, K d v * ∑ j : QS, phaseJ d j := by
+          apply Finset.sum_congr rfl
+          intro v hv
+          exact hSumJ d v
+        _ = ∑ v : QA, K d v * (Ideal.absNorm s.1 : ℂ) := by
+          apply Finset.sum_congr rfl
+          intro v hv
+          rw [horth, if_pos hcond]
+        _ = (∑ v : QA, K d v) * (Ideal.absNorm s.1 : ℂ) := by
+          rw [← Finset.sum_mul (s := Finset.univ)]
+        _ = (Ideal.absNorm s.1 : ℂ) * chiIdealPow D s.1 (d.out : F) 1 *
+            finiteGaussAt R0 I a
+              (((h : F) - (a : F) * (d.out : F)) /
+                ((bc.gen s : Fˣ) : F)) := by
+          rw [hKsum, hdiv, ← hgauss]
+          ring
+    · rw [if_neg hc]
+      calc
+        _ = ∑ v : QA, K d v * ∑ j : QS, phaseJ d j := by
+          apply Finset.sum_congr rfl
+          intro v hv
+          exact hSumJ d v
+        _ = ∑ v : QA, K d v * 0 := by
+          apply Finset.sum_congr rfl
+          intro v hv
+          rw [horth, if_neg hc]
+        _ = 0 := by simp
+  have hFactor : finiteFactor R0 s I a (h : F) =
+      ∑ d : QS, if cond d then
+        chiIdealPow D s.1 (d.out : F) 1 * finiteGaussAt R0 I a
+          (((h : F) - (a : F) * (d.out : F)) / ((bc.gen s : Fˣ) : F))
+      else 0 := by
+    unfold finiteFactor
+    simp only [finsum_eq_sum_of_fintype]
+    rfl
+  have hSumD :
+      (∑ d : QS, ∑ v : QA, ∑ j : QS, term (eSplit.symm (v, j)) d) =
+        (Ideal.absNorm s.1 : ℂ) * finiteFactor R0 s I a (h : F) := by
+    calc
+      _ = ∑ d : QS, if cond d then
+            (Ideal.absNorm s.1 : ℂ) * chiIdealPow D s.1 (d.out : F) 1 *
+              finiteGaussAt R0 I a
+                (((h : F) - (a : F) * (d.out : F)) /
+                  ((bc.gen s : Fˣ) : F))
+          else 0 := by
+        apply Finset.sum_congr rfl
+        intro d hd
+        exact hInner d
+      _ = (Ideal.absNorm s.1 : ℂ) *
+          ∑ d : QS, if cond d then
+            chiIdealPow D s.1 (d.out : F) 1 * finiteGaussAt R0 I a
+              (((h : F) - (a : F) * (d.out : F)) /
+                ((bc.gen s : Fˣ) : F))
+          else 0 := by
+        calc
+          _ = ∑ d : QS, (Ideal.absNorm s.1 : ℂ) *
+              (if cond d then
+                chiIdealPow D s.1 (d.out : F) 1 * finiteGaussAt R0 I a
+                  (((h : F) - (a : F) * (d.out : F)) /
+                    ((bc.gen s : Fˣ) : F))
+              else 0) := by
+                apply Finset.sum_congr rfl
+                intro d hd
+                by_cases hc : cond d <;> simp [hc] <;> ring
+          _ = _ := by rw [← Finset.mul_sum (s := Finset.univ)]
+      _ = (Ideal.absNorm s.1 : ℂ) * finiteFactor R0 s I a (h : F) := by
+        rw [hFactor]
+  have hMain :
+      (∑ᶠ m : QT, (qminus : ℂ) * finiteGauss R0 s (-(m.out : F)) *
+        chiIdealPow D I.1 (m.out : F) 1 *
+          S.e A (S.diag ((h : F) * (m.out : F) /
+            ((bc.gen s : F) * (a : F))))) =
+        (qminus : ℂ) * ∑ d : QS, ∑ v : QA, ∑ j : QS,
+          term (eSplit.symm (v, j)) d := by
+    have hExpand (m : QT) :
+        (qminus : ℂ) * finiteGauss R0 s (-(m.out : F)) *
+          chiIdealPow D I.1 (m.out : F) 1 *
+            S.e A (S.diag ((h : F) * (m.out : F) /
+              ((bc.gen s : F) * (a : F)))) =
+          (qminus : ℂ) * ∑ d : QS, term m d := by
+      calc
+        _ = (qminus : ℂ) *
+            ((∑ d : QS, chiIdealPow D s.1 (d.out : F) 1 * phaseNeg m d) *
+              (chiIdealPow D I.1 (m.out : F) 1 * phaseH m)) := by
+          rw [hGauss m, ← hgSval, ← haR]
+          ring
+        _ = (qminus : ℂ) * ∑ d : QS,
+            (chiIdealPow D s.1 (d.out : F) 1 * phaseNeg m d) *
+              (chiIdealPow D I.1 (m.out : F) 1 * phaseH m) := by
+          rw [Finset.sum_mul (s := Finset.univ)]
+        _ = (qminus : ℂ) * ∑ d : QS, term m d := by
+          congr 2
+          funext d
+          dsimp [term]
+          ring
+    rw [finsum_eq_sum_of_fintype]
+    calc
+      _ = ∑ m : QT, (qminus : ℂ) * ∑ d : QS, term m d := by
+        apply Finset.sum_congr rfl
+        intro m hm
+        exact hExpand m
+      _ = (qminus : ℂ) * ∑ m : QT, ∑ d : QS, term m d := by
+        rw [← Finset.mul_sum (s := Finset.univ)]
+      _ = (qminus : ℂ) * ∑ d : QS, ∑ m : QT, term m d := by
+        rw [Finset.sum_comm]
+      _ = (qminus : ℂ) * ∑ d : QS, ∑ v : QA, ∑ j : QS,
+            term (eSplit.symm (v, j)) d := by
+        congr 2
+        funext d
+        calc
+          _ = ∑ p : QA × QS, term (eSplit.symm p) d :=
+            Fintype.sum_bijective eSplit eSplit.bijective
+              (fun m => term m d) (fun p => term (eSplit.symm p) d) (by
+                intro p
+                simp)
+          _ = ∑ v : QA, ∑ j : QS, term (eSplit.symm (v, j)) d := by
+            rw [Fintype.sum_prod_type]
+  have hqpos : 0 < qI s.1 := by
+    dsimp [qI]
+    have hs0 : s.1 ≠ 0 := by simpa only [Ideal.zero_eq_bot] using s.2.1
+    exact_mod_cast Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨s.1, mem_nonZeroDivisors_iff_ne_zero.mpr hs0⟩
+  have hpow : qI s.1 ^ (-(1 / 2 : ℝ)) * qI s.1 =
+      qI s.1 ^ (1 / 2 : ℝ) := by
+    calc
+      _ = qI s.1 ^ (-(1 / 2 : ℝ)) * qI s.1 ^ (1 : ℝ) := by rw [Real.rpow_one]
+      _ = qI s.1 ^ (-(1 / 2 : ℝ) + 1) := by rw [← Real.rpow_add hqpos]
+      _ = _ := by congr 1 <;> norm_num
+  have hnormCast : (Ideal.absNorm s.1 : ℂ) = (qI s.1 : ℂ) := by simp [qI]
+  have hscalar : (qminus : ℂ) * (Ideal.absNorm s.1 : ℂ) =
+      (qI s.1 ^ (1 / 2 : ℝ) : ℝ) := by
+    dsimp [qminus]
+    rw [hnormCast, ← Complex.ofReal_mul, hpow]
+  calc
+    _ = (qminus : ℂ) * ∑ d : QS, ∑ v : QA, ∑ j : QS,
+          term (eSplit.symm (v, j)) d := hMain
+    _ = (qminus : ℂ) * (Ideal.absNorm s.1 : ℂ) * finiteFactor R0 s I a (h : F) := by
+      rw [hSumD]
+      ring
+    _ = (qI s.1 ^ (1 / 2 : ℝ) : ℝ) * finiteFactor R0 s I a (h : F) := by
+      rw [hscalar]
+
+set_option maxHeartbeats 10000000 in
+private theorem po_finiteFactor_gamma_invariant
+    (s I : S.ExtIdeal) (a : Fˣ) (ha : S.IsGen (a : F) I.1)
+    (hallowed : Bd.Allowed a) (h : S.R) (γ : Gamma S) :
+    finiteFactor R s I a (((γ.1 : Fˣ) : F) * (h : F)) =
+      finiteFactor R s I a (h : F) := by
+  classical
+  obtain ⟨eps, heps⟩ := γ.2
+  have heps6 : eps ^ 6 = γ.1 := by simpa [sixthPowerOnUS] using heps
+  let gammaF : Fˣ := (γ.1 : Fˣ)
+  have hgammaF : gammaF = (eps : Fˣ) ^ 6 :=
+    congrArg (fun u : S.US => (u : Fˣ)) heps6.symm
+  let gammaR : S.Rˣ := Set.unitEquivUnitsInteger (S.Sf : Set (FinPlace F)) F γ.1
+  have hgammaRVal : ((gammaR : S.Rˣ) : F) = (gammaF : F) := by rfl
+  obtain ⟨aR, haR, hSpanI, hSpanTotal, hu⟩ :=
+    po_residueProductDecomp R s I a ha hallowed
+  let gS : S.R := R.exterior.genR s
+  have hgSval : (gS : F) = ((bc.gen s : Fˣ) : F) := R.exterior.genR_val s
+  have hgS0 : (gS : F) ≠ 0 := by
+    rw [hgSval]
+    exact (bc.gen s).ne_zero
+  have hgGen0 : (R.exterior.genR s : F) ≠ 0 := by
+    simpa [gS] using hgS0
+  let J : Ideal S.R := Ideal.span {gS}
+  let Q := ResidueRing R.exterior s
+  let qMap : S.R →+* Q := Ideal.Quotient.mk J
+  let gammaQ : Qˣ := Units.map qMap gammaR
+  letI : Fintype Q := R.exterior.residueFinite s
+  let e : Q ≃ Q := {
+    toFun d := (gammaQ : Q) * d
+    invFun d := ((gammaQ⁻¹ : Qˣ) : Q) * d
+    left_inv := by intro d; simp [mul_assoc]
+    right_inv := by intro d; simp [mul_assoc] }
+  have hEclass (d : Q) :
+      e d = Ideal.Quotient.mk J ((gammaR : S.R) * d.out) := by
+    simp [e, gammaQ, qMap, map_mul]
+  let c0 (d : Q) : S.R := h - aR * d.out
+  let cGamma (d : Q) : S.R := (gammaR : S.R) * h - aR * d.out
+  let cond0 (d : Q) : Prop :=
+    ∃ x : S.R, (h : F) - (a : F) * (d.out : F) =
+      ((bc.gen s : Fˣ) : F) * (x : F)
+  let condGamma (d : Q) : Prop :=
+    ∃ x : S.R, ((gammaF : F) * (h : F)) - (a : F) * (d.out : F) =
+      ((bc.gen s : Fˣ) : F) * (x : F)
+  let arg0 (d : Q) : F :=
+    ((h : F) - (a : F) * (d.out : F)) / ((bc.gen s : Fˣ) : F)
+  let argGamma (d : Q) : F :=
+    ((gammaF : F) * (h : F) - (a : F) * (d.out : F)) /
+      ((bc.gen s : Fˣ) : F)
+  let term0 (d : Q) : ℂ :=
+    if cond0 d then
+      chiIdealPow D s.1 (d.out : F) 1 * finiteGaussAt R I a (arg0 d)
+    else 0
+  let termGamma (d : Q) : ℂ :=
+    if condGamma d then
+      chiIdealPow D s.1 (d.out : F) 1 * finiteGaussAt R I a (argGamma d)
+    else 0
+  have hWitness (z : S.R) :
+      (∃ x : S.R, (z : F) = (gS : F) * (x : F)) ↔ z ∈ J := by
+    constructor
+    · rintro ⟨x, hx⟩
+      have hxR : z = gS * x := Subtype.ext hx
+      apply Ideal.mem_span_singleton'.mpr
+      refine ⟨x, ?_⟩
+      rw [hxR]
+      ring
+    · intro hz
+      obtain ⟨x, hx⟩ := Ideal.mem_span_singleton'.mp hz
+      refine ⟨x, ?_⟩
+      have hcast := congrArg (fun z : S.R => (z : F)) hx
+      calc
+        (z : F) = (x : F) * (gS : F) := hcast.symm
+        _ = (gS : F) * (x : F) := by ring
+  have hCond0Mem (d : Q) : cond0 d ↔ c0 d ∈ J := by
+    simpa [cond0, c0, haR, gS, R.exterior.genR_val] using hWitness (c0 d)
+  have hCondGammaMem (d : Q) : condGamma d ↔ cGamma d ∈ J := by
+    simpa [condGamma, cGamma, haR, hgammaRVal, gS, R.exterior.genR_val] using
+      hWitness (cGamma d)
+  have hFG0 : finiteFactor R s I a (h : F) = ∑ d : Q, term0 d := by
+    unfold finiteFactor
+    simp only [finsum_eq_sum_of_fintype]
+    rfl
+  have hFGamma : finiteFactor R s I a ((gammaF : F) * (h : F)) =
+      ∑ d : Q, termGamma d := by
+    unfold finiteFactor
+    simp only [finsum_eq_sum_of_fintype]
+    rfl
+  have hpoint (d : Q) : term0 d = termGamma (e d) := by
+    let d' : Q := e d
+    have hclass : Ideal.Quotient.mk J d'.out =
+        Ideal.Quotient.mk J ((gammaR : S.R) * d.out) := by
+      calc
+        Ideal.Quotient.mk J d'.out = d' := Ideal.Quotient.mk_out d'
+        _ = Ideal.Quotient.mk J ((gammaR : S.R) * d.out) := hEclass d
+    have hmem : d'.out - (gammaR : S.R) * d.out ∈ J :=
+      (Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _).mp hclass
+    obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp hmem
+    have hdOut : d'.out = (gammaR : S.R) * d.out + r * gS := by
+      calc
+        d'.out = (gammaR : S.R) * d.out +
+            (d'.out - (gammaR : S.R) * d.out) := by ring
+        _ = (gammaR : S.R) * d.out + r * gS := by rw [← hr]
+    have hcGamma : cGamma d' = (gammaR : S.R) * c0 d - aR * r * gS := by
+      dsimp [cGamma, c0]
+      rw [hdOut]
+      ring
+    have hArMem : aR * r * gS ∈ J := by
+      have hgMem : gS ∈ J := Ideal.mem_span_singleton_self gS
+      simpa [mul_assoc] using Ideal.mul_mem_left J (aR * r) hgMem
+    have hCondEq : condGamma d' ↔ cond0 d := by
+      rw [hCondGammaMem, hCond0Mem]
+      constructor
+      · intro hc
+        have hmul : (gammaR : S.R) * c0 d ∈ J := by
+          have hsum : (gammaR : S.R) * c0 d = cGamma d' + aR * r * gS := by
+            rw [hcGamma]
+            ring
+          rw [hsum]
+          exact Ideal.add_mem J hc hArMem
+        have hinv := Ideal.mul_mem_left J ((gammaR⁻¹ : S.Rˣ) : S.R) hmul
+        simpa [mul_assoc] using hinv
+      · intro hc
+        have hmul := Ideal.mul_mem_left J (gammaR : S.R) hc
+        rw [hcGamma]
+        exact Ideal.sub_mem J hmul hArMem
+    have hcharRep : chiIdealPow D s.1 (d'.out : F) 1 =
+        chiIdealPow D s.1 (((gammaR : S.R) * d.out : S.R) : F) 1 :=
+      po_chiIdealPow_eq_of_mod R s d'.out ((gammaR : S.R) * d.out) hmem
+    have hcharSix : chiIdealPow D s.1
+        (((gammaR : S.R) * d.out : S.R) : F) 1 =
+        chiIdealPow D s.1 (d.out : F) 1 := by
+      have hGammaProd :
+          (((gammaR : S.R) * d.out : S.R) : F) = (gammaF : F) * (d.out : F) := by
+        simp [hgammaRVal]
+      rw [hGammaProd, hgammaF]
+      exact po_chiIdealPow_US_six D S s.1 s.2 eps d.out
+    have hchar : chiIdealPow D s.1 (d'.out : F) 1 =
+        chiIdealPow D s.1 (d.out : F) 1 := hcharRep.trans hcharSix
+    by_cases hc : cond0 d
+    · obtain ⟨x, hx⟩ := hc
+      have hx0 : (c0 d : F) = (gS : F) * (x : F) := by
+        simpa [c0, gS, haR, hgSval] using hx
+      let xGamma : S.R := (gammaR : S.R) * x - aR * r
+      have hxGamma : (cGamma d' : F) = (gS : F) * (xGamma : F) := by
+        have h : (cGamma d' : F) =
+            ((gammaR : S.R) : F) * (c0 d : F) -
+              (aR : F) * (r : F) * (gS : F) := by
+          simpa using congrArg (fun z : S.R => (z : F)) hcGamma
+        rw [hx0] at h
+        dsimp [xGamma]
+        calc
+          (cGamma d' : F) =
+              ((gammaR : S.R) : F) * ((gS : S.R) : F) * (x : F) -
+                (aR : F) * (r : F) * (gS : F) := by
+                  simpa [mul_assoc] using h
+          _ = (gS : F) *
+                (((gammaR : S.R) : F) * (x : F) - (aR : F) * (r : F)) := by ring
+          _ = (gS : F) * (xGamma : F) := by rfl
+      have hcGamma' : condGamma d' := by
+        refine ⟨xGamma, ?_⟩
+        simpa [condGamma, cGamma, haR, hgammaRVal, gS, R.exterior.genR_val] using hxGamma
+      have hArg0 : arg0 d = (x : F) := by
+        dsimp [arg0]
+        rw [← R.exterior.genR_val s]
+        have hnum : (h : F) - (a : F) * (d.out : F) = (c0 d : F) := by
+          simp [c0, haR]
+        rw [hnum, hx0]
+        dsimp [gS]
+        field_simp [hgGen0]
+      have hArgGamma : argGamma d' = (xGamma : F) := by
+        dsimp [argGamma]
+        rw [← R.exterior.genR_val s]
+        have hnum : ((gammaF : F) * (h : F)) - (a : F) * (d'.out : F) =
+            (cGamma d' : F) := by
+          simp [cGamma, haR, hgammaRVal]
+        rw [hnum, hxGamma]
+        dsimp [gS]
+        field_simp [hgGen0]
+      let kGamma : S.R := (gammaR : S.R) * x
+      have hKGamma : (kGamma : F) = ((gammaF : F) * (x : F)) := by
+        simp [kGamma, hgammaRVal]
+      have hXGamma : (xGamma : F) = (kGamma : F) + (a : F) * (-r : S.R) := by
+        dsimp [xGamma, kGamma]
+        rw [haR]
+        ring
+      have hGauss : finiteGaussAt R I a (x : F) =
+          finiteGaussAt R I a (xGamma : F) := by
+        calc
+          finiteGaussAt R I a (x : F) =
+              finiteGaussAt R I a ((gammaF : F) * (x : F)) :=
+                (po_finiteGaussAt_gamma_scale R I a ha γ x).symm
+          _ = finiteGaussAt R I a (kGamma : F) := by rw [hKGamma]
+          _ = finiteGaussAt R I a ((kGamma : F) + (a : F) * (-r : S.R)) :=
+                (po_finiteGaussAt_add_aR R I a kGamma (-r)).symm
+          _ = finiteGaussAt R I a (xGamma : F) := by rw [hXGamma]
+      have hArgGauss : finiteGaussAt R I a (arg0 d) =
+          finiteGaussAt R I a (argGamma d') := by rw [hArg0, hArgGamma, hGauss]
+      have hcond0 : cond0 d := ⟨x, hx⟩
+      simp [term0, termGamma, d', hcond0, hcGamma', hchar, hArgGauss]
+    · have hcGamma' : ¬ condGamma d' := by
+        intro hcGamma'
+        exact hc ((hCondEq).mp hcGamma')
+      simp [term0, termGamma, d', hc, hcGamma']
+  have hSum : (∑ d : Q, term0 d) = ∑ d : Q, termGamma d :=
+    Fintype.sum_bijective e e.bijective term0 termGamma hpoint
+  calc
+    finiteFactor R s I a (((gammaF : F) * (h : F))) =
+        ∑ d : Q, termGamma d := hFGamma
+    _ = ∑ d : Q, term0 d := hSum.symm
+    _ = finiteFactor R s I a (h : F) := hFG0.symm
+
 /-- po:finite-poisson-transform, 05:267–282: no coprimality hypothesis on s,I. -/
 theorem po_finite_poisson_transform : ∀ (s I : S.ExtIdeal) (a : Fˣ),
   S.IsGen (a : F) I.1 → Bd.Allowed a → ∀ h : S.R,
@@ -1214,7 +2757,11 @@ theorem po_finite_poisson_transform : ∀ (s I : S.ExtIdeal) (a : Fˣ),
       (qI s.1 ^ (1 / 2 : ℝ) : ℝ) * finiteFactor R s I a (h : F) ∧
     ‖finiteFactor R s I a (h : F)‖ ≤ qI s.1 * qI I.1 ∧
     ∀ γ : Gamma S, finiteFactor R s I a (((γ.1 : Fˣ) : F) * (h : F)) = finiteFactor R s I a (h : F) := by
-  sorry
+  classical
+  intro s I a ha hallowed h
+  exact ⟨po_finite_poisson_identity R s I a ha hallowed h,
+    po_finiteFactor_norm_le R s I a ha (h : F),
+    fun γ => po_finiteFactor_gamma_invariant R s I a ha hallowed h γ⟩
 variable (η : HeckeChar F) (U : FrequencyData S D η)
 def poissonOrbitTerm (X Y Z : ℝ)
     (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × U.U × S.ExtIdeal) : ℂ :=
