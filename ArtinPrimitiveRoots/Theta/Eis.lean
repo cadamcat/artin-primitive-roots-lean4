@@ -175,6 +175,84 @@ theorem finite_torus_scalar_support (P : CoverPackage D S H A)
   change (QuotientGroup.mk' G.Δ) a = δ
   exact Quotient.out_eq δ
 
+open scoped nonZeroDivisors in
+/-- One finite torus support set works for every lift whose projected components
+are tame compact outside a fixed finite set of places. -/
+theorem finite_torus_scalar_support_uniform (P : CoverPackage D S H A)
+    (G : GlobalDatum P) {s : ℂ} (Fs : GlobalSection P G s)
+    (W : Finset (FinPlace F)) (hW : Fs.T0 ⊆ W) :
+    ∃ U : Set (Fˣ ⧸ G.Δ), U.Finite ∧ ∀ r : P.RP,
+      (∀ v (hv : v ∉ W),
+        (P.loc v).pr (P.compF v r) ∈
+          (P.loc v).pr ''
+            ((P.tame v (fun h => hv (hW (Fs.sub h)))).Kmax : Set (P.loc v).L)) →
+      {δ : Fˣ ⧸ G.Δ |
+        (∏ᶠ v, G.lam v (Fs.f v
+          ((P.loc v).a (toLoc v (Quotient.out δ)) * P.compF v r))) ≠ 0} ⊆ U := by
+  classical
+  let cubes : Subgroup Fˣ := (powMonoidHom 3 : Fˣ →* Fˣ).range
+  have hcubes : cubes ≤ (G.Δ).comap (MonoidHom.id Fˣ) := by
+    rintro a ⟨b, rfl⟩
+    change b ^ 3 ∈ G.Δ
+    simp only [GlobalDatum.Δ, Subgroup.mem_iInf, Subgroup.mem_comap, map_pow]
+    exact fun v => G.alag_cubes v (toLoc v b)
+  let π : (Fˣ ⧸ cubes) →* (Fˣ ⧸ G.Δ) :=
+    QuotientGroup.map cubes G.Δ (MonoidHom.id Fˣ) hcubes
+  let U : Set (Fˣ ⧸ G.Δ) := π ''
+    ((QuotientGroup.mk' cubes) '' {a : Fˣ | ∀ v, v ∉ W →
+      (3 : ℤ) ∣ FractionalIdeal.count F v
+        (toPrincipalIdeal (𝓞 F) F a : FractionalIdeal (𝓞 F)⁰ F)})
+  refine ⟨U, (finite_cubic_valuation_classes F W).image π, ?_⟩
+  intro r hr δ hδ
+  let a : Fˣ := Quotient.out δ
+  change (∏ᶠ v, G.lam v (Fs.f v ((P.loc v).a (toLoc v a) * P.compF v r))) ≠ 0 at hδ
+  have hcomp (v : FinPlace F) :
+      P.compF v (P.ratRP (diagGL a) * r) =
+        (P.loc v).a (toLoc v a) * P.compF v r := by
+    have hdiag : Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (diagGL a) = diagM (v.adicCompletion F) (toLoc v a) := by
+      apply Units.ext
+      ext i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.map, diagGL, diagM, toLoc]
+    rw [map_mul, P.compF_ratRP, hdiag, ← (P.loc v).sec_a]
+  have hsupp : (Function.mulSupport fun v =>
+      G.lam v (Fs.f v ((P.loc v).a (toLoc v a) * P.compF v r))).Finite := by
+    simpa only [hcomp] using (scalarOf_q P G Fs (P.ratRP (diagGL a) * r)).1
+  have ha : ∀ v, v ∉ W → (3 : ℤ) ∣ FractionalIdeal.count F v
+      (toPrincipalIdeal (𝓞 F) F a : FractionalIdeal (𝓞 F)⁰ F) := by
+    intro v hv
+    have hT0 : v ∉ Fs.T0 := fun h => hv (hW h)
+    have hSf : v ∉ S.Sf := fun h => hT0 (Fs.sub h)
+    obtain ⟨k, hk, hkpr⟩ := hr v hv
+    have hker : k⁻¹ * P.compF v r ∈ (P.loc v).pr.ker := by
+      change (P.loc v).pr (k⁻¹ * P.compF v r) = 1
+      rw [map_mul, map_inv, hkpr, inv_mul_cancel]
+    rw [(P.loc v).pr_ker] at hker
+    obtain ⟨ζ, hζ⟩ := hker
+    have hrcomp : P.compF v r = (P.loc v).z ζ * k := by
+      calc
+        P.compF v r = k * (k⁻¹ * P.compF v r) := by group
+        _ = k * (P.loc v).z ζ := by rw [← hζ]
+        _ = (P.loc v).z ζ * k := ((P.loc v).z_central ζ k).symm
+    by_contra hcount
+    have hsec : Fs.f v ((P.loc v).a (toLoc v a)) =
+        ((absFin v (toLoc v a) : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+          (G.T v).σa (toLoc v a) (Fs.f v 1) := by
+      simpa only [ofAdd_zero, map_one, one_mul, mul_one]
+        using (Fs.f_sec v).1 0 (toLoc v a) 1
+    have hz : G.lam v (Fs.f v ((P.loc v).a (toLoc v a) * P.compF v r)) = 0 := by
+      rw [hrcomp, ← mul_assoc,
+        ← (P.loc v).z_central ζ ((P.loc v).a (toLoc v a)), mul_assoc,
+        (Fs.f_sec v).2.1, map_smul, (Fs.f_sph v hT0).2 _ _ hk,
+        hsec, (Fs.f_sph v hT0).1, map_smul,
+        tame_coefficient_eq_zero_of_count_not_dvd (G.T v) (G.B v hSf)
+          (G.lam v) (G.lam_tame v hSf) a hcount, smul_zero, smul_zero]
+    exact hδ (finprod_eq_zero _ v hz hsupp)
+  refine ⟨(QuotientGroup.mk' cubes) a, ⟨a, ha, rfl⟩, ?_⟩
+  change (QuotientGroup.mk' G.Δ) a = δ
+  exact Quotient.out_eq δ
+
 /-- Finite cusp majorants after bounding the complex components by real spherical sections. -/
 theorem eisenstein_finite_majorants (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ}
     (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
