@@ -115,7 +115,55 @@ theorem SData.annihilator_diag_mul (S : SData F CE condη) (D : FieldData F)
     (a : Fˣ) :
     S.annihilator A (Set.range fun x : S.R => S.diag ((a : F) * (x : F))) =
       Set.range fun x : S.R => S.diag ((a : F)⁻¹ * (x : F)) := by
-  sorry
+  classical
+  have hself := S.diagR_eq_annihilator D A
+  have ha0 : (a : F) ≠ 0 := Units.ne_zero a
+  ext y
+  constructor
+  · intro hy
+    have hmul_ann : S.diag (a : F) * y ∈ S.annihilator A S.diagR := by
+      intro x hx
+      rcases hx with ⟨r, rfl⟩
+      have h := hy (S.diag ((a : F) * (r : F))) ⟨r, rfl⟩
+      simpa [map_mul, mul_assoc, mul_comm, mul_left_comm] using h
+    have hmul_mem : S.diag (a : F) * y ∈ S.diagR := hself.symm ▸ hmul_ann
+    rcases hmul_mem with ⟨r, hr⟩
+    change S.diag (r : F) = S.diag (a : F) * y at hr
+    refine ⟨r, ?_⟩
+    calc
+      S.diag ((a : F)⁻¹ * (r : F)) =
+          S.diag ((a : F)⁻¹) * S.diag (r : F) := by rw [map_mul]
+      _ = S.diag ((a : F)⁻¹) * (S.diag (a : F) * y) := by rw [hr]
+      _ = y := by
+        calc
+          S.diag ((a : F)⁻¹) * (S.diag (a : F) * y) =
+              (S.diag ((a : F)⁻¹) * S.diag (a : F)) * y := by rw [mul_assoc]
+          _ = S.diag (1 : F) * y := by rw [← map_mul, inv_mul_cancel₀ ha0]
+          _ = y := by simp
+  · intro hy
+    rcases hy with ⟨r, hr⟩
+    subst y
+    intro x hx
+    rcases hx with ⟨s, rfl⟩
+    have hr_diag : S.diag (r : F) ∈ S.diagR := ⟨r, rfl⟩
+    have hr_ann : S.diag (r : F) ∈ S.annihilator A S.diagR :=
+      hself ▸ hr_diag
+    have h := hr_ann (S.diag (s : F)) ⟨s, rfl⟩
+    have hpair :
+        S.diag ((a : F) * (s : F)) * S.diag ((a : F)⁻¹ * (r : F)) =
+          S.diag (s : F) * S.diag (r : F) := by
+      calc
+        S.diag ((a : F) * (s : F)) * S.diag ((a : F)⁻¹ * (r : F)) =
+            S.diag (((a : F) * (s : F)) * ((a : F)⁻¹ * (r : F))) := by
+              simp only [map_mul]
+        _ = S.diag ((s : F) * (r : F)) := by
+          congr 1
+          field_simp [ha0]
+        _ = S.diag (s : F) * S.diag (r : F) := by simp only [map_mul]
+    change S.e A
+      (S.diag ((a : F) * (s : F)) * S.diag ((a : F)⁻¹ * (r : F))) = 1
+    rw [hpair]
+    exact h
 
 /-- The norm identity in `lem:s-lattice` with the total-complexity hypothesis made explicit.
 This is the corrected version of the frozen `SData.absS_diag_eq_norm`, whose interface omits
