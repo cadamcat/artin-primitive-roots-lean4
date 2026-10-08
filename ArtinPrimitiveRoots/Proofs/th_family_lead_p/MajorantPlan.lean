@@ -16,6 +16,7 @@ import ArtinPrimitiveRoots.Proofs.th_family_lead_p.DirectionalFourier
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.IteratedDirectionalFourier
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.DirectionalFourierBound
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.IntegerProductDecay
+import Mathlib.LinearAlgebra.Countable
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
@@ -233,7 +234,117 @@ theorem theta_periodic_fourier_product_bound {P : CoverPackage D S H A}
       ‖iteratedFDeriv ℝ m (fun x => Ψ (nInf P x * g)) x‖ ≤ C) :
     ∃ C : ℝ, 0 ≤ C ∧ ∀ ν : thetaDualUnits 𝔞, ∀ g ∈ K,
       ‖torusCoeff P Ψ g Pd (ν.1 : F)‖ ≤ C * thetaLatticeWeight n (κ ν) := by
-  sorry
+  let E := InfinitePlace F → ℂ
+  let Γ : AddSubgroup E :=
+    (𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom
+  let : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  have hΓcount : Set.Countable (Γ : Set E) := by
+    apply (Set.countable_range (fun ξ : F => infEmbA ξ)).mono
+    intro x hx
+    obtain ⟨ξ, hξ, hξx⟩ := AddSubgroup.mem_map.mp hx
+    exact ⟨ξ, hξx⟩
+  let : Countable Γ := hΓcount.to_subtype
+  have hcompact : IsCompact (closure Pd) := hb.isCompact_closure
+  have hfinite : volume Pd ≠ ⊤ := hb.measure_lt_top.ne
+  let c : ℂ := -(2 * Real.pi * Complex.I)
+  have hc : c ≠ 0 := neg_ne_zero.mpr Complex.two_pi_I_ne_zero
+  let s : ℝ := (volume Pd).toReal
+  let d : ℝ := |s⁻¹| * s
+  have hd : 0 ≤ d := mul_nonneg (abs_nonneg _) ENNReal.toReal_nonneg
+  have hneg (ν : F) (x : E) : thetaFourierPhase (-ν) x = -thetaFourierPhase ν x := by
+    simp only [thetaFourierPhase, map_neg, neg_mul, Complex.neg_re,
+      Finset.sum_neg_distrib]
+    ring
+  have hexp (ν : F) (x : E) :
+      Complex.exp (c * (thetaFourierPhase ν x : ℂ)) = psiInf (-ν) x := by
+    rw [thetaFourierPhase_exp, hneg, Complex.ofReal_neg]
+    congr 1
+    dsimp only [c]
+    ring
+  have hinv (ν : F) (x : E) : psiInf (-ν) x = (psiInf ν x)⁻¹ := by
+    rw [← hexp ν x, thetaFourierPhase_exp ν x, ← Complex.exp_neg]
+    congr 1
+    dsimp only [c]
+    ring
+  have hunit (ν : F) (x : E) :
+      ‖Complex.exp (c * (thetaFourierPhase ν x : ℂ))‖ = 1 := by
+    rw [Complex.norm_exp]
+    simp [c]
+  have hest (ν : thetaDualUnits 𝔞) (g : P.tc.G) (hg : g ∈ K)
+      (m : ℕ) (v : E) (Cb : ℝ)
+      (hder : ∀ x ∈ Pd,
+        ‖iteratedFDeriv ℝ m (fun x => Ψ (nInf P x * g)) x‖ ≤ Cb) :
+      ‖c‖ ^ m * |thetaFourierPhase (ν.1 : F) v| ^ m *
+          ‖torusCoeff P Ψ g Pd (ν.1 : F)‖ ≤ d * Cb * ‖v‖ ^ m := by
+    let ℓ : E →L[ℝ] ℝ := (thetaFourierPhaseLM (ν.1 : F)).toContinuousLinearMap
+    have hℓ (x : E) : ℓ x = thetaFourierPhase (ν.1 : F) x := rfl
+    have hchar (a : Γ) : Complex.exp (c * (ℓ (a : E) : ℂ)) = 1 := by
+      obtain ⟨ξ, hξ, hξa⟩ := AddSubgroup.mem_map.mp a.property
+      change infEmbA ξ = (a : E) at hξa
+      change ξ ∈ (𝔞 : Submodule (𝓞 F) F) at hξ
+      rw [hℓ, hexp, ← hξa, hinv, ν.property ξ hξ, inv_one]
+    have hfgper : ∀ a : Γ, ∀ x : E,
+        Ψ (nInf P ((a : E) + x) * g) = Ψ (nInf P x * g) := by
+      intro a x
+      obtain ⟨ξ, hξ, hξa⟩ := AddSubgroup.mem_map.mp a.property
+      change infEmbA ξ = (a : E) at hξa
+      change ξ ∈ (𝔞 : Submodule (𝓞 F) F) at hξ
+      rw [← hξa, add_comm (infEmbA ξ) x]
+      exact hper g hg ξ hξ x
+    have hgen := ArtinPrimitiveRoots.Proofs.majorant_sol.theta_periodic_exponential_directional_bound
+      volume Γ Pd hPd hm hcompact hfinite ℓ c hchar
+      (fun x => by simpa only [hℓ] using hunit (ν.1 : F) x)
+      (fun x => Ψ (nInf P x * g)) (hsm g hg) hfgper v m Cb hder
+    have hnormTC : ‖torusCoeff P Ψ g Pd (ν.1 : F)‖ =
+        |s⁻¹| * ‖∫ x in Pd, Ψ (nInf P x * g) * Complex.exp (c * (ℓ x : ℂ))‖ := by
+      simp only [torusCoeff, ← hexp, norm_mul, norm_inv, Complex.norm_real,
+        Real.norm_eq_abs, abs_inv, hℓ, s]
+    have hq : ‖c * (ℓ v : ℂ)‖ ^ m =
+        ‖c‖ ^ m * |thetaFourierPhase (ν.1 : F) v| ^ m := by
+      simp only [norm_mul, mul_pow, Complex.norm_real, Real.norm_eq_abs, hℓ]
+    calc
+      ‖c‖ ^ m * |thetaFourierPhase (ν.1 : F) v| ^ m *
+          ‖torusCoeff P Ψ g Pd (ν.1 : F)‖ =
+          |s⁻¹| * (‖c * (ℓ v : ℂ)‖ ^ m *
+            ‖∫ x in Pd, Ψ (nInf P x * g) * Complex.exp (c * (ℓ x : ℂ))‖) := by
+        rw [hnormTC, hq]
+        ring
+      _ ≤ |s⁻¹| * (s * Cb * ‖v‖ ^ m) :=
+        mul_le_mul_of_nonneg_left hgen (abs_nonneg _)
+      _ = d * Cb * ‖v‖ ^ m := by dsimp only [d]; ring
+  let N : ℕ := 2 * n
+  obtain ⟨C0, hC00, hC0⟩ := hbound 0
+  obtain ⟨CN, hCN0, hCN⟩ := hbound N
+  let B : ℝ := ∑ i, ‖b i‖
+  have hB0 : 0 ≤ B := Finset.sum_nonneg fun i _ => norm_nonneg (b i)
+  have hBi (i : Fin n) : ‖b i‖ ≤ B :=
+    Finset.single_le_sum (fun j _ => norm_nonneg (b j)) (Finset.mem_univ i)
+  let Z0 : ℝ := d * C0
+  let ZN : ℝ := d * CN * B ^ N / ‖c‖ ^ N
+  have hZ0 : 0 ≤ Z0 := mul_nonneg hd hC00
+  have hZN : 0 ≤ ZN := div_nonneg
+    (mul_nonneg (mul_nonneg hd hCN0) (pow_nonneg hB0 N)) (pow_nonneg (norm_nonneg c) N)
+  refine ⟨Z0 + (2 : ℝ) ^ N * ZN,
+    add_nonneg hZ0 (mul_nonneg (by positivity) hZN), ?_⟩
+  intro ν g hg
+  have hz0 : ‖torusCoeff P Ψ g Pd (ν.1 : F)‖ ≤ Z0 := by
+    have h0 := hest ν g hg 0 (0 : E) C0
+      (fun x hx => hC0 g hg x (subset_closure hx))
+    simpa only [pow_zero, one_mul, mul_one] using h0
+  have hdir (i : Fin n) : |(κ ν i : ℝ)| ^ (2 * n) *
+      ‖torusCoeff P Ψ g Pd (ν.1 : F)‖ ≤ ZN := by
+    have hi := hest ν g hg N (b i) CN
+      (fun x hx => hCN g hg x (subset_closure hx))
+    rw [← hκ ν i] at hi
+    have hipow : ‖b i‖ ^ N ≤ B ^ N := pow_le_pow_left₀ (norm_nonneg _) (hBi i) N
+    have hibound := hi.trans (mul_le_mul_of_nonneg_left hipow (mul_nonneg hd hCN0))
+    have hsmall : (|(κ ν i : ℝ)| ^ N * ‖torusCoeff P Ψ g Pd (ν.1 : F)‖) *
+        ‖c‖ ^ N ≤ d * CN * B ^ N := by
+      convert hibound using 1 <;> ring
+    exact (le_div_iff₀ (pow_pos (norm_pos_iff.mpr hc) N)).mpr hsmall
+  simpa only [thetaLatticeWeight, N] using
+    ArtinPrimitiveRoots.Proofs.majorant_sol.theta_integer_product_decay n (κ ν)
+      ‖torusCoeff P Ψ g Pd (ν.1 : F)‖ Z0 ZN (norm_nonneg _) hZ0 hZN hz0 hdir
 
 /-- Summability over the full integer lattice, before restriction to the field frequencies. -/
 theorem theta_lattice_weight_summable (n : ℕ) : Summable (thetaLatticeWeight n) := by
