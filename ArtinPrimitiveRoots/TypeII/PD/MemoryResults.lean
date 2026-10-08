@@ -77,6 +77,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawActualEndpoint
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawGrouped
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawChoices
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawFreshMass
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawFreshBad
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.GeometricSum
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
