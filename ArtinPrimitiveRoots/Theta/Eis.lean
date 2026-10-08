@@ -1392,6 +1392,127 @@ theorem eisenstein_ideal_periodic
     _ = eisenstein P G Fs (nInf P x * g) :=
       (eisenstein_automorphic P G hs Fs).2.2 _ hk _
 
+/-- Scalar cusp bounds are uniform under archimedean unipotent translation. -/
+theorem scalar_cusp_height_majorant_unipotent
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) {ι : Type} [Fintype ι]
+    (c : ι → Matrix.SpecialLinearGroup (Fin 2) F)
+    (δ : ι → Fˣ) (r : P.RP) :
+    ∃ Z : (InfinitePlace F → ℂ) → ArtinPrimitiveRoots.A1.Spec.X F,
+      Continuous Z ∧ ∃ C : ℝ, 0 ≤ C ∧
+        ∀ (x : InfinitePlace F → ℂ) (i : ι)
+          (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)),
+          ‖scalarOf P G Fs.f Fs.fC
+            (P.tc.rat (diagGL (δ i) * Matrix.SpecialLinearGroup.toGL
+              (c i * ArtinPrimitiveRoots.A1.Spec.toSLF F γ)) *
+                nInf P x * P.q r)‖ ≤
+            C * ArtinPrimitiveRoots.A1.Spec.normHeight F
+              ((c i * ArtinPrimitiveRoots.A1.Spec.toSLF F γ) • Z x) ^
+                (1 + 2 * s.re) := by
+  classical
+  choose Cw hCw hbound using fun w =>
+    sectionC_norm_majorant s (Fs.fC w) (Fs.fC_sec w).1 (Fs.fC_sec w).2
+  obtain ⟨Z, hZ, hz⟩ := complex_spherical_height_product_unipotent (fun w => P.compC w r)
+  obtain ⟨Cf, hCf, hfbound⟩ := finite_scalar_integral_translate_bound P G Fs
+    (fun i => diagGL (δ i) * Matrix.SpecialLinearGroup.toGL (c i)) r
+  choose rn hqn hfn hcn using fun x : InfinitePlace F → ℂ =>
+    P.nS_components ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x)
+  have hfn1 (x : InfinitePlace F → ℂ) (v : FinPlace F) : P.compF v (rn x) = 1 := by
+    simpa using hfn x v
+  let t (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) :=
+    c i * ArtinPrimitiveRoots.A1.Spec.toSLF F γ
+  let R (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (x : InfinitePlace F → ℂ) : P.RP :=
+    P.ratRP (diagGL (δ i) * Matrix.SpecialLinearGroup.toGL (t i γ)) * rn x * r
+  let y (i : ι) (w : InfinitePlace F) : ℂˣ := Units.map w.embedding.toMonoidHom (δ i)
+  let U (w : InfinitePlace F) (a : Matrix.SpecialLinearGroup (Fin 2) F)
+      (x : InfinitePlace F → ℂ) : PGL2 ℂ :=
+    QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL
+      (ArtinPrimitiveRoots.A1.Spec.toInf F a w)) * nC (x w) * P.compC w r
+  let A (i : ι) (w : InfinitePlace F) : ℝ :=
+    ‖(Complex.normSq (y i w : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + s)‖ * Cw w
+  let Ai (i : ι) : ℝ := ∏ w, A i w
+  have hA (i : ι) (w : InfinitePlace F) : 0 ≤ A i w :=
+    mul_nonneg (norm_nonneg _) (hCw w)
+  have hAi (i : ι) : 0 ≤ Ai i := Finset.prod_nonneg fun w _ => hA i w
+  have hdiag (i : ι) (w : InfinitePlace F) :
+      Matrix.GeneralLinearGroup.map w.embedding (diagGL (δ i)) = diagM ℂ (y i w) := by
+    apply Units.ext
+    ext a b
+    fin_cases a <;> fin_cases b <;>
+      simp [Matrix.GeneralLinearGroup.map, diagGL, diagM, y]
+  have hsl (w : InfinitePlace F) (a : Matrix.SpecialLinearGroup (Fin 2) F) :
+      Matrix.GeneralLinearGroup.map w.embedding (Matrix.SpecialLinearGroup.toGL a) =
+        Matrix.SpecialLinearGroup.toGL (ArtinPrimitiveRoots.A1.Spec.toInf F a w) := by
+    apply Units.ext
+    rfl
+  have hcomp (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (x : InfinitePlace F → ℂ) (w : InfinitePlace F) :
+      P.compC w (R i γ x) = QuotientGroup.mk (diagM ℂ (y i w)) * U w (t i γ) x := by
+    simp only [R, U, map_mul, P.compC_ratRP, hdiag, hsl,
+      QuotientGroup.mk_mul, hcn, nC, mul_assoc]
+  have hcompF (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (x : InfinitePlace F → ℂ) (v : FinPlace F) :
+      P.compF v (R i γ x) = P.compF v
+        (P.ratRP (diagGL (δ i) * Matrix.SpecialLinearGroup.toGL (t i γ)) * r) := by
+    simp only [R, map_mul, hfn1, mul_one]
+  have hzero : upperM ℂ 0 = 1 := by
+    apply Units.ext
+    ext a b
+    fin_cases a <;> fin_cases b <;> simp [upperM]
+  have hsec (w : InfinitePlace F) (a : ℂˣ) (k : PGL2 ℂ) :
+      Fs.fC w (QuotientGroup.mk (diagM ℂ a) * k) =
+        (Complex.normSq (a : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + s) * Fs.fC w k := by
+    simpa only [hzero, QuotientGroup.mk_one, one_mul] using (Fs.fC_sec w).1 0 a k
+  have hlocal (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (x : InfinitePlace F → ℂ) (w : InfinitePlace F) :
+      ‖Fs.fC w (P.compC w (R i γ x))‖ ≤
+        A i w * ‖sphC (s.re : ℂ) (U w (t i γ) x)‖ := by
+    rw [hcomp, hsec, norm_mul]
+    exact (mul_le_mul_of_nonneg_left (hbound w (U w (t i γ) x))
+      (norm_nonneg _)).trans_eq (by dsimp [A]; ring)
+  have hheight (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (x : InfinitePlace F → ℂ) :
+      (∏ w, ‖sphC (s.re : ℂ) (U w (t i γ) x)‖) =
+        ArtinPrimitiveRoots.A1.Spec.normHeight F ((t i γ) • Z x) ^ (1 + 2 * s.re) :=
+    hz s.re (t i γ) x
+  have hheight_nonneg (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (x : InfinitePlace F → ℂ) :
+      0 ≤ ArtinPrimitiveRoots.A1.Spec.normHeight F ((t i γ) • Z x) ^ (1 + 2 * s.re) := by
+    rw [← hheight]
+    exact Finset.prod_nonneg fun w _ => norm_nonneg _
+  have hinf (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      (x : InfinitePlace F → ℂ) :
+      (∏ w, ‖Fs.fC w (P.compC w (R i γ x))‖) ≤
+        Ai i * ArtinPrimitiveRoots.A1.Spec.normHeight F ((t i γ) • Z x) ^ (1 + 2 * s.re) := by
+    calc
+      _ ≤ ∏ w, A i w * ‖sphC (s.re : ℂ) (U w (t i γ) x)‖ :=
+        Finset.prod_le_prod₀ (fun w _ => norm_nonneg _) (fun w _ => hlocal i γ x w)
+      _ = _ := by rw [Finset.prod_mul_distrib, hheight]
+  refine ⟨Z, hZ, Cf * ∑ i, Ai i, mul_nonneg hCf (Finset.sum_nonneg fun i _ => hAi i), ?_⟩
+  intro x i γ
+  have hq : P.q (R i γ x) =
+      P.tc.rat (diagGL (δ i) * Matrix.SpecialLinearGroup.toGL (t i γ)) *
+        nInf P x * P.q r := by
+    simp only [R, map_mul, P.q_ratRP, hqn, nInf]
+  change ‖scalarOf P G Fs.f Fs.fC
+    (P.tc.rat (diagGL (δ i) * Matrix.SpecialLinearGroup.toGL (t i γ)) *
+      nInf P x * P.q r)‖ ≤ _
+  rw [← hq, (scalarOf_q P G Fs (R i γ x)).2, norm_mul, norm_prod]
+  have hf : ‖∏ᶠ v, G.lam v (Fs.f v (P.compF v (R i γ x)))‖ ≤ Cf := by
+    simp only [hcompF]
+    simpa only [t, map_mul, mul_assoc] using hfbound i γ
+  calc
+    _ ≤ Cf * (Ai i * ArtinPrimitiveRoots.A1.Spec.normHeight F ((t i γ) • Z x) ^
+        (1 + 2 * s.re)) :=
+      mul_le_mul hf (hinf i γ x) (Finset.prod_nonneg fun w _ => norm_nonneg _) hCf
+    _ = (Cf * Ai i) * ArtinPrimitiveRoots.A1.Spec.normHeight F ((t i γ) • Z x) ^
+        (1 + 2 * s.re) := (mul_assoc _ _ _).symm
+    _ ≤ _ := mul_le_mul_of_nonneg_right
+      (mul_le_mul_of_nonneg_left
+        (Finset.single_le_sum (fun a _ => hAi a) (Finset.mem_univ i)) hCf)
+      (hheight_nonneg i γ x)
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
