@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.Proofs.th_family_lead_p.SmoothMatrixCoordinates
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.MatrixIwasawa
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.ComponentMatrixResidue
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.ArchMatrixResidue
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.CompactPGLMatrixLifts
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
