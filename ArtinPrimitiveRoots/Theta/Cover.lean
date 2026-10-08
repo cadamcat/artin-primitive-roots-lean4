@@ -12,6 +12,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CongruenceCompact
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.IntegralGL
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.LocalEffective
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedCentralQuotient
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.GlobalPivot
 
 
 /-!
@@ -3664,6 +3665,64 @@ private theorem exists_coverQuotientBase (D : FieldData F) (S : SData F CE cond�
       (fun v => (C.loc v).z) (fun v => (C.loc v).z_inj)
       (fun v => (C.loc v).z_central)
   exact ⟨{ family := C, quotient := Q }⟩
+
+/-- Global reciprocity removes the central discrepancy of rational section tuples. -/
+private theorem global_kpCocycle_product (D : FieldData F) (H : HilbertData F)
+    (g h : GL (Fin 2) F) :
+    (Function.mulSupport fun v : FinPlace F => kpCocycle D H v
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)).Finite ∧
+    (∏ᶠ v : FinPlace F, kpCocycle D H v
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)) = 1 := by
+  classical
+  let X := ArtinPrimitiveRoots.Proofs.th_cover_sol.secondRowUnit (K := F)
+  have hx (v : FinPlace F) (k : GL (Fin 2) F) :
+      xU v (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) k) =
+        toLoc v (X k) := by
+    change ArtinPrimitiveRoots.Proofs.th_cover_sol.secondRowUnit
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) k) =
+        Units.map (algebraMap F (v.adicCompletion F)).toMonoidHom (X k)
+    exact (ArtinPrimitiveRoots.Proofs.th_cover_sol.map_secondRowUnit _ k).symm
+  have hd (v : FinPlace F) (k : GL (Fin 2) F) :
+      detU v (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) k) =
+        toLoc v (Matrix.GeneralLinearGroup.det k) := by
+    exact Matrix.GeneralLinearGroup.map_det _ k
+  let p : rootsOfUnity 6 F →* rootsOfUnity 3 ℂ := {
+    toFun := muThree D
+    map_one' := muThree_one D
+    map_mul' := muThree_mul D
+  }
+  let a : Fˣ := X (g * h) / (X h * Matrix.GeneralLinearGroup.det g)
+  let b : Fˣ := X (g * h) / X g
+  let r : FinPlace F → rootsOfUnity 6 F := fun v => H.hilb v (toLoc v a) (toLoc v b)
+  let s : FinPlace F → rootsOfUnity 6 F := fun v =>
+    H.hilb v (toLoc v (Matrix.GeneralLinearGroup.det g))
+      (toLoc v (Matrix.GeneralLinearGroup.det h))
+  obtain ⟨hr, hrprod⟩ := H.product_formula a b
+  obtain ⟨hs, hsprod⟩ := H.product_formula
+    (Matrix.GeneralLinearGroup.det g) (Matrix.GeneralLinearGroup.det h)
+  have hpr : Function.HasFiniteMulSupport (fun v => p (r v)) :=
+    Function.HasFiniteMulSupport.fun_comp hr p.map_one
+  have hps : Function.HasFiniteMulSupport (fun v => p (s v)) :=
+    Function.HasFiniteMulSupport.fun_comp hs p.map_one
+  have hformula :
+      (fun v : FinPlace F => kpCocycle D H v
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)) =
+      (fun v => p (r v) * p (s v)) := by
+    funext v
+    simp only [kpCocycle, ← Matrix.GeneralLinearGroup.map_mul, hx, hd]
+    dsimp [p, r, s, a, b]
+    simp only [map_div, map_mul]
+  rw [hformula]
+  refine ⟨Function.HasFiniteMulSupport.mul hpr hps, ?_⟩
+  calc
+    (∏ᶠ v, p (r v) * p (s v)) = (∏ᶠ v, p (r v)) * (∏ᶠ v, p (s v)) :=
+      finprod_mul_distrib hpr hps
+    _ = p (∏ᶠ v, r v) * p (∏ᶠ v, s v) := by
+      rw [p.map_finprod hr, p.map_finprod hs]
+    _ = 1 := by rw [hrprod, hsprod, p.map_one, mul_one]
 
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
