@@ -927,10 +927,72 @@ def wC : PGL2 ℂ := QuotientGroup.mk (weylM ℂ)
 def sphC (s : ℂ) (g : PGL2 ℂ) : ℂ := sphericalC s (Quotient.out g)
 
 theorem sphC_mk (s : ℂ) (g : GL (Fin 2) ℂ) : sphC s (QuotientGroup.mk g) = sphericalC s g := by
-  sorry
+  obtain ⟨f, _, hrep⟩ := sphericalC_isSection s
+  have hq : (QuotientGroup.mk (Quotient.out (QuotientGroup.mk g : PGL2 ℂ)) : PGL2 ℂ) =
+      QuotientGroup.mk g := by
+    simp
+  have hout := hrep (Quotient.out (QuotientGroup.mk g : PGL2 ℂ))
+  have hg := hrep g
+  rw [hq] at hout
+  change sphericalC s (Quotient.out (QuotientGroup.mk g : PGL2 ℂ)) = sphericalC s g
+  exact hout.symm.trans hg
 
 theorem sphC_isSection (s : ℂ) : IsSectionC s (sphC s) ∧ Continuous (sphC s) := by
-  sorry
+  obtain ⟨f, hf, hrep⟩ := sphericalC_isSection s
+  have heq : sphC s = f := by
+    funext q
+    refine QuotientGroup.induction_on q ?_
+    intro g
+    exact (sphC_mk s g).trans (hrep g).symm
+  let base : GL (Fin 2) ℂ → ℝ := fun g =>
+    ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖ /
+      (‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2)
+  have hden : ∀ g : GL (Fin 2) ℂ,
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 ≠ 0 := by
+    intro g h
+    have h00 : ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ = 0 := by
+      have h0 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0)
+      have h1 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+      nlinarith
+    have h01 : ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ = 0 := by
+      have h0 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0)
+      have h1 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+      nlinarith
+    have he0 : (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0 = 0 := norm_eq_zero.mp h00
+    have he1 : (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1 = 0 := norm_eq_zero.mp h01
+    apply g.det_ne_zero
+    simp [Matrix.det_fin_two, he0, he1]
+  have hbase : Continuous base := by
+    apply (by fun_prop : Continuous fun g : GL (Fin 2) ℂ =>
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖).div
+        (by fun_prop : Continuous fun g : GL (Fin 2) ℂ =>
+          ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+            ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2) hden
+  have hbase_ne (g : GL (Fin 2) ℂ) : base g ≠ 0 := by
+    apply div_ne_zero
+    · exact norm_ne_zero_iff.mpr g.det_ne_zero
+    · exact hden g
+  have hsph : Continuous (sphericalC s) := by
+    have hpow : Continuous fun g : GL (Fin 2) ℂ =>
+        ((base g : ℝ) : ℂ) ^ (1 + 2 * s) := by
+      rw [continuous_iff_continuousAt]
+      intro g
+      have hbaseAt : ContinuousAt base g := hbase.continuousAt (x := g)
+      have hpowAt : ContinuousAt (fun x : ℝ => (x : ℂ) ^ (1 + 2 * s)) (base g) :=
+        Complex.continuousAt_ofReal_cpow_const (base g) (1 + 2 * s)
+          (Or.inr (hbase_ne g))
+      exact hpowAt.comp hbaseAt
+    change Continuous (fun g : GL (Fin 2) ℂ =>
+      ((base g : ℝ) : ℂ) ^ (1 + 2 * s))
+    exact hpow
+  have hcont : Continuous (sphC s) := by
+    apply (QuotientGroup.isQuotientMap_mk (Subgroup.center (GL (Fin 2) ℂ))).continuous_iff.mpr
+    convert hsph using 1
+    funext g
+    exact sphC_mk s g
+  exact ⟨by simpa [heq] using hf, hcont⟩
 
 /-- **def:jacquet-C**: `𝒥_ℂ f = ∫_ℂ ψ_w(-x) f(w n(x)) dx` (Lebesgue measure). -/
 def jacquetC (f : PGL2 ℂ → ℂ) : ℂ := ∫ x : ℂ, psiC (-x) * f (wC * nC x)
@@ -949,7 +1011,43 @@ def besselConst : ℝ := 2 * Real.pi / Real.Gamma (4 / 3) * (2 * Real.pi) ^ ((1 
 /-- **jq:complex-equiv**: `𝒥_ℂ(π(n(u))f) = ψ_w(u) 𝒥_ℂ(f)` for continuous sections, `Re s > 0`. -/
 theorem jacquetC_equiv (s : ℂ) (hs : 0 < s.re) (f : PGL2 ℂ → ℂ) (hf : IsSectionC s f)
     (hcont : Continuous f) (u : ℂ) : jacquetC (rtr (nC u) f) = psiC u * jacquetC f := by
-  sorry
+  have hn (x z : ℂ) : nC x * nC z = nC (x + z) := by
+    have hmat : upperM ℂ x * upperM ℂ z = upperM ℂ (x + z) := by
+      apply Units.ext
+      ext i j
+      fin_cases i <;> fin_cases j <;>
+        simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+    change ((upperM ℂ x : GL (Fin 2) ℂ) : PGL2 ℂ) *
+        ((upperM ℂ z : GL (Fin 2) ℂ) : PGL2 ℂ) =
+      ((upperM ℂ (x + z) : GL (Fin 2) ℂ) : PGL2 ℂ)
+    rw [← QuotientGroup.mk_mul]
+    exact congrArg (fun g : GL (Fin 2) ℂ => (g : PGL2 ℂ)) hmat
+  have hpsiAdd (z w : ℂ) : psiC (z + w) = psiC z * psiC w := by
+    unfold psiC
+    have harg :
+        -(4 * Real.pi * Complex.I * ((z + w).re : ℂ)) =
+          -(4 * Real.pi * Complex.I * (z.re : ℂ)) +
+            -(4 * Real.pi * Complex.I * (w.re : ℂ)) := by
+      rw [Complex.add_re, Complex.ofReal_add]
+      ring
+    rw [harg, Complex.exp_add]
+  have hpsi (z : ℂ) : psiC (u - z) = psiC u * psiC (-z) := by
+    rw [show u - z = u + (-z) by ring, hpsiAdd]
+  let H : ℂ → ℂ := fun z => psiC (u - z) * f (wC * nC z)
+  have hMP : MeasurePreserving (MeasurableEquiv.addRight u) volume volume := by
+    exact measurePreserving_add_right volume u
+  calc
+    jacquetC (rtr (nC u) f) = ∫ x : ℂ, H (MeasurableEquiv.addRight u x) := by
+      simp [jacquetC, H, rtr, MeasurableEquiv.addRight, hn, mul_assoc] <;> ring
+    _ = ∫ z : ℂ, H z := hMP.integral_comp
+      (MeasurableEquiv.addRight u).measurableEmbedding H
+    _ = ∫ z : ℂ, psiC u * (psiC (-z) * f (wC * nC z)) := by
+      apply integral_congr_ae
+      filter_upwards [] with z
+      simp [H, hpsi z, mul_assoc]
+    _ = psiC u * jacquetC f := by
+      rw [integral_const_mul]
+      rfl
 
 /-- **jq:complex-bessel** (eq:theta-complex-bessel, 03:263–290). -/
 theorem jacquetC_spherical (y : ℂˣ) :
