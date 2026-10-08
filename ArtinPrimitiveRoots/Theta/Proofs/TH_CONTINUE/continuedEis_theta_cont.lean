@@ -1,5 +1,5 @@
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.Defs
-import ArtinPrimitiveRoots.Proofs.th_continue_b.ThetaCont
+import ArtinPrimitiveRoots.Proofs.th_continue_b.ThetaBasics
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
