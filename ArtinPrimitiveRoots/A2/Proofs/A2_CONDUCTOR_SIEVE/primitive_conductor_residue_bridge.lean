@@ -1400,6 +1400,50 @@ private theorem conductorIdealValue_zero_of_ramified_factor
     exact (Associates.count_ne_zero_iff_dvd hI0 v.irreducible).mpr hvI
   simp [A1.HeckeChar.primeValue, hv, hcount]
 
+private theorem conductorResidueCharacter_realizes
+    (S : A1.SData F CE condη) (G : ConductorGenerators S)
+    (ρ : ConductorResidues S) (ω : A1.HeckeChar F)
+    (f : Ideal (𝓞 F)) (hf : IsPrimitiveConductor ω f)
+    (J : Ideal (𝓞 F)) (hJ : ConductorSupportedAtS S J)
+    (q : S.ExtIdeal) (hfactor : f = J * q.1)
+    (lambdaq : MulChar (ConductorResidueRing q) ℂ)
+    (hLambda : ∀ (b : 𝓞 F) (hb0 : b ≠ 0)
+      (hb : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → b ∉ v.asIdeal)
+      (y : (ConductorResidueRing q)ˣ),
+      Ideal.Quotient.mk q.1 b = (y : ConductorResidueRing q) →
+      lambdaq (y : ConductorResidueRing q) =
+        (((∏ v : conductorPrimeSupport q.1 q.2.1,
+          ω.loc v.1 (conductorLocalIntegerUnitOfOElement v.1 b hb0
+            (hb v.1 ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2))).val)
+              : ℂˣ)⁻¹ : ℂ)) :
+    ConductorResidueRealizes S G ρ (SComponent S ω)
+      (conductorInfiniteComponent ω) q lambdaq ω := by
+  classical
+  intro I
+  by_cases hunit : IsUnit (ρ.red q (G.gen I))
+  · have hcop := (conductorGeneratorResidue_isUnit_iff S G ρ q I).mp hunit
+    have hval := (conductorSIntegerResidue_isUnit_iff S ρ q (G.gen I)).mp hunit
+    obtain ⟨x, hx⟩ := hunit
+    have hres := conductorResidueCharacter_SInteger S ρ q ω lambdaq hLambda
+      (G.gen I) (G.generates I).2.1 hval x hx.symm
+    have hprincipal := conductorGeneratorPrincipalProduct S ω f hf J hJ q hfactor
+      I (G.unit I) (G.generates I) hcop
+    rw [hres]
+    exact hprincipal
+  · have hnotcop : ¬ (∀ v : A1.FinPlace F,
+        v.asIdeal ∣ I.1 → ¬ v.asIdeal ∣ q.1) := by
+      intro hcop
+      exact hunit ((conductorGeneratorResidue_isUnit_iff S G ρ q I).mpr hcop)
+    push_neg at hnotcop
+    obtain ⟨v, hvI, hvq⟩ := hnotcop
+    have hvf : v.asIdeal ∣ f := by
+      rw [hfactor]
+      exact dvd_mul_of_dvd_right hvq J
+    have hram : ¬ ω.UnramifiedAt v :=
+      conductor_primitive_ramified_at_factor ω f hf v.asIdeal v.isPrime v.ne_bot hvf
+    rw [conductorIdealValue_zero_of_ramified_factor ω I.1 I.2.1 v hvI hram,
+      MulChar.map_nonunit lambdaq hunit, mul_zero]
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
