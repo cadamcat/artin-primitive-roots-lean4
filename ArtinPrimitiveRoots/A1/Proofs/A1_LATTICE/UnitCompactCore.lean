@@ -1185,6 +1185,143 @@ theorem fsOne_compact_representatives_core (S : SData F CE condη) (D : FieldDat
         ∃ y : {y : S.FSˣ // S.absS (y : S.FS) = 1},
           (y.1 : S.FS) ∈ K ∧
             ∃ u : S.US, x.1 = (S.diagU (u : Fˣ)) ^ 6 * y.1 := by
-  sorry
+  classical
+  have hAbsFinNorm (v : FinPlace F) (z : v.adicCompletion F) :
+      absFin v z = ‖z‖ := by
+    unfold absFin
+    rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v)]
+    exact (FinitePlace.norm_def v z).symm
+  have hAbsSMul (a b : S.FSˣ) :
+      S.absS (((a * b : S.FSˣ) : S.FS)) =
+        S.absS (a : S.FS) * S.absS (b : S.FS) := by
+    simp only [SData.absS]
+    have hfin (v : S.Sf) :
+        absFin v.1 (((a * b : S.FSˣ) : S.FS).1 v) =
+          absFin v.1 ((a : S.FS).1 v) * absFin v.1 ((b : S.FS).1 v) := by
+      change absFin v.1 ((a : S.FS).1 v * (b : S.FS).1 v) = _
+      rw [hAbsFinNorm, hAbsFinNorm, hAbsFinNorm, norm_mul]
+    have harch (w : InfinitePlace F) :
+        Complex.normSq (((a * b : S.FSˣ) : S.FS).2 w) =
+          Complex.normSq ((a : S.FS).2 w) * Complex.normSq ((b : S.FS).2 w) := by
+      simp [Complex.normSq_eq_norm_sq, norm_mul, mul_pow]
+    rw [show (∏ v : S.Sf,
+        absFin v.1 (((a * b : S.FSˣ) : S.FS).1 v)) =
+          ∏ v : S.Sf, (absFin v.1 ((a : S.FS).1 v) * absFin v.1 ((b : S.FS).1 v)) by
+            apply Finset.prod_congr rfl
+            intro v hv
+            exact hfin v]
+    rw [show (∏ w : InfinitePlace F,
+        Complex.normSq (((a * b : S.FSˣ) : S.FS).2 w)) =
+          ∏ w : InfinitePlace F,
+            (Complex.normSq ((a : S.FS).2 w) * Complex.normSq ((b : S.FS).2 w)) by
+              apply Finset.prod_congr rfl
+              intro w hw
+              exact harch w]
+    rw [Finset.prod_mul_distrib, Finset.prod_mul_distrib]
+    ring
+  have hcontAbsS : Continuous S.absS := by
+    change Continuous (fun y : S.FS =>
+      (∏ v : S.Sf, absFin v.1 (y.1 v)) *
+        ∏ w : InfinitePlace F, Complex.normSq (y.2 w))
+    simp_rw [hAbsFinNorm]
+    fun_prop
+  let M : ℕ := 6 * Fintype.card (ClassGroup (𝓞 F))
+  obtain ⟨Kfin, hKfin, hreduce, hstable⟩ :=
+    covol_sunit_finite_compact_reduction_core S
+  obtain ⟨C, hC, hbalance⟩ := covol_arch_uniform_balanced_log_core D S M
+  let Karch : Set (InfinitePlace F → ℂ) :=
+    Set.pi Set.univ (fun _ => Metric.closedBall (0 : ℂ) (Real.exp C))
+  have hKarch : IsCompact Karch := by
+    dsimp [Karch]
+    exact isCompact_univ_pi (fun _ => isCompact_closedBall (0 : ℂ) (Real.exp C))
+  let Kprod : Set S.FS := Kfin ×ˢ Karch
+  have hKprod : IsCompact Kprod := hKfin.prod hKarch
+  let K : Set S.FS := Kprod ∩ {y | S.absS y = 1}
+  have hK : IsCompact K := by
+    apply hKprod.inter_right
+    exact isClosed_eq hcontAbsS continuous_const
+  refine ⟨K, hK, ?_, ?_⟩
+  · intro y hy
+    exact hy.2
+  · intro x
+    obtain ⟨a, haFin, haLog⟩ := hreduce x
+    let xAdj : S.FSˣ := (S.diagU (a : Fˣ)) ^ 6 * x.1
+    have hdiagNorm (u : S.US) :
+        S.absS ((S.diagU (u : Fˣ) : S.FSˣ) : S.FS) = 1 := by
+      simpa [SData.diagU] using covol_absS_diag_sunit_eq_one_core D S u
+    have hdiagPowNorm (u : S.US) :
+        S.absS ((((S.diagU (u : Fˣ)) ^ 6 : S.FSˣ) : S.FS)) = 1 := by
+      have h := covol_absS_diag_sunit_eq_one_core D S (u ^ 6)
+      simpa [SData.diagU, map_pow] using h
+    have hxAdjNorm : S.absS (xAdj : S.FS) = 1 := by
+      calc
+        S.absS (xAdj : S.FS) =
+            S.absS (((S.diagU (a : Fˣ)) ^ 6 : S.FSˣ) : S.FS) *
+              S.absS (x.1 : S.FS) := hAbsSMul _ _
+        _ = 1 := by rw [hdiagPowNorm a, x.2]; norm_num
+    obtain ⟨ε, hεlog⟩ := hbalance ⟨xAdj, hxAdjNorm⟩ haLog
+    let εF : Fˣ := Units.map (algebraMap (𝓞 F) F).toMonoidHom ε
+    have hεmem : εF ∈ S.US := by
+      change ∀ v : FinPlace F, v ∉ S.Sf →
+        v.valuation F ((εF : Fˣ) : F) = 1
+      intro v hv
+      change v.valuation F (algebraMap (𝓞 F) F (ε : 𝓞 F)) = 1
+      rw [HeightOneSpectrum.valuation_eq_one_iff_notMem]
+      exact Ideal.notMem_of_isUnit v.asIdeal ε.isUnit
+    let εS : S.US := ⟨εF, hεmem⟩
+    let u : S.US := εS * a
+    let yUnit : S.FSˣ := (S.diagU (εS : Fˣ)) ^ 6 * xAdj
+    have hyFactor : yUnit = (S.diagU (u : Fˣ)) ^ 6 * x.1 := by
+      dsimp [yUnit, xAdj, u]
+      rw [map_mul, mul_pow]
+      group
+    have hyNorm : S.absS (yUnit : S.FS) = 1 := by
+      calc
+        S.absS (yUnit : S.FS) =
+            S.absS (((S.diagU (εS : Fˣ)) ^ 6 : S.FSˣ) : S.FS) *
+              S.absS (xAdj : S.FS) := hAbsSMul _ _
+        _ = 1 := by rw [hdiagPowNorm εS, hxAdjNorm]; norm_num
+    have hyFin : (yUnit : S.FS).1 ∈ Kfin := by
+      have h := hstable ((ε : 𝓞 F) ^ 6) (fun v : S.Sf => (xAdj : S.FS).1 v) haFin
+      convert h using 1
+      funext v
+      simp [yUnit, xAdj, SData.diagU, SData.diag, εS, εF]
+    have hyArchBound (w : InfinitePlace F) :
+        ‖(yUnit : S.FS).2 w‖ ≤ Real.exp C := by
+      have hlog := (abs_le.mp (hεlog w)).2
+      have hpos : 0 <
+          ‖w.embedding (algebraMap (𝓞 F) F ((ε : 𝓞 F) ^ 6))‖ *
+            ‖(S.compC w xAdj : ℂ)‖ := by
+        apply mul_pos
+        · apply norm_pos_iff.mpr
+          intro hzero
+          apply Units.ne_zero (ε ^ 6)
+          exact FaithfulSMul.algebraMap_injective (𝓞 F) F
+            (w.embedding.injective (by simpa using hzero))
+        · exact norm_pos_iff.mpr (Units.ne_zero (S.compC w xAdj))
+      have hnormProd :
+          ‖(yUnit : S.FS).2 w‖ =
+            ‖w.embedding (algebraMap (𝓞 F) F ((ε : 𝓞 F) ^ 6))‖ *
+              ‖(S.compC w xAdj : ℂ)‖ := by
+        simp [yUnit, xAdj, SData.diagU, SData.diag, SData.compC, εS, εF,
+          Complex.norm_mul]
+      rw [hnormProd]
+      exact (Real.log_le_iff_le_exp hpos).mp hlog
+    have hyArch : (yUnit : S.FS).2 ∈ Karch := by
+      change ∀ w : InfinitePlace F, w ∈ Set.univ →
+        (yUnit : S.FS).2 w ∈ Metric.closedBall (0 : ℂ) (Real.exp C)
+      intro w hw
+      rw [Metric.mem_closedBall, dist_zero_right]
+      exact hyArchBound w
+    have hyMem : (yUnit : S.FS) ∈ K := by
+      refine ⟨⟨hyFin, hyArch⟩, hyNorm⟩
+    refine ⟨⟨yUnit, hyNorm⟩, hyMem, u⁻¹, ?_⟩
+    change x.1 = S.diagU ((u⁻¹ : S.US) : Fˣ) ^ 6 * yUnit
+    rw [hyFactor]
+    have hmapinv : S.diagU ((u⁻¹ : S.US) : Fˣ) =
+        (S.diagU (u : Fˣ))⁻¹ := by
+      rw [show ((u⁻¹ : S.US) : Fˣ) = ((u : Fˣ)⁻¹) by rfl, map_inv]
+    rw [hmapinv]
+    group
 
 end ArtinPrimitiveRoots.Proofs.A1_LATTICE
