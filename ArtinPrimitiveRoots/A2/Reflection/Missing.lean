@@ -3247,7 +3247,140 @@ theorem rf_exterior_factorization :
             (Lvalue R υ (S.diagU (bc.gen (R.exterior.ofSqf c))))⁻¹ := by
       have h := congrArg (fun z : ℂˣ => (z : ℂ)) hLunitEq
       simpa [Lvalue, Lh, Units.val_zpow_eq_zpow_val] using h
-    sorry
+    let τc (v : FinPlace F) : Fˣ := bc.gen (R.exterior.ofSqf c) / primeGen R v
+    let θc (v : FinPlace F) : Fˣ := τc v * ρ * bc.gen d ^ (2 : ℕ)
+    have hθcDef (v : FinPlace F) : θc v =
+        (R.sheets.eps t.u : Fˣ) * bc.gen t.a * τc v * bc.gen t.f ^ (-2 : ℤ) := by
+      apply Units.ext
+      simp only [θc, ρ, Units.val_mul, Units.val_div_eq_div_val,
+        Units.val_pow_eq_pow_val, Units.val_zpow_eq_zpow_val]
+      simp only [zpow_neg]
+      norm_num
+      field_simp <;> ring
+    have hχcPhase (v : FinPlace F)
+        (hvC : v ∈ R.exterior.support (R.exterior.ofSqf c)) :
+        chi D v (τc v : F) ^ (2 : ℤ) * chi D v (ρ : F) ^ (2 : ℤ) =
+          chi D v (θc v : F) ^ (2 : ℕ) * chi D v (bc.gen d : F) ^ (-4 : ℤ) := by
+      have hvS := R.exterior.support_exterior (R.exterior.ofSqf c) v hvC
+      have hDord := hgenDOrd0 v hvS (hno_c_d v hvC)
+      have hρordC := hρord_out v hvS (hno_c_d v hvC) (hno_c_f v hvC)
+      have hτord : ordv v (toLoc v (τc v)) = 0 := by
+        have hsq : Squarefree (R.exterior.ofSqf c).1 := by
+          simpa only [R.exterior.ofSqf_val] using c.property.2
+        have hcExp := rf_idealExp_eq_one_of_squarefree_support R v
+          (R.exterior.ofSqf c) hsq hvC
+        simp only [τc, map_div]
+        rw [hOrdDiv, rf_ordv_toLoc_ofGen v hvS (R.exterior.ofSqf c)
+          (bc.gen (R.exterior.ofSqf c)) (bc.gen_spec _).1, hcExp, hprimeOrd v hvS]
+        norm_num
+      have hθord : ordv v (toLoc v (θc v)) = 0 := by
+        simp only [θc, map_mul, map_pow]
+        rw [rf_ordv_mul, rf_ordv_mul, hOrdPow2, hτord, hρordC, hDord]
+        norm_num
+      have hτval := rf_globalVal_one_of_ordv_zero v (τc v) hτord
+      have hρvalC := rf_globalVal_one_of_ordv_zero v ρ hρordC
+      have hθval := rf_globalVal_one_of_ordv_zero v (θc v) hθord
+      have hDval := rf_globalVal_one_of_ordv_zero v (bc.gen d) hDord
+      have hDnegVal : HeightOneSpectrum.valuation F v
+          ((bc.gen d ^ (-2 : ℤ) : Fˣ) : F) = 1 := by
+        simp only [Units.val_zpow_eq_zpow_val, map_zpow₀, hDval, one_zpow]
+      have hargs : τc v * ρ = θc v * bc.gen d ^ (-2 : ℤ) := by
+        simp [θc, zpow_neg, mul_assoc]
+      have hmul1 := (a2_bridge_SYMBOL D S).chi_mul v hvS
+        (τc v : F) (ρ : F) hτval.le hρvalC.le
+      have hmul2 := (a2_bridge_SYMBOL D S).chi_mul v hvS
+        (θc v : F) ((bc.gen d ^ (-2 : ℤ) : Fˣ) : F) hθval.le hDnegVal.le
+      have hDchar := rf_chi_argument_zpow (D := D) (S := S) v hvS
+        (bc.gen d) hDval (-2 : ℤ)
+      have hchar : chi D v (τc v : F) * chi D v (ρ : F) =
+          chi D v (θc v : F) * chi D v (bc.gen d : F) ^ (-2 : ℤ) := by
+        calc
+          _ = chi D v ((τc v * ρ : Fˣ) : F) := by
+            simpa only [Units.val_mul] using hmul1.symm
+          _ = chi D v ((θc v * bc.gen d ^ (-2 : ℤ) : Fˣ) : F) := by rw [hargs]
+          _ = chi D v (θc v : F) *
+              chi D v ((bc.gen d ^ (-2 : ℤ) : Fˣ) : F) := by
+            simpa only [Units.val_mul] using hmul2
+          _ = _ := by rw [hDchar]
+      have hnegSquare : (chi D v (bc.gen d : F) ^ (-2 : ℤ)) ^ (2 : ℕ) =
+          chi D v (bc.gen d : F) ^ (-4 : ℤ) := by
+        rw [← zpow_natCast, ← zpow_mul]
+        norm_num
+      have hsq := congrArg (fun z : ℂ => z ^ (2 : ℕ)) hchar
+      simp only [mul_pow, hnegSquare] at hsq
+      simpa using hsq
+    have hgammaC : gamma D S A 2 c.1 (cgen R c) =
+        ∏ v ∈ R.exterior.support (R.exterior.ofSqf c),
+          gamma D S A 2 v.asIdeal (primeGen R v : F) * chi D v (τc v : F) ^ (2 : ℤ) := by
+      simpa only [τc, cgen, Units.val_div_eq_div_val] using rf_gamma_sqf_factorization R c
+    have hgammaPhase :
+        gamma D S A 2 c.1 (cgen R c) *
+          (∏ v ∈ R.exterior.support (R.exterior.ofSqf c), chi D v (ρ : F) ^ (2 : ℤ)) =
+        (∏ v ∈ R.exterior.support (R.exterior.ofSqf c),
+          gamma D S A 2 v.asIdeal (primeGen R v : F) * chi D v (θc v : F) ^ (2 : ℕ)) *
+          (∏ v ∈ R.exterior.support (R.exterior.ofSqf c),
+            chi D v (bc.gen d : F) ^ (-4 : ℤ)) := by
+      rw [hgammaC, ← Finset.prod_mul_distrib, ← Finset.prod_mul_distrib]
+      apply Finset.prod_congr rfl
+      intro v hvC
+      calc
+        _ = gamma D S A 2 v.asIdeal (primeGen R v : F) *
+            (chi D v (τc v : F) ^ (2 : ℤ) * chi D v (ρ : F) ^ (2 : ℤ)) := by ring
+        _ = _ := by rw [hχcPhase v hvC]; ring
+    have hgammaQ :
+        gamma D S A 2 c.1 (bc.gen (R.exterior.ofSqf c) : F) *
+          (qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1 : ℝ) *
+          (∏ v ∈ R.exterior.support (R.exterior.ofSqf c), chi D v (ρ : F) ^ (2 : ℤ)) =
+        (∏ v ∈ R.exterior.support (R.exterior.ofSqf c),
+          gamma D S A 2 v.asIdeal (primeGen R v : F) * chi D v (θc v : F) ^ (2 : ℕ)) *
+          (∏ v ∈ R.exterior.support (R.exterior.ofSqf c),
+            chi D v (bc.gen d : F) ^ (-4 : ℤ)) *
+          (qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1 : ℝ) := by
+      calc
+        _ = (gamma D S A 2 c.1 (cgen R c) *
+            (∏ v ∈ R.exterior.support (R.exterior.ofSqf c), chi D v (ρ : F) ^ (2 : ℤ))) *
+            (qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1 : ℝ) := by unfold cgen; ring
+        _ = _ := by rw [hgammaPhase]
+    have hOmegaEq : frozenOmega R υ t =
+        inactiveScalar R h t.f * (Lvalue R υ (S.diagU (bc.gen t.a)))⁻¹ *
+          Lvalue R υ (S.diagU (bc.gen t.n)) ^ (-3 : ℤ) *
+          Lvalue R υ (S.diagU (bc.gen t.f)) ^ (2 : ℕ) *
+          (∏ v ∈ R.exterior.support t.f,
+            localR R v (frozenJ t v) (idealExp v t.a.1) 1 *
+              chi D v (θf v : F) ^ frozenB t v) := by
+      simp only [frozenOmega, θf, Units.val_mul, Units.val_div_eq_div_val,
+        Units.val_pow_eq_pow_val, Units.val_zpow_eq_zpow_val]
+    have hRhoEq : frozenRho R υ t sd d =
+        Lvalue R υ (S.diagU (bc.gen d)) ^ (2 : ℕ) *
+          (∏ v ∈ R.exterior.support d, localOmega R v * chi D v (θd v : F)) *
+          (∏ v ∈ R.exterior.support t.f, chi D v (bc.gen d : F) ^ (-2 * frozenB t v)) := by
+      rw [frozenRho, if_pos ⟨hd, hdh, hsd⟩]
+      simp only [θd, Units.val_mul, Units.val_div_eq_div_val,
+        Units.val_pow_eq_pow_val, Units.val_zpow_eq_zpow_val]
+    have hLambdaEq : frozenLambda R υ t sc c =
+        (Lvalue R υ (S.diagU (bc.gen (R.exterior.ofSqf c))))⁻¹ *
+          (∏ v ∈ R.exterior.support t.f, chi D v (cgen R c) ^ frozenB t v) *
+          (∏ v ∈ R.exterior.support (R.exterior.ofSqf c),
+            gamma D S A 2 v.asIdeal (primeGen R v : F) * chi D v (θc v : F) ^ (2 : ℕ)) := by
+      rw [frozenLambda, if_pos ⟨hcf, hsc⟩]
+      congr 1
+      apply Finset.prod_congr rfl
+      intro v hvC
+      rw [hθcDef v]
+      simp only [τc, cgen, Units.val_mul, Units.val_div_eq_div_val,
+        Units.val_zpow_eq_zpow_val]
+    have hLnatEq :
+        (Lvalue R υ (S.diagU (frozenFrequency R t d c)))⁻¹ =
+          (Lvalue R υ (S.diagU (bc.gen t.a)))⁻¹ *
+            Lvalue R υ (S.diagU (bc.gen t.n)) ^ (-3 : ℤ) *
+            Lvalue R υ (S.diagU (bc.gen t.f)) ^ (2 : ℕ) *
+            Lvalue R υ (S.diagU (bc.gen d)) ^ (2 : ℕ) *
+            (Lvalue R υ (S.diagU (bc.gen (R.exterior.ofSqf c))))⁻¹ := by
+      simpa using hLcomplexEq
+    have hPair := rf_sqf_pairing_product R d c hd hdc
+    rw [hgroupBase, hLnatEq, hgammaQ, hOmegaEq, hRhoEq, hLambdaEq, ← hPair]
+    simp only [Finset.prod_mul_distrib, cgen]
+    ring
 /-- rf:S-unfolding, 04:804–857. Inversion changes l to 1/l without a norm Jacobian. -/
 theorem rf_S_unfolding : ∀ u ν l, 0 < l →
   let term := fun γ : Gamma S => omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
