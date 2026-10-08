@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.SmallPowers
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.Congruence
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.SubgroupTopology
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CongruenceTopology
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CompletionCompact
 
 
 /-!
