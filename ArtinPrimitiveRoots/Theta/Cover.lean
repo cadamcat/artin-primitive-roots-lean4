@@ -3013,6 +3013,118 @@ private theorem exists_tameSmallIdentity
     rw [H.sixth_power v u _ (hpowers u (hu.trans hrr)), muThree_one D]
   · rfl
 
+/-- The algebraic view of an arbitrary finite local cover. -/
+private def finLocalAlgebraOfCover
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (L : FinLocalCover D H v) : FinLocalAlgebra D H v where
+  L := L.L
+  grp := L.grp
+  z := L.z
+  z_inj := L.z_inj
+  z_central := L.z_central
+  pr := L.pr
+  pr_surj := L.pr_surj
+  pr_ker := L.pr_ker
+  n := L.n
+  nbar := L.nbar
+  a := L.a
+  w := L.w
+  sec := L.sec
+  sec_mul := L.sec_mul
+  sec_pr := L.sec_pr
+  sec_scalar := L.sec_scalar
+  sec_n := L.sec_n
+  sec_nbar := L.sec_nbar
+  sec_a := L.sec_a
+  sec_w := L.sec_w
+  pr_n := L.pr_n
+  pr_nbar := L.pr_nbar
+  pr_a := L.pr_a
+  pr_w := L.pr_w
+  a_one := L.a_one
+  a_mul := L.a_mul
+  lift_na := L.lift_na
+  lift_wa := L.lift_wa
+  lift_wn := L.lift_wn
+  w_sq := L.w_sq
+  w_n_w := L.w_n_w
+
+/-- The corrected integral section used for the tame maximal compact. -/
+private def tameIntegralLift
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (L : FinLocalCover D H v)
+    (k : GL (Fin 2) (v.adicCompletionIntegers F)) : L.L :=
+  L.z (tameSplit D H v
+    (Matrix.GeneralLinearGroup.map (v.adicCompletionIntegers F).subtype k)) *
+      L.sec (Matrix.GeneralLinearGroup.map (v.adicCompletionIntegers F).subtype k)
+
+/-- The integral tame lift is continuous at one, independently of the tame hypothesis. -/
+private theorem tameIntegralLift_continuousAt_one
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (L : FinLocalCover D H v) :
+    ContinuousAt (tameIntegralLift D H v L) 1 := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let j : O →+* K := O.subtype
+  let ιM : Matrix (Fin 2) (Fin 2) O →+* Matrix (Fin 2) (Fin 2) K := RingHom.mapMatrix j
+  let ι : GL (Fin 2) O →* GL (Fin 2) K := Matrix.GeneralLinearGroup.map j
+  have hM : Continuous ιM := continuous_id.matrix_map continuous_subtype_val
+  have hι : Continuous ι := hM.units_map ιM.toMonoidHom
+  let C := finLocalAlgebraOfCover L
+  obtain ⟨B⟩ := exists_finLocalSmallAlgebra D H v hSt C
+  obtain ⟨ms, _, hcorrection⟩ := exists_tameSmallIdentity D H v
+  have hsecOne : L.sec (1 : GL (Fin 2) K) = 1 := by
+    simpa only [map_one] using L.sec_scalar (1 : Kˣ)
+  have hOne : tameIntegralLift D H v L 1 = 1 := by
+    simp only [tameIntegralLift, map_one]
+    rw [show tameSplit D H v (1 : GL (Fin 2) K) = 1 by simp [tameSplit],
+      map_one, one_mul, hsecOne]
+  rw [ContinuousAt, hOne]
+  change Filter.map (tameIntegralLift D H v L) (nhds (1 : GL (Fin 2) O)) ≤ nhds (1 : L.L)
+  intro U hU
+  obtain ⟨m, hm, hsub⟩ := L.Kc_nhds U hU
+  let N := max m (max B.m0 ms)
+  have hmn : m ≤ N := le_max_left _ _
+  have hBN : B.m0 ≤ N := (le_max_left B.m0 ms).trans (le_max_right _ _)
+  have hmsN : ms ≤ N := (le_max_right B.m0 ms).trans (le_max_right _ _)
+  let Uc : Set (GL (Fin 2) K) := {g | ∀ i j,
+    Valued.v ((g : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ WithZero.exp (-(N : ℤ))}
+  have hWopen : IsOpen (ι ⁻¹' Uc) :=
+    ((ArtinPrimitiveRoots.Proofs.th_cover_sol.congruenceTopology v).1 N).preimage hι
+  have hWone : (1 : GL (Fin 2) O) ∈ ι ⁻¹' Uc := by
+    simp only [Set.mem_preimage, map_one]
+    simp [Uc]
+  have monoBall (x : K) (hx : x ∈ ball v N) : x ∈ ball v m := by
+    change Valued.v x ≤ WithZero.exp (-(N : ℤ)) at hx
+    change Valued.v x ≤ WithZero.exp (-(m : ℤ))
+    exact hx.trans (WithZero.exp_le_exp.mpr (by omega))
+  change (tameIntegralLift D H v L) ⁻¹' U ∈ nhds (1 : GL (Fin 2) O)
+  apply Filter.mem_of_superset (hWopen.mem_nhds hWone)
+  intro k hk
+  have hg : ∀ i j, ((ι k : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v N := hk
+  have hsecB : C.sec (ι k) ∈ B.Kc N := by
+    change C.sec (ι k) ∈ (B.Kc N : Set C.L)
+    rw [B.Kc_eq N hBN]
+    exact ⟨ι k, hg, rfl⟩
+  obtain ⟨α, β, u, hα, hβ, hu, heq⟩ :=
+    finLocalSmallAlgebra_decomposition C B N hBN (C.sec (ι k)) hsecB
+  have hsecL : L.sec (ι k) ∈ L.Kc m := by
+    change C.sec (ι k) ∈ L.Kc m
+    rw [heq]
+    exact (L.Kc m).mul_mem
+      ((L.Kc m).mul_mem (L.n_Kc m hm α (monoBall α hα))
+        (L.a_Kc m hm u (monoBall ((u : K) - 1) hu)))
+      (L.nbar_Kc m hm β (monoBall β hβ))
+  have heval : tameIntegralLift D H v L k = L.sec (ι k) := by
+    change L.z (tameSplit D H v (ι k)) * L.sec (ι k) = L.sec (ι k)
+    rw [hcorrection N hmsN (ι k) hg, map_one, one_mul]
+  change tameIntegralLift D H v L k ∈ U
+  rw [heval]
+  exact hsub hsecL
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
