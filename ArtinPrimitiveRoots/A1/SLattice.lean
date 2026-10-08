@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A1.AddChar
 import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.Core
+import ArtinPrimitiveRoots.Theta.LocalInt
 import Mathlib.MeasureTheory.Group.Measure
 
 /-!
@@ -16,6 +17,7 @@ the required total-complexity property.
 set_option autoImplicit false
 
 open NumberField IsDedekindDomain MeasureTheory
+open ArtinPrimitiveRoots.A1.Theta
 open scoped Classical SchwartzMap
 
 noncomputable section
@@ -648,6 +650,187 @@ private theorem covol_local_addchar_conductor (D : FieldData F) (S : SData F CE 
     have hzero := hcmax 0 hP0
     omega
   exact ⟨c, hc_nonneg, hc, x, hx, hψ⟩
+
+private theorem covol_unifLoc_valuation (v : FinPlace F) :
+    Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+  have hπcoerce : (unifLoc v : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (unif (F := F) v) := by
+    simp [unifLoc, toLoc]
+  rw [hπcoerce]
+  change Valued.v ((unif (F := F) v : F) : v.adicCompletion F) = WithZero.exp (-1 : ℤ)
+  rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+  simpa [unif] using (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+
+private theorem covol_local_ball_image (v : FinPlace F) (n : ℤ) :
+    ball v n = (fun x : v.adicCompletion F =>
+      ((unifLoc v ^ n : (v.adicCompletion F)ˣ) : v.adicCompletion F) * x) ''
+      (v.adicCompletionIntegers F : Set (v.adicCompletion F)) := by
+  let K := v.adicCompletion F
+  let π : Kˣ := unifLoc v
+  have hπval : Valued.v (π : K) = WithZero.exp (-1 : ℤ) :=
+    covol_unifLoc_valuation v
+  have hπpow : Valued.v ((π ^ n : Kˣ) : K) = WithZero.exp (-n) := by
+    have hpow : Valued.v ((π ^ n : Kˣ) : K) = Valued.v (π : K) ^ n := by simp
+    rw [hpow, hπval, ← WithZero.exp_zsmul]
+    congr 1
+    simp
+  ext x
+  constructor
+  · intro hx
+    refine ⟨((π ^ n : Kˣ)⁻¹ : K) * x, ?_, ?_⟩
+    · change Valued.v (((π ^ n : Kˣ)⁻¹ : K) * x) ≤ 1
+      rw [map_mul, map_inv₀, hπpow]
+      calc
+        _ = WithZero.exp n * Valued.v x := by simp
+        _ ≤ WithZero.exp n * WithZero.exp (-n) :=
+          mul_le_mul_of_nonneg_left hx WithZero.exp_pos.le
+        _ = 1 := by rw [← WithZero.exp_add]; simp
+    · change ((π ^ n : Kˣ) : K) * (((π ^ n : Kˣ)⁻¹ : K) * x) = x
+      have hne : ((π ^ n : Kˣ) : K) ≠ 0 := Units.ne_zero _
+      calc
+        _ = (((π ^ n : Kˣ) : K) * ((π ^ n : Kˣ) : K)⁻¹) * x := by rw [mul_assoc]
+        _ = 1 * x := by rw [mul_inv_cancel₀ hne]
+        _ = x := by simp
+  · rintro ⟨x, hx, rfl⟩
+    change Valued.v (((π ^ n : Kˣ) : K) * x) ≤ WithZero.exp (-n)
+    rw [map_mul, hπpow]
+    calc
+      _ ≤ WithZero.exp (-n) * 1 := by
+        have hx' : Valued.v x ≤ (1 : WithZero (Multiplicative ℤ)) := by
+          change Valued.v x ≤ 1 at hx
+          exact hx
+        exact mul_le_mul_of_nonneg_left hx' WithZero.exp_pos.le
+      _ = WithZero.exp (-n) := by simp
+
+private theorem covol_locHaar_real_ball (v : FinPlace F) (μ : LocHaar v) (n : ℤ) :
+    μ.μ.real (ball v n) = absFin v (unifLoc v ^ n) := by
+  let K := v.adicCompletion F
+  let O : Set K := v.adicCompletionIntegers F
+  let u : Kˣ := unifLoc v ^ n
+  have hOopen : IsOpen O := Valued.isOpen_valuationSubring K
+  have hBopen : IsOpen (ball v n) :=
+    v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hImage : ball v n = (fun x : K => (u : K) * x) '' O := by
+    simpa [u] using covol_local_ball_image v n
+  have hpre : (fun x : K => (u : K) * x) ⁻¹' ball v n = O := by
+    rw [hImage]
+    ext x
+    constructor
+    · rintro ⟨y, hy, hxy⟩
+      have hcancel : y = x := mul_left_cancel₀ (Units.ne_zero u) hxy
+      simpa [hcancel] using hy
+    · intro hx
+      exact ⟨x, hx, rfl⟩
+  let f : K → ℝ := Set.indicator (ball v n) 1
+  have hf : (fun x : K => f ((u : K) * x)) = Set.indicator O 1 := by
+    funext x
+    have hxmem : (u : K) * x ∈ ball v n ↔ x ∈ O := by
+      change x ∈ (fun x : K => (u : K) * x) ⁻¹' ball v n ↔ x ∈ O
+      rw [hpre]
+    by_cases hx : x ∈ O <;> simp [f, hx, hxmem]
+  have hscale := LocHaar.integral_comp_mul μ u f
+  rw [hf] at hscale
+  have hOint : ∫ x : K, Set.indicator O 1 x ∂μ.μ = μ.μ.real O :=
+    integral_indicator_one (μ := μ.μ) hOopen.measurableSet
+  have hBint : ∫ x : K, Set.indicator (ball v n) 1 x ∂μ.μ =
+      μ.μ.real (ball v n) := integral_indicator_one (μ := μ.μ) hBopen.measurableSet
+  rw [hOint, hBint] at hscale
+  have hOvol : μ.μ.real O = 1 := by
+    change (μ.μ O).toReal = 1
+    rw [μ.norm_O]
+    rfl
+  change μ.μ.real O = (absFin v u)⁻¹ * μ.μ.real (ball v n) at hscale
+  rw [hOvol] at hscale
+  have hnonzero : absFin v u ≠ 0 := (absFin_pos (Units.ne_zero u)).ne'
+  field_simp [hnonzero] at hscale
+  simpa [u] using hscale.symm
+
+private noncomputable def covol_local_selfdual_scale (v : FinPlace F) (d : ℕ) : ℝ :=
+  (Real.sqrt (absFin v (unifLoc v ^ (-(d : ℤ)))))⁻¹
+
+private noncomputable def covol_local_selfdual_measure (v : FinPlace F)
+    (μ : LocHaar v) (d : ℕ) : Measure (v.adicCompletion F) :=
+  ENNReal.ofReal (covol_local_selfdual_scale v d) • μ.μ
+
+private theorem covol_local_selfdual_scale_pos (v : FinPlace F) (d : ℕ) :
+    0 < covol_local_selfdual_scale v d := by
+  have hunit : (unifLoc v : v.adicCompletion F) ^ (-(d : ℤ)) ≠ 0 :=
+    zpow_ne_zero _ (Units.ne_zero (unifLoc v))
+  have ha : 0 < absFin v (unifLoc v ^ (-(d : ℤ))) := absFin_pos hunit
+  unfold covol_local_selfdual_scale
+  exact inv_pos.mpr (Real.sqrt_pos.2 ha)
+
+private theorem covol_local_selfdual_scale_square (v : FinPlace F) (d : ℕ) :
+    covol_local_selfdual_scale v d ^ 2 * absFin v (unifLoc v ^ (-(d : ℤ))) = 1 := by
+  let a : ℝ := absFin v (unifLoc v ^ (-(d : ℤ)))
+  have ha : 0 < a := by
+    dsimp [a]
+    have hunit : (unifLoc v : v.adicCompletion F) ^ (-(d : ℤ)) ≠ 0 :=
+      zpow_ne_zero _ (Units.ne_zero (unifLoc v))
+    exact absFin_pos hunit
+  change (Real.sqrt a)⁻¹ ^ 2 * a = 1
+  have hsq : Real.sqrt a ^ 2 = a := Real.sq_sqrt ha.le
+  have hsqrtne : Real.sqrt a ≠ 0 := (Real.sqrt_pos.2 ha).ne'
+  calc
+    (Real.sqrt a)⁻¹ ^ 2 * a = (Real.sqrt a)⁻¹ ^ 2 * Real.sqrt a ^ 2 := by rw [hsq]
+    _ = 1 := by field_simp [hsqrtne]
+
+private theorem covol_local_selfdual_measure_isHaar (v : FinPlace F)
+    (μ : LocHaar v) (d : ℕ) :
+    Measure.IsAddHaarMeasure (covol_local_selfdual_measure v μ d) := by
+  let c : ENNReal := ENNReal.ofReal (covol_local_selfdual_scale v d)
+  have hc0 : c ≠ 0 := by
+    dsimp [c]
+    exact ENNReal.ofReal_ne_zero_iff.mpr (covol_local_selfdual_scale_pos v d)
+  have hctop : c < ⊤ := by
+    dsimp [c]
+    exact (ENNReal.ofReal_lt_top : ENNReal.ofReal (covol_local_selfdual_scale v d) < ⊤)
+  change Measure.IsAddHaarMeasure (c • μ.μ)
+  exact Measure.IsAddHaarMeasure.smul μ.μ hc0 hctop.ne
+
+private theorem covol_local_selfdual_measure_real_ball (v : FinPlace F)
+    (μ : LocHaar v) (d : ℕ) (n : ℤ) :
+    (covol_local_selfdual_measure v μ d).real (ball v n) =
+      covol_local_selfdual_scale v d * absFin v (unifLoc v ^ n) := by
+  simp [covol_local_selfdual_measure, covol_local_selfdual_scale,
+    covol_locHaar_real_ball]
+
+private theorem covol_local_selfdual_measure_ball_pair (v : FinPlace F)
+    (μ : LocHaar v) (d : ℕ) (n : ℤ) :
+    (covol_local_selfdual_measure v μ d).real (ball v n) *
+      (covol_local_selfdual_measure v μ d).real (ball v (- (d : ℤ) - n)) = 1 := by
+  rw [covol_local_selfdual_measure_real_ball, covol_local_selfdual_measure_real_ball]
+  have hnorm' : absFin v ((unifLoc v : v.adicCompletion F) ^ n *
+      (unifLoc v : v.adicCompletion F) ^ (-(d : ℤ) - n)) =
+      absFin v ((unifLoc v : v.adicCompletion F) ^ n) *
+        absFin v ((unifLoc v : v.adicCompletion F) ^ (-(d : ℤ) - n)) := by
+    calc
+      _ = ‖(unifLoc v : v.adicCompletion F) ^ n *
+          (unifLoc v : v.adicCompletion F) ^ (-(d : ℤ) - n)‖ := absFin_eq_norm _ _
+      _ = ‖(unifLoc v : v.adicCompletion F) ^ n‖ *
+          ‖(unifLoc v : v.adicCompletion F) ^ (-(d : ℤ) - n)‖ := norm_mul _ _
+      _ = _ := by rw [← absFin_eq_norm, ← absFin_eq_norm]
+  have hpow : unifLoc v ^ n * unifLoc v ^ (-(d : ℤ) - n) =
+      unifLoc v ^ (-(d : ℤ)) := by
+    rw [← zpow_add]
+    congr 1 <;> ring
+  have hpow' : ((unifLoc v ^ n : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+      ((unifLoc v ^ (-(d : ℤ) - n) : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+        ((unifLoc v ^ (-(d : ℤ)) : (v.adicCompletion F)ˣ) : v.adicCompletion F) :=
+    congrArg (fun u : (v.adicCompletion F)ˣ => (u : v.adicCompletion F)) hpow
+  have hpow'' : (unifLoc v : v.adicCompletion F) ^ n *
+      (unifLoc v : v.adicCompletion F) ^ (-(d : ℤ) - n) =
+        (unifLoc v : v.adicCompletion F) ^ (-(d : ℤ)) := by
+    simpa only [Units.val_zpow_eq_zpow_val] using hpow'
+  calc
+    _ = covol_local_selfdual_scale v d ^ 2 *
+        (absFin v (unifLoc v ^ n) * absFin v (unifLoc v ^ (-(d : ℤ) - n))) := by ring
+    _ = covol_local_selfdual_scale v d ^ 2 *
+        absFin v (unifLoc v ^ n * unifLoc v ^ (-(d : ℤ) - n)) :=
+          congrArg (fun x : ℝ => covol_local_selfdual_scale v d ^ 2 * x) hnorm'.symm
+    _ = covol_local_selfdual_scale v d ^ 2 * absFin v (unifLoc v ^ (-(d : ℤ))) := by
+          rw [hpow'']
+    _ = 1 := covol_local_selfdual_scale_square v d
 
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
