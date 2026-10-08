@@ -5,6 +5,7 @@ import Mathlib.NumberTheory.NumberField.CanonicalEmbedding.Basic
 import Mathlib.Algebra.Module.ZLattice.Summable
 import Mathlib.NumberTheory.NumberField.InfinitePlace.TotallyRealComplex
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_MINK.R11
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_MINK.R7
 
 /-! Reduction-theory nodes R1--R14. This first stage states the nodes that can start against
 the frozen interface. -/
@@ -2941,7 +2942,7 @@ theorem R7_minkowski :
         ∏ w : InfinitePlace F,
           rowHeightForm F
             (algebraMap (𝓞 F) F v.1, algebraMap (𝓞 F) F v.2) z w ≤ C_M := by
-  sorry
+  exact specMink_R7_minkowski (F := F)
 
 /-- R11 `spec:free-level` — P-SPEC.md:224, 330–336. A nonzero principal congruence subgroup
 acts freely on the product hyperbolic space. -/
