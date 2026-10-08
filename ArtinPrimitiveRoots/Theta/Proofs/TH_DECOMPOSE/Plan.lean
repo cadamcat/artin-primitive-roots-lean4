@@ -1,7 +1,7 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.QuotientGeometry
-import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.ScalarAnalytic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.UnitaryScalar
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
@@ -144,6 +144,9 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
       (hx : x ∉ G.Alag v) := tame_lam_sigma_eq_zero P G v hv x hx
   have hsupport (g : P.tc.G) := finite_diagonal_scalar_support P G sec T0 hT0 g
   have hparameter (g : P.tc.G) := scalarOf_parameter_analytic P G sec T0 hT0 hC han g
+  have hunitary (s : ℂ) (g : PGL2 ℂ) (k : GL (Fin 2) ℂ)
+      (hk : (k : Matrix (Fin 2) (Fin 2) ℂ) ∈ Matrix.unitaryGroup (Fin 2) ℂ) :=
+    sphC_right_unitary s g k hk
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/
