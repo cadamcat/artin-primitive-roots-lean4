@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_SHEETS.ProductPolar
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».PowerClasses
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».FiniteWeighted
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».ComplexRadial
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».ComplexWeighted
 
 open MeasureTheory
 open scoped FourierTransform
