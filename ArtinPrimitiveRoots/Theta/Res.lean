@@ -629,7 +629,25 @@ theorem center_mem_root_closure {D : FieldData F} {H : HilbertData F} {v : FinPl
 theorem thetaWhit_ne_zero {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
     (hθ : ∃ g, C.theta g ≠ 0) : ∃ g, thetaWhit C g ≠ 0 := by
-  sorry
+  classical
+  by_contra h
+  have hW : ∀ g, thetaWhit C g = 0 := by simpa only [not_exists, not_not] using h
+  have hcoeff : ∀ (g : P.tc.G)
+      (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (Pd : Set (InfinitePlace F → ℂ)) (ν : Fˣ),
+      FourierAdaptedDomain Fam.sec g 𝔞 Pd (ν : F) →
+        torusCoeff P C.theta g Pd (ν : F) = 0 := by
+    intro g 𝔞 Pd ν hdom
+    exact (theta_fourierCoeff Fam C g 𝔞 hdom.1 hdom.2.1 Pd hdom.2.2.1
+      hdom.2.2.2.1 ν hdom.2.2.2.2).trans (hW _)
+  have harch := residue_arch_invariant_of_nonzero_coeff_zero Fam C Fam.fourierHyp hcoeff
+  obtain ⟨v, hv⟩ := exists_exterior_finPlace S
+  have hn := residue_exterior_upper_invariant_of_arch_invariant Fam C harch v hv
+  have hnbar := residue_exterior_lower_invariant_of_upper_invariant Fam C v hv hn
+  obtain ⟨g, hg⟩ := hθ
+  exact hg (root_invariant_genuine_zero (P := P) v hv C.theta (residue_genuine Fam C)
+    (fun t g => hn (Multiplicative.toAdd t) g)
+    (fun t g => hnbar (Multiplicative.toAdd t) g) g)
 
 /-- **res:theta-exists**: big-cell sections at `S_f` and spherical sections elsewhere give `θ ≠ 0`.
 C6 of `sol-gate-theta` requires the cube-containing Lagrangian global datum. -/

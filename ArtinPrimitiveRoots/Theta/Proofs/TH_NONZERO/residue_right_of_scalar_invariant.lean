@@ -26,11 +26,16 @@ theorem residue_right_of_scalar_invariant {P : CoverPackage D S H A} {G : Global
       (Metric.ball (5 / 2 : ℂ) (1 / 2)) := by
     intro s hs
     change C.E s (g * k) = C.E s g
+    have hnorm : ‖s - (5 / 2 : ℂ)‖ < 1 / 2 := by
+      simpa [dist_eq_norm] using Metric.mem_ball.mp hs
+    have hreal : |s.re - (5 / 2 : ℝ)| < 1 / 2 := by
+      simpa [Complex.sub_re] using
+        lt_of_le_of_lt (Complex.abs_re_le_norm (s - (5 / 2 : ℂ))) hnorm
+    have hsre : 1 / 2 < s.re := by
+      have := (abs_lt.mp hreal).1
+      linarith
     rw [C.E_series s hs, C.E_series s hs]
-    unfold eisenstein
-    apply tsum_congr
-    intro γ
-    simpa only [mul_assoc] using hk s (P.tc.rat (Quotient.out γ) * g)
+    exact (eisenstein_automorphic P G hsre (Fam.sec s)).2.2 k (hk s) g
   exact (continuedEis_component_unique C.ε C.ε C.ε_pos C.ε_pos
     (fun s => C.E s (g * k)) (fun s => C.E s g)
     (C.theta (g * k)) (C.theta g)
