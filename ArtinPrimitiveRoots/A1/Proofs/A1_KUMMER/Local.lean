@@ -69,7 +69,58 @@ theorem kummer_local_unit_trivial (D : FieldData F) (H : HilbertData F)
     (ha : residue P (a : F) ≠ 0) (x : (P.adicCompletion F)ˣ)
     (hx : x ∈ (P.adicCompletionIntegers F).units) :
     kummerLocal D H P (toLoc P a) x = 1 := by
-  sorry
+  classical
+  let L := P.adicCompletion F
+  let f : Lˣ →* ℂˣ := kummerLocal D H P (toLoc P a)
+  have hglobal (b : Fˣ) (hb : P.valuation F (b : F) = 1) :
+      f (toLoc P b) = 1 := by
+    have hres : residue P (b : F) ≠ 0 :=
+      (A2.qs_nq0_residue_ne_zero_iff_valuation_one P (b : F)).mpr hb
+    have hcount := ((residue_ne_zero_iff_ord_zero P (b : F)).mp hres).1
+    have htame := H.tame P h6 a b ha
+    rw [hcount, zpow_zero] at htame
+    have hhilb : H.hilb P (toLoc P a) (toLoc P b) = 1 := by
+      apply Subtype.ext
+      apply Units.ext
+      exact htame
+    change Units.map D.σ0.toMonoidHom (H.hilb P (toLoc P a) (toLoc P b) : Fˣ) = 1
+    rw [hhilb]
+    simp
+  have hf : Continuous f := kummer_local_continuous D H P (toLoc P a)
+  have hO : IsOpen (P.adicCompletionIntegers F : Set L) :=
+    Valued.isOpen_valuationSubring L
+  have hOU : IsOpen {t : Lˣ | t ∈ (P.adicCompletionIntegers F).units} := by
+    change IsOpen (((fun t : Lˣ => (t : L)) ⁻¹' (P.adicCompletionIntegers F : Set L)) ∩
+      ((fun t : Lˣ => ((t⁻¹ : Lˣ) : L)) ⁻¹' (P.adicCompletionIntegers F : Set L)))
+    exact (hO.preimage Units.continuous_val).inter (hO.preimage Units.continuous_coe_inv)
+  have hneq : IsOpen {t : Lˣ | f t ≠ 1} :=
+    (isClosed_eq hf continuous_const).isOpen_compl
+  by_contra hnu
+  let U : Set Lˣ := {t | t ∈ (P.adicCompletionIntegers F).units ∧ f t ≠ 1}
+  have hU : IsOpen U := hOU.inter hneq
+  have himage : IsOpen (Units.val '' U) :=
+    IsOpenUnits.isOpenEmbedding_unitsVal.isOpenMap U hU
+  obtain ⟨b, hb⟩ := (P.denseRange_algebraMap F).exists_mem_open himage
+    ⟨(x : L), x, ⟨hx, hnu⟩, rfl⟩
+  obtain ⟨t, ht, htb⟩ := hb
+  have hb0 : b ≠ 0 := by
+    intro h
+    apply Units.ne_zero t
+    simpa only [h, map_zero] using htb
+  have htval : Valued.v (t : L) = 1 :=
+    HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one.mp ht.1
+  have hbval : P.valuation F b = 1 := by
+    calc
+      P.valuation F b = Valued.v (algebraMap F L b) :=
+        (P.valuedAdicCompletion_eq_valuation' b).symm
+      _ = Valued.v (t : L) := congrArg Valued.v htb.symm
+      _ = 1 := htval
+  have htloc : t = toLoc P (Units.mk0 b hb0) := by
+    apply Units.ext
+    exact htb
+  apply ht.2
+  rw [htloc]
+  exact hglobal (Units.mk0 b hb0) hbval
 
 theorem kummer_local_eventually_unit_trivial
     (D : FieldData F) (H : HilbertData F) (a : Fˣ) :
