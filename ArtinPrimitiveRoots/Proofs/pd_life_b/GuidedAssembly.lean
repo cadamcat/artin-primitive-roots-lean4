@@ -117,6 +117,140 @@ theorem guidedV_full {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchR
   simp only [Finset.prod_mul_distrib]
   ring
 
+/-- The initial logged state is a life state of every assignment. -/
+theorem lifeState_initial {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (H : PDLifeAssignment F S γ)
+    (hnd : ((initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+      MemPoint S.x K)).map Prod.snd).Nodup) :
+    IsLifeState F S γ H ⟨0, by omega⟩
+      ((((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) : MemPoint S.x K),
+        initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+          MemPoint S.x K)) := by
+  refine ⟨rfl, fun i => List.nodup_nil, ?_, hnd, ?_⟩
+  · intro i q
+    simp only [List.not_mem_nil, false_iff, not_exists, not_and]
+    intro hp hpend
+    exact absurd hpend (pending_false_zero S γ _ _)
+  · intro p
+    have hlog : p ∈ (initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+        MemPoint S.x K)).map Prod.snd ↔ IsActiveAt γ p ⟨0, by omega⟩ := by
+      unfold initialLog IsActiveAt
+      simp only [List.map_flatMap, List.map_map, List.mem_flatMap, List.mem_finRange, true_and,
+        List.mem_map, Function.comp_def]
+    rw [hlog]
+    unfold lifeBornBefore
+    constructor
+    · intro h; exact Or.inl ⟨_, le_rfl, h⟩
+    · rintro (⟨j', hj', h⟩ | ⟨i, a, ha, -⟩)
+      · have : j' = ⟨0, by omega⟩ := by
+          apply Fin.ext
+          have h0 := Fin.le_def.mp hj'
+          simp only [Fin.val_mk] at h0 ⊢
+          omega
+        rw [this] at h; exact h
+      · exact absurd (Fin.lt_def.mp ha) (by simp)
+
+/-- The initial active measure is the product of the initial local factors. -/
+theorem initial_measure {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i'))) :
+    (∏ i : Fin K, ∏ j : Fin (slotCount S.x),
+        memoryNu S.x K F.a F.q_d i ((γ ⟨0, by omega⟩).2 i j)) =
+      ∏ i : Fin K, ∏ p : primeBand S.x (F.a i), lifeInitLocal F S γ i p.1 := by
+  have hv := (hγ.1 ⟨0, by omega⟩).2
+  apply Finset.prod_congr rfl
+  intro i _
+  have hinj : Function.Injective ((γ ⟨0, by omega⟩).2 i) := by
+    intro a b hab
+    by_contra hne
+    exact hv.2 i a b hne hab
+  rw [← Finset.prod_image (f := memoryNu S.x K F.a F.q_d i) (fun a _ b _ h => hinj h)]
+  rw [Finset.prod_coe_sort (primeBand S.x (F.a i)) (fun p => lifeInitLocal F S γ i p)]
+  unfold lifeInitLocal
+  rw [← Finset.prod_filter]
+  apply Finset.prod_congr _ (fun _ _ => rfl)
+  ext p
+  rw [Finset.mem_image, Finset.mem_filter]
+  constructor
+  · rintro ⟨j, -, rfl⟩
+    exact ⟨(hv.1 i j).2, i, j, rfl⟩
+  · rintro ⟨hp, i', j, hj⟩
+    by_cases hii : i' = i
+    · subst hii; exact ⟨j, Finset.mem_univ _, hj⟩
+    · exact absurd hp (Finset.disjoint_left.mp (hBands i' i hii) (hj ▸ (hv.1 i' j).2))
+
+/-- The memory selector of the raw history sum, as a real number. -/
+def selR {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K) (B : Option ℕ)
+    (H : PDLifeAssignment F S γ) : ℝ :=
+  match B with
+  | none => 1
+  | some b => if pdLifeMaxMemory F S γ H ≤ b then 1 else 0
+
+theorem rawHistorySum_eq {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (γ : EnvPath S.x K)
+    (B : Option ℕ) :
+    pdRawHistorySum F S ρ γ B =
+      ∑ H : PDLifeAssignment F S γ, selR F S γ B H * pdRawAssignmentCharge F S ρ γ H := by
+  unfold pdRawHistorySum
+  apply Finset.sum_congr rfl
+  intro H _
+  cases B with
+  | none => simp [selR]
+  | some b => dsimp only [selR]; split_ifs <;> simp
+
+theorem sel_cast {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K) (B : Option ℕ)
+    (H : PDLifeAssignment F S γ) :
+    (match B with
+     | none => (1 : ℂ)
+     | some b => if pdLifeMaxMemory F S γ H ≤ b then 1 else 0) =
+      ((selR F S γ B H : ℝ) : ℂ) := by
+  cases B with
+  | none => simp [selR]
+  | some b => dsimp only [selR]; split_ifs <;> simp
+
+/-- **R7 (conditional).** The birth identity, given the decomposition of the finite history
+sum from the initial state into guided sums. -/
+theorem birth_assembly {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (B : Option ℕ) (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (hMass : ∀ i, 0 < bandMass S.x (F.a i)) (hN : 0 < pathLength S.x)
+    (hnd : ((initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+      MemPoint S.x K)).map Prod.snd).Nodup)
+    (hDecomp : finiteHistoryFn F S ρ w B γ (pathLength S.x)
+        ((((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) : MemPoint S.x K),
+          initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+            MemPoint S.x K)) =
+      ∑ H : PDLifeAssignment F S γ, guidedTraceSum F S ρ w B γ H (pathLength S.x)
+        ((((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) : MemPoint S.x K),
+          initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+            MemPoint S.x K))) :
+    (((∏ i : Fin K, ∏ j : Fin (slotCount S.x),
+        memoryNu S.x K F.a F.q_d i ((γ ⟨0, by omega⟩).2 i j) : ℝ)) : ℂ) *
+      logHistoryFn F S ρ w B (some γ) distinctWeight (pathLength S.x)
+        ((((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) : MemPoint S.x K),
+          initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+            MemPoint S.x K)) =
+      pathCoefficient F S γ * (pathArch F S w γ : ℂ) *
+        ((pdActiveNormalization F S)⁻¹ * pdRawHistorySum F S ρ γ B : ℝ) := by
+  have e0 : (⟨pathLength S.x - pathLength S.x, by omega⟩ : Fin (pathLength S.x + 1)) =
+      ⟨0, by omega⟩ := Fin.ext (Nat.sub_self _)
+  rw [logHistoryFn_eq_finite F S ρ w B γ _ le_rfl, hDecomp]
+  rw [Finset.sum_congr rfl (fun H _ => guidedTraceSum_eq F S ρ w B γ hγ hBands H _ le_rfl _
+    (by rw [e0]; exact lifeState_initial F S γ H hnd))]
+  simp only [guidedV_full, sel_cast]
+  rw [edgeGeo_prod F S w γ hγ hBands hMass hN, initial_measure F S γ hγ hBands,
+    rawHistorySum_eq]
+  unfold pdRawAssignmentCharge
+  simp only [rawPrimeLifeCharge_eq_local]
+  push_cast
+  rw [Finset.mul_sum, Finset.mul_sum]
+  simp only [Finset.sum_mul, Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro H _
+  simp only [Finset.prod_mul_distrib]
+  ring
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
