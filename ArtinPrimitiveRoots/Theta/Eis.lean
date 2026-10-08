@@ -1024,6 +1024,142 @@ theorem rational_bruhat_factorization
       simp [scalarGL, upperGL, diagGL, weylGL, r, δ, x, t, yy, a, b, c, d,
         Matrix.mul_apply, Fin.sum_univ_two] <;> field_simp [hc0] <;> ring
 
+/-- The rational Bruhat cells give exact representatives of the Bstar left quotient. -/
+theorem rational_bruhat_coset_equiv
+    (P : CoverPackage D S H A) (G : GlobalDatum P) :
+    ∃ e : ((Fˣ ⧸ G.Δ) ⊕ ((Fˣ ⧸ G.Δ) × F)) ≃
+        Quotient (QuotientGroup.rightRel (Bstar G)),
+      (∀ δ, e (Sum.inl δ) =
+        Quotient.mk (QuotientGroup.rightRel (Bstar G)) (diagGL (Quotient.out δ))) ∧
+      ∀ (δ : Fˣ ⧸ G.Δ) (x : F), e (Sum.inr (δ, x)) =
+        Quotient.mk (QuotientGroup.rightRel (Bstar G))
+          (diagGL (Quotient.out δ) * weylGL * upperGL x) := by
+  classical
+  let R : ((Fˣ ⧸ G.Δ) ⊕ ((Fˣ ⧸ G.Δ) × F)) → GL (Fin 2) F :=
+    Sum.elim (fun δ => diagGL (Quotient.out δ))
+      (fun p => diagGL (Quotient.out p.1) * weylGL * upperGL p.2)
+  let q : ((Fˣ ⧸ G.Δ) ⊕ ((Fˣ ⧸ G.Δ) × F)) →
+      Quotient (QuotientGroup.rightRel (Bstar G)) :=
+    fun u => Quotient.mk (QuotientGroup.rightRel (Bstar G)) (R u)
+  have hclass (a d : Fˣ ⧸ G.Δ) (b : GL (Fin 2) F)
+      (hb : b ∈ Bstar G)
+      (h00 : b 0 0 * ((Quotient.out a : Fˣ) : F) = ((Quotient.out d : Fˣ) : F))
+      (h11 : b 1 1 = 1) : a = d := by
+    rcases hb with ⟨_, t, ht, hdiag⟩
+    have hd : ((Quotient.out d : Fˣ) : F) = (t : F) * ((Quotient.out a : Fˣ) : F) := by
+      rw [hdiag, h11, mul_one] at h00
+      exact h00.symm
+    have hu : Quotient.out d * (Quotient.out a)⁻¹ = t := by
+      apply Units.ext
+      simp only [Units.val_mul, Units.val_inv_eq_inv_val]
+      rw [hd, mul_assoc, mul_inv_cancel₀ (Quotient.out a).ne_zero, mul_one]
+    have heq : (QuotientGroup.mk (Quotient.out d) : Fˣ ⧸ G.Δ) =
+        QuotientGroup.mk (Quotient.out a) :=
+      QuotientGroup.eq_iff_div_mem.mpr (by simpa only [div_eq_mul_inv, hu] using ht)
+    simpa only [QuotientGroup.out_eq'] using heq.symm
+  have hinj : Function.Injective q := by
+    intro u v huv
+    let b : GL (Fin 2) F := R v * (R u)⁻¹
+    have hb : b ∈ Bstar G :=
+      QuotientGroup.rightRel_apply.mp (Quotient.exact huv)
+    have hb10 : b 1 0 = 0 := hb.1
+    have hf : b * R u = R v := by dsimp only [b]; group
+    cases u with
+    | inl a =>
+      cases v with
+      | inl d =>
+        have h00 := congrArg (fun m : GL (Fin 2) F => m 0 0) hf
+        have h11 := congrArg (fun m : GL (Fin 2) F => m 1 1) hf
+        simp [R, diagGL, Matrix.mul_apply, Fin.sum_univ_two] at h00 h11
+        exact congrArg Sum.inl (hclass a d b hb h00 h11)
+      | inr p =>
+        have h10 := congrArg (fun m : GL (Fin 2) F => m 1 0) hf
+        simp [R, diagGL, weylGL, upperGL, Matrix.mul_apply,
+          Fin.sum_univ_two, hb10] at h10
+    | inr p =>
+      cases v with
+      | inl d =>
+        have h10 := congrArg (fun m : GL (Fin 2) F => m 1 0) hf
+        have h11 := congrArg (fun m : GL (Fin 2) F => m 1 1) hf
+        simp [R, diagGL, weylGL, upperGL, Matrix.mul_apply,
+          Fin.sum_univ_two] at h10
+        simp [R, diagGL, weylGL, upperGL, Matrix.mul_apply,
+          Fin.sum_univ_two, hb10, h10] at h11
+      | inr r =>
+        have h00 := congrArg (fun m : GL (Fin 2) F => m 0 0) hf
+        have h01 := congrArg (fun m : GL (Fin 2) F => m 0 1) hf
+        have h10 := congrArg (fun m : GL (Fin 2) F => m 1 0) hf
+        have h11 := congrArg (fun m : GL (Fin 2) F => m 1 1) hf
+        simp [R, diagGL, weylGL, upperGL, Matrix.mul_apply,
+          Fin.sum_univ_two] at h00 h10
+        simp [R, diagGL, weylGL, upperGL, Matrix.mul_apply,
+          Fin.sum_univ_two, h00] at h01
+        simp [R, diagGL, weylGL, upperGL, Matrix.mul_apply,
+          Fin.sum_univ_two, hb10, h10] at h11
+        exact congrArg Sum.inr (Prod.ext (hclass p.1 r.1 b hb h01 h10) h11)
+  have hdiag_mul (a d : Fˣ) : diagGL (a * d) = diagGL a * diagGL d := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [diagGL, Matrix.mul_apply, Fin.sum_univ_two]
+  have hnormal (a : Fˣ) :
+      ∃ b : GL (Fin 2) F, b ∈ Bstar G ∧
+        diagGL a = b * diagGL (Quotient.out (QuotientGroup.mk a : Fˣ ⧸ G.Δ)) := by
+    let d : Fˣ := Quotient.out (QuotientGroup.mk a : Fˣ ⧸ G.Δ)
+    let t : Fˣ := a * d⁻¹
+    have ht : t ∈ G.Δ := by
+      have heq : (QuotientGroup.mk a : Fˣ ⧸ G.Δ) = QuotientGroup.mk d :=
+        (QuotientGroup.out_eq' _).symm
+      simpa only [div_eq_mul_inv] using (QuotientGroup.eq_iff_div_mem.mp heq)
+    refine ⟨diagGL t, ?_, ?_⟩
+    · change (diagGL t : Matrix (Fin 2) (Fin 2) F) 1 0 = 0 ∧
+        ∃ z ∈ G.Δ, (diagGL t : Matrix (Fin 2) (Fin 2) F) 0 0 =
+          (z : F) * (diagGL t : Matrix (Fin 2) (Fin 2) F) 1 1
+      exact ⟨by simp [diagGL], t, ht, by simp [diagGL]⟩
+    · change diagGL a = diagGL t * diagGL d
+      rw [← hdiag_mul]
+      congr 1
+      dsimp only [t]
+      group
+  have hsurj : Function.Surjective q := by
+    intro β
+    obtain hsmall | hbig := rational_bruhat_factorization P G (Quotient.out β)
+    · obtain ⟨a, b, hb, hf⟩ := hsmall
+      obtain ⟨c, hc, hn⟩ := hnormal a
+      let δ : Fˣ ⧸ G.Δ := QuotientGroup.mk a
+      refine ⟨Sum.inl δ, ?_⟩
+      change Quotient.mk (QuotientGroup.rightRel (Bstar G))
+        (diagGL (Quotient.out δ)) = β
+      calc
+        _ = Quotient.mk (QuotientGroup.rightRel (Bstar G)) (Quotient.out β) := by
+          apply Quotient.sound
+          apply QuotientGroup.rightRel_apply.mpr
+          rw [hf, hn]
+          change b * (c * diagGL (Quotient.out δ)) * (diagGL (Quotient.out δ))⁻¹ ∈ Bstar G
+          simpa only [mul_assoc, mul_inv_cancel, mul_one] using (Bstar G).mul_mem hb hc
+        _ = β := Quotient.out_eq β
+    · obtain ⟨a, x, b, hb, hf⟩ := hbig
+      obtain ⟨c, hc, hn⟩ := hnormal a
+      let δ : Fˣ ⧸ G.Δ := QuotientGroup.mk a
+      refine ⟨Sum.inr (δ, x), ?_⟩
+      change Quotient.mk (QuotientGroup.rightRel (Bstar G))
+        (diagGL (Quotient.out δ) * weylGL * upperGL x) = β
+      calc
+        _ = Quotient.mk (QuotientGroup.rightRel (Bstar G)) (Quotient.out β) := by
+          apply Quotient.sound
+          apply QuotientGroup.rightRel_apply.mpr
+          rw [hf, hn]
+          have heq : b * (c * diagGL (Quotient.out δ)) * weylGL * upperGL x *
+              (diagGL (Quotient.out δ) * weylGL * upperGL x)⁻¹ = b * c := by group
+          rw [heq]
+          exact (Bstar G).mul_mem hb hc
+        _ = β := Quotient.out_eq β
+  refine ⟨Equiv.ofBijective q ⟨hinj, hsurj⟩, ?_, ?_⟩
+  · intro δ
+    rfl
+  · intro δ x
+    rfl
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
