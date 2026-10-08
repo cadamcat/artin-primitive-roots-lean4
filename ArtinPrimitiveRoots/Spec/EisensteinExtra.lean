@@ -1475,6 +1475,89 @@ private theorem specIdentify_cutoffResidual_bound
   exact (mul_le_mul_of_nonneg_right (hderiv _ ht) (Real.sqrt_nonneg _)).trans
     (le_max_right _ _)
 
+private theorem specIdentify_seed_gradient_tsum
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ σ' : SL(2,F)) (τ : ℝ → ℝ) (cut : CutoffData F Γ σ τ)
+    (s : ℂ) (z : X F) :
+    Summable (fun q : CuspCosets F Γ σ =>
+      fullGradient F (fun x => seedTerm F Γ σ τ s (σ' • x) q) z) ∧
+    fullGradient F (fun x => eisSeed F Γ σ τ s (σ' • x)) z =
+      ∑' q : CuspCosets F Γ σ,
+        fullGradient F (fun x => seedTerm F Γ σ τ s (σ' • x) q) z := by
+  classical
+  have hA : 0 < cut.A := lt_of_lt_of_le zero_lt_one (cut.A₀_ge.trans cut.A_ge)
+  obtain ⟨Q, hQ, U, hUopen, hzU, hzero⟩ :=
+    specIdentify_seedHighCosets_finite Γ σ σ' τ cut.A hA cut.cutoff s z
+  let S : Finset (CuspCosets F Γ σ) := hQ.toFinset
+  let p : Coord F := coordsX F z
+  have hp : p ∈ posSet F := by
+    intro w
+    change 0 < height (z w)
+    rw [height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos (z w)
+  rcases G1_h3_basics (F := F) with
+    ⟨_, _, _, _, _, _, _, hptCoord, _, _, _, hchart⟩
+  obtain ⟨chart, hchart, _⟩ := hchart
+  have hpt : ptX F p = z := hptCoord z
+  have hPtOn : ContinuousOn (ptX F) (posSet F) := by
+    have heq : (posSet F).domRestrict (ptX F) = chart := by
+      funext p'
+      exact (hchart p').symm
+    exact continuousOn_iff_continuous_domRestrict.mpr (heq ▸ chart.continuous)
+  have hPtAt : ContinuousAt (ptX F) p :=
+    (hPtOn p hp).continuousAt ((specIdentify_posSet_open (F := F)).mem_nhds hp)
+  have hUevent : ∀ᶠ p' : Coord F in 𝓝 p, ptX F p' ∈ U :=
+    hPtAt.eventually (hUopen.mem_nhds (hpt.symm ▸ hzU))
+  have houtside (q : CuspCosets F Γ σ) (hq : q ∉ S) :
+      fullGradient F (fun x => seedTerm F Γ σ τ s (σ' • x) q) z = 0 := by
+    have hqQ : q ∉ Q := by simpa [S] using hq
+    have hlocal : (fun p' : Coord F => seedTerm F Γ σ τ s (σ' • ptX F p') q)
+        =ᶠ[𝓝 p] (fun _ => (0 : ℂ)) := by
+      filter_upwards [hUevent] with p' hp'
+      exact hzero (ptX F p') hp' q hqQ
+    have hder := Filter.EventuallyEq.fderiv_eq (𝕜 := ℝ) hlocal
+    ext wj
+    rcases wj with ⟨w, j⟩
+    change ((coordsX F z w).2 : ℂ) *
+      fderiv ℝ (fun p' => seedTerm F Γ σ τ s (σ' • ptX F p') q) p
+        (placeDirection F w j) = 0
+    rw [hder]
+    simp
+  have hlocalSum : (fun p' : Coord F => eisSeed F Γ σ τ s (σ' • ptX F p'))
+      =ᶠ[𝓝 p] (fun p' => ∑ q ∈ S, seedTerm F Γ σ τ s (σ' • ptX F p') q) := by
+    filter_upwards [hUevent] with p' hp'
+    unfold eisSeed
+    apply tsum_eq_sum (s := S)
+    intro q hq
+    exact hzero (ptX F p') hp' q (by simpa [S] using hq)
+  have hderSum := Filter.EventuallyEq.fderiv_eq (𝕜 := ℝ) hlocalSum
+  have htermDiff (q : CuspCosets F Γ σ) :
+      DifferentiableAt ℝ (fun p' => seedTerm F Γ σ τ s (σ' • ptX F p') q) p := by
+    have hsm : ContDiffOn ℝ ∞
+        (fun p' => seedTerm F Γ σ τ s (σ' • ptX F p') q) (posSet F) :=
+      specIdentify_seedTerm_smooth_action Γ σ σ' τ cut.cutoff.1 s q
+    exact (hsm.contDiffAt ((specIdentify_posSet_open (F := F)).mem_nhds hp)).differentiableAt
+      (by norm_num)
+  refine ⟨summable_of_ne_finset_zero houtside, ?_⟩
+  rw [tsum_eq_sum (s := S) houtside]
+  change WithLp.toLp 2 (fun wj : InfinitePlace F × Fin 3 =>
+      placeGradient F wj.1 (fun x => eisSeed F Γ σ τ s (σ' • x)) z wj.2) =
+    ∑ q ∈ S, WithLp.toLp 2 (fun wj : InfinitePlace F × Fin 3 =>
+      placeGradient F wj.1 (fun x => seedTerm F Γ σ τ s (σ' • x) q) z wj.2)
+  rw [← WithLp.toLp_sum]
+  congr 1
+  funext wj
+  rcases wj with ⟨w, j⟩
+  simp only [Finset.sum_apply, placeGradient]
+  change ((coordsX F z w).2 : ℂ) *
+    fderiv ℝ (fun p' => eisSeed F Γ σ τ s (σ' • ptX F p')) p
+      (placeDirection F w j) =
+    ∑ q ∈ S, ((coordsX F z w).2 : ℂ) *
+      fderiv ℝ (fun p' => seedTerm F Γ σ τ s (σ' • ptX F p') q) p
+        (placeDirection F w j)
+  rw [hderSum, fderiv_fun_sum (fun q _ => htermDiff q)]
+  simp only [ContinuousLinearMap.sum_apply, Finset.mul_sum]
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
