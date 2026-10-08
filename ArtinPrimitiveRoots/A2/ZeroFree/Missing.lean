@@ -2294,6 +2294,122 @@ private theorem rowKernel_good_pair_bounds (hEuler : EulerHypotheses R η)
   gcongr
   linarith
 
+private theorem rowKernel_right_pair_integrable (hEuler : EulerHypotheses R η)
+    (ε A1 : ℝ) (hε : 0 < ε) (hA1 : 1 / ZD.ρ < A1)
+    (u : U.U) (hu : u ≠ U.one) (T : ℝ) (hT : ZD.U0 ≤ T)
+    (hShell : u ∈ frequencyDyad η U T) (hGood : u ∉ ZD.E T)
+    (Z : ℝ) (hZ : 2 ≤ Z) :
+    Integrable (fun t : ℝ => rowKernelHeightPair R sd W η U HA HC u Z
+      ((1 + δ1 : ℝ) + t * Complex.I)) := by
+  obtain ⟨C, hC, hbound⟩ := rowKernel_good_pair_bounds (R := R) (sd := sd) (W := W)
+    (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler ε A1 hε hA1
+  have hZpos : 0 < Z := by linarith
+  let ξLine : ℝ → ℂ := fun t => ((1 + δ1 : ℝ) : ℂ) + t * Complex.I
+  have hξcont : Continuous ξLine := by fun_prop
+  have hξre (t : ℝ) : (ξLine t).re = 1 + δ1 := by simp [ξLine]
+  have hξlo (t : ℝ) : 998 / 1000 ≤ (ξLine t).re := by rw [hξre]; norm_num [δ1]
+  have hdata (t : ℝ) := hbound Z T hZ hT u hu hShell hGood (ξLine t) (hξlo t)
+    (by rw [hξre]) (Or.inl (hξre t))
+  have hrow : rowTwist η U u ≠ 1 := by
+    intro heq
+    exact hGood (ZD.covers T hT u hShell (Or.inl heq))
+  have hrowEq : rowTwist η U u = U.omega u := by
+    simpa [rowTwist] using (U.omega_induces_twist u).symm
+  have hrowFin : IsOfFinOrder (rowTwist η U u) := by
+    rw [hrowEq]
+    exact U.omega_finiteOrder u
+  let Lr : HeckeLContinuation (rowTwist η U u) :=
+    (HA.2.2.1 (rowTwist η U u) hrowFin hrow).choose
+  have hLr : Lr.value = HA.L (rowTwist η U u) :=
+    (HA.2.2.1 (rowTwist η U u) hrowFin hrow).choose_spec
+  have hDiffLr : Differentiable ℂ (HA.L (rowTwist η U u)) := by
+    rw [← hLr]
+    exact Lr.differentiable
+  have hDiffLSr : Differentiable ℂ (HA.LS S (rowTwist η U u)) := by
+    unfold HeckeAnalysis.LS
+    exact hDiffLr.mul (omittedEulerFactors_differentiable (S := S) (rowTwist η U u))
+  have hInvMeas : Measurable (fun t : ℝ => (HA.LS S (rowTwist η U u) (ξLine t))⁻¹) :=
+    (hDiffLSr.continuous.comp hξcont).measurable.inv
+  have hHP := po_H_product (R := R) (η := η) (U := U) (HC := HC) hEuler
+  have hHdiff : DifferentiableOn ℂ (HC.H u) {p | eulerNeighborhood p} := hHP.2.1 u
+  let J : ℝ → ℝ × ℝ → ℂ := fun t => rowKernelHeightFiber R sd W η U HA HC u Z (ξLine t)
+  have hMeasRight : ∀ v : ℝ × ℝ, Measurable (fun t : ℝ => J t v) := by
+    intro v
+    let w : ℂ := ((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I
+    let z : ℂ := ((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I
+    have hw : w.re = 3 / 1000 := by simp [w]
+    have hz : z.re = 4 / 10 := by simp [z]
+    let pLine : ℝ → Triple := fun t => ![ξLine t, w, z]
+    have hpcont : Continuous pLine := by fun_prop
+    have heuler : ∀ t, eulerNeighborhood (pLine t) := by
+      intro t
+      left
+      refine ⟨?_, ?_, ?_⟩
+      · change 998 / 1000 - 1 / 100000 < (ξLine t).re
+        rw [hξre]; norm_num [δ1]
+      · change 3 / 1000 - 1 / 100000 < w.re
+        rw [hw]; norm_num
+      · change 4 / 10 - 1 / 100000 < z.re
+        rw [hz]; norm_num
+    have hHLine : Continuous (fun t : ℝ => HC.H u ![ξLine t, w, z]) :=
+      hHdiff.continuousOn.comp_continuous hpcont heuler
+    have hbaseZ : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZpos.ne'
+    have hExpo : Continuous (fun t : ℝ => ξLine t + z - 1) := by fun_prop
+    have hCpow : Continuous (fun t : ℝ => (Z : ℂ) ^ (ξLine t + z - 1)) :=
+      hExpo.const_cpow (Or.inl hbaseZ)
+    have hExp : Continuous (fun t : ℝ => Complex.exp ((ξLine t + z - 1) ^ 2)) := by fun_prop
+    have hMellin : Continuous (fun t : ℝ =>
+        mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξLine t) w z) := by
+      unfold mellinWeight
+      exact ((((continuous_const.mul hCpow).mul continuous_const).mul hExp).mul
+        continuous_const).mul continuous_const
+    have hNum : Continuous (fun t : ℝ =>
+        mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξLine t) w z *
+          (U.q u : ℂ) ^ (-z) * HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w *
+            HC.H u ![ξLine t, w, z]) :=
+      (((hMellin.mul continuous_const).mul continuous_const).mul continuous_const).mul hHLine
+    change Measurable (fun t : ℝ => rowKernel R sd W η U HA HC u Z (ξLine t) w z)
+    unfold rowKernel
+    simp only [div_eq_mul_inv]
+    exact hNum.measurable.mul hInvMeas
+  have hFiberCont : ∀ t : ℝ, Continuous (fun v : ℝ × ℝ => J t v) := by
+    intro t
+    have hc := rowKernel_continuous_wz (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) hEuler u hu Z hZpos (ξLine t) (hξlo t)
+    simpa [J, rowKernelHeightFiber, rowKernelAt, Complex.ofReal_div] using hc
+  have hSwap : Measurable (Function.uncurry (fun v : ℝ × ℝ => fun t : ℝ => J t v)) :=
+    measurable_uncurry_of_continuous_of_measurable hFiberCont hMeasRight
+  have hJoint : StronglyMeasurable (fun p : ℝ × (ℝ × ℝ) => J p.1 p.2) := by
+    have hs : StronglyMeasurable
+        ((Function.uncurry (fun v : ℝ × ℝ => fun t : ℝ => J t v)) ∘
+          (Prod.swap : ℝ × (ℝ × ℝ) → (ℝ × ℝ) × ℝ)) :=
+      hSwap.stronglyMeasurable.comp_measurable measurable_swap
+    simpa only [Function.comp_def, Function.uncurry, Prod.swap] using hs
+  have hIntMeas : StronglyMeasurable (fun t : ℝ => ∫ v : ℝ × ℝ, J t v) :=
+    hJoint.integral_prod_right'
+  have hPairEq (t : ℝ) : rowKernelHeightPair R sd W η U HA HC u Z (ξLine t) =
+      (1 / (2 * Real.pi) : ℂ) ^ 2 * ∫ v : ℝ × ℝ, J t v := by
+    have hf : Integrable (J t) := by
+      rw [Measure.volume_eq_prod ℝ ℝ]
+      exact (hdata t).1
+    exact vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+      (fun w z => rowKernelAt R sd W η U HA HC u Z (ξLine t) w z) hf
+  have hPairMeas : StronglyMeasurable (fun t : ℝ =>
+      rowKernelHeightPair R sd W η U HA HC u Z (ξLine t)) := by
+    have hs : StronglyMeasurable (fun t : ℝ => (1 / (2 * Real.pi) : ℂ) ^ 2 *
+        ∫ v : ℝ × ℝ, J t v) := stronglyMeasurable_const.mul hIntMeas
+    convert hs using 1
+    ext t
+    exact hPairEq t
+  have hA1pos : 0 < A1 := lt_trans (one_div_pos.mpr ZD.ρ_pos) hA1
+  have hTail : Integrable (fun t : ℝ => (1 + |t|) ^ (-(A1 + 2))) := by
+    have hdim : (Module.finrank ℝ ℝ : ℝ) < A1 + 2 := by simp; linarith
+    simpa [Real.norm_eq_abs] using integrable_one_add_norm (E := ℝ) hdim
+  have hdom := hTail.const_mul (C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+    T ^ (1 / 10 + ε))
+  apply hdom.mono' hPairMeas.aestronglyMeasurable
+  exact Filter.Eventually.of_forall (fun t => by simpa [ξLine] using (hdata t).2)
+
 /-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
 The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
 theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
