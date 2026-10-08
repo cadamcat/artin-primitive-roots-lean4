@@ -7680,11 +7680,16 @@ private theorem memEdge_positive_choice_row_le {K : ℕ}
       (Finset.single_le_sum (fun k _ => Nat.zero_le ((s.2.2 k).length))
         (Finset.mem_univ i)).trans hsSize
     have hlenR : ((s.2.2 i).length : ℝ) ≤ B := by exact_mod_cast hlen
+    have hprime :
+        (∑ p : primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) =
+          ∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p := by
+      exact Finset.sum_coe_sort (primeBand S.x (F.a i))
+        (fun p => memoryNu S.x K F.a F.q_d i p)
     have heq : (∑ ci : EdgeChoice S.x F.a (s.2.2 i) i, a i ci) =
         2 * (((s.2.2 i).length : ℝ) * (bandMass S.x (F.a i))⁻¹ +
           ∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) := by
       simp [EdgeChoice, a, Fintype.sum_prod_type, Fintype.sum_sum_type,
-        Finset.sum_attach, two_mul, mul_add]
+        hprime, two_mul, mul_add]
     rw [heq]
     have hprom := mul_le_mul hlenR (hInv i) (inv_nonneg.mpr (hV i).le) (by positivity)
     linarith [hMass i]
