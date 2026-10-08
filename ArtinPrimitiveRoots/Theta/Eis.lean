@@ -5094,6 +5094,92 @@ theorem whit_rational_character_product (D : FieldData F) (A : AddCharData F)
   · have h := congrArg (fun z : ℂ => z * psiInf ν (infEmbA ξ)) hrelation
     simpa only [mul_assoc, inv_mul_cancel₀ hc, mul_one, one_mul] using h.symm
 
+/-- Dual rational ideal periods force the frequency character to be trivial locally. -/
+theorem whit_local_ideal_character (D : FieldData F) (A : AddCharData F)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F),
+      psiInf (ν : F) (infEmbA ξ) = 1)
+    (v : FinPlace F) (y : v.adicCompletion F) (hy : y ∈ idealLocalPeriods 𝔞 v) :
+    A.ψ v (-((toLoc v ν : v.adicCompletion F) * y)) = 1 := by
+  classical
+  let I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F :=
+    (toPrincipalIdeal (𝓞 F) F ν : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+  let c : FinPlace F → ℤ := fun u => FractionalIdeal.count F u I
+  let e : FinPlace F → ℤ := fun u => -c u
+  have hc : (Function.support c).Finite :=
+    Filter.eventually_cofinite.mp (FractionalIdeal.finite_factors I)
+  have he : (Function.support e).Finite := by
+    apply hc.subset
+    intro u hu
+    change -c u ≠ 0 at hu
+    exact neg_ne_zero.mp hu
+  have hnorm (u : FinPlace F) :
+      absFin u (toLoc u ν : u.adicCompletion F) = (qv u) ^ (-c u) := by
+    have hval : Valued.v (toLoc u ν : u.adicCompletion F) = WithZero.exp (-c u) := by
+      change Valued.v ((ν : F) : u.adicCompletion F) = _
+      rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+      dsimp only [c, I]
+      rw [FractionalIdeal.count_toPrincipalIdeal_eq_neg_log_valuation, neg_neg]
+      exact (WithZero.exp_log ((u.valuation F).ne_zero_iff.mpr ν.ne_zero)).symm
+    rw [absFin_eq_norm, FinitePlace.norm_def, hval,
+      WithZeroMulInt.toNNReal_neg_apply (HeightOneSpectrum.absNorm_ne_zero u) (by simp),
+      WithZero.toAdd_unzero_eq_log (by simp)]
+    simp [qv]
+  let x : ∀ u : FinPlace F, u.adicCompletion F := Pi.single v y
+  have hx : ∀ u : FinPlace F, x u ∈ idealLocalPeriods 𝔞 u := by
+    intro u
+    by_cases hu : u = v
+    · subst u
+      simpa only [x, Pi.single_eq_same] using hy
+    · have hx0 : x u = 0 := by simp [x, hu]
+      rw [hx0]
+      exact (idealLocalPeriods 𝔞 u).zero_mem
+  obtain ⟨ξ, hξmem, happ⟩ := ideal_period_additive_approximation 𝔞 h𝔞 x hx e he
+  let ε (u : FinPlace F) : u.adicCompletion F := x u - algebraMap F (u.adicCompletion F) ξ
+  have herr (u : FinPlace F) :
+      absFin u (ε u) ≤ (qv u) ^ c u := by
+    simpa only [ε, e, neg_neg] using happ u
+  have hint (u : FinPlace F) :
+      -((toLoc u ν : u.adicCompletion F) * ε u) ∈ u.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      ← Valued.toNormedField.norm_le_one_iff]
+    calc
+      ‖-((toLoc u ν : u.adicCompletion F) * ε u)‖ =
+          (qv u) ^ (-c u) * absFin u (ε u) := by
+        rw [norm_neg, norm_mul, ← absFin_eq_norm u (toLoc u ν : u.adicCompletion F),
+          hnorm, ← absFin_eq_norm u (ε u)]
+      _ ≤ (qv u) ^ (-c u) * (qv u) ^ c u :=
+        mul_le_mul_of_nonneg_left (herr u)
+          (zpow_nonneg (zero_lt_one.trans (qv_gt_one u)).le _)
+      _ = 1 := by
+        rw [← zpow_add₀ (zero_lt_one.trans (qv_gt_one u)).ne', neg_add_cancel, zpow_zero]
+  have hψerr (u : FinPlace F) :
+      A.ψ u (-((toLoc u ν : u.adicCompletion F) * ε u)) = 1 :=
+    A.integral u _ (hint u)
+  have hco (u : FinPlace F) :
+      (toLoc u ν : u.adicCompletion F) = algebraMap F (u.adicCompletion F) (ν : F) := rfl
+  have hpoint (u : FinPlace F) :
+      A.ψ u (-((toLoc u ν : u.adicCompletion F) * x u)) =
+        A.ψ u (-algebraMap F (u.adicCompletion F) ((ν : F) * ξ)) := by
+    have harg : -((toLoc u ν : u.adicCompletion F) * x u) =
+        -algebraMap F (u.adicCompletion F) ((ν : F) * ξ) +
+          -((toLoc u ν : u.adicCompletion F) * ε u) := by
+      rw [map_mul, ← hco u]
+      dsimp only [ε]
+      ring
+    rw [harg, (A.ψ u).map_add_eq_mul, hψerr, mul_one]
+  have hprod : (∏ᶠ u : FinPlace F,
+      A.ψ u (-((toLoc u ν : u.adicCompletion F) * x u))) = 1 := by
+    calc
+      _ = ∏ᶠ u : FinPlace F,
+          A.ψ u (-algebraMap F (u.adicCompletion F) ((ν : F) * ξ)) := finprod_congr hpoint
+      _ = psiInf (ν : F) (infEmbA ξ) := (whit_rational_character_product D A (ν : F) ξ).2.symm
+      _ = 1 := hν ξ hξmem
+  have hsingle := finprod_eq_single
+    (fun u : FinPlace F => A.ψ u (-((toLoc u ν : u.adicCompletion F) * x u))) v
+    (by intro u hu; simp [x, hu])
+  simpa only [x, Pi.single_eq_same] using hsingle.symm.trans hprod
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
