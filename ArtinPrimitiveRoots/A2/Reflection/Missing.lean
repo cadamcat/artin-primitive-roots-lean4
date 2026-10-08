@@ -7122,6 +7122,49 @@ private theorem rf_pairing_local_mask_split
         R.T.Wv v (R.C.a v (toLoc v ν)) else 0)
   rw [finsum_eq_sum_of_fintype, hnonzero, hsplit, hzero]
 
+private theorem rf_pairing_row_support
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S) :
+    R.exterior.support r.ideal = R.exterior.support r.d ∪ R.exterior.support r.h ∧
+      Disjoint (R.exterior.support r.d) (R.exterior.support r.h) ∧
+      (∀ v ∈ R.exterior.support r.d, digitExponent r v = 1) ∧
+      (∀ v ∈ R.exterior.support r.h,
+        (digitExponent r v).val = idealExp v r.h.1 % 6) := by
+  classical
+  have hexp (v : FinPlace F) :
+      idealExp v r.ideal.1 = idealExp v r.h.1 + idealExp v r.d.1 := by
+    rw [r.factorization, rf_idealExp_mul v r.h.1 r.d.1 r.h.property.1 r.d.property.1]
+  have hdis : Disjoint (R.exterior.support r.d) (R.exterior.support r.h) := by
+    apply Finset.disjoint_left.mpr
+    intro v hvd hvh
+    exact rf_no_common_prime v r.h.1 r.d.1 r.coprime
+      ((R.exterior.mem_support r.h v).mp hvh)
+      ((R.exterior.mem_support r.d v).mp hvd)
+  have hunion : R.exterior.support r.ideal =
+      R.exterior.support r.d ∪ R.exterior.support r.h := by
+    ext v
+    simp only [Finset.mem_union]
+    rw [← rf_idealExp_ne_zero_iff_support R v r.ideal,
+      ← rf_idealExp_ne_zero_iff_support R v r.d,
+      ← rf_idealExp_ne_zero_iff_support R v r.h, hexp v]
+    omega
+  refine ⟨hunion, hdis, ?_, ?_⟩
+  · intro v hvd
+    have hnotH : v ∉ R.exterior.support r.h := by
+      intro hvh
+      exact Finset.disjoint_left.mp hdis hvd hvh
+    have hzero := rf_idealExp_zero_of_not_support R v r.h hnotH
+    have hone := rf_idealExp_eq_one_of_squarefree_support R v r.d r.d_squarefree hvd
+    apply Fin.ext
+    change idealExp v r.ideal.1 % 6 = 1
+    norm_num [hexp v, hzero, hone]
+  · intro v hvh
+    have hnotD : v ∉ R.exterior.support r.d := by
+      intro hvd
+      exact Finset.disjoint_left.mp hdis hvd hvh
+    have hzero := rf_idealExp_zero_of_not_support R v r.d hnotD
+    change idealExp v r.ideal.1 % 6 = idealExp v r.h.1 % 6
+    rw [hexp v, hzero, Nat.add_zero]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
