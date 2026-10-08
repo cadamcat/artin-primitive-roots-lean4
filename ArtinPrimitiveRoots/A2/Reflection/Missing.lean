@@ -6701,6 +6701,76 @@ private theorem rf_pairing_reflectedTerm_majorant
       dsimp only [reflectedDirichletTerm, w0, scale, Q]
       ring
 
+private theorem rf_reflected_row_summable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (Z : ℝ) (hZ : 0 < Z) :
+    Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) := by
+  classical
+  obtain ⟨C, hC, hTerm⟩ := rf_pairing_reflectedTerm_majorant R
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  letI : Fintype S.V := R.sheets.classFinite
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let J (f : AF) := (UnitSix S × Bd.B × Bd.B) ×
+    ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal)
+  let I := Σ f : AF, J f
+  let e : (FrozenIndex R r.h × Bd.B × Bd.B × S.SqfExtIdeal) → I := fun p =>
+    ⟨⟨p.1.f, p.1.active⟩,
+      ((p.1.u, p.2.1, p.2.2.1), (⟨p.1.a, p.1.numerator⟩, p.2.2.2, p.1.n))⟩
+  let M : I → ℝ := fun p =>
+    C * (qI r.d.1 ^ 2 * qI p.1.1.1 ^ 2 / Z) *
+      reflectedDirichletTerm R p.1.1 1 p.2.2
+  have he : Function.Injective e := by
+    intro p q hpq
+    have hf : p.1.f = q.1.f := congrArg (fun z : I => z.1.1) hpq
+    have ha : p.1.a = q.1.a := congrArg (fun z : I => z.2.2.1.1) hpq
+    have hn : p.1.n = q.1.n := congrArg (fun z : I => z.2.2.2.2) hpq
+    have hu : p.1.u = q.1.u := congrArg (fun z : I => z.2.1.1) hpq
+    have hsd : p.2.1 = q.2.1 := congrArg (fun z : I => z.2.1.2.1) hpq
+    have hsc : p.2.2.1 = q.2.2.1 := congrArg (fun z : I => z.2.1.2.2) hpq
+    have hc : p.2.2.2 = q.2.2.2 := congrArg (fun z : I => z.2.2.2.1) hpq
+    rcases p with ⟨⟨pf, pa, pn, pu, pactive, pnum, pcop⟩, psd, psc, pc⟩
+    rcases q with ⟨⟨qf, qa, qn, qu, qactive, qnum, qcop⟩, qsd, qsc, qc⟩
+    dsimp only at hf ha hn hu hsd hsc hc
+    cases hf
+    cases ha
+    cases hn
+    cases hu
+    cases hsd
+    cases hsc
+    cases hc
+    rfl
+  have hq (I : Ideal (𝓞 F)) : 0 ≤ qI I := by
+    unfold qI
+    exact Nat.cast_nonneg _
+  have hw (f : S.ExtIdeal)
+      (p : {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal) :
+      0 ≤ reflectedDirichletTerm R f 1 p := by
+    unfold reflectedDirichletTerm
+    exact mul_nonneg
+      (div_nonneg
+        (mul_nonneg (rf_betaIdeal_nonneg R f p.1) (Real.rpow_nonneg (hq p.2.1.1) _))
+        (hq p.2.2.1))
+      (Real.rpow_nonneg
+        (mul_nonneg (mul_nonneg (hq p.1.1.1) (hq p.2.1.1))
+          (pow_nonneg (hq p.2.2.1) 3)) _)
+  have hMnonneg (p : I) : 0 ≤ M p :=
+    mul_nonneg
+      (mul_nonneg hC.le
+        (div_nonneg (mul_nonneg (sq_nonneg _) (sq_nonneg _)) hZ.le))
+      (hw p.1.1 p.2.2)
+  have hfiber (f : AF) : Summable (fun q : J f => M ⟨f, q⟩) := by
+    apply (summable_prod_of_nonneg (fun q : J f => hMnonneg ⟨f, q⟩)).2
+    refine ⟨?_, Summable.of_finite⟩
+    intro k
+    exact (rf_reflected_dirichlet_mass R f.1 1 (by norm_num)).1.mul_left
+      (C * (qI r.d.1 ^ 2 * qI f.1.1 ^ 2 / Z))
+  have hM : Summable M :=
+    (summable_sigma_of_nonneg hMnonneg).2 ⟨hfiber, Summable.of_finite⟩
+  apply Summable.of_nonneg_of_le (fun p => norm_nonneg _) ?_ (hM.comp_injective he)
+  intro p
+  exact hTerm (rowClass R r) r.h p.1 p.2.1 p.2.2.1 r.d p.2.2.2 Z hZ
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
