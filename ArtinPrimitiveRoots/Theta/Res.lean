@@ -3,6 +3,10 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Reduction
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_jacquet_factorization
 import ArtinPrimitiveRoots.Hecke.Continuation
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_uniform_level_components
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.continuedEis_component_reconstruction
@@ -385,47 +389,6 @@ theorem resCprod_ne_zero (T0 : Finset (FinPlace F)) : resCprod T0 ≠ 0 := by
   rw [hres]
   exact hΨ0
 
-/-- **def:analytic-family**: a family of global sections, holomorphic on `Re s > 0`, with spherical
-complex components (P-SPEC narrowing), a common `T0` and a uniform level. -/
-structure AnalyticFamily (P : CoverPackage D S H A) (G : GlobalDatum P)
-    (μ : ∀ v : FinPlace F, LocHaar v) where
-  sec : ∀ s : ℂ, GlobalSection P G s
-  T0 : Finset (FinPlace F)
-  T0_eq : ∀ s, (sec s).T0 = T0
-  fC_sph : ∀ s w, (sec s).fC w = sphC s
-  f_analytic : ∀ v (g : (P.loc v).L), AnalyticOnNhd ℂ (fun s => (sec s).f v g) {s | 0 < s.re}
-  M_analytic : ∀ v ∈ T0, ∀ g : (P.loc v).L,
-    AnalyticOnNhd ℂ (fun s => intertwine (P.loc v) (μ v) ((sec s).f v) g) {s | 0 < s.re}
-  J_analytic : ∀ v ∈ T0, ∀ g : (P.loc v).L,
-    AnalyticOnNhd ℂ (fun s => jacquet (P.loc v) A (μ v) (rtr g ((sec s).f v))) {s | 0 < s.re}
-  level : ∀ v ∈ T0, ∃ m, (P.loc v).m0 ≤ m ∧
-    ∀ s g, ∀ k ∈ (P.loc v).Kc m, (sec s).f v (g * k) = (sec s).f v g
-
-/-- **res:continuation** (consumer object): the continuation of `E(·, Φ_s)` to P-SPEC's domain,
-its residue `θ` at `1/6`, and the commutation of the residue with torus integrals.
-Corrected per rev-theta to include archimedean smoothness of the residue; C11 of `sol-gate-theta`
-adds joint root-orbit smoothness. -/
-structure ContinuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
-    {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) where
-  ε : ℝ
-  ε_pos : 0 < ε
-  E : ℂ → P.tc.G → ℂ
-  E_series : ∀ s ∈ Metric.ball (5 / 2 : ℂ) (1 / 2), ∀ g, E s g = eisenstein P G (Fam.sec s) g
-  E_analytic : ∀ g, AnalyticOnNhd ℂ (fun s => E s g) (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) ε)
-  theta : P.tc.G → ℂ
-  laurent : ∀ g, ∃ Ψ : ℂ → ℂ, AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) ε) ∧ Ψ (1 / 6) = theta g ∧
-    ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 → Ψ s = (s - 1 / 6) * E s g
-  laurent_torus : ∀ (g : P.tc.G) (Pd : Set (InfinitePlace F → ℂ)), Bornology.IsBounded Pd →
-    MeasurableSet Pd → ∀ ν : F, ∃ Ψ : ℂ → ℂ, AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) ε) ∧
-      Ψ (1 / 6) = torusCoeff P theta g Pd ν ∧
-      ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 → Ψ s = (s - 1 / 6) * torusCoeff P (E s) g Pd ν
-  theta_cont : ∀ g h, Continuous fun y : S.FSˣ => theta (g * P.tc.aS y * h)
-  archSmooth : ∀ (g : P.tc.G) (w : InfinitePlace F),
-    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
-      (fun z : ℂ => theta (g * P.tc.nS
-        (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))
-  jointRoots : JointRootSmooth P theta
-
 /-- **res:continuation** (existence, from P-REDUCTION `red:decompose` and P-SPEC
 `exists_continuedEisenstein`). -/
 theorem exists_continuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
@@ -549,19 +512,6 @@ theorem theta_constantTerm {P : CoverPackage D S H A} {G : GlobalDatum P}
       rw [Fam.fC_sph]
   simpa only [ContinuedEis.fourierData, resCprod, hM] using h
 
-/-- The Whittaker function of `θ`: its first torus coefficient over an adapted lattice (well
-defined by `theta_fourierCoeff`). -/
-def thetaWhit {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
-    {Fam : AnalyticFamily P G μ} (C : ContinuedEis Fam) (g : P.tc.G) : ℂ :=
-  if h : ∃ (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (Pd : Set (InfinitePlace F → ℂ)),
-      𝔞 ≠ 0 ∧ (∀ s, ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
-        scalarOf P G (Fam.sec s).f (Fam.sec s).fC (h * (g⁻¹ * nFin P ξ * g)) =
-          scalarOf P G (Fam.sec s).f (Fam.sec s).fC h) ∧
-      IsAddFundamentalDomain ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom)
-        Pd volume ∧ Bornology.IsBounded Pd ∧
-      ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf 1 (infEmbA ξ) = 1
-  then torusCoeff P C.theta g h.choose_spec.choose 1 else 0
-
 /-- **res:theta-whittaker**: every torus coefficient of `θ` with `ν ≠ 0` over an adapted lattice is
 `W_θ(a(ν) g)`; `W_θ` is genuine and `(N, ψ)`-equivariant at every place. -/
 theorem theta_fourierCoeff {P : CoverPackage D S H A} {G : GlobalDatum P}
@@ -618,6 +568,15 @@ theorem theta_linear_translate {P : CoverPackage D S H A} {G : GlobalDatum P}
         ∀ g, C'.theta g = C.theta (g * P.emb v0 h)) := by
   sorry
 
+/-- Supply the package proof modules with the frozen residue interfaces. -/
+private def thetaResidueLaws {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} : ThetaResidueLaws P G μ where
+  continuation := exists_continuedEis
+  fourierCoeff := theta_fourierCoeff
+  equiv := thetaWhit_equiv
+  dependsOnM := theta_depends_on_M
+  linearTranslate := theta_linear_translate
+
 /-- **res:exterior-whittaker**: at `v0 ∉ S`, `M(1/6) f ↦ W_θ(g)` (`g` commuting with the `v0`-part)
 is a well-defined Whittaker functional on `Θ_{v0}`; P-LOCAL-WHIT then makes it unique. -/
 theorem theta_exterior_whittaker {P : CoverPackage D S H A} {G : GlobalDatum P}
@@ -628,7 +587,10 @@ theorem theta_exterior_whittaker {P : CoverPackage D S H A} {G : GlobalDatum P}
       ∀ (Fam' : AnalyticFamily P G μ) (C' : ContinuedEis Fam'),
         Fam'.T0 = insert v0 Fam.T0 → (∀ s, ∀ v, v ≠ v0 → (Fam'.sec s).f v = (Fam.sec s).f v) →
           thetaWhit C' g = Λ (intertwine (P.loc v0) (μ v0) ((Fam'.sec (1 / 6)).f v0)) := by
-  sorry
+  obtain ⟨Λ, hΛ⟩ := theta_lambda_descent Fam v0 hv0 g thetaResidueLaws
+  refine ⟨Λ, theta_lambda_whittaker Fam v0 hv0 g hg thetaResidueLaws Λ hΛ, ?_⟩
+  intro Fam' C' hT hext
+  exact hΛ Fam' C' ⟨hT, hext⟩
 
 /-- **res:root-generation**: at a tame place the root subgroups generate a nontrivial central element. -/
 theorem center_mem_root_closure {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
@@ -662,7 +624,11 @@ theorem thetaWhit_multilinear {P : CoverPackage D S H A} {G : GlobalDatum P}
           thetaWhit C' (P.q x) =
             Λ (fun v => jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) ((Fam'.sec (1 / 6)).f v.1))) *
               ∏ w, jacquetC (rtr (P.compC w x) (sphC (1 / 6))) := by
-  sorry
+  obtain ⟨W, hW, hmatch⟩ := thetaWhit_section_multilinear Fam x0 thetaResidueLaws
+  obtain ⟨Λ, hfactor⟩ := thetaWhit_jacquet_factorization (μ := μ) W hW
+  refine ⟨Λ, ?_⟩
+  intro Fam' C' x hT hext hx
+  simpa only [hfactor, familySectionCoords] using hmatch Fam' C' x hT hext hx
 
 end Res
 
