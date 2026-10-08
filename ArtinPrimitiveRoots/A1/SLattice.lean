@@ -218,6 +218,64 @@ private theorem covol_complexPiSelfDualHaar_eq_smul_volume
         (volume : Measure (PiLp 2 (fun _ : ι => ℂ)))) = _
   rw [Measure.map_smul _ eArch.measurable.aemeasurable, hArch.map_eq]
 
+private theorem covolArchToMixedEquiv_volumePreserving (D : FieldData F) :
+    MeasurePreserving (covolArchToMixedEquiv D) := by
+  classical
+  let R := {w : InfinitePlace F // NumberField.InfinitePlace.IsReal w}
+  let C := {w : InfinitePlace F // NumberField.InfinitePlace.IsComplex w}
+  let N := {w : InfinitePlace F // ¬ NumberField.InfinitePlace.IsReal w}
+  letI : IsEmpty R := ⟨fun w =>
+    (NumberField.InfinitePlace.not_isComplex_iff_isReal.mpr w.2)
+      (D.isTotallyComplex.isComplex w.1)⟩
+  let eSplit := MeasurableEquiv.piEquivPiSubtypeProd
+    (fun _ : InfinitePlace F => ℂ) (fun w => NumberField.InfinitePlace.IsReal w)
+  let eIndex : N ≃ C := Equiv.subtypeEquivRight
+    (fun w => NumberField.InfinitePlace.not_isReal_iff_isComplex)
+  let eRealCUnit : (R → ℂ) ≃ᵐ Unit :=
+    MeasurableEquiv.ofUniqueOfUnique (R → ℂ) Unit
+  let eRealRUnit : (R → ℝ) ≃ᵐ Unit :=
+    MeasurableEquiv.ofUniqueOfUnique (R → ℝ) Unit
+  let eReal : (R → ℂ) ≃ᵐ (R → ℝ) := eRealCUnit.trans eRealRUnit.symm
+  let eComplex : (N → ℂ) ≃ᵐ (C → ℂ) :=
+    MeasurableEquiv.piCongrLeft (fun _ : C => ℂ) eIndex
+  let eMix := MeasurableEquiv.prodCongr eReal eComplex
+  have hSplit : MeasurePreserving eSplit := by
+    simpa [eSplit, volume_pi] using
+      (MeasureTheory.volume_preserving_piEquivPiSubtypeProd
+        (fun _ : InfinitePlace F => ℂ) (fun w => NumberField.InfinitePlace.IsReal w))
+  have hRC : MeasurePreserving eRealCUnit := by
+    change MeasurePreserving
+      (MeasurableEquiv.ofUniqueOfUnique (R → ℂ) Unit) volume volume
+    exact MeasureTheory.volume_preserving_pi_empty (fun _ : R => ℂ)
+  have hRR : MeasurePreserving eRealRUnit := by
+    change MeasurePreserving
+      (MeasurableEquiv.ofUniqueOfUnique (R → ℝ) Unit) volume volume
+    exact MeasureTheory.volume_preserving_pi_empty (fun _ : R => ℝ)
+  have hReal : MeasurePreserving eReal := by
+    dsimp [eReal]
+    exact hRC.trans hRR.symm
+  have hComplex : MeasurePreserving eComplex := by
+    dsimp [eComplex]
+    exact MeasureTheory.volume_measurePreserving_piCongrLeft
+      (fun _ : C => ℂ) eIndex
+  have hMix : MeasurePreserving eMix := by
+    dsimp [eMix]
+    exact MeasurePreserving.prod hReal hComplex
+  have hAll : MeasurePreserving (eSplit.trans eMix) := by
+    have h := hSplit.trans hMix
+    simpa [volume_pi] using h
+  have hfun : (covolArchToMixedEquiv D :
+      (InfinitePlace F → ℂ) → NumberField.mixedEmbedding.mixedSpace F) =
+      (eSplit.trans eMix) := by
+    funext z
+    apply Prod.ext
+    · funext w
+      exact isEmptyElim w
+    · funext w
+      change z w.1 = z (eIndex.symm w).1
+      congr 1
+  simpa only [hfun] using hAll
+
 private theorem covol_arch_fundamental_reduction (D : FieldData F)
     (z : InfinitePlace F → ℂ) :
     ∃ a : 𝓞 F, ∃ p ∈ (covolArchToMixedEquiv D).symm ''
