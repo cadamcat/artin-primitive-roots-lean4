@@ -601,6 +601,81 @@ lemma roughDensity_le_block_main (hPNT : DyadicPrimeInput) :
   filter_upwards [eventually_gt_atTop (0 : ℕ)] with n hn
   exact hgrid (Finset.range (J - 1)) n hn
 
+/-- Absolute constants with the frozen rate, conditional on the dyadic prime input. -/
+lemma density_upper_bound_of_dyadicPrimeInput (hPNT : DyadicPrimeInput) :
+    ∃ b₀ : ℝ, 0 < b₀ ∧ ∃ C_d : ℝ, 0 < C_d ∧ ∀ b : ℝ, 0 < b → b < b₀ →
+      roughDensity b 1 ≤
+        Real.exp (-Real.eulerMascheroniConstant) / b *
+          (1 + C_d * Real.exp (-(1 / 20) / b)) := by
+  obtain ⟨K, hK, H₀, hbound⟩ := roughDensity_le_block_main hPNT
+  refine ⟨min (1 / 10) (1 / (40 * ((H₀ : ℝ) + 2))), by positivity,
+    K * Real.exp 2, mul_pos hK (Real.exp_pos 2), ?_⟩
+  intro b hb hb₀
+  have hb10 : b < 1 / 10 := hb₀.trans_le (min_le_left _ _)
+  have hbsmall : b < 1 / (40 * ((H₀ : ℝ) + 2)) :=
+    hb₀.trans_le (min_le_right _ _)
+  have hb1 : b < 1 := by linarith
+  let r : ℝ := 1 / (40 * b)
+  let m : ℕ := ⌊r⌋₊
+  let H : ℕ := 2 * m
+  have hrpos : 0 < r := by dsimp [r]; positivity
+  have hr : (H₀ : ℝ) + 2 < r := by
+    have hprod := (lt_div_iff₀ (by positivity : 0 < 40 * ((H₀ : ℝ) + 2))).mp hbsmall
+    dsimp [r]
+    apply (lt_div_iff₀ (by positivity : 0 < 40 * b)).mpr
+    nlinarith [hprod]
+  have hfloorlo : r < (m : ℝ) + 1 := Nat.lt_floor_add_one r
+  have hfloorhi : (m : ℝ) ≤ r := Nat.floor_le hrpos.le
+  have hHcast : (H : ℝ) = 2 * (m : ℝ) := by simp [H]
+  have hH₀ : H₀ ≤ H := by
+    have hcast : (H₀ : ℝ) ≤ (H : ℝ) := by
+      rw [hHcast]
+      nlinarith [show (0 : ℝ) ≤ (m : ℝ) from Nat.cast_nonneg m]
+    exact_mod_cast hcast
+  have hHeven : Even H := ⟨m, by dsimp [H]; omega⟩
+  have hHupper : (H : ℝ) ≤ 2 * r := by rw [hHcast]; linarith
+  have hHlower : 2 * r - 2 ≤ (H : ℝ) := by rw [hHcast]; linarith
+  have hrb : b * r = 1 / 40 := by
+    dsimp [r]
+    field_simp [hb.ne']
+    <;> ring
+  have hα : b * (4 * (H : ℝ) + 2) < 1 := by
+    have hweighted := mul_le_mul_of_nonneg_left hHupper hb.le
+    have hsmall : b * (4 * (H : ℝ) + 2) ≤ 1 / 5 + 2 * b := by
+      nlinarith [hweighted, hrb]
+    linarith
+  have hrate : 2 * r = (1 / 20) / b := by
+    dsimp [r]
+    field_simp [hb.ne']
+    <;> ring
+  have hexp : Real.exp (-(H : ℝ)) ≤
+      Real.exp 2 * Real.exp (-(1 / 20) / b) := by
+    calc
+      Real.exp (-(H : ℝ)) ≤ Real.exp (2 - (1 / 20) / b) := by
+        apply Real.exp_le_exp.mpr
+        rw [← hrate]
+        linarith
+      _ = Real.exp 2 * Real.exp (-(1 / 20) / b) := by
+        rw [sub_eq_add_neg, Real.exp_add, neg_div]
+  have herror : K * Real.exp (-(H : ℝ)) ≤
+      (K * Real.exp 2) * Real.exp (-(1 / 20) / b) := by
+    calc
+      K * Real.exp (-(H : ℝ)) ≤
+          K * (Real.exp 2 * Real.exp (-(1 / 20) / b)) :=
+        mul_le_mul_of_nonneg_left hexp hK.le
+      _ = (K * Real.exp 2) * Real.exp (-(1 / 20) / b) := by ring
+  have hscale : 0 ≤ Real.exp (-Real.eulerMascheroniConstant) / b := by positivity
+  calc
+    roughDensity b 1 ≤
+        (1 + K * Real.exp (-(H : ℝ))) *
+          Real.exp (-Real.eulerMascheroniConstant) / b :=
+      hbound b hb hb1 H hHeven hH₀ hα
+    _ = Real.exp (-Real.eulerMascheroniConstant) / b *
+        (1 + K * Real.exp (-(H : ℝ))) := by ring
+    _ ≤ Real.exp (-Real.eulerMascheroniConstant) / b *
+        (1 + (K * Real.exp 2) * Real.exp (-(1 / 20) / b)) :=
+      mul_le_mul_of_nonneg_left (add_le_add le_rfl herror) hscale
+
 /-- The uniform upper bound with the frozen exponential rate. -/
 lemma density_upper_bound :
     ∃ b₀ : ℝ, 0 < b₀ ∧ ∃ C_d : ℝ, 0 < C_d ∧ ∀ b : ℝ, 0 < b → b < b₀ →
