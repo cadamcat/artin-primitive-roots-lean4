@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Spec.Stage1
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_GREEN.G4
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_GREEN.G5
 
 /-! Differential-geometry nodes G4--G5. -/
 
@@ -46,6 +47,12 @@ theorem G5_green_x (f φ : X F → ℂ) (hf : IsSmoothX F f) (hφ : IsSmoothX F 
     (∀ (g : InfinitePlace F → SL(2,ℂ)) (F₀ : X F → ℂ), IsSmoothX F F₀ →
       ∀ w z, partialLap F w (fun x => F₀ (actAtPlaces F g x)) z =
         partialLap F w F₀ (actAtPlaces F g z)) := by
-  sorry
+  refine ⟨?_, ?_, ?_⟩
+  · intro w
+    exact g5GreenFirst f φ hf hφ hcompact w
+  · intro f' φ' hf' hφ' hf'compact hφ'compact w
+    exact g5GreenSymmetry f' φ' hf' hφ' hf'compact hφ'compact w
+  · intro g F₀ hF₀ w z
+    exact g5PartialLap_action_pointwise g F₀ hF₀ w z
 
 end ArtinPrimitiveRoots.A1.Spec
