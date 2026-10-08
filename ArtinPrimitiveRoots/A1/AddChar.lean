@@ -492,9 +492,61 @@ private theorem e_diag_R_eq_one (D : FieldData F) (S : SData F CE condη)
   simp
 
 private theorem integral_div_gen (S : SData F CE condη) (I : Ideal (𝓞 F))
-    (hI : S.IsExterior I) (c : F) (hc : S.IsGen c I) (n : 𝓞 F) (hn : n ∈ I) :
+    (c : F) (hc : S.IsGen c I) (n : 𝓞 F) (hn : n ∈ I) :
     algebraMap (𝓞 F) F n / c ∈ S.R := by
-  sorry
+  classical
+  by_cases hn0 : n = 0
+  · subst n
+    simp
+  change ∀ v : FinPlace F, v ∉ S.Sf →
+    v.valuation F (algebraMap (𝓞 F) F n / c) ≤ 1
+  intro v hv
+  have hnmap : algebraMap (𝓞 F) F n ≠ 0 := by
+    intro h
+    exact hn0 ((FaithfulSMul.algebraMap_injective (𝓞 F) F) h)
+  have hspan : FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+      (algebraMap (𝓞 F) F n) ≤ (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    rw [FractionalIdeal.spanSingleton_le_iff_mem]
+    simpa using hn
+  have hspanNe : FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+      (algebraMap (𝓞 F) F n) ≠ 0 := FractionalIdeal.spanSingleton_ne_zero_iff.mpr hnmap
+  have hmono : FractionalIdeal.count F v
+      (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≤
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F n)) :=
+    FractionalIdeal.count_mono F v hspanNe hspan
+  have hcount : FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) ≤
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F n)) := by
+    calc
+      _ = FractionalIdeal.count F v
+          (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := hc.2.2 v hv
+      _ ≤ FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+            (algebraMap (𝓞 F) F n)) := hmono
+  have hcount' := hcount
+  rw [count_spanSingleton_eq_neg_log_valuation_addchar v c hc.2.1,
+    count_spanSingleton_eq_neg_log_valuation_addchar v
+      (algebraMap (𝓞 F) F n) hnmap] at hcount'
+  have hlog : WithZero.log (v.valuation F (algebraMap (𝓞 F) F n)) ≤
+      WithZero.log (v.valuation F c) := by linarith
+  have hnvalNe : v.valuation F (algebraMap (𝓞 F) F n) ≠ 0 :=
+    (v.valuation F).ne_zero_iff.mpr hnmap
+  have hcvalNe : v.valuation F c ≠ 0 := (v.valuation F).ne_zero_iff.mpr hc.2.1
+  have hval : v.valuation F (algebraMap (𝓞 F) F n) ≤ v.valuation F c := by
+    calc
+      v.valuation F (algebraMap (𝓞 F) F n) =
+          WithZero.exp (WithZero.log (v.valuation F (algebraMap (𝓞 F) F n))) :=
+        (WithZero.exp_log hnvalNe).symm
+      _ ≤ WithZero.exp (WithZero.log (v.valuation F c)) := WithZero.exp_le_exp.mpr hlog
+      _ = v.valuation F c := WithZero.exp_log hcvalNe
+  rw [map_div₀]
+  exact (div_le_one₀ (by
+    rw [← WithZero.exp_log hcvalNe]
+    exact WithZero.exp_pos)).2 hval
 
 private theorem mem_ideal_of_div_mem_R (S : SData F CE condη) (I : Ideal (𝓞 F))
     (hI : S.IsExterior I) (c : F) (hc : S.IsGen c I) (n : 𝓞 F)
@@ -517,7 +569,7 @@ theorem SData.e_pairing_perfect (D : FieldData F) (S : SData F CE condη)
   · intro n hn d
     have hnd : n * d ∈ I := by
       simpa [mul_comm] using I.mul_mem_left d hn
-    have hdiv := integral_div_gen S I hI c hc (n * d) hnd
+    have hdiv := integral_div_gen S I c hc (n * d) hnd
     exact e_diag_R_eq_one D S A ⟨_, hdiv⟩
   · intro n htriv
     by_contra hnI
