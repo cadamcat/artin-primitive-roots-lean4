@@ -525,14 +525,276 @@ def reflectionMass (retained : Bool) (υ : UnitSix S) (P D0 Z δ : ℝ) : ℝ :=
     D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
       ‖splitReflection R retained υ hd.1 hd.2 Z (reflectionColumnCutoff P D0 Z δ)‖ ^ 2 else 0
 
-/-- rf:retained-mass, 04:1119–1196. The constant can depend on fixed δ. -/
-theorem rf_retained_mass : ∀ δ δ₁ δ₂ : ℝ, 0 < δ → 0 < δ₁ → 0 < δ₂ →
-  ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z, 1 ≤ P → 1 ≤ D0 → 2 ≤ Z →
-    let R0 := reflectionColumnCutoff P D0 Z δ
-    (R0 < 1 → reflectionMass R true υ P D0 Z δ = 0) ∧
-    (1 ≤ R0 → reflectionMass R true υ P D0 Z δ ≤
-      C * P ^ (1 / 2 + 2 * δ₁) * Real.log (2 * R0) ^ 4 * (D0 + R0) * (D0 * R0) ^ δ₂) := by
-  sorry
+private lemma rf_idealExp_zero_of_not_dvd (v : FinPlace F) {I : Ideal (𝓞 F)}
+    (hI : I ≠ ⊥) (hnd : ¬ v.asIdeal ∣ I) : idealExp v I = 0 := by
+  by_contra hne
+  have hpos : 0 < idealExp v I := Nat.pos_of_ne_zero hne
+  have hpowdvd : v.asIdeal ^ idealExp v I ∣ I := by
+    change v.asIdeal ^ (Associates.mk v.asIdeal).count (Associates.mk I).factors ∣ I
+    rw [← Associates.mk_dvd_mk, Associates.mk_pow]
+    exact (Associates.prime_pow_dvd_iff_le
+      (Associates.mk_ne_zero.mpr (by simpa [Ideal.zero_eq_bot] using hI))
+      v.associates_irreducible).2 le_rfl
+  exact hnd (dvd_trans (dvd_pow_self _ (Nat.ne_of_gt hpos)) hpowdvd)
+
+private lemma rf_extIdeal_eq_of_numerator_exponents (f a b : S.ExtIdeal)
+    (ha : activeNumerator R f a) (hb : activeNumerator R f b)
+    (hexp : ∀ v ∈ R.exterior.support f, idealExp v a.1 = idealExp v b.1) : a = b := by
+  apply Subtype.ext
+  have ha0 : a.1 ≠ 0 := by simpa only [Ideal.zero_eq_bot] using a.2.1
+  have hb0 : b.1 ≠ 0 := by simpa only [Ideal.zero_eq_bot] using b.2.1
+  have hmax (v : FinPlace F) : v.maxPowDividing a.1 = v.maxPowDividing b.1 := by
+    by_cases hvf : v ∈ R.exterior.support f
+    · have he := hexp v hvf
+      change v.asIdeal ^ idealExp v a.1 = v.asIdeal ^ idealExp v b.1
+      rw [he]
+    · have hnotA : ¬ v.asIdeal ∣ a.1 := by
+        intro hdiv
+        exact hvf (ha.1 v ((R.exterior.mem_support a v).2 hdiv))
+      have hnotB : ¬ v.asIdeal ∣ b.1 := by
+        intro hdiv
+        exact hvf (hb.1 v ((R.exterior.mem_support b v).2 hdiv))
+      have hzeroA := rf_idealExp_zero_of_not_dvd v
+        (by simpa [Ideal.zero_eq_bot] using a.2.1) hnotA
+      have hzeroB := rf_idealExp_zero_of_not_dvd v
+        (by simpa [Ideal.zero_eq_bot] using b.2.1) hnotB
+      change v.asIdeal ^ idealExp v a.1 = v.asIdeal ^ idealExp v b.1
+      rw [hzeroA, hzeroB]
+  calc
+    a.1 = ∏ᶠ v : FinPlace F, v.maxPowDividing a.1 :=
+      (Ideal.finprod_heightOneSpectrum_factorization ha0).symm
+    _ = ∏ᶠ v : FinPlace F, v.maxPowDividing b.1 := finprod_congr hmax
+    _ = b.1 := Ideal.finprod_heightOneSpectrum_factorization hb0
+
+private lemma rf_betaIdeal_sum_le_Eideal (f : S.ExtIdeal) (Aset : Finset S.ExtIdeal)
+    (hA : ∀ a ∈ Aset, activeNumerator R f a) :
+    (∑ a ∈ Aset, betaIdeal R f a) ≤ Eideal R f 0 := by
+  classical
+  let V : Type := {v : FinPlace F // v ∈ R.exterior.support f}
+  letI : Fintype V := Finset.Subtype.fintype (R.exterior.support f)
+  let E : V → Finset ℕ := fun v => Aset.image (fun a => idealExp v.1 a.1)
+  let Aidx : Type := {a : S.ExtIdeal // a ∈ Aset}
+  letI : Fintype Aidx := Aset.finite_toSet.fintype
+  let ExpVec : Type := V → ℕ
+  let expCode (a : Aidx) : ExpVec := fun v => idealExp v.1 a.1.1
+  have hExpCodeIn (a : Aidx) : expCode a ∈ Fintype.piFinset E := by
+    apply Fintype.mem_piFinset.mpr
+    intro v
+    exact Finset.mem_image.mpr ⟨a.1, a.2, rfl⟩
+  have hExpCodeInj : Function.Injective expCode := by
+    intro a b hab
+    apply Subtype.ext
+    apply rf_extIdeal_eq_of_numerator_exponents R f a.1 b.1 (hA a.1 a.2) (hA b.1 b.2)
+    intro v hv
+    have h := congrFun hab ⟨v, hv⟩
+    exact h
+  let localBeta (v : V) (e : ℕ) : ℝ :=
+    betaPrime (qI v.1.asIdeal) (qI_prime_gt_one v.1) e
+  let codeWeight (x : ExpVec) : ℝ := ∏ v : V, localBeta v (x v)
+  have hlocalNonneg (v : V) (e : ℕ) : 0 ≤ localBeta v e := by
+    have hvS : v.1 ∉ S.Sf := R.exterior.support_exterior f v.1 v.2
+    have hbound := (rf_active_support_bounds R).2.1 v.1 hvS 0 e
+    exact le_trans (norm_nonneg _) hbound
+  have hcodeNonneg (x : ExpVec) : 0 ≤ codeWeight x := by
+    unfold codeWeight
+    apply Finset.prod_nonneg
+    intro v hv
+    exact hlocalNonneg v (x v)
+  have hBetaIdealCode (a : Aidx) : betaIdeal R f a.1 = codeWeight (expCode a) := by
+    unfold betaIdeal
+    rw [← Finset.prod_coe_sort]
+  have hsumA (g : S.ExtIdeal → ℝ) :
+      (∑ a : Aidx, g a.1) = ∑ a ∈ Aset, g a := by
+    change (∑ a ∈ (Finset.univ : Finset Aidx), g a.1) = _
+    refine Finset.sum_bij (fun a _ => a.1) ?_ ?_ ?_ ?_
+    · intro a ha
+      exact a.2
+    · intro a ha b hb hab
+      exact Subtype.ext hab
+    · intro b hb
+      exact ⟨⟨b, hb⟩, by simp, rfl⟩
+    · intro a ha
+      rfl
+  let codeSet : Finset ExpVec := (Finset.univ : Finset Aidx).image expCode
+  have hcodeSet : codeSet ⊆ Fintype.piFinset E := by
+    intro x hx
+    rcases Finset.mem_image.mp hx with ⟨a, ha, rfl⟩
+    exact hExpCodeIn a
+  have hsumCodes :
+      (∑ a : Aidx, codeWeight (expCode a)) = ∑ x ∈ codeSet, codeWeight x := by
+    dsimp [codeSet]
+    symm
+    exact Finset.sum_image (fun a ha b hb hab => hExpCodeInj hab)
+  have hpiSum :
+      (∑ x ∈ Fintype.piFinset E, codeWeight x) =
+        ∏ v : V, ∑ e ∈ E v, localBeta v e := by
+    dsimp [codeWeight]
+    exact (Finset.prod_univ_sum E localBeta).symm
+  have hlocalSum (v : V) :
+      (∑ e ∈ E v, localBeta v e) ≤ Eprime v.1 0 := by
+    have hvS : v.1 ∉ S.Sf := R.exterior.support_exterior f v.1 v.2
+    obtain ⟨hsummable, _, _⟩ :=
+      (rf_active_support_bounds R).2.2.1 v.1 hvS 0 (by norm_num)
+    have hs : Summable (fun e : ℕ => localBeta v e) := by
+      simpa [localBeta, zero_mul, Real.rpow_zero] using hsummable
+    calc
+      _ ≤ ∑' e : ℕ, localBeta v e :=
+        hs.sum_le_tsum (E v) (fun e he => hlocalNonneg v e)
+      _ = Eprime v.1 0 := by
+        simp [Eprime, localBeta, zero_mul]
+  have hlocalSumNonneg (v : V) : 0 ≤ ∑ e ∈ E v, localBeta v e := by
+    apply Finset.sum_nonneg
+    intro e he
+    exact hlocalNonneg v e
+  have hEprimeNonneg (v : V) : 0 ≤ Eprime v.1 0 :=
+    (hlocalSumNonneg v).trans (hlocalSum v)
+  have hprodBound :
+      (∏ v : V, ∑ e ∈ E v, localBeta v e) ≤ ∏ v : V, Eprime v.1 0 := by
+    apply Finset.prod_le_prod₀
+    · intro v hv
+      exact hlocalSumNonneg v
+    · intro v hv
+      exact hlocalSum v
+  have hprodE : (∏ v : V, Eprime v.1 0) = Eideal R f 0 := by
+    unfold Eideal
+    exact Finset.prod_coe_sort (R.exterior.support f) (fun v => Eprime v 0)
+  calc
+    (∑ a ∈ Aset, betaIdeal R f a) = ∑ a : Aidx, betaIdeal R f a.1 :=
+      (hsumA (betaIdeal R f)).symm
+    _ = ∑ a : Aidx, codeWeight (expCode a) := by
+      apply Finset.sum_congr rfl
+      intro a ha
+      exact hBetaIdealCode a
+    _ = ∑ x ∈ codeSet, codeWeight x := hsumCodes
+    _ ≤ ∑ x ∈ Fintype.piFinset E, codeWeight x :=
+      Finset.sum_le_sum_of_subset_of_nonneg hcodeSet (fun x hx hnot => hcodeNonneg x)
+    _ = ∏ v : V, ∑ e ∈ E v, localBeta v e := hpiSum
+    _ ≤ ∏ v : V, Eprime v.1 0 := hprodBound
+    _ = Eideal R f 0 := hprodE
+
+private lemma rf_sqf_norm_dyad_bounds (c : S.SqfExtIdeal) :
+    let k := Nat.log 2 (Ideal.absNorm c.1)
+    ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+      qI c.1 < ((2 ^ (k + 1) : ℕ) : ℝ) := by
+  dsimp only
+  have hI : c.1 ≠ ⊥ := by
+    simpa [Ideal.zero_eq_bot] using c.2.1.1
+  have hnormpos : 0 < Ideal.absNorm c.1 :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨c.1, mem_nonZeroDivisors_iff_ne_zero.mpr
+        (by simpa [Ideal.zero_eq_bot] using hI)⟩
+  have hn : Ideal.absNorm c.1 ≠ 0 := by
+    exact Nat.ne_of_gt hnormpos
+  constructor
+  · change ((2 ^ Nat.log 2 (Ideal.absNorm c.1) : ℕ) : ℝ) ≤
+      (Ideal.absNorm c.1 : ℝ)
+    exact_mod_cast Nat.pow_log_le_self 2 hn
+  · change (Ideal.absNorm c.1 : ℝ) <
+      ((2 ^ (Nat.log 2 (Ideal.absNorm c.1) + 1) : ℕ) : ℝ)
+    exact_mod_cast Nat.lt_pow_succ_log_self (by norm_num : 1 < 2) _
+
+private lemma rf_retained_cutoff_components (qa qc qn R0 : ℝ)
+    (hqa : 1 ≤ qa) (hqc : 1 ≤ qc) (hqn : 1 ≤ qn)
+    (hQ : qa * qc * qn ^ 3 ≤ R0) : qa ≤ R0 ∧ qc ≤ R0 ∧ qn ≤ R0 := by
+  have hqn2 : 1 ≤ qn ^ 2 := one_le_pow₀ hqn
+  have hqn3 : qn ≤ qn ^ 3 := by
+    calc
+      qn = qn * 1 := by ring
+      _ ≤ qn * qn ^ 2 := mul_le_mul_of_nonneg_left hqn2 (by linarith)
+      _ = qn ^ 3 := by ring
+  have hone3 : 1 ≤ qn ^ 3 := by
+    calc
+      1 = 1 * 1 * 1 := by ring
+      _ ≤ qn * qn * qn := by gcongr
+      _ = qn ^ 3 := by ring
+  have hqaQ : qa ≤ qa * qc * qn ^ 3 := by
+    calc
+      qa = qa * 1 * 1 := by ring
+      _ ≤ qa * qc * qn ^ 3 := by
+        gcongr
+  have hqcQ : qc ≤ qa * qc * qn ^ 3 := by
+    calc
+      qc = 1 * qc * 1 := by ring
+      _ ≤ qa * qc * qn ^ 3 := by gcongr
+  have hqnQ : qn ≤ qa * qc * qn ^ 3 := by
+    calc
+      qn ≤ qn ^ 3 := hqn3
+      _ = 1 * 1 * qn ^ 3 := by ring
+      _ ≤ qa * qc * qn ^ 3 := by gcongr
+  exact ⟨hqaQ.trans hQ, hqcQ.trans hQ, hqnQ.trans hQ⟩
+
+private lemma rf_retained_qI_ge_one (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) :
+    1 ≤ qI I := by
+  have hn : 0 < Ideal.absNorm I :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨I, mem_nonZeroDivisors_iff_ne_zero.mpr (by simpa [Ideal.zero_eq_bot] using hI)⟩
+  dsimp [qI]
+  exact_mod_cast (Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hn))
+
+private lemma rf_retained_split_zero_of_cutoff_lt_one (υ : UnitSix S)
+    (h d : S.ExtIdeal) (Z R0 : ℝ) (hR0 : R0 < 1) :
+    splitReflection R true υ h d Z R0 = 0 := by
+  classical
+  have hnot (p : FrozenIndex R h × Bd.B × Bd.B × S.SqfExtIdeal) :
+      ¬ qI p.1.a.1 * qI p.2.2.2.1 * qI p.1.n.1 ^ 3 ≤ R0 := by
+    let qa := qI p.1.a.1
+    let qc := qI p.2.2.2.1
+    let qn := qI p.1.n.1
+    have hqa : 1 ≤ qa := rf_retained_qI_ge_one p.1.a.1 p.1.a.2.1
+    have hqc : 1 ≤ qc := rf_retained_qI_ge_one p.2.2.2.1
+      (by simpa using p.2.2.2.2.1.1)
+    have hqn : 1 ≤ qn := rf_retained_qI_ge_one p.1.n.1 p.1.n.2.1
+    have hqn3 : 1 ≤ qn ^ 3 := one_le_pow₀ hqn
+    have hQ : 1 ≤ qa * qc * qn ^ 3 := by
+      calc
+        1 = 1 * 1 * 1 := by ring
+        _ ≤ qa * qc * qn ^ 3 := by gcongr
+    exact not_le_of_gt (lt_of_lt_of_le hR0 hQ)
+  by_cases hdc : Squarefree d.1 ∧ IsCoprime d.1 h.1
+  · simp [splitReflection, hdc, hnot]
+  · simp [splitReflection, hdc]
+
+private lemma rf_retained_natlog_count (X : ℝ) (hX : 1 ≤ X) :
+    (((Nat.log 2 ⌊X⌋₊ + 1 : ℕ) : ℝ) ≤
+      (1 / Real.log 2) * Real.log (2 * X)) := by
+  let n : ℕ := ⌊X⌋₊
+  let N : ℕ := Nat.log 2 n
+  have hn : 1 ≤ n := by
+    dsimp [n]
+    exact Nat.le_floor (by exact_mod_cast hX)
+  have hpow : 2 ^ (N + 1) ≤ 2 * n := by
+    calc
+      2 ^ (N + 1) = 2 ^ N * 2 := by rw [pow_succ]
+      _ ≤ n * 2 := Nat.mul_le_mul_right 2
+        (Nat.pow_log_le_self 2 (by omega : n ≠ 0))
+      _ = 2 * n := by omega
+  have hlogNat : N + 1 ≤ Nat.log 2 (2 * n) := by
+    dsimp [N]
+    exact Nat.le_log_of_pow_le (by norm_num : 1 < 2) hpow
+  have hlogb : ((N + 1 : ℕ) : ℝ) ≤ Real.logb 2 (2 * (n : ℝ)) := by
+    calc
+      ((N + 1 : ℕ) : ℝ) ≤ (Nat.log 2 (2 * n) : ℝ) := by exact_mod_cast hlogNat
+      _ = (Nat.log2 (2 * n) : ℝ) := by simp [Nat.log2_eq_log_two]
+      _ ≤ Real.logb 2 (2 * (n : ℝ)) := by
+        convert Real.log2_le_logb (2 * n) using 1 <;> norm_cast
+  have hfloor : (n : ℝ) ≤ X := by
+    dsimp [n]
+    exact Nat.floor_le (le_trans (by norm_num) hX)
+  have hlogbX : Real.logb 2 (2 * (n : ℝ)) ≤ Real.logb 2 (2 * X) :=
+    Real.logb_le_logb_of_le (by norm_num : (1 : ℝ) < 2) (by positivity)
+      (by nlinarith [hfloor])
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hlogCount : ((N + 1 : ℕ) : ℝ) * Real.log 2 ≤ Real.log (2 * X) := by
+    apply (le_div_iff₀ hlog2).1
+    simpa [Real.logb] using hlogb.trans hlogbX
+  have hNdef : N = Nat.log 2 ⌊X⌋₊ := by rfl
+  rw [← hNdef]
+  have hdivide : ((Nat.log 2 ⌊X⌋₊ + 1 : ℕ) : ℝ) ≤
+      Real.log (2 * X) / Real.log 2 := (le_div_iff₀ hlog2).2 hlogCount
+  calc
+    ((Nat.log 2 ⌊X⌋₊ + 1 : ℕ) : ℝ) ≤ Real.log (2 * X) / Real.log 2 := hdivide
+    _ = (1 / Real.log 2) * Real.log (2 * X) := by ring
+
 /-- rf:reflection-assembly, 04:1198–1228. Compact shape and translation sets are fixed first. -/
 theorem rf_reflection_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
   (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
@@ -2829,6 +3091,1279 @@ theorem rf_retained_column_dyad : ∃ α : ℝ, 0 < α ∧ ∀ N ε : ℝ, 0 < N
             (D0 + C) ^ (1 / 2 : ℝ) * (D0 * C) ^ (ε / 2) * min (v ^ α) (v ^ (-N)) := by
         rw [hBroot]
         ring
+
+private lemma rf_retained_sqf_norm_cut_finite (X : ℝ) (hX : 0 ≤ X) :
+    {c : S.SqfExtIdeal | qI c.1 ≤ X}.Finite := by
+  classical
+  let extOfSqf : S.SqfExtIdeal → S.ExtIdeal := fun c => ⟨c.1, c.2.1⟩
+  have hinj : Function.Injective extOfSqf := by
+    intro c c' he
+    apply Subtype.ext
+    have h := congrArg (fun I : S.ExtIdeal => I.1) he
+    exact h
+  have hcut := a2_bridge_COUNT_finite S X hX
+  have hpre : {c : S.SqfExtIdeal | idealNorm (extOfSqf c).1 ≤ X}.Finite :=
+    hcut.1.preimage (f := extOfSqf) (fun _ _ _ _ he => hinj he)
+  simpa [extOfSqf, idealNorm, qI] using hpre
+
+private lemma rf_retained_frozen_cut_finite (h : S.ExtIdeal) (hh : IsPowerful h.1)
+    (X : ℝ) (hX : 0 ≤ X) :
+    {t : FrozenIndex R h | qI t.a.1 ≤ X ∧ qI t.n.1 ≤ X}.Finite := by
+  classical
+  let F0 : Type := {f : S.ExtIdeal // Squarefree f.1 ∧
+    ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h}
+  letI : Finite F0 := rf_squarefree_support_finite R h hh
+  letI : Fintype F0 := Fintype.ofFinite F0
+  let Active : Type := {f : F0 // activeFactor R h f.1}
+  letI : Fintype Active := Subtype.fintype (fun f : F0 => activeFactor R h f.1)
+  let Aset : Finset S.ExtIdeal := bridgeNormFinset S X
+  let Nset : Finset S.ExtIdeal := bridgeNormFinset S X
+  let hcut := a2_bridge_COUNT_finite S X hX
+  let Aidx : Type := {a : S.ExtIdeal // a ∈ Aset}
+  let Nidx : Type := {n : S.ExtIdeal // n ∈ Nset}
+  letI : Fintype Aidx := Aset.finite_toSet.fintype
+  letI : Fintype Nidx := Nset.finite_toSet.fintype
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  let Tcut : Type := {t : FrozenIndex R h // qI t.a.1 ≤ X ∧ qI t.n.1 ≤ X}
+  let toIndex (t : Tcut) : Active × UnitSix S × Aidx × Nidx :=
+    (⟨⟨t.1.f, ⟨t.1.active.1, t.1.active.2.1⟩⟩, t.1.active⟩,
+      t.1.u,
+      ⟨t.1.a, (hcut.2 t.1.a).2 (by simpa [qI, idealNorm] using t.2.1)⟩,
+      ⟨t.1.n, (hcut.2 t.1.n).2 (by simpa [qI, idealNorm] using t.2.2)⟩)
+  apply Finite.of_injective toIndex
+  intro x y hxy
+  rcases x with ⟨tx, hx⟩
+  rcases y with ⟨ty, hy⟩
+  apply Subtype.ext
+  have hf : tx.f = ty.f := by
+    have h := congrArg Prod.fst hxy
+    exact congrArg (fun z : Active => z.1.1) h
+  have hu : tx.u = ty.u := by
+    exact congrArg Prod.fst (congrArg Prod.snd hxy)
+  have ha : tx.a = ty.a := by
+    have h := congrArg Prod.fst (congrArg Prod.snd (congrArg Prod.snd hxy))
+    exact congrArg Subtype.val h
+  have hn : tx.n = ty.n := by
+    have h := congrArg Prod.snd (congrArg Prod.snd (congrArg Prod.snd hxy))
+    exact congrArg Subtype.val h
+  cases tx with
+  | mk fx ax nx ux factx numx copx =>
+    cases ty with
+    | mk fy ay ny uy facty numy copy =>
+      have hfx : fx = fy := by simpa using hf
+      subst fy
+      have hax : ax = ay := by simpa using ha
+      subst ay
+      have hnx : nx = ny := by simpa using hn
+      subst ny
+      have hux : ux = uy := by simpa using hu
+      subst uy
+      rfl
+
+private lemma rf_retained_c_dyad_decomp (qa qn R0 : ℝ)
+    (hqa : 1 ≤ qa) (hqn : 1 ≤ qn) (hR0 : 0 ≤ R0)
+    (g : S.SqfExtIdeal → ℂ) :
+    (∑' c : S.SqfExtIdeal,
+      if qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0) =
+      ∑ k ∈ Finset.range (Nat.log 2 ⌊R0⌋₊ + 1),
+        ∑' c : S.SqfExtIdeal,
+          if ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧ qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+              qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0 := by
+  classical
+  have hCfinite := rf_retained_sqf_norm_cut_finite (S := S) R0 hR0
+  let Cset : Finset S.SqfExtIdeal := hCfinite.toFinset
+  have hCmem (c : S.SqfExtIdeal) : c ∈ Cset ↔ qI c.1 ≤ R0 := by
+    exact Set.Finite.mem_toFinset hCfinite
+  let dyad (c : S.SqfExtIdeal) : ℕ := Nat.log 2 (Ideal.absNorm c.1)
+  let N : ℕ := Nat.log 2 ⌊R0⌋₊
+  let G (c : S.SqfExtIdeal) : ℂ :=
+    if qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0
+  have hzero (c : S.SqfExtIdeal) (hc : c ∉ Cset) : G c = 0 := by
+    by_cases hQ : qa * qI c.1 * qn ^ 3 ≤ R0
+    · have hqc : qI c.1 ≤ R0 :=
+        (rf_retained_cutoff_components qa (qI c.1) qn R0 hqa
+          (rf_retained_qI_ge_one c.1 (by simpa using c.2.1.1)) hqn hQ).2.1
+      exact (hc ((hCmem c).2 hqc)).elim
+    · simp [G, hQ]
+  have hmaps : (Cset : Set S.SqfExtIdeal).MapsTo dyad (Finset.range (N + 1)) := by
+    intro c hc
+    simp only [Finset.mem_coe, Finset.mem_range]
+    have hq : qI c.1 ≤ R0 := (hCmem c).1 hc
+    have hn : Ideal.absNorm c.1 ≤ ⌊R0⌋₊ := by
+      apply (Nat.le_floor_iff hR0).2
+      simpa [qI] using hq
+    dsimp [N, dyad]
+    exact Nat.lt_succ_of_le (Nat.log_mono_right hn)
+  have hdecomp :
+      (∑ c ∈ Cset, G c) =
+        ∑ k ∈ Finset.range (N + 1), ∑ c ∈ Cset with dyad c = k, G c := by
+    exact (Finset.sum_fiberwise_of_maps_to hmaps _).symm
+  have hdyadShell (c : S.SqfExtIdeal) (k : ℕ) :
+      (dyad c = k) ↔
+        ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧ qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) := by
+    have hI : c.1 ≠ ⊥ := by
+      simpa [Ideal.zero_eq_bot] using c.2.1.1
+    have hn : Ideal.absNorm c.1 ≠ 0 := by
+      exact Nat.ne_of_gt (Ideal.absNorm_pos_of_nonZeroDivisors
+        ⟨c.1, mem_nonZeroDivisors_iff_ne_zero.mpr
+          (by simpa [Ideal.zero_eq_bot] using hI)⟩)
+    constructor
+    · intro hk
+      have hb := rf_sqf_norm_dyad_bounds (S := S) c
+      dsimp [dyad] at hk
+      rw [hk] at hb
+      constructor
+      · simpa [qI] using hb.1
+      · calc
+          qI c.1 < ((2 ^ (k + 1) : ℕ) : ℝ) := by simpa [qI] using hb.2
+          _ = 2 * ((2 ^ k : ℕ) : ℝ) := by
+            norm_cast
+            rw [pow_succ]
+            ring
+    · intro hs
+      have hs1 : ((2 ^ k : ℕ) : ℝ) ≤ (Ideal.absNorm c.1 : ℝ) := by
+        simpa [qI] using hs.1
+      have hs2 : (Ideal.absNorm c.1 : ℝ) <
+          ((2 ^ k * 2 : ℕ) : ℝ) := by
+        simpa [qI, Nat.pow_succ, mul_comm, mul_left_comm, mul_assoc] using hs.2
+      have hsNat : 2 ^ k ≤ Ideal.absNorm c.1 ∧
+          Ideal.absNorm c.1 < 2 ^ (k + 1) := by
+        constructor
+        · exact_mod_cast hs1
+        · simpa [Nat.pow_succ, mul_comm] using (show
+            Ideal.absNorm c.1 < 2 ^ k * 2 by exact_mod_cast hs2)
+      simpa [dyad] using
+        (Nat.log_eq_iff (Or.inr ⟨by norm_num, hn⟩)).2 hsNat
+  calc
+    (∑' c : S.SqfExtIdeal, G c) = ∑ c ∈ Cset, G c := tsum_eq_sum hzero
+    _ = ∑ k ∈ Finset.range (N + 1), ∑ c ∈ Cset with dyad c = k, G c := hdecomp
+    _ = ∑ k ∈ Finset.range (N + 1),
+          ∑' c : S.SqfExtIdeal,
+            if ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧ qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0 := by
+      apply Finset.sum_congr rfl
+      intro k hk
+      have hzeroShell (c : S.SqfExtIdeal)
+          (hc : c ∉ Cset) :
+          (if ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+              qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+              qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0) = 0 := by
+        by_cases hQ : qa * qI c.1 * qn ^ 3 ≤ R0
+        · have hqc : qI c.1 ≤ R0 :=
+            (rf_retained_cutoff_components qa (qI c.1) qn R0 hqa
+              (rf_retained_qI_ge_one c.1 (by simpa using c.2.1.1)) hqn hQ).2.1
+          exact (hc ((hCmem c).2 hqc)).elim
+        · simp [hQ]
+      have hfiber :=
+        (tsum_eq_sum hzeroShell :
+          (∑' c : S.SqfExtIdeal,
+            if ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0) =
+          ∑ c ∈ Cset,
+            if ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0)
+      rw [Finset.sum_filter]
+      calc
+        (∑ c ∈ Cset, if dyad c = k then G c else 0) =
+            ∑ c ∈ Cset,
+              if ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                  qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                  qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0 := by
+          apply Finset.sum_congr rfl
+          intro c hc
+          by_cases hdyad : dyad c = k
+          · have hs := (hdyadShell c k).1 hdyad
+            by_cases hQ : qa * qI c.1 * qn ^ 3 ≤ R0
+            · have hcond : ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                  qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                    qa * qI c.1 * qn ^ 3 ≤ R0 := ⟨hs.1, hs.2, hQ⟩
+              rw [if_pos hdyad, if_pos hcond]
+              simp [G, hQ]
+            · have hnotcond : ¬ (((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                  qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                    qa * qI c.1 * qn ^ 3 ≤ R0) := by
+                intro h
+                exact hQ h.2.2
+              rw [if_pos hdyad, if_neg hnotcond]
+              simp [G, hQ]
+          · have hs : ¬ (((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ)) := by
+              intro hs
+              exact hdyad ((hdyadShell c k).2 hs)
+            by_cases hQ : qa * qI c.1 * qn ^ 3 ≤ R0
+            · have hnotcond : ¬ (((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                  qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                    qa * qI c.1 * qn ^ 3 ≤ R0) := by
+                intro h
+                exact hs ⟨h.1, h.2.1⟩
+              rw [if_neg hdyad, if_neg hnotcond]
+            · rw [if_neg hdyad]
+              simp [G, hQ]
+        _ = ∑' c : S.SqfExtIdeal,
+              if ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                  qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                  qa * qI c.1 * qn ^ 3 ≤ R0 then g c else 0 := hfiber.symm
+
+set_option maxHeartbeats 8000000 in
+private lemma rf_retained_split_finite_decomp (υ : UnitSix S) (h d : S.ExtIdeal)
+    (Z R0 : ℝ) (hR0 : 1 ≤ R0) [Fintype Bd.B]
+    (Tset : Finset (FrozenIndex R h)) (Cset : Finset S.SqfExtIdeal)
+    (Kset : Finset ℕ)
+    (hT : ∀ t, t ∈ Tset ↔ qI t.a.1 ≤ R0 ∧ qI t.n.1 ≤ R0)
+    (hC : ∀ c, c ∈ Cset ↔ qI c.1 ≤ R0)
+    (hK : Kset = Finset.range (Nat.log 2 ⌊R0⌋₊ + 1)) :
+    splitReflection R true υ h d Z R0 =
+      ∑ t ∈ Tset, ∑ sd : Bd.B, ∑ sc : Bd.B, ∑ k ∈ Kset,
+        if Squarefree d.1 ∧ IsCoprime d.1 h.1 then
+          frozenOmega R υ t * ((qI t.n.1)⁻¹ : ℝ) * retainedColumn R υ t sd sc d
+            ((2 ^ k : ℕ) : ℝ) Z R0
+        else 0 := by
+  classical
+  letI : Fintype S.V := R.sheets.classFinite
+  letI : Fintype Bd.B := inferInstance
+  let Bset : Finset Bd.B := Finset.univ
+  let Source : Type := FrozenIndex R h × Bd.B × Bd.B × S.SqfExtIdeal
+  let Pset : Finset Source := Tset.product (Bset.product (Bset.product Cset))
+  let sourceTerm (p : Source) : ℂ :=
+    if qI p.1.a.1 * qI p.2.2.2.1 * qI p.1.n.1 ^ 3 ≤ R0 then
+      reflectedTerm R υ h d Z (p.1, p.2.1, p.2.2.1, p.2.2.2)
+    else 0
+  have hsourceZero (p : Source) (hp : p ∉ Pset) : sourceTerm p = 0 := by
+    by_cases hQ : qI p.1.a.1 * qI p.2.2.2.1 * qI p.1.n.1 ^ 3 ≤ R0
+    · have hbounds := rf_retained_cutoff_components
+        (qI p.1.a.1) (qI p.2.2.2.1) (qI p.1.n.1) R0
+        (rf_retained_qI_ge_one p.1.a.1 p.1.a.2.1)
+        (rf_retained_qI_ge_one p.2.2.2.1 (by simpa using p.2.2.2.2.1.1))
+        (rf_retained_qI_ge_one p.1.n.1 p.1.n.2.1) hQ
+      have ht : p.1 ∈ Tset := (hT p.1).2 ⟨hbounds.1, hbounds.2.2⟩
+      have hc : p.2.2.2 ∈ Cset := (hC p.2.2.2).2 hbounds.2.1
+      have hmem : p ∈ Pset := by
+        rcases p with ⟨t, sd, sc, c⟩
+        have ht' : t ∈ Tset := by simpa using ht
+        have hc' : c ∈ Cset := by simpa using hc
+        change (t, (sd, (sc, c))) ∈ Tset.product (Bset.product (Bset.product Cset))
+        exact Finset.mem_product.mpr
+          ⟨ht', Finset.mem_product.mpr
+            ⟨Finset.mem_univ sd, Finset.mem_product.mpr ⟨Finset.mem_univ sc, hc'⟩⟩⟩
+      exact (hp hmem).elim
+    · simp [sourceTerm, hQ]
+  have hsourceSum :
+      (∑' p : Source, sourceTerm p) = ∑ p ∈ Pset, sourceTerm p :=
+    tsum_eq_sum hsourceZero
+  have hsourceSumExpanded :
+      (∑' p : Source,
+        if (qI p.1.a.1 * qI p.2.2.2.1 * qI p.1.n.1 ^ 3 ≤ R0) = true then
+          reflectedTerm R υ h d Z (p.1, p.2.1, p.2.2.1, p.2.2.2) else 0) =
+        ∑ p ∈ Pset, sourceTerm p := by
+    simpa [sourceTerm] using hsourceSum
+  have hinner (t : FrozenIndex R h) (sd sc : Bd.B) :
+      (∑ c ∈ Cset,
+        if qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0 then
+          reflectedTerm R υ h d Z (t, sd, sc, c) else 0) =
+      ∑ k ∈ Kset,
+        if Squarefree d.1 ∧ IsCoprime d.1 h.1 then
+          frozenOmega R υ t * ((qI t.n.1)⁻¹ : ℝ) * retainedColumn R υ t sd sc d
+            ((2 ^ k : ℕ) : ℝ) Z R0
+        else 0 := by
+    let qa := qI t.a.1
+    let qn := qI t.n.1
+    let omega := frozenOmega R υ t * ((qI t.n.1)⁻¹ : ℝ)
+    let rho := frozenRho R υ t sd d
+    let coeff (c : S.SqfExtIdeal) : ℂ :=
+      frozenLambda R υ t sc c * (qI c.1 ^ (-(1 / 2 : ℝ)) : ℝ) *
+        chiIdealPow D d.1 (cgen R c) 3 *
+        profilePhi R υ (kappaSix R t sd sc)
+          (Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+            (qI d.1 ^ 2 * qI t.f.1 ^ 2))
+    have hterm (c : S.SqfExtIdeal) :
+        reflectedTerm R υ h d Z (t, sd, sc, c) = omega * rho * coeff c := by
+      simp [reflectedTerm, omega, rho, coeff]
+      ring
+    have hcoeffZero (c : S.SqfExtIdeal) (hc : c ∉ Cset) :
+        (if qa * qI c.1 * qn ^ 3 ≤ R0 then coeff c else 0) = 0 := by
+      by_cases hQ : qa * qI c.1 * qn ^ 3 ≤ R0
+      · have hqc := (rf_retained_cutoff_components qa (qI c.1) qn R0
+          (by simpa [qa] using rf_retained_qI_ge_one t.a.1 t.a.2.1)
+          (rf_retained_qI_ge_one c.1 (by simpa using c.2.1.1))
+          (by simpa [qn] using rf_retained_qI_ge_one t.n.1 t.n.2.1) hQ).2.1
+        exact (hc ((hC c).2 hqc)).elim
+      · simp [hQ]
+    have hfiniteCoeff :
+        (∑' c : S.SqfExtIdeal,
+          if qa * qI c.1 * qn ^ 3 ≤ R0 then coeff c else 0) =
+          ∑ c ∈ Cset,
+            if qa * qI c.1 * qn ^ 3 ≤ R0 then coeff c else 0 :=
+      tsum_eq_sum hcoeffZero
+    have hdyads := rf_retained_c_dyad_decomp qa qn R0
+      (by simpa [qa] using rf_retained_qI_ge_one t.a.1 t.a.2.1)
+      (by simpa [qn] using rf_retained_qI_ge_one t.n.1 t.n.2.1)
+      (by linarith) coeff
+    calc
+      _ = omega * rho *
+          (∑ c ∈ Cset,
+            if qa * qI c.1 * qn ^ 3 ≤ R0 then coeff c else 0) := by
+        calc
+          _ = ∑ c ∈ Cset, (omega * rho) *
+                (if qa * qI c.1 * qn ^ 3 ≤ R0 then coeff c else 0) := by
+              apply Finset.sum_congr rfl
+              intro c hc
+              by_cases hQ : qa * qI c.1 * qn ^ 3 ≤ R0
+              · simp [qa, qn, hterm c, hQ]
+              · simp [qa, qn, hterm c, hQ]
+          _ = omega * rho *
+                (∑ c ∈ Cset,
+                  if qa * qI c.1 * qn ^ 3 ≤ R0 then coeff c else 0) := by
+              rw [Finset.mul_sum]
+      _ = omega * rho *
+          (∑' c : S.SqfExtIdeal,
+            if qa * qI c.1 * qn ^ 3 ≤ R0 then coeff c else 0) := by
+        exact congrArg (fun x : ℂ => omega * rho * x) hfiniteCoeff.symm
+      _ = omega * rho *
+          (∑ k ∈ Kset,
+            ∑' c : S.SqfExtIdeal,
+              if ((2 ^ k : ℕ) : ℝ) ≤ qI c.1 ∧
+                  qI c.1 < 2 * ((2 ^ k : ℕ) : ℝ) ∧
+                  qa * qI c.1 * qn ^ 3 ≤ R0 then coeff c else 0) := by
+        rw [hK]
+        exact congrArg (fun x : ℂ => omega * rho * x) hdyads
+      _ = ∑ k ∈ Kset,
+          if Squarefree d.1 ∧ IsCoprime d.1 h.1 then
+            omega * retainedColumn R υ t sd sc d
+              ((2 ^ k : ℕ) : ℝ) Z R0
+          else 0 := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro k hk
+        by_cases hdc : Squarefree d.1 ∧ IsCoprime d.1 h.1
+        · simp [hdc, retainedColumn, omega, rho, coeff]
+          ring
+        · have hrhoZero : frozenRho R υ t sd d = 0 := by
+            by_cases hsq : Squarefree d.1
+            · have hcopH : ¬ IsCoprime d.1 h.1 := by
+                intro hc
+                exact hdc ⟨hsq, hc⟩
+              by_cases hcop : IsCoprime d.1 (h.1 * t.n.1)
+              · have hcop' : IsCoprime d.1 h.1 := (IsCoprime.mul_right_iff.mp hcop).1
+                exact (hcopH hcop').elim
+              · simp [frozenRho, hsq, hcop]
+            · simp [frozenRho, hsq]
+          simp [hdc, retainedColumn, rho, hrhoZero]
+  by_cases hdc : Squarefree d.1 ∧ IsCoprime d.1 h.1
+  · simp only [splitReflection, if_pos hdc]
+    calc
+      _ = ∑ p ∈ Pset, sourceTerm p := by
+          simpa [sourceTerm] using hsourceSum
+      _ = ∑ t ∈ Tset, ∑ sd ∈ Bset, ∑ sc ∈ Bset,
+            ∑ c ∈ Cset,
+              if qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0 then
+                reflectedTerm R υ h d Z (t, sd, sc, c) else 0 := by
+          calc
+            (∑ p ∈ Pset, sourceTerm p) =
+                ∑ t ∈ Tset, ∑ u ∈ Bset.product (Bset.product Cset),
+                  sourceTerm (t, u) := by
+                    simpa [Pset, Source] using
+                      (Finset.sum_product Tset (Bset.product (Bset.product Cset))
+                        (fun p => sourceTerm p))
+            _ = ∑ t ∈ Tset, ∑ sd ∈ Bset, ∑ u ∈ Bset.product Cset,
+                  sourceTerm (t, sd, u.1, u.2) := by
+                    apply Finset.sum_congr rfl
+                    intro t ht
+                    simpa using
+                      (Finset.sum_product Bset (Bset.product Cset)
+                        (fun p => sourceTerm (t, p)))
+            _ = ∑ t ∈ Tset, ∑ sd ∈ Bset, ∑ sc ∈ Bset, ∑ c ∈ Cset,
+                  sourceTerm (t, sd, sc, c) := by
+                    apply Finset.sum_congr rfl
+                    intro t ht
+                    apply Finset.sum_congr rfl
+                    intro sd hsd
+                    simpa using
+                      (Finset.sum_product Bset Cset
+                        (fun p => sourceTerm (t, sd, p)))
+            _ = ∑ t ∈ Tset, ∑ sd ∈ Bset, ∑ sc ∈ Bset, ∑ c ∈ Cset,
+                  if qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0 then
+                    reflectedTerm R υ h d Z (t, sd, sc, c) else 0 := by
+                    apply Finset.sum_congr rfl
+                    intro t ht
+                    apply Finset.sum_congr rfl
+                    intro sd hsd
+                    apply Finset.sum_congr rfl
+                    intro sc hsc
+                    apply Finset.sum_congr rfl
+                    intro c hc
+                    by_cases hQ : qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0 <;>
+                      simp [sourceTerm, hQ]
+      _ = ∑ t ∈ Tset, ∑ sd ∈ Bset, ∑ sc ∈ Bset, ∑ k ∈ Kset,
+            frozenOmega R υ t * ((qI t.n.1)⁻¹ : ℝ) * retainedColumn R υ t sd sc d
+              ((2 ^ k : ℕ) : ℝ) Z R0 := by
+          apply Finset.sum_congr rfl
+          intro t ht
+          apply Finset.sum_congr rfl
+          intro sd hsd
+          apply Finset.sum_congr rfl
+          intro sc hsc
+          simpa [hdc] using hinner t sd sc
+      _ = ∑ t ∈ Tset, ∑ sd : Bd.B, ∑ sc : Bd.B, ∑ k ∈ Kset,
+            frozenOmega R υ t * ((qI t.n.1)⁻¹ : ℝ) * retainedColumn R υ t sd sc d
+              ((2 ^ k : ℕ) : ℝ) Z R0 := by
+          simp [Bset]
+  · simp [splitReflection, hdc]
+
+set_option maxHeartbeats 8000000 in
+private theorem rf_retained_t_weight_bound (δ₁ : ℝ) (hδ₁ : 0 < δ₁) :
+    ∃ C : ℝ, 0 < C ∧ ∀ h (hh : IsPowerful h.1) R0,
+      (hR0 : 1 ≤ R0) →
+      let Tset :=
+        (rf_retained_frozen_cut_finite R h hh R0 (by linarith : 0 ≤ R0)).toFinset
+      (∑ t ∈ Tset, betaIdeal R t.f t.a / qI t.n.1) ≤
+        C * qI h.1 ^ δ₁ * Real.log (2 * R0) := by
+  obtain ⟨Cact, hCact, hActBound⟩ := (rf_active_support_bounds R).2.2.2 δ₁ hδ₁
+  obtain ⟨Charm, hCharm, hHarm⟩ := a2_bridge_COUNT_harmonic S
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  refine ⟨Fintype.card (UnitSix S) * Cact * Charm, by positivity, ?_⟩
+  intro h hh R0 hR0
+  classical
+  let Aset : Finset S.ExtIdeal := bridgeNormFinset S R0
+  let Nset : Finset S.ExtIdeal := bridgeNormFinset S R0
+  let hcut := a2_bridge_COUNT_finite S R0 (by linarith)
+  let AType : Type := {a : S.ExtIdeal // a ∈ Aset}
+  let NType : Type := {n : S.ExtIdeal // n ∈ Nset}
+  letI : Fintype AType := Aset.finite_toSet.fintype
+  letI : Fintype NType := Nset.finite_toSet.fintype
+  let F0 : Type := {f : S.ExtIdeal // Squarefree f.1 ∧
+    ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h}
+  letI : Finite F0 := rf_squarefree_support_finite R h hh
+  letI : Fintype F0 := Fintype.ofFinite F0
+  let Active : Type := {f : F0 // activeFactor R h f.1}
+  letI : Fintype Active := Subtype.fintype (fun f : F0 => activeFactor R h f.1)
+  let Index : Type := Active × UnitSix S × AType × NType
+  letI : Fintype Index := inferInstance
+  let Tfin := rf_retained_frozen_cut_finite R h hh R0 (by linarith : 0 ≤ R0)
+  let Tset : Finset (FrozenIndex R h) := Tfin.toFinset
+  have hTmem (t : FrozenIndex R h) :
+      t ∈ Tset ↔ qI t.a.1 ≤ R0 ∧ qI t.n.1 ≤ R0 := by
+    exact Set.Finite.mem_toFinset Tfin
+  let Tcut : Type := {t : FrozenIndex R h // qI t.a.1 ≤ R0 ∧ qI t.n.1 ≤ R0}
+  letI : Fintype Tcut := Tfin.fintype
+  let toIndex (t : Tcut) : Index :=
+    (⟨⟨t.1.f, ⟨t.1.active.1, t.1.active.2.1⟩⟩, t.1.active⟩,
+      t.1.u,
+      ⟨t.1.a, (hcut.2 t.1.a).2 (by
+        simpa [qI, idealNorm] using t.2.1)⟩,
+      ⟨t.1.n, (hcut.2 t.1.n).2 (by
+        simpa [qI, idealNorm] using t.2.2)⟩)
+  have htoIndexInj : Function.Injective toIndex := by
+    intro x y hxy
+    rcases x with ⟨tx, hx⟩
+    rcases y with ⟨ty, hy⟩
+    apply Subtype.ext
+    have hf : tx.f = ty.f := congrArg (fun z : Index => z.1.1.1) hxy
+    have hu : tx.u = ty.u := congrArg (fun z : Index => z.2.1) hxy
+    have ha : tx.a = ty.a := congrArg (fun z : Index => z.2.2.1.1) hxy
+    have hn : tx.n = ty.n := congrArg (fun z : Index => z.2.2.2.1) hxy
+    cases tx with
+    | mk fx ax nx ux factx numx copx =>
+      cases ty with
+      | mk fy ay ny uy facty numy copy =>
+        have hfx : fx = fy := by simpa using hf
+        subst fy
+        have hax : ax = ay := by simpa using ha
+        subst ay
+        have hnx : nx = ny := by simpa using hn
+        subst ny
+        have hux : ux = uy := by simpa using hu
+        subst uy
+        rfl
+  let imageT : Finset Index := (Finset.univ : Finset Tcut).image toIndex
+  let activePred (i : Index) : Prop := activeNumerator R i.1.1.1 i.2.2.1.1
+  let weight (i : Index) : ℝ :=
+    betaIdeal R i.1.1.1 i.2.2.1.1 / qI i.2.2.2.1.1
+  have hImageSub : imageT ⊆ (Finset.univ : Finset Index).filter activePred := by
+    intro i hi
+    rcases Finset.mem_image.mp hi with ⟨t, ht, rfl⟩
+    apply Finset.mem_filter.mpr
+    constructor
+    · simp
+    · simpa [activePred, toIndex] using t.1.numerator
+  have hweightNonneg (i : Index) : 0 ≤ weight i := by
+    dsimp [weight]
+    apply div_nonneg
+    · exact rf_betaIdeal_nonneg R i.1.1.1 i.2.2.1.1
+    · exact le_of_lt (rf_qI_pos_ge_one i.2.2.2.1.1 i.2.2.2.1.2.1).1
+  have hsumT :
+      (∑ t ∈ Tset, betaIdeal R t.f t.a / qI t.n.1) =
+        ∑ i ∈ imageT, weight i := by
+    have hsumTsub (g : FrozenIndex R h → ℝ) :
+        (∑ t : Tcut, g t.1) = ∑ t ∈ Tset, g t := by
+      change (∑ t ∈ (Finset.univ : Finset Tcut), g t.1) = _
+      refine Finset.sum_bij (fun t _ => t.1) ?_ ?_ ?_ ?_
+      · intro t ht
+        exact (hTmem t.1).2 t.2
+      · intro t ht t' ht' he
+        exact Subtype.ext he
+      · intro t ht
+        exact ⟨⟨t, (hTmem t).1 ht⟩, by simp, rfl⟩
+      · intro t ht
+        rfl
+    calc
+      _ = ∑ t : Tcut, weight (toIndex t) := (hsumTsub _).symm
+      _ = ∑ i ∈ imageT, weight i := by
+        dsimp [imageT]
+        symm
+        exact Finset.sum_image (fun t ht t' ht' he => htoIndexInj he)
+  have hImageBound :
+      (∑ i ∈ imageT, weight i) ≤
+        ∑ i ∈ (Finset.univ : Finset Index).filter activePred, weight i :=
+    Finset.sum_le_sum_of_subset_of_nonneg hImageSub (fun i hi hnot => hweightNonneg i)
+  have hfilterEq :
+      (∑ i ∈ (Finset.univ : Finset Index).filter activePred, weight i) =
+        ∑ i : Index, if activePred i then weight i else 0 := by
+    rw [Finset.sum_filter]
+  have hprodEq :
+      (∑ i : Index, if activePred i then weight i else 0) =
+        ∑ f : Active, ∑ u : UnitSix S, ∑ a : AType, ∑ n : NType,
+          if activeNumerator R f.1.1 a.1 then
+            betaIdeal R f.1.1 a.1 / qI n.1.1 else 0 := by
+    simp [Index, activePred, weight, Fintype.sum_prod_type]
+  have hsumN (g : S.ExtIdeal → ℝ) :
+      (∑ n : NType, g n.1) = ∑ n ∈ Nset, g n := by
+    change (∑ n ∈ (Finset.univ : Finset NType), g n.1) = _
+    refine Finset.sum_bij (fun n _ => n.1) ?_ ?_ ?_ ?_
+    · intro n hn
+      exact n.2
+    · intro n hn n' hn' he
+      exact Subtype.ext he
+    · intro n hn
+      exact ⟨⟨n, hn⟩, by simp, rfl⟩
+    · intro n hn
+      rfl
+  have hsumA (g : S.ExtIdeal → ℝ) :
+      (∑ a : AType, g a.1) = ∑ a ∈ Aset, g a := by
+    change (∑ a ∈ (Finset.univ : Finset AType), g a.1) = _
+    refine Finset.sum_bij (fun a _ => a.1) ?_ ?_ ?_ ?_
+    · intro a ha
+      exact a.2
+    · intro a ha a' ha' he
+      exact Subtype.ext he
+    · intro a ha
+      exact ⟨⟨a, ha⟩, by simp, rfl⟩
+    · intro a ha
+      rfl
+  let Harm : ℝ := ∑ n : NType, (qI n.1.1)⁻¹
+  have hHarmNonneg : 0 ≤ Harm := by
+    dsimp [Harm]
+    apply Finset.sum_nonneg
+    intro n hn
+    apply inv_nonneg.mpr
+    change 0 ≤ (Ideal.absNorm n.1.1 : ℝ)
+    exact Nat.cast_nonneg _
+  have hHarmBound : Harm ≤ Charm * Real.log (2 * R0) := by
+    have h := hHarm R0 hR0
+    have hs := hsumN (fun n => (qI n.1)⁻¹)
+    have hH : Harm = ∑ n ∈ Nset, (qI n.1)⁻¹ := by
+      simpa [Harm] using hs
+    have hN' : (∑ n ∈ Nset, (qI n.1)⁻¹) ≤ Charm * Real.log (2 * R0) := by
+      simpa [Nset, idealNorm, qI] using h
+    rw [hH]
+    exact hN'
+  have hBetaBound (f : Active) :
+      (∑ a ∈ Aset.filter (activeNumerator R f.1.1), betaIdeal R f.1.1 a) ≤
+        Eideal R f.1.1 0 := by
+    apply rf_betaIdeal_sum_le_Eideal R f.1.1 _
+    intro a ha
+    exact (Finset.mem_filter.mp ha).2
+  have hA_N (f : Active) :
+      (∑ a : AType, ∑ n : NType,
+        if activeNumerator R f.1.1 a.1 then
+          betaIdeal R f.1.1 a.1 / qI n.1.1 else 0) ≤
+        Eideal R f.1.1 0 * Harm := by
+    have hterm (a : AType) (n : NType) :
+        (if activeNumerator R f.1.1 a.1 then
+          betaIdeal R f.1.1 a.1 / qI n.1.1 else 0) =
+        (if activeNumerator R f.1.1 a.1 then betaIdeal R f.1.1 a.1 else 0) *
+          (qI n.1.1)⁻¹ := by
+      by_cases ha : activeNumerator R f.1.1 a.1 <;> simp [ha, div_eq_mul_inv]
+    have hsumFactor :
+        (∑ a : AType, ∑ n : NType,
+          if activeNumerator R f.1.1 a.1 then
+            betaIdeal R f.1.1 a.1 / qI n.1.1 else 0) =
+          (∑ a : AType,
+            if activeNumerator R f.1.1 a.1 then betaIdeal R f.1.1 a.1 else 0) * Harm := by
+      calc
+        _ = ∑ a : AType, ∑ n : NType,
+              (if activeNumerator R f.1.1 a.1 then betaIdeal R f.1.1 a.1 else 0) *
+                (qI n.1.1)⁻¹ := by
+              apply Finset.sum_congr rfl
+              intro a ha
+              apply Finset.sum_congr rfl
+              intro n hn
+              exact hterm a n
+        _ = ∑ a : AType,
+              (if activeNumerator R f.1.1 a.1 then betaIdeal R f.1.1 a.1 else 0) * Harm := by
+              apply Finset.sum_congr rfl
+              intro a ha
+              rw [Finset.mul_sum]
+        _ = _ := by rw [Finset.sum_mul]
+    have hsumAfilter :
+        (∑ a : AType,
+          if activeNumerator R f.1.1 a.1 then betaIdeal R f.1.1 a.1 else 0) =
+          ∑ a ∈ Aset.filter (activeNumerator R f.1.1), betaIdeal R f.1.1 a := by
+      calc
+        _ = ∑ a ∈ Aset,
+            if activeNumerator R f.1.1 a then betaIdeal R f.1.1 a else 0 := by
+              exact hsumA (fun a =>
+                if activeNumerator R f.1.1 a then betaIdeal R f.1.1 a else 0)
+        _ = ∑ a ∈ Aset.filter (activeNumerator R f.1.1), betaIdeal R f.1.1 a := by
+              rw [← Finset.sum_filter]
+    calc
+      _ = (∑ a ∈ Aset.filter (activeNumerator R f.1.1),
+            betaIdeal R f.1.1 a) * Harm := by
+              exact hsumFactor.trans (congrArg (fun x : ℝ => x * Harm) hsumAfilter)
+      _ ≤ Eideal R f.1.1 0 * Harm :=
+        mul_le_mul_of_nonneg_right (hBetaBound f) hHarmNonneg
+  have hActiveSum : (∑ f : Active, Eideal R f.1.1 0) ≤ Cact * qI h.1 ^ δ₁ := by
+    have hAllActive : (∑ f : F0, Eideal R f.1 0) ≤ Cact * qI h.1 ^ δ₁ := by
+      have h := hActBound h 0 (by norm_num)
+      simpa [F0, finsum_eq_sum_of_fintype] using h
+    have hsplit := Fintype.sum_subtype_add_sum_subtype
+      (fun f : F0 => activeFactor R h f.1) (fun f : F0 => Eideal R f.1 0)
+    have hdecomp :
+        (∑ f : Active, Eideal R f.1.1 0) +
+          ∑ f : {f : F0 // ¬ activeFactor R h f.1}, Eideal R f.1.1 0 =
+            ∑ f : F0, Eideal R f.1 0 := by
+      simpa [Active] using hsplit
+    have hcompl : 0 ≤
+        ∑ f : {f : F0 // ¬ activeFactor R h f.1}, Eideal R f.1.1 0 := by
+      apply Finset.sum_nonneg
+      intro f hf
+      exact rf_Eideal_nonneg R f.1.1 (by norm_num)
+    linarith
+  calc
+    (∑ t ∈ Tset, betaIdeal R t.f t.a / qI t.n.1) =
+        ∑ i ∈ imageT, weight i := hsumT
+    _ ≤ ∑ i ∈ (Finset.univ : Finset Index).filter activePred, weight i := hImageBound
+    _ = ∑ f : Active, ∑ u : UnitSix S, ∑ a : AType, ∑ n : NType,
+        if activeNumerator R f.1.1 a.1 then
+          betaIdeal R f.1.1 a.1 / qI n.1.1 else 0 := by
+      rw [hfilterEq, hprodEq]
+    _ ≤ ∑ f : Active, ∑ u : UnitSix S, Eideal R f.1.1 0 * Harm := by
+      apply Finset.sum_le_sum
+      intro f hf
+      exact Finset.sum_le_sum (fun u hu => hA_N f)
+    _ = ∑ f : Active, Fintype.card (UnitSix S) *
+          (Eideal R f.1.1 0 * Harm) := by
+      apply Finset.sum_congr rfl
+      intro f hf
+      simp [Finset.sum_const, nsmul_eq_mul]
+    _ = Fintype.card (UnitSix S) *
+          (∑ f : Active, Eideal R f.1.1 0 * Harm) := by rw [Finset.mul_sum]
+    _ = Fintype.card (UnitSix S) * Harm *
+          (∑ f : Active, Eideal R f.1.1 0) := by
+      simp [Finset.mul_sum, mul_assoc, mul_left_comm, mul_comm]
+    _ ≤ Fintype.card (UnitSix S) * Harm * (Cact * qI h.1 ^ δ₁) := by
+      apply mul_le_mul_of_nonneg_left hActiveSum
+      positivity
+    _ ≤ Fintype.card (UnitSix S) * (Charm * Real.log (2 * R0)) *
+          (Cact * qI h.1 ^ δ₁) := by
+      have hcard : 0 ≤ (Fintype.card (UnitSix S) : ℝ) := Nat.cast_nonneg _
+      have hpow : 0 ≤ qI h.1 ^ δ₁ :=
+        Real.rpow_nonneg (le_of_lt (rf_qI_pos_ge_one h.1 h.2.1).1) _
+      have hnonneg : 0 ≤ Fintype.card (UnitSix S) * (Cact * qI h.1 ^ δ₁) :=
+        mul_nonneg hcard (mul_nonneg hCact.le hpow)
+      nlinarith [mul_le_mul_of_nonneg_right hHarmBound hnonneg]
+    _ = (Fintype.card (UnitSix S) * Cact * Charm) *
+          qI h.1 ^ δ₁ * Real.log (2 * R0) := by ring
+
+set_option maxHeartbeats 8000000 in
+private theorem rf_retained_fixed_h_bound (δ₁ δ₂ : ℝ)
+    (hδ₁ : 0 < δ₁) (hδ₂ : 0 < δ₂) :
+    ∃ C : ℝ, 0 < C ∧ ∀ υ (D0 Z : ℝ) (h : S.ExtIdeal) (R0 : ℝ),
+      1 ≤ D0 → 2 ≤ Z → IsPowerful h.1 → 1 ≤ R0 →
+      Real.sqrt (∑' d : S.ExtIdeal,
+        if D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0 then
+          ‖splitReflection R true υ h d Z R0‖ ^ 2 else 0) ≤
+        C * qI h.1 ^ δ₁ * Real.log (2 * R0) ^ 2 *
+          (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2) := by
+  obtain ⟨α, hα, hcol⟩ := rf_retained_column_dyad R
+  obtain ⟨Kcol, hKcol, hColumn⟩ := hcol 1 δ₂ (by norm_num) hδ₂
+  obtain ⟨Ctw, hCtw, hTweight⟩ := rf_retained_t_weight_bound R δ₁ hδ₁
+  letI : Fintype S.V := R.sheets.classFinite
+  letI : Fintype Bd.B := inferInstance
+  let Cdyad : ℝ := (Real.log 2)⁻¹
+  let C : ℝ := Kcol * (Fintype.card Bd.B : ℝ) ^ 2 * Cdyad * Ctw
+  refine ⟨C, ?_, ?_⟩
+  · dsimp [C, Cdyad]
+    positivity
+  · intro υ D0 Z h R0 hD0 hZ hPower hR0
+    classical
+    let Tfin := rf_retained_frozen_cut_finite R h hPower R0 (by linarith : 0 ≤ R0)
+    let Tset : Finset (FrozenIndex R h) := Tfin.toFinset
+    have hTmem (t : FrozenIndex R h) :
+        t ∈ Tset ↔ qI t.a.1 ≤ R0 ∧ qI t.n.1 ≤ R0 := by
+      exact Set.Finite.mem_toFinset Tfin
+    let Cfin := rf_retained_sqf_norm_cut_finite (S := S) R0 (by linarith)
+    let Cset : Finset S.SqfExtIdeal := Cfin.toFinset
+    have hCmem (c : S.SqfExtIdeal) : c ∈ Cset ↔ qI c.1 ≤ R0 :=
+      Set.Finite.mem_toFinset Cfin
+    let Kset : Finset ℕ := Finset.range (Nat.log 2 ⌊R0⌋₊ + 1)
+    let Bset : Finset Bd.B := Finset.univ
+    let Wset : Finset (FrozenIndex R h × Bd.B × Bd.B × ℕ) :=
+      Tset.product (Bset.product (Bset.product Kset))
+    let block (w : FrozenIndex R h × Bd.B × Bd.B × ℕ) (d : S.ExtIdeal) : ℂ :=
+      if Squarefree d.1 ∧ IsCoprime d.1 h.1 then
+        frozenOmega R υ w.1 * ((qI w.1.n.1)⁻¹ : ℝ) *
+          retainedColumn R υ w.1 w.2.1 w.2.2.1 d
+            ((2 ^ w.2.2.2 : ℕ) : ℝ) Z R0
+      else 0
+    have hsplit (d : S.ExtIdeal) :
+        splitReflection R true υ h d Z R0 = ∑ w ∈ Wset, block w d := by
+      have hd := rf_retained_split_finite_decomp R υ h d Z R0 hR0
+        Tset Cset Kset hTmem hCmem rfl
+      simpa [Wset, Bset, block, Finset.sum_product] using hd
+    let rowDyad (d : S.ExtIdeal) : Prop :=
+      D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0
+    let rowSet : Set S.ExtIdeal := {d | rowDyad d}
+    have hrowFinite : rowSet.Finite := by
+      have hcut := a2_bridge_COUNT_finite S (2 * D0) (by positivity)
+      apply hcut.1.subset
+      intro d hd
+      change idealNorm d.1 ≤ 2 * D0
+      simpa [rowDyad, qI, idealNorm] using hd.2.le
+    let Rows : Finset S.ExtIdeal := hrowFinite.toFinset
+    have hRows (d : S.ExtIdeal) : d ∈ Rows ↔ rowDyad d :=
+      Set.Finite.mem_toFinset hrowFinite
+    let massTerm (d : S.ExtIdeal) : ℝ :=
+      if rowDyad d then ‖splitReflection R true υ h d Z R0‖ ^ 2 else 0
+    have hzeroRow (d : S.ExtIdeal) (hd : d ∉ Rows) : massTerm d = 0 := by
+      by_cases hrow : rowDyad d
+      · exact (hd ((hRows d).2 hrow)).elim
+      · simp [massTerm, hrow]
+    have hrootEq :
+        Real.sqrt (∑' d : S.ExtIdeal, massTerm d) =
+          bridgeL2 Rows (fun d => splitReflection R true υ h d Z R0) := by
+      rw [bridgeL2]
+      congr 1
+      calc
+        (∑' d : S.ExtIdeal, massTerm d) = ∑ d ∈ Rows, massTerm d :=
+          tsum_eq_sum hzeroRow
+        _ = ∑ d ∈ Rows, ‖splitReflection R true υ h d Z R0‖ ^ 2 := by
+          apply Finset.sum_congr rfl
+          intro d hd
+          simp [massTerm, (hRows d).mp hd]
+    have hsplitFun :
+        (fun d => splitReflection R true υ h d Z R0) =
+          fun d => ∑ w ∈ Wset, block w d := by
+      funext d
+      exact hsplit d
+    have hMink :
+        bridgeL2 Rows (fun d => splitReflection R true υ h d Z R0) ≤
+          ∑ w ∈ Wset, bridgeL2 Rows (block w) := by
+      rw [hsplitFun]
+      exact a2_bridge_FINITE_L2 Rows Wset block
+    let Kscale : ℝ := Kcol * (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2)
+    have hKscaleNonneg : 0 ≤ Kscale := by dsimp [Kscale]; positivity
+    have hblockBound (w : FrozenIndex R h × Bd.B × Bd.B × ℕ) (hw : w ∈ Wset) :
+        bridgeL2 Rows (block w) ≤
+          (betaIdeal R w.1.f w.1.a / qI w.1.n.1) * Kscale := by
+      rcases w with ⟨t, sd, sc, k⟩
+      have hk : k ∈ Kset := by
+        have hp := Finset.mem_product.mp hw
+        exact (Finset.mem_product.mp (Finset.mem_product.mp hp.2).2).2
+      have hfloorOne : 1 ≤ ⌊R0⌋₊ := by
+        apply (Nat.le_floor_iff (by linarith : 0 ≤ R0)).2
+        exact_mod_cast hR0
+      have hkLe : k ≤ Nat.log 2 ⌊R0⌋₊ :=
+        Nat.lt_succ_iff.mp (Finset.mem_range.mp hk)
+      have hpowLog : 2 ^ Nat.log 2 ⌊R0⌋₊ ≤ ⌊R0⌋₊ :=
+        Nat.pow_log_le_self 2 (by omega)
+      have hkPow : 2 ^ k ≤ ⌊R0⌋₊ :=
+        (Nat.pow_le_pow_right (by norm_num : 0 < 2) hkLe).trans hpowLog
+      let Cdyad : ℝ := ((2 ^ k : ℕ) : ℝ)
+      have hCdyadOne : 1 ≤ Cdyad := by
+        dsimp [Cdyad]
+        exact_mod_cast (Nat.one_le_iff_ne_zero.mpr
+          (pow_ne_zero _ (by norm_num : (2 : ℕ) ≠ 0)))
+      have hCdyadR : Cdyad ≤ R0 := by
+        dsimp [Cdyad]
+        calc
+          ((2 ^ k : ℕ) : ℝ) ≤ (⌊R0⌋₊ : ℝ) := by exact_mod_cast hkPow
+          _ ≤ R0 := Nat.floor_le (by linarith)
+      have hqA := rf_qI_pos_ge_one t.a.1 t.a.2.1
+      have hqN := rf_qI_pos_ge_one t.n.1 t.n.2.1
+      have hqF := rf_qI_pos_ge_one t.f.1 t.f.2.1
+      have hDpos : 0 < D0 := lt_of_lt_of_le (by norm_num) hD0
+      have hCpos : 0 < Cdyad := by
+        dsimp [Cdyad]
+        have hp : 0 < 2 ^ k := Nat.pow_pos (by norm_num : 0 < (2 : ℕ))
+        exact_mod_cast hp
+      let v : ℝ := Z * qI t.a.1 * qI t.n.1 ^ 3 * Cdyad /
+        (D0 ^ 2 * qI t.f.1 ^ 2)
+      have hZpos : 0 < Z := lt_of_lt_of_le (by norm_num) hZ
+      have hv : 0 < v := by
+        dsimp [v]
+        apply div_pos
+        · exact mul_pos
+            (mul_pos (mul_pos hZpos hqA.1) (pow_pos hqN.1 3)) hCpos
+        · exact mul_pos (pow_pos hDpos 2) (pow_pos hqF.1 2)
+      have hmin : min (v ^ α) (v ^ (-1 : ℝ)) ≤ 1 := by
+        rcases le_total v 1 with hvle | h1v
+        · exact (min_le_left _ _).trans
+            (Real.rpow_le_one hv.le hvle hα.le)
+        · exact (min_le_right _ _).trans
+            (Real.rpow_le_one_of_one_le_of_nonpos h1v (by norm_num))
+      have hcol := hColumn υ h t sd sc Cdyad D0 Z R0 hCdyadOne hD0 hZ hR0
+      have hcolScale :
+          Real.sqrt (∑' d : S.ExtIdeal,
+            if rowDyad d then ‖retainedColumn R υ t sd sc d Cdyad Z R0‖ ^ 2 else 0) ≤
+          Kscale := by
+        have hsumScale :
+            (D0 + Cdyad) ^ (1 / 2 : ℝ) * (D0 * Cdyad) ^ (δ₂ / 2) ≤
+              (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2) := by
+          have hplus : D0 + Cdyad ≤ D0 + R0 := by linarith
+          have hmult : D0 * Cdyad ≤ D0 * R0 :=
+            mul_le_mul_of_nonneg_left hCdyadR (by positivity)
+          exact mul_le_mul
+            (Real.rpow_le_rpow (by positivity) hplus (by norm_num))
+            (Real.rpow_le_rpow (by positivity) hmult (by positivity))
+            (by positivity) (by positivity)
+        have hcol' :
+            Real.sqrt (∑' d : S.ExtIdeal,
+              if rowDyad d then ‖retainedColumn R υ t sd sc d Cdyad Z R0‖ ^ 2 else 0) ≤
+              Kcol * (D0 + Cdyad) ^ (1 / 2 : ℝ) * (D0 * Cdyad) ^ (δ₂ / 2) *
+                min (v ^ α) (v ^ (-1 : ℝ)) := by
+          simpa [v] using hcol
+        calc
+          _ ≤ Kcol * (D0 + Cdyad) ^ (1 / 2 : ℝ) *
+                (D0 * Cdyad) ^ (δ₂ / 2) * min (v ^ α) (v ^ (-1 : ℝ)) := hcol'
+          _ ≤ Kcol * (D0 + Cdyad) ^ (1 / 2 : ℝ) * (D0 * Cdyad) ^ (δ₂ / 2) := by
+            have hfac : 0 ≤ Kcol * (D0 + Cdyad) ^ (1 / 2 : ℝ) *
+                (D0 * Cdyad) ^ (δ₂ / 2) := by positivity
+            calc
+              _ ≤ Kcol * (D0 + Cdyad) ^ (1 / 2 : ℝ) *
+                    (D0 * Cdyad) ^ (δ₂ / 2) * 1 :=
+                mul_le_mul_of_nonneg_left hmin hfac
+              _ = _ := by ring
+          _ ≤ Kscale := by
+            dsimp [Kscale]
+            calc
+              _ = Kcol * ((D0 + Cdyad) ^ (1 / 2 : ℝ) *
+                    (D0 * Cdyad) ^ (δ₂ / 2)) := by ring
+              _ ≤ Kcol * ((D0 + R0) ^ (1 / 2 : ℝ) *
+                    (D0 * R0) ^ (δ₂ / 2)) :=
+                mul_le_mul_of_nonneg_left hsumScale hKcol.le
+              _ = Kcol * (D0 + R0) ^ (1 / 2 : ℝ) *
+                    (D0 * R0) ^ (δ₂ / 2) := by ring
+      let column (d : S.ExtIdeal) := retainedColumn R υ t sd sc d Cdyad Z R0
+      let rowTerm (d : S.ExtIdeal) := if rowDyad d then ‖column d‖ ^ 2 else 0
+      have hzeroCol (d : S.ExtIdeal) (hd : d ∉ Rows) : rowTerm d = 0 := by
+        by_cases hrow : rowDyad d
+        · exact (hd ((hRows d).2 hrow)).elim
+        · simp [rowTerm, hrow]
+      have hcolTsum : (∑' d : S.ExtIdeal, rowTerm d) =
+          ∑ d ∈ Rows, ‖column d‖ ^ 2 := by
+        calc
+          _ = ∑ d ∈ Rows, rowTerm d := tsum_eq_sum hzeroCol
+          _ = _ := by
+            apply Finset.sum_congr rfl
+            intro d hd
+            simp [rowTerm, (hRows d).mp hd]
+      have hcolBridge :
+          bridgeL2 Rows column = Real.sqrt (∑' d : S.ExtIdeal, rowTerm d) := by
+        unfold bridgeL2
+        rw [← hcolTsum]
+      have hOmega : ‖frozenOmega R υ t‖ ≤ betaIdeal R t.f t.a :=
+        (rf_exterior_factorization R).1 υ h t |>.1
+      have hqNpos : 0 < qI t.n.1 := hqN.1
+      have hbeta : 0 ≤ betaIdeal R t.f t.a := rf_betaIdeal_nonneg R t.f t.a
+      have homega :
+          ‖frozenOmega R υ t * ((qI t.n.1)⁻¹ : ℝ)‖ ≤
+            betaIdeal R t.f t.a / qI t.n.1 := by
+        rw [norm_mul, Complex.norm_real, Real.norm_eq_abs,
+          abs_of_nonneg (inv_nonneg.mpr hqNpos.le)]
+        calc
+          ‖frozenOmega R υ t‖ * (qI t.n.1)⁻¹ ≤
+              betaIdeal R t.f t.a * (qI t.n.1)⁻¹ :=
+            mul_le_mul_of_nonneg_right hOmega (inv_nonneg.mpr hqNpos.le)
+          _ = betaIdeal R t.f t.a / qI t.n.1 := by rw [div_eq_mul_inv]
+      have hblockL2 : bridgeL2 Rows (block (t, sd, sc, k)) ≤
+          (betaIdeal R t.f t.a / qI t.n.1) * Kscale := by
+        let omega : ℂ := frozenOmega R υ t * ((qI t.n.1)⁻¹ : ℝ)
+        have hpoint (d : S.ExtIdeal) :
+            ‖block (t, sd, sc, k) d‖ ≤
+              (betaIdeal R t.f t.a / qI t.n.1) * ‖column d‖ := by
+          by_cases hdc : Squarefree d.1 ∧ IsCoprime d.1 h.1
+          · simp only [block, if_pos hdc]
+            rw [norm_mul]
+            exact mul_le_mul_of_nonneg_right homega (norm_nonneg _)
+          · simp [block, hdc]
+            positivity
+        have hsumSq :
+            (∑ d ∈ Rows, ‖block (t, sd, sc, k) d‖ ^ 2) ≤
+              (betaIdeal R t.f t.a / qI t.n.1) ^ 2 *
+                ∑ d ∈ Rows, ‖column d‖ ^ 2 := by
+          calc
+            _ ≤ ∑ d ∈ Rows,
+                (betaIdeal R t.f t.a / qI t.n.1) ^ 2 * ‖column d‖ ^ 2 := by
+                  apply Finset.sum_le_sum
+                  intro d hd
+                  have hupper : 0 ≤ betaIdeal R t.f t.a / qI t.n.1 := by positivity
+                  calc
+                    _ ≤ ((betaIdeal R t.f t.a / qI t.n.1) * ‖column d‖) ^ 2 :=
+                      (sq_le_sq₀ (norm_nonneg _)
+                        (mul_nonneg hupper (norm_nonneg _))).2 (hpoint d)
+                    _ = (betaIdeal R t.f t.a / qI t.n.1) ^ 2 *
+                          ‖column d‖ ^ 2 := by ring
+            _ = (betaIdeal R t.f t.a / qI t.n.1) ^ 2 *
+                  ∑ d ∈ Rows, ‖column d‖ ^ 2 := by rw [Finset.mul_sum]
+        unfold bridgeL2
+        calc
+          Real.sqrt (∑ d ∈ Rows, ‖block (t, sd, sc, k) d‖ ^ 2) ≤
+              Real.sqrt ((betaIdeal R t.f t.a / qI t.n.1) ^ 2 *
+                ∑ d ∈ Rows, ‖column d‖ ^ 2) := Real.sqrt_le_sqrt hsumSq
+          _ = (betaIdeal R t.f t.a / qI t.n.1) *
+                Real.sqrt (∑ d ∈ Rows, ‖column d‖ ^ 2) := by
+              rw [Real.sqrt_mul (sq_nonneg _), Real.sqrt_sq_eq_abs,
+                abs_of_nonneg (by positivity)]
+          _ = (betaIdeal R t.f t.a / qI t.n.1) *
+                Real.sqrt (∑' d : S.ExtIdeal, rowTerm d) := by rw [hcolTsum]
+          _ ≤ (betaIdeal R t.f t.a / qI t.n.1) * Kscale :=
+            mul_le_mul_of_nonneg_left hcolScale (by positivity)
+      exact hblockL2
+    have hblockSum :
+        (∑ w ∈ Wset, bridgeL2 Rows (block w)) ≤
+          Kscale * (∑ w ∈ Wset, betaIdeal R w.1.f w.1.a / qI w.1.n.1) := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_le_sum
+      intro w hw
+      simpa [mul_comm] using hblockBound w hw
+    have hTwt := hTweight h hPower R0 hR0
+    let blockWeight (t : FrozenIndex R h) : ℝ :=
+      betaIdeal R t.f t.a / qI t.n.1
+    have hWweight :
+        (∑ w ∈ Wset, blockWeight w.1) =
+          (Fintype.card Bd.B : ℝ) ^ 2 * Kset.card *
+            (∑ t ∈ Tset, blockWeight t) := by
+      calc
+        _ = ∑ t ∈ Tset, ∑ u ∈ Bset.product (Bset.product Kset),
+              blockWeight t := by
+                simpa [Wset] using
+                  (Finset.sum_product Tset (Bset.product (Bset.product Kset))
+                    (fun p => blockWeight p.1))
+        _ = ∑ t ∈ Tset, ∑ sd ∈ Bset, ∑ u ∈ Bset.product Kset,
+              blockWeight t := by
+                apply Finset.sum_congr rfl
+                intro t ht
+                simpa using
+                  (Finset.sum_product Bset (Bset.product Kset) (fun p => blockWeight t))
+        _ = ∑ t ∈ Tset, ∑ sd ∈ Bset, ∑ sc ∈ Bset, ∑ k ∈ Kset,
+              blockWeight t := by
+                apply Finset.sum_congr rfl
+                intro t ht
+                apply Finset.sum_congr rfl
+                intro sd hsd
+                simpa using (Finset.sum_product Bset Kset (fun p => blockWeight t))
+        _ = ∑ t ∈ Tset, ∑ sd ∈ Bset, ∑ sc ∈ Bset,
+              (Kset.card : ℝ) * blockWeight t := by
+                apply Finset.sum_congr rfl
+                intro t ht
+                apply Finset.sum_congr rfl
+                intro sd hsd
+                apply Finset.sum_congr rfl
+                intro sc hsc
+                simp [Finset.sum_const, nsmul_eq_mul]
+        _ = ∑ t ∈ Tset,
+              (Bset.card : ℝ) ^ 2 * Kset.card * blockWeight t := by
+                apply Finset.sum_congr rfl
+                intro t ht
+                simp [Finset.sum_const, nsmul_eq_mul]
+                ring
+        _ = (Bset.card : ℝ) ^ 2 * Kset.card *
+              (∑ t ∈ Tset, blockWeight t) := by rw [Finset.mul_sum]
+        _ = (Fintype.card Bd.B : ℝ) ^ 2 * Kset.card *
+              (∑ t ∈ Tset, blockWeight t) := by simp [Bset]
+    have hWsum :
+        (∑ w ∈ Wset, betaIdeal R w.1.f w.1.a / qI w.1.n.1) ≤
+          (Fintype.card Bd.B : ℝ) ^ 2 * Kset.card *
+            (Ctw * qI h.1 ^ δ₁ * Real.log (2 * R0)) := by
+      calc
+        _ = (Fintype.card Bd.B : ℝ) ^ 2 * Kset.card *
+              (∑ t ∈ Tset, blockWeight t) := by
+                simpa [blockWeight] using hWweight
+        _ ≤ (Fintype.card Bd.B : ℝ) ^ 2 * Kset.card *
+              (Ctw * qI h.1 ^ δ₁ * Real.log (2 * R0)) := by
+                have hfac : 0 ≤ (Fintype.card Bd.B : ℝ) ^ 2 * (Kset.card : ℝ) :=
+                  mul_nonneg (sq_nonneg _) (Nat.cast_nonneg _)
+                exact mul_le_mul_of_nonneg_left hTwt hfac
+    have hKcard : (Kset.card : ℝ) ≤ Cdyad * Real.log (2 * R0) := by
+      dsimp [Kset]
+      have hcard : (Finset.range (Nat.log 2 ⌊R0⌋₊ + 1)).card =
+          Nat.log 2 ⌊R0⌋₊ + 1 := Finset.card_range _
+      rw [hcard]
+      simpa [Cdyad] using rf_retained_natlog_count R0 hR0
+    have hscaleBound :
+        Kscale * ((Fintype.card Bd.B : ℝ) ^ 2 * Kset.card *
+          (Ctw * qI h.1 ^ δ₁ * Real.log (2 * R0))) ≤
+          C * qI h.1 ^ δ₁ * Real.log (2 * R0) ^ 2 *
+            (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2) := by
+      calc
+        _ ≤ Kscale * ((Fintype.card Bd.B : ℝ) ^ 2 *
+              (Cdyad * Real.log (2 * R0)) *
+              (Ctw * qI h.1 ^ δ₁ * Real.log (2 * R0))) := by
+                apply mul_le_mul_of_nonneg_left _ hKscaleNonneg
+                have hfac : 0 ≤ (Fintype.card Bd.B : ℝ) ^ 2 *
+                    (Ctw * qI h.1 ^ δ₁ * Real.log (2 * R0)) := by
+                  have hqh : 0 ≤ qI h.1 ^ δ₁ :=
+                    Real.rpow_nonneg (le_of_lt (rf_qI_pos_ge_one h.1 h.2.1).1) _
+                  have hlog : 0 ≤ Real.log (2 * R0) :=
+                    Real.log_nonneg (by nlinarith [hR0])
+                  exact mul_nonneg (sq_nonneg _) <|
+                    mul_nonneg (mul_nonneg hCtw.le hqh) hlog
+                calc
+                  _ = ((Fintype.card Bd.B : ℝ) ^ 2 *
+                        (Ctw * qI h.1 ^ δ₁ * Real.log (2 * R0))) * Kset.card := by ring
+                  _ ≤ ((Fintype.card Bd.B : ℝ) ^ 2 *
+                        (Ctw * qI h.1 ^ δ₁ * Real.log (2 * R0))) *
+                        (Cdyad * Real.log (2 * R0)) :=
+                    mul_le_mul_of_nonneg_left hKcard hfac
+                  _ = _ := by ring
+      _ = C * qI h.1 ^ δ₁ * Real.log (2 * R0) ^ 2 *
+              (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2) := by
+                dsimp [C, Kscale]
+                ring
+    calc
+      _ = bridgeL2 Rows (fun d => splitReflection R true υ h d Z R0) := hrootEq
+      _ ≤ ∑ w ∈ Wset, bridgeL2 Rows (block w) := hMink
+      _ ≤ Kscale * (∑ w ∈ Wset, betaIdeal R w.1.f w.1.a / qI w.1.n.1) := hblockSum
+      _ ≤ Kscale * ((Fintype.card Bd.B : ℝ) ^ 2 * Kset.card *
+            (Ctw * qI h.1 ^ δ₁ * Real.log (2 * R0))) := by
+          exact mul_le_mul_of_nonneg_left hWsum hKscaleNonneg
+      _ ≤ _ := hscaleBound
+
+set_option maxHeartbeats 8000000 in
+/-- rf:retained-mass, 04:1119-1196. The constant can depend on fixed δ. -/
+theorem rf_retained_mass : ∀ δ δ₁ δ₂ : ℝ, 0 < δ → 0 < δ₁ → 0 < δ₂ →
+  ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z, 1 ≤ P → 1 ≤ D0 → 2 ≤ Z →
+    let R0 := reflectionColumnCutoff P D0 Z δ
+    (R0 < 1 → reflectionMass R true υ P D0 Z δ = 0) ∧
+    (1 ≤ R0 → reflectionMass R true υ P D0 Z δ ≤
+      C * P ^ (1 / 2 + 2 * δ₁) * Real.log (2 * R0) ^ 4 * (D0 + R0) * (D0 * R0) ^ δ₂) := by
+  intro δ δ₁ δ₂ hδ hδ₁ hδ₂
+  obtain ⟨Cfixed, hCfixed, hfixed⟩ :=
+    rf_retained_fixed_h_bound R δ₁ δ₂ hδ₁ hδ₂
+  obtain ⟨Cpow, hCpow, hpower⟩ := rf_powerful_count S
+  let C : ℝ := Cpow * 2 ^ (2 * δ₁) * Cfixed ^ 2
+  refine ⟨C, ?_, ?_⟩
+  · dsimp [C]
+    positivity
+  ·
+    intro υ P D0 Z hP hD0 hZ
+    dsimp only
+    let R0 := reflectionColumnCutoff P D0 Z δ
+    constructor
+    · intro hR0
+      have hzero (hd : S.ExtIdeal × S.ExtIdeal) :
+          (if IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+            D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
+            ‖splitReflection R true υ hd.1 hd.2 Z R0‖ ^ 2 else 0) = 0 := by
+        by_cases hc : IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+            D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0
+        · simp [hc, rf_retained_split_zero_of_cutoff_lt_one R υ hd.1 hd.2 Z R0 hR0]
+        · simp [hc]
+      unfold reflectionMass
+      calc
+        (∑' hd : S.ExtIdeal × S.ExtIdeal,
+          if IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+              D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
+            ‖splitReflection R true υ hd.1 hd.2 Z R0‖ ^ 2 else 0) =
+            ∑' hd, 0 := by
+              apply tsum_congr
+              exact hzero
+        _ = 0 := tsum_zero
+    · intro hR0
+      have hPpos : 0 < P := by linarith
+      have hDpos : 0 < D0 := by linarith
+      have hZpos : 0 < Z := by linarith
+      let Hset : Finset S.ExtIdeal :=
+        (bridgeNormFinset S (2 * P)).filter (fun h => IsPowerful h.1)
+      let Dset : Finset S.ExtIdeal := bridgeNormFinset S (2 * D0)
+      let Kset : Finset (S.ExtIdeal × S.ExtIdeal) := Hset.product Dset
+      let massTerm (hd : S.ExtIdeal × S.ExtIdeal) : ℝ :=
+        if IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+            D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
+          ‖splitReflection R true υ hd.1 hd.2 Z R0‖ ^ 2
+        else 0
+      have hFinP := a2_bridge_COUNT_finite S (2 * P) (by positivity)
+      have hFinD := a2_bridge_COUNT_finite S (2 * D0) (by positivity)
+      have hHnorm (h : S.ExtIdeal) (hh : h ∈ Hset) : idealNorm h.1 ≤ 2 * P := by
+        exact (hFinP.2 h).mp (Finset.mem_filter.mp hh).1
+      have hmemH (h : S.ExtIdeal) (hh : IsPowerful h.1) (hhi : qI h.1 < 2 * P) :
+          h ∈ Hset := by
+        apply Finset.mem_filter.mpr
+        constructor
+        · exact (hFinP.2 h).mpr (by simpa [idealNorm, qI] using hhi.le)
+        · exact hh
+      have hmemD (d : S.ExtIdeal) (dhi : qI d.1 < 2 * D0) : d ∈ Dset := by
+        exact (hFinD.2 d).mpr (by simpa [idealNorm, qI] using dhi.le)
+      have hImgSub : Hset.image (fun h : S.ExtIdeal => h.1) ⊆
+          powerfulExteriorIdeals S P := by
+        intro I hI
+        rcases Finset.mem_image.mp hI with ⟨h, hh, rfl⟩
+        have hnorm : idealNorm h.1 ≤ 2 * P := hHnorm h hh
+        have hpow' := (Finset.mem_filter.mp hh).2
+        change h.1 ∈ powerfulExteriorIdeals S P
+        unfold powerfulExteriorIdeals
+        simp only [Finset.mem_filter, Set.Finite.mem_toFinset, Set.mem_ofPred_eq]
+        constructor
+        · apply (Nat.le_floor_iff (by positivity : 0 ≤ 2 * P)).mpr
+          simpa [idealNorm] using hnorm
+        · exact ⟨h.2, hpow'⟩
+      have hImgCard : (Hset.image (fun h : S.ExtIdeal => h.1)).card = Hset.card := by
+        apply Finset.card_image_iff.mpr
+        intro h hh d hd heq
+        exact Subtype.ext heq
+      have hHcard : (Hset.card : ℝ) ≤ Cpow * P ^ (1 / 2 : ℝ) := by
+        calc
+          (Hset.card : ℝ) = ((Hset.image (fun h : S.ExtIdeal => h.1)).card : ℝ) := by
+            rw [hImgCard]
+          _ ≤ ((powerfulExteriorIdeals S P).card : ℝ) := by
+            exact_mod_cast Finset.card_le_card hImgSub
+          _ ≤ Cpow * P ^ (1 / 2 : ℝ) := by
+            exact_mod_cast hpower P hP
+      have hzero : ∀ hd : S.ExtIdeal × S.ExtIdeal, hd ∉ Kset → massTerm hd = 0 := by
+        rintro ⟨h, d⟩ hnot
+        by_cases hc : IsPowerful h.1 ∧ P ≤ qI h.1 ∧ qI h.1 < 2 * P ∧
+            D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0
+        · rcases hc with ⟨hh, _, hhi, _, dhi⟩
+          have hhm := hmemH h hh hhi
+          have hdm := hmemD d dhi
+          have hmem : (h, d) ∈ Kset := by simp [Kset, hhm, hdm]
+          exact (hnot hmem).elim
+        · simp [massTerm, hc]
+      have hmassEq : reflectionMass R true υ P D0 Z δ =
+          ∑ hd ∈ Kset, massTerm hd := by
+        calc
+          reflectionMass R true υ P D0 Z δ =
+              ∑' hd : S.ExtIdeal × S.ExtIdeal, massTerm hd := by
+                unfold reflectionMass
+                rfl
+          _ = ∑ hd ∈ Kset, massTerm hd := tsum_eq_sum hzero
+      have hproduct :
+          (∑ hd ∈ Kset, massTerm hd) =
+            ∑ h ∈ Hset, ∑ d ∈ Dset, massTerm (h, d) := by
+        simpa [Kset] using (Finset.sum_product Hset Dset massTerm)
+      let Bmass : ℝ := Cfixed * (2 * P) ^ δ₁ * Real.log (2 * R0) ^ 2 *
+        (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2)
+      have hBmassNonneg : 0 ≤ Bmass := by dsimp [Bmass]; positivity
+      have hBmassSq : Bmass ^ 2 =
+          Cfixed ^ 2 * 2 ^ (2 * δ₁) * P ^ (2 * δ₁) * Real.log (2 * R0) ^ 4 *
+            (D0 + R0) * (D0 * R0) ^ δ₂ := by
+        dsimp [Bmass]
+        have hrpowTwo (x a : ℝ) (hx : 0 ≤ x) : (x ^ a) ^ 2 = x ^ (2 * a) := by
+          rw [← Real.rpow_natCast, ← Real.rpow_mul hx]
+          congr 1 <;> ring
+        rw [mul_pow, mul_pow, mul_pow, mul_pow,
+          hrpowTwo (2 * P) δ₁ (by positivity),
+          hrpowTwo (D0 + R0) (1 / 2) (by positivity),
+          hrpowTwo (D0 * R0) (δ₂ / 2) (by positivity)]
+        have htwoP : (2 * P) ^ (2 * δ₁) = 2 ^ (2 * δ₁) * P ^ (2 * δ₁) :=
+          Real.mul_rpow (by norm_num) (by positivity)
+        rw [htwoP]
+        rw [show (Real.log (2 * R0) ^ 2) ^ 2 = Real.log (2 * R0) ^ 4 by
+          rw [← pow_mul]]
+        rw [show 2 * (1 / 2 : ℝ) = 1 by norm_num, Real.rpow_one]
+        rw [show 2 * (δ₂ / 2) = δ₂ by ring]
+        ring
+      let rowTerm (h d : S.ExtIdeal) : ℝ :=
+        if D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0 then
+          ‖splitReflection R true υ h d Z R0‖ ^ 2 else 0
+      have hzeroD (h : S.ExtIdeal) (d : S.ExtIdeal) (hd : d ∉ Dset) : rowTerm h d = 0 := by
+        by_cases hr : D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0
+        · have hdm := hmemD d hr.2
+          exact (hd hdm).elim
+        · simp [rowTerm, hr]
+      have hrowTsum (h : S.ExtIdeal) :
+          (∑' d : S.ExtIdeal, rowTerm h d) = ∑ d ∈ Dset, rowTerm h d :=
+        tsum_eq_sum (hzeroD h)
+      have hinnerBound (h : S.ExtIdeal) (hh : h ∈ Hset) :
+          (∑ d ∈ Dset, massTerm (h, d)) ≤ Bmass ^ 2 := by
+        have hpowH : IsPowerful h.1 := (Finset.mem_filter.mp hh).2
+        by_cases hrange : P ≤ qI h.1 ∧ qI h.1 < 2 * P
+        · have hmassRow : ∀ d ∈ Dset, massTerm (h, d) = rowTerm h d := by
+            intro d hd
+            by_cases hrow : D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0
+            · simp [massTerm, rowTerm, hpowH, hrange, hrow]
+            · simp [massTerm, rowTerm, hpowH, hrange, hrow]
+          have hmassTsum :
+              (∑ d ∈ Dset, massTerm (h, d)) = ∑' d : S.ExtIdeal, rowTerm h d := by
+            rw [Finset.sum_congr rfl hmassRow]
+            exact (hrowTsum h).symm
+          have hfixed' := hfixed υ D0 Z h R0 hD0 hZ hpowH hR0
+          have hqhpos : 0 < qI h.1 := (rf_qI_pos_ge_one h.1 h.2.1).1
+          have hqH : qI h.1 ≤ 2 * P := by
+            have hn := hHnorm h hh
+            simpa [qI, idealNorm] using hn
+          have hpowHle : qI h.1 ^ δ₁ ≤ (2 * P) ^ δ₁ :=
+            Real.rpow_le_rpow hqhpos.le hqH hδ₁.le
+          have hrootBound :
+              Real.sqrt (∑' d : S.ExtIdeal, rowTerm h d) ≤ Bmass := by
+            dsimp [Bmass]
+            calc
+              _ ≤ Cfixed * qI h.1 ^ δ₁ * Real.log (2 * R0) ^ 2 *
+                    (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2) := hfixed'
+              _ ≤ Cfixed * (2 * P) ^ δ₁ * Real.log (2 * R0) ^ 2 *
+                    (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2) := by
+                have hfactor : 0 ≤ Cfixed * Real.log (2 * R0) ^ 2 *
+                    (D0 + R0) ^ (1 / 2 : ℝ) * (D0 * R0) ^ (δ₂ / 2) := by positivity
+                nlinarith [mul_le_mul_of_nonneg_right hpowHle hfactor]
+              _ = Bmass := by ring
+          have hmassNonneg : 0 ≤ ∑' d : S.ExtIdeal, rowTerm h d := by
+            apply tsum_nonneg
+            intro d
+            dsimp [rowTerm]
+            split_ifs <;> positivity
+          have hsq : (Real.sqrt (∑' d : S.ExtIdeal, rowTerm h d)) ^ 2 ≤ Bmass ^ 2 :=
+            (sq_le_sq₀ (Real.sqrt_nonneg _) hBmassNonneg).2 hrootBound
+          have hsumSq := hsq
+          rw [Real.sq_sqrt hmassNonneg] at hsumSq
+          rw [hmassTsum]
+          exact hsumSq
+        · have hmassZero : ∀ d ∈ Dset, massTerm (h, d) = 0 := by
+            intro d hd
+            by_cases hlow : P ≤ qI h.1
+            · have hhigh : ¬ qI h.1 < 2 * P := by
+                intro hhigh
+                exact hrange ⟨hlow, hhigh⟩
+              simp [massTerm, hpowH, hlow, hhigh]
+            · simp [massTerm, hpowH, hlow]
+          rw [Finset.sum_eq_zero hmassZero]
+          positivity
+      have hsumHBound :
+          (∑ h ∈ Hset, ∑ d ∈ Dset, massTerm (h, d)) ≤
+            (Hset.card : ℝ) * Bmass ^ 2 := by
+        calc
+          _ ≤ ∑ h ∈ Hset, Bmass ^ 2 :=
+            Finset.sum_le_sum fun h hh => hinnerBound h hh
+          _ = (Hset.card : ℝ) * Bmass ^ 2 := by simp [Finset.sum_const, nsmul_eq_mul]
+      have hsumCardBound :
+          (Hset.card : ℝ) * Bmass ^ 2 ≤ Cpow * P ^ (1 / 2 : ℝ) * Bmass ^ 2 :=
+        mul_le_mul_of_nonneg_right hHcard (sq_nonneg Bmass)
+      calc
+        reflectionMass R true υ P D0 Z δ = ∑ hd ∈ Kset, massTerm hd := hmassEq
+        _ = ∑ h ∈ Hset, ∑ d ∈ Dset, massTerm (h, d) := hproduct
+        _ ≤ (Hset.card : ℝ) * Bmass ^ 2 := hsumHBound
+        _ ≤ Cpow * P ^ (1 / 2 : ℝ) * Bmass ^ 2 := hsumCardBound
+        _ = Cpow * Cfixed ^ 2 * 2 ^ (2 * δ₁) *
+              P ^ (1 / 2 + 2 * δ₁) * Real.log (2 * R0) ^ 4 *
+                (D0 + R0) * (D0 * R0) ^ δ₂ := by
+          rw [hBmassSq]
+          have hPpos : 0 < P := by linarith
+          rw [Real.rpow_add hPpos]
+          ring
+        _ = C * P ^ (1 / 2 + 2 * δ₁) * Real.log (2 * R0) ^ 4 *
+              (D0 + R0) * (D0 * R0) ^ δ₂ := by dsimp [C]; ring
+
 private lemma rf_log_four_absorb {x β : ℝ} (hβ : 0 < β) (hx : 1 ≤ x) :
     Real.log x ^ 4 ≤ ((β / 4) ^ 4)⁻¹ * x ^ β := by
   let γ : ℝ := β / 4
