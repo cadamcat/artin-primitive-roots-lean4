@@ -692,6 +692,53 @@ theorem jacquet_spherical_unit (L : FinLocalCover D H v) (τ : TameSplitting L) 
 def shellVec (D : FieldData F) (A : AddCharData F) {T : TorusRep D H v} (B : TameTorusBasis T) : T.V :=
   B.e 0 + ((qv v : ℂ) ^ (-(1 / 6 : ℂ)) * gaussLoc D A v (-2)) • B.e 2
 
+private theorem chiPow_add_six (D : FieldData F) (v : FinPlace F) (x : F) (j k : ℤ) :
+    chiPow D v x (j + 6 * k) = chiPow D v x j := by
+  by_cases hx : residue v x = 0
+  · simp [chiPow, hx]
+  · have hroot : chi D v x ^ 6 = 1 := by
+      have hχ : ((chiAlg v x : (𝓞 F)ˣ) : 𝓞 F) ^ 6 = 1 := by
+        have hp := (chiAlg v x).property
+        exact congrArg (fun u : (𝓞 F)ˣ => (u : 𝓞 F)) hp
+      unfold chi
+      rw [if_neg hx]
+      calc
+        (D.σ0 (algebraMap (𝓞 F) F ((chiAlg v x : (𝓞 F)ˣ) : 𝓞 F))) ^ 6 =
+            D.σ0 (algebraMap (𝓞 F) F (((chiAlg v x : (𝓞 F)ˣ) : 𝓞 F) ^ 6)) := by
+          rw [map_pow, map_pow]
+        _ = 1 := by rw [hχ]; simp
+    have hne : chi D v x ≠ 0 := by
+      intro hz
+      simp [hz] at hroot
+    unfold chiPow
+    rw [if_neg hx, if_neg hx, zpow_add₀ hne j (6 * k), zpow_mul]
+    simp [hroot]
+
+private theorem gaussLoc_add_six (D : FieldData F) (A : AddCharData F) (v : FinPlace F)
+    (j k : ℤ) : gaussLoc D A v (j + 6 * k) = gaussLoc D A v j := by
+  unfold gaussLoc
+  congr 1
+  apply finsum_congr
+  intro x
+  rw [chiPow_add_six D v (algebraMap (𝓞 F) F x.out) j k]
+
+private theorem finiteGeo (q : ℂ) (hq : q ≠ 0) (k : ℕ) :
+    1 + (1 - q⁻¹) * ∑ j ∈ Finset.Icc 1 k, q ^ j = q ^ k := by
+  induction k with
+  | zero => simp
+  | succ k ih =>
+      have hIcc : Finset.Icc 1 (k + 1) = insert (k + 1) (Finset.Icc 1 k) := by
+        ext j
+        simp only [Finset.mem_Icc, Finset.mem_insert]
+        omega
+      rw [hIcc, Finset.sum_insert (by simp), pow_succ]
+      calc
+        1 + (1 - q⁻¹) * (q ^ k * q + ∑ j ∈ Finset.Icc 1 k, q ^ j) =
+            (1 + (1 - q⁻¹) * ∑ j ∈ Finset.Icc 1 k, q ^ j) +
+              (1 - q⁻¹) * (q ^ k * q) := by ring
+        _ = q ^ k + (1 - q⁻¹) * (q ^ k * q) := by rw [ih]
+        _ = q ^ k * q := by field_simp [hq] <;> ring
+
 /-- **jq:shell-s0** (eq:app-J-values): at `s = -1/6` (the space `I^-` of the paper, realized as
 `I(T', -1/6)` with `T' = T.weyl`, `B' = B.weyl`). -/
 theorem jacquet_spherical_s0 (L : FinLocalCover D H v) (τ : TameSplitting L) (T : TorusRep D H v)
@@ -704,7 +751,262 @@ theorem jacquet_spherical_s0 (L : FinLocalCover D H v) (τ : TameSplitting L) (T
     jacquet L A μ (rtr (L.a (unifLoc v ^ ((3 * k + 1 : ℕ) : ℤ))) f0) =
         ((qv v : ℂ) ^ (-(k : ℂ) - 1 / 2) * g2 D A v) • shellVec D A B ∧
     jacquet L A μ (rtr (L.a (unifLoc v ^ ((3 * k + 2 : ℕ) : ℤ))) f0) = 0 := by
-  sorry
+  let Q : ℂ := qv v
+  have hqR : 0 < qv v := lt_trans zero_lt_one (qv_gt_one v)
+  have hq0 : Q ≠ 0 := by
+    dsimp [Q]
+    exact_mod_cast (ne_of_gt hqR)
+  have hqprod (a b : ℂ) : Q ^ a * Q ^ b = Q ^ (a + b) := by
+    exact (Complex.cpow_add (x := Q) a b hq0).symm
+  have hgeo (n : ℕ) :
+      1 + (1 - Q⁻¹) *
+        ∑ j ∈ Finset.Icc 1 n, Q ^ (-6 * (j : ℂ) * (-(1 / 6 : ℂ))) = Q ^ (n : ℂ) := by
+    have hsum :
+        ∑ j ∈ Finset.Icc 1 n, Q ^ (-6 * (j : ℂ) * (-(1 / 6 : ℂ))) =
+          ∑ j ∈ Finset.Icc 1 n, Q ^ j := by
+      apply Finset.sum_congr rfl
+      intro j hj
+      rw [show (-6 : ℂ) * (j : ℂ) * (-(1 / 6 : ℂ)) = (j : ℂ) by ring,
+        Complex.cpow_natCast]
+    rw [hsum]
+    simpa only [Complex.cpow_natCast] using finiteGeo Q hq0 n
+  have hprod : g2 D A v * gaussLoc D A v (-2) = 1 := by
+    rw [g2_eq_gaussLoc]
+    exact gaussLoc_mul_neg D A v hv hd 2 (by norm_num)
+  have hperA : gaussLoc D A v (-2 * ((3 * k + 1 : ℕ) : ℤ)) =
+      gaussLoc D A v (-2) := by
+    have he : -2 * ((3 * k + 1 : ℕ) : ℤ) = -2 + 6 * (-(k : ℤ)) := by
+      push_cast
+      ring
+    rw [he]
+    exact gaussLoc_add_six D A v (-2) (-(k : ℤ))
+  have hperB : gaussLoc D A v (-2 * ((3 * k + 2 : ℕ) : ℤ)) =
+      g2 D A v := by
+    rw [g2_eq_gaussLoc]
+    have he : -2 * ((3 * k + 2 : ℕ) : ℤ) = 2 + 6 * (-(k + 1 : ℤ)) := by
+      push_cast
+      ring
+    rw [he]
+    exact gaussLoc_add_six D A v 2 (-(k + 1 : ℤ))
+  have hnotA : ¬ 3 ∣ 3 * k + 1 := by
+    rintro ⟨m, hm⟩
+    omega
+  have hnotB : ¬ 3 ∣ 3 * k + 2 := by
+    rintro ⟨m, hm⟩
+    omega
+  have hdivC : 3 ∣ 3 * k + 3 := ⟨k + 1, by omega⟩
+  have htermA : shellTerm D A v (3 * k + 1) =
+      Q ^ (-(1 / 2 : ℂ)) * gaussLoc D A v (-2 * ((3 * k + 1 : ℕ) : ℤ)) := by
+    simp [shellTerm, Q, hnotA]
+  have htermB : shellTerm D A v (3 * k + 2) =
+      Q ^ (-(1 / 2 : ℂ)) * gaussLoc D A v (-2 * ((3 * k + 2 : ℕ) : ℤ)) := by
+    simp [shellTerm, Q, hnotB]
+  have htermC : shellTerm D A v (3 * k + 3) = -Q⁻¹ := by
+    simp [shellTerm, Q, hdivC]
+  have houter0 :
+      Q ^ (-((3 * k : ℕ) : ℂ) * (1 / 2 - (-(1 / 6 : ℂ)))) = Q ^ (-(2 * (k : ℂ))) := by
+    apply congrArg (fun z : ℂ => Q ^ z)
+    push_cast
+    ring
+  have houter1 :
+      Q ^ (-((3 * k + 1 : ℕ) : ℂ) * (1 / 2 - (-(1 / 6 : ℂ)))) =
+        Q ^ (-(2 * (k : ℂ)) - 2 / 3) := by
+    apply congrArg (fun z : ℂ => Q ^ z)
+    push_cast
+    ring
+  have houter2 :
+      Q ^ (-((3 * k + 2 : ℕ) : ℂ) * (1 / 2 - (-(1 / 6 : ℂ)))) =
+        Q ^ (-(2 * (k : ℂ)) - 4 / 3) := by
+    apply congrArg (fun z : ℂ => Q ^ z)
+    push_cast
+    ring
+  have htermExp0 :
+      Q ^ (-2 * (((3 * k : ℕ) : ℂ) + 1) * (-(1 / 6 : ℂ))) = Q ^ ((k : ℂ) + 1 / 3) := by
+    apply congrArg (fun z : ℂ => Q ^ z)
+    push_cast
+    ring
+  have htermExp1 :
+      Q ^ (-2 * (((3 * k + 1 : ℕ) : ℂ) + 1) * (-(1 / 6 : ℂ))) =
+        Q ^ ((k : ℂ) + 2 / 3) := by
+    apply congrArg (fun z : ℂ => Q ^ z)
+    push_cast
+    ring
+  have htermExp2 :
+      Q ^ (-2 * (((3 * k + 2 : ℕ) : ℂ) + 1) * (-(1 / 6 : ℂ))) = Q ^ ((k : ℂ) + 1) := by
+    apply congrArg (fun z : ℂ => Q ^ z)
+    push_cast
+    ring
+  have hcoeff00 :
+      Q ^ (-(2 * (k : ℂ))) * (1 + (1 - Q⁻¹) *
+        ∑ j ∈ Finset.Icc 1 (3 * k / 3), Q ^ (-6 * (j : ℂ) * (-(1 / 6 : ℂ)))) =
+        Q ^ (-(k : ℂ)) := by
+    have hdiv : 3 * k / 3 = k := by omega
+    rw [hdiv, hgeo k]
+    calc
+      Q ^ (-(2 * (k : ℂ))) * Q ^ (k : ℂ) = Q ^ (-(2 * (k : ℂ)) + (k : ℂ)) :=
+        hqprod _ _
+      _ = Q ^ (-(k : ℂ)) := by congr 1 <;> ring
+  have hcoeff02 :
+      Q ^ (-(2 * (k : ℂ))) *
+        (Q ^ ((k : ℂ) + 1 / 3) * (Q ^ (-(1 / 2 : ℂ)) * gaussLoc D A v (-2))) =
+        Q ^ (-(k : ℂ)) * Q ^ (-(1 / 6 : ℂ)) * gaussLoc D A v (-2) := by
+    calc
+      _ = (Q ^ (-(2 * (k : ℂ))) * Q ^ ((k : ℂ) + 1 / 3)) *
+          Q ^ (-(1 / 2 : ℂ)) * gaussLoc D A v (-2) := by ring
+      _ = Q ^ (-(2 * (k : ℂ)) + ((k : ℂ) + 1 / 3)) *
+          Q ^ (-(1 / 2 : ℂ)) * gaussLoc D A v (-2) := by rw [hqprod]
+      _ = Q ^ (-(2 * (k : ℂ)) + ((k : ℂ) + 1 / 3) + (-(1 / 2 : ℂ))) *
+          gaussLoc D A v (-2) := by rw [hqprod]
+      _ = Q ^ (-(k : ℂ) - 1 / 6) * gaussLoc D A v (-2) := by
+        congr 2
+        ring
+      _ = Q ^ (-(k : ℂ)) * Q ^ (-(1 / 6 : ℂ)) * gaussLoc D A v (-2) := by
+        exact congrArg (fun z : ℂ => z * gaussLoc D A v (-2))
+          (hqprod (-(k : ℂ)) (-(1 / 6 : ℂ))).symm
+  have hcoeff10 :
+      Q ^ (-(2 * (k : ℂ)) - 2 / 3) * (1 + (1 - Q⁻¹) *
+        ∑ j ∈ Finset.Icc 1 ((3 * k + 1) / 3),
+          Q ^ (-6 * (j : ℂ) * (-(1 / 6 : ℂ)))) = Q ^ (-(k : ℂ) - 2 / 3) := by
+    have hdiv : (3 * k + 1) / 3 = k := by omega
+    rw [hdiv, hgeo k]
+    calc
+      Q ^ (-(2 * (k : ℂ)) - 2 / 3) * Q ^ (k : ℂ) =
+          Q ^ (-(2 * (k : ℂ)) - 2 / 3 + (k : ℂ)) := hqprod _ _
+      _ = Q ^ (-(k : ℂ) - 2 / 3) := by congr 1 <;> ring
+  have hcoeff12 :
+      Q ^ (-(2 * (k : ℂ)) - 2 / 3) *
+        (Q ^ ((k : ℂ) + 2 / 3) * (Q ^ (-(1 / 2 : ℂ)) * g2 D A v)) =
+        Q ^ (-(k : ℂ) - 1 / 2) * g2 D A v := by
+    calc
+      _ = (Q ^ (-(2 * (k : ℂ)) - 2 / 3) * Q ^ ((k : ℂ) + 2 / 3)) *
+          Q ^ (-(1 / 2 : ℂ)) * g2 D A v := by ring
+      _ = Q ^ (-(2 * (k : ℂ)) - 2 / 3 + ((k : ℂ) + 2 / 3)) *
+          Q ^ (-(1 / 2 : ℂ)) * g2 D A v := by rw [hqprod]
+      _ = Q ^ (-(2 * (k : ℂ)) - 2 / 3 + ((k : ℂ) + 2 / 3) + (-(1 / 2 : ℂ))) *
+          g2 D A v := by rw [hqprod]
+      _ = Q ^ (-(k : ℂ) - 1 / 2) * g2 D A v := by
+        congr 2
+        ring
+  have hcoeff11 :
+      Q ^ (-(k : ℂ) - 1 / 2) * g2 D A v *
+        (Q ^ (-(1 / 6 : ℂ)) * gaussLoc D A v (-2)) = Q ^ (-(k : ℂ) - 2 / 3) := by
+    calc
+      _ = Q ^ (-(k : ℂ) - 1 / 2) * Q ^ (-(1 / 6 : ℂ)) *
+          (g2 D A v * gaussLoc D A v (-2)) := by ring
+      _ = Q ^ (-(k : ℂ) - 1 / 2) * Q ^ (-(1 / 6 : ℂ)) := by rw [hprod, mul_one]
+      _ = Q ^ (-(k : ℂ) - 1 / 2 + (-(1 / 6 : ℂ))) := hqprod _ _
+      _ = Q ^ (-(k : ℂ) - 2 / 3) := by congr 1 <;> ring
+  have hcoeff20 :
+      Q ^ (-(2 * (k : ℂ)) - 4 / 3) * (1 + (1 - Q⁻¹) *
+        ∑ j ∈ Finset.Icc 1 ((3 * k + 2) / 3),
+          Q ^ (-6 * (j : ℂ) * (-(1 / 6 : ℂ)))) = Q ^ (-(k : ℂ) - 4 / 3) := by
+    have hdiv : (3 * k + 2) / 3 = k := by omega
+    rw [hdiv, hgeo k]
+    calc
+      Q ^ (-(2 * (k : ℂ)) - 4 / 3) * Q ^ (k : ℂ) =
+          Q ^ (-(2 * (k : ℂ)) - 4 / 3 + (k : ℂ)) := hqprod _ _
+      _ = Q ^ (-(k : ℂ) - 4 / 3) := by congr 1 <;> ring
+  have hcoeff22 :
+      Q ^ (-(2 * (k : ℂ)) - 4 / 3) *
+        (Q ^ ((k : ℂ) + 1) * (-Q⁻¹)) = -Q ^ (-(k : ℂ) - 4 / 3) := by
+    have hqinv : Q⁻¹ = Q ^ (-1 : ℂ) := by
+      symm
+      rw [Complex.cpow_neg]
+      simp
+    calc
+      _ = -(Q ^ (-(2 * (k : ℂ)) - 4 / 3) * Q ^ ((k : ℂ) + 1) * Q ^ (-1 : ℂ)) := by
+        rw [hqinv]
+        ring
+      _ = -(Q ^ (-(2 * (k : ℂ)) - 4 / 3 + ((k : ℂ) + 1) + (-1 : ℂ))) := by
+        rw [hqprod, hqprod]
+      _ = -Q ^ (-(k : ℂ) - 4 / 3) := by congr 2 <;> ring
+  have hZ3 : ((3 : ℕ) : ZMod 3) = 0 := ZMod.natCast_self 3
+  have hidx00 : ((3 * k : ℕ) : ZMod 3) = 0 := by
+    rw [Nat.cast_mul, hZ3]
+    simp
+  have hidx01 : (-(3 * k + 1 : ℕ) : ZMod 3) = 2 := by
+    rw [Nat.cast_add, Nat.cast_mul, hZ3]
+    have hn : (-1 : ZMod 3) = 2 := by
+      apply sub_eq_zero.mp
+      change (-3 : ZMod 3) = 0
+      exact (ZMod.intCast_zmod_eq_zero_iff_dvd (-3) 3).2 (by norm_num)
+    simpa [hn]
+  have hidx01pos : ((3 * k + 1 : ℕ) : ZMod 3) = 1 := by
+    rw [Nat.cast_add, Nat.cast_mul, hZ3]
+    simp
+  have hidx02 : ((3 * k + 2 : ℕ) : ZMod 3) = 2 := by
+    rw [Nat.cast_add, Nat.cast_mul, hZ3]
+    simp
+  have hidxAadd2 : ((3 * k + 1 : ℕ) : ZMod 3) + 2 = 0 := by
+    rw [hidx01pos]
+    apply sub_eq_zero.mp
+    change (3 : ZMod 3) = 0
+    exact_mod_cast hZ3
+  have hidx10 : (-(3 * k + 2 : ℕ) : ZMod 3) = 1 := by
+    rw [Nat.cast_add, Nat.cast_mul, hZ3]
+    have hn : (-2 : ZMod 3) = 1 := by
+      apply sub_eq_zero.mp
+      change (-3 : ZMod 3) = 0
+      exact (ZMod.intCast_zmod_eq_zero_iff_dvd (-3) 3).2 (by norm_num)
+    simpa [hn]
+  have hidx11 : ((3 * k + 3 : ℕ) : ZMod 3) = 0 := by
+    rw [Nat.cast_add, Nat.cast_mul, hZ3]
+    simp
+  have hsum22 : (2 : ZMod 3) + 2 = 1 := by
+    apply sub_eq_zero.mp
+    change (3 : ZMod 3) = 0
+    exact_mod_cast hZ3
+  have hidxBadd2 : ((3 * k + 2 : ℕ) : ZMod 3) + 2 = 1 := by
+    rw [hidx02]
+    exact hsum22
+  have hidx20 : (-(3 * k + 2 : ℕ) : ZMod 3) = 1 := hidx10
+  have hidx21 : ((3 * k + 4 : ℕ) : ZMod 3) = 1 := by
+    rw [Nat.cast_add, Nat.cast_mul, hZ3]
+    have hn : (4 : ZMod 3) = 1 := by
+      apply sub_eq_zero.mp
+      change (3 : ZMod 3) = 0
+      exact hZ3
+    simpa using hn
+  refine ⟨?_, ?_, ?_⟩
+  · have hJ := jacquet_spherical L τ T B A μ hv hd (-(1 / 6 : ℂ)) f0 hf0 h1 hK (3 * k)
+    rw [hJ, houter0, htermExp0, smul_add, smul_smul, smul_smul,
+      hcoeff00, htermA, hperA, hcoeff02]
+    simp only [shellVec, smul_add, smul_smul, hidx00, neg_zero, add_zero, one_smul]
+    simp [mul_assoc, Q]
+  · have hJ := jacquet_spherical L τ T B A μ hv hd (-(1 / 6 : ℂ)) f0 hf0 h1 hK (3 * k + 1)
+    have hfirst :
+        Q ^ (-(2 * (k : ℂ)) - 2 / 3) *
+          (1 + (1 - Q⁻¹) *
+            ∑ j ∈ Finset.Icc 1 ((3 * k + 1) / 3),
+              Q ^ (-6 * (j : ℂ) * (-(1 / 6 : ℂ)))) =
+          Q ^ (-(k : ℂ) - 2 / 3) := hcoeff10
+    have hlast :
+        Q ^ (-(2 * (k : ℂ)) - 2 / 3) *
+          (Q ^ ((k : ℂ) + 2 / 3) *
+            shellTerm D A v (3 * k + 2)) =
+          Q ^ (-(k : ℂ) - 1 / 2) * g2 D A v := by
+      rw [htermB, hperB]
+      exact hcoeff12
+    rw [hJ, houter1, htermExp1, smul_add, smul_smul, smul_smul, hfirst, hlast]
+    simp only [shellVec, smul_add, smul_smul, hidx01, hidxAadd2, one_smul]
+    rw [hcoeff11]
+    abel
+  · have hJ := jacquet_spherical L τ T B A μ hv hd (-(1 / 6 : ℂ)) f0 hf0 h1 hK (3 * k + 2)
+    have hfirst :
+        Q ^ (-(2 * (k : ℂ)) - 4 / 3) *
+          (1 + (1 - Q⁻¹) *
+            ∑ j ∈ Finset.Icc 1 ((3 * k + 2) / 3),
+              Q ^ (-6 * (j : ℂ) * (-(1 / 6 : ℂ)))) =
+          Q ^ (-(k : ℂ) - 4 / 3) := hcoeff20
+    have hlast :
+        Q ^ (-(2 * (k : ℂ)) - 4 / 3) *
+          (Q ^ ((k : ℂ) + 1) * shellTerm D A v (3 * k + 3)) =
+          -Q ^ (-(k : ℂ) - 4 / 3) := by
+      rw [htermC]
+      exact hcoeff22
+    rw [hJ, houter2, htermExp2, smul_add, smul_smul, smul_smul, hfirst, hlast]
+    simp only [smul_neg, neg_smul, hidx20, hidxBadd2, one_smul]
+    abel
 
 /-- **jq:table** (eq:theta-local-values through any coordinate): for the spherical vector of
 `I(T, -1/6)` and every linear functional `c`, `c(J(a(ϖ^e u))) = sphericalTable(e,u) · c(J(1))`. -/
