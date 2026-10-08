@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.Spec.Smoothing
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_API.Existence
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_API.Uniqueness
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CUSP.ResidueLinearCombination
 
 /-! Consumer API nodes C2--C3. -/
 
@@ -44,6 +45,7 @@ theorem C3_cuspidal (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
         IsAddFundamentalDomain (cuspTranslations F Γ τ) P ∧
           ∫ x in P, (∑ i, c i * (d i).res (τ • ptX' F x y)) = 0) :
     ∀ z, ∑ i, c i * (d i).res z = 0 := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.spec_domcusp_sol.c3_cuspidal_core
+    Γ hfree s₁ h₀ h₁ σ d c hct
 
 end ArtinPrimitiveRoots.A1.Spec
