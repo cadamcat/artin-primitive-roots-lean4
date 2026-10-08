@@ -3644,6 +3644,39 @@ def reflectedDirichletTerm (f : S.ExtIdeal) (σ : ℝ)
   betaIdeal R f p.1 * qI p.2.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.2.1 *
     (qI p.1.1.1 * qI p.2.1.1 * qI p.2.2.1 ^ 3) ^ (-σ)
 
+private theorem rf_active_exponent_injective
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (f : S.ExtIdeal) :
+    Function.Injective (fun a : {a : S.ExtIdeal // activeNumerator R f a} =>
+      fun v : {v : FinPlace F // v ∈ R.exterior.support f} => idealExp v.1 a.1.1) := by
+  classical
+  intro a b hab
+  have hexp (v : FinPlace F) : idealExp v a.1.1 = idealExp v b.1.1 := by
+    by_cases hv : v ∈ R.exterior.support f
+    · exact congrFun hab ⟨v, hv⟩
+    · have hva : v ∉ R.exterior.support a.1 := by
+        intro h
+        exact hv (a.property.1 v h)
+      have hvb : v ∉ R.exterior.support b.1 := by
+        intro h
+        exact hv (b.property.1 v h)
+      rw [rf_idealExp_zero_of_not_support R v a.1 hva,
+        rf_idealExp_zero_of_not_support R v b.1 hvb]
+  have ha0 : a.1.1 ≠ 0 := by
+    simpa only [Ideal.zero_eq_bot] using a.1.property.1
+  have hb0 : b.1.1 ≠ 0 := by
+    simpa only [Ideal.zero_eq_bot] using b.1.property.1
+  apply Subtype.ext
+  apply Subtype.ext
+  calc
+    a.1.1 = ∏ᶠ v : FinPlace F, v.maxPowDividing a.1.1 :=
+      (Ideal.finprod_heightOneSpectrum_factorization ha0).symm
+    _ = ∏ᶠ v : FinPlace F, v.maxPowDividing b.1.1 := by
+      apply finprod_congr
+      intro v
+      change v.asIdeal ^ idealExp v a.1.1 = v.asIdeal ^ idealExp v b.1.1
+      rw [hexp v]
+    _ = b.1.1 := Ideal.finprod_heightOneSpectrum_factorization hb0
+
 /-- rf:grouped-absolute, 04:659-706. Absolute sums and the averaged integral use the same majorant. -/
 theorem rf_grouped_absolute : ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ f,
   Summable (reflectedDirichletTerm R f σ) ∧
