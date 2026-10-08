@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A1.AddChar
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.FiniteField
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueCharacter
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.Equality
 import ArtinPrimitiveRoots.Hecke.Dict.IdeleCoordinates
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
