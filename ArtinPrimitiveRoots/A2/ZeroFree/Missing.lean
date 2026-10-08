@@ -4331,7 +4331,7 @@ private theorem rows_principalRz_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
       _ ≤ Z ^ Estar (1 + δ1) 1 (16 / 100) *
           (Cht * Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aheight)) *
           (Cz * (2 + |tz|) ^ AF) * CH * Cinv := hbound
-      _ = B * Z ^ Estar (1 + δ1) 1 (16 / 100) *
+      _ ≤ B * Z ^ Estar (1 + δ1) 1 (16 / 100) *
           Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv) := by
         rw [hB]
         have hpoint : (1 + |tz|) ^ (-Aheight) * (2 + |tz|) ^ AF ≤
