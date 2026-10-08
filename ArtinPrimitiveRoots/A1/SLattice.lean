@@ -1617,6 +1617,23 @@ private theorem covol_local_integer_indicator_fourier_inversion
   have hO := covol_local_integer_ball v.1
   simpa [ν, hO] using hinv
 
+private theorem covol_local_selfdual_integer_mass
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (v : S.Sf) :
+    (covol_local_selfdual_at D S A v).real
+      (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) =
+    covol_local_selfdual_scale v.1 (covol_local_conductor_exponent D S A v) := by
+  let d := covol_local_conductor_exponent D S A v
+  change (covol_local_selfdual_measure v.1 (covol_base_locHaar v.1) d).real
+      (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) =
+    covol_local_selfdual_scale v.1 d
+  rw [← covol_local_integer_ball, covol_local_selfdual_measure_real_ball]
+  have hOne : absFin v.1 (1 : v.1.adicCompletion F) = 1 := by
+    unfold absFin
+    rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v.1)]
+    simp
+  simp [hOne]
+
 private theorem covol_arch_test_fourier_inversion (x : InfinitePlace F → ℂ) :
     ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier
       (fun y => ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier
