@@ -437,7 +437,7 @@ theorem diagR_isDiscrete (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     change S.diag (r : F) - S.diag (r : F) ∈ N
     simpa using hNzero
 
-private theorem adicCompletionIntegers_compact (v : HeightOneSpectrum (𝓞 F)) :
+theorem adicCompletionIntegers_compact (v : HeightOneSpectrum (𝓞 F)) :
     IsCompact (v.adicCompletionIntegers F : Set (v.adicCompletion F)) := by
   classical
   let A : ValuationSubring F := (v.valuation F).valuationSubring

@@ -426,6 +426,82 @@ private theorem exists_measurable_lattice_fundamental_domain
     exact Prod.ext hsr hkl.symm
   exact ⟨K, hKmeas, hfund⟩
 
+private instance covolAdicCompletionSeparableSpace (v : FinPlace F) :
+    TopologicalSpace.SeparableSpace (v.adicCompletion F) := by
+  letI : Countable F := by
+    letI : Countable ℚ := inferInstance
+    exact Finsupp.Countable.of_moduleFinite (R := ℚ) (M := F)
+  exact TopologicalSpace.SeparableSpace.of_denseRange
+    (algebraMap F (v.adicCompletion F)) (v.denseRange_algebraMap (K := F))
+
+private instance covolAdicCompletionSecondCountable (v : FinPlace F) :
+    SecondCountableTopology (v.adicCompletion F) :=
+  UniformSpace.secondCountable_of_separable (v.adicCompletion F)
+
+private instance covolAdicCompletionLocallyCompactSpace (v : FinPlace F) :
+    LocallyCompactSpace (v.adicCompletion F) := by
+  have hK : IsCompact (v.adicCompletionIntegers F : Set (v.adicCompletion F)) :=
+    ArtinPrimitiveRoots.Proofs.A1_LATTICE.adicCompletionIntegers_compact v
+  have hO : IsOpen (v.adicCompletionIntegers F : Set (v.adicCompletion F)) :=
+    Valued.isOpen_valuationSubring _
+  have hz : (0 : v.adicCompletion F) ∈ v.adicCompletionIntegers F :=
+    (v.adicCompletionIntegers F).zero_mem
+  exact IsCompact.locallyCompactSpace_of_mem_nhds_of_addGroup hK
+    (hO.mem_nhds hz)
+
+private theorem covol_self_dual_measure_unique
+    (S : SData F CE condη) (A : AddCharData F)
+    (μ ν : S.SelfDualMeasure A) (f : S.BruhatSchwartz)
+    (hf : (f : S.FS → ℂ) 0 ≠ 0) : μ.measure = ν.measure := by
+  classical
+  letI : ∀ v : S.Sf, SecondCountableTopology (v.1.adicCompletion F) :=
+    fun v => inferInstance
+  letI : ∀ v : S.Sf, LocallyCompactSpace (v.1.adicCompletion F) :=
+    fun v => inferInstance
+  letI : SecondCountableTopology S.FS := inferInstance
+  letI : LocallyCompactSpace S.FS := inferInstance
+  letI : Measure.IsAddHaarMeasure μ.measure := μ.isHaar
+  letI : Measure.IsAddHaarMeasure ν.measure := ν.isHaar
+  let c : NNReal := Measure.addHaarScalarFactor μ.measure ν.measure
+  have hmeasure : μ.measure = (c : ENNReal) • ν.measure := by
+    simpa [c] using Measure.isAddLeftInvariant_eq_smul μ.measure ν.measure
+  have hF (g : S.FS → ℂ) :
+      S.fourier A μ.measure g = fun y => (c : ℂ) * S.fourier A ν.measure g y := by
+    funext y
+    simp only [SData.fourier]
+    rw [hmeasure, MeasureTheory.integral_smul_measure]
+    simp [c, smul_eq_mul]
+  have hF_smul (d : ℂ) (g : S.FS → ℂ) :
+      S.fourier A ν.measure (fun y => d * g y) =
+        (fun x => d * S.fourier A ν.measure g x) := by
+    funext x
+    simp only [SData.fourier]
+    rw [← MeasureTheory.integral_const_mul]
+    congr 1
+    funext y
+    ring
+  have hdouble (x : S.FS) :
+      S.fourier A μ.measure (S.fourier A μ.measure (f : S.FS → ℂ)) x =
+        (c : ℂ) ^ 2 *
+          S.fourier A ν.measure (S.fourier A ν.measure (f : S.FS → ℂ)) x := by
+    calc
+      _ = (c : ℂ) * S.fourier A ν.measure
+          (S.fourier A μ.measure (f : S.FS → ℂ)) x := by rw [hF]
+      _ = (c : ℂ) * S.fourier A ν.measure
+          (fun y => (c : ℂ) * S.fourier A ν.measure (f : S.FS → ℂ) y) x := by rw [hF f]
+      _ = _ := by rw [hF_smul]; ring
+  have hμ := μ.fourier_inversion f 0
+  rw [hdouble, ν.fourier_inversion f 0] at hμ
+  have hc2 : (c : ℂ) ^ 2 = 1 := (mul_eq_right₀ hf).mp (by simpa using hμ)
+  have hcReal : (c : ℝ) ^ 2 = 1 := by exact_mod_cast hc2
+  have hc : c = 1 := by
+    apply Subtype.ext
+    rcases sq_eq_one_iff.mp hcReal with h | h
+    · exact h
+    · have hcNonneg : 0 ≤ (c : ℝ) := NNReal.coe_nonneg c
+      linarith
+  simpa [hc] using hmeasure
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
