@@ -246,4 +246,114 @@ theorem qs_nq0_integral_quadratic_prime_value
         (qs_nq0_quadratic_prime_value D H v h6 a hval χ hloc).2
       _ = (qsQuadSymbolAt v c : ℂ) := qs_nq0_chi_cube_quad_symbol D v h6 c
 
+/-- Integral exterior representatives realize the canonical quadratic character family. -/
+theorem qs_nq0_integral_symbol_representatives
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (a : Ideal (𝓞 K) → Kˣ)
+    (ha : ∀ I, Sd.IsExterior I → Sd.IsGen (a I : K) I)
+    (χ : Ideal (𝓞 K) → HeckeChar K)
+    (hloc : ∀ I (v : FinPlace K) (u : (v.adicCompletion K)ˣ),
+      (((χ I).loc v u : ℂˣ) : ℂ) =
+        D.σ0 (((H.hilb v (toLoc v (a I)) u : Kˣ) : K)) ^ 3) :
+    ∃ gen₀ : Finset (FinPlace K) → 𝓞 K,
+      (∀ T, Disjoint T Sd.Sf → qsIsExteriorGenerator Sd.Sf T (gen₀ T)) ∧
+      (∀ T D', Disjoint T Sd.Sf → Disjoint D' Sd.Sf →
+        (χ (qsIdealOf T)).idealValue (qsIdealOf D') =
+          (qsQuadSymbol D' (gen₀ T) : ℂ)) := by
+  classical
+  have hI0 (U : Finset (FinPlace K)) : qsIdealOf U ≠ ⊥ := by
+    change (∏ v ∈ U, v.asIdeal) ≠ 0
+    exact Finset.prod_ne_zero_iff.mpr (fun v _ => v.ne_bot)
+  have hexterior (T : Finset (FinPlace K)) (hT : Disjoint T Sd.Sf) :
+      Sd.IsExterior (qsIdealOf T) := by
+    refine ⟨hI0 T, ?_⟩
+    intro v hv hle
+    change (∏ w ∈ T, w.asIdeal) ≤ v.asIdeal at hle
+    obtain ⟨w, hw, hwv⟩ := v.isPrime.prod_le.mp hle
+    have hweq : w = v := HeightOneSpectrum.ext
+      (w.isMaximal.eq_of_le v.isPrime.ne_top hwv)
+    subst w
+    exact Finset.disjoint_left.mp hT hw hv
+  have hprod (ψ : HeckeChar K) (U : Finset (FinPlace K)) :
+      ψ.idealValue (qsIdealOf U) = ∏ v ∈ U, ψ.primeValue v := by
+    have hexps (v : FinPlace K) : idealExp v (qsIdealOf U) =
+        if v ∈ U then 1 else 0 := by
+      have hcount : FractionalIdeal.count K v
+          (qsIdealOf U : FractionalIdeal (nonZeroDivisors (𝓞 K)) K) =
+            if v ∈ U then 1 else 0 := by
+        change FractionalIdeal.count K v
+          ((FractionalIdeal.coeIdealHom (nonZeroDivisors (𝓞 K)) K)
+            (∏ w ∈ U, w.asIdeal)) = _
+        rw [map_prod]
+        change FractionalIdeal.count K v
+          (∏ w ∈ U, (w.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 K)) K)) = _
+        rw [FractionalIdeal.count_prod K v U
+          (fun w : FinPlace K => (w.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 K)) K))
+          (fun w _ => FractionalIdeal.coeIdeal_ne_zero.mpr w.ne_bot)]
+        simp [FractionalIdeal.count_maximal]
+      rw [FractionalIdeal.count_coe K v (hI0 U)] at hcount
+      change (idealExp v (qsIdealOf U) : ℤ) = if v ∈ U then 1 else 0 at hcount
+      by_cases hv : v ∈ U
+      · simp only [ite_eq_left hv] at hcount ⊢
+        exact_mod_cast hcount
+      · simp only [ite_eq_right hv] at hcount ⊢
+        exact_mod_cast hcount
+    rw [qs_nq0_ideal_value_finprod ψ (qsIdealOf U) (hI0 U)]
+    calc
+      (∏ᶠ v : FinPlace K, ψ.primeValue v ^ idealExp v (qsIdealOf U)) =
+          ∏ v ∈ U, ψ.primeValue v ^ idealExp v (qsIdealOf U) := by
+        apply finprod_eq_prod_of_mulSupport_subset
+        intro v hv
+        by_contra hvU
+        change v ∉ U at hvU
+        apply hv
+        simp only [hexps v, ite_eq_right hvU, pow_zero]
+      _ = ∏ v ∈ U, ψ.primeValue v := by
+        apply Finset.prod_congr rfl
+        intro v hv
+        rw [hexps v, ite_eq_left hv, pow_one]
+  have hreps (T : Finset (FinPlace K)) : ∃ b c : 𝓞 K,
+      b ≠ 0 ∧ (c : K) ≠ 0 ∧
+      (Disjoint T Sd.Sf → (c : K) = (a (qsIdealOf T) : K) * (b : K) ^ 2 ∧
+        qsIsExteriorGenerator Sd.Sf T c) := by
+    by_cases hT : Disjoint T Sd.Sf
+    · obtain ⟨b, c, hb, hceq, hcgen, hcext⟩ :=
+        qs_nq0_integral_corrected_generator Sd T (a (qsIdealOf T))
+          (ha (qsIdealOf T) (hexterior T hT))
+      exact ⟨b, c, hb, hcgen.2.1, fun _ => ⟨hceq, hcext⟩⟩
+    · exact ⟨1, 1, one_ne_zero, by simp, fun ht => (hT ht).elim⟩
+  choose b c hb hc hrep using hreps
+  have hbK (T : Finset (FinPlace K)) : (b T : K) ≠ 0 := by
+    intro h
+    exact hb T ((IsFractionRing.injective (𝓞 K) K) (by simpa using h))
+  have hlocal (I : Ideal (𝓞 K)) (v : FinPlace K) :
+      (χ I).loc v = qsNQQuadraticLocal D H v (toLoc v (a I)) := by
+    apply MonoidHom.ext
+    intro u
+    apply Units.ext
+    change (((χ I).loc v u : ℂˣ) : ℂ) =
+      D.σ0 (((H.hilb v (toLoc v (a I)) u : Kˣ) : K)) ^ 3
+    exact hloc I v u
+  refine ⟨c, fun T hT => (hrep T hT).2, ?_⟩
+  intro T U hT hU
+  let cUnit : Kˣ := Units.mk0 (c T : K) (hc T)
+  let bUnit : Kˣ := Units.mk0 (b T : K) (hbK T)
+  have hcUnit : cUnit = a (qsIdealOf T) * bUnit ^ 2 := by
+    apply Units.ext
+    change (c T : K) = (a (qsIdealOf T) : K) * (b T : K) ^ 2
+    exact (hrep T hT).1
+  have hlocalc (v : FinPlace K) : (χ (qsIdealOf T)).loc v =
+      qsNQQuadraticLocal D H v (toLoc v cUnit) := by
+    rw [hcUnit, map_mul, map_pow, qs_nq0_quadratic_local_square_correction]
+    exact hlocal (qsIdealOf T) v
+  rw [hprod, qsQuadSymbol, Int.cast_prod]
+  apply Finset.prod_congr rfl
+  intro v hv
+  have hvS : v ∉ Sd.Sf := fun h => Finset.disjoint_left.mp hU hv h
+  have h6 : (6 : 𝓞 K) ∉ v.asIdeal := fun h => hvS (Sd.over6 v h)
+  have hsq : c T ∉ v.asIdeal ^ 2 := ((hrep T hT).2.2 v hvS).2
+  exact qs_nq0_integral_quadratic_prime_value D H v h6 (c T) (hc T) hsq
+    (χ (qsIdealOf T)) (hlocalc v)
+
 end ArtinPrimitiveRoots.A2
