@@ -9422,6 +9422,92 @@ private theorem rf_pairing_active_coefficient_gamma
   unfold rf_pairing_active_coefficient
   rw [hD, hF, hTail]
 
+private theorem rf_pairing_active_coefficient_frozen
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (t : FrozenIndex R r.h) (c : S.SqfExtIdeal)
+    (hcf : IsCoprime c.1 t.f.1) :
+    rf_pairing_active_coefficient R r t.f (frozenFrequency R t r.d c) =
+      groupedExterior R t r.d (frozenFrequency R t r.d c) := by
+  classical
+  let ν : Fˣ := frozenFrequency R t r.d c
+  have hrow := rf_pairing_row_support R r
+  have hOrdInv (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+      ordv v x⁻¹ = -ordv v x := by
+    have hm := rf_ordv_mul v x x⁻¹
+    have hone : ordv v (1 : (v.adicCompletion F)ˣ) = 0 := by
+      simp [ordv]
+      rfl
+    rw [mul_inv_cancel, hone] at hm
+    linarith
+  have hOrdDiv (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+      ordv v (x / y) = ordv v x - ordv v y := by
+    rw [div_eq_mul_inv, rf_ordv_mul, hOrdInv]
+    ring
+  have hOrdPow (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (n : ℕ) :
+      ordv v (x ^ n) = (n : ℤ) * ordv v x := by
+    simpa only [zpow_natCast] using rf_ordv_zpow v x (n : ℤ)
+  have horder (v : FinPlace F) (hvf : v ∈ R.exterior.support t.f) :
+      ordv v (toLoc v ν) = (idealExp v t.a.1 : ℤ) - 2 := by
+    have hv := R.exterior.support_exterior t.f v hvf
+    have hvh := t.active.2.1 v hvf
+    have hnotD : v ∉ R.exterior.support r.d := by
+      intro hvd
+      exact Finset.disjoint_left.mp hrow.2.1 hvd hvh
+    have hnotC : v ∉ R.exterior.support (R.exterior.ofSqf c) := by
+      intro hvc
+      apply rf_no_common_prime v c.1 t.f.1 hcf
+      · simpa only [R.exterior.ofSqf_val] using
+          (R.exterior.mem_support (R.exterior.ofSqf c) v).mp hvc
+      · exact (R.exterior.mem_support t.f v).mp hvf
+    have hnotN : v ∉ R.exterior.support t.n := by
+      intro hvn
+      exact rf_no_common_prime v t.n.1 t.f.1 t.coprime
+        ((R.exterior.mem_support t.n v).mp hvn)
+        ((R.exterior.mem_support t.f v).mp hvf)
+    have heps : ordv v (toLoc v (R.sheets.eps t.u : Fˣ)) = 0 := by
+      have hglobal : HeightOneSpectrum.valuation F v
+          ((R.sheets.eps t.u : Fˣ) : F) = 1 :=
+        Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F)
+          (R.sheets.eps t.u) hv
+      have hloc : Valued.v (toLoc v (R.sheets.eps t.u : Fˣ) : v.adicCompletion F) = 1 := by
+        change Valued.v (algebraMap F (v.adicCompletion F)
+          ((R.sheets.eps t.u : Fˣ) : F)) = 1
+        simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+          Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using hglobal
+      rw [rf_ordv_local_log, hloc]
+      simp
+    have hgen (I : S.ExtIdeal) :
+        ordv v (toLoc v (bc.gen I)) = (idealExp v I.1 : ℤ) :=
+      rf_ordv_toLoc_ofGen v hv I (bc.gen I) (bc.gen_spec I).1
+    have hc := rf_idealExp_zero_of_not_support R v (R.exterior.ofSqf c) hnotC
+    have hn := rf_idealExp_zero_of_not_support R v t.n hnotN
+    have hd := rf_idealExp_zero_of_not_support R v r.d hnotD
+    have hf := rf_idealExp_eq_one_of_squarefree_support R v t.f t.active.1 hvf
+    dsimp only [ν, frozenFrequency]
+    rw [map_div, map_mul, map_mul, map_mul, map_pow, map_pow, map_mul,
+      hOrdDiv, rf_ordv_mul, rf_ordv_mul, rf_ordv_mul, hOrdPow, hOrdPow,
+      rf_ordv_mul, heps, hgen t.a, hgen (R.exterior.ofSqf c), hgen t.n,
+      hgen r.d, hgen t.f, hc, hn, hd, hf]
+    norm_num
+  have hprod :
+      (∏ v ∈ R.exterior.support t.f,
+        localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+          (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))) =
+      ∏ v ∈ R.exterior.support t.f,
+        localR R v (frozenJ t v) (idealExp v t.a.1)
+          (toLoc v ν * toLoc v (primeGen R v) ^ (2 - (idealExp v t.a.1 : ℤ))) := by
+    apply Finset.prod_congr rfl
+    intro v hvf
+    have hj : digitExponent r v = frozenJ t v := by
+      apply Fin.ext
+      exact hrow.2.2.2 v (t.active.2.1 v hvf)
+    rw [hj, horder v hvf]
+    have he : (idealExp v t.a.1 : ℤ) - 2 + 2 = (idealExp v t.a.1 : ℤ) := by ring
+    have ht : -((idealExp v t.a.1 : ℤ) - 2) = 2 - (idealExp v t.a.1 : ℤ) := by ring
+    rw [he, ht]
+  unfold rf_pairing_active_coefficient groupedExterior
+  rw [hprod]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
