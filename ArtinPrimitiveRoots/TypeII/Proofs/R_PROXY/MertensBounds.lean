@@ -266,4 +266,99 @@ theorem retained_subset_product_bound (δ lam : ℝ) (hδ : 0 < δ) (hlam : 0 < 
       _ ≤ W ^ r := pow_le_pow_right₀ hWge (Nat.le_of_lt hcard)
       _ ≤ Real.rpow x (δ / 8) := hWpowerLe
 
+/-- Choose a fixed sieve order coefficient so the factorial tail beats any
+prescribed power of `log x`. -/
+theorem factorial_decay_choice (s₀ H : ℝ) (hs₀ : 0 < s₀) (hH : 0 < H) :
+    ∃ lam x₀ : ℝ, 0 < lam ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        let L := Real.log x
+        let r : ℕ := ⌈lam * Real.log L⌉₊
+        1 ≤ r ∧
+          ∀ s : ℝ, 0 ≤ s → s ≤ s₀ * Real.log L →
+            s ^ r / (r.factorial : ℝ) ≤ Real.rpow L (-H) := by
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  let lam : ℝ := 2 * Real.exp 1 * s₀ + (H + 1) / Real.log 2
+  have hlam : 0 < lam := by
+    dsimp [lam]
+    positivity
+  have hlamS : 2 * Real.exp 1 * s₀ ≤ lam := by
+    dsimp [lam]
+    exact le_add_of_nonneg_right (by positivity)
+  have hlamH : H ≤ lam * Real.log 2 := by
+    have hterm : H + 1 ≤ lam * Real.log 2 := by
+      dsimp [lam]
+      have heq : ((H + 1) / Real.log 2) * Real.log 2 = H + 1 :=
+        div_mul_cancel₀ _ hlog2.ne'
+      nlinarith [mul_nonneg (mul_nonneg (by norm_num : (0 : ℝ) ≤ 2)
+        (Real.exp_pos 1).le) hs₀.le, hlog2]
+    linarith
+  have hlogLog : Tendsto (fun x : ℝ => Real.log (Real.log x)) atTop atTop :=
+    Real.tendsto_log_atTop.comp Real.tendsto_log_atTop
+  have hlogLogEvent : ∀ᶠ x : ℝ in atTop, 1 ≤ Real.log (Real.log x) :=
+    hlogLog.eventually_ge_atTop 1
+  have htwoEvent : ∀ᶠ x : ℝ in atTop, 2 ≤ x := eventually_ge_atTop 2
+  have hfinal : ∀ᶠ x : ℝ in atTop,
+      2 ≤ x ∧ 1 ≤ Real.log (Real.log x) := by
+    filter_upwards [htwoEvent, hlogLogEvent] with x hx₂ hlog
+    exact ⟨hx₂, hlog⟩
+  obtain ⟨x₀, hx₀⟩ := Filter.eventually_atTop.mp hfinal
+  refine ⟨lam, x₀, hlam, (hx₀ x₀ le_rfl).1, ?_⟩
+  intro x hx
+  dsimp
+  obtain ⟨hx₂, hlogLogOne⟩ := hx₀ x hx
+  let L : ℝ := Real.log x
+  let r : ℕ := ⌈lam * Real.log L⌉₊
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < L := by
+    dsimp [L]
+    exact Real.log_pos (by linarith)
+  have hlogLone : 1 ≤ Real.log L := by simpa [L] using hlogLogOne
+  have hlogLnonneg : 0 ≤ Real.log L := by linarith
+  have hargNonneg : 0 ≤ lam * Real.log L := mul_nonneg hlam.le hlogLnonneg
+  have hrLower : lam * Real.log L ≤ (r : ℝ) := by
+    dsimp [r]
+    exact_mod_cast (Nat.le_ceil (lam * Real.log L))
+  have hrpos : 0 < (r : ℝ) := lt_of_lt_of_le
+    (mul_pos hlam (by linarith : 0 < Real.log L)) hrLower
+  have hr : 1 ≤ r := by
+    have hrNat : 0 < r := by exact_mod_cast hrpos
+    exact Nat.succ_le_iff.mpr hrNat
+  refine ⟨hr, ?_⟩
+  intro s hs0 hs
+  have hsTail : 2 * Real.exp 1 * s ≤ (r : ℝ) := by
+    calc
+      2 * Real.exp 1 * s ≤ 2 * Real.exp 1 * (s₀ * Real.log L) :=
+        mul_le_mul_of_nonneg_left hs (by positivity)
+      _ = (2 * Real.exp 1 * s₀) * Real.log L := by ring
+      _ ≤ lam * Real.log L := mul_le_mul_of_nonneg_right hlamS hlogLnonneg
+      _ ≤ (r : ℝ) := hrLower
+  have htail := factorial_tail_bound s r hs0 hr hsTail
+  have hhalf : (1 / 2 : ℝ) ^ r =
+      Real.exp (-(Real.log 2) * (r : ℝ)) := by
+    have hexp : Real.exp (-(Real.log 2)) = (1 / 2 : ℝ) := by
+      rw [Real.exp_neg, Real.exp_log (by norm_num : (0 : ℝ) < 2)]
+      norm_num
+    calc
+      (1 / 2 : ℝ) ^ r = (Real.exp (-(Real.log 2))) ^ r := by rw [hexp]
+      _ = Real.exp ((r : ℝ) * (-(Real.log 2))) := (Real.exp_nat_mul _ _).symm
+      _ = Real.exp (-(Real.log 2) * (r : ℝ)) := by congr 1 <;> ring
+  have hexponent : -(Real.log 2) * (r : ℝ) ≤ -H * Real.log L := by
+    have hscale : H * Real.log L ≤ lam * Real.log 2 * Real.log L :=
+      mul_le_mul_of_nonneg_right hlamH hlogLnonneg
+    have hceil : lam * Real.log 2 * Real.log L ≤ Real.log 2 * (r : ℝ) := by
+      calc
+        lam * Real.log 2 * Real.log L =
+            Real.log 2 * (lam * Real.log L) := by ring
+        _ ≤ Real.log 2 * (r : ℝ) :=
+            mul_le_mul_of_nonneg_left hrLower hlog2.le
+    nlinarith [hscale.trans hceil]
+  have hhalfLe : (1 / 2 : ℝ) ^ r ≤ Real.rpow L (-H) := by
+    calc
+      (1 / 2 : ℝ) ^ r = Real.exp (-(Real.log 2) * (r : ℝ)) := hhalf
+      _ ≤ Real.exp (-H * Real.log L) := Real.exp_le_exp.mpr hexponent
+      _ = Real.rpow L (-H) := by
+        rw [show -H * Real.log L = Real.log L * (-H) by ring]
+        exact (Real.rpow_def_of_pos hLpos _).symm
+  exact htail.trans hhalfLe
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
