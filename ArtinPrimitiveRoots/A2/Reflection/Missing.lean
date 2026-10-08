@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.Theta.Assemble
 import ArtinPrimitiveRoots.Proofs.th_factor_b.Analytic
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.MaskTau
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.DigitMass
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
