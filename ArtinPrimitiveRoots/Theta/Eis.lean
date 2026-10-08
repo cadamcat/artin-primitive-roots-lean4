@@ -3628,6 +3628,112 @@ theorem eisenstein_constantTerm_of_zero
   simp only [torusCoeff, hE, zero_mul, integral_zero, mul_zero, hzero, hM, add_zero,
     tsum_zero]
 
+set_option backward.isDefEq.respectTransparency false in
+/-- Local Bruhat ideal-coset sums give the intertwine at the inverted torus element. -/
+theorem local_bruhat_coset_hasSum
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0)
+    (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
+    let H : v.adicCompletion F → ℂ := fun x =>
+      G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        ((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) • H (Quotient.out η))
+      ((absFin v u : ℂ) * G.lam v
+        (intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r))) ∧
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        (qv v) ^ (-FractionalIdeal.count F v 𝔞) * ‖H (Quotient.out η)‖)
+      (∫ x, ‖H x‖ ∂(μ v).μ) := by
+  classical
+  let Hfn : v.adicCompletion F → ℂ := fun x =>
+    G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+      (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+  change HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        ((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) • Hfn (Quotient.out η))
+      ((absFin v u : ℂ) * G.lam v
+        (intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r))) ∧
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        (qv v) ^ (-FractionalIdeal.count F v 𝔞) * ‖Hfn (Quotient.out η)‖)
+      (∫ x, ‖Hfn x‖ ∂(μ v).μ)
+  let F0 : v.adicCompletion F → (G.T v).V := fun x =>
+    Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r)
+  let lamU : (G.T v).V →L[ℂ] ℂ :=
+    LinearMap.toContinuousLinearMap ((G.lam v).comp ((G.T v).σa u))
+  let c : ℂ := (absFin v u : ℂ) ^ ((1 : ℂ) / 2 + s)
+  have hF0 : Integrable F0 (μ v).μ :=
+    (intertwine_isSection (P.loc v) (G.T v) (μ v) s hs (Fs.f v) (Fs.f_sec v)).1
+      (P.compF v r)
+  have hpoint (x : v.adicCompletion F) : Hfn x = c * lamU (F0 x) := by
+    have hvec := (Fs.f_sec v).1 0 u
+      ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r)
+    have hscalar := congrArg (G.lam v) hvec
+    simpa [Hfn, F0, c, lamU, mul_assoc] using hscalar
+  have hH : Hfn = fun x => c * lamU (F0 x) := funext hpoint
+  have hint : Integrable Hfn (μ v).μ := by
+    rw [hH]
+    exact (lamU.integrable_comp hF0).const_mul c
+  have hperiod (x y : v.adicCompletion F) (hy : y ∈ idealLocalPeriods 𝔞 v) :
+      Hfn (x + y) = Hfn x := by
+    have hn : (P.loc v).n (Multiplicative.ofAdd (x + y)) =
+        (P.loc v).n (Multiplicative.ofAdd x) * (P.loc v).n (Multiplicative.ofAdd y) := by
+      rw [ofAdd_add, map_mul]
+    have hp := local_scalar_ideal_periods_of_nonzero P G Fs r 𝔞 h𝔞 hfix hΦ v
+      ((P.loc v).a u * (P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x)) y hy
+    dsimp only [Hfn]
+    rw [hn]
+    simpa only [mul_assoc] using hp
+  obtain ⟨hsum, hnorm⟩ := idealLocalPeriods_integral_cosets 𝔞 v (μ v) Hfn hint hperiod
+  have hIntegral : (∫ x, Hfn x ∂(μ v).μ) =
+      c * lamU (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) := by
+    rw [hH, integral_const_mul]
+    congr 1
+    simpa only [F0, intertwine] using ContinuousLinearMap.integral_comp_comm lamU hF0
+  let ci : ℂ := (absFin v (u⁻¹ : (v.adicCompletion F)ˣ) : ℂ) ^ ((1 : ℂ) / 2 - s)
+  have hM : intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r) =
+      ci • (G.T v).σa u (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) := by
+    have hm := (intertwine_isSection (P.loc v) (G.T v) (μ v) s hs
+      (Fs.f v) (Fs.f_sec v)).2.1 0 u⁻¹ (P.compF v r)
+    simpa [ci, TorusRep.weyl, sub_eq_add_neg] using hm
+  have heval : G.lam v
+        (intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r)) =
+      ci * lamU (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) := by
+    rw [hM]
+    simp [lamU]
+  have hqpos : 0 < absFin v u := absFin_pos u.ne_zero
+  have hqC : (absFin v u : ℂ) ≠ 0 := by exact_mod_cast hqpos.ne'
+  have hinv : absFin v (u⁻¹ : (v.adicCompletion F)ˣ) = (absFin v u)⁻¹ := by
+    simp only [absFin_eq_norm, Units.val_inv_eq_inv_val, norm_inv]
+  have hbase : (absFin v (u⁻¹ : (v.adicCompletion F)ˣ) : ℂ) = (absFin v u : ℂ)⁻¹ := by
+    rw [hinv, Complex.ofReal_inv]
+  have hci : ci = (absFin v u : ℂ) ^ (-((1 : ℂ) / 2 - s)) := by
+    dsimp only [ci]
+    rw [hbase, Complex.inv_cpow_ofReal_nonneg hqpos.le ((1 : ℂ) / 2 - s),
+      ← Complex.cpow_neg]
+  have hcoef : (absFin v u : ℂ) * ci = c := by
+    calc
+      (absFin v u : ℂ) * ci =
+          (absFin v u : ℂ) ^ (1 : ℂ) * (absFin v u : ℂ) ^ (-((1 : ℂ) / 2 - s)) := by
+        rw [Complex.cpow_one, hci]
+      _ = (absFin v u : ℂ) ^ (1 + -((1 : ℂ) / 2 - s)) :=
+        (Complex.cpow_add _ _ hqC).symm
+      _ = c := by dsimp only [c]; congr 1; ring
+  have hfinal : (∫ x, Hfn x ∂(μ v).μ) =
+      (absFin v u : ℂ) * G.lam v
+        (intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r)) := by
+    rw [hIntegral, heval, ← hcoef, mul_assoc]
+  rw [hfinal] at hsum
+  exact ⟨hsum, hnorm⟩
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
