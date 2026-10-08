@@ -4,7 +4,9 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.ContinuousCharacters
 import ArtinPrimitiveRoots.Hecke.Dict.LocalCongruence
 import ArtinPrimitiveRoots.Hecke.Dict.ConductorSupport
 import ArtinPrimitiveRoots.Hecke.Dict.WeakApproximation
+import ArtinPrimitiveRoots.Hecke.Proofs.«HK-DICT-IDELIC».Truncation
 import Mathlib.NumberTheory.NumberField.Completion.FinitePlace
+
 
 /-!
 # Hecke package: dictionary between ray-class characters and A1's idelic characters
@@ -27,7 +29,7 @@ ideal-theoretic ray class groups (new).
 set_option autoImplicit false
 
 open scoped NumberField
-open NumberField IsDedekindDomain Topology
+open NumberField IsDedekindDomain Topology Filter
 
 noncomputable section
 
@@ -421,6 +423,721 @@ private theorem heckeLoc_eq_of_primeValue (χ χ' : HeckeChar F) (v : FinPlace F
 
 /-! ## §2 Idelic → ray class -/
 
+private noncomputable def rayModulusFromIdeal (n : Ideal (𝓞 F)) (hn : n ≠ ⊥) :
+    RayClassModulus F := by
+  classical
+  let eFun : FinPlace F → ℕ := fun v => A1.idealExp v n
+  have heSupp : (Function.support eFun).Finite := by
+    apply (Ideal.finite_factors hn).subset
+    intro v hv
+    have hcount :
+        (Associates.mk v.asIdeal).count (Associates.mk n).factors ≠ 0 := by
+      exact_mod_cast hv
+    exact (Associates.count_ne_zero_iff_dvd hn v.irreducible).mp hcount
+  let e : FinPlace F →₀ ℕ := Finsupp.ofSupportFinite eFun heSupp
+  exact ⟨e, Finset.univ⟩
+
+private theorem modulusIdeal_rayModulusFromIdeal (n : Ideal (𝓞 F)) (hn : n ≠ ⊥) :
+    modulusIdeal (rayModulusFromIdeal n hn) = n := by
+  classical
+  let eFun : FinPlace F → ℕ := fun v => A1.idealExp v n
+  let e : FinPlace F →₀ ℕ := Finsupp.ofSupportFinite eFun (by
+    apply (Ideal.finite_factors hn).subset
+    intro v hv
+    have hcount :
+        (Associates.mk v.asIdeal).count (Associates.mk n).factors ≠ 0 := by
+      exact_mod_cast hv
+    exact (Associates.count_ne_zero_iff_dvd hn v.irreducible).mp hcount)
+  have he (v : FinPlace F) : e v = eFun v := by
+    simp [e, Finsupp.ofSupportFinite_coe]
+  change e.prod (fun v k => v.asIdeal ^ k) = n
+  have hmul : Function.mulSupport (fun v : FinPlace F => v.asIdeal ^ eFun v) ⊆ e.support := by
+    intro v hv
+    by_contra hnot
+    have hev : e v = 0 := Finsupp.notMem_support_iff.mp hnot
+    have hzero : eFun v = 0 := by rw [← he v, hev]
+    simp [Function.mem_mulSupport, hzero] at hv
+  calc
+    e.prod (fun v k => v.asIdeal ^ k) =
+        ∏ v ∈ e.support, v.asIdeal ^ eFun v := by
+      rw [Finsupp.prod]
+      apply Finset.prod_congr rfl
+      intro v hv
+      rw [he]
+    _ = ∏ᶠ v : FinPlace F, v.asIdeal ^ eFun v :=
+      (finprod_eq_prod_of_mulSupport_subset _ hmul).symm
+    _ = n := by
+      simpa [eFun, A1.idealExp, IsDedekindDomain.HeightOneSpectrum.maxPowDividing] using
+        Ideal.finprod_heightOneSpectrum_factorization hn
+
+private noncomputable def completionIntegerUniformizer (v : FinPlace F) :
+    v.adicCompletionIntegers F :=
+  ⟨algebraMap F (v.adicCompletion F) (ArtinPrimitiveRoots.A1.unif (F := F) v), by
+    change Valued.v (algebraMap F (v.adicCompletion F)
+      (ArtinPrimitiveRoots.A1.unif (F := F) v)) ≤ 1
+    have hmap : algebraMap F (v.adicCompletion F) (ArtinPrimitiveRoots.A1.unif (F := F) v) =
+        (ArtinPrimitiveRoots.A1.unif (F := F) v : v.adicCompletion F) := by
+      simpa using congrFun
+        (HeightOneSpectrum.algebraMap_adicCompletion (S := F) (K := F) (v := v))
+        (ArtinPrimitiveRoots.A1.unif (F := F) v)
+    have hval := v.valuedAdicCompletion_eq_valuation'
+      (ArtinPrimitiveRoots.A1.unif (F := F) v)
+    have hunif : v.valuation F (ArtinPrimitiveRoots.A1.unif (F := F) v) =
+        WithZero.exp (-1 : ℤ) := by
+      simpa [ArtinPrimitiveRoots.A1.unif] using
+        (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+    rw [hmap, hval, hunif]
+    exact (WithZero.exp_le_one_iff).mpr (by norm_num)⟩
+
+private theorem completionIntegerUniformizer_val (v : FinPlace F) :
+  Valued.v (completionIntegerUniformizer v : v.adicCompletion F) =
+      WithZero.exp (-1 : ℤ) := by
+  change Valued.v (algebraMap F (v.adicCompletion F)
+    (ArtinPrimitiveRoots.A1.unif (F := F) v)) = _
+  have hmap : algebraMap F (v.adicCompletion F) (ArtinPrimitiveRoots.A1.unif (F := F) v) =
+      (ArtinPrimitiveRoots.A1.unif (F := F) v : v.adicCompletion F) := by
+    simpa using congrFun
+      (HeightOneSpectrum.algebraMap_adicCompletion (S := F) (K := F) (v := v))
+      (ArtinPrimitiveRoots.A1.unif (F := F) v)
+  rw [hmap]
+  rw [v.valuedAdicCompletion_eq_valuation'
+    (ArtinPrimitiveRoots.A1.unif (F := F) v)]
+  simpa [ArtinPrimitiveRoots.A1.unif] using
+    (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+
+private theorem valued_sub_one_le_of_mem_rayLocalHigherUnitGroup (v : FinPlace F)
+    (n : ℕ) (u : (v.adicCompletion F)ˣ)
+    (hu : u ∈ rayLocalHigherUnitGroup v n) :
+    (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F ∧
+      ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+        v.adicCompletionIntegers F ∧
+      Valued.v ((u : v.adicCompletion F) - 1) ≤ WithZero.exp (-(n : ℤ)) := by
+  classical
+  let A : ValuationSubring (v.adicCompletion F) := v.adicCompletionIntegers F
+  let J := IsLocalRing.maximalIdeal A
+  let π : A := completionIntegerUniformizer v
+  let vC : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ)) := Valued.v
+  have hInt : vC.Integers A := by
+    change vC.Integers vC.valuationSubring
+    exact Valuation.valuationSubring.integers vC
+  have hπval : Valued.v (π : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    simpa [π] using completionIntegerUniformizer_val v
+  have hmax : J = Ideal.span {π} := by
+    have hmaxSet : (J : Set A) = {x : A | Valued.v (x : v.adicCompletion F) < 1} := by
+      ext x
+      change x ∈ IsLocalRing.maximalIdeal A ↔ vC (x : v.adicCompletion F) < 1
+      exact Valuation.mem_maximalIdeal_iff (v := vC)
+    have hspanSet : (Ideal.span {π} : Set A) =
+        {x : A | Valued.v (x : v.adicCompletion F) ≤ WithZero.exp (-1 : ℤ)} := by
+      simpa [vC, hπval, ValuationSubring.algebraMap_apply] using
+        hInt.coe_span_singleton_eq_setOfPred_le_v_algebraMap π
+    have hsets : {x : A | Valued.v (x : v.adicCompletion F) < 1} =
+        {x : A | Valued.v (x : v.adicCompletion F) ≤ WithZero.exp (-1 : ℤ)} := by
+      ext x
+      constructor
+      · intro hx
+        by_cases hx0 : x = 0
+        · simp [hx0]
+        · have hvx : Valued.v (x : v.adicCompletion F) ≠ 0 := by
+            intro hz
+            exact hx0 (Subtype.ext ((Valuation.zero_iff Valued.v).mp hz))
+          have hxlt : Valued.v (x : v.adicCompletion F) < 1 := by
+            simpa only [Set.mem_setOf_eq] using hx
+          have hlog : WithZero.log (Valued.v (x : v.adicCompletion F)) < 0 := by
+            apply WithZero.exp_lt_one_iff.mp
+            simpa only [WithZero.exp_log hvx] using hxlt
+          have hlog' : WithZero.log (Valued.v (x : v.adicCompletion F)) ≤ -1 := by omega
+          calc
+            Valued.v (x : v.adicCompletion F) =
+                WithZero.exp (WithZero.log (Valued.v (x : v.adicCompletion F))) :=
+                  (WithZero.exp_log hvx).symm
+            _ ≤ WithZero.exp (-1 : ℤ) := WithZero.exp_le_exp.mpr hlog'
+      · intro hx
+        exact hx.trans_lt (WithZero.exp_lt_one_iff.mpr (by norm_num))
+    exact SetLike.coe_injective (hmaxSet.trans (hsets.trans hspanSet.symm))
+  have hπirr : Irreducible π :=
+    (IsDiscreteValuationRing.irreducible_iff_uniformizer π).2 hmax
+  have hpowSet (k : ℕ) : ((J ^ k : Ideal A) : Set A) =
+      {x : A | Valued.v (x : v.adicCompletion F) ≤ WithZero.exp (-(k : ℤ))} := by
+    rw [hInt.maximalIdeal_pow_eq_setOfPred_le_v_algebraMap_pow hπirr k]
+    have hpv : (Valued.v (algebraMap A (v.adicCompletion F) π)) ^ k =
+        WithZero.exp (-(k : ℤ)) := by
+      simpa [ValuationSubring.algebraMap_apply] using (by
+        rw [hπval]
+        simpa using (WithZero.exp_zsmul (k : ℤ) (-1 : ℤ)).symm :
+          (Valued.v (π : v.adicCompletion F)) ^ k = WithZero.exp (-(k : ℤ)))
+    rw [hpv]
+    ext x
+    simp [ValuationSubring.algebraMap_apply, vC]
+  rw [rayLocalHigherUnitGroup, Subgroup.mem_map] at hu
+  rcases hu with ⟨y, hyker, hy⟩
+  let z : A.toSubmonoidˣ := A.toSubmonoid.unitsEquivUnitsType y
+  let zval : A := ⟨(z.val : v.adicCompletion F), z.val.property⟩
+  have hquot : Ideal.Quotient.mk (J ^ n) zval = 1 := by
+    have h := hyker
+    change Units.map (Ideal.Quotient.mk (J ^ n)).toMonoidHom
+      (A.toSubmonoid.unitsEquivUnitsType y) = 1 at h
+    have hval := congrArg Units.val h
+    change Ideal.Quotient.mk (J ^ n) zval = 1 at hval
+    exact hval
+  have hcong : zval - (1 : A) ∈ (J ^ n : Ideal A) :=
+    (Ideal.Quotient.mk_eq_one_iff_sub_mem (I := J ^ n) zval).mp hquot
+  have hyval : (zval : v.adicCompletion F) = (u : v.adicCompletion F) := by
+    have h := congrArg Units.val hy
+    change (zval : v.adicCompletion F) = (u : v.adicCompletion F) at h
+    exact h
+  let zInv : A.toSubmonoidˣ := A.toSubmonoid.unitsEquivUnitsType y⁻¹
+  let zInvval : A := ⟨(zInv.val : v.adicCompletion F), zInv.val.property⟩
+  have hzInt : (zval : v.adicCompletion F) ∈ A := zval.property
+  have hzInvInt : (zInvval : v.adicCompletion F) ∈ A := zInvval.property
+  have hboundA : Valued.v ((zval - (1 : A) : A) : v.adicCompletion F) ≤
+      WithZero.exp (-(n : ℤ)) := by
+    have hmem : zval - (1 : A) ∈ ((J ^ n : Ideal A) : Set A) := hcong
+    rw [hpowSet n] at hmem
+    exact hmem
+  refine ⟨?_, ?_, ?_⟩
+  · rw [← hyval]
+    exact hzInt
+  · rw [show ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+        (zInvval : v.adicCompletion F) by
+      have hyInv : A.units.subtype y⁻¹ = u⁻¹ := by
+        rw [map_inv, hy]
+      have h := congrArg Units.val hyInv
+      change ((zInv : A.toSubmonoidˣ).val : v.adicCompletion F) =
+        ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) at h
+      calc
+        ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+            ((zInv : A.toSubmonoidˣ).val : v.adicCompletion F) := h.symm
+        _ = (zInvval : v.adicCompletion F) := rfl]
+    exact hzInvInt
+  · rw [← hyval]
+    simpa using hboundA
+
+private def d2LocalUniformizerIdele (v : FinPlace F) : IdeleGroup (𝓞 F) F :=
+  IdeleGroup.ofAdicCompletion (𝓞 F) F v
+    (toLoc v (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+      (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)))
+
+private def d2IdealExponent (I : NumberFieldFractionalIdealGroup F)
+    (v : FinPlace F) : ℤ :=
+  FractionalIdeal.count F v
+    (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+
+private theorem d2IdealExponent_mul
+    (I J : NumberFieldFractionalIdealGroup F) (v : FinPlace F) :
+    d2IdealExponent (I * J) v = d2IdealExponent I v + d2IdealExponent J v := by
+  exact FractionalIdeal.count_mul F v
+    (Units.ne_zero I) (Units.ne_zero J)
+
+private theorem d2IdealExponent_one (v : FinPlace F) :
+    d2IdealExponent (1 : NumberFieldFractionalIdealGroup F) v = 0 := by
+  exact FractionalIdeal.count_one F v
+
+private theorem d2IdealIdelFactor_hasFiniteMulSupport
+    (I : NumberFieldFractionalIdealGroup F) :
+    Function.HasFiniteMulSupport
+      (fun v : FinPlace F => d2LocalUniformizerIdele v ^ d2IdealExponent I v) := by
+  have hExp : ∀ᶠ v : FinPlace F in Filter.cofinite, d2IdealExponent I v = 0 :=
+    FractionalIdeal.finite_factors
+      (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+  have hFactor : ∀ᶠ v : FinPlace F in Filter.cofinite,
+      d2LocalUniformizerIdele v ^ d2IdealExponent I v = 1 := by
+    filter_upwards [hExp] with v hv
+    simp [hv]
+  exact Filter.eventually_cofinite.mp hFactor
+
+private noncomputable def d2IdealIdelHom :
+    NumberFieldFractionalIdealGroup F →* IdeleGroup (𝓞 F) F where
+  toFun I := ∏ᶠ v : FinPlace F,
+    d2LocalUniformizerIdele v ^ d2IdealExponent I v
+  map_one' := by
+    apply finprod_eq_one_of_forall_eq_one
+    intro v
+    rw [d2IdealExponent_one]
+    simp
+  map_mul' I J := by
+    have hExp (v : FinPlace F) := d2IdealExponent_mul I J v
+    simp_rw [hExp, zpow_add]
+    exact finprod_mul_distrib
+      (d2IdealIdelFactor_hasFiniteMulSupport I)
+      (d2IdealIdelFactor_hasFiniteMulSupport J)
+
+private noncomputable def d2IdealHeckeHom (χ : HeckeChar F) :
+    NumberFieldFractionalIdealGroup F →* ℂˣ :=
+  (χ : IdeleClassGroup (𝓞 F) F →* ℂˣ).comp
+    ((QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F)).comp
+      d2IdealIdelHom)
+
+private noncomputable def d2RayIdealHeckeHom {m : RayClassModulus F}
+    (χ : HeckeChar F) : rayClassPrimeToIdeals m →* ℂˣ :=
+  (d2IdealHeckeHom χ).comp (rayClassPrimeToIdeals m).subtype
+
+private theorem d2IdealIdelHom_finiteCoord
+    (I : NumberFieldFractionalIdealGroup F) (v : FinPlace F) :
+    Dictionary.ideleFiniteCoord v (d2IdealIdelHom I) =
+      toLoc v (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+        (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) ^ d2IdealExponent I v := by
+  classical
+  have hfinite := d2IdealIdelFactor_hasFiniteMulSupport I
+  change Dictionary.ideleFiniteCoord v
+    (∏ᶠ w : FinPlace F, d2LocalUniformizerIdele w ^ d2IdealExponent I w) = _
+  rw [MonoidHom.map_finprod (Dictionary.ideleFiniteCoord v) hfinite]
+  have hother (w : FinPlace F) (hw : w ≠ v) :
+      Dictionary.ideleFiniteCoord v
+        (d2LocalUniformizerIdele w ^ d2IdealExponent I w) = 1 := by
+    rw [map_zpow, d2LocalUniformizerIdele,
+      Dictionary.ideleFiniteCoord_ofAdicCompletion_of_ne v w (Ne.symm hw)]
+    simp
+  rw [finprod_eq_single _ v hother]
+  simp [d2LocalUniformizerIdele, map_zpow,
+    Dictionary.ideleFiniteCoord_ofAdicCompletion]
+
+private theorem d2IdealIdelHom_infiniteCoord
+    (I : NumberFieldFractionalIdealGroup F) (w : InfinitePlace F) :
+    Dictionary.ideleInfiniteCoordUnit w (d2IdealIdelHom I) = 1 := by
+  classical
+  have hfinite := d2IdealIdelFactor_hasFiniteMulSupport I
+  change Dictionary.ideleInfiniteCoordUnit w
+    (∏ᶠ v : FinPlace F, d2LocalUniformizerIdele v ^ d2IdealExponent I v) = _
+  rw [MonoidHom.map_finprod (Dictionary.ideleInfiniteCoordUnit w) hfinite]
+  apply finprod_eq_one_of_forall_eq_one
+  intro v
+  simp [d2LocalUniformizerIdele, map_zpow,
+    Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion]
+
+private theorem d2_continuous_range_subsingleton
+    {G : Type*} [TopologicalSpace G] [PreconnectedSpace G]
+    (f : G → ℂˣ) (hf : Continuous f) {n : ℕ} [NeZero n]
+    (hpow : ∀ x, f x ^ n = 1) : ∀ x y, f x = f y := by
+  classical
+  let root : Set.range f → rootsOfUnity n ℂ := fun z =>
+    ⟨z.1, (mem_rootsOfUnity n z.1).2 (by
+      rcases z.2 with ⟨x, hx⟩
+      simpa [hx] using hpow x)⟩
+  have hroot : Function.Injective root := by
+    intro x y hxy
+    apply Subtype.ext
+    exact congrArg (fun z : rootsOfUnity n ℂ => (z : ℂˣ)) hxy
+  letI : Finite (Set.range f) := Finite.of_injective root hroot
+  have hfinite : (Set.range f).Finite := Set.toFinite _
+  have hpre : IsPreconnected (Set.range f) := isPreconnected_range hf
+  have hsub : (Set.range f).Subsingleton := by
+    by_contra hsub
+    have hnontrivial : (Set.range f).Nontrivial := by
+      by_contra hnontrivial
+      apply hsub
+      intro x hx y hy
+      by_contra hxy
+      exact hnontrivial ⟨x, hx, y, hy, hxy⟩
+    exact hfinite.not_infinite (hpre.infinite_of_nontrivial hnontrivial)
+  intro x y
+  exact hsub ⟨x, rfl⟩ ⟨y, rfl⟩
+
+private theorem d2_connected_finite_order_monoidHom_trivial
+    {G : Type*} [Monoid G] [TopologicalSpace G] [PreconnectedSpace G]
+    (f : G →* ℂˣ) (hf : Continuous f) {n : ℕ} [NeZero n]
+    (hpow : ∀ x, f x ^ n = 1) : f = 1 := by
+  ext x
+  have h := d2_continuous_range_subsingleton f hf hpow x 1
+  simpa using h
+
+private theorem d2_positive_real_character_eq_one
+    (f : ℝˣ →* ℂˣ) (hf : Continuous f) {n : ℕ} [NeZero n]
+    (hpow : ∀ x, f x ^ n = 1) (x : ℝˣ) (hx : 0 < (x : ℝ)) : f x = 1 := by
+  letI : PreconnectedSpace (Set.Ioi (0 : ℝ)) :=
+    Subtype.preconnectedSpace (isConnected_Ioi (a := (0 : ℝ))).isPreconnected
+  let g : Set.Ioi (0 : ℝ) → ℂˣ := fun y => f (Units.mk0 (y : ℝ) y.2.ne')
+  have hunit : Continuous fun y : Set.Ioi (0 : ℝ) => Units.mk0 (y : ℝ) y.2.ne' := by
+    rw [Units.continuous_iff]
+    constructor
+    · exact continuous_subtype_val
+    · have hnonzero : Set.Ioi (0 : ℝ) ⊆ ({0}ᶜ : Set ℝ) := by
+        intro y hy
+        simp only [Set.mem_compl_iff, Set.mem_singleton_iff]
+        exact ne_of_gt hy
+      have h := (continuousOn_inv₀ (G₀ := ℝ)).mono hnonzero
+      rw [continuousOn_iff_continuous_domRestrict] at h
+      change Continuous ((Set.Ioi (0 : ℝ)).domRestrict Inv.inv)
+      exact h
+  have hg : Continuous g := hf.comp hunit
+  have hpowg : ∀ y, g y ^ n = 1 := by
+    intro y
+    exact hpow (Units.mk0 (y : ℝ) y.2.ne')
+  have hconst := d2_continuous_range_subsingleton g hg hpowg
+  have h := hconst ⟨x, hx⟩ ⟨1, by norm_num⟩
+  simpa [g] using h
+
+private noncomputable def d2_completionComplexContinuousMulEquiv
+    (w : InfinitePlace F) (hw : w.IsComplex) : w.Completion ≃ₜ* ℂ where
+  __ := (InfinitePlace.Completion.ringEquivComplexOfIsComplex hw).toMulEquiv
+  continuous_toFun :=
+    (InfinitePlace.Completion.isometryEquivComplexOfIsComplex hw).isometry_toFun.continuous
+  continuous_invFun :=
+    (InfinitePlace.Completion.isometryEquivComplexOfIsComplex hw).symm.isometry_toFun.continuous
+
+private noncomputable def d2_completionRealContinuousMulEquiv
+    (w : InfinitePlace F) (hw : w.IsReal) : w.Completion ≃ₜ* ℝ where
+  __ := (InfinitePlace.Completion.ringEquivRealOfIsReal hw).toMulEquiv
+  continuous_toFun :=
+    (InfinitePlace.Completion.isometryEquivRealOfIsReal hw).isometry_toFun.continuous
+  continuous_invFun :=
+    (InfinitePlace.Completion.isometryEquivRealOfIsReal hw).symm.isometry_toFun.continuous
+
+private theorem d2_heckeChar_locInf_continuous (χ : HeckeChar F) (w : InfinitePlace F) :
+    Continuous (χ.locInf w) := by
+  change Continuous (fun x => χ (IdeleClassGroup.ofCompletion (𝓞 F) F w x))
+  exact χ.continuous.comp (IdeleClassGroup.continuous_ofCompletion (𝓞 F) F w)
+
+private theorem d2_heckeChar_locInf_pow_eq_one (χ : HeckeChar F) {n : ℕ}
+    (hpow : χ ^ n = 1) (w : InfinitePlace F) (u : w.Completionˣ) :
+    (χ.locInf w u) ^ n = 1 := by
+  have h := congrArg (fun ψ : HeckeChar F =>
+    ψ (IdeleClassGroup.ofCompletion (𝓞 F) F w u)) hpow
+  simpa [HeckeChar.locInf] using h
+
+private theorem d2_heckeChar_locInf_eq_one_of_isComplex
+    (χ : HeckeChar F) (hχ : IsOfFinOrder χ) (w : InfinitePlace F)
+    (hw : w.IsComplex) : χ.locInf w = 1 := by
+  obtain ⟨n, hn, hpow⟩ := (isOfFinOrder_iff_pow_eq_one.mp hχ)
+  letI : NeZero n := ⟨Nat.ne_of_gt hn⟩
+  let e := Units.mapContinuousMulEquiv (d2_completionComplexContinuousMulEquiv w hw)
+  let f : ℂˣ →* ℂˣ := (χ.locInf w).comp e.symm.toMulEquiv.toMonoidHom
+  have hfcont : Continuous f := by
+    change Continuous fun z => χ.locInf w (e.symm z)
+    exact (d2_heckeChar_locInf_continuous χ w).comp e.symm.continuous
+  have hfpow : ∀ z, f z ^ n = 1 := by
+    intro z
+    change (χ.locInf w (e.symm z)) ^ n = 1
+    exact d2_heckeChar_locInf_pow_eq_one χ hpow w (e.symm z)
+  have hf := d2_connected_finite_order_monoidHom_trivial f hfcont hfpow
+  ext u
+  have h := DFunLike.congr_fun hf (e u)
+  change χ.locInf w (e.symm (e u)) = 1 at h
+  rw [e.symm_apply_apply] at h
+  exact congrArg Units.val h
+
+private theorem d2_heckeChar_locInf_eq_one_of_real_positive
+    (χ : HeckeChar F) (hχ : IsOfFinOrder χ) (w : InfinitePlace F)
+    (hw : w.IsReal) (x : Fˣ)
+    (hx : 0 < w.embedding_of_isReal hw (x : F)) :
+    χ.locInf w (Units.map (algebraMap F w.Completion).toMonoidHom x) = 1 := by
+  obtain ⟨n, hn, hpow⟩ := (isOfFinOrder_iff_pow_eq_one.mp hχ)
+  letI : NeZero n := ⟨Nat.ne_of_gt hn⟩
+  let e := Units.mapContinuousMulEquiv (d2_completionRealContinuousMulEquiv w hw)
+  let u : w.Completionˣ := Units.map (algebraMap F w.Completion).toMonoidHom x
+  let f : ℝˣ →* ℂˣ := (χ.locInf w).comp e.symm.toMulEquiv.toMonoidHom
+  have hfcont : Continuous f := by
+    change Continuous fun y => χ.locInf w (e.symm y)
+    exact (d2_heckeChar_locInf_continuous χ w).comp e.symm.continuous
+  have hfpow : ∀ y, f y ^ n = 1 := by
+    intro y
+    change (χ.locInf w (e.symm y)) ^ n = 1
+    exact d2_heckeChar_locInf_pow_eq_one χ hpow w (e.symm y)
+  have heq : e u = Units.map (w.embedding_of_isReal hw).toMonoidHom x := by
+    apply Units.ext
+    change InfinitePlace.Completion.ringEquivRealOfIsReal hw
+      (algebraMap F w.Completion (x : F)) = w.embedding_of_isReal hw (x : F)
+    rw [InfinitePlace.Completion.ringEquivRealOfIsReal_apply,
+      InfinitePlace.Completion.algebraMap_apply]
+    exact (InfinitePlace.Completion.extensionEmbeddingOfIsReal_coe hw
+      (WithAbs.toAbs _ (x : F))).trans (by simp)
+  have hypos : 0 < (e u : ℝ) := by
+    rw [heq]
+    exact hx
+  have hlocal := d2_positive_real_character_eq_one f hfcont hfpow (e u) hypos
+  change χ.locInf w (e.symm (e u)) = 1 at hlocal
+  rw [e.symm_apply_apply] at hlocal
+  exact hlocal
+
+private theorem d2_local_unit_valued_eq_one (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ)
+    (hu : (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F)
+    (huinv : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F) :
+    Valued.v (u : v.adicCompletion F) = 1 := by
+  have huVal : Valued.v (u : v.adicCompletion F) ≤ 1 := by
+    simpa only [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers] using hu
+  have huinvVal : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ≤ 1 := by
+    simpa only [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers] using huinv
+  have hinvVal : (Valued.v (u : v.adicCompletion F))⁻¹ ≤ 1 := by
+    simpa [Units.val_inv_eq_inv_val, map_inv₀] using huinvVal
+  have hpos : 0 < Valued.v (u : v.adicCompletion F) :=
+    (Valuation.pos_iff Valued.v).2 u.ne_zero
+  exact le_antisymm huVal ((inv_le_one₀ hpos).mp hinvVal)
+
+private theorem d2_valued_unit_mul (v : FinPlace F) (u z : (v.adicCompletion F)ˣ) :
+    Valued.v ((u * z : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      Valued.v (u : v.adicCompletion F) * Valued.v (z : v.adicCompletion F) := by
+  change Valued.v ((u : v.adicCompletion F) * (z : v.adicCompletion F)) = _
+  exact map_mul _ _ _
+
+private theorem d2_valued_unit_inv (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
+    Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      (Valued.v (u : v.adicCompletion F))⁻¹ := by
+  rw [Units.val_inv_eq_inv_val]
+  exact Valuation.map_inv Valued.v (u : v.adicCompletion F)
+
+private theorem d2_valued_unit_zpow (v : FinPlace F) (u : (v.adicCompletion F)ˣ)
+    (e : ℤ) :
+    Valued.v ((u ^ e : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      Valued.v (u : v.adicCompletion F) ^ e := by
+  rw [Units.val_zpow_eq_zpow_val]
+  by_cases he : 0 ≤ e
+  · have he' : e = (e.toNat : ℤ) := by omega
+    rw [he']
+    simpa only [zpow_natCast] using
+      (Valuation.map_pow Valued.v (u : v.adicCompletion F) e.toNat)
+  · let n : ℕ := (-e).toNat
+    have he' : e = -(n : ℤ) := by dsimp [n]; omega
+    rw [he']
+    calc
+      Valued.v ((u : v.adicCompletion F) ^ (-(n : ℤ))) =
+          (Valued.v ((u : v.adicCompletion F) ^ (n : ℕ)))⁻¹ := by
+            rw [zpow_neg]
+            exact Valuation.map_inv Valued.v ((u : v.adicCompletion F) ^ (n : ℕ))
+      _ = (Valued.v (u : v.adicCompletion F) ^ n)⁻¹ := by
+        rw [Valuation.map_pow]
+      _ = Valued.v (u : v.adicCompletion F) ^ (-(n : ℤ)) := by
+        rw [zpow_neg]
+        simp only [zpow_natCast]
+
+open Classical in
+private theorem d2IdealHeckeHom_one_of_ray
+    (χ : HeckeChar F) (hχ : IsOfFinOrder χ) (m : RayClassModulus F)
+    (hmInf : m.infinitePart = Finset.univ)
+    (hc : χ.ConductorDvd (modulusIdeal m)) (x : Fˣ)
+    (hx : IsRayCongruent m x) :
+    d2IdealHeckeHom χ (toPrincipalIdeal (𝓞 F) F x) = 1 := by
+  classical
+  let I : NumberFieldFractionalIdealGroup F := toPrincipalIdeal (𝓞 F) F x
+  let p : IdeleGroup (𝓞 F) F := IdeleGroup.unitEmbedding (𝓞 F) F x
+  let i : IdeleGroup (𝓞 F) F := d2IdealIdelHom I
+  let r : IdeleGroup (𝓞 F) F := i * p⁻¹
+  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F :=
+    QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F)
+  let θ : IdeleGroup (𝓞 F) F →* ℂˣ := (χ : IdeleClassGroup (𝓞 F) F →* ℂˣ).comp q
+  have hθContinuous : Continuous θ := χ.continuous.comp QuotientGroup.continuous_mk
+  have hToLocVal (v : FinPlace F) :
+      Valued.v (toLoc v x : v.adicCompletion F) = v.valuation F (x : F) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (x : F)) = _
+    exact v.valuedAdicCompletion_eq_valuation' (x : F)
+  have hExp (v : FinPlace F) :
+      d2IdealExponent I v = -WithZero.log (Valued.v (toLoc v x : v.adicCompletion F)) := by
+    change FractionalIdeal.count F v
+      (toPrincipalIdeal (𝓞 F) F x : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = _
+    rw [FractionalIdeal.count_toPrincipalIdeal_eq_neg_log_valuation, ← hToLocVal]
+  have hPrincipalCoord (v : FinPlace F) :
+      Dictionary.ideleFiniteCoord v p = toLoc v x := by
+    apply Units.ext
+    rfl
+  have hRCoord (v : FinPlace F) :
+      Dictionary.ideleFiniteCoord v r =
+        toLoc v (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+          (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) ^ d2IdealExponent I v *
+          (toLoc v x)⁻¹ := by
+    dsimp [r]
+    rw [map_mul, d2IdealIdelHom_finiteCoord, map_inv, hPrincipalCoord]
+  have hUniformizerVal (v : FinPlace F) :
+      Valued.v (toLoc v (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+        (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) : v.adicCompletion F) =
+        WithZero.exp (-1 : ℤ) := by
+    simpa [ArtinPrimitiveRoots.A1.toLoc, completionIntegerUniformizer] using
+      completionIntegerUniformizer_val v
+  have hRVal (v : FinPlace F) :
+      Valued.v (Dictionary.ideleFiniteCoord v r : v.adicCompletion F) = 1 := by
+    rw [hRCoord]
+    have hpow : (WithZero.exp (-1 : ℤ) : WithZero (Multiplicative ℤ)) ^
+        d2IdealExponent I v =
+        WithZero.exp (-d2IdealExponent I v) := by
+      simpa using (WithZero.exp_zsmul (d2IdealExponent I v) (-1 : ℤ)).symm
+    have hvx : Valued.v (toLoc v x : v.adicCompletion F) ≠ 0 :=
+      (Valuation.ne_zero_iff Valued.v).2 (Units.ne_zero (toLoc v x))
+    have hvalStep :
+        Valued.v (((toLoc v
+          (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+            (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) ^ d2IdealExponent I v *
+          (toLoc v x)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) =
+        Valued.v (toLoc v
+          (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+            (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) : v.adicCompletion F) ^
+          d2IdealExponent I v * (Valued.v (toLoc v x : v.adicCompletion F))⁻¹ := by
+      calc
+        Valued.v (((toLoc v
+            (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+              (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) ^ d2IdealExponent I v *
+            (toLoc v x)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) =
+            Valued.v ((toLoc v
+                (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+                  (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) ^
+                d2IdealExponent I v : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+              Valued.v (((toLoc v x)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) := by
+                exact d2_valued_unit_mul v _ _
+        _ = _ := by
+          rw [d2_valued_unit_zpow, d2_valued_unit_inv]
+    calc
+      Valued.v (((toLoc v
+          (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+            (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) ^ d2IdealExponent I v *
+          (toLoc v x)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) =
+          Valued.v (toLoc v
+              (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+                (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)) : v.adicCompletion F) ^
+              d2IdealExponent I v * (Valued.v (toLoc v x : v.adicCompletion F))⁻¹ := by
+            exact hvalStep
+      _ = WithZero.exp (-d2IdealExponent I v) *
+            (Valued.v (toLoc v x : v.adicCompletion F))⁻¹ := by
+              rw [hUniformizerVal, hpow]
+      _ = WithZero.exp (WithZero.log (Valued.v (toLoc v x : v.adicCompletion F))) *
+            (Valued.v (toLoc v x : v.adicCompletion F))⁻¹ := by
+              rw [hExp]
+              simp
+      _ = 1 := by rw [WithZero.exp_log hvx]; exact mul_inv_cancel₀ hvx
+  have hLocalChar (v : FinPlace F) :
+      χ.loc v (Dictionary.ideleFiniteCoord v r) = 1 := by
+    let u := Dictionary.ideleFiniteCoord v r
+    have huVal : Valued.v (u : v.adicCompletion F) = 1 := by
+      simpa [u] using hRVal v
+    have hu : (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+      rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers, huVal]
+    have huinvVal : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      simpa [huVal] using d2_valued_unit_inv v u
+    have huinv : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+        v.adicCompletionIntegers F := by
+      rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers, huinvVal]
+    by_cases hv : v ∈ m.finitePart.support
+    · have hxLocal : toLoc v x ∈ rayLocalHigherUnitGroup v (m.finitePart v) := hx.1 v hv
+      have hxInvLocal : toLoc v (x⁻¹) ∈ rayLocalHigherUnitGroup v (m.finitePart v) := by
+        change finitePlaceUnitEmbedding v (x⁻¹) ∈ rayLocalHigherUnitGroup v (m.finitePart v)
+        exact (IsRayCongruent.inv hx).1 v hv
+      have hvalx : Valued.v (toLoc v x : v.adicCompletion F) = 1 := by
+        obtain ⟨hxu, hxi, _⟩ := valued_sub_one_le_of_mem_rayLocalHigherUnitGroup
+          v (m.finitePart v) (toLoc v x) hxLocal
+        exact d2_local_unit_valued_eq_one v (toLoc v x) hxu hxi
+      have hExpZero : d2IdealExponent I v = 0 := by
+        rw [hExp, hvalx, WithZero.log_one]
+        simp
+      have hcoord : Dictionary.ideleFiniteCoord v r = (toLoc v x)⁻¹ := by
+        rw [hRCoord, hExpZero]
+        simp
+      have hlocal := valued_sub_one_le_of_mem_rayLocalHigherUnitGroup
+        v (m.finitePart v) (toLoc v (x⁻¹)) hxInvLocal
+      have hexp := idealExp_modulusIdeal m v
+      have hbound : Valued.v ((toLoc v (x⁻¹) : v.adicCompletion F) - 1) ≤
+          WithZero.exp (-(A1.idealExp v (modulusIdeal m) : ℤ)) := by
+        simpa only [← hexp] using hlocal.2.2
+      have hχlocal := hc v (toLoc v (x⁻¹)) hlocal.1 hlocal.2.1 hbound
+      rw [hcoord]
+      simpa only [map_inv] using hχlocal
+    · have hExpZero : A1.idealExp v (modulusIdeal m) = 0 := by
+        rw [idealExp_modulusIdeal]
+        exact Finsupp.notMem_support_iff.mp hv
+      have hbound : Valued.v ((u : v.adicCompletion F) - 1) ≤
+          WithZero.exp (-(A1.idealExp v (modulusIdeal m) : ℤ)) := by
+        have htriangle : Valued.v ((u : v.adicCompletion F) - 1) ≤ 1 := by
+          calc
+            Valued.v ((u : v.adicCompletion F) - 1) ≤
+                max (Valued.v (u : v.adicCompletion F)) (Valued.v (1 : v.adicCompletion F)) :=
+                  Valuation.map_sub _ _ _
+            _ ≤ 1 := by rw [hRVal]; simp
+        simpa [hExpZero] using htriangle
+      exact hc v u hu huinv hbound
+  have hInfiniteChar (w : InfinitePlace F) :
+      χ.locInf w (Dictionary.ideleInfiniteCoordUnit w r) = 1 := by
+    have hpInf : Dictionary.ideleInfiniteCoordUnit w p =
+        Units.map (algebraMap F w.Completion).toMonoidHom x := by
+      apply Units.ext
+      rfl
+    have hpInv : Dictionary.ideleInfiniteCoordUnit w (p⁻¹) =
+        (Units.map (algebraMap F w.Completion).toMonoidHom x)⁻¹ := by
+      rw [(Dictionary.ideleInfiniteCoordUnit w).map_inv, hpInf]
+    have hrInf : Dictionary.ideleInfiniteCoordUnit w r =
+        Units.map (algebraMap F w.Completion).toMonoidHom (x⁻¹) := by
+      dsimp [r]
+      calc
+        Dictionary.ideleInfiniteCoordUnit w
+            (d2IdealIdelHom I * p⁻¹) =
+            Dictionary.ideleInfiniteCoordUnit w (d2IdealIdelHom I) *
+              Dictionary.ideleInfiniteCoordUnit w (p⁻¹) := map_mul _ _ _
+        _ = (Units.map (algebraMap F w.Completion).toMonoidHom x)⁻¹ := by
+          rw [d2IdealIdelHom_infiniteCoord, hpInv]
+          simp
+        _ = Units.map (algebraMap F w.Completion).toMonoidHom (x⁻¹) := by
+          simp [map_inv]
+    rw [hrInf]
+    rcases w.isReal_or_isComplex with hreal | hcomplex
+    · let wr : RayClassRealPlace F := ⟨w, hreal⟩
+      have hwr : wr ∈ m.infinitePart := by
+        rw [hmInf]
+        exact Finset.mem_univ _
+      have hposInv : 0 < w.embedding_of_isReal hreal ((x⁻¹ : Fˣ) : F) :=
+        (IsRayCongruent.inv hx).2 wr hwr
+      exact d2_heckeChar_locInf_eq_one_of_real_positive χ hχ w hreal (x⁻¹) hposInv
+    · have hcomplex' := d2_heckeChar_locInf_eq_one_of_isComplex χ hχ w hcomplex
+      simpa using congrArg (fun ψ : w.Completionˣ →* ℂˣ =>
+        ψ (Units.map (algebraMap F w.Completion).toMonoidHom (x⁻¹))) hcomplex'
+  have hθInfinite (w : InfinitePlace F) :
+      θ (IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r)) = 1 :=
+    hInfiniteChar w
+  have hθFinite (v : FinPlace F) :
+      θ (IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r)) = 1 :=
+    hLocalChar v
+  have htrunc (S : Finset (FinPlace F)) :
+      θ (ArtinPrimitiveRoots.Proofs.hk_misc_p.d2IdeleSupportTrunc r S) = 1 := by
+    change θ ((∏ w ∈ Finset.univ,
+      IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r)) *
+      ∏ v ∈ S, IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r)) = 1
+    rw [map_mul, map_prod, map_prod]
+    have harch : (∏ w ∈ Finset.univ,
+        θ (IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r))) = 1 :=
+      Finset.prod_eq_one (fun w _ => hθInfinite w)
+    have hfinite : (∏ v ∈ S,
+        θ (IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r))) = 1 :=
+      Finset.prod_eq_one (fun v _ => hθFinite v)
+    rw [harch, hfinite]
+    simp
+  have hθTendsto : Tendsto (fun S : Finset (FinPlace F) =>
+      θ (ArtinPrimitiveRoots.Proofs.hk_misc_p.d2IdeleSupportTrunc r S)) atTop (𝓝 (θ r)) :=
+    hθContinuous.continuousAt.tendsto.comp
+      (ArtinPrimitiveRoots.Proofs.hk_misc_p.tendsto_d2IdeleSupportTrunc r)
+  have hθconstant : (fun S : Finset (FinPlace F) =>
+      θ (ArtinPrimitiveRoots.Proofs.hk_misc_p.d2IdeleSupportTrunc r S)) =
+        fun _ => (1 : ℂˣ) := funext htrunc
+  rw [hθconstant] at hθTendsto
+  have hθr : θ r = 1 := tendsto_nhds_unique hθTendsto tendsto_const_nhds
+  have hθp : θ p = 1 := by
+    have hq : q p = 1 := (QuotientGroup.eq_one_iff _).mpr ⟨x, rfl⟩
+    simp [θ, hq]
+  have hrp : r * p = i := by
+    dsimp [r]
+    group
+  change θ i = 1
+  calc
+    θ i = θ (r * p) := by rw [hrp]
+    _ = θ r * θ p := map_mul _ _ _
+    _ = 1 := by rw [hθr, hθp]; simp
+
+private theorem d2IdealIdelHom_prime (v : FinPlace F) :
+    d2IdealIdelHom (idealUnit v.asIdeal v.ne_bot) = d2LocalUniformizerIdele v := by
+  classical
+  let I : NumberFieldFractionalIdealGroup F := idealUnit v.asIdeal v.ne_bot
+  have hcoe : (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    simp [I, idealUnit]
+  have hself : d2IdealExponent I v = 1 := by
+    rw [d2IdealExponent, hcoe, FractionalIdeal.count_self]
+  have hother (w : FinPlace F) (hw : w ≠ v) : d2IdealExponent I w = 0 := by
+    rw [d2IdealExponent, hcoe]
+    exact FractionalIdeal.count_maximal_coprime F w hw.symm
+  have hprod : (∏ᶠ w : FinPlace F,
+      d2LocalUniformizerIdele w ^ d2IdealExponent I w) = d2LocalUniformizerIdele v := by
+    calc
+      (∏ᶠ w : FinPlace F, d2LocalUniformizerIdele w ^ d2IdealExponent I w) =
+          d2LocalUniformizerIdele v ^ d2IdealExponent I v :=
+        finprod_eq_single _ v (fun w hw => by rw [hother w hw]; simp)
+      _ = d2LocalUniformizerIdele v := by rw [hself]; simp
+  change (∏ᶠ w : FinPlace F, d2LocalUniformizerIdele w ^ d2IdealExponent I w) = _
+  exact hprod
+
 open Classical in
 /-- **DICT-2.** A finite-order idelic character with conductor dividing `𝔫 ≠ 0` is a character
 of `Cl_𝔪(F)` for the modulus `𝔪` with finite part `𝔫` and all real places (for totally complex `F`
@@ -432,8 +1149,83 @@ theorem exists_rayClass_of_heckeChar (χ : HeckeChar F) (hχ : IsOfFinOrder χ) 
     (hn : n ≠ ⊥) (hc : χ.ConductorDvd n) :
     ∃ (m : RayClassModulus F) (ψ : RayClassGroup m →* ℂˣ),
       modulusIdeal m = n ∧ m.infinitePart = Finset.univ ∧
-      ∀ v : FinPlace F, v ∉ m.finitePart.support → charValue ψ v.asIdeal = χ.primeValue v :=
-  sorry
+      ∀ v : FinPlace F, v ∉ m.finitePart.support → charValue ψ v.asIdeal = χ.primeValue v := by
+  classical
+  let m : RayClassModulus F := rayModulusFromIdeal n hn
+  have hmIdeal : modulusIdeal m = n := modulusIdeal_rayModulusFromIdeal n hn
+  have hmInf : m.infinitePart = Finset.univ := rfl
+  have hcM : χ.ConductorDvd (modulusIdeal m) := by rw [hmIdeal]; exact hc
+  have hglobal : rayPrincipalIdealSubgroup m ≤ (d2IdealHeckeHom χ).ker := by
+    rw [rayPrincipalIdealSubgroup, Subgroup.closure_le]
+    rintro I ⟨x, hx, rfl⟩
+    exact (MonoidHom.mem_ker).mpr
+      (d2IdealHeckeHom_one_of_ray χ hχ m hmInf hcM x hx)
+  have hker : rayPrincipalIdealSubgroupInPrimeTo m ≤ (d2RayIdealHeckeHom χ).ker := by
+    intro P hP
+    have hP' : (P : NumberFieldFractionalIdealGroup F) ∈ rayPrincipalIdealSubgroup m := by
+      change (P : NumberFieldFractionalIdealGroup F) ∈ rayPrincipalIdealSubgroup m at hP
+      exact hP
+    have hval := MonoidHom.mem_ker.mp (hglobal hP')
+    exact (MonoidHom.mem_ker).mpr (by simpa [d2RayIdealHeckeHom] using hval)
+  let ψ : RayClassGroup m →* ℂˣ :=
+    QuotientGroup.lift (rayPrincipalIdealSubgroupInPrimeTo m)
+      (d2RayIdealHeckeHom χ) hker
+  have hcop (v : FinPlace F) (hv : v ∉ m.finitePart.support) :
+      IsCoprimeTo m v.asIdeal := by
+    refine ⟨v.ne_bot, ?_⟩
+    intro w hw
+    have hwv : w ≠ v := by
+      intro hEq
+      exact hv (hEq ▸ hw)
+    simpa [idealUnit] using
+      (FractionalIdeal.count_maximal_coprime F w hwv.symm)
+  have hprimeRep (v : FinPlace F) (hv : v ∉ m.finitePart.support) :
+      d2IdealHeckeHom χ (idealUnit v.asIdeal v.ne_bot) =
+        χ.loc v (toLoc v (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+          (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v))) := by
+    change χ (QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F)
+      (d2IdealIdelHom (idealUnit v.asIdeal v.ne_bot))) = _
+    rw [d2IdealIdelHom_prime]
+    rfl
+  have hUnramified (v : FinPlace F) (hv : v ∉ m.finitePart.support) :
+      χ.UnramifiedAt v := by
+    intro u hu huinv
+    have hval : Valued.v (u : v.adicCompletion F) = 1 :=
+      d2_local_unit_valued_eq_one v u hu huinv
+    have hbound : Valued.v ((u : v.adicCompletion F) - 1) ≤ 1 := by
+      calc
+        Valued.v ((u : v.adicCompletion F) - 1) ≤
+            max (Valued.v (u : v.adicCompletion F)) (Valued.v (1 : v.adicCompletion F)) :=
+              Valuation.map_sub _ _ _
+        _ ≤ 1 := by rw [hval]; simp
+    have hexp : A1.idealExp v (modulusIdeal m) = 0 := by
+      rw [idealExp_modulusIdeal]
+      exact Finsupp.notMem_support_iff.mp hv
+    exact hcM v u hu huinv (by simpa [hexp] using hbound)
+  refine ⟨m, ψ, hmIdeal, hmInf, ?_⟩
+  intro v hv
+  let P : rayClassPrimeToIdeals m :=
+    ⟨idealUnit v.asIdeal v.ne_bot, (hcop v hv).2⟩
+  let π : (v.adicCompletion F)ˣ :=
+    toLoc v (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+      (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v))
+  have hclass : rayClass m v.asIdeal (hcop v hv) = QuotientGroup.mk P := rfl
+  have hψ : ψ (QuotientGroup.mk P) = χ.loc v π := by
+    calc
+      ψ (QuotientGroup.mk P) = d2RayIdealHeckeHom χ P := by
+        simp [ψ, d2RayIdealHeckeHom]
+      _ = d2IdealHeckeHom χ (idealUnit v.asIdeal v.ne_bot) := rfl
+      _ = χ.loc v π := by simpa [π] using hprimeRep v hv
+  have hcharValue : charValue ψ v.asIdeal =
+      ((ψ (rayClass m v.asIdeal (hcop v hv)) : ℂˣ) : ℂ) := by
+    simp [charValue, hcop v hv]
+  calc
+    charValue ψ v.asIdeal =
+        ((ψ (rayClass m v.asIdeal (hcop v hv)) : ℂˣ) : ℂ) := hcharValue
+    _ = ((χ.loc v π : ℂˣ) : ℂ) := by
+          exact congrArg (fun z : ℂˣ => (z : ℂ)) (by simpa [hclass] using hψ)
+    _ = χ.primeValue v := by
+      simp [HeckeChar.primeValue, hUnramified v hv, π]
 
 /-! ## §3 Uniqueness and primitive characters -/
 
