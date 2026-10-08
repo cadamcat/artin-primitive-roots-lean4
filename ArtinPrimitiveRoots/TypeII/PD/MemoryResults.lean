@@ -6772,6 +6772,206 @@ private theorem ghost_ordered_column_choice_bound {K : ℕ}
     ring
   simpa only [E, Q, b, hcdiv] using hfinal
 
+set_option maxHeartbeats 1000000 in
+/-- Averaging the ordered column over target permutations cancels its
+suffix multiplicities and gives the symmetric-memory column Schur bound. -/
+private theorem memGhostProjected_colSchur_le_of_params {K : ℕ}
+    (F : PDFix K) (hF : F.Valid) (S : PDScale)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (j B : ℕ) (v : ℝ) (hv : 0 < v)
+    (hvlarge : ∀ i, 2 * bandMass S.x (F.a i) /
+      (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤ v)
+    (hV : ∀ i, 0 < bandMass S.x (F.a i))
+    (hbp : ∀ p ∈ markedPrimes S.x K F.a,
+      (1 / 2 : ℝ) ≤ memoryBPrime S.x F.q_d p) :
+    MemColSchurLE_sym F S B (memGhost F S ρ j) v
+      (∏ i : Fin K, Real.exp (2 * memoryEta S.x F.q_d j * v / ρ)) := by
+  classical
+  have hρsq : ρ ^ 2 < 1 := by nlinarith [hρ.1, hρ.2.1]
+  have hqLt : memoryQ S.x F.q_d j < 1 := by
+    unfold memoryQ
+    split_ifs <;> [exact lt_trans hρ.2.2 hρsq; exact hF.2.2.1]
+  have hη : 0 ≤ memoryEta S.x F.q_d j := by unfold memoryEta; linarith
+  have hq : 0 ≤ memoryQ S.x F.q_d j := by
+    unfold memoryQ
+    split_ifs <;> [exact Real.sqrt_nonneg _; exact hF.2.1.le]
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p := by
+    have hbpPos : 0 < memoryBPrime S.x F.q_d p :=
+      lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1 / 2)
+        (hbp p (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩))
+    have hden : 0 < bandMass S.x (F.a i) * ((p : ℝ) + 1) *
+        memoryBPrime S.x F.q_d p :=
+      mul_pos (mul_pos (hV i) (by positivity)) hbpPos
+    exact div_nonneg (by norm_num) hden.le
+  have hμ (s : MemPoint S.x K) : 0 ≤ memMeasure F S s := by
+    by_cases hs : MemValid F S s
+    · rw [memMeasure, if_pos hs]
+      apply mul_nonneg
+      · exact Finset.prod_nonneg fun i hi =>
+          Finset.prod_nonneg fun k hk => hν i _ (hs.2.1 i k)
+      · apply Finset.prod_nonneg
+        intro i hi
+        apply div_nonneg
+        · exact List.prod_nonneg fun x hx => by
+            rcases List.mem_map.mp hx with ⟨e, he, rfl⟩
+            exact hν i e.1 (hs.2.2 i e he).1
+        · exact Nat.cast_nonneg _
+    · simp [memMeasure, hs]
+  let a (i : Fin K) := memoryEta S.x F.q_d j * bandMass S.x (F.a i) / (ρ * v)
+  let b := memoryQ S.x F.q_d j / ρ ^ 2
+  let E := Real.exp (2 * memoryEta S.x F.q_d j * v / ρ)
+  have ha (i : Fin K) : 0 ≤ a i :=
+    div_nonneg (mul_nonneg hη (hV i).le) (mul_nonneg hρ.1.le hv.le)
+  have hb : 0 ≤ b := div_nonneg hq (sq_nonneg ρ)
+  have hab (i : Fin K) : a i + b ≤ 1 := by
+    have hv' : 2 / (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤
+        v / bandMass S.x (F.a i) := by
+      rw [le_div_iff₀ (hV i)]
+      have h := hvlarge i
+      convert h using 1 <;> ring
+    have h := ghost_parenthesis_le_one F hF ρ hρ (v / bandMass S.x (F.a i)) hv'
+      (x := S.x) j
+    have hcancel : memoryEta S.x F.q_d j / (ρ * (v / bandMass S.x (F.a i))) = a i := by
+      dsimp [a]
+      field_simp [ne_of_gt (hV i), ne_of_gt hρ.1, ne_of_gt hv]
+    rw [hcancel] at h
+    dsimp [b]
+    linarith
+  change MemColSchurLE F S B (fun f => memGhost F S ρ j (memorySym f)) v _
+  intro t ht htB T hT
+  have hperm (σ : MemoryPermutation t) (i : Fin K) :
+      ((memoryPermute t σ).2.2 i).Perm (t.2.2 i) := by
+    simpa only [memoryPermute, Function.comp_def, List.ofFn_get] using
+      (σ i).ofFn_comp_perm (t.2.2 i).get
+  have hvalid (σ : MemoryPermutation t) : MemValid F S (memoryPermute t σ) := by
+    refine ⟨ht.1, ht.2.1, ?_⟩
+    intro i e he
+    exact ht.2.2 i e ((hperm σ i).mem_iff.mp he)
+  have hmeasure (σ : MemoryPermutation t) :
+      memMeasure F S (memoryPermute t σ) = memMeasure F S t := by
+    simp only [memMeasure, if_pos (hvalid σ), if_pos ht]
+    change _ * (∏ i : Fin K,
+      (((memoryPermute t σ).2.2 i).map fun e => memoryNu S.x K F.a F.q_d i e.1).prod /
+        (((memoryPermute t σ).2.2 i).length.factorial : ℝ)) = _
+    congr 1
+    apply Finset.prod_congr rfl
+    intro i hi
+    rw [(hperm σ i).length_eq,
+      ((hperm σ i).map (fun e => memoryNu S.x K F.a F.q_d i e.1)).prod_eq]
+  have hcount (l : List Particle) :
+      hitCount l t.1 = l.countP (fun e => decide (particleHits e t.1)) := by
+    have huniv : (List.finRange l.length).toFinset =
+        (Finset.univ : Finset (Fin l.length)) := by ext k; simp
+    calc
+      _ = ((List.finRange l.length).toFinset.filter
+          fun k => particleHits (l.get k) t.1).card := by simp [huniv, hitCount, hitIndices]
+      _ = (List.finRange l.length).countP (fun k => decide (particleHits (l.get k) t.1)) :=
+        (List.nodup_finRange _).card_eq_countP
+      _ = ((List.finRange l.length).map l.get).countP
+          (fun e => decide (particleHits e t.1)) := by
+            simp only [List.countP_map, Function.comp_def]
+      _ = _ := by rw [List.map_get_finRange]
+  have hhit (i : Fin K) (σ : Equiv.Perm (Fin (t.2.2 i).length)) :
+      hitCount (List.ofFn fun k => (t.2.2 i).get (σ k)) t.1 = hitCount (t.2.2 i) t.1 := by
+    rw [hcount, hcount]
+    have hp : (List.ofFn fun k => (t.2.2 i).get (σ k)).Perm (t.2.2 i) := by
+      simpa only [Function.comp_def, List.ofFn_get] using σ.ofFn_comp_perm (t.2.2 i).get
+    exact hp.countP_eq _
+  let Q (i : Fin K) (σ : Equiv.Perm (Fin (t.2.2 i).length)) :=
+    ∑ m ∈ Finset.range ((t.2.2 i).length + 1),
+      if ∀ e ∈ (List.ofFn fun k => (t.2.2 i).get (σ k)).drop ((t.2.2 i).length - m),
+          particleHits e t.1 then
+        (Nat.choose (t.2.2 i).length m : ℝ) * a i ^ m * b ^ (hitCount (t.2.2 i) t.1 - m)
+      else 0
+  let d := (Fintype.card (MemoryPermutation t) : ℝ)
+  have hd : 0 ≤ d⁻¹ := inv_nonneg.mpr (Nat.cast_nonneg _)
+  have hcard : d = ∏ i : Fin K, (Fintype.card (Equiv.Perm (Fin (t.2.2 i).length)) : ℝ) := by
+    simp [d, MemoryPermutation, Fintype.card_pi, Nat.cast_prod]
+  have haverage :
+      d⁻¹ * (∑ σ : MemoryPermutation t, ∏ i : Fin K, E * Q i (σ i)) ≤
+        ∏ i : Fin K, E := by
+    calc
+      _ = ∏ i : Fin K, E *
+          ((Fintype.card (Equiv.Perm (Fin (t.2.2 i).length)) : ℝ)⁻¹ *
+            ∑ σ : Equiv.Perm (Fin (t.2.2 i).length), Q i σ) := by
+        rw [finite_pi_sum_prod (fun i => Equiv.Perm (Fin (t.2.2 i).length))
+          (fun i σ => E * Q i σ), hcard, ← Finset.prod_inv_distrib, ← Finset.prod_mul_distrib]
+        apply Finset.prod_congr rfl
+        intro i hi
+        rw [← Finset.mul_sum]
+        ring
+      _ = ∏ i : Fin K, E * (a i + b) ^ hitCount (t.2.2 i) t.1 := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        rw [show (Fintype.card (Equiv.Perm (Fin (t.2.2 i).length)) : ℝ)⁻¹ *
+          (∑ σ : Equiv.Perm (Fin (t.2.2 i).length), Q i σ) =
+            (a i + b) ^ hitCount (t.2.2 i) t.1 from
+              ghost_suffix_average_polynomial (t.2.2 i) t.1 (a i) b]
+      _ ≤ _ := by
+        apply Finset.prod_le_prod₀
+        · intro i hi
+          exact mul_nonneg (Real.exp_pos _).le (pow_nonneg (add_nonneg (ha i) hb) _)
+        · intro i hi
+          simpa only [mul_one] using mul_le_mul_of_nonneg_left
+            (pow_le_one₀ (add_nonneg (ha i) hb) (hab i)) (Real.exp_pos _).le
+  have hordered (σ : MemoryPermutation t) :
+      (∑ s ∈ T, memMeasure F S s *
+        ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ * v ^ memSize s) ≤
+        memMeasure F S t * v ^ memSize t * ∏ i : Fin K, E * Q i (σ i) := by
+    have h := ghost_ordered_column_choice_bound F hF S ρ hρ j B v hv hV hbp
+      (memoryPermute t σ) (hvalid σ)
+      (by simpa only [memSize_memoryPermute] using htB) T hT
+    rw [hmeasure σ, memSize_memoryPermute] at h
+    simpa only [memoryPermute, List.length_ofFn, hhit, E, Q, a, b] using h
+  have hkernel (s : MemPoint S.x K) (hs : s ∈ T) :
+      ‖memKernel (fun f => memGhost F S ρ j (memorySym f)) s t‖ ≤
+        d⁻¹ * ∑ σ : MemoryPermutation t,
+          ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ := by
+    rw [memGhostProjectedKernel_target_perm_sum F S ρ j s t B (hT s hs) htB]
+    calc
+      _ ≤ ‖(Fintype.card (MemoryPermutation t) : ℂ)⁻¹‖ *
+          ∑ σ : MemoryPermutation t,
+            ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ :=
+        (norm_mul_le _ _).trans (mul_le_mul_of_nonneg_left (norm_sum_le _ _) (norm_nonneg _))
+      _ = _ := by simp [norm_inv, d]
+  calc
+    _ ≤ ∑ s ∈ T, memMeasure F S s *
+        (d⁻¹ * ∑ σ : MemoryPermutation t,
+          ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖) * v ^ memSize s := by
+      apply Finset.sum_le_sum
+      intro s hs
+      exact mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_left (hkernel s hs) (hμ s)) (pow_nonneg hv.le _)
+    _ = ∑ s ∈ T, ∑ σ : MemoryPermutation t,
+        d⁻¹ * (memMeasure F S s *
+          ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ * v ^ memSize s) := by
+      apply Finset.sum_congr rfl
+      intro s hs
+      rw [Finset.mul_sum, Finset.mul_sum, Finset.sum_mul]
+      apply Finset.sum_congr rfl
+      intro σ hσ
+      ring
+    _ = d⁻¹ * ∑ σ : MemoryPermutation t, ∑ s ∈ T,
+        memMeasure F S s *
+          ‖memKernel (memGhost F S ρ j) s (memoryPermute t σ)‖ * v ^ memSize s := by
+      rw [Finset.sum_comm, Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro σ hσ
+      rw [Finset.mul_sum]
+    _ ≤ d⁻¹ * ∑ σ : MemoryPermutation t,
+        memMeasure F S t * v ^ memSize t * ∏ i : Fin K, E * Q i (σ i) := by
+      apply mul_le_mul_of_nonneg_left _ hd
+      apply Finset.sum_le_sum
+      intro σ hσ
+      exact hordered σ
+    _ = (memMeasure F S t * v ^ memSize t) *
+        (d⁻¹ * ∑ σ : MemoryPermutation t, ∏ i : Fin K, E * Q i (σ i)) := by
+      rw [← Finset.mul_sum]
+      ring
+    _ ≤ (memMeasure F S t * v ^ memSize t) * ∏ i : Fin K, E :=
+      mul_le_mul_of_nonneg_left haverage (mul_nonneg (hμ t) (pow_nonneg hv.le _))
+    _ = _ := by dsimp [E]; ring
+
 private theorem memGhostProjected_rowSchur_le_of_params {K : ℕ}
     (F : PDFix K) (hF : F.Valid) (S : PDScale) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ)
     (j B : ℕ) (v : ℝ) (hv : 0 < v)
