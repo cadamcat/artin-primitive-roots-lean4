@@ -11,7 +11,7 @@ namespace ArtinPrimitiveRoots.TypeII.PD
 open Classical
 noncomputable section
 
-private theorem pd5_memSize_memoryPermute {x : ℝ} {K : ℕ} (s : MemPoint x K)
+private theorem pd5_schur_memSize_memoryPermute {x : ℝ} {K : ℕ} (s : MemPoint x K)
     (σ : MemoryPermutation s) : memSize (memoryPermute s σ) = memSize s := by
   simp [memSize, memoryPermute]
 
@@ -104,7 +104,7 @@ private theorem pd5_memorySym_delta_size_eq_of_ne_zero {x : ℝ} {K : ℕ}
     intro heq
     apply hsize
     calc
-      memSize s = memSize (memoryPermute s σ) := (pd5_memSize_memoryPermute s σ).symm
+      memSize s = memSize (memoryPermute s σ) := (pd5_schur_memSize_memoryPermute s σ).symm
       _ = memSize t := by rw [heq]
   have hzero :
       (∑ σ : MemoryPermutation s,
@@ -1439,7 +1439,7 @@ private theorem pd5_memoryNuListMass_remove_singleton_le {K : ℕ}
         ((l.length : ℝ) * (pre.length.factorial : ℝ))
         = ((pd5_memoryNuListProd F S i pre * memoryNu S.x K F.a F.q_d i (l.get k).1) /
             (pre.length.factorial : ℝ)) / (l.length : ℝ) := by
-              rw [div_div, mul_comm]
+              rw [div_div]; ring
     _ ≤ (pd5_memoryNuListProd F S i pre * memoryNu S.x K F.a F.q_d i (l.get k).1) /
           (pre.length.factorial : ℝ) := by
           exact div_le_self (div_nonneg hnum hfactPos.le) hlenPos
