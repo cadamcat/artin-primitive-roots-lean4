@@ -3180,6 +3180,122 @@ theorem nFin_components
       QuotientGroup.mk (upperM ℂ (-w.embedding ξ)) = 1
     rw [← QuotientGroup.mk_mul, hcancel, QuotientGroup.mk_one]
 
+/-- Rational ideal periods extend to all compatible finite-adelic ideal translations. -/
+theorem scalarOf_ideal_local_periods
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (x : ∀ v : FinPlace F, v.adicCompletion F)
+    (hx : ∀ v : FinPlace F, x v ∈ idealLocalPeriods 𝔞 v)
+    (t : P.RP)
+    (htF : ∀ v : FinPlace F, P.compF v t = (P.loc v).n (Multiplicative.ofAdd (x v)))
+    (htC : ∀ w : InfinitePlace F, P.compC w t = 1)
+    (z : P.RP) :
+    scalarOf P G Fs.f Fs.fC (P.q (z * t * r)) =
+      scalarOf P G Fs.f Fs.fC (P.q (z * r)) := by
+  classical
+  have hball (v : FinPlace F) (m : ℕ) (y : v.adicCompletion F)
+      (hy : absFin v y ≤ (qv v) ^ (-(m : ℤ))) : y ∈ ball v m := by
+    let K := v.adicCompletion F
+    have hπval : Valued.v (unifLoc v : K) = WithZero.exp (-1 : ℤ) := by
+      have hcoe : (unifLoc v : K) = algebraMap F K (unif v) := by
+        simp [unifLoc, toLoc, K]
+      rw [hcoe]
+      change Valued.v ((unif v : F) : v.adicCompletion F) = _
+      rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+      exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+    have hπnorm : absFin v (unifLoc v : K) = (qv v)⁻¹ := by
+      rw [absFin_eq_norm, FinitePlace.norm_def, hπval]
+      rw [WithZeroMulInt.toNNReal_neg_apply (HeightOneSpectrum.absNorm_ne_zero v) (by simp)]
+      rw [WithZero.toAdd_unzero_eq_log (by simp)]
+      simp [qv]
+    let ρ : Kˣ := unifLoc v ^ (m : ℤ)
+    have hρnorm : absFin v (ρ : K) = (qv v) ^ (-(m : ℤ)) := by
+      dsimp only [ρ]
+      rw [absFin_eq_norm, Units.val_zpow_eq_zpow_val, norm_zpow,
+        ← absFin_eq_norm v (unifLoc v : K), hπnorm, inv_zpow, zpow_neg]
+    have hρval : Valued.v (ρ : K) = WithZero.exp (-(m : ℤ)) := by
+      dsimp only [ρ]
+      rw [Units.val_zpow_eq_zpow_val, map_zpow₀, hπval]
+      simp
+    change Valued.v y ≤ WithZero.exp (-(m : ℤ))
+    rw [← hρval]
+    apply Valued.toNormedField.norm_le_iff.mp
+    simpa only [← absFin_eq_norm, hρnorm] using hy
+  choose m hm hright using fun v : FinPlace F =>
+    ((Fs.f_sec v).rtr (P.compF v r)).2.2
+  let W : Finset (FinPlace F) := Fs.T0 ∪ (P.comp_restricted r).toFinset
+  let e (v : FinPlace F) : ℤ := if v ∈ W then (m v : ℤ) else 0
+  have he : (Function.support e).Finite := by
+    apply W.finite_toSet.subset
+    intro v hv
+    by_contra hvW
+    change v ∉ W at hvW
+    exact hv (by simp only [e, ite_eq_right hvW])
+  obtain ⟨ξ, hξmem, happ⟩ := ideal_period_additive_approximation 𝔞 h𝔞 x hx e he
+  obtain ⟨tξ, hqξ, hFξ, hCξ⟩ := nFin_components P ξ
+  let ε (v : FinPlace F) : v.adicCompletion F :=
+    x v - algebraMap F (v.adicCompletion F) ξ
+  have hn (v : FinPlace F) :
+      (P.loc v).n (Multiplicative.ofAdd (x v)) =
+        (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ)) *
+          (P.loc v).n (Multiplicative.ofAdd (ε v)) := by
+    have hsum : algebraMap F (v.adicCompletion F) ξ + ε v = x v := by
+      dsimp only [ε]
+      abel
+    rw [← map_mul, ← ofAdd_add, hsum]
+  have hlocal (v : FinPlace F) (h : (P.loc v).L) :
+      Fs.f v ((h * (P.loc v).n (Multiplicative.ofAdd (ε v))) * P.compF v r) =
+        Fs.f v (h * P.compF v r) := by
+    by_cases hvW : v ∈ W
+    · have hb : ε v ∈ ball v (m v) := hball v (m v) (ε v) (by
+        simpa only [e, ite_eq_left hvW] using happ v)
+      simpa only [rtr] using hright v h ((P.loc v).n (Multiplicative.ofAdd (ε v)))
+        ((P.loc v).n_Kc (m v) (hm v) (ε v) hb)
+    · have hvT : v ∉ Fs.T0 := fun hv => hvW (Finset.mem_union_left _ hv)
+      have hvS : v ∉ S.Sf := fun hv => hvT (Fs.sub hv)
+      have hg : P.compF v r ∈ (P.tame v hvS).Kmax := by
+        by_contra hnot
+        apply hvW
+        exact Finset.mem_union_right _ ((P.comp_restricted r).mem_toFinset.mpr ⟨hvS, hnot⟩)
+      have hεint : ε v ∈ v.adicCompletionIntegers F := by
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+          ← Valued.toNormedField.norm_le_one_iff]
+        simpa only [e, ite_eq_right hvW, neg_zero, zpow_zero, absFin_eq_norm] using happ v
+      have hk : (P.compF v r)⁻¹ * (P.loc v).n (Multiplicative.ofAdd (ε v)) *
+          P.compF v r ∈ (P.tame v hvS).Kmax :=
+        (P.tame v hvS).Kmax.mul_mem
+          ((P.tame v hvS).Kmax.mul_mem ((P.tame v hvS).Kmax.inv_mem hg)
+            ((P.tame v hvS).n_mem (ε v) hεint)) hg
+      have hf := (Fs.f_sph v hvT).2 (h * P.compF v r)
+        ((P.compF v r)⁻¹ * (P.loc v).n (Multiplicative.ofAdd (ε v)) * P.compF v r) hk
+      rw [show (h * P.compF v r) *
+          ((P.compF v r)⁻¹ * (P.loc v).n (Multiplicative.ofAdd (ε v)) * P.compF v r) =
+          (h * (P.loc v).n (Multiplicative.ofAdd (ε v))) * P.compF v r by group] at hf
+      exact hf
+  have hF (v : FinPlace F) :
+      Fs.f v (P.compF v (z * t * r)) = Fs.f v (P.compF v (z * tξ * r)) := by
+    simp only [map_mul, htF, hFξ, hn]
+    simpa only [mul_assoc] using hlocal v
+      (P.compF v z * (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ)))
+  calc
+    _ = scalarOf P G Fs.f Fs.fC (P.q (z * tξ * r)) := by
+      apply scalarOf_lift_components Fs (z * t * r) (z * tξ * r)
+      · intro v
+        exact congrArg (G.lam v) (hF v)
+      · intro w
+        simp only [map_mul, htC, hCξ, mul_one]
+    _ = _ := by
+      have harg : P.q (z * tξ * r) =
+          (P.q z * P.q r) * ((P.q r)⁻¹ * nFin P ξ * P.q r) := by
+        rw [map_mul, map_mul, hqξ]
+        group
+      rw [harg, map_mul]
+      exact hfix ξ hξmem (P.q z * P.q r)
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
