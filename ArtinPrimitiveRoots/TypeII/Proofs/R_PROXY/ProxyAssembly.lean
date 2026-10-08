@@ -8,6 +8,7 @@ namespace ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
 
 open ArtinPrimitiveRoots.TypeII
 open Classical
+open Filter
 
 private theorem prime_product_pos (S : Finset ℕ)
     (hP : ∀ p ∈ S, p.Prime) : 0 < ∏ p ∈ S, p := by
@@ -63,6 +64,60 @@ theorem truncated_divisor_reciprocal_mass_le_inv_sieve_product
     _ = (roughSieveProduct W)⁻¹ := by
       rw [hInv]
       simp [P, roughSieveProduct]
+
+/-- The high-frequency cutoff is eventually below any fixed positive power
+of `x`, as needed for the PP residue estimate. -/
+theorem high_phase_threshold_below_power (δ : ℝ) (hδ : 0 < δ) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        let L := Real.log x
+        Real.exp (L / Real.log L ^ 2) ≤ Real.rpow x (δ / 2) := by
+  let C : ℝ := Real.sqrt (2 / δ)
+  have hCpos : 0 < C := by
+    dsimp [C]
+    exact Real.sqrt_pos.2 (by positivity)
+  have hlogLog : Tendsto (fun x : ℝ => Real.log (Real.log x)) atTop atTop :=
+    Real.tendsto_log_atTop.comp Real.tendsto_log_atTop
+  have hCevent : ∀ᶠ x : ℝ in atTop, C ≤ Real.log (Real.log x) :=
+    hlogLog.eventually_ge_atTop C
+  have htwoEvent : ∀ᶠ x : ℝ in atTop, 2 ≤ x := eventually_ge_atTop 2
+  have hfinal : ∀ᶠ x : ℝ in atTop,
+      2 ≤ x ∧ C ≤ Real.log (Real.log x) := by
+    filter_upwards [htwoEvent, hCevent] with x hx₂ hCLog
+    exact ⟨hx₂, hCLog⟩
+  obtain ⟨x₀, hx₀⟩ := Filter.eventually_atTop.mp hfinal
+  refine ⟨x₀, (hx₀ x₀ le_rfl).1, ?_⟩
+  intro x hx
+  dsimp
+  obtain ⟨hx₂, hCLog⟩ := hx₀ x hx
+  let L : ℝ := Real.log x
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < L := by
+    dsimp [L]
+    exact Real.log_pos (by linarith)
+  have hlogLpos : 0 < Real.log L := by
+    have : C ≤ Real.log L := by simpa [L] using hCLog
+    linarith
+  have hlogLSq : 2 / δ ≤ (Real.log L) ^ 2 := by
+    have hrootSq : C ^ 2 = 2 / δ := by
+      dsimp [C]
+      exact Real.sq_sqrt (by positivity)
+    nlinarith [sq_nonneg (Real.log L - C)]
+  have hsmall : 1 / (Real.log L) ^ 2 ≤ δ / 2 := by
+    apply (div_le_iff₀ (sq_pos_of_pos hlogLpos)).2
+    have hmul := mul_le_mul_of_nonneg_left hlogLSq (by positivity : 0 ≤ δ / 2)
+    have hcancel : (δ / 2) * (2 / δ) = 1 := by
+      field_simp [ne_of_gt hδ]
+    nlinarith
+  have hratio : L / (Real.log L) ^ 2 ≤ L * (δ / 2) := by
+    calc
+      L / (Real.log L) ^ 2 = L * (1 / (Real.log L) ^ 2) := by ring
+      _ ≤ L * (δ / 2) := mul_le_mul_of_nonneg_left hsmall hLpos.le
+  calc
+    Real.exp (L / Real.log L ^ 2) ≤ Real.exp (L * (δ / 2)) :=
+      Real.exp_le_exp.mpr hratio
+    _ = Real.rpow x (δ / 2) := by
+      simpa [L, mul_comm] using (Real.rpow_def_of_pos hxpos (δ / 2)).symm
 
 /-- Sum the per-residue phase estimates over all retained subset divisors.
 The hypotheses isolate the analytic estimate from the finite reindexing. -/
