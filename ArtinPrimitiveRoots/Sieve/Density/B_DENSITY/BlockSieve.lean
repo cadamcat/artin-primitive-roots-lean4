@@ -310,4 +310,40 @@ lemma roughBlockErrorSum_le {z x y : ℝ} (hz : 2 ≤ z) (hx : 0 ≤ x) (hy : 0 
     linarith
   exact hsum.trans (hcard ▸ hrealcard)
 
+/-- The block-sieve upper bound with its small-product error counted by distinct prime products. -/
+lemma roughIntegerCount_le_main_of_block :
+    ∃ K : ℝ, 0 < K ∧ ∃ H₀ : ℕ, ∀ (z : ℝ), 2 ≤ z → ∀ (x : ℝ), 0 ≤ x → ∀ H : ℕ,
+      Even H → H₀ ≤ H →
+      roughIntegerCount x z ≤
+        (1 + K * Real.exp (-(H : ℝ))) *
+            (x * ∏ p ∈ roughSievePrimes z, (1 - 1 / (p : ℝ))) +
+          K * (z ^ (4 * H + 2) + 1) := by
+  classical
+  obtain ⟨K, hK, H₀, hblock⟩ := roughIntegerCount_le_block
+  refine ⟨K, hK, H₀, ?_⟩
+  intro z hz x hx H hHeven hH
+  let main := x * ∏ p ∈ roughSievePrimes z, (1 - 1 / (p : ℝ))
+  let y := z ^ (4 * H + 2)
+  have herr := roughBlockErrorSum_le hz hx (by positivity : 0 ≤ y)
+  have hbound := hblock z hz x hx H hHeven hH
+  have hsub : roughIntegerCount x z - main ≤
+      K * Real.exp (-(H : ℝ)) * main + K *
+        (∑ D ∈ (roughSievePrimes z).powerset with
+          ((∏ p ∈ D, p : ℕ) : ℝ) ≤ y,
+          |(∑ n ∈ roughIntegerInterval x with (∀ p ∈ D, p ∣ n), (1 : ℝ)) -
+            x * ∏ p ∈ D, (1 / (p : ℝ))|) :=
+    (le_abs_self _).trans hbound
+  have hweight := mul_le_mul_of_nonneg_left herr hK.le
+  have hsub' : roughIntegerCount x z - main ≤
+      K * Real.exp (-(H : ℝ)) * main + K * (y + 1) := by
+    exact hsub.trans (add_le_add le_rfl hweight)
+  calc
+    roughIntegerCount x z = main + (roughIntegerCount x z - main) := by ring
+    _ ≤ main + (K * Real.exp (-(H : ℝ)) * main + K * (y + 1)) :=
+      add_le_add le_rfl hsub'
+    _ = (1 + K * Real.exp (-(H : ℝ))) * main + K * (y + 1) := by ring
+    _ = (1 + K * Real.exp (-(H : ℝ))) *
+          (x * ∏ p ∈ roughSievePrimes z, (1 - 1 / (p : ℝ))) +
+          K * (z ^ (4 * H + 2) + 1) := by rfl
+
 end ArtinPrimitiveRoots.Proofs.b_density_sol
