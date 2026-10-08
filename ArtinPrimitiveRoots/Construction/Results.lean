@@ -23,6 +23,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.Aggregation
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ReciprocalBin
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedModuli
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedDensity
+import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedErrors
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
