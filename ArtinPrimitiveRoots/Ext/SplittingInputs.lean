@@ -5,6 +5,7 @@ import Mathlib.FieldTheory.SplittingField.IsSplittingField
 import Mathlib.RingTheory.Frobenius
 import Mathlib.Analysis.MellinInversion
 import TauCeti.NumberTheory.NumberField.Discriminant.Relative
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_EULER.Helpers
 
 /-!
 # External inputs for §7
@@ -165,7 +166,21 @@ theorem ext_dedekind_euler_logderiv (K : Type*) [Field K] [NumberField K] {s : �
       ∑' v : HeightOneSpectrum (𝓞 K), ∑' j : ℕ,
         (Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) *
           (Ideal.absNorm v.asIdeal : ℂ) ^ (-((j + 1 : ℕ) : ℂ) * s) := by
-  sorry
+  have hv := fun v : HeightOneSpectrum (𝓞 K) => S7ExtEuler.prime_power_hasSum v hs
+  have houter := S7ExtEuler.euler_logderiv_hasSum K hs
+  have hseries :
+      (fun v : HeightOneSpectrum (𝓞 K) => ∑' j : ℕ,
+        (Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-((j + 1 : ℕ) : ℂ) * s)) =
+      (fun v : HeightOneSpectrum (𝓞 K) =>
+        (Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) /
+          ((Ideal.absNorm v.asIdeal : ℂ) ^ s - 1)) :=
+    funext fun v => (hv v).tsum_eq
+  refine ⟨fun v => (hv v).summable, ?_, ?_⟩
+  · rw [hseries]
+    exact houter.summable
+  · rw [hseries, S7ExtEuler.sharp_logderiv_eq K hs]
+    exact houter.tsum_eq.symm
 
 /-- **`ext:mellin-inversion`**, `07-splitting.tex:130-145`. Mathlib
 `mellinInv_mellin_eq` (`Mathlib/Analysis/MellinInversion.lean:92`) is the inversion theorem for a

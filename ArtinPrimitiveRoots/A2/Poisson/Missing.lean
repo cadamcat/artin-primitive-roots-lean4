@@ -361,7 +361,45 @@ theorem po_probe_absolute : ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
     ‖gamma D S A 2 p.1.1 (cgen R p.1) * (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 : ℝ) *
       ϑ.idealValue (Aideal R p.1 p.2).1 * chiIdealPow D (Aideal R p.1 p.2).1 (m : F) 1 *
         (PG (qI (Aideal R p.1 p.2).1 / Z) : ℂ)‖)) := by
-  sorry
+  intro X Y Z hX hY hZ
+  constructor
+  · classical
+    have hcompact : IsCompact (tsupport W.W1) := W.W1_compact
+    obtain ⟨B, hB⟩ :=
+      (Metric.isBounded_iff_subset_closedBall (0 : ℝ)).1 hcompact.isBounded
+    let cutoff : ℝ := Y * max B 1
+    have hcutoff : 0 ≤ cutoff := by
+      dsimp [cutoff]
+      positivity
+    have hfinite := a2_bridge_COUNT_finite S cutoff hcutoff
+    apply hfinite.1.subset
+    intro I hI
+    have hts : qI I.1 / Y ∈ tsupport W.W1 := by
+      apply subset_closure
+      exact Function.mem_support.mpr hI
+    have hball := hB hts
+    have hdist : dist (qI I.1 / Y) 0 ≤ B := by
+      simpa only [Metric.mem_closedBall, dist_zero_right] using hball
+    have hfrac : qI I.1 / Y ≤ max B 1 := by
+      calc
+        qI I.1 / Y ≤ |qI I.1 / Y| := le_abs_self _
+        _ = dist (qI I.1 / Y) 0 := by
+          simpa only [sub_zero] using (Real.dist_eq (qI I.1 / Y) 0).symm
+        _ ≤ B := hdist
+        _ ≤ max B 1 := le_max_left _ _
+    have hq : qI I.1 ≤ cutoff := by
+      dsimp [cutoff]
+      calc
+        qI I.1 ≤ max B 1 * Y := (div_le_iff₀ hY).mp hfrac
+        _ = Y * max B 1 := by ring
+    simpa [qI, idealNorm] using hq
+  · intro m
+    have hsum := Bm_summable D S A H Bd ϑ R.vartheta_unitary (cgen R)
+      (cgen_valid R) m Z hZ
+    apply hsum.congr
+    intro p
+    simp only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+      R.exterior.pow_val, qI, idealNorm, div_eq_mul_inv]
 /-- po:C-local-values: the one-prime T_v table, including the masked v≡0 case. -/
 theorem po_C_local_T_values : ∀ v, v ∉ S.Sf → ∀ e : ℤ, ∀ y : S.R,
   localT R v e (y : F) =

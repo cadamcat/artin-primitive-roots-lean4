@@ -1,4 +1,6 @@
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FAMILY_FIELDS.Defs
+import ArtinPrimitiveRoots.Theta.Proofs.TH_FAMILY_FIELDS.theta_compact_fourier_majorant
+import Mathlib.Analysis.Normed.Group.FunctionSeries
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
@@ -25,5 +27,30 @@ theorem theta_fourierLocallyUniform {P : CoverPackage D S H A}
     ∃ F₀ : Finset Fˣ, ∀ F' : Finset Fˣ, F₀ ⊆ F' → ∀ g ∈ K,
       ‖thetaFamilyTheta B L g - thetaFamilyThetaN B L g -
         ∑ ν ∈ F', thetaFamilyW B L (P.tc.rat (diagGL ν) * g)‖ < ε := by
-  sorry
+  obtain ⟨M, hM_nonneg, hM_summable, hM_bound⟩ :=
+    theta_compact_fourier_majorant hRP B Q L hL K hK
+  let f : Fˣ → P.tc.G → ℂ :=
+    fun ν g => thetaFamilyW B L (P.tc.rat (diagGL ν) * g)
+  have hsum_bound : ∀ ν g, g ∈ K → ‖f ν g‖ ≤ M ν := by
+    intro ν g hg
+    exact hM_bound ν g hg
+  have huniform : TendstoUniformlyOn
+      (fun t : Finset Fˣ => fun g => ∑ ν ∈ t, f ν g)
+      (fun g => ∑' ν, f ν g) atTop K :=
+    tendstoUniformlyOn_tsum hM_summable hsum_bound
+  obtain ⟨F₀, hF₀⟩ :=
+    eventually_atTop.1 ((Metric.tendstoUniformlyOn_iff.mp huniform) ε hε)
+  refine ⟨F₀, ?_⟩
+  intro F' hF₀F' g hg
+  have hdist := hF₀ F' hF₀F' g hg
+  have hid := hFourier g
+  have hrewrite :
+      thetaFamilyTheta B L g - thetaFamilyThetaN B L g -
+          ∑ ν ∈ F', thetaFamilyW B L (P.tc.rat (diagGL ν) * g) =
+        (∑' ν, f ν g) - ∑ ν ∈ F', f ν g := by
+    dsimp [f]
+    rw [hid.2]
+    abel
+  rw [hrewrite]
+  simpa only [dist_eq_norm] using hdist
 end ArtinPrimitiveRoots.A1.Theta
