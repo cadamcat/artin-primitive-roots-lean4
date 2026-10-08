@@ -5282,6 +5282,97 @@ private theorem ghost_interleave_factorial_active (n d : ℕ) :
   field_simp [ne_of_gt hn, ne_of_gt hd, ne_of_gt htotal]
   nlinarith [hReal]
 
+/-- The indexed source/deletion pairs with fixed retained and selected lists
+have at most the shuffle multiplicity. The source factorial cancels it. -/
+private theorem ghost_source_shuffle_weight_le
+    (kept selected : List Particle) (T : Finset (List Particle))
+    (c : ℝ) (hc : 0 ≤ c) :
+    (∑ l ∈ T, ∑ D : Finset (Fin l.length),
+      if removeIndices l D = kept ∧ selectIndices l D = selected then
+        c / (l.length.factorial : ℝ) else 0) ≤
+      c / ((kept.length.factorial : ℝ) * (selected.length.factorial : ℝ)) := by
+  classical
+  let A := Σ l : {l : List Particle // l ∈ T}, Finset (Fin l.1.length)
+  let P (q : A) : Prop :=
+    removeIndices q.1.1 q.2 = kept ∧ selectIndices q.1.1 q.2 = selected
+  let good : Finset A := Finset.univ.filter P
+  let n := kept.length + selected.length
+  let d := selected.length
+  let masks : Finset (Finset (Fin n)) := Finset.univ.powersetCard d
+  have hparts (q : good) : P q.1 := (Finset.mem_filter.mp q.2).2
+  have hlen (q : good) : q.1.1.1.length = n := by
+    have hp := remove_select_perm q.1.1.1 q.1.2
+    rw [(hparts q).1, (hparts q).2] at hp
+    simpa [n] using hp.length_eq.symm
+  have hdel (q : good) : q.1.2.card = d := by
+    have h := congrArg List.length (hparts q).2
+    simpa [selectIndices_length, d] using h
+  let toMask : good → {D // D ∈ masks} := fun q =>
+    ⟨q.1.2.map (finCongr (hlen q)).toEmbedding,
+      Finset.mem_powersetCard.mpr ⟨Finset.subset_univ _, by
+        simpa using hdel q⟩⟩
+  have hcast (l : List Particle) (D : Finset (Fin l.length))
+      (n' : ℕ) (h : l.length = n') :
+      deletionMask l D = maskOfFinset (D.map (finCongr h).toEmbedding) := by
+    subst n'
+    simp [deletionMask, maskOfFinset]
+  have hinj : Function.Injective toMask := by
+    intro q r hqr
+    have hm : deletionMask q.1.1.1 q.1.2 = deletionMask r.1.1.1 r.1.2 := by
+      calc
+        _ = maskOfFinset (toMask q).1 := hcast _ _ _ (hlen q)
+        _ = maskOfFinset (toMask r).1 := congrArg (fun D => maskOfFinset D.1) hqr
+        _ = _ := (hcast _ _ _ (hlen r)).symm
+    have heq := deletionData_eq_of_parts q.1.2 r.1.2 hm
+      ((hparts q).1.trans (hparts r).1.symm)
+      ((hparts q).2.trans (hparts r).2.symm)
+    apply Subtype.ext
+    exact Sigma.ext (Subtype.ext heq.1) heq.2
+  have hcard : good.card ≤ Nat.choose n d := by
+    have h := Fintype.card_le_of_injective toMask hinj
+    simpa [masks, Finset.card_powersetCard] using h
+  have hsum :
+      (∑ l ∈ T, ∑ D : Finset (Fin l.length),
+        if removeIndices l D = kept ∧ selectIndices l D = selected then
+          c / (l.length.factorial : ℝ) else 0) =
+      (∑ q : A, if P q then c / (q.1.1.length.factorial : ℝ) else 0) := by
+    symm
+    rw [Fintype.sum_sigma]
+    exact sum_subtype_eq_sum_finset T (fun l =>
+      ∑ D : Finset (Fin l.length),
+        if removeIndices l D = kept ∧ selectIndices l D = selected then
+          c / (l.length.factorial : ℝ) else 0)
+  have hsumGood :
+      (∑ q : A, if P q then c / (q.1.1.length.factorial : ℝ) else 0) =
+        ∑ q ∈ good, c / (n.factorial : ℝ) := by
+    change _ = ∑ q ∈ Finset.univ.filter P, c / (n.factorial : ℝ)
+    rw [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro q hq
+    by_cases hp : P q
+    · have hg : q ∈ good := Finset.mem_filter.mpr ⟨Finset.mem_univ q, hp⟩
+      simp only [P] at hp ⊢
+      simp only [if_pos hp]
+      rw [hlen ⟨q, hg⟩]
+    · simp only [P] at hp ⊢
+      simp only [if_neg hp]
+  calc
+    _ = good.card * (c / (n.factorial : ℝ)) := by
+      rw [hsum, hsumGood]
+      simp
+    _ ≤ (Nat.choose n d : ℝ) * (c / (n.factorial : ℝ)) :=
+      mul_le_mul_of_nonneg_right (Nat.cast_le.mpr hcard)
+        (div_nonneg hc (Nat.cast_nonneg _))
+    _ = c / ((kept.length.factorial : ℝ) * (selected.length.factorial : ℝ)) := by
+      calc
+        _ = c * ((Nat.choose n d : ℝ) / (n.factorial : ℝ)) := by ring
+        _ = c * (1 / ((kept.length.factorial : ℝ) *
+            (selected.length.factorial : ℝ))) := by
+          rw [show (Nat.choose n d : ℝ) / (n.factorial : ℝ) =
+            1 / ((kept.length.factorial : ℝ) * (selected.length.factorial : ℝ)) from
+              ghost_interleave_factorial_measure kept.length selected.length]
+        _ = _ := by ring
+
 private theorem ghostGroupFiniteWeight_mul_pow_eq_normCoeff_mul_pow {K : ℕ}
     (F : PDFix K) (S : PDScale) (s : MemPoint S.x K) (B j : ℕ)
     (ρ v : ℝ) (i : Fin K)
