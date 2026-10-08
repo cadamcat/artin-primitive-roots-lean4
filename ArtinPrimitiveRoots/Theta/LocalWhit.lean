@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalInt
+import ArtinPrimitiveRoots.Theta.Proofs.TH_WHITTAKER.Bruhat
 
 set_option autoImplicit false
 
@@ -12,6 +13,7 @@ noncomputable section
 namespace ArtinPrimitiveRoots.A1.Theta
 
 open ArtinPrimitiveRoots.A1
+open ArtinPrimitiveRoots.Proofs.TH_WHITTAKER
 
 variable {F : Type} [Field F] [NumberField F]
 
@@ -150,6 +152,107 @@ private theorem wh_ball_compact (m : ℕ) : IsCompact (ball v (m : ℤ)) := by
           (a := Valued.v x) (b := WithZero.exp (-(m : ℤ)))).symm
   rw [hball]
   exact hproper.isCompact_closedBall 0 R
+
+private theorem wh_ball_compact_int (i : ℤ) : IsCompact (ball v i) := by
+  let K := v.adicCompletion F
+  letI : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  let R : ℝ := (WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+    (WithZero.exp (-i)) : ℝ)
+  have hball : ball v i = Metric.closedBall (0 : K) R := by
+    ext x
+    simp only [ball, Set.mem_setOf_eq, Metric.mem_closedBall, dist_zero_right]
+    rw [FinitePlace.norm_def]
+    simp only [R, NNReal.coe_le_coe]
+    simpa using
+      ((WithZeroMulInt.toNNReal_strictMono
+        (HeightOneSpectrum.one_lt_absNorm_nnreal v)).le_iff_le
+          (a := Valued.v x) (b := WithZero.exp (-i))).symm
+  rw [hball]
+  exact hproper.isCompact_closedBall 0 R
+
+private theorem wh_section_bigcell_coordinate_locallyConstant
+    (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
+    (f : L.L → T.V) (hf : IsSection L T s f) (m : ℕ) (hm : L.m0 ≤ m)
+    (hright : ∀ g, ∀ k ∈ L.Kc m, f (g * k) = f g) :
+    IsLocallyConstant (fun t : v.adicCompletion F =>
+      f (L.w * L.n (Multiplicative.ofAdd t))) := by
+  rw [IsLocallyConstant.iff_exists_open]
+  intro x
+  let B : Set (v.adicCompletion F) := ball v (m : ℤ)
+  let e : (v.adicCompletion F) ≃ₜ (v.adicCompletion F) := Homeomorph.addRight x
+  refine ⟨e '' B, e.isOpenMap B (wh_ball_isOpen (v := v) (m : ℤ)), ?_, ?_⟩
+  · exact ⟨0, by simp [B, ball], by simp [e, Homeomorph.addRight]⟩
+  · rintro y ⟨d, hd, rfl⟩
+    have hn : L.n (Multiplicative.ofAdd (d + x)) =
+        L.n (Multiplicative.ofAdd x) * L.n (Multiplicative.ofAdd d) := by
+      rw [show d + x = x + d by ring]
+      rw [← map_mul]
+      congr 1
+    calc
+      f (L.w * L.n (Multiplicative.ofAdd (d + x))) =
+          f ((L.w * L.n (Multiplicative.ofAdd x)) *
+            L.n (Multiplicative.ofAdd d)) := by rw [hn]; congr 1 <;> group
+      _ = f (L.w * L.n (Multiplicative.ofAdd x)) :=
+        hright _ _ (L.n_Kc m hm d (by simpa [B] using hd))
+
+private theorem wh_section_bigcell_coordinate_vanishes
+    (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
+    (f : L.L → T.V) (hf : IsSection L T s f) (h1 : f 1 = 0)
+    (m : ℕ) (hm : L.m0 ≤ m)
+    (hright : ∀ g, ∀ k ∈ L.Kc m, f (g * k) = f g)
+    (t : v.adicCompletion F) (ht : t ∉ ball v (-(m : ℤ))) :
+    f (L.w * L.n (Multiplicative.ofAdd t)) = 0 := by
+  have ht0 : t ≠ 0 := by
+    intro ht0
+    subst t
+    exact ht (by simp [ball])
+  have hval : WithZero.exp (m : ℤ) < Valued.v t := by
+    have hnot : ¬ Valued.v t ≤ WithZero.exp (m : ℤ) := by
+      simpa [ball] using ht
+    exact lt_of_not_ge hnot
+  have hvne : Valued.v t ≠ 0 := (Valuation.ne_zero_iff Valued.v).2 ht0
+  have hvpos : 0 < Valued.v t := pos_iff_ne_zero.mpr hvne
+  have hbpos : 0 < WithZero.exp (m : ℤ) :=
+    pos_iff_ne_zero.mpr (WithZero.exp_ne_zero)
+  have hinv : (Valued.v t)⁻¹ < (WithZero.exp (m : ℤ))⁻¹ :=
+    (inv_lt_inv₀ hvpos hbpos).2 hval
+  have htinv : (t⁻¹ : v.adicCompletion F) ∈ ball v (m : ℤ) := by
+    change Valued.v t⁻¹ ≤ WithZero.exp (-(m : ℤ))
+    apply le_of_lt
+    calc
+      Valued.v t⁻¹ = (Valued.v t)⁻¹ := Valuation.map_inv _ t
+      _ < (WithZero.exp (m : ℤ))⁻¹ := hinv
+      _ = WithZero.exp (-(m : ℤ)) := by rw [WithZero.exp_neg]
+  let u : (v.adicCompletion F)ˣ := Units.mk0 t ht0
+  have hBruhat : L.w * L.n (Multiplicative.ofAdd t) =
+      L.n (Multiplicative.ofAdd ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) *
+        L.a (-(u⁻¹ * u⁻¹)) *
+          L.nbar (Multiplicative.ofAdd
+            ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) := by
+    simpa [u] using L.lift_wn u
+  have hnbar : L.nbar (Multiplicative.ofAdd
+      ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) ∈ L.Kc m := by
+    apply L.nbar_Kc m hm
+    simpa [u] using htinv
+  have hzeroNbar : f (L.nbar (Multiplicative.ofAdd
+      ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F))) = 0 := by
+    have h := hright 1 _ hnbar
+    simpa [h1] using h
+  calc
+    f (L.w * L.n (Multiplicative.ofAdd t)) =
+        ((absFin v (-(u⁻¹ * u⁻¹)) : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+          T.σa (-(u⁻¹ * u⁻¹))
+            (f (L.nbar (Multiplicative.ofAdd
+              ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)))) := by
+        rw [hBruhat]
+        exact hf.1 _ _ _
+    _ = 0 := by rw [hzeroNbar]; simp
 
 private theorem wh_adicIntegers_compact :
     IsCompact (v.adicCompletionIntegers F : Set (v.adicCompletion F)) := by
@@ -817,7 +920,81 @@ theorem section_eq_bigCell (L : FinLocalCover D H v) (T : TorusRep D H v) (s : �
     (f : L.L → T.V) (hf : IsSection L T s f) (h1 : f 1 = 0) :
     ∃ φ : v.adicCompletion F → T.V, IsLocallyConstant φ ∧ HasCompactSupport φ ∧
       f = bigCell L T s φ := by
-  sorry
+  classical
+  obtain ⟨m, hm, hright⟩ := hf.2.2
+  let φ : v.adicCompletion F → T.V := fun t =>
+    f (L.w * L.n (Multiplicative.ofAdd t))
+  have hφ : IsLocallyConstant φ := by
+    simpa [φ] using wh_section_bigcell_coordinate_locallyConstant L T s f hf m hm hright
+  have hsupport : Function.support φ ⊆ ball v (-(m : ℤ)) := by
+    intro t ht
+    change φ t ≠ 0 at ht
+    by_contra hout
+    have hzero := wh_section_bigcell_coordinate_vanishes L T s f hf h1 m hm hright t hout
+    exact ht (by simpa [φ] using hzero)
+  have hcompact : HasCompactSupport φ :=
+    HasCompactSupport.of_support_subset_isCompact (wh_ball_compact_int (v := v) (-(m : ℤ)))
+      hsupport
+  refine ⟨φ, hφ, hcompact, ?_⟩
+  funext g
+  rcases cover_bruhat L g with hbig | hsmall
+  · rcases hbig with ⟨x, ζ, y, t, rfl⟩
+    have hreorder :
+        L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y *
+            L.w * L.n (Multiplicative.ofAdd t) =
+          L.n (Multiplicative.ofAdd x) * L.a y *
+            (L.z ζ * (L.w * L.n (Multiplicative.ofAdd t))) := by
+      calc
+        _ = L.n (Multiplicative.ofAdd x) *
+              (L.z ζ * L.a y) * (L.w * L.n (Multiplicative.ofAdd t)) := by group
+        _ = L.n (Multiplicative.ofAdd x) *
+              (L.a y * L.z ζ) * (L.w * L.n (Multiplicative.ofAdd t)) := by
+                rw [L.z_central ζ (L.a y)]
+        _ = _ := by group
+    have hvalue :
+        f (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) =
+          ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+            T.σa y (f (L.z ζ * (L.w * L.n (Multiplicative.ofAdd t)))) := by
+      rw [hreorder]
+      exact hf.1 x y _
+    calc
+      f (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t)) =
+          ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+        T.σa y (((ζ : ℂˣ) : ℂ) • φ t) := by
+        rw [hvalue, hf.2.1 ζ (L.w * L.n (Multiplicative.ofAdd t))]
+      _ = ((ζ : ℂˣ) : ℂ) •
+          ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) • T.σa y (φ t) := by
+        simp [map_smul, smul_smul, mul_comm, mul_left_comm, mul_assoc]
+      _ = bigCell L T s φ
+          (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+            L.n (Multiplicative.ofAdd t)) := by
+        rw [bigCell_apply]
+  · rcases hsmall with ⟨x, ζ, y, rfl⟩
+    have hreorder :
+        L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y =
+          L.n (Multiplicative.ofAdd x) * L.a y * L.z ζ := by
+      calc
+        _ = L.n (Multiplicative.ofAdd x) * (L.z ζ * L.a y) := by group
+        _ = L.n (Multiplicative.ofAdd x) * (L.a y * L.z ζ) := by
+          rw [L.z_central ζ (L.a y)]
+        _ = _ := by group
+    have hvalue :
+        f (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y) =
+          ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+            T.σa y (f (L.z ζ)) := by
+      rw [hreorder]
+      exact hf.1 x y (L.z ζ)
+    have hzero : f (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y) = 0 := by
+      have hz : f (L.z ζ) = ((ζ : ℂˣ) : ℂ) • f 1 := by
+        simpa using hf.2.1 ζ 1
+      rw [hvalue, hz, h1]
+      simp
+    calc
+      f (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y) = 0 := hzero
+      _ = bigCell L T s φ (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y) := by
+        rw [bigCell_borel]
 
 /-- **wh:two-cell** (KP Cor. I.3.4/Lemma I.3.2 replaced): every Whittaker functional on `I(T, s)`
 is `c ∘ 𝒥` (every `s ∈ ℂ`). -/
