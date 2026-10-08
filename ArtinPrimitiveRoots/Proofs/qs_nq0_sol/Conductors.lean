@@ -5,16 +5,17 @@ import Mathlib.Topology.Algebra.Valued.ValuationTopology
 /-!
 # Uniform local bounds for the canonical quadratic family
 
-The first conductor helper, in this module's context, is:
+The general conductor helper, in this module's context, is:
 ```
-theorem qs_nq0_adic_square_congruence (v : FinPlace K) :
+theorem qs_nq0_adic_power_congruence (v : FinPlace K)
+    (n : ℕ) (hn : n ≠ 0) :
     ∃ e : ℕ, 0 < e ∧
       ∀ u : (v.adicCompletion K)ˣ,
         Valued.v ((u : v.adicCompletion K) - 1) ≤
           WithZero.exp (-(e : ℤ)) →
-        ∃ b : (v.adicCompletion K)ˣ, u = b ^ 2
+        ∃ b : (v.adicCompletion K)ˣ, u = b ^ n
 ```
-The square neighborhood comes from the strict inverse function theorem.
+The power neighborhood comes from the strict inverse function theorem.
 The valuation basis then supplies a positive integral congruence exponent.
 -/
 
@@ -29,13 +30,14 @@ namespace ArtinPrimitiveRoots.A2
 
 variable {K : Type} [Field K] [NumberField K]
 
-/-- A fixed sufficiently deep congruence neighborhood at a finite place consists of squares. -/
-theorem qs_nq0_adic_square_congruence (v : FinPlace K) :
+/-- A sufficiently deep congruence neighborhood consists of powers of any nonzero exponent. -/
+theorem qs_nq0_adic_power_congruence (v : FinPlace K)
+    (n : ℕ) (hn : n ≠ 0) :
     ∃ e : ℕ, 0 < e ∧
       ∀ u : (v.adicCompletion K)ˣ,
         Valued.v ((u : v.adicCompletion K) - 1) ≤
           WithZero.exp (-(e : ℤ)) →
-        ∃ b : (v.adicCompletion K)ˣ, u = b ^ 2 := by
+        ∃ b : (v.adicCompletion K)ˣ, u = b ^ n := by
   let L := v.adicCompletion K
   obtain ⟨t, ht, ht0⟩ := Submodule.exists_mem_ne_zero_of_ne_bot v.ne_bot
   let x : L := NumberField.FinitePlace.embedding v (algebraMap (𝓞 K) K t)
@@ -46,12 +48,12 @@ theorem qs_nq0_adic_square_congruence (v : FinPlace K) :
     (NumberField.FinitePlace.norm_lt_one_iff_mem (K := K) v t).mpr ht
   let : NontriviallyNormedField L :=
     NontriviallyNormedField.ofNormNeOne ⟨x, hx0, ne_of_lt hxnorm⟩
-  have h2 : (2 : L) ≠ 0 := by
+  have hnL : (n : L) ≠ 0 := by
     intro h
-    have hk : (2 : K) = 0 := (algebraMap K L).injective
-      (by simpa only [map_ofNat, map_zero] using h)
-    exact (two_ne_zero : (2 : K) ≠ 0) hk
-  have hs := qs_nq0_power_units_neighborhood L 2 h2
+    have hk : (n : K) = 0 := (algebraMap K L).injective
+      (by simpa only [map_natCast, map_zero] using h)
+    exact (Nat.cast_ne_zero.mpr hn : (n : K) ≠ 0) hk
+  have hs := qs_nq0_power_units_neighborhood L n hnL
   rw [(Units.isEmbedding_val₀ (G₀ := L)).isInducing.nhds_eq_comap 1] at hs
   obtain ⟨V, hV, hVs⟩ := Filter.mem_comap.mp hs
   obtain ⟨γ, hγ⟩ := Valued.mem_nhds.mp hV
@@ -70,5 +72,14 @@ theorem qs_nq0_adic_square_congruence (v : FinPlace K) :
   change (Valued.v : Valuation L ℤᵐ⁰).restrict ((u : L) - 1) < (γ : _)
   rw [Valuation.restrict_lt_iff_lt_embedding]
   exact lt_of_le_of_lt hu hbound
+
+/-- A fixed sufficiently deep congruence neighborhood at a finite place consists of squares. -/
+theorem qs_nq0_adic_square_congruence (v : FinPlace K) :
+    ∃ e : ℕ, 0 < e ∧
+      ∀ u : (v.adicCompletion K)ˣ,
+        Valued.v ((u : v.adicCompletion K) - 1) ≤
+          WithZero.exp (-(e : ℤ)) →
+        ∃ b : (v.adicCompletion K)ˣ, u = b ^ 2 := by
+  exact qs_nq0_adic_power_congruence v 2 (by norm_num)
 
 end ArtinPrimitiveRoots.A2
