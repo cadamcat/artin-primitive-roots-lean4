@@ -1,9 +1,15 @@
+import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_truncation_tail_absorb
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_high_rank_tail
+import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_low_rank_iteration
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.Determinant
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Atoms
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.HistoryPartition
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.Characters
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.ConstraintWeight
+import ArtinPrimitiveRoots.TypeII.Proofs.pd5b.HistoryPhases
 import Mathlib.Analysis.SpecialFunctions.Pow.Asymptotics
 set_option autoImplicit false
 set_option linter.unusedVariables false
@@ -3145,7 +3151,32 @@ theorem history_path_value (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁
           memHistory F S ρ w none (some γ) distinctWeight =
             pathCoefficient F S γ * (pathArch F S w γ : ℂ) *
               ((∏ p ∈ markedPrimes S.x K F.a, pathLifespan F S γ p : ℝ) : ℂ) := by
-  sorry
+  classical
+  intro K F hF ρ hρ
+  obtain ⟨xB, hxB, hB⟩ := pd_ordered_birth_bijection δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+  obtain ⟨xC, hxC, hC⟩ := pd_history_scalar_charge δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+  obtain ⟨xP, hxP, hP⟩ := pd_prime_lifespan_product K F hF
+  refine ⟨max xB (max xC xP), hxB.trans (le_max_left _ _), ?_⟩
+  intro S hS hx w hw γ hγ
+  have hxB' : xB ≤ S.x := (le_max_left _ _).trans hx
+  have hxC' : xC ≤ S.x := (le_max_left xC xP).trans ((le_max_right _ _).trans hx)
+  have hxP' : xP ≤ S.x := (le_max_right xC xP).trans ((le_max_right _ _).trans hx)
+  obtain ⟨hNorm, hExpansion⟩ := hB S hS hxB'
+  rw [hExpansion w hw γ hγ none]
+  by_cases hcoef : pathCoefficient F S γ = 0
+  · simp [hcoef]
+  have hCharge := hC S hS hxC' γ hγ hcoef
+  have hRaw : pdRawHistorySum F S ρ γ none =
+      pdActiveNormalization F S * pdLifeChargeSum F S γ := by
+    change (∑ H : PDLifeAssignment F S γ, pdRawAssignmentCharge F S ρ γ H) =
+      pdActiveNormalization F S * ∑ H : PDLifeAssignment F S γ,
+        pdLifeAssignmentCharge F S γ H
+    rw [Finset.mul_sum]
+    exact Finset.sum_congr rfl (fun H _ => hCharge H)
+  have hProduct : pdLifeChargeSum F S γ =
+      ∏ p ∈ markedPrimes S.x K F.a, pathLifespan F S γ p := by
+    simpa only [pdPathLifespan, pdLifespanFormula, pathLifespan, lifespanSum] using hP S hxP' γ
+  rw [hRaw, ← mul_assoc, inv_mul_cancel₀ hNorm, one_mul, hProduct]
 
 /-- `t2:pd.memory-identity` — PD 04:43-274.  For every root of the region: the independent-line average of the
 line-model moment equals the baseline `∏_p b'_p` times the distinct history value.  Proof:
@@ -3532,7 +3563,7 @@ theorem truncation_adjoint (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁
         ∀ w : ArchRoot, w.InRegion S →
           ‖historyDistinct F S ρ w - historyDistinctTrunc F S ρ w‖ ≤
             C_A * Real.rpow S.L (-A * (S.N : ℝ)) := by
-  sorry
+  exact pd_truncation_tail_absorb δ c₁ c₂ hδ hc₁
 
 private theorem memoryBPrime_half_of_large_x {K : ℕ} (F : PDFix K) (hF : F.Valid) :
     ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → ∀ p ∈ markedPrimes x K F.a,
@@ -7507,6 +7538,38 @@ theorem birth_partition {K : ℕ} (A : Finset (BirthAddress K)) (log : BirthLog 
       ∑ 𝒞 ∈ constraintSystems A, (constraintCoeff 𝒞 : ℂ) * constraintWeight 𝒞 log := by
   exact birth_partition_from_labels A log hnodup hA
 
+private noncomputable def pd5b_characterModulus {K : ℕ} (F : PDFix K) (S : PDScale) : ℕ :=
+  (markedPrimes S.x K F.a).sup id + 1
+
+private theorem pd5b_characterModulus_neZero {K : ℕ} (F : PDFix K) (S : PDScale) :
+    NeZero (pd5b_characterModulus F S) :=
+  ⟨by simp [pd5b_characterModulus]⟩
+
+private theorem pd5b_markedPrime_lt_characterModulus {K : ℕ} (F : PDFix K) (S : PDScale)
+    {p : ℕ} (hp : p ∈ markedPrimes S.x K F.a) :
+    p < pd5b_characterModulus F S := by
+  dsimp [pd5b_characterModulus]
+  exact Nat.lt_succ_of_le (Finset.le_sup (f := id) hp)
+
+private theorem pd5b_log_labels_lt_characterModulus {K : ℕ} (F : PDFix K) (S : PDScale)
+    (A : Finset (BirthAddress K)) (log : BirthLog K)
+    (hnodup : (log.map Prod.fst).Nodup)
+    (hvalues : ∀ e ∈ log, e.2 ∈ markedPrimes S.x K F.a) :
+    ∀ a ∈ A, ∀ p, pd5b_label log a = some p → p < pd5b_characterModulus F S := by
+  intro a ha p hp
+  have hmem : (a, p) ∈ log := (pd5b_label_spec hnodup a p).1 hp
+  exact pd5b_markedPrime_lt_characterModulus F S (hvalues (a, p) hmem)
+
+private theorem pd5b_birthLog_values_marked_append {K : ℕ} (F : PDFix K) (S : PDScale)
+    (L₁ L₂ : BirthLog K)
+    (h₁ : ∀ e ∈ L₁, e.2 ∈ markedPrimes S.x K F.a)
+    (h₂ : ∀ e ∈ L₂, e.2 ∈ markedPrimes S.x K F.a) :
+    ∀ e ∈ L₁ ++ L₂, e.2 ∈ markedPrimes S.x K F.a := by
+  intro e he
+  rcases List.mem_append.mp he with he | he
+  · exact h₁ e he
+  · exact h₂ e he
+
 /-- `t2:pd.history-rank-high` (new node) — PD 04:825-904.  High-rank constraint systems are
 negligible in absolute value: with `r₀ = ⌈C' N log L / L^{0.1}⌉` (`C'` large after the crude
 exponent), `Σ_{r(𝒞) ≥ r₀} |coef 𝒞| · |H_𝒞| ≤ L^{-(E₀+3)N}`, where `H_𝒞` is the truncated history
@@ -7524,7 +7587,10 @@ theorem history_rank_high (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)
             |(constraintCoeff 𝒞 : ℝ)| *
               ‖memHistory F S ρ w (some (memoryCutoff S)) none (constraintWeight 𝒞)‖) ≤
             Real.rpow S.L (-(E₀ + 3) * (S.N : ℝ)) := by
-  sorry
+  intro K F hF ρ hρ E₀ hE₀
+  exact pd5_high_rank_tail δ c₁ c₂ hδ hc₁ K F hF ρ hρ E₀ hE₀
+    (pd5_fixed_system_abs_estimate δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+      (pd5_positive_choice_rows δ c₁ c₂ hδ hc₁ K F hF ρ hρ))
 
 /-- `t2:pd.history-rank-low` (new node) — PD 04:906-956.  A constraint system of rank `r` changes at
 most `2r` operations: write each block indicator by circle orthogonality (mem:local-phases), attach
@@ -7546,7 +7612,16 @@ theorem history_rank_low (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
                 2 * C_K ^ (S.N + 1) *
                   Real.rpow S.L (-G * ((S.N : ℝ) - 2 * (constraintRank 𝒞 : ℝ))) *
                   Real.rpow S.L (2 * Ccr * (constraintRank 𝒞 : ℝ)) := by
-  sorry
+  intro K F hF ρ hρ
+  rcases ghost_edge_crude δ c₁ c₂ hδ hc₁ K F hF ρ hρ with
+    ⟨v, C_K, Cexp, x₀, hv, hC_K, hCexp, hx₀, hcrude⟩
+  have hghost : PD5GhostCrudeAvailable δ c₁ c₂ F ρ := by
+    refine ⟨v, C_K, x₀, hv, hC_K, hx₀, ?_⟩
+    intro S hS hx w hw j hj
+    exact ⟨(hcrude S hS hx w hw j hj).1, (hcrude S hS hx w hw j hj).2.1⟩
+  exact pd5_low_rank_iteration δ c₁ c₂ hδ hc₁ K F hF ρ hρ
+    (pd5_boundary_norm_near_one δ c₁ c₂ K F hF)
+    (pd5_modified_ops_symmetry_domination δ c₁ c₂ hδ hc₁ K F hF ρ hρ hghost)
 
 private theorem pd5_birth_arithmetic_threshold {K : ℕ} {C' eta C_K : ℝ}
     (hC' : 0 < C') (heta : 0 < eta) :
