@@ -71,7 +71,12 @@ theorem ext_tate_local_FE_fin (v : FinPlace F) :
       (∫ y, (∫ x, f x * A.ψ v (-(x * y)) ∂(μ v).μ) * (absFin v y : ℂ) ^ s
         ∂Theta.mulHaarFin (μ v)) =
       c s * ∫ y, f y * (absFin v y : ℂ) ^ (1 - s) ∂Theta.mulHaarFin (μ v) := by
-  sorry
+  obtain ⟨c, hc, hFE⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_weights.finiteLocalFunctionalEquation_all v A (μ v)
+  refine ⟨c, hc, ?_⟩
+  intro f hf hfc hflc s hs h1s
+  simpa [ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier] using
+    hFE f hf hfc hflc s hs h1s
 /-- ext:tate-local-FE, complex-place version. Haar scalings are absorbed in c_v. -/
 theorem ext_tate_local_FE_complex :
   ∃ c : ℂ → ℂ, c (1 / 6) ≠ 0 ∧ ∀ f : SchwartzMap ℂ ℂ, ∀ s : ℂ, 0 < s.re → s.re < 1 →
