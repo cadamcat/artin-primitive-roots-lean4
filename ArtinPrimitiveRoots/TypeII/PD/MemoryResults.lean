@@ -71,6 +71,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelBounds
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedColumns
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawAnchor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawOmissionFiber
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawCompatibility
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.GeometricSum
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
