@@ -1707,6 +1707,135 @@ private theorem conductorIdealExp_le_of_le
   rw [hD, conductor_idealExp_mul v K D hK hD0]
   exact Nat.le_add_right _ _
 
+set_option maxHeartbeats 600000 in
+private theorem conductorResidueCharacter_local_transfer
+    (S : A1.SData F CE condη) (q : S.ExtIdeal)
+    (ω : A1.HeckeChar F) (f : Ideal (𝓞 F)) (hcond : ω.ConductorDvd f)
+    (hexp : ∀ w : A1.FinPlace F, w.asIdeal ∣ q.1 →
+      A1.idealExp w f = A1.idealExp w q.1)
+    (lambdaq : MulChar (ConductorResidueRing q) ℂ)
+    (hLambda : ∀ (b : 𝓞 F) (hb0 : b ≠ 0)
+      (hb : ∀ w : A1.FinPlace F, w.asIdeal ∣ q.1 → b ∉ w.asIdeal)
+      (y : (ConductorResidueRing q)ˣ),
+      Ideal.Quotient.mk q.1 b = (y : ConductorResidueRing q) →
+      lambdaq (y : ConductorResidueRing q) =
+        (((∏ w : conductorPrimeSupport q.1 q.2.1,
+          ω.loc w.1 (conductorLocalIntegerUnitOfOElement w.1 b hb0
+            (hb w.1 ((mem_conductorPrimeSupport q.1 q.2.1 w.1).mp w.2))).val)
+              : ℂˣ)⁻¹ : ℂ))
+    (K : Ideal (𝓞 F)) (hK : K ≠ ⊥) (hqK : q.1 ≤ K)
+    (hkill : ∀ y : (ConductorResidueRing q)ˣ,
+      (y : ConductorResidueRing q) - 1 ∈ Ideal.map (Ideal.Quotient.mk q.1) K →
+      lambdaq (y : ConductorResidueRing q) = 1)
+    (v : A1.FinPlace F) (hvq : v.asIdeal ∣ q.1)
+    (u : (v.adicCompletionIntegers F).units)
+    (hu : Valued.v ((u.val : v.adicCompletion F) - 1) ≤
+      WithZero.exp (-(A1.idealExp v K : ℤ))) :
+    ω.loc v u.val = 1 := by
+  classical
+  let P := conductorPrimeSupport q.1 q.2.1
+  let v0 : P := ⟨v, (mem_conductorPrimeSupport q.1 q.2.1 v).mpr hvq⟩
+  let x : ∀ w : P, (w.1.adicCompletionIntegers F).units := Pi.mulSingle v0 u
+  let z : ∀ w : P, w.1.adicCompletionIntegers F := fun w =>
+    ⟨((x w).val : w.1.adicCompletion F),
+      ((Submonoid.mem_units_iff (w.1.adicCompletionIntegers F).toSubmonoid
+        (x w).val).mp (x w).property).1⟩
+  obtain ⟨b, hb⟩ := conductorLocalIntegers_simultaneous_approximation S q z
+  have happroxF : ∀ w : P,
+      Valued.v (algebraMap F (w.1.adicCompletion F) (b : F) -
+        ((x w).val : w.1.adicCompletion F)) <
+          WithZero.exp (-(A1.idealExp w.1 f : ℤ)) := by
+    intro w
+    simpa only [z, hexp w.1 ((mem_conductorPrimeSupport q.1 q.2.1 w.1).mp w.2)]
+      using hb w
+  have hcompare : ∀ w : P, ∃ (hb0 : b ≠ 0) (hw : b ∉ w.1.asIdeal),
+      ω.loc w.1 (conductorLocalIntegerUnitOfOElement w.1 b hb0 hw).val =
+        ω.loc w.1 (x w).val := by
+    intro w
+    exact conductorLocalCharacter_eq_of_approximation ω f hcond w.1 (x w) b
+      (happroxF w)
+  obtain ⟨hb0, _, _⟩ := hcompare v0
+  have hbnot : ∀ w : A1.FinPlace F, w.asIdeal ∣ q.1 → b ∉ w.asIdeal := by
+    intro w hwq
+    obtain ⟨_, hw, _⟩ := hcompare ⟨w, (mem_conductorPrimeSupport q.1 q.2.1 w).mpr hwq⟩
+    exact hw
+  have hcharacters : ∀ w : P,
+      ω.loc w.1 (conductorLocalIntegerUnitOfOElement w.1 b hb0
+        (hbnot w.1 ((mem_conductorPrimeSupport q.1 q.2.1 w.1).mp w.2))).val =
+          ω.loc w.1 (x w).val := by
+    intro w
+    obtain ⟨_, _, hw⟩ := hcompare w
+    exact hw
+  have hbK : b - 1 ∈ K := by
+    apply conductorIdeal_mem_of_local_bounds K hK (b - 1)
+    intro w hwK
+    have hwq : w.asIdeal ∣ q.1 :=
+      Ideal.dvd_iff_le.mpr (hqK.trans (Ideal.dvd_iff_le.mp hwK))
+    let w0 : P := ⟨w, (mem_conductorPrimeSupport q.1 q.2.1 w).mpr hwq⟩
+    have hExp : A1.idealExp w K ≤ A1.idealExp w q.1 :=
+      conductorIdealExp_le_of_le q.1 K q.2.1 hK hqK w
+    have hRadius : WithZero.exp (-(A1.idealExp w q.1 : ℤ)) ≤
+        WithZero.exp (-(A1.idealExp w K : ℤ)) := by
+      rw [WithZero.exp_le_exp]
+      exact neg_le_neg (Int.ofNat_le.mpr hExp)
+    have herror : Valued.v (algebraMap F (w.adicCompletion F) (b : F) -
+        ((x w0).val : w.adicCompletion F)) ≤
+          WithZero.exp (-(A1.idealExp w K : ℤ)) :=
+      (hb w0).le.trans hRadius
+    have hxone : Valued.v (((x w0).val : w.adicCompletion F) - 1) ≤
+        WithZero.exp (-(A1.idealExp w K : ℤ)) := by
+      by_cases heq : w0 = v0
+      · have hwv : w = v := congrArg Subtype.val heq
+        subst w
+        simpa [x, w0, v0, Pi.mulSingle] using hu
+      · have hx : x w0 = 1 := by simp only [x, Pi.mulSingle_eq_of_ne heq]
+        rw [hx]
+        simp
+    have hmap : algebraMap F (w.adicCompletion F) ((b - 1 : 𝓞 F) : F) =
+        (algebraMap F (w.adicCompletion F) (b : F) -
+          ((x w0).val : w.adicCompletion F)) +
+        (((x w0).val : w.adicCompletion F) - 1) := by
+      have hcoe : ((b - 1 : 𝓞 F) : F) = (b : F) - 1 := by
+        change algebraMap (𝓞 F) F (b - 1) = _
+        rw [map_sub, map_one]
+      rw [hcoe, map_sub, map_one]
+      ring
+    rw [hmap]
+    exact Valued.v.map_add_le herror hxone
+  obtain ⟨y, hy⟩ := conductorResidue_isUnit_of_not_mem S q b hbnot
+  have hyK : (y : ConductorResidueRing q) - 1 ∈
+      Ideal.map (Ideal.Quotient.mk q.1) K := by
+    rw [hy]
+    simpa only [map_sub, map_one] using
+      Ideal.mem_map_of_mem (Ideal.Quotient.mk q.1) hbK
+  have hprod : (∏ w : P, ω.loc w.1 (x w).val) = ω.loc v u.val := by
+    calc
+      _ = ω.loc v0.1 (x v0).val := by
+        apply Finset.prod_eq_single v0
+        · intro w hw hne
+          have hx : x w = 1 := by simp only [x, Pi.mulSingle_eq_of_ne hne]
+          rw [hx]
+          simp
+        · intro hnot
+          exact (hnot (Finset.mem_univ v0)).elim
+      _ = ω.loc v u.val := by simp [x, v0]
+  have hprodb :
+      (∏ w : P, ω.loc w.1 (conductorLocalIntegerUnitOfOElement w.1 b hb0
+        (hbnot w.1 ((mem_conductorPrimeSupport q.1 q.2.1 w.1).mp w.2))).val) =
+          ω.loc v u.val := by
+    calc
+      _ = ∏ w : P, ω.loc w.1 (x w).val := by
+        apply Finset.prod_congr rfl
+        intro w hw
+        exact hcharacters w
+      _ = ω.loc v u.val := hprod
+  have hformula := hLambda b hb0 hbnot y hy.symm
+  rw [hprodb] at hformula
+  have hcast : (((ω.loc v u.val)⁻¹ : ℂˣ) : ℂ) = 1 := by
+    simpa only [Units.val_inv_eq_inv_val] using hformula.symm.trans (hkill y hyK)
+  have hunit : (ω.loc v u.val)⁻¹ = 1 := Units.ext (by simpa using hcast)
+  exact inv_eq_one.mp hunit
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
