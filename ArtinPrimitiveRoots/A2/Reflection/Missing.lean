@@ -4025,7 +4025,46 @@ theorem rf_grouped_absolute : ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C �
         betaIdeal R f p.1 * qI p.2.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.2.1 *
           profileAbs R u (qI p.1.1.1 * qI p.2.1.1 * qI p.2.2.1 ^ 3 / (t * T))) / T) ≤
       C * t ^ σ * Theta.absMoment R.K σ * ∑' p, reflectedDirichletTerm R f σ p := by
-  sorry
+  classical
+  intro σ hσ
+  obtain ⟨C, hC, hSeries⟩ := rf_profile_absolute_series R σ hσ
+  refine ⟨C, hC, ?_⟩
+  intro f
+  have hmass := rf_reflected_dirichlet_mass R f σ hσ
+  refine ⟨hmass.1, hmass.2, ?_⟩
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable (𝓞 F) := inferInstance
+  have hspan : Function.Surjective
+      (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+    intro I
+    exact Ideal.fg_of_isNoetherianRing I
+  letI : Countable (Ideal (𝓞 F)) := hspan.countable
+  letI : Countable S.ExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+  letI : Countable S.SqfExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+  let ι := {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal
+  letI : Countable ι := inferInstance
+  let Q : ι → ℝ := fun p => qI p.1.1.1 * qI p.2.1.1 * qI p.2.2.1 ^ 3
+  let w : ι → ℝ := fun p =>
+    betaIdeal R f p.1 * qI p.2.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.2.1
+  have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+    unfold qI
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hQ (p : ι) : 0 < Q p := by
+    exact mul_pos (mul_pos (hpos p.1.1.1 p.1.1.property.1)
+      (hpos p.2.1.1 p.2.1.property.1.1))
+      (pow_pos (hpos p.2.2.1 p.2.2.property.1) 3)
+  have hw (p : ι) : 0 ≤ w p := by
+    exact div_nonneg (mul_nonneg (rf_betaIdeal_nonneg R f p.1)
+      (Real.rpow_nonneg (hpos p.2.1.1 p.2.1.property.1.1).le _))
+      (hpos p.2.2.1 p.2.2.property.1).le
+  have hWeighted : (fun p => w p * Q p ^ (-σ)) = reflectedDirichletTerm R f σ := rfl
+  have hs : Summable (fun p => w p * Q p ^ (-σ)) := by
+    rw [hWeighted]
+    exact hmass.1
+  intro u t ht
+  exact hSeries ι Q w hQ hw hs u t ht
 /-- A single summand of the full reflected expansion; no conclusion is used in this definition. -/
 def reflectedTerm (υ : UnitSix S) (h d : S.ExtIdeal) (Z : ℝ)
     (p : FrozenIndex R h × Bd.B × Bd.B × S.SqfExtIdeal) : ℂ :=
