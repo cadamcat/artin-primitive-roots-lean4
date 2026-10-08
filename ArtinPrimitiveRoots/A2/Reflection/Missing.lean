@@ -563,7 +563,134 @@ theorem rf_forward_frequency_factors :
   (∀ u ν y, R.T.WS (R.chars.L u) (R.C.aS (S.diagU ν) * R.C.aS y) =
     sCocycle (D := D) (H := H) (S.diagU ν) y * unrotated R u (S.diagU ν * y)) ∧
   ∀ (γ : Gamma S) ν, forwardExterior R ((γ.1 : Fˣ) * ν) = forwardExterior R ν := by
-  sorry
+  constructor
+  · intro u ν y
+    rw [R.C.aS_mul]
+    rw [R.T.WS_genuine (R.chars.L u) (R.mem_family u)]
+    simp [sCocycle, unrotated, muThree, map_pow]
+  · intro γ ν
+    classical
+    have hroot : ∃ u : S.US, (γ.1 : S.US) = u ^ 6 := by
+      have hmem : (γ.1 : S.US) ∈ (sixthPowerOnUS S).range := γ.2
+      rcases MonoidHom.mem_range.mp hmem with ⟨u, hu⟩
+      change u ^ 6 = γ.1 at hu
+      exact ⟨u, hu.symm⟩
+    obtain ⟨u, hu⟩ := hroot
+    have localVal (v : FinPlace F) (hv : v ∉ S.Sf) (e : S.US) :
+        Valued.v (toLoc v (e : Fˣ) : v.adicCompletion F) = 1 := by
+      have hglob : HeightOneSpectrum.valuation F v ((e : Fˣ) : F) = 1 :=
+        Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) e hv
+      change Valued.v (algebraMap F (v.adicCompletion F) ((e : Fˣ) : F)) = 1
+      simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+        Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation', hglob]
+    have hglobalPow : (γ.1 : Fˣ) = (u : Fˣ) ^ 6 := by
+      exact congrArg (fun e : S.US => (e : Fˣ)) hu
+    have hlocal (v : FinPlace F) (hv : v ∉ S.Sf) :
+        R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) =
+          R.T.Wv v (R.C.a v (toLoc v ν)) := by
+      let g : (v.adicCompletion F)ˣ := toLoc v (γ.1 : Fˣ)
+      let t : (v.adicCompletion F)ˣ := toLoc v (u : Fˣ)
+      have hvalg : Valued.v (g : v.adicCompletion F) = 1 := by
+        exact localVal v hv (γ.1 : S.US)
+      have hvalt : Valued.v (t : v.adicCompletion F) = 1 := by
+        exact localVal v hv u
+      have hgintegral : (g : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers, hvalg]
+      have hginvIntegral : ((g⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+          v.adicCompletionIntegers F := by
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        simp only [Units.val_inv_eq_inv_val, map_inv₀, hvalg, inv_one, le_refl]
+      have hK : R.C.a v g ∈ R.C.Kext :=
+        R.C.a_Kext v hv g hgintegral hginvIntegral
+      have hv6 : (6 : 𝓞 F) ∉ v.asIdeal := by
+        intro h
+        exact hv (S.over6 v h)
+      have hbasic := ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) hv6
+      have htLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t := by
+        constructor
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hvalt]
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+          simp only [Units.val_inv_eq_inv_val, map_inv₀, hvalt, inv_one, le_refl]
+      have htPowLoc (n : ℕ) : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (t ^ n) := by
+        have hpowval : Valued.v ((t ^ n : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+          simp only [Units.val_pow_eq_pow_val, map_pow, hvalt, one_pow]
+        constructor
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hpowval]
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+          have hinv : Valued.v (((t ^ n)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+            simp only [Units.val_inv_eq_inv_val, map_inv₀, hpowval, inv_one]
+          rw [hinv]
+      have hchiPow : ∀ n : ℕ,
+          ArtinPrimitiveRoots.A1.localChi D v (t ^ n) =
+            ArtinPrimitiveRoots.A1.localChi D v t ^ n := by
+        intro n
+        induction n with
+        | zero => simpa using hbasic.1
+        | succ n ih =>
+          calc
+            ArtinPrimitiveRoots.A1.localChi D v (t ^ (n + 1)) =
+                ArtinPrimitiveRoots.A1.localChi D v (t ^ n * t) := by rw [pow_succ]
+            _ = ArtinPrimitiveRoots.A1.localChi D v (t ^ n) *
+                ArtinPrimitiveRoots.A1.localChi D v t :=
+              hbasic.2.2.1 _ _ (htPowLoc n) htLoc
+            _ = _ := by rw [ih, pow_succ]
+      have hgammaLocalPow : g = t ^ 6 := by
+        change toLoc v ((γ.1 : Fˣ)) = (toLoc v (u : Fˣ)) ^ 6
+        rw [← map_pow]
+        exact congrArg (toLoc v) hglobalPow
+      have hchiG : ArtinPrimitiveRoots.A1.localChi D v g = 1 := by
+        calc
+          ArtinPrimitiveRoots.A1.localChi D v g =
+              ArtinPrimitiveRoots.A1.localChi D v (t ^ 6) := by rw [hgammaLocalPow]
+          _ = ArtinPrimitiveRoots.A1.localChi D v t ^ 6 := hchiPow 6
+          _ = 1 := hbasic.2.2.2.1 t htLoc
+      have hordG : ArtinPrimitiveRoots.A1.ordv v g = 0 := by
+        have hne : Valued.v (g : v.adicCompletion F) ≠ 0 := by
+          rw [hvalg]
+          exact one_ne_zero
+        unfold ArtinPrimitiveRoots.A1.ordv
+        rw [WithZero.toAdd_unzero_eq_log hne, hvalg]
+        simp
+      have hunitPartG : ArtinPrimitiveRoots.A1.unitPart v g = g := by
+        simp [ArtinPrimitiveRoots.A1.unitPart, hordG]
+      have hCocLeft : ArtinPrimitiveRoots.A1.extCocycle D v g (toLoc v ν) = 1 := by
+        simp [ArtinPrimitiveRoots.A1.extCocycle, hunitPartG, hchiG, hordG]
+      have hCocRight : ArtinPrimitiveRoots.A1.extCocycle D v (toLoc v ν) g = 1 := by
+        simp [ArtinPrimitiveRoots.A1.extCocycle, hunitPartG, hchiG, hordG]
+      obtain ⟨ζ₁, hζ₁, hmul₁⟩ := R.C.a_mul v hv g (toLoc v ν)
+      have hζ₁ : ζ₁ = 1 := by
+        apply Subtype.ext
+        apply Units.ext
+        exact hζ₁.trans hCocLeft
+      have hmul₁ : R.C.a v g * R.C.a v (toLoc v ν) = R.C.a v (g * toLoc v ν) := by
+        simpa [hζ₁] using hmul₁
+      obtain ⟨ζ₂, hζ₂, hmul₂⟩ := R.C.a_mul v hv (toLoc v ν) g
+      have hζ₂ : ζ₂ = 1 := by
+        apply Subtype.ext
+        apply Units.ext
+        exact hζ₂.trans hCocRight
+      have hmul₂ : R.C.a v (toLoc v ν) * R.C.a v g =
+          R.C.a v (toLoc v ν * g) := by
+        simpa [hζ₂] using hmul₂
+      have hcomm : R.C.a v g * R.C.a v (toLoc v ν) =
+          R.C.a v (toLoc v ν) * R.C.a v g := by
+        calc
+          _ = R.C.a v (g * toLoc v ν) := hmul₁
+          _ = R.C.a v (toLoc v ν * g) := by rw [mul_comm]
+          _ = _ := hmul₂.symm
+      calc
+        R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) =
+            R.T.Wv v (R.C.a v g * R.C.a v (toLoc v ν)) := by
+              rw [map_mul]
+              exact congrArg (R.T.Wv v) hmul₁.symm
+        _ = R.T.Wv v (R.C.a v (toLoc v ν) * R.C.a v g) := by rw [hcomm]
+        _ = R.T.Wv v (R.C.a v (toLoc v ν)) :=
+          R.T.Wv_right v hv (R.C.a v (toLoc v ν)) (R.C.a v g) hK (R.C.a_mem v g)
+    apply finprod_congr
+    intro v
+    by_cases hv : v ∉ S.Sf
+    · simpa [forwardExterior, hv] using hlocal v hv
+    · simp [forwardExterior, hv]
 /-- rf:reflected-absolute: spherical series and convergence BEFORE digit evaluation. -/
 theorem rf_reflected_pre_digit_absolute :
   (∀ v, v ∉ S.Sf → ∀ σ : ℝ, 1 / 2 < σ →
