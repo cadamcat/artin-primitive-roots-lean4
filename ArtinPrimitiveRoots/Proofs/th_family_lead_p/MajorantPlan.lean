@@ -142,6 +142,8 @@ theorem theta_dual_integer_coordinates (D : FieldData F)
     exact thetaFourierPhaseLM_injective hphase
   exact ⟨n, b, hb, ⟨κ, hinj⟩, hκ⟩
 
+open scoped MatrixGroups Matrix.Norms.Elementwise in
+open ArtinPrimitiveRoots.Proofs.majorant_sol in
 /-- Compact adelic charts give one bound for every fixed left-root derivative. This is
 the chart-transfer obligation; fixed-point root smoothness alone does not supply it. -/
 theorem theta_compact_root_derivative_bounds {P : CoverPackage D S H A}
@@ -153,7 +155,56 @@ theorem theta_compact_root_derivative_bounds {P : CoverPackage D S H A}
     ∀ n : ℕ, ∃ C : ℝ, 0 ≤ C ∧ ∀ g ∈ K, ∀ x ∈ closure Pd,
       ‖iteratedFDeriv ℝ n
         (fun x => thetaFamilyTheta B L (nInf P x * g)) x‖ ≤ C := by
-  sorry
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  obtain ⟨I, C, R, hθ⟩ := continuedEis_spec_residue_reconstruction B.Fam B.C
+  obtain ⟨J, CM, hCM, hreg, hcover⟩ :=
+    theta_compact_finite_level_matrix_charts P hRP I.T0 C.hsub C.m C.hm K hK
+  have hPdCompact : IsCompact (closure Pd) := hb.isCompact_closure
+  have hcharts (j : P.tc.G) :
+      ∃ f : (InfinitePlace F → Matrix (Fin 2) (Fin 2) ℂ) → ℂ,
+        ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f thetaMatrixRegion ∧
+        ∀ M : InfinitePlace F → GL (Fin 2) ℂ,
+          ∀ k ∈ levelSet P I.T0 C.hsub C.m,
+            thetaFamilyTheta B L
+              (P.q (thetaArchRP P (fun w => QuotientGroup.mk (M w))) * j * k) =
+                f (fun w => (M w : Matrix (Fin 2) (Fin 2) ℂ)) := by
+    obtain ⟨fR, hfR, hrepR⟩ := theta_residue_matrix_chart_derivatives R L.m j
+    refine ⟨fun M => (thetaNormalizationScalar N)⁻¹ * fR M,
+      contDiffOn_const.mul hfR, ?_⟩
+    intro M k hk
+    rw [thetaFamilyTheta_eq_spec_residue_deriv B L R hθ, hrepR M k hk]
+  choose f hf hrep using hcharts
+  intro n
+  have hbounds (j : P.tc.G) := theta_matrix_chart_left_root_derivative_bounds
+    (f j) (hf j) n (closure Pd) hPdCompact CM hCM hreg
+  choose Cb hCb0 hCb using hbounds
+  refine ⟨∑ j ∈ J, Cb j, Finset.sum_nonneg (fun j hj => hCb0 j), ?_⟩
+  intro g hg x hx
+  obtain ⟨j, hj, M, hM, k, hk, hgshape⟩ := hcover g hg
+  have hleft (y : InfinitePlace F → ℂ) :
+      thetaFamilyTheta B L (nInf P y * g) =
+        f j (fun w => (upperM ℂ (y w) : Matrix (Fin 2) (Fin 2) ℂ) * M w) := by
+    let Mt : InfinitePlace F → GL (Fin 2) ℂ := fun w => upperM ℂ (y w) * M w
+    have hMt : (fun w => (QuotientGroup.mk (Mt w) : PGL2 ℂ)) =
+        (fun w => QuotientGroup.mk (upperM ℂ (y w))) *
+          (fun w => QuotientGroup.mk (M w)) := by
+      funext w
+      simp only [Mt, Pi.mul_apply, QuotientGroup.mk_mul]
+    have hshape :
+        P.q (thetaArchRP P (fun w => QuotientGroup.mk (Mt w))) * j * k =
+          nInf P y * g := by
+      rw [hMt]
+      simp only [map_mul, thetaArchRP_nInf]
+      rw [hgshape]
+      simp only [mul_assoc]
+    rw [← hshape, hrep j Mt k hk]
+    rfl
+  have hfun : (fun y => thetaFamilyTheta B L (nInf P y * g)) =
+      (fun y => f j (fun w => (upperM ℂ (y w) : Matrix (Fin 2) (Fin 2) ℂ) * M w)) :=
+    funext hleft
+  rw [hfun]
+  exact (hCb j (fun w => (M w : Matrix (Fin 2) (Fin 2) ℂ)) hM x hx).trans
+    (Finset.single_le_sum (fun i hi => hCb0 i) hj)
 
 /-- Repeated integration by parts in every lattice direction yields product decay,
 including frequencies with zero coordinates. -/
