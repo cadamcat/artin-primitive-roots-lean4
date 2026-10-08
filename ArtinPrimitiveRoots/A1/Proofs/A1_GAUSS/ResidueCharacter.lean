@@ -228,4 +228,29 @@ theorem residue_character_pow_ne_one (D : FieldData F) (P : FinPlace F)
   have hjdvd : 6 ∣ j := Nat.dvd_of_mul_dvd_mul_left hmpos hdvd
   exact (Nat.le_of_dvd hj hjdvd).not_gt hj6
 
+theorem residue_character_cube_eq_quadraticComplex (D : FieldData F) (P : FinPlace F)
+    (h6 : (6 : 𝓞 F) ∉ P.asIdeal) (χ : MulChar (𝓞 F ⧸ P.asIdeal) ℂ)
+    (hχ : ∀ x : 𝓞 F, χ (Ideal.Quotient.mk P.asIdeal x) =
+      chi D P (algebraMap (𝓞 F) F x)) (hχ6 : χ ^ 6 = 1) :
+    letI : P.asIdeal.IsMaximal := P.isMaximal
+    letI : Field (𝓞 F ⧸ P.asIdeal) := Ideal.Quotient.field P.asIdeal
+    letI : Fintype (𝓞 F ⧸ P.asIdeal) := Fintype.ofFinite _
+    χ ^ 3 = quadraticComplex (k := 𝓞 F ⧸ P.asIdeal) := by
+  classical
+  let : P.asIdeal.IsMaximal := P.isMaximal
+  let : Field (𝓞 F ⧸ P.asIdeal) := Ideal.Quotient.field P.asIdeal
+  let : Fintype (𝓞 F ⧸ P.asIdeal) := Fintype.ofFinite _
+  have hodd : ringChar (𝓞 F ⧸ P.asIdeal) ≠ 2 := by
+    intro h
+    have hneg : (-1 : 𝓞 F ⧸ P.asIdeal) = 1 := neg_one_eq_one_iff.mpr h
+    apply h6
+    apply Ideal.Quotient.eq_zero_iff_mem.mp
+    simp only [map_ofNat]
+    linear_combination -3 * hneg
+  have hχ3 : χ ^ 3 ≠ 1 :=
+    residue_character_pow_ne_one D P h6 χ hχ 3 (by decide) (by decide)
+  have hχ32 : (χ ^ 3) ^ 2 = 1 := by
+    simpa only [← pow_mul] using hχ6
+  exact quadraticComplex_unique (χ ^ 3) hχ3 hχ32 hodd
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
