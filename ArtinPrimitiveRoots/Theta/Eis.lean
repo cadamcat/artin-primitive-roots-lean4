@@ -6,11 +6,11 @@ import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.Cosets
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexMajorant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.CubeClasses
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.LocalValuation
 set_option autoImplicit false
 open NumberField IsDedekindDomain
 open scoped Classical
 noncomputable section
-
 namespace ArtinPrimitiveRoots.A1.Theta
 
 open ArtinPrimitiveRoots.A1
