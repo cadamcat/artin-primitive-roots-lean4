@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.MaskTau
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.DigitMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.PrimeGauss
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.SquarefreeGauss
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
