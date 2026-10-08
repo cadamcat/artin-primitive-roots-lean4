@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.AddChar
+import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.Core
 import Mathlib.MeasureTheory.Group.Measure
 
 /-!
@@ -82,7 +83,10 @@ theorem SData.diagR_discrete_cocompact (S : SData F CE condη) (D : FieldData F)
     IsDiscrete (S.diagR : Set S.FS) ∧
       ∃ K : Set S.FS, IsCompact K ∧
         ∀ x : S.FS, ∃ r : S.R, ∃ k ∈ K, x = S.diag (r : F) + k := by
-  sorry
+  refine ⟨?_, ?_⟩
+  · simpa [SData.diagR] using
+      ArtinPrimitiveRoots.Proofs.A1_LATTICE.diagR_isDiscrete S D
+  · exact ArtinPrimitiveRoots.Proofs.A1_LATTICE.diagR_has_compact_cover S D
 
 /-- The S-integer lattice is its own annihilator for the pairing `e(xy)`. -/
 theorem SData.diagR_eq_annihilator (S : SData F CE condη) (D : FieldData F)
@@ -90,12 +94,26 @@ theorem SData.diagR_eq_annihilator (S : SData F CE condη) (D : FieldData F)
     S.diagR = S.annihilator A S.diagR := by
   sorry
 
+private theorem exists_measurable_lattice_fundamental_domain
+    (S : SData F CE condη) (D : FieldData F) :
+    ∃ K : Set S.FS, MeasurableSet K ∧ S.IsLatticeFundamentalDomain K := by
+  sorry
+
+private theorem measurable_fundamental_domain_measure_one
+    (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
+    (μ : S.SelfDualMeasure A) (K : Set S.FS)
+    (hK : MeasurableSet K ∧ S.IsLatticeFundamentalDomain K) :
+    μ.measure K = 1 := by
+  sorry
+
 /-- The diagonal copy of `R` has covolume one for the self-dual Haar measure. -/
 theorem SData.diagR_covolume_one (S : SData F CE condη) (D : FieldData F)
     (A : AddCharData F)
     (μ : S.SelfDualMeasure A) :
     ∃ K : Set S.FS, MeasurableSet K ∧ S.IsLatticeFundamentalDomain K ∧ μ.measure K = 1 := by
-  sorry
+  obtain ⟨K, hmeas, hfund⟩ := exists_measurable_lattice_fundamental_domain S D
+  exact ⟨K, hmeas, hfund,
+    measurable_fundamental_domain_measure_one S D A μ K ⟨hmeas, hfund⟩⟩
 
 /-- Poisson summation on `R` for Bruhat--Schwartz functions on `F_S`, including absolute
 convergence of both lattice sums. -/
@@ -229,10 +247,19 @@ def SData.fsOneSetoid (S : SData F CE condη) : Setoid S.FSOne where
           group
   }
 
+private theorem S_units_finite_mod_six (S : SData F CE condη) :
+    Finite (S.US ⧸ (powMonoidHom 6 : S.US →* S.US).range) := by
+  sorry
+
+private theorem fsOne_compact_representatives (S : SData F CE condη) (D : FieldData F) :
+    ∃ K : Set S.FS, IsCompact K ∧
+      ∀ x : S.FSOne, ∃ y : S.FSOne, (y.1 : S.FS) ∈ K ∧ S.fsOneRel x y := by
+  sorry
+
 /-- Compactness of `F_S^1/U_S^6`, stated as a compact set of representatives for its quotient. -/
 theorem SData.FSOne_quotient_compact (S : SData F CE condη) (D : FieldData F) :
     ∃ K : Set S.FS, IsCompact K ∧
       ∀ x : S.FSOne, ∃ y : S.FSOne, (y.1 : S.FS) ∈ K ∧ S.fsOneRel x y := by
-  sorry
+  exact fsOne_compact_representatives S D
 
 end ArtinPrimitiveRoots.A1
