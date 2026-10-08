@@ -223,4 +223,35 @@ theorem qs_nq0_local_higher_unit_congruence
       congr 1
       simp
 
+
+/-- Equal ray classes make the ratio of allowed generators a sixth power at S. -/
+theorem qs_nq0_equal_rayclass_allowed_ratio
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (Sd : SData K CE condη) (H : HilbertData K) (Bd : BData Sd H)
+    (m : ClassFieldTheory.RayClassModulus K)
+    (hm : m.finitePart.support = Sd.Sf)
+    (hsix : ∀ v : FinPlace K, v ∈ Sd.Sf →
+      ∀ u : (v.adicCompletion K)ˣ,
+        Valued.v ((u : v.adicCompletion K) - 1) ≤
+          WithZero.exp (-(m.finitePart v : ℤ)) →
+        ∃ y : (v.adicCompletion K)ˣ, u = y ^ 6)
+    (I J : Ideal (𝓞 K)) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I ∧ Bd.Allowed a)
+    (hb : Sd.IsGen (b : K) J ∧ Bd.Allowed b)
+    (hI : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m I)
+    (hJ : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m J)
+    (hclass : ArtinPrimitiveRoots.Hecke.rayClass m I hI =
+      ArtinPrimitiveRoots.Hecke.rayClass m J hJ) :
+    ∃ y : Sd.FSˣ, Sd.diagU (a / b) = y ^ 6 := by
+  obtain ⟨x, hx, hprincipal⟩ := qs_nq0_equal_rayclass_generator m I J hI hJ hclass
+  have hunit : a / b / x ∈ Sd.US :=
+    qs_nq0_generator_ratio_sunit Sd I J a b x ha.1 hb.1 hprincipal
+  have hxclass : (QuotientGroup.mk (Sd.diagU x) : Sd.V) = 1 := by
+    apply qs_nq0_diagonal_sixth_class Sd x
+    intro v hv
+    apply hsix v hv (toLoc v x)
+    apply qs_nq0_local_higher_unit_congruence v (m.finitePart v) (toLoc v x)
+    exact hx.1 v (by rw [hm]; exact hv)
+  exact qs_nq0_allowed_ratio_sixth Sd H Bd a b x ha.2 hb.2 hunit hxclass
+
 end ArtinPrimitiveRoots.A2
