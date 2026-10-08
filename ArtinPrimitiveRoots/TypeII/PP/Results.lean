@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.TypeII.PP.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.pp2.Analytic
+import ArtinPrimitiveRoots.TypeII.Proofs.PP_PRIME.Plan
 import ArtinPrimitiveRoots.TypeII.Marked
 import ArtinPrimitiveRoots.TypeII.Proofs.pp1.HalaszMeanValue
 
@@ -1628,6 +1629,6 @@ theorem prime_polynomial :
                     I ⊆ {p : ℕ | N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N} →
                     ‖primeDirichletPolynomial N q χ t I‖ ≤
                       C₀ * Real.rpow L (-A) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.PP_PRIME.prime_polynomial_core
 
 end ArtinPrimitiveRoots.TypeII.PP
