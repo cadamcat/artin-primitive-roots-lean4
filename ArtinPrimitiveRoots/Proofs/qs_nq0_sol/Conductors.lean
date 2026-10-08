@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.GlobalCharacter
 import Mathlib.Topology.Algebra.GroupWithZero
 import Mathlib.Topology.Algebra.Valued.ValuationTopology
+import ClassFieldTheory.Definitions.ConductorsAndRayClassFields.RayClassModulus
 
 /-!
 # Uniform local bounds for the canonical quadratic family
@@ -81,5 +82,50 @@ theorem qs_nq0_adic_square_congruence (v : FinPlace K) :
           WithZero.exp (-(e : ℤ)) →
         ∃ b : (v.adicCompletion K)ˣ, u = b ^ 2 := by
   exact qs_nq0_adic_power_congruence v 2 (by norm_num)
+
+/-!
+The finite modulus construction has this exact signature:
+```
+theorem qs_nq0_sixth_power_ray_modulus (S : Finset (FinPlace K)) :
+    ∃ m : ClassFieldTheory.RayClassModulus K,
+      m.finitePart.support = S ∧ m.infinitePart = ∅ ∧
+      ∀ v : FinPlace K, v ∈ S →
+        ∀ u : (v.adicCompletion K)ˣ,
+          Valued.v ((u : v.adicCompletion K) - 1) ≤
+            WithZero.exp (-(m.finitePart v : ℤ)) →
+          ∃ b : (v.adicCompletion K)ˣ, u = b ^ 6
+```
+-/
+
+/-- A finite ray modulus whose local congruence units are sixth powers. -/
+theorem qs_nq0_sixth_power_ray_modulus (S : Finset (FinPlace K)) :
+    ∃ m : ClassFieldTheory.RayClassModulus K,
+      m.finitePart.support = S ∧ m.infinitePart = ∅ ∧
+      ∀ v : FinPlace K, v ∈ S →
+        ∀ u : (v.adicCompletion K)ˣ,
+          Valued.v ((u : v.adicCompletion K) - 1) ≤
+            WithZero.exp (-(m.finitePart v : ℤ)) →
+          ∃ b : (v.adicCompletion K)ˣ, u = b ^ 6 := by
+  classical
+  let e (v : FinPlace K) := (qs_nq0_adic_power_congruence v 6 (by norm_num)).choose
+  have he (v : FinPlace K) :=
+    (qs_nq0_adic_power_congruence v 6 (by norm_num)).choose_spec
+  let f : FinPlace K →₀ ℕ := {
+    support := S
+    toFun := fun v => if v ∈ S then e v else 0
+    mem_support_toFun := by
+      intro v
+      by_cases hv : v ∈ S
+      · simp only [hv, ↓reduceIte, true_iff]
+        exact ne_of_gt (he v).1
+      · simp [hv] }
+  let m : ClassFieldTheory.RayClassModulus K := ⟨f, ∅⟩
+  refine ⟨m, rfl, rfl, ?_⟩
+  intro v hv u hu
+  have hexp : m.finitePart v = e v := by
+    change (if v ∈ S then e v else 0) = e v
+    simp only [hv, ↓reduceIte]
+  rw [hexp] at hu
+  exact (he v).2 u hu
 
 end ArtinPrimitiveRoots.A2
