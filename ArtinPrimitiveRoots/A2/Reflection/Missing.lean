@@ -1051,7 +1051,90 @@ theorem rf_active_empty_and_product :
 theorem rf_one_minus_four : ∀ v w : FinPlace F, v ∉ S.Sf → w ∉ S.Sf → v ≠ w →
   chi D v (primeGen R w : F) * chi D w (primeGen R v : F) ^ (-4 : ℤ) =
     chi D v (primeGen R w : F) ^ 3 := by
-  sorry
+  intro v w hv hw hne
+  have idealExp_zero_iff (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+      (P : FinPlace F) :
+      idealExp P I = 0 ↔ ¬ P.asIdeal ∣ I := by
+    unfold idealExp
+    constructor
+    · intro h hdiv
+      exact ((Associates.count_ne_zero_iff_dvd hI P.irreducible).mpr hdiv) h
+    · intro h
+      by_contra hne0
+      exact h ((Associates.count_ne_zero_iff_dvd hI P.irreducible).mp hne0)
+  have gen_valuation (P : FinPlace F) (p : Fˣ) (I : Ideal (𝓞 F))
+      (hgen : S.IsGen (p : F) I) (hP : P ∉ S.Sf)
+      (hzero : idealExp P I = 0) : P.valuation F (p : F) = 1 := by
+    have hcount : FractionalIdeal.count F P
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p : F)) =
+          (idealExp P I : ℤ) := by
+      rw [hgen.2.2 P hP, FractionalIdeal.count_coe F P hgen.1.1]
+      rfl
+    have hlog := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+      P (p : F) p.ne_zero
+    rw [hcount, hzero] at hlog
+    have hLog : WithZero.log (P.valuation F (p : F)) = 0 := by
+      have hlogneg : -(WithZero.log (P.valuation F (p : F))) = 0 := by
+        simpa using hlog.symm
+      exact neg_eq_zero.mp hlogneg
+    have hval0 : P.valuation F (p : F) ≠ 0 :=
+      (Valuation.ne_zero_iff (P.valuation F)).mpr p.ne_zero
+    calc
+      P.valuation F (p : F) = WithZero.exp (WithZero.log (P.valuation F (p : F))) :=
+        (WithZero.exp_log hval0).symm
+      _ = 1 := by rw [hLog, WithZero.exp_zero]
+  let pv := primeGen R v
+  let pw := primeGen R w
+  have hpv : S.IsGen (pv : F) v.asIdeal ∧ Bd.Allowed pv := by
+    simpa [pv, primeGen, hv, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime v hv))
+  have hpw : S.IsGen (pw : F) w.asIdeal ∧ Bd.Allowed pw := by
+    simpa [pw, primeGen, hw, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime w hw))
+  have hnotdiv_vw : ¬ v.asIdeal ∣ w.asIdeal := by
+    intro hdiv
+    have hle : w.asIdeal ≤ v.asIdeal := Ideal.le_of_dvd hdiv
+    have heq : w.asIdeal = v.asIdeal := w.isMaximal.eq_of_le v.isPrime.ne_top hle
+    exact hne (HeightOneSpectrum.ext heq.symm)
+  have hzero_v : idealExp v w.asIdeal = 0 :=
+    (idealExp_zero_iff w.asIdeal w.ne_bot v).2 hnotdiv_vw
+  have hpwVal : v.valuation F (pw : F) = 1 :=
+    gen_valuation v pw w.asIdeal hpw.1 hv hzero_v
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hpwRes : residue v (pw : F) ≠ 0 := by
+    exact (SB.residue_ne_zero v (pw : F) (by simp [hpwVal])).2 hpwVal
+  have hrecip : chi D v (pw : F) = chi D w (pv : F) :=
+    ArtinPrimitiveRoots.A1.sextic_reciprocity D S H Bd v w hv hw hne pv pw hpv hpw
+  let z : ℂ := chi D v (pw : F)
+  have hz6 : z ^ (6 : ℕ) = 1 := by
+    dsimp [z]
+    exact SB.chi_six v (pw : F) hpwRes
+  have hz0 : z ≠ 0 := by
+    intro hz
+    rw [hz] at hz6
+    norm_num at hz6
+  have hpow6z : z ^ (6 : ℤ) = 1 := by
+    calc
+      z ^ (6 : ℤ) = z ^ (6 : ℕ) := zpow_natCast z 6
+      _ = 1 := hz6
+  have hmul : z * z ^ (-4 : ℤ) = z ^ (-3 : ℤ) := by
+    calc
+      z * z ^ (-4 : ℤ) = z ^ (1 : ℤ) * z ^ (-4 : ℤ) := by simp
+      _ = z ^ ((1 : ℤ) + (-4 : ℤ)) := (zpow_add₀ hz0 _ _).symm
+      _ = z ^ (-3 : ℤ) := by congr 1 <;> norm_num
+  have hneg3 : z ^ (3 : ℕ) = z ^ (-3 : ℤ) := by
+    calc
+      z ^ (3 : ℕ) = z ^ (3 : ℤ) := (zpow_natCast z 3).symm
+      _ = z ^ ((6 : ℤ) + (-3 : ℤ)) := by congr 1 <;> norm_num
+      _ = z ^ (6 : ℤ) * z ^ (-3 : ℤ) := zpow_add₀ hz0 _ _
+      _ = 1 * z ^ (-3 : ℤ) := by rw [hpow6z]
+      _ = z ^ (-3 : ℤ) := by simp
+  change z * (chi D w (pv : F)) ^ (-4 : ℤ) = z ^ (3 : ℕ)
+  rw [hrecip.symm]
+  change z * z ^ (-4 : ℤ) = z ^ (3 : ℕ)
+  calc
+    z * z ^ (-4 : ℤ) = z ^ (-3 : ℤ) := hmul
+    _ = z ^ (3 : ℕ) := hneg3.symm
 /-- rf:S-unfolding: averaging the signed orbit gives the combined Φ profile. -/
 theorem rf_S_averaged : ∀ u (ν : Fˣ) Z, 0 < Z →
   (∫ T in Set.Ioi (0 : ℝ), R.K T *
