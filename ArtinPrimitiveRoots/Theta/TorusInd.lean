@@ -1909,30 +1909,24 @@ def bigCell (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
         T.σa h.choose_spec.choose_spec.choose (φ h.choose_spec.choose_spec.choose_spec.choose)
   else 0
 
-/-- **ind:bigcell-section**: `bigCell φ` is a section when `φ` is locally constant with compact
-support (the decomposition in the big cell is unique). -/
-theorem bigCell_isSection (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
-    (φ : v.adicCompletion F → T.V) (hφ : IsLocallyConstant φ) (hc : HasCompactSupport φ) :
-    IsSection L T s (bigCell L T s φ) := by
-  sorry
-
-/-- **ind:bigcell-apply**: the value of a big-cell section on the big cell (uniqueness of the
-decomposition `n(x) z(ζ) a(y) w n(t)`), and its vanishing on the small cell `B̃`. -/
-theorem bigCell_apply (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
-    (φ : v.adicCompletion F → T.V) (x : v.adicCompletion F) (ζ : rootsOfUnity 3 ℂ)
-    (y : (v.adicCompletion F)ˣ) (t : v.adicCompletion F) :
-    bigCell L T s φ (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w * L.n (Multiplicative.ofAdd t)) =
+private theorem bigCell_eval_decomp (L : FinLocalCover D H v) (T : TorusRep D H v)
+    (s : ℂ) (φ : v.adicCompletion F → T.V) (g : L.L)
+    (x : v.adicCompletion F) (ζ : rootsOfUnity 3 ℂ) (y : (v.adicCompletion F)ˣ)
+    (t : v.adicCompletion F)
+    (h : g = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+      L.n (Multiplicative.ofAdd t)) :
+    bigCell L T s φ g =
       ((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) • T.σa y (φ t) := by
   classical
   unfold bigCell
   split
-  · rename_i h
-    let x₀ := h.choose
-    let ζ₀ := h.choose_spec.choose
-    let y₀ := h.choose_spec.choose_spec.choose
-    let t₀ := h.choose_spec.choose_spec.choose_spec.choose
-    have hdecomp := h.choose_spec.choose_spec.choose_spec.choose_spec
-    have hcoords := bigCell_coords_unique L x₀ x ζ₀ ζ y₀ y t₀ t hdecomp.symm
+  · rename_i h'
+    let x₀ := h'.choose
+    let ζ₀ := h'.choose_spec.choose
+    let y₀ := h'.choose_spec.choose_spec.choose
+    let t₀ := h'.choose_spec.choose_spec.choose_spec.choose
+    have hdecomp := h'.choose_spec.choose_spec.choose_spec.choose_spec
+    have hcoords := bigCell_coords_unique L x₀ x ζ₀ ζ y₀ y t₀ t (hdecomp.symm.trans h)
     rcases hcoords with ⟨hx, hy, ht, hζ⟩
     let eval : (v.adicCompletion F ×
         (rootsOfUnity 3 ℂ × ((v.adicCompletion F)ˣ × v.adicCompletion F))) → T.V :=
@@ -1948,8 +1942,299 @@ theorem bigCell_apply (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
           · exact ht
     change eval (x₀, (ζ₀, (y₀, t₀))) = eval (x, (ζ, (y, t)))
     exact congrArg eval htuple
-  · rename_i h
-    exact False.elim (h ⟨x, ζ, y, t, rfl⟩)
+  · rename_i h'
+    exact False.elim (h' ⟨x, ζ, y, t, h⟩)
+
+private theorem adicCompletion_toCompletion_inv_ind (x : v.adicCompletion F) :
+    (x⁻¹).toCompletion = x.toCompletion⁻¹ := by
+  exact map_inv₀ (HeightOneSpectrum.adicCompletion.equiv F v) x
+
+private theorem adicCompletion_toCompletion_mul_ind (x y : v.adicCompletion F) :
+    (x * y).toCompletion = x.toCompletion * y.toCompletion := by
+  exact map_mul (HeightOneSpectrum.adicCompletion.equiv F v) x y
+
+private theorem bigCell_matrix_topRight (a b c d : v.adicCompletion F) (hc : c ≠ 0) :
+    b.toCompletion * c.toCompletion⁻¹ =
+      (a.toCompletion * c.toCompletion⁻¹) * (d.toCompletion * c.toCompletion⁻¹) +
+        (b.toCompletion * c.toCompletion - a.toCompletion * d.toCompletion) *
+          (c.toCompletion ^ 2)⁻¹ := by
+  have hc' : c.toCompletion ≠ 0 :=
+    (map_ne_zero (HeightOneSpectrum.adicCompletion.equiv F v)).2 hc
+  field_simp [hc']
+  ring
+
+private theorem gl2_bruhat (G : GL (Fin 2) (v.adicCompletion F)) :
+    (∃ x : v.adicCompletion F, ∃ y : (v.adicCompletion F)ˣ,
+      (QuotientGroup.mk G : PGL2 (v.adicCompletion F)) =
+        QuotientGroup.mk (upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y)) ∨
+    (∃ x : v.adicCompletion F, ∃ y : (v.adicCompletion F)ˣ,
+      ∃ t : v.adicCompletion F,
+        (QuotientGroup.mk G : PGL2 (v.adicCompletion F)) =
+          QuotientGroup.mk (bigCellMatrix (F := F) x y t)) := by
+  classical
+  let K := v.adicCompletion F
+  let M : Matrix (Fin 2) (Fin 2) K := G
+  let a := M 0 0
+  let b := M 0 1
+  let c := M 1 0
+  let d := M 1 1
+  by_cases hc : c = 0
+  · have hd : d ≠ 0 := by
+      intro hd
+      apply G.det_ne_zero
+      rw [Matrix.det_fin_two]
+      change a * d - b * c = 0
+      rw [hc, hd]
+      ring
+    have ha : a ≠ 0 := by
+      intro ha
+      apply G.det_ne_zero
+      rw [Matrix.det_fin_two]
+      change a * d - b * c = 0
+      rw [hc, ha]
+      ring
+    let du : Kˣ := Units.mk0 d hd
+    have hdi : d⁻¹ ≠ 0 := inv_ne_zero hd
+    let x : K := b * d⁻¹
+    let y : Kˣ := Units.mk0 (a * d⁻¹) (mul_ne_zero ha hdi)
+    have hmat : G * Matrix.GeneralLinearGroup.scalar (Fin 2) du⁻¹ =
+        upperM K x * diagM K y := by
+      ext i j
+      fin_cases i <;> fin_cases j
+      · simp [M, a, b, c, d, x, y, du, upperM, diagM,
+          Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+          hc, Units.val_inv_eq_inv_val] <;>
+          exact (adicCompletion_toCompletion_mul_ind
+            ((G : Matrix (Fin 2) (Fin 2) K) 0 0)
+            ((G : Matrix (Fin 2) (Fin 2) K) 1 1)⁻¹).symm
+      · simp [M, a, b, c, d, x, y, du, upperM, diagM,
+          Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+          hc, Units.val_inv_eq_inv_val] <;>
+          exact (adicCompletion_toCompletion_mul_ind
+            ((G : Matrix (Fin 2) (Fin 2) K) 0 1)
+            ((G : Matrix (Fin 2) (Fin 2) K) 1 1)⁻¹).symm
+      · simp [M, a, b, c, d, upperM, diagM, Matrix.GeneralLinearGroup.scalar,
+          Matrix.mul_apply, Fin.sum_univ_two, hc]
+      · simp [M, a, b, c, d, du, upperM, diagM, Matrix.GeneralLinearGroup.scalar,
+          Matrix.mul_apply, Fin.sum_univ_two, hc]
+        rw [adicCompletion_toCompletion_inv_ind]
+        exact div_self ((map_ne_zero (HeightOneSpectrum.adicCompletion.equiv F v)).2 hd)
+    have hclass : (QuotientGroup.mk G : PGL2 K) =
+        QuotientGroup.mk (upperM K x * diagM K y) := by
+      apply Matrix.ProjGenLinGroup.mk_eq_mk_iff.mpr
+      exact ⟨du⁻¹, hmat⟩
+    exact Or.inl ⟨x, y, hclass⟩
+  · have hcne : c ≠ 0 := hc
+    let cu : Kˣ := Units.mk0 c hcne
+    let detG : K := M.det
+    have hdet : detG ≠ 0 := by
+      exact G.det_ne_zero
+    have hci : c⁻¹ ≠ 0 := inv_ne_zero (a := c) hcne
+    let x : K := a * c⁻¹
+    let t : K := d * c⁻¹
+    let y : Kˣ := Units.mk0 (-detG * c⁻¹ ^ 2)
+      (mul_ne_zero (neg_ne_zero.mpr hdet) (pow_ne_zero 2 hci))
+    have hmat : G * Matrix.GeneralLinearGroup.scalar (Fin 2) cu⁻¹ =
+        bigCellMatrix (F := F) x y t := by
+      ext i j
+      fin_cases i <;> fin_cases j
+      · try simp [M, a, b, c, d, x, y, t, detG, cu, bigCellMatrix, upperM, diagM, weylM,
+          Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+          Units.val_inv_eq_inv_val, Matrix.det_fin_two]
+        try simp only [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+        try exact (adicCompletion_toCompletion_mul_ind a c⁻¹).symm
+      · try simp [M, a, b, c, d, x, y, t, detG, cu, bigCellMatrix, upperM, diagM, weylM,
+          Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+          Units.val_inv_eq_inv_val, Matrix.det_fin_two]
+        try simp only [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+        try exact bigCell_matrix_topRight a b c d hcne
+      · simp [M, a, b, c, d, cu, bigCellMatrix, upperM, diagM, weylM,
+          Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+          Units.val_inv_eq_inv_val, Matrix.det_fin_two]
+        rw [adicCompletion_toCompletion_inv_ind]
+        exact div_self ((map_ne_zero (HeightOneSpectrum.adicCompletion.equiv F v)).2 hcne)
+      · try simp [M, a, b, c, d, x, y, t, detG, cu, bigCellMatrix, upperM, diagM, weylM,
+          Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two,
+          Units.val_inv_eq_inv_val, Matrix.det_fin_two]
+        try simp only [adicCompletion_toCompletion_mul_ind, adicCompletion_toCompletion_inv_ind]
+        try exact (adicCompletion_toCompletion_mul_ind d c⁻¹).symm
+    have hclass : (QuotientGroup.mk G : PGL2 K) =
+        QuotientGroup.mk (bigCellMatrix (F := F) x y t) := by
+      apply Matrix.ProjGenLinGroup.mk_eq_mk_iff.mpr
+      exact ⟨cu⁻¹, hmat⟩
+    exact Or.inr ⟨x, y, t, hclass⟩
+
+private theorem lift_pr_eq (L : FinLocalCover D H v) (g a : L.L)
+    (hpr : L.pr g = L.pr a) : ∃ ζ : rootsOfUnity 3 ℂ, g = L.z ζ * a := by
+  let q : L.L := a⁻¹ * g
+  have hqker : q ∈ L.pr.ker := by
+    change L.pr (a⁻¹ * g) = 1
+    calc
+      L.pr (a⁻¹ * g) = (L.pr a)⁻¹ * L.pr g := by simp only [map_mul, map_inv]
+      _ = 1 := by rw [← hpr]; simp
+  rw [L.pr_ker] at hqker
+  obtain ⟨ζ, hζ⟩ := hqker
+  refine ⟨ζ, ?_⟩
+  calc
+    g = a * q := by dsimp [q]; group
+    _ = a * L.z ζ := by rw [← hζ]
+    _ = L.z ζ * a := (L.z_central ζ a).symm
+
+private theorem bigCell_bruhat_cover (L : FinLocalCover D H v) (g : L.L) :
+    (∃ x ζ y, g = borelElem L x ζ y) ∨
+    (∃ x ζ y t, g = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+      L.n (Multiplicative.ofAdd t)) := by
+  obtain ⟨G, hG⟩ := QuotientGroup.mk_surjective (L.pr g)
+  cases gl2_bruhat (F := F) G with
+  | inl hsmall =>
+    obtain ⟨x, y, hclass⟩ := hsmall
+    let b : L.L := L.n (Multiplicative.ofAdd x) * L.a y
+    have hprb : L.pr b = QuotientGroup.mk (upperM (v.adicCompletion F) x *
+        diagM (v.adicCompletion F) y) := by
+      simp [b, map_mul, L.pr_n, L.pr_a]
+    have hpr : L.pr g = L.pr b := by
+      calc
+        L.pr g = QuotientGroup.mk G := hG.symm
+        _ = QuotientGroup.mk (upperM (v.adicCompletion F) x *
+              diagM (v.adicCompletion F) y) := hclass
+        _ = L.pr b := hprb.symm
+    obtain ⟨ζ, hg⟩ := lift_pr_eq L g b hpr
+    have hnorm : L.z ζ * b = borelElem L x ζ y := by
+      dsimp [b, borelElem]
+      calc
+        L.z ζ * (L.n (Multiplicative.ofAdd x) * L.a y) =
+            (L.z ζ * L.n (Multiplicative.ofAdd x)) * L.a y := by group
+        _ = (L.n (Multiplicative.ofAdd x) * L.z ζ) * L.a y := by
+              rw [L.z_central ζ]
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y := by group
+    exact Or.inl ⟨x, ζ, y, hg.trans hnorm⟩
+  | inr hbig =>
+    obtain ⟨x, y, t, hclass⟩ := hbig
+    let b : L.L := L.n (Multiplicative.ofAdd x) * L.a y * L.w *
+      L.n (Multiplicative.ofAdd t)
+    have hprb : L.pr b = QuotientGroup.mk (bigCellMatrix (F := F) x y t) := by
+      simp [b, bigCellMatrix, map_mul, L.pr_n, L.pr_a, L.pr_w]
+    have hpr : L.pr g = L.pr b := by
+      calc
+        L.pr g = QuotientGroup.mk G := hG.symm
+        _ = QuotientGroup.mk (bigCellMatrix (F := F) x y t) := hclass
+        _ = L.pr b := hprb.symm
+    obtain ⟨ζ, hg⟩ := lift_pr_eq L g b hpr
+    have hnorm : L.z ζ * b =
+        L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t) := by
+      dsimp [b]
+      calc
+        L.z ζ * (L.n (Multiplicative.ofAdd x) * L.a y * L.w *
+            L.n (Multiplicative.ofAdd t)) =
+            (L.z ζ * L.n (Multiplicative.ofAdd x)) * L.a y * L.w *
+              L.n (Multiplicative.ofAdd t) := by group
+        _ = (L.n (Multiplicative.ofAdd x) * L.z ζ) * L.a y * L.w *
+              L.n (Multiplicative.ofAdd t) := by rw [L.z_central ζ]
+        _ = _ := by group
+    exact Or.inr ⟨x, ζ, y, t, hg.trans hnorm⟩
+
+private theorem bigCell_leftBorel (L : FinLocalCover D H v) (T : TorusRep D H v)
+    (s : ℂ) (φ : v.adicCompletion F → T.V)
+    (x₀ : v.adicCompletion F) (ζ₀ : rootsOfUnity 3 ℂ) (y₀ : (v.adicCompletion F)ˣ)
+    (g : L.L) :
+    bigCell L T s φ (borelElem L x₀ ζ₀ y₀ * g) =
+      sphericalBorelAction T s x₀ ζ₀ y₀ (bigCell L T s φ g) := by
+  classical
+  by_cases hg : ∃ x ζ y t,
+      g = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w * L.n (Multiplicative.ofAdd t)
+  · obtain ⟨x, ζ, y, t, hdecomp⟩ := hg
+    let x' := x₀ + x * (y₀ : v.adicCompletion F)
+    let ζ' := ζ₀ * ζ * muThree D (H.hilb v y₀ y)
+    let y' := y₀ * y
+    have hprod : borelElem L x₀ ζ₀ y₀ * g =
+        L.n (Multiplicative.ofAdd x') * L.z ζ' * L.a y' * L.w *
+          L.n (Multiplicative.ofAdd t) := by
+      calc
+        borelElem L x₀ ζ₀ y₀ * g =
+            (borelElem L x₀ ζ₀ y₀ * borelElem L x ζ y) * L.w *
+              L.n (Multiplicative.ofAdd t) := by rw [hdecomp]; dsimp [borelElem]; group
+        _ = borelElem L x' ζ' y' * L.w * L.n (Multiplicative.ofAdd t) := by
+              rw [borelElem_mul]
+        _ = _ := rfl
+    calc
+      bigCell L T s φ (borelElem L x₀ ζ₀ y₀ * g) =
+          ((ζ' : ℂˣ) : ℂ) • ((absFin v y' : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+            T.σa y' (φ t) := bigCell_eval_decomp L T s φ _ x' ζ' y' t hprod
+      _ = sphericalBorelAction T s x₀ ζ₀ y₀ (bigCell L T s φ g) := by
+          rw [bigCell_eval_decomp L T s φ g x ζ y t hdecomp]
+          have hmul := sphericalBorelAction_mul T s x₀ x ζ₀ ζ y₀ y
+          have happly := congrArg (fun A : T.V →ₗ[ℂ] T.V => A (φ t)) hmul
+          simpa [x', ζ', y', sphericalBorelAction, LinearMap.comp_apply,
+            LinearMap.smul_apply, map_smul, smul_smul] using happly
+  · have hleft : ¬ ∃ x ζ y t,
+        borelElem L x₀ ζ₀ y₀ * g =
+          L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+            L.n (Multiplicative.ofAdd t) := by
+      intro hnew
+      obtain ⟨x, ζ, y, t, hnew⟩ := hnew
+      let yi := y₀⁻¹
+      let xi := -x₀ * (yi : v.adicCompletion F)
+      let ζi := ζ₀⁻¹ * (muThree D (H.hilb v y₀ y₀⁻¹))⁻¹
+      have hdecomp : g = borelElem L
+          (xi + x * (yi : v.adicCompletion F))
+          (ζi * ζ * muThree D (H.hilb v yi y)) (yi * y) *
+            L.w * L.n (Multiplicative.ofAdd t) := by
+        calc
+          g = (borelElem L x₀ ζ₀ y₀)⁻¹ *
+              (borelElem L x₀ ζ₀ y₀ * g) := by group
+          _ = (borelElem L x₀ ζ₀ y₀)⁻¹ *
+              (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+                L.n (Multiplicative.ofAdd t)) := by rw [hnew]
+          _ = ((borelElem L x₀ ζ₀ y₀)⁻¹ * borelElem L x ζ y) *
+                L.w * L.n (Multiplicative.ofAdd t) := by
+                  dsimp [borelElem]
+                  group
+          _ = borelElem L xi ζi yi * borelElem L x ζ y *
+                L.w * L.n (Multiplicative.ofAdd t) := by
+                  rw [borelElem_inv]
+                  dsimp [xi, ζi, yi]
+                  simpa only [Units.val_inv_eq_inv_val]
+          _ = borelElem L (xi + x * (yi : v.adicCompletion F))
+                (ζi * ζ * muThree D (H.hilb v yi y)) (yi * y) *
+                  L.w * L.n (Multiplicative.ofAdd t) := by rw [borelElem_mul]
+      exact hg ⟨xi + x * (yi : v.adicCompletion F),
+        ζi * ζ * muThree D (H.hilb v yi y), yi * y, t, by
+          simpa [borelElem] using hdecomp⟩
+    unfold bigCell
+    rw [dif_neg hleft, dif_neg hg]
+    simp [sphericalBorelAction]
+
+/-- **ind:bigcell-section**: `bigCell φ` is a section when `φ` is locally constant with compact
+support (the decomposition in the big cell is unique). -/
+theorem bigCell_isSection (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
+    (φ : v.adicCompletion F → T.V) (hφ : IsLocallyConstant φ) (hc : HasCompactSupport φ) :
+    IsSection L T s (bigCell L T s φ) := by
+  classical
+  refine ⟨?_, ?_, ?_⟩
+  · intro x y g
+    have h := bigCell_leftBorel L T s φ x 1 y g
+    simpa [borelElem, sphericalBorelAction] using h
+  · intro ζ g
+    have hb : borelElem L 0 ζ 1 = L.z ζ := by
+      simp [borelElem, L.a_one]
+    calc
+      bigCell L T s φ (L.z ζ * g) =
+          bigCell L T s φ (borelElem L 0 ζ 1 * g) := by rw [← hb]
+      _ = sphericalBorelAction T s 0 ζ 1 (bigCell L T s φ g) :=
+        bigCell_leftBorel L T s φ 0 ζ 1 g
+      _ = ((ζ : ℂˣ) : ℂ) • bigCell L T s φ g := by
+        simp [sphericalBorelAction, T.σa_one, absFin_eq_norm_ind]
+  · sorry
+
+/-- **ind:bigcell-apply**: the value of a big-cell section on the big cell (uniqueness of the
+decomposition `n(x) z(ζ) a(y) w n(t)`), and its vanishing on the small cell `B̃`. -/
+theorem bigCell_apply (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
+    (φ : v.adicCompletion F → T.V) (x : v.adicCompletion F) (ζ : rootsOfUnity 3 ℂ)
+    (y : (v.adicCompletion F)ˣ) (t : v.adicCompletion F) :
+    bigCell L T s φ (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w * L.n (Multiplicative.ofAdd t)) =
+      ((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) • T.σa y (φ t) := by
+  exact bigCell_eval_decomp L T s φ _ x ζ y t rfl
 
 theorem bigCell_borel (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
     (φ : v.adicCompletion F → T.V) (x : v.adicCompletion F) (ζ : rootsOfUnity 3 ℂ)
@@ -1984,8 +2269,135 @@ def sphericalC (s : ℂ) (g : GL (Fin 2) ℂ) : ℂ :=
       (‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 + ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2) : ℝ) : ℂ) ^
     (1 + 2 * s)
 
+private theorem sphericalC_bottomRow_pos (g : GL (Fin 2) ℂ) :
+    0 < ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 := by
+  by_cases h10 : (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0 = 0
+  · have h11 : (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1 ≠ 0 := by
+      intro h11
+      apply g.det_ne_zero
+      rw [Matrix.det_fin_two, h10, h11]
+      simp
+    positivity
+  · positivity
+
+private theorem sphericalC_scalar_invariant (s : ℂ) (c : ℂˣ)
+    (g : GL (Fin 2) ℂ) :
+    sphericalC s (Matrix.GeneralLinearGroup.scalar (Fin 2) c * g) = sphericalC s g := by
+  let G : Matrix (Fin 2) (Fin 2) ℂ := g
+  let r := ‖(c : ℂ)‖ ^ 2
+  have hc : r ≠ 0 := by
+    have hcn : ‖(c : ℂ)‖ ≠ 0 := norm_ne_zero_iff.mpr c.ne_zero
+    exact pow_ne_zero 2 hcn
+  have hdet : ‖((Matrix.GeneralLinearGroup.scalar (Fin 2) c * g :
+      GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ).det‖ =
+        r * ‖G.det‖ := by
+    simp [G, r, Matrix.det_mul, Matrix.GeneralLinearGroup.scalar, Matrix.det_fin_two,
+      norm_mul, pow_two]
+  have h10 : ((Matrix.GeneralLinearGroup.scalar (Fin 2) c * g :
+      GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0 =
+        (c : ℂ) * G 1 0 := by
+    simp [G, Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two]
+  have h11 : ((Matrix.GeneralLinearGroup.scalar (Fin 2) c * g :
+      GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1 =
+        (c : ℂ) * G 1 1 := by
+    simp [G, Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two]
+  have hden :
+      ‖((Matrix.GeneralLinearGroup.scalar (Fin 2) c * g :
+          GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖((Matrix.GeneralLinearGroup.scalar (Fin 2) c * g :
+          GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 =
+      r * (‖G 1 0‖ ^ 2 + ‖G 1 1‖ ^ 2) := by
+    rw [h10, h11, norm_mul, norm_mul]
+    dsimp [r]
+    ring
+  have hratio :
+      (r * ‖G.det‖) / (r * (‖G 1 0‖ ^ 2 + ‖G 1 1‖ ^ 2)) =
+        ‖G.det‖ / (‖G 1 0‖ ^ 2 + ‖G 1 1‖ ^ 2) := by
+    field_simp [hc, (sphericalC_bottomRow_pos g).ne']
+  unfold sphericalC
+  rw [hdet, hden, hratio]
+
+private theorem sphericalC_leftBorel (s : ℂ) (x : ℂ) (y : ℂˣ)
+    (g : GL (Fin 2) ℂ) :
+    sphericalC s (upperM ℂ x * diagM ℂ y * g) =
+      ((Complex.normSq (y : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + s)) * sphericalC s g := by
+  let G : Matrix (Fin 2) (Fin 2) ℂ := g
+  let B : GL (Fin 2) ℂ := upperM ℂ x * diagM ℂ y
+  let r : ℝ := ‖G.det‖ / (‖G 1 0‖ ^ 2 + ‖G 1 1‖ ^ 2)
+  have hden : 0 < ‖G 1 0‖ ^ 2 + ‖G 1 1‖ ^ 2 := sphericalC_bottomRow_pos g
+  have hy : 0 < ‖(y : ℂ)‖ := norm_pos_iff.mpr y.ne_zero
+  have hdetB : (B : Matrix (Fin 2) (Fin 2) ℂ).det = (y : ℂ) := by
+    simp [B, upperM, diagM, Matrix.det_fin_two]
+  have hdet : ((B * g : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ).det =
+      (y : ℂ) * G.det := by
+    change ((B : Matrix (Fin 2) (Fin 2) ℂ) * G).det = _
+    rw [Matrix.det_mul, hdetB]
+  have h10 : ((B * g : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0 = G 1 0 := by
+    simp [B, G, upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  have h11 : ((B * g : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1 = G 1 1 := by
+    simp [B, G, upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hratio :
+      ‖((B * g : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ).det‖ /
+          (‖((B * g : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+            ‖((B * g : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2) =
+        ‖(y : ℂ)‖ * r := by
+    rw [hdet, norm_mul, h10, h11]
+    dsimp [r]
+    ring
+  have hfactor :
+      ((‖(y : ℂ)‖ * r : ℝ) : ℂ) ^ (1 + 2 * s) =
+        ((‖(y : ℂ)‖ : ℝ) : ℂ) ^ (1 + 2 * s) * (r : ℂ) ^ (1 + 2 * s) := by
+    rw [Complex.ofReal_mul]
+    exact Complex.mul_cpow_ofReal_nonneg (norm_nonneg _) (le_of_lt (div_pos (norm_pos_iff.mpr g.det_ne_zero) hden)) _
+  have hnormpow :
+      ((Complex.normSq (y : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + s)) =
+        ((‖(y : ℂ)‖ : ℝ) : ℂ) ^ (1 + 2 * s) := by
+    rw [Complex.normSq_eq_norm_sq, Complex.ofReal_pow]
+    rw [show (1 + 2 * s : ℂ) = (2 : ℂ) * ((1 : ℂ) / 2 + s) by ring]
+    symm
+    simpa using Complex.cpow_mul_ofReal_nonneg (norm_nonneg _) 2 ((1 : ℂ) / 2 + s)
+  unfold sphericalC
+  rw [hratio, hfactor, hnormpow]
+
 theorem sphericalC_isSection (s : ℂ) :
     ∃ f : PGL2 ℂ → ℂ, IsSectionC s f ∧ ∀ g : GL (Fin 2) ℂ, f (QuotientGroup.mk g) = sphericalC s g := by
-  sorry
+  classical
+  let f : PGL2 ℂ → ℂ := Quotient.lift (sphericalC s) (by
+    intro g h hgh
+    have hcent : g⁻¹ * h ∈ Subgroup.center (GL (Fin 2) ℂ) :=
+      QuotientGroup.leftRel_apply.mp hgh
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hcent
+    obtain ⟨c, hc⟩ := hcent
+    have hmat : h = Matrix.GeneralLinearGroup.scalar (Fin 2) c * g := by
+      calc
+        h = g * (g⁻¹ * h) := by group
+        _ = g * Matrix.GeneralLinearGroup.scalar (Fin 2) c := by rw [hc]
+        _ = Matrix.GeneralLinearGroup.scalar (Fin 2) c * g :=
+          (Matrix.GeneralLinearGroup.scalar_commute c g).symm
+    calc
+      sphericalC s g =
+          sphericalC s (Matrix.GeneralLinearGroup.scalar (Fin 2) c * g) :=
+        (sphericalC_scalar_invariant s c g).symm
+      _ = sphericalC s h := by rw [hmat])
+  refine ⟨f, ?_, ?_⟩
+  · intro x y g
+    obtain ⟨G, hG⟩ := QuotientGroup.mk_surjective g
+    have hquot : QuotientGroup.mk (upperM ℂ x) * QuotientGroup.mk (diagM ℂ y) * g =
+        QuotientGroup.mk (upperM ℂ x * diagM ℂ y * G) := by
+      rw [← hG]
+      simp [map_mul, mul_assoc]
+    have hg : f g = sphericalC s G := by
+      rw [← hG]
+      rfl
+    calc
+      f (QuotientGroup.mk (upperM ℂ x) * QuotientGroup.mk (diagM ℂ y) * g) =
+          f (QuotientGroup.mk (upperM ℂ x * diagM ℂ y * G)) := by rw [hquot]
+      _ = sphericalC s (upperM ℂ x * diagM ℂ y * G) := rfl
+      _ = ((Complex.normSq (y : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + s)) *
+          sphericalC s G := sphericalC_leftBorel s x y G
+      _ = ((Complex.normSq (y : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + s)) * f g := by rw [hg]
+  · intro G
+    rfl
 
 end ArtinPrimitiveRoots.A1.Theta
