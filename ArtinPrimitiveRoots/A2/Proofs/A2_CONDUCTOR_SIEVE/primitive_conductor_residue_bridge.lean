@@ -801,6 +801,137 @@ private theorem conductorIntegralUnitCharacter_eq_prod
     _ = ∏ v : T, ω.loc v.1 (u v.1).val :=
       (Finset.prod_coe_sort T (fun v => ω.loc v (u v).val)).symm
 
+set_option maxHeartbeats 600000 in
+private theorem conductorPrincipalFactorization
+    (S : A1.SData F CE condη) (ω : A1.HeckeChar F)
+    (f : Ideal (𝓞 F)) (hf : IsPrimitiveConductor ω f)
+    (a : Fˣ) (B : Finset (A1.FinPlace F))
+    (z : ∀ v : B, (v.1.adicCompletion F)ˣ)
+    (u : ConductorLocalIntegralUnits (F := F))
+    (hfinite : ∀ v : A1.FinPlace F,
+      A1.toLoc v a =
+        (∏ w : B, Pi.mulSingle
+          (M := fun t : A1.FinPlace F => (t.adicCompletion F)ˣ)
+          w.1 (z w) v) * (u v).val) :
+    (∏ w : InfinitePlace F, ω.locInf w
+      (Units.map (algebraMap F w.Completion).toMonoidHom a)) *
+      (∏ v : B, ω.loc v.1 (z v)) *
+      (∏ v : {v : A1.FinPlace F //
+          v ∈ S.Sf ∪ conductorPrimeSupport f hf.1},
+        ω.loc v.1 (u v.1).val) = 1 := by
+  classical
+  let A : IdeleGroup (𝓞 F) F := ∏ w : InfinitePlace F,
+    IdeleGroup.ofCompletion (𝓞 F) F w
+      (Units.map (algebraMap F w.Completion).toMonoidHom a)
+  let Z : IdeleGroup (𝓞 F) F := ∏ v : B,
+    IdeleGroup.ofAdicCompletion (𝓞 F) F v.1 (z v)
+  let evInf : ∀ w : InfinitePlace F, IdeleGroup (𝓞 F) F →* w.Completion :=
+    fun w => {
+      toFun := fun g => (g : AdeleRing (𝓞 F) F).1 w
+      map_one' := rfl
+      map_mul' := fun _ _ => rfl }
+  let evFin : ∀ v : A1.FinPlace F, IdeleGroup (𝓞 F) F →* v.adicCompletion F :=
+    fun v => {
+      toFun := fun g => (g : AdeleRing (𝓞 F) F).2 v
+      map_one' := rfl
+      map_mul' := fun _ _ => rfl }
+  have hAInf : ∀ w : InfinitePlace F,
+      evInf w A = algebraMap F w.Completion (a : F) := by
+    intro w
+    dsimp only [A]
+    rw [map_prod]
+    change (∏ t : InfinitePlace F,
+      Pi.mulSingle t (algebraMap F t.Completion (a : F)) w) = _
+    exact Fintype.prod_pi_mulSingle w _
+  have hAFin : ∀ v : A1.FinPlace F, evFin v A = 1 := by
+    intro v
+    dsimp only [A]
+    rw [map_prod]
+    change (∏ _ : InfinitePlace F, (1 : v.adicCompletion F)) = 1
+    simp
+  have hZInf : ∀ w : InfinitePlace F, evInf w Z = 1 := by
+    intro w
+    dsimp only [Z]
+    rw [map_prod]
+    change (∏ _ : B, (1 : w.Completion)) = 1
+    simp
+  have hZFin : ∀ v : A1.FinPlace F, evFin v Z =
+      ((∏ w : B, Pi.mulSingle
+        (M := fun t : A1.FinPlace F => (t.adicCompletion F)ˣ)
+        w.1 (z w) v : (v.adicCompletion F)ˣ) : v.adicCompletion F) := by
+    intro v
+    dsimp only [Z]
+    rw [map_prod]
+    change (∏ w : B, evFin v (IdeleGroup.ofAdicCompletion (𝓞 F) F w.1 (z w))) =
+      Units.coeHom (v.adicCompletion F) (∏ w : B, Pi.mulSingle
+        (M := fun t : A1.FinPlace F => (t.adicCompletion F)ˣ) w.1 (z w) v)
+    rw [map_prod]
+    apply Finset.prod_congr rfl
+    intro w hw
+    change RestrictedProduct.mulSingle
+        (fun t : A1.FinPlace F => t.adicCompletionIntegers F)
+        w.1 (z w : w.1.adicCompletion F) v =
+      ((Pi.mulSingle
+        (M := fun t : A1.FinPlace F => (t.adicCompletion F)ˣ)
+        w.1 (z w) v : (v.adicCompletion F)ˣ) : v.adicCompletion F)
+    by_cases hv : v = w.1
+    · subst v
+      simp [Pi.mulSingle]
+    · simp [Pi.mulSingle, hv]
+  have hfactor : IdeleGroup.unitEmbedding (𝓞 F) F a =
+      A * Z * conductorIntegralUnitIdeleHom (F := F) u := by
+    apply Units.ext
+    apply Prod.ext
+    · funext w
+      change evInf w (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+        evInf w (A * Z * conductorIntegralUnitIdeleHom (F := F) u)
+      rw [map_mul, map_mul, hAInf, hZInf]
+      change algebraMap F w.Completion (a : F) =
+        algebraMap F w.Completion (a : F) * 1 * 1
+      simp
+    · apply FiniteAdeleRing.ext
+      intro v
+      change evFin v (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+        evFin v (A * Z * conductorIntegralUnitIdeleHom (F := F) u)
+      rw [map_mul, map_mul, hAFin, hZFin]
+      change ((A1.toLoc v a : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+        (1 : v.adicCompletion F) *
+          ((∏ w : B, Pi.mulSingle
+            (M := fun t : A1.FinPlace F => (t.adicCompletion F)ˣ)
+            w.1 (z w) v : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+          ((u v).val : v.adicCompletion F)
+      simpa only [Units.val_mul, one_mul] using
+        congrArg (fun x : (v.adicCompletion F)ˣ => (x : v.adicCompletion F)) (hfinite v)
+  let φ : IdeleGroup (𝓞 F) F →* ℂˣ :=
+    (ω : IdeleClassGroup (𝓞 F) F →* ℂˣ).comp
+      (QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F))
+  have hclass : (QuotientGroup.mk (IdeleGroup.unitEmbedding (𝓞 F) F a) :
+      IdeleClassGroup (𝓞 F) F) = 1 :=
+    (QuotientGroup.eq_one_iff _).mpr ⟨a, rfl⟩
+  have hprincipal : φ (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
+    change ω (QuotientGroup.mk (IdeleGroup.unitEmbedding (𝓞 F) F a)) = 1
+    rw [hclass, map_one]
+  have hA : φ A = ∏ w : InfinitePlace F, ω.locInf w
+      (Units.map (algebraMap F w.Completion).toMonoidHom a) := by
+    dsimp only [A]
+    rw [map_prod]
+    rfl
+  have hZ : φ Z = ∏ v : B, ω.loc v.1 (z v) := by
+    dsimp only [Z]
+    rw [map_prod]
+    rfl
+  have hU : φ (conductorIntegralUnitIdeleHom (F := F) u) =
+      ∏ v : {v : A1.FinPlace F // v ∈ S.Sf ∪ conductorPrimeSupport f hf.1},
+        ω.loc v.1 (u v.1).val :=
+    conductorIntegralUnitCharacter_eq_prod S ω f hf u
+  calc
+    _ = φ A * φ Z * φ (conductorIntegralUnitIdeleHom (F := F) u) := by
+      rw [hA, hZ, hU]
+    _ = φ (A * Z * conductorIntegralUnitIdeleHom (F := F) u) := by
+      rw [map_mul, map_mul]
+    _ = φ (IdeleGroup.unitEmbedding (𝓞 F) F a) := congrArg φ hfactor.symm
+    _ = 1 := hprincipal
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
