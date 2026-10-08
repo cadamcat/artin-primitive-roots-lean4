@@ -155,6 +155,40 @@ lemma euler_logderiv_hasSum (K : Type*) [Field K] [NumberField K]
 lemma sharp_logderiv_eq (K : Type*) [Field K] [NumberField K]
     {s : ℂ} (hs : 1 < s.re) :
     dedekindZetaLogDerivative K s = -logDeriv (dedekindZeta K) s := by
-  sorry
+  have heq (z : ℂ) (hz : 1 < z.re) : dedekindZetaSharp K z = dedekindZeta K z := by
+    have hz0 : z ≠ 0 := by
+      intro he
+      rw [he] at hz
+      norm_num at hz
+    have hz1 : z ≠ 1 := by
+      intro he
+      rw [he] at hz
+      norm_num at hz
+    have hzpos : 0 < z.re := by linarith
+    have hD : ((|(discr K : ℝ)| : ℝ) : ℂ) ≠ 0 := by
+      exact_mod_cast abs_ne_zero.mpr (Int.cast_ne_zero.mpr (discr_ne_zero K))
+    have hR := Complex.Gammaℝ_ne_zero_of_re_pos hzpos
+    have hC : Complex.Gammaℂ z ≠ 0 := by
+      have hbase : (2 * Real.pi : ℂ) ≠ 0 :=
+        mul_ne_zero two_ne_zero (Complex.ofReal_ne_zero.mpr Real.pi_ne_zero)
+      rw [Complex.Gammaℂ_def]
+      exact mul_ne_zero (mul_ne_zero two_ne_zero
+        (Complex.cpow_ne_zero_iff.mpr (Or.inl hbase)))
+        (Complex.Gamma_ne_zero_of_re_pos hzpos)
+    have hP : ArtinPrimitiveRoots.Hecke.dedekindPrefactor K z ≠ 0 := by
+      unfold ArtinPrimitiveRoots.Hecke.dedekindPrefactor
+      exact mul_ne_zero (Complex.cpow_ne_zero_iff.mpr (Or.inl hD))
+        (mul_ne_zero (pow_ne_zero _ hR) (pow_ne_zero _ hC))
+    have hden : z * (z - 1) * ArtinPrimitiveRoots.Hecke.dedekindPrefactor K z ≠ 0 :=
+      mul_ne_zero (mul_ne_zero hz0 (sub_ne_zero.mpr hz1)) hP
+    have hξ := (Classical.choose_spec (ArtinPrimitiveRoots.Hecke.dedekind_completed K)).2.1 z hz
+    change dedekindXi K z = _ at hξ
+    rw [dedekindZetaSharp, hξ, mul_div_cancel_left₀ _ hden]
+  have hU : IsOpen {z : ℂ | 1 < z.re} :=
+    isOpen_lt continuous_const Complex.continuous_re
+  have hnhds : dedekindZetaSharp K =ᶠ[𝓝 s] dedekindZeta K := by
+    filter_upwards [hU.mem_nhds hs] with z hz using heq z hz
+  have hlog := (logDeriv_congr_nhds hnhds).eq_of_nhds
+  simpa only [dedekindZetaLogDerivative, logDeriv_apply, neg_div] using congrArg Neg.neg hlog
 
 end ArtinPrimitiveRoots.Splitting.S7ExtEuler
