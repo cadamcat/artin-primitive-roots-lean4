@@ -2,6 +2,8 @@ import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.SmoothingSeedAnalytic
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SMOOTHING.localLiftCLM
 import ArtinPrimitiveRoots.Spec.Domain
 import Mathlib.Analysis.Analytic.IsolatedZeros
+import Mathlib.Topology.Compactness.SigmaCompact
+import Mathlib.Topology.Compactness.LocallyCompact
 
 set_option autoImplicit false
 
@@ -187,5 +189,184 @@ theorem s3_unsmoothed_identity (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   filter_upwards [hleftVal s, hrightVal s] with z hzLeft hzRight
   exact hzLeft.symm.trans ((congrArg
     (fun f : Lp ℂ 2 ((volX F).restrict K) => f z) hvalues).trans hzRight)
+
+private theorem continuationX_sigmaCompact : SigmaCompactSpace (X F) := by
+  have hposOpen : IsOpen (posSet F) := by
+    rw [posSet, Set.ofPred_forall]
+    apply isOpen_iInter_of_finite
+    intro w
+    have hc : Continuous (fun p : Coord F => (p w).2) := by fun_prop
+    exact isOpen_Ioi.preimage hc
+  letI : LocallyCompactSpace {p : Coord F // p ∈ posSet F} :=
+    hposOpen.locallyCompactSpace
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, hchartX⟩ := G1_h3_basics (F := F)
+  obtain ⟨eChartX, _, _⟩ := hchartX
+  letI : LocallyCompactSpace (X F) := eChartX.symm.isOpenEmbedding.locallyCompactSpace
+  letI : SecondCountableTopology (X F) := eChartX.symm.isEmbedding.secondCountableTopology
+  exact inferInstance
+
+/-- The local L² identity identifies the smoothed residue with the original invariant lift.
+The Laurent numerator is evaluated at the center only after taking a limit in local L². -/
+theorem s3_residue_ae_lift (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (σ : SL(2,F)) (τ : ℝ → ℝ) (A : ℝ) (hA : 0 < A)
+    (hsep : ∀ γ γ' : Γ, ∀ z : X F,
+      A ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+      γ' * γ⁻¹ ∈ cuspStab F Γ σ)
+    (hτ : IsCuspCutoff A τ) (k₀ : ℝ → ℝ) (hkSmooth : ContDiff ℝ ∞ k₀)
+    (hkSupport : {t | k₀ t ≠ 0} ⊆ Set.Icc 1 (1 + 1 / 100))
+    (u : ℂ → L2Space F D) (θ : L2Space F D) (s₁ ε : ℝ) (hε : 0 < ε)
+    (hhatCenter : radialTransform F k₀ (1 + 2 * (s₁ : ℂ)) ≠ 0)
+    (hres : ∃ Ψ : ℂ → L2Space F D,
+      AnalyticOnNhd ℂ Ψ (Metric.ball (s₁ : ℂ) ε) ∧ Ψ (s₁ : ℂ) = θ ∧
+        ∀ s ∈ Metric.ball (s₁ : ℂ) ε, s ≠ s₁ → Ψ s = (s - s₁) • u s)
+    (hidentity : ∀ s ∈ contDomain s₁ ε, ∀ K : Set (X F), IsCompact K →
+      ∀ᵐ z ∂(volX F), z ∈ K →
+        smoothingOperator F k₀
+          (fun w => eisSeed F Γ σ τ s w + l2Lift F Γ D (u s) w) z =
+        radialTransform F k₀ (1 + 2 * s) *
+          (eisSeed F Γ σ τ s z + l2Lift F Γ D (u s) z)) :
+    ∀ᵐ z ∂(volX F),
+      (radialTransform F k₀ (1 + 2 * (s₁ : ℂ)))⁻¹ *
+        smoothingOperator F k₀ (l2Lift F Γ D θ) z = l2Lift F Γ D θ z := by
+  obtain ⟨Ψu, hΨu, hΨuCenter, hΨurel⟩ := hres
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, hchartX⟩ := G1_h3_basics (F := F)
+  obtain ⟨eChartX, _, _⟩ := hchartX
+  letI : T2Space (X F) := eChartX.t2Space
+  letI : OpensMeasurableSpace (X F) := sgOpensMeasurableX (F := F)
+  let c : ℂ := s₁
+  let B : Set ℂ := Metric.ball c ε
+  have hcB : c ∈ B := Metric.mem_ball_self hε
+  have hseedData := specSeed_smooth_analytic Γ D hD σ A hA hsep τ hτ
+  have hlocal (K : Set (X F)) (hK : IsCompact K) : ∀ᵐ z ∂(volX F), z ∈ K →
+      (radialTransform F k₀ (1 + 2 * c))⁻¹ *
+        smoothingOperator F k₀ (l2Lift F Γ D θ) z = l2Lift F Γ D θ z := by
+    let P : Set (Coord F) := coordsX F '' K
+    have hP : IsCompact P := hK.image specCoordsX_continuous
+    have hPpos : P ⊆ posSet F := by
+      rintro p ⟨z, hz, rfl⟩
+      exact specCoordsX_mem_pos z
+    obtain ⟨J, hJ⟩ := compactCoordinateToLp K hK
+    obtain ⟨L, _, hL⟩ := localLiftCLM Γ D hD K hK
+    obtain ⟨Φseed, hΦseed, hΦseedval⟩ := hseedData.2 P hP hPpos 0 Fin.elim0
+    obtain ⟨Φsm, Tsm, hΦsm, _, hTsm, hAdd⟩ :=
+      smoothingSeedLift_derivative_data Γ D hD σ τ A hA hsep hτ k₀ hkSmooth hkSupport
+        P hP hPpos 0 Fin.elim0
+    let S : L2Space F D →L[ℂ] Lp ℂ 2 ((volX F).restrict K) := J.comp Tsm
+    let Hsm : ℂ → Lp ℂ 2 ((volX F).restrict K) := fun t => J (Φsm t + Tsm (u t))
+    let Hraw : ℂ → Lp ℂ 2 ((volX F).restrict K) := fun t => J (Φseed t) + L (u t)
+    let R : ℂ → ℂ := fun t => radialTransform F k₀ (1 + 2 * t)
+    have hsmVal (t : ℂ) : ∀ᵐ z ∂((volX F).restrict K), Hsm t z =
+        smoothingOperator F k₀
+          (fun w => eisSeed F Γ σ τ t w + l2Lift F Γ D (u t) w) z := by
+      filter_upwards [hJ (Φsm t + Tsm (u t)), ae_restrict_mem hK.measurableSet]
+        with z hz hzK
+      change J (Φsm t + Tsm (u t)) z = _
+      rw [hz hzK]
+      simpa only [iteratedFDeriv_zero_apply, specPtX_coordsX,
+        BoundedContinuousFunction.add_apply] using
+        (hAdd t (u t) ⟨coordsX F z, Set.mem_image_of_mem (coordsX F) hzK⟩).symm
+    have hrawVal (t : ℂ) : ∀ᵐ z ∂((volX F).restrict K), Hraw t z =
+        eisSeed F Γ σ τ t z + l2Lift F Γ D (u t) z := by
+      filter_upwards [hJ (Φseed t), hL (u t),
+        Lp.coeFn_add (J (Φseed t)) (L (u t)), ae_restrict_mem hK.measurableSet]
+        with z hzSeed hzLift hzAdd hzK
+      change (J (Φseed t) + L (u t)) z = _
+      rw [hzAdd, Pi.add_apply, hzSeed hzK, hzLift]
+      congr 1
+      simpa only [iteratedFDeriv_zero_apply, specPtX_coordsX] using
+        hΦseedval t ⟨coordsX F z, Set.mem_image_of_mem (coordsX F) hzK⟩
+    have hIdLp (t : ℂ) (ht : t ∈ contDomain s₁ ε) : Hsm t = R t • Hraw t := by
+      apply Lp.ext
+      filter_upwards [hsmVal t, hrawVal t, Lp.coeFn_smul (R t) (Hraw t),
+        (ae_restrict_iff' hK.measurableSet).mpr (hidentity t ht K hK)]
+        with z hzSm hzRaw hzCo hzId
+      rw [hzSm, hzCo, Pi.smul_apply, hzRaw]
+      simpa only [R, smul_eq_mul] using hzId
+    let Nleft : ℂ → Lp ℂ 2 ((volX F).restrict K) := fun t =>
+      (t - c) • J (Φsm t) + S (Ψu t)
+    let Nright : ℂ → Lp ℂ 2 ((volX F).restrict K) := fun t =>
+      R t • ((t - c) • J (Φseed t) + L (Ψu t))
+    have hδ : AnalyticOnNhd ℂ (fun t : ℂ => t - c) B := by fun_prop
+    have hNleft : AnalyticOnNhd ℂ Nleft B :=
+      (hδ.smul (J.comp_analyticOnNhd (hΦsm.mono (Set.subset_univ _)))).add
+        (S.comp_analyticOnNhd hΨu)
+    have hNright : AnalyticOnNhd ℂ Nright B :=
+      ((radialTransformParam_analytic k₀ hkSmooth hkSupport).mono
+        (Set.subset_univ _)).smul
+          ((hδ.smul (J.comp_analyticOnNhd (hΦseed.mono (Set.subset_univ _)))).add
+            (L.comp_analyticOnNhd hΨu))
+    have hpuncture : Nleft =ᶠ[𝓝[≠] c] Nright := by
+      filter_upwards [show B ∈ 𝓝[≠] c from
+        nhdsWithin_le_nhds (Metric.ball_mem_nhds c hε),
+        self_mem_nhdsWithin] with t ht htne
+      have htne' : t ≠ c := by simpa using htne
+      have hdom : t ∈ contDomain s₁ ε := Or.inr ⟨ht, by simpa [c] using htne'⟩
+      have hleftScale : Nleft t = (t - c) • Hsm t := by
+        dsimp [Nleft, Hsm, S, c]
+        rw [hΨurel t ht htne']
+        simp only [map_smul, map_add, smul_add]
+      have hrightScale : Nright t = (t - c) • (R t • Hraw t) := by
+        dsimp [Nright, Hraw, c]
+        rw [hΨurel t ht htne']
+        simp only [map_smul, smul_add, smul_smul, mul_comm (R t) (t - (s₁ : ℂ))]
+      rw [hleftScale, hrightScale, hIdLp t hdom]
+    have hleftLim : Tendsto Nleft (𝓝[≠] c) (𝓝 (Nleft c)) :=
+      (hNleft c hcB).continuousAt.mono_left nhdsWithin_le_nhds
+    have hrightLim : Tendsto Nright (𝓝[≠] c) (𝓝 (Nright c)) :=
+      (hNright c hcB).continuousAt.mono_left nhdsWithin_le_nhds
+    have hcenterEq : S θ = R c • L θ := by
+      have heq := tendsto_nhds_unique_of_eventuallyEq hleftLim hrightLim hpuncture
+      simpa only [Nleft, Nright, c, hΨuCenter, sub_self, zero_smul, zero_add] using heq
+    have hSval : ∀ᵐ z ∂((volX F).restrict K), S θ z =
+        smoothingOperator F k₀ (l2Lift F Γ D θ) z := by
+      filter_upwards [hJ (Tsm θ), ae_restrict_mem hK.measurableSet] with z hz hzK
+      change J (Tsm θ) z = _
+      rw [hz hzK]
+      simpa only [iteratedFDeriv_zero_apply, specPtX_coordsX] using
+        hTsm θ ⟨coordsX F z, Set.mem_image_of_mem (coordsX F) hzK⟩
+    apply (ae_restrict_iff' hK.measurableSet).mp
+    filter_upwards [hSval, hL θ, Lp.coeFn_smul (R c) (L θ)] with z hzS hzL hzCo
+    have heq := congrArg (fun f : Lp ℂ 2 ((volX F).restrict K) => f z) hcenterEq
+    rw [hzS, hzCo, Pi.smul_apply, hzL, smul_eq_mul] at heq
+    change (R c)⁻¹ * smoothingOperator F k₀ (l2Lift F Γ D θ) z = _
+    rw [heq, ← mul_assoc, inv_mul_cancel₀ hhatCenter, one_mul]
+  letI : SigmaCompactSpace (X F) := continuationX_sigmaCompact
+  obtain ⟨K, hK, hcover⟩ := SigmaCompactSpace.exists_compact_covering (X := X F)
+  have hcount : ∀ᵐ z ∂(volX F), ∀ n : ℕ, z ∈ K n →
+      (radialTransform F k₀ (1 + 2 * c))⁻¹ *
+        smoothingOperator F k₀ (l2Lift F Γ D θ) z = l2Lift F Γ D θ z := by
+    rw [eventually_countable_forall]
+    exact fun n => hlocal (K n) (hK n)
+  filter_upwards [hcount] with z hz
+  have hzin : z ∈ ⋃ n, K n := by rw [hcover]; exact Set.mem_univ _
+  obtain ⟨n, hzn⟩ := Set.mem_iUnion.mp hzin
+  exact hz n hzn
+
+/-- An invariant representative equal a.e. to a quotient L² lift is square integrable
+on every fundamental domain. -/
+theorem residue_sq_of_ae_lift (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (θ : L2Space F D) (r : X F → ℂ)
+    (hrInv : IsGammaInvariant F Γ r) (hrEq : r =ᵐ[volX F] l2Lift F Γ D θ) :
+    ∀ D' : Set (X F), IsFundamentalDomain Γ D' (volX F) →
+      IntegrableOn (fun z => ‖r z‖ ^ 2) D' (volX F) := by
+  letI : Countable Γ := localLift_countableGamma Γ
+  letI : MeasurableConstSMul Γ (X F) :=
+    ⟨fun γ => (localLift_action_measurePreserving Γ γ).measurable⟩
+  letI : SMulInvariantMeasure Γ (X F) (volX F) :=
+    ⟨fun γ s hs => (localLift_action_measurePreserving Γ γ).measure_preimage
+      hs.nullMeasurableSet⟩
+  have hDval : r =ᵐ[(volX F).restrict D] (θ : X F → ℂ) :=
+    (hrEq.filter_mono ae_restrict_le).trans (localLift_eq_on_D Γ D hD θ)
+  have hθsq : Integrable (fun z => ‖θ z‖ ^ 2) ((volX F).restrict D) :=
+    (memLp_two_iff_integrable_sq_norm (Lp.aestronglyMeasurable θ)).mp (Lp.memLp θ)
+  have hSqD : IntegrableOn (fun z => ‖r z‖ ^ 2) D (volX F) :=
+    hθsq.congr (hDval.symm.mono fun z hz => congrArg (fun a : ℂ => ‖a‖ ^ 2) hz)
+  intro D' hD'
+  apply (hD.integrableOn_iff hD' ?_).mp hSqD
+  intro γ z
+  exact congrArg (fun a : ℂ => ‖a‖ ^ 2) (hrInv γ γ.property z)
 
 end ArtinPrimitiveRoots.Proofs.spec_cont_sol

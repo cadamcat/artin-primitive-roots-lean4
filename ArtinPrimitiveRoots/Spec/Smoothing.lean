@@ -193,6 +193,11 @@ theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       exact hcov.symm
     simpa [r] using congrArg
       (fun x => (radialTransform F k₀ (1 + 2 * s₁))⁻¹ * x) hsm
+  have hidentity := s3_unsmoothed_identity Γ D hD σ τ A hA hsep hτ k₀ hkSmooth
+    hkSupport u s₁ ε hs₀ (lt_of_le_of_lt hs₁ (by norm_num)) hε.1 hu hbase hseries
+  have hresEq : r =ᵐ[volX F] l2Lift F Γ D θ :=
+    s3_residue_ae_lift Γ D hD σ τ A hA hsep hτ k₀ hkSmooth hkSupport u θ s₁ ε
+      hε.1 hhatCenter hres hidentity
   refine ⟨{
     ε := ε
     ε_pos := hε.1
@@ -220,9 +225,8 @@ theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
   · exact pointwiseEisContinuation_laurent Γ D hD σ τ A hA hsep hτ
       k₀ hkSmooth hkSupport u θ s₁ ε hhat hhatCenter hres
   · sorry
-  · sorry
-  · exact s3_unsmoothed_identity Γ D hD σ τ A hA hsep hτ k₀ hkSmooth hkSupport u
-      s₁ ε hs₀ (lt_of_le_of_lt hs₁ (by norm_num)) hε.1 hu hbase hseries
+  · exact residue_sq_of_ae_lift Γ D hD θ r hresInv hresEq
+  · exact hidentity
 
 /-- S4 `spec:res-props` — P-SPEC.md:247, 422–425. The residue is smooth, invariant, square
 integrable on every fundamental domain, and an eigenfunction of every partial Laplacian. -/
