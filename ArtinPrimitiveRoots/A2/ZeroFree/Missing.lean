@@ -3566,6 +3566,64 @@ private theorem dyadic_power_small_sum (p x : ℝ) (hp : 0 < p) (hx : 1 ≤ x) :
         (mul_le_mul_of_nonneg_left hpowLe (by linarith)) (by linarith)
     _ = _ := by ring
 
+private theorem dyadic_power_tail_sum (p x : ℝ) (hp : p < 0) (hx : 1 ≤ x) :
+    Summable (fun j : ℕ => if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0) ∧
+      (∑' j : ℕ, if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0) ≤
+        x ^ p / (1 - (2 : ℝ) ^ p) := by
+  classical
+  obtain ⟨N, hNlo, hNhi⟩ := exists_nat_pow_near hx (by norm_num : (1 : ℝ) < 2)
+  let J : ℕ := N + 1
+  let r : ℝ := (2 : ℝ) ^ p
+  let g : ℕ → ℝ := fun j => if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0
+  have hrpos : 0 < r := Real.rpow_pos_of_pos (by norm_num) _
+  have hr : r < 1 := Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) hp
+  have hpower (j : ℕ) : ((2 : ℝ) ^ j) ^ p = r ^ j :=
+    (Real.rpow_pow_comm (by norm_num : (0 : ℝ) ≤ 2) p j).symm
+  have hcut (j : ℕ) : x < (2 : ℝ) ^ j ↔ J ≤ j := by
+    constructor
+    · intro hj
+      by_contra hnot
+      have hjN : j ≤ N := by dsimp [J] at hnot; omega
+      have hle : (2 : ℝ) ^ j ≤ x :=
+        (pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hjN).trans hNlo
+      linarith
+    · intro hj
+      have hle : (2 : ℝ) ^ J ≤ (2 : ℝ) ^ j :=
+        pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hj
+      exact lt_of_lt_of_le hNhi hle
+  have hshift (n : ℕ) : g (n + J) = ((2 : ℝ) ^ J) ^ p * r ^ n := by
+    have hmem : x < (2 : ℝ) ^ (n + J) := (hcut (n + J)).mpr (by omega)
+    simp only [g, if_pos hmem]
+    rw [pow_add, Real.mul_rpow (by positivity) (by positivity), hpower n]
+    ring
+  have hsumShift : Summable (fun n : ℕ => g (n + J)) := by
+    exact ((summable_geometric_of_lt_one hrpos.le hr).mul_left (((2 : ℝ) ^ J) ^ p)).congr
+      fun n => (hshift n).symm
+  have hsum : Summable g := (summable_nat_add_iff J).mp hsumShift
+  have hprefix : ∑ j ∈ Finset.range J, g j = 0 := by
+    apply Finset.sum_eq_zero
+    intro j hj
+    have hnot : ¬ x < (2 : ℝ) ^ j := by
+      rw [hcut]
+      exact Nat.not_le.mpr (Finset.mem_range.mp hj)
+    simp [g, hnot]
+  have htsum : (∑' j, g j) = ∑' n, g (n + J) := by
+    have heq := hsum.sum_add_tsum_nat_add J
+    rw [hprefix, zero_add] at heq
+    exact heq.symm
+  have hpowLe : ((2 : ℝ) ^ J) ^ p ≤ x ^ p :=
+    Real.rpow_le_rpow_of_nonpos (by linarith) hNhi.le hp.le
+  refine ⟨hsum, ?_⟩
+  change (∑' j, g j) ≤ x ^ p / (1 - r)
+  calc
+    _ = ((2 : ℝ) ^ J) ^ p * (1 - r)⁻¹ := by
+      rw [htsum]
+      simp_rw [hshift]
+      rw [tsum_mul_left, tsum_geometric_of_lt_one hrpos.le hr]
+    _ ≤ x ^ p * (1 - r)⁻¹ :=
+      mul_le_mul_of_nonneg_right hpowLe (inv_nonneg.mpr (by linarith))
+    _ = _ := (div_eq_mul_inv _ _).symm
+
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
