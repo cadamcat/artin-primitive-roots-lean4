@@ -2758,7 +2758,27 @@ theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε 
         C * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε) ∧
       ‖rowContribution R sd W η U rows Z - goodCentral R sd W η U HA HC ZD rows T Z‖ ≤
         C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε - ZD.ρ * A1) := by
-  sorry
+  intro hEuler ε A1 hε hA1
+  obtain ⟨Cc, hCc, hcentral⟩ := goodCentral_bound
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    (ZD := ZD) hEuler ε A1 hε hA1
+  obtain ⟨Cr, Z0, hCr, hZ0, hremainder⟩ := goodRemainder_bound
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    (ZD := ZD) hEuler ε A1 hε hA1
+  refine ⟨Cc + Cr, Z0, by linarith, hZ0, ?_⟩
+  intro Z T hZ hTlo hThi hT rows hrows
+  have hZ2 : 2 ≤ Z := le_trans hZ0 hZ
+  have hT2 : 2 ≤ T := le_trans ZD.U0_two hT
+  constructor
+  · calc
+      _ ≤ Cc * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε) :=
+        hcentral Z T hZ2 hT rows hrows
+      _ ≤ _ := by gcongr; linarith
+  · calc
+      _ ≤ Cr * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (11 / 10 + ε - ZD.ρ * A1) :=
+        hremainder Z T hZ hTlo hThi hT rows hrows
+      _ ≤ _ := by gcongr; linarith
 /-- zf:far-rows, 06:607–630. Large but fixed z-line; constants independent of T,Z. -/
 theorem zf_far_rows : EulerHypotheses R η → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z T, 2 ≤ Z →
   Z ^ (10001 / 100000 : ℝ) < T → ∀ rows : Finset U.U,
