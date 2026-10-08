@@ -1,6 +1,6 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
-import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.CongruenceShrinking
+import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.QuotientGeometry
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
@@ -32,6 +32,11 @@ structure RedDecomposeGeometry [IsTotallyComplex F] (P : CoverPackage D S H A)
   Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
   hfinite : Γ.FiniteIndex
   hfree : ArtinPrimitiveRoots.A1.Spec.FreeAction F Γ
+  cuspLag : ∀ (τ : Matrix.SpecialLinearGroup (Fin 2) F) (γ : Γ)
+    (ε : (𝓞 F)ˣ) (μ : F),
+    τ⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) * τ =
+      ArtinPrimitiveRoots.A1.Spec.cuspUnitMatrix F ε μ →
+    (Units.map (algebraMap (𝓞 F) F).toMonoidHom ε) ^ 2 ∈ G.Δ
   ι : Type
   fintype : Fintype ι
   σ : ι → Matrix.SpecialLinearGroup (Fin 2) F
@@ -72,7 +77,39 @@ theorem red_decompose_part1 [IsTotallyComplex F] (P : CoverPackage D S H A)
         ((γ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) w)) * gj * (kinf * k)) :
     Nonempty (RedDecomposeGeometry P G a T0 hsub m gj) := by
   obtain ⟨N, hN, hNfinite, hNlag⟩ := exists_cusp_lagrangian_congruence P G
-  sorry
+  obtain ⟨Γ₀, hfinite, hfree, haction⟩ := hgood
+  let Γ := Γ₀ ⊓ Spec.congrSubgroup F N
+  letI : Γ₀.FiniteIndex := hfinite
+  letI : (Spec.congrSubgroup F N).FiniteIndex := hNfinite
+  letI : Γ.FiniteIndex := inferInstance
+  obtain ⟨ι, hι, σ, hσ⟩ := Spec.exists_cusp_reps F Γ
+  obtain ⟨e, he⟩ := cusp_fiber_equiv P G (Σ i, Spec.CuspCosets F Γ (σ i))
+    (fun p => (σ p.1)⁻¹ * Spec.toSLF F (p.2.out : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))) hσ
+  let rearrange : ((Fˣ ⧸ G.Δ) × (Σ i, Spec.CuspCosets F Γ (σ i))) ≃
+      (Σ i, (Fˣ ⧸ G.Δ) × Spec.CuspCosets F Γ (σ i)) :=
+    { toFun := fun p => ⟨p.2.1, p.1, p.2.2⟩
+      invFun := fun p => ⟨p.2.1, p.1, p.2.2⟩
+      left_inv := fun _ => rfl
+      right_inv := fun _ => rfl }
+  refine ⟨{
+    Γ := Γ
+    hfinite := inferInstance
+    hfree := ?_
+    cuspLag := ?_
+    ι := ι
+    fintype := hι
+    σ := σ
+    e := e.trans rearrange
+    repr := ?_
+    action := ?_ }⟩
+  · intro γ hγ z hz
+    exact hfree γ hγ.1 z hz
+  · intro τ γ ε μ hconj
+    exact hNlag τ γ γ.property.2 ε μ hconj
+  · intro p
+    exact he (rearrange.symm p)
+  · intro γ hγ x y hy
+    exact haction γ hγ.1 x y hy
 
 /-- The finite torus coefficients, with support independent of the parameter. -/
 theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
