@@ -1,4 +1,6 @@
 import ArtinPrimitiveRoots.A2.Reflection.Missing
+import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
+import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Finite
 import ArtinPrimitiveRoots.A2.Interface
 
 /-! A2 statement interfaces derived from the design lane. -/
@@ -69,7 +71,12 @@ theorem ext_tate_local_FE_fin (v : FinPlace F) :
       (∫ y, (∫ x, f x * A.ψ v (-(x * y)) ∂(μ v).μ) * (absFin v y : ℂ) ^ s
         ∂Theta.mulHaarFin (μ v)) =
       c s * ∫ y, f y * (absFin v y : ℂ) ^ (1 - s) ∂Theta.mulHaarFin (μ v) := by
-  sorry
+  obtain ⟨c, hc, hFE⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_weights.finiteLocalFunctionalEquation_all v A (μ v)
+  refine ⟨c, hc, ?_⟩
+  intro f hf hfc hflc s hs h1s
+  simpa [ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier] using
+    hFE f hf hfc hflc s hs h1s
 /-- ext:tate-local-FE, complex-place version. Haar scalings are absorbed in c_v. -/
 theorem ext_tate_local_FE_complex :
   ∃ c : ℂ → ℂ, c (1 / 6) ≠ 0 ∧ ∀ f : SchwartzMap ℂ ℂ, ∀ s : ℂ, 0 < s.re → s.re < 1 →
@@ -2874,7 +2881,26 @@ theorem po_weights_local_integrability :
   ∀ w : InfinitePlace F, ∀ j : ℕ, ∀ σ : ℝ, 0 < σ →
     Integrable (fun y : ℂ => ‖normDeriv j (fun y => ∫ x : ℂ, W.arch w x * psiC (-(x * y))) y‖ *
       Complex.normSq y ^ σ) Theta.mulHaarC := by
-  sorry
+  constructor
+  · intro v σ hσ
+    let f : v.1.adicCompletion F → ℂ := (W.finite v).1
+    obtain ⟨k, hperiod⟩ := ArtinPrimitiveRoots.Proofs.a2_weights.finiteTest_exists_period_ball
+      v.1 f (W.finite v).2.2.2 (W.finite v).2.2.1
+    have hcompact : HasCompactSupport
+        (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier v.1 A (μ v.1) f) := by
+      exact ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_hasCompactSupport_of_period
+        v.1 A (μ v.1) f k hperiod
+    have hcontinuous : Continuous
+        (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier v.1 A (μ v.1) f) :=
+      (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_isLocallyConstant
+        v.1 A (μ v.1) f (W.finite v).2.2.1).continuous
+    simpa [ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier, f] using
+      (ArtinPrimitiveRoots.Proofs.a2_weights.finiteWeightedIntegrable_of_continuous_compact
+        v.1 (μ v.1) (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier v.1 A (μ v.1) f)
+        hcontinuous hcompact σ hσ)
+  · intro w j σ hσ
+    exact ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierDerivative_integrable
+      (W.arch w) j σ hσ
 /-- po:probe-well-defined: finite outer support and absolute B_m series for every row. -/
 theorem po_probe_absolute : ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
   (Function.support (fun I : S.ExtIdeal => W.W1 (qI I.1 / Y))).Finite ∧
