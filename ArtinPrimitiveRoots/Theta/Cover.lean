@@ -1,6 +1,7 @@
 import Mathlib.Topology.Defs.Induced
 import Mathlib.Topology.Algebra.RestrictedProduct.TopologicalSpace
 import ArtinPrimitiveRoots.A1.ThetaInterface
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TAME_SPLIT.Units
 
 
 /-!
