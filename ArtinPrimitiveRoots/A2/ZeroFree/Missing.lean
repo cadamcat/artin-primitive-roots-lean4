@@ -166,7 +166,30 @@ theorem zf_intermediate_exceptional_rows : EulerHypotheses R η → ∀ ε : ℝ
     (∀ u ∈ rows, u ≠ U.one ∧ u ∈ ZD.E T) →
       ‖rowContribution R sd W η U rows Z‖ ≤
         C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) * T ^ (6 / 10 + ε) := by
-  sorry
+  intro hEuler ε hε
+  let HC0 : EulerCorrection R η U := canonicalEulerCorrection R η U
+  obtain ⟨C, hC, hsmall⟩ :=
+    zf_small_rows (R := R) (sd := sd) (W := W) (η := η) (U := U)
+      (HA := HA) (HC := HC0) hEuler (1 / 2) ZD.Cexc ε (by norm_num) ZD.Cexc_pos hε
+  refine ⟨C, hC, ?_⟩
+  intro Z T hZ hTlo hThi hU0 rows hrows
+  have hT : 1 ≤ T := le_trans (by norm_num : 1 ≤ (2 : ℝ))
+    (le_trans ZD.U0_two hU0)
+  have hsubset : rows ⊆ ZD.E T := by
+    intro u hu
+    exact (hrows u hu).2
+  have hcard : (rows.card : ℝ) ≤ ZD.Cexc * T ^ (1 / 2 : ℝ) := by
+    calc
+      (rows.card : ℝ) ≤ ((ZD.E T).card : ℝ) := by
+        exact_mod_cast Finset.card_le_card hsubset
+      _ ≤ ZD.Cexc * T ^ (1 / 2 : ℝ) := ZD.E_count T hU0
+  have hgood : ∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T := by
+    intro u hu
+    exact ⟨(hrows u hu).1, ZD.E_sub T hU0 u ((hrows u hu).2)⟩
+  have hbound := hsmall T Z hT hZ rows hgood hcard
+  have hexp : (1 / 2 : ℝ) + 1 / 2 - 4 / 10 + ε = 6 / 10 + ε := by ring
+  rw [hexp] at hbound
+  exact hbound.2
 end ZeroFreeSupplement
 
 /-! ## Continuation dictionary and fixed exceptional-set conversion -/
