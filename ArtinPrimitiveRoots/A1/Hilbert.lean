@@ -215,6 +215,59 @@ private theorem a1_bdata_sol_exterior_symbol_trivial (S : SData F CE condη)
   apply IsFractionRing.injective (𝓞 F) F
   simpa using htame.symm
 
+private theorem a1_bdata_sol_mu6_of_hilbertData (H : HilbertData F) :
+    ∃ ζ : F, IsPrimitiveRoot ζ 6 := by
+  classical
+  obtain ⟨P, hP⟩ := Ideal.exists_maximal (𝓞 F)
+  let v : FinPlace F := ⟨P, hP.isPrime,
+    Ring.ne_bot_of_isMaximal_of_not_isField hP (RingOfIntegers.not_isField F)⟩
+  obtain ⟨r, hr⟩ := v.valuation_exists_uniformizer F
+  have hr0 : r ≠ 0 := (v.valuation F).ne_zero_iff.mp (by
+    rw [hr]
+    exact WithZero.coe_ne_zero)
+  let π : (v.adicCompletion F)ˣ := toLoc v (Units.mk0 r hr0)
+  have hπ : Valued.v (π : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    change Valued.v ((r : F) : v.adicCompletion F) = _
+    rw [v.valuedAdicCompletion_eq_valuation']
+    exact hr
+  have hnot : ¬ ∀ b, H.hilb v (π ^ 2) b = 1 := by
+    intro h
+    obtain ⟨c, hc⟩ := H.nondeg v (π ^ 2) h
+    have hlog := congrArg
+      (fun y : (v.adicCompletion F)ˣ => WithZero.log (Valued.v (y : v.adicCompletion F))) hc
+    simp only [Units.val_pow_eq_pow_val, map_pow, WithZero.log_pow, hπ,
+      WithZero.log_exp, nsmul_eq_mul] at hlog
+    norm_num at hlog
+    omega
+  obtain ⟨b, hb⟩ := not_forall.mp hnot
+  let z : rootsOfUnity 6 F := H.hilb v π b
+  have hmul : H.hilb v (π ^ 2) b = z ^ 2 := by
+    simp only [pow_two, H.mul_left, z]
+  have hz : z ^ 2 ≠ 1 := by
+    rw [← hmul]
+    exact hb
+  let ω : F := ((z : Fˣ) : F) ^ 2
+  have hωne : ω ≠ 1 := by
+    intro h
+    apply hz
+    apply Subtype.ext
+    apply Units.ext
+    simpa [ω] using h
+  have hz6 : (((z : Fˣ) : F) ^ 6) = 1 := by
+    have h := (mem_rootsOfUnity 6 (z : Fˣ)).mp z.property
+    simpa using congrArg (fun y : Fˣ => (y : F)) h
+  have hω3 : ω ^ 3 = 1 := by
+    dsimp [ω]
+    rw [← pow_mul]
+    exact hz6
+  have hprim3 : IsPrimitiveRoot ω 3 :=
+    isPrimitiveRoot_of_mem_nthRootsFinset (by norm_num)
+      ((Polynomial.mem_nthRootsFinset (by norm_num) (1 : F)).mpr hω3) hωne
+  have hprim2 : IsPrimitiveRoot (-1 : F) 2 := IsPrimitiveRoot.neg_one 0 (by decide)
+  have hprim6 := hprim2.pow_mul_pow_lcm hprim3 (by decide) (by decide)
+  rw [show Nat.lcm 2 3 = 6 by decide] at hprim6
+  exact ⟨_, hprim6⟩
+
 theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
     (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
