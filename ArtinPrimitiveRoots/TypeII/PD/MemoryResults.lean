@@ -6066,6 +6066,130 @@ private theorem pd4c_comparison_rows_eventually (δ c₁ c₂ : ℝ) {K : ℕ}
       (memoryCutoff S) (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f)) 1 _ _
         (by norm_num) hr hbound
 
+private theorem pd4c_rawMultiplier_bound {K : ℕ} (F : PDFix K) (S : PDScale)
+    (D a b : ℕ) (t d : ℤ) (Ceta Cpsi : ℝ) (hPad : IsPadAdmissible S.d₀ D d)
+    (hd : 0 < (S.d₀ : ℝ)) (hCeta : 0 ≤ Ceta) (hCpsi : 0 ≤ Cpsi)
+    (hEta : ∀ u, ‖(F.eta u : ℂ)‖ ≤ Ceta) (hPsi : ∀ u, ‖(F.psi u : ℂ)‖ ≤ Cpsi) :
+    ‖rawMultiplier F S D a b t‖ ≤ Ceta ^ 2 * Cpsi := by
+  have hD : 0 < (D : ℝ) := lt_of_lt_of_le hd hPad.1
+  have hRatio : ‖(((S.d₀ : ℝ) / D : ℝ) : ℂ)‖ ≤ 1 := by
+    have h0 : 0 ≤ (S.d₀ : ℝ) / D := div_nonneg hd.le hD.le
+    have h1 : (S.d₀ : ℝ) / D ≤ 1 := (div_le_iff₀ hD).mpr (by simpa using hPad.1)
+    simpa only [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg h0] using h1
+  have hind : ‖(if t = (b : ℤ) - a then (F.psi ((t : ℝ) / S.Y) : ℂ) else 0)‖ ≤ Cpsi := by
+    by_cases h : t = (b : ℤ) - a
+    · simpa only [if_pos h] using hPsi ((t : ℝ) / S.Y)
+    · simpa only [if_neg h, norm_zero] using hCpsi
+  unfold rawMultiplier
+  simp only [norm_mul]
+  calc
+    _ ≤ 1 * Ceta * Ceta * Cpsi := by
+      gcongr
+      · exact hEta _
+      · exact hEta _
+    _ = _ := by ring
+
+/-- A raw choice fixes one determinant, so its geometric support has uniformly bounded size. -/
+private theorem pd4c_raw_choice_support_count {K : ℕ} (δ c₁ c₂ : ℝ) (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ) (s : MemPoint S.x K)
+    (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i)
+    (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S) (hs : MemValid F S s) :
+    ({z' | EdgeAdmissible F S w s c z' ∧ pd4c_edgeChoiceCoeff F S ρ j true s c z' ≠ 0}.ncard : ℝ) ≤ 34 := by
+  let A : Set (ℤ × ℤ) := {z' | EdgeAdmissible F S w s c z' ∧ pd4c_edgeChoiceCoeff F S ρ j true s c z' ≠ 0}
+  by_cases hA : A.Nonempty
+  · obtain ⟨z₀, hadm, hcoef⟩ := hA
+    let d := (sharedProduct s.2.1 : ℤ) * ((lastProduct s.2.1 : ℤ) - lastProduct (edgeTargetLists F S s c))
+    have hsub : A ⊆ {z' | envBox S w z' ∧ det2 s.1 z' = d} := by
+      intro z' hz'
+      have hgeom : edgeMultiplier F S (decide (j % 2 = 0)) true s.2.1 (edgeTargetLists F S s c) s.1 z' ≠ 0 := by
+        intro h0
+        exact hz'.2 (by simp [pd4c_edgeChoiceCoeff, h0])
+      exact ⟨hz'.1.2.2.2.2.2.2.2.1, pd4c_raw_edge_det F S _ _ _ _ _ hz'.1.2.2.2.2.1.2.2 hgeom⟩
+    have hfin : {z' | envBox S w z' ∧ det2 s.1 z' = d}.Finite :=
+      (envBox_finite δ c₁ c₂ S w hS hw).subset (fun z' hz' => hz'.1)
+    have hcard := Set.ncard_le_ncard hsub hfin
+    obtain ⟨hU, _⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+    exact (show (A.ncard : ℝ) ≤ _ by exact_mod_cast hcard).trans
+      (pd4c_env_fixed_det_count S w s.1 d hU hw hs.1 hadm.2.2.2.2.2.2.1)
+  · have hempty : A = ∅ := Set.not_nonempty_iff_eq_empty.mp hA
+    change (A.ncard : ℝ) ≤ 34
+    rw [hempty]
+    norm_num
+
+/-- With no promotions, the choice mass has no memory-cutoff factor. -/
+private theorem pd4c_fresh_choice_mass_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (s : MemPoint S.x K)
+    (hν : ∀ i, ∀ p : primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p)
+    (hνsum : ∀ i, (∑ p : primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2) :
+    (∑ c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i,
+      if edgePromotedSet c = ∅ then ∏ i, pd4c_choicePrimeWeight F S s i (c i) else 0) ≤ (4 : ℝ) ^ K := by
+  rw [pd4c_promoted_choice_mass]
+  simp only [Finset.notMem_empty, if_false]
+  have hprod : (∏ i : Fin K, 2 * ∑ p : primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤
+      ∏ i : Fin K, (4 : ℝ) := by
+    apply Finset.prod_le_prod₀
+    · intro i hi
+      exact mul_nonneg (by norm_num) (Finset.sum_nonneg (fun p hp => hν i p))
+    · intro i hi
+      have h := hνsum i
+      linarith
+  simpa only [Finset.prod_const, Finset.card_univ, Fintype.card_fin] using hprod
+
+private theorem pd4c_raw_no_promotion_row {K : ℕ} (δ c₁ c₂ : ℝ)
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot) (St : Finset (Fin K))
+    (B j : ℕ) (v Ceta Cpsi : ℝ) (hS : S.Valid K δ c₁ c₂) (hw : w.InRegion S)
+    (hρ0 : 0 ≤ ρ) (hρ1 : ρ ≤ 1) (hv : 1 ≤ v) (hCeta : 0 ≤ Ceta) (hCpsi : 0 ≤ Cpsi)
+    (hEta : ∀ u, ‖(F.eta u : ℂ)‖ ≤ Ceta) (hPsi : ∀ u, ‖(F.psi u : ℂ)‖ ≤ Cpsi)
+    (hV : ∀ i, 0 < bandMass S.x (F.a i))
+    (hν : ∀ i, ∀ p : primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p)
+    (hνsum : ∀ i, (∑ p : primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2) :
+    MemRowSchurLE_sym F S B (memEdgePiece F S ρ w true St ∅ j) v
+      (Ceta ^ 2 * Cpsi * v ^ K * 34 * (4 : ℝ) ^ K) := by
+  have hv0 : 0 ≤ v := by linarith
+  let C := Ceta ^ 2 * Cpsi
+  have hC : 0 ≤ C := mul_nonneg (sq_nonneg _) hCpsi
+  obtain ⟨hY, hd⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  intro s hs hsize T hT
+  have hmass (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) :
+      pd4c_edgeRowMass F S ρ w j true St ∅ v (s.1, permuteLists σ s.2.1, s.2.2) ≤
+        C * v ^ K * v ^ memSize s * 34 * (4 : ℝ) ^ K := by
+    let t : MemPoint S.x K := (s.1, permuteLists σ s.2.1, s.2.2)
+    have ht := memPoint_permute_valid F S σ s hs
+    have hweight (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (i : Fin K) :
+        0 ≤ pd4c_choicePrimeWeight F S t i (c i) := by
+      cases he : (c i).2 with
+      | inl k => simpa only [pd4c_choicePrimeWeight, he] using inv_nonneg.mpr (hV i).le
+      | inr p => simpa only [pd4c_choicePrimeWeight, he] using hν i p
+    have hgeom (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (z' : ℤ × ℤ)
+        (ha : EdgeAdmissible F S w t c z') :
+        ‖edgeMultiplier F S (decide (j % 2 = 0)) true t.2.1 (edgeTargetLists F S t c) t.1 z'‖ ≤ C := by
+      cases hb : decide (j % 2 = 0)
+      · change ‖star (rawMultiplier F S _ _ _ _)‖ ≤ _
+        rw [norm_star]
+        exact pd4c_rawMultiplier_bound F S _ _ _ _ _ Ceta Cpsi ha.2.2.2.2.1 hd hCeta hCpsi hEta hPsi
+      · exact pd4c_rawMultiplier_bound F S _ _ _ _ _ Ceta Cpsi ha.2.2.2.2.1 hd hCeta hCpsi hEta hPsi
+    have hcount (c : (i : Fin K) → EdgeChoice S.x F.a (t.2.2 i) i) (hc : edgePromotedSet c = ∅) :
+        ({z' | EdgeAdmissible F S w t c z' ∧ pd4c_edgeChoiceCoeff F S ρ j true t c z' ≠ 0}.ncard : ℝ) ≤ 34 :=
+      pd4c_raw_choice_support_count δ c₁ c₂ F S ρ w j t c hS hw ht
+    have hr := pd4c_edgeRowMass_le_of_count δ c₁ c₂ F S ρ w true St ∅ j v C 34 t
+      hS hw hρ0 hρ1 hv hC (by norm_num) hweight hgeom hcount
+    exact hr.trans (mul_le_mul_of_nonneg_left (pd4c_fresh_choice_mass_le F S t hν hνsum)
+      (mul_nonneg (mul_nonneg (mul_nonneg hC (pow_nonneg hv0 _)) (pow_nonneg hv0 _)) (by norm_num)))
+  have hr := pd4c_memEdgePiece_projected_row_mass δ c₁ c₂ F S ρ w true St ∅ j hS hw s T v hv0
+  have hdcard : (permCount S.x K : ℝ) ≠ 0 := by exact_mod_cast Fintype.card_ne_zero
+  calc
+    _ ≤ (permCount S.x K : ℝ)⁻¹ * ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        pd4c_edgeRowMass F S ρ w j true St ∅ v (s.1, permuteLists σ s.2.1, s.2.2) := hr
+    _ ≤ (permCount S.x K : ℝ)⁻¹ * ∑ _ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        C * v ^ K * v ^ memSize s * 34 * (4 : ℝ) ^ K := by
+      exact mul_le_mul_of_nonneg_left (Finset.sum_le_sum (fun σ hσ => hmass σ)) (by positivity)
+    _ = _ := by
+      simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+      change (permCount S.x K : ℝ)⁻¹ * ((permCount S.x K : ℝ) * _) = _
+      field_simp [hdcard]
+      <;> dsimp [C]
+      <;> ring
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
