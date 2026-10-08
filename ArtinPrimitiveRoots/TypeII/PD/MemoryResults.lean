@@ -5132,6 +5132,80 @@ private theorem listPermutation_suffixHit_probability (l : List Particle) (m : �
   rw [hsum]
   simpa [hitCount, A] using hprob
 
+/-- Averaging the ordered suffix coefficient replaces the list-length binomial
+factor by the hit-count binomial factor, including repeated particles. -/
+private theorem ghost_suffix_average_polynomial (l : List Particle)
+    (z : ℤ × ℤ) (a b : ℝ) :
+    (Fintype.card (Equiv.Perm (Fin l.length)) : ℝ)⁻¹ *
+      (∑ σ : Equiv.Perm (Fin l.length),
+        ∑ m ∈ Finset.range (l.length + 1),
+          if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+              (l.length - m), particleHits e z then
+            (Nat.choose l.length m : ℝ) * a ^ m * b ^ (hitCount l z - m)
+          else 0) =
+      (a + b) ^ hitCount l z := by
+  classical
+  let h := hitCount l z
+  have hle : h ≤ l.length := by
+    simpa [h, hitCount] using Finset.card_le_univ (hitIndices l z)
+  have hterm (m : ℕ) (hm : m ∈ Finset.range (l.length + 1)) :
+      (Fintype.card (Equiv.Perm (Fin l.length)) : ℝ)⁻¹ *
+        (∑ σ : Equiv.Perm (Fin l.length),
+          if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+              (l.length - m), particleHits e z then
+            (Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)
+          else 0) =
+        (Nat.choose h m : ℝ) * a ^ m * b ^ (h - m) := by
+    have hmle : m ≤ l.length := by simpa using Finset.mem_range.mp hm
+    have hchoose : (Nat.choose l.length m : ℝ) ≠ 0 := by
+      exact_mod_cast (Nat.choose_pos hmle).ne'
+    have hprob := listPermutation_suffixHit_probability l m hmle z
+    have hsum :
+        (∑ σ : Equiv.Perm (Fin l.length),
+          if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+              (l.length - m), particleHits e z then
+            (Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)
+          else 0) =
+        (∑ σ : Equiv.Perm (Fin l.length),
+          if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+              (l.length - m), particleHits e z then (1 : ℝ) else 0) *
+          ((Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)) := by
+      rw [Finset.sum_mul]
+      apply Finset.sum_congr rfl
+      intro σ hσ
+      split_ifs <;> simp
+    rw [hsum, ← mul_assoc, hprob]
+    change ((Nat.choose h m : ℝ) / (Nat.choose l.length m : ℝ)) *
+      ((Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)) = _
+    field_simp [hchoose] <;> ring
+  calc
+    _ = ∑ m ∈ Finset.range (l.length + 1),
+        (Fintype.card (Equiv.Perm (Fin l.length)) : ℝ)⁻¹ *
+          (∑ σ : Equiv.Perm (Fin l.length),
+            if ∀ e ∈ (List.ofFn fun k : Fin l.length => l.get (σ k)).drop
+                (l.length - m), particleHits e z then
+              (Nat.choose l.length m : ℝ) * a ^ m * b ^ (h - m)
+            else 0) := by
+      rw [Finset.sum_comm, Finset.mul_sum]
+    _ = ∑ m ∈ Finset.range (l.length + 1),
+        (Nat.choose h m : ℝ) * a ^ m * b ^ (h - m) := by
+      apply Finset.sum_congr rfl
+      exact hterm
+    _ = ∑ m ∈ Finset.range (h + 1),
+        (Nat.choose h m : ℝ) * a ^ m * b ^ (h - m) := by
+      symm
+      apply Finset.sum_subset (Finset.range_mono (Nat.add_le_add_right hle 1))
+      intro m hm hnot
+      have hhm : h < m := by
+        have hnot' : ¬ m < h + 1 := by simpa using hnot
+        omega
+      simp [Nat.choose_eq_zero_of_lt hhm]
+    _ = (a + b) ^ h := by
+      rw [add_pow]
+      apply Finset.sum_congr rfl
+      intro m hm
+      ring
+
 private theorem ghostOutputState_permutation_suffix_hits {x : ℝ} {K : ℕ}
     (F : PDFix K) (s t : MemPoint x K)
     (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
@@ -5140,15 +5214,13 @@ private theorem ghostOutputState_permutation_suffix_hits {x : ℝ} {K : ℕ}
     (hout : ghostOutputState F s D m new = memoryPermute t σ) :
     ∀ i e, e ∈ (List.ofFn fun k : Fin (t.2.2 i).length => (t.2.2 i).get (σ i k)).drop
         ((t.2.2 i).length - m i) → particleHits e t.1 := by
-  have hsplit := ghostOutputState_split F s (memoryPermute t σ) D m new hout
   intro i e he
   let retained := removeIndices (s.2.2 i) (D i)
-  have hlen := congrArg List.length (hsplit i).2
-  simp [retained] at hlen
-  have hpre : retained.length = (t.2.2 i).length - m i := by
-    have hlenT : ((memoryPermute t σ).2.2 i).length = (t.2.2 i).length := by
-      simp [memoryPermute]
-    omega
+  have hlen : retained.length + m i = (t.2.2 i).length := by
+    have hcomp := (ghostOutputState_eq_components F s (memoryPermute t σ)
+      D m new hout).2.2 i
+    simpa [retained, memoryPermute] using congrArg List.length hcomp
+  have hpre : retained.length = (t.2.2 i).length - m i := by omega
   rw [← hpre] at he
   change e ∈ ((memoryPermute t σ).2.2 i).drop retained.length at he
   exact ghostOutputState_suffix_hit F s (memoryPermute t σ) D m new hout i e he
