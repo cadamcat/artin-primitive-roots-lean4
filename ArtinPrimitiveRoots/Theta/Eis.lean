@@ -3611,6 +3611,23 @@ theorem scalarM_eq_zero_of_scalarOf_eq_zero
       Finset.prod_eq_zero (Finset.mem_univ w) hM
     rw [hprod, mul_zero, mul_zero]
 
+/-- The constant-term formula when the original scalar section vanishes everywhere. -/
+theorem eisenstein_constantTerm_of_zero
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s)
+    (hzero : ∀ g : P.tc.G, scalarOf P G Fs.f Fs.fC g = 0)
+    (g : P.tc.G) (Pd : Set (InfinitePlace F → ℂ)) :
+    torusCoeff P (eisenstein P G Fs) g Pd 0 =
+      ∑' δ : Fˣ ⧸ G.Δ, (scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL (Quotient.out δ)) * g) +
+        scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out δ)) * g)) := by
+  have hE (h : P.tc.G) : eisenstein P G Fs h = 0 := by
+    simp only [eisenstein, hzero, tsum_zero]
+  have hM (h : P.tc.G) : scalarM P G μ Fs h = 0 :=
+    scalarM_eq_zero_of_scalarOf_eq_zero P G μ hs Fs hzero h
+  simp only [torusCoeff, hE, zero_mul, integral_zero, mul_zero, hzero, hM, add_zero,
+    tsum_zero]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
