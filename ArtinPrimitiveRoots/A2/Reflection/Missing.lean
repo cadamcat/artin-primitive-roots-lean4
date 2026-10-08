@@ -4590,6 +4590,76 @@ private theorem rf_forward_kernel_integral (r : ReflectionRow S) (Z : ℝ)
     q hq (forwardCoeff R r) (Theta.thetaV S μ v0 R.T.U R.T.cS) hV
     R.K hK hSeries (fun u => (PG u : ℂ)) R.K_gaussian Z hZ (hAbs r Z hZ).1
 
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_Bm_series (r : ReflectionRow S) (Z : ℝ)
+    (hZ : 0 < Z) :
+    Bm D S A ϑ (cgen R) (r.m : F) Z =
+      ∑' p : S.SqfExtIdeal × S.ExtIdeal,
+        forwardCoeff R r p * (PG (qI (Aideal R p.1 p.2).1 / Z) : ℂ) := by
+  classical
+  have hRow : R.chars.rowEps r = rowEpsilon S bc r := by
+    apply Subtype.ext
+    have h1 := R.chars.rowEps_spec r
+    have h2 := Classical.choose_spec (exists_rowUnit S bc r)
+    exact mul_right_cancel (h1.symm.trans h2)
+  have hClass : unitSixClass S (R.chars.eps (rowClass R r)) =
+      unitSixClass S (rowEpsilon S bc r) := by
+    rw [R.chars.eps_class]
+    dsimp only [rowClass]
+    rw [hRow]
+  have hExp (v : FinPlace F) :
+      rowPrimeExponent S r v = ((digitExponent r v).1 : ℤ) := by
+    unfold rowPrimeExponent rowExponentModSix
+    rw [FractionalIdeal.count_coe F v
+      (by simpa only [Ideal.zero_eq_bot] using r.ideal.property.1)]
+    change (idealExp v r.ideal.1 : ℤ) % 6 = ((idealExp v r.ideal.1 % 6 : ℕ) : ℤ)
+    norm_cast
+  unfold Bm
+  apply tsum_congr
+  intro p
+  let a := Agen R p.1 p.2
+  let I := Aideal R p.1 p.2
+  have ha : S.IsGen (a : F) I.1 ∧ Bd.Allowed a :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_generator D S H Bd bc
+      R.exterior p.1 p.2
+  have hL : Lvalue R (rowClass R r) (S.diagU a) =
+      ϑ.idealValue I.1 * chiIdealPow D I.1 ((rowEpsilon S bc r : Fˣ) : F) 1 := by
+    unfold Lvalue
+    rw [R.chars.L_value]
+    exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.rfSCharacter_generator_class
+      D S H Bd ϑ R.vartheta_unramified
+      (R.chars.eps (rowClass R r)) (rowEpsilon S bc r) hClass
+      I.1 I.property a ha
+  have hProd : (∏ᶠ v : FinPlace F, if v.asIdeal ∣ r.ideal.1 then
+      chiPow D v (a : F) (rowPrimeExponent S r v) else 1) =
+      ∏ v ∈ R.exterior.support r.ideal,
+        chiPow D v (a : F) (digitExponent r v).1 := by
+    let f : FinPlace F → ℂ := fun v => if v.asIdeal ∣ r.ideal.1 then
+      chiPow D v (a : F) (rowPrimeExponent S r v) else 1
+    have hSupport : Function.mulSupport f ⊆ R.exterior.support r.ideal := by
+      intro v hv
+      apply (R.exterior.mem_support r.ideal v).mpr
+      by_contra hn
+      exact hv (by simp [f, hn])
+    calc
+      _ = ∏ v ∈ R.exterior.support r.ideal, f v :=
+        finprod_eq_prod_of_mulSupport_subset f hSupport
+      _ = _ := by
+        apply Finset.prod_congr rfl
+        intro v hv
+        dsimp only [f]
+        rw [if_pos ((R.exterior.mem_support r.ideal v).mp hv), hExp]
+  have hTwist := rf_moving_twist D S H Bd bc r I.1 I.property a ha
+  rw [hProd] at hTwist
+  have hI : I.1 = p.1.1 * p.2.1 ^ (3 : ℕ) := by
+    simp only [I, Aideal, R.exterior.mul_val, R.exterior.ofSqf_val, R.exterior.pow_val]
+  have hm : (r.m : F) = ((rowElement S r : Fˣ) : F) := rfl
+  rw [← hI, hm, hTwist]
+  dsimp only [forwardCoeff]
+  rw [hL]
+  simp only [qI, div_eq_mul_inv, Complex.ofReal_mul, Complex.ofReal_inv]
+  ring
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
