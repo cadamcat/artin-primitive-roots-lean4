@@ -118,4 +118,23 @@ theorem residue_character_exists (D : FieldData F) (P : FinPlace F)
     (mem_rootsOfUnity' 6 _).mp (chiAlg P (ι a)).property
   rw [← map_pow, ← map_pow, hroot, map_one, map_one]
 
+theorem twelve_dvd_absNorm_sub_one (D : FieldData F) (P : FinPlace F)
+    (h6 : (6 : 𝓞 F) ∉ P.asIdeal) :
+    12 ∣ Ideal.absNorm P.asIdeal - 1 := by
+  let : P.asIdeal.IsMaximal := P.isMaximal
+  let : Field (𝓞 F ⧸ P.asIdeal) := Ideal.Quotient.field P.asIdeal
+  obtain ⟨hcop6, hne1⟩ := coprime_six_of_not_mem_six P h6
+  have hcop2 : (Ideal.absNorm P.asIdeal).Coprime 2 :=
+    Nat.Coprime.of_dvd_right (by decide : 2 ∣ 6) hcop6
+  have hcop12 : (Ideal.absNorm P.asIdeal).Coprime 12 := by
+    simpa using Nat.Coprime.mul_right hcop6 hcop2
+  have hprim := D.hζ12.toInteger_isPrimitiveRoot.idealQuotient_mk
+    (I := P.asIdeal) hne1 hcop12
+  let u : (𝓞 F ⧸ P.asIdeal)ˣ := (hprim.isUnit (by decide)).unit
+  have hprim_u : IsPrimitiveRoot u 12 := IsPrimitiveRoot.coe_units_iff.mp hprim
+  have hdvd : 12 ∣ Nat.card (𝓞 F ⧸ P.asIdeal)ˣ := by
+    rw [hprim_u.eq_orderOf]
+    exact orderOf_dvd_natCard (x := u)
+  rwa [Nat.card_units, ← Submodule.cardQuot_apply, ← Ideal.absNorm_apply] at hdvd
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
