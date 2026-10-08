@@ -8,6 +8,7 @@ import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.ContinuationBasics
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.SmoothingSeedAnalytic
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.Laurent
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.UnsmoothedIdentity
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.ResidueEigen
 import Mathlib.Analysis.Complex.CauchyIntegral
 
 /-! Smoothing and pointwise continuation nodes S1--S4. -/
@@ -224,7 +225,13 @@ theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       k₀ hkSmooth hkSupport K hK hKpos u (contDomain s₁ ε) hu hhat n v
   · exact pointwiseEisContinuation_laurent Γ D hD σ τ A hA hsep hτ
       k₀ hkSmooth hkSupport u θ s₁ ε hhat hhatCenter hres
-  · sorry
+  · apply residue_eigen_of_derivative_families Γ σ s₁ ε hs₀
+      (lt_of_le_of_lt hs₁ (by norm_num)) hε.1 E r hEseries
+    · intro K hK hKpos n v
+      exact pointwiseEisContinuation_derivative_analytic Γ D hD σ τ A hA hsep hτ
+        k₀ hkSmooth hkSupport K hK hKpos u (contDomain s₁ ε) hu hhat n v
+    · exact pointwiseEisContinuation_laurent Γ D hD σ τ A hA hsep hτ
+        k₀ hkSmooth hkSupport u θ s₁ ε hhat hhatCenter hres
   · exact residue_sq_of_ae_lift Γ D hD θ r hresInv hresEq
   · exact hidentity
 
