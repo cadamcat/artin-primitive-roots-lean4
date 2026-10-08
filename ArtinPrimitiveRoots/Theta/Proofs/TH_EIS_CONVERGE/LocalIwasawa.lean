@@ -161,4 +161,52 @@ theorem local_projective_iwasawa (v : FinPlace F)
     · simpa only [hswap, sub_self, hdet, norm_neg,
         max_eq_left (le_of_not_ge hcd)] using hheight
 
+/-- The two integral projective charts form a compact set. -/
+theorem local_projective_compact (v : FinPlace F) :
+    IsCompact (localProjectiveCompact v) := by
+  let K := v.adicCompletion F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  have hcompact : IsCompact (v.adicCompletionIntegers F : Set K) := by
+    have hset : (v.adicCompletionIntegers F : Set K) = Metric.closedBall (0 : K) 1 := by
+      change (↑((Valued.v : Valuation K (WithZero (Multiplicative ℤ))).integer) : Set K) =
+        Metric.closedBall (0 : K) 1
+      exact Valued.toNormedField.setOfPred_mem_integer_eq_closedBall (L := K)
+    rw [hset]
+    exact hproper.isCompact_closedBall 0 1
+  have hinv (t : K) : (lowerM K t)⁻¹ = lowerM K (-t) := by
+    apply inv_eq_of_mul_eq_one_right
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [lowerM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hentries : Continuous (fun t : K => (lowerM K t : Matrix (Fin 2) (Fin 2) K)) := by
+    apply continuous_pi
+    intro i
+    apply continuous_pi
+    intro j
+    fin_cases i <;> fin_cases j
+    · exact continuous_const
+    · exact continuous_const
+    · exact continuous_id
+    · exact continuous_const
+  have hlower : Continuous (lowerM K) := by
+    apply Units.continuous_iff.mpr
+    refine ⟨hentries, ?_⟩
+    simp only [hinv]
+    exact hentries.comp continuous_neg
+  have hfirst : Continuous (fun t : K => (QuotientGroup.mk (lowerM K t) : PGL2 K)) :=
+    QuotientGroup.continuous_mk.comp hlower
+  have hsecond : Continuous (fun t : K =>
+      (QuotientGroup.mk (lowerM K t * weylM K) : PGL2 K)) :=
+    QuotientGroup.continuous_mk.comp (hlower.mul continuous_const)
+  exact (hcompact.image hfirst).union (hcompact.image hsecond)
+
 end ArtinPrimitiveRoots.A1.Theta
