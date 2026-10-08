@@ -3,12 +3,15 @@ import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 import Mathlib.MeasureTheory.Measure.Haar.MulEquivHaarChar
+import ArtinPrimitiveRoots.Theta.Proofs.TH_JACQUET.SectionLinear
 
 open MeasureTheory Filter
+open Topology
 
 set_option autoImplicit false
 
 open NumberField IsDedekindDomain
+open ArtinPrimitiveRoots.Proofs.th_jacquet_p
 open scoped Classical
 
 noncomputable section
@@ -78,6 +81,49 @@ theorem absFin_pos {v : FinPlace F} {x : v.adicCompletion F} (hx : x ≠ 0) :
 theorem absFin_mul (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
     absFin v (x * y) = absFin v x * absFin v y := by
   simp only [absFin_eq_norm, norm_mul]
+
+private theorem adicCompletion_properSpace (v : FinPlace F) :
+    ProperSpace (v.adicCompletion F) := by
+  let K := v.adicCompletion F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
+  letI : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  exact (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+
+private theorem ball_isCompact (v : FinPlace F) (m : ℤ) :
+    IsCompact (ball v m) := by
+  let K := v.adicCompletion F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  letI : ProperSpace K := adicCompletion_properSpace v
+  let π : Kˣ := unifLoc v
+  have hπ : v.valuation F (unif (F := F) v) = WithZero.exp (-1 : ℤ) := by
+    dsimp [unif]
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hπcoerce : (π : K) = algebraMap F K (unif (F := F) v) := by
+    simpa [π, unifLoc, toLoc, K]
+  have hπval : Valued.v (π : K) = WithZero.exp (-1 : ℤ) := by
+    rw [hπcoerce]
+    change Valued.v (algebraMap F (v.adicCompletion F) (unif (F := F) v)) = _
+    rw [IsDedekindDomain.HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hπ
+  let r : K := ((π ^ m : Kˣ) : K)
+  have hrval : Valued.v r = WithZero.exp (-m) := by simp [r, hπval]
+  have hball : ball v m = Metric.closedBall 0 ‖r‖ := by
+    ext x
+    simp only [ball, Metric.mem_closedBall, dist_zero_right]
+    rw [← hrval]
+    change Valued.v x ≤ Valued.v r ↔ ‖x‖ ≤ ‖r‖
+    exact Valued.toNormedField.norm_le_iff.symm
+  rw [hball]
+  exact (adicCompletion_properSpace v).isCompact_closedBall 0 ‖r‖
 
 private theorem valued_lt_one_iff_ball_one (x : v.adicCompletion F) :
     Valued.v x < 1 ↔ x ∈ ball v 1 := by
@@ -448,6 +494,684 @@ def jacquetTrunc (L : FinLocalCover D H v) (A : AddCharData F) (μ : LocHaar v) 
 def jacquet (L : FinLocalCover D H v) (A : AddCharData F) (μ : LocHaar v) (f : L.L → V) : V :=
   limUnder atTop fun N : ℕ => jacquetTrunc L A μ N f
 
+private theorem jacquetKernel_integrableOn (L : FinLocalCover D H v) (T : TorusRep D H v)
+    (A : AddCharData F) (μ : LocHaar v) (s : ℂ) (f : L.L → T.V)
+    (hf : IsSection L T s f) (N : ℕ) :
+    IntegrableOn (fun x => A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x)))
+      (ball v (-(N : ℤ))) μ.μ := by
+  let K := v.adicCompletion F
+  obtain ⟨d, hψ, -⟩ := psi_conductor A v
+  obtain ⟨m, hm, hK⟩ := hf.2.2
+  have hψball : ∀ z ∈ ball v m, A.ψ v z = 1 := by
+    intro z hz
+    apply hψ z
+    change Valued.v z ≤ WithZero.exp (-(m : ℤ)) at hz
+    change Valued.v z ≤ WithZero.exp (-(-(d : ℤ)))
+    rw [Int.neg_neg]
+    change Valued.v z ≤ WithZero.exp (d : ℤ)
+    exact hz.trans (WithZero.exp_le_exp.mpr (by omega))
+  have hψball_neg : ∀ z ∈ ball v m, A.ψ v (-z) = 1 := by
+    intro z hz
+    rw [AddChar.map_neg_eq_inv (A.ψ v) z]
+    simp [hψball z hz]
+  let kfun : K → T.V := fun x => A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x))
+  have hballOpen : IsOpen (ball v m) :=
+    v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hkfun : IsLocallyConstant kfun := by
+    apply (IsLocallyConstant.iff_exists_open kfun).mpr
+    intro x
+    let U := (fun x' : K => x' - x) ⁻¹' ball v m
+    have hU : IsOpen U := by
+      dsimp [U]
+      exact hballOpen.preimage (continuous_id.sub continuous_const)
+    have hxU : x ∈ U := by
+      dsimp [U]
+      change Valued.v (x - x) ≤ WithZero.exp (-(m : ℤ))
+      simp
+    refine ⟨U, hU, hxU, ?_⟩
+    intro x' hx'
+    have hdiff : x' - x ∈ ball v m := by simpa [U] using hx'
+    let z := x' - x
+    have hz : z ∈ ball v m := by simpa [z] using hdiff
+    have hxEq : x' = x + z := by dsimp [z]; abel
+    have hphase : A.ψ v (-x') = A.ψ v (-x) := by
+      calc
+        A.ψ v (-x') = A.ψ v (-x + -z) := by rw [hxEq, neg_add]
+        _ = A.ψ v (-x) * A.ψ v (-z) := AddChar.map_add_eq_mul (A.ψ v) _ _
+        _ = A.ψ v (-x) := by
+          rw [AddChar.map_neg_eq_inv (A.ψ v) z, hψball z hz]
+          simp
+    have hgroup : L.w * L.n (Multiplicative.ofAdd x') =
+        (L.w * L.n (Multiplicative.ofAdd x)) * L.n (Multiplicative.ofAdd z) := by
+      rw [hxEq]
+      simp [ofAdd_add, mul_assoc]
+    have hsmall : L.n (Multiplicative.ofAdd z) ∈ L.Kc m := L.n_Kc m hm z hz
+    have hsection : f (L.w * L.n (Multiplicative.ofAdd x')) =
+        f (L.w * L.n (Multiplicative.ofAdd x)) := by
+      rw [hgroup]
+      exact hK (L.w * L.n (Multiplicative.ofAdd x))
+        (L.n (Multiplicative.ofAdd z)) hsmall
+    change A.ψ v (-x') • f (L.w * L.n (Multiplicative.ofAdd x')) =
+      A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x))
+    rw [hphase, hsection]
+  have hkcont : Continuous kfun := hkfun.continuous
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  letI : ProperSpace K := hproper
+  let π : Kˣ := unifLoc v
+  have hπval : Valued.v (π : K) = WithZero.exp (-1 : ℤ) := by
+    have hπ : v.valuation F (unif (F := F) v) = WithZero.exp (-1 : ℤ) := by
+      dsimp [unif]
+      exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+    have hπcoerce : (π : K) = algebraMap F K (unif (F := F) v) := by
+      simpa [π, unifLoc, toLoc, K]
+    rw [hπcoerce]
+    change Valued.v (algebraMap F (v.adicCompletion F) (unif (F := F) v)) = _
+    rw [IsDedekindDomain.HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hπ
+  let r : K := ((π⁻¹ ^ (N : ℤ) : Kˣ) : K)
+  have hrval : Valued.v r = WithZero.exp (N : ℤ) := by
+    simp [r, hπval]
+  have hball : ball v (-(N : ℤ)) = Metric.closedBall 0 ‖r‖ := by
+    ext x
+    simp only [ball, Metric.mem_closedBall, dist_zero_right, Int.neg_neg]
+    rw [← hrval]
+    change Valued.v x ≤ Valued.v r ↔ ‖x‖ ≤ ‖r‖
+    exact Valued.toNormedField.norm_le_iff.symm
+  rw [hball]
+  exact hkcont.continuousOn.integrableOn_compact (hproper.isCompact_closedBall 0 ‖r‖)
+
+private theorem jacquetTrunc_add_smul (L : FinLocalCover D H v) (T : TorusRep D H v)
+    (A : AddCharData F) (μ : LocHaar v) (s : ℂ) (f g : L.L → T.V)
+    (hf : IsSection L T s f) (hg : IsSection L T s g) (c : ℂ) (N : ℕ) :
+    jacquetTrunc L A μ N (f + c • g) =
+      jacquetTrunc L A μ N f + c • jacquetTrunc L A μ N g := by
+  let B := ball v (-(N : ℤ))
+  let kf := fun x => A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x))
+  let kg := fun x => A.ψ v (-x) • g (L.w * L.n (Multiplicative.ofAdd x))
+  have hIf : Integrable kf (μ.μ.restrict B) := jacquetKernel_integrableOn L T A μ s f hf N
+  have hIg : Integrable kg (μ.μ.restrict B) := jacquetKernel_integrableOn L T A μ s g hg N
+  have hpoint :
+      (fun x => A.ψ v (-x) • (f + c • g) (L.w * L.n (Multiplicative.ofAdd x))) =
+      fun x => kf x + c • kg x := by
+    funext x
+    simp only [Pi.add_apply, Pi.smul_apply]
+    module
+  unfold jacquetTrunc
+  change ∫ x in B, A.ψ v (-x) • (f + c • g) (L.w * L.n (Multiplicative.ofAdd x)) ∂μ.μ = _
+  rw [hpoint]
+  change ∫ x, kf x + c • kg x ∂(μ.μ.restrict B) =
+    (∫ x, kf x ∂(μ.μ.restrict B)) + c • ∫ x, kg x ∂(μ.μ.restrict B)
+  calc
+    ∫ x, kf x + c • kg x ∂(μ.μ.restrict B) =
+        (∫ x, kf x ∂(μ.μ.restrict B)) + ∫ x, c • kg x ∂(μ.μ.restrict B) :=
+      integral_add hIf (hIg.smul c)
+    _ = (∫ x, kf x ∂(μ.μ.restrict B)) + c • ∫ x, kg x ∂(μ.μ.restrict B) := by
+      rw [integral_smul]
+
+private theorem integral_comp_addLeft_ball (μ : LocHaar v) (N : ℕ) (t : v.adicCompletion F)
+    (ht : t ∈ ball v (-(N : ℤ))) {E : Type} [NormedAddCommGroup E] [NormedSpace ℝ E]
+    (f : v.adicCompletion F → E) :
+    ∫ x in ball v (-(N : ℤ)), f (t + x) ∂μ.μ =
+      ∫ x in ball v (-(N : ℤ)), f x ∂μ.μ := by
+  let K := v.adicCompletion F
+  let B := ball v (-(N : ℤ))
+  let e : K ≃ᵐ K := MeasurableEquiv.addLeft t
+  have hadd {x y : K} (hx : x ∈ B) (hy : y ∈ B) : x + y ∈ B := by
+    change x ∈ ball v (-(N : ℤ)) at hx
+    change y ∈ ball v (-(N : ℤ)) at hy
+    simp only [ball] at hx hy ⊢
+    exact (Valued.v.map_add_le_max' x y).trans (max_le hx hy)
+  have hneg {x : K} (hx : x ∈ B) : -x ∈ B := by
+    change x ∈ ball v (-(N : ℤ)) at hx
+    change -x ∈ ball v (-(N : ℤ))
+    simp only [ball] at hx ⊢
+    change Valued.v (-x) ≤ WithZero.exp (-(-(N : ℤ)))
+    rw [Valuation.map_neg]
+    exact hx
+  have hpre : e ⁻¹' B = B := by
+    ext x
+    change t + x ∈ B ↔ x ∈ B
+    constructor
+    · intro hx
+      have hsum := hadd (hneg ht) hx
+      simpa using hsum
+    · intro hx
+      exact hadd ht hx
+  have hmap := e.restrict_map μ.μ B
+  have htrans : Measure.map e μ.μ = μ.μ := by
+    simpa [e] using Measure.IsAddLeftInvariant.map_add_left_eq_self t
+  rw [htrans, hpre] at hmap
+  have hpres : MeasurePreserving e (μ.μ.restrict B) (μ.μ.restrict B) :=
+    ⟨e.measurable, hmap.symm⟩
+  change ∫ x, f (e x) ∂(μ.μ.restrict B) = ∫ x, f x ∂(μ.μ.restrict B)
+  exact MeasurePreserving.integral_comp' hpres f
+
+private theorem jacquetTrunc_unipotent (L : FinLocalCover D H v) (A : AddCharData F)
+    (μ : LocHaar v) (N : ℕ) (f : L.L → V) (t : v.adicCompletion F)
+    (ht : t ∈ ball v (-(N : ℤ))) :
+    jacquetTrunc L A μ N (rtr (L.n (Multiplicative.ofAdd t)) f) =
+      A.ψ v t • jacquetTrunc L A μ N f := by
+  let B := ball v (-(N : ℤ))
+  let kfun := fun x => A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x))
+  have hphase (x : v.adicCompletion F) :
+      A.ψ v (-x) = A.ψ v t * A.ψ v (-(t + x)) := by
+    have harg : -x = t + (-(t + x)) := by abel
+    rw [harg, AddChar.map_add_eq_mul]
+  have hgroup (x : v.adicCompletion F) :
+      L.w * L.n (Multiplicative.ofAdd x) * L.n (Multiplicative.ofAdd t) =
+        L.w * L.n (Multiplicative.ofAdd (t + x)) := by
+    calc
+      _ = L.w * (L.n (Multiplicative.ofAdd x) * L.n (Multiplicative.ofAdd t)) := by
+        simp [mul_assoc]
+      _ = L.w * L.n (Multiplicative.ofAdd x * Multiplicative.ofAdd t) := by
+        rw [← map_mul]
+      _ = L.w * L.n (Multiplicative.ofAdd (x + t)) := by rw [ofAdd_add]
+      _ = L.w * L.n (Multiplicative.ofAdd (t + x)) := by rw [add_comm]
+  have hkernel (x : v.adicCompletion F) :
+      A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x) *
+        L.n (Multiplicative.ofAdd t)) = A.ψ v t • kfun (t + x) := by
+    rw [hphase x, hgroup x]
+    simp [kfun, smul_smul]
+  unfold jacquetTrunc
+  change (∫ x in B, A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x) *
+        L.n (Multiplicative.ofAdd t)) ∂μ.μ) =
+      A.ψ v t • ∫ x in B, kfun x ∂μ.μ
+  calc
+    _ = ∫ x in B, A.ψ v t • kfun (t + x) ∂μ.μ := by
+      apply integral_congr_ae
+      filter_upwards [] with x
+      exact hkernel x
+    _ = A.ψ v t • ∫ x in B, kfun (t + x) ∂μ.μ := by rw [integral_smul]
+    _ = A.ψ v t • ∫ x in B, kfun x ∂μ.μ := by
+      congr 1
+      exact integral_comp_addLeft_ball μ N t ht kfun
+
+private theorem jacquetTrunc_central (L : FinLocalCover D H v) (T : TorusRep D H v)
+    (A : AddCharData F) (μ : LocHaar v) (s : ℂ) (N : ℕ) (f : L.L → T.V)
+    (hf : IsSection L T s f) (ζ : rootsOfUnity 3 ℂ) :
+    jacquetTrunc L A μ N (rtr (L.z ζ) f) =
+      ((ζ : ℂˣ) : ℂ) • jacquetTrunc L A μ N f := by
+  let B := ball v (-(N : ℤ))
+  have hpoint (x : v.adicCompletion F) :
+      A.ψ v (-x) • (rtr (L.z ζ) f) (L.w * L.n (Multiplicative.ofAdd x)) =
+        ((ζ : ℂˣ) : ℂ) • (A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x))) := by
+    change A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x) * L.z ζ) = _
+    rw [← L.z_central ζ (L.w * L.n (Multiplicative.ofAdd x)),
+      hf.2.1 ζ (L.w * L.n (Multiplicative.ofAdd x))]
+    module
+  unfold jacquetTrunc
+  calc
+    ∫ x in B, A.ψ v (-x) • (rtr (L.z ζ) f) (L.w * L.n (Multiplicative.ofAdd x)) ∂μ.μ =
+        ∫ x in B, ((ζ : ℂˣ) : ℂ) •
+          (A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x))) ∂μ.μ := by
+      apply integral_congr_ae
+      filter_upwards [] with x
+      exact hpoint x
+    _ = ((ζ : ℂˣ) : ℂ) • ∫ x in B,
+        A.ψ v (-x) • f (L.w * L.n (Multiplicative.ofAdd x)) ∂μ.μ := by
+      rw [integral_smul]
+
+private theorem exists_ballNeg_nat (t : v.adicCompletion F) :
+    ∃ N : ℕ, t ∈ ball v (-(N : ℤ)) := by
+  by_cases ht : t = 0
+  · refine ⟨0, ?_⟩
+    simp [ht, ball]
+  · have hval : Valued.v t ≠ 0 := by simpa [ht]
+    lift Valued.v t to ℤ using hval with n hn
+    refine ⟨n.natAbs, ?_⟩
+    simp only [ball, Int.neg_neg]
+    change Valued.v t ≤ WithZero.exp (n.natAbs : ℤ)
+    rw [← hn]
+    apply WithZero.exp_le_exp.mpr
+    cases n with
+    | ofNat k => simp
+    | negSucc k => simp [Int.natAbs]; omega
+
+private theorem ballNeg_nat_mono {N M : ℕ} (hNM : N ≤ M) :
+    ball v (-(N : ℤ)) ⊆ ball v (-(M : ℤ)) := by
+  intro x hx
+  simp only [ball, Int.neg_neg] at hx ⊢
+  exact hx.trans (WithZero.exp_le_exp.mpr (by exact_mod_cast hNM))
+
+private theorem compact_subset_ballNeg_nat {s : Set (v.adicCompletion F)}
+    (hs : IsCompact s) (coverPoint : ∀ x, ∃ N : ℕ, x ∈ ball v (-(N : ℤ))) :
+    ∃ N : ℕ, s ⊆ ball v (-(N : ℤ)) := by
+  let U : ℕ → Set (v.adicCompletion F) := fun N => ball v (-(N : ℤ))
+  have hU : ∀ N, IsOpen (U N) := by
+    intro N
+    exact v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hcover : s ⊆ ⋃ N, U N := by
+    intro x hx
+    obtain ⟨N, hN⟩ := coverPoint x
+    exact Set.mem_iUnion.2 ⟨N, hN⟩
+  obtain ⟨t, ht⟩ := hs.elim_finite_subcover U hU hcover
+  let M := t.sup id
+  refine ⟨M, ?_⟩
+  intro x hx
+  rcases Set.mem_iUnion₂.mp (ht hx) with ⟨N, hN, hxN⟩
+  apply ballNeg_nat_mono (by simpa [M] using Finset.le_sup (f := id) hN) hxN
+
+private theorem exists_ballTranslate_subset {U : Set (v.adicCompletion F)}
+    (hU : IsOpen U) {x : v.adicCompletion F} (hx : x ∈ U) :
+    ∃ N : ℕ, {z | z - x ∈ ball v (N : ℤ)} ⊆ U := by
+  let K := v.adicCompletion F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  letI : NormedField K := inferInstance
+  let π : Kˣ := unifLoc v
+  have hπ : v.valuation F (unif (F := F) v) = WithZero.exp (-1 : ℤ) := by
+    dsimp [unif]
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hπcoerce : (π : K) = algebraMap F K (unif (F := F) v) := by
+    simpa [π, unifLoc, toLoc, K]
+  have hπval : Valued.v (π : K) = WithZero.exp (-1 : ℤ) := by
+    rw [hπcoerce]
+    change Valued.v (algebraMap F (v.adicCompletion F) (unif (F := F) v)) = _
+    rw [IsDedekindDomain.HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hπ
+  have hπnorm : ‖(π : K)‖ < 1 := by
+    rw [Valued.toNormedField.norm_lt_one_iff, hπval]
+    simp
+  have hpow : Tendsto (fun n : ℕ => (π : K) ^ n) atTop (𝓝 (0 : K)) :=
+    tendsto_pow_atTop_nhds_zero_of_norm_lt_one hπnorm
+  rcases Metric.mem_nhds_iff.mp (hU.mem_nhds hx) with ⟨ε, hε, hεU⟩
+  have hsmall : ∀ᶠ n : ℕ in atTop, ‖(π : K) ^ n‖ < ε := by
+    filter_upwards [hpow.eventually (Metric.ball_mem_nhds 0 hε)] with n hn
+    simpa [Metric.mem_ball, dist_zero_right] using hn
+  obtain ⟨N, hNsmall⟩ := Filter.Eventually.exists hsmall
+  let r : K := ((π ^ (N : ℤ) : Kˣ) : K)
+  have hrval : Valued.v r = WithZero.exp (-(N : ℤ)) := by
+    simp [r, hπval, ← WithZero.exp_zsmul]
+  have hball : ball v (N : ℤ) = Metric.closedBall 0 ‖r‖ := by
+    ext z
+    simp only [ball, Metric.mem_closedBall, dist_zero_right]
+    rw [← hrval]
+    change Valued.v z ≤ Valued.v r ↔ ‖z‖ ≤ ‖r‖
+    exact Valued.toNormedField.norm_le_iff.symm
+  refine ⟨N, ?_⟩
+  intro z hz
+  have hnorm : ‖z - x‖ < ε := by
+    have hzClosed : z - x ∈ Metric.closedBall (0 : K) ‖r‖ := by
+      rw [← hball]
+      exact hz
+    have hz' : ‖z - x‖ ≤ ‖r‖ := by
+      simpa [Metric.mem_closedBall, dist_zero_right] using hzClosed
+    have hrnorm : ‖r‖ < ε := by simpa [r] using hNsmall
+    exact lt_of_le_of_lt hz' hrnorm
+  have hdist : dist z x < ε := by simpa [dist_eq_norm] using hnorm
+  exact hεU (Metric.mem_ball.mpr hdist)
+
+private theorem ballNat_add (N : ℕ) {x y : v.adicCompletion F}
+    (hx : x ∈ ball v (N : ℤ)) (hy : y ∈ ball v (N : ℤ)) :
+    x + y ∈ ball v (N : ℤ) := by
+  simp only [ball] at hx hy ⊢
+  exact (Valued.v.map_add_le_max' x y).trans (max_le hx hy)
+
+private theorem ballNat_neg (N : ℕ) {x : v.adicCompletion F}
+    (hx : x ∈ ball v (N : ℤ)) : -x ∈ ball v (N : ℤ) := by
+  simp only [ball] at hx ⊢
+  change Valued.v x ≤ WithZero.exp (-(N : ℤ)) at hx
+  change Valued.v (-x) ≤ WithZero.exp (-(N : ℤ))
+  rw [Valuation.map_neg]
+  exact hx
+
+private theorem ballNat_mono {N M : ℕ} (hNM : N ≤ M) :
+    ball v (M : ℤ) ⊆ ball v (N : ℤ) := by
+  intro x hx
+  simp only [ball] at hx ⊢
+  change Valued.v x ≤ WithZero.exp (-(M : ℤ)) at hx
+  change Valued.v x ≤ WithZero.exp (-(N : ℤ))
+  exact hx.trans (WithZero.exp_le_exp.mpr (by omega))
+
+private theorem ballNat_coset_eq (N : ℕ) (a b x : v.adicCompletion F)
+    (hxa : x - a ∈ ball v (N : ℤ)) (hxb : x - b ∈ ball v (N : ℤ)) :
+    {z | z - a ∈ ball v (N : ℤ)} = {z | z - b ∈ ball v (N : ℤ)} := by
+  have hab : a - b ∈ ball v (N : ℤ) := by
+    have heq : a - b = -(x - a) + (x - b) := by abel
+    rw [heq]
+    exact ballNat_add N (ballNat_neg N hxa) hxb
+  have hba : b - a ∈ ball v (N : ℤ) := by
+    convert ballNat_neg N hab using 1 <;> abel
+  ext z
+  constructor
+  · intro hza
+    have hz : z - b = (z - a) + (a - b) := by abel
+    change z - b ∈ ball v (N : ℤ)
+    rw [hz]
+    exact ballNat_add N hza hab
+  · intro hzb
+    have hz : z - a = (z - b) + (b - a) := by abel
+    change z - a ∈ ball v (N : ℤ)
+    rw [hz]
+    exact ballNat_add N hzb hba
+
+private theorem exists_uniform_ball_translation (U : Set (v.adicCompletion F))
+    (hUc : IsCompact U) (hUo : IsOpen U) :
+    ∃ N : ℕ, ∀ x ∈ U, ∀ z ∈ ball v (N : ℤ), x + z ∈ U := by
+  classical
+  let Usub := {x : v.adicCompletion F // x ∈ U}
+  choose n hn using fun x : Usub => exists_ballTranslate_subset hUo x.property
+  let W : Usub → Set (v.adicCompletion F) := fun x =>
+    {z | z - (x : v.adicCompletion F) ∈ ball v (n x : ℤ)}
+  have hWo (x : Usub) : IsOpen (W x) := by
+    dsimp [W]
+    exact (v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero).preimage
+      (continuous_id.sub continuous_const)
+  have hcover : U ⊆ ⋃ x : Usub, W x := by
+    intro x hx
+    apply Set.mem_iUnion.2
+    refine ⟨⟨x, hx⟩, ?_⟩
+    simp [W, ball]
+  obtain ⟨t, ht⟩ := hUc.elim_finite_subcover W hWo hcover
+  let N := t.sup n
+  refine ⟨N, ?_⟩
+  intro x hx z hz
+  rcases Set.mem_iUnion₂.mp (ht hx) with ⟨a, ha, hxa⟩
+  have hna : n a ≤ N := by simpa [N] using Finset.le_sup (f := n) ha
+  have hz' : z ∈ ball v (n a : ℤ) := ballNat_mono hna hz
+  have hxa' : x - (a : v.adicCompletion F) ∈ ball v (n a : ℤ) := hxa
+  have hsum : (x + z) - (a : v.adicCompletion F) ∈ ball v (n a : ℤ) := by
+    have heq : (x + z) - (a : v.adicCompletion F) =
+        (x - (a : v.adicCompletion F)) + z := by abel
+    rw [heq]
+    exact ballNat_add (n a) hxa' hz'
+  exact hn a hsum
+
+private theorem exists_finite_coset_cover (U : Set (v.adicCompletion F))
+    (hUc : IsCompact U) (hUo : IsOpen U) :
+    ∃ (N : ℕ) (C : Finset (Set (v.adicCompletion F))),
+      (∀ S ∈ C, ∃ a ∈ U, S = {z | z - a ∈ ball v (N : ℤ)}) ∧
+      U = ⋃ S ∈ C, S := by
+  classical
+  obtain ⟨N, htrans⟩ := exists_uniform_ball_translation U hUc hUo
+  let Usub := {x : v.adicCompletion F // x ∈ U}
+  let W : Usub → Set (v.adicCompletion F) := fun a =>
+    {z | z - (a : v.adicCompletion F) ∈ ball v (N : ℤ)}
+  have hWo (a : Usub) : IsOpen (W a) := by
+    dsimp [W]
+    exact (v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero).preimage
+      (continuous_id.sub continuous_const)
+  have hcover : U ⊆ ⋃ a : Usub, W a := by
+    intro x hx
+    exact Set.mem_iUnion.2 ⟨⟨x, hx⟩, by simp [W, ball]⟩
+  obtain ⟨t, ht⟩ := hUc.elim_finite_subcover W hWo hcover
+  let C := t.image W
+  have hrep (S : Set (v.adicCompletion F)) (hS : S ∈ C) :
+      ∃ a ∈ U, S = {z | z - a ∈ ball v (N : ℤ)} := by
+    rcases Finset.mem_image.mp hS with ⟨a, ha, hEq⟩
+    exact ⟨a, a.property, by simpa [W] using hEq.symm⟩
+  have hsubset (a : Usub) : W a ⊆ U := by
+    intro z hz
+    have hzU := htrans a.1 a.property (z - a.1) hz
+    simpa using hzU
+  refine ⟨N, C, hrep, ?_⟩
+  ext z
+  constructor
+  · intro hz
+    rcases Set.mem_iUnion₂.mp (ht hz) with ⟨a, ha, hza⟩
+    exact Set.mem_iUnion₂.mpr ⟨W a, Finset.mem_image.mpr ⟨a, ha, rfl⟩, hza⟩
+  · intro hz
+    rcases Set.mem_iUnion₂.mp hz with ⟨S, hS, hzS⟩
+    rcases Finset.mem_image.mp hS with ⟨a, ha, hEq⟩
+    rw [← hEq] at hzS
+    exact hsubset a hzS
+
+private theorem addChar_locallyConstant (A : AddCharData F) :
+    IsLocallyConstant (A.ψ v) := by
+  obtain ⟨d, hψ, -⟩ := psi_conductor A v
+  have hballOpen : IsOpen (ball v (-(d : ℤ))) :=
+    v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  apply (IsLocallyConstant.iff_exists_open (A.ψ v)).mpr
+  intro x
+  let U := (fun x' : v.adicCompletion F => x' - x) ⁻¹' ball v (-(d : ℤ))
+  have hU : IsOpen U := by
+    dsimp [U]
+    exact hballOpen.preimage (continuous_id.sub continuous_const)
+  have hxU : x ∈ U := by
+    dsimp [U]
+    change x - x ∈ ball v (-(d : ℤ))
+    simp only [ball, Int.neg_neg]
+    simp
+  refine ⟨U, hU, hxU, ?_⟩
+  intro x' hx'
+  have hdiff : x' - x ∈ ball v (-(d : ℤ)) := by simpa [U] using hx'
+  let z := x' - x
+  have hz : z ∈ ball v (-(d : ℤ)) := by simpa [z] using hdiff
+  have hxEq : x' = x + z := by dsimp [z]; abel
+  calc
+    A.ψ v x' = A.ψ v (x + z) := by rw [hxEq]
+    _ = A.ψ v x * A.ψ v z := AddChar.map_add_eq_mul (A.ψ v) x z
+    _ = A.ψ v x := by rw [hψ z hz, mul_one]
+
+private theorem fourierKernel_locallyConstant (T : TorusRep D H v) (A : AddCharData F)
+    (φ : v.adicCompletion F → T.V)
+    (hφ : IsLocallyConstant φ) (y : (v.adicCompletion F)ˣ) :
+    IsLocallyConstant (fun x => A.ψ v (-x) • φ (x * (y⁻¹ : v.adicCompletion F))) := by
+  have hψneg : IsLocallyConstant (fun x : v.adicCompletion F => A.ψ v (-x)) :=
+    (addChar_locallyConstant A).comp_continuous continuous_neg
+  have hmul : Continuous (fun x : v.adicCompletion F => x * (y⁻¹ : v.adicCompletion F)) :=
+    continuous_id.mul continuous_const
+  have hφcomp : IsLocallyConstant (fun x : v.adicCompletion F =>
+      φ (x * (y⁻¹ : v.adicCompletion F))) := hφ.comp_continuous hmul
+  exact hψneg.comp₂ hφcomp (fun a b => a • b)
+
+private theorem fourierKernel_hasCompactSupport (T : TorusRep D H v) (A : AddCharData F)
+    (φ : v.adicCompletion F → T.V)
+    (hc : HasCompactSupport φ) (y : (v.adicCompletion F)ˣ) :
+    HasCompactSupport (fun x => A.ψ v (-x) • φ (x * (y⁻¹ : v.adicCompletion F))) := by
+  let c : v.adicCompletion F := (y⁻¹ : (v.adicCompletion F)ˣ)
+  have hccomp : HasCompactSupport (fun x : v.adicCompletion F => φ (c • x)) :=
+    hc.comp_smul (c := c) (by simp [c])
+  have heq : (fun x : v.adicCompletion F => φ (x * (y⁻¹ : v.adicCompletion F))) =
+      fun x => φ (c • x) := by
+    funext x
+    simp [c, smul_eq_mul, mul_comm]
+  change IsCompact (tsupport (fun x : v.adicCompletion F =>
+    A.ψ v (-x) • φ (x * (y⁻¹ : v.adicCompletion F))))
+  rw [show (fun x : v.adicCompletion F => A.ψ v (-x) • φ (x * (y⁻¹ : v.adicCompletion F))) =
+      fun x => A.ψ v (-x) • φ (c • x) by
+        funext x
+        exact congrArg (fun z => A.ψ v (-x) • z) (congrFun heq x)]
+  exact HasCompactSupport.smul_left hccomp
+
+private theorem setIntegral_eq_integral_of_zero_off {X E : Type} [MeasurableSpace X]
+    [NormedAddCommGroup E] [NormedSpace ℝ E] {μ : Measure X} {s : Set X}
+    (hs : MeasurableSet s) (f : X → E) (hzero : ∀ x, x ∉ s → f x = 0) :
+    ∫ x in s, f x ∂μ = ∫ x, f x ∂μ := by
+  rw [← integral_indicator hs]
+  apply integral_congr_ae
+  filter_upwards [] with x
+  by_cases hx : x ∈ s
+  · simp [hx]
+  · simp [hx, hzero x hx]
+
+private theorem indicator_locallyConstant {X E : Type} [TopologicalSpace X] [Zero E]
+    (s : Set X) (hsOpen : IsOpen s) (hsClosed : IsClosed s) (f : X → E)
+    (hf : IsLocallyConstant f) : IsLocallyConstant (s.indicator f) := by
+  apply (IsLocallyConstant.iff_exists_open (s.indicator f)).mpr
+  intro x
+  by_cases hx : x ∈ s
+  · obtain ⟨t, htOpen, hxt, hconst⟩ := hf.exists_open x
+    refine ⟨s ∩ t, hsOpen.inter htOpen, ⟨hx, hxt⟩, ?_⟩
+    intro y hy
+    rcases hy with ⟨hys, hyt⟩
+    rw [Set.indicator_of_mem hys, Set.indicator_of_mem hx, hconst y hyt]
+  · refine ⟨sᶜ, hsClosed.isOpen_compl, hx, ?_⟩
+    intro y hy
+    rw [Set.indicator_of_notMem hy, Set.indicator_of_notMem hx]
+
+private theorem indicator_hasCompactSupport {X E : Type} [TopologicalSpace X] [R1Space X] [Zero E]
+    {s : Set X} (hs : IsCompact s) (f : X → E) : HasCompactSupport (s.indicator f) := by
+  apply HasCompactSupport.of_support_subset_isCompact hs
+  apply Function.support_subset_iff'.mpr
+  intro x hx
+  simp [hx]
+
+private theorem locallyConstant_finset_sum {ι X E : Type} [TopologicalSpace X] [AddCommMonoid E]
+    (s : Finset ι) (f : ι → X → E)
+    (hf : ∀ i ∈ s, IsLocallyConstant (f i)) :
+    IsLocallyConstant (fun x => ∑ i ∈ s, f i x) := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => exact IsLocallyConstant.const (X := X) (0 : E)
+  | @insert a s ha ih =>
+      have hfa : IsLocallyConstant (f a) := hf a (Finset.mem_insert_self a s)
+      have hfs : ∀ i ∈ s, IsLocallyConstant (f i) := by
+        intro i hi
+        exact hf i (Finset.mem_insert_of_mem hi)
+      have hsum : IsLocallyConstant (fun x => f a x + ∑ i ∈ s, f i x) :=
+        hfa.comp₂ (ih hfs) (fun x y => x + y)
+      simpa [Finset.sum_insert, ha] using hsum
+
+private theorem addCharIntegral_ball_orthogonal {V : Type} [NormedAddCommGroup V]
+    [NormedSpace ℂ V] [CompleteSpace V] (A : AddCharData F) (μ : LocHaar v) (d k : ℕ)
+    (htriv : ∀ z ∈ ball v (-(d : ℤ)), A.ψ v z = 1)
+    (hbad : ∃ b, b ∈ ball v (-((d : ℤ) + 1)) ∧ A.ψ v b ≠ 1)
+    (z : v.adicCompletion F) (x : V) :
+    ∫ t in ball v (-((k + d : ℕ) : ℤ)), A.ψ v (z * t) • x ∂μ.μ =
+      if z ∈ ball v (k : ℤ) then
+        (((μ.μ (ball v (-((k + d : ℕ) : ℤ)))).toReal : ℝ) : ℂ) • x else 0 := by
+  classical
+  let K := v.adicCompletion F
+  let B := ball v (-((k + d : ℕ) : ℤ))
+  let vol : ℝ := (μ.μ B).toReal
+  letI : ProperSpace K := adicCompletion_properSpace v
+  have hBcompact : IsCompact B := by
+    simpa [B] using ball_isCompact v (-((k + d : ℕ) : ℤ))
+  have hBopen : IsOpen B := by
+    exact v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hBfinite : μ.μ B < ⊤ := hBcompact.measure_lt_top
+  have hBne : 0 < μ.μ B := hBopen.measure_pos μ.μ ⟨0, by simp [B, ball]⟩
+  have hvolpos : 0 < vol := by
+    dsimp [vol]
+    exact ENNReal.toReal_pos hBne.ne' (ne_of_lt hBfinite)
+  have hconst (w : V) : ∫ t in B, w ∂μ.μ = (vol : ℂ) • w := by
+    rw [setIntegral_const]
+    dsimp [vol, Measure.real]
+  by_cases hz : z ∈ ball v (k : ℤ)
+  · have htrivProd : ∀ t ∈ B, A.ψ v (z * t) = 1 := by
+      intro t ht
+      have hzval : Valued.v z ≤ WithZero.exp (-(k : ℤ)) := by
+        change z ∈ ball v (k : ℤ) at hz
+        simp only [ball] at hz
+        change Valued.v z ≤ WithZero.exp (-(k : ℤ)) at hz
+        exact hz
+      have htval : Valued.v t ≤ WithZero.exp ((k + d : ℕ) : ℤ) := by
+        change t ∈ ball v (-((k + d : ℕ) : ℤ)) at ht
+        simp only [ball, Int.neg_neg] at ht
+        change Valued.v t ≤ WithZero.exp ((k + d : ℕ) : ℤ) at ht
+        exact ht
+      have hprod : Valued.v (z * t) ≤ WithZero.exp (d : ℤ) := by
+        calc
+          Valued.v (z * t) = Valued.v z * Valued.v t := map_mul _ _ _
+          _ ≤ WithZero.exp (-(k : ℤ)) * WithZero.exp ((k + d : ℕ) : ℤ) :=
+            mul_le_mul' hzval htval
+          _ = WithZero.exp (d : ℤ) := by
+            rw [← WithZero.exp_add]
+            congr 1
+            omega
+      apply htriv (z * t)
+      change Valued.v (z * t) ≤ WithZero.exp (-(-(d : ℤ)))
+      simpa only [Int.neg_neg] using hprod
+    calc
+      ∫ t in B, A.ψ v (z * t) • x ∂μ.μ = ∫ t in B, x ∂μ.μ := by
+        apply integral_congr_ae
+        filter_upwards [ae_restrict_mem hBopen.measurableSet] with t ht
+        rw [htrivProd t ht]
+        simp
+      _ = (vol : ℂ) • x := hconst x
+      _ = if z ∈ ball v (k : ℤ) then (vol : ℂ) • x else 0 := by simp [hz]
+  · obtain ⟨b₀, hb₀, hψb₀⟩ := hbad
+    have hz0 : z ≠ 0 := by
+      intro hz0
+      apply hz
+      simp [hz0, ball]
+    have hvz : Valued.v z ≠ 0 := by simpa [hz0]
+    lift Valued.v z to ℤ using hvz with n hn
+    have hnLower : -(k : ℤ) + 1 ≤ n := by
+      have hnot : ¬ WithZero.exp n ≤ WithZero.exp (-(k : ℤ)) := by
+        intro hle
+        apply hz
+        change Valued.v z ≤ WithZero.exp (-(k : ℤ))
+        rw [← hn]
+        exact hle
+      have hlt : -(k : ℤ) < n := by
+        have h := hnot
+        simp only [WithZero.exp_le_exp] at h
+        omega
+      omega
+    let b := b₀ / z
+    have hbval₀ : Valued.v b₀ ≤ WithZero.exp ((d : ℤ) + 1) := by
+      change b₀ ∈ ball v (-((d : ℤ) + 1)) at hb₀
+      simp only [ball, Int.neg_neg] at hb₀
+      change Valued.v b₀ ≤ WithZero.exp ((d : ℤ) + 1)
+      exact hb₀
+    have hbval : Valued.v b ≤ WithZero.exp ((k + d : ℕ) : ℤ) := by
+      have hlow : WithZero.exp (-(k : ℤ) + 1) ≤ Valued.v z := by
+        rw [← hn]
+        exact WithZero.exp_le_exp.mpr hnLower
+      have hdenpos : 0 < Valued.v z := by
+        rw [← hn]
+        exact WithZero.exp_pos
+      have hupper : WithZero.exp ((d : ℤ) + 1) ≤
+          WithZero.exp ((k + d : ℕ) : ℤ) * Valued.v z := by
+        calc
+          WithZero.exp ((d : ℤ) + 1) =
+              WithZero.exp ((k + d : ℕ) : ℤ) * WithZero.exp (-(k : ℤ) + 1) := by
+                rw [← WithZero.exp_add]
+                congr 1
+                omega
+          _ ≤ WithZero.exp ((k + d : ℕ) : ℤ) * Valued.v z := by gcongr
+      dsimp [b]
+      rw [map_div₀]
+      exact (div_le_iff₀ hdenpos).2 (hbval₀.trans hupper)
+    have hbB : b ∈ B := by
+      change b ∈ ball v (-((k + d : ℕ) : ℤ))
+      simp only [B, ball, Int.neg_neg]
+      change Valued.v b ≤ WithZero.exp ((k + d : ℕ) : ℤ)
+      exact hbval
+    have hzb : z * b = b₀ := by
+      dsimp [b]
+      field_simp [hz0]
+    have hψzb : A.ψ v (z * b) ≠ 1 := by simpa [hzb] using hψb₀
+    let I : V := ∫ t in B, A.ψ v (z * t) • x ∂μ.μ
+    have htrans := integral_comp_addLeft_ball μ (k + d) b hbB
+      (fun t => A.ψ v (z * t) • x)
+    have hpoint (t : K) : A.ψ v (z * (b + t)) • x =
+        A.ψ v (z * b) • (A.ψ v (z * t) • x) := by
+      rw [mul_add, AddChar.map_add_eq_mul]
+      simp [smul_smul]
+    have hfix : I = A.ψ v (z * b) • I := by
+      dsimp [I]
+      calc
+        ∫ t in B, A.ψ v (z * t) • x ∂μ.μ =
+            ∫ t in B, A.ψ v (z * (b + t)) • x ∂μ.μ := htrans.symm
+        _ = ∫ t in B, A.ψ v (z * b) • (A.ψ v (z * t) • x) ∂μ.μ := by
+          apply integral_congr_ae
+          filter_upwards [] with t
+          exact hpoint t
+        _ = A.ψ v (z * b) • ∫ t in B, A.ψ v (z * t) • x ∂μ.μ := by
+          rw [integral_smul]
+    have hmul : (1 - A.ψ v (z * b)) • I = 0 := by
+      calc
+        (1 - A.ψ v (z * b)) • I = I - A.ψ v (z * b) • I := by
+          rw [sub_smul, one_smul]
+        _ = 0 := by rw [← hfix]; simp
+    have hcoef : 1 - A.ψ v (z * b) ≠ 0 := sub_ne_zero.mpr (Ne.symm hψzb)
+    have hI : I = 0 := (smul_eq_zero.mp hmul).resolve_left hcoef
+    simp only [if_neg hz]
+    change I = 0
+    exact hI
+
 /-- **jq:stable** (10:300–320): for every `s` and every section the truncations are eventually
 constant (large shells vanish). -/
 theorem jacquet_stable (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddCharData F)
@@ -459,14 +1183,51 @@ theorem jacquet_stable (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddCh
 theorem jacquet_linear (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddCharData F)
     (μ : LocHaar v) (s : ℂ) (f g : L.L → T.V) (hf : IsSection L T s f) (hg : IsSection L T s g)
     (c : ℂ) : jacquet L A μ (f + c • g) = jacquet L A μ f + c • jacquet L A μ g := by
-  sorry
+  have hfgSection : IsSection L T s (f + c • g) := section_add_smul L T s c f g hf hg
+  obtain ⟨Nfg, hfg⟩ := jacquet_stable L T A μ s (f + c • g) hfgSection
+  obtain ⟨Nf, hfst⟩ := jacquet_stable L T A μ s f hf
+  obtain ⟨Ng, hgst⟩ := jacquet_stable L T A μ s g hg
+  let N := max (max Nfg Nf) Ng
+  have hNfg : Nfg ≤ N := le_trans (le_max_left _ _) (le_max_left _ _)
+  have hNf : Nf ≤ N := le_trans (le_max_right _ _) (le_max_left _ _)
+  have hNg : Ng ≤ N := le_max_right _ _
+  rw [← hfg N hNfg, jacquetTrunc_add_smul L T A μ s f g hf hg c N,
+    hfst N hNf, hgst N hNg]
 
 /-- **jq:equiv** (10:322–329): `𝒥(π(n(t))f) = ψ(t)𝒥(f)` and `𝒥(π(z(ζ))f) = ζ𝒥(f)`. -/
 theorem jacquet_equiv (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddCharData F)
     (μ : LocHaar v) (s : ℂ) (f : L.L → T.V) (hf : IsSection L T s f) :
     (∀ t, jacquet L A μ (rtr (L.n (Multiplicative.ofAdd t)) f) = A.ψ v t • jacquet L A μ f) ∧
     ∀ ζ, jacquet L A μ (rtr (L.z ζ) f) = ((ζ : ℂˣ) : ℂ) • jacquet L A μ f := by
-  sorry
+  constructor
+  · intro t
+    let n := L.n (Multiplicative.ofAdd t)
+    have hft : IsSection L T s (rtr n f) := hf.rtr n
+    obtain ⟨Nft, hstft⟩ := jacquet_stable L T A μ s (rtr n f) hft
+    obtain ⟨Nf, hstf⟩ := jacquet_stable L T A μ s f hf
+    obtain ⟨Nt, htball⟩ := exists_ballNeg_nat t
+    let N := max (max Nft Nf) Nt
+    have hNft : Nft ≤ N := le_trans (le_max_left _ _) (le_max_left _ _)
+    have hNf : Nf ≤ N := le_trans (le_max_right _ _) (le_max_left _ _)
+    have hNt : Nt ≤ N := le_max_right _ _
+    have htN : t ∈ ball v (-(N : ℤ)) := ballNeg_nat_mono hNt htball
+    calc
+      jacquet L A μ (rtr n f) = jacquetTrunc L A μ N (rtr n f) := (hstft N hNft).symm
+      _ = A.ψ v t • jacquetTrunc L A μ N f := jacquetTrunc_unipotent L A μ N f t htN
+      _ = A.ψ v t • jacquet L A μ f := by rw [hstf N hNf]
+  · intro ζ
+    have hfζ : IsSection L T s (rtr (L.z ζ) f) := hf.rtr (L.z ζ)
+    obtain ⟨Nζ, hstζ⟩ := jacquet_stable L T A μ s (rtr (L.z ζ) f) hfζ
+    obtain ⟨Nf, hstf⟩ := jacquet_stable L T A μ s f hf
+    let N := max Nζ Nf
+    have hNζ : Nζ ≤ N := le_max_left _ _
+    have hNf : Nf ≤ N := le_max_right _ _
+    calc
+      jacquet L A μ (rtr (L.z ζ) f) = jacquetTrunc L A μ N (rtr (L.z ζ) f) :=
+        (hstζ N hNζ).symm
+      _ = ((ζ : ℂˣ) : ℂ) • jacquetTrunc L A μ N f :=
+        jacquetTrunc_central L T A μ s N f hf ζ
+      _ = ((ζ : ℂˣ) : ℂ) • jacquet L A μ f := by rw [hstf N hNf]
 
 /-- **jq:bigcell**: the Jacquet integral of a big-cell section on the torus:
 `𝒥(π(a(y)) f_φ) = ‖y‖^{1/2-s} σ(a(y⁻¹)) φ̂(y)`, `φ̂(y) = ∫ ψ(-yt) φ(t) dt`. -/
@@ -476,7 +1237,167 @@ theorem jacquet_bigCell (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddC
     jacquet L A μ (rtr (L.a y) (bigCell L T s φ)) =
       ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 - s)) •
         T.σa y⁻¹ (∫ t, A.ψ v (-((y : v.adicCompletion F) * t)) • φ t ∂μ.μ) := by
-  sorry
+  let K := v.adicCompletion F
+  let C : ℂ := ((absFin v (y⁻¹ : Kˣ) : ℝ) : ℂ) ^ ((1 : ℂ) / 2 + s)
+  have hyInvVal : ((y⁻¹ : Kˣ) : K) = (y : K)⁻¹ := by simp
+  let kfun : K → T.V := fun x => A.ψ v (-x) • φ (x * (y : K)⁻¹)
+  let σ : T.V →L[ℂ] T.V := (T.σa y⁻¹).toContinuousLinearMap
+  have hwa : L.w * L.a y = L.a y⁻¹ * L.w := by
+    have hwInv : L.w⁻¹ = L.w := (eq_inv_of_mul_eq_one_left L.w_sq).symm
+    calc
+      L.w * L.a y = (L.w * L.a y * L.w⁻¹) * L.w := by group
+      _ = L.a y⁻¹ * L.w := by rw [L.lift_wa]
+  have hgroup (x : K) :
+      L.w * L.n (Multiplicative.ofAdd x) * L.a y =
+        L.a y⁻¹ * L.w * L.n (Multiplicative.ofAdd (x * (y : K)⁻¹)) := by
+    calc
+      L.w * L.n (Multiplicative.ofAdd x) * L.a y =
+          L.w * (L.n (Multiplicative.ofAdd x) * L.a y) := by simp [mul_assoc]
+      _ = L.w * (L.a y * L.n (Multiplicative.ofAdd (x * (y : K)⁻¹))) := by
+        rw [L.lift_na]
+        rw [hyInvVal]
+      _ = (L.w * L.a y) * L.n (Multiplicative.ofAdd (x * (y : K)⁻¹)) := by
+        simp [mul_assoc]
+      _ = (L.a y⁻¹ * L.w) * L.n (Multiplicative.ofAdd (x * (y : K)⁻¹)) := by rw [hwa]
+      _ = L.a y⁻¹ * L.w * L.n (Multiplicative.ofAdd (x * (y : K)⁻¹)) := by simp [mul_assoc]
+  have happly (x : K) :
+      bigCell L T s φ (L.w * L.n (Multiplicative.ofAdd x) * L.a y) =
+        C • T.σa y⁻¹ (φ (x * (y : K)⁻¹)) := by
+    rw [hgroup x]
+    simpa [C, smul_smul] using
+      (bigCell_apply L T s φ 0 (1 : rootsOfUnity 3 ℂ) y⁻¹ (x * (y : K)⁻¹))
+  have hpoint (x : K) :
+      A.ψ v (-x) • (rtr (L.a y) (bigCell L T s φ))
+          (L.w * L.n (Multiplicative.ofAdd x)) = C • σ (kfun x) := by
+    change A.ψ v (-x) • bigCell L T s φ
+      (L.w * L.n (Multiplicative.ofAdd x) * L.a y) = _
+    rw [happly x]
+    simp only [kfun, σ, map_smul, smul_smul]
+    congr 1
+    ring
+  have hkLC := fourierKernel_locallyConstant T A φ hφ y
+  have hkLC' : IsLocallyConstant kfun := by simpa [kfun, hyInvVal] using hkLC
+  have hkCompact := fourierKernel_hasCompactSupport T A φ hc y
+  have hkCompact' : HasCompactSupport kfun := by simpa [kfun, hyInvVal] using hkCompact
+  have hkCont : Continuous kfun := hkLC'.continuous
+  have hkInt : Integrable kfun μ.μ := hkCont.integrable_of_hasCompactSupport hkCompact'
+  obtain ⟨N0, hN0⟩ := compact_subset_ballNeg_nat (s := tsupport kfun) hkCompact'
+    (fun x => exists_ballNeg_nat x)
+  have hkZero {x : K} (hx : x ∉ ball v (-(N0 : ℤ))) : kfun x = 0 := by
+    by_contra hne
+    have hsupport : x ∈ Function.support kfun := by
+      change kfun x ≠ 0
+      exact hne
+    exact hx (hN0 (subset_tsupport kfun hsupport))
+  let Fker : K → T.V := fun x => C • σ (kfun x)
+  have hFkerZero {x : K} (hx : x ∉ ball v (-(N0 : ℤ))) : Fker x = 0 := by
+    simp [Fker, hkZero hx]
+  have hBMOpen (M : ℕ) : IsOpen (ball v (-(M : ℤ))) :=
+    v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have htrunc (M : ℕ) (hM : N0 ≤ M) :
+      jacquetTrunc L A μ M (rtr (L.a y) (bigCell L T s φ)) = ∫ x, Fker x ∂μ.μ := by
+    have hzeroM {x : K} (hx : x ∉ ball v (-(M : ℤ))) : kfun x = 0 := by
+      apply hkZero
+      intro hx0
+      exact hx (ballNeg_nat_mono hM hx0)
+    have hFzeroM {x : K} (hx : x ∉ ball v (-(M : ℤ))) : Fker x = 0 := by
+      simp [Fker, hzeroM hx]
+    unfold jacquetTrunc
+    calc
+      ∫ x in ball v (-(M : ℤ)), A.ψ v (-x) •
+          (rtr (L.a y) (bigCell L T s φ)) (L.w * L.n (Multiplicative.ofAdd x)) ∂μ.μ =
+        ∫ x in ball v (-(M : ℤ)), Fker x ∂μ.μ := by
+          apply integral_congr_ae
+          filter_upwards [] with x
+          exact hpoint x
+      _ = ∫ x, Fker x ∂μ.μ :=
+        setIntegral_eq_integral_of_zero_off (hBMOpen M).measurableSet Fker
+          (fun x hx => hFzeroM hx)
+  have hfull : (∫ x, Fker x ∂μ.μ) =
+      C • σ (∫ x, kfun x ∂μ.μ) := by
+    calc
+      ∫ x, Fker x ∂μ.μ = C • ∫ x, σ (kfun x) ∂μ.μ := by
+        simp only [Fker]
+        rw [integral_smul]
+      _ = C • σ (∫ x, kfun x ∂μ.μ) := by
+        rw [ContinuousLinearMap.integral_comp_comm σ hkInt]
+  have hEq : (fun M : ℕ => jacquetTrunc L A μ M
+        (rtr (L.a y) (bigCell L T s φ))) =ᶠ[atTop] fun _ => ∫ x, Fker x ∂μ.μ := by
+    filter_upwards [eventually_atTop.2 ⟨N0, fun M hM => hM⟩] with M hM
+    exact htrunc M hM
+  have hlim : Tendsto (fun M : ℕ => jacquetTrunc L A μ M
+      (rtr (L.a y) (bigCell L T s φ))) atTop (𝓝 (∫ x, Fker x ∂μ.μ)) :=
+    tendsto_const_nhds.congr' hEq.symm
+  have hjac : jacquet L A μ (rtr (L.a y) (bigCell L T s φ)) = ∫ x, Fker x ∂μ.μ := by
+    change limUnder atTop (fun M : ℕ => jacquetTrunc L A μ M
+      (rtr (L.a y) (bigCell L T s φ))) = _
+    exact hlim.limUnder_eq
+  let q : ℝ := absFin v y
+  let fourier : T.V := ∫ t, A.ψ v (-((y : K) * t)) • φ t ∂μ.μ
+  have hqpos : 0 < q := by dsimp [q]; exact absFin_pos y.ne_zero
+  have hcompose (t : K) : (y : K) * t * (y : K)⁻¹ = t := by
+    calc
+      (y : K) * t * (y : K)⁻¹ = ((y : K) * (y : K)⁻¹) * t := by ring
+      _ = t := by simp
+  have hFourier : ∫ t, kfun ((y : K) * t) ∂μ.μ = fourier := by
+    apply integral_congr_ae
+    filter_upwards [] with t
+    dsimp [kfun, fourier]
+    rw [hcompose t]
+  have hscale := LocHaar.integral_comp_mul μ y kfun
+  have hscaleI : (∫ x, kfun x ∂μ.μ) = q • fourier := by
+    calc
+      ∫ x, kfun x ∂μ.μ = q • (q⁻¹ • ∫ x, kfun x ∂μ.μ) := by
+        simp [smul_smul, hqpos.ne']
+      _ = q • ∫ t, kfun ((y : K) * t) ∂μ.μ := by rw [← hscale]
+      _ = q • fourier := by rw [hFourier]
+  have hscaleC : (∫ x, kfun x ∂μ.μ) = (q : ℂ) • fourier := by
+    calc
+      ∫ x, kfun x ∂μ.μ = q • fourier := hscaleI
+      _ = (q : ℂ) • fourier := by
+        symm
+        exact IsScalarTower.algebraMap_smul (R := ℝ) (A := ℂ) (M := T.V) q fourier
+  have hInv : absFin v (y⁻¹ : Kˣ) = (absFin v y)⁻¹ := by
+    have hprod : absFin v y * absFin v (y⁻¹ : Kˣ) = 1 := by
+      calc
+        absFin v y * absFin v (y⁻¹ : Kˣ) = absFin v (y * y⁻¹) :=
+          (absFin_mul v y y⁻¹).symm
+        _ = absFin v (1 : K) := by congr 1; simp
+        _ = 1 := by
+          unfold absFin
+          rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v)]
+          simp
+    have hqinv := eq_inv_of_mul_eq_one_left hprod
+    calc
+      absFin v (y⁻¹ : Kˣ) = ((absFin v (y⁻¹ : Kˣ))⁻¹)⁻¹ := by simp
+      _ = (absFin v y)⁻¹ := by rw [← hqinv]
+  have hbase : ((absFin v (y⁻¹ : Kˣ) : ℝ) : ℂ) = (q : ℂ)⁻¹ := by
+    dsimp [q]
+    exact_mod_cast hInv
+  have hqComplex : (q : ℂ) ≠ 0 := by exact_mod_cast hqpos.ne'
+  have hcoef : C * (q : ℂ) = (q : ℂ) ^ ((1 : ℂ) / 2 - s) := by
+    have hbasePow : C = (q : ℂ) ^ (-((1 : ℂ) / 2 + s)) := by
+      dsimp [C]
+      rw [hbase, Complex.inv_cpow_ofReal_nonneg hqpos.le ((1 : ℂ) / 2 + s)]
+      rw [← Complex.cpow_neg]
+    calc
+      C * (q : ℂ) = (q : ℂ) ^ (-((1 : ℂ) / 2 + s)) * (q : ℂ) := by rw [hbasePow]
+      _ = (q : ℂ) ^ (-((1 : ℂ) / 2 + s)) * (q : ℂ) ^ (1 : ℂ) := by
+        rw [Complex.cpow_one]
+      _ = (q : ℂ) ^ (-((1 : ℂ) / 2 + s) + 1) := by
+        rw [← Complex.cpow_add _ _ hqComplex]
+      _ = (q : ℂ) ^ ((1 : ℂ) / 2 - s) := by congr 1 <;> ring
+  calc
+    jacquet L A μ (rtr (L.a y) (bigCell L T s φ)) = ∫ x, Fker x ∂μ.μ := hjac
+    _ = C • σ (∫ x, kfun x ∂μ.μ) := hfull
+    _ = (C * (q : ℂ)) • σ fourier := by
+      calc
+        _ = C • σ ((q : ℂ) • fourier) := by rw [hscaleC]
+        _ = (C * (q : ℂ)) • σ fourier := by rw [map_smul, smul_smul]
+    _ = ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 - s)) •
+        T.σa y⁻¹ fourier := by
+      rw [hcoef]
+      simp [q, σ, LinearMap.coe_toContinuousLinearMap']
 
 /-- **jq:fourier-indicator**: every `1_U ⊗ x` (`U` compact open) is a Fourier transform `φ̂`
 of a locally constant compactly supported `φ`. C3 of `sol-gate-theta` requires a complete target for
@@ -485,7 +1406,183 @@ theorem exists_fourier_indicator [CompleteSpace V] (A : AddCharData F) (μ : Loc
     (hUc : IsCompact U) (hUo : IsOpen U) (x : V) :
     ∃ φ : v.adicCompletion F → V, IsLocallyConstant φ ∧ HasCompactSupport φ ∧
       ∀ y, ∫ t, A.ψ v (-(y * t)) • φ t ∂μ.μ = U.indicator (fun _ => x) y := by
-  sorry
+  classical
+  let K := v.adicCompletion F
+  letI : ProperSpace K := adicCompletion_properSpace v
+  have hzero : HasCompactSupport (fun _ : K => (0 : V)) := by
+    exact HasCompactSupport.of_support_subset_isCompact isCompact_empty (by simp)
+  by_cases hUempty : U = ∅
+  · refine ⟨fun _ => 0, IsLocallyConstant.const 0, hzero, ?_⟩
+    intro y
+    simp [hUempty]
+  obtain ⟨d, hψ, hbad⟩ := psi_conductor A v
+  obtain ⟨k, cosets, hrep, hUnion⟩ := exists_finite_coset_cover U hUc hUo
+  let B := ball v (-((k + d : ℕ) : ℤ))
+  let Bsmall := ball v (k : ℤ)
+  have hBcompact : IsCompact B := by
+    simpa [B] using ball_isCompact v (-((k + d : ℕ) : ℤ))
+  have hBopen : IsOpen B := v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hBclosed : IsClosed B := hBcompact.isClosed
+  have hBfinite : μ.μ B < ⊤ := hBcompact.measure_lt_top
+  have hBnonempty : B.Nonempty := ⟨0, by simp [B, ball]⟩
+  have hBpos : 0 < μ.μ B := hBopen.measure_pos μ.μ hBnonempty
+  let volR : ℝ := (μ.μ B).toReal
+  let volC : ℂ := (volR : ℂ)
+  have hvolR : 0 < volR := by
+    dsimp [volR]
+    exact ENNReal.toReal_pos hBpos.ne' (ne_of_lt hBfinite)
+  have hvolC : volC ≠ 0 := by
+    change (volR : ℂ) ≠ 0
+    exact_mod_cast hvolR.ne'
+  let R := {S : Set K // S ∈ cosets}
+  have hcenter (S : R) : ∃ a : K, a ∈ U ∧ S.1 = {z | z - a ∈ Bsmall} := by
+    exact hrep S.1 S.2
+  let anchor : R → K := fun S => Classical.choose (hcenter S)
+  have hanchor (S : R) : anchor S ∈ U ∧ S.1 = {z | z - anchor S ∈ Bsmall} :=
+    Classical.choose_spec (hcenter S)
+  have hsubset (S : R) : S.1 ⊆ U := by
+    intro z hz
+    rw [hUnion]
+    exact Set.mem_iUnion₂.mpr ⟨S.1, S.2, hz⟩
+  have hcondition (y : K) (S : R) :
+      anchor S - y ∈ Bsmall ↔ y ∈ S.1 := by
+    have hS := hanchor S
+    constructor
+    · intro h
+      rw [hS.2]
+      simpa [sub_eq_add_neg, add_comm] using ballNat_neg k h
+    · intro hy
+      rw [hS.2] at hy
+      simpa [sub_eq_add_neg, add_comm] using ballNat_neg k hy
+  have hunique (y : K) {S S' : R} (hyS : y ∈ S.1) (hyS' : y ∈ S'.1) : S = S' := by
+    obtain ⟨-, hS⟩ := hanchor S
+    obtain ⟨-, hS'⟩ := hanchor S'
+    have hyA : y - anchor S ∈ Bsmall := by rw [hS] at hyS; exact hyS
+    have hyA' : y - anchor S' ∈ Bsmall := by rw [hS'] at hyS'; exact hyS'
+    apply Subtype.ext
+    calc
+      S.1 = {z | z - anchor S ∈ Bsmall} := hS
+      _ = {z | z - anchor S' ∈ Bsmall} :=
+        ballNat_coset_eq k (anchor S) (anchor S') y hyA hyA'
+      _ = S'.1 := hS'.symm
+  let term : R → K → V := fun S t => B.indicator
+    (fun u => A.ψ v (anchor S * u) • x) t
+  have htermLC (S : R) : IsLocallyConstant (term S) := by
+    have hchar : IsLocallyConstant (fun t : K => A.ψ v (anchor S * t)) :=
+      (addChar_locallyConstant A).comp_continuous (continuous_const.mul continuous_id)
+    have hvec : IsLocallyConstant (fun t : K => A.ψ v (anchor S * t) • x) :=
+      hchar.comp₂ (IsLocallyConstant.const (X := K) x) (fun a b => a • b)
+    exact indicator_locallyConstant B hBopen hBclosed _ hvec
+  have htermCompact (S : R) : HasCompactSupport (term S) := by
+    exact indicator_hasCompactSupport hBcompact
+      (fun u => A.ψ v (anchor S * u) • x)
+  let total : K → V := fun t => ∑ S ∈ Finset.univ, term S t
+  have htotalLC : IsLocallyConstant total := by
+    exact locallyConstant_finset_sum (Finset.univ : Finset R) term
+      (fun S _ => htermLC S)
+  have htotalZero (t : K) (ht : t ∉ B) : total t = 0 := by
+    simp [total, term, ht]
+  let φ : K → V := fun t => volC⁻¹ • total t
+  have hφLC : IsLocallyConstant φ := by
+    exact (IsLocallyConstant.const (X := K) (volC⁻¹)).comp₂ htotalLC (fun a b => a • b)
+  have hφcompact : HasCompactSupport φ := by
+    apply HasCompactSupport.of_support_subset_isCompact hBcompact
+    apply Function.support_subset_iff'.mpr
+    intro t ht
+    simp [φ, htotalZero t ht]
+  refine ⟨φ, hφLC, hφcompact, ?_⟩
+  intro y
+  let fterm : R → K → V := fun S t => A.ψ v (-((y : K) * t)) • term S t
+  have hphase : IsLocallyConstant (fun t : K => A.ψ v (-((y : K) * t))) := by
+    apply (addChar_locallyConstant A).comp_continuous
+    exact continuous_neg.comp (continuous_const.mul continuous_id)
+  have hftermLC (S : R) : IsLocallyConstant (fterm S) :=
+    hphase.comp₂ (htermLC S) (fun a b => a • b)
+  have hftermCompact (S : R) : HasCompactSupport (fterm S) :=
+    HasCompactSupport.smul_left (htermCompact S)
+  have hftermInt (S : R) : Integrable (fterm S) μ.μ :=
+    (hftermLC S).continuous.integrable_of_hasCompactSupport (hftermCompact S)
+  have hpointSum :
+      (fun t => A.ψ v (-((y : K) * t)) • φ t) =
+        fun t => volC⁻¹ • ∑ S ∈ Finset.univ, fterm S t := by
+    funext t
+    dsimp [φ, total, fterm]
+    calc
+      _ = volC⁻¹ • (A.ψ v (-((y : K) * t)) •
+          ∑ S ∈ Finset.univ, term S t) := by rw [smul_smul, smul_smul, mul_comm]
+      _ = volC⁻¹ • ∑ S ∈ Finset.univ,
+          A.ψ v (-((y : K) * t)) • term S t := by rw [Finset.smul_sum]
+  have hFourierSum :
+      ∫ t, A.ψ v (-((y : K) * t)) • φ t ∂μ.μ =
+        volC⁻¹ • ∑ S ∈ Finset.univ, ∫ t, fterm S t ∂μ.μ := by
+    calc
+      ∫ t, A.ψ v (-((y : K) * t)) • φ t ∂μ.μ =
+          volC⁻¹ • ∫ t, ∑ S ∈ Finset.univ, fterm S t ∂μ.μ := by
+            rw [hpointSum, integral_smul]
+      _ = volC⁻¹ • ∑ S ∈ Finset.univ, ∫ t, fterm S t ∂μ.μ := by
+            rw [integral_finsetSum Finset.univ (by intro S _; exact hftermInt S)]
+  have htermFourier (S : R) :
+      ∫ t, fterm S t ∂μ.μ =
+        if anchor S - y ∈ Bsmall then volC • x else 0 := by
+    let g : K → V := fun t => A.ψ v ((anchor S - y) * t) • x
+    have hpoint (t : K) : fterm S t = B.indicator g t := by
+      by_cases ht : t ∈ B
+      · have hchar : A.ψ v (-((y : K) * t)) * A.ψ v (anchor S * t) =
+            A.ψ v ((anchor S - y) * t) := by
+          calc
+            _ = A.ψ v (-((y : K) * t) + anchor S * t) :=
+              (AddChar.map_add_eq_mul (A.ψ v) _ _).symm
+            _ = A.ψ v ((anchor S - y) * t) := by congr 1 <;> ring
+        simp only [fterm, term, Set.indicator_of_mem ht]
+        rw [smul_smul, hchar]
+      · simp [fterm, term, g, Set.indicator_of_notMem ht]
+    calc
+      ∫ t, fterm S t ∂μ.μ = ∫ t, B.indicator g t ∂μ.μ := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        exact hpoint t
+      _ = ∫ t in B, g t ∂μ.μ := integral_indicator hBopen.measurableSet
+      _ = if anchor S - y ∈ Bsmall then volC • x else 0 := by
+        simpa only [g, B, Bsmall] using
+          (addCharIntegral_ball_orthogonal (V := V) A μ d k hψ hbad (anchor S - y) x)
+  have hcosetSum :
+      ∑ S ∈ Finset.univ, (if anchor S - y ∈ Bsmall then volC • x else 0) =
+        volC • U.indicator (fun _ => x) y := by
+    by_cases hy : y ∈ U
+    · have hyUnion := hUnion ▸ hy
+      rcases Set.mem_iUnion₂.mp hyUnion with ⟨S, hS, hyS⟩
+      let S₀ : R := ⟨S, hS⟩
+      have hyes : anchor S₀ - y ∈ Bsmall := (hcondition y S₀).2 hyS
+      have hno (S' : R) (hne : S' ≠ S₀) : ¬ anchor S' - y ∈ Bsmall := by
+        intro h
+        have hyS' := (hcondition y S').1 h
+        exact hne (hunique y hyS' hyS)
+      have hsum :
+          ∑ S' ∈ Finset.univ, (if anchor S' - y ∈ Bsmall then volC • x else 0) = volC • x := by
+        rw [Finset.sum_eq_single_of_mem S₀ (Finset.mem_univ S₀)]
+        · simp [hyes]
+        · intro S' _ hne
+          simp [hno S' hne]
+      rw [hsum, Set.indicator_of_mem hy]
+    · have hno (S : R) : ¬ anchor S - y ∈ Bsmall := by
+        intro h
+        exact hy (hsubset S ((hcondition y S).1 h))
+      simp [hno, hy]
+  rw [hFourierSum]
+  have hsumTerms :
+      ∑ S ∈ Finset.univ, ∫ t, fterm S t ∂μ.μ =
+        ∑ S ∈ Finset.univ, (if anchor S - y ∈ Bsmall then volC • x else 0) := by
+    apply Finset.sum_congr rfl
+    intro S hS
+    exact htermFourier S
+  rw [hsumTerms, hcosetSum]
+  by_cases hy : y ∈ U
+  · rw [Set.indicator_of_mem hy]
+    calc
+      volC⁻¹ • (volC • x) = (volC⁻¹ * volC) • x := by rw [smul_smul]
+      _ = x := by rw [inv_mul_cancel₀ hvolC, one_smul]
+  · rw [Set.indicator_of_notMem hy]
+    simp
 
 /-- **jq:T5-local** (T5 at a finite place of `S`): for `U ⊆ O^{×6}` compact open there is a
 big-cell section with `𝒥(π(a(y))f) = 1_U(y)·x` for all `y ∈ K^×`. -/
@@ -497,7 +1594,28 @@ theorem exists_T5_section (L : FinLocalCover D H v) (T : TorusRep D H v) (A : Ad
     ∃ φ : v.adicCompletion F → T.V, IsLocallyConstant φ ∧ HasCompactSupport φ ∧
       ∀ y : (v.adicCompletion F)ˣ,
         jacquet L A μ (rtr (L.a y) (bigCell L T s φ)) = U.indicator (fun _ => x) (y : v.adicCompletion F) := by
-  sorry
+  classical
+  obtain ⟨φ, hφ, hc, hFourier⟩ :=
+    exists_fourier_indicator (A := A) (μ := μ) U hUc hUo x
+  refine ⟨φ, hφ, hc, ?_⟩
+  intro y
+  rw [jacquet_bigCell L T A μ s φ hφ hc y, hFourier (y : v.adicCompletion F)]
+  by_cases hy : (y : v.adicCompletion F) ∈ U
+  · have hyNorm : absFin v y = 1 := by
+      rw [absFin_eq_norm]
+      exact Valued.toNormedField.norm_eq_one_iff.mpr (hU1 (y : v.adicCompletion F) hy)
+    obtain ⟨c, hc⟩ := hU6 (y : v.adicCompletion F) hy
+    have hyEq : y = c ^ 6 := Units.ext hc
+    have hσ : T.σa y⁻¹ = LinearMap.id := by
+      rw [hyEq]
+      have hpow : ((c⁻¹ : (v.adicCompletion F)ˣ) ^ 2) ^ 3 = (c ^ 6)⁻¹ := by
+        group
+      rw [← hpow]
+      exact T.σa_cube (c⁻¹ ^ 2)
+    rw [Set.indicator_of_mem hy, hσ]
+    simp [hyNorm]
+  · rw [Set.indicator_of_notMem hy]
+    simp
 
 /-- **jq:rotated**: the rotated big-cell section, `𝒥(π(a(y)w) f_φ) = ‖y‖^{1/2-s} σ(a(y⁻¹)) F̂(y)` with
 `F(c) = f_φ(n̄(c)) = ‖c‖^{-1-2s} σ(a(-c⁻²)) φ(c⁻¹)` (`F = 0` near `0`). -/
