@@ -531,7 +531,63 @@ theorem whitTensorTerm_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
     (Fs : GlobalSection P G s) (x0 : P.RP) (z : ∀ v : S.Sf, (G.T v.1).V) :
     Summable (fun δ : Fˣ ⧸ G.Δ => ‖whitTensorTerm P G μ Fs x0 z δ‖) := by
-  sorry
+  let E := Fs.T0 ∪ (P.comp_restricted x0).toFinset
+  have hE : Fs.T0 ⊆ E := Finset.subset_union_left
+  have hcomp (v : FinPlace F) (hv : v ∉ E) :
+      P.compF v x0 ∈ (P.tame v (fun h => hv (hE (Fs.sub h)))).Kmax := by
+    by_contra hk
+    apply hv
+    apply Finset.mem_union_right
+    exact (P.comp_restricted x0).mem_toFinset.mpr
+      ⟨(fun h => hv (hE (Fs.sub h))), hk⟩
+  let w (v : FinPlace F) : (G.T v).V :=
+    if hv : v ∈ S.Sf then z ⟨v, hv⟩
+    else jacquet (P.loc v) A (μ v) (rtr (P.compF v x0) (Fs.f v))
+  have hw (v : FinPlace F) (hv : v ∉ E) : w v =
+      jacquet (P.loc v) A (μ v) (rtr (P.compF v x0) (Fs.f v)) := by
+    have hvS : v ∉ S.Sf := fun h => hv (hE (Fs.sub h))
+    simp only [w, dif_neg hvS]
+  have hsum := whit_jacquet_family_summable P G μ hs Fs x0 E hE hcomp w hw
+  let a (δ : Fˣ ⧸ G.Δ) (v : FinPlace F) : ℂ :=
+    G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (w v))
+  have hfin (δ : Fˣ ⧸ G.Δ) : (Function.mulSupport (a δ)).Finite := by
+    refine (S.Sf.finite_toSet.union
+      (whit_finite_mulSupport P G μ Fs x0 (Quotient.out δ))).subset ?_
+    intro v hv
+    by_cases hvS : v ∈ S.Sf
+    · exact Or.inl hvS
+    · refine Or.inr ?_
+      change G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (w v)) ≠ 1 at hv
+      change G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x0) (Fs.f v)))) ≠ 1
+      simpa only [w, dif_neg hvS] using hv
+  have heq (δ : Fˣ ⧸ G.Δ) : (∏ᶠ v, a δ v) = whitTensorTerm P G μ Fs x0 z δ := by
+    have hsplit := finprod_mem_union' (f := a δ)
+      (show Disjoint (S.Sf : Set (FinPlace F)) (S.Sf : Set (FinPlace F))ᶜ
+        from disjoint_compl_right)
+      ((hfin δ).subset (fun _ hv => hv.2))
+      ((hfin δ).subset (fun _ hv => hv.2))
+    simp only [Set.union_compl_self, finprod_mem_univ] at hsplit
+    rw [← finprod_set_coe_eq_finprod_mem (S.Sf : Set (FinPlace F)),
+      ← finprod_set_coe_eq_finprod_mem (S.Sf : Set (FinPlace F))ᶜ] at hsplit
+    change (∏ᶠ v, a δ v) = (∏ᶠ v : S.Sf, a δ v.1) *
+      (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, a δ v.1) at hsplit
+    rw [finprod_eq_prod_of_fintype (fun v : S.Sf => a δ v.1)] at hsplit
+    have hS : (∏ v : S.Sf, a δ v.1) =
+        ∏ v : S.Sf, G.lam v.1 ((G.T v.1).σa (toLoc v.1 (Quotient.out δ)) (z v)) := by
+      apply Finset.prod_congr rfl
+      intro v _
+      simp only [a, w, dif_pos v.property]
+    have hExt : (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, a δ v.1) =
+        whitExteriorTerm P G μ Fs x0 δ := by
+      unfold whitExteriorTerm
+      apply finprod_congr
+      intro v
+      simp only [a, w, dif_neg v.property]
+    rw [hS, hExt] at hsplit
+    simpa only [whitTensorTerm, mul_comm] using hsplit
+  change Summable (fun δ : Fˣ ⧸ G.Δ => ‖∏ᶠ v, a δ v‖) at hsum
+  exact hsum.congr (fun δ => congrArg norm (heq δ))
 
 /-- The summable delta-series defines a multilinear form by tsum_add and tsum_smul. -/
 theorem whit_tensor_multilinear (P : CoverPackage D S H A) (G : GlobalDatum P)
