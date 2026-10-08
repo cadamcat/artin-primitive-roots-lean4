@@ -22,6 +22,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».HorizontalLimits
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».GoodContours
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».WindowSums
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».WeightDecay
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».LineIntegrability
 
 set_option autoImplicit false
 
