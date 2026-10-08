@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.CentralKernel
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Arithmetic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.StrongApprox
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Determinant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Projected
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
