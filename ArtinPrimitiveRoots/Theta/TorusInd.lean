@@ -474,6 +474,135 @@ private def borelElem (L : FinLocalCover D H v) (x : v.adicCompletion F)
     (ζ : rootsOfUnity 3 ℂ) (y : (v.adicCompletion F)ˣ) : L.L :=
   L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y
 
+private def bigCellMatrix (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ)
+    (t : v.adicCompletion F) : GL (Fin 2) (v.adicCompletion F) :=
+  upperM (v.adicCompletion F) x * diagM (v.adicCompletion F) y *
+    weylM (v.adicCompletion F) * upperM (v.adicCompletion F) t
+
+private theorem bigCell_pr_eq (L : FinLocalCover D H v)
+    (x x' : v.adicCompletion F) (ζ ζ' : rootsOfUnity 3 ℂ)
+    (y y' : (v.adicCompletion F)ˣ) (t t' : v.adicCompletion F)
+    (h : L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+        L.n (Multiplicative.ofAdd t) =
+      L.n (Multiplicative.ofAdd x') * L.z ζ' * L.a y' * L.w *
+        L.n (Multiplicative.ofAdd t')) :
+    (QuotientGroup.mk (bigCellMatrix (F := F) x y t) :
+      PGL2 (v.adicCompletion F)) =
+      QuotientGroup.mk (bigCellMatrix (F := F) x' y' t') := by
+  have hz : ∀ η : rootsOfUnity 3 ℂ, L.pr (L.z η) = 1 := by
+    intro η
+    have hker : L.z η ∈ L.pr.ker := by
+      rw [L.pr_ker]
+      exact ⟨η, rfl⟩
+    exact MonoidHom.mem_ker.mp hker
+  have hp := congrArg L.pr h
+  change (QuotientGroup.mk (bigCellMatrix (F := F) x y t) :
+      PGL2 (v.adicCompletion F)) =
+    QuotientGroup.mk (bigCellMatrix (F := F) x' y' t')
+  simpa [bigCellMatrix, map_mul, L.pr_n, L.pr_a, L.pr_w, hz, mul_assoc] using hp
+
+private theorem bigCell_coords_unique (L : FinLocalCover D H v)
+    (x x' : v.adicCompletion F) (ζ ζ' : rootsOfUnity 3 ℂ)
+    (y y' : (v.adicCompletion F)ˣ) (t t' : v.adicCompletion F)
+    (h : L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+        L.n (Multiplicative.ofAdd t) =
+      L.n (Multiplicative.ofAdd x') * L.z ζ' * L.a y' * L.w *
+        L.n (Multiplicative.ofAdd t')) :
+    x = x' ∧ y = y' ∧ t = t' ∧ ζ = ζ' := by
+  have hclass := bigCell_pr_eq L x x' ζ ζ' y y' t t' h
+  obtain ⟨c, hc⟩ := Matrix.ProjGenLinGroup.mk_eq_mk_iff.mp hclass
+  have hmat :
+      ((bigCellMatrix (F := F) x y t) * Matrix.GeneralLinearGroup.scalar
+        (Fin 2) c : GL (Fin 2) (v.adicCompletion F)) =
+      bigCellMatrix (F := F) x' y' t' := hc
+  have hmatval :
+      (((bigCellMatrix (F := F) x y t) * Matrix.GeneralLinearGroup.scalar
+        (Fin 2) c : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) =
+      (bigCellMatrix (F := F) x' y' t' : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) :=
+    congrArg (fun q : GL (Fin 2) (v.adicCompletion F) =>
+      (q : Matrix (Fin 2) (Fin 2) (v.adicCompletion F))) hmat
+  have hcval : (c : v.adicCompletion F) = 1 := by
+    have he := congrArg (fun M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F) => M 1 0) hmatval
+    simpa [bigCellMatrix, upperM, diagM, weylM, Matrix.GeneralLinearGroup.coe_mul,
+      Matrix.GeneralLinearGroup.coe_scalar, Matrix.mul_apply, Fin.sum_univ_two] using he
+  have hmat' : bigCellMatrix (F := F) x y t = bigCellMatrix (F := F) x' y' t' := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    have he := congrArg (fun M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F) => M i j) hmatval
+    fin_cases i <;> fin_cases j <;>
+      simpa [bigCellMatrix, upperM, diagM, weylM, Matrix.GeneralLinearGroup.coe_mul,
+        Matrix.GeneralLinearGroup.coe_scalar, Matrix.mul_apply, Fin.sum_univ_two,
+        hcval] using he
+  have hentries := congrArg (fun M : GL (Fin 2) (v.adicCompletion F) =>
+    (M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F))) hmat'
+  have ht : t = t' := by
+    have he := congrArg (fun M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F) => M 1 1) hentries
+    simpa [bigCellMatrix, upperM, diagM, weylM, Matrix.mul_apply, Fin.sum_univ_two] using he
+  have hx : x = x' := by
+    have he := congrArg (fun M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F) => M 0 0) hentries
+    simpa [bigCellMatrix, upperM, diagM, weylM, Matrix.mul_apply, Fin.sum_univ_two] using he
+  have hy : y = y' := by
+    apply Units.ext
+    have he := congrArg (fun M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F) => M 0 1) hentries
+    have he' : (y : v.adicCompletion F) + x * t =
+        (y' : v.adicCompletion F) + x' * t' := by
+      calc
+        (y : v.adicCompletion F) + x * t = x * t + y := by ring
+        _ = x' * t' + y' := by
+          simpa [bigCellMatrix, upperM, diagM, weylM, Matrix.mul_apply, Fin.sum_univ_two] using he
+        _ = (y' : v.adicCompletion F) + x' * t' := by ring
+    rw [hx, ht] at he'
+    exact add_right_cancel he'
+  have hphase : ζ = ζ' := by
+    have hcancel := h
+    rw [hx, hy, ht] at hcancel
+    have hprefix : L.n (Multiplicative.ofAdd x') *
+        (L.z ζ * (L.a y' * L.w * L.n (Multiplicative.ofAdd t'))) =
+        L.n (Multiplicative.ofAdd x') *
+          (L.z ζ' * (L.a y' * L.w * L.n (Multiplicative.ofAdd t'))) := by
+      simpa [mul_assoc] using hcancel
+    have hmid : L.z ζ * (L.a y' * L.w * L.n (Multiplicative.ofAdd t')) =
+        L.z ζ' * (L.a y' * L.w * L.n (Multiplicative.ofAdd t')) :=
+      mul_left_cancel hprefix
+    have hphase' : L.z ζ = L.z ζ' := mul_right_cancel hmid
+    exact L.z_inj hphase'
+  exact ⟨hx, hy, ht, hphase⟩
+
+private theorem bigcell_ne_borel (L : FinLocalCover D H v)
+    (x x' : v.adicCompletion F) (ζ ζ' : rootsOfUnity 3 ℂ)
+    (y y' : (v.adicCompletion F)ˣ) (t : v.adicCompletion F)
+    (h : L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+        L.n (Multiplicative.ofAdd t) =
+      L.n (Multiplicative.ofAdd x') * L.z ζ' * L.a y') : False := by
+  have hz : ∀ η : rootsOfUnity 3 ℂ, L.pr (L.z η) = 1 := by
+    intro η
+    have hker : L.z η ∈ L.pr.ker := by
+      rw [L.pr_ker]
+      exact ⟨η, rfl⟩
+    exact MonoidHom.mem_ker.mp hker
+  have hp := congrArg L.pr h
+  let A := bigCellMatrix (F := F) x y t
+  let B := upperM (v.adicCompletion F) x' * diagM (v.adicCompletion F) y'
+  have hclass : (QuotientGroup.mk A : PGL2 (v.adicCompletion F)) =
+      QuotientGroup.mk B := by
+    simpa [A, B, bigCellMatrix, map_mul, L.pr_n, L.pr_a, L.pr_w, hz,
+      mul_assoc] using hp
+  obtain ⟨c, hc⟩ := Matrix.ProjGenLinGroup.mk_eq_mk_iff.mp hclass
+  have hmatval :
+      (((A * Matrix.GeneralLinearGroup.scalar (Fin 2) c :
+        GL (Fin 2) (v.adicCompletion F)) : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) =
+      (B : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) :=
+    congrArg (fun q : GL (Fin 2) (v.adicCompletion F) =>
+      (q : Matrix (Fin 2) (Fin 2) (v.adicCompletion F))) hc
+  have he := congrArg (fun M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F) => M 1 0) hmatval
+  have hc0 : (c : v.adicCompletion F) = 0 := by
+    simpa [A, B, bigCellMatrix, upperM, diagM, weylM,
+      Matrix.GeneralLinearGroup.coe_mul, Matrix.GeneralLinearGroup.coe_scalar,
+      Matrix.mul_apply, Fin.sum_univ_two] using he
+  exact c.ne_zero hc0
+
 private theorem absFin_eq_norm_ind (v : FinPlace F) (x : v.adicCompletion F) :
     absFin v x = ‖x‖ := by
   unfold absFin
@@ -1131,13 +1260,48 @@ theorem bigCell_apply (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
     (y : (v.adicCompletion F)ˣ) (t : v.adicCompletion F) :
     bigCell L T s φ (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w * L.n (Multiplicative.ofAdd t)) =
       ((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) • T.σa y (φ t) := by
-  sorry
+  classical
+  unfold bigCell
+  split
+  · rename_i h
+    let x₀ := h.choose
+    let ζ₀ := h.choose_spec.choose
+    let y₀ := h.choose_spec.choose_spec.choose
+    let t₀ := h.choose_spec.choose_spec.choose_spec.choose
+    have hdecomp := h.choose_spec.choose_spec.choose_spec.choose_spec
+    have hcoords := bigCell_coords_unique L x₀ x ζ₀ ζ y₀ y t₀ t hdecomp.symm
+    rcases hcoords with ⟨hx, hy, ht, hζ⟩
+    let eval : (v.adicCompletion F ×
+        (rootsOfUnity 3 ℂ × ((v.adicCompletion F)ˣ × v.adicCompletion F))) → T.V :=
+      fun q => ((q.2.1 : ℂˣ) : ℂ) •
+        ((absFin v q.2.2.1 : ℂ) ^ ((1 : ℂ) / 2 + s)) • T.σa q.2.2.1 (φ q.2.2.2)
+    have htuple : (x₀, (ζ₀, (y₀, t₀))) = (x, (ζ, (y, t))) := by
+      apply Prod.ext
+      · exact hx
+      · apply Prod.ext
+        · exact hζ
+        · apply Prod.ext
+          · exact hy
+          · exact ht
+    change eval (x₀, (ζ₀, (y₀, t₀))) = eval (x, (ζ, (y, t)))
+    exact congrArg eval htuple
+  · rename_i h
+    exact False.elim (h ⟨x, ζ, y, t, rfl⟩)
 
 theorem bigCell_borel (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ)
     (φ : v.adicCompletion F → T.V) (x : v.adicCompletion F) (ζ : rootsOfUnity 3 ℂ)
     (y : (v.adicCompletion F)ˣ) :
     bigCell L T s φ (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y) = 0 := by
-  sorry
+  classical
+  unfold bigCell
+  split_ifs with h
+  · let x₀ := h.choose
+    let ζ₀ := h.choose_spec.choose
+    let y₀ := h.choose_spec.choose_spec.choose
+    let t₀ := h.choose_spec.choose_spec.choose_spec.choose
+    have hdecomp := h.choose_spec.choose_spec.choose_spec.choose_spec
+    exact (bigcell_ne_borel L x₀ x ζ₀ ζ y₀ y t₀ hdecomp.symm).elim
+  · rfl
 
 end Torus
 
