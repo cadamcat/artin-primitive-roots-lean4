@@ -390,7 +390,32 @@ theorem po_H_local_bounds_absolute :
 /-- po:H-local-bounds, 05:660-729. The numerical Q1 cutoff is fixed independently of arithmetic data. -/
 theorem po_H_cutoff_from_constants (C Q0 : ℝ) : ∃ Q1 : ℕ,
   Q0 < (Q1 : ℝ) ∧ ∀ Q : ℝ, (Q1 : ℝ) < Q → C * Q ^ (-(1 + 1 / 4000 : ℝ)) < 1 / 2 := by
-  sorry
+  let M : ℝ := max Q0 (max 1 (2 * C))
+  obtain ⟨Q1, hQ1⟩ := exists_nat_gt M
+  refine ⟨Q1, ?_, ?_⟩
+  · exact lt_of_le_of_lt (le_max_left _ _) hQ1
+  · intro Q hQ
+    have hMQ : M < Q := lt_trans hQ1 hQ
+    have hQone : 1 < Q := lt_of_le_of_lt
+      (le_trans (le_max_left 1 (2 * C)) (le_max_right Q0 (max 1 (2 * C)))) hMQ
+    have hQpos : 0 < Q := by linarith
+    by_cases hC : C ≤ 0
+    · have hp : 0 < Q ^ (-(1 + 1 / 4000 : ℝ)) := Real.rpow_pos_of_pos hQpos _
+      have hle : C * Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ 0 :=
+        mul_nonpos_of_nonpos_of_nonneg hC hp.le
+      linarith
+    · have hCpos : 0 < C := lt_of_not_ge hC
+      have hQ2C : 2 * C < Q := lt_of_le_of_lt
+        (le_trans (le_max_right 1 (2 * C)) (le_max_right Q0 (max 1 (2 * C)))) hMQ
+      have hpow : Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ Q ^ (-1 : ℝ) := by
+        apply Real.rpow_le_rpow_of_exponent_le hQone.le
+        norm_num
+      rw [Real.rpow_neg_one] at hpow
+      have hdiv : C / Q < 1 / 2 := (div_lt_iff₀ hQpos).2 (by nlinarith)
+      calc
+        C * Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ C * Q⁻¹ :=
+          mul_le_mul_of_nonneg_left hpow hCpos.le
+        _ < 1 / 2 := by simpa [div_eq_mul_inv] using hdiv
 /-- Named refutation gate: saturated subtraction changes the J=t-1 boundary in a naive translation. -/
 theorem localC_natural_subtraction_gate : (0 - 1 + 1 : ℕ) = 1 ∧ (0 + 1 - 1 : ℕ) = 0 := by decide
 
