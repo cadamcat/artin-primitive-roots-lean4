@@ -294,6 +294,54 @@ theorem guidedTraceSum_zero {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w 
     rw [if_neg hg']
   · intro h; exact absurd (Finset.mem_univ _) h
 
+/-- **R3.** The guided sum from a life state equals the product of local factors. -/
+theorem guidedTraceSum_eq {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (B : Option ℕ) (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (H : PDLifeAssignment F S γ) (k : ℕ) (hk : k ≤ pathLength S.x) (σ : LogPoint S.x K)
+    (hσ : IsLifeState F S γ H ⟨pathLength S.x - k, by omega⟩ σ) :
+    guidedTraceSum F S ρ w B γ H k σ = guidedV F S ρ w B γ H k := by
+  induction k generalizing σ with
+  | zero =>
+    have e : (⟨pathLength S.x - 0, by omega⟩ : Fin (pathLength S.x + 1)) =
+        Fin.last _ := Fin.ext (by simp)
+    rw [e] at hσ
+    exact guidedTraceSum_zero F S ρ w B γ hγ hBands H σ hσ
+  | succ k ih =>
+    have hjN : pathLength S.x - (k + 1) < pathLength S.x := by omega
+    set jF : Fin (pathLength S.x) := ⟨pathLength S.x - (k + 1), hjN⟩ with hjF
+    have hs : jF.succ = ⟨pathLength S.x - k, by omega⟩ := Fin.ext (by simp [hjF]; omega)
+    have hτ := guided_ghost_output F S γ H hBands _ σ hσ
+    rw [guidedTraceSum_succ F S ρ w B γ H k hk σ]
+    have hvisit : historyVisitFactor γ (pathLength S.x - (k + 1)) σ = 1 := by
+      unfold historyVisitFactor
+      rw [dif_pos (by omega), if_pos hσ.1]
+    rw [hvisit, guided_ghost_charge F S ρ γ H _ σ hσ, historyCutoffFactor_eq,
+      historyCutoffFactor_eq, memSize_life F S γ H _ σ hσ, memSize_life_after F S γ H _ _ hτ]
+    rw [show (⟨pathLength S.x - k, by omega⟩ : Fin (pathLength S.x + 1)) = jF.succ from hs.symm]
+    have hsum := guided_edge_sum F S ρ w γ hγ hBands H jF _ hτ
+      (fun υ => historyCutoffFactor B υ * guidedTraceSum F S ρ w B γ H k υ)
+      (guidedV F S ρ w B γ H k) ?_ ?_ ?_
+    · simp only [] at hsum
+      rw [hsum, guidedV.eq_2, dif_pos hjN, hjF]
+      unfold ghostAt edgeAt
+      ring
+    · intro υ hG
+      have hG' : guidedTraceSum F S ρ w B γ H k υ ≠ 0 := by
+        intro h; apply hG; simp [h]
+      rw [hs]
+      exact guidedTraceSum_visit F S ρ w B γ H k (by omega) υ hG'
+    · intro υ hG
+      have hG' : guidedTraceSum F S ρ w B γ H k υ ≠ 0 := by
+        intro h; apply hG; simp [h]
+      exact guidedTraceSum_nodup F S ρ w B γ H k υ hG'
+    · intro υ hυ
+      rw [hs] at hυ
+      beta_reduce
+      rw [ih (by omega) υ hυ, historyCutoffFactor_eq, memSize_life F S γ H _ υ hυ]
+      exact guidedV_cut F S ρ w B γ H k (by omega)
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
