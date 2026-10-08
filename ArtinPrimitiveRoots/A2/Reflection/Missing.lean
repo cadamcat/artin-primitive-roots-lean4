@@ -12798,6 +12798,76 @@ private theorem rf_pairing_frequency_indices
     · exact Subtype.ext ht'
     · exact Prod.ext hc' hγ'
 
+private theorem rf_pairing_frequency_reindex
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (hf : activeFactor R r.h f)
+    (g : Fˣ → ℂ)
+    (hs : Summable (fun ν => rf_pairing_active_coefficient R r f ν * g ν)) :
+    let term : {t : FrozenIndex R r.h // t.f = f} × S.SqfExtIdeal × Gamma S → ℂ :=
+      fun p => if IsCoprime (p.2.1.1 * p.1.1.n.1) (r.d.1 * f.1) then
+        groupedExterior R p.1.1 r.d (frozenFrequency R p.1.1 r.d p.2.1) *
+          g ((p.2.2.1 : Fˣ) * frozenFrequency R p.1.1 r.d p.2.1) else 0
+    Summable term ∧
+      (∑' ν, rf_pairing_active_coefficient R r f ν * g ν) = ∑' p, term p := by
+  classical
+  let P := {t : FrozenIndex R r.h // t.f = f} × S.SqfExtIdeal × Gamma S
+  let freq (p : P) : Fˣ := (p.2.2.1 : Fˣ) * frozenFrequency R p.1.1 r.d p.2.1
+  let src (ν : Fˣ) : ℂ := rf_pairing_active_coefficient R r f ν * g ν
+  let cp (p : P) : Prop := IsCoprime (p.2.1.1 * p.1.1.n.1) (r.d.1 * f.1)
+  let term (p : P) : ℂ := if cp p then
+    groupedExterior R p.1.1 r.d (frozenFrequency R p.1.1 r.d p.2.1) * g (freq p) else 0
+  change Summable term ∧ (∑' ν, src ν) = ∑' p, term p
+  have coeffEq (p : P) (hp : cp p) :
+      rf_pairing_active_coefficient R r f (freq p) =
+        groupedExterior R p.1.1 r.d (frozenFrequency R p.1.1 r.d p.2.1) := by
+    have hcf : IsCoprime p.2.1.1 p.1.1.f.1 := by
+      rw [p.1.property]
+      exact hp.of_mul_left_left.of_mul_right_right
+    dsimp only [freq]
+    rw [rf_pairing_active_coefficient_gamma R r f]
+    exact (congrArg (fun I : S.ExtIdeal => rf_pairing_active_coefficient R r I
+      (frozenFrequency R p.1.1 r.d p.2.1)) p.1.property.symm).trans
+        (rf_pairing_active_coefficient_frozen R r p.1.1 p.2.1 hcf)
+  have valueEq (p : P) (hp : cp p) : src (freq p) = term p := by
+    dsimp only [src, term]
+    rw [if_pos hp, coeffEq p hp]
+  have cpOfNonzero (p : P) (hp : term p ≠ 0) : cp p := by
+    by_contra hcp
+    exact hp (by simp only [term, if_neg hcp])
+  have coeffOfNonzero (p : P) (hp : term p ≠ 0) :
+      rf_pairing_active_coefficient R r f (freq p) ≠ 0 := by
+    have hn : src (freq p) ≠ 0 := by
+      rw [valueEq p (cpOfNonzero p hp)]
+      exact hp
+    exact (mul_ne_zero_iff.mp hn).1
+  let i : Function.support term → Fˣ := fun p => freq p.1
+  have hi : Function.Injective i := by
+    intro x y hxy
+    have hxcp := cpOfNonzero x.1 x.property
+    have hycp := cpOfNonzero y.1 y.property
+    obtain ⟨p, hp, hpUnique⟩ :=
+      rf_pairing_frequency_indices R r f hf (freq x.1) (coeffOfNonzero x.1 x.property)
+    have hx : x.1 = p := hpUnique x.1 ⟨hxcp, rfl⟩
+    have hy : y.1 = p := hpUnique y.1 ⟨hycp, hxy⟩
+    exact Subtype.ext (hx.trans hy.symm)
+  have hcover : Function.support src ⊆ Set.range i := by
+    intro ν hν
+    have hcoeff : rf_pairing_active_coefficient R r f ν ≠ 0 :=
+      (mul_ne_zero_iff.mp hν).1
+    obtain ⟨p, hp, _⟩ := rf_pairing_frequency_indices R r f hf ν hcoeff
+    have heq : src ν = term p := by
+      rw [hp.2]
+      exact valueEq p hp.1
+    have hpnz : term p ≠ 0 := by
+      rw [← heq]
+      exact hν
+    exact ⟨⟨p, hpnz⟩, hp.2.symm⟩
+  have hvalue (p : Function.support term) : src (i p) = term p.1 :=
+    valueEq p.1 (cpOfNonzero p.1 p.property)
+  have hterm : HasSum term (∑' ν, src ν) :=
+    (hasSum_iff_hasSum_of_ne_zero_bij i hi hcover hvalue).mp hs.hasSum
+  exact ⟨hterm.summable, hterm.tsum_eq.symm⟩
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
