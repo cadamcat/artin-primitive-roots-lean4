@@ -1,6 +1,6 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-BOOT».Boot
 import ArtinPrimitiveRoots.A1.Residue
-import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.SquareClearing
+import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.IntegralSymbols
 
 /-!
 # A2-QS-NARROW: canonical narrow family, representatives, and the three frozen endpoints
