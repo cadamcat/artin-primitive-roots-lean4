@@ -14,6 +14,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MemoryAlphabet
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CubeAdjoint
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ScaleDecay
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelTranspose
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelBounds
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Atoms
@@ -6311,7 +6312,23 @@ theorem dirty_comparison (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
                 ‖memKernel (fun f => memEdgePiece F S ρ w false St Pr j (memorySym f)) s t‖ ≤
               Cτ * memMeasure F S t *
                 ‖memKernel (fun f => memEdgePiece F S ρ w false Pr St (j + 1) (memorySym f)) t s‖ := by
-    sorry
+    obtain ⟨xV, hxV, hV⟩ := pd4c_bandMass_large_bounds F hF
+    obtain ⟨xB, hxB, hBands⟩ := pd4c_validBands_disjoint_eventually K F.a hF.1
+    let lo := Real.log 2 / 2
+    let hi := 2 * Real.log 2
+    let Cτ := (max 1 hi / min 1 lo) ^ K
+    let xτ := max xV (max xB xμ)
+    have hlo : 0 < lo := div_pos (Real.log_pos (by norm_num)) (by norm_num)
+    have hCτ : 0 < Cτ := pow_pos (div_pos
+      (lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1) (le_max_left _ _))
+      (lt_min (by norm_num) hlo)) _
+    refine ⟨Cτ, xτ, hCτ, le_trans hxV (le_max_left _ _), ?_⟩
+    intro S hS hx w hw j St Pr s t hs hsz ht htz
+    have hxV' : xV ≤ S.x := le_trans (le_max_left _ _) hx
+    have hxB' : xB ≤ S.x := le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+    have hxμ' : xμ ≤ S.x := le_trans (le_trans (le_max_right _ _) (le_max_right _ _)) hx
+    exact pd4c_memEdgePiece_kernel_transpose_bound F S ρ w false St Pr j s t hs ht lo hi hlo
+      (hV S.x hxV') (hMeasure S hxμ' s) (hMeasure S hxμ' t) (hBands S.x hxB')
   obtain ⟨Cτ, xτ, hCτ, hxτ, hTranspose⟩ := htranspose
   let Cg := (1 + Cτ) * Cr
   have hCg : 0 < Cg := mul_pos (by linarith) hCr
