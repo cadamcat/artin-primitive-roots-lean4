@@ -579,7 +579,57 @@ theorem whit_unipotentS (P : CoverPackage D S H A) (G : GlobalDatum P)
     (Fs : GlobalSection P G s) (u : S.FS) (g : P.tc.G) :
     whittakerE P G μ Fs (P.tc.nS (Multiplicative.ofAdd u) * g) =
       S.e A u * whittakerE P G μ Fs g := by
-  sorry
+  classical
+  obtain ⟨x, hx⟩ := P.q_surj g
+  obtain ⟨y, hy, hFy, hCy⟩ := P.nS_components u
+  let cf : FinPlace F → ℂ := fun v =>
+    if hv : v ∈ S.Sf then A.ψ v (u.1 ⟨v, hv⟩) else 1
+  have hsupport : Function.mulSupport cf ⊆ (S.Sf : Set (FinPlace F)) := by
+    intro v hv
+    change v ∈ S.Sf
+    by_contra hvS
+    exact hv (by simp only [cf, dif_neg hvS])
+  have hcf : (Function.mulSupport cf).Finite := S.Sf.finite_toSet.subset hsupport
+  have hprod : (∏ᶠ v, cf v) = ∏ v : S.Sf, A.ψ v.1 (u.1 v) := by
+    rw [finprod_eq_prod_of_mulSupport_subset cf hsupport,
+      ← Finset.prod_coe_sort S.Sf cf]
+    apply Finset.prod_congr rfl
+    intro v _
+    simp only [cf, dif_pos v.property]
+  have hlocal (v : FinPlace F) :
+      jacquet (P.loc v) A (μ v)
+        (rtr (P.compF v y) (rtr (P.compF v x) (Fs.f v))) =
+      cf v • jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)) := by
+    by_cases hv : v ∈ S.Sf
+    · rw [hFy v, dif_pos hv]
+      simpa only [cf, dif_pos hv] using
+        (jacquet_equiv (P.loc v) (G.T v) A (μ v) s
+          (rtr (P.compF v x) (Fs.f v)) ((Fs.f_sec v).rtr (P.compF v x))).1
+            (u.1 ⟨v, hv⟩)
+    · rw [hFy v, dif_neg hv]
+      simp only [cf, dif_neg hv, one_smul]
+      apply congrArg (jacquet (P.loc v) A (μ v))
+      funext h
+      simp only [rtr, mul_one]
+  have hs0 : 0 < s.re := by linarith only [hs]
+  have hcomplex (w : InfinitePlace F) :
+      jacquetC (rtr (P.compC w y) (rtr (P.compC w x) (Fs.fC w))) =
+      psiC (u.2 w) * jacquetC (rtr (P.compC w x) (Fs.fC w)) := by
+    have hf : IsSectionC s (rtr (P.compC w x) (Fs.fC w)) := by
+      intro t a h
+      simpa only [rtr, mul_assoc] using (Fs.fC_sec w).1 t a (h * P.compC w x)
+    have hcont : Continuous (rtr (P.compC w x) (Fs.fC w)) := by
+      change Continuous (fun h : PGL2 ℂ => Fs.fC w (h * P.compC w x))
+      exact (Fs.fC_sec w).2.comp (continuous_id.mul continuous_const)
+    rw [hCy w]
+    change jacquetC (rtr (nC (u.2 w)) (rtr (P.compC w x) (Fs.fC w))) = _
+    exact jacquetC_equiv s hs0 (rtr (P.compC w x) (Fs.fC w)) hf hcont (u.2 w)
+  have hW := whit_translate_scalar P G μ hs Fs y x cf hcf
+    (fun w => psiC (u.2 w)) hlocal hcomplex
+  have hqx : P.q (y * x) = P.tc.nS (Multiplicative.ofAdd u) * g := by
+    rw [map_mul, hy, hx]
+  rw [hqx, hprod, hx] at hW
+  simpa only [SData.e] using hW
 
 theorem whit_unipotentExterior (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
