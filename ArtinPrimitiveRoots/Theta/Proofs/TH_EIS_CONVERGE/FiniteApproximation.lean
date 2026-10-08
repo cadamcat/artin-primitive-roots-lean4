@@ -615,4 +615,45 @@ theorem tsum_finite_coordinate_product
     _ = ∏ i, ∫ x, H i x ∂μ i := integral_fintype_prod_eq_prod H
     _ = _ := by simp only [hlocal]
 
+/-- The absolutely summable direct-sum series is the countable product of local series. -/
+theorem dfinsupp_finprod_hasProd
+    {ι : Type} {Q : ι → Type} [∀ i, Zero (Q i)] [∀ i, Countable (Q i)]
+    (H : ∀ i, Q i → ℂ) (T : Finset ι)
+    (hzero : ∀ i ∉ T, H i 0 = 1)
+    (habs : Summable (fun a : Π₀ i, Q i => ‖∏ᶠ i, H i (a i)‖)) :
+    HasProd (fun i => ∑' x : Q i, H i x)
+      (∑' a : Π₀ i, Q i, ∏ᶠ i, H i (a i)) := by
+  classical
+  let f (a : Π₀ i, Q i) : ℂ := ∏ᶠ i, H i (a i)
+  have hlim := dfinsupp_tsum_support_limit f habs
+  have hcut (t : Finset ι) (hTt : T ⊆ t) :
+      (∑' a : Π₀ i, Q i, if a.support ⊆ t then f a else 0) =
+        ∏ i ∈ t, ∑' x : Q i, H i x := by
+    have hprod (b : ∀ i : t, Q i) : f (DFinsupp.mk t b) = ∏ i : t, H i (b i) := by
+      dsimp only [f]
+      have hs : Function.mulSupport (fun i => H i (DFinsupp.mk t b i)) ⊆ (t : Set ι) := by
+        intro i hi
+        change i ∈ t
+        by_contra hin
+        change H i (DFinsupp.mk t b i) ≠ 1 at hi
+        apply hi
+        rw [DFinsupp.mk_of_notMem hin]
+        exact hzero i (fun hiT => hin (hTt hiT))
+      rw [finprod_eq_prod_of_mulSupport_subset _ hs, ← Finset.prod_coe_sort]
+      apply Finset.prod_congr rfl
+      intro i hi
+      rw [DFinsupp.mk_of_mem i.property]
+      rfl
+    calc
+      _ = ∑' b : ∀ i : t, Q i, f (DFinsupp.mk t b) := dfinsupp_tsum_cutoff f t
+      _ = ∑' b : ∀ i : t, Q i, ∏ i : t, H i (b i) := tsum_congr hprod
+      _ = ∏ i : t, ∑' x : Q i, H i x := tsum_finite_coordinate_product (fun i : t => H i)
+      _ = _ := Finset.prod_coe_sort t (fun i => ∑' x : Q i, H i x)
+  have heq : (fun t : Finset ι => ∑' a : Π₀ i, Q i, if a.support ⊆ t then f a else 0) =ᶠ[Filter.atTop]
+      (fun t : Finset ι => ∏ i ∈ t, ∑' x : Q i, H i x) :=
+    Filter.eventually_atTop.mpr ⟨T, fun t ht => hcut t ht⟩
+  change Filter.Tendsto (fun t : Finset ι => ∏ i ∈ t, ∑' x : Q i, H i x)
+    Filter.atTop (nhds (∑' a : Π₀ i, Q i, f a))
+  exact (Filter.tendsto_congr' heq).mp hlim
+
 end ArtinPrimitiveRoots.A1.Theta
