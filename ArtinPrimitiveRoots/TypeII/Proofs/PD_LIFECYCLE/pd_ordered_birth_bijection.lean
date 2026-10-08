@@ -13,6 +13,7 @@ import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostFinite
 import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostLive
 import ArtinPrimitiveRoots.Proofs.pd_life_b.EdgeLive
 import ArtinPrimitiveRoots.Proofs.pd_life_b.InitialLive
+import ArtinPrimitiveRoots.Proofs.pd_life_b.SymmetryLive
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_lifecycle_parameters
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_ordered_distinct_batch_sum
