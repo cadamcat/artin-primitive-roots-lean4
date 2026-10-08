@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.Proofs.qs_c_p.C3HighDivBound
 import ArtinPrimitiveRoots.Proofs.qs_c_p.C3TransTsum
 import ArtinPrimitiveRoots.Proofs.qs_c_p.C3TransShell
 import ArtinPrimitiveRoots.Proofs.qs_c_p.C3TransExpand
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3TransBound
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C3.Main
 
 /-!
