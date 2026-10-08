@@ -3794,6 +3794,59 @@ theorem scalarOf_arch_integral_product_lifts
       _ = _ := by
         rw [integral_fintype_prod_volume_eq_prod (fun w (z : ℂ) => ‖fc w z‖)]
 
+/-- The Bruhat integral has explicit local finite factors and a fixed complex factor. -/
+theorem scalarOf_bruhat_arch_integral
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP) (δ : Fˣ) (ξ : F) :
+    let H : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v x =>
+      G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+    let C : InfinitePlace F → ℂ → ℂ := fun w z => Fs.fC w
+      (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)
+    (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r)) =
+      (∏ᶠ v, H v (algebraMap F (v.adicCompletion F) ξ)) *
+        ∏ w, ∫ z : ℂ, C w z ∧
+    (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r)‖) =
+      ‖∏ᶠ v, H v (algebraMap F (v.adicCompletion F) ξ)‖ *
+        ∏ w, ∫ z : ℂ, ‖C w z‖ := by
+  classical
+  dsimp only
+  obtain ⟨u, hqu, hFu, hCu⟩ := nFin_components P ξ
+  let t : P.RP := P.ratRP (diagGL δ) * P.ratRP weylGL * u
+  have hq : P.q t = P.tc.rat (diagGL δ * weylGL) * nFin P ξ := by
+    simp only [t, map_mul, P.q_ratRP, hqu]
+  have hweyl {K : Type} [Field K] (φ : F →+* K) :
+      Matrix.GeneralLinearGroup.map φ (weylGL (F := F)) = weylM K := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map, weylGL, weylM]
+  have haF (v : FinPlace F) : P.compF v (P.ratRP (diagGL δ)) =
+      (P.loc v).a (toLoc v δ) := by
+    rw [P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    rfl
+  have hwF (v : FinPlace F) : P.compF v (P.ratRP weylGL) = (P.loc v).w := by
+    rw [P.compF_ratRP, hweyl, ← (P.loc v).sec_w]
+  have haC (w : InfinitePlace F) : P.compC w (P.ratRP (diagGL δ)) =
+      aC (Units.map w.embedding.toMonoidHom δ) := by
+    rw [P.compC_ratRP, scalar_glMap_diagGL]
+    rfl
+  have hwC (w : InfinitePlace F) : P.compC w (P.ratRP weylGL) = wC := by
+    rw [P.compC_ratRP, hweyl]
+    rfl
+  have hcompF (v : FinPlace F) : P.compF v (t * r) =
+      (P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ)) *
+          P.compF v r := by
+    simp only [t, map_mul, haF, hwF, hFu]
+  have hcompC (w : InfinitePlace F) : P.compC w t =
+      aC (Units.map w.embedding.toMonoidHom δ) * wC := by
+    simp only [t, map_mul, haC, hwC, hCu, mul_one]
+  simpa only [hq, hcompF, hcompC] using
+    scalarOf_arch_integral_product_lifts P G Fs t r
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
