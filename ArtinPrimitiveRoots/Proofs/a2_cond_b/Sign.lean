@@ -3,10 +3,11 @@ import ArtinPrimitiveRoots.A1.Hilbert
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain ClassFieldTheory
+open ArtinPrimitiveRoots.A2
 open scoped Classical
 noncomputable section
 
-namespace ArtinPrimitiveRoots.A2
+namespace ArtinPrimitiveRoots.Proofs.a2_cond_b
 
 variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
@@ -394,4 +395,4 @@ theorem conductorSupported_idealValue_eq_and_norm (S : A1.SData F CE condη)
       simpa [hPprime, hright, hidx] using hnorm
     · simp [hPprime]
 
-end ArtinPrimitiveRoots.A2
+end ArtinPrimitiveRoots.Proofs.a2_cond_b
