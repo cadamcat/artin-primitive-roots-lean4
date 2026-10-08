@@ -1371,6 +1371,70 @@ private theorem phase_box_mixed_derivative {k M : ℕ}
   simpa [coeff, angle, Finset.prod_insert, hje, mul_assoc, mul_left_comm,
     mul_comm] using hterm
 
+private theorem phase_box_interval_sobolev {f f' : ℝ → ℂ}
+    (hf : ContDiff ℝ 1 f)
+    (hderiv : ∀ t, HasDerivAt f (f' t) t)
+    {x : ℝ} (hx : x ∈ Set.Icc (0 : ℝ) 1) :
+    ‖f x‖ₑ ≤
+      (∫⁻ y in Set.Icc (0 : ℝ) 1, ‖f y‖ₑ) +
+        (∫⁻ y in Set.Icc (0 : ℝ) 1, ‖f' y‖ₑ) := by
+  classical
+  let μ : Measure ℝ := volume.restrict (Set.Icc (0 : ℝ) 1)
+  let aBound : ENNReal := ∫⁻ y, ‖f' y‖ₑ ∂μ
+  have hderiv_eq (t : ℝ) : deriv f t = f' t := (hderiv t).deriv
+  have hFTC (y : ℝ) (hy : y ∈ Set.Icc (0 : ℝ) 1) :
+      ‖f x - f y‖ₑ ≤ aBound := by
+    rcases le_total x y with hxy | hyx
+    · have hcont : ContDiffOn ℝ 1 f (Set.Icc x y) :=
+        hf.contDiffOn.mono (Set.Icc_subset_Icc hx.1 hy.2)
+      calc
+        ‖f x - f y‖ₑ = ‖f y - f x‖ₑ := by
+          rw [show f x - f y = -(f y - f x) by abel, enorm_neg]
+        _ ≤ ∫⁻ t in Set.Icc x y, ‖deriv f t‖ₑ :=
+          enorm_sub_le_lintegral_deriv_of_contDiffOn_Icc hcont hxy
+        _ ≤ ∫⁻ t in Set.Icc (0 : ℝ) 1, ‖deriv f t‖ₑ :=
+          lintegral_mono_set (Set.Icc_subset_Icc hx.1 hy.2)
+        _ = aBound := by
+          apply lintegral_congr_ae
+          filter_upwards with t
+          simp [aBound, hderiv_eq]
+    · have hyx' : y ≤ x := hyx
+      have hcont : ContDiffOn ℝ 1 f (Set.Icc y x) :=
+        hf.contDiffOn.mono (Set.Icc_subset_Icc hy.1 hx.2)
+      calc
+        ‖f x - f y‖ₑ ≤ ∫⁻ t in Set.Icc y x, ‖deriv f t‖ₑ :=
+          enorm_sub_le_lintegral_deriv_of_contDiffOn_Icc hcont hyx'
+        _ ≤ ∫⁻ t in Set.Icc (0 : ℝ) 1, ‖deriv f t‖ₑ :=
+          lintegral_mono_set (Set.Icc_subset_Icc hy.1 hx.2)
+        _ = aBound := by
+          apply lintegral_congr_ae
+          filter_upwards with t
+          simp [aBound, hderiv_eq]
+  have hpoint (y : ℝ) (hy : y ∈ Set.Icc (0 : ℝ) 1) :
+      ‖f x‖ₑ ≤ ‖f y‖ₑ + aBound := by
+    calc
+      ‖f x‖ₑ = ‖f y + (f x - f y)‖ₑ := by congr 1 <;> ring
+      _ ≤ ‖f y‖ₑ + ‖f x - f y‖ₑ := enorm_add_le _ _
+      _ ≤ ‖f y‖ₑ + aBound := by
+        calc
+          _ = ‖f y‖ₑ + ‖f x - f y‖ₑ := by ac_rfl
+          _ ≤ ‖f y‖ₑ + aBound := add_le_add_right (hFTC y hy) _
+  have hmono :
+      (∫⁻ y, ‖f x‖ₑ ∂μ) ≤ ∫⁻ y, (‖f y‖ₑ + aBound) ∂μ := by
+    apply lintegral_mono_ae
+    filter_upwards [ae_restrict_mem (μ := volume) measurableSet_Icc] with y hy
+    exact hpoint y hy
+  have hmeas : Measurable (fun y : ℝ => ‖f y‖ₑ) :=
+    hf.continuous.measurable.enorm
+  have hleft : (∫⁻ y, ‖f x‖ₑ ∂μ) = ‖f x‖ₑ := by
+    rw [lintegral_const]
+    simp [μ, Real.volume_Icc]
+  have hright :
+      (∫⁻ y, (‖f y‖ₑ + aBound) ∂μ) = (∫⁻ y, ‖f y‖ₑ ∂μ) + aBound := by
+    rw [lintegral_add_left hmeas, lintegral_const]
+    simp [μ, Real.volume_Icc, mul_comm]
+  simpa [aBound, μ] using hleft.symm.le.trans (hmono.trans_eq hright)
+
 private theorem phase_box_sobolev (k M : ℕ) (hM : 0 < M)
     (r : PhaseBoxIndex k M) (x : Fin k → ℝ)
     (hx : x ∈ phaseBoxUnitCube k) :
