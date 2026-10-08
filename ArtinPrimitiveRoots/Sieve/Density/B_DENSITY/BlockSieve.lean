@@ -234,4 +234,44 @@ lemma primeProducts_card_le (P : Finset ℕ) (hP : ∀ p ∈ P, p.Prime)
     _ = ⌊y⌋₊ + 1 := by simp
     _ = ⌊y⌋₊ + 1 := rfl
 
+/-- Every block-sieve divisibility error for `(x,2x]` is bounded by one. -/
+lemma roughBlockDivisibilityError_le_one {z x : ℝ} (hz : 2 ≤ z) (hx : 0 ≤ x)
+    (D : Finset ℕ) (hD : D ⊆ roughSievePrimes z) :
+    |(∑ n ∈ roughIntegerInterval x with (∀ p ∈ D, p ∣ n), (1 : ℝ)) -
+      x * ∏ p ∈ D, (1 / (p : ℝ))| ≤ 1 := by
+  classical
+  let P := roughSievePrimes z
+  have hP : ∀ p ∈ P, p.Prime := by
+    intro p hp
+    have hp' : (2 ≤ p ∧ p ≤ ⌊z⌋₊) ∧ p.Prime := by
+      simpa [P, roughSievePrimes, Finset.mem_filter, Finset.mem_Icc] using hp
+    exact hp'.2
+  let d : ℕ := ∏ p ∈ D, p
+  have hd : 0 < d := by
+    dsimp [d]
+    apply Finset.prod_pos
+    intro p hp
+    exact (hP p (hD hp)).pos
+  have hpred : ∀ n : ℕ, (∀ p ∈ D, p ∣ n) ↔ d ∣ n := by
+    intro n
+    exact primeSet_dvd_prod_iff P D hP hD n
+  have hsum :
+      (∑ n ∈ roughIntegerInterval x with (∀ p ∈ D, p ∣ n), (1 : ℝ)) =
+        ∑ n ∈ roughIntegerInterval x with d ∣ n, (1 : ℝ) := by
+    have hfilter :
+        (roughIntegerInterval x).filter (fun n => ∀ p ∈ D, p ∣ n) =
+          (roughIntegerInterval x).filter (fun n => d ∣ n) := by
+      ext n
+      simp only [Finset.mem_filter]
+      constructor
+      · rintro ⟨hn, hdiv⟩
+        exact ⟨hn, (hpred n).mp hdiv⟩
+      · rintro ⟨hn, hdiv⟩
+        exact ⟨hn, (hpred n).mpr hdiv⟩
+    rw [hfilter]
+  have hweight : ∏ p ∈ D, (1 / (p : ℝ)) = 1 / (d : ℝ) := by
+    simp [d, one_div, Finset.prod_inv_distrib]
+  rw [hsum, hweight]
+  simpa [div_eq_mul_inv] using roughIntegerMultipleCount_error x hx d hd
+
 end ArtinPrimitiveRoots.Proofs.b_density_sol
