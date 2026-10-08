@@ -3299,6 +3299,120 @@ private theorem qs_p1_transform_mellin_vertical_polynomial_decay_uniform
           mul_le_mul_of_nonneg_left hscalePow hC
         _ = (C * (2 * Real.pi) ^ N) * (1 + |w|) ^ N := by ring
 
+private theorem qs_p1_dual_mellin_vertical_shift [IsTotallyComplex K]
+    (h : ℝ → ℂ) (hh : IsQSWeight h) (Y : ℝ) (hY : 0 < Y)
+    (Lc : ℂ → ℂ) (hLc : Differentiable ℂ Lc)
+    (hbound : ∃ C α : ℝ, 0 ≤ C ∧ 0 ≤ α ∧
+      ∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 →
+        ‖Lc s‖ ≤ C * (2 + |s.im|) ^ α) :
+    ∫ t : ℝ,
+      (Y : ℂ) ^ (-((1 / 2 : ℂ) + (t : ℂ) * Complex.I)) *
+        Lc ((1 / 2 : ℂ) + (t : ℂ) * Complex.I) *
+        mellin (qsTransform K h) ((1 / 2 : ℂ) + (t : ℂ) * Complex.I) =
+    ∫ t : ℝ,
+      (Y : ℂ) ^ (-((3 / 2 : ℂ) + (t : ℂ) * Complex.I)) *
+        Lc ((3 / 2 : ℂ) + (t : ℂ) * Complex.I) *
+        mellin (qsTransform K h) ((3 / 2 : ℂ) + (t : ℂ) * Complex.I) := by
+  classical
+  obtain ⟨Cₗ, α, hCₗ, hα, hLbound⟩ := hbound
+  have hYc : (Y : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hY.ne'
+  letI : NeZero (Y : ℂ) := ⟨hYc⟩
+  let F : ℂ → ℂ := fun s => (Y : ℂ) ^ (-s) * Lc s * mellin (qsTransform K h) s
+  let S : Set ℂ := {s | 1 / 2 ≤ s.re ∧ s.re ≤ 3 / 2}
+  have hpowCont : Continuous (fun s : ℂ => (Y : ℂ) ^ (-s)) := by fun_prop
+  have hMellinCont : ContinuousOn (mellin (qsTransform K h)) S := by
+    intro s hs
+    change 1 / 2 ≤ s.re ∧ s.re ≤ 3 / 2 at hs
+    have hspos : 0 < s.re := by linarith
+    exact (qs_p1_transform_mellin_differentiableAt (K := K) h hh hspos).2.continuousAt.continuousWithinAt
+  have hFcont : ContinuousOn F S := by
+    change ContinuousOn (fun s : ℂ =>
+      ((Y : ℂ) ^ (-s) * Lc s) * mellin (qsTransform K h) s) S
+    exact (hpowCont.continuousOn.mul hLc.continuous.continuousOn).mul hMellinCont
+  have hFdiff : ∀ s : ℂ, 1 / 2 < s.re → s.re < 3 / 2 → DifferentiableAt ℂ F s := by
+    intro s hs₁ hs₂
+    have hspos : 0 < s.re := by linarith
+    change DifferentiableAt ℂ (fun z : ℂ =>
+      ((Y : ℂ) ^ (-z) * Lc z) * mellin (qsTransform K h) z) s
+    exact ((differentiableAt_id.neg.const_cpow (Or.inl hYc)).mul (hLc s)).mul
+      (qs_p1_transform_mellin_differentiableAt (K := K) h hh hspos).2
+  let N : ℕ := ⌈α⌉₊ + 1
+  have hαN : α ≤ (N : ℝ) := by
+    dsimp [N]
+    push_cast
+    exact le_add_of_nonneg_right (by norm_num : (0 : ℝ) ≤ 1) |> le_trans (Nat.le_ceil α)
+  obtain ⟨Cₘ, hCₘ, hMellin⟩ :=
+    qs_p1_transform_mellin_vertical_polynomial_decay_uniform (K := K) h hh
+      (1 / 2) (3 / 2) (by norm_num) (by norm_num) (N + 2)
+  let D : ℝ := max (Y ^ (-(1 / 2 : ℝ))) (Y ^ (-(3 / 2 : ℝ)))
+  have hD : 0 ≤ D := by
+    dsimp [D]
+    exact le_max_of_le_left (Real.rpow_nonneg hY.le _)
+  have hYbound : ∀ r ∈ Set.Icc (1 / 2 : ℝ) (3 / 2), Y ^ (-r) ≤ D := by
+    intro r hr
+    by_cases hYone : 1 ≤ Y
+    · have hexp : -r ≤ -(1 / 2 : ℝ) := by linarith [hr.1]
+      exact (Real.rpow_le_rpow_of_exponent_le hYone hexp).trans (le_max_left _ _)
+    · have hYle : Y ≤ 1 := le_of_not_ge hYone
+      have hexp : -(3 / 2 : ℝ) ≤ -r := by linarith [hr.2]
+      exact (Real.rpow_le_rpow_of_exponent_ge hY hYle hexp).trans (le_max_right _ _)
+  have hdecay : ∃ C : ℝ, 0 ≤ C ∧ ∀ s : ℂ, 1 / 2 ≤ s.re → s.re ≤ 3 / 2 →
+      ‖F s‖ ≤ C / (1 + |s.im|) ^ 2 := by
+    refine ⟨D * Cₗ * (2 : ℝ) ^ α * Cₘ, by positivity, ?_⟩
+    intro s hs₁ hs₂
+    let u : ℝ := 1 + |s.im|
+    have hu : 0 < u := by dsimp [u]; positivity
+    have hu1 : 1 ≤ u := by dsimp [u]; nlinarith [abs_nonneg s.im]
+    have hsline : s.re ∈ Set.Icc (1 / 2 : ℝ) (3 / 2) := ⟨hs₁, hs₂⟩
+    have hM := hMellin s.re hsline s.im
+    have hlineEq : (s.re : ℂ) + (s.im : ℂ) * Complex.I = s := by
+      apply Complex.ext <;> simp
+    rw [hlineEq] at hM
+    have hLc' := hLbound s (by linarith [hs₁]) (by linarith [hs₂])
+    have hheight : (2 + |s.im|) ^ α ≤ (2 : ℝ) ^ α * u ^ N := by
+      have hfactor : 2 + |s.im| ≤ 2 * u := by
+        dsimp [u]
+        nlinarith [abs_nonneg s.im]
+      calc
+        (2 + |s.im|) ^ α ≤ (2 * u) ^ α :=
+          Real.rpow_le_rpow (by positivity) hfactor hα
+        _ = (2 : ℝ) ^ α * u ^ α := by
+          rw [Real.mul_rpow (by norm_num) (le_of_lt hu)]
+        _ ≤ (2 : ℝ) ^ α * u ^ (N : ℝ) := by
+          exact mul_le_mul_of_nonneg_left
+            (Real.rpow_le_rpow_of_exponent_le hu1 hαN) (Real.rpow_nonneg (by norm_num) _)
+        _ = (2 : ℝ) ^ α * u ^ N := by rw [Real.rpow_natCast]
+    have hsY : s.re ∈ Set.Icc (1 / 2 : ℝ) (3 / 2) := hsline
+    have hYnorm : ‖(Y : ℂ) ^ (-s)‖ ≤ D := by
+      rw [Complex.norm_cpow_eq_rpow_re_of_pos hY]
+      simpa using hYbound s.re hsY
+    have hprod : ‖F s‖ ≤ D * (Cₗ * (2 + |s.im|) ^ α) *
+        (Cₘ / u ^ (N + 2)) := by
+      dsimp [F]
+      calc
+        _ = (‖(Y : ℂ) ^ (-s)‖ * ‖Lc s‖) *
+            ‖mellin (qsTransform K h) s‖ := by simp [norm_mul]
+        _ ≤ D * (Cₗ * (2 + |s.im|) ^ α) * (Cₘ / u ^ (N + 2)) := by
+          exact mul_le_mul (mul_le_mul hYnorm hLc' (norm_nonneg _) hD) hM
+            (norm_nonneg _) (by positivity)
+    have hfinal : D * (Cₗ * (2 + |s.im|) ^ α) *
+        (Cₘ / u ^ (N + 2)) ≤ (D * Cₗ * (2 : ℝ) ^ α * Cₘ) / u ^ 2 := by
+      have huPow : u ^ (N + 2) = u ^ N * u ^ 2 := by rw [pow_add]
+      calc
+        _ ≤ D * (Cₗ * ((2 : ℝ) ^ α * u ^ N)) * (Cₘ / u ^ (N + 2)) := by
+          apply mul_le_mul_of_nonneg_right _ (by positivity)
+          apply mul_le_mul_of_nonneg_left
+          · exact mul_le_mul_of_nonneg_left hheight hCₗ
+          · exact hD
+        _ = D * (Cₗ * ((2 : ℝ) ^ α * u ^ N)) * (Cₘ / (u ^ N * u ^ 2)) := by
+          rw [huPow]
+        _ = (D * Cₗ * (2 : ℝ) ^ α * Cₘ) / u ^ 2 := by
+          field_simp [ne_of_gt hu]
+    exact hprod.trans hfinal
+  have hshift := qs_p1_vertical_integral_shift F (1 / 2) (3 / 2) (by norm_num)
+    hFcont hFdiff hdecay
+  simpa [F] using hshift
+
 private theorem qs_p1_transform_mellin_vertical_integrable [IsTotallyComplex K]
     (h : ℝ → ℂ) (hh : IsQSWeight h) (c : ℝ) (hc : 0 < c) :
     Complex.VerticalIntegrable (mellin (qsTransform K h)) c := by
