@@ -1224,7 +1224,454 @@ theorem rf_angular_cancellation :
       digitSum R r minus true y) = 0) ∧
     thetaAverage R r l = omegaInt R l (fun y => bCut (Bd := Bd) y *
       (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r true false y) := by
-  sorry
+  intro r l hl
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  let w : InfinitePlace F := Classical.choice (inferInstance : Nonempty (InfinitePlace F))
+  let zminus : ℂˣ := -1
+  obtain ⟨z0, hz0pow⟩ := IsAlgClosed.exists_pow_nat_eq (-1 : ℂ) (by norm_num : 0 < 6)
+  have hz0ne : z0 ≠ 0 := by
+    intro hz
+    rw [hz] at hz0pow
+    norm_num at hz0pow
+  let zroot : ℂˣ := Units.mk0 z0 hz0ne
+  have hzrootpow : zroot ^ 6 = zminus := by
+    apply Units.ext
+    change z0 ^ 6 = -1
+    simpa [zminus] using hz0pow
+  let a : S.FSˣ := S.atComplex w zminus
+  have haSix : (S.atComplex w zroot) ^ 6 = a := by
+    apply Units.ext
+    apply Prod.ext
+    · funext v
+      simp [a, SData.atComplex]
+    · funext w'
+      by_cases hw' : w' = w
+      · subst w'
+        have hzval : (zroot : ℂ) ^ 6 = (zminus : ℂ) :=
+          congrArg (fun z : ℂˣ => (z : ℂ)) hzrootpow
+        simpa [a, SData.atComplex, Function.update_self] using hzval
+      · simp [a, SData.atComplex, hw']
+  have haInv : a⁻¹ = a := by
+    apply Units.ext
+    apply Prod.ext
+    · funext v
+      simp [a, SData.atComplex]
+    · funext w'
+      by_cases hw' : w' = w
+      · subst w'
+        simp [a, SData.atComplex, zminus]
+      · simp [a, SData.atComplex, hw']
+  let ai : S.FS := ((a⁻¹ : S.FSˣ) : S.FS)
+  have hAbsOne (v : S.Sf) : absFin v.1 1 = 1 := by
+    dsimp [absFin]
+    rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v.1)]
+    simp
+  have hNormA : S.absS (a : S.FS) = 1 := by
+    have hfinprod : (∏ v : S.Sf, absFin v.1 1) = 1 :=
+      Finset.prod_eq_one fun v _ => hAbsOne v
+    have harchprod :
+        (∏ w' : InfinitePlace F,
+          Complex.normSq (Function.update (fun _ => (1 : ℂ)) w (zminus : ℂ) w')) = 1 := by
+      apply Finset.prod_eq_one
+      intro w' hw'
+      by_cases h : w' = w
+      · subst w'
+        simp [zminus]
+      · simp [Function.update_of_ne h, zminus]
+    change (∏ v : S.Sf, absFin v.1 1) *
+        (∏ w' : InfinitePlace F,
+          Complex.normSq (Function.update (fun _ => (1 : ℂ)) w (zminus : ℂ) w')) = 1
+    rw [hfinprod, harchprod]
+    simp
+  have hzminusNorm : ‖(zminus : ℂ)‖ = 1 := by norm_num [zminus]
+  have hAClass : cls a = 1 := by
+    change (QuotientGroup.mk a : S.V) = 1
+    rw [QuotientGroup.eq_one_iff]
+    change a ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range
+    exact MonoidHom.mem_range.mpr ⟨S.atComplex w zroot, haSix⟩
+  have hBcut (y : S.FSˣ) :
+      bCut (Bd := Bd) (a * y) = bCut (Bd := Bd) y := by
+    have hcls : cls (a * y) = cls y := by
+      calc
+        cls (a * y) = cls a * cls y := by simp [cls]
+        _ = cls y := by rw [hAClass]; exact one_mul (cls y)
+    unfold bCut
+    rw [hcls]
+  have hOmegaAt : IsFundamentalAt (omegaAt R l) l := by
+    simpa [IsFundamentalAt, omegaAt, bridgeFundamentalAt, bridgeOmegaAt] using
+      (a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl).1
+  let e : S.FS ≃ᵐ S.FS := {
+    toEquiv := {
+      toFun := fun y => (a : S.FS) * y
+      invFun := fun y => (a⁻¹ : S.FS) * y
+      left_inv := by intro y; simp [mul_assoc]
+      right_inv := by intro y; simp [mul_assoc] }
+    measurable_toFun := rf_measurable_leftMul (a : S.FS)
+    measurable_invFun := rf_measurable_leftMul (a⁻¹ : S.FS) }
+  let Oa : Set S.FS := {z | ∃ x ∈ omegaAt R l, (a : S.FS) * x = z}
+  have hOaeq : Oa = e '' omegaAt R l := by
+    ext z
+    simp [Oa, e]
+  have hai : ai = (a : S.FS)⁻¹ := by
+    change ((a⁻¹ : S.FSˣ) : S.FS) = (a : S.FS)⁻¹
+    exact Units.val_inv_eq_inv_val a
+  have hmulAI : (a : S.FS) * ai = 1 := by
+    change ((a * a⁻¹ : S.FSˣ) : S.FS) = 1
+    simp [ai]
+  have hNormAinv : S.absS ai = 1 := by
+    have hnormmul := (a2_bridge_NORM D S).2.1 (a : S.FS) ai
+    rw [hmulAI] at hnormmul
+    have hNormOne : S.absS (1 : S.FS) = 1 := by
+      simp [SData.absS, hAbsOne]
+    rw [hNormOne] at hnormmul
+    simp [hNormA] at hnormmul
+    exact hnormmul.symm
+  have hRotMem (γ : Gamma S) (y : S.FSˣ) :
+      ((S.diagU (γ.1 : Fˣ))⁻¹ * y : S.FSˣ).val ∈ Oa ↔
+        ((S.diagU (γ.1 : Fˣ))⁻¹ * (a⁻¹ * y : S.FSˣ) : S.FSˣ).val ∈
+          omegaAt R l := by
+    constructor
+    · intro hmem
+      rcases hmem with ⟨x, hx, hxeq⟩
+      have hxunit := (hOmegaAt.2.1 x hx).1
+      let xu : S.FSˣ := hxunit.unit
+      have hxu_mem : (xu : S.FS) ∈ omegaAt R l := by
+        rw [← hxunit.unit_spec] at hx
+        exact hx
+      have hxeqUnit : a * xu = (S.diagU (γ.1 : Fˣ))⁻¹ * y := by
+        have hxeq' := hxeq
+        rw [← hxunit.unit_spec] at hxeq'
+        apply Units.ext
+        change (a : S.FS) * (xu : S.FS) =
+          ((S.diagU (γ.1 : Fˣ))⁻¹ * y : S.FS)
+        exact hxeq'
+      have hxu : xu = (S.diagU (γ.1 : Fˣ))⁻¹ * (a⁻¹ * y) := by
+        calc
+          xu = 1 * xu := by simp
+          _ = a⁻¹ * (a * xu) := by simp [mul_assoc]
+          _ = a⁻¹ * ((S.diagU (γ.1 : Fˣ))⁻¹ * y) := by rw [hxeqUnit]
+          _ = (S.diagU (γ.1 : Fˣ))⁻¹ * (a⁻¹ * y) := by ac_rfl
+      rw [hxu] at hxu_mem
+      exact hxu_mem
+    · intro hx
+      refine ⟨((S.diagU (γ.1 : Fˣ))⁻¹ * (a⁻¹ * y : S.FSˣ) : S.FS), hx, ?_⟩
+      change (a : S.FS) *
+          ((S.diagU (γ.1 : Fˣ))⁻¹ * (a⁻¹ * y : S.FSˣ) : S.FS) =
+        ((S.diagU (γ.1 : Fˣ))⁻¹ * y : S.FS)
+      simp [mul_assoc, mul_left_comm, mul_comm]
+  have hOa : IsFundamentalAt Oa l := by
+    refine ⟨?_, ?_, ?_⟩
+    · rw [hOaeq]
+      exact e.measurableSet_image.mpr hOmegaAt.1
+    · intro y hy
+      rcases hy with ⟨x, hx, hxy⟩
+      obtain ⟨hxunit, hxnorm⟩ := hOmegaAt.2.1 x hx
+      refine ⟨?_, ?_⟩
+      · rw [← hxy]
+        exact (a.isUnit_units_mul x).2 hxunit
+      calc
+        S.absS y = S.absS ((a : S.FS) * x) := by rw [hxy]
+        _ = S.absS (a : S.FS) * S.absS x :=
+          (a2_bridge_NORM D S).2.1 _ _
+        _ = 1 * l := by rw [hNormA, hxnorm]
+        _ = l := one_mul l
+    · intro y hy
+      let y' : S.FSˣ := a⁻¹ * y
+      have hy'val : (y' : S.FS) =
+          ai * (y : S.FS) := by
+        simpa [ai, y'] using congrArg (fun z : S.FSˣ => (z : S.FS)) (rfl : y' = a⁻¹ * y)
+      have hy' : S.absS (y' : S.FS) = l := by
+        calc
+          S.absS (y' : S.FS) = S.absS ai * S.absS (y : S.FS) := by
+            rw [hy'val]
+            exact (a2_bridge_NORM D S).2.1 ai (y : S.FS)
+          _ = 1 * l := by rw [hNormAinv, hy]
+          _ = l := one_mul l
+      obtain ⟨γ, hγ, hγuniq⟩ := hOmegaAt.2.2 y' hy'
+      refine ⟨γ, (hRotMem γ y).2 (by simpa [y'] using hγ), ?_⟩
+      intro γ' hγ'
+      apply hγuniq γ'
+      exact (hRotMem γ' y).1 hγ'
+  have hmp : MeasurePreserving (e : S.FS → S.FS)
+      (R.sheets.sheet l) (R.sheets.sheet l) := by
+    refine ⟨e.measurable, ?_⟩
+    change Measure.map (fun y : S.FS => (a : S.FS) * y) (R.sheets.sheet l) =
+      R.sheets.sheet l
+    simpa [hNormA] using R.sheets.sheet_translate a l hl
+  letI : SMul (Gamma S) S.FS := ⟨fun γ y =>
+    (rfGammaDiag (S := S) γ : S.FS) * y⟩
+  letI : MulAction (Gamma S) S.FS := {
+    one_smul := by
+      intro y
+      change (rfGammaDiag (S := S) 1 : S.FS) * y = y
+      simp
+    mul_smul := by
+      intro γ γ' y
+      change (rfGammaDiag (S := S) (γ * γ') : S.FS) * y =
+        (rfGammaDiag (S := S) γ : S.FS) *
+          ((rfGammaDiag (S := S) γ' : S.FS) * y)
+      rw [map_mul]
+      simp [mul_assoc] }
+  have hGammaAction (γ : Gamma S) (y : S.FS) :
+      γ • y = (S.diagU (γ.1 : Fˣ) : S.FS) * y := by
+    change (rfGammaDiag (S := S) γ : S.FS) * y = _
+    rw [rfGammaDiag_eq]
+  letI : MeasurableConstSMul (Gamma S) S.FS := ⟨fun γ => by
+    change Measurable (fun y : S.FS => (rfGammaDiag (S := S) γ : S.FS) * y)
+    exact rf_measurable_leftMul _⟩
+  letI : Countable (Gamma S) :=
+    (a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl).2.2
+  have hGammaNorm (γ : Gamma S) :
+      S.absS (rfGammaDiag (S := S) γ : S.FS) = 1 := by
+    rw [rfGammaDiag_eq]
+    exact (a2_bridge_NORM D S).2.2.2.1 (γ.1 : S.US)
+  have hGammaPres (γ : Gamma S) : MeasurePreserving (fun y : S.FS => γ • y)
+      (R.sheets.sheet l) (R.sheets.sheet l) := by
+    refine ⟨measurable_const_smul γ, ?_⟩
+    change Measure.map (fun y : S.FS =>
+      (rfGammaDiag (S := S) γ : S.FS) * y) (R.sheets.sheet l) = R.sheets.sheet l
+    simpa [hGammaNorm γ] using
+      R.sheets.sheet_translate (rfGammaDiag (S := S) γ) l hl
+  letI : SMulInvariantMeasure (Gamma S) S.FS (R.sheets.sheet l) := ⟨fun γ t ht => by
+    calc
+      R.sheets.sheet l ((fun y : S.FS => γ • y) ⁻¹' t) =
+          Measure.map (fun y : S.FS => γ • y) (R.sheets.sheet l) t :=
+        (Measure.map_apply (measurable_const_smul γ) ht).symm
+      _ = R.sheets.sheet l t := by rw [(hGammaPres γ).map_eq]⟩
+  have hGammaInv (γ : Gamma S) (y : S.FS) :
+      γ⁻¹ • y = ((S.diagU (γ.1 : Fˣ))⁻¹ : S.FS) * y := by
+    calc
+      γ⁻¹ • y = (S.diagU ((γ⁻¹).1 : Fˣ) : S.FS) * y := hGammaAction γ⁻¹ y
+      _ = (rfGammaDiag (S := S) γ⁻¹ : S.FS) * y := by rw [← rfGammaDiag_eq]
+      _ = ((rfGammaDiag (S := S) γ)⁻¹ : S.FSˣ) * y := by rw [map_inv]
+      _ = ((S.diagU (γ.1 : Fˣ))⁻¹ : S.FS) * y := by
+        congr 1
+        exact Units.val_inv_eq_inv_val _
+  have mkDomain (O' : Set S.FS) (hO' : IsFundamentalAt O' l) :
+      MeasureTheory.IsFundamentalDomain (Gamma S) O' (R.sheets.sheet l) := by
+    have hcover : ∀ᵐ y ∂ (R.sheets.sheet l), ∃ γ : Gamma S, γ • y ∈ O' := by
+      filter_upwards [R.sheets.sheet_support l hl] with y hy
+      rcases hy with ⟨hyunit, hynorm⟩
+      let yu : S.FSˣ := hyunit.unit
+      obtain ⟨γ, hγ, -⟩ := hO'.2.2 yu hynorm
+      refine ⟨γ⁻¹, ?_⟩
+      rw [hGammaInv]
+      simpa [yu, hyunit.unit_spec] using hγ
+    have hdis : ∀ γ : Gamma S, γ ≠ 1 →
+        MeasureTheory.AEDisjoint (R.sheets.sheet l) (γ • O') O' := by
+      intro γ hγ
+      apply Disjoint.aedisjoint
+      apply Set.disjoint_left.mpr
+      intro y hleft hright
+      rw [Set.mem_smul_set_iff_inv_smul_mem] at hleft
+      obtain ⟨hyunit, hynorm⟩ := hO'.2.1 y hright
+      let yu : S.FSˣ := hyunit.unit
+      obtain ⟨δ, -, huniq⟩ := hO'.2.2 yu hynorm
+      have hγmem : ((S.diagU (γ.1 : Fˣ))⁻¹ * yu : S.FSˣ).val ∈ O' := by
+        rw [hGammaInv] at hleft
+        simpa [yu, hyunit.unit_spec] using hleft
+      have h1mem : ((S.diagU ((1 : Gamma S).1 : Fˣ))⁻¹ * yu : S.FSˣ).val ∈ O' := by
+        simpa [yu, hyunit.unit_spec] using hright
+      have hγδ := huniq γ hγmem
+      have h1δ := huniq 1 h1mem
+      exact hγ (hγδ.trans h1δ.symm)
+    refine MeasureTheory.IsFundamentalDomain.mk'' hO'.1.nullMeasurableSet hcover hdis ?_
+    intro γ
+    exact (hGammaPres γ).quasiMeasurePreserving
+  have hOmegaDomain := mkDomain (omegaAt R l) hOmegaAt
+  have hOaDomain := mkDomain Oa hOa
+  have hASmul (y : S.FSˣ) :
+      R.C.aS a * R.C.aS y = R.C.aS (a * y) := by
+    have hHS : S.HS H a y = 1 := by
+      unfold SData.HS
+      apply Finset.prod_eq_one
+      intro v hv
+      have hcomp : S.compU v a = 1 := by
+        apply Units.ext
+        simp [a, SData.atComplex, SData.compU]
+      have hhilb : H.hilb v.1 1 (S.compU v y) = 1 := by
+        let b := H.hilb v.1 1 (S.compU v y)
+        have hb : b = b * b := by
+          simpa only [one_mul] using H.mul_left v.1 1 1 (S.compU v y)
+        have hb' : b * 1 = b * b := by simpa using hb
+        exact (mul_left_cancel hb').symm
+      rw [hcomp]
+      exact hhilb
+    have hmu : muThree D (S.HS H a y) = 1 := by
+      rw [hHS]
+      apply Subtype.ext
+      apply Units.ext
+      simp [muThree]
+    have h := R.C.aS_mul a y
+    rw [hmu] at h
+    simpa using h
+  have hLz (u : UnitSix S) : Lvalue R u a = -1 := by
+    change (((R.chars.L u).L a : ℂˣ) : ℂ) = -1
+    rw [(R.chars.L u).angular w zminus]
+    rcases (R.chars.L u).hm w with hm | hm
+    · rw [hm]
+      simp [omegaAng, zminus]
+    · rw [hm]
+      simp [omegaAng, zminus]
+  have hLmul (u : UnitSix S) (y : S.FSˣ) :
+      Lvalue R u (a * y) = Lvalue R u a * Lvalue R u y := by
+    simp [Lvalue, map_mul]
+  have hwA : R.C.wS * R.C.aS a = R.C.aS a * R.C.wS := by
+    have hwA' : R.C.wS * R.C.aS a * R.C.wS⁻¹ = R.C.aS a := by
+      rw [R.C.liftS_wa a, haInv]
+    calc
+      R.C.wS * R.C.aS a = (R.C.wS * R.C.aS a * R.C.wS⁻¹) * R.C.wS := by
+        simp [mul_assoc]
+      _ = R.C.aS a * R.C.wS := by rw [hwA']
+  have hRatComm : R.C.rat weylGL * R.C.aS a = R.C.aS a * R.C.rat weylGL := by
+    have hExtA : R.C.wExt * R.C.aS a = R.C.aS a * R.C.wExt :=
+      R.C.Kext_comm_S R.C.wExt R.C.wExt_Kext (R.C.aS a) (R.C.aS_mem a)
+    calc
+      R.C.rat weylGL * R.C.aS a = (R.C.wS * R.C.wExt) * R.C.aS a := by
+        rw [R.C.rat_weyl]
+      _ = R.C.wS * (R.C.wExt * R.C.aS a) := by simp [mul_assoc]
+      _ = R.C.wS * (R.C.aS a * R.C.wExt) := by rw [hExtA]
+      _ = (R.C.wS * R.C.aS a) * R.C.wExt := by simp [mul_assoc]
+      _ = (R.C.aS a * R.C.wS) * R.C.wExt := by rw [hwA]
+      _ = R.C.aS a * (R.C.wS * R.C.wExt) := by simp [mul_assoc]
+      _ = R.C.aS a * R.C.rat weylGL := by rw [R.C.rat_weyl]
+  have hThetaRadial (u : UnitSix S) (g : R.C.G) :
+      R.T.θN (R.chars.L u) (R.C.aS a * g) = R.T.θN (R.chars.L u) g :=
+    R.T.T7 (R.chars.L u) (R.mem_family u) w zminus hzminusNorm g
+  refine ⟨?_, ?_⟩
+  · intro minus
+    let u := rowClass R r
+    let f : S.FSˣ → ℂ := fun y =>
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * digitSum R r minus true y
+    have hPoint (d : Digits R r) (y : S.FSˣ) :
+        digitPoint R r (a * y) d = R.C.aS a * digitPoint R r y d := by
+      unfold digitPoint
+      rw [← hASmul y]
+      simp [mul_assoc]
+    have hThetaPoint (d : Digits R r) (y : S.FSˣ) :
+        R.T.θN (R.chars.L u)
+            ((if minus then R.C.rat weylGL else 1) * digitPoint R r (a * y) d) =
+          R.T.θN (R.chars.L u)
+            ((if minus then R.C.rat weylGL else 1) * digitPoint R r y d) := by
+      cases minus with
+      | false =>
+        change R.T.θN (R.chars.L u)
+            (1 * digitPoint R r (a * y) d) =
+          R.T.θN (R.chars.L u) (1 * digitPoint R r y d)
+        calc
+          R.T.θN (R.chars.L u) (1 * digitPoint R r (a * y) d) =
+              R.T.θN (R.chars.L u) (R.C.aS a * digitPoint R r y d) := by
+            rw [one_mul, hPoint]
+          _ = R.T.θN (R.chars.L u) (digitPoint R r y d) :=
+            hThetaRadial u (digitPoint R r y d)
+          _ = R.T.θN (R.chars.L u) (1 * digitPoint R r y d) := by rw [one_mul]
+      | true =>
+        change R.T.θN (R.chars.L u)
+            (R.C.rat weylGL * digitPoint R r (a * y) d) =
+          R.T.θN (R.chars.L u) (R.C.rat weylGL * digitPoint R r y d)
+        rw [hPoint]
+        calc
+          R.T.θN (R.chars.L u)
+              (R.C.rat weylGL * (R.C.aS a * digitPoint R r y d)) =
+            R.T.θN (R.chars.L u)
+              (R.C.aS a * (R.C.rat weylGL * digitPoint R r y d)) := by
+                congr 1
+                calc
+                  R.C.rat weylGL * (R.C.aS a * digitPoint R r y d) =
+                      (R.C.rat weylGL * R.C.aS a) * digitPoint R r y d := by
+                        simp [mul_assoc]
+                  _ = (R.C.aS a * R.C.rat weylGL) * digitPoint R r y d := by
+                    rw [hRatComm]
+                  _ = R.C.aS a * (R.C.rat weylGL * digitPoint R r y d) := by
+                    simp [mul_assoc]
+          _ = R.T.θN (R.chars.L u) (R.C.rat weylGL * digitPoint R r y d) :=
+            hThetaRadial u (R.C.rat weylGL * digitPoint R r y d)
+    have hDigitSum (y : S.FSˣ) :
+        digitSum R r minus true (a * y) = digitSum R r minus true y := by
+      unfold digitSum
+      apply finsum_congr
+      intro d
+      simp only [if_true]
+      rw [hThetaPoint]
+    have hLinv (y : S.FSˣ) :
+        (Lvalue R u (a * y))⁻¹ = -(Lvalue R u y)⁻¹ := by
+      rw [hLmul, hLz]
+      simp
+    have hSignUnit (y : S.FSˣ) : f (a * y) = -f y := by
+      dsimp [f]
+      rw [hBcut, hLinv, hDigitSum]
+      ring
+    rcases rf_descent R with ⟨_, hDigitGamma, hCutGamma, hLGamma⟩
+    have hCharMul (x y : S.FSˣ) :
+        Lvalue R u (x * y) = Lvalue R u x * Lvalue R u y := by
+      simp [Lvalue, map_mul]
+    have hInvUnit (γ : Gamma S) (y : S.FSˣ) :
+        f (S.diagU (γ.1 : Fˣ) * y) = f y := by
+      dsimp [f]
+      rw [hCutGamma γ y, hCharMul, hLGamma u γ,
+        hDigitGamma r γ y minus true]
+      simp
+    have hInv (γ : Gamma S) (y : S.FS) : onUnits f (γ • y) = onUnits f y := by
+      change onUnits f ((S.diagU (γ.1 : Fˣ) : S.FS) * y) = onUnits f y
+      by_cases hy : IsUnit y
+      · have hmul : IsUnit ((S.diagU (γ.1 : Fˣ) : S.FS) * y) :=
+          (S.diagU (γ.1 : Fˣ)).isUnit_units_mul y |>.2 hy
+        have hmulval : hmul.unit = S.diagU (γ.1 : Fˣ) * hy.unit := by
+          apply Units.ext
+          simp [hy.unit_spec]
+        have hleft : onUnits f ((S.diagU (γ.1 : Fˣ) : S.FS) * y) = f hmul.unit := by
+          simp [onUnits, hmul]
+        have hright : onUnits f y = f hy.unit := by simp [onUnits, hy]
+        rw [hleft, hright, hmulval]
+        exact hInvUnit γ hy.unit
+      · have hmul : ¬ IsUnit ((S.diagU (γ.1 : Fˣ) : S.FS) * y) :=
+          fun h => hy ((S.diagU (γ.1 : Fˣ)).isUnit_units_mul y |>.1 h)
+        simp [onUnits, hy, hmul]
+    have hSignOnUnits (y : S.FS) : onUnits f ((a : S.FS) * y) = -onUnits f y := by
+      by_cases hy : IsUnit y
+      · have hmul : IsUnit ((a : S.FS) * y) := (a.isUnit_units_mul y).2 hy
+        have hmulval : hmul.unit = a * hy.unit := by
+          apply Units.ext
+          simp [hy.unit_spec]
+        have hleft : onUnits f ((a : S.FS) * y) = f hmul.unit := by
+          simp [onUnits, hmul]
+        have hright : onUnits f y = f hy.unit := by simp [onUnits, hy]
+        rw [hleft, hright, hmulval]
+        exact hSignUnit hy.unit
+      · have hmul : ¬ IsUnit ((a : S.FS) * y) :=
+          fun h => hy (a.isUnit_units_mul y |>.1 h)
+        simp [onUnits, hy, hmul]
+    have hSignIntegral :
+        (∫ y in omegaAt R l, onUnits f ((a : S.FS) * y) ∂(R.sheets.sheet l)) =
+          -(∫ y in omegaAt R l, onUnits f y ∂(R.sheets.sheet l)) := by
+      calc
+        _ = ∫ y in omegaAt R l, -onUnits f y ∂(R.sheets.sheet l) := by
+          apply integral_congr_ae
+          exact Filter.Eventually.of_forall hSignOnUnits
+        _ = _ := by rw [integral_neg]
+    have hCompare :
+        (∫ y in Oa, onUnits f y ∂(R.sheets.sheet l)) =
+          ∫ y in omegaAt R l, onUnits f y ∂(R.sheets.sheet l) :=
+      hOaDomain.setIntegral_eq hOmegaDomain hInv
+    have hChange :
+        (∫ y in Oa, onUnits f y ∂(R.sheets.sheet l)) =
+          ∫ y in omegaAt R l, onUnits f ((a : S.FS) * y) ∂(R.sheets.sheet l) := by
+      rw [hOaeq]
+      exact hmp.setIntegral_image_emb e.measurableEmbedding (onUnits f) (omegaAt R l)
+    have hEq : omegaInt R l f = -omegaInt R l f := by
+      calc
+        omegaInt R l f = ∫ y in omegaAt R l, onUnits f y ∂(R.sheets.sheet l) := rfl
+        _ = ∫ y in Oa, onUnits f y ∂(R.sheets.sheet l) := hCompare.symm
+        _ = ∫ y in omegaAt R l, onUnits f ((a : S.FS) * y) ∂(R.sheets.sheet l) := hChange
+        _ = -omegaInt R l f := by simpa [omegaInt] using hSignIntegral
+    exact CharZero.eq_neg_self_iff.mp hEq
+  · have hDigit := (rf_descent R).1 r
+    unfold thetaAverage omegaInt
+    apply integral_congr_ae
+    refine Filter.Eventually.of_forall fun y => ?_
+    by_cases hy : IsUnit y
+    · simp [onUnits, hy, hDigit]
+    · simp [onUnits, hy]
 def unrotated (u : UnitSix S) (y : S.FSˣ) : ℂ := R.T.WS (R.chars.L u) (R.C.aS y)
 def rotated (u : UnitSix S) (y : S.FSˣ) : ℂ := R.T.WS (R.chars.L u) (R.C.aS y * R.C.wS)
 def sCocycle (x y : S.FSˣ) : ℂ := D.σ0 (((S.HS H x y : Fˣ) : F)) ^ 2
