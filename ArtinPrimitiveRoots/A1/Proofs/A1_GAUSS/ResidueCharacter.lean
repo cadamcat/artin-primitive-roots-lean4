@@ -137,4 +137,45 @@ theorem twelve_dvd_absNorm_sub_one (D : FieldData F) (P : FinPlace F)
     exact orderOf_dvd_natCard (x := u)
   rwa [Nat.card_units, ← Submodule.cardQuot_apply, ← Ideal.absNorm_apply] at hdvd
 
+theorem residue_character_neg_one (D : FieldData F) (P : FinPlace F)
+    (h6 : (6 : 𝓞 F) ∉ P.asIdeal) (χ : MulChar (𝓞 F ⧸ P.asIdeal) ℂ)
+    (hχ : ∀ x : 𝓞 F, χ (Ideal.Quotient.mk P.asIdeal x) =
+      chi D P (algebraMap (𝓞 F) F x)) :
+    χ (-1) = 1 := by
+  let : P.asIdeal.IsMaximal := P.isMaximal
+  let : Field (𝓞 F ⧸ P.asIdeal) := Ideal.Quotient.field P.asIdeal
+  have hr : residue P (algebraMap (𝓞 F) F (-1 : 𝓞 F)) =
+      (-1 : 𝓞 F ⧸ P.asIdeal) := by
+    simpa only [map_neg, map_one] using
+      ArtinPrimitiveRoots.A2.qs_nq0_residue_algebraMap P (-1 : 𝓞 F)
+  have hunit : residue P (algebraMap (𝓞 F) F (-1 : 𝓞 F)) ≠ 0 := by
+    rw [hr]
+    exact neg_ne_zero.mpr one_ne_zero
+  obtain ⟨k, hk⟩ := twelve_dvd_absNorm_sub_one D P h6
+  have hdiv : (Ideal.absNorm P.asIdeal - 1) / 6 = 2 * k := by
+    rw [hk, show 12 * k = 6 * (2 * k) by omega,
+      Nat.mul_div_cancel_left _ (by decide : 0 < 6)]
+  have hpow : residue P (algebraMap (𝓞 F) F (-1 : 𝓞 F)) ^
+      ((Ideal.absNorm P.asIdeal - 1) / 6) = 1 := by
+    rw [hr, hdiv, pow_mul]
+    norm_num
+  have hspec := ArtinPrimitiveRoots.A2.qs_nq0_chiAlg_reduction D P h6
+    (algebraMap (𝓞 F) F (-1 : 𝓞 F)) hunit
+  rw [hpow] at hspec
+  obtain ⟨hcop, hne1⟩ := coprime_six_of_not_mem_six P h6
+  have halg : chiAlg P (algebraMap (𝓞 F) F (-1 : 𝓞 F)) = 1 := by
+    apply Ideal.rootsOfUnityMapQuot_injective (I := P.asIdeal) 6 hne1 hcop
+    apply Units.ext
+    change Ideal.Quotient.mk P.asIdeal
+        ((chiAlg P (algebraMap (𝓞 F) F (-1 : 𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F) =
+      Ideal.Quotient.mk P.asIdeal ((1 : (𝓞 F)ˣ) : 𝓞 F)
+    simpa only [Units.val_one, map_one] using hspec
+  calc
+    χ (-1) = χ (Ideal.Quotient.mk P.asIdeal (-1 : 𝓞 F)) := by
+      congr 1
+    _ = chi D P (algebraMap (𝓞 F) F (-1 : 𝓞 F)) := hχ (-1 : 𝓞 F)
+    _ = 1 := by
+      rw [chi, if_neg hunit, halg]
+      simp only [Subgroup.coe_one, Units.val_one, map_one]
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
