@@ -81,7 +81,194 @@ theorem local_coefficient (L : FinLocalCover D H v) (T : TorusRep D H v) (A : Ad
     (μ : LocHaar v) (s : ℂ) (hs : 0 < s.re) :
     ∃ τ : T.V →ₗ[ℂ] T.V, ∀ f ∈ sectionSpace L T s,
       jacquet L A μ (intertwine L μ f) = τ (jacquet L A μ f) := by
-  sorry
+  classical
+  have hV : T.weyl.V = T.V := rfl
+  cases hV
+  have hAdd : T.weyl.nacg.toAddCommMonoid = T.nacg.toAddCommMonoid := rfl
+  have hModule : T.weyl.nsp.toModule = T.nsp.toModule := rfl
+  cases hAdd
+  let P : Submodule ℂ (L.L → T.V) := sectionSpace L T s
+  let Q : Submodule ℂ (L.L → T.V) := sectionSpace L T.weyl (-s)
+  have hJzero (R : TorusRep D H v) (r : ℂ) :
+      jacquet L A μ (0 : L.L → R.V) = 0 := by
+    have h0 : IsSection L R r (0 : L.L → R.V) := by
+      change (0 : L.L → R.V) ∈ sectionSpace L R r
+      exact Submodule.zero_mem _
+    have h := jacquet_linear L R A μ r 0 0 h0 h0 1
+    have h' : jacquet L A μ (0 : L.L → R.V) + 0 =
+        jacquet L A μ (0 : L.L → R.V) + jacquet L A μ (0 : L.L → R.V) := by
+      simpa using h
+    exact (add_left_cancel h').symm
+  let Js : P →ₗ[ℂ] T.V := {
+    toFun := fun f => jacquet L A μ f.1
+    map_add' := by
+      intro f g
+      change jacquet L A μ (f.1 + g.1) = jacquet L A μ f.1 + jacquet L A μ g.1
+      have hf : IsSection L T s f.1 := by
+        change f.1 ∈ sectionSpace L T s
+        exact f.2
+      have hg : IsSection L T s g.1 := by
+        change g.1 ∈ sectionSpace L T s
+        exact g.2
+      simpa using jacquet_linear L T A μ s f.1 g.1 hf hg 1
+    map_smul' := by
+      intro c f
+      change jacquet L A μ (c • f.1) = c • jacquet L A μ f.1
+      have h0 : IsSection L T s (0 : L.L → T.V) := by
+        change (0 : L.L → T.V) ∈ sectionSpace L T s
+        exact Submodule.zero_mem _
+      have hf : IsSection L T s f.1 := by
+        change f.1 ∈ sectionSpace L T s
+        exact f.2
+      have h := jacquet_linear L T A μ s 0 f.1 h0 hf c
+      rw [hJzero T s] at h
+      simpa using h
+  }
+  let Jt : Q →ₗ[ℂ] T.V := {
+    toFun := fun f => jacquet L A μ f.1
+    map_add' := by
+      intro f g
+      change jacquet L A μ (f.1 + g.1) = jacquet L A μ f.1 + jacquet L A μ g.1
+      have hf : IsSection L T.weyl (-s) f.1 := by
+        change f.1 ∈ sectionSpace L T.weyl (-s)
+        exact f.2
+      have hg : IsSection L T.weyl (-s) g.1 := by
+        change g.1 ∈ sectionSpace L T.weyl (-s)
+        exact g.2
+      have h := jacquet_linear L T.weyl A μ (-s) f.1 g.1 hf hg 1
+      rw [hModule] at h
+      have hfg : f.1 + g.1 = f.1 + (1 : ℂ) • g.1 := by
+        rw [one_smul]
+      calc
+        jacquet L A μ (f.1 + g.1) = jacquet L A μ (f.1 + (1 : ℂ) • g.1) := by rw [hfg]
+        _ = jacquet L A μ f.1 + (1 : ℂ) • jacquet L A μ g.1 := h
+        _ = jacquet L A μ f.1 + jacquet L A μ g.1 := by rw [one_smul]
+    map_smul' := by
+      intro c f
+      change jacquet L A μ (c • f.1) = c • jacquet L A μ f.1
+      have h0 : IsSection L T.weyl (-s) (0 : L.L → T.V) := by
+        change (0 : L.L → T.V) ∈ sectionSpace L T.weyl (-s)
+        exact Submodule.zero_mem _
+      have hf : IsSection L T.weyl (-s) f.1 := by
+        change f.1 ∈ sectionSpace L T.weyl (-s)
+        exact f.2
+      have h := jacquet_linear L T.weyl A μ (-s) 0 f.1 h0 hf c
+      rw [zero_add] at h
+      rw [hModule] at h
+      rw [hJzero T.weyl (-s)] at h
+      exact h.trans (zero_add _)
+  }
+  let M : P →ₗ[ℂ] Q := {
+    toFun := fun f => ⟨intertwine L μ f.1,
+      (intertwine_isSection L T μ s hs f.1 (by
+        change f.1 ∈ sectionSpace L T s
+        exact f.2)).2⟩
+    map_add' := by
+      intro f g
+      apply Subtype.ext
+      funext y
+      have hf : IsSection L T s f.1 := by
+        change f.1 ∈ sectionSpace L T s
+        exact f.2
+      have hg : IsSection L T s g.1 := by
+        change g.1 ∈ sectionSpace L T s
+        exact g.2
+      have hfI := (intertwine_isSection L T μ s hs f.1 hf).1
+      have hgI := (intertwine_isSection L T μ s hs g.1 hg).1
+      simp only [intertwine]
+      exact integral_add (hfI y) (hgI y)
+    map_smul' := by
+      intro c f
+      apply Subtype.ext
+      change intertwine L μ (c • f.1) = c • intertwine L μ f.1
+      funext y
+      change (∫ x, c • f.1 (L.w * L.n (Multiplicative.ofAdd x) * y) ∂μ.μ) =
+        c • ∫ x, f.1 (L.w * L.n (Multiplicative.ofAdd x) * y) ∂μ.μ
+      exact integral_smul c _
+  }
+  let b := Module.finBasis ℂ T.V
+  let coordMap (i : Fin (Module.finrank ℂ T.V)) : P →ₗ[ℂ] ℂ :=
+    (b.coord i).comp (Jt.comp M)
+  let bigLambda : (i : Fin (Module.finrank ℂ T.V)) → (L.L → T.V) →ₗ[ℂ] ℂ :=
+    fun i => Classical.choose (LinearMap.exists_extend (coordMap i))
+  have hΛext (i : Fin (Module.finrank ℂ T.V)) :
+      (bigLambda i).comp P.subtype = coordMap i :=
+    Classical.choose_spec (LinearMap.exists_extend (coordMap i))
+  have hΛat (i : Fin (Module.finrank ℂ T.V)) (f : P) :
+      bigLambda i f.1 = coordMap i f := by
+    have h := congrArg (fun g : P →ₗ[ℂ] ℂ => g f) (hΛext i)
+    simpa only [LinearMap.comp_apply, Submodule.coe_subtype] using h
+  have hWh (i : Fin (Module.finrank ℂ T.V)) : IsWhittakerOn L A P (bigLambda i) := by
+    intro f hf t
+    have hfS : IsSection L T s f := by
+      change f ∈ P
+      exact hf
+    have hfr : IsSection L T s (rtr (L.n (Multiplicative.ofAdd t)) f) :=
+      hfS.rtr (L.n (Multiplicative.ofAdd t))
+    have hMf : IsSection L T.weyl (-s) (intertwine L μ f) :=
+      (intertwine_isSection L T μ s hs f hfS).2
+    have hJ := (jacquet_equiv L T.weyl A μ (-s) (intertwine L μ f) hMf).1 t
+    have hJ' : jacquet L A μ (rtr (L.n (Multiplicative.ofAdd t))
+        (intertwine L μ f)) = A.ψ v t • jacquet L A μ (intertwine L μ f) := by
+      rw [← hModule]
+      exact hJ
+    have hcoord :
+        b.coord i (jacquet L A μ (intertwine L μ (rtr (L.n (Multiplicative.ofAdd t)) f))) =
+          A.ψ v t * b.coord i (jacquet L A μ (intertwine L μ f)) := by
+      have hcomm := intertwine_rtr L μ f (L.n (Multiplicative.ofAdd t))
+      rw [hcomm, hJ']
+      simp only [map_smul, smul_eq_mul]
+    calc
+      bigLambda i (rtr (L.n (Multiplicative.ofAdd t)) f) =
+          coordMap i ⟨rtr (L.n (Multiplicative.ofAdd t)) f, hfr⟩ := by
+        simpa only [Submodule.coe_subtype] using hΛat i ⟨rtr (L.n (Multiplicative.ofAdd t)) f, hfr⟩
+      _ = b.coord i (jacquet L A μ (intertwine L μ (rtr (L.n (Multiplicative.ofAdd t)) f))) := rfl
+      _ = A.ψ v t * b.coord i (jacquet L A μ (intertwine L μ f)) := hcoord
+      _ = A.ψ v t * coordMap i ⟨f, hfS⟩ := rfl
+      _ = A.ψ v t * bigLambda i f := by rw [hΛat i ⟨f, hfS⟩]
+  let c : (i : Fin (Module.finrank ℂ T.V)) → T.V →ₗ[ℂ] ℂ := fun i =>
+    Classical.choose (whittaker_twoCell L T A μ s (bigLambda i) (hWh i))
+  have hc (i : Fin (Module.finrank ℂ T.V)) :
+      ∀ f ∈ P, bigLambda i f = c i (jacquet L A μ f) :=
+    Classical.choose_spec (whittaker_twoCell L T A μ s (bigLambda i) (hWh i))
+  have hcoeff (i : Fin (Module.finrank ℂ T.V)) (f : P) :
+      b.coord i (jacquet L A μ (intertwine L μ f.1)) = c i (Js f) := by
+    calc
+      b.coord i (jacquet L A μ (intertwine L μ f.1)) = coordMap i f := rfl
+      _ = bigLambda i f.1 := (hΛat i f).symm
+      _ = c i (jacquet L A μ f.1) := hc i f.1 f.2
+      _ = c i (Js f) := rfl
+  let τ : T.V →ₗ[ℂ] T.V := {
+    toFun := fun z => ∑ i, c i z • b i
+    map_add' := by
+      intro x y
+      simp only [map_add, add_smul]
+      exact Finset.sum_add_distrib
+    map_smul' := by
+      intro a x
+      simp only [map_smul, smul_eq_mul]
+      calc
+        (∑ i, (a * c i x) • b i) = ∑ i, a • (c i x • b i) := by
+          apply Finset.sum_congr rfl
+          intro i hi
+          rw [smul_smul]
+        _ = a • ∑ i, c i x • b i := (Finset.smul_sum).symm
+  }
+  have hτcoord (i : Fin (Module.finrank ℂ T.V)) (z : T.V) :
+      b.coord i (τ z) = c i z := by
+    change b.repr (∑ j, c j z • b j) i = c i z
+    exact congrArg (fun a => a i) (b.repr_sum_self fun j => c j z)
+  refine ⟨τ, ?_⟩
+  intro f hf
+  let x : P := ⟨f, hf⟩
+  apply b.ext_elem
+  intro i
+  calc
+    b.repr (jacquet L A μ (intertwine L μ f)) i = c i (Js x) := by
+      simpa only [b.coord_apply] using hcoeff i x
+    _ = b.repr (τ (Js x)) i := by
+      symm
+      simpa only [b.coord_apply] using hτcoord i (Js x)
 
 /-- The diagonal coefficient `A_k(s) = (1 - q⁻¹) q^{-2 m₀ s}/(1 - q^{-6s})`, `m₀ ≡ -k mod 3`. -/
 def tauDiag (v : FinPlace F) (s : ℂ) (k : ZMod 3) : ℂ :=
