@@ -523,7 +523,56 @@ theorem whit_center (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
     (Fs : GlobalSection P G s) (ζ : rootsOfUnity 3 ℂ) (g : P.tc.G) :
     whittakerE P G μ Fs (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * whittakerE P G μ Fs g := by
-  sorry
+  classical
+  obtain ⟨I, hI, hImax⟩ :=
+    Ring.exists_maximal_of_not_isField (RingOfIntegers.not_isField F)
+  let v : FinPlace F := ⟨I, hImax.isPrime, hI⟩
+  obtain ⟨x, hx⟩ := P.q_surj g
+  let y : P.RP := P.incl v ((P.loc v).z ζ)
+  let cf : FinPlace F → ℂ := fun w => if w = v then ((ζ : ℂˣ) : ℂ) else 1
+  have hcf : (Function.mulSupport cf).Finite := by
+    refine (Set.finite_singleton v).subset ?_
+    intro w hw
+    change w = v
+    by_contra hwv
+    exact hw (by simp only [cf, if_neg hwv])
+  have hprod : (∏ᶠ w, cf w) = ((ζ : ℂˣ) : ℂ) := by
+    calc
+      (∏ᶠ w, cf w) = cf v := finprod_eq_single cf v (by
+        intro w hw
+        simp only [cf, if_neg hw])
+      _ = ((ζ : ℂˣ) : ℂ) := by simp only [cf, if_pos rfl]
+  have hlocal (w : FinPlace F) :
+      jacquet (P.loc w) A (μ w)
+        (rtr (P.compF w y) (rtr (P.compF w x) (Fs.f w))) =
+      cf w • jacquet (P.loc w) A (μ w) (rtr (P.compF w x) (Fs.f w)) := by
+    by_cases hw : w = v
+    · subst w
+      dsimp only [y]
+      rw [P.incl_compF]
+      simpa only [cf, if_pos rfl] using
+        (jacquet_equiv (P.loc v) (G.T v) A (μ v) s
+          (rtr (P.compF v x) (Fs.f v)) ((Fs.f_sec v).rtr (P.compF v x))).2 ζ
+    · have hother : P.compF w y = 1 :=
+        P.incl_compF_other v w (Ne.symm hw) ((P.loc v).z ζ)
+      rw [hother]
+      simp only [cf, if_neg hw, one_smul]
+      apply congrArg (jacquet (P.loc w) A (μ w))
+      funext h
+      simp only [rtr, mul_one]
+  have hcomplex (w : InfinitePlace F) :
+      jacquetC (rtr (P.compC w y) (rtr (P.compC w x) (Fs.fC w))) =
+      (1 : ℂ) * jacquetC (rtr (P.compC w x) (Fs.fC w)) := by
+    have hcomp : P.compC w y = 1 := P.incl_compC v ((P.loc v).z ζ) w
+    rw [hcomp, one_mul]
+    apply congrArg jacquetC
+    funext h
+    simp only [rtr, mul_one]
+  have hW := whit_translate_scalar P G μ hs Fs y x cf hcf (fun _ => 1) hlocal hcomplex
+  have hy : P.q y = P.tc.z ζ := (P.q_incl v ((P.loc v).z ζ)).trans (P.emb_z v ζ)
+  have hqx : P.q (y * x) = P.tc.z ζ * g := by rw [map_mul, hy, hx]
+  rw [hqx, hprod, hx] at hW
+  simpa only [Finset.prod_const_one, mul_one] using hW
 
 theorem whit_unipotentS (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
