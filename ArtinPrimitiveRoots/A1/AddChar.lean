@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Hilbert
+import ArtinPrimitiveRoots.A1.Proofs.A1_DUAL.PairingCore
 
 /-!
 # A1 interface, §4: additive character and Gauss sums
@@ -490,6 +491,16 @@ private theorem e_diag_R_eq_one (D : FieldData F) (S : SData F CE condη)
   rw [S.e_diag_eq A (r : F) 0 h1 h2]
   simp
 
+private theorem integral_div_gen (S : SData F CE condη) (I : Ideal (𝓞 F))
+    (hI : S.IsExterior I) (c : F) (hc : S.IsGen c I) (n : 𝓞 F) (hn : n ∈ I) :
+    algebraMap (𝓞 F) F n / c ∈ S.R := by
+  sorry
+
+private theorem mem_ideal_of_div_mem_R (S : SData F CE condη) (I : Ideal (𝓞 F))
+    (hI : S.IsExterior I) (c : F) (hc : S.IsGen c I) (n : 𝓞 F)
+    (hn : algebraMap (𝓞 F) F n / c ∈ S.R) : n ∈ I := by
+  sorry
+
 /-- lem:s-lattice, the self-duality consequence used at 02:397 and 06:76: for an exterior ideal `I`
 with generator `c`, `(n, d) ↦ e(nd/c)` is a perfect pairing on `O_F/I`. Package P-ARITH-BASE.
 Corrected per rev-theta to state both annihilator directions under fixed field data. -/
@@ -500,7 +511,29 @@ theorem SData.e_pairing_perfect (D : FieldData F) (S : SData F CE condη)
       S.e A (S.diag (algebraMap (𝓞 F) F (n * d) / c)) = 1) ∧
     (∀ n : 𝓞 F,
       (∀ d : 𝓞 F, S.e A (S.diag (algebraMap (𝓞 F) F (n * d) / c)) = 1) → n ∈ I) := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  constructor
+  · intro n hn d
+    have hnd : n * d ∈ I := by
+      simpa [mul_comm] using I.mul_mem_left d hn
+    have hdiv := integral_div_gen S I hI c hc (n * d) hnd
+    exact e_diag_R_eq_one D S A ⟨_, hdiv⟩
+  · intro n htriv
+    by_contra hnI
+    let z : F := algebraMap (𝓞 F) F n / c
+    have hzR : z ∉ S.R := by
+      intro hz
+      exact hnI (mem_ideal_of_div_mem_R S I hI c hc n (by simpa [z] using hz))
+    obtain ⟨d, hdetect⟩ :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.external_character_detector S A.ψ
+        A.trivial_on_F A.integral A.unramified z hzR
+    have hdetect' : S.e A (S.diag (z * (d : F))) ≠ 1 := by
+      simpa [SData.e, psiC, ArtinPrimitiveRoots.Proofs.a1_dual_p.eOnFS] using hdetect
+    have hzmul : z * (d : F) = algebraMap (𝓞 F) F (n * d) / c := by
+      simp [z, map_mul]
+      ring
+    exact hdetect' (by rw [hzmul]; exact htriv d)
 
 /-- Normalized Gauss sum `γ_j(𝔠) = q_𝔠^{-1/2} Σ_{x mod 𝔠} χ_𝔠(x)^j e(x/c)` for a squarefree
 exterior ideal `I = 𝔠` with allowed generator `c` (eq:normalized-gauss, 02:391). The finite sum is a

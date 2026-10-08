@@ -1,0 +1,153 @@
+import ArtinPrimitiveRoots.A1.AddChar
+
+/-! Core interfaces for the additive annihilator proof. -/
+
+set_option autoImplicit false
+
+open NumberField IsDedekindDomain
+open scoped Classical
+
+noncomputable section
+
+namespace ArtinPrimitiveRoots.Proofs.a1_dual_p
+
+variable {F : Type} [Field F] [NumberField F]
+variable {CE : ℕ} {condη : Ideal (𝓞 F)}
+
+/-- The diagonal additive character is trivial on S-integers. -/
+theorem e_diag_R_eq_one [IsTotallyComplex F] (D : A1.FieldData F)
+    (S : A1.SData F CE condη) (A : A1.AddCharData F) (r : S.R) :
+    S.e A (S.diag (r : F)) = 1 := by
+  have hrmem : (r : F) ∈ (S.Sf : Set (A1.FinPlace F)).integer F := r.property
+  have hr : ∀ v : A1.FinPlace F, v ∉ S.Sf → v.valuation F (r : F) ≤ 1 := by
+    intro v hv
+    change ∀ v ∉ S.Sf, v.valuation F (r : F) ≤ 1 at hrmem
+    exact hrmem v hv
+  have h1 : ∀ v : A1.FinPlace F, v ∉ S.Sf →
+      v.valuation F (0 - (r : F)) ≤ 1 := by
+    intro v hv
+    rw [zero_sub, Valuation.map_neg]
+    exact hr v hv
+  have h2 : ∀ v : A1.FinPlace F, v ∈ S.Sf → v.valuation F (0 : F) ≤ 1 := by
+    intro v hv
+    simp
+  rw [S.e_diag_eq A (r : F) 0 h1 h2]
+  simp
+
+/-- The product of two diagonal S-integers is annihilated by the fixed character. -/
+theorem e_diag_product_eq_one [IsTotallyComplex F]
+    (S : A1.SData F CE condη) (A : A1.AddCharData F) (r s : S.R) :
+    S.e A (S.diag ((r : F) * (s : F))) = 1 := by
+  have hrmem : (r : F) ∈ (S.Sf : Set (A1.FinPlace F)).integer F := r.property
+  have hsmem : (s : F) ∈ (S.Sf : Set (A1.FinPlace F)).integer F := s.property
+  have hr : ∀ v : A1.FinPlace F, v ∉ S.Sf → v.valuation F (r : F) ≤ 1 := by
+    intro v hv
+    change ∀ v ∉ S.Sf, v.valuation F (r : F) ≤ 1 at hrmem
+    exact hrmem v hv
+  have hs : ∀ v : A1.FinPlace F, v ∉ S.Sf → v.valuation F (s : F) ≤ 1 := by
+    intro v hv
+    change ∀ v ∉ S.Sf, v.valuation F (s : F) ≤ 1 at hsmem
+    exact hsmem v hv
+  have h1 : ∀ v : A1.FinPlace F, v ∉ S.Sf →
+      v.valuation F (0 - ((r : F) * (s : F))) ≤ 1 := by
+    intro v hv
+    rw [zero_sub, Valuation.map_neg, map_mul]
+    exact mul_le_one₀ (hr v hv) (bot_le) (hs v hv)
+  have h2 : ∀ v : A1.FinPlace F, v ∈ S.Sf → v.valuation F (0 : F) ≤ 1 := by
+    intro v hv
+    simp
+  rw [S.e_diag_eq A ((r : F) * (s : F)) 0 h1 h2]
+  simp
+
+/-- The projection of the S-integers to the finite S-completions is dense. -/
+theorem finite_projection_dense (S : A1.SData F CE condη) :
+    Dense (Set.range fun r : S.R =>
+      (fun v : S.Sf => algebraMap F (v.1.adicCompletion F) (r : F))) := by
+  sorry
+
+/-- Approximate any finite S-coordinate tuple by an S-integer modulo the integral rings. -/
+theorem s_integer_finite_approx (S : A1.SData F CE condη)
+    (x : ∀ v : S.Sf, v.1.adicCompletion F) :
+    ∃ r : S.R, ∀ v : S.Sf,
+      x v - algebraMap F (v.1.adicCompletion F) (r : F) ∈
+        v.1.adicCompletionIntegers F := by
+  sorry
+
+/-- The fixed character is additive on the product group. -/
+theorem e_add (S : A1.SData F CE condη) (A : A1.AddCharData F) (x y : S.FS) :
+    S.e A (x + y) = S.e A x * S.e A y := by
+  sorry
+
+/-- The fixed character sends a negation to the inverse value. -/
+theorem e_neg (S : A1.SData F CE condη) (A : A1.AddCharData F) (x : S.FS) :
+    S.e A (-x) = (S.e A x)⁻¹ := by
+  sorry
+
+/-- Subtracting a diagonal S-integer preserves annihilation of the diagonal S-integers. -/
+theorem sub_diag_preserves_annihilator [IsTotallyComplex F]
+    (D : A1.FieldData F) (S : A1.SData F CE condη) (A : A1.AddCharData F)
+    (y : S.FS) (h : ∀ r : S.R, S.e A (S.diag (r : F) * y) = 1) (t : S.R) :
+    ∀ r : S.R, S.e A (S.diag (r : F) * (y - S.diag (t : F))) = 1 := by
+  sorry
+
+/-- Integral finite components of an annihilator point leave the archimedean character trivial on
+the embedded ordinary integers. -/
+theorem arch_condition_of_integral_finite_annihilator
+    (S : A1.SData F CE condη) (A : A1.AddCharData F) (y : S.FS)
+    (hfin : ∀ v : S.Sf, y.1 v ∈ v.1.adicCompletionIntegers F)
+    (hann : ∀ r : S.R, S.e A (S.diag (r : F) * y) = 1) :
+    ∀ n : 𝓞 F,
+      (∏ w : InfinitePlace F, A1.psiC (w.embedding (n : F) * y.2 w)) = 1 := by
+  sorry
+
+/-- If the archimedean component vanishes, an annihilator point gives a trivial finite character on
+the projected S-integers. -/
+theorem finite_character_condition_of_zero_arch
+    (S : A1.SData F CE condη) (A : A1.AddCharData F) (y : S.FS)
+    (hann : ∀ r : S.R, S.e A (S.diag (r : F) * y) = 1)
+    (harch : ∀ w : InfinitePlace F, y.2 w = 0) :
+    ∀ r : S.R,
+      (∏ v : S.Sf,
+        A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y.1 v)) = 1 := by
+  sorry
+
+/-- Density and the open kernels of the finite characters extend triviality from `R` to all
+finite S-components. -/
+theorem finite_character_trivial_of_s_integer (S : A1.SData F CE condη)
+    (A : A1.AddCharData F) (y : ∀ v : S.Sf, v.1.adicCompletion F)
+    (h : ∀ r : S.R,
+      (∏ v : S.Sf,
+        A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y v)) = 1) :
+    ∀ x : ∀ v : S.Sf, v.1.adicCompletion F,
+      (∏ v : S.Sf, A.ψ v.1 (x v * y v)) = 1 := by
+  sorry
+
+/-- Triviality on every finite tuple implies local triviality at any selected coordinate. -/
+theorem finite_component_from_trivial (S : A1.SData F CE condη)
+    (A : A1.AddCharData F) (y : ∀ v : S.Sf, v.1.adicCompletion F)
+    (h : ∀ x : ∀ v : S.Sf, v.1.adicCompletion F,
+      (∏ v : S.Sf, A.ψ v.1 (x v * y v)) = 1)
+    (v : S.Sf) (a : v.1.adicCompletion F) :
+    A.ψ v.1 (a * y v) = 1 := by
+  sorry
+
+/-- The archimedean annihilator of the integral lattice is the embedded inverse trace-dual
+lattice; all its elements lie in the S-integers because the different is supported in `S`. -/
+theorem arch_trace_dual_lattice [IsTotallyComplex F]
+    (D : A1.FieldData F) (S : A1.SData F CE condη)
+    (x : InfinitePlace F → ℂ)
+    (h : ∀ n : 𝓞 F,
+      (∏ w : InfinitePlace F,
+        A1.psiC (w.embedding (n : F) * x w)) = 1) :
+    ∃ t : F, (∀ w : InfinitePlace F, w.embedding t = x w) ∧ t ∈ S.R := by
+  sorry
+
+/-- The local additive character has no annihilator beyond zero. -/
+theorem psi_local_nondegenerate [IsTotallyComplex F]
+    (D : A1.FieldData F) (S : A1.SData F CE condη) (A : A1.AddCharData F)
+    (v : S.Sf) (y : v.1.adicCompletion F)
+    (h : ∀ x : v.1.adicCompletion F, A.ψ v.1 (x * y) = 1) :
+    y = 0 := by
+  sorry
+
+end ArtinPrimitiveRoots.Proofs.a1_dual_p
