@@ -10,15 +10,20 @@ open scoped Classical RestrictedProduct
 
 noncomputable section
 
-namespace ArtinPrimitiveRoots.A1.KummerProofs
+open ArtinPrimitiveRoots.A1
+
+namespace ArtinPrimitiveRoots.Proofs.a1_kummer_sol
 
 variable {F : Type} [Field F] [NumberField F]
 
-theorem kummer_char_ext (κ κ' : KummerChar F)
+theorem idele_hom_ext
+    (f g : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ)
     (hinf : ∀ (w : InfinitePlace F) (x : w.Completionˣ),
-      infiniteComponent κ w x = infiniteComponent κ' w x)
+      f (IdeleGroup.ofCompletion (𝓞 F) F w x) =
+        g (IdeleGroup.ofCompletion (𝓞 F) F w x))
     (hfin : ∀ (P : FinPlace F) (x : (P.adicCompletion F)ˣ),
-      localComponent κ P x = localComponent κ' P x) : κ = κ' := by
+      f (IdeleGroup.ofAdicCompletion (𝓞 F) F P x) =
+        g (IdeleGroup.ofAdicCompletion (𝓞 F) F P x)) : f = g := by
   classical
   let finiteTrunc (z : FiniteAdeleRing (𝓞 F) F) (T : Finset (FinPlace F)) :
       FiniteAdeleRing (𝓞 F) F :=
@@ -130,11 +135,10 @@ theorem kummer_char_ext (κ κ' : KummerChar F)
         (𝓝 (Units.embedProduct (AdeleRing (𝓞 F) F) x)) := by
       exact (Prod.tendsto_iff _ _).2 ⟨hval x, hvalOp⟩
     exact Units.isEmbedding_embedProduct.tendsto_nhds_iff.mpr hEmbed
-  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' _
-  let fa : IdeleGroup (𝓞 F) F →* ℂˣ := κ.toMonoidHom.comp q
-  let fb : IdeleGroup (𝓞 F) F →* ℂˣ := κ'.toMonoidHom.comp q
-  have hfa : Continuous fa := κ.continuous.comp QuotientGroup.continuous_mk
-  have hfb : Continuous fb := κ'.continuous.comp QuotientGroup.continuous_mk
+  let fa : IdeleGroup (𝓞 F) F →* ℂˣ := f.toMonoidHom
+  let fb : IdeleGroup (𝓞 F) F →* ℂˣ := g.toMonoidHom
+  have hfa : Continuous fa := f.continuous
+  have hfb : Continuous fb := g.continuous
   have hfinite (P : FinPlace F) (x : (P.adicCompletion F)ˣ) :
       fa (IdeleGroup.ofAdicCompletion (𝓞 F) F P x) =
         fb (IdeleGroup.ofAdicCompletion (𝓞 F) F P x) := hfin P x
@@ -146,8 +150,28 @@ theorem kummer_char_ext (κ κ' : KummerChar F)
     simp only [trunc, map_mul, map_prod, hfinite, hinfinite]
   have hglobal (x : IdeleGroup (𝓞 F) F) : fa x = fb x :=
     (isClosed_eq hfa hfb).mem_of_tendsto (htrunc x) (Eventually.of_forall (htruncEq x))
+  exact ContinuousMonoidHom.ext hglobal
+
+end ArtinPrimitiveRoots.Proofs.a1_kummer_sol
+
+namespace ArtinPrimitiveRoots.A1.KummerProofs
+
+variable {F : Type} [Field F] [NumberField F]
+
+theorem kummer_char_ext (κ κ' : KummerChar F)
+    (hinf : ∀ (w : InfinitePlace F) (x : w.Completionˣ),
+      infiniteComponent κ w x = infiniteComponent κ' w x)
+    (hfin : ∀ (P : FinPlace F) (x : (P.adicCompletion F)ˣ),
+      localComponent κ P x = localComponent κ' P x) : κ = κ' := by
+  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' _
+  let fa : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+    ⟨κ.toMonoidHom.comp q, κ.continuous.comp QuotientGroup.continuous_mk⟩
+  let fb : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+    ⟨κ'.toMonoidHom.comp q, κ'.continuous.comp QuotientGroup.continuous_mk⟩
+  have hfg : fa = fb := ArtinPrimitiveRoots.Proofs.a1_kummer_sol.idele_hom_ext fa fb hinf hfin
   apply ContinuousMonoidHom.ext
   intro y
-  exact QuotientGroup.induction_on y (fun x => hglobal x)
+  exact QuotientGroup.induction_on y (fun x =>
+    congrArg (fun f : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ => f x) hfg)
 
 end ArtinPrimitiveRoots.A1.KummerProofs
