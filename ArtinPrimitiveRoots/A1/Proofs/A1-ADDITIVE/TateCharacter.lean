@@ -7,6 +7,42 @@ namespace ArtinPrimitiveRoots.Proofs.a1_bdata_sol
 
 variable {p : ℕ} [Fact p.Prime]
 
+/-- Every p-adic class modulo the integers has a p-power fractional representative. -/
+theorem padic_fraction_representative (x : ℚ_[p]) :
+    ∃ n : ℕ, ∃ a : ℤ, ‖x - (a : ℚ_[p]) / (p : ℚ_[p]) ^ n‖ ≤ 1 := by
+  by_cases hx : ‖x‖ ≤ 1
+  · exact ⟨0, 0, by simpa using hx⟩
+  have hp : p.Prime := Fact.out
+  have hpQ : (p : ℚ_[p]) ≠ 0 := Nat.cast_ne_zero.mpr hp.ne_zero
+  have hx0 : x ≠ 0 := by
+    intro h0
+    exact hx (by simp [h0])
+  let n : ℕ := (-x.valuation).toNat
+  have hn : (n : ℤ) = -x.valuation := by
+    dsimp [n]
+    apply Int.toNat_of_nonneg
+    rw [Right.nonneg_neg_iff]
+    rw [Padic.norm_le_one_iff_val_nonneg, not_le] at hx
+    exact hx.le
+  have hyNorm : ‖x * (p : ℚ_[p]) ^ n‖ = 1 := by
+    rw [norm_mul, Padic.norm_p_pow, Padic.norm_eq_zpow_neg_valuation hx0,
+      ← zpow_add', hn, neg_neg, neg_add_cancel, zpow_zero]
+    exact Or.inl (Nat.cast_ne_zero.mpr hp.ne_zero)
+  let y : ℤ_[p] := ⟨x * (p : ℚ_[p]) ^ n, hyNorm.le⟩
+  refine ⟨n, (y.appr n : ℤ), ?_⟩
+  have happ : ‖y - (y.appr n : ℤ_[p])‖ ≤ (p : ℝ) ^ (-(n : ℤ)) :=
+    (PadicInt.norm_le_pow_iff_mem_span_pow _ n).mpr (PadicInt.appr_spec n y)
+  have hcast : ((y - (y.appr n : ℤ_[p]) : ℤ_[p]) : ℚ_[p]) =
+      x * (p : ℚ_[p]) ^ n - (y.appr n : ℚ_[p]) := by
+    rfl
+  have hdiv : x - ((y.appr n : ℤ) : ℚ_[p]) / (p : ℚ_[p]) ^ n =
+      ((y - (y.appr n : ℤ_[p]) : ℤ_[p]) : ℚ_[p]) / (p : ℚ_[p]) ^ n := by
+    rw [hcast]
+    push_cast
+    field_simp
+  rw [hdiv, norm_div, ← PadicInt.norm_def, Padic.norm_p_pow]
+  exact (div_le_one (zpow_pos (Nat.cast_pos.mpr hp.pos) _)).mpr happ
+
 /-- The Tate exponential depends only on the class modulo the p-adic integers. -/
 theorem padic_fraction_congr_exp (m n : ℕ) (a b : ℤ)
     (h : ‖(a : ℚ_[p]) / (p : ℚ_[p]) ^ m -
