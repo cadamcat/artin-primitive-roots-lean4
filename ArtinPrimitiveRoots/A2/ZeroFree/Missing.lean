@@ -3517,6 +3517,55 @@ private theorem rowContribution_eq_sum (hEuler : EulerHypotheses R η)
         (rowKernelHeightPair R sd W η U HA HC u Z) := hFull
     _ = _ := Finset.sum_congr rfl fun u hu => (hsingle u hu).symm
 
+private theorem dyadic_power_small_sum (p x : ℝ) (hp : 0 < p) (hx : 1 ≤ x) :
+    Summable (fun j : ℕ => if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0) ∧
+      (∑' j : ℕ, if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0) ≤
+        ((2 : ℝ) ^ p / ((2 : ℝ) ^ p - 1)) * x ^ p := by
+  classical
+  obtain ⟨N, hNlo, hNhi⟩ := exists_nat_pow_near hx (by norm_num : (1 : ℝ) < 2)
+  let r : ℝ := (2 : ℝ) ^ p
+  let g : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0
+  have hr : 1 < r := Real.one_lt_rpow (by norm_num) hp
+  have hpower (j : ℕ) : ((2 : ℝ) ^ j) ^ p = r ^ j :=
+    (Real.rpow_pow_comm (by norm_num : (0 : ℝ) ≤ 2) p j).symm
+  have hcut (j : ℕ) : (2 : ℝ) ^ j ≤ x ↔ j ∈ Finset.range (N + 1) := by
+    constructor
+    · intro hj
+      apply Finset.mem_range.mpr
+      by_contra hge
+      have hNj : N + 1 ≤ j := Nat.le_of_not_gt hge
+      have hle : (2 : ℝ) ^ (N + 1) ≤ (2 : ℝ) ^ j :=
+        pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hNj
+      linarith
+    · intro hj
+      have hJN : j ≤ N := Nat.lt_succ_iff.mp (Finset.mem_range.mp hj)
+      exact (pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hJN).trans hNlo
+  have hzero : ∀ j ∉ Finset.range (N + 1), g j = 0 := by
+    intro j hj
+    have hnot : ¬ (2 : ℝ) ^ j ≤ x := mt (hcut j).mp hj
+    simp [g, hnot]
+  have hsum : Summable g := summable_of_ne_finset_zero hzero
+  have hpartial : (∑' j, g j) = ∑ j ∈ Finset.range (N + 1), r ^ j := by
+    rw [tsum_eq_sum hzero]
+    apply Finset.sum_congr rfl
+    intro j hj
+    simp only [g, if_pos ((hcut j).mpr hj), hpower j]
+  have hpowLe : r ^ N ≤ x ^ p := by
+    rw [← hpower N]
+    exact Real.rpow_le_rpow (by positivity) hNlo hp.le
+  refine ⟨hsum, ?_⟩
+  change (∑' j, g j) ≤ (r / (r - 1)) * x ^ p
+  calc
+    _ = (r ^ (N + 1) - 1) / (r - 1) := by
+      rw [hpartial, geom_sum_eq (ne_of_gt hr)]
+    _ ≤ r ^ (N + 1) / (r - 1) :=
+      div_le_div_of_nonneg_right (by linarith) (by linarith)
+    _ = (r * r ^ N) / (r - 1) := by rw [pow_succ, mul_comm (r ^ N) r]
+    _ ≤ (r * x ^ p) / (r - 1) :=
+      div_le_div_of_nonneg_right
+        (mul_le_mul_of_nonneg_left hpowLe (by linarith)) (by linarith)
+    _ = _ := by ring
+
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
