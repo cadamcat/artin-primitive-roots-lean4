@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.Defs
 import ArtinPrimitiveRoots.Proofs.th_continue_b.ThetaRightRoot
 import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusContinuous
+import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusDerivativeContinuous
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
@@ -34,7 +35,7 @@ theorem continuedEis_theta_cont {P : CoverPackage D S H A} {G : GlobalDatum P}
         (fun z : ℂ => R.theta (g * P.tc.nS
           (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z))))) ∧
     JointRootSmooth P R.theta := by
-  exact ⟨continuedEis_theta_torus_cont R,
+  exact ⟨continuedEis_theta_torus_iteratedFDeriv_cont R,
     continuedEis_theta_rightRoot R, continuedEis_theta_jointRoots R⟩
 
 end ArtinPrimitiveRoots.A1.Theta
