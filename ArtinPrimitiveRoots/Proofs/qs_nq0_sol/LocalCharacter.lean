@@ -239,4 +239,73 @@ theorem qs_nq0_quadratic_local_eventually_unit_trivial
   intro u hu
   exact qs_nq0_quadratic_local_unit_trivial D H v h6 a hva u hu
 
+/-!
+The principal-unit statement has this exact signature:
+```
+theorem qs_nq0_quadratic_local_principal_unit_trivial
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ) (u : (v.adicCompletion K)ˣ)
+    (hu : Valued.v ((u : v.adicCompletion K) - 1) < 1) :
+    qsNQQuadraticLocal D H v (toLoc v a) u = 1
+```
+-/
+
+/-- Away from six, every quadratic Hilbert character kills the principal units. -/
+theorem qs_nq0_quadratic_local_principal_unit_trivial
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ) (u : (v.adicCompletion K)ˣ)
+    (hu : Valued.v ((u : v.adicCompletion K) - 1) < 1) :
+    qsNQQuadraticLocal D H v (toLoc v a) u = 1 := by
+  classical
+  let L := v.adicCompletion K
+  let f : Lˣ →* ℂˣ := qsNQQuadraticLocal D H v (toLoc v a)
+  have hglobal (b : Kˣ) (hb : v.valuation K ((b : K) - 1) < 1) :
+      f (toLoc v b) = 1 := by
+    have hres := qs_nq0_residue_eq_one_of_valuation_sub_one_lt_one v (b : K) hb
+    have hchi := qs_nq0_chiAlg_eq_one_of_residue_one v h6 (b : K) hres
+    have htame := H.tame v h6 b a (by rw [hres]; exact one_ne_zero)
+    have hba : H.hilb v (toLoc v b) (toLoc v a) = 1 := by
+      apply Subtype.ext
+      apply Units.ext
+      simpa [hchi] using htame
+    have hab := H.skew v (toLoc v a) (toLoc v b)
+    rw [hba, mul_one] at hab
+    change Units.map D.σ0.toMonoidHom (H.hilb v (toLoc v a) (toLoc v b) : Kˣ) ^ 3 = 1
+    rw [hab]
+    simp
+  have hf : Continuous f := qs_nq0_quadratic_local_continuous D H v (toLoc v a)
+  have hball : IsOpen {x : L | Valued.v x < 1} := by
+    simpa only [Valuation.restrict_lt_iff_lt_embedding, map_one] using
+      (Valued.isOpen_ball L 1)
+  have hPU : IsOpen {t : Lˣ | Valued.v ((t : L) - 1) < 1} :=
+    hball.preimage (Units.continuous_val.sub continuous_const)
+  have hneq : IsOpen {t : Lˣ | f t ≠ 1} :=
+    (isClosed_eq hf continuous_const).isOpen_compl
+  by_contra hnu
+  let U : Set Lˣ := {t | Valued.v ((t : L) - 1) < 1 ∧ f t ≠ 1}
+  have hU : IsOpen U := hPU.inter hneq
+  have himage : IsOpen (Units.val '' U) :=
+    IsOpenUnits.isOpenEmbedding_unitsVal.isOpenMap U hU
+  obtain ⟨b, hb⟩ := (v.denseRange_algebraMap K).exists_mem_open himage
+    ⟨(u : L), u, ⟨hu, hnu⟩, rfl⟩
+  obtain ⟨t, ht, htb⟩ := hb
+  have hb0 : b ≠ 0 := by
+    intro h
+    apply Units.ne_zero t
+    simpa only [h, map_zero] using htb
+  have hbval : v.valuation K (b - 1) < 1 := by
+    calc
+      v.valuation K (b - 1) = Valued.v (algebraMap K L (b - 1)) :=
+        (v.valuedAdicCompletion_eq_valuation' (b - 1)).symm
+      _ = Valued.v ((t : L) - 1) := by rw [map_sub, map_one, ← htb]
+      _ < 1 := ht.1
+  have htloc : t = toLoc v (Units.mk0 b hb0) := by
+    apply Units.ext
+    exact htb
+  apply ht.2
+  rw [htloc]
+  exact hglobal (Units.mk0 b hb0) hbval
+
 end ArtinPrimitiveRoots.A2
