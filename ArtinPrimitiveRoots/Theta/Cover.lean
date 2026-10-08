@@ -3969,6 +3969,63 @@ private theorem exists_coverRationalBase (B : CoverQuotientBase D S H) :
   change B.quotient.q (t (Matrix.GeneralLinearGroup.scalar (Fin 2) c)) = 1
   rw [ht_scalar, map_one]
 
+/-- Single local insertions and their common injective central phase in the quotient. -/
+private structure CoverEmbeddingBase (B : CoverQuotientBase D S H) where
+  incl : ∀ v : FinPlace F, (B.family.loc v).L →* CoverRP B.family
+  incl_compF : ∀ v g, incl v g (.inl v) = g
+  incl_compF_other : ∀ v v', v ≠ v' → ∀ g, incl v g (.inl v') = 1
+  incl_compC : ∀ v g w, incl v g (.inr w) = 1
+  emb : ∀ v : FinPlace F, (B.family.loc v).L →* B.quotient.Q
+  q_incl : ∀ v g, B.quotient.q (incl v g) = emb v g
+  emb_inj : ∀ v, Function.Injective (emb v)
+  emb_comm : ∀ v v', v ≠ v' → ∀ g h,
+    emb v g * emb v' h = emb v' h * emb v g
+  z : rootsOfUnity 3 ℂ →* B.quotient.Q
+  z_inj : Function.Injective z
+  z_central : ∀ ζ g, z ζ * g = g * z ζ
+  emb_z : ∀ v ζ, emb v ((B.family.loc v).z ζ) = z ζ
+
+private theorem exists_coverEmbeddingBase (B : CoverQuotientBase D S H) :
+    Nonempty (CoverEmbeddingBase B) := by
+  classical
+  let ref := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference B.family)
+  let incl (v : FinPlace F) : (B.family.loc v).L →* CoverRP B.family :=
+    RestrictedProduct.mulSingleMonoidHom ref (.inl v)
+  let emb (v : FinPlace F) := B.quotient.q.comp (incl v)
+  obtain ⟨p, hpNe, hpMax⟩ := Ring.exists_maximal_of_not_isField
+    (NumberField.RingOfIntegers.not_isField F)
+  let v0 : FinPlace F := ⟨p, hpMax.isPrime, hpNe⟩
+  let z := (emb v0).comp (B.family.loc v0).z
+  refine ⟨{
+    incl := incl
+    incl_compF := ?_
+    incl_compF_other := ?_
+    incl_compC := ?_
+    emb := emb
+    q_incl := fun _ _ => rfl
+    emb_inj := fun v => B.quotient.incl_inj v
+    emb_comm := ?_
+    z := z
+    z_inj := (B.quotient.incl_inj v0).comp (B.family.loc v0).z_inj
+    z_central := fun ζ g => B.quotient.phase_central v0 ζ g
+    emb_z := fun v ζ => B.quotient.incl_z v v0 ζ
+  }⟩
+  · intro v g
+    exact RestrictedProduct.mulSingle_eq_same ref (.inl v) g
+  · intro v v' hv g
+    exact RestrictedProduct.mulSingle_eq_of_ne' ref (i := .inl v) (j := .inl v') g (by
+      intro heq
+      exact hv (Sum.inl.inj heq))
+  · intro v g w
+    exact RestrictedProduct.mulSingle_eq_of_ne' ref (i := .inl v) (j := .inr w) g (by
+      intro heq
+      cases heq)
+  · intro v v' hv g h
+    exact B.quotient.incl_comm (.inl v) (.inl v') (by
+      intro heq
+      exact hv (Sum.inl.inj heq)) g h
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
