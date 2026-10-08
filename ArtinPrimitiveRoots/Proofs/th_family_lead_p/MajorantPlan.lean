@@ -15,6 +15,7 @@ import ArtinPrimitiveRoots.Proofs.th_family_lead_p.CharacterIntegralDerivative
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.DirectionalFourier
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.IteratedDirectionalFourier
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.DirectionalFourierBound
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.IntegerProductDecay
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
