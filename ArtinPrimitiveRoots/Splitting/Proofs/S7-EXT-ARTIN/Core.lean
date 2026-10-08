@@ -81,6 +81,35 @@ lemma transport_reciprocity_data {K L M N : Type*}
 lemma reciprocity_data {K L : Type*} [Field K] [NumberField K]
     [Field L] [NumberField L] [Algebra K L] [IsAbelianGalois K L] :
     Nonempty (ClassFieldTheory.FiniteAbelianReciprocityData K L) := by
-  sorry
+  let : Countable K := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let : Countable L := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let M := Shrink.{0} K
+  let N := Shrink.{0} L
+  let eK : M ≃+* K := Shrink.ringEquiv.{0} K
+  let eL : N ≃+* L := Shrink.ringEquiv.{0} L
+  let : CharZero M := eK.toRingHom.charZero
+  let : CharZero N := eL.toRingHom.charZero
+  let : NumberField M := {
+    to_finiteDimensional := eK.toRatAlgEquiv.symm.toLinearEquiv.finiteDimensional }
+  let : NumberField N := {
+    to_finiteDimensional := eL.toRatAlgEquiv.symm.toLinearEquiv.finiteDimensional }
+  let f := eK.symm
+  let g := eL.symm
+  letI : Algebra M N :=
+    (g.toRingHom.comp ((algebraMap K L).comp f.symm.toRingHom)).toAlgebra
+  have hcomp : (algebraMap M N).comp f.toRingHom =
+      g.toRingHom.comp (algebraMap K L) := by
+    apply RingHom.ext
+    intro x
+    change g (algebraMap K L (f.symm (f x))) = g (algebraMap K L x)
+    rw [f.symm_apply_apply]
+  let : IsGalois M N := IsGalois.of_equiv_equiv (f := f) (g := g) hcomp
+  let E := galCongr f g hcomp
+  let : IsMulCommutative Gal(N/M) := .of_comm fun σ τ => E.injective (by
+    rw [map_mul, map_mul]
+    exact mul_comm' _ _)
+  let : IsAbelianGalois M N := {}
+  obtain ⟨D⟩ := ClassFieldTheory.finiteAbelianGlobalReciprocity M N
+  exact transport_reciprocity_data f g hcomp D
 
 end ArtinPrimitiveRoots.Proofs.s7sol_gamma.Artin
