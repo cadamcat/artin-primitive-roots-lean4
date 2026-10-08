@@ -155,6 +155,9 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
     exact scalarOf_right_unitary_lift P G (sec s) (hC s) g r hf hi
   have hheight (s : ℂ) (γ : Matrix.SpecialLinearGroup (Fin 2) ℂ)
       (x : ℂ) (y : ℝ) (hy : 0 < y) := sphC_sl2_height s γ x y hy
+  have harch (s : ℂ) (δ : Fˣ) (τ : Matrix.SpecialLinearGroup (Fin 2) F)
+      (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :=
+    sphC_rational_arch_product s δ τ x y hy
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/
