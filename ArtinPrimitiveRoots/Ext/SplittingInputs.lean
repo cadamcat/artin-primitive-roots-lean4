@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Splitting.Defs
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_GAMMA.Helpers
 import Mathlib.FieldTheory.KummerPolynomial
 import Mathlib.FieldTheory.KummerExtension
 import Mathlib.FieldTheory.SplittingField.IsSplittingField
@@ -200,7 +201,8 @@ set. The recurrence
 theorem ext_digamma_strip {a b : ℝ} (ha : 0 < a) :
     ∃ C : ℝ, 0 < C ∧ ∀ z : ℂ, a ≤ z.re → z.re ≤ b →
       ‖deriv Complex.Gamma z / Complex.Gamma z‖ ≤ C * Real.log (|z.im| + 2) := by
-  sorry
+  simpa [Complex.digamma, logDeriv_apply] using
+    ArtinPrimitiveRoots.Proofs.s7sol_gamma.exists_norm_digamma_le_log (b := b) ha
 
 /-- **`ext:hadamard-order-one`**, `07-splitting.tex:194-199`. The PNT+ source declaration
 `Complex.Hadamard.hadamard_factorization_of_order`
