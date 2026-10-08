@@ -6,6 +6,18 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.MaskTau
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.DigitMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.PrimeGauss
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.SquarefreeGauss
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ThetaMeasurable
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.IdealMass
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ThetaSeries
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.CharacterValue
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.IntegralSeries
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.KernelSeries
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FrequencyIndex
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ExteriorGenerator
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.CubeIndex
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteFourier
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.OrbitSeries
 import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import Mathlib.Analysis.Asymptotics.Basic
 
@@ -4311,6 +4323,74 @@ def forwardCoeff (r : ReflectionRow S) (p : S.SqfExtIdeal × S.ExtIdeal) : ℂ :
 def sphericalMajorant (σ : ℝ) : ℝ :=
   ∑' p : S.SqfExtIdeal × S.ExtIdeal, qI p.1.1 ^ (-1 / 2 - σ) * qI p.2.1 ^ (-1 - 3 * σ)
 
+private theorem rf_forwardCoeff_norm (r : ReflectionRow S)
+    (p : S.SqfExtIdeal × S.ExtIdeal) :
+    ‖forwardCoeff R r p‖ ≤ qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 := by
+  classical
+  let SB := a2_bridge_SYMBOL D S
+  obtain ⟨c, hcEq, hcGen, hcAllowed⟩ := cgen_valid R p.1
+  have hGauss : ‖gamma D S A 2 p.1.1 (cgen R p.1)‖ ≤ 1 := by
+    rw [← hcEq]
+    exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.gamma_sqf_norm_le_one
+      D S H Bd A p.1.1 p.1.property.1 p.1.property.2 c ⟨hcGen, hcAllowed⟩
+  have hScalar : 0 ≤ qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 :=
+    div_nonneg (Real.rpow_nonneg (Nat.cast_nonneg _) _) (Nat.cast_nonneg _)
+  have hScalarNorm :
+      ‖((qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 : ℝ) : ℂ)‖ =
+        qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 := Complex.norm_of_nonneg hScalar
+  have hL : ‖Lvalue R (rowClass R r) (S.diagU (Agen R p.1 p.2))‖ = 1 := by
+    simpa [Lvalue] using (R.chars.L (rowClass R r)).unitary (S.diagU (Agen R p.1 p.2))
+  have hProd : ‖∏ v ∈ R.exterior.support r.ideal,
+      chiPow D v (Agen R p.1 p.2 : F) (digitExponent r v).1‖ ≤ 1 := by
+    rw [norm_prod]
+    exact Finset.prod_le_one₀ (fun _ _ => norm_nonneg _) (fun v _ =>
+      SB.chiPow_norm_le v (Agen R p.1 p.2 : F) (digitExponent r v).1)
+  simp only [forwardCoeff, norm_mul, hScalarNorm, hL, mul_one]
+  calc
+    ‖gamma D S A 2 p.1.1 (cgen R p.1)‖ *
+        (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) *
+        ‖∏ v ∈ R.exterior.support r.ideal,
+          chiPow D v (Agen R p.1 p.2 : F) (digitExponent r v).1‖ ≤
+        ‖gamma D S A 2 p.1.1 (cgen R p.1)‖ *
+          (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) := by
+      simpa only [mul_one] using
+        mul_le_mul_of_nonneg_left hProd (mul_nonneg (norm_nonneg _) hScalar)
+    _ ≤ 1 * (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) :=
+      mul_le_mul_of_nonneg_right hGauss hScalar
+    _ = qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 := one_mul _
+
+private theorem rf_forward_theta_bound (σ : ℝ) (hσ : 1 / 2 < σ) :
+    ∃ C : ℝ, 0 < C ∧ ∀ x : ℝ, 0 < x →
+      ‖Theta.thetaV S μ v0 R.T.U R.T.cS x‖ ≤ C * x ^ (-σ) := by
+  obtain ⟨C, hC, hProfile⟩ := rf_t5_envelope_profile_bound R σ hσ
+  refine ⟨C, hC, ?_⟩
+  intro x hx
+  let u : UnitSix S := 1
+  let fR : S.FSˣ → ℂ := fun y => rf_t5_radial R (y : S.FS)
+  let fN : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
+  have hRad := rf_t5_radial_sheet_integral R u σ C hProfile x hx
+  have hNorm := rf_t5_norm_sheet_bound R u σ C hProfile x hx
+  have hPoint (y : S.FS) : ‖onUnits fR y‖ = (onUnits fN y).re := by
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, fR, fN, Complex.ofReal_re]
+      exact rf_t5_radial_norm_eq R u hy.unit
+    · simp [onUnits, hy]
+  calc
+    ‖Theta.thetaV S μ v0 R.T.U R.T.cS x‖ =
+        ‖∫ y, onUnits fR y ∂(R.sheets.sheet x)‖ := by
+      rw [← hRad.2]
+      rfl
+    _ ≤ ∫ y, ‖onUnits fR y‖ ∂(R.sheets.sheet x) :=
+      norm_integral_le_integral_norm _
+    _ = (sheetIntegral R x (fun y => (‖unrotated R u y‖ : ℂ))).re := by
+      change (∫ y, ‖onUnits fR y‖ ∂(R.sheets.sheet x)) =
+        (∫ y, onUnits fN y ∂(R.sheets.sheet x)).re
+      calc
+        _ = ∫ y, (onUnits fN y).re ∂(R.sheets.sheet x) :=
+          integral_congr_ae (Filter.Eventually.of_forall hPoint)
+        _ = (∫ y, onUnits fN y ∂(R.sheets.sheet x)).re := integral_re hNorm.1
+    _ ≤ C * x ^ (-σ) := hNorm.2
+
 /-- rf:forward-assembly, 04:303–327. Constants fixed before l,Z,r; pre-digit cost remains row-dependent. -/
 theorem rf_forward_assembly :
   (∀ v, v ∉ S.Sf → ∀ j : Fin 6,
@@ -4326,7 +4406,146 @@ theorem rf_forward_assembly :
         (∑' p : S.SqfExtIdeal × S.ExtIdeal, ‖forwardCoeff R r p *
           Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)‖) / t) ≤
         C * Z ^ σ * Theta.absMoment R.K (-σ) * sphericalMajorant (S := S) σ := by
-  sorry
+  classical
+  constructor
+  · intro v hv j
+    have hp : S.IsGen (primeGen R v : F) v.asIdeal := by
+      simpa only [primeGen, dif_pos hv, R.exterior.prime_val] using
+        (bc.gen_spec (R.exterior.prime v hv)).1
+    simpa only [qI] using
+      ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.maskAlpha_mass D S A v hv (primeGen R v) hp j
+  · intro σ hσ
+    let w : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p =>
+      qI p.1.1 ^ (-1 / 2 - σ) * qI p.2.1 ^ (-1 - 3 * σ)
+    have hSum : Summable w := by
+      simpa only [w, qI, idealNorm] using
+        ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.spherical_mass_summable S σ hσ
+    refine ⟨hSum, ?_⟩
+    obtain ⟨C, hC, hBound⟩ := rf_forward_theta_bound R σ hσ
+    refine ⟨C, hC, ?_⟩
+    intro r Z hZ
+    letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+    letI : Countable (𝓞 F) := inferInstance
+    have hspan : Function.Surjective
+        (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+      intro I
+      exact Ideal.fg_of_isNoetherianRing I
+    letI : Countable (Ideal (𝓞 F)) := hspan.countable
+    letI : Countable S.ExtIdeal :=
+      inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+    letI : Countable S.SqfExtIdeal :=
+      inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+    let q : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => qI (Aideal R p.1 p.2).1
+    have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+      unfold qI
+      exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+    have hq (p : S.SqfExtIdeal × S.ExtIdeal) : 0 < q p :=
+      hpos (Aideal R p.1 p.2).1 (Aideal R p.1 p.2).property.1
+    have hqA (c : S.SqfExtIdeal) (n : S.ExtIdeal) :
+        qI (Aideal R c n).1 = qI c.1 * qI n.1 ^ (3 : ℕ) := by
+      simp only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+        R.exterior.pow_val, qI, map_mul, map_pow, Nat.cast_mul, Nat.cast_pow]
+    have hWeight (p : S.SqfExtIdeal × S.ExtIdeal) :
+        ‖forwardCoeff R r p‖ * q p ^ (-σ) ≤ w p := by
+      have hc : 0 < qI p.1.1 := hpos p.1.1 p.1.property.1.1
+      have hn : 0 < qI p.2.1 := hpos p.2.1 p.2.property.1
+      have hn3 : (qI p.2.1 ^ (3 : ℕ)) ^ (-σ) = qI p.2.1 ^ (-3 * σ) := by
+        rw [← Real.rpow_natCast, ← Real.rpow_mul hn.le]
+        congr 1
+        ring
+      have hcAdd : qI p.1.1 ^ (-(1 / 2 : ℝ)) * qI p.1.1 ^ (-σ) =
+          qI p.1.1 ^ (-1 / 2 - σ) := by
+        rw [← Real.rpow_add hc]
+        congr 1
+        ring
+      have hnAdd : (qI p.2.1)⁻¹ * qI p.2.1 ^ (-3 * σ) =
+          qI p.2.1 ^ (-1 - 3 * σ) := by
+        rw [← Real.rpow_neg_one, ← Real.rpow_add hn]
+        congr 1
+        ring
+      calc
+        _ ≤ (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) * q p ^ (-σ) :=
+          mul_le_mul_of_nonneg_right (rf_forwardCoeff_norm R r p)
+            (Real.rpow_nonneg (hq p).le _)
+        _ = w p := by
+          dsimp only [q, w]
+          rw [hqA, Real.mul_rpow hc.le (pow_nonneg hn.le 3), hn3,
+            ← hcAdd, ← hnAdd, div_eq_mul_inv]
+          ring
+    have hV : Measurable (Theta.thetaV S μ v0 R.T.U R.T.cS) :=
+      ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.thetaV_measurable
+        S μ v0 R.T.U R.T.U_spec.1.measurableSet R.T.cS
+    have hK : AEStronglyMeasurable R.K (volume.restrict (Set.Ioi (0 : ℝ))) :=
+      R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi
+    have hData := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.theta_series_majorant
+      q hq (forwardCoeff R r) w σ C hC.le hWeight hSum
+      (Theta.thetaV S μ v0 R.T.U R.T.cS) hV hBound R.K hK (R.K_moments (-σ))
+    simpa only [q, w, sphericalMajorant] using hData.2 Z hZ
+
+private theorem rf_forward_series_summable (r : ReflectionRow S) (l : ℝ)
+    (hl : 0 < l) :
+    Summable (fun p : S.SqfExtIdeal × S.ExtIdeal =>
+      ‖forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * l)‖) := by
+  let σ : ℝ := 1
+  have hσ : 1 / 2 < σ := by norm_num [σ]
+  let w : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p =>
+    qI p.1.1 ^ (-1 / 2 - σ) * qI p.2.1 ^ (-1 - 3 * σ)
+  have hSum : Summable w := ((rf_forward_assembly R).2 σ hσ).1
+  obtain ⟨C, hC, hBound⟩ := rf_forward_theta_bound R σ hσ
+  let q : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => qI (Aideal R p.1 p.2).1
+  have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+    unfold qI
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hq (p : S.SqfExtIdeal × S.ExtIdeal) : 0 < q p :=
+    hpos (Aideal R p.1 p.2).1 (Aideal R p.1 p.2).property.1
+  have hqA (c : S.SqfExtIdeal) (n : S.ExtIdeal) :
+      qI (Aideal R c n).1 = qI c.1 * qI n.1 ^ (3 : ℕ) := by
+    simp only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+      R.exterior.pow_val, qI, map_mul, map_pow, Nat.cast_mul, Nat.cast_pow]
+  have hWeight (p : S.SqfExtIdeal × S.ExtIdeal) :
+      ‖forwardCoeff R r p‖ * q p ^ (-σ) ≤ w p := by
+    have hc : 0 < qI p.1.1 := hpos p.1.1 p.1.property.1.1
+    have hn : 0 < qI p.2.1 := hpos p.2.1 p.2.property.1
+    have hn3 : (qI p.2.1 ^ (3 : ℕ)) ^ (-σ) = qI p.2.1 ^ (-3 * σ) := by
+      rw [← Real.rpow_natCast, ← Real.rpow_mul hn.le]
+      congr 1
+      ring
+    have hcAdd : qI p.1.1 ^ (-(1 / 2 : ℝ)) * qI p.1.1 ^ (-σ) =
+        qI p.1.1 ^ (-1 / 2 - σ) := by
+      rw [← Real.rpow_add hc]
+      congr 1
+      ring
+    have hnAdd : (qI p.2.1)⁻¹ * qI p.2.1 ^ (-3 * σ) =
+        qI p.2.1 ^ (-1 - 3 * σ) := by
+      rw [← Real.rpow_neg_one, ← Real.rpow_add hn]
+      congr 1
+      ring
+    calc
+      _ ≤ (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) * q p ^ (-σ) :=
+        mul_le_mul_of_nonneg_right (rf_forwardCoeff_norm R r p)
+          (Real.rpow_nonneg (hq p).le _)
+      _ = w p := by
+        dsimp only [q, w]
+        rw [hqA, Real.mul_rpow hc.le (pow_nonneg hn.le 3), hn3,
+          ← hcAdd, ← hnAdd, div_eq_mul_inv]
+        ring
+  let d : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => (C * l ^ (-σ)) * w p
+  have hd : Summable d := hSum.mul_left (C * l ^ (-σ))
+  have hle (p : S.SqfExtIdeal × S.ExtIdeal) :
+      ‖forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (q p * l)‖ ≤ d p := by
+    rw [norm_mul]
+    calc
+      _ ≤ ‖forwardCoeff R r p‖ * (C * (q p * l) ^ (-σ)) :=
+        mul_le_mul_of_nonneg_left (hBound _ (mul_pos (hq p) hl)) (norm_nonneg _)
+      _ = (C * l ^ (-σ)) * (‖forwardCoeff R r p‖ * q p ^ (-σ)) := by
+        rw [Real.mul_rpow (hq p).le hl.le]
+        ring
+      _ ≤ d p := mul_le_mul_of_nonneg_left (hWeight p)
+        (mul_nonneg hC.le (Real.rpow_nonneg hl.le _))
+  exact Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hle hd
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
