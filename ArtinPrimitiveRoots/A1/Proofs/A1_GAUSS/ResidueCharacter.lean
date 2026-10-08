@@ -253,4 +253,70 @@ theorem residue_character_cube_eq_quadraticComplex (D : FieldData F) (P : FinPla
     simpa only [← pow_mul] using hχ6
   exact quadraticComplex_unique (χ ^ 3) hχ3 hχ32 hodd
 
+theorem residue_cubic_readout_exists (D : FieldData F) (P : FinPlace F)
+    (h6 : (6 : 𝓞 F) ∉ P.asIdeal) (χ : MulChar (𝓞 F ⧸ P.asIdeal) ℂ)
+    (hχ : ∀ x : 𝓞 F, χ (Ideal.Quotient.mk P.asIdeal x) =
+      chi D P (algebraMap (𝓞 F) F x)) :
+    ∃ readRoot : (𝓞 F ⧸ P.asIdeal) → ℂ,
+      (∀ ζ : rootsOfUnity 6 (𝓞 F),
+        readRoot (Ideal.Quotient.mk P.asIdeal ((ζ : (𝓞 F)ˣ) : 𝓞 F)) =
+          D.σ0 (algebraMap (𝓞 F) F ((ζ : (𝓞 F)ˣ) : 𝓞 F))) ∧
+      ∀ u : (𝓞 F ⧸ P.asIdeal)ˣ,
+        (χ ^ 2) (u : 𝓞 F ⧸ P.asIdeal) =
+          readRoot ((u : 𝓞 F ⧸ P.asIdeal) ^ ((Ideal.absNorm P.asIdeal - 1) / 3)) := by
+  classical
+  let : P.asIdeal.IsMaximal := P.isMaximal
+  let : Field (𝓞 F ⧸ P.asIdeal) := Ideal.Quotient.field P.asIdeal
+  let q := Ideal.Quotient.mk P.asIdeal
+  let ι := algebraMap (𝓞 F) F
+  let red : rootsOfUnity 6 (𝓞 F) → (𝓞 F ⧸ P.asIdeal) :=
+    fun ζ => q ((ζ : (𝓞 F)ˣ) : 𝓞 F)
+  let read : rootsOfUnity 6 (𝓞 F) → ℂ :=
+    fun ζ => D.σ0 (ι ((ζ : (𝓞 F)ˣ) : 𝓞 F))
+  obtain ⟨hcop, hne1⟩ := coprime_six_of_not_mem_six P h6
+  have hinj := Ideal.rootsOfUnityMapQuot_injective (I := P.asIdeal) 6 hne1 hcop
+  have hred : Function.Injective red := by
+    intro a b hab
+    apply hinj
+    apply Units.ext
+    exact hab
+  let readRoot : (𝓞 F ⧸ P.asIdeal) → ℂ :=
+    Function.extend red read (fun _ => 0)
+  have hread (ζ : rootsOfUnity 6 (𝓞 F)) : readRoot (red ζ) = read ζ :=
+    hred.extend_apply read (fun _ => 0) ζ
+  refine ⟨readRoot, hread, ?_⟩
+  intro u
+  let x := (u : 𝓞 F ⧸ P.asIdeal).out
+  have hx : q x = (u : 𝓞 F ⧸ P.asIdeal) := Ideal.Quotient.mk_out _
+  have hr : residue P (ι x) = (u : 𝓞 F ⧸ P.asIdeal) :=
+    (ArtinPrimitiveRoots.A2.qs_nq0_residue_algebraMap P x).trans hx
+  have hrne : residue P (ι x) ≠ 0 := by rw [hr]; exact u.ne_zero
+  let ζ := chiAlg P (ι x)
+  have hζ : q ((ζ : (𝓞 F)ˣ) : 𝓞 F) =
+      (u : 𝓞 F ⧸ P.asIdeal) ^ ((Ideal.absNorm P.asIdeal - 1) / 6) := by
+    simpa only [hr] using ArtinPrimitiveRoots.A2.qs_nq0_chiAlg_reduction D P h6 (ι x) hrne
+  have hd6 : 6 ∣ Ideal.absNorm P.asIdeal - 1 :=
+    dvd_trans (by decide : 6 ∣ 12) (twelve_dvd_absNorm_sub_one D P h6)
+  have hexp : ((Ideal.absNorm P.asIdeal - 1) / 6) * 2 =
+      (Ideal.absNorm P.asIdeal - 1) / 3 := by
+    have hm := Nat.div_mul_cancel hd6
+    omega
+  have hred_sq : red (ζ ^ 2) =
+      (u : 𝓞 F ⧸ P.asIdeal) ^ ((Ideal.absNorm P.asIdeal - 1) / 3) := by
+    change q (((ζ ^ 2 : rootsOfUnity 6 (𝓞 F)) : (𝓞 F)ˣ) : 𝓞 F) = _
+    rw [Subgroup.coe_pow, Units.val_pow_eq_pow_val, map_pow, hζ, ← pow_mul, hexp]
+  have hχu : χ (u : 𝓞 F ⧸ P.asIdeal) = read ζ := by
+    rw [← hx, hχ]
+    change chi D P (ι x) = read ζ
+    rw [chi, hr, ite_eq_right u.ne_zero]
+  calc
+    (χ ^ 2) (u : 𝓞 F ⧸ P.asIdeal) = χ (u : 𝓞 F ⧸ P.asIdeal) ^ 2 :=
+      MulChar.pow_apply_coe χ 2 u
+    _ = read ζ ^ 2 := by rw [hχu]
+    _ = read (ζ ^ 2) := by
+      simp only [read, Subgroup.coe_pow, Units.val_pow_eq_pow_val, map_pow]
+    _ = readRoot (red (ζ ^ 2)) := (hread _).symm
+    _ = readRoot ((u : 𝓞 F ⧸ P.asIdeal) ^ ((Ideal.absNorm P.asIdeal - 1) / 3)) := by
+      rw [hred_sq]
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
