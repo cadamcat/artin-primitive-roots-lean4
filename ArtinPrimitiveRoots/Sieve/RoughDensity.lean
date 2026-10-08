@@ -2,6 +2,7 @@ import Mathlib
 import ArtinPrimitiveRoots.Sieve.Density.B_DENSITY.Coordinates
 import ArtinPrimitiveRoots.Sieve.Density.B_DENSITY.Arithmetic
 import ArtinPrimitiveRoots.Sieve.Density.B_DENSITY.Grid
+import ArtinPrimitiveRoots.Sieve.Density.B_DENSITY.Counting
 
 /-!
 # Buchstab's rough-number densities (paper: (8.x) `eq:rough-density-definition`, Lemma `lem:density`)
