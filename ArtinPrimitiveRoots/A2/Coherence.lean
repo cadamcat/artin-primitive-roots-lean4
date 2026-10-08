@@ -40,7 +40,9 @@ def eulerProductWithDictionaryStatement
 from `HeckeAnalysis` to the stored incomplete continuation values. -/
 theorem prop_euler_product_with_dictionary (K : IncompleteDictionary η U HA) :
     eulerProductWithDictionaryStatement R η U HA HC K := by
-  sorry
+  unfold eulerProductWithDictionaryStatement
+  intro hInputs
+  exact prop_euler_product R η U HC HA hInputs.2
 
 end EulerProductDictionary
 
