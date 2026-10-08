@@ -11,7 +11,7 @@ open NumberField IsDedekindDomain
 
 noncomputable section
 
-namespace ArtinPrimitiveRoots.Proofs.HK_H3
+namespace ArtinPrimitiveRoots.Proofs.hk_misc_muse
 
 open ArtinPrimitiveRoots.Hecke
 open ClassFieldTheory
@@ -392,12 +392,11 @@ theorem exists_hk_primitive_uniform_bound [IsTotallyComplex K]
           ‖(Complex.Gammaℂ (1 - z) / Complex.Gammaℂ z) ^ r‖) := by
       have hbaseCeq :
           (((((discr K).natAbs : ℝ) * (modulusNorm m : ℝ)) : ℂ)) = baseC := by
-        dsimp [baseC, base, Q, q]
-      
-      dsimp [hkH3FEFactor]
-      rw [norm_mul, norm_mul, norm_div]
-      rw [← norm_div, hbaseCeq]
-      ring
+        simp [baseC, base, Q, q]
+      have hr_eq : r = NumberField.InfinitePlace.nrComplexPlaces K := rfl
+      dsimp only [hkH3FEFactor]
+      rw [norm_mul, norm_mul, norm_div, ← norm_div, hbaseCeq, ← hr_eq]
+      exact mul_assoc _ _ _
     have hLeftRaw : ‖hkEntireL ψ z‖ ≤ Cleft * q ^ p * (2 + |z.im|) ^ d := by
       calc
         ‖hkEntireL ψ z‖ = ‖W‖ *
@@ -413,7 +412,7 @@ theorem exists_hk_primitive_uniform_bound [IsTotallyComplex K]
           dsimp [Cleft, base, q]
           rw [Real.mul_rpow hQ.le hq.le]
           ring
-    have hheight : 1 ≤ 2 + |z.im| := by positivity
+    have hheight : 1 ≤ 2 + |z.im| := by have h := abs_nonneg z.im; linarith
     have hleftN : ‖hkEntireL ψ z‖ ≤ Cleft * q ^ p * (2 + |z.im|) ^ N := by
       calc
         ‖hkEntireL ψ z‖ ≤ Cleft * q ^ p * (2 + |z.im|) ^ d := hLeftRaw
@@ -520,4 +519,4 @@ theorem exists_hk_primitive_uniform_bound [IsTotallyComplex K]
         (2 + |s.im|) ^ (Module.finrank ℚ K + 2 : ℕ) := by
       simp [p, N, d]
 
-end ArtinPrimitiveRoots.Proofs.HK_H3
+end ArtinPrimitiveRoots.Proofs.hk_misc_muse
