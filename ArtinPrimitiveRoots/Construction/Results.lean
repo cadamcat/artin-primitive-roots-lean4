@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Construction.Defs
+import ArtinPrimitiveRoots.Construction.Proofs.C_TYPEII.Reduction
 import ArtinPrimitiveRoots.Construction.Proofs.c2.PartialSummation
 import ArtinPrimitiveRoots.Construction.Proofs.C_BV.Mass
 import ArtinPrimitiveRoots.Construction.Proofs.c1.SupportHelpers
@@ -263,7 +264,8 @@ theorem con_type_ii
                       ((roughIndicator x γ m - roughProxy x γ m : ℝ) : ℂ) *
                         b n * (conWeight x M c u K a Ψ (m * n) : ℂ)‖ ≤
                     C₀ * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.c_typeii_sol.construction_type_ii
+    δ γ sMin sMax c₁ c₂ hδ hγ hγs hs hsMax hc₁ hc₂ hc₁₂
 
 set_option maxHeartbeats 1000000 in
 /-- `con:harmonic`, 12-construction.tex:184-237. The tail bound is for `r > x^ε` (every partial sum up to `R`; the
