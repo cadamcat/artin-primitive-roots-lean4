@@ -805,7 +805,57 @@ theorem rf_frozen_frequency_norm_class : ∀ h (t : FrozenIndex R h) d c sd sc,
     S.absS (S.diagU (frozenFrequency R t d c) : S.FS) =
       qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 / (qI d.1 ^ 2 * qI t.f.1 ^ 2) ∧
     cls (S.diagU (frozenFrequency R t d c)) = kappaSix R t sd sc := by
-  sorry
+  intro h t d c sd sc hsd hsc
+  constructor
+  · have hbridge := a2_bridge_NORM D S
+    have hmul (x y : S.FSˣ) :
+        S.absS ((x * y : S.FSˣ) : S.FS) =
+          S.absS (x : S.FS) * S.absS (y : S.FS) := by
+      exact hbridge.2.1 (x : S.FS) (y : S.FS)
+    have hdiv (x y : S.FSˣ) :
+        S.absS ((x / y : S.FSˣ) : S.FS) =
+          S.absS (x : S.FS) / S.absS (y : S.FS) := hbridge.2.2.2.2.1 x y
+    have hpow2 (x : S.FSˣ) :
+        S.absS ((x ^ 2 : S.FSˣ) : S.FS) = S.absS (x : S.FS) ^ 2 := by
+      simpa [pow_succ] using hmul x x
+    have hpow3 (x : S.FSˣ) :
+        S.absS ((x ^ 3 : S.FSˣ) : S.FS) = S.absS (x : S.FS) ^ 3 := by
+      calc
+        S.absS ((x ^ 3 : S.FSˣ) : S.FS) =
+            S.absS ((x ^ (3 : ℤ) : S.FSˣ) : S.FS) := by
+          exact (congrArg (fun z : S.FSˣ => S.absS (z : S.FS))
+            (zpow_natCast x 3)).symm
+        _ = S.absS (x : S.FS) ^ (3 : ℤ) := hbridge.2.2.2.2.2 x (3 : ℤ)
+        _ = S.absS (x : S.FS) ^ 3 := rfl
+    have heps : S.absS (S.diagU (R.sheets.eps t.u) : S.FS) = 1 :=
+      hbridge.2.2.2.1 (R.sheets.eps t.u)
+    have ha := a2_bridge_NORM_gen D S H Bd bc t.a
+    have hc := a2_bridge_NORM_gen D S H Bd bc (R.exterior.ofSqf c)
+    have hn := a2_bridge_NORM_gen D S H Bd bc t.n
+    have hd := a2_bridge_NORM_gen D S H Bd bc d
+    have hf := a2_bridge_NORM_gen D S H Bd bc t.f
+    change S.absS (S.diagU (frozenFrequency R t d c) : S.FS) = _
+    simp only [frozenFrequency, map_div, map_mul, map_pow]
+    simp only [hdiv, hmul, hpow2, hpow3]
+    rw [heps, ha, hc, hn, hd, hf]
+    simp only [idealNorm, qI, R.exterior.ofSqf_val]
+    ring
+  · simp only [frozenFrequency, kappaSix, map_div, map_mul, map_pow]
+    dsimp only [cls] at hsd hsc ⊢
+    simp only [QuotientGroup.mk_div, QuotientGroup.mk_mul, QuotientGroup.mk_pow] at *
+    rw [hsd, hsc]
+    have hden (x y : S.V) : ((x * y) ^ 2)⁻¹ = x ^ (-2 : ℤ) * y ^ (-2 : ℤ) := by
+      calc
+        ((x * y) ^ 2)⁻¹ = (x * y) ^ (-2 : ℤ) := by
+          rw [show (-2 : ℤ) = Int.negSucc 1 by rfl, zpow_negSucc]
+        _ = x ^ (-2 : ℤ) * y ^ (-2 : ℤ) := mul_zpow x y (-2 : ℤ)
+    rw [div_eq_mul_inv, hden]
+    let pref : S.V := cls (S.diagU (R.sheets.eps t.u)) *
+      cls (S.diagU (bc.gen t.a)) * sc.1 * cls (S.diagU (bc.gen t.n)) ^ 3
+    change pref * (sd.1 ^ (-2 : ℤ) * cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ)) =
+      (pref * sd.1 ^ (-2 : ℤ)) * cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ)
+    exact (mul_assoc pref (sd.1 ^ (-2 : ℤ))
+      (cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ))).symm
 def activePartial (retained : Bool) (υ : UnitSix S) (h d f : S.ExtIdeal)
     (u : UnitSix S) (sd sc : Bd.B) (Z R0 : ℝ) : ℂ :=
   ∑' p : {t : FrozenIndex R h // t.f = f ∧ t.u = u} × S.SqfExtIdeal,
