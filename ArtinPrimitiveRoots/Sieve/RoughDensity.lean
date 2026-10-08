@@ -1,6 +1,7 @@
 import Mathlib
 import ArtinPrimitiveRoots.Sieve.Density.B_DENSITY.Coordinates
 import ArtinPrimitiveRoots.Sieve.Density.B_DENSITY.Arithmetic
+import ArtinPrimitiveRoots.Sieve.Density.B_DENSITY.Grid
 
 /-!
 # Buchstab's rough-number densities (paper: (8.x) `eq:rough-density-definition`, Lemma `lem:density`)
@@ -29,6 +30,9 @@ many terms are nonzero. -/
 noncomputable def roughDensity (γ w : ℝ) : ℝ := ∑' j : ℕ, roughDensityTerm γ w j
 
 namespace b_density_sol
+
+open Filter
+open scoped Topology
 
 open ArtinPrimitiveRoots.Proofs.b_density_sol
 
@@ -414,6 +418,61 @@ lemma density_identity :
     rw [show N = (N - 1) + 1 by omega, Finset.sum_range_succ']
     simp [roughDensityTerm]
   rw [houter, houterSum, hDbSplit]
+
+/-- The simplex bridge includes the one-prime term, whose independent space is empty. -/
+lemma roughDensityTerm_succ_eq_simplexIntegral_all {b : ℝ} (hb1 : b < 1) (k : ℕ) :
+    roughDensityTerm b 1 (k + 1) =
+      (∫ x : Fin k → ℝ, simplexIntegrand b x) / ((k + 1).factorial : ℝ) := by
+  by_cases hk : k = 0
+  · subst k
+    have hmass : volume (Set.univ : Set (Fin 0 → ℝ)) = 1 := by
+      change Measure.pi (fun _ : Fin 0 => (volume : Measure ℝ)) Set.univ = 1
+      exact MeasureTheory.Measure.pi_empty_univ _
+    have hvol : volume.real (Set.univ : Set (Fin 0 → ℝ)) = 1 := by
+      change (volume (Set.univ : Set (Fin 0 → ℝ))).toReal = 1
+      rw [hmass]
+      simp
+    have hfun : (simplexIntegrand b : (Fin 0 → ℝ) → ℝ) = fun _ => 1 := by
+      funext x
+      have hmem : x ∈ simplexGoodSet b := by
+        intro c
+        cases c with
+        | none => simpa [simplexCoordinate] using hb1.le
+        | some i => exact Fin.elim0 i
+      have hw : simplexWeight x = 1 := by
+        unfold simplexWeight
+        rw [Fintype.prod_option]
+        simp [simplexCoordinate]
+      simp [simplexIntegrand, hmem, hw]
+    simp [roughDensityTerm, hfun, hvol]
+  · simpa only [div_eq_mul_inv, one_mul, mul_one, mul_comm] using
+      (roughDensityTerm_succ_eq_simplexIntegral (γ := b) k (Nat.pos_of_ne_zero hk))
+
+/-- Reindex the finite density sum by the number of independent coordinates. -/
+lemma roughDensity_eq_sum_simplexIntegral {b : ℝ} {J : ℕ}
+    (hb : 0 < b) (hb1 : b < 1) (hJ : 2 ≤ J) (hcut : 1 < (J : ℝ) * b) :
+    roughDensity b 1 = ∑ k ∈ Finset.range (J - 1),
+      (∫ x : Fin k → ℝ, simplexIntegrand b x) / ((k + 1).factorial : ℝ) := by
+  have hzero : roughDensityTerm b 1 0 = 0 := by simp [roughDensityTerm]
+  calc
+    roughDensity b 1 = ∑ j ∈ Finset.range J, roughDensityTerm b 1 j :=
+      roughDensity_eq_sum_range_of_lt_mul hb hJ hcut
+    _ = ∑ k ∈ Finset.range (J - 1), roughDensityTerm b 1 (k + 1) := by
+      conv_lhs => rw [show J = (J - 1) + 1 by omega, Finset.sum_range_succ']
+      rw [hzero, add_zero]
+    _ = ∑ k ∈ Finset.range (J - 1),
+        (∫ x : Fin k → ℝ, simplexIntegrand b x) / ((k + 1).factorial : ℝ) := by
+      apply Finset.sum_congr rfl
+      intro k hk
+      exact roughDensityTerm_succ_eq_simplexIntegral_all hb1 k
+
+/-- A finite family of grids converges to the frozen density, including its one-prime term. -/
+lemma tendsto_exponentGridFamilySum_density {b : ℝ} {J : ℕ}
+    (hb : 0 < b) (hb1 : b < 1) (hJ : 2 ≤ J) (hcut : 1 < (J : ℝ) * b) :
+    Tendsto (fun n : ℕ => exponentGridFamilySum (Finset.range (J - 1)) b n)
+      atTop (𝓝 (roughDensity b 1)) := by
+  rw [roughDensity_eq_sum_simplexIntegral hb hb1 hJ hcut]
+  exact tendsto_exponentGridFamilySum_integrals (Finset.range (J - 1)) hb hb1
 
 /-- The uniform upper bound with the frozen exponential rate. -/
 lemma density_upper_bound :
