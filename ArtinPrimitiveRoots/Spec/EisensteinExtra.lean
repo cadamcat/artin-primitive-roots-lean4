@@ -1414,6 +1414,67 @@ private theorem specIdentify_T7_estimate
       dsimp [c, C]
       ring
 
+private theorem specIdentify_cutoffResidual_bound
+    (τ : ℝ → ℝ) (A : ℝ) (hA : 1 ≤ A) (a : ℂ)
+    (haRe : 0 ≤ a.re) (ha : ‖a‖ ≤ 7) (hτ : IsCuspCutoff A τ) :
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ g : InfinitePlace F → SL(2,ℂ), ∀ z : X F,
+      ‖((1 - τ (normHeight F (actAtPlaces F g z)) : ℝ) : ℂ) *
+        (normHeight F (actAtPlaces F g z) : ℂ) ^ a‖ ≤ B ∧
+      ‖fullGradient F (fun x =>
+        ((1 - τ (normHeight F (actAtPlaces F g x)) : ℝ) : ℂ) *
+          (normHeight F (actAtPlaces F g x) : ℂ) ^ a) z‖ ≤ B := by
+  let M : ℝ := max 1 ((2 * A) ^ 7)
+  have hM : 0 ≤ M := le_trans zero_le_one (le_max_left _ _)
+  have hApos : 0 < A := lt_of_lt_of_le zero_lt_one hA
+  have hbase : 1 ≤ 2 * A := by linarith
+  have hre : a.re ≤ 7 := (le_abs_self a.re).trans
+    ((Complex.abs_re_le_norm a).trans ha)
+  have hpow (t : ℝ) (ht : 0 < t) (htA : t ≤ 2 * A) : t ^ a.re ≤ M := by
+    by_cases htOne : t ≤ 1
+    · exact (Real.rpow_le_one ht.le htOne haRe).trans (le_max_left _ _)
+    · calc
+        t ^ a.re ≤ (2 * A) ^ a.re := Real.rpow_le_rpow ht.le htA haRe
+        _ ≤ (2 * A) ^ 7 := Real.rpow_le_rpow_of_exponent_le hbase hre
+        _ ≤ M := by simpa [M] using (le_max_right 1 ((2 * A) ^ 7))
+  have hτrange (t : ℝ) : 0 ≤ τ t ∧ τ t ≤ 1 := by
+    constructor
+    · by_cases ht : t ≤ A
+      · rw [hτ.2.2.1 t ht]
+      · have h := hτ.2.1 (le_of_not_ge ht)
+        rw [hτ.2.2.1 A le_rfl] at h
+        exact h
+    · by_cases ht : 2 * A ≤ t
+      · rw [hτ.2.2.2 t ht]
+      · have h := hτ.2.1 (le_of_not_ge ht)
+        rw [hτ.2.2.2 (2 * A) le_rfl] at h
+        exact h
+  have hvalue (t : ℝ) (ht : 0 < t) :
+      ‖((1 - τ t : ℝ) : ℂ) * (t : ℂ) ^ a‖ ≤ M := by
+    by_cases htA : 2 * A ≤ t
+    · rw [hτ.2.2.2 t htA]
+      simpa using hM
+    · rw [norm_mul, Complex.norm_real, Real.norm_eq_abs,
+        specIdentify_cpow_norm t a ht]
+      have hfactor : |1 - τ t| ≤ 1 := by
+        rw [abs_le]
+        have hrange := hτrange t
+        constructor <;> linarith only [hrange.1, hrange.2]
+      calc
+        |1 - τ t| * t ^ a.re ≤ 1 * t ^ a.re :=
+          mul_le_mul_of_nonneg_right hfactor (Real.rpow_nonneg ht.le _)
+        _ ≤ M := by simpa using hpow t ht (le_of_not_ge htA)
+  obtain ⟨C, hC, hderiv⟩ := specIdentify_cutoffResidual_deriv_bound τ A hA a haRe ha hτ
+  let B : ℝ := max M (C * Real.sqrt (placeCount F))
+  have hB : 0 ≤ B := hM.trans (le_max_left _ _)
+  refine ⟨B, hB, ?_⟩
+  intro g z
+  have ht : 0 < normHeight F (actAtPlaces F g z) := specIdentify_normHeight_pos _
+  refine ⟨(hvalue _ ht).trans (le_max_left _ _), ?_⟩
+  have hχ : ContDiff ℝ ∞ (fun t : ℝ => 1 - τ t) := contDiff_const.sub hτ.1
+  rw [specIdentify_radial_action_gradient_norm g (fun t => 1 - τ t) a hχ z]
+  exact (mul_le_mul_of_nonneg_right (hderiv _ ht) (Real.sqrt_nonneg _)).trans
+    (le_max_right _ _)
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
