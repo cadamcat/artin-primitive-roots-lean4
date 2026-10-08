@@ -1605,6 +1605,45 @@ private theorem ppPrimeIntegral_tsum_exchange
   rw [hpoint]
   exact (integral_tsum_of_summable_integral_norm hF hFs).symm
 
+private theorem ppPrimeTwistedMangoldt_lseries_eq
+    {q : ℕ} (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    {s : ℂ} (hs : 1 < s.re) :
+    LSeries (fun n : ℕ => χ (n : ZMod q) *
+      (ArithmeticFunction.vonMangoldt n : ℂ)) s =
+      -deriv (dirichletLValue q hq χ) s / dirichletLValue q hq χ s := by
+  letI : NeZero q := ⟨Nat.ne_of_gt hq⟩
+  have htw := DirichletCharacter.LSeries_twist_vonMangoldt_eq χ hs
+  rw [← DirichletCharacter.deriv_LFunction_eq_deriv_LSeries χ hs,
+    ← DirichletCharacter.LFunction_eq_LSeries χ hs] at htw
+  change LSeries ((fun n : ℕ => χ (n : ZMod q)) *
+    (fun n => (ArithmeticFunction.vonMangoldt n : ℂ))) s = _ at htw
+  change LSeries ((fun n : ℕ => χ (n : ZMod q)) *
+    (fun n => (ArithmeticFunction.vonMangoldt n : ℂ))) s =
+      -deriv (DirichletCharacter.LFunction χ) s /
+        DirichletCharacter.LFunction χ s
+  exact htw
+
+private theorem ppPrimeSmoothed_mellin_identity
+    {N : ℝ} (hN : 0 < N) (q : ℕ) (hq : 0 < q)
+    (χ : DirichletCharacter ℂ q) (t c : ℝ) (hc : 0 < c)
+    (g : ℝ → ℝ)
+    (hgsupport : Function.support g ⊆ Set.Icc (1 / 2 : ℝ) 3)
+    (hginv : ∀ w : ℝ, 0 < w →
+      (g w : ℂ) = (1 / (2 * Real.pi) : ℂ) *
+        ∫ v : ℝ, mellinKernel g (⟨c, v⟩ : ℂ) *
+          Complex.exp (-((⟨c, v⟩ : ℂ) * Real.log w)))
+    (hKernelL1 : Integrable (fun v : ℝ =>
+      ‖mellinKernel g (⟨c, v⟩ : ℂ)‖)) :
+    smoothedMangoldtPolynomial N q χ t g =
+      (1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ,
+        mellinKernel g (⟨c, v⟩ : ℂ) *
+          Complex.exp ((⟨c, v⟩ : ℂ) * Real.log N) *
+            (-deriv (dirichletLValue q hq χ)
+                (1 - Complex.I * t + (⟨c, v⟩ : ℂ)) /
+              dirichletLValue q hq χ
+                (1 - Complex.I * t + (⟨c, v⟩ : ℂ))) := by
+  sorry
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
