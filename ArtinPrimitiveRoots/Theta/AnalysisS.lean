@@ -177,6 +177,50 @@ def SheetMultiplier (m : S.FS → ℂ) : Prop :=
   ∃ (L : SChar S) (k : ℤ) (b : S.V → ℂ), (∃ C, ∀ x, ‖b x‖ ≤ C) ∧
     ∀ y : S.FSˣ, m (y : S.FS) = ((L.L y : ℂˣ) : ℂ) ^ k * b (QuotientGroup.mk y)
 
+private theorem thsol_multiplier_radial (m : S.FS → ℂ) (hm : SheetMultiplier S m) :
+    ∃ C : ℝ, 0 ≤ C ∧ (∀ y : S.FSˣ, ‖m (y : S.FS)‖ ≤ C) ∧
+      ∀ (w : InfinitePlace F) (y : S.FSˣ) (t : ℝ),
+        m ((y * S.atComplex w (Units.mk0 (Real.exp t : ℂ)
+          (Complex.ofReal_ne_zero.mpr (Real.exp_ne_zero t)))) : S.FS) = m (y : S.FS) := by
+  obtain ⟨L, k, b, ⟨C, hC⟩, hmval⟩ := hm
+  refine ⟨max 0 C, le_max_left _ _, ?_, ?_⟩
+  · intro y
+    rw [hmval, norm_mul, Complex.norm_zpow, L.unitary, one_zpow, one_mul]
+    exact (hC _).trans (le_max_right _ _)
+  · intro w y t
+    let z (s : ℝ) : ℂˣ := Units.mk0 (Real.exp s : ℂ)
+      (Complex.ofReal_ne_zero.mpr (Real.exp_ne_zero s))
+    have hz6 : z (t / 6) ^ 6 = z t := by
+      apply Units.ext
+      change (Real.exp (t / 6) : ℂ) ^ 6 = (Real.exp t : ℂ)
+      rw [← Complex.ofReal_pow, ← Real.exp_nat_mul]
+      congr 2
+      ring
+    have hrange : S.atComplex w (z t) ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range := by
+      refine ⟨S.atComplex w (z (t / 6)), ?_⟩
+      change S.atComplex w (z (t / 6)) ^ 6 = S.atComplex w (z t)
+      apply Units.ext
+      ext v
+      · simp [SData.atComplex]
+      · by_cases hv : v = w
+        · subst v
+          simpa [SData.atComplex] using congrArg (fun u : ℂˣ => (u : ℂ)) hz6
+        · simp [SData.atComplex, Function.update_of_ne hv]
+    have hq : (QuotientGroup.mk (S.atComplex w (z t)) : S.V) = 1 :=
+      (QuotientGroup.eq_one_iff _).mpr hrange
+    have hL : ((L.L (S.atComplex w (z t)) : ℂˣ) : ℂ) = 1 := by
+      rw [L.angular]
+      simp [omegaAng, z]
+    change m ((y * S.atComplex w (z t)) : S.FS) = m (y : S.FS)
+    calc
+      _ = ((L.L (y * S.atComplex w (z t)) : ℂˣ) : ℂ) ^ k *
+          b (QuotientGroup.mk (y * S.atComplex w (z t))) := hmval _
+      _ = ((L.L y : ℂˣ) : ℂ) ^ k * b (QuotientGroup.mk y) := by
+        simp only [map_mul, Units.val_mul, hL, QuotientGroup.mk_mul, hq, mul_one]
+        exact congrArg (fun q : S.V => ((L.L y : ℂˣ) : ℂ) ^ k * b q)
+          (mul_one (QuotientGroup.mk y : S.V))
+      _ = _ := (hmval y).symm
+
 /-- **lem:sheet-profile** (03:500–620), profile part: smoothness, eq:sheet-weighted-bound,
 eq:sheet-two-ended-bound, with an admissible multiplier. C4 of `sol-gate-theta` carries its norm
 constant into the exact majorant; C9 uses the retained C-infinity hypothesis. -/
