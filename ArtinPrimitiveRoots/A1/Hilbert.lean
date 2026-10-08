@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.ResidueCompatibility
 import ArtinPrimitiveRoots.A1.Proofs.«A1-UNIQUE».Global
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.LocalIndex
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.NativeLocalIndex
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.CanonicalTopology
 
 /-!
 # A1 interface, §3: Hilbert symbols, H_S, B, allowed generators
