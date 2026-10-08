@@ -7658,6 +7658,290 @@ private theorem memEdge_positive_choice_row_le {K : ℕ}
       gcongr
     _ = _ := by rw [mul_pow, mul_pow]; ring
 
+set_option maxHeartbeats 1000000 in
+/-- The projected edge row grows polynomially in the memory cutoff, uniformly
+in the visit number and the archimedean root. -/
+private theorem memEdgeProjected_rowSchur_crude (δ c₁ c₂ : ℝ)
+    (hδ : 0 < δ) (hc₁ : 0 < c₁) (K : ℕ) (F : PDFix K) (hF : F.Valid)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (v : ℝ) (hv : 1 < v) :
+    ∃ Cedge x₀ : ℝ, 0 < Cedge ∧ 2 ≤ x₀ ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ,
+          MemRowSchurLE_sym F S (memoryCutoff S)
+            (memEdge F S ρ w EdgeKind.full j) v
+            (Cedge * ((memoryCutoff S + 1 : ℕ) : ℝ) ^ K *
+              Real.rpow S.L (3 * F.A₀)) := by
+  classical
+  obtain ⟨Cgeom, xG, hCgeom, hxG, hGeom⟩ :=
+    pd5_edge_position_mass_le δ c₁ c₂ hδ hc₁ K F hF
+  obtain ⟨xS, hxS, hScale⟩ := pd5_scale_facts K F hF
+  let H : ℝ := 2 / Real.log 2
+  let Q : ℝ := Fintype.card (Finset (Fin K))
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hH : 0 < H := by dsimp [H]; positivity
+  have hQ : 0 < Q := by
+    dsimp [Q]
+    exact_mod_cast (Fintype.card_pos_iff.mpr ⟨(∅ : Finset (Fin K))⟩)
+  let A : ℝ := 2 * v * (H + 2)
+  let Cedge : ℝ := 2 * Q ^ 2 * Cgeom * A ^ K
+  have hvpos : 0 < v := by linarith
+  have hA : 0 < A := by dsimp [A]; positivity
+  have hCedge : 0 < Cedge := by dsimp [Cedge]; positivity
+  refine ⟨Cedge, max xG xS, hCedge, hxG.trans (le_max_left _ _), ?_⟩
+  intro S hS hx w hw j
+  have hxG' : xG ≤ S.x := (le_max_left _ _).trans hx
+  have hxS' : xS ≤ S.x := (le_max_right _ _).trans hx
+  obtain ⟨hL, _, _, _, _, _, _, hBands⟩ := hScale S hxS'
+  have hV (i : Fin K) : 0 < bandMass S.x (F.a i) :=
+    lt_of_lt_of_le (by positivity : 0 < Real.log 2 / 2) (hBands i).1
+  have hInv (i : Fin K) : (bandMass S.x (F.a i))⁻¹ ≤ H := by
+    have h := mul_le_mul_of_nonneg_left (hBands i).1 hH.le
+    have heq : H * (Real.log 2 / 2) = 1 := by
+      dsimp [H]
+      field_simp
+    apply (inv_le_iff_one_le_mul₀ (hV i)).2
+    exact heq.symm.le.trans h
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p := ((hBands i).2.2.2 p hp).1
+  have hMass (i : Fin K) :
+      (∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2 :=
+    (hBands i).2.2.1
+  let B := memoryCutoff S
+  let Lgeom : ℝ := Cgeom * Real.rpow S.L (3 * F.A₀)
+  let R : ℝ := Lgeom * (2 * v * ((B : ℝ) * H + 2)) ^ K
+  have hLgeom : 0 ≤ Lgeom := by dsimp [Lgeom]; positivity
+  have hR : 0 ≤ R := by dsimp [R]; positivity
+  have hRbound : R ≤ Cgeom * A ^ K * ((B + 1 : ℕ) : ℝ) ^ K *
+      Real.rpow S.L (3 * F.A₀) := by
+    have hbase : 2 * v * ((B : ℝ) * H + 2) ≤ A * ((B + 1 : ℕ) : ℝ) := by
+      have hsmall : (B : ℝ) * H + 2 ≤ (H + 2) * ((B + 1 : ℕ) : ℝ) := by
+        push_cast
+        nlinarith only [hH.le, (Nat.cast_nonneg B : (0 : ℝ) ≤ (B : ℝ))]
+      calc
+        _ ≤ 2 * v * ((H + 2) * ((B + 1 : ℕ) : ℝ)) :=
+          mul_le_mul_of_nonneg_left hsmall (by positivity)
+        _ = _ := by dsimp [A]; ring
+    have hpow := pow_le_pow_left₀ (by positivity : 0 ≤ 2 * v * ((B : ℝ) * H + 2)) hbase K
+    calc
+      R ≤ Lgeom * (A * ((B + 1 : ℕ) : ℝ)) ^ K :=
+        mul_le_mul_of_nonneg_left hpow hLgeom
+      _ = _ := by dsimp [Lgeom]; rw [mul_pow]; ring
+  let Perms := Fin K → Equiv.Perm (Fin (slotCount S.x))
+  let d := permCount S.x K
+  have hdpos : 0 < d := by
+    dsimp [d, permCount]
+    exact Fintype.card_pos_iff.mpr ⟨fun i => Equiv.refl _⟩
+  have hdne : (d : ℝ) ≠ 0 := by exact_mod_cast hdpos.ne'
+  have hdcard : Fintype.card Perms = d := rfl
+  have hnormInv : ‖(d : ℂ)⁻¹‖ = (d : ℝ)⁻¹ := by simp
+  change MemRowSchurLE F S B (fun f => memEdge F S ρ w EdgeKind.full j (memorySym f)) v _
+  intro s hs hsSize T hT
+  let δt (t : MemPoint S.x K) : MemPoint S.x K → ℂ := fun u => if u = t then 1 else 0
+  have hSumRow {ι : Type} (U : Finset ι) (k : ι → MemPoint S.x K → ℂ)
+      (b : ι → ℝ)
+      (hb : ∀ a ∈ U, (∑ t ∈ T, ‖k a t‖ * v ^ memSize t) ≤ b a) :
+      (∑ t ∈ T, ‖∑ a ∈ U, k a t‖ * v ^ memSize t) ≤ ∑ a ∈ U, b a := by
+    calc
+      _ ≤ ∑ t ∈ T, (∑ a ∈ U, ‖k a t‖) * v ^ memSize t := by
+        apply Finset.sum_le_sum
+        intro t ht
+        exact mul_le_mul_of_nonneg_right (norm_sum_le _ _) (pow_nonneg hvpos.le _)
+      _ = ∑ a ∈ U, ∑ t ∈ T, ‖k a t‖ * v ^ memSize t := by
+        simp_rw [Finset.sum_mul]
+        rw [Finset.sum_comm]
+      _ ≤ _ := Finset.sum_le_sum hb
+  have hAverage (k : Perms → MemPoint S.x K → ℂ) (b : ℝ)
+      (hk : ∀ σ : Perms, (∑ t ∈ T, ‖k σ t‖ * v ^ memSize t) ≤ b) :
+      (∑ t ∈ T, ‖(d : ℂ)⁻¹ * ∑ σ : Perms, k σ t‖ * v ^ memSize t) ≤ b := by
+    calc
+      _ = (d : ℝ)⁻¹ * ∑ t ∈ T, ‖∑ σ : Perms, k σ t‖ * v ^ memSize t := by
+        simp_rw [norm_mul, hnormInv]
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro t ht
+        ring
+      _ ≤ (d : ℝ)⁻¹ * ∑ σ : Perms, b := by
+        have hsum : (∑ t ∈ T, ‖∑ σ : Perms, k σ t‖ * v ^ memSize t) ≤
+            ∑ σ : Perms, b :=
+          hSumRow (ι := Perms) (Finset.univ : Finset Perms) k
+            (fun _ : Perms => b) (fun σ _ => hk σ)
+        exact mul_le_mul_of_nonneg_left hsum (inv_nonneg.mpr (Nat.cast_nonneg d))
+      _ = b := by
+        simp only [Finset.sum_const, Finset.card_univ, hdcard, nsmul_eq_mul]
+        rw [← mul_assoc, inv_mul_cancel₀ hdne, one_mul]
+  have hMemoryRow (u : MemPoint S.x K) :
+      (∑ t ∈ T, ‖memorySym (δt t) u‖ * v ^ memSize t) ≤ v ^ memSize u := by
+    calc
+      _ = ∑ t ∈ T, ‖memorySym (δt t) u‖ * v ^ memSize u := by
+        apply Finset.sum_congr rfl
+        intro t ht
+        by_cases hsize : memSize u = memSize t
+        · rw [hsize]
+        · have hz := memorySym_delta_zero_of_memSize_ne u t hsize
+          simp [δt, hz]
+      _ = (∑ t ∈ T, ‖memorySym (δt t) u‖) * v ^ memSize u := by rw [Finset.sum_mul]
+      _ ≤ 1 * v ^ memSize u :=
+        mul_le_mul_of_nonneg_right (memorySym_delta_row_le u T) (pow_nonneg hvpos.le _)
+      _ = _ := one_mul _
+  let g (t : MemPoint S.x K) : LogPoint S.x K → ℂ :=
+    logSym F S (fun uL => memorySym (δt t) uL.1)
+  have hgRow (uL : LogPoint S.x K) :
+      (∑ t ∈ T, ‖g t uL‖ * v ^ memSize t) ≤ v ^ memSize uL.1 := by
+    change (∑ t ∈ T, ‖(d : ℂ)⁻¹ * ∑ σ : Perms,
+      memorySym (δt t) (uL.1.1, permuteLists σ uL.1.2.1, uL.1.2.2)‖ * v ^ memSize t) ≤ _
+    apply hAverage
+    intro σ
+    exact hMemoryRow (uL.1.1, permuteLists σ uL.1.2.1, uL.1.2.2)
+  have hbox := pd5_envBox_finite_of_valid hS hw
+  let Z := hbox.toFinset
+  have hPieceRow (r : MemPoint S.x K) (hr : Int.gcd r.1.1 r.1.2 = 1)
+      (hrSize : memSize r ≤ B) (raw : Bool) (St Pr : Finset (Fin K)) :
+      (∑ t ∈ T, ‖logEdgePiece F S ρ w j raw St Pr (g t) (r, [])‖ * v ^ memSize t) ≤
+        R * v ^ memSize r := by
+    let Choices := (i : Fin K) → EdgeChoice S.x F.a (r.2.2 i) i
+    let out (c : Choices) (z' : ℤ × ℤ) : MemPoint S.x K :=
+      (z', edgeTargetLists F S r c, edgeNewMemory F S r c)
+    let coeff (c : Choices) (z' : ℤ × ℤ) : ℝ :=
+      ρ ^ (∑ i : Fin K, hitCount (r.2.2 i) r.1) *
+        (∏ i : Fin K, pd5_edgeChoiceMass F S r c i) *
+        ρ ^ (∑ i : Fin K, hitCount (edgeNewMemory F S r c i) z')
+    let geom (c : Choices) (z' : ℤ × ℤ) : ℝ :=
+      ‖edgeMultiplier F S (decide (j % 2 = 0)) true r.2.1
+        (edgeTargetLists F S r c) r.1 z'‖ +
+      ‖edgeMultiplier F S (decide (j % 2 = 0)) false r.2.1
+        (edgeTargetLists F S r c) r.1 z'‖
+    let pos (c : Choices) (z' : ℤ × ℤ) : ℝ :=
+      if EdgeAdmissible F S w r c z' then
+        |coeff c z'| * geom c z' * v ^ memSize (out c z') else 0
+    let term (c : Choices) (z' : ℤ × ℤ) (t : MemPoint S.x K) : ℂ :=
+      if edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧ EdgeAdmissible F S w r c z' then
+        (coeff c z' : ℂ) * edgeMultiplier F S (decide (j % 2 = 0)) raw
+          r.2.1 (edgeTargetLists F S r c) r.1 z' *
+          g t (out c z', edgeBirths F S j r c)
+      else 0
+    have hpoint (c : Choices) (z' : ℤ × ℤ) :
+        (∑ t ∈ T, ‖term c z' t‖ * v ^ memSize t) ≤ pos c z' := by
+      by_cases hc : edgeStoredSet c = St ∧ edgePromotedSet c = Pr ∧ EdgeAdmissible F S w r c z'
+      · have hmul : ‖edgeMultiplier F S (decide (j % 2 = 0)) raw
+            r.2.1 (edgeTargetLists F S r c) r.1 z'‖ ≤ geom c z' := by
+          cases raw <;> dsimp [geom] <;> linarith [norm_nonneg
+            (edgeMultiplier F S (decide (j % 2 = 0)) true r.2.1
+              (edgeTargetLists F S r c) r.1 z'), norm_nonneg
+            (edgeMultiplier F S (decide (j % 2 = 0)) false r.2.1
+              (edgeTargetLists F S r c) r.1 z')]
+        dsimp [term, pos]
+        simp only [if_pos hc, if_pos hc.2.2, norm_mul, Complex.norm_real, Real.norm_eq_abs]
+        calc
+          _ = |coeff c z'| * ‖edgeMultiplier F S (decide (j % 2 = 0)) raw
+                r.2.1 (edgeTargetLists F S r c) r.1 z'‖ *
+                ∑ t ∈ T, ‖g t (out c z', edgeBirths F S j r c)‖ * v ^ memSize t := by
+            rw [Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro t ht
+            ring
+          _ ≤ |coeff c z'| * ‖edgeMultiplier F S (decide (j % 2 = 0)) raw
+                r.2.1 (edgeTargetLists F S r c) r.1 z'‖ * v ^ memSize (out c z') :=
+            mul_le_mul_of_nonneg_left (hgRow _) (mul_nonneg (abs_nonneg _) (norm_nonneg _))
+          _ ≤ _ := mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_left hmul (abs_nonneg _)) (pow_nonneg hvpos.le _)
+      · have hzero : (∑ t ∈ T, ‖term c z' t‖ * v ^ memSize t) = 0 := by simp [term, hc]
+        rw [hzero]
+        dsimp [pos, geom]
+        split_ifs <;> positivity
+    have hgeomChoice (c : Choices) :
+        (∑ z' ∈ Z, if EdgeAdmissible F S w r c z' then geom c z' else 0) ≤ Lgeom := by
+      by_cases hex : ∃ z' ∈ Z, EdgeAdmissible F S w r c z'
+      · obtain ⟨z', hz', he⟩ := hex
+        rcases he with ⟨_, _, _, _, hpad, _, hrBox, _, _, _⟩
+        have hD : S.d₀ ≤ sharedProduct r.2.1 := by exact_mod_cast hpad.1
+        calc
+          _ ≤ ∑ z' ∈ Z, if envBox S w z' ∧ (sharedProduct r.2.1 : ℤ) ∣ det2 r.1 z'
+              then geom c z' else 0 := by
+            apply Finset.sum_le_sum
+            intro z' hz'
+            by_cases he : EdgeAdmissible F S w r c z'
+            · have hData := he
+              rcases hData with ⟨_, _, _, _, hp, _, _, hb, _, _⟩
+              simp only [if_pos he, if_pos (And.intro hb hp.2.2)]
+              exact le_rfl
+            · simp only [if_neg he]
+              split_ifs
+              · exact add_nonneg (norm_nonneg _) (norm_nonneg _)
+              · exact le_rfl
+          _ ≤ Lgeom := hGeom S hS hxG' w hw r.1 hr hrBox r.2.1
+            (edgeTargetLists F S r c) hD (decide (j % 2 = 0)) Z
+      · have hzero : (∑ z' ∈ Z, if EdgeAdmissible F S w r c z' then geom c z' else 0) = 0 := by
+          apply Finset.sum_eq_zero
+          intro z' hz'
+          have he : ¬ EdgeAdmissible F S w r c z' := fun h => hex ⟨z', hz', h⟩
+          simp [he]
+        rw [hzero]
+        exact hLgeom
+    calc
+      _ = ∑ t ∈ T, ‖∑ c : Choices, ∑ z' ∈ Z, term c z' t‖ * v ^ memSize t := by
+        apply Finset.sum_congr rfl
+        intro t ht
+        rw [pd5_logEdgePiece_finite F S ρ w j raw St Pr (g t) (r, []) hbox]
+        rfl
+      _ ≤ ∑ c : Choices, ∑ z' ∈ Z, pos c z' :=
+        hSumRow (ι := Choices) (Finset.univ : Finset Choices)
+          (fun c t => ∑ z' ∈ Z, term c z' t)
+          (fun c => ∑ z' ∈ Z, pos c z')
+          (fun c _ => hSumRow Z (term c) (pos c) (fun z' _ => hpoint c z'))
+      _ ≤ R * v ^ memSize r :=
+        memEdge_positive_choice_row_le F S ρ v H Lgeom w j B r Z
+          ⟨hρ.1.le, hρ.2.1.le⟩ hv.le hH.le hLgeom hrSize hV hInv hν hMass hgeomChoice
+  let pieceSum (r : MemPoint S.x K) (t : MemPoint S.x K) : ℂ :=
+    ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+      (logEdgePiece F S ρ w j true St Pr (g t) (r, []) -
+        logEdgePiece F S ρ w j false St Pr (g t) (r, []))
+  have hPiecesRow (r : MemPoint S.x K) (hr : Int.gcd r.1.1 r.1.2 = 1)
+      (hrSize : memSize r ≤ B) :
+      (∑ t ∈ T, ‖pieceSum r t‖ * v ^ memSize t) ≤ 2 * Q ^ 2 * R * v ^ memSize r := by
+    have hpair (St Pr : Finset (Fin K)) :
+        (∑ t ∈ T, ‖logEdgePiece F S ρ w j true St Pr (g t) (r, []) -
+          logEdgePiece F S ρ w j false St Pr (g t) (r, [])‖ * v ^ memSize t) ≤
+            2 * R * v ^ memSize r := by
+      calc
+        _ ≤ ∑ t ∈ T, (‖logEdgePiece F S ρ w j true St Pr (g t) (r, [])‖ +
+              ‖logEdgePiece F S ρ w j false St Pr (g t) (r, [])‖) * v ^ memSize t := by
+          apply Finset.sum_le_sum
+          intro t ht
+          exact mul_le_mul_of_nonneg_right (norm_sub_le _ _) (pow_nonneg hvpos.le _)
+        _ = (∑ t ∈ T, ‖logEdgePiece F S ρ w j true St Pr (g t) (r, [])‖ * v ^ memSize t) +
+            ∑ t ∈ T, ‖logEdgePiece F S ρ w j false St Pr (g t) (r, [])‖ * v ^ memSize t := by
+          simp_rw [add_mul, Finset.sum_add_distrib]
+        _ ≤ R * v ^ memSize r + R * v ^ memSize r :=
+          add_le_add (hPieceRow r hr hrSize true St Pr) (hPieceRow r hr hrSize false St Pr)
+        _ = _ := by ring
+    calc
+      _ ≤ ∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K), 2 * R * v ^ memSize r := by
+        change (∑ t ∈ T, ‖∑ St : Finset (Fin K), ∑ Pr : Finset (Fin K),
+          (logEdgePiece F S ρ w j true St Pr (g t) (r, []) -
+            logEdgePiece F S ρ w j false St Pr (g t) (r, []))‖ * v ^ memSize t) ≤ _
+        apply hSumRow (ι := Finset (Fin K)) (Finset.univ : Finset (Finset (Fin K)))
+        intro St hSt
+        exact hSumRow (ι := Finset (Fin K)) (Finset.univ : Finset (Finset (Fin K)))
+          (fun Pr t => logEdgePiece F S ρ w j true St Pr (g t) (r, []) -
+            logEdgePiece F S ρ w j false St Pr (g t) (r, []))
+          (fun _ => 2 * R * v ^ memSize r) (fun Pr _ => hpair St Pr)
+      _ = _ := by simp [Q, pow_two]; ring
+  have hrowR : (∑ t ∈ T,
+      ‖memKernel (fun f => memEdge F S ρ w EdgeKind.full j (memorySym f)) s t‖ * v ^ memSize t) ≤
+      2 * Q ^ 2 * R * v ^ memSize s := by
+    change (∑ t ∈ T, ‖(d : ℂ)⁻¹ * ∑ σ : Perms,
+      pieceSum (s.1, permuteLists σ s.2.1, s.2.2) t‖ * v ^ memSize t) ≤ _
+    apply hAverage
+    intro σ
+    exact hPiecesRow (s.1, permuteLists σ s.2.1, s.2.2) hs.1 hsSize
+  calc
+    _ ≤ 2 * Q ^ 2 * R * v ^ memSize s := hrowR
+    _ ≤ (2 * Q ^ 2 * (Cgeom * A ^ K * ((B + 1 : ℕ) : ℝ) ^ K *
+        Real.rpow S.L (3 * F.A₀))) * v ^ memSize s := by
+      exact mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_left hRbound (by positivity)) (pow_nonneg hvpos.le _)
+    _ = _ := by dsimp [Cedge]; ring
+
 /-- `t2:pd.ghost-edge-crude` — PD 04:365-435.  REPLACES the frozen `ghost_edge_crude`.  On
 `ℋ_B`, with the Schur weight `v₀^{k_tot}`: ghost row and column sums (mem:ghost-row),
 (mem:ghost-column) are `≤ C_K` once `v₀` makes both parentheses `≤ 1` (uses `ρ² > √q_d`), so
