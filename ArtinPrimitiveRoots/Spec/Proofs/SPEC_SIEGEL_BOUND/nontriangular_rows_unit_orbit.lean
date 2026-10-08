@@ -24,6 +24,20 @@ theorem nontriangular_rows_unit_orbit (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteInd
         unitAssociatedRows F
           (bottomRow F (siegelTransition Γ σ σ' q.1))
           (bottomRow F (siegelTransition Γ σ σ' q'.1)) → q = q') := by
-  sorry
+  obtain ⟨D, hD, hrows, huniq⟩ := (E1_eis_def (F := F)).2 Γ σ σ'
+  refine ⟨D, hD, ?_, ?_⟩
+  · intro q
+    change (bottomRow F (siegelTransition Γ σ σ' q.1)).1 ≠ 0 ∧
+      HasDenominatorBound F D (bottomRow F (siegelTransition Γ σ σ' q.1)).1 ∧
+      HasDenominatorBound F D (bottomRow F (siegelTransition Γ σ σ' q.1)).2
+    obtain ⟨_, hden₁, hden₂⟩ := hrows q.1
+    refine ⟨?_, hden₁, hden₂⟩
+    intro hzero
+    apply q.2
+    change (siegelTransition Γ σ σ' q.1) 1 0 = 0
+    exact hzero
+  · intro q q' horbit
+    apply Subtype.ext
+    exact huniq q.1 q'.1 horbit
 
 end ArtinPrimitiveRoots.A1.Spec
