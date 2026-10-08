@@ -198,11 +198,106 @@ theorem s_integer_finite_approx (S : ArtinPrimitiveRoots.A1.SData F CE condη)
   rw [hidentity]
   exact (v.1.adicCompletionIntegers F).add_mem _ _ (happrox v) (hr v)
 
+private noncomputable def archToMixedEquiv (D : ArtinPrimitiveRoots.A1.FieldData F) :
+    (InfinitePlace F → ℂ) ≃L[ℝ] NumberField.mixedEmbedding.mixedSpace F := by
+  let e : (InfinitePlace F → ℂ) ≃ₗ[ℝ] NumberField.mixedEmbedding.mixedSpace F :=
+    { toFun := fun z =>
+        (fun w : {w : InfinitePlace F // NumberField.InfinitePlace.IsReal w} =>
+          False.elim
+            ((NumberField.InfinitePlace.not_isComplex_iff_isReal.mpr w.2)
+              (D.isTotallyComplex.isComplex w.1)),
+          fun w : {w : InfinitePlace F // NumberField.InfinitePlace.IsComplex w} => z w.1)
+      invFun := fun z w => z.2 ⟨w, D.isTotallyComplex.isComplex w⟩
+      left_inv := by intro z; rfl
+      right_inv := by
+        intro z
+        apply Prod.ext
+        · funext w
+          exact False.elim
+            ((NumberField.InfinitePlace.not_isComplex_iff_isReal.mpr w.2)
+              (D.isTotallyComplex.isComplex w.1))
+        · funext w
+          rfl
+      map_add' := by
+        intro x y
+        apply Prod.ext
+        · funext w
+          exact False.elim
+            ((NumberField.InfinitePlace.not_isComplex_iff_isReal.mpr w.2)
+              (D.isTotallyComplex.isComplex w.1))
+        · funext w
+          rfl
+      map_smul' := by
+        intro c x
+        apply Prod.ext
+        · funext w
+          exact False.elim
+            ((NumberField.InfinitePlace.not_isComplex_iff_isReal.mpr w.2)
+              (D.isTotallyComplex.isComplex w.1))
+        · funext w
+          simp }
+  have hecont : Continuous e := by
+    refine continuous_prodMk.mpr ⟨continuous_const, continuous_pi ?_⟩
+    intro w
+    exact continuous_apply w.1
+  exact e.toContinuousLinearEquivOfContinuous hecont
+
 theorem arch_integer_compact_reduction (D : ArtinPrimitiveRoots.A1.FieldData F) :
     ∃ C : Set (InfinitePlace F → ℂ), IsCompact C ∧
       ∀ z : InfinitePlace F → ℂ, ∃ a : 𝓞 F, ∃ p ∈ C,
         z = (fun w => w.embedding (a : F)) + p := by
-  sorry
+  classical
+  let e := archToMixedEquiv D
+  let P : Set (NumberField.mixedEmbedding.mixedSpace F) :=
+    ZSpan.fundamentalDomain (NumberField.mixedEmbedding.latticeBasis F)
+  have hPbounded : Bornology.IsBounded P := by
+    exact ZSpan.fundamentalDomain_isBounded _
+  have hPcompact : IsCompact (closure P) := hPbounded.isCompact_closure
+  let C : Set (InfinitePlace F → ℂ) := e.symm '' closure P
+  refine ⟨C, ?_, ?_⟩
+  · exact hPcompact.image e.symm.continuous
+  · intro z
+    let zM : NumberField.mixedEmbedding.mixedSpace F := e z
+    obtain ⟨y, hy⟩ :=
+      ZSpan.exist_unique_vadd_mem_fundamentalDomain
+        (NumberField.mixedEmbedding.latticeBasis F) zM
+    have hyP : (y : NumberField.mixedEmbedding.mixedSpace F) + zM ∈ P := by
+      have hy' : (y : NumberField.mixedEmbedding.mixedSpace F) +ᵥ zM ∈ P := by
+        exact hy.1
+      simpa only [vadd_eq_add] using hy'
+    have hyInt :
+        (y : NumberField.mixedEmbedding.mixedSpace F) ∈
+          NumberField.mixedEmbedding.integerLattice F :=
+      (NumberField.mixedEmbedding.mem_span_latticeBasis F).mp y.property
+    have hnegInt : -(y : NumberField.mixedEmbedding.mixedSpace F) ∈
+        NumberField.mixedEmbedding.integerLattice F :=
+      (NumberField.mixedEmbedding.integerLattice F).neg_mem hyInt
+    change ∃ a : 𝓞 F,
+        NumberField.mixedEmbedding F (algebraMap (𝓞 F) F a) =
+          -(y : NumberField.mixedEmbedding.mixedSpace F) at hnegInt
+    obtain ⟨a, ha⟩ := hnegInt
+    let pM : NumberField.mixedEmbedding.mixedSpace F := (y : _) + zM
+    have hpM : pM ∈ closure P := subset_closure (by simpa [pM] using hyP)
+    have heDiag : e (fun w : InfinitePlace F => w.embedding (a : F)) =
+        NumberField.mixedEmbedding F (a : F) := by
+      apply Prod.ext
+      · funext w
+        exact False.elim
+          ((NumberField.InfinitePlace.not_isComplex_iff_isReal.mpr w.2)
+            (D.isTotallyComplex.isComplex w.1))
+      · funext w
+        rfl
+    have hzM : zM = NumberField.mixedEmbedding F (a : F) + pM := by
+      calc
+        zM = -(y : NumberField.mixedEmbedding.mixedSpace F) + pM := by
+          dsimp [pM, zM]
+          abel
+        _ = NumberField.mixedEmbedding F (a : F) + pM := by
+          rw [← ha]
+    refine ⟨a, e.symm pM, ⟨pM, hpM, rfl⟩, ?_⟩
+    apply e.injective
+    rw [map_add, heDiag, e.apply_symm_apply]
+    exact hzM
 
 theorem diagR_isDiscrete (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F) :
