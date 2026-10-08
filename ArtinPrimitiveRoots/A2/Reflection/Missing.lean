@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.MaskTau
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.DigitMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.PrimeGauss
+import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
 import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import Mathlib.Analysis.Asymptotics.Basic
 
@@ -7377,11 +7378,690 @@ theorem qI_prime_gt_one (v : FinPlace F) : 1 < qI v.asIdeal := by
   dsimp [qI]
   exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
 
+private theorem rf_local_g2_norm_one
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F)
+    (hv : v ∉ S.Sf) : ‖ArtinPrimitiveRoots.A1.g2 D A v‖ = 1 := by
+  classical
+  let Q := 𝓞 F ⧸ v.asIdeal
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueField v
+  letI : Fintype Q := ArtinPrimitiveRoots.A2.bridgeResidueFintype v
+  have hv6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  have hpgen : S.IsGen (primeGen R v : F) v.asIdeal := by
+    simpa [primeGen, hv, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime v hv)).1
+  obtain ⟨_, ⟨χ₁, hχord, hχval⟩, ⟨ψ, hψprim, hψval⟩⟩ :=
+    ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR D S A v hv (primeGen R v) hpgen
+  let χ₂ : MulChar Q ℂ := χ₁ ^ 2
+  have hχ₂val (x : Q) : χ₂ x = chiPow D v (algebraMap (𝓞 F) F x.out) 2 := by
+    change (χ₁ ^ 2) x = chiPow D v (algebraMap (𝓞 F) F x.out) 2
+    rw [MulChar.pow_apply' χ₁ (by norm_num : (2 : ℕ) ≠ 0) x]
+    by_cases hx : x = 0
+    · subst x
+      have hres := (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).residue_algebraMap
+        v (0 : 𝓞 F)
+      simp only [map_zero] at hres
+      simp [hχval, chiPow, hres]
+    · have hres := (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).residue_algebraMap v x.out
+      have hr : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+        rw [hres, Ideal.Quotient.mk_out]
+        exact hx
+      rw [hχval x,
+        (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).chiPow_nonzero v
+          (algebraMap (𝓞 F) F x.out) 1 hr,
+        (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).chiPow_nonzero v
+          (algebraMap (𝓞 F) F x.out) 2 hr]
+      simp
+  have hχ₂ne : χ₂ ≠ 1 := by
+    intro h
+    have hpow : χ₁ ^ 2 = 1 := by simpa [χ₂] using h
+    have hdiv : orderOf χ₁ ∣ 2 := orderOf_dvd_of_pow_eq_one hpow
+    rw [hχord] at hdiv
+    norm_num at hdiv
+  let pLoc := toLoc v (primeGen R v)
+  let πLoc := toLoc v (Units.mk0 (unif v) (unif_ne_zero v))
+  let bLoc : (v.adicCompletion F)ˣ := pLoc / πLoc
+  have hbLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v bLoc :=
+    (rf_local_primeGen_ratio_isLocUnit R v hv).2
+  obtain ⟨a, ha, hclose⟩ := rf_localChi_has_approximant D v hv6 bLoc hbLoc
+  let τ : Q := Ideal.Quotient.mk v.asIdeal a
+  have hτne : τ ≠ 0 := by
+    intro h
+    exact ha ((Ideal.Quotient.eq_zero_iff_mem).1 h)
+  have hτunit : τ * τ⁻¹ = 1 := mul_inv_cancel₀ hτne
+  have hτinvunit : τ⁻¹ * τ = 1 := inv_mul_cancel₀ hτne
+  have hχcharpow : χ₁ ^ 6 = 1 := by
+    have h := pow_orderOf_eq_one χ₁
+    simpa [hχord] using h
+  have hχroot : (χ₁ τ) ^ 6 = 1 := by
+    have h := congrArg (fun χ : MulChar Q ℂ => χ τ) hχcharpow
+    calc
+      (χ₁ τ) ^ 6 = (χ₁ ^ 6) τ :=
+        (MulChar.pow_apply' χ₁ (by norm_num : (6 : ℕ) ≠ 0) τ).symm
+      _ = (1 : MulChar Q ℂ) τ := h
+      _ = 1 := by
+        change (1 : MulChar Q ℂ) (Units.mk0 τ hτne : Q) = 1
+        exact MulChar.one_apply_coe (Units.mk0 τ hτne)
+  have hχnorm : ‖χ₁ τ‖ = 1 :=
+    (isOfFinOrder_iff_pow_eq_one).2 ⟨6, by norm_num, hχroot⟩ |>.norm_eq_one
+  have hχinvEval : χ₁ (τ⁻¹) = (χ₁ τ)⁻¹ := by
+    have hmul : χ₁ τ * χ₁ (τ⁻¹) = 1 := by
+      calc
+        χ₁ τ * χ₁ (τ⁻¹) = χ₁ (τ * τ⁻¹) := (map_mul χ₁ τ (τ⁻¹)).symm
+        _ = χ₁ 1 := by rw [hτunit]
+        _ = 1 := map_one χ₁
+    exact eq_inv_of_mul_eq_one_right hmul
+  have hχ₂inv : χ₂ (τ⁻¹) = (χ₁ τ) ^ (-(2 : ℤ)) := by
+    change (χ₁ ^ 2) (τ⁻¹) = _
+    rw [MulChar.pow_apply' χ₁ (by norm_num : (2 : ℕ) ≠ 0) (τ⁻¹), hχinvEval]
+    simp [zpow_neg]
+  have hχfactorNorm : ‖χ₂ (τ⁻¹)‖ = 1 := by
+    rw [hχ₂inv, norm_zpow, hχnorm]
+    norm_num
+  have hχphase (x : Q) (hx : x ≠ 0) :
+      A.ψ v (algebraMap F (v.adicCompletion F)
+        (algebraMap (𝓞 F) F x.out / (unif v : F))) = ψ (x * τ) := by
+    let xF : F := algebraMap (𝓞 F) F x.out
+    have hxFne : xF ≠ 0 := by
+      intro hzero
+      have hxval := rf_local_residue_val_one D S v x hx
+      have hzero' : algebraMap (𝓞 F) F x.out = 0 := by
+        simpa [xF] using hzero
+      rw [hzero'] at hxval
+      norm_num at hxval
+    let xUnit : Fˣ := Units.mk0 xF hxFne
+    let xLoc : (v.adicCompletion F)ˣ := toLoc v xUnit
+    have hxLocMap : (xLoc : v.adicCompletion F) =
+        algebraMap F (v.adicCompletion F) xF := by
+      change algebraMap F (v.adicCompletion F) (xUnit : F) = _
+      simp [xUnit]
+    have hxLocVal : Valued.v (xLoc : v.adicCompletion F) = 1 := by
+      calc
+        Valued.v (xLoc : v.adicCompletion F) =
+            Valued.v (algebraMap F (v.adicCompletion F) xF) :=
+          congrArg Valued.v hxLocMap
+        _ = v.valuation F xF := v.valuedAdicCompletion_eq_valuation' xF
+        _ = 1 := by simpa [xF] using rf_local_residue_val_one D S v x hx
+    have hmem : x.out * a ∉ v.asIdeal := by
+      intro hm
+      have hz : Ideal.Quotient.mk v.asIdeal (x.out * a) = 0 :=
+        (Ideal.Quotient.eq_zero_iff_mem).2 hm
+      have hprod : Ideal.Quotient.mk v.asIdeal (x.out * a) = x * τ := by
+        rw [map_mul]
+        simp [τ]
+      apply mul_ne_zero hx hτne
+      calc
+        x * τ = Ideal.Quotient.mk v.asIdeal (x.out * a) := hprod.symm
+        _ = 0 := hz
+    have hcloseProd :
+        Valued.v (((xLoc * bLoc : (v.adicCompletion F)ˣ) : v.adicCompletion F) -
+          algebraMap F (v.adicCompletion F)
+            (algebraMap (𝓞 F) F (x.out * a))) < 1 := by
+      have hdiff :
+          ((xLoc * bLoc : (v.adicCompletion F)ˣ) : v.adicCompletion F) -
+              algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F (x.out * a)) =
+            algebraMap F (v.adicCompletion F) xF *
+              ((bLoc : v.adicCompletion F) -
+                algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) := by
+        simp only [Units.val_mul, hxLocMap, map_mul]
+        dsimp [xF]
+        ring
+      calc
+        _ = Valued.v (algebraMap F (v.adicCompletion F) xF) *
+              Valued.v ((bLoc : v.adicCompletion F) -
+                algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) := by
+              rw [hdiff, map_mul]
+        _ = 1 * Valued.v ((bLoc : v.adicCompletion F) -
+              algebraMap F (v.adicCompletion F) (algebraMap (𝓞 F) F a)) := by
+              rw [← hxLocMap, hxLocVal]
+        _ < 1 := by simpa using hclose
+    have hphaseArg :
+        (((pLoc⁻¹ * (xLoc * bLoc) : (v.adicCompletion F)ˣ) : v.adicCompletion F)) =
+          algebraMap F (v.adicCompletion F)
+            (algebraMap (𝓞 F) F x.out / (unif v : F)) := by
+      have hunit : pLoc⁻¹ * (xLoc * bLoc) = xLoc / πLoc := by
+        apply Units.ext
+        simp only [Units.val_mul, Units.val_inv_eq_inv_val, Units.val_div_eq_div_val]
+        dsimp [bLoc]
+        rw [Units.val_div_eq_div_val]
+        change (pLoc : v.adicCompletion F)⁻¹ *
+            ((xLoc : v.adicCompletion F) *
+              ((pLoc : v.adicCompletion F) / (πLoc : v.adicCompletion F))) =
+          (xLoc : v.adicCompletion F) / (πLoc : v.adicCompletion F)
+        field_simp [Units.ne_zero pLoc, Units.ne_zero πLoc]
+      rw [hunit, Units.val_div_eq_div_val, hxLocMap]
+      change (algebraMap F (v.adicCompletion F) xF) /
+          (algebraMap F (v.adicCompletion F) (unif v : F)) = _
+      rw [← map_div₀]
+    have happrox := rf_local_phase_approximant R v hv (xLoc * bLoc)
+      (x.out * a) hmem hcloseProd
+    have hfinitePhase := rf_local_addchar_out_phase R v hv ψ hψval (x.out * a) hmem
+    have hquot : Ideal.Quotient.mk v.asIdeal (x.out * a) = x * τ := by
+      rw [map_mul]
+      simp [τ]
+    calc
+      A.ψ v (algebraMap F (v.adicCompletion F)
+          (algebraMap (𝓞 F) F x.out / (unif v : F))) =
+          A.ψ v (((pLoc⁻¹ * (xLoc * bLoc) : (v.adicCompletion F)ˣ) : v.adicCompletion F)) :=
+            congrArg (A.ψ v) hphaseArg.symm
+      _ = A.ψ v (algebraMap F (v.adicCompletion F)
+          (algebraMap (𝓞 F) F (x.out * a) / (primeGen R v : F))) := happrox
+      _ = ψ (Ideal.Quotient.mk v.asIdeal (x.out * a)) := hfinitePhase.symm
+      _ = ψ (x * τ) := by rw [hquot]
+  have hsumDigits :
+      (∑ᶠ x : Q, chiPow D v (algebraMap (𝓞 F) F x.out) 2 *
+          A.ψ v (algebraMap F (v.adicCompletion F)
+            (algebraMap (𝓞 F) F x.out / (unif v : F))) ) =
+        ∑ x : Q, χ₂ x * ψ (x * τ) := by
+    rw [finsum_eq_sum_of_fintype]
+    apply Finset.sum_congr rfl
+    intro x hx
+    by_cases hx0 : x = 0
+    · subst x
+      have hres0 : residue v
+          (algebraMap (𝓞 F) F ((0 : Q).out)) = 0 := by
+        simpa using (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).residue_algebraMap
+          v ((0 : Q).out)
+      rw [hχ₂val 0]
+      simp [chiPow, hres0]
+    · rw [← hχ₂val x, hχphase x hx0]
+  let e : Q ≃ Q :=
+    { toFun := fun x => x * τ
+      invFun := fun x => x * τ⁻¹
+      left_inv := by
+        intro x
+        calc
+          (x * τ) * τ⁻¹ = x * (τ * τ⁻¹) := by ac_rfl
+          _ = x * 1 := by rw [hτunit]
+          _ = x := by simp
+      right_inv := by
+        intro x
+        calc
+          (x * τ⁻¹) * τ = x * (τ⁻¹ * τ) := by ac_rfl
+          _ = x * 1 := by rw [hτinvunit]
+          _ = x := by simp }
+  have hsumScale :
+      (∑ x : Q, χ₂ x * ψ (x * τ)) = χ₂ (τ⁻¹) * gaussSum χ₂ ψ := by
+    let f : Q → ℂ := fun y => χ₂ (y * τ⁻¹) * ψ ((y * τ⁻¹) * τ)
+    have hcancel (y : Q) : (y * τ⁻¹) * τ = y := by
+      calc
+        (y * τ⁻¹) * τ = y * (τ⁻¹ * τ) := by ac_rfl
+        _ = y * 1 := by rw [hτinvunit]
+        _ = y := by simp
+    have hf (x : Q) : f (e x) = χ₂ x * ψ (x * τ) := by
+      dsimp [f, e]
+      rw [show (x * τ) * τ⁻¹ = x by
+        calc
+          (x * τ) * τ⁻¹ = x * (τ * τ⁻¹) := by ac_rfl
+          _ = x * 1 := by rw [hτunit]
+          _ = x := by simp]
+    calc
+      _ = ∑ x : Q, f (e x) := by
+        apply Finset.sum_congr rfl
+        intro x hx
+        exact (hf x).symm
+      _ = ∑ y : Q, f y := Equiv.sum_comp e f
+      _ = ∑ y : Q, (χ₂ y * χ₂ (τ⁻¹)) * ψ y := by
+        apply Finset.sum_congr rfl
+        intro y hy
+        dsimp [f]
+        rw [map_mul, hcancel y]
+      _ = χ₂ (τ⁻¹) * ∑ y : Q, χ₂ y * ψ y := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro y hy
+        ring
+      _ = χ₂ (τ⁻¹) * gaussSum χ₂ ψ := by simp [gaussSum]
+  have hg2 : ArtinPrimitiveRoots.A1.g2 D A v =
+      (((Ideal.absNorm v.asIdeal : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) *
+        (χ₂ (τ⁻¹) * gaussSum χ₂ ψ) := by
+    unfold ArtinPrimitiveRoots.A1.g2
+    rw [hsumDigits, hsumScale]
+  have hqpos : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hqcard : (Ideal.absNorm v.asIdeal : ℝ) = (Fintype.card Q : ℝ) := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  have hgauss := rf_gauss_sum_norm χ₂ ψ hχ₂ne hψprim
+  have hgauss' : ‖gaussSum χ₂ ψ‖ =
+      Real.sqrt (Ideal.absNorm v.asIdeal : ℝ) :=
+    hgauss.trans (congrArg Real.sqrt hqcard).symm
+  have hscale : ‖(((Ideal.absNorm v.asIdeal : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ)‖ =
+      Ideal.absNorm v.asIdeal ^ (-(1 / 2 : ℝ)) := by
+    calc
+      _ = |(Ideal.absNorm v.asIdeal : ℝ) ^ (-(1 / 2 : ℝ))| := Complex.norm_real _
+      _ = (Ideal.absNorm v.asIdeal : ℝ) ^ (-(1 / 2 : ℝ)) :=
+        abs_of_nonneg (Real.rpow_nonneg (by positivity) _)
+  rw [hg2, norm_mul, norm_mul, hscale, hχfactorNorm, one_mul, hgauss']
+  have hpow :
+      (Ideal.absNorm v.asIdeal : ℝ) ^ (-(1 / 2 : ℝ)) *
+        Real.sqrt (Ideal.absNorm v.asIdeal : ℝ) = 1 := by
+    rw [Real.sqrt_eq_rpow]
+    rw [← Real.rpow_add (by positivity : (0 : ℝ) < Ideal.absNorm v.asIdeal)]
+    norm_num
+  exact hpow
+
 def betaIdeal (f a : S.ExtIdeal) : ℝ :=
   ∏ v ∈ R.exterior.support f, betaPrime (qI v.asIdeal) (qI_prime_gt_one v) (idealExp v a.1)
 def Eprime (v : FinPlace F) (σ : ℝ) : ℝ :=
   ∑' e : ℕ, betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e * qI v.asIdeal ^ (-σ * (e : ℝ))
 def Eideal (f : S.ExtIdeal) (σ : ℝ) : ℝ := ∏ v ∈ R.exterior.support f, Eprime v σ
+
+private theorem rf_local_euler_data :
+  ∀ v, v ∉ S.Sf → ∀ σ, 0 ≤ σ →
+    Summable (fun e : ℕ => betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e *
+      qI v.asIdeal ^ (-σ * (e : ℝ))) ∧
+    Eprime v σ = 1 + (qI v.asIdeal ^ (-σ) + qI v.asIdeal ^ (-1 / 2 - 3 * σ)) /
+      (1 - qI v.asIdeal ^ (-1 - 3 * σ)) ∧ Eprime v σ ≤ 3 + Real.sqrt 2 := by
+  classical
+  intro v hv σ hσ
+  let q : ℝ := qI v.asIdeal
+  let r : ℝ := q ^ (-(1 + 3 * σ))
+  let s : ℝ := q ^ (-(σ + 1 / 3))
+  let a : ℝ := q ^ (-σ)
+  let b : ℝ := q ^ (-(1 / 2 : ℝ) - 3 * σ)
+  let g : ℕ → ℝ := fun e =>
+    betaPrime q (qI_prime_gt_one v) e * q ^ (-σ * (e : ℝ))
+  have hqpos : 0 < q := by dsimp [q]; exact lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hqone : 1 < q := by dsimp [q]; exact qI_prime_gt_one v
+  have hstepNonneg : 0 ≤ r := by
+    dsimp [r]
+    exact Real.rpow_nonneg hqpos.le _
+  have hstepLt : r < 1 := by
+    dsimp [r]
+    apply Real.rpow_lt_one_of_one_lt_of_neg hqone
+    linarith
+  have hgeom : Summable (fun n : ℕ => r ^ n) :=
+    summable_geometric_of_lt_one hstepNonneg hstepLt
+  have hsNonneg : 0 ≤ s := by
+    dsimp [s]
+    exact Real.rpow_nonneg hqpos.le _
+  have hsLt : s < 1 := by
+    dsimp [s]
+    apply Real.rpow_lt_one_of_one_lt_of_neg hqone
+    linarith
+  have hsgeom : Summable (fun n : ℕ => s ^ n) :=
+    summable_geometric_of_lt_one hsNonneg hsLt
+  have hmajorSum : Summable (fun n : ℕ => q * s ^ n) := hsgeom.mul_left q
+  have hbetaNonneg (n : ℕ) : 0 ≤ betaPrime q (qI_prime_gt_one v) n := by
+    unfold betaPrime
+    split_ifs with hzero hmod1 hmod0
+    · norm_num
+    · exact Real.rpow_nonneg hqpos.le _
+    · exact Real.rpow_nonneg hqpos.le _
+    · norm_num
+  have hnonneg (n : ℕ) : 0 ≤ g n := by
+    dsimp [g]
+    exact mul_nonneg (hbetaNonneg n) (Real.rpow_nonneg hqpos.le _)
+  have hsPower (n : ℕ) : s ^ n = q ^ ((-(σ + 1 / 3)) * (n : ℝ)) := by
+    dsimp [s]
+    rw [← Real.rpow_natCast, ← Real.rpow_mul hqpos.le]
+  have hpowNat (c : ℝ) (n : ℕ) : (q ^ c) ^ n = q ^ (c * (n : ℝ)) := by
+    calc
+      (q ^ c) ^ n = (q ^ c) ^ (n : ℝ) := by rw [← Real.rpow_natCast]
+      _ = q ^ (c * (n : ℝ)) := (Real.rpow_mul hqpos.le c (n : ℝ)).symm
+  have hmajorGeom (n : ℕ) : q * s ^ n = q ^ (1 - (σ + 1 / 3) * (n : ℝ)) := by
+    calc
+      q * s ^ n = q ^ (1 : ℝ) * q ^ ((-(σ + 1 / 3)) * (n : ℝ)) := by
+        rw [hsPower, Real.rpow_one]
+      _ = q ^ (1 + (-(σ + 1 / 3)) * (n : ℝ)) :=
+        (Real.rpow_add hqpos 1 _).symm
+      _ = q ^ (1 - (σ + 1 / 3) * (n : ℝ)) := by congr 1 <;> ring
+  have hbound (n : ℕ) : g n ≤ q * s ^ n := by
+    by_cases hn0 : n = 0
+    · subst n
+      have hterm : g 0 = 1 := by simp [g, betaPrime]
+      rw [hterm]
+      simp only [pow_zero, mul_one]
+      exact hqone.le
+    · by_cases hm1 : n % 3 = 1
+      · let k : ℕ := n / 3
+        have hdecomp : n = 3 * k + 1 := by dsimp [k]; omega
+        have hdecompR : (n : ℝ) = 3 * (k : ℝ) + 1 := by exact_mod_cast hdecomp
+        have hExp : -(k : ℝ) - σ * (n : ℝ) ≤
+            1 - (σ + 1 / 3) * (n : ℝ) := by
+          rw [hdecompR]
+          ring_nf
+          norm_num
+        have hBeta : betaPrime q (qI_prime_gt_one v) n = q ^ (-(k : ℝ)) := by
+          rw [betaPrime, if_neg hn0, if_pos hm1]
+          change q ^ (-((n / 3 : ℕ) : ℝ)) = q ^ (-((n / 3 : ℕ) : ℝ))
+          rfl
+        have hterm : g n = q ^ (-(k : ℝ) - σ * (n : ℝ)) := by
+          dsimp [g]
+          rw [hBeta]
+          calc
+            q ^ (-(k : ℝ)) * q ^ (-σ * (n : ℝ)) =
+                q ^ (-(k : ℝ) + (-σ * (n : ℝ))) :=
+                  (Real.rpow_add hqpos (-(k : ℝ)) (-σ * (n : ℝ))).symm
+            _ = q ^ (-(k : ℝ) - σ * (n : ℝ)) := by congr 1 <;> ring
+        rw [hterm, hmajorGeom n]
+        exact Real.rpow_le_rpow_of_exponent_le hqone.le hExp
+      · by_cases hm0 : n % 3 = 0
+        · let k : ℕ := n / 3
+          have hdecomp : n = 3 * k := by dsimp [k]; omega
+          have hdecompR : (n : ℝ) = 3 * (k : ℝ) := by exact_mod_cast hdecomp
+          have hExp : 1 / 2 - (k : ℝ) - σ * (n : ℝ) ≤
+              1 - (σ + 1 / 3) * (n : ℝ) := by
+            rw [hdecompR]
+            ring_nf
+            norm_num
+          have hBeta : betaPrime q (qI_prime_gt_one v) n =
+              q ^ (1 / 2 - (k : ℝ)) := by
+            rw [betaPrime, if_neg hn0, if_neg hm1, if_pos hm0]
+            change q ^ (1 / 2 - ((n / 3 : ℕ) : ℝ)) =
+              q ^ (1 / 2 - ((n / 3 : ℕ) : ℝ))
+            rfl
+          have hterm : g n = q ^ (1 / 2 - (k : ℝ) - σ * (n : ℝ)) := by
+            dsimp [g]
+            rw [hBeta]
+            calc
+              q ^ (1 / 2 - (k : ℝ)) * q ^ (-σ * (n : ℝ)) =
+                  q ^ (1 / 2 - (k : ℝ) + (-σ * (n : ℝ))) :=
+                    (Real.rpow_add hqpos (1 / 2 - (k : ℝ)) (-σ * (n : ℝ))).symm
+              _ = q ^ (1 / 2 - (k : ℝ) - σ * (n : ℝ)) := by congr 1 <;> ring
+          rw [hterm, hmajorGeom n]
+          exact Real.rpow_le_rpow_of_exponent_le hqone.le hExp
+        · have hm2 : n % 3 = 2 := by omega
+          have hBeta : betaPrime q (qI_prime_gt_one v) n = 0 := by
+            rw [betaPrime, if_neg hn0, if_neg hm1, if_neg hm0]
+          have hterm : g n = 0 := by
+            dsimp [g]
+            rw [hBeta]
+            simp
+          rw [hterm]
+          exact mul_nonneg hqpos.le (pow_nonneg hsNonneg _)
+  have hsum : Summable g := Summable.of_nonneg_of_le hnonneg hbound hmajorSum
+  have htermOne (n : ℕ) : g (1 + 3 * n) = a * r ^ n := by
+    have hn : 1 + 3 * n ≠ 0 := by omega
+    have hm : (1 + 3 * n) % 3 = 1 := by omega
+    have hd : (1 + 3 * n) / 3 = n := by omega
+    have hBeta : betaPrime q (qI_prime_gt_one v) (1 + 3 * n) =
+        q ^ (-(n : ℝ)) := by
+      rw [betaPrime, if_neg hn, if_pos hm, hd]
+      change q ^ (-(n : ℝ)) = q ^ (-(n : ℝ))
+      rfl
+    calc
+      g (1 + 3 * n) = q ^ (-(n : ℝ)) * q ^ (-σ * ((1 + 3 * n : ℕ) : ℝ)) := by
+        dsimp [g]
+        rw [hBeta]
+      _ = q ^ (-(n : ℝ) - σ * ((1 + 3 * n : ℕ) : ℝ)) := by
+        calc
+          q ^ (-(n : ℝ)) * q ^ (-σ * ((1 + 3 * n : ℕ) : ℝ)) =
+              q ^ (-(n : ℝ) + (-σ * ((1 + 3 * n : ℕ) : ℝ))) :=
+                (Real.rpow_add hqpos (-(n : ℝ))
+                  (-σ * ((1 + 3 * n : ℕ) : ℝ))).symm
+          _ = q ^ (-(n : ℝ) - σ * ((1 + 3 * n : ℕ) : ℝ)) := by congr 1 <;> ring
+      _ = q ^ (-σ + (-(1 + 3 * σ)) * (n : ℝ)) := by
+        congr 1
+        push_cast
+        ring
+      _ = a * r ^ n := by
+        dsimp [a, r]
+        calc
+          q ^ (-σ + (-(1 + 3 * σ)) * (n : ℝ)) =
+              q ^ (-σ) * q ^ ((-(1 + 3 * σ)) * (n : ℝ)) :=
+                Real.rpow_add hqpos _ _
+          _ = q ^ (-σ) * (q ^ (-(1 + 3 * σ))) ^ n := by
+            rw [← hpowNat (-(1 + 3 * σ)) n]
+          _ = q ^ (-σ) * (q ^ (-(1 + 3 * σ))) ^ n := rfl
+  have htermThree (n : ℕ) : g (3 * (n + 1)) = b * r ^ n := by
+    have hn : 3 * (n + 1) ≠ 0 := by omega
+    have hm : (3 * (n + 1)) % 3 = 0 := by omega
+    have hd : (3 * (n + 1)) / 3 = n + 1 := by omega
+    have hBeta : betaPrime q (qI_prime_gt_one v) (3 * (n + 1)) =
+        q ^ (1 / 2 - ((n + 1 : ℕ) : ℝ)) := by
+      rw [betaPrime, if_neg hn, if_neg (by omega : (3 * (n + 1)) % 3 ≠ 1), if_pos hm, hd]
+      change q ^ (1 / 2 - ((n + 1 : ℕ) : ℝ)) =
+        q ^ (1 / 2 - ((n + 1 : ℕ) : ℝ))
+      rfl
+    calc
+      g (3 * (n + 1)) =
+          q ^ (1 / 2 - ((n + 1 : ℕ) : ℝ)) *
+            q ^ (-σ * ((3 * (n + 1) : ℕ) : ℝ)) := by
+        dsimp [g]
+        rw [hBeta]
+      _ = q ^ (1 / 2 - ((n + 1 : ℕ) : ℝ) -
+            σ * ((3 * (n + 1) : ℕ) : ℝ)) := by
+        let A0 : ℝ := 1 / 2 - ((n + 1 : ℕ) : ℝ)
+        let B0 : ℝ := -σ * ((3 * (n + 1) : ℕ) : ℝ)
+        calc
+          q ^ A0 * q ^ B0 = q ^ (A0 + B0) :=
+            (Real.rpow_add hqpos A0 B0).symm
+          _ = q ^ (1 / 2 - ((n + 1 : ℕ) : ℝ) -
+                σ * ((3 * (n + 1) : ℕ) : ℝ)) := by
+            dsimp [A0, B0]
+            congr 1
+            ring
+      _ = q ^ (-(1 / 2 : ℝ) - 3 * σ + (-(1 + 3 * σ)) * (n : ℝ)) := by
+        congr 1
+        push_cast
+        ring
+      _ = b * r ^ n := by
+        dsimp [b, r]
+        calc
+          q ^ (-(1 / 2 : ℝ) - 3 * σ + (-(1 + 3 * σ)) * (n : ℝ)) =
+              q ^ (-(1 / 2 : ℝ) - 3 * σ) *
+                q ^ ((-(1 + 3 * σ)) * (n : ℝ)) :=
+                  Real.rpow_add hqpos _ _
+          _ = q ^ (-(1 / 2 : ℝ) - 3 * σ) *
+                (q ^ (-(1 + 3 * σ))) ^ n := by
+            rw [← hpowNat (-(1 + 3 * σ)) n]
+          _ = b * r ^ n := rfl
+  have hzero : g 0 = 1 := by simp [g, betaPrime]
+  have hclassOne : (∑' n : ℕ, g (1 + 3 * n)) = a / (1 - r) := by
+    calc
+      _ = ∑' n : ℕ, a * r ^ n := tsum_congr htermOne
+      _ = a * ∑' n : ℕ, r ^ n := hgeom.tsum_mul_left a
+      _ = a / (1 - r) := by
+        rw [tsum_geometric_of_lt_one hstepNonneg hstepLt]
+        ring
+  have hclassTwo : (∑' n : ℕ, g (2 + 3 * n)) = 0 := by
+    have hterm (n : ℕ) : g (2 + 3 * n) = 0 := by
+      have hn : 2 + 3 * n ≠ 0 := by omega
+      have hm2 : (2 + 3 * n) % 3 = 2 := by omega
+      have hm1 : (2 + 3 * n) % 3 ≠ 1 := by omega
+      have hm0 : (2 + 3 * n) % 3 ≠ 0 := by omega
+      dsimp [g]
+      simp [betaPrime, hn, hm2, hm1, hm0]
+    simp_rw [hterm]
+    simp
+  have hclassZero : (∑' n : ℕ, g (3 * n)) = 1 + b / (1 - r) := by
+    let g0 : ℕ → ℝ := fun n => g (3 * n)
+    have hsum0 : Summable g0 := hsum.comp_injective (by
+      intro m n h
+      omega)
+    have htail : (∑' n : ℕ, g0 (n + 1)) = b / (1 - r) := by
+      calc
+        _ = ∑' n : ℕ, b * r ^ n := tsum_congr (fun n => htermThree n)
+        _ = b * ∑' n : ℕ, r ^ n := hgeom.tsum_mul_left b
+        _ = b / (1 - r) := by
+          rw [tsum_geometric_of_lt_one hstepNonneg hstepLt]
+          ring
+    have hsplit := (hsum0.sum_add_tsum_nat_add 1).symm
+    calc
+      (∑' n : ℕ, g (3 * n)) = ∑' n : ℕ, g0 n := rfl
+      _ = (∑ n ∈ Finset.range 1, g0 n) + ∑' n : ℕ, g0 (n + 1) := hsplit
+      _ = 1 + b / (1 - r) := by simp [g0, hzero, htail]
+  have hformula : Eprime v σ = 1 + (a + b) / (1 - r) := by
+    change (∑' n : ℕ, g n) = _
+    rw [Nat.sumByResidueClasses hsum 3]
+    have hclass (i : Fin 3) :
+        (∑' m : ℕ, g ((ZMod.finEquiv 3 i).val + 3 * m)) =
+          if i.val = 0 then 1 + b / (1 - r)
+          else if i.val = 1 then a / (1 - r) else 0 := by
+      fin_cases i
+      · change (∑' m : ℕ, g (0 + 3 * m)) = 1 + b / (1 - r)
+        simpa using hclassZero
+      · change (∑' m : ℕ, g (1 + 3 * m)) = a / (1 - r)
+        simpa using hclassOne
+      · change (∑' m : ℕ, g (2 + 3 * m)) = 0
+        exact hclassTwo
+    calc
+      _ = ∑ i : Fin 3,
+          ∑' m : ℕ, g ((ZMod.finEquiv 3 i).val + 3 * m) :=
+        (ZMod.finEquiv 3).sum_comp
+          (fun z : ZMod 3 => ∑' m : ℕ, g (z.val + 3 * m)) |>.symm
+      _ = ∑ i : Fin 3,
+          (if i.val = 0 then 1 + b / (1 - r)
+            else if i.val = 1 then a / (1 - r) else 0) := by
+        apply Finset.sum_congr rfl
+        intro i hi
+        exact hclass i
+      _ = 1 + (a + b) / (1 - r) := by
+        rw [Fin.sum_univ_three]
+        simp
+        ring
+  have haEq : a = qI v.asIdeal ^ (-σ) := by
+    dsimp [a, q, qI]
+  have hbEq : b = qI v.asIdeal ^ (-1 / 2 - 3 * σ) := by
+    dsimp [b, q, qI]
+    congr 1
+    ring
+  have hrEq : r = qI v.asIdeal ^ (-1 - 3 * σ) := by
+    dsimp [r, q, qI]
+    congr 1
+    ring
+  refine ⟨hsum, ?_, ?_⟩
+  · rw [hformula, haEq, hbEq, hrEq]
+  · have hN : 2 ≤ Ideal.absNorm v.asIdeal := by
+      have hN' := NumberField.HeightOneSpectrum.one_lt_absNorm v
+      omega
+    have hq2 : 2 ≤ q := by
+      dsimp [q, qI]
+      exact_mod_cast hN
+    have haBound : a ≤ 1 := by
+      dsimp [a]
+      exact Real.rpow_le_one_of_one_le_of_nonpos hqone.le (by linarith [hσ])
+    have hbExp : -(1 / 2 : ℝ) - 3 * σ ≤ -(1 / 2 : ℝ) := by linarith
+    have hbBound : b ≤ (Real.sqrt 2)⁻¹ := by
+      have hbq : b ≤ q ^ (-(1 / 2 : ℝ)) := by
+        dsimp [b]
+        exact Real.rpow_le_rpow_of_exponent_le hqone.le hbExp
+      have hqinv : q ^ (-(1 / 2 : ℝ)) ≤ (2 : ℝ) ^ (-(1 / 2 : ℝ)) :=
+        Real.rpow_le_rpow_of_nonpos (by norm_num : (0 : ℝ) < 2) hq2
+          (by norm_num : -(1 / 2 : ℝ) ≤ 0)
+      have htwo : (2 : ℝ) ^ (-(1 / 2 : ℝ)) = (Real.sqrt 2)⁻¹ := by
+        rw [Real.rpow_neg (by norm_num : (0 : ℝ) ≤ 2), Real.sqrt_eq_rpow]
+      exact hbq.trans (hqinv.trans_eq htwo)
+    have hrExp : -(1 + 3 * σ : ℝ) ≤ -1 := by linarith
+    have hrBound : r ≤ 1 / 2 := by
+      have hrq : r ≤ q ^ (-1 : ℝ) := by
+        dsimp [r]
+        exact Real.rpow_le_rpow_of_exponent_le hqone.le hrExp
+      have hqinv : q ^ (-1 : ℝ) ≤ (2 : ℝ) ^ (-1 : ℝ) :=
+        Real.rpow_le_rpow_of_nonpos (by norm_num : (0 : ℝ) < 2) hq2
+          (by norm_num : (-1 : ℝ) ≤ 0)
+      have hhalf : (2 : ℝ) ^ (-1 : ℝ) = 1 / 2 := by
+        rw [Real.rpow_neg (by norm_num : (0 : ℝ) ≤ 2), Real.rpow_one]
+        norm_num
+      exact hrq.trans (hqinv.trans_eq hhalf)
+    have hden : (1 / 2 : ℝ) ≤ 1 - r := by linarith
+    have hdenpos : 0 < 1 - r := lt_of_lt_of_le (by norm_num) hden
+    let K : ℝ := 1 + (Real.sqrt 2)⁻¹
+    have hK : 0 ≤ K := by dsimp [K]; positivity
+    have hfrac : (a + b) / (1 - r) ≤ 2 * K := by
+      apply (div_le_iff₀ hdenpos).2
+      calc
+        a + b ≤ K := by simpa [K] using add_le_add haBound hbBound
+        _ ≤ 2 * K * (1 - r) := by
+          calc
+            K = K * 1 := by ring
+            _ ≤ K * (2 * (1 - r)) :=
+              mul_le_mul_of_nonneg_left (by linarith) hK
+            _ = 2 * K * (1 - r) := by ring
+    have hsqrtpos : 0 < Real.sqrt 2 := Real.sqrt_pos.2 (by norm_num)
+    have hsqr : (Real.sqrt 2) ^ 2 = 2 := Real.sq_sqrt (by norm_num)
+    have hconstant : 1 + 2 * K = 3 + Real.sqrt 2 := by
+      dsimp [K]
+      field_simp [ne_of_gt hsqrtpos]
+      nlinarith [hsqr]
+    calc
+      Eprime v σ = 1 + (a + b) / (1 - r) := hformula
+      _ ≤ 1 + 2 * K := by linarith [hfrac]
+      _ = 3 + Real.sqrt 2 := hconstant
+
+private theorem rf_local_exp_ne_zero_iff_support
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (I : S.ExtIdeal) :
+    idealExp v I.1 ≠ 0 ↔ v ∈ R.exterior.support I := by
+  have hvIrr : Irreducible v.asIdeal :=
+    ((Ideal.prime_iff_isPrime v.ne_bot).2 v.isPrime).irreducible
+  unfold idealExp
+  rw [Associates.count_ne_zero_iff_dvd (a := I.1) (p := v.asIdeal)
+    (by simpa [Ideal.zero_eq_bot] using I.property.1) hvIrr,
+    R.exterior.mem_support]
+
+private theorem rf_local_norm_ideal_factorization
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (I : S.ExtIdeal) :
+    qI I.1 = ∏ v ∈ R.exterior.support I,
+      qI v.asIdeal ^ (idealExp v I.1 : ℝ) := by
+  classical
+  have hI0 : I.1 ≠ 0 := by simpa [Ideal.zero_eq_bot] using I.property.1
+  let s := R.exterior.support I
+  have hsupp : Function.mulSupport (fun v : FinPlace F => v.maxPowDividing I.1) ⊆ s := by
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv
+    by_contra hnot
+    have he0 : idealExp v I.1 = 0 := by
+      by_contra hne
+      exact hnot ((rf_local_exp_ne_zero_iff_support R v I).mp hne)
+    have htop : v.maxPowDividing I.1 = ⊤ := by
+      rw [show v.maxPowDividing I.1 = v.asIdeal ^ idealExp v I.1 by rfl, he0]
+      simp
+    simp [htop] at hv
+  have hfac : I.1 = ∏ v ∈ s, v.asIdeal ^ idealExp v I.1 := by
+    calc
+      I.1 = ∏ᶠ v : FinPlace F, v.maxPowDividing I.1 :=
+        (Ideal.finprod_heightOneSpectrum_factorization hI0).symm
+      _ = ∏ v ∈ s, v.maxPowDividing I.1 :=
+        finprod_eq_prod_of_mulSupport_subset _ hsupp
+      _ = ∏ v ∈ s, v.asIdeal ^ idealExp v I.1 := rfl
+  have hnorm : qI I.1 = ∏ v ∈ s, qI v.asIdeal ^ (idealExp v I.1 : ℝ) := by
+    have h := congrArg (fun J : Ideal (𝓞 F) => (Ideal.absNorm J : ℝ)) hfac
+    simpa only [qI, map_prod, map_pow, Nat.cast_prod, Nat.cast_pow,
+      ← Real.rpow_natCast] using h
+  simpa [s] using hnorm
+
+private theorem rf_local_support_norm_prod_le
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (I : S.ExtIdeal) :
+    (∏ v ∈ R.exterior.support I, qI v.asIdeal) ≤ qI I.1 := by
+  rw [rf_local_norm_ideal_factorization R I]
+  apply Finset.prod_le_prod₀
+  · intro v hv
+    exact le_of_lt (lt_trans zero_lt_one (qI_prime_gt_one v))
+  · intro v hv
+    have hExpNe : idealExp v I.1 ≠ 0 :=
+      (rf_local_exp_ne_zero_iff_support R v I).2 hv
+    have hExpPos : 1 ≤ idealExp v I.1 := Nat.one_le_iff_ne_zero.mpr hExpNe
+    calc
+      qI v.asIdeal = qI v.asIdeal ^ (1 : ℝ) := (Real.rpow_one _).symm
+      _ ≤ qI v.asIdeal ^ (idealExp v I.1 : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le (qI_prime_gt_one v).le (by exact_mod_cast hExpPos)
+
+private theorem rf_local_active_squarefree_dvd
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (h f : S.ExtIdeal)
+    (hsq : Squarefree f.1)
+    (hsub : ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h) :
+    f.1 ∣ h.1 := by
+  have hf0 : f.1 ≠ 0 := by simpa [Ideal.zero_eq_bot] using f.property.1
+  rw [UniqueFactorizationMonoid.dvd_iff_emultiplicity_le hf0]
+  intro P hP
+  by_cases hPf : P ∣ f.1
+  · let v : FinPlace F := HeightOneSpectrum.ofPrime hP
+    have hvf : v ∈ R.exterior.support f := by
+      rw [R.exterior.mem_support]
+      simpa [v] using hPf
+    have hvh : v ∈ R.exterior.support h := hsub v hvf
+    have hPh : P ∣ h.1 := by
+      simpa [v] using (R.exterior.mem_support h v).1 hvh
+    have hmultF : emultiplicity P f.1 ≤ 1 :=
+      ((squarefree_iff_emultiplicity_le_one f.1).mp hsq P).resolve_right hP.not_isUnit
+    have hPpow : P ^ 1 ∣ h.1 := by simpa using hPh
+    have hmultH : (1 : ℕ∞) ≤ emultiplicity P h.1 :=
+      (pow_dvd_iff_le_emultiplicity).mp hPpow
+    exact hmultF.trans hmultH
+  · have hmultF : emultiplicity P f.1 = 0 := by
+      by_contra hne
+      have hpos : 0 < emultiplicity P f.1 := pos_iff_ne_zero.mpr hne
+      exact hPf ((dvd_iff_emultiplicity_pos).mp hpos)
+    simp [hmultF]
 
 /-- rf:active-support, 04:433-503. Prime support and norm bounds use one uniform exponent range. -/
 theorem rf_active_support_bounds :
@@ -7396,7 +8076,286 @@ theorem rf_active_support_bounds :
   ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ h σ, 0 ≤ σ →
     (∑ᶠ f : {f : S.ExtIdeal // Squarefree f.1 ∧
       ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h}, Eideal R f.1 σ) ≤ C * qI h.1 ^ ε := by
-  sorry
+  classical
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro h f hpower hactive
+    have hf0 : f.1 ≠ 0 := by
+      simpa [Ideal.zero_eq_bot] using f.property.1
+    have hh0 : h.1 ≠ 0 := by
+      simpa [Ideal.zero_eq_bot] using h.property.1
+    have hdiv : f.1 ^ 2 ∣ h.1 := by
+      rw [UniqueFactorizationMonoid.dvd_iff_emultiplicity_le (pow_ne_zero 2 hf0)]
+      intro P hP
+      rw [emultiplicity_pow hP]
+      by_cases hPf : P ∣ f.1
+      · let v : FinPlace F := HeightOneSpectrum.ofPrime hP
+        have hvf : v ∈ R.exterior.support f := by
+          rw [R.exterior.mem_support]
+          simpa [v] using hPf
+        have hvh : v ∈ R.exterior.support h := hactive.2.1 v hvf
+        have hPh : P ∣ h.1 := by
+          simpa [v] using (R.exterior.mem_support h v).1 hvh
+        have hP2h : P ^ 2 ∣ h.1 := by
+          simpa [v] using hpower v hPh
+        have hmultH : (2 : ℕ∞) ≤ emultiplicity P h.1 :=
+          (pow_dvd_iff_le_emultiplicity).mp hP2h
+        have hmultF : emultiplicity P f.1 ≤ 1 :=
+          ((squarefree_iff_emultiplicity_le_one f.1).mp hactive.1 P).resolve_right
+            hP.not_isUnit
+        calc
+          (2 : ℕ∞) * emultiplicity P f.1 ≤ 2 * 1 := by gcongr
+          _ = 2 := by norm_num
+          _ ≤ emultiplicity P h.1 := hmultH
+      · have hmultF : emultiplicity P f.1 = 0 := by
+          by_contra hne'
+          have hpos : 0 < emultiplicity P f.1 := pos_iff_ne_zero.mpr hne'
+          exact hPf ((dvd_iff_emultiplicity_pos).mp hpos)
+        simp [hmultF]
+    have hNdiv : Ideal.absNorm (f.1 ^ 2) ∣ Ideal.absNorm h.1 :=
+      Ideal.absNorm_dvd_absNorm_of_le (Ideal.dvd_iff_le.mp hdiv)
+    have hhPos : 0 < Ideal.absNorm h.1 :=
+      Ideal.absNorm_pos_of_nonZeroDivisors
+        ⟨h.1, mem_nonZeroDivisors_iff_ne_zero.mpr hh0⟩
+    have hNle : Ideal.absNorm (f.1 ^ 2) ≤ Ideal.absNorm h.1 :=
+      Nat.le_of_dvd hhPos hNdiv
+    have hNpow : Ideal.absNorm (f.1 ^ 2) = Ideal.absNorm f.1 ^ 2 := by simp
+    have hreal : (Ideal.absNorm f.1 : ℝ) ^ 2 ≤ (Ideal.absNorm h.1 : ℝ) := by
+      exact_mod_cast (hNpow ▸ hNle)
+    simpa [qI] using hreal
+  · intro v hv j e
+    have hOneLoc :
+        ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (1 : (v.adicCompletion F)ˣ) := by
+      constructor <;> simp [HeightOneSpectrum.mem_adicCompletionIntegers]
+    rcases lem_reflection_local_Weyl R v hv j (e : ℤ) 1 hOneLoc.1 hOneLoc.2 with
+      ⟨_, _, _, _, _, hzero, hpositive, _, _, _⟩
+    by_cases he0 : e = 0
+    · subst e
+      simpa [betaPrime] using hzero
+    · have heNat : 0 < e := Nat.pos_of_ne_zero he0
+      have heInt : (0 : ℤ) < (e : ℤ) := by exact_mod_cast heNat
+      let pLoc := toLoc v (primeGen R v)
+      let πLoc := toLoc v (Units.mk0 (unif v) (unif_ne_zero v))
+      let bLoc : (v.adicCompletion F)ˣ := pLoc / πLoc
+      have hbData := rf_local_primeGen_ratio_isLocUnit R v hv
+      have hbVal : Valued.v (bLoc : v.adicCompletion F) = 1 := by
+        simpa [bLoc, pLoc, πLoc] using hbData.1
+      have hbPowVal : Valued.v ((bLoc ^ (e : ℤ) : (v.adicCompletion F)ˣ) :
+          v.adicCompletion F) = 1 := by
+        simp [Units.val_zpow_eq_zpow_val, hbVal]
+      have hbPowLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (bLoc ^ (e : ℤ)) := by
+        constructor
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hbPowVal]
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+          have hinv : Valued.v ((((bLoc ^ (e : ℤ))⁻¹ :
+              (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+            simp [Units.val_inv_eq_inv_val, hbVal]
+          rw [hinv]
+      have hlocalChiNorm :=
+        (ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S).localChi_norm v hv
+          (bLoc ^ (e : ℤ)) hbPowLoc
+      have hcharNorm :
+          ‖localChi D v (bLoc ^ (e : ℤ)) ^ (2 * (e : ℤ))‖ = 1 := by
+        rw [norm_zpow, hlocalChiNorm]
+        norm_num
+      have hg2Norm := rf_local_g2_norm_one R v hv
+      have hdivZ : (e : ℤ) / 3 = ((e / 3 : ℕ) : ℤ) := by omega
+      have hdivR : (((e : ℤ) / 3 : ℤ) : ℝ) = ((e / 3 : ℕ) : ℝ) := by
+        rw [hdivZ]
+        rfl
+      have hneg : ¬ (e : ℤ) < 0 := by omega
+      by_cases hm2 : e % 3 = 2
+      · have hm2Z : (e : ℤ) % 3 = 2 := by omega
+        have hWzero : localW R v (e : ℤ) = 0 := by
+          rw [rf_localW_table R v hv (e : ℤ)]
+          simp [ArtinPrimitiveRoots.A1.sphericalTable, hneg, hm2Z]
+        have hRzero : ‖localR R v j (e : ℤ) 1‖ = 0 := by
+          have h := hpositive heInt
+          rw [hWzero] at h
+          exact le_antisymm (by simpa using h) (norm_nonneg _)
+        rw [hRzero]
+        simp [betaPrime, he0, hm2]
+      · by_cases hm0 : e % 3 = 0
+        · have hm0Z : (e : ℤ) % 3 = 0 := by omega
+          have hWnorm : ‖localW R v (e : ℤ)‖ =
+              (Ideal.absNorm v.asIdeal : ℝ) ^ (-((e / 3 : ℕ) : ℝ)) := by
+            rw [rf_localW_table R v hv (e : ℤ), ArtinPrimitiveRoots.A1.sphericalTable]
+            rw [if_neg hneg, if_pos hm0Z, norm_mul, hcharNorm]
+            simp only [one_mul]
+            rw [hdivR]
+            rw [Complex.norm_real, Real.norm_eq_abs]
+            rw [abs_of_nonneg (Real.rpow_nonneg (by positivity) _)]
+          have hBeta : betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e =
+              qI v.asIdeal ^ ((1 / 2 : ℝ) - ((e / 3 : ℕ) : ℝ)) := by
+            simp [betaPrime, he0, hm0]
+          have hcombine :
+              qI v.asIdeal ^ (1 / 2 : ℝ) *
+                qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ)) =
+                  qI v.asIdeal ^ ((1 / 2 : ℝ) - ((e / 3 : ℕ) : ℝ)) := by
+            rw [← Real.rpow_add (lt_trans zero_lt_one (qI_prime_gt_one v))]
+            congr 1
+          calc
+            ‖localR R v j (e : ℤ) 1‖ ≤
+                qI v.asIdeal ^ (1 / 2 : ℝ) * ‖localW R v (e : ℤ)‖ :=
+                  hpositive heInt
+            _ = qI v.asIdeal ^ (1 / 2 : ℝ) *
+                  qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ)) := by
+                    rw [hWnorm]
+                    simp [qI, idealNorm]
+            _ = qI v.asIdeal ^ ((1 / 2 : ℝ) - ((e / 3 : ℕ) : ℝ)) := hcombine
+            _ = betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e := hBeta.symm
+        · have hm1 : e % 3 = 1 := by omega
+          have hm1Z : (e : ℤ) % 3 = 1 := by omega
+          have hWnorm : ‖localW R v (e : ℤ)‖ =
+              (Ideal.absNorm v.asIdeal : ℝ) ^
+                (-((e / 3 : ℕ) : ℝ) - 1 / 2) := by
+            rw [rf_localW_table R v hv (e : ℤ), ArtinPrimitiveRoots.A1.sphericalTable]
+            rw [if_neg hneg, if_neg (by omega : (e : ℤ) % 3 ≠ 0), if_pos hm1Z]
+            rw [norm_mul, hcharNorm, norm_mul, hg2Norm]
+            simp only [one_mul, mul_one]
+            rw [Complex.norm_real, Real.norm_eq_abs, hdivR]
+            rw [abs_of_nonneg (Real.rpow_nonneg (by positivity) _)]
+          have hBeta : betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e =
+              qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ)) := by
+            simp [betaPrime, he0, hm1]
+          have hcombine :
+              qI v.asIdeal ^ (1 / 2 : ℝ) *
+                qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ) - 1 / 2) =
+                  qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ)) := by
+            rw [← Real.rpow_add (lt_trans zero_lt_one (qI_prime_gt_one v))]
+            congr 1
+            ring
+          calc
+            ‖localR R v j (e : ℤ) 1‖ ≤
+                qI v.asIdeal ^ (1 / 2 : ℝ) * ‖localW R v (e : ℤ)‖ :=
+                  hpositive heInt
+            _ = qI v.asIdeal ^ (1 / 2 : ℝ) *
+                  qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ) - 1 / 2) := by
+                    rw [hWnorm]
+                    simp [qI, idealNorm]
+            _ = qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ)) := hcombine
+            _ = betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e := hBeta.symm
+  · exact rf_local_euler_data
+  · intro ε hε
+    let δ : ℝ := ε / 2
+    have hδ : 0 < δ := by dsimp [δ]; linarith
+    let B : ℝ := 4 + Real.sqrt 2
+    have hBgt : 1 < B := by
+      dsimp [B]
+      have hs : 0 ≤ Real.sqrt 2 := Real.sqrt_nonneg _
+      linarith
+    have hBpos : 0 < B := lt_trans zero_lt_one hBgt
+    have hBge : 1 ≤ B := hBgt.le
+    obtain ⟨Cdiv, hCdiv, hDivBound⟩ :=
+      ArtinPrimitiveRoots.A2.Proofs.A2Z1.ideal_divisor_count_small_power (F := F) δ hδ
+    obtain ⟨Cprod, hCprod, hPrimeProduct⟩ :=
+      a2_bridge_SMALL_PRIME (F := F) B hBgt δ hδ
+    refine ⟨Cdiv * Cprod, mul_pos hCdiv (lt_of_lt_of_le zero_lt_one hCprod), ?_⟩
+    intro h σ hσ
+    have hh0 : h.1 ≠ 0 := by simpa [Ideal.zero_eq_bot] using h.property.1
+    have hqpos : 0 < qI h.1 := by
+      unfold qI
+      exact_mod_cast Ideal.absNorm_pos_of_nonZeroDivisors
+        ⟨h.1, mem_nonZeroDivisors_iff_ne_zero.mpr hh0⟩
+    let AF : Type := {f : S.ExtIdeal // Squarefree f.1 ∧
+      ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h}
+    let Div : Type := {J : Ideal (𝓞 F) // J ∣ h.1}
+    letI : Fintype Div := UniqueFactorizationMonoid.fintypeSubtypeDvd h.1 hh0
+    let toDiv : AF → Div := fun f =>
+      ⟨f.1.1, rf_local_active_squarefree_dvd R h f.1 f.2.1 f.2.2⟩
+    have htoDiv : Function.Injective toDiv := by
+      intro f g hfg
+      apply Subtype.ext
+      apply Subtype.ext
+      exact congrArg (fun z : Div => z.1) hfg
+    letI : Fintype AF := Fintype.ofInjective toDiv htoDiv
+    have hdivCard : Fintype.card Div =
+        Set.ncard {J : Ideal (𝓞 F) | J ∣ h.1} := by
+      calc
+        Fintype.card Div = Nat.card Div := (Nat.card_eq_fintype_card).symm
+        _ = Set.ncard {J : Ideal (𝓞 F) | J ∣ h.1} := Nat.card_coe_set_eq _
+    have hdivCardReal : (Fintype.card Div : ℝ) =
+        (Set.ncard {J : Ideal (𝓞 F) | J ∣ h.1} : ℝ) := by
+      exact_mod_cast hdivCard
+    have hdivBound : (Fintype.card Div : ℝ) ≤ Cdiv * qI h.1 ^ δ := by
+      rw [hdivCardReal]
+      simpa [qI] using hDivBound h.1 hh0
+    have hcardAF : (Fintype.card AF : ℝ) ≤ Cdiv * qI h.1 ^ δ := by
+      calc
+        (Fintype.card AF : ℝ) ≤ Fintype.card Div := by
+          exact_mod_cast (Fintype.card_le_of_injective toDiv htoDiv)
+        _ ≤ Cdiv * qI h.1 ^ δ := hdivBound
+    have hnormSupport :
+        (∏ v ∈ R.exterior.support h, idealNorm v.asIdeal) ≤ qI h.1 := by
+      simpa [idealNorm, qI] using rf_local_support_norm_prod_le R h
+    have hnormSupportNonneg :
+        0 ≤ ∏ v ∈ R.exterior.support h, idealNorm v.asIdeal := by
+      apply Finset.prod_nonneg
+      intro v hv
+      unfold idealNorm
+      exact Nat.cast_nonneg _
+    have hprimeProduct :
+        (∏ v ∈ R.exterior.support h, B) ≤ Cprod * qI h.1 ^ δ := by
+      calc
+        (∏ v ∈ R.exterior.support h, B) ≤
+            Cprod * Real.rpow (∏ v ∈ R.exterior.support h, idealNorm v.asIdeal) δ :=
+          hPrimeProduct (R.exterior.support h)
+        _ ≤ Cprod * qI h.1 ^ δ := by
+          apply mul_le_mul_of_nonneg_left ?_ (le_of_lt (lt_of_lt_of_le zero_lt_one hCprod))
+          exact Real.rpow_le_rpow hnormSupportNonneg hnormSupport hδ.le
+    have hEprimeNonneg (v : FinPlace F) : 0 ≤ Eprime v σ := by
+      have hq : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+      have hterm (e : ℕ) :
+          0 ≤ betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e *
+            qI v.asIdeal ^ (-σ * (e : ℝ)) := by
+        have hβ : 0 ≤ betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e := by
+          unfold betaPrime
+          split_ifs
+          · norm_num
+          · exact Real.rpow_nonneg hq.le _
+          · exact Real.rpow_nonneg hq.le _
+          · norm_num
+        exact mul_nonneg hβ (Real.rpow_nonneg hq.le _)
+      exact tsum_nonneg hterm
+    let P : ℝ := ∏ v ∈ R.exterior.support h, B
+    have hPnonneg : 0 ≤ P := by
+      dsimp [P]
+      exact Finset.prod_nonneg fun v hv => zero_le_one.trans hBge
+    have hEbound (f : AF) : Eideal R f.1 σ ≤ P := by
+      have hsub : R.exterior.support f.1 ⊆ R.exterior.support h := by
+        intro v hv
+        exact f.2.2 v hv
+      have hfac :
+          (∏ v ∈ R.exterior.support f.1, Eprime v σ) ≤
+            ∏ v ∈ R.exterior.support h, B := by
+        apply Finset.prod_mono_of_subset_of_one_le₀ hsub
+          (fun v hv => hEprimeNonneg v)
+        · intro v hv
+          have hvS : v ∉ S.Sf := R.exterior.support_exterior f.1 v hv
+          have hloc := (rf_local_euler_data v hvS σ hσ).2.2
+          dsimp [B]
+          linarith
+        · intro v hv hnot
+          exact hBge
+      simpa only [Eideal, P] using hfac
+    have hsum : (∑ f : AF, Eideal R f.1 σ) ≤ (Fintype.card AF : ℝ) * P := by
+      calc
+        (∑ f : AF, Eideal R f.1 σ) ≤ ∑ _f : AF, P := by
+          apply Finset.sum_le_sum
+          intro f hf
+          exact hEbound f
+        _ = (Fintype.card AF : ℝ) * P := by simp [mul_comm]
+    change (∑ᶠ f : AF, Eideal R f.1 σ) ≤ Cdiv * Cprod * qI h.1 ^ ε
+    rw [finsum_eq_sum_of_fintype]
+    calc
+      (∑ f : AF, Eideal R f.1 σ) ≤ (Fintype.card AF : ℝ) * P := hsum
+      _ ≤ (Cdiv * qI h.1 ^ δ) * (Cprod * qI h.1 ^ δ) :=
+        mul_le_mul hcardAF hprimeProduct hPnonneg
+          (mul_nonneg hCdiv.le (Real.rpow_nonneg hqpos.le _))
+      _ = Cdiv * Cprod * (qI h.1 ^ δ * qI h.1 ^ δ) := by ring
+      _ = Cdiv * Cprod * qI h.1 ^ (δ + δ) := by
+        rw [Real.rpow_add hqpos δ δ]
+      _ = Cdiv * Cprod * qI h.1 ^ ε := by
+        rw [show δ + δ = ε by dsimp [δ]; ring]
 /-- def:rf-profiles, 04:507–534. The multiplier has the positive L exponent. -/
 def profileH (u : UnitSix S) (κ : S.V) (ℓ : Fin (R.rotated u).J) (x : ℝ) : ℂ :=
   sheetIntegral R x (fun y => (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
