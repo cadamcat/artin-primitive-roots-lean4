@@ -141,6 +141,83 @@ private noncomputable def covolArchToMixedEquiv (D : FieldData F) :
     exact continuous_apply w.1
   exact e.toContinuousLinearEquivOfContinuous hecont
 
+private theorem covol_complexPiSelfDualHaar_eq_smul_volume
+    (ι : Type*) [Fintype ι] :
+    ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar ι =
+      ENNReal.ofReal ((2 : ℝ) ^ Fintype.card ι) • (volume : Measure (ι → ℂ)) := by
+  classical
+  let eArch : PiLp 2 (fun _ : ι => ℂ) ≃ᵐ (ι → ℂ) :=
+    (PiLp.continuousLinearEquiv 2 ℝ (fun _ : ι => ℂ)).toHomeomorph.toMeasurableEquiv
+  let b : OrthonormalBasis (Σ _ : ι, Fin 2) ℝ (PiLp 2 (fun _ : ι => ℂ)) :=
+    Pi.orthonormalBasis (fun i : ι => Complex.orthonormalBasisOneI)
+  let eArchCoord : PiLp 2 (fun _ : ι => ℂ) ≃ᵐ ((Σ _ : ι, Fin 2) → ℝ) :=
+    b.repr.toMeasurableEquiv.trans
+      (MeasurableEquiv.toLp 2 ((Σ _ : ι, Fin 2) → ℝ)).symm
+  let ePiCoord : (ι → ℂ) ≃ᵐ ((Σ _ : ι, Fin 2) → ℝ) :=
+    (MeasurableEquiv.piCongrRight (fun _ : ι => Complex.measurableEquivPi)).trans
+      (MeasurableEquiv.piCurry (fun _ : ι => fun _ : Fin 2 => ℝ)).symm
+  have hPiPoint : MeasurePreserving
+      (MeasurableEquiv.piCongrRight (fun _ : ι => Complex.measurableEquivPi)) := by
+    change MeasurePreserving
+      (fun x : ι → ℂ => fun i => Complex.measurableEquivPi (x i))
+    exact MeasureTheory.measurePreserving_pi (fun _ : ι => volume) (fun _ : ι => volume)
+      (fun _ => Complex.volume_preserving_equiv_pi)
+  have hPiCurry : MeasurePreserving
+      (MeasurableEquiv.piCurry (fun _ : ι => fun _ : Fin 2 => ℝ)).symm := by
+    refine ⟨(MeasurableEquiv.piCurry (fun _ : ι => fun _ : Fin 2 => ℝ)).symm.measurable, ?_⟩
+    apply (Measure.pi_eq (μ := fun _ : Σ _ : ι, Fin 2 => (volume : Measure ℝ))
+      (μ' := (volume : Measure (ι → Fin 2 → ℝ)).map
+        (MeasurableEquiv.piCurry (fun _ : ι => fun _ : Fin 2 => ℝ)).symm) ?_).symm
+    intro s hs
+    rw [Measure.map_apply
+      (MeasurableEquiv.piCurry (fun _ : ι => fun _ : Fin 2 => ℝ)).symm.measurable
+      (MeasurableSet.univ_pi hs)]
+    have hpre : (MeasurableEquiv.piCurry (fun _ : ι => fun _ : Fin 2 => ℝ)).symm ⁻¹'
+        Set.pi Set.univ s = Set.pi Set.univ (fun i => Set.pi Set.univ (fun j => s ⟨i, j⟩)) := by
+      ext x
+      simp only [Set.mem_preimage, MeasurableEquiv.coe_piCurry_symm, Set.mem_pi,
+        Set.mem_univ, true_implies, Sigma.uncurry]
+      constructor
+      · intro hx i j
+        exact hx ⟨i, j⟩
+      · intro hx ⟨i, j⟩
+        exact hx i j
+    rw [hpre]
+    simp only [volume_pi_pi, Fintype.prod_sigma]
+  have hPiCoord : MeasurePreserving ePiCoord := by
+    dsimp [ePiCoord]
+    exact hPiPoint.trans hPiCurry
+  have hArchCoord : MeasurePreserving eArchCoord := by
+    dsimp [eArchCoord]
+    exact (LinearIsometryEquiv.measurePreserving b.repr).trans
+      (PiLp.volume_preserving_ofLp (Σ _ : ι, Fin 2))
+  have hcoordEq : eArchCoord = eArch.trans ePiCoord := by
+    ext x ij
+    rcases ij with ⟨i, j⟩
+    change (b.repr (WithLp.toLp 2 (WithLp.ofLp x))).ofLp ⟨i, j⟩ =
+      Complex.measurableEquivPi (WithLp.ofLp x i) j
+    rw [Pi.orthonormalBasis_repr]
+    simp [Complex.orthonormalBasisOneI_repr_apply]
+  have hcoordFun : (fun x => ePiCoord (eArch x)) = eArchCoord := by
+    funext x
+    have hfun := congrArg (fun e : _ ≃ᵐ _ => (e : _ → _)) hcoordEq
+    change (ePiCoord ∘ eArch) x = eArchCoord x
+    exact (congrFun hfun x).symm
+  have hArch : MeasurePreserving eArch := by
+    refine ⟨eArch.measurable, ?_⟩
+    apply (ePiCoord.measurableEmbedding).map_injective
+    calc
+      (volume.map eArch).map ePiCoord = volume.map (fun x => ePiCoord (eArch x)) := by
+        simpa only [Function.comp_def] using
+          (Measure.map_map ePiCoord.measurable eArch.measurable (μ := volume))
+      _ = volume := by
+        simpa only [hcoordFun] using hArchCoord.map_eq
+      _ = volume.map ePiCoord := hPiCoord.map_eq.symm
+  change Measure.map eArch
+      (ENNReal.ofReal ((2 : ℝ) ^ Fintype.card ι) •
+        (volume : Measure (PiLp 2 (fun _ : ι => ℂ)))) = _
+  rw [Measure.map_smul _ eArch.measurable.aemeasurable, hArch.map_eq]
+
 private theorem covol_arch_fundamental_reduction (D : FieldData F)
     (z : InfinitePlace F → ℂ) :
     ∃ a : 𝓞 F, ∃ p ∈ (covolArchToMixedEquiv D).symm ''
