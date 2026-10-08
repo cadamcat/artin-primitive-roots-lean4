@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Residue
+import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.Core
 
 /-!
 # A1 interface, §3: Hilbert symbols, H_S, B, allowed generators
