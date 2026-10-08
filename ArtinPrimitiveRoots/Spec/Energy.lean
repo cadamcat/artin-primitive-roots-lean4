@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.Spec.ReductionExtra
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_GAP.SiegelData
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_GAP.CuspSums
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_GAP.T5Core
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_GAP.GroundState
 
 /-! L² and energy-space nodes T1--T7. -/
 
@@ -16,6 +17,8 @@ open scoped Topology
 noncomputable section
 
 namespace ArtinPrimitiveRoots.A1.Spec
+
+open Classical
 
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
@@ -38,6 +41,23 @@ theorem T1_l2 (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
         (∀ γ ∈ Γ, ∀ z, f ((γ : SL(2,𝓞 F)) • z) = f z) →
         ∫ z in D, f z ∂(volX F) = ∫ z in D', f z ∂(volX F)) := by
   sorry
+
+private noncomputable def sgEnergyGraphTestPoint
+    {Γ : Subgroup SL(2,𝓞 F)} [Γ.FiniteIndex]
+    (D : Set (X F))
+    (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
+    (e : EnergyContext F Γ D E) (t : testSubmodule F Γ) : E.V :=
+  ⟨energyGraphMap e.toL2 e.gradL2 t, by
+    rw [e.graph_eq]
+    change energyGraphMap e.toL2 e.gradL2 t ∈
+      closure (energyGraphMap e.toL2 e.gradL2).range
+    exact subset_closure ⟨t, rfl⟩⟩
+
+private theorem sgFullGradient_norm_sq (f : X F → ℂ) (z : X F) :
+    ‖fullGradient F f z‖ ^ 2 = totalGradNormSq F f z := by
+  rw [fullGradient, PiLp.norm_sq_eq_of_L2]
+  simp [totalGradNormSq, placeGradNormSq, Complex.normSq_eq_norm_sq,
+    Fintype.sum_prod_type]
 
 /-- T2 `spec:tests` — P-SPEC.md:229, 349–352. Test functions form the stated submodule, their
 mass and gradient have the quotient representatives, and an automorphic partition of unity is
@@ -374,6 +394,307 @@ theorem T6_rellich (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
         R x z = orbitRestrictedMass F D E Γ K x z := by
   sorry
 
+set_option maxHeartbeats 1000000 in
+private theorem sgGroundQuotient_test_green_integrable
+    {Γ : Subgroup SL(2,𝓞 F)} [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (f : X F → ℂ) (hfTest : IsGammaTest F Γ f)
+    (φ : X F → ℝ) (hφ : IsSmoothRealX F φ)
+    (hφInv : IsGammaInvariant F Γ (fun z => (φ z : ℂ)))
+    (hφpos : ∀ z, 0 < φ z) :
+    ∃ q : X F → ℂ,
+      q = (fun z => (specGapGroundQuotient f φ z : ℂ)) ∧
+      q ∈ testSubmodule F Γ ∧ IsGammaInvariant F Γ q ∧ IsSmoothX F q ∧
+      ∀ w : InfinitePlace F,
+        Integrable (fun z => star (q z) *
+          partialLap F w (fun x => (φ x : ℂ)) z) ((volX F).restrict D) ∧
+        Integrable (placeGradInner F w q (fun x => (φ x : ℂ))) ((volX F).restrict D) ∧
+        (∫ z in D, star (q z) *
+          partialLap F w (fun x => (φ x : ℂ)) z ∂(volX F)) =
+        ∫ z in D, placeGradInner F w q (fun x => (φ x : ℂ)) z ∂(volX F) := by
+  classical
+  letI : OpensMeasurableSpace (X F) := sgOpensMeasurableX
+  let q : X F → ℂ := fun z => (specGapGroundQuotient f φ z : ℂ)
+  have hqReal : IsSmoothRealX F (specGapGroundQuotient f φ) :=
+    specGapGroundQuotient_smooth f φ hfTest.2.1 hφ hφpos
+  have hqSmooth : IsSmoothX F q := by
+    change ContDiffOn ℝ ∞
+      (fun p => (specGapGroundQuotient f φ (ptX F p) : ℂ)) (posSet F)
+    exact Complex.ofRealCLM.contDiff.comp_contDiffOn hqReal
+  have hqInv : IsGammaInvariant F Γ q := by
+    simpa [q] using specGapGroundQuotient_invariant f φ hfTest.1 hφInv
+  have hqSupport : {z | q z ≠ 0} ⊆ {z | f z ≠ 0} := by
+    intro z hz
+    have hqne : specGapGroundQuotient f φ z ≠ 0 := by
+      intro hzero
+      apply hz
+      simp [q, hzero]
+    exact sgGroundQuotient_nonzero_implies f φ z hqne
+  have hqTest : IsGammaTest F Γ q := by
+    refine ⟨hqInv, hqSmooth, ?_⟩
+    rcases hfTest.2.2 with ⟨K, hK, hfsupport⟩
+    refine ⟨K, hK, ?_⟩
+    exact hqSupport.trans hfsupport
+  have hqMem : q ∈ testSubmodule F Γ :=
+    ((T2_tests Γ D hD).1 q).2 hqTest
+  let φC : X F → ℂ := fun z => (φ z : ℂ)
+  have hφC : IsSmoothX F φC := by
+    change ContDiffOn ℝ ∞ (fun p => (φ (ptX F p) : ℂ)) (posSet F)
+    exact Complex.ofRealCLM.contDiff.comp_contDiffOn hφ
+  rcases hfTest.2.2 with ⟨K, hK, hfsupport⟩
+  let lapFun : InfinitePlace F → X F → ℂ :=
+    fun w z => star (q z) * partialLap F w φC z
+  let gradFun : InfinitePlace F → X F → ℂ :=
+    fun w z => placeGradInner F w q φC z
+  have hLapCont (w : InfinitePlace F) : Continuous (lapFun w) := by
+    have hqcont := sgSmoothX_continuous q hqSmooth
+    have hstar : Continuous (fun z => star (q z)) :=
+      Complex.continuous_conj.comp hqcont
+    exact hstar.mul (sgPartialLap_continuous φC hφC w)
+  have hGradCont (w : InfinitePlace F) : Continuous (gradFun w) :=
+    sgPlaceGradInner_continuous q φC hqSmooth hφC w
+  have hLapInv (w : InfinitePlace F) : IsGammaInvariant F Γ (lapFun w) := by
+    intro γ hγ z
+    change star (q ((γ : SL(2,𝓞 F)) • z)) *
+        partialLap F w φC ((γ : SL(2,𝓞 F)) • z) =
+      star (q z) * partialLap F w φC z
+    rw [hqInv γ hγ z]
+    rw [sgPartialLap_invariant ⟨γ, hγ⟩ φC hφC hφInv w z]
+  have hGradInv (w : InfinitePlace F) : IsGammaInvariant F Γ (gradFun w) := by
+    intro γ hγ z
+    change placeGradInner F w q φC ((γ : SL(2,𝓞 F)) • z) = _
+    exact sgPlaceGradInner_invariant ⟨γ, hγ⟩ q φC hqSmooth hφC hqInv hφInv w z
+  have hLapSupport (w : InfinitePlace F) :
+      {z | lapFun w z ≠ 0} ⊆ orbitSaturation F Γ K := by
+    intro z hz
+    apply hfsupport
+    intro hfz
+    apply hz
+    simp [lapFun, q, specGapGroundQuotient, hfz]
+  have hGradSupport (w : InfinitePlace F) :
+      {z | gradFun w z ≠ 0} ⊆ orbitSaturation F Γ K := by
+    intro z hz
+    apply hfsupport
+    intro hfz
+    apply hz
+    have hqgrad (j : Fin 3) : placeGradient F w q z j = 0 := by
+      simpa [q] using sgGroundQuotient_placeGradient_zero_of_zero
+        f φ hfTest.2.1 hφ hqReal hφpos z hfz w j
+    simp [gradFun, placeGradInner, hqgrad]
+  let μ : Measure (X F) := (volX F).restrict D
+  have hLapInt (w : InfinitePlace F) : Integrable (lapFun w) μ :=
+    sgIntegrable_of_compactOrbitSupport (Γ := Γ) D hD (lapFun w) (hLapCont w)
+      (hLapInv w) (hLapCont w).measurable.aestronglyMeasurable K hK (hLapSupport w)
+  have hGradInt (w : InfinitePlace F) : Integrable (gradFun w) μ :=
+    sgIntegrable_of_compactOrbitSupport (Γ := Γ) D hD (gradFun w) (hGradCont w)
+      (hGradInv w) (hGradCont w).measurable.aestronglyMeasurable K hK (hGradSupport w)
+  have hGreen (w : InfinitePlace F) :
+      (∫ z in D, star (q z) * partialLap F w φC z ∂(volX F)) =
+        ∫ z in D, placeGradInner F w q φC z ∂(volX F) := by
+    exact (T3_green_q Γ D hD).1 q hqMem φC hφInv hφC w
+  refine ⟨q, rfl, hqMem, hqInv, hqSmooth, ?_⟩
+  intro w
+  refine ⟨?_, ?_, hGreen w⟩
+  · simpa [lapFun, μ] using hLapInt w
+  · simpa [gradFun, μ] using hGradInt w
+
+set_option maxHeartbeats 1000000 in
+private theorem sgGroundState_test_estimate
+    {Γ : Subgroup SL(2,𝓞 F)} [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (φ : X F → ℝ) (hφ : IsSmoothRealX F φ)
+    (hφInv : IsGammaInvariant F Γ (fun z => (φ z : ℂ)))
+    (hφpos : ∀ z, 0 < φ z)
+    (K : Set (X F)) (a C : ℝ)
+    (hRatio : ∀ z, a ≤ sgGroundLaplacianRatio φ z +
+      C * (if z ∈ orbitSaturation F Γ K then 1 else 0))
+    (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
+    (e : EnergyContext F Γ D E)
+    (R : E.V →L[ℂ] L2Space F D)
+    (hRrep : ∀ x : E.V, ∀ᵐ z ∂(volX F), z ∈ D →
+      R x z = orbitRestrictedMass F D E Γ K x z)
+    (t : testSubmodule F Γ) :
+    a * ‖E.M (sgEnergyGraphTestPoint D E e t)‖ ^ 2 ≤
+      ‖E.Gr (sgEnergyGraphTestPoint D E e t)‖ ^ 2 +
+        C * ‖R (sgEnergyGraphTestPoint D E e t)‖ ^ 2 := by
+  classical
+  letI : OpensMeasurableSpace (X F) := sgOpensMeasurableX
+  let f : X F → ℂ := t
+  have hfTest : IsGammaTest F Γ f := ((T2_tests Γ D hD).1 f).mp t.property
+  rcases sgGroundQuotient_test_green_integrable D hD f hfTest φ hφ hφInv hφpos with
+    ⟨q, hqEq, hqMem, hqInv, hqSmooth, hGreen⟩
+  subst q
+  let q : X F → ℂ := fun z => (specGapGroundQuotient f φ z : ℂ)
+  let φC : X F → ℂ := fun z => (φ z : ℂ)
+  have hφC : IsSmoothX F φC := by
+    change ContDiffOn ℝ ∞ (fun p => (φ (ptX F p) : ℂ)) (posSet F)
+    exact Complex.ofRealCLM.contDiff.comp_contDiffOn hφ
+  have hqReal : IsSmoothRealX F (specGapGroundQuotient f φ) :=
+    specGapGroundQuotient_smooth f φ hfTest.2.1 hφ hφpos
+  let x : E.V := sgEnergyGraphTestPoint D E e t
+  have hMx : E.M x = e.toL2 t := by
+    simp [x, sgEnergyGraphTestPoint, FAEnergySpace.M, energyGraphMap]
+  have hGrx : E.Gr x = e.gradL2 t := by
+    simp [x, sgEnergyGraphTestPoint, FAEnergySpace.Gr, energyGraphMap]
+  let μ : Measure (X F) := (volX F).restrict D
+  have hmassRep : ∀ᵐ z ∂μ, e.toL2 t z = f z := by
+    exact (ae_restrict_iff'₀ hD.nullMeasurableSet).2 (e.mass_rep t)
+  have hgradRep : ∀ᵐ z ∂μ, e.gradL2 t z = fullGradient F f z := by
+    exact (ae_restrict_iff'₀ hD.nullMeasurableSet).2 (e.gradient_rep t)
+  have hmassSqAE : (fun z => ‖e.toL2 t z‖ ^ 2) =ᵐ[μ]
+      fun z => Complex.normSq (f z) := by
+    filter_upwards [hmassRep] with z hz
+    rw [hz]
+    simp [Complex.normSq_eq_norm_sq]
+  have hmassSqInt : Integrable (fun z => Complex.normSq (f z)) μ :=
+    (specGapLpTwo_integrable_norm_sq μ (e.toL2 t)).congr hmassSqAE
+  have hmassNorm : ‖e.toL2 t‖ ^ 2 = ∫ z, Complex.normSq (f z) ∂μ := by
+    calc
+      ‖e.toL2 t‖ ^ 2 = ∫ z, ‖e.toL2 t z‖ ^ 2 ∂μ :=
+        specGapLpTwo_norm_sq_eq_integral μ (e.toL2 t)
+      _ = ∫ z, Complex.normSq (f z) ∂μ := integral_congr_ae hmassSqAE
+  have hgradSqAE : (fun z => ‖e.gradL2 t z‖ ^ 2) =ᵐ[μ]
+      fun z => totalGradNormSq F f z := by
+    filter_upwards [hgradRep] with z hz
+    rw [hz]
+    exact sgFullGradient_norm_sq f z
+  have henergyInt : Integrable (fun z => totalGradNormSq F f z) μ :=
+    (specGapLpTwo_integrable_norm_sq μ (e.gradL2 t)).congr hgradSqAE
+  have hgradNorm : ‖e.gradL2 t‖ ^ 2 =
+      ∫ z, totalGradNormSq F f z ∂μ := by
+    calc
+      ‖e.gradL2 t‖ ^ 2 = ∫ z, ‖e.gradL2 t z‖ ^ 2 ∂μ :=
+        specGapLpTwo_norm_sq_eq_integral μ (e.gradL2 t)
+      _ = ∫ z, totalGradNormSq F f z ∂μ := integral_congr_ae hgradSqAE
+  let S : Set (X F) := orbitSaturation F Γ K
+  let err : X F → ℝ := fun z => if z ∈ S then Complex.normSq (f z) else 0
+  have hRrepμ : ∀ᵐ z ∂μ, R x z = orbitRestrictedMass F D E Γ K x z := by
+    exact (ae_restrict_iff'₀ hD.nullMeasurableSet).2 (hRrep x)
+  have hRerrAE : (fun z => ‖R x z‖ ^ 2) =ᵐ[μ] err := by
+    filter_upwards [hRrepμ, hmassRep] with z hzR hzm
+    rw [hzR]
+    by_cases hz : z ∈ S
+    · simp [err, orbitRestrictedMass, S, hMx, hzm, hz,
+        Complex.normSq_eq_norm_sq]
+    · simp [err, orbitRestrictedMass, S, hMx, hzm, hz]
+  have hErrInt : Integrable err μ :=
+    (specGapLpTwo_integrable_norm_sq μ (R x)).congr hRerrAE
+  have hRnorm : ‖R x‖ ^ 2 = ∫ z, err z ∂μ := by
+    calc
+      ‖R x‖ ^ 2 = ∫ z, ‖R x z‖ ^ 2 ∂μ := specGapLpTwo_norm_sq_eq_integral μ (R x)
+      _ = ∫ z, err z ∂μ := integral_congr_ae hRerrAE
+  let lapFun : InfinitePlace F → X F → ℂ :=
+    fun w z => star (q z) * partialLap F w φC z
+  let gradFun : InfinitePlace F → X F → ℂ := fun w z => placeGradInner F w q φC z
+  let lapSum : X F → ℂ := fun z => star (q z) * totalLap F φC z
+  let gradSum : X F → ℂ := fun z => ∑ w : InfinitePlace F, gradFun w z
+  have hLapEachInt (w : InfinitePlace F) : Integrable (lapFun w) μ := (hGreen w).1
+  have hGradEachInt (w : InfinitePlace F) : Integrable (gradFun w) μ := (hGreen w).2.1
+  have hLapEq (z : X F) : lapSum z = ∑ w : InfinitePlace F, lapFun w z := by
+    simp [lapSum, lapFun, totalLap, Finset.mul_sum]
+  have hLapSumInt : Integrable lapSum μ := by
+    have h := integrable_finsetSum Finset.univ (fun w hw => hLapEachInt w)
+    exact h.congr (ae_of_all _ fun z => (hLapEq z).symm)
+  have hGradSumInt : Integrable gradSum μ :=
+    integrable_finsetSum Finset.univ (fun w hw => hGradEachInt w)
+  have hGreenμ (w : InfinitePlace F) :
+      ∫ z, lapFun w z ∂μ = ∫ z, gradFun w z ∂μ := by
+    simpa [lapFun, gradFun, μ, q, φC] using (hGreen w).2.2
+  have hGreenTotal :
+      ∫ z, lapSum z ∂μ = ∫ z, gradSum z ∂μ := by
+    calc
+      ∫ z, lapSum z ∂μ = ∫ z, ∑ w : InfinitePlace F, lapFun w z ∂μ := by
+        apply integral_congr_ae
+        exact ae_of_all _ hLapEq
+      _ = ∑ w : InfinitePlace F, ∫ z, lapFun w z ∂μ := by
+        rw [integral_finsetSum Finset.univ (fun w hw => hLapEachInt w)]
+      _ = ∑ w : InfinitePlace F, ∫ z, gradFun w z ∂μ := by
+        apply Finset.sum_congr rfl
+        intro w hw
+        exact hGreenμ w
+      _ = ∫ z, ∑ w : InfinitePlace F, gradFun w z ∂μ := by
+        rw [integral_finsetSum Finset.univ (fun w hw => hGradEachInt w)]
+      _ = ∫ z, gradSum z ∂μ := by rfl
+  have hRatioEq (z : X F) :
+      Complex.normSq (f z) * sgGroundLaplacianRatio φ z = (lapSum z).re := by
+    calc
+      _ = Complex.normSq (f z) *
+          ((totalLap F φC z).re / φ z) := by
+            simp [sgGroundLaplacianRatio, φC]
+      _ = (Complex.normSq (f z) / φ z) * (totalLap F φC z).re := by
+            field_simp [ne_of_gt (hφpos z)]
+      _ = (lapSum z).re := by
+            simp [lapSum, q, specGapGroundQuotient, Complex.conj_ofReal,
+              Complex.mul_re]
+  have hRatioMassInt :
+      Integrable (fun z => Complex.normSq (f z) * sgGroundLaplacianRatio φ z) μ := by
+    have h := hLapSumInt.re
+    exact h.congr (ae_of_all _ fun z => (hRatioEq z).symm)
+  have hRatioGreen :
+      (∫ z, Complex.normSq (f z) * sgGroundLaplacianRatio φ z ∂μ) =
+        ∫ z, (gradSum z).re ∂μ := by
+    calc
+      _ = ∫ z, (lapSum z).re ∂μ := by
+        apply integral_congr_ae
+        exact ae_of_all _ hRatioEq
+      _ = Complex.re (∫ z, lapSum z ∂μ) := integral_re hLapSumInt
+      _ = Complex.re (∫ z, gradSum z ∂μ) := congrArg Complex.re hGreenTotal
+      _ = ∫ z, (gradSum z).re ∂μ := (integral_re hGradSumInt).symm
+  have hPointwise (z : X F) : (gradSum z).re ≤ totalGradNormSq F f z := by
+    have h := specGapGroundQuotient_density_ineq f φ hfTest.2.1 hφ hqReal hφpos z
+    change Complex.re (∑ w : InfinitePlace F, ∑ j : Fin 3,
+      star (placeGradient F w q z j) * placeGradient F w φC z j) ≤ _
+    simpa [q, φC, placeGradInner] using h
+  have hCrossInt : Integrable (fun z => (gradSum z).re) μ := hGradSumInt.re
+  have hCrossEnergy :
+      (∫ z, (gradSum z).re ∂μ) ≤ ∫ z, totalGradNormSq F f z ∂μ :=
+    integral_mono hCrossInt henergyInt hPointwise
+  have hRatioEnergy :
+      (∫ z, Complex.normSq (f z) * sgGroundLaplacianRatio φ z ∂μ) ≤
+        ∫ z, totalGradNormSq F f z ∂μ := by
+    rw [hRatioGreen]
+    exact hCrossEnergy
+  have hRatioPointwise (z : X F) :
+      a * Complex.normSq (f z) ≤
+        Complex.normSq (f z) * sgGroundLaplacianRatio φ z + C * err z := by
+    have hmul := mul_le_mul_of_nonneg_right (hRatio z) (Complex.normSq_nonneg (f z))
+    have heq :
+        (sgGroundLaplacianRatio φ z +
+          C * (if z ∈ orbitSaturation F Γ K then 1 else 0)) * Complex.normSq (f z) =
+        Complex.normSq (f z) * sgGroundLaplacianRatio φ z + C * err z := by
+      by_cases hz : z ∈ orbitSaturation F Γ K <;> simp [err, S, hz] <;> ring
+    exact hmul.trans_eq heq
+  have hCoefficientInt :
+      a * (∫ z, Complex.normSq (f z) ∂μ) ≤
+        (∫ z, Complex.normSq (f z) * sgGroundLaplacianRatio φ z ∂μ) +
+          C * (∫ z, err z ∂μ) := by
+    have h := integral_mono (hmassSqInt.const_mul a)
+      (hRatioMassInt.add (hErrInt.const_mul C)) hRatioPointwise
+    calc
+      _ = ∫ z, a * Complex.normSq (f z) ∂μ := by
+        rw [integral_const_mul a]
+      _ ≤ ∫ z, Complex.normSq (f z) * sgGroundLaplacianRatio φ z + C * err z ∂μ := h
+      _ = (∫ z, Complex.normSq (f z) * sgGroundLaplacianRatio φ z ∂μ) +
+          C * (∫ z, err z ∂μ) := by
+        rw [integral_add hRatioMassInt (hErrInt.const_mul C), integral_const_mul]
+  have hFinalInt :
+      a * (∫ z, Complex.normSq (f z) ∂μ) ≤
+        (∫ z, totalGradNormSq F f z ∂μ) + C * ‖R x‖ ^ 2 := by
+    calc
+      _ ≤ (∫ z, Complex.normSq (f z) * sgGroundLaplacianRatio φ z ∂μ) +
+            C * (∫ z, err z ∂μ) := hCoefficientInt
+      _ ≤ (∫ z, totalGradNormSq F f z ∂μ) + C * (∫ z, err z ∂μ) :=
+            by linarith [hRatioEnergy]
+      _ = (∫ z, totalGradNormSq F f z ∂μ) + C * ‖R x‖ ^ 2 := by rw [← hRnorm]
+  calc
+    a * ‖E.M x‖ ^ 2 = a * ‖e.toL2 t‖ ^ 2 := by rw [hMx]
+    _ = a * (∫ z, Complex.normSq (f z) ∂μ) := by rw [hmassNorm]
+    _ ≤ (∫ z, totalGradNormSq F f z ∂μ) + C * ‖R x‖ ^ 2 := hFinalInt
+    _ = ‖e.gradL2 t‖ ^ 2 + C * ‖R x‖ ^ 2 := by rw [← hgradNorm]
+    _ = ‖E.Gr x‖ ^ 2 + C * ‖R x‖ ^ 2 := by rw [hGrx]
+
+set_option maxHeartbeats 1000000
+
 /-- T7 `spec:ground-state` — P-SPEC.md:234, 364–368. The ground-state transform gives the
 coercivity estimate with compact error at every height cutoff above all cusp thresholds. Correction
 from review lane `rev-spec`: include separation of distinct cusp representatives at the cutoff.
@@ -396,6 +717,112 @@ theorem T7_ground_state (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
           ‖E.Gr x‖ ^ 2 + C * ‖R x‖ ^ 2) ∧
         (∀ x : E.V, ∀ᵐ z ∂(volX F), z ∈ D →
           R x z = orbitRestrictedMass F D E Γ K x z) := by
-  sorry
+  classical
+  letI : Fintype d.ι := d.fintype
+  have hι : Nonempty d.ι := by
+    let q : Quotient (QuotientGroup.rightRel (borelSL F)) :=
+      Quotient.mk (QuotientGroup.rightRel (borelSL F)) (1 : SL(2,F))
+    obtain ⟨p, _⟩ := d.reps_bijective.2 q
+    exact ⟨p.1⟩
+  let i₀ : d.ι := Classical.choice hι
+  have hApos : 0 < A := lt_of_lt_of_le (hA₀ i₀) (hA i₀)
+  have hsep : ∀ p p' : SpecGapCuspIndex Γ d, ∀ z : X F,
+      A ≤ specGapAllCuspHeight Γ d p z →
+      A ≤ specGapAllCuspHeight Γ d p' z → p = p' := by
+    intro p p' z hp hp'
+    rcases p with ⟨i, q⟩
+    rcases p' with ⟨j, q'⟩
+    have hs := hA₀sep i j q.out q'.out z
+      ((hA i).trans hp) ((hA j).trans hp')
+    rcases hs with ⟨hij, hstab⟩
+    subst j
+    have hrel : QuotientGroup.rightRel (cuspStab F Γ (d.σ i)) q.out q'.out :=
+      QuotientGroup.rightRel_apply.mpr hstab
+    have hq : q = q' := q.out_eq.symm.trans ((Quotient.sound hrel).trans q'.out_eq)
+    subst q'
+    rfl
+  let φ : X F → ℝ := specGapGroundPhi d A
+  have hφ : IsSmoothRealX F φ := specGapGroundPhi_smooth d A hApos
+  have hφInv : IsGammaInvariant F Γ (fun z => (φ z : ℂ)) := by
+    intro γ hγ z
+    exact congrArg Complex.ofReal (specGapGroundPhi_invariant d A ⟨γ, hγ⟩ z)
+  have hφpos (z : X F) : 0 < φ z := by
+    have hge := specGapGroundPhi_ge_one d A A hApos le_rfl hsep hApos z
+    dsimp [φ]
+    linarith
+  let K : Set (X F) := ⋃ i, SiegelData.compactBox F d i (2 * A)
+  have hK : IsCompact K := by
+    have hbox (i : d.ι) : IsCompact (SiegelData.compactBox F d i (2 * A)) :=
+      (R13_compact_part Γ d).1 (2 * A) (by positivity) i
+    simpa [K] using isCompact_iUnion hbox
+  obtain ⟨C₀, hC₀, hRatioK⟩ :=
+    sgGroundPhi_compact_ratio_bound d A A hApos le_rfl hsep hApos
+  obtain ⟨R, hRcompact, hRrep⟩ := T6_rellich Γ D hD E e K hK
+  let a : ℝ := placeCount F * (1 - 1 / (2 * A))
+  let C : ℝ := max 0 (a + C₀)
+  have hC : 0 ≤ C := le_max_left _ _
+  have hCbig : a + C₀ ≤ C := le_max_right _ _
+  have hRatio (z : X F) :
+      a ≤ sgGroundLaplacianRatio φ z +
+        C * (if z ∈ orbitSaturation F Γ K then 1 else 0) := by
+    by_cases hz : z ∈ orbitSaturation F Γ K
+    · rcases hz with ⟨γ, x, hxK, hγx⟩
+      have hInv := sgGroundLaplacianRatio_invariant d A hApos γ x
+      have hrz : sgGroundLaplacianRatio φ z = sgGroundLaplacianRatio φ x := by
+        rw [← hγx]
+        exact hInv
+      have hlow : -C₀ ≤ sgGroundLaplacianRatio φ x := hRatioK x hxK
+      have hbase : a ≤ sgGroundLaplacianRatio φ x + C := by
+        linarith
+      have hzS : z ∈ orbitSaturation F Γ K := ⟨γ, x, hxK, hγx⟩
+      have hmain : a ≤ sgGroundLaplacianRatio φ z + C := by
+        rw [hrz]
+        exact hbase
+      simpa [hzS] using hmain
+    · have hex : ∃ p : SpecGapCuspIndex Γ d,
+          2 * A < specGapAllCuspHeight Γ d p z := by
+        by_contra hnone
+        push_neg at hnone
+        have hbound : ∀ p : SpecGapCuspIndex Γ d,
+            specGapAllCuspHeight Γ d p z ≤ 2 * A := hnone
+        have hmem := sgCompactLow_mem_orbit d (2 * A) (by positivity) z hbound
+        change z ∈ orbitSaturation F Γ K at hmem
+        exact hz hmem
+      rcases hex with ⟨p, hp⟩
+      have hhigh := specGapGroundPhi_ratio_high d A A hApos le_rfl hsep hApos p z hp
+      simpa [a, φ, hz] using hhigh
+  refine ⟨K, hK, C, hC, R, hRcompact, ?_, hRrep⟩
+  let pt : testSubmodule F Γ → E.V := fun t => sgEnergyGraphTestPoint D E e t
+  have hDense : DenseRange pt := by
+    rw [Metric.denseRange_iff]
+    intro y ε hε
+    have hy : (y : WithLp 2 (L2Space F D × GradientL2Space F D)) ∈
+        closure (energyGraphMap e.toL2 e.gradL2).range := by
+      change (y : WithLp 2 (L2Space F D × GradientL2Space F D)) ∈
+        energyGraph e.toL2 e.gradL2
+      exact e.graph_eq ▸ y.property
+    obtain ⟨v, hv, hvdist⟩ := (Metric.mem_closure_iff).mp hy ε hε
+    rcases hv with ⟨t, rfl⟩
+    refine ⟨t, ?_⟩
+    change dist y (sgEnergyGraphTestPoint D E e t) < ε
+    change dist (y : WithLp 2 (L2Space F D × GradientL2Space F D))
+      (energyGraphMap e.toL2 e.gradL2 t) < ε
+    exact hvdist
+  let good : Set E.V := {x | a * ‖E.M x‖ ^ 2 ≤ ‖E.Gr x‖ ^ 2 + C * ‖R x‖ ^ 2}
+  have hLcont : Continuous (fun x : E.V => a * ‖E.M x‖ ^ 2) := by fun_prop
+  have hRcont : Continuous (fun x : E.V => ‖E.Gr x‖ ^ 2 + C * ‖R x‖ ^ 2) := by fun_prop
+  have hgoodClosed : IsClosed good := by
+    dsimp [good]
+    exact isClosed_le hLcont hRcont
+  have hRange : Set.range pt ⊆ good := by
+    rintro x ⟨t, rfl⟩
+    change a * ‖E.M (pt t)‖ ^ 2 ≤ ‖E.Gr (pt t)‖ ^ 2 + C * ‖R (pt t)‖ ^ 2
+    exact sgGroundState_test_estimate D hD φ hφ hφInv hφpos K a C hRatio E e R hRrep t
+  have hclosure : closure (Set.range pt) ⊆ good := closure_minimal hRange hgoodClosed
+  intro x
+  have hx : x ∈ closure (Set.range pt) := by
+    rw [hDense.closure_range]
+    simp
+  simpa [good, a] using hclosure hx
 
 end ArtinPrimitiveRoots.A1.Spec
