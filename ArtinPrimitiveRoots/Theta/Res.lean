@@ -18,6 +18,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_coordinat
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_fourier_character
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_period
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.unitTorus_lift_of_int_periodic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_normalized_integral
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
