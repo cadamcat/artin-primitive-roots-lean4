@@ -3711,6 +3711,84 @@ theorem whit_atLift (P : CoverPackage D S H A) (G : GlobalDatum P)
   intro w _
   rw [hC w]
 
+open scoped Pointwise in
+/-- A nonzero archimedean frequency is a continuous unitary character with zero torus mean. -/
+theorem whit_psiInf_character (ν : F) (hν0 : ν ≠ 0) :
+    Continuous (psiInf ν) ∧
+      (∀ x : InfinitePlace F → ℂ, ‖psiInf ν x‖ = 1) ∧
+      (∀ x y : InfinitePlace F → ℂ,
+        psiInf ν (x + y) = psiInf ν x * psiInf ν y) ∧
+      (∃ t : InfinitePlace F → ℂ, psiInf ν t ≠ 1) ∧
+      ∀ (L : AddSubgroup (InfinitePlace F → ℂ)), Countable L →
+        ∀ (B : Set (InfinitePlace F → ℂ)), IsAddFundamentalDomain L B volume →
+          (∀ t ∈ L, psiInf ν t = 1) → (∫ x in B, psiInf ν x) = 0 := by
+  classical
+  have hcont : Continuous (psiInf ν) := by
+    change Continuous (fun x : InfinitePlace F → ℂ => psiInf ν x)
+    simp only [psiInf, psiC]
+    fun_prop
+  have hnorm (x : InfinitePlace F → ℂ) : ‖psiInf ν x‖ = 1 := by
+    simp [psiInf, psiC, Complex.norm_exp]
+  have hpsiC (z w : ℂ) : psiC (z + w) = psiC z * psiC w := by
+    unfold psiC
+    have harg :
+        -(4 * Real.pi * Complex.I * ((z + w).re : ℂ)) =
+          -(4 * Real.pi * Complex.I * (z.re : ℂ)) +
+            -(4 * Real.pi * Complex.I * (w.re : ℂ)) := by
+      rw [Complex.add_re, Complex.ofReal_add]
+      ring
+    rw [harg, Complex.exp_add]
+  have hadd (x y : InfinitePlace F → ℂ) :
+      psiInf ν (x + y) = psiInf ν x * psiInf ν y := by
+    simp only [psiInf, Pi.add_apply, mul_add]
+    simp_rw [hpsiC]
+    rw [Finset.prod_mul_distrib]
+  let w : InfinitePlace F := Classical.arbitrary _
+  let t : InfinitePlace F → ℂ :=
+    Function.update (fun _ => 0) w ((4 : ℂ)⁻¹ / w.embedding ν)
+  have hw : w.embedding ν ≠ 0 := (map_ne_zero w.embedding).mpr hν0
+  have hquarter : w.embedding ν * ((4 : ℂ)⁻¹ / w.embedding ν) = (4 : ℂ)⁻¹ := by
+    field_simp
+  have hphase : psiC ((4 : ℂ)⁻¹) = -1 := by
+    unfold psiC
+    have hre : (((4 : ℂ)⁻¹).re : ℂ) = (4 : ℂ)⁻¹ := by norm_num
+    rw [hre]
+    have harg : -(4 * Real.pi * Complex.I * (4 : ℂ)⁻¹) =
+        -((Real.pi : ℂ) * Complex.I) := by ring
+    rw [harg, Complex.exp_neg_pi_mul_I]
+  have htval : psiInf ν t = -1 := by
+    unfold psiInf
+    rw [Finset.prod_eq_single w]
+    · simpa only [t, Function.update_self, hquarter] using hphase
+    · intro v _ hvw
+      simp [t, hvw, psiC]
+    · simp
+  have ht : psiInf ν t ≠ 1 := by
+    rw [htval]
+    norm_num
+  refine ⟨hcont, hnorm, hadd, ⟨t, ht⟩, ?_⟩
+  intro L hcount B hBd hperiod
+  let : Countable L := hcount
+  have hsame : (∫ x in B, psiInf ν x) = ∫ x in t +ᵥ B, psiInf ν x := by
+    apply hBd.setIntegral_eq (hBd.vadd_of_comm t)
+    intro ℓ x
+    change psiInf ν ((ℓ : InfinitePlace F → ℂ) + x) = psiInf ν x
+    rw [hadd, hperiod ℓ ℓ.property, one_mul]
+  have htranslate : (∫ x in t +ᵥ B, psiInf ν x) =
+      ∫ x in B, psiInf ν (t + x) := by
+    exact (measurePreserving_add_left volume t).setIntegral_image_emb
+      (Homeomorph.addLeft t).measurableEmbedding (psiInf ν) B
+  have hi : (∫ x in B, psiInf ν x) = psiInf ν t * ∫ x in B, psiInf ν x := by
+    calc
+      _ = ∫ x in t +ᵥ B, psiInf ν x := hsame
+      _ = ∫ x in B, psiInf ν (t + x) := htranslate
+      _ = psiInf ν t * ∫ x in B, psiInf ν x := by
+        simp_rw [hadd]
+        exact integral_const_mul _ _
+  have hz : (psiInf ν t - 1) * (∫ x in B, psiInf ν x) = 0 := by
+    rw [sub_mul, one_mul, ← hi, sub_self]
+  exact (mul_eq_zero.mp hz).resolve_left (sub_ne_zero.mpr ht)
+
 /-- The weighted Bruhat split on a bounded ideal domain has only big-cell contributions. -/
 theorem whit_weighted_bruhat (P : CoverPackage D S H A) (G : GlobalDatum P)
     {s : ℂ} (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
