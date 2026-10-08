@@ -19,6 +19,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».PoleIntegrals
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».RectangleResidues
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».WeightedRectangle
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».HorizontalLimits
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».GoodContours
 
 set_option autoImplicit false
 
