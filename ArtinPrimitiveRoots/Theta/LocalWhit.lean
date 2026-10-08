@@ -329,6 +329,22 @@ theorem thetaSpace_le (L : FinLocalCover D H v) (T : TorusRep D H v) (μ : LocHa
       rw [show rtr g (c • x) = c • rtr g x by rfl]
       exact Submodule.smul_mem _ c hpx
 
+private noncomputable def weylCarrierEquiv (T : TorusRep D H v) : T.weyl.V ≃ₗ[ℂ] T.V where
+  toFun x := x
+  invFun x := x
+  left_inv x := rfl
+  right_inv x := rfl
+  map_add' x y := by
+    have hAdd : T.weyl.nacg.toAddCommMonoid = T.nacg.toAddCommMonoid := rfl
+    cases hAdd
+    rfl
+  map_smul' c x := by
+    have hAdd : T.weyl.nacg.toAddCommMonoid = T.nacg.toAddCommMonoid := rfl
+    have hModule : T.weyl.nsp.toModule = T.nsp.toModule := rfl
+    cases hAdd
+    cases hModule
+    rfl
+
 /-- **wh:theta-unique** (top; replaces KP Cor. I.3.6): on `Θ_v`, `𝒥` takes values in `ℂ u`, and every
 Whittaker functional is `c ∘ 𝒥`. -/
 theorem whittaker_theta_unique (L : FinLocalCover D H v) (T : TorusRep D H v)
@@ -337,7 +353,151 @@ theorem whittaker_theta_unique (L : FinLocalCover D H v) (T : TorusRep D H v)
     (∀ f ∈ thetaSpace L T μ, jacquet L A μ f ∈ Submodule.span ℂ {shellVec D A B.weyl}) ∧
     ∀ Λ : (L.L → T.V) →ₗ[ℂ] ℂ, IsWhittakerOn L A (thetaSpace L T μ) Λ →
       ∃ c : T.V →ₗ[ℂ] ℂ, ∀ f ∈ thetaSpace L T μ, Λ f = c (jacquet L A μ f) := by
-  sorry
+  have hAdd : T.weyl.nacg.toAddCommMonoid = T.nacg.toAddCommMonoid := rfl
+  have hModule : T.weyl.nsp.toModule = T.nsp.toModule := rfl
+  have hs : (0 : ℝ) < (1 / 6 : ℂ).re := by norm_num
+  obtain ⟨hsub, hstable⟩ := thetaSpace_le L T μ
+  obtain ⟨τ, hτ⟩ := local_coefficient L T A μ (1 / 6) hs
+  have hrank := local_coefficient_rank_one L T B A μ hv hd τ hτ
+  let e := weylCarrierEquiv T
+  let eFun (f : L.L → T.V) : L.L → T.weyl.V := fun g => e.symm (f g)
+  let τW : T.weyl.V →ₗ[ℂ] T.weyl.V :=
+    e.symm.toLinearMap.comp (τ.comp e.toLinearMap)
+  have hJcast (f : L.L → T.V) :
+      e.symm (jacquet L A μ f) = jacquet L A μ (eFun f) := by
+    rfl
+  have hEfun (f : L.L → T.V) : eFun f = f := by
+    funext g
+    rfl
+  have hRangeMap : LinearMap.range τW = (LinearMap.range τ).map e.symm.toLinearMap := by
+    apply Submodule.ext
+    intro z
+    constructor
+    · rintro ⟨x, rfl⟩
+      refine ⟨τ (e x), LinearMap.mem_range_self τ (e x), ?_⟩
+      simp [τW]
+    · rintro ⟨y, hy, rfl⟩
+      rcases hy with ⟨x, rfl⟩
+      refine ⟨e.symm x, ?_⟩
+      simp [τW]
+  let uT : T.V := shellVec D A (T := T.weyl) B.weyl
+  let uW : T.weyl.V := e.symm.toLinearMap uT
+  have huW : uW = shellVec D A B.weyl := rfl
+  have hrankT : LinearMap.range τ = Submodule.span ℂ {uT} := by
+    cases hAdd
+    cases hModule
+    change LinearMap.range τ = Submodule.span ℂ {shellVec D A (T := T.weyl) B.weyl}
+    exact hrank
+  have hrankW : LinearMap.range τW = Submodule.span ℂ {uW} := by
+    calc
+      LinearMap.range τW = (LinearMap.range τ).map e.symm.toLinearMap := hRangeMap
+      _ = (Submodule.span ℂ {uT}).map e.symm.toLinearMap := by rw [hrankT]
+      _ = Submodule.span ℂ {uW} := by
+        rw [LinearMap.map_span]
+        simp [uW, Set.image_singleton]
+  have hzeroSectionW : IsSection L T.weyl (-(1 / 6 : ℂ)) (0 : L.L → T.weyl.V) := by
+    change (0 : L.L → T.weyl.V) ∈ sectionSpace L T.weyl (-(1 / 6 : ℂ))
+    exact Submodule.zero_mem _
+  have hzeroW : jacquet L A μ (0 : L.L → T.weyl.V) = 0 := by
+    have hlin := jacquet_linear L T.weyl A μ (-(1 / 6 : ℂ)) 0 0
+      hzeroSectionW hzeroSectionW (1 : ℂ)
+    have heq : jacquet L A μ (0 : L.L → T.weyl.V) =
+        jacquet L A μ (0 : L.L → T.weyl.V) + jacquet L A μ (0 : L.L → T.weyl.V) := by
+      calc
+        jacquet L A μ (0 : L.L → T.weyl.V) =
+            jacquet L A μ (0 + (1 : ℂ) • (0 : L.L → T.weyl.V)) := by simp
+        _ = jacquet L A μ (0 : L.L → T.weyl.V) +
+            (1 : ℂ) • jacquet L A μ (0 : L.L → T.weyl.V) := hlin
+        _ = jacquet L A μ (0 : L.L → T.weyl.V) +
+            jacquet L A μ (0 : L.L → T.weyl.V) := by simp
+    have heq' : jacquet L A μ (0 : L.L → T.weyl.V) + 0 =
+        jacquet L A μ (0 : L.L → T.weyl.V) + jacquet L A μ (0 : L.L → T.weyl.V) := by
+      simpa using heq
+    exact (add_left_cancel heq').symm
+  have hImage (x : L.L → T.V) (hx : x ∈ thetaSpace L T μ) :
+      jacquet L A μ (eFun x) ∈ Submodule.span ℂ {uW} := by
+    change x ∈ Submodule.span ℂ (intertwine L μ '' {f | IsSection L T (1 / 6) f}) at hx
+    refine Submodule.span_induction
+      (p := fun y _ => jacquet L A μ (eFun y) ∈
+        Submodule.span ℂ {uW}) ?_ ?_ ?_ ?_ hx
+    · intro y hy
+      rcases hy with ⟨f₀, hf₀, rfl⟩
+      have hτW : jacquet L A μ (eFun (intertwine L μ f₀)) =
+          τW (jacquet L A μ (eFun f₀)) := by
+        rw [← hJcast (intertwine L μ f₀), hτ f₀ hf₀, ← hJcast f₀]
+        simp [τW]
+      rw [hτW, ← hrankW]
+      exact LinearMap.mem_range_self τW (jacquet L A μ (eFun f₀))
+    · have hz : jacquet L A μ (eFun (0 : L.L → T.V)) = 0 := by
+        change jacquet L A μ (0 : L.L → T.weyl.V) = 0
+        exact hzeroW
+      rw [hz]
+      exact Submodule.zero_mem _
+    · intro x y hx hy hpx hpy
+      have hxs : IsSection L T.weyl (-(1 / 6 : ℂ)) x := hsub hx
+      have hys : IsSection L T.weyl (-(1 / 6 : ℂ)) y := hsub hy
+      have hxsW : IsSection L T.weyl (-(1 / 6 : ℂ)) (eFun x) := by
+        change IsSection L T.weyl (-(1 / 6 : ℂ)) x
+        exact hxs
+      have hysW : IsSection L T.weyl (-(1 / 6 : ℂ)) (eFun y) := by
+        change IsSection L T.weyl (-(1 / 6 : ℂ)) y
+        exact hys
+      have hsum : eFun (x + y) = eFun x + eFun y := by
+        change x + y = x + y
+        rfl
+      rw [hsum]
+      have hlin' : jacquet L A μ (eFun x + eFun y) =
+          jacquet L A μ (eFun x) + jacquet L A μ (eFun y) := by
+        calc
+          jacquet L A μ (eFun x + eFun y) =
+              jacquet L A μ (eFun x + (1 : ℂ) • eFun y) := by simp
+          _ = jacquet L A μ (eFun x) +
+                (1 : ℂ) • jacquet L A μ (eFun y) :=
+              jacquet_linear L T.weyl A μ (-(1 / 6 : ℂ))
+                (eFun x) (eFun y) hxsW hysW (1 : ℂ)
+          _ = jacquet L A μ (eFun x) + jacquet L A μ (eFun y) := by simp
+      rw [hlin']
+      exact Submodule.add_mem _ hpx hpy
+    · intro c x hx hpx
+      have hxs : IsSection L T.weyl (-(1 / 6 : ℂ)) x := hsub hx
+      have hxsW : IsSection L T.weyl (-(1 / 6 : ℂ)) (eFun x) := by
+        change IsSection L T.weyl (-(1 / 6 : ℂ)) x
+        exact hxs
+      have hsmul : eFun (c • x) = c • eFun x := by
+        change c • x = c • x
+        rfl
+      rw [hsmul]
+      have hlin' : jacquet L A μ (c • eFun x) = c • jacquet L A μ (eFun x) := by
+        calc
+          jacquet L A μ (c • eFun x) = jacquet L A μ (0 + c • eFun x) := by simp
+          _ = jacquet L A μ 0 + c • jacquet L A μ (eFun x) :=
+            jacquet_linear L T.weyl A μ (-(1 / 6 : ℂ)) 0 (eFun x)
+              hzeroSectionW hxsW c
+          _ = c • jacquet L A μ (eFun x) := by simp [hzeroW]
+      rw [hlin']
+      exact Submodule.smul_mem _ c hpx
+  constructor
+  · intro f hf
+    have hfW := hImage f hf
+    rw [← huW]
+    change jacquet L A μ (eFun f) ∈ Submodule.span ℂ {uW}
+    exact hfW
+  · intro Λ hΛ
+    obtain ⟨Λ', hΛ', hrestrict⟩ :=
+      whittaker_extend L T.weyl A (-(1 / 6 : ℂ)) (thetaSpace L T μ) hsub hstable Λ hΛ
+    obtain ⟨c, hc⟩ := whittaker_twoCell L T.weyl A μ (-(1 / 6 : ℂ)) Λ' hΛ'
+    let c' : T.V →ₗ[ℂ] ℂ := by
+      cases hAdd
+      cases hModule
+      exact c
+    refine ⟨c', ?_⟩
+    intro f hf
+    calc
+      Λ f = Λ' f := (hrestrict f hf).symm
+      _ = c' (jacquet L A μ f) := by
+        cases hAdd
+        cases hModule
+        exact hc f (hsub hf)
 
 /-- **wh:dim-le-one**: `dim Wh(Θ_v) ≤ 1`, in the form used for normalization. -/
 theorem whittaker_theta_dim_le_one (L : FinLocalCover D H v) (T : TorusRep D H v)
