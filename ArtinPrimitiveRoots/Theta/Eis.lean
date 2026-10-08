@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».LocalModel
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.GoodFactor
 
 set_option autoImplicit false
 
@@ -234,6 +235,24 @@ theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
     torusCoeff P (eisenstein P G Fs) g Pd 0 =
       ∑' δ : Fˣ ⧸ G.Δ, (scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL (Quotient.out δ)) * g) +
         scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out δ)) * g)) := by
+  sorry
+
+/-- The local Whittaker factor is one outside the exceptional support. -/
+theorem whit_good_factor (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x : P.RP) (δ : Fˣ) (v : FinPlace F) (hv : v ∉ Fs.T0)
+    (hu : IsLocUnit v (toLoc v δ))
+    (hk : P.compF v x ∈ (P.tame v (fun h => hv (Fs.sub h))).Kmax) :
+    G.lam v ((G.T v).σa (toLoc v δ)
+      (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) = 1 := by
+  sorry
+
+/-- A fixed lift and rational torus element have only finitely many nonidentity factors. -/
+theorem whit_finite_mulSupport (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x : P.RP) (δ : Fˣ) :
+    (Function.mulSupport fun v => G.lam v ((G.T v).σa (toLoc v δ)
+      (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v))))).Finite := by
   sorry
 
 /-- The unfolded summand evaluated at a specified restricted-product lift. -/
