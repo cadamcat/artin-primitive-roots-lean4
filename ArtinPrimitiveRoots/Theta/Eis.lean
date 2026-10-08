@@ -8,6 +8,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexMajorant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.CubeClasses
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.LocalValuation
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.FiniteMajorant
+import Mathlib.NumberTheory.NumberField.Discriminant.Basic
 set_option autoImplicit false
 open NumberField IsDedekindDomain
 open scoped Classical
@@ -1243,6 +1244,74 @@ theorem ideal_periodic_domain_comparison (D : FieldData F)
     intro t x
     change f ((t : InfinitePlace F → ℂ) + x) = f x
     exact hf t (by rw [← hlat]; exact t.property) x
+
+/-- The complex-place covolume of a nonzero fractional ideal in the global Haar normalization. -/
+theorem ideal_domain_covolume (D : FieldData F)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume) :
+    (volume Pd).toReal = κF F * (FractionalIdeal.absNorm 𝔞 : ℝ) := by
+  classical
+  let : IsTotallyComplex F := D.isTotallyComplex
+  let : IsEmpty {w : InfinitePlace F // w.IsReal} :=
+    ⟨fun w => (InfinitePlace.not_isReal_iff_isComplex.mpr
+      (IsTotallyComplex.isComplex w.1)) w.2⟩
+  let : IsProbabilityMeasure
+      (volume : Measure ({w : InfinitePlace F // w.IsReal} → ℝ)) :=
+    ⟨by simp [volume_pi]⟩
+  let ec : {w : InfinitePlace F // w.IsComplex} ≃ InfinitePlace F :=
+    { toFun := Subtype.val
+      invFun := fun w => ⟨w, IsTotallyComplex.isComplex w⟩
+      left_inv := fun w => by rfl
+      right_inv := fun w => by rfl }
+  let e := ArtinPrimitiveRoots.A1.Spec.complexPlaceLinearEquiv (F := F)
+  let E := e.toContinuousLinearEquiv
+  have he : MeasurePreserving E volume volume := by
+    exact (volume_measurePreserving_piCongrLeft (fun _ : InfinitePlace F => ℂ) ec).comp
+      measurePreserving_snd
+  have hes : MeasurePreserving E.symm volume volume :=
+    MeasurePreserving.symm E.toHomeomorph.toMeasurableEquiv he
+  let I : (FractionalIdeal (nonZeroDivisors (𝓞 F)) F)ˣ := Units.mk0 𝔞 h𝔞
+  let L := mixedEmbedding.idealLattice F I
+  let Lc := ZLattice.comap ℝ L E.symm.toLinearMap
+  have hemb (y : F) : E (mixedEmbedding F y) = infEmbA y := by
+    ext w
+    rfl
+  have hlat : Lc.toAddSubgroup =
+      (𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom := by
+    apply AddSubgroup.ext
+    intro x
+    change E.symm x ∈ mixedEmbedding.idealLattice F I ↔
+      x ∈ (I : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom
+    rw [mixedEmbedding.mem_idealLattice]
+    constructor
+    · rintro ⟨y, hy, heq⟩
+      refine ⟨y, hy, ?_⟩
+      have h := congrArg E heq
+      change infEmbA y = x
+      simpa only [hemb, E.apply_symm_apply] using h
+    · rintro ⟨y, hy, heq⟩
+      refine ⟨y, hy, ?_⟩
+      apply E.injective
+      change infEmbA y = x at heq
+      simpa only [hemb, E.apply_symm_apply] using heq
+  have hfd : IsAddFundamentalDomain Lc Pd volume := by
+    change IsAddFundamentalDomain Lc.toAddSubgroup Pd volume
+    rw [hlat]
+    exact hPd
+  have hn : NumberField.InfinitePlace.nrComplexPlaces F = numComplex F := Fintype.card_congr ec
+  calc
+    (volume Pd).toReal = ZLattice.covolume Lc volume := by
+      simpa only [measureReal_def] using
+        (ZLattice.covolume_eq_measure_fundamentalDomain Lc volume hfd).symm
+    _ = ZLattice.covolume L volume := ZLattice.covolume_comap L volume volume hes
+    _ = (FractionalIdeal.absNorm 𝔞 : ℝ) * (2⁻¹ : ℝ) ^ NumberField.InfinitePlace.nrComplexPlaces F *
+        Real.sqrt |(NumberField.discr F : ℝ)| := by
+      exact mixedEmbedding.covolume_idealLattice F I
+    _ = κF F * (FractionalIdeal.absNorm 𝔞 : ℝ) := by
+      simp only [κF, hn, zpow_neg, zpow_natCast, inv_pow]
+      ring
 
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
