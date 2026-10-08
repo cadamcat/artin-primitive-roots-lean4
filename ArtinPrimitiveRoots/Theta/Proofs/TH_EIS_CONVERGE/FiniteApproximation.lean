@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Theta.LocalInt
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Approximation
+import Mathlib.Data.DFinsupp.Defs
 
 set_option autoImplicit false
 
@@ -204,5 +205,140 @@ theorem fractionalIdeal_mem_iff_local_bounds
         _ ≤ 1 * 𝔞 := by simpa only [mul_comm] using mul_le_mul_right hJle 𝔞
         _ = 𝔞 := one_mul _
     exact FractionalIdeal.spanSingleton_le_iff_mem.mp hIle
+
+/-- The local additive period subgroup associated with a fractional ideal. -/
+def idealLocalPeriods
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (v : FinPlace F) :
+    AddSubgroup (v.adicCompletion F) where
+  carrier := {x | absFin v x ≤ (qv v) ^ (-FractionalIdeal.count F v 𝔞)}
+  zero_mem' := by
+    change absFin v 0 ≤ (qv v) ^ (-FractionalIdeal.count F v 𝔞)
+    rw [absFin_eq_norm, norm_zero]
+    exact (zpow_pos (zero_lt_one.trans (qv_gt_one v)) _).le
+  add_mem' := by
+    intro x y hx hy
+    simp only [absFin_eq_norm] at hx hy ⊢
+    exact (IsUltrametricDist.norm_add_le_max x y).trans (max_le hx hy)
+  neg_mem' := by
+    intro x hx
+    simpa only [Set.mem_ofPred_eq, absFin_eq_norm, norm_neg] using hx
+
+/-- Rational classes modulo an ideal give the direct sum of all local additive period quotients. -/
+theorem ideal_additive_quotient_equiv
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0) :
+    ∃ E : (F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup) ≃+
+        (Π₀ v : FinPlace F, (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v),
+      ∀ (ξ : F) (v : FinPlace F),
+        E (QuotientAddGroup.mk ξ) v =
+          QuotientAddGroup.mk (algebraMap F (v.adicCompletion F) ξ) := by
+  classical
+  let c (v : FinPlace F) : ℤ := FractionalIdeal.count F v 𝔞
+  let Q (v : FinPlace F) := (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v
+  let C := Π₀ v : FinPlace F, Q v
+  let q (ξ : F) (v : FinPlace F) : Q v :=
+    QuotientAddGroup.mk (algebraMap F (v.adicCompletion F) ξ)
+  have hc : (Function.support c).Finite :=
+    Filter.eventually_cofinite.mp (FractionalIdeal.finite_factors 𝔞)
+  have hfinite (ξ : F) : {v : FinPlace F | q ξ v ≠ 0}.Finite := by
+    by_cases hξ : ξ = 0
+    · simp [q, hξ]
+    let d (v : FinPlace F) : ℤ := FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ξ)
+    have hd : (Function.support d).Finite := Filter.eventually_cofinite.mp
+      (FractionalIdeal.finite_factors (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ξ))
+    apply (hc.union hd).subset
+    intro v hv
+    by_contra hnot
+    have hc0 : c v = 0 := by
+      by_contra h
+      exact hnot (Or.inl h)
+    have hd0 : d v = 0 := by
+      by_contra h
+      exact hnot (Or.inr h)
+    apply hv
+    change (QuotientAddGroup.mk (algebraMap F (v.adicCompletion F) ξ) : Q v) = 0
+    apply (QuotientAddGroup.eq_zero_iff _).mpr
+    change absFin v (algebraMap F (v.adicCompletion F) ξ) ≤ (qv v) ^ (-c v)
+    have hnorm : absFin v (algebraMap F (v.adicCompletion F) ξ) = (qv v) ^ (-d v) := by
+      rw [absFin_eq_norm]
+      change ‖FinitePlace.embedding v ξ‖ = _
+      exact norm_embedding_eq_absNorm_zpow v ξ hξ
+    rw [hnorm, hc0, hd0]
+  let f0 (ξ : F) : C := DFinsupp.mk (hfinite ξ).toFinset (fun v => q ξ v.1)
+  have hfeval (ξ : F) (v : FinPlace F) : f0 ξ v = q ξ v := by
+    dsimp only [f0]
+    by_cases hv : v ∈ (hfinite ξ).toFinset
+    · rw [DFinsupp.mk_of_mem hv]
+    · rw [DFinsupp.mk_of_notMem hv]
+      exact (not_not.mp fun h => hv ((hfinite ξ).mem_toFinset.mpr h)).symm
+  let f : F →+ C :=
+    { toFun := f0
+      map_zero' := by
+        apply DFinsupp.ext
+        intro v
+        rw [hfeval]
+        change (QuotientAddGroup.mk (algebraMap F (v.adicCompletion F) 0) : Q v) = 0
+        simp
+      map_add' := by
+        intro ξ η
+        apply DFinsupp.ext
+        intro v
+        change f0 (ξ + η) v = f0 ξ v + f0 η v
+        simp only [hfeval, q, map_add, QuotientAddGroup.mk_add] }
+  have hf (ξ : F) (v : FinPlace F) : f ξ v = q ξ v := hfeval ξ v
+  let J := (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  have hker : J = f.ker := by
+    apply AddSubgroup.ext
+    intro ξ
+    change ξ ∈ (𝔞 : Submodule (𝓞 F) F) ↔ f ξ = 0
+    rw [fractionalIdeal_mem_iff_local_bounds 𝔞 h𝔞 ξ]
+    constructor
+    · intro hξ
+      apply DFinsupp.ext
+      intro v
+      rw [hf]
+      exact (QuotientAddGroup.eq_zero_iff _).mpr (hξ v)
+    · intro hξ v
+      have hv := congrArg (fun z : C => z v) hξ
+      rw [hf, DFinsupp.zero_apply] at hv
+      exact (QuotientAddGroup.eq_zero_iff _).mp hv
+  have hsurj : Function.Surjective f := by
+    intro a
+    let x (v : FinPlace F) : v.adicCompletion F := Quotient.out (a v)
+    have hx : {v : FinPlace F | 1 < absFin v (x v)}.Finite := by
+      apply ((DFinsupp.finite_support a).union hc).subset
+      intro v hv
+      by_contra hnot
+      have hav0 : a v = 0 := by
+        by_contra h
+        exact hnot (Or.inl h)
+      have hc0 : c v = 0 := by
+        by_contra h
+        exact hnot (Or.inr h)
+      have hclass : (QuotientAddGroup.mk (x v) : Q v) = 0 :=
+        (Quotient.out_eq (a v)).trans hav0
+      have hmem := (QuotientAddGroup.eq_zero_iff _).mp hclass
+      change absFin v (x v) ≤ (qv v) ^ (-c v) at hmem
+      rw [hc0, neg_zero, zpow_zero] at hmem
+      exact (not_le_of_gt hv) hmem
+    obtain ⟨ξ, hξ⟩ := finite_adelic_additive_approximation x hx c hc
+    refine ⟨ξ, ?_⟩
+    apply DFinsupp.ext
+    intro v
+    rw [hf]
+    calc
+      q ξ v = (QuotientAddGroup.mk (x v) : Q v) := by
+        dsimp only [q]
+        apply QuotientAddGroup.eq_iff_sub_mem.mpr
+        change absFin v (algebraMap F (v.adicCompletion F) ξ - x v) ≤ (qv v) ^ (-c v)
+        have hneg : algebraMap F (v.adicCompletion F) ξ - x v =
+            -(x v - algebraMap F (v.adicCompletion F) ξ) := by abel
+        rw [hneg, absFin_eq_norm, norm_neg]
+        simpa only [absFin_eq_norm] using hξ v
+      _ = a v := Quotient.out_eq (a v)
+  refine ⟨QuotientAddGroup.liftEquiv J hsurj hker, ?_⟩
+  intro ξ v
+  rw [QuotientAddGroup.liftEquiv_mk]
+  exact hf ξ v
 
 end ArtinPrimitiveRoots.A1.Theta
