@@ -3464,6 +3464,65 @@ private theorem rf_S_orbit_multiplier
   rw [hyclass]
   ring
 
+private theorem rf_S_profile_integral
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) (κ : S.V) (l : ℝ) (hl : 0 < l) :
+    let m : S.FSˣ → ℂ := fun y =>
+      (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+        R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y
+    Integrable (onUnits (fun y => m y * rotated R u y)) (R.sheets.sheet l) ∧
+      sheetIntegral R l (fun y => m y * rotated R u y) =
+        ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ l := by
+  classical
+  let m : S.FSˣ → ℂ := fun y =>
+    (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+      R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y
+  change Integrable (onUnits (fun y => m y * rotated R u y)) (R.sheets.sheet l) ∧
+    sheetIntegral R l (fun y => m y * rotated R u y) =
+      ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ l
+  let b : S.V → ℂ := fun x =>
+    (if κ * x⁻¹ ∈ Bd.B then 1 else 0) * R.pairing.pair κ x ^ 2
+  have hb : ∀ x, ‖b x‖ ≤ 1 := by
+    intro x
+    by_cases hx : κ * x⁻¹ ∈ Bd.B <;> simp [b, hx, R.pairing.unitary κ x]
+  have hm : Theta.SheetMultiplier S (onUnits m) := by
+    refine ⟨R.chars.L u, 1, b, ⟨1, hb⟩, ?_⟩
+    intro y
+    have hunit : IsUnit (y : S.FS) := Units.isUnit y
+    have hunit_eq : hunit.unit = y := by
+      apply Units.ext
+      exact hunit.unit_spec
+    change (if h : IsUnit (y : S.FS) then m h.unit else 0) =
+      (((R.chars.L u).L y : ℂˣ) : ℂ) ^ (1 : ℤ) * b (cls y)
+    rw [dif_pos hunit, hunit_eq]
+    by_cases hy : κ * (cls y)⁻¹ ∈ Bd.B
+    · simp [m, b, Lvalue, hy, mul_comm, mul_left_comm]
+    · simp [m, b, Lvalue, hy]
+  let tensor : Fin (R.rotated u).J → S.FSˣ → ℂ := fun ℓ y =>
+    m y * (∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+      ∏ w : InfinitePlace F, (R.rotated u).fc ℓ w ((y : S.FS).2 w)
+  have hTensor (ℓ : Fin (R.rotated u).J) :
+      Integrable (onUnits (tensor ℓ)) (R.sheets.sheet l) :=
+    a2_bridge_ANALYSIS_tensor (G := R.sheets) R.T.δ R.T.δ_pos
+      (R.rotated u).J (R.rotated u).ff (R.rotated u).fc
+      (R.rotated u).finite_bound (R.rotated u).complex_bound m hm ℓ l hl
+  have hSum : onUnits (fun y => m y * rotated R u y) =
+      fun y => ∑ ℓ : Fin (R.rotated u).J, onUnits (tensor ℓ) y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, tensor]
+      rw [show rotated R u hy.unit =
+        Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc
+          (hy.unit : S.FS) from R.rotated_eq u hy.unit]
+      simp only [Theta.sumProd, Finset.mul_sum, mul_assoc]
+    · simp [onUnits, hy]
+  constructor
+  · rw [hSum]
+    exact integrable_finsetSum Finset.univ (fun ℓ _ => hTensor ℓ)
+  · unfold sheetIntegral
+    rw [hSum, integral_finsetSum Finset.univ (fun ℓ _ => hTensor ℓ)]
+    rfl
+
 /-- rf:S-unfolding, 04:804–857. Inversion changes l to 1/l without a norm Jacobian. -/
 theorem rf_S_unfolding : ∀ u ν l, 0 < l →
   let term := fun γ : Gamma S => omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
