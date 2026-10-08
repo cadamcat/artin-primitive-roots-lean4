@@ -1159,6 +1159,193 @@ private theorem covol_arch_test_fourier_inversion (x : InfinitePlace F → ℂ) 
         (covol_arch_test : (InfinitePlace F → ℂ) → ℂ) y) x = covol_arch_test (-x) :=
   ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier_inversion covol_arch_test x
 
+private theorem covol_sFS_prod_eq_borel (S : SData F CE condη) :
+    (Prod.instMeasurableSpace : MeasurableSpace S.FS) = borel S.FS := by
+  letI : MeasurableSpace S.FS := Prod.instMeasurableSpace
+  letI : BorelSpace S.FS := inferInstance
+  exact BorelSpace.measurable_eq
+
+@[instance_reducible] private noncomputable def covol_sFSProductMeas
+    (S : SData F CE condη) : MeasurableSpace S.FS := Prod.instMeasurableSpace
+
+@[instance_reducible] private noncomputable def covol_sFSBorelMeas
+    (S : SData F CE condη) : MeasurableSpace S.FS := borel S.FS
+
+private theorem covol_sFSProductMeas_eq_borel (S : SData F CE condη) :
+    covol_sFSProductMeas S = covol_sFSBorelMeas S := by
+  letI : MeasurableSpace S.FS := covol_sFSProductMeas S
+  letI : BorelSpace S.FS := inferInstance
+  exact BorelSpace.measurable_eq
+
+private noncomputable abbrev covol_sFSULiftProductMeas (S : SData F CE condη) :
+    MeasurableSpace (ULift.{0} S.FS) :=
+  @ULift.instMeasurableSpace S.FS (covol_sFSProductMeas S)
+
+@[instance_reducible] private noncomputable local instance covol_instMeasurableULiftProd
+    (S : SData F CE condη) : MeasurableSpace (ULift.{0} S.FS) :=
+  covol_sFSULiftProductMeas S
+
+private noncomputable def covol_sFSUpAddEquiv (S : SData F CE condη) :
+    S.FS ≃+ ULift.{0} S.FS where
+  toFun := ULift.up
+  invFun := ULift.down
+  left_inv _ := rfl
+  right_inv := fun x => by cases x; rfl
+  map_add' _ _ := rfl
+
+private theorem covol_sFSUp_measurable_prod (S : SData F CE condη) :
+    @Measurable S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+      (covol_sFSULiftProductMeas S) ULift.up := by
+  letI : MeasurableSpace S.FS := covol_sFSProductMeas S
+  letI : MeasurableSpace (ULift.{0} S.FS) := covol_sFSULiftProductMeas S
+  exact measurable_up
+
+private theorem covol_sFSDown_measurable_prod (S : SData F CE condη) :
+    @Measurable (ULift.{0} S.FS) S.FS (covol_sFSULiftProductMeas S)
+      (covol_sFSProductMeas S) ULift.down := by
+  letI : MeasurableSpace S.FS := covol_sFSProductMeas S
+  letI : MeasurableSpace (ULift.{0} S.FS) := covol_sFSULiftProductMeas S
+  exact measurable_down
+
+private noncomputable def covol_sFSUpProdMeasEquiv (S : SData F CE condη) :
+    @MeasurableEquiv S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+      (covol_sFSULiftProductMeas S) := by
+  letI : MeasurableSpace S.FS := covol_sFSProductMeas S
+  letI : MeasurableSpace (ULift.{0} S.FS) := covol_sFSULiftProductMeas S
+  exact @MeasurableEquiv.mk S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+    (covol_sFSULiftProductMeas S) (covol_sFSUpAddEquiv S).toEquiv
+    (covol_sFSUp_measurable_prod S) (covol_sFSDown_measurable_prod S)
+
+private noncomputable def covol_sFSDownAddEquiv (S : SData F CE condη) :
+    ULift.{0} S.FS ≃+ S.FS := (covol_sFSUpAddEquiv S).symm
+
+private noncomputable def covol_sFSDownBorelMeasEquiv (S : SData F CE condη) :
+    @MeasurableEquiv (ULift.{0} S.FS) S.FS (covol_sFSULiftProductMeas S)
+      (covol_sFSBorelMeas S) := by
+  letI : MeasurableSpace (ULift.{0} S.FS) := covol_sFSULiftProductMeas S
+  letI : MeasurableSpace S.FS := covol_sFSBorelMeas S
+  have hProdBorel := covol_sFSProductMeas_eq_borel S
+  have hdown : @Measurable (ULift.{0} S.FS) S.FS (covol_sFSULiftProductMeas S)
+      (covol_sFSBorelMeas S) ULift.down :=
+    @Measurable.of_le_map (ULift.{0} S.FS) S.FS (covol_sFSULiftProductMeas S)
+      (covol_sFSBorelMeas S) ULift.down (by
+        change covol_sFSBorelMeas S ≤
+          (covol_sFSULiftProductMeas S).map ULift.down
+        calc
+          _ = covol_sFSProductMeas S := hProdBorel.symm
+          _ ≤ _ := (covol_sFSDown_measurable_prod S).le_map)
+  have hup : @Measurable S.FS (ULift.{0} S.FS) (covol_sFSBorelMeas S)
+      (covol_sFSULiftProductMeas S) ULift.up :=
+    @Measurable.of_le_map S.FS (ULift.{0} S.FS) (covol_sFSBorelMeas S)
+      (covol_sFSULiftProductMeas S) ULift.up (by
+        change covol_sFSULiftProductMeas S ≤
+          (covol_sFSBorelMeas S).map ULift.up
+        calc
+          _ ≤ (covol_sFSProductMeas S).map ULift.up :=
+            (covol_sFSUp_measurable_prod S).le_map
+          _ = _ := congrArg (fun m : MeasurableSpace S.FS => m.map ULift.up)
+            hProdBorel)
+  exact @MeasurableEquiv.mk (ULift.{0} S.FS) S.FS (covol_sFSULiftProductMeas S)
+    (covol_sFSBorelMeas S) (covol_sFSDownAddEquiv S).toEquiv hdown hup
+
+private theorem covol_sFSULiftProduct_borel (S : SData F CE condη) :
+    @BorelSpace (ULift.{0} S.FS) (inferInstance : TopologicalSpace (ULift.{0} S.FS))
+      (covol_sFSULiftProductMeas S) := by
+  letI : MeasurableSpace S.FS := covol_sFSProductMeas S
+  letI : BorelSpace S.FS := ⟨by
+    change covol_sFSProductMeas S = borel S.FS
+    exact covol_sFSProductMeas_eq_borel S⟩
+  letI : MeasurableSpace (ULift.{0} S.FS) := covol_sFSULiftProductMeas S
+  exact ULift.instBorelSpace
+
+private noncomputable def covol_selfdual_measure_prod
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) :
+    @Measure S.FS Prod.instMeasurableSpace :=
+  (Measure.pi fun v : S.Sf => covol_local_selfdual_at D S A v).prod
+    (ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar (InfinitePlace F))
+
+private noncomputable def covol_selfdual_measure_candidate
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) : Measure S.FS := by
+  exact @Measure.map (ULift.{0} S.FS) S.FS (covol_sFSULiftProductMeas S)
+    (covol_sFSBorelMeas S) (covol_sFSDownBorelMeasEquiv S) <|
+      @Measure.map S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+        (covol_sFSULiftProductMeas S) (covol_sFSUpProdMeasEquiv S)
+        (covol_selfdual_measure_prod D S A)
+
+private theorem covol_isAddHaarMeasure_pi {ι : Type*} [Fintype ι] {G : ι → Type*}
+    [∀ i, AddCommGroup (G i)] [∀ i, TopologicalSpace (G i)] [∀ i, MeasurableSpace (G i)]
+    [∀ i, SigmaCompactSpace (G i)] [∀ i, MeasurableAdd (G i)]
+    (μ : ∀ i, Measure (G i)) (hμ : ∀ i, Measure.IsAddHaarMeasure (μ i)) :
+    Measure.IsAddHaarMeasure (Measure.pi μ) := by
+  letI : ∀ i, Measure.IsAddHaarMeasure (μ i) := hμ
+  letI : ∀ i, SigmaFinite (μ i) := fun i => inferInstance
+  refine {
+    toIsFiniteMeasureOnCompacts := inferInstance
+    toIsAddLeftInvariant := {
+      map_add_left_eq_self := by
+        intro a
+        have hcoord (i : ι) : MeasurePreserving (fun x : G i => a i + x) (μ i) (μ i) :=
+          measurePreserving_add_left (μ i) (a i)
+        exact (MeasureTheory.measurePreserving_pi μ μ (f := fun i x => a i + x)
+          hcoord).map_eq }
+    toIsOpenPosMeasure := inferInstance }
+
+private theorem covol_selfdual_measure_candidate_isHaar
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) :
+    Measure.IsAddHaarMeasure (covol_selfdual_measure_candidate D S A) := by
+  letI : ∀ v : S.Sf, MeasurableAdd (v.1.adicCompletion F) := fun _ => inferInstance
+  have hfin : Measure.IsAddHaarMeasure
+      (Measure.pi fun v : S.Sf => covol_local_selfdual_at D S A v) :=
+    covol_isAddHaarMeasure_pi (fun v : S.Sf => covol_local_selfdual_at D S A v)
+      (fun v => covol_local_selfdual_at_isHaar D S A v)
+  have hprod : @Measure.IsAddHaarMeasure S.FS _ _ Prod.instMeasurableSpace
+      (covol_selfdual_measure_prod D S A) := by
+    letI : MeasurableSpace S.FS := Prod.instMeasurableSpace
+    letI : Measure.IsAddHaarMeasure
+        (Measure.pi fun v : S.Sf => covol_local_selfdual_at D S A v) := hfin
+    letI : Measure.IsAddHaarMeasure
+        (ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar (InfinitePlace F)) :=
+      ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar_isAddHaar
+    dsimp [covol_selfdual_measure_prod]
+    infer_instance
+  have hUp : @Measure.IsAddHaarMeasure (ULift.{0} S.FS) _ _
+      (covol_sFSULiftProductMeas S)
+      (@Measure.map S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+        (covol_sFSULiftProductMeas S) (covol_sFSUpAddEquiv S)
+        (covol_selfdual_measure_prod D S A)) := by
+    letI : MeasurableSpace S.FS := covol_sFSProductMeas S
+    have hBP : @BorelSpace S.FS (inferInstance : TopologicalSpace S.FS)
+        (covol_sFSProductMeas S) := inferInstance
+    have hBU := covol_sFSULiftProduct_borel S
+    exact @AddEquiv.isAddHaarMeasure_map S.FS (covol_sFSProductMeas S) _ _
+      (covol_selfdual_measure_prod D S A) hprod hBP
+      (inferInstance : ContinuousAdd S.FS) (ULift.{0} S.FS) _ _
+      (covol_sFSULiftProductMeas S) hBU inferInstance (covol_sFSUpAddEquiv S)
+      Homeomorph.ulift.symm.continuous Homeomorph.ulift.continuous
+  have hDown : @Measure.IsAddHaarMeasure S.FS _ _ (covol_sFSBorelMeas S)
+      (@Measure.map (ULift.{0} S.FS) S.FS (covol_sFSULiftProductMeas S)
+        (covol_sFSBorelMeas S) (covol_sFSDownAddEquiv S)
+        (@Measure.map S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+          (covol_sFSULiftProductMeas S) (covol_sFSUpAddEquiv S)
+          (covol_selfdual_measure_prod D S A))) := by
+    letI : Measure.IsAddHaarMeasure
+        (@Measure.map S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+          (covol_sFSULiftProductMeas S) (covol_sFSUpAddEquiv S)
+          (covol_selfdual_measure_prod D S A)) := hUp
+    have hBU := covol_sFSULiftProduct_borel S
+    have hBTarget : @BorelSpace S.FS (inferInstance : TopologicalSpace S.FS)
+        (covol_sFSBorelMeas S) := ⟨rfl⟩
+    exact @AddEquiv.isAddHaarMeasure_map (ULift.{0} S.FS)
+      (covol_sFSULiftProductMeas S) _ _
+      (@Measure.map S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+        (covol_sFSULiftProductMeas S) (covol_sFSUpAddEquiv S)
+        (covol_selfdual_measure_prod D S A)) hUp hBU
+      (inferInstance : ContinuousAdd (ULift.{0} S.FS)) S.FS _ _
+      (covol_sFSBorelMeas S) hBTarget inferInstance (covol_sFSDownAddEquiv S)
+      Homeomorph.ulift.continuous Homeomorph.ulift.symm.continuous
+  change Measure.IsAddHaarMeasure (covol_selfdual_measure_candidate D S A)
+  exact hDown
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
