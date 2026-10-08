@@ -1,4 +1,6 @@
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FAMILY_FIELDS.Defs
+import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_FOURIER.constantCell_finite_analytic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_FAMILY_FIELDS.theta_fourier_expansion
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
@@ -9,6 +11,244 @@ open ArtinPrimitiveRoots.A1
 variable {F : Type} [Field F] [NumberField F]
 variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE condη}
   {H : HilbertData F} {A : AddCharData F}
+
+/-! ### The complex intertwined spherical factor -/
+
+/-- The explicit value of the spherical section on a right root translate. -/
+private theorem thetaN_sphC_mul_nC (s : ℂ) (M : GL (Fin 2) ℂ) (z : ℂ) :
+    sphC s (QuotientGroup.mk M * nC z) =
+      ((‖(M : Matrix (Fin 2) (Fin 2) ℂ).det‖ /
+        (‖(M : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+          ‖(M : Matrix (Fin 2) (Fin 2) ℂ) 1 0 * z + (M : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2) : ℝ) :
+        ℂ) ^ (1 + 2 * s) := by
+  have hmk : (QuotientGroup.mk M : PGL2 ℂ) * nC z = QuotientGroup.mk (M * upperM ℂ z) := rfl
+  rw [hmk, sphC_mk]
+  unfold sphericalC
+  have hU : ((upperM ℂ z : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) = !![1, z; 0, 1] := rfl
+  have hdet : ((M * upperM ℂ z : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ).det =
+      (M : Matrix (Fin 2) (Fin 2) ℂ).det := by
+    rw [Units.val_mul, Matrix.det_mul, hU]
+    simp [Matrix.det_fin_two]
+  have h10 : ((M * upperM ℂ z : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0 =
+      (M : Matrix (Fin 2) (Fin 2) ℂ) 1 0 := by
+    rw [Units.val_mul, hU]
+    simp [Matrix.mul_apply, Fin.sum_univ_two]
+  have h11 : ((M * upperM ℂ z : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1 =
+      (M : Matrix (Fin 2) (Fin 2) ℂ) 1 0 * z + (M : Matrix (Fin 2) (Fin 2) ℂ) 1 1 := by
+    rw [Units.val_mul, hU]
+    simp [Matrix.mul_apply, Fin.sum_univ_two]
+  rw [hdet, h10, h11]
+
+private theorem thetaN_GL_det_ne_zero (M : GL (Fin 2) ℂ) :
+    (M : Matrix (Fin 2) (Fin 2) ℂ).det ≠ 0 := by
+  have h := congrArg Matrix.det M.mul_inv
+  rw [Matrix.det_mul, Matrix.det_one] at h
+  exact left_ne_zero_of_mul_eq_one h
+
+private theorem thetaN_denom_pos (M : GL (Fin 2) ℂ) (z : ℂ) :
+    0 < ‖(M : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+      ‖(M : Matrix (Fin 2) (Fin 2) ℂ) 1 0 * z + (M : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 := by
+  by_cases hc : (M : Matrix (Fin 2) (Fin 2) ℂ) 1 0 = 0
+  · have hd : (M : Matrix (Fin 2) (Fin 2) ℂ) 1 1 ≠ 0 := by
+      intro hd
+      apply thetaN_GL_det_ne_zero M
+      rw [Matrix.det_fin_two, hc, hd]
+      ring
+    rw [hc, zero_mul, zero_add]
+    have : 0 < ‖(M : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ := norm_pos_iff.mpr hd
+    positivity
+  · have : 0 < ‖(M : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ := norm_pos_iff.mpr hc
+    positivity
+
+/-- The real ratio in the spherical section along a right root line. -/
+private def thetaN_ratio (M : GL (Fin 2) ℂ) (z : ℂ) : ℝ :=
+  ‖(M : Matrix (Fin 2) (Fin 2) ℂ).det‖ /
+    (‖(M : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+      ‖(M : Matrix (Fin 2) (Fin 2) ℂ) 1 0 * z + (M : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2)
+
+private theorem thetaN_ratio_pos (M : GL (Fin 2) ℂ) (z : ℂ) : 0 < thetaN_ratio M z := by
+  unfold thetaN_ratio
+  have := thetaN_denom_pos M z
+  have : 0 < ‖(M : Matrix (Fin 2) (Fin 2) ℂ).det‖ := norm_pos_iff.mpr (thetaN_GL_det_ne_zero M)
+  positivity
+
+private theorem thetaN_ratio_contDiff (M : GL (Fin 2) ℂ) :
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (thetaN_ratio M) := by
+  unfold thetaN_ratio
+  apply ContDiff.div contDiff_const
+  · apply ContDiff.add contDiff_const
+    apply ContDiff.norm_sq ℝ
+    fun_prop
+  · intro z
+    exact (thetaN_denom_pos M z).ne'
+
+/-- The intertwined complex spherical factor `M_ℂ(1/6) f°`. -/
+private def thetaN_fC : PGL2 ℂ → ℂ := intertwineC (sphC (1 / 6))
+
+private theorem thetaN_fC_eq : thetaN_fC = fun g => (Real.pi / (2 * (1 / 6 : ℂ))) * sphC (-(1 / 6)) g :=
+  intertwineC_spherical (1 / 6) (by norm_num)
+
+private theorem thetaN_fC_mul_nC (M : GL (Fin 2) ℂ) (z : ℂ) :
+    thetaN_fC (QuotientGroup.mk M * nC z) =
+      (Real.pi / (2 * (1 / 6 : ℂ))) * (((thetaN_ratio M z ^ (2 / 3 : ℝ) : ℝ) : ℂ)) := by
+  rw [thetaN_fC_eq]
+  simp only
+  rw [thetaN_sphC_mul_nC]
+  congr 1
+  rw [Complex.ofReal_cpow (thetaN_ratio_pos M z).le]
+  congr 1
+  push_cast
+  ring
+
+private theorem thetaN_fC_ne_zero (g : PGL2 ℂ) : thetaN_fC g ≠ 0 := by
+  obtain ⟨M, rfl⟩ := QuotientGroup.mk_surjective g
+  have h := thetaN_fC_mul_nC M 0
+  have h0 : (QuotientGroup.mk M : PGL2 ℂ) * nC 0 = QuotientGroup.mk M := by
+    have : nC 0 = 1 := by
+      change (QuotientGroup.mk (upperM ℂ 0) : PGL2 ℂ) = QuotientGroup.mk 1
+      congr 1
+      ext i j
+      fin_cases i <;> fin_cases j <;> rfl
+    rw [this, mul_one]
+  rw [h0] at h
+  rw [h]
+  apply mul_ne_zero
+  · have hpi : (Real.pi : ℂ) ≠ 0 := by exact_mod_cast Real.pi_ne_zero
+    exact div_ne_zero hpi (by norm_num)
+  · exact_mod_cast (Real.rpow_pos_of_pos (thetaN_ratio_pos M 0) _).ne'
+
+private theorem thetaN_fC_smooth (g : PGL2 ℂ) :
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun z : ℂ => thetaN_fC (g * nC z)) := by
+  obtain ⟨M, rfl⟩ := QuotientGroup.mk_surjective g
+  have heq : (fun z : ℂ => thetaN_fC (QuotientGroup.mk M * nC z)) =
+      fun z => (Real.pi / (2 * (1 / 6 : ℂ))) * (((thetaN_ratio M z ^ (2 / 3 : ℝ) : ℝ) : ℂ)) := by
+    funext z
+    exact thetaN_fC_mul_nC M z
+  rw [heq]
+  apply contDiff_const.mul
+  have hr : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun z => thetaN_ratio M z ^ (2 / 3 : ℝ)) :=
+    (thetaN_ratio_contDiff M).rpow_const_of_ne (fun z => (thetaN_ratio_pos M z).ne')
+  exact Complex.ofRealCLM.contDiff.comp hr
+
+private theorem thetaN_ratio_upper (x : ℂ) (M : GL (Fin 2) ℂ) (z : ℂ) :
+    thetaN_ratio (upperM ℂ x * M) z = thetaN_ratio M z := by
+  have hU : ((upperM ℂ x : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) = !![1, x; 0, 1] := rfl
+  have hdet : ((upperM ℂ x * M : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ).det =
+      (M : Matrix (Fin 2) (Fin 2) ℂ).det := by
+    rw [Units.val_mul, Matrix.det_mul, hU]
+    simp [Matrix.det_fin_two]
+  have h10 : ((upperM ℂ x * M : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0 =
+      (M : Matrix (Fin 2) (Fin 2) ℂ) 1 0 := by
+    rw [Units.val_mul, hU]
+    simp [Matrix.mul_apply, Fin.sum_univ_two]
+  have h11 : ((upperM ℂ x * M : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1 =
+      (M : Matrix (Fin 2) (Fin 2) ℂ) 1 1 := by
+    rw [Units.val_mul, hU]
+    simp [Matrix.mul_apply, Fin.sum_univ_two]
+  unfold thetaN_ratio
+  rw [hdet, h10, h11]
+
+private theorem thetaN_fC_jointSmooth (g : PGL2 ℂ) :
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun p : ℂ × ℂ => thetaN_fC (nC p.1 * g * nC p.2)) := by
+  obtain ⟨M, rfl⟩ := QuotientGroup.mk_surjective g
+  have heq : (fun p : ℂ × ℂ => thetaN_fC (nC p.1 * QuotientGroup.mk M * nC p.2)) =
+      fun p => (Real.pi / (2 * (1 / 6 : ℂ))) * (((thetaN_ratio M p.2 ^ (2 / 3 : ℝ) : ℝ) : ℂ)) := by
+    funext p
+    have hmk : nC p.1 * (QuotientGroup.mk M : PGL2 ℂ) =
+        QuotientGroup.mk (upperM ℂ p.1 * M) := rfl
+    rw [hmk, thetaN_fC_mul_nC, thetaN_ratio_upper]
+  rw [heq]
+  apply contDiff_const.mul
+  have hr : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun z => thetaN_ratio M z ^ (2 / 3 : ℝ)) :=
+    (thetaN_ratio_contDiff M).rpow_const_of_ne (fun z => (thetaN_ratio_pos M z).ne')
+  exact Complex.ofRealCLM.contDiff.comp (hr.comp contDiff_snd)
+
+private theorem thetaN_fC_isSection :
+    IsSectionC (-(1 / 6)) thetaN_fC ∧ Continuous thetaN_fC := by
+  obtain ⟨hsec, hcont⟩ := sphC_isSection (-(1 / 6))
+  rw [thetaN_fC_eq]
+  refine ⟨?_, continuous_const.mul hcont⟩
+  intro x y g
+  simp only
+  rw [hsec x y g]
+  ring
+
+/-! ### The Weyl-twisted global datum carrying the intertwined sections -/
+
+/-- The same global datum with every torus representation replaced by its Weyl conjugate. -/
+private def thetaNWeylDatum {P : CoverPackage D S H A} (G : GlobalDatum P) : GlobalDatum P where
+  T v := (G.T v).weyl
+  B v hv := (G.B v hv).weyl
+  Alag := G.Alag
+  alag_cubes := G.alag_cubes
+  alag_lagrangian := G.alag_lagrangian
+  lam := G.lam
+  ω v y := G.ω v y⁻¹
+  lam_equiv := fun v y hy x => G.lam_equiv v y⁻¹ (inv_mem hy) x
+  lam_ne := G.lam_ne
+  alag_tame := G.alag_tame
+  ω_tame := fun v hv y hy => G.ω_tame v hv y⁻¹ (inv_mem hy)
+  lam_tame := by
+    intro v hv k
+    change G.lam v ((G.B v hv).e (-k)) = _
+    rw [G.lam_tame v hv (-k)]
+    simp only [neg_eq_zero]
+  ω_rational := by
+    intro δ hδ
+    have h := G.ω_rational δ⁻¹ (fun v => by rw [map_inv]; exact inv_mem (hδ v))
+    simpa only [map_inv] using h
+
+private theorem thetaN_sphWeyl_spec {P : CoverPackage D S H A} (G : GlobalDatum P)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (s : ℂ) :
+    IsSection (P.loc v) (G.T v).weyl (-s) (sphWeyl P G v hv s) ∧
+      sphWeyl P G v hv s 1 = (G.B v hv).weyl.e 0 ∧
+      ∀ g, ∀ k ∈ (P.tame v hv).Kmax, sphWeyl P G v hv s (g * k) = sphWeyl P G v hv s g := by
+  have h := (spherical_section (P.loc v) (P.tame v hv) (G.T v).weyl (G.B v hv).weyl
+    (fun h => hv (S.over6 v h)) (-s)).choose_spec
+  exact ⟨h.1, h.2.1, h.2.2.1⟩
+
+/-- The `M(1/6)`-data of the common family as a global section of the Weyl-twisted datum. -/
+private def thetaNSection {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) :
+    GlobalSection P (thetaNWeylDatum N.G) (-(1 / 6)) where
+  T0 := B.Fam.T0
+  sub := by
+    have h := (B.Fam.sec (1 / 6)).sub
+    rwa [B.Fam.T0_eq] at h
+  f := fun v => show (P.loc v).L → (N.G.T v).V from famM B.Fam v
+  f_sec := by
+    intro v
+    change IsSection (P.loc v) (N.G.T v).weyl (-(1 / 6)) (famM B.Fam v)
+    unfold famM
+    split_ifs with hv
+    · exact (intertwine_isSection (P.loc v) (N.G.T v) (N.μ v) (1 / 6) (by norm_num) _
+        ((B.Fam.sec (1 / 6)).f_sec v)).2
+    · exact (thetaN_sphWeyl_spec N.G v _ (1 / 6)).1
+  f_sph := by
+    intro v hv
+    change famM B.Fam v 1 = _ ∧ ∀ g, ∀ k ∈ _, famM B.Fam v (g * k) = famM B.Fam v g
+    unfold famM
+    rw [dite_cond_eq_false (eq_false hv)]
+    exact (thetaN_sphWeyl_spec N.G v _ (1 / 6)).2
+  fC := fun _ => thetaN_fC
+  fC_sec := fun _ => thetaN_fC_isSection
+  fC_smooth := fun _ g => thetaN_fC_smooth g
+  fC_jointSmooth := fun _ g => thetaN_fC_jointSmooth g
+
+/-- The intertwined scalar section of the constant term. -/
+private def thetaNPhi {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (g : P.tc.G) : ℂ :=
+  scalarOf P N.G (famM B.Fam) (fun _ => intertwineC (sphC (1 / 6))) g
+
+private theorem thetaNPhi_eq {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) :
+    thetaNPhi B = scalarOf P (thetaNWeylDatum N.G) (thetaNSection B).f (thetaNSection B).fC :=
+  rfl
+
+private theorem thetaFamilyBaseN_eq {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (g : P.tc.G) :
+    thetaFamilyBaseN B g = (κF F)⁻¹ * resCprod B.Fam.T0 *
+      ∑' δ : Fˣ ⧸ N.G.Δ, thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * g) := rfl
 
 /-- Export the constant-term invariances, torus continuity and T7 radiality for the same normalized constant term.
 Guide: sol-thin-thglobal/PROOFS.md:1200–1210.
