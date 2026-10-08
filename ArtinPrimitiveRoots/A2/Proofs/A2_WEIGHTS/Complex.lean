@@ -125,15 +125,15 @@ private theorem fourierScale_upper :
   rw [hz]
   nlinarith [norm_nonneg z]
 
-private def complexFourierSchwartz (f : SchwartzMap ℂ ℂ) : SchwartzMap ℂ ℂ :=
+def complexFourierSchwartz (f : SchwartzMap ℂ ℂ) : SchwartzMap ℂ ℂ :=
   SchwartzMap.compCLM ℂ fourierScale_temperate fourierScale_upper (𝓕 f)
 
-private theorem complexFourierSchwartz_apply (f : SchwartzMap ℂ ℂ) (z : ℂ) :
+theorem complexFourierSchwartz_apply (f : SchwartzMap ℂ ℂ) (z : ℂ) :
     complexFourierSchwartz f z = (𝓕 f) (fourierScale z) := by
   simp [complexFourierSchwartz, SchwartzMap.compCLM_apply, fourierScale_temperate,
     fourierScale_upper]
 
-private theorem complexFourierSchwartz_eq_integral (f : SchwartzMap ℂ ℂ) (z : ℂ) :
+theorem complexFourierSchwartz_eq_integral (f : SchwartzMap ℂ ℂ) (z : ℂ) :
     complexFourierSchwartz f z = ∫ x : ℂ, f x * A1.psiC (-(x * z)) := by
   rw [complexFourierSchwartz_apply, SchwartzMap.fourier_coe f, Real.fourier_eq']
   have hinner (x : ℂ) : inner ℝ x (fourierScale z) = -2 * (x * z).re := by
@@ -297,6 +297,24 @@ theorem complexFourierDerivative_integrable (f : SchwartzMap ℂ ℂ) (j : ℕ)
       funext z
       rw [congrFun hrad z]
   rw [htarget]
+  refine hdom.mono' hmeas ?_
+  filter_upwards with z
+  have ht : 0 ≤ ‖g z‖ * Complex.normSq z ^ σ :=
+    mul_nonneg (norm_nonneg _) (Real.rpow_nonneg (Complex.normSq_nonneg _) σ)
+  rw [Real.norm_eq_abs, abs_of_nonneg ht]
+  exact hbound z
+
+theorem complexSchwartz_weighted_integrable (g : SchwartzMap ℂ ℂ) (σ : ℝ)
+    (hσ : 0 < σ) :
+    Integrable (fun z : ℂ => ‖g z‖ * Complex.normSq z ^ σ) A1.Theta.mulHaarC := by
+  have hweightCont : Continuous (fun z : ℂ => Complex.normSq z ^ σ) :=
+    (Real.continuous_rpow_const hσ.le).comp Complex.continuous_normSq
+  have hmeas : AEStronglyMeasurable
+      (fun z : ℂ => ‖g z‖ * Complex.normSq z ^ σ) A1.Theta.mulHaarC :=
+    ((g.smooth ⊤).continuous.norm.mul hweightCont).aestronglyMeasurable
+  obtain ⟨C, hC, hbound⟩ := radialSchwartz_weight_bound g σ hσ
+  have hdom : Integrable (fun z => C * bridgeComplexMajorant σ z) A1.Theta.mulHaarC :=
+    (bridgeComplexMajorant_integrable σ hσ).const_mul C
   refine hdom.mono' hmeas ?_
   filter_upwards with z
   have ht : 0 ≤ ‖g z‖ * Complex.normSq z ^ σ :=
