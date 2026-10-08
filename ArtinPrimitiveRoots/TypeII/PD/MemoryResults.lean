@@ -7110,6 +7110,224 @@ private theorem memGhostProjected_finite_kernel {K : ℕ}
       intro t ht
       rw [memGhostProjectedKernel_finite F S ρ j s t B hsB (hT t ht)]
 
+set_option maxHeartbeats 1000000 in
+/-- Finite weighted Schur bounds the projected ghost norm, including finite
+supports containing invalid states of zero measure. -/
+private theorem memGhostProjected_norm_of_schur {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (j B : ℕ) (v C : ℝ)
+    (hv : 0 < v) (hC : 0 ≤ C) (hμ : ∀ s, 0 ≤ memMeasure F S s)
+    (hrow : MemRowSchurLE_sym F S B (memGhost F S ρ j) v C)
+    (hcol : MemColSchurLE_sym F S B (memGhost F S ρ j) v C) :
+    MemOpNormLE_sym F S B (memGhost F S ρ j) C := by
+  classical
+  have hSchur
+      (μ v : MemPoint S.x K → ℝ) (k : MemPoint S.x K → MemPoint S.x K → ℂ) (f : MemPoint S.x K → ℂ) (T T' : Finset (MemPoint S.x K)) (a b : ℝ)
+      (hμ : ∀ s, 0 ≤ μ s) (hv : ∀ s, 0 < v s) (ha : 0 ≤ a) (hb : 0 ≤ b)
+      (hrow : ∀ s ∈ T', ∑ t ∈ T, ‖k s t‖ * v t ≤ a * v s)
+      (hcol : ∀ t ∈ T, ∑ s ∈ T', μ s * ‖k s t‖ * v s ≤ b * μ t * v t) :
+      (∑ s ∈ T', μ s * ‖∑ t ∈ T, k s t * f t‖ ^ 2) ≤
+        a * b * (∑ t ∈ T, μ t * ‖f t‖ ^ 2) := by
+    classical
+    have hpoint (s : MemPoint S.x K) :
+        ‖∑ t ∈ T, k s t * f t‖ ^ 2 ≤
+          (∑ t ∈ T, ‖k s t‖ * v t) *
+            ∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t := by
+      have hCS := Finset.sum_sq_le_sum_mul_sum_of_sq_le_mul (s := T)
+        (r := fun t => ‖k s t‖ * ‖f t‖)
+        (f := fun t => ‖k s t‖ * v t)
+        (g := fun t => ‖k s t‖ * ‖f t‖ ^ 2 / v t)
+        (fun t ht => mul_nonneg (norm_nonneg _) (hv t).le)
+        (fun t ht => div_nonneg (mul_nonneg (norm_nonneg _) (sq_nonneg _)) (hv t).le)
+        (fun t ht => by
+          have hvt := hv t
+          have heq : (‖k s t‖ * ‖f t‖) ^ 2 =
+              (‖k s t‖ * v t) * (‖k s t‖ * ‖f t‖ ^ 2 / v t) := by
+            field_simp [hvt.ne']
+          exact heq.le)
+      have htri :
+          ‖∑ t ∈ T, k s t * f t‖ ≤ ∑ t ∈ T, ‖k s t‖ * ‖f t‖ := by
+        calc
+          ‖∑ t ∈ T, k s t * f t‖ ≤ ∑ t ∈ T, ‖k s t * f t‖ := norm_sum_le _ _
+          _ = ∑ t ∈ T, ‖k s t‖ * ‖f t‖ := by simp [norm_mul]
+      have hsumNonneg : 0 ≤ ∑ t ∈ T, ‖k s t‖ * ‖f t‖ :=
+        Finset.sum_nonneg fun t ht => mul_nonneg (norm_nonneg _) (norm_nonneg _)
+      have hsq : ‖∑ t ∈ T, k s t * f t‖ ^ 2 ≤
+          (∑ t ∈ T, ‖k s t‖ * ‖f t‖) ^ 2 := by
+        have hprod := mul_nonneg (sub_nonneg.mpr htri)
+          (add_nonneg (norm_nonneg (∑ t ∈ T, k s t * f t)) hsumNonneg)
+        nlinarith [hprod]
+      exact hsq.trans hCS
+    have hinnerNonneg (s : MemPoint S.x K) :
+        0 ≤ ∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t :=
+      Finset.sum_nonneg fun t ht =>
+        div_nonneg (mul_nonneg (norm_nonneg _) (sq_nonneg _)) (hv t).le
+    have hrowAll (s : MemPoint S.x K) (hs : s ∈ T') :
+        0 ≤ ∑ t ∈ T, ‖k s t‖ * v t :=
+      Finset.sum_nonneg fun t ht => mul_nonneg (norm_nonneg _) (hv t).le
+    have hswap :
+        (∑ s ∈ T', μ s * v s *
+          (∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t)) =
+          ∑ t ∈ T, (‖f t‖ ^ 2 / v t) *
+            (∑ s ∈ T', μ s * ‖k s t‖ * v s) := by
+      simp_rw [Finset.mul_sum]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro t ht
+      apply Finset.sum_congr rfl
+      intro s hs
+      ring
+    calc
+      (∑ s ∈ T', μ s * ‖∑ t ∈ T, k s t * f t‖ ^ 2)
+          ≤ ∑ s ∈ T', μ s *
+            ((∑ t ∈ T, ‖k s t‖ * v t) *
+              ∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t) := by
+            apply Finset.sum_le_sum
+            intro s hs
+            exact mul_le_mul_of_nonneg_left (hpoint s) (hμ s)
+      _ ≤ ∑ s ∈ T', μ s * ((a * v s) *
+            ∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t) := by
+            apply Finset.sum_le_sum
+            intro s hs
+            exact mul_le_mul_of_nonneg_left
+              (mul_le_mul_of_nonneg_right (hrow s hs) (hinnerNonneg s)) (hμ s)
+      _ = a * (∑ s ∈ T', μ s * v s *
+            (∑ t ∈ T, ‖k s t‖ * ‖f t‖ ^ 2 / v t)) := by
+            rw [Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro s hs
+            ring
+      _ = a * (∑ t ∈ T, (‖f t‖ ^ 2 / v t) *
+            (∑ s ∈ T', μ s * ‖k s t‖ * v s)) := by rw [hswap]
+      _ ≤ a * (∑ t ∈ T, (‖f t‖ ^ 2 / v t) * (b * μ t * v t)) := by
+            apply mul_le_mul_of_nonneg_left
+            · apply Finset.sum_le_sum
+              intro t ht
+              exact mul_le_mul_of_nonneg_left (hcol t ht)
+                (div_nonneg (sq_nonneg _) (hv t).le)
+            · exact ha
+      _ = a * b * (∑ t ∈ T, μ t * ‖f t‖ ^ 2) := by
+            rw [Finset.mul_sum, Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro t ht
+            have hvt := hv t
+            field_simp [hvt.ne']
+  have hvalidPerm (u : MemPoint S.x K) (hu : MemValid F S u)
+      (σ : MemoryPermutation u) : MemValid F S (memoryPermute u σ) := by
+    refine ⟨hu.1, hu.2.1, ?_⟩
+    intro i e he
+    have hp : ((memoryPermute u σ).2.2 i).Perm (u.2.2 i) := by
+      simpa only [memoryPermute, Function.comp_def, List.ofFn_get] using
+        (σ i).ofFn_comp_perm (u.2.2 i).get
+    exact hu.2.2 i e (hp.mem_iff.mp he)
+  have hvalidOutput (s : MemPoint S.x K) (hs : MemValid F S s)
+      (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+      (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)}) :
+      MemValid F S (ghostOutputState F s D m new) := by
+    refine ⟨hs.1, hs.2.1, ?_⟩
+    intro i e he
+    change e ∈ removeIndices (s.2.2 i) (D i) ++
+      List.ofFn (fun k => anchorAt (new i k).1 s.1) at he
+    rcases List.mem_append.mp he with hkeep | hborn
+    · have he' : e ∈ removeIndices (s.2.2 i) (D i) ++ selectIndices (s.2.2 i) (D i) :=
+        List.mem_append.mpr (Or.inl hkeep)
+      exact hs.2.2 i e ((remove_select_perm (s.2.2 i) (D i)).mem_iff.mp he')
+    · rcases List.mem_ofFn.mp hborn with ⟨k, rfl⟩
+      refine ⟨(new i k).2, ?_⟩
+      exact Nat.le_of_lt_succ (projLine (new i k).1 s.1).isLt
+  have hsymzero (u : MemPoint S.x K) (hu : MemValid F S u)
+      (t : MemPoint S.x K) (ht : ¬ MemValid F S t) :
+      memorySym (fun u' => if u' = t then (1 : ℂ) else 0) u = 0 := by
+    have hne (σ : MemoryPermutation u) : memoryPermute u σ ≠ t := by
+      intro heq
+      apply ht
+      simpa only [heq] using hvalidPerm u hu σ
+    simp [memorySym, hne]
+  have hzero (s : MemPoint S.x K) (hs : MemValid F S s)
+      (t : MemPoint S.x K) (ht : ¬ MemValid F S t) :
+      memKernel (fun g => memGhost F S ρ j (memorySym g)) s t = 0 := by
+    change logGhost F S ρ j
+      (fun σL => memorySym (fun u => if u = t then (1 : ℂ) else 0) σL.1) (s, []) = 0
+    unfold logGhost
+    apply Finset.sum_eq_zero
+    intro D hD
+    calc
+      _ = ∑' m : Fin K → ℕ, (0 : ℂ) := by
+        apply tsum_congr
+        intro m
+        apply Finset.sum_eq_zero
+        intro new hnew
+        by_cases hg : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1
+        · simp only [if_pos hg]
+          change _ * memorySym (fun u => if u = t then (1 : ℂ) else 0)
+            (ghostOutputState F s D m new) = 0
+          rw [hsymzero _ (hvalidOutput s hs D m new) t ht, mul_zero]
+        · simp only [if_neg hg]
+      _ = 0 := by simp
+  let kRaw (s t : MemPoint S.x K) :=
+    memKernel (fun g => memGhost F S ρ j (memorySym g)) s t
+  let k (s t : MemPoint S.x K) := if MemValid F S s ∧ MemValid F S t then kRaw s t else 0
+  have hknorm (s t : MemPoint S.x K) : ‖k s t‖ ≤ ‖kRaw s t‖ := by
+    dsimp [k]
+    split_ifs
+    · exact le_rfl
+    · simpa only [norm_zero] using norm_nonneg (kRaw s t)
+  have hkeq (s : MemPoint S.x K) (hs : MemValid F S s) (t : MemPoint S.x K) :
+      kRaw s t = k s t := by
+    by_cases ht : MemValid F S t
+    · simp [k, hs, ht]
+    · have hz : kRaw s t = 0 := hzero s hs t ht
+      simp [k, ht, hz]
+  change MemOpNormLE F S B (fun g => memGhost F S ρ j (memorySym g)) C
+  intro T T' f hsupp hT hT'
+  have hrowk (s : MemPoint S.x K) (hsT' : s ∈ T') :
+      (∑ t ∈ T, ‖k s t‖ * v ^ memSize t) ≤ C * v ^ memSize s := by
+    by_cases hs : MemValid F S s
+    · calc
+        _ ≤ ∑ t ∈ T, ‖kRaw s t‖ * v ^ memSize t := by
+          apply Finset.sum_le_sum
+          intro t ht
+          exact mul_le_mul_of_nonneg_right (hknorm s t) (pow_nonneg hv.le _)
+        _ ≤ _ := hrow s hs (hT' s hsT') T hT
+    · have hz : (∑ t ∈ T, ‖k s t‖ * v ^ memSize t) = 0 := by simp [k, hs]
+      rw [hz]
+      exact mul_nonneg hC (pow_nonneg hv.le _)
+  have hcolk (t : MemPoint S.x K) (htT : t ∈ T) :
+      (∑ s ∈ T', memMeasure F S s * ‖k s t‖ * v ^ memSize s) ≤
+        C * memMeasure F S t * v ^ memSize t := by
+    by_cases ht : MemValid F S t
+    · calc
+        _ ≤ ∑ s ∈ T', memMeasure F S s * ‖kRaw s t‖ * v ^ memSize s := by
+          apply Finset.sum_le_sum
+          intro s hs
+          exact mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_left (hknorm s t) (hμ s)) (pow_nonneg hv.le _)
+        _ ≤ _ := hcol t ht (hT t htT) T' hT'
+    · have hz : (∑ s ∈ T', memMeasure F S s * ‖k s t‖ * v ^ memSize s) = 0 := by
+        simp [k, ht]
+      rw [hz]
+      exact mul_nonneg (mul_nonneg hC (hμ t)) (pow_nonneg hv.le _)
+  have hnorm :
+      memNormSqOn F S T' (memGhost F S ρ j (memorySym f)) =
+        ∑ s ∈ T', memMeasure F S s * ‖∑ t ∈ T, k s t * f t‖ ^ 2 := by
+    unfold memNormSqOn
+    apply Finset.sum_congr rfl
+    intro s hsT'
+    by_cases hs : MemValid F S s
+    · have hp : memGhost F S ρ j (memorySym f) s = ∑ t ∈ T, k s t * f t := by
+        rw [memGhostProjected_finite_kernel F S ρ j B s (hT' s hsT') T f hsupp hT]
+        change (∑ t ∈ T, kRaw s t * f t) = _
+        apply Finset.sum_congr rfl
+        intro t ht
+        rw [hkeq s hs t]
+      rw [hp]
+    · have hz : memMeasure F S s = 0 := by simp [memMeasure, hs]
+      rw [hz]
+      simp
+  rw [hnorm]
+  have h := hSchur (memMeasure F S) (fun s => v ^ memSize s) k f T T' C C hμ
+    (fun s => pow_pos hv _) hC hC hrowk hcolk
+  simpa only [memNormSqOn, pow_two] using h
+
 private theorem memGhostProjected_rowSchur_le_of_params {K : ℕ}
     (F : PDFix K) (hF : F.Valid) (S : PDScale) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ)
     (j B : ℕ) (v : ℝ) (hv : 0 < v)
