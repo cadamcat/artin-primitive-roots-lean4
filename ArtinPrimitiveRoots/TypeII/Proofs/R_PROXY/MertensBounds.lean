@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.SieveAlgebra
+import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.SieveRemainder
 import ArtinPrimitiveRoots.Ext.TypeIIInputs
 
 /-!
@@ -9,6 +10,7 @@ namespace ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
 
 open ArtinPrimitiveRoots.TypeII
 open Filter
+open Classical
 
 /-- At the Type II rough cutoff, the reciprocal-prime mass is `O(log log x)`
 and the Mertens product has its expected `L^(-0.24)` lower bound. -/
@@ -360,5 +362,111 @@ theorem factorial_decay_choice (s₀ H : ℝ) (hs₀ : 0 < s₀) (hH : 0 < H) :
         rw [show -H * Real.log L = Real.log L * (-H) by ring]
         exact (Real.rpow_def_of_pos hLpos _).symm
   exact htail.trans hhalfLe
+
+/-- The normalized truncated-sieve error is small once the reciprocal-prime
+mass has factorial decay and the Mertens product has its lower bound. -/
+theorem normalized_sieve_remainder_bound (x M A H s₀ vMin : ℝ) (r : ℕ)
+    (I : Finset ℕ) (hx : 2 ≤ x) (hM : 0 < M) (hr : 1 ≤ r)
+    (hvMin : 0 < vMin)
+    (hI : ∀ m ∈ I, 0 < m ∧ (m : ℝ) ≤ 2 * M)
+    (hMass : (∑ p ∈ primesUpTo (roughCutoff x), 1 / (p : ℝ)) ≤
+      s₀ * Real.log (Real.log x))
+    (hDecay : ∀ s : ℝ, 0 ≤ s → s ≤ s₀ * Real.log (Real.log x) →
+      s ^ r / (r.factorial : ℝ) ≤ Real.rpow (Real.log x) (-H))
+    (hVlower : vMin * Real.rpow (Real.log x) (-(24 / 100 : ℝ)) ≤
+      roughSieveProduct (roughCutoff x))
+    (hVlarge : 2 ≤ vMin * Real.rpow (Real.log x) (H - A - 24 / 100)) :
+    (∑ m ∈ I,
+      |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+        smallPrimeTruncation x r m|) /
+      (M * roughSieveProduct (roughCutoff x)) ≤ Real.rpow (Real.log x) (-A) := by
+  classical
+  let L : ℝ := Real.log x
+  let P : Finset ℕ := primesUpTo (roughCutoff x)
+  have hLpos : 0 < L := by
+    dsimp [L]
+    exact Real.log_pos (by linarith)
+  have hLnonneg : 0 ≤ L := hLpos.le
+  have hVpos : 0 < roughSieveProduct (roughCutoff x) := by
+    have hpos : 0 < vMin * Real.rpow L (-(24 / 100 : ℝ)) :=
+      mul_pos hvMin (Real.rpow_pos_of_pos hLpos _)
+    exact lt_of_lt_of_le hpos (by simpa [L] using hVlower)
+  have hPprime : ∀ p ∈ P, p.Prime := by
+    intro p hp
+    dsimp [P, primesUpTo] at hp
+    exact (Finset.mem_filter.mp hp).2
+  have hmass_nonneg :
+      0 ≤ ∑ p ∈ primesUpTo (roughCutoff x), 1 / (p : ℝ) := by
+    apply Finset.sum_nonneg
+    intro p hp
+    have hpprime : p.Prime := hPprime p (by simpa [P] using hp)
+    positivity
+  have hmass_decay :
+      (∑ p ∈ primesUpTo (roughCutoff x), 1 / (p : ℝ)) ^ r /
+          (r.factorial : ℝ) ≤ Real.rpow L (-H) := by
+    apply hDecay
+    · exact hmass_nonneg
+    · simpa [L] using hMass
+  have hdivisorMass :
+      (∑ S ∈ (P.powerset.filter (fun S => S.card = r)),
+        1 / ((∏ p ∈ S, p : ℕ) : ℝ)) ≤ Real.rpow L (-H) := by
+    calc
+      _ ≤ (∑ p ∈ P, 1 / (p : ℝ)) ^ r / (r.factorial : ℝ) :=
+        elementary_symmetric_reciprocals P hPprime r
+      _ = (∑ p ∈ primesUpTo (roughCutoff x), 1 / (p : ℝ)) ^ r /
+          (r.factorial : ℝ) := by simp [P, div_eq_mul_inv]
+      _ ≤ Real.rpow L (-H) := by simpa using hmass_decay
+  have hsum := sieve_remainder_sum_bound x M r I hM hI hr
+  have herror :
+      (∑ m ∈ I,
+        |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+          smallPrimeTruncation x r m|) ≤ 2 * M * Real.rpow L (-H) := by
+    calc
+      _ ≤ 2 * M *
+          (∑ S ∈ P.powerset.filter (fun S => S.card = r),
+            1 / ((∏ p ∈ S, p : ℕ) : ℝ)) := by simpa [P] using hsum
+      _ ≤ 2 * M * Real.rpow L (-H) :=
+        mul_le_mul_of_nonneg_left hdivisorMass (by positivity)
+  have hpowMul (a b : ℝ) :
+      Real.rpow L a * Real.rpow L b = Real.rpow L (a + b) :=
+    (Real.rpow_add hLpos a b).symm
+  have hpowCancel :
+      Real.rpow L (H - A - 24 / 100) * Real.rpow L (-H) =
+        Real.rpow L (-(24 / 100 : ℝ) - A) := by
+    calc
+      _ = Real.rpow L ((H - A - 24 / 100) + (-H)) := hpowMul _ _
+      _ = Real.rpow L (-(24 / 100 : ℝ) - A) := by congr 1 <;> ring
+  have hpowSplit : Real.rpow L (-(24 / 100 : ℝ) - A) =
+      Real.rpow L (-(24 / 100 : ℝ)) * Real.rpow L (-A) := by
+    calc
+      _ = Real.rpow L (-(24 / 100 : ℝ) + (-A)) := by congr 1 <;> ring
+      _ = Real.rpow L (-(24 / 100 : ℝ)) * Real.rpow L (-A) := (hpowMul _ _).symm
+  have hcore : 2 * Real.rpow L (-H) ≤
+      roughSieveProduct (roughCutoff x) * Real.rpow L (-A) := by
+    calc
+      2 * Real.rpow L (-H) ≤
+          (vMin * Real.rpow L (H - A - 24 / 100)) * Real.rpow L (-H) :=
+        mul_le_mul_of_nonneg_right hVlarge (Real.rpow_nonneg hLnonneg _)
+      _ = vMin * (Real.rpow L (H - A - 24 / 100) * Real.rpow L (-H)) := by ring
+      _ = vMin * (Real.rpow L (-(24 / 100 : ℝ)) * Real.rpow L (-A)) := by
+        rw [hpowCancel, hpowSplit]
+      _ ≤ roughSieveProduct (roughCutoff x) * Real.rpow L (-A) := by
+        calc
+          vMin * (Real.rpow L (-(24 / 100 : ℝ)) * Real.rpow L (-A)) =
+              (vMin * Real.rpow L (-(24 / 100 : ℝ))) * Real.rpow L (-A) := by ring
+          _ ≤ roughSieveProduct (roughCutoff x) * Real.rpow L (-A) :=
+            mul_le_mul_of_nonneg_right (by simpa [L] using hVlower)
+              (Real.rpow_nonneg hLnonneg _)
+  apply (div_le_iff₀ (mul_pos hM hVpos)).2
+  calc
+    _ ≤ 2 * M * Real.rpow L (-H) := herror
+    _ ≤ M * (roughSieveProduct (roughCutoff x) * Real.rpow L (-A)) := by
+      calc
+        2 * M * Real.rpow L (-H) = M * (2 * Real.rpow L (-H)) := by ring
+        _ ≤ M * (roughSieveProduct (roughCutoff x) * Real.rpow L (-A)) :=
+          mul_le_mul_of_nonneg_left hcore hM.le
+    _ = Real.rpow (Real.log x) (-A) * (M * roughSieveProduct (roughCutoff x)) := by
+      dsimp [L]
+      ring
 
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
