@@ -1,3 +1,6 @@
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadAddressBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.ComparisonFamilyBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadErrorDecay
 import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadPairTotals
 import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadMassExpansion
 import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadCoreSupport
@@ -7994,6 +7997,7 @@ private theorem pad_finite_reindex_at_scale {K : ℕ} (F : PDFix K) (hF : F.Vali
   exact (pad_physical_reindex_at_scale F hF x Y R hY hR hPsiSupport hShort family hMin beta hbeta
     hV hBands hSmall hCover).trans (padMass_sum_eq_pair_difference F x Y family beta)
 
+set_option maxHeartbeats 2500000 in
 /-- `t2:pd.pad-stripping` (new node, part of `t2:pd.strip-goodness-pads`) — PD 04:1010-1101.
 Summed over pad dyads with weight `1/d₀`, the pairing without goodness is the coprime Cauchy
 square minus the unrestricted major sum up to `O_A(XY L^{-A})`: pad measure identity
@@ -8043,18 +8047,46 @@ theorem pad_stripping (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ 
       markedPrimes_below_rough_eventually F.a hBands
     obtain ⟨xPrimeLog, hxPrimeLog₂, primeLogEvent⟩ := markedPrimeLogs_small_eventually F.a hBands
     obtain ⟨xShort, hxShort₂, shortDyads⟩ := dyadic_shortness_eventually K Rpsi hRpsiPos
-    let x₀ : ℝ := max (Real.exp 1) (max 2 (max xBand
+    obtain ⟨κ, Cτ, xMom, hκ, hCτ, hxMom₂, tauMoment⟩ :=
+      tau_secondMoment_scale_bound c₁ c₂ hc₁ hc₂
+    let ν₀ : ℝ := (Real.log 2 / 2)⁻¹ ^ K
+    let Dpsi : ℝ := ((⌈2 * Rpsi⌉₊ + 2 : ℕ) : ℝ)
+    let CrPer : ℝ := ν₀ ^ 2 * Cdiv
+    let CmPer : ℝ := ν₀ ^ 2 * 32 * Bpsi * Dpsi * Cτ
+    let Cr : ℝ := 25 * CrPer
+    let Cm : ℝ := 25 * CmPer
+    let Cn : ℝ := 16 * (K : ℝ) * (2 * Real.log 2) * CmPer
+    let Epad : ℝ := 3 * (K : ℝ) * (Real.log 2 / 2)⁻¹
+    let Er : ℝ := 4 * C + 3
+    let Em : ℝ := 4 * C + κ + 3 * F.A₀
+    have hν₀ : 0 < ν₀ := pow_pos (inv_pos.mpr hε) _
+    have hDpsi : 0 < Dpsi := by dsimp [Dpsi]; positivity
+    have hCrPer : 0 < CrPer := by dsimp [CrPer]; positivity
+    have hCmPer : 0 < CmPer := by dsimp [CmPer]; positivity
+    have hCr : 0 < Cr := by dsimp [Cr]; positivity
+    have hCm : 0 < Cm := by dsimp [Cm]; positivity
+    have hCn : 0 ≤ Cn := by dsimp [Cn]; positivity
+    have hKreal : 0 < (K : ℝ) := Nat.cast_pos.mpr hBands.1
+    have hEpad : 0 < Epad := by dsimp [Epad]; positivity
+    obtain ⟨CA, LDecay, hCA, hLDecay, errorDecay⟩ :=
+      padError_logPowerDecay A Er Em Cr Cm Cn Epad hCr hCm hCn hEpad
+    let xBase : ℝ := max (Real.exp 1) (max 2 (max xBand
       (max xDisjoint (max xDiv (max xRough (max xPrimeLog xShort))))))
-    have hx₀₂ : 2 ≤ x₀ := by simp [x₀]
-    have hx₀Band : xBand ≤ x₀ := by simp [x₀]
-    have hx₀Disjoint : xDisjoint ≤ x₀ := by simp [x₀]
-    have hx₀Exp : Real.exp 1 ≤ x₀ := by simp [x₀]
-    have hx₀Div : xDiv ≤ x₀ := by simp [x₀]
-    have hx₀Rough : xRough ≤ x₀ := by simp [x₀]
-    have hx₀PrimeLog : xPrimeLog ≤ x₀ := by simp [x₀]
-    have hx₀Short : xShort ≤ x₀ := by simp [x₀]
-    refine ⟨1, x₀, by norm_num, hx₀₂, ?_⟩
+    let x₀ : ℝ := max xBase (max xMom (Real.exp LDecay))
+    have hx₀₂ : 2 ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Band : xBand ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Disjoint : xDisjoint ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Exp : Real.exp 1 ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Div : xDiv ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Rough : xRough ≤ x₀ := by simp [x₀, xBase]
+    have hx₀PrimeLog : xPrimeLog ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Short : xShort ≤ x₀ := by simp [x₀, xBase]
+    refine ⟨CA, x₀, hCA, hx₀₂, ?_⟩
     intro x hx family hfamilyMin beta hbeta Y hY
+    have hxMom : xMom ≤ x := (by simp [x₀] : xMom ≤ x₀).trans hx
+    have hLDecayAt : LDecay ≤ Real.log x := by
+      have he : Real.exp LDecay ≤ x := (by simp [x₀] : Real.exp LDecay ≤ x₀).trans hx
+      simpa only [Real.log_exp] using Real.log_le_log (Real.exp_pos _) he
     have hxBand : xBand ≤ x := le_trans hx₀Band hx
     have hxDisjoint : xDisjoint ≤ x := le_trans hx₀Disjoint hx
     have hBandsDisjoint := bandsDisjoint x hxDisjoint
@@ -8292,9 +8324,214 @@ theorem pad_stripping (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ 
         ?_, padJoinLists_lastProduct d tb, padJoinLists_lastProduct d ta,
         hPadChoiceTwoNormalizerFactor d ta⟩
       rw [padJoinLists_sharedProduct, padJoinLists_sharedProduct]
+    have hMomentAt := tauMoment x hxMom (family.Hm x * family.Hn x)
+      hFamilyScales.2.2.1 hFamilyScales.2.2.2
+    have hνBound : (∏ i : Fin K, (bandMass x (F.a i))⁻¹) ^ 2 ≤ ν₀ ^ 2 :=
+      tupleNormalizer_square_le F.a (Real.log 2 / 2) hVmin hBandMass
+    have hLpos : 0 < Real.log x := lt_of_lt_of_le (by norm_num) hlog
+    have hPowFour : (Real.rpow (Real.log x) C) ^ 2 * (Real.rpow (Real.log x) C) ^ 2 =
+        Real.rpow (Real.log x) (4 * C) := by
+      have htwo : (Real.rpow (Real.log x) C) ^ 2 = Real.rpow (Real.log x) (C + C) := by
+        calc
+          _ = Real.rpow (Real.log x) C * Real.rpow (Real.log x) C := pow_two _
+          _ = _ := (Real.rpow_add hLpos _ _).symm
+      calc
+        _ = Real.rpow (Real.log x) (C + C) * Real.rpow (Real.log x) (C + C) := congrArg₂ (· * ·) htwo htwo
+        _ = Real.rpow (Real.log x) ((C + C) + (C + C)) := (Real.rpow_add hLpos _ _).symm
+        _ = _ := by congr 1 <;> ring
+    have hPowRaw : Real.rpow (Real.log x) 3 * Real.rpow (Real.log x) (4 * C) =
+        Real.rpow (Real.log x) Er := by
+      calc
+        _ = Real.rpow (Real.log x) (3 + 4 * C) := (Real.rpow_add hLpos _ _).symm
+        _ = _ := by dsimp [Er]; congr 1 <;> ring
+    have hPowComp : Real.rpow (Real.log x) (3 * F.A₀) * Real.rpow (Real.log x) κ *
+        Real.rpow (Real.log x) (4 * C) = Real.rpow (Real.log x) Em := by
+      calc
+        _ = Real.rpow (Real.log x) (3 * F.A₀ + κ) * Real.rpow (Real.log x) (4 * C) :=
+          congrArg (fun t => t * Real.rpow (Real.log x) (4 * C)) (Real.rpow_add hLpos _ _).symm
+        _ = Real.rpow (Real.log x) ((3 * F.A₀ + κ) + 4 * C) := (Real.rpow_add hLpos _ _).symm
+        _ = _ := by dsimp [Em]; congr 1 <;> ring
+    have hRawPair (ta tb : Fin K → ℕ) (hta : IsMarkedPrimeTuple x K F.a ta)
+        (htb : IsMarkedPrimeTuple x K F.a tb)
+        (heta : F.eta ((tupleProduct ta : ℝ) / Y) ≠ 0) (hetb : F.eta ((tupleProduct tb : ℝ) / Y) ≠ 0) :
+        ‖rawPairSum F x Y family beta ta tb‖ ≤
+          CrPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Er := by
+      have hb := hRawAbsolutePair ta tb hta htb heta hetb
+      have hb' : (∑ q ∈ rawCommonQuads (familyTerms family x) (dyadicIntegers (family.Hn x))
+          (tupleProduct ta) (tupleProduct tb), ‖coefficientQuadProduct family x beta q‖) ≤
+          (Cdiv * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) 3) *
+            Real.rpow (Real.log x) (4 * C) := by
+        simpa only [coefficientQuadProduct, hPowFour] using hb
+      apply (rawPairSum_norm_le F hF x Y family beta ta tb hBandMassPos).trans
+      have hm := mul_le_mul hνBound hb' (Finset.sum_nonneg (fun q hq => norm_nonneg _)) (sq_nonneg ν₀)
+      apply hm.trans
+      apply le_of_eq
+      calc
+        _ = (ν₀ ^ 2 * Cdiv) * (family.Hm x * family.Hn x / Y) *
+            (Real.rpow (Real.log x) 3 * Real.rpow (Real.log x) (4 * C)) := by ring
+        _ = _ := by rw [hPowRaw]
+    have hCompPair (ta tb : Fin K → ℕ) (hta : IsMarkedPrimeTuple x K F.a ta)
+        (htb : IsMarkedPrimeTuple x K F.a tb)
+        (heta : F.eta ((tupleProduct ta : ℝ) / Y) ≠ 0) (hetb : F.eta ((tupleProduct tb : ℝ) / Y) ≠ 0) :
+        ‖comparisonPairSum F x Y family beta ta tb‖ ≤
+          CmPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Em := by
+      have hb := comparisonPairSum_norm_le_secondMoment F hF x Y Rpsi Bpsi hYpos hRpsiPos.le hlog hBpsi.le
+        hPsiBound hPsiSupport family hfamilyMin beta hBetaNorm hHmPos hHnPos hBandMassPos κ Cτ hMomentAt ta tb heta hetb
+      rw [hPowFour] at hb
+      have htail : 0 ≤ (32 * Bpsi * Real.rpow (Real.log x) (3 * F.A₀) / Y) *
+          (Dpsi * (Cτ * (family.Hm x * family.Hn x) * Real.rpow (Real.log x) κ) * Real.rpow (Real.log x) (4 * C)) := by
+        have hp₁ := Real.rpow_nonneg hLpos.le (3 * F.A₀)
+        have hp₂ := Real.rpow_nonneg hLpos.le κ
+        have hp₃ := Real.rpow_nonneg hLpos.le (4 * C)
+        positivity
+      have hm := mul_le_mul_of_nonneg_right hνBound htail
+      apply hb.trans
+      calc
+        _ = (∏ i : Fin K, (bandMass x (F.a i))⁻¹) ^ 2 *
+            ((32 * Bpsi * Real.rpow (Real.log x) (3 * F.A₀) / Y) *
+              (Dpsi * (Cτ * (family.Hm x * family.Hn x) * Real.rpow (Real.log x) κ) * Real.rpow (Real.log x) (4 * C))) := by ring
+        _ ≤ ν₀ ^ 2 * ((32 * Bpsi * Real.rpow (Real.log x) (3 * F.A₀) / Y) *
+              (Dpsi * (Cτ * (family.Hm x * family.Hn x) * Real.rpow (Real.log x) κ) * Real.rpow (Real.log x) (4 * C))) := hm
+        _ = (ν₀ ^ 2 * 32 * Bpsi * Dpsi * Cτ) * (family.Hm x * family.Hn x / Y) *
+            (Real.rpow (Real.log x) (3 * F.A₀) * Real.rpow (Real.log x) κ * Real.rpow (Real.log x) (4 * C)) := by ring
+        _ = _ := by rw [hPowComp]
+    have hRawZero := rawPairSum_eq_zero_of_eta_zero F x Y family beta
+    have hCompZero := comparisonPairSum_eq_zero_of_eta_zero F x Y family beta
+    have hRawPerNonneg : 0 ≤ CrPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Er := by
+      have hp := Real.rpow_nonneg hLpos.le Er
+      positivity
+    have hCompPerNonneg : 0 ≤ CmPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Em := by
+      have hp := Real.rpow_nonneg hLpos.le Em
+      positivity
+    have hRawTotal := etaPair_norm_total_le F hF x Y hYge1 hBandsDisjoint
+      (fun ta tb => Nat.Coprime (tupleProduct ta) (tupleProduct tb)) (rawPairSum F x Y family beta)
+      (CrPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Er)
+      hRawPerNonneg hRawZero hRawPair
+    have hCompTotal := etaPair_norm_total_le F hF x Y hYge1 hBandsDisjoint
+      (fun ta tb => True) (comparisonPairSum F x Y family beta)
+      (CmPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Em)
+      hCompPerNonneg hCompZero hCompPair
+    simp only [ite_true] at hCompTotal
+    have hCollisionTotal := etaPair_noncop_norm_total_le F hF x Y hYge1 hBandsDisjoint
+      (comparisonPairSum F x Y family beta)
+      (CmPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Em)
+      hCompPerNonneg hCompZero hCompPair
+    have hRawTotal' : (∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+        if Nat.Coprime (tupleProduct ta) (tupleProduct tb) then ‖rawPairSum F x Y family beta ta tb‖ else 0) ≤
+        Cr * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Er := by
+      have hh : (∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+          if Nat.Coprime (tupleProduct ta) (tupleProduct tb) then ‖rawPairSum F x Y family beta ta tb‖ else 0) ≤
+          25 * Y ^ 2 * (CrPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Er) := by
+        convert hRawTotal using 1
+        apply Finset.sum_congr rfl
+        intro ta hta
+        apply Finset.sum_congr rfl
+        intro tb htb
+        by_cases hc : Nat.Coprime (tupleProduct ta) (tupleProduct tb) <;> simp [hc]
+      apply hh.trans
+      apply le_of_eq
+      dsimp only [Cr]
+      field_simp
+    have hCompTotal' : (∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+        ‖comparisonPairSum F x Y family beta ta tb‖) ≤
+        Cm * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em := by
+      apply hCompTotal.trans
+      apply le_of_eq
+      dsimp only [Cm]
+      field_simp
+    have hRecip' : (∑ p ∈ markedPrimes x K F.a, ((p : ℝ)⁻¹) ^ 2) ≤
+        (K : ℝ) * (2 * Real.log 2) * Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      have h := hMarkedCollisionReciprocal
+      rw [Real.exp_neg]
+      simpa only [div_eq_mul_inv] using h
+    have hCollisionTotal' : (∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+        if Nat.Coprime (tupleProduct ta) (tupleProduct tb) then 0 else ‖comparisonPairSum F x Y family beta ta tb‖) ≤
+        Cn * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em *
+          Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      apply hCollisionTotal.trans
+      have hm := mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left hRecip' (by positivity : 0 ≤ 16 * Y ^ 2)) hCompPerNonneg
+      apply hm.trans
+      apply le_of_eq
+      dsimp only [Cn]
+      field_simp
     have hReindex := pad_finite_reindex_at_scale F hF x Y Rpsi hYpos hRpsi hPsiSupport hShortY.le
       family hfamilyMin beta hbeta hBandMassPos hBandsDisjoint hMarkedBelow hPadDyadCover
-    sorry
+    have hJ : (momentJ x : ℝ) ≤ Real.rpow (Real.log x) (1 / 100 : ℝ) :=
+      Nat.floor_le (Real.rpow_nonneg hLpos.le _)
+    have hJ2 : (momentJ x : ℝ) ^ 2 ≤ Real.rpow (Real.log x) (2 / 100 : ℝ) := by
+      have hp := pow_le_pow_left₀ (Nat.cast_nonneg (α := ℝ) (momentJ x)) hJ 2
+      have he : (Real.rpow (Real.log x) (1 / 100 : ℝ)) ^ 2 = Real.rpow (Real.log x) (2 / 100 : ℝ) := by
+        rw [pow_two]
+        calc
+          _ = Real.rpow (Real.log x) ((1 / 100 : ℝ) + (1 / 100 : ℝ)) := (Real.rpow_add hLpos _ _).symm
+          _ = _ := by norm_num
+      rwa [he] at hp
+    have hJsmall : (momentJ x : ℝ) ≤ Real.rpow (Real.log x) (2 / 100 : ℝ) :=
+      hJ.trans (Real.rpow_le_rpow_of_exponent_le hlog (by norm_num))
+    have hPairCard : ((padAddressPairs x K).card : ℝ) ≤ (K : ℝ) * (momentJ x : ℝ) ^ 2 := by
+      exact_mod_cast padAddressPairs_card_le x K
+    have hCount : ((2 * Fintype.card (Fin K × Fin (momentJ x)) + (padAddressPairs x K).card : ℕ) : ℝ) ≤
+        3 * (K : ℝ) * Real.rpow (Real.log x) (2 / 100 : ℝ) := by
+      simp only [Fintype.card_prod, Fintype.card_fin, Nat.cast_add, Nat.cast_mul, Nat.cast_ofNat]
+      have h₁ := mul_le_mul_of_nonneg_left hJ2 (Nat.cast_nonneg (α := ℝ) K)
+      have h₂ := mul_le_mul_of_nonneg_left hJsmall (by positivity : 0 ≤ 2 * (K : ℝ))
+      linarith
+    let eps := Epad * Real.rpow (Real.log x) (2 / 100 : ℝ) *
+      Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ))
+    have heps : 0 ≤ eps := by
+      have hp := Real.rpow_nonneg hLpos.le (2 / 100 : ℝ)
+      dsimp [eps]
+      positivity
+    let T := (markedTupleChoices x F.a) ×ˢ (markedTupleChoices x F.a)
+    let cop (tu : (Fin K → ℕ) × (Fin K → ℕ)) := Nat.Coprime (tupleProduct tu.1) (tupleProduct tu.2)
+    let theta (tu : (Fin K → ℕ) × (Fin K → ℕ)) := padAllowedMass x F.a tu.1 tu.2
+    let raw (tu : (Fin K → ℕ) × (Fin K → ℕ)) := rawPairSum F x Y family beta tu.1 tu.2
+    let comp (tu : (Fin K → ℕ) × (Fin K → ℕ)) := comparisonPairSum F x Y family beta tu.1 tu.2
+    have hTheta (tu : (Fin K → ℕ) × (Fin K → ℕ)) (htu : tu ∈ T) (hcop : cop tu) :
+        0 ≤ theta tu ∧ theta tu ≤ 1 ∧ 1 - theta tu ≤ eps := by
+      have hta := mem_markedTupleChoices.mp (Finset.mem_product.mp htu).1
+      have htb := mem_markedTupleChoices.mp (Finset.mem_product.mp htu).2
+      have hm := padAllowedMass_bounds F.a hBandMassPos tu.1 tu.2
+      have hl := hAllowedPadLoss tu.1 tu.2 hta htb
+      have hnorm : ‖(theta tu : ℂ) - 1‖ = 1 - theta tu := by
+        rw [← Complex.ofReal_one, ← Complex.ofReal_sub, Complex.norm_real, Real.norm_eq_abs,
+          abs_of_nonpos (sub_nonpos.mpr hm.2.1)]
+        ring
+      rw [hnorm] at hl
+      refine ⟨hm.1, hm.2.1, hl.trans ?_⟩
+      have he := mul_le_mul_of_nonneg_right hCount hεpad
+      apply he.trans
+      apply le_of_eq
+      dsimp only [eps, Epad, εpad]
+      ring
+    have hRawSum : (∑ tu ∈ T, if cop tu then ‖raw tu‖ else 0) ≤
+        Cr * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Er := by
+      simpa only [T, cop, raw, Finset.sum_product] using hRawTotal'
+    have hCompSum : (∑ tu ∈ T, if cop tu then ‖comp tu‖ else 0) ≤
+        Cm * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em := by
+      have hfull : (∑ tu ∈ T, ‖comp tu‖) ≤ Cm * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em := by
+        simpa only [T, comp, Finset.sum_product] using hCompTotal'
+      apply le_trans _ hfull
+      apply Finset.sum_le_sum
+      intro tu htu
+      split_ifs
+      · exact le_rfl
+      · exact norm_nonneg _
+    have hCollisionSum : (∑ tu ∈ T, if cop tu then 0 else ‖comp tu‖) ≤
+        Cn * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em *
+          Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      simpa only [T, cop, comp, Finset.sum_product] using hCollisionTotal'
+    have hSigned := pad_signed_difference_uniform T cop theta raw comp eps
+      (Cr * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Er)
+      (Cm * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em)
+      (Cn * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em *
+        Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ))) heps hTheta hRawSum hCompSum hCollisionSum
+    have hDecay := errorDecay (Real.log x) hLDecayAt (family.Hm x * family.Hn x) Y
+      (mul_pos hHmPos hHnPos) hYpos
+    have hBound := hSigned.trans hDecay
+    rw [hReindex, coprimeCauchySquare_cast_eq_finitePairSum F x Y family beta,
+      majorArcSum_eq_finitePairSum F x Y family beta]
+    simpa only [T, cop, theta, raw, comp, Finset.sum_product, eps] using hBound
   · have hc₂' : c₂ ≤ 0 := le_of_not_gt hc₂
     refine ⟨1, 2, by norm_num, le_rfl, ?_⟩
     intro x hx family hfamilyMin beta hbeta Y hY

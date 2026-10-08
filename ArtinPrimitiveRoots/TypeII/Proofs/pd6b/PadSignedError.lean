@@ -6,7 +6,7 @@ namespace ArtinPrimitiveRoots.TypeII.PD
 open Classical
 
 /-- Signed pad subtraction separates pad losses from restored noncoprime comparison terms. -/
-theorem pad_signed_difference_bound {ι : Type*} (T : Finset ι) (cop : ι → Prop)
+theorem pad_signed_difference_bound {ι : Type*} (T : Finset ι) (cop : ι → Prop) [DecidablePred cop]
     (θ : ι → ℝ) (R M : ι → ℂ) (ε : ℝ) (hε : 0 ≤ ε)
     (hθ : ∀ i ∈ T, cop i → 0 ≤ θ i ∧ θ i ≤ 1 ∧ 1 - θ i ≤ ε) :
     ‖(∑ i ∈ T, if cop i then (θ i : ℂ) * (R i - M i) else 0) -
@@ -45,7 +45,7 @@ theorem pad_signed_difference_bound {ι : Type*} (T : Finset ι) (cop : ι → P
       split_ifs <;> simp
 
 /-- Uniform absolute-square estimates turn the signed subtraction into a scalar error bound. -/
-theorem pad_signed_difference_uniform {ι : Type*} (T : Finset ι) (cop : ι → Prop)
+theorem pad_signed_difference_uniform {ι : Type*} (T : Finset ι) (cop : ι → Prop) [DecidablePred cop]
     (θ : ι → ℝ) (R M : ι → ℂ) (ε RawAbs CompAbs CollisionAbs : ℝ) (hε : 0 ≤ ε)
     (hθ : ∀ i ∈ T, cop i → 0 ≤ θ i ∧ θ i ≤ 1 ∧ 1 - θ i ≤ ε)
     (hRaw : (∑ i ∈ T, if cop i then ‖R i‖ else 0) ≤ RawAbs)
