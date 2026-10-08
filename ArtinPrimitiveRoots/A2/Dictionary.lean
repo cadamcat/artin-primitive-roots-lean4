@@ -32,6 +32,15 @@ theorem rayClass_idelic_dictionary {K : Type} [Field K] [NumberField K]
       ∀ (I : Ideal (𝓞 K)) (hI : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m I),
         χ.idealValue I =
           ((η (ArtinPrimitiveRoots.Hecke.rayClass m I hI) : ℂˣ) : ℂ) := by
-  sorry
+  classical
+  obtain ⟨χ, hfin, hcond, hprime⟩ :=
+    ArtinPrimitiveRoots.Dictionary.exists_heckeChar_of_rayClass m η
+  refine ⟨χ, hfin, hcond, ?_, ?_⟩
+  · intro v hv
+    exact (hprime v hv).1
+  · intro I hI
+    have hval :=
+      ArtinPrimitiveRoots.Dictionary.idealValue_eq_charValue η χ hprime I hI
+    simpa [ArtinPrimitiveRoots.Hecke.charValue, hI] using hval
 
 end ArtinPrimitiveRoots.A2

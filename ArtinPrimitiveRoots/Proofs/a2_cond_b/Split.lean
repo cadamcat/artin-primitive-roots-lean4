@@ -2,10 +2,11 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.Defs
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain ClassFieldTheory UniqueFactorizationMonoid
+open ArtinPrimitiveRoots.A2
 open scoped Classical
 noncomputable section
 
-namespace ArtinPrimitiveRoots.A2
+namespace ArtinPrimitiveRoots.Proofs.a2_cond_b
 
 variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
@@ -155,4 +156,4 @@ theorem conductorSplit_norm_le (S : A1.SData F CE condη)
           Ideal.absNorm (conductorExteriorPart S I) := Nat.mul_le_mul_right _ hSnorm
       _ = Ideal.absNorm I := hnorm.symm
 
-end ArtinPrimitiveRoots.A2
+end ArtinPrimitiveRoots.Proofs.a2_cond_b
