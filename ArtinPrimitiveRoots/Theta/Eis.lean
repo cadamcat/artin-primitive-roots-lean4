@@ -1964,6 +1964,38 @@ theorem scalarOf_diag_unipotent
   exact (scalarOf_invariance P G Fs).2.1
     (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y)) _
 
+/-- The zero torus coefficient can be computed on a bounded measurable ideal domain. -/
+theorem eisenstein_zeroCoeff_bounded_domain
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s)
+    (g : P.tc.G) (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) = scalarOf P G Fs.f Fs.fC h)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume) :
+    ∃ Pb : Set (InfinitePlace F → ℂ), MeasurableSet Pb ∧ IsCompact (closure Pb) ∧
+      IsAddFundamentalDomain
+        ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pb volume ∧
+      volume Pd = volume Pb ∧ 0 < (volume Pb).toReal ∧
+      torusCoeff P (eisenstein P G Fs) g Pd 0 =
+        torusCoeff P (eisenstein P G Fs) g Pb 0 := by
+  classical
+  obtain ⟨Pb, hmb, hcb, hdb, hvol, hpos, hint⟩ :=
+    ideal_periodic_domain_comparison D 𝔞 h𝔞 Pd hPd
+  have hperiodic : ∀ t ∈
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom),
+      ∀ x : InfinitePlace F → ℂ,
+      eisenstein P G Fs (nInf P (t + x) * g) = eisenstein P G Fs (nInf P x * g) := by
+    intro t ht x
+    rcases ht with ⟨ξ, hξ, rfl⟩
+    exact eisenstein_ideal_periodic P G hs Fs g 𝔞 hfix ξ hξ x
+  have hi := hint (fun x => eisenstein P G Fs (nInf P x * g)) hperiodic
+  have hpsi0 (x : InfinitePlace F → ℂ) : psiInf (0 : F) x = 1 := by
+    simp [psiInf, psiC]
+  refine ⟨Pb, hmb, hcb, hdb, hvol, hpos, ?_⟩
+  simp only [torusCoeff, neg_zero, hpsi0, mul_one, hvol, hi]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
