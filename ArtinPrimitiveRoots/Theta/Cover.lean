@@ -2947,6 +2947,72 @@ private theorem exists_finLocalCoverBase
     a_Kc := B.a_Kc
   }⟩
 
+/-- The tame splitting correction is trivial on a sufficiently small congruence subgroup. -/
+private theorem exists_tameSmallIdentity
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F) :
+    ∃ m0 : ℕ, 1 ≤ m0 ∧ ∀ m : ℕ, m0 ≤ m →
+      ∀ g : GL (Fin 2) (v.adicCompletion F),
+        (∀ i j, ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+          (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m) →
+        tameSplit D H v g = 1 := by
+  classical
+  obtain ⟨m0, hm0, hpowers⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  refine ⟨m0, hm0, ?_⟩
+  intro m hm g hg
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let r := WithZero.exp (-(m : ℤ))
+  let M : Matrix (Fin 2) (Fin 2) K := g
+  let Δ : K := M.det
+  have hr : r < 1 := by
+    dsimp [r]
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    omega
+  have hrr : r ≤ WithZero.exp (-(m0 : ℤ)) := by
+    dsimp [r]
+    exact WithZero.exp_le_exp.mpr (by omega)
+  change ∀ i j, V (M i j - (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ r at hg
+  have ha : V (M 0 0 - 1) ≤ r := by simpa using hg 0 0
+  have hd : V (M 1 1 - 1) ≤ r := by simpa using hg 1 1
+  have hb : V (M 0 1) ≤ r := by simpa using hg 0 1
+  have hc : V (M 1 0) ≤ r := by simpa using hg 1 0
+  have near_one (x : K) (hx : V (x - 1) ≤ r) : V x = 1 := by
+    simpa using V.map_eq_of_sub_lt (x := 1) (y := x) (by simpa using hx.trans_lt hr)
+  have small_mul {x y : K} (hx : V x ≤ r) (hy : V y ≤ 1) : V (x * y) ≤ r := by
+    rw [map_mul]
+    simpa only [mul_one] using mul_le_mul' hx hy
+  have hΔsmall : V (Δ - 1) ≤ r := by
+    have heq : Δ - 1 = (M 0 0 - 1) * M 1 1 + (M 1 1 - 1) - M 0 1 * M 1 0 := by
+      dsimp [Δ]
+      rw [Matrix.det_fin_two]
+      ring
+    rw [heq]
+    exact V.map_sub_le (V.map_add_le (small_mul ha (near_one _ hd).le) hd)
+      (small_mul hb (hc.trans hr.le))
+  have hΔval : V Δ = 1 := near_one Δ hΔsmall
+  have hΔne : Δ ≠ 0 := g.det_ne_zero
+  have hratio : V (M 1 1 / Δ - 1) ≤ r := by
+    have hdiff : V (M 1 1 - Δ) ≤ r := by
+      have heq : M 1 1 - Δ = (M 1 1 - 1) - (Δ - 1) := by ring
+      rw [heq]
+      exact V.map_sub_le hd hΔsmall
+    have heq : M 1 1 / Δ - 1 = (M 1 1 - Δ) / Δ := by
+      rw [sub_div, div_self hΔne]
+    rw [heq, map_div₀, hΔval, div_one]
+    exact hdiff
+  unfold tameSplit
+  split_ifs with h
+  · let u : Kˣ := Units.mk0 (M 1 1) h.2 / detU v g
+    have hu : V ((u : K) - 1) ≤ r := by
+      dsimp only [u]
+      rw [Units.val_div_eq_div_val, Units.val_mk0]
+      change V (M 1 1 / Δ - 1) ≤ r
+      exact hratio
+    change muThree D (H.hilb v u (Units.mk0 (M 1 0) h.1.1)) = 1
+    rw [H.sixth_power v u _ (hpowers u (hu.trans hrr)), muThree_one D]
+  · rfl
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
