@@ -22,7 +22,8 @@ noncomputable def smoothProgressionFunction (x : ℝ) (c r : ℕ)
   Ψ ((((c * r : ℕ) : ℝ) * t + 1) / x)
 
 theorem smoothProgression_hasDerivAt
-    (x : ℝ) (c r : ℕ) (Ψ : ℝ → ℝ) (hΨ : ContDiff ℝ ⊤ Ψ)
+    (x : ℝ) (c r : ℕ) (Ψ : ℝ → ℝ)
+    (hΨ : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ)
     (hx : x ≠ 0) (t : ℝ) :
     HasDerivAt (smoothProgressionFunction x c r Ψ)
       (deriv Ψ ((((c * r : ℕ) : ℝ) * t + 1) / x) *
