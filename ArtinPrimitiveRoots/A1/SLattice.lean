@@ -2000,6 +2000,23 @@ private theorem covol_local_selfdual_integer_mass
     simp
   simp [hOne]
 
+private theorem covol_local_selfdual_integer_mass_ennreal
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (v : S.Sf) :
+    (covol_local_selfdual_at D S A v)
+      (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) =
+    ENNReal.ofReal (covol_local_selfdual_scale v.1
+      (covol_local_conductor_exponent D S A v)) := by
+  let d := covol_local_conductor_exponent D S A v
+  let μ := covol_base_locHaar v.1
+  have hO : μ.μ (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) = 1 :=
+    μ.norm_O
+  change (covol_local_selfdual_measure v.1 μ d)
+      (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) =
+    ENNReal.ofReal (covol_local_selfdual_scale v.1 d)
+  rw [covol_local_selfdual_measure, Measure.smul_apply, hO]
+  simp
+
 private theorem covol_finite_selfdual_integer_mass_product
     (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) :
     ∏ v : S.Sf, (covol_local_selfdual_at D S A v).real
