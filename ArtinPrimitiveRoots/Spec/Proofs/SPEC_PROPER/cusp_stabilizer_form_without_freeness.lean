@@ -29,5 +29,10 @@ theorem cusp_stabilizer_form_without_freeness
                 w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) * w.embedding μ)
               (fun w => Complex.normSq
                 (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) * y w) := by
-  sorry
+  obtain ⟨D, hD, hforms⟩ := cuspStab_bounded_unit_form Γ σ
+  refine ⟨D, hD, fun γ => ?_⟩
+  obtain ⟨ε, -, μ, hμ, hform⟩ := hforms γ
+  refine ⟨ε, μ, hμ, hform, ?_⟩
+  intro x y hy
+  exact cusp_conjugate_affine_action (γ : SL(2,𝓞 F)) σ ε μ hform x y hy
 end ArtinPrimitiveRoots.A1.Spec
