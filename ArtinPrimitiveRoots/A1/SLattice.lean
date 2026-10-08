@@ -1079,6 +1079,43 @@ private theorem covol_local_character_nontrivial_at_different_successor
   rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
   simpa [d] using htVal
 
+private theorem covol_local_addchar_conductor_eq_different
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (v : S.Sf) :
+    ∃ c : ℤ, 0 ≤ c ∧
+      c = FractionalIdeal.count F v.1
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F) ∧
+      (∀ x, Valued.v x ≤ WithZero.exp c → A.ψ v.1 x = 1) ∧
+      ∃ x, Valued.v x ≤ WithZero.exp (c + 1) ∧ A.ψ v.1 x ≠ 1 := by
+  obtain ⟨c, hc0, hc, hcBoundary⟩ := covol_local_addchar_conductor D S A v
+  let d := FractionalIdeal.count F v.1
+    (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)
+  have hd0 : 0 ≤ d := by
+    simpa [d] using (FractionalIdeal.count_coe_nonneg F v.1
+      (differentIdeal ℤ (𝓞 F)))
+  have htriv : ∀ x : v.1.adicCompletion F, Valued.v x ≤ WithZero.exp d →
+      A.ψ v.1 x = 1 := by
+    intro x hx
+    exact covol_local_character_trivial_on_different_ball D S A v x (by simpa [d] using hx)
+  obtain ⟨xD, hxD, hxDne⟩ := covol_local_character_nontrivial_at_different_successor D S A v
+  have hcdUpper : c ≤ d := by
+    by_contra hnot
+    have hlt : d < c := lt_of_not_ge hnot
+    have hstep : d + 1 ≤ c := by omega
+    have hxle : Valued.v xD ≤ WithZero.exp c :=
+      hxD.trans (WithZero.exp_le_exp.mpr hstep)
+    exact hxDne (hc xD hxle)
+  have hdcLower : d ≤ c := by
+    by_contra hnot
+    have hlt : c < d := lt_of_not_ge hnot
+    have hstep : c + 1 ≤ d := by omega
+    obtain ⟨xc, hxc, hxcne⟩ := hcBoundary
+    have hxc' : Valued.v xc ≤ WithZero.exp d :=
+      hxc.trans (WithZero.exp_le_exp.mpr hstep)
+    exact hxcne (htriv xc hxc')
+  have hcd : c = d := le_antisymm hcdUpper hdcLower
+  exact ⟨c, hc0, by simpa [d] using hcd, hc, hcBoundary⟩
+
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
   have hπcoerce : (unifLoc v : v.adicCompletion F) =
