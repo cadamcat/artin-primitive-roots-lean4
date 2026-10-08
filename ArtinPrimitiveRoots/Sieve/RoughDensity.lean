@@ -476,6 +476,131 @@ lemma tendsto_exponentGridFamilySum_density {b : ℝ} {J : ℕ}
   rw [roughDensity_eq_sum_simplexIntegral hb hb1 hJ hcut]
   exact tendsto_exponentGridFamilySum_integrals (Finset.range (J - 1)) hb hb1
 
+/-- Compare the finite density grids with the normalized block-sieve upper bound. -/
+lemma roughDensity_le_block_main (hPNT : DyadicPrimeInput) :
+    ∃ K : ℝ, 0 < K ∧ ∃ H₀ : ℕ,
+      ∀ b : ℝ, 0 < b → b < 1 → ∀ H : ℕ,
+        Even H → H₀ ≤ H → b * (4 * (H : ℝ) + 2) < 1 →
+        roughDensity b 1 ≤
+          (1 + K * Real.exp (-(H : ℝ))) *
+            Real.exp (-Real.eulerMascheroniConstant) / b := by
+  classical
+  obtain ⟨K, hK, H₀, hblock⟩ := roughIntegerCount_le_main_of_block
+  refine ⟨K, hK, H₀, ?_⟩
+  intro b hb hb1 H hHeven hH hα
+  let α : ℝ := b * (4 * (H : ℝ) + 2)
+  let A : ℝ := 1 + K * Real.exp (-(H : ℝ))
+  let U : ℝ := A * Real.exp (-Real.eulerMascheroniConstant) / b
+  let G : ℝ → ℝ := fun x =>
+    A * (Real.log x *
+      ∏ p ∈ roughSievePrimes (Real.rpow x b), (1 - 1 / (p : ℝ))) +
+    K * (Real.log x / x) * (Real.rpow x α + 1)
+  have hlog : Tendsto (fun x : ℝ => Real.log x / x) atTop (𝓝 0) := by
+    simpa using Real.tendsto_pow_log_div_mul_add_atTop 1 0 1 one_ne_zero
+  have herr : Tendsto (fun x : ℝ =>
+      (Real.log x / x) * (Real.rpow x α + 1)) atTop (𝓝 0) := by
+    have hlim := (tendsto_log_mul_rpow_sub_one hα).add hlog
+    simp only [add_zero] at hlim
+    apply hlim.congr'
+    filter_upwards [eventually_gt_atTop (0 : ℝ)] with x hx
+    change Real.log x * Real.rpow x (α - 1) + Real.log x / x =
+      (Real.log x / x) * (Real.rpow x α + 1)
+    have hpow : Real.rpow x (α - 1) = Real.rpow x α / x :=
+      Real.rpow_sub_one hx.ne' α
+    rw [hpow]
+    ring
+  have hG : Tendsto G atTop (𝓝 U) := by
+    have hmain := (tendsto_roughSieveProduct_scaled hb).const_mul A
+    have herror := herr.const_mul K
+    simpa [G, U, mul_div_assoc, mul_assoc] using hmain.add herror
+  have hupper : ∀ᶠ x : ℝ in atTop,
+      (Real.log x / x) * roughIntegerCount x (Real.rpow x b) ≤ G x := by
+    filter_upwards [eventually_ge_atTop (2 : ℝ),
+      (tendsto_rpow_atTop hb).eventually_ge_atTop 2] with x hx hxpow
+    have hxpos : 0 < x := by linarith
+    have hscale : 0 ≤ Real.log x / x :=
+      div_nonneg (Real.log_nonneg (by linarith)) hxpos.le
+    have hbound := mul_le_mul_of_nonneg_left
+      (hblock (Real.rpow x b) hxpow x hxpos.le H hHeven hH) hscale
+    have hpow : (Real.rpow x b) ^ (4 * H + 2 : ℕ) = Real.rpow x α := by
+      simpa [α] using (Real.rpow_mul_natCast hxpos.le b (4 * H + 2)).symm
+    calc
+      (Real.log x / x) * roughIntegerCount x (Real.rpow x b) ≤
+          (Real.log x / x) *
+            (A * (x * ∏ p ∈ roughSievePrimes (Real.rpow x b),
+                (1 - 1 / (p : ℝ))) + K * ((Real.rpow x b) ^ (4 * H + 2) + 1)) :=
+        hbound
+      _ = G x := by
+        rw [hpow]
+        dsimp [G]
+        field_simp [hxpos.ne']
+        <;> ring
+  have hgridε (F : Finset ℕ) (n : ℕ) (hn : 0 < n)
+      (ε : ℝ) (hε : 0 < ε) (hε1 : ε < 1) :
+      (1 - ε) * exponentGridFamilySum F b n ≤ U := by
+    let S : Finset (Σ k : ℕ, Fin k → ℕ) :=
+      F.sigma (fun k => exponentGridBoxes k b n)
+    let L : ℝ → ℝ := fun x =>
+      ∑ d ∈ S,
+        ((1 - ε) / (1 - ∑ i : Fin d.1, exponentGridLower b n d.2 i) *
+          ∏ i : Fin d.1,
+            primeReciprocalBand x (exponentGridLower b n d.2 i)
+              (exponentGridUpper b n d.2 i)) / ((d.1 + 1).factorial : ℝ)
+    have hLsum : Tendsto L atTop (𝓝 (∑ d ∈ S,
+        ((1 - ε) / (1 - ∑ i : Fin d.1, exponentGridLower b n d.2 i) *
+          ∏ i : Fin d.1,
+            Real.log (exponentGridUpper b n d.2 i / exponentGridLower b n d.2 i)) /
+          ((d.1 + 1).factorial : ℝ))) := by
+      apply tendsto_finsetSum S
+      intro d hd
+      have hdgrid := (Finset.mem_sigma.mp hd).2
+      have hvalid := exponentGridBox_valid hb hn hdgrid
+      have hprod := tendsto_primeReciprocalBand_prod
+        (exponentGridLower b n d.2) (exponentGridUpper b n d.2)
+        (fun i => hb.trans_le (hvalid.1 i)) hvalid.2.1
+      exact (hprod.const_mul
+        ((1 - ε) / (1 - ∑ i : Fin d.1, exponentGridLower b n d.2 i))).div_const _
+    have hsum : (∑ d ∈ S,
+        ((1 - ε) / (1 - ∑ i : Fin d.1, exponentGridLower b n d.2 i) *
+          ∏ i : Fin d.1,
+            Real.log (exponentGridUpper b n d.2 i / exponentGridLower b n d.2 i)) /
+          ((d.1 + 1).factorial : ℝ)) =
+        (1 - ε) * exponentGridFamilySum F b n := by
+      dsimp [S]
+      rw [Finset.sum_sigma]
+      simp only [exponentGridFamilySum, exponentGridSum, Finset.mul_sum, Finset.sum_div]
+      apply Finset.sum_congr rfl
+      intro k hk
+      apply Finset.sum_congr rfl
+      intro u hu
+      ring
+    rw [hsum] at hLsum
+    have hlower := eventually_exponentGridFamily_roughCount_lower hPNT hb hε hε1 hn F
+    have horder : ∀ᶠ x : ℝ in atTop, L x ≤ G x := by
+      filter_upwards [hlower, hupper] with x hlow hupp
+      exact hlow.trans hupp
+    exact le_of_tendsto_of_tendsto hLsum hG horder
+  have hgrid (F : Finset ℕ) (n : ℕ) (hn : 0 < n) :
+      exponentGridFamilySum F b n ≤ U := by
+    have hεlim : Tendsto (fun m : ℕ => 1 / ((m : ℝ) + 1)) atTop (𝓝 0) :=
+      tendsto_one_div_add_atTop_nhds_zero_nat
+    have hlim : Tendsto (fun m : ℕ =>
+        (1 - 1 / ((m : ℝ) + 1)) * exponentGridFamilySum F b n) atTop
+        (𝓝 (exponentGridFamilySum F b n)) := by
+      simpa using ((tendsto_const_nhds (x := (1 : ℝ))).sub hεlim).mul_const
+        (exponentGridFamilySum F b n)
+    apply le_of_tendsto hlim
+    filter_upwards [eventually_gt_atTop (0 : ℕ)] with m hm
+    apply hgridε F n hn
+    · exact one_div_pos.mpr (by positivity)
+    · have hmR : 0 < (m : ℝ) := Nat.cast_pos.mpr hm
+      apply (div_lt_one (by positivity : 0 < (m : ℝ) + 1)).mpr
+      linarith
+  obtain ⟨J, hJ, hcut, _⟩ := finite_density_sum (w := 1) hb
+  apply le_of_tendsto (tendsto_exponentGridFamilySum_density hb hb1 hJ hcut)
+  filter_upwards [eventually_gt_atTop (0 : ℕ)] with n hn
+  exact hgrid (Finset.range (J - 1)) n hn
+
 /-- The uniform upper bound with the frozen exponential rate. -/
 lemma density_upper_bound :
     ∃ b₀ : ℝ, 0 < b₀ ∧ ∃ C_d : ℝ, 0 < C_d ∧ ∀ b : ℝ, 0 < b → b < b₀ →
