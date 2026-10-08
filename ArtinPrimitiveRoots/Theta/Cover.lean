@@ -1,6 +1,7 @@
 import Mathlib.Topology.Defs.Induced
 import Mathlib.Topology.Algebra.RestrictedProduct.TopologicalSpace
 import ArtinPrimitiveRoots.A1.ThetaInterface
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedComponents
 
 
 /-!
@@ -1800,6 +1801,28 @@ def HasRestrictedProductTopology (P : CoverPackage D S H A) : Prop :=
   ∃ e : @Homeomorph P.RP (CanonicalRP P) P.rpTopology inferInstance,
     (∀ x v, e x (.inl v) = P.compF v x) ∧
     ∀ x w, e x (.inr w) = P.compC w x
+
+/-- The component axioms identify the package's tuples with the canonical restricted product.
+Continuity of this equivalence is a separate obligation of the global construction. -/
+theorem coverPackage_components_equiv (P : CoverPackage D S H A) :
+    ∃ e : P.RP ≃ CanonicalRP P,
+      (∀ x v, e x (.inl v) = P.compF v x) ∧
+      ∀ x w, e x (.inr w) = P.compC w x := by
+  have he := TH_COVER.restrictedSum_componentEquiv S.Sf
+    (fun v hv => ((P.tame v hv).Kmax : Set (P.loc v).L))
+    (fun v x => P.compF v x) (fun w x => P.compC w x)
+    P.comp_ext P.comp_restricted P.comp_surj
+  have href :
+      (TH_COVER.sumReference S.Sf (fun v hv => ((P.tame v hv).Kmax : Set (P.loc v).L)) :
+        (p : Place F) → Set (LocalComponent P p)) = referenceSubset P := by
+    funext p
+    cases p with
+    | inl v =>
+      by_cases hv : v ∉ S.Sf <;>
+        simp [TH_COVER.sumReference, referenceSubset, LocalComponent, hv]
+    | inr w => rfl
+  rw [href] at he
+  exact he
 
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
