@@ -4864,6 +4864,24 @@ variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
   {v0 : InfinitePlace F}
 variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
 
+private lemma rf_ext_norm_dyad_bounds (I : S.ExtIdeal) :
+    ((2 ^ Nat.log 2 (Ideal.absNorm I.1) : ℕ) : ℝ) ≤ qI I.1 ∧
+      qI I.1 < ((2 ^ (Nat.log 2 (Ideal.absNorm I.1) + 1) : ℕ) : ℝ) := by
+  have hI : I.1 ≠ ⊥ := by
+    simpa [Ideal.zero_eq_bot] using I.2.1
+  have hnormpos : 0 < Ideal.absNorm I.1 :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr
+        (by simpa [Ideal.zero_eq_bot] using hI)⟩
+  have hn : Ideal.absNorm I.1 ≠ 0 := Nat.ne_of_gt hnormpos
+  constructor
+  · change ((2 ^ Nat.log 2 (Ideal.absNorm I.1) : ℕ) : ℝ) ≤
+      (Ideal.absNorm I.1 : ℝ)
+    exact_mod_cast Nat.pow_log_le_self 2 hn
+  · change (Ideal.absNorm I.1 : ℝ) <
+      ((2 ^ (Nat.log 2 (Ideal.absNorm I.1) + 1) : ℕ) : ℝ)
+    exact_mod_cast Nat.lt_pow_succ_log_self (by norm_num : 1 < 2) _
+
 set_option maxHeartbeats 8000000 in
 /-- rf:reflection-assembly: dyadic clause, restoring bounded element multiplicity. -/
 theorem rf_reflection_dyadic_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
@@ -5314,7 +5332,251 @@ theorem rf_reflection_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact
       Set.InjOn (fun r : ReflectionRow S => (r.m : F)) (↑rows : Set (ReflectionRow S)) →
       (∀ r ∈ rows, InReflectionBox D S K t Z (by linarith) r) →
       (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤ C * Z ^ (2 * M0 - 1 + ε) := by
-  sorry
+  classical
+  intro K T hK hT hTnorm ε hε
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  obtain ⟨Cdyad, hCdyad, hDyadic⟩ :=
+    rf_reflection_dyadic_assembly R K T hK hT hTnorm (ε / 2) (by linarith)
+  obtain ⟨c₁, C₀, Cmult, hc₁, hC₀upper, hCmult, K', hK', hK'norm, hElement⟩ :=
+    rf_element_to_ideal D S H Bd bc K T hK hT hTnorm
+  have hC₀ : 0 < C₀ := by linarith [hc₁, hC₀upper]
+  obtain ⟨Cscale, hCscale, hScale⟩ :=
+    (rf_assembly_scale_bounds).2 C₀ (ε / 8) (ε / 8) hC₀ (by linarith) (by linarith)
+  let β : ℝ := ε / (4 * M0)
+  have hM0 : 1 < M0 := by norm_num [M0, a, b]
+  have hβ : 0 < β := by dsimp [β]; positivity
+  let Clog : ℝ := 1 / Real.log 2
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hClog : 0 < Clog := by dsimp [Clog]; positivity
+  let Cabs : ℝ := ((β / 4) ^ 4)⁻¹
+  let Cnum : ℝ := Clog ^ 2 * (1 + Cabs * (2 * C₀) ^ β)
+  let Cbin : ℝ := Cdyad * Cscale
+  let Cfinal : ℝ := Cnum * Cbin
+  have hCnum : 0 < Cnum := by dsimp [Cnum, Cabs]; positivity
+  have hCbin : 0 < Cbin := by dsimp [Cbin]; positivity
+  have hCfinal : 0 < Cfinal := by dsimp [Cfinal]; positivity
+  refine ⟨Cfinal, hCfinal, ?_⟩
+  intro Z hZ t ht rows hinj hrows
+  have hZpos : 0 < Z := by linarith
+  by_cases hrowsEmpty : rows = ∅
+  · simp [hrowsEmpty]
+    positivity
+  · have hrowsNE : rows.Nonempty := Finset.nonempty_iff_ne_empty.mpr hrowsEmpty
+    obtain ⟨r₀, hr₀⟩ := hrowsNE
+    let X : ℝ := C₀ * Z ^ M0
+    have hX : 1 ≤ X := by
+      have hnormone : 1 ≤ qI r₀.ideal.1 :=
+        (rf_qI_pos_ge_one r₀.ideal.1 r₀.ideal.2.1).2
+      have hnormup : qI r₀.ideal.1 ≤ X := by
+        have h := hElement Z hZ t ht r₀ (hrows r₀ hr₀)
+        simpa [X, qI, idealNorm] using h.2.1
+      exact hnormone.trans hnormup
+    have hxbase : 1 ≤ 2 * X := by dsimp [X]; nlinarith [hX]
+    have hlog4 := rf_log_four_absorb hβ hxbase
+    let N : ℕ := Nat.log 2 ⌊X⌋₊
+    let dyad (r : ReflectionRow S) : ℕ × ℕ :=
+      (Nat.log 2 (Ideal.absNorm r.h.1), Nat.log 2 (Ideal.absNorm r.d.1))
+    let bins : Finset (ℕ × ℕ) := rows.image dyad
+    let allBins : Finset (ℕ × ℕ) := Finset.range (N + 1) ×ˢ Finset.range (N + 1)
+    let rowsBin (b : ℕ × ℕ) : Finset (ReflectionRow S) :=
+      rows.filter (fun r => dyad r = b)
+    let countLog : ℝ := Clog * Real.log (2 * X)
+    have hcountLog : ((N + 1 : ℕ) : ℝ) ≤ countLog := by
+      simpa [N, countLog, Clog] using rf_retained_natlog_count X hX
+    have hZpower : 1 ≤ Z ^ (ε / 4) := Real.one_le_rpow (by linarith) (by positivity)
+    have hRealLog : 0 ≤ Real.log (2 * X) := Real.log_nonneg hxbase
+    have hLogSq : Real.log (2 * X) ^ 2 ≤
+        (1 + Cabs * (2 * C₀) ^ β) * Z ^ (ε / 4) := by
+      have hPowerX : (2 * X) ^ β = (2 * C₀) ^ β * Z ^ (ε / 4) := by
+        have hXeq : 2 * X = (2 * C₀) * Z ^ M0 := by dsimp [X]; ring
+        rw [hXeq, Real.mul_rpow (by positivity) (by positivity), ← Real.rpow_mul (by positivity)]
+        congr 1
+        dsimp [β]
+        field_simp [ne_of_gt (by linarith : 0 < M0)]
+      calc
+        Real.log (2 * X) ^ 2 ≤ 1 + Real.log (2 * X) ^ 4 := by
+          nlinarith [sq_nonneg (Real.log (2 * X) ^ 2 - 1)]
+        _ ≤ 1 + Cabs * (2 * X) ^ β := by
+          have hcoef : 0 ≤ Cabs := by dsimp [Cabs]; positivity
+          nlinarith [hlog4, hcoef]
+        _ = 1 + Cabs * (2 * C₀) ^ β * Z ^ (ε / 4) := by rw [hPowerX]; ring
+        _ ≤ (1 + Cabs * (2 * C₀) ^ β) * Z ^ (ε / 4) := by
+          nlinarith [mul_nonneg (by positivity : 0 ≤ Cabs * (2 * C₀) ^ β) (sub_nonneg.mpr hZpower)]
+    have hbinsMaps : (rows : Set (ReflectionRow S)).MapsTo dyad bins := by
+      intro r hr
+      exact Finset.mem_image_of_mem dyad hr
+    have hrowNormUpper (r : ReflectionRow S) (hr : r ∈ rows) :
+        qI r.h.1 ≤ X ∧ qI r.d.1 ≤ X := by
+      have hElem := hElement Z hZ t ht r (hrows r hr)
+      have hIup : qI r.ideal.1 ≤ X := by simpa [X, qI, idealNorm] using hElem.2.1
+      have hqMul : qI r.h.1 * qI r.d.1 = qI r.ideal.1 := by
+        calc
+          qI r.h.1 * qI r.d.1 = qI (r.h.1 * r.d.1) := by simp [qI, map_mul]
+          _ = qI r.ideal.1 := by rw [← r.factorization]
+      have hqh1 : 1 ≤ qI r.h.1 := (rf_qI_pos_ge_one r.h.1 r.h.2.1).2
+      have hqd1 : 1 ≤ qI r.d.1 := (rf_qI_pos_ge_one r.d.1 r.d.2.1).2
+      constructor
+      · calc
+          qI r.h.1 = qI r.h.1 * 1 := by ring
+          _ ≤ qI r.h.1 * qI r.d.1 := mul_le_mul_of_nonneg_left hqd1 (by positivity)
+          _ = qI r.ideal.1 := hqMul
+          _ ≤ X := hIup
+      · calc
+          qI r.d.1 = 1 * qI r.d.1 := by ring
+          _ ≤ qI r.h.1 * qI r.d.1 := mul_le_mul_of_nonneg_right hqh1 (by positivity)
+          _ = qI r.ideal.1 := hqMul
+          _ ≤ X := hIup
+    have hrowNormNat (r : ReflectionRow S) (hr : r ∈ rows) :
+        Ideal.absNorm r.h.1 ≤ ⌊X⌋₊ ∧ Ideal.absNorm r.d.1 ≤ ⌊X⌋₊ := by
+      have hreal := hrowNormUpper r hr
+      constructor
+      · apply (Nat.le_floor_iff (by positivity : 0 ≤ X)).2
+        simpa [qI] using hreal.1
+      · apply (Nat.le_floor_iff (by positivity : 0 ≤ X)).2
+        simpa [qI] using hreal.2
+    have hbinsSub : bins ⊆ allBins := by
+      intro b hb
+      rcases Finset.mem_image.mp hb with ⟨r, hr, rfl⟩
+      apply Finset.mem_product.mpr
+      constructor
+      · apply Finset.mem_range.mpr
+        exact Nat.lt_succ_of_le (by
+          simpa [dyad, N] using Nat.log_mono_right (hrowNormNat r hr).1)
+      · apply Finset.mem_range.mpr
+        exact Nat.lt_succ_of_le (by
+          simpa [dyad, N] using Nat.log_mono_right (hrowNormNat r hr).2)
+    have hbinsCard : (bins.card : ℝ) ≤ Cnum * Z ^ (ε / 2) := by
+      have hcardNat : bins.card ≤ (N + 1) * (N + 1) := by
+        calc
+          bins.card ≤ allBins.card := Finset.card_le_card hbinsSub
+          _ = (N + 1) * (N + 1) := by simp [allBins, Finset.card_product]
+      have hcardReal : (bins.card : ℝ) ≤ ((N + 1 : ℕ) : ℝ) ^ 2 := by
+        calc
+          (bins.card : ℝ) ≤ (((N + 1) * (N + 1) : ℕ) : ℝ) := by exact_mod_cast hcardNat
+          _ = ((N + 1 : ℕ) : ℝ) ^ 2 := by norm_cast; ring
+      have hcountSquared : (bins.card : ℝ) ≤ Clog ^ 2 * Real.log (2 * X) ^ 2 := by
+        calc
+          (bins.card : ℝ) ≤ ((N + 1 : ℕ) : ℝ) ^ 2 := hcardReal
+          _ ≤ countLog ^ 2 := pow_le_pow_left₀ (by positivity) hcountLog 2
+          _ = Clog ^ 2 * Real.log (2 * X) ^ 2 := by simp [countLog, mul_pow]
+      calc
+        (bins.card : ℝ) ≤ Clog ^ 2 * Real.log (2 * X) ^ 2 := hcountSquared
+        _ ≤ Cnum * Z ^ (ε / 4) := by
+          dsimp [Cnum]
+          calc
+            Clog ^ 2 * Real.log (2 * X) ^ 2 ≤
+                Clog ^ 2 * ((1 + Cabs * (2 * C₀) ^ β) * Z ^ (ε / 4)) :=
+              mul_le_mul_of_nonneg_left hLogSq (sq_nonneg Clog)
+            _ = Clog ^ 2 * (1 + Cabs * (2 * C₀) ^ β) * Z ^ (ε / 4) := by ring
+        _ ≤ Cnum * Z ^ (ε / 2) := by
+          apply mul_le_mul_of_nonneg_left _ (by positivity)
+          exact Real.rpow_le_rpow_of_exponent_le (by linarith) (by linarith)
+    have hsumDecomp :
+        (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) =
+          ∑ b ∈ bins, ∑ r ∈ rowsBin b, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2 := by
+      exact (Finset.sum_fiberwise_of_maps_to hbinsMaps _).symm
+    have hbinBound (b : ℕ × ℕ) (hb : b ∈ bins) :
+        (∑ r ∈ rowsBin b, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
+          Cbin * Z ^ (2 * M0 - 1 + ε / 2) := by
+      rcases Finset.mem_image.mp hb with ⟨r₀, hr₀, hbEq⟩
+      let P : ℝ := ((2 ^ b.1 : ℕ) : ℝ)
+      let Dlen : ℝ := ((2 ^ b.2 : ℕ) : ℝ)
+      have hPpos : 1 ≤ P := by
+        dsimp [P]
+        exact_mod_cast (Nat.one_le_pow b.1 2 (by decide))
+      have hDpos : 1 ≤ Dlen := by
+        dsimp [Dlen]
+        exact_mod_cast (Nat.one_le_pow b.2 2 (by decide))
+      have hrowShell (r : ReflectionRow S) (hr : r ∈ rowsBin b) :
+          P ≤ qI r.h.1 ∧ qI r.h.1 < 2 * P ∧ Dlen ≤ qI r.d.1 ∧ qI r.d.1 < 2 * Dlen := by
+        have hfilter := Finset.mem_filter.mp hr
+        have hbinEq : dyad r = b := hfilter.2
+        have hi : Nat.log 2 (Ideal.absNorm r.h.1) = b.1 := by
+          simpa [dyad] using congrArg Prod.fst hbinEq
+        have hj : Nat.log 2 (Ideal.absNorm r.d.1) = b.2 := by
+          simpa [dyad] using congrArg Prod.snd hbinEq
+        have hsh := rf_ext_norm_dyad_bounds r.h
+        have hsd := rf_ext_norm_dyad_bounds r.d
+        have hPupper : ((2 ^ (b.1 + 1) : ℕ) : ℝ) = 2 * P := by
+          have hn : 2 ^ (b.1 + 1) = 2 * 2 ^ b.1 := by rw [pow_succ]; ring
+          dsimp [P]
+          exact_mod_cast hn
+        have hDupper : ((2 ^ (b.2 + 1) : ℕ) : ℝ) = 2 * Dlen := by
+          have hn : 2 ^ (b.2 + 1) = 2 * 2 ^ b.2 := by rw [pow_succ]; ring
+          dsimp [Dlen]
+          exact_mod_cast hn
+        constructor
+        · simpa [P, hi] using hsh.1
+        · constructor
+          · simpa [hi, hPupper] using hsh.2
+          · constructor
+            · simpa [Dlen, hj] using hsd.1
+            · simpa [hj, hDupper] using hsd.2
+      have hPD : P * Dlen ≤ X := by
+        have hShell := hrowShell r₀ (Finset.mem_filter.mpr ⟨hr₀, by simpa [dyad] using hbEq⟩)
+        have hElem₀ := hElement Z hZ t ht r₀ (hrows r₀ hr₀)
+        have hIup : qI r₀.ideal.1 ≤ X := by
+          simpa [X, qI, idealNorm] using hElem₀.2.1
+        have hqMul : qI r₀.h.1 * qI r₀.d.1 = qI r₀.ideal.1 := by
+          calc
+            qI r₀.h.1 * qI r₀.d.1 = qI (r₀.h.1 * r₀.d.1) := by simp [qI, map_mul]
+            _ = qI r₀.ideal.1 := by rw [← r₀.factorization]
+        calc
+          P * Dlen ≤ qI r₀.h.1 * qI r₀.d.1 :=
+            mul_le_mul hShell.1 hShell.2.2.1 (by linarith [hDpos])
+              (by linarith [hPpos, hShell.1])
+          _ = qI r₀.ideal.1 := hqMul
+          _ ≤ X := hIup
+      have hInjBin : Set.InjOn (fun r : ReflectionRow S => (r.m : F))
+          (↑(rowsBin b) : Set (ReflectionRow S)) := by
+        intro r hr s hs heq
+        exact hinj (Finset.mem_filter.mp hr).1 (Finset.mem_filter.mp hs).1 heq
+      have hRowsBin : ∀ r ∈ rowsBin b,
+          InReflectionBox D S K t Z (by linarith) r ∧
+            P ≤ qI r.h.1 ∧ qI r.h.1 < 2 * P ∧ Dlen ≤ qI r.d.1 ∧ qI r.d.1 < 2 * Dlen := by
+        intro r hr
+        exact ⟨(hrows r (Finset.mem_filter.mp hr).1), hrowShell r hr⟩
+      have hDya := hDyadic Z hZ P Dlen hPpos hDpos t ht (rowsBin b) hInjBin hRowsBin
+      obtain ⟨hDsum, hDprod, hPbound, hLog, hShape⟩ := hScale P Dlen Z hPpos hDpos hZ hPD
+      calc
+        (∑ r ∈ rowsBin b, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
+            Cdyad * Z ^ (ε / 2) * P ^ (1 / 2 : ℝ) *
+              (Dlen + Dlen ^ 2 * P / Z) := hDya
+        _ ≤ Cdyad * Z ^ (ε / 2) * (Cscale * Z ^ (2 * M0 - 1)) := by
+          calc
+            _ = (Cdyad * Z ^ (ε / 2)) *
+                  (P ^ (1 / 2 : ℝ) * (Dlen + Dlen ^ 2 * P / Z)) := by ring
+            _ ≤ (Cdyad * Z ^ (ε / 2)) * (Cscale * Z ^ (2 * M0 - 1)) :=
+              mul_le_mul_of_nonneg_left hShape (by positivity)
+        _ = Cbin * Z ^ (2 * M0 - 1 + ε / 2) := by
+          dsimp [Cbin]
+          calc
+            Cdyad * Z ^ (ε / 2) * (Cscale * Z ^ (2 * M0 - 1)) =
+                Cdyad * Cscale * (Z ^ (ε / 2) * Z ^ (2 * M0 - 1)) := by ring
+            _ = Cdyad * Cscale * Z ^ (ε / 2 + (2 * M0 - 1)) := by
+              rw [← Real.rpow_add hZpos]
+            _ = Cdyad * Cscale * Z ^ (2 * M0 - 1 + ε / 2) := by congr 1 <;> ring
+    have hsumBound :
+        (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
+          (bins.card : ℝ) * (Cbin * Z ^ (2 * M0 - 1 + ε / 2)) := by
+      calc
+        _ = ∑ b ∈ bins, ∑ r ∈ rowsBin b,
+              ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2 := hsumDecomp
+        _ ≤ ∑ b ∈ bins, Cbin * Z ^ (2 * M0 - 1 + ε / 2) :=
+          Finset.sum_le_sum fun b hb => hbinBound b hb
+        _ = _ := by simp [Finset.sum_const, nsmul_eq_mul]
+    calc
+      (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
+          Cnum * Z ^ (ε / 2) * (Cbin * Z ^ (2 * M0 - 1 + ε / 2)) := by
+        exact hsumBound.trans (mul_le_mul_of_nonneg_right hbinsCard (by positivity))
+      _ = Cfinal * Z ^ (2 * M0 - 1 + ε) := by
+        dsimp [Cfinal]
+        calc
+          Cnum * Z ^ (ε / 2) * (Cbin * Z ^ (2 * M0 - 1 + ε / 2)) =
+              Cnum * Cbin * (Z ^ (ε / 2) * Z ^ (2 * M0 - 1 + ε / 2)) := by ring
+          _ = Cnum * Cbin * Z ^ (ε / 2 + (2 * M0 - 1 + ε / 2)) := by
+            rw [← Real.rpow_add hZpos]
+          _ = Cnum * Cbin * Z ^ (2 * M0 - 1 + ε) := by congr 1 <;> ring
 end ReflectionAssemblyMain
 
 end ArtinPrimitiveRoots.A2
