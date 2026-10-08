@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.Steinberg
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.Semilinear
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.CompletionComparison
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.GeneratedExtension
+import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.ArtinLocalization
 import ArtinPrimitiveRoots.A1.Proofs.A1_GENERATORS.Generator
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.ResidueCompatibility
 
