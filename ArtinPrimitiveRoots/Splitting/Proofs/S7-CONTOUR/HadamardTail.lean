@@ -4,7 +4,7 @@ import Mathlib.Analysis.Normed.Module.FiniteDimension
 
 set_option autoImplicit false
 
-open scoped NumberField Topology
+open scoped NumberField Topology BigOperators
 open NumberField IsDedekindDomain Complex Filter
 
 noncomputable section
@@ -93,5 +93,102 @@ theorem zero_inverse_square_summable (K : Type*) [Field K] [NumberField K] :
           simp only [H, if_pos hρ, norm_mul, Complex.norm_natCast, hcombNorm]
           ring
     · simp [H, hρ]
+
+/-- The inverse-square zero sum bounds xi's logarithmic derivative away from its zeros. -/
+theorem xi_logderiv_bound (K : Type*) [Field K] [NumberField K] :
+    ∃ C : ℝ, 0 < C ∧ ∀ (s : ℂ) (ε : ℝ), 0 < ε →
+      (∀ ρ : ℂ, ρ ∈ nontrivialZeros K → ε ≤ ‖s - ρ‖) →
+      ‖deriv (dedekindXi K) s / dedekindXi K s‖ ≤
+        C * (1 + ‖s‖ * (1 + ‖s‖ / ε)) := by
+  have hspec := Classical.choose_spec (dedekind_completed K)
+  have hxi : Differentiable ℂ (dedekindXi K) := hspec.1
+  have hzero : dedekindXi K 0 ≠ 0 := (sharp_continuation K).2.2.2
+  have hgrowth := dedekind_order_one K (dedekindXi K) hxi hspec.2.1
+  obtain ⟨B, hHadamard⟩ := ext_hadamard_order_one (dedekindXi K) hxi hzero hgrowth
+  have hdict := xi_zero_dictionary K
+  let w : ℂ → ℝ := fun ρ => if ρ ∈ nontrivialZeros K then
+    (zeroMultiplicity K ρ : ℝ) / ‖ρ‖ ^ 2 else 0
+  have hw : Summable w := zero_inverse_square_summable K
+  have hnonneg (ρ : ℂ) : 0 ≤ w ρ := by
+    dsimp [w]
+    split_ifs <;> positivity
+  let M : ℝ := ∑' ρ : ℂ, w ρ
+  have hM : 0 ≤ M := tsum_nonneg hnonneg
+  let C : ℝ := ‖B‖ + M + 1
+  have hC : 0 < C := by dsimp [C]; positivity
+  refine ⟨C, hC, ?_⟩
+  intro s ε hε hsep
+  have hs : dedekindXi K s ≠ 0 := by
+    intro hz
+    have h := hsep s ((hdict.1 s).mp hz)
+    simp only [sub_self, norm_zero] at h
+    exact not_le_of_gt hε h
+  let H : ℂ → ℂ := fun ρ => if dedekindXi K ρ = 0 then
+    (analyticOrderNatAt (dedekindXi K) ρ : ℂ) * ((s - ρ)⁻¹ + ρ⁻¹) else 0
+  have hH : Summable H := (hHadamard s hs).1
+  have hformula : deriv (dedekindXi K) s / dedekindXi K s = B + ∑' ρ : ℂ, H ρ :=
+    (hHadamard s hs).2
+  let Q : ℝ := ‖s‖ * (1 + ‖s‖ / ε)
+  have hQ : 0 ≤ Q := by dsimp [Q]; positivity
+  have hterm (ρ : ℂ) : ‖H ρ‖ ≤ Q * w ρ := by
+    by_cases hρ : ρ ∈ nontrivialZeros K
+    · have hz : dedekindXi K ρ = 0 := (hdict.1 ρ).mpr hρ
+      have hρzero : ρ ≠ 0 := by
+        intro h
+        have hpos := hρ.1
+        rw [h] at hpos
+        norm_num at hpos
+      have hR : 0 < ‖ρ‖ := norm_pos_iff.mpr hρzero
+      have hD : 0 < ‖s - ρ‖ := hε.trans_le (hsep ρ hρ)
+      have hdiff : s - ρ ≠ 0 := norm_pos_iff.mp hD
+      have hcomb : (s - ρ)⁻¹ + ρ⁻¹ = s / ((s - ρ) * ρ) := by
+        field_simp [hρzero, hdiff] <;> ring
+      have hcombNorm : ‖(s - ρ)⁻¹ + ρ⁻¹‖ = ‖s‖ / (‖s - ρ‖ * ‖ρ‖) := by
+        rw [hcomb, norm_div, norm_mul]
+      have htri : ‖ρ‖ ≤ ‖s - ρ‖ + ‖s‖ := by
+        calc
+          ‖ρ‖ = ‖-(s - ρ) + s‖ := by congr 1; ring
+          _ ≤ ‖-(s - ρ)‖ + ‖s‖ := norm_add_le _ _
+          _ = _ := by rw [norm_neg]
+      have hratio : ‖ρ‖ / ‖s - ρ‖ ≤ 1 + ‖s‖ / ε := by
+        calc
+          _ ≤ (‖s - ρ‖ + ‖s‖) / ‖s - ρ‖ := div_le_div_of_nonneg_right htri hD.le
+          _ = 1 + ‖s‖ / ‖s - ρ‖ := by field_simp [hD.ne'] <;> ring
+          _ ≤ 1 + ‖s‖ / ε := by
+            have h := div_le_div_of_nonneg_left (norm_nonneg s) hε (hsep ρ hρ)
+            linarith
+      have hcombBound : ‖(s - ρ)⁻¹ + ρ⁻¹‖ ≤ Q / ‖ρ‖ ^ 2 := by
+        calc
+          _ = ‖s‖ / (‖s - ρ‖ * ‖ρ‖) := hcombNorm
+          _ = ‖s‖ * (‖ρ‖ / ‖s - ρ‖) / ‖ρ‖ ^ 2 := by
+            field_simp [hD.ne', hR.ne'] <;> ring
+          _ ≤ ‖s‖ * (1 + ‖s‖ / ε) / ‖ρ‖ ^ 2 :=
+            div_le_div_of_nonneg_right
+              (mul_le_mul_of_nonneg_left hratio (norm_nonneg s)) (sq_nonneg _)
+          _ = Q / ‖ρ‖ ^ 2 := rfl
+      calc
+        ‖H ρ‖ = (zeroMultiplicity K ρ : ℝ) * ‖(s - ρ)⁻¹ + ρ⁻¹‖ := by
+          simp only [H, if_pos hz, hdict.2.1 ρ hρ, norm_mul, Complex.norm_natCast]
+        _ ≤ (zeroMultiplicity K ρ : ℝ) * (Q / ‖ρ‖ ^ 2) :=
+          mul_le_mul_of_nonneg_left hcombBound (Nat.cast_nonneg _)
+        _ = Q * w ρ := by simp only [w, if_pos hρ]; ring
+    · have hnz : dedekindXi K ρ ≠ 0 := fun h => hρ ((hdict.1 ρ).mp h)
+      simp [H, w, hρ, hnz]
+  have hnormsum : (∑' ρ : ℂ, ‖H ρ‖) ≤ Q * M := by
+    calc
+      _ ≤ ∑' ρ : ℂ, Q * w ρ := hH.norm.tsum_le_tsum hterm (hw.mul_left Q)
+      _ = Q * M := hw.tsum_mul_left Q
+  have hbound : ‖deriv (dedekindXi K) s / dedekindXi K s‖ ≤ ‖B‖ + Q * M := by
+    calc
+      _ = ‖B + ∑' ρ : ℂ, H ρ‖ := by rw [hformula]
+      _ ≤ ‖B‖ + ‖∑' ρ : ℂ, H ρ‖ := norm_add_le _ _
+      _ ≤ ‖B‖ + Q * M := by
+        linarith [norm_tsum_le_tsum_norm hH.norm, hnormsum]
+  have hCB : ‖B‖ ≤ C := by dsimp [C]; linarith
+  have hCM : M ≤ C := by dsimp [C]; linarith [norm_nonneg B]
+  calc
+    _ ≤ ‖B‖ + Q * M := hbound
+    _ ≤ C + Q * C := add_le_add hCB (mul_le_mul_of_nonneg_left hCM hQ)
+    _ = C * (1 + ‖s‖ * (1 + ‖s‖ / ε)) := by dsimp [Q]; ring
 
 end ArtinPrimitiveRoots.Proofs.s7sol_mellin
