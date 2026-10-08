@@ -153,4 +153,30 @@ theorem qs_nq0_residue_eq_one_of_valuation_sub_one_lt_one
       v.exists_primeCompl_mul_eq_of_integer x (le_of_eq hxval)
     exact (h ⟨(n, (d : 𝓞 K)), d.property, hnd⟩).elim
 
+/-!
+The sextic residue-one step has this exact signature:
+```
+theorem qs_nq0_chiAlg_eq_one_of_residue_one
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (x : K) (hx : residue v x = 1) :
+    chiAlg v x = 1
+```
+-/
+
+/-- Away from six, residue one forces the sextic residue symbol to be one. -/
+theorem qs_nq0_chiAlg_eq_one_of_residue_one
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (x : K) (hx : residue v x = 1) :
+    chiAlg v x = 1 := by
+  classical
+  obtain ⟨hcop, hnorm⟩ := coprime_six_of_not_mem_six v h6
+  unfold chiAlg
+  split_ifs with h
+  · apply Ideal.rootsOfUnityMapQuot_injective (I := v.asIdeal) 6 hnorm hcop
+    apply Units.ext
+    change Ideal.Quotient.mk v.asIdeal ((h.choose : (𝓞 K)ˣ) : 𝓞 K) =
+      Ideal.Quotient.mk v.asIdeal ((1 : (𝓞 K)ˣ) : 𝓞 K)
+    simpa only [hx, one_pow, Units.val_one, map_one] using h.choose_spec
+  · rfl
+
 end ArtinPrimitiveRoots.A2
