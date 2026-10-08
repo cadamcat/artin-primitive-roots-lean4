@@ -2256,6 +2256,98 @@ private theorem rf_chi_sqf_gen_product
     from hprod s (Finset.Subset.refl s)]
   exact (Finset.prod_zpow (fun w => chi D v (primeGen R w : F)) s e).symm
 
+private theorem rf_sqf_pairing_product
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (d : S.ExtIdeal) (c : S.SqfExtIdeal)
+    (hd : Squarefree d.1) (hdc : IsCoprime d.1 c.1) :
+    (∏ v ∈ R.exterior.support d, chi D v (cgen R c)) *
+      (∏ w ∈ R.exterior.support (R.exterior.ofSqf c),
+        chi D w (bc.gen d : F) ^ (-4 : ℤ)) =
+      chiIdealPow D d.1 (cgen R c) 3 := by
+  classical
+  let dSqf : S.SqfExtIdeal := ⟨d.1, d.property, hd⟩
+  have hdExt : R.exterior.ofSqf dSqf = d := by
+    apply Subtype.ext
+    exact R.exterior.ofSqf_val dSqf
+  have hgenD : cgen R dSqf = (bc.gen d : F) := by
+    simp only [cgen, hdExt]
+  let ds := R.exterior.support d
+  let cs := R.exterior.support (R.exterior.ofSqf c)
+  have hnotC (v : FinPlace F) (hvd : v ∈ ds) : v ∉ cs := by
+    intro hvc
+    exact rf_no_common_prime v d.1 c.1 hdc
+      ((R.exterior.mem_support d v).1 hvd)
+      (by simpa only [R.exterior.ofSqf_val] using
+        (R.exterior.mem_support (R.exterior.ofSqf c) v).1 hvc)
+  have hnotD (w : FinPlace F) (hwc : w ∈ cs) : w ∉ ds := by
+    intro hwd
+    exact hnotC w hwd hwc
+  have hleft : (∏ v ∈ ds, chi D v (cgen R c)) =
+      ∏ v ∈ ds, ∏ w ∈ cs, chi D v (primeGen R w : F) := by
+    apply Finset.prod_congr rfl
+    intro v hvd
+    simpa using rf_chi_sqf_gen_product R c v
+      (R.exterior.support_exterior d v hvd) (hnotC v hvd) (1 : ℤ)
+  have hright : (∏ w ∈ cs, chi D w (bc.gen d : F) ^ (-4 : ℤ)) =
+      ∏ w ∈ cs, ∏ v ∈ ds, chi D w (primeGen R v : F) ^ (-4 : ℤ) := by
+    apply Finset.prod_congr rfl
+    intro w hwc
+    have hwNot : w ∉ R.exterior.support (R.exterior.ofSqf dSqf) := by
+      rw [hdExt]
+      exact hnotD w hwc
+    have h := rf_chi_sqf_gen_product R dSqf w
+      (R.exterior.support_exterior (R.exterior.ofSqf c) w hwc) hwNot (-4 : ℤ)
+    simpa only [hgenD, hdExt] using h
+  have hrightSwap :
+      (∏ w ∈ cs, ∏ v ∈ ds, chi D w (primeGen R v : F) ^ (-4 : ℤ)) =
+        ∏ v ∈ ds, ∏ w ∈ cs, chi D w (primeGen R v : F) ^ (-4 : ℤ) :=
+    Finset.prod_comm
+  have hfactorD : d.1 = ∏ v ∈ ds, v.asIdeal := by
+    simpa only [hdExt] using rf_sqfIdeal_factorization R dSqf
+  have hunit : ∀ v ∈ ds, residue v (cgen R c) ≠ 0 := by
+    intro v hvd
+    have hvS := R.exterior.support_exterior d v hvd
+    have hOrd : ordv v (toLoc v (bc.gen (R.exterior.ofSqf c))) = 0 := by
+      rw [rf_ordv_toLoc_ofGen v hvS (R.exterior.ofSqf c)
+        (bc.gen (R.exterior.ofSqf c)) (bc.gen_spec (R.exterior.ofSqf c)).1,
+        rf_idealExp_zero_of_not_support R v (R.exterior.ofSqf c) (hnotC v hvd)]
+      norm_num
+    have hval : HeightOneSpectrum.valuation F v (cgen R c) = 1 :=
+      rf_globalVal_one_of_ordv_zero v (bc.gen (R.exterior.ofSqf c)) hOrd
+    exact ((a2_bridge_SYMBOL D S).residue_ne_zero v (cgen R c) hval.le).mpr hval
+  calc
+    (∏ v ∈ ds, chi D v (cgen R c)) *
+        (∏ w ∈ cs, chi D w (bc.gen d : F) ^ (-4 : ℤ)) =
+      (∏ v ∈ ds, ∏ w ∈ cs, chi D v (primeGen R w : F)) *
+        (∏ v ∈ ds, ∏ w ∈ cs, chi D w (primeGen R v : F) ^ (-4 : ℤ)) := by
+      rw [hleft, hright, hrightSwap]
+    _ = ∏ v ∈ ds, ∏ w ∈ cs,
+        chi D v (primeGen R w : F) * chi D w (primeGen R v : F) ^ (-4 : ℤ) := by
+      rw [← Finset.prod_mul_distrib]
+      apply Finset.prod_congr rfl
+      intro v hvd
+      rw [Finset.prod_mul_distrib]
+    _ = ∏ v ∈ ds, ∏ w ∈ cs, chi D v (primeGen R w : F) ^ (3 : ℤ) := by
+      apply Finset.prod_congr rfl
+      intro v hvd
+      apply Finset.prod_congr rfl
+      intro w hwc
+      have hvw : v ≠ w := by
+        intro heq
+        subst w
+        exact hnotC v hvd hwc
+      simpa using rf_prime_pairing_identity R v w
+        (R.exterior.support_exterior d v hvd)
+        (R.exterior.support_exterior (R.exterior.ofSqf c) w hwc) hvw
+    _ = ∏ v ∈ ds, chi D v (cgen R c) ^ (3 : ℤ) := by
+      apply Finset.prod_congr rfl
+      intro v hvd
+      exact (rf_chi_sqf_gen_product R c v
+        (R.exterior.support_exterior d v hvd) (hnotC v hvd) (3 : ℤ)).symm
+    _ = chiIdealPow D (∏ v ∈ ds, v.asIdeal) (cgen R c) 3 :=
+      (rf_chiIdealPow_primeProduct (D := D) ds (cgen R c) 3 hunit).symm
+    _ = chiIdealPow D d.1 (cgen R c) 3 := by rw [← hfactorD]
+
 theorem rf_exterior_factorization :
   (∀ υ h (t : FrozenIndex R h), ‖frozenOmega R υ t‖ ≤ betaIdeal R t.f t.a ∧
     (∀ sd d, ‖frozenRho R υ t sd d‖ ≤ 1) ∧ (∀ sc c, ‖frozenLambda R υ t sc c‖ ≤ 1)) ∧
