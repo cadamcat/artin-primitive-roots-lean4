@@ -4199,6 +4199,43 @@ theorem bruhat_intertwine_product_normalization
     z = (∏ᶠ v, a v) * ∏' v, b v := hasProd_finite_factor_tprod a b hafinite hz'
     _ = _ := by rw [haprod, hb]; ac_rfl
 
+/-- Cancel complex Bruhat dilation factors by the global product formula. -/
+theorem bruhat_arch_intertwine_product
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP) (δ : Fˣ) :
+    (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) *
+      (∏ w : InfinitePlace F, ∫ z : ℂ, Fs.fC w
+        (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)) =
+      ∏ w : InfinitePlace F, intertwineC (Fs.fC w)
+        (aC (Units.map w.embedding.toMonoidHom δ)⁻¹ * P.compC w r) := by
+  classical
+  let C : InfinitePlace F → ℂ := fun w =>
+    ((‖w.embedding (δ : F)‖ ^ 2 : ℝ) : ℂ)
+  let M : InfinitePlace F → ℂ := fun w => intertwineC (Fs.fC w)
+    (aC (Units.map w.embedding.toMonoidHom δ)⁻¹ * P.compC w r)
+  have hlocal (w : InfinitePlace F) :
+      (∫ z : ℂ, Fs.fC w
+        (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)) =
+        C w * M w := by
+    rw [(complex_bruhat_integral (Fs.fC w) (Units.map w.embedding.toMonoidHom δ)
+      (P.compC w r)).1]
+    simp only [C, M, Units.coe_map, RingHom.toMonoidHom_eq_coe,
+      MonoidHom.coe_coe, RCLike.real_smul_eq_coe_mul]
+    rfl
+  have hformula :
+      (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) *
+        (∏ w : InfinitePlace F, C w) = 1 := by
+    simpa only [C, Complex.cpow_one, Complex.normSq_eq_norm_sq] using
+      scalar_abs_cpow_product D δ (1 : ℂ)
+  calc
+    _ = (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) *
+        (∏ w : InfinitePlace F, C w * M w) := by simp_rw [hlocal]
+    _ = ((∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) *
+        (∏ w : InfinitePlace F, C w)) * (∏ w : InfinitePlace F, M w) := by
+      rw [Finset.prod_mul_distrib]
+      ac_rfl
+    _ = _ := by rw [hformula, one_mul]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
