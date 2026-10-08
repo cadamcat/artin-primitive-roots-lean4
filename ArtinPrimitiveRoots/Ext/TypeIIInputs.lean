@@ -1400,6 +1400,71 @@ lemma upper_integral_le {y t₀ : ℝ} (hy : 2 ≤ y) (ht₀2 : 2 ≤ t₀) (ht�
   have hle := intervalIntegral_le_const_mul ht₀y (by linarith [ht₀2]) hg_int hB hB0
   exact hle
 
+lemma eventually_subpower_log_absorb {A ρ : ℝ} (hA : 0 < A) (hρ : 0 < ρ) :
+    ∀ᶠ y : ℝ in Filter.atTop,
+      1 ≤ Real.log y ∧ y ^ (1 - ρ) * (Real.log y) ^ 2 ≤ y * (Real.log y) ^ (-A) := by
+  have hlog := eventually_log_rpow_le_rpow (A + 2) ρ (by positivity)
+  filter_upwards [Filter.eventually_ge_atTop (Real.exp 1), hlog] with y hy hlogpow
+  have hypos : 0 < y := lt_of_lt_of_le (Real.exp_pos _) hy
+  have hL : 1 ≤ Real.log y := by
+    calc
+      1 = Real.log (Real.exp 1) := by rw [Real.log_exp]
+      _ ≤ Real.log y := Real.log_le_log (Real.exp_pos _) hy
+  have hLpos : 0 < Real.log y := lt_of_lt_of_le (by norm_num) hL
+  have hL2 : (Real.log y) ^ 2 ≤ y ^ ρ * (Real.log y) ^ (-A) := by
+    have hid : Real.rpow (Real.log y) (2 : ℝ) =
+        (Real.log y) ^ (A + 2) * (Real.log y) ^ (-A) := by
+      rw [← Real.rpow_add hLpos]
+      rw [show A + 2 + -A = (2 : ℝ) by ring]
+      rfl
+    have hL2r : Real.rpow (Real.log y) (2 : ℝ) ≤
+        y ^ ρ * (Real.log y) ^ (-A) := by
+      rw [hid]
+      exact mul_le_mul_of_nonneg_right hlogpow
+        (Real.rpow_nonneg (le_of_lt hLpos) _)
+    rw [← Real.rpow_natCast]
+    exact hL2r
+  refine ⟨hL, ?_⟩
+  calc
+    y ^ (1 - ρ) * (Real.log y) ^ 2 ≤
+        y ^ (1 - ρ) * (y ^ ρ * (Real.log y) ^ (-A)) :=
+          mul_le_mul_of_nonneg_left hL2 (Real.rpow_nonneg hypos.le _)
+    _ = y * (Real.log y) ^ (-A) := by
+      calc
+        _ = (y ^ (1 - ρ) * y ^ ρ) * (Real.log y) ^ (-A) := by ring
+        _ = y ^ ((1 - ρ) + ρ) * (Real.log y) ^ (-A) := by
+          rw [← Real.rpow_add hypos]
+        _ = y * (Real.log y) ^ (-A) := by
+          rw [show (1 - ρ) + ρ = (1 : ℝ) by ring, Real.rpow_one]
+
+lemma primeProgressionError_nonneg (y : ℝ) (q : ℕ) : 0 ≤ primeProgressionError y q := by
+  classical
+  unfold primeProgressionError
+  induction (Finset.range q).filter (fun v : ℕ => Nat.Coprime v q) using Finset.induction_on with
+  | empty => simp
+  | @insert v s hvs ih =>
+      rw [Finset.fold_insert hvs]
+      exact le_trans ih (le_max_right _ _)
+
+lemma rpow_div_eq {x : ℝ} (hx : 0 < x) (a b : ℝ) :
+    x ^ a / x ^ b = x ^ (a - b) := by
+  rw [div_eq_mul_inv, ← Real.rpow_neg hx.le, ← Real.rpow_add hx]
+  rw [show a + -b = a - b by ring]
+
+lemma rpow_div_mul_eq {x : ℝ} (hx : 0 < x) (a b : ℝ) :
+    x ^ a / x ^ b * x = x ^ (a - b + 1) := by
+  rw [rpow_div_eq hx a b]
+  calc
+    x ^ (a - b) * x = x ^ (a - b) * x ^ (1 : ℝ) := by rw [Real.rpow_one]
+    _ = x ^ ((a - b) + 1) := (Real.rpow_add hx _ _).symm
+
+lemma rpow_div_by_base {x : ℝ} (hx : 0 < x) (a : ℝ) :
+    x ^ a / x = x ^ (a - 1) := by
+  calc
+    x ^ a / x = x ^ a / x ^ (1 : ℝ) := by rw [Real.rpow_one]
+    _ = x ^ (a - 1) := rpow_div_eq hx a 1
+
+set_option maxHeartbeats 0
 /-- `ext:bombieri-vinogradov`, 12-construction.tex:286-292 (`con:bv-input`); matching OAI
 `bombieriVinogradov` (`PrimeGaps/Main.lean:158`), converted to the prime-counting form. -/
 theorem bombieri_vinogradov :
@@ -1408,7 +1473,425 @@ theorem bombieri_vinogradov :
         ∀ y : ℝ, y₀ ≤ y →
           (∑ q ∈ Finset.range (⌊Real.rpow y (1 / 2 - η)⌋₊ + 1),
             primeProgressionError y q) ≤ C * y * Real.rpow (Real.log y) (-A) := by
-  sorry
+  intro A η hA hη
+  let A₁ : ℝ := A + 2
+  have hA₁ : 0 < A₁ := by dsimp [A₁]; linarith
+  obtain ⟨b, hb, M, hM, xB, hxB, hBV⟩ :=
+    OAI.LargePrimeGaps.bombieriVinogradov A₁ hA₁
+  let η₀ : ℝ := min η (1 / 2)
+  have hη₀ : 0 < η₀ := by dsimp [η₀]; exact lt_min hη (by norm_num)
+  have hη₀η : η₀ ≤ η := by dsimp [η₀]; exact min_le_left _ _
+  have hη₀half : η₀ ≤ 1 / 2 := by dsimp [η₀]; exact min_le_right _ _
+  let θ : ℝ := 1 / 2 - η₀
+  let δ : ℝ := η₀ / 2
+  have hθ0 : 0 ≤ θ := by dsimp [θ]; linarith
+  have hθ1 : θ < 1 / 2 := by dsimp [θ]; linarith [hη₀]
+  have hδ0 : 0 < δ := by dsimp [δ]; linarith [hη₀]
+  have hδ1 : δ < 1 := by dsimp [δ]; linarith [hη₀half]
+  have hθδ : θ + δ < 1 / 2 := by dsimp [θ, δ]; linarith [hη₀]
+  let α : ℝ := (1 - δ) / 2
+  let gap : ℝ := α - θ
+  have hgap : 0 < gap := by dsimp [gap, α, θ, δ]; nlinarith [hη₀]
+  let σ : ℝ := gap / 2
+  have hσ : 0 < σ := by dsimp [σ]; linarith
+  have hgap_le : gap ≤ 1 / 2 := by dsimp [gap, α]; linarith [hθ0, hδ0]
+  have hσ1 : σ < 1 / 2 := by dsimp [σ]; linarith [hgap_le]
+  have hγ : 0 < 1 / 2 - σ := by linarith
+  have hα1 : α < 1 := by dsimp [α]; linarith [hδ0]
+  have hθpow : θ < (1 - δ) * (1 / 2 - σ) := by
+    have heq : (1 - δ) * (1 / 2 - σ) - θ = gap * (1 - α) := by
+      dsimp [σ, gap, α]
+      ring
+    have hprod := mul_pos hgap (sub_pos.mpr hα1)
+    linarith
+  obtain ⟨Cψ, hCψ⟩ := Chebyshev.psi_sub_theta_le_mul_sqrt
+  obtain ⟨Tlog, hTlog⟩ := Filter.eventually_atTop.mp
+    (eventually_log_rpow_le_rpow b σ hσ)
+  let Tneed : ℝ := max Tlog (max xB 2)
+  have htend : Filter.Tendsto (fun y : ℝ => y ^ (1 - δ)) Filter.atTop Filter.atTop :=
+    tendsto_rpow_atTop (sub_pos.mpr hδ1)
+  have hT0event := htend.eventually_ge_atTop Tneed
+  have hAbsEvent := eventually_subpower_log_absorb hA hδ0
+  have hLarge : ∀ᶠ y : ℝ in Filter.atTop,
+      2 ≤ y ∧ Tneed ≤ y ^ (1 - δ) ∧
+        1 ≤ Real.log y ∧ y ^ (1 - δ) * (Real.log y) ^ 2 ≤
+          y * (Real.log y) ^ (-A) := by
+    filter_upwards [Filter.eventually_ge_atTop (2 : ℝ), hT0event, hAbsEvent]
+      with y hy2 hT0 hAbs
+    exact ⟨hy2, hT0, hAbs⟩
+  obtain ⟨Y, hY⟩ := Filter.eventually_atTop.mp hLarge
+  let Ktail : ℝ :=
+    (|Cψ| + 1) * (1 + 1 / (Real.log 2) ^ 2) +
+      5 + 16 / (Real.log 2) ^ 2 + 32 / Real.log 2
+  let C₀ : ℝ := M + M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2 + Ktail
+  have hC₀ : 0 < C₀ := by
+    dsimp [C₀, Ktail]
+    have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+    positivity
+  refine ⟨C₀, max Y 2, hC₀, le_max_right _ _, ?_⟩
+  intro y hy
+  have hyY : Y ≤ y := (le_max_left _ _).trans hy
+  obtain ⟨hy2, hTneed, hlogY, hAbsorb⟩ := hY y hyY
+  let Q : ℕ := ⌊Real.rpow y (1 / 2 - η)⌋₊
+  let R : ℕ := ⌊Real.rpow y θ⌋₊
+  let t₀ : ℝ := Real.rpow y (1 - δ)
+  let L : ℝ := Real.log y
+  have hypos : 0 < y := by linarith
+  have hyone : 1 ≤ y := by linarith
+  have ht₀eq : t₀ = y ^ (1 - δ) := rfl
+  have ht₀2 : 2 ≤ t₀ := by
+    dsimp [t₀]
+    exact (le_max_right xB 2).trans ((le_max_right Tlog (max xB 2)).trans hTneed)
+  have ht₀xB : xB ≤ t₀ := by
+    dsimp [t₀]
+    exact (le_trans (le_max_left xB 2) (le_max_right Tlog (max xB 2))).trans hTneed
+  have ht₀y : t₀ ≤ y := by
+    rw [ht₀eq]
+    calc
+      y ^ (1 - δ) ≤ y ^ (1 : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le hyone (by linarith [hδ0])
+      _ = y := by rw [Real.rpow_one]
+  have hExpQ : 1 / 2 - η ≤ θ := by dsimp [θ]; linarith [hη₀η]
+  have hQleR : Q ≤ R := by
+    apply Nat.floor_mono
+    exact Real.rpow_le_rpow_of_exponent_le hyone hExpQ
+  have hRreal : (R : ℝ) ≤ y ^ θ := by
+    dsimp [R]
+    exact Nat.floor_le (Real.rpow_nonneg hypos.le _)
+  have hRleFloor : R ≤ ⌊y⌋₊ := Nat.le_floor (hRreal.trans (by
+    calc
+      y ^ θ ≤ y ^ (1 : ℝ) := Real.rpow_le_rpow_of_exponent_le hyone (by dsimp [θ]; linarith [hη₀])
+      _ = y := by rw [Real.rpow_one]))
+  let X : ℕ := ⌊y⌋₊ + 1
+  have hRX : R ≤ X := by dsimp [X]; omega
+  have hXlower : y ≤ (X : ℝ) := by
+    dsimp [X]
+    push_cast
+    exact le_of_lt (Nat.lt_floor_add_one y)
+  have hXpos : 0 < (X : ℝ) := by linarith
+  have hlogX : 1 ≤ Real.log (X : ℝ) := by
+    have hlogY_X : L ≤ Real.log (X : ℝ) := Real.log_le_log hypos hXlower
+    exact hlogY.trans hlogY_X
+  have hXle2y : (X : ℝ) ≤ 2 * y := by
+    dsimp [X]
+    push_cast
+    nlinarith [Nat.floor_le hypos.le]
+  have hXleySq : (X : ℝ) ≤ y ^ 2 := by
+    have hmul : 2 * y ≤ y ^ 2 := by
+      nlinarith [mul_nonneg (sub_nonneg.mpr (show 2 ≤ y by linarith)) hypos.le]
+    exact hXle2y.trans hmul
+  have hlogXle : Real.log (X : ℝ) ≤ 2 * L := by
+    calc
+      Real.log (X : ℝ) ≤ Real.log (y ^ 2) := Real.log_le_log hXpos hXleySq
+      _ = 2 * L := by rw [Real.log_pow]; norm_num [L]
+  have hH : (harmonic R : ℝ) ≤ 4 * L := by
+    calc
+      (harmonic R : ℝ) ≤ 2 * Real.log (X : ℝ) :=
+        OAI.LargePrimeGaps.harmonic_le_twice_log hRX hlogX
+      _ ≤ 4 * L := by nlinarith [hlogXle]
+  have ht0Tlog : Tlog ≤ t₀ := by
+    dsimp [t₀]
+    exact (le_max_left Tlog (max xB 2)).trans hTneed
+  have hLevel : ∀ t : ℝ, t ∈ Set.Icc t₀ y →
+      R ≤ ⌊Real.rpow t (1 / 2) * Real.rpow (Real.log t) (-b)⌋₊ := by
+    intro t ht
+    have htpos : 0 < t := by linarith [ht₀2, ht.1]
+    have hlogtpos : 0 < Real.log t := Real.log_pos (by linarith [ht₀2, ht.1])
+    have htlog : Tlog ≤ t := ht0Tlog.trans ht.1
+    have hlogpow := hTlog t htlog
+    have hInv : Real.rpow t (-σ) ≤ Real.rpow (Real.log t) (-b) := by
+      have hNegT : Real.rpow t (-σ) = (Real.rpow t σ)⁻¹ :=
+        Real.rpow_neg htpos.le σ
+      have hNegLog : Real.rpow (Real.log t) (-b) =
+          (Real.rpow (Real.log t) b)⁻¹ := Real.rpow_neg hlogtpos.le b
+      rw [hNegT, hNegLog]
+      exact (inv_le_inv₀ (Real.rpow_pos_of_pos htpos σ)
+        (Real.rpow_pos_of_pos hlogtpos b)).mpr hlogpow
+    have ht0le : y ^ (1 - δ) ≤ t := by rw [← ht₀eq]; exact ht.1
+    have htPower : y ^ θ ≤ t ^ (1 / 2 - σ) := by
+      have h1 : y ^ θ ≤ y ^ ((1 - δ) * (1 / 2 - σ)) :=
+        Real.rpow_le_rpow_of_exponent_le hyone hθpow.le
+      have h2 : y ^ ((1 - δ) * (1 / 2 - σ)) = (y ^ (1 - δ)) ^ (1 / 2 - σ) := by
+        rw [← Real.rpow_mul hypos.le]
+      have h3 : (y ^ (1 - δ)) ^ (1 / 2 - σ) ≤ t ^ (1 / 2 - σ) :=
+        Real.rpow_le_rpow (by positivity) ht0le hγ.le
+      exact h1.trans (h2 ▸ h3)
+    have hLevelReal : (R : ℝ) ≤
+        Real.rpow t (1 / 2) * Real.rpow (Real.log t) (-b) := by
+      calc
+        (R : ℝ) ≤ y ^ θ := hRreal
+        _ ≤ t ^ (1 / 2 - σ) := htPower
+        _ = Real.rpow t (1 / 2) * Real.rpow t (-σ) := by
+          calc
+            Real.rpow t (1 / 2 - σ) = Real.rpow t ((1 / 2 : ℝ) + (-σ)) := by
+              rw [show (1 / 2 : ℝ) - σ = (1 / 2 : ℝ) + (-σ) by ring]
+            _ = Real.rpow t (1 / 2) * Real.rpow t (-σ) := Real.rpow_add htpos _ _
+        _ ≤ Real.rpow t (1 / 2) * Real.rpow (Real.log t) (-b) :=
+          mul_le_mul_of_nonneg_left hInv (Real.rpow_nonneg htpos.le (1 / 2 : ℝ))
+    exact Nat.le_floor hLevelReal
+  have hEnd : ∀ t : ℝ, t ∈ Set.Icc t₀ y →
+      (∑ q ∈ Finset.Icc 1 R, (OAI.LargePrimeGaps.endpointError t q : ℝ)) ≤
+        M * t * Real.rpow (Real.log t) (-A₁) := by
+    intro t ht
+    have htX : xB ≤ t := ht₀xB.trans ht.1
+    have hBVt := hBV t htX
+    have hsub : Finset.Icc 1 R ⊆
+        Finset.Icc 1 ⌊Real.rpow t (1 / 2) * Real.rpow (Real.log t) (-b)⌋₊ :=
+      Finset.Icc_subset_Icc le_rfl (hLevel t ht)
+    have hsum := Finset.sum_le_sum_of_subset_of_nonneg hsub (by
+      intro q hq hq'
+      exact NNReal.coe_nonneg (OAI.LargePrimeGaps.endpointError t q))
+    exact hsum.trans hBVt
+  have hYend := hEnd y ⟨ht₀y, le_rfl⟩
+  have hsumBV := sum_Icc_primeProgressionError_le hy2 ht₀2 ht₀y R Cψ hCψ
+  have hinter := upper_integral_le hy2 ht₀2 ht₀y R Cψ M A₁ hM.le hA₁.le hEnd
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) hlogY
+  have hLone : 1 ≤ L := hlogY
+  have hpowDen : 0 < y ^ (1 - δ) := Real.rpow_pos_of_pos hypos _
+  have hRsqrtExp : (R : ℝ) * Real.sqrt y ≤ y ^ (θ + 1 / 2) := by
+    rw [Real.sqrt_eq_rpow]
+    calc
+      (R : ℝ) * y ^ (1 / 2) ≤ y ^ θ * y ^ (1 / 2) :=
+        mul_le_mul_of_nonneg_right hRreal (Real.rpow_nonneg hypos.le _)
+      _ = y ^ (θ + 1 / 2) := by rw [← Real.rpow_add hypos]
+  have hRsqrtPow : (R : ℝ) * Real.sqrt y ≤ y ^ (1 - δ) := by
+    calc
+      (R : ℝ) * Real.sqrt y ≤ y ^ (θ + 1 / 2) := hRsqrtExp
+      _ ≤ y ^ (1 - δ) := Real.rpow_le_rpow_of_exponent_le hyone (by
+        dsimp [θ, δ]
+        linarith [hη₀])
+  have hRsqrtIntegral :
+      (R : ℝ) * Real.sqrt y / t₀ * y ≤ y ^ (1 - δ) := by
+    rw [ht₀eq]
+    have hdiv := div_le_div_of_nonneg_right hRsqrtExp hpowDen.le
+    calc
+      (R : ℝ) * Real.sqrt y / y ^ (1 - δ) * y ≤
+          (y ^ (θ + 1 / 2) / y ^ (1 - δ)) * y :=
+        mul_le_mul_of_nonneg_right hdiv hypos.le
+      _ = y ^ (θ + 1 / 2 + -(1 - δ) + 1) := by
+        rw [rpow_div_mul_eq hypos (θ + 1 / 2) (1 - δ)]
+        congr 1 <;> ring
+      _ = y ^ (1 - δ) := by
+        congr 1
+        dsimp [θ, δ]
+        ring
+  have hLogT0 : Real.log t₀ = (1 - δ) * L := by
+    rw [ht₀eq, Real.log_rpow hypos]
+  have hLogT0Pow : (Real.log t₀) ^ (-A₁) =
+      (1 - δ) ^ (-A₁) * L ^ (-A₁) := by
+    rw [hLogT0, Real.mul_rpow (le_of_lt (sub_pos.mpr hδ1)) hLpos.le]
+  have hpowDiv : L ^ (-A₁) / L ≤ L ^ (-A) := by
+    rw [rpow_div_by_base hLpos (-A₁)]
+    apply Real.rpow_le_rpow_of_exponent_le hlogY
+    dsimp [A₁]
+    linarith
+  have hBoundaryMain : M * y * L ^ (-A₁) / L ≤ M * y * L ^ (-A) := by
+    calc
+      M * y * L ^ (-A₁) / L = (M * y) * (L ^ (-A₁) / L) := by ring
+      _ ≤ (M * y) * L ^ (-A) :=
+        mul_le_mul_of_nonneg_left hpowDiv (by positivity)
+      _ = M * y * L ^ (-A) := by ring
+  have hMainPower : L ^ (-A₁) ≤ L ^ (-A) :=
+    Real.rpow_le_rpow_of_exponent_le hlogY (by dsimp [A₁]; linarith)
+  have hIntegralMain :
+      (M * (Real.log t₀) ^ (-A₁) / (Real.log 2) ^ 2) * y ≤
+        M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2 * y * L ^ (-A) := by
+    rw [hLogT0Pow]
+    calc
+      (M * ((1 - δ) ^ (-A₁) * L ^ (-A₁)) / (Real.log 2) ^ 2) * y =
+          (M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2) * (y * L ^ (-A₁)) := by ring
+      _ ≤ (M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2) * (y * L ^ (-A)) := by
+        apply mul_le_mul_of_nonneg_left
+        · exact mul_le_mul_of_nonneg_left hMainPower hypos.le
+        · positivity
+      _ = M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2 * y * L ^ (-A) := by ring
+  have hTailBoundary :
+      (|Cψ| + 1) * (R : ℝ) * Real.sqrt y / L ≤
+        (|Cψ| + 1) * y ^ (1 - δ) * L ^ 2 := by
+    have hnum : (R : ℝ) * Real.sqrt y ≤ y ^ (1 - δ) := hRsqrtPow
+    have hnumL : (R : ℝ) * Real.sqrt y ≤ y ^ (1 - δ) * L := by
+      have hmul := mul_le_mul_of_nonneg_right hnum (le_of_lt hLpos)
+      nlinarith [hmul, hLone]
+    have hdiv : (R : ℝ) * Real.sqrt y / L ≤ y ^ (1 - δ) :=
+      (div_le_iff₀ hLpos).2 hnumL
+    have hcoeff : 0 ≤ |Cψ| + 1 := by positivity
+    have hmul := mul_le_mul_of_nonneg_left hdiv hcoeff
+    have hLsq : 1 ≤ L ^ 2 := by nlinarith [hLone]
+    have hcoefypow : 0 ≤ (|Cψ| + 1) * y ^ (1 - δ) := by positivity
+    have henlarge := mul_le_mul_of_nonneg_left hLsq hcoefypow
+    have hmul' : (|Cψ| + 1) * (R : ℝ) * Real.sqrt y / L ≤
+        (|Cψ| + 1) * y ^ (1 - δ) := by
+      convert hmul using 1 <;> ring
+    calc
+      _ ≤ (|Cψ| + 1) * y ^ (1 - δ) := hmul'
+      _ ≤ (|Cψ| + 1) * y ^ (1 - δ) * L ^ 2 := by
+        calc
+          (|Cψ| + 1) * y ^ (1 - δ) =
+              ((|Cψ| + 1) * y ^ (1 - δ)) * 1 := by ring
+          _ ≤ ((|Cψ| + 1) * y ^ (1 - δ)) * L ^ 2 := henlarge
+  have hTailIntegral :
+      (R : ℝ) * (|Cψ| + 1) * Real.sqrt y / (t₀ * (Real.log 2) ^ 2) * y ≤
+        ((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ) * L ^ 2 := by
+    have hcoeff : 0 ≤ (|Cψ| + 1) / (Real.log 2) ^ 2 := by positivity
+    have hmul := mul_le_mul_of_nonneg_left hRsqrtIntegral hcoeff
+    have hLsq : 1 ≤ L ^ 2 := by nlinarith [hLone]
+    have hcoefypow : 0 ≤ ((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ) :=
+      mul_nonneg hcoeff (Real.rpow_nonneg hypos.le _)
+    have henlarge := mul_le_mul_of_nonneg_left hLsq hcoefypow
+    have heq :
+        (R : ℝ) * (|Cψ| + 1) * Real.sqrt y / (t₀ * (Real.log 2) ^ 2) * y =
+          ((|Cψ| + 1) / (Real.log 2) ^ 2) *
+            ((R : ℝ) * Real.sqrt y / t₀ * y) := by ring
+    rw [heq]
+    calc
+      _ ≤ ((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ) := hmul
+      _ ≤ ((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ) * L ^ 2 := by
+        calc
+          ((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ) =
+              (((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ)) * 1 := by ring
+          _ ≤ (((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ)) * L ^ 2 := henlarge
+  have hHnonneg : 0 ≤ (harmonic R : ℝ) := OAI.LargePrimeGaps.harmonic_nonneg_real R
+  have hHsq : (harmonic R : ℝ) ^ 2 ≤ 16 * L ^ 2 := by nlinarith [hH, hHnonneg]
+  have hpowNonneg : 0 ≤ y ^ (1 - δ) := Real.rpow_nonneg hypos.le _
+  have hpowOne : 1 ≤ y ^ (1 - δ) := Real.one_le_rpow hyone (by linarith [hδ1])
+  have hLsqOne : 1 ≤ L ^ 2 := by nlinarith [hLone]
+  have hLow1 : t₀ * (harmonic R : ℝ) ≤ 4 * y ^ (1 - δ) * L ^ 2 := by
+    rw [ht₀eq]
+    have hmul := mul_le_mul_of_nonneg_left hH (Real.rpow_nonneg hypos.le (1 - δ))
+    have hLle : L ≤ L ^ 2 := by nlinarith [hLone]
+    calc
+      y ^ (1 - δ) * (harmonic R : ℝ) ≤ y ^ (1 - δ) * (4 * L) := hmul
+      _ = 4 * y ^ (1 - δ) * L := by ring
+      _ ≤ 4 * y ^ (1 - δ) * L ^ 2 :=
+        mul_le_mul_of_nonneg_left hLle (by positivity)
+  have hLow2 : (R : ℝ) ≤ y ^ (1 - δ) * L ^ 2 := by
+    have hRpow : (R : ℝ) ≤ y ^ (1 - δ) :=
+      hRreal.trans (Real.rpow_le_rpow_of_exponent_le hyone (by
+        dsimp [θ, δ]
+        linarith [hη₀]))
+    calc
+      (R : ℝ) ≤ y ^ (1 - δ) := hRpow
+      _ ≤ y ^ (1 - δ) * L ^ 2 := by nlinarith [hpowNonneg, hLsqOne]
+  have hLow3 :
+      (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) * (harmonic R : ℝ) ^ 2 ≤
+        (16 / (Real.log 2) ^ 2 + 32 / Real.log 2) * y ^ (1 - δ) * L ^ 2 := by
+    rw [ht₀eq]
+    have hcoef1 : 0 ≤ 1 / (Real.log 2) ^ 2 := by positivity
+    have hcoef2 : 0 ≤ 2 / Real.log 2 := by positivity
+    have hleft :
+        (y ^ (1 - δ) / (Real.log 2) ^ 2 + 2 / Real.log 2) *
+            (harmonic R : ℝ) ^ 2 ≤
+          (y ^ (1 - δ) / (Real.log 2) ^ 2 + 2 / Real.log 2) * (16 * L ^ 2) :=
+      mul_le_mul_of_nonneg_left hHsq (by positivity)
+    have hpowTerm :
+        y ^ (1 - δ) / (Real.log 2) ^ 2 * (16 * L ^ 2) ≤
+          (16 / (Real.log 2) ^ 2) * y ^ (1 - δ) * L ^ 2 := by
+      have heq : y ^ (1 - δ) / (Real.log 2) ^ 2 * (16 * L ^ 2) =
+          (16 / (Real.log 2) ^ 2) * y ^ (1 - δ) * L ^ 2 := by ring
+      exact le_of_eq heq
+    have hconstTerm :
+        2 / Real.log 2 * (16 * L ^ 2) ≤
+          (32 / Real.log 2) * y ^ (1 - δ) * L ^ 2 := by
+      have hscale := mul_le_mul_of_nonneg_right hpowOne (mul_nonneg hcoef2 (sq_nonneg L))
+      simp only [one_mul] at hscale
+      have hscale' := mul_le_mul_of_nonneg_left hscale (by norm_num : (0 : ℝ) ≤ 16)
+      calc
+        2 / Real.log 2 * (16 * L ^ 2) = 16 * (2 / Real.log 2 * L ^ 2) := by ring
+        _ ≤ 16 * (y ^ (1 - δ) * (2 / Real.log 2 * L ^ 2)) := hscale'
+        _ = (32 / Real.log 2) * y ^ (1 - δ) * L ^ 2 := by ring
+    nlinarith [hleft, hpowTerm, hconstTerm]
+  have hLow :
+      t₀ * (harmonic R : ℝ) + (R : ℝ) +
+        (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) * (harmonic R : ℝ) ^ 2 ≤
+      (5 + 16 / (Real.log 2) ^ 2 + 32 / Real.log 2) *
+        y ^ (1 - δ) * L ^ 2 := by
+    have := add_le_add (add_le_add hLow1 hLow2) hLow3
+    nlinarith [this]
+  have hEndTerm :
+      ((∑ q ∈ Finset.Icc 1 R, (OAI.LargePrimeGaps.endpointError y q : ℝ)) +
+        (R : ℝ) * ((|Cψ| + 1) * Real.sqrt y)) / L ≤
+      M * y * L ^ (-A) + (|Cψ| + 1) * y ^ (1 - δ) * L ^ 2 := by
+    have hEndpointMain :
+        (∑ q ∈ Finset.Icc 1 R, (OAI.LargePrimeGaps.endpointError y q : ℝ)) / L ≤
+          M * y * L ^ (-A) := by
+      calc
+        _ ≤ M * y * L ^ (-A₁) / L :=
+          div_le_div_of_nonneg_right hYend hLpos.le
+        _ ≤ M * y * L ^ (-A) := hBoundaryMain
+    have hsumDiv :
+        ((∑ q ∈ Finset.Icc 1 R, (OAI.LargePrimeGaps.endpointError y q : ℝ)) +
+          (R : ℝ) * ((|Cψ| + 1) * Real.sqrt y)) / L =
+        (∑ q ∈ Finset.Icc 1 R, (OAI.LargePrimeGaps.endpointError y q : ℝ)) / L +
+          (|Cψ| + 1) * (R : ℝ) * Real.sqrt y / L := by ring
+    rw [hsumDiv]
+    exact add_le_add hEndpointMain hTailBoundary
+  have hIntTerm :
+      (M * (Real.log t₀) ^ (-A₁) / (Real.log 2) ^ 2 +
+          (R : ℝ) * (|Cψ| + 1) * Real.sqrt y / (t₀ * (Real.log 2) ^ 2)) * y ≤
+        M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2 * y * L ^ (-A) +
+          ((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ) * L ^ 2 := by
+    have hmain := hIntegralMain
+    have htail :
+        (R : ℝ) * (|Cψ| + 1) * Real.sqrt y / (t₀ * (Real.log 2) ^ 2) * y ≤
+          ((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ) * L ^ 2 := hTailIntegral
+    nlinarith [hmain, htail]
+  have hCore :
+      (∑ q ∈ Finset.Icc 1 R, primeProgressionError y q) ≤
+        (M + M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2) * y * L ^ (-A) +
+          Ktail * y ^ (1 - δ) * L ^ 2 := by
+    have hIntegralBound := hinter.trans hIntTerm
+    have hBVsum :
+        (∑ q ∈ Finset.Icc 1 R, primeProgressionError y q) ≤
+          (((∑ q ∈ Finset.Icc 1 R, (OAI.LargePrimeGaps.endpointError y q : ℝ)) +
+              (R : ℝ) * ((|Cψ| + 1) * Real.sqrt y)) / L +
+            (∫ t in t₀..y,
+              ((∑ q ∈ Finset.Icc 1 R, (OAI.LargePrimeGaps.endpointError t q : ℝ)) +
+                (R : ℝ) * ((|Cψ| + 1) * Real.sqrt t)) / (t * Real.log t ^ 2))) +
+            (t₀ * (harmonic R : ℝ) + (R : ℝ) +
+              (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) * (harmonic R : ℝ) ^ 2) := by
+      convert hsumBV using 1 <;> ring
+    have hBI := add_le_add hEndTerm hIntegralBound
+    have hCombined := add_le_add hBI hLow
+    have hRaw :
+        (∑ q ∈ Finset.Icc 1 R, primeProgressionError y q) ≤
+          (M * y * L ^ (-A) + (|Cψ| + 1) * y ^ (1 - δ) * L ^ 2) +
+            (M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2 * y * L ^ (-A) +
+              ((|Cψ| + 1) / (Real.log 2) ^ 2) * y ^ (1 - δ) * L ^ 2) +
+            (5 + 16 / (Real.log 2) ^ 2 + 32 / Real.log 2) * y ^ (1 - δ) * L ^ 2 := by
+      have hBound := hCombined
+      convert hBVsum.trans hBound using 1 <;> ring
+    calc
+      _ ≤ _ := hRaw
+      _ = (M + M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2) * y * L ^ (-A) +
+          Ktail * y ^ (1 - δ) * L ^ 2 := by dsimp [Ktail]; ring
+  have hRsum :
+      (∑ q ∈ Finset.Icc 1 R, primeProgressionError y q) ≤ C₀ * y * L ^ (-A) := by
+    have hKnonneg : 0 ≤ Ktail := by positivity
+    have hAbsorbL : y ^ (1 - δ) * L ^ 2 ≤ y * L ^ (-A) := by simpa [L] using hAbsorb
+    have htail : Ktail * y ^ (1 - δ) * L ^ 2 ≤ Ktail * y * L ^ (-A) := by
+      calc
+        Ktail * y ^ (1 - δ) * L ^ 2 = Ktail * (y ^ (1 - δ) * L ^ 2) := by ring
+        _ ≤ Ktail * (y * L ^ (-A)) := mul_le_mul_of_nonneg_left hAbsorbL hKnonneg
+        _ = Ktail * y * L ^ (-A) := by ring
+    calc
+      _ ≤ (M + M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2) * y * L ^ (-A) +
+          Ktail * y ^ (1 - δ) * L ^ 2 := hCore
+      _ ≤ (M + M * (1 - δ) ^ (-A₁) / (Real.log 2) ^ 2) * y * L ^ (-A) +
+          Ktail * y * L ^ (-A) := add_le_add le_rfl htail
+      _ = C₀ * y * L ^ (-A) := by dsimp [C₀]; ring
+  have htargetR :
+      (∑ q ∈ Finset.range (Q + 1), primeProgressionError y q) ≤
+        ∑ q ∈ Finset.Icc 1 R, primeProgressionError y q := by
+    rw [sum_range_primeProgressionError_eq_sum_Icc y Q]
+    exact Finset.sum_le_sum_of_subset_of_nonneg
+      (Finset.Icc_subset_Icc le_rfl hQleR) (by
+        intro q hq hq'
+        exact primeProgressionError_nonneg y q)
+  have hfinal := htargetR.trans hRsum
+  simpa [Q, L] using hfinal
+
+set_option maxHeartbeats 200000
 
 end SWBVHelpers
 
