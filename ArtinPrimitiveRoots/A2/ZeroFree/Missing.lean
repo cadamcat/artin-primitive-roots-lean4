@@ -5091,6 +5091,151 @@ private theorem rows_sol_principal_right_kernel_control
       mul_le_mul_of_nonneg_right (by linarith) hTail
     _ = _ := by ring
 
+private theorem rows_sol_principal_line_continuous
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 0 < Z)
+    (σξ σw σz : ℝ) (hξ : 1 + δ1 ≤ σξ)
+    (hw : 95 / 100 ≤ σw) (hz : 16 / 100 ≤ σz)
+    (hwne : σw ≠ 1) (hzne : 6 * σz ≠ 1) :
+    Continuous (fun p : ℝ × (ℝ × ℝ) =>
+      rowKernel R sd W η U HA HC U.one Z
+        (σξ + p.1 * Complex.I) (σw + p.2.1 * Complex.I) (σz + p.2.2 * Complex.I)) := by
+  let ξp : ℝ × (ℝ × ℝ) → ℂ := fun p => σξ + p.1 * Complex.I
+  let wp : ℝ × (ℝ × ℝ) → ℂ := fun p => σw + p.2.1 * Complex.I
+  let zp : ℝ × (ℝ × ℝ) → ℂ := fun p => σz + p.2.2 * Complex.I
+  have hξcont : Continuous ξp := by fun_prop
+  have hwcont : Continuous wp := by fun_prop
+  have hzcont : Continuous zp := by fun_prop
+  have hξre (p : ℝ × (ℝ × ℝ)) : (ξp p).re = σξ := by simp [ξp]
+  have hwre (p : ℝ × (ℝ × ℝ)) : (wp p).re = σw := by simp [wp]
+  have hzre (p : ℝ × (ℝ × ℝ)) : (zp p).re = σz := by simp [zp]
+  obtain ⟨hMdiff, hWdiff, _, _, _⟩ := (po_weights_exist R sd).2 W
+  have hMlineOn : ContinuousOn (fun p : ℝ × (ℝ × ℝ) => weightM R sd W (zp p)) Set.univ := by
+    apply hMdiff.continuousOn.comp hzcont.continuousOn
+    intro p hp
+    change 0 < (zp p).re
+    rw [hzre]
+    exact lt_of_lt_of_le (by norm_num) hz
+  have hMline : Continuous (fun p : ℝ × (ℝ × ℝ) => weightM R sd W (zp p)) :=
+    continuousOn_univ.mp hMlineOn
+  have hWline : Continuous (fun p : ℝ × (ℝ × ℝ) => weightW1hat W (wp p)) :=
+    hWdiff.continuous.comp hwcont
+  have hXbase : ((Z ^ a : ℝ) : ℂ) ≠ 0 := by
+    exact Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.rpow_pos_of_pos hZ a))
+  have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZ.ne'
+  have hYbase : ((Z ^ b : ℝ) : ℂ) ≠ 0 := by
+    exact Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.rpow_pos_of_pos hZ b))
+  have hMellin : Continuous (fun p : ℝ × (ℝ × ℝ) =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξp p) (wp p) (zp p)) := by
+    unfold mellinWeight
+    have hXexp : Continuous (fun p : ℝ × (ℝ × ℝ) => (1 / 2 : ℂ) - zp p) := by fun_prop
+    have hZexp : Continuous (fun p : ℝ × (ℝ × ℝ) => ξp p + zp p - 1) := by fun_prop
+    have hYexp : Continuous (fun p : ℝ × (ℝ × ℝ) => wp p - 1) := by fun_prop
+    have hX : Continuous (fun p => ((Z ^ a : ℝ) : ℂ) ^ ((1 / 2 : ℂ) - zp p)) := by
+      exact hXexp.const_cpow (Or.inl hXbase)
+    have hZ : Continuous (fun p => (Z : ℂ) ^ (ξp p + zp p - 1)) := by
+      exact hZexp.const_cpow (Or.inl hZbase)
+    have hY : Continuous (fun p => ((Z ^ b : ℝ) : ℂ) ^ (wp p - 1)) := by
+      exact hYexp.const_cpow (Or.inl hYbase)
+    have hG : Continuous (fun p => Complex.exp ((ξp p + zp p - 1) ^ 2)) := by fun_prop
+    exact (((((hX.mul hZ).mul hY).mul hG).mul hMline).mul hWline)
+  have hPLdiff : DifferentiableOn ℂ (HA.LS S (1 : HeckeChar F)) {s | s ≠ 1} := by
+    have hfactor : Differentiable ℂ (fun s : ℂ =>
+        ∏ v ∈ S.Sf, (1 - (1 : HeckeChar F).primeValue v *
+          ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s))) := by
+      refine Differentiable.fun_finsetProd ?_
+      intro v hv
+      have hn0 : 0 < Ideal.absNorm v.asIdeal :=
+        Nat.zero_lt_of_lt (NumberField.HeightOneSpectrum.one_lt_absNorm v)
+      have hn : ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ≠ 0 := by
+        exact_mod_cast (Nat.ne_of_gt hn0)
+      have hpow : Differentiable ℂ (fun s : ℂ =>
+          ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)) := by
+        intro s
+        exact (differentiableAt_id.neg).const_cpow (Or.inl hn)
+      exact (differentiable_const (1 : ℂ)).sub
+        ((differentiable_const ((1 : HeckeChar F).primeValue v)).mul hpow)
+    change DifferentiableOn ℂ (fun s => HA.L (1 : HeckeChar F) s *
+      ∏ v ∈ S.Sf, (1 - (1 : HeckeChar F).primeValue v *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s))) _
+    exact HA.2.2.2.1.mul hfactor.differentiableOn
+  have hwMaps : MapsTo wp Set.univ {s | s ≠ 1} := by
+    intro p hp
+    change wp p ≠ 1
+    intro heq
+    apply hwne
+    have hre := congrArg Complex.re heq
+    simpa [wp] using hre
+  have hLwOn : ContinuousOn (fun p : ℝ × (ℝ × ℝ) => HA.LS S 1 (wp p)) Set.univ :=
+    hPLdiff.continuousOn.comp hwcont.continuousOn hwMaps
+  have hLwline : Continuous (fun p : ℝ × (ℝ × ℝ) => HA.LS S 1 (wp p)) :=
+    continuousOn_univ.mp hLwOn
+  let zsix : ℝ × (ℝ × ℝ) → ℂ := fun p => 6 * zp p
+  have hzsixCont : Continuous zsix := by fun_prop
+  have hzsixMaps : MapsTo zsix Set.univ {s | s ≠ 1} := by
+    intro p hp
+    change 6 * zp p ≠ 1
+    intro heq
+    apply hzne
+    have hre := congrArg Complex.re heq
+    simpa [zp] using hre
+  have hLzOn : ContinuousOn (fun p : ℝ × (ℝ × ℝ) => HA.LS S 1 (zsix p)) Set.univ :=
+    hPLdiff.continuousOn.comp hzsixCont.continuousOn hzsixMaps
+  have hLzline : Continuous (fun p : ℝ × (ℝ × ℝ) => HA.LS S 1 (zsix p)) :=
+    continuousOn_univ.mp hLzOn
+  obtain ⟨fη, hfη⟩ := rows_eta_primitive_conductor R η U hEuler
+  have hInvDiff : DifferentiableOn ℂ (HA.LS S η) {s | 1 < s.re} :=
+    rows_small_LS_differentiableOn (HA := HA) (S := S) η hEuler.1
+  have hInvNe : ∀ s, 1 < s.re → HA.LS S η s ≠ 0 := by
+    intro s hs
+    exact (rows_LS_inverse_bound HA S η hEuler.1 fη hfη hs).1
+  have hInvOn : DifferentiableOn ℂ (fun s => (HA.LS S η s)⁻¹) {s | 1 < s.re} := by
+    apply hInvDiff.inv
+    intro s hs
+    exact hInvNe s hs
+  have hξMaps : MapsTo ξp Set.univ {s | 1 < s.re} := by
+    intro p hp
+    change 1 < (ξp p).re
+    rw [hξre]
+    have hδ : 0 < δ1 := by norm_num [δ1]
+    linarith [hξ]
+  have hInvOnLine : ContinuousOn
+      (fun p : ℝ × (ℝ × ℝ) => (HA.LS S η (ξp p))⁻¹) Set.univ :=
+    hInvOn.continuousOn.comp hξcont.continuousOn hξMaps
+  have hInvLine : Continuous (fun p : ℝ × (ℝ × ℝ) => (HA.LS S η (ξp p))⁻¹) :=
+    continuousOn_univ.mp hInvOnLine
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℝ × (ℝ × ℝ) → Triple := fun p => ![ξp p, wp p, zp p]
+  have hpmap : Continuous pmap := by fun_prop
+  have hMaps : MapsTo pmap Set.univ {p | eulerNeighborhood p} := by
+    intro p hp
+    right
+    change 998 / 1000 - 1 / 100000 < (ξp p).re ∧
+      95 / 100 - 1 / 100000 < (wp p).re ∧ 16 / 100 - 1 / 100000 < (zp p).re
+    refine ⟨?_, ?_, ?_⟩
+    · rw [hξre]
+      have hδ : 0 < δ1 := by norm_num [δ1]
+      linarith [hξ]
+    · rw [hwre]
+      linarith [hw]
+    · rw [hzre]
+      linarith [hz]
+  have hHCOn : ContinuousOn (fun p : ℝ × (ℝ × ℝ) => HC.H U.one (pmap p)) Set.univ :=
+    (hHP.2.1 U.one).continuousOn.comp hpmap.continuousOn hMaps
+  have hHCline : Continuous (fun p : ℝ × (ℝ × ℝ) => HC.H U.one ![ξp p, wp p, zp p]) := by
+    simpa only [pmap] using continuousOn_univ.mp hHCOn
+  change Continuous (fun p : ℝ × (ℝ × ℝ) =>
+    rowKernel R sd W η U HA HC U.one Z (ξp p) (wp p) (zp p))
+  have hKernelEq : (fun p : ℝ × (ℝ × ℝ) =>
+      rowKernel R sd W η U HA HC U.one Z (ξp p) (wp p) (zp p)) =
+      fun p => mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξp p) (wp p) (zp p) *
+        HA.LS S 1 (zsix p) * HA.LS S 1 (wp p) * HC.H U.one ![ξp p, wp p, zp p] /
+          HA.LS S η (ξp p) := by
+    funext p
+    exact rows_principalKernel_eq R sd W η U HA HC Z (ξp p) (wp p) (zp p)
+  rw [hKernelEq]
+  simp only [div_eq_mul_inv]
+  exact (((hMellin.mul hLzline).mul hLwline).mul hHCline).mul hInvLine
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
