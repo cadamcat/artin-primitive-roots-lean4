@@ -362,13 +362,570 @@ theorem po_probe_absolute : ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
       ϑ.idealValue (Aideal R p.1 p.2).1 * chiIdealPow D (Aideal R p.1 p.2).1 (m : F) 1 *
         (PG (qI (Aideal R p.1 p.2).1 / Z) : ℂ)‖)) := by
   sorry
+private instance eulerResidueMaximal (v : FinPlace F) : v.asIdeal.IsMaximal := v.isMaximal
+private noncomputable instance eulerResidueField (v : FinPlace F) : Field (𝓞 F ⧸ v.asIdeal) :=
+  Ideal.Quotient.field v.asIdeal
+
+private lemma euler_count_spanSingleton_div (v : FinPlace F) (x y : F)
+    (hx : x ≠ 0) (hy : y ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x / y)) =
+      FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) x) -
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) y) := by
+  rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
+    FractionalIdeal.count_mul F v
+      (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hx)
+      (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hy)),
+    FractionalIdeal.count_inv]
+  ring
+
+private lemma euler_count_spanSingleton_eq_neg_log_intValuation (v : FinPlace F)
+    (r : 𝓞 F) (hr : r ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F r)) = -WithZero.log (v.intValuation r) := by
+  have hspan : (Ideal.span {r} : Ideal (𝓞 F)) ≠ 0 := by
+    simpa [ne_eq, Ideal.zero_eq_bot, Ideal.span_singleton_eq_bot] using hr
+  rw [← FractionalIdeal.coeIdeal_span_singleton, FractionalIdeal.count_coe F v hspan,
+    v.intValuation_if_neg hr, WithZero.log_exp]
+  ring
+
+private lemma euler_count_spanSingleton_eq_neg_log_valuation (v : FinPlace F)
+    (z : F) (hz : z ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z) =
+      -WithZero.log (HeightOneSpectrum.valuation F v z) := by
+  obtain ⟨n, d, hnd⟩ := IsLocalization.exists_mk'_eq (nonZeroDivisors (𝓞 F)) z
+  have hn : n ≠ 0 := by
+    intro hn
+    apply hz
+    rw [← hnd, IsFractionRing.mk'_eq_div, hn, map_zero, zero_div]
+  have hd : (d : 𝓞 F) ≠ 0 := nonZeroDivisors.ne_zero d.2
+  have hmapn : (algebraMap (𝓞 F) F n) ≠ 0 := by
+    intro h
+    exact hn ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hmapd : (algebraMap (𝓞 F) F (d : 𝓞 F)) ≠ 0 := by
+    intro h
+    exact hd ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hval : HeightOneSpectrum.valuation F v z =
+      v.intValuation n / v.intValuation (d : 𝓞 F) := by
+    rw [← hnd]
+    exact v.valuation_of_mk'
+  rw [hval, ← hnd, IsFractionRing.mk'_eq_div,
+    euler_count_spanSingleton_div v (algebraMap (𝓞 F) F n)
+      (algebraMap (𝓞 F) F (d : 𝓞 F)) hmapn hmapd,
+    euler_count_spanSingleton_eq_neg_log_intValuation v n hn,
+    euler_count_spanSingleton_eq_neg_log_intValuation v (d : 𝓞 F) hd,
+    WithZero.log_div (v.intValuation_ne_zero n hn) (v.intValuation_ne_zero (d : 𝓞 F) hd)]
+  ring
+
+private lemma euler_residue_rep (v : FinPlace F) (x : F) (a b : 𝓞 F)
+    (hb : b ∉ v.asIdeal)
+    (hab : x * algebraMap (𝓞 F) F b = algebraMap (𝓞 F) F a) :
+    residue v x = Ideal.Quotient.mk v.asIdeal a / Ideal.Quotient.mk v.asIdeal b := by
+  letI : v.asIdeal.IsMaximal := v.isMaximal
+  letI : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  have hex : ∃ ab : 𝓞 F × 𝓞 F, ab.2 ∉ v.asIdeal ∧
+      x * algebraMap (𝓞 F) F ab.2 = algebraMap (𝓞 F) F ab.1 := ⟨(a, b), hb, hab⟩
+  have hcross : hex.choose.1 * b = a * hex.choose.2 := by
+    apply IsFractionRing.injective (𝓞 F) F
+    simp only [map_mul]
+    rw [← hex.choose_spec.2, ← hab]
+    ring
+  have hqcross := congrArg (Ideal.Quotient.mk v.asIdeal) hcross
+  have hbq : Ideal.Quotient.mk v.asIdeal b ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hb
+  have hdq : Ideal.Quotient.mk v.asIdeal hex.choose.2 ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hex.choose_spec.1
+  unfold residue
+  rw [dif_pos hex]
+  rw [← div_eq_mul_inv, div_eq_div_iff hdq hbq]
+  simpa only [map_mul] using hqcross
+
 /-- po:C-local-values: the one-prime T_v table, including the masked v≡0 case. -/
 theorem po_C_local_T_values : ∀ v, v ∉ S.Sf → ∀ e : ℤ, ∀ y : S.R,
   localT R v e (y : F) =
     (if residue v (y : F) ≠ 0 then star (chi D v (y : F)) ^ e * localT R v e 1
       else if e % 6 = 0 then qI v.asIdeal - 1 else 0) ∧
   (e % 6 ≠ 0 → ‖localT R v e 1‖ = qI v.asIdeal ^ (1 / 2 : ℝ)) ∧ localT R v 0 1 = -1 := by
-  sorry
+  intro v hv e y
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  let SB := a2_bridge_SYMBOL D S
+  let p : Fˣ := primeGen R v
+  have hp0 : S.IsGen (p : F) v.asIdeal := by
+    have h := (bc.gen_spec (R.exterior.prime v hv)).1
+    simpa [p, primeGen, hv, R.exterior.prime_val] using h
+  have hcountP : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p : F)) = 1 := by
+    calc
+      FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p : F)) =
+        FractionalIdeal.count F v (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+          hp0.2.2 v hv
+      _ = 1 := FractionalIdeal.count_self F v
+  have hlogP : WithZero.log (HeightOneSpectrum.valuation F v (p : F)) = -1 := by
+    have h := euler_count_spanSingleton_eq_neg_log_valuation v (p : F) hp0.2.1
+    rw [hcountP] at h
+    linarith
+  have hvalP : HeightOneSpectrum.valuation F v (p : F) = WithZero.exp (-1 : ℤ) := by
+    have hpvalne : HeightOneSpectrum.valuation F v (p : F) ≠ 0 :=
+      (v.valuation F).ne_zero_iff.mpr hp0.2.1
+    calc
+      HeightOneSpectrum.valuation F v (p : F) =
+          WithZero.exp (WithZero.log (HeightOneSpectrum.valuation F v (p : F))) :=
+        (WithZero.exp_log hpvalne).symm
+      _ = WithZero.exp (-1 : ℤ) := by rw [hlogP]
+  obtain ⟨hchars, hchiSix, hpsi⟩ := a2_bridge_FINITE_CHAR D S A v hv p hp0
+  obtain ⟨χ₁, hχ₁order, hχ₁eval⟩ := hchiSix
+  obtain ⟨ψ, hψprim, hψeval⟩ := hpsi
+  obtain ⟨χe, hχeeval⟩ := hchars e
+  have hresAlg (x : 𝓞 F ⧸ v.asIdeal) :
+      residue v (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  have hmulchar_zpow (χ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+      (u : (𝓞 F ⧸ v.asIdeal)ˣ) : χ (u ^ e : (𝓞 F ⧸ v.asIdeal)ˣ) = χ u ^ e := by
+    have h := χ.toUnitHom.map_zpow u e
+    calc
+      χ (u ^ e : (𝓞 F ⧸ v.asIdeal)ˣ) = (χ.toUnitHom (u ^ e) : ℂ) :=
+        (MulChar.coe_toUnitHom χ (u ^ e)).symm
+      _ = (χ.toUnitHom u : ℂ) ^ e := by
+        simpa only [Units.val_zpow_eq_zpow_val] using congrArg Units.val h
+      _ = χ u ^ e := by rw [MulChar.coe_toUnitHom]
+  have hχpow_eq : χe = χ₁ ^ e := by
+    apply MulChar.ext
+    intro u
+    have hu : residue v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) ≠ 0 := by
+      rw [hresAlg]
+      exact u.ne_zero
+    calc
+      χe (u : 𝓞 F ⧸ v.asIdeal) =
+          chiPow D v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) e := hχeeval u
+      _ = chi D v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) ^ e :=
+        SB.chiPow_nonzero v _ e hu
+      _ = chiPow D v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) 1 ^ e := by
+        rw [SB.chiPow_nonzero v _ 1 hu, zpow_one]
+      _ = χ₁ (u : 𝓞 F ⧸ v.asIdeal) ^ e := by rw [hχ₁eval]
+      _ = χ₁ (u ^ e : (𝓞 F ⧸ v.asIdeal)ˣ) := (hmulchar_zpow χ₁ u).symm
+      _ = (χ₁ ^ e) (u : 𝓞 F ⧸ v.asIdeal) :=
+        (MulChar.zpow_apply_coe χ₁ e u).symm
+  have hχe_one : e % 6 = 0 → χe = 1 := by
+    intro he
+    have hdvd : (6 : ℤ) ∣ e := Int.dvd_iff_emod_eq_zero.mpr he
+    have horderDvd : (orderOf χ₁ : ℤ) ∣ e := by rw [hχ₁order]; exact hdvd
+    have hpow : χ₁ ^ e = 1 := (orderOf_dvd_iff_zpow_eq_one).mp horderDvd
+    rw [hχpow_eq, hpow]
+  have hχe_ne_one : e % 6 ≠ 0 → χe ≠ 1 := by
+    intro he hχ
+    have hpow : χ₁ ^ e = 1 := hχpow_eq.symm.trans hχ
+    have hdvd : (orderOf χ₁ : ℤ) ∣ e := (orderOf_dvd_iff_zpow_eq_one).mpr hpow
+    rw [hχ₁order] at hdvd
+    exact he (Int.dvd_iff_emod_eq_zero.mp hdvd)
+  have hphaseErr (z : F)
+      (hz : HeightOneSpectrum.valuation F v z ≤ WithZero.exp (-1 : ℤ)) :
+      A.ψ v (algebraMap F (v.adicCompletion F) (z / (p : F))) = 1 := by
+    have hvalDiv : HeightOneSpectrum.valuation F v (z / (p : F)) ≤ 1 := by
+      rw [map_div₀, hvalP]
+      have hexpPos : 0 < WithZero.exp (-1 : ℤ) :=
+        lt_of_le_of_ne zero_le (Ne.symm WithZero.exp_ne_zero)
+      exact (div_le_one₀ hexpPos).2 hz
+    have hlocal : algebraMap F (v.adicCompletion F) (z / (p : F)) ∈
+        v.adicCompletionIntegers F := by
+      change ((z / (p : F) : F) : v.adicCompletion F) ∈ v.adicCompletionIntegers F
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+        HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+      exact hvalDiv
+    exact A.integral v _ hlocal
+  have hphaseCongr (z₁ z₂ : F)
+      (hz : HeightOneSpectrum.valuation F v (z₁ - z₂) ≤ WithZero.exp (-1 : ℤ)) :
+      A.ψ v (algebraMap F (v.adicCompletion F) (z₁ / (p : F))) =
+        A.ψ v (algebraMap F (v.adicCompletion F) (z₂ / (p : F))) := by
+    have harg : algebraMap F (v.adicCompletion F) ((z₁ - z₂) / (p : F)) =
+        algebraMap F (v.adicCompletion F) (z₁ / (p : F)) -
+          algebraMap F (v.adicCompletion F) (z₂ / (p : F)) := by
+      have hF : (z₁ - z₂) / (p : F) = z₁ / (p : F) - z₂ / (p : F) := by
+        field_simp [Units.ne_zero p]
+      rw [hF, map_sub]
+    have hdiv := (A.ψ v).map_sub_eq_div
+      (algebraMap F (v.adicCompletion F) (z₁ / (p : F)))
+      (algebraMap F (v.adicCompletion F) (z₂ / (p : F)))
+    have hz₂ : A.ψ v (algebraMap F (v.adicCompletion F) (z₂ / (p : F))) ≠ 0 :=
+      (AddChar.val_isUnit (A.ψ v)
+        (algebraMap F (v.adicCompletion F) (z₂ / (p : F)))).ne_zero
+    calc
+      A.ψ v (algebraMap F (v.adicCompletion F) (z₁ / (p : F))) =
+          (A.ψ v (algebraMap F (v.adicCompletion F) (z₁ / (p : F))) /
+            A.ψ v (algebraMap F (v.adicCompletion F) (z₂ / (p : F)))) *
+              A.ψ v (algebraMap F (v.adicCompletion F) (z₂ / (p : F))) :=
+        (div_mul_cancel₀ _ hz₂).symm
+      _ = A.ψ v (algebraMap F (v.adicCompletion F) ((z₁ - z₂) / (p : F))) *
+            A.ψ v (algebraMap F (v.adicCompletion F) (z₂ / (p : F))) := by
+        rw [← hdiv, ← harg]
+      _ = A.ψ v (algebraMap F (v.adicCompletion F) (z₂ / (p : F))) := by
+        rw [hphaseErr (z₁ - z₂) hz, one_mul]
+  have hphase (y : S.R) (x : 𝓞 F ⧸ v.asIdeal) :
+      A.ψ v (algebraMap F (v.adicCompletion F)
+        (-((y : F) * algebraMap (𝓞 F) F x.out / (p : F)))) =
+        ψ (-(residue v (y : F)) * x) := by
+    have hyval : HeightOneSpectrum.valuation F v (y : F) ≤ 1 := y.property v hv
+    obtain ⟨ay, dy, hdy⟩ := v.exists_primeCompl_mul_eq_of_integer (y : F) hyval
+    let a : 𝓞 F ⧸ v.asIdeal := residue v (y : F)
+    have hdyNot : dy.1 ∉ v.asIdeal := by
+      exact Ideal.mem_primeCompl_iff.mp dy.2
+    have hresY : residue v (y : F) =
+        Ideal.Quotient.mk v.asIdeal ay / Ideal.Quotient.mk v.asIdeal dy :=
+      euler_residue_rep v (y : F) ay dy.1 hdyNot hdy
+    let b : 𝓞 F := (-a).out
+    have hdq : Ideal.Quotient.mk v.asIdeal dy ≠ 0 := by
+      intro hzero
+      exact hdyNot (Ideal.Quotient.eq_zero_iff_mem.mp hzero)
+    have hmkB : Ideal.Quotient.mk v.asIdeal b = -a := by
+      simp [b]
+    have hmk : Ideal.Quotient.mk v.asIdeal (ay + b * dy) = 0 := by
+      calc
+        Ideal.Quotient.mk v.asIdeal (ay + b * dy) =
+            Ideal.Quotient.mk v.asIdeal ay +
+              Ideal.Quotient.mk v.asIdeal b * Ideal.Quotient.mk v.asIdeal dy := by simp
+        _ = (Ideal.Quotient.mk v.asIdeal ay / Ideal.Quotient.mk v.asIdeal dy +
+              Ideal.Quotient.mk v.asIdeal b) * Ideal.Quotient.mk v.asIdeal dy := by
+          have hcancel : (Ideal.Quotient.mk v.asIdeal ay /
+              Ideal.Quotient.mk v.asIdeal dy) * Ideal.Quotient.mk v.asIdeal dy =
+                Ideal.Quotient.mk v.asIdeal ay := div_mul_cancel₀ _ hdq
+          calc
+            _ = (Ideal.Quotient.mk v.asIdeal ay /
+                Ideal.Quotient.mk v.asIdeal dy) * Ideal.Quotient.mk v.asIdeal dy +
+                  Ideal.Quotient.mk v.asIdeal b * Ideal.Quotient.mk v.asIdeal dy := by rw [hcancel]
+            _ = _ := by ring
+        _ = (residue v (y : F) + Ideal.Quotient.mk v.asIdeal b) *
+              Ideal.Quotient.mk v.asIdeal dy := by rw [hresY]
+        _ = 0 := by rw [hmkB]; ring
+    have hmem : ay + b * dy ∈ v.asIdeal := Ideal.Quotient.eq_zero_iff_mem.mp hmk
+    have hvalNum : HeightOneSpectrum.valuation F v
+        (algebraMap (𝓞 F) F (ay + b * dy)) ≤ WithZero.exp (-1 : ℤ) := by
+      rw [HeightOneSpectrum.valuation_of_algebraMap]
+      apply (v.intValuation_le_pow_iff_mem (ay + b * dy) 1).2
+      simpa using hmem
+    have hvalDy : HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F dy) = 1 := by
+      rw [HeightOneSpectrum.valuation_of_algebraMap]
+      exact (v.intValuation_eq_one_iff_mem_primeCompl dy.1).2 dy.2
+    have hmul : ((y : F) + (b : F)) * algebraMap (𝓞 F) F dy =
+        algebraMap (𝓞 F) F (ay + b * dy) := by
+      calc
+        ((y : F) + (b : F)) * algebraMap (𝓞 F) F dy =
+            (y : F) * algebraMap (𝓞 F) F dy +
+              (b : F) * algebraMap (𝓞 F) F dy := by ring
+        _ = algebraMap (𝓞 F) F ay + algebraMap (𝓞 F) F (b * dy) := by
+          rw [hdy, map_mul]
+        _ = algebraMap (𝓞 F) F (ay + b * dy) := by rw [map_add]
+    have hvalYb : HeightOneSpectrum.valuation F v ((y : F) + (b : F)) ≤
+        WithZero.exp (-1 : ℤ) := by
+      have heq : HeightOneSpectrum.valuation F v ((y : F) + (b : F)) =
+          HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F (ay + b * dy)) := by
+        calc
+          _ = HeightOneSpectrum.valuation F v ((y : F) + (b : F)) * 1 := by simp
+          _ = HeightOneSpectrum.valuation F v ((y : F) + (b : F)) *
+                HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F dy) := by rw [hvalDy]
+          _ = HeightOneSpectrum.valuation F v
+                (((y : F) + (b : F)) * algebraMap (𝓞 F) F dy) := by
+            rw [(v.valuation F).map_mul]
+          _ = _ := by rw [hmul]
+      rw [heq]
+      exact hvalNum
+    have hvalErr : HeightOneSpectrum.valuation F v
+        (-(y : F) * algebraMap (𝓞 F) F x.out - (b : F) * algebraMap (𝓞 F) F x.out) ≤
+          WithZero.exp (-1 : ℤ) := by
+      have hident : -(y : F) * algebraMap (𝓞 F) F x.out -
+          (b : F) * algebraMap (𝓞 F) F x.out =
+            -(((y : F) + (b : F)) * algebraMap (𝓞 F) F x.out) := by ring
+      rw [hident, (v.valuation F).map_neg, (v.valuation F).map_mul]
+      have hxval : HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F x.out) ≤ 1 :=
+        v.valuation_le_one x.out
+      calc
+        HeightOneSpectrum.valuation F v ((y : F) + (b : F)) *
+            HeightOneSpectrum.valuation F v (algebraMap (𝓞 F) F x.out) ≤
+            WithZero.exp (-1 : ℤ) * 1 :=
+          mul_le_mul hvalYb hxval (zero_le) (zero_le)
+        _ = WithZero.exp (-1 : ℤ) := mul_one _
+    have hphase' := hphaseCongr
+      (-(y : F) * algebraMap (𝓞 F) F x.out)
+      ((b : F) * algebraMap (𝓞 F) F x.out) hvalErr
+    have harg : -((y : F) * algebraMap (𝓞 F) F x.out / (p : F)) =
+        (-(y : F) * algebraMap (𝓞 F) F x.out) / (p : F) := by ring
+    calc
+      A.ψ v (algebraMap F (v.adicCompletion F)
+        (-((y : F) * algebraMap (𝓞 F) F x.out / (p : F)))) =
+          A.ψ v (algebraMap F (v.adicCompletion F)
+            ((-(y : F) * algebraMap (𝓞 F) F x.out) / (p : F))) := by rw [harg]
+      _ = A.ψ v (algebraMap F (v.adicCompletion F)
+            (((b : F) * algebraMap (𝓞 F) F x.out) / (p : F))) := hphase'
+      _ = ψ (-(residue v (y : F)) * x) := by
+        symm
+        simpa [a, b, mul_comm] using hψeval (-a) x
+  have hfiniteT (y : S.R) : localT R v e (y : F) =
+      ∑ x : 𝓞 F ⧸ v.asIdeal,
+        χe x * ψ (-(residue v (y : F)) * x) := by
+    unfold localT
+    rw [a2_bridge_FINITE_CHAR_finsum]
+    apply Finset.sum_congr rfl
+    intro x hx
+    calc
+      _ = χe x * A.ψ v (algebraMap F (v.adicCompletion F)
+          (-((y : F) * algebraMap (𝓞 F) F x.out / (p : F)))) := by
+        rw [← hχeeval x]
+      _ = _ := by rw [hphase y x]
+  have hresOne : residue v (1 : F) = 1 := by
+    simpa using SB.residue_algebraMap v (1 : 𝓞 F)
+  have hresZero : residue v (0 : F) = 0 := by
+    simpa using SB.residue_algebraMap v (0 : 𝓞 F)
+  have hfiniteShift (y : S.R) : localT R v e (y : F) =
+      gaussSum χe (ψ.mulShift (-(residue v (y : F)))) := by
+    calc
+      localT R v e (y : F) = ∑ x : 𝓞 F ⧸ v.asIdeal,
+          χe x * ψ (-(residue v (y : F)) * x) := hfiniteT y
+      _ = gaussSum χe (ψ.mulShift (-(residue v (y : F)))) := by
+        simp [gaussSum, AddChar.mulShift_apply]
+  have hfiniteOne : localT R v e 1 = gaussSum χe (ψ.mulShift (-1)) := by
+    simpa [hresOne] using hfiniteShift (1 : S.R)
+  have hχ₁minus : χ₁ (-1 : 𝓞 F ⧸ v.asIdeal) = 1 := by
+    have hres : residue v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) = -1 := by
+      simpa using hresAlg (-1 : 𝓞 F ⧸ v.asIdeal)
+    have hresNeg : residue v (-1 : F) = -1 := by
+      simpa using SB.residue_algebraMap v (-1 : 𝓞 F)
+    calc
+      χ₁ (-1 : 𝓞 F ⧸ v.asIdeal) =
+          chiPow D v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) 1 := hχ₁eval _
+      _ = chi D v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) :=
+        by simpa [pow_one] using
+          SB.chiPow_nonzero v _ 1 (by rw [hres]; exact neg_ne_zero.mpr one_ne_zero)
+      _ = chi D v (-1 : F) := SB.chi_congr v _ _ (hres.trans hresNeg.symm)
+      _ = 1 := SB.chi_minus_one v hv
+  have hχeminus : χe (-1 : 𝓞 F ⧸ v.asIdeal) = 1 := by
+    have hχ₁unit : χ₁ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+      simpa using hχ₁minus
+    calc
+      χe (-1 : 𝓞 F ⧸ v.asIdeal) = χe (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) := by simp
+      _ = (χ₁ ^ e) (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) := by rw [hχpow_eq]
+      _ = χ₁ ((↑((-1 : (𝓞 F ⧸ v.asIdeal)ˣ) ^ e) : 𝓞 F ⧸ v.asIdeal)) :=
+        MulChar.zpow_apply_coe χ₁ e (-1 : (𝓞 F ⧸ v.asIdeal)ˣ)
+      _ = χ₁ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) ^ e := hmulchar_zpow χ₁ (-1)
+      _ = 1 := by rw [hχ₁unit]; simp
+  have hshiftGauss : gaussSum χe (ψ.mulShift (-1)) = gaussSum χe ψ := by
+    have h := gaussSum_mulShift_eq χe ψ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ)
+    have hχeunit : χe (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+      simpa using hχeminus
+    have hinvχ : χe⁻¹ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+      calc
+        χe⁻¹ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) =
+            (χe (-1 : (𝓞 F ⧸ v.asIdeal)ˣ))⁻¹ := MulChar.inv_apply_eq_inv' χe _
+        _ = 1 := by rw [hχeunit]; simp
+    calc
+      gaussSum χe (ψ.mulShift (-1)) = χe⁻¹ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) *
+          gaussSum χe ψ := h
+      _ = gaussSum χe ψ := by rw [hinvχ, one_mul]
+  have hfiniteOneGauss : localT R v e 1 = gaussSum χe ψ := hfiniteOne.trans hshiftGauss
+  have hscale : residue v (y : F) ≠ 0 →
+      localT R v e (y : F) =
+        star (chi D v (y : F)) ^ e * localT R v e 1 := by
+    intro hy
+    let a : 𝓞 F ⧸ v.asIdeal := residue v (y : F)
+    have ha : a ≠ 0 := by simpa [a] using hy
+    let u : (𝓞 F ⧸ v.asIdeal)ˣ := (isUnit_iff_ne_zero.mpr ha).unit
+    have hu : (u : 𝓞 F ⧸ v.asIdeal) = a :=
+      (isUnit_iff_ne_zero.mpr ha).unit_spec
+    have hshift : ψ.mulShift (-a) = (ψ.mulShift (-1)).mulShift (u : 𝓞 F ⧸ v.asIdeal) := by
+      ext x
+      simp [AddChar.mulShift_apply, hu, mul_assoc]
+    have hsum := gaussSum_mulShift_eq χe (ψ.mulShift (-1)) u
+    have hunitGauss : gaussSum χe (ψ.mulShift (-a)) =
+        χe⁻¹ u * gaussSum χe (ψ.mulShift (-1)) := by
+      rw [hshift]
+      exact hsum
+    have hchiA : χe u = chi D v (y : F) ^ e := by
+      have hresu : residue v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) =
+          residue v (y : F) := by rw [hresAlg, hu]
+      have hresu_ne : residue v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) ≠ 0 := by
+        rw [hresu]
+        exact hy
+      calc
+        χe u = chiPow D v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) e := hχeeval u
+        _ = chi D v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) ^ e :=
+          SB.chiPow_nonzero v _ e hresu_ne
+        _ = chi D v (y : F) ^ e := by rw [SB.chi_congr v _ _ hresu]
+    have hnormChi : ‖chi D v (y : F)‖ = 1 := SB.chi_norm v _ hy
+    have hnormPow : ‖chi D v (y : F) ^ e‖ = 1 := by
+      rw [Complex.norm_zpow, hnormChi]
+      norm_num
+    have hinv : (chi D v (y : F) ^ e)⁻¹ = star (chi D v (y : F)) ^ e := by
+      calc
+        (chi D v (y : F) ^ e)⁻¹ = star (chi D v (y : F) ^ e) :=
+          Complex.inv_eq_conj hnormPow
+        _ = star (chi D v (y : F)) ^ e := by simp
+    have hχinv : χe⁻¹ u = star (chi D v (y : F)) ^ e := by
+      calc
+        χe⁻¹ u = (χe u)⁻¹ := MulChar.inv_apply_eq_inv' χe _
+        _ = star (chi D v (y : F)) ^ e := by rw [hchiA, hinv]
+    calc
+      localT R v e (y : F) = gaussSum χe (ψ.mulShift (-a)) := by
+        simpa [a] using hfiniteShift y
+      _ = χe⁻¹ u * gaussSum χe (ψ.mulShift (-1)) := hunitGauss
+      _ = star (chi D v (y : F)) ^ e * localT R v e 1 := by
+        rw [hχinv, ← hfiniteOne]
+  have hzeroSum : localT R v e (0 : F) =
+      (if e % 6 = 0 then qI v.asIdeal - 1 else 0) := by
+    have hsum : localT R v e (0 : F) = ∑ x : 𝓞 F ⧸ v.asIdeal, χe x := by
+      calc
+        localT R v e (0 : F) = ∑ x : 𝓞 F ⧸ v.asIdeal,
+            χe x * ψ (-(residue v (0 : F)) * x) := by
+          simpa [hresZero] using hfiniteT (0 : S.R)
+        _ = _ := by simp [hresZero]
+    have hcard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+      rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+    have hcardPos : 1 ≤ Ideal.absNorm v.asIdeal := by
+      have h : 1 ≤ Fintype.card (𝓞 F ⧸ v.asIdeal) := by
+        exact Nat.succ_le_iff.mpr (Fintype.card_pos_iff.mpr ⟨0⟩)
+      rw [hcard] at h
+      exact h
+    by_cases he : e % 6 = 0
+    · have hunitCard : Nat.card (𝓞 F ⧸ v.asIdeal)ˣ = Ideal.absNorm v.asIdeal - 1 := by
+        calc
+          Nat.card (𝓞 F ⧸ v.asIdeal)ˣ = Fintype.card (𝓞 F ⧸ v.asIdeal)ˣ :=
+          Nat.card_eq_fintype_card
+          _ = Fintype.card (𝓞 F ⧸ v.asIdeal) - 1 := Fintype.card_units (α := 𝓞 F ⧸ v.asIdeal)
+          _ = Ideal.absNorm v.asIdeal - 1 := by rw [hcard]
+      have hunitReal : (Nat.card (𝓞 F ⧸ v.asIdeal)ˣ : ℝ) = qI v.asIdeal - 1 := by
+        rw [hunitCard]
+        dsimp [qI]
+        rw [Nat.cast_sub hcardPos]
+        norm_num
+      have hunitComplex : (Nat.card (𝓞 F ⧸ v.asIdeal)ˣ : ℂ) =
+          (qI v.asIdeal : ℂ) - 1 := by exact_mod_cast hunitReal
+      calc
+        localT R v e (0 : F) = ∑ x : 𝓞 F ⧸ v.asIdeal, χe x := hsum
+        _ = ∑ x : 𝓞 F ⧸ v.asIdeal,
+              (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) x := by
+          apply Finset.sum_congr rfl
+          intro x hx
+          rw [hχe_one he]
+        _ = gaussSum (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+              (1 : AddChar (𝓞 F ⧸ v.asIdeal) ℂ) := by simp [gaussSum]
+        _ = (Nat.card (𝓞 F ⧸ v.asIdeal)ˣ : ℂ) := by rw [gaussSum_one_one]
+        _ = (if e % 6 = 0 then qI v.asIdeal - 1 else 0) := by
+          simpa [he] using hunitComplex
+    ·
+      have hsumZero : (∑ x : 𝓞 F ⧸ v.asIdeal, χe x) = 0 := by
+        simpa [gaussSum] using (MulChar.sum_eq_zero_of_ne_one (hχe_ne_one he))
+      calc
+        localT R v e (0 : F) = ∑ x : 𝓞 F ⧸ v.asIdeal, χe x := hsum
+        _ = 0 := hsumZero
+        _ = (if e % 6 = 0 then qI v.asIdeal - 1 else 0) := by simp [he]
+  constructor
+  · by_cases hy : residue v (y : F) ≠ 0
+    · simpa [hy] using hscale hy
+    · have hresY0 : residue v (y : F) = 0 := by simpa using hy
+      have hfiniteTzero : localT R v e (0 : F) =
+          ∑ x : 𝓞 F ⧸ v.asIdeal, χe x * ψ (-(residue v (0 : F)) * x) := by
+        simpa using hfiniteT (0 : S.R)
+      have hlocalY0 : localT R v e (y : F) = localT R v e (0 : F) := by
+        calc
+          localT R v e (y : F) =
+              ∑ x : 𝓞 F ⧸ v.asIdeal, χe x * ψ (-(residue v (y : F)) * x) := hfiniteT y
+          _ = ∑ x : 𝓞 F ⧸ v.asIdeal, χe x * ψ (-(residue v (0 : F)) * x) := by
+            rw [hresY0, hresZero]
+          _ = localT R v e (0 : F) := hfiniteTzero.symm
+      calc
+        localT R v e (y : F) = localT R v e (0 : F) := hlocalY0
+        _ = (if e % 6 = 0 then qI v.asIdeal - 1 else 0) := hzeroSum
+        _ = if residue v (y : F) ≠ 0 then star (chi D v (y : F)) ^ e *
+              localT R v e 1 else if e % 6 = 0 then qI v.asIdeal - 1 else 0 := by
+          have hdiv : (e % 6 = 0) ↔ (6 : ℤ) ∣ e := Int.dvd_iff_emod_eq_zero.symm
+          have hresNot : ¬(residue v (y : F) ≠ 0) := by simp [hresY0]
+          by_cases h : (6 : ℤ) ∣ e
+          · rw [if_pos (hdiv.mpr h), if_pos (hdiv.mpr h)]
+            rw [if_neg hresNot]
+            exact Complex.ofReal_sub _ _
+          · rw [if_neg (fun he => h (hdiv.mp he)), if_neg (fun he => h (hdiv.mp he))]
+            rw [if_neg hresNot]
+            rfl
+  constructor
+  · intro he
+    have hχne := hχe_ne_one he
+    have hlocalEq : localT R v e 1 = gaussSum χe ψ := hfiniteOneGauss
+    have hprod : gaussSum χe ψ * star (gaussSum χe ψ) =
+        (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := by
+      calc
+        gaussSum χe ψ * star (gaussSum χe ψ) =
+            gaussSum χe ψ * gaussSum χe⁻¹ ψ⁻¹ := by rw [star_gaussSum_eq]
+        _ = _ := gaussSum_mul_gaussSum_eq_card hχne hψprim
+    have hnormSqC : (Complex.normSq (gaussSum χe ψ) : ℂ) =
+        (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := by
+      calc
+        (Complex.normSq (gaussSum χe ψ) : ℂ) =
+            gaussSum χe ψ * star (gaussSum χe ψ) := (Complex.mul_conj _).symm
+        _ = _ := hprod
+    have hnormSq : ‖gaussSum χe ψ‖ ^ 2 =
+        (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℝ) := by
+      rw [← Complex.normSq_eq_norm_sq]
+      exact_mod_cast hnormSqC
+    have hcard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+      rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+    have hnormSqQ : ‖gaussSum χe ψ‖ ^ 2 = qI v.asIdeal := by
+      rw [hnormSq, hcard]
+      rfl
+    have hnormG : ‖gaussSum χe ψ‖ = qI v.asIdeal ^ (1 / 2 : ℝ) := by
+      calc
+        ‖gaussSum χe ψ‖ = Real.sqrt (‖gaussSum χe ψ‖ ^ 2) := by
+          rw [Real.sqrt_sq_eq_abs, abs_of_nonneg (norm_nonneg _)]
+        _ = Real.sqrt (qI v.asIdeal) := by rw [hnormSqQ]
+        _ = qI v.asIdeal ^ (1 / 2 : ℝ) := by rw [Real.sqrt_eq_rpow]
+    simpa [hlocalEq] using hnormG
+  · obtain ⟨χ0, hχ0eval⟩ := hchars (0 : ℤ)
+    have hχ0one : χ0 = 1 := by
+      apply MulChar.ext
+      intro u
+      have hu : residue v (algebraMap (𝓞 F) F (u : 𝓞 F ⧸ v.asIdeal).out) ≠ 0 := by
+        rw [hresAlg]
+        exact u.ne_zero
+      rw [hχ0eval u, SB.chiPow_nonzero v _ 0 hu, zpow_zero]
+      simp
+    have hfiniteT0 (y : S.R) : localT R v 0 (y : F) =
+        ∑ x : 𝓞 F ⧸ v.asIdeal, χ0 x * ψ (-(residue v (y : F)) * x) := by
+      unfold localT
+      rw [a2_bridge_FINITE_CHAR_finsum]
+      apply Finset.sum_congr rfl
+      intro x hx
+      rw [← hχ0eval x, hphase y x]
+    have hfiniteShift0 (y : S.R) : localT R v 0 (y : F) =
+        gaussSum χ0 (ψ.mulShift (-(residue v (y : F)))) := by
+      calc
+        localT R v 0 (y : F) = ∑ x : 𝓞 F ⧸ v.asIdeal,
+            χ0 x * ψ (-(residue v (y : F)) * x) := hfiniteT0 y
+        _ = gaussSum χ0 (ψ.mulShift (-(residue v (y : F)))) := by
+          simp [gaussSum, AddChar.mulShift_apply]
+    have hlocalZero : localT R v 0 1 =
+        gaussSum (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+          (ψ.mulShift (-1 : 𝓞 F ⧸ v.asIdeal)) := by
+      calc
+        localT R v 0 1 = gaussSum χ0 (ψ.mulShift (-1)) := by
+          simpa [hresOne] using hfiniteShift0 (1 : S.R)
+        _ = gaussSum (1 : MulChar (𝓞 F ⧸ v.asIdeal) ℂ)
+              (ψ.mulShift (-1)) := by rw [hχ0one]
+    have hψshiftPrim : (ψ.mulShift (-1 : 𝓞 F ⧸ v.asIdeal)).IsPrimitive := by
+      intro a ha htriv
+      have hnonzero : (-1 : 𝓞 F ⧸ v.asIdeal) * a ≠ 0 :=
+        mul_ne_zero (neg_ne_zero.mpr one_ne_zero) ha
+      have htriv' : ψ.mulShift ((-1 : 𝓞 F ⧸ v.asIdeal) * a) = 1 := by
+        simpa only [AddChar.mulShift_mulShift] using htriv
+      exact (hψprim hnonzero) htriv'
+    have hψshiftNe : ψ.mulShift (-1 : 𝓞 F ⧸ v.asIdeal) ≠ 1 := by
+      intro h
+      have h' : (ψ.mulShift (-1 : 𝓞 F ⧸ v.asIdeal)).mulShift 1 = 1 := by
+        simpa using h
+      exact (hψshiftPrim one_ne_zero) h'
+    rw [hlocalZero]
+    exact gaussSum_one_left hψshiftNe
 /-- po:euler-local-factorization, 05:444-550. Cross-prime exponents cancel modulo six. -/
 theorem cross_prime_exponent_cancel (e e' l l' : ℕ) :
     6 ∣ 2 * (e + 3 * l) * (e' + 3 * l') + 4 * e * e' := by
