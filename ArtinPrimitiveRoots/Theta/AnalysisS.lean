@@ -8,6 +8,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».PowerClasses
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».FiniteWeighted
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».ComplexRadial
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».ComplexWeighted
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-PROFILE».Differentiation
 import Mathlib.MeasureTheory.Integral.Pi
 
 open MeasureTheory
