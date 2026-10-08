@@ -4472,6 +4472,218 @@ private theorem rows_sol_simple_pole_shift (a b p : ℝ) (A F : ℂ → ℂ)
       a b p F G (A p) (1 / (2 * Real.pi) : ℂ) hap hpb hG hreg
       ha hb hKa hKb hVa hVb hbot htop
 
+private theorem rows_sol_principal_w_residue (hEuler : EulerHypotheses R η)
+    (Z : ℝ) (hZ : 2 ≤ Z) (ξ z : ℂ)
+    (hξlo : 1 + δ1 ≤ ξ.re) (hξhi : ξ.re ≤ 4)
+    (hz : z.re = 1 / 6 + δ1) :
+    vertical 4 (fun w => rowKernel R sd W η U HA HC U.one Z ξ w z) =
+      vertical (95 / 100) (fun w => rowKernel R sd W η U HA HC U.one Z ξ w z) +
+        mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+          HA.LS S 1 (6 * z) * HA.RS S * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ := by
+  let strip : Set ℂ := {w | 95 / 100 ≤ w.re ∧ w.re ≤ 4}
+  let GS : ℂ → ℂ := rows_principalRegularizedLS (HA := HA) (S := S)
+  let K : ℂ → ℂ := fun w => rowKernel R sd W η U HA HC U.one Z ξ w z
+  let Num : ℂ → ℂ := fun w =>
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z * HA.LS S 1 (6 * z) *
+      GS w * HC.H U.one ![ξ, w, z] / HA.LS S η ξ
+  have hZpos : 0 < Z := by linarith
+  obtain ⟨_, hWdiff, _, hWdecay, _⟩ := (po_weights_exist R sd).2 W
+  have hGSdiff : Differentiable ℂ GS := by
+    have hfactor : Differentiable ℂ (fun s : ℂ => ∏ v ∈ S.Sf,
+        (1 - (1 : HeckeChar F).primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) := by
+      refine Differentiable.fun_finsetProd ?_
+      intro v hv
+      have hn : (Ideal.absNorm v.asIdeal : ℂ) ≠ 0 := by
+        exact_mod_cast (Nat.ne_of_gt (Nat.zero_lt_of_lt
+          (NumberField.HeightOneSpectrum.one_lt_absNorm v)))
+      have hpow : Differentiable ℂ (fun s : ℂ => (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+        intro s
+        exact (differentiable_id.neg s).const_cpow (Or.inl hn)
+      exact (differentiable_const (1 : ℂ)).sub
+        ((differentiable_const ((1 : HeckeChar F).primeValue v)).mul hpow)
+    change Differentiable ℂ (HA.1.2 * fun s : ℂ => ∏ v ∈ S.Sf,
+      (1 - (1 : HeckeChar F).primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)))
+    exact HA.2.2.2.2.1.mul hfactor
+  have hMellin : Differentiable ℂ (fun w =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z) := by
+    have hYbase : ((Z ^ b : ℝ) : ℂ) ≠ 0 :=
+      Complex.ofReal_ne_zero.mpr (Real.rpow_pos_of_pos hZpos b).ne'
+    have hY : Differentiable ℂ (fun w : ℂ => ((Z ^ b : ℝ) : ℂ) ^ (w - 1)) := by
+      intro w
+      exact ((differentiable_id.sub_const (1 : ℂ)) w).const_cpow (Or.inl hYbase)
+    unfold mellinWeight
+    exact (((((differentiable_const _).mul (differentiable_const _)).mul hY).mul
+      (differentiable_const _)).mul (differentiable_const _)).mul hWdiff
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℂ → Triple := fun w => ![ξ, w, z]
+  have hpmap : Differentiable ℂ pmap := by
+    intro w
+    apply differentiableAt_pi.2
+    intro j
+    fin_cases j <;> simp [pmap] <;> fun_prop
+  have hregion (w : ℂ) (hw : w ∈ strip) : eulerNeighborhood ![ξ, w, z] := by
+    right
+    change 998 / 1000 - 1 / 100000 < ξ.re ∧
+      95 / 100 - 1 / 100000 < w.re ∧ 16 / 100 - 1 / 100000 < z.re
+    refine ⟨lt_of_lt_of_le (by norm_num [δ1]) hξlo,
+      lt_of_lt_of_le (by norm_num) hw.1, ?_⟩
+    rw [hz]
+    norm_num [δ1]
+  have hHC : DifferentiableOn ℂ (fun w => HC.H U.one ![ξ, w, z]) strip :=
+    (hHP.2.1 U.one).comp hpmap.differentiableOn (fun w hw => hregion w hw)
+  have hNumdiff : DifferentiableOn ℂ Num strip := by
+    dsimp only [Num]
+    simp only [div_eq_mul_inv]
+    exact (((hMellin.differentiableOn.mul (differentiable_const _).differentiableOn).mul
+      hGSdiff.differentiableOn).mul hHC).mul (differentiable_const _).differentiableOn
+  have hGSquot (w : ℂ) (hw : w ≠ 1) : GS w / (w - 1) = HA.LS S 1 w := by
+    apply (div_eq_iff (sub_ne_zero.mpr hw)).mpr
+    change rows_principalRegularizedLS (HA := HA) (S := S) w = HA.LS S 1 w * (w - 1)
+    rw [rows_principalRegularizedLS_eq (HA := HA) (S := S) w hw]
+    ring
+  have hrep (w : ℂ) (_ : 95 / 100 ≤ w.re) (_ : w.re ≤ 4) (hw : w ≠ 1) :
+      K w = Num w / (w - 1) := by
+    dsimp only [K]
+    rw [rows_principalKernel_eq R sd W η U HA HC]
+    calc
+      _ = mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z * HA.LS S 1 (6 * z) *
+          (GS w / (w - 1)) * HC.H U.one ![ξ, w, z] / HA.LS S η ξ := by rw [hGSquot w hw]
+      _ = _ := by dsimp only [Num]; simp only [div_eq_mul_inv]; ring
+  obtain ⟨AF, CG, hAF, hCG, hGrowth⟩ := rows_principalRegularizedLS_growth (HA := HA) (S := S)
+  obtain ⟨CW, hCW, hWeight⟩ := hWdecay (95 / 100) 4 (AF + 2)
+    (by norm_num) (by linarith)
+  obtain ⟨CH, hCH, hHbound⟩ := hHP.2.2.2 (1 : ℝ) (by norm_num)
+  let P : ℝ := ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z‖
+  let CZ : ℝ := ‖HA.LS S 1 (6 * z)‖
+  let CI : ℝ := ‖(HA.LS S η ξ)⁻¹‖
+  let B0 : ℝ := Z ^ Estar ξ.re 4 z.re * P * CW * CZ * (20 * CG) * CH * CI
+  let C0 : ℝ := B0 * 2 ^ AF
+  let E : ℝ → ℝ := fun t => (1 + |t|) ^ (-2 : ℝ)
+  have hB0 : 0 ≤ B0 := by dsimp [B0, P, CZ, CI]; positivity
+  have hLS (w : ℂ) (hw : w ∈ strip) (hgap : 1 / 20 ≤ ‖w - 1‖) :
+      ‖HA.LS S 1 w‖ ≤ (20 * CG) * (2 + |w.im|) ^ AF := by
+    have hwne : w ≠ 1 := by
+      intro h
+      norm_num [h] at hgap
+    rw [← hGSquot w hwne, norm_div]
+    have hgrow := hGrowth w (le_trans (by norm_num) hw.1) hw.2
+    calc
+      _ ≤ (CG * (2 + |w.im|) ^ AF) / ‖w - 1‖ :=
+        div_le_div_of_nonneg_right hgrow (norm_nonneg _)
+      _ ≤ (CG * (2 + |w.im|) ^ AF) / (1 / 20 : ℝ) :=
+        div_le_div_of_nonneg_left (by positivity) (by norm_num) hgap
+      _ = _ := by ring
+  have hGapEnd (x t : ℝ) (hx : x = 95 / 100 ∨ x = 4) :
+      1 / 20 ≤ ‖((x : ℂ) + t * Complex.I) - 1‖ := by
+    calc
+      _ ≤ |x - 1| := by rcases hx with rfl | rfl <;> norm_num
+      _ ≤ _ := by simpa using Complex.abs_re_le_norm (((x : ℂ) + t * Complex.I) - 1)
+  have hGapHigh (x t : ℝ) (ht : 1 ≤ |t|) :
+      1 / 20 ≤ ‖((x : ℂ) + t * Complex.I) - 1‖ := by
+    calc
+      _ ≤ |t| := by linarith
+      _ ≤ _ := by simpa using Complex.abs_im_le_norm (((x : ℂ) + t * Complex.I) - 1)
+  have hpoint (x t : ℝ) (hx : x ∈ Icc (95 / 100 : ℝ) 4)
+      (hgap : 1 / 20 ≤ ‖((x : ℂ) + t * Complex.I) - 1‖) :
+      ‖K ((x : ℂ) + t * Complex.I)‖ ≤ C0 * E t := by
+    let w : ℂ := (x : ℂ) + t * Complex.I
+    have hwre : w.re = x := by simp [w]
+    have hwim : w.im = t := by simp [w]
+    have hw : w ∈ strip := by change 95 / 100 ≤ w.re ∧ w.re ≤ 4; simpa [hwre] using hx
+    have hM : ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ ≤
+        (P * CW) * (1 + |t|) ^ (-(AF + 2)) := by
+      rw [norm_mul]
+      calc
+        _ ≤ P * (CW * (1 + |t|) ^ (-(AF + 2))) :=
+          mul_le_mul_of_nonneg_left (hWeight x t hx.1 hx.2) (norm_nonneg _)
+        _ = _ := by ring
+    have hHw : ‖HC.H U.one ![ξ, w, z]‖ ≤ CH := by
+      simpa [U.q_one] using hHbound U.one ![ξ, w, z] (hregion w hw)
+    have hLs := hLS w hw hgap
+    rw [hwim] at hLs
+    have hbound := rows_principalKernel_norm_bound_of_factors R sd W η U HA HC Z hZpos ξ w z
+      ((P * CW) * (1 + |t|) ^ (-(AF + 2))) CZ
+      ((20 * CG) * (2 + |t|) ^ AF) CH CI
+      (by dsimp [P]; positivity) (norm_nonneg _) (by positivity) hCH.le (norm_nonneg _)
+      hM le_rfl hLs hHw le_rfl
+    have hPow : Z ^ Estar ξ.re w.re z.re ≤ Z ^ Estar ξ.re 4 z.re := by
+      apply Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z)
+      rw [hwre]
+      norm_num [Estar, a, b, h0]
+      nlinarith [hx.2]
+    calc
+      _ ≤ Z ^ Estar ξ.re w.re z.re * ((P * CW) * (1 + |t|) ^ (-(AF + 2))) *
+          CZ * ((20 * CG) * (2 + |t|) ^ AF) * CH * CI := hbound
+      _ ≤ Z ^ Estar ξ.re 4 z.re * ((P * CW) * (1 + |t|) ^ (-(AF + 2))) *
+          CZ * ((20 * CG) * (2 + |t|) ^ AF) * CH * CI := by gcongr
+      _ = B0 * ((1 + |t|) ^ (-(AF + 2)) * (2 + |t|) ^ AF) := by dsimp only [B0]; ring
+      _ ≤ B0 * (2 ^ AF * (1 + |t|) ^ (-2 : ℝ)) :=
+        mul_le_mul_of_nonneg_left (rows_principal_absorb_poly t AF 2 hAF) hB0
+      _ = C0 * E t := by dsimp only [C0, E]; ring
+  have hEint : Integrable E := rows_integrable_poly_decay (p := 2) (by norm_num)
+  have hEndpoint (x : ℝ) (hx : x ∈ Icc (95 / 100 : ℝ) 4) (hxe : x = 95 / 100 ∨ x = 4) :
+      Integrable (fun t : ℝ => K ((x : ℂ) + t * Complex.I)) := by
+    have hNline : Continuous (fun t : ℝ => Num ((x : ℂ) + t * Complex.I)) := by
+      apply continuousOn_univ.mp
+      apply hNumdiff.continuousOn.comp
+        (by fun_prop : ContinuousOn (fun t : ℝ => (x : ℂ) + t * Complex.I) univ)
+      intro t ht
+      change 95 / 100 ≤ ((x : ℂ) + t * Complex.I).re ∧ ((x : ℂ) + t * Complex.I).re ≤ 4
+      simpa using hx
+    have hden (t : ℝ) : ((x : ℂ) + t * Complex.I) - 1 ≠ 0 := by
+      intro h
+      have hg := hGapEnd x t hxe
+      rw [h] at hg
+      norm_num at hg
+    have hEq : (fun t : ℝ => K ((x : ℂ) + t * Complex.I)) =
+        fun t : ℝ => Num ((x : ℂ) + t * Complex.I) / (((x : ℂ) + t * Complex.I) - 1) := by
+      funext t
+      exact hrep _ (by simpa using hx.1) (by simpa using hx.2) (sub_ne_zero.mp (hden t))
+    have hCont : Continuous (fun t : ℝ => K ((x : ℂ) + t * Complex.I)) := by
+      rw [hEq]
+      exact hNline.div (by fun_prop) hden
+    apply (hEint.const_mul C0).mono' hCont.aestronglyMeasurable
+    filter_upwards [] with t
+    exact hpoint x t hx (hGapEnd x t hxe)
+  have hbase : Tendsto (fun t : ℝ => 1 + |t|) atTop atTop := by
+    have hineq (t : ℝ) : t ≤ 1 + |t| := by linarith [le_abs_self t]
+    exact tendsto_atTop_mono hineq tendsto_id
+  have hElim : Tendsto E atTop (𝓝 0) :=
+    (tendsto_rpow_neg_atTop (by norm_num : 0 < (2 : ℝ))).comp hbase
+  have hLim : Tendsto (fun T : ℝ => C0 * E T * |4 - (95 / 100 : ℝ)|) atTop (𝓝 0) := by
+    simpa using (hElim.const_mul C0).mul_const |4 - (95 / 100 : ℝ)|
+  have hBound (T : ℝ) (hT : 1 ≤ |T|) :
+      ‖∫ x : ℝ in (95 / 100)..4, K ((x : ℂ) + T * Complex.I)‖ ≤
+        C0 * E T * |4 - (95 / 100 : ℝ)| := by
+    apply intervalIntegral.norm_integral_le_of_norm_le_const
+    intro x hx
+    have hx' : x ∈ Icc (95 / 100 : ℝ) 4 := by
+      simpa [uIcc_of_le (by norm_num : (95 / 100 : ℝ) ≤ 4)] using uIoc_subset_uIcc hx
+    exact hpoint x T hx' (hGapHigh x T hT)
+  have htop : Tendsto (fun T : ℝ => ∫ x : ℝ in (95 / 100)..4,
+      K ((x : ℂ) + T * Complex.I)) atTop (𝓝 0) := by
+    apply tendsto_zero_iff_norm_tendsto_zero.mpr
+    apply squeeze_zero' (Eventually.of_forall fun _ => norm_nonneg _) ?_ hLim
+    filter_upwards [eventually_ge_atTop (1 : ℝ)] with T hT
+    exact hBound T (by rwa [abs_of_nonneg (by linarith)])
+  have hbot : Tendsto (fun T : ℝ => ∫ x : ℝ in (95 / 100)..4,
+      K ((x : ℂ) + (-T) * Complex.I)) atTop (𝓝 0) := by
+    apply tendsto_zero_iff_norm_tendsto_zero.mpr
+    apply squeeze_zero' (Eventually.of_forall fun _ => norm_nonneg _) ?_ hLim
+    filter_upwards [eventually_ge_atTop (1 : ℝ)] with T hT
+    have hb := hBound (-T) (by rw [abs_neg, abs_of_nonneg (by linarith)]; exact hT)
+    simpa only [Complex.ofReal_neg, E, abs_neg] using hb
+  have hshift := rows_sol_simple_pole_shift (95 / 100) 4 1 Num K
+    (by norm_num) (by norm_num) hNumdiff hrep
+    (hEndpoint (95 / 100) ⟨le_rfl, by norm_num⟩ (Or.inl rfl))
+    (hEndpoint 4 ⟨by norm_num, le_rfl⟩ (Or.inr rfl)) hbot htop
+  have hNumone : Num 1 = mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+      HA.LS S 1 (6 * z) * HA.RS S * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ := by
+    change mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z * HA.LS S 1 (6 * z) *
+      rows_principalRegularizedLS (HA := HA) (S := S) 1 * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ = _
+    rw [rows_principalRegularizedLS_at_one]
+  simpa only [K, Complex.ofReal_one, hNumone] using hshift
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
