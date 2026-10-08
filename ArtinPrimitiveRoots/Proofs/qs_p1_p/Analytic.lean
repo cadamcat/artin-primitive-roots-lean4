@@ -743,6 +743,128 @@ private theorem qs_p1_root_number_convexity_data [IsTotallyComplex K]
   have h := hLbound.1 s hs₀ hs₁
   simpa [C', Real.rpow_natCast] using h
 
+private theorem qs_p1_midpoint_integrand_identity [IsTotallyComplex K]
+    (χ : ArtinPrimitiveRoots.A1.HeckeChar K) (f : Ideal (𝓞 K))
+    (hf : IsPrimitiveConductor χ f) (h : ℝ → ℂ) (hh : IsQSWeight h)
+    (X : ℝ) (hX : 0 < X) (Lc : ℂ → ℂ)
+    (hFE : ∀ s : ℂ, 0 < s.re → s.re < 1 →
+      Lc s = (qsP1CompletedFactor f s)⁻¹ *
+        qsP1CompletedFactor f (1 - s) * Lc (1 - s))
+    (s : ℂ) (hs : s.re = 1 / 2) :
+    (X : ℂ) ^ s * Lc s * mellin h s =
+      ((X / Real.sqrt (Ideal.absNorm f : ℝ) : ℝ) : ℂ) *
+        (((X / (Ideal.absNorm f : ℝ) : ℝ) : ℂ) ^ (-(1 - s)) *
+          Lc (1 - s) * mellin (qsTransform K h) (1 - s)) := by
+  have hf0 : f ≠ ⊥ := hf.1
+  have hN0 : Ideal.absNorm f ≠ 0 := by
+    intro hN
+    exact hf0 (Ideal.absNorm_eq_zero_iff.mp hN)
+  have hN : 0 < (Ideal.absNorm f : ℝ) := Nat.cast_pos.mpr (Nat.pos_iff_ne_zero.mpr hN0)
+  let nC : ℂ := ((Ideal.absNorm f : ℝ) : ℂ)
+  have hnC : nC ≠ 0 := by
+    dsimp [nC]
+    exact Complex.ofReal_ne_zero.mpr hN.ne'
+  let u : ℂ := 1 - s
+  have hu0 : 0 < u.re := by
+    have huRe : u.re = 1 - s.re := by simp [u]
+    rw [huRe, hs]
+    norm_num
+  have hu1 : u.re < 1 := by
+    have huRe : u.re = 1 - s.re := by simp [u]
+    rw [huRe, hs]
+    norm_num
+  have hQratio :
+      (qsP1CompletedFactor f s)⁻¹ * qsP1CompletedFactor f (1 - s) =
+        nC ^ ((1 / 2 : ℂ) - s) * qsGammaRatio K u := by
+    have hpow : (nC ^ (s / 2))⁻¹ * nC ^ ((1 - s) / 2) =
+        nC ^ ((1 / 2 : ℂ) - s) := by
+      rw [← Complex.cpow_neg, ← Complex.cpow_add _ _ hnC]
+      change nC ^ (-(s / 2) + (1 - s) / 2) = nC ^ ((1 / 2 : ℂ) - s)
+      congr 1
+      ring
+    have hG : (Hecke.dedekindPrefactor K s)⁻¹ *
+        Hecke.dedekindPrefactor K (1 - s) = qsGammaRatio K u := by
+      unfold qsGammaRatio
+      dsimp [u]
+      rw [show 1 - (1 - s) = s by ring, div_eq_mul_inv]
+      ring
+    change ((nC ^ (s / 2) * Hecke.dedekindPrefactor K s)⁻¹ *
+      (nC ^ ((1 - s) / 2) * Hecke.dedekindPrefactor K (1 - s))) =
+        nC ^ ((1 / 2 : ℂ) - s) * qsGammaRatio K u
+    calc
+      _ = ((nC ^ (s / 2))⁻¹ * nC ^ ((1 - s) / 2)) *
+          ((Hecke.dedekindPrefactor K s)⁻¹ * Hecke.dedekindPrefactor K (1 - s)) := by
+            simp only [mul_inv]
+            ring
+      _ = nC ^ ((1 / 2 : ℂ) - s) * qsGammaRatio K u := by rw [hpow, hG]
+  have hFE' : Lc s = nC ^ ((1 / 2 : ℂ) - s) *
+      qsGammaRatio K u * Lc u := by
+    calc
+      Lc s = (qsP1CompletedFactor f s)⁻¹ *
+          qsP1CompletedFactor f (1 - s) * Lc (1 - s) :=
+            hFE s (by rw [hs]; norm_num) (by rw [hs]; norm_num)
+      _ = nC ^ ((1 / 2 : ℂ) - s) * qsGammaRatio K u * Lc u := by
+            rw [hQratio]
+  have hP0 := qs_transform_mellin_P0 (K := K) h hh u hu0 hu1
+  have hP0' : mellin (qsTransform K h) u = qsGammaRatio K u * mellin h s := by
+    simpa [u] using hP0
+  have hscale : (X : ℂ) ^ s * nC ^ ((1 / 2 : ℂ) - s) =
+      ((X / Real.sqrt (Ideal.absNorm f : ℝ) : ℝ) : ℂ) *
+        ((X / (Ideal.absNorm f : ℝ) : ℝ) : ℂ) ^ (-u) := by
+    have hXc : (X : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hX.ne'
+    have hsqrt : (Real.sqrt (Ideal.absNorm f : ℝ) : ℂ) =
+        nC ^ ((1 / 2 : ℝ) : ℂ) := by
+      dsimp [nC]
+      rw [Real.sqrt_eq_rpow]
+      exact Complex.ofReal_cpow hN.le _
+    have hXsplit : (X : ℂ) ^ s = (X : ℂ) * (X : ℂ) ^ (-u) := by
+      have he : s = 1 + (-u) := by dsimp [u]; ring
+      rw [he, Complex.cpow_add _ _ hXc, Complex.cpow_one]
+    have hNsplit : nC ^ ((1 / 2 : ℂ) - s) = nC ^ u * nC ^ (-((1 / 2 : ℂ))) := by
+      have he : (1 / 2 : ℂ) - s = u + (-((1 / 2 : ℂ))) := by dsimp [u]; ring
+      rw [he, Complex.cpow_add _ _ hnC]
+    have hquot' : ((X / (Ideal.absNorm f : ℝ) : ℝ) : ℂ) ^ (-u) =
+        (X : ℂ) ^ (-u) * ((Ideal.absNorm f : ℝ) : ℂ) ^ u := by
+      rw [Complex.ofReal_div, Complex.div_cpow_ofReal_nonneg hX.le hN.le]
+      have hden : ((Ideal.absNorm f : ℝ) : ℂ) ^ (-u) =
+          (((Ideal.absNorm f : ℝ) : ℂ) ^ u)⁻¹ := by
+        exact Complex.cpow_neg _ _
+      rw [div_eq_mul_inv, hden]
+      simp
+    have hquot : ((X / (Ideal.absNorm f : ℝ) : ℝ) : ℂ) ^ (-u) =
+        (X : ℂ) ^ (-u) * nC ^ u := by simpa [nC] using hquot'
+    have hrootDiv : (X : ℂ) / nC ^ ((1 / 2 : ℝ) : ℂ) =
+        (X : ℂ) * nC ^ (-((1 / 2 : ℝ) : ℂ)) := by
+      calc
+        _ = (X : ℂ) * (nC ^ ((1 / 2 : ℝ) : ℂ))⁻¹ := by rw [div_eq_mul_inv]
+        _ = (X : ℂ) * nC ^ (-((1 / 2 : ℝ) : ℂ)) := by
+              rw [(Complex.cpow_neg nC _).symm]
+    calc
+      _ = (X : ℂ) * (X : ℂ) ^ (-u) *
+          (nC ^ u * nC ^ (-((1 / 2 : ℂ)))) := by rw [hXsplit, hNsplit]
+      _ = ((X / Real.sqrt (Ideal.absNorm f : ℝ) : ℝ) : ℂ) *
+          ((X / (Ideal.absNorm f : ℝ) : ℝ) : ℂ) ^ (-u) := by
+            rw [Complex.ofReal_div, hquot, hsqrt]
+            calc
+              (X : ℂ) * (X : ℂ) ^ (-u) * (nC ^ u * nC ^ (-((1 / 2 : ℂ)))) =
+                  ((X : ℂ) * nC ^ (-((1 / 2 : ℂ)))) *
+                    ((X : ℂ) ^ (-u) * nC ^ u) := by ring
+              _ = ((X : ℂ) / nC ^ ((1 / 2 : ℝ) : ℂ)) *
+                    ((X : ℂ) ^ (-u) * nC ^ u) := by
+                      rw [show -((1 / 2 : ℂ)) = -((1 / 2 : ℝ) : ℂ) by norm_num,
+                        hrootDiv]
+  have hkernel : qsGammaRatio K u * mellin h s = mellin (qsTransform K h) u := hP0'.symm
+  calc
+    (X : ℂ) ^ s * Lc s * mellin h s =
+        ((X : ℂ) ^ s * nC ^ ((1 / 2 : ℂ) - s)) *
+          (Lc u * (qsGammaRatio K u * mellin h s)) := by rw [hFE']; ring
+    _ = (((X / Real.sqrt (Ideal.absNorm f : ℝ) : ℝ) : ℂ) *
+          ((X / (Ideal.absNorm f : ℝ) : ℝ) : ℂ) ^ (-u)) *
+          (Lc u * mellin (qsTransform K h) u) := by rw [hscale, hkernel]
+    _ = ((X / Real.sqrt (Ideal.absNorm f : ℝ) : ℝ) : ℂ) *
+          (((X / (Ideal.absNorm f : ℝ) : ℝ) : ℂ) ^ (-u) *
+            Lc u * mellin (qsTransform K h) u) := by ring
+
 private theorem qs_p1_prefactor_differentiableAt [IsTotallyComplex K]
     {s : ℂ} (hs : 0 < s.re) :
     DifferentiableAt ℂ (Hecke.dedekindPrefactor K) s := by
