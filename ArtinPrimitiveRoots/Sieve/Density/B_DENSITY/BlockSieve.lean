@@ -148,4 +148,40 @@ lemma roughIntegerMultipleCount_error (x : ℝ) (hx : 0 ≤ x) (d : ℕ) (hd : 0
   rw [abs_le]
   constructor <;> nlinarith
 
+/-- For a finite set of distinct primes, simultaneous divisibility is divisibility by their
+product. -/
+lemma primeSet_dvd_prod_iff (P D : Finset ℕ) (hP : ∀ p ∈ P, p.Prime) (hD : D ⊆ P)
+    (n : ℕ) : (∀ p ∈ D, p ∣ n) ↔ (∏ p ∈ D, p : ℕ) ∣ n := by
+  classical
+  revert hD n
+  induction D using Finset.induction_on with
+  | empty => intro hD n; simp
+  | @insert p D hpD ih =>
+      intro hD n
+      have hpP : p.Prime := hP p (hD (Finset.mem_insert_self p D))
+      have hDP : D ⊆ P := fun q hq => hD (Finset.mem_insert_of_mem hq)
+      have hprodCop : Nat.Coprime p (∏ q ∈ D, q : ℕ) := by
+        rw [Nat.coprime_prod_right_iff]
+        intro q hq
+        have hqP : q.Prime := hP q (hDP hq)
+        have hpq : p ≠ q := by
+          intro heq
+          subst q
+          exact hpD hq
+        exact (Nat.coprime_primes hpP hqP).2 hpq
+      constructor
+      · intro hall
+        have hp : p ∣ n := hall p (Finset.mem_insert_self p D)
+        have hallD : ∀ q ∈ D, q ∣ n := fun q hq => hall q (Finset.mem_insert_of_mem hq)
+        have hDvd : (∏ q ∈ D, q : ℕ) ∣ n := (ih hDP n).mp hallD
+        rw [Finset.prod_insert hpD]
+        exact hprodCop.mul_dvd_of_dvd_of_dvd hp hDvd
+      · intro h
+        rw [Finset.prod_insert hpD] at h
+        simp only [Finset.forall_mem_insert]
+        refine ⟨?_, ?_⟩
+        · exact (dvd_mul_right p (∏ q ∈ D, q)).trans h
+        · intro q hq
+          exact (dvd_mul_of_dvd_right (Finset.dvd_prod_of_mem _ hq) p).trans h
+
 end ArtinPrimitiveRoots.Proofs.b_density_sol
