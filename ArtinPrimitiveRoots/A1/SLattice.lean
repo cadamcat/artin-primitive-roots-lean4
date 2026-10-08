@@ -570,6 +570,85 @@ private theorem covol_nonzero_bruhat_test (S : SData F CE condη) :
   change g 0 ≠ 0
   simp [g, SData.tensorFunction, p, covol_arch_test_zero, hfinite]
 
+private theorem covol_addchar_nontrivial (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (v : S.Sf) :
+    ∃ x : v.1.adicCompletion F, A.ψ v.1 x ≠ 1 := by
+  classical
+  by_contra h
+  push Not at h
+  let y : S.FS := (fun w => if w = v then 1 else 0, fun _ => 0)
+  have hyann : y ∈ S.annihilator A S.diagR := by
+    intro z hz
+    rcases hz with ⟨r, rfl⟩
+    have hfin (q : S.Sf) :
+        A.ψ q.1 ((S.diag (r : F) * y).1 q) = 1 := by
+      by_cases hq : q = v
+      · subst q
+        simpa [y] using h ((S.diag (r : F)).1 v)
+      · simp [y, hq]
+    have harch (q : InfinitePlace F) :
+        psiC ((S.diag (r : F) * y).2 q) = 1 := by
+      simp [psiC, y]
+    change (∏ q : S.Sf, A.ψ q.1 ((S.diag (r : F) * y).1 q)) *
+      ∏ q : InfinitePlace F, psiC ((S.diag (r : F) * y).2 q) = 1
+    rw [Finset.prod_eq_one (fun q _ => hfin q),
+      Finset.prod_eq_one (fun q _ => harch q)]
+    simp
+  have hdual := S.diagR_eq_annihilator D A
+  have hyr : y ∈ S.diagR := by rw [hdual]; exact hyann
+  obtain ⟨r, hr⟩ := hyr
+  obtain ⟨w⟩ : Nonempty (InfinitePlace F) := inferInstance
+  have hrw : w.embedding (r : F) = 0 := by
+    have h := congrArg (fun z : S.FS => z.2 w) hr
+    simpa [y, SData.diag] using h
+  have hr0 : (r : F) = 0 := (RingHom.injective w.embedding) (by simpa using hrw)
+  have hrv : algebraMap F (v.1.adicCompletion F) (r : F) = 1 := by
+    have h := congrArg (fun z : S.FS => z.1 v) hr
+    simpa [y, SData.diag] using h
+  have h01 : (0 : v.1.adicCompletion F) = 1 := by simpa [hr0] using hrv
+  exact zero_ne_one h01
+
+private theorem covol_local_addchar_conductor (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (v : S.Sf) :
+    ∃ c : ℤ, 0 ≤ c ∧
+      (∀ x, Valued.v x ≤ WithZero.exp c → A.ψ v.1 x = 1) ∧
+      ∃ x, Valued.v x ≤ WithZero.exp (c + 1) ∧ A.ψ v.1 x ≠ 1 := by
+  let P : ℤ → Prop := fun n => ∀ x : v.1.adicCompletion F,
+    Valued.v x ≤ WithZero.exp n → A.ψ v.1 x = 1
+  have hP0 : P 0 := by
+    intro x hx
+    apply A.integral v.1
+    change Valued.v x ≤ 1
+    simpa using hx
+  obtain ⟨a, ha⟩ := covol_addchar_nontrivial D S A v
+  have hav : Valued.v a ≠ 0 := by
+    intro hv
+    have ha0 : a = 0 := (Valuation.zero_iff (Valued.v : Valuation _ _)).mp hv
+    exact ha (by simpa [ha0])
+  lift Valued.v a to ℤ using hav with k hk
+  have hbound : ∃ b : ℤ, ∀ n : ℤ, P n → n ≤ b := by
+    refine ⟨k - 1, ?_⟩
+    intro n hn
+    by_contra hnot
+    have hkn : k ≤ n := by omega
+    have hball : Valued.v a ≤ WithZero.exp n := by
+      rw [← hk]
+      exact (WithZero.exp_le_exp).2 hkn
+    exact ha (hn a hball)
+  obtain ⟨c, hc, hcmax⟩ := Int.exists_greatest_of_bdd hbound ⟨0, hP0⟩
+  have hnot : ¬ P (c + 1) := by
+    intro hp
+    have hle := hcmax (c + 1) hp
+    omega
+  change ¬ (∀ x : v.1.adicCompletion F,
+    Valued.v x ≤ WithZero.exp (c + 1) → A.ψ v.1 x = 1) at hnot
+  push Not at hnot
+  obtain ⟨x, hx, hψ⟩ := hnot
+  have hc_nonneg : 0 ≤ c := by
+    have hzero := hcmax 0 hP0
+    omega
+  exact ⟨c, hc_nonneg, hc, x, hx, hψ⟩
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
