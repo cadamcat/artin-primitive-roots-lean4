@@ -289,6 +289,111 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_smooth.bessel_sheet_mellin
   rw [hr] at hd
   exact hd.symm.trans hv
 
+private theorem smoothProdCpow {ι : Type*} [Fintype ι] (a : ι → ℝ)
+    (ha : ∀ i, 0 ≤ a i) (s : ℂ) :
+    ((∏ i, a i : ℝ) : ℂ) ^ s = ∏ i, (a i : ℂ) ^ s := by
+  induction (Finset.univ : Finset ι) using Finset.induction_on with
+  | empty => simp
+  | @insert i t hi ih =>
+    rw [Finset.prod_insert hi, Finset.prod_insert hi, Complex.ofReal_mul,
+      Complex.mul_cpow_ofReal_nonneg (ha i) (Finset.prod_nonneg fun i _ => ha i) s, ih]
+
+private theorem smoothSquareCpow (a : ℝ) (ha : 0 ≤ a) (s : ℂ) :
+    ((a ^ 2 : ℝ) : ℂ) ^ s = (a : ℂ) ^ (2 * s) := by
+  rw [Complex.ofReal_pow]
+  exact (Complex.cpow_ofNat_mul' (x := (a : ℂ)) (n := 2)
+    (by simpa only [Complex.arg_ofReal_of_nonneg ha, mul_zero] using
+      (neg_lt_zero.mpr Real.pi_pos))
+    (by simpa only [Complex.arg_ofReal_of_nonneg ha, mul_zero] using Real.pi_pos.le) s).symm
+
+private theorem smoothLocalNormalize (c : ℝ) (hc : 0 < c) (s : ℂ) :
+    (Real.pi : ℂ) * ((2 : ℂ) ^ (2 * s + 1) * (c : ℂ) ^ (-2 * s - 2)) =
+      ((2 * Real.pi / c ^ 2 : ℝ) : ℂ) * ((4 / c ^ 2 : ℝ) : ℂ) ^ s := by
+  have hcnz : (c : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hc.ne'
+  have htwo : (2 : ℂ) ^ (2 * s + 1) = 2 * (2 : ℂ) ^ (2 * s) := by
+    rw [Complex.cpow_add (2 * s) 1 (by norm_num : (2 : ℂ) ≠ 0), Complex.cpow_one]
+    ring
+  have hcFactor : (c : ℂ) ^ (-2 * s - 2) = ((c : ℂ) ^ (2 * s))⁻¹ / (c : ℂ) ^ 2 := by
+    rw [show -2 * s - 2 = -(2 * s) - 2 by ring,
+      Complex.cpow_sub _ _ hcnz, Complex.cpow_neg, Complex.cpow_two]
+  have hfour : (4 : ℂ) ^ s = (2 : ℂ) ^ (2 * s) := by
+    convert smoothSquareCpow 2 (by norm_num) s using 1
+    norm_num
+  have hA : ((4 / c ^ 2 : ℝ) : ℂ) ^ s =
+      (2 : ℂ) ^ (2 * s) / (c : ℂ) ^ (2 * s) := by
+    rw [Complex.ofReal_div, Complex.div_cpow_ofReal_nonneg (by norm_num) (sq_nonneg c) s]
+    rw [Complex.ofReal_ofNat, hfour, smoothSquareCpow c hc.le s]
+  rw [htwo, hcFactor, hA]
+  push_cast
+  simp only [div_eq_mul_inv]
+  ring
+
+/-- The Mellin transform of the theta radial profile is a positive scale times
+an exponential scale and the prescribed product of shifted gamma factors. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_smooth.gaussian_smoothing_part1
+    [IsTotallyComplex F] (μ : ∀ v : FinPlace F, LocHaar v)
+    (v0 : InfinitePlace F) (U : Set (∀ v : S.Sf, v.1.adicCompletion F))
+    (hUo : IsOpen U) (hUc : IsCompact U)
+    (hU1 : (1 : ∀ v : S.Sf, v.1.adicCompletion F) ∈ U)
+    (hUunit : ∀ y ∈ U, ∀ v : S.Sf, Valued.v (y v) = 1)
+    (cS : InfinitePlace F → ℝ) (hcS : ∀ w, 0 < cS w) :
+    ∃ C₀ A₀ : ℝ, 0 < C₀ ∧ 0 < A₀ ∧ ∀ s : ℂ, -(5 / 6 : ℝ) < s.re →
+      mellin (thetaV S μ v0 U cS) s = (C₀ : ℂ) * (A₀ : ℂ) ^ s *
+        (Complex.Gamma (s + 5 / 6) * Complex.Gamma (s + 7 / 6)) ^ numComplex F := by
+  let mU : ℝ := (Measure.pi (fun v : S.Sf => mulHaarFin (μ v.1)) U).toReal
+  let A (w : InfinitePlace F) : ℝ := 4 / (cS w) ^ 2
+  let B (w : InfinitePlace F) : ℝ := 2 * Real.pi / (cS w) ^ 2
+  let C₀ : ℝ := mU / Real.pi * ∏ w, B w
+  let A₀ : ℝ := ∏ w, A w
+  have hmU : 0 < mU :=
+    (ArtinPrimitiveRoots.Proofs.thsol_smooth.finite_unit_cutoff_mass
+      S μ U hUo hUc hU1 hUunit).2.1
+  have hA (w : InfinitePlace F) : 0 < A w :=
+    div_pos (by norm_num) (pow_pos (hcS w) 2)
+  have hB (w : InfinitePlace F) : 0 < B w :=
+    div_pos (mul_pos (by norm_num) Real.pi_pos) (pow_pos (hcS w) 2)
+  refine ⟨C₀, A₀, mul_pos (div_pos hmU Real.pi_pos)
+    (Finset.prod_pos fun w _ => hB w), Finset.prod_pos (fun w _ => hA w), ?_⟩
+  intro s hs
+  let g : ℂ := Complex.Gamma (s + 5 / 6) * Complex.Gamma (s + 7 / 6)
+  have hlocal (w : InfinitePlace F) :
+      (Real.pi : ℂ) * ((2 : ℂ) ^ (2 * s + 1) * (cS w : ℂ) ^ (-2 * s - 2) *
+        Complex.Gamma (s + 5 / 6) * Complex.Gamma (s + 7 / 6)) =
+        (B w : ℂ) * (A w : ℂ) ^ s * g := by
+    dsimp only [A, B, g]
+    calc
+      _ = ((Real.pi : ℂ) * ((2 : ℂ) ^ (2 * s + 1) *
+          (cS w : ℂ) ^ (-2 * s - 2))) *
+          (Complex.Gamma (s + 5 / 6) * Complex.Gamma (s + 7 / 6)) := by ring
+      _ = _ := by rw [smoothLocalNormalize (cS w) (hcS w) s]
+  have hprod : (∏ w : InfinitePlace F, (Real.pi : ℂ) *
+      ((2 : ℂ) ^ (2 * s + 1) * (cS w : ℂ) ^ (-2 * s - 2) *
+        Complex.Gamma (s + 5 / 6) * Complex.Gamma (s + 7 / 6))) =
+      ((∏ w, B w : ℝ) : ℂ) * ((∏ w, A w : ℝ) : ℂ) ^ s * g ^ numComplex F := by
+    calc
+      _ = ∏ w : InfinitePlace F, (B w : ℂ) * (A w : ℂ) ^ s * g := by
+        apply Finset.prod_congr rfl
+        intro w _
+        exact hlocal w
+      _ = (∏ w : InfinitePlace F, (B w : ℂ)) *
+          (∏ w : InfinitePlace F, (A w : ℂ) ^ s) * ∏ _ : InfinitePlace F, g := by
+        simp only [Finset.prod_mul_distrib]
+      _ = _ := by
+        rw [← Complex.ofReal_prod Finset.univ B,
+          ← smoothProdCpow A (fun w => (hA w).le) s]
+        simp only [Finset.prod_const, Finset.card_univ, numComplex]
+  have hm := ArtinPrimitiveRoots.Proofs.thsol_smooth.bessel_sheet_mellin
+    S μ v0 U hUo hUc hU1 hUunit cS hcS s hs
+  rw [hprod] at hm
+  have hπ : (Real.pi : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr Real.pi_ne_zero
+  apply mul_left_cancel₀ hπ
+  rw [hm]
+  change (mU : ℂ) * (((∏ w, B w : ℝ) : ℂ) * (A₀ : ℂ) ^ s * g ^ numComplex F) =
+    (Real.pi : ℂ) * ((C₀ : ℂ) * (A₀ : ℂ) ^ s * g ^ numComplex F)
+  dsimp only [C₀]
+  rw [Complex.ofReal_mul, Complex.ofReal_div]
+  field_simp [hπ]
+
 /-- **lem:gaussian-smoothing** (03:671–775), for `U` as in `U_spec` (open compact, local units)
 and `cS > 0`: (i) `V̂(s) = C₀A₀^s[Γ(s+5/6)Γ(s+7/6)]^r` for `Re s > -5/6`; (ii) a kernel `𝒦` with
 `|(T∂_T)^j 𝒦| ≤ C min(T^N, T^{-N})`, `∫𝒦(T)V(uT)dT/T = P_G(u)`, and `𝒦̂(-s) = e^{s²}/V̂(s)`. C9
