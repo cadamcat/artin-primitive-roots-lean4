@@ -2646,12 +2646,88 @@ private theorem covol_selfdual_measure_candidate_standard_domain_mass
             inv_mul_cancel₀ hrootPos.ne']
           simp
 
+private theorem covol_candidate_fundamental_domain_mass_eq
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (K : Set S.FS) (hK : MeasurableSet K ∧ S.IsLatticeFundamentalDomain K) :
+    covol_selfdual_measure_candidate D S A K =
+      covol_selfdual_measure_candidate D S A (covol_standard_fundamental_domain S D) := by
+  classical
+  let ν : Measure S.FS := covol_selfdual_measure_candidate D S A
+  letI : Measure.IsAddHaarMeasure ν := covol_selfdual_measure_candidate_isHaar D S A
+  letI : AddAction S.R S.FS :=
+    { vadd := fun r x => S.diag (r : F) + x
+      add_vadd := by
+        intro r s x
+        change S.diag ((r + s : S.R) : F) + x =
+          S.diag (r : F) + (S.diag (s : F) + x)
+        simp only [Subalgebra.coe_add, map_add]
+        abel
+      zero_vadd := by
+        intro x
+        change S.diag (0 : F) + x = x
+        simp }
+  letI : MeasurableConstVAdd S.R S.FS := ⟨fun r => by
+    change Measurable (fun x : S.FS => S.diag (r : F) + x)
+    fun_prop⟩
+  letI : VAddInvariantMeasure S.R S.FS ν := ⟨by
+    intro r T _hT
+    change ν ((fun x : S.FS => S.diag (r : F) + x) ⁻¹' T) = ν T
+    let e : S.FS ≃ᵐ S.FS := MeasurableEquiv.addLeft (S.diag (r : F))
+    have hmap : Measure.map e ν = ν := by
+      simpa [e] using
+        Measure.IsAddLeftInvariant.map_add_left_eq_self (S.diag (r : F))
+    calc
+      ν ((fun x : S.FS => S.diag (r : F) + x) ⁻¹' T) = Measure.map e ν T := by
+        symm
+        exact e.map_apply T
+      _ = ν T := congrArg (fun m : Measure S.FS => m T) hmap⟩
+  letI : Countable F := by
+    letI : Countable ℚ := inferInstance
+    exact Finsupp.Countable.of_moduleFinite (R := ℚ) (M := F)
+  letI : Countable S.R := inferInstance
+  have htoFD (T : Set S.FS)
+      (hT : MeasurableSet T ∧ S.IsLatticeFundamentalDomain T) :
+      MeasureTheory.IsAddFundamentalDomain S.R T ν := by
+    have hexact : ∀ x : S.FS, ∃! r : S.R, r +ᵥ x ∈ T := by
+      intro x
+      obtain ⟨p, hp, huniq⟩ := hT.2 x
+      rcases p with ⟨r, k⟩
+      rcases hp with ⟨hk, hrep⟩
+      refine ⟨-r, ?_, ?_⟩
+      · change S.diag ((-r : S.R) : F) + x ∈ T
+        rw [hrep]
+        simpa [map_neg, add_assoc] using hk
+      · intro g hg
+        have hrep' : x = S.diag ((-g : S.R) : F) + (g +ᵥ x) := by
+          change x = S.diag ((-g : S.R) : F) + (S.diag (g : F) + x)
+          simp [map_neg, add_assoc]
+        have hpair :
+            ((-g : S.R), g +ᵥ x).2 ∈ T ∧
+              x = S.diag (((-g : S.R), g +ᵥ x).1 : F) + ((-g : S.R), g +ᵥ x).2 := by
+          exact ⟨hg, hrep'⟩
+        have hchosen : (r, k).2 ∈ T ∧ x = S.diag ((r, k).1 : F) + (r, k).2 :=
+          ⟨hk, hrep⟩
+        have heq := huniq (-g, g +ᵥ x) hpair
+        have hfirst : -g = r := congrArg Prod.fst heq
+        simpa using congrArg (fun a : S.R => -a) hfirst
+    exact MeasureTheory.IsAddFundamentalDomain.mk' hT.1.nullMeasurableSet hexact
+  have hKfd := htoFD K hK
+  have hstd := covol_standard_fundamental_domain_measurable_fd S D
+  have hstdFD := htoFD (covol_standard_fundamental_domain S D) hstd
+  simpa [ν] using hKfd.measure_eq hstdFD
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
     (hK : MeasurableSet K ∧ S.IsLatticeFundamentalDomain K) :
     μ.measure K = 1 := by
-  sorry
+  calc
+    μ.measure K = covol_selfdual_measure_candidate D S A K := by
+      rw [covol_selfdual_measure_candidate_eq D S A μ]
+    _ = covol_selfdual_measure_candidate D S A
+        (covol_standard_fundamental_domain S D) :=
+          covol_candidate_fundamental_domain_mass_eq D S A K hK
+    _ = 1 := covol_selfdual_measure_candidate_standard_domain_mass D S A
 
 /-- The diagonal copy of `R` has covolume one for the self-dual Haar measure. -/
 theorem SData.diagR_covolume_one (S : SData F CE condη) (D : FieldData F)
