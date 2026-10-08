@@ -116,6 +116,47 @@ theorem th_classical_finite_components (P : CoverPackage D S H A)
       ∀ r : P.RP, ∃ γ : GL (Fin 2) F, ∃ j ∈ J, ∃ k : P.RP,
         th_classical_finiteLevel P T0 hT0 m k ∧
           th_classical_finiteEq P (P.ratRP γ * r) (j * k) := by
-  sorry
+  classical
+  let C := {ζ : rootsOfUnity 3 ℂ // ∃ h : P.RP,
+    (∀ w, P.compC w h = 1) ∧ P.q h = P.tc.z ζ}
+  let _ : Fintype C := Fintype.ofFinite C
+  choose s hsC hsQ using fun ζ : C => ζ.2
+  obtain ⟨J0, hJ0, hred⟩ := th_classical_projected_finite_components P T0 hT0 m hm
+  let J : Finset P.RP := (Finset.univ ×ˢ J0).image (fun p : C × P.RP => s p.1 * p.2)
+  refine ⟨J, ?_, ?_⟩
+  · intro j hj w
+    obtain ⟨⟨ζ, j0⟩, hp, rfl⟩ := Finset.mem_image.mp hj
+    obtain ⟨_, hj0⟩ := Finset.mem_product.mp hp
+    rw [map_mul, hsC ζ w, hJ0 j0 hj0 w, one_mul]
+  · intro r
+    obtain ⟨γ, j0, hj0, k, hk, hp⟩ := hred r
+    let r' : P.RP := P.ratRP γ * r
+    obtain ⟨x, hxF, hxC⟩ := P.comp_surj (fun v => P.compF v r') (fun _ => 1) (P.comp_restricted r')
+    let h : P.RP := x * (j0 * k)⁻¹
+    have hhF (v : FinPlace F) : (P.loc v).pr (P.compF v h) = 1 := by
+      simp only [h, map_mul, map_inv, hxF]
+      change (P.loc v).pr (P.compF v r') *
+        ((P.loc v).pr (P.compF v j0) * (P.loc v).pr (P.compF v k))⁻¹ = 1
+      have hp' : (P.loc v).pr (P.compF v r') =
+          (P.loc v).pr (P.compF v j0) * (P.loc v).pr (P.compF v k) := by
+        simpa only [r', map_mul] using hp v
+      rw [hp']
+      exact mul_inv_cancel _
+    have hhC (w : InfinitePlace F) : P.compC w h = 1 := by
+      simp only [h, map_mul, map_inv, hxC, hJ0 j0 hj0 w, hk.1 w, one_mul, inv_one]
+    obtain ⟨ζ, hζ, _⟩ := th_classical_central_kernel P h hhF hhC
+    let ζC : C := ⟨ζ, h, hhC, hζ⟩
+    have hqx : P.q x = P.q ((s ζC * j0) * k) := by
+      have hhq : P.q x * (P.q (j0 * k))⁻¹ = P.q (s ζC) := by
+        simpa only [h, map_mul, map_inv] using hζ.trans (hsQ ζC).symm
+      have hxq := mul_inv_eq_iff_eq_mul.mp hhq
+      simpa only [map_mul, mul_assoc] using hxq
+    obtain ⟨ξ, hξfin, hξprod, hξF, _⟩ := (P.q_eq x ((s ζC * j0) * k)).mp hqx
+    refine ⟨γ, s ζC * j0, Finset.mem_image.mpr ⟨(ζC, j0),
+      Finset.mem_product.mpr ⟨Finset.mem_univ ζC, hj0⟩, rfl⟩, k, hk,
+      ξ, hξfin, hξprod, ?_⟩
+    intro v
+    rw [← hxF v]
+    exact hξF v
 
 end ArtinPrimitiveRoots.A1.Theta
