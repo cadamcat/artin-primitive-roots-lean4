@@ -4520,7 +4520,59 @@ theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
     torusCoeff P (eisenstein P G Fs) g Pd 0 =
       ∑' δ : Fˣ ⧸ G.Δ, (scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL (Quotient.out δ)) * g) +
         scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out δ)) * g)) := by
-  sorry
+  classical
+  letI : G.Δ.Normal := Subgroup.normal_of_isMulCommutative G.Δ
+  letI : CommGroup (Fˣ ⧸ G.Δ) := QuotientGroup.Quotient.commGroup G.Δ
+  have hs0 : 0 < s.re := (by norm_num : (0 : ℝ) < 1 / 2).trans hs
+  by_cases hΦ : ∃ h : P.tc.G, scalarOf P G Fs.f Fs.fC h ≠ 0
+  · obtain ⟨B, hB, hK, hBd, _, hvol, hcoef⟩ :=
+      eisenstein_zeroCoeff_bounded_domain P G hs Fs g 𝔞 h𝔞 hfix Pd hPd
+    obtain ⟨hsmall, hpair, hcoeff⟩ :=
+      eisenstein_zeroCoeff_bruhat_on_compact P G hs Fs g
+        (closure B) hK B hB subset_closure hvol
+    let Q := Fˣ ⧸ G.Δ
+    let small : Q → ℂ := fun δ => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out δ)) * g)
+    let I : Q × F → ℂ := fun p => ∫ x in B, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P x * g)
+    let M : Q → ℂ := fun δ => scalarM P G μ Fs
+      (P.tc.rat (diagGL (Quotient.out δ)) * g)
+    let c : ℂ := ((volume B).toReal : ℂ)⁻¹
+    let e : Q ≃ Q :=
+      { toFun := fun δ => δ⁻¹
+        invFun := fun δ => δ⁻¹
+        left_inv := fun δ => inv_inv δ
+        right_inv := fun δ => inv_inv δ }
+    have hsmallS : Summable small := hsmall
+    have hpairI : Summable I := hpair
+    have houter : Summable (fun δ : Q => ∑' ξ : F, I (δ, ξ)) := hpairI.prod
+    have hbig (δ : Q) : c * (∑' ξ : F, I (δ, ξ)) = M (δ⁻¹) := by
+      have hh := eisenstein_bigCell_eq_scalarM_on_compact P G μ hs Fs g
+        𝔞 h𝔞 hfix hΦ (closure B) hK B hB subset_closure hBd δ
+      rw [RCLike.real_smul_eq_coe_mul] at hh
+      simp only [RCLike.ofReal_inv] at hh
+      change c * (∑' ξ : F, I (δ, ξ)) = M (δ⁻¹) at hh
+      exact hh
+    have hMI : Summable (fun δ : Q => M (δ⁻¹)) := (houter.mul_left c).congr hbig
+    have hM : Summable M := by
+      refine (hMI.comp_injective e.injective).congr ?_
+      intro δ
+      change M ((δ⁻¹)⁻¹) = M δ
+      rw [inv_inv]
+    have hbigSum : c * (∑' p : Q × F, I p) = ∑' δ : Q, M δ := by
+      rw [hpairI.tsum_prod]
+      calc
+        _ = ∑' δ : Q, c * (∑' ξ : F, I (δ, ξ)) := (houter.tsum_mul_left c).symm
+        _ = ∑' δ : Q, M (δ⁻¹) := tsum_congr hbig
+        _ = _ := e.tsum_eq M
+    calc
+      torusCoeff P (eisenstein P G Fs) g Pd 0 =
+          torusCoeff P (eisenstein P G Fs) g B 0 := hcoef
+      _ = (∑' δ : Q, small δ) + c * (∑' p : Q × F, I p) := hcoeff
+      _ = (∑' δ : Q, small δ) + (∑' δ : Q, M δ) := by rw [hbigSum]
+      _ = _ := (hsmallS.tsum_add hM).symm
+  · push_neg at hΦ
+    exact eisenstein_constantTerm_of_zero P G μ hs0 Fs hΦ g Pd
 
 /-- The local Whittaker factor is one outside the exceptional support. -/
 theorem whit_good_factor (P : CoverPackage D S H A) (G : GlobalDatum P)
