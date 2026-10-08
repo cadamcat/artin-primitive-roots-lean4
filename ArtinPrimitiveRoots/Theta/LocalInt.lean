@@ -10,6 +10,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogSmooth
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 import Mathlib.MeasureTheory.Measure.Haar.MulEquivHaarChar
 import Mathlib.Analysis.Calculus.InverseFunctionTheorem.Deriv
+import Mathlib.Analysis.Calculus.ParametricIntegral
 import ArtinPrimitiveRoots.Theta.Proofs.TH_JACQUET.SectionLinear
 import OAI.NumberTheory.DirichletL.Eisenstein.CuspAverage
 
@@ -4871,11 +4872,398 @@ theorem intertwine_spherical (L : FinLocalCover D H v) (τ : TameSplitting L) (T
   exact hfinal g
 
 /-- **int:analytic**: on big-cell sections, `s ↦ (M f_{φ,s})(g)` is holomorphic on `Re s > 0`. -/
+private theorem abs_log_mul_rpow_small {r δ : ℝ} (hr : 0 < r) (hδ : 0 < δ)
+    (hsmall : r ≤ 1) : |Real.log r| * r ^ δ ≤ 1 / δ := by
+  have hlog := Real.abs_log_mul_self_rpow_lt r δ hr hsmall hδ
+  rw [abs_mul, abs_of_pos (Real.rpow_pos_of_pos hr δ)] at hlog
+  exact hlog.le
+
+private theorem abs_log_mul_rpow_large {r δ : ℝ} (hr : 0 < r) (hδ : 0 < δ)
+    (hlarge : 1 ≤ r) : |Real.log r| * r ^ (-δ) ≤ 1 / δ := by
+  have hu : 0 < r⁻¹ := inv_pos.mpr hr
+  have hu1 : r⁻¹ ≤ 1 := (inv_le_one₀ hr).2 hlarge
+  have hlog := Real.abs_log_mul_self_rpow_lt r⁻¹ δ hu hu1 hδ
+  have hEq : |Real.log (r⁻¹) * (r⁻¹) ^ δ| = |Real.log r| * r ^ (-δ) := by
+    rw [Real.log_inv, Real.inv_rpow hr.le δ, abs_mul, abs_neg,
+      abs_of_pos (inv_pos.mpr (Real.rpow_pos_of_pos hr δ)), Real.rpow_neg hr.le]
+  rw [← hEq]
+  exact hlog.le
+
+private theorem section_intertwine_locallyConstant (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (s : ℂ) (f : L.L → T.V) (hf : IsSection L T s f)
+    (g : L.L) :
+    IsLocallyConstant (fun x => f (L.w * L.n (Multiplicative.ofAdd x) * g)) := by
+  classical
+  let f' : L.L → T.V := rtr g f
+  have hf' : IsSection L T s f' := hf.rtr g
+  obtain ⟨m, hm, hK⟩ := hf'.2.2
+  let hfun : v.adicCompletion F → T.V := fun x => f' (L.w * L.n (Multiplicative.ofAdd x))
+  apply (IsLocallyConstant.iff_exists_open hfun).mpr
+  intro x
+  let U := (fun x' : v.adicCompletion F => x' - x) ⁻¹' ball v (m : ℤ)
+  have hBopen : IsOpen (ball v (m : ℤ)) :=
+    v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hU : IsOpen U := hBopen.preimage (continuous_id.sub continuous_const)
+  have hxU : x ∈ U := by
+    dsimp [U]
+    change Valued.v (x - x) ≤ WithZero.exp (-(m : ℤ))
+    simp
+  refine ⟨U, hU, hxU, ?_⟩
+  intro x' hx'
+  have hz : x' - x ∈ ball v (m : ℤ) := by simpa [U] using hx'
+  let z := x' - x
+  have hxEq : x' = x + z := by dsimp [z]; abel
+  have hgroup : L.w * L.n (Multiplicative.ofAdd x') =
+      (L.w * L.n (Multiplicative.ofAdd x)) * L.n (Multiplicative.ofAdd z) := by
+    rw [hxEq]
+    simp [ofAdd_add, mul_assoc]
+  have hsmall : L.n (Multiplicative.ofAdd z) ∈ L.Kc m := L.n_Kc m hm z hz
+  change f' (L.w * L.n (Multiplicative.ofAdd x')) =
+    f' (L.w * L.n (Multiplicative.ofAdd x))
+  rw [hgroup]
+  exact hK (L.w * L.n (Multiplicative.ofAdd x)) _ hsmall
+
+private theorem bigCell_param_hasDerivAt (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (φ : v.adicCompletion F → T.V) (g : L.L) (s : ℂ) :
+    HasDerivAt (fun z => bigCell L T z φ g)
+      (deriv (fun z => bigCell L T z φ g) s) s := by
+  classical
+  by_cases h : ∃ x ζ y t,
+      g = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+        L.n (Multiplicative.ofAdd t)
+  · let ζ := h.choose_spec.choose
+    let y := h.choose_spec.choose_spec.choose
+    let t := h.choose_spec.choose_spec.choose_spec.choose
+    let W := T.σa y (φ t)
+    let r : ℂ := (absFin v y : ℂ)
+    have hr : 0 < absFin v y := absFin_pos y.ne_zero
+    have hrne : r ≠ 0 := Complex.ofReal_ne_zero.mpr hr.ne'
+    have hgroup : g = L.n (Multiplicative.ofAdd h.choose) * L.z ζ * L.a y * L.w *
+        L.n (Multiplicative.ofAdd t) := by
+      simpa [ζ, y, t] using h.choose_spec.choose_spec.choose_spec.choose_spec
+    have hlin : HasDerivAt (fun z : ℂ => (1 : ℂ) / 2 + z) 1 s :=
+      (hasDerivAt_id s).const_add _
+    have hpow : HasDerivAt (fun z : ℂ => r ^ ((1 : ℂ) / 2 + z))
+        (r ^ ((1 : ℂ) / 2 + s) * Complex.log r) s := by
+      simpa [r, mul_one] using hlin.const_cpow (Or.inl hrne)
+    have hscaled : HasDerivAt (fun z : ℂ => (r ^ ((1 : ℂ) / 2 + z)) • W)
+        ((r ^ ((1 : ℂ) / 2 + s) * Complex.log r) • W) s := hpow.smul_const W
+    have hexpr : HasDerivAt (fun z : ℂ => (ζ : ℂˣ) •
+        ((r ^ ((1 : ℂ) / 2 + z)) • W))
+        ((ζ : ℂˣ) • ((r ^ ((1 : ℂ) / 2 + s) * Complex.log r) • W)) s :=
+      hscaled.const_smul (ζ : ℂˣ)
+    have hformula (z : ℂ) : bigCell L T z φ g =
+        (ζ : ℂˣ) • ((r ^ ((1 : ℂ) / 2 + z)) • W) := by
+      rw [hgroup, bigCell_apply L T z φ h.choose ζ y t]
+      rfl
+    have hbig : HasDerivAt (fun z => bigCell L T z φ g)
+        ((ζ : ℂˣ) • ((r ^ ((1 : ℂ) / 2 + s) * Complex.log r) • W)) s :=
+      hexpr.congr_of_eventuallyEq (Filter.Eventually.of_forall fun z => hformula z)
+    exact hbig.congr_deriv hbig.deriv.symm
+  ·
+    have hnot : ¬ ∃ (x : v.adicCompletion F) (a : ℂˣ) (ha : a ^ 3 = 1)
+        (y : (v.adicCompletion F)ˣ) (t : v.adicCompletion F),
+        g = L.n (Multiplicative.ofAdd x) *
+          L.z ⟨a, (mem_rootsOfUnity 3 a).2 ha⟩ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd t) := by
+      intro h'
+      rcases h' with ⟨x, a, ha, y, t, h'⟩
+      apply h
+      let ζ : rootsOfUnity 3 ℂ := ⟨a, (mem_rootsOfUnity 3 a).2 ha⟩
+      exact ⟨x, ζ, y, t, h'⟩
+    have hzero : (fun z => bigCell L T z φ g) = fun _ => (0 : T.V) := by
+      funext z
+      simp [bigCell, hnot]
+    rw [hzero]
+    simpa [deriv_const] using (hasDerivAt_const s (0 : T.V))
+
 theorem intertwine_bigCell_analytic (L : FinLocalCover D H v) (T : TorusRep D H v) (μ : LocHaar v)
     (φ : v.adicCompletion F → T.V) (hφ : IsLocallyConstant φ) (hc : HasCompactSupport φ)
     (g : L.L) :
     AnalyticOnNhd ℂ (fun s => intertwine L μ (bigCell L T s φ) g) {s | 0 < s.re} := by
-  sorry
+  classical
+  let K := v.adicCompletion F
+  let evalFun : ℂ → K → T.V := fun s x =>
+    bigCell L T s φ (L.w * L.n (Multiplicative.ofAdd x) * g)
+  let evalDeriv : ℂ → K → T.V := fun s x => deriv (fun z => evalFun z x) s
+  let evalFderiv : ℂ → K → ℂ →L[ℂ] T.V := fun s x =>
+    ContinuousLinearMap.toSpanSingleton ℂ (evalDeriv s x)
+  let integralFamily : ℂ → T.V := fun s => ∫ x, evalFun s x ∂μ.μ
+  have hloc (s : ℂ) : IsLocallyConstant (evalFun s) := by
+    change IsLocallyConstant
+      (fun x => bigCell L T s φ (L.w * L.n (Multiplicative.ofAdd x) * g))
+    exact section_intertwine_locallyConstant L T s (bigCell L T s φ)
+      (bigCell_isSection L T s φ hφ hc) g
+  have hcont (s : ℂ) : Continuous (evalFun s) := (hloc s).continuous
+  have hpointDeriv (s : ℂ) (x : K) :
+      HasDerivAt (fun z => evalFun z x) (evalDeriv s x) s := by
+    simpa [evalFun, evalDeriv] using
+      (bigCell_param_hasDerivAt L T φ (L.w * L.n (Multiplicative.ofAdd x) * g) s)
+  have hint (s : ℂ) (hs : 0 < s.re) : Integrable (evalFun s) μ.μ := by
+    have hsec : IsSection L T s (bigCell L T s φ) := bigCell_isSection L T s φ hφ hc
+    simpa [evalFun] using
+      section_intertwine_integrable L T μ s hs (bigCell L T s φ) hsec g
+  have hdiffAt (s₀ : ℂ) (hs₀ : 0 < s₀.re) :
+      DifferentiableAt ℂ (fun s => intertwine L μ (bigCell L T s φ) g) s₀ := by
+    let δ : ℝ := s₀.re / 3
+    let β : ℝ := s₀.re / 3
+    let γ : ℝ := 5 * s₀.re / 3
+    have hδ : 0 < δ := by dsimp [δ]; linarith
+    have hβ : 0 < β := by dsimp [β]; linarith
+    have hγ : 0 < γ := by dsimp [γ]; linarith
+    let majorant : K → ℝ := fun x => δ⁻¹ *
+      (‖evalFun (β : ℂ) x‖ + ‖evalFun (γ : ℂ) x‖)
+    have hIntβ : Integrable (evalFun (β : ℂ)) μ.μ :=
+      hint (β : ℂ) (by simpa using hβ)
+    have hIntγ : Integrable (evalFun (γ : ℂ)) μ.μ :=
+      hint (γ : ℂ) (by simpa using hγ)
+    have hMajorant : Integrable majorant μ.μ := by
+      have hsum : Integrable
+          (fun x => ‖evalFun (β : ℂ) x‖ + ‖evalFun (γ : ℂ) x‖) μ.μ :=
+        hIntβ.norm.add hIntγ.norm
+      simpa [majorant] using hsum.const_mul δ⁻¹
+    have hrange (z : ℂ) (hz : z ∈ Metric.ball s₀ δ) :
+        β + δ ≤ z.re ∧ z.re ≤ γ - δ := by
+      have hdist : ‖z - s₀‖ < δ := by
+        simpa [Metric.mem_ball, dist_eq_norm] using hz
+      have hreal : |z.re - s₀.re| < δ := by
+        have hle : |z.re - s₀.re| ≤ ‖z - s₀‖ := by
+          simpa [Complex.sub_re] using (Complex.abs_re_le_norm (z - s₀))
+        exact lt_of_le_of_lt hle hdist
+      have hlower := (abs_lt.mp hreal).1
+      have hupper := (abs_lt.mp hreal).2
+      have hlower' : s₀.re - δ < z.re := by linarith [hlower]
+      have hupper' : z.re < s₀.re + δ := by linarith [hupper]
+      constructor
+      · change s₀.re / 3 + s₀.re / 3 ≤ z.re
+        have hδval : δ = s₀.re / 3 := rfl
+        rw [hδval] at hlower'
+        linarith [hlower']
+      · change z.re ≤ 5 * s₀.re / 3 - s₀.re / 3
+        have hδval : δ = s₀.re / 3 := rfl
+        rw [hδval] at hupper'
+        linarith [hupper']
+    have hboundPoint (z : ℂ) (hz : z ∈ Metric.ball s₀ δ) (x : K) :
+        ‖evalFderiv z x‖ ≤ majorant x := by
+      have hCLMnorm : ‖evalFderiv z x‖ = ‖evalDeriv z x‖ := by
+        simp [evalFderiv]
+      let gₓ : L.L := L.w * L.n (Multiplicative.ofAdd x) * g
+      by_cases h : ∃ u ζ y t,
+          gₓ = L.n (Multiplicative.ofAdd u) * L.z ζ * L.a y * L.w *
+            L.n (Multiplicative.ofAdd t)
+      · let u := h.choose
+        let ζ := h.choose_spec.choose
+        let y := h.choose_spec.choose_spec.choose
+        let t := h.choose_spec.choose_spec.choose_spec.choose
+        let W := T.σa y (φ t)
+        let r : ℝ := absFin v y
+        let rC : ℂ := (r : ℂ)
+        let cζ : ℂ := ((ζ : ℂˣ) : ℂ)
+        have hr : 0 < r := by dsimp [r]; exact absFin_pos y.ne_zero
+        have hdecomp : gₓ = L.n (Multiplicative.ofAdd u) * L.z ζ * L.a y * L.w *
+            L.n (Multiplicative.ofAdd t) := by
+          simpa [gₓ, u, ζ, y, t] using h.choose_spec.choose_spec.choose_spec.choose_spec
+        have hformula (p : ℂ) : evalFun p x =
+            cζ • ((rC ^ ((1 : ℂ) / 2 + p)) • W) := by
+          change bigCell L T p φ gₓ = _
+          rw [hdecomp, bigCell_apply L T p φ u ζ y t]
+        have hlin : HasDerivAt (fun p : ℂ => (1 : ℂ) / 2 + p) 1 z :=
+          (hasDerivAt_id z).const_add _
+        have hpow : HasDerivAt (fun p : ℂ => rC ^ ((1 : ℂ) / 2 + p))
+            (rC ^ ((1 : ℂ) / 2 + z) * Complex.log rC) z := by
+          have hrC : rC ≠ 0 := Complex.ofReal_ne_zero.mpr hr.ne'
+          simpa [mul_one] using hlin.const_cpow (Or.inl hrC)
+        have hscaled : HasDerivAt (fun p : ℂ =>
+            (rC ^ ((1 : ℂ) / 2 + p)) • W)
+            ((rC ^ ((1 : ℂ) / 2 + z) * Complex.log rC) • W) z := hpow.smul_const W
+        have hexpr : HasDerivAt (fun p : ℂ => cζ •
+            ((rC ^ ((1 : ℂ) / 2 + p)) • W))
+            (cζ • ((rC ^ ((1 : ℂ) / 2 + z) * Complex.log rC) • W)) z :=
+          hscaled.const_smul cζ
+        have hderiv : HasDerivAt (fun p => evalFun p x)
+            (cζ • ((rC ^ ((1 : ℂ) / 2 + z) * Complex.log rC) • W)) z :=
+          hexpr.congr_of_eventuallyEq (Filter.Eventually.of_forall hformula)
+        have hDval : evalDeriv z x =
+            cζ • ((rC ^ ((1 : ℂ) / 2 + z) * Complex.log rC) • W) := hderiv.deriv
+        have hnormD : ‖cζ • ((rC ^ ((1 : ℂ) / 2 + z) * Complex.log rC) • W)‖ =
+            ‖cζ‖ * (|Real.log r| * r ^ ((1 : ℝ) / 2 + z.re) * ‖W‖) := by
+          rw [norm_smul, norm_smul, norm_mul,
+            Complex.norm_cpow_eq_rpow_re_of_pos hr]
+          rw [← Complex.ofReal_log hr.le, Complex.norm_real, Real.norm_eq_abs]
+          rw [Complex.add_re]
+          have hhalf : ((1 : ℂ) / 2).re = (1 : ℝ) / 2 := by norm_num
+          rw [hhalf]
+          ring
+        have hnormF (p : ℝ) : ‖evalFun (p : ℂ) x‖ =
+            ‖cζ‖ * (r ^ ((1 : ℝ) / 2 + p) * ‖W‖) := by
+          rw [hformula]
+          rw [norm_smul, norm_smul, Complex.norm_cpow_eq_rpow_re_of_pos hr]
+          rw [Complex.add_re]
+          have hhalf : ((1 : ℂ) / 2).re = (1 : ℝ) / 2 := by norm_num
+          rw [hhalf]
+          rw [Complex.ofReal_re]
+        have hrealRange := hrange z hz
+        have hsplit (p : ℝ) : r ^ ((1 : ℝ) / 2 + z.re) =
+            r ^ ((1 : ℝ) / 2 + p) * r ^ (z.re - p) := by
+          calc
+            r ^ ((1 : ℝ) / 2 + z.re) =
+                r ^ (((1 : ℝ) / 2 + p) + (z.re - p)) := by congr 1 <;> ring
+            _ = _ := Real.rpow_add hr _ _
+        have hsmallBase : r ≤ 1 ∨ 1 ≤ r := le_total r 1
+        rcases hsmallBase with hsmall | hlarge
+        · have hgap : δ ≤ z.re - β := by linarith [hrealRange.1]
+          have hpowLe : r ^ (z.re - β) ≤ r ^ δ :=
+            Real.rpow_le_rpow_of_exponent_ge hr hsmall hgap
+          have hlogLe : |Real.log r| * r ^ (z.re - β) ≤ δ⁻¹ := by
+            calc
+              |Real.log r| * r ^ (z.re - β) ≤ |Real.log r| * r ^ δ :=
+                mul_le_mul_of_nonneg_left hpowLe (abs_nonneg _)
+              _ ≤ δ⁻¹ := by
+                simpa [one_div] using abs_log_mul_rpow_small hr hδ hsmall
+          have hsmallInt : ‖evalFderiv z x‖ ≤ δ⁻¹ * ‖evalFun (β : ℂ) x‖ := by
+            calc
+              ‖evalFderiv z x‖ = ‖evalDeriv z x‖ := hCLMnorm
+              _ = ‖cζ • ((rC ^ ((1 : ℂ) / 2 + z) * Complex.log rC) • W)‖ := by
+                rw [hDval]
+              _ = ‖cζ‖ * (|Real.log r| * r ^ ((1 : ℝ) / 2 + z.re) * ‖W‖) := hnormD
+              _ = ‖cζ‖ * ((|Real.log r| * r ^ (z.re - β)) *
+                    (r ^ ((1 : ℝ) / 2 + β) * ‖W‖)) := by rw [hsplit β]; ring
+              _ ≤ ‖cζ‖ * (δ⁻¹ * (r ^ ((1 : ℝ) / 2 + β) * ‖W‖)) := by
+                apply mul_le_mul_of_nonneg_left
+                · exact mul_le_mul_of_nonneg_right hlogLe
+                    (mul_nonneg (Real.rpow_nonneg hr.le _) (norm_nonneg _))
+                · exact norm_nonneg _
+              _ = δ⁻¹ * (‖cζ‖ * (r ^ ((1 : ℝ) / 2 + β) * ‖W‖)) := by ring
+              _ = δ⁻¹ * ‖evalFun (β : ℂ) x‖ := by rw [hnormF]
+          dsimp [majorant]
+          calc
+            ‖evalFderiv z x‖ ≤ δ⁻¹ * ‖evalFun (β : ℂ) x‖ := hsmallInt
+            _ ≤ δ⁻¹ * (‖evalFun (β : ℂ) x‖ + ‖evalFun (γ : ℂ) x‖) := by
+              apply mul_le_mul_of_nonneg_left
+              · exact le_add_of_nonneg_right (norm_nonneg _)
+              · exact inv_nonneg.mpr hδ.le
+        · have hgap : z.re - γ ≤ -δ := by linarith [hrealRange.2]
+          have hpowLe : r ^ (z.re - γ) ≤ r ^ (-δ) :=
+            Real.rpow_le_rpow_of_exponent_le hlarge hgap
+          have hlogLe : |Real.log r| * r ^ (z.re - γ) ≤ δ⁻¹ := by
+            calc
+              |Real.log r| * r ^ (z.re - γ) ≤ |Real.log r| * r ^ (-δ) :=
+                mul_le_mul_of_nonneg_left hpowLe (abs_nonneg _)
+              _ ≤ δ⁻¹ := by
+                simpa [one_div] using abs_log_mul_rpow_large hr hδ hlarge
+          have hlargeInt : ‖evalFderiv z x‖ ≤ δ⁻¹ * ‖evalFun (γ : ℂ) x‖ := by
+            calc
+              ‖evalFderiv z x‖ = ‖evalDeriv z x‖ := hCLMnorm
+              _ = ‖cζ • ((rC ^ ((1 : ℂ) / 2 + z) * Complex.log rC) • W)‖ := by
+                rw [hDval]
+              _ = ‖cζ‖ * (|Real.log r| * r ^ ((1 : ℝ) / 2 + z.re) * ‖W‖) := hnormD
+              _ = ‖cζ‖ * ((|Real.log r| * r ^ (z.re - γ)) *
+                    (r ^ ((1 : ℝ) / 2 + γ) * ‖W‖)) := by rw [hsplit γ]; ring
+              _ ≤ ‖cζ‖ * (δ⁻¹ * (r ^ ((1 : ℝ) / 2 + γ) * ‖W‖)) := by
+                apply mul_le_mul_of_nonneg_left
+                · exact mul_le_mul_of_nonneg_right hlogLe
+                    (mul_nonneg (Real.rpow_nonneg hr.le _) (norm_nonneg _))
+                · exact norm_nonneg _
+              _ = δ⁻¹ * (‖cζ‖ * (r ^ ((1 : ℝ) / 2 + γ) * ‖W‖)) := by ring
+              _ = δ⁻¹ * ‖evalFun (γ : ℂ) x‖ := by rw [hnormF]
+          dsimp [majorant]
+          calc
+            ‖evalFderiv z x‖ ≤ δ⁻¹ * ‖evalFun (γ : ℂ) x‖ := hlargeInt
+            _ ≤ δ⁻¹ * (‖evalFun (β : ℂ) x‖ + ‖evalFun (γ : ℂ) x‖) := by
+              apply mul_le_mul_of_nonneg_left
+              · exact le_add_of_nonneg_left (norm_nonneg _)
+              · exact inv_nonneg.mpr hδ.le
+      · have hnot : ¬ ∃ (u : K) (a : ℂˣ) (ha : a ^ 3 = 1)
+            (y : Kˣ) (t : K),
+            gₓ = L.n (Multiplicative.ofAdd u) *
+              L.z ⟨a, (mem_rootsOfUnity 3 a).2 ha⟩ * L.a y * L.w *
+              L.n (Multiplicative.ofAdd t) := by
+          intro h'
+          rcases h' with ⟨u, a, ha, y, t, h'⟩
+          apply h
+          let ζ : rootsOfUnity 3 ℂ := ⟨a, (mem_rootsOfUnity 3 a).2 ha⟩
+          exact ⟨u, ζ, y, t, h'⟩
+        have hzero (p : ℂ) : evalFun p x = 0 := by
+          change bigCell L T p φ gₓ = 0
+          simp only [bigCell, dif_neg h]
+        have hDzero : evalDeriv z x = 0 := by
+          have h := (hpointDeriv z x).deriv
+          have hEq : (fun p => evalFun p x) = fun _ => (0 : T.V) := funext hzero
+          rw [hEq, deriv_const] at h
+          exact h.symm
+        simp [evalFderiv, evalDeriv, hDzero, majorant, hzero]
+    have hFmeas : ∀ᶠ s in 𝓝 s₀, AEStronglyMeasurable (evalFun s) μ.μ := by
+      filter_upwards [] with s
+      exact (hcont s).aestronglyMeasurable
+    have hInt₀ : Integrable (evalFun s₀) μ.μ := hint s₀ hs₀
+    let step : ℕ → ℂ := fun n => 1 / ((n : ℂ) + 1)
+    have hstep0 : Tendsto step atTop (𝓝 (0 : ℂ)) := by
+      simpa [step] using
+        (tendsto_one_div_add_atTop_nhds_zero_nat :
+          Tendsto (fun n : ℕ => 1 / ((n : ℂ) + 1)) atTop (𝓝 (0 : ℂ)))
+    have hstepNe : Tendsto step atTop (𝓝[≠] (0 : ℂ)) := by
+      apply tendsto_nhdsWithin_iff.mpr
+      refine ⟨hstep0, Filter.Eventually.of_forall fun n => ?_⟩
+      dsimp [step]
+      apply div_ne_zero one_ne_zero
+      intro hn
+      have hreal := congrArg Complex.re hn
+      have hreal' : (n : ℝ) + 1 = 0 := by simpa using hreal
+      have hnnonneg : 0 ≤ (n : ℝ) := Nat.cast_nonneg n
+      linarith
+    let quot : ℕ → K → ℂ →L[ℂ] T.V := fun n x =>
+      ContinuousLinearMap.toSpanSingleton ℂ
+        ((step n)⁻¹ • (evalFun (s₀ + step n) x - evalFun s₀ x))
+    have hquotCont (n : ℕ) : Continuous (quot n) := by
+      have hV : Continuous fun x =>
+          (step n)⁻¹ • (evalFun (s₀ + step n) x - evalFun s₀ x) :=
+        continuous_const.smul ((hcont (s₀ + step n)).sub (hcont s₀))
+      change Continuous (fun x =>
+        (ContinuousLinearMap.toSpanSingletonCLE (𝕜 := ℂ) (E := T.V))
+          ((step n)⁻¹ • (evalFun (s₀ + step n) x - evalFun s₀ x)))
+      exact (ContinuousLinearMap.toSpanSingletonCLE (𝕜 := ℂ) (E := T.V)).continuous.comp hV
+    have hquotMeas (n : ℕ) : AEStronglyMeasurable (quot n) μ.μ :=
+      (hquotCont n).aestronglyMeasurable
+    have hquotLim (x : K) : Tendsto (fun n => quot n x) atTop (𝓝 (evalFderiv s₀ x)) := by
+      have hlimVec : Tendsto
+          (fun n => (step n)⁻¹ • (evalFun (s₀ + step n) x - evalFun s₀ x))
+          atTop (𝓝 (evalDeriv s₀ x)) := (hpointDeriv s₀ x).tendsto_slope_zero.comp hstepNe
+      have hlimMap :=
+        (ContinuousLinearMap.toSpanSingletonCLE (𝕜 := ℂ) (E := T.V)).continuous.tendsto
+          (evalDeriv s₀ x)
+      change Tendsto (fun n =>
+        (ContinuousLinearMap.toSpanSingletonCLE (𝕜 := ℂ) (E := T.V))
+          ((step n)⁻¹ • (evalFun (s₀ + step n) x - evalFun s₀ x))) atTop
+        (𝓝 ((ContinuousLinearMap.toSpanSingletonCLE (𝕜 := ℂ) (E := T.V))
+          (evalDeriv s₀ x)))
+      exact hlimMap.comp hlimVec
+    have hFderivMeas : AEStronglyMeasurable (evalFderiv s₀) μ.μ :=
+      aestronglyMeasurable_of_tendsto_ae atTop hquotMeas
+        (Filter.Eventually.of_forall hquotLim)
+    have hbound : ∀ᵐ x ∂μ.μ, ∀ z ∈ Metric.ball s₀ δ,
+        ‖evalFderiv z x‖ ≤ majorant x := by
+      filter_upwards [] with x
+      intro z hz
+      exact hboundPoint z hz x
+    have hdiff : ∀ᵐ x ∂μ.μ, ∀ z ∈ Metric.ball s₀ δ,
+        HasFDerivAt (evalFun · x) (evalFderiv z x) z := by
+      filter_upwards [] with x
+      intro z hz
+      simpa [evalFderiv] using (hpointDeriv z x).hasFDerivAt
+    have hIderiv : HasFDerivAt integralFamily
+        (∫ x, evalFderiv s₀ x ∂μ.μ) s₀ := by
+      simpa [integralFamily] using
+        (hasFDerivAt_integral_of_dominated_of_fderiv_le
+          (F := evalFun) (F' := evalFderiv) (x₀ := s₀)
+          (s := Metric.ball s₀ δ) (μ := μ.μ) (bound := majorant)
+          (Metric.ball_mem_nhds _ hδ) hFmeas hInt₀ hFderivMeas hbound
+          hMajorant hdiff)
+    simpa [integralFamily, evalFun, intertwine] using hIderiv.differentiableAt
+  have hdiff : DifferentiableOn ℂ
+      (fun s => intertwine L μ (bigCell L T s φ) g) {s | 0 < s.re} := by
+    intro s hs
+    exact (hdiffAt s hs).differentiableWithinAt
+  exact hdiff.analyticOnNhd (isOpen_lt continuous_const Complex.continuous_re)
 
 private def localUnitShell (v : FinPlace F) : Set (v.adicCompletion F) :=
   {x | Valued.v x = 1}
