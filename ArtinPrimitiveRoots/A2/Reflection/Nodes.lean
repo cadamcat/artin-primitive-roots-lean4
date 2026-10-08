@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.QuadraticSieve
 import ArtinPrimitiveRoots.A1.AddChar
 import ArtinPrimitiveRoots.Hecke.Elementary
 import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_ARITH.LocalHecke
 
 /-!
 # Section 4: row replacement, moving twists, S-characters, and the finite mask
@@ -109,12 +110,13 @@ theorem rf_S_character_identity
     (∀ ε' : S.US, unitSixClass S ε' = unitSixClass S ε →
       ∀ y : S.FSˣ, lambdaEpsilon D S H ε' y = lambdaEpsilon D S H ε y) := by
   classical
-  have hvartheta := ArtinPrimitiveRoots.A1.vartheta_S D S A H Bd η Λ G hΛG
   refine ⟨?_, ?_, ?_⟩
   · intro J hJ a hgen hallowed
     change S.LS (ArtinPrimitiveRoots.A1.vartheta Λ G η) (S.diagU a) *
         D.σ0 (((S.HS H (S.diagU ε) (S.diagU a))⁻¹ : Fˣ) : F) = _
-    rw [hvartheta.1 J a hJ hgen]
+    have hLS := ArtinPrimitiveRoots.A2.rf_heckeChar_idealValue_eq_LS_of_gen
+      D S (ArtinPrimitiveRoots.A1.vartheta Λ G η) houtside J a hgen
+    rw [hLS]
     have hsymbol := ArtinPrimitiveRoots.A1.unit_symbol D S H Bd J hJ a ε
       ⟨hgen, hallowed⟩ ε.property
     rw [← hsymbol]
