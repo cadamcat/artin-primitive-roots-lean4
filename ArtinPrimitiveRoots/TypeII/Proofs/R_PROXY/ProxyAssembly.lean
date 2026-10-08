@@ -651,4 +651,153 @@ theorem truncated_source_interval_phase_bound
     hMpos hB hl hlr hMass hResidue
   simpa [B, V, L, Tstar, r] using hTruncated
 
+/-- The normalized rough source differs from its finite inclusion-exclusion
+truncation by at most the normalized pointwise sieve remainder. -/
+theorem rough_source_truncation_error
+    (x u M V E : ℝ) (r k : ℕ) [NeZero k]
+    (χ : DirichletCharacter ℂ k) (l rr : ℝ)
+    (hM : 0 < M) (hV : 0 < V) (hlogM : 1 ≤ Real.log M)
+    (hl : M ≤ l) (hlr : l ≤ rr)
+    (hRemainder :
+      (∑ m ∈ (Finset.range (⌊rr⌋₊ + 1)).filter
+          (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ rr),
+        |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+          smallPrimeTruncation x r m|) / (M * V) ≤ E) :
+    ‖(∑ m ∈ (Finset.range (⌊rr⌋₊ + 1)).filter
+          (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ rr ∧
+            roughAbove m (roughCutoff x)),
+        (χ (m : ZMod k) : ℂ) *
+          Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+            Real.log (m : ℝ)) / (M * V) -
+      (∑ m ∈ (Finset.range (⌊rr⌋₊ + 1)).filter
+          (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ rr),
+        (smallPrimeTruncation x r m : ℂ) *
+          ((χ (m : ZMod k) : ℂ) *
+            Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+              Real.log (m : ℝ))) / (M * V)‖ ≤ E := by
+  classical
+  let I : Finset ℕ := (Finset.range (⌊rr⌋₊ + 1)).filter
+    (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ rr)
+  let R : Finset ℕ := (Finset.range (⌊rr⌋₊ + 1)).filter
+    (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ rr ∧
+      roughAbove m (roughCutoff x))
+  let f : ℕ → ℂ := fun m =>
+    (χ (m : ZMod k) : ℂ) *
+      Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+        Real.log (m : ℝ)
+  have hR : R = I.filter (fun m => roughAbove m (roughCutoff x)) := by
+    ext m
+    simp only [R, I, Finset.mem_filter, Finset.mem_range]
+    tauto
+  have hRoughSum : (∑ m ∈ R, f m) =
+      ∑ m ∈ I, (if roughAbove m (roughCutoff x) then (1 : ℂ) else 0) * f m := by
+    rw [hR, Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro m hm
+    by_cases hrough : roughAbove m (roughCutoff x) <;> simp [hrough]
+  have hIndicatorTerm (m : ℕ) :
+      (if roughAbove m (roughCutoff x) then (1 : ℂ) else 0) * f m -
+          (smallPrimeTruncation x r m : ℂ) * f m =
+        (((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+          smallPrimeTruncation x r m : ℝ) : ℂ) * f m := by
+    by_cases hrough : roughAbove m (roughCutoff x) <;>
+      simp [hrough, f, mul_sub] <;> ring
+  have hDiffEq :
+      (∑ m ∈ R, f m) -
+        ∑ m ∈ I, (smallPrimeTruncation x r m : ℂ) * f m =
+      ∑ m ∈ I,
+        (((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+          smallPrimeTruncation x r m : ℝ) : ℂ) * f m := by
+    rw [hRoughSum, ← Finset.sum_sub_distrib]
+    apply Finset.sum_congr rfl
+    intro m hm
+    exact hIndicatorTerm m
+  have hlogMpos : 0 < Real.log M := lt_of_lt_of_le (by norm_num) hlogM
+  have hWeightNorm : ∀ m ∈ I, ‖f m‖ ≤ 1 := by
+    intro m hm
+    have hmBounds := (Finset.mem_filter.mp hm).2
+    have hMm : M ≤ (m : ℝ) := le_trans hl hmBounds.1
+    have hmpos : 0 < (m : ℝ) := lt_of_lt_of_le hM hMm
+    have hlogmLower : Real.log M ≤ Real.log (m : ℝ) :=
+      Real.log_le_log hM hMm
+    have hlogmPos : 0 < Real.log (m : ℝ) :=
+      lt_of_lt_of_le hlogMpos hlogmLower
+    have hExpNorm : ‖Complex.exp
+        (Complex.I * u * Real.log (m : ℝ))‖ = 1 := by
+      have hArg : Complex.I * (u : ℂ) * (Real.log (m : ℝ) : ℂ) =
+          Complex.I * ((u * Real.log (m : ℝ) : ℝ) : ℂ) := by
+        calc
+          _ = Complex.I * ((u : ℂ) * (Real.log (m : ℝ) : ℂ)) := by ring
+          _ = Complex.I * ((u * Real.log (m : ℝ) : ℝ) : ℂ) := by
+            rw [← Complex.ofReal_mul]
+      rw [hArg]
+      exact Complex.norm_exp_I_mul_ofReal _
+    have hχ := χ.norm_le_one (m : ZMod k)
+    change ‖(χ (m : ZMod k) : ℂ) *
+        Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+          (Real.log (m : ℝ) : ℂ)‖ ≤ 1
+    rw [norm_div, norm_mul, hExpNorm, Complex.norm_real,
+      Real.norm_eq_abs, abs_of_pos hlogmPos]
+    apply (div_le_iff₀ hlogmPos).2
+    have hden : 1 ≤ Real.log (m : ℝ) := le_trans hlogM hlogmLower
+    nlinarith [hχ, hden]
+  have hDiffNorm :
+      ‖(∑ m ∈ R, f m) -
+          ∑ m ∈ I, (smallPrimeTruncation x r m : ℂ) * f m‖ ≤
+        ∑ m ∈ I,
+          |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+            smallPrimeTruncation x r m| := by
+    rw [hDiffEq]
+    calc
+      _ ≤ ∑ m ∈ I,
+            ‖(((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+              smallPrimeTruncation x r m : ℝ) : ℂ) * f m‖ := norm_sum_le _ _
+      _ ≤ ∑ m ∈ I,
+            |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+              smallPrimeTruncation x r m| := by
+        apply Finset.sum_le_sum
+        intro m hm
+        rw [norm_mul]
+        have hCastNorm :
+            ‖(((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+              smallPrimeTruncation x r m : ℝ) : ℂ)‖ =
+              |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+                smallPrimeTruncation x r m| := by
+          rw [Complex.norm_real, Real.norm_eq_abs]
+        rw [hCastNorm]
+        calc
+          _ ≤ |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+                smallPrimeTruncation x r m| * 1 :=
+            mul_le_mul_of_nonneg_left (hWeightNorm m hm) (abs_nonneg _)
+          _ = |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+                smallPrimeTruncation x r m| := by ring
+  have hDenom : 0 < M * V := mul_pos hM hV
+  have hRemainder' :
+      (∑ m ∈ I,
+        |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+          smallPrimeTruncation x r m|) / (M * V) ≤ E := by
+    simpa [I] using hRemainder
+  have hQuotient :
+      (∑ m ∈ R, f m) / (M * V) -
+          (∑ m ∈ I, (smallPrimeTruncation x r m : ℂ) * f m) / (M * V) =
+        ((∑ m ∈ R, f m) -
+          ∑ m ∈ I, (smallPrimeTruncation x r m : ℂ) * f m) /
+            ((M * V : ℝ) : ℂ) := by
+    push_cast
+    ring
+  calc
+    _ = ‖((∑ m ∈ R, f m) -
+          ∑ m ∈ I, (smallPrimeTruncation x r m : ℂ) * f m) /
+            ((M * V : ℝ) : ℂ)‖ := by rw [hQuotient]
+    _ = ‖(∑ m ∈ R, f m) -
+          ∑ m ∈ I, (smallPrimeTruncation x r m : ℂ) * f m‖ /
+            (M * V) := by
+      rw [norm_div, Complex.norm_real, Real.norm_eq_abs,
+        abs_of_pos hDenom]
+    _ ≤ (∑ m ∈ I,
+          |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+            smallPrimeTruncation x r m|) / (M * V) :=
+      div_le_div_of_nonneg_right hDiffNorm hDenom.le
+    _ ≤ E := hRemainder'
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
