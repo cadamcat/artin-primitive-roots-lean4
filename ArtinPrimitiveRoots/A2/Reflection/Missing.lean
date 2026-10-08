@@ -2,11 +2,17 @@ import ArtinPrimitiveRoots.A2.Interface
 import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
 import ArtinPrimitiveRoots.Theta.Assemble
 import ArtinPrimitiveRoots.Proofs.th_factor_b.Analytic
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteMass
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.MaskTau
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.DigitMass
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.PrimeGauss
+import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
+import Mathlib.Analysis.Asymptotics.Basic
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
 set_option maxHeartbeats 800000
-open NumberField IsDedekindDomain MeasureTheory
+open NumberField IsDedekindDomain MeasureTheory Filter Topology Asymptotics
 open scoped Classical Pointwise
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
@@ -52,6 +58,69 @@ structure ReflectionSetup (D : FieldData F) (S : SData F CE condη)
   K_gaussian : ∀ u, 0 < u →
     ∫ t in Set.Ioi (0 : ℝ), K t * Theta.thetaV S μ v0 T.U T.cS (u * t) / (t : ℂ) = (PG u : ℂ)
 
+private theorem heckeChar_unitary_of_finOrder (χ : HeckeChar F) (hχ : IsOfFinOrder χ) :
+    ∀ x, ‖((χ x : ℂˣ) : ℂ)‖ = 1 := by
+  obtain ⟨n, hn, hpow⟩ := (isOfFinOrder_iff_pow_eq_one.mp hχ)
+  intro x
+  have hxpow : (χ x : ℂˣ) ^ n = 1 := by
+    have hx := congrArg (fun f : HeckeChar F => f x) hpow
+    simpa using hx
+  have hxpowC : (((χ x : ℂˣ) : ℂ) ^ n) = 1 := by
+    simpa using congrArg (fun z : ℂˣ => (z : ℂ)) hxpow
+  exact ((isOfFinOrder_iff_pow_eq_one.mpr ⟨n, hn, hxpowC⟩).norm_eq_one)
+
+private theorem reflection_kernel_moments (K : ℝ → ℂ)
+    (hK : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) K (Set.Ioi 0))
+    (hbounds : ∀ N : ℝ, ∀ j : ℕ, ∃ C : ℝ, ∀ t, 0 < t →
+      ‖Theta.normDerivR j K t‖ ≤ C * min (t ^ N) (t ^ (-N))) :
+    ∀ β : ℝ, IntegrableOn (fun t => ‖K t‖ * t ^ β / t) (Set.Ioi 0) := by
+  classical
+  intro β
+  let N : ℝ := |β| + 2
+  have hβlo : -N < β := by dsimp [N]; have := neg_le_abs β; linarith
+  have hβhi : β < N := by dsimp [N]; have := le_abs_self β; linarith
+  obtain ⟨C, hC⟩ := hbounds N 0
+  have hC_nonneg : 0 ≤ C := by
+    have h := hC 1 (by norm_num)
+    have h' : ‖K 1‖ ≤ C := by simpa [Theta.normDerivR, N] using h
+    exact (norm_nonneg (K 1)).trans h'
+  have hnorm (t : ℝ) (ht : 0 < t) : ‖Theta.normDerivR 0 K t‖ = ‖K t‖ := by
+    simp [Theta.normDerivR, Real.exp_log ht]
+  have htop : K =O[atTop] (fun t : ℝ => t ^ (-N)) := by
+    refine (IsBigOWith.of_bound (c := C) ?_).isBigO
+    filter_upwards [eventually_ge_atTop (1 : ℝ)] with t ht
+    have ht0 : 0 < t := by linarith
+    have h := hC t ht0
+    rw [hnorm t ht0] at h
+    have hp : t ^ (-N) ≤ t ^ N :=
+      Real.rpow_le_rpow_of_exponent_le ht (by linarith)
+    rw [min_eq_right hp] at h
+    simpa only [Real.norm_of_nonneg (Real.rpow_nonneg ht0.le _)] using h
+  have hbot : K =O[𝓝[>] (0 : ℝ)] (fun t : ℝ => t ^ N) := by
+    refine (IsBigOWith.of_bound (c := C) ?_).isBigO
+    filter_upwards [self_mem_nhdsWithin] with t ht
+    have h := hC t ht
+    rw [hnorm t ht] at h
+    have h' : ‖K t‖ ≤ C * t ^ N := by
+      calc
+        ‖K t‖ ≤ C * min (t ^ N) (t ^ (-N)) := h
+        _ ≤ C * t ^ N := mul_le_mul_of_nonneg_left (min_le_left _ _) hC_nonneg
+    simpa only [Real.norm_of_nonneg (Real.rpow_nonneg ht.le _)] using h'
+  have hconv : MellinConvergent K (β : ℂ) :=
+    mellinConvergent_of_isBigO_rpow (a := N) (b := -N)
+      (hK.continuousOn.locallyIntegrableOn measurableSet_Ioi) htop
+      (by simpa using hβhi) (by simpa only [neg_neg] using hbot) (by simpa using hβlo)
+  have hconv' : IntegrableOn (fun t : ℝ => (t : ℂ) ^ ((β : ℂ) - 1) * K t) (Set.Ioi 0) := by
+    simpa [MellinConvergent, smul_eq_mul] using hconv
+  have hEq : (fun t : ℝ => ‖(t : ℂ) ^ ((β : ℂ) - 1) * K t‖) =ᵐ[
+      volume.restrict (Set.Ioi 0)] (fun t => ‖K t‖ * t ^ β / t) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+    simp only [norm_mul, Complex.norm_cpow_eq_rpow_re_of_pos ht,
+      Complex.sub_re, Complex.ofReal_re, Complex.one_re]
+    rw [Real.rpow_sub_one ht.ne']
+    ring
+  exact hconv'.norm.congr hEq
+
 /-- A1/Theta producer obligation for the composite reflection input (02:606-625; 03:474-659;
 04:51-65). Corrected by `sol-gate-a2b`: it supplies the split Gauss data and the complete setup,
 including angular admissibility, without assuming a reflection estimate. -/
@@ -68,7 +137,140 @@ theorem reflectionSetup_exists (D : FieldData F) (S : SData F CE condη)
           gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
             -(Λ.primeValue v * G.primeValue v)) →
       Nonempty (ReflectionSetup D S H Bd A (vartheta Λ G η) bc μ v0) := by
-  sorry
+  classical
+  intro η Λ G hη hηram hΛunit hΛangular hG hGauss
+  let ϑ : HeckeChar F := vartheta Λ G η
+  have hΛram : ∀ v, v ∉ S.Sf → Λ.UnramifiedAt v := fun v hv => (hGauss v hv).1
+  have hGram : ∀ v, v ∉ S.Sf → G.UnramifiedAt v := fun v hv => (hGauss v hv).2.1
+  have hηunit : ∀ x, ‖((η x : ℂˣ) : ℂ)‖ = 1 :=
+    heckeChar_unitary_of_finOrder η hη
+  have hGunit : ∀ x, ‖((G x : ℂˣ) : ℂ)‖ = 1 :=
+    heckeChar_unitary_of_finOrder G hG
+  have hϑunit : ∀ x, ‖((ϑ x : ℂˣ) : ℂ)‖ = 1 := by
+    intro x
+    change ‖((((Λ x : ℂˣ)⁻¹ * (G x : ℂˣ)⁻¹) * (η x : ℂˣ) : ℂˣ) : ℂ)‖ = 1
+    simp [Units.val_mul, Units.val_inv, norm_mul, norm_inv,
+      hΛunit x, hGunit x, hηunit x]
+  have hϑram : ∀ v, v ∉ S.Sf → ϑ.UnramifiedAt v := by
+    intro v hv u hu huinv
+    change (Λ.loc v u)⁻¹ * (G.loc v u)⁻¹ * η.loc v u = 1
+    rw [hΛram v hv u hu huinv, hGram v hv u hu huinv, hηram v hv u hu huinv]
+    simp
+  have hΛG : ∀ v, v ∉ S.Sf → ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+      gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
+        -(Λ.primeValue v * G.primeValue v) := fun v hv => (hGauss v hv).2.2
+  have hVS := vartheta_S D S A H Bd η Λ G hηram hΛram hGram hη hG hΛunit hΛangular hΛG
+  have hϑangular : HeckeChar.HasAngularType D ϑ := by
+    intro w
+    obtain ⟨m, hm, hangle⟩ := hVS.2.2.1 w
+    have hwc : w.IsComplex := D.isTotallyComplex.isComplex w
+    refine ⟨-m, ?_, ?_⟩
+    · rcases hm with hm | hm <;> simp [hm]
+    · intro z
+      let zInf : w.Completionˣ := Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex hwc).symm.toMonoidHom z
+      let zInf' (w' : InfinitePlace F) : w'.Completionˣ := Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+          (D.isTotallyComplex.isComplex w')).symm.toMonoidHom
+          (S.compC w' (S.atComplex w z))
+      let g (w' : InfinitePlace F) : ℂ :=
+        (((ϑ.locInf w' (zInf' w'))⁻¹ : ℂˣ) : ℂ)
+      have hmap : zInf' w = zInf := by
+        apply Units.ext
+        simp [zInf', zInf, SData.atComplex, SData.compC]
+      have hfinite :
+          ∏ v : S.Sf,
+            (((ϑ.loc v (S.compU v (S.atComplex w z)))⁻¹ : ℂˣ) : ℂ) = 1 := by
+        apply Fintype.prod_eq_one
+        intro v
+        have hU : S.compU v (S.atComplex w z) = 1 := by
+          apply Units.ext
+          simp [SData.atComplex, SData.compU]
+        rw [hU]
+        simp [HeckeChar.loc]
+      have hcomplex : ∏ w' : InfinitePlace F, g w' =
+          (((ϑ.locInf w zInf)⁻¹ : ℂˣ) : ℂ) := by
+        rw [Fintype.prod_eq_single w]
+        · simp [g, hmap]
+        · intro w' hne
+          have hC : S.compC w' (S.atComplex w z) = 1 := by
+            apply Units.ext
+            simp [SData.atComplex, SData.compC, hne]
+          simp [g, zInf', hC]
+      have hLS : S.LS ϑ (S.atComplex w z) =
+          (((ϑ.locInf w zInf)⁻¹ : ℂˣ) : ℂ) := by
+        unfold SData.LS
+        rw [hfinite]
+        simp_rw [dif_pos (D.isTotallyComplex.isComplex _)]
+        rw [hcomplex]
+        simp
+      have hval := hangle z
+      rw [hLS] at hval
+      have hval' : ((ϑ.locInf w zInf : ℂˣ) : ℂ)⁻¹ =
+          ((z : ℂ) / ‖(z : ℂ)‖) ^ m := by simpa using hval
+      have hlocal : ((ϑ.locInf w zInf : ℂˣ) : ℂ) =
+          ((z : ℂ) / ‖(z : ℂ)‖) ^ (-m) := by
+        calc
+          ((ϑ.locInf w zInf : ℂˣ) : ℂ) =
+              ((((ϑ.locInf w zInf : ℂˣ) : ℂ)⁻¹)⁻¹) := by simp
+          _ = (((z : ℂ) / ‖(z : ℂ)‖) ^ m)⁻¹ := congrArg Inv.inv hval'
+          _ = ((z : ℂ) / ‖(z : ℂ)‖) ^ (-m) := by rw [← zpow_neg]
+      exact hlocal
+  obtain ⟨E⟩ := exteriorArithmetic_exists D S H Bd bc
+  obtain ⟨Sh⟩ := sheetGeometry_exists D S μ v0
+  obtain ⟨Chars⟩ := reflectionCharacters_exists D S H Bd bc ϑ hϑunit hϑram hϑangular
+  obtain ⟨Pair⟩ := classPairing_exists D S H
+  letI : Fintype (UnitSix S) := Sh.unitSixFinite
+  let family : Finset (SChar S) := Finset.univ.image Chars.L
+  have hmem : ∀ u, Chars.L u ∈ family := by
+    intro u
+    exact Finset.mem_image.mpr ⟨u, Finset.mem_univ u, rfl⟩
+  obtain ⟨P, hRP, hfamily⟩ := A1.theta_interface D S H A
+  let T : ThetaFamily P.tc family := Classical.choice (hfamily family)
+  rcases T.U_spec with ⟨hUo, hUc, hU1, _, hUunit, _, _⟩
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  obtain ⟨C₀, A₀, hC₀, hA₀, hMellin, K, hKsmooth, hKbounds, hKgaussian, hKmellin⟩ :=
+    Theta.gaussian_smoothing S μ v0 T.U hUo hUc hU1 hUunit T.cS T.cS_pos
+  let h6 (u : UnitSix S) := T.T6 (Chars.L u) (hmem u)
+  let rotJ (u : UnitSix S) : ℕ := Classical.choose (h6 u)
+  let hffExists (u : UnitSix S) := Classical.choose_spec (h6 u)
+  let rotFF (u : UnitSix S) : Fin (rotJ u) → (v : S.Sf) → v.1.adicCompletion F → ℂ :=
+    Classical.choose (hffExists u)
+  let hfcExists (u : UnitSix S) := Classical.choose_spec (hffExists u)
+  let rotFC (u : UnitSix S) : Fin (rotJ u) → InfinitePlace F → ℂ → ℂ :=
+    Classical.choose (hfcExists u)
+  let rotData (u : UnitSix S) := Classical.choose_spec (hfcExists u)
+  let rotated : UnitSix S → RotatedPresentation S T.δ := fun u =>
+    ⟨rotJ u, rotFF u, rotFC u, (rotData u).1, (rotData u).2.1⟩
+  have hrotated_eq : ∀ u y,
+      T.WS (Chars.L u) (P.tc.aS y * P.tc.wS) =
+        Theta.sumProd S (rotated u).J (rotated u).ff (rotated u).fc (y : S.FS) := by
+    intro u y
+    have hWS := (rotData u).2.2 y
+    simpa only [Theta.sumProd] using hWS
+  refine ⟨{
+    vartheta_unitary := hϑunit
+    vartheta_unramified := hϑram
+    vartheta_angular := hϑangular
+    vartheta_generator := ?_
+    exterior := E
+    sheets := Sh
+    chars := Chars
+    pairing := Pair
+    C := P.tc
+    family := family
+    T := T
+    mem_family := hmem
+    rotated := rotated
+    rotated_eq := hrotated_eq
+    K := K
+    K_smooth := hKsmooth
+    K_moments := reflection_kernel_moments K hKsmooth hKbounds
+    K_bounds := hKbounds
+    K_gaussian := hKgaussian
+  }⟩
+  · intro I
+    exact hVS.1 I.1 (bc.gen I) I.2 (bc.gen_spec I).1
 
 section Reflection
 variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
@@ -2543,6 +2745,1528 @@ theorem rf_forward_frequencies :
       exact Bd.B.inv_mem hbClass
     have hHS := Bd.isotropic (S.diagU ν) y hνB hbClass
     simp [sCocycle, hHS]
+private def rf_t5_finite_cutoff (v : FinPlace F) :
+    v.adicCompletion F → ℂ := fun x => if Valued.v x = 1 then 1 else 0
+
+private theorem rf_t5_finite_cutoff_sheetHyp (v : FinPlace F) :
+    SheetHypFin v (1 / 3) (rf_t5_finite_cutoff (F := F) v) := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  have hO : IsClopen (O : Set K) := Valued.isClopen_valuationSubring K
+  have hball : IsClopen {x : K | Valued.v x < 1} := by
+    simpa only [Valuation.restrict_lt_iff_lt_embedding, map_one] using
+      (Valued.isClopen_ball K 1)
+  have hOmem (x : K) : x ∈ (O : Set K) ↔ Valued.v x ≤ 1 := by
+    change x ∈ (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).valuationSubring ↔ _
+    rw [Valuation.mem_valuationSubring_iff]
+  have hshell : {x : K | Valued.v x = 1} = (O : Set K) \ {x : K | Valued.v x < 1} := by
+    ext x
+    rw [Set.mem_diff, Set.mem_setOf_eq, hOmem]
+    constructor
+    · intro hx
+      exact ⟨le_of_eq hx, by simpa [hx]⟩
+    · rintro ⟨h₁, h₂⟩
+      exact le_antisymm h₁ (le_of_not_gt h₂)
+  have hshellOpen : IsOpen {x : K | Valued.v x = 1} := by
+    rw [hshell]
+    exact hO.2.inter hball.1.isOpen_compl
+  have hshellClosed : IsClosed {x : K | Valued.v x = 1} := by
+    rw [hshell]
+    exact hO.1.inter hball.2.isClosed_compl
+  have habs (x : K) (hx : Valued.v x = 1) : absFin v x = 1 := by
+    rw [ArtinPrimitiveRoots.A1.Theta.absFin_eq_norm, FinitePlace.norm_def, hx]
+    simp
+  refine ⟨?_, ?_, ?_⟩
+  · intro x hx
+    by_cases h : Valued.v x = 1
+    · refine ⟨{y | Valued.v y = 1}, hshellOpen, by simpa using h, ?_⟩
+      intro y hy
+      change Valued.v y = 1 at hy
+      simp [rf_t5_finite_cutoff, hy, h]
+    · refine ⟨{y | Valued.v y ≠ 1}, hshellClosed.isOpen_compl, by simpa using h, ?_⟩
+      intro y hy
+      change Valued.v y ≠ 1 at hy
+      simp [rf_t5_finite_cutoff, hy, h]
+  · refine ⟨1, ?_⟩
+    intro x hx
+    by_contra hzero
+    have hval : Valued.v x = 1 := by
+      by_contra hval
+      exact hzero (by simp [rf_t5_finite_cutoff, hval])
+    rw [habs x hval] at hx
+    linarith
+  · refine ⟨1, ?_⟩
+    intro x hx hxsmall
+    by_cases h : Valued.v x = 1
+    · have hnorm := habs x h
+      simp [rf_t5_finite_cutoff, h, hnorm]
+    · simp [rf_t5_finite_cutoff, h]
+      have hnonneg : 0 ≤ absFin v x := by
+        rw [ArtinPrimitiveRoots.A1.Theta.absFin_eq_norm]
+        exact norm_nonneg _
+      have hp : 0 ≤ absFin v x ^ (1 / 3 : ℝ) := Real.rpow_nonneg hnonneg _
+      simpa using hp
+
+private theorem rf_sheetHypC_dilate {δ : ℝ} (a : ℝ) (ha : 0 < a)
+    (f : ℂ → ℂ) (hf : SheetHypC δ f) :
+    SheetHypC δ (fun z => f ((a : ℂ) * z)) := by
+  constructor
+  · have hlin : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun z : ℂ => (a : ℂ) * z) {z | z ≠ 0} := by fun_prop
+    apply hf.1.comp hlin
+    intro z hz
+    simp only [Set.mem_setOf_eq] at hz ⊢
+    exact mul_ne_zero (Complex.ofReal_ne_zero.mpr ha.ne') hz
+  · intro j A hA
+    obtain ⟨C, hC⟩ := hf.2 j A hA
+    refine ⟨max C 0 * max (a ^ (2 * δ)) (a ^ (-2 * A)), ?_⟩
+    intro z hz
+    have haz : (a : ℂ) * z ≠ 0 :=
+      mul_ne_zero (Complex.ofReal_ne_zero.mpr ha.ne') hz
+    have hderiv : ArtinPrimitiveRoots.A1.normDeriv j
+        (fun z => f ((a : ℂ) * z)) z =
+        ArtinPrimitiveRoots.A1.normDeriv j f ((a : ℂ) * z) := by
+      unfold ArtinPrimitiveRoots.A1.normDeriv
+      apply congrArg (fun g : ℝ → ℂ => iteratedDeriv j g 0)
+      funext t
+      congr 1
+      push_cast
+      ring
+    have hns : Complex.normSq ((a : ℂ) * z) = a * a * Complex.normSq z := by
+      simp [Complex.normSq_mul, Complex.normSq_ofReal, pow_two]
+    have hsq : a * a = a ^ (2 : ℝ) := by
+      rw [Real.rpow_two]
+      ring
+    have hp1 : Complex.normSq ((a : ℂ) * z) ^ δ =
+        a ^ (2 * δ) * Complex.normSq z ^ δ := by
+      rw [hns, Real.mul_rpow (mul_nonneg ha.le ha.le) (Complex.normSq_nonneg z)]
+      rw [hsq]
+      exact congrArg (fun t : ℝ => t * Complex.normSq z ^ δ)
+        (Real.rpow_mul ha.le (2 : ℝ) δ).symm
+    have hp2 : Complex.normSq ((a : ℂ) * z) ^ (-A) =
+        a ^ (-2 * A) * Complex.normSq z ^ (-A) := by
+      rw [hns, Real.mul_rpow (mul_nonneg ha.le ha.le) (Complex.normSq_nonneg z)]
+      rw [hsq]
+      calc
+        _ = a ^ (2 * (-A)) * Complex.normSq z ^ (-A) :=
+          congrArg (fun t : ℝ => t * Complex.normSq z ^ (-A))
+            (Real.rpow_mul ha.le (2 : ℝ) (-A)).symm
+        _ = a ^ (-2 * A) * Complex.normSq z ^ (-A) := by
+          congr 1
+          ring
+    let r := Complex.normSq z
+    have hr1 : 0 ≤ r ^ δ := Real.rpow_nonneg (Complex.normSq_nonneg z) _
+    have hr2 : 0 ≤ r ^ (-A) := Real.rpow_nonneg (Complex.normSq_nonneg z) _
+    have hmin : min (a ^ (2 * δ) * r ^ δ) (a ^ (-2 * A) * r ^ (-A)) ≤
+        max (a ^ (2 * δ)) (a ^ (-2 * A)) * min (r ^ δ) (r ^ (-A)) := by
+      by_cases hxy : r ^ δ ≤ r ^ (-A)
+      · calc
+          _ ≤ a ^ (2 * δ) * r ^ δ := min_le_left _ _
+          _ ≤ max (a ^ (2 * δ)) (a ^ (-2 * A)) * r ^ δ :=
+            mul_le_mul_of_nonneg_right (le_max_left _ _) hr1
+          _ = _ := by rw [min_eq_left hxy]
+      · have hyx : r ^ (-A) ≤ r ^ δ := le_of_not_ge hxy
+        calc
+          _ ≤ a ^ (-2 * A) * r ^ (-A) := min_le_right _ _
+          _ ≤ max (a ^ (2 * δ)) (a ^ (-2 * A)) * r ^ (-A) :=
+            mul_le_mul_of_nonneg_right (le_max_right _ _) hr2
+          _ = _ := by rw [min_eq_right hyx]
+    have hbase : ‖ArtinPrimitiveRoots.A1.normDeriv j f ((a : ℂ) * z)‖ ≤
+        C * min (Complex.normSq ((a : ℂ) * z) ^ δ)
+          (Complex.normSq ((a : ℂ) * z) ^ (-A)) := hC ((a : ℂ) * z) haz
+    have hminNonneg : 0 ≤ min (Complex.normSq ((a : ℂ) * z) ^ δ)
+        (Complex.normSq ((a : ℂ) * z) ^ (-A)) := by
+      exact le_min (Real.rpow_nonneg (Complex.normSq_nonneg _) _)
+        (Real.rpow_nonneg (Complex.normSq_nonneg _) _)
+    have hscaled : min (Complex.normSq ((a : ℂ) * z) ^ δ)
+        (Complex.normSq ((a : ℂ) * z) ^ (-A)) ≤
+        max (a ^ (2 * δ)) (a ^ (-2 * A)) * min (r ^ δ) (r ^ (-A)) := by
+      rw [hp1, hp2]
+      simpa [r] using hmin
+    rw [hderiv]
+    calc
+      _ ≤ C * min (Complex.normSq ((a : ℂ) * z) ^ δ)
+          (Complex.normSq ((a : ℂ) * z) ^ (-A)) := hbase
+      _ ≤ max C 0 * min (Complex.normSq ((a : ℂ) * z) ^ δ)
+          (Complex.normSq ((a : ℂ) * z) ^ (-A)) :=
+        mul_le_mul_of_nonneg_right (le_max_left _ _) hminNonneg
+      _ ≤ max C 0 * (max (a ^ (2 * δ)) (a ^ (-2 * A)) * min (r ^ δ) (r ^ (-A))) :=
+        mul_le_mul_of_nonneg_left hscaled (le_max_right _ _)
+      _ = max C 0 * max (a ^ (2 * δ)) (a ^ (-2 * A)) *
+          min (Complex.normSq z ^ δ) (Complex.normSq z ^ (-A)) := by
+        rw [← mul_assoc]
+
+private theorem rf_sheetHypC_const_mul {δ : ℝ} (c : ℂ) (f : ℂ → ℂ)
+    (hf : SheetHypC δ f) : SheetHypC δ (fun z => c * f z) := by
+  constructor
+  · exact contDiffOn_const.mul hf.1
+  · intro j A hA
+    obtain ⟨C, hC⟩ := hf.2 j A hA
+    refine ⟨‖c‖ * C, ?_⟩
+    intro z hz
+    have hderiv : ArtinPrimitiveRoots.A1.normDeriv j
+        (fun z => c * f z) z = c * ArtinPrimitiveRoots.A1.normDeriv j f z := by
+      unfold ArtinPrimitiveRoots.A1.normDeriv
+      simp
+    rw [hderiv, norm_mul]
+    calc
+      _ ≤ ‖c‖ * (C * min (Complex.normSq z ^ δ) (Complex.normSq z ^ (-A))) :=
+        mul_le_mul_of_nonneg_left (hC z hz) (norm_nonneg c)
+      _ = ‖c‖ * C * min (Complex.normSq z ^ δ) (Complex.normSq z ^ (-A)) := by ring
+
+private def rf_t5_arch_factor (c : ℝ) (z : ℂ) : ℂ :=
+  (Complex.normSq z : ℂ) * ArtinPrimitiveRoots.A1.omegaAng 1 z *
+    (ArtinPrimitiveRoots.A1.besselK (1 / 3) (c * ‖z‖) : ℂ)
+
+private theorem rf_t5_arch_factor_sheetHyp (c : ℝ) (hc : 0 < c) :
+    SheetHypC (1 / 3) (rf_t5_arch_factor c) := by
+  let a : ℝ := c / (4 * Real.pi)
+  have ha : 0 < a := div_pos hc (by positivity)
+  let base : ℂ → ℂ := fun z => (Complex.normSq z : ℂ) *
+    ArtinPrimitiveRoots.A1.omegaAng 1 z *
+      (ArtinPrimitiveRoots.A1.besselK (1 / 3) (4 * Real.pi * ‖z‖) : ℂ)
+  have hbase : SheetHypC (1 / 3) base := by
+    simpa [base, mul_assoc] using
+      (ArtinPrimitiveRoots.A1.Theta.sheetHypC_bessel 1 (by norm_num) (1 : ℂ))
+  have hdil := rf_sheetHypC_dilate a ha base hbase
+  have hscaled := rf_sheetHypC_const_mul (((a⁻¹) ^ 2 : ℝ) : ℂ)
+    (fun z => base ((a : ℂ) * z)) hdil
+  have hEq : (fun z => (((a⁻¹) ^ 2 : ℝ) : ℂ) * base ((a : ℂ) * z)) =
+      rf_t5_arch_factor c := by
+    funext z
+    by_cases hz : z = 0
+    · subst z
+      simp [rf_t5_arch_factor, base]
+    · have hnorm : ‖(a : ℂ) * z‖ = a * ‖z‖ := by
+        rw [norm_mul, Complex.norm_real, Real.norm_of_nonneg ha.le]
+      have hnormSq : Complex.normSq ((a : ℂ) * z) = a ^ 2 * Complex.normSq z := by
+        calc
+          Complex.normSq ((a : ℂ) * z) = Complex.normSq (a : ℂ) * Complex.normSq z :=
+            Complex.normSq_mul _ _
+          _ = a ^ 2 * Complex.normSq z := by rw [Complex.normSq_ofReal]; ring
+      have hangle : ArtinPrimitiveRoots.A1.omegaAng 1 ((a : ℂ) * z) =
+          ArtinPrimitiveRoots.A1.omegaAng 1 z := by
+        unfold ArtinPrimitiveRoots.A1.omegaAng
+        have haC : (a : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr ha.ne'
+        have hzN : ‖z‖ ≠ 0 := norm_ne_zero_iff.mpr hz
+        rw [hnorm, Complex.ofReal_mul]
+        simp only [zpow_one]
+        field_simp [haC, hzN]
+      have harg : 4 * Real.pi * (a * ‖z‖) = c * ‖z‖ := by
+        dsimp [a]
+        field_simp [Real.pi_ne_zero]
+      have hcoeff : ((a⁻¹) ^ 2) * a ^ 2 = 1 := by
+        field_simp [ha.ne']
+      have hcoefR : (a⁻¹) ^ 2 * (a ^ 2 * Complex.normSq z) = Complex.normSq z := by
+        calc
+          _ = ((a⁻¹) ^ 2 * a ^ 2) * Complex.normSq z := by ring
+          _ = Complex.normSq z := by rw [hcoeff, one_mul]
+      dsimp [rf_t5_arch_factor, base]
+      rw [hnormSq, hangle, hnorm, harg]
+      calc
+        _ = (((a⁻¹) ^ 2 * (a ^ 2 * Complex.normSq z) : ℝ) : ℂ) *
+            ArtinPrimitiveRoots.A1.omegaAng 1 z *
+            (ArtinPrimitiveRoots.A1.besselK (1 / 3) (c * ‖z‖) : ℂ) := by
+              push_cast
+              ring
+        _ = (Complex.normSq z : ℂ) * ArtinPrimitiveRoots.A1.omegaAng 1 z *
+            (ArtinPrimitiveRoots.A1.besselK (1 / 3) (c * ‖z‖) : ℂ) := by
+              rw [hcoefR]
+  simpa only [hEq] using hscaled
+
+private def rf_t5_ff (R : ReflectionSetup D S H Bd A ϑ bc μ v0) :
+    Fin 1 → (v : S.Sf) → v.1.adicCompletion F → ℂ :=
+  fun _ v => rf_t5_finite_cutoff v.1
+
+private def rf_t5_fc (R : ReflectionSetup D S H Bd A ϑ bc μ v0) :
+    Fin 1 → InfinitePlace F → ℂ → ℂ :=
+  fun _ w z => rf_t5_arch_factor (R.T.cS w) z
+
+private theorem rf_t5_envelope_profile_bound (σ : ℝ) (hσ : 1 / 2 < σ) :
+    ∃ C : ℝ, 0 < C ∧ ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1 (rf_t5_ff R) (rf_t5_fc R) 0 x ≤
+        C * x ^ (-σ) := by
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have hff : ∀ ℓ v, SheetHypFin v.1 (1 / 3) (rf_t5_ff R ℓ v) := by
+    intro ℓ v
+    exact rf_t5_finite_cutoff_sheetHyp v.1
+  have hfc : ∀ ℓ w, SheetHypC (1 / 3) (rf_t5_fc R ℓ w) := by
+    intro ℓ w
+    exact rf_t5_arch_factor_sheetHyp (R.T.cS w) (R.T.cS_pos w)
+  let m : S.FS → ℂ := fun _ => 1
+  have hm : Theta.SheetMultiplier S m := by
+    refine ⟨R.chars.L 1, 0, fun _ => 1, ⟨1, ?_⟩, ?_⟩
+    · intro x
+      simp
+    · intro y
+      simp [m]
+  have hprofile := ArtinPrimitiveRoots.A1.Theta.sheet_profile S μ v0
+    (1 / 3) (by norm_num) 1 (rf_t5_ff R) (rf_t5_fc R) hff hfc m hm
+  rcases hprofile with ⟨_, htail, _⟩
+  rcases htail with ⟨Cm, hCm, hgrowth⟩
+  have hσ' : -(1 / 3 : ℝ) < σ := by linarith
+  obtain ⟨C, hC⟩ := hgrowth 0 σ hσ'
+  refine ⟨max C 1, by positivity, ?_⟩
+  intro x hx
+  calc
+    ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1 (rf_t5_ff R) (rf_t5_fc R) 0 x ≤
+        C * x ^ (-σ) := (hC x hx).2
+    _ ≤ max C 1 * x ^ (-σ) :=
+      mul_le_mul_of_nonneg_right (le_max_left _ _) (by positivity)
+
+private def rf_t5_envelope (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (y : S.FS) : ℝ :=
+  (∏ v : S.Sf, ‖rf_t5_finite_cutoff v.1 (y.1 v)‖) *
+    ∏ w : InfinitePlace F, ‖rf_t5_arch_factor (R.T.cS w) (y.2 w)‖
+
+private theorem rf_t5_envelope_nonneg (y : S.FS) : 0 ≤ rf_t5_envelope R y := by
+  apply mul_nonneg
+  · exact Finset.prod_nonneg fun v _ => norm_nonneg _
+  · exact Finset.prod_nonneg fun w _ => norm_nonneg _
+
+private theorem rf_omegaAng_norm (m : ℤ) (z : ℂ) (hz : z ≠ 0) :
+    ‖ArtinPrimitiveRoots.A1.omegaAng m z‖ = 1 := by
+  have hnorm : ‖z / (‖z‖ : ℂ)‖ = 1 := by
+    calc
+      ‖z / (‖z‖ : ℂ)‖ = ‖z‖ / ‖(‖z‖ : ℂ)‖ := Complex.norm_div _ _
+      _ = ‖z‖ / ‖z‖ := by rw [Complex.norm_real, Real.norm_of_nonneg (norm_nonneg z)]
+      _ = 1 := div_self (norm_ne_zero_iff.mpr hz)
+  unfold ArtinPrimitiveRoots.A1.omegaAng
+  rw [norm_zpow, hnorm]
+  simp
+
+private theorem rf_t5_pointwise_norm_bound (u : UnitSix S) (y : S.FSˣ) :
+    ‖unrotated R u y‖ ≤ rf_t5_envelope R (y : S.FS) := by
+  have hT5 : unrotated R u y =
+      (if (y : S.FS).1 ∈ R.T.U then (1 : ℂ) else 0) *
+        ∏ w : InfinitePlace F,
+          ((Complex.normSq ((y : S.FS).2 w) : ℝ) : ℂ) *
+            ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w) *
+            (ArtinPrimitiveRoots.A1.besselK (1 / 3)
+              (R.T.cS w * ‖(y : S.FS).2 w‖) : ℂ) := by
+    simpa [unrotated] using R.T.T5 (R.chars.L u) (R.mem_family u) y
+  have hArch (w : InfinitePlace F) :
+      ‖((Complex.normSq ((y : S.FS).2 w) : ℝ) : ℂ) *
+          ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w) *
+          (ArtinPrimitiveRoots.A1.besselK (1 / 3)
+            (R.T.cS w * ‖(y : S.FS).2 w‖) : ℂ)‖ =
+      ‖rf_t5_arch_factor (R.T.cS w) ((y : S.FS).2 w)‖ := by
+    have hyw : (y : S.FS).2 w ≠ 0 := by
+      have hprod := (Prod.isUnit_iff.mp y.isUnit).2
+      have hpi := (Pi.isUnit_iff.mp hprod) w
+      exact (isUnit_iff_ne_zero.mp hpi)
+    have hωm := rf_omegaAng_norm ((R.chars.L u).m w) ((y : S.FS).2 w) hyw
+    have hω1 := rf_omegaAng_norm 1 ((y : S.FS).2 w) hyw
+    calc
+      _ = (‖((Complex.normSq ((y : S.FS).2 w) : ℝ) : ℂ)‖ *
+          ‖ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w)‖) *
+          ‖(ArtinPrimitiveRoots.A1.besselK (1 / 3)
+            (R.T.cS w * ‖(y : S.FS).2 w‖) : ℂ)‖ := by
+        simp only [norm_mul]
+      _ = (‖((Complex.normSq ((y : S.FS).2 w) : ℝ) : ℂ)‖ *
+          ‖ArtinPrimitiveRoots.A1.omegaAng 1 ((y : S.FS).2 w)‖) *
+          ‖(ArtinPrimitiveRoots.A1.besselK (1 / 3)
+            (R.T.cS w * ‖(y : S.FS).2 w‖) : ℂ)‖ := by rw [hωm, hω1]
+      _ = ‖((Complex.normSq ((y : S.FS).2 w) : ℝ) : ℂ) *
+          ArtinPrimitiveRoots.A1.omegaAng 1 ((y : S.FS).2 w) *
+          (ArtinPrimitiveRoots.A1.besselK (1 / 3)
+            (R.T.cS w * ‖(y : S.FS).2 w‖) : ℂ)‖ := by
+        simp only [norm_mul]
+      _ = ‖rf_t5_arch_factor (R.T.cS w) ((y : S.FS).2 w)‖ := rfl
+  rcases R.T.U_spec with ⟨_, _, _, _, hVal, _, _⟩
+  by_cases hU : (y : S.FS).1 ∈ R.T.U
+  · have hFinite :
+        (∏ v : S.Sf, ‖rf_t5_finite_cutoff v.1 ((y : S.FS).1 v)‖) = 1 := by
+      apply Finset.prod_eq_one
+      intro v hv
+      simp [rf_t5_finite_cutoff, hVal (y : S.FS).1 hU v]
+    rw [hT5, if_pos hU, one_mul, norm_prod]
+    rw [rf_t5_envelope]
+    apply le_of_eq
+    calc
+      _ = ∏ w : InfinitePlace F, ‖rf_t5_arch_factor (R.T.cS w) ((y : S.FS).2 w)‖ := by
+        apply Finset.prod_congr rfl
+        intro w hw
+        exact hArch w
+      _ = (∏ v : S.Sf, ‖rf_t5_finite_cutoff v.1 ((y : S.FS).1 v)‖) *
+          ∏ w : InfinitePlace F, ‖rf_t5_arch_factor (R.T.cS w) ((y : S.FS).2 w)‖ := by
+        rw [hFinite]
+        simp
+  · rw [hT5, if_neg hU]
+    simp only [zero_mul, norm_zero]
+    exact rf_t5_envelope_nonneg (R := R) (y : S.FS)
+
+private def rf_t5_archCoordUnit (y : S.FSˣ) (w : InfinitePlace F) : ℂˣ :=
+  Units.mk0 (y.val.2 w) (by
+    have hprod := (Prod.isUnit_iff.mp y.isUnit).2
+    have hpi := (Pi.isUnit_iff.mp hprod) w
+    exact isUnit_iff_ne_zero.mp hpi)
+
+private def rf_t5_archPart (y : S.FSˣ) : S.FSˣ :=
+  ∏ w : InfinitePlace F, S.atComplex w (rf_t5_archCoordUnit y w)
+
+private theorem rf_t5_character_on_support (u : UnitSix S) (y : S.FSˣ)
+    (hyU : (y : S.FS).1 ∈ R.T.U) :
+    Lvalue R u y = ∏ w : InfinitePlace F,
+      ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w) := by
+  classical
+  let ya : S.FSˣ := rf_t5_archPart y
+  let yf : S.FSˣ := y / ya
+  have hyaFin (v : S.Sf) : (ya : S.FS).1 v = 1 := by
+    simp [ya, rf_t5_archPart, Units.coe_prod, Prod.fst_prod, Fintype.prod_apply,
+      ArtinPrimitiveRoots.A1.SData.atComplex]
+  have hyaArch (w : InfinitePlace F) : (ya : S.FS).2 w = (y : S.FS).2 w := by
+    simp only [ya, rf_t5_archPart, Units.coe_prod, Prod.snd_prod, Fintype.prod_apply,
+      ArtinPrimitiveRoots.A1.SData.atComplex]
+    have hprod :
+        (∏ w' ∈ (Finset.univ : Finset (InfinitePlace F)),
+          Function.update (fun _ => (1 : ℂ)) w' (rf_t5_archCoordUnit y w') w) =
+          Function.update (fun _ => (1 : ℂ)) w (rf_t5_archCoordUnit y w) w := by
+      apply Finset.prod_eq_single w
+      · intro w' hw' hne
+        simp [Function.update, hne.symm, rf_t5_archCoordUnit]
+      · intro hw
+        exact (hw (Finset.mem_univ w)).elim
+    rw [hprod]
+    simp [Function.update, rf_t5_archCoordUnit]
+  have hyfFin (v : S.Sf) : (yf : S.FS).1 v = (y : S.FS).1 v := by
+    simp [yf, hyaFin]
+  have hyfArch (w : InfinitePlace F) : (yf : S.FS).2 w = 1 := by
+    have hz : y.val.2 w ≠ 0 := by
+      have hprod := (Prod.isUnit_iff.mp y.isUnit).2
+      have hpi := (Pi.isUnit_iff.mp hprod) w
+      exact (isUnit_iff_ne_zero.mp hpi)
+    simp [yf, hyaArch w, hz]
+  have hfactor : yf * ya = y := by
+    dsimp [yf]
+    exact div_mul_cancel y ya
+  have hyfU : (yf : S.FS).1 ∈ R.T.U := by
+    have hFinEq : (yf : S.FS).1 = (y : S.FS).1 := by
+      funext v
+      exact hyfFin v
+    rw [hFinEq]
+    exact hyU
+  rcases R.T.U_spec with ⟨_, _, _, _, _, _, htriv⟩
+  have hLfin : Lvalue R u yf = 1 := by
+    have h := htriv (R.chars.L u) (R.mem_family u) yf hyfU hyfArch
+    simpa [Lvalue] using congrArg (fun z : ℂˣ => (z : ℂ)) h
+  have hLarch : Lvalue R u ya = ∏ w : InfinitePlace F,
+      ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w) := by
+    change (((R.chars.L u).L
+      (∏ w : InfinitePlace F, S.atComplex w (rf_t5_archCoordUnit y w)) : ℂˣ) : ℂ) = _
+    rw [map_prod, Units.coe_prod]
+    apply Finset.prod_congr rfl
+    intro w hw
+    simpa [rf_t5_archCoordUnit] using (R.chars.L u).angular w
+      (rf_t5_archCoordUnit y w)
+  calc
+    Lvalue R u y = Lvalue R u (yf * ya) := by rw [hfactor]
+    _ = Lvalue R u yf * Lvalue R u ya := by simp [Lvalue, map_mul]
+    _ = ∏ w : InfinitePlace F,
+          ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w) := by
+        rw [hLfin, hLarch]
+        simp
+
+private def rf_t5_radial
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (y : S.FS) : ℂ :=
+  (if y.1 ∈ R.T.U then (1 : ℂ) else 0) *
+    ∏ w : InfinitePlace F,
+      ((Complex.normSq (y.2 w) : ℝ) : ℂ) *
+        (ArtinPrimitiveRoots.A1.besselK (1 / 3)
+          (R.T.cS w * ‖y.2 w‖) : ℂ)
+
+private theorem rf_t5_unrotated_radial_factor
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (u : UnitSix S) (y : S.FSˣ) :
+    unrotated R u y = Lvalue R u y * rf_t5_radial R (y : S.FS) := by
+  classical
+  by_cases hyU : (y : S.FS).1 ∈ R.T.U
+  · have hT5 := R.T.T5 (R.chars.L u) (R.mem_family u) y
+    change unrotated R u y = _ at hT5
+    have hchar := rf_t5_character_on_support R u y hyU
+    have hprod :
+        (∏ w : InfinitePlace F,
+          ((Complex.normSq ((y : S.FS).2 w) : ℝ) : ℂ) *
+            ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w) *
+            (ArtinPrimitiveRoots.A1.besselK (1 / 3)
+              (R.T.cS w * ‖(y : S.FS).2 w‖) : ℂ)) =
+          (∏ w : InfinitePlace F,
+            ((Complex.normSq ((y : S.FS).2 w) : ℝ) : ℂ) *
+              (ArtinPrimitiveRoots.A1.besselK (1 / 3)
+                (R.T.cS w * ‖(y : S.FS).2 w‖) : ℂ)) *
+            ∏ w : InfinitePlace F,
+              ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w) := by
+      rw [← Finset.prod_mul_distrib]
+      apply Finset.prod_congr rfl
+      intro w hw
+      ring
+    rw [hT5, if_pos hyU, hprod, ← hchar]
+    simp [rf_t5_radial, hyU, Lvalue]
+    ring
+  · have hT5 := R.T.T5 (R.chars.L u) (R.mem_family u) y
+    change unrotated R u y = _ at hT5
+    rw [hT5, if_neg hyU]
+    simp [rf_t5_radial, hyU]
+
+private theorem rf_t5_radial_norm_eq
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (u : UnitSix S) (y : S.FSˣ) :
+    ‖rf_t5_radial R (y : S.FS)‖ = ‖unrotated R u y‖ := by
+  rw [rf_t5_unrotated_radial_factor R u y, norm_mul]
+  have hunit : ‖Lvalue R u y‖ = 1 := by
+    simpa [Lvalue] using (R.chars.L u).unitary y
+  simp [hunit]
+
+private theorem rf_FS_units_range_open : IsOpen (Set.range (Units.val : S.FSˣ → S.FS)) := by
+  classical
+  let Uf : Set (∀ v : S.Sf, v.1.adicCompletion F) :=
+    ⋂ v : S.Sf, (fun z : ∀ v : S.Sf, v.1.adicCompletion F => z v) ⁻¹' ({0}ᶜ)
+  let Uc : Set (InfinitePlace F → ℂ) :=
+    ⋂ w : InfinitePlace F, (fun z : InfinitePlace F → ℂ => z w) ⁻¹' ({0}ᶜ)
+  have hUf : IsOpen Uf := by
+    apply isOpen_iInter_of_finite
+    intro v
+    exact (continuous_apply v).isOpen_preimage ({0}ᶜ) isClosed_singleton.isOpen_compl
+  have hUc : IsOpen Uc := by
+    apply isOpen_iInter_of_finite
+    intro w
+    exact (continuous_apply w).isOpen_preimage ({0}ᶜ) isClosed_singleton.isOpen_compl
+  have hUnit : {y : S.FS | IsUnit y} = Uf ×ˢ Uc := by
+    ext y
+    simp [Uf, Uc, Prod.isUnit_iff, Pi.isUnit_iff, isUnit_iff_ne_zero]
+  have hRange : Set.range (Units.val : S.FSˣ → S.FS) = {y | IsUnit y} := by
+    ext y
+    constructor
+    · rintro ⟨u, rfl⟩
+      exact u.isUnit
+    · intro hy
+      exact ⟨hy.unit, hy.unit_spec⟩
+  rw [hRange, hUnit]
+  exact hUf.prod hUc
+
+private theorem rf_FS_units_val_measurableEmbedding :
+    MeasurableEmbedding (Units.val : S.FSˣ → S.FS) := by
+  letI : OpensMeasurableSpace S.FS := inferInstance
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  refine ⟨Units.val_injective, comap_measurable Units.val, ?_⟩
+  intro t ht
+  rcases MeasurableSpace.measurableSet_comap.mp ht with ⟨s, hs, hpre⟩
+  have himage : Units.val '' t = s ∩ Set.range Units.val := by
+    rw [← hpre, Set.image_preimage_eq_inter_range]
+  rw [himage]
+  exact hs.inter rf_FS_units_range_open.measurableSet
+
+private theorem rf_FS_measurable_inv : Measurable (fun z : S.FS => z⁻¹) := by
+  apply Measurable.prod
+  · apply measurable_pi_iff.mpr
+    intro v
+    exact measurable_inv.comp ((measurable_pi_apply v).comp measurable_fst)
+  · apply measurable_pi_iff.mpr
+    intro w
+    exact measurable_inv.comp ((measurable_pi_apply w).comp measurable_snd)
+
+private theorem rf_FS_units_opensMeasurable : OpensMeasurableSpace S.FSˣ := by
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FS := inferInstance
+  letI : SecondCountableTopology S.FS := inferInstance
+  letI : SecondCountableTopology S.FSᵐᵒᵖ :=
+    (MulOpposite.opHomeomorph : S.FS ≃ₜ S.FSᵐᵒᵖ).symm.secondCountableTopology
+  letI : OpensMeasurableSpace S.FSᵐᵒᵖ :=
+    opensMeasurableSpace_iff_forall_measurableSet.mpr fun U hU => by
+      have hpre : IsOpen ((MulOpposite.op : S.FS → S.FSᵐᵒᵖ) ⁻¹' U) :=
+        (MulOpposite.opHomeomorph : S.FS ≃ₜ S.FSᵐᵒᵖ).isOpen_preimage.mpr hU
+      change @MeasurableSet S.FSᵐᵒᵖ
+        (MeasurableSpace.map (MulOpposite.op : S.FS → S.FSᵐᵒᵖ)
+          (inferInstance : MeasurableSpace S.FS)) U
+      exact hpre.measurableSet
+  letI : OpensMeasurableSpace (S.FS × S.FSᵐᵒᵖ) := inferInstance
+  have hval : Measurable (Units.val : S.FSˣ → S.FS) := comap_measurable Units.val
+  have hinv : Measurable (fun y : S.FSˣ => ((y⁻¹ : S.FSˣ) : S.FS)) := by
+    convert rf_FS_measurable_inv.comp hval using 1
+    funext y
+    simp
+  have hEmbed : Measurable (Units.embedProduct S.FS) :=
+    hval.prodMk (measurable_mul_op.comp hinv)
+  exact opensMeasurableSpace_iff_forall_measurableSet.mpr fun U hU => by
+    change @IsOpen S.FSˣ (TopologicalSpace.induced (Units.embedProduct S.FS) inferInstance) U at hU
+    obtain ⟨V, hV, hpre⟩ := isOpen_induced_iff.mp hU
+    rw [← hpre]
+    exact hEmbed hV.measurableSet
+
+private theorem rf_onUnits_measurable (f : S.FSˣ → ℂ) (hf : Measurable f) :
+    Measurable (onUnits f) := by
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  have hExt : Measurable (Function.extend Units.val f (fun _ => (0 : ℂ))) :=
+    rf_FS_units_val_measurableEmbedding.measurable_extend hf measurable_const
+  have hEq : onUnits f = Function.extend Units.val f (fun _ => (0 : ℂ)) := by
+    funext y
+    by_cases hy : IsUnit y
+    · have hleft : onUnits f y = f hy.unit := by simp [onUnits, hy]
+      rw [hleft]
+      have hval : (hy.unit : S.FS) = y := hy.unit_spec
+      calc
+        f hy.unit = Function.extend Units.val f (fun _ => (0 : ℂ)) (hy.unit : S.FS) :=
+          (Units.val_injective.extend_apply f (fun _ => (0 : ℂ)) hy.unit).symm
+        _ = Function.extend Units.val f (fun _ => (0 : ℂ)) y := by rw [hval]
+    · have hnot : ¬∃ z : S.FSˣ, (z : S.FS) = y := by
+        rintro ⟨z, rfl⟩
+        exact hy z.isUnit
+      simp [onUnits, hy, Function.extend_apply', hnot]
+  rw [hEq]
+  exact hExt
+
+private theorem rf_FS_sixthPower_range_closed :
+    IsClosed (Set.range (fun y : S.FS => y ^ 6)) := by
+  classical
+  let UF : Set (∀ v : S.Sf, v.1.adicCompletion F) :=
+    ⋂ v : S.Sf, (fun z : ∀ v : S.Sf, v.1.adicCompletion F => z v) ⁻¹'
+      Set.range (fun z : v.1.adicCompletion F => z ^ 6)
+  let UC : Set (InfinitePlace F → ℂ) :=
+    ⋂ w : InfinitePlace F, (fun z : InfinitePlace F → ℂ => z w) ⁻¹'
+      Set.range (fun z : ℂ => z ^ 6)
+  have hUF : IsClosed UF := by
+    apply isClosed_iInter
+    intro v
+    exact IsClosed.preimage (continuous_apply v)
+      (bridgeFin_sixthPower_range_closed v.1)
+  have hUC : IsClosed UC := by
+    apply isClosed_iInter
+    intro w
+    exact IsClosed.preimage (continuous_apply w) bridgeComplex_sixthPower_range_closed
+  have hRange : Set.range (fun y : S.FS => y ^ 6) = UF ×ˢ UC := by
+    ext y
+    simp only [Set.mem_range, Set.mem_prod, UF, UC, Set.mem_iInter,
+      Set.mem_preimage]
+    constructor
+    · rintro ⟨z, hz⟩
+      constructor
+      · intro v
+        refine ⟨z.1 v, ?_⟩
+        exact congrArg (fun p : S.FS => p.1 v) hz
+      · intro w
+        refine ⟨z.2 w, ?_⟩
+        exact congrArg (fun p : S.FS => p.2 w) hz
+    · intro hy
+      have hfin : ∀ v : S.Sf, ∃ z : v.1.adicCompletion F, z ^ 6 = y.1 v :=
+        fun v => hy.1 v
+      have harch : ∀ w : InfinitePlace F, ∃ z : ℂ, z ^ 6 = y.2 w :=
+        fun w => hy.2 w
+      let z : S.FS := (fun v => Classical.choose (hfin v), fun w => Classical.choose (harch w))
+      refine ⟨z, ?_⟩
+      apply Prod.ext
+      · funext v
+        exact Classical.choose_spec (hfin v)
+      · funext w
+        exact Classical.choose_spec (harch w)
+  rw [hRange]
+  exact hUF.prod hUC
+
+private theorem rf_FS_units_sixthPower_range_eq_preimage :
+    Set.range (fun y : S.FSˣ => y ^ 6) =
+      (Units.val : S.FSˣ → S.FS) ⁻¹' Set.range (fun y : S.FS => y ^ 6) := by
+  ext u
+  constructor
+  · rintro ⟨v, hv⟩
+    exact ⟨(v : S.FS), congrArg Units.val hv⟩
+  · rintro ⟨z, hz⟩
+    change z ^ 6 = (u : S.FS) at hz
+    have hunitpow : IsUnit (z ^ 6) := by rw [hz]; exact u.isUnit
+    obtain ⟨q, hq₁, hq₂⟩ := isUnit_iff_exists.mp hunitpow
+    have hzunit : IsUnit z := by
+      rw [isUnit_iff_exists]
+      refine ⟨z ^ 5 * q, ?_, ?_⟩
+      · calc
+          z * (z ^ 5 * q) = z ^ 6 * q := by ring
+          _ = 1 := hq₁
+      · calc
+          (z ^ 5 * q) * z = q * z ^ 6 := by ring
+          _ = 1 := hq₂
+    let v : S.FSˣ := hzunit.unit
+    refine ⟨v, ?_⟩
+    apply Units.ext
+    calc
+      ((v ^ 6 : S.FSˣ) : S.FS) = (v : S.FS) ^ 6 := by simp
+      _ = z ^ 6 := by rw [hzunit.unit_spec]
+      _ = (u : S.FS) := hz
+
+private theorem rf_FS_units_sixthPower_range_closed :
+    IsClosed ((powMonoidHom 6 : S.FSˣ →* S.FSˣ).range : Set S.FSˣ) := by
+  change IsClosed (Set.range (fun y : S.FSˣ => y ^ 6))
+  rw [rf_FS_units_sixthPower_range_eq_preimage]
+  exact rf_FS_sixthPower_range_closed.preimage Units.continuous_val
+
+private theorem rf_cls_fiber_measurable (q : S.V) :
+    MeasurableSet {y : S.FSˣ | cls y = q} := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  obtain ⟨u, hu⟩ := QuotientGroup.mk_surjective q
+  let H : Subgroup S.FSˣ := (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range
+  have hpre : {y : S.FSˣ | cls y = q} =
+      (fun y : S.FSˣ => y / u) ⁻¹' (H : Set S.FSˣ) := by
+    ext y
+    change (QuotientGroup.mk y : S.V) = q ↔ y / u ∈ H
+    rw [← hu]
+    exact QuotientGroup.eq_iff_div_mem
+  rw [hpre]
+  have hdiv : Measurable (fun y : S.FSˣ => y / u) := by
+    change Measurable[MeasurableSpace.comap Units.val
+      (inferInstance : MeasurableSpace S.FS)] (fun y : S.FSˣ => y / u)
+    rw [measurable_comap_iff]
+    have hc : Continuous (fun z : S.FS => z / (u : S.FS)) := by fun_prop
+    convert hc.measurable.comp (comap_measurable Units.val) using 1
+    funext y
+    simp
+  exact rf_FS_units_sixthPower_range_closed.measurableSet.preimage hdiv
+
+private theorem rf_bCut_measurable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) : Measurable (bCut (Bd := Bd)) := by
+  classical
+  letI : Fintype S.V := R.sheets.classFinite
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  have hset : MeasurableSet {y : S.FSˣ | cls y ∈ Bd.B} := by
+    have hEq : {y : S.FSˣ | cls y ∈ Bd.B} =
+        ⋃ q : S.V, if q ∈ Bd.B then {y : S.FSˣ | cls y = q} else ∅ := by
+      ext y
+      simp
+    rw [hEq]
+    apply MeasurableSet.iUnion
+    intro q
+    by_cases hq : q ∈ Bd.B
+    · simpa [hq] using rf_cls_fiber_measurable (q := q)
+    · simp [hq]
+  unfold bCut
+  exact Measurable.ite hset measurable_const measurable_const
+
+private theorem rf_omegaAng_measurable (m : ℤ) :
+    Measurable (fun z : ℂ => ArtinPrimitiveRoots.A1.omegaAng m z) := by
+  refine measurable_of_continuousOn_compl_singleton (0 : ℂ) ?_
+  have hcont : ContinuousOn (fun z : ℂ => ArtinPrimitiveRoots.A1.omegaAng m z)
+      {z | z ≠ 0} := by
+    intro z hz
+    have hden : ContinuousAt (fun z : ℂ => (‖z‖ : ℂ)) z := by fun_prop
+    have hbase : ContinuousAt (fun z : ℂ => z / (‖z‖ : ℂ)) z :=
+      continuousAt_id.div hden (Complex.ofReal_ne_zero.mpr (norm_pos_iff.mpr hz).ne')
+    have hbaseNe : z / (‖z‖ : ℂ) ≠ 0 := by
+      apply div_ne_zero hz
+      exact Complex.ofReal_ne_zero.mpr (norm_pos_iff.mpr hz).ne'
+    simpa [ArtinPrimitiveRoots.A1.omegaAng] using
+      (hbase.zpow₀ m (Or.inl hbaseNe)).continuousWithinAt
+  convert hcont using 1
+  ext z
+  simp
+
+private theorem rf_omegaAng_mul (m : ℤ) (z : ℂ) (hz : z ≠ 0) :
+    ArtinPrimitiveRoots.A1.omegaAng 1 z * ArtinPrimitiveRoots.A1.omegaAng (m - 1) z =
+      ArtinPrimitiveRoots.A1.omegaAng m z := by
+  unfold ArtinPrimitiveRoots.A1.omegaAng
+  have hq : z / (‖z‖ : ℂ) ≠ 0 := by
+    apply div_ne_zero hz
+    exact Complex.ofReal_ne_zero.mpr (norm_pos_iff.mpr hz).ne'
+  rw [← zpow_add₀ hq (1 : ℤ) (m - 1)]
+  congr 1
+  omega
+
+private theorem rf_unit_mul_measurable (c : S.FSˣ) :
+    Measurable (fun y : S.FSˣ => c * y) := by
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  change Measurable[MeasurableSpace.comap Units.val
+    (inferInstance : MeasurableSpace S.FS)] (fun y : S.FSˣ => c * y)
+  rw [measurable_comap_iff]
+  have hc : Continuous (fun z : S.FS => (c : S.FS) * z) := by fun_prop
+  exact hc.measurable.comp (comap_measurable Units.val)
+
+private theorem rf_t5_unrotated_measurable (u : UnitSix S) :
+    Measurable (fun y : S.FSˣ => unrotated R u y) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  have hUmeas : MeasurableSet R.T.U := R.T.U_spec.1.measurableSet
+  have hfinCoord : Measurable (fun y : S.FSˣ => (y : S.FS).1) :=
+    measurable_fst.comp (comap_measurable Units.val)
+  have hcutMeas : Measurable (fun y : S.FSˣ =>
+      if (y : S.FS).1 ∈ R.T.U then (1 : ℂ) else 0) :=
+    Measurable.ite (hUmeas.preimage hfinCoord) measurable_const measurable_const
+  have hcoord (w : InfinitePlace F) : Measurable (fun y : S.FSˣ => (y : S.FS).2 w) :=
+    (measurable_pi_apply w).comp (measurable_snd.comp (comap_measurable Units.val))
+  let t5Arch : InfinitePlace F → S.FSˣ → ℂ := fun w y =>
+    ((Complex.normSq ((y : S.FS).2 w) : ℝ) : ℂ) *
+      ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w) ((y : S.FS).2 w) *
+      (ArtinPrimitiveRoots.A1.besselK (1 / 3)
+        (R.T.cS w * ‖(y : S.FS).2 w‖) : ℂ)
+  have hRadMeas (w : InfinitePlace F) : Measurable (fun y : S.FSˣ =>
+      rf_t5_arch_factor (R.T.cS w) ((y : S.FS).2 w)) :=
+    (bridgeSheetHypC_measurable (1 / 3) (rf_t5_arch_factor (R.T.cS w))
+      (rf_t5_arch_factor_sheetHyp (R.T.cS w) (R.T.cS_pos w))).comp (hcoord w)
+  have hPhaseMeas (w : InfinitePlace F) : Measurable (fun y : S.FSˣ =>
+      ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w - 1) ((y : S.FS).2 w)) :=
+    (rf_omegaAng_measurable ((R.chars.L u).m w - 1)).comp (hcoord w)
+  have hArchEq (w : InfinitePlace F) (y : S.FSˣ) :
+      t5Arch w y = rf_t5_arch_factor (R.T.cS w) ((y : S.FS).2 w) *
+        ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w - 1) ((y : S.FS).2 w) := by
+    have hz : (y : S.FS).2 w ≠ 0 := by
+      have hprod := (Prod.isUnit_iff.mp y.isUnit).2
+      have hpi := (Pi.isUnit_iff.mp hprod) w
+      exact (isUnit_iff_ne_zero.mp hpi)
+    have hω := rf_omegaAng_mul ((R.chars.L u).m w) ((y : S.FS).2 w) hz
+    simp only [t5Arch, rf_t5_arch_factor]
+    rw [← hω]
+    ring
+  have hArchMeas (w : InfinitePlace F) : Measurable (t5Arch w) := by
+    have hprod := (hRadMeas w).mul (hPhaseMeas w)
+    have hEq : t5Arch w = fun y : S.FSˣ =>
+        rf_t5_arch_factor (R.T.cS w) ((y : S.FS).2 w) *
+          ArtinPrimitiveRoots.A1.omegaAng ((R.chars.L u).m w - 1) ((y : S.FS).2 w) :=
+      funext fun y => hArchEq w y
+    rw [hEq]
+    exact hprod
+  have hProdMeas : Measurable (fun y : S.FSˣ => ∏ w : InfinitePlace F, t5Arch w y) := by
+    apply Finset.univ.measurable_fun_prod
+    intro w hw
+    exact hArchMeas w
+  let t5Rhs : S.FSˣ → ℂ := fun y =>
+    (if (y : S.FS).1 ∈ R.T.U then (1 : ℂ) else 0) * ∏ w : InfinitePlace F, t5Arch w y
+  have hRhsMeas : Measurable t5Rhs := by
+    exact hcutMeas.mul hProdMeas
+  have hEq : (fun y : S.FSˣ => unrotated R u y) = t5Rhs := by
+    funext y
+    simpa [unrotated, t5Rhs, t5Arch] using R.T.T5 (R.chars.L u) (R.mem_family u) y
+  rw [hEq]
+  exact hRhsMeas
+
+private theorem rf_t5_radial_measurable (u : UnitSix S) :
+    Measurable (fun y : S.FSˣ => rf_t5_radial R (y : S.FS)) := by
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  have hcont : Continuous (fun y : S.FSˣ => Lvalue R u y) := by
+    simpa [Lvalue] using (R.chars.L u).cont
+  have hmeasL : Measurable (fun y : S.FSˣ => (Lvalue R u y)⁻¹) :=
+    measurable_inv.comp hcont.measurable
+  have hEq : (fun y : S.FSˣ => rf_t5_radial R (y : S.FS)) =
+      fun y => (Lvalue R u y)⁻¹ * unrotated R u y := by
+    funext y
+    rw [rf_t5_unrotated_radial_factor R u y]
+    have hne : Lvalue R u y ≠ 0 := by
+      change (((R.chars.L u).L y : ℂˣ) : ℂ) ≠ 0
+      exact Units.ne_zero _
+    calc
+      rf_t5_radial R (y : S.FS) = 1 * rf_t5_radial R (y : S.FS) := by simp
+      _ = ((Lvalue R u y)⁻¹ * Lvalue R u y) * rf_t5_radial R (y : S.FS) := by
+        rw [inv_mul_cancel₀ hne]
+      _ = (Lvalue R u y)⁻¹ *
+          (Lvalue R u y * rf_t5_radial R (y : S.FS)) := by
+        exact mul_assoc _ _ _
+  rw [hEq]
+  exact hmeasL.mul (rf_t5_unrotated_measurable R u)
+
+private theorem rf_t5_signed_point
+    (u : UnitSix S) (a y : S.FSˣ) (ha : cls a ∈ Bd.B) :
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * unrotated R u (a * y) =
+      Lvalue R u a * rf_t5_radial R ((a * y : S.FSˣ) : S.FS) := by
+  let z : S.FSˣ := a * y
+  have hT5support := rf_class_eq_one_of_T5_support R z
+  by_cases hzU : (z : S.FS).1 ∈ R.T.U
+  · have hclassz : cls z = 1 := hT5support hzU
+    have hclassmul : cls z = cls a * cls y := by simp [z, cls]
+    have hclassy : cls y = (cls a)⁻¹ := by
+      have hmem : z ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range := by
+        change (QuotientGroup.mk z : S.V) = 1 at hclassz
+        rw [QuotientGroup.eq_one_iff] at hclassz
+        exact hclassz
+      have hquot : (QuotientGroup.mk y : S.V) = QuotientGroup.mk (a⁻¹) := by
+        apply QuotientGroup.eq_iff_div_mem.mpr
+        change y / a⁻¹ ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range
+        have hcomm : y * a ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range := by
+          simpa [z, mul_comm] using hmem
+        simpa [div_eq_mul_inv] using hcomm
+      change (QuotientGroup.mk y : S.V) = (QuotientGroup.mk a : S.V)⁻¹
+      exact hquot
+    have hyB : cls y ∈ Bd.B := by
+      rw [hclassy]
+      exact Bd.B.inv_mem ha
+    have hb : bCut (Bd := Bd) y = 1 := by
+      simp [bCut, hyB]
+    have hLmul : Lvalue R u z = Lvalue R u a * Lvalue R u y := by
+      simp [z, Lvalue, map_mul]
+    rw [hb, rf_t5_unrotated_radial_factor R u z, hLmul]
+    dsimp [z]
+    have hne : Lvalue R u y ≠ 0 := by
+      change (((R.chars.L u).L y : ℂˣ) : ℂ) ≠ 0
+      exact Units.ne_zero _
+    field_simp [hne] <;> ring
+  · have hWzero : unrotated R u z = 0 := by
+      have hT5 := R.T.T5 (R.chars.L u) (R.mem_family u) z
+      change unrotated R u z = _ at hT5
+      rw [hT5, if_neg hzU]
+      simp
+    have hRadzero : rf_t5_radial R (z : S.FS) = 0 := by
+      simp [rf_t5_radial, hzU]
+    rw [hWzero, hRadzero]
+    simp [bCut]
+
+private theorem rf_t5_norm_sheet_bound (u : UnitSix S) (σ C : ℝ)
+    (hprofileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ)) :
+    ∀ x : ℝ, 0 < x →
+      Integrable (onUnits (fun y => (‖unrotated R u y‖ : ℂ))) (R.sheets.sheet x) ∧
+      (sheetIntegral R x (fun y => (‖unrotated R u y‖ : ℂ))).re ≤ C * x ^ (-σ) := by
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  have hff : ∀ ℓ v, SheetHypFin v.1 (1 / 3) (rf_t5_ff R ℓ v) := by
+    intro ℓ v
+    exact rf_t5_finite_cutoff_sheetHyp v.1
+  have hfc : ∀ ℓ w, SheetHypC (1 / 3) (rf_t5_fc R ℓ w) := by
+    intro ℓ w
+    exact rf_t5_arch_factor_sheetHyp (R.T.cS w) (R.T.cS_pos w)
+  intro x hx
+  let fE : S.FSˣ → ℂ := fun y => (rf_t5_envelope R (y : S.FS) : ℂ)
+  let fN : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
+  have hEnvAN := a2_bridge_ANALYSIS (G := R.sheets) (1 / 3) (by norm_num) 1
+    (rf_t5_ff R) (rf_t5_fc R) hff hfc x hx
+  have hEnvUnitInt : Integrable (onUnits fE) (R.sheets.sheet x) := by
+    simpa [fE, rf_t5_envelope, rf_t5_ff, rf_t5_fc, bridgeRotatedAbs] using hEnvAN
+  have hNMeas : Measurable fN := by
+    dsimp [fN]
+    exact Complex.continuous_ofReal.measurable.comp
+      (continuous_norm.measurable.comp (rf_t5_unrotated_measurable R u))
+  have hExtMeas : Measurable (Function.extend Units.val fN (fun _ => (0 : ℂ))) :=
+    rf_FS_units_val_measurableEmbedding.measurable_extend hNMeas measurable_const
+  have hOnUnitsEq : onUnits fN = Function.extend Units.val fN (fun _ => (0 : ℂ)) := by
+    funext y
+    by_cases hy : IsUnit y
+    · have hleft : onUnits fN y = fN hy.unit := by simp [onUnits, hy]
+      rw [hleft]
+      have hval : (hy.unit : S.FS) = y := hy.unit_spec
+      calc
+        fN hy.unit = Function.extend Units.val fN (fun _ => (0 : ℂ)) (hy.unit : S.FS) :=
+          (Units.val_injective.extend_apply fN (fun _ => (0 : ℂ)) hy.unit).symm
+        _ = Function.extend Units.val fN (fun _ => (0 : ℂ)) y := by rw [hval]
+    · have hnot : ¬∃ z : S.FSˣ, (z : S.FS) = y := by
+        rintro ⟨z, rfl⟩
+        exact hy z.isUnit
+      simp [onUnits, hy, Function.extend_apply', hnot]
+  have hTargetAES : AEStronglyMeasurable (onUnits fN) (R.sheets.sheet x) := by
+    rw [hOnUnitsEq]
+    exact hExtMeas.aestronglyMeasurable
+  have hunit : ∀ᵐ y ∂(R.sheets.sheet x), IsUnit y :=
+    (R.sheets.sheet_support x hx).mono fun _ hy => hy.1
+  have hEnvEq : onUnits fE =ᵐ[R.sheets.sheet x]
+      fun y => (rf_t5_envelope R y : ℂ) := by
+    filter_upwards [hunit] with y hy
+    simp [onUnits, fE, hy, hy.unit_spec]
+  have hEnvRawInt : Integrable (fun y => (rf_t5_envelope R y : ℂ))
+      (R.sheets.sheet x) := hEnvUnitInt.congr hEnvEq
+  have hTargetInt : Integrable (onUnits fN) (R.sheets.sheet x) := by
+    apply hEnvUnitInt.norm.mono' hTargetAES
+    filter_upwards [hunit] with y hy
+    let yu : S.FSˣ := hy.unit
+    have hval : (yu : S.FS) = y := hy.unit_spec
+    have hp := rf_t5_pointwise_norm_bound R u yu
+    have hN : onUnits fN y = (‖unrotated R u yu‖ : ℂ) := by simp [onUnits, fN, yu, hy]
+    have hE : onUnits fE y = (rf_t5_envelope R (yu : S.FS) : ℂ) := by
+      simp [onUnits, fE, yu, hy]
+    rw [hN, hE]
+    simp only [Complex.norm_real, Real.norm_eq_abs,
+      abs_of_nonneg (norm_nonneg (unrotated R u yu)),
+      abs_of_nonneg (rf_t5_envelope_nonneg (R := R) (yu : S.FS))]
+    exact hp
+  have hTargetReInt : Integrable (fun y => (onUnits fN y).re) (R.sheets.sheet x) :=
+    hTargetInt.re
+  have hEnvReInt : Integrable (fun y => (onUnits fE y).re) (R.sheets.sheet x) :=
+    hEnvUnitInt.re
+  have hReDom : ∀ᵐ y ∂(R.sheets.sheet x),
+      (onUnits fN y).re ≤ (onUnits fE y).re := by
+    filter_upwards [hunit] with y hy
+    let yu : S.FSˣ := hy.unit
+    have hp := rf_t5_pointwise_norm_bound R u yu
+    have hN : onUnits fN y = (‖unrotated R u yu‖ : ℂ) := by simp [onUnits, fN, yu, hy]
+    have hE : onUnits fE y = (rf_t5_envelope R (yu : S.FS) : ℂ) := by
+      simp [onUnits, fE, yu, hy]
+    rw [hN, hE]
+    simp only [Complex.ofReal_re]
+    exact hp
+  have hIntegralLe :
+      (∫ y, (onUnits fN y).re ∂(R.sheets.sheet x)) ≤
+        ∫ y, (onUnits fE y).re ∂(R.sheets.sheet x) :=
+    integral_mono_ae hTargetReInt hEnvReInt hReDom
+  have hEnvReEq :
+      (∫ y, (onUnits fE y).re ∂(R.sheets.sheet x)) =
+        (∫ y, (rf_t5_envelope R y : ℂ) ∂(R.sheets.sheet x)).re := by
+    have hAE :
+      (fun y => (onUnits fE y).re) =ᵐ[R.sheets.sheet x]
+          fun y => (rf_t5_envelope R y : ℂ).re := by
+      filter_upwards [hEnvEq] with y hy
+      exact congrArg Complex.re hy
+    calc
+      _ = ∫ y, (rf_t5_envelope R y : ℂ).re ∂(R.sheets.sheet x) :=
+        integral_congr_ae hAE
+      _ = (∫ y, (rf_t5_envelope R y : ℂ) ∂(R.sheets.sheet x)).re :=
+        integral_re hEnvRawInt
+  have hArchProd (y : S.FS) :
+      ‖rf_t5_arch_factor (R.T.cS v0) (y.2 v0)‖ *
+          ∏ w ∈ Finset.univ.erase v0, ‖rf_t5_arch_factor (R.T.cS w) (y.2 w)‖ =
+        ∏ w : InfinitePlace F, ‖rf_t5_arch_factor (R.T.cS w) (y.2 w)‖ := by
+    rw [mul_comm]
+    exact Finset.prod_erase_mul (s := Finset.univ)
+      (f := fun w : InfinitePlace F => ‖rf_t5_arch_factor (R.T.cS w) (y.2 w)‖)
+      (a := v0) (Finset.mem_univ v0)
+  have hProfileIntegrand :
+      (fun y : S.FS =>
+        (((‖ArtinPrimitiveRoots.A1.normDeriv 0 (rf_t5_fc R 0 v0) (y.2 v0)‖ *
+          ∏ w ∈ Finset.univ.erase v0, ‖rf_t5_fc R 0 w (y.2 w)‖) *
+          ∏ v : S.Sf, ‖rf_t5_ff R 0 v (y.1 v)‖ : ℝ) : ℂ)) =
+        fun y => (rf_t5_envelope R y : ℂ) := by
+    funext y
+    have hderiv : ArtinPrimitiveRoots.A1.normDeriv 0
+        (rf_t5_fc R 0 v0) (y.2 v0) = rf_t5_fc R 0 v0 (y.2 v0) := by simp [ArtinPrimitiveRoots.A1.normDeriv]
+    rw [hderiv]
+    dsimp [rf_t5_envelope, rf_t5_ff, rf_t5_fc]
+    rw [hArchProd y]
+    ring
+  have hProfileEq :
+      (∫ y, (rf_t5_envelope R y : ℂ) ∂(R.sheets.sheet x)).re =
+        ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+          (rf_t5_ff R) (rf_t5_fc R) 0 x := by
+    have hs := R.sheets.sheetInt_eq x hx (fun y => (rf_t5_envelope R y : ℂ)) hEnvRawInt
+    rw [hs]
+    symm
+    unfold ArtinPrimitiveRoots.A1.Theta.absProfile
+    simp only [Fin.sum_univ_one]
+    rw [hProfileIntegrand]
+  have hTargetRe :
+      (sheetIntegral R x (fun y => (‖unrotated R u y‖ : ℂ))).re =
+        ∫ y, (onUnits fN y).re ∂(R.sheets.sheet x) := by
+    exact (integral_re hTargetInt).symm
+  refine ⟨hTargetInt, ?_⟩
+  rw [hTargetRe]
+  calc
+    _ ≤ ∫ y, (onUnits fE y).re ∂(R.sheets.sheet x) := hIntegralLe
+    _ = ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+          (rf_t5_ff R) (rf_t5_fc R) 0 x := by rw [hEnvReEq, hProfileEq]
+    _ ≤ C * x ^ (-σ) := hprofileBound x hx
+
+private theorem rf_t5_unrotated_integrable (u : UnitSix S) (σ C : ℝ)
+    (hprofileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ))
+    (x : ℝ) (hx : 0 < x) :
+    Integrable (onUnits (fun y => unrotated R u y)) (R.sheets.sheet x) := by
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let fU : S.FSˣ → ℂ := fun y => unrotated R u y
+  let fN : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
+  have hNormInt := (rf_t5_norm_sheet_bound R u σ C hprofileBound x hx).1
+  have hFMeas : Measurable fU := by
+    simpa [fU] using rf_t5_unrotated_measurable R u
+  have hExt : Measurable (Function.extend Units.val fU (fun _ => (0 : ℂ))) :=
+    rf_FS_units_val_measurableEmbedding.measurable_extend hFMeas measurable_const
+  have hEq : onUnits fU = Function.extend Units.val fU (fun _ => (0 : ℂ)) := by
+    funext y
+    by_cases hy : IsUnit y
+    · have hleft : onUnits fU y = fU hy.unit := by simp [onUnits, hy]
+      rw [hleft]
+      have hval : (hy.unit : S.FS) = y := hy.unit_spec
+      calc
+        fU hy.unit = Function.extend Units.val fU (fun _ => (0 : ℂ)) (hy.unit : S.FS) :=
+          (Units.val_injective.extend_apply fU (fun _ => (0 : ℂ)) hy.unit).symm
+        _ = Function.extend Units.val fU (fun _ => (0 : ℂ)) y := by rw [hval]
+    · have hnot : ¬∃ z : S.FSˣ, (z : S.FS) = y := by
+        rintro ⟨z, rfl⟩
+        exact hy z.isUnit
+      simp [onUnits, hy, Function.extend_apply', hnot]
+  have hAES : AEStronglyMeasurable (onUnits fU) (R.sheets.sheet x) := by
+    rw [hEq]
+    exact hExt.aestronglyMeasurable
+  have hbound : ∀ᵐ y ∂(R.sheets.sheet x),
+      ‖onUnits fU y‖ ≤ ‖onUnits fN y‖ := by
+    filter_upwards with y
+    by_cases hy : IsUnit y
+    · simp [onUnits, fU, fN, hy, Complex.norm_real, Real.norm_eq_abs,
+        abs_of_nonneg (norm_nonneg (unrotated R u hy.unit))]
+    · simp [onUnits, fU, fN, hy]
+  exact hNormInt.norm.mono' hAES hbound
+
+set_option maxHeartbeats 5000000 in
+private theorem rf_t5_radial_sheet_integral (u : UnitSix S) (σ C : ℝ)
+    (hprofileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ))
+    (x : ℝ) (hx : 0 < x) :
+    Integrable (onUnits (fun y => rf_t5_radial R (y : S.FS))) (R.sheets.sheet x) ∧
+    bridgeSheetIntegral R.sheets x (fun y => rf_t5_radial R (y : S.FS)) =
+      Theta.thetaV S μ v0 R.T.U R.T.cS x := by
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let radialU : S.FSˣ → ℂ := fun y => rf_t5_radial R (y : S.FS)
+  let radialRaw : S.FS → ℂ := fun y => rf_t5_radial R y
+  have hNormAt := rf_t5_norm_sheet_bound R u σ C hprofileBound x hx
+  have hRadMeas : Measurable radialU := by
+    simpa [radialU] using rf_t5_radial_measurable R u
+  have hRadAES : AEStronglyMeasurable (onUnits radialU) (R.sheets.sheet x) :=
+    (rf_onUnits_measurable radialU hRadMeas).aestronglyMeasurable
+  have hRadDom : ∀ᵐ y ∂(R.sheets.sheet x),
+      ‖onUnits radialU y‖ ≤
+        ‖onUnits (fun z => (‖unrotated R u z‖ : ℂ)) y‖ := by
+    filter_upwards with y
+    by_cases hy : IsUnit y
+    · let yu : S.FSˣ := hy.unit
+      have hleft : onUnits radialU y = radialU yu := by simp [onUnits, radialU, hy, yu]
+      have hright : onUnits (fun z => (‖unrotated R u z‖ : ℂ)) y =
+          (‖unrotated R u yu‖ : ℂ) := by simp [onUnits, hy, yu]
+      rw [hleft, hright]
+      rw [rf_t5_radial_norm_eq R u yu]
+      simp [radialU, Complex.norm_real, Real.norm_eq_abs,
+        abs_of_nonneg (norm_nonneg (unrotated R u yu))]
+    · simp [onUnits, radialU, hy]
+  have hRadInt : Integrable (onUnits radialU) (R.sheets.sheet x) :=
+    hNormAt.1.norm.mono' hRadAES hRadDom
+  have hRadRawAE : (onUnits radialU) =ᵐ[R.sheets.sheet x] radialRaw := by
+    filter_upwards [R.sheets.sheet_support x hx] with y hy
+    simp [onUnits, radialU, radialRaw, hy.1, hy.1.unit_spec]
+  have hRadRawInt : Integrable radialRaw (R.sheets.sheet x) := hRadInt.congr hRadRawAE
+  have hTheta : bridgeSheetIntegral R.sheets x radialU =
+      Theta.thetaV S μ v0 R.T.U R.T.cS x := by
+    change (∫ y, onUnits radialU y ∂(R.sheets.sheet x)) = _
+    calc
+      _ = ∫ y, radialRaw y ∂(R.sheets.sheet x) := integral_congr_ae hRadRawAE
+      _ = Theta.sheetInt S μ v0 radialRaw x := R.sheets.sheetInt_eq x hx radialRaw hRadRawInt
+      _ = Theta.thetaV S μ v0 R.T.U R.T.cS x := by rfl
+  simpa [radialU] using ⟨hRadInt, hTheta⟩
+
+set_option maxHeartbeats 5000000 in
+private theorem rf_t5_signed_sheet_eq (u : UnitSix S) (a : S.FSˣ) (l x : ℝ)
+    (hl : 0 < l) (hx : 0 < x) (σ C : ℝ)
+    (hprofileBound : ∀ t : ℝ, 0 < t →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 t ≤ C * t ^ (-σ))
+    (hscale : S.absS (a : S.FS) * l = x) (haClass : cls a ∈ Bd.B) :
+    bridgeSheetIntegral R.sheets l
+        (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * unrotated R u (a * y)) =
+      Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS x := by
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let radialU : S.FSˣ → ℂ := fun y => rf_t5_radial R (y : S.FS)
+  let fSign : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * unrotated R u (a * y)
+  have hRadPair := rf_t5_radial_sheet_integral R u σ C hprofileBound x hx
+  have hRadAt : Integrable (onUnits radialU)
+      (R.sheets.sheet (S.absS (a : S.FS) * l)) := by
+    rw [hscale]
+    simpa [radialU] using hRadPair.1
+  have hRadTransport := a2_bridge_SHEET_transport
+    (G := R.sheets) l hl a radialU hRadAt
+  have hPoint (y : S.FSˣ) : fSign y = Lvalue R u a * radialU (a * y) := by
+    simpa [fSign, radialU] using rf_t5_signed_point R u a y haClass
+  have hOnUnits : onUnits fSign = fun y =>
+      Lvalue R u a * onUnits (fun y => radialU (a * y)) y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simpa [onUnits, hy] using hPoint hy.unit
+    · simp [onUnits, hy]
+  change (∫ y, onUnits fSign y ∂(R.sheets.sheet l)) = _
+  rw [hOnUnits]
+  calc
+    _ = Lvalue R u a * bridgeSheetIntegral R.sheets l
+        (fun y => radialU (a * y)) := by
+      rw [bridgeSheetIntegral, integral_const_mul]
+    _ = Lvalue R u a * bridgeSheetIntegral R.sheets x radialU := by
+      congr 1
+      simpa [hscale] using hRadTransport.2
+    _ = Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS x := by
+      have hTheta : bridgeSheetIntegral R.sheets x radialU =
+          Theta.thetaV S μ v0 R.T.U R.T.cS x := by
+        simpa [radialU] using hRadPair.2
+      rw [hTheta]
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_norm_unfold (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
+    (hl : 0 < l) (σ C : ℝ)
+    (hProfileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ)) :
+    let a := S.diagU (bc.gen I)
+    let g : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
+    let gA : S.FSˣ → ℂ := fun y => g (a * y)
+    (∀ γ : Gamma S, IntegrableOn (onUnits (fun y => gA (S.diagU (γ.1 : Fˣ) * y)))
+      (omegaAt R l) (R.sheets.sheet l)) ∧
+    Summable (fun γ : Gamma S => bridgeOmegaInt R.sheets l
+      (fun y => gA (S.diagU (γ.1 : Fˣ) * y))) ∧
+    (∑' γ : Gamma S, bridgeOmegaInt R.sheets l
+      (fun y => gA (S.diagU (γ.1 : Fˣ) * y))) =
+        bridgeSheetIntegral R.sheets (qI I.1 * l) g ∧
+    (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ≤
+      C * (qI I.1 * l) ^ (-σ) := by
+  dsimp only
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let a := S.diagU (bc.gen I)
+  let g : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
+  let gA : S.FSˣ → ℂ := fun y => g (a * y)
+  have hq : 0 < qI I.1 := by
+    have h := (a2_bridge_NORM D S).1 I
+    simpa [qI, idealNorm] using h.1
+  have hscale : S.absS (a : S.FS) = qI I.1 := by
+    simpa [a, qI, idealNorm] using a2_bridge_NORM_gen D S H Bd bc I
+  have hlA : 0 < qI I.1 * l := mul_pos hq hl
+  have hNormAt := rf_t5_norm_sheet_bound R u σ C hProfileBound (qI I.1 * l) hlA
+  have hBaseInt : Integrable (onUnits g) (R.sheets.sheet (S.absS (a : S.FS) * l)) := by
+    rw [hscale]
+    exact hNormAt.1
+  have hTransport := a2_bridge_SHEET_transport (G := R.sheets) l hl a g hBaseInt
+  have hUnfold := a2_bridge_SHEET_unfold (G := R.sheets) l hl gA hTransport.1
+  have hFirst : ∀ γ : Gamma S, IntegrableOn
+      (onUnits (fun y => gA (S.diagU (γ.1 : Fˣ) * y)))
+      (omegaAt R l) (R.sheets.sheet l) := by
+    intro γ
+    simpa only [omegaAt, bridgeOmegaAt] using hUnfold.1 γ
+  have hSum : Summable (fun γ : Gamma S => bridgeOmegaInt R.sheets l
+      (fun y => gA (S.diagU (γ.1 : Fˣ) * y))) := by
+    simpa only [gA] using hUnfold.2.1
+  have hSumEq : (∑' γ : Gamma S, bridgeOmegaInt R.sheets l
+      (fun y => gA (S.diagU (γ.1 : Fˣ) * y))) =
+        bridgeSheetIntegral R.sheets (qI I.1 * l) g := by
+    calc
+      _ = bridgeSheetIntegral R.sheets l gA := by
+        simpa only [gA] using hUnfold.2.2
+      _ = bridgeSheetIntegral R.sheets (S.absS (a : S.FS) * l) g := by
+        simpa only [gA] using hTransport.2
+      _ = bridgeSheetIntegral R.sheets (qI I.1 * l) g := by rw [hscale]
+  have hBound : (sheetIntegral R (qI I.1 * l)
+      (fun y => (‖unrotated R u y‖ : ℂ))).re ≤ C * (qI I.1 * l) ^ (-σ) := hNormAt.2
+  exact ⟨hFirst, hSum, hSumEq, hBound⟩
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_norm_first (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
+    (hl : 0 < l) (σ C : ℝ)
+    (hProfileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ)) :
+    let a := S.diagU (bc.gen I)
+    let f := fun γ : Gamma S => fun y : S.FSˣ =>
+      unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+    ∀ γ : Gamma S, IntegrableOn (onUnits (f γ)) (omegaAt R l) (R.sheets.sheet l) := by
+  dsimp only
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  intro (γ : Gamma S)
+  let a := S.diagU (bc.gen I)
+  let f := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+  let g : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
+  let gA : S.FSˣ → ℂ := fun y => g (a * y)
+  have hData := rf_forward_norm_unfold R u I l hl σ C hProfileBound
+  have hOrbit (γ : Gamma S) (y : S.FSˣ) :
+      gA (S.diagU (γ.1 : Fˣ) * y) = (‖f γ y‖ : ℂ) := by
+    dsimp [gA, g, f]
+    have hmul : a * (S.diagU (γ.1 : Fˣ) * y) = S.diagU (γ.1 : Fˣ) * a * y := by ac_rfl
+    exact congrArg (fun z : S.FSˣ => (‖unrotated R u z‖ : ℂ)) hmul
+  have hNormOrbitUnits (γ : Gamma S) :
+      onUnits (fun y => (‖f γ y‖ : ℂ)) =
+        onUnits (fun y => gA (S.diagU (γ.1 : Fˣ) * y)) := by
+    funext y
+    by_cases hy : IsUnit y
+    · simpa [onUnits, hy] using (hOrbit γ hy.unit).symm
+    · simp [onUnits, hy]
+  have hNormOrbitInt : IntegrableOn (onUnits (fun y => (‖f γ y‖ : ℂ)))
+      (omegaAt R l) (R.sheets.sheet l) := by
+    rw [hNormOrbitUnits γ]
+    exact hData.1 γ
+  have hMeasOrbit : Measurable (f γ) := by
+    dsimp [f]
+    exact (rf_t5_unrotated_measurable R u).comp
+      (rf_unit_mul_measurable (S.diagU (γ.1 : Fˣ) * a))
+  have hAEM : AEStronglyMeasurable (onUnits (f γ))
+      ((R.sheets.sheet l).restrict (omegaAt R l)) :=
+    (rf_onUnits_measurable (f γ) hMeasOrbit).aestronglyMeasurable
+  have hdom : ∀ᵐ y ∂((R.sheets.sheet l).restrict (omegaAt R l)),
+      ‖onUnits (f γ) y‖ ≤ ‖onUnits (fun y => (‖f γ y‖ : ℂ)) y‖ := by
+    filter_upwards with y
+    by_cases hy : IsUnit y
+    · simp [onUnits, hy, Complex.norm_real, abs_of_nonneg (norm_nonneg (f γ hy.unit))]
+    · simp [onUnits, hy]
+  have hInt := hNormOrbitInt.norm.mono' hAEM hdom
+  change Integrable (onUnits (f γ)) ((R.sheets.sheet l).restrict (omegaAt R l))
+  exact hInt
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_norm_sum (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
+    (hl : 0 < l) (σ C : ℝ)
+    (hProfileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ)) :
+    let a := S.diagU (bc.gen I)
+    let f := fun γ : Gamma S => fun y : S.FSˣ =>
+      unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+    Summable (fun γ : Gamma S => (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) ∧
+    (∑' γ : Gamma S, (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) =
+      (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ∧
+    (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ≤
+      C * (qI I.1 * l) ^ (-σ) := by
+  dsimp only
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let a := S.diagU (bc.gen I)
+  let f := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+  let g : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
+  let gA : S.FSˣ → ℂ := fun y => g (a * y)
+  have hData := rf_forward_norm_unfold R u I l hl σ C hProfileBound
+  have hOrbit (γ : Gamma S) (y : S.FSˣ) :
+      gA (S.diagU (γ.1 : Fˣ) * y) = (‖f γ y‖ : ℂ) := by
+    dsimp [gA, g, f]
+    have hmul : a * (S.diagU (γ.1 : Fˣ) * y) = S.diagU (γ.1 : Fˣ) * a * y := by ac_rfl
+    exact congrArg (fun z : S.FSˣ => (‖unrotated R u z‖ : ℂ)) hmul
+  have hNormOrbitUnits (γ : Gamma S) :
+      onUnits (fun y => (‖f γ y‖ : ℂ)) =
+        onUnits (fun y => gA (S.diagU (γ.1 : Fˣ) * y)) := by
+    funext y
+    by_cases hy : IsUnit y
+    · simpa [onUnits, hy] using (hOrbit γ hy.unit).symm
+    · simp [onUnits, hy]
+  have hTermEq (γ : Gamma S) :
+      omegaInt R l (fun y => (‖f γ y‖ : ℂ)) =
+        bridgeOmegaInt R.sheets l (fun y => gA (S.diagU (γ.1 : Fˣ) * y)) := by
+    simp only [omegaInt, bridgeOmegaInt, omegaAt, bridgeOmegaAt]
+    rw [hNormOrbitUnits γ]
+  let T : Gamma S → ℂ := fun γ =>
+    bridgeOmegaInt R.sheets l (fun y => gA (S.diagU (γ.1 : Fˣ) * y))
+  have hTSummable : Summable T := by simpa only [T, a, g, gA] using hData.2.1
+  have hTSumEq : (∑' γ, T γ) =
+      bridgeSheetIntegral R.sheets (qI I.1 * l) g := by
+    simpa only [T, a, g, gA] using hData.2.2.1
+  have hSummable : Summable (fun γ =>
+      (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) := by
+    have h := Complex.reCLM.summable hTSummable
+    exact h.congr fun γ => congrArg Complex.re (hTermEq γ).symm
+  have hSumEq :
+      (∑' γ, (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) =
+        (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re := by
+    have hMapRe : (∑' γ, T γ).re = ∑' γ, (T γ).re := Complex.re_tsum hTSummable
+    calc
+      _ = ∑' γ, (T γ).re := by
+        apply tsum_congr
+        intro γ
+        rw [hTermEq γ]
+      _ = (∑' γ, T γ).re := hMapRe.symm
+      _ = (bridgeSheetIntegral R.sheets (qI I.1 * l) g).re := congrArg Complex.re hTSumEq
+      _ = (sheetIntegral R (qI I.1 * l)
+          (fun y => (‖unrotated R u y‖ : ℂ))).re := by rfl
+  exact ⟨hSummable, hSumEq, hData.2.2.2⟩
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_norm_orbit (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
+    (hl : 0 < l) (σ C : ℝ)
+    (hProfileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ)) :
+    let a := S.diagU (bc.gen I)
+    let f := fun γ : Gamma S => fun y : S.FSˣ =>
+      unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+    (∀ γ, IntegrableOn (onUnits (f γ)) (omegaAt R l) (R.sheets.sheet l)) ∧
+    Summable (fun γ => (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) ∧
+    (∑' γ, (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) =
+      (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ∧
+    (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ≤
+      C * (qI I.1 * l) ^ (-σ) := by
+  dsimp only
+  have hFirst := rf_forward_norm_first R u I l hl σ C hProfileBound
+  have hRest := rf_forward_norm_sum R u I l hl σ C hProfileBound
+  exact ⟨hFirst, hRest.1, hRest.2.1, hRest.2.2⟩
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_signed_setup (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
+    (hl : 0 < l) (σ C : ℝ)
+    (hProfileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ)) :
+    let a := S.diagU (bc.gen I)
+    let f := fun γ : Gamma S => fun y : S.FSˣ =>
+      unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+    let wA : S.FSˣ → ℂ := fun y => unrotated R u (a * y)
+    let fSign : S.FSˣ → ℂ := fun y =>
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * wA y
+    Integrable (onUnits fSign) (R.sheets.sheet l) ∧
+    ∀ (γ : Gamma S) (y : S.FSˣ), fSign (S.diagU (γ.1 : Fˣ) * y) =
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y := by
+  dsimp only
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let a := S.diagU (bc.gen I)
+  let f := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+  have hq : 0 < qI I.1 := by
+    have h := (a2_bridge_NORM D S).1 I
+    simpa [qI, idealNorm] using h.1
+  have hscale : S.absS (a : S.FS) = qI I.1 := by
+    simpa [a, qI, idealNorm] using a2_bridge_NORM_gen D S H Bd bc I
+  have hlA : 0 < qI I.1 * l := mul_pos hq hl
+  have hWBaseInt := rf_t5_unrotated_integrable R u σ C hProfileBound (qI I.1 * l) hlA
+  have hWBaseAt : Integrable (onUnits (fun y => unrotated R u y))
+      (R.sheets.sheet (S.absS (a : S.FS) * l)) := by
+    rw [hscale]
+    exact hWBaseInt
+  have hWTransport := a2_bridge_SHEET_transport (G := R.sheets) l hl a
+    (fun y => unrotated R u y) hWBaseAt
+  let wA : S.FSˣ → ℂ := fun y => unrotated R u (a * y)
+  let fSign : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * wA y
+  have hBcutMeas : Measurable (bCut (Bd := Bd)) := rf_bCut_measurable R
+  have hLinvMeas : Measurable (fun y : S.FSˣ => (Lvalue R u y)⁻¹) := by
+    have hcont : Continuous (fun y : S.FSˣ => Lvalue R u y) := by
+      simpa [Lvalue] using (R.chars.L u).cont
+    exact measurable_inv.comp hcont.measurable
+  have hwAMeas : Measurable wA := by
+    dsimp [wA]
+    exact (rf_t5_unrotated_measurable R u).comp (rf_unit_mul_measurable a)
+  have hfSignMeas : Measurable fSign := by
+    dsimp [fSign]
+    exact (hBcutMeas.mul hLinvMeas).mul hwAMeas
+  have hSignInt : Integrable (onUnits fSign) (R.sheets.sheet l) := by
+    have hAES : AEStronglyMeasurable (onUnits fSign) (R.sheets.sheet l) :=
+      (rf_onUnits_measurable fSign hfSignMeas).aestronglyMeasurable
+    have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+      unfold bCut
+      split_ifs <;> simp
+    have hLinvNorm (y : S.FSˣ) : ‖(Lvalue R u y)⁻¹‖ = 1 := by
+      rw [norm_inv]
+      have hLnorm : ‖Lvalue R u y‖ = 1 := by
+        simpa [Lvalue] using (R.chars.L u).unitary y
+      rw [hLnorm]
+      norm_num
+    have hdom : ∀ᵐ y ∂(R.sheets.sheet l), ‖onUnits fSign y‖ ≤ ‖onUnits wA y‖ := by
+      filter_upwards with y
+      by_cases hy : IsUnit y
+      · let yu : S.FSˣ := hy.unit
+        have hleft : onUnits fSign y = fSign yu := by simp [onUnits, fSign, hy, yu]
+        have hright : onUnits wA y = wA yu := by simp [onUnits, wA, hy, yu]
+        rw [hleft, hright]
+        simp only [fSign, norm_mul]
+        rw [hLinvNorm]
+        calc
+          _ = ‖bCut (Bd := Bd) yu‖ * ‖wA yu‖ := by ring
+          _ ≤ 1 * ‖wA yu‖ := mul_le_mul_of_nonneg_right (hBnorm yu) (norm_nonneg _)
+          _ = _ := by simp
+      · simp [onUnits, fSign, wA, hy]
+    exact hWTransport.1.norm.mono' hAES hdom
+  have hdes := rf_descent R
+  have hOrbit (γ : Gamma S) (y : S.FSˣ) :
+      fSign (S.diagU (γ.1 : Fˣ) * y) =
+        bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y := by
+    have hb := hdes.2.2.1 γ y
+    have hLg := hdes.2.2.2 u γ
+    have hLmul : Lvalue R u (S.diagU (γ.1 : Fˣ) * y) =
+        Lvalue R u (S.diagU (γ.1 : Fˣ)) * Lvalue R u y := by
+      simp [Lvalue, map_mul]
+    have hmul : a * (S.diagU (γ.1 : Fˣ) * y) =
+        S.diagU (γ.1 : Fˣ) * a * y := by ac_rfl
+    dsimp [fSign, wA, f]
+    rw [hb, hLmul, hLg]
+    simp [hmul]
+  exact ⟨hSignInt, hOrbit⟩
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_signed_integral (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
+    (hl : 0 < l) (σ C : ℝ)
+    (hProfileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ)) :
+    let a := S.diagU (bc.gen I)
+    let f := fun γ : Gamma S => fun y : S.FSˣ =>
+      unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+    let fSign : S.FSˣ → ℂ := fun y =>
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * unrotated R u (a * y)
+    Summable (fun γ : Gamma S => omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) ∧
+    (∑' γ : Gamma S, omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
+        bridgeSheetIntegral R.sheets l fSign := by
+  dsimp only
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let a := S.diagU (bc.gen I)
+  let f := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+  let wA : S.FSˣ → ℂ := fun y => unrotated R u (a * y)
+  let fSign : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y *
+    (Lvalue R u y)⁻¹ * wA y
+  have hsetup := rf_forward_signed_setup R u I l hl σ C hProfileBound
+  have hSignInt : Integrable (onUnits fSign) (R.sheets.sheet l) := by
+    simpa [fSign, wA] using hsetup.1
+  have hSignOrbit (γ : Gamma S) (y : S.FSˣ) :
+      fSign (S.diagU (γ.1 : Fˣ) * y) =
+        bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y := by
+    simpa [fSign, wA] using hsetup.2 γ y
+  have hSignOrbitUnits (γ : Gamma S) :
+      onUnits (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y) =
+        onUnits (fun y => fSign (S.diagU (γ.1 : Fˣ) * y)) := by
+    funext y
+    by_cases hy : IsUnit y
+    · simpa [onUnits, hy] using (hSignOrbit γ hy.unit).symm
+    · simp [onUnits, hy]
+  have hSignUnfold := a2_bridge_SHEET_unfold (G := R.sheets) l hl fSign hSignInt
+  have hSignTermEq (γ : Gamma S) :
+      omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y) =
+        bridgeOmegaInt R.sheets l (fun y => fSign (S.diagU (γ.1 : Fˣ) * y)) := by
+    simp only [omegaInt, bridgeOmegaInt, omegaAt, bridgeOmegaAt]
+    rw [hSignOrbitUnits γ]
+  have hSignedSummable : Summable (fun γ : Gamma S =>
+      omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) :=
+    hSignUnfold.2.1.congr fun γ => (hSignTermEq γ).symm
+  have hSignedEq :
+      (∑' γ : Gamma S, omegaInt R l
+        (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
+          bridgeSheetIntegral R.sheets l fSign := by
+    exact (tsum_congr hSignTermEq).trans hSignUnfold.2.2
+  exact ⟨hSignedSummable, hSignedEq⟩
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_signed_orbit (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
+    (hl : 0 < l) (σ C : ℝ)
+    (hProfileBound : ∀ x : ℝ, 0 < x →
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 1
+        (rf_t5_ff R) (rf_t5_fc R) 0 x ≤ C * x ^ (-σ)) :
+    let a := S.diagU (bc.gen I)
+    let f := fun γ : Gamma S => fun y : S.FSˣ =>
+      unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+    Summable (fun γ => omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) ∧
+    (∑' γ, omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
+        Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) := by
+  dsimp only
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let a := S.diagU (bc.gen I)
+  let f := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+  let fSign : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * unrotated R u (a * y)
+  have hIntegral := rf_forward_signed_integral R u I l hl σ C hProfileBound
+  have hq : 0 < qI I.1 := by
+    have h := (a2_bridge_NORM D S).1 I
+    simpa [qI, idealNorm] using h.1
+  have hscale : S.absS (a : S.FS) = qI I.1 := by
+    simpa [a, qI, idealNorm] using a2_bridge_NORM_gen D S H Bd bc I
+  have hlA : 0 < qI I.1 * l := mul_pos hq hl
+  have hscaleL : S.absS (a : S.FS) * l = qI I.1 * l := by rw [hscale]
+  have haClass : cls a ∈ Bd.B := by
+    change Bd.Allowed (bc.gen I)
+    exact (bc.gen_spec I).2
+  have hSignedSheet := rf_t5_signed_sheet_eq R u a l (qI I.1 * l) hl hlA
+    σ C hProfileBound hscaleL haClass
+  have hSignedEq :
+      (∑' γ, omegaInt R l
+        (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
+          Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) := by
+    calc
+      _ = bridgeSheetIntegral R.sheets l fSign := by
+        simpa [fSign] using hIntegral.2
+      _ = Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) := by
+        simpa [fSign] using hSignedSheet
+  exact ⟨hIntegral.1, hSignedEq⟩
+
+set_option maxHeartbeats 1000000 in
 /-- rf:forward-unfolding, 04:272–301. Integrability accompanies equalities to avoid total-integral traps. -/
 theorem rf_forward_unfolding :
   ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ u (I : S.ExtIdeal) l, 0 < l →
@@ -2557,7 +4281,14 @@ theorem rf_forward_unfolding :
     Summable (fun γ => omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) ∧
     (∑' γ, omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
       Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) := by
-  sorry
+  intro σ hσ
+  obtain ⟨C, hC, hProfileBound⟩ := rf_t5_envelope_profile_bound R σ hσ
+  refine ⟨C, hC, ?_⟩
+  intro u I l hl
+  have hNorm := rf_forward_norm_orbit R u I l hl σ C hProfileBound
+  have hSigned := rf_forward_signed_orbit R u I l hl σ C hProfileBound
+  exact ⟨hNorm.1, hNorm.2.1, hNorm.2.2.1, hNorm.2.2.2, hSigned.1, hSigned.2⟩
+
 def cgen (c : S.SqfExtIdeal) : F := (bc.gen (R.exterior.ofSqf c) : F)
 
 /-- The setup already records balanced generators, so the `cgen` witness required by the
@@ -7841,10 +9572,252 @@ variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
 def rowElementInjectiveStatement : Prop :=
   Function.Injective (fun r : ReflectionRow S => (r.m : F))
 
+private theorem a2Setup_same_generator_ideal
+    (S : SData F CE condη) (x : F) (I J : Ideal (𝓞 F))
+    (hI : S.IsGen x I) (hJ : S.IsGen x J) : I = J := by
+  classical
+  have hI0 : I ≠ 0 := by simpa [Ideal.zero_eq_bot] using hI.1.1
+  have hJ0 : J ≠ 0 := by simpa [Ideal.zero_eq_bot] using hJ.1.1
+  have hcounts : ∀ v : FinPlace F,
+      FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+        FractionalIdeal.count F v (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    intro v
+    by_cases hv : v ∈ S.Sf
+    · have hnotI : ¬ v.asIdeal ∣ I := by
+        intro hdiv
+        exact hI.1.2 v hv (Ideal.dvd_iff_le.mp hdiv)
+      have hnotJ : ¬ v.asIdeal ∣ J := by
+        intro hdiv
+        exact hJ.1.2 v hv (Ideal.dvd_iff_le.mp hdiv)
+      have hcountI : (Associates.mk v.asIdeal).count (Associates.mk I).factors = 0 := by
+        by_contra hn
+        exact hnotI ((Associates.count_ne_zero_iff_dvd hI0 v.irreducible).mp hn)
+      have hcountJ : (Associates.mk v.asIdeal).count (Associates.mk J).factors = 0 := by
+        by_contra hn
+        exact hnotJ ((Associates.count_ne_zero_iff_dvd hJ0 v.irreducible).mp hn)
+      rw [FractionalIdeal.count_coe F v hI0, FractionalIdeal.count_coe F v hJ0,
+        hcountI, hcountJ]
+    · exact (hI.2.2 v hv).symm.trans (hJ.2.2 v hv)
+  let gI : ClassFieldTheory.NumberFieldFractionalIdealGroup F :=
+    Units.mk0 (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (FractionalIdeal.coeIdeal_ne_zero.mpr hI0)
+  let gJ : ClassFieldTheory.NumberFieldFractionalIdealGroup F :=
+    Units.mk0 (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (FractionalIdeal.coeIdeal_ne_zero.mpr hJ0)
+  have hg : gI = gJ := by
+    apply ClassFieldTheory.NumberFieldFractionalIdealGroup.ext_count
+    intro v
+    change FractionalIdeal.count F v
+        (gI : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      FractionalIdeal.count F v (gJ : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    simpa [gI, gJ] using hcounts v
+  have hfrac : (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    have hval := congrArg
+      (fun g : ClassFieldTheory.NumberFieldFractionalIdealGroup F =>
+        (g : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)) hg
+    simpa [gI, gJ] using hval
+  exact FractionalIdeal.coeIdeal_injective hfrac
+
+private theorem a2Setup_emultiplicity_eq_factorization (p I : Ideal (𝓞 F))
+    (hp : Prime p) (hI : I ≠ 0) :
+    emultiplicity p I = (factorization I p : ℕ∞) := by
+  rw [UniqueFactorizationMonoid.emultiplicity_eq_count_normalizedFactors hp.irreducible hI]
+  simp [factorization, normalize_eq]
+
+private theorem a2Setup_powerful_split_unique
+    (I h d h' d' : Ideal (𝓞 F))
+    (hI : I = h * d) (hI' : I = h' * d')
+    (hh : h ≠ ⊥) (hd : d ≠ ⊥) (hh' : h' ≠ ⊥) (hd' : d' ≠ ⊥)
+    (hpower : IsPowerful h) (hpower' : IsPowerful h')
+    (hsq : Squarefree d) (hsq' : Squarefree d')
+    (hcop : IsCoprime h d) (hcop' : IsCoprime h' d') : h = h' ∧ d = d' := by
+  have hh0 : h ≠ 0 := by simpa [Ideal.zero_eq_bot] using hh
+  have hd0 : d ≠ 0 := by simpa [Ideal.zero_eq_bot] using hd
+  have hh'0 : h' ≠ 0 := by simpa [Ideal.zero_eq_bot] using hh'
+  have hd'0 : d' ≠ 0 := by simpa [Ideal.zero_eq_bot] using hd'
+  have hfac : factorization I = factorization h + factorization d := by
+    rw [hI]
+    exact factorization_mul hh0 hd0
+  have hfac' : factorization I = factorization h' + factorization d' := by
+    rw [hI']
+    exact factorization_mul hh'0 hd'0
+  have hcountEq : ∀ p : Ideal (𝓞 F), factorization h p = factorization h' p := by
+    intro p
+    by_cases hp : Prime p
+    · let eI := factorization I p
+      let eh := factorization h p
+      let ed := factorization d p
+      let eh' := factorization h' p
+      let ed' := factorization d' p
+      have hsum : eI = eh + ed := congrArg (fun f : Ideal (𝓞 F) →₀ ℕ => f p) hfac
+      have hsum' : eI = eh' + ed' := congrArg (fun f : Ideal (𝓞 F) →₀ ℕ => f p) hfac'
+      have hdBound : ed ≤ 1 := by
+        have hsqE := (squarefree_iff_emultiplicity_le_one d).mp hsq p
+        have hle : emultiplicity p d ≤ 1 := hsqE.resolve_right hp.not_isUnit
+        rw [a2Setup_emultiplicity_eq_factorization p d hp hd0] at hle
+        exact_mod_cast hle
+      have hd'Bound : ed' ≤ 1 := by
+        have hsqE := (squarefree_iff_emultiplicity_le_one d').mp hsq' p
+        have hle : emultiplicity p d' ≤ 1 := hsqE.resolve_right hp.not_isUnit
+        rw [a2Setup_emultiplicity_eq_factorization p d' hp hd'0] at hle
+        exact_mod_cast hle
+      have hpowBound : 0 < eh → 2 ≤ eh := by
+        intro heh
+        have hem : 0 < emultiplicity p h := by
+          rw [a2Setup_emultiplicity_eq_factorization p h hp hh0]
+          exact_mod_cast heh
+        have hdiv : p ∣ h := (dvd_iff_emultiplicity_pos).mp hem
+        let v : FinPlace F := HeightOneSpectrum.ofPrime hp
+        have hp2 : p ^ 2 ∣ h := by simpa [v] using hpower v hdiv
+        have hle : (2 : ℕ∞) ≤ emultiplicity p h :=
+          (pow_dvd_iff_le_emultiplicity).mp hp2
+        rw [a2Setup_emultiplicity_eq_factorization p h hp hh0] at hle
+        exact_mod_cast hle
+      have hpowBound' : 0 < eh' → 2 ≤ eh' := by
+        intro heh
+        have hem : 0 < emultiplicity p h' := by
+          rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0]
+          exact_mod_cast heh
+        have hdiv : p ∣ h' := (dvd_iff_emultiplicity_pos).mp hem
+        let v : FinPlace F := HeightOneSpectrum.ofPrime hp
+        have hp2 : p ^ 2 ∣ h' := by simpa [v] using hpower' v hdiv
+        have hle : (2 : ℕ∞) ≤ emultiplicity p h' :=
+          (pow_dvd_iff_le_emultiplicity).mp hp2
+        rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0] at hle
+        exact_mod_cast hle
+      have hcopCounts : ¬ (0 < eh ∧ 0 < ed) := by
+        rintro ⟨heh, hed⟩
+        have hemH : 0 < emultiplicity p h := by
+          rw [a2Setup_emultiplicity_eq_factorization p h hp hh0]
+          exact_mod_cast heh
+        have hemD : 0 < emultiplicity p d := by
+          rw [a2Setup_emultiplicity_eq_factorization p d hp hd0]
+          exact_mod_cast hed
+        have hdivH : p ∣ h := (dvd_iff_emultiplicity_pos).mp hemH
+        have hdivD : p ∣ d := (dvd_iff_emultiplicity_pos).mp hemD
+        have hpne : p ≠ ⊤ := by
+          intro htop
+          apply hp.not_isUnit
+          rw [htop]
+          simpa [Ideal.one_eq_top] using (isUnit_one : IsUnit (1 : Ideal (𝓞 F)))
+        have htop : (⊤ : Ideal (𝓞 F)) ≤ p := by
+          rw [← hcop.sup_eq]
+          exact sup_le (Ideal.dvd_iff_le.mp hdivH) (Ideal.dvd_iff_le.mp hdivD)
+        exact hpne (top_unique htop)
+      have hcopCounts' : ¬ (0 < eh' ∧ 0 < ed') := by
+        rintro ⟨heh, hed⟩
+        have hemH : 0 < emultiplicity p h' := by
+          rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0]
+          exact_mod_cast heh
+        have hemD : 0 < emultiplicity p d' := by
+          rw [a2Setup_emultiplicity_eq_factorization p d' hp hd'0]
+          exact_mod_cast hed
+        have hdivH : p ∣ h' := (dvd_iff_emultiplicity_pos).mp hemH
+        have hdivD : p ∣ d' := (dvd_iff_emultiplicity_pos).mp hemD
+        have hpne : p ≠ ⊤ := by
+          intro htop
+          apply hp.not_isUnit
+          rw [htop]
+          simpa [Ideal.one_eq_top] using (isUnit_one : IsUnit (1 : Ideal (𝓞 F)))
+        have htop : (⊤ : Ideal (𝓞 F)) ≤ p := by
+          rw [← hcop'.sup_eq]
+          exact sup_le (Ideal.dvd_iff_le.mp hdivH) (Ideal.dvd_iff_le.mp hdivD)
+        exact hpne (top_unique htop)
+      have hcanonical : eh = if 2 ≤ eI then eI else 0 := by
+        by_cases heI : 2 ≤ eI
+        · have heh : 0 < eh := by
+            by_contra hnot
+            have heh0 : eh = 0 := Nat.eq_zero_of_not_pos hnot
+            have heq : eI = ed := by rw [hsum, heh0]; omega
+            have : eI ≤ 1 := by rw [heq]; exact hdBound
+            omega
+          have hed0 : ed = 0 := by
+            by_contra hne
+            exact hcopCounts ⟨heh, Nat.pos_of_ne_zero hne⟩
+          have heq : eI = eh := by rw [hsum, hed0]; omega
+          rw [if_pos heI]
+          exact heq.symm
+        · have heh0 : eh = 0 := by
+            by_contra hne
+            have hehpos := Nat.pos_of_ne_zero hne
+            have : 2 ≤ eI := by rw [hsum]; omega
+            exact heI this
+          rw [if_neg heI]
+          exact heh0
+      have hcanonical' : eh' = if 2 ≤ eI then eI else 0 := by
+        by_cases heI : 2 ≤ eI
+        · have heh : 0 < eh' := by
+            by_contra hnot
+            have heh0 : eh' = 0 := Nat.eq_zero_of_not_pos hnot
+            have heq : eI = ed' := by rw [hsum', heh0]; omega
+            have : eI ≤ 1 := by rw [heq]; exact hd'Bound
+            omega
+          have hed0 : ed' = 0 := by
+            by_contra hne
+            exact hcopCounts' ⟨heh, Nat.pos_of_ne_zero hne⟩
+          have heq : eI = eh' := by rw [hsum', hed0]; omega
+          rw [if_pos heI]
+          exact heq.symm
+        · have heh0 : eh' = 0 := by
+            by_contra hne
+            have hehpos := Nat.pos_of_ne_zero hne
+            have : 2 ≤ eI := by rw [hsum']; omega
+            exact heI this
+          rw [if_neg heI]
+          exact heh0
+      change eh = eh'
+      exact hcanonical.trans hcanonical'.symm
+    · have hnotNorm (J : Ideal (𝓞 F)) :
+          p ∉ UniqueFactorizationMonoid.normalizedFactors J := by
+        intro hpJ
+        exact hp (UniqueFactorizationMonoid.prime_of_normalized_factor p hpJ)
+      have hzero (J : Ideal (𝓞 F)) : factorization J p = 0 := by
+        apply Finsupp.notMem_support_iff.mp
+        intro hsupp
+        have hpfin : p ∈ (UniqueFactorizationMonoid.normalizedFactors J).toFinset := by
+          simpa [support_factorization] using hsupp
+        exact hnotNorm J (Multiset.mem_toFinset.mp hpfin)
+      rw [hzero h, hzero h']
+  have hfacEq : factorization h = factorization h' := by
+    ext p
+    exact hcountEq p
+  have hassoc : Associated h h' :=
+    associated_of_factorization_eq h h' hh0 hh'0 hfacEq
+  have hhEq : h = h' := associated_iff_eq.mp hassoc
+  constructor
+  · exact hhEq
+  · have hmul : h * d = h * d' := by
+      calc
+        h * d = I := hI.symm
+        _ = h' * d' := hI'
+        _ = h * d' := by rw [hhEq]
+    exact (mul_left_cancel₀ hh0) hmul
+
 /-- Row-factorization obligation for the finite/`tsum` bridge to `prop:reflection`
 (04:1198–1228). -/
 theorem reflection_row_element_injective : rowElementInjectiveStatement (S := S) := by
-  sorry
+  intro r s hrs
+  cases r with
+  | mk rm rI rh rd rgen rfac rhp rds rc =>
+    cases s with
+    | mk sm sI sh sd sgen sfac shp sds sc =>
+      have hm : rm = sm := Subtype.ext hrs
+      have hideal : rI.1 = sI.1 :=
+        a2Setup_same_generator_ideal S (rm : F) rI.1 sI.1 rgen
+          (by simpa [hm] using sgen)
+      have hsplit := a2Setup_powerful_split_unique rI.1 rh.1 rd.1 sh.1 sd.1
+        rfac (hideal.trans sfac)
+        rh.2.1 rd.2.1 sh.2.1 sd.2.1
+        rhp shp rds sds rc sc
+      have hI : rI = sI := Subtype.ext hideal
+      have hh : rh = sh := Subtype.ext hsplit.1
+      have hd : rd = sd := Subtype.ext hsplit.2
+      subst sm
+      subst sI
+      subst sh
+      subst sd
+      rfl
 
 /-- A uniform finite-set bound gives summability and the same bound for the subtype `tsum`.
 This is the proved finite/`tsum` adapter for `prop:reflection` (04:1027–1228). -/
