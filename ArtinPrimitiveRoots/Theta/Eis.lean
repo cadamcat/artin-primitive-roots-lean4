@@ -245,7 +245,16 @@ theorem whit_good_factor (P : CoverPackage D S H A) (G : GlobalDatum P)
     (hk : P.compF v x ∈ (P.tame v (fun h => hv (Fs.sub h))).Kmax) :
     G.lam v ((G.T v).σa (toLoc v δ)
       (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) = 1 := by
-  sorry
+  have hvS : v ∉ S.Sf := fun h => hv (Fs.sub h)
+  have hmem : toLoc v δ ∈ G.Alag v :=
+    (G.alag_tame v hvS (toLoc v δ)).2 ⟨0, toLoc v δ, hu, by simp⟩
+  have hfixed : ∀ z, G.lam v ((G.T v).σa (toLoc v δ) z) = G.lam v z := by
+    intro z
+    rw [G.lam_equiv v (toLoc v δ) hmem z, G.ω_tame v hvS (toLoc v δ) hmem, one_mul]
+  exact whit_good_local_factor (P.loc v) (P.tame v hvS) (G.T v) (G.B v hvS) A (μ v)
+    (fun h => hvS (S.over6 v h)) (fun h => hvS (S.different_mem v h)) s (Fs.f v)
+    (Fs.f_sec v) (Fs.f_sph v hv).1 (Fs.f_sph v hv).2 (G.lam v) (G.lam_tame v hvS)
+    (toLoc v δ) hfixed (P.compF v x) hk
 
 /-- A fixed lift and rational torus element have only finitely many nonidentity factors. -/
 theorem whit_finite_mulSupport (P : CoverPackage D S H A) (G : GlobalDatum P)
