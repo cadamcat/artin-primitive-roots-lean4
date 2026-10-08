@@ -156,6 +156,119 @@ theorem pending_of_entering_logged {K : ℕ} (F : PDFix K) (S : PDScale) (γ : E
     rw [if_neg (not_lt.mpr hle)]
     trivial
 
+/-- Target fill of group `i` with label `q`: promote its memory particle if there is one,
+otherwise a fresh birth. -/
+def guidedFill {K : ℕ} (F : PDFix K) (S : PDScale) (τ : LogPoint S.x K) (i : Fin K)
+    (q : primeBand S.x (F.a i)) : Fin (τ.1.2.2 i).length ⊕ primeBand S.x (F.a i) :=
+  if h : ∃ r : Fin (τ.1.2.2 i).length, ((τ.1.2.2 i).get r).1 = q.1 then
+    Sum.inl (Classical.choose h) else Sum.inr q
+
+/-- The edge choice forced by `H` and the target labels `q`. -/
+def guidedEdgeChoice {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x)) (τ : LogPoint S.x K)
+    (π : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+    (q : (i : Fin K) → primeBand S.x (F.a i)) :
+    (i : Fin K) → EdgeChoice S.x F.a (τ.1.2.2 i) i :=
+  fun i => (decide (lifePendingIn F S γ H i (permuteLists π τ.1.2.1 i (lastSlot S.x))
+      false j.succ), guidedFill F S τ i (q i))
+
+theorem guidedFill_inl {K : ℕ} (F : PDFix K) (S : PDScale) (τ : LogPoint S.x K) (i : Fin K)
+    (q : primeBand S.x (F.a i)) (k : Fin (τ.1.2.2 i).length)
+    (h : guidedFill F S τ i q = Sum.inl k) : ((τ.1.2.2 i).get k).1 = q.1 := by
+  unfold guidedFill at h
+  split_ifs at h with hex
+  · cases h
+    exact Classical.choose_spec hex
+
+theorem guidedFill_inr {K : ℕ} (F : PDFix K) (S : PDScale) (τ : LogPoint S.x K) (i : Fin K)
+    (q q' : primeBand S.x (F.a i))
+    (h : guidedFill F S τ i q = Sum.inr q') :
+    q' = q ∧ ¬ ∃ r : Fin (τ.1.2.2 i).length, ((τ.1.2.2 i).get r).1 = q.1 := by
+  unfold guidedFill at h
+  split_ifs at h with hex
+  cases h
+  exact ⟨rfl, hex⟩
+
+theorem guidedFill_label {K : ℕ} (F : PDFix K) (S : PDScale) (τ : LogPoint S.x K) (i : Fin K)
+    (q : primeBand S.x (F.a i)) (b : Bool) :
+    edgeNewLabel (x := S.x) (a := F.a) (l := τ.1.2.2 i) (i := i) (b, guidedFill F S τ i q) =
+      q.1 := by
+  unfold edgeNewLabel
+  cases hf : guidedFill F S τ i q with
+  | inl k => exact guidedFill_inl F S τ i q k hf
+  | inr q' => rw [(guidedFill_inr F S τ i q q' hf).1]
+
+theorem index_inj_of_nodup (l : List Particle) (hnd : (l.map Prod.fst).Nodup)
+    (r r' : Fin l.length) (h : (l.get r).1 = (l.get r').1) : r = r' := by
+  have h' : (l.map Prod.fst).get ⟨r.val, by simp⟩ = (l.map Prod.fst).get ⟨r'.val, by simp⟩ := by
+    simpa using h
+  exact Fin.ext (by simpa using (hnd.get_inj_iff).mp h')
+
+theorem slot_eq_last {x : ℝ} (jj : Fin (slotCount x)) (h : ¬ jj.val < momentJ x) :
+    jj = lastSlot x := by
+  apply Fin.ext
+  have := jj.isLt
+  simp only [slotCount] at this
+  simp only [lastSlot]
+  omega
+
+/-- Activity at both ends of an edge in terms of the permuted source and target lists. -/
+theorem active_iff_permute {K : ℕ} (S : PDScale) (γ : EnvPath S.x K)
+    (π : Fin K → Equiv.Perm (Fin (slotCount S.x))) (j : Fin (pathLength S.x + 1)) (p : ℕ) :
+    IsActiveAt γ p j ↔ ∃ i jj, permuteLists π (γ j).2 i jj = p := by
+  constructor
+  · rintro ⟨i, jj, h⟩
+    exact ⟨i, (π i).symm jj, by simpa [permuteLists] using h⟩
+  · rintro ⟨i, jj, h⟩
+    exact ⟨i, π i jj, h⟩
+
+/-- The slot facts of a guided edge with source lists `P` and target lists `Q`. -/
+theorem edge_slot_facts {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (P Q : PrimeLists S.x K) (hP : ValidPrimeLists S.x K F.a P)
+    (hQ : ValidPrimeLists S.x K F.a Q) (hST : IsSlotTransition P Q)
+    (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+    ((∃ i' jj, Q i' jj = p) ∧ ¬ (∃ i' jj, P i' jj = p) → p = Q i (lastSlot S.x)) ∧
+      ((∃ i' jj, P i' jj = p) ∧ ¬ (∃ i' jj, Q i' jj = p) → p = P i (lastSlot S.x)) ∧
+      (¬ ∃ i' jj, P i' jj = Q i (lastSlot S.x)) ∧
+      (¬ ∃ i' jj, Q i' jj = P i (lastSlot S.x)) := by
+  have hgroupP : ∀ i' jj, P i' jj = p → i' = i := by
+    intro i' jj h
+    by_contra hne
+    exact Finset.disjoint_left.mp (hBands i' i hne) (h ▸ (hP.1 i' jj).2) hp
+  have hgroupQ : ∀ i' jj, Q i' jj = p → i' = i := by
+    intro i' jj h
+    by_contra hne
+    exact Finset.disjoint_left.mp (hBands i' i hne) (h ▸ (hQ.1 i' jj).2) hp
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · rintro ⟨⟨i', jj, h⟩, hn⟩
+    have hi := hgroupQ i' jj h
+    subst hi
+    by_cases hjj : jj.val < momentJ S.x
+    · exact absurd ⟨i', jj, (hST.1 i' jj hjj).symm.trans h⟩ hn
+    · rw [← slot_eq_last jj hjj]; exact h.symm
+  · rintro ⟨⟨i', jj, h⟩, hn⟩
+    have hi := hgroupP i' jj h
+    subst hi
+    by_cases hjj : jj.val < momentJ S.x
+    · exact absurd ⟨i', jj, (hST.1 i' jj hjj).trans h⟩ hn
+    · rw [← slot_eq_last jj hjj]; exact h.symm
+  · rintro ⟨i', jj, h⟩
+    exact hST.2 i i' jj h.symm
+  · rintro ⟨i', jj, h⟩
+    by_cases hjj : jj.val < momentJ S.x
+    · rw [hST.1 i' jj hjj] at h
+      have hP' : P i (lastSlot S.x) ∈ primeBand S.x (F.a i') := h ▸ (hP.1 i' jj).2
+      by_cases hii : i' = i
+      · subst hii
+        have hne : jj ≠ lastSlot S.x := by
+          intro he; rw [he] at hjj; simp [lastSlot] at hjj
+        exact hP.2 i' jj (lastSlot S.x) hne h
+      · exact Finset.disjoint_left.mp (hBands i i' (Ne.symm hii)) (hP.1 i _).2 hP'
+    · rw [slot_eq_last jj hjj] at h
+      exact hST.2 i' i (lastSlot S.x) h
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
