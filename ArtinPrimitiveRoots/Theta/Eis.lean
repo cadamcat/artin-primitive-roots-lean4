@@ -2399,6 +2399,41 @@ theorem scalarOf_finitePeriod_arch_integral
       (fun x : InfinitePlace F → ℂ => ‖scalarOf P G Fs.f Fs.fC
         (P.tc.rat (γ * upperGL ξ) * nInf P x * g)‖) (-infEmbA ξ)).symm
 
+/-- The fractional-ideal norm is the finite product of residue-field norms to valuation counts. -/
+theorem fractionalIdeal_absNorm_finprod
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0) :
+    (FractionalIdeal.absNorm 𝔞 : ℝ) =
+      ∏ᶠ v : FinPlace F, (qv v) ^ (FractionalIdeal.count F v 𝔞) := by
+  classical
+  let FI := FractionalIdeal (nonZeroDivisors (𝓞 F)) F
+  let d (v : FinPlace F) : ℤ := FractionalIdeal.count F v 𝔞
+  let fac (v : FinPlace F) : FI := (v.asIdeal : FI) ^ d v
+  let normH : FI →*₀ ℝ :=
+    (Rat.castHom ℝ).toMonoidWithZeroHom.comp FractionalIdeal.absNorm
+  have hd : (Function.support d).Finite :=
+    Filter.eventually_cofinite.mp (FractionalIdeal.finite_factors 𝔞)
+  have hfinite : Function.HasFiniteMulSupport fac := by
+    apply hd.subset
+    intro v hv
+    change d v ≠ 0
+    intro hz
+    exact hv (by simp only [fac, hz, zpow_zero])
+  have hfac : (∏ᶠ v : FinPlace F, fac v) = 𝔞 :=
+    FractionalIdeal.finprod_heightOneSpectrum_factorization' F h𝔞
+  calc
+    _ = normH (∏ᶠ v : FinPlace F, fac v) := by rw [hfac]; rfl
+    _ = ∏ᶠ v : FinPlace F, normH (fac v) := normH.toMonoidHom.map_finprod hfinite
+    _ = _ := by
+      apply finprod_congr
+      intro v
+      change normH ((v.asIdeal : FI) ^ d v) = (qv v) ^ d v
+      rw [map_zpow₀]
+      congr 1
+      change (FractionalIdeal.absNorm
+        (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) : ℝ) = qv v
+      rw [FractionalIdeal.coeIdeal_absNorm (K := F)]
+      simp [qv]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
