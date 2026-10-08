@@ -3082,6 +3082,109 @@ private theorem incompleteHeckeLSeries_eq_complete_factors
       (mul_assoc _ _ _).symm
     _ = _ := by rw [← hrel]
 
+private theorem zeroDensityData_nonempty : Nonempty (ZeroDensityData η U HA) := by
+  classical
+  have hωη : U.omega U.one = η := by
+    rw [U.omega_induces_twist, U.kummer_one]
+    apply ContinuousMonoidHom.ext
+    intro x
+    change η x * ((1 : ℂˣ)⁻¹) = η x
+    simp
+  have hη : IsOfFinOrder η := by
+    rw [← hωη]
+    exact U.omega_finiteOrder U.one
+  let L : ∀ u : U.U, U.omega u ≠ 1 → HeckeLContinuation (U.omega u) :=
+    fun u hn => Classical.choose (HA.2.2.1 (U.omega u) (U.omega_finiteOrder u) hn)
+  have hLeq (u : U.U) (hn : U.omega u ≠ 1) : (L u hn).value = HA.L (U.omega u) :=
+    Classical.choose_spec (HA.2.2.1 (U.omega u) (U.omega_finiteOrder u) hn)
+  let Linc : ∀ u : U.U, U.omega u ≠ 1 →
+      IncompleteHeckeLContinuation S (η * (U.kummer u)⁻¹) := fun u hn => {
+    value := HA.LS S (η * (U.kummer u)⁻¹)
+    differentiableOn := by
+      have hc : Differentiable ℂ (HA.L (U.omega u)) := by
+        rw [← hLeq u hn]
+        exact (L u hn).differentiable
+      rw [U.omega_induces_twist] at hc
+      unfold HeckeAnalysis.LS
+      exact hc.differentiableOn.mul
+        (omittedEulerFactors_differentiable (S := S) (η * (U.kummer u)⁻¹)).differentiableOn
+    agrees := by
+      intro s hs
+      have hχ : IsOfFinOrder (η * (U.kummer u)⁻¹) := by
+        rw [← U.omega_induces_twist]
+        exact U.omega_finiteOrder u
+      unfold HeckeAnalysis.LS
+      have hraw : HA.L (η * (U.kummer u)⁻¹) s =
+          heckeLSeries (η * (U.kummer u)⁻¹) s := HA.2.1 _ s hs
+      rw [hraw, ← incompleteHeckeLSeries_eq_complete_factors _ hχ s hs] }
+  have hfactor (χ : HeckeChar F) (hχ : IsOfFinOrder χ) (s : ℂ) (hs : 0 < s.re) :
+      (∏ v ∈ S.Sf, (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) ≠ 0 := by
+    apply Finset.prod_ne_zero_iff.mpr
+    intro v hv
+    have hq : 1 < (Ideal.absNorm v.asIdeal : ℝ) := by
+      exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+    have hqpos : 0 < Ideal.absNorm v.asIdeal :=
+      Nat.zero_lt_of_lt (NumberField.HeightOneSpectrum.one_lt_absNorm v)
+    have hpow : ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ =
+        (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) := by
+      rw [Complex.norm_natCast_cpow_of_pos hqpos]
+      rfl
+    have hsmall : ‖χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ < 1 := by
+      calc
+        _ = ‖χ.primeValue v‖ * ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ := norm_mul _ _
+        _ ≤ 1 * ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ :=
+          mul_le_mul_of_nonneg_right (primeValue_norm_le_one χ hχ v) (norm_nonneg _)
+        _ = (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) := by rw [one_mul, hpow]
+        _ < 1 := Real.rpow_lt_one_of_one_lt_of_neg hq (neg_lt_zero.mpr hs)
+    intro hz
+    have heq := congrArg norm (sub_eq_zero.mp hz)
+    simp only [norm_one] at heq
+    linarith
+  obtain ⟨AF, hAF, hGrowth⟩ := zf_convexity_growth_bound (F := F)
+  obtain ⟨ρ, U0, Cexc, E, hρ, hρupper, hU0, hCexc, hmain, hrec⟩ :=
+    Proofs.A2ZeroDetect.zero_density_core S D η hη U L Linc AF hAF AF hAF hGrowth
+  refine ⟨⟨ρ, hρ, U0, hU0, Cexc, hCexc, E, ?_, ?_, ?_, ?_⟩⟩
+  · intro T hT u hu
+    exact (hmain T hT).1 u hu
+  · intro T hT
+    simpa only [Real.rpow_eq_pow] using (hmain T hT).2.1
+  · intro T hT u hu hbad
+    have heq := U.omega_induces_twist u
+    apply (hmain T hT).2.2 u hu.1 hu.2
+    rcases hbad with hp | ⟨s, hs, ht, hz⟩
+    · exact Or.inl (heq.trans hp)
+    · by_cases hn : U.omega u = 1
+      · exact Or.inl hn
+      · refine Or.inr ⟨hn, s, hs, ht, ?_⟩
+        rw [hLeq u hn, heq]
+        exact hz
+  · intro ε hε
+    obtain ⟨C, hC, hb⟩ := hrec ε hε
+    refine ⟨C, hC, ?_⟩
+    intro T hT u hu hgood s hs ht
+    have heq := U.omega_induces_twist u
+    have hn : U.omega u ≠ 1 := by
+      intro hp
+      exact hgood ((hmain T hT).2.2 u hu.1 hu.2 (Or.inl hp))
+    have hl : HA.L (U.omega u) s ≠ 0 := by
+      intro hz
+      apply hgood
+      apply (hmain T hT).2.2 u hu.1 hu.2
+      refine Or.inr ⟨hn, s, by linarith, ?_, ?_⟩
+      · have hpow : 0 ≤ T ^ ρ := Real.rpow_nonneg (by linarith) _
+        have hheight : |s.im| ≤ 4 * T ^ ρ := by nlinarith
+        simpa only [Real.rpow_eq_pow] using hheight
+      · rw [hLeq u hn]
+        exact hz
+    constructor
+    · change HA.L (η * (U.kummer u)⁻¹) s *
+        (∏ v ∈ S.Sf, (1 - (η * (U.kummer u)⁻¹).primeValue v *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) ≠ 0
+      rw [← heq]
+      exact mul_ne_zero hl (hfactor _ (U.omega_finiteOrder u) s (by linarith))
+    · have hh := hb T hT u hu.1 hu.2 hgood hn s hs ht
+      exact hh
+
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
