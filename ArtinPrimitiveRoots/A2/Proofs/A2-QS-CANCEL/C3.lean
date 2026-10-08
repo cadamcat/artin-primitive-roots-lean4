@@ -107,7 +107,27 @@ theorem qs_dual_main_remainders_C3b [IsTotallyComplex K] (F : QSFamily m qS)
         ‖qsPairSum cols z (qsDualKernel (qsInnerHighDiv K) F W M κ ((M * n) ^ η) n 𝔮)‖ +
             ‖qsPairSum cols z (qsDualKernel (qsInnerRes K) F W M κ ((M * n) ^ η) n 𝔮)‖ ≤
           C * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α * ∑ c ∈ cols, ‖z c‖ ^ 2 := by
-  sorry
+  classical
+  obtain ⟨ηH, hηH, hHigh⟩ :=
+    ArtinPrimitiveRoots.Proofs.qs_c3_sol.dual_highdiv_C3b_bound
+      F hrf hqS W α hα1 hexp δ hδ
+  obtain ⟨ηR, hηR, hRes⟩ :=
+    ArtinPrimitiveRoots.Proofs.qs_c3_sol.dual_residue_C3b_bound
+      F hrf hqS W α hα1 hα2 hexp δ hδ
+  refine ⟨min ηH ηR, lt_min hηH hηR, ?_⟩
+  intro η hη hη₀
+  obtain ⟨CH, hCH, hH⟩ := hHigh η hη (hη₀.trans (min_le_left _ _))
+  obtain ⟨CR, hCR, hR⟩ := hRes η hη (hη₀.trans (min_le_right _ _))
+  refine ⟨CH + CR, by positivity, ?_⟩
+  intro M n κ 𝔮 cols z hn hκ hκM hblock
+  have hh := hH M n κ 𝔮 cols z hn hκ hκM hblock
+  have hr := hR M n κ 𝔮 cols z hn hκ hκM hblock
+  calc
+    _ ≤ CH * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α *
+          (∑ c ∈ cols, ‖z c‖ ^ 2) +
+        CR * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α *
+          (∑ c ∈ cols, ‖z c‖ ^ 2) := add_le_add hh hr
+    _ = _ := by ring
 
 /-- C3c (SOL-LEAD): the dual transition remainder `E₃`, whose weight depends on the product of
 the column norms; inverse Mellin separation with an integrable majorant. -/
