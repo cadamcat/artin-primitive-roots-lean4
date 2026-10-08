@@ -178,4 +178,54 @@ theorem residue_character_neg_one (D : FieldData F) (P : FinPlace F)
       rw [chi, if_neg hunit, halg]
       simp only [Subgroup.coe_one, Units.val_one, map_one]
 
+theorem residue_character_pow_ne_one (D : FieldData F) (P : FinPlace F)
+    (h6 : (6 : 𝓞 F) ∉ P.asIdeal) (χ : MulChar (𝓞 F ⧸ P.asIdeal) ℂ)
+    (hχ : ∀ x : 𝓞 F, χ (Ideal.Quotient.mk P.asIdeal x) =
+      chi D P (algebraMap (𝓞 F) F x)) (j : ℕ) (hj : 0 < j) (hj6 : j < 6) :
+    χ ^ j ≠ 1 := by
+  classical
+  let : P.asIdeal.IsMaximal := P.isMaximal
+  let : Field (𝓞 F ⧸ P.asIdeal) := Ideal.Quotient.field P.asIdeal
+  let : Fintype (𝓞 F ⧸ P.asIdeal) := Fintype.ofFinite _
+  let q := Ideal.Quotient.mk P.asIdeal
+  let ι := algebraMap (𝓞 F) F
+  let m := (Ideal.absNorm P.asIdeal - 1) / 6
+  have hcard : Nat.card (𝓞 F ⧸ P.asIdeal)ˣ = Ideal.absNorm P.asIdeal - 1 := by
+    rw [Nat.card_units, ← Submodule.cardQuot_apply, ← Ideal.absNorm_apply]
+  have hnpos : 0 < Ideal.absNorm P.asIdeal - 1 := by
+    rw [← hcard]
+    exact Nat.card_pos
+  have hm : Ideal.absNorm P.asIdeal - 1 = 6 * m :=
+    (Nat.mul_div_cancel' (six_dvd_absNorm_sub_one D P h6)).symm
+  have hmpos : 0 < m := by omega
+  intro hpow
+  have hall (u : (𝓞 F ⧸ P.asIdeal)ˣ) : u ^ (m * j) = 1 := by
+    obtain ⟨x, hx⟩ := Ideal.Quotient.mk_surjective (I := P.asIdeal)
+      (u : 𝓞 F ⧸ P.asIdeal)
+    have hr : residue P (ι x) = (u : 𝓞 F ⧸ P.asIdeal) :=
+      (ArtinPrimitiveRoots.A2.qs_nq0_residue_algebraMap P x).trans hx
+    have hunit : residue P (ι x) ≠ 0 := hr.symm ▸ u.ne_zero
+    have hvalue : χ (u : 𝓞 F ⧸ P.asIdeal) ^ j = 1 := by
+      rw [← MulChar.pow_apply_coe, hpow, MulChar.one_apply_coe]
+    rw [← hx, hχ x, chi, if_neg hunit] at hvalue
+    have hroot : (((chiAlg P (ι x) : (𝓞 F)ˣ) : 𝓞 F)) ^ j = 1 := by
+      apply IsFractionRing.injective (𝓞 F) F
+      apply D.σ0.injective
+      simpa only [map_pow, map_one] using hvalue
+    have hspec := ArtinPrimitiveRoots.A2.qs_nq0_chiAlg_reduction D P h6 (ι x) hunit
+    rw [hr] at hspec
+    apply Units.ext
+    change (u : 𝓞 F ⧸ P.asIdeal) ^ (m * j) = 1
+    calc
+      (u : 𝓞 F ⧸ P.asIdeal) ^ (m * j) =
+          q (((chiAlg P (ι x) : (𝓞 F)ˣ) : 𝓞 F)) ^ j := by
+        rw [pow_mul, hspec]
+      _ = 1 := by rw [← map_pow, hroot, map_one]
+  have hdvd := (FiniteField.forall_pow_eq_one_iff
+    (𝓞 F ⧸ P.asIdeal) (m * j)).mp hall
+  rw [← Nat.card_eq_fintype_card, ← Submodule.cardQuot_apply,
+    ← Ideal.absNorm_apply, hm, Nat.mul_comm 6 m] at hdvd
+  have hjdvd : 6 ∣ j := Nat.dvd_of_mul_dvd_mul_left hmpos hdvd
+  exact (Nat.le_of_dvd hj hjdvd).not_gt hj6
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
