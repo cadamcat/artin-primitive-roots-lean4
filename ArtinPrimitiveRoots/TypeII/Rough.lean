@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.SieveAlgebra
 import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.SieveRemainder
 import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.MertensBounds
 import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.TruncatedSource
+import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.PhaseBounds
 
 namespace ArtinPrimitiveRoots.TypeII.RoughProofs
 
