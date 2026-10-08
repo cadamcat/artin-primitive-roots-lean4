@@ -4,8 +4,8 @@ import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.Cosets
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexMajorant
 set_option autoImplicit false
-
 open NumberField IsDedekindDomain
 open scoped Classical
 
@@ -115,13 +115,28 @@ def eisenstein (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ} (Fs : Gl
   ∑' γ : Quotient (QuotientGroup.rightRel (Bstar G)),
     scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out γ) * g)
 
+/-- Finite cusp majorants after bounding the complex components by real spherical sections. -/
+theorem eisenstein_finite_majorants (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ}
+    (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
+    (C : InfinitePlace F → ℝ) (hC : ∀ w, 0 ≤ C w)
+    (hbound : ∀ w k, ‖Fs.fC w k‖ ≤ C w * ‖sphC (s.re : ℂ) k‖) :
+    ∃ (n : ℕ) (m : Fin n → Quotient (QuotientGroup.rightRel (Bstar G)) → ℝ),
+      (∀ i, Summable (m i)) ∧ ∀ γ,
+        ‖scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out γ) * g)‖ ≤ ∑ i, m i γ := by
+  sorry
+
 /-- **eis:converge** (via P-REDUCTION and P-SPEC `eisSeries_majorant`): absolute convergence for
 `Re s > 1/2`. C6 of `sol-gate-theta` strengthens the input datum to exclude divergent cube repeats. -/
 theorem eisenstein_summable (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ}
     (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G) :
     Summable fun γ : Quotient (QuotientGroup.rightRel (Bstar G)) =>
       ‖scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out γ) * g)‖ := by
-  sorry
+  classical
+  choose C hC hbound using fun w =>
+    sectionC_norm_majorant s (Fs.fC w) (Fs.fC_sec w).1 (Fs.fC_sec w).2
+  obtain ⟨n, m, hm, hmajorant⟩ := eisenstein_finite_majorants P G hs Fs g C hC hbound
+  apply Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hmajorant
+  exact summable_sum fun i _ => hm i
 
 /-- **eis:automorphic**: in the convergence region `E` is automorphic, genuine, and right-invariant
 under every element fixing all local sections. -/
