@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Helpers
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-GOOD-SUBGROUP».ProjectedCongruence
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
