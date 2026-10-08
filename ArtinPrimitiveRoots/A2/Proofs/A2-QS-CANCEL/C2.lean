@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».S0
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C2u
 
 /-!
 # A2-QS-CANCEL, part C2: divisor-pair Cauchy–Schwarz with separated smooth arguments
@@ -52,6 +53,11 @@ theorem qs_divisor_pair_cauchy_C2 (F : QSFamily m qS) (hrf : ∀ g h, F.rayFacto
           C * (n * B) ^ η * Λ * Real.sqrt (D₁ * D₂) *
             Real.sqrt (qsNorm F (2 * B) (2 * n / D₁) * qsNorm F (2 * B) (2 * n / D₂)) *
               ∑ c ∈ cols, ‖z c‖ ^ 2 := by
-  sorry
+  obtain ⟨C, hC, h⟩ := qs_divisor_pair_cauchy_C2u F hrf η hη
+  refine ⟨C, hC, ?_⟩
+  intro n B D₁ D₂ Λ cols rows z ρ μ _ φ Φ gmaj hn hB hD₁ hD₂ hcols hrows hρ hΦ hg hφ hΛ
+  exact h n B D₁ D₂ Λ (fun e => D₁ < qsN e ∧ qsN e ≤ 2 * D₁)
+    (fun e => D₂ < qsN e ∧ qsN e ≤ 2 * D₂) cols rows z ρ μ φ Φ gmaj hn hB hD₁ hD₂
+    (fun e he => ⟨he.1.le, he.2⟩) (fun e he => ⟨he.1.le, he.2⟩) hcols hrows hρ hΦ hg hφ hΛ
 
 end ArtinPrimitiveRoots.A2
