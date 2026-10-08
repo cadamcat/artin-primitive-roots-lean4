@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.PhaseBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY.MertensBounds
 
 /-!
 Finite divisor-mass and residue-class assembly for the rough proxy source.
@@ -207,6 +208,127 @@ theorem reciprocal_log_phase_regime_bound
     have hHighBound := hHigh x hxP N M hTstarLower hNupper hM hlogM d hd hMD
       q hq hqBound a u hPPfreqLower hPPfreqUpper l r hl hlr hr
     simpa [L, Tstar, huModerate] using hHighBound
+
+/-- Apply the two phase regimes uniformly to each retained inclusion-exclusion
+divisor.  The retained product is small enough that the quotient interval
+still lies above the phase estimates' lower scale. -/
+theorem retained_subset_residue_phase_bound
+    (δ A₀ lam : ℝ) (hδ : 0 < δ) (hA₀ : 0 < A₀) (hlam : 0 < lam) :
+    ∃ C_m c_m C_p C₃p x₀ : ℝ,
+      0 < C_m ∧ 0 < c_m ∧ 0 < C_p ∧ 0 < C₃p ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          let L := Real.log x
+          let Tstar := Real.exp (L / Real.log L ^ 2)
+          ∀ M : ℝ, Real.rpow x δ ≤ M → 1 < M →
+            M ≤ 2 * Real.rpow x 5 → 1 ≤ Real.log M →
+            ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L A₀ →
+              ∀ r : ℕ, r = ⌈lam * Real.log L⌉₊ →
+                ∀ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+                    (fun S => S.card < r),
+                  ∀ a : ZMod q, ∀ u : ℝ, 1 ≤ |u| →
+                    |u| ≤ Real.rpow x 2 →
+                    ∀ l rr : ℝ, M ≤ l → l ≤ rr → rr ≤ 2 * M →
+                      ‖reciprocalLogResiduePhaseSum (∏ p ∈ S, p) q a u
+                          (l / ((∏ p ∈ S, p : ℕ) : ℝ))
+                          (rr / ((∏ p ∈ S, p : ℕ) : ℝ))‖ ≤
+                        if |u| ≤ Tstar then
+                          4 * C_m *
+                            ((M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (q : ℝ)) /
+                              Real.log M *
+                            (|u|⁻¹ + Real.rpow x (-c_m))
+                        else
+                          4 * C_p *
+                            ((M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (q : ℝ)) /
+                              Real.log M *
+                            Real.exp (-L / Real.rpow (Real.log L) C₃p) := by
+  obtain ⟨C_m, c_m, C_p, C₃p, xPhase, hCm, hcm, hCp, hC3p, hxPhase,
+      hPhase⟩ := reciprocal_log_phase_regime_bound δ A₀ hδ hA₀
+  obtain ⟨xRet, hxRet, hRet⟩ := retained_subset_product_bound δ lam hδ hlam
+  let x₀ := max xPhase xRet
+  have hx₀two : 2 ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans hxPhase (le_max_left _ _)
+  refine ⟨C_m, c_m, C_p, C₃p, x₀, hCm, hcm, hCp, hC3p, hx₀two, ?_⟩
+  intro x hx
+  dsimp
+  intro M hMx hMgt hMupper hlogM q hq hqBound r hr S hS a u huLower huUpper
+    l rr hl hlr hrr
+  have hxPhase' : xPhase ≤ x := le_trans (le_max_left _ _) hx
+  have hxRet' : xRet ≤ x := le_trans (le_max_right _ _) hx
+  have hx2 : 2 ≤ x := le_trans hxPhase hxPhase'
+  have hxpos : 0 < x := by linarith
+  have hxRetBound := hRet x hxRet'
+  have hSRet : S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+      (fun S => S.card < ⌈lam * Real.log (Real.log x)⌉₊) := by
+    simpa [hr] using hS
+  have hDposNat : 0 < ∏ p ∈ S, p := by
+    have hSP : S ⊆ primesUpTo (roughCutoff x) :=
+      Finset.mem_powerset.mp (Finset.mem_filter.mp hSRet).1
+    have hPrime : ∀ p ∈ S, p.Prime := by
+      intro p hp
+      exact (Finset.mem_filter.mp (hSP hp)).2
+    exact prime_product_pos S hPrime
+  let dR : ℝ := ((∏ p ∈ S, p : ℕ) : ℝ)
+  have hDpos : 0 < dR := by dsimp [dR]; exact_mod_cast hDposNat
+  have hDone : 1 ≤ dR := by
+    have hNat : 1 ≤ ∏ p ∈ S, p := Nat.one_le_iff_ne_zero.mpr hDposNat.ne'
+    change (1 : ℝ) ≤ ((∏ p ∈ S, p : ℕ) : ℝ)
+    exact_mod_cast hNat
+  have hDbound : dR ≤ Real.rpow x (δ / 8) := by
+    simpa [dR] using hxRetBound S hSRet
+  have hPowScale :
+      dR * Real.rpow x (δ / 2) ≤ Real.rpow x δ := by
+    have hPowD : Real.rpow x (δ / 8) * Real.rpow x (δ / 2) =
+        Real.rpow x (5 * δ / 8) := by
+      calc
+        _ = Real.rpow x ((δ / 8) + (δ / 2)) :=
+          (Real.rpow_add hxpos _ _).symm
+        _ = Real.rpow x (5 * δ / 8) := by congr 1 <;> ring
+    have hExponent : 5 * δ / 8 ≤ δ := by linarith
+    have hPowMonotone : Real.rpow x (5 * δ / 8) ≤ Real.rpow x δ :=
+      Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ x) hExponent
+    calc
+      dR * Real.rpow x (δ / 2) ≤
+          Real.rpow x (δ / 8) * Real.rpow x (δ / 2) :=
+        mul_le_mul_of_nonneg_right hDbound (Real.rpow_nonneg hxpos.le _)
+      _ = Real.rpow x (5 * δ / 8) := hPowD
+      _ ≤ Real.rpow x δ := hPowMonotone
+  let N : ℝ := M / dR
+  have hNlower : Real.rpow x (δ / 2) ≤ N := by
+    dsimp [N]
+    apply (le_div_iff₀ hDpos).2
+    calc
+      Real.rpow x (δ / 2) * dR ≤ Real.rpow x δ := by
+        simpa [mul_comm] using hPowScale
+      _ ≤ M := hMx
+  have hNupper : N ≤ 2 * Real.rpow x 5 := by
+    dsimp [N]
+    apply (div_le_iff₀ hDpos).2
+    calc
+      M = M * 1 := by ring
+      _ ≤ M * dR := mul_le_mul_of_nonneg_left hDone (by linarith)
+      _ ≤ (2 * Real.rpow x 5) * dR :=
+        mul_le_mul_of_nonneg_right hMupper hDpos.le
+  have hMD : M ≤ dR * N := by
+    have hEq : dR * (M / dR) = M := by field_simp [ne_of_gt hDpos]
+    simpa [N] using hEq.symm.le
+  have hqBound' : (q : ℝ) ≤ Real.rpow (Real.log x) A₀ := by
+    simpa using hqBound
+  have hphase := hPhase x hxPhase' N M hNlower hNupper hMgt hlogM
+    (∏ p ∈ S, p) hDposNat hMD q hq hqBound' a u huLower huUpper
+    (l / dR) (rr / dR)
+  have hl' : N ≤ l / dR := by
+    dsimp [N]
+    exact div_le_div_of_nonneg_right hl hDpos.le
+  have hlr' : l / dR ≤ rr / dR := by
+    exact div_le_div_of_nonneg_right hlr hDpos.le
+  have hrr' : rr / dR ≤ 2 * N := by
+    dsimp [N]
+    calc
+      rr / dR ≤ (2 * M) / dR := div_le_div_of_nonneg_right hrr hDpos.le
+      _ = 2 * (M / dR) := by ring
+  have hphase' := hphase hl' hlr' hrr'
+  simpa [dR, N] using hphase'
 
 /-- Sum the per-residue phase estimates over all retained subset divisors.
 The hypotheses isolate the analytic estimate from the finite reindexing. -/
