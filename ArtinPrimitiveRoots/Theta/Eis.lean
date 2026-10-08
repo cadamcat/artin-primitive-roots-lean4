@@ -968,6 +968,62 @@ def whittakerE (P : CoverPackage D S H A) (G : GlobalDatum P) (μ : ∀ v : FinP
       (jacquet (P.loc v) A (μ v) (rtr (P.compF v (Function.surjInv P.q_surj g)) (Fs.f v))))) *
     ∏ w, jacquetC (rtr (P.compC w (Function.surjInv P.q_surj g)) (Fs.fC w))
 
+/-- Rational Bruhat factorization with a Bstar left factor in both cells. -/
+theorem rational_bruhat_factorization
+    (P : CoverPackage D S H A) (G : GlobalDatum P) (g : GL (Fin 2) F) :
+    (∃ (δ : Fˣ) (b : GL (Fin 2) F), b ∈ Bstar G ∧ g = b * diagGL δ) ∨
+    (∃ (δ : Fˣ) (x : F) (b : GL (Fin 2) F),
+      b ∈ Bstar G ∧ g = b * diagGL δ * weylGL * upperGL x) := by
+  classical
+  have hB (r : Fˣ) (x : F) : scalarGL r * upperGL x ∈ Bstar G := by
+    change ((scalarGL r * upperGL x : GL (Fin 2) F) : Matrix (Fin 2) (Fin 2) F) 1 0 = 0 ∧
+      ∃ δ ∈ G.Δ, ((scalarGL r * upperGL x : GL (Fin 2) F) : Matrix (Fin 2) (Fin 2) F) 0 0 =
+        (δ : F) * ((scalarGL r * upperGL x : GL (Fin 2) F) : Matrix (Fin 2) (Fin 2) F) 1 1
+    refine ⟨?_, 1, G.Δ.one_mem, ?_⟩ <;>
+      simp [scalarGL, upperGL, Matrix.mul_apply, Fin.sum_univ_two]
+  let a : F := g 0 0
+  let b : F := g 0 1
+  let c : F := g 1 0
+  let d : F := g 1 1
+  have hdet : a * d - b * c ≠ 0 := by
+    simpa [a, b, c, d, Matrix.det_fin_two] using g.det_ne_zero
+  by_cases hc : c = 0
+  · have hd : d ≠ 0 := by
+      intro hd
+      exact hdet (by simp [hc, hd])
+    have ha : a ≠ 0 := by
+      intro ha
+      exact hdet (by simp [ha, hc])
+    have hc0 : g 1 0 = 0 := hc
+    have hd0 : g 1 1 ≠ 0 := hd
+    let r : Fˣ := Units.mk0 d hd
+    let δ : Fˣ := Units.mk0 (a / d) (div_ne_zero ha hd)
+    let x : F := b / d
+    refine Or.inl ⟨δ, scalarGL r * upperGL x, hB r x, ?_⟩
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [scalarGL, upperGL, diagGL, r, δ, x, a, b, d, hc0,
+        Matrix.mul_apply, Fin.sum_univ_two] <;> field_simp [hd0]
+  · let x : F := a / c
+    let t : F := d / c
+    let yy : F := b / c - (a / c) * (d / c)
+    have hy : yy ≠ 0 := by
+      intro hy
+      dsimp [yy] at hy
+      field_simp [hc] at hy
+      have hz : a * d - b * c = 0 := by linear_combination -hy
+      exact hdet hz
+    have hc0 : g 1 0 ≠ 0 := hc
+    let r : Fˣ := Units.mk0 c hc
+    let δ : Fˣ := Units.mk0 yy hy
+    refine Or.inr ⟨δ, t, scalarGL r * upperGL x, hB r x, ?_⟩
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [scalarGL, upperGL, diagGL, weylGL, r, δ, x, t, yy, a, b, c, d,
+        Matrix.mul_apply, Fin.sum_univ_two] <;> field_simp [hc0] <;> ring
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
