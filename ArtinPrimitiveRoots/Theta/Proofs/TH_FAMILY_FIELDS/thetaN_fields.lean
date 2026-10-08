@@ -250,6 +250,103 @@ private theorem thetaFamilyBaseN_eq {P : CoverPackage D S H A} {N : ThetaNormali
     thetaFamilyBaseN B g = (κF F)⁻¹ * resCprod B.Fam.T0 *
       ∑' δ : Fˣ ⧸ N.G.Δ, thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * g) := rfl
 
+/-! ### Invariances of the intertwined scalar section -/
+
+private theorem thetaNPhi_q {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (x : P.RP) :
+    thetaNPhi B (P.q x) =
+      (∏ᶠ v, N.G.lam v (famM B.Fam v (P.compF v x))) * ∏ w, thetaN_fC (P.compC w x) :=
+  (scalarOf_q P (thetaNWeylDatum N.G) (thetaNSection B) x).2
+
+private theorem thetaN_famM_Kmax {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (g k : (P.loc v).L) (hk : k ∈ (P.tame v hv).Kmax) :
+    famM B.Fam v (g * k) = famM B.Fam v g := by
+  have hvT : v ∉ (thetaNSection B).T0 := by
+    change v ∉ B.Fam.T0
+    rw [B.level]
+    exact hv
+  exact ((thetaNSection B).f_sph v hvT).2 g k hk
+
+private theorem thetaNPhi_inv {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) :
+    (∀ b ∈ Bstar (thetaNWeylDatum N.G), ∀ g, thetaNPhi B (P.tc.rat b * g) = thetaNPhi B g) ∧
+    (∀ ζ g, thetaNPhi B (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * thetaNPhi B g) := by
+  obtain ⟨h1, -, -, h4⟩ := scalarOf_invariance P (thetaNWeylDatum N.G) (thetaNSection B)
+  exact ⟨h1, h4⟩
+
+private theorem thetaN_upperGL_mem {P : CoverPackage D S H A} (G : GlobalDatum P) (x : F) :
+    upperGL x ∈ Bstar G := by
+  refine ⟨?_, 1, one_mem _, ?_⟩
+  · simp [upperGL]
+  · simp [upperGL]
+
+private theorem thetaN_diagGL_mem {P : CoverPackage D S H A} (G : GlobalDatum P) (d : Fˣ)
+    (hd : d ∈ G.Δ) : diagGL d ∈ Bstar G := by
+  refine ⟨?_, d, hd, ?_⟩
+  · simp [diagGL]
+  · simp [diagGL]
+
+private theorem thetaN_diagGL_mul (a b : Fˣ) : diagGL (a * b) = diagGL a * diagGL b := by
+  ext i j
+  fin_cases i <;> fin_cases j <;> simp [diagGL, Matrix.mul_apply, Fin.sum_univ_two]
+
+private theorem thetaNPhi_diag_out {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (a : Fˣ) (g : P.tc.G) :
+    thetaNPhi B (P.tc.rat (diagGL (Quotient.out (QuotientGroup.mk a : Fˣ ⧸ N.G.Δ))) * g) =
+      thetaNPhi B (P.tc.rat (diagGL a) * g) := by
+  set o := Quotient.out (QuotientGroup.mk a : Fˣ ⧸ N.G.Δ)
+  have ho : (QuotientGroup.mk o : Fˣ ⧸ N.G.Δ) = QuotientGroup.mk a := QuotientGroup.out_eq' _
+  have hd : a⁻¹ * o ∈ N.G.Δ := QuotientGroup.eq.mp ho.symm
+  have hsplit : o = (a⁻¹ * o) * a := by rw [mul_comm, mul_inv_cancel_left]
+  rw [hsplit, thetaN_diagGL_mul, map_mul, mul_assoc]
+  exact (thetaNPhi_inv B).1 _ (thetaN_diagGL_mem (thetaNWeylDatum N.G) _ hd) _
+
+/-- Rational upper triangular left invariance of the undifferentiated constant term. -/
+private theorem thetaFamilyBaseN_borel {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (b : GL (Fin 2) F)
+    (hb : (b : Matrix (Fin 2) (Fin 2) F) 1 0 = 0) (g : P.tc.G) :
+    thetaFamilyBaseN B (P.tc.rat b * g) = thetaFamilyBaseN B g := by
+  have hdet : (b : Matrix (Fin 2) (Fin 2) F).det ≠ 0 := by
+    have h := congrArg Matrix.det b.mul_inv
+    rw [Matrix.det_mul, Matrix.det_one] at h
+    exact left_ne_zero_of_mul_eq_one h
+  have hdet' : (b : Matrix (Fin 2) (Fin 2) F).det =
+      (b : Matrix (Fin 2) (Fin 2) F) 0 0 * (b : Matrix (Fin 2) (Fin 2) F) 1 1 := by
+    rw [Matrix.det_fin_two, hb]; ring
+  have h00 : (b : Matrix (Fin 2) (Fin 2) F) 0 0 ≠ 0 := by
+    intro h; apply hdet; rw [hdet', h, zero_mul]
+  have h11 : (b : Matrix (Fin 2) (Fin 2) F) 1 1 ≠ 0 := by
+    intro h; apply hdet; rw [hdet', h, mul_zero]
+  let t : Fˣ := Units.mk0 _ (div_ne_zero h00 h11)
+  let c : Fˣ := Units.mk0 _ h11
+  have hterm (a : Fˣ) :
+      thetaNPhi B (P.tc.rat (diagGL a) * (P.tc.rat b * g)) =
+        thetaNPhi B (P.tc.rat (diagGL (a * t)) * g) := by
+    have hmat : diagGL a * b = scalarGL c *
+        (upperGL ((a : F) * (b : Matrix (Fin 2) (Fin 2) F) 0 1 / (b : Matrix (Fin 2) (Fin 2) F) 1 1) *
+          diagGL (a * t)) := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      simp only [Units.val_mul, diagGL, upperGL, scalarGL, t, c]
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.mul_apply, Fin.sum_univ_two, hb] <;> field_simp
+    rw [← mul_assoc, ← map_mul, hmat, map_mul, P.tc.rat_scalar, one_mul, map_mul, mul_assoc]
+    exact (thetaNPhi_inv B).1 _ (thetaN_upperGL_mem (thetaNWeylDatum N.G) _) _
+  have h1 : ∀ δ : Fˣ ⧸ N.G.Δ,
+      thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * (P.tc.rat b * g)) =
+        thetaNPhi B (P.tc.rat (diagGL (Quotient.out (δ * (QuotientGroup.mk t : Fˣ ⧸ N.G.Δ)))) * g) := by
+    intro δ
+    rw [hterm]
+    have hq : (QuotientGroup.mk (Quotient.out δ * t) : Fˣ ⧸ N.G.Δ) =
+        δ * QuotientGroup.mk t := by
+      rw [QuotientGroup.mk_mul, QuotientGroup.out_eq']
+    rw [← hq, thetaNPhi_diag_out]
+  have h2 := (Equiv.mulRight (QuotientGroup.mk t : Fˣ ⧸ N.G.Δ)).tsum_eq
+    (fun δ => thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * g))
+  simp only [Equiv.coe_mulRight] at h2
+  rw [thetaFamilyBaseN_eq, thetaFamilyBaseN_eq, tsum_congr h1, h2]
+
 /-- Export the constant-term invariances, torus continuity and T7 radiality for the same normalized constant term.
 Guide: sol-thin-thglobal/PROOFS.md:1200–1210.
 Uses thetaFamilyBaseN, theta_constantTerm, intertwineC_spherical and left-translation commutation with thetaFamilyDeriv. -/
