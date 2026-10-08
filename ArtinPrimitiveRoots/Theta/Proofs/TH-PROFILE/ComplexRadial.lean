@@ -54,4 +54,39 @@ theorem complex_normDeriv_contDiff (f : ℂ → ℂ)
       rw [iteratedDeriv_succ', hcurvederiv]
     exact (ih g hg).congr hEq
 
+/-- Differentiation along a positive exponential ray raises the radial derivative order. -/
+theorem complex_normDeriv_hasDerivAt (f : ℂ → ℂ)
+    (hf : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f {y | y ≠ 0})
+    (j : ℕ) (y : ℂ) (hy : y ≠ 0) (t : ℝ) :
+    HasDerivAt (fun s : ℝ => normDeriv j f ((Real.exp (s / 2) : ℂ) * y))
+      (normDeriv (j + 1) f ((Real.exp (t / 2) : ℂ) * y)) t := by
+  let c : ℝ → ℂ := fun s => f ((Real.exp (s / 2) : ℂ) * y)
+  have hi : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun s : ℝ => (Real.exp (s / 2) : ℂ) * y) := by
+    have hr : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun s : ℝ => Real.exp (s / 2)) := (contDiff_id.div_const (2 : ℝ)).exp
+    have hz : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun s : ℝ => (Real.exp (s / 2) : ℂ)) := Complex.ofRealCLM.contDiff.comp hr
+    exact hz.mul contDiff_const
+  have hc : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) c :=
+    hf.comp_contDiff hi (fun s =>
+      mul_ne_zero (Complex.ofReal_ne_zero.mpr (Real.exp_ne_zero _)) hy)
+  have hshift (k : ℕ) (s : ℝ) :
+      normDeriv k f ((Real.exp (s / 2) : ℂ) * y) = iteratedDeriv k c s := by
+    have heq : (fun r : ℝ => f ((Real.exp (r / 2) : ℂ) *
+        ((Real.exp (s / 2) : ℂ) * y))) = (fun r : ℝ => c (r + s)) := by
+      funext r
+      dsimp only [c]
+      rw [← mul_assoc, ← Complex.ofReal_mul, ← Real.exp_add,
+        show r / 2 + s / 2 = (r + s) / 2 by ring]
+    unfold normDeriv
+    rw [heq, iteratedDeriv_comp_add_const]
+    simp only [zero_add]
+  have hfun : (fun s : ℝ => normDeriv j f ((Real.exp (s / 2) : ℂ) * y)) =
+      iteratedDeriv j c := by
+    funext s
+    exact hshift j s
+  rw [hfun, hshift (j + 1) t, iteratedDeriv_succ]
+  exact (hc.differentiable_iteratedDeriv j (by exact_mod_cast (ENat.natCast_lt_top j)) t).hasDerivAt
+
 end ArtinPrimitiveRoots.Proofs.thsol_sheets
