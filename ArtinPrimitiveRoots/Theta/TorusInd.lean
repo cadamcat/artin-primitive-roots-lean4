@@ -189,16 +189,106 @@ structure TorusRep (D : FieldData F) (H : HilbertData F) (v : FinPlace F) where
 
 attribute [instance] TorusRep.nacg TorusRep.nsp TorusRep.fd
 
+private theorem hilb_one_left (H : HilbertData F) (v : FinPlace F)
+    (y : (v.adicCompletion F)ˣ) : H.hilb v 1 y = 1 := by
+  let z := H.hilb v 1 y
+  have h : z * 1 = z * z := by
+    simpa [z] using (H.mul_left v 1 1 y)
+  exact (mul_left_cancel h).symm
+
+private theorem hilb_one_right (H : HilbertData F) (v : FinPlace F)
+    (x : (v.adicCompletion F)ˣ) : H.hilb v x 1 = 1 := by
+  let z := H.hilb v x 1
+  have h : z * 1 = z * z := by
+    simpa [z] using (H.mul_right v x 1 1)
+  exact (mul_left_cancel h).symm
+
+private theorem hilb_inv_left (H : HilbertData F) (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) :
+    H.hilb v (x⁻¹) y = (H.hilb v x y)⁻¹ := by
+  let a := H.hilb v x y
+  let b := H.hilb v (x⁻¹) y
+  have hab : a * b = 1 := by
+    have h := H.mul_left v x x⁻¹ y
+    rw [mul_inv_cancel, hilb_one_left H v y] at h
+    exact h.symm
+  calc
+    b = 1 * b := by simp
+    _ = (a⁻¹ * a) * b := by simp
+    _ = a⁻¹ * (a * b) := by rw [mul_assoc]
+    _ = a⁻¹ := by rw [hab]; simp
+
+private theorem hilb_inv_right (H : HilbertData F) (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) :
+    H.hilb v x (y⁻¹) = (H.hilb v x y)⁻¹ := by
+  let a := H.hilb v x y
+  let b := H.hilb v x (y⁻¹)
+  have hab : a * b = 1 := by
+    have h := H.mul_right v x y y⁻¹
+    rw [mul_inv_cancel, hilb_one_right H v x] at h
+    exact h.symm
+  calc
+    b = 1 * b := by simp
+    _ = (a⁻¹ * a) * b := by simp
+    _ = a⁻¹ * (a * b) := by rw [mul_assoc]
+    _ = a⁻¹ := by rw [hab]; simp
+
+private theorem hilb_inv_inv (H : HilbertData F) (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) :
+    H.hilb v (x⁻¹) (y⁻¹) = H.hilb v x y := by
+  rw [hilb_inv_left H v x (y⁻¹), hilb_inv_right H v x y, inv_inv]
+
 /-- **def:weyl-rep**: the Weyl conjugate `y ↦ σa(y⁻¹)` (same cocycle, since `hilb(x⁻¹,y⁻¹) = hilb(x,y)`);
 `I(T.weyl, -s)` is the target of the intertwining operator (P-LOCAL-INT). -/
 def TorusRep.weyl (T : TorusRep D H v) : TorusRep D H v where
   V := T.V
   σa y := T.σa y⁻¹
   σa_one := by simpa using T.σa_one
-  σa_mul := by sorry
+  σa_mul := by
+    intro x y
+    simpa [hilb_inv_inv H v x y, mul_comm] using T.σa_mul x⁻¹ y⁻¹
   σa_cube := by intro t; simpa [← inv_pow] using T.σa_cube t⁻¹
-  σa_smooth := by sorry
-  σa_finite := by sorry
+  σa_smooth := by
+    obtain ⟨m, hm, hsmooth⟩ := T.σa_smooth
+    refine ⟨m, hm, ?_⟩
+    intro u hu
+    apply hsmooth u⁻¹
+    have huVal : Valued.v ((u : v.adicCompletion F) - 1) < 1 := by
+      have hball : Valued.v ((u : v.adicCompletion F) - 1) ≤ WithZero.exp (-(m : ℤ)) := hu
+      have hexp : WithZero.exp (-(m : ℤ)) < 1 := by
+        rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+        exact_mod_cast (neg_lt_zero.mpr (Nat.cast_pos.mpr hm))
+      exact lt_of_le_of_lt hball hexp
+    have huNorm : Valued.v (u : v.adicCompletion F) = 1 := by
+      have h := Valuation.map_add_eq_of_lt_right
+        (v := (Valued.v : Valuation (v.adicCompletion F) _))
+        (x := (u : v.adicCompletion F) - 1) (y := (1 : v.adicCompletion F))
+        (by simpa using huVal)
+      simpa [sub_add_cancel] using h
+    have hidentity : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1 =
+        -(((u : v.adicCompletion F) - 1) * (u : v.adicCompletion F)⁻¹) := by
+      simp only [Units.val_inv_eq_inv_val]
+      field_simp
+      ring
+    have huInvVal : Valued.v (((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1) =
+        Valued.v ((u : v.adicCompletion F) - 1) := by
+      rw [hidentity, Valuation.map_neg, Valuation.map_mul, map_inv₀, huNorm]
+      simp
+    change Valued.v (((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1) ≤
+      WithZero.exp (-(m : ℤ))
+    rw [huInvVal]
+    exact hu
+  σa_finite := by
+    change (Set.range (fun y => T.σa y⁻¹)).Finite
+    have hrange : Set.range (fun y => T.σa y⁻¹) = Set.range T.σa := by
+      ext f
+      constructor
+      · rintro ⟨y, rfl⟩
+        exact ⟨y⁻¹, by simp⟩
+      · rintro ⟨y, rfl⟩
+        exact ⟨y⁻¹, by simp⟩
+    rw [hrange]
+    exact T.σa_finite
 
 /-- **tor:tame-basis**: at a tame place, the explicit model `e_0, e_1, e_2` with
 `σ(a(ϖ^j u)) e_k = ρ(u)^{j+2k} e_{k+j}`, `ρ = localChi²` (10:250–275, unitary normalization). -/
