@@ -683,7 +683,7 @@ lemma density_upper_bound :
       roughDensity b 1 ≤
         Real.exp (-Real.eulerMascheroniConstant) / b *
           (1 + C_d * Real.exp (-(1 / 20) / b)) := by
-  sorry
+  exact density_upper_bound_of_dyadicPrimeInput dyadicPrimeInput
 
 end b_density_sol
 

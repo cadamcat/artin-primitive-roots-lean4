@@ -112,4 +112,79 @@ lemma tendsto_primeCounting_log_div :
   field_simp [hxpos.ne', hlogpos.ne']
   <;> ring
 
+/-- The uniform dyadic error formulation needed by the finite-grid comparison. -/
+lemma dyadicPrimeInput : DyadicPrimeInput := by
+  have htwo : Tendsto (fun y : ℝ => 2 * y) atTop atTop :=
+    (tendsto_const_mul_atTop_of_pos (by norm_num : (0 : ℝ) < 2)).mpr tendsto_id
+  have hlogtwo : Tendsto (fun y : ℝ => Real.log (2 * y)) atTop atTop :=
+    Real.tendsto_log_atTop.comp htwo
+  have hsmall : Tendsto (fun y : ℝ => Real.log 2 / Real.log (2 * y))
+      atTop (𝓝 0) := by
+    simpa [div_eq_mul_inv] using hlogtwo.inv_tendsto_atTop.const_mul (Real.log 2)
+  have hratio : Tendsto (fun y : ℝ => Real.log y / Real.log (2 * y))
+      atTop (𝓝 1) := by
+    have hsub := (tendsto_const_nhds (x := (1 : ℝ))).sub hsmall
+    simp only [sub_zero] at hsub
+    apply hsub.congr'
+    filter_upwards [eventually_ge_atTop (2 : ℝ)] with y hy
+    have hypos : 0 < y := by linarith
+    have hlogpos : 0 < Real.log (2 * y) := Real.log_pos (by linarith)
+    have hlogeq : Real.log (2 * y) = Real.log 2 + Real.log y :=
+      Real.log_mul (by norm_num) hypos.ne'
+    field_simp [hlogpos.ne']
+    <;> linarith [hlogeq]
+  have hcounttwo : Tendsto (fun y : ℝ =>
+      (Nat.primeCounting ⌊2 * y⌋₊ : ℝ) * Real.log (2 * y) / (2 * y))
+      atTop (𝓝 1) := tendsto_primeCounting_log_div.comp htwo
+  have hmain : Tendsto (fun y : ℝ =>
+      (Nat.primeCounting ⌊2 * y⌋₊ : ℝ) * Real.log y / y) atTop (𝓝 2) := by
+    have hprod : Tendsto (fun y : ℝ =>
+        ((Nat.primeCounting ⌊2 * y⌋₊ : ℝ) * Real.log (2 * y) / (2 * y)) *
+          (2 * (Real.log y / Real.log (2 * y)))) atTop (𝓝 2) := by
+      simpa using hcounttwo.mul (hratio.const_mul (2 : ℝ))
+    apply hprod.congr'
+    filter_upwards [eventually_ge_atTop (2 : ℝ)] with y hy
+    have hypos : 0 < y := by linarith
+    have hlogpos : 0 < Real.log (2 * y) := Real.log_pos (by linarith)
+    field_simp [hypos.ne', hlogpos.ne']
+    <;> ring
+  let G : ℝ → ℝ := fun y => primeDyadicCount y * Real.log y / y
+  have hG : Tendsto G atTop (𝓝 1) := by
+    have hdiff : Tendsto (fun y : ℝ =>
+        (Nat.primeCounting ⌊2 * y⌋₊ : ℝ) * Real.log y / y -
+          (Nat.primeCounting ⌊y⌋₊ : ℝ) * Real.log y / y) atTop (𝓝 1) := by
+      simpa only [show (2 : ℝ) - 1 = 1 by norm_num] using
+        hmain.sub tendsto_primeCounting_log_div
+    apply hdiff.congr'
+    filter_upwards [eventually_ge_atTop (2 : ℝ)] with y hy
+    have hfloor : ⌊y⌋₊ ≤ ⌊2 * y⌋₊ := Nat.floor_mono (by linarith : y ≤ 2 * y)
+    have hcount := Nat.monotone_primeCounting hfloor
+    dsimp only [G, primeDyadicCount]
+    rw [Nat.cast_sub hcount]
+    ring
+  intro ε hε
+  have hnorm : Tendsto (fun y : ℝ => ‖G y - 1‖) atTop (𝓝 0) :=
+    tendsto_iff_norm_sub_tendsto_zero.mp hG
+  have hεevent : ∀ᶠ y : ℝ in atTop, |G y - 1| < ε := by
+    simpa only [Real.norm_eq_abs] using hnorm.eventually (gt_mem_nhds hε)
+  have hevent : ∀ᶠ y : ℝ in atTop, 2 ≤ y ∧ |G y - 1| ≤ ε := by
+    filter_upwards [eventually_ge_atTop (2 : ℝ), hεevent] with y hy he
+    exact ⟨hy, he.le⟩
+  obtain ⟨Y, hY⟩ := eventually_atTop.mp hevent
+  refine ⟨max 2 Y, le_max_left _ _, ?_⟩
+  intro y hy
+  have h := hY y ((le_max_right 2 Y).trans hy)
+  have hypos : 0 < y := by linarith [h.1]
+  have hlogpos : 0 < Real.log y := Real.log_pos (by linarith [h.1])
+  have heq : primeDyadicCount y - y / Real.log y =
+      (y / Real.log y) * (G y - 1) := by
+    dsimp only [G]
+    field_simp [hypos.ne', hlogpos.ne']
+    <;> ring
+  rw [heq, abs_mul, abs_of_pos (div_pos hypos hlogpos)]
+  calc
+    (y / Real.log y) * |G y - 1| ≤ (y / Real.log y) * ε :=
+      mul_le_mul_of_nonneg_left h.2 (div_nonneg hypos.le hlogpos.le)
+    _ = ε * y / Real.log y := by ring
+
 end ArtinPrimitiveRoots.Proofs.b_density_sol
