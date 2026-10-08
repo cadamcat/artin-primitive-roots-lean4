@@ -1,4 +1,11 @@
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FAMILY_FIELDS.Defs
+import ArtinPrimitiveRoots.Theta.Proofs.TH_FAMILY_FIELDS.theta_uniform_adapted_lattice
+import ArtinPrimitiveRoots.Theta.Proofs.TH_FAMILY_FIELDS.theta_translation_regular_fields
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.RootChartRegularity
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.FourierOrbit
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.CompactFourierDomain
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.SpecResidueBounds
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.ResidueReconstruction
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
