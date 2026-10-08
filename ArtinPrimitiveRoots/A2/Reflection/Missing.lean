@@ -6640,6 +6640,67 @@ private theorem rf_pairing_profile_inverse_bound
       simpa only [hzero] using hBound u κ x hx
     _ ≤ C * x ^ (-1 : ℝ) := mul_le_mul_of_nonneg_left (min_le_right _ _) hC.le
 
+private theorem rf_pairing_reflectedTerm_majorant
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) :
+    ∃ C : ℝ, 0 < C ∧ ∀ υ h (t : FrozenIndex R h) sd sc d c Z, 0 < Z →
+      ‖reflectedTerm R υ h d Z (t, sd, sc, c)‖ ≤
+        C * (qI d.1 ^ 2 * qI t.f.1 ^ 2 / Z) *
+          reflectedDirichletTerm R t.f 1 (⟨t.a, t.numerator⟩, c, t.n) := by
+  obtain ⟨C, hC, hProfile⟩ := rf_pairing_profile_inverse_bound R
+  refine ⟨C, hC, ?_⟩
+  intro υ h t sd sc d c Z hZ
+  have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+    unfold qI
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+  have ha := hpos t.a.1 t.a.property.1
+  have hc := hpos c.1 c.property.1.1
+  have hn := hpos t.n.1 t.n.property.1
+  have hd := hpos d.1 d.property.1
+  have hf := hpos t.f.1 t.f.property.1
+  let w0 : ℝ := qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1
+  let X : ℝ := Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+    (qI d.1 ^ 2 * qI t.f.1 ^ 2)
+  let Q : ℝ := qI t.a.1 * qI c.1 * qI t.n.1 ^ 3
+  let scale : ℝ := qI d.1 ^ 2 * qI t.f.1 ^ 2 / Z
+  let coeff : ℂ := frozenOmega R υ t * frozenRho R υ t sd d *
+    frozenLambda R υ t sc c * (w0 : ℂ) * chiIdealPow D d.1 (cgen R c) 3
+  have hw0 : 0 ≤ w0 := div_nonneg (Real.rpow_nonneg hc.le _) hn.le
+  have hX : 0 < X := div_pos
+    (mul_pos (mul_pos (mul_pos hZ ha) hc) (pow_pos hn 3))
+    (mul_pos (pow_pos hd 2) (pow_pos hf 2))
+  have hβ : 0 ≤ betaIdeal R t.f t.a := rf_betaIdeal_nonneg R t.f t.a
+  have hcoeff : ‖coeff‖ ≤ betaIdeal R t.f t.a * w0 := by
+    have hb := (rf_exterior_factorization R).1 υ h t
+    have hχ := (a2_bridge_SYMBOL D S).ideal_norm_le d.1 (cgen R c) 3
+    calc
+      ‖coeff‖ = ‖frozenOmega R υ t‖ * ‖frozenRho R υ t sd d‖ *
+          ‖frozenLambda R υ t sc c‖ * w0 * ‖chiIdealPow D d.1 (cgen R c) 3‖ := by
+        simp only [coeff, norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hw0]
+      _ ≤ betaIdeal R t.f t.a * 1 * 1 * w0 * 1 := by
+        gcongr
+        · exact hb.1
+        · exact hb.2.1 sd d
+        · exact hb.2.2 sc c
+      _ = betaIdeal R t.f t.a * w0 := by ring
+  have hpower : X ^ (-1 : ℝ) = scale * Q ^ (-1 : ℝ) := by
+    dsimp only [X, scale, Q]
+    simp only [Real.rpow_neg_one, div_eq_mul_inv, mul_inv_rev, inv_inv]
+    ring
+  calc
+    ‖reflectedTerm R υ h d Z (t, sd, sc, c)‖ =
+        ‖coeff‖ * ‖profilePhi R υ (kappaSix R t sd sc) X‖ := by
+      change ‖coeff * profilePhi R υ (kappaSix R t sd sc) X‖ = _
+      exact norm_mul _ _
+    _ ≤ ‖coeff‖ * (C * X ^ (-1 : ℝ)) :=
+      mul_le_mul_of_nonneg_left (hProfile υ (kappaSix R t sd sc) X hX) (norm_nonneg _)
+    _ ≤ (betaIdeal R t.f t.a * w0) * (C * X ^ (-1 : ℝ)) :=
+      mul_le_mul_of_nonneg_right hcoeff (mul_nonneg hC.le (Real.rpow_nonneg hX.le _))
+    _ = C * (qI d.1 ^ 2 * qI t.f.1 ^ 2 / Z) *
+        reflectedDirichletTerm R t.f 1 (⟨t.a, t.numerator⟩, c, t.n) := by
+      rw [hpower]
+      dsimp only [reflectedDirichletTerm, w0, scale, Q]
+      ring
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
