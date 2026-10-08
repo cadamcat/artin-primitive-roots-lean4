@@ -1,4 +1,7 @@
 import ArtinPrimitiveRoots.Theta.LocalInt
+import Mathlib.Analysis.CStarAlgebra.Matrix
+import Mathlib.Analysis.CStarAlgebra.Basic
+import Mathlib.Topology.Instances.Matrix
 
 set_option autoImplicit false
 
@@ -102,7 +105,50 @@ theorem complex_iwasawa (g : PGL2 ℂ) :
 theorem complex_unitary_control :
     IsCompact complexUnitary ∧ ∀ (s : ℂ) (k : PGL2 ℂ),
       k ∈ complexUnitary → sphC s k = 1 := by
-  sorry
+  classical
+  have hclosed : IsClosed (Matrix.unitaryGroup (Fin 2) ℂ : Set (Matrix (Fin 2) (Fin 2) ℂ)) := by
+    have heq : (Matrix.unitaryGroup (Fin 2) ℂ : Set (Matrix (Fin 2) (Fin 2) ℂ)) =
+        {U | U * star U = 1} := by
+      ext U
+      exact Matrix.mem_unitaryGroup_iff
+    rw [heq]
+    exact isClosed_eq (continuous_id.matrix_mul continuous_id.star) continuous_const
+  have hcompact : IsCompact (Matrix.unitaryGroup (Fin 2) ℂ : Set (Matrix (Fin 2) (Fin 2) ℂ)) := by
+    apply (isCompact_closedBall (0 : ℂ) 1).matrix.of_isClosed_subset hclosed
+    intro U hU
+    change ∀ i j, U i j ∈ Metric.closedBall (0 : ℂ) 1
+    intro i j
+    simpa only [Metric.mem_closedBall, dist_zero_right] using
+      entry_norm_bound_of_unitary hU i j
+  let : CompactSpace (Matrix.unitaryGroup (Fin 2) ℂ) :=
+    isCompact_iff_compactSpace.mp hcompact
+  have hcont : Continuous
+      (fun U : Matrix.unitaryGroup (Fin 2) ℂ => (Unitary.toUnits U : GL (Fin 2) ℂ)) :=
+    Units.continuous_iff.mpr ⟨continuous_subtype_val, continuous_subtype_val.star⟩
+  have himage : complexUnitary = Set.range
+      (fun U : Matrix.unitaryGroup (Fin 2) ℂ =>
+        (QuotientGroup.mk (Unitary.toUnits U) : PGL2 ℂ)) := by
+    ext k
+    constructor
+    · rintro ⟨a, ha, rfl⟩
+      refine ⟨⟨(a : Matrix (Fin 2) (Fin 2) ℂ), ha⟩, ?_⟩
+      apply congrArg QuotientGroup.mk
+      exact Units.ext rfl
+    · rintro ⟨U, rfl⟩
+      exact ⟨Unitary.toUnits U, U.property, rfl⟩
+  refine ⟨himage ▸ isCompact_range (QuotientGroup.continuous_mk.comp hcont), ?_⟩
+  rintro s k ⟨a, ha, rfl⟩
+  have hdet : ‖(a : Matrix (Fin 2) (Fin 2) ℂ).det‖ = 1 :=
+    CStarRing.norm_of_mem_unitary (Matrix.det_of_mem_unitary ha)
+  have hrow : ‖a 1 0‖ ^ 2 + ‖a 1 1‖ ^ 2 = 1 := by
+    have heq := congrArg (fun M : Matrix (Fin 2) (Fin 2) ℂ => M 1 1)
+      (Unitary.mul_star_self_of_mem ha)
+    simp only [Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply,
+      Complex.star_def, Complex.mul_conj, ← Complex.ofReal_add, Matrix.one_apply_eq] at heq
+    simp only [Complex.normSq_eq_norm_sq] at heq
+    exact_mod_cast heq
+  simp only [sphC_mk, sphericalC, hdet, hrow, div_self one_ne_zero,
+    Complex.ofReal_one, Complex.one_cpow]
 
 /-- A continuous complex section is bounded by a spherical section at its real parameter. -/
 theorem sectionC_norm_majorant (s : ℂ) (f : PGL2 ℂ → ℂ)
