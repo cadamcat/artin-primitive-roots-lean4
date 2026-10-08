@@ -13,6 +13,16 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.MajorArcPhase
 import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.ArcGeometry
 import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.MajorArcIntegral
 import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.KernelDerivativeMass
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.EndpointPolynomials
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.KernelFourierDecay
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.PlaneIntegration
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.WeightedOperator
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.NaturalResidueExpansion
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.AffineEndpointEnergy
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.PlaneOperator
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.FiniteCharacterPair
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.LogArcThresholds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd7d.LogParameterAlgebra
 
 /-!
 # Design B-PD-MajorArcs: drop-in replacement for `TypeII/PD/MajorArcs.lean` (PD §5)
@@ -4839,6 +4849,588 @@ def majorEnergy (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam B₁ : ℝ) (eta 
     (majorBPolynomial x K a Y lam eta χb) (majorMPolynomial family x χm)
     (majorNPolynomial (family.Hn x) beta χn)
 
+/-- The normalized endpoint polynomial used in major-arc separation. -/
+def pd7dMajorQ (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k) (t : ℝ) : ℂ :=
+  majorBPolynomial x K a Y lam eta χb t * majorMPolynomial family x χm t *
+    majorNPolynomial (family.Hn x) beta χn t
+
+lemma pd7dMajorQ_continuous (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k) :
+    Continuous (pd7dMajorQ x K a Y lam eta family beta χb χm χn) := by
+  unfold pd7dMajorQ majorBPolynomial majorMPolynomial majorNPolynomial alphaFrequency betaFrequency
+  fun_prop
+
+noncomputable def pd7dMajorTripleSet (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) :
+    Finset ((Fin K → ℕ) × (ℕ × ℕ)) :=
+  markedTupleSet x K a ×ˢ (familyTerms family x ×ˢ dyadicIntegers (family.Hn x))
+
+def pd7dMajorTripleProduct {K : ℕ} (z : (Fin K → ℕ) × (ℕ × ℕ)) : ℕ :=
+  tupleProduct z.1 * (z.2.1 * z.2.2)
+
+def pd7dMajorBCoeff (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {k : ℕ} (χ : DirichletCharacter ℂ k) (tb : Fin K → ℕ) : ℂ :=
+  (eta ((tupleProduct tb : ℝ) / Y) : ℂ) * additiveCharacter (-lam * (tupleProduct tb : ℝ) / Y) *
+    ((∏ i : Fin K, (bandMass x (a i))⁻¹ : ℝ) : ℂ) * χ (tupleProduct tb : ZMod k)
+
+def pd7dMajorTripleCoeff (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k) (z : (Fin K → ℕ) × (ℕ × ℕ)) : ℂ :=
+  pd7dMajorBCoeff x K a Y lam eta χb z.1 *
+    ((family.alpha x z.2.1 * χm (z.2.1 : ZMod k)) * (beta z.2.2 * χn (z.2.2 : ZMod k)))
+
+lemma pd7d_major_endpoint_normalization (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k) (t : ℝ)
+    (hY : 0 < Y) (hHm : 0 < family.Hm x) (hHn : 0 < family.Hn x) :
+    pd7dEndpointPolynomial (pd7dMajorTripleSet x K a family) pd7dMajorTripleProduct
+      (pd7dMajorTripleCoeff x K a Y lam eta family beta χb χm χn) t =
+        (Y * (family.Hm x * family.Hn x) : ℂ) * pd7dMajorQ x K a Y lam eta family beta χb χm χn t := by
+  have hm : ∀ m ∈ familyTerms family x, 0 < m := by
+    intro m hm
+    have hb := (Finset.mem_filter.mp (Finset.mem_filter.mp hm).1).2
+    have hh : 0 < (m : ℝ) := hHm.trans_le hb.1
+    exact_mod_cast hh
+  have hn : ∀ n ∈ dyadicIntegers (family.Hn x), 0 < n := by
+    intro n hn
+    have hb := (Finset.mem_filter.mp hn).2
+    have hh : 0 < (n : ℝ) := hHn.trans_le hb.1
+    exact_mod_cast hh
+  have hmn : ∀ z ∈ familyTerms family x ×ˢ dyadicIntegers (family.Hn x), 0 < z.1*z.2 := by
+    intro z hz
+    exact Nat.mul_pos (hm _ (Finset.mem_product.mp hz).1) (hn _ (Finset.mem_product.mp hz).2)
+  have hp := pd7dEndpointPolynomial_mul (markedTupleSet x K a)
+    (familyTerms family x ×ˢ dyadicIntegers (family.Hn x)) tupleProduct (fun z => z.1*z.2)
+    (pd7dMajorBCoeff x K a Y lam eta χb)
+    (fun z => (family.alpha x z.1 * χm (z.1 : ZMod k)) * (beta z.2 * χn (z.2 : ZMod k)))
+    (marked_tuple_pos x K a) hmn t
+  have hp' := pd7dEndpointPolynomial_mul (familyTerms family x) (dyadicIntegers (family.Hn x))
+    id id (fun m => family.alpha x m * χm (m : ZMod k))
+    (fun n => beta n * χn (n : ZMod k)) hm hn t
+  change pd7dEndpointPolynomial (markedTupleSet x K a ×ˢ (familyTerms family x ×ˢ dyadicIntegers (family.Hn x)))
+    (fun z => tupleProduct z.1 * (z.2.1*z.2.2))
+    (fun z => pd7dMajorBCoeff x K a Y lam eta χb z.1 *
+      ((family.alpha x z.2.1 * χm (z.2.1 : ZMod k)) * (beta z.2.2 * χn (z.2.2 : ZMod k)))) t = _
+  simp only [id_eq] at hp'
+  rw [← hp, ← hp']
+  let PB := pd7dEndpointPolynomial (markedTupleSet x K a) tupleProduct (pd7dMajorBCoeff x K a Y lam eta χb) t
+  let PM := pd7dEndpointPolynomial (familyTerms family x) id (fun m => family.alpha x m * χm (m : ZMod k)) t
+  let PN := pd7dEndpointPolynomial (dyadicIntegers (family.Hn x)) id (fun n => beta n * χn (n : ZMod k)) t
+  change PB*(PM*PN) = (Y*(family.Hm x*family.Hn x) : ℂ)*
+    (((1/Y : ℂ)*PB)*((1/family.Hm x : ℂ)*PM)*((1/family.Hn x : ℂ)*PN))
+  have hYc : (Y : ℂ) ≠ 0 := by exact_mod_cast ne_of_gt hY
+  have hHmc : (family.Hm x : ℂ) ≠ 0 := by exact_mod_cast ne_of_gt hHm
+  have hHnc : (family.Hn x : ℂ) ≠ 0 := by exact_mod_cast ne_of_gt hHn
+  field_simp
+  <;> ring
+
+lemma pd7d_mem_markedTupleSet (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (tb : Fin K → ℕ) :
+    tb ∈ markedTupleSet x K a ↔ IsMarkedPrimeTuple x K a tb := by
+  exact Fintype.mem_piFinset
+
+lemma pd7d_majorArcSum_finite (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y A₀ : ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ) (eta psi : ℝ → ℝ) :
+    majorArcSum x K a Y A₀ family beta eta psi =
+      ∑ ta ∈ markedTupleSet x K a, ∑ tb ∈ markedTupleSet x K a,
+        ((∏ i : Fin K, ((bandMass x (a i))⁻¹ : ℝ)) : ℂ)^2 *
+        ∑ m ∈ familyTerms family x, ∑ n ∈ dyadicIntegers (family.Hn x),
+          ∑ r ∈ familyTerms family x, ∑ s ∈ dyadicIntegers (family.Hn x),
+            (eta ((tupleProduct ta : ℝ)/Y) : ℂ) * (eta ((tupleProduct tb : ℝ)/Y) : ℂ) *
+              family.alpha x m * star (family.alpha x r) * beta n * star (beta s) *
+              majorKernel x Y A₀ ((tupleProduct tb : ℝ)*m*n-(tupleProduct ta : ℝ)*r*s)
+                (tupleProduct ta) (tupleProduct tb) psi := by
+  unfold majorArcSum
+  simp only [← pd7d_mem_markedTupleSet]
+  rw [tsum_eq_sum (s := markedTupleSet x K a) (fun ta hta => by
+    simp only [hta, false_and, if_false, tsum_zero])]
+  apply Finset.sum_congr rfl
+  intro ta hta
+  rw [tsum_eq_sum (s := markedTupleSet x K a) (fun tb htb => by
+    simp only [htb, and_false, if_false])]
+  apply Finset.sum_congr rfl
+  intro tb htb
+  rw [if_pos ⟨hta,htb⟩]
+
+noncomputable def pd7dMajorPlainCoeff (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    (z : (Fin K → ℕ) × (ℕ × ℕ)) : ℂ :=
+  ((∏ i : Fin K, (bandMass x (a i))⁻¹ : ℝ) : ℂ) *
+    (eta ((tupleProduct z.1 : ℝ)/Y) : ℂ) * family.alpha x z.2.1 * beta z.2.2
+
+lemma pd7d_majorArcSum_triples (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y A₀ : ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ) (eta psi : ℝ → ℝ) :
+    majorArcSum x K a Y A₀ family beta eta psi =
+      ∑ i ∈ pd7dMajorTripleSet x K a family, ∑ j ∈ pd7dMajorTripleSet x K a family,
+        pd7dMajorPlainCoeff x K a Y eta family beta i * star (pd7dMajorPlainCoeff x K a Y eta family beta j) *
+        majorKernel x Y A₀ ((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ))
+          (tupleProduct j.1) (tupleProduct i.1) psi := by
+  rw [pd7d_majorArcSum_finite]
+  unfold pd7dMajorTripleSet
+  simp only [Finset.sum_product, Finset.mul_sum]
+  rw [Finset.sum_comm (s := markedTupleSet x K a) (t := markedTupleSet x K a)]
+  apply Finset.sum_congr rfl
+  intro tb htb
+  rw [Finset.sum_comm (s := markedTupleSet x K a) (t := familyTerms family x)]
+  apply Finset.sum_congr rfl
+  intro m hm
+  rw [Finset.sum_comm (s := markedTupleSet x K a) (t := dyadicIntegers (family.Hn x))]
+  apply Finset.sum_congr rfl
+  intro n hn
+  apply Finset.sum_congr rfl
+  intro ta hta
+  apply Finset.sum_congr rfl
+  intro r hr
+  apply Finset.sum_congr rfl
+  intro s hs
+  have ht : ((pd7dMajorTripleProduct (tb,m,n) : ℕ) : ℝ) - (pd7dMajorTripleProduct (ta,r,s) : ℝ) =
+      (tupleProduct tb : ℝ)*m*n-(tupleProduct ta : ℝ)*r*s := by
+    unfold pd7dMajorTripleProduct
+    push_cast
+    ring
+  rw [ht]
+  unfold pd7dMajorPlainCoeff
+  simp only [star_mul, Complex.star_def, Complex.conj_ofReal]
+  push_cast
+  ring
+
+lemma pd7dMajorTripleCoeff_plain (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k) (z : (Fin K → ℕ) × (ℕ × ℕ)) :
+    pd7dMajorTripleCoeff x K a Y lam eta family beta χb χm χn z =
+      pd7dMajorPlainCoeff x K a Y eta family beta z *
+      χb (tupleProduct z.1 : ZMod k) * χm (z.2.1 : ZMod k) * χn (z.2.2 : ZMod k) *
+      additiveCharacter (-lam * (tupleProduct z.1 : ℝ)/Y) := by
+  unfold pd7dMajorTripleCoeff pd7dMajorBCoeff pd7dMajorPlainCoeff
+  ring
+
+lemma pd7d_additiveCharacter_star (t : ℝ) : star (additiveCharacter t) = additiveCharacter (-t) := by
+  unfold additiveCharacter
+  change starRingEnd ℂ (Complex.exp _) = _
+  rw [← Complex.exp_conj]
+  congr 1
+  simp only [map_mul, map_ofNat, Complex.conj_I, Complex.conj_ofReal, Complex.ofReal_neg]
+  ring
+
+lemma pd7dMajorTripleCoeff_star_conj (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k) (z : (Fin K → ℕ) × (ℕ × ℕ)) :
+    star (pd7dMajorTripleCoeff x K a Y lam eta family beta
+      (pd7dConjugateCharacter χb) (pd7dConjugateCharacter χm) (pd7dConjugateCharacter χn) z) =
+      star (pd7dMajorPlainCoeff x K a Y eta family beta z) *
+      χb (tupleProduct z.1 : ZMod k) * χm (z.2.1 : ZMod k) * χn (z.2.2 : ZMod k) *
+      additiveCharacter (lam * (tupleProduct z.1 : ℝ)/Y) := by
+  rw [pd7dMajorTripleCoeff_plain]
+  simp only [star_mul, pd7dConjugateCharacter_apply, star_star, pd7d_additiveCharacter_star]
+  have hh : -(-lam * (tupleProduct z.1 : ℝ)/Y) = lam*(tupleProduct z.1 : ℝ)/Y := by ring
+  rw [hh]
+  ring
+
+lemma pd7d_major_triple_ratio_support (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k)
+    (hY : 0 < Y) (hHm : 0 < family.Hm x) (hHn : 0 < family.Hn x)
+    (heta_supp : Function.support eta ⊆ Set.Icc 1 4) :
+    ∀ z ∈ pd7dMajorTripleSet x K a family,
+      pd7dMajorTripleCoeff x K a Y lam eta family beta χb χm χn z ≠ 0 →
+        (pd7dMajorTripleProduct z : ℝ)/(Y*(family.Hm x*family.Hn x)) ∈ Set.Icc 1 16 := by
+  intro z hz hcz
+  have hmB := (Finset.mem_filter.mp (Finset.mem_filter.mp (Finset.mem_product.mp
+    (Finset.mem_product.mp hz).2).1).1).2
+  have hnB := (Finset.mem_filter.mp (Finset.mem_product.mp (Finset.mem_product.mp hz).2).2).2
+  have hη : eta ((tupleProduct z.1 : ℝ)/Y) ≠ 0 := by
+    intro hzero
+    apply hcz
+    simp only [pd7dMajorTripleCoeff, pd7dMajorBCoeff, hzero, Complex.ofReal_zero, zero_mul]
+  have hbB := heta_supp hη
+  have hmR : (z.2.1 : ℝ)/family.Hm x ∈ Set.Icc 1 2 := by
+    constructor
+    · exact (le_div_iff₀ hHm).2 (by simpa using hmB.1)
+    · exact (div_le_iff₀ hHm).2 (by nlinarith [hmB.2])
+  have hnR : (z.2.2 : ℝ)/family.Hn x ∈ Set.Icc 1 2 := by
+    constructor
+    · exact (le_div_iff₀ hHn).2 (by simpa using hnB.1)
+    · exact (div_le_iff₀ hHn).2 (by nlinarith [hnB.2])
+  have heq : (pd7dMajorTripleProduct z : ℝ)/(Y*(family.Hm x*family.Hn x)) =
+      ((tupleProduct z.1 : ℝ)/Y)*((z.2.1 : ℝ)/family.Hm x)*((z.2.2 : ℝ)/family.Hn x) := by
+    unfold pd7dMajorTripleProduct
+    push_cast
+    ring
+  rw [heq]
+  constructor
+  · have hh := mul_le_mul hbB.1 hmR.1 (by norm_num : (0:ℝ) ≤ 1) (by positivity : 0 ≤ (tupleProduct z.1 : ℝ)/Y)
+    have hh' := mul_le_mul hh hnR.1 (by norm_num : (0:ℝ) ≤ 1) (by positivity : 0 ≤ ((tupleProduct z.1 : ℝ)/Y)*((z.2.1 : ℝ)/family.Hm x))
+    simpa only [one_mul] using hh'
+  · have hh := mul_le_mul hbB.2 hmR.2 (by positivity : 0 ≤ (z.2.1 : ℝ)/family.Hm x) (by norm_num : (0:ℝ) ≤ 4)
+    have hh' := mul_le_mul hh hnR.2 (by positivity : 0 ≤ (z.2.2 : ℝ)/family.Hn x) (by norm_num : (0:ℝ) ≤ 4*2)
+    norm_num at hh' ⊢
+    exact hh'
+
+noncomputable def pd7dMajorCharPair (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta psi : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χ : Fin 6 → DirichletCharacter ℂ k) : ℂ :=
+  ∑ i ∈ pd7dMajorTripleSet x K a family, ∑ j ∈ pd7dMajorTripleSet x K a family,
+    pd7dMajorTripleCoeff x K a Y lam eta family beta (χ 0) (χ 1) (χ 2) i *
+    star (pd7dMajorTripleCoeff x K a Y lam eta family beta
+      (pd7dConjugateCharacter (χ 3)) (pd7dConjugateCharacter (χ 4)) (pd7dConjugateCharacter (χ 5)) j) *
+    ((psi (((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ))/Y) : ℂ) *
+      additiveCharacter (lam*((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ))/Y))
+
+lemma pd7dMajorCharPair_continuous (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ) (eta psi : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χ : Fin 6 → DirichletCharacter ℂ k) :
+    Continuous (fun lam => pd7dMajorCharPair x K a Y lam eta psi family beta χ) := by
+  unfold pd7dMajorCharPair pd7dMajorTripleCoeff pd7dMajorBCoeff additiveCharacter
+  fun_prop
+
+lemma pd7d_major_char_pair_mellin (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
+    (Y lam R : ℝ) (eta psi κ : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χ : Fin 6 → DirichletCharacter ℂ k)
+    (hY : 0 < Y) (hHm : 0 < family.Hm x) (hHn : 0 < family.Hn x)
+    (hX : 1 ≤ family.Hm x*family.Hn x) (hR : 0 ≤ R)
+    (heta_supp : Function.support eta ⊆ Set.Icc 1 4)
+    (hκ : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) κ)
+    (hpsi : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) psi)
+    (hκsupp : Function.support κ ⊆ Set.Icc (1/2 : ℝ) 32)
+    (hpsisupp : Function.support psi ⊆ Set.Icc (-R) R)
+    (hκone : ∀ y ∈ Set.Icc (1 : ℝ) 16, κ y = 1) :
+    pd7dMajorCharPair x K a Y lam eta psi family beta χ =
+      ((Y*(family.Hm x*family.Hn x) : ℂ)^2) *
+      ∫ v : PDPlane, pd7dFourier2 (pd7dScaledKernel κ psi (family.Hm x*family.Hn x) lam) v *
+        Complex.exp (-Complex.I * v 1 * Real.log (Y*(family.Hm x*family.Hn x))) *
+        pd7dMajorQ x K a Y lam eta family beta (χ 0) (χ 1) (χ 2) ((family.Hm x*family.Hn x)*v 0) *
+        star (pd7dMajorQ x K a Y lam eta family beta (pd7dConjugateCharacter (χ 3))
+          (pd7dConjugateCharacter (χ 4)) (pd7dConjugateCharacter (χ 5))
+          ((family.Hm x*family.Hn x)*v 0-v 1)) := by
+  let X := family.Hm x*family.Hn x
+  let D := Y*X
+  let S := pd7dMajorTripleSet x K a family
+  let c := pd7dMajorTripleCoeff x K a Y lam eta family beta (χ 0) (χ 1) (χ 2)
+  let d := pd7dMajorTripleCoeff x K a Y lam eta family beta
+    (pd7dConjugateCharacter (χ 3)) (pd7dConjugateCharacter (χ 4)) (pd7dConjugateCharacter (χ 5))
+  have hDp : 0 < D := mul_pos hY (mul_pos hHm hHn)
+  have hXne : X ≠ 0 := ne_of_gt (mul_pos hHm hHn)
+  have hpair := pd7d_finite_mellin_pair S S pd7dMajorTripleProduct pd7dMajorTripleProduct c
+    (fun j => star (d j)) κ psi X lam R D hX hR hDp hκ hpsi hκsupp hpsisupp hκone
+    (pd7d_major_triple_ratio_support x K a Y lam eta family beta (χ 0) (χ 1) (χ 2) hY hHm hHn heta_supp)
+    (fun j hj hd => pd7d_major_triple_ratio_support x K a Y lam eta family beta
+      (pd7dConjugateCharacter (χ 3)) (pd7dConjugateCharacter (χ 4)) (pd7dConjugateCharacter (χ 5)) hY hHm hHn heta_supp j hj
+      (fun hz => hd (by simpa only [star_zero] using congrArg star (show d j = 0 from hz))))
+  have harg (i j : (Fin K → ℕ) × (ℕ × ℕ)) :
+      X*((pd7dMajorTripleProduct i : ℝ)/D-(pd7dMajorTripleProduct j : ℝ)/D) =
+      ((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ))/Y := by
+    dsimp [D]
+    field_simp [hXne,ne_of_gt hY]
+    <;> ring
+  have hphasearg (i j : (Fin K → ℕ) × (ℕ × ℕ)) :
+      lam*X*((pd7dMajorTripleProduct i : ℝ)/D-(pd7dMajorTripleProduct j : ℝ)/D) =
+      lam*((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ))/Y := by
+    rw [mul_assoc, harg]
+    ring
+  simp_rw [harg,hphasearg] at hpair
+  change pd7dMajorCharPair x K a Y lam eta psi family beta χ = _ at hpair
+  rw [hpair, ← integral_const_mul]
+  apply integral_congr_ae
+  filter_upwards [] with v
+  dsimp only [c,d,S]
+  rw [pd7dEndpointPolynomial_star,
+    pd7d_major_endpoint_normalization x K a Y lam eta family beta (χ 0) (χ 1) (χ 2) _ hY hHm hHn,
+    pd7d_major_endpoint_normalization x K a Y lam eta family beta _ _ _ _ hY hHm hHn]
+  have hneg : -(v 1-X*v 0) = X*v 0-v 1 := by ring
+  rw [hneg]
+  simp only [star_mul, Complex.star_def, Complex.conj_ofReal]
+  dsimp [X,D]
+  push_cast
+  ring
+
+noncomputable def pd7dMajorArcPair (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta psi : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ) (h : ℤ) (k : ℕ) : ℂ :=
+  ∑ i ∈ pd7dMajorTripleSet x K a family, ∑ j ∈ pd7dMajorTripleSet x K a family,
+    pd7dMajorPlainCoeff x K a Y eta family beta i * star (pd7dMajorPlainCoeff x K a Y eta family beta j) *
+    (psi (((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ))/Y) : ℂ) *
+    additiveCharacter ((h : ℝ)*((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ)-
+      tupleProduct i.1+tupleProduct j.1)/k) *
+    additiveCharacter (lam*((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ)-
+      tupleProduct i.1+tupleProduct j.1)/Y)
+
+lemma pd7d_major_arc_pair_character (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta psi : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ) (h : ℤ) (k : ℕ) [NeZero k]
+    (hx : family.xMin ≤ x) (hsmall : ∀ i : Fin K, (k : ℝ) < Real.exp (Real.rpow (Real.log x) (a i)))
+    (hkW : (k : ℝ) ≤ roughCutoff x)
+    (hbeta : ∀ n, beta n ≠ 0 → n ∈ dyadicIntegers (family.Hn x) ∧ roughAbove n (roughCutoff x)) :
+    pd7dMajorArcPair x K a Y lam eta psi family beta h k =
+      ∑ χ : Fin 6 → DirichletCharacter ℂ k,
+        pd7dCharacterCoeff k 6 (pd7dMajorResiduePhase h k) χ *
+          pd7dMajorCharPair x K a Y lam eta psi family beta χ := by
+  let S := pd7dMajorTripleSet x K a family
+  let c := pd7dMajorPlainCoeff x K a Y eta family beta
+  have hunit (z : (Fin K → ℕ) × (ℕ × ℕ)) (hz : z ∈ S) (hcz : c z ≠ 0) :
+      IsUnit (tupleProduct z.1 : ZMod k) ∧ IsUnit (z.2.1 : ZMod k) ∧ IsUnit (z.2.2 : ZMod k) := by
+    have hα : family.alpha x z.2.1 ≠ 0 := by
+      intro hzero
+      apply hcz
+      simp only [c,pd7dMajorPlainCoeff,hzero,mul_zero,zero_mul]
+    have hβ : beta z.2.2 ≠ 0 := by
+      intro hzero
+      apply hcz
+      simp only [c,pd7dMajorPlainCoeff,hzero,mul_zero]
+    exact ⟨pd7d_marked_tuple_isUnit x K a z.1 k (Nat.pos_of_ne_zero (NeZero.ne k))
+        ((pd7d_mem_markedTupleSet x K a z.1).mp (Finset.mem_product.mp hz).1) hsmall,
+      pd7d_rough_isUnit z.2.1 k (roughCutoff x) (Nat.pos_of_ne_zero (NeZero.ne k)) hkW
+        (family.rough_support x hx z.2.1 hα).2,
+      pd7d_rough_isUnit z.2.2 k (roughCutoff x) (Nat.pos_of_ne_zero (NeZero.ne k)) hkW (hbeta _ hβ).2⟩
+  have hc := pd7d_finite_character_pair S S (fun z => tupleProduct z.1) (fun z => z.2.1) (fun z => z.2.2)
+    (fun z => tupleProduct z.1) (fun z => z.2.1) (fun z => z.2.2) c (fun z => star (c z))
+    h k Y lam psi hunit (fun z hz hcz => hunit z hz (fun hzero => hcz (by rw [hzero,star_zero])))
+  have hprod (z : (Fin K → ℕ) × (ℕ × ℕ)) : (pd7dMajorTripleProduct z : ℝ) =
+      (tupleProduct z.1 : ℝ)*z.2.1*z.2.2 := by
+    unfold pd7dMajorTripleProduct
+    push_cast
+    ring
+  unfold pd7dMajorArcPair
+  simp_rw [hprod]
+  rw [hc]
+  apply Finset.sum_congr rfl
+  intro χ hχ
+  unfold pd7dMajorCharPair
+  apply congrArg (fun z : ℂ => pd7dCharacterCoeff k 6 (pd7dMajorResiduePhase h k) χ*z)
+  apply Finset.sum_congr rfl
+  intro i hi
+  apply Finset.sum_congr rfl
+  intro j hj
+  rw [pd7dMajorTripleCoeff_star_conj, pd7dMajorTripleCoeff_plain]
+  simp only [hprod]
+  rfl
+
+lemma pd7d_majorArcSum_arc_pairs (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y A₀ : ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ) (eta psi : ℝ → ℝ)
+    (hL : 1 ≤ Real.log x) (hA₀ : 0 ≤ A₀) (hY : 4*(Real.rpow (Real.log x) A₀)^3 < Y) :
+    majorArcSum x K a Y A₀ family beta eta psi =
+      ∑ p ∈ pd7dReducedPairs (Real.rpow (Real.log x) A₀), (1/Y : ℂ) *
+        ∫ lam in (-2*Real.rpow (Real.log x) A₀)..(2*Real.rpow (Real.log x) A₀),
+          pd7dMajorArcPair x K a Y lam eta psi family beta (p.1 : ℤ) p.2 := by
+  let S := pd7dMajorTripleSet x K a family
+  let P := pd7dReducedPairs (Real.rpow (Real.log x) A₀)
+  let c := pd7dMajorPlainCoeff x K a Y eta family beta
+  let f (p : ℕ × ℕ) (i j : (Fin K → ℕ) × (ℕ × ℕ)) (lam : ℝ) :=
+    c i * star (c j) * (psi (((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ))/Y) : ℂ) *
+    additiveCharacter ((p.1 : ℝ)*((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ)-tupleProduct i.1+tupleProduct j.1)/p.2) *
+    additiveCharacter (lam*((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ)-tupleProduct i.1+tupleProduct j.1)/Y)
+  have hfi (p : ℕ × ℕ) (i j : (Fin K → ℕ) × (ℕ × ℕ)) :
+      IntervalIntegrable (f p i j) volume (-2*Real.rpow (Real.log x) A₀) (2*Real.rpow (Real.log x) A₀) := by
+    have hc : Continuous (f p i j) := by dsimp [f]; unfold additiveCharacter; fun_prop
+    exact hc.intervalIntegrable _ _
+  have hterm (i j : (Fin K → ℕ) × (ℕ × ℕ)) :
+      c i * star (c j) * majorKernel x Y A₀ ((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ))
+        (tupleProduct j.1) (tupleProduct i.1) psi =
+        ∑ p ∈ P, (1/Y : ℂ) * ∫ lam in (-2*Real.rpow (Real.log x) A₀)..(2*Real.rpow (Real.log x) A₀), f p i j lam := by
+    let d : ℤ := (pd7dMajorTripleProduct i : ℤ)-(pd7dMajorTripleProduct j : ℤ)-tupleProduct i.1+tupleProduct j.1
+    have hd : (d : ℝ) = (pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ)-tupleProduct i.1+tupleProduct j.1 := by
+      dsimp [d]
+      push_cast
+      rfl
+    unfold majorKernel
+    rw [← hd, pd7d_major_kernel_arc_expansion x Y A₀ hL hA₀ hY d]
+    simp only [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro p hp
+    simp_rw [← intervalIntegral.integral_const_mul]
+    apply intervalIntegral.integral_congr
+    intro lam hlam
+    dsimp [f]
+    rw [hd]
+    push_cast
+    ring
+  rw [pd7d_majorArcSum_triples]
+  change (∑ i ∈ S, ∑ j ∈ S, c i * star (c j) * majorKernel x Y A₀
+    ((pd7dMajorTripleProduct i : ℝ)-(pd7dMajorTripleProduct j : ℝ)) (tupleProduct j.1) (tupleProduct i.1) psi) = _
+  simp_rw [hterm, Finset.sum_comm (s := S) (t := P)]
+  apply Finset.sum_congr rfl
+  intro p hp
+  simp_rw [← Finset.mul_sum]
+  apply congrArg (fun z : ℂ => (1/Y : ℂ)*z)
+  simp_rw [← intervalIntegral.integral_finset_sum (fun j hj => hfi p _ j)]
+  rw [← intervalIntegral.integral_finset_sum (f := fun i lam => ∑ j ∈ S, f p i j lam)
+    (fun i hi => by
+      have hc : Continuous (fun lam => ∑ j ∈ S, f p i j lam) := by dsimp [f]; unfold additiveCharacter; fun_prop
+      exact hc.intervalIntegrable _ _)]
+  apply intervalIntegral.integral_congr
+  intro lam hlam
+  unfold pd7dMajorArcPair
+  simp only [f,c,Int.cast_natCast]
+  rfl
+
+lemma pd7dMajorQ_bounded (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k)
+    (hY : 0 < Y) (hHm : 0 < family.Hm x) (hHn : 0 < family.Hn x) :
+    ∃ R : ℝ, ∀ t, ‖pd7dMajorQ x K a Y lam eta family beta χb χm χn t‖ ≤ R := by
+  let S := pd7dMajorTripleSet x K a family
+  let c := pd7dMajorTripleCoeff x K a Y lam eta family beta χb χm χn
+  let D := Y*(family.Hm x*family.Hn x)
+  have hD : 0 < D := mul_pos hY (mul_pos hHm hHn)
+  refine ⟨(∑ z ∈ S, ‖c z‖)/D, ?_⟩
+  intro t
+  apply (le_div_iff₀ hD).2
+  have hn := congrArg norm (pd7d_major_endpoint_normalization x K a Y lam eta family beta χb χm χn t hY hHm hHn)
+  have hnorm : ‖(Y*(family.Hm x*family.Hn x) : ℂ)‖ = D := by
+    rw [← Complex.ofReal_mul, ← Complex.ofReal_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hD]
+  rw [norm_mul,hnorm] at hn
+  calc
+    _ = ‖pd7dEndpointPolynomial S pd7dMajorTripleProduct c t‖ := by rw [hn]; ring
+    _ ≤ _ := pd7dEndpointPolynomial_norm_le S pd7dMajorTripleProduct c t
+
+lemma pd7dMajorQ_mean (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y lam Mη Cmn : ℝ) (eta : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χb χm χn : DirichletCharacter ℂ k)
+    (hY : 0 < Y) (hMη : 0 ≤ Mη) (heta_supp : Function.support eta ⊆ Set.Icc 1 4)
+    (hEtaBound : ∀ y : ℝ, ‖(eta y : ℂ)‖ ≤ Mη) (hMass : ∀ i, 0 < bandMass x (a i))
+    (hMN : ∀ u v : ℝ, u ≤ v →
+      (∫ t in u..v, ‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖^2) ≤
+        Cmn*(1+(v-u)/(family.Hm x*family.Hn x))) :
+    ∀ u v : ℝ, u ≤ v → (∫ t in u..v, ‖pd7dMajorQ x K a Y lam eta family beta χb χm χn t‖^2) ≤
+      (16*Mη^2*Cmn)*(1+(v-u)/(family.Hm x*family.Hn x)) := by
+  intro u v huv
+  have hQcont := pd7dMajorQ_continuous x K a Y lam eta family beta χb χm χn
+  have hMNcont : Continuous (fun t => majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t) := by
+    unfold majorMPolynomial majorNPolynomial alphaFrequency betaFrequency
+    fun_prop
+  have hpoint (t : ℝ) : ‖pd7dMajorQ x K a Y lam eta family beta χb χm χn t‖^2 ≤
+      16*Mη^2*‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖^2 := by
+    have hB := majorBPolynomial_norm_le x K a Y lam Mη eta χb t hY heta_supp hEtaBound hMη hMass
+    have hBsq := pow_le_pow_left₀ (norm_nonneg _) hB 2
+    unfold pd7dMajorQ
+    rw [mul_assoc, norm_mul, mul_pow]
+    have hh := mul_le_mul_of_nonneg_right hBsq (sq_nonneg ‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖)
+    nlinarith
+  calc
+    _ ≤ ∫ t in u..v, 16*Mη^2*‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖^2 :=
+      intervalIntegral.integral_mono_on huv ((hQcont.norm.pow 2).intervalIntegrable _ _)
+        (((hMNcont.norm.pow 2).const_mul (16*Mη^2)).intervalIntegrable _ _) (fun t _ => hpoint t)
+    _ = 16*Mη^2*(∫ t in u..v, ‖majorMPolynomial family x χm t * majorNPolynomial (family.Hn x) beta χn t‖^2) :=
+      intervalIntegral.integral_const_mul _ _
+    _ ≤ _ := by
+      have hh := mul_le_mul_of_nonneg_left (hMN u v huv) (by positivity : 0 ≤ 16*Mη^2)
+      nlinarith
+
+lemma pd7d_majorArcSum_norm_reduction (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y A₀ B : ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ) (eta psi : ℝ → ℝ)
+    (hx : family.xMin ≤ x) (hL : 1 ≤ Real.log x) (hA₀ : 0 ≤ A₀)
+    (hY : 4*(Real.rpow (Real.log x) A₀)^3 < Y) (hB : 0 ≤ B)
+    (hsmall : ∀ i : Fin K, Real.rpow (Real.log x) A₀ < Real.exp (Real.rpow (Real.log x) (a i)))
+    (hW : Real.rpow (Real.log x) A₀ ≤ roughCutoff x)
+    (hbeta : ∀ n, beta n ≠ 0 → n ∈ dyadicIntegers (family.Hn x) ∧ roughAbove n (roughCutoff x))
+    (hchar : ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
+      ∀ χ : Fin 6 → DirichletCharacter ℂ k, ∀ lam : ℝ, |lam| ≤ 2*Real.rpow (Real.log x) A₀ →
+        ‖pd7dMajorCharPair x K a Y lam eta psi family beta χ‖ ≤ B) :
+    ‖majorArcSum x K a Y A₀ family beta eta psi‖ ≤
+      (4*(Real.rpow (Real.log x) A₀)^9/Y)*B := by
+  let M := Real.rpow (Real.log x) A₀
+  have hM : 1 ≤ M := Real.one_le_rpow hL hA₀
+  have hYp : 0 < Y := lt_of_lt_of_le (by positivity : 0 < 4*M^3) hY.le
+  have hkp (p : ℕ × ℕ) (hp : p ∈ pd7dReducedPairs M) : 1 ≤ p.2 ∧ (p.2 : ℝ) ≤ M := by
+    have hh := (pd7dReducedPairs_mem M p).mp hp
+    have hkcast : (p.2 : ℝ) ≤ (⌊M⌋₊ : ℝ) := by exact_mod_cast hh.2.1
+    exact ⟨hh.2.2.1, hkcast.trans (Nat.floor_le (by linarith : 0 ≤ M))⟩
+  have hpair (p : ℕ × ℕ) (hp : p ∈ pd7dReducedPairs M) (lam : ℝ) (hlam : |lam| ≤ 2*M) :
+      ‖pd7dMajorArcPair x K a Y lam eta psi family beta (p.1 : ℤ) p.2‖ ≤ M^6*B := by
+    obtain ⟨hk,hkle⟩ := hkp p hp
+    letI : NeZero p.2 := ⟨by omega⟩
+    rw [pd7d_major_arc_pair_character x K a Y lam eta psi family beta (p.1 : ℤ) p.2 hx
+      (fun i => hkle.trans_lt (hsmall i)) (hkle.trans hW) hbeta]
+    calc
+      _ ≤ ∑ χ : Fin 6 → DirichletCharacter ℂ p.2,
+          ‖pd7dCharacterCoeff p.2 6 (pd7dMajorResiduePhase (p.1 : ℤ) p.2) χ *
+            pd7dMajorCharPair x K a Y lam eta psi family beta χ‖ := norm_sum_le _ _
+      _ ≤ ∑ χ : Fin 6 → DirichletCharacter ℂ p.2,
+          ‖pd7dCharacterCoeff p.2 6 (pd7dMajorResiduePhase (p.1 : ℤ) p.2) χ‖ * B := by
+        apply Finset.sum_le_sum
+        intro χ hχ
+        rw [norm_mul]
+        exact mul_le_mul_of_nonneg_left (hchar p.2 hk hkle χ lam hlam) (norm_nonneg _)
+      _ = (∑ χ : Fin 6 → DirichletCharacter ℂ p.2,
+          ‖pd7dCharacterCoeff p.2 6 (pd7dMajorResiduePhase (p.1 : ℤ) p.2) χ‖)*B := (Finset.sum_mul _ _ _).symm
+      _ ≤ (p.2 : ℝ)^6*B := mul_le_mul_of_nonneg_right (pd7d_major_residue_character_mass (p.1 : ℤ) p.2) hB
+      _ ≤ _ := mul_le_mul_of_nonneg_right (pow_le_pow_left₀ (by positivity) hkle 6) hB
+  rw [pd7d_majorArcSum_arc_pairs x K a Y A₀ family beta eta psi hL hA₀ hY]
+  have hterm (p : ℕ × ℕ) (hp : p ∈ pd7dReducedPairs M) :
+      ‖(1/Y : ℂ) * ∫ lam in (-2*M)..(2*M), pd7dMajorArcPair x K a Y lam eta psi family beta (p.1 : ℤ) p.2‖ ≤
+        (1/Y)*(4*M*(M^6*B)) := by
+    rw [norm_mul, norm_div, norm_one, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hYp]
+    apply mul_le_mul_of_nonneg_left _ (by positivity : 0 ≤ 1/Y)
+    have hh := intervalIntegral.norm_integral_le_of_norm_le_const (a := -2*M) (b := 2*M)
+      (C := M^6*B) (fun lam hlam => hpair p hp lam (by
+        have hmemb := Set.mem_uIoc.mp hlam
+        apply abs_le.mpr
+        rcases hmemb with hmemb | hmemb
+        · exact ⟨by linarith [hmemb.1],hmemb.2⟩
+        · exfalso
+          linarith [hmemb.1,hmemb.2]))
+    have hlen : |2*M-(-2*M)| = 4*M := by rw [abs_of_nonneg (by linarith)]; ring
+    simpa only [hlen,mul_comm] using hh
+  calc
+    _ ≤ ∑ p ∈ pd7dReducedPairs M, ‖(1/Y : ℂ)*∫ lam in (-2*M)..(2*M),
+      pd7dMajorArcPair x K a Y lam eta psi family beta (p.1 : ℤ) p.2‖ := norm_sum_le _ _
+    _ ≤ ∑ p ∈ pd7dReducedPairs M, (1/Y)*(4*M*(M^6*B)) := Finset.sum_le_sum hterm
+    _ = ((pd7dReducedPairs M).card : ℝ) * ((1/Y)*(4*M*(M^6*B))) := by simp
+    _ ≤ M^2*((1/Y)*(4*M*(M^6*B))) := mul_le_mul_of_nonneg_right
+      (pd7dReducedPairs_card_le M (by linarith)) (by positivity)
+    _ = _ := by ring
+
+lemma pd7d_major_char_pair_bound (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
+    (Y lam R H S Cq eps CF : ℝ) (eta psi κ : ℝ → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    {k : ℕ} (χ : Fin 6 → DirichletCharacter ℂ k)
+    (hY : 0 < Y) (hHm : 0 < family.Hm x) (hHn : 0 < family.Hn x)
+    (hX : 1 ≤ family.Hm x*family.Hn x) (hR : 0 ≤ R) (hH : 1 ≤ H) (hS : 1 ≤ S)
+    (hCq : 0 ≤ Cq) (heps : 0 ≤ eps) (hCF : 0 ≤ CF) (j : ℕ) (hj : 2 ≤ j)
+    (heta_supp : Function.support eta ⊆ Set.Icc 1 4)
+    (hκ : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) κ)
+    (hpsi : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) psi)
+    (hκsupp : Function.support κ ⊆ Set.Icc (1/2 : ℝ) 32)
+    (hpsisupp : Function.support psi ⊆ Set.Icc (-R) R)
+    (hκone : ∀ y ∈ Set.Icc (1 : ℝ) 16, κ y = 1)
+    (hdecay : ∀ v, ‖pd7dFourier2 (pd7dScaledKernel κ psi (family.Hm x*family.Hn x) lam) v‖ ≤
+      CF*pd7dFrequencyWeight H j (v 0)*pd7dFrequencyWeight H j (v 1))
+    (hmean : ∀ χb χm χn : DirichletCharacter ℂ k, ∀ u v : ℝ, u ≤ v →
+      (∫ t in u..v, ‖pd7dMajorQ x K a Y lam eta family beta χb χm χn t‖^2) ≤
+        Cq*(1+(v-u)/(family.Hm x*family.Hn x)))
+    (henergy : ∀ χb χm χn : DirichletCharacter ℂ k,
+      (∫ t in (-2*(family.Hm x*family.Hn x)*S)..(2*(family.Hm x*family.Hn x)*S),
+        ‖pd7dMajorQ x K a Y lam eta family beta χb χm χn t‖^2) ≤ eps) :
+    ‖pd7dMajorCharPair x K a Y lam eta psi family beta χ‖ ≤
+      Y^2*(family.Hm x*family.Hn x)*CF*(2*S*eps + 32*Cq*H*S*(H/S)^j*(1+pd7dPSeries j)^2) := by
+  let X := family.Hm x*family.Hn x
+  let D := Y*X
+  let F := pd7dFourier2 (pd7dScaledKernel κ psi X lam)
+  let Q := pd7dMajorQ x K a Y lam eta family beta (χ 0) (χ 1) (χ 2)
+  let P := pd7dMajorQ x K a Y lam eta family beta
+    (pd7dConjugateCharacter (χ 3)) (pd7dConjugateCharacter (χ 4)) (pd7dConjugateCharacter (χ 5))
+  obtain ⟨MQ,hQb⟩ := pd7dMajorQ_bounded x K a Y lam eta family beta (χ 0) (χ 1) (χ 2) hY hHm hHn
+  obtain ⟨MP,hPb⟩ := pd7dMajorQ_bounded x K a Y lam eta family beta
+    (pd7dConjugateCharacter (χ 3)) (pd7dConjugateCharacter (χ 4)) (pd7dConjugateCharacter (χ 5)) hY hHm hHn
+  have hFi : Integrable F := pd7dFourier2_integrable _
+    (pd7d_scaled_kernel_contDiff κ psi X lam hκ hpsi)
+    (pd7d_scaled_kernel_hasCompactSupport κ psi X lam R hX hR hκsupp hpsisupp)
+  have hop := pd7d_plane_endpoint_operator F Q P X H S Cq eps CF D MQ MP hX hH hS hCq heps hCF j hj
+    hFi (pd7dMajorQ_continuous x K a Y lam eta family beta (χ 0) (χ 1) (χ 2))
+    (pd7dMajorQ_continuous x K a Y lam eta family beta _ _ _) hQb hPb hdecay
+    (hmean _ _ _) (hmean _ _ _) (henergy _ _ _) (henergy _ _ _)
+  rw [pd7d_major_char_pair_mellin x K a Y lam R eta psi κ family beta χ hY hHm hHn hX hR
+    heta_supp hκ hpsi hκsupp hpsisupp hκone, norm_mul, norm_pow]
+  have hD : 0 < D := mul_pos hY (mul_pos hHm hHn)
+  have hnorm : ‖(Y*(family.Hm x*family.Hn x) : ℂ)‖ = D := by
+    have hcast : (Y*(family.Hm x*family.Hn x) : ℂ) = (D : ℂ) := by dsimp [D,X]; push_cast; rfl
+    rw [hcast,Complex.norm_real,Real.norm_eq_abs,abs_of_pos hD]
+  rw [hnorm]
+  calc
+    _ ≤ D^2*(CF*((2*S*eps+32*Cq*H*S*(H/S)^j*(1+pd7dPSeries j)^2)/X)) :=
+      mul_le_mul_of_nonneg_left hop (sq_nonneg D)
+    _ = _ := by dsimp [D,X]; field_simp <;> ring
+
 /-- `t2:pd.major-separation` — PD 05:257-376.  REPLACES the frozen `major_separation`.  The
 reduction of (maj:bound) to (maj:energy): arcs disjoint; on an arc `θ = h/k + λ/Y` all
 variables are units mod `k`; six-character Fourier expansion of `e(h(bmn-ars-b+a)/k)` with total
@@ -4870,7 +5462,134 @@ theorem major_separation (δ C c₁ c₂ : ℝ) (K : ℕ) (a : Fin K → ℝ)
                         Real.rpow (Real.log x) (-A')) →
                 ‖majorArcSum x K a Y A₀ family beta eta psi‖ ≤
                   C' * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-D) := by
-  sorry
+  intro A₀ D hA₀ hD
+  obtain ⟨Cmn,C₄,hCmn,hC₄,hproduct⟩ := pd7d_product_mean_square_eventually δ C c₁ c₂ hδ hC hc₁ hc₂
+  have hetaCompact : HasCompactSupport eta := HasCompactSupport.of_support_subset_isCompact isCompact_Icc heta_supp
+  obtain ⟨M₀,hM₀,hMbound⟩ := hetaCompact.exists_bound_iteratedFDeriv heta 0
+  let Mη := M₀+1
+  have hMη : 0 < Mη := by dsimp [Mη]; linarith
+  have hEtaBound (y : ℝ) : ‖(eta y : ℂ)‖ ≤ Mη := by
+    have hh := hMbound 0 (by omega) y
+    rw [norm_iteratedFDeriv_zero] at hh
+    rw [Complex.norm_real]
+    exact hh.trans (by dsimp [Mη]; linarith)
+  obtain ⟨R,hR,hRsupport⟩ := hpsi_supp.isCompact.isBounded.subset_closedBall_lt (0 : ℝ) (0 : ℝ)
+  have hpsisupp : Function.support psi ⊆ Set.Icc (-R) R := by
+    intro y hy
+    have hh := hRsupport (subset_tsupport psi hy)
+    have habs : |y| ≤ R := by simpa only [Metric.mem_closedBall,Real.dist_eq,sub_zero] using hh
+    exact abs_le.mp habs
+  let κ : ℝ → ℝ := pd7dSeparationCutoff
+  have hκ := pd7d_separation_cutoff_contDiff
+  have hκsupp := pd7d_separation_cutoff_support
+  have hκone := pd7d_separation_cutoff_one
+  let B₀ := A₀+1
+  let B₁ := B₀+2
+  let A' := D+9*A₀+B₁+1
+  have hB₀ : 0 < B₀ := by dsimp [B₀]; positivity
+  have hB₁ : 0 < B₁ := by dsimp [B₁]; positivity
+  have hA' : 0 < A' := by dsimp [A']; positivity
+  obtain ⟨j₀,hj₀⟩ := exists_nat_gt (D+9*A₀+C₄+B₀+B₁)
+  let j := max j₀ 2
+  have hj : 2 ≤ j := le_max_right _ _
+  have hjlarge : D+9*A₀+C₄+B₀+B₁ < (j : ℝ) :=
+    hj₀.trans_le (by exact_mod_cast le_max_left j₀ 2)
+  have hret : 9*A₀+B₁-A' ≤ -D := by dsimp [A']; linarith
+  have htail : 9*A₀+C₄+B₀+B₁+(j : ℝ)*(B₀-B₁) ≤ -D := by
+    have hdiff : B₀-B₁ = -2 := by dsimp [B₁]; ring
+    rw [hdiff]
+    have hjnonneg : 0 ≤ (j : ℝ) := by positivity
+    linarith
+  obtain ⟨CF,hCF,htransform⟩ := pd7d_scaled_kernel_transform_decay κ psi R A₀ hR.le hA₀.le
+    hκ hpsi hκsupp hpsisupp j
+  let CQ := 16*Mη^2*Cmn
+  let Z := 1+pd7dPSeries j
+  let C' := 4*CF*(2+32*CQ*Z^2)
+  have hCQ : 0 < CQ := by dsimp [CQ]; positivity
+  have hC' : 0 < C' := by dsimp [C']; positivity
+  refine ⟨B₁,A',hB₁,hA',?_⟩
+  intro family
+  obtain ⟨xm,hxm,hxmMin,hmoment⟩ := hproduct family
+  have hbands : ∀ᶠ x : ℝ in atTop, ∀ i : Fin K, 0 < bandMass x (a i) := by
+    apply Filter.eventually_all.mpr
+    intro i
+    obtain ⟨xb,hxb,hband⟩ := band_mass (a i) (by have hi := ha.2.1 i; linarith)
+      (by have hi := ha.2.1 i; linarith) 1 (by norm_num)
+    filter_upwards [eventually_ge_atTop xb] with x hx
+    exact (hband x hx).2
+  have hevent : ∀ᶠ x : ℝ in atTop, xm ≤ x ∧ 1/c₁ ≤ x ∧
+      1 ≤ Real.log x ∧ (∀ i : Fin K, 0 < bandMass x (a i)) ∧
+      (∀ i : Fin K, Real.rpow (Real.log x) A₀ < Real.exp (Real.rpow (Real.log x) (a i))) ∧
+      Real.rpow (Real.log x) A₀ ≤ roughCutoff x ∧
+      ∀ Y ∈ dyadicScales x K, 4*(Real.rpow (Real.log x) A₀)^3 < Y := by
+    filter_upwards [eventually_ge_atTop xm,eventually_ge_atTop (1/c₁),hbands,pd7d_arc_thresholds A₀ K a ha]
+      with x hxm' hunit hband harc
+    exact ⟨hxm',hunit,harc.1,hband,harc.2.1,harc.2.2.1,harc.2.2.2⟩
+  obtain ⟨x₀,hx₀⟩ := eventually_atTop.mp hevent
+  refine ⟨C',max 2 x₀,hC',le_max_left _ _,?_⟩
+  intro x hx beta hbetaSupport hbetaBound Y hY henergy
+  obtain ⟨hxm',hxunit,hL,hMass,hsmall,hW,hdisjoint⟩ := hx₀ x ((le_max_right _ _).trans hx)
+  have hxMin : family.xMin ≤ x := hxmMin.trans hxm'
+  have hx2 : 2 ≤ x := family.xMin_ge_two.trans hxMin
+  have hxp : 0 < x := by linarith
+  obtain ⟨hHmlo,hHnlo,hXlo,hXhi⟩ := family.scales x hxMin
+  have hHm : 0 < family.Hm x := (Real.rpow_pos_of_pos hxp δ).trans_le hHmlo
+  have hHn : 0 < family.Hn x := (Real.rpow_pos_of_pos hxp δ).trans_le hHnlo
+  let L := Real.log x
+  let X := family.Hm x*family.Hn x
+  let H := Real.rpow L B₀
+  let S := Real.rpow L B₁
+  let eps := Real.rpow L (-A')
+  let innerBound := 2*S*eps+32*(CQ*Real.rpow L C₄)*H*S*(H/S)^j*Z^2
+  let B := Y^2*X*CF*innerBound
+  have hX : 1 ≤ X := by
+    have hh := (div_le_iff₀ hc₁).mp hxunit
+    dsimp [X]
+    nlinarith
+  have hXp : 0 < X := mul_pos hHm hHn
+  have hLp : 0 < L := by dsimp [L]; linarith
+  have hH : 1 ≤ H := Real.one_le_rpow hL hB₀.le
+  have hS : 1 ≤ S := Real.one_le_rpow hL hB₁.le
+  have hHp : 0 < H := by linarith
+  have hdis := hdisjoint Y hY
+  have hMA : 0 < Real.rpow L A₀ := Real.rpow_pos_of_pos hLp A₀
+  have hYp : 0 < Y := lt_of_lt_of_le (by positivity : 0 < 4*(Real.rpow L A₀)^3) hdis.le
+  have hB : 0 ≤ B := by dsimp [B,innerBound,eps,Z]; positivity
+  have hchar : ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow L A₀ →
+      ∀ χ : Fin 6 → DirichletCharacter ℂ k, ∀ lam : ℝ, |lam| ≤ 2*Real.rpow L A₀ →
+        ‖pd7dMajorCharPair x K a Y lam eta psi family beta χ‖ ≤ B := by
+    intro k hk hkle χ lam hlam
+    have hmean : ∀ χb χm χn : DirichletCharacter ℂ k, ∀ u v : ℝ, u ≤ v →
+        (∫ t in u..v, ‖pd7dMajorQ x K a Y lam eta family beta χb χm χn t‖^2) ≤
+          (CQ*Real.rpow L C₄)*(1+(v-u)/X) := by
+      intro χb χm χn u v huv
+      have hh := pd7dMajorQ_mean x K a Y lam Mη (Cmn*Real.rpow L C₄) eta family beta χb χm χn
+        hYp hMη.le heta_supp hEtaBound hMass
+        (hmoment x hxm' beta hbetaBound k χm χn) u v huv
+      convert hh using 1 <;> dsimp [CQ,X] <;> ring
+    have henerg : ∀ χb χm χn : DirichletCharacter ℂ k,
+        (∫ t in (-2*X*S)..(2*X*S), ‖pd7dMajorQ x K a Y lam eta family beta χb χm χn t‖^2) ≤ eps := by
+      intro χb χm χn
+      have hh := henergy k hk hkle χb χm χn lam hlam
+      simpa only [majorEnergy,majorEnergyIntegral,pd7dMajorQ,neg_mul] using hh
+    have hdecay : ∀ v, ‖pd7dFourier2 (pd7dScaledKernel κ psi X lam) v‖ ≤
+        CF*pd7dFrequencyWeight H j (v 0)*pd7dFrequencyWeight H j (v 1) := by
+      intro v
+      rw [pd7dFrequencyWeight_eq_rpow H hHp j (v 0),pd7dFrequencyWeight_eq_rpow H hHp j (v 1)]
+      exact htransform L X lam hL hX hlam v
+    exact pd7d_major_char_pair_bound x K a Y lam R H S (CQ*Real.rpow L C₄) eps CF eta psi κ family beta χ
+      hYp hHm hHn hX hR.le hH hS (mul_nonneg hCQ.le (Real.rpow_nonneg hLp.le C₄))
+      (Real.rpow_pos_of_pos hLp (-A')).le hCF.le j hj
+      heta_supp hκ hpsi hκsupp hpsisupp hκone hdecay hmean henerg
+  have hred := pd7d_majorArcSum_norm_reduction x K a Y A₀ B family beta eta psi hxMin hL hA₀.le hdis hB
+    hsmall hW hbetaSupport hchar
+  have hlog := pd7d_separation_log_bound L A₀ B₀ B₁ A' C₄ D CQ Z j hL hCQ.le hret htail
+  calc
+    _ ≤ (4*(Real.rpow L A₀)^9/Y)*B := hred
+    _ = (4*X*Y*CF)*((Real.rpow L A₀)^9*innerBound) := by dsimp [B]; field_simp [ne_of_gt hYp] <;> ring
+    _ ≤ (4*X*Y*CF)*((2+32*CQ*Z^2)*Real.rpow L (-D)) :=
+      mul_le_mul_of_nonneg_left hlog (by positivity)
+    _ = C'*(family.Hm x*family.Hn x)*Y*Real.rpow (Real.log x) (-D) := by dsimp [C',X,L]; ring
 
 /-- `t2:pd.major-energy` — PD 05:371-433.  REPLACES the frozen `major_energy`.  (maj:energy):
 for every fixed `A₀, B₁, A'` the energy is `≪ L^{-A'}`, uniformly in the characters of modulus
