@@ -806,6 +806,90 @@ theorem guided_edge_charge {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w :
       exact (prod_ite_one_pow _ ρ).symm
   · rw [if_neg (mt hAdm.mp ht), if_neg ht]
 
+/-- **R3b.** The guided edge sum with a continuation that vanishes off the next visit and on
+repeated logs, and is constant on the next life states. -/
+theorem guided_edge_sum {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x)) (τ : LogPoint S.x K)
+    (hτ : IsLifeStateAfter F S γ H j.castSucc τ)
+    (G : LogPoint S.x K → ℂ) (g0 : ℂ)
+    (hGv : ∀ υ, G υ ≠ 0 → (υ.1.1, υ.1.2.1) = γ j.succ)
+    (hGn : ∀ υ, G υ ≠ 0 → (υ.2.map Prod.snd).Nodup)
+    (hGl : ∀ υ, IsLifeState F S γ H j.succ υ → G υ = g0) :
+    (∑ e : EdgeTraceChoice F S τ,
+      if EdgeGuided F S γ H j τ e then
+        edgeTraceCharge F S ρ w j.val (γ j.succ).1 τ e *
+          G (edgeTraceOutput F S j.val (γ j.succ).1 τ e)
+      else 0) =
+      ((∏ i : Fin K, ∏ p : primeBand S.x (F.a i),
+          lifeEdgeLocal F S ρ γ i p.1 (H i p) j : ℝ) : ℂ) * edgeGeo F S w γ j * g0 := by
+  have hz : τ.1.1 = (γ j.castSucc).1 := congrArg Prod.fst hτ.1
+  have hl : τ.1.2.1 = (γ j.castSucc).2 := congrArg Prod.snd hτ.1
+  simp only [Fintype.sum_prod_type]
+  unfold edgeGeo
+  simp only [Finset.mul_sum, Finset.sum_mul]
+  apply Finset.sum_congr rfl
+  intro π _
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl
+  intro π' _
+  have hQv : ValidPrimeLists S.x K F.a (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2) :=
+    guided_validPrimeLists_permute _ _ (hγ.1 j.succ).2
+  let q : (i : Fin K) → primeBand S.x (F.a i) := fun i =>
+    ⟨permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 i (lastSlot S.x), (hQv.1 i _).2⟩
+  have hq : ∀ i, (q i).1 =
+      permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 i (lastSlot S.x) := fun i => rfl
+  rw [Finset.sum_eq_single (guidedEdgeChoice F S γ H j τ π q)]
+  · rw [if_pos (show EdgeGuided F S γ H j τ (π, guidedEdgeChoice F S γ H j τ π q, π') from
+      fun i => rfl)]
+    by_cases hST : IsSlotTransition (permuteLists π (γ j.castSucc).2)
+        (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2)
+    · rw [guided_edge_charge F S ρ w γ hγ hBands H j τ hτ π π' hST q hq,
+        hGl _ (guided_edge_output F S γ hγ hBands H j τ hτ π π' hST q hq)]
+      by_cases ht : edgeTest F S w γ j π π'
+      · have ht' := ht
+        simp only [edgeTest] at ht'
+        rw [if_pos ht, if_pos ht']
+        ring
+      · have ht' := ht
+        simp only [edgeTest] at ht'
+        rw [if_neg ht, if_neg ht']
+        ring
+    · have hzero : edgeTraceCharge F S ρ w j.val (γ j.succ).1 τ
+            (π, guidedEdgeChoice F S γ H j τ π q, π') *
+          G (edgeTraceOutput F S j.val (γ j.succ).1 τ
+            (π, guidedEdgeChoice F S γ H j τ π q, π')) = 0 := by
+        by_cases hG : G (edgeTraceOutput F S j.val (γ j.succ).1 τ
+            (π, guidedEdgeChoice F S γ H j τ π q, π')) = 0
+        · rw [hG, mul_zero]
+        · have hLQ := visit_target F S γ j τ π π' _ (hGv _ hG)
+          have hcharge : edgeTraceCharge F S ρ w j.val (γ j.succ).1 τ
+              (π, guidedEdgeChoice F S γ H j τ π q, π') = 0 := by
+            unfold edgeTraceCharge
+            dsimp only
+            rw [if_neg, mul_zero]
+            intro hAdm
+            apply hST
+            have h4 := hAdm.2.2.2.1
+            rw [hLQ] at h4
+            have e1 : (permuteLogPoint π τ).1.2.1 = permuteLists π (γ j.castSucc).2 := by
+              show permuteLists π τ.1.2.1 = _
+              rw [hl]
+            rw [e1] at h4
+            exact h4
+          rw [hcharge, zero_mul]
+      rw [hzero]
+      rw [if_neg (fun h => hST h.2.2.1)]
+      ring
+  · intro c _ hne
+    split_ifs with hg
+    · rw [guided_edge_other_zero F S γ H j τ hτ π π' q hq G hGv hGn c (fun i => hg i) hne,
+        mul_zero]
+    · rfl
+  · intro h; exact absurd (Finset.mem_univ _) h
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
