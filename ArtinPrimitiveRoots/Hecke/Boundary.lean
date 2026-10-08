@@ -1,5 +1,5 @@
 import ArtinPrimitiveRoots.Hecke.Continuation
-import ArtinPrimitiveRoots.A2.ZeroFree.Results
+import ArtinPrimitiveRoots.A2.Endpoint
 
 /-!
 # The A/B boundary: Theorem `thm:hecke-zero-free`

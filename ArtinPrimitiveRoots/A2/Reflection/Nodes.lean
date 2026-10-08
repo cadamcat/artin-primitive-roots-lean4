@@ -21,30 +21,32 @@ variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 /-- Row elements in one fixed exterior ideal fiber. -/
-def reflectionRowFiber (S : ArtinPrimitiveRoots.A1.SData F CE condη)
-    (K : Set S.FSˣ) (t : S.FSˣ) (Z : ℝ)
+def reflectionRowFiber (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (K : Set S.FSˣ) (t : S.FSˣ) (Z : ℝ) (hZ : 0 < Z)
     (I : ArtinPrimitiveRoots.A1.SData.ExtIdeal S) : Set (ReflectionRow S) :=
-  {r | InReflectionBox S K t Z r ∧ r.ideal = I}
+  {r | InReflectionBox D S K t Z hZ r ∧ r.ideal = I}
 
 /-- **rf:element-to-ideal** (04-reflection.tex:19-35, 1028-1029, 1225-1227).  On every fixed
 compact annulus (also after a norm-one translate from the fixed compact `T`), ideal norms are
 comparable to `Z^M₀`, row fibers have bounded cardinality, and the moving unit stays in a compact
 norm-one set. -/
 theorem rf_element_to_ideal
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (H : ArtinPrimitiveRoots.A1.HilbertData F)
     (Bd : ArtinPrimitiveRoots.A1.BData S H)
-    (bc : BalancedChoices S H Bd)
+    (bc : BalancedChoices D S H Bd)
     (K T : Set S.FSˣ) (hK : IsCompact K) (hT : IsCompact T)
     (hTnorm : ∀ t ∈ T, S.absS (t : S.FS) = 1) :
     ∃ c₁ c₂ C : ℝ, 0 < c₁ ∧ c₁ < c₂ ∧ 0 < C ∧
       ∃ K' : Set S.FSˣ, IsCompact K' ∧ (∀ y ∈ K', S.absS (y : S.FS) = 1) ∧
-        ∀ (Z : ℝ), 2 ≤ Z → ∀ t, t ∈ T → ∀ r : ReflectionRow S,
-          InReflectionBox S K t Z r →
+        ∀ (Z : ℝ), (hZ : 2 ≤ Z) → ∀ t, t ∈ T → ∀ r : ReflectionRow S,
+          InReflectionBox D S K t Z (by linarith) r →
             c₁ * Real.rpow Z M0 ≤ idealNorm r.ideal.1 ∧
             idealNorm r.ideal.1 ≤ c₂ * Real.rpow Z M0 ∧
             S.diagU (rowEpsilon S bc r) ∈ K' ∧
-            Set.ncard (reflectionRowFiber S K t Z r.ideal) ≤ ⌊C⌋₊ := by
+            Set.ncard (reflectionRowFiber D S K t Z (by linarith) r.ideal) ≤ ⌊C⌋₊ := by
   sorry
 
 /-- **rf:moving-twist** (04-reflection.tex:37-49).  The zeroth-power convention is A1's masked
@@ -54,7 +56,7 @@ theorem rf_moving_twist
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (H : ArtinPrimitiveRoots.A1.HilbertData F)
     (Bd : ArtinPrimitiveRoots.A1.BData S H)
-    (bc : BalancedChoices S H Bd)
+    (bc : BalancedChoices D S H Bd)
     (r : ReflectionRow S) (J : Ideal (𝓞 F)) (hJ : S.IsExterior J)
     (a : Fˣ) (ha : S.IsGen (a : F) J ∧ Bd.Allowed a) :
     ArtinPrimitiveRoots.A1.chiIdealPow D J (rowElement S r : F) 1 =
@@ -80,8 +82,9 @@ def rfSCharacter (D : ArtinPrimitiveRoots.A1.FieldData F)
     (ϑ : ArtinPrimitiveRoots.A1.HeckeChar F) (ε : S.US) (y : S.FSˣ) : ℂ :=
   S.LS ϑ y * lambdaEpsilon D S H ε y
 
-/-- **rf:S-character-identity** (04-reflection.tex:58-65).  Includes the allowed-generator
-identity, triviality on `U_S`, and dependence only on the class modulo `U_S^6`. -/
+/-- **rf:S-character-identity** (04-reflection.tex:58-65). Includes the allowed-generator
+identity, triviality on `U_S`, and dependence only on the class modulo `U_S^6`. Corrected per
+sol-gate-a2 to require the combined character to be unramified outside `S`. -/
 theorem rf_S_character_identity
     (D : ArtinPrimitiveRoots.A1.FieldData F)
     (S : ArtinPrimitiveRoots.A1.SData F CE condη)
@@ -94,7 +97,9 @@ theorem rf_S_character_identity
         ArtinPrimitiveRoots.A1.gamma D S A 1 v.asIdeal p *
           ArtinPrimitiveRoots.A1.gamma D S A 2 v.asIdeal p =
             -(Λ.primeValue v * G.primeValue v))
-    (ε : S.US) :
+    (ε : S.US)
+    (houtside : ∀ v : ArtinPrimitiveRoots.A1.FinPlace F, v ∉ S.Sf →
+      (ArtinPrimitiveRoots.A1.vartheta Λ G η).UnramifiedAt v) :
     (∀ (J : Ideal (𝓞 F)) (hJ : S.IsExterior J) (a : Fˣ),
       S.IsGen (a : F) J → Bd.Allowed a →
       rfSCharacter D S H (ArtinPrimitiveRoots.A1.vartheta Λ G η) ε (S.diagU a) =
@@ -363,17 +368,21 @@ def IsActiveFactor (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (∀ P : ArtinPrimitiveRoots.A1.FinPlace F, P.asIdeal ∣ r.h.1 →
       rowPrimeExponent S r P ≠ 0 → P.asIdeal ∣ f)
 
-/-- **def:rf-active** (04-reflection.tex:478-499): the local Weyl coefficient envelope `β_p(e)`. -/
-def betaPrime (q : ℝ) (e : ℕ) : ℝ :=
+/-- **def:rf-active** (04-reflection.tex:478-499): the local Weyl coefficient envelope `β_p(e)`.
+Corrected per rev-a2 to require the prime-norm domain `1 < q`. -/
+def betaPrime (q : ℝ) (_hq : 1 < q) (e : ℕ) : ℝ :=
   if e = 0 then 1
   else if e % 3 = 1 then Real.rpow q (-((e / 3 : ℕ) : ℝ))
   else if e % 3 = 0 then Real.rpow q (1 / 2 - ((e / 3 : ℕ) : ℝ))
   else 0
 
-/-- **def:rf-active** (04-reflection.tex:478-499): the local Euler sum for `β_p`. -/
-def betaEulerFactor (q σ : ℝ) : ℂ :=
+/-- **def:rf-active** (04-reflection.tex:478-499): the local Euler sum for `β_p`. Corrected per
+rev-a2 to require both `1 < q` and a summability proof. -/
+def betaEulerFactor (q : ℝ) (hq : 1 < q) (σ : ℝ)
+    (_hsum : Summable (fun e : ℕ =>
+      ((betaPrime q hq e * Real.rpow q (-(σ * (e : ℝ))) : ℝ) : ℂ))) : ℂ :=
   ∑' e : ℕ,
-    ((betaPrime q e * Real.rpow q (-(σ * (e : ℝ))):ℝ) : ℂ)
+    ((betaPrime q hq e * Real.rpow q (-(σ * (e : ℝ))):ℝ) : ℂ)
 
 /-- **rf:active-support** (04-reflection.tex:433-503): for a squarefree `𝔣|rad(𝔥)`,
 `q_𝔣² ≤ q_𝔥`. -/

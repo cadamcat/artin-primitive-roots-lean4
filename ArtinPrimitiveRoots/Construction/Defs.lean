@@ -10,7 +10,7 @@ open ArtinPrimitiveRoots.TypeII
 /-- `def:con-weights` — 12-construction.tex:19-73. The smooth test functions used in §12: a compactly supported smooth function on `(1,2)`,
 bounded between zero and one, with positive integral. -/
 def IsTestFunction (Ψ : ℝ → ℝ) : Prop :=
-  ContDiff ℝ ⊤ Ψ ∧ Function.support Ψ ⊆ Set.Ioo 1 2 ∧
+  ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ ∧ Function.support Ψ ⊆ Set.Ioo 1 2 ∧
     (∀ y, 0 ≤ Ψ y) ∧ (∀ y, Ψ y ≤ 1) ∧ 0 < ∫ y in (1 : ℝ)..2, Ψ y
 
 /-- Integers all of whose prime factors belong to the marked prime groups; `1` is included. -/
@@ -93,13 +93,15 @@ noncomputable def roughConstructionMass (x : ℝ) (M c : ℕ) (u : ℤ) (K : ℕ
   ∑ d ∈ Finset.range (⌊2 * x⌋₊ + 1),
     if roughAbove d y then conWeight x M c u K a Ψ d else 0
 
-/-- The prime-divisor bin sum in `con:bin-mass`. -/
+/-- The prime-divisor bin sum in `con:bin-mass`.  The binder is typed `n : ℕ` since 2026-10-07:
+untyped, `(n : ℝ)` made the index real and `n ∣ d` real divisibility, so the sum was the whole
+rough mass times the number of primes in the bin (lane `sol-thin-c12`). -/
 noncomputable def primeDivisorBinSum (x : ℝ) (M c : ℕ) (u : ℤ) (K : ℕ)
     (a : Fin K → ℝ) (Ψ : ℝ → ℝ) (γ γ' : ℝ) : ℝ :=
-  ∑ n ∈ (primesUpTo (Real.rpow x γ')).filter (fun n =>
+  ∑ n ∈ (primesUpTo (Real.rpow x γ')).filter (fun n : ℕ =>
       Real.rpow x γ < (n : ℝ)),
     ∑ d ∈ Finset.range (⌊2 * x⌋₊ + 1),
-      if n ∣ d ∧ roughAbove d (roughCutoff x) then
+      if (n : ℕ) ∣ d ∧ roughAbove d (roughCutoff x) then
         conWeight x M c u K a Ψ d else 0
 
 /-- Weighted pair sum on a dyadic box, used in `con:rough-pairs`. -/
