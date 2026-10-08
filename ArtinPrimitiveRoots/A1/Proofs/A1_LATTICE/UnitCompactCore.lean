@@ -731,10 +731,12 @@ private theorem covol_sunit_finite_reduction_core (S : SData F CE condη)
 
 private theorem covol_local_log_compact_cover_core (v : FinPlace F) (M : ℕ) :
     ∃ K : Set (v.adicCompletion F), IsCompact K ∧
-      ∀ z : (v.adicCompletion F)ˣ,
+      (∀ z : (v.adicCompletion F)ˣ,
         0 ≤ WithZero.log (Valued.v (z : v.adicCompletion F)) →
         WithZero.log (Valued.v (z : v.adicCompletion F)) < (M : ℤ) →
-        (z : v.adicCompletion F) ∈ K := by
+        (z : v.adicCompletion F) ∈ K) ∧
+      (∀ e : v.adicCompletion F, e ∈ v.adicCompletionIntegers F →
+        ∀ z ∈ K, e * z ∈ K) := by
   classical
   obtain ⟨πF, hπF⟩ := v.valuation_exists_uniformizer F
   have hπFne : πF ≠ 0 := by
@@ -766,60 +768,72 @@ private theorem covol_local_log_compact_cover_core (v : FinPlace F) (M : ℕ) :
   have hK : IsCompact K := by
     dsimp [K]
     exact adicCompletionIntegers_compact v |>.image hf
-  refine ⟨K, hK, ?_⟩
-  intro z hz0 hzM
-  let y : v.adicCompletion F := ((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F)
-  have hπnz : Valued.v (π : v.adicCompletion F) ≠ 0 := by
-    rw [hπ]
-    simp
-  have hznz : Valued.v (z : v.adicCompletion F) ≠ 0 :=
-    (Valued.v).ne_zero_iff.mpr z.ne_zero
-  have hπpowlog : WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M) =
-      -(M : ℤ) := by
-    rw [hπ, ← WithZero.exp_nsmul, WithZero.log_exp]
-    simp
-  have hylog : WithZero.log (Valued.v y) = -(M : ℤ) +
-      WithZero.log (Valued.v (z : v.adicCompletion F)) := by
-    dsimp [y]
-    calc
-      WithZero.log (Valued.v
-          (((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F))) =
-          WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M *
-            Valued.v (z : v.adicCompletion F)) := by
-              rw [Valuation.map_mul, Valuation.map_pow]
-      _ = WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M) +
-          WithZero.log (Valued.v (z : v.adicCompletion F)) :=
-            WithZero.log_mul (pow_ne_zero _ hπnz) hznz
-      _ = -(M : ℤ) + WithZero.log (Valued.v (z : v.adicCompletion F)) := by
-            rw [hπpowlog]
-  have hylt : WithZero.log (Valued.v y) < 0 := by
-    rw [hylog]
-    omega
-  have hynz : Valued.v y ≠ 0 :=
-    (Valued.v).ne_zero_iff.mpr (mul_ne_zero (pow_ne_zero _ π.ne_zero) z.ne_zero)
-  have hyltVal : Valued.v y < 1 := by
-    rw [← WithZero.log_lt_log hynz one_ne_zero, WithZero.log_one]
-    exact hylt
-  have hyO : y ∈ v.adicCompletionIntegers F := by
-    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
-    exact hyltVal.le
-  have hcancel : (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
-      (((π : v.adicCompletion F) ^ M)) = 1 := by
-    have hunit : (π⁻¹) ^ M * π ^ M = (1 : (v.adicCompletion F)ˣ) := by
-      rw [← mul_pow]
+  refine ⟨K, hK, ?_, ?_⟩
+  · intro z hz0 hzM
+    let y : v.adicCompletion F := ((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F)
+    have hπnz : Valued.v (π : v.adicCompletion F) ≠ 0 := by
+      rw [hπ]
       simp
-    exact congrArg (fun u : (v.adicCompletion F)ˣ => (u : v.adicCompletion F)) hunit
-  have hzK : (z : v.adicCompletion F) ∈ K := by
-    refine ⟨y, hyO, ?_⟩
-    dsimp [f, y]
+    have hznz : Valued.v (z : v.adicCompletion F) ≠ 0 :=
+      (Valued.v).ne_zero_iff.mpr z.ne_zero
+    have hπpowlog : WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M) =
+        -(M : ℤ) := by
+      rw [hπ, ← WithZero.exp_nsmul, WithZero.log_exp]
+      simp
+    have hylog : WithZero.log (Valued.v y) = -(M : ℤ) +
+        WithZero.log (Valued.v (z : v.adicCompletion F)) := by
+      dsimp [y]
+      calc
+        WithZero.log (Valued.v
+            (((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F))) =
+            WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M *
+              Valued.v (z : v.adicCompletion F)) := by
+                rw [Valuation.map_mul, Valuation.map_pow]
+        _ = WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M) +
+            WithZero.log (Valued.v (z : v.adicCompletion F)) :=
+              WithZero.log_mul (pow_ne_zero _ hπnz) hznz
+        _ = -(M : ℤ) + WithZero.log (Valued.v (z : v.adicCompletion F)) := by
+              rw [hπpowlog]
+    have hylt : WithZero.log (Valued.v y) < 0 := by
+      rw [hylog]
+      omega
+    have hynz : Valued.v y ≠ 0 :=
+      (Valued.v).ne_zero_iff.mpr (mul_ne_zero (pow_ne_zero _ π.ne_zero) z.ne_zero)
+    have hyltVal : Valued.v y < 1 := by
+      rw [← WithZero.log_lt_log hynz one_ne_zero, WithZero.log_one]
+      exact hylt
+    have hyO : y ∈ v.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      exact hyltVal.le
+    have hcancel : (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+        (((π : v.adicCompletion F) ^ M)) = 1 := by
+      have hunit : (π⁻¹) ^ M * π ^ M = (1 : (v.adicCompletion F)ˣ) := by
+        rw [← mul_pow]
+        simp
+      exact congrArg (fun u : (v.adicCompletion F)ˣ => (u : v.adicCompletion F)) hunit
+    have hzK : (z : v.adicCompletion F) ∈ K := by
+      refine ⟨y, hyO, ?_⟩
+      dsimp [f, y]
+      calc
+        (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+            (((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F)) =
+          ((((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+            ((π : v.adicCompletion F) ^ M)) * (z : v.adicCompletion F) := by ac_rfl
+        _ = 1 * (z : v.adicCompletion F) := by rw [hcancel]
+        _ = z := by simp
+    exact hzK
+  · intro e he z hz
+    change e * z ∈ f '' (v.adicCompletionIntegers F : Set (v.adicCompletion F))
+    change z ∈ f '' (v.adicCompletionIntegers F : Set (v.adicCompletion F)) at hz
+    obtain ⟨y, hyO, hy⟩ :=
+      (Set.mem_image f (v.adicCompletionIntegers F : Set (v.adicCompletion F)) z).mp hz
+    refine ⟨e * y, mul_mem he hyO, ?_⟩
+    change (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) * y = z at hy
+    dsimp [f]
     calc
-      (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
-          (((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F)) =
-        ((((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
-          ((π : v.adicCompletion F) ^ M)) * (z : v.adicCompletion F) := by ac_rfl
-      _ = 1 * (z : v.adicCompletion F) := by rw [hcancel]
-      _ = z := by simp
-  exact hzK
+      (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) * (e * y) =
+          e * ((((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) * y) := by ac_rfl
+      _ = e * z := by rw [hy]
 
 private theorem covol_sunit_finite_compact_reduction_core (S : SData F CE condη) :
     ∃ K : Set (∀ v : S.Sf, v.1.adicCompletion F), IsCompact K ∧
@@ -846,7 +860,7 @@ private theorem covol_sunit_finite_compact_reduction_core (S : SData F CE condη
     ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) :
       (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F) ∈ Kloc v
   intro v hv
-  have hcover := (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2
+  have hcover := (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2.1
   apply hcover
   · exact (ha v).1
   · simpa [M] using (ha v).2
