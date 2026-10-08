@@ -3949,6 +3949,849 @@ theorem intertwine_rtr (L : FinLocalCover D H v) (μ : LocHaar v) (f : L.L → V
 def cv (v : FinPlace F) (s : ℂ) : ℂ :=
   (1 - (qv v : ℂ) ^ (-1 - 6 * s)) / (1 - (qv v : ℂ) ^ (-6 * s))
 
+private theorem spherical_wn_formula (L : FinLocalCover D H v) (τ : TameSplitting L)
+    (T : TorusRep D H v) (s : ℂ) (f : L.L → T.V) (hf : IsSection L T s f)
+    (hK : ∀ g, ∀ k ∈ τ.Kmax, f (g * k) = f g)
+    (x : v.adicCompletion F) (hx : x ≠ 0)
+    (hxInv : Valued.v x⁻¹ < 1) :
+    f (L.w * L.n (Multiplicative.ofAdd x)) =
+      ((absFin v (-((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹)) : ℂ) ^
+          ((1 : ℂ) / 2 + s)) •
+        T.σa (-((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹)) (f 1) := by
+  let X : (v.adicCompletion F)ˣ := Units.mk0 x hx
+  let y : (v.adicCompletion F)ˣ := -(X⁻¹ * X⁻¹)
+  have hBruhat : L.w * L.n (Multiplicative.ofAdd x) =
+      L.n (Multiplicative.ofAdd x⁻¹) * L.a y *
+        L.nbar (Multiplicative.ofAdd x⁻¹) := by
+    simpa [X, y] using L.lift_wn X
+  have hbarK : L.nbar (Multiplicative.ofAdd x⁻¹) ∈ τ.Kmax := τ.nbar_mem x⁻¹ hxInv
+  have hright : f (L.nbar (Multiplicative.ofAdd x⁻¹)) = f 1 := by
+    simpa using hK 1 (L.nbar (Multiplicative.ofAdd x⁻¹)) hbarK
+  calc
+    f (L.w * L.n (Multiplicative.ofAdd x)) =
+        f (L.n (Multiplicative.ofAdd x⁻¹) * L.a y *
+          L.nbar (Multiplicative.ofAdd x⁻¹)) := by rw [hBruhat]
+    _ = ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+        T.σa y (f (L.nbar (Multiplicative.ofAdd x⁻¹))) := hf.1 _ _ _
+    _ = _ := by rw [hright]; rfl
+
+private theorem locUnit_of_valuation_one (u : (v.adicCompletion F)ˣ)
+    (hu : Valued.v (u : v.adicCompletion F) = 1) : IsLocUnit v u := by
+  have hvalInv : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    rw [show Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      (Valued.v (u : v.adicCompletion F))⁻¹ by simp, hu]
+    simp
+  constructor
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    change Valued.v (u : v.adicCompletion F) ≤ 1
+    rw [hu]
+  · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    change Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ≤ 1
+    rw [hvalInv]
+
+private theorem absFin_one_of_valuation_one (u : (v.adicCompletion F)ˣ)
+    (hu : Valued.v (u : v.adicCompletion F) = 1) :
+    absFin v (u : v.adicCompletion F) = 1 := by
+  rw [absFin_eq_norm]
+  exact Valued.toNormedField.norm_eq_one_iff.mpr hu
+
+private theorem spherical_shell_pointwise_aux (L : FinLocalCover D H v)
+    (τ : TameSplitting L) (T : TorusRep D H v) (B : TameTorusBasis T)
+    (s : ℂ) (f : L.L → T.V) (hf : IsSection L T s f)
+    (h1 : f 1 = B.e 0) (hK : ∀ g, ∀ k ∈ τ.Kmax, f (g * k) = f g)
+    (l : ℕ) (x : v.adicCompletion F) (hx : x ≠ 0)
+    (hxInv : Valued.v x⁻¹ < 1) (u : (v.adicCompletion F)ˣ)
+    (hu : IsLocUnit v u)
+    (hsplit : -((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹) =
+      unifLoc v ^ (2 * (l : ℤ)) * u) :
+    f (L.w * L.n (Multiplicative.ofAdd x)) =
+      (((absFin v (-((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹)) : ℂ) ^
+          ((1 : ℂ) / 2 + s)) *
+        (localChi D v u) ^ (4 * (l : ℤ))) • B.e ((2 : ZMod 3) * (l : ZMod 3)) := by
+  have hact := B.act (2 * (l : ℤ)) u hu (0 : ZMod 3)
+  have hact' : T.σa (unifLoc v ^ (2 * (l : ℤ)) * u) (B.e 0) =
+      (localChi D v u) ^ (4 * (l : ℤ)) • B.e ((2 : ZMod 3) * (l : ZMod 3)) := by
+    have hexp : 2 * (2 * (l : ℤ)) = 4 * (l : ℤ) := by ring
+    simp [ZMod.val_zero] at hact
+    rw [hexp] at hact
+    simpa using hact
+  rw [spherical_wn_formula L τ T s f hf hK x hx hxInv, h1, hsplit, hact']
+  simp only [smul_smul]
+
+private theorem spherical_shell_torus_decomp (l : ℕ) (hl : 0 < l)
+    (x : v.adicCompletion F) (hx : x ≠ 0)
+    (hxS : x ∈ jacquetShell v (-(l : ℤ))) :
+    ∃ u : (v.adicCompletion F)ˣ, IsLocUnit v u ∧
+      Valued.v (u : v.adicCompletion F) = 1 ∧
+      -((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹) =
+        unifLoc v ^ (2 * (l : ℤ)) * u := by
+  let X : (v.adicCompletion F)ˣ := Units.mk0 x hx
+  let y : (v.adicCompletion F)ˣ := -(X⁻¹ * X⁻¹)
+  let π : (v.adicCompletion F)ˣ := unifLoc v
+  let u : (v.adicCompletion F)ˣ := π ^ (-(2 * (l : ℤ))) * y
+  have hxval : Valued.v x = WithZero.exp (l : ℤ) := by
+    simpa using jacquetShell_valuation v (-(l : ℤ)) hxS
+  have hyval : Valued.v (y : v.adicCompletion F) = WithZero.exp (-(2 * (l : ℤ))) := by
+    have hExp : -(l : ℤ) + -(l : ℤ) = -(2 * (l : ℤ)) := by ring
+    simp [y, X, hxval, ← WithZero.exp_add, hExp]
+  have hπval : Valued.v (π : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    simpa [π] using jacquet_unifLoc_valuation v
+  have huval : Valued.v (u : v.adicCompletion F) = 1 := by
+    have hmul : Valued.v (u : v.adicCompletion F) =
+        Valued.v (π : v.adicCompletion F) ^ (-(2 * (l : ℤ))) *
+          Valued.v (y : v.adicCompletion F) := by simp [u]
+    rw [hmul, hπval, hyval]
+    calc
+      WithZero.exp (-1 : ℤ) ^ (-(2 * (l : ℤ))) *
+          WithZero.exp (-(2 * (l : ℤ))) =
+        WithZero.exp (2 * (l : ℤ)) * WithZero.exp (-(2 * (l : ℤ))) := by
+          rw [← WithZero.exp_zsmul]
+          rw [show (-(2 * (l : ℤ))) • (-1 : ℤ) = 2 * (l : ℤ) by ring]
+      _ = WithZero.exp (2 * (l : ℤ) + -(2 * (l : ℤ))) := by
+        rw [← WithZero.exp_add]
+      _ = 1 := by simp
+  have hsplit : y = π ^ (2 * (l : ℤ)) * u := by
+    dsimp [u]
+    calc
+      y = (π ^ (2 * (l : ℤ)) * π ^ (-(2 * (l : ℤ)))) * y := by simp
+      _ = π ^ (2 * (l : ℤ)) * (π ^ (-(2 * (l : ℤ))) * y) := by group
+  refine ⟨u, locUnit_of_valuation_one u huval, huval, ?_⟩
+  simpa [X, y, π] using hsplit
+
+private theorem spherical_shell_pointwise (L : FinLocalCover D H v)
+    (τ : TameSplitting L) (T : TorusRep D H v) (B : TameTorusBasis T)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (s : ℂ) (f : L.L → T.V)
+    (hf : IsSection L T s f) (h1 : f 1 = B.e 0)
+    (hK : ∀ g, ∀ k ∈ τ.Kmax, f (g * k) = f g)
+    (l : ℕ) (hl : 0 < l) (x : v.adicCompletion F) (hx : x ≠ 0)
+    (hxS : x ∈ jacquetShell v (-(l : ℤ))) :
+    (3 ∣ l → f (L.w * L.n (Multiplicative.ofAdd x)) =
+      ((absFin v (-((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹)) : ℂ) ^
+        ((1 : ℂ) / 2 + s)) • B.e 0) ∧
+    (¬ 3 ∣ l → ∃ c : ℂ,
+      f (L.w * L.n (Multiplicative.ofAdd x)) =
+        c • B.e ((2 : ZMod 3) * (l : ZMod 3))) := by
+  obtain ⟨u, hu, huval, hsplit⟩ := spherical_shell_torus_decomp l hl x hx hxS
+  have hxInv : Valued.v x⁻¹ < 1 := by
+    rw [show Valued.v x⁻¹ = (Valued.v x)⁻¹ by simp,
+      jacquetShell_valuation v (-(l : ℤ)) hxS]
+    rw [← WithZero.exp_zero, ← WithZero.exp_neg, WithZero.exp_lt_exp]
+    have hlZ : 0 < (l : ℤ) := by exact_mod_cast hl
+    omega
+  have hpoint := spherical_shell_pointwise_aux L τ T B s f hf h1 hK
+    l x hx hxInv u hu hsplit
+  constructor
+  · intro hdiv
+    have hlmod : (l : ZMod 3) = 0 :=
+      (ZMod.natCast_eq_zero_iff l 3).2 hdiv
+    obtain ⟨j, hj⟩ := hdiv
+    rcases localChi_basic (D := D) (v := v) hv with ⟨_, _, _, hχ6, _⟩
+    have hχpow : (localChi D v u) ^ (4 * (l : ℤ)) = 1 := by
+      have hexp : 4 * (l : ℤ) = 6 * (2 * (j : ℤ)) := by omega
+      rw [hexp, zpow_mul]
+      simp [hχ6 u hu]
+    have hidx : (2 : ZMod 3) * (l : ZMod 3) = 0 := by rw [hlmod]; simp
+    rw [hpoint, hχpow, hidx]
+    simp
+  · intro hndiv
+    refine ⟨((absFin v (-((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹)) : ℂ) ^
+      ((1 : ℂ) / 2 + s)) * (localChi D v u) ^ (4 * (l : ℤ)), ?_⟩
+    exact hpoint
+
+private theorem valued_eq_one_of_ball_zero_not_ball_one (x : v.adicCompletion F)
+    (hx0 : x ∈ ball v 0) (hx1 : x ∉ ball v 1) : Valued.v x = 1 := by
+  have hxle : Valued.v x ≤ WithZero.exp (0 : ℤ) := by simpa [ball] using hx0
+  have hxnot : ¬ Valued.v x ≤ WithZero.exp (-1 : ℤ) := by simpa [ball] using hx1
+  by_cases hz : Valued.v x = 0
+  · exfalso
+    apply hxnot
+    rw [hz]
+    exact WithZero.exp_pos.le
+  · lift Valued.v x to ℤ using hz with n hn
+    have hnle : n ≤ 0 := by
+      apply WithZero.exp_le_exp.mp
+      simpa [hn, ← WithZero.exp_zero] using hxle
+    have hngt : -1 < n := by
+      by_contra h
+      have h' : n ≤ -1 := by omega
+      apply hxnot
+      exact WithZero.exp_le_exp.mpr h'
+    have hn0 : n = 0 := by omega
+    rw [hn0]
+    simp
+
+private theorem jacquetUnitShell_eq_ball_sdiff :
+    jacquetUnitShell v = ball v 0 \ ball v 1 := by
+  ext x
+  rw [Set.mem_sdiff]
+  constructor
+  · intro hx
+    have hx' : absFin v x = 1 := by simpa [jacquetUnitShell] using hx
+    have hnorm : ‖x‖ = 1 := by simpa [absFin_eq_norm] using hx'
+    have hval : Valued.v x = 1 := Valued.toNormedField.norm_eq_one_iff.mp hnorm
+    constructor
+    · change Valued.v x ≤ WithZero.exp (0 : ℤ)
+      rw [hval]
+      simp
+    · intro hx1
+      have hle : WithZero.exp (0 : ℤ) ≤ WithZero.exp (-1 : ℤ) := by
+        change Valued.v x ≤ WithZero.exp (-1 : ℤ) at hx1
+        rw [hval] at hx1
+        exact hx1
+      exact (not_le_of_gt (WithZero.exp_lt_exp.mpr (by norm_num : (-1 : ℤ) < 0))) hle
+  · rintro ⟨hx0, hx1⟩
+    have hval := valued_eq_one_of_ball_zero_not_ball_one x hx0 hx1
+    have hnorm : ‖x‖ = 1 := Valued.toNormedField.norm_eq_one_iff.mpr hval
+    change absFin v x = 1
+    rw [absFin_eq_norm, hnorm]
+
+private theorem jacquetUnitShell_real_measure (μ : LocHaar v) :
+    μ.μ.real (jacquetUnitShell v) = 1 - (qv v)⁻¹ := by
+  let K := v.adicCompletion F
+  let O := (v.adicCompletionIntegers F : Set K)
+  have hball0 : ball v 0 = O := by
+    ext x
+    change Valued.v x ≤ WithZero.exp (0 : ℤ) ↔
+      x ∈ v.adicCompletionIntegers F
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    simp
+  have hsubset : ball v 1 ⊆ ball v 0 :=
+    ball_mono_int (show (0 : ℤ) ≤ 1 by norm_num)
+  have hball1meas : MeasurableSet (ball v 1) := (ball_isCompact v 1).measurableSet
+  have hfinite : μ.μ (ball v 0) ≠ ⊤ := by rw [hball0, μ.norm_O]; simp
+  have hreal0 : μ.μ.real (ball v 0) = 1 := by
+    rw [hball0]
+    change (μ.μ (v.adicCompletionIntegers F : Set K)).toReal = 1
+    rw [μ.norm_O]
+    norm_num
+  have hreal1 : μ.μ.real (ball v 1) = (qv v)⁻¹ := by
+    rw [Measure.real, locHaar_ball_one μ]
+    simp [qv, HeightOneSpectrum.absNorm_ne_zero]
+  rw [jacquetUnitShell_eq_ball_sdiff, MeasureTheory.measureReal_sdiff hsubset hball1meas hfinite,
+    hreal0, hreal1]
+
+private theorem ball_zero_eq_integerRing :
+    ball v 0 = (v.adicCompletionIntegers F : Set (v.adicCompletion F)) := by
+  ext x
+  change Valued.v x ≤ WithZero.exp (0 : ℤ) ↔ x ∈ v.adicCompletionIntegers F
+  rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+  simp
+
+private theorem ball_zero_real_measure (μ : LocHaar v) :
+    μ.μ.real (ball v 0) = 1 := by
+  rw [ball_zero_eq_integerRing]
+  change (μ.μ (v.adicCompletionIntegers F : Set (v.adicCompletion F))).toReal = 1
+  rw [μ.norm_O]
+  norm_num
+
+private theorem jacquetShell_ne_zero (k : ℤ) {x : v.adicCompletion F}
+    (hx : x ∈ jacquetShell v k) : x ≠ 0 := by
+  intro hzero
+  subst x
+  have hvx := jacquetShell_valuation v k hx
+  have hv0 : Valued.v (0 : v.adicCompletion F) = 0 := by simp
+  rw [hv0] at hvx
+  exact WithZero.exp_ne_zero hvx.symm
+
+private theorem hilb_one_left_spherical (b : (v.adicCompletion F)ˣ) : H.hilb v 1 b = 1 := by
+  let z := H.hilb v 1 b
+  have hz : z * 1 = z * z := by simpa [z] using H.mul_left v 1 1 b
+  exact (mul_left_cancel hz).symm
+
+private theorem hilb_inv_left_spherical (x y : (v.adicCompletion F)ˣ) :
+    H.hilb v x⁻¹ y = (H.hilb v x y)⁻¹ := by
+  have h := H.mul_left v x x⁻¹ y
+  rw [mul_inv_cancel, hilb_one_left_spherical] at h
+  have h' : H.hilb v x y * H.hilb v x⁻¹ y = 1 := by
+    simpa [mul_comm] using h.symm
+  exact eq_inv_of_mul_eq_one_right h'
+
+private theorem muThree_sq_one_spherical (ζ : rootsOfUnity 6 F) (hζ : ζ ^ 2 = 1) :
+    muThree D ζ = 1 := by
+  apply rootsOfUnity.coe_injective
+  change D.σ0 ((((ζ ^ 2 : rootsOfUnity 6 F) : Fˣ) : F)) = 1
+  rw [hζ]
+  simp
+
+private theorem torusRep_sigma_inv_spherical (T : TorusRep D H v)
+    (x : (v.adicCompletion F)ˣ) : (T.σa x⁻¹).comp (T.σa x) = LinearMap.id := by
+  let z := H.hilb v x x
+  have hz : z ^ 2 = 1 := by simpa [z, pow_two] using H.skew v x x
+  have hzinv : z⁻¹ = z := by
+    calc
+      z⁻¹ = z⁻¹ * 1 := by simp
+      _ = z⁻¹ * (z * z) := by rw [← pow_two, hz]
+      _ = z := by group
+  have hcoeff : muThree D (H.hilb v x⁻¹ x) = 1 := by
+    rw [hilb_inv_left_spherical, hzinv]
+    exact muThree_sq_one_spherical z hz
+  have h := T.σa_mul x⁻¹ x
+  rw [hcoeff] at h
+  simpa [T.σa_one] using h
+
+private theorem spherical_shell_integral_unit_fixed (L : FinLocalCover D H v)
+    (τ : TameSplitting L) (T : TorusRep D H v) (μ : LocHaar v) (s : ℂ)
+    (hs : 0 < s.re) (f : L.L → T.V) (hf : IsSection L T s f)
+    (hK : ∀ g, ∀ k ∈ τ.Kmax, f (g * k) = f g)
+    (l : ℕ) (u : (v.adicCompletion F)ˣ)
+    (huval : Valued.v (u : v.adicCompletion F) = 1) :
+    T.σa u (∫ x in jacquetShell v (-(l : ℤ)),
+      f (L.w * L.n (Multiplicative.ofAdd x)) ∂μ.μ) =
+      ∫ x in jacquetShell v (-(l : ℤ)),
+        f (L.w * L.n (Multiplicative.ofAdd x)) ∂μ.μ := by
+  classical
+  let K := v.adicCompletion F
+  let S : Set K := jacquetShell v (-(l : ℤ))
+  let G : K → T.V := fun x => f (L.w * L.n (Multiplicative.ofAdd x))
+  let Fshell : K → T.V := S.indicator G
+  let σ : T.V →L[ℂ] T.V := (T.σa u).toContinuousLinearMap
+  let σinv : T.V →L[ℂ] T.V := (T.σa u⁻¹).toContinuousLinearMap
+  have hGint : Integrable G μ.μ := by
+    simpa [G] using section_intertwine_integrable L T μ s hs f hf 1
+  have hSmeas : MeasurableSet S := (jacquetShell_compact v (-(l : ℤ))).measurableSet
+  have hFint : Integrable Fshell μ.μ := hGint.indicator hSmeas
+  have hSrad (x : K) (hx : x ∈ S) : absFin v x = (qv v) ^ (l : ℤ) := by
+    simpa [S, qv] using jacquetShell_mem_radius v (-(l : ℤ)) hx
+  have huabs : absFin v (u : K) = 1 := absFin_one_of_valuation_one u huval
+  have hmulrad (x : K) : absFin v ((u : K) * x) =
+      absFin v (u : K) * absFin v x := by
+    rw [absFin_eq_norm, absFin_eq_norm, absFin_eq_norm]
+    exact norm_mul _ _
+  have hpreS : ∀ x : K, (u : K) * x ∈ S ↔ x ∈ S := by
+    intro x
+    constructor
+    · intro hx
+      have hux0 : (u : K) * x ≠ 0 := jacquetShell_ne_zero (-(l : ℤ)) hx
+      have hx0 : x ≠ 0 := by
+        intro hzero
+        apply hux0
+        rw [hzero]
+        simp
+      have hr := hSrad ((u : K) * x) hx
+      have hrx : absFin v x = (qv v) ^ (l : ℤ) := by
+        calc
+          absFin v x = absFin v ((u : K) * x) := by rw [hmulrad, huabs]; simp
+          _ = (qv v) ^ (l : ℤ) := hr
+      exact jacquetShell_of_absFin v (-(l : ℤ)) hx0 (by simpa [qv] using hrx)
+    · intro hx
+      have hx0 : x ≠ 0 := jacquetShell_ne_zero (-(l : ℤ)) hx
+      have hu0 : (u : K) ≠ 0 := Units.ne_zero u
+      apply jacquetShell_of_absFin v (-(l : ℤ)) (mul_ne_zero hu0 hx0)
+      have hr : absFin v ((u : K) * x) = (qv v) ^ (l : ℤ) := by
+        calc
+          absFin v ((u : K) * x) = absFin v (u : K) * absFin v x := hmulrad x
+          _ = (qv v) ^ (l : ℤ) := by simpa [huabs] using hSrad x hx
+      exact (by simpa [qv] using hr)
+  have huInvVal : Valued.v ((u⁻¹ : Kˣ) : K) = 1 := by
+    rw [show Valued.v ((u⁻¹ : Kˣ) : K) = (Valued.v (u : K))⁻¹ by simp, huval]
+    simp
+  have huInvLoc : IsLocUnit v u⁻¹ := locUnit_of_valuation_one u⁻¹ huInvVal
+  have hKinv : L.a u⁻¹ ∈ τ.Kmax := τ.a_mem u⁻¹ huInvLoc.1 huInvLoc.2
+  have hwa : L.w * L.a u⁻¹ = L.a u * L.w := by
+    have hwInv : L.w⁻¹ = L.w := (eq_inv_of_mul_eq_one_left L.w_sq).symm
+    calc
+      L.w * L.a u⁻¹ = (L.w * L.a u⁻¹ * L.w⁻¹) * L.w := by group
+      _ = L.a (u⁻¹)⁻¹ * L.w := by rw [L.lift_wa]
+      _ = L.a u * L.w := by simp
+  have htor (x : K) :
+      L.w * L.n (Multiplicative.ofAdd x) * L.a u⁻¹ =
+        L.a u * L.w * L.n (Multiplicative.ofAdd ((u : K) * x)) := by
+    calc
+      L.w * L.n (Multiplicative.ofAdd x) * L.a u⁻¹ =
+          L.w * (L.n (Multiplicative.ofAdd x) * L.a u⁻¹) := by simp [mul_assoc]
+      _ = L.w * (L.a u⁻¹ * L.n (Multiplicative.ofAdd (x * (u : K)))) := by
+        rw [L.lift_na]
+        simp
+      _ = (L.w * L.a u⁻¹) * L.n (Multiplicative.ofAdd (x * (u : K))) := by
+        rw [← mul_assoc]
+      _ = (L.w * L.a u⁻¹) * L.n (Multiplicative.ofAdd ((u : K) * x)) := by
+        rw [show x * (u : K) = (u : K) * x by ring]
+      _ = L.a u * L.w * L.n (Multiplicative.ofAdd ((u : K) * x)) := by rw [hwa]
+  have hGcov (x : K) : G x = (T.σa u) (G ((u : K) * x)) := by
+    have hright := hK (L.w * L.n (Multiplicative.ofAdd x)) (L.a u⁻¹) hKinv
+    have hsec := hf.1 0 u (L.w * L.n (Multiplicative.ofAdd ((u : K) * x)))
+    have hunitAbs := absFin_one_of_valuation_one u huval
+    calc
+      G x = f (L.w * L.n (Multiplicative.ofAdd x) * L.a u⁻¹) := by
+        dsimp [G]
+        exact hright.symm
+      _ = f (L.a u * L.w * L.n (Multiplicative.ofAdd ((u : K) * x))) := by rw [htor]
+      _ = (T.σa u) (G ((u : K) * x)) := by
+        dsimp [G]
+        simpa [mul_assoc, hunitAbs] using hsec
+  have hFcov (x : K) : Fshell ((u : K) * x) = σinv (Fshell x) := by
+    by_cases hx : x ∈ S
+    · have hux : (u : K) * x ∈ S := (hpreS x).2 hx
+      have hsig := torusRep_sigma_inv_spherical T u
+      have hGinv : G ((u : K) * x) = σinv (G x) := by
+        calc
+          G ((u : K) * x) = σinv ((T.σa u) (G ((u : K) * x))) := by
+            have hid := congrArg (fun A : T.V →ₗ[ℂ] T.V => A (G ((u : K) * x))) hsig
+            simpa [σinv, LinearMap.comp_apply] using hid.symm
+          _ = σinv (G x) := by exact congrArg σinv (hGcov x).symm
+      simp [Fshell, hx, hux, σinv, hGinv]
+    · have hux : (u : K) * x ∉ S := by
+        intro hux
+        exact hx ((hpreS x).1 hux)
+      simp [Fshell, hx, hux]
+  have hcompInt : Integrable (fun x : K => Fshell ((u : K) * x)) μ.μ := by
+    have heq : (fun x : K => Fshell ((u : K) * x)) = fun x => σinv (Fshell x) :=
+      funext hFcov
+    rw [heq]
+    exact σinv.integrable_comp hFint
+  have hscale : (∫ x, Fshell ((u : K) * x) ∂μ.μ) = ∫ x, Fshell x ∂μ.μ := by
+    simpa [huabs] using (LocHaar.integral_comp_mul μ u Fshell)
+  have hinvI : σinv (∫ x, Fshell x ∂μ.μ) = ∫ x, Fshell x ∂μ.μ := by
+    calc
+      σinv (∫ x, Fshell x ∂μ.μ) = ∫ x, σinv (Fshell x) ∂μ.μ :=
+        (ContinuousLinearMap.integral_comp_comm σinv hFint).symm
+      _ = ∫ x, Fshell ((u : K) * x) ∂μ.μ := by
+        apply integral_congr_ae
+        filter_upwards [] with x
+        exact (hFcov x).symm
+      _ = ∫ x, Fshell x ∂μ.μ := hscale
+  have hsigcomp : σ.comp σinv = ContinuousLinearMap.id ℂ T.V := by
+    have h := torusRep_sigma_inv_spherical T u⁻¹
+    ext z
+    have hz := congrArg (fun A : T.V →ₗ[ℂ] T.V => A z) h
+    simpa [σ, σinv, LinearMap.comp_apply] using hz
+  have hfix : σ (∫ x, Fshell x ∂μ.μ) = ∫ x, Fshell x ∂μ.μ := by
+    calc
+      σ (∫ x, Fshell x ∂μ.μ) = σ (σinv (∫ x, Fshell x ∂μ.μ)) := by rw [hinvI]
+      _ = ∫ x, Fshell x ∂μ.μ := by
+        have h := congrArg (fun A : T.V →L[ℂ] T.V => A (∫ x, Fshell x ∂μ.μ)) hsigcomp
+        simpa using h
+  have hset : (∫ x, Fshell x ∂μ.μ) =
+      ∫ x in S, G x ∂μ.μ := by
+    rw [integral_indicator hSmeas]
+  calc
+    T.σa u (∫ x in S, G x ∂μ.μ) =
+        T.σa u (∫ x, Fshell x ∂μ.μ) := by rw [← hset]
+    _ = ∫ x, Fshell x ∂μ.μ := by simpa [σ] using hfix
+    _ = ∫ x in S, G x ∂μ.μ := hset
+
+private theorem valuation_one_of_isLocUnit (u : (v.adicCompletion F)ˣ)
+    (hu : IsLocUnit v u) : Valued.v (u : v.adicCompletion F) = 1 := by
+  have hle : Valued.v (u : v.adicCompletion F) ≤ 1 := by
+    have h := hu.1
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers] at h
+    exact h
+  have hinvle : (Valued.v (u : v.adicCompletion F))⁻¹ ≤ 1 := by
+    have h := hu.2
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers] at h
+    have hval : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+        (Valued.v (u : v.adicCompletion F))⁻¹ := by simp
+    rw [hval] at h
+    exact h
+  have hne : Valued.v (u : v.adicCompletion F) ≠ 0 := by simp
+  have hpos : 0 < Valued.v (u : v.adicCompletion F) := pos_iff_ne_zero.mpr hne
+  have hge : 1 ≤ Valued.v (u : v.adicCompletion F) := by
+    rcases (inv_le_one_iff₀).mp hinvle with hbad | hge
+    · exact (False.elim ((not_le_of_gt hpos) hbad))
+    · exact hge
+  exact le_antisymm hle hge
+
+private theorem spherical_nondivisible_shell_integral_zero
+    (L : FinLocalCover D H v) (τ : TameSplitting L) (T : TorusRep D H v)
+    (B : TameTorusBasis T) (μ : LocHaar v) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (s : ℂ) (hs : 0 < s.re) (f : L.L → T.V) (hf : IsSection L T s f)
+    (h1 : f 1 = B.e 0) (hK : ∀ g, ∀ k ∈ τ.Kmax, f (g * k) = f g)
+    (l : ℕ) (hl : 0 < l) (hndiv : ¬ 3 ∣ l) :
+    ∫ x in jacquetShell v (-(l : ℤ)),
+      f (L.w * L.n (Multiplicative.ofAdd x)) ∂μ.μ = 0 := by
+  classical
+  let K := v.adicCompletion F
+  let S : Set K := jacquetShell v (-(l : ℤ))
+  let G : K → T.V := fun x => f (L.w * L.n (Multiplicative.ofAdd x))
+  let Fshell : K → T.V := S.indicator G
+  let I : T.V := ∫ x, Fshell x ∂μ.μ
+  let b : Module.Basis (ZMod 3) ℂ T.V := Module.Basis.mk B.linIndep B.spans.ge
+  let c0 : T.V →ₗ[ℂ] ℂ := b.coord 0
+  let c0c : T.V →L[ℂ] ℂ := LinearMap.toContinuousLinearMap c0
+  have hSmeas : MeasurableSet S := (jacquetShell_compact v (-(l : ℤ))).measurableSet
+  have hGint : Integrable G μ.μ := by
+    simpa [G] using section_intertwine_integrable L T μ s hs f hf 1
+  have hFint : Integrable Fshell μ.μ := hGint.indicator hSmeas
+  have hset : I = ∫ x in S, G x ∂μ.μ := by
+    dsimp [I, Fshell]
+    exact integral_indicator hSmeas
+  have hinvariant : ∀ u, IsLocUnit v u → T.σa u I = I := by
+    intro u hu
+    have huval := valuation_one_of_isLocUnit u hu
+    have hfix := spherical_shell_integral_unit_fixed L τ T μ s hs f hf hK l u huval
+    calc
+      T.σa u I = T.σa u (∫ x in S, G x ∂μ.μ) := by rw [hset]
+      _ = ∫ x in S, G x ∂μ.μ := by simpa [S, G] using hfix
+      _ = I := hset.symm
+  obtain ⟨c, hc⟩ := tame_unitFixed T B hv I hinvariant
+  have hidx : (2 : ZMod 3) * (l : ZMod 3) ≠ 0 := by
+    intro hzero
+    rcases mul_eq_zero.mp hzero with h2 | hlzero
+    · exact (by decide : (2 : ZMod 3) ≠ 0) h2
+    · exact hndiv ((ZMod.natCast_eq_zero_iff l 3).mp hlzero)
+  have hcoord0 : c0 (B.e 0) = 1 := by
+    simpa [b, c0] using
+      (Module.Basis.mk_coord_apply_eq (hli := B.linIndep) (hsp := B.spans.ge) (0 : ZMod 3))
+  have hcoordk : c0 (B.e ((2 : ZMod 3) * (l : ZMod 3))) = 0 := by
+    simpa [b, c0] using
+      (Module.Basis.mk_coord_apply_ne (hli := B.linIndep) (hsp := B.spans.ge) hidx)
+  have hpointcoord (x : K) (hx : x ∈ S) : c0 (G x) = 0 := by
+    have hpt := (spherical_shell_pointwise L τ T B hv s f hf h1 hK l hl x
+      (jacquetShell_ne_zero (-(l : ℤ)) hx) hx).2 hndiv
+    obtain ⟨a, ha⟩ := hpt
+    change c0 (f (L.w * L.n (Multiplicative.ofAdd x))) = 0
+    rw [ha]
+    simp [hcoordk]
+  have hcoordF (x : K) : c0 (Fshell x) = 0 := by
+    by_cases hx : x ∈ S
+    · simp [Fshell, hx, hpointcoord x hx]
+    · simp [Fshell, hx]
+  have hcoordInt : (∫ x, c0c (Fshell x) ∂μ.μ) = c0c I :=
+    ContinuousLinearMap.integral_comp_comm c0c hFint
+  have hcoordI : c0 I = 0 := by
+    calc
+      c0 I = c0c I := rfl
+      _ = ∫ x, c0c (Fshell x) ∂μ.μ := hcoordInt.symm
+      _ = 0 := by
+        calc
+          (∫ x, c0c (Fshell x) ∂μ.μ) = ∫ x, (0 : ℂ) ∂μ.μ := by
+            apply integral_congr_ae
+            filter_upwards [] with x
+            simpa [c0c] using hcoordF x
+          _ = 0 := integral_zero K ℂ
+  have hc0 : c = 0 := by
+    have hcoord : c0 I = c := by
+      calc
+        c0 I = c0 (c • B.e 0) := congrArg c0 hc
+        _ = c * c0 (B.e 0) := by simp [c0]
+        _ = c := by rw [hcoord0]; simp
+    calc
+      c = c0 I := hcoord.symm
+      _ = 0 := hcoordI
+  have hIzero : I = 0 := by rw [hc, hc0]; simp
+  rw [← hset]
+  exact hIzero
+
+private theorem jacquetShell_real_measure_exact (μ : LocHaar v) (l : ℕ) :
+    μ.μ.real (jacquetShell v (-(l : ℤ))) =
+      (qv v) ^ (l : ℤ) * (1 - (qv v)⁻¹) := by
+  rw [jacquetShell_real_measure μ, jacquetShell_radius, jacquetUnitShell_real_measure]
+  simp [qv, mul_comm]
+
+private theorem spherical_shell_cpow (l : ℕ) (s : ℂ) :
+    (((qv v) ^ (-(2 * (l : ℤ))) : ℝ) : ℂ) ^ ((1 : ℂ) / 2 + s) =
+      (qv v : ℂ) ^ (-((l : ℂ) * (1 + 2 * s))) := by
+  let q : ℝ := qv v
+  let e : ℤ := -(2 * (l : ℤ))
+  have hq : 0 < q := by dsimp [q]; exact lt_trans zero_lt_one (qv_gt_one v)
+  have he : (e : ℂ) * ((1 : ℂ) / 2 + s) = -((l : ℂ) * (1 + 2 * s)) := by
+    dsimp [e]
+    push_cast
+    ring
+  have him : (Complex.log (q : ℂ) * (e : ℂ)).im = 0 := by
+    rw [← Complex.ofReal_log hq.le]
+    simp
+  have hlow : -Real.pi < (Complex.log (q : ℂ) * (e : ℂ)).im := by
+    rw [him]
+    linarith [Real.pi_pos]
+  have hupp : (Complex.log (q : ℂ) * (e : ℂ)).im ≤ Real.pi := by
+    rw [him]
+    linarith [Real.pi_pos]
+  have hbase : (((q ^ e : ℝ) : ℂ)) = (q : ℂ) ^ e := by
+    exact Complex.ofReal_zpow q e
+  rw [show qv v = q by rfl, show -(2 * (l : ℤ)) = e by rfl, hbase,
+    ← Complex.cpow_intCast]
+  rw [← Complex.cpow_mul _ hlow hupp, he]
+
+private theorem spherical_divisible_shell_integral
+    (L : FinLocalCover D H v) (τ : TameSplitting L) (T : TorusRep D H v)
+    (B : TameTorusBasis T) (μ : LocHaar v) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (s : ℂ) (hs : 0 < s.re) (f : L.L → T.V) (hf : IsSection L T s f)
+    (h1 : f 1 = B.e 0) (hK : ∀ g, ∀ k ∈ τ.Kmax, f (g * k) = f g)
+    (l : ℕ) (hl : 0 < l) (hdiv : 3 ∣ l) :
+    ∫ x in jacquetShell v (-(l : ℤ)),
+      f (L.w * L.n (Multiplicative.ofAdd x)) ∂μ.μ =
+      ((1 - (qv v : ℂ)⁻¹) * (qv v : ℂ) ^ (-2 * (l : ℂ) * s)) • B.e 0 := by
+  classical
+  let K := v.adicCompletion F
+  let S : Set K := jacquetShell v (-(l : ℤ))
+  let G : K → T.V := fun x => f (L.w * L.n (Multiplicative.ofAdd x))
+  let C : ℂ := (qv v : ℂ) ^ (-((l : ℂ) * (1 + 2 * s)))
+  have hSmeas : MeasurableSet S := (jacquetShell_compact v (-(l : ℤ))).measurableSet
+  have hpoint (x : K) (hxS : x ∈ S) : G x = C • B.e 0 := by
+    have hx : x ≠ 0 := jacquetShell_ne_zero (-(l : ℤ)) hxS
+    obtain ⟨u, hu, huval, hsplit⟩ := spherical_shell_torus_decomp l hl x hx hxS
+    have hπrad : absFin v ((unifLoc v ^ (2 * (l : ℤ)) : Kˣ) : K) =
+        (qv v) ^ (-(2 * (l : ℤ))) := by
+      simpa [qv] using jacquetShell_radius v (2 * (l : ℤ))
+    have hradY : absFin v (-((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹) : K) =
+        (qv v) ^ (-(2 * (l : ℤ))) := by
+      calc
+        absFin v (-((Units.mk0 x hx)⁻¹ * (Units.mk0 x hx)⁻¹) : K) =
+            absFin v ((unifLoc v ^ (2 * (l : ℤ)) * u : Kˣ) : K) := by
+              have hsplitVal := congrArg (fun y : Kˣ => (y : K)) hsplit
+              exact congrArg (absFin v) hsplitVal
+        _ = absFin v ((unifLoc v ^ (2 * (l : ℤ)) : Kˣ) : K) * absFin v (u : K) := by
+              simpa only [Units.val_mul] using
+                (absFin_mul v (unifLoc v ^ (2 * (l : ℤ))) u)
+        _ = (qv v) ^ (-(2 * (l : ℤ))) := by rw [hπrad, absFin_one_of_valuation_one u huval]; simp
+    have hpt := (spherical_shell_pointwise L τ T B hv s f hf h1 hK
+      l hl x hx hxS).1 hdiv
+    rw [hradY, spherical_shell_cpow] at hpt
+    simpa [G, C] using hpt
+  have hvol : μ.μ.real S = (qv v) ^ (l : ℤ) * (1 - (qv v)⁻¹) := by
+    simpa [S] using jacquetShell_real_measure_exact μ l
+  have hcoeVol : ((((qv v) ^ (l : ℤ) * (1 - (qv v)⁻¹) : ℝ) : ℂ)) =
+      (qv v : ℂ) ^ (l : ℂ) * (1 - (qv v : ℂ)⁻¹) := by
+    rw [Complex.ofReal_mul, Complex.ofReal_zpow, ← Complex.cpow_intCast]
+    simp [Complex.ofReal_inv, Complex.ofReal_sub]
+  calc
+    (∫ x in S, G x ∂μ.μ) = ∫ x in S, (fun _ : K => C • B.e 0) x ∂μ.μ := by
+      apply setIntegral_congr_fun hSmeas
+      intro x hx
+      exact hpoint x hx
+    _ = μ.μ.real S • (C • B.e 0) := setIntegral_const _
+    _ = ((qv v : ℂ) ^ (l : ℂ) * (1 - (qv v : ℂ)⁻¹) * C) • B.e 0 := by
+      rw [hvol, RCLike.real_smul_eq_coe_smul (K := ℂ)]
+      rw [smul_smul]
+      apply congrArg (fun z : ℂ => z • B.e 0)
+      exact congrArg (fun z : ℂ => z * C) hcoeVol
+    _ = ((1 - (qv v : ℂ)⁻¹) * (qv v : ℂ) ^ (-2 * (l : ℂ) * s)) • B.e 0 := by
+      congr 1
+      have hq : (qv v : ℂ) ≠ 0 := by
+        exact_mod_cast (ne_of_gt (lt_trans zero_lt_one (qv_gt_one v)))
+      calc
+        (qv v : ℂ) ^ (l : ℂ) * (1 - (qv v : ℂ)⁻¹) * C =
+            (1 - (qv v : ℂ)⁻¹) * ((qv v : ℂ) ^ (l : ℂ) * C) := by ring
+        _ = (1 - (qv v : ℂ)⁻¹) *
+            (qv v : ℂ) ^ ((l : ℂ) + -((l : ℂ) * (1 + 2 * s))) := by
+              rw [← Complex.cpow_add _ _ hq]
+        _ = (1 - (qv v : ℂ)⁻¹) * (qv v : ℂ) ^ (-2 * (l : ℂ) * s) := by
+              congr 2
+              ring
+
+private def sphericalOuterShell (n : ℕ) : Set (v.adicCompletion F) :=
+  jacquetShell v (-((n : ℤ) + 1))
+
+private theorem sphericalOuterShell_pairwise :
+    Pairwise fun i j : ℕ => Disjoint (sphericalOuterShell (F := F) (v := v) i)
+      (sphericalOuterShell (F := F) (v := v) j) := by
+  intro i j hij
+  apply Set.disjoint_left.mpr
+  intro x hxi hxj
+  have hvi : Valued.v x = WithZero.exp ((i : ℤ) + 1) := by
+    simpa [sphericalOuterShell] using
+      (jacquetShell_valuation v (-((i : ℤ) + 1)) hxi)
+  have hvj : Valued.v x = WithZero.exp ((j : ℤ) + 1) := by
+    simpa [sphericalOuterShell] using
+      (jacquetShell_valuation v (-((j : ℤ) + 1)) hxj)
+  have hidx : (i : ℤ) + 1 = (j : ℤ) + 1 :=
+    WithZero.exp_inj.mp (hvi.symm.trans hvj)
+  have hij' : i = j := by exact_mod_cast (by omega : (i : ℤ) = (j : ℤ))
+  exact hij hij'
+
+private theorem sphericalOuterShell_cover :
+    (⋃ n : ℕ, sphericalOuterShell (F := F) (v := v) n) =
+      (ball v 0)ᶜ := by
+  ext x
+  constructor
+  · intro hx
+    rcases Set.mem_iUnion.mp hx with ⟨n, hn⟩
+    have hval := jacquetShell_valuation v (-((n : ℤ) + 1)) (by simpa [sphericalOuterShell] using hn)
+    have hxball : x ∉ ball v 0 := by
+      intro hxball
+      have hle : Valued.v x ≤ WithZero.exp (0 : ℤ) := by simpa [ball] using hxball
+      rw [hval] at hle
+      have hnle : (n : ℤ) + 1 ≤ 0 := WithZero.exp_le_exp.mp hle
+      omega
+    exact hxball
+  · intro hx
+    have hnot : ¬ Valued.v x ≤ WithZero.exp (0 : ℤ) := by
+      intro hxval
+      apply hx
+      change Valued.v x ≤ WithZero.exp (0 : ℤ)
+      exact hxval
+    have hx0 : x ≠ 0 := by
+      intro hxzero
+      apply hx
+      subst x
+      change Valued.v (0 : v.adicCompletion F) ≤ WithZero.exp (0 : ℤ)
+      simp
+    obtain ⟨k, hk⟩ := jacquetShell_cover v hx0
+    have hval := jacquetShell_valuation v k hk
+    have hlt : WithZero.exp (0 : ℤ) < WithZero.exp (-k) := by
+      have hlt' : WithZero.exp (0 : ℤ) < Valued.v x := lt_of_not_ge hnot
+      rw [hval] at hlt'
+      exact hlt'
+    have hpos : 0 < -k := WithZero.exp_lt_exp.mp hlt
+    let n : ℕ := Int.toNat (-k - 1)
+    have hn0 : 0 ≤ -k - 1 := by omega
+    have hncast : (n : ℤ) = -k - 1 := Int.toNat_of_nonneg hn0
+    have hkEq : k = -((n : ℤ) + 1) := by omega
+    apply Set.mem_iUnion.mpr ⟨n, ?_⟩
+    simpa [sphericalOuterShell, hkEq] using hk
+
+set_option maxHeartbeats 5000000 in
+private theorem intertwine_spherical_at_one
+    (L : FinLocalCover D H v) (τ : TameSplitting L) (T : TorusRep D H v)
+    (B : TameTorusBasis T) (μ : LocHaar v) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (s : ℂ) (hs : 0 < s.re) (f : L.L → T.V) (hf : IsSection L T s f)
+    (h1 : f 1 = B.e 0) (hK : ∀ g, ∀ k ∈ τ.Kmax, f (g * k) = f g) :
+    intertwine L μ f 1 = cv v s • B.e 0 := by
+  classical
+  let K := v.adicCompletion F
+  let G : K → T.V := fun x => f (L.w * L.n (Multiplicative.ofAdd x))
+  let shell : ℕ → Set K := sphericalOuterShell (F := F) (v := v)
+  let A : ℕ → T.V := fun n => ∫ x in shell n, G x ∂μ.μ
+  let a : ℂ := 1 - (qv v : ℂ)⁻¹
+  let r : ℂ := (qv v : ℂ) ^ (-6 * s)
+  have hGint : Integrable G μ.μ := by
+    simpa [G] using section_intertwine_integrable L T μ s hs f hf 1
+  have hballMeas : MeasurableSet (ball v 0) := (ball_isCompact v 0).measurableSet
+  have hGball (x : K) (hx : x ∈ ball v 0) : G x = B.e 0 := by
+    have hxO : x ∈ v.adicCompletionIntegers F := by
+      have hx' : x ∈ (ball v 0 : Set K) := hx
+      rw [ball_zero_eq_integerRing] at hx'
+      exact hx'
+    have hmem : L.w * L.n (Multiplicative.ofAdd x) ∈ τ.Kmax :=
+      τ.Kmax.mul_mem τ.w_mem (τ.n_mem x hxO)
+    calc
+      G x = f (1 * (L.w * L.n (Multiplicative.ofAdd x))) := by simp [G]
+      _ = f 1 := hK 1 _ hmem
+      _ = B.e 0 := h1
+  have hballIntegral :
+      ∫ x in ball v 0, G x ∂μ.μ = B.e 0 := by
+    calc
+      (∫ x in ball v 0, G x ∂μ.μ) =
+          ∫ x in ball v 0, (fun _ : K => B.e 0) x ∂μ.μ := by
+            apply setIntegral_congr_fun hballMeas
+            intro x hx
+            exact hGball x hx
+      _ = μ.μ.real (ball v 0) • B.e 0 := setIntegral_const _
+      _ = B.e 0 := by rw [ball_zero_real_measure]; simp
+  have hshellMeas (n : ℕ) : MeasurableSet (shell n) := by
+    exact (jacquetShell_compact v (-((n : ℤ) + 1))).measurableSet
+  have hshellCover : (⋃ n : ℕ, shell n) = (ball v 0)ᶜ := by
+    simpa [shell] using sphericalOuterShell_cover (F := F) (v := v)
+  have hGunion : IntegrableOn G (⋃ n : ℕ, shell n) μ.μ := by
+    exact hGint.integrableOn.mono_set (Set.subset_univ _)
+  have hseries : HasSum A (∫ x in (ball v 0)ᶜ, G x ∂μ.μ) := by
+    rw [← hshellCover]
+    exact hasSum_integral_iUnion hshellMeas sphericalOuterShell_pairwise hGunion
+  have hcompsum : (∑' n : ℕ, A n) = ∫ x in (ball v 0)ᶜ, G x ∂μ.μ :=
+    hseries.tsum_eq
+  have htotal : intertwine L μ f 1 = B.e 0 + ∑' n : ℕ, A n := by
+    have hsplit := integral_add_compl hballMeas hGint
+    calc
+      intertwine L μ f 1 = ∫ x, G x ∂μ.μ := by simp [intertwine, G]
+      _ = (∫ x in ball v 0, G x ∂μ.μ) +
+            ∫ x in (ball v 0)ᶜ, G x ∂μ.μ := hsplit.symm
+      _ = B.e 0 + ∑' n : ℕ, A n := by rw [hballIntegral, hcompsum]
+  have hAdiv (n : ℕ) (hn : 3 ∣ n + 1) :
+      A n = (a * (qv v : ℂ) ^ (-2 * ((n + 1 : ℕ) : ℂ) * s)) • B.e 0 := by
+    have h := spherical_divisible_shell_integral L τ T B μ hv s hs f hf h1 hK
+      (n + 1) (by omega) hn
+    simpa [A, shell, G, a, sphericalOuterShell] using h
+  have hAzero (n : ℕ) (hn : ¬ 3 ∣ n + 1) : A n = 0 := by
+    simpa [A, shell, G, sphericalOuterShell] using
+      spherical_nondivisible_shell_integral_zero L τ T B μ hv s hs f hf h1 hK
+        (n + 1) (by omega) hn
+  have hqpos : 0 < qv v := lt_trans zero_lt_one (qv_gt_one v)
+  have hqC : (qv v : ℂ) ≠ 0 := by exact_mod_cast hqpos.ne'
+  have hrec (n : ℕ) : A (n + 3) = r • A n := by
+    by_cases hdiv : 3 ∣ n + 1
+    · have hdivKeep := hdiv
+      obtain ⟨j, hj⟩ := hdiv
+      have hdiv' : 3 ∣ (n + 3) + 1 := ⟨j + 1, by omega⟩
+      rw [hAdiv (n + 3) hdiv', hAdiv n hdivKeep]
+      have hexp : -2 * (((n + 3) + 1 : ℕ) : ℂ) * s =
+          (-6 * s) + (-2 * ((n + 1 : ℕ) : ℂ) * s) := by push_cast; ring
+      have hpow : (qv v : ℂ) ^ (-2 * (((n + 3) + 1 : ℕ) : ℂ) * s) =
+          r * (qv v : ℂ) ^ (-2 * ((n + 1 : ℕ) : ℂ) * s) := by
+        dsimp [r]
+        rw [hexp, Complex.cpow_add _ _ hqC]
+      rw [smul_smul]
+      congr 1
+      rw [hpow]
+      ring
+    · have hdiv' : ¬ 3 ∣ (n + 3) + 1 := by
+        intro hn'
+        obtain ⟨j, hj⟩ := hn'
+        have hjpos : 0 < j := by omega
+        have hprev : n + 1 = 3 * (j - 1) := by omega
+        exact hdiv ⟨j - 1, hprev⟩
+      rw [hAzero (n + 3) hdiv', hAzero n hdiv]
+      simp
+  have hsumSplit := hseries.summable.sum_add_tsum_nat_add 3
+  have htail : (∑' n : ℕ, A (n + 3)) = r • ∑' n : ℕ, A n := by
+    calc
+      (∑' n : ℕ, A (n + 3)) = ∑' n : ℕ, r • A n := by
+        apply tsum_congr
+        intro n
+        exact hrec n
+      _ = r • ∑' n : ℕ, A n := tsum_const_smul'' r
+  have hA0 : A 0 = 0 := hAzero 0 (by norm_num)
+  have hA1 : A 1 = 0 := hAzero 1 (by norm_num)
+  have hA2 : A 2 = (a * r) • B.e 0 := by
+    have h := hAdiv 2 (by norm_num)
+    have hexp : -2 * ((2 + 1 : ℕ) : ℂ) * s = -6 * s := by push_cast; ring
+    rw [hexp] at h
+    simpa [a, r] using h
+  have hfirst : (∑ n ∈ Finset.range 3, A n) = (a * r) • B.e 0 := by
+    simp [Finset.sum_range_succ, hA0, hA1, hA2]
+  have hsumEq : (∑' n : ℕ, A n) = (a * r) • B.e 0 +
+      r • (∑' n : ℕ, A n) := by
+    calc
+      (∑' n : ℕ, A n) = (∑ n ∈ Finset.range 3, A n) +
+          ∑' n : ℕ, A (n + 3) := hsumSplit.symm
+      _ = (a * r) • B.e 0 + r • (∑' n : ℕ, A n) := by rw [hfirst, htail]
+  have hrnorm : ‖r‖ < 1 := by
+    dsimp [r]
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hqpos]
+    have hre : (-6 * s).re = -6 * s.re := by simp
+    rw [hre]
+    exact Real.rpow_lt_one_of_one_lt_of_neg (qv_gt_one v) (by linarith)
+  have hden : 1 - r ≠ 0 := by
+    intro h
+    have hrone : r = 1 := (sub_eq_zero.mp h).symm
+    rw [hrone] at hrnorm
+    norm_num at hrnorm
+  have hsub : (1 - r) • (∑' n : ℕ, A n) = (a * r) • B.e 0 := by
+    calc
+      (1 - r) • (∑' n : ℕ, A n) =
+      (∑' n : ℕ, A n) - r • (∑' n : ℕ, A n) := by rw [sub_smul, one_smul]
+      _ = (a * r) • B.e 0 := by
+        have h := congrArg (fun z : T.V => z - r • (∑' n : ℕ, A n)) hsumEq
+        simpa [add_sub_cancel_right] using h
+  have hsumValue : (∑' n : ℕ, A n) = (a * r / (1 - r)) • B.e 0 := by
+    calc
+      (∑' n : ℕ, A n) = (1 - r)⁻¹ • ((1 - r) • (∑' n : ℕ, A n)) := by
+        rw [smul_smul, inv_mul_cancel₀ hden, one_smul]
+      _ = (1 - r)⁻¹ • ((a * r) • B.e 0) := by rw [hsub]
+      _ = (a * r / (1 - r)) • B.e 0 := by
+        rw [smul_smul, div_eq_mul_inv]
+        congr 1
+        ring
+  have hpowNum : (qv v : ℂ) ^ (-1 - 6 * s) =
+      (qv v : ℂ)⁻¹ * r := by
+    dsimp [r]
+    rw [show -1 - 6 * s = (-1) + (-6 * s) by ring, Complex.cpow_add _ _ hqC]
+    simp [Complex.cpow_neg_one]
+  have hcv : cv v s = 1 + a * r / (1 - r) := by
+    unfold cv
+    rw [hpowNum]
+    dsimp [a]
+    change (1 - (qv v : ℂ)⁻¹ * r) / (1 - r) =
+      1 + ((1 - (qv v : ℂ)⁻¹) * r) / (1 - r)
+    field_simp [hden]
+    ring
+  calc
+    intertwine L μ f 1 = B.e 0 + ∑' n : ℕ, A n := htotal
+    _ = (1 + a * r / (1 - r)) • B.e 0 := by
+      rw [hsumValue]
+      simp only [add_smul, one_smul]
+    _ = cv v s • B.e 0 := by rw [hcv]
+
 /-- **int:spherical**: `M f°_s = c_v(s) f°_{-s}` at a tame place, `Re s > 0`. -/
 theorem intertwine_spherical (L : FinLocalCover D H v) (τ : TameSplitting L) (T : TorusRep D H v)
     (B : TameTorusBasis T) (μ : LocHaar v) (hv : (6 : 𝓞 F) ∉ v.asIdeal) (s : ℂ) (hs : 0 < s.re)
@@ -3957,7 +4800,69 @@ theorem intertwine_spherical (L : FinLocalCover D H v) (τ : TameSplitting L) (T
     (f0' : L.L → T.V) (hf0' : IsSection L T.weyl (-s) f0') (h1' : f0' 1 = B.weyl.e 0)
     (hK' : ∀ g, ∀ k ∈ τ.Kmax, f0' (g * k) = f0' g) :
     intertwine L μ f0 = cv v s • f0' := by
-  sorry
+  classical
+  have hfM : IsSection L T.weyl (-s) (intertwine L μ f0) :=
+    (intertwine_isSection L T μ s hs f0 hf0).2
+  have hKM : ∀ g, ∀ k ∈ τ.Kmax,
+      (intertwine L μ f0) (g * k) = (intertwine L μ f0) g := by
+    intro g k hk
+    have hsource : rtr k f0 = f0 := by
+      funext x
+      exact hK x k hk
+    have hcomm : intertwine L μ f0 = rtr k (intertwine L μ f0) := by
+      calc
+        intertwine L μ f0 = intertwine L μ (rtr k f0) :=
+          congrArg (intertwine L μ) hsource.symm
+        _ = rtr k (intertwine L μ f0) := intertwine_rtr L μ f0 k
+    simpa [rtr] using (congrFun hcomm g).symm
+  obtain ⟨fstd, hfstd, hfstd1, hfstdK, huniq⟩ :=
+    spherical_section L τ T.weyl B.weyl hv (-s)
+  obtain ⟨c', hc'⟩ := huniq f0' hf0' hK'
+  have hc'V : (f0' : L.L → T.weyl.V) = c' • fstd := hc'
+  have hstdEvalW : (f0' 1 : T.weyl.V) = c' • B.weyl.e 0 := by
+    have h := congrFun hc'V 1
+    simpa [Pi.smul_apply, hfstd1] using h
+  have hstdEqW : (f0' : L.L → T.weyl.V) = fstd := by
+    have he0 : B.weyl.e 0 ≠ 0 := B.weyl.linIndep.ne_zero 0
+    have h1'W : (f0' 1 : T.weyl.V) = B.weyl.e 0 := by
+      simpa [TorusRep.weyl, TameTorusBasis.weyl] using h1'
+    have hc'val : c' = 1 := by
+      have hEval' : B.weyl.e 0 = c' • B.weyl.e 0 := h1'W.symm.trans hstdEvalW
+      have hEval : (1 : ℂ) • B.weyl.e 0 = c' • B.weyl.e 0 := by
+        simpa only [one_smul] using hEval'
+      exact (smul_left_injective ℂ he0) hEval.symm
+    rw [hc'val] at hc'V
+    simpa only [one_smul] using hc'V
+  obtain ⟨cM, hcM⟩ := huniq (intertwine L μ f0) hfM hKM
+  have hcMpointW (g : L.L) : ((intertwine L μ f0) g : T.weyl.V) = cM • fstd g := by
+    have h := congrFun hcM g
+    change ((intertwine L μ f0) g : T.weyl.V) = cM • fstd g at h
+    exact h
+  have hcMpoint (g : L.L) : (intertwine L μ f0) g = cM • fstd g := by
+    have h := hcMpointW g
+    change (intertwine L μ f0) g = cM • fstd g
+    exact h
+  have hAtOne := intertwine_spherical_at_one L τ T B μ hv s hs f0 hf0 h1 hK
+  have hstd1V : fstd 1 = B.e 0 := by
+    simpa [TorusRep.weyl, TameTorusBasis.weyl] using hfstd1
+  have hcMval : cM = cv v s := by
+    have he0 : B.e 0 ≠ 0 := B.linIndep.ne_zero 0
+    have hMone : (intertwine L μ f0) 1 = cM • B.e 0 := by
+      have h := hcMpoint 1
+      rw [hstd1V] at h
+      exact h
+    have hEval : cv v s • B.e 0 = cM • B.e 0 := hAtOne.symm.trans hMone
+    exact (smul_left_injective ℂ he0) hEval.symm
+  have hstdEq : f0' = fstd := by
+    funext g
+    have h := congrFun hstdEqW g
+    simpa [TorusRep.weyl] using h
+  have hfinal (g : L.L) : (intertwine L μ f0) g = cv v s • f0' g := by
+    have h := hcMpoint g
+    rw [hcMval] at h
+    exact h.trans (congrArg (fun z : T.V => cv v s • z) (congrFun hstdEq.symm g))
+  funext g
+  exact hfinal g
 
 /-- **int:analytic**: on big-cell sections, `s ↦ (M f_{φ,s})(g)` is holomorphic on `Re s > 0`. -/
 theorem intertwine_bigCell_analytic (L : FinLocalCover D H v) (T : TorusRep D H v) (μ : LocHaar v)
