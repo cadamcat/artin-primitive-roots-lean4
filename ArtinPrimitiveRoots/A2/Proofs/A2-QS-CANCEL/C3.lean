@@ -1,5 +1,16 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C2
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P2
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3Helpers
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3HighDiv
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3HighDivExpand
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3HighDivBound
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3TransTsum
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3TransShell
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3TransExpand
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3TransBound
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3DualPair
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3DualArith
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3DualHighDiv
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C3.Main
 
 /-!
@@ -49,7 +60,36 @@ theorem qs_orig_remainders_C3a [IsTotallyComplex K] (F : QSFamily m qS)
             ‖qsPairSum cols z (qsOrigKernel (qsInnerRes K) F W M κ ((M * n) ^ η) 𝔮)‖ +
             ‖qsPairSum cols z (qsOrigKernel (qsInnerTrans K) F W M κ ((M * n) ^ η) 𝔮)‖ ≤
           C * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α * ∑ c ∈ cols, ‖z c‖ ^ 2 := by
-  sorry
+  classical
+  obtain ⟨CH, hCH, hHigh⟩ :=
+    ArtinPrimitiveRoots.Proofs.qs_c3_sol.orig_highdiv_C3a_bound
+      F hrf hqS W α hα1 hexp δ hδ
+  obtain ⟨ηR, hηR, hRes⟩ :=
+    ArtinPrimitiveRoots.Proofs.qs_c_p.qs_c3_orig_residue_C3a_bound
+      F hrf hqS W hW α hα1 hα2 hexp δ hδ
+  obtain ⟨ηT, hηT, hTrans⟩ :=
+    ArtinPrimitiveRoots.Proofs.qs_c3_sol.orig_transition_C3a_bound
+      F hrf hqS W hW α hα1 hexp δ hδ
+  refine ⟨min ηR ηT, lt_min hηR hηT, ?_⟩
+  intro η hη hη₀
+  obtain ⟨CR, hCR, hR⟩ := hRes η hη (hη₀.trans (min_le_left _ _))
+  obtain ⟨CT, hCT, hT⟩ := hTrans η hη (hη₀.trans (min_le_right _ _))
+  refine ⟨CH + CR + CT, by positivity, ?_⟩
+  intro M n κ 𝔮 cols z hn hκ hκM hblock
+  have hM2 : 2 ≤ M := by linarith
+  have hMn : 1 ≤ M * n := by nlinarith
+  have hΛ : 1 ≤ (M * n) ^ η := Real.one_le_rpow hMn hη.le
+  have hh := hHigh M n κ ((M * n) ^ η) 𝔮 cols z hn hκ hκM hΛ hblock
+  have hr := hR M n κ 𝔮 cols z hn hκ hκM hblock
+  have ht := hT M n κ 𝔮 cols z hn hκ hκM hblock
+  calc
+    _ ≤ CH * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α *
+          (∑ c ∈ cols, ‖z c‖ ^ 2) +
+        CR * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α *
+          (∑ c ∈ cols, ‖z c‖ ^ 2) +
+        CT * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α *
+          (∑ c ∈ cols, ‖z c‖ ^ 2) := add_le_add (add_le_add hh hr) ht
+    _ = _ := by ring
 
 /-- C3b (IMPL): dual main-type remainders `E₁` (high divisors) and `E₂` (the transformed
 residue at zero, retained for every field). -/
