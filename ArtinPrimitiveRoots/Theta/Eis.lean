@@ -56,7 +56,14 @@ def GlobalDatum.Δ {P : CoverPackage D S H A} (G : GlobalDatum P) : Subgroup Fˣ
 /-- Choose the exceptional or tame local model at each finite place. -/
 theorem globalLocal_models (hSt : ∀ v, SteinbergAt H v) :
     ∀ v : FinPlace F, Nonempty (GlobalLocalModel D H v (v ∉ S.Sf)) := by
-  sorry
+  intro v
+  by_cases hv : v ∈ S.Sf
+  · obtain ⟨L, hc, hl⟩ := globalLocal_lagrangian D H v
+    obtain ⟨M, _⟩ := globalLocal_wild_model D H v L hc hl
+    simpa only [hv, not_true_eq_false] using
+      (show Nonempty (GlobalLocalModel D H v False) from ⟨M⟩)
+  · simpa only [hv, not_false_eq_true] using
+      globalLocal_tame_model D H v (hSt v) (fun h => hv (S.over6 v h))
 
 /-- **eis:global-datum** (existence). The strengthened datum is required by C6 of
 `sol-gate-theta`. -/

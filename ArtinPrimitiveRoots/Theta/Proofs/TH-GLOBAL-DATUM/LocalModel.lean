@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».CubicQuotient
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».FiniteInduction
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».CubicHilbert
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».TameModel
 
 set_option autoImplicit false
 
@@ -199,6 +200,22 @@ theorem globalLocal_wild_model (D : FieldData F) (H : HilbertData F) (v : FinPla
 theorem globalLocal_tame_model (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
     (hSt : SteinbergAt H v) (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
     Nonempty (GlobalLocalModel D H v True) := by
-  sorry
+  classical
+  obtain ⟨T, _, hB⟩ := exists_torusRep D H v hSt
+  obtain ⟨B⟩ := hB hv
+  obtain ⟨Q⟩ := exists_tameLocalGeometry v
+  obtain ⟨lam, hne, hfixed, hnorm⟩ := tameLocal_evaluation T B hv Q
+  exact ⟨{
+    T := T
+    B := fun _ => B
+    Alag := Q.Alag
+    cubes := Q.cubes
+    lagrangian := tameLocal_lagrangian T B hv Q
+    lam := lam
+    lam_fixed := hfixed
+    lam_ne := hne
+    alag_tame := fun _ => Q.mem_alag
+    lam_tame := fun _ => hnorm
+  }⟩
 
 end ArtinPrimitiveRoots.A1.Theta
