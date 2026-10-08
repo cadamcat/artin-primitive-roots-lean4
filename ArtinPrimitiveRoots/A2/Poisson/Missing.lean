@@ -9,6 +9,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeFrequencySeparation
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogRegularity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueLift
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueMask
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
@@ -1426,6 +1427,11 @@ private theorem po_probe_low_residue_frequencies_separated :
       (d.out : F) / (bc.gen s : F) - (e.out : F) / (bc.gen t : F) ∈ S.R →
       s = t ∧ HEq d e := by
   exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_residue_frequencies_separated R.exterior
+
+private theorem po_probe_low_nonzero_residue_symbol_isUnit :
+    ∀ s : S.ExtIdeal, ∀ d : ResidueRing R.exterior s,
+      chiIdealPow D s.1 (d.out : F) 1 ≠ 0 → IsUnit d := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_nonzero_residue_symbol_isUnit R.exterior
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
