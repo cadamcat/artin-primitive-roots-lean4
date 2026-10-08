@@ -24,6 +24,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_constant_of_nonzer
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_right_of_scalar_invariant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_automorphic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_ideal_period
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_arch_invariant_of_nonzero_coeff_zero
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
