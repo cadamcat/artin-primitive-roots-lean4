@@ -3677,6 +3677,68 @@ private theorem rf_active_exponent_injective
       rw [hexp v]
     _ = b.1.1 := Ideal.finprod_heightOneSpectrum_factorization hb0
 
+private theorem rf_active_numerator_weight
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (f : S.ExtIdeal) (σ : ℝ) (a : {a : S.ExtIdeal // activeNumerator R f a}) :
+    betaIdeal R f a.1 * qI a.1.1 ^ (-σ) =
+      ∏ v : {v : FinPlace F // v ∈ R.exterior.support f},
+        betaPrime (qI v.1.asIdeal) (qI_prime_gt_one v.1) (idealExp v.1 a.1.1) *
+          qI v.1.asIdeal ^ (-σ * (idealExp v.1 a.1.1 : ℝ)) := by
+  classical
+  let s : Finset (FinPlace F) := R.exterior.support f
+  have ha0 : a.1.1 ≠ 0 := by
+    simpa only [Ideal.zero_eq_bot] using a.1.property.1
+  have hsupp : Function.mulSupport (fun v : FinPlace F => v.maxPowDividing a.1.1) ⊆ s := by
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv
+    by_contra hvf
+    have hva : v ∉ R.exterior.support a.1 := by
+      intro h
+      exact hvf (a.property.1 v h)
+    apply hv
+    change v.asIdeal ^ idealExp v a.1.1 = 1
+    rw [rf_idealExp_zero_of_not_support R v a.1 hva, pow_zero]
+  have hfac : a.1.1 = ∏ v ∈ s, v.asIdeal ^ idealExp v a.1.1 := by
+    calc
+      a.1.1 = ∏ᶠ v : FinPlace F, v.maxPowDividing a.1.1 :=
+        (Ideal.finprod_heightOneSpectrum_factorization ha0).symm
+      _ = ∏ v ∈ s, v.maxPowDividing a.1.1 :=
+        finprod_eq_prod_of_mulSupport_subset _ hsupp
+      _ = ∏ v ∈ s, v.asIdeal ^ idealExp v a.1.1 := rfl
+  have hnorm : qI a.1.1 = ∏ v ∈ s, qI v.asIdeal ^ idealExp v a.1.1 := by
+    have h := congrArg (fun I : Ideal (𝓞 F) => (Ideal.absNorm I : ℝ)) hfac
+    simpa only [qI, map_prod, map_pow, Nat.cast_prod, Nat.cast_pow] using h
+  have hq (v : FinPlace F) : 0 ≤ qI v.asIdeal :=
+    le_trans zero_le_one (qI_prime_gt_one v).le
+  have hnormPower : qI a.1.1 ^ (-σ) =
+      ∏ v ∈ s, qI v.asIdeal ^ (-σ * (idealExp v a.1.1 : ℝ)) := by
+    rw [hnorm]
+    calc
+      (∏ v ∈ s, qI v.asIdeal ^ idealExp v a.1.1) ^ (-σ) =
+          ∏ v ∈ s, (qI v.asIdeal ^ idealExp v a.1.1) ^ (-σ) := by
+        exact (Real.finsetProd_rpow s (fun v => qI v.asIdeal ^ idealExp v a.1.1)
+          (fun v _ => pow_nonneg (hq v) _)
+          (-σ)).symm
+      _ = ∏ v ∈ s, qI v.asIdeal ^ (-σ * (idealExp v a.1.1 : ℝ)) := by
+        apply Finset.prod_congr rfl
+        intro v hv
+        rw [← Real.rpow_natCast, ← Real.rpow_mul (hq v)]
+        congr 1
+        ring
+  calc
+    betaIdeal R f a.1 * qI a.1.1 ^ (-σ) =
+        ∏ v ∈ s, betaPrime (qI v.asIdeal) (qI_prime_gt_one v) (idealExp v a.1.1) *
+          qI v.asIdeal ^ (-σ * (idealExp v a.1.1 : ℝ)) := by
+      change (∏ v ∈ s, betaPrime (qI v.asIdeal) (qI_prime_gt_one v) (idealExp v a.1.1)) *
+        qI a.1.1 ^ (-σ) = _
+      rw [hnormPower, Finset.prod_mul_distrib]
+    _ = ∏ v : {v : FinPlace F // v ∈ R.exterior.support f},
+        betaPrime (qI v.1.asIdeal) (qI_prime_gt_one v.1) (idealExp v.1 a.1.1) *
+          qI v.1.asIdeal ^ (-σ * (idealExp v.1 a.1.1 : ℝ)) :=
+      (Finset.prod_coe_sort s (fun v =>
+        betaPrime (qI v.asIdeal) (qI_prime_gt_one v) (idealExp v a.1.1) *
+          qI v.asIdeal ^ (-σ * (idealExp v a.1.1 : ℝ)))).symm
+
 /-- rf:grouped-absolute, 04:659-706. Absolute sums and the averaged integral use the same majorant. -/
 theorem rf_grouped_absolute : ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ f,
   Summable (reflectedDirichletTerm R f σ) ∧
