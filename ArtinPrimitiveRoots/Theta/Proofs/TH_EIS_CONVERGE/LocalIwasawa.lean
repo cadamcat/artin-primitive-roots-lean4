@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Theta.Cover
+import ArtinPrimitiveRoots.Theta.LocalInt
 import Mathlib.Topology.Maps.Proper.Basic
 
 set_option autoImplicit false
@@ -59,5 +60,105 @@ theorem local_cover_compact_preimage
     exact ⟨ζ, hζ.symm⟩
   exact (isProperMap_iff_isClosedMap_and_compact_fibers.mpr
     ⟨L.pr_cont, hclosed, hfibers⟩).isCompact_preimage hK
+
+/-- Two integral lower-unipotent charts for the local projective compact part. -/
+def localProjectiveCompact (v : FinPlace F) : Set (PGL2 (v.adicCompletion F)) :=
+  (fun t : v.adicCompletion F => QuotientGroup.mk (lowerM _ t)) ''
+      (v.adicCompletionIntegers F : Set (v.adicCompletion F)) ∪
+  (fun t : v.adicCompletion F => QuotientGroup.mk (lowerM _ t * weylM _)) ''
+      (v.adicCompletionIntegers F : Set (v.adicCompletion F))
+
+/-- Local projective Iwasawa decomposition with the bottom-row height formula. -/
+theorem local_projective_iwasawa (v : FinPlace F)
+    (g : GL (Fin 2) (v.adicCompletion F)) :
+    ∃ (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ)
+      (k : PGL2 (v.adicCompletion F)),
+      k ∈ localProjectiveCompact v ∧
+      QuotientGroup.mk g = QuotientGroup.mk (upperM _ x * diagM _ y) * k ∧
+      absFin v (y : v.adicCompletion F) =
+        absFin v (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det /
+          (max (absFin v ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0))
+            (absFin v ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1))) ^ 2 := by
+  have hnormalize (a : GL (Fin 2) (v.adicCompletion F))
+      (hcd : ‖a 1 0‖ ≤ ‖a 1 1‖) :
+      ∃ (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ),
+        a 1 0 / a 1 1 ∈ v.adicCompletionIntegers F ∧
+        (QuotientGroup.mk a : PGL2 (v.adicCompletion F)) =
+          QuotientGroup.mk (upperM _ x * diagM _ y) *
+            QuotientGroup.mk (lowerM _ (a 1 0 / a 1 1)) ∧
+        ‖(y : v.adicCompletion F)‖ =
+          ‖(a : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det‖ / ‖a 1 1‖ ^ 2 := by
+    have hdet := Matrix.GeneralLinearGroup.det_ne_zero a
+    have hd : a 1 1 ≠ 0 := by
+      intro hd
+      have hc : a 1 0 = 0 := norm_eq_zero.mp
+        (le_antisymm (by simpa only [hd, norm_zero] using hcd) (norm_nonneg _))
+      exact hdet (by simp [Matrix.det_fin_two, hc, hd])
+    let x : v.adicCompletion F := a 0 1 / a 1 1
+    let y : (v.adicCompletion F)ˣ := Units.mk0
+      ((a : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det / (a 1 1) ^ 2)
+      (div_ne_zero hdet (pow_ne_zero 2 hd))
+    let t : (v.adicCompletion F)ˣ := Units.mk0 (a 1 1) hd
+    have ht : a 1 0 / a 1 1 ∈ v.adicCompletionIntegers F := by
+      change a 1 0 / a 1 1 ∈ (Valued.v : Valuation (v.adicCompletion F)
+        (WithZero (Multiplicative ℤ))).integer
+      rw [Valuation.mem_integer_iff, ← Valued.toNormedField.norm_le_one_iff]
+      rw [norm_div]
+      exact (div_le_one (norm_pos_iff.mpr hd)).mpr hcd
+    have hfactor : a = Matrix.GeneralLinearGroup.scalar (Fin 2) t *
+        (upperM _ x * diagM _ y) * lowerM _ (a 1 0 / a 1 1) := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      change a i j = (Matrix.scalar (Fin 2) (a 1 1) *
+        (!![1, x; 0, 1] * !![(y : v.adicCompletion F), 0; 0, 1]) *
+          !![1, 0; a 1 0 / a 1 1, 1]) i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.mul_apply, Fin.sum_univ_two, x, y, Matrix.det_fin_two] <;>
+        field_simp [hd] <;> ring
+    have hscalar : (QuotientGroup.mk (Matrix.GeneralLinearGroup.scalar (Fin 2) t) :
+        PGL2 (v.adicCompletion F)) = 1 := by
+      apply (QuotientGroup.eq_one_iff _).mpr
+      rw [Matrix.GeneralLinearGroup.center_eq_range_scalar]
+      exact ⟨t, rfl⟩
+    refine ⟨x, y, ht, ?_, ?_⟩
+    · calc
+        QuotientGroup.mk a = QuotientGroup.mk
+            (Matrix.GeneralLinearGroup.scalar (Fin 2) t *
+              (upperM _ x * diagM _ y) * lowerM _ (a 1 0 / a 1 1)) :=
+          congrArg QuotientGroup.mk hfactor
+        _ = _ := by simp only [QuotientGroup.mk_mul, hscalar, one_mul]
+    · simp only [y, Units.val_mk0, norm_div, norm_pow]
+  simp only [absFin_eq_norm]
+  by_cases hcd : ‖g 1 0‖ ≤ ‖g 1 1‖
+  · obtain ⟨x, y, ht, hfactor, hheight⟩ := hnormalize g hcd
+    refine ⟨x, y, QuotientGroup.mk (lowerM _ (g 1 0 / g 1 1)), ?_, hfactor, ?_⟩
+    · exact Or.inl ⟨g 1 0 / g 1 1, ht, rfl⟩
+    · simpa only [max_eq_right hcd] using hheight
+  · let a : GL (Fin 2) (v.adicCompletion F) := g * weylM _
+    have hswap (i : Fin 2) (j : Fin 2) : a i j = g i (1 - j) := by
+      fin_cases i <;> fin_cases j <;>
+        simp [a, weylM, Matrix.mul_apply, Fin.sum_univ_two]
+    have hdc : ‖a 1 0‖ ≤ ‖a 1 1‖ := by
+      simpa only [hswap, sub_zero, sub_self] using (le_of_not_ge hcd)
+    obtain ⟨x, y, ht, hfactor, hheight⟩ := hnormalize a hdc
+    have hw : weylM (v.adicCompletion F) * weylM _ = 1 := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+    have hdet : (a : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det =
+        -(g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det := by
+      simp [a, Matrix.det_mul, weylM, Matrix.det_fin_two]
+    refine ⟨x, y, QuotientGroup.mk (lowerM _ (a 1 0 / a 1 1) * weylM _),
+      Or.inr ⟨a 1 0 / a 1 1, ht, rfl⟩, ?_, ?_⟩
+    · calc
+        QuotientGroup.mk g = QuotientGroup.mk (a * weylM _) := by
+          simp only [a, mul_assoc, hw, mul_one]
+        _ = QuotientGroup.mk (upperM _ x * diagM _ y) *
+            QuotientGroup.mk (lowerM _ (a 1 0 / a 1 1)) * QuotientGroup.mk (weylM _) := by
+          rw [QuotientGroup.mk_mul, hfactor]
+        _ = _ := by simp only [QuotientGroup.mk_mul, mul_assoc]
+    · simpa only [hswap, sub_self, hdet, norm_neg,
+        max_eq_left (le_of_not_ge hcd)] using hheight
 
 end ArtinPrimitiveRoots.A1.Theta
