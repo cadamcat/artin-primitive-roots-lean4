@@ -5236,6 +5236,60 @@ private theorem rows_sol_principal_line_continuous
   simp only [div_eq_mul_inv]
   exact (((hMellin.mul hLzline).mul hLwline).mul hHCline).mul hInvLine
 
+private theorem rows_sol_principal_right_integrable
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 2 ≤ Z)
+    (σξ σz : ℝ) (hξlo : 1 + δ1 ≤ σξ) (hξhi : σξ ≤ 4)
+    (hzlo : 1 / 6 + δ1 ≤ σz) (hzhi : σz ≤ 2) :
+    Integrable (fun p : ℝ × (ℝ × ℝ) =>
+      rowKernel R sd W η U HA HC U.one Z
+        (σξ + p.1 * Complex.I) (4 + p.2.1 * Complex.I) (σz + p.2.2 * Complex.I))
+      (volume.prod (volume.prod volume)) := by
+  obtain ⟨Aconv, Cconv, hAconv, hCconv, hconv⟩ :=
+    zf_height_convolution (2 : ℝ) (by norm_num)
+  obtain ⟨C, hC, hbound⟩ := rows_sol_principal_right_kernel_control
+    R sd W η U HA HC hEuler (Aconv + 2) (by linarith)
+  have hmajor := rows_small_real_majorant_integrable Aconv Cconv hAconv hCconv hconv
+  let M : ℝ := C * Z ^ Estar σξ 4 σz
+  have hM : 0 ≤ M := by dsimp [M]; positivity
+  let f : ℝ × (ℝ × ℝ) → ℂ := fun p =>
+    rowKernel R sd W η U HA HC U.one Z
+      (σξ + p.1 * Complex.I) (4 + p.2.1 * Complex.I) (σz + p.2.2 * Complex.I)
+  have hfcont : Continuous f := rows_sol_principal_line_continuous
+    R sd W η U HA HC hEuler Z (by linarith) σξ 4 σz hξlo (by norm_num)
+      (by norm_num [δ1] at hzlo ⊢; linarith) (by norm_num)
+      (by norm_num [δ1] at hzlo ⊢; linarith)
+  have hpoint (p : ℝ × (ℝ × ℝ)) : ‖f p‖ ≤ M *
+      (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+        (1 + |p.2.1|) ^ (-2 : ℝ)) := by
+    have hkernel := hbound Z hZ (σξ + p.1 * Complex.I)
+      (4 + p.2.1 * Complex.I) (σz + p.2.2 * Complex.I)
+      (by simpa using hξlo) (by simpa using hξhi) (by simp)
+      (by simpa using hzlo) (by simpa using hzhi)
+    have hZpow : (1 + |p.2.2|) ^ (-(Aconv + 2)) ≤
+        (1 + |p.2.2|) ^ (-Aconv) :=
+      Real.rpow_le_rpow_of_exponent_le (by linarith [abs_nonneg p.2.2]) (by linarith)
+    have hWpow : (1 + |p.2.1|) ^ (-(Aconv + 2)) ≤
+        (1 + |p.2.1|) ^ (-2 : ℝ) :=
+      Real.rpow_le_rpow_of_exponent_le (by linarith [abs_nonneg p.2.1]) (by linarith)
+    calc
+      ‖f p‖ ≤ M * Real.exp (-((p.1 + p.2.2) ^ 2)) *
+          (1 + |p.2.2|) ^ (-(Aconv + 2)) *
+            (1 + |p.2.1|) ^ (-(Aconv + 2)) := by
+        simpa [f, M] using hkernel
+      _ ≤ M * Real.exp (-((p.1 + p.2.2) ^ 2)) *
+          (1 + |p.2.2|) ^ (-Aconv) * (1 + |p.2.1|) ^ (-2 : ℝ) := by
+        apply mul_le_mul
+        · exact mul_le_mul_of_nonneg_left hZpow (mul_nonneg hM (Real.exp_pos _).le)
+        · exact hWpow
+        · positivity
+        · positivity
+      _ = _ := by ring
+  have hdom : Integrable (fun p : ℝ × (ℝ × ℝ) => M *
+      (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+        (1 + |p.2.1|) ^ (-2 : ℝ))) (volume.prod (volume.prod volume)) := by
+    simpa only [smul_eq_mul] using hmajor.const_mul M
+  exact hdom.mono' hfcont.aestronglyMeasurable (ae_of_all _ hpoint)
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
