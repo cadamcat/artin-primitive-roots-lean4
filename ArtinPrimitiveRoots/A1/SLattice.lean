@@ -1162,6 +1162,93 @@ private theorem covol_local_conductor_exponent_eq_different
     (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat
   simpa [d] using congrArg Int.toNat hcd
 
+private theorem covol_different_absNorm_factorization (S : SData F CE condη) :
+    (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ) =
+      ∏ v : S.Sf, (Ideal.absNorm v.1.asIdeal : ℝ) ^
+        (FractionalIdeal.count F v.1
+          (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat := by
+  classical
+  let I : Ideal (𝓞 F) := differentIdeal ℤ (𝓞 F)
+  let factor : FinPlace F → Ideal (𝓞 F) := fun q => q.maxPowDividing I
+  let normReal : Ideal (𝓞 F) →* ℝ :=
+    (Nat.castRingHom ℝ).toMonoidHom.comp Ideal.absNorm.toMonoidHom
+  have hIne : I ≠ ⊥ := by simpa [I] using differentIdeal_ne_bot
+  have hfactor : (∏ᶠ q : FinPlace F, factor q) = I := by
+    simpa [factor] using (Ideal.finprod_heightOneSpectrum_factorization hIne)
+  have hpreimageOne : ∀ J : Ideal (𝓞 F), normReal J = 1 → J = 1 := by
+    intro J hJ
+    have hcast : (Ideal.absNorm J : ℝ) = 1 := by
+      change ((Ideal.absNorm J : ℕ) : ℝ) = 1 at hJ
+      exact hJ
+    have hnat : Ideal.absNorm J = 1 := by exact_mod_cast hcast
+    simpa using (Ideal.absNorm_eq_one_iff.mp hnat)
+  have hnormMap : normReal (∏ᶠ q : FinPlace F, factor q) =
+      ∏ᶠ q : FinPlace F, normReal (factor q) :=
+    normReal.map_finprod_of_preimage_one hpreimageOne factor
+  have hsupport : Function.mulSupport factor ⊆ S.Sf := by
+    intro q hq
+    change factor q ≠ 1 at hq
+    by_contra hqS
+    have hDnot : ¬ I ≤ q.asIdeal := by
+      intro hle
+      apply hqS
+      exact S.different_mem q (by simpa [I] using hle)
+    have hcount : (Associates.mk q.asIdeal).count (Associates.mk I).factors = 0 := by
+      by_contra hcount
+      have hdvd := (Associates.count_ne_zero_iff_dvd hIne q.irreducible).mp hcount
+      exact hDnot (Ideal.dvd_iff_le.mp hdvd)
+    have hfactorOne : factor q = 1 := by
+      simp [factor, IsDedekindDomain.HeightOneSpectrum.maxPowDividing, hcount]
+    exact hq hfactorOne
+  have hnormSupport : Function.mulSupport (fun q => normReal (factor q)) ⊆ S.Sf := by
+    intro q hq
+    change normReal (factor q) ≠ 1 at hq
+    by_contra hqS
+    have hfactorOne : factor q = 1 := by
+      by_contra hfactorNe
+      exact hqS (hsupport hfactorNe)
+    apply hq
+    rw [hfactorOne]
+    simpa using normReal.map_one
+  have hcountToNat (q : FinPlace F) :
+      (FractionalIdeal.count F q (I : FractionalIdeal (𝓞 F)⁰ F)).toNat =
+        (Associates.mk q.asIdeal).count (Associates.mk I).factors := by
+    rw [FractionalIdeal.count_coe F q hIne]
+    simp
+  have hterm (q : FinPlace F) :
+      normReal (factor q) = (Ideal.absNorm q.asIdeal : ℝ) ^
+        (FractionalIdeal.count F q (I : FractionalIdeal (𝓞 F)⁰ F)).toNat := by
+    calc
+      normReal (factor q) = (Ideal.absNorm q.asIdeal : ℝ) ^
+          (Associates.mk q.asIdeal).count (Associates.mk I).factors := by
+            simp [normReal, factor, IsDedekindDomain.HeightOneSpectrum.maxPowDividing]
+      _ = _ := by rw [← hcountToNat q]
+  have hfinite : (Ideal.absNorm I : ℝ) =
+      ∏ q ∈ S.Sf, (Ideal.absNorm q.asIdeal : ℝ) ^
+        (FractionalIdeal.count F q (I : FractionalIdeal (𝓞 F)⁰ F)).toNat := by
+    calc
+      (Ideal.absNorm I : ℝ) = normReal I := by simp [normReal]
+      _ = normReal (∏ᶠ q : FinPlace F, factor q) := by rw [hfactor]
+      _ = ∏ᶠ q : FinPlace F, normReal (factor q) := hnormMap
+      _ = ∏ q ∈ S.Sf, normReal (factor q) :=
+        finprod_eq_finsetProd_of_mulSupport_subset _ hnormSupport
+      _ = _ := by
+        apply Finset.prod_congr rfl
+        intro q hq
+        exact hterm q
+  change (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ) =
+    ∏ v ∈ S.Sf.attach, (Ideal.absNorm v.1.asIdeal : ℝ) ^
+      (FractionalIdeal.count F v.1
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat
+  calc
+    _ = ∏ q ∈ S.Sf, (Ideal.absNorm q.asIdeal : ℝ) ^
+        (FractionalIdeal.count F q
+          (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat := by
+          simpa [I] using hfinite
+    _ = _ := (Finset.prod_attach S.Sf fun q => (Ideal.absNorm q.asIdeal : ℝ) ^
+      (FractionalIdeal.count F q
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat).symm
+
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
   have hπcoerce : (unifLoc v : v.adicCompletion F) =
