@@ -3434,6 +3434,26 @@ private theorem tameIntegralLift_generators_mem
       rw [lowerDet]
       simp [lowerM, hilb_one_left, muThree_one]
 
+/-- The corrected integral range supplies all fields of the tame splitting package. -/
+private theorem exists_finLocalTameSplitting
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (L : FinLocalCover D H v)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) : Nonempty (TameSplitting L) := by
+  obtain ⟨κ, hκ, hκcont⟩ := exists_tameIntegralLiftHom D H v hSt L hv
+  obtain ⟨hc, himage⟩ := tameIntegralLift_range_compact_image D H v L κ hκ hκcont
+  obtain ⟨hn, ha, hw, hnbar⟩ := tameIntegralLift_generators_mem D H v L κ hκ
+  exact ⟨{
+    Kmax := κ.range
+    open_ := tameIntegralLift_range_open D H v hSt L κ hκ
+    compact := hc
+    inj := tameIntegralLift_range_inj D H v L κ hκ
+    image := himage
+    n_mem := hn
+    a_mem := ha
+    w_mem := hw
+    nbar_mem := hnbar
+  }⟩
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
