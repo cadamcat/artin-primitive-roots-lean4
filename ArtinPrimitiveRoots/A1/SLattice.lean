@@ -941,6 +941,144 @@ private theorem covol_local_character_trivial_on_different_ball
           (A.ψ v.1).map_add_eq_mul _ _
     _ = 1 := by rw [hψr, A.integral v.1 _ hres]; simp
 
+private theorem covol_local_character_nontrivial_at_different_successor
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (v : S.Sf) :
+    ∃ x : v.1.adicCompletion F,
+      Valued.v x ≤ WithZero.exp
+        (FractionalIdeal.count F v.1
+          (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F) + 1) ∧
+      A.ψ v.1 x ≠ 1 := by
+  classical
+  let d := FractionalIdeal.count F v.1
+    (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)
+  have hd_nonneg : 0 ≤ d := by
+    simpa [d] using (FractionalIdeal.count_coe_nonneg F v.1
+      (differentIdeal ℤ (𝓞 F)))
+  have hboundary : 1 < WithZero.exp (d + 1) :=
+    WithZero.one_lt_exp_iff.mpr (by omega)
+  have hπval : Valued.v (unifLoc v.1 : v.1.adicCompletion F) =
+      WithZero.exp (-1 : ℤ) := by
+    have hπcoerce : (unifLoc v.1 : v.1.adicCompletion F) =
+        algebraMap F (v.1.adicCompletion F) (unif (F := F) v.1) := by
+      simp [unifLoc, toLoc]
+    rw [hπcoerce]
+    change Valued.v ((unif (F := F) v.1 : F) : v.1.adicCompletion F) = _
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    simpa [unif] using (HeightOneSpectrum.valuation_exists_uniformizer F v.1).choose_spec
+  let x₀ : v.1.adicCompletion F :=
+    ((unifLoc v.1 ^ (-(d + 1) : ℤ) : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)
+  have hx₀val : Valued.v x₀ = WithZero.exp (d + 1) := by
+    change Valued.v
+      ((unifLoc v.1 ^ (-(d + 1) : ℤ) : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F) = _
+    rw [Units.val_zpow_eq_zpow_val, map_zpow₀, hπval,
+      ← WithZero.exp_zsmul]
+    congr 1
+    push_cast
+    ring
+  let target : ∀ q : S.Sf, q.1.adicCompletion F := fun q =>
+    dite (q = v) (fun h => h.symm ▸ x₀) (fun _ => 0)
+  obtain ⟨r, hrApprox⟩ :=
+    ArtinPrimitiveRoots.Proofs.A1_LATTICE.s_integer_finite_approx S target
+  have hres : x₀ - algebraMap F (v.1.adicCompletion F) (r : F) ∈
+      v.1.adicCompletionIntegers F := by
+    simpa [target] using hrApprox v
+  have hresVal : Valued.v (x₀ - algebraMap F (v.1.adicCompletion F) (r : F)) ≤ 1 := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers] at hres
+    exact hres
+  have hother (q : S.Sf) (hqv : q ≠ v) :
+      algebraMap F (q.1.adicCompletion F) (r : F) ∈ q.1.adicCompletionIntegers F := by
+    have hneg : -(algebraMap F (q.1.adicCompletion F) (r : F)) ∈
+        q.1.adicCompletionIntegers F := by
+      simpa [target, hqv] using hrApprox q
+    simpa using (q.1.adicCompletionIntegers F).neg_mem _ hneg
+  have hresLt : Valued.v (x₀ - algebraMap F (v.1.adicCompletion F) (r : F)) <
+      Valued.v x₀ := lt_of_le_of_lt hresVal (by rw [hx₀val]; exact hboundary)
+  have hrValComp : Valued.v (algebraMap F (v.1.adicCompletion F) (r : F)) =
+      WithZero.exp (d + 1) := by
+    have h := (Valued.v : Valuation (v.1.adicCompletion F) _).map_sub_eq_of_lt_left hresLt
+    have hsub : x₀ - (x₀ - algebraMap F (v.1.adicCompletion F) (r : F)) =
+        algebraMap F (v.1.adicCompletion F) (r : F) := by abel
+    rw [hsub, hx₀val] at h
+    exact h
+  have hrVal : v.1.valuation F (r : F) = WithZero.exp (d + 1) := by
+    change Valued.v ((r : F) : v.1.adicCompletion F) = WithZero.exp (d + 1) at hrValComp
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation'] at hrValComp
+    exact hrValComp
+  have hr0 : (r : F) ≠ 0 :=
+    (v.1.valuation F).ne_zero_iff.mp (by rw [hrVal]; exact ne_of_gt WithZero.exp_pos)
+  have hrNotDual : (r : F) ∉ Submodule.traceDual ℤ ℚ (1 : Submodule (𝓞 F) F) := by
+    intro hdual
+    have hbound := covol_traceDual_valuation_bound v.1 hr0 hdual
+    rw [hrVal] at hbound
+    have hbound' : WithZero.exp (d + 1) ≤ WithZero.exp d := by
+      simpa [d] using hbound
+    exact (not_le_of_gt (WithZero.exp_lt_exp.mpr (by omega))) hbound'
+  have htraceWitness : ∃ a : 𝓞 F,
+      Algebra.trace ℚ F ((r : F) * (a : F)) ∉ (algebraMap ℤ ℚ).range := by
+    by_contra h
+    push_neg at h
+    apply hrNotDual
+    rw [Submodule.mem_traceDual]
+    intro y hy
+    have hyRange : ∃ a₀ : 𝓞 F, algebraMap (𝓞 F) F a₀ = y := by
+      rw [Submodule.one_eq_range] at hy
+      exact hy
+    obtain ⟨a₀, ha₀⟩ := hyRange
+    simpa only [Algebra.traceForm_apply, ha₀, mul_comm] using h a₀
+  obtain ⟨a, haTrace⟩ := htraceWitness
+  have hexpNe : Complex.exp
+      (2 * Real.pi * Complex.I * (Algebra.trace ℚ F ((r : F) * (a : F)) : ℂ)) ≠ 1 := by
+    intro hexp
+    let q : ℚ := Algebra.trace ℚ F ((r : F) * (a : F))
+    have harg : ((2 * Real.pi * (q : ℝ) : ℝ) : ℂ) * Complex.I =
+        2 * Real.pi * Complex.I *
+          (Algebra.trace ℚ F ((r : F) * (a : F)) : ℂ) := by
+      simp only [q]
+      push_cast
+      ring
+    have hexp' : Complex.exp (((2 * Real.pi * (q : ℝ) : ℝ) : ℂ) * Complex.I) = 1 := by
+      rw [harg]
+      exact hexp
+    have hexp'' : Complex.exp (((2 * Real.pi * (q : ℝ) : ℝ) : ℂ) * Complex.I) =
+        Complex.exp 0 := by simpa using hexp'
+    obtain ⟨n, hn⟩ := Complex.exp_eq_exp_iff_exists_int.mp hexp''
+    have him := congrArg Complex.im hn
+    have hreal : (2 * Real.pi : ℝ) * (q : ℝ) =
+        (n : ℝ) * (2 * Real.pi) := by
+      simpa [Complex.mul_im, Complex.ofReal_re, Complex.ofReal_im] using him
+    have hreal' : (q : ℝ) = (n : ℝ) := by
+      apply (mul_left_cancel₀ (by positivity : (2 * Real.pi : ℝ) ≠ 0))
+      calc
+        (2 * Real.pi : ℝ) * (q : ℝ) = (n : ℝ) * (2 * Real.pi) := hreal
+        _ = (2 * Real.pi : ℝ) * (n : ℝ) := by ring
+    have hq : (n : ℚ) = q := by exact_mod_cast hreal'.symm
+    exact haTrace ⟨n, by simpa [q] using hq⟩
+  let t : S.R := r * algebraMap (𝓞 F) (S.R) a
+  have htCast : (t : F) = (r : F) * (a : F) := by simp [t]
+  have harchInt (q : S.Sf) :
+      algebraMap F (q.1.adicCompletion F) (a : F) ∈ q.1.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    change Valued.v ((a : F) : q.1.adicCompletion F) ≤ 1
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact q.1.valuation_le_one a
+  have htOther (q : S.Sf) (hqv : q ≠ v) :
+      algebraMap F (q.1.adicCompletion F) (t : F) ∈ q.1.adicCompletionIntegers F := by
+    rw [htCast, map_mul]
+    exact (q.1.adicCompletionIntegers F).mul_mem _ _ (hother q hqv) (harchInt q)
+  have hψt := covol_addchar_eq_trace_exp S A v t htOther
+  have hψtNe : A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (t : F)) ≠ 1 := by
+    rw [hψt]
+    simpa [htCast] using hexpNe
+  have haVal : v.1.valuation F (a : F) ≤ 1 := v.1.valuation_le_one a
+  have htVal : v.1.valuation F (t : F) ≤ WithZero.exp (d + 1) := by
+    rw [htCast, map_mul, hrVal]
+    exact (mul_le_mul_of_nonneg_left haVal bot_le).trans_eq (by simp)
+  refine ⟨algebraMap F (v.1.adicCompletion F) (t : F), ?_, hψtNe⟩
+  change Valued.v ((t : F) : v.1.adicCompletion F) ≤ WithZero.exp (d + 1)
+  rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+  simpa [d] using htVal
+
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
   have hπcoerce : (unifLoc v : v.adicCompletion F) =
