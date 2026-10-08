@@ -4236,6 +4236,85 @@ theorem bruhat_arch_intertwine_product
       ac_rfl
     _ = _ := by rw [hformula, one_mul]
 
+set_option backward.isDefEq.respectTransparency false in
+/-- Normalize the Bruhat product by the ideal-domain covolume to the intertwined scalar. -/
+theorem bruhat_scalarM_product_normalization
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (δ : Fˣ) {z : ℂ}
+    (hz : HasProd (fun v : FinPlace F =>
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+        ((absFin v (toLoc v δ) : ℂ) * G.lam v
+          (intertwine (P.loc v) (μ v) (Fs.f v)
+            ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r)))) z)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume) :
+    ((volume Pd).toReal)⁻¹ •
+      (z * ∏ w : InfinitePlace F, ∫ x : ℂ, Fs.fC w
+        (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC x * P.compC w r)) =
+      scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r) := by
+  classical
+  let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+    if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+    else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+  let R : P.RP := P.ratRP (diagGL δ⁻¹) * r
+  let N : ℂ := ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ)
+  let d : ℂ := ∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)
+  let β : FinPlace F → ℂ := fun v => G.lam v (fM v (P.compF v R))
+  let B : ℂ := ∏ᶠ v : FinPlace F, β v
+  let C : ℂ := ∏ w : InfinitePlace F, ∫ x : ℂ, Fs.fC w
+    (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC x * P.compC w r)
+  let M : ℂ := ∏ w : InfinitePlace F, intertwineC (Fs.fC w) (P.compC w R)
+  change ((volume Pd).toReal)⁻¹ • (z * C) =
+    scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r)
+  have hq : P.q R = P.tc.rat (diagGL δ⁻¹) * P.q r := by
+    simp only [R, map_mul, P.q_ratRP]
+  have hcompF (v : FinPlace F) : P.compF v R =
+      (P.loc v).a (toLoc v δ)⁻¹ * P.compF v r := by
+    dsimp only [R]
+    rw [map_mul, P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    simp only [toLoc, map_inv]
+  have hcompC (w : InfinitePlace F) : P.compC w R =
+      aC (Units.map w.embedding.toMonoidHom δ)⁻¹ * P.compC w r := by
+    dsimp only [R]
+    rw [map_mul, P.compC_ratRP, scalar_glMap_diagGL]
+    change (QuotientGroup.mk (diagM ℂ (Units.map w.embedding.toMonoidHom δ⁻¹)) :
+      PGL2 ℂ) * P.compC w r = _
+    simp only [aC, map_inv]
+  have hnorm : z = N * d * cprod Fs.T0 s * B := by
+    simpa only [N, d, B, β, fM, hcompF] using
+      bruhat_intertwine_product_normalization P G μ hs Fs r 𝔞 h𝔞 δ hz
+  have harch : d * C = M := by
+    simpa only [d, C, M, hcompC] using bruhat_arch_intertwine_product P G Fs r δ
+  have hscalar : scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r) =
+      (κF F : ℂ)⁻¹ * cprod Fs.T0 s * (B * M) := by
+    have hh := (scalarM_q P G μ hs Fs R).2
+    change scalarM P G μ Fs (P.q R) =
+      (κF F)⁻¹ * cprod Fs.T0 s * (B * M) at hh
+    rw [hq] at hh
+    simpa only [Complex.ofReal_inv] using hh
+  have hN : N ≠ 0 := by
+    have hn : FractionalIdeal.absNorm 𝔞 ≠ 0 :=
+      FractionalIdeal.absNorm_eq_zero_iff.not.mpr h𝔞
+    dsimp only [N]
+    exact_mod_cast hn
+  have hvol : ((volume Pd).toReal : ℂ) = (κF F : ℂ) * N := by
+    rw [ideal_domain_covolume D 𝔞 h𝔞 Pd hPd, Complex.ofReal_mul]
+  calc
+    ((volume Pd).toReal)⁻¹ • (z * C) =
+        (κF F : ℂ)⁻¹ * (N⁻¹ * N) * cprod Fs.T0 s * (B * (d * C)) := by
+      rw [RCLike.real_smul_eq_coe_mul]
+      simp only [RCLike.ofReal_inv]
+      change ((volume Pd).toReal : ℂ)⁻¹ * (z * C) = _
+      rw [hvol, hnorm, mul_inv_rev]
+      ac_rfl
+    _ = (κF F : ℂ)⁻¹ * cprod Fs.T0 s * (B * M) := by
+      rw [inv_mul_cancel₀ hN, mul_one, harch]
+    _ = _ := hscalar.symm
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
