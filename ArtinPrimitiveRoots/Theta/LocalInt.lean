@@ -1018,7 +1018,87 @@ theorem jacquet_spherical_table (L : FinLocalCover D H v) (τ : TameSplitting L)
     (u : (v.adicCompletion F)ˣ) (hu : IsLocUnit v u) :
     c (jacquet L A μ (rtr (L.a (unifLoc v ^ e * u)) f0)) =
       sphericalTable D A v e u * c (jacquet L A μ f0) := by
-  sorry
+  have hbase : jacquet L A μ f0 = shellVec D A B := by
+    have hs0 := jacquet_spherical_s0 L τ T B A μ hv hd f0 hf0 h1 hK 0
+    have hrt : rtr (L.a (1 : (v.adicCompletion F)ˣ)) f0 = f0 := by
+      rw [L.a_one]
+      funext g
+      simp [rtr]
+    calc
+      jacquet L A μ f0 = jacquet L A μ (rtr (L.a 1) f0) := by rw [hrt]
+      _ = shellVec D A B := by simpa [unifLoc] using hs0.1
+  have hunit := jacquet_spherical_unit L τ T A μ hv (-(1 / 6 : ℂ)) f0 hf0 hK e u hu
+  by_cases heneg : e < 0
+  · have hneg := jacquet_spherical_neg L τ T B A μ hv hd (-(1 / 6 : ℂ)) f0 hf0 hK e heneg
+    rw [hunit, hneg]
+    simp [sphericalTable, heneg]
+  · have henonneg : 0 ≤ e := le_of_not_gt heneg
+    let k : ℕ := (e / 3).toNat
+    let r : ℕ := (e % 3).toNat
+    have hdiv : e / 3 = (k : ℤ) := by
+      dsimp [k]
+      omega
+    have hrem : e % 3 = (r : ℤ) := by
+      dsimp [r]
+      omega
+    have hrlt : r < 3 := by omega
+    have heq : e = ((3 * k + r : ℕ) : ℤ) := by
+      omega
+    have hqpos : 0 < qv v := lt_trans zero_lt_one (qv_gt_one v)
+    have hqpow0 :
+        (((Ideal.absNorm v.asIdeal : ℝ) ^ (-((e / 3 : ℤ) : ℝ)) : ℝ) : ℂ) =
+          (qv v : ℂ) ^ (-(k : ℂ)) := by
+      rw [hdiv]
+      change (((qv v) ^ (-(k : ℝ)) : ℝ) : ℂ) = _
+      rw [Complex.ofReal_cpow hqpos.le]
+      congr 1
+      simp
+    have hqpow1 :
+        (((Ideal.absNorm v.asIdeal : ℝ) ^ (-((e / 3 : ℤ) : ℝ) - 1 / 2) : ℝ) : ℂ) =
+          (qv v : ℂ) ^ (-(k : ℂ) - 1 / 2) := by
+      rw [hdiv]
+      change (((qv v) ^ (-(k : ℝ) - 1 / 2) : ℝ) : ℂ) = _
+      rw [Complex.ofReal_cpow hqpos.le]
+      congr 1
+      simp
+    interval_cases r
+    · have hs0 := jacquet_spherical_s0 L τ T B A μ hv hd f0 hf0 h1 hK k
+      have he : e = (3 * k : ℕ) := by simpa using heq
+      have hJ : jacquet L A μ (rtr (L.a (unifLoc v ^ e)) f0) =
+          (qv v : ℂ) ^ (-(k : ℂ)) • shellVec D A B := by
+        simpa [he] using hs0.1
+      have hrem0 : e % 3 = 0 := by simpa using hrem
+      have htable : sphericalTable D A v e u =
+          localChi D v u ^ (2 * e) * (qv v : ℂ) ^ (-(k : ℂ)) := by
+        simp only [sphericalTable, if_neg heneg, if_pos hrem0]
+        rw [hqpow0]
+      rw [hunit, hJ, map_smul, hbase, htable]
+      simp [smul_smul, mul_assoc]
+    · have hs0 := jacquet_spherical_s0 L τ T B A μ hv hd f0 hf0 h1 hK k
+      have he : e = (3 * k + 1 : ℕ) := by simpa using heq
+      have hJ : jacquet L A μ (rtr (L.a (unifLoc v ^ e)) f0) =
+          ((qv v : ℂ) ^ (-(k : ℂ) - 1 / 2) * g2 D A v) • shellVec D A B := by
+        simpa [he] using hs0.2.1
+      have htable : sphericalTable D A v e u =
+          localChi D v u ^ (2 * e) *
+            ((qv v : ℂ) ^ (-(k : ℂ) - 1 / 2) * g2 D A v) := by
+        have hrem1 : e % 3 = 1 := by simpa using hrem
+        simp only [sphericalTable, if_neg heneg, if_neg (by omega : e % 3 ≠ 0),
+          if_pos hrem1]
+        rw [hqpow1]
+      rw [hunit, hJ, map_smul, hbase, htable]
+      simp [smul_smul, mul_assoc]
+    · have hs0 := jacquet_spherical_s0 L τ T B A μ hv hd f0 hf0 h1 hK k
+      have he : e = (3 * k + 2 : ℕ) := by simpa using heq
+      have hJ : jacquet L A μ (rtr (L.a (unifLoc v ^ e)) f0) = 0 := by
+        simpa [he] using hs0.2.2
+      have htable : sphericalTable D A v e u = 0 := by
+        have hrem2 : e % 3 = 2 := by simpa using hrem
+        simp only [sphericalTable, if_neg heneg, if_neg (by omega : e % 3 ≠ 0),
+          if_neg (by omega : e % 3 ≠ 1)]
+        simp
+      rw [hunit, hJ, hbase, htable]
+      simp
 
 end LocalInt
 
