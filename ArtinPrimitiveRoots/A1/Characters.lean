@@ -145,6 +145,606 @@ theorem kummer_eq_iff (D : FieldData F) (S : SData F CE condη) (u v : Fˣ) (κu
   rw [heu, hev]
   exact KummerProofs.kummer_realization_eq_iff D H u v κu₀ κv₀ huInf hvInf huloc hvloc
 
+private theorem conductor_group_decomp_exists {G : Type} [CommGroup G]
+    (E B : Subgroup G) (h : IsCompl E B) (x : G) :
+    ∃ e : E, ∃ b : B, (e : G) * b = x := by
+  have hx : x ∈ E ⊔ B := by
+    rw [h.sup_eq_top]
+    exact Subgroup.mem_top x
+  rcases (Subgroup.mem_sup (s := E) (t := B) (x := x)).mp hx with
+    ⟨e, he, b, hb, hab⟩
+  exact ⟨⟨e, he⟩, ⟨b, hb⟩, hab⟩
+
+private theorem conductor_group_decomp_unique {G : Type} [CommGroup G]
+    (E B : Subgroup G) (h : IsCompl E B) {x : G} {e₁ e₂ : E} {b₁ b₂ : B}
+    (h₁ : (e₁ : G) * b₁ = x) (h₂ : (e₂ : G) * b₂ = x) : b₁ = b₂ := by
+  have hquot : (e₂ : G)⁻¹ * e₁ = (b₂ : G) * (b₁ : G)⁻¹ := by
+    calc
+      (e₂ : G)⁻¹ * e₁ = (((e₂ : G)⁻¹ * e₁) * b₁) * (b₁ : G)⁻¹ :=
+        (mul_inv_cancel_right _ _).symm
+      _ = ((e₂ : G)⁻¹ * ((e₁ : G) * b₁)) * (b₁ : G)⁻¹ := by
+        congr 1
+        exact mul_assoc _ _ _
+      _ = ((e₂ : G)⁻¹ * ((e₂ : G) * b₂)) * (b₁ : G)⁻¹ := by rw [h₁, h₂]
+      _ = (b₂ : G) * (b₁ : G)⁻¹ := by rw [inv_mul_cancel_left]
+  have hE : (e₂ : G)⁻¹ * e₁ ∈ E := mul_mem (inv_mem e₂.property) e₁.property
+  have hB : (e₂ : G)⁻¹ * e₁ ∈ B := by
+    rw [hquot]
+    exact mul_mem b₂.property (inv_mem b₁.property)
+  have hbot : (e₂ : G)⁻¹ * e₁ ∈ (⊥ : Subgroup G) := by
+    rw [← h.inf_eq_bot]
+    exact ⟨hE, hB⟩
+  have hone : (e₂ : G)⁻¹ * e₁ = 1 := by simpa using hbot
+  have hb : (b₂ : G) * (b₁ : G)⁻¹ = 1 := hquot.symm.trans hone
+  apply Subtype.ext
+  exact (mul_inv_eq_one.mp hb).symm
+
+private noncomputable def conductor_group_chooseE {G : Type} [CommGroup G]
+    (E B : Subgroup G) (h : IsCompl E B) (x : G) : E :=
+  Classical.choose (conductor_group_decomp_exists E B h x)
+
+private noncomputable def conductor_group_chooseB {G : Type} [CommGroup G]
+    (E B : Subgroup G) (h : IsCompl E B) (x : G) : B :=
+  Classical.choose (Classical.choose_spec (conductor_group_decomp_exists E B h x))
+
+private theorem conductor_group_choose_spec {G : Type} [CommGroup G]
+    (E B : Subgroup G) (h : IsCompl E B) (x : G) :
+    (conductor_group_chooseE E B h x : G) * conductor_group_chooseB E B h x = x :=
+  Classical.choose_spec (Classical.choose_spec (conductor_group_decomp_exists E B h x))
+
+private noncomputable def conductor_group_projection {G : Type} [CommGroup G]
+    (E B : Subgroup G) (h : IsCompl E B) : G →* B where
+  toFun := conductor_group_chooseB E B h
+  map_one' := by
+    exact conductor_group_decomp_unique E B h
+      (e₁ := conductor_group_chooseE E B h 1)
+      (b₁ := conductor_group_chooseB E B h 1) (e₂ := 1) (b₂ := 1)
+      (conductor_group_choose_spec E B h 1) (by simp)
+  map_mul' x y := by
+    apply conductor_group_decomp_unique E B h
+      (e₁ := conductor_group_chooseE E B h (x * y))
+      (b₁ := conductor_group_chooseB E B h (x * y))
+      (e₂ := conductor_group_chooseE E B h x * conductor_group_chooseE E B h y)
+      (b₂ := conductor_group_chooseB E B h x * conductor_group_chooseB E B h y)
+      (conductor_group_choose_spec E B h (x * y))
+    change ((conductor_group_chooseE E B h x : G) *
+          conductor_group_chooseE E B h y) *
+        ((conductor_group_chooseB E B h x : G) *
+          conductor_group_chooseB E B h y) = _
+    calc
+      _ = (conductor_group_chooseE E B h x : G) *
+            (conductor_group_chooseE E B h y *
+            (conductor_group_chooseB E B h x * conductor_group_chooseB E B h y)) :=
+          mul_assoc _ _ _
+      _ = (conductor_group_chooseE E B h x : G) *
+          (conductor_group_chooseB E B h x *
+            (conductor_group_chooseE E B h y * conductor_group_chooseB E B h y)) := by
+          congr 1
+          calc
+            _ = ((conductor_group_chooseE E B h y : G) *
+                (conductor_group_chooseB E B h x : G)) *
+                  (conductor_group_chooseB E B h y : G) :=
+                  (mul_assoc _ _ _).symm
+            _ = ((conductor_group_chooseB E B h x : G) *
+                (conductor_group_chooseE E B h y : G)) *
+                  (conductor_group_chooseB E B h y : G) := by
+                  congr 1
+                  exact mul_comm _ _
+            _ = (conductor_group_chooseB E B h x : G) *
+                ((conductor_group_chooseE E B h y : G) *
+                  (conductor_group_chooseB E B h y : G)) :=
+                  mul_assoc _ _ _
+      _ = ((conductor_group_chooseE E B h x : G) *
+            (conductor_group_chooseB E B h x : G)) *
+          ((conductor_group_chooseE E B h y : G) *
+            (conductor_group_chooseB E B h y : G)) :=
+            (mul_assoc _ _ _).symm
+      _ = x * y := by rw [conductor_group_choose_spec, conductor_group_choose_spec]
+
+private theorem conductor_group_projection_fixed {G : Type} [CommGroup G]
+    (E B : Subgroup G) (h : IsCompl E B) (x : G) (hx : x ∈ B) :
+    (conductor_group_projection E B h x : G) = x := by
+  have hb := conductor_group_decomp_unique E B h
+    (e₁ := conductor_group_chooseE E B h x)
+    (b₁ := conductor_group_chooseB E B h x) (e₂ := 1) (b₂ := ⟨x, hx⟩)
+    (conductor_group_choose_spec E B h x) (by simp)
+  exact congrArg (fun b : B => (b : G)) hb
+
+private theorem conductor_group_projection_kills {G : Type} [CommGroup G]
+    (E B : Subgroup G) (h : IsCompl E B) (x : G) (hx : x ∈ E) :
+    conductor_group_projection E B h x = 1 := by
+  exact conductor_group_decomp_unique E B h
+    (e₁ := conductor_group_chooseE E B h x)
+    (b₁ := conductor_group_chooseB E B h x) (e₂ := ⟨x, hx⟩) (b₂ := 1)
+    (conductor_group_choose_spec E B h x) (by simp)
+
+private theorem conductor_local_sixthPowers_mem_nhds (v : FinPlace F) :
+    {u : (v.adicCompletion F)ˣ | ∃ b, u = b ^ 6} ∈ 𝓝 (1 : (v.adicCompletion F)ˣ) := by
+  let L := v.adicCompletion F
+  obtain ⟨t, ht, ht0⟩ := Submodule.exists_mem_ne_zero_of_ne_bot v.ne_bot
+  let x : L := NumberField.FinitePlace.embedding v (algebraMap (𝓞 F) F t)
+  have htF : algebraMap (𝓞 F) F t ≠ 0 :=
+    NumberField.RingOfIntegers.coe_ne_zero_iff.mpr ht0
+  have hx0 : x ≠ 0 := (NumberField.FinitePlace.embedding v).injective.ne htF
+  have hxnorm : ‖x‖ < 1 :=
+    (NumberField.FinitePlace.norm_lt_one_iff_mem (K := F) v t).mpr ht
+  letI : NontriviallyNormedField L := NontriviallyNormedField.ofNormNeOne ⟨x, hx0, ne_of_lt hxnorm⟩
+  have h6 : (6 : L) ≠ 0 := by
+    intro h
+    have hF : (6 : F) = 0 := (algebraMap F L).injective
+      (by simpa only [map_ofNat, map_zero] using h)
+    exact (by norm_num : (6 : F) ≠ 0) hF
+  have hs : {y : L | ∃ z : L, y = z ^ 6} ∈ 𝓝 (1 : L) := by
+    have hd : HasStrictDerivAt (fun y : L => y ^ 6) (6 : L) 1 := by
+      simpa using hasStrictDerivAt_pow 6 (1 : L)
+    have hm : Filter.map (fun y : L => y ^ 6) (𝓝 1) = 𝓝 1 := by
+      simpa using hd.map_nhds_eq h6
+    have hp : {y : L | ∃ z : L, y = z ^ 6} ∈ Filter.map (fun y : L => y ^ 6) (𝓝 1) :=
+      Filter.mem_map.mpr (Filter.Eventually.of_forall fun y => ⟨y, rfl⟩)
+    rw [hm] at hp
+    exact hp
+  filter_upwards [(Units.continuous_val.tendsto (1 : Lˣ)).eventually hs] with u hu
+  obtain ⟨y, hy⟩ := hu
+  have hy0 : y ≠ 0 := by
+    intro h
+    apply Units.ne_zero u
+    rw [hy, h, zero_pow (by decide : 6 ≠ 0)]
+  refine ⟨Units.mk0 y hy0, ?_⟩
+  apply Units.ext
+  change (u : L) = y ^ 6
+  exact hy
+
+private theorem conductor_sixth_root_unit (z : ℂˣ) : ∃ y : ℂˣ, y ^ 6 = z := by
+  obtain ⟨y, hy⟩ := IsAlgClosed.exists_pow_nat_eq (z : ℂ) (n := 6) (by decide)
+  have hy0 : y ≠ 0 := by
+    intro h
+    have hz : (z : ℂ) = 0 := by simpa [h] using hy.symm
+    exact z.ne_zero hz
+  refine ⟨Units.mk0 y hy0, ?_⟩
+  apply Units.ext
+  exact hy
+
+private theorem conductor_compU_continuous (S : SData F CE condη) (v : S.Sf) :
+    Continuous (S.compU v) := by
+  apply Units.continuous_iff.mpr
+  constructor
+  · change Continuous (fun x : S.FSˣ => ((x : S.FS).1 v : v.1.adicCompletion F))
+    exact (continuous_apply v).comp (continuous_fst.comp Units.continuous_val)
+  · change Continuous (fun x : S.FSˣ => (((x⁻¹ : S.FSˣ) : S.FS).1 v : v.1.adicCompletion F))
+    exact (continuous_apply v).comp (continuous_fst.comp Units.continuous_coe_inv)
+
+private theorem conductor_FS_sixthPowers_mem_nhds (S : SData F CE condη) :
+    {x : S.FSˣ | ∃ y, x = y ^ 6} ∈ 𝓝 (1 : S.FSˣ) := by
+  classical
+  have hlocal (v : S.Sf) :
+      {x : S.FSˣ | ∃ y : (v.1.adicCompletion F)ˣ, S.compU v x = y ^ 6} ∈
+        𝓝 (1 : S.FSˣ) := by
+    have hc : ContinuousAt (S.compU v) (1 : S.FSˣ) :=
+      (conductor_compU_continuous S v).continuousAt
+    change (S.compU v) ⁻¹' {u : (v.1.adicCompletion F)ˣ | ∃ b, u = b ^ 6} ∈
+      𝓝 (1 : S.FSˣ)
+    exact hc.preimage_mem_nhds (by simpa using conductor_local_sixthPowers_mem_nhds v.1)
+  have hall : ∀ᶠ x : S.FSˣ in 𝓝 1,
+      ∀ v ∈ (Finset.univ : Finset S.Sf), ∃ y : (v.1.adicCompletion F)ˣ,
+        S.compU v x = y ^ 6 := by
+    rw [Filter.eventually_all_finset]
+    intro v hv
+    exact hlocal v
+  filter_upwards [hall] with x hx
+  let rf (v : S.Sf) : (v.1.adicCompletion F)ˣ :=
+    Classical.choose (hx v (Finset.mem_univ v))
+  have hrf (v : S.Sf) : S.compU v x = rf v ^ 6 :=
+    Classical.choose_spec (hx v (Finset.mem_univ v))
+  let rc (w : InfinitePlace F) : ℂˣ :=
+    Classical.choose (conductor_sixth_root_unit (S.compC w x))
+  have hrc (w : InfinitePlace F) : rc w ^ 6 = S.compC w x :=
+    Classical.choose_spec (conductor_sixth_root_unit (S.compC w x))
+  let y : S.FSˣ := {
+    val := (fun v => (rf v : v.1.adicCompletion F), fun w => (rc w : ℂ))
+    inv := (fun v => ((rf v)⁻¹ : v.1.adicCompletion F), fun w => ((rc w)⁻¹ : ℂ))
+    val_inv := by
+      apply Prod.ext
+      · funext v
+        simp
+      · funext w
+        simp
+    inv_val := by
+      apply Prod.ext
+      · funext v
+        simp
+      · funext w
+        simp
+  }
+  refine ⟨y, ?_⟩
+  apply Units.ext
+  apply Prod.ext
+  · funext v
+    calc
+      ((x : S.FS).1 v) = (S.compU v x : v.1.adicCompletion F) := rfl
+      _ = (rf v ^ 6 : (v.1.adicCompletion F)ˣ) := congrArg Units.val (hrf v)
+      _ = ((y ^ 6 : S.FSˣ) : S.FS).1 v := rfl
+  · funext w
+    calc
+      ((x : S.FS).2 w) = (S.compC w x : ℂ) := rfl
+      _ = (rc w ^ 6 : ℂˣ) := congrArg Units.val (hrc w).symm
+      _ = ((y ^ 6 : S.FSˣ) : S.FS).2 w := rfl
+
+private theorem conductor_continuous_of_sixthPowers {G : Type} [TopologicalSpace G]
+    [Group G] [IsTopologicalGroup G] (f : G →* ℂˣ)
+    (hpow : {x : G | ∃ y, x = y ^ 6} ∈ 𝓝 (1 : G))
+    (htriv : ∀ y : G, f (y ^ 6) = 1) : Continuous f := by
+  have heq : (fun x : G => f x) =ᶠ[𝓝 (1 : G)] fun _ => (1 : ℂˣ) := by
+    filter_upwards [hpow] with x hx
+    obtain ⟨y, rfl⟩ := hx
+    exact htriv y
+  apply continuous_of_tendsto_nhds_one f
+  exact (Filter.tendsto_congr' heq).mpr tendsto_const_nhds
+
+private noncomputable def conductor_localOrder (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ) : ℤ :=
+  -WithZero.log (Valued.v (u : v.adicCompletion F))
+
+private theorem conductor_localOrder_mul (v : FinPlace F)
+    (x y : (v.adicCompletion F)ˣ) :
+    conductor_localOrder v (x * y) = conductor_localOrder v x + conductor_localOrder v y := by
+  unfold conductor_localOrder
+  change -WithZero.log (Valued.v ((x : v.adicCompletion F) * (y : v.adicCompletion F))) = _
+  rw [map_mul, WithZero.log_mul
+    ((Valued.v).ne_zero_iff.mpr (Units.ne_zero x))
+    ((Valued.v).ne_zero_iff.mpr (Units.ne_zero y))]
+  ring
+
+private noncomputable def conductor_localUnramifiedCharacter (v : FinPlace F) (c : ℂˣ) :
+    (v.adicCompletion F)ˣ →* ℂˣ :=
+  MonoidHom.mk' (fun u => c ^ conductor_localOrder v u) (by
+    intro x y
+    rw [conductor_localOrder_mul, zpow_add])
+
+private theorem conductor_localUnramifiedCharacter_one_of_unit
+    (v : FinPlace F) (c : ℂˣ) (u : (v.adicCompletion F)ˣ)
+    (hu : u ∈ (v.adicCompletionIntegers F).units) :
+    conductor_localUnramifiedCharacter v c u = 1 := by
+  have hv := HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one.mp hu
+  simp [conductor_localUnramifiedCharacter, conductor_localOrder, hv]
+
+private theorem conductor_localUnramifiedCharacter_unramified
+    (v : FinPlace F) (c : ℂˣ) (u : (v.adicCompletion F)ˣ)
+    (hu : (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F)
+    (huinv : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F) :
+    conductor_localUnramifiedCharacter v c u = 1 :=
+  conductor_localUnramifiedCharacter_one_of_unit v c u ⟨hu, huinv⟩
+
+private theorem conductor_localUnramifiedCharacter_continuous
+    (v : FinPlace F) (c : ℂˣ) :
+    Continuous (conductor_localUnramifiedCharacter v c) := by
+  let L := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  have hO : IsOpen (O : Set L) := Valued.isOpen_valuationSubring L
+  have hOU : IsOpen {u : Lˣ | u ∈ O.units} := by
+    change IsOpen (((fun u : Lˣ => (u : L)) ⁻¹' (O : Set L)) ∩
+      ((fun u : Lˣ => ((u⁻¹ : Lˣ) : L)) ⁻¹' (O : Set L)))
+    exact (hO.preimage Units.continuous_val).inter (hO.preimage Units.continuous_coe_inv)
+  have hU : {u : Lˣ | u ∈ O.units} ∈ 𝓝 (1 : Lˣ) :=
+    hOU.mem_nhds (by simp)
+  have heq : (fun u : Lˣ => conductor_localUnramifiedCharacter v c u) =ᶠ[𝓝 1]
+      fun _ => (1 : ℂˣ) := by
+    filter_upwards [hU] with u hu
+    exact conductor_localUnramifiedCharacter_one_of_unit v c u hu
+  apply continuous_of_tendsto_nhds_one (conductor_localUnramifiedCharacter v c)
+  exact (Filter.tendsto_congr' heq).mpr tendsto_const_nhds
+
+private theorem conductor_prime_isExterior (S : SData F CE condη) (v : FinPlace F)
+    (hv : v ∉ S.Sf) : S.IsExterior v.asIdeal := by
+  refine ⟨v.ne_bot, ?_⟩
+  intro w hw hle
+  have heq : v.asIdeal = w.asIdeal := v.isMaximal.eq_of_le w.isPrime.ne_top hle
+  have hplace : v = w := HeightOneSpectrum.ext heq
+  exact hv (hplace ▸ hw)
+
+private noncomputable def conductor_globalOrder (v : FinPlace F) (a : Fˣ) : ℤ :=
+  -WithZero.log (v.valuation F (a : F))
+
+private theorem conductor_order_eq_idealExp_of_gen (S : SData F CE condη)
+    {I : Ideal (𝓞 F)} {a : Fˣ} (hgen : S.IsGen (a : F) I)
+    (v : FinPlace F) (hv : v ∉ S.Sf) : conductor_globalOrder v a = idealExp v I := by
+  have hspan := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+    v (a : F) hgen.2.1
+  have hIcount : FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      (idealExp v I : ℤ) := by
+    rw [FractionalIdeal.count_coe F v hgen.1.1]
+    rfl
+  dsimp [conductor_globalOrder]
+  calc
+    -WithZero.log (v.valuation F (a : F)) =
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) := hspan.symm
+    _ = FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+      hgen.2.2 v hv
+    _ = (idealExp v I : ℤ) := hIcount
+
+private theorem conductor_idealExp_prime (v w : FinPlace F) :
+    (idealExp w v.asIdeal : ℤ) = if w = v then 1 else 0 := by
+  have hcoe : FractionalIdeal.count F w
+      (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+        (idealExp w v.asIdeal : ℤ) := by
+    rw [FractionalIdeal.count_coe F w v.ne_bot]
+    rfl
+  by_cases hwv : w = v
+  · subst w
+    simpa using hcoe.symm.trans (FractionalIdeal.count_self F v)
+  · have hvw : v ≠ w := Ne.symm hwv
+    rw [← hcoe, FractionalIdeal.count_maximal_coprime F w hvw]
+    simp [hwv]
+
+private theorem conductor_globalOrder_mul (v : FinPlace F) (x y : Fˣ) :
+    conductor_globalOrder v (x * y) = conductor_globalOrder v x + conductor_globalOrder v y := by
+  unfold conductor_globalOrder
+  change -WithZero.log (v.valuation F ((x : F) * (y : F))) = _
+  rw [map_mul, WithZero.log_mul
+    ((v.valuation F).ne_zero_iff.mpr (Units.ne_zero x))
+    ((v.valuation F).ne_zero_iff.mpr (Units.ne_zero y))]
+  ring
+
+private theorem conductor_globalOrder_inv (v : FinPlace F) (x : Fˣ) :
+    conductor_globalOrder v x⁻¹ = -conductor_globalOrder v x := by
+  simp [conductor_globalOrder, map_inv₀, WithZero.log_inv]
+
+private theorem conductor_globalOrder_zpow (v : FinPlace F) (x : Fˣ) (n : ℤ) :
+    conductor_globalOrder v (x ^ n) = n * conductor_globalOrder v x := by
+  simp [conductor_globalOrder, map_zpow₀, WithZero.log_zpow, mul_comm]
+
+private theorem conductor_globalOrder_div (v : FinPlace F) (x y : Fˣ) :
+    conductor_globalOrder v (x / y) = conductor_globalOrder v x - conductor_globalOrder v y := by
+  rw [div_eq_mul_inv, conductor_globalOrder_mul, conductor_globalOrder_inv]
+  ring
+
+private theorem conductor_globalOrder_finset_prod {α : Type*} (v : FinPlace F)
+    (T : Finset α) (f : α → Fˣ) :
+    conductor_globalOrder v (T.prod f) = ∑ x ∈ T, conductor_globalOrder v (f x) := by
+  classical
+  induction T using Finset.induction_on with
+  | empty => simp [conductor_globalOrder]
+  | @insert x T hx ih =>
+    rw [Finset.prod_insert hx, Finset.sum_insert hx, conductor_globalOrder_mul, ih]
+
+private theorem conductor_zpow_sixth_eq_one (c : ℂˣ) (hc : c ^ 6 = 1) (n : ℤ) :
+    (c ^ n) ^ 6 = 1 := by
+  calc
+    (c ^ n) ^ 6 = (c ^ n) ^ (6 : ℤ) := (zpow_natCast (c ^ n) 6).symm
+    _ = (c ^ (6 : ℤ)) ^ n := zpow_comm c n 6
+    _ = (c ^ 6) ^ n := rfl
+    _ = 1 := by simp [hc]
+
+private theorem conductor_localOrder_toLoc (v : FinPlace F) (a : Fˣ) :
+    conductor_localOrder v (toLoc v a) = conductor_globalOrder v a := by
+  have hval : Valued.v (toLoc v a : v.adicCompletion F) = v.valuation F (a : F) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (a : F)) = _
+    exact v.valuedAdicCompletion_eq_valuation' (a : F)
+  simp [conductor_localOrder, conductor_globalOrder, hval]
+
+private noncomputable def conductor_ideleSCoord (D : FieldData F)
+    (S : SData F CE condη) : IdeleGroup (𝓞 F) F →* S.FSˣ where
+  toFun x := {
+    val := (fun v => (Dictionary.ideleFiniteCoord v.1 x : v.1.adicCompletion F),
+      fun w => (Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+          (D.isTotallyComplex.isComplex w)).toMonoidHom
+        (Dictionary.ideleInfiniteCoordUnit w x) : ℂ))
+    inv := (fun v => ((Dictionary.ideleFiniteCoord v.1 x)⁻¹ : v.1.adicCompletion F),
+      fun w => (Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+          (D.isTotallyComplex.isComplex w)).toMonoidHom
+        ((Dictionary.ideleInfiniteCoordUnit w x)⁻¹) : ℂ))
+    val_inv := by
+      apply Prod.ext
+      · funext v
+        simpa using (Dictionary.ideleFiniteCoord v.1 x).val_inv
+      · funext w
+        simpa using (Units.map
+          (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+            (D.isTotallyComplex.isComplex w)).toMonoidHom
+          (Dictionary.ideleInfiniteCoordUnit w x)).val_inv
+    inv_val := by
+      apply Prod.ext
+      · funext v
+        simpa using (Dictionary.ideleFiniteCoord v.1 x).inv_val
+      · funext w
+        simpa using (Units.map
+          (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+            (D.isTotallyComplex.isComplex w)).toMonoidHom
+          (Dictionary.ideleInfiniteCoordUnit w x)).inv_val
+  }
+  map_one' := by
+    apply Units.ext
+    apply Prod.ext
+    · funext v
+      simp
+    · funext w
+      simp
+  map_mul' x y := by
+    apply Units.ext
+    apply Prod.ext
+    · funext v
+      simp
+    · funext w
+      simp
+
+private theorem conductor_ideleSCoord_continuous (D : FieldData F)
+    (S : SData F CE condη) : Continuous (conductor_ideleSCoord D S) := by
+  have hFinCoord (v : FinPlace F) :
+      Continuous (Dictionary.ideleFiniteCoord v : IdeleGroup (𝓞 F) F →* (v.adicCompletion F)ˣ) := by
+    apply Units.continuous_iff.mpr
+    exact ⟨((RestrictedProduct.continuous_eval v).comp continuous_snd).comp Units.continuous_val,
+      ((RestrictedProduct.continuous_eval v).comp continuous_snd).comp Units.continuous_coe_inv⟩
+  have hInfCoord (w : InfinitePlace F) :
+      Continuous (Dictionary.ideleInfiniteCoordUnit w :
+        IdeleGroup (𝓞 F) F →* w.Completionˣ) := by
+    apply Units.continuous_iff.mpr
+    exact ⟨((continuous_apply w).comp continuous_fst).comp Units.continuous_val,
+      ((continuous_apply w).comp continuous_fst).comp Units.continuous_coe_inv⟩
+  apply Units.continuous_iff.mpr
+  constructor
+  · apply Continuous.prodMk
+    · apply continuous_pi
+      intro v
+      exact Units.continuous_val.comp (hFinCoord v.1)
+    · apply continuous_pi
+      intro w
+      let eh := InfinitePlace.Completion.isometryEquivComplexOfIsComplex
+        (D.isTotallyComplex.isComplex w)
+      exact eh.isometry_toFun.continuous.comp (Units.continuous_val.comp (hInfCoord w))
+  · apply Continuous.prodMk
+    · apply continuous_pi
+      intro v
+      exact (Units.continuous_coe_inv.comp (hFinCoord v.1)).congr fun x =>
+        Units.val_inv_eq_inv_val (Dictionary.ideleFiniteCoord v.1 x)
+    · apply continuous_pi
+      intro w
+      let eh := InfinitePlace.Completion.isometryEquivComplexOfIsComplex
+        (D.isTotallyComplex.isComplex w)
+      exact eh.isometry_toFun.continuous.comp (Units.continuous_coe_inv.comp (hInfCoord w))
+
+private theorem conductor_ideleSCoord_principal (D : FieldData F)
+    (S : SData F CE condη) (a : Fˣ) :
+    conductor_ideleSCoord D S (IdeleGroup.unitEmbedding (𝓞 F) F a) = S.diagU a := by
+  apply Units.ext
+  apply Prod.ext
+  · funext v
+    rfl
+  · funext w
+    let e := InfinitePlace.Completion.ringEquivComplexOfIsComplex
+      (D.isTotallyComplex.isComplex w)
+    have hu : Units.map e.toMonoidHom
+        (Dictionary.ideleInfiniteCoordUnit w (IdeleGroup.unitEmbedding (𝓞 F) F a)) =
+      S.compC w (S.diagU a) := by
+      have hcomp : S.compC w (S.diagU a) = Units.map w.embedding.toMonoidHom a := by
+        apply Units.ext
+        rfl
+      have hprincipal : Dictionary.ideleInfiniteCoordUnit w
+          (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+            Units.map (algebraMap F w.Completion).toMonoidHom a := by
+        apply Units.ext
+        rfl
+      rw [hprincipal, hcomp]
+      apply Units.ext
+      simp [e, InfinitePlace.Completion.ringEquivComplexOfIsComplex_apply,
+        InfinitePlace.Completion.extensionEmbedding_coe]
+    exact congrArg (fun z : ℂˣ => (z : ℂ)) hu
+
+private theorem conductor_class_idealValue_finprod (χ : HeckeChar F)
+    (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) :
+    χ.idealValue I = ∏ᶠ v : FinPlace F, χ.primeValue v ^ idealExp v I := by
+  classical
+  unfold HeckeChar.idealValue
+  rw [Multiset.prod_map_eq_finprod]
+  rw [← finprod_emb_domain' IsDedekindDomain.HeightOneSpectrum.asIdeal_injective
+    (fun v : FinPlace F => χ.primeValue v ^ idealExp v I)]
+  apply finprod_congr
+  intro P
+  by_cases hp : P.IsPrime ∧ P ≠ ⊥
+  · let v : FinPlace F := ⟨P, hp.1, hp.2⟩
+    have hmem : P ∈ Set.range (fun v : FinPlace F => v.asIdeal) := ⟨v, rfl⟩
+    rw [dif_pos hp, dif_pos hmem]
+    have hv : Classical.choose hmem = v :=
+      IsDedekindDomain.HeightOneSpectrum.asIdeal_injective (Classical.choose_spec hmem)
+    rw [hv]
+    congr 1
+    have hI0 : I ≠ 0 := by simpa only [Ideal.zero_eq_bot] using hI
+    exact (Ideal.count_associates_factors_eq hI0 hp.1 hp.2).symm
+  · have hnot : P ∉ Set.range (fun v : FinPlace F => v.asIdeal) := by
+      rintro ⟨v, rfl⟩
+      exact hp ⟨v.isPrime, v.ne_bot⟩
+    simp only [dif_neg hp, one_pow, dif_neg hnot]
+
+private theorem conductor_class_idealExp_zero_of_ext (S : SData F CE condη)
+    (I : Ideal (𝓞 F)) (hI : S.IsExterior I) (v : FinPlace F) (hv : v ∈ S.Sf) :
+    idealExp v I = 0 := by
+  have hI0 : I ≠ 0 := by simpa only [Ideal.zero_eq_bot] using hI.1
+  have hnot : v.asIdeal ∉ UniqueFactorizationMonoid.normalizedFactors I := by
+    intro hmem
+    have hdvd : v.asIdeal ∣ I :=
+      UniqueFactorizationMonoid.dvd_of_mem_normalizedFactors hmem
+    exact hI.2 v hv (Ideal.le_of_dvd hdvd)
+  change (Associates.mk v.asIdeal).count (Associates.mk I).factors = 0
+  rw [Ideal.count_associates_factors_eq hI0 v.isPrime v.ne_bot]
+  exact Multiset.count_eq_zero.mpr hnot
+
+private def conductor_class_factorPlaces (I : Ideal (𝓞 F)) : Finset (FinPlace F) := by
+  classical
+  let M := UniqueFactorizationMonoid.normalizedFactors I
+  exact M.toFinset.attach.image fun p =>
+    ⟨p.1,
+      Ideal.isPrime_of_prime
+        (UniqueFactorizationMonoid.prime_of_normalized_factor p.1
+          (Multiset.mem_toFinset.mp p.2)),
+      (UniqueFactorizationMonoid.prime_of_normalized_factor p.1
+        (Multiset.mem_toFinset.mp p.2)).ne_zero⟩
+
+private theorem conductor_class_mem_factorPlaces (I : Ideal (𝓞 F)) (v : FinPlace F)
+    (hv : v ∈ conductor_class_factorPlaces I) :
+    v.asIdeal ∈ UniqueFactorizationMonoid.normalizedFactors I := by
+  classical
+  rcases Finset.mem_image.mp hv with ⟨p, hp, rfl⟩
+  exact Multiset.mem_toFinset.mp p.2
+
+private theorem conductor_class_factorPlaces_dvd (I : Ideal (𝓞 F)) (v : FinPlace F)
+    (hv : v ∈ conductor_class_factorPlaces I) : v.asIdeal ∣ I :=
+  UniqueFactorizationMonoid.dvd_of_mem_normalizedFactors (conductor_class_mem_factorPlaces I v hv)
+
+private theorem conductor_class_factorPlaces_of_mem (I : Ideal (𝓞 F)) (v : FinPlace F)
+    (hv : v.asIdeal ∈ UniqueFactorizationMonoid.normalizedFactors I) :
+    v ∈ conductor_class_factorPlaces I := by
+  classical
+  apply Finset.mem_image.mpr
+  refine ⟨⟨v.asIdeal, Multiset.mem_toFinset.mpr hv⟩, by simp [conductor_class_factorPlaces], ?_⟩
+  apply HeightOneSpectrum.ext
+  rfl
+
+private theorem conductor_class_exp_zero_of_not_factor (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+    (v : FinPlace F) (hv : v ∉ conductor_class_factorPlaces I) : idealExp v I = 0 := by
+  have hI0 : I ≠ 0 := by simpa only [Ideal.zero_eq_bot] using hI
+  have hnot : v.asIdeal ∉ UniqueFactorizationMonoid.normalizedFactors I := by
+    intro hmem
+    exact hv (conductor_class_factorPlaces_of_mem I v hmem)
+  change (Associates.mk v.asIdeal).count (Associates.mk I).factors = 0
+  rw [Ideal.count_associates_factors_eq hI0 v.isPrime v.ne_bot]
+  exact Multiset.count_eq_zero.mpr hnot
+
+private theorem conductor_class_idealValue_product (χ : HeckeChar F) (I : Ideal (𝓞 F))
+    (hI : I ≠ ⊥) :
+    χ.idealValue I = ∏ v ∈ conductor_class_factorPlaces I,
+      χ.primeValue v ^ idealExp v I := by
+  rw [conductor_class_idealValue_finprod χ I hI]
+  have hsupp : Function.mulSupport (fun v : FinPlace F => χ.primeValue v ^ idealExp v I) ⊆
+      conductor_class_factorPlaces I := by
+    intro v hv
+    by_contra hvF
+    have hexp := conductor_class_exp_zero_of_not_factor I hI v hvF
+    change χ.primeValue v ^ idealExp v I ≠ 1 at hv
+    rw [hexp] at hv
+    simp at hv
+  rw [finprod_eq_prod_of_mulSupport_subset _ hsupp]
+
+private theorem conductor_finset_product_eq_of_mulSupport_subset {α : Type*} {M : Type*}
+    [CommMonoid M] (f : α → M) (A B : Finset α)
+    (hA : Function.mulSupport f ⊆ A) (hB : Function.mulSupport f ⊆ B) :
+    A.prod f = B.prod f := by
+  let U := A ∪ B
+  have hAU : A.prod f = U.prod f := by
+    apply Finset.prod_subset (by intro x hx; exact Finset.mem_union_left B hx)
+    intro x hxU hxA
+    by_contra hne
+    have hxSupport : x ∈ Function.mulSupport f := by simpa using hne
+    exact hxA (hA hxSupport)
+  have hBU : B.prod f = U.prod f := by
+    apply Finset.prod_subset (by intro x hx; exact Finset.mem_union_right A hx)
+    intro x hxU hxB
+    by_contra hne
+    have hxSupport : x ∈ Function.mulSupport f := by simpa using hne
+    exact hxB (hB hxSupport)
+  exact hAU.trans hBU.symm
+
 /-- ar:B-character-extension (02:302–303, 359–366): every character of `B` evaluated on allowed
 generators extends to a finite-order Hecke character unramified outside `S`. Package
 P-ARITH-KUMMER. -/
@@ -153,7 +753,475 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
     ∃ θ : HeckeChar F, IsOfFinOrder θ ∧ (∀ v : FinPlace F, v ∉ S.Sf → θ.UnramifiedAt v) ∧
       ∀ (I : Ideal (𝓞 F)) (a : Fˣ), S.IsExterior I → S.IsGen (a : F) I → (ha : Bd.Allowed a) →
         θ.idealValue I = ((θB ⟨_, ha⟩ : ℂˣ) : ℂ) := by
-  sorry
+  classical
+  let q : S.FSˣ →* S.V := QuotientGroup.mk' _
+  let projB : S.V →* Bd.B := conductor_group_projection (G := S.V) S.E Bd.B Bd.compl
+  let ψ : S.FSˣ →* ℂˣ := θB.comp (projB.comp q)
+  have hqpow (x : S.FSˣ) : q (x ^ 6) = 1 := by
+    apply (QuotientGroup.eq_one_iff _).2
+    change x ^ 6 ∈ (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range
+    exact ⟨x, by simp⟩
+  have hψpow (x : S.FSˣ) : ψ (x ^ 6) = 1 := by
+    change θB (projB (q (x ^ 6))) = 1
+    rw [hqpow x]
+    simp
+  have hψcont : Continuous ψ :=
+    conductor_continuous_of_sixthPowers ψ (conductor_FS_sixthPowers_mem_nhds S) hψpow
+  let primeChoice (v : FinPlace F) (hv : v ∉ S.Sf) : Fˣ :=
+    Classical.choose (Bd.exists_allowed v.asIdeal (conductor_prime_isExterior S v hv))
+  have hprimeChoice (v : FinPlace F) (hv : v ∉ S.Sf) :
+      S.IsGen (primeChoice v hv : F) v.asIdeal ∧ Bd.Allowed (primeChoice v hv) :=
+    Classical.choose_spec (Bd.exists_allowed v.asIdeal (conductor_prime_isExterior S v hv))
+  let p (v : FinPlace F) : Fˣ := if hv : v ∉ S.Sf then primeChoice v hv else 1
+  have hpgen (v : FinPlace F) (hv : v ∉ S.Sf) :
+      S.IsGen (p v : F) v.asIdeal ∧ Bd.Allowed (p v) := by
+    simpa only [p, dif_pos hv] using hprimeChoice v hv
+  let primeClassValue (v : FinPlace F) : ℂˣ := ψ (S.diagU (p v))
+  let localChar (v : FinPlace F) : (v.adicCompletion F)ˣ →* ℂˣ :=
+    if hv : v ∈ S.Sf then 1 else conductor_localUnramifiedCharacter v (primeClassValue v)
+  have hlocalCharOne (v : FinPlace F) (u : (v.adicCompletion F)ˣ)
+      (hu : u ∈ (v.adicCompletionIntegers F).units) : localChar v u = 1 := by
+    by_cases hv : v ∈ S.Sf
+    · simp [localChar, hv]
+    · simp only [localChar, dif_neg hv]
+      exact conductor_localUnramifiedCharacter_one_of_unit v (primeClassValue v) u hu
+  let A := FiniteAdeleRing (𝓞 F) F
+  let coord (v : FinPlace F) : Aˣ →* (v.adicCompletion F)ˣ :=
+    (Pi.evalMonoidHom (fun w : FinPlace F => (w.adicCompletion F)ˣ) v).comp
+      RestrictedProduct.coeUnits
+  have hcoord (v : FinPlace F) : Continuous (coord v) := by
+    apply Units.continuous_iff.mpr
+    exact ⟨(RestrictedProduct.continuous_eval v).comp Units.continuous_val,
+      (RestrictedProduct.continuous_eval v).comp Units.continuous_coe_inv⟩
+  have hlocalCharCont (v : FinPlace F) : Continuous (localChar v) := by
+    by_cases hv : v ∈ S.Sf
+    · simp only [localChar, dif_pos hv]
+      change Continuous (fun _ : (v.adicCompletion F)ˣ => (1 : ℂˣ))
+      exact continuous_const
+    · simpa [localChar, hv] using
+        conductor_localUnramifiedCharacter_continuous v (primeClassValue v)
+  have hsupp (x : Aˣ) : Function.HasFiniteMulSupport (fun v => localChar v (coord v x)) := by
+    apply Filter.eventually_cofinite.mp
+    filter_upwards [x.val.2, x.inv.2] with v hx hxi
+    exact hlocalCharOne v (coord v x) ⟨hx, hxi⟩
+  let g : Aˣ →* ℂˣ := MonoidHom.mk'
+    (fun x => ∏ᶠ v : FinPlace F, localChar v (coord v x)) (by
+      intro x y
+      simp_rw [map_mul]
+      exact finprod_mul_distrib (hsupp x) (hsupp y))
+  have hOall : IsOpen {x : A | ∀ v : FinPlace F,
+      x v ∈ v.adicCompletionIntegers F} :=
+    RestrictedProduct.isOpen_forall_mem
+      (fun v : FinPlace F => Valued.isOpen_valuationSubring (v.adicCompletion F))
+  have hV : {x : Aˣ | ∀ v : FinPlace F,
+      (x : A) v ∈ v.adicCompletionIntegers F} ∈ 𝓝 (1 : Aˣ) := by
+    apply (hOall.preimage Units.continuous_val).mem_nhds
+    intro v
+    exact one_mem _
+  have hI : {x : Aˣ | ∀ v : FinPlace F,
+      ((x⁻¹ : Aˣ) : A) v ∈ v.adicCompletionIntegers F} ∈ 𝓝 (1 : Aˣ) := by
+    apply (hOall.preimage Units.continuous_coe_inv).mem_nhds
+    intro v
+    exact one_mem _
+  have hC : {x : Aˣ | ∀ v : FinPlace F, coord v x ∈
+      (v.adicCompletionIntegers F).units} ∈ 𝓝 (1 : Aˣ) := by
+    filter_upwards [hV, hI] with x hx hxi
+    intro v
+    exact ⟨hx v, hxi v⟩
+  have heqg : (fun x : Aˣ => g x) =ᶠ[𝓝 (1 : Aˣ)] fun _ => (1 : ℂˣ) := by
+    filter_upwards [hC] with x hx
+    change (∏ᶠ v : FinPlace F, localChar v (coord v x)) = 1
+    apply finprod_eq_one_of_forall_eq_one
+    intro v
+    exact hlocalCharOne v (coord v x) (hx v)
+  have hg : Continuous g := by
+    apply continuous_of_tendsto_nhds_one g
+    exact (Filter.tendsto_congr' heqg).mpr tendsto_const_nhds
+  let adeleProjection : IdeleGroup (𝓞 F) F →* Aˣ :=
+    Units.map (MonoidHom.snd (InfiniteAdeleRing F) A)
+  have hadeleProjection : Continuous adeleProjection := by
+    apply Units.continuous_iff.mpr
+    exact ⟨continuous_snd.comp Units.continuous_val,
+      continuous_snd.comp Units.continuous_coe_inv⟩
+  let α : IdeleGroup (𝓞 F) F →* ℂˣ :=
+    ψ⁻¹ |>.comp (conductor_ideleSCoord D S)
+  let β : IdeleGroup (𝓞 F) F →* ℂˣ := g.comp adeleProjection
+  let G : IdeleGroup (𝓞 F) F →* ℂˣ := α * β
+  have hψinv : Continuous (ψ⁻¹) := by
+    change Continuous (fun x : S.FSˣ => (ψ x)⁻¹)
+    exact continuous_inv.comp hψcont
+  have hα : Continuous α := hψinv.comp (conductor_ideleSCoord_continuous D S)
+  have hβ : Continuous β := hg.comp hadeleProjection
+  have hG : Continuous G := by
+    change Continuous (fun x : IdeleGroup (𝓞 F) F => α x * β x)
+    exact hα.mul hβ
+  have hprincipalData (a : Fˣ) :
+      G (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 ∧
+        ψ (S.diagU a) = ∏ v ∈ (KummerProofs.residue_zero_finite a).toFinset,
+          primeClassValue v ^ conductor_globalOrder v a := by
+    let T : Finset (FinPlace F) := (KummerProofs.residue_zero_finite a).toFinset
+    let n (v : FinPlace F) : ℤ := conductor_globalOrder v a
+    let primeProduct : Fˣ := T.prod fun v => p v ^ n v
+    let ε : Fˣ := a / primeProduct
+    have hprimeOrder (w : FinPlace F) (hw : w ∉ S.Sf) (v : FinPlace F) :
+        conductor_globalOrder w (p v) = if w = v then 1 else 0 := by
+      by_cases hvS : v ∈ S.Sf
+      · have hwv : w ≠ v := by
+          intro heq
+          subst w
+          exact hw hvS
+        simp [p, hvS, conductor_globalOrder, hwv]
+      · rw [conductor_order_eq_idealExp_of_gen S (hpgen v hvS).1 w hw,
+          conductor_idealExp_prime v w]
+    have hzeroOrder (w : FinPlace F) (hwT : w ∉ T) :
+        conductor_globalOrder w a = 0 := by
+      have hres : residue w (a : F) ≠ 0 := by
+        intro hres
+        exact hwT ((KummerProofs.residue_zero_finite a).mem_toFinset.mpr hres)
+      have hval :=
+        ArtinPrimitiveRoots.A2.qs_nq0_residue_ne_zero_iff_valuation_one w (a : F) |>.mp hres
+      simp [conductor_globalOrder, hval]
+    have hprimeProductOrder (w : FinPlace F) (hw : w ∉ S.Sf) :
+        conductor_globalOrder w primeProduct =
+          if w ∈ T then n w else 0 := by
+      have hprod : conductor_globalOrder w primeProduct =
+          ∑ v ∈ T, conductor_globalOrder w (p v ^ n v) := by
+        simpa [primeProduct] using
+          (conductor_globalOrder_finset_prod w T (fun v => p v ^ n v))
+      rw [hprod]
+      have hterms : ∀ v ∈ T,
+          conductor_globalOrder w (p v ^ n v) = if w = v then n v else 0 := by
+        intro v hv
+        rw [conductor_globalOrder_zpow, hprimeOrder w hw v]
+        by_cases h : w = v <;> simp [h]
+      rw [Finset.sum_congr rfl hterms]
+      by_cases hwT : w ∈ T
+      · have hsingle : (∑ v ∈ T, if w = v then n v else 0) = n w := by
+          rw [Finset.sum_eq_single w]
+          · simp
+          · intro v hv hne
+            simp [Ne.symm hne]
+          · intro hnot
+            exact (hnot hwT).elim
+        simp [hwT, hsingle]
+      · have hzero : (∑ v ∈ T, if w = v then n v else 0) = 0 := by
+          apply Finset.sum_eq_zero
+          intro v hv
+          by_cases h : w = v
+          · subst v
+            exact (hwT hv).elim
+          · simp [h]
+        simp [hwT, hzero]
+    have hεOrder (w : FinPlace F) (hw : w ∉ S.Sf) :
+        conductor_globalOrder w ε = 0 := by
+      change conductor_globalOrder w (a / primeProduct) = 0
+      rw [conductor_globalOrder_div, hprimeProductOrder w hw]
+      by_cases hwT : w ∈ T
+      · simp [hwT, n]
+      · simp [hwT, n, hzeroOrder w hwT]
+    have hεUnit : ε ∈ S.US := by
+      change ∀ w : FinPlace F, w ∉ S.Sf → w.valuation F (ε : F) = 1
+      intro w hw
+      have hne : w.valuation F (ε : F) ≠ 0 :=
+        (Valuation.ne_zero_iff _).mpr ε.ne_zero
+      have hlog : WithZero.log (w.valuation F (ε : F)) = 0 := by
+        have h := hεOrder w hw
+        dsimp [conductor_globalOrder] at h
+        linarith
+      calc
+        w.valuation F (ε : F) = WithZero.exp (WithZero.log (w.valuation F (ε : F))) :=
+          (WithZero.exp_log hne).symm
+        _ = 1 := by rw [hlog, WithZero.exp_zero]
+    have hfactor : a = ε * primeProduct := by
+      dsimp [ε]
+      simp [div_eq_mul_inv]
+    have hεproj : projB (q (S.diagU ε)) = 1 := by
+      apply conductor_group_projection_kills (G := S.V) S.E Bd.B Bd.compl
+      change q (S.diagU ε) ∈ S.US.map ((QuotientGroup.mk' _).comp S.diagU)
+      exact Subgroup.mem_map.mpr ⟨ε, hεUnit, rfl⟩
+    have hψfactor : ψ (S.diagU a) = ∏ v ∈ T, primeClassValue v ^ n v := by
+      have hεψ : ψ (S.diagU ε) = 1 := by
+        change θB (projB (q (S.diagU ε))) = 1
+        rw [hεproj]
+        simp
+      have hproduct : ψ (S.diagU primeProduct) =
+          ∏ v ∈ T, primeClassValue v ^ n v := by
+        simp [primeProduct, primeClassValue, map_prod, map_zpow]
+      calc
+        ψ (S.diagU a) = ψ (S.diagU ε * S.diagU primeProduct) := by rw [hfactor, map_mul]
+        _ = ψ (S.diagU ε) * ψ (S.diagU primeProduct) := map_mul ψ _ _
+        _ = _ := by rw [hεψ, hproduct]; simp
+    have hcoordPrincipal (v : FinPlace F) :
+        coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a)) = toLoc v a := by
+      apply Units.ext
+      rfl
+    have hlocalPrincipal (v : FinPlace F) :
+        localChar v (coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a))) =
+          primeClassValue v ^ n v := by
+      rw [hcoordPrincipal v]
+      by_cases hv : v ∈ S.Sf
+      · have hp : p v = 1 := by simp [p, hv]
+        simp [localChar, hv, primeClassValue, hp]
+      · simp [localChar, hv, conductor_localUnramifiedCharacter,
+          conductor_localOrder_toLoc, primeClassValue, n]
+    have hsupportPrincipal :
+        Function.mulSupport (fun v => localChar v
+          (coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a)))) ⊆ T := by
+      intro v hv
+      by_contra hvT
+      have hzero := hzeroOrder v hvT
+      apply hv
+      change localChar v
+        (coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a))) = 1
+      rw [hlocalPrincipal v]
+      have hn : n v = 0 := by simpa [n] using hzero
+      rw [hn]
+      simp
+    have hβprincipal : β (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+        ∏ v ∈ T, primeClassValue v ^ n v := by
+      change g (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a)) = _
+      change (∏ᶠ v : FinPlace F, localChar v
+        (coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a)))) = _
+      rw [finprod_eq_prod_of_mulSupport_subset _ hsupportPrincipal]
+      apply Finset.prod_congr rfl
+      intro v hv
+      exact hlocalPrincipal v
+    have hαprincipal : α (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+        (ψ (S.diagU a))⁻¹ := by
+      change (ψ (conductor_ideleSCoord D S (IdeleGroup.unitEmbedding (𝓞 F) F a)))⁻¹ = _
+      rw [conductor_ideleSCoord_principal]
+    have hGprincipal : G (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
+      change α (IdeleGroup.unitEmbedding (𝓞 F) F a) *
+        β (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
+      rw [hαprincipal, hβprincipal, hψfactor]
+      simp
+    exact ⟨hGprincipal, by simpa [T, n] using hψfactor⟩
+  have hprincipal (a : Fˣ) : G (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 :=
+    (hprincipalData a).1
+  let N := IdeleGroup.principalSubgroup (𝓞 F) F
+  have hN : N ≤ G.ker := by
+    intro x hx
+    obtain ⟨a, rfl⟩ := hx
+    exact hprincipal a
+  let C : IdeleClassGroup (𝓞 F) F →* ℂˣ := QuotientGroup.lift N G hN
+  have hC : Continuous C := by
+    apply (QuotientGroup.isQuotientMap_mk N).continuous_iff.mpr
+    exact hG
+  let θ : HeckeChar F := ⟨C, hC⟩
+  have hψval6 (x : S.FSˣ) : ψ x ^ 6 = 1 := by
+    simpa only [map_pow] using hψpow x
+  have hlocalpow (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
+      (localChar v u) ^ 6 = 1 := by
+    by_cases hv : v ∈ S.Sf
+    · simp [localChar, hv]
+    · have hc : (primeClassValue v) ^ 6 = 1 := hψval6 (S.diagU (p v))
+      simp only [localChar, dif_neg hv, conductor_localUnramifiedCharacter]
+      exact conductor_zpow_sixth_eq_one (primeClassValue v) hc (conductor_localOrder v u)
+  have hβpow (x : IdeleGroup (𝓞 F) F) : (β x) ^ 6 = 1 := by
+    change (g (adeleProjection x)) ^ 6 = 1
+    let y : Aˣ := adeleProjection x
+    change (∏ᶠ v : FinPlace F, localChar v (coord v y)) ^ 6 = 1
+    rw [finprod_pow (hsupp y) 6]
+    apply finprod_eq_one_of_forall_eq_one
+    intro v
+    exact hlocalpow v (coord v y)
+  have hαpow (x : IdeleGroup (𝓞 F) F) : (α x) ^ 6 = 1 := by
+    change ((ψ (conductor_ideleSCoord D S x))⁻¹) ^ 6 = 1
+    have hc := hψval6 (conductor_ideleSCoord D S x)
+    simp [hc]
+  have hGpow (x : IdeleGroup (𝓞 F) F) : (G x) ^ 6 = 1 := by
+    change (α x * β x) ^ 6 = 1
+    rw [mul_pow, hαpow x, hβpow x]
+    simp
+  have hθpow : θ ^ 6 = 1 := by
+    apply ContinuousMonoidHom.ext
+    intro z
+    refine QuotientGroup.induction_on z (fun x => ?_)
+    simp only [ContinuousMonoidHom.pow_apply, ContinuousMonoidHom.one_toFun]
+    change G x ^ 6 = 1
+    exact hGpow x
+  have hθfin : IsOfFinOrder θ :=
+    isOfFinOrder_iff_pow_eq_one.mpr ⟨6, by decide, hθpow⟩
+  have hθram (v : FinPlace F) (hv : v ∉ S.Sf) : θ.UnramifiedAt v := by
+    intro u hu huinv
+    let x := IdeleGroup.ofAdicCompletion (𝓞 F) F v u
+    have hScoord : conductor_ideleSCoord D S x = 1 := by
+      apply Units.ext
+      apply Prod.ext
+      · funext w
+        have hne : w.1 ≠ v := by
+          intro heq
+          exact hv (heq ▸ w.2)
+        change (Dictionary.ideleFiniteCoord w.1 x : w.1.adicCompletion F) = 1
+        exact congrArg (fun z : (w.1.adicCompletion F)ˣ => (z : w.1.adicCompletion F))
+          (Dictionary.ideleFiniteCoord_ofAdicCompletion_of_ne w.1 v hne u)
+      · funext w
+        change ((Units.map
+          (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+            (D.isTotallyComplex.isComplex w)).toMonoidHom
+          (Dictionary.ideleInfiniteCoordUnit w x) : ℂˣ) : ℂ) = 1
+        simp [x, Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion]
+    have hcoordBridge (w : FinPlace F) :
+        coord w (adeleProjection x) = Dictionary.ideleFiniteCoord w x := by
+      apply Units.ext
+      rfl
+    have hβone : β x = 1 := by
+      change g (adeleProjection x) = 1
+      change (∏ᶠ w : FinPlace F, localChar w (coord w (adeleProjection x))) = 1
+      apply finprod_eq_one_of_forall_eq_one
+      intro w
+      by_cases hwv : w = v
+      · subst w
+        rw [hcoordBridge, Dictionary.ideleFiniteCoord_ofAdicCompletion]
+        simp only [localChar, dif_neg hv]
+        exact conductor_localUnramifiedCharacter_unramified v (primeClassValue v) u hu huinv
+      · have hne : w ≠ v := hwv
+        rw [hcoordBridge, Dictionary.ideleFiniteCoord_ofAdicCompletion_of_ne w v hne u]
+        exact (localChar w).map_one
+    have hGone : G x = 1 := by
+      change α x * β x = 1
+      change (ψ (conductor_ideleSCoord D S x))⁻¹ * β x = 1
+      rw [hScoord, hβone]
+      simp
+    change C (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v u) = 1
+    change G (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = 1
+    exact hGone
+  have hθlocOutside (v : FinPlace F) (hv : v ∉ S.Sf)
+      (u : (v.adicCompletion F)ˣ) : θ.loc v u = localChar v u := by
+    let x := IdeleGroup.ofAdicCompletion (𝓞 F) F v u
+    have hScoord : conductor_ideleSCoord D S x = 1 := by
+      apply Units.ext
+      apply Prod.ext
+      · funext w
+        have hne : w.1 ≠ v := by
+          intro heq
+          exact hv (heq ▸ w.2)
+        change (Dictionary.ideleFiniteCoord w.1 x : w.1.adicCompletion F) = 1
+        exact congrArg (fun z : (w.1.adicCompletion F)ˣ => (z : w.1.adicCompletion F))
+          (Dictionary.ideleFiniteCoord_ofAdicCompletion_of_ne w.1 v hne u)
+      · funext w
+        change ((Units.map
+          (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+            (D.isTotallyComplex.isComplex w)).toMonoidHom
+          (Dictionary.ideleInfiniteCoordUnit w x) : ℂˣ) : ℂ) = 1
+        simp [x, Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion]
+    have hcoordBridge (w : FinPlace F) :
+        coord w (adeleProjection x) = Dictionary.ideleFiniteCoord w x := by
+      apply Units.ext
+      rfl
+    have hβloc : β x = localChar v u := by
+      change g (adeleProjection x) = localChar v u
+      change (∏ᶠ w : FinPlace F, localChar w (coord w (adeleProjection x))) = _
+      rw [finprod_eq_single _ v (fun w hne => by
+        rw [hcoordBridge w,
+          Dictionary.ideleFiniteCoord_ofAdicCompletion_of_ne w v hne u]
+        simp)]
+      rw [hcoordBridge v, Dictionary.ideleFiniteCoord_ofAdicCompletion]
+    have hαloc : α x = 1 := by
+      change (ψ (conductor_ideleSCoord D S x))⁻¹ = 1
+      rw [hScoord]
+      simp
+    have hGloc : G x = localChar v u := by
+      change α x * β x = localChar v u
+      rw [hαloc, hβloc]
+      simp
+    change C (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v u) = localChar v u
+    change G (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = localChar v u
+    exact hGloc
+  have hθprime (v : FinPlace F) (hv : v ∉ S.Sf) :
+      θ.primeValue v = (primeClassValue v : ℂ) := by
+    have hram := hθram v hv
+    rw [HeckeChar.primeValue, if_pos hram]
+    let π0 : Fˣ := Units.mk0 (unif v) (unif_ne_zero v)
+    have hunif : v.valuation F (unif v) = WithZero.exp (-1 : ℤ) :=
+      (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+    have hval : v.valuation F (π0 : F) = WithZero.exp (-1 : ℤ) := by
+      change v.valuation F (unif v) = _
+      exact hunif
+    have hOrder : conductor_globalOrder v π0 = 1 := by
+      simp [conductor_globalOrder, hval]
+    rw [hθlocOutside v hv (toLoc v π0)]
+    simp only [localChar, dif_neg hv, conductor_localUnramifiedCharacter]
+    change ((primeClassValue v ^ conductor_localOrder v (toLoc v π0) : ℂˣ) : ℂ) =
+      (primeClassValue v : ℂ)
+    rw [conductor_localOrder_toLoc, hOrder]
+    simp
+  refine ⟨θ, hθfin, hθram, ?_⟩
+  intro I a hI hgen ha
+  let R := conductor_class_factorPlaces I
+  let T := (KummerProofs.residue_zero_finite a).toFinset
+  let f (v : FinPlace F) : ℂ :=
+    ((primeClassValue v ^ conductor_globalOrder v a : ℂˣ) : ℂ)
+  have hRext (v : FinPlace F) (hv : v ∈ R) : v ∉ S.Sf := by
+    intro hvS
+    have hdvd := conductor_class_factorPlaces_dvd I v hv
+    exact hI.2 v hvS (Ideal.le_of_dvd hdvd)
+  have hterm (v : FinPlace F) :
+      θ.primeValue v ^ idealExp v I = f v := by
+    by_cases hvS : v ∈ S.Sf
+    · have hexp := conductor_class_idealExp_zero_of_ext S I hI v hvS
+      have hc : primeClassValue v = 1 := by simp [primeClassValue, p, hvS]
+      simp [f, hexp, hc]
+    · have horder := conductor_order_eq_idealExp_of_gen S hgen v hvS
+      rw [hθprime v hvS]
+      simp [f, horder, Units.val_pow_eq_pow_val, Units.val_zpow_eq_zpow_val]
+  have hideal : θ.idealValue I = R.prod (fun v => f v) := by
+    rw [conductor_class_idealValue_product θ I hI.1]
+    apply Finset.prod_congr rfl
+    intro v hv
+    exact hterm v
+  have hzeroOrderT (v : FinPlace F) (hvT : v ∉ T) :
+      conductor_globalOrder v a = 0 := by
+    have hres : residue v (a : F) ≠ 0 := by
+      intro hres
+      exact hvT ((KummerProofs.residue_zero_finite a).mem_toFinset.mpr hres)
+    have hval :=
+      ArtinPrimitiveRoots.A2.qs_nq0_residue_ne_zero_iff_valuation_one v (a : F) |>.mp hres
+    simp [conductor_globalOrder, hval]
+  have hsupportR : Function.mulSupport f ⊆ R := by
+    intro v hv
+    by_contra hvR
+    have hzero : f v = 1 := by
+      by_cases hvS : v ∈ S.Sf
+      · have hc : primeClassValue v = 1 := by simp [primeClassValue, p, hvS]
+        simp [f, hc]
+      · have hexp := conductor_class_exp_zero_of_not_factor I hI.1 v hvR
+        have horder := conductor_order_eq_idealExp_of_gen S hgen v hvS
+        simp [f, horder, hexp, Units.val_pow_eq_pow_val, Units.val_zpow_eq_zpow_val]
+    exact hv (by simpa using hzero)
+  have hsupportT : Function.mulSupport f ⊆ T := by
+    intro v hv
+    by_contra hvT
+    have hz := hzeroOrderT v hvT
+    have hzero : f v = 1 := by simp [f, hz]
+    exact hv (by simpa using hzero)
+  have hprodSets : R.prod f = T.prod f :=
+    conductor_finset_product_eq_of_mulSupport_subset f R T hsupportR hsupportT
+  have hvalProd :
+      ((∏ v ∈ T, primeClassValue v ^ conductor_globalOrder v a : ℂˣ) : ℂ) =
+        T.prod f := by
+    classical
+    induction T using Finset.induction_on with
+    | empty => simp [f]
+    | @insert v T hv ih => simp [hv, f, ih]
+  have hψcomplex := congrArg (fun z : ℂˣ => (z : ℂ)) (hprincipalData a).2
+  have hψallowed : ψ (S.diagU a) = θB ⟨q (S.diagU a), ha⟩ := by
+    have hclass : q (S.diagU a) ∈ Bd.B := by
+      change (QuotientGroup.mk (S.diagU a) : S.V) ∈ Bd.B at ha
+      exact ha
+    have hfixed := conductor_group_projection_fixed (G := S.V) S.E Bd.B Bd.compl
+      (q (S.diagU a)) hclass
+    have hb : projB (q (S.diagU a)) = ⟨q (S.diagU a), ha⟩ := by
+      apply Subtype.ext
+      exact hfixed
+    change θB (projB (q (S.diagU a))) = _
+    exact congrArg θB hb
+  calc
+    θ.idealValue I = R.prod f := hideal
+    _ = T.prod f := hprodSets
+    _ = ((∏ v ∈ T, primeClassValue v ^ conductor_globalOrder v a : ℂˣ) : ℂ) := hvalProd.symm
+    _ = ((ψ (S.diagU a) : ℂˣ) : ℂ) := hψcomplex.symm
+    _ = ((θB ⟨q (S.diagU a), ha⟩ : ℂˣ) : ℂ) := by rw [hψallowed]
 
 /-- Archimedean angular type of a Hecke character at the complex places. -/
 def HeckeChar.HasAngularType (D : FieldData F) (χ : HeckeChar F) : Prop :=
