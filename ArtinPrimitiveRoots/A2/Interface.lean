@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.Reflection.Nodes
+import ArtinPrimitiveRoots.A2.Proofs.A2_PRODUCERS.Reflection
 import ArtinPrimitiveRoots.A1.SLattice
 import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
@@ -406,7 +407,26 @@ theorem reflectionCharacters_exists (D : FieldData F) (S : SData F CE condη)
     (houtside : ∀ v, v ∉ S.Sf → ϑ.UnramifiedAt v)
     (hangular : HeckeChar.HasAngularType D ϑ) :
     Nonempty (ReflectionCharacters D S H Bd bc ϑ) := by
-  sorry
+  classical
+  obtain ⟨A⟩ := A1.AddCharData.nonempty D
+  let eps : UnitSix S → S.US := fun u => Classical.choose (QuotientGroup.mk_surjective u)
+  have heps : ∀ u, unitSixClass S (eps u) = u := by
+    intro u
+    simpa [unitSixClass, eps] using
+      (Classical.choose_spec (QuotientGroup.mk_surjective u))
+  let charExists (u : UnitSix S) :=
+    ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.reflectionSChar_exists
+      D S H Bd A ϑ hunit houtside hangular (eps u)
+  let chars : UnitSix S → SChar S := fun u => Classical.choose (charExists u)
+  have hchars : ∀ u y, ((chars u).L y : ℂˣ) =
+      rfSCharacter D S H ϑ (eps u) y := by
+    intro u y
+    exact Classical.choose_spec (charExists u) y
+  let rowEps : ReflectionRow S → S.US := rowEpsilon S bc
+  have hrow : ∀ r, rowElement S r = rowEps r * bc.gen r.ideal := by
+    intro r
+    simpa [rowEps, rowEpsilon] using Classical.choose_spec (exists_rowUnit S bc r)
+  exact ⟨eps, heps, chars, hchars, rowEps, hrow⟩
 
 /-- Pairing descended to sixth-power classes (HilbertData already kills sixth powers).
 Consumers: def:rf-profiles and rf:S-unfolding. Existence/descent still needs a proof. -/
