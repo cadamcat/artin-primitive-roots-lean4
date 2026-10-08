@@ -729,6 +729,98 @@ private theorem covol_sunit_finite_reduction_core (S : SData F CE condη)
   · exact Int.emod_nonneg _ hc.ne'
   · simpa [c, N] using Int.emod_lt_of_pos (m v) hc
 
+private theorem covol_local_log_compact_cover_core (v : FinPlace F) (M : ℕ) :
+    ∃ K : Set (v.adicCompletion F), IsCompact K ∧
+      ∀ z : (v.adicCompletion F)ˣ,
+        0 ≤ WithZero.log (Valued.v (z : v.adicCompletion F)) →
+        WithZero.log (Valued.v (z : v.adicCompletion F)) < (M : ℤ) →
+        (z : v.adicCompletion F) ∈ K := by
+  classical
+  obtain ⟨πF, hπF⟩ := v.valuation_exists_uniformizer F
+  have hπFne : πF ≠ 0 := by
+    apply (v.valuation F).ne_zero_iff.mp
+    rw [hπF]
+    simp
+  have hπval : Valued.v (algebraMap F (v.adicCompletion F) πF) =
+      WithZero.exp (-1 : ℤ) := by
+    change Valued.v (πF : v.adicCompletion F) = _
+    rw [v.valuedAdicCompletion_eq_valuation']
+    exact hπF
+  have hπcompne : algebraMap F (v.adicCompletion F) πF ≠ 0 := by
+    intro hzero
+    have hzeroVal : Valued.v (algebraMap F (v.adicCompletion F) πF) = 0 := by
+      rw [hzero]
+      exact map_zero _
+    rw [hπval] at hzeroVal
+    simp at hzeroVal
+  let π : (v.adicCompletion F)ˣ :=
+    Units.mk0 (algebraMap F (v.adicCompletion F) πF) hπcompne
+  have hπ : Valued.v (π : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := hπval
+  let f : v.adicCompletion F → v.adicCompletion F := fun y =>
+    (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) * y
+  let K : Set (v.adicCompletion F) :=
+    f '' (v.adicCompletionIntegers F : Set (v.adicCompletion F))
+  have hf : Continuous f := by
+    dsimp [f]
+    exact continuous_const.mul continuous_id
+  have hK : IsCompact K := by
+    dsimp [K]
+    exact adicCompletionIntegers_compact v |>.image hf
+  refine ⟨K, hK, ?_⟩
+  intro z hz0 hzM
+  let y : v.adicCompletion F := ((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F)
+  have hπnz : Valued.v (π : v.adicCompletion F) ≠ 0 := by
+    rw [hπ]
+    simp
+  have hznz : Valued.v (z : v.adicCompletion F) ≠ 0 :=
+    (Valued.v).ne_zero_iff.mpr z.ne_zero
+  have hπpowlog : WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M) =
+      -(M : ℤ) := by
+    rw [hπ, ← WithZero.exp_nsmul, WithZero.log_exp]
+    simp
+  have hylog : WithZero.log (Valued.v y) = -(M : ℤ) +
+      WithZero.log (Valued.v (z : v.adicCompletion F)) := by
+    dsimp [y]
+    calc
+      WithZero.log (Valued.v
+          (((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F))) =
+          WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M *
+            Valued.v (z : v.adicCompletion F)) := by
+              rw [Valuation.map_mul, Valuation.map_pow]
+      _ = WithZero.log ((Valued.v (π : v.adicCompletion F)) ^ M) +
+          WithZero.log (Valued.v (z : v.adicCompletion F)) :=
+            WithZero.log_mul (pow_ne_zero _ hπnz) hznz
+      _ = -(M : ℤ) + WithZero.log (Valued.v (z : v.adicCompletion F)) := by
+            rw [hπpowlog]
+  have hylt : WithZero.log (Valued.v y) < 0 := by
+    rw [hylog]
+    omega
+  have hynz : Valued.v y ≠ 0 :=
+    (Valued.v).ne_zero_iff.mpr (mul_ne_zero (pow_ne_zero _ π.ne_zero) z.ne_zero)
+  have hyltVal : Valued.v y < 1 := by
+    rw [← WithZero.log_lt_log hynz one_ne_zero, WithZero.log_one]
+    exact hylt
+  have hyO : y ∈ v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hyltVal.le
+  have hcancel : (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+      (((π : v.adicCompletion F) ^ M)) = 1 := by
+    have hunit : (π⁻¹) ^ M * π ^ M = (1 : (v.adicCompletion F)ˣ) := by
+      rw [← mul_pow]
+      simp
+    exact congrArg (fun u : (v.adicCompletion F)ˣ => (u : v.adicCompletion F)) hunit
+  have hzK : (z : v.adicCompletion F) ∈ K := by
+    refine ⟨y, hyO, ?_⟩
+    dsimp [f, y]
+    calc
+      (((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+          (((π : v.adicCompletion F) ^ M) * (z : v.adicCompletion F)) =
+        ((((π⁻¹) ^ M : (v.adicCompletion F)ˣ) : v.adicCompletion F) *
+          ((π : v.adicCompletion F) ^ M)) * (z : v.adicCompletion F) := by ac_rfl
+      _ = 1 * (z : v.adicCompletion F) := by rw [hcancel]
+      _ = z := by simp
+  exact hzK
+
 
 /-- Compact norm-one representatives modulo sixth powers of S-units, stated using only `Field`.
 The norm-one condition on every point of `K` is needed by the balanced-generator target. -/
