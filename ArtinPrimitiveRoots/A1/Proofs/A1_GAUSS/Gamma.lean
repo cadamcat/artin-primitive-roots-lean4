@@ -58,4 +58,61 @@ theorem gamma_prime_eq_normalizedGauss (D : FieldData F) (S : SData F CE condη)
   · rw [hx0, ite_eq_left rfl, χ.map_zero, zero_pow hj.ne']
   · simp [hx0]
 
+theorem gamma_duplication (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (c : F) (hc : S.IsGen c v.asIdeal) :
+    gamma D S A 1 v.asIdeal c * gamma D S A 2 v.asIdeal c =
+      ((starRingEnd ℂ) (chi D v 4) * gamma D S A 3 v.asIdeal c) *
+        gamma D S A 2 v.asIdeal c ^ 3 := by
+  classical
+  let : v.asIdeal.IsMaximal := v.isMaximal
+  let : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  let : Fintype (𝓞 F ⧸ v.asIdeal) := Fintype.ofFinite _
+  have h6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  obtain ⟨χ, hχ, hχ6⟩ := residue_character_exists D v h6
+  obtain ⟨ψ, hψ, hψprim⟩ := residue_additive_character_exists D S A v hc.1 c hc
+  have hχne : χ ≠ 1 := by
+    simpa only [pow_one] using
+      residue_character_pow_ne_one D v h6 χ hχ 1 (by decide) (by decide)
+  have hχ2 : χ ^ 2 ≠ 1 :=
+    residue_character_pow_ne_one D v h6 χ hχ 2 (by decide) (by decide)
+  have hquad : χ ^ 3 = quadraticComplex (k := 𝓞 F ⧸ v.asIdeal) :=
+    residue_character_cube_eq_quadraticComplex D v h6 χ hχ hχ6
+  have hneg : χ (-1) = 1 := residue_character_neg_one D v h6 χ hχ
+  have hodd : ringChar (𝓞 F ⧸ v.asIdeal) ≠ 2 := by
+    intro h
+    have hneg' : (-1 : 𝓞 F ⧸ v.asIdeal) = 1 := neg_one_eq_one_iff.mpr h
+    apply h6
+    apply Ideal.Quotient.eq_zero_iff_mem.mp
+    simp only [map_ofNat]
+    linear_combination -3 * hneg'
+  have htwo : (2 : 𝓞 F ⧸ v.asIdeal) ≠ 0 := by
+    intro h
+    apply hodd
+    apply neg_one_eq_one_iff.mp
+    linear_combination -h
+  have hfour : (4 : 𝓞 F ⧸ v.asIdeal) ≠ 0 := by
+    rw [show (4 : 𝓞 F ⧸ v.asIdeal) = (2 : 𝓞 F ⧸ v.asIdeal) ^ 2 by ring]
+    exact pow_ne_zero _ htwo
+  have hroot : χ (4 : 𝓞 F ⧸ v.asIdeal) ^ 6 = 1 := by
+    rw [← χ.pow_apply' (by decide : (6 : ℕ) ≠ 0) (4 : 𝓞 F ⧸ v.asIdeal),
+      hχ6, MulChar.one_apply (isUnit_iff_ne_zero.mpr hfour)]
+  have hχ4 : χ (4 : 𝓞 F ⧸ v.asIdeal) = chi D v (4 : F) := by
+    simpa only [map_ofNat] using hχ (4 : 𝓞 F)
+  have hinv : (χ (4 : 𝓞 F ⧸ v.asIdeal))⁻¹ = (starRingEnd ℂ) (chi D v 4) := by
+    calc
+      (χ (4 : 𝓞 F ⧸ v.asIdeal))⁻¹ = (starRingEnd ℂ) (χ 4) :=
+        Complex.inv_eq_conj (Complex.norm_eq_one_of_pow_eq_one hroot (by decide))
+      _ = (starRingEnd ℂ) (chi D v 4) := by rw [hχ4]
+  have hgamma (n : ℕ) (hn : 0 < n) :
+      gamma D S A (n : ℤ) v.asIdeal c = normalizedGauss (χ ^ n) ψ :=
+    gamma_prime_eq_normalizedGauss D S A v c χ hχ ψ hψ n hn
+  have hg1 := hgamma 1 (by decide)
+  have hg2 := hgamma 2 (by decide)
+  have hg3 := hgamma 3 (by decide)
+  simp only [Nat.cast_one, Nat.cast_ofNat, pow_one] at hg1 hg2 hg3
+  rw [hg1, hg2, hg3]
+  simpa only [hinv] using
+    normalized_sextic_duplication χ ψ hχne hχ2 hχ6 hquad hneg hodd hψprim
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
