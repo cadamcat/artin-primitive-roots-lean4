@@ -7,6 +7,7 @@ Adapted from `TauCeti/NumberTheory/ArithmeticDirichletSeries/EulerProduct/Basic.
 used by the analytic argument.
 -/
 import ArtinPrimitiveRoots.Hecke.Elementary.EulerProduct.Algebra
+import TauCeti.NumberTheory.ArithmeticDirichletSeries.EulerProduct.Basic
 import Mathlib.NumberTheory.EulerProduct.Basic
 import Mathlib.NumberTheory.NumberField.Completion.FinitePlace
 import Mathlib.NumberTheory.NumberField.Ideal.Asymptotics
@@ -16,25 +17,7 @@ public section
 open scoped nonZeroDivisors NumberField
 open IsDedekindDomain
 
-namespace IsDedekindDomain.HeightOneSpectrum
-
-variable {K : Type*} [Field K]
-
-/-- The `e`-th power of a height-one prime, as a nonzero integral ideal. -/
-def primeIdealPow (P : HeightOneSpectrum (𝓞 K)) (e : ℕ) : (Ideal (𝓞 K))⁰ :=
-  ⟨P.asIdeal ^ e, mem_nonZeroDivisors_of_ne_zero (pow_ne_zero e P.ne_bot)⟩
-
-@[simp]
-theorem coe_primeIdealPow (P : HeightOneSpectrum (𝓞 K)) (e : ℕ) :
-    (primeIdealPow P e : Ideal (𝓞 K)) = P.asIdeal ^ e := rfl
-
-variable [NumberField K]
-
-theorem absNorm_primeIdealPow (P : HeightOneSpectrum (𝓞 K)) (e : ℕ) :
-    Ideal.absNorm (primeIdealPow P e : Ideal (𝓞 K)) = Ideal.absNorm P.asIdeal ^ e := by
-  rw [coe_primeIdealPow, map_pow]
-
-end IsDedekindDomain.HeightOneSpectrum
+/- The prime-power API is supplied by TauCeti's EulerProduct.Basic module. -/
 
 namespace ArtinPrimitiveRoots.Hecke.EulerProduct
 

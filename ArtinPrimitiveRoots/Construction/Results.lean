@@ -1,4 +1,6 @@
 import ArtinPrimitiveRoots.Construction.Defs
+import ArtinPrimitiveRoots.Construction.Proofs.c2.PartialSummation
+import ArtinPrimitiveRoots.Construction.Proofs.C_BV.Mass
 import ArtinPrimitiveRoots.Construction.Proofs.c1.SupportHelpers
 import ArtinPrimitiveRoots.Construction.Proofs.c1.SieveProductHelpers
 import ArtinPrimitiveRoots.Construction.Proofs.c1.HarmonicHelpers
@@ -12,16 +14,19 @@ import ArtinPrimitiveRoots.Construction.Proofs.c4.TestFunction
 import ArtinPrimitiveRoots.Construction.Proofs.c4.BalancedHelpers
 import ArtinPrimitiveRoots.Construction.Proofs.c4.RoughPairResidues
 import ArtinPrimitiveRoots.Construction.Proofs.c4.PairBlock
+import ArtinPrimitiveRoots.Construction.Proofs.crp.Assembly
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
 namespace ArtinPrimitiveRoots.Construction
 
 open Classical
+open MeasureTheory
 open Filter
 open scoped Topology
 open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.TypeII.Rough
+open ArtinPrimitiveRoots.Construction.ProofsC2
 
 /-- `co:support`, 12-construction.tex:53-67. The construction multiplier is invariant under
 marked primes; nonzero weights have the stated factorization and are bounded uniformly. -/
@@ -1602,6 +1607,7 @@ theorem con_harmonic (M c : ℕ) (u : ℤ) (Ψ : ℝ → ℝ)
         _ ≤ C * (x / (r : ℝ)) := mul_le_mul_of_nonneg_right h3 hratio
         _ = C * x / (r : ℝ) := by ring
 
+set_option maxHeartbeats 0
 /-- `co:bv-smoothed`, 12-construction.tex:286-349. The progression hypotheses `hc24`, `hu`, `hcu`, `hcu'` (those of
 `prop:controlled`) were added on 2026-10-07: without them the statement is false (lane `c2`, `M = 4, c = 2, u = 1`). -/
 theorem bv_smoothed (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
@@ -1621,7 +1627,614 @@ theorem bv_smoothed (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
                   localSieveDensity M r ℓ * smoothedMainTerm x c r Ψ /
                     (Nat.totient (M / c) : ℝ)|) ≤
                   C * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) := by
-  sorry
+  intro A hA
+  classical
+  rcases hΨ with ⟨hΨsmooth, hΨsupp, hΨnonneg, hΨle, hΨint⟩
+  let N : ℕ := M / c
+  have hMN : c * N = M := by
+    dsimp [N]
+    exact Nat.mul_div_cancel' hcM
+  have hNpos : 0 < N := by
+    dsimp [N]
+    exact Nat.div_pos (Nat.le_of_dvd hM hcM) hc
+  let z : ℤ := (u - 1) / (c : ℤ)
+  have hz : (c : ℤ) * z = u - 1 := by
+    dsimp [z]
+    exact Int.mul_ediv_cancel' hcu
+  have hZgcd : Int.gcd z (N : ℤ) = 1 := by
+    simpa [z, N] using hcu'
+  let A' : ℝ := A + 3
+  have hA' : 0 < A' := by dsimp [A']; linarith
+  let eta : ℝ := (κ - ε) / 4
+  let theta : ℝ := 1 / 2 - eta
+  let beta : ℝ := 1 / 2 - κ / 2
+  let gap : ℝ := (1 - ε) * theta - beta
+  have heta : 0 < eta := by dsimp [eta]; linarith
+  have htheta : 0 < theta := by dsimp [theta, eta]; nlinarith
+  have hbeta : 0 < beta := by dsimp [beta]; linarith
+  have hgapEq : gap = (κ - ε) * (1 + ε) / 4 := by
+    dsimp [gap, theta, beta, eta]
+    ring
+  have hgap : 0 < gap := by rw [hgapEq]; positivity
+  obtain ⟨CBV, yBV, hCBV, hyBV, hBV⟩ :=
+    ArtinPrimitiveRoots.Ext.TypeIIInputs.bombieri_vinogradov A' eta hA' heta
+  have hΨderiv : Continuous (deriv Ψ) := hΨsmooth.continuous_deriv (by simp)
+  obtain ⟨B₀, hB₀⟩ := isCompact_Icc.exists_bound_of_continuousOn hΨderiv.continuousOn
+  let B : ℝ := |B₀| + 1
+  have hBpos : 0 < B := by dsimp [B]; positivity
+  have hΨderivBound (y : ℝ) (hy : y ∈ Set.Icc 1 2) : |deriv Ψ y| ≤ B := by
+    have hnorm := hB₀ y hy
+    calc
+      |deriv Ψ y| = ‖deriv Ψ y‖ := by rw [Real.norm_eq_abs]
+      _ ≤ B₀ := hnorm
+      _ ≤ |B₀| + 1 := by linarith [le_abs_self B₀]
+  let V : ℝ := Real.rpow (1 / 2 : ℝ) (-A')
+  have hVpos : 0 < V := by
+    dsimp [V]
+    exact Real.rpow_pos_of_pos (by norm_num) _
+  let C : ℝ := 20 * B * CBV * V
+  have hC : 0 < C := by dsimp [C]; positivity
+  obtain ⟨xMark, hxMark⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_markedPrimes_gt (max M 2) K a ha
+  obtain ⟨xCut, hxCutPow⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_real_rpow_ge
+      (δ := (9 / 100 : ℝ)) (B := 8) (by norm_num)
+  obtain ⟨xLevel, hxLevel⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_real_rpow_ge
+      (δ := gap) (B := (N : ℝ) * Real.rpow 8 theta) hgap
+  obtain ⟨xLarge, hxLarge⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_real_rpow_ge
+      (δ := (9 / 10 : ℝ)) (B := max yBV 2) (by norm_num)
+  obtain ⟨xExp, hxExp⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_real_rpow_ge
+      (δ := (1 : ℝ)) (B := Real.exp 1) (by norm_num)
+  let x₀ : ℝ := max 2 (max xMark (max xCut (max xLevel (max xLarge xExp))) )
+  refine ⟨C, x₀, hC, ?_, ?_⟩
+  · exact le_trans (by norm_num) (le_max_left _ _)
+  · intro x hx r hr hrex
+    have hxParts : 2 ≤ x ∧ xMark ≤ x ∧ xCut ≤ x ∧ xLevel ≤ x ∧
+        xLarge ≤ x ∧ xExp ≤ x := by
+      dsimp [x₀] at hx
+      simpa only [max_le_iff] using hx
+    rcases hxParts with ⟨hx2, hxMarkX, hxCutX, hxLevelX, hxLargeX, hxExpX⟩
+    have hxCut : 8 ≤ Real.rpow x (9 / 100 : ℝ) := hxCutPow x hxCutX
+    have hxLevel : (N : ℝ) * Real.rpow 8 theta ≤ Real.rpow x gap :=
+      hxLevel x hxLevelX
+    have hxLarge : max yBV 2 ≤ Real.rpow x (9 / 10 : ℝ) :=
+      hxLarge x hxLargeX
+    have hxExp' : Real.exp 1 ≤ x := by
+      calc
+        Real.exp 1 ≤ Real.rpow x (1 : ℝ) := hxExp x hxExpX
+        _ = x := Real.rpow_one x
+    have hlogx : 1 ≤ Real.log x := by
+      have h := Real.log_le_log (Real.exp_pos 1) hxExp'
+      simpa using h
+    have hlogxpos : 0 < Real.log x := lt_of_lt_of_le (by norm_num) hlogx
+    have hxpos : 0 < x := by linarith [hx2]
+    have hMarksM (p : ℕ) (hp : p ∈ markedPrimes x K a) :
+        (M : ℝ) < (p : ℝ) := by
+      exact lt_of_le_of_lt (by exact_mod_cast (Nat.le_max_left M 2))
+        (hxMark x hxMarkX p hp)
+    have hMarks2 (p : ℕ) (hp : p ∈ markedPrimes x K a) :
+        (2 : ℝ) < (p : ℝ) := by
+      exact lt_of_le_of_lt (by exact_mod_cast (Nat.le_max_right M 2))
+        (hxMark x hxMarkX p hp)
+    have hrpos : 0 < r :=
+      ArtinPrimitiveRoots.Construction.ProofsC2.groupInteger_pos_of_marks_gt_two
+        x K r a hMarks2 hr
+    have hrM : Nat.Coprime r M :=
+      ArtinPrimitiveRoots.Construction.ProofsC2.groupInteger_coprime_modulus
+        x M K r a hM hMarksM hr
+    have hrN : Nat.Coprime r N := hrM.coprime_dvd_right (Nat.div_dvd_of_dvd hcM)
+    let cr : ℝ := ((c * r : ℕ) : ℝ)
+    have hcr : 0 < cr := by dsimp [cr]; positivity
+    have hcLower : (2 : ℝ) ≤ (c : ℝ) := by
+      rcases hc24 with h | h <;> norm_num [h]
+    have hcUpper : (c : ℝ) ≤ 4 := by
+      rcases hc24 with h | h <;> norm_num [h]
+    have hcrUpper : cr ≤ 4 * Real.rpow x ε := by
+      dsimp [cr]
+      rw [Nat.cast_mul]
+      calc
+        (c : ℝ) * (r : ℝ) ≤ 4 * (r : ℝ) :=
+          mul_le_mul_of_nonneg_right hcUpper (Nat.cast_nonneg _)
+        _ ≤ 4 * Real.rpow x ε :=
+          mul_le_mul_of_nonneg_left hrex (by norm_num)
+    have hεsmall : ε < 1 / 100 := lt_trans hεκ hκ
+    have hcutoff : Real.rpow x (9 / 10 : ℝ) ≤ (x - 1) / cr :=
+      ArtinPrimitiveRoots.Construction.ProofsC2.real_interval_lower_cutoff
+        x cr ε hx2 hεsmall hcr hcrUpper hxCut
+    have hzUnit := ArtinPrimitiveRoots.Construction.ProofsC2.int_gcd_one_zmod_isUnit hZgcd
+    let lo : ℝ := (x - 1) / cr
+    let hi : ℝ := (2 * x - 1) / cr
+    have hcrLower : (2 : ℝ) ≤ cr := by
+      dsimp [cr]
+      rw [Nat.cast_mul]
+      have hrOne : (1 : ℝ) ≤ (r : ℝ) := by exact_mod_cast (Nat.one_le_iff_ne_zero.mpr hrpos.ne')
+      nlinarith [mul_le_mul_of_nonneg_right hcLower (show 0 ≤ (r : ℝ) by positivity)]
+    have hlo0 : 0 ≤ lo := by
+      dsimp [lo]
+      exact div_nonneg (by linarith [hx2]) hcr.le
+    have hloCut : Real.rpow x (9 / 10 : ℝ) ≤ lo := by
+      simpa [lo] using hcutoff
+    have hloGrow : Real.rpow x (1 - ε) / 8 ≤ lo := by
+      exact ArtinPrimitiveRoots.Construction.ProofsC2.real_interval_lower_growth
+        x cr ε hx2 hcr hcrUpper
+    have hlohi : lo ≤ hi := by
+      dsimp [lo, hi]
+      rw [div_le_div_iff_of_pos_right hcr]
+      nlinarith [hx2]
+    let D : ℝ := Real.rpow x beta
+    let S : Finset ℕ := oddSquarefreeUpTo D
+    let Sgood : Finset ℕ := S.filter (fun ell => Nat.Coprime ell (M * r))
+    let I := Sgood.attach
+    have hEllPos (ell : ℕ) (hell : ell ∈ S) : 0 < ell := by
+      have hell' : ell ∈ oddSquarefreeUpTo D := by simpa [S] using hell
+      unfold oddSquarefreeUpTo at hell'
+      have hOdd := (Finset.mem_filter.mp hell').2.1
+      by_contra hn
+      have hz0 : ell = 0 := Nat.eq_zero_of_not_pos hn
+      subst ell
+      simp at hOdd
+    let crtData : ∀ i : {ell // ell ∈ Sgood},
+        ∃ v : ℕ, v < N * i.1 ∧ Nat.Coprime v (N * i.1) ∧
+          ∀ Q : ℕ,
+            ((((c * r * Q + 1 : ℕ) : ℤ) ≡ u [ZMOD M] ∧ i.1 ∣ c * r * Q + 1) ↔
+              Q ≡ v [MOD N * i.1]) := by
+      intro i
+      rcases Finset.mem_filter.mp i.2 with ⟨hiS, hiGood⟩
+      exact ArtinPrimitiveRoots.Construction.ProofsC2.progressionClass_data
+        M c N r i.1 u z hMN hc hNpos (hEllPos i.1 hiS) hz hrN hZgcd hiGood
+    let qI : {ell // ell ∈ Sgood} → ℕ := fun i => N * i.1
+    let vI : {ell // ell ∈ Sgood} → ℕ := fun i => Classical.choose (crtData i)
+    have hvSpec (i : {ell // ell ∈ Sgood}) :
+        vI i < qI i ∧ Nat.Coprime (vI i) (qI i) ∧
+          ∀ Q : ℕ,
+            ((((c * r * Q + 1 : ℕ) : ℤ) ≡ u [ZMOD M] ∧ i.1 ∣ c * r * Q + 1) ↔
+              Q ≡ vI i [MOD qI i]) := by
+      simpa [qI, vI] using Classical.choose_spec (crtData i)
+    have hqInj : Set.InjOn qI I := by
+      intro i hi j hj hij
+      apply Subtype.ext
+      exact Nat.mul_left_cancel hNpos hij
+    have hhi2x : hi ≤ 2 * x := by
+      dsimp [hi]
+      rw [div_le_iff₀ hcr]
+      have hcrOne : (1 : ℝ) ≤ cr := by linarith [hcrLower]
+      have hmul : 2 * x ≤ (2 * x) * cr := by
+        have h := mul_le_mul_of_nonneg_left hcrOne (by positivity : 0 ≤ 2 * x)
+        simpa using h
+      linarith
+    have hfloorhi : ⌊hi⌋₊ ≤ ⌊2 * x⌋₊ := Nat.floor_mono hhi2x
+    have hT (n : ℕ) (hn : smoothProgressionFunction x c r Ψ (n : ℝ) ≠ 0) :
+        n ∈ Finset.range (⌊2 * x⌋₊ + 1) := by
+      have hsupport := ArtinPrimitiveRoots.Construction.ProofsC2.smoothProgression_support_bounds
+        x cr (Real.rpow x (9 / 10 : ℝ)) lo hi Ψ n hxpos hcr hlo0 hloCut rfl rfl hΨsupp
+        (by simpa [smoothProgressionFunction, cr] using hn)
+      have hnhi := (Finset.mem_Ioc.mp hsupport.2).2
+      exact Finset.mem_range.mpr (Nat.lt_succ_of_le (le_trans hnhi hfloorhi))
+    have hIntervalSupport (n : ℕ)
+        (hn : smoothProgressionFunction x c r Ψ (n : ℝ) ≠ 0) :
+        n ∈ Finset.Ioc ⌊lo⌋₊ ⌊hi⌋₊ := by
+      exact (ArtinPrimitiveRoots.Construction.ProofsC2.smoothProgression_support_bounds
+        x cr (Real.rpow x (9 / 10 : ℝ)) lo hi Ψ n hxpos hcr hlo0 hloCut rfl rfl hΨsupp
+        (by simpa [smoothProgressionFunction, cr] using hn)).2
+    have hqBound (y : ℝ) (hy : y ∈ Set.Icc lo hi)
+        (i : {ell // ell ∈ Sgood}) :
+        qI i ≤ ⌊Real.rpow y theta⌋₊ := by
+      have hiS := (Finset.mem_filter.mp i.2).1
+      have hSRange : i.1 < ⌊D⌋₊ + 1 := by
+        simpa [S, D, oddSquarefreeUpTo] using (Finset.mem_filter.mp hiS).1
+      have hiNat : i.1 ≤ ⌊D⌋₊ := Nat.lt_succ_iff.mp hSRange
+      have hDpos : 0 < D := by dsimp [D]; positivity
+      have hiReal : (i.1 : ℝ) ≤ Real.rpow x beta := by
+        calc
+          (i.1 : ℝ) ≤ (⌊D⌋₊ : ℝ) := by exact_mod_cast hiNat
+          _ ≤ D := Nat.floor_le hDpos.le
+          _ = Real.rpow x beta := rfl
+      have hgapDef : gap = (1 - ε) * theta - beta := rfl
+      have hprod := ArtinPrimitiveRoots.Construction.ProofsC2.nat_product_le_rpow_of_growth
+        N i.1 x ε beta theta gap (by linarith [hx2]) htheta hiReal hgapDef hxLevel
+      have hyLower : Real.rpow x (1 - ε) / 8 ≤ y := le_trans hloGrow hy.1
+      have hbasepos : 0 < Real.rpow x (1 - ε) / 8 :=
+        div_pos (Real.rpow_pos_of_pos hxpos _) (by norm_num)
+      have hpower := Real.rpow_le_rpow hbasepos.le hyLower htheta.le
+      have hqreal : ((N * i.1 : ℕ) : ℝ) ≤ Real.rpow y theta := by
+        simpa [qI] using le_trans hprod hpower
+      have hqnat : N * i.1 ≤ ⌊Real.rpow y theta⌋₊ := Nat.le_floor hqreal
+      simpa [qI] using hqnat
+    have hBVinterval (y : ℝ) (hy : y ∈ Set.Icc lo hi) :
+        (∑ q ∈ Finset.range (⌊Real.rpow y theta⌋₊ + 1),
+          ArtinPrimitiveRoots.Ext.TypeIIInputs.primeProgressionError y q) ≤
+          CBV * y * Real.rpow (Real.log y) (-A') := by
+      have hy0 : yBV ≤ y := by
+        exact le_trans (le_max_left yBV 2)
+          (le_trans hxLarge (le_trans hloCut hy.1))
+      simpa [theta] using hBV y hy0
+    have hlogHalf (y : ℝ) (hy : y ∈ Set.Icc lo hi) :
+        (1 / 2 : ℝ) * Real.log x ≤ Real.log y := by
+      have hpowy : Real.rpow x (9 / 10 : ℝ) ≤ y := le_trans hloCut hy.1
+      have hlog := Real.log_le_log (Real.rpow_pos_of_pos hxpos _) hpowy
+      rw [Real.log_rpow hxpos] at hlog
+      nlinarith [hlogx]
+    let f : ℝ → ℝ := smoothProgressionFunction x c r Ψ
+    let E : ℝ → ℝ := fun t => CBV * t * Real.rpow (Real.log t) (-A')
+    let coeff : {ell // ell ∈ Sgood} → ℕ → ℝ := fun i n =>
+      ArtinPrimitiveRoots.Construction.ProofsC2.progressionClassIndicator
+        (qI i) (vI i) n
+    let α : {ell // ell ∈ Sgood} → ℝ := fun i =>
+      1 / (Nat.totient (qI i) : ℝ)
+    have hClass (i : {ell // ell ∈ Sgood}) (Q : ℕ) :
+        ( (((c * r * Q + 1 : ℕ) : ℤ) ≡ u [ZMOD M] ∧ i.1 ∣ c * r * Q + 1) ↔
+          (Q : ZMod (qI i)) = (vI i : ZMod (qI i))) := by
+      constructor
+      · intro h
+        exact (ZMod.natCast_eq_natCast_iff Q (vI i) (qI i)).2
+          ((hvSpec i).2.2 Q |>.mp h)
+      · intro h
+        exact (hvSpec i).2.2 Q |>.mpr
+          ((ZMod.natCast_eq_natCast_iff Q (vI i) (qI i)).1 h)
+    have hCut (n : ℕ)
+        (hn : smoothProgressionFunction x c r Ψ (n : ℝ) ≠ 0) :
+        Real.rpow x (9 / 10 : ℝ) < (n : ℝ) :=
+      (ArtinPrimitiveRoots.Construction.ProofsC2.smoothProgression_support_bounds
+        x cr (Real.rpow x (9 / 10 : ℝ)) lo hi Ψ n hxpos hcr hlo0 hloCut rfl rfl hΨsupp
+        (by simpa [smoothProgressionFunction, cr] using hn)).1
+    have hRangeToIoc (i : {ell // ell ∈ Sgood}) :
+        progressionPrimeSum x M c u Ψ r i.1 =
+          ∑ n ∈ Finset.Ioc ⌊lo⌋₊ ⌊hi⌋₊, f (n : ℝ) * coeff i n := by
+      have hbridge := ArtinPrimitiveRoots.Construction.ProofsC2.progressionPrimeSum_eq_crt_sum
+        x M c u Ψ r i.1 (qI i) (vI i)
+        (Finset.range (⌊2 * x⌋₊ + 1)) (by intro n hn; exact hn)
+        (by intro n hn; exact hT n (by simpa [f] using hn))
+        (by intro n hn; exact hCut n (by simpa [f] using hn))
+        (by intro n; exact hClass i n)
+      calc
+        progressionPrimeSum x M c u Ψ r i.1 =
+            ∑ n ∈ Finset.range (⌊2 * x⌋₊ + 1),
+              smoothProgressionFunction x c r Ψ (n : ℝ) *
+                ArtinPrimitiveRoots.Construction.ProofsC2.progressionClassIndicator
+                  (qI i) (vI i) n := hbridge
+        _ = ∑ n ∈ Finset.Ioc ⌊lo⌋₊ ⌊hi⌋₊, f (n : ℝ) * coeff i n := by
+          simpa [f, coeff] using
+            (ArtinPrimitiveRoots.Construction.ProofsC2.sum_range_eq_sum_Ioc_of_support
+              x lo hi f (coeff i) hlohi hfloorhi
+              (by intro n hn; exact hIntervalSupport n (by simpa [f] using hn)))
+    have hcount (y : ℝ) (hy : y ∈ Set.Icc lo hi) :
+        (∑ i ∈ I,
+          |ArtinPrimitiveRoots.Construction.ProofsC2.partialCoefficientSum (coeff i) y -
+            α i * ArtinPrimitiveRoots.Ext.TypeIIInputs.logarithmicIntegral y|) ≤ E y := by
+      have hsum := ArtinPrimitiveRoots.Construction.ProofsC2.sum_progression_class_errors_le_bv
+        I qI vI (⌊Real.rpow y theta⌋₊) y hqInj
+        (fun i hi => hqBound y hy i)
+        (fun i hi => (hvSpec i).1)
+        (fun i hi => (hvSpec i).2.1)
+      have hcountTerm (i : {ell // ell ∈ Sgood}) :
+          ArtinPrimitiveRoots.Construction.ProofsC2.partialCoefficientSum (coeff i) y =
+            (((primesUpTo y).filter
+              (fun p : ℕ => (p : ZMod (qI i)) = (vI i : ZMod (qI i)))).card : ℝ) := by
+        simpa [coeff] using
+          (ArtinPrimitiveRoots.Construction.ProofsC2.partialClassCount (qI i) (vI i) y)
+      have hrewrite :
+          (∑ i ∈ I,
+            |ArtinPrimitiveRoots.Construction.ProofsC2.partialCoefficientSum (coeff i) y -
+              α i * ArtinPrimitiveRoots.Ext.TypeIIInputs.logarithmicIntegral y|) =
+            ∑ i ∈ I,
+              |(((primesUpTo y).filter
+                  (fun p : ℕ => (p : ZMod (qI i)) = (vI i : ZMod (qI i)))).card : ℝ) -
+                ArtinPrimitiveRoots.Ext.TypeIIInputs.logarithmicIntegral y /
+                  (Nat.totient (qI i) : ℝ)| := by
+        apply Finset.sum_congr rfl
+        intro i hi
+        rw [hcountTerm]
+        dsimp [α]
+        ring_nf
+      rw [hrewrite]
+      calc
+        _ ≤ ∑ q ∈ Finset.range (⌊Real.rpow y theta⌋₊ + 1),
+            ArtinPrimitiveRoots.Ext.TypeIIInputs.primeProgressionError y q := hsum
+        _ ≤ CBV * y * Real.rpow (Real.log y) (-A') := hBVinterval y hy
+        _ = E y := rfl
+    let arg : ℝ → ℝ := fun t => (cr * t + 1) / x
+    have hargcont : Continuous arg := by fun_prop
+    have hΨderivcont : Continuous (deriv Ψ) :=
+      hΨsmooth.continuous_deriv (by simp)
+    have hderivFormula (t : ℝ) :
+        deriv f t = deriv Ψ (arg t) * (cr / x) := by
+        simpa [f, arg, cr, smoothProgressionFunction] using
+        (ArtinPrimitiveRoots.Construction.ProofsC2.smoothProgression_hasDerivAt
+          x c r Ψ hΨsmooth hxpos.ne' t).deriv
+    have hderivcont : Continuous (deriv f) := by
+      rw [show deriv f = fun t => deriv Ψ (arg t) * (cr / x) from funext hderivFormula]
+      exact (hΨderivcont.comp hargcont).mul continuous_const
+    have hderivInt : IntegrableOn (deriv f) (Set.Icc lo hi) :=
+      hderivcont.continuousOn.integrableOn_compact isCompact_Icc
+    have hfDiff : ∀ t ∈ Set.Icc lo hi, DifferentiableAt ℝ f t := by
+      intro t ht
+      exact (ArtinPrimitiveRoots.Construction.ProofsC2.smoothProgression_hasDerivAt
+        x c r Ψ hΨsmooth hxpos.ne' t).differentiableAt
+    have hlo8 : 8 ≤ lo := by
+      have hxOne : 1 ≤ x := by linarith [hx2]
+      have hpow : Real.rpow x (9 / 100 : ℝ) ≤ Real.rpow x (9 / 10 : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le hxOne
+          (by norm_num : (9 / 100 : ℝ) ≤ 9 / 10)
+      exact le_trans hxCut (le_trans hpow hloCut)
+    have hlogcont : ContinuousOn Real.log (Set.Icc lo hi) := by
+      apply Real.continuousOn_log.mono
+      intro t ht
+      change t ≠ 0
+      have ht8 : 8 ≤ t := le_trans hlo8 ht.1
+      exact ne_of_gt (by linarith)
+    have ht2 (t : ℝ) (ht : t ∈ Set.Icc lo hi) : 2 < t := by
+      exact lt_of_lt_of_le (by norm_num) (le_trans hlo8 ht.1)
+    have hlogpos (t : ℝ) (ht : t ∈ Set.Icc lo hi) : 0 < Real.log t :=
+      Real.log_pos (by linarith [ht2 t ht])
+    have hli (t : ℝ) (ht : t ∈ Set.Icc lo hi) :
+        HasDerivAt ArtinPrimitiveRoots.Ext.TypeIIInputs.logarithmicIntegral
+          (1 / Real.log t) t :=
+      ArtinPrimitiveRoots.Construction.ProofsC2.logarithmicIntegral_hasDerivAt
+        (ht2 t ht)
+    have hliInt : IntervalIntegrable (fun t => 1 / Real.log t) volume lo hi := by
+      apply ContinuousOn.intervalIntegrable_of_Icc hlohi
+      apply continuousOn_const.div hlogcont
+      intro t ht
+      exact ne_of_gt (hlogpos t ht)
+    have hfcont : Continuous f := by
+      change Continuous (Ψ ∘ arg)
+      exact hΨsmooth.continuous.comp hargcont
+    have hflogInt : IntervalIntegrable (fun t => f t / Real.log t) volume lo hi := by
+      apply ContinuousOn.intervalIntegrable_of_Icc hlohi
+      apply hfcont.continuousOn.div hlogcont
+      intro t ht
+      exact ne_of_gt (hlogpos t ht)
+    have hPInt : ∀ i ∈ I,
+        IntervalIntegrable
+          (fun t => deriv f t *
+            ArtinPrimitiveRoots.Construction.ProofsC2.partialCoefficientSum (coeff i) t)
+          volume lo hi := by
+      intro i hiI
+      rw [intervalIntegrable_iff_integrableOn_Icc_of_le hlohi]
+      exact integrableOn_mul_sum_Icc (coeff i) hlo0 hderivInt
+    have hEcont : ContinuousOn E (Set.Icc lo hi) := by
+      have hpcont : ContinuousOn
+          (fun t => Real.rpow (Real.log t) (-A')) (Set.Icc lo hi) :=
+        hlogcont.rpow_const (fun t ht => Or.inl (ne_of_gt (hlogpos t ht)))
+      dsimp [E]
+      exact (continuousOn_const.mul continuousOn_id).mul hpcont
+    have hEInt : IntervalIntegrable (fun t => |deriv f t| * E t) volume lo hi := by
+      apply ContinuousOn.intervalIntegrable_of_Icc hlohi
+      exact hderivcont.continuousOn.abs.mul hEcont
+    have hargIcc (t : ℝ) (ht : t ∈ Set.Icc lo hi) : arg t ∈ Set.Icc 1 2 := by
+      have hta : (x - 1) / cr ≤ t := by simpa [lo] using ht.1
+      have htb : t ≤ (2 * x - 1) / cr := by simpa [hi] using ht.2
+      constructor
+      · change 1 ≤ (cr * t + 1) / x
+        apply (le_div_iff₀ hxpos).2
+        have h := (div_le_iff₀ hcr).1 hta
+        nlinarith
+      · change (cr * t + 1) / x ≤ 2
+        apply (div_le_iff₀ hxpos).2
+        have h := (le_div_iff₀ hcr).1 htb
+        nlinarith
+    have hderivBound (t : ℝ) (ht : t ∈ Set.Icc lo hi) :
+        |deriv f t| ≤ B * (cr / x) := by
+      rw [hderivFormula, abs_mul]
+      have hΨb := hΨderivBound (arg t) (hargIcc t ht)
+      have hcrx : 0 ≤ cr / x := le_of_lt (div_pos hcr hxpos)
+      calc
+        |deriv Ψ (arg t)| * |cr / x| = |deriv Ψ (arg t)| * (cr / x) := by
+          rw [abs_of_nonneg hcrx]
+        _ ≤ B * (cr / x) := mul_le_mul_of_nonneg_right hΨb hcrx
+    have hderivAbsInt : IntervalIntegrable (fun t => |deriv f t|) volume lo hi :=
+      by
+        rw [intervalIntegrable_iff_integrableOn_Icc_of_le hlohi]
+        exact hderivInt.abs
+    have hderivIntegral : (∫ t in lo..hi, |deriv f t|) ≤ B := by
+      calc
+        _ ≤ ∫ t in lo..hi, B * (cr / x) :=
+          intervalIntegral.integral_mono_on hlohi hderivAbsInt
+            (intervalIntegrable_const) (fun t ht => hderivBound t ht)
+        _ = B := by
+          rw [intervalIntegral.integral_const]
+          dsimp [lo, hi]
+          field_simp [hcr.ne', hxpos.ne']
+          ring_nf
+    have hΨone : Ψ 1 = 0 := by
+      by_contra hn
+      have hm := hΨsupp (Function.mem_support.mpr hn)
+      exact (not_lt_of_ge le_rfl hm.1)
+    have hΨtwo : Ψ 2 = 0 := by
+      by_contra hn
+      have hm := hΨsupp (Function.mem_support.mpr hn)
+      exact (not_lt_of_ge le_rfl hm.2)
+    have harglo : arg lo = 1 := by
+      dsimp [arg, lo]
+      field_simp [hxpos.ne', hcr.ne']
+      ring
+    have harghi : arg hi = 2 := by
+      dsimp [arg, hi]
+      field_simp [hxpos.ne', hcr.ne']
+      ring
+    have harglo' : ((((c * r : ℕ) : ℝ) * lo + 1) / x) = 1 := by
+      simpa [arg, cr] using harglo
+    have harghi' : ((((c * r : ℕ) : ℝ) * hi + 1) / x) = 2 := by
+      simpa [arg, cr] using harghi
+    have hfa : f lo = 0 := by
+      change Ψ ((((c * r : ℕ) : ℝ) * lo + 1) / x) = 0
+      rw [harglo']
+      exact hΨone
+    have hfb : f hi = 0 := by
+      change Ψ ((((c * r : ℕ) : ℝ) * hi + 1) / x) = 0
+      rw [harghi']
+      exact hΨtwo
+    have hRpos : 0 < (r : ℝ) := by exact_mod_cast hrpos
+    have htUpper (t : ℝ) (ht : t ∈ Set.Icc lo hi) : t ≤ x / (r : ℝ) := by
+      have htb : t ≤ hi := ht.2
+      apply (le_div_iff₀ hcr).1 at htb
+      have htNonneg : 0 ≤ t := le_trans (by norm_num) (le_trans hlo8 ht.1)
+      have hcrR : (2 : ℝ) * (r : ℝ) ≤ cr := by
+        dsimp [cr]
+        rw [Nat.cast_mul]
+        exact mul_le_mul_of_nonneg_right hcLower (Nat.cast_nonneg _)
+      have hmul : 2 * (r : ℝ) * t ≤ cr * t :=
+        mul_le_mul_of_nonneg_right hcrR htNonneg
+      have hrt : t * (r : ℝ) ≤ x := by nlinarith [hmul, htb]
+      exact (le_div_iff₀ hRpos).2 (by nlinarith [hrt])
+    have hlogNegPow (t : ℝ) (ht : t ∈ Set.Icc lo hi) :
+        Real.rpow (Real.log t) (-A') ≤
+          V * Real.rpow (Real.log x) (-A') := by
+      have hbasePos : 0 < (1 / 2 : ℝ) * Real.log x := by positivity
+      have hpow : Real.rpow (Real.log t) (-A') ≤
+          Real.rpow ((1 / 2 : ℝ) * Real.log x) (-A') :=
+        Real.rpow_le_rpow_of_nonpos
+          (x := (1 / 2 : ℝ) * Real.log x) (y := Real.log t) (z := -A')
+          hbasePos (hlogHalf t ht) (by linarith [hA'])
+      calc
+        Real.rpow (Real.log t) (-A') ≤
+            Real.rpow ((1 / 2 : ℝ) * Real.log x) (-A') := hpow
+        _ = V * Real.rpow (Real.log x) (-A') := by
+          change ((1 / 2 : ℝ) * Real.log x) ^ (-A') =
+            Real.rpow (1 / 2) (-A') * (Real.log x) ^ (-A')
+          rw [Real.mul_rpow (by norm_num) (by positivity)]
+          dsimp [V]
+    have hEbound (t : ℝ) (ht : t ∈ Set.Icc lo hi) :
+        E t ≤ CBV * (x / (r : ℝ)) * V * Real.rpow (Real.log x) (-A') := by
+      have hpowNonneg : 0 ≤ Real.rpow (Real.log t) (-A') :=
+        Real.rpow_nonneg (le_of_lt (hlogpos t ht)) _
+      have hct : CBV * t ≤ CBV * (x / (r : ℝ)) :=
+        mul_le_mul_of_nonneg_left (htUpper t ht) hCBV.le
+      calc
+        E t = CBV * t * Real.rpow (Real.log t) (-A') := rfl
+        _ ≤ CBV * (x / (r : ℝ)) * Real.rpow (Real.log t) (-A') :=
+          mul_le_mul_of_nonneg_right hct hpowNonneg
+        _ ≤ CBV * (x / (r : ℝ)) * (V * Real.rpow (Real.log x) (-A')) :=
+          mul_le_mul_of_nonneg_left (hlogNegPow t ht)
+            (by positivity)
+        _ = CBV * (x / (r : ℝ)) * V * Real.rpow (Real.log x) (-A') := by ring
+    have hfamily := ArtinPrimitiveRoots.Construction.ProofsC2.smoothFamilyError_of_aggregateEndpointControl
+      I lo hi hlo0 hlohi coeff α E
+      ArtinPrimitiveRoots.Ext.TypeIIInputs.logarithmicIntegral f
+      hfDiff hderivInt hli hliInt hflogInt hPInt hEInt hcount hfa hfb
+    have hEIntegral :
+        (∫ t in lo..hi, |deriv f t| * E t) ≤
+        (CBV * (x / (r : ℝ)) * V * Real.rpow (Real.log x) (-A')) * B := by
+      let H : ℝ := CBV * (x / (r : ℝ)) * V * Real.rpow (Real.log x) (-A')
+      have hHnonneg : 0 ≤ H := by dsimp [H]; positivity
+      have hConstInt : IntervalIntegrable (fun t => |deriv f t| * H) volume lo hi :=
+        hderivAbsInt.mul_const H
+      have hmono := intervalIntegral.integral_mono_on hlohi hEInt hConstInt
+        (fun t ht => mul_le_mul_of_nonneg_left (hEbound t ht) (abs_nonneg _))
+      calc
+        _ ≤ ∫ t in lo..hi, |deriv f t| * H := hmono
+        _ = H * (∫ t in lo..hi, |deriv f t|) := by
+          rw [intervalIntegral.integral_mul_const, mul_comm]
+        _ ≤ H * B := mul_le_mul_of_nonneg_left hderivIntegral hHnonneg
+        _ = _ := rfl
+    have hlogA : Real.rpow (Real.log x) (-A') ≤ Real.rpow (Real.log x) (-A) :=
+      Real.rpow_le_rpow_of_exponent_le hlogx (by linarith [hA'])
+    have hscaleFinal :
+        (CBV * (x / (r : ℝ)) * V * Real.rpow (Real.log x) (-A')) * B ≤
+          C * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) := by
+      have hcoef : B * CBV * (x / (r : ℝ)) * V ≤ C * (x / (r : ℝ)) := by
+        dsimp [C]
+        calc
+          B * CBV * (x / (r : ℝ)) * V = (B * CBV * V) * (x / (r : ℝ)) := by ring
+          _ ≤ (20 * B * CBV * V) * (x / (r : ℝ)) := by
+            apply mul_le_mul_of_nonneg_right _ (by positivity)
+            have hnonneg : 0 ≤ B * CBV * V := by positivity
+            nlinarith [mul_nonneg (show 0 ≤ (19 : ℝ) by norm_num) hnonneg]
+          _ = (20 * B * CBV * V) * (x / (r : ℝ)) := rfl
+      have hpowNonneg : 0 ≤ Real.rpow (Real.log x) (-A) :=
+        Real.rpow_nonneg (by linarith [hlogx]) _
+      have hlogPrimeNonneg : 0 ≤ Real.rpow (Real.log x) (-A') :=
+        Real.rpow_nonneg (by linarith [hlogx]) _
+      have hcoefRhsNonneg : 0 ≤ C * (x / (r : ℝ)) := by positivity
+      calc
+        (CBV * (x / (r : ℝ)) * V * Real.rpow (Real.log x) (-A')) * B =
+            (B * CBV * (x / (r : ℝ)) * V) * Real.rpow (Real.log x) (-A') := by ring
+        _ ≤ (C * (x / (r : ℝ))) * Real.rpow (Real.log x) (-A) :=
+          mul_le_mul hcoef hlogA hlogPrimeNonneg hcoefRhsNonneg
+        _ = C * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) := by ring
+    have hmainI :
+        (∫ t in lo..hi, f t / Real.log t) = smoothedMainTerm x c r Ψ := by
+      simpa [lo, hi, f, cr, Nat.cast_mul] using
+        ArtinPrimitiveRoots.Construction.ProofsC2.smoothProgression_integral_eq_main
+          x c r Ψ hxpos hcr
+    have hTarget (i : {ell // ell ∈ Sgood}) :
+        |progressionPrimeSum x M c u Ψ r i.1 -
+            localSieveDensity M r i.1 * smoothedMainTerm x c r Ψ /
+              (Nat.totient N : ℝ)| =
+          |(∑ n ∈ Finset.Ioc ⌊lo⌋₊ ⌊hi⌋₊, f (n : ℝ) * coeff i n) -
+              α i * (∫ t in lo..hi, f t / Real.log t)| := by
+      have hiGood := (Finset.mem_filter.mp i.2).2
+      have hEllM := hiGood.coprime_dvd_right (dvd_mul_right M r)
+      have hNdivM : N ∣ M := ⟨c, hMN.symm.trans (Nat.mul_comm c N)⟩
+      have hEllN := hEllM.coprime_dvd_right hNdivM
+      have hNell : Nat.Coprime N i.1 := hEllN.symm
+      have hphiN : 0 < Nat.totient N := Nat.totient_pos.mpr hNpos
+      have hphiell : 0 < Nat.totient i.1 :=
+        Nat.totient_pos.mpr (hEllPos i.1 (Finset.mem_filter.mp i.2).1)
+      have hphi : Nat.totient (qI i) = Nat.totient N * Nat.totient i.1 := by
+        simpa [qI] using Nat.totient_mul hNell
+      have hlocal : localSieveDensity M r i.1 =
+          1 / (Nat.totient i.1 : ℝ) := by
+        unfold localSieveDensity
+        rw [if_pos hiGood]
+      have hDensity :
+          localSieveDensity M r i.1 * smoothedMainTerm x c r Ψ /
+              (Nat.totient N : ℝ) =
+            smoothedMainTerm x c r Ψ / (Nat.totient (qI i) : ℝ) := by
+        rw [hlocal, hphi]
+        field_simp [hphiN.ne', hphiell.ne']
+        rw [Nat.cast_mul]
+        ring
+      have hAlpha :
+          α i * (∫ t in lo..hi, f t / Real.log t) =
+            smoothedMainTerm x c r Ψ / (Nat.totient (qI i) : ℝ) := by
+        rw [hmainI]
+        dsimp [α]
+        ring
+      rw [hRangeToIoc i, hDensity, hAlpha]
+    let G : ℕ → ℝ := fun ell =>
+      |progressionPrimeSum x M c u Ψ r ell -
+        localSieveDensity M r ell * smoothedMainTerm x c r Ψ /
+          (Nat.totient N : ℝ)|
+    let Fam : {ell // ell ∈ Sgood} → ℝ := fun i =>
+      |(∑ n ∈ Finset.Ioc ⌊lo⌋₊ ⌊hi⌋₊, f (n : ℝ) * coeff i n) -
+        α i * (∫ t in lo..hi, f t / Real.log t)|
+    have hGoodSum : (∑ ell ∈ Sgood, G ell) = ∑ i ∈ I, Fam i := by
+      calc
+        (∑ ell ∈ Sgood, G ell) = ∑ i ∈ I, G i.1 := by
+          symm
+          simpa [I] using (Finset.sum_attach Sgood G)
+        _ = ∑ i ∈ I, Fam i := by
+          apply Finset.sum_congr rfl
+          intro i hi
+          exact hTarget i
+    have hAll : (∑ ell ∈ S, G ell) = ∑ i ∈ I, Fam i := by
+      calc
+        (∑ ell ∈ S, G ell) = ∑ ell ∈ Sgood, G ell := by
+          symm
+          apply Finset.sum_subset (Finset.filter_subset _ _)
+          intro ell hellS hellNot
+          have hbad : ¬ Nat.Coprime ell (M * r) := by
+            intro hcop
+            exact hellNot (Finset.mem_filter.mpr ⟨hellS, hcop⟩)
+          simp [G, localSieveDensity, hbad,
+            ArtinPrimitiveRoots.Construction.ProofsC2.progressionPrimeSum_vanish_of_not_coprime
+              x M c u Ψ r ell hu hbad]
+        _ = ∑ i ∈ I, Fam i := hGoodSum
+    have hTargetBound :
+        (∑ ell ∈ S,
+          |progressionPrimeSum x M c u Ψ r ell -
+            localSieveDensity M r ell * smoothedMainTerm x c r Ψ /
+              (Nat.totient N : ℝ)|) ≤
+          C * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) := by
+      rw [hAll]
+      exact le_trans hfamily (le_trans hEIntegral hscaleFinal)
+    simpa [S, D, beta] using hTargetBound
+
+set_option maxHeartbeats 0
 
 /-- `con:distribution`, 12-construction.tex:239-386; this records exactly the two downstream
 conclusions, the weighted sieve-error sum and the two-sided total-mass comparison. -/
@@ -1650,7 +2263,1033 @@ theorem con_distribution (M : ℕ) (Ψ : ℝ → ℝ)
                 let J₀ := groupHarmonicMass x K a
                 c₀ * x * J₀ / Real.log x ≤ conTotalMass x M c u K a Ψ ∧
                   conTotalMass x M c u K a Ψ ≤ C₀ * x * J₀ / Real.log x := by
-  sorry
+  rcases hΨ with ⟨hΨsmooth, hΨsupp, hΨnonneg, hΨle, hΨint⟩
+  have hTest : IsTestFunction Ψ := ⟨hΨsmooth, hΨsupp, hΨnonneg, hΨle, hΨint⟩
+  let IΨ : ℝ := ∫ y in (1 : ℝ)..2, Ψ y
+  have hIΨ : 0 < IΨ := hΨint
+  let m₀ : ℝ := IΨ / (8 * (M : ℝ))
+  have hm₀ : 0 < m₀ := by dsimp [m₀]; positivity
+  let c₀ : ℝ := m₀ / 4
+  let C₀ : ℝ := 2 * IΨ + m₀ + 2
+  have hc₀ : 0 < c₀ := by
+    dsimp [c₀]
+    positivity
+  have hC₀ : 0 < C₀ := by
+    dsimp [C₀]
+    positivity
+  refine ⟨c₀, C₀, hc₀, hC₀, ?_⟩
+  intro c hc24 hcM u hu hcu hcu' K a ha ε κ hε hεκ hκ
+  have hcPos : 0 < c := by rcases hc24 with h | h <;> omega
+  obtain ⟨Ch, xH, hCh, hxH, hHarm⟩ :=
+    con_harmonic M c u Ψ K a hM hcPos ha hTest
+  obtain ⟨Bsupport, xSupport, hBsupport, hxSupport,
+      hSupportAll⟩ :=
+    support M c u K a Ψ hM hc24 ha hΨnonneg hΨle hΨsupp
+  obtain ⟨xBand, hxBand, hBandLower⟩ := bandMass_lower_all ha
+  obtain ⟨xMarks, hxMarks⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_markedPrimes_gt (max M 2) K a ha
+  obtain ⟨xExp, hxExp⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_real_rpow_ge
+      (δ := (1 : ℝ)) (B := Real.exp 1) (by norm_num)
+  obtain ⟨xCut, hxCut⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_real_rpow_ge
+      (δ := (9 / 100 : ℝ)) (B := 8) (by norm_num)
+  obtain ⟨CbvMass, xBVMass, hCbvMass, hxBVMass, hBVMass⟩ :=
+    bv_smoothed M c u K a Ψ ε κ hM hcPos hcM hc24 hu hcu hcu' hε hεκ hκ ha hTest
+      2 (by norm_num)
+  have hKpos : 0 < K := ha.1
+  let iLast : Fin K := ⟨K - 1, by omega⟩
+  have haLast : a iLast < 1 / 5 := (ha.2.1 iLast).2
+  let δtail : ℝ := 1 - a iLast
+  have hδtail : 0 < δtail := by dsimp [δtail]; nlinarith
+  have hHarmAtXH := hHarm xH (le_rfl : xH ≤ xH)
+  obtain ⟨CεH, xεH, hCεH, hxεH, hTailHarm⟩ :=
+    hHarmAtXH.2.2.2.1 ε hε
+  obtain ⟨CεMass, xεMass, hCεMass, hxεMass, hTailMass⟩ :=
+    hHarmAtXH.2.2.2.2.1 ε hε
+  obtain ⟨xDecayHarm, hDecayHarm⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_logPower_exp_small
+      CεH ε δtail (1 / 2) hε hδtail (by norm_num)
+  obtain ⟨xDecayMass, hDecayMass⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_logPower_exp_small
+      CεMass ε δtail (1 / 2) hε hδtail (by norm_num)
+  obtain ⟨xBVLog, hxBVLog⟩ :=
+    ArtinPrimitiveRoots.Construction.ProofsC2.exists_real_rpow_ge
+      (δ := (1 : ℝ)) (B := Real.exp (4 * CbvMass / m₀)) (by positivity)
+  let xScale : ℝ := Real.exp ((4 : ℝ) ^ 10)
+  let xBase : ℝ := max 2 (max xH (max xMarks xExp))
+  let xExtra : ℝ := max xSupport
+    (max xScale (max xBand (max xCut
+      (max xBVMass (max xBVLog (max xεH (max xεMass (max xDecayHarm xDecayMass))))))))
+  let x₁ : ℝ := max xBase xExtra
+  have hx₁ : 2 ≤ x₁ := by
+    dsimp [x₁, xBase]
+    exact le_trans (le_max_left _ _) (le_max_left _ _)
+  refine ⟨x₁, hx₁, ?_, ?_⟩
+  · intro A hA
+    let A' : ℝ := A + 4
+    have hA' : 0 < A' := by dsimp [A']; linarith
+    obtain ⟨Cbv, xBV, hCbv, hxBV, hBV⟩ :=
+      bv_smoothed M c u K a Ψ ε κ hM hcPos hcM hc24 hu hcu hcu' hε hεκ hκ ha hTest A' hA'
+    let x_A : ℝ := max x₁ xBV
+    let C_A : ℝ := 5 * Cbv
+    refine ⟨C_A, x_A, by dsimp [C_A]; positivity, ?_, ?_⟩
+    · dsimp [x_A]
+      exact le_max_left _ _
+    · intro x hxA
+      let J₀ : ℝ := groupHarmonicMass x K a
+      let D : ℝ := Real.rpow x (1 / 2 - κ / 2)
+      let R : Finset ℕ :=
+        (Finset.range (⌊Real.rpow x ε⌋₊ + 1)).filter (fun r => IsGroupInteger x K a r)
+      let Lset : Finset ℕ := oddSquarefreeUpTo D
+      have hxparts : x₁ ≤ x ∧ xBV ≤ x := by
+        dsimp [x_A] at hxA
+        exact (max_le_iff.mp hxA)
+      rcases hxparts with ⟨hx₁x, hxBVx⟩
+      have hxBase : xBase ≤ x := le_trans (le_max_left xBase xExtra) hx₁x
+      have hxHle : xH ≤ x := le_trans (le_max_left xH (max xMarks xExp))
+        (le_trans (le_max_right 2 (max xH (max xMarks xExp))) hxBase)
+      have hJbounds := hHarm x hxHle
+      have hJlowerX : 1 ≤ J₀ := by simpa [J₀] using hJbounds.2.1
+      have hxExpX : Real.exp 1 ≤ x := by
+        have hxExpLe : xExp ≤ x := le_trans (le_max_right xMarks xExp)
+          (le_trans (le_max_right xH (max xMarks xExp))
+            (le_trans (le_max_right 2 (max xH (max xMarks xExp))) hxBase))
+        have hX := hxExp x hxExpLe
+        change Real.exp 1 ≤ Real.rpow x 1 at hX
+        exact hX.trans_eq (Real.rpow_one x)
+      have hlogx : 1 ≤ Real.log x := by
+        have h := Real.log_le_log (Real.exp_pos 1) hxExpX
+        simpa using h
+      have hxpos : 0 < x := by linarith [hx₁x]
+      have hxge1 : 1 ≤ x := le_trans (by norm_num : (1 : ℝ) ≤ 2)
+        (hx₁.trans hx₁x)
+      have hDpos : 0 < D := by dsimp [D]; positivity
+      have hDone : 1 ≤ D := by
+        have hb : 0 < 1 / 2 - κ / 2 := by nlinarith [hκ]
+        have hle : Real.rpow (1 : ℝ) (1 / 2 - κ / 2) ≤ D := by
+          dsimp [D]
+          exact Real.rpow_le_rpow (by norm_num) hxge1 hb.le
+        simpa using hle
+      have hDleX : D ≤ x := by
+        have hb : 1 / 2 - κ / 2 ≤ (1 : ℝ) := by nlinarith [hκ]
+        dsimp [D]
+        simpa only [Real.rpow_one] using
+          (Real.rpow_le_rpow_of_exponent_le hxge1 hb)
+      have hlogD : Real.log D ≤ Real.log x :=
+        Real.log_le_log hDpos hDleX
+      have hharmonic : harmonic ⌊D⌋₊ ≤ 2 * Real.log x := by
+        have h := harmonic_floor_le_one_add_log D hDone
+        have hupper : 1 + Real.log D ≤ 2 * Real.log x := by linarith [hlogD, hlogx]
+        exact le_trans h hupper
+      have hDensitySum (r : ℕ) :
+          (∑ ell ∈ Lset, localSieveDensity M r ell) ≤
+            4 * Real.rpow (Real.log x) 4 := by
+        have h := ArtinPrimitiveRoots.Construction.ProofsC2.localSieveDensity_sum_le M r D
+        have hpow : Real.rpow (Real.log x) 2 ≤ Real.rpow (Real.log x) 4 :=
+          Real.rpow_le_rpow_of_exponent_le hlogx (by norm_num)
+        have hharmonicNonneg : 0 ≤ (harmonic ⌊D⌋₊ : ℝ) := by
+          have hq : 0 ≤ harmonic ⌊D⌋₊ := by
+            unfold harmonic
+            apply Finset.sum_nonneg
+            intro i hi
+            positivity
+          exact_mod_cast hq
+        have hharmonicSq : (harmonic ⌊D⌋₊ : ℝ) ^ 2 ≤
+            (2 * Real.log x) ^ 2 := by nlinarith [hharmonic, hharmonicNonneg]
+        calc
+          _ ≤ (harmonic ⌊D⌋₊ : ℝ) ^ 2 := h
+          _ ≤ 4 * Real.rpow (Real.log x) 2 := by
+            have hsq := hharmonicSq
+            have hlogNonneg : 0 ≤ Real.log x := by linarith [hlogx]
+            have hpow2 : Real.rpow (Real.log x) 2 = (Real.log x) ^ 2 := by simp
+            rw [hpow2]
+            nlinarith [hsq]
+          _ ≤ 4 * Real.rpow (Real.log x) 4 := by gcongr
+      have hRpos (r : ℕ) (hr : r ∈ R) : 0 < r := by
+        have hrGroup := (Finset.mem_filter.mp hr).2
+        have hmark : ∀ p ∈ markedPrimes x K a, (2 : ℝ) < (p : ℝ) := by
+          intro p hp
+          have hxM : xMarks ≤ x := by
+            have := le_trans (le_max_left xMarks xExp)
+              (le_trans (le_max_right xH (max xMarks xExp))
+                (le_trans (le_max_right 2 (max xH (max xMarks xExp))) hxBase))
+            exact this
+          have hh := hxMarks x hxM p hp
+          exact lt_of_le_of_lt (by exact_mod_cast (Nat.le_max_right M 2)) hh
+        exact ArtinPrimitiveRoots.Construction.ProofsC2.groupInteger_pos_of_marks_gt_two
+          x K r a hmark hrGroup
+      have hSumWeight :
+          (∑ r ∈ R, markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) ≤ J₀ := by
+        let Hfun : ℕ → ℝ := fun q => if IsGroupInteger x K a q then
+          markedWeight x K a (1 / 2 : ℝ) q / (q : ℝ) else 0
+        have hWnonneg (q : ℕ) : 0 ≤ markedWeight x K a (1 / 2 : ℝ) q := by
+          unfold markedWeight
+          split_ifs
+          · apply mul_nonneg
+            · exact pow_nonneg (by norm_num : (0 : ℝ) ≤ 1 / 2) _
+            · apply Finset.prod_nonneg
+              intro i hi
+              apply div_nonneg (Nat.cast_nonneg _)
+              unfold bandMass
+              apply Finset.sum_nonneg
+              intro p hp
+              have hprime := (Finset.mem_filter.mp hp).2.1
+              exact div_nonneg (by norm_num)
+                (by exact_mod_cast hprime.pos.le)
+          · simp
+        have hHnonneg (q : ℕ) : 0 ≤ Hfun q := by
+          dsimp [Hfun]
+          split_ifs with hq
+          · exact div_nonneg (hWnonneg q) (Nat.cast_nonneg _)
+          · norm_num
+        have hJne : (∑' q : ℕ, Hfun q) ≠ 0 := by
+          have hEq : (∑' q : ℕ, Hfun q) = J₀ := by
+            simp [Hfun, J₀, groupHarmonicMass]
+          rw [hEq]
+          linarith [hJlowerX]
+        have hSummable : Summable Hfun := by
+          by_contra hns
+          apply hJne
+          simpa [tsum_eq_zero_of_not_summable hns]
+        have hsum := hSummable.sum_le_tsum R (fun q hq => hHnonneg q)
+        calc
+          _ = ∑ q ∈ R, Hfun q := by
+            apply Finset.sum_congr rfl
+            intro q hq
+            have hqGroup : IsGroupInteger x K a q := (Finset.mem_filter.mp hq).2
+            simp [Hfun, hqGroup]
+          _ ≤ ∑' q : ℕ, Hfun q := hsum
+          _ = J₀ := by simp [Hfun, J₀, groupHarmonicMass]
+      have hWeightNonneg (r : ℕ) :
+          0 ≤ markedWeight x K a (1 / 2 : ℝ) r := by
+        unfold markedWeight
+        split_ifs
+        · apply mul_nonneg
+          · exact pow_nonneg (by norm_num : (0 : ℝ) ≤ 1 / 2) _
+          · apply Finset.prod_nonneg
+            intro i hi
+            apply div_nonneg (Nat.cast_nonneg _)
+            unfold bandMass
+            apply Finset.sum_nonneg
+            intro p hp
+            have hprime := (Finset.mem_filter.mp hp).2.1
+            exact div_nonneg (by norm_num) (by exact_mod_cast hprime.pos.le)
+        · simp
+      have hLocalErr (r : ℕ) (hr : r ∈ R) :
+          (∑ ell ∈ Lset,
+            |progressionPrimeSum x M c u Ψ r ell -
+              localSieveDensity M r ell * progressionPrimeSum x M c u Ψ r 1|) ≤
+            5 * Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) := by
+        have hrGroup : IsGroupInteger x K a r := (Finset.mem_filter.mp hr).2
+        have hrpos : 0 < r := hRpos r hr
+        have hrFloor : r ≤ ⌊Real.rpow x ε⌋₊ :=
+          Nat.lt_succ_iff.mp (Finset.mem_range.mp (Finset.mem_filter.mp hr).1)
+        have hrBound : (r : ℝ) ≤ Real.rpow x ε := by
+          exact (Nat.cast_le.mpr hrFloor).trans
+            (Nat.floor_le (Real.rpow_nonneg hxpos.le ε))
+        have hBVr := hBV x hxBVx r hrGroup hrBound
+        have hBVsum :
+            (∑ ell ∈ Lset,
+              |progressionPrimeSum x M c u Ψ r ell -
+                localSieveDensity M r ell *
+                  smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ)|) ≤
+              Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A') := by
+          simpa [Lset, D] using hBVr
+        let B : ℝ := smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ)
+        let E : ℝ := Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A')
+        have hOneL : 1 ∈ Lset := by
+          have hDoneCast : ((1 : ℕ) : ℝ) ≤ D := by exact_mod_cast hDone
+          have hOneFloor : 1 ≤ ⌊D⌋₊ := Nat.le_floor hDoneCast
+          have hOneFloorPos : 0 < ⌊D⌋₊ := by omega
+          simp [Lset, oddSquarefreeUpTo, hOneFloorPos]
+        have hsumB :
+            (∑ ell ∈ Lset,
+              |progressionPrimeSum x M c u Ψ r ell -
+                localSieveDensity M r ell * B|) ≤ E := by
+          calc
+            _ = ∑ ell ∈ Lset,
+                  |progressionPrimeSum x M c u Ψ r ell -
+                    localSieveDensity M r ell *
+                      smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ)| := by
+                apply Finset.sum_congr rfl
+                intro ell hell
+                congr 1
+                dsimp [B]
+                ring
+            _ ≤ E := by simpa [E] using hBVsum
+        have hBVone :
+            |progressionPrimeSum x M c u Ψ r 1 - B| ≤ E := by
+          have hsingle := Finset.single_le_sum
+            (fun ell hell => abs_nonneg
+              (progressionPrimeSum x M c u Ψ r ell -
+                localSieveDensity M r ell * B)) hOneL
+          have hg1 : localSieveDensity M r 1 = 1 := by
+            simp [localSieveDensity]
+          have hsingle' :
+              |progressionPrimeSum x M c u Ψ r 1 -
+                localSieveDensity M r 1 * B| ≤
+              ∑ ell ∈ Lset,
+                |progressionPrimeSum x M c u Ψ r ell -
+                  localSieveDensity M r ell * B| := by
+            exact hsingle
+          exact le_trans (by simpa [hg1] using hsingle') hsumB
+        have hDensityNonneg (ell : ℕ) : 0 ≤ localSieveDensity M r ell := by
+          unfold localSieveDensity
+          split_ifs <;> positivity
+        have hDensityTotal :
+            0 ≤ ∑ ell ∈ Lset, localSieveDensity M r ell :=
+          Finset.sum_nonneg fun ell hell => hDensityNonneg ell
+        have hpow : Real.rpow (Real.log x) 4 *
+            Real.rpow (Real.log x) (-A') = Real.rpow (Real.log x) (-A) := by
+          calc
+            _ = Real.rpow (Real.log x) (4 + (-A')) :=
+              (Real.rpow_add (by linarith [hlogx]) 4 (-A')).symm
+            _ = Real.rpow (Real.log x) (-A) := by
+              congr 1
+              dsimp [A']
+              ring
+        have hTri (ell : ℕ) :
+            |progressionPrimeSum x M c u Ψ r ell -
+                localSieveDensity M r ell * progressionPrimeSum x M c u Ψ r 1| ≤
+              |progressionPrimeSum x M c u Ψ r ell -
+                  localSieveDensity M r ell * B| +
+                localSieveDensity M r ell * |progressionPrimeSum x M c u Ψ r 1 - B| := by
+          have hg := hDensityNonneg ell
+          calc
+            _ = |(progressionPrimeSum x M c u Ψ r ell -
+                    localSieveDensity M r ell * B) +
+                  localSieveDensity M r ell * (B - progressionPrimeSum x M c u Ψ r 1)| := by
+                    congr 1
+                    ring
+            _ ≤ _ := abs_add_le _ _
+            _ = _ := by
+              calc
+                _ = |progressionPrimeSum x M c u Ψ r ell -
+                      localSieveDensity M r ell * B| +
+                    |localSieveDensity M r ell| *
+                      |B - progressionPrimeSum x M c u Ψ r 1| := by rw [abs_mul]
+                _ = |progressionPrimeSum x M c u Ψ r ell -
+                      localSieveDensity M r ell * B| +
+                    localSieveDensity M r ell *
+                      |progressionPrimeSum x M c u Ψ r 1 - B| := by
+                  rw [abs_of_nonneg hg, abs_sub_comm B (progressionPrimeSum x M c u Ψ r 1)]
+        have hsumTri :
+            (∑ ell ∈ Lset,
+              |progressionPrimeSum x M c u Ψ r ell -
+                localSieveDensity M r ell * progressionPrimeSum x M c u Ψ r 1|) ≤
+              (∑ ell ∈ Lset,
+                |progressionPrimeSum x M c u Ψ r ell -
+                  localSieveDensity M r ell * B|) +
+                (∑ ell ∈ Lset, localSieveDensity M r ell) *
+                  |progressionPrimeSum x M c u Ψ r 1 - B| := by
+          calc
+            _ ≤ ∑ ell ∈ Lset,
+                  (|progressionPrimeSum x M c u Ψ r ell -
+                    localSieveDensity M r ell * B| +
+                    localSieveDensity M r ell *
+                      |progressionPrimeSum x M c u Ψ r 1 - B|) :=
+                Finset.sum_le_sum fun ell hell => hTri ell
+            _ = _ := by rw [Finset.sum_add_distrib, Finset.sum_mul]
+        have hsumBound :
+            (∑ ell ∈ Lset,
+              |progressionPrimeSum x M c u Ψ r ell -
+                localSieveDensity M r ell * progressionPrimeSum x M c u Ψ r 1|) ≤
+              E + (4 * Real.rpow (Real.log x) 4) * E := by
+          calc
+            _ ≤ _ := hsumTri
+            _ ≤ E + (4 * Real.rpow (Real.log x) 4) * E := by
+              have hL4nonneg : 0 ≤ 4 * Real.rpow (Real.log x) 4 :=
+                mul_nonneg (by norm_num)
+                  (Real.rpow_nonneg (by linarith [hlogx]) _)
+              exact add_le_add hsumB
+                (mul_le_mul (hDensitySum r) hBVone (abs_nonneg _)
+                  hL4nonneg)
+        dsimp [E]
+        calc
+          _ ≤ Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A') +
+              (4 * Real.rpow (Real.log x) 4) *
+                (Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A')) := hsumBound
+          _ ≤ 5 * Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) := by
+            calc
+              _ = Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A') +
+                    4 * Cbv * (x / (r : ℝ)) *
+                      (Real.rpow (Real.log x) 4 * Real.rpow (Real.log x) (-A')) := by
+                dsimp [E]
+                ring
+              _ = Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A') +
+                    4 * Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) := by
+                rw [hpow]
+              _ ≤ Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) +
+                    4 * Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A) := by
+                apply add_le_add
+                · exact mul_le_mul_of_nonneg_left
+                    (Real.rpow_le_rpow_of_exponent_le hlogx (by dsimp [A']; linarith))
+                    (by positivity)
+                · exact le_rfl
+              _ = _ := by ring
+      have hWeightedErr :
+          (∑ r ∈ R,
+            markedWeight x K a (1 / 2 : ℝ) r *
+              (∑ ell ∈ Lset,
+                |progressionPrimeSum x M c u Ψ r ell -
+                  localSieveDensity M r ell * progressionPrimeSum x M c u Ψ r 1|)) ≤
+            C_A * x * J₀ * Real.rpow (Real.log x) (-A) := by
+        have hCoeffNonneg : 0 ≤ 5 * Cbv * x * Real.rpow (Real.log x) (-A) := by
+          apply mul_nonneg
+          · apply mul_nonneg
+            · apply mul_nonneg
+              · norm_num
+              · exact hCbv.le
+            · exact hxpos.le
+          · exact Real.rpow_nonneg (le_of_lt (by linarith [hlogx])) _
+        calc
+          _ ≤ ∑ r ∈ R,
+              markedWeight x K a (1 / 2 : ℝ) r *
+                (5 * Cbv * (x / (r : ℝ)) * Real.rpow (Real.log x) (-A)) := by
+              apply Finset.sum_le_sum
+              intro r hr
+              exact mul_le_mul_of_nonneg_left (hLocalErr r hr) (hWeightNonneg r)
+          _ = (5 * Cbv * x * Real.rpow (Real.log x) (-A)) *
+                (∑ r ∈ R,
+                  markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) := by
+              calc
+                _ = ∑ r ∈ R,
+                    (5 * Cbv * x * Real.rpow (Real.log x) (-A)) *
+                      (markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) := by
+                    apply Finset.sum_congr rfl
+                    intro r hr
+                    have hrpos := hRpos r hr
+                    field_simp [Nat.cast_ne_zero.mpr (Nat.ne_of_gt hrpos)]
+                _ = _ := by rw [Finset.mul_sum]
+          _ ≤ (5 * Cbv * x * Real.rpow (Real.log x) (-A)) * J₀ :=
+              mul_le_mul_of_nonneg_left hSumWeight hCoeffNonneg
+          _ = C_A * x * J₀ * Real.rpow (Real.log x) (-A) := by
+              dsimp [C_A]
+              ring
+      have hWeightedErrTarget :
+          (∑ r ∈ R,
+            ∑ ell ∈ Lset,
+              markedWeight x K a (1 / 2 : ℝ) r *
+                |progressionPrimeSum x M c u Ψ r ell -
+                  localSieveDensity M r ell * progressionPrimeSum x M c u Ψ r 1|) ≤
+            C_A * x * J₀ * Real.rpow (Real.log x) (-A) := by
+        calc
+          _ = ∑ r ∈ R,
+                markedWeight x K a (1 / 2 : ℝ) r *
+                  (∑ ell ∈ Lset,
+                    |progressionPrimeSum x M c u Ψ r ell -
+                      localSieveDensity M r ell * progressionPrimeSum x M c u Ψ r 1|) := by
+            apply Finset.sum_congr rfl
+            intro r hr
+            rw [Finset.mul_sum]
+          _ ≤ _ := hWeightedErr
+      simpa [J₀, D, R, Lset] using hWeightedErrTarget
+  · intro x hx₁x
+    let J₀ : ℝ := groupHarmonicMass x K a
+    let L : ℝ := Real.log x
+    let Ecut : ℝ := Real.rpow x ε
+    let Rsmall : Finset ℕ :=
+      (Finset.range (⌊Ecut⌋₊ + 1)).filter (fun r => IsGroupInteger x K a r)
+    let Sall : Finset ℕ := Finset.range (⌊2 * x⌋₊ + 1)
+    let Rall : Finset ℕ := Sall.filter (fun r => IsGroupInteger x K a r)
+    let Rlarge : Finset ℕ := Rall.filter (fun r : ℕ => Ecut < (r : ℝ))
+    let Jsmall : ℝ := ∑ r ∈ Rsmall,
+      markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)
+    let Lset : Finset ℕ := oddSquarefreeUpTo (Real.rpow x (1 / 2 - κ / 2))
+    let Bmain : ℕ → ℝ := fun r =>
+      smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ)
+    let Hfun : ℕ → ℝ := fun r => if IsGroupInteger x K a r then
+      markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) else 0
+    let Hsmall : ℕ → ℝ := fun r => if (r : ℝ) ≤ Ecut then Hfun r else 0
+    let Hlarge : ℕ → ℝ := fun r =>
+      if IsGroupInteger x K a r ∧ Ecut < (r : ℝ) then
+        markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) else 0
+    have hxBase : xBase ≤ x := le_trans (le_max_left xBase xExtra) hx₁x
+    have hxExtra : xExtra ≤ x := le_trans (le_max_right xBase xExtra) hx₁x
+    have hxExtraParts :
+        xSupport ≤ x ∧ xScale ≤ x ∧ xBand ≤ x ∧ xCut ≤ x ∧
+          xBVMass ≤ x ∧ xBVLog ≤ x ∧ xεH ≤ x ∧ xεMass ≤ x ∧
+            xDecayHarm ≤ x ∧ xDecayMass ≤ x := by
+      dsimp [xExtra] at hxExtra
+      simpa only [max_le_iff] using hxExtra
+    rcases hxExtraParts with
+      ⟨hxSupportX, hxScaleX, hxBandX, hxCutX, hxBVMassX, hxBVLogX,
+        hxεHX, hxεMassX, hxDecayHarmX, hxDecayMassX⟩
+    have hxHle : xH ≤ x := le_trans (le_max_left xH (max xMarks xExp))
+      (le_trans (le_max_right 2 (max xH (max xMarks xExp))) hxBase)
+    have hHarmX := hHarm x hxHle
+    have hJlower : 1 ≤ J₀ := by simpa [J₀] using hHarmX.2.1
+    have hxBase2 : 2 ≤ xBase := by dsimp [xBase]; exact le_max_left _ _
+    have hxpos : 0 < x := by linarith [hxBase2, hxBase]
+    have hxge1 : 1 ≤ x := le_trans (by norm_num : (1 : ℝ) ≤ 2)
+      (hxBase2.trans hxBase)
+    have hx2 : 2 ≤ x := hxBase2.trans hxBase
+    have hlogx : 1 ≤ L := by
+      have hxExpLe : xExp ≤ x := le_trans (le_max_right xMarks xExp)
+        (le_trans (le_max_right xH (max xMarks xExp))
+          (le_trans (le_max_right 2 (max xH (max xMarks xExp))) hxBase))
+      have hxExpX : Real.exp 1 ≤ x := by
+        have h := hxExp x hxExpLe
+        change Real.exp 1 ≤ Real.rpow x 1 at h
+        simpa [Real.rpow_one] using h
+      have h := Real.log_le_log (Real.exp_pos 1) hxExpX
+      simpa using h
+    have hlogxpos : 0 < L := lt_of_lt_of_le (by norm_num) hlogx
+    have hL : (4 : ℝ) ^ 10 ≤ L := by
+      have h := Real.log_le_log (Real.exp_pos _) hxScaleX
+      simpa [xScale, Real.log_exp] using h
+    have hCutPow : 8 ≤ Real.rpow x (9 / 100 : ℝ) := hxCut x hxCutX
+    have hmassxLower : ∀ i : Fin K, Real.log 2 / 2 ≤ bandMass x (a i) :=
+      hBandLower x hxBandX
+    have hWeightNonneg (r : ℕ) :
+        0 ≤ markedWeight x K a (1 / 2 : ℝ) r :=
+      (markedWeight_nonneg_le (x := x) (K := K) (a := a) (h := r)
+        hmassxLower).1
+    have hMarksM (p : ℕ) (hp : p ∈ markedPrimes x K a) :
+        (M : ℝ) < (p : ℝ) := by
+      have hxMarksX : xMarks ≤ x := le_trans (le_max_left xMarks xExp)
+        (le_trans (le_max_right xH (max xMarks xExp))
+          (le_trans (le_max_right 2 (max xH (max xMarks xExp))) hxBase))
+      have hpAbove := hxMarks x hxMarksX p hp
+      exact lt_of_le_of_lt (by exact_mod_cast (Nat.le_max_left M 2)) hpAbove
+    have hMarks2 (p : ℕ) (hp : p ∈ markedPrimes x K a) :
+        (2 : ℝ) < (p : ℝ) := by
+      have hxMarksX : xMarks ≤ x := le_trans (le_max_left xMarks xExp)
+        (le_trans (le_max_right xH (max xMarks xExp))
+          (le_trans (le_max_right 2 (max xH (max xMarks xExp))) hxBase))
+      have hpAbove := hxMarks x hxMarksX p hp
+      exact lt_of_le_of_lt (by exact_mod_cast (Nat.le_max_right M 2)) hpAbove
+    have hSupportX := hSupportAll x hxSupportX
+    rcases hSupportX with ⟨_, hSupportD, hWeightBounds⟩
+    have hMassId := ArtinPrimitiveRoots.Proofs.C_BV.conTotalMass_eq_groupProgressionSum
+      x M c u K a Ψ hc24 hx2 hxpos hL ha hΨsupp hSupportD
+    have hεle1 : ε ≤ 1 := by linarith [hεκ, hκ]
+    have hEcutleX : Ecut ≤ x := by
+      dsimp [Ecut]
+      simpa [Real.rpow_one] using
+        (Real.rpow_le_rpow_of_exponent_le hxge1 hεle1)
+    have hRsmallSubset : Rsmall ⊆ Rall := by
+      intro r hr
+      rcases Finset.mem_filter.mp hr with ⟨hrRange, hrGroup⟩
+      have hrFloor : r ≤ ⌊Ecut⌋₊ := Nat.lt_succ_iff.mp (Finset.mem_range.mp hrRange)
+      have hFloorMono : ⌊Ecut⌋₊ ≤ ⌊2 * x⌋₊ :=
+        Nat.floor_mono (hEcutleX.trans (by nlinarith [hxpos]))
+      have hr2 : r ≤ ⌊2 * x⌋₊ := le_trans hrFloor hFloorMono
+      exact Finset.mem_filter.mpr ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le hr2), hrGroup⟩
+    have hRsmallEq : Rall.filter (fun r : ℕ => (r : ℝ) ≤ Ecut) = Rsmall := by
+      apply Finset.ext
+      intro r
+      constructor
+      · intro hr
+        rcases Finset.mem_filter.mp hr with ⟨hrAll, hrCut⟩
+        rcases Finset.mem_filter.mp hrAll with ⟨hrSall, hrGroup⟩
+        have hrRange := Finset.mem_range.mp hrSall
+        have hrFloor : r ≤ ⌊Ecut⌋₊ := Nat.le_floor hrCut
+        exact Finset.mem_filter.mpr
+          ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le hrFloor), hrGroup⟩
+      · intro hr
+        rcases Finset.mem_filter.mp hr with ⟨hrRange, hrGroup⟩
+        have hrFloor : r ≤ ⌊Ecut⌋₊ := Nat.lt_succ_iff.mp (Finset.mem_range.mp hrRange)
+        have hrCut : (r : ℝ) ≤ Ecut :=
+          (Nat.cast_le.mpr hrFloor).trans (Nat.floor_le (Real.rpow_nonneg hxpos.le ε))
+        have hr2 : r ≤ ⌊2 * x⌋₊ :=
+          Nat.le_floor (hrCut.trans (hEcutleX.trans (by nlinarith [hxpos])))
+        have hrAll : r ∈ Rall := Finset.mem_filter.mpr
+          ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le hr2), hrGroup⟩
+        exact Finset.mem_filter.mpr ⟨hrAll, hrCut⟩
+    have hRlargeEq : Rall.filter (fun r : ℕ => ¬ (r : ℝ) ≤ Ecut) = Rlarge := by
+      apply Finset.ext
+      intro r
+      simp [Rlarge, not_le]
+    have hMassSplit :
+        (∑ r ∈ Rall, markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1) =
+        (∑ r ∈ Rsmall, markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1) +
+        (∑ r ∈ Rlarge, markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1) := by
+      rw [← hRsmallEq, ← hRlargeEq]
+      simpa using (Finset.sum_filter_add_sum_filter_not Rall
+        (fun r : ℕ => (r : ℝ) ≤ Ecut)
+        (fun r => markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1)).symm
+    have hA_nonneg (r : ℕ) : 0 ≤ progressionPrimeSum x M c u Ψ r 1 := by
+      unfold progressionPrimeSum
+      apply Finset.sum_nonneg
+      intro Q hQ
+      exact hΨnonneg _
+    have hTailFactorHarm :
+        CεH * Real.exp (-ε * Real.rpow L δtail) ≤ 1 / 2 := by
+      have hscaled := hDecayHarm x hxDecayHarmX
+      have hExpPos : 0 ≤ Real.exp (-ε * Real.rpow L δtail) := (Real.exp_pos _).le
+      have hLExp : Real.exp (-ε * Real.rpow L δtail) ≤
+          L * Real.exp (-ε * Real.rpow L δtail) := by
+        nlinarith [mul_le_mul_of_nonneg_right hlogx hExpPos]
+      calc
+        _ ≤ CεH * (L * Real.exp (-ε * Real.rpow L δtail)) :=
+          mul_le_mul_of_nonneg_left hLExp hCεH.le
+        _ ≤ 1 / 2 := by simpa [δtail, iLast] using hscaled
+    have hTailFactorMass :
+        CεMass * Real.exp (-ε * Real.rpow L δtail) ≤ 1 / L := by
+      have hscaled := hDecayMass x hxDecayMassX
+      have hscaled' :
+          (CεMass * Real.exp (-ε * Real.rpow L δtail)) * L ≤ 1 / 2 := by
+        calc
+          _ = CεMass * (L * Real.exp (-ε * Real.rpow L δtail)) := by ring
+          _ ≤ 1 / 2 := by simpa [δtail, iLast] using hscaled
+      apply (le_div_iff₀ hlogxpos).2
+      nlinarith
+    have hLargeNonneg (r : ℕ) : 0 ≤ Hlarge r := by
+      dsimp [Hlarge]
+      split_ifs with hr
+      · rcases hr with ⟨hrGroup, hrCut⟩
+        have hrpos : 0 < (r : ℝ) :=
+          lt_trans (Real.rpow_pos_of_pos hxpos _) hrCut
+        exact div_nonneg (hWeightNonneg r) hrpos.le
+      · simp
+    have hLargeSumEq (n : ℕ) :
+        (∑ r ∈ Finset.range (n + 1), Hlarge r) =
+          ∑ r ∈ (Finset.range (n + 1)).filter
+              (fun r => IsGroupInteger x K a r ∧ Ecut < (r : ℝ)),
+            markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) := by
+      calc
+        _ = ∑ r ∈ Finset.range (n + 1),
+              if IsGroupInteger x K a r ∧ Ecut < (r : ℝ) then
+                markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) else 0 := by
+              apply Finset.sum_congr rfl
+              intro r hr
+              simp [Hlarge]
+        _ = _ := by rw [Finset.sum_filter]
+    have hLargePartial (n : ℕ) :
+        (∑ r ∈ Finset.range n, Hlarge r) ≤
+          CεH * Real.exp (-ε * Real.rpow L δtail) := by
+      calc
+        _ ≤ ∑ r ∈ Finset.range (n + 1), Hlarge r := by
+          apply Finset.sum_le_sum_of_subset_of_nonneg
+            (Finset.range_mono (Nat.le_succ n))
+          intro r hr hnot
+          exact hLargeNonneg r
+        _ = ∑ r ∈ (Finset.range (n + 1)).filter
+              (fun r => IsGroupInteger x K a r ∧ Ecut < (r : ℝ)),
+            markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) := hLargeSumEq n
+        _ ≤ _ := by
+          simpa [Ecut, δtail, iLast, L] using hTailHarm x hxεHX n
+    have hLargeSummable : Summable Hlarge :=
+      summable_of_sum_range_le hLargeNonneg hLargePartial
+    have hLargeTsumBound : (∑' r, Hlarge r) ≤
+        CεH * Real.exp (-ε * Real.rpow L δtail) :=
+      hLargeSummable.tsum_le_of_sum_range_le hLargePartial
+    have hSmallVanish (r : ℕ) (hr : r ∉ Finset.range (⌊Ecut⌋₊ + 1)) :
+        Hsmall r = 0 := by
+      have hrRange : ¬ r < ⌊Ecut⌋₊ + 1 := by
+        simpa only [Finset.mem_range] using hr
+      have hrFloor : ⌊Ecut⌋₊ + 1 ≤ r := Nat.not_lt.mp hrRange
+      have hEfloor : Ecut < ((⌊Ecut⌋₊ + 1 : ℕ) : ℝ) := by
+        simpa only [Nat.cast_add, Nat.cast_one] using Nat.lt_floor_add_one Ecut
+      have hrCast : (⌊Ecut⌋₊ + 1 : ℕ) ≤ (r : ℝ) := by exact_mod_cast hrFloor
+      have hrCut : Ecut < (r : ℝ) := lt_of_lt_of_le hEfloor hrCast
+      simp [Hsmall, not_le.mpr hrCut]
+    have hSmallSummable : Summable Hsmall :=
+      summable_of_ne_finset_zero (s := Finset.range (⌊Ecut⌋₊ + 1)) hSmallVanish
+    have hSmallFinite :
+        (∑ r ∈ Finset.range (⌊Ecut⌋₊ + 1), Hsmall r) =
+          ∑ r ∈ Rsmall, markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) := by
+      calc
+        _ = ∑ r ∈ Finset.range (⌊Ecut⌋₊ + 1), Hfun r := by
+          apply Finset.sum_congr rfl
+          intro r hr
+          have hrFloor : r ≤ ⌊Ecut⌋₊ := Nat.lt_succ_iff.mp (Finset.mem_range.mp hr)
+          have hrCut : (r : ℝ) ≤ Ecut :=
+            (Nat.cast_le.mpr hrFloor).trans (Nat.floor_le (Real.rpow_nonneg hxpos.le ε))
+          simp [Hsmall, hrCut]
+        _ = _ := by
+          rw [Finset.sum_filter]
+    have hSmallTsum :
+        (∑' r, Hsmall r) =
+          ∑ r ∈ Rsmall, markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ) := by
+      rw [tsum_eq_sum (s := Finset.range (⌊Ecut⌋₊ + 1)) hSmallVanish]
+      exact hSmallFinite
+    have hHsplitPoint (r : ℕ) : Hfun r = Hsmall r + Hlarge r := by
+      by_cases hr : (r : ℝ) ≤ Ecut
+      · have hnot : ¬ Ecut < (r : ℝ) := not_lt.mpr hr
+        simp [Hsmall, Hlarge, Hfun, hr, hnot]
+      · have hr' : Ecut < (r : ℝ) := lt_of_not_ge hr
+        simp [Hsmall, Hlarge, Hfun, hr, hr']
+    have hJsplit : J₀ =
+        (∑ r ∈ Rsmall, markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) +
+          (∑' r, Hlarge r) := by
+      calc
+        J₀ = ∑' r, Hfun r := by simp [J₀, Hfun, groupHarmonicMass]
+        _ = ∑' r, (Hsmall r + Hlarge r) := by
+          apply tsum_congr
+          exact hHsplitPoint
+        _ = (∑' r, Hsmall r) + ∑' r, Hlarge r :=
+          hSmallSummable.tsum_add hLargeSummable
+        _ = _ := by rw [hSmallTsum]
+    have hTailHarmSmall : (∑' r, Hlarge r) ≤ 1 / 2 :=
+      hLargeTsumBound.trans hTailFactorHarm
+    have hJsmallLower : J₀ / 2 ≤ Jsmall := by
+      have hJsmallEq : J₀ = Jsmall + (∑' r, Hlarge r) := by
+        simpa [Jsmall] using hJsplit
+      nlinarith [hTailHarmSmall, hJlower, hJsmallEq]
+    have hMassIdentity : conTotalMass x M c u K a Ψ =
+        ∑ r ∈ Rall, markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1 := by
+      simpa [Rall, Sall] using hMassId
+    have hMassAsSmallLarge : conTotalMass x M c u K a Ψ =
+        (∑ r ∈ Rsmall, markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1) +
+        (∑ r ∈ Rlarge, markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1) := hMassIdentity.trans hMassSplit
+    have hMassTailRaw :
+        (∑ r ∈ Rlarge, markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1) ≤
+          CεMass * x * Real.exp (-ε * Real.rpow L δtail) := by
+      simpa [Rlarge, Rall, Sall, Ecut, δtail, iLast,
+        Finset.filter_filter, and_assoc, and_left_comm, and_comm] using
+          hTailMass x hxεMassX
+    have hMassTail :
+        (∑ r ∈ Rlarge, markedWeight x K a (1 / 2 : ℝ) r *
+          progressionPrimeSum x M c u Ψ r 1) ≤ x / L := by
+      calc
+        _ ≤ CεMass * x * Real.exp (-ε * Real.rpow L δtail) := hMassTailRaw
+        _ = x * (CεMass * Real.exp (-ε * Real.rpow L δtail)) := by ring
+        _ ≤ x / L := by
+          have h := mul_le_mul_of_nonneg_left hTailFactorMass hxpos.le
+          simpa [div_eq_mul_inv] using h
+    have hBVx := hBVMass x hxBVMassX
+    have hbeta : 0 < 1 / 2 - κ / 2 := by nlinarith [hκ]
+    have hDBVone : 1 ≤ Real.rpow x (1 / 2 - κ / 2) := by
+      have h := Real.rpow_le_rpow (by norm_num : (0 : ℝ) ≤ 1) hxge1 hbeta.le
+      simpa using h
+    have hOneFloor : 1 ≤ ⌊Real.rpow x (1 / 2 - κ / 2)⌋₊ :=
+      Nat.le_floor (by exact_mod_cast hDBVone)
+    have hOneFloorPos : 0 < ⌊Real.rpow x (1 / 2 - κ / 2)⌋₊ := by omega
+    have hOneL : 1 ∈ Lset := by
+      dsimp [Lset, oddSquarefreeUpTo]
+      apply Finset.mem_filter.mpr
+      constructor
+      · exact Finset.mem_range.mpr (Nat.lt_succ_of_le hOneFloor)
+      · constructor <;> simp
+    have hRpos (r : ℕ) (hr : r ∈ Rsmall) : 0 < r := by
+      have hrGroup := (Finset.mem_filter.mp hr).2
+      exact ArtinPrimitiveRoots.Construction.ProofsC2.groupInteger_pos_of_marks_gt_two
+        x K r a hMarks2 hrGroup
+    have hRcastBound (r : ℕ) (hr : r ∈ Rsmall) : (r : ℝ) ≤ Ecut := by
+      have hrRange := (Finset.mem_filter.mp hr).1
+      have hrFloor : r ≤ ⌊Ecut⌋₊ := Nat.lt_succ_iff.mp (Finset.mem_range.mp hrRange)
+      exact (Nat.cast_le.mpr hrFloor).trans (Nat.floor_le (Real.rpow_nonneg hxpos.le ε))
+    have hMainBounds (r : ℕ) (hr : r ∈ Rsmall) :
+        m₀ * x / ((r : ℝ) * L) ≤ Bmain r ∧
+          Bmain r ≤ 2 * IΨ * (x / ((r : ℝ) * L)) := by
+      have hrGroup := (Finset.mem_filter.mp hr).2
+      have hrpos := hRpos r hr
+      have hcrpos : 0 < ((c * r : ℕ) : ℝ) := by
+        exact_mod_cast Nat.mul_pos hcPos hrpos
+      have hcUpper : (c : ℝ) ≤ 4 := by
+        rcases hc24 with h | h <;> norm_num [h]
+      have hcrUpper : ((c * r : ℕ) : ℝ) ≤ 4 * Real.rpow x ε := by
+        rw [Nat.cast_mul]
+        calc
+          (c : ℝ) * (r : ℝ) ≤ 4 * (r : ℝ) :=
+            mul_le_mul_of_nonneg_right hcUpper (Nat.cast_nonneg _)
+          _ ≤ 4 * Ecut := mul_le_mul_of_nonneg_left (hRcastBound r hr) (by norm_num)
+          _ = 4 * Real.rpow x ε := by rfl
+      have hcutoff := ArtinPrimitiveRoots.Construction.ProofsC2.real_interval_lower_cutoff
+        x ((c * r : ℕ) : ℝ) ε hx2 (by linarith [hεκ, hκ]) hcrpos hcrUpper hCutPow
+      have hmain := ArtinPrimitiveRoots.Proofs.C_BV.smoothedMainTerm_totient_bounds
+        x M c r Ψ hM hc24 hcM hx2 (hRpos r hr) hcutoff hΨsmooth hΨnonneg hΨint
+      constructor
+      · calc
+          m₀ * x / ((r : ℝ) * L) =
+              (IΨ / (8 * (M : ℝ))) * (x / ((r : ℝ) * L)) := by
+                dsimp [m₀]
+                ring
+          _ = (∫ y in (1 : ℝ)..2, Ψ y) / (8 * (M : ℝ)) *
+                (x / ((r : ℝ) * Real.log x)) := by simp [IΨ, L]
+          _ ≤ Bmain r := by simpa [Bmain] using hmain.1
+      · simpa [Bmain, IΨ, L] using hmain.2
+    have hBVone (r : ℕ) (hr : r ∈ Rsmall) :
+        |progressionPrimeSum x M c u Ψ r 1 - Bmain r| ≤
+          CbvMass * (x / (r : ℝ)) * (L ^ 2)⁻¹ := by
+      have hrGroup := (Finset.mem_filter.mp hr).2
+      have hlocal := hBVMass x hxBVMassX r hrGroup (hRcastBound r hr)
+      have hsingle := Finset.single_le_sum
+        (fun ell hell => abs_nonneg
+          (progressionPrimeSum x M c u Ψ r ell -
+            localSieveDensity M r ell * Bmain r)) hOneL
+      have hg1 : localSieveDensity M r 1 = 1 := by simp [localSieveDensity]
+      have hone :
+          |progressionPrimeSum x M c u Ψ r 1 - Bmain r| ≤
+            ∑ ell ∈ Lset,
+              |progressionPrimeSum x M c u Ψ r ell -
+                localSieveDensity M r ell * Bmain r| := by
+        simpa [hg1] using hsingle
+      have hBVlocal :
+          (∑ ell ∈ Lset,
+            |progressionPrimeSum x M c u Ψ r ell -
+              localSieveDensity M r ell * Bmain r|) ≤
+            CbvMass * (x / (r : ℝ)) * (L ^ 2)⁻¹ := by
+        calc
+          _ = ∑ ell ∈ Lset,
+                |progressionPrimeSum x M c u Ψ r ell -
+                  localSieveDensity M r ell *
+                    smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ)| := by
+                apply Finset.sum_congr rfl
+                intro ell hell
+                apply congrArg (fun t : ℝ =>
+                  |progressionPrimeSum x M c u Ψ r ell - t|)
+                dsimp [Bmain]
+                ring
+          _ ≤ CbvMass * (x / (r : ℝ)) * (L ^ 2)⁻¹ := by
+                simpa [Bmain, L, Lset] using hlocal
+      exact hone.trans hBVlocal
+    have hBVErr :
+        (∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r *
+            |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) ≤
+          CbvMass * x * Jsmall * (L ^ 2)⁻¹ := by
+      calc
+        _ ≤ ∑ r ∈ Rsmall,
+              CbvMass * x * (L ^ 2)⁻¹ *
+                (markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) := by
+              apply Finset.sum_le_sum
+              intro r hr
+              have hrpos := hRpos r hr
+              have hterm := mul_le_mul_of_nonneg_left (hBVone r hr) (hWeightNonneg r)
+              calc
+                _ ≤ markedWeight x K a (1 / 2 : ℝ) r *
+                    (CbvMass * (x / (r : ℝ)) * (L ^ 2)⁻¹) := hterm
+                _ = CbvMass * x * (L ^ 2)⁻¹ *
+                    (markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) := by
+                      field_simp [Nat.cast_ne_zero.mpr (Nat.ne_of_gt hrpos)]
+        _ = CbvMass * x * (L ^ 2)⁻¹ * Jsmall := by
+              dsimp [Jsmall]
+              rw [Finset.mul_sum]
+        _ = CbvMass * x * Jsmall * (L ^ 2)⁻¹ := by ring
+    have hTailNonneg : 0 ≤ ∑' r, Hlarge r := tsum_nonneg hLargeNonneg
+    have hJsmallLe : Jsmall ≤ J₀ := by
+      calc
+        Jsmall ≤ Jsmall + (∑' r, Hlarge r) := le_add_of_nonneg_right hTailNonneg
+        _ = J₀ := hJsplit.symm
+    have hBVErrTotal :
+        (∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r *
+            |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) ≤
+          CbvMass * x * J₀ * (L ^ 2)⁻¹ := by
+      calc
+        _ ≤ CbvMass * x * Jsmall * (L ^ 2)⁻¹ := hBVErr
+        _ = (CbvMass * x * (L ^ 2)⁻¹) * Jsmall := by ring
+        _ ≤ (CbvMass * x * (L ^ 2)⁻¹) * J₀ := by
+          have hCoefNonneg : 0 ≤ CbvMass * x * (L ^ 2)⁻¹ :=
+            mul_nonneg (mul_nonneg hCbvMass.le hxpos.le)
+              (inv_nonneg.mpr (sq_nonneg L))
+          exact mul_le_mul_of_nonneg_left hJsmallLe hCoefNonneg
+        _ = CbvMass * x * J₀ * (L ^ 2)⁻¹ := by ring
+    have hExpBVLe : Real.exp (4 * CbvMass / m₀) ≤ x := by
+      have h := hxBVLog x hxBVLogX
+      change Real.exp (4 * CbvMass / m₀) ≤ Real.rpow x 1 at h
+      simpa [Real.rpow_one] using h
+    have hLlarge : 4 * CbvMass / m₀ ≤ L := by
+      have h := Real.log_le_log (Real.exp_pos _) hExpBVLe
+      simpa [L, Real.log_exp] using h
+    have hCbvOverL : CbvMass / L ≤ m₀ / 4 := by
+      rw [div_le_iff₀ hlogxpos]
+      have hmul := mul_le_mul_of_nonneg_right hLlarge (by positivity : 0 ≤ m₀ / 4)
+      have hcancel : (4 * CbvMass / m₀) * (m₀ / 4) = CbvMass := by
+        field_simp [ne_of_gt hm₀] <;> ring
+      nlinarith
+    have hBVErrorFactor : CbvMass * (L ^ 2)⁻¹ ≤ m₀ / (4 * L) := by
+      calc
+        CbvMass * (L ^ 2)⁻¹ = (CbvMass / L) * (1 / L) := by
+          field_simp [ne_of_gt hlogxpos]
+        _ ≤ (m₀ / 4) * (1 / L) :=
+          mul_le_mul_of_nonneg_right hCbvOverL (by positivity)
+        _ = m₀ / (4 * L) := by
+          field_simp [ne_of_gt hlogxpos]
+    let Scale : ℝ := x * J₀ / L
+    have hScaleNonneg : 0 ≤ Scale := by dsimp [Scale]; positivity
+    have hErrSmall :
+        (∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r *
+            |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) ≤
+          (m₀ / 4) * Scale := by
+      calc
+        _ ≤ CbvMass * x * J₀ * (L ^ 2)⁻¹ := hBVErrTotal
+        _ = (x * J₀) * (CbvMass * (L ^ 2)⁻¹) := by ring
+        _ ≤ (x * J₀) * (m₀ / (4 * L)) :=
+          mul_le_mul_of_nonneg_left hBVErrorFactor (by positivity)
+        _ = (m₀ / 4) * Scale := by dsimp [Scale]; ring
+    have hMainScaleNonneg : 0 ≤ m₀ * x / L := by positivity
+    have hMainSmallLower :
+        (m₀ / 2) * Scale ≤
+          ∑ r ∈ Rsmall, markedWeight x K a (1 / 2 : ℝ) r * Bmain r := by
+      calc
+        (m₀ / 2) * Scale = (m₀ * x / L) * (J₀ / 2) := by
+          dsimp [Scale]
+          ring
+        _ ≤ (m₀ * x / L) * Jsmall :=
+          mul_le_mul_of_nonneg_left hJsmallLower hMainScaleNonneg
+        _ = ∑ r ∈ Rsmall,
+              (m₀ * x / L) *
+                (markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) := by
+              dsimp [Jsmall]
+              rw [Finset.mul_sum]
+        _ ≤ ∑ r ∈ Rsmall,
+              markedWeight x K a (1 / 2 : ℝ) r * Bmain r := by
+              apply Finset.sum_le_sum
+              intro r hr
+              have hrpos := hRpos r hr
+              have hterm := mul_le_mul_of_nonneg_left (hMainBounds r hr).1
+                (hWeightNonneg r)
+              calc
+                _ = markedWeight x K a (1 / 2 : ℝ) r *
+                    (m₀ * x / ((r : ℝ) * L)) := by
+                      field_simp [Nat.cast_ne_zero.mpr (Nat.ne_of_gt hrpos), ne_of_gt hlogxpos]
+                _ ≤ markedWeight x K a (1 / 2 : ℝ) r * Bmain r := hterm
+    have hMainSmallUpper :
+        (∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r * Bmain r) ≤
+            (2 * IΨ) * Scale := by
+      calc
+        _ ≤ ∑ r ∈ Rsmall,
+              (2 * IΨ * x / L) *
+                (markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) := by
+              apply Finset.sum_le_sum
+              intro r hr
+              have hrpos := hRpos r hr
+              have hterm := mul_le_mul_of_nonneg_left (hMainBounds r hr).2
+                (hWeightNonneg r)
+              calc
+                _ ≤ markedWeight x K a (1 / 2 : ℝ) r *
+                    (2 * IΨ * (x / ((r : ℝ) * L))) := hterm
+                _ = (2 * IΨ * x / L) *
+                    (markedWeight x K a (1 / 2 : ℝ) r / (r : ℝ)) := by
+                      field_simp [Nat.cast_ne_zero.mpr (Nat.ne_of_gt hrpos), ne_of_gt hlogxpos]
+        _ = (2 * IΨ * x / L) * Jsmall := by
+              dsimp [Jsmall]
+              rw [Finset.mul_sum]
+        _ ≤ (2 * IΨ * x / L) * J₀ :=
+          mul_le_mul_of_nonneg_left hJsmallLe (by positivity)
+        _ = (2 * IΨ) * Scale := by dsimp [Scale]; ring
+    have hApproxLower :
+        (∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r * Bmain r) -
+          (∑ r ∈ Rsmall,
+            markedWeight x K a (1 / 2 : ℝ) r *
+              |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) ≤
+        ∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r *
+            progressionPrimeSum x M c u Ψ r 1 := by
+      rw [← Finset.sum_sub_distrib]
+      apply Finset.sum_le_sum
+      intro r hr
+      have hAbs := hBVone r hr
+      have hterm : Bmain r -
+          |progressionPrimeSum x M c u Ψ r 1 - Bmain r| ≤
+            progressionPrimeSum x M c u Ψ r 1 := by
+        have h := neg_abs_le (progressionPrimeSum x M c u Ψ r 1 - Bmain r)
+        linarith
+      calc
+        _ = markedWeight x K a (1 / 2 : ℝ) r *
+            (Bmain r -
+              |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) := by ring
+        _ ≤ _ := mul_le_mul_of_nonneg_left hterm (hWeightNonneg r)
+    have hApproxUpper :
+        (∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r *
+            progressionPrimeSum x M c u Ψ r 1) ≤
+        (∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r * Bmain r) +
+          (∑ r ∈ Rsmall,
+            markedWeight x K a (1 / 2 : ℝ) r *
+              |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) := by
+      rw [← Finset.sum_add_distrib]
+      apply Finset.sum_le_sum
+      intro r hr
+      have hAbs := hBVone r hr
+      have hterm : progressionPrimeSum x M c u Ψ r 1 ≤
+          Bmain r +
+            |progressionPrimeSum x M c u Ψ r 1 - Bmain r| := by
+        have h := le_abs_self (progressionPrimeSum x M c u Ψ r 1 - Bmain r)
+        linarith
+      calc
+        _ = markedWeight x K a (1 / 2 : ℝ) r *
+            progressionPrimeSum x M c u Ψ r 1 := rfl
+        _ ≤ markedWeight x K a (1 / 2 : ℝ) r *
+            (Bmain r +
+              |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) :=
+          mul_le_mul_of_nonneg_left hterm (hWeightNonneg r)
+        _ = markedWeight x K a (1 / 2 : ℝ) r * Bmain r +
+            markedWeight x K a (1 / 2 : ℝ) r *
+              |progressionPrimeSum x M c u Ψ r 1 - Bmain r| := by ring
+    have hSmallMassLower :
+        c₀ * Scale ≤
+          ∑ r ∈ Rsmall,
+            markedWeight x K a (1 / 2 : ℝ) r *
+              progressionPrimeSum x M c u Ψ r 1 := by
+      calc
+        c₀ * Scale = (m₀ / 4) * Scale := by rfl
+        _ ≤ (m₀ / 2) * Scale -
+            (∑ r ∈ Rsmall,
+              markedWeight x K a (1 / 2 : ℝ) r *
+                |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) := by
+              linarith [hErrSmall]
+        _ ≤ _ := by linarith [hMainSmallLower, hApproxLower]
+    have hSmallMassUpper :
+        (∑ r ∈ Rsmall,
+          markedWeight x K a (1 / 2 : ℝ) r *
+            progressionPrimeSum x M c u Ψ r 1) ≤
+          (2 * IΨ + m₀ / 4) * Scale := by
+      calc
+        _ ≤ (2 * IΨ) * Scale +
+            (∑ r ∈ Rsmall,
+              markedWeight x K a (1 / 2 : ℝ) r *
+                |progressionPrimeSum x M c u Ψ r 1 - Bmain r|) :=
+          hApproxUpper.trans (by
+            simpa [add_comm] using add_le_add_right hMainSmallUpper
+              (∑ r ∈ Rsmall,
+                markedWeight x K a (1 / 2 : ℝ) r *
+                  |progressionPrimeSum x M c u Ψ r 1 - Bmain r|))
+        _ ≤ (2 * IΨ) * Scale + (m₀ / 4) * Scale :=
+          by simpa [add_comm] using add_le_add_left hErrSmall ((2 * IΨ) * Scale)
+        _ = (2 * IΨ + m₀ / 4) * Scale := by ring
+    have hMassLargeNonneg : 0 ≤
+        ∑ r ∈ Rlarge,
+          markedWeight x K a (1 / 2 : ℝ) r * progressionPrimeSum x M c u Ψ r 1 := by
+      apply Finset.sum_nonneg
+      intro r hr
+      exact mul_nonneg (hWeightNonneg r) (hA_nonneg r)
+    have hTailScale : x / L ≤ Scale := by
+      have hnum : x ≤ x * J₀ := by
+        nlinarith [mul_le_mul_of_nonneg_left hJlower hxpos.le]
+      dsimp [Scale]
+      exact div_le_div_of_nonneg_right hnum hlogxpos.le
+    have hMassLower : c₀ * Scale ≤ conTotalMass x M c u K a Ψ := by
+      rw [hMassAsSmallLarge]
+      exact le_trans hSmallMassLower (le_add_of_nonneg_right hMassLargeNonneg)
+    have hMassUpper : conTotalMass x M c u K a Ψ ≤ C₀ * Scale := by
+      rw [hMassAsSmallLarge]
+      calc
+        _ ≤ (2 * IΨ + m₀ / 4) * Scale + Scale :=
+          add_le_add hSmallMassUpper (hMassTail.trans hTailScale)
+        _ = (2 * IΨ + m₀ / 4 + 1) * Scale := by ring
+        _ ≤ C₀ * Scale := by
+          apply mul_le_mul_of_nonneg_right _ hScaleNonneg
+          dsimp [C₀]
+          linarith [hm₀]
+    constructor
+    · calc
+        c₀ * x * J₀ / Real.log x = c₀ * Scale := by
+          dsimp [Scale, J₀, L]
+          ring
+        _ ≤ conTotalMass x M c u K a Ψ := hMassLower
+    · calc
+        conTotalMass x M c u K a Ψ ≤ C₀ * Scale := hMassUpper
+        _ = C₀ * x * J₀ / Real.log x := by
+          dsimp [Scale, J₀, L]
+          ring
 
 /-- `co:sieve-products`, 12-construction.tex:388-412. -/
 theorem sieve_products (M : ℕ) (hM : 0 < M) :
@@ -2400,7 +4039,209 @@ theorem con_rough_pairs (M : ℕ) (Ψ : ℝ → ℝ) (hM : 0 < M)
                   roughPairBoxSum x M c u K a Ψ H₁ H₂ ≤
                     C₁ * conTotalMass x M c u K a Ψ *
                       roughSieveProduct (roughCutoff x) ^ 2 := by
-  sorry
+  obtain ⟨Csv, hCsv, xS, hxS, hSurv⟩ := Proofs.CRP.pairSurvivors_card_le
+  obtain ⟨c₀, C₀, hc₀, hC₀, hdist⟩ := con_distribution (8 * M) Ψ (by omega) hΨ
+  refine ⟨Csv / c₀, div_pos hCsv hc₀, ?_⟩
+  intro c hc u K a ha
+  have hΨ0 : ∀ y, 0 ≤ Ψ y := hΨ.2.2.1
+  have hΨ1 : ∀ y, Ψ y ≤ 1 := hΨ.2.2.2.1
+  have hcpos : 0 < c := by rcases hc with h | h <;> omega
+  have hc8 : c ∣ 8 * M := by
+    rcases hc with h | h <;> subst h
+    · exact Dvd.dvd.mul_right (by norm_num) M
+    · exact Dvd.dvd.mul_right (by norm_num) M
+  set N : ℕ := 8 * M with hNdef
+  have hNpos : 0 < N := by omega
+  have hMN : (M : ℤ) ∣ (N : ℤ) := Int.natCast_dvd_natCast.mpr (Dvd.intro_left 8 rfl)
+  obtain ⟨B, xsupp, hB, hxsupp, hsupport⟩ :=
+    support M c u K a Ψ hM hc ha hΨ0 hΨ1 hΨ.2.1
+  obtain ⟨Ch, xh, hCh, hxh, hharm⟩ := con_harmonic M c u Ψ K a hM hcpos ha hΨ
+  obtain ⟨xsp, hxsp, hsp⟩ := (sieve_products M hM).2.2 K a ha
+  -- the `con_distribution` lower bounds for every admissible residue modulo `N`
+  have hdistEv : ∀ᶠ x : ℝ in atTop, ∀ v ∈ Finset.range N,
+      (Int.gcd (v : ℤ) (N : ℤ) = 1 ∧ (c : ℤ) ∣ (v : ℤ) - 1 ∧
+        Int.gcd (((v : ℤ) - 1) / c) ((N / c : ℕ) : ℤ) = 1) →
+      c₀ * x * groupHarmonicMass x K a / Real.log x ≤
+        conTotalMass x N c (v : ℤ) K a Ψ := by
+    rw [Filter.eventually_all_finset]
+    intro v _
+    by_cases hadm : Int.gcd (v : ℤ) (N : ℤ) = 1 ∧ (c : ℤ) ∣ (v : ℤ) - 1 ∧
+        Int.gcd (((v : ℤ) - 1) / c) ((N / c : ℕ) : ℤ) = 1
+    · obtain ⟨x₁, -, -, hlow⟩ := hdist c hc hc8 (v : ℤ) hadm.1 hadm.2.1 hadm.2.2 K a ha
+        (1 / 1000) (1 / 200) (by norm_num) (by norm_num) (by norm_num)
+      filter_upwards [eventually_ge_atTop x₁] with x hx
+      intro _
+      exact (hlow x hx).1
+    · exact Eventually.of_forall (fun x h => absurd h hadm)
+  -- scale conditions depending on `M`
+  have hev1 : ∀ᶠ x : ℝ in atTop, ((N : ℕ) : ℝ) < Real.rpow x (9 / 10 : ℝ) :=
+    (tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 9 / 10)).eventually_gt_atTop _
+  have hLpow : Tendsto (fun x : ℝ => Real.rpow (Real.log x) (24 / 100 : ℝ)) atTop atTop :=
+    (tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 24 / 100)).comp Real.tendsto_log_atTop
+  have hev2 : ∀ᶠ x : ℝ in atTop, ((N : ℕ) : ℝ) ≤ roughCutoff x :=
+    (Real.tendsto_exp_atTop.comp hLpow).eventually_ge_atTop _
+  have ht : Tendsto (fun x : ℝ => Real.rpow (Real.log x) (1 / 10 : ℝ)) atTop atTop :=
+    (tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 10)).comp Real.tendsto_log_atTop
+  have hev3 : ∀ᶠ x : ℝ in atTop,
+      Real.log ((N : ℕ) : ℝ) < Real.rpow (Real.log x) (1 / 10 : ℝ) :=
+    ht.eventually_gt_atTop _
+  have hev4 : ∀ᶠ x : ℝ in atTop,
+      (11 / 100 : ℝ) * Real.rpow (Real.log x) (9 / 10 : ℝ) *
+        Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) ≤ 1 / 5 := by
+    have hdec := (Real.tendsto_pow_mul_exp_neg_atTop_nhds_zero 9).comp ht
+    have hsmall := hdec.eventually (Iio_mem_nhds (by norm_num : (0 : ℝ) < 1))
+    filter_upwards [hsmall, Real.tendsto_log_atTop.eventually_ge_atTop 1] with x hx hL
+    simp only [Function.comp] at hx
+    have hpow : Real.rpow (Real.log x) (9 / 10 : ℝ) =
+        (Real.rpow (Real.log x) (1 / 10 : ℝ)) ^ 9 := by
+      rw [show Real.rpow (Real.log x) (1 / 10 : ℝ) = Real.log x ^ (1 / 10 : ℝ) from rfl,
+        ← Real.rpow_natCast, ← Real.rpow_mul (by linarith)]
+      norm_num
+    rw [hpow]
+    have hre : (11 / 100 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ) ^ 9 *
+        Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) =
+        (11 / 100 : ℝ) * (Real.rpow (Real.log x) (1 / 10 : ℝ) ^ 9 *
+          Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ))) := by ring
+    rw [hre]
+    have hnn : 0 ≤ Real.rpow (Real.log x) (1 / 10 : ℝ) ^ 9 *
+        Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      have : 0 ≤ Real.rpow (Real.log x) (1 / 10 : ℝ) := Real.rpow_nonneg (by linarith) _
+      positivity
+    linarith
+  have hev5 : ∀ᶠ x : ℝ in atTop, 1 ≤ Real.log x := Real.tendsto_log_atTop.eventually_ge_atTop 1
+  have hev6 : ∀ᶠ x : ℝ in atTop, max (max xS xsupp) (max xh xsp) ≤ x := eventually_ge_atTop _
+  obtain ⟨X, hX⟩ := eventually_atTop.mp
+    (hdistEv.and (hev1.and (hev2.and (hev3.and (hev4.and (hev5.and hev6))))))
+  refine ⟨max X 2, le_max_right _ _, ?_⟩
+  intro x hx H₁ H₂ hHlo hHhi hH₁lo hH₁hi hH₂lo hH₂hi
+  obtain ⟨hdistX, hN9, hNW, hNlog, hδ, hL1, hthr⟩ := hX x (le_trans (le_max_left _ _) hx)
+  have hxS' : xS ≤ x := le_trans (le_trans (le_max_left _ _) (le_max_left _ _)) hthr
+  have hxsupp' : xsupp ≤ x := le_trans (le_trans (le_max_right _ _) (le_max_left _ _)) hthr
+  have hxh' : xh ≤ x := le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hthr
+  have hxsp' : xsp ≤ x := le_trans (le_trans (le_max_right _ _) (le_max_right _ _)) hthr
+  have hx2 : 2 ≤ x := le_trans (le_max_right _ _) hx
+  have hx1 : (1 : ℝ) ≤ x := by linarith
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < Real.log x := by linarith
+  obtain ⟨-, hfact, hwB⟩ := hsupport x hxsupp'
+  obtain ⟨-, hJ1, -⟩ := hharm x hxh'
+  have hz9 : Real.rpow x (1 / 500 : ℝ) ≤ Real.rpow x (9 / 10 : ℝ) :=
+    Real.rpow_le_rpow_of_exponent_le hx1 (by norm_num)
+  have hz5 : Real.rpow x (1 / 500 : ℝ) ≤ Real.rpow x (1 / 5 : ℝ) :=
+    Real.rpow_le_rpow_of_exponent_le hx1 (by norm_num)
+  -- the absolute upper bound
+  have hUpper : roughPairBoxSum x M c u K a Ψ H₁ H₂ ≤
+      Csv * x * groupHarmonicMass x K a / Real.log x *
+        roughSieveProduct (roughCutoff x) ^ 2 := by
+    have hgs := Proofs.CRP.roughPairBoxSum_le_groupSum x M c u K a Ψ H₁ H₂ hc hΨ0 hΨ1 hx1
+      hz9 hfact
+    apply Proofs.CRP.roughPairBoxSum_le_harmonic x M c u K a Ψ H₁ H₂ Csv
+      (roughSieveProduct (roughCutoff x)) (Real.log x) hCsv hxpos.le hLpos hgs _ hJ1
+    intro r hr
+    obtain ⟨hr0, hgrp, hrle⟩ := Proofs.CRP.mem_crpGroupSet hr
+    obtain ⟨hsum5, -⟩ := hsp x hxsp' r hgrp hrle
+    have hsub : (primesUpTo (Real.rpow x (1 / 500 : ℝ))).filter (fun p : ℕ => p ∣ r) ⊆
+        (primesUpTo (Real.rpow x (1 / 5 : ℝ))).filter (fun p : ℕ => p ∣ r) :=
+      Finset.filter_subset_filter _ (Proofs.CRP.primesUpTo_mono hz5)
+    have hsumz : (∑ p ∈ (primesUpTo (Real.rpow x (1 / 500 : ℝ))).filter (fun p : ℕ => p ∣ r),
+        1 / (p : ℝ)) ≤ 1 / 5 := by
+      calc _ ≤ ∑ p ∈ (primesUpTo (Real.rpow x (1 / 5 : ℝ))).filter (fun p : ℕ => p ∣ r),
+            1 / (p : ℝ) :=
+            Finset.sum_le_sum_of_subset_of_nonneg hsub (fun p _ _ => by positivity)
+        _ ≤ _ := hsum5
+        _ ≤ 1 / 5 := hδ
+    have h5 : ∀ p ∈ (primesUpTo (Real.rpow x (1 / 500 : ℝ))).filter (fun p : ℕ => p ∣ r),
+        5 ≤ p := by
+      intro p hp
+      have hpPrime : p.Prime := (Finset.mem_filter.mp (Finset.mem_filter.mp hp).1).2
+      have hppos : (0 : ℝ) < p := by exact_mod_cast hpPrime.pos
+      have h1p : 1 / (p : ℝ) ≤ 1 / 5 :=
+        le_trans (Finset.single_le_sum (f := fun p : ℕ => 1 / (p : ℝ))
+          (fun q _ => by positivity) hp) hsumz
+      have h5p : (5 : ℝ) ≤ p := by
+        rw [div_le_div_iff₀ hppos (by norm_num)] at h1p
+        linarith
+      exact_mod_cast h5p
+    exact hSurv x hxS' H₁ H₂ hHhi hH₁lo hH₁hi hH₂lo hH₂hi c hc r hr0 hrle h5
+      (by linarith)
+  have hmassNonneg : 0 ≤ conTotalMass x M c u K a Ψ :=
+    Finset.sum_nonneg (fun d _ => (hwB d).1)
+  by_cases hpos : roughPairBoxSum x M c u K a Ψ H₁ H₂ ≤ 0
+  · have : 0 ≤ Csv / c₀ * conTotalMass x M c u K a Ψ *
+        roughSieveProduct (roughCutoff x) ^ 2 := by
+      have := div_pos hCsv hc₀
+      positivity
+    linarith
+  push Not at hpos
+  -- a nonzero term
+  obtain ⟨m, hm, hmne⟩ := Finset.exists_ne_zero_of_sum_ne_zero hpos.ne'
+  obtain ⟨n, hn, hnne⟩ := Finset.exists_ne_zero_of_sum_ne_zero hmne
+  have hrough : roughAbove m (roughCutoff x) ∧ roughAbove n (roughCutoff x) := by
+    by_contra h
+    exact hnne (if_neg h)
+  have hcw : conWeight x M c u K a Ψ (m * n) ≠ 0 := by
+    intro h0
+    exact hnne (by rw [if_pos hrough]; exact h0)
+  obtain ⟨hdx, -, r, Q, hdec, hQ, hQbig, hgrp, hrle, -⟩ := hfact (m * n) hcw
+  have hdu : ((m * n : ℕ) : ℤ) ≡ u [ZMOD M] := by
+    by_contra h
+    apply hcw
+    simp only [conWeight]
+    exact if_neg (fun h' => h h'.2)
+  have hmn2 : 2 ≤ m * n := by
+    have h1 : (1 : ℝ) < ((m * n : ℕ) : ℝ) := lt_of_le_of_lt hx1 hdx
+    have h2 : 1 < m * n := by exact_mod_cast h1
+    omega
+  have hd1 : m * n = c * r * Q + 1 := by omega
+  have hdN : ∀ p, p.Prime → p ∣ m * n → N < p := by
+    intro p hp hpd
+    have hW : roughCutoff x < (p : ℝ) := by
+      rcases (Nat.Prime.dvd_mul hp).mp hpd with hpm | hpn
+      · exact hrough.1 p hp hpm
+      · exact hrough.2 p hp hpn
+    have : ((N : ℕ) : ℝ) < (p : ℝ) := lt_of_le_of_lt hNW hW
+    exact_mod_cast this
+  have hrN : ∀ p, p.Prime → p ∣ r → N < p := by
+    intro p hp hpr
+    have hpm := hgrp p hp hpr
+    simp only [markedPrimes, Finset.mem_biUnion, Finset.mem_univ, true_and] at hpm
+    obtain ⟨i, hpi⟩ := hpm
+    have hlow : Real.exp (Real.rpow (Real.log x) (a i)) ≤ (p : ℝ) :=
+      (Finset.mem_filter.mp hpi).2.2.1
+    have hai : (1 / 10 : ℝ) ≤ a i := (ha.2.1 i).1.le
+    have hmono : Real.rpow (Real.log x) (1 / 10 : ℝ) ≤ Real.rpow (Real.log x) (a i) :=
+      Real.rpow_le_rpow_of_exponent_le hL1 hai
+    have hNpos' : (0 : ℝ) < ((N : ℕ) : ℝ) := by exact_mod_cast hNpos
+    have hNexp : ((N : ℕ) : ℝ) < Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      calc ((N : ℕ) : ℝ) = Real.exp (Real.log ((N : ℕ) : ℝ)) := (Real.exp_log hNpos').symm
+        _ < Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) := Real.exp_lt_exp.mpr hNlog
+    have : ((N : ℕ) : ℝ) < (p : ℝ) :=
+      lt_of_lt_of_le hNexp (le_trans (Real.exp_le_exp.mpr hmono) hlow)
+    exact_mod_cast this
+  have hQN : N < Q := by
+    have : ((N : ℕ) : ℝ) < (Q : ℝ) := lt_trans hN9 hQbig
+    exact_mod_cast this
+  have hadm := Proofs.CRP.lift_admissible hNpos hc hc8 hd1 hdN hrN hQ hQN
+  have hvmem : (m * n) % N ∈ Finset.range N := Finset.mem_range.mpr (Nat.mod_lt _ hNpos)
+  have hlow := hdistX ((m * n) % N) hvmem hadm
+  have hdv : ((m * n : ℕ) : ℤ) ≡ (((m * n) % N : ℕ) : ℤ) [ZMOD N] := by
+    rw [Int.natCast_mod]
+    exact (Int.mod_modEq _ _).symm
+  have hmono := Proofs.CRP.conTotalMass_le_of_lift x M N c u (((m * n) % N : ℕ) : ℤ) K a Ψ
+    hMN (m * n) hdu hdv (fun e => (hwB e).1)
+  have hV : 0 ≤ roughSieveProduct (roughCutoff x) ^ 2 := sq_nonneg _
+  have hk : 0 ≤ Csv / c₀ := (div_pos hCsv hc₀).le
+  calc roughPairBoxSum x M c u K a Ψ H₁ H₂
+      ≤ Csv * x * groupHarmonicMass x K a / Real.log x *
+          roughSieveProduct (roughCutoff x) ^ 2 := hUpper
+    _ = Csv / c₀ * (c₀ * x * groupHarmonicMass x K a / Real.log x) *
+          roughSieveProduct (roughCutoff x) ^ 2 := by
+        field_simp
+    _ ≤ Csv / c₀ * conTotalMass x N c (((m * n) % N : ℕ) : ℤ) K a Ψ *
+          roughSieveProduct (roughCutoff x) ^ 2 := by
+        gcongr
+    _ ≤ Csv / c₀ * conTotalMass x M c u K a Ψ * roughSieveProduct (roughCutoff x) ^ 2 := by
+        gcongr
 
 /-- The pair estimate supplied by `con_rough_pairs`, at its fixed leading constant. -/
 def HasRoughPairBound (M : ℕ) (Ψ : ℝ → ℝ) (C₁ : ℝ) : Prop :=

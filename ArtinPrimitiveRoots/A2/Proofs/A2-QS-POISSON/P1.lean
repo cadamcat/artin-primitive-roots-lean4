@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».RootNumber
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P0
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M1
+import ArtinPrimitiveRoots.Proofs.qs_p1_p.Analytic
 
 /-!
 # A2-QS-POISSON, part P1: primitive smooth ideal Poisson
@@ -40,7 +41,9 @@ theorem qs_primitive_smooth_poisson_P1 [IsTotallyComplex K]
       ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥}, χ.idealValue a.1 * h ((Ideal.absNorm a.1 : ℝ) / X) =
         ((X / Real.sqrt (Ideal.absNorm f : ℝ) : ℝ) : ℂ) *
           ∑' a : {I : Ideal (𝓞 K) // I ≠ ⊥}, χ.idealValue a.1 *
-            qsTransform K h (X * (Ideal.absNorm a.1 : ℝ) / (Ideal.absNorm f : ℝ)) := by
-  sorry
+          qsTransform K h (X * (Ideal.absNorm a.1 : ℝ) / (Ideal.absNorm f : ℝ)) := by
+  constructor
+  · exact qs_p1_dual_summable χ f hf hsq hne hinf h hh X hX
+  · exact qs_p1_poisson_identity χ f hf hsq hne hinf h hh X hX
 
 end ArtinPrimitiveRoots.A2
