@@ -84,6 +84,22 @@ theorem whit_small_ideal (E : Finset (FinPlace F)) (m : E → ℕ) :
     ∃ I : Ideal (𝓞 F), I ≠ ⊥ ∧ ∀ a ∈ I, ∀ v : E,
       Valued.v (algebraMap (𝓞 F) (v.1.adicCompletion F) a) ≤
         WithZero.exp (-(m v : ℤ)) := by
-  sorry
+  classical
+  let I : Ideal (𝓞 F) := ∏ v : E, v.1.asIdeal ^ m v
+  have hI : I ≠ 0 := by
+    apply Finset.prod_ne_zero_iff.mpr
+    intro v hv
+    exact pow_ne_zero (m v) v.1.ne_bot
+  refine ⟨I, hI, ?_⟩
+  intro a ha v
+  have hIv : I ≤ v.1.asIdeal ^ m v :=
+    (Ideal.prod_le_inf (s := Finset.univ)
+      (f := fun w : E => w.1.asIdeal ^ m w)).trans (Finset.inf_le (Finset.mem_univ v))
+  have hglob : v.1.intValuation a ≤ WithZero.exp (-(m v : ℤ)) :=
+    (v.1.intValuation_le_pow_iff_mem a (m v)).mpr (hIv ha)
+  rw [IsScalarTower.algebraMap_apply (𝓞 F) F (v.1.adicCompletion F)]
+  simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+    Algebra.algebraMap_self, RingHom.id_apply, v.1.valuedAdicCompletion_eq_valuation',
+    v.1.valuation_of_algebraMap] using hglob
 
 end ArtinPrimitiveRoots.A1.Theta
