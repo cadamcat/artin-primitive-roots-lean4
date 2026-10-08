@@ -273,4 +273,73 @@ theorem qs_nq0_quadratic_conductor_exponent_pos
   rw [← hloc]
   exact hf v (toLoc v b) hunit.1 hunit.2 hbound
 
+/-!
+The exact exterior conductor-exponents step has this signature:
+```
+theorem qs_nq0_primitive_conductor_exterior_exponents
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (I : Ideal (𝓞 K)) (hI : Squarefree I)
+    (a : Kˣ) (ha : Sd.IsGen (a : K) I)
+    (χ : HeckeChar K)
+    (hloc : ∀ v : FinPlace K, χ.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (qS : Ideal (𝓞 K)) (hqS : qS ≠ ⊥)
+    (hsupport : ∀ v : FinPlace K, qS ≤ v.asIdeal → v ∈ Sd.Sf)
+    (f : Ideal (𝓞 K)) (hf : IsPrimitiveConductor χ f)
+    (hbound : χ.ConductorDvd (I * qS)) :
+    ∀ v : FinPlace K, v ∉ Sd.Sf → idealExp v f = idealExp v I
+```
+-/
+
+/-- The primitive quadratic conductor has the squarefree ideal's exact exponents outside S. -/
+theorem qs_nq0_primitive_conductor_exterior_exponents
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (I : Ideal (𝓞 K)) (hI : Squarefree I)
+    (a : Kˣ) (ha : Sd.IsGen (a : K) I)
+    (χ : HeckeChar K)
+    (hloc : ∀ v : FinPlace K, χ.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (qS : Ideal (𝓞 K)) (hqS : qS ≠ ⊥)
+    (hsupport : ∀ v : FinPlace K, qS ≤ v.asIdeal → v ∈ Sd.Sf)
+    (f : Ideal (𝓞 K)) (hf : IsPrimitiveConductor χ f)
+    (hbound : χ.ConductorDvd (I * qS)) :
+    ∀ v : FinPlace K, v ∉ Sd.Sf → idealExp v f = idealExp v I := by
+  classical
+  have hI0 : I ≠ 0 := ha.1.1
+  have hprod0 : I * qS ≠ 0 := mul_ne_zero hI0 hqS
+  have hfdiv : f ∣ I * qS := qs_nq0_primitive_conductor_dvd χ f (I * qS) hf hprod0 hbound
+  intro v hv
+  have heqS : idealExp v qS = 0 := by
+    by_contra hne
+    have hdiv : v.asIdeal ∣ qS :=
+      (Associates.count_ne_zero_iff_dvd hqS v.irreducible).mp hne
+    exact hv (hsupport v (Ideal.dvd_iff_le.mp hdiv))
+  have hprod : idealExp v (I * qS) = idealExp v I := by
+    unfold idealExp
+    rw [← Associates.mk_mul_mk, Associates.count_mul
+      (Associates.mk_ne_zero.mpr hI0) (Associates.mk_ne_zero.mpr hqS) v.associates_irreducible]
+    change idealExp v I + idealExp v qS = idealExp v I
+    rw [heqS, add_zero]
+  have hupper : idealExp v f ≤ idealExp v I := by
+    rw [← hprod]
+    exact Associates.count_le_count_of_le (Associates.mk_ne_zero.mpr hprod0)
+      v.associates_irreducible (Associates.mk_le_mk_iff_dvd.mpr hfdiv)
+  have hIle : idealExp v I ≤ 1 := by
+    by_contra hlarge
+    have hdvd : v.asIdeal ^ 2 ∣ I := by
+      rw [← Associates.mk_le_mk_iff_dvd, Associates.mk_pow]
+      exact (Associates.prime_pow_dvd_iff_le (Associates.mk_ne_zero.mpr hI0)
+        v.associates_irreducible).mpr (by change 2 ≤ idealExp v I; omega)
+    exact v.irreducible.not_isUnit (hI v.asIdeal (by simpa only [pow_two] using hdvd))
+  by_cases heI : idealExp v I = 0
+  · omega
+  · have heIone : idealExp v I = 1 := by omega
+    have hgen : FractionalIdeal.count K v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (a : K)) = 1 := by
+      rw [ha.2.2 v hv, FractionalIdeal.count_coe K v hI0]
+      change (idealExp v I : ℤ) = 1
+      simp only [heIone, Int.natCast_one]
+    have h6 : (6 : 𝓞 K) ∉ v.asIdeal := fun h => hv (Sd.over6 v h)
+    have hpositive := qs_nq0_quadratic_conductor_exponent_pos D H v h6 a hgen
+      χ (hloc v) f hf.2.1
+    omega
+
 end ArtinPrimitiveRoots.A2
