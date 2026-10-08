@@ -1731,6 +1731,185 @@ private theorem vertical_pair_height_bound {σw σz : ℝ} (f : ℂ → ℂ → 
               mul_le_mul_of_nonneg_left hProdBound (by positivity)
         _ = _ := by ring
 
+private theorem goodCentral_bound (hEuler : EulerHypotheses R η)
+    (ε A1 : ℝ) (hε : 0 < ε) (hA1 : 1 / ZD.ρ < A1) :
+    ∃ C : ℝ, 0 < C ∧ ∀ Z T : ℝ, 2 ≤ Z → ZD.U0 ≤ T →
+      ∀ rows : Finset U.U,
+      (∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T ∧ u ∉ ZD.E T) →
+      ‖goodCentral R sd W η U HA HC ZD rows T Z‖ ≤
+        C * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε) := by
+  obtain ⟨AF, Ac, Adec, Cconv, CD, CP, CK, CH,
+      hAF, hAc, hGap, hAcAdec, hCconv, hCD, hCP, hCK, hCH,
+      hconv, hDecay, hPrincipal, hKummer, hHbound⟩ :=
+    rowKernel_good_constants (R := R) (sd := sd) (W := W) (η := η) (U := U)
+      (HA := HA) (HC := HC) (ZD := ZD) hEuler ε A1 hε hA1
+  obtain ⟨Brec, hBrec, hrec⟩ := ZD.reciprocal (ε / 3) (by linarith)
+  obtain ⟨Ccount, hCcount, hcount⟩ := U.dyadic_count
+  let Ckernel : ℝ := CD * CP * CK * CH * Brec * 2 ^ AF *
+    2 ^ (1 / 10 + ε / 3 + ε / 3)
+  let Iw : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-3 : ℝ)
+  let Iξ : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-(A1 + 2))
+  let K : ℝ := ‖(1 / (2 * Real.pi) : ℂ) ^ 2‖ * Ckernel * Iw * Cconv
+  let Ctot : ℝ := ‖(1 / (2 * Real.pi) : ℂ)‖ * K * Iξ * Ccount
+  have hIw : 0 ≤ Iw := integral_nonneg (fun _ => by positivity)
+  have hIξ : 0 ≤ Iξ := integral_nonneg (fun _ => by positivity)
+  have hCkernel : 0 ≤ Ckernel := by dsimp [Ckernel]; positivity
+  have hK : 0 ≤ K := by dsimp [K]; positivity
+  have hCtot : 0 ≤ Ctot := by dsimp [Ctot]; positivity
+  have hA1pos : 0 < A1 := lt_trans (one_div_pos.mpr ZD.ρ_pos) hA1
+  have hAdec : 0 < Adec := by linarith
+  have hξintegrable : Integrable (fun t : ℝ => (1 + |t|) ^ (-(A1 + 2))) := by
+    have hdim : (Module.finrank ℝ ℝ : ℝ) < A1 + 2 := by simp; linarith
+    simpa [Real.norm_eq_abs] using (integrable_one_add_norm (E := ℝ) hdim)
+  refine ⟨Ctot + 1, by linarith, ?_⟩
+  intro Z T hZ hT rows hrows
+  have hZpos : 0 < Z := by linarith
+  have hT2 : 2 ≤ T := le_trans ZD.U0_two hT
+  have hTpos : 0 < T := by linarith
+  let Ht : ℝ := T ^ ZD.ρ
+  have hHt : 0 ≤ Ht := (Real.rpow_pos_of_pos hTpos _).le
+  let ξLine : ℝ → ℂ := fun t => ((998 / 1000 : ℝ) : ℂ) + t * Complex.I
+  have hξre (t : ℝ) : (ξLine t).re = 998 / 1000 := by simp [ξLine]
+  have hξim (t : ℝ) : (ξLine t).im = t := by simp [ξLine]
+  let Sξ : Set ℂ := {ξ | ξ.re = 998 / 1000 ∧ |ξ.im| ≤ Ht}
+  have hSsubset : Sξ ⊆ {ξ : ℂ | 998 / 1000 ≤ ξ.re ∧ ξ.re ≤ 1 + δ1 ∧
+      |ξ.im| ≤ 2 * T ^ ZD.ρ} := by
+    intro ξ hξ
+    refine ⟨le_of_eq hξ.1.symm, ?_, ?_⟩
+    · rw [hξ.1]; norm_num [δ1]
+    · dsimp [Ht] at hξ hHt
+      linarith [hξ.2]
+  have hmem (t : ℝ) (ht : t ∈ Set.Icc (-Ht) Ht) : ξLine t ∈ Sξ := by
+    refine ⟨hξre t, ?_⟩
+    rw [hξim]
+    exact abs_le.mpr ht
+  let f : ℝ → ℂ := fun t => vertical (3 / 1000) (fun w => vertical (4 / 10)
+    (fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (ξLine t) w z))
+  have hpairbound : ∀ t ∈ Set.Icc (-Ht) Ht,
+      ‖f t‖ ≤ K * (rows.card : ℝ) * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+        T ^ (1 / 10 + ε) * (1 + |t|) ^ (-(A1 + 2)) := by
+    intro t ht
+    have hξ : ξLine t ∈ Sξ := hmem t ht
+    have hfiber : ∀ u ∈ rows, Integrable (fun v : ℝ × ℝ =>
+        rowKernel R sd W η U HA HC u Z (ξLine t)
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) (volume.prod volume) := by
+      intro u hu
+      obtain ⟨hne, hShell, hGood⟩ := hrows u hu
+      have hdata := rowKernel_pair_continuousOn (R := R) (sd := sd) (W := W)
+        (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler u hne T hT
+        hShell hGood Z ε A1 (by linarith) hε hA1 Sξ hSsubset (fun ξ hξ => hξ.2)
+      exact hdata.1 (ξLine t) hξ
+    have hsumfiber : Integrable (fun v : ℝ × ℝ =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (ξLine t)
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) (volume.prod volume) :=
+      integrable_finset_sum rows hfiber
+    let C0 : ℝ := (rows.card : ℝ) * Ckernel *
+      Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε)
+    have hpoint : ∀ v : ℝ × ℝ,
+        ‖∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (ξLine t)
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)‖ ≤
+        C0 * Real.exp (-((t + v.2) ^ 2)) * (1 + |v.2|) ^ (-Adec) *
+          (1 + |v.1|) ^ (-3 : ℝ) := by
+      intro v
+      let w : ℂ := ((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I
+      let z : ℂ := ((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I
+      have hw : w.re = 3 / 1000 := by simp [w]
+      have hz : z.re = 4 / 10 := by simp [z]
+      have hrow : ∀ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z (ξLine t) w z‖ ≤
+          Ckernel * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε) *
+            Real.exp (-((t + v.2) ^ 2)) * (1 + |v.2|) ^ (-Adec) *
+              (1 + |v.1|) ^ (-3 : ℝ) := by
+        intro u hu
+        obtain ⟨hne, hShell, hGood⟩ := hrows u hu
+        have hqUpper : U.q u ≤ 2 * T := hShell.2.le
+        have hpEuler : eulerNeighborhood ![ξLine t, w, z] := by
+          left
+          refine ⟨?_, ?_, ?_⟩
+          · change 998 / 1000 - 1 / 100000 < (ξLine t).re
+            rw [hξre]; norm_num
+          · change 3 / 1000 - 1 / 100000 < w.re
+            rw [hw]; norm_num
+          · change 4 / 10 - 1 / 100000 < z.re
+            rw [hz]; norm_num
+        have hxi := hSsubset hξ
+        have hinv := (hrec T hT u hShell hGood (ξLine t) hxi.1 hxi.2.2).2
+        have hbound := rowKernel_shell_height_bound (R := R) (sd := sd) (W := W)
+          (η := η) (U := U) (HA := HA) (HC := HC) u Z T ε (ξLine t) w z
+          hZpos hTpos hε hqUpper hCD.le hCP.le hCK.le hCH.le hBrec.le hAF.le hGap
+          (hDecay (ξLine t) w z hxi.1 hxi.2.1 hw hz) (hPrincipal z hz)
+          (hKummer u hne w (by rw [hw]) (by rw [hw]; norm_num))
+          (hHbound u ![ξLine t, w, z] hpEuler) hinv hw hz
+        simpa [Ckernel, w, z, ξLine] using hbound
+      calc
+        _ ≤ ∑ u ∈ rows, ‖rowKernel R sd W η U HA HC u Z (ξLine t) w z‖ :=
+          norm_sum_le rows _
+        _ ≤ ∑ _u ∈ rows, Ckernel * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+            T ^ (1 / 10 + ε) * Real.exp (-((t + v.2) ^ 2)) *
+              (1 + |v.2|) ^ (-Adec) * (1 + |v.1|) ^ (-3 : ℝ) :=
+          Finset.sum_le_sum hrow
+        _ = _ := by simp [C0, Finset.sum_const, nsmul_eq_mul]; ring
+    have hbound := vertical_pair_height_bound
+      (σw := 3 / 1000) (σz := 4 / 10)
+      (fun w z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (ξLine t) w z)
+      hsumfiber Adec Ac (A1 + 2) C0 Cconv t hAdec (by linarith) hAcAdec
+      (by dsimp [C0]; positivity) hCconv.le hpoint (hconv t)
+    simpa [f, C0, K, Iw, mul_assoc, mul_left_comm, mul_comm] using hbound
+  let pref : ℝ := K * (rows.card : ℝ) *
+    Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε)
+  have hpref : 0 ≤ pref := by dsimp [pref]; positivity
+  have hint : ‖∫ t in Set.Icc (-Ht) Ht, f t‖ ≤ pref * Iξ := by
+    have hdom := hξintegrable.const_mul pref
+    have hnorm := norm_integral_le_of_norm_le hdom.integrableOn
+      (show ∀ᵐ t ∂volume.restrict (Set.Icc (-Ht) Ht),
+        ‖f t‖ ≤ pref * (1 + |t|) ^ (-(A1 + 2)) from by
+        filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht
+        exact hpairbound t ht)
+    have hwhole : (∫ t in Set.Icc (-Ht) Ht, pref * (1 + |t|) ^ (-(A1 + 2))) ≤
+        ∫ t : ℝ, pref * (1 + |t|) ^ (-(A1 + 2)) :=
+      setIntegral_le_integral hdom (Filter.Eventually.of_forall fun _ => by positivity)
+    simpa [Iξ, integral_const_mul] using hnorm.trans hwhole
+  obtain ⟨hfinite, hcard⟩ := hcount T hT2
+  have hsub : rows ⊆ hfinite.toFinset := by
+    intro u hu
+    exact hfinite.mem_toFinset.mpr (hrows u hu).2.1
+  have hrowsCard : (rows.card : ℝ) ≤ Ccount * T := by
+    calc
+      _ ≤ (hfinite.toFinset.card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+      _ ≤ Ccount * T := by
+        simpa only [Set.ncard_eq_toFinset_card _ hfinite] using hcard
+  have hpower : T * T ^ (1 / 10 + ε) = T ^ (11 / 10 + ε) := by
+    calc
+      _ = T ^ (1 : ℝ) * T ^ (1 / 10 + ε) := by rw [Real.rpow_one]
+      _ = T ^ (1 + (1 / 10 + ε)) := (Real.rpow_add hTpos 1 (1 / 10 + ε)).symm
+      _ = _ := by congr 1; ring
+  have hcoeff : 0 ≤ ‖(1 / (2 * Real.pi) : ℂ)‖ * K * Iξ *
+      Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε) := by positivity
+  calc
+    ‖goodCentral R sd W η U HA HC ZD rows T Z‖ =
+        ‖(1 / (2 * Real.pi) : ℂ)‖ * ‖∫ t in Set.Icc (-Ht) Ht, f t‖ := by
+      simp only [goodCentral, f, Ht, ξLine, Complex.ofReal_div,
+        Complex.ofReal_ofNat, norm_mul]
+    _ ≤ ‖(1 / (2 * Real.pi) : ℂ)‖ * (pref * Iξ) :=
+      mul_le_mul_of_nonneg_left hint (norm_nonneg _)
+    _ = (‖(1 / (2 * Real.pi) : ℂ)‖ * K * Iξ *
+        Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε)) *
+          (rows.card : ℝ) := by dsimp [pref]; ring
+    _ ≤ (‖(1 / (2 * Real.pi) : ℂ)‖ * K * Iξ *
+        Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε)) *
+          (Ccount * T) := mul_le_mul_of_nonneg_left hrowsCard hcoeff
+    _ = Ctot * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) * T ^ (11 / 10 + ε) := by
+      calc
+        _ = Ctot * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+            (T * T ^ (1 / 10 + ε)) := by dsimp [Ctot]; ring
+        _ = _ := by rw [hpower]
+    _ ≤ (Ctot + 1) * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+        T ^ (11 / 10 + ε) := by
+      gcongr
+      linarith
+
 /-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
 The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
 theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
