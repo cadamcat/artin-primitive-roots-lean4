@@ -30,6 +30,14 @@ variable {F : Type} [Field F] [NumberField F]
 
 /-- The standard additive character data exists for a number field. -/
 theorem AddCharData.nonempty (D : FieldData F) : Nonempty (AddCharData F) := by
-  sorry
+  obtain ⟨ψ, hglobal, hint⟩ :=
+    ArtinPrimitiveRoots.Proofs.a1_bdata_sol.integralGlobalChar_family F
+  exact ⟨{
+    ψ := ψ
+    trivial_on_F := hglobal
+    integral := hint
+    unramified := ArtinPrimitiveRoots.Proofs.a1_bdata_sol.integralGlobalChar_unramified
+      ψ hglobal hint
+  }⟩
 
 end ArtinPrimitiveRoots.A1
