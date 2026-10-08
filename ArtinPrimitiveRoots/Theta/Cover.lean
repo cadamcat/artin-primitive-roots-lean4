@@ -13,6 +13,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.IntegralGL
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.LocalEffective
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedCentralQuotient
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.GlobalPivot
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RationalIntegral
 
 
 /-!
@@ -3723,6 +3724,147 @@ private theorem global_kpCocycle_product (D : FieldData F) (H : HilbertData F)
     _ = p (∏ᶠ v, r v) * p (∏ᶠ v, s v) := by
       rw [p.map_finprod hr, p.map_finprod hs]
     _ = 1 := by rw [hrprod, hsprod, p.map_one, mul_one]
+
+private theorem cover_global_factorization (k : GL (Fin 2) F) :
+    (∃ c : Fˣ, ∃ y : Fˣ, ∃ t : F,
+      k = Matrix.GeneralLinearGroup.scalar (Fin 2) c *
+        diagM F y * upperM F t) ∨
+    (∃ c : Fˣ, ∃ t : F, ∃ y : Fˣ,
+      ∃ u : F,
+      k = Matrix.GeneralLinearGroup.scalar (Fin 2) c * upperM F t *
+        diagM F y * weylM F *
+          upperM F u) := by
+  classical
+  let M : Matrix (Fin 2) (Fin 2) F := k
+  let a := M 0 0
+  let b := M 0 1
+  let c₀ := M 1 0
+  let d := M 1 1
+  by_cases hc : c₀ = 0
+  · have hdet : M.det ≠ 0 := by simpa [M] using k.det_ne_zero
+    have ha : a ≠ 0 := by
+      intro ha
+      apply hdet
+      rw [Matrix.det_fin_two]
+      simp [a, c₀, d, hc, ha, M]
+    have hd : d ≠ 0 := by
+      intro hd
+      apply hdet
+      rw [Matrix.det_fin_two]
+      simp [a, c₀, d, hc, hd, M]
+    let cU : Fˣ := Units.mk0 d hd
+    let y : Fˣ := Units.mk0 (a / d) (div_ne_zero ha hd)
+    let t : F := b / a
+    have heq : k = Matrix.GeneralLinearGroup.scalar (Fin 2) cU *
+        diagM F y * upperM F t := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [M, a, b, c₀, d, cU, y, t, hc,
+          Matrix.GeneralLinearGroup.scalar, diagM, upperM, Matrix.mul_apply,
+          Fin.sum_univ_two] <;>
+        field_simp [ha, hd, M, a, b, c₀, d] <;> ring
+    exact Or.inl ⟨cU, y, t, heq⟩
+  · have hcne : c₀ ≠ 0 := hc
+    have hdet : M.det ≠ 0 := by simpa [M] using k.det_ne_zero
+    let cU : Fˣ := Units.mk0 c₀ hcne
+    have hy : -M.det / c₀ ^ 2 ≠ 0 := by
+      apply div_ne_zero
+      · exact neg_ne_zero.mpr hdet
+      · exact pow_ne_zero 2 hcne
+    let y : Fˣ := Units.mk0 (-M.det / c₀ ^ 2) hy
+    let t : F := a / c₀
+    let u : F := d / c₀
+    have heq : k = Matrix.GeneralLinearGroup.scalar (Fin 2) cU *
+        upperM F t * diagM F y *
+          weylM F * upperM F u := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [M, a, b, c₀, d, cU, y, t, u, hcne,
+          Matrix.GeneralLinearGroup.scalar, upperM, diagM, weylM,
+          Matrix.mul_apply, Fin.sum_univ_two, Matrix.det_fin_two] <;>
+        field_simp [hcne, M, a, b, c₀, d] <;> ring
+    exact Or.inr ⟨cU, t, y, u, heq⟩
+
+/-- Rational section tuples lie in the tame reference subgroups almost everywhere. -/
+private theorem coverFamily_rational_restricted (C : CoverLocalFamily D S H)
+    (γ : GL (Fin 2) F) :
+    Set.Finite {v : FinPlace F | ∃ hv : v ∉ S.Sf,
+      (C.loc v).sec
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) γ) ∉
+      (C.tame v hv).Kmax} := by
+  classical
+  let good : GL (Fin 2) F → Prop := fun k =>
+    ∀ᶠ v : FinPlace F in cofinite, ∀ hv : v ∉ S.Sf,
+      (C.loc v).sec
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) k) ∈
+      (C.tame v hv).Kmax
+  have hmul (g h : GL (Fin 2) F) (hg : good g) (hh : good h) : good (g * h) := by
+    have hc : ∀ᶠ v : FinPlace F in cofinite, kpCocycle D H v
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h) = 1 :=
+      Filter.eventually_cofinite.mpr (global_kpCocycle_product D H g h).1
+    filter_upwards [hg, hh, hc] with v hgv hhv hcv
+    intro hv
+    have heq := (C.loc v).sec_mul
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)
+    rw [hcv, map_one, one_mul] at heq
+    rw [Matrix.GeneralLinearGroup.map_mul, ← heq]
+    exact (C.tame v hv).Kmax.mul_mem (hgv hv) (hhv hv)
+  have hscalar (c : Fˣ) : good (Matrix.GeneralLinearGroup.scalar (Fin 2) c) := by
+    apply Filter.Eventually.of_forall
+    intro v hv
+    rw [Matrix.GeneralLinearGroup.map_scalar, (C.loc v).sec_scalar]
+    exact (C.tame v hv).Kmax.one_mem
+  have hupper (t : F) : good (upperM F t) := by
+    filter_upwards
+      [ArtinPrimitiveRoots.Proofs.th_cover_sol.rational_eventually_integral (R := 𝓞 F) t]
+      with v ht
+    intro hv
+    have heq : Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (upperM F t) = upperM (v.adicCompletion F)
+          (algebraMap F (v.adicCompletion F) t) := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.map_apply, upperM]
+    rw [heq, ← (C.loc v).sec_n]
+    exact (C.tame v hv).n_mem _ ht
+  have hdiag (u : Fˣ) : good (diagM F u) := by
+    filter_upwards
+      [ArtinPrimitiveRoots.Proofs.th_cover_sol.rationalUnit_eventually_integral
+        (R := 𝓞 F) u] with v hu
+    intro hv
+    have heq : Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (diagM F u) = diagM (v.adicCompletion F) (toLoc v u) := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.map_apply, diagM, toLoc]
+    rw [heq, ← (C.loc v).sec_a]
+    exact (C.tame v hv).a_mem _ hu.1 hu.2
+  have hweyl : good (weylM F) := by
+    apply Filter.Eventually.of_forall
+    intro v hv
+    have heq : Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (weylM F) = weylM (v.adicCompletion F) := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.map_apply, weylM]
+    rw [heq, ← (C.loc v).sec_w]
+    exact (C.tame v hv).w_mem
+  have hγ : good γ := by
+    rcases cover_global_factorization γ with ⟨c, y, t, hγ⟩ | ⟨c, t, y, u, hγ⟩
+    · rw [hγ]
+      exact hmul _ _ (hmul _ _ (hscalar c) (hdiag y)) (hupper t)
+    · rw [hγ]
+      exact hmul _ _
+        (hmul _ _ (hmul _ _ (hmul _ _ (hscalar c) (hupper t)) (hdiag y)) hweyl)
+        (hupper u)
+  simpa only [not_forall] using Filter.eventually_cofinite.mp hγ
 
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
