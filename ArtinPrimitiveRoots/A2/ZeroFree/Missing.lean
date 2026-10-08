@@ -2410,6 +2410,171 @@ private theorem rowKernel_right_pair_integrable (hEuler : EulerHypotheses R η)
   apply hdom.mono' hPairMeas.aestronglyMeasurable
   exact Filter.Eventually.of_forall (fun t => by simpa [ξLine] using (hdata t).2)
 
+private theorem rowKernel_single_remainder_bound (hEuler : EulerHypotheses R η)
+    (ε A1 : ℝ) (hε : 0 < ε) (hA1 : 1 / ZD.ρ < A1) :
+    ∃ C : ℝ, 0 < C ∧ ∀ Z T : ℝ, 2 ≤ Z → ZD.U0 ≤ T →
+      ∀ u : U.U, u ≠ U.one → u ∈ frequencyDyad η U T → u ∉ ZD.E T →
+      ‖vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) -
+        (1 / (2 * Real.pi) : ℂ) * ∫ t in Set.Icc (-(T ^ ZD.ρ)) (T ^ ZD.ρ),
+          rowKernelHeightPair R sd W η U HA HC u Z
+            ((998 / 1000 : ℝ) + t * Complex.I)‖ ≤
+        C * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (1 / 10 + ε - ZD.ρ * A1) := by
+  obtain ⟨Cpair, hCpair, hbound⟩ := rowKernel_good_pair_bounds (R := R) (sd := sd) (W := W)
+    (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler ε A1 hε hA1
+  let I₂ : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-2 : ℝ)
+  let Len : ℝ := (1 + δ1) - 998 / 1000
+  let κ : ℂ := (1 / (2 * Real.pi) : ℂ)
+  let Ctot : ℝ := ‖κ‖ * Cpair * (I₂ + 2 * Len)
+  have hI₂ : 0 ≤ I₂ := integral_nonneg (fun _ => by positivity)
+  have hLen : 0 ≤ Len := by norm_num [Len, δ1]
+  have hCtot : 0 ≤ Ctot := by dsimp [Ctot]; positivity
+  have hA1pos : 0 < A1 := lt_trans (one_div_pos.mpr ZD.ρ_pos) hA1
+  have hTwo : Integrable (fun t : ℝ => (1 + |t|) ^ (-2 : ℝ)) := by
+    have hdim : (Module.finrank ℝ ℝ : ℝ) < 2 := by simp
+    simpa [Real.norm_eq_abs] using integrable_one_add_norm (E := ℝ) hdim
+  refine ⟨Ctot + 1, by linarith, ?_⟩
+  intro Z T hZ hT u hu hShell hGood
+  have hZpos : 0 < Z := by linarith
+  have hTpos : 0 < T := by linarith [ZD.U0_two]
+  let Ht : ℝ := T ^ ZD.ρ
+  have hHt : 0 < Ht := Real.rpow_pos_of_pos hTpos _
+  have hHH : -Ht ≤ Ht := by linarith
+  let aξ : ℝ := 998 / 1000
+  let bξ : ℝ := 1 + δ1
+  have hab : aξ ≤ bξ := by norm_num [aξ, bξ, δ1]
+  let P : ℂ → ℂ := rowKernelHeightPair R sd W η U HA HC u Z
+  let Rline : ℝ → ℂ := fun t => P ((bξ : ℂ) + t * Complex.I)
+  let Lline : ℝ → ℂ := fun t => P ((aξ : ℂ) + t * Complex.I)
+  let Etop : ℝ := Estar (1 + δ1) (3 / 1000) (4 / 10)
+  let B0 : ℝ := Cpair * Z ^ Etop * T ^ (1 / 10 + ε)
+  let g : ℝ → ℝ := fun t => (1 + |t|) ^ (-(A1 + 2))
+  have hB0 : 0 ≤ B0 := by dsimp [B0]; positivity
+  have hRight (t : ℝ) : ‖Rline t‖ ≤ B0 * g t := by
+    let ξ : ℂ := (bξ : ℂ) + t * Complex.I
+    have hξre : ξ.re = 1 + δ1 := by simp [ξ, bξ]
+    have hb := hbound Z T hZ hT u hu hShell hGood ξ
+      (by rw [hξre]; norm_num [δ1]) (by rw [hξre]) (Or.inl hξre)
+    simpa [Rline, P, B0, Etop, g, ξ, bξ] using hb.2
+  have hRightInt : Integrable Rline := by
+    have hi := rowKernel_right_pair_integrable (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler ε A1 hε hA1
+      u hu T hT hShell hGood Z hZ
+    simpa only [Rline, P, bξ] using hi
+  have hTailCmp (t : ℝ) (ht : Ht ≤ |t|) :
+      g t ≤ Ht ^ (-A1) * (1 + |t|) ^ (-2 : ℝ) := by
+    have hbase : 0 < 1 + |t| := by positivity
+    calc
+      _ = (1 + |t|) ^ (-A1) * (1 + |t|) ^ (-2 : ℝ) := by
+        dsimp [g]
+        rw [← Real.rpow_add hbase]
+        congr 1
+        ring
+      _ ≤ _ := mul_le_mul_of_nonneg_right
+        (Real.rpow_le_rpow_of_nonpos hHt (by linarith) (by linarith))
+        (Real.rpow_nonneg (by positivity) _)
+  have hHeightCmp (t : ℝ) (ht : Ht ≤ |t|) : g t ≤ Ht ^ (-A1) := by
+    calc
+      _ ≤ Ht ^ (-A1) * (1 + |t|) ^ (-2 : ℝ) := hTailCmp t ht
+      _ ≤ Ht ^ (-A1) * 1 := mul_le_mul_of_nonneg_left
+        (Real.rpow_le_one_of_one_le_of_nonpos (by nlinarith [abs_nonneg t]) (by norm_num))
+        (Real.rpow_nonneg hHt.le _)
+      _ = _ := mul_one _
+  have hTail : ‖∫ t in (Set.Icc (-Ht) Ht)ᶜ, Rline t‖ ≤ B0 * Ht ^ (-A1) * I₂ := by
+    have hdom := hTwo.const_mul (B0 * Ht ^ (-A1))
+    have hnorm := norm_integral_le_of_norm_le hdom.integrableOn
+      (show ∀ᵐ t ∂volume.restrict (Set.Icc (-Ht) Ht)ᶜ,
+        ‖Rline t‖ ≤ (B0 * Ht ^ (-A1)) * (1 + |t|) ^ (-2 : ℝ) from by
+        filter_upwards [ae_restrict_mem measurableSet_Icc.compl] with t ht
+        have hnot : ¬ |t| ≤ Ht := fun hle => ht (abs_le.mp hle)
+        have hge : Ht ≤ |t| := (lt_of_not_ge hnot).le
+        calc
+          _ ≤ B0 * g t := hRight t
+          _ ≤ B0 * (Ht ^ (-A1) * (1 + |t|) ^ (-2 : ℝ)) :=
+            mul_le_mul_of_nonneg_left (hTailCmp t hge) hB0
+          _ = _ := by ring)
+    have hwhole : (∫ t in (Set.Icc (-Ht) Ht)ᶜ,
+        (B0 * Ht ^ (-A1)) * (1 + |t|) ^ (-2 : ℝ)) ≤
+        ∫ t : ℝ, (B0 * Ht ^ (-A1)) * (1 + |t|) ^ (-2 : ℝ) :=
+      setIntegral_le_integral hdom (Filter.Eventually.of_forall fun _ => by positivity)
+    simpa only [integral_const_mul, I₂] using hnorm.trans hwhole
+  have hHorizontal : ∀ Y : ℝ, |Y| = Ht →
+      ‖∫ x : ℝ in aξ..bξ, P (x + Y * Complex.I)‖ ≤ B0 * Ht ^ (-A1) * Len := by
+    intro Y hY
+    have hnorm := intervalIntegral.norm_integral_le_of_norm_le_const
+      (a := aξ) (b := bξ) (C := B0 * Ht ^ (-A1))
+      (f := fun x : ℝ => P (x + Y * Complex.I)) (by
+        intro x hx
+        rw [Set.uIoc_of_le hab] at hx
+        have hxlo : 998 / 1000 ≤ x := by simpa [aξ] using hx.1.le
+        have hxhi : x ≤ 1 + δ1 := by simpa [bξ] using hx.2
+        let ξ : ℂ := (x : ℂ) + Y * Complex.I
+        have hξre : ξ.re = x := by simp [ξ]
+        have hξim : ξ.im = Y := by simp [ξ]
+        have hb := hbound Z T hZ hT u hu hShell hGood ξ
+          (by rw [hξre]; exact hxlo) (by rw [hξre]; exact hxhi)
+          (Or.inr (by rw [hξim, hY]))
+        have hE : Estar ξ.re (3 / 1000) (4 / 10) ≤ Etop := by
+          dsimp [Etop, Estar]
+          rw [hξre]
+          linarith
+        have hZpow := Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z) hE
+        have hprod := mul_le_mul hZpow (hHeightCmp Y hY.symm.le)
+          (show 0 ≤ g Y by dsimp [g]; positivity) (Real.rpow_nonneg hZpos.le Etop)
+        have hscaled := mul_le_mul_of_nonneg_left hprod
+          (show 0 ≤ Cpair * T ^ (1 / 10 + ε) by positivity)
+        calc
+          _ ≤ Cpair * Z ^ Estar ξ.re (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε) * g Y := by
+            simpa only [P, g, hξim] using hb.2
+          _ ≤ _ := by simpa [B0, mul_assoc, mul_left_comm, mul_comm] using hscaled)
+    simpa [Len, aξ, bξ, abs_of_nonneg (sub_nonneg.mpr hab)] using hnorm
+  let Jright : ℂ := ∫ t in Set.Icc (-Ht) Ht, Rline t
+  let Jleft : ℂ := ∫ t in Set.Icc (-Ht) Ht, Lline t
+  let Jtop : ℂ := ∫ x : ℝ in aξ..bξ, P (x + Ht * Complex.I)
+  let Jbot : ℂ := ∫ x : ℝ in aξ..bξ, P (x + (-Ht) * Complex.I)
+  have hIccEq (f : ℝ → ℂ) : (∫ t in Set.Icc (-Ht) Ht, f t) = ∫ t : ℝ in -Ht..Ht, f t := by
+    rw [integral_Icc_eq_integral_Ioc, intervalIntegral.integral_of_le hHH]
+  have hRect : Complex.I • (Jright - Jleft) = Jtop - Jbot := by
+    have hr := rowKernel_pair_rectangle_difference (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler u hu T hT
+      hShell hGood Z ε A1 (by linarith) hε hA1
+    change Complex.I • ((∫ t : ℝ in -Ht..Ht, Rline t) -
+        ∫ t : ℝ in -Ht..Ht, Lline t) = Jtop - Jbot at hr
+    simpa only [Jright, Jleft, hIccEq] using hr
+  have hDifference : ‖Jright - Jleft‖ ≤ 2 * B0 * Ht ^ (-A1) * Len := by
+    calc
+      _ = ‖Complex.I • (Jright - Jleft)‖ := by simp [norm_smul]
+      _ = ‖Jtop - Jbot‖ := congrArg norm hRect
+      _ ≤ ‖Jtop‖ + ‖Jbot‖ := norm_sub_le _ _
+      _ ≤ (B0 * Ht ^ (-A1) * Len) + (B0 * Ht ^ (-A1) * Len) :=
+        add_le_add (hHorizontal Ht (abs_of_nonneg hHt.le))
+          (by simpa only [Jbot, Complex.ofReal_neg] using
+            hHorizontal (-Ht) (by rw [abs_neg, abs_of_nonneg hHt.le]))
+      _ = _ := by ring
+  have hSplit : (∫ t : ℝ, Rline t) = Jright + ∫ t in (Set.Icc (-Ht) Ht)ᶜ, Rline t :=
+    (integral_add_compl measurableSet_Icc hRightInt).symm
+  have hPower : T ^ (1 / 10 + ε) * Ht ^ (-A1) =
+      T ^ (1 / 10 + ε - ZD.ρ * A1) := by
+    dsimp [Ht]
+    rw [← Real.rpow_mul hTpos.le ZD.ρ (-A1), ← Real.rpow_add hTpos]
+    congr 1
+    ring
+  change ‖κ * (∫ t : ℝ, Rline t) - κ * Jleft‖ ≤
+    (Ctot + 1) * Z ^ Etop * T ^ (1 / 10 + ε - ZD.ρ * A1)
+  calc
+    _ = ‖κ * ((∫ t in (Set.Icc (-Ht) Ht)ᶜ, Rline t) + (Jright - Jleft))‖ := by
+      rw [hSplit]
+      congr 1
+      ring
+    _ = ‖κ‖ * ‖(∫ t in (Set.Icc (-Ht) Ht)ᶜ, Rline t) + (Jright - Jleft)‖ := norm_mul _ _
+    _ ≤ ‖κ‖ * (‖∫ t in (Set.Icc (-Ht) Ht)ᶜ, Rline t‖ + ‖Jright - Jleft‖) :=
+      mul_le_mul_of_nonneg_left (norm_add_le _ _) (norm_nonneg _)
+    _ ≤ ‖κ‖ * (B0 * Ht ^ (-A1) * I₂ + 2 * B0 * Ht ^ (-A1) * Len) :=
+      mul_le_mul_of_nonneg_left (add_le_add hTail hDifference) (norm_nonneg _)
+    _ = Ctot * Z ^ Etop * (T ^ (1 / 10 + ε) * Ht ^ (-A1)) := by dsimp [B0, Ctot]; ring
+    _ = Ctot * Z ^ Etop * T ^ (1 / 10 + ε - ZD.ρ * A1) := by rw [hPower]
+    _ ≤ _ := by gcongr; linarith
+
 /-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
 The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
 theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
