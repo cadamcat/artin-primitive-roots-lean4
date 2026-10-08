@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A1.AddChar
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».TateCharacter
+import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».CompletionTrace
 
 /-!
 # Existence of the standard additive character data
