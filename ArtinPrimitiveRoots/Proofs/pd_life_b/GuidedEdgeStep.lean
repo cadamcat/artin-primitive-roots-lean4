@@ -595,6 +595,89 @@ theorem guided_edge_other_zero {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPa
       exact List.disjoint_of_nodup_append hnd' h1 h2
     · rfl
 
+theorem guided_target_eq {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x)) (τ : LogPoint S.x K)
+    (hl : τ.1.2.1 = (γ j.castSucc).2)
+    (π π' : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+    (hST : IsSlotTransition (permuteLists π (γ j.castSucc).2)
+      (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2))
+    (q : (i : Fin K) → primeBand S.x (F.a i))
+    (hq : ∀ i, (q i).1 =
+      permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 i (lastSlot S.x)) :
+    edgeTargetLists F S (permuteLogPoint π τ).1 (guidedEdgeChoice F S γ H j τ π q) =
+      permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 := by
+  funext i jj
+  unfold edgeTargetLists
+  split_ifs with hjj
+  · show permuteLists π τ.1.2.1 i jj = _
+    rw [hl]
+    exact (hST.1 i jj hjj).symm
+  · rw [slot_eq_last jj hjj, ← hq i]
+    exact guidedFill_label F S τ i (q i) _
+
+/-- The entry factor of group `i` for the forced fill. -/
+theorem guided_entry_eq {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x)) (τ : LogPoint S.x K)
+    (hτ : IsLifeStateAfter F S γ H j.castSucc τ)
+    (π π' : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+    (hST : IsSlotTransition (permuteLists π (γ j.castSucc).2)
+      (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2))
+    (q : (i : Fin K) → primeBand S.x (F.a i))
+    (hq : ∀ i, (q i).1 =
+      permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 i (lastSlot S.x)) (i : Fin K) :
+    (if ∃ r : Fin (τ.1.2.2 i).length, ((τ.1.2.2 i).get r).1 = (q i).1 then
+        (bandMass S.x (F.a i))⁻¹ else memoryNu S.x K F.a F.q_d i (q i).1) =
+      ∏ p : primeBand S.x (F.a i),
+        (if IsActiveAt γ p.1 j.succ ∧ ¬ IsActiveAt γ p.1 j.castSucc then
+          (if pdLifePending S γ p.1 (H i p) true j.castSucc then (bandMass S.x (F.a i))⁻¹
+            else memoryNu S.x K F.a F.q_d i p.1)
+        else 1) := by
+  obtain ⟨-, hnd, hmem, -, -⟩ := hτ
+  set P := permuteLists π (γ j.castSucc).2 with hPdef
+  set Q := permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 with hQdef
+  have hPv : ValidPrimeLists S.x K F.a P :=
+    guided_validPrimeLists_permute π _ (hγ.1 j.castSucc).2
+  have hQv : ValidPrimeLists S.x K F.a Q :=
+    guided_validPrimeLists_permute _ _ (hγ.1 j.succ).2
+  have hactj : ∀ p, IsActiveAt γ p j.castSucc ↔ ∃ i jj, P i jj = p :=
+    active_iff_permute S γ π _
+  have hactj1 : ∀ p, IsActiveAt γ p j.succ ↔ ∃ i jj, Q i jj = p :=
+    active_iff_permute S γ (fun i => (π' i)⁻¹) _
+  have hfacts := edge_slot_facts F S hBands P Q hPv hQv hST
+  have h1 : IsActiveAt γ (q i).1 j.succ := (hactj1 _).mpr ⟨i, lastSlot S.x, (hq i).symm⟩
+  have h0 : ¬ IsActiveAt γ (q i).1 j.castSucc := by
+    intro h
+    apply (hfacts i _ (q i).2).2.2.1
+    rw [← hq i]
+    exact (hactj _).mp h
+  rw [Finset.prod_eq_single (q i)]
+  · rw [if_pos (⟨h1, h0⟩ : IsActiveAt γ (q i).1 j.succ ∧ ¬ IsActiveAt γ (q i).1 j.castSucc)]
+    by_cases hex : ∃ r : Fin (τ.1.2.2 i).length, ((τ.1.2.2 i).get r).1 = (q i).1
+    · rw [if_pos hex]
+      obtain ⟨r, hr⟩ := hex
+      obtain ⟨hp, hpend, -⟩ := (hmem i _).mp (List.get_mem _ r)
+      have : pdLifePending S γ (q i).1 (H i (q i)) true j.castSucc := by
+        have e : (⟨((τ.1.2.2 i).get r).1, hp⟩ : primeBand S.x (F.a i)) = q i := Subtype.ext hr
+        rw [← e]; exact hpend
+      rw [if_pos this]
+    · rw [if_neg hex, if_neg]
+      intro hpend
+      apply hex
+      obtain ⟨r, hr⟩ := List.mem_iff_get.mp
+        ((hmem i ((q i).1, (lifeLine S γ (q i).1 (H i (q i)).1).val)).mpr ⟨(q i).2, hpend, rfl⟩)
+      exact ⟨r, by rw [hr]⟩
+  · intro p _ hpq
+    rw [if_neg]
+    rintro ⟨hp1, hp0⟩
+    apply hpq
+    apply Subtype.ext
+    rw [hq i]
+    exact (hfacts i p.1 p.2).1 ⟨(hactj1 _).mp hp1, fun h => hp0 ((hactj _).mpr h)⟩
+  · intro h; exact absurd (Finset.mem_univ _) h
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
