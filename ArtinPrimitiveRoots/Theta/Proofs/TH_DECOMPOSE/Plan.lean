@@ -1,6 +1,6 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
-import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.LocalSixthPower
+import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.CongruenceShrinking
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
@@ -71,6 +71,7 @@ theorem red_decompose_part1 [IsTotallyComplex F] (P : CoverPackage D S H A)
       a (fun w => ArtinPrimitiveRoots.A1.Spec.height
         ((γ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) w)) * gj * (kinf * k)) :
     Nonempty (RedDecomposeGeometry P G a T0 hsub m gj) := by
+  obtain ⟨N, hN, hNfinite, hNlag⟩ := exists_cusp_lagrangian_congruence P G
   sorry
 
 /-- The finite torus coefficients, with support independent of the parameter. -/
