@@ -123,6 +123,15 @@ theorem whit_gaussLoc_norm_le (D : FieldData F) (A : AddCharData F)
 /-- The terminal coefficient in the exponent-zero spherical Jacquet vector is bounded by one. -/
 theorem whit_shellTerm_one_norm_le (D : FieldData F) (A : AddCharData F)
     (v : FinPlace F) : ‖shellTerm D A v 1‖ ≤ 1 := by
-  sorry
+  have hq : 0 < qv v := lt_trans zero_lt_one (qv_gt_one v)
+  have hc : 0 ≤ qv v ^ (-(1 / 2 : ℝ)) := Real.rpow_nonneg hq.le _
+  have hnorm : ‖(qv v : ℂ) ^ (-(1 / 2 : ℂ))‖ = qv v ^ (-(1 / 2 : ℝ)) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hq]
+    norm_num
+  have hreal : qv v ^ (-(1 / 2 : ℝ)) * Real.sqrt (qv v) = 1 := by
+    rw [Real.sqrt_eq_rpow, ← Real.rpow_add hq]
+    norm_num
+  rw [shellTerm, if_neg (by decide : ¬ (3 : ℕ) ∣ 1), norm_mul, hnorm]
+  exact (mul_le_mul_of_nonneg_left (whit_gaussLoc_norm_le D A v _) hc).trans_eq hreal
 
 end ArtinPrimitiveRoots.A1.Theta
