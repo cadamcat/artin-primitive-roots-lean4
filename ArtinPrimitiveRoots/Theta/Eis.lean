@@ -295,6 +295,73 @@ def whitLiftTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
     (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v))))) *
     ∏ w, jacquetC (rtr (P.compC w x) (Fs.fC w))
 
+/-- Changing finitely many local Jacquet vectors preserves absolute convergence. -/
+theorem whit_jacquet_family_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x : P.RP)
+    (E : Finset (FinPlace F)) (hE : Fs.T0 ⊆ E)
+    (hcomp : ∀ v (hv : v ∉ E),
+      P.compF v x ∈ (P.tame v (fun h => hv (hE (Fs.sub h)))).Kmax)
+    (z : ∀ v : FinPlace F, (G.T v).V)
+    (hz : ∀ v, v ∉ E → z v =
+      jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v))) :
+    Summable (fun δ : Fˣ ⧸ G.Δ =>
+      ‖∏ᶠ v, G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (z v))‖) := by
+  have hfin (v : FinPlace F) : Finite ((v.adicCompletion F)ˣ ⧸ G.Alag v) := by
+    obtain ⟨w, hw⟩ : ∃ w : (G.T v).V, G.lam v w ≠ 0 := by
+      by_contra h
+      push Not at h
+      apply G.lam_ne v
+      ext w
+      exact h w
+    letI : Nontrivial (G.T v).V := ⟨⟨w, 0, by
+      intro h
+      apply hw
+      rw [h, map_zero]⟩⟩
+    exact whit_alag_quotient_finite (G.T v) (G.Alag v) (G.alag_cubes v)
+  have hbounds (v : FinPlace F) : ∃ c : ℝ, 0 ≤ c ∧
+      ∀ t : (v.adicCompletion F)ˣ, ‖G.lam v ((G.T v).σa t (z v))‖ ≤ c := by
+    let R := (G.T v).σa_finite.toFinset
+    refine ⟨∑ ρ ∈ R, ‖G.lam v (ρ (z v))‖,
+      Finset.sum_nonneg (fun ρ _ => norm_nonneg _), ?_⟩
+    intro t
+    apply Finset.single_le_sum (f := fun ρ => ‖G.lam v (ρ (z v))‖)
+      (a := (G.T v).σa t) (fun ρ _ => norm_nonneg _)
+    exact (G.T v).σa_finite.mem_toFinset.mpr ⟨t, rfl⟩
+  choose c hc hbound using hbounds
+  let a (v : FinPlace F) (δ : Fˣ ⧸ G.Δ) : ℂ :=
+    G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (z v))
+  refine whit_local_product_summable G.Alag E
+    (fun v hv => G.alag_tame v (fun h => hv (hE (Fs.sub h))))
+    (fun v _ => hfin v) a ?_ (2 * s.re) (by linarith) c
+    (fun v _ => hc v) (fun δ v _ => hbound v (toLoc v (Quotient.out δ))) ?_
+  · intro δ
+    refine (E.finite_toSet.union
+      (whit_finite_mulSupport P G μ Fs x (Quotient.out δ))).subset ?_
+    intro v hv
+    by_cases hvE : v ∈ E
+    · exact Or.inl hvE
+    · refine Or.inr ?_
+      change G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (z v)) ≠ 1 at hv
+      change G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) ≠ 1
+      simpa only [hz v hvE] using hv
+  · intro δ v hv
+    have hvT : v ∉ Fs.T0 := fun h => hv (hE h)
+    have hvS : v ∉ S.Sf := fun h => hvT (Fs.sub h)
+    dsimp [a]
+    rw [hz v hv]
+    have hdec := (whit_ordv_geometry v).2.2.2.2 (toLoc v (Quotient.out δ))
+    have hloc := whit_spherical_factor_norm_le (P.loc v) (P.tame v hvS)
+      (G.T v) (G.B v hvS) A (μ v)
+      (fun h => hvS (S.over6 v h)) (fun h => hvS (S.different_mem v h))
+      s (Fs.f v) (Fs.f_sec v) (Fs.f_sph v hvT).1 (Fs.f_sph v hvT).2
+      (G.lam v) (G.lam_tame v hvS)
+      (ordv v (toLoc v (Quotient.out δ))) (unitPart v (toLoc v (Quotient.out δ)))
+      hdec.1 (P.compF v x) (hcomp v hv)
+    rw [← hdec.2] at hloc
+    convert hloc using 1 <;> first | rfl | simp only [neg_mul]
+
 /-- Absolute convergence of the unfolded series at any lift. -/
 theorem whitLiftTerm_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
