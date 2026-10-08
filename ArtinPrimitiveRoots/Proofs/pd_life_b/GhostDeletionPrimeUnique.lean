@@ -96,4 +96,20 @@ theorem finiteHistoryTrace_ghost_birth_eq_of_prime_eq {K : ℕ}
   have hInj := (List.nodup_map_iff_inj_on hG).1 hPrime
   exact hInj b (by simpa [G] using hb) b' (by simpa [G] using hb') hprime
 
+/-- Each prime in the birth list has a unique event carrying it. -/
+theorem finiteHistoryTrace_ghost_birth_existsUnique_of_mem_prime {K : ℕ}
+    (F : PDFix K) (S : PDScale) (w : ArchRoot) (γ : EnvPath S.x K)
+    (k : ℕ) (σ : LogPoint S.x K) (t : FiniteHistoryTrace F S γ k σ)
+    (ht : FiniteHistoryTraceValid F S w γ k σ t)
+    (p : ℕ)
+    (hp : p ∈ (finiteHistoryTraceGhostBirths F S γ k σ t).map
+      (fun b => b.2.2)) :
+    ∃! b : Fin (pathLength S.x + 1) × Fin K × ℕ,
+      b ∈ finiteHistoryTraceGhostBirths F S γ k σ t ∧ b.2.2 = p := by
+  rcases List.mem_map.mp hp with ⟨b, hb, rfl⟩
+  refine ⟨b, ⟨hb, rfl⟩, ?_⟩
+  intro b' hb'
+  exact finiteHistoryTrace_ghost_birth_eq_of_prime_eq F S w γ k σ t ht
+    hb'.1 hb hb'.2
+
 end ArtinPrimitiveRoots.Proofs.pd_lifeb_sol
