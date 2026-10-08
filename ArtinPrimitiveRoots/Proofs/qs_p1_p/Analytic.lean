@@ -1141,6 +1141,159 @@ private theorem qs_p1_logTerm_integrable [IsTotallyComplex K]
             dsimp [η]
             ring
 
+private theorem qs_p1_logTerm_uniform_majorant [IsTotallyComplex K]
+    (h : ℝ → ℂ) (hh : IsQSWeight h) (a b : ℝ) (ha : 0 < a) (hab : a ≤ b)
+    (j A : ℕ) (hbAc : b + (j : ℝ) < (A : ℝ)) :
+    ∃ G : ℝ → ℝ, Integrable G ∧ ∀ c ∈ Set.Icc a b, ∀ u : ℝ,
+      ‖qsP1LogTerm (K := K) c j h u‖ ≤ G u := by
+  let η : ℝ := a / 2
+  let q : ℝ := (A : ℝ) - b - j
+  let r : ℝ := a / 2
+  obtain ⟨_, ⟨C, hC, hbound⟩⟩ :=
+    qs_transform_bounds_P0 (K := K) h hh A j η (by dsimp [η]; linarith)
+  have hq : 0 < q := by dsimp [q]; linarith
+  have hr : 0 < r := by dsimp [r]; linarith
+  let G : ℝ → ℝ := fun u => C * Real.exp (q * min u 0 - r * max u 0)
+  have hGcont : Continuous G := by
+    have hmin : Continuous (fun u : ℝ => min u 0) :=
+      continuous_id.min continuous_const
+    have hmax : Continuous (fun u : ℝ => max u 0) :=
+      continuous_id.max continuous_const
+    change Continuous (fun u : ℝ => C * Real.exp (q * min u 0 - r * max u 0))
+    exact continuous_const.mul (Real.continuous_exp.comp
+      ((continuous_const.mul hmin).sub (continuous_const.mul hmax)))
+  have hG : Integrable G := by
+    have hleftBase : IntegrableOn (fun u : ℝ => C * Real.exp (q * u)) (Set.Iic 0) := by
+      have h := (integrableOn_exp_mul_Iic hq 0).const_mul C
+      simpa [IntegrableOn, mul_comm] using h
+    have hrightBase : IntegrableOn (fun u : ℝ => C * Real.exp (-r * u)) (Set.Ioi 0) := by
+      have h := (integrableOn_exp_mul_Ioi (neg_neg_of_pos hr) 0).const_mul C
+      simpa [IntegrableOn, mul_comm] using h
+    have hleft : IntegrableOn G (Set.Iic 0) := by
+      apply hleftBase.congr_fun
+      · intro u hu
+        change u ≤ 0 at hu
+        change C * Real.exp (q * u) =
+          C * Real.exp (q * min u 0 - r * max u 0)
+        rw [min_eq_left hu, max_eq_right hu]
+        ring_nf
+      · exact measurableSet_Iic
+    have hright : IntegrableOn G (Set.Ioi 0) := by
+      apply hrightBase.congr_fun
+      · intro u hu
+        change 0 < u at hu
+        change C * Real.exp (-r * u) =
+          C * Real.exp (q * min u 0 - r * max u 0)
+        rw [min_eq_right hu.le, max_eq_left hu.le]
+        ring_nf
+      · exact measurableSet_Ioi
+    have huniv : (Set.univ : Set ℝ) = Set.Iic 0 ∪ Set.Ioi 0 := by
+      ext u
+      simp only [Set.mem_univ, true_iff, Set.mem_union, Set.mem_Iic, Set.mem_Ioi]
+      exact le_or_gt u 0
+    have hU : IntegrableOn G (Set.Iic 0 ∪ Set.Ioi 0) := by
+      rw [integrableOn_union]
+      exact ⟨hleft, hright⟩
+    have hsub : (Set.univ : Set ℝ) ⊆ Set.Iic 0 ∪ Set.Ioi 0 := by
+      intro u hu
+      simp only [Set.mem_univ, true_iff, Set.mem_union, Set.mem_Iic, Set.mem_Ioi]
+      exact le_or_gt u 0
+    exact integrableOn_univ.mp (hU.mono_set hsub)
+  refine ⟨G, hG, ?_⟩
+  intro c hc u
+  have hca : a ≤ c := hc.1
+  have hcb : c ≤ b := hc.2
+  let x : ℝ := Real.exp (-u)
+  have hx : 0 < x := by dsimp [x]; exact Real.exp_pos _
+  have hlog : Real.log x = -u := by dsimp [x]; rw [Real.log_exp]
+  have hnorm : ‖qsP1LogTerm (K := K) c j h u‖ =
+      Real.exp (-c * u) * x ^ j *
+        ‖iteratedDeriv j (qsTransform K h) x‖ := by
+    unfold qsP1LogTerm
+    rw [Complex.ofReal_exp, Complex.ofReal_exp, norm_mul, norm_mul,
+      Complex.norm_exp_ofReal, norm_pow, Complex.norm_exp_ofReal]
+  by_cases hu : u ≤ 0
+  · have hxge : 1 ≤ x := by
+      dsimp [x]
+      rw [← Real.exp_zero]
+      exact Real.exp_le_exp.mpr (by linarith)
+    have hpow : x ^ j * x ^ (-(A : ℝ)) = Real.exp (((A : ℝ) - j) * u) := by
+      calc
+        x ^ j * x ^ (-(A : ℝ)) = x ^ ((j : ℝ)) * x ^ (-(A : ℝ)) := by
+          rw [← Real.rpow_natCast]
+        _ = x ^ ((j : ℝ) + (-(A : ℝ))) := by rw [← Real.rpow_add hx]
+        _ = Real.exp (Real.log x * ((j : ℝ) - (A : ℝ))) := by
+          rw [Real.rpow_def_of_pos hx]
+          congr 1
+        _ = Real.exp (((A : ℝ) - j) * u) := by rw [hlog]; congr 1 <;> ring
+    have hT := (hbound x hx).2 hxge
+    have hbase : ‖qsP1LogTerm (K := K) c j h u‖ ≤
+        C * Real.exp (((A : ℝ) - c - j) * u) := by
+      rw [hnorm]
+      calc
+        Real.exp (-c * u) * x ^ j *
+            ‖iteratedDeriv j (qsTransform K h) x‖ ≤
+            Real.exp (-c * u) * x ^ j * (C * x ^ (-(A : ℝ))) := by
+          gcongr
+        _ = C * Real.exp (((A : ℝ) - c - j) * u) := by
+          calc
+            _ = C * (Real.exp (-c * u) * (x ^ j * x ^ (-(A : ℝ)))) := by ring
+            _ = C * (Real.exp (-c * u) * Real.exp (((A : ℝ) - j) * u)) := by rw [hpow]
+            _ = C * Real.exp (((A : ℝ) - c - j) * u) := by
+              rw [← Real.exp_add]
+              congr 1
+              congr 1
+              ring
+    have hcoef : q ≤ (A : ℝ) - c - j := by dsimp [q]; linarith
+    have hexp : Real.exp (((A : ℝ) - c - j) * u) ≤ Real.exp (q * u) :=
+      Real.exp_le_exp.mpr (mul_le_mul_of_nonpos_right hcoef hu)
+    have hGform : G u = C * Real.exp (q * u) := by
+      simp [G, min_eq_left hu, max_eq_right hu]
+    calc
+      _ ≤ C * Real.exp (((A : ℝ) - c - j) * u) := hbase
+      _ ≤ C * Real.exp (q * u) := mul_le_mul_of_nonneg_left hexp hC.le
+      _ = G u := hGform.symm
+  · have hu' : 0 < u := lt_of_not_ge hu
+    have hxle : x ≤ 1 := by
+      dsimp [x]
+      rw [← Real.exp_zero]
+      exact Real.exp_le_exp.mpr (by linarith)
+    have hpow : x ^ j * x ^ (-(j : ℝ) - η) = Real.exp (η * u) := by
+      calc
+        x ^ j * x ^ (-(j : ℝ) - η) = x ^ ((j : ℝ)) * x ^ (-(j : ℝ) - η) := by
+          rw [← Real.rpow_natCast]
+        _ = x ^ ((j : ℝ) + (-(j : ℝ) - η)) := by rw [← Real.rpow_add hx]
+        _ = x ^ (-η) := by congr 1 <;> ring
+        _ = Real.exp (Real.log x * (-η)) := by rw [Real.rpow_def_of_pos hx]
+        _ = Real.exp (η * u) := by rw [hlog]; congr 1 <;> ring
+    have hT := (hbound x hx).1 hxle
+    have hbase : ‖qsP1LogTerm (K := K) c j h u‖ ≤
+        C * Real.exp ((-c + η) * u) := by
+      rw [hnorm]
+      calc
+        Real.exp (-c * u) * x ^ j *
+            ‖iteratedDeriv j (qsTransform K h) x‖ ≤
+            Real.exp (-c * u) * x ^ j * (C * x ^ (-(j : ℝ) - η)) := by
+          gcongr
+        _ = C * Real.exp ((-c + η) * u) := by
+          calc
+            _ = C * (Real.exp (-c * u) * (x ^ j * x ^ (-(j : ℝ) - η))) := by ring
+            _ = C * (Real.exp (-c * u) * Real.exp (η * u)) := by rw [hpow]
+            _ = C * Real.exp ((-c + η) * u) := by
+              rw [← Real.exp_add]
+              congr 1
+              congr 1
+              ring
+    have hcoef : -c + η ≤ -r := by dsimp [η, r]; linarith
+    have hexp : Real.exp ((-c + η) * u) ≤ Real.exp (-r * u) :=
+      Real.exp_le_exp.mpr (mul_le_mul_of_nonneg_right hcoef hu'.le)
+    have hGform : G u = C * Real.exp (-r * u) := by
+      simp [G, min_eq_right hu'.le, max_eq_left hu'.le]
+    calc
+      _ ≤ C * Real.exp ((-c + η) * u) := hbase
+      _ ≤ C * Real.exp (-r * u) := mul_le_mul_of_nonneg_left hexp hC.le
+      _ = G u := hGform.symm
+
 private theorem qs_p1_logKernelLine_iteratedDeriv_integrable [IsTotallyComplex K]
     (h : ℝ → ℂ) (hh : IsQSWeight h) (c : ℝ) (hc : 0 < c)
     (A : ℕ) (hAc : c + 2 < (A : ℝ)) (j : ℕ) (hj : j ≤ 2) :
@@ -1300,6 +1453,264 @@ private theorem qs_p1_weighted_logComp_integrable [IsTotallyComplex K]
       fun u => E u * iteratedDeriv j H u by rfl]
   rw [heq]
   exact hsum
+
+private theorem qs_p1_weighted_logComp_uniform_majorant [IsTotallyComplex K]
+    (h : ℝ → ℂ) (hh : IsQSWeight h) (a b : ℝ) (ha : 0 < a) (hab : a ≤ b)
+    (j A : ℕ) (hAc : b + (j : ℝ) < (A : ℝ)) :
+    ∃ G : ℝ → ℝ, Integrable G ∧ ∀ c ∈ Set.Icc a b, ∀ u : ℝ,
+      ‖((Real.exp (-c * u) : ℝ) : ℂ) *
+        iteratedDeriv j (fun v : ℝ => qsTransform K h (Real.exp (-v))) u‖ ≤ G u := by
+  classical
+  let T : ℝ → ℂ := qsTransform K h
+  let φ : ℝ → ℝ := fun v => Real.exp (-v)
+  let H : ℝ → ℂ := fun v => T (φ v)
+  have hTtop : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) T (Set.Ioi 0) := by
+    obtain ⟨hT, _⟩ := qs_transform_bounds_P0 (K := K) h hh 1 0 1 (by norm_num)
+    simpa [T] using hT
+  have hparts (p : OrderedFinpartition j) :
+      ∑ i : Fin p.length, p.partSize i = j := by
+    have hcard := Fintype.card_congr p.equivSigma
+    calc
+      ∑ i : Fin p.length, p.partSize i =
+          Fintype.card (Σ i : Fin p.length, Fin (p.partSize i)) := by simp
+      _ = Fintype.card (Fin j) := hcard
+      _ = j := by simp
+  have hformula (u : ℝ) :
+      iteratedDeriv j H u =
+        ∑ p : OrderedFinpartition j,
+          (∏ i : Fin p.length, iteratedDeriv (p.partSize i) φ u) •
+            iteratedDeriv p.length T (φ u) := by
+    have hT : ContDiffAt ℝ (j : ℕ∞) T (φ u) := by
+      have h := hTtop.contDiffAt (isOpen_Ioi.mem_nhds (Real.exp_pos (-u)))
+      exact h.of_le (by simp)
+    have hφ : ContDiffAt ℝ (j : ℕ∞) φ u := by
+      change ContDiffAt ℝ (j : ℕ∞) (fun v : ℝ => Real.exp (-v)) u
+      fun_prop
+    simpa [H, T, φ, Function.comp_def] using
+      (iteratedDeriv_scomp_eq_sum_orderedFinpartition hT hφ (by simp))
+  have hprod (p : OrderedFinpartition j) (u : ℝ) :
+      (∏ i : Fin p.length,
+        iteratedDeriv (p.partSize i) (fun v : ℝ => Real.exp (-v)) u) =
+        (-1 : ℝ) ^ j * (Real.exp (-u)) ^ p.length := by
+    calc
+      _ = ∏ i : Fin p.length,
+          ((-1 : ℝ) ^ p.partSize i * Real.exp (-u)) := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        have h := congrFun (iteratedDeriv_exp_const_mul (p.partSize i) (-1 : ℝ)) u
+        simpa [neg_one_mul] using h
+      _ = (∏ i : Fin p.length, (-1 : ℝ) ^ p.partSize i) *
+          (∏ _i : Fin p.length, Real.exp (-u)) := by
+        rw [← Finset.prod_mul_distrib]
+      _ = (-1 : ℝ) ^ j * (Real.exp (-u)) ^ p.length := by
+        rw [Finset.prod_pow_eq_pow_sum, hparts p]
+        simp
+  have hEx (p : OrderedFinpartition j) :
+      ∃ G : ℝ → ℝ, Integrable G ∧ ∀ c ∈ Set.Icc a b, ∀ u : ℝ,
+        ‖qsP1LogTerm (K := K) c p.length h u‖ ≤ G u := by
+    have hlen : (p.length : ℝ) ≤ (j : ℝ) := by exact_mod_cast p.length_le
+    apply qs_p1_logTerm_uniform_majorant (K := K) h hh a b ha hab p.length A
+    linarith
+  let Gp : OrderedFinpartition j → (ℝ → ℝ) := fun p => Classical.choose (hEx p)
+  have hGp : ∀ p : OrderedFinpartition j, Integrable (Gp p) := by
+    intro p
+    exact (Classical.choose_spec (hEx p)).1
+  have hGp_bound (p : OrderedFinpartition j) (c : ℝ) (hc : c ∈ Set.Icc a b)
+      (u : ℝ) : ‖qsP1LogTerm (K := K) c p.length h u‖ ≤ Gp p u :=
+    (Classical.choose_spec (hEx p)).2 c hc u
+  let G : ℝ → ℝ := fun u => ∑ p : OrderedFinpartition j, Gp p u
+  have hG : Integrable G := by
+    have hall : ∀ s : Finset (OrderedFinpartition j),
+        Integrable (fun u : ℝ => ∑ p ∈ s, Gp p u) := by
+      intro s
+      induction s using Finset.induction_on with
+      | empty => simp
+      | @insert p s hp ih =>
+          have hsumEq :
+              (fun u : ℝ => ∑ q ∈ insert p s, Gp q u) =
+                Gp p + (fun u : ℝ => ∑ q ∈ s, Gp q u) := by
+            funext u
+            simp [Finset.sum_insert, hp]
+          rw [hsumEq]
+          exact (hGp p).add ih
+    simpa [G] using hall Finset.univ
+  have hcompEq (p : OrderedFinpartition j) (c u : ℝ) :
+      qsP1LogCompTerm (K := K) c h p u =
+        ((-1 : ℂ) ^ j) * qsP1LogTerm (K := K) c p.length h u := by
+    simp only [qsP1LogCompTerm]
+    rw [hprod]
+    simp [qsP1LogTerm, smul_eq_mul, Complex.ofReal_mul, Complex.ofReal_pow]
+    ring
+  have hsumEq (c u : ℝ) :
+      ((Real.exp (-c * u) : ℝ) : ℂ) * iteratedDeriv j H u =
+        ∑ p : OrderedFinpartition j, qsP1LogCompTerm (K := K) c h p u := by
+    rw [hformula u]
+    simp [qsP1LogCompTerm, T, H, φ, Finset.mul_sum, smul_eq_mul]
+  refine ⟨G, hG, ?_⟩
+  intro c hc u
+  have hsumBound :
+      ‖∑ p : OrderedFinpartition j, qsP1LogCompTerm (K := K) c h p u‖ ≤
+        ∑ p : OrderedFinpartition j, Gp p u := by
+    calc
+      _ ≤ ∑ p : OrderedFinpartition j,
+          ‖qsP1LogCompTerm (K := K) c h p u‖ := norm_sum_le _ _
+      _ ≤ ∑ p : OrderedFinpartition j, Gp p u := by
+        apply Finset.sum_le_sum
+        intro p hp
+        calc
+          ‖qsP1LogCompTerm (K := K) c h p u‖ =
+              ‖(-1 : ℂ) ^ j‖ * ‖qsP1LogTerm (K := K) c p.length h u‖ := by
+            rw [hcompEq, norm_mul]
+          _ = ‖qsP1LogTerm (K := K) c p.length h u‖ := by simp
+          _ ≤ Gp p u := hGp_bound p c hc u
+  calc
+    _ = ‖∑ p : OrderedFinpartition j, qsP1LogCompTerm (K := K) c h p u‖ := by
+      rw [hsumEq c u]
+    _ ≤ G u := by simpa [G] using hsumBound
+
+private theorem qs_p1_logKernelLine_iteratedDeriv_uniform_majorant
+    [IsTotallyComplex K] (h : ℝ → ℂ) (hh : IsQSWeight h)
+    (a b : ℝ) (ha : 0 < a) (hab : a ≤ b) (j A : ℕ)
+    (hAc : b + (j : ℝ) < (A : ℝ)) :
+    ∃ G : ℝ → ℝ, Integrable G ∧ ∀ c ∈ Set.Icc a b, ∀ u : ℝ,
+      ‖iteratedDeriv j (qsP1LogKernelLine (K := K) c h) u‖ ≤ G u := by
+  classical
+  let T : ℝ → ℂ := qsTransform K h
+  let φ : ℝ → ℝ := fun v => Real.exp (-v)
+  let H : ℝ → ℂ := fun v => T (φ v)
+  let E : ℝ → ℝ → ℂ := fun c v => ((Real.exp (-c * v) : ℝ) : ℂ)
+  have hTtop : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) T (Set.Ioi 0) := by
+    obtain ⟨hT, _⟩ := qs_transform_bounds_P0 (K := K) h hh 1 0 1 (by norm_num)
+    simpa [T] using hT
+  have hHtop : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) H := by
+    apply contDiff_iff_contDiffAt.2
+    intro u
+    have hT : ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) T (φ u) :=
+      hTtop.contDiffAt (isOpen_Ioi.mem_nhds (Real.exp_pos (-u)))
+    exact hT.comp u (by fun_prop)
+  have hEtop (c : ℝ) : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (E c) := by
+    apply contDiff_iff_contDiffAt.2
+    intro u
+    dsimp [E]
+    have hlin : ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun v : ℝ => -c * v) u := by fun_prop
+    exact Complex.ofRealCLM.contDiff.comp_contDiffAt u
+      (Real.contDiff_exp.contDiffAt.comp u hlin)
+  have hEderiv (c : ℝ) (i : ℕ) (u : ℝ) :
+      iteratedDeriv i (E c) u =
+        ((((-c : ℝ) ^ i * Real.exp (-c * u) : ℝ) : ℂ)) := by
+    have hcast := congrFun
+      (qs_p1_iteratedDeriv_ofReal_comp (fun v : ℝ => Real.exp (-c * v))
+        (by fun_prop) i) u
+    have hreal := congrFun (iteratedDeriv_exp_const_mul i (-c : ℝ)) u
+    simpa [E, neg_mul] using hcast.trans (congrArg (fun x : ℝ => (x : ℂ)) hreal)
+  have hformula (c u : ℝ) :
+      iteratedDeriv j (E c * H) u =
+        ∑ i ∈ Finset.range (j + 1),
+          (j.choose i : ℂ) * iteratedDeriv i (E c) u *
+            iteratedDeriv (j - i) H u := by
+    have hE : ContDiffAt ℝ (j : ℕ∞) (E c) u :=
+      ((contDiff_iff_contDiffAt.1 (hEtop c)) u).of_le (by simp)
+    have hH : ContDiffAt ℝ (j : ℕ∞) H u :=
+      ((contDiff_iff_contDiffAt.1 hHtop u).of_le (by simp))
+    exact iteratedDeriv_mul hE hH
+  have hEx (k : ℕ) (hk : k ≤ j) :
+      ∃ G : ℝ → ℝ, Integrable G ∧ ∀ c ∈ Set.Icc a b, ∀ u : ℝ,
+        ‖E c u * iteratedDeriv k H u‖ ≤ G u := by
+    have hk' : b + (k : ℝ) < (A : ℝ) := by
+      have hk'' : (k : ℝ) ≤ (j : ℝ) := by exact_mod_cast hk
+      linarith
+    simpa [E, H, T, φ] using
+      qs_p1_weighted_logComp_uniform_majorant (K := K) h hh a b ha hab k A hk'
+  let Gk : ℕ → (ℝ → ℝ) := fun k =>
+    if hk : k ≤ j then Classical.choose (hEx k hk) else 0
+  have hGk_int (k : ℕ) : Integrable (Gk k) := by
+    by_cases hk : k ≤ j
+    · simpa [Gk, hk] using (Classical.choose_spec (hEx k hk)).1
+    · simp [Gk, hk]
+  have hGk_bound (k : ℕ) (hk : k ≤ j) (c : ℝ) (hc : c ∈ Set.Icc a b)
+      (u : ℝ) : ‖E c u * iteratedDeriv k H u‖ ≤ Gk k u := by
+    have hGkeq : Gk k = Classical.choose (hEx k hk) := by simp [Gk, hk]
+    rw [hGkeq]
+    exact (Classical.choose_spec (hEx k hk)).2 c hc u
+  let M : ℝ := max 1 b
+  let D : ℕ → ℝ := fun i => (j.choose i : ℝ) * M ^ i
+  let G : ℝ → ℝ := fun u =>
+    ∑ i ∈ Finset.range (j + 1), D i * Gk (j - i) u
+  have hD_nonneg (i : ℕ) : 0 ≤ D i := by
+    dsimp [D]
+    positivity
+  have hG : Integrable G := by
+    have hterm (i : ℕ) : Integrable (fun u : ℝ => D i * Gk (j - i) u) := by
+      simpa [mul_comm] using (hGk_int (j - i)).const_mul (D i)
+    have hall : ∀ s : Finset ℕ,
+        Integrable (fun u : ℝ => ∑ i ∈ s, D i * Gk (j - i) u) := by
+      intro s
+      induction s using Finset.induction_on with
+      | empty => simp
+      | @insert i s hi ih =>
+          have hsumEq :
+              (fun u : ℝ => ∑ k ∈ insert i s, D k * Gk (j - k) u) =
+                (fun u : ℝ => D i * Gk (j - i) u) +
+                  (fun u : ℝ => ∑ k ∈ s, D k * Gk (j - k) u) := by
+            funext u
+            simp [Finset.sum_insert, hi]
+          rw [hsumEq]
+          exact (hterm i).add ih
+    simpa [G] using hall (Finset.range (j + 1))
+  have hterm_bound (i : ℕ) (hi : i ∈ Finset.range (j + 1))
+      (c u : ℝ) (hc : c ∈ Set.Icc a b) :
+      ‖(j.choose i : ℂ) * iteratedDeriv i (E c) u *
+          iteratedDeriv (j - i) H u‖ ≤ D i * Gk (j - i) u := by
+    have hi' : i ≤ j := Nat.lt_succ_iff.mp (Finset.mem_range.mp hi)
+    have hcpos : 0 < c := lt_of_lt_of_le ha hc.1
+    have hcM : c ≤ M := le_trans hc.2 (le_max_right _ _)
+    have hcoef : ‖(((j.choose i : ℝ) * (-c) ^ i : ℝ) : ℂ)‖ ≤ D i := by
+      rw [Complex.norm_real, Real.norm_eq_abs, abs_mul,
+        abs_of_nonneg (Nat.cast_nonneg _), abs_pow, abs_neg, abs_of_pos hcpos]
+      dsimp [D]
+      exact mul_le_mul_of_nonneg_left
+        (pow_le_pow_left₀ (le_of_lt hcpos) hcM i) (Nat.cast_nonneg _)
+    have heq :
+        (j.choose i : ℂ) * iteratedDeriv i (E c) u * iteratedDeriv (j - i) H u =
+          (((j.choose i : ℝ) * (-c) ^ i : ℝ) : ℂ) *
+            (E c u * iteratedDeriv (j - i) H u) := by
+      rw [hEderiv]
+      simp [E, Complex.ofReal_mul]
+      ring
+    have hbase := hGk_bound (j - i) (Nat.sub_le _ _) c hc u
+    rw [heq, norm_mul]
+    calc
+      ‖(((j.choose i : ℝ) * (-c) ^ i : ℝ) : ℂ)‖ *
+          ‖E c u * iteratedDeriv (j - i) H u‖ ≤
+          D i * ‖E c u * iteratedDeriv (j - i) H u‖ :=
+        mul_le_mul_of_nonneg_right hcoef (norm_nonneg _)
+      _ ≤ D i * Gk (j - i) u :=
+        mul_le_mul_of_nonneg_left hbase (hD_nonneg i)
+  refine ⟨G, hG, ?_⟩
+  intro c hc u
+  have hsumBound :
+      ‖∑ i ∈ Finset.range (j + 1),
+          (j.choose i : ℂ) * iteratedDeriv i (E c) u *
+            iteratedDeriv (j - i) H u‖ ≤ G u := by
+    calc
+      _ ≤ ∑ i ∈ Finset.range (j + 1),
+          ‖(j.choose i : ℂ) * iteratedDeriv i (E c) u *
+            iteratedDeriv (j - i) H u‖ := norm_sum_le _ _
+      _ ≤ G u := by
+        apply Finset.sum_le_sum
+        intro i hi
+        exact hterm_bound i hi c u hc
+  have hline : qsP1LogKernelLine (K := K) c h = E c * H := by
+    funext v
+    rfl
+  calc
+    ‖iteratedDeriv j (qsP1LogKernelLine (K := K) c h) u‖ =
+        ‖∑ i ∈ Finset.range (j + 1),
+          (j.choose i : ℂ) * iteratedDeriv i (E c) u *
+            iteratedDeriv (j - i) H u‖ := by
+      rw [hline, hformula]
+    _ ≤ G u := hsumBound
 
 private theorem qs_p1_logKernelLine_iteratedDeriv_integrable_all [IsTotallyComplex K]
     (h : ℝ → ℂ) (hh : IsQSWeight h) (c : ℝ) (hc : 0 < c)
@@ -1612,6 +2023,89 @@ private theorem qs_p1_fourier_polynomial_decay (g : ℝ → ℂ)
     apply (le_div_iff₀ hden).2
     calc
       ‖𝓕 g w‖ * (1 + |w|) ^ N ≤ Aₙ := hprod
+      _ ≤ C := le_max_right _ _
+
+private theorem qs_p1_fourier_polynomial_decay_uniform
+    (g : ℝ → ℝ → ℂ) (hg : ∀ c, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (g c))
+    (a b : ℝ) (hderiv : ∀ c ∈ Set.Icc a b, ∀ n,
+      Integrable (iteratedDeriv n (g c)))
+    (N : ℕ) (A₀ Aₙ : ℝ) (hA₀ : 0 ≤ A₀) (hAₙ : 0 ≤ Aₙ)
+    (hbound₀ : ∀ c ∈ Set.Icc a b, ∫ u : ℝ, ‖g c u‖ ≤ A₀)
+    (hboundₙ : ∀ c ∈ Set.Icc a b,
+      ∫ u : ℝ, ‖iteratedDeriv N (g c) u‖ ≤ Aₙ) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ c ∈ Set.Icc a b, ∀ w : ℝ,
+      ‖𝓕 (g c) w‖ ≤ C / (1 + |w|) ^ N := by
+  let C : ℝ := max (A₀ * 2 ^ N) Aₙ
+  have hC : 0 ≤ C := by dsimp [C]; positivity
+  have hfreq (c : ℝ) (hc : c ∈ Set.Icc a b) (w : ℝ) (n : ℕ) :
+      𝓕 (iteratedDeriv n (g c)) w =
+        (2 * Real.pi * Complex.I * (w : ℂ)) ^ n * 𝓕 (g c) w := by
+    induction n with
+    | zero => simp
+    | succ n ih =>
+      have hdiff : Differentiable ℝ (iteratedDeriv n (g c)) :=
+        (hg c).differentiable_iteratedDeriv n
+          (WithTop.coe_lt_coe.mpr (WithTop.coe_lt_top n))
+      have hIntDeriv : Integrable (deriv (iteratedDeriv n (g c))) := by
+        rw [← iteratedDeriv_succ]
+        exact hderiv c hc (n + 1)
+      have hfd := Real.fourier_deriv (hderiv c hc n) hdiff hIntDeriv
+      have hpoint := congrFun hfd w
+      rw [iteratedDeriv_succ]
+      calc
+        𝓕 (deriv (iteratedDeriv n (g c))) w =
+            (2 * Real.pi * Complex.I * (w : ℂ)) *
+              𝓕 (iteratedDeriv n (g c)) w := by
+          simpa [smul_eq_mul] using hpoint
+        _ = (2 * Real.pi * Complex.I * (w : ℂ)) ^ (n + 1) *
+              𝓕 (g c) w := by rw [ih]; ring
+  have hqnorm (w : ℝ) :
+      ‖(2 * Real.pi * Complex.I * (w : ℂ))‖ = 2 * Real.pi * |w| := by
+    have htwo : ‖(2 : ℂ)‖ = 2 := by norm_num
+    have hpi : ‖(Real.pi : ℂ)‖ = Real.pi := by
+      rw [Complex.norm_real, Real.norm_of_nonneg Real.pi_pos.le]
+    have hI : ‖Complex.I‖ = 1 := by simp
+    have hwR : ‖(w : ℂ)‖ = |w| := by
+      rw [Complex.norm_real, Real.norm_eq_abs]
+    calc
+      _ = ‖(2 : ℂ)‖ * ‖(Real.pi : ℂ)‖ * ‖Complex.I‖ * ‖(w : ℂ)‖ := by
+        simp only [norm_mul]
+      _ = 2 * Real.pi * |w| := by rw [htwo, hpi, hI, hwR]; ring
+  refine ⟨C, hC, ?_⟩
+  intro c hc w
+  have hFourier₀ := qs_p1_fourier_norm_bound (g c) (hderiv c hc 0) w
+  have hFourier₀' : ‖𝓕 (g c) w‖ ≤ A₀ := hFourier₀.trans (hbound₀ c hc)
+  have hden : 0 < (1 + |w|) ^ N := pow_pos (by positivity) _
+  rcases le_total |w| 1 with hw | hw
+  · apply (le_div_iff₀ hden).2
+    have hdenLe : (1 + |w|) ^ N ≤ (2 : ℝ) ^ N :=
+      pow_le_pow_left₀ (by positivity) (by linarith) N
+    calc
+      ‖𝓕 (g c) w‖ * (1 + |w|) ^ N ≤ A₀ * (1 + |w|) ^ N :=
+        mul_le_mul_of_nonneg_right hFourier₀' (by positivity)
+      _ ≤ A₀ * 2 ^ N := mul_le_mul_of_nonneg_left hdenLe hA₀
+      _ ≤ C := le_max_left _ _
+  · have hqpos : 0 < 2 * Real.pi * |w| := by positivity
+    have hqge : 1 + |w| ≤ 2 * Real.pi * |w| := by
+      nlinarith [Real.pi_gt_three, abs_nonneg w, hw]
+    have hqpow : (1 + |w|) ^ N ≤ (2 * Real.pi * |w|) ^ N :=
+      pow_le_pow_left₀ (by positivity) hqge N
+    have hFourierN := qs_p1_fourier_norm_bound
+      (iteratedDeriv N (g c)) (hderiv c hc N) w
+    have hFourierN' : ‖𝓕 (iteratedDeriv N (g c)) w‖ ≤ Aₙ :=
+      hFourierN.trans (hboundₙ c hc)
+    have hnormN : ‖𝓕 (iteratedDeriv N (g c)) w‖ =
+        (2 * Real.pi * |w|) ^ N * ‖𝓕 (g c) w‖ := by
+      rw [hfreq c hc w N, norm_mul, norm_pow, hqnorm]
+    have hprod : ‖𝓕 (g c) w‖ * (1 + |w|) ^ N ≤ Aₙ := by
+      calc
+        _ ≤ ‖𝓕 (g c) w‖ * (2 * Real.pi * |w|) ^ N :=
+          mul_le_mul_of_nonneg_left hqpow (norm_nonneg _)
+        _ = ‖𝓕 (iteratedDeriv N (g c)) w‖ := by rw [hnormN]; ring
+        _ ≤ Aₙ := hFourierN'
+    apply (le_div_iff₀ hden).2
+    calc
+      ‖𝓕 (g c) w‖ * (1 + |w|) ^ N ≤ Aₙ := hprod
       _ ≤ C := le_max_right _ _
 
 private theorem qs_p1_vertical_integral_shift (F : ℂ → ℂ) (a b : ℝ) (hab : a < b)
@@ -2033,6 +2527,137 @@ private theorem qs_p1_transform_mellin_eq_fourier_line [IsTotallyComplex K]
     simp [qsP1LogKernelLine]
   rw [hfun]
   simp
+
+private theorem qs_p1_transform_mellin_vertical_polynomial_decay_uniform
+    [IsTotallyComplex K] (h : ℝ → ℂ) (hh : IsQSWeight h)
+    (a b : ℝ) (ha : 0 < a) (hab : a ≤ b) (N : ℕ) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ c ∈ Set.Icc a b, ∀ t : ℝ,
+      ‖mellin (qsTransform K h) ((c : ℂ) + (t : ℂ) * Complex.I)‖ ≤
+        C / (1 + |t|) ^ N := by
+  classical
+  let g : ℝ → ℝ → ℂ := fun c => qsP1LogKernelLine (K := K) c h
+  have hg (c : ℝ) : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (g c) := by
+    have hker : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (qsP1LogKernelLine (K := K) c h) := by
+      apply contDiff_iff_contDiffAt.2
+      intro u
+      let E : ℝ → ℂ := fun v => ((Real.exp (-c * v) : ℝ) : ℂ)
+      let H : ℝ → ℂ := fun v => qsTransform K h (Real.exp (-v))
+      have hE : ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) E u := by
+        dsimp [E]
+        have hlin : ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+            (fun v : ℝ => -c * v) u := by fun_prop
+        exact Complex.ofRealCLM.contDiff.comp_contDiffAt u
+          (Real.contDiff_exp.contDiffAt.comp u hlin)
+      have hTtop : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+          (qsTransform K h) (Set.Ioi 0) := by
+        obtain ⟨hT, _⟩ := qs_transform_bounds_P0 (K := K) h hh 1 0 1 (by norm_num)
+        exact hT
+      have hT : ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+          (qsTransform K h) (Real.exp (-u)) :=
+        hTtop.contDiffAt (isOpen_Ioi.mem_nhds (Real.exp_pos (-u)))
+      have hφ : ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+          (fun v : ℝ => Real.exp (-v)) u := by fun_prop
+      have hH : ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) H u := by
+        dsimp [H]
+        exact hT.comp u hφ
+      change ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (E * H) u
+      exact hE.mul hH
+    simpa [g] using hker
+  have hderiv : ∀ c ∈ Set.Icc a b, ∀ n,
+      Integrable (iteratedDeriv n (g c)) := by
+    intro c hc n
+    have hcpos : 0 < c := lt_of_lt_of_le ha hc.1
+    let A : ℕ := ⌈c + (n : ℝ)⌉₊ + 1
+    have hAc : c + (n : ℝ) < (A : ℝ) := by
+      dsimp [A]
+      have hceil : c + (n : ℝ) ≤ (⌈c + (n : ℝ)⌉₊ : ℝ) := Nat.le_ceil _
+      push_cast
+      linarith
+    simpa [g] using
+      qs_p1_logKernelLine_iteratedDeriv_integrable_all (K := K) h hh c hcpos n A hAc
+  have hmajor (n : ℕ) :
+      ∃ G : ℝ → ℝ, Integrable G ∧ ∀ c ∈ Set.Icc a b, ∀ u : ℝ,
+        ‖iteratedDeriv n (g c) u‖ ≤ G u := by
+    let A : ℕ := ⌈b + (n : ℝ)⌉₊ + 1
+    have hAc : b + (n : ℝ) < (A : ℝ) := by
+      dsimp [A]
+      have hceil : b + (n : ℝ) ≤ (⌈b + (n : ℝ)⌉₊ : ℝ) := Nat.le_ceil _
+      push_cast
+      linarith
+    exact qs_p1_logKernelLine_iteratedDeriv_uniform_majorant
+      (K := K) h hh a b ha hab n A hAc
+  let G₀ : ℝ → ℝ := Classical.choose (hmajor 0)
+  let Gₙ : ℝ → ℝ := Classical.choose (hmajor N)
+  have hG₀ : Integrable G₀ := (Classical.choose_spec (hmajor 0)).1
+  have hGₙ : Integrable Gₙ := (Classical.choose_spec (hmajor N)).1
+  have hG₀eq : G₀ = Classical.choose (hmajor 0) := by rfl
+  have hGₙeq : Gₙ = Classical.choose (hmajor N) := by rfl
+  have hG₀bound (c : ℝ) (hc : c ∈ Set.Icc a b) (u : ℝ) :
+      ‖g c u‖ ≤ G₀ u := by
+    rw [hG₀eq]
+    simpa [g, iteratedDeriv_zero] using (Classical.choose_spec (hmajor 0)).2 c hc u
+  have hGₙbound (c : ℝ) (hc : c ∈ Set.Icc a b) (u : ℝ) :
+      ‖iteratedDeriv N (g c) u‖ ≤ Gₙ u :=
+    by rw [hGₙeq]; exact (Classical.choose_spec (hmajor N)).2 c hc u
+  let A₀ : ℝ := ∫ u : ℝ, G₀ u
+  let Aₙ : ℝ := ∫ u : ℝ, Gₙ u
+  have hA₀ : 0 ≤ A₀ := by
+    dsimp [A₀]
+    exact integral_nonneg
+      (fun u => le_trans (norm_nonneg _) (hG₀bound a ⟨le_rfl, hab⟩ u))
+  have hAₙ : 0 ≤ Aₙ := by
+    dsimp [Aₙ]
+    exact integral_nonneg
+      (fun u => le_trans (norm_nonneg _) (hGₙbound a ⟨le_rfl, hab⟩ u))
+  have hbound₀ (c : ℝ) (hc : c ∈ Set.Icc a b) :
+      ∫ u : ℝ, ‖g c u‖ ≤ A₀ := by
+    have hnorm : Integrable (fun u : ℝ => ‖g c u‖) := by
+      simpa [iteratedDeriv_zero] using (hderiv c hc 0).norm
+    calc
+      _ ≤ ∫ u : ℝ, G₀ u := integral_mono_ae hnorm hG₀
+        (Filter.Eventually.of_forall fun u => hG₀bound c hc u)
+      _ = A₀ := by rfl
+  have hboundₙ (c : ℝ) (hc : c ∈ Set.Icc a b) :
+      ∫ u : ℝ, ‖iteratedDeriv N (g c) u‖ ≤ Aₙ := by
+    calc
+      _ ≤ ∫ u : ℝ, Gₙ u := integral_mono_ae (hderiv c hc N).norm hGₙ
+        (Filter.Eventually.of_forall fun u => hGₙbound c hc u)
+      _ = Aₙ := by rfl
+  obtain ⟨C, hC, hFourier⟩ := qs_p1_fourier_polynomial_decay_uniform
+    g hg a b hderiv N A₀ Aₙ hA₀ hAₙ hbound₀ hboundₙ
+  refine ⟨C * (2 * Real.pi) ^ N, mul_nonneg hC (by positivity), ?_⟩
+  intro c hc t
+  let w : ℝ := t / (2 * Real.pi)
+  have ht : t = (2 * Real.pi) * w := by
+    dsimp [w]
+    field_simp
+  have habs : |t| = 2 * Real.pi * |w| := by
+    rw [ht, abs_mul, abs_of_pos (by positivity : 0 < 2 * Real.pi)]
+  have hscale : 1 + |t| ≤ (2 * Real.pi) * (1 + |w|) := by
+    rw [habs]
+    have hq : 1 ≤ 2 * Real.pi := by nlinarith [Real.pi_gt_three]
+    nlinarith [abs_nonneg w]
+  have hscalePow : (1 + |t|) ^ N ≤ (2 * Real.pi) ^ N * (1 + |w|) ^ N := by
+    calc
+      (1 + |t|) ^ N ≤ ((2 * Real.pi) * (1 + |w|)) ^ N :=
+        pow_le_pow_left₀ (by positivity) hscale N
+      _ = (2 * Real.pi) ^ N * (1 + |w|) ^ N := by rw [mul_pow]
+  have hline : mellin (qsTransform K h) ((c : ℂ) + (t : ℂ) * Complex.I) =
+      𝓕 (g c) w := by
+    simpa [g, w] using qs_p1_transform_mellin_eq_fourier_line (K := K) h c t
+  have hdenw : 0 < (1 + |w|) ^ N := pow_pos (by positivity) _
+  have hdent : 0 < (1 + |t|) ^ N := pow_pos (by positivity) _
+  calc
+    ‖mellin (qsTransform K h) ((c : ℂ) + (t : ℂ) * Complex.I)‖ = ‖𝓕 (g c) w‖ := by
+      rw [hline]
+    _ ≤ C / (1 + |w|) ^ N := hFourier c hc w
+    _ ≤ C * (2 * Real.pi) ^ N / (1 + |t|) ^ N := by
+      apply (div_le_div_iff₀ hdenw hdent).2
+      calc
+        C * (1 + |t|) ^ N ≤ C * ((2 * Real.pi) ^ N * (1 + |w|) ^ N) :=
+          mul_le_mul_of_nonneg_left hscalePow hC
+        _ = (C * (2 * Real.pi) ^ N) * (1 + |w|) ^ N := by ring
 
 private theorem qs_p1_transform_mellin_vertical_integrable [IsTotallyComplex K]
     (h : ℝ → ℂ) (hh : IsQSWeight h) (c : ℝ) (hc : 0 < c) :
