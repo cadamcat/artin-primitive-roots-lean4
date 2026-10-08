@@ -1441,27 +1441,392 @@ private theorem phase_box_interval_sobolev {f f' : ℝ → ℂ}
     simp [μ, Real.volume_Icc, mul_comm]
   simpa [aBound, μ] using hleft.symm.le.trans (hmono.trans_eq hright)
 
+private theorem phase_box_mixed_line_contDiff (k M : ℕ)
+    (r : PhaseBoxIndex k M) (e : Finset (Fin k)) (j : Fin k)
+    (x : Fin k → ℝ) :
+    ContDiff ℝ 1 (fun t => phaseBoxMixedWeylSum r e (Function.update x j t)) := by
+  classical
+  have hpoint (i : Fin k) :
+      ContDiff ℝ 1 (fun t => phaseBoxPoint r (Function.update x j t) i) := by
+    simp only [phaseBoxPoint, Function.update_apply]
+    split_ifs <;> fun_prop
+  have hangle (h : ℕ) :
+      ContDiff ℝ 1 (fun t =>
+        ∑ i : Fin k, phaseBoxPoint r (Function.update x j t) i *
+          (h : ℝ) ^ (i.val + 1)) := by
+    apply ContDiff.sum
+    intro i hi
+    exact (hpoint i).mul contDiff_const
+  have hangleC (h : ℕ) :
+      ContDiff ℝ 1 (fun t =>
+        ((∑ i : Fin k, phaseBoxPoint r (Function.update x j t) i *
+          (h : ℝ) ^ (i.val + 1) : ℝ) : ℂ)) := by
+    exact Complex.ofRealCLM.contDiff.comp (hangle h)
+  have hterm (h : ℕ) :
+      ContDiff ℝ 1 (fun t =>
+        (∏ i ∈ e, (2 * Real.pi * Complex.I) *
+          (((((h : ℝ) / (M : ℝ)) ^ (i.val + 1)) : ℝ) : ℂ)) *
+        additiveCharacter (∑ i : Fin k,
+          phaseBoxPoint r (Function.update x j t) i * (h : ℝ) ^ (i.val + 1))) := by
+    unfold additiveCharacter
+    exact contDiff_const.mul <| Complex.contDiff_exp.comp <| by
+      simpa only [Complex.ofRealCLM_apply, Complex.ofReal_mul] using
+        (contDiff_const.mul (contDiff_const.mul (hangleC h)))
+  unfold phaseBoxMixedWeylSum
+  change ContDiff ℝ 1 (fun t =>
+    ∑ h ∈ Finset.Icc 1 M,
+      (∏ i ∈ e, (2 * Real.pi * Complex.I) *
+        (((((h : ℝ) / (M : ℝ)) ^ (i.val + 1)) : ℝ) : ℂ)) *
+      additiveCharacter (∑ i : Fin k,
+        phaseBoxPoint r (Function.update x j t) i * (h : ℝ) ^ (i.val + 1)))
+  apply ContDiff.sum
+  intro h hh
+  exact hterm h
+
+private theorem phase_box_line_sobolev (k M : ℕ) (hM : 0 < M)
+    (r : PhaseBoxIndex k M) (e : Finset (Fin k)) (j : Fin k)
+    (hje : j ∉ e) (x : Fin k → ℝ)
+    (hxj : x j ∈ Set.Icc (0 : ℝ) 1) :
+    ‖phaseBoxMixedWeylSum r e x‖ ≤
+      (∫ t in Set.Icc (0 : ℝ) 1,
+        ‖phaseBoxMixedWeylSum r e (Function.update x j t)‖) +
+      (∫ t in Set.Icc (0 : ℝ) 1,
+        ‖phaseBoxMixedWeylSum r (insert j e) (Function.update x j t)‖) := by
+  let f : ℝ → ℂ := fun t =>
+    phaseBoxMixedWeylSum r e (Function.update x j t)
+  let f' : ℝ → ℂ := fun t =>
+    phaseBoxMixedWeylSum r (insert j e) (Function.update x j t)
+  have hf : ContDiff ℝ 1 f := by
+    exact phase_box_mixed_line_contDiff k M r e j x
+  have hf' : Continuous f' := by
+    exact (phase_box_mixed_line_contDiff k M r (insert j e) j x).continuous
+  have hderiv : ∀ t, HasDerivAt f (f' t) t := by
+    intro t
+    have h := phase_box_mixed_derivative r e j hM hje (Function.update x j t)
+    simpa [f, f', Function.update_idem] using h
+  have h := phase_box_interval_sobolev hf hderiv hxj
+  have hfi : Integrable f (volume.restrict (Set.Icc (0 : ℝ) 1)) := by
+    exact hf.continuous.continuousOn.integrableOn_compact isCompact_Icc
+  have hfi' : Integrable f' (volume.restrict (Set.Icc (0 : ℝ) 1)) := by
+    exact hf'.continuousOn.integrableOn_compact isCompact_Icc
+  have hnormf :
+      ENNReal.ofReal (∫ t in Set.Icc (0 : ℝ) 1, ‖f t‖) =
+        ∫⁻ t in Set.Icc (0 : ℝ) 1, ‖f t‖ₑ := by
+    simpa using (MeasureTheory.ofReal_integral_norm_eq_lintegral_enorm hfi)
+  have hnormf' :
+      ENNReal.ofReal (∫ t in Set.Icc (0 : ℝ) 1, ‖f' t‖) =
+        ∫⁻ t in Set.Icc (0 : ℝ) 1, ‖f' t‖ₑ := by
+    simpa using (MeasureTheory.ofReal_integral_norm_eq_lintegral_enorm hfi')
+  have hA : 0 ≤ ∫ t in Set.Icc (0 : ℝ) 1, ‖f t‖ :=
+    setIntegral_nonneg measurableSet_Icc fun _ _ => norm_nonneg _
+  have hB : 0 ≤ ∫ t in Set.Icc (0 : ℝ) 1, ‖f' t‖ :=
+    setIntegral_nonneg measurableSet_Icc fun _ _ => norm_nonneg _
+  rw [show ‖f (x j)‖ₑ = ENNReal.ofReal ‖f (x j)‖ by simp,
+    ← hnormf, ← hnormf'] at h
+  rw [← ENNReal.ofReal_add hA hB] at h
+  have hAB : 0 ≤ (∫ t in Set.Icc (0 : ℝ) 1, ‖f t‖) +
+      ∫ t in Set.Icc (0 : ℝ) 1, ‖f' t‖ := add_nonneg hA hB
+  have hreal := (ENNReal.ofReal_le_ofReal_iff hAB).mp h
+  simpa [f, f'] using hreal
+
+private theorem phase_box_mixed_continuous (k M : ℕ)
+    (r : PhaseBoxIndex k M) (e : Finset (Fin k)) :
+    Continuous (phaseBoxMixedWeylSum r e) := by
+  unfold phaseBoxMixedWeylSum phaseBoxPoint additiveCharacter
+  fun_prop
+
+private theorem phase_box_line_sobolev_enorm (k M : ℕ) (hM : 0 < M)
+    (r : PhaseBoxIndex k M) (e : Finset (Fin k)) (j : Fin k)
+    (hje : j ∉ e) (x : Fin k → ℝ)
+    (hxj : x j ∈ Set.Icc (0 : ℝ) 1) :
+    ‖phaseBoxMixedWeylSum r e x‖ₑ ≤
+      (∫⁻ t in Set.Icc (0 : ℝ) 1,
+        ‖phaseBoxMixedWeylSum r e (Function.update x j t)‖ₑ) +
+      (∫⁻ t in Set.Icc (0 : ℝ) 1,
+        ‖phaseBoxMixedWeylSum r (insert j e) (Function.update x j t)‖ₑ) := by
+  let f : ℝ → ℂ := fun t =>
+    phaseBoxMixedWeylSum r e (Function.update x j t)
+  let f' : ℝ → ℂ := fun t =>
+    phaseBoxMixedWeylSum r (insert j e) (Function.update x j t)
+  have hf : ContDiff ℝ 1 f := phase_box_mixed_line_contDiff k M r e j x
+  have hderiv : ∀ t, HasDerivAt f (f' t) t := by
+    intro t
+    have h := phase_box_mixed_derivative r e j hM hje (Function.update x j t)
+    simpa [f, f', Function.update_idem] using h
+  have h := phase_box_interval_sobolev hf hderiv hxj
+  simpa [f, f', Function.update_self] using h
+
+private theorem phase_box_sobolev_aux (k M : ℕ) (hM : 0 < M)
+    (r : PhaseBoxIndex k M) (s e : Finset (Fin k))
+    (hdisj : Disjoint e s) (x : Fin k → ℝ)
+    (hx : ∀ j ∈ s, x j ∈ Set.Icc (0 : ℝ) 1) :
+    ‖phaseBoxMixedWeylSum r e x‖ₑ ≤
+      ∑ d ∈ s.powerset,
+        (∫⋯∫⁻_s, (fun y : Fin k → ℝ =>
+          ‖phaseBoxMixedWeylSum r (e ∪ d) y‖ₑ)
+          ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1))) x := by
+  classical
+  let μ : Fin k → Measure ℝ := fun _ => volume.restrict (Set.Icc (0 : ℝ) 1)
+  have hmeas (d : Finset (Fin k)) : Measurable fun y : Fin k → ℝ =>
+      ‖phaseBoxMixedWeylSum r d y‖ₑ := by
+    exact (phase_box_mixed_continuous k M r d).measurable.enorm
+  induction s using Finset.induction_on generalizing e x with
+  | empty =>
+      simp
+  | @insert j s hj ih =>
+      have hjE : j ∉ e := by
+        intro hje
+        exact (Finset.disjoint_left.mp hdisj) hje (Finset.mem_insert_self j s)
+      have hdisjTail : Disjoint e s := by
+        apply Finset.disjoint_left.mpr
+        intro z hze hzS
+        exact (Finset.disjoint_left.mp hdisj) hze (Finset.mem_insert_of_mem hzS)
+      have hdisjInsert : Disjoint (insert j e) s := by
+        apply Finset.disjoint_left.mpr
+        intro z hze hzS
+        rcases Finset.mem_insert.mp hze with rfl | hze
+        · exact hj hzS
+        · exact (Finset.disjoint_left.mp hdisj) hze (Finset.mem_insert_of_mem hzS)
+      have hxj : x j ∈ Set.Icc (0 : ℝ) 1 := hx j (Finset.mem_insert_self j s)
+      have hline := phase_box_line_sobolev_enorm k M hM r e j hjE x hxj
+      have hxTail (t : ℝ) : ∀ i ∈ s, Function.update x j t i ∈ Set.Icc (0 : ℝ) 1 := by
+        intro i hi
+        have hne : i ≠ j := by
+          intro hij'
+          subst i
+          exact hj hi
+        simpa [Function.update_of_ne hne] using hx i (Finset.mem_insert_of_mem hi)
+      have hIntLeft :
+          (∫⁻ t, ‖phaseBoxMixedWeylSum r e (Function.update x j t)‖ₑ
+            ∂(volume.restrict (Set.Icc (0 : ℝ) 1))) ≤
+          ∑ d ∈ s.powerset,
+            (∫⋯∫⁻_insert j s, (fun y : Fin k → ℝ =>
+              ‖phaseBoxMixedWeylSum r (e ∪ d) y‖ₑ)
+              ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1))) x := by
+        calc
+          _ ≤ ∫⁻ t, ∑ d ∈ s.powerset,
+                (∫⋯∫⁻_s, (fun y : Fin k → ℝ =>
+                  ‖phaseBoxMixedWeylSum r (e ∪ d) y‖ₑ)
+                  ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1)))
+                  (Function.update x j t)
+                ∂(volume.restrict (Set.Icc (0 : ℝ) 1)) := by
+            apply lintegral_mono
+            intro t
+            exact ih e hdisjTail (Function.update x j t) (hxTail t)
+          _ = ∑ d ∈ s.powerset,
+                ∫⁻ t,
+                  (∫⋯∫⁻_s, (fun y : Fin k → ℝ =>
+                    ‖phaseBoxMixedWeylSum r (e ∪ d) y‖ₑ)
+                    ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1)))
+                    (Function.update x j t)
+                  ∂(volume.restrict (Set.Icc (0 : ℝ) 1)) := by
+            rw [MeasureTheory.lintegral_finsetSum
+              (μ := volume.restrict (Set.Icc (0 : ℝ) 1))]
+            · intro d hd
+              exact ((hmeas (e ∪ d)).lmarginal μ).comp (by fun_prop)
+          _ = _ := by
+            apply Finset.sum_congr rfl
+            intro d hd
+            exact (MeasureTheory.lmarginal_insert
+              (μ := fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1))
+              (f := fun y : Fin k → ℝ =>
+                ‖phaseBoxMixedWeylSum r (e ∪ d) y‖ₑ)
+              ((hmeas (e ∪ d))) hj x).symm
+      have hIntRight :
+          (∫⁻ t, ‖phaseBoxMixedWeylSum r (insert j e) (Function.update x j t)‖ₑ
+            ∂(volume.restrict (Set.Icc (0 : ℝ) 1))) ≤
+          ∑ d ∈ s.powerset,
+            (∫⋯∫⁻_insert j s, (fun y : Fin k → ℝ =>
+              ‖phaseBoxMixedWeylSum r (insert j e ∪ d) y‖ₑ)
+              ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1))) x := by
+        calc
+          _ ≤ ∫⁻ t, ∑ d ∈ s.powerset,
+                (∫⋯∫⁻_s, (fun y : Fin k → ℝ =>
+                  ‖phaseBoxMixedWeylSum r (insert j e ∪ d) y‖ₑ)
+                  ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1)))
+                  (Function.update x j t)
+                ∂(volume.restrict (Set.Icc (0 : ℝ) 1)) := by
+            apply lintegral_mono
+            intro t
+            exact ih (insert j e) hdisjInsert (Function.update x j t) (hxTail t)
+          _ = ∑ d ∈ s.powerset,
+                ∫⁻ t,
+                  (∫⋯∫⁻_s, (fun y : Fin k → ℝ =>
+                    ‖phaseBoxMixedWeylSum r (insert j e ∪ d) y‖ₑ)
+                    ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1)))
+                    (Function.update x j t)
+                  ∂(volume.restrict (Set.Icc (0 : ℝ) 1)) := by
+            rw [MeasureTheory.lintegral_finsetSum
+              (μ := volume.restrict (Set.Icc (0 : ℝ) 1))]
+            · intro d hd
+              exact ((hmeas (insert j e ∪ d)).lmarginal μ).comp (by fun_prop)
+          _ = _ := by
+            apply Finset.sum_congr rfl
+            intro d hd
+            exact (MeasureTheory.lmarginal_insert
+              (μ := fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1))
+              (f := fun y : Fin k → ℝ =>
+                ‖phaseBoxMixedWeylSum r (insert j e ∪ d) y‖ₑ)
+              ((hmeas (insert j e ∪ d))) hj x).symm
+      have hPdisj : Disjoint s.powerset (s.powerset.image (insert j)) := by
+        apply Finset.disjoint_left.mpr
+        intro d hd hdm
+        rcases Finset.mem_image.mp hdm with ⟨d', hd', hEq⟩
+        have hjd : j ∉ d := Finset.notMem_of_mem_powerset_of_notMem hd hj
+        have hjmem : j ∈ d := by rw [← hEq]; simp
+        exact hjd hjmem
+      have hPInj : Set.InjOn (insert j) (s.powerset : Set (Finset (Fin k))) := by
+        intro d hd d' hd' hEq
+        apply Finset.ext
+        intro z
+        by_cases hz : z = j
+        · subst z
+          have hjd : j ∉ d := Finset.notMem_of_mem_powerset_of_notMem hd hj
+          have hjd' : j ∉ d' := Finset.notMem_of_mem_powerset_of_notMem hd' hj
+          simp [hjd, hjd']
+        · have hmem := congrArg (fun u : Finset (Fin k) => z ∈ u) hEq
+          simpa [hz] using hmem
+      have hsum :
+          (∑ d ∈ s.powerset,
+            (∫⋯∫⁻_insert j s, (fun y : Fin k → ℝ =>
+              ‖phaseBoxMixedWeylSum r (e ∪ d) y‖ₑ)
+              ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1))) x) +
+          ∑ d ∈ s.powerset,
+            (∫⋯∫⁻_insert j s, (fun y : Fin k → ℝ =>
+              ‖phaseBoxMixedWeylSum r (insert j e ∪ d) y‖ₑ)
+              ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1))) x =
+          ∑ d ∈ (insert j s).powerset,
+            (∫⋯∫⁻_insert j s, (fun y : Fin k → ℝ =>
+              ‖phaseBoxMixedWeylSum r (e ∪ d) y‖ₑ)
+              ∂(fun _ : Fin k => volume.restrict (Set.Icc (0 : ℝ) 1))) x := by
+        rw [Finset.powerset_insert, Finset.sum_union hPdisj, Finset.sum_image hPInj]
+        conv_rhs => rw [← Finset.sum_add_distrib]
+        conv_lhs => rw [← Finset.sum_add_distrib]
+        apply Finset.sum_congr rfl
+        intro d hd
+        congr 2
+        ext z
+        simp [Finset.mem_union, Finset.mem_insert, or_assoc, or_left_comm, or_comm]
+      calc
+        _ ≤ (∫⁻ t, ‖phaseBoxMixedWeylSum r e (Function.update x j t)‖ₑ
+              ∂(volume.restrict (Set.Icc (0 : ℝ) 1))) +
+            ∫⁻ t, ‖phaseBoxMixedWeylSum r (insert j e) (Function.update x j t)‖ₑ
+              ∂(volume.restrict (Set.Icc (0 : ℝ) 1)) := by simpa using hline
+        _ ≤ _ := add_le_add hIntLeft hIntRight
+        _ = _ := hsum
+
 private theorem phase_box_sobolev (k M : ℕ) (hM : 0 < M)
     (r : PhaseBoxIndex k M) (x : Fin k → ℝ)
     (hx : x ∈ phaseBoxUnitCube k) :
     ‖phaseBoxMixedWeylSum r ∅ x‖ ≤
       ∑ e : Finset (Fin k),
         ∫ y in phaseBoxUnitCube k, ‖phaseBoxMixedWeylSum r e y‖ := by
-  sorry
+  classical
+  let μ : Fin k → Measure ℝ := fun _ => volume.restrict (Set.Icc (0 : ℝ) 1)
+  have hcubeEq : phaseBoxUnitCube k =
+      Set.univ.pi (fun _ : Fin k => Set.Icc (0 : ℝ) 1) := by
+    ext y
+    simp [phaseBoxUnitCube, Set.mem_pi, Pi.le_def, forall_and]
+  have hcubeMeas : MeasurableSet (phaseBoxUnitCube k) := by
+    rw [hcubeEq]
+    exact MeasurableSet.univ_pi fun _ => measurableSet_Icc
+  have hcubeCompact : IsCompact (phaseBoxUnitCube k) := by
+    rw [hcubeEq]
+    exact isCompact_univ_pi fun _ => isCompact_Icc
+  have hx' : ∀ j ∈ (Finset.univ : Finset (Fin k)),
+      x j ∈ Set.Icc (0 : ℝ) 1 := by
+    intro j hj
+    exact hx j
+  have hlin := phase_box_sobolev_aux k M hM r Finset.univ ∅ (by simp) x hx'
+  have hpow : (Finset.univ : Finset (Fin k)).powerset =
+      (Finset.univ : Finset (Finset (Fin k))) := by
+    ext e
+    simp
+  have hlinPi :
+      ‖phaseBoxMixedWeylSum r ∅ x‖ₑ ≤
+        ∑ d ∈ (Finset.univ : Finset (Fin k)).powerset,
+          ∫⁻ y, ‖phaseBoxMixedWeylSum r d y‖ₑ ∂Measure.pi μ := by
+    calc
+      _ ≤ ∑ d ∈ (Finset.univ : Finset (Fin k)).powerset,
+          (∫⋯∫⁻_Finset.univ, (fun y : Fin k → ℝ =>
+            ‖phaseBoxMixedWeylSum r d y‖ₑ) ∂μ) x := by
+        simpa [Finset.union_empty] using hlin
+      _ = _ := by
+        apply Finset.sum_congr rfl
+        intro d hd
+        exact (MeasureTheory.lintegral_eq_lmarginal_univ
+          (μ := μ) (f := fun y : Fin k → ℝ =>
+            ‖phaseBoxMixedWeylSum r d y‖ₑ) x).symm
+  have hlin :
+      ‖phaseBoxMixedWeylSum r ∅ x‖ₑ ≤
+        ∑ e : Finset (Fin k),
+          ∫⁻ y, ‖phaseBoxMixedWeylSum r e y‖ₑ ∂Measure.pi μ := by
+    simpa only [hpow] using hlinPi
+  have hchange (e : Finset (Fin k)) :
+      (∫⁻ y in phaseBoxUnitCube k,
+        ‖phaseBoxMixedWeylSum r e y‖ₑ) =
+      ∫⁻ y, ‖phaseBoxMixedWeylSum r e y‖ₑ ∂Measure.pi μ := by
+    rw [hcubeEq, volume_pi, Measure.restrict_pi_pi]
+  have hlinCube :
+      ‖phaseBoxMixedWeylSum r ∅ x‖ₑ ≤
+        ∑ e : Finset (Fin k),
+          ∫⁻ y in phaseBoxUnitCube k,
+            ‖phaseBoxMixedWeylSum r e y‖ₑ := by
+    calc
+      _ ≤ ∑ e : Finset (Fin k),
+          ∫⁻ y, ‖phaseBoxMixedWeylSum r e y‖ₑ ∂Measure.pi μ := by
+        simpa using hlin
+      _ = _ := by
+        apply Finset.sum_congr rfl
+        intro e he
+        exact (hchange e).symm
+  have hnormIntegral (e : Finset (Fin k)) :
+      ENNReal.ofReal
+          (∫ y in phaseBoxUnitCube k, ‖phaseBoxMixedWeylSum r e y‖) =
+        ∫⁻ y in phaseBoxUnitCube k,
+          ‖phaseBoxMixedWeylSum r e y‖ₑ := by
+    have hfi : Integrable (phaseBoxMixedWeylSum r e)
+        (volume.restrict (phaseBoxUnitCube k)) :=
+      (phase_box_mixed_continuous k M r e).continuousOn.integrableOn_compact hcubeCompact
+    simpa using MeasureTheory.ofReal_integral_norm_eq_lintegral_enorm hfi
+  have hnonneg (e : Finset (Fin k)) :
+      0 ≤ ∫ y in phaseBoxUnitCube k, ‖phaseBoxMixedWeylSum r e y‖ :=
+    setIntegral_nonneg hcubeMeas fun y hy => norm_nonneg _
+  have hsum :
+      ENNReal.ofReal
+          (∑ e : Finset (Fin k),
+            ∫ y in phaseBoxUnitCube k, ‖phaseBoxMixedWeylSum r e y‖) =
+        ∑ e : Finset (Fin k),
+          ENNReal.ofReal
+            (∫ y in phaseBoxUnitCube k, ‖phaseBoxMixedWeylSum r e y‖) := by
+    simpa using ENNReal.ofReal_sum_of_nonneg
+      (s := Finset.univ)
+      (f := fun e => ∫ y in phaseBoxUnitCube k,
+        ‖phaseBoxMixedWeylSum r e y‖)
+      (fun e he => hnonneg e)
+  simp_rw [← hnormIntegral] at hlinCube
+  rw [← hsum] at hlinCube
+  rw [show ‖phaseBoxMixedWeylSum r ∅ x‖ₑ =
+      ENNReal.ofReal ‖phaseBoxMixedWeylSum r ∅ x‖ by simp] at hlinCube
+  have hsumNonneg : 0 ≤ ∑ e : Finset (Fin k),
+      ∫ y in phaseBoxUnitCube k, ‖phaseBoxMixedWeylSum r e y‖ :=
+    Finset.sum_nonneg fun e _ => hnonneg e
+  exact (ENNReal.ofReal_le_ofReal_iff hsumNonneg).mp hlinCube
 
-private theorem phase_box_mixed_moment (s k M : ℕ) (hM : 0 < M)
-    (r : PhaseBoxIndex k M) (e : Finset (Fin k)) :
-    ∫ x in phaseBoxUnitCube k,
+private theorem phase_box_summed_mixed_moment (s k M : ℕ) (hM : 0 < M)
+    (e : Finset (Fin k)) :
+    ∑ r : PhaseBoxIndex k M,
+      ∫ x in phaseBoxUnitCube k,
         ‖phaseBoxMixedWeylSum r e x‖ ^ (2 * s) ≤
-      (2 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) := by
+      (M : ℝ) ^ phaseBoxExponent k *
+        (2 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) := by
   sorry
 
-private theorem phase_box_single_sup_bound (s k M : ℕ) (hM : 0 < M)
-    (r : PhaseBoxIndex k M) :
-    (sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
-      z = ‖phaseWeylSum k M a‖}) ^ (2 * s) ≤
-      (4 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) := by
-  sorry
+/-
+The former single-box moment and supremum contracts were false: summing them
+individually loses a factor `M^K`. The aggregate contract above is the one
+needed to prove `phase_box_suprema`.
+-/
 
 /-- Sum of the suprema over all closed coefficient boxes. -/
 theorem phase_box_suprema (s k M : ℕ) (hM : 0 < M) :
@@ -1470,22 +1835,7 @@ theorem phase_box_suprema (s k M : ℕ) (hM : 0 < M) :
         z = ‖phaseWeylSum k M a‖}) ^ (2 * s) ≤
       (4 * Real.pi : ℝ) ^ (2 * s * k) *
         (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ) := by
-  classical
-  have hcard : Fintype.card (PhaseBoxIndex k M) = M ^ phaseBoxExponent k := by
-    simp [PhaseBoxIndex, phaseBoxExponent, Fintype.card_pi,
-      Finset.prod_pow_eq_pow_sum]
-  calc
-    _ ≤ (Fintype.card (PhaseBoxIndex k M) : ℝ) *
-        ((4 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ)) := by
-      calc
-        _ ≤ ∑ _r : PhaseBoxIndex k M,
-            (4 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) :=
-          Finset.sum_le_sum fun r _ => phase_box_single_sup_bound s k M hM r
-        _ = _ := by simp
-    _ = (4 * Real.pi : ℝ) ^ (2 * s * k) *
-        (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ) := by
-      rw [hcard, Nat.cast_pow]
-      ring
+  sorry
 
 /-- The common target window restricted to a given frequency regime. -/
 def phaseWindowBound (freq : ℝ → ℝ → Prop) (C C₀ x₀ : ℝ) : Prop :=
