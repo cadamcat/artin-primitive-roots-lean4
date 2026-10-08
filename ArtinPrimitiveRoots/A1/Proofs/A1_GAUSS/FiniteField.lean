@@ -202,4 +202,33 @@ theorem normalized_cubic_gauss_cube (ρ : MulChar k ℂ) (ψ : AddChar k ℂ)
     _ = c * (c ^ 2 * n) * jacobiSum ρ ρ := by rw [hcube]; ring
     _ = c * jacobiSum ρ ρ := by rw [hc, mul_one]
 
+theorem normalized_quadratic_gauss_sq (φ : MulChar k ℂ) (ψ : AddChar k ℂ)
+    (hφ : φ ≠ 1) (hquad : φ.IsQuadratic) (hneg : φ (-1) = 1)
+    (hψ : ψ.IsPrimitive) :
+    normalizedGauss φ ψ ^ 2 = 1 := by
+  let g := gaussSum φ ψ
+  let n : ℂ := Fintype.card k
+  let c : ℂ := ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ)
+  have hsq : g ^ 2 = n := by
+    simpa only [hneg, one_mul] using gaussSum_sq hφ hquad hψ
+  have hpos : 0 < (Fintype.card k : ℝ) := by
+    exact_mod_cast (Fintype.card_pos : 0 < Fintype.card k)
+  have hscale : ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ))) ^ 2 *
+      (Fintype.card k : ℝ) = 1 := by
+    calc
+      ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ))) ^ 2 * (Fintype.card k : ℝ) =
+          (Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ) * 2) * (Fintype.card k : ℝ) := by
+            congr 1
+            simpa using (Real.rpow_mul_natCast (le_of_lt hpos) (-(1 / 2 : ℝ)) 2).symm
+      _ = (Fintype.card k : ℝ) ^ (-1 : ℝ) * (Fintype.card k : ℝ) := by norm_num
+      _ = 1 := by rw [Real.rpow_neg_one, inv_mul_cancel₀ hpos.ne']
+  have hc : c ^ 2 * n = 1 := by
+    dsimp [c, n]
+    exact_mod_cast hscale
+  change (c * g) ^ 2 = 1
+  calc
+    (c * g) ^ 2 = c ^ 2 * g ^ 2 := by ring
+    _ = c ^ 2 * n := by rw [hsq]
+    _ = 1 := hc
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
