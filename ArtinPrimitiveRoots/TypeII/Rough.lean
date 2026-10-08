@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.TypeII.MarkedTransfer
 import ArtinPrimitiveRoots.TypeII.PD.Defs
 import ArtinPrimitiveRoots.TypeII.PP.Results
 import ArtinPrimitiveRoots.TypeII.Proofs.«R-PRIME».PrimeAdapters
+import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.SWAdapters
 import OAI.NumberTheory.PrimeGaps.Main
 
 namespace ArtinPrimitiveRoots.TypeII.RoughProofs
@@ -236,6 +237,7 @@ open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.TypeII.PD
 open ArtinPrimitiveRoots.TypeII.PP
 open ArtinPrimitiveRoots.Proofs.RImplP.RPrime
+open ArtinPrimitiveRoots.Proofs.RImplP.RLow
 
 /-- `def:rough-density` — 08-type-ii.tex:253-270. Alias of the shared Buchstab rough density; the
 body is exactly the existing `ArtinPrimitiveRoots.Sieve.roughDensity` definition. -/
@@ -875,6 +877,7 @@ theorem square_error (γ wMax δ : ℝ) (hγ : 0 < γ) (hδ : 0 < δ)
         _ = 4 * M * Real.rpow x (-γ) := by rw [hneg]; ring
     simpa [Q, Y] using htailQ
 
+set_option maxHeartbeats 2000000 in
 /-- `t2:sw-slot` — 08-type-ii.tex:385-407, `eq:rough-slot-siegel-walfisz`. -/
 theorem sw_slot (γ : ℝ) (hγ : 0 < γ) :
     ∀ A₀ A₂ : ℝ, 0 < A₀ → 0 < A₂ →
@@ -889,7 +892,575 @@ theorem sw_slot (γ : ℝ) (hγ : 0 < γ) :
                     (if χ = 1 then (1 : ℂ) else 0) *
                       (∫ y in l..r, (1 / Real.log y : ℝ) : ℂ)‖ ≤
                       C * P * Real.rpow (Real.log x) (-A₂) := by
-  sorry
+  intro A₀ A₂ hA₀ hA₂
+  let A_SW : ℝ := A₂ + 4
+  obtain ⟨C_SW, x_SW, hC_SW, hx_SW, hSW⟩ :=
+    ArtinPrimitiveRoots.Ext.TypeIIInputs.siegel_walfisz A_SW (A₀ + 1)
+      (by dsimp [A_SW]; linarith) (by linarith)
+  obtain ⟨x₀, hx₀, hthreshold⟩ :=
+    ArtinPrimitiveRoots.Proofs.RImplP.RLow.sw_threshold γ A₀ A₂ x_SW hγ hA₀ hA₂
+  let C_SW' : ℝ := 8 * C_SW * Real.rpow (γ / 2) (-A_SW) *
+    Real.rpow (Real.log 4) (-4)
+  let C : ℝ := C_SW' + 2
+  refine ⟨C, x₀, ?_, hx₀, ?_⟩
+  · dsimp [C, C_SW']
+    positivity
+  · intro x hx P hPlo hPup k hk hklog χ l r hPl hlr hr
+    let L : ℝ := Real.log x
+    let c : ℝ := γ / 2
+    let d : ℕ := χ.conductor
+    let ψ : DirichletCharacter ℂ d := χ.primitiveCharacter
+    let ε : ℂ := if χ = 1 then 1 else 0
+    let coeff (n : ℕ) : ℂ :=
+      (ψ (n : ZMod d) : ℂ) * (ArithmeticFunction.vonMangoldt n : ℂ)
+    let f (y : ℝ) : ℂ := ((Real.log y)⁻¹ : ℂ)
+    let f' (y : ℝ) : ℂ := ((-y⁻¹ / (Real.log y) ^ 2 : ℝ) : ℂ)
+    let E : ℝ := 2 * C_SW * Real.rpow c (-A_SW) * P * Real.rpow L (-A_SW)
+    let Q : Finset ℕ := Finset.Ioc ⌊l⌋₊ ⌊r⌋₊
+    let Qp : Finset ℕ := Q.filter Nat.Prime
+    let Qn : Finset ℕ := Q.filter fun n => ¬ n.Prime
+    have hx2 : 2 ≤ x := (hthreshold x hx).1
+    have hXpos : 0 < x := by linarith
+    have hLpos : 0 < L := by
+      dsimp [L]
+      exact Real.log_pos (by linarith)
+    have hLne : L ≠ 0 := ne_of_gt hLpos
+    rcases (hthreshold x hx).2.2.2.2.2.2 with ⟨hLγlog2, hLcInv, hLcPowInv, hL4⟩
+    have hscaleData := hthreshold x hx
+    rcases hscaleData with ⟨_, hY, hmod, hhalf, htail, hend, _⟩
+    have hYleft : 2 * x_SW ≤ Real.rpow x γ := le_trans (le_max_left _ _) hY
+    have hYfour : 4 ≤ Real.rpow x γ := le_trans (le_max_right _ _) hY
+    have hPtwo : 2 ≤ P := by
+      have hlow : 2 ≤ Real.rpow x γ / 2 :=
+        (le_div_iff₀ (by norm_num)).2 (by nlinarith [hYfour])
+      exact hlow.trans hPlo
+    have hxSWP : x_SW ≤ P := by
+      have hlow : x_SW ≤ Real.rpow x γ / 2 :=
+        (le_div_iff₀ (by norm_num)).2 (by nlinarith [hYleft])
+      exact hlow.trans hPlo
+    have hkpos : 0 < k := lt_of_lt_of_le Nat.zero_lt_one hk
+    letI : NeZero k := ⟨ne_of_gt hkpos⟩
+    have hLpowlt : Real.rpow x (γ / 4) < Real.rpow x (γ / 2) :=
+      Real.rpow_lt_rpow_of_exponent_lt (by linarith) (by linarith)
+    have hhalfSquare :
+        Real.rpow x γ = Real.rpow x (γ / 2) * Real.rpow x (γ / 2) := by
+      calc
+        Real.rpow x γ = Real.rpow x (γ / 2 + γ / 2) := by congr 1 <;> ring
+        _ = _ := Real.rpow_add hXpos _ _
+    have hhalfLe : Real.rpow x (γ / 2) ≤ Real.rpow x γ / 2 := by
+      rw [hhalfSquare]
+      nlinarith [hhalf]
+    have hkP : (k : ℝ) < P := by
+      have hkbound : (k : ℝ) ≤ Real.rpow x (γ / 4) := hklog.trans hmod
+      exact (hkbound.trans_lt hLpowlt).trans_le (hhalfLe.trans hPlo)
+    have hPpos : 0 < P := lt_of_lt_of_le (by norm_num) hPtwo
+    have hPltwo : 2 ≤ l := hPtwo.trans hPl
+    have hrTwo : 2 ≤ r := hPltwo.trans hlr
+    have hrootX : 0 < Real.rpow x γ := Real.rpow_pos_of_pos hXpos γ
+    have hscaleLog : Real.log (Real.rpow x γ / 2) = γ * L - Real.log 2 := by
+      calc
+        Real.log (Real.rpow x γ / 2) = Real.log (Real.rpow x γ) - Real.log 2 :=
+          Real.log_div (ne_of_gt hrootX) (by norm_num)
+        _ = γ * L - Real.log 2 := by
+          have hlogX : Real.log (Real.rpow x γ) = γ * Real.log x :=
+            Real.log_rpow hXpos γ
+          simpa [L] using congrArg (fun z : ℝ => z - Real.log 2) hlogX
+    have hlogP : c * L ≤ Real.log P := by
+      have hlogMono := Real.log_le_log (by positivity) hPlo
+      rw [hscaleLog] at hlogMono
+      have hgammaL : 2 * Real.log 2 ≤ γ * L := by
+        have h := (div_le_iff₀ hγ).mp hLγlog2
+        simpa [L, mul_comm] using h
+      have hhalfLog : c * L ≤ γ * L - Real.log 2 := by
+        change (γ / 2) * L ≤ γ * L - Real.log 2
+        nlinarith [hgammaL]
+      exact hhalfLog.trans hlogMono
+    have hcl : 1 ≤ c * L := by
+      have hcpos' : 0 < γ / 2 := by positivity
+      have h := (div_le_iff₀ hcpos').mp hLcInv
+      simpa [L, c, mul_comm] using h
+    have hlogBounds (y : ℝ) (hy : y ∈ Set.Icc l r) :
+        c * L ≤ Real.log y ∧ 1 ≤ Real.log y ∧ Real.log y ≤ 2 * L := by
+      have hPy : P ≤ y := hPl.trans hy.1
+      have hy2P : y ≤ 2 * P := hy.2.trans hr
+      have hlogPy : Real.log P ≤ Real.log y :=
+        Real.log_le_log (by linarith [hPy, hPtwo]) hPy
+      have hy4x : y ≤ 4 * x := by nlinarith [hy2P, hPup]
+      have hlog4x : Real.log y ≤ Real.log (4 * x) :=
+        Real.log_le_log (by linarith [hy4x, hPltwo]) hy4x
+      rw [Real.log_mul (by norm_num : (4 : ℝ) ≠ 0) (ne_of_gt hXpos)] at hlog4x
+      have hlogLower := hlogP.trans hlogPy
+      constructor
+      · exact hlogLower
+      constructor
+      · exact hcl.trans hlogLower
+      · dsimp [L]
+        linarith [hlog4x, hL4]
+    have hcpos : 0 < c := by dsimp [c]; positivity
+    have hLtoLog (y : ℝ) (hy : y ∈ Set.Icc l r) :
+        Real.rpow L A₀ ≤ Real.rpow (Real.log y) (A₀ + 1) := by
+      have hlogy := hlogBounds y hy
+      have hcPowPos : 0 < Real.rpow c (A₀ + 1) := Real.rpow_pos_of_pos hcpos _
+      have hfactor : 1 ≤ Real.rpow c (A₀ + 1) * L := by
+        have h := (div_le_iff₀ hcPowPos).mp hLcPowInv
+        nlinarith [h]
+      have hLpowNonneg : 0 ≤ Real.rpow L A₀ := Real.rpow_nonneg hLpos.le _
+      have hbase : Real.rpow L A₀ ≤ Real.rpow (c * L) (A₀ + 1) := by
+        calc
+          Real.rpow L A₀ ≤ Real.rpow L A₀ * (Real.rpow c (A₀ + 1) * L) :=
+            by simpa using mul_le_mul_of_nonneg_left hfactor hLpowNonneg
+          _ = Real.rpow c (A₀ + 1) * (Real.rpow L A₀ * L) := by ring
+          _ = Real.rpow c (A₀ + 1) * Real.rpow L (A₀ + 1) := by
+            change Real.rpow c (A₀ + 1) * (L ^ A₀ * L) =
+              Real.rpow c (A₀ + 1) * L ^ (A₀ + 1)
+            rw [Real.rpow_add hLpos A₀ 1, Real.rpow_one]
+          _ = Real.rpow (c * L) (A₀ + 1) := by
+            exact (Real.mul_rpow hcpos.le hLpos.le).symm
+      exact hbase.trans (Real.rpow_le_rpow (by positivity) hlogy.1 (by linarith))
+    have hdpos : 0 < d := by
+      dsimp [d]
+      exact Nat.pos_of_dvd_of_pos χ.conductor_dvd_level hkpos
+    have hdkNat : d ≤ k := by
+      dsimp [d]
+      exact Nat.le_of_dvd hkpos χ.conductor_dvd_level
+    have hdlog (y : ℝ) (hy : y ∈ Set.Icc l r) :
+        (d : ℝ) ≤ Real.rpow (Real.log y) (A₀ + 1) := by
+      calc
+        (d : ℝ) ≤ (k : ℝ) := by exact_mod_cast hdkNat
+        _ ≤ Real.rpow L A₀ := hklog
+        _ ≤ Real.rpow (Real.log y) (A₀ + 1) := hLtoLog y hy
+    have hψprim : ψ.IsPrimitive := by
+      dsimp [ψ, d]
+      exact χ.primitiveCharacter_isPrimitive
+    have hprincipal (y : ℝ) :
+        (if ψ = 1 then (y : ℂ) else 0) = ε * (y : ℂ) := by
+      change (if χ.primitiveCharacter = 1 then (y : ℂ) else 0) = _
+      rw [ArtinPrimitiveRoots.Proofs.RImplP.RLow.primitive_eq_one_iff k hk χ]
+      by_cases hχ : χ = 1 <;> simp [ε, hχ]
+    have hEpos : 0 < E := by
+      dsimp [E]
+      positivity
+    have hprefix : ∀ y ∈ Set.Icc l r,
+        ‖(∑ n ∈ Finset.Icc 0 ⌊y⌋₊, coeff n) - ε * (y : ℂ)‖ ≤ E := by
+      intro y hy
+      have hyxSW : x_SW ≤ y := hxSWP.trans (hPl.trans hy.1)
+      have hSWy := hSW y hyxSW d hdpos (hdlog y hy) ψ hψprim
+      have hIccRange : Finset.Icc 0 ⌊y⌋₊ = Finset.range (⌊y⌋₊ + 1) := by
+        ext n
+        simp
+      have hprefixSW :
+          ‖(∑ n ∈ Finset.Icc 0 ⌊y⌋₊, coeff n) - ε * (y : ℂ)‖ ≤
+            C_SW * y * Real.rpow (Real.log y) (-A_SW) := by
+        simpa only [coeff, hIccRange, hprincipal y] using hSWy
+      have hlogy := hlogBounds y hy
+      have hpowlog : Real.rpow (Real.log y) (-A_SW) ≤
+          Real.rpow c (-A_SW) * Real.rpow L (-A_SW) := by
+        calc
+          _ ≤ Real.rpow (c * L) (-A_SW) :=
+            Real.rpow_le_rpow_of_nonpos (mul_pos hcpos hLpos) hlogy.1 (by linarith [hA₂])
+          _ = _ := Real.mul_rpow hcpos.le hLpos.le
+      have hy2P : y ≤ 2 * P := hy.2.trans hr
+      have hpowNonneg : 0 ≤ Real.rpow (Real.log y) (-A_SW) :=
+        Real.rpow_nonneg (Real.log_nonneg (by linarith [hPltwo, hy.1])) _
+      calc
+        _ ≤ C_SW * y * Real.rpow (Real.log y) (-A_SW) := hprefixSW
+        _ ≤ C_SW * (2 * P) *
+              (Real.rpow c (-A_SW) * Real.rpow L (-A_SW)) := by
+                calc
+                  _ ≤ C_SW * (2 * P) * Real.rpow (Real.log y) (-A_SW) :=
+                    mul_le_mul_of_nonneg_right
+                      (mul_le_mul_of_nonneg_left hy2P hC_SW.le) hpowNonneg
+                  _ ≤ _ := mul_le_mul_of_nonneg_left hpowlog (by positivity)
+        _ = E := by dsimp [E]; ring
+    have hf (y : ℝ) (hy : y ∈ Set.Icc l r) : HasDerivAt f (f' y) y := by
+      have hy2 : 2 ≤ y := hPltwo.trans hy.1
+      simpa [f, f'] using
+        ArtinPrimitiveRoots.Proofs.RImplP.RLow.inv_log_complex_hasDerivAt y hy2
+    have hf'cont : ContinuousOn f' (Set.Icc l r) := by
+      have hlogcont : ContinuousOn Real.log (Set.Icc l r) :=
+        Real.continuousOn_log.mono (by
+          intro y hy
+          exact (ne_of_gt (lt_of_lt_of_le (by positivity) (hPltwo.trans hy.1))))
+      have hinv : ContinuousOn (fun y : ℝ => y⁻¹) (Set.Icc l r) :=
+        continuousOn_inv₀.mono (by
+          intro y hy
+          exact (ne_of_gt (lt_of_lt_of_le (by positivity) (hPltwo.trans hy.1))))
+      have hlogsq : ContinuousOn (fun y : ℝ => (Real.log y) ^ 2) (Set.Icc l r) :=
+        hlogcont.pow 2
+      have hquot := hinv.div hlogsq (by
+        intro y hy
+        exact ne_of_gt (pow_pos (Real.log_pos (by linarith [hPltwo.trans hy.1])) 2))
+      have hrealFun : (fun y : ℝ => -y⁻¹ / (Real.log y) ^ 2) =
+          (fun y => -(y⁻¹ / (Real.log y) ^ 2)) := by
+        funext y
+        ring
+      have hreal : ContinuousOn (fun y : ℝ => -y⁻¹ / (Real.log y) ^ 2)
+          (Set.Icc l r) := by
+        rw [hrealFun]
+        exact hquot.neg
+      change ContinuousOn
+        (fun y : ℝ => ((-y⁻¹ / (Real.log y) ^ 2 : ℝ) : ℂ)) (Set.Icc l r)
+      exact Complex.continuous_ofReal.comp_continuousOn hreal
+    have hfBound (y : ℝ) (hy : y ∈ Set.Icc l r) : ‖f y‖ ≤ 1 := by
+      have hlogy := hlogBounds y hy
+      have hlogpos : 0 < Real.log y := Real.log_pos (by linarith [hPltwo.trans hy.1])
+      have hval : 0 ≤ 1 / Real.log y := by positivity
+      have hvalle : 1 / Real.log y ≤ 1 :=
+        (div_le_iff₀ hlogpos).2 (by linarith)
+      have hnorm : ‖f y‖ = 1 / Real.log y := by
+        simp [f, norm_inv, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hlogpos,
+          one_div]
+      rw [hnorm]
+      exact hvalle
+    have hf'Bound (y : ℝ) (hy : y ∈ Set.Icc l r) : ‖f' y‖ ≤ 1 / P := by
+      have hlogy := hlogBounds y hy
+      have hyP : P ≤ y := hPl.trans hy.1
+      have h2y : 2 ≤ y := hPltwo.trans hy.1
+      have hypos : 0 < y := by linarith
+      have hlogpos : 0 < Real.log y := Real.log_pos (by linarith)
+      have hlogsq : 1 ≤ (Real.log y) ^ 2 := by nlinarith [hlogy.2.1]
+      have hinvP : y⁻¹ ≤ P⁻¹ := by
+        simpa [one_div] using one_div_le_one_div_of_le hPpos hyP
+      have hquot : y⁻¹ / (Real.log y) ^ 2 ≤ y⁻¹ := by
+        apply (div_le_iff₀ (pow_pos hlogpos 2)).2
+        have hyinv : 0 ≤ y⁻¹ := by positivity
+        nlinarith [hyinv, hlogsq]
+      have hnorm : ‖f' y‖ = y⁻¹ / (Real.log y) ^ 2 := by
+        simp only [f', Complex.norm_real, Real.norm_eq_abs]
+        have hyInvPos : 0 < y⁻¹ := inv_pos.mpr hypos
+        have hdenPos : 0 < (Real.log y) ^ 2 := pow_pos hlogpos 2
+        have hnonpos : -y⁻¹ / (Real.log y) ^ 2 ≤ 0 :=
+          div_nonpos_of_nonpos_of_nonneg (neg_nonpos.mpr hyInvPos.le) hdenPos.le
+        rw [abs_of_nonpos hnonpos]
+        ring
+      rw [hnorm]
+      exact hquot.trans (by simpa [one_div] using hinvP)
+    have hAbel := ArtinPrimitiveRoots.Proofs.RImplP.RLow.complex_partial_summation_error
+      coeff f f' ε (by linarith [hPltwo]) hlr hf hf'cont hfBound hf'Bound
+      (by norm_num) (by positivity) hprefix
+    have hlength : 0 ≤ r - l := sub_nonneg.mpr hlr
+    have hlengthDiv : (r - l) / P ≤ 2 := by
+      apply (div_le_iff₀ hPpos).2
+      nlinarith [hr, hPl]
+    have hAbel4 :
+        ‖(∑ n ∈ Q, f n * coeff n) - ε * (∫ y in l..r, f y)‖ ≤ 4 * E := by
+      have hmain := hAbel
+      have hmul : E * (2 * 1 + (1 / P) * (r - l)) ≤ 4 * E := by
+        have hterm : (1 / P) * (r - l) ≤ 2 := by
+          simpa [div_eq_mul_inv, mul_comm] using hlengthDiv
+        nlinarith [hEpos, hterm]
+      simpa [Q, one_div, mul_comm, mul_left_comm, mul_assoc] using hAbel.trans hmul
+    have hlogR : Real.log r ≤ 2 * L := (hlogBounds r ⟨hlr, le_rfl⟩).2.2
+    have htailAll :
+        (∑ n ∈ Finset.Ioc 0 ⌊r⌋₊ with ¬n.Prime,
+          ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ)) ≤
+          2 * Real.sqrt r * Real.log r / Real.log 2 :=
+      ArtinPrimitiveRoots.Proofs.RImplP.RLow.nonprime_vonMangoldt_div_log_bound r hrTwo
+    have hQnSubset : Qn ⊆
+        (Finset.Ioc 0 ⌊r⌋₊).filter fun n => ¬n.Prime := by
+      intro n hn
+      rcases Finset.mem_filter.mp hn with ⟨hnQ, hnnp⟩
+      rcases Finset.mem_Ioc.mp hnQ with ⟨hnl, hnr⟩
+      have hn0 : 0 < n := by omega
+      exact Finset.mem_filter.mpr ⟨Finset.mem_Ioc.mpr ⟨hn0, hnr⟩, hnnp⟩
+    have hratioNonneg (n : ℕ)
+        (hn : n ∈ (Finset.Ioc 0 ⌊r⌋₊).filter fun n => ¬n.Prime) :
+        0 ≤ ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ) := by
+      have hnpos : 1 ≤ n := by
+        have h := (Finset.mem_filter.mp hn).1
+        exact (Finset.mem_Ioc.mp h).1
+      exact div_nonneg ArithmeticFunction.vonMangoldt_nonneg
+        (Real.log_nonneg (by exact_mod_cast hnpos))
+    have htailQ :
+        (∑ n ∈ Qn, ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ)) ≤
+          2 * Real.sqrt r * Real.log r / Real.log 2 := by
+      calc
+        _ ≤ ∑ n ∈ (Finset.Ioc 0 ⌊r⌋₊).filter fun n => ¬n.Prime,
+              ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ) :=
+          Finset.sum_le_sum_of_subset_of_nonneg hQnSubset (by
+            intro n hn _hn'
+            exact hratioNonneg n hn)
+        _ ≤ _ := htailAll
+    have hQnTerm (n : ℕ) (hn : n ∈ Qn) :
+        ‖f n * coeff n‖ ≤ ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ) := by
+      rcases Finset.mem_filter.mp hn with ⟨hnQ, _⟩
+      rcases Finset.mem_Ioc.mp hnQ with ⟨hnl, _⟩
+      have hncast : l < (n : ℝ) := by
+        have hsucc : ⌊l⌋₊ + 1 ≤ n := Nat.succ_le_of_lt hnl
+        have hfloor : l < ((⌊l⌋₊ + 1 : ℕ) : ℝ) := by
+          push_cast
+          exact Nat.lt_floor_add_one l
+        exact hfloor.trans_le (by exact_mod_cast hsucc)
+      have hlogpos : 0 < Real.log (n : ℝ) := Real.log_pos (by linarith [hPltwo])
+      have hratio : 0 ≤ ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ) :=
+        div_nonneg ArithmeticFunction.vonMangoldt_nonneg hlogpos.le
+      have hlogComplex : (Real.log (n : ℝ) : ℂ) ≠ 0 :=
+        Complex.ofReal_ne_zero.mpr (ne_of_gt hlogpos)
+      have heq : f n * coeff n =
+          (ψ (n : ZMod d) : ℂ) *
+            ((ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ) : ℝ) : ℂ) := by
+        simp only [f, coeff]
+        rw [← Complex.ofReal_inv, Complex.ofReal_div, div_eq_mul_inv,
+          ← Complex.ofReal_inv]
+        ac_rfl
+      rw [heq, norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hratio]
+      calc
+        ‖ψ (n : ZMod d)‖ * (ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ)) ≤
+            1 * (ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ)) :=
+          mul_le_mul_of_nonneg_right (DirichletCharacter.norm_le_one ψ (n : ZMod d))
+            hratio
+        _ = _ := by ring
+    have hnonprimeNorm : ‖∑ n ∈ Qn, f n * coeff n‖ ≤
+        2 * Real.sqrt r * Real.log r / Real.log 2 := by
+      calc
+        _ ≤ ∑ n ∈ Qn, ‖f n * coeff n‖ := norm_sum_le _ _
+        _ ≤ ∑ n ∈ Qn, ArithmeticFunction.vonMangoldt n / Real.log (n : ℝ) :=
+          Finset.sum_le_sum fun n hn => hQnTerm n hn
+        _ ≤ _ := htailQ
+    have hrootX4 :
+        Real.rpow x (γ / 4) * Real.rpow x (γ / 4) = Real.rpow x (γ / 2) := by
+      change x ^ (γ / 4) * x ^ (γ / 4) = x ^ (γ / 2)
+      rw [← Real.rpow_add hXpos]
+      congr 1
+      ring
+    have hPgeHalf : Real.rpow x (γ / 2) ≤ P := by
+      have ha : 0 ≤ Real.rpow x (γ / 2) := Real.rpow_nonneg hXpos.le _
+      have hsquare : Real.rpow x (γ / 2) * Real.rpow x (γ / 2) =
+          Real.rpow x γ := hhalfSquare.symm
+      nlinarith [hhalf, hPlo]
+    have hrootP : Real.rpow x (γ / 4) ≤ Real.sqrt P := by
+      have hqnonneg : 0 ≤ Real.rpow x (γ / 4) := Real.rpow_nonneg hXpos.le _
+      have hsqrt : 0 ≤ Real.sqrt P := Real.sqrt_nonneg _
+      have hqSq : (Real.rpow x (γ / 4)) ^ 2 = Real.rpow x (γ / 2) := by
+        nlinarith [hrootX4]
+      have hqSqP : (Real.rpow x (γ / 4)) ^ 2 ≤ P := hqSq ▸ hPgeHalf
+      nlinarith [Real.sq_sqrt (le_of_lt hPpos)]
+    have htailCoeff :
+        (4 * Real.sqrt 2 / Real.log 2) * Real.rpow L (A₂ + 1) ≤ Real.sqrt P := by
+      have hpowNonneg : 0 ≤ Real.rpow L (A₂ + 1) := Real.rpow_nonneg hLpos.le _
+      have hlog2pos : 0 < Real.log 2 := Real.log_pos (by norm_num)
+      have hcoef : 4 * Real.sqrt 2 / Real.log 2 ≤ Real.sqrt 2 * (8 / Real.log 2) := by
+        have hlt : 4 * Real.sqrt 2 ≤ 8 * Real.sqrt 2 := by
+          nlinarith [Real.sqrt_pos.2 (by norm_num : (0 : ℝ) < 2)]
+        calc
+          4 * Real.sqrt 2 / Real.log 2 ≤ (8 * Real.sqrt 2) / Real.log 2 :=
+            div_le_div_of_nonneg_right hlt hlog2pos.le
+          _ = Real.sqrt 2 * (8 / Real.log 2) := by ring
+      have htail' :
+          (Real.sqrt 2 * (8 / Real.log 2)) * Real.rpow L (A₂ + 1) ≤
+            Real.rpow x (γ / 4) := by simpa [L] using htail
+      exact (mul_le_mul_of_nonneg_right hcoef hpowNonneg).trans (htail'.trans hrootP)
+    have htailBound : 2 * Real.sqrt r * Real.log r / Real.log 2 ≤
+        P * Real.rpow L (-A₂) := by
+      have hrootr : Real.sqrt r ≤ Real.sqrt (2 * P) := Real.sqrt_le_sqrt (by linarith [hr, hPl])
+      have hlogrpos : 0 ≤ Real.log r := Real.log_nonneg (by linarith [hrTwo])
+      have hlogr : Real.log r ≤ 2 * L := hlogR
+      have hLpow : Real.rpow L (A₂ + 1) = Real.rpow L A₂ * L := by
+        change L ^ (A₂ + 1) = L ^ A₂ * L
+        rw [Real.rpow_add hLpos A₂ 1, Real.rpow_one]
+      have hsmall :
+          (4 * Real.sqrt 2 / Real.log 2) * Real.rpow L (A₂ + 1) ≤ Real.sqrt P := htailCoeff
+      have hweighted :
+          (4 * Real.sqrt 2 / Real.log 2) * Real.sqrt P * L ≤
+            P * Real.rpow L (-A₂) := by
+        have hsmall' := mul_le_mul_of_nonneg_right hsmall
+          (mul_nonneg (Real.sqrt_nonneg P) (Real.rpow_nonneg hLpos.le (-A₂)))
+        rw [hLpow] at hsmall'
+        have hneg : Real.rpow L A₂ * Real.rpow L (-A₂) = 1 := by
+          change L ^ A₂ * L ^ (-A₂) = 1
+          rw [← Real.rpow_add hLpos]
+          norm_num
+        have hsqrtP : Real.sqrt P * Real.sqrt P = P := Real.mul_self_sqrt (le_of_lt hPpos)
+        have hleft :
+            (4 * Real.sqrt 2 / Real.log 2) *
+              (Real.rpow L A₂ * L) * (Real.sqrt P * Real.rpow L (-A₂)) =
+              (4 * Real.sqrt 2 / Real.log 2) * Real.sqrt P * L := by
+          calc
+            _ = (4 * Real.sqrt 2 / Real.log 2) * Real.sqrt P * L *
+                  (Real.rpow L A₂ * Real.rpow L (-A₂)) := by ring
+            _ = _ := by rw [hneg]; ring
+        calc
+          _ = (4 * Real.sqrt 2 / Real.log 2) *
+                (Real.rpow L A₂ * L) * (Real.sqrt P * Real.rpow L (-A₂)) := hleft.symm
+          _ ≤ Real.sqrt P * (Real.sqrt P * Real.rpow L (-A₂)) := hsmall'
+          _ = P * Real.rpow L (-A₂) := by
+            calc
+              _ = (Real.sqrt P * Real.sqrt P) * Real.rpow L (-A₂) := by ring
+              _ = _ := by rw [hsqrtP]
+      calc
+        _ ≤ 2 * Real.sqrt (2 * P) * (2 * L) / Real.log 2 := by
+          gcongr
+        _ = (4 * Real.sqrt 2 / Real.log 2) * Real.sqrt P * L := by
+          rw [Real.sqrt_mul (by norm_num : 0 ≤ (2 : ℝ)) P]
+          ring
+        _ ≤ _ := hweighted
+    have hQunion : Qp ∪ Qn = Q := by
+      ext n
+      by_cases hn : n.Prime <;> simp [Qp, Qn, hn]
+    have hQdisj : Disjoint Qp Qn := by
+      rw [Finset.disjoint_left]
+      intro n hp hn
+      exact (Finset.mem_filter.mp hn).2 (Finset.mem_filter.mp hp).2
+    have hdecomp :
+        (∑ n ∈ Q, f n * coeff n) =
+          (∑ n ∈ Qp, f n * coeff n) + (∑ n ∈ Qn, f n * coeff n) := by
+      calc
+        _ = ∑ n ∈ Qp ∪ Qn, f n * coeff n := by conv_lhs => rw [← hQunion]
+        _ = _ := Finset.sum_union hQdisj
+    have hprimeTerm (p : ℕ) (hp : p ∈ Qp) :
+        f p * coeff p = (ψ (p : ZMod d) : ℂ) := by
+      rcases Finset.mem_filter.mp hp with ⟨hpQ, hprime⟩
+      rcases Finset.mem_Ioc.mp hpQ with ⟨hpl, _⟩
+      have hfloor : l < (p : ℝ) := by
+        have hsucc : ⌊l⌋₊ + 1 ≤ p := Nat.succ_le_of_lt hpl
+        have hfloor' : l < ((⌊l⌋₊ + 1 : ℕ) : ℝ) := by
+          push_cast
+          exact Nat.lt_floor_add_one l
+        exact hfloor'.trans_le (by exact_mod_cast hsucc)
+      have hlogpos : 0 < Real.log (p : ℝ) := Real.log_pos (by linarith [hPltwo])
+      have hlogComplex : ((Real.log (p : ℝ) : ℝ) : ℂ) ≠ 0 :=
+        Complex.ofReal_ne_zero.mpr (ne_of_gt hlogpos)
+      calc
+        f p * coeff p =
+            (ψ (p : ZMod d) : ℂ) *
+              ((Real.log (p : ℝ) : ℂ)⁻¹ * (Real.log (p : ℝ) : ℂ)) := by
+          simp only [f, coeff, ArithmeticFunction.vonMangoldt_apply_prime hprime,
+            Complex.ofReal_mul]
+          ac_rfl
+        _ = ψ (p : ZMod d) := by rw [inv_mul_cancel₀ hlogComplex]; simp
+    have hprimeOpen :
+        (∑ n ∈ Qp, f n * coeff n) =
+          ∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r,
+            (ψ (p : ZMod d) : ℂ) := by
+      apply Finset.sum_congr rfl
+      intro p hp
+      exact hprimeTerm p hp
+    have hopenTransfer :
+        (∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r,
+          (ψ (p : ZMod d) : ℂ)) =
+        ∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r,
+          (χ (p : ZMod k) : ℂ) := by
+      apply Finset.sum_congr rfl
+      intro p hp
+      rcases Finset.mem_filter.mp hp with ⟨hpI, hpprime⟩
+      rcases Finset.mem_Ioc.mp hpI with ⟨hfloorl, _⟩
+      have hsucc : ⌊l⌋₊ + 1 ≤ p := Nat.succ_le_of_lt hfloorl
+      have hfloor : l < (p : ℝ) := by
+        have hlt : l < ((⌊l⌋₊ + 1 : ℕ) : ℝ) := by
+          push_cast
+          exact Nat.lt_floor_add_one l
+        exact hlt.trans_le (by exact_mod_cast hsucc)
+      have hkpR : (k : ℝ) < (p : ℝ) :=
+        lt_trans (lt_of_lt_of_le hkP hPl) hfloor
+      have hkp : k < p := by exact_mod_cast hkpR
+      have hcop : Nat.Coprime p k :=
+        ArtinPrimitiveRoots.Proofs.RImplP.RLow.prime_coprime_of_lt hpprime hk hkp
+      have heval := ArtinPrimitiveRoots.Proofs.RImplP.RLow.primitive_eval_nat k p hk χ hcop
+      simpa only [Int.cast_natCast] using heval
+    have hopenErr :
+        ‖(∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r,
+              (χ (p : ZMod k) : ℂ)) - ε * (∫ y in l..r, f y)‖ ≤
+          4 * E + P * Real.rpow L (-A₂) := by
+      have hsub :
+          ‖((∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r,
+                (χ (p : ZMod k) : ℂ)) - ε * (∫ y in l..r, f y))‖ ≤
+            ‖(∑ n ∈ Q, f n * coeff n) - ε * (∫ y in l..r, f y)‖ +
+            ‖∑ n ∈ Qn, f n * coeff n‖ := by
+        calc
+          _ = ‖((∑ n ∈ Q, f n * coeff n) - ε * (∫ y in l..r, f y)) -
+                (∑ n ∈ Qn, f n * coeff n)‖ := by
+                  congr 1
+                  rw [hdecomp, hprimeOpen, hopenTransfer]
+                  abel
+          _ ≤ _ := norm_sub_le _ _
+      have hnonprimeNorm' := hnonprimeNorm.trans htailBound
+      exact hsub.trans (add_le_add hAbel4 hnonprimeNorm')
+    have hendAbsorb : 1 ≤ P * Real.rpow L (-A₂) := by
+      have hpow : Real.rpow L A₂ ≤ P := by
+        have hp2 := hPlo
+        have : Real.rpow x γ / 2 ≥ Real.rpow L A₂ := by linarith [hend]
+        exact this.trans hPlo
+      have hinv : Real.rpow L A₂ * Real.rpow L (-A₂) = 1 := by
+        change L ^ A₂ * L ^ (-A₂) = 1
+        rw [← Real.rpow_add hLpos]
+        norm_num
+      rw [← hinv]
+      exact mul_le_mul_of_nonneg_right hpow (Real.rpow_nonneg hLpos.le _)
+    have hSWabsorb : 4 * E ≤ C_SW' * P * Real.rpow L (-A₂) := by
+      have hlog4pos : 0 < Real.log 4 := Real.log_pos (by norm_num)
+      have hlog4pow :
+          Real.rpow L (-4) ≤ Real.rpow (Real.log 4) (-4) :=
+        Real.rpow_le_rpow_of_nonpos hlog4pos hL4 (by norm_num)
+      have hlog4powPow : L ^ (-4 : ℝ) ≤ (Real.log 4) ^ (-4 : ℝ) := by
+        simpa only [Real.rpow_eq_pow] using hlog4pow
+      have hpowSplit : Real.rpow L (-A_SW) =
+          Real.rpow L (-A₂) * Real.rpow L (-4) := by
+        have hexp : (-A_SW : ℝ) = (-A₂ : ℝ) + (-4 : ℝ) := by
+          dsimp [A_SW]
+          ring
+        calc
+          _ = Real.rpow L ((-A₂ : ℝ) + (-4 : ℝ)) := by rw [hexp]
+          _ = _ := Real.rpow_add hLpos (-A₂) (-4)
+      have hpowSplitPow : L ^ (-A_SW : ℝ) =
+          L ^ (-A₂ : ℝ) * L ^ (-4 : ℝ) := by
+        simpa only [Real.rpow_eq_pow] using hpowSplit
+      dsimp [E, C_SW']
+      dsimp [c]
+      rw [hpowSplitPow]
+      calc
+        _ = (8 * C_SW * Real.rpow (γ / 2) (-A_SW) * P *
+              Real.rpow L (-A₂)) * Real.rpow L (-4) := by
+                simp only [Real.rpow_eq_pow]
+                ring_nf
+        _ ≤ (8 * C_SW * Real.rpow (γ / 2) (-A_SW) * P *
+              Real.rpow L (-A₂)) * (Real.log 4) ^ (-4 : ℝ) := by
+                apply mul_le_mul_of_nonneg_left hlog4powPow
+                have hCpow : 0 ≤ Real.rpow (γ / 2) (-A_SW) :=
+                  Real.rpow_nonneg (by positivity) _
+                have hLpow : 0 ≤ Real.rpow L (-A₂) := Real.rpow_nonneg hLpos.le _
+                exact mul_nonneg
+                  (mul_nonneg (mul_nonneg (mul_nonneg (by norm_num : (0 : ℝ) ≤ 8)
+                    hC_SW.le) hCpow) hPpos.le) hLpow
+        _ = _ := by
+          simp only [Real.rpow_eq_pow]
+          ring_nf
+    have hclosedSplit := ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeInterval_sum_split
+      (fun p => (χ (p : ZMod k) : ℂ)) l r (by linarith [hrTwo])
+    have hclosedBound :
+        ‖∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeInterval l r \
+            ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r,
+            (χ (p : ZMod k) : ℂ)‖ ≤ 1 := by
+      let T := ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeInterval l r \
+        ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r
+      have hcard := ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeInterval_sdiff_card_le_one
+        l r (by linarith [hPltwo]) (by linarith [hrTwo])
+      calc
+        _ ≤ ∑ p ∈ T, ‖(χ (p : ZMod k) : ℂ)‖ := norm_sum_le _ _
+        _ ≤ ∑ _p ∈ T, (1 : ℝ) := Finset.sum_le_sum fun p hp =>
+          DirichletCharacter.norm_le_one χ (p : ZMod k)
+        _ = (T.card : ℝ) := by simp [T]
+        _ ≤ 1 := by exact_mod_cast hcard
+    have hclosedError :
+        ‖(∑ p ∈ primesInInterval l r, (χ (p : ZMod k) : ℂ)) -
+            ε * (∫ y in l..r, f y)‖ ≤
+          (C_SW' + 2) * P * Real.rpow L (-A₂) := by
+      change ‖(∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeInterval l r,
+          (χ (p : ZMod k) : ℂ)) - ε * (∫ y in l..r, f y)‖ ≤ _
+      rw [hclosedSplit]
+      calc
+        _ = ‖((∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r,
+                (χ (p : ZMod k) : ℂ)) - ε * (∫ y in l..r, f y)) +
+              (∑ p ∈ ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeInterval l r \
+                ArtinPrimitiveRoots.Proofs.RImplP.RLow.swPrimeOpenInterval l r,
+                (χ (p : ZMod k) : ℂ))‖ := by congr 1; ring
+        _ ≤ _ := norm_add_le _ _
+        _ ≤ (4 * E + P * Real.rpow L (-A₂)) + 1 :=
+          add_le_add hopenErr hclosedBound
+        _ ≤ (C_SW' * P * Real.rpow L (-A₂) + P * Real.rpow L (-A₂)) +
+            P * Real.rpow L (-A₂) :=
+          add_le_add (add_le_add hSWabsorb le_rfl) hendAbsorb
+        _ = _ := by ring
+    simpa [C, C_SW', ε, f, one_div, mul_assoc, mul_left_comm, mul_comm] using hclosedError
 
 /-- The simplex defining a higher density term is empty below its natural support. -/
 private theorem roughDensityTerm_eq_zero_of_lt (γ w : ℝ) {j : ℕ} (hγ : 0 < γ)
