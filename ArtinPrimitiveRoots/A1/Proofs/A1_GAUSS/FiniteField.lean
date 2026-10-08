@@ -149,4 +149,57 @@ theorem normalized_sextic_duplication (χ : MulChar k ℂ) (ψ : AddChar k ℂ)
     _ = c ^ 4 * g2 * (g1 * n) := by ring
     _ = (χ 4)⁻¹ * (c * g3) * (c * g2) ^ 3 := by rw [hrel']; ring
 
+theorem normalized_cubic_gauss_cube (ρ : MulChar k ℂ) (ψ : AddChar k ℂ)
+    (hρ : ρ ≠ 1) (hρ3 : ρ ^ 3 = 1) (hneg : ρ (-1) = 1)
+    (hψ : ψ.IsPrimitive) :
+    normalizedGauss ρ ψ ^ 3 =
+      ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) * jacobiSum ρ ρ := by
+  let g := gaussSum ρ ψ
+  let g2 := gaussSum (ρ ^ 2) ψ
+  let n : ℂ := Fintype.card k
+  let c : ℂ := ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ)
+  have hρinv : ρ ^ 2 = ρ⁻¹ := by
+    apply (inv_eq_of_mul_eq_one_right ?_).symm
+    rw [← pow_succ']
+    exact hρ3
+  have hρ2 : ρ ^ 2 ≠ 1 := by
+    rw [hρinv, inv_ne_one]
+    exact hρ
+  have hneg2 : (ρ ^ 2) (-1) = 1 := by
+    rw [MulChar.pow_apply' ρ (by decide : (2 : ℕ) ≠ 0), hneg, one_pow]
+  have hprod : g * g2 = n := by
+    have hshift := mul_gaussSum_inv_eq_gaussSum (ρ ^ 2) ψ
+    rw [hneg2, one_mul] at hshift
+    have h := gaussSum_mul_gaussSum_eq_card hρ hψ
+    rw [← hρinv, hshift] at h
+    exact h
+  have hself : g2 * jacobiSum ρ ρ = g * g := by
+    simpa only [g, g2, pow_two] using
+      jacobiSum_mul_nontrivial (show ρ * ρ ≠ 1 by simpa only [pow_two] using hρ2) ψ
+  have hcube : g ^ 3 = n * jacobiSum ρ ρ := by
+    calc
+      g ^ 3 = g * (g * g) := by ring
+      _ = g * (g2 * jacobiSum ρ ρ) := by rw [hself]
+      _ = (g * g2) * jacobiSum ρ ρ := by ring
+      _ = n * jacobiSum ρ ρ := by rw [hprod]
+  have hpos : 0 < (Fintype.card k : ℝ) := by
+    exact_mod_cast (Fintype.card_pos : 0 < Fintype.card k)
+  have hscale : ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ))) ^ 2 *
+      (Fintype.card k : ℝ) = 1 := by
+    calc
+      ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ))) ^ 2 * (Fintype.card k : ℝ) =
+          (Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ) * 2) * (Fintype.card k : ℝ) := by
+            congr 1
+            simpa using (Real.rpow_mul_natCast (le_of_lt hpos) (-(1 / 2 : ℝ)) 2).symm
+      _ = (Fintype.card k : ℝ) ^ (-1 : ℝ) * (Fintype.card k : ℝ) := by norm_num
+      _ = 1 := by rw [Real.rpow_neg_one, inv_mul_cancel₀ hpos.ne']
+  have hc : c ^ 2 * n = 1 := by
+    dsimp [c, n]
+    exact_mod_cast hscale
+  change (c * g) ^ 3 = c * jacobiSum ρ ρ
+  calc
+    (c * g) ^ 3 = c ^ 3 * g ^ 3 := by ring
+    _ = c * (c ^ 2 * n) * jacobiSum ρ ρ := by rw [hcube]; ring
+    _ = c * jacobiSum ρ ρ := by rw [hc, mul_one]
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
