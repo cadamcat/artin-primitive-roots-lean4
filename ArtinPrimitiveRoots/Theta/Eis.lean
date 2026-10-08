@@ -14,6 +14,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealEncoding
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.RationalEncoding
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealMajorant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.LocalProduct
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.PeriodLattice
 
 set_option autoImplicit false
 
@@ -689,12 +690,77 @@ theorem whit_unipotentExterior (P : CoverPackage D S H A) (G : GlobalDatum P)
   rw [hqx, hprod, hx] at hW
   simpa only [Finset.prod_const_one, mul_one] using hW
 
+/-- The rational finite unipotent has trivial complex components. -/
+theorem whit_nFin_lift (P : CoverPackage D S H A) (ξ : F) :
+    ∃ y : P.RP, P.q y = nFin P ξ ∧
+      (∀ v : FinPlace F, P.compF v y =
+        (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ))) ∧
+      ∀ w, P.compC w y = 1 := by
+  sorry
+
+/-- Smoothness at the finite places gives a nonzero integral ideal of periods. -/
+theorem whit_finite_period (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (g : P.tc.G) :
+    ∃ 𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F, 𝔞 ≠ 0 ∧
+      (∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∃ a : 𝓞 F, (a : F) = ξ) ∧
+      ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+        scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) =
+          scalarOf P G Fs.f Fs.fC h := by
+  sorry
+
+/-- Choose an adapted period ideal, a domain, and the dual character condition. -/
+theorem whit_period_exists (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (g : P.tc.G) :
+    ∃ (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (Pd : Set (InfinitePlace F → ℂ)), 𝔞 ≠ 0 ∧
+      (∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+        scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) =
+          scalarOf P G Fs.f Fs.fC h) ∧
+      IsAddFundamentalDomain
+        ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume ∧
+      ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (1 : F) (infEmbA ξ) = 1 := by
+  obtain ⟨𝔞, h𝔞, hint, hfix⟩ := whit_finite_period P G Fs g
+  obtain ⟨Pd, hPd⟩ := whit_fractional_lattice_domain D 𝔞 h𝔞
+  refine ⟨𝔞, Pd, h𝔞, hfix, hPd, ?_⟩
+  intro ξ hξ
+  obtain ⟨a, rfl⟩ := hint ξ hξ
+  simpa only [psiInf, infEmbA, map_one, one_mul, RingHom.pi_apply] using
+    whit_integral_inf_character D S A a
+
 theorem whit_rightInvariant (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
     (Fs : GlobalSection P G s) (k : P.tc.G)
     (hk : ∀ h, scalarOf P G Fs.f Fs.fC (h * k) = scalarOf P G Fs.f Fs.fC h)
     (g : P.tc.G) : whittakerE P G μ Fs (g * k) = whittakerE P G μ Fs g := by
-  sorry
+  obtain ⟨𝔞, Pd, h𝔞, hfix, hPd, hν⟩ := whit_period_exists P G Fs g
+  have hkInv (h : P.tc.G) :
+      scalarOf P G Fs.f Fs.fC (h * k⁻¹) = scalarOf P G Fs.f Fs.fC h := by
+    simpa only [mul_assoc, inv_mul_cancel, mul_one] using (hk (h * k⁻¹)).symm
+  have hfixk (ξ : F) (hξ : ξ ∈ (𝔞 : Submodule (𝓞 F) F)) (h : P.tc.G) :
+      scalarOf P G Fs.f Fs.fC (h * ((g * k)⁻¹ * nFin P ξ * (g * k))) =
+        scalarOf P G Fs.f Fs.fC h := by
+    calc
+      _ = scalarOf P G Fs.f Fs.fC
+          (((h * k⁻¹) * (g⁻¹ * nFin P ξ * g)) * k) := by congr 1; group
+      _ = scalarOf P G Fs.f Fs.fC ((h * k⁻¹) * (g⁻¹ * nFin P ξ * g)) := hk _
+      _ = scalarOf P G Fs.f Fs.fC (h * k⁻¹) := hfix ξ hξ _
+      _ = scalarOf P G Fs.f Fs.fC h := hkInv h
+  have hdiag : diagGL (1 : Fˣ) = 1 := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;> simp [diagGL, Matrix.one_apply]
+  have hwg := eisenstein_whittaker P G μ hs Fs g 𝔞 h𝔞 hfix Pd hPd (1 : Fˣ) hν
+  have hwgk := eisenstein_whittaker P G μ hs Fs (g * k) 𝔞 h𝔞 hfixk Pd hPd (1 : Fˣ) hν
+  rw [hdiag, map_one, one_mul] at hwg hwgk
+  have hE := (eisenstein_automorphic P G hs Fs).2.2 k hk
+  have htorus : torusCoeff P (eisenstein P G Fs) (g * k) Pd (1 : F) =
+      torusCoeff P (eisenstein P G Fs) g Pd (1 : F) := by
+    unfold torusCoeff
+    congr 1
+    apply congrArg (fun f : (InfinitePlace F → ℂ) → ℂ => ∫ x in Pd, f x)
+    funext x
+    rw [show nInf P x * (g * k) = (nInf P x * g) * k by simp only [mul_assoc], hE]
+  exact hwgk.symm.trans (htorus.trans hwg)
 
 /-- **eis:whittaker-equiv**: `W_E` is genuine, `(N(F_S), e)`- and `(N(K_v), ψ_v)`-equivariant,
 right-invariant like the sections, and vanishes at `a(ν)g` for `ν` outside the dual lattice. -/
