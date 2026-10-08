@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Finite
@@ -1311,6 +1312,23 @@ def probeLowStatement (η : HeckeChar F) : Prop :=
   GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η →
     ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
     ‖probe R W (Z ^ a) (Z ^ b) Z‖ ≤ C * Z ^ (933 / 2000 + ε)
+
+private theorem po_probe_low_row_window :
+    ∃ K : Set S.FSˣ, IsCompact K ∧
+      ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ t : S.FSˣ, ∀ s : S.ExtIdeal,
+        W.W1 (qI s.1 / (Z ^ b)) ≠ 0 → ∀ m : S.R,
+        W.W0 (S.diag (m : F) *
+          ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val) ≠ 0 →
+        ∃ y ∈ K, S.diag (m : F) =
+          S.ell D (Z ^ M0) (Real.rpow_pos_of_pos (by linarith) M0) *
+            ((t * y : S.FSˣ) : S.FS) := by
+  obtain ⟨K, hK, hwindow⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_row_window D S R.sheets
+      W.W0 W.W1 W.W0_compact W.W0_units W.W1_compact W.W1_positive_support
+      W.W1_smooth.continuous W.W1_nonzero
+  refine ⟨K, hK, ?_⟩
+  intro Z hZ t s hs m hm
+  exact hwindow Z hZ t (qI s.1) hs (S.diag (m : F)) hm
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
