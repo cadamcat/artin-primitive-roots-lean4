@@ -2105,6 +2105,148 @@ private theorem specIdentify_global_bound
     Finset.single_le_sum (fun j _ => hB j) (Finset.mem_univ i)
   exact ⟨hValue.trans hBi, hGradAt.trans hBi⟩
 
+set_option maxHeartbeats 1000000 in
+private theorem specIdentify_test_weak_identity
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
+    (e : EnergyContext F Γ D E)
+    (w : X F → ℂ) (hw : IsSmoothX F w) (hinv : IsGammaInvariant F Γ w)
+    (x : E.V) (g : L2Space F D) (lam : ℂ)
+    (hM : ∀ᵐ z ∂(volX F), z ∈ D → E.M x z = w z)
+    (hGr : ∀ᵐ z ∂(volX F), z ∈ D → E.Gr x z = fullGradient F w z)
+    (hPDE : ∀ᵐ z ∂(volX F), z ∈ D →
+      totalLap F w z - lam * w z = g z)
+    (t : testSubmodule F Γ) :
+    inner ℂ (e.gradL2 t) (E.Gr x) - lam * inner ℂ (e.toL2 t) (E.M x) =
+      inner ℂ (e.toL2 t) g := by
+  classical
+  letI : OpensMeasurableSpace (X F) := sgOpensMeasurableX
+  let μ : Measure (X F) := (volX F).restrict D
+  let f : X F → ℂ := t
+  have hf : IsGammaTest F Γ f := ((T2_tests Γ D hD).1 f).mp t.property
+  have htf : ∀ᵐ z ∂μ, e.toL2 t z = f z :=
+    (ae_restrict_iff'₀ hD.nullMeasurableSet).2 (e.mass_rep t)
+  have htg : ∀ᵐ z ∂μ, e.gradL2 t z = fullGradient F f z :=
+    (ae_restrict_iff'₀ hD.nullMeasurableSet).2 (e.gradient_rep t)
+  have hMx : ∀ᵐ z ∂μ, E.M x z = w z :=
+    (ae_restrict_iff'₀ hD.nullMeasurableSet).2 hM
+  have hGx : ∀ᵐ z ∂μ, E.Gr x z = fullGradient F w z :=
+    (ae_restrict_iff'₀ hD.nullMeasurableSet).2 hGr
+  have hPDEμ : ∀ᵐ z ∂μ, totalLap F w z - lam * w z = g z :=
+    (ae_restrict_iff'₀ hD.nullMeasurableSet).2 hPDE
+  have hFullInner (z : X F) :
+      inner ℂ (fullGradient F f z) (fullGradient F w z) =
+        ∑ v : InfinitePlace F, placeGradInner F v f w z := by
+    simp only [fullGradient, PiLp.inner_apply, Fintype.sum_prod_type,
+      RCLike.inner_apply', placeGradInner]
+    rfl
+  have hMassAE : (fun z => inner ℂ (e.toL2 t z) (E.M x z)) =ᵐ[μ]
+      (fun z => star (f z) * w z) := by
+    filter_upwards [htf, hMx] with z hzf hzw
+    rw [hzf, hzw, RCLike.inner_apply']
+    rfl
+  have hSourceAE : (fun z => inner ℂ (e.toL2 t z) (g z)) =ᵐ[μ]
+      (fun z => star (f z) * g z) := by
+    filter_upwards [htf] with z hzf
+    rw [hzf, RCLike.inner_apply']
+    rfl
+  have hGradAE : (fun z => inner ℂ (e.gradL2 t z) (E.Gr x z)) =ᵐ[μ]
+      (fun z => ∑ v : InfinitePlace F, placeGradInner F v f w z) := by
+    filter_upwards [htg, hGx] with z hzf hzw
+    rw [hzf, hzw, hFullInner]
+  have hMassInt : Integrable (fun z => star (f z) * w z) μ :=
+    (L2.integrable_inner (e.toL2 t) (E.M x)).congr hMassAE
+  have hSourceInt : Integrable (fun z => star (f z) * g z) μ :=
+    (L2.integrable_inner (e.toL2 t) g).congr hSourceAE
+  have hMassEq : inner ℂ (e.toL2 t) (E.M x) =
+      ∫ z, star (f z) * w z ∂μ := by
+    rw [L2.inner_def]
+    exact integral_congr_ae hMassAE
+  have hSourceEq : inner ℂ (e.toL2 t) g =
+      ∫ z, star (f z) * g z ∂μ := by
+    rw [L2.inner_def]
+    exact integral_congr_ae hSourceAE
+  have hGradEq : inner ℂ (e.gradL2 t) (E.Gr x) =
+      ∫ z, (∑ v : InfinitePlace F, placeGradInner F v f w z) ∂μ := by
+    rw [L2.inner_def]
+    exact integral_congr_ae hGradAE
+  rcases hf.2.2 with ⟨K, hK, hsupport⟩
+  have hLapInt (v : InfinitePlace F) :
+      Integrable (fun z => star (f z) * partialLap F v w z) μ := by
+    have hcont : Continuous (fun z => star (f z) * partialLap F v w z) :=
+      (Complex.continuous_conj.comp (sgSmoothX_continuous f hf.2.1)).mul
+        (sgPartialLap_continuous w hw v)
+    have hInvariant : IsGammaInvariant F Γ
+        (fun z => star (f z) * partialLap F v w z) := by
+      intro γ hγ z
+      change star (f ((γ : SL(2,𝓞 F)) • z)) *
+        partialLap F v w ((γ : SL(2,𝓞 F)) • z) = star (f z) * partialLap F v w z
+      rw [hf.1 γ hγ z, sgPartialLap_invariant ⟨γ, hγ⟩ w hw hinv v z]
+    apply sgIntegrable_of_compactOrbitSupport D hD _ hcont hInvariant
+      hcont.aestronglyMeasurable K hK
+    intro z hz
+    apply hsupport
+    intro hfz
+    apply hz
+    simp only [hfz, star_zero, zero_mul]
+  have hDomInt : Integrable
+      (fun z => 3 * (‖e.gradL2 t z‖ ^ 2 + ‖E.Gr x z‖ ^ 2)) μ :=
+    ((specGapLpTwo_integrable_norm_sq μ (e.gradL2 t)).add
+      (specGapLpTwo_integrable_norm_sq μ (E.Gr x))).const_mul 3
+  have hGradInt (v : InfinitePlace F) : Integrable (placeGradInner F v f w) μ := by
+    apply hDomInt.mono'
+      (sgPlaceGradInner_continuous f w hf.2.1 hw v).aestronglyMeasurable
+    filter_upwards [htg, hGx] with z hzf hzw
+    rw [hzf, hzw]
+    calc
+      ‖placeGradInner F v f w z‖ ≤
+          ∑ j : Fin 3, ‖star (placeGradient F v f z j) * placeGradient F v w z j‖ :=
+        norm_sum_le _ _
+      _ ≤ ∑ _j : Fin 3, (‖fullGradient F f z‖ ^ 2 + ‖fullGradient F w z‖ ^ 2) := by
+        apply Finset.sum_le_sum
+        intro j hj
+        rw [norm_mul, norm_star]
+        have ha : ‖placeGradient F v f z j‖ ≤ ‖fullGradient F f z‖ :=
+          PiLp.norm_apply_le (fullGradient F f z) (v, j)
+        have hb : ‖placeGradient F v w z j‖ ≤ ‖fullGradient F w z‖ :=
+          PiLp.norm_apply_le (fullGradient F w z) (v, j)
+        have hprod := mul_le_mul ha hb (norm_nonneg _) (norm_nonneg _)
+        have hYoung : ‖fullGradient F f z‖ * ‖fullGradient F w z‖ ≤
+            ‖fullGradient F f z‖ ^ 2 + ‖fullGradient F w z‖ ^ 2 := by
+          nlinarith only [sq_nonneg (‖fullGradient F f z‖ - ‖fullGradient F w z‖),
+            sq_nonneg ‖fullGradient F f z‖, sq_nonneg ‖fullGradient F w z‖]
+        exact hprod.trans hYoung
+      _ = 3 * (‖fullGradient F f z‖ ^ 2 + ‖fullGradient F w z‖ ^ 2) := by
+        simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin,
+          nsmul_eq_mul, Nat.cast_ofNat]
+  have hGreen : (∫ z, star (f z) * totalLap F w z ∂μ) =
+      ∫ z, (∑ v : InfinitePlace F, placeGradInner F v f w z) ∂μ := by
+    calc
+      (∫ z, star (f z) * totalLap F w z ∂μ) =
+          ∫ z, (∑ v : InfinitePlace F, star (f z) * partialLap F v w z) ∂μ := by
+        simp only [totalLap, Finset.mul_sum]
+      _ = ∑ v : InfinitePlace F, ∫ z, star (f z) * partialLap F v w z ∂μ :=
+        integral_finset_sum _ (fun v _ => hLapInt v)
+      _ = ∑ v : InfinitePlace F, ∫ z, placeGradInner F v f w z ∂μ := by
+        apply Finset.sum_congr rfl
+        intro v hv
+        exact (T3_green_q Γ D hD).1 f t.property w hinv hw v
+      _ = ∫ z, (∑ v : InfinitePlace F, placeGradInner F v f w z) ∂μ :=
+        (integral_finset_sum _ (fun v _ => hGradInt v)).symm
+  have hPDEIntegral : (∫ z, star (f z) * totalLap F w z ∂μ) =
+      (∫ z, star (f z) * g z ∂μ) + lam * (∫ z, star (f z) * w z ∂μ) := by
+    have hEq : (fun z => star (f z) * totalLap F w z) =ᵐ[μ]
+        (fun z => star (f z) * g z + lam * (star (f z) * w z)) := by
+      filter_upwards [hPDEμ] with z hz
+      have h := sub_eq_iff_eq_add.mp hz
+      rw [h]
+      ring
+    rw [integral_congr_ae hEq, integral_add hSourceInt (hMassInt.const_mul lam),
+      integral_const_mul]
+  rw [hGradEq, ← hGreen, hPDEIntegral, hMassEq, hSourceEq]
+  ring
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
