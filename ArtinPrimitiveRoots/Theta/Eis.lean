@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».LocalModel
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.GoodFactor
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.GaussBound
 
 set_option autoImplicit false
 
