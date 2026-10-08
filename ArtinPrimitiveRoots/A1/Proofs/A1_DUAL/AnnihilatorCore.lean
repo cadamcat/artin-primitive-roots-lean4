@@ -146,7 +146,34 @@ theorem s_integer_finite_approx (S : A1.SData F CE condη)
     ∃ r : S.R, ∀ v : S.Sf,
       x v - algebraMap F (v.1.adicCompletion F) (r : F) ∈
         v.1.adicCompletionIntegers F := by
-  sorry
+  classical
+  let V : ∀ v : S.Sf, Set (v.1.adicCompletion F) := fun v =>
+    {z | x v - z ∈ (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F))}
+  let U : Set (∀ v : S.Sf, v.1.adicCompletion F) := {z | ∀ v, z v ∈ V v}
+  have hU : IsOpen U := by
+    rw [isOpen_pi_iff']
+    intro z hz
+    refine ⟨V, ?_⟩
+    constructor
+    · intro v
+      refine ⟨?_, hz v⟩
+      exact (Valued.isOpen_valuationSubring _).preimage
+        (continuous_const.sub continuous_id)
+    · intro z' hz' v
+      exact hz' v (Set.mem_univ _)
+  have hUne : U.Nonempty := by
+    refine ⟨x, ?_⟩
+    simp [U, V]
+  obtain ⟨z, hzU, hzRange⟩ :=
+    (dense_iff_inter_open.mp (finite_projection_dense S)) U hU hUne
+  rcases hzRange with ⟨r, hr⟩
+  refine ⟨r, ?_⟩
+  intro v
+  have hz := hzU v
+  change x v - algebraMap F (v.1.adicCompletion F) (r : F) ∈
+    (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F))
+  rw [← hr] at hz
+  exact hz
 
 /-- The fixed character is additive on the product group. -/
 theorem e_add (S : A1.SData F CE condη) (A : A1.AddCharData F) (x y : S.FS) :
