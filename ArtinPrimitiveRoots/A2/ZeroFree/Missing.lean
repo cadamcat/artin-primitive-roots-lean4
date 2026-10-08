@@ -1910,6 +1910,150 @@ private theorem goodCentral_bound (hEuler : EulerHypotheses R η)
       gcongr
       linarith
 
+private theorem rowKernel_compact_path_integrable (hEuler : EulerHypotheses R η)
+    (u : U.U) (hu : u ≠ U.one) (T : ℝ) (hT : ZD.U0 ≤ T)
+    (hShell : u ∈ frequencyDyad η U T) (hGood : u ∉ ZD.E T)
+    (Z ε A1 : ℝ) (hZ : 1 ≤ Z) (hε : 0 < ε) (hA1 : 1 / ZD.ρ < A1)
+    (l r : ℝ) (hlr : l ≤ r) (γ : ℝ → ℂ)
+    (hγ : ContinuousOn γ (Set.Icc l r))
+    (hrange : ∀ t ∈ Set.Icc l r,
+      998 / 1000 ≤ (γ t).re ∧ (γ t).re ≤ 1 + δ1 ∧ |(γ t).im| ≤ T ^ ZD.ρ) :
+    Integrable (fun p : ℝ × (ℝ × ℝ) =>
+      rowKernelHeightFiber R sd W η U HA HC u Z (γ p.1) p.2)
+      ((volume.restrict (Set.Icc l r)).prod volume) := by
+  obtain ⟨AF, Ac, Adec, Cconv, CD, CP, CK, CH,
+      hAF, hAc, hGap, hAcAdec, hCconv, hCD, hCP, hCK, hCH,
+      hconv, hDecay, hPrincipal, hKummer, hHbound⟩ :=
+    rowKernel_good_constants (R := R) (sd := sd) (W := W) (η := η) (U := U)
+      (HA := HA) (HC := HC) (ZD := ZD) hEuler ε A1 hε hA1
+  obtain ⟨Brec, hBrec, hrec⟩ := ZD.reciprocal (ε / 3) (by linarith)
+  have hTpos : 0 < T := by linarith [ZD.U0_two]
+  have hZpos : 0 < Z := by linarith
+  have hAdec : 0 < Adec := by linarith
+  let Ht : ℝ := T ^ ZD.ρ
+  have hHt : 0 ≤ Ht := (Real.rpow_pos_of_pos hTpos _).le
+  let clip : ℝ → ℝ := fun t => max l (min r t)
+  have hclip : ∀ t, clip t ∈ Set.Icc l r := by
+    intro t
+    exact ⟨le_max_left _ _, max_le hlr (min_le_left _ _)⟩
+  have hclipcont : Continuous clip := by fun_prop
+  let path : ℝ → ℂ := γ ∘ clip
+  have hpathcont : Continuous path := hγ.comp_continuous hclipcont hclip
+  have hpathrange (t : ℝ) : 998 / 1000 ≤ (path t).re ∧
+      (path t).re ≤ 1 + δ1 ∧ |(path t).im| ≤ Ht := hrange (clip t) (hclip t)
+  let kernel : ℝ → ℝ × ℝ → ℂ := fun t v =>
+    rowKernelHeightFiber R sd W η U HA HC u Z (path t) v
+  have hcontξ : ∀ v : ℝ × ℝ, Continuous (fun t => kernel t v) := by
+    intro v
+    have hw : ((((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)).re = 3 / 1000 := by simp
+    have hz : ((((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)).re = 4 / 10 := by simp
+    have hc := rowKernel_continuous_xi (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler u hu T hT
+      hShell hGood Z hZpos
+      (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+      (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) hw hz
+    apply hc.comp_continuous hpathcont
+    intro t
+    obtain ⟨hlo, hhi, him⟩ := hpathrange t
+    exact ⟨hlo, hhi, by dsimp [Ht] at him hHt; linarith⟩
+  have hcontfiber : ∀ t : ℝ, Continuous (kernel t) := by
+    intro t
+    have hc := rowKernel_continuous_wz (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) hEuler u hu Z hZpos (path t)
+      (hpathrange t).1
+    simpa [kernel, rowKernelHeightFiber, rowKernelAt, Complex.ofReal_div] using hc
+  have hmeas : StronglyMeasurable (Function.uncurry kernel) :=
+    stronglyMeasurable_uncurry_of_continuous_of_stronglyMeasurable hcontξ
+      (fun t => (hcontfiber t).stronglyMeasurable)
+  let Etop : ℝ := Estar (1 + δ1) (3 / 1000) (4 / 10)
+  let Ckernel : ℝ := CD * CP * CK * CH * Brec * 2 ^ AF *
+    2 ^ (1 / 10 + ε / 3 + ε / 3)
+  let Bdom : ℝ := Ckernel * Z ^ Etop * T ^ (1 / 10 + ε) * Real.exp (Ht ^ 2)
+  have hCkernel : 0 ≤ Ckernel := by dsimp [Ckernel]; positivity
+  have hBdom : 0 ≤ Bdom := by dsimp [Bdom]; positivity
+  have hbound : ∀ p : ℝ × (ℝ × ℝ), ‖kernel p.1 p.2‖ ≤
+      Bdom * ((1 + |p.2.1|) ^ (-3 : ℝ) * Real.exp (-(1 / 2 : ℝ) * p.2.2 ^ 2)) := by
+    intro p
+    let ξ : ℂ := path p.1
+    let w : ℂ := ((3 / 1000 : ℝ) : ℂ) + p.2.1 * Complex.I
+    let z : ℂ := ((4 / 10 : ℝ) : ℂ) + p.2.2 * Complex.I
+    have hw : w.re = 3 / 1000 := by simp [w]
+    have hz : z.re = 4 / 10 := by simp [z]
+    obtain ⟨hξlo, hξhi, hξim⟩ := hpathrange p.1
+    have hξheight : |ξ.im| ≤ 2 * T ^ ZD.ρ := by
+      dsimp [ξ, Ht] at *
+      linarith
+    have hinv := (hrec T hT u hShell hGood ξ hξlo hξheight).2
+    have hpEuler : eulerNeighborhood ![ξ, w, z] := by
+      left
+      refine ⟨?_, ?_, ?_⟩
+      · change 998 / 1000 - 1 / 100000 < ξ.re
+        linarith
+      · change 3 / 1000 - 1 / 100000 < w.re
+        rw [hw]; norm_num
+      · change 4 / 10 - 1 / 100000 < z.re
+        rw [hz]; norm_num
+    have hrow := rowKernel_shell_height_bound (R := R) (sd := sd) (W := W)
+      (η := η) (U := U) (HA := HA) (HC := HC) u Z T ε ξ w z hZpos hTpos hε
+      hShell.2.le hCD.le hCP.le hCK.le hCH.le hBrec.le hAF.le hGap
+      (hDecay ξ w z hξlo hξhi hw hz) (hPrincipal z hz)
+      (hKummer u hu w (by rw [hw]) (by rw [hw]; norm_num))
+      (hHbound u ![ξ, w, z] hpEuler) hinv hw hz
+    have hE : Estar ξ.re (3 / 1000) (4 / 10) ≤ Etop := by
+      dsimp [Etop, Estar]
+      linarith
+    have hZpow := Real.rpow_le_rpow_of_exponent_le hZ hE
+    have hExp : Real.exp (ξ.im ^ 2) ≤ Real.exp (Ht ^ 2) := by
+      apply Real.exp_le_exp.mpr
+      have hsq := (sq_le_sq₀ (abs_nonneg ξ.im) hHt).2 hξim
+      simpa only [sq_abs] using hsq
+    have hpoly : (1 + |p.2.2|) ^ (-Adec) ≤ 1 :=
+      Real.rpow_le_one_of_one_le_of_nonpos (by nlinarith [abs_nonneg p.2.2]) (by linarith)
+    have htail : Real.exp (-((ξ.im + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Adec) ≤
+        Real.exp (Ht ^ 2) * Real.exp (-(1 / 2 : ℝ) * p.2.2 ^ 2) := by
+      calc
+        _ ≤ Real.exp (-((ξ.im + p.2.2) ^ 2)) :=
+          mul_le_of_le_one_right (Real.exp_pos _).le hpoly
+        _ ≤ Real.exp (ξ.im ^ 2) * Real.exp (-(1 / 2 : ℝ) * p.2.2 ^ 2) :=
+          gaussian_shift_bound ξ.im p.2.2
+        _ ≤ _ := mul_le_mul_of_nonneg_right hExp (Real.exp_pos _).le
+    have hprod := mul_le_mul hZpow htail (by positivity)
+      (Real.rpow_nonneg hZpos.le Etop)
+    have hscaled := mul_le_mul_of_nonneg_left hprod
+      (show 0 ≤ Ckernel * T ^ (1 / 10 + ε) * (1 + |p.2.1|) ^ (-3 : ℝ) by positivity)
+    calc
+      _ ≤ Ckernel * Z ^ Estar ξ.re (3 / 1000) (4 / 10) * T ^ (1 / 10 + ε) *
+          Real.exp (-((ξ.im + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Adec) *
+            (1 + |p.2.1|) ^ (-3 : ℝ) := by
+        simpa [kernel, rowKernelHeightFiber, rowKernelAt, ξ, w, z, Ckernel] using hrow
+      _ ≤ Bdom * ((1 + |p.2.1|) ^ (-3 : ℝ) *
+          Real.exp (-(1 / 2 : ℝ) * p.2.2 ^ 2)) := by
+        simpa [Bdom, mul_assoc, mul_left_comm, mul_comm] using hscaled
+  have hW : Integrable (fun t : ℝ => (1 + |t|) ^ (-3 : ℝ)) := by
+    have hdim : (Module.finrank ℝ ℝ : ℝ) < 3 := by simp
+    simpa [Real.norm_eq_abs] using integrable_one_add_norm (E := ℝ) hdim
+  have hG : Integrable (fun t : ℝ => Real.exp (-(1 / 2 : ℝ) * t ^ 2)) :=
+    integrable_exp_neg_mul_sq (by norm_num)
+  have hProd : Integrable (fun v : ℝ × ℝ =>
+      (1 + |v.1|) ^ (-3 : ℝ) * Real.exp (-(1 / 2 : ℝ) * v.2 ^ 2)) := hW.mul_prod hG
+  have hmajorant : Integrable (fun p : ℝ × (ℝ × ℝ) =>
+      Bdom * ((1 + |p.2.1|) ^ (-3 : ℝ) * Real.exp (-(1 / 2 : ℝ) * p.2.2 ^ 2)))
+      ((volume.restrict (Set.Icc l r)).prod volume) :=
+    (integrable_const Bdom).mul_prod hProd
+  have hkernel : Integrable (Function.uncurry kernel)
+      ((volume.restrict (Set.Icc l r)).prod volume) :=
+    hmajorant.mono' hmeas.aestronglyMeasurable (Filter.Eventually.of_forall hbound)
+  have hfst : ∀ᵐ p : ℝ × (ℝ × ℝ) ∂(volume.restrict (Set.Icc l r)).prod volume,
+      p.1 ∈ Set.Icc l r := by
+    apply (Measure.ae_prod_iff_ae_ae (measurableSet_Icc.preimage measurable_fst)).2
+    filter_upwards [ae_restrict_mem measurableSet_Icc] with t ht
+    exact Filter.Eventually.of_forall (fun _ => ht)
+  apply hkernel.congr
+  filter_upwards [hfst] with p hp
+  have heq : clip p.1 = p.1 := by
+    simp only [clip, min_eq_right hp.2, max_eq_right hp.1]
+  simp only [Function.uncurry, kernel, path, Function.comp_apply, heq]
+
 /-- zf:intermediate-rows, 06:552–605. The good reciprocal is used only in its rectangle.
 The remainder is defined by subtraction so the conclusion bounds the entire contour remainder. -/
 theorem zf_intermediate_rows : EulerHypotheses R η → ∀ ε A1 : ℝ, 0 < ε → 1 / ZD.ρ < A1 →
