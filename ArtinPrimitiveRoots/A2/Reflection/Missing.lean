@@ -6771,6 +6771,83 @@ private theorem rf_reflected_row_summable
   intro p
   exact hTerm (rowClass R r) r.h p.1 p.2.1 p.2.2.1 r.d p.2.2.2 Z hZ
 
+private theorem rf_pairing_unit_orbit
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (h : S.ExtIdeal) (t : FrozenIndex R h) (d : S.ExtIdeal)
+    (c : S.SqfExtIdeal) (ν : Fˣ)
+    (hdecomp : ∃ ε : S.US,
+      ν = (ε : Fˣ) * bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3 /
+        (bc.gen d * bc.gen t.f) ^ 2) :
+    ∃! ug : UnitSix S × Gamma S,
+      ν = (ug.2.1 : Fˣ) * (R.sheets.eps ug.1 : Fˣ) *
+        bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3 /
+          (bc.gen d * bc.gen t.f) ^ 2 := by
+  rcases hdecomp with ⟨ε, hν⟩
+  let u : UnitSix S := unitSixClass S ε
+  have hepsClass : unitSixClass S (R.sheets.eps u) = unitSixClass S ε := by
+    simpa [u] using R.sheets.eps_class u
+  have hclass : unitSixClass S ε = unitSixClass S (R.sheets.eps u) :=
+    hepsClass.symm
+  have hmem : ε / R.sheets.eps u ∈ Gamma S :=
+    (QuotientGroup.eq_iff_div_mem).mp (by simpa [unitSixClass] using hclass)
+  let γ : Gamma S := ⟨ε / R.sheets.eps u, hmem⟩
+  have hεUS : ε = γ.1 * R.sheets.eps u := by
+    dsimp [γ]
+    exact (div_mul_cancel _ _).symm
+  have hεF : (ε : Fˣ) = (γ.1 : Fˣ) * (R.sheets.eps u : Fˣ) :=
+    congrArg (fun x : S.US => (x : Fˣ)) hεUS
+  let tail : Fˣ :=
+    (bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3) /
+      (bc.gen d * bc.gen t.f) ^ 2
+  have hνtail : ν = (ε : Fˣ) * tail := by
+    calc
+      ν = ((ε : Fˣ) * bc.gen t.a * bc.gen (R.exterior.ofSqf c) *
+          bc.gen t.n ^ 3) / (bc.gen d * bc.gen t.f) ^ 2 := hν
+      _ = (ε : Fˣ) * tail := by
+        dsimp [tail]
+        rw [show (ε : Fˣ) * bc.gen t.a * bc.gen (R.exterior.ofSqf c) *
+            bc.gen t.n ^ 3 = (ε : Fˣ) *
+              (bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3) by group]
+        exact mul_div_assoc _ _ _
+  refine ⟨(u, γ), ?_, ?_⟩
+  · rw [hν]
+    rw [hεF]
+  · intro ug' hEq
+    rcases ug' with ⟨u', γ'⟩
+    have hEqTail : ν = ((γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ)) * tail := by
+      calc
+        ν = ((γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ) * bc.gen t.a *
+            bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3) /
+            (bc.gen d * bc.gen t.f) ^ 2 := hEq
+        _ = ((γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ)) * tail := by
+          dsimp [tail]
+          rw [show (γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ) * bc.gen t.a *
+              bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3 =
+                ((γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ)) *
+                  (bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3) by group]
+          exact mul_div_assoc _ _ _
+    have hεeqF : (ε : Fˣ) = (γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ) :=
+      mul_right_cancel (hνtail.symm.trans hEqTail)
+    have hεeqUS : ε = γ'.1 * R.sheets.eps u' := by
+      exact Subtype.ext hεeqF
+    have hratio : ε / R.sheets.eps u' = γ'.1 := by
+      rw [hεeqUS]
+      simp
+    have hclass' : unitSixClass S ε = unitSixClass S (R.sheets.eps u') := by
+      apply (QuotientGroup.eq_iff_div_mem).2
+      rw [hratio]
+      exact γ'.property
+    have hu' : u' = u := by
+      dsimp [u]
+      exact (hclass'.trans (R.sheets.eps_class u')).symm
+    have hεeqUS' : ε = γ'.1 * R.sheets.eps u := by
+      simpa [hu'] using hεeqUS
+    have hγ : γ.1 = γ'.1 := mul_right_cancel (hεUS.symm.trans hεeqUS')
+    apply Prod.ext
+    · exact hu'
+    · apply Subtype.ext
+      exact hγ.symm
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
