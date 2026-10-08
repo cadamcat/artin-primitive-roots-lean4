@@ -400,4 +400,46 @@ theorem qs_nq0_quadratic_prime_value
     (toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) : Kˣ) : K)) ^ 3 = chi D v (a : K) ^ 3
   rw [htame, chi, if_neg hres]
 
+/-!
+The exterior ideal-value step has this exact signature:
+```
+theorem qs_nq0_quadratic_ideal_value
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (a : Kˣ) (χ : HeckeChar K)
+    (hloc : ∀ v : FinPlace K, χ.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (I : Ideal (𝓞 K)) (hI : Sd.IsExterior I)
+    (ha : ∀ v : FinPlace K, I ≤ v.asIdeal → v.valuation K (a : K) = 1) :
+    χ.idealValue I = chiIdealPow D I (a : K) 3
+```
+-/
+
+/-- Primewise unit conditions identify the exterior ideal value with the cubed residue product. -/
+theorem qs_nq0_quadratic_ideal_value
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (a : Kˣ) (χ : HeckeChar K)
+    (hloc : ∀ v : FinPlace K, χ.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (I : Ideal (𝓞 K)) (hI : Sd.IsExterior I)
+    (ha : ∀ v : FinPlace K, I ≤ v.asIdeal → v.valuation K (a : K) = 1) :
+    χ.idealValue I = chiIdealPow D I (a : K) 3 := by
+  classical
+  unfold HeckeChar.idealValue chiIdealPow
+  apply congrArg (Multiset.prod : Multiset ℂ → ℂ)
+  apply Multiset.map_congr rfl
+  intro P hP
+  split_ifs with hp
+  · let v : FinPlace K := ⟨P, hp.1, hp.2⟩
+    have hdiv : I ≤ v.asIdeal :=
+      Ideal.dvd_iff_le.mp (UniqueFactorizationMonoid.dvd_of_mem_normalizedFactors hP)
+    have hv : v ∉ Sd.Sf := fun hv => hI.2 v hv hdiv
+    have h6 : (6 : 𝓞 K) ∉ v.asIdeal := fun h => hv (Sd.over6 v h)
+    have hval := ha v hdiv
+    have hres : residue v (a : K) ≠ 0 :=
+      (qs_nq0_residue_ne_zero_iff_valuation_one v (a : K)).mpr hval
+    have hvalue := (qs_nq0_quadratic_prime_value D H v h6 a hval χ (hloc v)).2
+    change χ.primeValue v = chiPow D v (a : K) 3
+    simpa only [chiPow, ite_eq_right hres, zpow_ofNat] using hvalue
+  · rfl
+
 end ArtinPrimitiveRoots.A2
