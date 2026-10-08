@@ -437,6 +437,141 @@ theorem diagR_isDiscrete (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     change S.diag (r : F) - S.diag (r : F) ∈ N
     simpa using hNzero
 
+private theorem adicCompletionIntegers_compact (v : HeightOneSpectrum (𝓞 F)) :
+    IsCompact (v.adicCompletionIntegers F : Set (v.adicCompletion F)) := by
+  classical
+  let A : ValuationSubring F := (v.valuation F).valuationSubring
+  let K := v.adicCompletion F
+  let W : ValuationSubring K := v.adicCompletionIntegers F
+  have hAfinite : Finite (IsLocalRing.ResidueField A) := by
+    let B : ValuationSubring F := v.valuationSubringAtPrime F
+    haveI : Finite (𝓞 F ⧸ v.asIdeal) :=
+      Ring.HasFiniteQuotients.finiteQuotient (R := 𝓞 F) v.ne_bot
+    have hBfinite : Finite (IsLocalRing.ResidueField B) := by
+      have hBfinite' : Finite (B ⧸ IsLocalRing.maximalIdeal B) :=
+        Finite.of_equiv (𝓞 F ⧸ v.asIdeal)
+          (IsLocalization.AtPrime.equivQuotMaximalIdeal v.asIdeal B).toEquiv
+      change Finite (B ⧸ IsLocalRing.maximalIdeal B)
+      exact hBfinite'
+    have hBA : B = A := by
+      exact v.valuationSubringAtPrime_eq_valuationSubring
+    rw [← hBA]
+    exact hBfinite
+  let g : A →+* W := RingHom.codRestrict
+      ((algebraMap F K).comp A.subtype) W (by
+        intro a
+        change Valued.v ((a : F) : K) ≤ 1
+        rw [v.valuedAdicCompletion_eq_valuation']
+        exact (Valuation.mem_valuationSubring_iff (v.valuation F) (a : F)).mp a.2)
+  let resW : W →+* IsLocalRing.ResidueField W := IsLocalRing.residue W
+  let f : A →+* IsLocalRing.ResidueField W := resW.comp g
+  have hvW := IsDedekindDomain.HeightOneSpectrum.adicCompletionIntegers.integers
+    (R := 𝓞 F) (K := F) (v := v)
+  have hsurj : Function.Surjective f := by
+    intro y
+    obtain ⟨x, rfl⟩ := IsLocalRing.residue_surjective y
+    let U : Set K := {z | Valued.v (z - (x : K)) < 1}
+    have hUopen : IsOpen U := by
+      have hball : IsOpen {z : K | Valued.v.restrict z < 1} := Valued.isOpen_ball K 1
+      have hcont : Continuous (fun z : K => z - (x : K)) := by fun_prop
+      have h := hball.preimage hcont
+      simpa [U, Valued.v.restrict_lt_iff_lt_embedding] using h
+    have hUne : U.Nonempty := ⟨x, by simp [U]⟩
+    obtain ⟨b, hb⟩ := DenseRange.exists_mem_open
+      (IsDedekindDomain.HeightOneSpectrum.denseRange_algebraMap F v) hUopen hUne
+    have hclose : Valued.v (algebraMap F K b - (x : K)) < 1 := by
+      change Valued.v (algebraMap F K b - (x : K)) < 1 at hb
+      exact hb
+    have hxle : Valued.v (x : K) ≤ 1 :=
+      (Valuation.mem_valuationSubring_iff Valued.v (x : K)).mp x.2
+    have hbcomp : Valued.v (algebraMap F K b) ≤ 1 := by
+      calc
+        Valued.v (algebraMap F K b) =
+            Valued.v ((algebraMap F K b - (x : K)) + (x : K)) := by
+              congr 1
+              ring
+        _ ≤ max (Valued.v (algebraMap F K b - (x : K))) (Valued.v (x : K)) :=
+          Valued.v.map_add _ _
+        _ ≤ 1 := max_le hclose.le hxle
+    have hbval : v.valuation F b ≤ 1 := by
+      change Valued.v ((b : F) : K) ≤ 1 at hbcomp
+      rw [v.valuedAdicCompletion_eq_valuation'] at hbcomp
+      exact hbcomp
+    let a : A := ⟨b, (Valuation.mem_valuationSubring_iff (v.valuation F) b).mpr hbval⟩
+    have hdiff : (g a - x) ∈ IsLocalRing.maximalIdeal W := by
+      have hnotUnit : ¬ IsUnit (g a - x) := by
+        intro hu
+        have hval := hvW.isUnit_iff_valuation_eq_one.mp hu
+        change Valued.v ((g a - x : W) : K) = 1 at hval
+        exact (not_lt_of_ge hval.ge) hclose
+      rw [IsLocalRing.mem_maximalIdeal]
+      exact hnotUnit
+    have hres : resW (g a) = resW x := by
+      rw [← sub_eq_zero, ← map_sub, IsLocalRing.residue_eq_zero_iff]
+      exact hdiff
+    exact ⟨a, by simpa [f] using hres.trans rfl⟩
+  have hker : IsLocalRing.maximalIdeal A ≤ RingHom.ker f := by
+    intro a ha
+    change resW (g a) = 0
+    rw [IsLocalRing.residue_eq_zero_iff]
+    have hval : Valued.v ((g a : W) : K) < 1 := by
+      change Valued.v ((a : F) : K) < 1
+      rw [v.valuedAdicCompletion_eq_valuation']
+      exact (Valuation.mem_maximalIdeal_iff F (v.valuation F)).mp ha
+    have hnotUnit : ¬ IsUnit (g a) := by
+      intro hu
+      have hvalone := hvW.isUnit_iff_valuation_eq_one.mp hu
+      change Valued.v ((g a : W) : K) = 1 at hvalone
+      exact (not_lt_of_ge hvalone.ge) hval
+    rw [IsLocalRing.mem_maximalIdeal]
+    exact hnotUnit
+  let fbar : A ⧸ IsLocalRing.maximalIdeal A →+* IsLocalRing.ResidueField W :=
+    Ideal.Quotient.lift _ f hker
+  have hbarSurj : Function.Surjective fbar := by
+    intro y
+    obtain ⟨a, ha⟩ := hsurj y
+    refine ⟨Ideal.Quotient.mk _ a, ?_⟩
+    change f a = y
+    simpa only [Ideal.Quotient.lift_mk] using ha
+  letI : Finite (A ⧸ IsLocalRing.maximalIdeal A) := hAfinite
+  haveI : Finite (IsLocalRing.ResidueField W) := Finite.of_surjective fbar hbarSurj
+  letI : CompleteSpace K := inferInstance
+  have hWclosed : IsClosed (W : Set K) := Valued.isClosed_valuationSubring K
+  letI : CompleteSpace W := hWclosed.completeSpace_coe
+  letI : IsDiscreteValuationRing W := inferInstance
+  let e : W ≃+* Valued.integer K :=
+    { toFun := fun x =>
+        ⟨(x : K), (Valuation.mem_integer_iff Valued.v (x : K)).2
+          ((Valuation.mem_valuationSubring_iff Valued.v (x : K)).mp x.2)⟩
+      invFun := fun x =>
+        ⟨(x : K), (Valuation.mem_valuationSubring_iff Valued.v (x : K)).mpr
+          ((Valuation.mem_integer_iff Valued.v (x : K)).mp x.2)⟩
+      left_inv := by intro x; apply Subtype.ext; rfl
+      right_inv := by intro x; apply Subtype.ext; rfl
+      map_mul' := by intro x y; rfl
+      map_add' := by intro x y; rfl }
+  haveI : IsDiscreteValuationRing (Valued.integer K) :=
+    IsDiscreteValuationRing.RingEquivClass.isDiscreteValuationRing e
+  haveI : Finite (IsLocalRing.ResidueField (Valued.integer K)) :=
+    Finite.of_equiv (IsLocalRing.ResidueField W) (IsLocalRing.ResidueField.mapEquiv e)
+  have hOclosed : IsClosed (Valued.integer K : Set K) := by
+    change IsClosed (W : Set K)
+    exact hWclosed
+  haveI : CompleteSpace (Valued.integer K) := hOclosed.completeSpace_coe
+  haveI : CompactSpace (Valued.integer K) := by
+    apply Valued.integer.compactSpace_iff_completeSpace_and_isDiscreteValuationRing_and_finite_residueField.mpr
+    exact ⟨inferInstance, inferInstance, inferInstance⟩
+  have hc : IsCompact (Set.univ : Set (Valued.integer K)) := isCompact_univ_iff.mpr inferInstance
+  have hcInt : IsCompact (Valued.integer K : Set K) := by
+    simpa using hc.image continuous_subtype_val
+  have hWEq : (W : Set K) = (Valued.integer K : Set K) := by
+    ext z
+    simp [W, Valued.integer, Valuation.integer,
+      HeightOneSpectrum.adicCompletionIntegers,
+      Valuation.mem_valuationSubring_iff, Valuation.mem_integer_iff]
+  rw [hWEq]
+  exact hcInt
+
 theorem diagR_has_compact_cover (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F) :
     ∃ K : Set S.FS, IsCompact K ∧ ∀ x : S.FS, ∃ r : S.R, ∃ k ∈ K,
