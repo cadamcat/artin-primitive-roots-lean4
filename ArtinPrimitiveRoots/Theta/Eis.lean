@@ -2129,6 +2129,62 @@ theorem scalarOf_rational_period_translate
       _ = _ := by rw [map_mul]
   simpa only [hfactor] using hfix (P.tc.rat γ * nInf P (infEmbA α + x) * g)
 
+/-- Summable translated-domain norm integrals justify global integration over an ideal lattice. -/
+theorem ideal_domain_integral_tiling
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (K : Set (InfinitePlace F → ℂ)) (hK : IsCompact K)
+    (B : Set (InfinitePlace F → ℂ)) (_hB : MeasurableSet B) (hBK : B ⊆ K)
+    (hBd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) B volume)
+    (f : (InfinitePlace F → ℂ) → ℂ) (hf : Continuous f)
+    (hsum : Summable (fun ξ : (𝔞 : Submodule (𝓞 F) F).toAddSubgroup =>
+      ∫ x in B, ‖f (infEmbA (ξ : F) + x)‖)) :
+    Integrable f ∧
+      (∫ x : InfinitePlace F → ℂ, f x) =
+        ∑' ξ : (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+          ∫ x in B, f (infEmbA (ξ : F) + x) := by
+  classical
+  let : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let H := (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  let L := H.map (infEmbA (F := F)).toAddMonoidHom
+  let e : H ≃+ L := H.equivMapOfInjective (infEmbA (F := F)).toAddMonoidHom
+    (infEmbA (F := F)).injective
+  let : Countable L := e.symm.injective.countable
+  have heval (ξ : H) : (e ξ : InfinitePlace F → ℂ) = infEmbA (ξ : F) := rfl
+  have hint (ξ : H) : IntegrableOn
+      (fun x : InfinitePlace F → ℂ => f (infEmbA (ξ : F) + x)) B := by
+    exact (ContinuousOn.integrableOn_compact hK
+      (hf.comp (continuous_const.add continuous_id)).continuousOn).mono_set hBK
+  have hlin : (∫⁻ x : InfinitePlace F → ℂ, ENNReal.ofReal ‖f x‖) =
+      ∑' ξ : H, ∫⁻ x in B, ENNReal.ofReal ‖f (infEmbA (ξ : F) + x)‖ := by
+    calc
+      _ = ∑' t : L, ∫⁻ x in B, ENNReal.ofReal ‖f ((t : InfinitePlace F → ℂ) + x)‖ :=
+        hBd.lintegral_eq_tsum'' (fun x => ENNReal.ofReal ‖f x‖)
+      _ = ∑' ξ : H, ∫⁻ x in B, ENNReal.ofReal ‖f ((e ξ : InfinitePlace F → ℂ) + x)‖ :=
+        (e.toEquiv.tsum_eq _).symm
+      _ = _ := by simp only [heval]
+  have hnormint (ξ : H) :
+      (∫⁻ x in B, ENNReal.ofReal ‖f (infEmbA (ξ : F) + x)‖) =
+        ENNReal.ofReal (∫ x in B, ‖f (infEmbA (ξ : F) + x)‖) :=
+    (ofReal_integral_eq_lintegral_ofReal (hint ξ).norm
+      (Filter.Eventually.of_forall fun x => norm_nonneg _)).symm
+  have hnonneg (ξ : H) : 0 ≤ ∫ x in B, ‖f (infEmbA (ξ : F) + x)‖ :=
+    integral_nonneg fun x => norm_nonneg _
+  have hfinite : (∫⁻ x : InfinitePlace F → ℂ, ENNReal.ofReal ‖f x‖) < ⊤ := by
+    rw [hlin]
+    simp_rw [hnormint]
+    rw [← ENNReal.ofReal_tsum_of_nonneg hnonneg hsum]
+    exact ENNReal.ofReal_lt_top
+  have hintglobal : Integrable f :=
+    ⟨hf.aestronglyMeasurable, (hasFiniteIntegral_iff_norm f).2 hfinite⟩
+  refine ⟨hintglobal, ?_⟩
+  calc
+    _ = ∑' t : L, ∫ x in B, f ((t : InfinitePlace F → ℂ) + x) :=
+      hBd.integral_eq_tsum'' f hintglobal
+    _ = ∑' ξ : H, ∫ x in B, f ((e ξ : InfinitePlace F → ℂ) + x) :=
+      (e.toEquiv.tsum_eq _).symm
+    _ = _ := by simp only [heval, H]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
