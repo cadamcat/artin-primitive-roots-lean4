@@ -367,7 +367,20 @@ theorem whitLiftTerm_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
     (Fs : GlobalSection P G s) (x : P.RP) :
     Summable (fun δ : Fˣ ⧸ G.Δ => ‖whitLiftTerm P G μ Fs x δ‖) := by
-  sorry
+  let E := Fs.T0 ∪ (P.comp_restricted x).toFinset
+  have hE : Fs.T0 ⊆ E := Finset.subset_union_left
+  have hcomp (v : FinPlace F) (hv : v ∉ E) :
+      P.compF v x ∈ (P.tame v (fun h => hv (hE (Fs.sub h)))).Kmax := by
+    by_contra hk
+    apply hv
+    apply Finset.mem_union_right
+    exact (P.comp_restricted x).mem_toFinset.mpr
+      ⟨(fun h => hv (hE (Fs.sub h))), hk⟩
+  have hsum := whit_jacquet_family_summable P G μ hs Fs x E hE hcomp
+    (fun v => jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))
+    (fun _ _ => rfl)
+  simpa only [whitLiftTerm, norm_mul] using
+    hsum.mul_right ‖∏ w, jacquetC (rtr (P.compC w x) (Fs.fC w))‖
 
 /-- Central phases of a lift cancel in the local Jacquet product. -/
 theorem whit_atLift (P : CoverPackage D S H A) (G : GlobalDatum P)
