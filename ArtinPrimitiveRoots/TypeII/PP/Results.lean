@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.TypeII.PP.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.pp2.Analytic
 import ArtinPrimitiveRoots.TypeII.Marked
 import ArtinPrimitiveRoots.TypeII.Proofs.pp1.HalaszMeanValue
+import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.LogPhaseLow
 
 /-! Statements in the Prime Predecessors long-prime chain, PP
 `02-long-prime.tex:8-579`. -/
