@@ -233,6 +233,151 @@ theorem external_character_detector [IsTotallyComplex F]
           ∃ x : 𝓞 F, ψ v (algebraMap F _ ((x : F) / π)) ≠ 1)
     (z : F) (hz : z ∉ S.R) :
     ∃ d : 𝓞 F, eOnFS S ψ (S.diag (z * (d : F))) ≠ 1 := by
-  sorry
+  classical
+  have hzNotAll : ¬ ∀ q : FinPlace F, q ∉ S.Sf → q.valuation F z ≤ 1 := by
+    intro hval
+    apply hz
+    change z ∈ ((S.Sf : Set (FinPlace F)).integer F)
+    exact hval
+  have hbad : ∃ v : FinPlace F, v ∉ S.Sf ∧ 1 < v.valuation F z := by
+    by_contra h
+    apply hzNotAll
+    intro q hq
+    by_contra hqval
+    exact h ⟨q, hq, lt_of_not_ge hqval⟩
+  obtain ⟨v, hv, hvz⟩ := hbad
+  have hz0 : z ≠ 0 := by
+    intro hz0
+    rw [hz0, map_zero] at hvz
+    norm_num at hvz
+  have hnotDiff : ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal := by
+    intro hle
+    exact hv (S.different_mem v hle)
+  obtain ⟨_, hram⟩ := hunramified v hnotDiff
+  obtain ⟨π, hπ⟩ := HeightOneSpectrum.valuation_exists_uniformizer F v
+  obtain ⟨x, hxψ⟩ := hram π hπ
+  obtain ⟨a, haV, haOther⟩ := exists_denominator_clearer z hz0 v hvz
+  have haVal : v.valuation F (a : F) = 1 :=
+    (v.valuation_eq_one_iff_notMem (K := F)).2 haV
+  have haNeF : (a : F) ≠ 0 := by
+    intro ha0
+    rw [ha0, map_zero] at haVal
+    norm_num at haVal
+  let za : F := z * (a : F)
+  have hzaVal : v.valuation F za = v.valuation F z := by
+    simp [za, map_mul, haVal]
+  have hzaLarge : 1 < v.valuation F za := by rw [hzaVal]; exact hvz
+  have hzaValNe : v.valuation F za ≠ 0 := ne_of_gt (lt_trans (by simp) hzaLarge)
+  have hzaNe : za ≠ 0 := (v.valuation F).ne_zero_iff.mp hzaValNe
+  have hπValNe : v.valuation F π ≠ 0 := by rw [hπ]; exact WithZero.exp_ne_zero
+  have hπNe : π ≠ 0 := (v.valuation F).ne_zero_iff.mp hπValNe
+  have hzValNe : v.valuation F z ≠ 0 := (v.valuation F).ne_zero_iff.mpr hz0
+  have hlogz : 0 < WithZero.log (v.valuation F z) := by
+    have hh := (WithZero.log_lt_log (by simp) hzValNe).2 hvz
+    simpa using hh
+  have hlogz_ge : (1 : ℤ) ≤ WithZero.log (v.valuation F z) := by omega
+  have hden : 1 ≤ WithZero.exp (-1 : ℤ) * v.valuation F z := by
+    calc
+      1 = WithZero.exp (0 : ℤ) := by simp
+      _ ≤ WithZero.exp (-1 + WithZero.log (v.valuation F z)) :=
+        WithZero.exp_le_exp.mpr (by omega)
+      _ = WithZero.exp (-1 : ℤ) * v.valuation F z := by
+        rw [WithZero.exp_add, WithZero.exp_log hzValNe]
+  have hdenPos : 0 < WithZero.exp (-1 : ℤ) * v.valuation F z :=
+    mul_pos (WithZero.exp_pos : 0 < WithZero.exp (-1 : ℤ))
+      (lt_trans (by simp) hvz)
+  let y : F := (x : F) / (π * za)
+  have hyInt : v.valuation F y ≤ 1 := by
+    dsimp [y]
+    rw [map_div₀, map_mul, hπ, hzaVal]
+    exact (div_le_one₀ hdenPos).2 ((v.valuation_le_one x).trans hden)
+  let γ : (WithZero (Multiplicative ℤ))ˣ :=
+    Units.mk0 ((v.valuation F za)⁻¹) (inv_ne_zero hzaValNe)
+  obtain ⟨b, hb⟩ := v.exists_valuation_sub_lt_of_integer hyInt γ
+  have hb' : v.valuation F ((b : F) - y) < (v.valuation F za)⁻¹ := by
+    simpa [γ] using hb
+  have hbClose : v.valuation F (za * ((b : F) - y)) < 1 := by
+    rw [map_mul]
+    calc
+      v.valuation F za * v.valuation F ((b : F) - y) <
+          v.valuation F za * (v.valuation F za)⁻¹ :=
+        mul_lt_mul_of_pos_left hb' (lt_trans (by simp) hzaLarge)
+      _ = 1 := mul_inv_cancel₀ hzaValNe
+  let d : 𝓞 F := a * b
+  have hdiffEq : z * (d : F) - (x : F) / π = za * ((b : F) - y) := by
+    dsimp [d, y]
+    push_cast
+    field_simp [hπNe, hzaNe, haNeF]
+    dsimp [za]
+    ring_nf
+  have hdiffVal : v.valuation F (z * (d : F) - (x : F) / π) < 1 := by
+    rw [hdiffEq]
+    exact hbClose
+  have hdiffInt : ((z * (d : F) - (x : F) / π : F) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hdiffVal.le
+  have hsum :
+      algebraMap F (v.adicCompletion F) (z * (d : F) - (x : F) / π) +
+          algebraMap F (v.adicCompletion F) ((x : F) / π) =
+        algebraMap F (v.adicCompletion F) (z * (d : F)) := by
+    rw [← map_add]
+    congr 1
+    ring
+  have hchar := (ψ v).map_add_eq_mul
+    (algebraMap F (v.adicCompletion F) (z * (d : F) - (x : F) / π))
+    (algebraMap F (v.adicCompletion F) ((x : F) / π))
+  have hψdiff : ψ v (algebraMap F (v.adicCompletion F)
+      (z * (d : F) - (x : F) / π)) = 1 := hintegral v _ hdiffInt
+  rw [hsum, hψdiff, one_mul] at hchar
+  have hlocal : ψ v (algebraMap F (v.adicCompletion F) (z * (d : F))) ≠ 1 := by
+    intro heq
+    exact hxψ (hchar.symm.trans heq)
+  have hzaInt (q : FinPlace F) (hqv : q ≠ v) : q.valuation F za ≤ 1 := by
+    by_cases hqz : 1 < q.valuation F z
+    · have hqa := haOther q hqv hqz
+      change q.valuation F (z * (a : F)) ≤ 1
+      rw [map_mul]
+      calc
+        q.valuation F z * q.valuation F (a : F) ≤
+            q.valuation F z * (q.valuation F z)⁻¹ :=
+          mul_le_mul_of_nonneg_left hqa bot_le
+        _ = 1 := mul_inv_cancel₀ ((q.valuation F).ne_zero_iff.mpr hz0)
+    · have hqz' : q.valuation F z ≤ 1 := le_of_not_gt hqz
+      change q.valuation F (z * (a : F)) ≤ 1
+      rw [map_mul]
+      calc
+        q.valuation F z * q.valuation F (a : F) ≤ q.valuation F z * 1 :=
+          mul_le_mul_of_nonneg_left (q.valuation_le_one a) bot_le
+        _ ≤ 1 := by simpa using hqz'
+  have hprodInt (q : FinPlace F) (hqv : q ≠ v) :
+      q.valuation F (z * (d : F)) ≤ 1 := by
+    have hzaD : z * (d : F) = za * (b : F) := by
+      dsimp [d, za]
+      push_cast
+      ring
+    rw [hzaD, map_mul]
+    calc
+      q.valuation F za * q.valuation F (b : F) ≤ q.valuation F za * 1 :=
+        mul_le_mul_of_nonneg_left (q.valuation_le_one b) bot_le
+      _ ≤ 1 := by simpa using hzaInt q hqv
+  have hother : ∀ q : FinPlace F, q ∉ S.Sf → q ≠ v →
+      ψ q (algebraMap F _ (z * (d : F))) = 1 := by
+    intro q hqS hqv
+    have hmem : ((z * (d : F) : F) : q.adicCompletion F) ∈
+        q.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+        HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+      exact hprodInt q hqv
+    exact hintegral q _ hmem
+  have hglobalFactor := eOnFS_diag_mul_one_exceptional S ψ hglobal
+    (z * (d : F)) v hv hother
+  refine ⟨d, ?_⟩
+  intro htriv
+  apply hlocal
+  have hmul := hglobalFactor
+  rw [htriv, one_mul] at hmul
+  exact hmul
 
 end ArtinPrimitiveRoots.Proofs.a1_dual_p
