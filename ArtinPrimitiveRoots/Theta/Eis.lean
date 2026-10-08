@@ -3463,6 +3463,105 @@ theorem scalarOf_zero_has_zero_factor
     exact mul_ne_zero hlocalNe harchNe
   exact hne (hzero (P.q r))
 
+set_option backward.isDefEq.respectTransparency false in
+/-- The intertwined scalar has finite local support and the same formula at any RP lift. -/
+theorem scalarM_q
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP) :
+    let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+      if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+      else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+    (Function.mulSupport fun v => G.lam v (fM v (P.compF v r))).Finite ∧
+    scalarM P G μ Fs (P.q r) =
+      (κF F)⁻¹ * cprod Fs.T0 s *
+        ((∏ᶠ v, G.lam v (fM v (P.compF v r))) *
+          ∏ w, intertwineC (Fs.fC w) (P.compC w r)) := by
+  classical
+  let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+    if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+    else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+  change (Function.mulSupport fun v => G.lam v (fM v (P.compF v r))).Finite ∧
+    scalarM P G μ Fs (P.q r) =
+      (κF F)⁻¹ * cprod Fs.T0 s *
+        ((∏ᶠ v, G.lam v (fM v (P.compF v r))) *
+          ∏ w, intertwineC (Fs.fC w) (P.compC w r))
+  have hgen (v : FinPlace F) (ζ : rootsOfUnity 3 ℂ) (a : (P.loc v).L) :
+      fM v ((P.loc v).z ζ * a) = ((ζ : ℂˣ) : ℂ) • fM v a := by
+    dsimp only [fM]
+    by_cases hv : v ∈ Fs.T0
+    · simp only [dite_eq_left hv]
+      simpa only [TorusRep.weyl] using
+        (intertwine_isSection (P.loc v) (G.T v) (μ v) s hs (Fs.f v)
+          (Fs.f_sec v)).2.2.1 ζ a
+    · simp only [dite_eq_right hv]
+      simpa only [sphWeyl, TorusRep.weyl] using
+        ((spherical_section (P.loc v) (P.tame v (fun h => hv (Fs.sub h)))
+          (G.T v).weyl (G.B v (fun h => hv (Fs.sub h))).weyl
+          (fun h => hv (Fs.sub (S.over6 v h))) (-s)).choose_spec.1).2.1 ζ a
+  have hfinite (a : P.RP) :
+      (Function.mulSupport fun v => G.lam v (fM v (P.compF v a))).Finite := by
+    apply Set.Finite.subset (Fs.T0.finite_toSet.union (P.comp_restricted a))
+    intro v hv
+    by_contra hvout
+    have hvT : v ∉ Fs.T0 := fun h => hvout (Or.inl h)
+    have hvS : v ∉ S.Sf := fun h => hvT (Fs.sub h)
+    have hK : P.compF v a ∈ (P.tame v hvS).Kmax := by
+      by_contra hK
+      exact hvout (Or.inr ⟨hvS, hK⟩)
+    have hf0 := (spherical_section (P.loc v) (P.tame v hvS) (G.T v).weyl
+      (G.B v hvS).weyl (fun h => hvS (S.over6 v h)) (-s)).choose_spec
+    have hf : fM v (P.compF v a) = (G.B v hvS).e 0 := by
+      dsimp only [fM]
+      rw [dite_eq_right hvT]
+      calc
+        sphWeyl P G v hvS s (P.compF v a) =
+            sphWeyl P G v hvS s (1 * P.compF v a) := by rw [one_mul]
+        _ = sphWeyl P G v hvS s 1 := hf0.2.2.1 1 (P.compF v a) hK
+        _ = (G.B v hvS).e 0 := by
+          simpa only [sphWeyl, TorusRep.weyl, TameTorusBasis.weyl, neg_zero] using hf0.2.1
+    have hlam : G.lam v (fM v (P.compF v a)) = 1 := by
+      rw [hf]
+      simpa using G.lam_tame v hvS 0
+    exact hv hlam
+  let y : P.RP := Function.surjInv P.q_surj (P.q r)
+  have hq : P.q r = P.q y :=
+    (Function.rightInverse_surjInv P.q_surj (P.q r)).symm
+  obtain ⟨ζ, hζfin, hζprod, hcomp, hcompC⟩ := (P.q_eq r y).mp hq
+  let α : FinPlace F → ℂ := fun v => G.lam v (fM v (P.compF v r))
+  let β : FinPlace F → ℂ := fun v => G.lam v (fM v (P.compF v y))
+  have hrel : α = fun v => ((ζ v : ℂˣ) : ℂ) * β v := by
+    funext v
+    dsimp only [α, β]
+    rw [hcomp v, hgen v]
+    simp
+  let eval : rootsOfUnity 3 ℂ →* ℂ :=
+    { toFun := fun z => ((z : ℂˣ) : ℂ)
+      map_one' := rfl
+      map_mul' := by intros; rfl }
+  have hζscalarfin : (Function.mulSupport fun v => ((ζ v : ℂˣ) : ℂ)).Finite := by
+    apply hζfin.subset
+    intro v hv
+    change ζ v ≠ 1
+    intro h1
+    exact hv (by change ((ζ v : ℂˣ) : ℂ) = 1; rw [h1]; rfl)
+  have hζscalarprod : (∏ᶠ v, ((ζ v : ℂˣ) : ℂ)) = 1 := by
+    calc
+      _ = eval (∏ᶠ v, ζ v) := (eval.map_finprod hζfin).symm
+      _ = 1 := by rw [hζprod, map_one]
+  have hαprod : (∏ᶠ v, α v) = ∏ᶠ v, β v := by
+    rw [hrel, finprod_mul_distrib hζscalarfin (hfinite y), hζscalarprod, one_mul]
+  refine ⟨hfinite r, ?_⟩
+  change (κF F)⁻¹ * cprod Fs.T0 s *
+      ((∏ᶠ v, β v) * ∏ w, intertwineC (Fs.fC w) (P.compC w y)) =
+    (κF F)⁻¹ * cprod Fs.T0 s *
+      ((∏ᶠ v, α v) * ∏ w, intertwineC (Fs.fC w) (P.compC w r))
+  rw [hαprod]
+  congr 2
+  apply Finset.prod_congr rfl
+  intro w hw
+  exact (congrArg (intertwineC (Fs.fC w)) (hcompC w)).symm
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
