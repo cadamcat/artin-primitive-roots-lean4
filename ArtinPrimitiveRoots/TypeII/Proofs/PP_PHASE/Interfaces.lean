@@ -31,6 +31,347 @@ noncomputable def phasePolynomialSum (v θ : ℝ) (b k M : ℕ) : ℂ :=
     additiveCharacter
       (∑ j : Fin k, phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1))
 
+private theorem phase_exp_I_mul_lipschitz (x y : ℝ) :
+    ‖Complex.exp (Complex.I * x) - Complex.exp (Complex.I * y)‖ ≤ |x - y| := by
+  have hfactor : Complex.exp (Complex.I * x) - Complex.exp (Complex.I * y) =
+      Complex.exp (Complex.I * y) * (Complex.exp (Complex.I * (x - y)) - 1) := by
+    rw [show Complex.I * x = Complex.I * y + Complex.I * (x - y) by ring,
+      Complex.exp_add]
+    ring
+  have hyNorm : ‖Complex.exp (Complex.I * y)‖ = 1 := by
+    simp [Complex.norm_exp, Complex.mul_re]
+  calc
+    ‖Complex.exp (Complex.I * x) - Complex.exp (Complex.I * y)‖ =
+        ‖Complex.exp (Complex.I * y) *
+          (Complex.exp (Complex.I * (x - y)) - 1)‖ := by rw [hfactor]
+    _ = ‖Complex.exp (Complex.I * y)‖ *
+          ‖Complex.exp (Complex.I * (x - y)) - 1‖ := by rw [norm_mul]
+    _ = ‖Complex.exp (Complex.I * (x - y)) - 1‖ := by rw [hyNorm, one_mul]
+    _ ≤ |x - y| := by
+      have harg : Complex.I * ((x : ℂ) - (y : ℂ)) =
+          Complex.I * ((x - y : ℝ) : ℂ) := by
+        push_cast
+        ring
+      have h := @Real.norm_exp_I_mul_ofReal_sub_one_le (x - y)
+      rw [harg]
+      simpa only [Real.norm_eq_abs] using h
+
+private theorem phase_sum_Icc_shift_reindex (f : ℕ → ℂ) (l u t : ℕ) :
+    (∑ b ∈ Finset.Icc l u, f (b + t)) =
+      ∑ b ∈ Finset.Icc (l + t) (u + t), f b := by
+  classical
+  have hinj : Set.InjOn (fun b : ℕ => b + t) (Finset.Icc l u : Set ℕ) := by
+    intro b hb c hc h
+    exact Nat.add_right_cancel h
+  calc
+    _ = ∑ b ∈ (Finset.Icc l u).image (fun b : ℕ => b + t), f b := by
+      symm
+      exact Finset.sum_image hinj
+    _ = ∑ b ∈ Finset.Icc (l + t) (u + t), f b := by simp
+
+private theorem phase_sum_Icc_shift_step {l u : ℕ} (hlu : l ≤ u)
+    (f : ℕ → ℂ) (t : ℕ) :
+    (∑ b ∈ Finset.Icc l u, f (b + t)) -
+        ∑ b ∈ Finset.Icc l u, f (b + t + 1) =
+      f (l + t) - f (u + t + 1) := by
+  have h₀ := phase_sum_Icc_shift_reindex f l u t
+  have h₁ := phase_sum_Icc_shift_reindex f l u (t + 1)
+  have h₁' :
+      (∑ b ∈ Finset.Icc l u, f (b + t + 1)) =
+        ∑ b ∈ Finset.Icc (l + t + 1) (u + t + 1), f b := by
+    simpa [Nat.add_assoc] using h₁
+  rw [h₀, h₁']
+  have hab : l + t ≤ u + t := Nat.add_le_add_right hlu t
+  have hleft : Finset.Icc (l + t) (u + t) =
+      insert (l + t) (Finset.Ioc (l + t) (u + t)) := by
+    rw [← Finset.insert_Icc_add_one_left_eq_Icc hab,
+      Finset.Icc_add_one_left_eq_Ioc]
+  have hright : Finset.Icc (l + t + 1) (u + t + 1) =
+      insert (u + t + 1) (Finset.Ioc (l + t) (u + t)) := by
+    rw [Finset.Icc_add_one_left_eq_Ioc]
+    exact (Finset.insert_Ioc_right_eq_Ioc_add_one hab).symm
+  rw [hleft, hright, Finset.sum_insert (by simp), Finset.sum_insert (by simp)]
+  ring
+
+private theorem phase_sum_Icc_shift_error (f : ℕ → ℂ)
+    (hf : ∀ n, ‖f n‖ = 1) (l u h : ℕ) :
+    ‖(∑ b ∈ Finset.Icc l u, f b) -
+      ∑ b ∈ Finset.Icc l u, f (b + h)‖ ≤ 2 * h := by
+  by_cases hlu : l ≤ u
+  · induction h with
+    | zero => simp
+    | succ h ih =>
+      have hstep :
+          ‖(∑ b ∈ Finset.Icc l u, f (b + h)) -
+            ∑ b ∈ Finset.Icc l u, f (b + h + 1)‖ ≤ 2 := by
+        rw [phase_sum_Icc_shift_step hlu]
+        calc
+          ‖f (l + h) - f (u + h + 1)‖ ≤
+              ‖f (l + h)‖ + ‖f (u + h + 1)‖ := norm_sub_le _ _
+          _ = 2 := by rw [hf, hf]; norm_num
+      calc
+        ‖(∑ b ∈ Finset.Icc l u, f b) -
+            ∑ b ∈ Finset.Icc l u, f (b + (h + 1))‖ =
+            ‖((∑ b ∈ Finset.Icc l u, f b) -
+                ∑ b ∈ Finset.Icc l u, f (b + h)) +
+              ((∑ b ∈ Finset.Icc l u, f (b + h)) -
+                ∑ b ∈ Finset.Icc l u, f (b + h + 1))‖ := by
+          congr 1
+          simp only [Nat.add_assoc]
+          ring
+        _ ≤ ‖(∑ b ∈ Finset.Icc l u, f b) -
+              ∑ b ∈ Finset.Icc l u, f (b + h)‖ +
+            ‖(∑ b ∈ Finset.Icc l u, f (b + h)) -
+              ∑ b ∈ Finset.Icc l u, f (b + h + 1)‖ := norm_add_le _ _
+        _ ≤ 2 * ((h + 1 : ℕ) : ℝ) := by
+          have htmp := add_le_add ih hstep
+          have hcast : ((h + 1 : ℕ) : ℝ) = (h : ℝ) + 1 := by norm_cast
+          nlinarith [htmp, hcast]
+  · have hempty : Finset.Icc l u = ∅ := Finset.Icc_eq_empty_of_lt (lt_of_not_ge hlu)
+    simp [hempty]
+
+private theorem phase_shift_average_boundary (f : ℕ → ℂ)
+    (hf : ∀ n, ‖f n‖ = 1) (l u M : ℕ) (hM : 1 ≤ M) :
+    ‖∑ b ∈ Finset.Icc l u, f b‖ ≤
+      (1 / (M : ℝ)) *
+        ‖∑ h ∈ Finset.Icc 1 M, ∑ b ∈ Finset.Icc l u, f (b + h)‖ +
+        2 * M := by
+  classical
+  let J : Finset ℕ := Finset.Icc 1 M
+  let S₀ : ℂ := ∑ b ∈ Finset.Icc l u, f b
+  let G : ℂ := ∑ h ∈ J, ∑ b ∈ Finset.Icc l u, f (b + h)
+  let E : ℂ := ∑ h ∈ J,
+    (S₀ - ∑ b ∈ Finset.Icc l u, f (b + h))
+  have hJcard : J.card = M := by
+    dsimp [J]
+    simp
+  have hconst : (∑ h ∈ J, S₀) = (M : ℂ) * S₀ := by
+    simp [hJcard]
+  have hdecomp : (M : ℂ) * S₀ = G + E := by
+    calc
+      (M : ℂ) * S₀ = ∑ h ∈ J, S₀ := hconst.symm
+      _ = ∑ h ∈ J,
+          ((∑ b ∈ Finset.Icc l u, f (b + h)) +
+            (S₀ - ∑ b ∈ Finset.Icc l u, f (b + h))) := by
+        apply Finset.sum_congr rfl
+        intro h hh
+        dsimp [S₀]
+        ring
+      _ = G + E := by
+        dsimp [G, E]
+        rw [Finset.sum_add_distrib]
+  have hE : ‖E‖ ≤ 2 * (M : ℝ) ^ 2 := by
+    dsimp [E]
+    calc
+      _ ≤ ∑ h ∈ J,
+          ‖S₀ - ∑ b ∈ Finset.Icc l u, f (b + h)‖ := norm_sum_le _ _
+      _ ≤ ∑ _h ∈ J, 2 * (M : ℝ) := by
+        apply Finset.sum_le_sum
+        intro h hh
+        have hhM : h ≤ M := (Finset.mem_Icc.mp hh).2
+        have hshift := phase_sum_Icc_shift_error f hf l u h
+        calc
+          ‖S₀ - ∑ b ∈ Finset.Icc l u, f (b + h)‖ ≤ 2 * (h : ℝ) := by
+            simpa [S₀] using hshift
+          _ ≤ 2 * (M : ℝ) := by gcongr
+      _ = (J.card : ℝ) * (2 * (M : ℝ)) := by simp
+      _ = 2 * (M : ℝ) ^ 2 := by rw [hJcard]; ring
+  have hMpos : 0 < (M : ℝ) := by exact_mod_cast (lt_of_lt_of_le (by norm_num) hM)
+  have hnormM : ‖(M : ℂ) * S₀‖ = (M : ℝ) * ‖S₀‖ := by
+    rw [norm_mul]
+    simp
+  have hlarge : (M : ℝ) * ‖S₀‖ ≤ ‖G‖ + 2 * (M : ℝ) ^ 2 := by
+    calc
+      (M : ℝ) * ‖S₀‖ = ‖(M : ℂ) * S₀‖ := hnormM.symm
+      _ = ‖G + E‖ := by rw [hdecomp]
+      _ ≤ ‖G‖ + ‖E‖ := norm_add_le _ _
+      _ ≤ ‖G‖ + 2 * (M : ℝ) ^ 2 := by nlinarith [hE]
+  have hdiv := div_le_div_of_nonneg_right hlarge hMpos.le
+  calc
+    ‖S₀‖ = ((M : ℝ) * ‖S₀‖) / (M : ℝ) := by field_simp [ne_of_gt hMpos]
+    _ ≤ (‖G‖ + 2 * (M : ℝ) ^ 2) / (M : ℝ) := hdiv
+    _ = (1 / (M : ℝ)) *
+          ‖∑ h ∈ Finset.Icc 1 M, ∑ b ∈ Finset.Icc l u, f (b + h)‖ +
+          2 * M := by
+        dsimp [G]
+        field_simp [ne_of_gt hMpos]
+        <;> ring
+
+private theorem phase_log_taylor_remainder {z : ℝ} (hz : |z| < 1) (k : ℕ) :
+    |Real.log (1 + z) -
+      (∑ i ∈ Finset.range k, (-1 : ℝ) ^ i * z ^ (i + 1) / (i + 1))| ≤
+      |z| ^ (k + 1) / (1 - |z|) := by
+  have hneg : |-z| < 1 := by simpa using hz
+  have hraw := Real.abs_log_sub_add_sum_range_le (x := -z) hneg k
+  have hterm (i : ℕ) :
+      (-z) ^ (i + 1) / (i + 1) =
+        -((-1 : ℝ) ^ i * z ^ (i + 1) / (i + 1)) := by
+    rw [neg_pow, pow_succ]
+    push_cast
+    ring
+  have hsum :
+      (∑ i ∈ Finset.range k, (-z) ^ (i + 1) / (i + 1)) =
+        -(∑ i ∈ Finset.range k, (-1 : ℝ) ^ i * z ^ (i + 1) / (i + 1)) := by
+    calc
+      _ = ∑ i ∈ Finset.range k, -((-1 : ℝ) ^ i * z ^ (i + 1) / (i + 1)) := by
+        apply Finset.sum_congr rfl
+        intro i hi
+        exact hterm i
+      _ = _ := by rw [Finset.sum_neg_distrib]
+  simpa [hsum, abs_neg, sub_eq_add_neg, add_comm, add_left_comm, add_assoc] using hraw
+
+private theorem phase_rpow_threequarters_le_half {H : ℝ} (hH : 16 ≤ H) :
+    Real.rpow H (3 / 4) ≤ H / 2 := by
+  have hHpos : 0 < H := by linarith
+  have hpowEq : (Real.rpow H (3 / 4 : ℝ)) ^ 4 = H ^ 3 := by
+    calc
+      (Real.rpow H (3 / 4 : ℝ)) ^ 4 = Real.rpow H ((3 / 4 : ℝ) * 4) :=
+        (Real.rpow_mul_natCast hHpos.le (3 / 4 : ℝ) 4).symm
+      _ = H ^ 3 := by norm_num
+  have hmul : 16 * H ^ 3 ≤ H ^ 4 := by
+    calc
+      16 * H ^ 3 ≤ H * H ^ 3 := mul_le_mul_of_nonneg_right hH (pow_nonneg hHpos.le 3)
+      _ = H ^ 4 := by rw [pow_succ]; ring
+  have hpowBound : H ^ 3 ≤ (H / 2) ^ 4 := by
+    rw [div_pow]
+    norm_num
+    rw [le_div_iff₀ (by norm_num : (0 : ℝ) < 16)]
+    simpa [mul_comm] using hmul
+  exact le_of_pow_le_pow_left₀ (by norm_num : 4 ≠ 0) (by positivity)
+    (hpowEq ▸ hpowBound)
+
+private theorem phase_log_taylor_error {H y θ v : ℝ} {b h k M : ℕ}
+    (hH : 16 ≤ H) (hy : 4 / 5 ≤ y) (hv : |v| ≤ Real.rpow H y)
+    (hk : 4 * y + 8 ≤ k) (hMupper : (M : ℝ) ≤ Real.rpow H (3 / 4))
+    (hh : h ≤ M)
+    (hinterval : H ≤ (b : ℝ) + θ ∧ (b : ℝ) + θ ≤ 2 * H) :
+    |v * (Real.log ((b : ℝ) + θ + h) - Real.log ((b : ℝ) + θ)) -
+      2 * Real.pi * (∑ j : Fin k,
+        phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1))| ≤
+      2 * Real.rpow H (-9 / 4) := by
+  let d : ℝ := (b : ℝ) + θ
+  let z : ℝ := (h : ℝ) / d
+  let P : ℝ :=
+    ∑ j : Fin k, (-1 : ℝ) ^ j.val * z ^ (j.val + 1) / (j.val + 1 : ℝ)
+  have hHpos : 0 < H := by linarith
+  have hHone : 1 ≤ H := by linarith
+  have hdpos : 0 < d := lt_of_lt_of_le (by linarith) hinterval.1
+  have hA : Real.rpow H (3 / 4 : ℝ) ≤ H / 2 := phase_rpow_threequarters_le_half hH
+  have hAdivHalf : Real.rpow H (3 / 4 : ℝ) / H ≤ 1 / 2 := by
+    apply (div_le_iff₀ hHpos).2
+    nlinarith [hA]
+  have hMcast : (h : ℝ) ≤ (M : ℝ) := by exact_mod_cast hh
+  have hzNonneg : 0 ≤ z := by dsimp [z]; positivity
+  have hratioA : z ≤ Real.rpow H (3 / 4 : ℝ) / H := by
+    dsimp [z, d]
+    calc
+      (h : ℝ) / ((b : ℝ) + θ) ≤ (M : ℝ) / ((b : ℝ) + θ) := by
+        gcongr
+      _ ≤ Real.rpow H (3 / 4 : ℝ) / ((b : ℝ) + θ) := by gcongr
+      _ ≤ Real.rpow H (3 / 4 : ℝ) / H :=
+        div_le_div_of_nonneg_left (Real.rpow_nonneg hHpos.le _) hHpos hinterval.1
+  have hzHalf : z ≤ 1 / 2 := by
+    exact hratioA.trans hAdivHalf
+  have hzLt : |z| < 1 := by
+    rw [abs_of_nonneg hzNonneg]
+    linarith [hzHalf]
+  have hAdiv : Real.rpow H (3 / 4 : ℝ) / H = Real.rpow H (-1 / 4 : ℝ) := by
+    calc
+      Real.rpow H (3 / 4 : ℝ) / H =
+          Real.rpow H (3 / 4 : ℝ) / Real.rpow H 1 := by simp
+      _ = Real.rpow H ((3 / 4 : ℝ) - 1) := (Real.rpow_sub hHpos _ _).symm
+      _ = Real.rpow H (-1 / 4 : ℝ) := by congr 1 <;> norm_num
+  have hratio : z ≤ Real.rpow H (-1 / 4 : ℝ) := hAdiv ▸ hratioA
+  have hzPow : z ^ (k + 1) ≤ (Real.rpow H (-1 / 4 : ℝ)) ^ (k + 1) :=
+    pow_le_pow_left₀ hzNonneg hratio (k + 1)
+  have hexp : y + (-1 / 4 : ℝ) * ((k + 1 : ℕ) : ℝ) ≤ -9 / 4 := by
+    push_cast
+    nlinarith [hk]
+  have hTaylorPower : Real.rpow H y * z ^ (k + 1) ≤ Real.rpow H (-9 / 4 : ℝ) := by
+    have hmulExp : (Real.rpow H (-1 / 4 : ℝ)) ^ (k + 1) =
+        Real.rpow H ((-1 / 4 : ℝ) * ((k + 1 : ℕ) : ℝ)) :=
+      (Real.rpow_mul_natCast hHpos.le (-1 / 4 : ℝ) (k + 1)).symm
+    calc
+      Real.rpow H y * z ^ (k + 1) ≤
+      Real.rpow H y * (Real.rpow H (-1 / 4 : ℝ)) ^ (k + 1) :=
+        mul_le_mul_of_nonneg_left hzPow (Real.rpow_nonneg hHpos.le _)
+      _ = Real.rpow H (y + (-1 / 4 : ℝ) * ((k + 1 : ℕ) : ℝ)) := by
+        rw [hmulExp]
+        exact (Real.rpow_add hHpos y _).symm
+      _ ≤ Real.rpow H (-9 / 4 : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le hHone hexp
+  have hfac : d + (h : ℝ) = d * (1 + z) := by
+    dsimp [z]
+    field_simp [ne_of_gt hdpos]
+  have h1pos : 0 < 1 + z := by linarith [hzNonneg]
+  have hlogs : Real.log (d + (h : ℝ)) - Real.log d = Real.log (1 + z) := by
+    rw [hfac, Real.log_mul (ne_of_gt hdpos) (ne_of_gt h1pos)]
+    ring
+  have hpoly : 2 * Real.pi *
+      (∑ j : Fin k, phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1)) = v * P := by
+    have hcoeff (j : Fin k) :
+        phaseCoefficient v θ b j.val =
+          (-1 : ℝ) ^ j.val * v /
+            (2 * Real.pi * ((j.val + 1 : ℕ) : ℝ) * d ^ (j.val + 1)) := by
+      simp [phaseCoefficient, d]
+    have hhEq : (h : ℝ) = d * z := by
+      dsimp [z]
+      field_simp [ne_of_gt hdpos]
+    calc
+      _ = ∑ j : Fin k,
+          2 * Real.pi * (phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1)) :=
+        Finset.mul_sum _ _ _
+      _ = ∑ j : Fin k,
+          v * ((-1 : ℝ) ^ j.val * z ^ (j.val + 1) /
+            ((j.val + 1 : ℕ) : ℝ)) := by
+        apply Finset.sum_congr rfl
+        intro j hj
+        rw [hcoeff j, hhEq]
+        field_simp [Real.pi_ne_zero, ne_of_gt hdpos,
+          ne_of_gt (show 0 < ((j.val + 1 : ℕ) : ℝ) by positivity),
+          ne_of_gt (pow_pos hdpos (j.val + 1))]
+        <;> ring
+      _ = v * P := by
+        dsimp [P]
+        rw [← Finset.mul_sum]
+        simp only [Nat.cast_add, Nat.cast_one]
+  have hPRange : P =
+      ∑ i ∈ Finset.range k, (-1 : ℝ) ^ i * z ^ (i + 1) / (i + 1 : ℝ) := by
+    dsimp [P]
+    simpa only [Nat.cast_add, Nat.cast_one] using
+      (Fin.sum_univ_eq_sum_range
+        (fun i : ℕ => (-1 : ℝ) ^ i * z ^ (i + 1) / (i + 1 : ℝ)) k)
+  have hseries := phase_log_taylor_remainder hzLt k
+  have hseriesFin : |Real.log (1 + z) - P| ≤ z ^ (k + 1) / (1 - z) := by
+    rw [← hPRange] at hseries
+    simpa [abs_of_nonneg hzNonneg] using hseries
+  have hden : 0 < 1 - z := by linarith [hzHalf]
+  have hrecip : 1 / (1 - z) ≤ 2 := by
+    rw [div_le_iff₀ hden]
+    nlinarith [hzHalf]
+  have hangle :
+      v * (Real.log ((b : ℝ) + θ + h) - Real.log ((b : ℝ) + θ)) -
+        2 * Real.pi * (∑ j : Fin k,
+          phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1)) =
+      v * (Real.log (1 + z) - P) := by
+    rw [hlogs, hpoly]
+    ring
+  have hmain : |v| * |Real.log (1 + z) - P| ≤
+      2 * Real.rpow H (-9 / 4) := by
+    calc
+      |v| * |Real.log (1 + z) - P| ≤
+          Real.rpow H y * (z ^ (k + 1) / (1 - z)) :=
+        mul_le_mul hv hseriesFin (abs_nonneg _) (Real.rpow_nonneg hHpos.le _)
+      _ = Real.rpow H y * z ^ (k + 1) * (1 / (1 - z)) := by ring
+      _ ≤ Real.rpow H y * z ^ (k + 1) * 2 :=
+        mul_le_mul_of_nonneg_left hrecip
+          (mul_nonneg (Real.rpow_nonneg hHpos.le _) (pow_nonneg hzNonneg _))
+      _ = 2 * (Real.rpow H y * z ^ (k + 1)) := by ring
+      _ ≤ 2 * Real.rpow H (-9 / 4) := by
+        exact mul_le_mul_of_nonneg_left hTaylorPower (by norm_num)
+  rw [hangle, abs_mul]
+  exact hmain
+
 /-- Shift averaging and the Taylor remainder on a dyadic natural interval. -/
 theorem phase_shift_average {H y θ v : ℝ} {l u k M : ℕ}
     (hH : 16 ≤ H) (hy : 4 / 5 ≤ y)
@@ -44,7 +385,188 @@ theorem phase_shift_average {H y θ v : ℝ} {l u k M : ℕ}
       (1 / (M : ℝ)) *
         ∑ b ∈ Finset.Icc l u, ‖phasePolynomialSum v θ b k M‖ +
         4 * M + 8 / H := by
-  sorry
+  classical
+  let f : ℕ → ℂ := fun n =>
+    Complex.exp (Complex.I * (v * Real.log ((n : ℝ) + θ)))
+  let base (b : ℕ) : ℂ :=
+    Complex.exp (Complex.I * (v * Real.log ((b : ℝ) + θ)))
+  let J : Finset ℕ := Finset.Icc 1 M
+  let G : ℂ := ∑ h ∈ J, ∑ b ∈ Finset.Icc l u, f (b + h)
+  let T : ℂ := ∑ b ∈ Finset.Icc l u,
+    base b * phasePolynomialSum v θ b k M
+  let δ : ℝ := 2 * Real.rpow H (-9 / 4)
+  have hHpos : 0 < H := by linarith
+  have hHone : 1 ≤ H := by linarith
+  have hMpos : 0 < (M : ℝ) := by exact_mod_cast (lt_of_lt_of_le (by norm_num) hM)
+  have hJcard : J.card = M := by
+    dsimp [J]
+    simp
+  have hf (n : ℕ) : ‖f n‖ = 1 := by
+    simp [f, Complex.norm_exp, Complex.mul_re]
+  have hOrig :
+      (∑ b ∈ Finset.Icc l u,
+        Complex.exp (Complex.I * v * Real.log ((b : ℝ) + θ))) =
+      ∑ b ∈ Finset.Icc l u, f b := by
+    apply Finset.sum_congr rfl
+    intro b hb
+    dsimp [f]
+    congr 1
+    ring
+  have hShift :
+      ‖∑ b ∈ Finset.Icc l u,
+          Complex.exp (Complex.I * v * Real.log ((b : ℝ) + θ))‖ ≤
+        (1 / (M : ℝ)) * ‖G‖ + 2 * (M : ℝ) := by
+    rw [hOrig]
+    simpa [G, J] using phase_shift_average_boundary f hf l u M hM
+  have hbaseNorm (b : ℕ) : ‖base b‖ = 1 := by
+    simp [base, Complex.norm_exp, Complex.mul_re]
+  have hApprox (b h : ℕ) (hb : b ∈ Finset.Icc l u) (hh : h ∈ J) :
+      ‖f (b + h) - base b * additiveCharacter
+        (∑ j : Fin k, phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1))‖ ≤ δ := by
+    have hTaylor := phase_log_taylor_error hH hy hv hk hMupper
+      (Finset.mem_Icc.mp (by simpa [J] using hh)).2 (hinterval b hb)
+    let d : ℝ := (b : ℝ) + θ
+    let P : ℝ :=
+      ∑ j : Fin k, phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1)
+    have hfirst : f (b + h) =
+        Complex.exp (Complex.I * (v * Real.log (d + (h : ℝ)))) := by
+      dsimp [f, d]
+      congr 1
+      congr 1
+      push_cast
+      ring
+    have hfactor : base b * additiveCharacter P =
+        Complex.exp (Complex.I * (v * Real.log d + 2 * Real.pi * P)) := by
+      dsimp [base]
+      unfold additiveCharacter
+      rw [← Complex.exp_add]
+      congr 1
+      ring
+    have hAngle := phase_exp_I_mul_lipschitz
+      (v * Real.log (d + (h : ℝ))) (v * Real.log d + 2 * Real.pi * P)
+    have hAngle' :
+        ‖Complex.exp (Complex.I * ((v : ℂ) * (Real.log (d + (h : ℝ)) : ℂ))) -
+          Complex.exp (Complex.I * ((v : ℂ) * (Real.log d : ℂ) +
+            (2 * Real.pi * P : ℂ)))‖ ≤
+          |v * Real.log (d + (h : ℝ)) - (v * Real.log d + 2 * Real.pi * P)| := by
+      simpa [Complex.ofReal_mul, Complex.ofReal_add, Complex.ofReal_natCast] using hAngle
+    have hrem :
+        |v * (Real.log (d + (h : ℝ)) - Real.log d) - 2 * Real.pi * P| ≤ δ := by
+      simpa [P, d, δ] using hTaylor
+    calc
+      _ = ‖Complex.exp (Complex.I * (v * Real.log (d + (h : ℝ)))) -
+            Complex.exp (Complex.I * (v * Real.log d + 2 * Real.pi * P))‖ := by
+          rw [hfirst, hfactor]
+      _ ≤ |v * Real.log (d + (h : ℝ)) -
+            (v * Real.log d + 2 * Real.pi * P)| := hAngle'
+      _ = |v * (Real.log (d + (h : ℝ)) - Real.log d) - 2 * Real.pi * P| := by
+        congr 1
+        ring
+      _ ≤ δ := hrem
+  have hTaylorB (b : ℕ) (hb : b ∈ Finset.Icc l u) :
+      ‖(∑ h ∈ J, f (b + h)) -
+          base b * phasePolynomialSum v θ b k M‖ ≤ (M : ℝ) * δ := by
+    have hsum :
+        (∑ h ∈ J, f (b + h)) -
+            base b * phasePolynomialSum v θ b k M =
+          ∑ h ∈ J, (f (b + h) - base b * additiveCharacter
+            (∑ j : Fin k, phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1))) := by
+      dsimp [J, phasePolynomialSum]
+      rw [Finset.mul_sum, ← Finset.sum_sub_distrib]
+    rw [hsum]
+    calc
+      _ ≤ ∑ h ∈ J, ‖f (b + h) - base b * additiveCharacter
+          (∑ j : Fin k, phaseCoefficient v θ b j.val * (h : ℝ) ^ (j.val + 1))‖ :=
+        norm_sum_le _ _
+      _ ≤ ∑ _h ∈ J, δ := Finset.sum_le_sum fun h hh => hApprox b h hb hh
+      _ = (M : ℝ) * δ := by simp [J, hJcard]
+  have hGswap : G = ∑ b ∈ Finset.Icc l u, ∑ h ∈ J, f (b + h) := by
+    dsimp [G]
+    rw [Finset.sum_comm]
+  have hGminusT : G - T =
+      ∑ b ∈ Finset.Icc l u,
+        ((∑ h ∈ J, f (b + h)) - base b * phasePolynomialSum v θ b k M) := by
+    dsimp [T]
+    rw [hGswap, Finset.sum_sub_distrib]
+  have hpowMul : H * Real.rpow H (-9 / 4) = Real.rpow H (-5 / 4) := by
+    calc
+      H * Real.rpow H (-9 / 4) = Real.rpow H 1 * Real.rpow H (-9 / 4) := by simp
+      _ = Real.rpow H (1 + (-9 / 4 : ℝ)) := (Real.rpow_add hHpos 1 _).symm
+      _ = Real.rpow H (-5 / 4) := by congr 1 <;> norm_num
+  have hGdiff : ‖G - T‖ ≤ 4 * (M : ℝ) * Real.rpow H (-5 / 4) := by
+    rw [hGminusT]
+    calc
+      _ ≤ ∑ b ∈ Finset.Icc l u,
+          ‖(∑ h ∈ J, f (b + h)) - base b * phasePolynomialSum v θ b k M‖ :=
+        norm_sum_le _ _
+      _ ≤ ∑ _b ∈ Finset.Icc l u, (M : ℝ) * δ :=
+        Finset.sum_le_sum fun b hb => hTaylorB b hb
+      _ = (Finset.Icc l u).card * ((M : ℝ) * δ) := by simp
+      _ ≤ (2 * H) * ((M : ℝ) * δ) := by
+        have hMnonneg : 0 ≤ (M : ℝ) := Nat.cast_nonneg _
+        have hδnonneg : 0 ≤ δ := by dsimp [δ]; positivity
+        exact mul_le_mul_of_nonneg_right hcard (mul_nonneg hMnonneg hδnonneg)
+      _ = 4 * (M : ℝ) * Real.rpow H (-5 / 4) := by
+        dsimp [δ]
+        calc
+          (2 * H) * ((M : ℝ) * (2 * Real.rpow H (-9 / 4))) =
+              4 * (M : ℝ) * (H * Real.rpow H (-9 / 4)) := by ring
+          _ = 4 * (M : ℝ) * Real.rpow H (-5 / 4) :=
+            congrArg (fun q : ℝ => 4 * (M : ℝ) * q) hpowMul
+  have hTnorm : ‖T‖ ≤
+      ∑ b ∈ Finset.Icc l u, ‖phasePolynomialSum v θ b k M‖ := by
+    dsimp [T]
+    calc
+      _ ≤ ∑ b ∈ Finset.Icc l u, ‖base b * phasePolynomialSum v θ b k M‖ :=
+        norm_sum_le _ _
+      _ = ∑ b ∈ Finset.Icc l u, ‖phasePolynomialSum v θ b k M‖ := by
+        apply Finset.sum_congr rfl
+        intro b hb
+        rw [norm_mul, hbaseNorm, one_mul]
+  have hGnorm : ‖G‖ ≤
+      (∑ b ∈ Finset.Icc l u, ‖phasePolynomialSum v θ b k M‖) +
+        4 * (M : ℝ) * Real.rpow H (-5 / 4) := by
+    calc
+      ‖G‖ = ‖T + (G - T)‖ := by congr 1 <;> ring
+      _ ≤ ‖T‖ + ‖G - T‖ := norm_add_le _ _
+      _ ≤ _ := add_le_add hTnorm hGdiff
+  have hboundary := phase_shift_average_boundary f hf l u M hM
+  have hMpos : 0 < (M : ℝ) := by exact_mod_cast (lt_of_lt_of_le (by norm_num) hM)
+  have hErrorAbsorb : 4 * Real.rpow H (-5 / 4) ≤ 8 / H := by
+    have hExpMono : Real.rpow H (-5 / 4 : ℝ) ≤ Real.rpow H (-1 : ℝ) :=
+      Real.rpow_le_rpow_of_exponent_le hHone (by norm_num)
+    have hInv : Real.rpow H (-1 : ℝ) = 1 / H := by
+      calc
+        Real.rpow H (-1 : ℝ) = H⁻¹ := Real.rpow_neg_one H
+        _ = 1 / H := by simp
+    rw [hInv] at hExpMono
+    calc
+      4 * Real.rpow H (-5 / 4 : ℝ) ≤ 4 * (1 / H) :=
+        mul_le_mul_of_nonneg_left hExpMono (by norm_num)
+      _ = 4 / H := by ring
+      _ ≤ 8 / H := div_le_div_of_nonneg_right (by norm_num) hHpos.le
+  calc
+    _ ≤ (1 / (M : ℝ)) * ‖G‖ + 2 * (M : ℝ) := by
+      rw [hOrig]
+      simpa [G, J] using hboundary
+    _ ≤ (1 / (M : ℝ)) *
+          (∑ b ∈ Finset.Icc l u, ‖phasePolynomialSum v θ b k M‖) +
+        (1 / (M : ℝ)) *
+          (4 * (M : ℝ) * Real.rpow H (-5 / 4)) + 2 * (M : ℝ) := by
+      have hmul := mul_le_mul_of_nonneg_left hGnorm (by positivity : 0 ≤ 1 / (M : ℝ))
+      nlinarith [hmul]
+    _ ≤ (1 / (M : ℝ)) *
+          (∑ b ∈ Finset.Icc l u, ‖phasePolynomialSum v θ b k M‖) +
+        8 / H + 4 * (M : ℝ) := by
+      have hcancel :
+          (1 / (M : ℝ)) * (4 * (M : ℝ) * Real.rpow H (-5 / 4)) =
+            4 * Real.rpow H (-5 / 4) := by
+        field_simp [ne_of_gt hMpos]
+      rw [hcancel]
+      nlinarith [hErrorAbsorb, hMpos]
+    _ = (1 / (M : ℝ)) *
+          (∑ b ∈ Finset.Icc l u, ‖phasePolynomialSum v θ b k M‖) +
+        4 * M + 8 / H := by ring
 
 abbrev PhaseBoxIndex (k M : ℕ) := ∀ j : Fin k, Fin (M ^ (j.val + 1))
 
