@@ -12,6 +12,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootAsymptotic
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootReversal
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootRestrictedFourier
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootMainTerm
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootFinish
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Goodness
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.BandGeometry
 
@@ -2615,6 +2616,20 @@ lemma pd1c_endpointG_pointwise_general
         ring
   · simpa [endpointG, hSq] using Real.rpow_nonneg hlog.le (2 * C)
 
+lemma pd1c_rootCountingInputs_exists : Nonempty pd1c_RootCountingInputs := by
+  obtain ⟨CK, hCK, hK⟩ := weak_kloosterman (1 / 100) (by norm_num)
+  obtain ⟨CT, hCT, hτ⟩ := divisor_card_rpow_bound (1 / 100) (by norm_num)
+  refine ⟨⟨CK, CT, hCK, hCT, ?_, hτ⟩⟩
+  intro m hi Ft H K
+  letI : NeZero m := hi
+  letI : Fintype (ZMod m)ˣ := Ft
+  have hm : 1 ≤ m := NeZero.pos m
+  have heq := kloostermanSum_eq_unit_sum m H.val K.val
+  simp only [ZMod.natCast_zmod_val, ZMod.inv_coe_unit] at heq
+  change kloostermanSum m H.val K.val = @pd1c_rootKSum m hi Ft H K at heq
+  rw [← heq]
+  simpa only [Real.rpow_eq_pow] using hK m H.val K.val hm
+
 /-- `lem:root-residue` — PD `03-determinant.tex:413-591`. Primitive roots of determinant-one
 matrices are equidistributed in boxes and residue classes modulo squarefree `S`, with the stated
 uniform power-saving error. -/
@@ -2636,6 +2651,7 @@ theorem root_residue
                 U * V * (r₁ - l₁) * (r₂ - l₂) * (r₃ - l₃) /
                     ((Real.pi ^ 2 / 6) * sl2Card S hS)| ≤
                 C₀ * U * V * Real.rpow x (-cδ) := by
-  sorry
+  obtain ⟨inputs⟩ := pd1c_rootCountingInputs_exists
+  exact pd1c_root_residue_from_inputs inputs δ C_K hδ hCK
 
 end ArtinPrimitiveRoots.TypeII.PD
