@@ -1965,6 +1965,54 @@ private theorem ppPrimeMellinKernel_differentiableAt
   exact mellin_differentiableAt_of_isBigO_rpow (a := 1) (b := -1)
     hfc hf_top' hz'.2 hf_bot' hz'.1
 
+private theorem ppPrimeMellinKernel_analyticOnNhd
+    {g : ℝ → ℝ}
+    (hfc : LocallyIntegrableOn (fun w : ℝ => (g w : ℂ)) (Set.Ioi 0))
+    (hgsupport : Function.support g ⊆ Set.Icc (1 / 2 : ℝ) 3) :
+    AnalyticOnNhd ℂ (mellinKernel g) Set.univ := by
+  refine DifferentiableOn.analyticOnNhd ?_ isOpen_univ
+  intro z hz
+  let f : ℝ → ℂ := fun w => (g w : ℂ)
+  have hzeroTop : f =ᶠ[atTop] (fun _ : ℝ => 0) := by
+    filter_upwards [eventually_gt_atTop (3 : ℝ)] with w hw
+    have hgw : g w = 0 := by
+      by_contra hgw
+      have hmem : w ∈ Function.support g := by
+        simpa only [Function.mem_support] using hgw
+      linarith [(hgsupport hmem).2]
+    simp [f, hgw]
+  have hzeroBot : f =ᶠ[𝓝[>] (0 : ℝ)] (fun _ : ℝ => 0) := by
+    filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1 / 2)] with w hw
+    have hgw : g w = 0 := by
+      by_contra hgw
+      have hmem : w ∈ Function.support g := by
+        simpa only [Function.mem_support] using hgw
+      linarith [(hgsupport hmem).1, hw.2]
+    simp [f, hgw]
+  have hf_top : f =O[atTop]
+      (fun w : ℝ => Real.rpow w (-(z.re + 1))) := by
+    apply Asymptotics.IsBigO.of_norm_eventuallyLE
+    filter_upwards [hzeroTop, eventually_gt_atTop (3 : ℝ)] with w hwzero hwpos
+    rw [hwzero]
+    simpa using Real.rpow_nonneg (show 0 ≤ w by linarith) (-(z.re + 1))
+  have hf_bot : f =O[𝓝[>] (0 : ℝ)]
+      (fun w : ℝ => Real.rpow w (-(z.re - 1))) := by
+    apply Asymptotics.IsBigO.of_norm_eventuallyLE
+    filter_upwards [hzeroBot,
+      Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1 / 2)] with w hwzero hwpos
+    rw [hwzero]
+    simpa using Real.rpow_nonneg hwpos.1.le (-(z.re - 1))
+  have hf_top' : (fun w : ℝ => (g w : ℂ)) =O[atTop]
+      (fun w : ℝ => Real.rpow w (-(z.re + 1))) := by simpa [f] using hf_top
+  have hf_bot' : (fun w : ℝ => (g w : ℂ)) =O[𝓝[>] (0 : ℝ)]
+      (fun w : ℝ => Real.rpow w (-(z.re - 1))) := by simpa [f] using hf_bot
+  have hEq : mellinKernel g = mellin (fun w : ℝ => (g w : ℂ)) := by
+    funext s
+    exact mellinKernel_eq_mellin g s
+  rw [hEq]
+  exact (mellin_differentiableAt_of_isBigO_rpow (a := z.re + 1) (b := z.re - 1)
+    hfc hf_top' (by linarith) hf_bot' (by linarith)).differentiableWithinAt
+
 private theorem ppPrimeDirichletLogDeriv_analyticOnNhd
     {q : ℕ} (hq : 0 < q) (χ : DirichletCharacter ℂ q)
     {S : Set ℂ} (hS : S ⊆ ({1} : Set ℂ)ᶜ)
