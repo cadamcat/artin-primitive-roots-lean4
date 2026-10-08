@@ -497,6 +497,409 @@ private theorem wh_sub_mem_of_quotient_eq {K : Type} [AddCommGroup K]
   rw [hsub]
   exact H.neg_mem hz
 
+private def wh_coinv_ball_group (i : ℤ) : AddSubgroup (v.adicCompletion F) where
+  carrier := ball v i
+  zero_mem' := by
+    change Valued.v (0 : v.adicCompletion F) ≤ WithZero.exp (-i)
+    rw [map_zero]
+    exact zero_le
+  add_mem' := by
+    intro x y hx hy
+    exact wh_ball_add hx hy
+  neg_mem' := by
+    intro x hx
+    exact wh_ball_neg hx
+
+private def wh_coinv_large_ball (k : ℕ) : AddSubgroup (v.adicCompletion F) :=
+  wh_coinv_ball_group (v := v) (-(k : ℤ))
+
+private def wh_coinv_small_ball (k m : ℕ) : AddSubgroup (wh_coinv_large_ball (v := v) k) :=
+  (wh_coinv_ball_group (v := v) (m : ℤ)).comap
+    (wh_coinv_large_ball (v := v) k).subtype
+
+private theorem wh_coinv_quotient_finite (k m : ℕ) :
+    Finite (wh_coinv_large_ball (v := v) k ⧸ wh_coinv_small_ball (v := v) k m) := by
+  classical
+  let U := wh_coinv_large_ball (v := v) k
+  let H := wh_coinv_small_ball (v := v) k m
+  let Q := U ⧸ H
+  let C : Set (v.adicCompletion F) := ball v (-(k : ℤ))
+  let V : U → Set (v.adicCompletion F) := fun a => {x | x - a.1 ∈ ball v (m : ℤ)}
+  have hVopen (a : U) : IsOpen (V a) := by
+    apply (wh_ball_isOpen (v := v) (m : ℤ)).preimage
+    exact continuous_id.sub continuous_const
+  have hcover : C ⊆ ⋃ a : U, V a := by
+    intro x hx
+    refine Set.mem_iUnion.2 ⟨⟨x, hx⟩, ?_⟩
+    change x - x ∈ ball v (m : ℤ)
+    change Valued.v (x - x) ≤ WithZero.exp (-(m : ℤ))
+    rw [sub_self, map_zero]
+    exact zero_le
+  obtain ⟨t, ht⟩ := (wh_ball_compact_int (v := v) (-(k : ℤ))).elim_finite_subcover
+    V hVopen hcover
+  let f : t → Q := fun a => QuotientAddGroup.mk' H a.1
+  have hsurj : Function.Surjective f := by
+    intro q
+    obtain ⟨x, rfl⟩ := QuotientAddGroup.mk'_surjective H q
+    obtain ⟨a, ha, hxa⟩ := Set.mem_iUnion₂.1 (ht x.2)
+    refine ⟨⟨a, ha⟩, ?_⟩
+    have hmem : x - a ∈ H := by
+      change ((x - a : U) : v.adicCompletion F) ∈ ball v (m : ℤ)
+      exact hxa
+    exact (wh_quotient_eq_of_sub_mem H hmem).symm
+  exact Finite.of_surjective f hsurj
+
+private noncomputable def wh_coinv_rep (k m : ℕ)
+    (q : wh_coinv_large_ball (v := v) k ⧸ wh_coinv_small_ball (v := v) k m) :
+    wh_coinv_large_ball (v := v) k :=
+  Classical.choose (QuotientAddGroup.mk'_surjective
+    (wh_coinv_small_ball (v := v) k m) q)
+
+private theorem wh_coinv_rep_class (k m : ℕ)
+    (q : wh_coinv_large_ball (v := v) k ⧸ wh_coinv_small_ball (v := v) k m) :
+    QuotientAddGroup.mk' (wh_coinv_small_ball (v := v) k m) (wh_coinv_rep (v := v) k m q) = q :=
+  Classical.choose_spec (QuotientAddGroup.mk'_surjective
+    (wh_coinv_small_ball (v := v) k m) q)
+
+private noncomputable def wh_coinv_average (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (A : AddCharData F) (k m : ℕ) :
+    (L.L → T.V) →ₗ[ℂ] (L.L → T.V) := by
+  classical
+  let U := wh_coinv_large_ball (v := v) k
+  let H := wh_coinv_small_ball (v := v) k m
+  let Q := U ⧸ H
+  letI : Finite Q := wh_coinv_quotient_finite (v := v) k m
+  letI : Fintype Q := Fintype.ofFinite Q
+  refine
+    { toFun := fun f => ((Fintype.card Q : ℂ)⁻¹) •
+        ∑ q : Q, A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+          rtr (L.n (Multiplicative.ofAdd
+            ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F))) f
+      map_add' := ?_
+      map_smul' := ?_ }
+  · intro f g
+    funext x
+    simp [Finset.sum_add_distrib, smul_add, rtr]
+  · intro c f
+    funext x
+    simp [Finset.smul_sum, smul_smul, rtr, mul_comm, mul_left_comm, mul_assoc]
+
+private theorem wh_coinv_rtr_add (L : FinLocalCover D H v) {V : Type}
+    (x y : v.adicCompletion F) (f : L.L → V) :
+    rtr (L.n (Multiplicative.ofAdd x))
+        (rtr (L.n (Multiplicative.ofAdd y)) f) =
+      rtr (L.n (Multiplicative.ofAdd (x + y))) f := by
+  have hn : L.n (Multiplicative.ofAdd x) * L.n (Multiplicative.ofAdd y) =
+      L.n (Multiplicative.ofAdd (x + y)) := by
+    rw [← map_mul]
+    congr 1
+  funext g
+  change f ((g * L.n (Multiplicative.ofAdd x)) * L.n (Multiplicative.ofAdd y)) =
+    f (g * L.n (Multiplicative.ofAdd (x + y)))
+  rw [mul_assoc, hn]
+
+private theorem wh_coinv_ball_eventually (t : v.adicCompletion F) :
+    ∃ k : ℕ, t ∈ ball v (-(k : ℤ)) := by
+  by_cases ht0 : t = 0
+  · subst t
+    exact ⟨0, by simp [ball]⟩
+  have hvne : Valued.v t ≠ 0 := (Valuation.ne_zero_iff Valued.v).2 ht0
+  have hvinvne : (Valued.v t)⁻¹ ≠ 0 := inv_ne_zero hvne
+  obtain ⟨k, hk⟩ := WithZero.exists_exp_neg_natCast_lt hvinvne
+  have hposvi : 0 < (Valued.v t)⁻¹ := pos_iff_ne_zero.mpr hvinvne
+  have hpose : 0 < WithZero.exp (-(k : ℤ)) :=
+    pos_iff_ne_zero.mpr WithZero.exp_ne_zero
+  have hbound : Valued.v t < WithZero.exp (k : ℤ) := by
+    have h := (inv_lt_inv₀ hposvi hpose).2 hk
+    calc
+      Valued.v t = ((Valued.v t)⁻¹)⁻¹ := by rw [inv_inv]
+      _ < (WithZero.exp (-(k : ℤ)))⁻¹ := h
+      _ = WithZero.exp (k : ℤ) := by rw [WithZero.exp_neg, inv_inv]
+  refine ⟨k, ?_⟩
+  change Valued.v t ≤ WithZero.exp (-(-(k : ℤ)))
+  rw [neg_neg]
+  exact hbound.le
+
+private theorem wh_coinv_weighted_term_eq (L : FinLocalCover D H v)
+    {T : TorusRep D H v} (A : AddCharData F) (k m : ℕ) (f : L.L → T.V)
+    (hInv : ∀ u, u ∈ ball v (m : ℤ) →
+      rtr (L.n (Multiplicative.ofAdd u)) f = f)
+    (a b : wh_coinv_large_ball (v := v) k)
+    (hab : QuotientAddGroup.mk' (wh_coinv_small_ball (v := v) k m) a =
+      QuotientAddGroup.mk' (wh_coinv_small_ball (v := v) k m) b) :
+    A.ψ v (-a.1) • rtr (L.n (Multiplicative.ofAdd a.1)) f =
+      A.ψ v (-b.1) • rtr (L.n (Multiplicative.ofAdd b.1)) f := by
+  let H := wh_coinv_small_ball (v := v) k m
+  have hab' : a - b ∈ H := wh_sub_mem_of_quotient_eq H hab
+  have hba' : b - a ∈ H := by simpa using H.neg_mem hab'
+  have hba : (b.1 - a.1 : v.adicCompletion F) ∈ ball v (m : ℤ) := hba'
+  have hψ : A.ψ v (b.1 - a.1) = 1 := by
+    apply A.integral
+    exact wh_ball_subset_integers (v := v) m hba
+  have hchar : A.ψ v (-a.1) = A.ψ v (-b.1) := by
+    have harg : -a.1 = -b.1 + (b.1 - a.1) := by abel
+    rw [harg, (A.ψ v).map_add_eq_mul, hψ, mul_one]
+  have htrans : rtr (L.n (Multiplicative.ofAdd a.1)) f =
+      rtr (L.n (Multiplicative.ofAdd b.1)) f := by
+    have habsum : b.1 = a.1 + (b.1 - a.1) := by abel
+    calc
+      rtr (L.n (Multiplicative.ofAdd a.1)) f =
+          rtr (L.n (Multiplicative.ofAdd a.1))
+            (rtr (L.n (Multiplicative.ofAdd (b.1 - a.1))) f) := by rw [hInv _ hba]
+      _ = rtr (L.n (Multiplicative.ofAdd (a.1 + (b.1 - a.1)))) f :=
+            wh_coinv_rtr_add L a.1 (b.1 - a.1) f
+      _ = rtr (L.n (Multiplicative.ofAdd b.1)) f :=
+            congrArg (fun z => rtr (L.n (Multiplicative.ofAdd z)) f) habsum.symm
+  rw [hchar, htrans]
+
+private theorem wh_coinv_average_translate (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (A : AddCharData F) (k m : ℕ) (f : L.L → T.V)
+    (hInv : ∀ u, u ∈ ball v (m : ℤ) →
+      rtr (L.n (Multiplicative.ofAdd u)) f = f)
+    (t : v.adicCompletion F) (ht : t ∈ ball v (-(k : ℤ))) :
+    wh_coinv_average L T A k m (rtr (L.n (Multiplicative.ofAdd t)) f) =
+      A.ψ v t • wh_coinv_average L T A k m f := by
+  classical
+  let U := wh_coinv_large_ball (v := v) k
+  let H := wh_coinv_small_ball (v := v) k m
+  let Q := U ⧸ H
+  letI : Finite Q := wh_coinv_quotient_finite (v := v) k m
+  letI : Fintype Q := Fintype.ofFinite Q
+  let tU : U := ⟨t, ht⟩
+  let qt : Q := QuotientAddGroup.mk' H tU
+  let term : Q → (L.L → T.V) := fun q =>
+    A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+      rtr (L.n (Multiplicative.ofAdd
+        ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F))) f
+  have hclass (q : Q) :
+      QuotientAddGroup.mk' H
+          (wh_coinv_rep (v := v) k m q + tU) =
+        QuotientAddGroup.mk' H (wh_coinv_rep (v := v) k m (q + qt)) := by
+    calc
+      QuotientAddGroup.mk' H (wh_coinv_rep (v := v) k m q + tU) =
+          QuotientAddGroup.mk' H (wh_coinv_rep (v := v) k m q) + qt := by
+            simp [qt, map_add]
+      _ = q + qt := by rw [wh_coinv_rep_class]
+      _ = QuotientAddGroup.mk' H (wh_coinv_rep (v := v) k m (q + qt)) := by
+            rw [wh_coinv_rep_class]
+  have hterm (q : Q) :
+      A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+          rtr (L.n (Multiplicative.ofAdd
+            ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)))
+            (rtr (L.n (Multiplicative.ofAdd t)) f) =
+        A.ψ v t • term (q + qt) := by
+    let a := wh_coinv_rep (v := v) k m q
+    let b := wh_coinv_rep (v := v) k m (q + qt)
+    have hchar : A.ψ v (-a.1) = A.ψ v t * A.ψ v (-(a.1 + t)) := by
+      have harg : -a.1 = -(a.1 + t) + t := by abel
+      rw [harg, (A.ψ v).map_add_eq_mul, mul_comm]
+    have htr := wh_coinv_rtr_add L a.1 t f
+    have hweighted := wh_coinv_weighted_term_eq L A k m f hInv
+      (a + tU) b (hclass q)
+    change A.ψ v (-a.1) •
+        rtr (L.n (Multiplicative.ofAdd a.1))
+          (rtr (L.n (Multiplicative.ofAdd t)) f) =
+      A.ψ v t • (A.ψ v (-b.1) •
+        rtr (L.n (Multiplicative.ofAdd b.1)) f)
+    rw [htr, hchar]
+    rw [mul_smul]
+    exact congrArg (fun z => A.ψ v t • z) hweighted
+  have hsum :
+      (∑ q : Q,
+        A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+          rtr (L.n (Multiplicative.ofAdd
+            ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)))
+            (rtr (L.n (Multiplicative.ofAdd t)) f)) =
+      A.ψ v t • ∑ q : Q, term q := by
+    calc
+      _ = ∑ q : Q, A.ψ v t • term (q + qt) := by
+        apply Finset.sum_congr rfl
+        intro q hq
+        exact hterm q
+      _ = A.ψ v t • ∑ q : Q, term (q + qt) := by rw [Finset.smul_sum]
+      _ = A.ψ v t • ∑ q : Q, term q := by
+        congr 1
+        exact Fintype.sum_equiv (Equiv.addRight qt) _ _ (by intro q; rfl)
+  change ((Fintype.card Q : ℂ)⁻¹) •
+      (∑ q : Q,
+        A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+          rtr (L.n (Multiplicative.ofAdd
+            ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)))
+            (rtr (L.n (Multiplicative.ofAdd t)) f)) =
+      A.ψ v t • (((Fintype.card Q : ℂ)⁻¹) • ∑ q : Q, term q)
+  rw [hsum]
+  simp [smul_smul, mul_comm]
+
+private def wh_coinv_relation (L : FinLocalCover D H v) {T : TorusRep D H v}
+    (A : AddCharData F)
+    (f : L.L → T.V) (t : v.adicCompletion F) : L.L → T.V :=
+  rtr (L.n (Multiplicative.ofAdd t)) f - A.ψ v t • f
+
+private def wh_coinv_relation_span (L : FinLocalCover D H v) (T : TorusRep D H v)
+    (A : AddCharData F) (E : Submodule ℂ (L.L → T.V)) :
+    Submodule ℂ (L.L → T.V) :=
+  Submodule.span ℂ (Set.range fun p : E × v.adicCompletion F =>
+    wh_coinv_relation L A p.1.1 p.2)
+
+private theorem wh_coinv_average_zero_mem (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (A : AddCharData F) (k m : ℕ)
+    (E : Submodule ℂ (L.L → T.V)) (f : L.L → T.V) (hf : f ∈ E)
+    (havg : wh_coinv_average L T A k m f = 0) :
+    f ∈ wh_coinv_relation_span L T A E := by
+  classical
+  let U := wh_coinv_large_ball (v := v) k
+  let H := wh_coinv_small_ball (v := v) k m
+  let Q := U ⧸ H
+  letI : Finite Q := wh_coinv_quotient_finite (v := v) k m
+  letI : Fintype Q := Fintype.ofFinite Q
+  let N : ℂ := (Fintype.card Q : ℂ)
+  let term : Q → (L.L → T.V) := fun q =>
+    A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+      rtr (L.n (Multiplicative.ofAdd
+        ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F))) f
+  let relterm : Q → (L.L → T.V) := fun q =>
+    A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+      wh_coinv_relation L A f ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)
+  have hψ (q : Q) :
+      A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) *
+          A.ψ v ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F) = 1 := by
+    rw [← (A.ψ v).map_add_eq_mul]
+    simp
+  have hsumEq :
+      (∑ q : Q, relterm q) = (∑ q : Q, term q) - N • f := by
+    calc
+      _ = ∑ q : Q,
+          (A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+            rtr (L.n (Multiplicative.ofAdd
+              ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F))) f -
+            A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) •
+              (A.ψ v ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F) • f)) := by
+        apply Finset.sum_congr rfl
+        intro q hq
+        simp [relterm, wh_coinv_relation, smul_sub, smul_smul]
+      _ = (∑ q : Q, term q) -
+          ∑ q : Q,
+            (A.ψ v (-((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) *
+              A.ψ v ((wh_coinv_rep (v := v) k m q : U) : v.adicCompletion F)) • f := by
+        rw [Finset.sum_sub_distrib]
+        congr 1
+        apply Finset.sum_congr rfl
+        intro q hq
+        rw [smul_smul]
+      _ = (∑ q : Q, term q) - N • f := by
+        simp [hψ, N, Nat.cast_smul_eq_nsmul]
+  have hNnat : Fintype.card Q ≠ 0 := Fintype.card_ne_zero
+  have hN : N ≠ 0 := by
+    dsimp [N]
+    exact Nat.cast_ne_zero.mpr hNnat
+  have hsumZero : (N⁻¹) • (∑ q : Q, term q) = 0 := by
+    simpa [wh_coinv_average, term, N] using havg
+  have hrawZero : (∑ q : Q, term q) = 0 := by
+    rcases smul_eq_zero.mp hsumZero with hzero | hzero
+    · exact (inv_ne_zero hN hzero).elim
+    · exact hzero
+  have hrelSum : (∑ q : Q, relterm q) ∈ wh_coinv_relation_span L T A E := by
+    apply Submodule.sum_mem
+    intro q hq
+    apply (wh_coinv_relation_span L T A E).smul_mem
+    apply Submodule.subset_span
+    exact ⟨(⟨f, hf⟩, (wh_coinv_rep (v := v) k m q : U)), rfl⟩
+  have hscale : (-(N⁻¹)) • (∑ q : Q, relterm q) = f := by
+    rw [hsumEq, hrawZero]
+    calc
+      (-(N⁻¹)) • (0 - N • f) = (-(N⁻¹)) • ((-N) • f) := by simp
+      _ = ((-(N⁻¹)) * (-N)) • f := by rw [smul_smul]
+      _ = f := by
+        have hcoeff : (-(N⁻¹)) * (-N) = 1 := by
+          field_simp
+        rw [hcoeff, one_smul]
+  have := (wh_coinv_relation_span L T A E).smul_mem (-(N⁻¹)) hrelSum
+  rw [hscale] at this
+  exact this
+
+private theorem wh_coinv_relation_average_zero (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (A : AddCharData F) (s : ℂ)
+    (E : Submodule ℂ (L.L → T.V)) (hE : ∀ f ∈ E, IsSection L T s f)
+    (f : L.L → T.V) (hf : f ∈ wh_coinv_relation_span L T A E) :
+    ∃ k m, L.m0 ≤ m ∧ wh_coinv_average L T A k m f = 0 := by
+  classical
+  obtain ⟨S, hS, hfS⟩ := Submodule.mem_span_finite_of_mem_span hf
+  let relGen : E × v.adicCompletion F → (L.L → T.V) := fun p =>
+    wh_coinv_relation L A p.1.1 p.2
+  let tsub : {z : L.L → T.V // z ∈ (S : Set (L.L → T.V))} → E × v.adicCompletion F :=
+    fun z => Classical.choose (Set.mem_range.mp (hS z.2))
+  have htsub (z : {z : L.L → T.V // z ∈ (S : Set (L.L → T.V))}) :
+      relGen (tsub z) = z.1 :=
+    Classical.choose_spec (Set.mem_range.mp (hS z.2))
+  let depth : {z : L.L → T.V // z ∈ (S : Set (L.L → T.V))} → ℕ := fun z =>
+    Classical.choose (hE (tsub z).1.1 (tsub z).1.2 |>.2.2)
+  have hdepth (z : {z : L.L → T.V // z ∈ (S : Set (L.L → T.V))}) :
+      L.m0 ≤ depth z ∧ ∀ g, ∀ a ∈ L.Kc (depth z),
+        (tsub z).1.1 (g * a) = (tsub z).1.1 g :=
+    Classical.choose_spec (hE (tsub z).1.1 (tsub z).1.2 |>.2.2)
+  let kdepth : {z : L.L → T.V // z ∈ (S : Set (L.L → T.V))} → ℕ := fun z =>
+    Classical.choose (wh_coinv_ball_eventually (v := v) (tsub z).2)
+  have hkdepth (z : {z : L.L → T.V // z ∈ (S : Set (L.L → T.V))}) :
+      (tsub z).2 ∈ ball v (-(kdepth z : ℤ)) :=
+    Classical.choose_spec (wh_coinv_ball_eventually (v := v) (tsub z).2)
+  let kfun : (L.L → T.V) → ℕ := fun z =>
+    if hz : z ∈ (S : Set (L.L → T.V)) then kdepth ⟨z, hz⟩ else 0
+  let depthFun : (L.L → T.V) → ℕ := fun z =>
+    if hz : z ∈ (S : Set (L.L → T.V)) then depth ⟨z, hz⟩ else 0
+  let k := S.sup kfun
+  let m := max L.m0 (S.sup depthFun)
+  have hm : L.m0 ≤ m := Nat.le_max_left _ _
+  let P := wh_coinv_average L T A k m
+  have hSker : (S : Set (L.L → T.V)) ⊆ LinearMap.ker P := by
+    intro z hz
+    let zS : {z : L.L → T.V // z ∈ (S : Set (L.L → T.V))} := ⟨z, hz⟩
+    let p := tsub zS
+    have hp : relGen p = z := htsub zS
+    have hkz : kdepth zS ≤ k := by
+      have hsup : kfun z ≤ k := by
+        simpa [k] using (Finset.le_sup (s := S) (f := kfun) hz)
+      have hfun : kfun z = kdepth zS := by
+        dsimp [kfun]
+        rw [dif_pos hz]
+      rw [hfun] at hsup
+      exact hsup
+    have hkzZ : (kdepth zS : ℤ) ≤ (k : ℤ) := by exact_mod_cast hkz
+    have hidx : -(k : ℤ) ≤ -(kdepth zS : ℤ) := neg_le_neg hkzZ
+    have ht : p.2 ∈ ball v (-(k : ℤ)) := wh_ball_anti hidx (hkdepth zS)
+    have hdepthle : depth zS ≤ S.sup depthFun := by
+      have hsup : depthFun z ≤ S.sup depthFun :=
+        Finset.le_sup (s := S) (f := depthFun) hz
+      have hfun : depthFun z = depth zS := by
+        dsimp [depthFun]
+        rw [dif_pos hz]
+      rw [hfun] at hsup
+      exact hsup
+    have hdepthZ : (depth zS : ℤ) ≤ (m : ℤ) := by
+      have hdepthNat : depth zS ≤ m := by
+        dsimp [m]
+        exact Nat.le_trans hdepthle (Nat.le_max_right _ _)
+      exact_mod_cast hdepthNat
+    have hInv : ∀ u, u ∈ ball v (m : ℤ) →
+        rtr (L.n (Multiplicative.ofAdd u)) p.1.1 = p.1.1 := by
+      intro u hu
+      have hu' : u ∈ ball v (depth zS : ℤ) := wh_ball_anti hdepthZ hu
+      funext g
+      change p.1.1 (g * L.n (Multiplicative.ofAdd u)) = p.1.1 g
+      exact hdepth zS |>.2 g _ (L.n_Kc (depth zS) (hdepth zS).1 u hu')
+    have htrans := wh_coinv_average_translate L T A k m p.1.1 hInv p.2 ht
+    have hrelavg : P (relGen p) = 0 := by
+      change wh_coinv_average L T A k m
+        (rtr (L.n (Multiplicative.ofAdd p.2)) p.1.1 - A.ψ v p.2 • p.1.1) = 0
+      rw [map_sub, map_smul, htrans]
+      simp
+    apply LinearMap.mem_ker.mpr
+    rw [← hp]
+    exact hrelavg
+  have hspan : Submodule.span ℂ (S : Set (L.L → T.V)) ≤ LinearMap.ker P :=
+    Submodule.span_le.mpr hSker
+  have hP := hspan hfS
+  exact ⟨k, m, hm, LinearMap.mem_ker.mp hP⟩
+
 private theorem wh_locallyConstant_compactSupport_invariant {V : Type}
     [NormedAddCommGroup V] [NormedSpace ℂ V] (φ : v.adicCompletion F → V)
     (hφ : IsLocallyConstant φ) (hc : HasCompactSupport φ) :
@@ -1220,6 +1623,7 @@ theorem whittaker_twoCell (L : FinLocalCover D H v) (T : TorusRep D H v) (A : Ad
     exact hf
   exact hfactor f hfsec
 
+set_option maxHeartbeats 0 in
 /-- **wh:coinvariants** (left exactness of `ψ`-twisted coinvariants, Bernstein–Zelevinsky): a
 Whittaker functional on an `rtr`-stable subspace of `I(T, s)` extends to `I(T, s)`. -/
 theorem whittaker_extend (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddCharData F)
@@ -1227,7 +1631,135 @@ theorem whittaker_extend (L : FinLocalCover D H v) (T : TorusRep D H v) (A : Add
     (Λ : (L.L → T.V) →ₗ[ℂ] ℂ) (hΛ : IsWhittakerOn L A W Λ) :
     ∃ Λ' : (L.L → T.V) →ₗ[ℂ] ℂ, IsWhittakerOn L A (sectionSpace L T s) Λ' ∧
       ∀ f ∈ W, Λ' f = Λ f := by
-  sorry
+  classical
+  let I := sectionSpace L T s
+  let RI := wh_coinv_relation_span L T A I
+  let RW := wh_coinv_relation_span L T A W
+  have hRIle : RI ≤ I := by
+    apply Submodule.span_le.mpr
+    rintro z ⟨p, rfl⟩
+    have hrt : rtr (L.n (Multiplicative.ofAdd p.2)) p.1.1 ∈ I := by
+      change IsSection L T s (rtr (L.n (Multiplicative.ofAdd p.2)) p.1.1)
+      exact IsSection.rtr p.1.2 (L.n (Multiplicative.ofAdd p.2))
+    have hsmul : A.ψ v p.2 • p.1.1 ∈ I := I.smul_mem (A.ψ v p.2) p.1.2
+    exact I.sub_mem hrt hsmul
+  have hRWleRI : RW ≤ RI := by
+    apply Submodule.span_le.mpr
+    rintro z ⟨p, rfl⟩
+    exact Submodule.subset_span
+      ⟨(⟨p.1.1, hW p.1.2⟩, p.2), rfl⟩
+  have hΛzeroRW : RW ≤ LinearMap.ker Λ := by
+    apply Submodule.span_le.mpr
+    rintro z ⟨p, rfl⟩
+    have h := hΛ p.1.1 p.1.2 p.2
+    change Λ (rtr (L.n (Multiplicative.ofAdd p.2)) p.1.1 - A.ψ v p.2 • p.1.1) = 0
+    rw [map_sub, map_smul, h]
+    simp
+  let R : Submodule ℂ I := Submodule.comap I.subtype RI
+  let WI : Submodule ℂ I := Submodule.comap I.subtype W
+  letI : AddCommGroup (↥WI) := inferInstance
+  letI : Module ℂ (↥WI) := inferInstance
+  let qW : WI →ₗ[ℂ] I ⧸ R := R.mkQ.comp WI.subtype
+  let lambdaW : WI →ₗ[ℂ] ℂ := Λ.comp (I.subtype.comp WI.subtype)
+  have hker : LinearMap.ker qW ≤ LinearMap.ker lambdaW := by
+    intro x hx
+    have hq : qW x = 0 := LinearMap.mem_ker.mp hx
+    have hxR : WI.subtype x ∈ R := by
+      have hxker : WI.subtype x ∈ LinearMap.ker R.mkQ := LinearMap.mem_ker.mpr hq
+      simpa [Submodule.ker_mkQ] using hxker
+    have hxRI : I.subtype (WI.subtype x) ∈ RI := hxR
+    let f : L.L → T.V := I.subtype (WI.subtype x)
+    have hfW : f ∈ W := x.2
+    have hfsec : IsSection L T s f := (WI.subtype x).2
+    obtain ⟨k, m, hm, havg⟩ := wh_coinv_relation_average_zero
+      L T A s I (by intro g hg; exact hg) f hxRI
+    have hfRW : f ∈ RW := wh_coinv_average_zero_mem L T A k m W f hfW havg
+    have hΛf : Λ f = 0 := LinearMap.mem_ker.mp (hΛzeroRW hfRW)
+    apply LinearMap.mem_ker.mpr
+    change Λ f = 0
+    exact hΛf
+  let lift : WI ⧸ LinearMap.ker qW →ₗ[ℂ] ℂ :=
+    Submodule.liftQ (LinearMap.ker qW) lambdaW hker
+  let ellRange : LinearMap.range qW →ₗ[ℂ] ℂ :=
+    lift.comp qW.quotKerEquivRange.symm.toLinearMap
+  obtain ⟨ellQ, hellQ⟩ := LinearMap.exists_extend ellRange
+  let ellI : I →ₗ[ℂ] ℂ := ellQ.comp R.mkQ
+  have hrestrict (x : WI) : ellI (WI.subtype x) = lambdaW x := by
+    let y : LinearMap.range qW := ⟨qW x, LinearMap.mem_range_self qW x⟩
+    have hy : qW.quotKerEquivRange.symm y = (LinearMap.ker qW).mkQ x := by
+      have hyEq : qW.quotKerEquivRange ((LinearMap.ker qW).mkQ x) = y := by
+        apply Subtype.ext
+        simp [y, LinearMap.quotKerEquivRange_apply_mk]
+      rw [← hyEq]
+      exact qW.quotKerEquivRange.symm_apply_apply _
+    have hEllRange : ellRange y = lambdaW x := by
+      simp [ellRange, hy, lift, Submodule.liftQ_apply]
+    have hExtAt : ellQ y = ellRange y := by
+      have h := congrArg (fun g : LinearMap.range qW →ₗ[ℂ] ℂ => g y) hellQ
+      simpa using h
+    calc
+      ellI (WI.subtype x) = ellQ (qW x) := by rfl
+      _ = ellQ y := rfl
+      _ = ellRange y := hExtAt
+      _ = lambdaW x := hEllRange
+  have hEllWhittaker : ∀ f : I, ∀ t : v.adicCompletion F,
+      ellI ⟨rtr (L.n (Multiplicative.ofAdd t)) f.1,
+        (by change IsSection L T s (rtr (L.n (Multiplicative.ofAdd t)) f.1)
+            exact IsSection.rtr f.2 (L.n (Multiplicative.ofAdd t)))⟩ =
+        A.ψ v t * ellI f := by
+    intro f t
+    have hrt : rtr (L.n (Multiplicative.ofAdd t)) f.1 ∈ I := by
+      change IsSection L T s (rtr (L.n (Multiplicative.ofAdd t)) f.1)
+      exact IsSection.rtr f.2 (L.n (Multiplicative.ofAdd t))
+    let fr : I := ⟨rtr (L.n (Multiplicative.ofAdd t)) f.1, hrt⟩
+    have hrelsec : wh_coinv_relation L A f.1 t ∈ I := by
+      change IsSection L T s (rtr (L.n (Multiplicative.ofAdd t)) f.1 - A.ψ v t • f.1)
+      exact I.sub_mem hrt (I.smul_mem (A.ψ v t) f.2)
+    let rel : I := ⟨wh_coinv_relation L A f.1 t, hrelsec⟩
+    have hrelRI : rel ∈ R := by
+      change I.subtype rel ∈ RI
+      apply Submodule.subset_span
+      exact ⟨(f, t), rfl⟩
+    have hqrel : R.mkQ rel = 0 := by
+      have hkerrel : rel ∈ LinearMap.ker R.mkQ := by
+        simpa [Submodule.ker_mkQ] using hrelRI
+      exact LinearMap.mem_ker.mp hkerrel
+    have hEllRel : ellI rel = 0 := by
+      simp [ellI, hqrel]
+    have hdiff : ellI fr - A.ψ v t * ellI f = 0 := by
+      calc
+        ellI fr - A.ψ v t * ellI f = ellI fr - ellI (A.ψ v t • f) := by
+          rw [map_smul]
+          simp
+        _ = ellI (fr - A.ψ v t • f) := (map_sub ellI fr (A.ψ v t • f)).symm
+        _ = ellI rel := by
+          have hrelEq : rel = fr - A.ψ v t • f := by
+            apply Subtype.ext
+            rfl
+          rw [hrelEq]
+        _ = 0 := hEllRel
+    exact sub_eq_zero.mp hdiff
+  obtain ⟨ellExt, hellExt⟩ := LinearMap.exists_extend ellI
+  have hellExtAt (f : I) : ellExt f.1 = ellI f := by
+    have h := congrArg (fun g : I →ₗ[ℂ] ℂ => g f) hellExt
+    simpa using h
+  refine ⟨ellExt, ?_, ?_⟩
+  · intro f hf t
+    let fI : I := ⟨f, hf⟩
+    let rtI : I := ⟨rtr (L.n (Multiplicative.ofAdd t)) f,
+      (by change IsSection L T s (rtr (L.n (Multiplicative.ofAdd t)) f)
+          exact IsSection.rtr hf (L.n (Multiplicative.ofAdd t)))⟩
+    calc
+      ellExt (rtr (L.n (Multiplicative.ofAdd t)) f) = ellI rtI := hellExtAt rtI
+      _ = A.ψ v t * ellI fI := hEllWhittaker fI t
+      _ = A.ψ v t * ellExt f := by rw [← hellExtAt fI]
+  · intro f hf
+    let fI : I := ⟨f, hW hf⟩
+    let fWI : WI := ⟨fI, hf⟩
+    calc
+      ellExt f = ellI fI := hellExtAt fI
+      _ = lambdaW fWI := by simpa [fWI] using hrestrict fWI
+      _ = Λ f := rfl
 
 /-- **wh:local-coefficient**: `𝒥 ∘ M(s) = τ(s) ∘ 𝒥` on `I(T, s)`, `Re s > 0`. -/
 theorem local_coefficient (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddCharData F)
