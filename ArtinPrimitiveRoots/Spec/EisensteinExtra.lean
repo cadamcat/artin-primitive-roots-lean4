@@ -2040,6 +2040,71 @@ private theorem specIdentify_cusp_bound
   change ‖fullGradient F (fun y => w (actAtPlaces F (toInf F (d.σ i)) y)) z‖ ≤ C
   exact (specIdentify_gradient_norm_isometry (toInf F (d.σ i)) w hSmooth z).le.trans hGradBound
 
+private theorem specIdentify_global_bound
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (σ : SL(2,F)) (τ : ℝ → ℝ) (cut : CutoffData F Γ σ τ)
+    (s : ℂ) (hs : s ∈ Metric.ball (5 / 2 : ℂ) (1 / 2)) :
+    let w := fun z => eisSeries F Γ σ s z - eisSeed F Γ σ τ s z
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ z, ‖w z‖ ≤ B ∧ ‖fullGradient F w z‖ ≤ B := by
+  classical
+  let w : X F → ℂ := fun z => eisSeries F Γ σ s z - eisSeed F Γ σ τ s z
+  have hdist : ‖s - (5 / 2 : ℂ)‖ < 1 / 2 := by
+    simpa only [Metric.mem_ball, dist_eq_norm] using hs
+  have hRe : |s.re - (5 / 2 : ℝ)| < 1 / 2 := by
+    have h := Complex.abs_re_le_norm (s - (5 / 2 : ℂ))
+    have heq : (s - (5 / 2 : ℂ)).re = s.re - (5 / 2 : ℝ) := by norm_num
+    rw [heq] at h
+    exact h.trans_lt hdist
+  have hhalf : 1 / 2 < s.re := by
+    have hlo := (abs_lt.mp hRe).1
+    linarith only [hlo]
+  have hE3 := E3_eis_smooth Γ σ s hhalf
+  have hE5 := E5_seed Γ D hD σ cut.A₀ cut.A cut.A₀_ge cut.A_ge
+    cut.separation τ cut.cutoff
+  have hSmooth : IsSmoothX F w := by
+    have hsmE : ContDiffOn ℝ ∞ (fun p => eisSeries F Γ σ s (ptX F p)) (posSet F) := hE3.1
+    have hsmS : ContDiffOn ℝ ∞ (fun p => eisSeed F Γ σ τ s (ptX F p)) (posSet F) :=
+      (hE5.2.1 s).1
+    exact hsmE.sub hsmS
+  have hInv : IsGammaInvariant F Γ w := by
+    intro γ hγ z
+    change eisSeries F Γ σ s (γ • z) - eisSeed F Γ σ τ s (γ • z) =
+      eisSeries F Γ σ s z - eisSeed F Γ σ τ s z
+    rw [(E2_eis_converge Γ σ).2.1 s hhalf γ hγ z, (hE5.2.1 s).2.1 γ hγ z]
+  let d : SiegelData F Γ := Classical.choice (spec_exists_siegelData Γ)
+  letI : Fintype d.ι := d.fintype
+  have hBounds : ∀ i : d.ι, ∃ B : ℝ, 0 ≤ B ∧
+      ∀ z ∈ SiegelData.setAt F d i, ‖w ((d.σ i) • z)‖ ≤ B ∧
+        ‖fullGradient F (fun x => w ((d.σ i) • x)) z‖ ≤ B :=
+    fun i => specIdentify_cusp_bound Γ D hD σ τ cut s hs d i
+  choose B hB hCusp using hBounds
+  refine ⟨∑ i : d.ι, B i, Finset.sum_nonneg (fun i _ => hB i), ?_⟩
+  intro x
+  obtain ⟨i, γ, hy⟩ := R8_siegel_cover Γ d x
+  let y : X F := (d.σ i)⁻¹ • ((γ : SL(2,𝓞 F)) • x)
+  have hact : (d.σ i) • y = (γ : SL(2,𝓞 F)) • x :=
+    smul_inv_smul (d.σ i) ((γ : SL(2,𝓞 F)) • x)
+  obtain ⟨hValue, hGrad⟩ := hCusp i y hy
+  have hGradAt : ‖fullGradient F w ((d.σ i) • y)‖ ≤ B i := by
+    calc
+      ‖fullGradient F w ((d.σ i) • y)‖ =
+          ‖fullGradient F (fun z => w ((d.σ i) • z)) y‖ :=
+        (specIdentify_gradient_norm_isometry (toInf F (d.σ i)) w hSmooth y).symm
+      _ ≤ B i := hGrad
+  have hComp : (fun z => w ((γ : SL(2,𝓞 F)) • z)) = w :=
+    funext (fun z => hInv γ γ.property z)
+  have hIso := specIdentify_gradient_norm_isometry
+    (toInf F (toSLF F (γ : SL(2,𝓞 F)))) w hSmooth x
+  change ‖fullGradient F (fun z => w ((γ : SL(2,𝓞 F)) • z)) x‖ =
+    ‖fullGradient F w ((γ : SL(2,𝓞 F)) • x)‖ at hIso
+  rw [hComp] at hIso
+  rw [hact, hInv γ γ.property x] at hValue
+  rw [hact, ← hIso] at hGradAt
+  have hBi : B i ≤ ∑ j : d.ι, B j :=
+    Finset.single_le_sum (fun j _ => hB j) (Finset.mem_univ i)
+  exact ⟨hValue.trans hBi, hGradAt.trans hBi⟩
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
