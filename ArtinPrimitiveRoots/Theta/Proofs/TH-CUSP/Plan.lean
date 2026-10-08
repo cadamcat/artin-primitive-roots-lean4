@@ -453,7 +453,35 @@ theorem th_cusp_periodic [IsTotallyComplex F] (P : CoverPackage D S H A)
     ∀ μ ∈ ArtinPrimitiveRoots.A1.Spec.cuspTranslations F Γ τ, ∀ x,
       cuspClassical P a Ψ gj (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F (μ + x) y) =
         cuspClassical P a Ψ gj (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) := by
-  sorry
+  intro μ hμ x
+  change μ ∈ (ArtinPrimitiveRoots.A1.Spec.cuspLattice F Γ τ).map
+    (ArtinPrimitiveRoots.A1.Spec.infEmb F).toAddMonoidHom at hμ
+  obtain ⟨ξ, hξ, rfl⟩ := AddSubgroup.mem_map.mp hμ
+  obtain ⟨γ, hconj⟩ := (ArtinPrimitiveRoots.A1.Spec.cuspLattice_mem_iff Γ τ ξ).mp hξ
+  have hform : τ⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F γ * τ =
+      ArtinPrimitiveRoots.A1.Spec.cuspUnitMatrix F 1 ξ := by
+    calc
+      τ⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F γ * τ =
+          τ⁻¹ * (τ * ArtinPrimitiveRoots.A1.Spec.upperHom F
+            (Multiplicative.ofAdd ξ) * τ⁻¹) * τ := by rw [hconj]
+      _ = ArtinPrimitiveRoots.A1.Spec.upperHom F (Multiplicative.ofAdd ξ) := by group
+      _ = ArtinPrimitiveRoots.A1.Spec.cuspUnitMatrix F 1 ξ := by
+        apply Subtype.ext
+        change !![(1 : F), ξ; 0, 1] =
+          !![algebraMap (𝓞 F) F (1 : 𝓞 F), ξ; 0, (algebraMap (𝓞 F) F (1 : 𝓞 F))⁻¹]
+        simp
+  have hact := ArtinPrimitiveRoots.A1.Spec.cusp_conjugate_affine_action
+    (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) τ 1 ξ hform x y hy
+  have hact' : (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) •
+      (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) =
+      τ • ArtinPrimitiveRoots.A1.Spec.ptX' F
+        (ArtinPrimitiveRoots.A1.Spec.infEmb F ξ + x) y := by
+    convert hact using 2 <;> funext w <;>
+      simp [ArtinPrimitiveRoots.A1.Spec.infEmb, ArtinPrimitiveRoots.A1.Spec.ptX', add_comm]
+  change cuspClassical P a Ψ gj (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F
+      (ArtinPrimitiveRoots.A1.Spec.infEmb F ξ + x) y) = _
+  rw [← hact']
+  exact hΓ γ γ.property (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y)
 
 /-- A zero integral descends from a finite-index period sublattice, including nonintegrable functions. -/
 theorem th_cusp_part3 (Λ₀ Λ : AddSubgroup (InfinitePlace F → ℂ)) [Countable Λ]
