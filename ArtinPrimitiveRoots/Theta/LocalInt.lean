@@ -410,12 +410,297 @@ theorem LocHaar.integral_comp_mul (μ : LocHaar v) {E : Type} [NormedAddCommGrou
       rw [hmapMeas, integral_smul_nnreal_measure, NNReal.smul_def]
     _ = (absFin v y)⁻¹ • ∫ x, f x ∂μ.μ := by rw [hcoef]
 
+private lemma theta_count_spanSingleton_div_localInt (v : FinPlace F) (x y : F)
+    (hx : x ≠ 0) (hy : y ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x / y)) =
+      FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) x) -
+        FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) y) := by
+  rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
+    FractionalIdeal.count_mul F v
+      (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hx)
+      (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hy)),
+    FractionalIdeal.count_inv]
+  ring
+
+private lemma theta_count_spanSingleton_eq_neg_log_intValuation_localInt
+    (v : FinPlace F) (a : 𝓞 F) (ha : a ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F a)) = -WithZero.log (v.intValuation a) := by
+  have hspan : (Ideal.span {a} : Ideal (𝓞 F)) ≠ 0 := by
+    simpa [ne_eq, Ideal.zero_eq_bot, Ideal.span_singleton_eq_bot] using ha
+  rw [← FractionalIdeal.coeIdeal_span_singleton, FractionalIdeal.count_coe F v hspan,
+    v.intValuation_if_neg ha, WithZero.log_exp]
+  ring
+
+private lemma theta_count_spanSingleton_eq_neg_log_valuation_localInt
+    (v : FinPlace F) (z : F) (hz : z ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z) =
+      -WithZero.log (HeightOneSpectrum.valuation F v z) := by
+  obtain ⟨n, d, hnd⟩ := IsLocalization.exists_mk'_eq (nonZeroDivisors (𝓞 F)) z
+  have hn : n ≠ 0 := by
+    intro hn
+    apply hz
+    rw [← hnd, IsFractionRing.mk'_eq_div, hn, map_zero, zero_div]
+  have hd : (d : 𝓞 F) ≠ 0 := nonZeroDivisors.ne_zero d.2
+  have hmapn : (algebraMap (𝓞 F) F n) ≠ 0 := by
+    intro h
+    exact hn ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hmapd : (algebraMap (𝓞 F) F (d : 𝓞 F)) ≠ 0 := by
+    intro h
+    exact hd ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hval : HeightOneSpectrum.valuation F v z =
+      v.intValuation n / v.intValuation (d : 𝓞 F) := by
+    rw [← hnd]
+    exact v.valuation_of_mk'
+  rw [hval, ← hnd, IsFractionRing.mk'_eq_div,
+    theta_count_spanSingleton_div_localInt v (algebraMap (𝓞 F) F n)
+      (algebraMap (𝓞 F) F (d : 𝓞 F)) hmapn hmapd,
+    theta_count_spanSingleton_eq_neg_log_intValuation_localInt v n hn,
+    theta_count_spanSingleton_eq_neg_log_intValuation_localInt v (d : 𝓞 F) hd,
+    WithZero.log_div (v.intValuation_ne_zero n hn) (v.intValuation_ne_zero (d : 𝓞 F) hd)]
+  ring
+
+private theorem theta_valuation_le_one_of_count_spanSingleton_nonneg
+    (w : FinPlace F) (x : F) (hx : x ≠ 0)
+    (hcount : 0 ≤ FractionalIdeal.count F w
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) x)) :
+    w.valuation F x ≤ 1 := by
+  rw [theta_count_spanSingleton_eq_neg_log_valuation_localInt w x hx] at hcount
+  have hxv : w.valuation F x ≠ 0 := (Valuation.ne_zero_iff _).mpr hx
+  lift w.valuation F x to ℤ using hxv with k hk
+  rw [WithZero.log_exp] at hcount
+  rw [← WithZero.exp_zero, WithZero.exp_le_exp]
+  omega
+
+private theorem psi_global_trace_witness (v : FinPlace F) :
+    ∃ z : F, (∀ w : FinPlace F, w ≠ v →
+      algebraMap F (w.adicCompletion F) z ∈ w.adicCompletionIntegers F) ∧
+      ¬ ∃ n : ℤ, Algebra.trace ℚ F z = (n : ℚ) := by
+  let P : FractionalIdeal (nonZeroDivisors (𝓞 F)) F := v.asIdeal
+  let C : FractionalIdeal (nonZeroDivisors (𝓞 F)) F :=
+    FractionalIdeal.dual ℤ ℚ (1 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+  let d : ℤ := FractionalIdeal.count F v
+    (differentIdeal ℤ (𝓞 F) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+  let n : ℕ := d.toNat + 1
+  let J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F := (P ^ n)⁻¹
+  have hd_nonneg : 0 ≤ d := by
+    exact FractionalIdeal.count_coe_nonneg F v (differentIdeal ℤ (𝓞 F))
+  have hdiff_ne : differentIdeal ℤ (𝓞 F) ≠ ⊥ := differentIdeal_ne_bot
+  have hdiff_frac_ne :
+      (differentIdeal ℤ (𝓞 F) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≠ 0 :=
+    FractionalIdeal.coeIdeal_ne_zero.mpr hdiff_ne
+  have hdiff_frac :
+      (differentIdeal ℤ (𝓞 F) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = C⁻¹ := by
+    simpa [C] using
+      (coeIdeal_differentIdeal ℤ ℚ F (𝓞 F))
+  have hcountD : FractionalIdeal.count F v
+      (differentIdeal ℤ (𝓞 F) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = d := by
+    rfl
+  have hcountC : FractionalIdeal.count F v C = -d := by
+    have hC : C = (differentIdeal ℤ (𝓞 F) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)⁻¹ := by
+      calc
+        C = (C⁻¹)⁻¹ := by simp
+        _ = (differentIdeal ℤ (𝓞 F) : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)⁻¹ := by
+          rw [← hdiff_frac]
+    rw [hC]
+    rw [FractionalIdeal.count_inv, hcountD]
+  have hP_ne : P ≠ 0 := by
+    dsimp [P]
+    exact FractionalIdeal.coeIdeal_ne_zero.mpr v.ne_bot
+  have hcountPv : FractionalIdeal.count F v P = 1 := by
+    dsimp [P]
+    exact FractionalIdeal.count_self F v
+  have hcountJv : FractionalIdeal.count F v J = -(n : ℤ) := by
+    dsimp [J]
+    rw [FractionalIdeal.count_inv, FractionalIdeal.count_pow, hcountPv]
+    simp
+  have hn_cast : (n : ℤ) = d + 1 := by
+    simp [n, Int.toNat_of_nonneg hd_nonneg]
+  have hJ_ne : J ≠ 0 := by
+    dsimp [J]
+    exact inv_ne_zero (pow_ne_zero n hP_ne)
+  have hcountJ_away (w : FinPlace F) (hw : w ≠ v) :
+      FractionalIdeal.count F w J = 0 := by
+    have hcountPw : FractionalIdeal.count F w P = 0 := by
+      dsimp [P]
+      exact FractionalIdeal.count_maximal_coprime F w hw.symm
+    dsimp [J]
+    rw [FractionalIdeal.count_inv, FractionalIdeal.count_pow, hcountPw]
+    simp
+  have hnot_le : ¬ J ≤ C := by
+    intro hle
+    have hmono := FractionalIdeal.count_mono F v hJ_ne hle
+    rw [hcountC, hcountJv] at hmono
+    omega
+  have hex : ∃ z₀ : F, z₀ ∈ J ∧ z₀ ∉ C := by
+    by_contra h
+    apply hnot_le
+    intro z hz
+    by_contra hnot
+    exact h ⟨z, hz, hnot⟩
+  obtain ⟨z₀, hz₀J, hz₀C⟩ := hex
+  have hz₀_ne : z₀ ≠ 0 := by
+    intro hz
+    subst z₀
+    have hzero : (0 : F) ∈ C := by
+      change (0 : F) ∈ (C : Submodule (𝓞 F) F)
+      exact Submodule.zero_mem _
+    exact hz₀C hzero
+  have hz₀_not_dual : z₀ ∉
+      FractionalIdeal.dual ℤ ℚ (1 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    simpa [C] using hz₀C
+  rw [FractionalIdeal.mem_dual (one_ne_zero :
+      (1 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≠ 0)] at hz₀_not_dual
+  push_neg at hz₀_not_dual
+  obtain ⟨b, hb, htrace⟩ := hz₀_not_dual
+  obtain ⟨a, ha_eq⟩ :=
+    (FractionalIdeal.mem_one_iff (nonZeroDivisors (𝓞 F))).mp hb
+  have htraceA : Algebra.trace ℚ F (z₀ * algebraMap (𝓞 F) F a) ∉
+      (algebraMap ℤ ℚ).range := by
+    simpa [Algebra.traceForm_apply, ha_eq] using htrace
+  let z : F := z₀ * algebraMap (𝓞 F) F a
+  have htraceZ : Algebra.trace ℚ F z ∉ (algebraMap ℤ ℚ).range := by
+    simpa [z] using htraceA
+  have hnotInt : ¬ ∃ m : ℤ, Algebra.trace ℚ F z = (m : ℚ) := by
+    rintro ⟨m, hm⟩
+    apply htraceZ
+    exact ⟨m, by simpa using hm.symm⟩
+  have hz_integral : ∀ w : FinPlace F, w ≠ v →
+      algebraMap F (w.adicCompletion F) z ∈ w.adicCompletionIntegers F := by
+    intro w hw
+    let Sz := FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) z₀
+    have hSz_ne : Sz ≠ 0 :=
+      FractionalIdeal.spanSingleton_ne_zero_iff.mpr hz₀_ne
+    have hSz_le : Sz ≤ J :=
+      FractionalIdeal.spanSingleton_le_iff_mem.mpr hz₀J
+    have hcountSz : 0 ≤ FractionalIdeal.count F w Sz := by
+      have hmono := FractionalIdeal.count_mono F w hSz_ne hSz_le
+      rw [hcountJ_away w hw] at hmono
+      exact hmono
+    have hz₀val : w.valuation F z₀ ≤ 1 :=
+      theta_valuation_le_one_of_count_spanSingleton_nonneg w z₀ hz₀_ne hcountSz
+    have haval : w.valuation F (algebraMap (𝓞 F) F a) ≤ 1 :=
+      w.valuation_le_one (R := 𝓞 F) (K := F) a
+    have hzval : w.valuation F z ≤ 1 := by
+      dsimp [z]
+      rw [map_mul]
+      exact mul_le_one₀ hz₀val zero_le haval
+    change ((z : F) : w.adicCompletion F) ∈ w.adicCompletionIntegers F
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hzval
+  exact ⟨z, hz_integral, hnotInt⟩
+
 /-- **jq:psi-conductor**: `ψ_v` is trivial on `𝔭^{-d}` and not on `𝔭^{-d-1}` for some `d ≥ 0`
 (derived from `AddCharData.trivial_on_F` and `integral`). -/
 theorem psi_conductor (A : AddCharData F) (v : FinPlace F) :
     ∃ d : ℕ, (∀ x ∈ ball v (-(d : ℤ)), A.ψ v x = 1) ∧
       ∃ x ∈ ball v (-((d : ℤ) + 1)), A.ψ v x ≠ 1 := by
-  sorry
+  classical
+  rcases psi_global_trace_witness v with ⟨z, hzIntegral, hzNotInt⟩
+  have hlocalNontriv : ∃ x : v.adicCompletion F, A.ψ v x ≠ 1 := by
+    by_contra h
+    have htriv (x : v.adicCompletion F) : A.ψ v x = 1 := by
+      by_contra hx
+      exact h ⟨x, hx⟩
+    have hfinprod :
+        (∏ᶠ w : FinPlace F, A.ψ w (algebraMap F (w.adicCompletion F) z)) =
+          A.ψ v (algebraMap F (v.adicCompletion F) z) := by
+      apply finprod_eq_single
+      intro w hw
+      exact A.integral w _ (hzIntegral w hw)
+    have hglobal := (A.trivial_on_F z).2
+    rw [hfinprod] at hglobal
+    have hexp : Complex.exp
+        (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = 1 := by
+      rw [htriv] at hglobal
+      simpa using hglobal
+    obtain ⟨m, hm⟩ := Complex.exp_eq_one_iff.mp hexp
+    have hcoef : (2 * Real.pi * Complex.I : ℂ) ≠ 0 := by
+      apply mul_ne_zero
+      · apply mul_ne_zero
+        · norm_num
+        · exact_mod_cast Real.pi_ne_zero
+      · exact Complex.I_ne_zero
+    have hcancel : (2 * Real.pi * Complex.I : ℂ) *
+        (-(Algebra.trace ℚ F z : ℂ)) =
+          (2 * Real.pi * Complex.I : ℂ) * (m : ℂ) := by
+      calc
+        _ = -(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)) := by ring
+        _ = (m : ℂ) * (2 * Real.pi * Complex.I) := hm
+        _ = (2 * Real.pi * Complex.I : ℂ) * (m : ℂ) := by ring
+    have hneg : -(Algebra.trace ℚ F z : ℂ) = (m : ℂ) :=
+      mul_left_cancel₀ hcoef hcancel
+    have htrace : (Algebra.trace ℚ F z : ℂ) = (-m : ℂ) := by
+      calc
+        (Algebra.trace ℚ F z : ℂ) = -(-(Algebra.trace ℚ F z : ℂ)) := by ring
+        _ = -(m : ℂ) := by rw [hneg]
+    have htraceQ : Algebra.trace ℚ F z = (-m : ℚ) := by exact_mod_cast htrace
+    exact hzNotInt ⟨-m, htraceQ⟩
+  obtain ⟨x, hx⟩ := hlocalNontriv
+  have hx0 : x ≠ 0 := by
+    intro hzero
+    subst x
+    simpa using hx
+  have hxVne : Valued.v x ≠ 0 := (Valuation.ne_zero_iff _).mpr hx0
+  let k : ℤ := WithZero.log (Valued.v x)
+  have hxVal : Valued.v x = WithZero.exp k := by
+    simpa [k] using (WithZero.exp_log hxVne).symm
+  let N : ℕ := Int.toNat (max 0 k)
+  have hkN : k ≤ (N : ℤ) := by
+    by_cases hk : 0 ≤ k
+    · simp [N, max_eq_right hk, Int.toNat_of_nonneg hk]
+    · have hkneg : k < 0 := lt_of_not_ge hk
+      simp [N, max_eq_left (le_of_lt hkneg)]
+      omega
+  have hxBall : x ∈ ball v (-(N : ℤ)) := by
+    simp only [ball, Set.mem_setOf_eq, neg_neg]
+    rw [hxVal]
+    exact WithZero.exp_le_exp.mpr (by exact_mod_cast hkN)
+  let P : ℕ → Prop := fun r => ∀ y ∈ ball v (-(r : ℤ)), A.ψ v y = 1
+  have hP0 : P 0 := by
+    intro y hy
+    apply A.integral v y
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    simpa [ball] using hy
+  have hfail : ∃ r : ℕ, ¬ P r := by
+    refine ⟨N, ?_⟩
+    intro h
+    exact hx (h x hxBall)
+  let n : ℕ := Nat.find hfail
+  have hnfail : ¬ P n := by simpa [n] using Nat.find_spec hfail
+  have hmin (r : ℕ) (hr : r < n) : P r := by
+    by_contra hnot
+    have hle : Nat.find hfail ≤ r := Nat.find_min' hfail hnot
+    omega
+  have hnpos : 0 < n := by
+    by_contra h
+    have hn0 : Nat.find hfail = 0 := by
+      simpa [n] using (show n = 0 by omega)
+    apply hnfail
+    simpa [n, hn0] using hP0
+  let d : ℕ := n - 1
+  have hdAdd : d + 1 = n := Nat.sub_add_cancel hnpos
+  have hPd : P d := hmin d (by omega)
+  have hbad : ∃ y : v.adicCompletion F,
+      y ∈ ball v (-(n : ℤ)) ∧ A.ψ v y ≠ 1 := by
+    by_contra h
+    apply hnfail
+    intro y hy
+    by_contra hψ
+    exact h ⟨y, hy, hψ⟩
+  refine ⟨d, ?_, ?_⟩
+  · intro y hy
+    exact hPd y hy
+  · obtain ⟨y, hyBall, hyNot⟩ := hbad
+    refine ⟨y, ?_, hyNot⟩
+    have hcast : (n : ℤ) = (d : ℤ) + 1 := by exact_mod_cast hdAdd.symm
+    simpa only [hcast] using hyBall
 
 /-- At `v ∤ 𝔇` the conductor exponent is `0`. -/
 theorem psi_conductor_unramified (A : AddCharData F) (v : FinPlace F)
@@ -642,10 +927,72 @@ def wC : PGL2 ℂ := QuotientGroup.mk (weylM ℂ)
 def sphC (s : ℂ) (g : PGL2 ℂ) : ℂ := sphericalC s (Quotient.out g)
 
 theorem sphC_mk (s : ℂ) (g : GL (Fin 2) ℂ) : sphC s (QuotientGroup.mk g) = sphericalC s g := by
-  sorry
+  obtain ⟨f, _, hrep⟩ := sphericalC_isSection s
+  have hq : (QuotientGroup.mk (Quotient.out (QuotientGroup.mk g : PGL2 ℂ)) : PGL2 ℂ) =
+      QuotientGroup.mk g := by
+    simp
+  have hout := hrep (Quotient.out (QuotientGroup.mk g : PGL2 ℂ))
+  have hg := hrep g
+  rw [hq] at hout
+  change sphericalC s (Quotient.out (QuotientGroup.mk g : PGL2 ℂ)) = sphericalC s g
+  exact hout.symm.trans hg
 
 theorem sphC_isSection (s : ℂ) : IsSectionC s (sphC s) ∧ Continuous (sphC s) := by
-  sorry
+  obtain ⟨f, hf, hrep⟩ := sphericalC_isSection s
+  have heq : sphC s = f := by
+    funext q
+    refine QuotientGroup.induction_on q ?_
+    intro g
+    exact (sphC_mk s g).trans (hrep g).symm
+  let base : GL (Fin 2) ℂ → ℝ := fun g =>
+    ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖ /
+      (‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2)
+  have hden : ∀ g : GL (Fin 2) ℂ,
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 ≠ 0 := by
+    intro g h
+    have h00 : ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ = 0 := by
+      have h0 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0)
+      have h1 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+      nlinarith
+    have h01 : ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ = 0 := by
+      have h0 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0)
+      have h1 := norm_nonneg ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+      nlinarith
+    have he0 : (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0 = 0 := norm_eq_zero.mp h00
+    have he1 : (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1 = 0 := norm_eq_zero.mp h01
+    apply g.det_ne_zero
+    simp [Matrix.det_fin_two, he0, he1]
+  have hbase : Continuous base := by
+    apply (by fun_prop : Continuous fun g : GL (Fin 2) ℂ =>
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖).div
+        (by fun_prop : Continuous fun g : GL (Fin 2) ℂ =>
+          ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+            ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2) hden
+  have hbase_ne (g : GL (Fin 2) ℂ) : base g ≠ 0 := by
+    apply div_ne_zero
+    · exact norm_ne_zero_iff.mpr g.det_ne_zero
+    · exact hden g
+  have hsph : Continuous (sphericalC s) := by
+    have hpow : Continuous fun g : GL (Fin 2) ℂ =>
+        ((base g : ℝ) : ℂ) ^ (1 + 2 * s) := by
+      rw [continuous_iff_continuousAt]
+      intro g
+      have hbaseAt : ContinuousAt base g := hbase.continuousAt (x := g)
+      have hpowAt : ContinuousAt (fun x : ℝ => (x : ℂ) ^ (1 + 2 * s)) (base g) :=
+        Complex.continuousAt_ofReal_cpow_const (base g) (1 + 2 * s)
+          (Or.inr (hbase_ne g))
+      exact hpowAt.comp hbaseAt
+    change Continuous (fun g : GL (Fin 2) ℂ =>
+      ((base g : ℝ) : ℂ) ^ (1 + 2 * s))
+    exact hpow
+  have hcont : Continuous (sphC s) := by
+    apply (QuotientGroup.isQuotientMap_mk (Subgroup.center (GL (Fin 2) ℂ))).continuous_iff.mpr
+    convert hsph using 1
+    funext g
+    exact sphC_mk s g
+  exact ⟨by simpa [heq] using hf, hcont⟩
 
 /-- **def:jacquet-C**: `𝒥_ℂ f = ∫_ℂ ψ_w(-x) f(w n(x)) dx` (Lebesgue measure). -/
 def jacquetC (f : PGL2 ℂ → ℂ) : ℂ := ∫ x : ℂ, psiC (-x) * f (wC * nC x)
@@ -664,7 +1011,43 @@ def besselConst : ℝ := 2 * Real.pi / Real.Gamma (4 / 3) * (2 * Real.pi) ^ ((1 
 /-- **jq:complex-equiv**: `𝒥_ℂ(π(n(u))f) = ψ_w(u) 𝒥_ℂ(f)` for continuous sections, `Re s > 0`. -/
 theorem jacquetC_equiv (s : ℂ) (hs : 0 < s.re) (f : PGL2 ℂ → ℂ) (hf : IsSectionC s f)
     (hcont : Continuous f) (u : ℂ) : jacquetC (rtr (nC u) f) = psiC u * jacquetC f := by
-  sorry
+  have hn (x z : ℂ) : nC x * nC z = nC (x + z) := by
+    have hmat : upperM ℂ x * upperM ℂ z = upperM ℂ (x + z) := by
+      apply Units.ext
+      ext i j
+      fin_cases i <;> fin_cases j <;>
+        simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+    change ((upperM ℂ x : GL (Fin 2) ℂ) : PGL2 ℂ) *
+        ((upperM ℂ z : GL (Fin 2) ℂ) : PGL2 ℂ) =
+      ((upperM ℂ (x + z) : GL (Fin 2) ℂ) : PGL2 ℂ)
+    rw [← QuotientGroup.mk_mul]
+    exact congrArg (fun g : GL (Fin 2) ℂ => (g : PGL2 ℂ)) hmat
+  have hpsiAdd (z w : ℂ) : psiC (z + w) = psiC z * psiC w := by
+    unfold psiC
+    have harg :
+        -(4 * Real.pi * Complex.I * ((z + w).re : ℂ)) =
+          -(4 * Real.pi * Complex.I * (z.re : ℂ)) +
+            -(4 * Real.pi * Complex.I * (w.re : ℂ)) := by
+      rw [Complex.add_re, Complex.ofReal_add]
+      ring
+    rw [harg, Complex.exp_add]
+  have hpsi (z : ℂ) : psiC (u - z) = psiC u * psiC (-z) := by
+    rw [show u - z = u + (-z) by ring, hpsiAdd]
+  let H : ℂ → ℂ := fun z => psiC (u - z) * f (wC * nC z)
+  have hMP : MeasurePreserving (MeasurableEquiv.addRight u) volume volume := by
+    exact measurePreserving_add_right volume u
+  calc
+    jacquetC (rtr (nC u) f) = ∫ x : ℂ, H (MeasurableEquiv.addRight u x) := by
+      simp [jacquetC, H, rtr, MeasurableEquiv.addRight, hn, mul_assoc] <;> ring
+    _ = ∫ z : ℂ, H z := hMP.integral_comp
+      (MeasurableEquiv.addRight u).measurableEmbedding H
+    _ = ∫ z : ℂ, psiC u * (psiC (-z) * f (wC * nC z)) := by
+      apply integral_congr_ae
+      filter_upwards [] with z
+      simp [H, hpsi z, mul_assoc]
+    _ = psiC u * jacquetC f := by
+      rw [integral_const_mul]
+      rfl
 
 /-- **jq:complex-bessel** (eq:theta-complex-bessel, 03:263–290). -/
 theorem jacquetC_spherical (y : ℂˣ) :
