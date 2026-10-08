@@ -3125,6 +3125,55 @@ private theorem tameIntegralLift_continuousAt_one
   rw [heval]
   exact hsub hsecL
 
+/-- At a tame place the integral corrected section is a continuous homomorphism. -/
+private theorem exists_tameIntegralLiftHom
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (L : FinLocalCover D H v)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
+    ∃ κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L,
+      (∀ k, κ k = tameIntegralLift D H v L k) ∧ Continuous κ := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let j : O →+* K := O.subtype
+  let ι : GL (Fin 2) O →* GL (Fin 2) K := Matrix.GeneralLinearGroup.map j
+  have integral (k : GL (Fin 2) O) :
+      ∀ i j, (ι k : Matrix (Fin 2) (Fin 2) K) i j ∈ O := by
+    intro i j
+    exact ((k : Matrix (Fin 2) (Fin 2) O) i j).property
+  have detUnit (k : GL (Fin 2) O) :
+      Valued.v ((ι k : Matrix (Fin 2) (Fin 2) K).det) = 1 := by
+    have hdet : (ι k : Matrix (Fin 2) (Fin 2) K).det =
+        j ((k : Matrix (Fin 2) (Fin 2) O).det) :=
+      (j.map_det (k : Matrix (Fin 2) (Fin 2) O)).symm
+    rw [hdet]
+    exact (Valuation.integer.integers (Valued.v : Valuation K _)).valuation_unit
+      (Matrix.GeneralLinearGroup.det k)
+  have hsecOne : L.sec (1 : GL (Fin 2) K) = 1 := by
+    simpa only [map_one] using L.sec_scalar (1 : Kˣ)
+  let κ : GL (Fin 2) O →* L.L := {
+    toFun := tameIntegralLift D H v L
+    map_one' := by
+      simp only [tameIntegralLift, map_one]
+      rw [show tameSplit D H v (1 : GL (Fin 2) K) = 1 by simp [tameSplit],
+        map_one, one_mul, hsecOne]
+    map_mul' := by
+      intro k₁ k₂
+      have hs := tameSplit_mul D H v hv (ι k₁) (ι k₂)
+        (integral k₁) (integral k₂) (detUnit k₁) (detUnit k₂)
+      change L.z (tameSplit D H v (ι (k₁ * k₂))) * L.sec (ι (k₁ * k₂)) =
+        (L.z (tameSplit D H v (ι k₁)) * L.sec (ι k₁)) *
+          (L.z (tameSplit D H v (ι k₂)) * L.sec (ι k₂))
+      rw [map_mul, hs, map_mul, map_mul]
+      rw [mul_assoc, mul_assoc, ← L.sec_mul]
+      rw [← mul_assoc (L.z (tameSplit D H v (ι k₂))),
+        L.z_central (tameSplit D H v (ι k₂)) (L.sec (ι k₁))]
+      simp only [mul_assoc]
+  }
+  refine ⟨κ, fun _ => rfl, ?_⟩
+  exact continuous_of_continuousAt_one κ
+    (tameIntegralLift_continuousAt_one D H v hSt L)
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
