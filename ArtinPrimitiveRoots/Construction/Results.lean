@@ -12,6 +12,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.c4.TestFunction
 import ArtinPrimitiveRoots.Construction.Proofs.c4.BalancedHelpers
 import ArtinPrimitiveRoots.Construction.Proofs.c4.RoughPairResidues
 import ArtinPrimitiveRoots.Construction.Proofs.c4.PairBlock
+import ArtinPrimitiveRoots.Construction.Proofs.crp.Assembly
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
@@ -2400,7 +2401,209 @@ theorem con_rough_pairs (M : ℕ) (Ψ : ℝ → ℝ) (hM : 0 < M)
                   roughPairBoxSum x M c u K a Ψ H₁ H₂ ≤
                     C₁ * conTotalMass x M c u K a Ψ *
                       roughSieveProduct (roughCutoff x) ^ 2 := by
-  sorry
+  obtain ⟨Csv, hCsv, xS, hxS, hSurv⟩ := Proofs.CRP.pairSurvivors_card_le
+  obtain ⟨c₀, C₀, hc₀, hC₀, hdist⟩ := con_distribution (8 * M) Ψ (by omega) hΨ
+  refine ⟨Csv / c₀, div_pos hCsv hc₀, ?_⟩
+  intro c hc u K a ha
+  have hΨ0 : ∀ y, 0 ≤ Ψ y := hΨ.2.2.1
+  have hΨ1 : ∀ y, Ψ y ≤ 1 := hΨ.2.2.2.1
+  have hcpos : 0 < c := by rcases hc with h | h <;> omega
+  have hc8 : c ∣ 8 * M := by
+    rcases hc with h | h <;> subst h
+    · exact Dvd.dvd.mul_right (by norm_num) M
+    · exact Dvd.dvd.mul_right (by norm_num) M
+  set N : ℕ := 8 * M with hNdef
+  have hNpos : 0 < N := by omega
+  have hMN : (M : ℤ) ∣ (N : ℤ) := Int.natCast_dvd_natCast.mpr (Dvd.intro_left 8 rfl)
+  obtain ⟨B, xsupp, hB, hxsupp, hsupport⟩ :=
+    support M c u K a Ψ hM hc ha hΨ0 hΨ1 hΨ.2.1
+  obtain ⟨Ch, xh, hCh, hxh, hharm⟩ := con_harmonic M c u Ψ K a hM hcpos ha hΨ
+  obtain ⟨xsp, hxsp, hsp⟩ := (sieve_products M hM).2.2 K a ha
+  -- the `con_distribution` lower bounds for every admissible residue modulo `N`
+  have hdistEv : ∀ᶠ x : ℝ in atTop, ∀ v ∈ Finset.range N,
+      (Int.gcd (v : ℤ) (N : ℤ) = 1 ∧ (c : ℤ) ∣ (v : ℤ) - 1 ∧
+        Int.gcd (((v : ℤ) - 1) / c) ((N / c : ℕ) : ℤ) = 1) →
+      c₀ * x * groupHarmonicMass x K a / Real.log x ≤
+        conTotalMass x N c (v : ℤ) K a Ψ := by
+    rw [Filter.eventually_all_finset]
+    intro v _
+    by_cases hadm : Int.gcd (v : ℤ) (N : ℤ) = 1 ∧ (c : ℤ) ∣ (v : ℤ) - 1 ∧
+        Int.gcd (((v : ℤ) - 1) / c) ((N / c : ℕ) : ℤ) = 1
+    · obtain ⟨x₁, -, -, hlow⟩ := hdist c hc hc8 (v : ℤ) hadm.1 hadm.2.1 hadm.2.2 K a ha
+        (1 / 1000) (1 / 200) (by norm_num) (by norm_num) (by norm_num)
+      filter_upwards [eventually_ge_atTop x₁] with x hx
+      intro _
+      exact (hlow x hx).1
+    · exact Eventually.of_forall (fun x h => absurd h hadm)
+  -- scale conditions depending on `M`
+  have hev1 : ∀ᶠ x : ℝ in atTop, ((N : ℕ) : ℝ) < Real.rpow x (9 / 10 : ℝ) :=
+    (tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 9 / 10)).eventually_gt_atTop _
+  have hLpow : Tendsto (fun x : ℝ => Real.rpow (Real.log x) (24 / 100 : ℝ)) atTop atTop :=
+    (tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 24 / 100)).comp Real.tendsto_log_atTop
+  have hev2 : ∀ᶠ x : ℝ in atTop, ((N : ℕ) : ℝ) ≤ roughCutoff x :=
+    (Real.tendsto_exp_atTop.comp hLpow).eventually_ge_atTop _
+  have ht : Tendsto (fun x : ℝ => Real.rpow (Real.log x) (1 / 10 : ℝ)) atTop atTop :=
+    (tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 10)).comp Real.tendsto_log_atTop
+  have hev3 : ∀ᶠ x : ℝ in atTop,
+      Real.log ((N : ℕ) : ℝ) < Real.rpow (Real.log x) (1 / 10 : ℝ) :=
+    ht.eventually_gt_atTop _
+  have hev4 : ∀ᶠ x : ℝ in atTop,
+      (11 / 100 : ℝ) * Real.rpow (Real.log x) (9 / 10 : ℝ) *
+        Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) ≤ 1 / 5 := by
+    have hdec := (Real.tendsto_pow_mul_exp_neg_atTop_nhds_zero 9).comp ht
+    have hsmall := hdec.eventually (Iio_mem_nhds (by norm_num : (0 : ℝ) < 1))
+    filter_upwards [hsmall, Real.tendsto_log_atTop.eventually_ge_atTop 1] with x hx hL
+    simp only [Function.comp] at hx
+    have hpow : Real.rpow (Real.log x) (9 / 10 : ℝ) =
+        (Real.rpow (Real.log x) (1 / 10 : ℝ)) ^ 9 := by
+      rw [show Real.rpow (Real.log x) (1 / 10 : ℝ) = Real.log x ^ (1 / 10 : ℝ) from rfl,
+        ← Real.rpow_natCast, ← Real.rpow_mul (by linarith)]
+      norm_num
+    rw [hpow]
+    have hre : (11 / 100 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ) ^ 9 *
+        Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) =
+        (11 / 100 : ℝ) * (Real.rpow (Real.log x) (1 / 10 : ℝ) ^ 9 *
+          Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ))) := by ring
+    rw [hre]
+    have hnn : 0 ≤ Real.rpow (Real.log x) (1 / 10 : ℝ) ^ 9 *
+        Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      have : 0 ≤ Real.rpow (Real.log x) (1 / 10 : ℝ) := Real.rpow_nonneg (by linarith) _
+      positivity
+    linarith
+  have hev5 : ∀ᶠ x : ℝ in atTop, 1 ≤ Real.log x := Real.tendsto_log_atTop.eventually_ge_atTop 1
+  have hev6 : ∀ᶠ x : ℝ in atTop, max (max xS xsupp) (max xh xsp) ≤ x := eventually_ge_atTop _
+  obtain ⟨X, hX⟩ := eventually_atTop.mp
+    (hdistEv.and (hev1.and (hev2.and (hev3.and (hev4.and (hev5.and hev6))))))
+  refine ⟨max X 2, le_max_right _ _, ?_⟩
+  intro x hx H₁ H₂ hHlo hHhi hH₁lo hH₁hi hH₂lo hH₂hi
+  obtain ⟨hdistX, hN9, hNW, hNlog, hδ, hL1, hthr⟩ := hX x (le_trans (le_max_left _ _) hx)
+  have hxS' : xS ≤ x := le_trans (le_trans (le_max_left _ _) (le_max_left _ _)) hthr
+  have hxsupp' : xsupp ≤ x := le_trans (le_trans (le_max_right _ _) (le_max_left _ _)) hthr
+  have hxh' : xh ≤ x := le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hthr
+  have hxsp' : xsp ≤ x := le_trans (le_trans (le_max_right _ _) (le_max_right _ _)) hthr
+  have hx2 : 2 ≤ x := le_trans (le_max_right _ _) hx
+  have hx1 : (1 : ℝ) ≤ x := by linarith
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < Real.log x := by linarith
+  obtain ⟨-, hfact, hwB⟩ := hsupport x hxsupp'
+  obtain ⟨-, hJ1, -⟩ := hharm x hxh'
+  have hz9 : Real.rpow x (1 / 500 : ℝ) ≤ Real.rpow x (9 / 10 : ℝ) :=
+    Real.rpow_le_rpow_of_exponent_le hx1 (by norm_num)
+  have hz5 : Real.rpow x (1 / 500 : ℝ) ≤ Real.rpow x (1 / 5 : ℝ) :=
+    Real.rpow_le_rpow_of_exponent_le hx1 (by norm_num)
+  -- the absolute upper bound
+  have hUpper : roughPairBoxSum x M c u K a Ψ H₁ H₂ ≤
+      Csv * x * groupHarmonicMass x K a / Real.log x *
+        roughSieveProduct (roughCutoff x) ^ 2 := by
+    have hgs := Proofs.CRP.roughPairBoxSum_le_groupSum x M c u K a Ψ H₁ H₂ hc hΨ0 hΨ1 hx1
+      hz9 hfact
+    apply Proofs.CRP.roughPairBoxSum_le_harmonic x M c u K a Ψ H₁ H₂ Csv
+      (roughSieveProduct (roughCutoff x)) (Real.log x) hCsv hxpos.le hLpos hgs _ hJ1
+    intro r hr
+    obtain ⟨hr0, hgrp, hrle⟩ := Proofs.CRP.mem_crpGroupSet hr
+    obtain ⟨hsum5, -⟩ := hsp x hxsp' r hgrp hrle
+    have hsub : (primesUpTo (Real.rpow x (1 / 500 : ℝ))).filter (fun p : ℕ => p ∣ r) ⊆
+        (primesUpTo (Real.rpow x (1 / 5 : ℝ))).filter (fun p : ℕ => p ∣ r) :=
+      Finset.filter_subset_filter _ (Proofs.CRP.primesUpTo_mono hz5)
+    have hsumz : (∑ p ∈ (primesUpTo (Real.rpow x (1 / 500 : ℝ))).filter (fun p : ℕ => p ∣ r),
+        1 / (p : ℝ)) ≤ 1 / 5 := by
+      calc _ ≤ ∑ p ∈ (primesUpTo (Real.rpow x (1 / 5 : ℝ))).filter (fun p : ℕ => p ∣ r),
+            1 / (p : ℝ) :=
+            Finset.sum_le_sum_of_subset_of_nonneg hsub (fun p _ _ => by positivity)
+        _ ≤ _ := hsum5
+        _ ≤ 1 / 5 := hδ
+    have h5 : ∀ p ∈ (primesUpTo (Real.rpow x (1 / 500 : ℝ))).filter (fun p : ℕ => p ∣ r),
+        5 ≤ p := by
+      intro p hp
+      have hpPrime : p.Prime := (Finset.mem_filter.mp (Finset.mem_filter.mp hp).1).2
+      have hppos : (0 : ℝ) < p := by exact_mod_cast hpPrime.pos
+      have h1p : 1 / (p : ℝ) ≤ 1 / 5 :=
+        le_trans (Finset.single_le_sum (f := fun p : ℕ => 1 / (p : ℝ))
+          (fun q _ => by positivity) hp) hsumz
+      have h5p : (5 : ℝ) ≤ p := by
+        rw [div_le_div_iff₀ hppos (by norm_num)] at h1p
+        linarith
+      exact_mod_cast h5p
+    exact hSurv x hxS' H₁ H₂ hHhi hH₁lo hH₁hi hH₂lo hH₂hi c hc r hr0 hrle h5
+      (by linarith)
+  have hmassNonneg : 0 ≤ conTotalMass x M c u K a Ψ :=
+    Finset.sum_nonneg (fun d _ => (hwB d).1)
+  by_cases hpos : roughPairBoxSum x M c u K a Ψ H₁ H₂ ≤ 0
+  · have : 0 ≤ Csv / c₀ * conTotalMass x M c u K a Ψ *
+        roughSieveProduct (roughCutoff x) ^ 2 := by
+      have := div_pos hCsv hc₀
+      positivity
+    linarith
+  push Not at hpos
+  -- a nonzero term
+  obtain ⟨m, hm, hmne⟩ := Finset.exists_ne_zero_of_sum_ne_zero hpos.ne'
+  obtain ⟨n, hn, hnne⟩ := Finset.exists_ne_zero_of_sum_ne_zero hmne
+  have hrough : roughAbove m (roughCutoff x) ∧ roughAbove n (roughCutoff x) := by
+    by_contra h
+    exact hnne (if_neg h)
+  have hcw : conWeight x M c u K a Ψ (m * n) ≠ 0 := by
+    intro h0
+    exact hnne (by rw [if_pos hrough]; exact h0)
+  obtain ⟨hdx, -, r, Q, hdec, hQ, hQbig, hgrp, hrle, -⟩ := hfact (m * n) hcw
+  have hdu : ((m * n : ℕ) : ℤ) ≡ u [ZMOD M] := by
+    by_contra h
+    apply hcw
+    simp only [conWeight]
+    exact if_neg (fun h' => h h'.2)
+  have hmn2 : 2 ≤ m * n := by
+    have h1 : (1 : ℝ) < ((m * n : ℕ) : ℝ) := lt_of_le_of_lt hx1 hdx
+    have h2 : 1 < m * n := by exact_mod_cast h1
+    omega
+  have hd1 : m * n = c * r * Q + 1 := by omega
+  have hdN : ∀ p, p.Prime → p ∣ m * n → N < p := by
+    intro p hp hpd
+    have hW : roughCutoff x < (p : ℝ) := by
+      rcases (Nat.Prime.dvd_mul hp).mp hpd with hpm | hpn
+      · exact hrough.1 p hp hpm
+      · exact hrough.2 p hp hpn
+    have : ((N : ℕ) : ℝ) < (p : ℝ) := lt_of_le_of_lt hNW hW
+    exact_mod_cast this
+  have hrN : ∀ p, p.Prime → p ∣ r → N < p := by
+    intro p hp hpr
+    have hpm := hgrp p hp hpr
+    simp only [markedPrimes, Finset.mem_biUnion, Finset.mem_univ, true_and] at hpm
+    obtain ⟨i, hpi⟩ := hpm
+    have hlow : Real.exp (Real.rpow (Real.log x) (a i)) ≤ (p : ℝ) :=
+      (Finset.mem_filter.mp hpi).2.2.1
+    have hai : (1 / 10 : ℝ) ≤ a i := (ha.2.1 i).1.le
+    have hmono : Real.rpow (Real.log x) (1 / 10 : ℝ) ≤ Real.rpow (Real.log x) (a i) :=
+      Real.rpow_le_rpow_of_exponent_le hL1 hai
+    have hNpos' : (0 : ℝ) < ((N : ℕ) : ℝ) := by exact_mod_cast hNpos
+    have hNexp : ((N : ℕ) : ℝ) < Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      calc ((N : ℕ) : ℝ) = Real.exp (Real.log ((N : ℕ) : ℝ)) := (Real.exp_log hNpos').symm
+        _ < Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) := Real.exp_lt_exp.mpr hNlog
+    have : ((N : ℕ) : ℝ) < (p : ℝ) :=
+      lt_of_lt_of_le hNexp (le_trans (Real.exp_le_exp.mpr hmono) hlow)
+    exact_mod_cast this
+  have hQN : N < Q := by
+    have : ((N : ℕ) : ℝ) < (Q : ℝ) := lt_trans hN9 hQbig
+    exact_mod_cast this
+  have hadm := Proofs.CRP.lift_admissible hNpos hc hc8 hd1 hdN hrN hQ hQN
+  have hvmem : (m * n) % N ∈ Finset.range N := Finset.mem_range.mpr (Nat.mod_lt _ hNpos)
+  have hlow := hdistX ((m * n) % N) hvmem hadm
+  have hdv : ((m * n : ℕ) : ℤ) ≡ (((m * n) % N : ℕ) : ℤ) [ZMOD N] := by
+    rw [Int.natCast_mod]
+    exact (Int.mod_modEq _ _).symm
+  have hmono := Proofs.CRP.conTotalMass_le_of_lift x M N c u (((m * n) % N : ℕ) : ℤ) K a Ψ
+    hMN (m * n) hdu hdv (fun e => (hwB e).1)
+  have hV : 0 ≤ roughSieveProduct (roughCutoff x) ^ 2 := sq_nonneg _
+  have hk : 0 ≤ Csv / c₀ := (div_pos hCsv hc₀).le
+  calc roughPairBoxSum x M c u K a Ψ H₁ H₂
+      ≤ Csv * x * groupHarmonicMass x K a / Real.log x *
+          roughSieveProduct (roughCutoff x) ^ 2 := hUpper
+    _ = Csv / c₀ * (c₀ * x * groupHarmonicMass x K a / Real.log x) *
+          roughSieveProduct (roughCutoff x) ^ 2 := by
+        field_simp
+    _ ≤ Csv / c₀ * conTotalMass x N c (((m * n) % N : ℕ) : ℤ) K a Ψ *
+          roughSieveProduct (roughCutoff x) ^ 2 := by
+        gcongr
+    _ ≤ Csv / c₀ * conTotalMass x M c u K a Ψ * roughSieveProduct (roughCutoff x) ^ 2 := by
+        gcongr
 
 /-- The pair estimate supplied by `con_rough_pairs`, at its fixed leading constant. -/
 def HasRoughPairBound (M : ℕ) (Ψ : ℝ → ℝ) (C₁ : ℝ) : Prop :=

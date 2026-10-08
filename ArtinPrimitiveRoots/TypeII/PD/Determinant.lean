@@ -1,4 +1,20 @@
 import ArtinPrimitiveRoots.TypeII.PD.Defs
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Circle
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyArithmetic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchySquare
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyFinite
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyPrimes
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyMain
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyDivisor
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootArithmetic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootCRTModel
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootAsymptotic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootReversal
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootRestrictedFourier
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootMainTerm
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootFinish
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Goodness
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.BandGeometry
 
 /-! Determinant and root-counting statements, PD `03-determinant.tex:68-737`. -/
 
@@ -65,7 +81,7 @@ theorem cauchy_decomposition
                     (∀ Y ∈ dyadicScales x K,
                       (1 / 20 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ) ≤
                         Real.log Y ∧ Real.log Y ≤ Cscale * Real.rpow (Real.log x) (1 / 5 : ℝ)) := by
-  sorry
+  exact pd1c_cauchy_decomposition δ C Dstar q_d c₁ c₂ K a hδ hC hD hqd₀ hqd₁ hc₁ hc₂ ha
 
 /-- `det:good-state` — PD `03-determinant.tex:269-293`. For fixed valid marked lists, the
 Lebesgue measure of ratios failing either physical-position test is exponentially small. -/
@@ -79,7 +95,10 @@ theorem good_state
               (∫ r in (0 : ℝ)..1,
                 if IsGoodRatio x Y (d₀ : ℝ) K a p r then (0 : ℝ) else 1) ≤
                 Real.exp (-c * Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
-  sorry
+  obtain ⟨c, x₀, hc, hx₀, hbound⟩ := pd1c_good_state_bound K a ha
+  refine ⟨c, x₀, hc, hx₀, ?_⟩
+  intro x hx d₀ hd₀ Y hY p hp
+  exact hbound x hx Y hY (d₀ : ℝ) p hp
 
 private lemma endpoint_second_mem_dyadic
     {x Hn : ℝ} {K : ℕ} {a : Fin K → ℝ} {H' Hm : ℝ}
@@ -2523,6 +2542,94 @@ theorem weak_kloosterman (ε : ℝ) (hε : 0 < ε) :
   rw [hsumEq]
   simpa [RHS, g] using hbound
 
+lemma pd1c_physicalState_finite
+    (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (H' Hm Hn : ℝ) :
+    Finite (PhysicalState x K a H' Hm Hn) :=
+  Finite.of_injective endpointStateCoordinates endpointStateCoordinates_injective
+
+lemma pd1c_residue_indicator (m : ℕ) [NeZero m] (hm : 0 < m) (u v : ZMod m) :
+    (if u = v then (1 : ℂ) else 0) =
+      (m : ℂ)⁻¹ * ∑ j : ZMod m, ZMod.stdAddChar (j * (u - v)) := by
+  letI : NeZero m := ⟨hm.ne'⟩
+  have horth := stdAddChar_orthogonality m (u - v)
+  simp only [mul_comm (u - v)] at horth
+  rw [horth]
+  have hmC : (m : ℂ) ≠ 0 := by exact_mod_cast hm.ne'
+  by_cases h : u = v
+  · simp [h, hmC]
+  · simp [h, sub_ne_zero.mpr h]
+
+lemma pd1c_residue_fourier_expansion {ι : Type*} (s : Finset ι)
+    (m : ℕ) [NeZero m] (hm : 0 < m) (r : ι → ZMod m) (a : ZMod m) (f : ι → ℂ) :
+    (∑ i ∈ s, if r i = a then f i else 0) =
+      (m : ℂ)⁻¹ * ∑ j : ZMod m,
+        ∑ i ∈ s, ZMod.stdAddChar (j * (r i - a)) * f i := by
+  letI : NeZero m := ⟨hm.ne'⟩
+  calc
+    _ = ∑ i ∈ s, (if r i = a then (1 : ℂ) else 0) * f i := by
+      apply Finset.sum_congr rfl
+      intro i hi
+      by_cases h : r i = a <;> simp [h]
+    _ = ∑ i ∈ s, ((m : ℂ)⁻¹ *
+        ∑ j : ZMod m, ZMod.stdAddChar (j * (r i - a))) * f i := by
+      simp_rw [pd1c_residue_indicator m hm]
+    _ = _ := by
+      simp only [Finset.mul_sum, Finset.sum_mul]
+      rw [Finset.sum_comm]
+      apply Finset.sum_congr rfl
+      intro j hj
+      apply Finset.sum_congr rfl
+      intro i hi
+      ring
+
+lemma pd1c_groupLabelProduct_pos
+    {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {H' Hm Hn : ℝ}
+    (P : PhysicalState x K a H' Hm Hn) : 0 < groupLabelProduct P :=
+  groupLabelProduct_pos P
+
+lemma pd1c_groupLabelProduct_dvd_first
+    {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {H' Hm Hn : ℝ}
+    (P : PhysicalState x K a H' Hm Hn) (hSq : Squarefree (groupLabelProduct P)) :
+    groupLabelProduct P ∣ P.first := groupLabelProduct_dvd_first P hSq
+
+lemma pd1c_endpointG_pointwise_general
+    {δ C c₁ c₂ x : ℝ} {K : ℕ} {a : Fin K → ℝ} {H' Hm Hn : ℝ}
+    (family : CoefficientFamily δ C c₁ c₂) (hx : 2 ≤ x) (hMin : family.xMin ≤ x)
+    (beta : ℕ → ℂ) (hbeta : ∀ n ∈ dyadicIntegers Hn, ‖beta n‖ ≤ Real.rpow (Real.log x) C)
+    (P : PhysicalState x K a H' Hm Hn) :
+    ‖endpointG x K a family beta P‖ ≤ Real.rpow (Real.log x) (2 * C) := by
+  have hlog : 0 < Real.log x := Real.log_pos (by linarith)
+  have hα : ‖family.alpha x (P.first / groupLabelProduct P)‖ ≤ Real.rpow (Real.log x) C := by
+    by_cases hz : family.alpha x (P.first / groupLabelProduct P) = 0
+    · simpa [hz] using Real.rpow_nonneg hlog.le C
+    · exact family.coefficient_bound x hMin _ (family.rough_support x hMin _ hz).1
+  have hβ := hbeta P.second (endpoint_second_mem_dyadic P)
+  by_cases hSq : Squarefree (groupLabelProduct P)
+  · simp only [endpointG, hSq, ite_true, norm_mul, norm_star]
+    calc
+      _ ≤ Real.rpow (Real.log x) C * Real.rpow (Real.log x) C :=
+        mul_le_mul hα hβ (norm_nonneg _) (Real.rpow_nonneg hlog.le _)
+      _ = _ := by
+        simp only [Real.rpow_eq_pow]
+        rw [← Real.rpow_add hlog]
+        congr 1
+        ring
+  · simpa [endpointG, hSq] using Real.rpow_nonneg hlog.le (2 * C)
+
+lemma pd1c_rootCountingInputs_exists : Nonempty pd1c_RootCountingInputs := by
+  obtain ⟨CK, hCK, hK⟩ := weak_kloosterman (1 / 100) (by norm_num)
+  obtain ⟨CT, hCT, hτ⟩ := divisor_card_rpow_bound (1 / 100) (by norm_num)
+  refine ⟨⟨CK, CT, hCK, hCT, ?_, hτ⟩⟩
+  intro m hi Ft H K
+  letI : NeZero m := hi
+  letI : Fintype (ZMod m)ˣ := Ft
+  have hm : 1 ≤ m := NeZero.pos m
+  have heq := kloostermanSum_eq_unit_sum m H.val K.val
+  simp only [ZMod.natCast_zmod_val, ZMod.inv_coe_unit] at heq
+  change kloostermanSum m H.val K.val = @pd1c_rootKSum m hi Ft H K at heq
+  rw [← heq]
+  simpa only [Real.rpow_eq_pow] using hK m H.val K.val hm
+
 /-- `lem:root-residue` — PD `03-determinant.tex:413-591`. Primitive roots of determinant-one
 matrices are equidistributed in boxes and residue classes modulo squarefree `S`, with the stated
 uniform power-saving error. -/
@@ -2544,6 +2651,7 @@ theorem root_residue
                 U * V * (r₁ - l₁) * (r₂ - l₂) * (r₃ - l₃) /
                     ((Real.pi ^ 2 / 6) * sl2Card S hS)| ≤
                 C₀ * U * V * Real.rpow x (-cδ) := by
-  sorry
+  obtain ⟨inputs⟩ := pd1c_rootCountingInputs_exists
+  exact pd1c_root_residue_from_inputs inputs δ C_K hδ hCK
 
 end ArtinPrimitiveRoots.TypeII.PD
