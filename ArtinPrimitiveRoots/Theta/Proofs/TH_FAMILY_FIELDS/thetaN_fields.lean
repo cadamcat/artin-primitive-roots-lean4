@@ -347,6 +347,191 @@ private theorem thetaFamilyBaseN_borel {P : CoverPackage D S H A} {N : ThetaNorm
   simp only [Equiv.coe_mulRight] at h2
   rw [thetaFamilyBaseN_eq, thetaFamilyBaseN_eq, tsum_congr h1, h2]
 
+private theorem thetaNPhi_Kext {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (X k : P.tc.G)
+    (hk : k ∈ P.tc.Kext) : thetaNPhi B (X * k) = thetaNPhi B X := by
+  obtain ⟨xk, hq, hext, hS, hC⟩ := P.Kext_components k hk
+  obtain ⟨x0, rfl⟩ := P.q_surj X
+  rw [← hq, ← map_mul, thetaNPhi_q, thetaNPhi_q]
+  congr 1
+  · apply finprod_congr
+    intro v
+    rw [map_mul]
+    by_cases hv : v ∈ S.Sf
+    · rw [hS v hv, mul_one]
+    · rw [thetaN_famM_Kmax B v hv _ _ (hext v hv)]
+  · apply Finset.prod_congr rfl
+    intro w _
+    rw [map_mul, hC w, mul_one]
+
+private theorem thetaFamilyBaseN_Kext {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (g k : P.tc.G)
+    (hk : k ∈ P.tc.Kext) : thetaFamilyBaseN B (g * k) = thetaFamilyBaseN B g := by
+  have h : ∀ δ : Fˣ ⧸ N.G.Δ,
+      thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * (g * k)) =
+        thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * g) := by
+    intro δ
+    rw [← mul_assoc]
+    exact thetaNPhi_Kext B _ k hk
+  rw [thetaFamilyBaseN_eq, thetaFamilyBaseN_eq, tsum_congr h]
+
+private theorem thetaFamilyBaseN_genuine {P : CoverPackage D S H A}
+    {N : ThetaNormalizationInput P} {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛)
+    (ζ : rootsOfUnity 3 ℂ) (g : P.tc.G) :
+    thetaFamilyBaseN B (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * thetaFamilyBaseN B g := by
+  have h : ∀ δ : Fˣ ⧸ N.G.Δ,
+      thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * (P.tc.z ζ * g)) =
+        ((ζ : ℂˣ) : ℂ) * thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * g) := by
+    intro δ
+    rw [← mul_assoc, ← P.tc.z_central ζ, mul_assoc]
+    exact (thetaNPhi_inv B).2 ζ _
+  rw [thetaFamilyBaseN_eq, thetaFamilyBaseN_eq, tsum_congr h, tsum_mul_left]
+  ring
+
+private theorem thetaN_upperM_zero : (QuotientGroup.mk (upperM ℂ 0) : PGL2 ℂ) = 1 := by
+  change (QuotientGroup.mk (upperM ℂ 0) : PGL2 ℂ) = QuotientGroup.mk 1
+  congr 1
+  ext i j
+  fin_cases i <;> fin_cases j <;> rfl
+
+private theorem thetaN_fC_diag_left (y : ℂˣ) (hy : ‖(y : ℂ)‖ = 1) (Z : PGL2 ℂ) :
+    thetaN_fC (QuotientGroup.mk (diagM ℂ y) * Z) = thetaN_fC Z := by
+  have h := thetaN_fC_isSection.1 0 y Z
+  rw [thetaN_upperM_zero, one_mul] at h
+  rw [h, Complex.normSq_eq_norm_sq, hy]
+  simp
+
+private theorem thetaN_map_diag_comm (e : F →+* ℂ) (δ : Fˣ) (y : ℂˣ) :
+    Matrix.GeneralLinearGroup.map e (diagGL δ) * diagM ℂ y =
+      diagM ℂ y * Matrix.GeneralLinearGroup.map e (diagGL δ) := by
+  apply Matrix.GeneralLinearGroup.ext
+  intro i j
+  fin_cases i <;> fin_cases j <;>
+    simp [diagGL, diagM, Matrix.mul_apply, Fin.sum_univ_two, mul_comm]
+
+private theorem thetaN_compC_atComplex (w w' : InfinitePlace F) (zc : ℂˣ)
+    (hzc : ‖(zc : ℂ)‖ = 1) : ‖((S.compC w' (S.atComplex w zc) : ℂˣ) : ℂ)‖ = 1 := by
+  change ‖(Function.update (fun _ => (1 : ℂ)) w (zc : ℂ)) w'‖ = 1
+  by_cases h : w' = w
+  · subst h
+    simpa using hzc
+  · rw [Function.update_of_ne h]
+    simp
+
+private theorem thetaN_compU_atComplex (w : InfinitePlace F) (zc : ℂˣ) (v : S.Sf) :
+    S.compU v (S.atComplex w zc) = 1 := by
+  apply Units.ext
+  rfl
+
+private theorem thetaNPhi_radial {P : CoverPackage D S H A} {N : ThetaNormalizationInput P}
+    {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛) (w : InfinitePlace F) (zc : ℂˣ)
+    (hzc : ‖(zc : ℂ)‖ = 1) (δ : Fˣ) (g : P.tc.G) :
+    thetaNPhi B (P.tc.rat (diagGL δ) * (P.tc.aS (S.atComplex w zc) * g)) =
+      thetaNPhi B (P.tc.rat (diagGL δ) * g) := by
+  obtain ⟨xa, hxa, hxaF, hxaC⟩ := P.aS_components (S.atComplex w zc)
+  obtain ⟨xg, rfl⟩ := P.q_surj g
+  have e1 : P.tc.rat (diagGL δ) * (P.tc.aS (S.atComplex w zc) * P.q xg) =
+      P.q (P.ratRP (diagGL δ) * xa * xg) := by
+    rw [map_mul, map_mul, P.q_ratRP, hxa, mul_assoc]
+  have e2 : P.tc.rat (diagGL δ) * P.q xg = P.q (P.ratRP (diagGL δ) * xg) := by
+    rw [map_mul, P.q_ratRP]
+  rw [e1, e2, thetaNPhi_q, thetaNPhi_q]
+  congr 1
+  · apply finprod_congr
+    intro v
+    have hv1 : P.compF v xa = 1 := by
+      rw [hxaF v]
+      split_ifs with hv
+      · rw [thetaN_compU_atComplex, (P.loc v).a_one]
+      · rfl
+    simp only [map_mul, hv1, mul_one]
+  · apply Finset.prod_congr rfl
+    intro w' _
+    simp only [map_mul, hxaC w', P.compC_ratRP]
+    rw [← QuotientGroup.mk_mul, thetaN_map_diag_comm, QuotientGroup.mk_mul, mul_assoc,
+      thetaN_fC_diag_left _ (thetaN_compC_atComplex w w' zc hzc)]
+
+private theorem thetaFamilyBaseN_radial {P : CoverPackage D S H A}
+    {N : ThetaNormalizationInput P} {𝓛 : Finset (SChar S)} (B : ThetaCommonSections P N 𝓛)
+    (w : InfinitePlace F) (zc : ℂˣ) (hzc : ‖(zc : ℂ)‖ = 1) (g : P.tc.G) :
+    thetaFamilyBaseN B (P.tc.aS (S.atComplex w zc) * g) = thetaFamilyBaseN B g := by
+  have h : ∀ δ : Fˣ ⧸ N.G.Δ,
+      thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * (P.tc.aS (S.atComplex w zc) * g)) =
+        thetaNPhi B (P.tc.rat (diagGL (Quotient.out δ)) * g) :=
+    fun δ => thetaNPhi_radial B w zc hzc _ g
+  rw [thetaFamilyBaseN_eq, thetaFamilyBaseN_eq, tsum_congr h]
+
+/-! ### Left translations and scalars through the derivative fold -/
+
+private theorem thetaN_deriv_left {P : CoverPackage D S H A} (m : InfinitePlace F → ℤ)
+    (Ψ : P.tc.G → ℂ) (a g : P.tc.G) :
+    thetaFamilyDeriv P m Ψ (a * g) = thetaFamilyDeriv P m (fun x => Ψ (a * x)) g :=
+  thetaFamilyDeriv_congr_rootOrbit m Ψ (fun x => Ψ (a * x)) (a * g) g Set.univ isOpen_univ
+    trivial (fun x _ => by simp only [mul_assoc])
+
+private theorem thetaN_rootStep_const_mul {P : CoverPackage D S H A}
+    (w : InfinitePlace F) (m : ℤ) (Ψ : P.tc.G → ℂ) (c : ℂ) (g : P.tc.G) :
+    thetaRootStep w m (fun h => c * Ψ h) g = c * thetaRootStep w m Ψ g := by
+  by_cases hc : c = 0
+  · subst c
+    simp [thetaRootStep]
+  · let Φ : ℂ → ℂ := fun z => Ψ (g * P.tc.nS
+      (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))
+    let cUnit : ℂˣ := Units.mk0 c hc
+    let cEquiv : ℂ ≃L[ℝ] ℂ := (cUnit.mulLeftLinearEquiv ℝ ℂ).toContinuousLinearEquiv
+    have hcEquiv (z : ℂ) : cEquiv z = c * z := by
+      simp [cEquiv, cUnit, Units.mulLeftLinearEquiv_apply]
+    have hcurve :
+        (fun z : ℂ => (fun h => c * Ψ h) (g * P.tc.nS
+          (Multiplicative.ofAdd
+            ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))) =
+        (fun z => cEquiv (Φ z)) := by
+      funext z
+      exact (hcEquiv (Φ z)).symm
+    have hval (v : ℂ) : fderiv ℝ (fun z : ℂ => cEquiv (Φ z)) 0 v = c * fderiv ℝ Φ 0 v := by
+      have h := cEquiv.comp_fderiv (f := Φ) (x := 0)
+      have h' := congrArg (fun T : ℂ →L[ℝ] ℂ => T v) h
+      change fderiv ℝ (cEquiv ∘ Φ) 0 v = _
+      rw [h']
+      exact hcEquiv _
+    change fderiv ℝ (fun z : ℂ => (fun h => c * Ψ h)
+        (g * P.tc.nS (Multiplicative.ofAdd
+          ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))) 0 1 -
+      (m : ℂ) * Complex.I * fderiv ℝ (fun z : ℂ => (fun h => c * Ψ h)
+        (g * P.tc.nS (Multiplicative.ofAdd
+          ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))) 0 Complex.I = _
+    rw [hcurve, hval, hval]
+    dsimp [thetaRootStep, Φ]
+    ring
+
+private theorem thetaN_deriv_const_mul {P : CoverPackage D S H A}
+    (m : InfinitePlace F → ℤ) (Ψ : P.tc.G → ℂ) (c : ℂ) (g : P.tc.G) :
+    thetaFamilyDeriv P m (fun h => c * Ψ h) g = c * thetaFamilyDeriv P m Ψ g := by
+  classical
+  have hFold (ws : List (InfinitePlace F)) :
+      ∀ g, ws.foldr (fun w acc => thetaRootStep w (m w) acc) (fun h => c * Ψ h) g =
+        c * ws.foldr (fun w acc => thetaRootStep w (m w) acc) Ψ g := by
+    induction ws with
+    | nil => intro g; rfl
+    | cons w ws ih =>
+        intro g
+        have hacc : ws.foldr (fun w acc => thetaRootStep w (m w) acc) (fun h => c * Ψ h) =
+            fun h => c * ws.foldr (fun w acc => thetaRootStep w (m w) acc) Ψ h := by
+          funext h
+          exact ih h
+        change thetaRootStep w (m w)
+            (ws.foldr (fun w acc => thetaRootStep w (m w) acc) (fun h => c * Ψ h)) g =
+          c * thetaRootStep w (m w)
+            (ws.foldr (fun w acc => thetaRootStep w (m w) acc) Ψ) g
+        rw [hacc]
+        exact thetaN_rootStep_const_mul w (m w)
+          (ws.foldr (fun w acc => thetaRootStep w (m w) acc) Ψ) c g
+  change (((Finset.univ : Finset (InfinitePlace F)).toList).foldr
+      (fun w acc => thetaRootStep w (m w) acc) (fun h => c * Ψ h)) g =
+    c * (((Finset.univ : Finset (InfinitePlace F)).toList).foldr
+      (fun w acc => thetaRootStep w (m w) acc) Ψ) g
+  exact hFold (Finset.univ : Finset (InfinitePlace F)).toList g
+
 /-- Export the constant-term invariances, torus continuity and T7 radiality for the same normalized constant term.
 Guide: sol-thin-thglobal/PROOFS.md:1200–1210.
 Uses thetaFamilyBaseN, theta_constantTerm, intertwineC_spherical and left-translation commutation with thetaFamilyDeriv. -/
@@ -361,5 +546,41 @@ theorem thetaN_fields {P : CoverPackage D S H A}
     (∀ g h, Continuous fun y : S.FSˣ => thetaFamilyThetaN B L (g * P.tc.aS y * h)) ∧
     (∀ (w : InfinitePlace F) (zc : ℂˣ), ‖(zc : ℂ)‖ = 1 →
       ∀ g, thetaFamilyThetaN B L (P.tc.aS (S.atComplex w zc) * g) = thetaFamilyThetaN B L g) := by
-  sorry
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · intro b hb g
+    change (thetaNormalizationScalar N)⁻¹ *
+        thetaFamilyDeriv P L.m (thetaFamilyBaseN B) (P.tc.rat b * g) =
+      (thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m (thetaFamilyBaseN B) g
+    have hfun : (fun x => thetaFamilyBaseN B (P.tc.rat b * x)) = thetaFamilyBaseN B :=
+      funext fun x => thetaFamilyBaseN_borel B b hb x
+    rw [thetaN_deriv_left, hfun]
+  · intro g k hk
+    change (thetaNormalizationScalar N)⁻¹ *
+        thetaFamilyDeriv P L.m (thetaFamilyBaseN B) (g * k) =
+      (thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m (thetaFamilyBaseN B) g
+    have h := thetaFamilyDeriv_congr_rootOrbit L.m (thetaFamilyBaseN B) (thetaFamilyBaseN B)
+      (g * k) g Set.univ isOpen_univ trivial (fun x _ => by
+        have hcomm : k * nInf P x = nInf P x * k :=
+          P.tc.Kext_comm_S k hk _ (P.tc.nS_mem _)
+        rw [mul_assoc, hcomm, ← mul_assoc, thetaFamilyBaseN_Kext B _ k hk])
+    rw [h]
+  · intro ζ g
+    change (thetaNormalizationScalar N)⁻¹ *
+        thetaFamilyDeriv P L.m (thetaFamilyBaseN B) (P.tc.z ζ * g) =
+      ((ζ : ℂˣ) : ℂ) *
+        ((thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m (thetaFamilyBaseN B) g)
+    have hfun : (fun x => thetaFamilyBaseN B (P.tc.z ζ * x)) =
+        fun x => ((ζ : ℂˣ) : ℂ) * thetaFamilyBaseN B x :=
+      funext fun x => thetaFamilyBaseN_genuine B ζ x
+    rw [thetaN_deriv_left, hfun, thetaN_deriv_const_mul]
+    ring
+  · sorry
+  · intro w zc hzc g
+    change (thetaNormalizationScalar N)⁻¹ *
+        thetaFamilyDeriv P L.m (thetaFamilyBaseN B) (P.tc.aS (S.atComplex w zc) * g) =
+      (thetaNormalizationScalar N)⁻¹ * thetaFamilyDeriv P L.m (thetaFamilyBaseN B) g
+    have hfun : (fun x => thetaFamilyBaseN B (P.tc.aS (S.atComplex w zc) * x)) =
+        thetaFamilyBaseN B :=
+      funext fun x => thetaFamilyBaseN_radial B w zc hzc x
+    rw [thetaN_deriv_left, hfun]
 end ArtinPrimitiveRoots.A1.Theta
