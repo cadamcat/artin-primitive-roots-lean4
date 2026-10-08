@@ -233,16 +233,7 @@ theorem sieve_remainder_pointwise (x : ℝ) (r m : ℕ)
     rw [abs_mul, hsign, abs_of_nonneg hcoef, hpascal]
     nlinarith [hnext]
 
-/-- The elementary symmetric reciprocal sum is dominated by the full power
-sum divided by `r!`. -/
-theorem elementary_symmetric_reciprocals (P : Finset ℕ)
-    (hP : ∀ p ∈ P, p.Prime) (r : ℕ) :
-    ∑ S ∈ P.powerset.filter (fun S => S.card = r),
-        1 / ((∏ p ∈ S, p : ℕ) : ℝ) ≤
-      (∑ p ∈ P, 1 / (p : ℝ)) ^ r / (r.factorial : ℝ) := by
-  sorry
-
-/-- Casting a finite natural product to `ℝ` agrees with the product of its
+/- Casting a finite natural product to `ℝ` agrees with the product of its
 real casts. -/
 private theorem cast_nat_product (S : Finset ℕ) :
     ((∏ p ∈ S, p : ℕ) : ℝ) = ∏ p ∈ S, (p : ℝ) := by
@@ -251,6 +242,191 @@ private theorem cast_nat_product (S : Finset ℕ) :
   | empty => simp
   | @insert p S hp ih =>
       simp [Finset.prod_insert, hp, ih]
+
+/-- The first two terms of the binomial expansion are a lower bound when both
+summands are nonnegative. -/
+private theorem add_pow_lower_terms (s a : ℝ) (hs : 0 ≤ s) (ha : 0 ≤ a) :
+    ∀ n : ℕ, s ^ n + (n : ℝ) * a * s ^ (n - 1) ≤ (s + a) ^ n := by
+  intro n
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      by_cases hn : n = 0
+      · subst n
+        norm_num [pow_one]
+      · have hnpos : 0 < n := Nat.pos_of_ne_zero hn
+        have hpred : n - 1 + 1 = n := Nat.sub_add_cancel hnpos
+        have hpow : s ^ (n - 1) * s = s ^ n := by
+          calc
+            s ^ (n - 1) * s = s ^ (n - 1 + 1) := by rw [pow_succ]
+            _ = s ^ n := by rw [hpred]
+        have hpowmul : (n : ℝ) * a * s ^ (n - 1) * s =
+            (n : ℝ) * a * s ^ n := by
+          rw [mul_assoc, hpow]
+        have hmul := mul_le_mul_of_nonneg_right ih (add_nonneg hs ha)
+        have hexpand :
+            (s ^ n + (n : ℝ) * a * s ^ (n - 1)) * (s + a) =
+              s ^ (n + 1) + ((n : ℝ) + 1) * a * s ^ n +
+                (n : ℝ) * a ^ 2 * s ^ (n - 1) := by
+          calc
+            (s ^ n + (n : ℝ) * a * s ^ (n - 1)) * (s + a) =
+                s ^ n * s + (n : ℝ) * a * s ^ (n - 1) * s +
+                  (s ^ n * a + (n : ℝ) * a * s ^ (n - 1) * a) := by ring
+            _ = s ^ n * s + (n : ℝ) * a * s ^ n +
+                  (s ^ n * a + (n : ℝ) * a * s ^ (n - 1) * a) := by rw [hpowmul]
+            _ = s ^ (n + 1) + ((n : ℝ) + 1) * a * s ^ n +
+                  (n : ℝ) * a ^ 2 * s ^ (n - 1) := by
+                    rw [pow_succ]
+                    ring
+        have hcalc :
+            s ^ (n + 1) + ((n : ℝ) + 1) * a * s ^ n ≤ (s + a) ^ (n + 1) := by
+          calc
+            s ^ (n + 1) + ((n : ℝ) + 1) * a * s ^ n ≤
+                s ^ (n + 1) + ((n : ℝ) + 1) * a * s ^ n +
+                (n : ℝ) * a ^ 2 * s ^ (n - 1) :=
+                  le_add_of_nonneg_right (by positivity)
+            _ = (s ^ n + (n : ℝ) * a * s ^ (n - 1)) * (s + a) := hexpand.symm
+            _ ≤ (s + a) ^ n * (s + a) := hmul
+            _ = (s + a) ^ (n + 1) := by rw [pow_succ]
+        simpa [Nat.cast_add] using hcalc
+
+/-- For nonnegative weights, the degree-`r` elementary symmetric sum is
+bounded by the `r`th power of their sum divided by `r!`. -/
+private theorem weighted_powersetCard_bound (P : Finset ℕ)
+    (a : ℕ → ℝ) (ha : ∀ p ∈ P, 0 ≤ a p) : ∀ r : ℕ,
+    ∑ S ∈ P.powersetCard r, ∏ p ∈ S, a p ≤
+      (∑ p ∈ P, a p) ^ r / (r.factorial : ℝ) := by
+  classical
+  induction P using Finset.induction_on with
+  | empty =>
+      intro r
+      by_cases hr : r = 0
+      · subst r
+        simp
+      · have hrpos : 0 < r := Nat.pos_of_ne_zero hr
+        have hcard : (∅ : Finset ℕ).card < r := by simpa using hrpos
+        rw [Finset.powersetCard_eq_empty.mpr hcard]
+        simp [hr]
+  | @insert p P hp ih =>
+      intro r
+      by_cases hr : r = 0
+      · subst r
+        simp
+      · obtain ⟨n, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hr
+        let s : ℝ := ∑ q ∈ P, a q
+        have haP : ∀ q ∈ P, 0 ≤ a q := by
+          intro q hq
+          exact ha q (Finset.mem_insert_of_mem hq)
+        have hap : 0 ≤ a p := ha p (Finset.mem_insert_self p P)
+        have hsum : (∑ q ∈ insert p P, a q) = a p + s := by
+          simp [s, hp]
+        have hdisj : Disjoint (P.powersetCard (Nat.succ n))
+            ((P.powersetCard n).image (insert p)) := by
+          rw [Finset.disjoint_left]
+          intro S hS himage
+          rcases Finset.mem_image.mp himage with ⟨T, hT, rfl⟩
+          exact hp ((Finset.mem_powersetCard.mp hS).1
+            (Finset.mem_insert_self p T))
+        have hinj : Set.InjOn (insert p) (↑(P.powersetCard n) : Set (Finset ℕ)) := by
+          intro S hS T hT hST
+          have hpS : p ∉ S := by
+            intro hpS
+            exact hp ((Finset.mem_powersetCard.mp hS).1 hpS)
+          have hpT : p ∉ T := by
+            intro hpT
+            exact hp ((Finset.mem_powersetCard.mp hT).1 hpT)
+          have herase := congrArg (fun U : Finset ℕ => U.erase p) hST
+          simpa [hpS, hpT] using herase
+        have hdecomp :
+            (∑ S ∈ (insert p P).powersetCard (Nat.succ n),
+                ∏ q ∈ S, a q) =
+              (∑ S ∈ P.powersetCard (Nat.succ n), ∏ q ∈ S, a q) +
+                a p * (∑ S ∈ P.powersetCard n, ∏ q ∈ S, a q) := by
+          have himageSum :
+              (∑ S ∈ P.powersetCard n, ∏ q ∈ insert p S, a q) =
+                a p * (∑ S ∈ P.powersetCard n, ∏ q ∈ S, a q) := by
+            calc
+              _ = ∑ S ∈ P.powersetCard n, a p * (∏ q ∈ S, a q) := by
+                    apply Finset.sum_congr rfl
+                    intro S hS
+                    have hpS : p ∉ S := by
+                      intro hpS
+                      exact hp ((Finset.mem_powersetCard.mp hS).1 hpS)
+                    rw [Finset.prod_insert hpS]
+              _ = _ := by rw [Finset.mul_sum]
+          calc
+            _ = (∑ S ∈ P.powersetCard (Nat.succ n), ∏ q ∈ S, a q) +
+                  (∑ S ∈ (P.powersetCard n).image (insert p), ∏ q ∈ S, a q) := by
+                    rw [Finset.powersetCard_succ_insert hp, Finset.sum_union hdisj]
+            _ = (∑ S ∈ P.powersetCard (Nat.succ n), ∏ q ∈ S, a q) +
+                  (∑ S ∈ P.powersetCard n, ∏ q ∈ insert p S, a q) := by
+                    rw [Finset.sum_image hinj]
+            _ = _ := by rw [himageSum]
+        have hih (j : ℕ) :
+          (∑ S ∈ P.powersetCard j, ∏ q ∈ S, a q) ≤
+              s ^ j / (j.factorial : ℝ) := by
+          simpa [s] using ih haP j
+        have hbound :
+            (∑ S ∈ P.powersetCard (Nat.succ n), ∏ q ∈ S, a q) +
+                a p * (∑ S ∈ P.powersetCard n, ∏ q ∈ S, a q) ≤
+              s ^ Nat.succ n / ((Nat.succ n).factorial : ℝ) +
+                a p * (s ^ n / (n.factorial : ℝ)) := by
+          exact add_le_add (hih (Nat.succ n))
+            (mul_le_mul_of_nonneg_left (hih n) hap)
+        have hfac :
+            ((Nat.succ n).factorial : ℝ) =
+              (Nat.succ n : ℝ) * (n.factorial : ℝ) := by
+          norm_cast
+        have hfacpos : 0 < ((Nat.succ n).factorial : ℝ) := by positivity
+        have hfn : (n.factorial : ℝ) ≠ 0 := by positivity
+        have hratio :
+            s ^ Nat.succ n / ((Nat.succ n).factorial : ℝ) +
+                a p * (s ^ n / (n.factorial : ℝ)) =
+              (s ^ Nat.succ n + (Nat.succ n : ℝ) * a p * s ^ n) /
+                ((Nat.succ n).factorial : ℝ) := by
+          rw [hfac]
+          field_simp [hfn]
+        have hs : 0 ≤ s := Finset.sum_nonneg (fun q hq => haP q hq)
+        have hbin := add_pow_lower_terms s (a p) hs hap (Nat.succ n)
+        have hbin' :
+            s ^ Nat.succ n + (Nat.succ n : ℝ) * a p * s ^ n ≤
+              (s + a p) ^ Nat.succ n := by
+          simpa using hbin
+        calc
+          (∑ S ∈ (insert p P).powersetCard (Nat.succ n), ∏ q ∈ S, a q) =
+              (∑ S ∈ P.powersetCard (Nat.succ n), ∏ q ∈ S, a q) +
+                a p * (∑ S ∈ P.powersetCard n, ∏ q ∈ S, a q) := hdecomp
+          _ ≤ s ^ Nat.succ n / ((Nat.succ n).factorial : ℝ) +
+                a p * (s ^ n / (n.factorial : ℝ)) := hbound
+          _ = (s ^ Nat.succ n + (Nat.succ n : ℝ) * a p * s ^ n) /
+                ((Nat.succ n).factorial : ℝ) := hratio
+          _ ≤ (s + a p) ^ Nat.succ n / ((Nat.succ n).factorial : ℝ) :=
+                div_le_div_of_nonneg_right hbin' hfacpos.le
+          _ = (∑ q ∈ insert p P, a q) ^ Nat.succ n /
+                ((Nat.succ n).factorial : ℝ) := by rw [hsum, add_comm]
+
+/-- The elementary symmetric reciprocal sum is dominated by the full power
+sum divided by `r!`. -/
+theorem elementary_symmetric_reciprocals (P : Finset ℕ)
+    (hP : ∀ p ∈ P, p.Prime) (r : ℕ) :
+    ∑ S ∈ P.powerset.filter (fun S => S.card = r),
+        1 / ((∏ p ∈ S, p : ℕ) : ℝ) ≤
+      (∑ p ∈ P, 1 / (p : ℝ)) ^ r / (r.factorial : ℝ) := by
+  classical
+  have hnonneg : ∀ p ∈ P, 0 ≤ (1 / (p : ℝ)) := by
+    intro p hp
+    positivity
+  have hsum :
+      (∑ S ∈ P.powerset.filter (fun S => S.card = r),
+          1 / ((∏ p ∈ S, p : ℕ) : ℝ)) =
+        ∑ S ∈ P.powersetCard r, ∏ p ∈ S, (p : ℝ)⁻¹ := by
+    rw [← Finset.powersetCard_eq_filter]
+    apply Finset.sum_congr rfl
+    intro S hS
+    rw [cast_nat_product, one_div, Finset.prod_inv_distrib]
+  rw [hsum]
+  simpa [one_div] using weighted_powersetCard_bound P
+    (fun p => 1 / (p : ℝ)) hnonneg r
 
 /-- Expand the finite Euler product over all subsets. -/
 private theorem reciprocal_powerset_euler (P : Finset ℕ) :
