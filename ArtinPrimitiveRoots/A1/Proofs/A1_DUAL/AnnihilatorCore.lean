@@ -6,6 +6,7 @@ set_option autoImplicit false
 
 open NumberField NumberField.InfinitePlace IsDedekindDomain Module
 open scoped Classical
+open scoped ComplexConjugate
 
 noncomputable section
 
@@ -321,6 +322,132 @@ theorem arch_embedding_real_basis [IsTotallyComplex F] :
   change archComplexPlaceLinearEquiv (mixedEmbedding.latticeBasis F i) = _
   rw [mixedEmbedding.latticeBasis_apply]
   rfl
+
+/-- Integer values of the real trace pairing reconstruct a field element with the prescribed
+archimedean coordinates. -/
+theorem arch_trace_dual_element [IsTotallyComplex F]
+    (D : A1.FieldData F) (x : InfinitePlace F → ℂ)
+    (h : ∀ n : 𝓞 F,
+      (∏ w : InfinitePlace F,
+        A1.psiC (w.embedding (n : F) * x w)) = 1) :
+    ∃ t : F, (∀ w : InfinitePlace F, w.embedding t = x w) ∧
+      ∀ n : 𝓞 F, ∃ m : ℤ, Algebra.trace ℚ F ((n : F) * t) = m := by
+  classical
+  let I := Module.Free.ChooseBasisIndex ℤ (𝓞 F)
+  let bQ : Basis I ℚ F := NumberField.integralBasis F
+  obtain ⟨bR, hbR⟩ := arch_embedding_real_basis (F := F)
+  let m : I → ℤ := fun i => Classical.choose
+    (arch_character_condition_integer (F := F) x h (RingOfIntegers.basis F i))
+  have hm (i : I) : (m i : ℝ) =
+      2 * ∑ w : InfinitePlace F,
+        ((w.embedding (NumberField.integralBasis F i) * x w).re) := by
+    simpa [m, NumberField.integralBasis_apply] using
+      (Classical.choose_spec
+        (arch_character_condition_integer (F := F) x h (RingOfIntegers.basis F i)))
+  let l := bQ.traceDual.equivFun
+  have hl (u : F) (i : I) : l u i = Algebra.trace ℚ F (u * bQ i) := by
+    simp [l, Basis.equivFun_apply, Basis.traceDual_repr_apply, Algebra.traceForm_apply]
+  let mq : I → ℚ := fun i => (m i : ℚ)
+  let t : F := l.symm mq
+  have htracecoord (i : I) :
+      Algebra.trace ℚ F (NumberField.integralBasis F i * t) = (m i : ℚ) := by
+    calc
+      Algebra.trace ℚ F (NumberField.integralBasis F i * t) =
+          Algebra.trace ℚ F (t * NumberField.integralBasis F i) := by congr 1 <;> ring
+      _ = l t i := (hl t i).symm
+      _ = (m i : ℚ) := by
+        change (l (l.symm mq)) i = _
+        rw [l.apply_symm_apply]
+  have htraceReal (i : I) :
+      (Algebra.trace ℚ F (NumberField.integralBasis F i * t) : ℝ) = (m i : ℝ) := by
+    exact_mod_cast htracecoord i
+  have htraceFormula (z : F) :
+      (Algebra.trace ℚ F z : ℝ) =
+        2 * ∑ w : InfinitePlace F, ((w.embedding z).re) := by
+    exact_mod_cast arch_trace_eq_two_real_sum (F := F) z
+  have hpairT (i : I) :
+      2 * ∑ w : InfinitePlace F,
+        ((w.embedding (NumberField.integralBasis F i) * w.embedding t).re) =
+          (m i : ℝ) := by
+    calc
+      2 * ∑ w : InfinitePlace F,
+          ((w.embedding (NumberField.integralBasis F i) * w.embedding t).re) =
+          2 * ∑ w : InfinitePlace F,
+            ((w.embedding (NumberField.integralBasis F i * t)).re) := by
+              congr 1
+              apply Finset.sum_congr rfl
+              intro w hw
+              simp only [map_mul]
+      _ = (Algebra.trace ℚ F (NumberField.integralBasis F i * t) : ℝ) :=
+        (htraceFormula _).symm
+      _ = (m i : ℝ) := htraceReal i
+  let pairing (z : InfinitePlace F → ℂ) :
+      (InfinitePlace F → ℂ) →ₗ[ℝ] ℝ := {
+    toFun := fun y => 2 * ∑ w : InfinitePlace F, ((y w * z w).re)
+    map_add' := by
+      intro y y'
+      simp only [Pi.add_apply, add_mul, Complex.add_re]
+      rw [Finset.sum_add_distrib]
+      ring
+    map_smul' := by
+      intro c y
+      simp only [Pi.smul_apply, Complex.real_smul, mul_assoc, Complex.re_ofReal_mul]
+      rw [← Finset.mul_sum]
+      simp only [RingHom.id_apply]
+      ring
+  }
+  let δ : InfinitePlace F → ℂ := fun w => x w - w.embedding t
+  let L := pairing δ
+  have hLbasis (i : I) : L (bR i) = 0 := by
+    rw [show bR i = fun w => w.embedding (NumberField.integralBasis F i) from hbR i]
+    change 2 * ∑ w : InfinitePlace F,
+      ((w.embedding (NumberField.integralBasis F i) *
+        (x w - w.embedding t)).re) = 0
+    simp only [mul_sub, Complex.sub_re]
+    rw [Finset.sum_sub_distrib]
+    have hX := (hm i).symm
+    have hT := hpairT i
+    linarith
+  have hLzero (y : InfinitePlace F → ℂ) : L y = 0 := by
+    calc
+      L y = L (∑ i : I, bR.repr y i • bR i) :=
+        congrArg L (bR.sum_repr y).symm
+      _ = ∑ i : I, L (bR.repr y i • bR i) := by rw [map_sum]
+      _ = 0 := by simp [hLbasis]
+  have hnormsum : 2 * ∑ w : InfinitePlace F, Complex.normSq (δ w) = 0 := by
+    have hz := hLzero (fun w => conj (δ w))
+    change 2 * ∑ w : InfinitePlace F,
+      ((conj (δ w) * δ w).re) = 0 at hz
+    have hterm (w : InfinitePlace F) :
+        (conj (δ w) * δ w).re = Complex.normSq (δ w) := by
+      rw [← Complex.normSq_eq_conj_mul_self]
+      simp
+    simpa only [hterm] using hz
+  have hnormzero (w : InfinitePlace F) : Complex.normSq (δ w) = 0 := by
+    have hsum : (∑ v : InfinitePlace F, Complex.normSq (δ v)) = 0 := by
+      nlinarith [hnormsum]
+    have hle : Complex.normSq (δ w) ≤
+        ∑ v : InfinitePlace F, Complex.normSq (δ v) :=
+      Finset.single_le_sum (fun v hv => Complex.normSq_nonneg (δ v)) (Finset.mem_univ w)
+    rw [hsum] at hle
+    exact le_antisymm hle (Complex.normSq_nonneg _)
+  have hEmbed (w : InfinitePlace F) : w.embedding t = x w := by
+    have hd : δ w = 0 := Complex.normSq_eq_zero.mp (hnormzero w)
+    exact (sub_eq_zero.mp hd).symm
+  refine ⟨t, hEmbed, ?_⟩
+  intro n
+  obtain ⟨m', hm'⟩ := arch_character_condition_integer (F := F) x h n
+  have htraceR := htraceFormula ((n : F) * t)
+  have hcast : (m' : ℝ) = (Algebra.trace ℚ F ((n : F) * t) : ℝ) := by
+    have hx : x = fun w : InfinitePlace F => w.embedding t :=
+      funext fun w => (hEmbed w).symm
+    rw [hx] at hm'
+    have htraceR' : (Algebra.trace ℚ F ((n : F) * t) : ℝ) =
+        2 * ∑ w : InfinitePlace F,
+          ((w.embedding (n : F) * w.embedding t).re) := by
+      simpa only [map_mul] using htraceR
+    exact hm'.trans htraceR'.symm
+  exact ⟨m', by exact_mod_cast hcast.symm⟩
 
 /-- The archimedean annihilator of the integral lattice is the embedded inverse trace-dual
 lattice; all its elements lie in the S-integers because the different is supported in `S`. -/
