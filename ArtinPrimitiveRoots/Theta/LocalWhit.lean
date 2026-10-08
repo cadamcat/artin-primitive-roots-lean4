@@ -996,13 +996,225 @@ theorem section_eq_bigCell (L : FinLocalCover D H v) (T : TorusRep D H v) (s : �
       _ = bigCell L T s φ (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y) := by
         rw [bigCell_borel]
 
+private def wh_bigCellLinear (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ) :
+    (v.adicCompletion F → T.V) →ₗ[ℂ] (L.L → T.V) where
+  toFun φ := bigCell L T s φ
+  map_add' φ ψ := by
+    funext g
+    rcases cover_bruhat L g with hbig | hsmall
+    · rcases hbig with ⟨x, ζ, y, t, rfl⟩
+      calc
+        bigCell L T s (φ + ψ)
+            (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+              L.n (Multiplicative.ofAdd t)) =
+            ((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+              T.σa y ((φ + ψ) t) := bigCell_apply L T s (φ + ψ) x ζ y t
+        _ = (((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+              T.σa y (φ t)) +
+            (((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+              T.σa y (ψ t)) := by simp [map_add, smul_add, smul_smul]
+        _ = bigCell L T s φ
+              (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+                L.n (Multiplicative.ofAdd t)) +
+            bigCell L T s ψ
+              (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+                L.n (Multiplicative.ofAdd t)) := by
+          rw [bigCell_apply L T s φ x ζ y t, bigCell_apply L T s ψ x ζ y t]
+    · rcases hsmall with ⟨x, ζ, y, rfl⟩
+      simp [bigCell_borel]
+  map_smul' c φ := by
+    funext g
+    rcases cover_bruhat L g with hbig | hsmall
+    · rcases hbig with ⟨x, ζ, y, t, rfl⟩
+      calc
+        bigCell L T s (c • φ)
+            (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+              L.n (Multiplicative.ofAdd t)) =
+            ((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+              T.σa y ((c • φ) t) := bigCell_apply L T s (c • φ) x ζ y t
+        _ = c • (((ζ : ℂˣ) : ℂ) • ((absFin v y : ℂ) ^ ((1 : ℂ) / 2 + s)) •
+              T.σa y (φ t)) := by
+          simp only [Pi.smul_apply, map_smul, smul_smul]
+          congr 1
+          ring
+        _ = c • bigCell L T s φ
+              (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+                L.n (Multiplicative.ofAdd t)) := by
+          rw [bigCell_apply L T s φ x ζ y t]
+    · rcases hsmall with ⟨x, ζ, y, rfl⟩
+      simp [bigCell_borel]
+
+private theorem wh_bigCell_right_translation (L : FinLocalCover D H v)
+    (T : TorusRep D H v) (s : ℂ) (φ : v.adicCompletion F → T.V)
+    (t : v.adicCompletion F) :
+    rtr (L.n (Multiplicative.ofAdd t)) (bigCell L T s φ) =
+      bigCell L T s (fun x => φ (x + t)) := by
+  funext g
+  change bigCell L T s φ (g * L.n (Multiplicative.ofAdd t)) =
+    bigCell L T s (fun x => φ (x + t)) g
+  rcases cover_bruhat L g with hbig | hsmall
+  · rcases hbig with ⟨x, ζ, y, u, rfl⟩
+    have hnadd : L.n (Multiplicative.ofAdd u) * L.n (Multiplicative.ofAdd t) =
+        L.n (Multiplicative.ofAdd (u + t)) := by
+      rw [← map_mul]
+      congr 1
+    have htranslate :
+        (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd u)) * L.n (Multiplicative.ofAdd t) =
+        L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+          L.n (Multiplicative.ofAdd (u + t)) := by
+      calc
+        _ = L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y * L.w *
+              (L.n (Multiplicative.ofAdd u) * L.n (Multiplicative.ofAdd t)) := by group
+        _ = _ := by rw [hnadd]
+    rw [htranslate, bigCell_apply, bigCell_apply]
+  · rcases hsmall with ⟨x, ζ, y, rfl⟩
+    let yt : v.adicCompletion F := t * (y : v.adicCompletion F)
+    have hna : L.a y * L.n (Multiplicative.ofAdd t) =
+        L.n (Multiplicative.ofAdd yt) * L.a y := by
+      have h := L.lift_na yt y
+      have harg : yt * ((y⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = t := by
+        dsimp [yt]
+        simp
+      simpa [yt, harg] using h.symm
+    have hnadd : L.n (Multiplicative.ofAdd x) * L.n (Multiplicative.ofAdd yt) =
+        L.n (Multiplicative.ofAdd (x + yt)) := by
+      rw [← map_mul]
+      congr 1
+    have htranslate :
+        (L.n (Multiplicative.ofAdd x) * L.z ζ * L.a y) *
+          L.n (Multiplicative.ofAdd t) =
+        L.n (Multiplicative.ofAdd (x + yt)) * L.z ζ * L.a y := by
+      calc
+        _ = L.n (Multiplicative.ofAdd x) *
+              (L.z ζ * (L.a y * L.n (Multiplicative.ofAdd t))) := by group
+        _ = L.n (Multiplicative.ofAdd x) *
+              (L.z ζ * (L.n (Multiplicative.ofAdd yt) * L.a y)) := by rw [hna]
+        _ = L.n (Multiplicative.ofAdd x) *
+              ((L.z ζ * L.n (Multiplicative.ofAdd yt)) * L.a y) := by group
+        _ = L.n (Multiplicative.ofAdd x) *
+              ((L.n (Multiplicative.ofAdd yt) * L.z ζ) * L.a y) := by
+                rw [L.z_central ζ (L.n (Multiplicative.ofAdd yt))]
+        _ = L.n (Multiplicative.ofAdd x) *
+              (L.n (Multiplicative.ofAdd yt) * L.z ζ) * L.a y := by group
+        _ = _ := by rw [← hnadd]; group
+    rw [htranslate, bigCell_borel, bigCell_borel]
+
 /-- **wh:two-cell** (KP Cor. I.3.4/Lemma I.3.2 replaced): every Whittaker functional on `I(T, s)`
 is `c ∘ 𝒥` (every `s ∈ ℂ`). -/
 theorem whittaker_twoCell (L : FinLocalCover D H v) (T : TorusRep D H v) (A : AddCharData F)
     (μ : LocHaar v) (s : ℂ) (Λ : (L.L → T.V) →ₗ[ℂ] ℂ)
     (hΛ : IsWhittakerOn L A (sectionSpace L T s) Λ) :
     ∃ c : T.V →ₗ[ℂ] ℂ, ∀ f ∈ sectionSpace L T s, Λ f = c (jacquet L A μ f) := by
-  sorry
+  classical
+  let bcl := wh_bigCellLinear L T s
+  let Λtest : (v.adicCompletion F → T.V) →ₗ[ℂ] ℂ := Λ.comp bcl
+  have htestEquiv : ∀ φ : v.adicCompletion F → T.V, IsLocallyConstant φ →
+      HasCompactSupport φ → ∀ t,
+        Λtest (fun x => φ (x + t)) = A.ψ v t * Λtest φ := by
+    intro φ hφ hcompact t
+    have hsec : IsSection L T s (bigCell L T s φ) := bigCell_isSection L T s φ hφ hcompact
+    have hmem : bigCell L T s φ ∈ sectionSpace L T s := by
+      change IsSection L T s (bigCell L T s φ)
+      exact hsec
+    have h := hΛ (bigCell L T s φ) hmem t
+    rw [wh_bigCell_right_translation] at h
+    change Λ (bigCell L T s (fun x => φ (x + t))) =
+      A.ψ v t * Λ (bigCell L T s φ) at h
+    simpa [Λtest, bcl, wh_bigCellLinear] using h
+  obtain ⟨c, hc⟩ := psi_equivariant_functional A μ Λtest htestEquiv
+  have hbigTest (φ : v.adicCompletion F → T.V) (hφ : IsLocallyConstant φ)
+      (hcompact : HasCompactSupport φ) :
+      Λ (bigCell L T s φ) = c (∫ t, A.ψ v (-t) • φ t ∂μ.μ) := by
+    have h := hc φ hφ hcompact
+    change Λ (bigCell L T s φ) = _ at h
+    exact h
+  have hbigJacquet (φ : v.adicCompletion F → T.V) (hφ : IsLocallyConstant φ)
+      (hcompact : HasCompactSupport φ) :
+    jacquet L A μ (bigCell L T s φ) = ∫ t, A.ψ v (-t) • φ t ∂μ.μ := by
+    have h := jacquet_bigCell L T A μ s φ hφ hcompact 1
+    rw [L.a_one] at h
+    have hrtr : rtr (1 : L.L) (bigCell L T s φ) = bigCell L T s φ := by
+      funext g
+      simp [rtr]
+    rw [hrtr] at h
+    simpa [T.σa_one, absFin_eq_norm] using h
+  have hzeroEval : ∀ f : L.L → T.V, IsSection L T s f → f 1 = 0 →
+      Λ f = c (jacquet L A μ f) := by
+    intro f hf hf1
+    obtain ⟨φ, hφ, hcompact, hEq⟩ := section_eq_bigCell L T s f hf hf1
+    calc
+      Λ f = Λ (bigCell L T s φ) := by rw [hEq]
+      _ = c (jacquet L A μ (bigCell L T s φ)) := by
+        rw [hbigJacquet φ hφ hcompact]
+        exact hbigTest φ hφ hcompact
+      _ = c (jacquet L A μ f) := by rw [hEq]
+  obtain ⟨d, htrivial, t, ht, hψt⟩ := psi_conductor A v
+  have hψne : A.ψ v t - 1 ≠ 0 := sub_ne_zero.mpr hψt
+  have hfactor : ∀ f : L.L → T.V, IsSection L T s f →
+      Λ f = c (jacquet L A μ f) := by
+    intro f hf
+    have hfmem : f ∈ sectionSpace L T s := by
+      change IsSection L T s f
+      exact hf
+    have hnt : f (L.n (Multiplicative.ofAdd t)) = f 1 := by
+      simpa [L.a_one, T.σa_one, absFin_eq_norm] using hf.1 t 1 1
+    let q : L.L → T.V := rtr (L.n (Multiplicative.ofAdd t)) f - f
+    have hrtmem : rtr (L.n (Multiplicative.ofAdd t)) f ∈ sectionSpace L T s := by
+      change IsSection L T s (rtr (L.n (Multiplicative.ofAdd t)) f)
+      exact IsSection.rtr hf (L.n (Multiplicative.ofAdd t))
+    have hqmem : q ∈ sectionSpace L T s :=
+      (sectionSpace L T s).sub_mem hrtmem hfmem
+    have hqsec : IsSection L T s q := hqmem
+    have hq1 : q 1 = 0 := by
+      simp [q, rtr, hnt]
+    have hzq := hzeroEval q hqsec hq1
+    have hΛtr := hΛ f hfmem t
+    have hΛq : Λ q = (A.ψ v t - 1) * Λ f := by
+      dsimp [q]
+      rw [map_sub, hΛtr]
+      ring
+    have hJtr : jacquet L A μ (rtr (L.n (Multiplicative.ofAdd t)) f) =
+        A.ψ v t • jacquet L A μ f := (jacquet_equiv L T A μ s f hf).1 t
+    have hJq : jacquet L A μ q = (A.ψ v t - 1) • jacquet L A μ f := by
+      calc
+        jacquet L A μ q =
+            jacquet L A μ (rtr (L.n (Multiplicative.ofAdd t)) f) - jacquet L A μ f := by
+              have hlin := jacquet_linear L T A μ s
+                (rtr (L.n (Multiplicative.ofAdd t)) f) f
+                (IsSection.rtr hf (L.n (Multiplicative.ofAdd t))) hf (-1)
+              simpa [q, ← sub_eq_add_neg] using hlin
+        _ = (A.ψ v t) • jacquet L A μ f - jacquet L A μ f := by rw [hJtr]
+        _ = (A.ψ v t - 1) • jacquet L A μ f := by
+              calc
+                _ = (A.ψ v t) • jacquet L A μ f -
+                    (1 : ℂ) • jacquet L A μ f := by simp
+                _ = _ := by rw [← sub_smul]
+    have hcq : c (jacquet L A μ q) =
+        (A.ψ v t - 1) * c (jacquet L A μ f) := by
+      rw [hJq, map_smul]
+      simp [smul_eq_mul]
+    have heq : (A.ψ v t - 1) * Λ f =
+        (A.ψ v t - 1) * c (jacquet L A μ f) := by
+      calc
+        (A.ψ v t - 1) * Λ f = Λ q := hΛq.symm
+        _ = c (jacquet L A μ q) := hzq
+        _ = (A.ψ v t - 1) * c (jacquet L A μ f) := hcq
+    have hprod : (A.ψ v t - 1) * (Λ f - c (jacquet L A μ f)) = 0 := by
+      calc
+        _ = (A.ψ v t - 1) * Λ f - (A.ψ v t - 1) * c (jacquet L A μ f) := by ring
+        _ = 0 := by rw [heq]; simp
+    have hdiff : Λ f - c (jacquet L A μ f) = 0 := by
+      rcases mul_eq_zero.mp hprod with hzero | hzero
+      · exact (hψne hzero).elim
+      · exact hzero
+    exact sub_eq_zero.mp hdiff
+  refine ⟨c, ?_⟩
+  intro f hf
+  have hfsec : IsSection L T s f := by
+    change f ∈ sectionSpace L T s at hf
+    exact hf
+  exact hfactor f hfsec
 
 /-- **wh:coinvariants** (left exactness of `ψ`-twisted coinvariants, Bernstein–Zelevinsky): a
 Whittaker functional on an `rtr`-stable subspace of `I(T, s)` extends to `I(T, s)`. -/
