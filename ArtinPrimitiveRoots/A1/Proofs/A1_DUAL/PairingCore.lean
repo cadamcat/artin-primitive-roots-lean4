@@ -25,12 +25,81 @@ def eOnFS (S : SData F CE condη)
     ∏ w : InfinitePlace F,
       Complex.exp (-(4 * Real.pi * Complex.I * (x.2 w).re))
 
+private theorem p_trace_eq_pair_sum_re {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] (z : F) :
+    (Algebra.trace ℚ F z : ℂ) =
+      ∑ w : InfinitePlace F, (w.embedding z + ComplexEmbedding.conjugate w.embedding z) := by
+  classical
+  have htrace := trace_eq_sum_embeddings (K := ℚ) (L := F) (E := ℂ) (x := z)
+  have hring :
+      (∑ φ : F →+* ℂ, φ z) =
+        ∑ σ : F →ₐ[ℚ] ℂ, σ z := by
+    exact Fintype.sum_equiv (RingHom.equivRatAlgHom F ℂ) _ _ (fun _ => rfl)
+  have hall : (Algebra.trace ℚ F z : ℂ) = ∑ φ : F →+* ℂ, φ z := by
+    rw [hring.symm] at htrace
+    exact htrace
+  rw [hall]
+  rw [← Finset.sum_fiberwise (s := Finset.univ)
+    (g := fun φ : F →+* ℂ => InfinitePlace.mk φ) (f := fun φ => φ z)]
+  apply Finset.sum_congr rfl
+  intro w hw
+  have hmk (φ : F →+* ℂ) : InfinitePlace.mk φ = w ↔
+      φ = w.embedding ∨ φ = ComplexEmbedding.conjugate w.embedding := by
+    constructor
+    · intro h
+      rw [← InfinitePlace.mk_embedding w] at h
+      have h' := InfinitePlace.mk_eq_iff.mp h
+      rcases h' with h' | h'
+      · exact Or.inl (by simpa using h')
+      · right
+        have hc := congrArg ComplexEmbedding.conjugate h'
+        simpa using hc
+    · intro h
+      rw [← InfinitePlace.mk_embedding w]
+      apply InfinitePlace.mk_eq_iff.mpr
+      rcases h with h | h
+      · exact Or.inl (by simpa using h)
+      · right
+        have hc := congrArg ComplexEmbedding.conjugate h
+        simpa using hc
+  have hneq : w.embedding ≠ ComplexEmbedding.conjugate w.embedding := by
+    intro h
+    apply (IsTotallyComplex.complexEmbedding_not_isReal w.embedding)
+    rw [ComplexEmbedding.isReal_iff]
+    exact h.symm
+  have hset : Finset.univ.filter (fun φ : F →+* ℂ => InfinitePlace.mk φ = w) =
+      ({w.embedding, ComplexEmbedding.conjugate w.embedding} : Finset (F →+* ℂ)) := by
+    ext φ
+    simp [hmk]
+  change (∑ φ ∈ Finset.univ.filter
+    (fun φ : F →+* ℂ => InfinitePlace.mk φ = w), φ z) = _
+  rw [hset, Finset.sum_pair hneq]
+
+private theorem p_trace_eq_two_real_sum {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] (z : F) :
+    (Algebra.trace ℚ F z : ℂ) =
+      (2 : ℂ) * ∑ w : InfinitePlace F, ((w.embedding z).re : ℂ) := by
+  rw [p_trace_eq_pair_sum_re]
+  simp only [ComplexEmbedding.conjugate_coe_eq, Complex.add_conj]
+  simp only [Complex.ofReal_mul, Complex.ofReal_ofNat]
+  rw [Finset.mul_sum]
+
 /-- The archimedean character is the trace character on a totally complex field. -/
 theorem arch_product_eq_trace [IsTotallyComplex F] (z : F) :
     (∏ w : InfinitePlace F,
       Complex.exp (-(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)))) =
       Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) := by
-  sorry
+  rw [← Complex.exp_sum]
+  apply congrArg Complex.exp
+  calc
+    ∑ w : InfinitePlace F,
+        -(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)) =
+        -(4 * Real.pi * Complex.I *
+          ∑ w : InfinitePlace F, ((w.embedding z).re : ℂ)) := by
+            rw [Finset.sum_neg_distrib, Finset.mul_sum]
+    _ = -(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)) := by
+      rw [p_trace_eq_two_real_sum]
+      ring
 
 /-- On a diagonal argument, the S-character times one omitted finite-place factor is one when
 all other omitted factors are trivial. -/
@@ -44,7 +113,36 @@ theorem eOnFS_diag_mul_one_exceptional [IsTotallyComplex F]
     (z : F) (v : FinPlace F) (hv : v ∉ S.Sf)
     (hother : ∀ u : FinPlace F, u ∉ S.Sf → u ≠ v → ψ u (algebraMap F _ z) = 1) :
     eOnFS S ψ (S.diag z) * ψ v (algebraMap F _ z) = 1 := by
-  sorry
+  classical
+  let f : FinPlace F → ℂ := fun u => ψ u (algebraMap F _ z)
+  have hsupport : Function.mulSupport f ⊆ (S.Sf ∪ {v} : Finset (FinPlace F)) := by
+    intro u hu
+    by_cases huS : u ∈ S.Sf
+    · exact Finset.mem_union_left _ huS
+    · by_cases huv : u = v
+      · subst u
+        exact Finset.mem_union_right _ (Finset.mem_singleton_self _)
+      · exact False.elim (hu (by simpa [f] using hother u huS huv))
+  have hfinprod : (∏ᶠ u, f u) = (∏ u : S.Sf, f u) * f v := by
+    rw [finprod_eq_prod_of_mulSupport_subset f hsupport, Finset.prod_union]
+    · simp only [Finset.prod_singleton, Finset.prod_coe_sort]
+    · exact Finset.disjoint_singleton_right.mpr hv
+  rcases hglobal z with ⟨hfinite, hcompat⟩
+  have harch := arch_product_eq_trace z
+  have hcompat' : (∏ᶠ u, f u) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = 1 := by
+    simpa [f] using hcompat
+  rw [← harch, hfinprod] at hcompat'
+  calc
+    eOnFS S ψ (S.diag z) * ψ v (algebraMap F _ z) =
+        ((∏ u : S.Sf, f u) *
+          (∏ w : InfinitePlace F,
+            Complex.exp (-(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)))))*f v := by
+          simp [eOnFS, SData.diag, f]
+    _ = ((∏ u : S.Sf, f u) * f v) *
+          (∏ w : InfinitePlace F,
+            Complex.exp (-(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)))) := by ring
+    _ = 1 := hcompat'
 
 private theorem exists_denominator_clearer (z : F) (hz : z ≠ 0)
     (v : FinPlace F) (hvz : 1 < v.valuation F z) :
