@@ -2,6 +2,7 @@ import Mathlib.LinearAlgebra.Basis.Basic
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealLatticeChart
 import ArtinPrimitiveRoots.Theta.Res
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
