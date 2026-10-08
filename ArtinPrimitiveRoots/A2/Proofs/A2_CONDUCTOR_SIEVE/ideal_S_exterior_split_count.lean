@@ -105,11 +105,14 @@ theorem ideal_S_exterior_split_count (S : A1.SData F CE condη) :
       ∑ I ∈ ((conductorIdealCutoff F N).filter (fun I => I ≠ ⊥)), ‖b I‖ ^ 2) := by
   refine ⟨?_, ?_, ?_⟩
   · intro I hI
-    have hnorm := conductorSplit_norm_le S hI
-    refine ⟨conductorSPart_supported S I, conductorExteriorPart_exterior S I,
-      conductorSplit_factorization_of_ne_bot S hI, hnorm.1, hnorm.2, ?_⟩
+    have hnorm := ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorSplit_norm_le S hI
+    refine ⟨ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorSPart_supported S I,
+      ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorExteriorPart_exterior S I,
+      ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorSplit_factorization_of_ne_bot S hI,
+      hnorm.1, hnorm.2, ?_⟩
     intro J E hJ hE hJE
-    rcases conductorParts_unique S I J E hJ hE hJE with ⟨hJ', hE'⟩
+    rcases ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorParts_unique S I J E hJ hE hJE with
+      ⟨hJ', hE'⟩
     exact ⟨hJ'.symm, hE'.symm⟩
   · refine ⟨(1 + (Real.log 2)⁻¹) ^ S.Sf.card, ?_, ?_⟩
     · have hl2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
@@ -139,10 +142,10 @@ theorem ideal_S_exterior_split_count (S : A1.SData F CE condη) :
           simpa [conductorIdealCutoff, n] using hIcut
         have hJbound : Ideal.absNorm J ≤ n := by
           rw [← hIJ]
-          exact (conductorSplit_norm_le S hIne).1 |>.trans hIbound
+          exact (ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorSplit_norm_le S hIne).1 |>.trans hIbound
         have hJsupport : ConductorSupportedAtS S J := by
           rw [← hIJ]
-          exact conductorSPart_supported S I
+          exact ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorSPart_supported S I
         refine ⟨hJsupport, ?_⟩
         intro v
         exact conductorSupported_count_le_log S hJsupport hJbound v
