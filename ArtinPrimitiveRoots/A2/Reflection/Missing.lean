@@ -12707,6 +12707,97 @@ private theorem rf_pairing_active_coefficient_frozen
   unfold rf_pairing_active_coefficient groupedExterior
   rw [hprod]
 
+private theorem rf_pairing_frequency_indices
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (hf : activeFactor R r.h f) (ν : Fˣ)
+    (hν : rf_pairing_active_coefficient R r f ν ≠ 0) :
+    ∃! p : {t : FrozenIndex R r.h // t.f = f} × S.SqfExtIdeal × Gamma S,
+      IsCoprime (p.2.1.1 * p.1.1.n.1) (r.d.1 * f.1) ∧
+        ν = (p.2.2.1 : Fˣ) * frozenFrequency R p.1.1 r.d p.2.1 := by
+  classical
+  have hmulDiv (g ε a c n d f : Fˣ) :
+      g * (ε * a * c * n ^ 3 / (d * f) ^ 2) =
+        g * ε * a * c * n ^ 3 / (d * f) ^ 2 := by
+    rw [← mul_div_assoc]
+    congr 1
+    ac_rfl
+  obtain ⟨acn, hacn, hacnUnique⟩ := rf_active_support_frequencies R r f hf ν hν
+  let t0 : FrozenIndex R r.h :=
+    { f := f
+      a := acn.1
+      n := acn.2.2
+      u := 1
+      active := hf
+      numerator := hacn.1
+      coprime := hacn.2.1.of_mul_left_right.of_mul_right_right }
+  obtain ⟨ug, hug, hugUnique⟩ :=
+    rf_pairing_unit_orbit R r.h t0 r.d acn.2.1 ν hacn.2.2
+  let t : FrozenIndex R r.h := { t0 with u := ug.1 }
+  refine ⟨(⟨t, rfl⟩, acn.2.1, ug.2), ⟨hacn.2.1, ?_⟩, ?_⟩
+  · calc
+      ν = (ug.2.1 : Fˣ) * (R.sheets.eps ug.1 : Fˣ) * bc.gen acn.1 *
+          bc.gen (R.exterior.ofSqf acn.2.1) * bc.gen acn.2.2 ^ 3 /
+            (bc.gen r.d * bc.gen f) ^ 2 := hug
+      _ = (ug.2.1 : Fˣ) * frozenFrequency R t r.d acn.2.1 := by
+        dsimp [frozenFrequency, t, t0]
+        exact (hmulDiv (ug.2.1 : Fˣ) (R.sheets.eps ug.1 : Fˣ)
+          (bc.gen acn.1) (bc.gen (R.exterior.ofSqf acn.2.1))
+          (bc.gen acn.2.2) (bc.gen r.d) (bc.gen f)).symm
+  · intro p' hp'
+    rcases p' with ⟨⟨t', ht'f⟩, c', γ'⟩
+    rcases hp' with ⟨hcp', hfreq'⟩
+    have hdecomp' : ∃ ε : S.US,
+        ν = (ε : Fˣ) * bc.gen t'.a * bc.gen (R.exterior.ofSqf c') *
+          bc.gen t'.n ^ 3 / (bc.gen r.d * bc.gen f) ^ 2 := by
+      refine ⟨γ'.1 * R.sheets.eps t'.u, ?_⟩
+      rw [hfreq']
+      dsimp [frozenFrequency]
+      rw [ht'f]
+      change (γ'.1 : Fˣ) *
+        ((R.sheets.eps t'.u : Fˣ) * bc.gen t'.a * bc.gen (R.exterior.ofSqf c') *
+          bc.gen t'.n ^ 3 / (bc.gen r.d * bc.gen f) ^ 2) =
+        ((γ'.1 : Fˣ) * (R.sheets.eps t'.u : Fˣ)) * bc.gen t'.a *
+          bc.gen (R.exterior.ofSqf c') * bc.gen t'.n ^ 3 /
+            (bc.gen r.d * bc.gen f) ^ 2
+      exact hmulDiv (γ'.1 : Fˣ) (R.sheets.eps t'.u : Fˣ)
+        (bc.gen t'.a) (bc.gen (R.exterior.ofSqf c')) (bc.gen t'.n)
+        (bc.gen r.d) (bc.gen f)
+    have hnum' : activeNumerator R f t'.a := by
+      simpa only [ht'f] using t'.numerator
+    have hacn' : (t'.a, c', t'.n) = acn :=
+      hacnUnique (t'.a, c', t'.n) ⟨hnum', hcp', hdecomp'⟩
+    have ha' : t'.a = acn.1 := congrArg Prod.fst hacn'
+    have hc' : c' = acn.2.1 := congrArg (fun q => q.2.1) hacn'
+    have hn' : t'.n = acn.2.2 := congrArg (fun q => q.2.2) hacn'
+    have hug' :
+        ν = (γ'.1 : Fˣ) * (R.sheets.eps t'.u : Fˣ) * bc.gen t0.a *
+          bc.gen (R.exterior.ofSqf acn.2.1) * bc.gen t0.n ^ 3 /
+            (bc.gen r.d * bc.gen t0.f) ^ 2 := by
+      rw [hfreq']
+      dsimp [frozenFrequency, t0]
+      rw [ha', hc', hn', ht'f]
+      exact hmulDiv (γ'.1 : Fˣ) (R.sheets.eps t'.u : Fˣ)
+        (bc.gen acn.1) (bc.gen (R.exterior.ofSqf acn.2.1))
+        (bc.gen acn.2.2) (bc.gen r.d) (bc.gen f)
+    have huγ' : (t'.u, γ') = ug := hugUnique (t'.u, γ') hug'
+    have hu' : t'.u = ug.1 := congrArg Prod.fst huγ'
+    have hγ' : γ' = ug.2 := congrArg Prod.snd huγ'
+    have ht' : t' = t := by
+      have hExt (x y : FrozenIndex R r.h)
+          (hfx : x.f = y.f) (hax : x.a = y.a) (hnx : x.n = y.n) (hux : x.u = y.u) :
+          x = y := by
+        cases x
+        cases y
+        cases hfx
+        cases hax
+        cases hnx
+        cases hux
+        rfl
+      exact hExt t' t ht'f ha' hn' hu'
+    apply Prod.ext
+    · exact Subtype.ext ht'
+    · exact Prod.ext hc' hγ'
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
