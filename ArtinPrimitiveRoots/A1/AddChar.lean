@@ -551,7 +551,58 @@ private theorem integral_div_gen (S : SData F CE condη) (I : Ideal (𝓞 F))
 private theorem mem_ideal_of_div_mem_R (S : SData F CE condη) (I : Ideal (𝓞 F))
     (hI : S.IsExterior I) (c : F) (hc : S.IsGen c I) (n : 𝓞 F)
     (hn : algebraMap (𝓞 F) F n / c ∈ S.R) : n ∈ I := by
-  sorry
+  classical
+  by_cases hn0 : n = 0
+  · subst n
+    exact I.zero_mem
+  change ∀ q : FinPlace F, q ∉ S.Sf →
+    q.valuation F (algebraMap (𝓞 F) F n / c) ≤ 1 at hn
+  rw [← Ideal.iInf_maxPowDividing_eq hI.1]
+  simp only [Submodule.mem_iInf]
+  intro q
+  change n ∈ q.maxPowDividing I
+  let e : ℕ := (Associates.mk q.asIdeal).count (Associates.mk I).factors
+  change n ∈ q.asIdeal ^ e
+  by_cases hqS : q ∈ S.Sf
+  · have hezero : e = 0 := by
+      dsimp [e]
+      by_contra he
+      have hdvd := (Associates.count_ne_zero_iff_dvd hI.1 q.irreducible).mp he
+      rw [Ideal.dvd_iff_le] at hdvd
+      exact hI.2 q hqS hdvd
+    rw [hezero]
+    simp
+  · have hcountI : FractionalIdeal.count F q
+        (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = (e : ℤ) := by
+      rw [FractionalIdeal.count_coe F q hI.1]
+    have hcountC : FractionalIdeal.count F q
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) = (e : ℤ) := by
+      rw [hc.2.2 q hqS, hcountI]
+    have hcountCLog :=
+      count_spanSingleton_eq_neg_log_valuation_addchar q c hc.2.1
+    rw [hcountC] at hcountCLog
+    have hlogC : WithZero.log (q.valuation F c) = -(e : ℤ) := by
+      linarith
+    have hcValNe : q.valuation F c ≠ 0 := (q.valuation F).ne_zero_iff.mpr hc.2.1
+    have hvalC : q.valuation F c = WithZero.exp (-(e : ℤ)) := by
+      calc
+        q.valuation F c = WithZero.exp (WithZero.log (q.valuation F c)) :=
+          (WithZero.exp_log hcValNe).symm
+        _ = WithZero.exp (-(e : ℤ)) := by rw [hlogC]
+    have hqR := hn q hqS
+    rw [map_div₀] at hqR
+    have hcValPos : 0 < q.valuation F c := by
+      rw [hvalC]
+      exact WithZero.exp_pos
+    have hvalN : q.valuation F (algebraMap (𝓞 F) F n) ≤
+        WithZero.exp (-(e : ℤ)) := by
+      have h := (div_le_one₀ hcValPos).1 hqR
+      rw [hvalC] at h
+      exact h
+    have hIntVal : q.intValuation n ≤ WithZero.exp (-(e : ℤ)) := by
+      rw [← q.valuation_of_algebraMap (K := F)]
+      exact hvalN
+    exact (q.intValuation_le_pow_iff_mem n e).1 hIntVal
 
 /-- lem:s-lattice, the self-duality consequence used at 02:397 and 06:76: for an exterior ideal `I`
 with generator `c`, `(n, d) ↦ e(nd/c)` is a perfect pairing on `O_F/I`. Package P-ARITH-BASE.
