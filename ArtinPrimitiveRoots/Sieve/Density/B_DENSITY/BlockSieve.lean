@@ -77,4 +77,75 @@ lemma roughIntegerCount_le_block :
   have hfirst := happly.1 H hHeven hH
   simpa [roughIntegerCount, A, P, bad, g, mul_assoc, mul_left_comm, mul_comm] using hfirst
 
+/-- The number of multiples of `d` in `(x, 2x]` differs from its expected length by at most
+one. -/
+lemma roughIntegerMultipleCount_error (x : ℝ) (hx : 0 ≤ x) (d : ℕ) (hd : 0 < d) :
+    |(∑ n ∈ roughIntegerInterval x with d ∣ n, (1 : ℝ)) - x / (d : ℝ)| ≤ 1 := by
+  classical
+  let a : ℕ := ⌊x⌋₊
+  let c : ℕ := ⌊2 * x⌋₊
+  have hac : a ≤ c := by
+    dsimp [a, c]
+    apply Nat.floor_mono
+    nlinarith
+  have hinterval : roughIntegerInterval x = Finset.Ioc a c := by
+    ext n
+    simp [roughIntegerInterval, a, c, Finset.mem_Icc, Finset.mem_Ioc]
+  rw [hinterval]
+  have hsplit : Finset.Ioc 0 a ∪ Finset.Ioc a c = Finset.Ioc 0 c := by
+    exact Finset.Ioc_union_Ioc_eq_Ioc (Nat.zero_le a) hac
+  have hdisj : Disjoint (Finset.Ioc 0 a) (Finset.Ioc a c) := by
+    refine Finset.disjoint_left.mpr ?_
+    intro n hna hnc
+    simp only [Finset.mem_Ioc] at hna hnc
+    omega
+  have hfilterUnion :
+      (Finset.Ioc 0 a).filter (fun n : ℕ => d ∣ n) ∪
+        (Finset.Ioc a c).filter (fun n : ℕ => d ∣ n) =
+        (Finset.Ioc 0 c).filter (fun n : ℕ => d ∣ n) := by
+    ext n
+    simp only [Finset.mem_union, Finset.mem_filter]
+    rw [← hsplit]
+    simp only [Finset.mem_union, Finset.mem_Ioc]
+    tauto
+  have hdisj' : Disjoint
+      ((Finset.Ioc 0 a).filter (fun n : ℕ => d ∣ n))
+      ((Finset.Ioc a c).filter (fun n : ℕ => d ∣ n)) := by
+    refine Finset.disjoint_left.mpr ?_
+    intro n hna hnc
+    have hna' : n ∈ Finset.Ioc 0 a := (Finset.mem_filter.mp hna).1
+    have hnc' : n ∈ Finset.Ioc a c := (Finset.mem_filter.mp hnc).1
+    exact (Finset.disjoint_left.mp hdisj) hna' hnc'
+  have hcardUnion := Finset.card_union_of_disjoint hdisj'
+  rw [hfilterUnion, Nat.Ioc_filter_dvd_card_eq_div, Nat.Ioc_filter_dvd_card_eq_div] at hcardUnion
+  have hdiv : a / d ≤ c / d := Nat.div_le_div_right hac
+  have hcard : ((Finset.Ioc a c).filter (fun n : ℕ => d ∣ n)).card = c / d - a / d := by
+    omega
+  have hsum :
+      (∑ n ∈ Finset.Ioc a c with d ∣ n, (1 : ℝ)) =
+        ((c / d : ℕ) : ℝ) - ((a / d : ℕ) : ℝ) := by
+    rw [show (∑ n ∈ Finset.Ioc a c with d ∣ n, (1 : ℝ)) =
+        (((Finset.Ioc a c).filter (fun n : ℕ => d ∣ n)).card : ℝ) by simp]
+    rw [hcard]
+    rw [Nat.cast_sub hdiv]
+  have hfloorA : ((a / d : ℕ) : ℝ) = ⌊x / (d : ℝ)⌋₊ := by
+    simp [a, Nat.floor_div_natCast]
+  have hfloorC : ((c / d : ℕ) : ℝ) = ⌊(2 * x) / (d : ℝ)⌋₊ := by
+    simp [c, Nat.floor_div_natCast]
+  rw [hsum, hfloorA, hfloorC]
+  have hdR : 0 < (d : ℝ) := by exact_mod_cast hd
+  have ht : 0 ≤ x / (d : ℝ) := div_nonneg hx (le_of_lt hdR)
+  have hfloorLo (t : ℝ) : t - 1 ≤ (⌊t⌋₊ : ℝ) := by
+    have h := Nat.lt_floor_add_one t
+    linarith
+  have hfloorHi (t : ℝ) (ht : 0 ≤ t) : (⌊t⌋₊ : ℝ) ≤ t := Nat.floor_le ht
+  have hmul : (2 * x) / (d : ℝ) = 2 * (x / (d : ℝ)) := by field_simp
+  rw [hmul]
+  have hlow := hfloorLo (x / (d : ℝ))
+  have hhigh := hfloorHi (x / (d : ℝ)) ht
+  have hlow2 := hfloorLo (2 * (x / (d : ℝ)))
+  have hhigh2 := hfloorHi (2 * (x / (d : ℝ))) (by positivity)
+  rw [abs_le]
+  constructor <;> nlinarith
+
 end ArtinPrimitiveRoots.Proofs.b_density_sol
