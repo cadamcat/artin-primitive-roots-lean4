@@ -1355,6 +1355,34 @@ private theorem conductorSIntegerResidue_isUnit_iff
     rw [← hred] at hbunit
     exact (Commute.all _ _).isUnit_mul_iff.mp hbunit |>.1
 
+private theorem conductorGeneratorResidue_isUnit_iff
+    (S : A1.SData F CE condη) (G : ConductorGenerators S)
+    (ρ : ConductorResidues S) (q I : S.ExtIdeal) :
+    IsUnit (ρ.red q (G.gen I)) ↔
+      ∀ v : A1.FinPlace F, v.asIdeal ∣ I.1 → ¬ v.asIdeal ∣ q.1 := by
+  rw [conductorSIntegerResidue_isUnit_iff]
+  have hqoffS : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → v ∉ S.Sf := by
+    intro v hv hvS
+    exact q.2.2 v hvS (Ideal.dvd_iff_le.mp hv)
+  constructor
+  · intro hval v hvI hvq
+    have hgenval := SData.IsGen.valuation_eq_exp_neg_idealExp S
+      (G.generates I) v (hqoffS v hvq)
+    have hexp : WithZero.exp (-(A1.idealExp v I.1 : ℤ)) = 1 :=
+      hgenval.symm.trans (hval v hvq)
+    have hzero : A1.idealExp v I.1 = 0 := by
+      simpa only [neg_eq_zero, Int.natCast_eq_zero] using WithZero.exp_eq_one.mp hexp
+    have hI0 : I.1 ≠ 0 := by simpa [Ideal.zero_eq_bot] using I.2.1
+    have hcount : A1.idealExp v I.1 ≠ 0 := by
+      unfold A1.idealExp
+      exact (Associates.count_ne_zero_iff_dvd hI0 v.irreducible).mpr hvI
+    exact hcount hzero
+  · intro hcop v hvq
+    have hnotI : ¬ v.asIdeal ∣ I.1 := fun hvI => hcop v hvI hvq
+    rw [SData.IsGen.valuation_eq_exp_neg_idealExp S (G.generates I) v (hqoffS v hvq),
+      conductor_idealExp_zero_of_not_dvd I.1 I.2.1 v hnotI]
+    simp
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
