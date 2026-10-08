@@ -33,20 +33,142 @@ def torusPairing (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
     (x y : (v.adicCompletion F)ˣ) : rootsOfUnity 3 ℂ :=
   muThree D (H.hilb v x y) * (muThree D (H.hilb v y x))⁻¹
 
+private theorem muThree_pow_three_eq_one (D : FieldData F) (ζ : rootsOfUnity 6 F) :
+    muThree D (ζ ^ 3) = 1 := by
+  have h6 : (ζ : Fˣ) ^ 6 = 1 := (mem_rootsOfUnity 6 (ζ : Fˣ)).mp ζ.2
+  apply rootsOfUnity.coe_injective
+  change D.σ0 (((((ζ ^ 3) ^ 2 : rootsOfUnity 6 F) : Fˣ) : F)) = 1
+  have hz : (((ζ ^ 3) ^ 2 : rootsOfUnity 6 F) : Fˣ) = 1 := by
+    change ((ζ : Fˣ) ^ 3) ^ 2 = 1
+    calc
+      ((ζ : Fˣ) ^ 3) ^ 2 = (ζ : Fˣ) ^ (3 * 2) := by rw [pow_mul]
+      _ = (ζ : Fˣ) ^ 6 := by norm_num
+      _ = 1 := h6
+  rw [hz]
+  simp
+
 /-- **tor:pairing**: the commutator formula. -/
 theorem torus_commutator (L : FinLocalCover D H v) (x y : (v.adicCompletion F)ˣ) :
     L.a x * L.a y * (L.a x)⁻¹ * (L.a y)⁻¹ = L.z (torusPairing D H v x y) := by
-  sorry
+  let cxy := muThree D (H.hilb v x y)
+  let cyx := muThree D (H.hilb v y x)
+  have hc : L.z cxy * (L.z cyx)⁻¹ = L.z (cxy * cyx⁻¹) := by
+    simp [cxy, cyx]
+  have hswap : L.a x * L.a y = L.z (cxy * cyx⁻¹) * (L.a y * L.a x) := by
+    calc
+      L.a x * L.a y = L.z cxy * L.a (x * y) := L.a_mul x y
+      _ = (L.z cxy * (L.z cyx)⁻¹) * (L.z cyx * L.a (x * y)) := by group
+      _ = (L.z cxy * (L.z cyx)⁻¹) * (L.z cyx * L.a (y * x)) := by rw [mul_comm x y]
+      _ = L.z (cxy * cyx⁻¹) * (L.a y * L.a x) := by
+        rw [hc, L.a_mul y x]
+  calc
+    L.a x * L.a y * (L.a x)⁻¹ * (L.a y)⁻¹ =
+        (L.z (cxy * cyx⁻¹) * (L.a y * L.a x)) * (L.a x)⁻¹ * (L.a y)⁻¹ := by rw [hswap]
+    _ = L.z (cxy * cyx⁻¹) := by group
+    _ = L.z (torusPairing D H v x y) := by rfl
 
 /-- **tor:pairing** (nondegeneracy on `K^×/K^{×3}`). -/
 theorem torusPairing_nondeg (x : (v.adicCompletion F)ˣ)
     (hx : ∀ y, torusPairing D H v x y = 1) : ∃ t : (v.adicCompletion F)ˣ, x = t ^ 3 := by
-  sorry
+  have hfour (y : (v.adicCompletion F)ˣ) : (H.hilb v x y) ^ 4 = 1 := by
+    have hskew := H.skew v x y
+    rw [mul_comm] at hskew
+    have hyx : H.hilb v y x = (H.hilb v x y)⁻¹ :=
+      eq_inv_of_mul_eq_one_left hskew
+    let a : F := (((H.hilb v x y : rootsOfUnity 6 F) : Fˣ) : F)
+    have hval : D.σ0 a ^ 2 * D.σ0 a ^ 2 = 1 := by
+      have h := congrArg (fun z : rootsOfUnity 3 ℂ => ((z : ℂˣ) : ℂ)) (hx y)
+      simpa [torusPairing, hyx, muThree, a, ← map_pow] using h
+    apply rootsOfUnity.coe_injective
+    apply D.σ0.injective
+    simp only [SubgroupClass.coe_pow, Units.val_pow_eq_pow_val]
+    calc
+      D.σ0 (a ^ 4) = (D.σ0 a) ^ 4 := by rw [map_pow]
+      _ = D.σ0 a ^ 2 * D.σ0 a ^ 2 := by ring
+      _ = D.σ0 1 := by simpa [a] using hval
+  have hsq (y : (v.adicCompletion F)ˣ) : (H.hilb v x y) ^ 2 = 1 := by
+    let z := H.hilb v x y
+    have h6 : z ^ 6 = 1 := by
+      apply Subtype.ext
+      exact (mem_rootsOfUnity 6 (z : Fˣ)).mp z.2
+    have h4 : z ^ 4 = 1 := hfour y
+    calc
+      z ^ 2 = z ^ 6 * (z ^ 4)⁻¹ := by group
+      _ = 1 := by rw [h6, h4]; simp
+  have hnondeg : ∀ y, H.hilb v (x ^ 2) y = 1 := by
+    intro y
+    calc
+      H.hilb v (x ^ 2) y = H.hilb v x y * H.hilb v x y := by
+        simpa [pow_two] using H.mul_left v x x y
+      _ = 1 := by simpa [pow_two] using hsq y
+  obtain ⟨c, hc⟩ := H.nondeg v (x ^ 2) hnondeg
+  let q : (v.adicCompletion F)ˣ := x / c ^ 3
+  have hq : q ^ 2 = 1 := by
+    dsimp [q]
+    rw [div_pow, hc]
+    rw [div_eq_mul_inv, show (c ^ 3) ^ 2 = c ^ 6 by rw [← pow_mul]]
+    exact mul_inv_cancel _
+  have hqval : ((q : v.adicCompletion F) ^ 2) = 1 := by
+    have h := congrArg (fun u : (v.adicCompletion F)ˣ => (u : v.adicCompletion F)) hq
+    simpa using h
+  rcases sq_eq_one_iff.mp hqval with hqpos | hqneg
+  · have hqeq : q = 1 := Units.ext hqpos
+    refine ⟨c, ?_⟩
+    calc
+      x = q * c ^ 3 := by simp [q]
+      _ = c ^ 3 := by rw [hqeq]; simp
+  · have hqeq : q = -1 := Units.ext hqneg
+    refine ⟨-c, ?_⟩
+    calc
+      x = q * c ^ 3 := by simp [q]
+      _ = (-1) * c ^ 3 := by rw [hqeq]
+      _ = (-c) ^ 3 := by
+        apply Units.ext
+        simp only [Units.val_mul, Units.val_pow_eq_pow_val, Units.val_neg, Units.val_one]
+        ring
 
 /-- **tor:center**: `t ↦ a(t³)` is a homomorphism into the centre of the covering torus. -/
 theorem a_cube_mul (L : FinLocalCover D H v) (s t : (v.adicCompletion F)ˣ) :
     L.a (s ^ 3) * L.a (t ^ 3) = L.a ((s * t) ^ 3) ∧ ∀ y, L.a (s ^ 3) * L.a y = L.a y * L.a (s ^ 3) := by
-  sorry
+  have hmul (x y : (v.adicCompletion F)ˣ) :
+      H.hilb v (x ^ 3) (y ^ 3) = (H.hilb v x y) ^ 9 := by
+    simp [pow_succ, H.mul_left, H.mul_right] <;> ac_rfl
+  have hleft (x y : (v.adicCompletion F)ˣ) :
+      H.hilb v (x ^ 3) y = (H.hilb v x y) ^ 3 := by
+    simp [pow_succ, H.mul_left]
+  have hright (x y : (v.adicCompletion F)ˣ) :
+      H.hilb v x (y ^ 3) = (H.hilb v x y) ^ 3 := by
+    simp [pow_succ, H.mul_right]
+  have hcube (ζ : rootsOfUnity 6 F) : muThree D (ζ ^ 9) = 1 := by
+    rw [show ζ ^ 9 = (ζ ^ 3) ^ 3 by group]
+    exact muThree_pow_three_eq_one D (ζ ^ 3)
+  constructor
+  · have hs : muThree D (H.hilb v (s ^ 3) (t ^ 3)) = 1 := by
+      rw [hmul]
+      exact hcube (H.hilb v s t)
+    calc
+      L.a (s ^ 3) * L.a (t ^ 3) =
+          L.z (muThree D (H.hilb v (s ^ 3) (t ^ 3))) * L.a (s ^ 3 * t ^ 3) :=
+        L.a_mul (s ^ 3) (t ^ 3)
+      _ = L.a ((s * t) ^ 3) := by rw [hs]; simp [mul_pow]
+  · intro y
+    have hs : muThree D (H.hilb v (s ^ 3) y) = 1 := by
+      rw [hleft]
+      exact muThree_pow_three_eq_one D (H.hilb v s y)
+    have hy : muThree D (H.hilb v y (s ^ 3)) = 1 := by
+      rw [hright]
+      exact muThree_pow_three_eq_one D (H.hilb v y s)
+    have hpair : torusPairing D H v (s ^ 3) y = 1 := by
+      simp [torusPairing, hs, hy]
+    have hc := torus_commutator (L := L) (x := s ^ 3) (y := y)
+    rw [hpair] at hc
+    have hcomm : L.a (s ^ 3) * L.a y = L.a y * L.a (s ^ 3) := by
+      calc
+        L.a (s ^ 3) * L.a y =
+            (L.a (s ^ 3) * L.a y * (L.a (s ^ 3))⁻¹ * (L.a y)⁻¹) *
+              (L.a y * L.a (s ^ 3)) := by group
+        _ = L.a y * L.a (s ^ 3) := by rw [hc]; simp
+    exact hcomm
 
 /-- **def:tor-rep**: a genuine smooth representation of the covering torus with unitary central
 character `z(ζ)a(t³) ↦ ζ`, given as a projective representation of `K^×` with the torus cocycle. -/
