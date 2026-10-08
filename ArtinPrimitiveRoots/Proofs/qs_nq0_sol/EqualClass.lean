@@ -168,4 +168,59 @@ theorem qs_nq0_generator_ratio_sunit
       (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr (a / b / x).ne_zero)).symm
     _ = 1 := by rw [hzlog, WithZero.exp_zero]
 
+
+/-- Local higher-unit membership implies the corresponding valuation congruence. -/
+theorem qs_nq0_local_higher_unit_congruence
+    (v : FinPlace K) (n : ℕ) (u : (v.adicCompletion K)ˣ)
+    (hu : u ∈ ClassFieldTheory.rayLocalHigherUnitGroup v n) :
+    Valued.v ((u : v.adicCompletion K) - 1) ≤
+      WithZero.exp (-(n : ℤ)) := by
+  change u ∈ RayClass.localHigherUnitGroup v n at hu
+  obtain ⟨y, hy, hmap⟩ := (RayClass.mem_localHigherUnitGroup_iff v n u).mp hu
+  let z : (v.adicCompletionIntegers K)ˣ :=
+    (v.adicCompletionIntegers K).toSubmonoid.unitsEquivUnitsType y
+  have hzy : ((z : v.adicCompletionIntegers K) : v.adicCompletion K) =
+      (u : v.adicCompletion K) := by
+    exact congrArg (fun t : (v.adicCompletion K)ˣ => (t : v.adicCompletion K)) hy
+  have hzmap : Ideal.Quotient.mk
+      ((IsLocalRing.maximalIdeal (v.adicCompletionIntegers K)) ^ n)
+      (z : v.adicCompletionIntegers K) = 1 := by
+    exact congrArg Units.val hmap
+  have hzmem : (z : v.adicCompletionIntegers K) - 1 ∈
+      (IsLocalRing.maximalIdeal (v.adicCompletionIntegers K)) ^ n :=
+    (Ideal.Quotient.mk_eq_one_iff_sub_mem
+      (I := (IsLocalRing.maximalIdeal (v.adicCompletionIntegers K)) ^ n)
+      (z : v.adicCompletionIntegers K)).mp hzmap
+  let w : Valuation (v.adicCompletion K) (WithZero (Multiplicative ℤ)) := Valued.v
+  have hw : w.Integers (v.adicCompletionIntegers K) := Valuation.valuationSubring.integers w
+  obtain ⟨π, hπ⟩ := IsDiscreteValuationRing.exists_irreducible (v.adicCompletionIntegers K)
+  have hπmem : π ∈ IsLocalRing.maximalIdeal (v.adicCompletionIntegers K) := by
+    rw [hπ.maximalIdeal_eq]
+    exact Submodule.mem_span_singleton_self π
+  have hπlt : w (π : v.adicCompletion K) < 1 :=
+    (Valuation.mem_maximalIdeal_iff (v := w)).mp hπmem
+  have hπbound : w (π : v.adicCompletion K) ≤ WithZero.exp (-1 : ℤ) := by
+    by_cases hz : w (π : v.adicCompletion K) = 0
+    · rw [hz]
+      exact zero_le
+    · rw [← WithZero.exp_log hz, ← WithZero.exp_zero, WithZero.exp_lt_exp] at hπlt
+      rw [← WithZero.exp_log hz, WithZero.exp_le_exp]
+      omega
+  have hbound : w (((z : v.adicCompletionIntegers K) : v.adicCompletion K) - 1) ≤
+      w (π : v.adicCompletion K) ^ n := by
+    have hset := hw.maximalIdeal_pow_eq_setOfPred_le_v_algebraMap_pow hπ n
+    change (z : v.adicCompletionIntegers K) - 1 ∈
+      (((IsLocalRing.maximalIdeal (v.adicCompletionIntegers K)) ^ n :
+        Ideal (v.adicCompletionIntegers K)) : Set (v.adicCompletionIntegers K)) at hzmem
+    rw [hset] at hzmem
+    exact hzmem
+  rw [hzy] at hbound
+  calc
+    Valued.v ((u : v.adicCompletion K) - 1) ≤ w (π : v.adicCompletion K) ^ n := hbound
+    _ ≤ WithZero.exp (-1 : ℤ) ^ n := pow_le_pow_left' hπbound n
+    _ = WithZero.exp (-(n : ℤ)) := by
+      rw [← WithZero.exp_nsmul]
+      congr 1
+      simp
+
 end ArtinPrimitiveRoots.A2
