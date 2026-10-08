@@ -1,7 +1,10 @@
 import ArtinPrimitiveRoots.A2.Reflection.Nodes
+import ArtinPrimitiveRoots.A2.Proofs.A2_PRODUCERS.Reflection
 import ArtinPrimitiveRoots.A1.SLattice
 import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
+import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.conductor_residues_exists
+import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
 
 /-!
 Producer interfaces consumed by A2 §§4–6. New records name their producing package and TeX
@@ -51,6 +54,193 @@ structure ExteriorArithmetic (D : FieldData F) (S : SData F CE condη)
   /-- The zero-ring residue of the unit ideal has character 1, including its zero element. -/
   unit_character : ∀ x : S.R, chiIdealPow D one.1 (x : F) 1 = 1
 
+private lemma a2p_count_coe_eq_normalizedFactors (J : Ideal (𝓞 F)) (hJ : J ≠ ⊥)
+    (v : FinPlace F) :
+    FractionalIdeal.count F v (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      (Multiset.count v.asIdeal (UniqueFactorizationMonoid.normalizedFactors J) : ℤ) := by
+  have hJ0 : J ≠ 0 := by simpa only [Ideal.zero_eq_bot] using hJ
+  rw [FractionalIdeal.count_coe F v hJ0]
+  exact_mod_cast (Ideal.count_associates_factors_eq hJ0 v.isPrime v.ne_bot)
+
+private lemma a2p_principal_count_le_of_valuation_le (v : FinPlace F) {a c : F}
+    (ha : a ≠ 0) (hc : c ≠ 0) (hval : v.valuation F a ≤ v.valuation F c) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) ≤
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) a) := by
+  have hlog : WithZero.log (v.valuation F a) ≤ WithZero.log (v.valuation F c) :=
+    (WithZero.log_le_log ((v.valuation F).ne_zero_iff.mpr ha)
+      ((v.valuation F).ne_zero_iff.mpr hc)).2 hval
+  rw [ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation v c hc,
+    ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation v a ha]
+  exact neg_le_neg hlog
+
+private lemma a2p_valuation_le_of_principal_count_le (v : FinPlace F) {a c : F}
+    (ha : a ≠ 0) (hc : c ≠ 0)
+    (hcount : FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) ≤
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) a)) :
+    v.valuation F a ≤ v.valuation F c := by
+  have hlog : WithZero.log (v.valuation F a) ≤ WithZero.log (v.valuation F c) := by
+    rw [ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation v c hc,
+      ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation v a ha] at hcount
+    linarith
+  exact (WithZero.log_le_log ((v.valuation F).ne_zero_iff.mpr ha)
+    ((v.valuation F).ne_zero_iff.mpr hc)).mp hlog
+
+private theorem a2p_ideal_mem_of_valuation_le (S : SData F CE condη)
+    {I : Ideal (𝓞 F)} (hI : S.IsExterior I) {c : F}
+    (hc : S.IsGen c I) (a : 𝓞 F)
+    (hval : ∀ v : FinPlace F, v ∉ S.Sf →
+      v.valuation F (a : F) ≤ v.valuation F c) : a ∈ I := by
+  by_cases ha0 : a = 0
+  · simp [ha0]
+  have haF : (a : F) ≠ 0 := by
+    intro h
+    exact ha0 ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+  have hspan : Ideal.span {a} ≠ ⊥ := by
+    simpa [Ideal.span_singleton_eq_bot, Ideal.zero_eq_bot] using ha0
+  have hfactor : UniqueFactorizationMonoid.normalizedFactors I ≤
+      UniqueFactorizationMonoid.normalizedFactors (Ideal.span {a}) := by
+    apply Multiset.le_iff_count.mpr
+    intro Q
+    by_cases hQ : Q.IsPrime ∧ Q ≠ ⊥
+    · let v : FinPlace F := ⟨Q, hQ.1, hQ.2⟩
+      by_cases hvS : v ∈ S.Sf
+      · have hnot : Q ∉ UniqueFactorizationMonoid.normalizedFactors I := by
+          intro hmem
+          have hP := (Ideal.mem_normalizedFactors_iff hI.1).mp hmem
+          have hle : I ≤ Q := hP.2
+          exact hI.2 v hvS (by simpa [v] using hle)
+        rw [Multiset.count_eq_zero.mpr hnot]
+        exact Nat.zero_le _
+      · have hcount : FractionalIdeal.count F v
+            (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≤
+          FractionalIdeal.count F v
+            (Ideal.span {a} : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+          calc
+            _ = FractionalIdeal.count F v
+                (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) c) :=
+                  (hc.2.2 v hvS).symm
+            _ ≤ _ := a2p_principal_count_le_of_valuation_le v haF hc.2.1 (hval v hvS)
+            _ = FractionalIdeal.count F v
+                (Ideal.span {a} : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+                  rw [← FractionalIdeal.coeIdeal_span_singleton]
+        rw [a2p_count_coe_eq_normalizedFactors I hI.1 v,
+          a2p_count_coe_eq_normalizedFactors (Ideal.span {a}) hspan v] at hcount
+        exact_mod_cast hcount
+    · have hnot : Q ∉ UniqueFactorizationMonoid.normalizedFactors I := by
+        intro hmem
+        have hP := (Ideal.mem_normalizedFactors_iff hI.1).mp hmem
+        have hQ0 : Q ≠ ⊥ := by
+          intro hbot
+          apply hI.1
+          exact bot_unique (by simpa [hbot] using hP.2)
+        exact hQ ⟨hP.1, hQ0⟩
+      rw [Multiset.count_eq_zero.mpr hnot]
+      exact Nat.zero_le _
+  have hdiv : I ∣ Ideal.span {a} :=
+    (UniqueFactorizationMonoid.dvd_iff_normalizedFactors_le_normalizedFactors hI.1 hspan).2 hfactor
+  have hle : Ideal.span {a} ≤ I := Ideal.dvd_iff_le.mp hdiv
+  exact hle (Ideal.subset_span (by simp))
+
+private theorem a2p_gen_mem_R (S : SData F CE condη) {D : FieldData F}
+    {H : HilbertData F} {Bd : BData S H} (bc : BalancedChoices D S H Bd)
+    (I : S.ExtIdeal) : ((bc.gen I : Fˣ) : F) ∈ S.R := by
+  change ∀ v : FinPlace F, v ∉ S.Sf → v.valuation F ((bc.gen I : Fˣ) : F) ≤ 1
+  intro v hv
+  have hgen := (bc.gen_spec I).1.2.2 v hv
+  have hcount : 0 ≤ FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+        ((bc.gen I : Fˣ) : F)) := by
+    rw [hgen]
+    exact FractionalIdeal.count_coe_nonneg F v I.1
+  have hform := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation v
+    ((bc.gen I : Fˣ) : F) (Units.ne_zero (bc.gen I))
+  have hlog : WithZero.log
+      (v.valuation F ((bc.gen I : Fˣ) : F)) ≤ 0 := by
+    linarith
+  simpa using WithZero.le_exp_of_log_le hlog
+
+private theorem a2p_map_eq_span_genR (S : SData F CE condη)
+    (I : S.ExtIdeal) (cR : S.R) (hc : S.IsGen (cR : F) I.1) :
+    Ideal.map (algebraMap (𝓞 F) S.R) I.1 = Ideal.span {cR} := by
+  classical
+  let M := conductorDenominators S
+  letI : IsLocalization M S.R := conductorSInteger_isLocalization S
+  have hc0 : (cR : F) ≠ 0 := hc.2.1
+  have hunder : (Ideal.span {cR}).under (𝓞 F) = I.1 := by
+    ext a
+    change algebraMap (𝓞 F) S.R a ∈ Ideal.span {cR} ↔ a ∈ I.1
+    constructor
+    · intro ha
+      obtain ⟨r, hr⟩ := Ideal.mem_span_singleton'.mp ha
+      have hfield : (a : F) = (cR : F) * (r : F) := by
+        have h := congrArg (fun x : S.R => (x : F)) hr
+        simpa [mul_comm] using h.symm
+      apply a2p_ideal_mem_of_valuation_le S hc.1 hc a
+      intro v hv
+      calc
+        v.valuation F (a : F) = v.valuation F ((cR : F) * (r : F)) := by rw [hfield]
+        _ = v.valuation F (cR : F) * v.valuation F (r : F) := by rw [map_mul]
+        _ ≤ v.valuation F (cR : F) * 1 :=
+          mul_le_mul_of_nonneg_left (r.property v hv) (zero_le)
+        _ = v.valuation F (cR : F) := by simp
+    · intro ha
+      by_cases ha0 : a = 0
+      · subst a
+        simp
+      have haF : (a : F) ≠ 0 := by
+        intro h
+        exact ha0 ((IsFractionRing.injective (𝓞 F) F) (by simpa using h))
+      have hspan : Ideal.span {a} ≠ ⊥ := by
+        simpa [Ideal.span_singleton_eq_bot, Ideal.zero_eq_bot] using ha0
+      have hspanle : Ideal.span {a} ≤ I.1 := Ideal.span_le.mpr (by
+        intro x hx
+        rw [Set.mem_singleton_iff.mp hx]
+        exact ha)
+      have hspanleF :
+          (Ideal.span {a} : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≤
+            (I.1 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+        exact (FractionalIdeal.coeIdeal_le_coeIdeal F).2 hspanle
+      have hspanF : (Ideal.span {a} : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≠ 0 := by
+        exact FractionalIdeal.coeIdeal_ne_zero.mpr (by simpa only [Ideal.zero_eq_bot] using hspan)
+      have hratio : (a : F) / (cR : F) ∈ S.R := by
+        change ∀ v : FinPlace F, v ∉ S.Sf →
+          v.valuation F ((a : F) / (cR : F)) ≤ 1
+        intro v hv
+        have hcount : FractionalIdeal.count F v
+            (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (cR : F)) ≤
+          FractionalIdeal.count F v
+            (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) := by
+          have hspanCount : FractionalIdeal.count F v
+              (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) =
+            FractionalIdeal.count F v
+              (Ideal.span {a} : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+            rw [← FractionalIdeal.coeIdeal_span_singleton]
+          calc
+            _ = FractionalIdeal.count F v
+                (I.1 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := hc.2.2 v hv
+            _ ≤ FractionalIdeal.count F v
+                (Ideal.span {a} : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+                  FractionalIdeal.count_mono F v hspanF hspanleF
+            _ = _ := hspanCount.symm
+        have hval := a2p_valuation_le_of_principal_count_le v haF hc0 hcount
+        rw [Valuation.map_div]
+        exact (div_le_one₀
+          (WithZero.pos_iff_ne_zero.mpr ((v.valuation F).ne_zero_iff.mpr hc0))).2 hval
+      let r : S.R := ⟨(a : F) / (cR : F), hratio⟩
+      apply Ideal.mem_span_singleton'.mpr
+      refine ⟨r, ?_⟩
+      apply Subtype.ext
+      change ((a : F) / (cR : F)) * (cR : F) = (a : F)
+      field_simp [hc0]
+  calc
+    Ideal.map (algebraMap (𝓞 F) S.R) I.1 =
+        Ideal.map (algebraMap (𝓞 F) S.R) ((Ideal.span {cR}).under (𝓞 F)) := by rw [hunder]
+    _ = Ideal.span {cR} := IsLocalization.map_under M S.R (Ideal.span {cR})
+
 abbrev ResidueRing {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
     {Bd : BData S H} {bc : BalancedChoices D S H Bd}
     (E : ExteriorArithmetic D S H Bd bc) (I : S.ExtIdeal) :=
@@ -60,7 +250,95 @@ abbrev ResidueRing {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
 theorem exteriorArithmetic_exists (D : FieldData F) (S : SData F CE condη)
     (H : HilbertData F) (Bd : BData S H) (bc : BalancedChoices D S H Bd) :
     Nonempty (ExteriorArithmetic D S H Bd bc) := by
-  sorry
+  classical
+  let one : S.ExtIdeal := ⟨⊤, ⟨top_ne_bot, by
+    intro v hv hle
+    exact v.isPrime.ne_top (top_le_iff.mp hle)⟩⟩
+  have one_val : one.1 = ⊤ := rfl
+  let mul : S.ExtIdeal → S.ExtIdeal → S.ExtIdeal := fun I J =>
+    ⟨I.1 * J.1, ⟨by
+      intro h
+      rcases Ideal.mul_eq_bot.mp h with hI | hJ
+      · exact I.2.1 hI
+      · exact J.2.1 hJ, by
+      intro v hv hle
+      rcases v.isPrime.mul_le.mp hle with hI | hJ
+      · exact I.2.2 v hv hI
+      · exact J.2.2 v hv hJ⟩⟩
+  let pow : S.ExtIdeal → ℕ → S.ExtIdeal := fun I n =>
+    ⟨I.1 ^ n, ⟨pow_ne_zero n I.2.1, by
+      intro v hv hle
+      by_cases hn : n = 0
+      · subst n
+        exact v.isPrime.ne_top (top_le_iff.mp (by simpa using hle))
+      · exact I.2.2 v hv ((v.isPrime.pow_le_iff hn).mp hle)⟩⟩
+  let ofSqf : S.SqfExtIdeal → S.ExtIdeal := fun I => ⟨I.1, I.2.1⟩
+  let prime : (v : FinPlace F) → v ∉ S.Sf → S.ExtIdeal := fun v hv =>
+    ⟨v.asIdeal, ⟨v.ne_bot, by
+      intro w hw hle
+      have heq : v.asIdeal = w.asIdeal := v.isMaximal.eq_of_le w.isPrime.ne_top hle
+      have hvw : v = w := HeightOneSpectrum.ext heq
+      exact hv (by simpa [hvw] using hw)⟩⟩
+  let support : S.ExtIdeal → Finset (FinPlace F) := fun I =>
+    (Ideal.finite_factors (by simpa only [Ideal.zero_eq_bot] using I.2.1)).toFinset
+  have mem_support : ∀ I v, v ∈ support I ↔ v.asIdeal ∣ I.1 := by
+    intro I v
+    have hI0 : I.1 ≠ 0 := by simpa only [Ideal.zero_eq_bot] using I.2.1
+    change v ∈ (Ideal.finite_factors hI0).toFinset ↔ v.asIdeal ∣ I.1
+    exact (Ideal.finite_factors hI0).mem_toFinset
+  let genR : S.ExtIdeal → S.R := fun I => ⟨(bc.gen I : Fˣ), a2p_gen_mem_R S bc I⟩
+  have genR_val : ∀ I, (genR I : F) = (bc.gen I : F) := fun _ => rfl
+  obtain ⟨residues⟩ := conductor_residues_exists S
+  let residueEquiv (I : S.ExtIdeal) :
+      S.R ⧸ Ideal.span {genR I} ≃+* 𝓞 F ⧸ I.1 := by
+    have hmap : Ideal.map (algebraMap (𝓞 F) S.R) I.1 = Ideal.span {genR I} :=
+      a2p_map_eq_span_genR S I (genR I) (by
+        change S.IsGen ((bc.gen I : Fˣ) : F) I.1
+        exact (bc.gen_spec I).1)
+    have hkernel : RingHom.ker (residues.red I) = Ideal.span {genR I} := by
+      calc
+        RingHom.ker (residues.red I) = Ideal.map (algebraMap (𝓞 F) S.R) I.1 :=
+          residues.ker I
+        _ = Ideal.span {genR I} := hmap
+    exact (Ideal.quotEquivOfEq hkernel).symm.trans
+      (RingHom.quotientKerEquivOfSurjective (residues.surjective I))
+  let residueFinite : ∀ I : S.ExtIdeal, Fintype (S.R ⧸ Ideal.span {genR I}) :=
+    fun I => Fintype.ofEquiv (𝓞 F ⧸ I.1) (residueEquiv I).symm
+  let residueCard : ∀ I : S.ExtIdeal,
+      @Fintype.card _ (residueFinite I) = Ideal.absNorm I.1 := by
+    intro I
+    letI : Fintype (S.R ⧸ Ideal.span {genR I}) := residueFinite I
+    calc
+      Fintype.card (S.R ⧸ Ideal.span {genR I}) = Fintype.card (𝓞 F ⧸ I.1) :=
+        Fintype.card_congr (residueEquiv I).toEquiv
+      _ = Ideal.absNorm I.1 := by
+        rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  refine ⟨{
+    one := one
+    one_val := one_val
+    mul := mul
+    mul_val := by intro I J; rfl
+    pow := pow
+    pow_val := by intro I n; rfl
+    ofSqf := ofSqf
+    ofSqf_val := by intro I; rfl
+    prime := prime
+    prime_val := by intro v hv; rfl
+    support := support
+    mem_support := mem_support
+    support_exterior := by
+      intro I v hv
+      have hdiv : v.asIdeal ∣ I.1 := (mem_support I v).mp hv
+      intro hvS
+      exact I.2.2 v hvS (Ideal.dvd_iff_le.mp hdiv)
+    genR := genR
+    genR_val := genR_val
+    residueFinite := residueFinite
+    residue_card := residueCard
+    unit_character := by
+      intro x
+      simp [chiIdealPow, one_val, ← Ideal.one_eq_top]
+  }⟩
 
 /-- Arithmetic integration geometry with the same normalization for V, the probe, and c₀.
 Consumers: def:rf-digit-sums, rf:descent, rf:angular-cancellation, rf:forward-unfolding,
@@ -129,7 +407,26 @@ theorem reflectionCharacters_exists (D : FieldData F) (S : SData F CE condη)
     (houtside : ∀ v, v ∉ S.Sf → ϑ.UnramifiedAt v)
     (hangular : HeckeChar.HasAngularType D ϑ) :
     Nonempty (ReflectionCharacters D S H Bd bc ϑ) := by
-  sorry
+  classical
+  obtain ⟨A⟩ := A1.AddCharData.nonempty D
+  let eps : UnitSix S → S.US := fun u => Classical.choose (QuotientGroup.mk_surjective u)
+  have heps : ∀ u, unitSixClass S (eps u) = u := by
+    intro u
+    simpa [unitSixClass, eps] using
+      (Classical.choose_spec (QuotientGroup.mk_surjective u))
+  let charExists (u : UnitSix S) :=
+    ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.reflectionSChar_exists
+      D S H Bd A ϑ hunit houtside hangular (eps u)
+  let chars : UnitSix S → SChar S := fun u => Classical.choose (charExists u)
+  have hchars : ∀ u y, ((chars u).L y : ℂˣ) =
+      rfSCharacter D S H ϑ (eps u) y := by
+    intro u y
+    exact Classical.choose_spec (charExists u) y
+  let rowEps : ReflectionRow S → S.US := rowEpsilon S bc
+  have hrow : ∀ r, rowElement S r = rowEps r * bc.gen r.ideal := by
+    intro r
+    simpa [rowEps, rowEpsilon] using Classical.choose_spec (exists_rowUnit S bc r)
+  exact ⟨eps, heps, chars, hchars, rowEps, hrow⟩
 
 /-- Pairing descended to sixth-power classes (HilbertData already kills sixth powers).
 Consumers: def:rf-profiles and rf:S-unfolding. Existence/descent still needs a proof. -/
