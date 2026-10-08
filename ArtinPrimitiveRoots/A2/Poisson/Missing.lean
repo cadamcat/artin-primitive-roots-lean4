@@ -7903,6 +7903,83 @@ private theorem euler_good_even_e0_k0_term (hE : EulerHypotheses R η)
         0 (2 * d) 0 m := by
       simp [eulerGoodTermModel, V, E1, Q, hdm, hd.ne']
 
+private theorem euler_good_even_e0_k1_term
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (d : ℕ) (hd : 0 < d) (m : ℕ) :
+    localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 1, m) =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        0 (2 * d) 1 m := by
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  let V : ℂ := localV v z
+  let E1 : ℂ := localEvar (ϑ := ϑ) v ξ z
+  let c : ℂ := chi D v (U.repr u : F)
+  have hqreal : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hqne : qI v.asIdeal ≠ 0 := hqreal.ne'
+  have hQ : Q ≠ 0 := by dsimp [Q]; exact_mod_cast hqne
+  have htNat : 3 * (2 * d) = 6 * d := by omega
+  have hC := euler_good_localC_e0_even_k1 R v hv d hd m
+  by_cases hm : m = d
+  · subst m
+    have hCval : localC R v hv (6 * d) 1 (6 * d) = Q ^ (6 * d) := by
+      simpa [Q] using hC
+    have hχ := euler_good_chi_norm_facts η U u v hv hfreq
+    have hχ6z : c ^ (6 : ℤ) = 1 := by simpa [c] using hχ.1
+    have hχpow6d : c ^ (6 * (d : ℤ)) = 1 := by
+      rw [zpow_mul, hχ6z]
+      simp
+    have hχterm : c ^ (1 - 3 * (2 * (d : ℤ))) = c := by
+      have hexp : 1 - 3 * (2 * (d : ℤ)) = 1 - 6 * (d : ℤ) := by ring
+      rw [hexp, zpow_sub₀ hχ.2.1, zpow_one, hχpow6d, div_one]
+    let E : ℂ := -(2 * (d : ℂ)) * (1 + 3 * ξ) - w - 6 * (d : ℂ) * z
+    let B : ℂ := (4 - 6 * ξ) * (d : ℂ) - 6 * z * (d : ℂ)
+    have hterm : localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 1, d) =
+        ϑ.primeValue v ^ (6 * d) * c * Q ^ (6 * d) * Q ^ E := by
+      simp [localEulerTerm, hfreq, hCval, Q, c, htNat, hχterm, E]
+    have hqexp : Q ^ (6 * d) * Q ^ E = Q ^ (B - w) := by
+      rw [← Complex.cpow_natCast, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [E, B]
+      push_cast
+      ring
+    have hEpow : E1 ^ d =
+        ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d := by
+      simpa [E1, V, Q] using euler_good_E1_pow v ξ z d
+    have hVpow : V ^ d = Q ^ (-6 * z * (d : ℂ)) := by
+      dsimp [V, localV, Q]
+      exact (Complex.cpow_mul_nat (qI v.asIdeal : ℂ) (-6 * z) d).symm
+    have hQrest : Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * Q ^ (-w) =
+        Q ^ (B - w) := by
+      rw [hVpow, ← Complex.cpow_add _ _ hQ, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [B]
+      ring
+    have hmonomial : ϑ.primeValue v ^ (6 * d) * c * Q ^ (6 * d) * Q ^ E =
+        E1 ^ d * localWvar η U u v w := by
+      calc
+        _ = ϑ.primeValue v ^ (6 * d) * c * (Q ^ (6 * d) * Q ^ E) := by ring
+        _ = ϑ.primeValue v ^ (6 * d) * c * Q ^ (B - w) := by rw [hqexp]
+        _ = ϑ.primeValue v ^ (6 * d) * c *
+            (Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * Q ^ (-w)) := by rw [hQrest]
+        _ = E1 ^ d * localWvar η U u v w := by
+          rw [hEpow]
+          change ϑ.primeValue v ^ (6 * d) * c *
+              (Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * Q ^ (-w)) =
+            (ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d) *
+              (c * Q ^ (-w))
+          ring
+    calc
+      _ = ϑ.primeValue v ^ (6 * d) * c * Q ^ (6 * d) * Q ^ E := hterm
+      _ = E1 ^ d * localWvar η U u v w := hmonomial
+      _ = _ := by simp [eulerGoodTermModel, E1, hd.ne']
+  · have hCzero : localC R v hv (6 * d) 1 (6 * m) = 0 := by
+      simpa [hm] using hC
+    have hzero : localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 1, m) = 0 := by
+      simp [localEulerTerm, hfreq, htNat, hCzero]
+    rw [hzero]
+    simp [eulerGoodTermModel, hm, hd.ne']
+
 /-- po:euler-good-closed, 05:596-659. The zero-valuation local series is the frozen closed factor. -/
 theorem po_euler_good_closed : EulerHypotheses R η → ∀ u v hv ξ w z, initialRegion ξ w z → frequencyValuation η U u v = 0 →
   localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal) (localV v z)
