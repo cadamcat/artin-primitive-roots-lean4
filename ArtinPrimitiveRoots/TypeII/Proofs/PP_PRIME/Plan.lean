@@ -167,6 +167,78 @@ theorem ppPrimePositiveCutoff_logWeight_contDiff (a b δ α : ℝ) :
   rw [heq]
   exact hexpC.mul hcutC
 
+private theorem ppPrimeSmoothTransition_deriv_support :
+    Function.support (deriv Real.smoothTransition) ⊆ Set.Icc (0 : ℝ) 1 := by
+  intro x hx
+  have hne : deriv Real.smoothTransition x ≠ 0 := by
+    simpa only [Function.mem_support] using hx
+  constructor
+  · by_contra hxlt
+    have hstSupport : Function.support Real.smoothTransition ⊆ Set.Ici (0 : ℝ) := by
+      intro y hy
+      have hyne : Real.smoothTransition y ≠ 0 := by
+        simpa only [Function.mem_support] using hy
+      by_contra hylt
+      have hylt' : y < 0 := lt_of_not_ge (by simpa only [Set.mem_Ici] using hylt)
+      exact hyne (Real.smoothTransition.zero_of_nonpos hylt'.le)
+    have hstTsupport : tsupport Real.smoothTransition ⊆ Set.Ici (0 : ℝ) :=
+      closure_minimal hstSupport isClosed_Ici
+    have hxnot : x ∉ tsupport Real.smoothTransition := by
+      intro h
+      exact hxlt (by simpa only [Set.mem_Ici] using hstTsupport h)
+    exact hne (deriv_of_notMem_tsupport hxnot)
+  · by_contra hxgt
+    let f : ℝ → ℝ := fun y => Real.smoothTransition y - 1
+    have hfSupport : Function.support f ⊆ Set.Iic (1 : ℝ) := by
+      intro y hy
+      have hyne : f y ≠ 0 := by simpa only [Function.mem_support] using hy
+      by_contra hygt
+      have hygt' : 1 < y := lt_of_not_ge (by simpa only [Set.mem_Iic] using hygt)
+      apply hyne
+      simp [f, Real.smoothTransition.one_of_one_le hygt'.le]
+    have hfTsupport : tsupport f ⊆ Set.Iic (1 : ℝ) :=
+      closure_minimal hfSupport isClosed_Iic
+    have hxnot : x ∉ tsupport f := by
+      intro h
+      exact hxgt (by simpa only [Set.mem_Iic] using hfTsupport h)
+    have hz : deriv f x = 0 := deriv_of_notMem_tsupport hxnot
+    have heq : deriv f x = deriv Real.smoothTransition x := by simp [f]
+    apply hne
+    rw [← heq]
+    exact hz
+
+private theorem ppPrimeSmoothTransition_deriv_bound (j : ℕ) :
+    ∃ Cj : ℝ, 0 < Cj ∧ ∀ x : ℝ,
+      ‖iteratedDeriv j Real.smoothTransition x‖ ≤ Cj := by
+  have hst : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Real.smoothTransition := by fun_prop
+  have hderivSmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (deriv Real.smoothTransition) := by
+    exact (contDiff_infty_iff_deriv.mp hst).2
+  have hderivCompact : HasCompactSupport (deriv Real.smoothTransition) :=
+    HasCompactSupport.of_support_subset_isCompact isCompact_Icc
+      ppPrimeSmoothTransition_deriv_support
+  cases j with
+  | zero =>
+      refine ⟨1, by norm_num, ?_⟩
+      intro x
+      have hnonneg := Real.smoothTransition.nonneg x
+      have hle := Real.smoothTransition.le_one x
+      simpa [iteratedDeriv_zero, Real.norm_eq_abs] using (abs_le.mpr ⟨by linarith, hle⟩)
+  | succ n =>
+      obtain ⟨C, hC, hbound⟩ :=
+        hderivCompact.exists_bound_iteratedFDeriv hderivSmooth n
+      refine ⟨C + 1, by linarith, ?_⟩
+      intro x
+      have hnorm : ‖iteratedDeriv n (deriv Real.smoothTransition) x‖ ≤ C := by
+        rw [← norm_iteratedFDeriv_eq_norm_iteratedDeriv]
+        exact hbound n le_rfl x
+      calc
+        ‖iteratedDeriv (n + 1) Real.smoothTransition x‖ =
+            ‖iteratedDeriv n (deriv Real.smoothTransition) x‖ := by
+              simp [iteratedDeriv_succ']
+        _ ≤ C := hnorm
+        _ ≤ C + 1 := by linarith
+
 /-- The kernel is Mathlib's Mellin transform, with the positive-base power
 rewritten only on the domain of integration. -/
 theorem mellinKernel_eq_mellin (g : ℝ → ℝ) (z : ℂ) :
