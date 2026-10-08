@@ -6,7 +6,7 @@ import ArtinPrimitiveRoots.Proofs.th_factor_b.Analytic
 set_option autoImplicit false
 set_option maxHeartbeats 800000
 open NumberField IsDedekindDomain MeasureTheory
-open scoped Classical
+open scoped Classical Pointwise
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
 open ArtinPrimitiveRoots A1 A2
@@ -1074,12 +1074,149 @@ def IsFundamentalAt (O : Set S.FS) (l : ℝ) : Prop :=
   ∀ y : S.FSˣ, S.absS (y : S.FS) = l →
     ∃! γ : Gamma S, ((S.diagU (γ.1 : Fˣ))⁻¹ * y : S.FSˣ).val ∈ O
 
+private theorem rf_measurable_leftMul (a : S.FS) :
+    Measurable (fun y : S.FS => a * y) := by
+  apply Measurable.prod
+  · apply measurable_pi_iff.mpr
+    intro v
+    exact (measurable_const_mul (a.1 v)).comp
+      ((measurable_pi_apply v).comp measurable_fst)
+  · apply measurable_pi_iff.mpr
+    intro w
+    exact (measurable_const_mul (a.2 w)).comp
+      ((measurable_pi_apply w).comp measurable_snd)
+
+private def rfGammaDiag : Gamma S →* S.FSˣ :=
+  S.diagU.comp (S.US.subtype.comp (Gamma S).subtype)
+
+private theorem rfGammaDiag_eq (γ : Gamma S) :
+    rfGammaDiag (S := S) γ = S.diagU (γ.1 : Fˣ) := rfl
+
 /-- rf:descent, 04:133-183. The integral identity uses the same sheet measure on the chosen domain. -/
 theorem rf_descent_integral :
   ∀ r l, 0 < l → ∀ O, IsFundamentalAt O l →
     ∫ y in O, onUnits (fun y => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
       digitSum R r false false y) y ∂(R.sheets.sheet l) = thetaAverage R r l := by
-  sorry
+  intro r l hl O hO
+  letI : SMul (Gamma S) S.FS := ⟨fun γ y =>
+    (rfGammaDiag (S := S) γ : S.FS) * y⟩
+  letI : MulAction (Gamma S) S.FS := {
+    one_smul := by
+      intro y
+      change (rfGammaDiag (S := S) 1 : S.FS) * y = y
+      simp
+    mul_smul := by
+      intro γ γ' y
+      change (rfGammaDiag (S := S) (γ * γ') : S.FS) * y =
+        (rfGammaDiag (S := S) γ : S.FS) *
+          ((rfGammaDiag (S := S) γ' : S.FS) * y)
+      rw [map_mul]
+      simp [mul_assoc] }
+  have hact (γ : Gamma S) (y : S.FS) :
+      γ • y = (S.diagU (γ.1 : Fˣ) : S.FS) * y := by
+    change (rfGammaDiag (S := S) γ : S.FS) * y = _
+    rw [rfGammaDiag_eq]
+  letI : MeasurableConstSMul (Gamma S) S.FS := ⟨fun γ => by
+    change Measurable (fun y : S.FS => (rfGammaDiag (S := S) γ : S.FS) * y)
+    exact rf_measurable_leftMul _⟩
+  letI : Countable (Gamma S) :=
+    (a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl).2.2
+  have hgammaNorm (γ : Gamma S) :
+      S.absS (rfGammaDiag (S := S) γ : S.FS) = 1 := by
+    rw [rfGammaDiag_eq]
+    exact (a2_bridge_NORM D S).2.2.2.1 (γ.1 : S.US)
+  have hpres (γ : Gamma S) : MeasurePreserving (fun y : S.FS => γ • y)
+      (R.sheets.sheet l) (R.sheets.sheet l) := by
+    refine ⟨measurable_const_smul γ, ?_⟩
+    change Measure.map (fun y : S.FS =>
+      (rfGammaDiag (S := S) γ : S.FS) * y) (R.sheets.sheet l) = R.sheets.sheet l
+    simpa [hgammaNorm γ] using R.sheets.sheet_translate (rfGammaDiag (S := S) γ) l hl
+  letI : SMulInvariantMeasure (Gamma S) S.FS (R.sheets.sheet l) := ⟨fun γ t ht => by
+    calc
+      R.sheets.sheet l ((fun y : S.FS => γ • y) ⁻¹' t) =
+          Measure.map (fun y : S.FS => γ • y) (R.sheets.sheet l) t :=
+        (Measure.map_apply (measurable_const_smul γ) ht).symm
+      _ = R.sheets.sheet l t := by rw [(hpres γ).map_eq]⟩
+  have hactInv (γ : Gamma S) (y : S.FS) :
+      γ⁻¹ • y = ((S.diagU (γ.1 : Fˣ))⁻¹ : S.FS) * y := by
+    calc
+      γ⁻¹ • y = (S.diagU ((γ⁻¹).1 : Fˣ) : S.FS) * y := hact γ⁻¹ y
+      _ = (rfGammaDiag (S := S) γ⁻¹ : S.FS) * y := by rw [← rfGammaDiag_eq]
+      _ = ((rfGammaDiag (S := S) γ)⁻¹ : S.FSˣ) * y := by rw [map_inv]
+      _ = ((S.diagU (γ.1 : Fˣ))⁻¹ : S.FS) * y := by
+        congr 1
+        exact Units.val_inv_eq_inv_val _
+  have mkDomain (O' : Set S.FS) (hO' : IsFundamentalAt O' l) :
+      MeasureTheory.IsFundamentalDomain (Gamma S) O' (R.sheets.sheet l) := by
+    have hcover : ∀ᵐ y ∂ (R.sheets.sheet l), ∃ γ : Gamma S, γ • y ∈ O' := by
+      filter_upwards [R.sheets.sheet_support l hl] with y hy
+      rcases hy with ⟨hyunit, hynorm⟩
+      let yu : S.FSˣ := hyunit.unit
+      obtain ⟨γ, hγ, -⟩ := hO'.2.2 yu hynorm
+      refine ⟨γ⁻¹, ?_⟩
+      rw [hactInv]
+      simpa [yu, hyunit.unit_spec] using hγ
+    have hdis : ∀ γ : Gamma S, γ ≠ 1 →
+        MeasureTheory.AEDisjoint (R.sheets.sheet l) (γ • O') O' := by
+      intro γ hγ
+      apply Disjoint.aedisjoint
+      apply Set.disjoint_left.mpr
+      intro y hleft hright
+      rw [Set.mem_smul_set_iff_inv_smul_mem] at hleft
+      obtain ⟨hyunit, hynorm⟩ := hO'.2.1 y hright
+      let yu : S.FSˣ := hyunit.unit
+      obtain ⟨δ, -, huniq⟩ := hO'.2.2 yu hynorm
+      have hγmem : ((S.diagU (γ.1 : Fˣ))⁻¹ * yu : S.FSˣ).val ∈ O' := by
+        rw [hactInv] at hleft
+        simpa [yu, hyunit.unit_spec] using hleft
+      have h1mem : ((S.diagU ((1 : Gamma S).1 : Fˣ))⁻¹ * yu : S.FSˣ).val ∈ O' := by
+        simpa [yu, hyunit.unit_spec] using hright
+      have hγδ := huniq γ hγmem
+      have h1δ := huniq 1 h1mem
+      exact hγ (hγδ.trans h1δ.symm)
+    refine MeasureTheory.IsFundamentalDomain.mk'' hO'.1.nullMeasurableSet hcover hdis ?_
+    intro γ
+    exact (hpres γ).quasiMeasurePreserving
+  have hOdom := mkDomain O hO
+  have hOmegaAt : IsFundamentalAt (omegaAt R l) l := by
+    simpa [IsFundamentalAt, omegaAt, bridgeFundamentalAt, bridgeOmegaAt] using
+      (a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl).1
+  have hOmegadom := mkDomain (omegaAt R l) hOmegaAt
+  let f : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r false false y
+  rcases rf_descent R with ⟨_, hDigit, hCut, hL⟩
+  have hLmul (γ : Gamma S) (y : S.FSˣ) :
+      Lvalue R (rowClass R r) (S.diagU (γ.1 : Fˣ) * y) =
+        Lvalue R (rowClass R r) (S.diagU (γ.1 : Fˣ)) *
+          Lvalue R (rowClass R r) y := by
+    simp [Lvalue, map_mul]
+  have hinv (γ : Gamma S) (y : S.FS) :
+      onUnits f (γ • y) = onUnits f y := by
+    change onUnits f ((S.diagU (γ.1 : Fˣ) : S.FS) * y) = onUnits f y
+    by_cases hy : IsUnit y
+    · have hmul : IsUnit ((S.diagU (γ.1 : Fˣ) : S.FS) * y) :=
+        (S.diagU (γ.1 : Fˣ)).isUnit_units_mul y |>.2 hy
+      have hmulval : hmul.unit = S.diagU (γ.1 : Fˣ) * hy.unit := by
+        apply Units.ext
+        simp [hy.unit_spec]
+      have hleft : onUnits f ((S.diagU (γ.1 : Fˣ) : S.FS) * y) = f hmul.unit := by
+        simp [onUnits, hmul]
+      have hright : onUnits f y = f hy.unit := by simp [onUnits, hy]
+      rw [hleft, hright, hmulval]
+      dsimp [f]
+      rw [hCut γ hy.unit, hLmul γ hy.unit, hL (rowClass R r) γ,
+        hDigit r γ hy.unit false false]
+      simp
+    · have hmul : ¬ IsUnit ((S.diagU (γ.1 : Fˣ) : S.FS) * y) :=
+        fun h => hy ((S.diagU (γ.1 : Fˣ)).isUnit_units_mul y |>.1 h)
+      simp [onUnits, hy, hmul]
+  change (∫ y in O, onUnits f y ∂(R.sheets.sheet l)) =
+    thetaAverage R r l
+  calc
+    (∫ y in O, onUnits f y ∂(R.sheets.sheet l)) =
+        ∫ y in omegaAt R l, onUnits f y ∂(R.sheets.sheet l) :=
+      hOdom.setIntegral_eq hOmegadom hinv
+    _ = thetaAverage R r l := by rfl
 /-- rf:angular-cancellation, 04:185–220. Neither constant term is claimed Weyl-invariant. -/
 theorem rf_angular_cancellation :
   ∀ r l, 0 < l →
