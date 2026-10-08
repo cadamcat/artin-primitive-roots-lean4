@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Interface
 import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
 import Mathlib.Analysis.Distribution.SchwartzSpace.Fourier
+import Mathlib.Analysis.Calculus.BumpFunction.InnerProduct
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
@@ -1958,6 +1959,133 @@ theorem rf_retained_fourier_separation : ∃ α : ℝ, 0 < α ∧ ∀ N : ℝ, 0
   have hmin : 0 ≤ min (v ^ α) (v ^ (-N)) := by
     apply le_min <;> positivity
   exact le_trans hnum (mul_le_mul_of_nonneg_right (hCpairLe (u, κ)) hmin)
+
+private def rf_retained_log_cutoff_bump : ContDiffBump (0 : ℝ) :=
+  ⟨2, 3, by norm_num, by norm_num⟩
+
+private noncomputable def rf_retained_log_cutoff (x : ℝ) : ℂ :=
+  (rf_retained_log_cutoff_bump x : ℂ)
+
+private lemma rf_retained_log_cutoff_smooth :
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) rf_retained_log_cutoff := by
+  exact Complex.ofRealCLM.contDiff.comp rf_retained_log_cutoff_bump.contDiff
+
+private lemma rf_retained_log_cutoff_compact : HasCompactSupport rf_retained_log_cutoff := by
+  apply HasCompactSupport.of_support_subset_isCompact (isCompact_closedBall (0 : ℝ) 3)
+  intro x hx
+  have hx' : rf_retained_log_cutoff_bump x ≠ 0 := by
+    simpa [rf_retained_log_cutoff, Complex.ofReal_eq_zero] using hx
+  have hx'' : x ∈ Function.support rf_retained_log_cutoff_bump := by
+    simpa only [Function.mem_support] using hx'
+  rw [rf_retained_log_cutoff_bump.support_eq] at hx''
+  exact Metric.ball_subset_closedBall hx''
+
+private lemma rf_retained_log_cutoff_one {x : ℝ} (hx : |x| ≤ 2) :
+    rf_retained_log_cutoff x = 1 := by
+  have hball : x ∈ Metric.closedBall (0 : ℝ) 2 := by
+    rw [Metric.mem_closedBall, dist_zero_right, Real.norm_eq_abs]
+    exact hx
+  change (rf_retained_log_cutoff_bump x : ℂ) = 1
+  rw [rf_retained_log_cutoff_bump.one_of_mem_closedBall hball]
+  simp
+
+private lemma rf_retained_fourier_inversion (ρ : ℝ → ℂ)
+    (hρ : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) ρ) (hρc : HasCompactSupport ρ)
+    (υ : UnitSix S) (κ : S.V) (v : ℝ) (hv : 0 < v) (x : ℝ) :
+    Integrable (fun τ : ℝ => separatedFourier R ρ υ κ v τ) ∧
+    ρ x * profilePhi R υ κ (v * Real.exp x) =
+      ∫ τ : ℝ, separatedFourier R ρ υ κ v τ *
+        Complex.exp (((2 * Real.pi * τ * x : ℝ) : ℂ) * Complex.I) := by
+  let g : ℝ → ℂ := fun x => ρ x * profilePhi R υ κ (v * Real.exp x)
+  have hargSmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun x : ℝ => v * Real.exp x) := by fun_prop
+  have hargPos (x : ℝ) : v * Real.exp x ∈ Set.Ioi (0 : ℝ) :=
+    Set.mem_Ioi.mpr (mul_pos hv (Real.exp_pos x))
+  have hprofileComp : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun x : ℝ => profilePhi R υ κ (v * Real.exp x)) := by
+    exact (rf_profile_bound R).1 υ κ |>.comp_contDiff hargSmooth hargPos
+  have hgsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g := by
+    dsimp [g]
+    exact hρ.mul hprofileComp
+  have hgcompact : HasCompactSupport g := by
+    dsimp [g]
+    exact hρc.mul_right
+  let G : SchwartzMap ℝ ℂ := hgcompact.toSchwartzMap hgsmooth
+  have hprofileFourierEq (τ : ℝ) :
+      separatedFourier R ρ υ κ v τ =
+        𝓕 (fun y : ℝ => ρ y * profilePhi R υ κ (v * Real.exp y)) τ := by
+    rw [separatedFourier, Real.fourier_real_eq_integral_exp_smul]
+    apply integral_congr_ae
+    filter_upwards with y
+    simp only [smul_eq_mul]
+    have hexp : -2 * Real.pi * Complex.I * (y : ℂ) * τ =
+        ((-2 * Real.pi * y * τ : ℝ) : ℂ) * Complex.I := by
+      push_cast
+      ring
+    rw [hexp]
+    ring
+  have hFourierEq (τ : ℝ) : separatedFourier R ρ υ κ v τ = (𝓕 G) τ := by
+    rw [SchwartzMap.fourier_coe]
+    exact hprofileFourierEq τ
+  have hFourierInt : Integrable (fun τ : ℝ => 𝓕 (G : ℝ → ℂ) τ) := (𝓕 G).integrable
+  have hFourierIntSch : Integrable (fun τ : ℝ => (𝓕 G) τ) := by
+    simpa only [SchwartzMap.fourier_coe] using hFourierInt
+  have hFourierEq' (τ : ℝ) : (𝓕 G) τ = separatedFourier R ρ υ κ v τ :=
+    (hFourierEq τ).symm
+  have hSeparatedInt : Integrable (fun τ : ℝ => separatedFourier R ρ υ κ v τ) :=
+    hFourierIntSch.congr (Filter.Eventually.of_forall hFourierEq')
+  have hInvSch : 𝓕⁻ (𝓕 G) = G := by
+    ext y
+    rw [SchwartzMap.fourierInv_coe, SchwartzMap.fourier_coe]
+    exact congrFun (G.continuous.fourierInv_fourier_eq G.integrable (𝓕 G).integrable) y
+  have hInv : 𝓕⁻ (𝓕 (G : ℝ → ℂ)) x = G x := by
+    have h := congrArg (fun H : SchwartzMap ℝ ℂ => (H : ℝ → ℂ)) hInvSch
+    simpa only [SchwartzMap.fourierInv_coe, SchwartzMap.fourier_coe] using congrFun h x
+  have hInvIntegral :
+      𝓕⁻ (𝓕 (G : ℝ → ℂ)) x =
+        ∫ τ : ℝ, Complex.exp (((2 * Real.pi * τ * x : ℝ) : ℂ) * Complex.I) *
+          𝓕 (G : ℝ → ℂ) τ := by
+    rw [Real.fourierInv_eq']
+    apply integral_congr_ae
+    filter_upwards [] with τ
+    rw [Real.inner_apply]
+    simp only [smul_eq_mul]
+    have harg : (2 * Real.pi * (τ * x) : ℝ) = 2 * Real.pi * τ * x := by ring
+    rw [harg]
+  refine ⟨hSeparatedInt, ?_⟩
+  calc
+    ρ x * profilePhi R υ κ (v * Real.exp x) = G x := rfl
+    _ = 𝓕⁻ (𝓕 (G : ℝ → ℂ)) x := hInv.symm
+    _ = ∫ τ : ℝ, Complex.exp (((2 * Real.pi * τ * x : ℝ) : ℂ) * Complex.I) *
+          𝓕 (G : ℝ → ℂ) τ := hInvIntegral
+    _ = ∫ τ : ℝ, separatedFourier R ρ υ κ v τ *
+          Complex.exp (((2 * Real.pi * τ * x : ℝ) : ℂ) * Complex.I) := by
+      apply integral_congr_ae
+      filter_upwards [] with τ
+      rw [hFourierEq]
+      exact mul_comm _ _
+
+private def rf_retained_fourier_phase (τ x : ℝ) : ℂ :=
+  Complex.exp (((2 * Real.pi * τ * x : ℝ) : ℂ) * Complex.I)
+
+private lemma rf_retained_fourier_phase_norm (τ x : ℝ) :
+    ‖rf_retained_fourier_phase τ x‖ = 1 := by
+  simp [rf_retained_fourier_phase, Complex.norm_exp]
+
+@[continuity]
+private lemma rf_retained_fourier_phase_continuous (x : ℝ) :
+    Continuous (fun τ : ℝ => rf_retained_fourier_phase τ x) := by
+  unfold rf_retained_fourier_phase
+  fun_prop
+
+private lemma rf_retained_fourier_phase_sub (τ x y : ℝ) :
+    rf_retained_fourier_phase τ (x - y) =
+      rf_retained_fourier_phase τ x * rf_retained_fourier_phase τ (-y) := by
+  unfold rf_retained_fourier_phase
+  rw [← Complex.exp_add]
+  congr 1
+  push_cast
+  ring
 /-- rf:reflection-assembly: dyadic clause, restoring bounded element multiplicity. -/
 theorem rf_reflection_dyadic_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
   (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
@@ -2013,7 +2141,694 @@ theorem rf_retained_column_dyad : ∃ α : ℝ, 0 < α ∧ ∀ N ε : ℝ, 0 < N
     Real.sqrt (∑' d : S.ExtIdeal, if D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0 then
       ‖retainedColumn R υ t sd sc d C Z R0‖ ^ 2 else 0) ≤
       K * (D0 + C) ^ (1 / 2 : ℝ) * (D0 * C) ^ (ε / 2) * min (v ^ α) (v ^ (-N)) := by
-  sorry
+  classical
+  obtain ⟨α, hα, hsep⟩ := rf_retained_fourier_separation R
+  refine ⟨α, hα, ?_⟩
+  intro N ε hN hε
+  let ρ : ℝ → ℂ := rf_retained_log_cutoff
+  have hρ : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) ρ := rf_retained_log_cutoff_smooth
+  have hρc : HasCompactSupport ρ := rf_retained_log_cutoff_compact
+  obtain ⟨CFT, hCFT, hFT⟩ := hsep N hN ρ hρ hρc
+  obtain ⟨Csieve, hCsieve, hSieve⟩ := lem_reflection_quadratic_sieve D S H Bd ε hε
+  obtain ⟨Ccnt, hCcnt, hCount⟩ := a2_bridge_COUNT S
+  refine ⟨CFT * Real.sqrt (4 * Ccnt * Csieve) * 4 ^ (ε / 2), ?_, ?_⟩
+  · positivity
+  · intro υ h t sd sc C D0 Z R0 hC hD hZ hR0
+    dsimp only
+    let v : ℝ := Z * qI t.a.1 * qI t.n.1 ^ 3 * C / (D0 ^ 2 * qI t.f.1 ^ 2)
+    have hCpos : 0 < C := lt_of_lt_of_le (by norm_num) hC
+    have hDpos : 0 < D0 := lt_of_lt_of_le (by norm_num) hD
+    have hZpos : 0 < Z := lt_of_lt_of_le (by norm_num) hZ
+    have hqA := rf_qI_pos_ge_one t.a.1 t.a.2.1
+    have hqN := rf_qI_pos_ge_one t.n.1 t.n.2.1
+    have hqF := rf_qI_pos_ge_one t.f.1 t.f.2.1
+    have hv : 0 < v := by
+      dsimp [v]
+      have hnum : 0 < Z * qI t.a.1 * qI t.n.1 ^ 3 * C :=
+        mul_pos (mul_pos (mul_pos hZpos hqA.1) (pow_pos hqN.1 3)) hCpos
+      have hden : 0 < D0 ^ 2 * qI t.f.1 ^ 2 :=
+        mul_pos (pow_pos hDpos 2) (pow_pos hqF.1 2)
+      exact div_pos hnum hden
+    let extOfSqf : S.SqfExtIdeal → S.ExtIdeal := fun c => ⟨c.1, c.2.1⟩
+    let rowDyad : S.ExtIdeal → Prop := fun d => D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0
+    let rowPred : S.SqfExtIdeal → Prop := fun d => rowDyad (extOfSqf d)
+    let rowSet : Set S.SqfExtIdeal := {d | rowPred d}
+    let colPred : S.SqfExtIdeal → Prop := fun c => C ≤ qI c.1 ∧ qI c.1 < 2 * C
+    let colSet : Set S.SqfExtIdeal := {c | colPred c}
+    have hextOfSqfInj : Function.Injective extOfSqf := by
+      intro c c' he
+      apply Subtype.ext
+      have h := congrArg (fun I : S.ExtIdeal => I.1) he
+      simpa [extOfSqf] using h
+    have hcutD := a2_bridge_COUNT_finite S (2 * D0) (by positivity)
+    have hrowFinite : rowSet.Finite := by
+      have hpre : {d : S.SqfExtIdeal | idealNorm (extOfSqf d).1 ≤ 2 * D0}.Finite :=
+        hcutD.1.preimage (f := extOfSqf) (fun _ _ _ _ h => hextOfSqfInj h)
+      apply hpre.subset
+      intro d hd
+      change idealNorm (extOfSqf d).1 ≤ 2 * D0
+      simpa [rowPred, qI, idealNorm, extOfSqf] using
+        (show qI d.1 < 2 * D0 from hd.2).le
+    let rows : Finset S.SqfExtIdeal := hrowFinite.toFinset
+    have hmemRows (d : S.SqfExtIdeal) : d ∈ rows ↔ rowPred d := by
+      exact Set.Finite.mem_toFinset hrowFinite
+    have hcutC := a2_bridge_COUNT_finite S (2 * C) (by positivity)
+    have hcolFinite : colSet.Finite := by
+      have hpre : {c : S.SqfExtIdeal | idealNorm (extOfSqf c).1 ≤ 2 * C}.Finite :=
+        hcutC.1.preimage (f := extOfSqf) (fun _ _ _ _ h => hextOfSqfInj h)
+      apply hpre.subset
+      intro c hc
+      change idealNorm (extOfSqf c).1 ≤ 2 * C
+      simpa [colPred, qI, idealNorm, extOfSqf] using
+        (show qI c.1 ≤ 2 * C from hc.2.le)
+    let cols : Finset S.SqfExtIdeal := hcolFinite.toFinset
+    have hmemCols (c : S.SqfExtIdeal) : c ∈ cols ↔ colPred c := by
+      exact Set.Finite.mem_toFinset hcolFinite
+    have hDsetEq : hcutC.1.toFinset = bridgeNormFinset S (2 * C) := by
+      ext I
+      rw [Set.Finite.mem_toFinset]
+      exact (hcutC.2 I).symm
+    have hcolImageSub : cols.image extOfSqf ⊆ bridgeNormFinset S (2 * C) := by
+      intro I hI
+      rcases Finset.mem_image.mp hI with ⟨c, hc, rfl⟩
+      apply (hcutC.2 (extOfSqf c)).2
+      have hc' := (hmemCols c).mp hc
+      simpa [qI, idealNorm, extOfSqf] using hc'.2.le
+    have hcolCard : (cols.card : ℝ) ≤ Ccnt * (2 * C) := by
+      have hnat : {I : S.ExtIdeal | idealNorm I.1 ≤ 2 * C}.ncard =
+          (bridgeNormFinset S (2 * C)).card := by
+        rw [Set.ncard_eq_toFinset_card _ hcutC.1, hDsetEq]
+      have hcount := hCount (2 * C) (by linarith)
+      calc
+        (cols.card : ℝ) = ((cols.image extOfSqf).card : ℝ) := by
+          exact_mod_cast (Finset.card_image_of_injective cols hextOfSqfInj).symm
+        _ ≤ ((bridgeNormFinset S (2 * C)).card : ℝ) := by
+          exact_mod_cast Finset.card_le_card hcolImageSub
+        _ = ({I : S.ExtIdeal | idealNorm I.1 ≤ 2 * C}.ncard : ℝ) := by
+          exact_mod_cast hnat.symm
+        _ ≤ Ccnt * (2 * C) := hcount
+    let keep : S.SqfExtIdeal → Prop := fun c =>
+      qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0
+    let coeff : S.SqfExtIdeal → ℂ := fun c =>
+      frozenLambda R υ t sc c * (qI c.1 ^ (-(1 / 2 : ℝ)) : ℝ)
+    let z : ℝ → S.SqfExtIdeal → ℂ := fun τ c =>
+      if keep c then coeff c * rf_retained_fourier_phase τ (Real.log (qI c.1 / C)) else 0
+    let matrix : ℝ → S.SqfExtIdeal → ℂ := fun τ d =>
+      ∑ c ∈ cols, z τ c * chiIdealPow D (extOfSqf d).1 (cgen R c) 3
+    let rowPhase : ℝ → S.SqfExtIdeal → ℂ := fun τ d =>
+      rf_retained_fourier_phase τ (-2 * Real.log (qI d.1 / D0))
+    let rowWeight : ℝ → S.SqfExtIdeal → ℂ := fun τ d =>
+      frozenRho R υ t sd (extOfSqf d) * rowPhase τ d
+    let rowValue : ℝ → S.SqfExtIdeal → ℂ := fun τ d => rowWeight τ d * matrix τ d
+    have hLambda (c : S.SqfExtIdeal) : ‖frozenLambda R υ t sc c‖ ≤ 1 :=
+      (rf_exterior_factorization R).1 υ h t |>.2.2 sc c
+    have hchi (d : S.ExtIdeal) (c : S.SqfExtIdeal) :
+        ‖chiIdealPow D d.1 (cgen R c) 3‖ ≤ 1 :=
+      (a2_bridge_SYMBOL D S).ideal_norm_le d.1 (cgen R c) 3
+    have hcoeffNorm (c : S.SqfExtIdeal) :
+        ‖coeff c‖ ≤ qI c.1 ^ (-(1 / 2 : ℝ)) := by
+      have hq := rf_qI_pos_ge_one c.1 (by simpa using c.2.1.1)
+      have hpow : 0 ≤ qI c.1 ^ (-(1 / 2 : ℝ)) :=
+        Real.rpow_nonneg hq.1.le _
+      have hreal : ‖((qI c.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ)‖ =
+          qI c.1 ^ (-(1 / 2 : ℝ)) := by
+        rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hpow]
+      dsimp [coeff]
+      rw [norm_mul, hreal]
+      calc
+        ‖frozenLambda R υ t sc c‖ * qI c.1 ^ (-(1 / 2 : ℝ)) ≤
+            1 * qI c.1 ^ (-(1 / 2 : ℝ)) :=
+          mul_le_mul_of_nonneg_right (hLambda c) hpow
+        _ = qI c.1 ^ (-(1 / 2 : ℝ)) := by ring
+    have hcoeffCut (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+        ‖coeff c‖ ≤ C ^ (-(1 / 2 : ℝ)) := by
+      have hc' := (hmemCols c).mp hc
+      have hqC := rf_qI_pos_ge_one c.1 (by simpa using c.2.1.1)
+      exact (hcoeffNorm c).trans
+        (Real.rpow_le_rpow_of_nonpos hCpos hc'.1 (by norm_num))
+    have hpowCutSq : (C ^ (-(1 / 2 : ℝ))) ^ 2 = C⁻¹ := by
+      calc
+        (C ^ (-(1 / 2 : ℝ))) ^ 2 = C ^ ((-(1 / 2 : ℝ)) * 2) :=
+          (Real.rpow_mul_natCast hCpos.le _ 2).symm
+        _ = C ^ (-1 : ℝ) := by congr 1 <;> norm_num
+        _ = C⁻¹ := Real.rpow_neg_one C
+    have hzNormSq (τ : ℝ) (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+        ‖z τ c‖ ^ 2 ≤ C⁻¹ := by
+      by_cases hk : keep c
+      · have hnorm : ‖z τ c‖ ≤ C ^ (-(1 / 2 : ℝ)) := by
+          simpa [z, hk, rf_retained_fourier_phase_norm] using hcoeffCut c hc
+        have hpowNonneg : 0 ≤ C ^ (-(1 / 2 : ℝ)) := by positivity
+        have hsq := (sq_le_sq₀ (norm_nonneg _) hpowNonneg).2 hnorm
+        rwa [hpowCutSq] at hsq
+      · simp [z, hk]
+        positivity
+    have hzMass (τ : ℝ) : ∑ c ∈ cols, ‖z τ c‖ ^ 2 ≤ 2 * Ccnt := by
+      calc
+        _ ≤ ∑ c ∈ cols, C⁻¹ := by
+          apply Finset.sum_le_sum
+          intro c hc
+          exact hzNormSq τ c hc
+        _ = (cols.card : ℝ) * C⁻¹ := by simp
+        _ ≤ (Ccnt * (2 * C)) * C⁻¹ :=
+          mul_le_mul_of_nonneg_right hcolCard (by positivity)
+        _ = 2 * Ccnt := by
+          rw [inv_eq_one_div]
+          field_simp [ne_of_gt hCpos]
+          <;> ring
+    have hRowsNorm (d : S.SqfExtIdeal) (hd : d ∈ rows) :
+        idealNorm d.1 ≤ 2 * D0 := by
+      have hd' := (hmemRows d).mp hd
+      simpa [rowPred, idealNorm, qI] using hd'.2.le
+    have hColsNorm (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+        idealNorm c.1 ≤ 2 * C ∧
+          ∃ g : Fˣ, (g : F) = cgen R c ∧ S.IsGen (g : F) c.1 ∧ Bd.Allowed g := by
+      have hc' := (hmemCols c).mp hc
+      refine ⟨?_, cgen_valid R c⟩
+      simpa [idealNorm, qI] using hc'.2.le
+    let B : ℝ := Csieve * (2 * C + 2 * D0) * (4 * C * D0) ^ ε * (2 * Ccnt)
+    have hBpos : 0 < B := by dsimp [B]; positivity
+    have hSieveAt (τ : ℝ) : ∑ d ∈ rows, ‖matrix τ d‖ ^ 2 ≤ B := by
+      have hraw := hSieve (2 * C) (2 * D0) (by linarith) (by linarith)
+        rows cols (cgen R) hRowsNorm hColsNorm (z τ)
+      calc
+        _ ≤ Csieve * (2 * C + 2 * D0) * (4 * C * D0) ^ ε *
+              ∑ c ∈ cols, ‖z τ c‖ ^ 2 := by
+          have harg : (2 * C) * (2 * D0) = 4 * C * D0 := by ring
+          simpa [harg] using hraw
+        _ ≤ B := by
+          dsimp [B]
+          have hfac : 0 ≤ Csieve * (2 * C + 2 * D0) * (4 * C * D0) ^ ε := by positivity
+          exact mul_le_mul_of_nonneg_left (hzMass τ) hfac
+    let Rows : Type := {d : S.SqfExtIdeal // d ∈ rows}
+    letI : Fintype Rows := (rows.finite_toSet).fintype
+    have hsumRows (f : S.SqfExtIdeal → ℝ) :
+        (∑ d : Rows, f d.1) = ∑ d ∈ rows, f d := by
+      change (∑ d ∈ (Finset.univ : Finset Rows), f d.1) = _
+      refine Finset.sum_bij (fun d _ => d.1) ?_ ?_ ?_ ?_
+      · intro d hd
+        exact d.2
+      · intro d hd e he hde
+        exact Subtype.ext hde
+      · intro d hd
+        exact ⟨⟨d, hd⟩, by simp, rfl⟩
+      · intro d hd
+        rfl
+    let κ : S.V := kappaSix R t sd sc
+    have hFourierData := hFT υ κ v hv
+    have hSepL1 : ∫ τ : ℝ, ‖separatedFourier R ρ υ κ v τ‖ ≤
+        CFT * min (v ^ α) (v ^ (-N)) := hFourierData.2
+    have hSepComplexInt : Integrable (fun τ : ℝ => separatedFourier R ρ υ κ v τ) :=
+      (rf_retained_fourier_inversion R ρ hρ hρc υ κ v hv 0).1
+    have hRhoNorm (d : S.SqfExtIdeal) :
+        ‖frozenRho R υ t sd (extOfSqf d)‖ ≤ 1 :=
+      (rf_exterior_factorization R).1 υ h t |>.2.1 sd (extOfSqf d)
+    have hrowWeightNorm (τ : ℝ) (d : S.SqfExtIdeal) :
+        ‖rowWeight τ d‖ ≤ 1 := by
+      change ‖frozenRho R υ t sd (extOfSqf d) *
+        rf_retained_fourier_phase τ (-2 * Real.log (qI d.1 / D0))‖ ≤ 1
+      calc
+        _ = ‖frozenRho R υ t sd (extOfSqf d)‖ *
+            ‖rf_retained_fourier_phase τ (-2 * Real.log (qI d.1 / D0))‖ := by rw [norm_mul]
+        _ = ‖frozenRho R υ t sd (extOfSqf d)‖ := by
+          rw [rf_retained_fourier_phase_norm, mul_one]
+        _ ≤ 1 := hRhoNorm d
+    let coefMass : ℝ := ∑ c ∈ cols, ‖coeff c‖
+    have hcoefMassNonneg : 0 ≤ coefMass := by
+      dsimp [coefMass]
+      apply Finset.sum_nonneg
+      intro c hc
+      exact norm_nonneg _
+    have hzCoeff (τ : ℝ) (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+        ‖z τ c‖ ≤ ‖coeff c‖ := by
+      by_cases hk : keep c
+      · simpa [z, hk, rf_retained_fourier_phase_norm] using (le_of_eq rfl : ‖coeff c‖ ≤ ‖coeff c‖)
+      · simp [z, hk]
+    have hmatrixNorm (τ : ℝ) (d : S.SqfExtIdeal) :
+        ‖matrix τ d‖ ≤ coefMass := by
+      dsimp [matrix, coefMass]
+      calc
+        ‖∑ c ∈ cols, z τ c * chiIdealPow D (extOfSqf d).1 (cgen R c) 3‖ ≤
+            ∑ c ∈ cols, ‖z τ c * chiIdealPow D (extOfSqf d).1 (cgen R c) 3‖ :=
+          norm_sum_le _ _
+        _ ≤ ∑ c ∈ cols, ‖coeff c‖ := by
+          apply Finset.sum_le_sum
+          intro c hc
+          rw [norm_mul]
+          have hz := hzCoeff τ c hc
+          have hχ := hchi (extOfSqf d) c
+          calc
+            ‖z τ c‖ * ‖chiIdealPow D (extOfSqf d).1 (cgen R c) 3‖ ≤
+                ‖coeff c‖ * 1 := mul_le_mul hz hχ (norm_nonneg _) (norm_nonneg _)
+            _ = ‖coeff c‖ := by ring
+    have hrowValueNorm (τ : ℝ) (d : S.SqfExtIdeal) :
+        ‖rowValue τ d‖ ≤ coefMass := by
+      change ‖rowWeight τ d * matrix τ d‖ ≤ coefMass
+      calc
+        _ = ‖rowWeight τ d‖ * ‖matrix τ d‖ := by rw [norm_mul]
+        _ ≤ 1 * ‖matrix τ d‖ := mul_le_mul_of_nonneg_right (hrowWeightNorm τ d) (norm_nonneg _)
+        _ ≤ coefMass := by simpa using hmatrixNorm τ d
+    have hrowValueMatrixNorm (τ : ℝ) (d : S.SqfExtIdeal) :
+        ‖rowValue τ d‖ ≤ ‖matrix τ d‖ := by
+      change ‖rowWeight τ d * matrix τ d‖ ≤ ‖matrix τ d‖
+      calc
+        _ = ‖rowWeight τ d‖ * ‖matrix τ d‖ := by rw [norm_mul]
+        _ ≤ 1 * ‖matrix τ d‖ := mul_le_mul_of_nonneg_right (hrowWeightNorm τ d) (norm_nonneg _)
+        _ = ‖matrix τ d‖ := by ring
+    have hrowValueContinuous (d : S.SqfExtIdeal) :
+        Continuous (fun τ : ℝ => rowValue τ d) := by
+      have hphase : Continuous (fun τ : ℝ => rowPhase τ d) := by
+        change Continuous (fun τ : ℝ =>
+          rf_retained_fourier_phase τ (-2 * Real.log (qI d.1 / D0)))
+        exact rf_retained_fourier_phase_continuous _
+      have hzphase (c : S.SqfExtIdeal) : Continuous (fun τ : ℝ => z τ c) := by
+        have hphasec : Continuous (fun τ : ℝ =>
+            coeff c * rf_retained_fourier_phase τ (Real.log (qI c.1 / C))) :=
+          continuous_const.mul (rf_retained_fourier_phase_continuous _)
+        by_cases hk : keep c
+        · simp only [z, if_pos hk]
+          exact hphasec
+        · simp only [z, if_neg hk]
+          exact continuous_const
+      have hmatrix : Continuous (fun τ : ℝ => matrix τ d) := by
+        change Continuous (fun τ : ℝ =>
+          ∑ c ∈ cols, z τ c * chiIdealPow D (extOfSqf d).1 (cgen R c) 3)
+        exact continuous_finsetSum cols (fun c hc => (hzphase c).mul continuous_const)
+      change Continuous (fun τ : ℝ =>
+        frozenRho R υ t sd (extOfSqf d) * rowPhase τ d * matrix τ d)
+      exact (continuous_const.mul hphase).mul hmatrix
+    have hrowL2 (τ : ℝ) : ∑ d ∈ rows, ‖rowValue τ d‖ ^ 2 ≤ B := by
+      calc
+        ∑ d ∈ rows, ‖rowValue τ d‖ ^ 2 ≤ ∑ d ∈ rows, ‖matrix τ d‖ ^ 2 := by
+          apply Finset.sum_le_sum
+          intro d hd
+          exact (sq_le_sq₀ (norm_nonneg _) (norm_nonneg _)).2 (hrowValueMatrixNorm τ d)
+        _ ≤ B := hSieveAt τ
+    let V : ℝ → PiLp 2 (fun _ : Rows => ℂ) := fun τ =>
+      WithLp.toLp 2 (fun d : Rows => separatedFourier R ρ υ κ v τ * rowValue τ d.1)
+    have hcoordIntegrable (d : Rows) :
+        Integrable (fun τ : ℝ => separatedFourier R ρ υ κ v τ * rowValue τ d.1) := by
+      exact hSepComplexInt.mul_bdd (hrowValueContinuous d.1).aestronglyMeasurable
+        (Filter.Eventually.of_forall fun τ => hrowValueNorm τ d.1)
+    have hVIntegrable : Integrable V := by
+      rw [MeasureTheory.integrable_piLp_iff]
+      intro d
+      exact hcoordIntegrable d
+    have hVNormBound (τ : ℝ) :
+        ‖V τ‖ ≤ ‖separatedFourier R ρ υ κ v τ‖ * Real.sqrt B := by
+      let W : PiLp 2 (fun _ : Rows => ℂ) :=
+        WithLp.toLp 2 (fun d : Rows => rowValue τ d.1)
+      have hWsq : ‖W‖ ^ 2 ≤ B := by
+        calc
+          ‖W‖ ^ 2 = ∑ d : Rows, ‖rowValue τ d.1‖ ^ 2 := by
+            rw [PiLp.norm_sq_eq_of_L2]
+          _ = ∑ d ∈ rows, ‖rowValue τ d‖ ^ 2 := hsumRows (fun d => ‖rowValue τ d‖ ^ 2)
+          _ ≤ B := hrowL2 τ
+      have hWnorm : ‖W‖ ≤ Real.sqrt B := by
+        have h := Real.sqrt_le_sqrt hWsq
+        have hnorm : Real.sqrt (‖W‖ ^ 2) = ‖W‖ := by
+          rw [Real.sqrt_sq_eq_abs, abs_of_nonneg (norm_nonneg _)]
+        simpa [hnorm] using h
+      have hVeq : V τ = separatedFourier R ρ υ κ v τ • W := by
+        ext d
+        simp [V, W]
+      rw [hVeq, norm_smul]
+      exact mul_le_mul_of_nonneg_left hWnorm (norm_nonneg _)
+    have htermMultiplierContinuous (d c : S.SqfExtIdeal) :
+        Continuous (fun τ : ℝ => rowPhase τ d * z τ c * chiIdealPow D
+          (extOfSqf d).1 (cgen R c) 3) := by
+      have hrowphase : Continuous (fun τ : ℝ => rowPhase τ d) := by
+        change Continuous (fun τ : ℝ => rf_retained_fourier_phase τ
+          (-2 * Real.log (qI d.1 / D0)))
+        exact rf_retained_fourier_phase_continuous _
+      have hzphase : Continuous (fun τ : ℝ => z τ c) := by
+        have hphasec : Continuous (fun τ : ℝ =>
+            coeff c * rf_retained_fourier_phase τ (Real.log (qI c.1 / C))) :=
+          continuous_const.mul (rf_retained_fourier_phase_continuous _)
+        by_cases hk : keep c
+        · simp only [z, if_pos hk]
+          exact hphasec
+        · simp only [z, if_neg hk]
+          exact continuous_const
+      exact (hrowphase.mul hzphase).mul continuous_const
+    have htermMultiplierBound (d c : S.SqfExtIdeal) (τ : ℝ) :
+        ‖rowPhase τ d * z τ c * chiIdealPow D (extOfSqf d).1 (cgen R c) 3‖ ≤
+          ‖coeff c‖ + 1 := by
+      by_cases hk : keep c
+      · have hz : ‖z τ c‖ = ‖coeff c‖ := by
+          simp [z, hk, rf_retained_fourier_phase_norm]
+        calc
+          ‖rowPhase τ d * z τ c * chiIdealPow D (extOfSqf d).1 (cgen R c) 3‖ =
+              ‖coeff c‖ * ‖chiIdealPow D (extOfSqf d).1 (cgen R c) 3‖ := by
+            simp [norm_mul, rowPhase, hz, rf_retained_fourier_phase_norm]
+          _ ≤ ‖coeff c‖ * 1 :=
+            mul_le_mul_of_nonneg_left (hchi (extOfSqf d) c) (norm_nonneg (coeff c))
+          _ = ‖coeff c‖ := by ring
+          _ ≤ ‖coeff c‖ + 1 := by linarith
+      · simp [z, hk]
+        positivity
+    have htermIntegrable (d c : S.SqfExtIdeal) :
+        Integrable (fun τ : ℝ => separatedFourier R ρ υ κ v τ * rowPhase τ d * z τ c *
+          chiIdealPow D (extOfSqf d).1 (cgen R c) 3) := by
+      have hi := hSepComplexInt.mul_bdd (htermMultiplierContinuous d c).aestronglyMeasurable
+        (Filter.Eventually.of_forall (htermMultiplierBound d c))
+      simpa only [mul_assoc] using hi
+    have hretainedIntegral (d : Rows) :
+        retainedColumn R υ t sd sc (extOfSqf d.1) C Z R0 =
+          ∫ τ : ℝ, separatedFourier R ρ υ κ v τ * rowValue τ d.1 := by
+      let d0 : S.SqfExtIdeal := d.1
+      have hdrow := (hmemRows d0).mp d.2
+      have hqd := rf_qI_pos_ge_one d0.1 (by simpa using d0.2.1.1)
+      let x : S.SqfExtIdeal → ℝ := fun c =>
+        Real.log (qI c.1 / C) - 2 * Real.log (qI d0.1 / D0)
+      have hcRange (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+          C ≤ qI c.1 ∧ qI c.1 < 2 * C := (hmemCols c).mp hc
+      have hdRange : D0 ≤ qI d0.1 ∧ qI d0.1 < 2 * D0 := by
+        simpa [rowPred, extOfSqf, qI, rowDyad] using hdrow
+      have hqcRatioPos (c : S.SqfExtIdeal) (hc : c ∈ cols) : 0 < qI c.1 / C :=
+        div_pos (rf_qI_pos_ge_one c.1 (by simpa using c.2.1.1)).1 hCpos
+      have hqdRatioPos : 0 < qI d0.1 / D0 := div_pos hqd.1 hDpos
+      have hqCRatio (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+          1 ≤ qI c.1 / C ∧ qI c.1 / C ≤ 2 := by
+        have hcr := hcRange c hc
+        constructor
+        · apply (le_div_iff₀ hCpos).2
+          simpa using hcr.1
+        · apply (div_le_iff₀ hCpos).2
+          exact le_of_lt (by nlinarith [hcr.2])
+      have hqdRatio : 1 ≤ qI d0.1 / D0 ∧ qI d0.1 / D0 ≤ 2 := by
+        constructor
+        · apply (le_div_iff₀ hDpos).2
+          simpa using hdRange.1
+        · apply (div_le_iff₀ hDpos).2
+          exact le_of_lt (by nlinarith [hdRange.2])
+      have hlog2nonneg : 0 ≤ Real.log 2 := Real.log_nonneg (by norm_num)
+      have hlog2le : Real.log 2 ≤ 1 := by
+        have h := Real.log_le_sub_one_of_pos (by norm_num : (0 : ℝ) < 2)
+        linarith
+      have hlogC (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+          0 ≤ Real.log (qI c.1 / C) ∧ Real.log (qI c.1 / C) ≤ Real.log 2 := by
+        refine ⟨Real.log_nonneg (hqCRatio c hc).1, ?_⟩
+        exact Real.log_le_log (hqcRatioPos c hc) (hqCRatio c hc).2
+      have hlogD : 0 ≤ Real.log (qI d0.1 / D0) ∧
+          Real.log (qI d0.1 / D0) ≤ Real.log 2 := by
+        refine ⟨Real.log_nonneg hqdRatio.1, ?_⟩
+        exact Real.log_le_log hqdRatioPos hqdRatio.2
+      have hxabs (c : S.SqfExtIdeal) (hc : c ∈ cols) : |x c| ≤ 2 := by
+        change |Real.log (qI c.1 / C) - 2 * Real.log (qI d0.1 / D0)| ≤ 2
+        rw [abs_le]
+        constructor <;> linarith [hlogC c hc, hlogD, hlog2le]
+      have hexpD : Real.exp (2 * Real.log (qI d0.1 / D0)) =
+          (qI d0.1 / D0) ^ 2 := by
+        calc
+          Real.exp (2 * Real.log (qI d0.1 / D0)) =
+              Real.exp (Real.log (qI d0.1 / D0) + Real.log (qI d0.1 / D0)) := by
+                congr 1 <;> ring
+          _ = Real.exp (Real.log (qI d0.1 / D0)) *
+                Real.exp (Real.log (qI d0.1 / D0)) := Real.exp_add _ _
+          _ = (qI d0.1 / D0) ^ 2 := by rw [Real.exp_log hqdRatioPos]; ring
+      have hexpX (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+          Real.exp (x c) = (qI c.1 / C) / (qI d0.1 / D0) ^ 2 := by
+        change Real.exp (Real.log (qI c.1 / C) - 2 * Real.log (qI d0.1 / D0)) = _
+        rw [Real.exp_sub, Real.exp_log (hqcRatioPos c hc), hexpD]
+      have hargEq (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+          v * Real.exp (x c) =
+            Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+              (qI d0.1 ^ 2 * qI t.f.1 ^ 2) := by
+        dsimp [v]
+        rw [hexpX c hc]
+        field_simp [ne_of_gt hCpos, ne_of_gt hDpos, ne_of_gt hqd.1, ne_of_gt hqF.1]
+        <;> ring
+      have hphaseSplit (c : S.SqfExtIdeal) (hc : c ∈ cols) (τ : ℝ) :
+          rf_retained_fourier_phase τ (x c) =
+            rf_retained_fourier_phase τ (Real.log (qI c.1 / C)) *
+              rf_retained_fourier_phase τ (-2 * Real.log (qI d0.1 / D0)) := by
+        change rf_retained_fourier_phase τ
+            (Real.log (qI c.1 / C) - 2 * Real.log (qI d0.1 / D0)) = _
+        calc
+          _ = rf_retained_fourier_phase τ (Real.log (qI c.1 / C)) *
+                rf_retained_fourier_phase τ (-(2 * Real.log (qI d0.1 / D0))) :=
+            rf_retained_fourier_phase_sub τ _ _
+          _ = _ := by
+            rw [show -(2 * Real.log (qI d0.1 / D0)) =
+              -2 * Real.log (qI d0.1 / D0) by ring]
+      have hTsum :
+          (∑' c : S.SqfExtIdeal,
+            if C ≤ qI c.1 ∧ qI c.1 < 2 * C ∧ keep c then
+              coeff c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 *
+                profilePhi R υ κ
+                  (Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+                    (qI d0.1 ^ 2 * qI t.f.1 ^ 2))
+            else 0) =
+            ∑ c ∈ cols, if keep c then
+              coeff c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 *
+                profilePhi R υ κ
+                  (Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+                    (qI d0.1 ^ 2 * qI t.f.1 ^ 2))
+              else 0 := by
+        calc
+          _ = ∑ c ∈ cols,
+                if C ≤ qI c.1 ∧ qI c.1 < 2 * C ∧ keep c then
+                  coeff c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 *
+                    profilePhi R υ κ
+                      (Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+                        (qI d0.1 ^ 2 * qI t.f.1 ^ 2))
+                else 0 := by
+            apply tsum_eq_sum
+            intro c hc
+            have hnot : ¬ (C ≤ qI c.1 ∧ qI c.1 < 2 * C) := by
+              intro hdyad
+              exact hc ((hmemCols c).2 hdyad)
+            have hfalse : ¬ (C ≤ qI c.1 ∧ qI c.1 < 2 * C ∧ keep c) := by
+              intro h
+              exact hnot ⟨h.1, h.2.1⟩
+            simp [hfalse]
+          _ = _ := by
+            apply Finset.sum_congr rfl
+            intro c hc
+            have hc' := (hmemCols c).mp hc
+            rcases hc' with ⟨hc₁, hc₂⟩
+            by_cases hk : keep c
+            · have hleft : C ≤ qI c.1 ∧ qI c.1 < 2 * C ∧ keep c := ⟨hc₁, hc₂, hk⟩
+              simp [hleft, hk]
+            · have hleft : ¬ (C ≤ qI c.1 ∧ qI c.1 < 2 * C ∧ keep c) := by
+                intro h
+                exact hk h.2.2
+              simp [hleft, hk]
+      have hterm (c : S.SqfExtIdeal) (hc : c ∈ cols) :
+          (if keep c then
+            coeff c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 *
+              profilePhi R υ κ
+                (Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+                  (qI d0.1 ^ 2 * qI t.f.1 ^ 2))
+          else 0) =
+            ∫ τ : ℝ, separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+              chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 := by
+        by_cases hk : keep c
+        · rw [if_pos hk]
+          have hFourierInv :=
+            (rf_retained_fourier_inversion R ρ hρ hρc υ κ v hv (x c)).2
+          have hprofileInv : profilePhi R υ κ
+              (Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+                (qI d0.1 ^ 2 * qI t.f.1 ^ 2)) =
+                ∫ τ : ℝ, separatedFourier R ρ υ κ v τ *
+                  rf_retained_fourier_phase τ (x c) := by
+            calc
+              _ = profilePhi R υ κ (v * Real.exp (x c)) := by rw [← hargEq c hc]
+              _ = ρ (x c) * profilePhi R υ κ (v * Real.exp (x c)) := by
+                rw [show ρ (x c) = 1 by simpa [ρ] using rf_retained_log_cutoff_one (hxabs c hc)]
+                simp
+              _ = _ := hFourierInv
+          calc
+            _ = coeff c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 *
+                  (∫ τ : ℝ, separatedFourier R ρ υ κ v τ *
+                    rf_retained_fourier_phase τ (x c)) := by rw [hprofileInv]
+            _ = ∫ τ : ℝ, coeff c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 *
+                  (separatedFourier R ρ υ κ v τ * rf_retained_fourier_phase τ (x c)) :=
+                by rw [integral_const_mul]
+            _ = ∫ τ : ℝ, separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+                  chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 := by
+                apply integral_congr_ae
+                filter_upwards [] with τ
+                simp [z, hk]
+                rw [hphaseSplit c hc τ]
+                ring
+        · simp [hk, z]
+      have hsumTermInt : ∀ c ∈ cols,
+          Integrable (fun τ : ℝ => separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+            chiIdealPow D (extOfSqf d0).1 (cgen R c) 3) := by
+        intro c hc
+        exact htermIntegrable d0 c
+      have hsumFourier :
+          ∫ τ : ℝ, ∑ c ∈ cols, separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+            chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 =
+          ∑ c ∈ cols, ∫ τ : ℝ, separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+            chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 :=
+        integral_finsetSum cols (f := fun c τ => separatedFourier R ρ υ κ v τ * rowPhase τ d0 *
+          z τ c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3) hsumTermInt
+      calc
+        retainedColumn R υ t sd sc (extOfSqf d0) C Z R0 =
+            frozenRho R υ t sd (extOfSqf d0) *
+              ∑ c ∈ cols, if keep c then
+                coeff c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 *
+                  profilePhi R υ κ
+                    (Z * qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 /
+                      (qI d0.1 ^ 2 * qI t.f.1 ^ 2))
+              else 0 := by
+          rw [retainedColumn, hTsum]
+        _ = frozenRho R υ t sd (extOfSqf d0) *
+              ∑ c ∈ cols, ∫ τ : ℝ,
+                separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+                  chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 := by
+          congr 1
+          apply Finset.sum_congr rfl
+          intro c hc
+          exact hterm c hc
+        _ = frozenRho R υ t sd (extOfSqf d0) *
+              ∫ τ : ℝ, ∑ c ∈ cols,
+                separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+                  chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 := by
+          rw [← hsumFourier]
+        _ = ∫ τ : ℝ, frozenRho R υ t sd (extOfSqf d0) *
+              ∑ c ∈ cols,
+                separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+                  chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 := by
+          rw [integral_const_mul]
+        _ = ∫ τ : ℝ, separatedFourier R ρ υ κ v τ * rowValue τ d0 := by
+          apply integral_congr_ae
+          filter_upwards [] with τ
+          change frozenRho R υ t sd (extOfSqf d0) *
+              ∑ c ∈ cols,
+                separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+                  chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 =
+            separatedFourier R ρ υ κ v τ *
+              (frozenRho R υ t sd (extOfSqf d0) * rowPhase τ d0 *
+                ∑ c ∈ cols, z τ c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3)
+          rw [Finset.mul_sum]
+          calc
+            ∑ c ∈ cols, frozenRho R υ t sd (extOfSqf d0) *
+                (separatedFourier R ρ υ κ v τ * rowPhase τ d0 * z τ c *
+                  chiIdealPow D (extOfSqf d0).1 (cgen R c) 3) =
+              ∑ c ∈ cols, (separatedFourier R ρ υ κ v τ *
+                  (frozenRho R υ t sd (extOfSqf d0) * rowPhase τ d0)) *
+                  (z τ c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3) := by
+                apply Finset.sum_congr rfl
+                intro c hc
+                ring
+        _ = (separatedFourier R ρ υ κ v τ *
+                  (frozenRho R υ t sd (extOfSqf d0) * rowPhase τ d0)) *
+                  ∑ c ∈ cols, z τ c * chiIdealPow D (extOfSqf d0).1 (cgen R c) 3 := by
+                rw [← Finset.mul_sum]
+            _ = _ := by ring
+    let rowsD : Finset S.ExtIdeal := rows.image extOfSqf
+    let massTerm : S.ExtIdeal → ℝ := fun d =>
+      if rowDyad d then ‖retainedColumn R υ t sd sc d C Z R0‖ ^ 2 else 0
+    have hzeroRow (d : S.ExtIdeal) (hd : d ∉ rowsD) : massTerm d = 0 := by
+      by_cases hdyad : rowDyad d
+      · by_cases hsqf : Squarefree d.1
+        · let c : S.SqfExtIdeal := ⟨d.1, ⟨d.2, hsqf⟩⟩
+          have hext : extOfSqf c = d := by
+            apply Subtype.ext
+            rfl
+          have hcRows : c ∈ rows := by
+            apply (hmemRows c).2
+            simpa [rowPred, extOfSqf] using hdyad
+          have hdRows : d ∈ rowsD := Finset.mem_image.mpr ⟨c, hcRows, hext⟩
+          exact (hd hdRows).elim
+        · have hrhoZero : frozenRho R υ t sd d = 0 := by
+            simp [frozenRho, hsqf]
+          have hcolumnZero : retainedColumn R υ t sd sc d C Z R0 = 0 := by
+            simp [retainedColumn, hrhoZero]
+          simp [massTerm, hdyad, hcolumnZero]
+      · simp [massTerm, hdyad]
+    have houterSum :
+        (∑' d : S.ExtIdeal, massTerm d) = ∑ d ∈ rowsD, massTerm d :=
+      tsum_eq_sum hzeroRow
+    have hsumImage (f : S.ExtIdeal → ℝ) :
+        ∑ d ∈ rowsD, f d = ∑ d ∈ rows, f (extOfSqf d) := by
+      dsimp [rowsD]
+      exact Finset.sum_image (fun d hd e he hde => hextOfSqfInj hde)
+    have houterFinite :
+        ∑ d ∈ rowsD, massTerm d =
+          ∑ d ∈ rows, ‖retainedColumn R υ t sd sc (extOfSqf d) C Z R0‖ ^ 2 := by
+      rw [hsumImage]
+      apply Finset.sum_congr rfl
+      intro d hd
+      have hdyad : rowDyad (extOfSqf d) := by
+        simpa [rowPred] using (hmemRows d).mp hd
+      simp [massTerm, hdyad]
+    let retVec : PiLp 2 (fun _ : Rows => ℂ) :=
+      WithLp.toLp 2 (fun d : Rows => retainedColumn R υ t sd sc (extOfSqf d.1) C Z R0)
+    have houterSubtype :
+        (∑ d : Rows, ‖retainedColumn R υ t sd sc (extOfSqf d.1) C Z R0‖ ^ 2) =
+          ∑ d ∈ rows, ‖retainedColumn R υ t sd sc (extOfSqf d) C Z R0‖ ^ 2 := by
+      exact hsumRows (fun d => ‖retainedColumn R υ t sd sc (extOfSqf d) C Z R0‖ ^ 2)
+    have hrootEq :
+        Real.sqrt (∑' d : S.ExtIdeal, massTerm d) = ‖retVec‖ := by
+      calc
+        Real.sqrt (∑' d : S.ExtIdeal, massTerm d) =
+            Real.sqrt (∑ d : Rows,
+              ‖retainedColumn R υ t sd sc (extOfSqf d.1) C Z R0‖ ^ 2) := by
+                congr 1
+                rw [houterSum, houterFinite, ← houterSubtype]
+        _ = ‖retVec‖ := by
+          symm
+          rw [PiLp.norm_eq_of_L2]
+    have hvectorEq : (∫ τ : ℝ, V τ) = retVec := by
+      ext d
+      rw [MeasureTheory.eval_integral_piLp hcoordIntegrable d]
+      exact (hretainedIntegral d).symm
+    have hnormVector : ‖∫ τ : ℝ, V τ‖ ≤ Real.sqrt B *
+        ∫ τ : ℝ, ‖separatedFourier R ρ υ κ v τ‖ := by
+      calc
+        ‖∫ τ : ℝ, V τ‖ ≤ ∫ τ : ℝ, ‖V τ‖ := norm_integral_le_integral_norm V
+        _ ≤ ∫ τ : ℝ, ‖separatedFourier R ρ υ κ v τ‖ * Real.sqrt B :=
+          integral_mono_ae hVIntegrable.norm (hFourierData.1.mul_const (Real.sqrt B))
+            (Filter.Eventually.of_forall hVNormBound)
+        _ = Real.sqrt B * ∫ τ : ℝ, ‖separatedFourier R ρ υ κ v τ‖ := by
+          rw [integral_mul_const]
+          ring
+    have hBroot : Real.sqrt B =
+        Real.sqrt (4 * Ccnt * Csieve) * 4 ^ (ε / 2) *
+          (D0 + C) ^ (1 / 2 : ℝ) * (D0 * C) ^ (ε / 2) := by
+      let K₀ : ℝ := Real.sqrt (4 * Ccnt * Csieve) * 4 ^ (ε / 2)
+      have hK₀ : 0 ≤ K₀ := by dsimp [K₀]; positivity
+      have hBnonneg : 0 ≤ B := le_of_lt hBpos
+      have hBsq : B =
+          (K₀ * (D0 + C) ^ (1 / 2 : ℝ) * (D0 * C) ^ (ε / 2)) ^ 2 := by
+        dsimp [B, K₀]
+        have hArg : 4 * C * D0 = 4 * (C * D0) := by ring
+        rw [hArg, Real.mul_rpow (by norm_num : (0 : ℝ) ≤ 4) (by positivity)]
+        have hpow4 : (4 ^ (ε / 2)) ^ 2 = (4 : ℝ) ^ ε := by
+          calc
+            (4 ^ (ε / 2)) ^ 2 = 4 ^ ((ε / 2) * 2) :=
+              (Real.rpow_mul_natCast (by norm_num : (0 : ℝ) ≤ 4) _ 2).symm
+            _ = 4 ^ ε := by congr 1 <;> ring
+        have hpowSum : ((D0 + C) ^ (1 / 2 : ℝ)) ^ 2 = D0 + C := by
+          calc
+            ((D0 + C) ^ (1 / 2 : ℝ)) ^ 2 = (D0 + C) ^ ((1 / 2 : ℝ) * 2) :=
+              (Real.rpow_mul_natCast (by positivity) _ 2).symm
+            _ = D0 + C := by norm_num
+        have hpowDC : ((D0 * C) ^ (ε / 2)) ^ 2 = (D0 * C) ^ ε := by
+          calc
+            ((D0 * C) ^ (ε / 2)) ^ 2 = (D0 * C) ^ ((ε / 2) * 2) :=
+              (Real.rpow_mul_natCast (by positivity) _ 2).symm
+            _ = (D0 * C) ^ ε := by congr 1 <;> ring
+        rw [mul_pow, mul_pow, mul_pow, Real.sq_sqrt (by positivity), hpow4, hpowSum, hpowDC]
+        ring
+      apply (Real.sqrt_eq_iff_eq_sq hBnonneg (by positivity)).2
+      exact hBsq
+    calc
+      Real.sqrt (∑' d : S.ExtIdeal,
+          if rowDyad d then ‖retainedColumn R υ t sd sc d C Z R0‖ ^ 2 else 0) = ‖retVec‖ := by
+        apply hrootEq
+      _ = ‖∫ τ : ℝ, V τ‖ := by rw [hvectorEq]
+      _ ≤ Real.sqrt B * ∫ τ : ℝ, ‖separatedFourier R ρ υ κ v τ‖ := hnormVector
+      _ ≤ Real.sqrt B * (CFT * min (v ^ α) (v ^ (-N))) :=
+        mul_le_mul_of_nonneg_left hSepL1 (Real.sqrt_nonneg B)
+      _ = CFT * Real.sqrt (4 * Ccnt * Csieve) * 4 ^ (ε / 2) *
+            (D0 + C) ^ (1 / 2 : ℝ) * (D0 * C) ^ (ε / 2) * min (v ^ α) (v ^ (-N)) := by
+        rw [hBroot]
+        ring
 private lemma rf_log_four_absorb {x β : ℝ} (hβ : 0 < β) (hx : 1 ≤ x) :
     Real.log x ^ 4 ≤ ((β / 4) ^ 4)⁻¹ * x ^ β := by
   let γ : ℝ := β / 4
