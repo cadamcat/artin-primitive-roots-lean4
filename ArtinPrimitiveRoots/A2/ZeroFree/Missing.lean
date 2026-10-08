@@ -4949,6 +4949,29 @@ private theorem rows_sol_principal_z_residue (hEuler : EulerHypotheses R η)
     rw [rows_principalRegularizedLS_at_one]
   simpa only [K, Complex.ofReal_div, Complex.ofReal_one, Complex.ofReal_ofNat, hNumpole] using hshift
 
+private theorem rows_sol_mellin_w_one (Z : ℝ) (hZ : 0 < Z) (ξ z : ℂ) :
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z =
+      (Z : ℂ) ^ ((a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * z) *
+        Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W 1 := by
+  have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZ.ne'
+  have hlog : (Complex.log (Z : ℂ) * (a : ℂ)).im = 0 := by
+    rw [← Complex.ofReal_log hZ.le]
+    simp
+  have hXpow : ((Z ^ a : ℝ) : ℂ) ^ ((1 / 2 : ℂ) - z) =
+      (Z : ℂ) ^ ((a : ℂ) * ((1 / 2 : ℂ) - z)) := by
+    rw [Complex.ofReal_cpow hZ.le a]
+    exact (Complex.cpow_mul (x := (Z : ℂ)) (y := (a : ℂ)) ((1 / 2 : ℂ) - z)
+      (by rw [hlog]; exact neg_lt_zero.mpr Real.pi_pos)
+      (by rw [hlog]; exact Real.pi_pos.le)).symm
+  have hExponent : (a : ℂ) * ((1 / 2 : ℂ) - z) + (ξ + z - 1) =
+      (a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * z := by
+    simp only [h0, Complex.ofReal_sub, Complex.ofReal_one]
+    ring
+  unfold mellinWeight
+  rw [hXpow]
+  simp only [sub_self, Complex.cpow_zero, mul_one]
+  rw [← Complex.cpow_add _ _ hZbase, hExponent]
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
