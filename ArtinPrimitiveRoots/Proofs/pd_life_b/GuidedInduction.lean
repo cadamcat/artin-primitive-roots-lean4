@@ -200,6 +200,100 @@ theorem guidedTraceSum_succ {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w 
     simp only [hg', false_and, if_false, ite_false]
   · intro h; exact absurd (Finset.mem_univ _) h
 
+/-- All local ghost factors at visit `j`. -/
+def ghostAt {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (γ : EnvPath S.x K)
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x + 1)) : ℝ :=
+  ∏ i : Fin K, ∏ p : primeBand S.x (F.a i), lifeGhostLocal F S ρ γ i p.1 (H i p) j
+
+/-- All local edge factors at edge `j`. -/
+def edgeAt {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (γ : EnvPath S.x K)
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x)) : ℝ :=
+  ∏ i : Fin K, ∏ p : primeBand S.x (F.a i), lifeEdgeLocal F S ρ γ i p.1 (H i p) j
+
+/-- The value of the guided sum from depth `k`. -/
+def guidedV {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot) (B : Option ℕ)
+    (γ : EnvPath S.x K) (H : PDLifeAssignment F S γ) : ℕ → ℂ
+  | 0 => cutF B (pdLifeMemorySize F S γ H false (Fin.last _)) *
+      (cutF B (pdLifeMemorySize F S γ H true (Fin.last _)) *
+        ((ghostAt F S ρ γ H (Fin.last _) : ℝ) : ℂ))
+  | k + 1 =>
+      if h : pathLength S.x - (k + 1) < pathLength S.x then
+        cutF B (pdLifeMemorySize F S γ H false ⟨pathLength S.x - (k + 1), by omega⟩) *
+          (cutF B (pdLifeMemorySize F S γ H true ⟨pathLength S.x - (k + 1), by omega⟩) *
+            (((ghostAt F S ρ γ H ⟨pathLength S.x - (k + 1), by omega⟩ : ℝ) : ℂ) *
+              (((edgeAt F S ρ γ H ⟨pathLength S.x - (k + 1), h⟩ : ℝ) : ℂ) *
+                edgeGeo F S w γ ⟨pathLength S.x - (k + 1), h⟩ * guidedV F S ρ w B γ H k)))
+      else 0
+
+theorem guidedV_cut {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (B : Option ℕ) (γ : EnvPath S.x K) (H : PDLifeAssignment F S γ) (k : ℕ)
+    (hk : k ≤ pathLength S.x) :
+    cutF B (pdLifeMemorySize F S γ H false ⟨pathLength S.x - k, by omega⟩) *
+      guidedV F S ρ w B γ H k = guidedV F S ρ w B γ H k := by
+  cases k with
+  | zero =>
+    have e : (⟨pathLength S.x - 0, by omega⟩ : Fin (pathLength S.x + 1)) =
+        Fin.last _ := Fin.ext (by simp)
+    rw [e]
+    unfold guidedV
+    rw [← mul_assoc, cutF_idem]
+  | succ k =>
+    unfold guidedV
+    rw [dif_pos (by omega), ← mul_assoc, cutF_idem]
+
+/-- The terminal guided sum. -/
+theorem guidedTraceSum_zero {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (B : Option ℕ) (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (H : PDLifeAssignment F S γ) (σ : LogPoint S.x K)
+    (hσ : IsLifeState F S γ H (Fin.last _) σ) :
+    guidedTraceSum F S ρ w B γ H 0 σ = guidedV F S ρ w B γ H 0 := by
+  have hτ := guided_ghost_output F S γ H hBands (Fin.last _) σ hσ
+  unfold guidedTraceSum
+  rw [Finset.sum_eq_single (guidedGhostChoice F S γ H (Fin.last _) σ)]
+  · have hGG : TraceGuided F S γ H 0 σ (guidedGhostChoice F S γ H (Fin.last _) σ) :=
+      (ghostGuided_iff F S γ H _ σ _).mpr rfl
+    rw [if_pos hGG]
+    show historyCutoffFactor B σ * (historyVisitFactor γ (pathLength S.x) σ *
+      (ghostTraceCharge F S ρ (Fin.last (pathLength S.x)).val σ
+          (guidedGhostChoice F S γ H (Fin.last _) σ) *
+        (historyCutoffFactor B (ghostTraceOutput F S (Fin.last (pathLength S.x)).val σ
+            (guidedGhostChoice F S γ H (Fin.last _) σ)) *
+          logBoundaryOut distinctWeight (ghostTraceOutput F S (Fin.last (pathLength S.x)).val σ
+            (guidedGhostChoice F S γ H (Fin.last _) σ))))) = _
+    rw [guided_ghost_charge F S ρ γ H (Fin.last _) σ hσ, historyCutoffFactor_eq,
+      historyCutoffFactor_eq, memSize_life F S γ H _ σ hσ,
+      memSize_life_after F S γ H _ _ hτ]
+    have hvisit : historyVisitFactor γ (pathLength S.x) σ = 1 := by
+      unfold historyVisitFactor
+      rw [dif_pos (by omega), if_pos (show (σ.1.1, σ.1.2.1) = γ ⟨pathLength S.x, by omega⟩
+        from hσ.1)]
+    have hbound : logBoundaryOut distinctWeight (ghostTraceOutput F S
+        (Fin.last (pathLength S.x)).val σ (guidedGhostChoice F S γ H (Fin.last _) σ)) = 1 := by
+      unfold logBoundaryOut memBoundary distinctWeight
+      have hpos : (ghostTraceOutput F S (Fin.last (pathLength S.x)).val σ
+          (guidedGhostChoice F S γ H (Fin.last _) σ)).1.1 = (1, 0) := by
+        rw [← hγ.2.2]
+        exact congrArg Prod.fst hτ.1
+      have hempty : ∀ i, (ghostTraceOutput F S (Fin.last (pathLength S.x)).val σ
+          (guidedGhostChoice F S γ H (Fin.last _) σ)).1.2.2 i = [] := by
+        intro i
+        apply List.eq_nil_iff_forall_not_mem.mpr
+        intro q hq
+        obtain ⟨hp, hpend, -⟩ := (hτ.2.2.1 i q).mp hq
+        exact pending_true_last S γ _ _ hpend
+      rw [if_pos ⟨hpos, hempty⟩, if_pos hτ.2.2.2.1]
+      simp
+    rw [hvisit, hbound]
+    unfold guidedV ghostAt
+    ring
+  · intro g _ hg
+    have hg' : ¬ TraceGuided F S γ H 0 σ g :=
+      fun h => hg ((ghostGuided_iff F S γ H _ σ g).mp h)
+    rw [if_neg hg']
+  · intro h; exact absurd (Finset.mem_univ _) h
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
