@@ -4972,6 +4972,125 @@ private theorem rows_sol_mellin_w_one (Z : ℝ) (hZ : 0 < Z) (ξ z : ℂ) :
   simp only [sub_self, Complex.cpow_zero, mul_one]
   rw [← Complex.cpow_add _ _ hZbase, hExponent]
 
+private theorem rows_sol_principal_right_kernel_control
+    (hEuler : EulerHypotheses R η) (A0 : ℝ) (hA0 : 0 < A0) :
+    ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z → ∀ ξ w z : ℂ,
+      1 + δ1 ≤ ξ.re → ξ.re ≤ 4 → w.re = 4 →
+      1 / 6 + δ1 ≤ z.re → z.re ≤ 2 →
+        ‖rowKernel R sd W η U HA HC U.one Z ξ w z‖ ≤
+          C * Z ^ Estar ξ.re w.re z.re *
+            Real.exp (-((ξ.im + z.im) ^ 2)) *
+              (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0) := by
+  let σ : ℝ := 1 + 6 * δ1
+  have hσ : 1 < σ := by norm_num [σ, δ1]
+  let CS : ℝ := 2 ^ S.Sf.card
+  let Cζ : ℝ := (NumberField.dedekindZeta F (σ : ℂ)).re
+  let CZ : ℝ := Cζ * CS
+  have hCζ : 0 ≤ Cζ := rows_small_dedekindZeta_real_nonneg (F := F) σ hσ
+  have hCZ : 0 ≤ CZ := by dsimp [CZ, CS]; positivity
+  have hOne : IsOfFinOrder (1 : HeckeChar F) := by simp
+  have hOnePrim : IsPrimitiveConductor (1 : HeckeChar F) ⊤ := by
+    refine ⟨by simp, ?_, ?_⟩
+    · intro v x hx hxinv hval
+      change (1 : HeckeChar F).loc v x = 1
+      simp [HeckeChar.loc]
+    · intro g hg hgc
+      have hnorm : Ideal.absNorm g ≠ 0 := by
+        intro h
+        exact hg (Ideal.absNorm_eq_zero_iff.mp h)
+      simpa using (Nat.one_le_iff_ne_zero.mpr hnorm)
+  obtain ⟨m, ψ, hseries⟩ :=
+    rows_heckeLSeries_eq_ray (1 : HeckeChar F) hOne ⊤ hOnePrim
+  have hPrincipal (s : ℂ) (hs : σ ≤ s.re) : ‖HA.LS S 1 s‖ ≤ CZ := by
+    have hsone : 1 < s.re := lt_of_lt_of_le hσ hs
+    have hRay := Hecke.norm_LSeriesRay_le (K := F) (s := s) ψ hsone
+    have hcomplete : HA.L 1 s = Hecke.LSeriesRay ψ s := by
+      calc
+        HA.L 1 s = heckeLSeries (1 : HeckeChar F) s := HA.2.1 1 s hsone
+        _ = Hecke.LSeriesRay ψ s := hseries s hsone
+    have hfactor := rows_principal_omittedFactors_norm_le (S := S) s
+      (by linarith : 0 < s.re)
+    have hLS : HA.LS S 1 s = Hecke.LSeriesRay ψ s *
+        ∏ v ∈ S.Sf, (1 - (1 : HeckeChar F).primeValue v *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+      unfold HeckeAnalysis.LS
+      rw [hcomplete]
+    have hζ : (NumberField.dedekindZeta F (s.re : ℂ)).re ≤ Cζ :=
+      rows_small_dedekindZeta_real_antitone (F := F) hσ hs
+    have hRayUpper : ‖Hecke.LSeriesRay ψ s‖ ≤ Cζ := hRay.1.trans hζ
+    calc
+      _ = ‖Hecke.LSeriesRay ψ s‖ *
+          ‖∏ v ∈ S.Sf, (1 - (1 : HeckeChar F).primeValue v *
+            (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))‖ := by rw [hLS, norm_mul]
+      _ ≤ Cζ * CS := mul_le_mul hRayUpper hfactor (norm_nonneg _) hCζ
+      _ = CZ := rfl
+  let CW : ℝ := rows_absNorm_majorant (F := F) * CS
+  have hCW : 0 ≤ CW := by
+    exact mul_nonneg rows_absNorm_majorant_nonneg (by dsimp [CS]; positivity)
+  obtain ⟨fη, hfη⟩ := rows_eta_primitive_conductor R η U hEuler
+  let CI : ℝ := (NumberField.dedekindZeta F ((1 + δ1 : ℝ) : ℂ)).re * CS
+  have hCI : 0 ≤ CI := by
+    exact mul_nonneg
+      (rows_small_dedekindZeta_real_nonneg (F := F) (1 + δ1) (by norm_num [δ1]))
+      (by dsimp [CS]; positivity)
+  have hInv (ξ : ℂ) (hξ : 1 + δ1 ≤ ξ.re) : ‖(HA.LS S η ξ)⁻¹‖ ≤ CI := by
+    have hsone : 1 < ξ.re := lt_of_lt_of_le (by norm_num [δ1]) hξ
+    have hrecip := (rows_LS_inverse_bound HA S η hEuler.1 fη hfη hsone).2
+    have hmono := rows_small_dedekindZeta_real_antitone (F := F)
+      (by norm_num [δ1] : 1 < 1 + δ1) hξ
+    calc
+      _ ≤ (NumberField.dedekindZeta F (ξ.re : ℂ)).re * CS := hrecip
+      _ ≤ (NumberField.dedekindZeta F ((1 + δ1 : ℝ) : ℂ)).re * CS :=
+        mul_le_mul_of_nonneg_right hmono (by dsimp [CS]; positivity)
+      _ = CI := rfl
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  obtain ⟨CH, hCH, hHbound⟩ := hHP.2.2.2 (1 : ℝ) (by norm_num)
+  obtain ⟨CM, hCM, hHeight⟩ := zf_height_decay R sd W
+    (1 + δ1) 4 4 4 (1 / 6 + δ1) 2 A0
+    (by norm_num [δ1]) le_rfl (by norm_num [δ1]) (by norm_num [δ1]) hA0
+  let D0 : ℝ := CM * CZ * CW * CH * CI
+  have hD0 : 0 ≤ D0 := by dsimp [D0]; positivity
+  refine ⟨D0 + 1, by positivity, ?_⟩
+  intro Z hZ ξ w z hξlo hξhi hw hzlo hzhi
+  have hZpos : 0 < Z := by linarith
+  have hsZ : σ ≤ (6 * z).re := by
+    have hre : (6 * z).re = 6 * z.re := by simp
+    rw [hre]
+    dsimp only [σ]
+    nlinarith [hzlo]
+  have hLsZ := hPrincipal (6 * z) hsZ
+  have hLsW : ‖HA.LS S 1 w‖ ≤ CW :=
+    rows_LS_norm_bound HA S 1 hOne (by rw [hw]; norm_num)
+  have hregion : eulerNeighborhood ![ξ, w, z] := by
+    right
+    change 998 / 1000 - 1 / 100000 < ξ.re ∧
+      95 / 100 - 1 / 100000 < w.re ∧ 16 / 100 - 1 / 100000 < z.re
+    refine ⟨lt_of_lt_of_le (by norm_num [δ1]) hξlo, ?_,
+      lt_of_lt_of_le (by norm_num [δ1]) hzlo⟩
+    rw [hw]
+    norm_num
+  have hH : ‖HC.H U.one ![ξ, w, z]‖ ≤ CH := by
+    simpa only [U.q_one, Real.one_rpow, mul_one] using hHbound U.one ![ξ, w, z] hregion
+  have hM := hHeight ξ w z hξlo hξhi (by rw [hw]) (by rw [hw]) hzlo hzhi
+  have hMnonneg : 0 ≤ CM * Real.exp (-((ξ.im + z.im) ^ 2)) *
+      (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0) := by positivity
+  have hbound := rows_principalKernel_norm_bound_of_factors R sd W η U HA HC Z hZpos ξ w z
+    (CM * Real.exp (-((ξ.im + z.im) ^ 2)) *
+      (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0)) CZ CW CH CI
+    hMnonneg hCZ hCW hCH.le hCI hM hLsZ hLsW hH (hInv ξ hξlo)
+  have hTail : 0 ≤ Z ^ Estar ξ.re w.re z.re * Real.exp (-((ξ.im + z.im) ^ 2)) *
+      (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0) := by positivity
+  calc
+    _ ≤ Z ^ Estar ξ.re w.re z.re *
+        (CM * Real.exp (-((ξ.im + z.im) ^ 2)) *
+          (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0)) * CZ * CW * CH * CI := hbound
+    _ = D0 * (Z ^ Estar ξ.re w.re z.re * Real.exp (-((ξ.im + z.im) ^ 2)) *
+        (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0)) := by dsimp only [D0]; ring
+    _ ≤ (D0 + 1) * (Z ^ Estar ξ.re w.re z.re * Real.exp (-((ξ.im + z.im) ^ 2)) *
+        (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0)) :=
+      mul_le_mul_of_nonneg_right (by linarith) hTail
+    _ = _ := by ring
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
