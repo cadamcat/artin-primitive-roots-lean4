@@ -642,7 +642,15 @@ def wC : PGL2 ℂ := QuotientGroup.mk (weylM ℂ)
 def sphC (s : ℂ) (g : PGL2 ℂ) : ℂ := sphericalC s (Quotient.out g)
 
 theorem sphC_mk (s : ℂ) (g : GL (Fin 2) ℂ) : sphC s (QuotientGroup.mk g) = sphericalC s g := by
-  sorry
+  obtain ⟨f, _, hrep⟩ := sphericalC_isSection s
+  have hq : (QuotientGroup.mk (Quotient.out (QuotientGroup.mk g : PGL2 ℂ)) : PGL2 ℂ) =
+      QuotientGroup.mk g := by
+    simp
+  have hout := hrep (Quotient.out (QuotientGroup.mk g : PGL2 ℂ))
+  have hg := hrep g
+  rw [hq] at hout
+  change sphericalC s (Quotient.out (QuotientGroup.mk g : PGL2 ℂ)) = sphericalC s g
+  exact hout.symm.trans hg
 
 theorem sphC_isSection (s : ℂ) : IsSectionC s (sphC s) ∧ Continuous (sphC s) := by
   sorry
