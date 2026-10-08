@@ -3866,6 +3866,109 @@ private theorem coverFamily_rational_restricted (C : CoverLocalFamily D S H)
         (hupper u)
   simpa only [not_forall] using Filter.eventually_cofinite.mp hγ
 
+private abbrev CoverRP (C : CoverLocalFamily D S H) :=
+  ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.RP
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference C)
+
+/-- Rational section tuples and their actual homomorphic image in the central quotient. -/
+private structure CoverRationalBase (B : CoverQuotientBase D S H) where
+  ratRP : GL (Fin 2) F → CoverRP B.family
+  rat : GL (Fin 2) F →* B.quotient.Q
+  q_ratRP : ∀ γ, B.quotient.q (ratRP γ) = rat γ
+  compF : ∀ v γ, ratRP γ (.inl v) =
+    (B.family.loc v).sec
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) γ)
+  compC : ∀ w γ, ratRP γ (.inr w) =
+    QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding γ)
+  rat_scalar : ∀ c : Fˣ, rat (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1
+
+private theorem exists_coverRationalBase (B : CoverQuotientBase D S H) :
+    Nonempty (CoverRationalBase B) := by
+  classical
+  let C := B.family
+  let t : GL (Fin 2) F → CoverRP C := fun γ =>
+    ⟨fun p => match p with
+      | .inl v => (C.loc v).sec
+          (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) γ)
+      | .inr w => QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding γ), by
+      apply Filter.eventually_cofinite.mpr
+      refine ((coverFamily_rational_restricted C γ).image
+        (Sum.inl : FinPlace F → Place F)).subset ?_
+      intro p hp
+      cases p with
+      | inl v =>
+        by_cases hv : v ∉ S.Sf
+        · refine ⟨v, ⟨hv, ?_⟩, rfl⟩
+          simpa only [Set.mem_ofPred_eq, SetLike.mem_coe,
+            ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference,
+            coverFamilyReference, dite_eq_left hv] using hp
+        · have hvS : v ∈ S.Sf := by simpa using hv
+          simp [ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference,
+            coverFamilyReference, hvS] at hp
+      | inr w =>
+        simp [ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference] at hp⟩
+  have ht_scalar (c : Fˣ) : t (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1 := by
+    apply RestrictedProduct.ext
+    intro p
+    cases p with
+    | inl v =>
+      change (C.loc v).sec
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+          (Matrix.GeneralLinearGroup.scalar (Fin 2) c)) = 1
+      rw [Matrix.GeneralLinearGroup.map_scalar, (C.loc v).sec_scalar]
+    | inr w =>
+      change (QuotientGroup.mk
+        (Matrix.GeneralLinearGroup.map w.embedding
+          (Matrix.GeneralLinearGroup.scalar (Fin 2) c)) : PGL2 ℂ) = 1
+      rw [Matrix.GeneralLinearGroup.map_scalar]
+      apply (QuotientGroup.eq_one_iff _).mpr
+      rw [Matrix.GeneralLinearGroup.center_eq_range_scalar]
+      exact ⟨Units.map w.embedding c, rfl⟩
+  let r : GL (Fin 2) F →* B.quotient.Q := {
+    toFun := fun γ => B.quotient.q (t γ)
+    map_one' := by
+      have ht_one : t 1 = 1 := by simpa only [map_one] using ht_scalar 1
+      rw [ht_one, map_one]
+    map_mul' := by
+      intro g h
+      rw [← map_mul]
+      symm
+      apply (B.quotient.q_eq _ _).mpr
+      obtain ⟨hfinite, hprod⟩ := global_kpCocycle_product D H g h
+      refine ⟨fun v => kpCocycle D H v
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h),
+        hfinite, hprod, ?_, ?_⟩
+      · intro v
+        change (C.loc v).sec
+          (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g) *
+            (C.loc v).sec
+              (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h) =
+          (C.loc v).z (kpCocycle D H v
+            (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+            (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)) *
+              (C.loc v).sec
+                (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) (g * h))
+        rw [Matrix.GeneralLinearGroup.map_mul]
+        exact (C.loc v).sec_mul _ _
+      · intro w
+        change (QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding g) : PGL2 ℂ) *
+          QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding h) =
+            QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding (g * h))
+        rw [Matrix.GeneralLinearGroup.map_mul, QuotientGroup.mk_mul]
+  }
+  refine ⟨{
+    ratRP := t
+    rat := r
+    q_ratRP := fun _ => rfl
+    compF := fun _ _ => rfl
+    compC := fun _ _ => rfl
+    rat_scalar := ?_
+  }⟩
+  intro c
+  change B.quotient.q (t (Matrix.GeneralLinearGroup.scalar (Fin 2) c)) = 1
+  rw [ht_scalar, map_one]
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
