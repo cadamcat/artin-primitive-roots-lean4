@@ -765,7 +765,109 @@ theorem eisenstein_finite_majorants (P : CoverPackage D S H A) (G : GlobalDatum 
     ∃ (n : ℕ) (m : Fin n → Quotient (QuotientGroup.rightRel (Bstar G)) → ℝ),
       (∀ i, Summable (m i)) ∧ ∀ γ,
         ‖scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out γ) * g)‖ ≤ ∑ i, m i γ := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  let Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) := ⊤
+  letI : Γ.FiniteIndex := by dsimp only [Γ]; infer_instance
+  obtain ⟨ι, hι, σ, hσ⟩ := ArtinPrimitiveRoots.A1.Spec.exists_cusp_reps F Γ
+  letI : Fintype ι := hι
+  obtain ⟨r, rfl⟩ := P.q_surj g
+  obtain ⟨U, hU, hcover⟩ := finite_supported_cusp_representatives P G Fs Γ σ hσ.2 r
+  letI : Fintype U := hU.fintype
+  let J := U × ι
+  obtain ⟨z, C0, hC0, hscalar⟩ := scalar_cusp_height_majorant P G Fs
+    (fun j : J => (σ j.2)⁻¹) (fun j : J => Quotient.out j.1.1) r
+  choose m hm hmbound using fun i =>
+    ArtinPrimitiveRoots.A1.Spec.eisSeries_majorant F Γ (σ i)
+      ({z} : Set (ArtinPrimitiveRoots.A1.Spec.X F)) isCompact_singleton s.re s.re hs
+  have hm_bound (i : ι) (q : ArtinPrimitiveRoots.A1.Spec.CuspCosets F Γ (σ i)) :
+      ‖ArtinPrimitiveRoots.A1.Spec.eisTerm F Γ (σ i) (s.re : ℂ) z q‖ ≤ m i q := by
+    exact hmbound i z (Set.mem_singleton z) (s.re : ℂ) (by simp) (by simp) q
+  have hm_nonneg (i : ι) (q : ArtinPrimitiveRoots.A1.Spec.CuspCosets F Γ (σ i)) :
+      0 ≤ m i q := (norm_nonneg _).trans (hm_bound i q)
+  let Ξ := Σ j : J, ArtinPrimitiveRoots.A1.Spec.CuspCosets F Γ (σ j.2)
+  let M : Ξ → ℝ := fun p => C0 * m p.1.2 p.2
+  have hM_nonneg (p : Ξ) : 0 ≤ M p := mul_nonneg hC0 (hm_nonneg p.1.2 p.2)
+  have hM : Summable M := by
+    apply (summable_sigma_of_nonneg hM_nonneg).2
+    constructor
+    · intro j
+      exact (hm j.2).mul_left C0
+    · exact (hasSum_fintype _).summable
+  let Q := Quotient (QuotientGroup.rightRel (Bstar G))
+  let f : Q → ℝ := fun β =>
+    ‖scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out β) * P.q r)‖
+  let V : Set Q := Function.support f
+  let a (p : Ξ) : GL (Fin 2) F :=
+    diagGL (Quotient.out p.1.1.1) * Matrix.SpecialLinearGroup.toGL
+      ((σ p.1.2)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F
+        ((p.2.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))
+  let ret : Ξ → Q := fun p => Quotient.mk (QuotientGroup.rightRel (Bstar G)) (a p)
+  have hparam : ∀ β : V, ∃ p : Ξ, ret p = β.1 := by
+    intro β
+    have hn : scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out β.1) * P.q r) ≠ 0 :=
+      norm_ne_zero_iff.mp β.property
+    obtain ⟨i, q, δ, hδ, heq⟩ := hcover β.1 hn
+    exact ⟨⟨(⟨δ, hδ⟩, i), q⟩, heq.symm⟩
+  choose φ hφ using hparam
+  have hφinj : Function.Injective φ := by
+    intro β η heq
+    apply Subtype.ext
+    calc
+      β.1 = ret (φ β) := (hφ β).symm
+      _ = ret (φ η) := congrArg ret heq
+      _ = η.1 := hφ η
+  have hrep (b d : GL (Fin 2) F) (hbd : QuotientGroup.rightRel (Bstar G) b d) :
+      scalarOf P G Fs.f Fs.fC (P.tc.rat b * P.q r) =
+        scalarOf P G Fs.f Fs.fC (P.tc.rat d * P.q r) := by
+    have hd : d * b⁻¹ ∈ Bstar G := QuotientGroup.rightRel_apply.mp hbd
+    simpa only [map_mul, map_inv, mul_assoc, inv_mul_cancel_left] using
+      ((scalarOf_invariance P G Fs).1 (d * b⁻¹) hd (P.tc.rat b * P.q r)).symm
+  have hterm (p : Ξ) :
+      ArtinPrimitiveRoots.A1.Spec.normHeight F
+        (((σ p.1.2)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F
+          ((p.2.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))) • z) ^
+          (1 + 2 * s.re) =
+        ‖ArtinPrimitiveRoots.A1.Spec.eisTerm F Γ (σ p.1.2) (s.re : ℂ) z p.2‖ := by
+    let γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F) := (p.2.out : Γ)
+    let y := ((σ p.1.2)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F γ) • z
+    have hpos : 0 < ArtinPrimitiveRoots.A1.Spec.normHeight F y := by
+      apply Finset.prod_pos
+      intro w _
+      rw [ArtinPrimitiveRoots.A1.Spec.height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos (y w)
+    have hact : (σ p.1.2)⁻¹ • (γ • z) = y := by
+      change (σ p.1.2)⁻¹ • ((ArtinPrimitiveRoots.A1.Spec.toSLF F γ) • z) = y
+      exact (mul_smul _ _ _).symm
+    change ArtinPrimitiveRoots.A1.Spec.normHeight F y ^ (1 + 2 * s.re) = _
+    unfold ArtinPrimitiveRoots.A1.Spec.eisTerm
+    change _ = ‖(ArtinPrimitiveRoots.A1.Spec.normHeight F
+      ((σ p.1.2)⁻¹ • (γ • z)) : ℂ) ^ (1 + 2 * (s.re : ℂ))‖
+    rw [hact, Complex.norm_cpow_eq_rpow_re_of_pos hpos]
+    simp
+  have hbound_support (β : V) : f β.1 ≤ M (φ β) := by
+    have hcoset : QuotientGroup.rightRel (Bstar G) (Quotient.out β.1) (a (φ β)) := by
+      apply Quotient.exact
+      exact (Quotient.out_eq β.1).trans (hφ β).symm
+    calc
+      f β.1 = ‖scalarOf P G Fs.f Fs.fC (P.tc.rat (a (φ β)) * P.q r)‖ :=
+        congrArg norm (hrep _ _ hcoset)
+      _ ≤ C0 * ArtinPrimitiveRoots.A1.Spec.normHeight F
+          (((σ (φ β).1.2)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F
+            (((φ β).2.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))) • z) ^
+            (1 + 2 * s.re) :=
+        hscalar (φ β).1 (((φ β).2.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))
+      _ = C0 * ‖ArtinPrimitiveRoots.A1.Spec.eisTerm F Γ (σ (φ β).1.2)
+          (s.re : ℂ) z (φ β).2‖ := congrArg (C0 * ·) (hterm (φ β))
+      _ ≤ M (φ β) := mul_le_mul_of_nonneg_left (hm_bound _ _) hC0
+  have hsupp : Summable (fun β : V => f β.1) :=
+    Summable.of_nonneg_of_le (fun β => norm_nonneg _) hbound_support (hM.comp_injective hφinj)
+  have hf : Summable f :=
+    ((hasSum_subtype_iff_of_support_subset (s := V) (Set.Subset.refl _)).1 hsupp.hasSum).summable
+  refine ⟨1, fun _ => f, fun _ => hf, ?_⟩
+  intro β
+  simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, one_smul]
+  exact le_rfl
 
 /-- **eis:converge** (via P-REDUCTION and P-SPEC `eisSeries_majorant`): absolute convergence for
 `Re s > 1/2`. C6 of `sol-gate-theta` strengthens the input datum to exclude divergent cube repeats. -/
