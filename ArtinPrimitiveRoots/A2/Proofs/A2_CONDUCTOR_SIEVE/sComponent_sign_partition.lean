@@ -29,7 +29,8 @@ theorem sComponent_sign_partition (S : A1.SData F CE condη)
           ω.idealValue J = ω'.idealValue J ∧ ‖ω.idealValue J‖ ≤ 1) := by
   classical
   refine ⟨?_, ?_, ?_, ?_⟩
-  · exact conductorInfiniteComponent_card_le 𝓧 (fun ω hω => (h𝓧 ω hω).1)
+  · exact ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorInfiniteComponent_card_le
+      𝓧 (fun ω hω => (h𝓧 ω hω).1)
   · let τset := 𝓧.image conductorInfiniteComponent
     let pairset := 𝓧.image (fun ω => (SComponent S ω, conductorInfiniteComponent ω))
     have hsubset : pairset ⊆ 𝓛S.product τset := by
@@ -37,7 +38,8 @@ theorem sComponent_sign_partition (S : A1.SData F CE condη)
       rcases Finset.mem_image.mp hp with ⟨ω, hω, rfl⟩
       exact Finset.mem_product.mpr
         ⟨(h𝓧 ω hω).2, Finset.mem_image_of_mem _ hω⟩
-    have hinf := conductorInfiniteComponent_card_le 𝓧 (fun ω hω => (h𝓧 ω hω).1)
+    have hinf := ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorInfiniteComponent_card_le
+      𝓧 (fun ω hω => (h𝓧 ω hω).1)
     calc
       pairset.card ≤ (𝓛S.product τset).card := Finset.card_le_card hsubset
       _ = 𝓛S.card * τset.card := Finset.card_product 𝓛S τset
@@ -47,6 +49,7 @@ theorem sComponent_sign_partition (S : A1.SData F CE condη)
     exact Finset.sum_fiberwise_of_maps_to
       (fun ω hω => Finset.mem_image_of_mem _ hω) (fun ω => f ω)
   · intro ω ω' hω hω' hcomp J hJ
-    exact conductorSupported_idealValue_eq_and_norm S ω ω' hω hω' hcomp hJ
+    exact ArtinPrimitiveRoots.Proofs.a2_cond_b.conductorSupported_idealValue_eq_and_norm
+      S ω ω' hω hω' hcomp hJ
 
 end ArtinPrimitiveRoots.A2

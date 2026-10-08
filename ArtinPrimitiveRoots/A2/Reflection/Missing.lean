@@ -4172,7 +4172,12 @@ theorem lem_reflection_local_Weyl :
 theorem rf_local_zero_digit : ∀ v, v ∉ S.Sf → ∀ ν : Fˣ,
   maskAlpha D A v (primeGen R v) 0 0 * R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v) =
     (1 - (qI v.asIdeal : ℂ)⁻¹) * R.T.Wv v (R.C.a v (toLoc v ν)) := by
-  sorry
+  intro v hv ν
+  have hmask : maskAlpha D A v (primeGen R v) 0 0 =
+      1 - (qI v.asIdeal : ℂ)⁻¹ := by
+    simp [maskAlpha, qI]
+  rw [hmask, R.T.Wv_right v hv (R.C.a v (toLoc v ν)) (R.C.w v)
+    (R.C.w_Kext v hv) (R.C.w_mem v)]
 /-- def:rf-active: ideal support and inactive scalar, completing the old partial node. -/
 def activeFactor (h f : S.ExtIdeal) : Prop :=
   Squarefree f.1 ∧ (∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h) ∧
@@ -4678,7 +4683,57 @@ theorem rf_frozen_frequency_norm_class : ∀ h (t : FrozenIndex R h) d c sd sc,
     S.absS (S.diagU (frozenFrequency R t d c) : S.FS) =
       qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 / (qI d.1 ^ 2 * qI t.f.1 ^ 2) ∧
     cls (S.diagU (frozenFrequency R t d c)) = kappaSix R t sd sc := by
-  sorry
+  intro h t d c sd sc hsd hsc
+  constructor
+  · have hbridge := a2_bridge_NORM D S
+    have hmul (x y : S.FSˣ) :
+        S.absS ((x * y : S.FSˣ) : S.FS) =
+          S.absS (x : S.FS) * S.absS (y : S.FS) := by
+      exact hbridge.2.1 (x : S.FS) (y : S.FS)
+    have hdiv (x y : S.FSˣ) :
+        S.absS ((x / y : S.FSˣ) : S.FS) =
+          S.absS (x : S.FS) / S.absS (y : S.FS) := hbridge.2.2.2.2.1 x y
+    have hpow2 (x : S.FSˣ) :
+        S.absS ((x ^ 2 : S.FSˣ) : S.FS) = S.absS (x : S.FS) ^ 2 := by
+      simpa [pow_succ] using hmul x x
+    have hpow3 (x : S.FSˣ) :
+        S.absS ((x ^ 3 : S.FSˣ) : S.FS) = S.absS (x : S.FS) ^ 3 := by
+      calc
+        S.absS ((x ^ 3 : S.FSˣ) : S.FS) =
+            S.absS ((x ^ (3 : ℤ) : S.FSˣ) : S.FS) := by
+          exact (congrArg (fun z : S.FSˣ => S.absS (z : S.FS))
+            (zpow_natCast x 3)).symm
+        _ = S.absS (x : S.FS) ^ (3 : ℤ) := hbridge.2.2.2.2.2 x (3 : ℤ)
+        _ = S.absS (x : S.FS) ^ 3 := rfl
+    have heps : S.absS (S.diagU (R.sheets.eps t.u) : S.FS) = 1 :=
+      hbridge.2.2.2.1 (R.sheets.eps t.u)
+    have ha := a2_bridge_NORM_gen D S H Bd bc t.a
+    have hc := a2_bridge_NORM_gen D S H Bd bc (R.exterior.ofSqf c)
+    have hn := a2_bridge_NORM_gen D S H Bd bc t.n
+    have hd := a2_bridge_NORM_gen D S H Bd bc d
+    have hf := a2_bridge_NORM_gen D S H Bd bc t.f
+    change S.absS (S.diagU (frozenFrequency R t d c) : S.FS) = _
+    simp only [frozenFrequency, map_div, map_mul, map_pow]
+    simp only [hdiv, hmul, hpow2, hpow3]
+    rw [heps, ha, hc, hn, hd, hf]
+    simp only [idealNorm, qI, R.exterior.ofSqf_val]
+    ring
+  · simp only [frozenFrequency, kappaSix, map_div, map_mul, map_pow]
+    dsimp only [cls] at hsd hsc ⊢
+    simp only [QuotientGroup.mk_div, QuotientGroup.mk_mul, QuotientGroup.mk_pow] at *
+    rw [hsd, hsc]
+    have hden (x y : S.V) : ((x * y) ^ 2)⁻¹ = x ^ (-2 : ℤ) * y ^ (-2 : ℤ) := by
+      calc
+        ((x * y) ^ 2)⁻¹ = (x * y) ^ (-2 : ℤ) := by
+          rw [show (-2 : ℤ) = Int.negSucc 1 by rfl, zpow_negSucc]
+        _ = x ^ (-2 : ℤ) * y ^ (-2 : ℤ) := mul_zpow x y (-2 : ℤ)
+    rw [div_eq_mul_inv, hden]
+    let pref : S.V := cls (S.diagU (R.sheets.eps t.u)) *
+      cls (S.diagU (bc.gen t.a)) * sc.1 * cls (S.diagU (bc.gen t.n)) ^ 3
+    change pref * (sd.1 ^ (-2 : ℤ) * cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ)) =
+      (pref * sd.1 ^ (-2 : ℤ)) * cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ)
+    exact (mul_assoc pref (sd.1 ^ (-2 : ℤ))
+      (cls (S.diagU (bc.gen t.f)) ^ (-2 : ℤ))).symm
 def activePartial (retained : Bool) (υ : UnitSix S) (h d f : S.ExtIdeal)
     (u : UnitSix S) (sd sc : Bd.B) (Z R0 : ℝ) : ℂ :=
   ∑' p : {t : FrozenIndex R h // t.f = f ∧ t.u = u} × S.SqfExtIdeal,
@@ -4701,7 +4756,135 @@ theorem rf_tail_negligible : ∀ C0 δ δ₁ σ N A0 : ℝ, 0 < C0 → 0 < δ �
   A0 + 2 * M0 * δ₁ + 2 * σ * (2 * M0 - 1) < 2 * δ * (N - σ) →
     ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z, 1 ≤ P → 1 ≤ D0 → 2 ≤ Z → P * D0 ≤ C0 * Z ^ M0 →
       reflectionMass R false υ P D0 Z δ ≤ C * Z ^ (-A0) * P ^ (1 / 2 : ℝ) * D0 := by
-  sorry
+  intro C0 δ δ₁ σ N A0 hC0 hδ hδ₁ hσ hσN hA0 hExp
+  obtain ⟨Cm, hCm, htail⟩ := rf_tail_mass (R := R) δ δ₁ σ N hδ hδ₁ hσ hσN
+  let K : ℝ := 8 * C0 ^ 2
+  let a : ℝ := 2 * M0 * δ₁
+  let b : ℝ := 2 * σ * (2 * M0 - 1)
+  let c : ℝ := -2 * δ * (N - σ)
+  let e : ℝ := a + b + c
+  let C : ℝ := Cm * C0 ^ (2 * δ₁) * K ^ (2 * σ)
+  have hK : 0 < K := by dsimp [K]; positivity
+  have hC : 0 < C := by dsimp [C]; positivity
+  have he : e < -A0 := by
+    dsimp [e, a, b, c]
+    linarith
+  refine ⟨C, hC, ?_⟩
+  intro υ P D0 Z hP hD0 hZ hPD
+  have hPpos : 0 < P := by linarith
+  have hDpos : 0 < D0 := by linarith
+  have hZpos : 0 < Z := by linarith
+  have hPbound : P ≤ C0 * Z ^ M0 := by
+    calc
+      P = P * 1 := by ring
+      _ ≤ P * D0 := mul_le_mul_of_nonneg_left hD0 hPpos.le
+      _ ≤ C0 * Z ^ M0 := hPD
+  have hP2 : P ≤ P ^ 2 := by
+    calc
+      P = P * 1 := by ring
+      _ ≤ P * P := mul_le_mul_of_nonneg_left hP hPpos.le
+      _ = P ^ 2 := by ring
+  have hD2P : D0 ^ 2 * P ≤ (P * D0) ^ 2 := by
+    calc
+      D0 ^ 2 * P ≤ D0 ^ 2 * P ^ 2 := mul_le_mul_of_nonneg_left hP2 (by positivity)
+      _ = (P * D0) ^ 2 := by ring
+  have hPDsquare : (P * D0) ^ 2 ≤ C0 ^ 2 * Z ^ (2 * M0) := by
+    have hpow := pow_le_pow_left₀ (by positivity : 0 ≤ P * D0) hPD 2
+    calc
+      (P * D0) ^ 2 ≤ (C0 * Z ^ M0) ^ 2 := hpow
+      _ = C0 ^ 2 * Z ^ (2 * M0) := by
+        rw [mul_pow]
+        congr 1
+        rw [← Real.rpow_natCast, ← Real.rpow_mul hZpos.le]
+        congr 1 <;> ring
+  have hLpos : 0 < reflectionColumnLength P D0 Z := by
+    dsimp [reflectionColumnLength]
+    positivity
+  have hLbound : reflectionColumnLength P D0 Z ≤ K * Z ^ (2 * M0 - 1) := by
+    have hcoef : 0 ≤ 8 / Z := by positivity
+    have hdivPow (x : ℝ) : Z ^ x / Z = Z ^ (x - 1) := by
+      calc
+        Z ^ x / Z = Z ^ x * Z ^ (-1 : ℝ) := by rw [div_eq_mul_inv, ← Real.rpow_neg_one]
+        _ = Z ^ (x + (-1 : ℝ)) := by rw [← Real.rpow_add hZpos]
+        _ = Z ^ (x - 1) := by congr 1 <;> ring
+    calc
+      reflectionColumnLength P D0 Z = (8 / Z) * (D0 ^ 2 * P) := by
+        dsimp [reflectionColumnLength]
+        ring
+      _ ≤ (8 / Z) * (C0 ^ 2 * Z ^ (2 * M0)) := by
+        exact mul_le_mul_of_nonneg_left (hD2P.trans hPDsquare) hcoef
+      _ = K * Z ^ (2 * M0) / Z := by dsimp [K]; ring
+      _ = K * Z ^ (2 * M0 - 1) := by
+        calc
+          K * Z ^ (2 * M0) / Z = K * (Z ^ (2 * M0) / Z) := by ring
+          _ = K * Z ^ (2 * M0 - 1) := by rw [hdivPow]
+  have hPpow : P ^ (2 * δ₁) ≤ C0 ^ (2 * δ₁) * Z ^ a := by
+    have hδpow : 0 < 2 * δ₁ := by positivity
+    calc
+      P ^ (2 * δ₁) ≤ (C0 * Z ^ M0) ^ (2 * δ₁) :=
+        Real.rpow_le_rpow hPpos.le hPbound hδpow.le
+      _ = C0 ^ (2 * δ₁) * Z ^ a := by
+        rw [Real.mul_rpow hC0.le (Real.rpow_nonneg hZpos.le M0), ← Real.rpow_mul hZpos.le]
+        congr 1 <;> dsimp [a] <;> ring
+  have hLpow : reflectionColumnLength P D0 Z ^ (2 * σ) ≤
+      K ^ (2 * σ) * Z ^ b := by
+    have hσpow : 0 < 2 * σ := by linarith
+    calc
+      reflectionColumnLength P D0 Z ^ (2 * σ) ≤ (K * Z ^ (2 * M0 - 1)) ^ (2 * σ) :=
+        Real.rpow_le_rpow hLpos.le hLbound hσpow.le
+      _ = K ^ (2 * σ) * Z ^ b := by
+        rw [Real.mul_rpow hK.le (Real.rpow_nonneg hZpos.le _), ← Real.rpow_mul hZpos.le]
+        congr 1 <;> dsimp [b] <;> ring
+  have hJpow :
+      max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) ≤
+        Z ^ c := by
+    have hZδpos : 0 < Z ^ δ := Real.rpow_pos_of_pos hZpos δ
+    have hbase : Z ^ δ ≤ max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ := le_max_left _ _
+    have hexp : -2 * (N - σ) ≤ 0 := by linarith
+    calc
+      max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) ≤
+          (Z ^ δ) ^ (-2 * (N - σ)) :=
+        Real.rpow_le_rpow_of_nonpos hZδpos hbase hexp
+      _ = Z ^ c := by
+        rw [← Real.rpow_mul hZpos.le]
+        congr 1 <;> dsimp [c] <;> ring
+  have hprod :
+      P ^ (1 / 2 + 2 * δ₁) * reflectionColumnLength P D0 Z ^ (2 * σ) *
+          max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) ≤
+        P ^ (1 / 2 : ℝ) * (C0 ^ (2 * δ₁) * Z ^ a) * (K ^ (2 * σ) * Z ^ b) * Z ^ c := by
+    rw [Real.rpow_add hPpos]
+    gcongr
+  have hZprod : Z ^ a * Z ^ b * Z ^ c = Z ^ e := by
+    calc
+      Z ^ a * Z ^ b * Z ^ c = Z ^ (a + b) * Z ^ c := by rw [← Real.rpow_add hZpos]
+      _ = Z ^ ((a + b) + c) := by rw [← Real.rpow_add hZpos]
+      _ = Z ^ e := by congr 1 <;> dsimp [e] <;> ring
+  have hmass := htail υ P D0 Z hP hD0 hZ
+  calc
+    reflectionMass R false υ P D0 Z δ ≤
+        Cm * P ^ (1 / 2 + 2 * δ₁) * D0 *
+          reflectionColumnLength P D0 Z ^ (2 * σ) *
+            max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) := hmass
+    _ = Cm * D0 * (P ^ (1 / 2 + 2 * δ₁) *
+          reflectionColumnLength P D0 Z ^ (2 * σ) *
+            max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) ) := by ring
+    _ ≤ Cm * D0 * (P ^ (1 / 2 : ℝ) * (C0 ^ (2 * δ₁) * Z ^ a) *
+          (K ^ (2 * σ) * Z ^ b) * Z ^ c) :=
+        mul_le_mul_of_nonneg_left hprod (by positivity)
+    _ = C * Z ^ e * P ^ (1 / 2 : ℝ) * D0 := by
+      rw [← hZprod]
+      dsimp [C]
+      ring
+    _ ≤ C * Z ^ (-A0) * P ^ (1 / 2 : ℝ) * D0 := by
+      have hZpow : Z ^ e ≤ Z ^ (-A0) :=
+        Real.rpow_le_rpow_of_exponent_le (by linarith) he.le
+      have hfactor : 0 ≤ C * P ^ (1 / 2 : ℝ) * D0 := by positivity
+      calc
+        C * Z ^ e * P ^ (1 / 2 : ℝ) * D0 =
+            (C * P ^ (1 / 2 : ℝ) * D0) * Z ^ e := by ring
+        _ ≤ (C * P ^ (1 / 2 : ℝ) * D0) * Z ^ (-A0) :=
+          mul_le_mul_of_nonneg_left hZpow hfactor
+        _ = C * Z ^ (-A0) * P ^ (1 / 2 : ℝ) * D0 := by ring
 /-- Fourier transform with the 2π convention; only its L1 bound is used by retained mass. -/
 def separatedFourier (ρ : ℝ → ℂ) (υ : UnitSix S) (κ : S.V) (v τ : ℝ) : ℂ :=
   ∫ x : ℝ, ρ x * profilePhi R υ κ (v * Real.exp x) * Complex.exp (-2 * Real.pi * Complex.I * (x : ℂ) * τ)
@@ -4741,7 +4924,90 @@ theorem rf_active_empty_and_product :
 theorem rf_one_minus_four : ∀ v w : FinPlace F, v ∉ S.Sf → w ∉ S.Sf → v ≠ w →
   chi D v (primeGen R w : F) * chi D w (primeGen R v : F) ^ (-4 : ℤ) =
     chi D v (primeGen R w : F) ^ 3 := by
-  sorry
+  intro v w hv hw hne
+  have idealExp_zero_iff (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+      (P : FinPlace F) :
+      idealExp P I = 0 ↔ ¬ P.asIdeal ∣ I := by
+    unfold idealExp
+    constructor
+    · intro h hdiv
+      exact ((Associates.count_ne_zero_iff_dvd hI P.irreducible).mpr hdiv) h
+    · intro h
+      by_contra hne0
+      exact h ((Associates.count_ne_zero_iff_dvd hI P.irreducible).mp hne0)
+  have gen_valuation (P : FinPlace F) (p : Fˣ) (I : Ideal (𝓞 F))
+      (hgen : S.IsGen (p : F) I) (hP : P ∉ S.Sf)
+      (hzero : idealExp P I = 0) : P.valuation F (p : F) = 1 := by
+    have hcount : FractionalIdeal.count F P
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (p : F)) =
+          (idealExp P I : ℤ) := by
+      rw [hgen.2.2 P hP, FractionalIdeal.count_coe F P hgen.1.1]
+      rfl
+    have hlog := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+      P (p : F) p.ne_zero
+    rw [hcount, hzero] at hlog
+    have hLog : WithZero.log (P.valuation F (p : F)) = 0 := by
+      have hlogneg : -(WithZero.log (P.valuation F (p : F))) = 0 := by
+        simpa using hlog.symm
+      exact neg_eq_zero.mp hlogneg
+    have hval0 : P.valuation F (p : F) ≠ 0 :=
+      (Valuation.ne_zero_iff (P.valuation F)).mpr p.ne_zero
+    calc
+      P.valuation F (p : F) = WithZero.exp (WithZero.log (P.valuation F (p : F))) :=
+        (WithZero.exp_log hval0).symm
+      _ = 1 := by rw [hLog, WithZero.exp_zero]
+  let pv := primeGen R v
+  let pw := primeGen R w
+  have hpv : S.IsGen (pv : F) v.asIdeal ∧ Bd.Allowed pv := by
+    simpa [pv, primeGen, hv, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime v hv))
+  have hpw : S.IsGen (pw : F) w.asIdeal ∧ Bd.Allowed pw := by
+    simpa [pw, primeGen, hw, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime w hw))
+  have hnotdiv_vw : ¬ v.asIdeal ∣ w.asIdeal := by
+    intro hdiv
+    have hle : w.asIdeal ≤ v.asIdeal := Ideal.le_of_dvd hdiv
+    have heq : w.asIdeal = v.asIdeal := w.isMaximal.eq_of_le v.isPrime.ne_top hle
+    exact hne (HeightOneSpectrum.ext heq.symm)
+  have hzero_v : idealExp v w.asIdeal = 0 :=
+    (idealExp_zero_iff w.asIdeal w.ne_bot v).2 hnotdiv_vw
+  have hpwVal : v.valuation F (pw : F) = 1 :=
+    gen_valuation v pw w.asIdeal hpw.1 hv hzero_v
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hpwRes : residue v (pw : F) ≠ 0 := by
+    exact (SB.residue_ne_zero v (pw : F) (by simp [hpwVal])).2 hpwVal
+  have hrecip : chi D v (pw : F) = chi D w (pv : F) :=
+    ArtinPrimitiveRoots.A1.sextic_reciprocity D S H Bd v w hv hw hne pv pw hpv hpw
+  let z : ℂ := chi D v (pw : F)
+  have hz6 : z ^ (6 : ℕ) = 1 := by
+    dsimp [z]
+    exact SB.chi_six v (pw : F) hpwRes
+  have hz0 : z ≠ 0 := by
+    intro hz
+    rw [hz] at hz6
+    norm_num at hz6
+  have hpow6z : z ^ (6 : ℤ) = 1 := by
+    calc
+      z ^ (6 : ℤ) = z ^ (6 : ℕ) := zpow_natCast z 6
+      _ = 1 := hz6
+  have hmul : z * z ^ (-4 : ℤ) = z ^ (-3 : ℤ) := by
+    calc
+      z * z ^ (-4 : ℤ) = z ^ (1 : ℤ) * z ^ (-4 : ℤ) := by simp
+      _ = z ^ ((1 : ℤ) + (-4 : ℤ)) := (zpow_add₀ hz0 _ _).symm
+      _ = z ^ (-3 : ℤ) := by congr 1 <;> norm_num
+  have hneg3 : z ^ (3 : ℕ) = z ^ (-3 : ℤ) := by
+    calc
+      z ^ (3 : ℕ) = z ^ (3 : ℤ) := (zpow_natCast z 3).symm
+      _ = z ^ ((6 : ℤ) + (-3 : ℤ)) := by congr 1 <;> norm_num
+      _ = z ^ (6 : ℤ) * z ^ (-3 : ℤ) := zpow_add₀ hz0 _ _
+      _ = 1 * z ^ (-3 : ℤ) := by rw [hpow6z]
+      _ = z ^ (-3 : ℤ) := by simp
+  change z * (chi D w (pv : F)) ^ (-4 : ℤ) = z ^ (3 : ℕ)
+  rw [hrecip.symm]
+  change z * z ^ (-4 : ℤ) = z ^ (3 : ℕ)
+  calc
+    z * z ^ (-4 : ℤ) = z ^ (-3 : ℤ) := hmul
+    _ = z ^ (3 : ℕ) := hneg3.symm
 /-- rf:S-unfolding: averaging the signed orbit gives the combined Φ profile. -/
 theorem rf_S_averaged : ∀ u (ν : Fˣ) Z, 0 < Z →
   (∫ T in Set.Ioi (0 : ℝ), R.K T *
@@ -4749,7 +5015,106 @@ theorem rf_S_averaged : ∀ u (ν : Fˣ) Z, 0 < Z →
       sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
         rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))) / (T : ℂ)) =
       (Lvalue R u (S.diagU ν))⁻¹ * profilePhi R u (cls (S.diagU ν)) (Z * S.absS (S.diagU ν : S.FS)) := by
-  sorry
+  intro u ν Z hZ
+  let κ : S.V := cls (S.diagU ν)
+  let m : S.FSˣ → ℂ := fun y =>
+    (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+      R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y
+  let b : S.V → ℂ := fun x =>
+    (if κ * x⁻¹ ∈ Bd.B then 1 else 0) * R.pairing.pair κ x ^ 2
+  have hb : ∀ x, ‖b x‖ ≤ 1 := by
+    intro x
+    by_cases hx : κ * x⁻¹ ∈ Bd.B <;> simp [b, hx, R.pairing.unitary κ x]
+  have hm : Theta.SheetMultiplier S (onUnits m) := by
+    refine ⟨R.chars.L u, 1, b, ⟨1, hb⟩, ?_⟩
+    intro y
+    have hunit : IsUnit (y : S.FS) := Units.isUnit y
+    have hunit_eq : hunit.unit = y := by
+      apply Units.ext
+      exact hunit.unit_spec
+    change (if h : IsUnit (y : S.FS) then m h.unit else 0) =
+      (((R.chars.L u).L y : ℂˣ) : ℂ) ^ (1 : ℤ) * b (cls y)
+    rw [dif_pos hunit, hunit_eq]
+    by_cases hy : κ * (cls y)⁻¹ ∈ Bd.B
+    · simp [m, b, Lvalue, hy, mul_comm, mul_left_comm]
+    · simp [m, b, Lvalue, hy]
+  have hprofile (ℓ : Fin (R.rotated u).J) (x : ℝ) :
+      profileH R u κ ℓ x =
+        bridgeProfileH R.sheets m (R.rotated u).J (R.rotated u).ff (R.rotated u).fc ℓ x := by
+    rfl
+  have hKmeas : AEStronglyMeasurable R.K (volume.restrict (Set.Ioi (0 : ℝ))) :=
+    R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi
+  have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ ((R.rotated u).ff ℓ v) :=
+    (R.rotated u).finite_bound
+  have hfc : ∀ ℓ w, SheetHypC R.T.δ ((R.rotated u).fc ℓ w) :=
+    (R.rotated u).complex_bound
+  have hconv := a2_bridge_ANALYSIS_convolution (G := R.sheets) R.T.δ R.T.δ_pos
+    (R.rotated u).J (R.rotated u).ff (R.rotated u).fc hff hfc R.K hKmeas
+    R.K_moments m hm
+  have hnormν : 0 < S.absS (S.diagU ν : S.FS) :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU ν)
+  let x : ℝ := Z * S.absS (S.diagU ν : S.FS)
+  have hx : 0 < x := mul_pos hZ hnormν
+  have hprofInt (ℓ : Fin (R.rotated u).J) :
+      IntegrableOn (fun T : ℝ =>
+        R.K T * profileH R u κ ℓ (x / T) / (T : ℂ)) (Set.Ioi 0) := by
+    simpa only [← hprofile] using (hconv x hx).2.2 ℓ
+  have hpoint (T : ℝ) (hT : 0 < T) :
+      (∑' γ : Gamma S, omegaInt R (T / Z) (fun y => bCut (Bd := Bd) y *
+        (Lvalue R u y)⁻¹ *
+          sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+            rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))) =
+        (Lvalue R u (S.diagU ν))⁻¹ *
+          ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ (x / T) := by
+    have hu := rf_S_unfolding R u ν (T / Z) (div_pos hT hZ)
+    have harg : S.absS (S.diagU ν : S.FS) / (T / Z) = x / T := by
+      dsimp [x]
+      field_simp [ne_of_gt hT, ne_of_gt hZ]
+    simpa only [harg] using hu.2
+  have hcongr :
+      (fun T : ℝ => R.K T *
+        (∑' γ : Gamma S, omegaInt R (T / Z) (fun y => bCut (Bd := Bd) y *
+          (Lvalue R u y)⁻¹ *
+            sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+              rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))) / (T : ℂ)) =ᵐ[
+        volume.restrict (Set.Ioi (0 : ℝ))]
+      fun T => (Lvalue R u (S.diagU ν))⁻¹ *
+        ∑ ℓ : Fin (R.rotated u).J,
+          R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    calc
+      _ = (Lvalue R u (S.diagU ν))⁻¹ *
+          ((R.K T / (T : ℂ)) *
+            ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ (x / T)) := by
+        rw [hpoint T hT]
+        ring
+      _ = (Lvalue R u (S.diagU ν))⁻¹ *
+          ∑ ℓ : Fin (R.rotated u).J,
+            R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+        rw [Finset.mul_sum]
+        apply congrArg (fun z : ℂ => (Lvalue R u (S.diagU ν))⁻¹ * z)
+        apply Finset.sum_congr rfl
+        intro ℓ hℓ
+        ring
+  calc
+    (∫ T in Set.Ioi (0 : ℝ), R.K T *
+        (∑' γ : Gamma S, omegaInt R (T / Z) (fun y => bCut (Bd := Bd) y *
+          (Lvalue R u y)⁻¹ *
+            sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+              rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))) / (T : ℂ)) =
+        ∫ T in Set.Ioi (0 : ℝ), (Lvalue R u (S.diagU ν))⁻¹ *
+          ∑ ℓ : Fin (R.rotated u).J,
+            R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+      exact integral_congr_ae hcongr
+    _ = (Lvalue R u (S.diagU ν))⁻¹ *
+        ∑ ℓ : Fin (R.rotated u).J,
+          ∫ T in Set.Ioi (0 : ℝ),
+            R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+      rw [integral_const_mul, integral_finsetSum]
+      intro ℓ hℓ
+      exact hprofInt ℓ
+    _ = (Lvalue R u (S.diagU ν))⁻¹ * profilePhi R u κ x := by
+      simp [profilePhi, profilePhiTerm]
 /-- rf:retained-mass, 04:1143-1167. A single retained column with its fixed profile. -/
 def retainedColumn (υ : UnitSix S) {h : S.ExtIdeal} (t : FrozenIndex R h) (sd sc : Bd.B)
     (d : S.ExtIdeal) (C Z R0 : ℝ) : ℂ :=
@@ -4769,6 +5134,23 @@ theorem rf_retained_column_dyad : ∃ α : ℝ, 0 < α ∧ ∀ N ε : ℝ, 0 < N
       ‖retainedColumn R υ t sd sc d C Z R0‖ ^ 2 else 0) ≤
       K * (D0 + C) ^ (1 / 2 : ℝ) * (D0 * C) ^ (ε / 2) * min (v ^ α) (v ^ (-N)) := by
   sorry
+private lemma rf_log_four_absorb {x β : ℝ} (hβ : 0 < β) (hx : 1 ≤ x) :
+    Real.log x ^ 4 ≤ ((β / 4) ^ 4)⁻¹ * x ^ β := by
+  let γ : ℝ := β / 4
+  have hγ : 0 < γ := by dsimp [γ]; linarith
+  have hlog := Real.log_le_rpow_div (by linarith : 0 ≤ x) hγ
+  have hpowExp : Real.rpow x γ ^ 4 = x ^ β := by
+    calc
+      Real.rpow x γ ^ 4 = Real.rpow x (γ * 4) :=
+        (Real.rpow_mul_natCast (by linarith : 0 ≤ x) γ 4).symm
+      _ = x ^ β := by congr 1 <;> dsimp [γ] <;> ring
+  calc
+    Real.log x ^ 4 ≤ (Real.rpow x γ / γ) ^ 4 := by
+      have hlognonneg : 0 ≤ Real.log x := Real.log_nonneg hx
+      exact pow_le_pow_left₀ hlognonneg hlog 4
+    _ = x ^ β / γ ^ 4 := by rw [div_pow, hpowExp]
+    _ = ((β / 4) ^ 4)⁻¹ * x ^ β := by dsimp [γ]; ring
+
 /-- rf:reflection-assembly: all scale comparisons and the loss-selection inequality. -/
 theorem rf_assembly_scale_bounds :
   (∀ ε : ℝ, 0 < ε → ∃ δ δ₁ δ₂ δ₃ : ℝ, 0 < δ ∧ 0 < δ₁ ∧ 0 < δ₂ ∧ 0 < δ₃ ∧
@@ -4780,7 +5162,211 @@ theorem rf_assembly_scale_bounds :
     D0 * R0 ≤ C * Z ^ (3 * M0 - 1 + δ) ∧ P ≤ C * Z ^ M0 ∧
     (1 ≤ R0 → Real.log (2 * R0) ^ 4 ≤ C * Z ^ δ₃) ∧
     P ^ (1 / 2 : ℝ) * (D0 + D0 ^ 2 * P / Z) ≤ C * Z ^ (2 * M0 - 1) := by
-  sorry
+  constructor
+  · intro ε hε
+    let η : ℝ := min 1 (ε / 16)
+    have hη : 0 < η := by dsimp [η]; exact lt_min (by norm_num) (by positivity)
+    have hη1 : η ≤ 1 := min_le_left _ _
+    have hηε : η ≤ ε / 16 := min_le_right _ _
+    refine ⟨η, η, η, η, hη, hη, hη, hη, ?_⟩
+    have hM : M0 = 1033 / 1000 := by norm_num [M0, a, b]
+    rw [hM]
+    have hηsq : η ^ 2 ≤ η := by nlinarith
+    nlinarith
+  · intro C0 δ δ₃ hC0 hδ hδ₃
+    let E : ℝ := 2 * M0 - 1 + δ
+    let β : ℝ := δ₃ / E
+    let K₀ : ℝ := 16 * C0 ^ 2
+    let Clog : ℝ := ((β / 4) ^ 4)⁻¹ * K₀ ^ β
+    let C : ℝ := 9 + 8 * C0 ^ 3 + C0 + (C0 + C0 ^ 2) + Clog
+    have hM0 : 1 < M0 := by norm_num [M0, a, b]
+    have hE : 0 < E := by dsimp [E]; linarith
+    have hβ : 0 < β := by dsimp [β]; exact div_pos hδ₃ hE
+    have hK₀ : 0 < K₀ := by dsimp [K₀]; positivity
+    have hClog : 0 < Clog := by dsimp [Clog]; positivity
+    have hC : 0 < C := by dsimp [C]; positivity
+    have hC8 : 8 ≤ C := by dsimp [C]; nlinarith [hC0, hClog]
+    have hCcube : 8 * C0 ^ 3 ≤ C := by dsimp [C]; nlinarith [hC0, hClog]
+    have hC0' : C0 ≤ C := by dsimp [C]; nlinarith [hC0, hClog]
+    have hCsum : C0 + C0 ^ 2 ≤ C := by dsimp [C]; nlinarith [hC0, hClog]
+    have hClog' : Clog ≤ C := by dsimp [C]; nlinarith [hC0, hClog]
+    refine ⟨C, hC, ?_⟩
+    intro P D0 Z hP hD0 hZ hPD
+    dsimp only
+    let R0 : ℝ := reflectionColumnCutoff P D0 Z δ
+    have hPpos : 0 < P := by linarith
+    have hDpos : 0 < D0 := by linarith
+    have hZpos : 0 < Z := by linarith
+    have hZδ : 1 ≤ Z ^ δ := Real.one_le_rpow (by linarith) hδ.le
+    have hZδpos : 0 < Z ^ δ := Real.rpow_pos_of_pos hZpos δ
+    have hDposB : 0 ≤ D0 ^ 2 * P / Z := by positivity
+    have hR0formula : R0 = 8 * Z ^ δ * (D0 ^ 2 * P / Z) := by
+      dsimp [R0, reflectionColumnCutoff, reflectionColumnLength]
+      ring
+    have hdivPow (e : ℝ) : Z ^ e / Z = Z ^ (e - 1) := by
+      calc
+        Z ^ e / Z = Z ^ e * Z ^ (-1 : ℝ) := by rw [div_eq_mul_inv, ← Real.rpow_neg_one]
+        _ = Z ^ (e + (-1 : ℝ)) := by rw [← Real.rpow_add hZpos]
+        _ = Z ^ (e - 1) := by congr 1 <;> ring
+    have hdivPowMul (A e : ℝ) : A * Z ^ e / Z = A * Z ^ (e - 1) := by
+      calc
+        A * Z ^ e / Z = A * (Z ^ e / Z) := by ring
+        _ = A * Z ^ (e - 1) := by rw [hdivPow]
+    have hPDsquare : (P * D0) ^ 2 ≤ C0 ^ 2 * Z ^ (2 * M0) := by
+      have hbase : P * D0 ≤ C0 * Z ^ M0 := hPD
+      have hpow := pow_le_pow_left₀ (by positivity : 0 ≤ P * D0) hbase 2
+      calc
+        (P * D0) ^ 2 ≤ (C0 * Z ^ M0) ^ 2 := hpow
+        _ = C0 ^ 2 * Z ^ (2 * M0) := by
+          rw [mul_pow]
+          congr 1
+          rw [← Real.rpow_natCast, ← Real.rpow_mul hZpos.le]
+          congr 1 <;> ring
+    have hPbound : P ≤ C0 * Z ^ M0 := by
+      calc
+        P = P * 1 := by ring
+        _ ≤ P * D0 := mul_le_mul_of_nonneg_left hD0 hPpos.le
+        _ ≤ C0 * Z ^ M0 := hPD
+    have hP2 : P ≤ P ^ 2 := by
+      calc
+        P = P * 1 := by ring
+        _ ≤ P * P := mul_le_mul_of_nonneg_left hP hPpos.le
+        _ = P ^ 2 := by ring
+    have hP3 : P ≤ P ^ 3 := by
+      calc
+        P = P * 1 := by ring
+        _ ≤ P * P ^ 2 := mul_le_mul_of_nonneg_left (by nlinarith [hP2]) hPpos.le
+        _ = P ^ 3 := by ring
+    have hD3P : D0 ^ 3 * P ≤ (P * D0) ^ 3 := by
+      calc
+        D0 ^ 3 * P ≤ D0 ^ 3 * P ^ 3 := mul_le_mul_of_nonneg_left hP3 (by positivity)
+        _ = (P * D0) ^ 3 := by ring
+    have hPDcube : (P * D0) ^ 3 ≤ C0 ^ 3 * Z ^ (3 * M0) := by
+      have hbase : P * D0 ≤ C0 * Z ^ M0 := hPD
+      have hpow := pow_le_pow_left₀ (by positivity : 0 ≤ P * D0) hbase 3
+      calc
+        (P * D0) ^ 3 ≤ (C0 * Z ^ M0) ^ 3 := hpow
+        _ = C0 ^ 3 * Z ^ (3 * M0) := by
+          rw [mul_pow]
+          congr 1
+          rw [← Real.rpow_natCast, ← Real.rpow_mul hZpos.le]
+          congr 1 <;> ring
+    have hD3Pbound : D0 ^ 3 * P ≤ C0 ^ 3 * Z ^ (3 * M0) := hD3P.trans hPDcube
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · calc
+        D0 + R0 = D0 + 8 * Z ^ δ * (D0 ^ 2 * P / Z) := by rw [hR0formula]
+        _ ≤ 8 * Z ^ δ * D0 + 8 * Z ^ δ * (D0 ^ 2 * P / Z) := by
+          have hscale : D0 ≤ Z ^ δ * D0 := by
+            calc
+              D0 = 1 * D0 := by ring
+              _ ≤ Z ^ δ * D0 := mul_le_mul_of_nonneg_right hZδ hDpos.le
+          have hscale' : Z ^ δ * D0 ≤ 8 * Z ^ δ * D0 := by
+            nlinarith [mul_nonneg hZδpos.le hDpos.le]
+          exact add_le_add_left (hscale.trans hscale') _
+        _ = 8 * Z ^ δ * (D0 + D0 ^ 2 * P / Z) := by ring
+        _ ≤ C * Z ^ δ * (D0 + D0 ^ 2 * P / Z) := by
+          calc
+            8 * Z ^ δ * (D0 + D0 ^ 2 * P / Z) =
+                8 * (Z ^ δ * (D0 + D0 ^ 2 * P / Z)) := by ring
+            _ ≤ C * (Z ^ δ * (D0 + D0 ^ 2 * P / Z)) :=
+              mul_le_mul_of_nonneg_right hC8 (mul_nonneg hZδpos.le (add_nonneg hDpos.le hDposB))
+            _ = C * Z ^ δ * (D0 + D0 ^ 2 * P / Z) := by ring
+    · have hD2P : D0 ^ 2 * P ≤ (P * D0) ^ 2 := by
+        calc
+          D0 ^ 2 * P ≤ D0 ^ 2 * P ^ 2 := mul_le_mul_of_nonneg_left hP2 (by positivity)
+          _ = (P * D0) ^ 2 := by ring
+      have hB : D0 ^ 2 * P / Z ≤ C0 ^ 2 * Z ^ (2 * M0 - 1) := by
+        calc
+          D0 ^ 2 * P / Z ≤ (P * D0) ^ 2 / Z := div_le_div_of_nonneg_right hD2P hZpos.le
+          _ ≤ C0 ^ 2 * Z ^ (2 * M0) / Z := div_le_div_of_nonneg_right hPDsquare hZpos.le
+          _ = C0 ^ 2 * Z ^ (2 * M0 - 1) := by rw [hdivPowMul]
+      have hD3Pdiv : D0 ^ 3 * P / Z ≤ C0 ^ 3 * Z ^ (3 * M0 - 1) := by
+        calc
+          D0 ^ 3 * P / Z ≤ C0 ^ 3 * Z ^ (3 * M0) / Z := div_le_div_of_nonneg_right hD3Pbound hZpos.le
+          _ = C0 ^ 3 * Z ^ (3 * M0 - 1) := by rw [hdivPowMul]
+      calc
+        D0 * R0 = 8 * Z ^ δ * (D0 ^ 3 * P / Z) := by rw [hR0formula]; ring
+        _ ≤ 8 * Z ^ δ * (C0 ^ 3 * Z ^ (3 * M0 - 1)) :=
+          mul_le_mul_of_nonneg_left hD3Pdiv (by positivity)
+        _ = 8 * C0 ^ 3 * (Z ^ δ * Z ^ (3 * M0 - 1)) := by ring
+        _ = 8 * C0 ^ 3 * Z ^ (3 * M0 - 1 + δ) := by
+          rw [← Real.rpow_add hZpos]
+          congr 1 <;> ring
+        _ ≤ C * Z ^ (3 * M0 - 1 + δ) :=
+          mul_le_mul_of_nonneg_right hCcube (Real.rpow_nonneg hZpos.le _)
+    · calc
+        P ≤ C0 * Z ^ M0 := hPbound
+        _ ≤ C * Z ^ M0 := mul_le_mul_of_nonneg_right hC0' (Real.rpow_nonneg hZpos.le M0)
+    · intro hR0
+      have hD2P : D0 ^ 2 * P ≤ (P * D0) ^ 2 := by
+        calc
+          D0 ^ 2 * P ≤ D0 ^ 2 * P ^ 2 := mul_le_mul_of_nonneg_left hP2 (by positivity)
+          _ = (P * D0) ^ 2 := by ring
+      have hB : D0 ^ 2 * P / Z ≤ C0 ^ 2 * Z ^ (2 * M0 - 1) := by
+        calc
+          D0 ^ 2 * P / Z ≤ (P * D0) ^ 2 / Z := div_le_div_of_nonneg_right hD2P hZpos.le
+          _ ≤ C0 ^ 2 * Z ^ (2 * M0) / Z := div_le_div_of_nonneg_right hPDsquare hZpos.le
+          _ = C0 ^ 2 * Z ^ (2 * M0 - 1) := by rw [hdivPowMul]
+      have hR0bound : R0 ≤ 8 * C0 ^ 2 * Z ^ E := by
+        rw [hR0formula]
+        calc
+          8 * Z ^ δ * (D0 ^ 2 * P / Z) ≤ 8 * Z ^ δ * (C0 ^ 2 * Z ^ (2 * M0 - 1)) :=
+            mul_le_mul_of_nonneg_left hB (by positivity)
+          _ = 8 * C0 ^ 2 * (Z ^ δ * Z ^ (2 * M0 - 1)) := by ring
+          _ = 8 * C0 ^ 2 * Z ^ E := by
+            rw [← Real.rpow_add hZpos]
+            congr 1
+            dsimp [E]
+            ring
+      have hy : 1 ≤ 2 * R0 := by nlinarith [hR0]
+      have hypos : 0 < 2 * R0 := by linarith
+      have hKbound : 2 * R0 ≤ K₀ * Z ^ E := by
+        calc
+          2 * R0 ≤ 16 * C0 ^ 2 * Z ^ E := by nlinarith [hR0bound]
+          _ = K₀ * Z ^ E := by rfl
+      have hpower : (2 * R0) ^ β ≤ K₀ ^ β * Z ^ δ₃ := by
+        calc
+          (2 * R0) ^ β ≤ (K₀ * Z ^ E) ^ β := Real.rpow_le_rpow hypos.le hKbound hβ.le
+          _ = K₀ ^ β * Z ^ δ₃ := by
+            rw [Real.mul_rpow hK₀.le (by positivity), ← Real.rpow_mul hZpos.le]
+            congr 1
+            dsimp [β]
+            field_simp
+      have hcoef : 0 ≤ ((β / 4) ^ 4)⁻¹ := by positivity
+      have hpowerScaled : ((β / 4) ^ 4)⁻¹ * (2 * R0) ^ β ≤ Clog * Z ^ δ₃ := by
+        calc
+          ((β / 4) ^ 4)⁻¹ * (2 * R0) ^ β ≤
+              ((β / 4) ^ 4)⁻¹ * (K₀ ^ β * Z ^ δ₃) :=
+            mul_le_mul_of_nonneg_left hpower hcoef
+          _ = Clog * Z ^ δ₃ := by dsimp [Clog]; ring
+      calc
+        Real.log (2 * R0) ^ 4 ≤ ((β / 4) ^ 4)⁻¹ * (2 * R0) ^ β :=
+          rf_log_four_absorb hβ hy
+        _ ≤ Clog * Z ^ δ₃ := hpowerScaled
+        _ ≤ C * Z ^ δ₃ := mul_le_mul_of_nonneg_right hClog' (Real.rpow_nonneg (by linarith) δ₃)
+    · have hsqrt : Real.sqrt P ≤ P := (Real.sqrt_le_self_iff).2 (Or.inr hP)
+      have hterm₁ : Real.sqrt P * D0 ≤ P * D0 := mul_le_mul_of_nonneg_right hsqrt hDpos.le
+      have hterm₂ : Real.sqrt P * (D0 ^ 2 * P / Z) ≤ P * (D0 ^ 2 * P / Z) :=
+        mul_le_mul_of_nonneg_right hsqrt hDposB
+      have hexp : M0 ≤ 2 * M0 - 1 := by linarith [hM0]
+      have hPterm : P * D0 ≤ C0 * Z ^ (2 * M0 - 1) := by
+        calc
+          P * D0 ≤ C0 * Z ^ M0 := hPD
+          _ ≤ C0 * Z ^ (2 * M0 - 1) :=
+            mul_le_mul_of_nonneg_left (Real.rpow_le_rpow_of_exponent_le (by linarith) hexp) hC0.le
+      have hP2term : P * (D0 ^ 2 * P / Z) ≤ C0 ^ 2 * Z ^ (2 * M0 - 1) := by
+        calc
+          P * (D0 ^ 2 * P / Z) = (P * D0) ^ 2 / Z := by ring
+          _ ≤ C0 ^ 2 * Z ^ (2 * M0) / Z := div_le_div_of_nonneg_right hPDsquare hZpos.le
+          _ = C0 ^ 2 * Z ^ (2 * M0 - 1) := by rw [hdivPowMul]
+      calc
+        P ^ (1 / 2 : ℝ) * (D0 + D0 ^ 2 * P / Z) =
+            Real.sqrt P * D0 + Real.sqrt P * (D0 ^ 2 * P / Z) := by rw [Real.sqrt_eq_rpow]; ring
+        _ ≤ P * D0 + P * (D0 ^ 2 * P / Z) := add_le_add hterm₁ hterm₂
+        _ ≤ (C0 + C0 ^ 2) * Z ^ (2 * M0 - 1) := by
+          nlinarith [Real.rpow_nonneg (by linarith : 0 ≤ Z) (2 * M0 - 1)]
+        _ ≤ C * Z ^ (2 * M0 - 1) :=
+          mul_le_mul_of_nonneg_right hCsum (Real.rpow_nonneg (by linarith) (2 * M0 - 1))
 end FinalSourceClauses
 section FrequencyUnitOrbits
 variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
@@ -4796,7 +5382,72 @@ theorem rf_active_support_unit_orbit : ∀ h (t : FrozenIndex R h) d c (ν : Fˣ
     (bc.gen d * bc.gen t.f) ^ 2) →
   ∃! ug : UnitSix S × Gamma S, ν = (ug.2.1 : Fˣ) * (R.sheets.eps ug.1 : Fˣ) *
     bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3 / (bc.gen d * bc.gen t.f) ^ 2 := by
-  sorry
+  intro h t d c ν hdecomp
+  rcases hdecomp with ⟨ε, hν⟩
+  let u : UnitSix S := unitSixClass S ε
+  have hepsClass : unitSixClass S (R.sheets.eps u) = unitSixClass S ε := by
+    simpa [u] using R.sheets.eps_class u
+  have hclass : unitSixClass S ε = unitSixClass S (R.sheets.eps u) :=
+    hepsClass.symm
+  have hmem : ε / R.sheets.eps u ∈ Gamma S :=
+    (QuotientGroup.eq_iff_div_mem).mp (by simpa [unitSixClass] using hclass)
+  let γ : Gamma S := ⟨ε / R.sheets.eps u, hmem⟩
+  have hεUS : ε = γ.1 * R.sheets.eps u := by
+    dsimp [γ]
+    exact (div_mul_cancel _ _).symm
+  have hεF : (ε : Fˣ) = (γ.1 : Fˣ) * (R.sheets.eps u : Fˣ) :=
+    congrArg (fun x : S.US => (x : Fˣ)) hεUS
+  let tail : Fˣ :=
+    (bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3) /
+      (bc.gen d * bc.gen t.f) ^ 2
+  have hνtail : ν = (ε : Fˣ) * tail := by
+    calc
+      ν = ((ε : Fˣ) * bc.gen t.a * bc.gen (R.exterior.ofSqf c) *
+          bc.gen t.n ^ 3) / (bc.gen d * bc.gen t.f) ^ 2 := hν
+      _ = (ε : Fˣ) * tail := by
+        dsimp [tail]
+        rw [show (ε : Fˣ) * bc.gen t.a * bc.gen (R.exterior.ofSqf c) *
+            bc.gen t.n ^ 3 = (ε : Fˣ) *
+              (bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3) by group]
+        exact mul_div_assoc _ _ _
+  refine ⟨(u, γ), ?_, ?_⟩
+  · rw [hν]
+    rw [hεF]
+  · intro ug' hEq
+    rcases ug' with ⟨u', γ'⟩
+    have hEqTail : ν = ((γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ)) * tail := by
+      calc
+        ν = ((γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ) * bc.gen t.a *
+            bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3) /
+            (bc.gen d * bc.gen t.f) ^ 2 := hEq
+        _ = ((γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ)) * tail := by
+          dsimp [tail]
+          rw [show (γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ) * bc.gen t.a *
+              bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3 =
+                ((γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ)) *
+                  (bc.gen t.a * bc.gen (R.exterior.ofSqf c) * bc.gen t.n ^ 3) by group]
+          exact mul_div_assoc _ _ _
+    have hεeqF : (ε : Fˣ) = (γ'.1 : Fˣ) * (R.sheets.eps u' : Fˣ) :=
+      mul_right_cancel (hνtail.symm.trans hEqTail)
+    have hεeqUS : ε = γ'.1 * R.sheets.eps u' := by
+      exact Subtype.ext hεeqF
+    have hratio : ε / R.sheets.eps u' = γ'.1 := by
+      rw [hεeqUS]
+      simp
+    have hclass' : unitSixClass S ε = unitSixClass S (R.sheets.eps u') := by
+      apply (QuotientGroup.eq_iff_div_mem).2
+      rw [hratio]
+      exact γ'.property
+    have hu' : u' = u := by
+      dsimp [u]
+      exact (hclass'.trans (R.sheets.eps_class u')).symm
+    have hεeqUS' : ε = γ'.1 * R.sheets.eps u := by
+      simpa [hu'] using hεeqUS
+    have hγ : γ.1 = γ'.1 := mul_right_cancel (hεUS.symm.trans hεeqUS')
+    apply Prod.ext
+    · exact hu'
+    · apply Subtype.ext
+      exact hγ.symm
 end FrequencyUnitOrbits
 
 /-! ## Finite assembly to the legacy `prop_reflection` sum

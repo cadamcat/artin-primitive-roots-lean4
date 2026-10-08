@@ -211,6 +211,8 @@ theorem qs_high_core_bound_B0 [IsTotallyComplex K] (F : QSFamily m qS)
         C * (M * N) ^ δ * (M + N + N ^ (2 * α - 1) * M ^ (1 - α)) :=
   QSB0.b0_main F hrf hqS W hW α hα1 hα2 hexp δ hδ
 
+set_option maxHeartbeats 600000 in
+open Classical in
 /-- Recursion (IMPL): `HasExponent α ⇒ B1(M,N) ≪_δ (MN)^δ (M + N + N^{2α-1} M^{1-α})` for
 `M ≥ N ≥ 1` (found:556-570): row split at `κ = N²/M (MN)^η`, `B1(κ,N) = B1(N,κ) ≪ N + κ^α`
 with `κ^α ≤ N^{2α-1}M^{1-α}(MN)^{αη}`, B0 for the high rows; endpoints `M ≥ N²` (exponent
@@ -221,7 +223,288 @@ theorem qs_upTo_recursion_B [IsTotallyComplex K] (F : QSFamily m qS)
     (α : ℝ) (hα1 : 1 < α) (hα2 : α ≤ 2) (hexp : QSHasExponent F α) :
     ∀ δ : ℝ, 0 < δ → ∃ C : ℝ, 0 < C ∧ ∀ M N : ℝ, 1 ≤ N → N ≤ M →
       qsNorm F M N ≤ C * (M * N) ^ δ * (M + N + N ^ (2 * α - 1) * M ^ (1 - α)) := by
-  sorry
+  classical
+  obtain ⟨W, hW⟩ := qs_cap_weight_exists_P0
+  intro δ hδ
+  let δ₀ : ℝ := min (δ / 8) 1
+  have hδ8 : 0 < δ / 8 := by positivity
+  have hδ₀ : 0 < δ₀ := by dsimp [δ₀]; exact lt_min hδ8 one_pos
+  have hδ₀δ : δ₀ ≤ δ / 8 := by dsimp [δ₀]; exact min_le_left _ _
+  have hδ₀1 : δ₀ ≤ 1 := by dsimp [δ₀]; exact min_le_right _ _
+  have hδ₀leδ : δ₀ ≤ δ := by linarith
+  obtain ⟨η, hη, hηδ₀, C₀, hC₀, hhigh⟩ :=
+    qs_high_core_bound_B0 F hrf hqS W hW α hα1 hα2 hexp δ₀ hδ₀
+  have hηδ8 : η ≤ δ / 8 := hηδ₀.trans hδ₀δ
+  have hη1 : η ≤ 1 := hηδ₀.trans hδ₀1
+  let β : ℝ := δ / 8
+  have hβ : 0 < β := by dsimp [β]; positivity
+  have hβδ : β ≤ δ := by dsimp [β]; linarith
+  obtain ⟨C₁, hC₁, hExp⟩ := hexp β hβ
+  let q : ℝ := α - 1
+  have hq0 : 0 ≤ q := by dsimp [q]; linarith
+  have hq1 : q ≤ 1 := by dsimp [q]; linarith
+  let C : ℝ := C₀ + C₁ + 2 * C₁ + C₁ * (2 : ℝ) ^ q + 1
+  have hC : 0 < C := by dsimp [C]; positivity
+  refine ⟨C, hC, ?_⟩
+  intro M N hN hNM
+  have hM : 1 ≤ M := hN.trans hNM
+  have hMpos : 0 < M := lt_of_lt_of_le zero_lt_one hM
+  have hNpos : 0 < N := lt_of_lt_of_le zero_lt_one hN
+  let P : ℝ := M * N
+  let B : ℝ := N ^ (2 * α - 1) * M ^ (1 - α)
+  let H : ℝ := M + N + B
+  have hP : 1 ≤ P := by dsimp [P]; nlinarith
+  have hPpos : 0 < P := lt_of_lt_of_le zero_lt_one hP
+  have hB : 0 ≤ B := by dsimp [B]; positivity
+  have hH : 0 ≤ H := by dsimp [H]; positivity
+  have hHbound : M + N ≤ H := by dsimp [H]; nlinarith [hB]
+  have hMNpow : P ^ β ≤ P ^ δ :=
+    Real.rpow_le_rpow_of_exponent_le hP hβδ
+  by_cases hlarge : N ^ 2 ≤ M
+  · have hNpow2 : N ^ (2 : ℝ) = N ^ 2 := Real.rpow_natCast N 2
+    have hN2M : N ^ (2 : ℝ) ≤ M := by rw [hNpow2]; exact hlarge
+    have hNαM : N ^ α ≤ M := by
+      calc
+        N ^ α ≤ N ^ (2 : ℝ) := Real.rpow_le_rpow_of_exponent_le hN hα2
+        _ ≤ M := hN2M
+    have hlargeShape : M + N ^ α ≤ 2 * H := by
+      dsimp [H]
+      nlinarith [hNαM, hB]
+    have hlargeBound : qsNorm F M N ≤ 2 * C₁ * P ^ δ * H := by
+      calc
+        qsNorm F M N ≤ C₁ * P ^ β * (M + N ^ α) := hExp M N hM hN
+        _ ≤ C₁ * P ^ β * (2 * H) :=
+          mul_le_mul_of_nonneg_left hlargeShape (by positivity)
+        _ = 2 * C₁ * P ^ β * H := by ring
+        _ ≤ 2 * C₁ * P ^ δ * H := by
+          exact mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_left hMNpow (by positivity)) hH
+    have hcoef : 2 * C₁ ≤ C := by
+      dsimp [C]
+      have hpos : 0 ≤ C₁ * (2 : ℝ) ^ q := by positivity
+      linarith
+    calc
+      qsNorm F M N ≤ 2 * C₁ * P ^ δ * H := hlargeBound
+      _ ≤ C * P ^ δ * H := by
+        exact mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_right hcoef (by positivity)) hH
+  · have hMltN2 : M < N ^ 2 := lt_of_not_ge hlarge
+    by_cases hsmall : M < 2 * N * P ^ η
+    · have hMratio : M / N ≤ 2 * P ^ η := by
+        apply (div_le_iff₀ hNpos).2
+        calc
+          M ≤ 2 * N * P ^ η := le_of_lt hsmall
+          _ = (2 * P ^ η) * N := by ring
+      have hNshift : N ^ (2 * α) = N ^ (2 * α - 1) * N := by
+        calc
+          N ^ (2 * α) = N ^ ((2 * α - 1) + 1) :=
+            congrArg (fun x : ℝ => N ^ x) (by ring)
+          _ = N ^ (2 * α - 1) * N := by rw [Real.rpow_add hNpos, Real.rpow_one]
+      have hMshift : (M ^ α)⁻¹ = M ^ (1 - α) / M := by
+        rw [← Real.rpow_neg hMpos.le, show (-α : ℝ) = (1 - α) - 1 by ring,
+          Real.rpow_sub hMpos, Real.rpow_one]
+      have hbase : N ^ (2 * α) / M ^ α = B * (N / M) := by
+        calc
+          N ^ (2 * α) / M ^ α = N ^ (2 * α) * (M ^ α)⁻¹ := by rw [div_eq_mul_inv]
+          _ = (N ^ (2 * α - 1) * N) * (M ^ α)⁻¹ := by rw [hNshift]
+          _ = B * (N / M) := by rw [hMshift]; dsimp [B]; ring
+      have hsmallEq : N ^ α = B * (M / N) ^ q := by
+        have hMcancel : M ^ (1 - α) * M ^ q = 1 := by
+          rw [← Real.rpow_add hMpos]
+          have hqexp : (1 - α) + q = 0 := by dsimp [q]; ring
+          rw [hqexp, Real.rpow_zero]
+        have hNquot : N ^ (2 * α - 1) / N ^ q = N ^ α := by
+          rw [← Real.rpow_sub hNpos]
+          exact congrArg (fun x : ℝ => N ^ x) (by dsimp [q]; ring)
+        calc
+          N ^ α = (N ^ (2 * α - 1) / N ^ q) *
+              (M ^ (1 - α) * M ^ q) := by rw [hNquot, hMcancel]; ring
+          _ = N ^ (2 * α - 1) * M ^ (1 - α) * (M ^ q / N ^ q) := by ring
+          _ = B * (M / N) ^ q := by
+            rw [Real.div_rpow hMpos.le hNpos.le]
+      have hratioPow : (M / N) ^ q ≤ (2 * P ^ η) ^ q :=
+        Real.rpow_le_rpow (by positivity) hMratio hq0
+      have hratioPowEq : (2 * P ^ η) ^ q = (2 : ℝ) ^ q * P ^ (η * q) := by
+        rw [Real.mul_rpow (by norm_num) (by positivity), Real.rpow_mul hPpos.le]
+      have hsmallNα : N ^ α ≤ B * ((2 : ℝ) ^ q * P ^ (η * q)) := by
+        rw [hsmallEq]
+        calc
+          B * (M / N) ^ q ≤ B * (2 * P ^ η) ^ q :=
+            mul_le_mul_of_nonneg_left hratioPow hB
+          _ = B * ((2 : ℝ) ^ q * P ^ (η * q)) := by rw [hratioPowEq]
+      have hsmallFactor : 1 ≤ (2 : ℝ) ^ q * P ^ (η * q) := by
+        have h2 : 1 ≤ (2 : ℝ) ^ q := Real.one_le_rpow (by norm_num) hq0
+        have hPηq : 1 ≤ P ^ (η * q) :=
+          Real.one_le_rpow hP (mul_nonneg hη.le hq0)
+        exact one_le_mul_of_one_le_of_one_le h2 hPηq
+      have hsmallShape : M + N ^ α ≤ H * ((2 : ℝ) ^ q * P ^ (η * q)) := by
+        calc
+          M + N ^ α ≤ M * ((2 : ℝ) ^ q * P ^ (η * q)) +
+              B * ((2 : ℝ) ^ q * P ^ (η * q)) := by
+            apply add_le_add
+            · simpa using mul_le_mul_of_nonneg_left hsmallFactor (by linarith : 0 ≤ M)
+            · exact hsmallNα
+          _ = (M + B) * ((2 : ℝ) ^ q * P ^ (η * q)) := by ring
+          _ ≤ H * ((2 : ℝ) ^ q * P ^ (η * q)) := by
+            apply mul_le_mul_of_nonneg_right _ (by positivity)
+            dsimp [H]
+            nlinarith [hN]
+      have hetaQ : η * q ≤ η := by
+        have hmul := mul_le_mul_of_nonneg_left hq1 hη.le
+        nlinarith
+      have hsmallExp : β + η * q ≤ δ := by
+        dsimp [β]
+        nlinarith [hetaQ, hηδ8]
+      have hsmallPower : P ^ β * ((2 : ℝ) ^ q * P ^ (η * q)) ≤
+          (2 : ℝ) ^ q * P ^ δ := by
+        calc
+          P ^ β * ((2 : ℝ) ^ q * P ^ (η * q)) =
+              (2 : ℝ) ^ q * (P ^ β * P ^ (η * q)) := by ring
+          _ = (2 : ℝ) ^ q * P ^ (β + η * q) := by rw [← Real.rpow_add hPpos]
+          _ ≤ (2 : ℝ) ^ q * P ^ δ :=
+            mul_le_mul_of_nonneg_left
+              (Real.rpow_le_rpow_of_exponent_le hP hsmallExp) (by positivity)
+      have hsmallBound : qsNorm F M N ≤ C₁ * (2 : ℝ) ^ q * P ^ δ * H := by
+        calc
+          qsNorm F M N ≤ C₁ * P ^ β * (M + N ^ α) := hExp M N hM hN
+          _ ≤ C₁ * P ^ β * (H * ((2 : ℝ) ^ q * P ^ (η * q))) :=
+            mul_le_mul_of_nonneg_left hsmallShape (by positivity)
+          _ = C₁ * (P ^ β * ((2 : ℝ) ^ q * P ^ (η * q))) * H := by ring
+          _ ≤ C₁ * ((2 : ℝ) ^ q * P ^ δ) * H := by
+            exact mul_le_mul_of_nonneg_right
+              (mul_le_mul_of_nonneg_left hsmallPower hC₁.le) hH
+          _ = C₁ * (2 : ℝ) ^ q * P ^ δ * H := by ring
+      have hcoef : C₁ * (2 : ℝ) ^ q ≤ C := by
+        dsimp [C]
+        linarith [hC₀.le, hC₁.le]
+      calc
+        qsNorm F M N ≤ C₁ * (2 : ℝ) ^ q * P ^ δ * H := hsmallBound
+        _ ≤ C * P ^ δ * H := by
+          exact mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_right hcoef (by positivity)) hH
+    · have hcutoff : 2 * N * P ^ η ≤ M := le_of_not_gt hsmall
+      have hMup : M ≤ N ^ (2 : ℝ) := by
+        calc
+          M ≤ N ^ 2 := le_of_lt hMltN2
+          _ = N ^ (2 : ℝ) := (Real.rpow_natCast N 2).symm
+      have hhighBound := hhigh M N hN (by simpa [P] using hcutoff) hMup
+      let κ : ℝ := N ^ (2 : ℝ) / M * P ^ η
+      have hκpos : 0 < κ := by dsimp [κ]; positivity
+      have hκ1 : 1 ≤ κ := by
+        have hdiv : 1 ≤ N ^ (2 : ℝ) / M :=
+          (le_div_iff₀ hMpos).2 (by simpa using hMup)
+        have hηpow : 1 ≤ P ^ η := Real.one_le_rpow hP hη.le
+        dsimp [κ]
+        exact one_le_mul_of_one_le_of_one_le hdiv hηpow
+      have hηpowUpper : P ^ η ≤ M / (2 * N) := by
+        apply (le_div_iff₀ (by positivity)).2
+        calc
+          P ^ η * (2 * N) = 2 * N * P ^ η := by ring
+          _ ≤ M := hcutoff
+      have hκleN : κ ≤ N := by
+        dsimp [κ]
+        have hNpow2 : N ^ (2 : ℝ) = N ^ 2 := Real.rpow_natCast N 2
+        rw [hNpow2]
+        have hdivnonneg : 0 ≤ N ^ 2 / M := by positivity
+        calc
+          N ^ 2 / M * P ^ η ≤ N ^ 2 / M * (M / (2 * N)) :=
+            mul_le_mul_of_nonneg_left hηpowUpper hdivnonneg
+          _ = N / 2 := by
+            field_simp [ne_of_gt hMpos, ne_of_gt hNpos] <;> ring
+          _ ≤ N := by nlinarith
+      have hκleM : κ ≤ M := hκleN.trans hNM
+      have hNκ : N * κ ≤ P := by
+        calc
+          N * κ ≤ N * M := mul_le_mul_of_nonneg_left hκleM hNpos.le
+          _ = P := by dsimp [P]; ring
+      have hNdivM : N / M ≤ 1 := (div_le_one hMpos).2 hNM
+      have hbasic : N ^ (2 * α) / M ^ α = B * (N / M) := by
+        have hNshift : N ^ (2 * α) = N ^ (2 * α - 1) * N := by
+          calc
+            N ^ (2 * α) = N ^ ((2 * α - 1) + 1) :=
+              congrArg (fun x : ℝ => N ^ x) (by ring)
+            _ = N ^ (2 * α - 1) * N := by rw [Real.rpow_add hNpos, Real.rpow_one]
+        have hMshift : (M ^ α)⁻¹ = M ^ (1 - α) / M := by
+          rw [← Real.rpow_neg hMpos.le, show (-α : ℝ) = (1 - α) - 1 by ring,
+            Real.rpow_sub hMpos, Real.rpow_one]
+        calc
+          N ^ (2 * α) / M ^ α = N ^ (2 * α) * (M ^ α)⁻¹ := by rw [div_eq_mul_inv]
+          _ = (N ^ (2 * α - 1) * N) * (M ^ α)⁻¹ := by rw [hNshift]
+          _ = B * (N / M) := by rw [hMshift]; dsimp [B]; ring
+      have hκpowEq : κ ^ α = B * (N / M) * P ^ (η * α) := by
+        unfold κ
+        rw [Real.mul_rpow (by positivity) (by positivity),
+          Real.div_rpow (by positivity) hMpos.le,
+          ← Real.rpow_mul hNpos.le, ← Real.rpow_mul hPpos.le, hbasic]
+      have hκpow : κ ^ α ≤ B * P ^ (η * α) := by
+        rw [hκpowEq]
+        calc
+          B * (N / M) * P ^ (η * α) ≤ B * 1 * P ^ (η * α) := by
+            exact mul_le_mul_of_nonneg_right
+              (mul_le_mul_of_nonneg_left hNdivM hB) (by positivity)
+          _ = B * P ^ (η * α) := by ring
+      have hmidFactor : 1 ≤ P ^ (η * α) :=
+        Real.one_le_rpow hP (mul_nonneg hη.le (by linarith))
+      have hmidShape : N + κ ^ α ≤ H * P ^ (η * α) := by
+        calc
+          N + κ ^ α ≤ N * P ^ (η * α) + B * P ^ (η * α) :=
+            add_le_add
+              (by simpa using mul_le_mul_of_nonneg_left hmidFactor hNpos.le) hκpow
+          _ = (N + B) * P ^ (η * α) := by ring
+          _ ≤ H * P ^ (η * α) := by
+            apply mul_le_mul_of_nonneg_right _ (by positivity)
+            dsimp [H]
+            nlinarith [hM]
+      have hηα : η * α ≤ 2 * η := by
+        calc
+          η * α ≤ η * 2 := mul_le_mul_of_nonneg_left hα2 hη.le
+          _ = 2 * η := by ring
+      have hmidExp : β + η * α ≤ δ := by
+        dsimp [β]
+        nlinarith [hηα, hηδ8]
+      have hmidPower : P ^ β * P ^ (η * α) ≤ P ^ δ := by
+        rw [← Real.rpow_add hPpos]
+        exact Real.rpow_le_rpow_of_exponent_le hP hmidExp
+      have hlowExponent : qsNorm F κ N ≤ C₁ * (N * κ) ^ β * (N + κ ^ α) := by
+        calc
+          qsNorm F κ N = qsNorm F N κ := qs_norm_symm_M0 F hrf κ N
+          _ ≤ C₁ * (N * κ) ^ β * (N + κ ^ α) := hExp N κ hN hκ1
+      have hlowPower : (N * κ) ^ β ≤ P ^ β :=
+        Real.rpow_le_rpow (by positivity) hNκ (by positivity)
+      have hlowProduct : (N * κ) ^ β * (N + κ ^ α) ≤
+          P ^ β * (H * P ^ (η * α)) :=
+        mul_le_mul hlowPower hmidShape (by positivity) (by positivity)
+      have hlowBound : qsNorm F κ N ≤ C₁ * P ^ δ * H := by
+        calc
+          qsNorm F κ N ≤ C₁ * ((N * κ) ^ β * (N + κ ^ α)) := by
+            calc
+              _ ≤ C₁ * (N * κ) ^ β * (N + κ ^ α) := hlowExponent
+              _ = C₁ * ((N * κ) ^ β * (N + κ ^ α)) := by ring
+          _ ≤ C₁ * (P ^ β * (H * P ^ (η * α))) :=
+            mul_le_mul_of_nonneg_left hlowProduct hC₁.le
+          _ = C₁ * (P ^ β * P ^ (η * α)) * H := by ring
+          _ ≤ C₁ * P ^ δ * H := by
+            exact mul_le_mul_of_nonneg_right
+              (mul_le_mul_of_nonneg_left hmidPower hC₁.le) hH
+      have hhigh' : qsHighNorm F W M N κ ≤ C₀ * P ^ δ * H := by
+        calc
+          qsHighNorm F W M N κ ≤ C₀ * P ^ δ₀ * H := by simpa [P, κ, B, H] using hhighBound
+          _ ≤ C₀ * P ^ δ * H := by
+            exact mul_le_mul_of_nonneg_right
+              (mul_le_mul_of_nonneg_left
+                (Real.rpow_le_rpow_of_exponent_le hP hδ₀leδ) hC₀.le) hH
+      have hsplit := qs_row_split_B F W hW M N κ hMpos hκpos.le
+      have hcoef : C₁ + C₀ ≤ C := by
+        dsimp [C]
+        have hpos : 0 ≤ 2 * C₁ + C₁ * (2 : ℝ) ^ q + 1 := by positivity
+        linarith
+      calc
+        qsNorm F M N ≤ qsNorm F κ N + qsHighNorm F W M N κ := hsplit
+        _ ≤ C₁ * P ^ δ * H + C₀ * P ^ δ * H := add_le_add hlowBound hhigh'
+        _ = (C₁ + C₀) * P ^ δ * H := by ring
+        _ ≤ C * P ^ δ * H := by
+          exact mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_right hcoef (by positivity)) hH
 
 /-- B1 (IMPL; numeric core `monotone_threshold_improvement`): the recursion and monotonicity
 (`qs_norm_mono_M0`) give `HasExponent (2 - 1/α)` (`M' = max(M, N^{2-1/α})`, found:571-576). -/
@@ -342,13 +625,93 @@ B1; `exponent_step`). -/
 theorem qs_exponent_iteration_B2 [IsTotallyComplex K] (F : QSFamily m qS)
     (hrf : ∀ g h, F.rayFactor g h = 1) (hqS : qS ≠ ⊥) :
     ∀ j : ℕ, QSHasExponent F (1 + 1 / ((j : ℝ) + 1)) := by
-  sorry
+  intro j
+  induction j with
+  | zero =>
+      convert qs_hasExponent_two_M2 F hrf hqS using 1 <;> norm_num
+  | succ j ih =>
+      let α : ℝ := 1 + 1 / ((j : ℝ) + 1)
+      have hden : 0 < (j : ℝ) + 1 := by positivity
+      have hα1 : 1 < α := by
+        dsimp [α]
+        have hrecip : 0 < 1 / ((j : ℝ) + 1) := by positivity
+        linarith
+      have hα2 : α ≤ 2 := by
+        dsimp [α]
+        have hden1 : 1 ≤ (j : ℝ) + 1 := by
+          have hj0 : 0 ≤ (j : ℝ) := Nat.cast_nonneg j
+          linarith
+        have hfrac : 1 / ((j : ℝ) + 1) ≤ 1 := (div_le_one hden).2 hden1
+        linarith
+      have hrec := qs_upTo_recursion_B F hrf hqS α hα1 hα2 ih
+      have hnext := qs_boot_step_B1 F α (by linarith) hrec
+      have hindex : (2 - 1 / α : ℝ) = 1 + 1 / (((j + 1 : ℕ) : ℝ) + 1) := by
+        dsimp [α]
+        push_cast
+        field_simp
+        ring
+      rw [← hindex]
+      exact hnext
 
 /-- B2 (IMPL): the sharp core bound (found:577-582): choose `j` with `1/(j+1) < ε/4`; then
 `N^{α_j} ≤ N (MN)^{ε/4}`. -/
 theorem qs_core_large_sieve_B2 [IsTotallyComplex K] (F : QSFamily m qS)
     (hrf : ∀ g h, F.rayFactor g h = 1) (hqS : qS ≠ ⊥) :
     QSCoreBound F := by
-  sorry
+  intro ε hε
+  obtain ⟨j, hj⟩ := exists_nat_gt (4 / ε - 1)
+  have hj' : 4 / ε < (j : ℝ) + 1 := by
+    have hjr : 4 / ε - 1 < (j : ℝ) := by exact_mod_cast hj
+    linarith
+  have hden : 0 < (j : ℝ) + 1 := by positivity
+  have hsmall : 1 / ((j : ℝ) + 1) < ε / 4 := by
+    rw [div_lt_iff₀ hden]
+    have hmul := (div_lt_iff₀ hε).mp hj'
+    nlinarith
+  obtain ⟨C, hC, hhas⟩ := qs_exponent_iteration_B2 F hrf hqS j (ε / 2) (by linarith)
+  refine ⟨C, hC, ?_⟩
+  intro M N hM hN
+  have hMN : 1 ≤ M * N := by nlinarith
+  have hMNpos : 0 < M * N := lt_of_lt_of_le zero_lt_one hMN
+  have hNpos : 0 < N := lt_of_lt_of_le zero_lt_one hN
+  have hpow : N ^ (1 / ((j : ℝ) + 1)) ≤ (M * N) ^ (ε / 4) := by
+    calc
+      N ^ (1 / ((j : ℝ) + 1)) ≤ N ^ (ε / 4) :=
+        Real.rpow_le_rpow_of_exponent_le hN hsmall.le
+      _ ≤ (M * N) ^ (ε / 4) :=
+        Real.rpow_le_rpow (by positivity) (by nlinarith) (by positivity)
+  have hNalpha : N ^ (1 + 1 / ((j : ℝ) + 1)) ≤
+      N * (M * N) ^ (ε / 4) := by
+    rw [Real.rpow_add hNpos, Real.rpow_one]
+    exact mul_le_mul_of_nonneg_left hpow (by positivity)
+  have hfactor : 1 ≤ (M * N) ^ (ε / 4) :=
+    Real.one_le_rpow hMN (by positivity)
+  have hshape : M + N ^ (1 + 1 / ((j : ℝ) + 1)) ≤
+      (M + N) * (M * N) ^ (ε / 4) := by
+    calc
+      M + N ^ (1 + 1 / ((j : ℝ) + 1)) ≤
+          M * (M * N) ^ (ε / 4) + N * (M * N) ^ (ε / 4) := by
+        apply add_le_add
+        · simpa using mul_le_mul_of_nonneg_left hfactor (by linarith : 0 ≤ M)
+        · exact hNalpha
+      _ = (M + N) * (M * N) ^ (ε / 4) := by ring
+  have hcombined : (M * N) ^ (ε / 2) * (M * N) ^ (ε / 4) ≤ (M * N) ^ ε := by
+    rw [← Real.rpow_add hMNpos]
+    apply Real.rpow_le_rpow_of_exponent_le hMN
+    norm_num
+    linarith
+  calc
+    qsNorm F M N ≤ C * (M * N) ^ (ε / 2) *
+        (M + N ^ (1 + 1 / ((j : ℝ) + 1))) := hhas M N hM hN
+    _ ≤ C * (M * N) ^ (ε / 2) *
+        ((M + N) * (M * N) ^ (ε / 4)) :=
+      mul_le_mul_of_nonneg_left hshape (by positivity)
+    _ ≤ C * (M + N) * (M * N) ^ ε := by
+      have hnonneg : 0 ≤ C * (M + N) := by positivity
+      calc
+        C * (M * N) ^ (ε / 2) * ((M + N) * (M * N) ^ (ε / 4)) =
+            (C * (M + N)) * ((M * N) ^ (ε / 2) * (M * N) ^ (ε / 4)) := by ring
+        _ ≤ (C * (M + N)) * (M * N) ^ ε := mul_le_mul_of_nonneg_left hcombined hnonneg
+        _ = C * (M + N) * (M * N) ^ ε := by ring
 
 end ArtinPrimitiveRoots.A2
