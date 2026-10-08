@@ -399,4 +399,59 @@ theorem qs_nq0_exterior_conductor_factorization
   rw [hs] at hdiv
   exact (mul_dvd_mul_iff_left hI0).mp hdiv
 
+/-!
+The ideal-indexed conductor selection has this exact signature:
+```
+theorem qs_nq0_quadratic_family_conductors
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (a : Ideal (𝓞 K) → Kˣ)
+    (ha : ∀ I, Sd.IsExterior I → Sd.IsGen (a I : K) I)
+    (χ : Ideal (𝓞 K) → HeckeChar K)
+    (hloc : ∀ I (v : FinPlace K),
+      (χ I).loc v = qsNQQuadraticLocal D H v (toLoc v (a I))) :
+    ∃ qS : Ideal (𝓞 K), qS ≠ ⊥ ∧
+      (∀ v : FinPlace K, qS ≤ v.asIdeal → v ∈ Sd.Sf) ∧
+      ∃ f : Ideal (𝓞 K) → Ideal (𝓞 K),
+        ∀ I, Squarefree I → Sd.IsExterior I →
+          IsPrimitiveConductor (χ I) (f I) ∧
+            ∃ s : Ideal (𝓞 K), f I = I * s ∧ s ∣ qS
+```
+-/
+
+/-- The quadratic family admits primitive conductors with a common S-part bound. -/
+theorem qs_nq0_quadratic_family_conductors
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (a : Ideal (𝓞 K) → Kˣ)
+    (ha : ∀ I, Sd.IsExterior I → Sd.IsGen (a I : K) I)
+    (χ : Ideal (𝓞 K) → HeckeChar K)
+    (hloc : ∀ I (v : FinPlace K),
+      (χ I).loc v = qsNQQuadraticLocal D H v (toLoc v (a I))) :
+    ∃ qS : Ideal (𝓞 K), qS ≠ ⊥ ∧
+      (∀ v : FinPlace K, qS ≤ v.asIdeal → v ∈ Sd.Sf) ∧
+      ∃ f : Ideal (𝓞 K) → Ideal (𝓞 K),
+        ∀ I, Squarefree I → Sd.IsExterior I →
+          IsPrimitiveConductor (χ I) (f I) ∧
+            ∃ s : Ideal (𝓞 K), f I = I * s ∧ s ∣ qS := by
+  classical
+  obtain ⟨qS, hqS, hsupport, hbound⟩ := qs_nq0_quadratic_conductor_bound D Sd H
+  have hex (I : Ideal (𝓞 K)) (hI : Sd.IsExterior I) :
+      ∃ f : Ideal (𝓞 K), IsPrimitiveConductor (χ I) f := by
+    obtain ⟨f, hf, _⟩ := qs_nq0_primitive_conductor_exists (χ I) (I * qS)
+      (mul_ne_zero hI.1 hqS) (hbound I (a I) (ha I hI) (χ I) (hloc I))
+    exact ⟨f, hf⟩
+  let f (I : Ideal (𝓞 K)) : Ideal (𝓞 K) :=
+    if hI : Sd.IsExterior I then (hex I hI).choose else 1
+  have hprimitive (I : Ideal (𝓞 K)) (hI : Sd.IsExterior I) :
+      IsPrimitiveConductor (χ I) (f I) := by
+    simpa only [f, dite_eq_left hI] using (hex I hI).choose_spec
+  refine ⟨qS, hqS, hsupport, f, ?_⟩
+  intro I hsq hI
+  have hp := hprimitive I hI
+  have hb := hbound I (a I) (ha I hI) (χ I) (hloc I)
+  have hdiv := qs_nq0_primitive_conductor_dvd (χ I) (f I) (I * qS) hp
+    (mul_ne_zero hI.1 hqS) hb
+  have he := qs_nq0_primitive_conductor_exterior_exponents D Sd H I hsq
+    (a I) (ha I hI) (χ I) (hloc I) qS hqS hsupport (f I) hp hb
+  exact ⟨hp, qs_nq0_exterior_conductor_factorization Sd I hI qS (f I) hp.1 hdiv he⟩
+
 end ArtinPrimitiveRoots.A2
