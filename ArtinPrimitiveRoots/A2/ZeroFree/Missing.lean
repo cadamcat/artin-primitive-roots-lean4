@@ -4125,6 +4125,112 @@ private theorem frequency_absolute_dyads :
     rfl
   exact ⟨hqsum, hCountable, hDE, hpartition⟩
 
+/-- A summable frequency and height majorant on the initial probe contours. -/
+private theorem initial_rowKernel_majorant (hEuler : EulerHypotheses R η) :
+    ∃ Ac Adec C Cconv : ℝ, 1 < Ac ∧ Ac ≤ Adec ∧ 0 < C ∧ 0 < Cconv ∧
+      (∀ t : ℝ, ∫ v : ℝ, Real.exp (-((t + v) ^ 2)) * (1 + |v|) ^ (-Ac) ≤
+        Cconv * (1 + |t|) ^ (-3 : ℝ)) ∧
+      ∀ u : U.U, ∀ Z : ℝ, 2 ≤ Z → ∀ ξ w z : ℂ,
+        ξ.re = 4 → w.re = 4 → z.re = 2 →
+        ‖rowKernel R sd W η U HA HC u Z ξ w z‖ ≤
+          C * Z ^ Estar 4 4 2 * (U.q u) ^ (-5 / 4 : ℝ) *
+            Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+              (1 + |w.im|) ^ (-3 : ℝ) := by
+  obtain ⟨AF, hAF, hconvK⟩ := kummer_incomplete_convexity_bound
+    (R := R) (η := η) (U := U) (HA := HA) hEuler
+  obtain ⟨CK0, hCK0, hK⟩ := hconvK (1 / 8) (by norm_num)
+  obtain ⟨CP, CK1, B, hCP, hCK1, hB, hPbound, hK1bound, hInv⟩ :=
+    initial_contour_LS_bounds (η := η) (U := U) (HA := HA)
+  let CK : ℝ := CK0 + CK1
+  have hCK : 0 < CK := add_pos hCK0 hCK1
+  have hKall (u : U.U) (w : ℂ) (hw : w.re = 4) :
+      ‖HA.LS S (U.kummer u) w‖ ≤ CK * (U.q u) ^ (1 / 2 + 1 / 8 : ℝ) *
+        (2 + |w.im|) ^ AF := by
+    have hqpos : 0 < U.q u := U.q_pos u
+    by_cases hu : u = U.one
+    · subst u
+      rw [U.kummer_one, U.q_one, Real.one_rpow, mul_one]
+      have hpoly : 1 ≤ (2 + |w.im|) ^ AF :=
+        Real.one_le_rpow (by nlinarith [abs_nonneg w.im]) hAF.le
+      calc
+        _ ≤ CK1 := hK1bound w hw
+        _ = CK1 * 1 := by ring
+        _ ≤ CK * (2 + |w.im|) ^ AF :=
+          mul_le_mul (by dsimp [CK]; linarith) hpoly (by norm_num) hCK.le
+    · calc
+        _ ≤ CK0 * (U.q u) ^ (1 / 2 + 1 / 8 : ℝ) * (2 + |w.im|) ^ AF :=
+          hK u hu w (by rw [hw]; norm_num) (by rw [hw])
+        _ ≤ _ := by gcongr; dsimp [CK]; linarith
+  obtain ⟨Ac, Cconv, hAc, hCconv, hConvolution⟩ := zf_height_convolution 3 (by norm_num)
+  let Adec : ℝ := max Ac (AF + 3)
+  have hAcA : Ac ≤ Adec := le_max_left _ _
+  have hGap : AF + 3 ≤ Adec := le_max_right _ _
+  have hA : 0 < Adec := lt_of_lt_of_le (by linarith : 0 < Ac) hAcA
+  obtain ⟨CD, hCD, hDecay⟩ := zf_height_decay (R := R) (sd := sd) (W := W)
+    4 4 4 4 2 2 Adec (by norm_num) (by norm_num) (by norm_num) (by norm_num) hA
+  have hHP := po_H_product (R := R) (η := η) (U := U) (HC := HC) hEuler
+  obtain ⟨CH, hCH, hHbound⟩ := hHP.2.2.2 (1 / 8) (by norm_num)
+  let C : ℝ := CD * CP * CK * CH * B * 2 ^ AF
+  have hC : 0 < C := by dsimp [C]; positivity
+  refine ⟨Ac, Adec, C, Cconv, hAc, hAcA, hC, hCconv, hConvolution, ?_⟩
+  intro u Z hZ ξ w z hξ hw hz
+  have hZpos : 0 < Z := by linarith
+  have hqpos : 0 < U.q u := U.q_pos u
+  have hD : ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ ≤
+      CD * Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+        (1 + |w.im|) ^ (-Adec) := hDecay ξ w z
+      (by rw [hξ]) (by rw [hξ]) (by rw [hw]) (by rw [hw]) (by rw [hz]) (by rw [hz])
+  have hP : ‖HA.LS S 1 (6 * z)‖ ≤ CP := hPbound (6 * z) (by
+    simp only [Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im, hz]
+    norm_num)
+  have hNeighborhood : eulerNeighborhood ![ξ,w,z] := by
+    left
+    refine ⟨?_, ?_, ?_⟩
+    · change 998 / 1000 - 1 / 100000 < ξ.re
+      rw [hξ]; norm_num
+    · change 3 / 1000 - 1 / 100000 < w.re
+      rw [hw]; norm_num
+    · change 4 / 10 - 1 / 100000 < z.re
+      rw [hz]; norm_num
+  have hH : ‖HC.H u ![ξ,w,z]‖ ≤ CH * (U.q u) ^ (1 / 8 : ℝ) :=
+    hHbound u ![ξ,w,z] hNeighborhood
+  have hI : ‖(HA.LS S (rowTwist η U u) ξ)⁻¹‖ ≤ B := hInv u ξ hξ
+  have hAbsorb := absorb_kummer_height AF Adec w.im hAF.le hGap
+  have hqpow : (U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + 1 / 8 : ℝ) *
+      (U.q u) ^ (1 / 8 : ℝ) = (U.q u) ^ (-5 / 4 : ℝ) := by
+    rw [← Real.rpow_add (U.q_pos u), ← Real.rpow_add (U.q_pos u), hz]
+    norm_num
+  have hmajor := rowKernel_height_majorant (R := R) (sd := sd) (W := W)
+    (η := η) (U := U) (HA := HA) (HC := HC) u Z ξ w z hZpos
+    hCD.le hCP.le hCK.le hCH.le hD hP (hKall u w hw) hH hI
+  have hcoef0 : 0 ≤ (CD * CP * CK * CH * B) * Z ^ Estar ξ.re w.re z.re *
+      Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) := by positivity
+  have hq0 : 0 ≤ (U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + 1 / 8 : ℝ) *
+      (U.q u) ^ (1 / 8 : ℝ) := by positivity
+  calc
+    _ ≤ Z ^ Estar ξ.re w.re z.re *
+        (CD * Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+          (1 + |w.im|) ^ (-Adec)) * (U.q u) ^ (-z.re) * CP *
+        (CK * (U.q u) ^ (1 / 2 + 1 / 8 : ℝ) * (2 + |w.im|) ^ AF) *
+        (CH * (U.q u) ^ (1 / 8 : ℝ)) * B := hmajor
+    _ = (CD * CP * CK * CH * B) * Z ^ Estar ξ.re w.re z.re *
+        Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+        ((1 + |w.im|) ^ (-Adec) * (2 + |w.im|) ^ AF) *
+        ((U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + 1 / 8 : ℝ) *
+          (U.q u) ^ (1 / 8 : ℝ)) := by ring
+    _ ≤ (CD * CP * CK * CH * B) * Z ^ Estar ξ.re w.re z.re *
+        Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+        (2 ^ AF * (1 + |w.im|) ^ (-3 : ℝ)) *
+        ((U.q u) ^ (-z.re) * (U.q u) ^ (1 / 2 + 1 / 8 : ℝ) *
+          (U.q u) ^ (1 / 8 : ℝ)) :=
+      mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left hAbsorb hcoef0) hq0
+    _ = C * Z ^ Estar 4 4 2 * (U.q u) ^ (-5 / 4 : ℝ) *
+        Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-Adec) *
+          (1 + |w.im|) ^ (-3 : ℝ) := by
+      rw [hqpow, hξ, hw, hz]
+      dsimp [C]
+      ring
+
 /-- `zf:probe-asymptotic`, 06:647–681, for the actual probe and exact principal scalar. The
 corrected probe-low route consumes the split Gauss data from `sol-gate-a2b`. -/
 theorem zf_probe_asymptotic
