@@ -4424,6 +4424,181 @@ private theorem initial_row_integrals_summable (hEuler : EulerHypotheses R η)
       hL1 (hqsum.mul_left CInt)
   exact ⟨hTriple, hRowsum⟩
 
+include HA HC in
+/-- Exact initial probe decomposition, with absolute interchange and dyad regrouping. -/
+private theorem probe_eq_principal_add_dyads (hEuler : EulerHypotheses R η)
+    (hWeight : WeightSpec R sd W) (Z : ℝ) (hZ : 2 ≤ Z) :
+    probe R W (Z ^ a) (Z ^ b) Z =
+      rowContribution R sd W η U {U.one} Z +
+        ∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z := by
+  classical
+  obtain ⟨hqsum, hCountable, hDE, hPart⟩ := frequency_absolute_dyads (η := η) (U := U)
+  letI : Countable U.U := hCountable
+  obtain ⟨hRowInt, hRowNormSum⟩ := initial_row_integrals_summable
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC) hEuler Z hZ
+  let κ : ℂ := 1 / (2 * Real.pi)
+  let J (u : U.U) (t : ℝ × ℝ × ℝ) : ℂ := rowKernel R sd W η U HA HC u Z
+    (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)
+  have hTriple (f : ℂ → ℂ → ℂ → ℂ)
+      (hf : Integrable (fun t : ℝ × ℝ × ℝ =>
+        f (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I))) :
+      tripleVertical 4 4 2 f = κ ^ 3 * ∫ t : ℝ × ℝ × ℝ,
+        f (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) := by
+    let G (t : ℝ × (ℝ × ℝ)) : ℂ :=
+      f (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)
+    have hp : Integrable G (volume.prod volume) := by
+      rw [← Measure.volume_eq_prod ℝ (ℝ × ℝ)]
+      exact hf
+    have hPair : ∀ᵐ t : ℝ, vertical 4 (fun w => vertical 2 (fun z =>
+        f (4 + t * Complex.I) w z)) = κ ^ 2 * ∫ v : ℝ × ℝ, G (t, v) := by
+      filter_upwards [hp.prod_right_ae] with t ht
+      exact vertical_pair_eq_integral_prod (σw := 4) (σz := 2)
+        (fun w z => f (4 + t * Complex.I) w z) ht
+    change κ * (∫ t : ℝ, vertical 4 (fun w => vertical 2 (fun z =>
+      f (4 + t * Complex.I) w z))) = _
+    calc
+      _ = κ * ∫ t : ℝ, κ ^ 2 * ∫ v : ℝ × ℝ, G (t, v) := by
+        congr 1
+        exact integral_congr_ae hPair
+      _ = κ ^ 3 * ∫ t : ℝ, ∫ v : ℝ × ℝ, G (t, v) := by
+        rw [integral_const_mul]
+        ring
+      _ = _ := by
+        change κ ^ 3 * (∫ t : ℝ, ∫ v : ℝ × ℝ, G (t, v)) =
+          κ ^ 3 * ∫ p : ℝ × (ℝ × ℝ), G p
+        rw [Measure.volume_eq_prod ℝ (ℝ × ℝ)]
+        exact congrArg (fun x : ℂ => κ ^ 3 * x) (integral_prod G hp).symm
+  have hRaw := (prop_euler_product (R := R) (η := η) (U := U) (HA := HA) (HC := HC) hEuler).2.1
+  have hInitial (t : ℝ × ℝ × ℝ) : initialRegion
+      (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) := by
+    norm_num [initialRegion]
+  have hRowEq (u : U.U) (t : ℝ × ℝ × ℝ) :
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z
+        (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) *
+      ((U.q u : ℂ) ^ (-(2 + t.2.2 * Complex.I)) *
+        calF R η U u (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I)
+          (2 + t.2.2 * Complex.I)) = J u t := by
+    rw [hRaw u _ _ _ (hInitial t)]
+    dsimp [J, rowKernel, rowTwist]
+    simp only [div_eq_mul_inv]
+    ring
+  have hFinite (rows : Finset U.U) : rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, κ ^ 3 * ∫ t : ℝ × ℝ × ℝ, J u t := by
+    let f : ℂ → ℂ → ℂ → ℂ := fun ξ w z =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z *
+        ∑ u ∈ rows, (U.q u : ℂ) ^ (-z) * calF R η U u ξ w z
+    have heq : (fun t : ℝ × ℝ × ℝ =>
+        f (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)) =
+        fun t : ℝ × ℝ × ℝ => ∑ u ∈ rows, J u t := by
+      funext t
+      dsimp [f]
+      rw [Finset.mul_sum]
+      exact Finset.sum_congr rfl (fun u hu => hRowEq u t)
+    have hf : Integrable (fun t : ℝ × ℝ × ℝ =>
+        f (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)) := by
+      rw [heq]
+      exact integrable_finsetSum rows (fun u hu => hRowInt u)
+    change tripleVertical 4 4 2 f = _
+    rw [hTriple f hf, heq, integral_finsetSum rows (fun u hu => hRowInt u), Finset.mul_sum]
+  have hsingle (u : U.U) : rowContribution R sd W η U {u} Z =
+      κ ^ 3 * ∫ t : ℝ × ℝ × ℝ, J u t := by
+    simpa only [Finset.sum_singleton] using hFinite {u}
+  have hFiniteAdd (rows : Finset U.U) : rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, rowContribution R sd W η U {u} Z := by
+    rw [hFinite]
+    exact Finset.sum_congr rfl (fun u hu => (hsingle u).symm)
+  have hIntegralSum : Summable (fun u : U.U => ∫ t : ℝ × ℝ × ℝ, J u t) :=
+    (hasSum_integral_of_summable_integral_norm hRowInt hRowNormSum).summable
+  have hSumRow : Summable (fun u : U.U => rowContribution R sd W η U {u} Z) :=
+    (hIntegralSum.mul_left (κ ^ 3)).congr (fun u => (hsingle u).symm)
+  have hZpos : 0 < Z := by linarith
+  obtain ⟨hAbsolute, hTotalInt, hProbe⟩ := po_mellin_triple
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) hWeight (Z ^ a) (Z ^ b) Z
+      (Real.rpow_pos_of_pos hZpos a) (Real.rpow_pos_of_pos hZpos b) hZpos
+  let total : ℂ → ℂ → ℂ → ℂ := fun ξ w z =>
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z *
+      ∑' u : U.U, (U.q u : ℂ) ^ (-z) * calF R η U u ξ w z
+  have hTotalEq : (fun t : ℝ × ℝ × ℝ => total
+      (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)) =
+      fun t : ℝ × ℝ × ℝ => ∑' u : U.U, J u t := by
+    funext t
+    dsimp [total]
+    rw [← tsum_mul_left]
+    exact tsum_congr (fun u => hRowEq u t)
+  have hMain : probe R W (Z ^ a) (Z ^ b) Z =
+      ∑' u : U.U, rowContribution R sd W η U {u} Z := by
+    calc
+      _ = tripleVertical 4 4 2 total := hProbe
+      _ = κ ^ 3 * ∫ t : ℝ × ℝ × ℝ, total
+          (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) :=
+        hTriple total hTotalInt
+      _ = κ ^ 3 * ∫ t : ℝ × ℝ × ℝ, ∑' u : U.U, J u t := by rw [hTotalEq]
+      _ = κ ^ 3 * ∑' u : U.U, ∫ t : ℝ × ℝ × ℝ, J u t := by
+        rw [← integral_tsum_of_summable_integral_norm hRowInt hRowNormSum]
+      _ = _ := by
+        rw [← tsum_mul_left]
+        exact tsum_congr (fun u => (hsingle u).symm)
+  let NU := {u : U.U // u ∉ ({U.one} : Finset U.U)}
+  let index : NU → ℕ := fun u => (hPart u.1).choose
+  have hNonSum : Summable (fun u : NU => rowContribution R sd W η U {u.1} Z) :=
+    hSumRow.subtype (fun u => u ∉ ({U.one} : Finset U.U))
+  have hIndexShell (u : NU) : u.1 ∈ frequencyDyad η U ((2 : ℝ) ^ (index u)) :=
+    (hPart u.1).choose_spec.1
+  let fiberEquiv (j : ℕ) : (index ⁻¹' {j}) ≃ (DE.rows ((2 : ℝ) ^ j) : Set U.U) := {
+    toFun := fun v => by
+      have hidx : index v.1 = j := v.2
+      have hShell := hIndexShell v.1
+      rw [hidx] at hShell
+      exact ⟨v.1.1, (DE.mem_rows _ (one_le_pow₀ (by norm_num)) _).2
+        ⟨by simpa only [Finset.mem_singleton] using v.1.2, hShell⟩⟩
+    invFun := fun u => by
+      have hm := (DE.mem_rows _ (one_le_pow₀ (by norm_num)) u.1).1 u.2
+      have hnot : u.1 ∉ ({U.one} : Finset U.U) := by
+        simpa only [Finset.mem_singleton] using hm.1
+      refine ⟨⟨u.1, hnot⟩, ?_⟩
+      change index ⟨u.1, hnot⟩ = j
+      exact ((hPart u.1).choose_spec.2 j hm.2).symm
+    left_inv := by
+      intro v
+      apply Subtype.ext
+      apply Subtype.ext
+      rfl
+    right_inv := by
+      intro u
+      apply Subtype.ext
+      rfl }
+  have hFiber (j : ℕ) :
+      (∑' v : index ⁻¹' {j}, rowContribution R sd W η U {v.1.1} Z) =
+        nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z := by
+    calc
+      _ = ∑' u : (DE.rows ((2 : ℝ) ^ j) : Set U.U),
+          rowContribution R sd W η U {u.1} Z := by
+        simpa [fiberEquiv] using (fiberEquiv j).tsum_eq
+          (fun u : (DE.rows ((2 : ℝ) ^ j) : Set U.U) => rowContribution R sd W η U {u.1} Z)
+      _ = ∑ u ∈ DE.rows ((2 : ℝ) ^ j), rowContribution R sd W η U {u} Z :=
+        Finset.tsum_subtype' (DE.rows ((2 : ℝ) ^ j))
+          (fun u : U.U => rowContribution R sd W η U {u} Z)
+      _ = rowContribution R sd W η U (DE.rows ((2 : ℝ) ^ j)) Z :=
+        (hFiniteAdd (DE.rows ((2 : ℝ) ^ j))).symm
+      _ = _ := rfl
+  have hRegroup : (∑' u : NU, rowContribution R sd W η U {u.1} Z) =
+      ∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z := by
+    have hs := hNonSum.hasSum.tsum_fiberwise index
+    calc
+      _ = ∑' j : ℕ, ∑' v : index ⁻¹' {j}, rowContribution R sd W η U {v.1.1} Z :=
+        hs.tsum_eq.symm
+      _ = _ := tsum_congr hFiber
+  have hSplit : rowContribution R sd W η U {U.one} Z +
+      (∑' u : NU, rowContribution R sd W η U {u.1} Z) =
+        ∑' u : U.U, rowContribution R sd W η U {u} Z := by
+    simpa only [Finset.sum_singleton] using
+      hSumRow.sum_add_tsum_subtype_compl ({U.one} : Finset U.U)
+  calc
+    _ = ∑' u : U.U, rowContribution R sd W η U {u} Z := hMain
+    _ = rowContribution R sd W η U {U.one} Z +
+        (∑' u : NU, rowContribution R sd W η U {u.1} Z) := hSplit.symm
+    _ = _ := by rw [hRegroup]
+
 /-- `zf:probe-asymptotic`, 06:647–681, for the actual probe and exact principal scalar. The
 corrected probe-low route consumes the split Gauss data from `sol-gate-a2b`. -/
 theorem zf_probe_asymptotic
