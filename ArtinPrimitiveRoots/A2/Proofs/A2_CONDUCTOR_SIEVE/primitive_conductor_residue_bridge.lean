@@ -1444,6 +1444,63 @@ private theorem conductorResidueCharacter_realizes
     rw [conductorIdealValue_zero_of_ramified_factor ω I.1 I.2.1 v hvI hram,
       MulChar.map_nonunit lambdaq hunit, mul_zero]
 
+private theorem conductorQuotientIdeal_comap_properties
+    (S : A1.SData F CE condη) (q : S.ExtIdeal)
+    (L : Ideal (ConductorResidueRing q)) (hL : L ≠ ⊥) :
+    S.IsExterior (L.comap (Ideal.Quotient.mk q.1)) ∧
+      q.1 < L.comap (Ideal.Quotient.mk q.1) ∧
+      Ideal.absNorm (L.comap (Ideal.Quotient.mk q.1)) < Ideal.absNorm q.1 := by
+  let K := L.comap (Ideal.Quotient.mk q.1)
+  have hqK : q.1 ≤ K := by
+    intro b hb
+    change Ideal.Quotient.mk q.1 b ∈ L
+    rw [Ideal.Quotient.eq_zero_iff_mem.mpr hb]
+    exact L.zero_mem
+  have hneq : q.1 ≠ K := by
+    intro heq
+    apply hL
+    calc
+      L = Ideal.map (Ideal.Quotient.mk q.1) K :=
+        (Ideal.map_comap_of_surjective (Ideal.Quotient.mk q.1)
+          Ideal.Quotient.mk_surjective L).symm
+      _ = Ideal.map (Ideal.Quotient.mk q.1) q.1 :=
+        congrArg (Ideal.map (Ideal.Quotient.mk q.1)) heq.symm
+      _ = ⊥ := Ideal.map_quotient_self q.1
+  have hstrict : q.1 < K := lt_iff_le_and_ne.mpr ⟨hqK, hneq⟩
+  have hK0 : K ≠ ⊥ := by
+    intro hKbot
+    exact q.2.1 (bot_unique (by simpa [hKbot] using hqK))
+  have hKext : S.IsExterior K := by
+    refine ⟨hK0, ?_⟩
+    intro v hvS hKv
+    exact q.2.2 v hvS (hqK.trans hKv)
+  obtain ⟨D, hD⟩ := Ideal.dvd_iff_le.mpr hqK
+  have hD0 : D ≠ ⊥ := by
+    intro hDbot
+    apply q.2.1
+    rw [hD, hDbot]
+    simp
+  have hDtop : D ≠ ⊤ := by
+    intro hDt
+    apply hneq
+    simpa [hDt] using hD
+  have hKpos : 0 < Ideal.absNorm K :=
+    Ideal.absNorm_pos_iff_mem_nonZeroDivisors.mpr (by
+      simpa [Ideal.zero_eq_bot] using hK0)
+  have hDpos : 0 < Ideal.absNorm D :=
+    Ideal.absNorm_pos_iff_mem_nonZeroDivisors.mpr (by
+      simpa [Ideal.zero_eq_bot] using hD0)
+  have hDnorm : Ideal.absNorm D ≠ 1 := by
+    intro h
+    exact hDtop (Ideal.absNorm_eq_one_iff.mp h)
+  have hDgt : 1 < Ideal.absNorm D := by omega
+  have hnorm : Ideal.absNorm q.1 = Ideal.absNorm K * Ideal.absNorm D := by
+    rw [hD, map_mul]
+  refine ⟨hKext, hstrict, ?_⟩
+  change Ideal.absNorm K < Ideal.absNorm q.1
+  rw [hnorm]
+  simpa only [mul_one] using Nat.mul_lt_mul_of_pos_left hDgt hKpos
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
