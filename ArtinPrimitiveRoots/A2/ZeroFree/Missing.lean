@@ -1770,6 +1770,107 @@ theorem zf_probe_asymptotic
   ‖probe R W (Z ^ a) (Z ^ b) Z - principalConstant R sd W HA * principalSignal R η U HA HC Z‖ ≤
     C * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) := by
   sorry
+include U in
+private theorem principalLS_half_plane_inputs (hEuler : EulerHypotheses R η) :
+    DifferentiableOn ℂ (HA.LS S η) {s : ℂ | 1 < s.re} ∧
+      (∀ s : ℂ, 1 < s.re → HA.LS S η s ≠ 0) ∧
+      ∃ B : ℝ, 0 < B ∧ ∀ s : ℂ, 2 ≤ s.re → ‖(HA.LS S η s)⁻¹‖ ≤ B := by
+  have hcomplete : DifferentiableOn ℂ (HA.L η) {s : ℂ | 1 < s.re} := by
+    by_cases hη1 : η = 1
+    · subst η
+      apply HA.2.2.2.1.mono
+      intro s hs
+      change 1 < s.re at hs
+      change s ≠ 1
+      intro hEq
+      have hRe := congrArg Complex.re hEq
+      norm_num at hRe
+      linarith
+    · obtain ⟨C, hC⟩ := HA.2.2.1 η hEuler.1 hη1
+      have hEq : C.value = HA.L η := hC
+      rw [← hEq]
+      exact C.differentiable.differentiableOn.mono fun s hs => Set.mem_univ s
+  have hdiff : DifferentiableOn ℂ (HA.LS S η) {s : ℂ | 1 < s.re} := by
+    unfold HeckeAnalysis.LS
+    exact hcomplete.mul (omittedEulerFactors_differentiable (S := S) η).differentiableOn
+  obtain ⟨f, hf⟩ := U.omega_primitive U.one
+  have hωη : U.omega U.one = η := by
+    rw [U.omega_induces_twist, U.kummer_one]
+    apply ContinuousMonoidHom.ext
+    intro x
+    change η x * ((1 : ℂˣ)⁻¹) = η x
+    simp
+  rw [hωη] at hf
+  obtain ⟨m, ψ, hmod, hseries⟩ :=
+    primitive_heckeLSeries_eq_ray η hEuler.1 f hf
+  have hraw (s : ℂ) (hs : 1 < s.re) : HA.L η s = Hecke.LSeriesRay ψ s :=
+    (HA.2.1 η s hs).trans (hseries s hs)
+  have hfactor (s : ℂ) (hs : 1 < s.re) (v : FinPlace F) :
+      1 - η.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s) ≠ 0 := by
+    have hq : 1 < (Ideal.absNorm v.asIdeal : ℝ) := by
+      exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+    have hpow : ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ =
+        (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) :=
+      Complex.norm_cpow_eq_rpow_re_of_pos (by positivity) _
+    have hlt : (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) < 1 :=
+      Real.rpow_lt_one_of_one_lt_of_neg hq (by linarith)
+    have hnorm : ‖η.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ < 1 := by
+      calc
+        _ = ‖η.primeValue v‖ * ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ := norm_mul _ _
+        _ ≤ 1 * ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ :=
+          mul_le_mul_of_nonneg_right (primeValue_norm_le_one η hEuler.1 v) (norm_nonneg _)
+        _ = (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) := by rw [one_mul, hpow]
+        _ < 1 := hlt
+    intro hzero
+    have heq := sub_eq_zero.mp hzero
+    have heqnorm := congrArg norm heq
+    simp only [norm_one] at heqnorm
+    linarith
+  have hnonzero (s : ℂ) (hs : 1 < s.re) : HA.LS S η s ≠ 0 := by
+    unfold HeckeAnalysis.LS
+    apply mul_ne_zero
+    · rw [hraw s hs]
+      exact (Hecke.norm_LSeriesRay_le ψ hs).2.1
+    · exact Finset.prod_ne_zero_iff.mpr fun v hv => hfactor s hs v
+  let ψ0 : ClassFieldTheory.RayClassGroup
+      (⟨0, ∅⟩ : ClassFieldTheory.RayClassModulus F) →* ℂˣ := 1
+  let Cζ : ℝ := ∑' n : ℕ, ‖LSeries.term (Hecke.coeff ψ0) (2 : ℂ) n‖
+  have hCζ : 0 ≤ Cζ := tsum_nonneg fun n => norm_nonneg _
+  have hζbound (σ : ℝ) (hσ : 2 ≤ σ) : (NumberField.dedekindZeta F σ).re ≤ Cζ := by
+    have hσ1 : 1 < (σ : ℂ).re := by simpa using lt_of_lt_of_le (by norm_num) hσ
+    have hsum2 := (Hecke.LSeriesSummable_coeff (K := F) ψ0 (s := (2 : ℂ)) (by norm_num)).norm
+    have hsumσ := (Hecke.LSeriesSummable_coeff (K := F) ψ0 (s := (σ : ℂ)) hσ1).norm
+    calc
+      (NumberField.dedekindZeta F σ).re ≤ ‖NumberField.dedekindZeta F σ‖ := Complex.re_le_norm _
+      _ = ‖Hecke.LSeriesRay ψ0 (σ : ℂ)‖ := by
+        rw [Hecke.LSeriesRay_trivial_eq_dedekindZeta]
+      _ ≤ ∑' n : ℕ, ‖LSeries.term (Hecke.coeff ψ0) (σ : ℂ) n‖ := norm_tsum_le_tsum_norm hsumσ
+      _ ≤ Cζ := by
+        apply hsumσ.tsum_le_tsum _ hsum2
+        intro n
+        exact LSeries.norm_term_le_of_re_le_re (Hecke.coeff ψ0) (by simpa using hσ) n
+  obtain ⟨hCF, hFbound⟩ := omittedEulerFactors_inv_bound (S := S) η hEuler.1
+  refine ⟨hdiff, hnonzero, Cζ * omittedEulerFactorsInverseConstant (S := S) + 1,
+    by positivity, ?_⟩
+  intro s hs
+  have hs1 : 1 < s.re := by linarith
+  have hsδ : 1 + δ1 ≤ s.re :=
+    (by norm_num [δ1] : 1 + δ1 ≤ (2 : ℝ)).trans hs
+  have hfactorInv := (hFbound s hsδ).2
+  have hRayInv : ‖(Hecke.LSeriesRay ψ s)⁻¹‖ ≤ Cζ :=
+    (Hecke.norm_LSeriesRay_le ψ hs1).2.2.trans (hζbound s.re hs)
+  have hLSfactor : HA.LS S η s = Hecke.LSeriesRay ψ s *
+      ∏ v ∈ S.Sf, (1 - η.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+    unfold HeckeAnalysis.LS
+    rw [hraw s hs1]
+  calc
+    ‖(HA.LS S η s)⁻¹‖ = ‖(Hecke.LSeriesRay ψ s)⁻¹‖ *
+        ‖(∏ v ∈ S.Sf, (1 - η.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)))⁻¹‖ := by
+      rw [hLSfactor, mul_inv, norm_mul]
+    _ ≤ Cζ * omittedEulerFactorsInverseConstant (S := S) :=
+      mul_le_mul hRayInv hfactorInv (norm_nonneg _) hCζ
+    _ ≤ Cζ * omittedEulerFactorsInverseConstant (S := S) + 1 := by linarith
+
 /-- `zf:f-bounds`, 06:682–707. Both endpoints and continuity are included. The corrected
 `prop:probe-low` dependency carries `GaussSplit` (`sol-gate-a2b`). -/
 theorem zf_f_bounds
