@@ -9176,6 +9176,102 @@ private theorem rf_pairing_active_product_partition
     _ = ∑ᶠ s : SS, poly s.1 * tail := (finsum_eq_sum_of_fintype _).symm
     _ = ∑ᶠ f : AF, activeTerm f := finsum_eq_of_bijective e e.bijective hterm
 
+private def rf_pairing_active_coefficient
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (ν : Fˣ) : ℂ :=
+  inactiveScalar R r.h f *
+    (∏ v ∈ R.exterior.support r.d,
+      localR R v 1 0 (toLoc v ν * toLoc v (primeGen R v) ^ 2)) *
+    (∏ v ∈ R.exterior.support f,
+      localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+        (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))) *
+    ∏ᶠ v : FinPlace F,
+      if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f then
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+
+private theorem rf_pairing_digit_active_partition
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (y : S.FSˣ) :
+    (∑ᶠ d : Digits R r, digitAlpha R r d *
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)) =
+      sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+        rotated R (rowClass R r) (S.diagU ν / y) *
+        ∑ᶠ f : {f : S.ExtIdeal // activeFactor R r.h f},
+          rf_pairing_active_coefficient R r f.1 ν := by
+  classical
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let rowLocal (v : FinPlace F) : ℂ :=
+    ∑ᶠ x : 𝓞 F ⧸ v.asIdeal,
+      maskAlpha D A v (primeGen R v) (digitExponent r v) x *
+        R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+          R.C.n v (Multiplicative.ofAdd (algebraMap F _
+            (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))
+  let hLocal (v : FinPlace F) : ℂ :=
+    localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+      (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))) +
+    (if digitExponent r v = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 0)
+  let dProd : ℂ := ∏ v ∈ R.exterior.support r.d,
+    localR R v 1 0 (toLoc v ν * toLoc v (primeGen R v) ^ 2)
+  let tail : ℂ := ∏ᶠ v : FinPlace F,
+    if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  let sPart : ℂ := sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+    rotated R (rowClass R r) (S.diagU ν / y)
+  let activeTerm (f : AF) : ℂ :=
+    inactiveScalar R r.h f.1 *
+      (∏ v ∈ R.exterior.support f.1,
+        localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+          (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))) *
+      ∏ᶠ v : FinPlace F,
+        if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f.1 then
+          R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  obtain ⟨hrow, hdis, hdigit, _⟩ := rf_pairing_row_support R r
+  have hD (v : FinPlace F) (hv : v ∈ R.exterior.support r.d) :
+      rowLocal v = localR R v 1 0 (toLoc v ν * toLoc v (primeGen R v) ^ 2) := by
+    have h := rf_pairing_local_mask_split R v
+      (R.exterior.support_exterior r.d v hv) (digitExponent r v) ν 0
+    simpa [rowLocal, hdigit v hv] using h
+  have hH (v : FinPlace F) (hv : v ∈ R.exterior.support r.h) :
+      rowLocal v = hLocal v := by
+    have h := rf_pairing_local_mask_split R v
+      (R.exterior.support_exterior r.h v hv) (digitExponent r v) ν
+      (ordv v (toLoc v ν) + 2)
+    have he : 2 - (ordv v (toLoc v ν) + 2) = -ordv v (toLoc v ν) := by ring
+    simpa only [rowLocal, hLocal, he] using h
+  have hProd : (∏ v ∈ R.exterior.support r.ideal, rowLocal v) =
+      dProd * ∏ v ∈ R.exterior.support r.h, hLocal v := by
+    rw [hrow, Finset.prod_union hdis]
+    apply congrArg₂ (· * ·)
+    · apply Finset.prod_congr rfl
+      exact hD
+    · apply Finset.prod_congr rfl
+      exact hH
+  have hmasked := rf_pairing_masked_factorization R r ν y
+  simp_rw [finprod_eq_if] at hmasked
+  change (∑ᶠ d : Digits R r, digitAlpha R r d *
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)) =
+      sPart * (∏ v ∈ R.exterior.support r.ideal, rowLocal v) * tail at hmasked
+  have hpartition := rf_pairing_active_product_partition R r ν
+  change (∏ v ∈ R.exterior.support r.h, hLocal v) * tail =
+    ∑ᶠ f : AF, activeTerm f at hpartition
+  have hsum : dProd * (∑ᶠ f : AF, activeTerm f) =
+      ∑ᶠ f : AF, rf_pairing_active_coefficient R r f.1 ν := by
+    rw [finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype, Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro f hf
+    dsimp only [activeTerm, dProd, rf_pairing_active_coefficient]
+    ring
+  change _ = sPart * ∑ᶠ f : AF, rf_pairing_active_coefficient R r f.1 ν
+  rw [hmasked, hProd]
+  calc
+    sPart * (dProd * ∏ v ∈ R.exterior.support r.h, hLocal v) * tail =
+        sPart * (dProd * ((∏ v ∈ R.exterior.support r.h, hLocal v) * tail)) := by ring
+    _ = _ := by rw [hpartition, hsum]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
