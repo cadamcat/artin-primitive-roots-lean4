@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeAdditiveMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogRegularity
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueLift
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
@@ -1410,6 +1411,13 @@ private theorem po_probe_low_additive_mass :
             ≤ C / Y := by
   exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_additive_mass R.exterior W.W1
     W.W1_compact W.W1_positive_support W.W1_smooth.continuous W.W1_nonzero
+
+private theorem po_probe_low_residue_lift :
+    ∀ s : S.ExtIdeal, ∀ d : ResidueRing R.exterior s, IsUnit d →
+      ∃ c : 𝓞 F, IsCoprime (Ideal.span {c}) s.1 ∧
+        ∃ r : S.R, (d.out : F) - algebraMap (𝓞 F) F c =
+          (bc.gen s : F) * (r : F) := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_residue_lift R.exterior
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
