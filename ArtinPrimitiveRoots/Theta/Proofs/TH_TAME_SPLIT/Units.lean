@@ -226,4 +226,87 @@ theorem local_unit_sixth_approx (v : FinPlace F) (hv : (6 : 𝓞 F) ∉ v.asIdea
     u = rLoc * aLoc := hfactor.symm
     _ = aLoc * cLoc ^ 6 := by rw [hcLoc]; exact mul_comm _ _
 
+private theorem residue_rep (v : FinPlace F) (x : F) (a b : 𝓞 F)
+    (hb : b ∉ v.asIdeal) (hab : x * algebraMap (𝓞 F) F b = algebraMap (𝓞 F) F a) :
+    residue v x = Ideal.Quotient.mk v.asIdeal a / Ideal.Quotient.mk v.asIdeal b := by
+  letI : v.asIdeal.IsMaximal := v.isMaximal
+  letI : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  have hex : ∃ ab : 𝓞 F × 𝓞 F, ab.2 ∉ v.asIdeal ∧
+      x * algebraMap (𝓞 F) F ab.2 = algebraMap (𝓞 F) F ab.1 := ⟨(a, b), hb, hab⟩
+  have hcross : hex.choose.1 * b = a * hex.choose.2 := by
+    apply IsFractionRing.injective (𝓞 F) F
+    simp only [map_mul]
+    rw [← hex.choose_spec.2, ← hab]
+    ring
+  have hqcross := congrArg (Ideal.Quotient.mk v.asIdeal) hcross
+  have hbq : Ideal.Quotient.mk v.asIdeal b ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hb
+  have hdq : Ideal.Quotient.mk v.asIdeal hex.choose.2 ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hex.choose_spec.1
+  unfold residue
+  rw [dif_pos hex]
+  rw [← div_eq_mul_inv, div_eq_div_iff hdq hbq]
+  simpa only [map_mul] using hqcross
+
+private theorem residue_algInt (v : FinPlace F) (a : 𝓞 F) :
+    residue v (algebraMap (𝓞 F) F a) = Ideal.Quotient.mk v.asIdeal a := by
+  have h := residue_rep v (algebraMap (𝓞 F) F a) a 1
+    (Ideal.IsPrime.one_notMem v.isPrime) (by simp)
+  simpa using h
+
+private lemma count_spanSingleton_int (v : FinPlace F)
+    (a : 𝓞 F) (ha : a ≠ 0) :
+    FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F a)) = -WithZero.log (v.intValuation a) := by
+  have hspan : (Ideal.span {a} : Ideal (𝓞 F)) ≠ 0 := by
+    simpa [ne_eq, Ideal.zero_eq_bot, Ideal.span_singleton_eq_bot] using ha
+  rw [← FractionalIdeal.coeIdeal_span_singleton, FractionalIdeal.count_coe F v hspan,
+    v.intValuation_if_neg ha, WithZero.log_exp]
+  ring
+
+private theorem hilb_sixth_right (H : HilbertData F) (v : FinPlace F)
+    (a c : (v.adicCompletion F)ˣ) : H.hilb v a (c ^ 6) = 1 := by
+  have h := H.skew v a (c ^ 6)
+  rw [H.sixth_power v (c ^ 6) a ⟨c, rfl⟩, mul_one] at h
+  exact h
+
+/-- At a tame place the sextic Hilbert symbol of two local units is trivial. -/
+theorem hilb_local_units (H : HilbertData F) (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (u u' : (v.adicCompletion F)ˣ) (hu : LocalUnit v u) (hu' : LocalUnit v u') :
+    H.hilb v u u' = 1 := by
+  obtain ⟨a, ha, hpa, r, hur⟩ := local_unit_sixth_approx v hv u hu
+  obtain ⟨b, hb, hpb, s, hus⟩ := local_unit_sixth_approx v hv u' hu'
+  let aU : Fˣ := Units.mk0 (a : F) ha
+  let bU : Fˣ := Units.mk0 (b : F) hb
+  have hres : residue v (aU : F) ≠ 0 := by
+    change residue v (algebraMap (𝓞 F) F a) ≠ 0
+    rw [residue_algInt]
+    exact fun h => hpa ((Ideal.Quotient.eq_zero_iff_mem).1 h)
+  have hb0 : b ≠ 0 := by
+    intro h
+    apply hb
+    rw [h]
+    simp
+  have hcount : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (bU : F)) = 0 := by
+    change FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (algebraMap (𝓞 F) F b)) = 0
+    rw [count_spanSingleton_int v b hb0,
+      HeightOneSpectrum.intValuation_eq_one_iff.mpr hpb]
+    simp
+  have htame := H.tame v hv aU bU hres
+  rw [hcount, zpow_zero] at htame
+  have hglobal : H.hilb v (toLoc v aU) (toLoc v bU) = 1 := by
+    apply Subtype.ext
+    apply Units.ext
+    exact htame
+  calc
+    H.hilb v u u' = H.hilb v (toLoc v aU) u' := by
+      rw [hur, H.mul_left, H.sixth_power v (r ^ 6) u' ⟨r, rfl⟩, mul_one]
+    _ = H.hilb v (toLoc v aU) (toLoc v bU) := by
+      rw [hus, H.mul_right, hilb_sixth_right H v (toLoc v aU) s, mul_one]
+    _ = 1 := hglobal
+
 end ArtinPrimitiveRoots.Proofs.thsol_tame
