@@ -1298,6 +1298,63 @@ private theorem conductorResidue_isUnit_of_not_mem
   rw [map_add, map_mul, map_one, Ideal.Quotient.eq_zero_iff_mem.mpr hy, add_zero] at heq
   simpa [mul_comm] using heq
 
+private theorem conductorSIntegerResidue_isUnit_iff
+    (S : A1.SData F CE condη) (ρ : ConductorResidues S)
+    (q : S.ExtIdeal) (a : S.R) :
+    IsUnit (ρ.red q a) ↔
+      ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 →
+        v.valuation F (a : F) = 1 := by
+  classical
+  obtain ⟨b, d, had⟩ := conductorSInteger_fraction S a
+  have hdval : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 →
+      v.valuation F ((d : 𝓞 F) : F) = 1 := by
+    intro v hv
+    apply d.property.2 v
+    intro hvS
+    exact q.2.2 v hvS (Ideal.dvd_iff_le.mp hv)
+  have hadR : a * algebraMap (𝓞 F) S.R (d : 𝓞 F) =
+      algebraMap (𝓞 F) S.R b := by
+    apply Subtype.ext
+    exact had
+  have hred : ρ.red q a * Ideal.Quotient.mk q.1 (d : 𝓞 F) =
+      Ideal.Quotient.mk q.1 b := by
+    have h := congrArg (ρ.red q) hadR
+    simpa only [map_mul, ρ.integral] using h
+  letI : IsLocalization (conductorDenominators S) S.R :=
+    conductorSInteger_isLocalization S
+  have hdunit : IsUnit (Ideal.Quotient.mk q.1 (d : 𝓞 F)) := by
+    rw [← ρ.integral]
+    exact (IsLocalization.map_units S.R d).map (ρ.red q).toMonoidHom
+  constructor
+  · intro ha
+    have hbunit : IsUnit (Ideal.Quotient.mk q.1 b) := by
+      rw [← hred]
+      exact ha.mul hdunit
+    obtain ⟨x, hx⟩ := hbunit
+    have hdiff : b - conductorResidueLift S q x ∈ q.1 := by
+      apply Ideal.Quotient.eq_zero_iff_mem.mp
+      rw [map_sub, conductorResidueLift_spec, ← hx, sub_self]
+    intro v hv
+    have hqv : q.1 ≤ v.asIdeal := Ideal.dvd_iff_le.mp hv
+    have hbnot : b ∉ v.asIdeal := by
+      intro hbm
+      apply conductorResidueLift_not_mem_prime S q x v hv
+      have h := v.asIdeal.sub_mem hbm (hqv hdiff)
+      simpa only [sub_sub_cancel] using h
+    have hbval : v.valuation F (b : F) = 1 :=
+      v.valuation_eq_one_iff_notMem.mpr hbnot
+    rw [← had, map_mul, hdval v hv, mul_one] at hbval
+    exact hbval
+  · intro ha
+    have hb : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → b ∉ v.asIdeal := by
+      intro v hv
+      have hbval : v.valuation F (b : F) = 1 := by
+        rw [← had, map_mul, ha v hv, hdval v hv, one_mul]
+      exact v.valuation_eq_one_iff_notMem.mp hbval
+    have hbunit := conductorResidue_isUnit_of_not_mem S q b hb
+    rw [← hred] at hbunit
+    exact (Commute.all _ _).isUnit_mul_iff.mp hbunit |>.1
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
