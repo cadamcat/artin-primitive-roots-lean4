@@ -350,6 +350,12 @@ private theorem covol_arch_fundamental_region_measure
       _ = _ := by rw [hrootCast]
   simpa [hdiff, Int.norm_eq_abs] using hrootENN
 
+private noncomputable def covol_standard_fundamental_domain
+    (S : SData F CE condη) (D : FieldData F) : Set S.FS :=
+  (Set.pi Set.univ (fun v : S.Sf =>
+    (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)))) ×ˢ
+      covol_arch_fundamental_region D
+
 private theorem covol_arch_fundamental_reduction (D : FieldData F)
     (z : InfinitePlace F → ℂ) :
     ∃ a : 𝓞 F, ∃ p ∈ (covolArchToMixedEquiv D).symm ''
@@ -2502,6 +2508,137 @@ private theorem covol_selfdual_measure_candidate_eq
     · have hcNonneg : 0 ≤ (c : ℝ) := NNReal.coe_nonneg c
       linarith
   simpa [hc] using hmeasure
+
+private theorem covol_selfdual_measure_candidate_standard_domain_mass
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) :
+    covol_selfdual_measure_candidate D S A
+      (covol_standard_fundamental_domain S D) = 1 := by
+  classical
+  letI : MeasurableSpace S.FS := covol_sFSBorelMeas S
+  let O : ∀ v : S.Sf, Set (v.1.adicCompletion F) :=
+    fun v => v.1.adicCompletionIntegers F
+  let B : Set (∀ v : S.Sf, v.1.adicCompletion F) := Set.pi Set.univ O
+  let C : Set (InfinitePlace F → ℂ) := covol_arch_fundamental_region D
+  let K : Set S.FS := B ×ˢ C
+  have hOopen (v : S.Sf) : IsOpen (O v) := Valued.isOpen_valuationSubring _
+  have hBmeas : MeasurableSet B := by
+    apply MeasurableSet.univ_pi
+    intro v
+    exact (hOopen v).measurableSet
+  let e := covolArchToMixedEquiv D
+  let P : Set (NumberField.mixedEmbedding.mixedSpace F) :=
+    ZSpan.fundamentalDomain (NumberField.mixedEmbedding.latticeBasis F)
+  have hPmeas : MeasurableSet P := ZSpan.fundamentalDomain_measurableSet _
+  have hCeq : C = e ⁻¹' P := by
+    ext z
+    constructor
+    · rintro ⟨p, hp, rfl⟩
+      simpa [e, P] using hp
+    · intro hz
+      exact ⟨e z, hz, e.symm_apply_apply z⟩
+  have hCmeas : MeasurableSet C := by
+    rw [hCeq]
+    exact e.continuous.measurable hPmeas
+  have hKeq : K = Prod.fst ⁻¹' B ∩ Prod.snd ⁻¹' C := by
+    ext z
+    simp [K]
+  have hKmeas : MeasurableSet K := by
+    rw [hKeq]
+    exact (continuous_fst.measurable hBmeas).inter
+      (continuous_snd.measurable hCmeas)
+  have hKdef : K = covol_standard_fundamental_domain S D := rfl
+  have htransport : covol_selfdual_measure_candidate D S A K =
+      covol_selfdual_measure_prod D S A K := by
+    unfold covol_selfdual_measure_candidate
+    change
+      (@Measure.map (ULift.{0} S.FS) S.FS (covol_sFSULiftProductMeas S)
+        (covol_sFSBorelMeas S) (covol_sFSDownBorelMeasEquiv S)
+        (@Measure.map S.FS (ULift.{0} S.FS) (covol_sFSProductMeas S)
+          (covol_sFSULiftProductMeas S) (covol_sFSUpProdMeasEquiv S)
+          (covol_selfdual_measure_prod D S A))) K =
+      (covol_selfdual_measure_prod D S A) K
+    rw [MeasurableEquiv.map_apply (covol_sFSDownBorelMeasEquiv S) K]
+    rw [MeasurableEquiv.map_apply (covol_sFSUpProdMeasEquiv S)
+      ((covol_sFSDownBorelMeasEquiv S) ⁻¹' K)]
+    have hback : (covol_sFSUpProdMeasEquiv S) ⁻¹'
+        ((covol_sFSDownBorelMeasEquiv S) ⁻¹' K) = K := by
+      ext x
+      rfl
+    rw [hback]
+  let μFin : Measure (∀ v : S.Sf, v.1.adicCompletion F) :=
+    Measure.pi fun v : S.Sf => covol_local_selfdual_at D S A v
+  let μArch : Measure (InfinitePlace F → ℂ) :=
+    ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar (InfinitePlace F)
+  letI : ∀ v : S.Sf, SigmaFinite (covol_local_selfdual_at D S A v) :=
+    fun v => covol_local_selfdual_at_sigmaFinite D S A v
+  letI : SigmaFinite μFin := by
+    dsimp [μFin]
+    infer_instance
+  letI : Measure.IsAddHaarMeasure μArch :=
+    ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar_isAddHaar
+  letI : SigmaCompactSpace (InfinitePlace F → ℂ) := inferInstance
+  letI : SigmaFinite μArch := Measure.IsAddHaarMeasure.sigmaFinite μArch
+  letI : SFinite μFin := inferInstance
+  letI : SFinite μArch := inferInstance
+  have hrect : covol_selfdual_measure_prod D S A K = μFin B * μArch C := by
+    change (μFin.prod μArch) (B ×ˢ C) = μFin B * μArch C
+    rw [Measure.prod_prod]
+  have hlocal (v : S.Sf) : (covol_local_selfdual_at D S A v) (O v) =
+      ENNReal.ofReal (covol_local_selfdual_scale v.1
+        (covol_local_conductor_exponent D S A v)) := by
+    simpa [O] using covol_local_selfdual_integer_mass_ennreal D S A v
+  have hfinB : μFin B = ∏ v : S.Sf,
+      (covol_local_selfdual_at D S A v) (O v) := by
+    dsimp [μFin, B]
+    rw [Measure.pi_pi]
+    simp only [Finset.univ_eq_attach]
+  have hscaleProd :
+      ∏ v : S.Sf, covol_local_selfdual_scale v.1
+        (covol_local_conductor_exponent D S A v) =
+      (Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ))⁻¹ := by
+    simpa only [covol_local_selfdual_integer_mass] using
+      covol_finite_selfdual_integer_mass_product D S A
+  have hfinENN : μFin B = ENNReal.ofReal
+      ((Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ))⁻¹) := by
+    calc
+      μFin B = ∏ v : S.Sf, (covol_local_selfdual_at D S A v) (O v) := hfinB
+      _ = ∏ v : S.Sf, ENNReal.ofReal (covol_local_selfdual_scale v.1
+          (covol_local_conductor_exponent D S A v)) := by
+            apply Finset.prod_congr rfl
+            intro v hv
+            exact hlocal v
+      _ = ENNReal.ofReal (∏ v : S.Sf, covol_local_selfdual_scale v.1
+          (covol_local_conductor_exponent D S A v)) := by
+            symm
+            apply ENNReal.ofReal_prod_of_nonneg
+            intro v hv
+            exact (covol_local_selfdual_scale_pos v.1
+              (covol_local_conductor_exponent D S A v)).le
+      _ = _ := by rw [hscaleProd]
+  have harch : μArch C = ENNReal.ofReal
+      (Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ)) := by
+    exact covol_arch_fundamental_region_measure D
+  have hNormNat : 0 < Ideal.absNorm (differentIdeal ℤ (𝓞 F)) := by
+    rw [Ideal.absNorm_pos_iff_mem_nonZeroDivisors, mem_nonZeroDivisors_iff_ne_zero]
+    exact differentIdeal_ne_bot
+  have hNormPos : 0 < (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ) := by
+    exact_mod_cast hNormNat
+  have hrootPos : 0 < Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ) :=
+    Real.sqrt_pos.2 hNormPos
+  calc
+    covol_selfdual_measure_candidate D S A
+        (covol_standard_fundamental_domain S D) =
+      covol_selfdual_measure_prod D S A K := by
+        rw [← hKdef]
+        exact htransport
+    _ = μFin B * μArch C := hrect
+    _ = ENNReal.ofReal ((Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ))⁻¹) *
+        ENNReal.ofReal (Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ)) := by
+          rw [hfinENN, harch]
+    _ = 1 := by
+          rw [← ENNReal.ofReal_mul (inv_nonneg.mpr hrootPos.le),
+            inv_mul_cancel₀ hrootPos.ne']
+          simp
 
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
