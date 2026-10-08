@@ -21,7 +21,56 @@ namespace ArtinPrimitiveRoots.Proofs.s7sol_zeros
 theorem sharp_xi_order (K : Type*) [Field K] [NumberField K] {z : ℂ}
     (hz : 0 < z.re) (hz1 : z.re < 1) :
     analyticOrderNatAt (dedekindZetaSharp K) z = analyticOrderNatAt (dedekindXi K) z := by
-  sorry
+  let d : ℝ := absoluteDiscriminant K
+  let r1 : ℕ := NumberField.InfinitePlace.nrRealPlaces K
+  let r2 : ℕ := NumberField.InfinitePlace.nrComplexPlaces K
+  let F : ℂ → ℂ := fun s => (d : ℂ) ^ (-(s / 2)) *
+    ((Complex.Gammaℝ s)⁻¹) ^ r1 * ((Complex.Gammaℂ s)⁻¹) ^ r2
+  have hd : (d : ℂ) ≠ 0 := by
+    simp only [d, absoluteDiscriminant, Complex.ofReal_ne_zero, abs_ne_zero,
+      Int.cast_ne_zero]
+    exact NumberField.discr_ne_zero K
+  have hD : Differentiable ℂ (fun s : ℂ => (d : ℂ) ^ (-(s / 2))) :=
+    (differentiable_id.div_const (2 : ℂ)).neg.const_cpow (Or.inl hd)
+  have hF : Differentiable ℂ F :=
+    (hD.mul (Complex.differentiable_Gammaℝ_inv.pow r1)).mul
+      (Complex.differentiable_Gammaℂ_inv.pow r2)
+  have hFeq (s : ℂ) : F s = (ArtinPrimitiveRoots.Hecke.dedekindPrefactor K s)⁻¹ := by
+    simp only [F, d, r1, r2, absoluteDiscriminant,
+      ArtinPrimitiveRoots.Hecke.dedekindPrefactor, Complex.cpow_neg,
+      mul_inv, inv_pow, mul_assoc]
+  have hR : Complex.Gammaℝ z ≠ 0 := Complex.Gammaℝ_ne_zero_of_re_pos hz
+  have hC : Complex.Gammaℂ z ≠ 0 := by
+    rw [Complex.Gammaℂ_def]
+    refine mul_ne_zero (mul_ne_zero two_ne_zero ?_) (Complex.Gamma_ne_zero_of_re_pos hz)
+    simp [Real.pi_ne_zero]
+  have hFz : F z ≠ 0 :=
+    mul_ne_zero (mul_ne_zero (Complex.cpow_ne_zero_iff.mpr (Or.inl hd))
+      (pow_ne_zero _ (inv_ne_zero hR))) (pow_ne_zero _ (inv_ne_zero hC))
+  have hz0 : z ≠ 0 := by
+    intro h
+    simp [h] at hz
+  have hz1ne : z - 1 ≠ 0 := by
+    intro h
+    have hz1eq : z = 1 := sub_eq_zero.mp h
+    simp [hz1eq] at hz1
+  have hpz : z * (z - 1) ≠ 0 := mul_ne_zero hz0 hz1ne
+  let Q : ℂ → ℂ := fun s => F s / (s * (s - 1))
+  have hp : AnalyticAt ℂ (fun s : ℂ => s * (s - 1)) z := by fun_prop
+  have hQ : AnalyticAt ℂ Q z := (hF.analyticAt z).div hp hpz
+  have hQz : Q z ≠ 0 := div_ne_zero hFz hpz
+  have hsharp : dedekindZetaSharp K = (dedekindXi K) * Q := by
+    funext s
+    simp only [dedekindZetaSharp, Pi.mul_apply, Q, hFeq, div_eq_mul_inv, mul_inv]
+    ring
+  have hXi : Differentiable ℂ (dedekindXi K) :=
+    (Classical.choose_spec (ArtinPrimitiveRoots.Hecke.dedekind_completed K)).1
+  have hQorder : analyticOrderAt Q z = 0 :=
+    analyticOrderAt_eq_zero.mpr (Or.inr hQz)
+  have horder : analyticOrderAt (dedekindZetaSharp K) z =
+      analyticOrderAt (dedekindXi K) z := by
+    rw [hsharp, analyticOrderAt_mul (hXi.analyticAt z) hQ, hQorder, add_zero]
+  exact congrArg ENat.toNat horder
 
 /-- Uniform translated Jensen estimate for the entire completed function. -/
 theorem xi_window_count
