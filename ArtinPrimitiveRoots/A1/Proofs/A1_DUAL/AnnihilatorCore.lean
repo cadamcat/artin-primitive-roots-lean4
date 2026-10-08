@@ -280,7 +280,54 @@ theorem finite_character_trivial_of_s_integer (S : A1.SData F CE condη)
         A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y v)) = 1) :
     ∀ x : ∀ v : S.Sf, v.1.adicCompletion F,
       (∏ v : S.Sf, A.ψ v.1 (x v * y v)) = 1 := by
-  sorry
+  classical
+  intro x
+  let V : ∀ v : S.Sf, Set (v.1.adicCompletion F) := fun v =>
+    {z | (z - x v) * y v ∈ (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F))}
+  let U : Set (∀ v : S.Sf, v.1.adicCompletion F) := {z | ∀ v, z v ∈ V v}
+  have hU : IsOpen U := by
+    rw [isOpen_pi_iff']
+    intro z hz
+    refine ⟨V, ?_⟩
+    constructor
+    · intro v
+      refine ⟨?_, hz v⟩
+      exact (Valued.isOpen_valuationSubring _).preimage
+        ((continuous_id.sub continuous_const).mul continuous_const)
+    · intro z' hz' v
+      exact hz' v (Set.mem_univ _)
+  have hUne : U.Nonempty := by
+    refine ⟨x, ?_⟩
+    simp [U, V]
+  obtain ⟨z, hzU, hzRange⟩ :=
+    (dense_iff_inter_open.mp (finite_projection_dense S)) U hU hUne
+  rcases hzRange with ⟨r, hr⟩
+  have hlocal (v : S.Sf) :
+      A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y v) =
+        A.ψ v.1 (x v * y v) := by
+    have hclose :
+        (algebraMap F (v.1.adicCompletion F) (r : F) - x v) * y v ∈
+          v.1.adicCompletionIntegers F := by
+      have hz := hzU v
+      change (z v - x v) * y v ∈
+        (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) at hz
+      rw [← hr] at hz
+      exact hz
+    have htrivial := A.integral v _ hclose
+    have hsum :
+        algebraMap F (v.1.adicCompletion F) (r : F) * y v =
+          x v * y v +
+            (algebraMap F (v.1.adicCompletion F) (r : F) - x v) * y v := by
+      ring
+    rw [hsum, (A.ψ v.1).map_add_eq_mul, htrivial, mul_one]
+  have hprod :
+      (∏ v : S.Sf,
+        A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y v)) =
+        ∏ v : S.Sf, A.ψ v.1 (x v * y v) := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    exact hlocal v
+  exact hprod.symm.trans (h r)
 
 /-- Triviality on every finite tuple implies local triviality at any selected coordinate. -/
 theorem finite_component_from_trivial (S : A1.SData F CE condη)
