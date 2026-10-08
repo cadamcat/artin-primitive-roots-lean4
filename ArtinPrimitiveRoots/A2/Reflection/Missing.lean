@@ -14627,11 +14627,115 @@ variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
   {v0 : InfinitePlace F}
 variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
 
+private theorem rf_local_ideal_factorization
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (I : S.ExtIdeal) :
+    I.1 = ∏ v ∈ R.exterior.support I, v.asIdeal ^ idealExp v I.1 := by
+  classical
+  have hI0 : I.1 ≠ 0 := by simpa [Ideal.zero_eq_bot] using I.property.1
+  let s := R.exterior.support I
+  have hsupp : Function.mulSupport (fun v : FinPlace F => v.maxPowDividing I.1) ⊆ s := by
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv
+    by_contra hnot
+    have he0 : idealExp v I.1 = 0 := by
+      by_contra hne
+      exact hnot ((rf_local_exp_ne_zero_iff_support R v I).mp hne)
+    have htop : v.maxPowDividing I.1 = ⊤ := by
+      rw [show v.maxPowDividing I.1 = v.asIdeal ^ idealExp v I.1 by rfl, he0]
+      simp
+    simp [htop] at hv
+  calc
+    I.1 = ∏ᶠ v : FinPlace F, v.maxPowDividing I.1 :=
+      (Ideal.finprod_heightOneSpectrum_factorization hI0).symm
+    _ = ∏ v ∈ s, v.maxPowDividing I.1 := finprod_eq_prod_of_mulSupport_subset _ hsupp
+    _ = ∏ v ∈ s, v.asIdeal ^ idealExp v I.1 := rfl
+
+private theorem rf_local_support_one_empty
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) :
+    R.exterior.support R.exterior.one = ∅ := by
+  apply Finset.eq_empty_iff_forall_notMem.mpr
+  intro v hv
+  have hdvd : v.asIdeal ∣ (⊤ : Ideal (𝓞 F)) := by
+    simpa only [R.exterior.one_val] using (R.exterior.mem_support R.exterior.one v).1 hv
+  have hdvdOne : v.asIdeal ∣ (1 : Ideal (𝓞 F)) := by simpa using hdvd
+  have hunit : IsUnit v.asIdeal := isUnit_of_dvd_one hdvdOne
+  exact v.isPrime.ne_top (Ideal.isUnit_iff.mp hunit)
+
+private theorem rf_local_Eprime_nonneg
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (σ : ℝ) :
+    0 ≤ Eprime v σ := by
+  have hq : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hterm (e : ℕ) :
+      0 ≤ betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e *
+        qI v.asIdeal ^ (-σ * (e : ℝ)) := by
+    have hβ : 0 ≤ betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e := by
+      unfold betaPrime
+      split_ifs
+      · norm_num
+      · exact Real.rpow_nonneg hq.le _
+      · exact Real.rpow_nonneg hq.le _
+      · norm_num
+    exact mul_nonneg hβ (Real.rpow_nonneg hq.le _)
+  exact tsum_nonneg hterm
+
 /-- def:rf-active and rf:active-support, 04:433-503. The empty factor and Euler bound are included. -/
 theorem rf_active_empty_and_product :
   (∀ a, activeNumerator R R.exterior.one a ↔ a = R.exterior.one) ∧
   ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ f σ, 0 ≤ σ → Eideal R f σ ≤ C * qI f.1 ^ ε := by
-  sorry
+  constructor
+  · intro a
+    constructor
+    · intro ha
+      have hsupp : R.exterior.support a = ∅ := by
+        apply Finset.eq_empty_iff_forall_notMem.mpr
+        intro v hv
+        have hvone : v ∈ R.exterior.support R.exterior.one := ha.1 v hv
+        rw [rf_local_support_one_empty R] at hvone
+        simp at hvone
+      apply Subtype.ext
+      rw [rf_local_ideal_factorization R a, hsupp]
+      simp [R.exterior.one_val]
+    · intro ha
+      subst a
+      simp [activeNumerator, rf_local_support_one_empty R]
+  · intro ε hε
+    let B : ℝ := 3 + Real.sqrt 2
+    have hBgt : 1 < B := by
+      dsimp [B]
+      have hs : 0 ≤ Real.sqrt 2 := Real.sqrt_nonneg _
+      linarith
+    obtain ⟨C, hC, hPrimeProduct⟩ := a2_bridge_SMALL_PRIME (F := F) B hBgt ε hε
+    refine ⟨C, lt_of_lt_of_le zero_lt_one hC, ?_⟩
+    intro f σ hσ
+    have hEulerBound (v : FinPlace F) (hv : v ∈ R.exterior.support f) :
+        Eprime v σ ≤ B := by
+      have hvS : v ∉ S.Sf := R.exterior.support_exterior f v hv
+      have h := (rf_local_euler_data v hvS σ hσ).2.2
+      dsimp [B]
+      exact h
+    have hnormSupport :
+        (∏ v ∈ R.exterior.support f, idealNorm v.asIdeal) ≤ qI f.1 := by
+      simpa [idealNorm, qI] using rf_local_support_norm_prod_le R f
+    have hnormSupportNonneg :
+        0 ≤ ∏ v ∈ R.exterior.support f, idealNorm v.asIdeal := by
+      apply Finset.prod_nonneg
+      intro v hv
+      unfold idealNorm
+      exact Nat.cast_nonneg _
+    have hmass : Eideal R f σ ≤ ∏ v ∈ R.exterior.support f, B := by
+      unfold Eideal
+      apply Finset.prod_le_prod₀
+      · intro v hv
+        exact rf_local_Eprime_nonneg R v σ
+      · intro v hv
+        exact hEulerBound v hv
+    calc
+      Eideal R f σ ≤ ∏ v ∈ R.exterior.support f, B := hmass
+      _ ≤ C * Real.rpow (∏ v ∈ R.exterior.support f, idealNorm v.asIdeal) ε :=
+        hPrimeProduct (R.exterior.support f)
+      _ ≤ C * qI f.1 ^ ε := by
+        apply mul_le_mul_of_nonneg_left ?_ (zero_le_one.trans hC)
+        exact Real.rpow_le_rpow hnormSupportNonneg hnormSupport hε.le
 /-- rf:exterior-factorization, 04:708-802. The 1-4≡3 identity is checked before multiplying over primes. -/
 theorem rf_one_minus_four : ∀ v w : FinPlace F, v ∉ S.Sf → w ∉ S.Sf → v ≠ w →
   chi D v (primeGen R w : F) * chi D w (primeGen R v : F) ^ (-4 : ℤ) =
