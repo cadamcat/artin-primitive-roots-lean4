@@ -52,5 +52,20 @@ theorem padAllowedMass_scalar_loss {x : ℝ} {K : ℕ} (a : Fin K → ℝ)
     abs_of_nonpos (by linarith : padAllowedMass x a ta tb - 1 ≤ 0)]
   linarith
 
+
+/-- Summing the allowed harmonic pad weights gives their complex scalar mass. -/
+theorem padAllowedMass_complex_sum {x : ℝ} {K : ℕ} (a : Fin K → ℝ)
+    (ta tb : Fin K → ℕ) (z : ℂ) :
+    (∑ d : PadChoice x K a, if PadChoiceGood d ta tb then (padChoiceWeight x a d : ℂ) * z else 0) =
+      (padAllowedMass x a ta tb : ℂ) * z := by
+  have hpoint (d : PadChoice x K a) :
+      (if PadChoiceGood d ta tb then (padChoiceWeight x a d : ℂ) * z else 0) =
+        ((if PadChoiceGood d ta tb then padChoiceWeight x a d else 0 : ℝ) : ℂ) * z := by
+    split_ifs <;> simp
+  simp_rw [hpoint]
+  rw [← Finset.sum_mul]
+  congr 1
+  exact (map_sum Complex.ofRealHom _ _).symm
+
 end
 end ArtinPrimitiveRoots.TypeII.PD

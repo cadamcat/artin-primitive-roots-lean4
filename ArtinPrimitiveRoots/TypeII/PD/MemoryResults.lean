@@ -1,3 +1,12 @@
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadPairTotals
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadMassExpansion
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadCoreSupport
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadGlobalBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadExpansion
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.ComparisonCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.DivisorSecondMoment
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadSignedError
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.RawCutoff
 import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PhysicalBadCounting
 import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.GoodnessGrowth
 import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.GridScaling
@@ -7439,6 +7448,552 @@ private theorem physRowKernel_nonzero_conditions {K : ℕ} (F : PDFix K) (S : PD
   by_contra hnot
   exact h (by simp [physRowKernel, slotKernel, hnot])
 
+/-- The ordered pad/last-slot/coefficient coordinates of a physical edge. -/
+private abbrev PadPairIndex (x : ℝ) (K : ℕ) (a : Fin K → ℝ) :=
+  PadChoice x K a × ((Fin K → ℕ) × (Fin K → ℕ)) × ((ℕ × ℕ) × (ℕ × ℕ))
+
+private def padPairIndex {K : ℕ} (F : PDFix K) (S : PDScale) (P Q : PState F S) :
+    PadPairIndex S.x K F.a :=
+  (padChoiceFromLists P.labels
+      ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩,
+    ((fun i => Q.labels i (lastSlot S.x)), (fun i => P.labels i (lastSlot S.x))),
+    ((P.first / groupLabelProduct P, Q.second), (Q.first / groupLabelProduct Q, P.second)))
+
+private theorem padPairIndex_recover_labels {K : ℕ} (F : PDFix K) (S : PDScale)
+    (P Q : PState F S) (hT : IsSlotTransition P.labels Q.labels) :
+    P.labels = padJoinLists (padPairIndex F S P Q).1 (padPairIndex F S P Q).2.1.2 ∧
+      Q.labels = padJoinLists (padPairIndex F S P Q).1 (padPairIndex F S P Q).2.1.1 := by
+  have hp : ValidPrimeLists S.x K F.a P.labels :=
+    ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+  exact ⟨(padJoinLists_extract P.labels hp).symm, (padJoinLists_extract_target P.labels Q.labels hp hT).symm⟩
+
+private theorem physical_first_eq_labelProduct_mul_quotient {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (P : PState F S) : P.first = groupLabelProduct P * (P.first / groupLabelProduct P) := by
+  have hp : ValidPrimeLists S.x K F.a P.labels :=
+    ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+  have hsq : Squarefree (groupLabelProduct P) := primeListProduct_squarefree P.labels hp hBands
+  exact (Nat.mul_div_cancel' (physicalLabelProduct_dvd_first P hsq)).symm
+
+/-- The extracted ordered coordinates have no physical-state multiplicity. -/
+private theorem padPairIndex_injective {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (P Q P' Q' : PState F S) (hT : IsSlotTransition P.labels Q.labels)
+    (hT' : IsSlotTransition P'.labels Q'.labels)
+    (heq : padPairIndex F S P Q = padPairIndex F S P' Q') : P = P' ∧ Q = Q' := by
+  have hd := congrArg (fun t => t.1) heq
+  have ha := congrArg (fun t => t.2.1.1) heq
+  have hb := congrArg (fun t => t.2.1.2) heq
+  have hm := congrArg (fun t => t.2.2.1.1) heq
+  have hn := congrArg (fun t => t.2.2.1.2) heq
+  have hr := congrArg (fun t => t.2.2.2.1) heq
+  have hs := congrArg (fun t => t.2.2.2.2) heq
+  have hp := padPairIndex_recover_labels F S P Q hT
+  have hp' := padPairIndex_recover_labels F S P' Q' hT'
+  have hPlabels : P.labels = P'.labels := by rw [hp.1, hp'.1, hd, hb]
+  have hQlabels : Q.labels = Q'.labels := by rw [hp.2, hp'.2, hd, ha]
+  have hPG : groupLabelProduct P = groupLabelProduct P' := by unfold groupLabelProduct; rw [hPlabels]
+  have hQG : groupLabelProduct Q = groupLabelProduct Q' := by unfold groupLabelProduct; rw [hQlabels]
+  have hPfirst : P.first = P'.first := by
+    calc
+      _ = groupLabelProduct P * (padPairIndex F S P Q).2.2.1.1 :=
+        physical_first_eq_labelProduct_mul_quotient F S hBands P
+      _ = groupLabelProduct P' * (padPairIndex F S P' Q').2.2.1.1 := congrArg₂ (· * ·) hPG hm
+      _ = _ := (physical_first_eq_labelProduct_mul_quotient F S hBands P').symm
+  have hQfirst : Q.first = Q'.first := by
+    calc
+      _ = groupLabelProduct Q * (padPairIndex F S P Q).2.2.2.1 :=
+        physical_first_eq_labelProduct_mul_quotient F S hBands Q
+      _ = groupLabelProduct Q' * (padPairIndex F S P' Q').2.2.2.1 := congrArg₂ (· * ·) hQG hr
+      _ = _ := (physical_first_eq_labelProduct_mul_quotient F S hBands Q').symm
+  exact ⟨physicalState_eq_of_coordinates P P' hPfirst hs hPlabels,
+    physicalState_eq_of_coordinates Q Q' hQfirst hn hQlabels⟩
+
+/-- Nonzero endpoint support becomes precisely finite coefficient-quad support. -/
+private theorem padPairIndex_mem {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hAt : FamilyAtScale family S)
+    (hMin : family.xMin ≤ S.x) (beta : ℕ → ℂ) (hbeta : IsSecondCoefficient S C beta)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (P Q : PState F S) (hP : endpointF S.x K F.a family beta P ≠ 0)
+    (hQ : endpointG S.x K F.a family beta Q ≠ 0) (hT : IsSlotTransition P.labels Q.labels) :
+    let I := padPairIndex F S P Q
+    IsMarkedPrimeTuple S.x K F.a I.2.1.1 ∧ IsMarkedPrimeTuple S.x K F.a I.2.1.2 ∧
+      PadChoiceGood I.1 I.2.1.1 I.2.1.2 ∧
+      Nat.Coprime (tupleProduct I.2.1.1) (tupleProduct I.2.1.2) ∧
+      I.2.2 ∈ coefficientQuadChoices family S.x := by
+  have hp : ValidPrimeLists S.x K F.a P.labels :=
+    ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+  have hq : ValidPrimeLists S.x K F.a Q.labels :=
+    ⟨fun i j => ⟨Q.label_prime i j, Q.label_in_band i j⟩, Q.label_distinct⟩
+  have hdP := endpointF_nonzero_data F S family hMin beta hbeta P hP
+  have hdQ := endpointG_nonzero_data F S family hMin beta hbeta Q hQ
+  refine ⟨(fun i => Q.label_in_band i (lastSlot S.x)), (fun i => P.label_in_band i (lastSlot S.x)),
+    padChoiceGood_of_slotTransition P.labels Q.labels hp hT, ?_, ?_⟩
+  · exact slotTransition_lastProducts_coprime P.labels Q.labels hp hq hT
+  · have hPn : P.second ∈ dyadicIntegers (family.Hn S.x) := by rw [hAt.2]; exact hdP.2.1
+    have hQn : Q.second ∈ dyadicIntegers (family.Hn S.x) := by rw [hAt.2]; exact hdQ.2.1
+    exact Finset.mem_product.mpr ⟨Finset.mem_product.mpr ⟨hdP.1, hQn⟩,
+      Finset.mem_product.mpr ⟨hdQ.1, hPn⟩⟩
+
+private theorem padPairIndex_positions {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (P Q : PState F S) (hT : IsSlotTransition P.labels Q.labels) :
+    let I := padPairIndex F S P Q
+    P.first = padChoicePrimeProduct S.x I.1 * tupleProduct I.2.1.2 * I.2.2.1.1 ∧
+      Q.first = padChoicePrimeProduct S.x I.1 * tupleProduct I.2.1.1 * I.2.2.2.1 ∧
+      sharedProduct P.labels = padChoicePrimeProduct S.x I.1 := by
+  let I := padPairIndex F S P Q
+  have hlabels := padPairIndex_recover_labels F S P Q hT
+  have hGP : groupLabelProduct P = padChoicePrimeProduct S.x I.1 * tupleProduct I.2.1.2 := by
+    unfold groupLabelProduct
+    rw [hlabels.1, padJoinLists_fullProduct]
+  have hGQ : groupLabelProduct Q = padChoicePrimeProduct S.x I.1 * tupleProduct I.2.1.1 := by
+    unfold groupLabelProduct
+    rw [hlabels.2, padJoinLists_fullProduct]
+  refine ⟨?_, ?_, ?_⟩
+  · calc
+      _ = groupLabelProduct P * I.2.2.1.1 := physical_first_eq_labelProduct_mul_quotient F S hBands P
+      _ = _ := congrArg (fun G => G * I.2.2.1.1) hGP
+  · calc
+      _ = groupLabelProduct Q * I.2.2.2.1 := physical_first_eq_labelProduct_mul_quotient F S hBands Q
+      _ = _ := congrArg (fun G => G * I.2.2.2.1) hGQ
+  · rw [hlabels.1, padJoinLists_shared_eq_primeProduct]
+
+set_option maxHeartbeats 1000000 in
+/-- Every nonzero physical edge has exactly its ordered harmonic pad summand. -/
+private theorem padPairIndex_term_eq {K : ℕ} (F : PDFix K) (hF : F.Valid) (S : PDScale)
+    (hY : 0 < S.Y) (hHn : 0 < S.Hn) (hd₀ : 0 < S.d₀)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hAt : FamilyAtScale family S)
+    (hMin : family.xMin ≤ S.x) (beta : ℕ → ℂ) (hbeta : IsSecondCoefficient S C beta)
+    (hV : ∀ i : Fin K, 0 < bandMass S.x (F.a i))
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (hSmall : ∀ i : Fin K, ∀ q ∈ primeBand S.x (F.a i), (q : ℝ) ≤ roughCutoff S.x)
+    (P Q : PState F S) (hP : endpointF S.x K F.a family beta P ≠ 0)
+    (hQ : endpointG S.x K F.a family beta Q ≠ 0)
+    (hT : IsSlotTransition P.labels Q.labels)
+    (hPad : IsPadAdmissible S.d₀ (sharedProduct P.labels) (det2 P.pos Q.pos)) :
+    let I := padPairIndex F S P Q
+    (S.d₀ : ℂ)⁻¹ * (physicalMeasure S.x K F.a : ℂ) *
+      (endpointF S.x K F.a family beta P * physRowKernel F S P Q * endpointG S.x K F.a family beta Q) =
+      (padChoiceWeight S.x F.a I.1 : ℂ) *
+        (((∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2 *
+          padQuadCore F S.x S.Y family beta I.2.1.1 I.2.1.2 I.2.2 := by
+  let I := padPairIndex F S P Q
+  have hp : ValidPrimeLists S.x K F.a P.labels :=
+    ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+  have hq : ValidPrimeLists S.x K F.a Q.labels :=
+    ⟨fun i j => ⟨Q.label_prime i j, Q.label_in_band i j⟩, Q.label_distinct⟩
+  have hcond := And.intro hT hPad
+  have hlabels := padPairIndex_recover_labels F S P Q hcond.1
+  have hpos := padPairIndex_positions F S hBands P Q hcond.1
+  have hindex := padPairIndex_mem F S family hAt hMin beta hbeta hBands P Q hP hQ hcond.1
+  have hdP := endpointF_nonzero_data F S family hMin beta hbeta P hP
+  have hdQ := endpointG_nonzero_data F S family hMin beta hbeta Q hQ
+  have hfirstP := physical_first_eq_labelProduct_mul_quotient F S hBands P
+  have hfirstQ := physical_first_eq_labelProduct_mul_quotient F S hBands Q
+  have hDampP : dampingHalf F S P.first = 1 := by
+    rw [hfirstP]
+    exact dampingHalf_listProduct_mul F S P.labels hp hBands hSmall _ hdP.2.2.1
+  have hDampQ : dampingHalf F S Q.first = 1 := by
+    rw [hfirstQ]
+    exact dampingHalf_listProduct_mul F S Q.labels hq hBands hSmall _ hdQ.2.2.1
+  have hdyad : (S.d₀ : ℝ) ≤ (padChoicePrimeProduct S.x I.1 : ℝ) ∧
+      (padChoicePrimeProduct S.x I.1 : ℝ) < 2 * (S.d₀ : ℝ) := by
+    rw [← hpos.2.2]
+    exact ⟨hcond.2.1, hcond.2.2.1⟩
+  have hker := pad_edge_kernel_value F S P Q I.1 I.2.1.1 I.2.1.2
+    I.2.2.1.1 I.2.2.1.2 I.2.2.2.1 I.2.2.2.2 hlabels.1 hlabels.2 hpos.1 hpos.2.1
+    rfl rfl hcond.1 hdyad hDampP hDampQ
+  have hSqP : Squarefree (groupLabelProduct P) := primeListProduct_squarefree P.labels hp hBands
+  have hSqQ : Squarefree (groupLabelProduct Q) := primeListProduct_squarefree Q.labels hq hBands
+  have hPm : 0 < I.2.2.1.1 := by
+    have hf : 0 < P.first := by
+      have hc := lt_of_le_of_lt P.completion_range.1 P.completion_range.2
+      exact_mod_cast hc
+    by_contra hn
+    have hz : I.2.2.1.1 = 0 := by omega
+    change P.first = groupLabelProduct P * I.2.2.1.1 at hfirstP
+    rw [hz, mul_zero] at hfirstP
+    omega
+  have hQr : 0 < I.2.2.2.1 := by
+    have hf : 0 < Q.first := by
+      have hc := lt_of_le_of_lt Q.completion_range.1 Q.completion_range.2
+      exact_mod_cast hc
+    by_contra hn
+    have hz : I.2.2.2.1 = 0 := by omega
+    change Q.first = groupLabelProduct Q * I.2.2.2.1 at hfirstQ
+    rw [hz, mul_zero] at hfirstQ
+    omega
+  have hQn : 0 < I.2.2.1.2 := by
+    have hn := hHn.trans_le Q.second_lower
+    exact_mod_cast hn
+  have hPs : 0 < I.2.2.2.2 := by
+    have hs := hHn.trans_le P.second_lower
+    exact_mod_cast hs
+  have ha : 0 < tupleProduct I.2.1.1 := Finset.prod_pos
+    (fun i hi => (Finset.mem_filter.mp (hindex.1 i)).2.1.pos)
+  have hraw := eta_raw_common_identity F hF S.Y hY (tupleProduct I.2.1.1) (tupleProduct I.2.1.2)
+    I.2.2.1.1 I.2.2.1.2 I.2.2.2.1 I.2.2.2.2 ha hindex.2.2.2.1
+    (Nat.succ_le_of_lt (Nat.mul_pos hPm hQn)) (Nat.succ_le_of_lt (Nat.mul_pos hQr hPs))
+  have htReal : (((tupleProduct I.2.1.2 : ℤ) * I.2.2.1.1 * I.2.2.1.2 -
+      (tupleProduct I.2.1.1 : ℤ) * I.2.2.2.1 * I.2.2.2.2 : ℤ) : ℝ) =
+      (tupleProduct I.2.1.2 : ℝ) * (I.2.2.1.1 * I.2.2.1.2 : ℕ) -
+        (tupleProduct I.2.1.1 : ℝ) * (I.2.2.2.1 * I.2.2.2.2 : ℕ) := by push_cast; ring
+  have hScalar := padScalar_complex_eq F.a hV I.1 S.d₀ hd₀
+  have hEndP : endpointF S.x K F.a family beta P =
+      family.alpha S.x I.2.2.1.1 * star (beta I.2.2.2.2) := by rw [endpointF, if_pos hSqP]; rfl
+  have hEndQ : endpointG S.x K F.a family beta Q =
+      star (family.alpha S.x I.2.2.2.1) * beta I.2.2.1.2 := by rw [endpointG, if_pos hSqQ]; rfl
+  let t : ℤ := (tupleProduct I.2.1.2 : ℤ) * I.2.2.1.1 * I.2.2.1.2 -
+    (tupleProduct I.2.1.1 : ℤ) * I.2.2.2.1 * I.2.2.2.2
+  let core : ℂ := (F.eta ((tupleProduct I.2.1.2 : ℝ) / S.Y) : ℂ) *
+    (F.eta ((tupleProduct I.2.1.1 : ℝ) / S.Y) : ℂ) *
+    ((if t = (tupleProduct I.2.1.2 : ℤ) - tupleProduct I.2.1.1 then
+      (F.psi ((t : ℝ) / S.Y) : ℂ) else 0) -
+      majorKernel S.x S.Y F.A₀ (t : ℝ) (tupleProduct I.2.1.1) (tupleProduct I.2.1.2) F.psi)
+  have hCore : core * coefficientQuadProduct family S.x beta I.2.2 =
+      padQuadCore F S.x S.Y family beta I.2.1.1 I.2.1.2 I.2.2 := by
+    dsimp only [core, t]
+    unfold padQuadCore
+    rw [mul_sub, hraw, htReal]
+    ring
+  calc
+    _ = ((S.d₀ : ℂ)⁻¹ * (physicalMeasure S.x K F.a : ℂ) *
+        ((∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ : ℝ) : ℂ) *
+        (((S.d₀ : ℝ) / (padChoicePrimeProduct S.x I.1 : ℝ) : ℝ) : ℂ)) *
+      core * coefficientQuadProduct family S.x beta I.2.2 := by
+      rw [hEndP, hEndQ, hker, geometricMultiplier_factor]
+      dsimp only [core, t, coefficientQuadProduct]
+      ring
+    _ = ((padChoiceWeight S.x F.a I.1 : ℂ) *
+        (((∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2) *
+      core * coefficientQuadProduct family S.x beta I.2.2 := by rw [hScalar]
+    _ = _ := by rw [mul_assoc, hCore]
+
+private theorem padChoiceFromLists_join_eq {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) (hp : ValidPrimeLists x K a (padJoinLists d t)) :
+    padChoiceFromLists (padJoinLists d t) hp = d := by
+  funext addr
+  apply Subtype.ext
+  let j : Fin (momentJ x + 1) := addr.2.castSucc
+  have hj : j.val < momentJ x := addr.2.isLt
+  change padJoinFunction d t addr.1 j = (d addr).val
+  unfold padJoinFunction
+  simp only [dif_pos hj]
+  have hcast : j.castLT hj = addr.2 := Fin.ext rfl
+  rw [hcast]
+
+
+private theorem padJoinLists_lastTuple {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) :
+    (fun i => padJoinLists d t i (lastSlot x)) = t := by
+  funext i
+  rw [padJoinLists_eq_padJoinFunction]
+  simp [padJoinFunction, lastSlot]
+
+set_option maxHeartbeats 1500000 in
+/-- Every nonzero allowed signed coefficient core reconstructs one physical edge. -/
+private theorem padPairIndex_surjective_core {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    (x Y R : ℝ) (hY : 0 < Y) (hR : 4 ≤ R)
+    (hPsiSupport : ∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R) (hShort : R * Y ≤ roughCutoff x)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hMin : family.xMin ≤ x)
+    (beta : ℕ → ℂ) (hbeta : IsFamilySecondCoefficient family x beta)
+    (hV : ∀ i : Fin K, 0 < bandMass x (F.a i))
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (F.a i)) (primeBand x (F.a j)))
+    (hSmall : ∀ i : Fin K, ∀ p ∈ primeBand x (F.a i), (p : ℝ) ≤ roughCutoff x)
+    (d₀ : ℕ) (hd₀ : 0 < d₀) (d : PadChoice x K F.a) (ta tb : Fin K → ℕ)
+    (hta : IsMarkedPrimeTuple x K F.a ta) (htb : IsMarkedPrimeTuple x K F.a tb)
+    (hGood : PadChoiceGood d ta tb) (hCop : Nat.Coprime (tupleProduct ta) (tupleProduct tb))
+    (hDyad : (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+      (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ))
+    (q : (ℕ × ℕ) × (ℕ × ℕ)) (hCore : padQuadCore F x Y family beta ta tb q ≠ 0) :
+    ∃ P Q : PState F (familyScale family x Y d₀),
+      padPairIndex F (familyScale family x Y d₀) P Q = (d, (ta, tb), q) ∧
+      IsSlotTransition P.labels Q.labels ∧
+      IsPadAdmissible d₀ (sharedProduct P.labels) (det2 P.pos Q.pos) ∧
+      (d₀ : ℂ)⁻¹ * (physicalMeasure x K F.a : ℂ) *
+        (endpointF x K F.a family beta P * physRowKernel F (familyScale family x Y d₀) P Q *
+          endpointG x K F.a family beta Q) =
+        (padChoiceWeight x F.a d : ℂ) * (((∏ i : Fin K, (bandMass x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2 *
+          padQuadCore F x Y family beta ta tb q := by
+  have hdata := padQuadCore_nonzero_eta_coeff F x Y family beta ta tb q hCore
+  have hαm : family.alpha x q.1.1 ≠ 0 := by
+    intro hz
+    exact hdata.2.2 (by simp [coefficientQuadProduct, hz])
+  have hαr : family.alpha x q.2.1 ≠ 0 := by
+    intro hz
+    exact hdata.2.2 (by simp [coefficientQuadProduct, hz])
+  have hβn : beta q.1.2 ≠ 0 := by
+    intro hz
+    exact hdata.2.2 (by simp [coefficientQuadProduct, hz])
+  have hβs : beta q.2.2 ≠ 0 := by
+    intro hz
+    exact hdata.2.2 (by simp [coefficientQuadProduct, hz])
+  have hmSupp := family.rough_support x hMin q.1.1 hαm
+  have hrSupp := family.rough_support x hMin q.2.1 hαr
+  have hnSupp := hbeta.1 q.1.2 hβn
+  have hsSupp := hbeta.1 q.2.2 hβs
+  have hmBounds := family.interval_bounds x hMin q.1.1 hmSupp.1
+  have hrBounds := family.interval_bounds x hMin q.2.1 hrSupp.1
+  have hnBounds := (Finset.mem_filter.mp hnSupp.1).2
+  have hsBounds := (Finset.mem_filter.mp hsSupp.1).2
+  have hxpos : 0 < x := lt_of_lt_of_le (by norm_num) (family.xMin_ge_two.trans hMin)
+  have hScale := family.scales x hMin
+  have hHm : 0 < family.Hm x := (Real.rpow_pos_of_pos hxpos δ).trans_le hScale.1
+  have hHn : 0 < family.Hn x := (Real.rpow_pos_of_pos hxpos δ).trans_le hScale.2.1
+  have hmPos : 0 < q.1.1 := by exact_mod_cast hHm.trans_le hmBounds.1
+  have hrPos : 0 < q.2.1 := by exact_mod_cast hHm.trans_le hrBounds.1
+  have hnPos : 0 < q.1.2 := by exact_mod_cast hHn.trans_le hnBounds.1
+  have hsPos : 0 < q.2.2 := by exact_mod_cast hHn.trans_le hsBounds.1
+  have haPos : 0 < tupleProduct ta := Finset.prod_pos
+    (fun i hi => (Finset.mem_filter.mp (hta i)).2.1.pos)
+  have hbPos : 0 < tupleProduct tb := Finset.prod_pos
+    (fun i hi => (Finset.mem_filter.mp (htb i)).2.1.pos)
+  have hDpos : 0 < padChoicePrimeProduct x d := Finset.prod_pos
+    (fun addr haddr => (Finset.mem_filter.mp (d addr).property).2.1.pos)
+  have haBounds := hF.2.2.2.2.1.2.1 hdata.1
+  have hbBounds := hF.2.2.2.2.1.2.1 hdata.2.1
+  have haRange : Y ≤ (tupleProduct ta : ℝ) ∧ (tupleProduct ta : ℝ) ≤ 4 * Y :=
+    ⟨by simpa only [one_mul] using (le_div_iff₀ hY).mp haBounds.1, (div_le_iff₀ hY).mp haBounds.2⟩
+  have hbRange : Y ≤ (tupleProduct tb : ℝ) ∧ (tupleProduct tb : ℝ) ≤ 4 * Y :=
+    ⟨by simpa only [one_mul] using (le_div_iff₀ hY).mp hbBounds.1, (div_le_iff₀ hY).mp hbBounds.2⟩
+  have hTube := padQuadCore_nonzero_determinant_bound F hF x Y R hY hR hPsiSupport family beta ta tb q
+    haPos hCop (Nat.succ_le_of_lt (Nat.mul_pos hmPos hnPos)) (Nat.succ_le_of_lt (Nat.mul_pos hrPos hsPos)) hCore
+  have hPrimitive := padPair_coprime hF.1.1 d ta tb hta htb hGood hBands hCop hSmall
+    q.1.1 q.1.2 q.2.1 q.2.2 hrSupp.2 hnSupp.2 hsSupp.2 (hTube.trans hShort)
+  have hvalid := padJoinedLists_valid_of_good d ta tb hta htb hGood
+  have hFirstP : 0 < padChoicePrimeProduct x d * tupleProduct tb * q.1.1 := Nat.mul_pos (Nat.mul_pos hDpos hbPos) hmPos
+  have hFirstQ : 0 < padChoicePrimeProduct x d * tupleProduct ta * q.2.1 := Nat.mul_pos (Nat.mul_pos hDpos haPos) hrPos
+  let P := padPhysicalState d₀ d tb q.1.1 q.2.2 hY hHm hDyad hbRange hmBounds hsBounds hvalid.2 hFirstP hPrimitive.1
+  let Q := padPhysicalState d₀ d ta q.2.1 q.1.2 hY hHm hDyad haRange hrBounds hnBounds hvalid.1 hFirstQ hPrimitive.2
+  have hPe := padPhysicalState_endpoints family beta d₀ d tb q.1.1 q.2.2 hY hHm hDyad hbRange hmBounds hsBounds hvalid.2 hFirstP hPrimitive.1 hBands
+  have hQe := padPhysicalState_endpoints family beta d₀ d ta q.2.1 q.1.2 hY hHm hDyad haRange hrBounds hnBounds hvalid.1 hFirstQ hPrimitive.2 hBands
+  have hPnon : endpointF x K F.a family beta P ≠ 0 := by
+    rw [hPe.1]
+    exact mul_ne_zero hαm (by simpa only [star_ne_zero] using hβs)
+  have hQnon : endpointG x K F.a family beta Q ≠ 0 := by
+    rw [hQe.2]
+    exact mul_ne_zero (by simpa only [star_ne_zero] using hαr) hβn
+  have hSlot : IsSlotTransition P.labels Q.labels := padJoinedLists_slotTransition_of_good d ta tb hta htb hGood hBands hCop
+  have hDet : det2 P.pos Q.pos = (padChoicePrimeProduct x d : ℤ) *
+      ((tupleProduct tb : ℤ) * q.1.1 * q.1.2 - (tupleProduct ta : ℤ) * q.2.1 * q.2.2) := by
+    exact det2_pad_positions _ _ _ _ _ _ _
+  have hPad : IsPadAdmissible d₀ (sharedProduct P.labels) (det2 P.pos Q.pos) := by
+    change IsPadAdmissible d₀ (sharedProduct (padJoinLists d tb)) (det2 P.pos Q.pos)
+    rw [padJoinLists_shared_eq_primeProduct]
+    exact ⟨hDyad.1, hDyad.2, ⟨_, hDet⟩⟩
+  have hIdx : padPairIndex F (familyScale family x Y d₀) P Q = (d, (ta, tb), q) := by
+    apply Prod.ext
+    · exact padChoiceFromLists_join_eq d tb hvalid.2
+    · apply Prod.ext
+      · exact Prod.ext (padJoinLists_lastTuple d ta) (padJoinLists_lastTuple d tb)
+      · apply Prod.ext
+        · exact Prod.ext
+            (padPhysicalState_quotient d₀ d tb q.1.1 q.2.2 hY hHm hDyad hbRange hmBounds hsBounds hvalid.2 hFirstP hPrimitive.1) rfl
+        · exact Prod.ext
+            (padPhysicalState_quotient d₀ d ta q.2.1 q.1.2 hY hHm hDyad haRange hrBounds hnBounds hvalid.1 hFirstQ hPrimitive.2) rfl
+  refine ⟨P, Q, hIdx, hSlot, hPad, ?_⟩
+  have hAt : FamilyAtScale family (familyScale family x Y d₀) := ⟨rfl, rfl⟩
+  have hBetaAt : IsSecondCoefficient (familyScale family x Y d₀) C beta := hbeta
+  have hTerm := padPairIndex_term_eq F hF (familyScale family x Y d₀) hY hHn hd₀ family hAt hMin beta hBetaAt hV hBands hSmall P Q hPnon hQnon hSlot hPad
+  rw [hIdx] at hTerm
+  simpa only [familyScale] using hTerm
+
+private abbrev PadPhysicalEdges {K : ℕ} (F : PDFix K) {δ C c₁ c₂ : ℝ}
+    (family : CoefficientFamily δ C c₁ c₂) (x Y : ℝ) :=
+  (Σ d₀ : (padScales x K), PState F (familyScale family x Y d₀.val) ×
+    PState F (familyScale family x Y d₀.val))
+
+private def padPhysicalEdgeTerm {K : ℕ} (F : PDFix K) {δ C c₁ c₂ : ℝ}
+    (family : CoefficientFamily δ C c₁ c₂) (x Y : ℝ) (beta : ℕ → ℂ)
+    (e : PadPhysicalEdges F family x Y) : ℂ :=
+  (e.1.val : ℂ)⁻¹ * (physicalMeasure x K F.a : ℂ) *
+    (endpointF x K F.a family beta e.2.1 *
+      physRowKernel F (familyScale family x Y e.1.val) e.2.1 e.2.2 *
+        endpointG x K F.a family beta e.2.2)
+
+private theorem padPhysicalEdgeSum_eq {K : ℕ} (F : PDFix K) {δ C c₁ c₂ : ℝ}
+    (family : CoefficientFamily δ C c₁ c₂) (x Y : ℝ) (beta : ℕ → ℂ)
+    [∀ d₀ : (padScales x K), Fintype (PState F (familyScale family x Y d₀.val))] :
+    (∑ e : PadPhysicalEdges F family x Y, padPhysicalEdgeTerm F family x Y beta e) =
+      ∑ d₀ ∈ padScales x K, (d₀ : ℂ)⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta := by
+  calc
+    _ = ∑ d₀ : (padScales x K), (d₀.val : ℂ)⁻¹ *
+        detPairingNoGood F (familyScale family x Y d₀.val) family beta := by
+      rw [Fintype.sum_sigma]
+      apply Finset.sum_congr rfl
+      intro d₀ hd₀
+      rw [Fintype.sum_prod_type, detPairing_noGoodExpansion]
+      simp only [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro P hP
+      apply Finset.sum_congr rfl
+      intro Q hQ
+      dsimp only [padPhysicalEdgeTerm, familyScale]
+      ring
+    _ = _ := Finset.sum_coe_sort (padScales x K)
+      (fun d₀ : ℕ => (d₀ : ℂ)⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta)
+
+set_option maxHeartbeats 2500000 in
+/-- The finite physical edge sum is the ordered-pad/tuple/coefficient-quad sum. -/
+private theorem pad_physical_reindex_at_scale {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    (x Y R : ℝ) (hY : 0 < Y) (hR : 4 ≤ R)
+    (hPsiSupport : ∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R) (hShort : R * Y ≤ roughCutoff x)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hMin : family.xMin ≤ x)
+    (beta : ℕ → ℂ) (hbeta : IsFamilySecondCoefficient family x beta)
+    (hV : ∀ i : Fin K, 0 < bandMass x (F.a i))
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (F.a i)) (primeBand x (F.a j)))
+    (hSmall : ∀ i : Fin K, ∀ p ∈ primeBand x (F.a i), (p : ℝ) ≤ roughCutoff x)
+    (hCover : ∀ d : PadChoice x K F.a, ∃! d₀ : ℕ,
+      d₀ ∈ padScales x K ∧ (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+        (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ)) :
+    (∑ d₀ ∈ padScales x K, (d₀ : ℂ)⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta) =
+      ∑ d : PadChoice x K F.a,
+        ∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+          ∑ q ∈ coefficientQuadChoices family x,
+            if PadChoiceGood d ta tb ∧ Nat.Coprime (tupleProduct ta) (tupleProduct tb) then
+              (padChoiceWeight x F.a d : ℂ) * (((∏ i : Fin K, (bandMass x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2 *
+                padQuadCore F x Y family beta ta tb q else 0 := by
+  have hxpos : 0 < x := lt_of_lt_of_le (by norm_num) (family.xMin_ge_two.trans hMin)
+  have hScales := family.scales x hMin
+  have hHm : 0 < family.Hm x := (Real.rpow_pos_of_pos hxpos δ).trans_le hScales.1
+  have hHn : 0 < family.Hn x := (Real.rpow_pos_of_pos hxpos δ).trans_le hScales.2.1
+  have hdPos (d₀ : ℕ) (hd₀ : d₀ ∈ padScales x K) : 0 < d₀ := by
+    obtain ⟨k, hk, rfl⟩ := Finset.mem_image.mp hd₀
+    positivity
+  letI : ∀ d₀ : (padScales x K), Fintype (PState F (familyScale family x Y d₀.val)) := fun d₀ => by
+    letI : Finite (PState F (familyScale family x Y d₀.val)) := Finite.of_finite_univ
+      (physicalState_finite (mul_pos (Nat.cast_pos.mpr (hdPos _ d₀.property)) hY) hHm hHn)
+    exact Fintype.ofFinite _
+  let Src := PadPhysicalEdges F family x Y
+  let sf := padPhysicalEdgeTerm F family x Y beta
+  let key (e : Src) : PadPairIndex x K F.a := padPairIndex F (familyScale family x Y e.1.val) e.2.1 e.2.2
+  let Tgt : Finset (PadPairIndex x K F.a) := Finset.univ ×ˢ
+    (((markedTupleChoices x F.a) ×ˢ (markedTupleChoices x F.a)) ×ˢ coefficientQuadChoices family x)
+  let tf (I : PadPairIndex x K F.a) : ℂ :=
+    if PadChoiceGood I.1 I.2.1.1 I.2.1.2 ∧ Nat.Coprime (tupleProduct I.2.1.1) (tupleProduct I.2.1.2) then
+      (padChoiceWeight x F.a I.1 : ℂ) * (((∏ i : Fin K, (bandMass x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2 *
+        padQuadCore F x Y family beta I.2.1.1 I.2.1.2 I.2.2 else 0
+  have hInfo (e : Src) (he : sf e ≠ 0) :
+      endpointF x K F.a family beta e.2.1 ≠ 0 ∧ endpointG x K F.a family beta e.2.2 ≠ 0 ∧
+        IsSlotTransition e.2.1.labels e.2.2.labels ∧
+          IsPadAdmissible e.1.val (sharedProduct e.2.1.labels) (det2 e.2.1.pos e.2.2.pos) := by
+    have hP : endpointF x K F.a family beta e.2.1 ≠ 0 := by
+      intro hz
+      exact he (by simp [sf, padPhysicalEdgeTerm, hz])
+    have hQ : endpointG x K F.a family beta e.2.2 ≠ 0 := by
+      intro hz
+      exact he (by simp [sf, padPhysicalEdgeTerm, hz])
+    have hker : physRowKernel F (familyScale family x Y e.1.val) e.2.1 e.2.2 ≠ 0 := by
+      intro hz
+      exact he (by simp [sf, padPhysicalEdgeTerm, hz])
+    have hc := physRowKernel_nonzero_conditions F (familyScale family x Y e.1.val) e.2.1 e.2.2 hker
+    exact ⟨hP, hQ, hc.1, hc.2⟩
+  have hData (e : Src) (he : sf e ≠ 0) :=
+    padPairIndex_mem F (familyScale family x Y e.1.val) family ⟨rfl, rfl⟩ hMin beta hbeta hBands
+      e.2.1 e.2.2 (hInfo e he).1 (hInfo e he).2.1 (hInfo e he).2.2.1
+  have hMem (e : Src) (he : sf e ≠ 0) : key e ∈ Tgt := by
+    have hd := hData e he
+    exact Finset.mem_product.mpr ⟨Finset.mem_univ _, Finset.mem_product.mpr
+      ⟨Finset.mem_product.mpr ⟨mem_markedTupleChoices.mpr hd.1, mem_markedTupleChoices.mpr hd.2.1⟩, hd.2.2.2.2⟩⟩
+  have hValue (e : Src) (he : sf e ≠ 0) : sf e = tf (key e) := by
+    have hd := hData e he
+    have hi := hInfo e he
+    have ht := padPairIndex_term_eq F hF (familyScale family x Y e.1.val) hY hHn (hdPos _ e.1.property)
+      family ⟨rfl, rfl⟩ hMin beta hbeta hV hBands hSmall e.2.1 e.2.2 hi.1 hi.2.1 hi.2.2.1 hi.2.2.2
+    have hc : PadChoiceGood (key e).1 (key e).2.1.1 (key e).2.1.2 ∧
+        Nat.Coprime (tupleProduct (key e).2.1.1) (tupleProduct (key e).2.1.2) := ⟨hd.2.2.1, hd.2.2.2.1⟩
+    dsimp only [tf]
+    rw [if_pos hc]
+    exact ht
+  have hInjective (e e' : Src) (he : sf e ≠ 0) (he' : sf e' ≠ 0) (hk : key e = key e') : e = e' := by
+    have hi := hInfo e he
+    have hi' := hInfo e' he'
+    have hp := padPairIndex_positions F (familyScale family x Y e.1.val) hBands e.2.1 e.2.2 hi.2.2.1
+    have hp' := padPairIndex_positions F (familyScale family x Y e'.1.val) hBands e'.2.1 e'.2.2 hi'.2.2.1
+    have hd : (key e).1 = (key e').1 := congrArg Prod.fst hk
+    obtain ⟨d₀, hd₀, huniq⟩ := hCover (key e).1
+    have hSp : sharedProduct e.2.1.labels = padChoicePrimeProduct x (key e).1 := hp.2.2
+    have hSp' : sharedProduct e'.2.1.labels = padChoicePrimeProduct x (key e').1 := hp'.2.2
+    have hlo : (e.1.val : ℝ) ≤ (padChoicePrimeProduct x (key e).1 : ℝ) := by
+      rw [← hSp]
+      exact hi.2.2.2.1
+    have hhi : (padChoicePrimeProduct x (key e).1 : ℝ) < 2 * (e.1.val : ℝ) := by
+      rw [← hSp]
+      exact hi.2.2.2.2.1
+    have hlo' : (e'.1.val : ℝ) ≤ (padChoicePrimeProduct x (key e).1 : ℝ) := by
+      rw [hd, ← hSp']
+      exact hi'.2.2.2.1
+    have hhi' : (padChoicePrimeProduct x (key e).1 : ℝ) < 2 * (e'.1.val : ℝ) := by
+      rw [hd, ← hSp']
+      exact hi'.2.2.2.2.1
+    have hdyad : e.1.val = d₀ := huniq e.1.val ⟨e.1.property, hlo, hhi⟩
+    have hdyad' : e'.1.val = d₀ := huniq e'.1.val ⟨e'.1.property, hlo', hhi'⟩
+    have hdeq : e.1 = e'.1 := Subtype.ext (hdyad.trans hdyad'.symm)
+    rcases e with ⟨ed, ep⟩
+    rcases e' with ⟨ed', ep'⟩
+    dsimp only at hdeq
+    cases hdeq
+    have hpair := padPairIndex_injective F (familyScale family x Y ed.val) hBands ep.1 ep.2 ep'.1 ep'.2
+      hi.2.2.1 hi'.2.2.1 hk
+    exact congrArg (Sigma.mk ed) (Prod.ext hpair.1 hpair.2)
+  have hSurjective (I : PadPairIndex x K F.a) (hI : I ∈ Tgt) (hIneq : tf I ≠ 0) :
+      ∃ e : Src, sf e ≠ 0 ∧ key e = I := by
+    have hcond : PadChoiceGood I.1 I.2.1.1 I.2.1.2 ∧
+        Nat.Coprime (tupleProduct I.2.1.1) (tupleProduct I.2.1.2) := by
+      by_contra hn
+      exact hIneq (by simp [tf, hn])
+    have hCore : padQuadCore F x Y family beta I.2.1.1 I.2.1.2 I.2.2 ≠ 0 := by
+      intro hz
+      exact hIneq (by simp [tf, hz])
+    have hTuple := (Finset.mem_product.mp (Finset.mem_product.mp hI).2).1
+    obtain ⟨d₀, hd₀, huniq⟩ := hCover I.1
+    obtain ⟨P, Q, hIdx, hSlot, hPad, hTerm⟩ := padPairIndex_surjective_core F hF x Y R hY hR hPsiSupport hShort
+      family hMin beta hbeta hV hBands hSmall d₀ (hdPos _ hd₀.1) I.1 I.2.1.1 I.2.1.2
+      (mem_markedTupleChoices.mp (Finset.mem_product.mp hTuple).1)
+      (mem_markedTupleChoices.mp (Finset.mem_product.mp hTuple).2) hcond.1 hcond.2 hd₀.2 I.2.2 hCore
+    let e : Src := ⟨⟨d₀, hd₀.1⟩, (P, Q)⟩
+    have hkey : key e = I := by
+      change padPairIndex F (familyScale family x Y d₀) P Q = I
+      convert hIdx using 1 <;> rfl
+    have hterm : sf e = tf I := by
+      simpa only [sf, padPhysicalEdgeTerm, e, tf, if_pos hcond] using hTerm
+    exact ⟨e, by rw [hterm]; exact hIneq, hkey⟩
+  have hsum : (∑ e : Src, sf e) = ∑ I ∈ Tgt, tf I := by
+    apply Finset.sum_bij_ne_zero (fun e he₁ he₂ => key e)
+    · intro e he₁ he₂
+      exact hMem e he₂
+    · intro e he₁ he₂ e' he₁' he₂' hk
+      exact hInjective e e' he₂ he₂' hk
+    · intro I hI hIneq
+      obtain ⟨e, he, hk⟩ := hSurjective I hI hIneq
+      exact ⟨e, Finset.mem_univ _, he, hk⟩
+    · intro e he₁ he₂
+      exact hValue e he₂
+  rw [← padPhysicalEdgeSum_eq F family x Y beta]
+  change (∑ e : Src, sf e) = _
+  rw [hsum]
+  simp only [Tgt, tf, Finset.sum_product]
+
+private theorem pad_finite_reindex_at_scale {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    (x Y R : ℝ) (hY : 0 < Y) (hR : 4 ≤ R)
+    (hPsiSupport : ∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R) (hShort : R * Y ≤ roughCutoff x)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hMin : family.xMin ≤ x)
+    (beta : ℕ → ℂ) (hbeta : IsFamilySecondCoefficient family x beta)
+    (hV : ∀ i : Fin K, 0 < bandMass x (F.a i))
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (F.a i)) (primeBand x (F.a j)))
+    (hSmall : ∀ i : Fin K, ∀ p ∈ primeBand x (F.a i), (p : ℝ) ≤ roughCutoff x)
+    (hCover : ∀ d : PadChoice x K F.a, ∃! d₀ : ℕ,
+      d₀ ∈ padScales x K ∧ (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+        (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ)) :
+    (∑ d₀ ∈ padScales x K, (d₀ : ℂ)⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta) =
+      ∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+        if Nat.Coprime (tupleProduct ta) (tupleProduct tb) then
+          (padAllowedMass x F.a ta tb : ℂ) *
+            (rawPairSum F x Y family beta ta tb - comparisonPairSum F x Y family beta ta tb) else 0 := by
+  exact (pad_physical_reindex_at_scale F hF x Y R hY hR hPsiSupport hShort family hMin beta hbeta
+    hV hBands hSmall hCover).trans (padMass_sum_eq_pair_difference F x Y family beta)
+
 /-- `t2:pd.pad-stripping` (new node, part of `t2:pd.strip-goodness-pads`) — PD 04:1010-1101.
 Summed over pad dyads with weight `1/d₀`, the pairing without goodness is the coprime Cauchy
 square minus the unrestricted major sum up to `O_A(XY L^{-A})`: pad measure identity
@@ -7737,6 +8292,8 @@ theorem pad_stripping (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ 
         ?_, padJoinLists_lastProduct d tb, padJoinLists_lastProduct d ta,
         hPadChoiceTwoNormalizerFactor d ta⟩
       rw [padJoinLists_sharedProduct, padJoinLists_sharedProduct]
+    have hReindex := pad_finite_reindex_at_scale F hF x Y Rpsi hYpos hRpsi hPsiSupport hShortY.le
+      family hfamilyMin beta hbeta hBandMassPos hBandsDisjoint hMarkedBelow hPadDyadCover
     sorry
   · have hc₂' : c₂ ≤ 0 := le_of_not_gt hc₂
     refine ⟨1, 2, by norm_num, le_rfl, ?_⟩
