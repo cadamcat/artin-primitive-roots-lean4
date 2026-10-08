@@ -3214,6 +3214,97 @@ private theorem tameIntegralLift_range_inj
     simpa only [map_mul, map_inv] using h
   exact mul_inv_eq_one.mp heq
 
+/-- The corrected integral lift range contains an open small splitting neighborhood. -/
+private theorem tameIntegralLift_range_open
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (L : FinLocalCover D H v)
+    (κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L)
+    (hκ : ∀ k, κ k = tameIntegralLift D H v L k) :
+    IsOpen (κ.range : Set L.L) := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let C := finLocalAlgebraOfCover L
+  obtain ⟨B⟩ := exists_finLocalSmallAlgebra D H v hSt C
+  obtain ⟨ms, _, hcorrection⟩ := exists_tameSmallIdentity D H v
+  let N := max 1 (max L.m0 (max B.m0 ms))
+  have h1N : 1 ≤ N := le_max_left _ _
+  have hN : max L.m0 (max B.m0 ms) ≤ N := le_max_right _ _
+  have hmN : L.m0 ≤ N := (le_max_left _ _).trans hN
+  have hBN : B.m0 ≤ N := (le_max_left B.m0 ms).trans ((le_max_right _ _).trans hN)
+  have hmsN : ms ≤ N := (le_max_right B.m0 ms).trans ((le_max_right _ _).trans hN)
+  let Uc : Set (GL (Fin 2) K) := {g | ∀ i j,
+    V ((g : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ WithZero.exp (-(N : ℤ))}
+  have hr : WithZero.exp (-(N : ℤ)) ≤ (1 : WithZero (Multiplicative ℤ)) := by
+    rw [← WithZero.exp_zero, WithZero.exp_le_exp]
+    omega
+  have integralEntries (g : GL (Fin 2) K) (hg : g ∈ Uc) :
+      ∀ i j, (g : Matrix (Fin 2) (Fin 2) K) i j ∈ O := by
+    intro i j
+    change V ((g : Matrix (Fin 2) (Fin 2) K) i j) ≤ 1
+    have hδ : V ((1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ 1 := by
+      fin_cases i <;> fin_cases j <;> simp
+    have hb := V.map_add_le ((hg i j).trans hr) hδ
+    simpa only [sub_add_cancel] using hb
+  obtain ⟨Ug, hUg⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_congruenceSubgroup v N h1N
+  have invCongruent (g : GL (Fin 2) K) (hg : g ∈ Uc) : g⁻¹ ∈ Uc :=
+    (hUg g⁻¹).mp (Ug.inv_mem ((hUg g).mpr hg))
+  have monoBall (x : K) (hx : x ∈ ball v N) : x ∈ ball v L.m0 := by
+    change V x ≤ WithZero.exp (-(N : ℤ)) at hx
+    change V x ≤ WithZero.exp (-(L.m0 : ℤ))
+    exact hx.trans (WithZero.exp_le_exp.mpr (by omega))
+  have smallSec (g : GL (Fin 2) K) (hg : g ∈ Uc) : L.sec g ∈ L.Kc L.m0 := by
+    have hsecB : C.sec g ∈ B.Kc N := by
+      change C.sec g ∈ (B.Kc N : Set C.L)
+      rw [B.Kc_eq N hBN]
+      exact ⟨g, hg, rfl⟩
+    obtain ⟨α, β, u, hα, hβ, hu, heq⟩ :=
+      finLocalSmallAlgebra_decomposition C B N hBN (C.sec g) hsecB
+    change C.sec g ∈ L.Kc L.m0
+    rw [heq]
+    exact (L.Kc L.m0).mul_mem
+      ((L.Kc L.m0).mul_mem (L.n_Kc L.m0 le_rfl α (monoBall α hα))
+        (L.a_Kc L.m0 le_rfl u (monoBall ((u : K) - 1) hu)))
+      (L.nbar_Kc L.m0 le_rfl β (monoBall β hβ))
+  let q : GL (Fin 2) K → PGL2 K := QuotientGroup.mk
+  let W : Set L.L := (L.Kc L.m0 : Set L.L) ∩ L.pr ⁻¹' (q '' Uc)
+  have hUcOpen : IsOpen Uc :=
+    (ArtinPrimitiveRoots.Proofs.th_cover_sol.congruenceTopology v).1 N
+  have hqOpen : IsOpen (q '' Uc) := QuotientGroup.isOpenMap_coe Uc hUcOpen
+  have hWopen : IsOpen W :=
+    (L.Kc_open L.m0 le_rfl).inter (hqOpen.preimage L.pr_cont)
+  have hWone : (1 : L.L) ∈ W := by
+    refine ⟨(L.Kc L.m0).one_mem, ?_⟩
+    change L.pr (1 : L.L) ∈ q '' Uc
+    refine ⟨1, ?_, ?_⟩
+    · simp [Uc]
+    · simp [q]
+  have hsub : W ⊆ (κ.range : Set L.L) := by
+    intro x hx
+    obtain ⟨g, hg, hgpr⟩ := hx.2
+    have hgi := integralEntries g hg
+    have hginv := integralEntries g⁻¹ (invCongruent g hg)
+    have hd : (g⁻¹ : GL (Fin 2) K).val.det ∈ O := by
+      rw [Matrix.det_fin_two]
+      exact O.toSubring.sub_mem
+        (O.toSubring.mul_mem (hginv 0 0) (hginv 1 1))
+        (O.toSubring.mul_mem (hginv 0 1) (hginv 1 0))
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.integralGL2_lift v g hgi hd
+    have hκsec : κ k = L.sec g := by
+      rw [hκ]
+      change L.z (tameSplit D H v (Matrix.GeneralLinearGroup.map O.subtype k)) *
+        L.sec (Matrix.GeneralLinearGroup.map O.subtype k) = L.sec g
+      rw [hk, hcorrection N hmsN g hg, map_one, one_mul]
+    have heq : κ k = x := by
+      apply L.Kc_inj L.m0 le_rfl (by rw [hκsec]; exact smallSec g hg) hx.1
+      rw [hκsec, L.sec_pr]
+      exact hgpr
+    exact ⟨k, heq⟩
+  exact κ.range.isOpen_of_mem_nhds
+    (Filter.mem_of_superset (hWopen.mem_nhds hWone) hsub)
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
