@@ -3,7 +3,8 @@ import ArtinPrimitiveRoots.TypeII.PD.Memory
 set_option autoImplicit false
 set_option linter.unusedVariables false
 
-namespace ArtinPrimitiveRoots.TypeII.PD
+namespace ArtinPrimitiveRoots.Proofs.pd_life_b
+open ArtinPrimitiveRoots.TypeII.PD
 open Classical MeasureTheory
 noncomputable section
 
@@ -54,4 +55,4 @@ theorem pd_life_b_memHistory_zero_of_start_ne_e1 {K : ℕ} (F : PDFix K)
     simp [hhist]
 
 end
-end ArtinPrimitiveRoots.TypeII.PD
+end ArtinPrimitiveRoots.Proofs.pd_life_b
