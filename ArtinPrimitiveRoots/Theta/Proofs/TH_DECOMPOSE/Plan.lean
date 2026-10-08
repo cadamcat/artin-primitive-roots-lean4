@@ -140,6 +140,8 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
   have hlocal (v : FinPlace F) : (G.Alag v).FiniteIndex :=
     local_lagrangian_finiteIndex P G v
   have hclasses (T : Finset (FinPlace F)) := finite_exterior_lagrangian_classes P G T
+  have htame (v : FinPlace F) (hv : v ∉ S.Sf) (x : (v.adicCompletion F)ˣ)
+      (hx : x ∉ G.Alag v) := tame_lam_sigma_eq_zero P G v hv x hx
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/

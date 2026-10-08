@@ -125,4 +125,41 @@ theorem finite_exterior_lagrangian_classes (P : CoverPackage D S H A)
   let : Finite C := Finite.of_injective f hf
   exact C.toFinite
 
+/-- A tame scalar coefficient vanishes outside the local Lagrangian subgroup. -/
+theorem tame_lam_sigma_eq_zero (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (x : (v.adicCompletion F)ˣ)
+    (hx : x ∉ G.Alag v) : G.lam v ((G.T v).σa x ((G.B v hv).e 0)) = 0 := by
+  have hv6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  have hfixed (y : (v.adicCompletion F)ˣ) (hy : y ∈ G.Alag v) :
+      (G.T v).σa y ((G.B v hv).e 0) = (G.B v hv).e 0 := by
+    obtain ⟨k, u, hu, rfl⟩ := (G.alag_tame v hv y).mp hy
+    rw [(G.B v hv).act (3 * k) u hu 0]
+    have hexp : 2 * (3 * k + 2 * ((0 : ZMod 3).val : ℤ)) = 6 * k := by
+      simp
+      ring
+    have hidx : (0 : ZMod 3) + ((3 * k : ℤ) : ZMod 3) = 0 := by
+      simp [Int.cast_mul, show (3 : ZMod 3) = 0 from ZMod.natCast_self 3]
+    have hpow : localChi D v u ^ (6 * k) = 1 := by
+      rw [zpow_mul, zpow_ofNat, (localChi_basic (D := D) hv6).2.2.2.1 u hu,
+        one_zpow]
+    rw [hexp, hidx, hpow, one_smul]
+  have hcomm (y : (v.adicCompletion F)ˣ) :
+      ((G.T v).σa x).comp ((G.T v).σa y) =
+        ((torusPairing D H v x y : ℂˣ) : ℂ) •
+          ((G.T v).σa y).comp ((G.T v).σa x) := by
+    rw [(G.T v).σa_mul, (G.T v).σa_mul, mul_comm y x, smul_smul]
+    congr 1
+    simp [torusPairing]
+  by_contra hne
+  apply hx
+  apply (G.alag_lagrangian v x).mpr
+  intro y hy
+  have h := congrArg
+    (fun f : (G.T v).V →ₗ[ℂ] (G.T v).V => G.lam v (f ((G.B v hv).e 0)))
+    (hcomm y)
+  simp only [LinearMap.comp_apply, LinearMap.smul_apply, map_smul, smul_eq_mul] at h
+  rw [hfixed y hy, G.lam_equiv v y hy, G.ω_tame v hv y hy, one_mul] at h
+  apply rootsOfUnity.coe_injective
+  exact (mul_eq_right₀ hne).mp h.symm
+
 end ArtinPrimitiveRoots.A1.Theta
