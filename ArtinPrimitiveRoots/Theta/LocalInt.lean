@@ -1338,7 +1338,83 @@ theorem derivVecC_rotate (m : ℤ) (s : ℂ) :
 
 theorem derivVecC_isSection (m : ℤ) (s : ℂ) :
     IsSectionC s (derivVecC m (sphC s)) ∧ Continuous (derivVecC m (sphC s)) := by
-  sorry
+  let χ : ℂˣ → ℂ := fun y =>
+    (Complex.normSq (y : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + s)
+  constructor
+  · intro x y g
+    refine QuotientGroup.induction_on g ?_
+    intro G
+    let G' : GL (Fin 2) ℂ := upperM ℂ x * diagM ℂ y * G
+    have hq : (QuotientGroup.mk (upperM ℂ x) : PGL2 ℂ) *
+        QuotientGroup.mk (diagM ℂ y) * QuotientGroup.mk G =
+          QuotientGroup.mk (upperM ℂ x * diagM ℂ y * G) := by
+      change (QuotientGroup.mk (upperM ℂ x) * QuotientGroup.mk (diagM ℂ y)) *
+        QuotientGroup.mk G = _
+      simp only [QuotientGroup.mk_mul]
+    have hsph : sphericalC s G' = χ y * sphericalC s G := by
+      have h := (sphC_isSection s).1 x y (QuotientGroup.mk G)
+      rw [hq, sphC_mk, sphC_mk] at h
+      exact h
+    have hrow0 : (G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0 =
+        (G : Matrix (Fin 2) (Fin 2) ℂ) 1 0 := by
+      simp [G', Matrix.GeneralLinearGroup.coe_mul, upperM, diagM,
+        Matrix.mul_apply, Fin.sum_univ_two]
+    have hrow1 : (G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1 =
+        (G : Matrix (Fin 2) (Fin 2) ℂ) 1 1 := by
+      simp [G', Matrix.GeneralLinearGroup.coe_mul, upperM, diagM,
+        Matrix.mul_apply, Fin.sum_univ_two]
+    change derivVecC m (sphC s) (QuotientGroup.mk G') =
+      χ y * derivVecC m (sphC s) (QuotientGroup.mk G)
+    rw [derivVecC_spherical_mk, derivVecC_spherical_mk]
+    simp only [hrow0, hrow1, hsph]
+    ring
+  · let B : GL (Fin 2) ℂ → ℝ := fun g =>
+      Complex.normSq ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0) +
+        Complex.normSq ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+    let Z : GL (Fin 2) ℂ → ℂ := fun g =>
+      ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0) *
+        star ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+    let rep : GL (Fin 2) ℂ → ℂ := fun g =>
+      -(2 * (1 + 2 * s) / (B g : ℂ)) * sphericalC s g *
+        (Complex.ofReal (Z g).re + (m : ℂ) * Complex.I * Complex.ofReal (Z g).im)
+    have hrep (g : GL (Fin 2) ℂ) :
+        derivVecC m (sphC s) (QuotientGroup.mk g) = rep g := by
+      simpa [rep, B, Z] using derivVecC_spherical_mk m s g
+    have hBcont : Continuous B := by
+      dsimp [B]
+      fun_prop
+    have hBpos (g : GL (Fin 2) ℂ) : 0 < B g := by
+      simpa [B] using sphC_bottom_norm_pos g
+    have hZcont : Continuous Z := by
+      dsimp [Z]
+      fun_prop
+    have hsphGL : Continuous (sphericalC s) := by
+      have hmk : Continuous (fun g : GL (Fin 2) ℂ =>
+          (QuotientGroup.mk g : PGL2 ℂ)) :=
+        (QuotientGroup.isQuotientMap_mk
+          (Subgroup.center (GL (Fin 2) ℂ))).continuous
+      have h := (sphC_isSection s).2.comp hmk
+      convert h using 1
+      funext g
+      exact (sphC_mk s g).symm
+    have hden (g : GL (Fin 2) ℂ) : (B g : ℂ) ≠ 0 := by
+      exact_mod_cast (ne_of_gt (hBpos g))
+    have hcoef : Continuous fun g : GL (Fin 2) ℂ =>
+        (2 * (1 + 2 * s) : ℂ) / (B g : ℂ) := by
+      exact continuous_const.div (Complex.continuous_ofReal.comp hBcont) hden
+    have hlin : Continuous fun g : GL (Fin 2) ℂ =>
+        Complex.ofReal (Z g).re + (m : ℂ) * Complex.I * Complex.ofReal (Z g).im := by
+      fun_prop
+    have hrepcont : Continuous rep := by
+      dsimp [rep]
+      exact hcoef.neg.mul hsphGL |>.mul hlin
+    have hcont : Continuous (derivVecC m (sphC s)) := by
+      apply (QuotientGroup.isQuotientMap_mk
+        (Subgroup.center (GL (Fin 2) ℂ))).continuous_iff.mpr
+      convert hrepcont using 1
+      funext g
+      exact hrep g
+    exact hcont
 
 /-- **jq:complex-sheet** (eq:theta-complex-bounds, T6 at complex places, `δ = 1/3`). -/
 theorem sheetHypC_bessel (m : ℤ) (hm : m = 1 ∨ m = -1) (c : ℂ) :
