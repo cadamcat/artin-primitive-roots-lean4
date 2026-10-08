@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Field
+import ArtinPrimitiveRoots.Hecke.Dict.WeakApproximation
 
 /-!
 Helper interfaces for the A1 S-lattice proof.  This module is intentionally separate from
@@ -35,6 +36,25 @@ theorem exists_principal_power_generator (v : HeightOneSpectrum (𝓞 F)) :
     (ClassGroup.mk0_eq_one_iff (mem_nonZeroDivisors_iff_ne_zero.mpr hn0)).mp hClassPow
   obtain ⟨a, ha⟩ := hPrincipal.principal
   exact ⟨a, ha.symm⟩
+
+theorem finite_diag_dense (S : ArtinPrimitiveRoots.A1.SData F CE condη) :
+    DenseRange (fun a : F => fun v : S.Sf => algebraMap F (v.1.adicCompletion F) a) := by
+  classical
+  let Sinf : Finset (InfinitePlace F) := ∅
+  have hweak := ArtinPrimitiveRoots.Dictionary.weakApproximation_denseRange
+    (K := F) S.Sf Sinf
+  have hproj : Function.Surjective
+      (@Prod.fst (∀ v : S.Sf, v.1.adicCompletion F)
+        (∀ w : {w : InfinitePlace F // w ∈ Sinf}, w.1.Completion)) :=
+    Prod.fst_surjective
+  simpa [Function.comp_def, Sinf] using
+    hproj.denseRange.comp hweak continuous_fst
+
+theorem s_integer_adjust (S : ArtinPrimitiveRoots.A1.SData F CE condη) (x : F) :
+    ∃ r : S.R, ∀ v : S.Sf,
+      algebraMap F (v.1.adicCompletion F) (x - (r : F)) ∈
+        v.1.adicCompletionIntegers F := by
+  sorry
 
 theorem s_integer_finite_approx (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (x : ∀ v : S.Sf, v.1.adicCompletion F) :
