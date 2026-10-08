@@ -387,6 +387,69 @@ theorem qs_p1_regularized_mellin_agrees (h : ℝ → ℂ) (hh : IsQSWeight h)
   rw [hsub.2, hciM, hiM]
   ring
 
+/-- The regularized Mellin transform is differentiable away from its simple pole at zero. -/
+theorem qs_p1_regularized_mellin_differentiable (h : ℝ → ℂ) (hh : IsQSWeight h)
+    (δ : ℝ) (hδ : 0 < δ)
+    (hconst : ∀ x ∈ Set.Icc (0 : ℝ) δ, h x = h 0) :
+    DifferentiableOn ℂ (qsP1Mellin h δ) {s : ℂ | s ≠ 0} := by
+  obtain ⟨B, hB⟩ := hh.2.1
+  let c : ℝ → ℂ := fun x => if x ≤ δ then h 0 else 0
+  let r : ℝ → ℂ := fun x => h x - c x
+  have hcLoc : LocallyIntegrable c := by
+    have hloc : LocallyIntegrable ((Set.Iic δ).indicator (fun _ : ℝ => h 0)) :=
+      (locallyIntegrable_const (h 0)).indicator
+        (measurableSet_Iic : MeasurableSet (Set.Iic δ))
+    have hcEq : c = (Set.Iic δ).indicator (fun _ : ℝ => h 0) := by
+      funext x
+      by_cases hx : x ≤ δ <;> simp [c, hx, Set.mem_Iic]
+    rw [hcEq]
+    exact hloc
+  have hrLoc : LocallyIntegrableOn r (Set.Ioi (0 : ℝ)) := by
+    have hhLoc : LocallyIntegrableOn h (Set.Ioi (0 : ℝ)) :=
+      hh.1.continuous.locallyIntegrable.locallyIntegrableOn (Set.Ioi (0 : ℝ))
+    have hcLoc' : LocallyIntegrableOn c (Set.Ioi (0 : ℝ)) :=
+      hcLoc.locallyIntegrableOn (Set.Ioi (0 : ℝ))
+    exact hhLoc.sub hcLoc'
+  have hrZeroTop : r =ᶠ[atTop] (fun _ : ℝ => (0 : ℂ)) := by
+    let B' : ℝ := max B δ + 1
+    filter_upwards [eventually_atTop.2 ⟨B', fun _ hx => hx⟩] with x hx
+    have hxmax : max B δ ≤ x := by dsimp [B'] at hx; linarith
+    have hxB : B ≤ x := (le_max_left B δ).trans hxmax
+    have hδx : δ < x := by
+      have hle : δ ≤ max B δ := le_max_right B δ
+      linarith
+    simp [r, c, hB x hxB, not_le.mpr hδx]
+  have hrZeroBot : r =ᶠ[nhdsWithin (0 : ℝ) (Set.Ioi 0)]
+      (fun _ : ℝ => (0 : ℂ)) := by
+    have hδevent : ∀ᶠ x : ℝ in nhdsWithin (0 : ℝ) (Set.Ioi 0), x < δ := by
+      rw [eventually_nhdsWithin_iff]
+      filter_upwards [isOpen_Iio.mem_nhds hδ] with x hx _
+      exact hx
+    filter_upwards [hδevent, (eventually_mem_nhdsWithin :
+        ∀ᶠ x : ℝ in nhdsWithin (0 : ℝ) (Set.Ioi 0), x ∈ Set.Ioi 0)] with x hxd hx
+    have hcx : x ∈ Set.Icc (0 : ℝ) δ := ⟨hx.le, hxd.le⟩
+    simp [r, c, hconst x hcx, hxd.le]
+  intro s hs
+  let a : ℝ := s.re + 1
+  let b : ℝ := s.re - 1
+  have hrTop : r =O[atTop] (fun x : ℝ => x ^ (-a)) :=
+    hrZeroTop.trans_isBigO (isBigO_zero (fun x : ℝ => x ^ (-a)) atTop)
+  have hrBot : r =O[nhdsWithin (0 : ℝ) (Set.Ioi 0)] (fun x : ℝ => x ^ (-b)) :=
+    hrZeroBot.trans_isBigO
+      (isBigO_zero (fun x : ℝ => x ^ (-b)) (nhdsWithin (0 : ℝ) (Set.Ioi 0)))
+  have hrDiff : DifferentiableAt ℂ (mellin r) s :=
+    mellin_differentiableAt_of_isBigO_rpow (a := a) (b := b) (s := s)
+      hrLoc hrTop (by dsimp [a]; linarith) hrBot (by dsimp [b]; linarith)
+  have hδc : (δ : ℂ) ≠ 0 := by exact_mod_cast hδ.ne'
+  have hterm : DifferentiableAt ℂ (fun z : ℂ => (δ : ℂ) ^ z * h 0 / z) s := by
+    have hpow : DifferentiableAt ℂ (fun z : ℂ => (δ : ℂ) ^ z) s :=
+      differentiableAt_id.const_cpow (Or.inl hδc)
+    exact (hpow.mul_const (h 0)).div differentiableAt_id hs
+  change DifferentiableWithinAt ℂ (fun z : ℂ =>
+    mellin (fun x : ℝ => h x - (if x ≤ δ then h 0 else 0)) z +
+      (δ : ℂ) ^ z * h 0 / z) {z : ℂ | z ≠ 0} s
+  exact (hrDiff.add hterm).differentiableWithinAt
+
 private theorem qs_p1_mellin_eq_fourier_line (h : ℝ → ℂ) (t : ℝ) :
     mellin h ((2 : ℂ) + (t : ℂ) * Complex.I) =
       𝓕 (qsP1LogKernel h) (t / (2 * Real.pi)) := by
