@@ -1501,6 +1501,71 @@ private theorem conductorQuotientIdeal_comap_properties
   rw [hnorm]
   simpa only [mul_one] using Nat.mul_lt_mul_of_pos_left hDgt hKpos
 
+open scoped Topology in
+private theorem conductorLocalInteger_approximation
+    (v : A1.FinPlace F) (x : v.adicCompletionIntegers F) (n : ℕ) :
+    ∃ b : 𝓞 F,
+      Valued.v (algebraMap F (v.adicCompletion F) (b : F) -
+        (x : v.adicCompletion F)) < WithZero.exp (-(n : ℤ)) := by
+  classical
+  let V : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ)) := Valued.v
+  let delta := WithZero.exp (-(n : ℤ))
+  let z : v.adicCompletion F := algebraMap F (v.adicCompletion F) (A1.unif v ^ n)
+  have hpi : v.valuation F (A1.unif v) = WithZero.exp (-1 : ℤ) := by
+    simpa [A1.unif] using (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hz : V z = delta := by
+    calc
+      V z = v.valuation F (A1.unif v ^ n) :=
+        v.valuedAdicCompletion_eq_valuation' _
+      _ = WithZero.exp (-1 : ℤ) ^ n := by rw [map_pow, hpi]
+      _ = delta := by
+        rw [← WithZero.exp_nsmul]
+        simp [delta]
+  have hzrestrict : V.restrict z ≠ 0 := by
+    intro h
+    have hzero : V z = 0 := V.restrict_eq_zero_iff.mp h
+    rw [hz] at hzero
+    exact WithZero.exp_ne_zero hzero
+  have hdelta : delta ≤ 1 := by
+    change WithZero.exp (-(n : ℤ)) ≤ 1
+    rw [← WithZero.exp_zero, WithZero.exp_le_exp]
+    omega
+  let W : Set (v.adicCompletion F) :=
+    {y | V (y - (x : v.adicCompletion F)) < delta}
+  have hW : W ∈ 𝓝 (x : v.adicCompletion F) := by
+    apply Valued.mem_nhds.mpr
+    refine ⟨Units.mk0 (V.restrict z) hzrestrict, ?_⟩
+    intro y hy
+    change V (y - (x : v.adicCompletion F)) < delta
+    exact (V.restrict_lt_iff.mp hy).trans_eq hz
+  obtain ⟨y, hy⟩ := (v.denseRange_algebraMap F).mem_nhds hW
+  change V (algebraMap F (v.adicCompletion F) y - (x : v.adicCompletion F)) < delta at hy
+  have hxval : V (x : v.adicCompletion F) ≤ 1 := by
+    have hx := x.property
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers] at hx
+    exact hx
+  have hyval : V (algebraMap F (v.adicCompletion F) y) ≤ 1 := by
+    have h := V.map_add_le (hy.le.trans hdelta) hxval
+    simpa only [sub_add_cancel] using h
+  have hyF : v.valuation F y ≤ 1 :=
+    (v.valuedAdicCompletion_eq_valuation' y).symm.trans_le hyval
+  let gamma : (WithZero (Multiplicative ℤ))ˣ := Units.mk0 delta WithZero.exp_ne_zero
+  obtain ⟨b, hb⟩ := v.exists_valuation_sub_lt_of_integer hyF gamma
+  have hbval : V (algebraMap F (v.adicCompletion F) (b : F) -
+      algebraMap F (v.adicCompletion F) y) < delta := by
+    rw [← map_sub]
+    exact (v.valuedAdicCompletion_eq_valuation' ((b : F) - y)).trans_lt hb
+  refine ⟨b, ?_⟩
+  change V (algebraMap F (v.adicCompletion F) (b : F) - (x : v.adicCompletion F)) < delta
+  calc
+    V (algebraMap F (v.adicCompletion F) (b : F) - (x : v.adicCompletion F)) =
+        V ((algebraMap F (v.adicCompletion F) (b : F) -
+          algebraMap F (v.adicCompletion F) y) +
+          (algebraMap F (v.adicCompletion F) y - (x : v.adicCompletion F))) := by
+            congr 1
+            ring
+    _ < delta := V.map_add_lt hbval hy
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
