@@ -15,6 +15,7 @@ import ArtinPrimitiveRoots.Proofs.qs_c_p.C3DualHighDivExpand
 import ArtinPrimitiveRoots.Proofs.qs_c_p.C3DualHighDivBound
 import ArtinPrimitiveRoots.Proofs.qs_c_p.C3DualResShell
 import ArtinPrimitiveRoots.Proofs.qs_c_p.C3DualResExpand
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3DualResBound
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C3.Main
 
 /-!
