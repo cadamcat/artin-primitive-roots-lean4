@@ -231,4 +231,30 @@ theorem normalized_quadratic_gauss_sq (φ : MulChar k ℂ) (ψ : AddChar k ℂ)
     _ = c ^ 2 * n := by rw [hsq]
     _ = 1 := hc
 
+theorem quadraticComplex_unique (φ : MulChar k ℂ) (hφ : φ ≠ 1)
+    (hφ2 : φ ^ 2 = 1) (hodd : ringChar k ≠ 2) :
+    φ = quadraticComplex (k := k) := by
+  classical
+  obtain ⟨g, hg⟩ := IsCyclic.exists_generator (α := kˣ)
+  simp_rw [← mem_powers_iff_mem_zpowers] at hg
+  have hext (μ ν : MulChar k ℂ) (h : μ g = ν g) : μ = ν := by
+    apply MulChar.ext
+    intro u
+    obtain ⟨n, rfl⟩ := hg u
+    rw [Units.val_pow_eq_pow_val, map_pow, map_pow, h]
+  have hgen (μ : MulChar k ℂ) (hμ : μ ≠ 1) (hμ2 : μ ^ 2 = 1) : μ g = -1 := by
+    have hsq : μ g ^ 2 = 1 := by
+      rw [← MulChar.pow_apply_coe, hμ2, MulChar.one_apply_coe]
+    rcases sq_eq_one_iff.mp hsq with h | h
+    · exact (hμ (hext μ 1 (by simpa only [MulChar.one_apply_coe] using h))).elim
+    · exact h
+  have hq : quadraticComplex (k := k) ≠ 1 := by
+    change (quadraticChar k).ringHomComp (Int.castRingHom ℂ) ≠ 1
+    exact (MulChar.ringHomComp_ne_one_iff Int.cast_injective).mpr
+      (quadraticChar_ne_one hodd)
+  have hq2 : quadraticComplex (k := k) ^ 2 = 1 := by
+    exact ((quadraticChar_isQuadratic k).comp (Int.castRingHom ℂ)).sq_eq_one
+  apply hext
+  rw [hgen φ hφ hφ2, hgen (quadraticComplex (k := k)) hq hq2]
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
