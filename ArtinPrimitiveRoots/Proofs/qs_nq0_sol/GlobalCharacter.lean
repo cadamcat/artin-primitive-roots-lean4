@@ -88,4 +88,23 @@ theorem qs_nq0_quadratic_character_exists (D : FieldData K) (H : HilbertData K)
       (u : v.adicCompletion K)
     exact RestrictedProduct.mulSingle_eq_same _ _ _
 
+/-- Select the quadratic Hilbert character for each ideal-indexed generator. -/
+theorem qs_nq0_quadratic_local_realization (D : FieldData K)
+    (H : HilbertData K) (a : Ideal (𝓞 K) → Kˣ) :
+    ∃ χ : Ideal (𝓞 K) → HeckeChar K,
+      (∀ I, χ I ^ 2 = 1) ∧
+      (∀ I (w : InfinitePlace K) (u : w.Completionˣ), (χ I).locInf w u = 1) ∧
+      (∀ I (v : FinPlace K) (u : (v.adicCompletion K)ˣ),
+        (((χ I).loc v u : ℂˣ) : ℂ) =
+          D.σ0 (((H.hilb v (toLoc v (a I)) u : Kˣ) : K)) ^ 3) := by
+  classical
+  let χ (I : Ideal (𝓞 K)) : HeckeChar K :=
+    (qs_nq0_quadratic_character_exists D H (a I)).choose
+  have hχ (I : Ideal (𝓞 K)) :=
+    (qs_nq0_quadratic_character_exists D H (a I)).choose_spec
+  refine ⟨χ, fun I => (hχ I).1, fun I w u => (hχ I).2.1 w u, ?_⟩
+  intro I v u
+  rw [(hχ I).2.2 v]
+  rfl
+
 end ArtinPrimitiveRoots.A2
