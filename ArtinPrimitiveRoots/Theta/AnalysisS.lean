@@ -238,6 +238,65 @@ private theorem thsol_multiplier_continuous (m : S.FS → ℂ) (hm : SheetMultip
   have hChar := L.cont.zpow₀ k (fun y => Or.inl (L.L y).ne_zero)
   simpa only [hmval, Pi.mul_def] using hChar.mul hbCont
 
+private theorem thsol_multiplier_measurable (m : S.FS → ℂ) (hm : SheetMultiplier S m) :
+    ContinuousOn m {y : S.FS | (∀ v : S.Sf, y.1 v ≠ 0) ∧
+      ∀ w : InfinitePlace F, y.2 w ≠ 0} ∧
+    Measurable (fun y : S.FS => if (∀ v : S.Sf, y.1 v ≠ 0) ∧
+      (∀ w : InfinitePlace F, y.2 w ≠ 0) then m y else 0) := by
+  let U : Set S.FS := {y | (∀ v : S.Sf, y.1 v ≠ 0) ∧ ∀ w : InfinitePlace F, y.2 w ≠ 0}
+  let lift : U → S.FSˣ := fun y =>
+    ⟨y.1, ((fun v => (y.1.1 v)⁻¹), (fun w => (y.1.2 w)⁻¹)), by
+      apply Prod.ext
+      · funext v
+        exact mul_inv_cancel₀ (y.property.1 v)
+      · funext w
+        exact mul_inv_cancel₀ (y.property.2 w), by
+      apply Prod.ext
+      · funext v
+        exact inv_mul_cancel₀ (y.property.1 v)
+      · funext w
+        exact inv_mul_cancel₀ (y.property.2 w)⟩
+  have hlift : Continuous lift := by
+    apply Units.continuous_iff.mpr
+    refine ⟨continuous_subtype_val, ?_⟩
+    apply Continuous.prodMk
+    · apply continuous_pi
+      intro v
+      exact ((continuous_apply v).comp (continuous_fst.comp continuous_subtype_val)).inv₀
+        (fun y => y.property.1 v)
+    · apply continuous_pi
+      intro w
+      exact ((continuous_apply w).comp (continuous_snd.comp continuous_subtype_val)).inv₀
+        (fun y => y.property.2 w)
+  have hcont : ContinuousOn m U :=
+    continuousOn_iff_continuous_domRestrict.mpr
+      ((thsol_multiplier_continuous S m hm).comp hlift)
+  let _ : ∀ v : S.Sf, ProperSpace (v.1.adicCompletion F) := fun v => by
+    let K := v.1.adicCompletion F
+    let O := v.1.adicCompletionIntegers F
+    let _ : Finite (IsLocalRing.ResidueField O) :=
+      Finite.of_equiv _ (v.1.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+    exact (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing O),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField O))⟩
+  have hUopen : IsOpen U := by
+    have hf : IsOpen {y : S.FS | ∀ v : S.Sf, y.1 v ≠ 0} := by
+      convert isOpen_iInter_of_finite (fun v : S.Sf =>
+        (isClosed_singleton : IsClosed ({(0 : v.1.adicCompletion F)} : Set _)).isOpen_compl.preimage
+          ((continuous_apply v).comp continuous_fst)) using 1
+      ext y
+      simp
+    have hc : IsOpen {y : S.FS | ∀ w : InfinitePlace F, y.2 w ≠ 0} := by
+      convert isOpen_iInter_of_finite (fun w : InfinitePlace F =>
+        (isClosed_singleton : IsClosed ({(0 : ℂ)} : Set ℂ)).isOpen_compl.preimage
+          ((continuous_apply w).comp continuous_snd)) using 1
+      ext y
+      simp
+    exact hf.inter hc
+  refine ⟨hcont, ?_⟩
+  exact hcont.measurable_piecewise continuousOn_const hUopen.measurableSet
+
 set_option maxHeartbeats 800000 in
 private theorem thsol_profile_weighted [IsTotallyComplex F]
     (μ : ∀ v : FinPlace F, LocHaar v) (v0 : InfinitePlace F)
