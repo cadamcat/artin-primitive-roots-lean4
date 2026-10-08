@@ -105,4 +105,52 @@ theorem qs_nq0_count_spanSingleton_eq_neg_log_valuation (v : FinPlace K)
     WithZero.log_div (v.intValuation_ne_zero n hn) (v.intValuation_ne_zero (d : 𝓞 K) hd)]
   ring
 
+/-!
+The principal-unit residue bridge has this exact signature:
+```
+theorem qs_nq0_residue_eq_one_of_valuation_sub_one_lt_one
+    (v : FinPlace K) (x : K)
+    (hx : v.valuation K (x - 1) < 1) :
+    residue v x = 1
+```
+-/
+
+/-- A global element congruent to one in the local valuation has residue one. -/
+theorem qs_nq0_residue_eq_one_of_valuation_sub_one_lt_one
+    (v : FinPlace K) (x : K)
+    (hx : v.valuation K (x - 1) < 1) :
+    residue v x = 1 := by
+  classical
+  let : v.asIdeal.IsMaximal := v.isMaximal
+  let : Field (𝓞 K ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  have hxval : v.valuation K x = 1 := by
+    have h := (v.valuation K).map_eq_of_sub_lt (x := (1 : K)) (y := x)
+      (by simpa only [map_one] using hx)
+    simpa only [map_one] using h
+  unfold residue
+  split_ifs with h
+  · have hdv : v.valuation K (algebraMap (𝓞 K) K h.choose.2) = 1 :=
+      v.valuation_eq_one_iff_notMem.mpr h.choose_spec.1
+    have hdq : Ideal.Quotient.mk v.asIdeal h.choose.2 ≠ 0 :=
+      (not_congr Ideal.Quotient.eq_zero_iff_mem).mpr h.choose_spec.1
+    have hdiff : algebraMap (𝓞 K) K (h.choose.1 - h.choose.2) =
+        (x - 1) * algebraMap (𝓞 K) K h.choose.2 := by
+      rw [map_sub, ← h.choose_spec.2]
+      ring
+    have hmem : h.choose.1 - h.choose.2 ∈ v.asIdeal := by
+      apply (v.valuation_lt_one_iff_mem (K := K) _).mp
+      change v.valuation K (algebraMap (𝓞 K) K (h.choose.1 - h.choose.2)) < 1
+      rw [hdiff, map_mul, hdv, mul_one]
+      exact hx
+    have hquot : Ideal.Quotient.mk v.asIdeal h.choose.1 =
+        Ideal.Quotient.mk v.asIdeal h.choose.2 := by
+      apply sub_eq_zero.mp
+      rw [← map_sub, Ideal.Quotient.eq_zero_iff_mem]
+      exact hmem
+    rw [hquot]
+    exact mul_inv_cancel₀ hdq
+  · obtain ⟨n, d, hnd⟩ :=
+      v.exists_primeCompl_mul_eq_of_integer x (le_of_eq hxval)
+    exact (h ⟨(n, (d : 𝓞 K)), d.property, hnd⟩).elim
+
 end ArtinPrimitiveRoots.A2
