@@ -1965,6 +1965,26 @@ private theorem ppPrimeMellinKernel_differentiableAt
   exact mellin_differentiableAt_of_isBigO_rpow (a := 1) (b := -1)
     hfc hf_top' hz'.2 hf_bot' hz'.1
 
+private theorem ppPrimeDirichletLogDeriv_analyticOnNhd
+    {q : ℕ} (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    {S : Set ℂ} (hS : S ⊆ ({1} : Set ℂ)ᶜ)
+    (hzero : ∀ s ∈ S, dirichletLValue q hq χ s ≠ 0) :
+    AnalyticOnNhd ℂ
+      (fun s : ℂ => deriv (dirichletLValue q hq χ) s /
+        dirichletLValue q hq χ s) S := by
+  letI : NeZero q := ⟨Nat.ne_of_gt hq⟩
+  have hLanalytic : AnalyticOnNhd ℂ
+      (fun s : ℂ => dirichletLValue q hq χ s) ({1} : Set ℂ)ᶜ := by
+    refine DifferentiableOn.analyticOnNhd ?_ isOpen_compl_singleton
+    intro s hs
+    change DifferentiableWithinAt ℂ (DirichletCharacter.LFunction χ) ({1} : Set ℂ)ᶜ s
+    exact (DirichletCharacter.differentiableAt_LFunction χ s (Or.inl hs)).differentiableWithinAt
+  have hLanalyticS : AnalyticOnNhd ℂ
+      (fun s : ℂ => dirichletLValue q hq χ s) S := by
+    intro s hs
+    exact hLanalytic s (hS hs)
+  exact hLanalyticS.deriv.div hLanalyticS hzero
+
 /- Zero-free input passed from `PP.Results`, which imports this plan module. -/
 def ppPrimeZeroFree (C : ℝ) : Prop :=
     0 < C →
