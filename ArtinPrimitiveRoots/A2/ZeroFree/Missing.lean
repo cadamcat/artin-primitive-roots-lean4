@@ -3624,6 +3624,147 @@ private theorem dyadic_power_tail_sum (p x : ℝ) (hp : p < 0) (hx : 1 ≤ x) :
       mul_le_mul_of_nonneg_right hpowLe (inv_nonneg.mpr (by linarith))
     _ = _ := (div_eq_mul_inv _ _).symm
 
+include HA HC ZD in
+private theorem nonprincipalDyad_range_bounds (hEuler : EulerHypotheses R η) :
+    ∃ Cs Ce Cg Cf Z0 : ℝ, 0 < Cs ∧ 0 < Ce ∧ 0 < Cg ∧ 0 < Cf ∧ 2 ≤ Z0 ∧
+      ∀ Z T : ℝ, Z0 ≤ Z → 1 ≤ T →
+      (T ≤ Z ^ (9 / 100 : ℝ) →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Cs * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (11 / 10 + 1 / 100000 : ℝ)) ∧
+      (Z ^ (9 / 100 : ℝ) < T → T ≤ Z ^ (10001 / 100000 : ℝ) →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Ce * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (6 / 10 + 1 / 100000 : ℝ) +
+          Cg * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+            T ^ (11 / 10 + 1 / 100000 : ℝ) +
+          Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (-9 / 10 + 1 / 100000 : ℝ)) ∧
+      (Z ^ (10001 / 100000 : ℝ) < T →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Cf * Z ^ (3849 / 1000 + (1 / 10 : ℝ) * 350000) *
+            T ^ (1 - (350000 : ℝ) + 1 / 100000)) := by
+  classical
+  obtain ⟨Ccount, hCcount, hcount⟩ :=
+    (frequency_norm_count_from_data S D η U).2.2
+  obtain ⟨Cs, hCs, hsmall⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler 1 Ccount (1 / 100000) (by norm_num) hCcount (by norm_num)
+  obtain ⟨Ce, hCe, hexc⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler (1 / 2) ZD.Cexc (1 / 100000) (by norm_num) ZD.Cexc_pos (by norm_num)
+  let A1 : ℝ := 2 / ZD.ρ
+  have hA1 : 1 / ZD.ρ < A1 := by
+    dsimp [A1]
+    exact div_lt_div_of_pos_right (by norm_num : (1 : ℝ) < 2) ZD.ρ_pos
+  have hρA1 : ZD.ρ * A1 = 2 := by
+    dsimp [A1]
+    field_simp [ne_of_gt ZD.ρ_pos]
+  obtain ⟨Cg, Zg, hCg, hZg, hgood⟩ := zf_intermediate_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    (ZD := ZD) hEuler (1 / 100000) A1 (by norm_num) hA1
+  obtain ⟨Cf, hCf, hfar⟩ := zf_far_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U)
+    hEuler (1 / 100000) (by norm_num)
+  let Z0 : ℝ := max Zg (ZD.U0 ^ (100 / 9 : ℝ))
+  refine ⟨Cs, Ce, Cg, Cf, Z0, hCs, hCe, hCg, hCf,
+    hZg.trans (le_max_left _ _), ?_⟩
+  intro Z T hZ hT
+  have hZZg : Zg ≤ Z := (le_max_left _ _).trans hZ
+  have hZ2 : 2 ≤ Z := hZg.trans hZZg
+  have hZpos : 0 < Z := by linarith
+  have hTpos : 0 < T := by linarith
+  have hOnset : ZD.U0 ≤ Z ^ (9 / 100 : ℝ) := by
+    have hbase : ZD.U0 ^ (100 / 9 : ℝ) ≤ Z := (le_max_right _ _).trans hZ
+    calc
+      ZD.U0 = (ZD.U0 ^ (100 / 9 : ℝ)) ^ (9 / 100 : ℝ) := by
+        rw [← Real.rpow_mul (by linarith [ZD.U0_two])]
+        norm_num
+      _ ≤ Z ^ (9 / 100 : ℝ) := Real.rpow_le_rpow
+        (Real.rpow_nonneg (by linarith [ZD.U0_two]) _) hbase (by norm_num)
+  have hrows : ∀ u ∈ DE.rows T, u ≠ U.one ∧ u ∈ frequencyDyad η U T :=
+    fun u hu => (DE.mem_rows T hT u).1 hu
+  have hcard : ((DE.rows T).card : ℝ) ≤ Ccount * T ^ (1 : ℝ) := by
+    obtain ⟨hfin, hbound⟩ := hcount T hT
+    have hsub : DE.rows T ⊆ hfin.toFinset := by
+      intro u hu
+      exact hfin.mem_toFinset.mpr (hrows u hu).2
+    calc
+      _ ≤ (hfin.toFinset.card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+      _ ≤ Ccount * T := by
+        simpa only [Set.ncard_eq_toFinset_card _ hfin] using hbound
+      _ = _ := by rw [Real.rpow_one]
+  refine ⟨?_, ?_, ?_⟩
+  · intro hsmallRange
+    have hs := (hsmall T Z hT hZ2 (DE.rows T) hrows hcard).2
+    convert hs using 1 <;> congr 1 <;> ring
+  · intro hTlo hThi
+    have hU0 : ZD.U0 ≤ T := hOnset.trans hTlo.le
+    have hT2 : 2 ≤ T := ZD.U0_two.trans hU0
+    let bad : Finset U.U := (DE.rows T).filter (fun u => u ∈ ZD.E T)
+    let good : Finset U.U := (DE.rows T).filter (fun u => u ∉ ZD.E T)
+    have hbadSub : bad ⊆ DE.rows T := Finset.filter_subset _ _
+    have hgoodSub : good ⊆ DE.rows T := Finset.filter_subset _ _
+    have hbadRows : ∀ u ∈ bad, u ≠ U.one ∧ u ∈ frequencyDyad η U T :=
+      fun u hu => hrows u (hbadSub hu)
+    have hgoodRows : ∀ u ∈ good,
+        u ≠ U.one ∧ u ∈ frequencyDyad η U T ∧ u ∉ ZD.E T := by
+      intro u hu
+      exact ⟨(hrows u (hgoodSub hu)).1, (hrows u (hgoodSub hu)).2,
+        (Finset.mem_filter.mp hu).2⟩
+    have hbadCard : (bad.card : ℝ) ≤ ZD.Cexc * T ^ (1 / 2 : ℝ) := by
+      have hsub : bad ⊆ ZD.E T := by
+        intro u hu
+        exact (Finset.mem_filter.mp hu).2
+      calc
+        _ ≤ ((ZD.E T).card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+        _ ≤ _ := ZD.E_count T hU0
+    have hbadBound : ‖rowContribution R sd W η U bad Z‖ ≤
+        Ce * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (6 / 10 + 1 / 100000 : ℝ) := by
+      have hb := (hexc T Z hT hZ2 bad hbadRows hbadCard).2
+      convert hb using 1 <;> congr 1 <;> ring
+    have hg := hgood Z T hZZg hTlo hThi hU0 good hgoodRows
+    have hrem : ‖rowContribution R sd W η U good Z -
+        goodCentral R sd W η U HA HC ZD good T Z‖ ≤
+        Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (-9 / 10 + 1 / 100000 : ℝ) := by
+      have hr := hg.2
+      rw [hρA1] at hr
+      convert hr using 1 <;> congr 1 <;> ring
+    have hgoodBound : ‖rowContribution R sd W η U good Z‖ ≤
+        Cg * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+          T ^ (11 / 10 + 1 / 100000 : ℝ) +
+        Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (-9 / 10 + 1 / 100000 : ℝ) := by
+      calc
+        _ ≤ ‖goodCentral R sd W η U HA HC ZD good T Z‖ +
+            ‖rowContribution R sd W η U good Z -
+              goodCentral R sd W η U HA HC ZD good T Z‖ := by
+          simpa only [norm_sub_rev] using
+            norm_le_insert (goodCentral R sd W η U HA HC ZD good T Z)
+              (rowContribution R sd W η U good Z)
+        _ ≤ _ := add_le_add hg.1 hrem
+    have hsplit : rowContribution R sd W η U (DE.rows T) Z =
+        rowContribution R sd W η U bad Z + rowContribution R sd W η U good Z := by
+      rw [rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+        (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 (DE.rows T) hrows,
+        rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+          (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 bad hbadRows,
+        rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+          (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 good
+            (fun u hu => hrows u (hgoodSub hu))]
+      exact (Finset.sum_filter_add_sum_filter_not (DE.rows T)
+        (fun u => u ∈ ZD.E T) (fun u => rowContribution R sd W η U {u} Z)).symm
+    change ‖rowContribution R sd W η U (DE.rows T) Z‖ ≤ _
+    rw [hsplit]
+    calc
+      _ ≤ ‖rowContribution R sd W η U bad Z‖ + ‖rowContribution R sd W η U good Z‖ :=
+        norm_add_le _ _
+      _ ≤ _ := by simpa only [add_assoc] using add_le_add hbadBound hgoodBound
+  · intro hfarRange
+    exact hfar Z T hZ2 hfarRange (DE.rows T) hrows
+
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
