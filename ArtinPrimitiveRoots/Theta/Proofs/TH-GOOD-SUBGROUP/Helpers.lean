@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Helpers
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GOOD-SUBGROUP».ProjectedCongruence
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GOOD-SUBGROUP».FiniteRational
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GOOD-SUBGROUP».LevelHom
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-GOOD-SUBGROUP».Multiplier
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
