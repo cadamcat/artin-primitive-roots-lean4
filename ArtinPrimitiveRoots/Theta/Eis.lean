@@ -3,7 +3,7 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalWhit
-
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.Cosets
 set_option autoImplicit false
 
 open NumberField IsDedekindDomain
@@ -131,7 +131,25 @@ theorem eisenstein_automorphic (P : CoverPackage D S H A) (G : GlobalDatum P) {s
     (∀ ζ g, eisenstein P G Fs (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * eisenstein P G Fs g) ∧
     (∀ k : P.tc.G, (∀ h, scalarOf P G Fs.f Fs.fC (h * k) = scalarOf P G Fs.f Fs.fC h) →
       ∀ g, eisenstein P G Fs (g * k) = eisenstein P G Fs g) := by
-  sorry
+  refine ⟨?_, ?_, ?_⟩
+  · intro γ g
+    exact leftCosetSum_rightTranslate (Bstar G) P.tc.rat
+      (scalarOf P G Fs.f Fs.fC) (scalarOf_invariance P G Fs).1 γ g
+  · intro ζ g
+    unfold eisenstein
+    calc
+      _ = ∑' q : Quotient (QuotientGroup.rightRel (Bstar G)),
+          ((ζ : ℂˣ) : ℂ) * scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out q) * g) := by
+        apply tsum_congr
+        intro q
+        rw [← mul_assoc, ← P.tc.z_central ζ, mul_assoc]
+        exact (scalarOf_invariance P G Fs).2.2.2 ζ _
+      _ = _ := tsum_mul_left
+  · intro k hk g
+    unfold eisenstein
+    apply tsum_congr
+    intro q
+    simpa only [← mul_assoc] using hk (P.tc.rat (Quotient.out q) * g)
 
 /-- The infinite embedding `F → ℂ^{places}`. -/
 def infEmbA : F →+* (InfinitePlace F → ℂ) := RingHom.pi fun w => w.embedding
