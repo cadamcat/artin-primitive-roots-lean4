@@ -336,6 +336,91 @@ private theorem covol_absS_diag_sunit_eq_one_core (D : FieldData F)
   have hnorm := absS_diag_eq_norm_core D S ((u : Fˣ) : F) ⊤ hI hx
   simpa using hnorm
 
+theorem covol_sunit_prime_power_core (S : SData F CE condη) (v : S.Sf) :
+    ∃ t : S.US, ∀ w : S.Sf,
+      Valued.v (algebraMap F (w.1.adicCompletion F) ((t : Fˣ) : F)) =
+        if w.1 = v.1 then
+          WithZero.exp (Fintype.card (ClassGroup (𝓞 F)) : ℤ) else 1 := by
+  classical
+  let N := Fintype.card (ClassGroup (𝓞 F))
+  obtain ⟨a, ha⟩ := exists_principal_power_generator v.1
+  have hNpow : v.1.asIdeal ^ N ≠ ⊥ := pow_ne_zero _ v.1.ne_bot
+  have ha0 : a ≠ 0 := by
+    intro ha0
+    apply hNpow
+    rw [← ha, ha0]
+    simp
+  have haF0 : (algebraMap (𝓞 F) F a) ≠ 0 := by
+    intro h
+    apply ha0
+    exact FaithfulSMul.algebraMap_injective (𝓞 F) F (by simpa using h)
+  let aUnit : Fˣ := Units.mk0 (algebraMap (𝓞 F) F a) haF0
+  let t0 : Fˣ := aUnit⁻¹
+  have hcount (w : FinPlace F) :
+      FractionalIdeal.count F w (Ideal.span {a} : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+        if w = v.1 then (N : ℤ) else 0 := by
+    rw [ha, FractionalIdeal.coeIdeal_pow]
+    by_cases hwv : w = v.1
+    · subst w
+      simpa using (FractionalIdeal.count_pow_self (K := F) v.1 N)
+    · have hvw : v.1 ≠ w := Ne.symm hwv
+      rw [FractionalIdeal.count_pow, FractionalIdeal.count_maximal_coprime F w hvw]
+      simp [hwv]
+  have hcountA (w : FinPlace F) :
+      FractionalIdeal.count F w
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F))
+          (algebraMap (𝓞 F) F a)) = if w = v.1 then (N : ℤ) else 0 := by
+    rw [← FractionalIdeal.coeIdeal_span_singleton]
+    exact hcount w
+  have hlogA (w : FinPlace F) :
+      WithZero.log (w.valuation F (algebraMap (𝓞 F) F a)) =
+        -(if w = v.1 then (N : ℤ) else 0) := by
+    have h := count_spanSingleton_eq_neg_log_valuation_addchar w
+      (algebraMap (𝓞 F) F a) haF0
+    rw [hcountA w] at h
+    omega
+  have hvalA (w : FinPlace F) :
+      w.valuation F (algebraMap (𝓞 F) F a) =
+        WithZero.exp (-(if w = v.1 then (N : ℤ) else 0)) := by
+    have hne : w.valuation F (algebraMap (𝓞 F) F a) ≠ 0 :=
+      (w.valuation F).ne_zero_iff.mpr haF0
+    calc
+      w.valuation F (algebraMap (𝓞 F) F a) =
+          WithZero.exp (WithZero.log (w.valuation F (algebraMap (𝓞 F) F a))) :=
+            (WithZero.exp_log hne).symm
+      _ = _ := by rw [hlogA]
+  have hvalT (w : FinPlace F) :
+      w.valuation F ((t0 : Fˣ) : F) =
+        WithZero.exp (if w = v.1 then (N : ℤ) else 0) := by
+    have hvalUnit : w.valuation F ((aUnit : Fˣ) : F) =
+        WithZero.exp (-(if w = v.1 then (N : ℤ) else 0)) := by
+      simpa [aUnit] using hvalA w
+    calc
+      w.valuation F ((t0 : Fˣ) : F) =
+          (w.valuation F ((aUnit : Fˣ) : F))⁻¹ := by simp [t0]
+      _ = (WithZero.exp (-(if w = v.1 then (N : ℤ) else 0)))⁻¹ := by rw [hvalUnit]
+      _ = WithZero.exp (if w = v.1 then (N : ℤ) else 0) := by
+        rw [WithZero.exp_neg]
+        simp
+  have htMem : ∀ w : FinPlace F, w ∉ S.Sf →
+      w.valuation F ((t0 : Fˣ) : F) = 1 := by
+    intro w hw
+    have hwv : w ≠ v.1 := by
+      intro h
+      apply hw
+      simpa [h] using v.2
+    rw [hvalT w, if_neg hwv]
+    simp
+  let t : S.US := ⟨t0, htMem⟩
+  refine ⟨t, ?_⟩
+  intro w
+  change Valued.v (algebraMap F (w.1.adicCompletion F) ((t0 : Fˣ) : F)) = _
+  change Valued.v (((t0 : Fˣ) : F) : w.1.adicCompletion F) = _
+  rw [w.1.valuedAdicCompletion_eq_valuation']
+  by_cases h : w.1 = v.1
+  · simpa [h, N] using hvalT w.1
+  · simpa [h, N] using hvalT w.1
+
 open Module NumberField.Units NumberField.Units.dirichletUnitTheorem
 
 theorem covol_unit_balance_core (D : FieldData F)
