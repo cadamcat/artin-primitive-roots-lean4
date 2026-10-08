@@ -15,6 +15,9 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CubeAdjoint
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ScaleDecay
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelTranspose
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedColumns
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RawAnchor
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.GeometricSum
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Atoms
@@ -6177,6 +6180,28 @@ theorem dirty_raw (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
   classical
   intro K hK F hF ρ hρ
   obtain ⟨xμ, hxμ, hMeasure⟩ := pd4c_memMeasure_nonneg_eventually F hF
+  have hrows : ∃ v C c xr : ℝ, 1 < v ∧ 0 < C ∧ 0 < c ∧ 2 ≤ xr ∧
+      ∀ S : PDScale, S.Valid K δ c₁ c₂ → xr ≤ S.x →
+        let D := (memoryCutoff S : ℝ) / (S.M : ℝ) ^ K +
+          (memoryCutoff S : ℝ) ^ K * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ))
+        ∀ w : ArchRoot, w.InRegion S → ∀ j : ℕ, ∀ St Pr : Finset (Fin K),
+          MemRowSchurLE_sym F S (memoryCutoff S) (memEdgePiece F S ρ w true St Pr j) v
+            (if Pr.Nonempty then C * D else C) := by
+    sorry
+  obtain ⟨v, Cr, c, xr, hv, hCr, hc, hxr, hRows⟩ := hrows
+  obtain ⟨xV, hxV, hV⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBands⟩ := pd4c_validBands_disjoint_eventually K F.a hF.1
+  let lo := Real.log 2 / 2
+  let hi := 2 * Real.log 2
+  let Cτ := (max 1 hi / min 1 lo) ^ K
+  have hlo : 0 < lo := div_pos (Real.log_pos (by norm_num)) (by norm_num)
+  have hCτ : 0 < Cτ := pow_pos (div_pos
+    (lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1) (le_max_left _ _))
+    (lt_min (by norm_num) hlo)) _
+  let Ctable := (1 + Cτ) * Cr
+  have hCtable : 0 < Ctable := mul_pos (by linarith) hCr
+  have hCrTable : Cr ≤ Ctable := by dsimp [Ctable]; nlinarith
+  have hCτCrTable : Cτ * Cr ≤ Ctable := by dsimp [Ctable]; nlinarith
   have htable : ∃ v C c x₁ : ℝ, 1 < v ∧ 0 < C ∧ 0 < c ∧ 2 ≤ x₁ ∧
       ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₁ ≤ S.x →
         let D := (memoryCutoff S : ℝ) / (S.M : ℝ) ^ K +
@@ -6187,7 +6212,52 @@ theorem dirty_raw (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) :
               (if Pr.Nonempty then C * D else C) ∧
             MemColSchurLE_sym F S (memoryCutoff S) (memEdgePiece F S ρ w true St Pr j) v
               (if St.Nonempty then C * D else C) := by
-    sorry
+    let xt := max xr (max xV (max xB xμ))
+    refine ⟨v, Ctable, c, xt, hv, hCtable, hc, le_trans hxr (le_max_left _ _), ?_⟩
+    intro S hS hx
+    dsimp only
+    intro w hw j hj St Pr hne
+    have hxr' : xr ≤ S.x := le_trans (le_max_left _ _) hx
+    have hxV' : xV ≤ S.x := le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+    have hxB' : xB ≤ S.x := le_trans
+      (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+    have hxμ' : xμ ≤ S.x := le_trans
+      (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+    have hμ := hMeasure S hxμ'
+    let D := (memoryCutoff S : ℝ) / (S.M : ℝ) ^ K +
+      (memoryCutoff S : ℝ) ^ K * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ))
+    have hD : 0 ≤ D := by dsimp [D]; positivity
+    have hv0 : 0 ≤ v := by linarith
+    have hrow₀ := hRows S hS hxr' w hw j St Pr
+    have hrev := hRows S hS hxr' w hw (j + 1) Pr St
+    have htr (s t : MemPoint S.x K) (hs : MemValid F S s) (hsz : memSize s ≤ memoryCutoff S)
+        (ht : MemValid F S t) (htz : memSize t ≤ memoryCutoff S) :
+        memMeasure F S s *
+          ‖memKernel (fun f => memEdgePiece F S ρ w true St Pr j (memorySym f)) s t‖ ≤
+        Cτ * memMeasure F S t *
+          ‖memKernel (fun f => memEdgePiece F S ρ w true Pr St (j + 1) (memorySym f)) t s‖ :=
+      pd4c_memEdgePiece_kernel_transpose_bound F S ρ w true St Pr j s t hs ht lo hi hlo
+        (hV S.x hxV') (hμ s) (hμ t) (hBands S.x hxB')
+    have hcol₀ := pd4c_colSchur_of_kernelTranspose_weighted F S (memoryCutoff S)
+      (fun f => memEdgePiece F S ρ w true St Pr j (memorySym f))
+      (fun f => memEdgePiece F S ρ w true Pr St (j + 1) (memorySym f))
+      v _ Cτ hμ hv0 hCτ.le htr hrev
+    constructor
+    · apply pd4c_memRowSchurLE_mono F S (memoryCutoff S)
+        (fun f => memEdgePiece F S ρ w true St Pr j (memorySym f)) v _ _ hv0 hrow₀
+      by_cases hp : Pr.Nonempty
+      · simp only [if_pos hp]
+        exact mul_le_mul_of_nonneg_right hCrTable hD
+      · simpa only [if_neg hp] using hCrTable
+    · apply pd4c_memColSchurLE_mono F S (memoryCutoff S)
+        (fun f => memEdgePiece F S ρ w true St Pr j (memorySym f)) v _ _ hv0 hμ hcol₀
+      by_cases hp : St.Nonempty
+      · simp only [if_pos hp]
+        calc
+          Cτ * (Cr * D) = (Cτ * Cr) * D := by ring
+          _ ≤ _ := mul_le_mul_of_nonneg_right hCτCrTable hD
+      · simp only [if_neg hp]
+        exact hCτCrTable
   obtain ⟨v, C, c, x₁, hv, hC, hc, hx₁, htable⟩ := htable
   obtain ⟨Lraw, hLraw, hRawBounds⟩ := pd4c_raw_scale_bounds K hK c hc
   let I := Finset (Fin K) × Finset (Fin K)
