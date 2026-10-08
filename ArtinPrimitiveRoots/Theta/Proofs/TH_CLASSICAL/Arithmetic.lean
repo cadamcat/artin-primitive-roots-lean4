@@ -129,4 +129,78 @@ theorem th_classical_integer_finite_approx (T : Finset (FinPlace F))
   have h := Valued.v.map_add_lt hcmp (hb v)
   simpa only [sub_add_sub_cancel] using h
 
+/-- Approximation in finitely many completions with no denominators outside those places. -/
+theorem th_classical_sInteger_finite_approx (T : Finset (FinPlace F))
+    (x : ∀ v : T, v.1.adicCompletion F) (m : T → ℕ) :
+    ∃ a : F, (∀ v : FinPlace F, v ∉ T → v.valuation F a ≤ 1) ∧
+      ∀ v : T,
+        Valued.v (algebraMap F (v.1.adicCompletion F) a - x v) <
+          WithZero.exp (-(m v : ℤ)) := by
+  classical
+  obtain ⟨d, hd, hdT, hdout⟩ := th_classical_supported_denominator T
+  let dF : F := algebraMap (𝓞 F) F d
+  have hdF : dF ≠ 0 := by
+    intro h
+    apply hd
+    apply IsFractionRing.injective (𝓞 F) F
+    simpa only [map_zero] using h
+  have hdloc (v : T) : algebraMap F (v.1.adicCompletion F) dF ≠ 0 :=
+    (map_ne_zero (algebraMap F (v.1.adicCompletion F))).mpr hdF
+  have hdval (v : T) : Valued.v (algebraMap F (v.1.adicCompletion F) dF) ≤
+      WithZero.exp (-1 : ℤ) := by
+    have h : Valued.v (algebraMap F (v.1.adicCompletion F) dF) < 1 := by
+      simpa only [dF, HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+        Algebra.algebraMap_self, RingHom.id_apply, v.1.valuedAdicCompletion_eq_valuation']
+        using hdT v.1 v.2
+    apply (WithZero.lt_mul_exp_iff_le
+      (y := WithZero.exp (-1 : ℤ)) WithZero.exp_ne_zero).mp
+    simpa only [← WithZero.exp_add, neg_add_cancel, WithZero.exp_zero] using h
+  let N : ℕ := Finset.univ.sup fun v : T => (WithZero.log (Valued.v (x v))).toNat
+  have hN (v : T) : WithZero.log (Valued.v (x v)) ≤ (N : ℤ) := by
+    have h : (WithZero.log (Valued.v (x v))).toNat ≤ N :=
+      Finset.le_sup (f := fun v : T => (WithZero.log (Valued.v (x v))).toNat)
+        (Finset.mem_univ v)
+    exact (Int.self_le_toNat _).trans (Int.ofNat_le.mpr h)
+  let c : ∀ v : T, v.1.adicCompletion F := fun v =>
+    algebraMap F (v.1.adicCompletion F) dF ^ N * x v
+  have hc : ∀ v : T, Valued.v (c v) ≤ 1 := by
+    intro v
+    dsimp only [c]
+    rw [map_mul, map_pow]
+    calc
+      Valued.v (algebraMap F (v.1.adicCompletion F) dF) ^ N * Valued.v (x v) ≤
+          WithZero.exp (-1 : ℤ) ^ N * WithZero.exp (WithZero.log (Valued.v (x v))) :=
+        mul_le_mul' (pow_le_pow_left' (hdval v) N) WithZero.le_exp_log
+      _ = WithZero.exp (-(N : ℤ) + WithZero.log (Valued.v (x v))) := by
+        rw [← WithZero.exp_nsmul, ← WithZero.exp_add]
+        simp
+      _ ≤ 1 := by
+        rw [WithZero.exp_le_one_iff]
+        have h := hN v
+        omega
+  have hdenval (v : T) :
+      Valued.v (algebraMap F (v.1.adicCompletion F) dF) ^ N ≠ 0 :=
+    pow_ne_zero N (Valued.v.ne_zero_iff.mpr (hdloc v))
+  have hthreshold (v : T) : WithZero.exp (-(m v : ℤ)) *
+      Valued.v (algebraMap F (v.1.adicCompletion F) dF) ^ N ≠ 0 :=
+    mul_ne_zero WithZero.exp_ne_zero (hdenval v)
+  choose p hp using fun v : T => WithZero.exists_exp_neg_natCast_lt (hthreshold v)
+  obtain ⟨a, ha⟩ := th_classical_integer_finite_approx T c hc p
+  refine ⟨algebraMap (𝓞 F) F a / dF ^ N, ?_, ?_⟩
+  · intro v hv
+    change v.valuation F (algebraMap (𝓞 F) F a /
+      algebraMap (𝓞 F) F d ^ N) ≤ 1
+    rw [Valuation.map_div, map_pow, hdout v hv, one_pow, div_one]
+    exact v.valuation_le_one a
+  · intro v
+    have ha' : Valued.v (algebraMap F (v.1.adicCompletion F) (algebraMap (𝓞 F) F a) -
+        algebraMap F (v.1.adicCompletion F) dF ^ N * x v) <
+          WithZero.exp (-(m v : ℤ)) *
+            Valued.v (algebraMap F (v.1.adicCompletion F) dF) ^ N := by
+      simpa only [c, IsScalarTower.algebraMap_apply (𝓞 F) F (v.1.adicCompletion F)]
+        using (ha v).trans (hp v)
+    rw [map_div₀, map_pow, div_sub' (pow_ne_zero N (hdloc v)), Valuation.map_div,
+      map_pow]
+    exact (div_lt_iff₀ (zero_lt_iff.mpr (hdenval v))).mpr ha'
+
 end ArtinPrimitiveRoots.A1.Theta
