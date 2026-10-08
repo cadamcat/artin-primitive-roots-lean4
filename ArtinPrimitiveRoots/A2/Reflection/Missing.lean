@@ -3574,7 +3574,70 @@ theorem rf_S_unfolding : ∀ u ν l, 0 < l →
     sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ * rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))
   Summable term ∧ (∑' γ, term γ) = (Lvalue R u (S.diagU ν))⁻¹ *
     ∑ ℓ : Fin (R.rotated u).J, profileH R u (cls (S.diagU ν)) ℓ (S.absS (S.diagU ν : S.FS) / l) := by
-  sorry
+  classical
+  intro u ν l hl
+  let term : Gamma S → ℂ := fun γ => omegaInt R l (fun y => bCut (Bd := Bd) y *
+    (Lvalue R u y)⁻¹ * sCocycle (D := D) (H := H)
+      (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ * rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y))
+  change Summable term ∧ (∑' γ, term γ) = (Lvalue R u (S.diagU ν))⁻¹ *
+    ∑ ℓ : Fin (R.rotated u).J, profileH R u (cls (S.diagU ν)) ℓ
+      (S.absS (S.diagU ν : S.FS) / l)
+  let κ : S.V := cls (S.diagU ν)
+  let g : S.FSˣ → ℂ := fun y =>
+    (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+      R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y * rotated R u y
+  let pull : S.FSˣ → ℂ := fun y => g (S.diagU ν / y)
+  let orbit : Gamma S → ℂ := fun γ =>
+    bridgeOmegaInt R.sheets l (fun y => pull (S.diagU (γ.1 : Fˣ) * y))
+  let z : ℂ := (Lvalue R u (S.diagU ν))⁻¹
+  have hprofile := rf_S_profile_pullback R u ν l hl
+  change Integrable (onUnits pull) (R.sheets.sheet l) ∧
+    sheetIntegral R l pull = ∑ ℓ : Fin (R.rotated u).J,
+      profileH R u κ ℓ (S.absS (S.diagU ν : S.FS) / l) at hprofile
+  have hunfold := a2_bridge_SHEET_unfold (G := R.sheets) l hl pull hprofile.1
+  have horbit : Summable orbit := hunfold.2.1
+  have horbitSum : (∑' γ, orbit γ) = sheetIntegral R l pull := hunfold.2.2
+  have harg (γ : Gamma S) (y : S.FSˣ) :
+      S.diagU ν / (S.diagU ((γ⁻¹).1 : Fˣ) * y) =
+        S.diagU ((γ.1 : Fˣ) * ν) / y := by
+    have hco : ((γ⁻¹).1 : Fˣ) = (γ.1 : Fˣ)⁻¹ := rfl
+    rw [hco, map_inv, map_mul]
+    simp only [div_eq_mul_inv, mul_inv_rev, inv_inv]
+    ac_rfl
+  have hpoint (γ : Gamma S) (y : S.FSˣ) :
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+          rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y) =
+      z * pull (S.diagU ((γ⁻¹).1 : Fˣ) * y) := by
+    dsimp only [pull]
+    rw [harg, rf_S_orbit_multiplier R u γ ν y]
+    dsimp only [z, g, κ]
+    ring
+  have hterm (γ : Gamma S) : term γ = z * orbit γ⁻¹ := by
+    dsimp only [term, orbit, omegaInt, bridgeOmegaInt, omegaAt, bridgeOmegaAt]
+    rw [← integral_const_mul]
+    apply integral_congr_ae
+    apply Filter.Eventually.of_forall
+    intro y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy]
+      exact hpoint γ hy.unit
+    · simp [onUnits, hy]
+  have hinv : Summable (fun γ : Gamma S => orbit γ⁻¹) := by
+    simpa only [Function.comp_def, Equiv.inv_apply] using
+      ((Equiv.inv (Gamma S)).summable_iff).2 horbit
+  constructor
+  · exact (hinv.mul_left z).congr (fun γ => (hterm γ).symm)
+  · calc
+      (∑' γ, term γ) = ∑' γ : Gamma S, z * orbit γ⁻¹ := tsum_congr hterm
+      _ = z * ∑' γ : Gamma S, orbit γ⁻¹ := hinv.tsum_mul_left z
+      _ = z * ∑' γ : Gamma S, orbit γ :=
+        congrArg (fun w : ℂ => z * w) ((Equiv.inv (Gamma S)).tsum_eq orbit)
+      _ = z * sheetIntegral R l pull := congrArg (fun w : ℂ => z * w) horbitSum
+      _ = (Lvalue R u (S.diagU ν))⁻¹ *
+          ∑ ℓ : Fin (R.rotated u).J, profileH R u (cls (S.diagU ν)) ℓ
+            (S.absS (S.diagU ν : S.FS) / l) :=
+        congrArg (fun w : ℂ => z * w) hprofile.2
 /-- Nonnegative reflected Dirichlet mass in 04:859–910. -/
 def reflectedDirichletTerm (f : S.ExtIdeal) (σ : ℝ)
     (p : {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal) : ℝ :=
