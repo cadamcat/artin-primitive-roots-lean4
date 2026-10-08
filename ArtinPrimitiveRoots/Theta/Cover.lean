@@ -2890,6 +2890,63 @@ private theorem finLocalSmallTopology_compact
     exact hcompactImage)
   exact isCompact_iff_isCompact_univ.mpr hcu
 
+/-- Assemble the algebraic cover and the compact open small-subgroup topology. -/
+private theorem exists_finLocalCoverBase
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) : Nonempty (FinLocalCover D H v) := by
+  obtain ⟨C⟩ := exists_finLocalAlgebra D H v hSt
+  obtain ⟨B⟩ := exists_finLocalSmallAlgebra D H v hSt C
+  obtain ⟨t, htg, hKopen, hKbasis⟩ := exists_finLocalSmallTopology D H v hSt C B
+  obtain ⟨hcont, hopen⟩ := finLocalSmallTopology_projection C B t htg hKopen hKbasis
+  have hcompact := finLocalSmallTopology_compact C B t htg hKopen hKbasis
+  exact ⟨{
+    L := C.L
+    grp := C.grp
+    top := t
+    tg := htg
+    z := C.z
+    z_inj := C.z_inj
+    z_central := C.z_central
+    pr := C.pr
+    pr_surj := C.pr_surj
+    pr_ker := C.pr_ker
+    pr_cont := hcont
+    pr_open := hopen
+    n := C.n
+    nbar := C.nbar
+    a := C.a
+    w := C.w
+    sec := C.sec
+    sec_mul := C.sec_mul
+    sec_pr := C.sec_pr
+    sec_scalar := C.sec_scalar
+    sec_n := C.sec_n
+    sec_nbar := C.sec_nbar
+    sec_a := C.sec_a
+    sec_w := C.sec_w
+    pr_n := C.pr_n
+    pr_nbar := C.pr_nbar
+    pr_a := C.pr_a
+    pr_w := C.pr_w
+    a_one := C.a_one
+    a_mul := C.a_mul
+    lift_na := C.lift_na
+    lift_wa := C.lift_wa
+    lift_wn := C.lift_wn
+    w_sq := C.w_sq
+    w_n_w := C.w_n_w
+    m0 := B.m0
+    Kc := B.Kc
+    Kc_open := hKopen
+    Kc_compact := hcompact
+    Kc_anti := B.Kc_anti
+    Kc_nhds := hKbasis
+    Kc_inj := B.Kc_inj
+    n_Kc := B.n_Kc
+    nbar_Kc := B.nbar_Kc
+    a_Kc := B.a_Kc
+  }⟩
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
