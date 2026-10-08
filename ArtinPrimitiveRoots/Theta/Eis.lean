@@ -3961,6 +3961,75 @@ theorem bruhat_ideal_quotient_reindex
         change ‖k (E η)‖ = ‖f η‖
         rw [hprod]
 
+/-- An absolutely summable Bruhat ideal quotient is the product of normalized local intertwines. -/
+theorem bruhat_local_quotient_hasProd
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0) (δ : Fˣ)
+    (habs : Summable (fun η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup =>
+      ‖∏ᶠ v, G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd
+          (algebraMap F (v.adicCompletion F) (Quotient.out η))) * P.compF v r))‖)) :
+    HasProd
+      (fun v : FinPlace F =>
+        ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+          ((absFin v (toLoc v δ) : ℂ) * G.lam v
+            (intertwine (P.loc v) (μ v) (Fs.f v)
+              ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))))
+      (∑' η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+        ∏ᶠ v, G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+          (P.loc v).n (Multiplicative.ofAdd
+            (algebraMap F (v.adicCompletion F) (Quotient.out η))) * P.compF v r))) := by
+  classical
+  let Hfn : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v x =>
+    G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+      (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+  let Q := fun v : FinPlace F => (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v
+  let Lfn : ∀ v : FinPlace F, Q v → ℂ := fun v η => Hfn v (Quotient.out η)
+  let _ : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let _ : Countable (F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup) :=
+    (show Function.Surjective (fun ξ : F =>
+      (QuotientAddGroup.mk ξ : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup)) from
+      fun η => ⟨Quotient.out η, QuotientAddGroup.out_eq' η⟩).countable
+  obtain ⟨E, _⟩ := ideal_additive_quotient_equiv 𝔞 h𝔞
+  let _ : Countable (Π₀ v : FinPlace F, Q v) :=
+    E.symm.injective.countable
+  let _ : ∀ v : FinPlace F, Countable (Q v) := fun v =>
+    (DFinsupp.single_injective (β := Q) (i := v)).countable
+  obtain ⟨⟨T, hzero⟩, hseries, habstransfer⟩ :=
+    bruhat_ideal_quotient_reindex P G Fs r 𝔞 h𝔞 hfix hΦ δ
+  have hdirect : Summable (fun a : Π₀ v : FinPlace F, Q v => ‖∏ᶠ v, Lfn v (a v)‖) :=
+    habstransfer.mp habs
+  have hp := dfinsupp_finprod_hasProd Lfn T hzero hdirect
+  have hlocal (v : FinPlace F) :
+      (∑' η : Q v, Lfn v η) =
+        ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+          ((absFin v (toLoc v δ) : ℂ) * G.lam v
+            (intertwine (P.loc v) (μ v) (Fs.f v)
+              ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))) := by
+    let mass : ℂ := (((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)
+    let I : ℂ := (absFin v (toLoc v δ) : ℂ) * G.lam v
+      (intertwine (P.loc v) (μ v) (Fs.f v)
+        ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))
+    have hmass : mass ≠ 0 := by
+      dsimp only [mass]
+      exact_mod_cast (zpow_pos (zero_lt_one.trans (qv_gt_one v))
+        (-FractionalIdeal.count F v 𝔞)).ne'
+    have hc := (local_bruhat_coset_hasSum P G μ hs Fs r 𝔞 h𝔞 hfix hΦ v (toLoc v δ)).1
+    change HasSum (fun η : Q v => mass * Lfn v η) I at hc
+    have hd := hc.mul_left mass⁻¹
+    have hsL : HasSum (Lfn v) (mass⁻¹ * I) := by
+      simpa only [← mul_assoc, inv_mul_cancel₀ hmass, one_mul] using hd
+    exact hsL.tsum_eq
+  simp only [hlocal] at hp
+  rw [← hseries] at hp
+  exact hp
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
