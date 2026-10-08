@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C2
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P2
 import ArtinPrimitiveRoots.Proofs.qs_c_p.C3Helpers
 import ArtinPrimitiveRoots.Proofs.qs_c_p.C3HighDiv
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3HighDivExpand
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C3.Main
 
 /-!
