@@ -1,8 +1,11 @@
 import ArtinPrimitiveRoots.Ext.TypeIIInputs
+import ArtinPrimitiveRoots.Construction.Defs
+import ArtinPrimitiveRoots.TypeII.Rough
 
 namespace ArtinPrimitiveRoots.Proofs.c_typeii_sol
 
 open Classical MeasureTheory Filter
+open ArtinPrimitiveRoots.Construction ArtinPrimitiveRoots.TypeII ArtinPrimitiveRoots.TypeII.Rough
 open scoped FourierTransform
 
 private theorem norm_complex_log_phase (v t : ℝ) :
@@ -267,5 +270,255 @@ theorem log_fourier_bilinear_bound (Ψ : ℝ → ℝ)
     _ ≤ ((C₂ + C₈) * J + 1) * (A + B) * Real.rpow L (-6 : ℝ) := by
       apply mul_le_mul_of_nonneg_right _ hPow
       exact mul_le_mul_of_nonneg_right (by linarith) (add_nonneg hA hB)
+
+private theorem complex_exp_log_product (v x m n : ℝ) (hx : 0 < x)
+    (hm : 0 < m) (hn : 0 < n) :
+    Complex.exp (-Complex.I * v * Real.log x) *
+        Complex.exp (Complex.I * v * Real.log m) *
+        Complex.exp (Complex.I * v * Real.log n) =
+      Complex.exp (Complex.I * v * Real.log (m * n / x)) := by
+  have hlog : Real.log (m * n / x) = Real.log m + Real.log n - Real.log x := by
+    rw [Real.log_div (mul_ne_zero hm.ne' hn.ne') hx.ne', Real.log_mul hm.ne' hn.ne']
+  calc
+    _ = Complex.exp ((-Complex.I * v * Real.log x) +
+        (Complex.I * v * Real.log m) + (Complex.I * v * Real.log n)) := by
+          rw [← Complex.exp_add, ← Complex.exp_add]
+    _ = Complex.exp (Complex.I * v * Real.log (m * n / x)) := by
+          congr 1
+          rw [hlog]
+          push_cast
+          ring
+
+private theorem integrable_fourier_phase (H : ℝ → ℂ) (hHcont : Continuous H)
+    (hHnorm : Integrable fun v : ℝ => ‖H v‖) (c : ℂ) (t : ℝ) :
+    Integrable fun v : ℝ => c * H v * Complex.exp (Complex.I * v * t) := by
+  have hcont : Continuous (fun v : ℝ => c * H v * Complex.exp (Complex.I * v * t)) := by
+    fun_prop
+  refine (hHnorm.const_mul ‖c‖).mono' hcont.aestronglyMeasurable ?_
+  filter_upwards [] with v
+  calc
+    ‖c * H v * Complex.exp (Complex.I * v * t)‖ =
+        ‖c‖ * ‖H v‖ * ‖Complex.exp (Complex.I * v * t)‖ := by
+          simp [norm_mul, mul_assoc]
+    _ ≤ ‖c‖ * ‖H v‖ := by
+          rw [norm_complex_log_phase v t]
+          simp
+
+
+
+private theorem roughCoefficient_eq_factor (x γ v : ℝ) (m : ℕ) :
+    roughCoefficient x γ v m =
+      Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+        ((roughIndicator x γ m - roughProxy x γ m : ℝ) : ℂ) := by
+  by_cases hr : roughAbove m (roughCutoff x)
+  · simp [roughCoefficient, roughIndicator, roughProxy, hr, Complex.ofReal_sub,
+      Complex.ofReal_mul, Complex.ofReal_div]
+  · simp [roughCoefficient, roughIndicator, roughProxy, hr, Complex.ofReal_sub,
+      Complex.ofReal_mul, Complex.ofReal_div]
+
+noncomputable def progressionBilinear (x γ : ℝ) (M c K : ℕ) (u : ℤ)
+    (a : Fin K → ℝ) (Dm Dn : Finset ℕ) (b : ℕ → ℂ) (v : ℝ) : ℂ :=
+  (1 / (Nat.totient M : ℂ)) *
+    ∑ χ : DirichletCharacter ℂ M,
+      star (χ (u : ZMod M)) *
+        ∑ m ∈ Dm, ∑ n ∈ Dn,
+          (roughCoefficient x γ v m * χ (m : ZMod M)) *
+            ((b n * Complex.exp (Complex.I * v * Real.log (n : ℝ))) * χ (n : ZMod M)) *
+            (conFactor x c K a (m * n - 1) : ℂ) *
+            (markedWeight x K a (1 / 2 : ℝ) (m * n - 1) : ℂ)
+
+/-- Character orthogonality and Fourier inversion reconstruct the exact progression weight. -/
+theorem progression_fourier_identity
+    (x γ : ℝ) (M c K : ℕ) (u : ℤ) (a : Fin K → ℝ)
+    (hx : 0 < x) (hM : 0 < M) (hu : IsUnit (u : ZMod M))
+    (Ψ : ℝ → ℝ) (hsupp : Function.support Ψ ⊆ Set.Ioo 1 2)
+    (hsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ)
+    (Dm Dn : Finset ℕ) (hm : ∀ m ∈ Dm, 1 < m) (hn : ∀ n ∈ Dn, 1 < n)
+    (b : ℕ → ℂ) :
+    (∑ m ∈ Dm, ∑ n ∈ Dn,
+      ((roughIndicator x γ m - roughProxy x γ m : ℝ) : ℂ) *
+        b n * (conWeight x M c u K a Ψ (m * n) : ℂ)) =
+      ∫ v : ℝ, ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+        Complex.exp (-Complex.I * v * Real.log x) *
+          progressionBilinear x γ M c K u a Dm Dn b v := by
+  obtain ⟨hInv, hDecay⟩ := ArtinPrimitiveRoots.Ext.TypeIIInputs.fourier_inversion
+    Ψ hsmooth hsupp
+  obtain ⟨C₂, hC₂, hDecay₂⟩ := hDecay 2
+  have hFTcont := logFourierTransform_continuous Ψ hsmooth.continuous hsupp
+  have hmajorant : Integrable (fun v : ℝ => (1 + |v|) ^ (-2 : ℝ)) := by
+    simpa [Real.norm_eq_abs] using
+      (integrable_one_add_norm (E := ℝ) (by norm_num :
+        (Module.finrank ℝ ℝ : ℝ) < 2))
+  have hFTnormInt : Integrable (fun v : ℝ =>
+      ‖ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v‖) := by
+    refine (hmajorant.const_mul C₂).mono' hFTcont.norm.aestronglyMeasurable ?_
+    filter_upwards [] with v
+    simpa [Real.norm_eq_abs, mul_comm] using hDecay₂ v
+  let T : ℝ → ℕ → ℕ → DirichletCharacter ℂ M → ℂ := fun v m n χ =>
+    (roughCoefficient x γ v m * χ (m : ZMod M)) *
+      ((b n * Complex.exp (Complex.I * v * Real.log (n : ℝ))) * χ (n : ZMod M)) *
+      (conFactor x c K a (m * n - 1) : ℂ) *
+      (markedWeight x K a (1 / 2 : ℝ) (m * n - 1) : ℂ)
+  let R : ℝ → ℕ → ℕ → ℂ := fun v m n =>
+    (1 / (Nat.totient M : ℂ)) * ∑ χ : DirichletCharacter ℂ M,
+      star (χ (u : ZMod M)) * T v m n χ
+  let Base : ℕ → ℂ := fun d =>
+    (if (d : ZMod M) = (u : ZMod M) then (1 : ℂ) else 0) *
+      (conFactor x c K a (d - 1) : ℂ) *
+      (markedWeight x K a (1 / 2 : ℝ) (d - 1) : ℂ)
+  let Coeff : ℕ → ℕ → ℂ := fun m n =>
+    ((roughIndicator x γ m - roughProxy x γ m : ℝ) : ℂ) * b n * Base (m * n)
+  let Y : ℕ → ℕ → ℝ := fun m n => ((m * n : ℕ) : ℝ) / x
+  have hProd (m : ℕ) (hmMem : m ∈ Dm) (n : ℕ) (hnMem : n ∈ Dn) : 1 < m * n := by
+    have hmp := hm m hmMem
+    have hnp := hn n hnMem
+    nlinarith
+  have hConWeight (d : ℕ) (hd : 1 < d) :
+      (conWeight x M c u K a Ψ d : ℂ) =
+        (Ψ ((d : ℝ) / x) : ℂ) * Base d := by
+    have hmod : (d : ZMod M) = (u : ZMod M) ↔ (d : ℤ) ≡ u [ZMOD M] := by
+      simpa using (ZMod.intCast_eq_intCast_iff (d : ℤ) u M)
+    by_cases heq : (d : ZMod M) = (u : ZMod M)
+    · have hi := hmod.mp heq
+      simp [conWeight, hd, hi, Base, heq, Complex.ofReal_mul, mul_assoc]
+    · have hi : ¬ (d : ℤ) ≡ u [ZMOD M] := fun hi => heq (hmod.mpr hi)
+      simp [conWeight, hd, hi, Base, heq]
+  have hR (v : ℝ) (m n : ℕ) : R v m n =
+      (if ((m * n : ℕ) : ZMod M) = (u : ZMod M) then (1 : ℂ) else 0) *
+        roughCoefficient x γ v m *
+        (b n * Complex.exp (Complex.I * v * Real.log (n : ℝ))) *
+        (conFactor x c K a (m * n - 1) : ℂ) *
+        (markedWeight x K a (1 / 2 : ℝ) (m * n - 1) : ℂ) := by
+    have hOrth := ArtinPrimitiveRoots.Ext.TypeIIInputs.dirichlet_orthogonality
+      M hM (u : ZMod M) ((m * n : ℕ) : ZMod M) hu
+    calc
+      _ = ((1 / (Nat.totient M : ℂ)) * ∑ χ : DirichletCharacter ℂ M,
+          star (χ (u : ZMod M)) * χ ((m * n : ℕ) : ZMod M)) *
+          (roughCoefficient x γ v m *
+            (b n * Complex.exp (Complex.I * v * Real.log (n : ℝ))) *
+            (conFactor x c K a (m * n - 1) : ℂ) *
+            (markedWeight x K a (1 / 2 : ℝ) (m * n - 1) : ℂ)) := by
+        dsimp [R, T]
+        simp only [mul_assoc, Finset.mul_sum, Finset.sum_mul]
+        apply Finset.sum_congr rfl
+        intro χ hχ
+        rw [Nat.cast_mul, map_mul]
+        ring
+      _ = _ := by rw [← hOrth]; ring
+  have hSraw (v : ℝ) : progressionBilinear x γ M c K u a Dm Dn b v =
+      ∑ m ∈ Dm, ∑ n ∈ Dn, R v m n := by
+    dsimp [progressionBilinear, R, T]
+    simp only [Finset.mul_sum]
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl
+    intro m hm'
+    rw [Finset.sum_comm]
+  have hYpos (m : ℕ) (hm' : m ∈ Dm) (n : ℕ) (hn' : n ∈ Dn) : 0 < Y m n := by
+    have hmp : 0 < (m : ℝ) := by exact_mod_cast (Nat.zero_lt_of_lt (hm m hm'))
+    have hnp : 0 < (n : ℝ) := by exact_mod_cast (Nat.zero_lt_of_lt (hn n hn'))
+    dsimp [Y]
+    rw [Nat.cast_mul]
+    exact div_pos (mul_pos hmp hnp) hx
+  have hKernel (v : ℝ) (m : ℕ) (hm' : m ∈ Dm) (n : ℕ) (hn' : n ∈ Dn) :
+      Complex.exp (-Complex.I * v * Real.log x) * R v m n =
+        Coeff m n * Complex.exp (Complex.I * v * Real.log (Y m n)) := by
+    have hmp : 0 < (m : ℝ) := by exact_mod_cast (Nat.zero_lt_of_lt (hm m hm'))
+    have hnp : 0 < (n : ℝ) := by exact_mod_cast (Nat.zero_lt_of_lt (hn n hn'))
+    have hphase : Complex.exp (-Complex.I * v * Real.log x) *
+        Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+        Complex.exp (Complex.I * v * Real.log (n : ℝ)) =
+          Complex.exp (Complex.I * v * Real.log (Y m n)) := by
+      simpa [Y, Nat.cast_mul] using complex_exp_log_product v x (m : ℝ) (n : ℝ)
+        hx hmp hnp
+    calc
+      _ = Coeff m n * (Complex.exp (-Complex.I * v * Real.log x) *
+          Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+          Complex.exp (Complex.I * v * Real.log (n : ℝ))) := by
+        rw [hR, roughCoefficient_eq_factor]
+        dsimp [Coeff, Base]
+        ring
+      _ = _ := by rw [hphase]
+  have hPointSum (v : ℝ) :
+      (∑ m ∈ Dm, ∑ n ∈ Dn,
+        Coeff m n * ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+          Complex.exp (Complex.I * v * Real.log (Y m n))) =
+        ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+          Complex.exp (-Complex.I * v * Real.log x) *
+          progressionBilinear x γ M c K u a Dm Dn b v := by
+    rw [hSraw]
+    simp only [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro m hm'
+    apply Finset.sum_congr rfl
+    intro n hn'
+    calc
+      _ = ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+          (Coeff m n * Complex.exp (Complex.I * v * Real.log (Y m n))) := by ring
+      _ = ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+          (Complex.exp (-Complex.I * v * Real.log x) * R v m n) := by
+        rw [← hKernel v m hm' n hn']
+      _ = _ := by ring
+  have hTermInt (m : ℕ) (hm' : m ∈ Dm) (n : ℕ) (hn' : n ∈ Dn) :
+      Integrable (fun v : ℝ =>
+        Coeff m n * ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+          Complex.exp (Complex.I * v * Real.log (Y m n))) := by
+    exact integrable_fourier_phase
+      (ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ)
+      hFTcont hFTnormInt (Coeff m n) (Real.log (Y m n))
+  have hInnerInt (m : ℕ) (hm' : m ∈ Dm) :
+      Integrable (fun v : ℝ => ∑ n ∈ Dn,
+        Coeff m n * ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+          Complex.exp (Complex.I * v * Real.log (Y m n))) := by
+    exact integrable_finsetSum Dn (fun n hn' => hTermInt m hm' n hn')
+  have hTermFourier (m : ℕ) (hm' : m ∈ Dm) (n : ℕ) (hn' : n ∈ Dn) :
+      Coeff m n * (∫ v : ℝ,
+        ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+          Complex.exp (Complex.I * v * Real.log (Y m n))) =
+        ∫ v : ℝ,
+          Coeff m n * ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+            Complex.exp (Complex.I * v * Real.log (Y m n)) := by
+    calc
+      _ = ∫ v : ℝ, Coeff m n *
+          (ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+            Complex.exp (Complex.I * v * Real.log (Y m n))) := by
+        rw [integral_const_mul]
+      _ = _ := by
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall fun v => by ring
+  calc
+    _ = ∑ m ∈ Dm, ∑ n ∈ Dn, Coeff m n * (Ψ (Y m n) : ℂ) := by
+      apply Finset.sum_congr rfl
+      intro m hm'
+      apply Finset.sum_congr rfl
+      intro n hn'
+      rw [hConWeight (m * n) (hProd m hm' n hn')]
+      dsimp [Coeff, Y]
+      ring
+    _ = ∑ m ∈ Dm, ∑ n ∈ Dn, Coeff m n * (∫ v : ℝ,
+          ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+            Complex.exp (Complex.I * v * Real.log (Y m n))) := by
+      apply Finset.sum_congr rfl
+      intro m hm'
+      apply Finset.sum_congr rfl
+      intro n hn'
+      rw [hInv (Y m n) (hYpos m hm' n hn')]
+    _ = ∑ m ∈ Dm, ∑ n ∈ Dn, ∫ v : ℝ,
+          Coeff m n * ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+            Complex.exp (Complex.I * v * Real.log (Y m n)) := by
+      apply Finset.sum_congr rfl
+      intro m hm'
+      apply Finset.sum_congr rfl
+      intro n hn'
+      exact hTermFourier m hm' n hn'
+    _ = ∫ v : ℝ, ∑ m ∈ Dm, ∑ n ∈ Dn,
+          Coeff m n * ArtinPrimitiveRoots.Ext.TypeIIInputs.logFourierTransform Ψ v *
+            Complex.exp (Complex.I * v * Real.log (Y m n)) := by
+      rw [integral_finsetSum Dm (fun m hm' => hInnerInt m hm')]
+      apply Finset.sum_congr rfl
+      intro m hm'
+      exact (integral_finsetSum Dn (fun n hn' => hTermInt m hm' n hn')).symm
+    _ = _ := by
+      apply integral_congr_ae
+      exact Filter.Eventually.of_forall hPointSum
 
 end ArtinPrimitiveRoots.Proofs.c_typeii_sol
