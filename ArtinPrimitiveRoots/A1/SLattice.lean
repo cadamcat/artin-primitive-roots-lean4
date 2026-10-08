@@ -276,6 +276,80 @@ private theorem covolArchToMixedEquiv_volumePreserving (D : FieldData F) :
       congr 1
   simpa only [hfun] using hAll
 
+private noncomputable def covol_arch_fundamental_region
+    (D : FieldData F) : Set (InfinitePlace F → ℂ) :=
+  (covolArchToMixedEquiv D).symm ''
+    ZSpan.fundamentalDomain (NumberField.mixedEmbedding.latticeBasis F)
+
+private theorem covol_arch_fundamental_region_measure
+    (D : FieldData F) :
+    ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiSelfDualHaar (InfinitePlace F)
+      (covol_arch_fundamental_region D) =
+    ENNReal.ofReal (Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ)) := by
+  classical
+  let e := covolArchToMixedEquiv D
+  let P : Set (NumberField.mixedEmbedding.mixedSpace F) :=
+    ZSpan.fundamentalDomain (NumberField.mixedEmbedding.latticeBasis F)
+  have hPmeas : MeasurableSet P := ZSpan.fundamentalDomain_measurableSet _
+  have hregion : covol_arch_fundamental_region D = e ⁻¹' P := by
+    change e.symm '' P = e ⁻¹' P
+    ext z
+    constructor
+    · rintro ⟨p, hp, rfl⟩
+      simpa using hp
+    · intro hz
+      exact ⟨e z, hz, e.symm_apply_apply z⟩
+  have hvol : volume (covol_arch_fundamental_region D) = volume P := by
+    rw [hregion]
+    exact (covolArchToMixedEquiv_volumePreserving D).measure_preimage
+      hPmeas.nullMeasurableSet
+  have hcard : Fintype.card (InfinitePlace F) = NumberField.InfinitePlace.nrComplexPlaces F := by
+    change Fintype.card (InfinitePlace F) = Fintype.card
+      {w : InfinitePlace F // NumberField.InfinitePlace.IsComplex w}
+    exact Fintype.card_congr
+      { toFun := fun w => ⟨w, D.isTotallyComplex.isComplex w⟩
+        invFun := fun w => w.1
+        left_inv := fun _ => rfl
+        right_inv := fun _ => rfl }
+  have hdiff : (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ) =
+      ‖(discr F : ℝ)‖ := by
+    rw [NumberField.absNorm_differentIdeal F (𝓞 F)]
+    norm_cast
+    simp [Int.norm_eq_abs]
+  rw [covol_complexPiSelfDualHaar_eq_smul_volume]
+  simp only [Measure.smul_apply]
+  rw [hvol, NumberField.mixedEmbedding.volume_fundamentalDomain_latticeBasis]
+  rw [hcard]
+  have hscale : ENNReal.ofReal ((2 : ℝ) ^ NumberField.InfinitePlace.nrComplexPlaces F) =
+      (2 : ENNReal) ^ NumberField.InfinitePlace.nrComplexPlaces F := by
+    rw [ENNReal.ofReal_pow (by norm_num : (0 : ℝ) ≤ 2)]
+    norm_num
+  rw [hscale]
+  have hcancel : (2 : ENNReal) ^ NumberField.InfinitePlace.nrComplexPlaces F *
+      ((2 : ENNReal)⁻¹ ^ NumberField.InfinitePlace.nrComplexPlaces F) = 1 := by
+    rw [← mul_pow,
+      ENNReal.mul_inv_cancel (by norm_num) (by norm_num), one_pow]
+  simp only [smul_eq_mul]
+  rw [← mul_assoc, hcancel, one_mul]
+  have hrootCast :
+      (NNReal.sqrt ‖(discr F : ℝ)‖₊ : ℝ) =
+        Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ) := by
+    calc
+      (NNReal.sqrt ‖(discr F : ℝ)‖₊ : ℝ) =
+          Real.sqrt (‖(discr F : ℝ)‖₊ : ℝ) := by rw [Real.coe_sqrt]
+      _ = Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ) := by
+          rw [coe_nnnorm, hdiff.symm]
+  have hrootENN : (NNReal.sqrt ‖discr F‖₊ : ENNReal) =
+      ENNReal.ofReal (Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ)) := by
+    calc
+      (NNReal.sqrt ‖discr F‖₊ : ENNReal) =
+          ENNReal.ofReal (NNReal.sqrt ‖discr F‖₊ : ℝ) := by
+            rw [← ENNReal.ofReal_coe_nnreal]
+      _ = ENNReal.ofReal (NNReal.sqrt ‖(discr F : ℝ)‖₊ : ℝ) := by
+            congr 1
+      _ = _ := by rw [hrootCast]
+  simpa [hdiff, Int.norm_eq_abs] using hrootENN
+
 private theorem covol_arch_fundamental_reduction (D : FieldData F)
     (z : InfinitePlace F → ℂ) :
     ∃ a : 𝓞 F, ∃ p ∈ (covolArchToMixedEquiv D).symm ''
