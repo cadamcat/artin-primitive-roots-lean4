@@ -6,7 +6,7 @@ import Mathlib.MeasureTheory.Function.LocallyIntegrable
 set_option autoImplicit false
 
 open NumberField IsDedekindDomain MeasureTheory
-open scoped Classical
+open scoped Classical Topology
 
 noncomputable section
 
@@ -161,5 +161,104 @@ theorem finite_power_integrable {v : FinPlace F} (μ : LocHaar v)
         exists_nat_pow_near_of_lt_one (norm_pos_iff.mpr hx0) hx hc hc1
       exact Or.inl (Set.mem_iUnion.mpr ⟨n, hn.le, hn'⟩)
   simpa only [g, absFin_eq_norm] using htotal
+
+/-- A finite-place sheet factor has all weighted multiplicative moments above the growth threshold. -/
+theorem finite_factor_weighted_integrable {v : FinPlace F} (μ : LocHaar v)
+    (δ σ : ℝ) (hσ : -δ < σ) (f : v.adicCompletion F → ℂ) (hf : SheetHypFin v δ f) :
+    Integrable (fun y => ‖f y‖ * absFin v y ^ σ)
+      (μ.μ.withDensity fun y => ENNReal.ofReal (absFin v y)⁻¹) := by
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let _ : Finite (IsLocalRing.ResidueField O) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  let _ : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing O),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField O))⟩
+  rcases hf with ⟨hlc, ⟨Cs, hCs⟩, ⟨C0, hC0⟩⟩
+  let U0 : Set K := {(0 : K)}ᶜ
+  have hfcont : ContinuousOn f U0 := by
+    intro x hx
+    have hx0 : x ≠ 0 := by simpa only [U0, Set.mem_compl_iff, Set.mem_singleton_iff] using hx
+    obtain ⟨U, hU, hxU, hval⟩ := hlc x hx0
+    have heq : (fun _ : K => f x) =ᶠ[𝓝 x] f := by
+      filter_upwards [hU.mem_nhds hxU] with y hy
+      exact (hval y hy).symm
+    exact (continuousAt_const.congr heq).continuousWithinAt
+  let g : K → ℝ := fun x => ‖f x‖ * ‖x‖ ^ σ * ‖x‖⁻¹
+  have hnorm0 (x : K) (hx : x ∈ U0) : ‖x‖ ≠ 0 := by
+    apply norm_ne_zero_iff.mpr
+    simpa only [U0, Set.mem_compl_iff, Set.mem_singleton_iff] using hx
+  have hgcont : ContinuousOn g U0 :=
+    (hfcont.norm.mul (continuous_norm.continuousOn.rpow_const
+      (fun x hx => Or.inl (hnorm0 x hx)))).mul
+      (continuous_norm.continuousOn.inv₀ hnorm0)
+  have hgmeas : Measurable g := measurable_of_continuousOn_compl_singleton (0 : K) hgcont
+  have hgnonneg (x : K) : 0 ≤ g x :=
+    mul_nonneg (mul_nonneg (norm_nonneg _) (Real.rpow_nonneg (norm_nonneg _) _))
+      (inv_nonneg.mpr (norm_nonneg _))
+  let B : Set K := {x | ‖x‖ ≤ 1}
+  have hBmeas : MeasurableSet B := (isClosed_le continuous_norm continuous_const).measurableSet
+  have hp : IntegrableOn (fun x : K => ‖x‖ ^ (δ + σ - 1)) B μ.μ := by
+    simpa only [absFin_eq_norm] using finite_power_integrable μ (δ + σ) (by linarith)
+  have hiB : IntegrableOn g B μ.μ := by
+    apply (hp.const_mul (max 0 C0)).mono' hgmeas.aestronglyMeasurable.restrict
+    filter_upwards [ae_restrict_mem hBmeas] with x hx
+    rw [Real.norm_eq_abs, abs_of_nonneg (hgnonneg x)]
+    by_cases hx0 : x = 0
+    · subst x
+      simp only [g, norm_zero, inv_zero, mul_zero]
+      exact mul_nonneg (le_max_left _ _) (Real.rpow_nonneg (by norm_num) _)
+    · have hxpos : 0 < ‖x‖ := norm_pos_iff.mpr hx0
+      have hbound : ‖f x‖ ≤ max 0 C0 * ‖x‖ ^ δ := by
+        have hlocal : ‖f x‖ ≤ C0 * ‖x‖ ^ δ := by
+          simpa only [absFin_eq_norm] using hC0 x hx0
+            (by simpa only [B, Set.mem_ofPred_eq, absFin_eq_norm] using hx)
+        exact hlocal.trans (mul_le_mul_of_nonneg_right (le_max_right _ _)
+          (Real.rpow_nonneg (norm_nonneg x) _))
+      have hfactor : ‖x‖ ^ δ * ‖x‖ ^ σ * ‖x‖⁻¹ = ‖x‖ ^ (δ + σ - 1) := by
+        rw [← Real.rpow_add hxpos, ← div_eq_mul_inv, ← Real.rpow_sub_one hxpos.ne' (δ + σ)]
+      calc
+        g x ≤ (max 0 C0 * ‖x‖ ^ δ) * ‖x‖ ^ σ * ‖x‖⁻¹ :=
+          mul_le_mul_of_nonneg_right
+            (mul_le_mul_of_nonneg_right hbound (Real.rpow_nonneg (norm_nonneg x) _))
+            (inv_nonneg.mpr (norm_nonneg x))
+        _ = max 0 C0 * (‖x‖ ^ δ * ‖x‖ ^ σ * ‖x‖⁻¹) := by ring
+        _ = _ := by rw [hfactor]
+  let R : ℝ := max 1 Cs
+  let A : Set K := {x | 1 ≤ ‖x‖ ∧ ‖x‖ ≤ R}
+  have hAcompact : IsCompact A := by
+    have hA : A = Metric.closedBall (0 : K) R ∩ {x : K | 1 ≤ ‖x‖} := by
+      ext x
+      simp only [A, Set.mem_ofPred_eq, Set.mem_inter_iff, Metric.mem_closedBall,
+        dist_zero_right, and_comm]
+    rw [hA]
+    exact (isCompact_closedBall (0 : K) R).inter_right
+      (isClosed_le continuous_const continuous_norm)
+  have hAU : A ⊆ U0 := by
+    intro x hx
+    have hx0 : x ≠ 0 := norm_pos_iff.mp (zero_lt_one.trans_le hx.1)
+    simpa only [U0, Set.mem_compl_iff, Set.mem_singleton_iff] using hx0
+  have hiA : IntegrableOn g A μ.μ :=
+    ContinuousOn.integrableOn_compact hAcompact (hgcont.mono hAU)
+  have hi : Integrable g μ.μ := by
+    apply (hiB.union hiA).integrable_of_forall_notMem_eq_zero
+    intro x hx
+    have hx1 : 1 < ‖x‖ := lt_of_not_ge (fun h => hx (Or.inl h))
+    have hxR : R < ‖x‖ := lt_of_not_ge (fun h => hx (Or.inr ⟨hx1.le, h⟩))
+    have hfx : f x = 0 := hCs x (by
+      rw [absFin_eq_norm]
+      exact (le_max_right _ _).trans_lt hxR)
+    simp only [g, hfx, norm_zero, zero_mul]
+  have hρ : Measurable (fun x : K => ENNReal.ofReal ‖x‖⁻¹) :=
+    continuous_norm.measurable.inv.ennreal_ofReal
+  have hρfinite : ∀ᵐ x ∂μ.μ, ENNReal.ofReal ‖x‖⁻¹ < ⊤ :=
+    Filter.Eventually.of_forall fun _ => ENNReal.ofReal_lt_top
+  have htoReal (x : K) : (ENNReal.ofReal ‖x‖⁻¹).toReal = ‖x‖⁻¹ :=
+    ENNReal.toReal_ofReal (inv_nonneg.mpr (norm_nonneg _))
+  simp only [absFin_eq_norm]
+  apply (integrable_withDensity_iff hρ hρfinite).2
+  simpa only [htoReal] using hi
 
 end ArtinPrimitiveRoots.Proofs.thsol_sheets
