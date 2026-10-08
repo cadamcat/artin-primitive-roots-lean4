@@ -28,6 +28,7 @@ import ArtinPrimitiveRoots.Proofs.pd_life_b.FiniteGhostTrace
 import ArtinPrimitiveRoots.Proofs.pd_life_b.FiniteHistoryTrace
 import ArtinPrimitiveRoots.Proofs.pd_life_b.FiniteHistoryCutoff
 import ArtinPrimitiveRoots.Proofs.pd_life_b.FiniteHistoryValidity
+import ArtinPrimitiveRoots.Proofs.pd_life_b.ValidHistorySum
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_lifecycle_parameters
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_ordered_distinct_batch_sum
