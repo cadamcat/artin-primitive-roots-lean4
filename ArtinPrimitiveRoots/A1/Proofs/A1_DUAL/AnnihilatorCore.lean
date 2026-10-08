@@ -566,7 +566,8 @@ theorem arch_trace_dual_lattice [IsTotallyComplex F]
       (∏ w : InfinitePlace F,
         A1.psiC (w.embedding (n : F) * x w)) = 1) :
     ∃ t : F, (∀ w : InfinitePlace F, w.embedding t = x w) ∧ t ∈ S.R := by
-  sorry
+  obtain ⟨t, htArch, htrace⟩ := arch_trace_dual_element D x h
+  exact ⟨t, htArch, trace_integral_mem_S_R S t htrace⟩
 
 /-- The local additive character has no annihilator beyond zero. -/
 theorem psi_local_nondegenerate [IsTotallyComplex F]
