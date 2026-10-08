@@ -41,6 +41,10 @@ theorem chiAlg_spec (D : FieldData F) (P : FinPlace F)
 
 theorem residue_zero_finite (a : Fˣ) :
     {P : FinPlace F | residue P (a : F) = 0}.Finite := by
-  sorry
+  have hgood : ∀ᶠ P : FinPlace F in Filter.cofinite, residue P (a : F) ≠ 0 := by
+    filter_upwards [FractionalIdeal.finite_factors
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F))] with P hP
+    exact (residue_ne_zero_iff_ord_zero P (a : F)).mpr ⟨hP, a.ne_zero⟩
+  simpa only [not_not] using Filter.eventually_cofinite.mp hgood
 
 end ArtinPrimitiveRoots.A1.KummerProofs
