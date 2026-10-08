@@ -60,7 +60,7 @@ theorem normHeight_smul_ptX' (g : SL(2,F)) (x : InfinitePlace F → ℂ) (y : In
 theorem eisTerm_mk (Γ : Subgroup SL(2, 𝓞 F)) (σ : SL(2,F)) (s : ℂ) (z : X F) (γ : Γ) :
     eisTerm F Γ σ s z (Quotient.mk _ γ) =
       ((normHeight F (σ⁻¹ • ((γ : SL(2, 𝓞 F)) • z)) : ℝ) : ℂ) ^ (1 + 2 * s) := by
-  sorry
+  exact E1_eis_def.1 Γ σ s z γ
 
 /-- `spec:eis-converge`: locally uniform absolute convergence for `Re s > 1/2`, uniformly on compact
 sets of `z` and on vertical strips `σ₀ ≤ Re s ≤ σ₁`. -/
@@ -68,13 +68,13 @@ theorem eisSeries_majorant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ : 
     (K : Set (X F)) (hK : IsCompact K) (σ₀ σ₁ : ℝ) (h₀ : 1 / 2 < σ₀) :
     ∃ m : CuspCosets F Γ σ → ℝ, Summable m ∧
       ∀ z ∈ K, ∀ s : ℂ, σ₀ ≤ s.re → s.re ≤ σ₁ → ∀ q, ‖eisTerm F Γ σ s z q‖ ≤ m q := by
-  sorry
+  exact (E2_eis_converge Γ σ).1 K hK σ₀ σ₁ h₀
 
 /-- `spec:eis-converge`: `Γ`-invariance in the convergence region. -/
 theorem eisSeries_invariant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ : SL(2,F)) (s : ℂ)
     (hs : 1 / 2 < s.re) (γ : SL(2, 𝓞 F)) (hγ : γ ∈ Γ) (z : X F) :
     eisSeries F Γ σ s (γ • z) = eisSeries F Γ σ s z := by
-  sorry
+  exact (E2_eis_converge Γ σ).2.1 s hs γ hγ z
 
 /-- `spec:domain`. -/
 theorem isOpen_contDomain (s₁ ε : ℝ) : IsOpen (contDomain s₁ ε) := by
