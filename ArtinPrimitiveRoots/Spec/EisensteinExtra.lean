@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Spec.Energy
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SMOOTH_SEED.E3
 import Mathlib.LinearAlgebra.Countable
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SIEGEL_BOUND.triangular_transition_unique
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SIEGEL_BOUND.triangular_transition_term
@@ -32,7 +33,7 @@ theorem E3_eis_smooth (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
           ∀ q, ∀ p, p ∈ K →
             ‖iteratedFDeriv ℝ n
               (fun p => eisTerm F Γ σ s (ptX F p) q) p v‖ ≤ m q) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.spec_seed_p.e3Result Γ σ s hs
 
 /-- E4 `spec:eis-siegel` — P-SPEC.md:240, 390–395. On each Siegel set there is at most one
 upper-triangular seed coset; the remaining terms and their gradients are uniformly summable on
