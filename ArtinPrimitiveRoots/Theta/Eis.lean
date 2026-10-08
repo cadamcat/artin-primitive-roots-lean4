@@ -1996,6 +1996,80 @@ theorem eisenstein_zeroCoeff_bounded_domain
   refine ⟨Pb, hmb, hcb, hdb, hvol, hpos, ?_⟩
   simp only [torusCoeff, neg_zero, hpsi0, mul_one, hvol, hi]
 
+/-- The normalized zero coefficient has summable small- and big-cell contributions. -/
+theorem eisenstein_zeroCoeff_bruhat_on_compact
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
+    (K : Set (InfinitePlace F → ℂ)) (hK : IsCompact K)
+    (B : Set (InfinitePlace F → ℂ)) (hB : MeasurableSet B) (hBK : B ⊆ K)
+    (hvol : 0 < (volume B).toReal) :
+    Summable (fun δ : Fˣ ⧸ G.Δ => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out δ)) * g)) ∧
+    Summable (fun p : (Fˣ ⧸ G.Δ) × F => ∫ x in B, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) *
+        nInf P x * g)) ∧
+    torusCoeff P (eisenstein P G Fs) g B 0 =
+      (∑' δ : Fˣ ⧸ G.Δ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ)) * g)) +
+      ((volume B).toReal : ℂ)⁻¹ *
+        ∑' p : (Fˣ ⧸ G.Δ) × F, ∫ x in B, scalarOf P G Fs.f Fs.fC
+          (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) *
+            nInf P x * g) := by
+  classical
+  let Q := Quotient (QuotientGroup.rightRel (Bstar G))
+  obtain ⟨e, hsmall, hbig⟩ := rational_bruhat_coset_equiv P G
+  let R : ((Fˣ ⧸ G.Δ) ⊕ ((Fˣ ⧸ G.Δ) × F)) → GL (Fin 2) F :=
+    Sum.elim (fun δ => diagGL (Quotient.out δ))
+      (fun p => diagGL (Quotient.out p.1) * weylGL * upperGL p.2)
+  have he (u) : e u = Quotient.mk (QuotientGroup.rightRel (Bstar G)) (R u) := by
+    cases u with
+    | inl δ => exact hsmall δ
+    | inr p => exact hbig p.1 p.2
+  have hrep (u) (h : P.tc.G) :
+      scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out (e u)) * h) =
+        scalarOf P G Fs.f Fs.fC (P.tc.rat (R u) * h) := by
+    have hb : R u * (Quotient.out (e u))⁻¹ ∈ Bstar G :=
+      QuotientGroup.rightRel_apply.mp (Quotient.exact ((Quotient.out_eq (e u)).trans (he u)))
+    simpa only [map_mul, map_inv, mul_assoc, inv_mul_cancel_left] using
+      ((scalarOf_invariance P G Fs).1 (R u * (Quotient.out (e u))⁻¹) hb
+        (P.tc.rat (Quotient.out (e u)) * h)).symm
+  have hsum : Summable (fun β : Q => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (Quotient.out β) * g)) :=
+    (eisenstein_summable P G hs Fs g).of_norm_bounded fun _ => le_rfl
+  have hsmallSum : Summable (fun δ : Fˣ ⧸ G.Δ => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out δ)) * g)) :=
+    (hsum.comp_injective (e.injective.comp Sum.inl_injective)).congr
+      (fun δ => hrep (Sum.inl δ) g)
+  obtain ⟨_, habs, _⟩ := eisenstein_integral_tsum_on_compact P G hs Fs g K hK B hB hBK
+  let I (β : Q) : ℂ := ∫ x in B, scalarOf P G Fs.f Fs.fC
+    (P.tc.rat (Quotient.out β) * nInf P x * g)
+  have hsumI : Summable I := habs.of_norm_bounded fun _ => norm_integral_le_integral_norm _
+  have hrepI (p : (Fˣ ⧸ G.Δ) × F) : I (e (Sum.inr p)) =
+      ∫ x in B, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P x * g) := by
+    apply integral_congr_ae
+    filter_upwards [] with x
+    simpa only [R, Sum.elim_inr, mul_assoc] using hrep (Sum.inr p) (nInf P x * g)
+  have hbigSum : Summable (fun p : (Fˣ ⧸ G.Δ) × F => ∫ x in B, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P x * g)) :=
+    (hsumI.comp_injective (e.injective.comp Sum.inr_injective)).congr hrepI
+  have hsmallIntegral (δ : Fˣ ⧸ G.Δ) :
+      (∫ x in B, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ)) * nInf P x * g)) =
+      ((volume B).toReal : ℂ) * scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ)) * g) := by
+    simp_rw [scalarOf_diag_unipotent P G Fs]
+    rw [setIntegral_const, Complex.real_smul]
+    rfl
+  have hvolC : ((volume B).toReal : ℂ) ≠ 0 := by exact_mod_cast ne_of_gt hvol
+  have hpsi0 (x : InfinitePlace F → ℂ) : psiInf (0 : F) x = 1 := by
+    simp [psiInf, psiC]
+  refine ⟨hsmallSum, hbigSum, ?_⟩
+  simp only [torusCoeff, Complex.ofReal_inv, neg_zero, hpsi0, mul_one]
+  rw [eisenstein_bruhat_integral_on_compact P G hs Fs g K hK B hB hBK]
+  simp_rw [hsmallIntegral]
+  rw [tsum_mul_left, mul_add, ← mul_assoc, inv_mul_cancel₀ hvolC, one_mul]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
