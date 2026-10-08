@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogRegularity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
@@ -1345,6 +1346,28 @@ private theorem po_probe_low_log_regular :
         iteratedDeriv n (fun u : ℝ => po_probe_low_log_kernel R W u p.2) p.1) := by
   exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_log_regular D S R.sheets
     W.W0 W.W1 W.arch W.finite W.W1_smooth W.W0_tensor
+
+private theorem po_probe_low_log_family :
+    ∃ lo hi C0 C2 : ℝ, lo < hi ∧ 0 < C0 ∧ 0 < C2 ∧
+      ∃ K : Set S.FSˣ, IsCompact K ∧
+        (∀ v ∈ tsupport W.W1, Real.log v ∈ Set.Ioo lo hi) ∧
+        (∀ x : S.FS, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+          (fun u => po_probe_low_log_kernel R W u x)) ∧
+        Continuous (fun p : ℝ × S.FS => po_probe_low_log_kernel R W p.1 p.2) ∧
+        Continuous (fun p : ℝ × S.FS =>
+          iteratedDeriv 2 (fun u => po_probe_low_log_kernel R W u p.2) p.1) ∧
+        (∀ x u, u ∈ Set.Icc lo hi →
+          ‖po_probe_low_log_kernel R W u x‖ ≤ C0 ∧
+          ‖iteratedDeriv 2 (fun v => po_probe_low_log_kernel R W v x) u‖ ≤ C2) ∧
+        (∀ x, po_probe_low_log_kernel R W lo x = 0 ∧
+          po_probe_low_log_kernel R W hi x = 0 ∧
+          deriv (fun u => po_probe_low_log_kernel R W u x) lo = 0 ∧
+          deriv (fun u => po_probe_low_log_kernel R W u x) hi = 0) ∧
+        (∀ x, x ∉ (Units.val : S.FSˣ → S.FS) '' K →
+          ∀ u, po_probe_low_log_kernel R W u x = 0) := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_log_family D S R.sheets W.W0 W.W1
+    W.W0_compact W.W0_units W.W1_compact W.W1_positive_support W.W1_smooth.continuous
+    W.W1_nonzero (po_probe_low_log_regular R W)
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
