@@ -43,4 +43,38 @@ theorem sum_filter_dvd_reindex (d : ℕ) (I : Finset ℕ)
       dsimp [divisorQuotients]
       exact (Finset.sum_image (f := fun h => f (d * h)) hinj).symm
 
+/-- Factor the character and oscillatory phase of a product, leaving the
+reciprocal-log weight on the product. -/
+theorem source_term_factorization (k : ℕ) (χ : DirichletCharacter ℂ k)
+    (u : ℝ) (d h : ℕ) (hd : 0 < d) (hh : 0 < h) :
+    (χ ((d * h : ℕ) : ZMod k) : ℂ) *
+        Complex.exp (Complex.I * u * Real.log ((d * h : ℕ) : ℝ)) /
+          Real.log ((d * h : ℕ) : ℝ) =
+      ((χ (d : ZMod k) : ℂ) * Complex.exp (Complex.I * u * Real.log (d : ℝ))) *
+        ((χ (h : ZMod k) : ℂ) * Complex.exp (Complex.I * u * Real.log (h : ℝ)) /
+          Real.log ((d * h : ℕ) : ℝ)) := by
+  have hdR : 0 < (d : ℝ) := by exact_mod_cast hd
+  have hhR : 0 < (h : ℝ) := by exact_mod_cast hh
+  have hcast : ((d * h : ℕ) : ℝ) = (d : ℝ) * (h : ℝ) := by norm_cast
+  have hlog : Real.log ((d * h : ℕ) : ℝ) =
+      Real.log (d : ℝ) + Real.log (h : ℝ) := by
+    rw [hcast, Real.log_mul hdR.ne' hhR.ne']
+  have hchar : (χ ((d * h : ℕ) : ZMod k) : ℂ) =
+      (χ (d : ZMod k) : ℂ) * (χ (h : ZMod k) : ℂ) := by
+    simp only [Nat.cast_mul, map_mul]
+  have hphase : Complex.exp (Complex.I * u *
+        Real.log ((d * h : ℕ) : ℝ)) =
+        Complex.exp (Complex.I * u * Real.log (d : ℝ)) *
+        Complex.exp (Complex.I * u * Real.log (h : ℝ)) := by
+    rw [hlog]
+    calc
+      _ = Complex.exp (Complex.I * ↑u * Real.log (d : ℝ) +
+          Complex.I * ↑u * Real.log (h : ℝ)) := by
+        congr 1
+        push_cast
+        ring
+      _ = _ := Complex.exp_add _ _
+  rw [hchar, hphase]
+  ring
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
