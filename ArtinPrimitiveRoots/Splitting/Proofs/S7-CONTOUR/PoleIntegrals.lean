@@ -98,4 +98,26 @@ theorem horizontal_simple_pole_integral (A : ℂ) (a b y : ℝ) (hy : y ≠ 0) :
         intervalIntegral.integral_ofReal, intervalIntegral.integral_ofReal]
     _ = _ := by rw [hlogint, harctan]
 
+/-- A vertical simple-pole integral is the rotated horizontal formula. -/
+theorem vertical_simple_pole_integral (A : ℂ) (a b x : ℝ) (hx : x ≠ 0) :
+    (∫ t : ℝ in a..b, A / ((x : ℂ) + (t : ℂ) * Complex.I)) =
+      (A / Complex.I) * ((Real.log (b ^ 2 + x ^ 2) / 2 -
+        Real.log (a ^ 2 + x ^ 2) / 2 : ℝ) : ℂ) -
+      (A / Complex.I) * Complex.I *
+        ((Real.arctan (b / (-x)) - Real.arctan (a / (-x)) : ℝ) : ℂ) := by
+  have heq (t : ℝ) : A / ((x : ℂ) + (t : ℂ) * Complex.I) =
+      (A / Complex.I) / ((t : ℂ) + (-x : ℝ) * Complex.I) := by
+    rw [div_div]
+    congr 1
+    push_cast
+    ring_nf
+    <;> simp [Complex.I_sq]
+  calc
+    _ = ∫ t : ℝ in a..b, (A / Complex.I) /
+        ((t : ℂ) + (-x : ℝ) * Complex.I) :=
+      integral_congr fun t _ => heq t
+    _ = _ := by
+      simpa only [neg_sq] using
+        horizontal_simple_pole_integral (A / Complex.I) a b (-x) (neg_ne_zero.mpr hx)
+
 end ArtinPrimitiveRoots.Proofs.s7sol_mellin
