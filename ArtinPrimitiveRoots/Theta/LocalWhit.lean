@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.Theta.LocalInt
 import ArtinPrimitiveRoots.Theta.Proofs.TH_WHITTAKER.Bruhat
 import ArtinPrimitiveRoots.Theta.Proofs.TH_LOCAL_COEFF.TameKernel
 import ArtinPrimitiveRoots.Theta.Proofs.TH_LOCAL_COEFF.UnitInversion
+import ArtinPrimitiveRoots.Theta.Proofs.TH_LOCAL_COEFF.UnitShell
 
 set_option autoImplicit false
 
