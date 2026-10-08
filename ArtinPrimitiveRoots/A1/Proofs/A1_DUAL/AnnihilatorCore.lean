@@ -4,7 +4,7 @@ import ArtinPrimitiveRoots.A1.AddChar
 
 set_option autoImplicit false
 
-open NumberField IsDedekindDomain
+open NumberField NumberField.InfinitePlace IsDedekindDomain Module
 open scoped Classical
 
 noncomputable section
@@ -292,6 +292,35 @@ theorem arch_character_condition_integer [IsTotallyComplex F]
     simpa using h
   have hqReal : q = ((-k : ℤ) : ℝ) := by exact_mod_cast hq'
   exact ⟨-k, by simpa [q] using hqReal.symm⟩
+
+/-- The chosen complex-place coordinates carry the real basis induced by the Minkowski lattice
+basis of the ring of integers. -/
+private def archComplexPlaceLinearEquiv [IsTotallyComplex F] :
+    mixedEmbedding.mixedSpace F ≃ₗ[ℝ] (InfinitePlace F → ℂ) where
+  toFun x w := x.2 ⟨w, IsTotallyComplex.isComplex w⟩
+  invFun x := (fun w => False.elim
+    ((not_isReal_iff_isComplex.mpr (IsTotallyComplex.isComplex w.1)) w.2),
+    fun w => x w.1)
+  left_inv x := by
+    apply Prod.ext
+    · funext w
+      exact ((not_isReal_iff_isComplex.mpr
+        (IsTotallyComplex.isComplex w.1)) w.2).elim
+    · funext w
+      rfl
+  right_inv x := rfl
+  map_add' x y := rfl
+  map_smul' c x := rfl
+
+theorem arch_embedding_real_basis [IsTotallyComplex F] :
+    ∃ b : Module.Basis (Module.Free.ChooseBasisIndex ℤ (𝓞 F)) ℝ (InfinitePlace F → ℂ),
+      ∀ i, b i = fun w => w.embedding (NumberField.integralBasis F i) := by
+  let b := (mixedEmbedding.latticeBasis F).map (archComplexPlaceLinearEquiv (F := F))
+  refine ⟨b, ?_⟩
+  intro i
+  change archComplexPlaceLinearEquiv (mixedEmbedding.latticeBasis F i) = _
+  rw [mixedEmbedding.latticeBasis_apply]
+  rfl
 
 /-- The archimedean annihilator of the integral lattice is the embedded inverse trace-dual
 lattice; all its elements lie in the S-integers because the different is supported in `S`. -/
