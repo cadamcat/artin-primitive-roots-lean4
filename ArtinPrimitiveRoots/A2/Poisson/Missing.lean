@@ -1,11 +1,14 @@
 import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Interface
+import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
+import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
 set_option maxHeartbeats 800000
 open NumberField IsDedekindDomain MeasureTheory
 open scoped Classical
+open scoped Topology
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
 open ArtinPrimitiveRoots A1 A2
@@ -129,6 +132,105 @@ private theorem po_absS_continuous (S : SData F CE condη) : Continuous S.absS :
   · apply continuous_finsetProd Finset.univ
     intro w hw
     exact Complex.continuous_normSq.comp ((continuous_apply w).comp continuous_snd)
+
+private theorem po_addChar_continuous (v : FinPlace F) : Continuous (A.ψ v) := by
+  apply continuous_iff_continuousAt.mpr
+  intro x
+  change Filter.Tendsto (A.ψ v) (𝓝 x) (𝓝 (A.ψ v x))
+  let O : Set (v.adicCompletion F) := v.adicCompletionIntegers F
+  have hO : IsOpen O := Valued.isOpen_valuationSubring (v.adicCompletion F)
+  let U : Set (v.adicCompletion F) := {y | y - x ∈ O}
+  have hU : IsOpen U := by
+    exact hO.preimage (continuous_id.sub continuous_const)
+  have hxU : x ∈ U := by simp [U, O]
+  have hloc : ∀ y ∈ U, A.ψ v y = A.ψ v x := by
+    intro y hy
+    calc
+      A.ψ v y = A.ψ v (x + (y - x)) := by congr 1 <;> abel
+      _ = A.ψ v x * A.ψ v (y - x) := AddChar.map_add_eq_mul _ _ _
+      _ = A.ψ v x := by rw [A.integral v (y - x) hy, mul_one]
+  have hEq : (A.ψ v) =ᶠ[𝓝 x] fun _ => A.ψ v x := by
+    filter_upwards [IsOpen.mem_nhds hU hxU] with y hy
+    exact hloc y hy
+  exact (Filter.tendsto_congr' hEq).mpr tendsto_const_nhds
+
+private theorem po_e_continuous : Continuous (S.e A) := by
+  unfold SData.e
+  apply Continuous.mul
+  · apply continuous_finsetProd Finset.univ
+    intro v hv
+    exact (po_addChar_continuous (A := A) v.1).comp
+      ((continuous_apply v).comp continuous_fst)
+  · apply continuous_finsetProd Finset.univ
+    intro w hw
+    fun_prop [psiC]
+
+private theorem po_weightFourier_continuous : Continuous (weightFourier sd W) := by
+  letI : MeasurableSpace S.FS := borel S.FS
+  letI : BorelSpace S.FS := ⟨rfl⟩
+  letI := sd.isHaar
+  letI : SigmaFinite sd.measure := by infer_instance
+  letI : SFinite sd.measure := by infer_instance
+  let kernel : S.FS → S.FS → ℂ := fun x y => W.W0 x * S.e A (-(x * y))
+  have hWcont : Continuous W.W0 := po_probe_weight_continuous (W := W)
+  have hWint : Integrable W.W0 sd.measure :=
+    hWcont.integrable_of_hasCompactSupport W.W0_compact
+  have hecont : Continuous (fun p : S.FS × S.FS => S.e A (-(p.1 * p.2))) :=
+    (po_e_continuous (A := A)).comp
+      (continuous_neg.comp (continuous_fst.mul continuous_snd))
+  have hkernel : Continuous (fun p : S.FS × S.FS => kernel p.1 p.2) :=
+    hWcont.comp continuous_fst |>.mul hecont
+  have hparam (y : S.FS) : Continuous (fun x : S.FS => kernel x y) := by
+    convert hkernel.comp (continuous_id.prodMk continuous_const) using 1
+    rfl
+  apply continuous_iff_continuousAt.mpr
+  intro y0
+  obtain ⟨L, hLcompact, hLnhds⟩ := exists_compact_mem_nhds y0
+  let K : Set S.FS := tsupport W.W0
+  have hKcompact : IsCompact K := W.W0_compact
+  have hKLcompact : IsCompact (K ×ˢ L) := hKcompact.prod hLcompact
+  obtain ⟨C, hC⟩ := hKLcompact.exists_bound_of_continuousOn hecont.continuousOn
+  let B : ℝ := max C 0
+  have hB : 0 ≤ B := le_max_right _ _
+  let bound : S.FS → ℝ := fun x => B * ‖W.W0 x‖
+  have hbound_each (y : S.FS) (hy : y ∈ L) (x : S.FS) :
+      ‖kernel x y‖ ≤ bound x := by
+    by_cases hx : x ∈ K
+    · change ‖W.W0 x * S.e A (-(x * y))‖ ≤ B * ‖W.W0 x‖
+      rw [norm_mul]
+      calc
+        ‖W.W0 x‖ * ‖S.e A (-(x * y))‖ ≤ ‖W.W0 x‖ * B :=
+          mul_le_mul_of_nonneg_left (hC (x, y) ⟨hx, hy⟩ |>.trans (le_max_left _ _))
+            (norm_nonneg _)
+        _ = bound x := by simp [bound, B, mul_comm]
+    · have hxzero : W.W0 x = 0 := by
+        by_contra hne
+        have hmem : x ∈ Function.support W.W0 := Function.mem_support.mpr hne
+        exact hx (subset_closure hmem)
+      simp [kernel, hxzero, bound]
+  have hbound_integrable : Integrable bound sd.measure := by
+    simpa [bound, mul_comm] using hWint.norm.const_mul B
+  have hmeas : ∀ᶠ y in 𝓝 y0, AEStronglyMeasurable (fun x => kernel x y) sd.measure := by
+    filter_upwards with y
+    exact (hparam y).stronglyMeasurable.aestronglyMeasurable
+  have hbound : ∀ᶠ y in 𝓝 y0, ∀ᵐ x ∂sd.measure, ‖kernel x y‖ ≤ bound x := by
+    filter_upwards [hLnhds] with y hy
+    exact Filter.Eventually.of_forall (hbound_each y hy)
+  have hlim : ∀ᵐ x ∂sd.measure,
+      Filter.Tendsto (fun y => kernel x y) (𝓝 y0) (𝓝 (kernel x y0)) := by
+    filter_upwards with x
+    exact (hkernel.comp (continuous_const.prodMk continuous_id)).continuousAt
+  have hDCT := MeasureTheory.tendsto_integral_filter_of_dominated_convergence
+    (μ := sd.measure) (l := 𝓝 y0) (F := fun y x => kernel x y)
+    (f := fun x => kernel x y0) bound hmeas hbound hbound_integrable hlim
+  change Filter.Tendsto
+    (fun y : S.FS => ∫ x, W.W0 x * S.e A (-(x * y)) ∂sd.measure) (𝓝 y0)
+    (𝓝 (∫ x, W.W0 x * S.e A (-(x * y0)) ∂sd.measure))
+  exact hDCT
+
+private theorem po_weightFourier_aestronglyMeasurable :
+    AEStronglyMeasurable (weightFourier sd W) R.sheets.mul :=
+  po_weightFourier_continuous (sd := sd) (W := W) |>.aestronglyMeasurable
 
 private theorem po_absS_one_isUnit (S : SData F CE condη) (y : S.FS)
     (hy : S.absS y = 1) : IsUnit y := by
@@ -2781,16 +2883,315 @@ def vertical (σ : ℝ) (f : ℂ → ℂ) : ℂ :=
   (1 / (2 * Real.pi) : ℂ) * ∫ t : ℝ, f (σ + t * Complex.I)
 def tripleVertical (σξ σw σz : ℝ) (f : ℂ → ℂ → ℂ → ℂ) : ℂ :=
   vertical σξ (fun ξ => vertical σw (fun w => vertical σz (fun z => f ξ w z)))
-/-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
-theorem po_poisson_orbits : WeightSpec R sd W →
-  (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
-  (∀ z : ℂ, 0 < z.re → mellin (weightV0 R sd W) z = weightM R sd W z) ∧
-  (∀ σ T : ℝ, 0 < σ → 0 < T →
-    weightV0 R sd W T = vertical σ (fun z => weightM R sd W z * (T : ℂ) ^ (-z))) ∧
-  ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
-    Summable (fun p => ‖poissonOrbitTerm R sd W η U X Y Z p‖) ∧
-    probe R W X Y Z = ((X ^ (1 / 2 : ℝ) / Y : ℝ) : ℂ) * ∑' p, poissonOrbitTerm R sd W η U X Y Z p := by
-  sorry
+
+private theorem po_weightFourier_cpow_sheet_integral (T : ℝ) (hT : 0 < T) (z : ℂ) :
+    (∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.sheet T)) =
+      (T : ℂ) ^ z * weightV0 R sd W T := by
+  have hEq : (fun y : S.FS =>
+      weightFourier sd W y * (S.absS y : ℂ) ^ z) =ᵐ[R.sheets.sheet T]
+      fun y => (T : ℂ) ^ z * weightFourier sd W y := by
+    filter_upwards [R.sheets.sheet_support T hT] with y hy
+    rw [hy.2]
+    ring
+  calc
+    (∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.sheet T)) =
+        ∫ y, (T : ℂ) ^ z * weightFourier sd W y ∂(R.sheets.sheet T) :=
+      integral_congr_ae hEq
+    _ = (T : ℂ) ^ z * weightV0 R sd W T := by
+      rw [integral_const_mul]
+      rfl
+
+private theorem po_weightM_eq_mellin_of_integrable (z : ℂ)
+    (hF : Integrable (fun y : S.FS =>
+      weightFourier sd W y * (S.absS y : ℂ) ^ z) R.sheets.mul) :
+    weightM R sd W z = mellin (weightV0 R sd W) z := by
+  have hdis := R.sheets.disintegrate
+    (fun y : S.FS => weightFourier sd W y * (S.absS y : ℂ) ^ z) hF
+  have hline : ∀ T ∈ Set.Ioi (0 : ℝ),
+      (∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.sheet T)) /
+        (T : ℂ) = (T : ℂ) ^ (z - 1) * weightV0 R sd W T := by
+    intro T hT
+    have hT' : 0 < T := hT
+    rw [po_weightFourier_cpow_sheet_integral (R := R) (sd := sd) (W := W) T hT' z]
+    have hpow : (T : ℂ) ^ (z - 1) = (T : ℂ) ^ z / (T : ℂ) := by
+      rw [Complex.cpow_sub z 1 (Complex.ofReal_ne_zero.mpr hT.ne'), Complex.cpow_one]
+    rw [hpow]
+    ring
+  calc
+    weightM R sd W z =
+        ∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.mul) := rfl
+    _ = ∫ T in Set.Ioi (0 : ℝ),
+          (∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.sheet T)) /
+            (T : ℂ) := hdis
+    _ = mellin (weightV0 R sd W) z := by
+      unfold mellin
+      apply integral_congr_ae
+      filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+      simpa only [smul_eq_mul] using hline T hT
+
+private theorem po_weightM_integrand_integrable (z : ℂ) (hz : 0 < z.re)
+    (hdecay : WeightDecay R sd W)
+    (hFour : AEStronglyMeasurable (weightFourier sd W) R.sheets.mul) :
+    Integrable (fun y : S.FS =>
+      weightFourier sd W y * (S.absS y : ℂ) ^ z) R.sheets.mul := by
+  rcases hdecay with ⟨_, _, _, _, hMoment⟩
+  have hMajorant : Integrable
+      (fun y : S.FS => ‖weightFourier sd W y‖ * S.absS y ^ z.re) R.sheets.mul :=
+    hMoment z.re hz
+  have hAbsS (y : S.FS) : 0 ≤ S.absS y := by
+    rw [SData.absS]
+    apply mul_nonneg
+    · apply Finset.prod_nonneg
+      intro v hv
+      unfold absFin
+      split_ifs <;> positivity
+    · apply Finset.prod_nonneg
+      intro w hw
+      exact Complex.normSq_nonneg _
+  have hPowerCont : Continuous (fun y : S.FS => (S.absS y : ℂ) ^ z) := by
+    apply continuous_iff_continuousAt.mpr
+    intro y
+    have hbase : 0 ≤ (S.absS y : ℂ).re := by simpa using hAbsS y
+    exact (Complex.continuousAt_cpow_of_re_pos (Or.inl hbase) hz).comp
+      (((Complex.continuous_ofReal.comp (po_absS_continuous S)).continuousAt).prodMk
+        continuousAt_const)
+  have hPower : Measurable (fun y : S.FS => (S.absS y : ℂ) ^ z) := hPowerCont.measurable
+  refine Integrable.mono' hMajorant (hFour.mul hPower.aestronglyMeasurable) ?_
+  filter_upwards with y
+  rw [norm_mul, Complex.norm_cpow_eq_rpow_re_of_nonneg (hAbsS y) (ne_of_gt hz)]
+
+private theorem po_weightM_eq_mellin (z : ℂ) (hz : 0 < z.re)
+    (hdecay : WeightDecay R sd W) :
+    weightM R sd W z = mellin (weightV0 R sd W) z := by
+  have hF := po_weightM_integrand_integrable (R := R) (sd := sd) (W := W) z hz hdecay
+    (po_weightFourier_aestronglyMeasurable (R := R) (sd := sd) (W := W))
+  exact po_weightM_eq_mellin_of_integrable (R := R) (sd := sd) (W := W) z hF
+
+private theorem po_weightV0_vertical_integrable (σ : ℝ) (hσ : 0 < σ)
+    (hdecay : WeightDecay R sd W) :
+    Complex.VerticalIntegrable (mellin (weightV0 R sd W)) σ := by
+  have hdecay0 := hdecay
+  rcases hdecay with ⟨hDiffM, _, hMDecay, _, _⟩
+  obtain ⟨C, hC, hMbound⟩ := hMDecay σ σ 2 hσ le_rfl (by norm_num)
+  let line : ℝ → ℂ := fun t => (σ : ℂ) + (t : ℂ) * Complex.I
+  have hline : Continuous (fun t : ℝ => (σ : ℂ) + (t : ℂ) * Complex.I) := by fun_prop
+  have hmaps : Set.MapsTo line Set.univ {z : ℂ | 0 < z.re} := by
+    intro t ht
+    simp [line, hσ]
+  have hcontM : Continuous (fun t : ℝ => weightM R sd W (line t)) := by
+    apply continuousOn_univ.mp
+    exact hDiffM.continuousOn.comp hline.continuousOn hmaps
+  have hEqFun : (fun t : ℝ => mellin (weightV0 R sd W) (line t)) =
+      fun t => weightM R sd W (line t) := by
+    funext t
+    have ht : 0 < (line t).re := by simp [line, hσ]
+    exact (po_weightM_eq_mellin (R := R) (sd := sd) (W := W) (line t) ht hdecay0).symm
+  change Integrable (fun t : ℝ => mellin (weightV0 R sd W) (line t)) volume
+  rw [hEqFun]
+  have hpow (t : ℝ) : (1 + |t|) ^ (-(2 : ℝ)) ≤ (1 + t ^ 2)⁻¹ := by
+    have hsq : 1 + t ^ 2 ≤ (1 + |t|) ^ 2 := by
+      calc
+        1 + t ^ 2 = 1 + |t| ^ 2 := by rw [sq_abs]
+        _ ≤ (1 + |t|) ^ 2 := by nlinarith [abs_nonneg t]
+    calc
+      (1 + |t|) ^ (-(2 : ℝ)) = ((1 + |t|) ^ 2)⁻¹ := by
+        rw [Real.rpow_neg (by positivity) 2, Real.rpow_two]
+      _ ≤ (1 + t ^ 2)⁻¹ := by
+        simpa only [one_div] using
+          (one_div_le_one_div_of_le (a := 1 + t ^ 2) (b := (1 + |t|) ^ 2)
+            (by positivity) hsq)
+  have hBound (t : ℝ) : ‖weightM R sd W (line t)‖ ≤ C * (1 + t ^ 2)⁻¹ := by
+    have h := hMbound σ t le_rfl le_rfl
+    simpa [line] using h.trans
+      (mul_le_mul_of_nonneg_left (hpow t) (le_of_lt hC))
+  have hmajor : Integrable (fun t : ℝ => C * (1 + t ^ 2)⁻¹) volume := by
+    simpa [mul_comm] using integrable_inv_one_add_sq.const_mul C
+  refine Integrable.mono' hmajor hcontM.stronglyMeasurable.aestronglyMeasurable ?_
+  filter_upwards with t
+  exact hBound t
+
+private theorem po_weightFourier_moment_pos (σ : ℝ) (hσ : 0 < σ)
+    (hSpec : WeightSpec R sd W) (hdecay : WeightDecay R sd W) :
+    0 < ∫ y, (‖weightFourier sd W y‖ * S.absS y ^ σ) ∂(R.sheets.mul) := by
+  rcases hdecay with ⟨_, _, _, _, hMoment⟩
+  have hInt := hMoment σ hσ
+  have hnonneg : ∀ y, 0 ≤ ‖weightFourier sd W y‖ * S.absS y ^ σ := by
+    intro y
+    have hS : 0 ≤ S.absS y := by
+      rw [SData.absS]
+      apply mul_nonneg
+      · apply Finset.prod_nonneg
+        intro v hv
+        unfold absFin
+        split_ifs <;> positivity
+      · apply Finset.prod_nonneg
+        intro w hw
+        exact Complex.normSq_nonneg _
+    exact mul_nonneg (norm_nonneg _) (Real.rpow_nonneg hS _)
+  by_contra hpos
+  have hzero : (∫ y, (‖weightFourier sd W y‖ * S.absS y ^ σ) ∂(R.sheets.mul)) = 0 := by
+    have hle : (∫ y, (‖weightFourier sd W y‖ * S.absS y ^ σ) ∂(R.sheets.mul)) ≤ 0 :=
+      le_of_not_gt hpos
+    exact le_antisymm hle (integral_nonneg_of_ae (Filter.Eventually.of_forall hnonneg))
+  have hzeroAE :=
+    (integral_eq_zero_iff_of_nonneg_ae (Filter.Eventually.of_forall hnonneg) hInt).mp hzero
+  have hpowZero :
+      (fun y : S.FS => weightFourier sd W y * (S.absS y : ℂ) ^ (1 / 6 : ℂ)) =ᵐ[R.sheets.mul]
+        0 := by
+    filter_upwards [hzeroAE] with y hy
+    by_cases hy0 : S.absS y = 0
+    · simp [hy0, Complex.zero_cpow (by norm_num : (1 / 6 : ℂ) ≠ 0)]
+    · have hyPos : 0 < S.absS y := lt_of_le_of_ne (by
+        rw [SData.absS]
+        apply mul_nonneg
+        · apply Finset.prod_nonneg
+          intro v hv
+          unfold absFin
+          split_ifs <;> positivity
+        · apply Finset.prod_nonneg
+          intro w hw
+          exact Complex.normSq_nonneg _) (Ne.symm hy0)
+      have hpow : 0 < S.absS y ^ σ := Real.rpow_pos_of_pos hyPos σ
+      have hnorm : ‖weightFourier sd W y‖ = 0 := by
+        have hprod := mul_eq_zero.mp hy
+        rcases hprod with hprod | hprod
+        · exact hprod
+        · exact (hpow.ne' hprod).elim
+      have hFour : weightFourier sd W y = 0 := norm_eq_zero.mp hnorm
+      simp [hFour]
+  have hMzero : weightM R sd W (1 / 6) = 0 := by
+    unfold weightM
+    rw [integral_congr_ae hpowZero]
+    simp
+  exact hSpec.2 hMzero
+
+private theorem po_weightV0_mellin_convergent (σ : ℝ) (hσ : 0 < σ)
+    (hSpec : WeightSpec R sd W) (hdecay : WeightDecay R sd W)
+    (hSmooth : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (weightV0 R sd W) (Set.Ioi 0)) :
+    MellinConvergent (weightV0 R sd W) (σ : ℂ) := by
+  have hdecay0 := hdecay
+  let g : S.FS → ℝ := fun y => ‖weightFourier sd W y‖ * S.absS y ^ σ
+  rcases hdecay with ⟨_, _, _, _, hMoment⟩
+  have hMomentσ : Integrable g R.sheets.mul := hMoment σ hσ
+  have hMomentσpos : 0 < ∫ y, g y ∂(R.sheets.mul) :=
+    po_weightFourier_moment_pos (R := R) (sd := sd) (W := W) σ hσ hSpec hdecay0
+  have hGcomplex : Integrable (fun y : S.FS => (g y : ℂ)) R.sheets.mul := hMomentσ.ofReal
+  let kfun : ℝ → ℂ := fun T =>
+    (∫ y, (g y : ℂ) ∂(R.sheets.sheet T)) / (T : ℂ)
+  have hDis := R.sheets.disintegrate (fun y : S.FS => (g y : ℂ)) hGcomplex
+  have hLeftRe : Complex.re (∫ y, (g y : ℂ) ∂(R.sheets.mul)) =
+      ∫ y, g y ∂(R.sheets.mul) := by
+    calc
+      _ = ∫ y, Complex.re (g y : ℂ) ∂(R.sheets.mul) := (integral_re hGcomplex).symm
+      _ = ∫ y, g y ∂(R.sheets.mul) := by simp
+  have hLeftNe : (∫ y, (g y : ℂ) ∂(R.sheets.mul)) ≠ 0 := by
+    intro hz
+    have hz' := congrArg Complex.re hz
+    rw [hLeftRe] at hz'
+    simp at hz'
+    linarith
+  have hkIntegrable : IntegrableOn kfun (Set.Ioi (0 : ℝ)) := by
+    by_contra hk
+    have hzero : (∫ T in Set.Ioi (0 : ℝ), kfun T ∂volume) = 0 := integral_undef hk
+    apply hLeftNe
+    calc
+      (∫ y, (g y : ℂ) ∂(R.sheets.mul)) =
+          ∫ T in Set.Ioi (0 : ℝ), kfun T ∂volume := hDis
+      _ = 0 := hzero
+  have hprofile (T : ℝ) (hT : 0 < T) :
+      ‖(T : ℂ) ^ ((σ : ℂ) - 1) • weightV0 R sd W T‖ ≤ ‖kfun T‖ := by
+    by_cases hFourInt : Integrable (weightFourier sd W) (R.sheets.sheet T)
+    · have hNormInt := hFourInt.norm
+      have hSupport : ∀ᵐ y ∂(R.sheets.sheet T), S.absS y = T := by
+        filter_upwards [R.sheets.sheet_support T hT] with y hy
+        exact hy.2
+      have hGae : g =ᵐ[R.sheets.sheet T] fun y => T ^ σ * ‖weightFourier sd W y‖ := by
+        filter_upwards [hSupport] with y hy
+        simp [g, hy, mul_comm]
+      have hGInt : Integrable g (R.sheets.sheet T) := by
+        have hConst := hNormInt.const_mul (T ^ σ)
+        have hConst' : Integrable (fun y => T ^ σ * ‖weightFourier sd W y‖)
+            (R.sheets.sheet T) := by simpa [mul_comm] using hConst
+        exact hConst'.congr hGae.symm
+      have hGval : (∫ y, g y ∂(R.sheets.sheet T)) =
+          T ^ σ * ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) := by
+        calc
+          _ = ∫ y, T ^ σ * ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) :=
+            integral_congr_ae hGae
+          _ = T ^ σ * ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) := by
+            rw [integral_const_mul]
+      have hGcomplexVal : (∫ y, (g y : ℂ) ∂(R.sheets.sheet T)) =
+          ((∫ y, g y ∂(R.sheets.sheet T) : ℝ) : ℂ) := by
+        exact integral_ofReal
+      have hkval : kfun T =
+          (((T ^ σ * ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T)) / T : ℝ) : ℂ) := by
+        dsimp [kfun]
+        rw [hGcomplexVal, hGval, Complex.ofReal_div]
+      have hnorm : ‖weightV0 R sd W T‖ ≤
+          ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) := by
+        unfold weightV0
+        exact norm_integral_le_integral_norm (weightFourier sd W)
+      calc
+        _ = T ^ (σ - 1) * ‖weightV0 R sd W T‖ := by
+          rw [norm_smul, Complex.norm_cpow_eq_rpow_re_of_pos hT]
+          simp [Complex.sub_re]
+        _ ≤ T ^ (σ - 1) *
+              ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) :=
+          mul_le_mul_of_nonneg_left hnorm (Real.rpow_nonneg hT.le _)
+        _ = (T ^ σ * ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T)) / T := by
+          rw [Real.rpow_sub hT σ 1, Real.rpow_one]
+          ring
+        _ = ‖kfun T‖ := by
+          rw [hkval]
+          rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg]
+          positivity
+    · have hVzero : weightV0 R sd W T = 0 := by
+        unfold weightV0
+        exact integral_undef hFourInt
+      simp [hVzero]
+  have hpowCont : ContinuousOn (fun T : ℝ =>
+      (T : ℂ) ^ ((σ : ℂ) - 1)) (Set.Ioi (0 : ℝ)) := by
+    exact continuousOn_of_forall_continuousAt fun T hT =>
+      Complex.continuousAt_ofReal_cpow_const _ _ (Or.inr (ne_of_gt hT))
+  have hMellinAES : AEStronglyMeasurable
+      (fun T : ℝ => (T : ℂ) ^ ((σ : ℂ) - 1) • weightV0 R sd W T)
+      (volume.restrict (Set.Ioi (0 : ℝ))) := by
+    exact (hpowCont.mul hSmooth.continuousOn).aestronglyMeasurable measurableSet_Ioi
+  have hBound : ∀ᵐ (T : ℝ) ∂(volume.restrict (Set.Ioi (0 : ℝ))),
+      ‖(T : ℂ) ^ ((σ : ℂ) - 1) • weightV0 R sd W T‖ ≤ ‖kfun T‖ := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    exact hprofile T hT
+  change IntegrableOn (fun T : ℝ =>
+    (T : ℂ) ^ ((σ : ℂ) - 1) • weightV0 R sd W T) (Set.Ioi 0)
+  exact Integrable.mono' hkIntegrable.norm hMellinAES hBound
+
+private theorem po_weightV0_inversion (σ T : ℝ) (hσ : 0 < σ) (hT : 0 < T)
+    (hdecay : WeightDecay R sd W)
+    (hconv : MellinConvergent (weightV0 R sd W) (σ : ℂ))
+    (hVert : Complex.VerticalIntegrable (mellin (weightV0 R sd W)) σ)
+    (hcont : ContinuousAt (weightV0 R sd W) T) :
+    weightV0 R sd W T = vertical σ (fun z => weightM R sd W z * (T : ℂ) ^ (-z)) := by
+  have hInv := mellinInv_mellin_eq σ (weightV0 R sd W) hT hconv hVert hcont
+  symm
+  calc
+    vertical σ (fun z => weightM R sd W z * (T : ℂ) ^ (-z)) =
+        mellinInv σ (mellin (weightV0 R sd W)) T := by
+      unfold vertical mellinInv
+      simp only [RCLike.real_smul_eq_coe_mul, smul_eq_mul]
+      have hCoeff : (1 / (2 * Real.pi) : ℂ) =
+          ((1 / (2 * Real.pi) : ℝ) : ℂ) := by
+        norm_cast
+      rw [hCoeff]
+      congr 1
+      apply integral_congr_ae
+      filter_upwards with t
+      have hz : 0 < (σ + t * Complex.I).re := by simpa using hσ
+      rw [po_weightM_eq_mellin (R := R) (sd := sd) (W := W)
+        (σ + t * Complex.I) hz hdecay]
+      ring
+    _ = weightV0 R sd W T := hInv
+
 /-- def:calF within po:mellin-triple, 05:353–389; all four ideal indices are actual exterior ideals. -/
 def calFTerm (u : U.U) (ξ w z : ℂ) (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) : ℂ :=
   let c := p.1
@@ -2807,18 +3208,6 @@ def mellinWeight (X Y Z : ℝ) (ξ w z : ℂ) : ℂ :=
   (X : ℂ) ^ (1 / 2 - z) * (Z : ℂ) ^ (ξ + z - 1) * (Y : ℂ) ^ (w - 1) *
     Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w
 
-/-- po:mellin-triple, 05:353–389. `Summable` prevents interpreting a divergent total tsum as 0. -/
-theorem po_mellin_triple : WeightSpec R sd W → ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
-  (∀ ξ w z : ℂ, ξ.re = 4 → w.re = 4 → z.re = 2 →
-    (∀ u, Summable (fun p => ‖calFTerm R η U u ξ w z p‖)) ∧
-      Summable (fun u => ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖)) ∧
-  Integrable (fun t : ℝ × ℝ × ℝ =>
-    mellinWeight R sd W X Y Z (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) *
-      ∑' u, (U.q u : ℂ) ^ (-(2 + t.2.2 * Complex.I)) * calF R η U u
-        (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)) ∧
-  probe R W X Y Z = tripleVertical 4 4 2 (fun ξ w z =>
-    mellinWeight R sd W X Y Z ξ w z * ∑' u, (U.q u : ℂ) ^ (-z) * calF R η U u ξ w z) := by
-  sorry
 /-- Stripped local C uses the negative exterior additive sign (05:444–550). -/
 def localC (v : FinPlace F) (hv : v ∉ S.Sf) (t k J : ℕ) : ℂ :=
   let pi := R.exterior.prime v hv
@@ -3026,6 +3415,878 @@ theorem po_probe_absolute : ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
     intro p
     simp only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
       R.exterior.pow_val, qI, idealNorm, div_eq_mul_inv]
+
+/-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
+theorem po_poisson_orbits : WeightSpec R sd W →
+  (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
+  (∀ z : ℂ, 0 < z.re → mellin (weightV0 R sd W) z = weightM R sd W z) ∧
+  (∀ σ T : ℝ, 0 < σ → 0 < T →
+    weightV0 R sd W T = vertical σ (fun z => weightM R sd W z * (T : ℂ) ^ (-z))) ∧
+  ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
+    Summable (fun p => ‖poissonOrbitTerm R sd W η U X Y Z p‖) ∧
+    probe R W X Y Z = ((X ^ (1 / 2 : ℝ) / Y : ℝ) : ℂ) * ∑' p, poissonOrbitTerm R sd W η U X Y Z p := by
+  intro hSpec
+  have hdecay : WeightDecay R sd W := (po_weights_exist R sd).2 W
+  have hSmooth : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (weightV0 R sd W) (Set.Ioi 0) := by
+    sorry
+  refine ⟨hSmooth, ?_, ?_, ?_⟩
+  · intro z hz
+    exact (po_weightM_eq_mellin (R := R) (sd := sd) (W := W) z hz hdecay).symm
+  · intro σ T hσ hT
+    have hconv := po_weightV0_mellin_convergent (R := R) (sd := sd) (W := W)
+      σ hσ hSpec hdecay hSmooth
+    have hVert := po_weightV0_vertical_integrable (R := R) (sd := sd) (W := W)
+      σ hσ hdecay
+    have hcont : ContinuousAt (weightV0 R sd W) T :=
+      hSmooth.continuousOn.continuousAt (isOpen_Ioi.mem_nhds hT)
+    exact po_weightV0_inversion (R := R) (sd := sd) (W := W)
+      σ T hσ hT hdecay hconv hVert hcont
+  · sorry
+
+private theorem po_gamma_norm_le_sqrt (c : S.SqfExtIdeal) :
+    ‖gamma D S A 2 c.1 (cgen R c)‖ ≤ qI c.1 ^ ((1 : ℝ) / 2) := by
+  classical
+  let I : S.ExtIdeal := R.exterior.ofSqf c
+  let a : Fˣ := bc.gen I
+  have hIext : S.IsExterior c.1 := c.2.1
+  have ha : S.IsGen (a : F) I.1 := by
+    simpa [I, a, R.exterior.ofSqf_val] using (bc.gen_spec (R.exterior.ofSqf c)).1
+  have hqpos : 0 < Ideal.absNorm c.1 :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨c.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by
+        simpa [Ideal.zero_eq_bot] using hIext.1)⟩
+  let Q : Type := 𝓞 F ⧸ c.1
+  letI : Finite Q := (Ideal.absNorm_ne_zero_iff c.1).mp hqpos.ne'
+  letI : Fintype Q := Fintype.ofFinite Q
+  let g (x : Q) : ℂ :=
+    chiIdealPow D c.1 (algebraMap (𝓞 F) F x.out) 2 *
+      S.e A (S.diag (algebraMap (𝓞 F) F x.out / (a : F)))
+  have hg (x : Q) : ‖g x‖ ≤ 1 := by
+    dsimp [g]
+    have hχ : ‖chiIdealPow D c.1 (algebraMap (𝓞 F) F x.out) 2‖ ≤ 1 :=
+      po_chiIdealPow_norm_le_one D c.1 (algebraMap (𝓞 F) F x.out) 2
+    let xr : S.R := algebraMap (𝓞 F) S.R x.out
+    have hphase := po_e_residue_norm_one I a ha xr R
+    have harg : ((xr : F) : F) / (a : F) =
+        algebraMap (𝓞 F) F x.out / (a : F) := by
+      simp [xr]
+    rw [harg] at hphase
+    rw [norm_mul]
+    exact mul_le_one₀ hχ (norm_nonneg _) hphase.le
+  have hsum : ‖∑ᶠ x : Q, g x‖ ≤ (Ideal.absNorm c.1 : ℝ) := by
+    calc
+      _ = ‖∑ x : Q, g x‖ := by
+        congr 1
+        exact finsum_eq_finsetSum_of_support_subset g (s := Finset.univ)
+          (by intro x hx; simp)
+      _ ≤ ∑ x : Q, ‖g x‖ := norm_sum_le _ _
+      _ ≤ ∑ _x : Q, (1 : ℝ) := Finset.sum_le_sum fun x _ => hg x
+      _ = (Fintype.card Q : ℝ) := by simp
+      _ = (Ideal.absNorm c.1 : ℝ) := by
+        rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  let q : ℝ := Ideal.absNorm c.1
+  have hq : 0 < q := Nat.cast_pos.mpr hqpos
+  have hscale : 0 ≤ q ^ (-(1 / 2 : ℝ)) := Real.rpow_nonneg hq.le _
+  have hgammaEq : gamma D S A 2 c.1 (cgen R c) =
+      ((q ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ∑ᶠ x : Q, g x := by
+    simp [gamma, q, g, I, a, cgen, Q, hqpos.ne']
+  rw [hgammaEq, norm_mul, Complex.norm_real, Real.norm_of_nonneg hscale]
+  calc
+    q ^ (-(1 / 2 : ℝ)) * ‖∑ᶠ x : Q, g x‖ ≤
+        q ^ (-(1 / 2 : ℝ)) * q := mul_le_mul_of_nonneg_left (by simpa [q] using hsum) hscale
+    _ = q ^ ((1 : ℝ) / 2) := by
+      calc
+        q ^ (-(1 / 2 : ℝ)) * q = q ^ (-(1 / 2 : ℝ)) * q ^ (1 : ℝ) := by
+          congr 1
+          exact (Real.rpow_one q).symm
+        _ = q ^ (-(1 / 2 : ℝ) + 1) := by rw [← Real.rpow_add hq]
+        _ = q ^ ((1 : ℝ) / 2) := by congr 1 <;> ring
+    _ = qI c.1 ^ ((1 : ℝ) / 2) := by simp [q, qI]
+
+private theorem po_Agen_isGen (c : S.SqfExtIdeal) (n : S.ExtIdeal) :
+    S.IsGen (Agen R c n : F) (Aideal R c n).1 := by
+  have hc := (bc.gen_spec (R.exterior.ofSqf c)).1
+  have hn := (bc.gen_spec n).1
+  have hn2 : S.IsGen ((bc.gen n * bc.gen n : Fˣ) : F) (n.1 * n.1) :=
+    po_isGen_mul n.1 n.1 (bc.gen n) (bc.gen n) hn hn
+  have hn3 : S.IsGen ((bc.gen n ^ 3 : Fˣ) : F) (n.1 ^ 3) := by
+    have h := po_isGen_mul (n.1 * n.1) n.1 (bc.gen n * bc.gen n) (bc.gen n) hn2 hn
+    simpa [pow_succ, pow_two, mul_assoc] using h
+  have h := po_isGen_mul (R.exterior.ofSqf c).1 (n.1 ^ 3)
+    (bc.gen (R.exterior.ofSqf c)) (bc.gen n ^ 3) hc hn3
+  simpa [Agen, Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+    R.exterior.pow_val, mul_assoc] using h
+
+private theorem po_qI_ext_pos (I : S.ExtIdeal) : 0 < qI I.1 := by
+  unfold qI
+  have h := Ideal.absNorm_pos_of_nonZeroDivisors
+    ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by
+      simpa [Ideal.zero_eq_bot] using I.2.1)⟩
+  exact_mod_cast h
+
+private theorem po_qI_sqf_pos (c : S.SqfExtIdeal) : 0 < qI c.1 := by
+  unfold qI
+  have h := Ideal.absNorm_pos_of_nonZeroDivisors
+    ⟨c.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by
+      simpa [Ideal.zero_eq_bot] using c.2.1.1)⟩
+  exact_mod_cast h
+
+private theorem po_ideal_norm_pos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+  unfold qI
+  have h := Ideal.absNorm_pos_of_nonZeroDivisors
+    ⟨I, mem_nonZeroDivisors_iff_ne_zero.mpr (by simpa [Ideal.zero_eq_bot] using hI)⟩
+  exact_mod_cast h
+
+private theorem po_qI_ext_ge_one (I : S.ExtIdeal) : 1 ≤ qI I.1 := by
+  unfold qI
+  have hpos : 0 < Ideal.absNorm I.1 :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by
+        simpa [Ideal.zero_eq_bot] using I.2.1)⟩
+  have hNat : 1 ≤ Ideal.absNorm I.1 := Nat.one_le_iff_ne_zero.mpr hpos.ne'
+  exact_mod_cast hNat
+
+private theorem po_HeckeChar_idealValue_norm_le_one (χ : HeckeChar F)
+    (hχ : ∀ x, ‖((χ x : ℂˣ) : ℂ)‖ = 1) (I : Ideal (𝓞 F)) :
+    ‖χ.idealValue I‖ ≤ 1 := by
+  classical
+  unfold HeckeChar.idealValue
+  apply po_multiset_map_prod_norm_le_one
+  intro P hP
+  by_cases h : P.IsPrime ∧ P ≠ ⊥
+  · unfold HeckeChar.primeValue
+    split_ifs with hUnram
+    · have hχ' := hχ (IdeleClassGroup.ofAdicCompletion (𝓞 F) F ⟨P, h.1, h.2⟩
+        (toLoc ⟨P, h.1, h.2⟩ (Units.mk0 (unif ⟨P, h.1, h.2⟩)
+          (unif_ne_zero ⟨P, h.1, h.2⟩))))
+      have hnorm : ‖((χ.loc ⟨P, h.1, h.2⟩
+          (toLoc ⟨P, h.1, h.2⟩ (Units.mk0 (unif ⟨P, h.1, h.2⟩)
+            (unif_ne_zero ⟨P, h.1, h.2⟩))) : ℂˣ) : ℂ)‖ = 1 := by
+        simpa [HeckeChar.loc] using hχ'
+      simpa [h, HeckeChar.primeValue, hUnram] using hnorm.le
+    · simp [h, hUnram]
+  · simp [h]
+
+set_option maxHeartbeats 5000000 in
+private theorem po_calFTerm_norm_bound (u : U.U) (ξ w z : ℂ)
+    (hξ : ξ.re = 4) (hw : w.re = 4) (hz : z.re = 2)
+    (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) :
+    ‖calFTerm R η U u ξ w z p‖ ≤
+      qI p.1.1 ^ (-3 : ℝ) * qI p.2.1.1 ^ (-10 : ℝ) *
+        qI p.2.2.1.1 ^ (-3 : ℝ) * qI p.2.2.2.1 ^ (-12 : ℝ) := by
+  let qC : ℝ := qI (p.1.1)
+  let qN : ℝ := qI (p.2.1.1)
+  let qS : ℝ := qI (p.2.2.1.1)
+  let qR : ℝ := qI (p.2.2.2.1)
+  have hγ : ‖gamma D S A 2 (p.1.1) (cgen R p.1)‖ ≤ qC ^ (1 / 2 : ℝ) := by
+    simpa [qC] using po_gamma_norm_le_sqrt R p.1
+  have hθ : ‖ϑ.idealValue (Aideal R p.1 p.2.1).1‖ ≤ 1 :=
+    po_HeckeChar_idealValue_norm_le_one ϑ R.vartheta_unitary (Aideal R p.1 p.2.1).1
+  have hFF : ‖finiteFactor R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+      ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6)‖ ≤
+      qS * qI (Aideal R p.1 p.2.1).1 :=
+    po_finiteFactor_norm_le R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+      (po_Agen_isGen R p.1 p.2.1)
+      ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6)
+  have hcpos : 0 < qC := by dsimp [qC]; exact po_ideal_norm_pos p.1.1 p.1.2.1.1
+  have hnpos : 0 < qN := by dsimp [qN]; exact po_ideal_norm_pos p.2.1.1 p.2.1.2.1
+  have hspos : 0 < qS := by dsimp [qS]; exact po_ideal_norm_pos p.2.2.1.1 p.2.2.1.2.1
+  have hrpos : 0 < qR := by dsimp [qR]; exact po_ideal_norm_pos p.2.2.2.1 p.2.2.2.2.1
+  have hAq : qI (Aideal R p.1 p.2.1).1 = qC * qN ^ 3 := by
+    simp [qC, qN, Aideal, qI, R.exterior.mul_val, R.exterior.ofSqf_val,
+      R.exterior.pow_val]
+  have hcPow : ‖(qC : ℂ) ^ ((-1 / 2 : ℂ) - ξ)‖ =
+      qC ^ (-1 / 2 - ξ.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hcpos]
+    simp
+  have hnPow : ‖(qN : ℂ) ^ ((-1 : ℂ) - 3 * ξ)‖ =
+      qN ^ (-1 - 3 * ξ.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hnpos]
+    simp
+  have hsPow : ‖(qS : ℂ) ^ (-w)‖ = qS ^ (-w.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hspos]
+    simp
+  have hrPow : ‖(qR : ℂ) ^ (-6 * z)‖ = qR ^ (-6 * z.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hrpos]
+    simp
+  have hnorm : ‖calFTerm R η U u ξ w z p‖ =
+      ‖gamma D S A 2 p.1.1 (cgen R p.1)‖ *
+        ‖ϑ.idealValue (Aideal R p.1 p.2.1).1‖ *
+          ‖finiteFactor R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+            ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6)‖ *
+              ‖(qC : ℂ) ^ ((-1 / 2 : ℂ) - ξ)‖ *
+                  ‖(qN : ℂ) ^ ((-1 : ℂ) - 3 * ξ)‖ *
+                  ‖(qS : ℂ) ^ (-w)‖ * ‖(qR : ℂ) ^ (-6 * z)‖ := by
+    simp [calFTerm, qC, qN, qS, qR, norm_mul]
+  have hFF' : ‖finiteFactor R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+      ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6)‖ ≤
+      qS * (qC * qN ^ 3) := by
+    calc
+      _ ≤ qS * qI (Aideal R p.1 p.2.1).1 := hFF
+      _ = qS * (qC * qN ^ 3) := by rw [hAq]
+  have hmajor : ‖calFTerm R η U u ξ w z p‖ ≤
+      qC ^ (1 / 2 : ℝ) * 1 * (qS * (qC * qN ^ 3)) *
+        qC ^ ((-1 / 2 - 4 : ℝ)) * qN ^ ((-1 - 3 * 4 : ℝ)) *
+          qS ^ (-4 : ℝ) * qR ^ (-12 : ℝ) := by
+    calc
+      _ = _ := hnorm
+      _ ≤ _ := by
+        rw [hcPow, hnPow, hsPow, hrPow, hξ, hw, hz]
+        gcongr
+        all_goals first
+        | exact hFF'
+        | exact po_qI_ext_ge_one (S := S) p.2.2.2
+        | norm_num
+  have hcGroup : qC ^ (1 / 2 : ℝ) * qC * qC ^ ((-1 / 2 - 4 : ℝ)) =
+      qC ^ (-3 : ℝ) := by
+    calc
+      qC ^ (1 / 2 : ℝ) * qC * qC ^ ((-1 / 2 - 4 : ℝ)) =
+          qC ^ ((1 / 2 : ℝ) + 1) * qC ^ ((-1 / 2 - 4 : ℝ)) := by
+        rw [← Real.rpow_add_one hcpos.ne' (1 / 2 : ℝ)]
+      _ = qC ^ ((1 / 2 : ℝ) + 1 + (-1 / 2 - 4)) := by rw [← Real.rpow_add hcpos]
+      _ = qC ^ (-3 : ℝ) := by congr 1 <;> ring
+  have hnGroup : qN ^ (3 : ℝ) * qN ^ ((-1 - 3 * 4 : ℝ)) = qN ^ (-10 : ℝ) := by
+    rw [← Real.rpow_add hnpos]
+    congr 1 <;> ring
+  have hsGroup : qS * qS ^ (-4 : ℝ) = qS ^ (-3 : ℝ) := by
+    calc
+      qS * qS ^ (-4 : ℝ) = qS ^ ((0 : ℝ) + 1) * qS ^ (-4 : ℝ) := by
+        rw [Real.rpow_add_one hspos.ne' 0, Real.rpow_zero]
+        simp
+      _ = qS ^ ((0 : ℝ) + 1 + (-4 : ℝ)) := by rw [← Real.rpow_add hspos]
+      _ = qS ^ (-3 : ℝ) := by congr 1 <;> ring
+  have hRegroup :
+      qC ^ (1 / 2 : ℝ) * 1 * (qS * (qC * qN ^ 3)) *
+        qC ^ ((-1 / 2 - 4 : ℝ)) * qN ^ ((-1 - 3 * 4 : ℝ)) *
+          qS ^ (-4 : ℝ) * qR ^ (-12 : ℝ) =
+      (qC ^ (1 / 2 : ℝ) * qC * qC ^ ((-1 / 2 - 4 : ℝ))) *
+        (qN ^ (3 : ℝ) * qN ^ ((-1 - 3 * 4 : ℝ))) *
+          (qS * qS ^ (-4 : ℝ)) * qR ^ (-12 : ℝ) := by
+    rw [← Real.rpow_natCast qN 3]
+    ring
+  calc
+    _ ≤ qC ^ (1 / 2 : ℝ) * 1 * (qS * (qC * qN ^ 3)) *
+        qC ^ ((-1 / 2 - 4 : ℝ)) * qN ^ ((-1 - 3 * 4 : ℝ)) *
+          qS ^ (-4 : ℝ) * qR ^ (-12 : ℝ) := hmajor
+    _ = qC ^ (-3 : ℝ) * qN ^ (-10 : ℝ) * qS ^ (-3 : ℝ) * qR ^ (-12 : ℝ) := by
+      rw [hRegroup, hcGroup, hnGroup, hsGroup]
+    _ = qI p.1.1 ^ (-3 : ℝ) * qI p.2.1.1 ^ (-10 : ℝ) *
+        qI p.2.2.1.1 ^ (-3 : ℝ) * qI p.2.2.2.1 ^ (-12 : ℝ) := by
+      simp [qC, qN, qS, qR]
+
+private theorem po_real_summable_product {α β : Type*} (f : α → ℝ) (g : β → ℝ)
+    (hf : Summable f) (hg : Summable g)
+    (hf0 : ∀ x, 0 ≤ f x) (hg0 : ∀ y, 0 ≤ g y) :
+    Summable (fun p : α × β => f p.1 * g p.2) := by
+  apply (summable_prod_of_nonneg (fun p : α × β => mul_nonneg (hf0 p.1) (hg0 p.2))).2
+  constructor
+  · intro x
+    exact hg.mul_left (f x)
+  · have hpoint : (fun x : α => ∑' y : β, f x * g y) =
+        fun x => f x * ∑' y, g y := by
+      funext x
+      exact hg.tsum_mul_left (f x)
+    rw [hpoint]
+    exact hf.mul_right (∑' y, g y)
+
+private theorem po_real_summable_product4
+    {α β γ δ : Type*} (f : α → ℝ) (g : β → ℝ) (h : γ → ℝ) (k : δ → ℝ)
+    (hf : Summable f) (hg : Summable g) (hh : Summable h) (hk : Summable k)
+    (hf0 : ∀ x, 0 ≤ f x) (hg0 : ∀ x, 0 ≤ g x)
+    (hh0 : ∀ x, 0 ≤ h x) (hk0 : ∀ x, 0 ≤ k x) :
+    Summable (fun p : α × β × γ × δ =>
+      f p.1 * g p.2.1 * h p.2.2.1 * k p.2.2.2) := by
+  have hhk := po_real_summable_product h k hh hk hh0 hk0
+  have hghk := po_real_summable_product g (fun p : γ × δ => h p.1 * k p.2)
+    hg hhk hg0 (fun p => mul_nonneg (hh0 p.1) (hk0 p.2))
+  have hfghk := po_real_summable_product f
+    (fun p : β × γ × δ => g p.1 * (h p.2.1 * k p.2.2))
+    hf hghk hf0 (fun p => mul_nonneg (hg0 p.1)
+      (mul_nonneg (hh0 p.2.1) (hk0 p.2.2)))
+  refine hfghk.congr ?_
+  intro p
+  ring
+
+private theorem po_ext_ideal_rpow_summable (s : ℝ) (hs : 1 < s) :
+    Summable (fun I : S.ExtIdeal => qI I.1 ^ (-s)) := by
+  simpa [qI, idealNorm] using a2_bridge_COUNT_summable S s hs
+
+private theorem po_sqf_ideal_rpow_summable
+    (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0) (s : ℝ) (hs : 1 < s) :
+    Summable (fun c : S.SqfExtIdeal => qI c.1 ^ (-s)) := by
+  have hExt := po_ext_ideal_rpow_summable (S := S) s hs
+  let e : S.SqfExtIdeal → S.ExtIdeal := R0.exterior.ofSqf
+  have he : Function.Injective e := by
+    intro c d h
+    apply Subtype.ext
+    have hval := congrArg Subtype.val h
+    simpa [e, R0.exterior.ofSqf_val] using hval
+  have h := hExt.comp_injective he
+  change Summable (fun c : S.SqfExtIdeal => qI (e c).1 ^ (-s)) at h
+  simpa [e, qI, R0.exterior.ofSqf_val] using h
+
+private def po_frequencyShell (k : ℕ) : Set U.U :=
+  {u | ((2 ^ k : ℕ) : ℝ) ≤ U.q u ∧ U.q u < ((2 ^ (k + 1) : ℕ) : ℝ)}
+
+private theorem po_frequencyShell_partition : ∀ u : U.U, ∃! k : ℕ, u ∈ po_frequencyShell η U k := by
+  intro u
+  have hq := U.q_ge_one u
+  let n : ℕ := Nat.floor (U.q u)
+  have hn : n ≠ 0 := by
+    intro hn
+    have hfloorLt : U.q u < (n + 1 : ℕ) := by
+      exact_mod_cast (Nat.lt_floor_add_one (U.q u))
+    rw [hn] at hfloorLt
+    norm_num at hfloorLt
+    linarith [hq]
+  let k : ℕ := Nat.log 2 n
+  have hloNat : 2 ^ k ≤ n := Nat.pow_log_le_self 2 hn
+  have hhiNat : n < 2 ^ (k + 1) := by
+    simpa [k, Nat.succ_eq_add_one] using
+      Nat.lt_pow_succ_log_self (by norm_num : 1 < 2) n
+  have hlo : ((2 ^ k : ℕ) : ℝ) ≤ U.q u := by
+    calc
+      _ ≤ (n : ℝ) := by exact_mod_cast hloNat
+      _ ≤ U.q u := Nat.floor_le (by linarith)
+  have hfloorLt : U.q u < (n + 1 : ℕ) := by
+    exact_mod_cast (Nat.lt_floor_add_one (U.q u))
+  have hsuccNat : n + 1 ≤ 2 ^ (k + 1) := Nat.succ_le_iff.mpr hhiNat
+  have hhi : U.q u < ((2 ^ (k + 1) : ℕ) : ℝ) := by
+    exact hfloorLt.trans_le (by exact_mod_cast hsuccNat)
+  refine ⟨k, ⟨hlo, hhi⟩, ?_⟩
+  intro j hj
+  by_contra hne
+  rcases lt_or_gt_of_ne hne with hjk | hkj
+  · have hpow : 2 ^ (j + 1) ≤ 2 ^ k :=
+      Nat.pow_le_pow_right (by norm_num : 0 < 2) (Nat.succ_le_iff.mpr hjk)
+    have hpowR : ((2 ^ (j + 1) : ℕ) : ℝ) ≤ ((2 ^ k : ℕ) : ℝ) := by exact_mod_cast hpow
+    linarith [hj.2, hlo]
+  · have hpow : 2 ^ (k + 1) ≤ 2 ^ j :=
+      Nat.pow_le_pow_right (by norm_num : 0 < 2) (Nat.succ_le_iff.mpr hkj)
+    have hpowR : ((2 ^ (k + 1) : ℕ) : ℝ) ≤ ((2 ^ j : ℕ) : ℝ) := by exact_mod_cast hpow
+    linarith [hj.1, hhi]
+
+private theorem po_frequency_q_inv_sq_summable :
+    Summable (fun u : U.U => U.q u ^ (-2 : ℝ)) := by
+  classical
+  obtain ⟨Cdyad, hCdyad, hdyad⟩ := U.dyadic_count
+  obtain ⟨Clow, hClow, hlowFinite, hlowBound⟩ := U.low_shell_bound
+  let C : ℝ := max Cdyad Clow
+  have hC : 0 < C := lt_of_lt_of_le hCdyad (le_max_left _ _)
+  have hShellFinite (k : ℕ) : (po_frequencyShell η U k).Finite := by
+    by_cases hk : k = 0
+    · subst k
+      apply hlowFinite.subset
+      intro u hu
+      constructor
+      · simpa using hu.1
+      · exact lt_trans hu.2 (by norm_num)
+    · have hkpos : 1 ≤ k := Nat.one_le_iff_ne_zero.mpr hk
+      have hX : 2 ≤ ((2 ^ k : ℕ) : ℝ) := by
+        have : 2 ≤ 2 ^ k := Nat.pow_le_pow_right (by norm_num : 0 < 2) hkpos
+        exact_mod_cast this
+      obtain ⟨hfin, _⟩ := hdyad ((2 ^ k : ℕ) : ℝ) hX
+      refine hfin.subset ?_
+      intro u hu
+      exact ⟨hu.1, hu.2.trans_eq (by
+        rw [pow_succ]
+        push_cast
+        ring)⟩
+  have hCount (k : ℕ) :
+      (po_frequencyShell η U k).ncard ≤ C * ((2 ^ k : ℕ) : ℝ) := by
+    by_cases hk : k = 0
+    · subst k
+      have hsub : po_frequencyShell η U 0 ⊆ {u | 1 ≤ U.q u ∧ U.q u < 4} := by
+        intro u hu
+        exact ⟨by simpa using hu.1, lt_trans hu.2 (by norm_num)⟩
+      have hcard := Set.ncard_le_ncard hsub hlowFinite
+      calc
+        (po_frequencyShell η U 0).ncard ≤ ({u | 1 ≤ U.q u ∧ U.q u < 4}.ncard : ℝ) := by
+          exact_mod_cast hcard
+        _ ≤ Clow := hlowBound
+        _ ≤ C := le_max_right _ _
+        _ = C * ((2 ^ 0 : ℕ) : ℝ) := by simp [C]
+    · have hkpos : 1 ≤ k := Nat.one_le_iff_ne_zero.mpr hk
+      have hX : 2 ≤ ((2 ^ k : ℕ) : ℝ) := by
+        have : 2 ≤ 2 ^ k := Nat.pow_le_pow_right (by norm_num : 0 < 2) hkpos
+        exact_mod_cast this
+      obtain ⟨hfin, hbound⟩ := hdyad ((2 ^ k : ℕ) : ℝ) hX
+      have hsub : po_frequencyShell η U k ⊆ {u | ((2 ^ k : ℕ) : ℝ) ≤ U.q u ∧
+          U.q u < 2 * ((2 ^ k : ℕ) : ℝ)} := by
+        intro u hu
+        exact ⟨hu.1, hu.2.trans_eq (by
+          rw [pow_succ]
+          push_cast
+          ring)⟩
+      have hcard := Set.ncard_le_ncard hsub hfin
+      calc
+        (po_frequencyShell η U k).ncard ≤
+            ({u | ((2 ^ k : ℕ) : ℝ) ≤ U.q u ∧ U.q u < 2 * ((2 ^ k : ℕ) : ℝ)}.ncard : ℝ) := by
+          exact_mod_cast hcard
+        _ ≤ Cdyad * ((2 ^ k : ℕ) : ℝ) := hbound
+        _ ≤ C * ((2 ^ k : ℕ) : ℝ) := by
+          dsimp [C]
+          gcongr
+          exact le_max_left _ _
+  have hInner (k : ℕ) :
+      Summable (fun u : po_frequencyShell η U k => U.q u.1 ^ (-2 : ℝ)) := by
+    letI := (hShellFinite k).fintype
+    exact Summable.of_finite
+  have hMass (k : ℕ) :
+      (∑' u : po_frequencyShell η U k, U.q u.1 ^ (-2 : ℝ)) ≤
+        C * (1 / 2 : ℝ) ^ k := by
+    let X : ℝ := ((2 ^ k : ℕ) : ℝ)
+    have hX : 0 < X := by positivity
+    have hterm (u : po_frequencyShell η U k) : U.q u.1 ^ (-2 : ℝ) ≤ X ^ (-2 : ℝ) :=
+      Real.rpow_le_rpow_of_nonpos hX (by simpa [X] using u.2.1) (by norm_num)
+    letI := (hShellFinite k).fintype
+    calc
+      _ ≤ ∑' u : po_frequencyShell η U k, X ^ (-2 : ℝ) :=
+        (hInner k).tsum_le_tsum (fun u => hterm u) (by
+          letI := (hShellFinite k).fintype
+          exact Summable.of_finite)
+      _ = (Fintype.card (po_frequencyShell η U k) : ℝ) * X ^ (-2 : ℝ) := by simp
+      _ = ((po_frequencyShell η U k).ncard : ℝ) * X ^ (-2 : ℝ) := by simp
+      _ ≤ (C * X) * X ^ (-2 : ℝ) := by
+        gcongr
+        exact hCount k
+      _ = C * (1 / 2 : ℝ) ^ k := by
+        have hXcast : X = (2 : ℝ) ^ k := by
+          dsimp [X]
+          norm_cast
+        rw [hXcast, Real.rpow_neg (by positivity : 0 ≤ (2 : ℝ) ^ k) 2,
+          Real.rpow_two]
+        simp only [one_div_pow, one_pow]
+        field_simp
+  have hOuter : Summable (fun k : ℕ => ∑' u : po_frequencyShell η U k, U.q u.1 ^ (-2 : ℝ)) := by
+    have hgeom : Summable (fun k : ℕ => C * (1 / 2 : ℝ) ^ k) :=
+      (summable_geometric_of_lt_one (by norm_num : (0 : ℝ) ≤ 1 / 2)
+        (by norm_num : (1 / 2 : ℝ) < 1)).mul_left C
+    refine Summable.of_nonneg_of_le (fun k => tsum_nonneg fun u => ?_) hMass hgeom
+    exact Real.rpow_nonneg (U.q_pos u.1).le _
+  have hpart : ∀ u : U.U, ∃! k : ℕ, u ∈ po_frequencyShell η U k :=
+    po_frequencyShell_partition η U
+  have hf0 : ∀ u : U.U, 0 ≤ U.q u ^ (-2 : ℝ) :=
+    fun u => Real.rpow_nonneg (U.q_pos u).le _
+  exact (summable_partition hf0 hpart).2 ⟨hInner, hOuter⟩
+
+private theorem po_frequency_type_countable : Countable U.U := by
+  classical
+  obtain ⟨_, _, hdyad⟩ := U.dyadic_count
+  obtain ⟨_, _, hlowFinite, _⟩ := U.low_shell_bound
+  have hShellFinite (k : ℕ) : (po_frequencyShell η U k).Finite := by
+    by_cases hk : k = 0
+    · subst k
+      apply hlowFinite.subset
+      intro u hu
+      constructor
+      · simpa using hu.1
+      · exact lt_trans hu.2 (by norm_num)
+    · have hkpos : 1 ≤ k := Nat.one_le_iff_ne_zero.mpr hk
+      have hX : 2 ≤ ((2 ^ k : ℕ) : ℝ) := by
+        have hn : 2 ≤ 2 ^ k := Nat.pow_le_pow_right (by norm_num : 0 < 2) hkpos
+        exact_mod_cast hn
+      obtain ⟨hfin, _⟩ := hdyad ((2 ^ k : ℕ) : ℝ) hX
+      apply hfin.subset
+      intro u hu
+      refine ⟨hu.1, hu.2.trans_eq ?_⟩
+      rw [pow_succ]
+      push_cast
+      ring
+  have hcover : (Set.univ : Set U.U) = ⋃ k : ℕ, po_frequencyShell η U k := by
+    ext u
+    simp only [Set.mem_univ, true_iff, Set.mem_iUnion]
+    obtain ⟨k, hk, _⟩ := po_frequencyShell_partition η U u
+    exact ⟨k, hk⟩
+  apply Set.countable_univ_iff.mp
+  rw [hcover]
+  exact Set.countable_iUnion (fun k => (hShellFinite k).countable)
+
+private theorem po_calFTerm_abs_summable (u : U.U) (ξ w z : ℂ)
+    (hξ : ξ.re = 4) (hw : w.re = 4) (hz : z.re = 2) :
+    Summable (fun p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal =>
+      ‖calFTerm R η U u ξ w z p‖) := by
+  let fC : S.SqfExtIdeal → ℝ := fun c => qI c.1 ^ (-3 : ℝ)
+  let fN : S.ExtIdeal → ℝ := fun n => qI n.1 ^ (-10 : ℝ)
+  let fS : S.ExtIdeal → ℝ := fun s => qI s.1 ^ (-3 : ℝ)
+  let fR : S.ExtIdeal → ℝ := fun r => qI r.1 ^ (-12 : ℝ)
+  have hC := po_sqf_ideal_rpow_summable R 3 (by norm_num)
+  have hN := po_ext_ideal_rpow_summable (S := S) 10 (by norm_num)
+  have hS := po_ext_ideal_rpow_summable (S := S) 3 (by norm_num)
+  have hR := po_ext_ideal_rpow_summable (S := S) 12 (by norm_num)
+  have hProd := po_real_summable_product4 fC fN fS fR hC hN hS hR
+    (fun c => Real.rpow_nonneg (po_qI_sqf_pos (S := S) c).le _)
+    (fun n => Real.rpow_nonneg (po_qI_ext_pos (S := S) n).le _)
+    (fun s => Real.rpow_nonneg (po_qI_ext_pos (S := S) s).le _)
+    (fun r => Real.rpow_nonneg (po_qI_ext_pos (S := S) r).le _)
+  refine hProd.of_norm_bounded_eventually ?_
+  exact Filter.Eventually.of_forall fun p => by
+    simpa [fC, fN, fS, fR] using po_calFTerm_norm_bound R η U u ξ w z hξ hw hz p
+
+private theorem po_calF_frequency_summable (ξ w z : ℂ)
+    (hξ : ξ.re = 4) (hw : w.re = 4) (hz : z.re = 2) :
+    Summable (fun u : U.U => ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖) ∧
+      (∑' u : U.U, ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖) ≤
+        (∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+          qI p.1.1 ^ (-3 : ℝ) * qI p.2.1.1 ^ (-10 : ℝ) *
+            qI p.2.2.1.1 ^ (-3 : ℝ) * qI p.2.2.2.1 ^ (-12 : ℝ)) *
+          ∑' u : U.U, U.q u ^ (-2 : ℝ) := by
+  let fC : S.SqfExtIdeal → ℝ := fun c => qI c.1 ^ (-3 : ℝ)
+  let fN : S.ExtIdeal → ℝ := fun n => qI n.1 ^ (-10 : ℝ)
+  let fS : S.ExtIdeal → ℝ := fun s => qI s.1 ^ (-3 : ℝ)
+  let fR : S.ExtIdeal → ℝ := fun r => qI r.1 ^ (-12 : ℝ)
+  have hC := po_sqf_ideal_rpow_summable R 3 (by norm_num)
+  have hN := po_ext_ideal_rpow_summable (S := S) 10 (by norm_num)
+  have hS := po_ext_ideal_rpow_summable (S := S) 3 (by norm_num)
+  have hR := po_ext_ideal_rpow_summable (S := S) 12 (by norm_num)
+  have hfC0 : ∀ c, 0 ≤ fC c := fun c => Real.rpow_nonneg (po_qI_sqf_pos (S := S) c).le _
+  have hfN0 : ∀ n, 0 ≤ fN n := fun n => Real.rpow_nonneg (po_qI_ext_pos (S := S) n).le _
+  have hfS0 : ∀ s, 0 ≤ fS s := fun s => Real.rpow_nonneg (po_qI_ext_pos (S := S) s).le _
+  have hfR0 : ∀ r, 0 ≤ fR r := fun r => Real.rpow_nonneg (po_qI_ext_pos (S := S) r).le _
+  have hProd := po_real_summable_product4 fC fN fS fR hC hN hS hR
+    hfC0 hfN0 hfS0 hfR0
+  let C0 : ℝ := ∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+    fC p.1 * fN p.2.1 * fS p.2.2.1 * fR p.2.2.2
+  have hC0 : 0 ≤ C0 := by
+    dsimp [C0]
+    apply tsum_nonneg
+    intro p
+    exact mul_nonneg (mul_nonneg (mul_nonneg (hfC0 p.1) (hfN0 p.2.1))
+      (hfS0 p.2.2.1)) (hfR0 p.2.2.2)
+  have hmajor (u : U.U) (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) :
+      ‖calFTerm R η U u ξ w z p‖ ≤
+        fC p.1 * fN p.2.1 * fS p.2.2.1 * fR p.2.2.2 := by
+    simpa [fC, fN, fS, fR] using po_calFTerm_norm_bound R η U u ξ w z hξ hw hz p
+  have hcalF (u : U.U) : ‖calF R η U u ξ w z‖ ≤ C0 := by
+    have hrow := po_calFTerm_abs_summable R η U u ξ w z hξ hw hz
+    calc
+      _ = ‖∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+          calFTerm R η U u ξ w z p‖ := rfl
+      _ ≤ ∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+          ‖calFTerm R η U u ξ w z p‖ :=
+        norm_tsum_le_tsum_norm hrow
+      _ ≤ C0 := by
+        dsimp [C0]
+        exact hrow.tsum_le_tsum (hmajor u) hProd
+  have hpoint (u : U.U) :
+      ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖ ≤ C0 * U.q u ^ (-2 : ℝ) := by
+    have hcpow : ‖(U.q u : ℂ) ^ (-z)‖ = U.q u ^ (-2 : ℝ) := by
+      rw [Complex.norm_cpow_eq_rpow_re_of_pos (U.q_pos u)]
+      simp [hz]
+    calc
+      _ = U.q u ^ (-2 : ℝ) * ‖calF R η U u ξ w z‖ := by rw [norm_mul, hcpow]
+      _ ≤ U.q u ^ (-2 : ℝ) * C0 :=
+        mul_le_mul_of_nonneg_left (hcalF u) (Real.rpow_nonneg (U.q_pos u).le _)
+      _ = C0 * U.q u ^ (-2 : ℝ) := by ring
+  have hmajorSummable : Summable (fun u : U.U => C0 * U.q u ^ (-2 : ℝ)) :=
+    (po_frequency_q_inv_sq_summable η U).mul_left C0
+  have hfreq := po_frequency_q_inv_sq_summable η U
+  have hsum : Summable (fun u : U.U =>
+      ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖) :=
+    Summable.of_nonneg_of_le (fun u => norm_nonneg _) hpoint hmajorSummable
+  refine ⟨hsum, ?_⟩
+  calc
+    _ ≤ ∑' u : U.U, C0 * U.q u ^ (-2 : ℝ) := hsum.tsum_le_tsum hpoint hmajorSummable
+    _ = C0 * ∑' u : U.U, U.q u ^ (-2 : ℝ) := hfreq.tsum_mul_left C0
+    _ = _ := by simp [C0, fC, fN, fS, fR]
+
+private theorem po_gaussian_shear_majorant_integrable (C : ℝ) :
+    Integrable (fun t : ℝ × ℝ × ℝ => C * Real.exp (-(t.1 + t.2.2) ^ 2) *
+      (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ)) volume := by
+  let tail : ℝ → ℝ := fun x => (1 + |x|) ^ (-2 : ℝ)
+  let gauss : ℝ → ℝ := fun x => Real.exp (-x ^ 2)
+  have htail : Integrable tail volume := by
+    simpa [tail, Real.norm_eq_abs] using
+      (integrable_one_add_norm (E := ℝ) (μ := volume)
+        (by norm_num : (Module.finrank ℝ ℝ : ℝ) < 2))
+  have hgauss : Integrable gauss volume := by
+    simpa [gauss] using
+      (integrable_exp_neg_mul_sq (b := 1) (by norm_num : (0 : ℝ) < 1))
+  let E := ℝ × ℝ × ℝ
+  let μ : Measure E := volume
+  let f : Module.Dual ℝ E :=
+    (LinearMap.snd ℝ ℝ ℝ).comp (LinearMap.snd ℝ ℝ (ℝ × ℝ))
+  let v : E := (1, (0, 0))
+  have hfv : f v = 0 := by rfl
+  let L : E ≃ₗ[ℝ] E := LinearEquiv.transvection hfv
+  letI : BorelSpace E := by infer_instance
+  letI : Measure.IsAddHaarMeasure (volume : Measure ℝ) := by infer_instance
+  letI : Measure.IsAddHaarMeasure (volume : Measure (ℝ × ℝ)) := by
+    rw [Measure.volume_eq_prod ℝ ℝ]
+    infer_instance
+  have hdetUnit : LinearEquiv.det L = 1 := by
+    simp [L, LinearEquiv.transvection.det_eq_one]
+  have hdet : LinearMap.det L.toLinearMap = 1 := by
+    rw [← LinearEquiv.coe_det]
+    exact congrArg (fun u : ℝˣ => (u : ℝ)) hdetUnit
+  have hdet0 : LinearMap.det L.toLinearMap ≠ 0 := by
+    rw [hdet]
+    norm_num
+  letI : Measure.IsAddHaarMeasure μ := by
+    dsimp [μ, E]
+    rw [Measure.volume_eq_prod ℝ (ℝ × ℝ)]
+    infer_instance
+  have hmap : Measure.map L.toLinearMap μ = μ := by
+    rw [MeasureTheory.Measure.map_linearMap_addHaar_eq_smul_addHaar
+      (μ := μ) (f := L.toLinearMap) hdet0]
+    simp [hdet]
+  have hL_apply (t : E) : L t = (t.1 + t.2.2, t.2) := by
+    rw [LinearEquiv.transvection.apply hfv t]
+    change t + t.2.2 • (1, (0, 0)) = (t.1 + t.2.2, t.2)
+    apply Prod.ext
+    · change t.1 + t.2.2 • (1 : ℝ) = _
+      simp
+    · apply Prod.ext
+      · change t.2.1 + t.2.2 • (0 : ℝ) = _
+        simp
+      · change t.2.2 + t.2.2 • (0 : ℝ) = _
+        simp
+  have hLfun : (fun t : E => L t) = fun t => (t.1 + t.2.2, t.2) :=
+    funext hL_apply
+  have hLmeas : Measurable L.toLinearMap := by
+    change Measurable (fun t : E => L t)
+    rw [hLfun]
+    fun_prop
+  have hMP : MeasurePreserving L.toLinearMap μ μ := ⟨hLmeas, hmap⟩
+  have hbaseProd : Integrable (fun t : E => gauss t.1 * (tail t.2.1 * tail t.2.2))
+      (volume.prod (volume.prod volume)) :=
+    hgauss.mul_prod (htail.mul_prod htail)
+  have hbase : Integrable (fun t : E => gauss t.1 * (tail t.2.1 * tail t.2.2)) μ := by
+    dsimp [μ, E]
+    rw [Measure.volume_eq_prod ℝ (ℝ × ℝ), Measure.volume_eq_prod ℝ ℝ]
+    exact hbaseProd
+  have hshear : Integrable (fun t : E =>
+      gauss (t.1 + t.2.2) * (tail t.2.1 * tail t.2.2)) μ := by
+    have hcomp := hMP.integrable_comp_of_integrable hbase
+    convert hcomp using 1
+    ext t
+    simp [Function.comp_apply, hL_apply, gauss, tail]
+  simpa [gauss, tail, mul_assoc, mul_left_comm, mul_comm] using hshear.const_mul C
+
+private theorem po_ideal_countable : Countable (Ideal (𝓞 F)) := by
+  have hcover : (Set.univ : Set (Ideal (𝓞 F))) =
+      ⋃ n : ℕ, {I | Ideal.absNorm I ≤ n} := by
+    ext I
+    simp only [Set.mem_univ, Set.mem_iUnion, Set.mem_setOf_eq, true_iff]
+    exact ⟨Ideal.absNorm I, le_rfl⟩
+  have hcount : (Set.univ : Set (Ideal (𝓞 F))).Countable := by
+    rw [hcover]
+    exact Set.countable_iUnion (fun n => (Ideal.finite_setOfPred_absNorm_le n).countable)
+  exact Set.countable_univ_iff.mp hcount
+
+private theorem po_mellin_triple_integrable (hdecay : WeightDecay R sd W)
+    (X Y Z : ℝ) (hX : 0 < X) (hY : 0 < Y) (hZ : 0 < Z) :
+    Integrable (fun t : ℝ × ℝ × ℝ =>
+      mellinWeight R sd W X Y Z (4 + t.1 * Complex.I)
+        (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) *
+        ∑' u : U.U, (U.q u : ℂ) ^ (-(2 + t.2.2 * Complex.I)) *
+          calF R η U u (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I)
+            (2 + t.2.2 * Complex.I)) volume := by
+  classical
+  let ξ : ℝ × ℝ × ℝ → ℂ := fun t => 4 + t.1 * Complex.I
+  let w : ℝ × ℝ × ℝ → ℂ := fun t => 4 + t.2.1 * Complex.I
+  let z : ℝ × ℝ × ℝ → ℂ := fun t => 2 + t.2.2 * Complex.I
+  rcases hdecay with ⟨hDM, hDW, hMDecay, hWDecay, _⟩
+  obtain ⟨CM, hCM, hMbound⟩ := hMDecay 2 2 2 (by norm_num) (by norm_num) (by norm_num)
+  obtain ⟨CW, hCW, hWbound⟩ := hWDecay 4 4 2 le_rfl (by norm_num)
+  let B : ℝ :=
+    (∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+      qI p.1.1 ^ (-3 : ℝ) * qI p.2.1.1 ^ (-10 : ℝ) *
+        qI p.2.2.1.1 ^ (-3 : ℝ) * qI p.2.2.2.1 ^ (-12 : ℝ)) *
+      ∑' u : U.U, U.q u ^ (-2 : ℝ)
+  have hB0 : 0 ≤ B := by
+    apply mul_nonneg
+    · apply tsum_nonneg
+      intro p
+      have hC : 0 ≤ qI p.1.1 ^ (-3 : ℝ) :=
+        Real.rpow_nonneg (po_ideal_norm_pos p.1.1 p.1.2.1.1).le _
+      have hN : 0 ≤ qI p.2.1.1 ^ (-10 : ℝ) :=
+        Real.rpow_nonneg (po_ideal_norm_pos p.2.1.1 p.2.1.2.1).le _
+      have hS : 0 ≤ qI p.2.2.1.1 ^ (-3 : ℝ) :=
+        Real.rpow_nonneg (po_ideal_norm_pos p.2.2.1.1 p.2.2.1.2.1).le _
+      have hR : 0 ≤ qI p.2.2.2.1 ^ (-12 : ℝ) :=
+        Real.rpow_nonneg (po_ideal_norm_pos p.2.2.2.1 p.2.2.2.2.1).le _
+      exact mul_nonneg (mul_nonneg (mul_nonneg hC hN) hS) hR
+    · apply tsum_nonneg
+      intro u
+      exact Real.rpow_nonneg (U.q_pos u).le _
+  have hξre (t : ℝ × ℝ × ℝ) : (ξ t).re = 4 := by simp [ξ]
+  have hwre (t : ℝ × ℝ × ℝ) : (w t).re = 4 := by simp [w]
+  have hzre (t : ℝ × ℝ × ℝ) : (z t).re = 2 := by simp [z]
+  have hMline : Continuous (fun t : ℝ × ℝ × ℝ => weightM R sd W (z t)) := by
+    apply continuousOn_univ.mp
+    apply hDM.continuousOn.comp
+    · fun_prop
+    · intro t ht
+      simp [z]
+  have hWline : Continuous (fun t : ℝ × ℝ × ℝ => weightW1hat W (w t)) := by
+    exact hDW.continuous.comp (by fun_prop)
+  letI : Countable (Ideal (𝓞 F)) := po_ideal_countable
+  letI : Countable S.ExtIdeal :=
+    Function.Injective.countable (f := fun I : S.ExtIdeal => I.1)
+      Subtype.val_injective
+  letI : Countable S.SqfExtIdeal :=
+    Function.Injective.countable (f := fun I : S.SqfExtIdeal => I.1)
+      Subtype.val_injective
+  have hWeightMeas : Measurable (fun t : ℝ × ℝ × ℝ =>
+      mellinWeight R sd W X Y Z (ξ t) (w t) (z t)) := by
+    have hXpart : Measurable (fun t : ℝ × ℝ × ℝ => (X : ℂ) ^ ((1 / 2 : ℂ) - z t)) := by
+      fun_prop (disch := positivity)
+    have hZpart : Measurable (fun t : ℝ × ℝ × ℝ => (Z : ℂ) ^ (ξ t + z t - 1)) := by
+      fun_prop (disch := positivity)
+    have hYpart : Measurable (fun t : ℝ × ℝ × ℝ => (Y : ℂ) ^ (w t - 1)) := by
+      fun_prop (disch := positivity)
+    have hExppart : Measurable (fun t : ℝ × ℝ × ℝ =>
+        Complex.exp ((ξ t + z t - 1) ^ 2)) := by fun_prop
+    unfold mellinWeight
+    exact (((((hXpart.mul hZpart).mul hYpart).mul hExppart).mul hMline.measurable).mul
+      hWline.measurable)
+  letI : Countable (Ideal (𝓞 F)) := po_ideal_countable
+  letI : Countable (S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) := inferInstance
+  letI : Countable U.U := po_frequency_type_countable η U
+  have hcalFTermMeas (u : U.U) (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) :
+      Measurable (fun t : ℝ × ℝ × ℝ => calFTerm R η U u (ξ t) (w t) (z t) p) := by
+    dsimp [calFTerm]
+    fun_prop (disch := positivity)
+  have hcalFMeas (u : U.U) :
+      Measurable (fun t : ℝ × ℝ × ℝ => calF R η U u (ξ t) (w t) (z t)) := by
+    unfold calF
+    apply Measurable.tsum
+    intro p
+    exact hcalFTermMeas u p
+  have hqPowMeas (u : U.U) :
+      Measurable (fun t : ℝ × ℝ × ℝ => (U.q u : ℂ) ^ (-z t)) := by
+    fun_prop (disch := positivity)
+  have hseriesMeas : Measurable (fun t : ℝ × ℝ × ℝ =>
+      ∑' u : U.U, (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)) := by
+    apply Measurable.tsum
+    intro u
+    exact (hqPowMeas u).mul (hcalFMeas u)
+  have hMpow (t : ℝ × ℝ × ℝ) :
+      ‖(X : ℂ) ^ ((1 / 2 : ℂ) - z t)‖ = X ^ (-(3 / 2 : ℝ)) := by
+    have hre : ((1 / 2 : ℂ) - z t).re = -(3 / 2 : ℝ) := by
+      simp [z]
+      norm_num
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hX, hre]
+  have hZpow (t : ℝ × ℝ × ℝ) :
+      ‖(Z : ℂ) ^ (ξ t + z t - 1)‖ = Z ^ (5 : ℝ) := by
+    have hre : (ξ t + z t - 1).re = 5 := by
+      simp [ξ, z]
+      norm_num
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hZ, hre]
+  have hYpow (t : ℝ × ℝ × ℝ) :
+      ‖(Y : ℂ) ^ (w t - 1)‖ = Y ^ (3 : ℝ) := by
+    have hre : (w t - 1).re = 3 := by
+      simp [w]
+      norm_num
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hY, hre]
+  have hExp (t : ℝ × ℝ × ℝ) :
+      ‖Complex.exp ((ξ t + z t - 1) ^ 2)‖ =
+        Real.exp (25 - (t.1 + t.2.2) ^ 2) := by
+    rw [Complex.norm_exp]
+    have harg : ξ t + z t - 1 = (5 : ℂ) + ((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I := by
+      simp [ξ, z]
+      ring
+    rw [harg]
+    have hsq : ((5 : ℂ) + ((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I) ^ 2 =
+        ((25 - (t.1 + t.2.2) ^ 2 : ℝ) : ℂ) +
+          ((10 * (t.1 + t.2.2) : ℝ) : ℂ) * Complex.I := by
+      calc
+        _ = 25 + 10 * ((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I +
+            (((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I) ^ 2 := by ring
+        _ = 25 + 10 * ((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I +
+            ((t.1 + t.2.2 : ℝ) : ℂ) ^ 2 * Complex.I ^ 2 := by rw [mul_pow]
+        _ = _ := by rw [Complex.I_sq]; push_cast; ring
+    rw [hsq]
+    simp
+    norm_cast
+  have hMdecay (t : ℝ × ℝ × ℝ) :
+      ‖weightM R sd W (z t)‖ ≤ CM * (1 + |t.2.2|) ^ (-2 : ℝ) := by
+    simpa [z] using hMbound 2 t.2.2 (by norm_num) (by norm_num)
+  have hWdecay (t : ℝ × ℝ × ℝ) :
+      ‖weightW1hat W (w t)‖ ≤ CW * (1 + |t.2.1|) ^ (-2 : ℝ) := by
+    simpa [w] using hWbound 4 t.2.1 (by norm_num) (by norm_num)
+  let A0 : ℝ := X ^ (-(3 / 2 : ℝ)) * Z ^ (5 : ℝ) * Y ^ (3 : ℝ) *
+    Real.exp 25 * CM * CW
+  have hA0 : 0 ≤ A0 := by positivity
+  have hWeightBound (t : ℝ × ℝ × ℝ) :
+      ‖mellinWeight R sd W X Y Z (ξ t) (w t) (z t)‖ ≤
+        A0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+          (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ) := by
+    have hexp : Real.exp (25 - (t.1 + t.2.2) ^ 2) =
+        Real.exp 25 * Real.exp (-(t.1 + t.2.2) ^ 2) := by
+      rw [show 25 - (t.1 + t.2.2) ^ 2 = 25 + (-(t.1 + t.2.2) ^ 2) by ring,
+        Real.exp_add]
+    simp only [mellinWeight, norm_mul, hMpow t, hZpow t, hYpow t, hExp t]
+    calc
+      _ ≤ X ^ (-(3 / 2 : ℝ)) * Z ^ (5 : ℝ) * Y ^ (3 : ℝ) *
+          (Real.exp 25 * Real.exp (-(t.1 + t.2.2) ^ 2)) *
+            (CM * (1 + |t.2.2|) ^ (-2 : ℝ)) * (CW * (1 + |t.2.1|) ^ (-2 : ℝ)) := by
+        rw [hexp]
+        gcongr
+        exact hMdecay t
+        exact hWdecay t
+      _ = A0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+            (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ) := by
+        dsimp [A0]
+        ring
+  let C0 : ℝ := A0 * B
+  have hC00 : 0 ≤ C0 := mul_nonneg hA0 hB0
+  have hbound (t : ℝ × ℝ × ℝ) :
+      ‖mellinWeight R sd W X Y Z (ξ t) (w t) (z t) *
+          ∑' u : U.U, (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)‖ ≤
+        C0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+          (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ) := by
+    have hsum := po_calF_frequency_summable R η U (ξ t) (w t) (z t)
+      (hξre t) (hwre t) (hzre t)
+    have hseries : Summable (fun u : U.U =>
+        (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)) := hsum.1.of_norm
+    have hseriesNorm : ‖∑' u : U.U,
+        (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)‖ ≤ B := by
+      calc
+        _ ≤ ∑' u : U.U, ‖(U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)‖ :=
+          norm_tsum_le_tsum_norm hsum.1
+        _ ≤ B := by simpa [B] using hsum.2
+    rw [norm_mul]
+    have hmajorNonneg : 0 ≤ A0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+        (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ) := by positivity
+    calc
+      _ ≤ (A0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+          (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ)) * B :=
+        mul_le_mul (hWeightBound t) hseriesNorm (norm_nonneg _) hmajorNonneg
+      _ = _ := by dsimp [C0]; ring
+  have hmajor := po_gaussian_shear_majorant_integrable C0
+  have htargetMeas : Measurable (fun t : ℝ × ℝ × ℝ =>
+      mellinWeight R sd W X Y Z (ξ t) (w t) (z t) *
+        ∑' u : U.U, (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)) :=
+    hWeightMeas.mul hseriesMeas
+  apply Integrable.mono' hmajor htargetMeas.aestronglyMeasurable
+  filter_upwards with t
+  simpa [C0, ξ, w, z] using hbound t
+
+/-- po:mellin-triple, 05:353–389. `Summable` prevents interpreting a divergent total tsum as 0. -/
+theorem po_mellin_triple : WeightSpec R sd W → ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
+  (∀ ξ w z : ℂ, ξ.re = 4 → w.re = 4 → z.re = 2 →
+    (∀ u, Summable (fun p => ‖calFTerm R η U u ξ w z p‖)) ∧
+      Summable (fun u => ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖)) ∧
+  Integrable (fun t : ℝ × ℝ × ℝ =>
+    mellinWeight R sd W X Y Z (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) *
+      ∑' u, (U.q u : ℂ) ^ (-(2 + t.2.2 * Complex.I)) * calF R η U u
+        (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)) ∧
+  probe R W X Y Z = tripleVertical 4 4 2 (fun ξ w z =>
+    mellinWeight R sd W X Y Z ξ w z * ∑' u, (U.q u : ℂ) ^ (-z) * calF R η U u ξ w z) := by
+  intro hSpec X Y Z hX hY hZ
+  have hdecay : WeightDecay R sd W := (po_weights_exist R sd).2 W
+  refine ⟨?_, ?_, ?_⟩
+  · intro ξ w z hξ hw hz
+    constructor
+    · intro u
+      exact po_calFTerm_abs_summable R η U u ξ w z hξ hw hz
+    · exact (po_calF_frequency_summable R η U ξ w z hξ hw hz).1
+  · exact po_mellin_triple_integrable R sd W η U hdecay X Y Z hX hY hZ
+  · sorry
+
 /-- po:C-local-values: the one-prime T_v table, including the masked v≡0 case. -/
 theorem po_C_local_T_values : ∀ v, v ∉ S.Sf → ∀ e : ℤ, ∀ y : S.R,
   localT R v e (y : F) =
