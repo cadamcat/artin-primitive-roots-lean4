@@ -12868,6 +12868,115 @@ private theorem rf_pairing_frequency_reindex
     (hasSum_iff_hasSum_of_ne_zero_bij i hi hcover hvalue).mp hs.hasSum
   exact ⟨hterm.summable, hterm.tsum_eq.symm⟩
 
+private theorem rf_pairing_active_coefficient_unique
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (f₁ f₂ : S.ExtIdeal)
+    (hf₁ : activeFactor R r.h f₁) (hf₂ : activeFactor R r.h f₂)
+    (hn₁ : rf_pairing_active_coefficient R r f₁ ν ≠ 0)
+    (hn₂ : rf_pairing_active_coefficient R r f₂ ν ≠ 0) :
+    f₁ = f₂ := by
+  classical
+  have hrow := rf_pairing_row_support R r
+  have hOrdInv (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+      ordv v x⁻¹ = -ordv v x := by
+    have hm := rf_ordv_mul v x x⁻¹
+    have hone : ordv v (1 : (v.adicCompletion F)ˣ) = 0 := by
+      simp [ordv]
+      rfl
+    rw [mul_inv_cancel, hone] at hm
+    linarith
+  have hOrdDiv (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+      ordv v (x / y) = ordv v x - ordv v y := by
+    rw [div_eq_mul_inv, rf_ordv_mul, hOrdInv]
+    ring
+  have hOrdPow (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (n : ℕ) :
+      ordv v (x ^ n) = (n : ℤ) * ordv v x := by
+    simpa only [zpow_natCast] using rf_ordv_zpow v x (n : ℤ)
+  have hsub (fa fb : S.ExtIdeal)
+      (hfa : activeFactor R r.h fa) (hfb : activeFactor R r.h fb)
+      (hna : rf_pairing_active_coefficient R r fa ν ≠ 0)
+      (hnb : rf_pairing_active_coefficient R r fb ν ≠ 0) :
+      R.exterior.support fb ⊆ R.exterior.support fa := by
+    intro v hvb
+    by_contra hva
+    have hvS := R.exterior.support_exterior fb v hvb
+    have hvh := hfb.2.1 v hvb
+    have hvd : v ∉ R.exterior.support r.d := by
+      intro h
+      exact Finset.disjoint_left.mp hrow.2.1 h hvh
+    have hjh : idealExp v r.h.1 % 6 = 0 := by
+      by_contra h
+      exact hva (hfa.2.2 v hvh h)
+    have hj : digitExponent r v = 0 := by
+      apply Fin.ext
+      exact (hrow.2.2.2 v hvh).trans hjh
+    obtain ⟨acn, hacn, _⟩ := rf_active_support_frequencies R r fa hfa ν hna
+    obtain ⟨ε, hν⟩ := hacn.2.2
+    have hvaa : v ∉ R.exterior.support acn.1 := by
+      intro h
+      exact hva (hacn.1.1 v h)
+    have hgen (I : S.ExtIdeal) :
+        ordv v (toLoc v (bc.gen I)) = (idealExp v I.1 : ℤ) :=
+      rf_ordv_toLoc_ofGen v hvS I (bc.gen I) (bc.gen_spec I).1
+    have hgenZero (I : S.ExtIdeal) (hI : v ∉ R.exterior.support I) :
+        ordv v (toLoc v (bc.gen I)) = 0 := by
+      rw [hgen, rf_idealExp_zero_of_not_support R v I hI]
+      norm_num
+    have heps : ordv v (toLoc v (ε : Fˣ)) = 0 := by
+      have hglobal : HeightOneSpectrum.valuation F v ((ε : Fˣ) : F) = 1 :=
+        Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) ε hvS
+      have hloc : Valued.v (toLoc v (ε : Fˣ) : v.adicCompletion F) = 1 := by
+        change Valued.v (algebraMap F (v.adicCompletion F) ((ε : Fˣ) : F)) = 1
+        simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+          Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using hglobal
+      rw [rf_ordv_local_log, hloc]
+      simp
+    have hνord : ordv v (toLoc v ν) =
+        (idealExp v (R.exterior.ofSqf acn.2.1).1 : ℤ) + 3 * (idealExp v acn.2.2.1 : ℤ) := by
+      rw [hν, map_div, map_mul, map_mul, map_mul, map_pow, map_pow, map_mul,
+        hOrdDiv, rf_ordv_mul, rf_ordv_mul, rf_ordv_mul, hOrdPow, hOrdPow,
+        rf_ordv_mul, heps, hgenZero acn.1 hvaa, hgenZero r.d hvd, hgenZero fa hva,
+        hgen (R.exterior.ofSqf acn.2.1), hgen acn.2.2]
+      ring
+    have hnonneg : 0 ≤ ordv v (toLoc v ν) := by
+      rw [hνord]
+      positivity
+    let x : (v.adicCompletion F)ˣ :=
+      toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))
+    have hxord : ordv v x = 0 := by
+      dsimp only [x]
+      rw [rf_ordv_mul, rf_ordv_zpow, rf_local_primeGen_ord R v hvS]
+      ring
+    have hxval := rf_localVal_one_of_ordv_zero v x hxord
+    have hxunit : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v x := by
+      constructor
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hxval]
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        simp only [Units.val_inv_eq_inv_val, map_inv₀, hxval, inv_one, le_refl]
+    obtain ⟨_, _, _, _, _, _, _, hscale, hzero, _⟩ :=
+      lem_reflection_local_Weyl R v hvS 0 (ordv v (toLoc v ν) + 2) x hxunit.1 hxunit.2
+    have hpos : 0 < ordv v (toLoc v ν) + 2 := by omega
+    have hfactorZero : localR R v 0 (ordv v (toLoc v ν) + 2) x = 0 := by
+      rw [hscale hpos.le, hzero hpos (by norm_num : (0 : Fin 6) ≠ 4), zero_mul]
+    have hbProd :
+        (∏ w ∈ R.exterior.support fb,
+          localR R w (digitExponent r w) (ordv w (toLoc w ν) + 2)
+            (toLoc w ν * toLoc w (primeGen R w) ^ (-ordv w (toLoc w ν)))) ≠ 0 :=
+      (mul_ne_zero_iff.mp ((mul_ne_zero_iff.mp hnb).1)).2
+    have hvNonzero := (Finset.prod_ne_zero_iff.mp hbProd) v hvb
+    apply hvNonzero
+    rw [hj]
+    exact hfactorZero
+  have hs : R.exterior.support f₁ = R.exterior.support f₂ :=
+    Finset.Subset.antisymm (hsub f₂ f₁ hf₂ hf₁ hn₂ hn₁) (hsub f₁ f₂ hf₁ hf₂ hn₁ hn₂)
+  have hfactor (f : S.ExtIdeal) (hf : activeFactor R r.h f) :
+      f.1 = ∏ v ∈ R.exterior.support f, v.asIdeal := by
+    let c : S.SqfExtIdeal := ⟨f.1, f.property, hf.1⟩
+    have hof : R.exterior.ofSqf c = f := Subtype.ext (R.exterior.ofSqf_val c)
+    simpa only [hof] using rf_sqfIdeal_factorization R c
+  apply Subtype.ext
+  rw [hfactor f₁ hf₁, hfactor f₂ hf₂, hs]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
