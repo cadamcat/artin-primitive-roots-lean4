@@ -3523,6 +3523,51 @@ private theorem rf_S_profile_integral
     rw [hSum, integral_finsetSum Finset.univ (fun ℓ _ => hTensor ℓ)]
     rfl
 
+private theorem rf_S_profile_pullback
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) (ν : Fˣ) (l : ℝ) (hl : 0 < l) :
+    let κ : S.V := cls (S.diagU ν)
+    let g : S.FSˣ → ℂ := fun y =>
+      (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+        R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y * rotated R u y
+    Integrable (onUnits (fun y => g (S.diagU ν / y))) (R.sheets.sheet l) ∧
+      sheetIntegral R l (fun y => g (S.diagU ν / y)) =
+        ∑ ℓ : Fin (R.rotated u).J,
+          profileH R u κ ℓ (S.absS (S.diagU ν : S.FS) / l) := by
+  classical
+  let κ : S.V := cls (S.diagU ν)
+  let g : S.FSˣ → ℂ := fun y =>
+    (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+      R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y * rotated R u y
+  change Integrable (onUnits (fun y => g (S.diagU ν / y))) (R.sheets.sheet l) ∧
+    sheetIntegral R l (fun y => g (S.diagU ν / y)) =
+      ∑ ℓ : Fin (R.rotated u).J,
+        profileH R u κ ℓ (S.absS (S.diagU ν : S.FS) / l)
+  have hnorm : 0 < S.absS (S.diagU ν : S.FS) :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU ν)
+  have hprofile := rf_S_profile_integral R u κ
+    (S.absS (S.diagU ν : S.FS) / l) (div_pos hnorm hl)
+  change Integrable (onUnits g)
+      (R.sheets.sheet (S.absS (S.diagU ν : S.FS) / l)) ∧
+    sheetIntegral R (S.absS (S.diagU ν : S.FS) / l) g =
+      ∑ ℓ : Fin (R.rotated u).J,
+        profileH R u κ ℓ (S.absS (S.diagU ν : S.FS) / l) at hprofile
+  have htranslate := a2_bridge_SHEET_transport (G := R.sheets)
+    l⁻¹ (inv_pos.mpr hl) (S.diagU ν) g
+      (by simpa only [div_eq_mul_inv] using hprofile.1)
+  have hinvert := a2_bridge_SHEET_inversion (G := R.sheets) l hl
+    (fun y => g (S.diagU ν * y)) htranslate.1
+  constructor
+  · simpa only [div_eq_mul_inv] using hinvert.1
+  · calc
+      sheetIntegral R l (fun y => g (S.diagU ν / y)) =
+          bridgeSheetIntegral R.sheets l⁻¹ (fun y => g (S.diagU ν * y)) := by
+        simpa only [sheetIntegral, bridgeSheetIntegral, div_eq_mul_inv] using hinvert.2
+      _ = sheetIntegral R (S.absS (S.diagU ν : S.FS) / l) g := by
+        simpa only [sheetIntegral, bridgeSheetIntegral, div_eq_mul_inv] using htranslate.2
+      _ = ∑ ℓ : Fin (R.rotated u).J,
+          profileH R u κ ℓ (S.absS (S.diagU ν : S.FS) / l) := hprofile.2
+
 /-- rf:S-unfolding, 04:804–857. Inversion changes l to 1/l without a norm Jacobian. -/
 theorem rf_S_unfolding : ∀ u ν l, 0 < l →
   let term := fun γ : Gamma S => omegaInt R l (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
