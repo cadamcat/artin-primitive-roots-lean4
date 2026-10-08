@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».TateCharacter
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».CompletionTrace
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».TraceIntegral
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».RationalCharacter
+import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».TraceCharacters
 
 /-!
 # Existence of the standard additive character data
