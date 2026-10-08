@@ -2096,6 +2096,22 @@ private theorem ppPrimeMellinContourIntegrand_analyticOnNhd
         dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + w)))) z
   exact hProduct
 
+private theorem ppPrimeMellinContourRectangle_shift
+    {F : ℂ → ℂ} {a b c d : ℝ}
+    (hab : a ≤ b) (hcd : c ≤ d)
+    (hF : AnalyticOnNhd ℂ F (Set.Icc a b ×ℂ Set.Icc c d)) :
+    (∫ x : ℝ in a..b, F (x + c * Complex.I)) -
+      (∫ x : ℝ in a..b, F (x + d * Complex.I)) +
+      Complex.I • (∫ y : ℝ in c..d, F (b + y * Complex.I)) -
+      Complex.I • (∫ y : ℝ in c..d, F (a + y * Complex.I)) = 0 := by
+  have hF' : AnalyticOnNhd ℂ F (Set.uIcc a b ×ℂ Set.uIcc c d) := by
+    simpa [Set.uIcc_of_le hab, Set.uIcc_of_le hcd] using hF
+  have hDiff : DifferentiableOn ℂ F (Set.uIcc a b ×ℂ Set.uIcc c d) := by
+    intro z hz
+    exact (hF' z hz).differentiableAt.differentiableWithinAt
+  simpa using Complex.integral_boundary_rect_eq_zero_of_differentiableOn
+    F (⟨a, c⟩ : ℂ) (⟨b, d⟩ : ℂ) hDiff
+
 /- Zero-free input passed from `PP.Results`, which imports this plan module. -/
 def ppPrimeZeroFree (C : ℝ) : Prop :=
     0 < C →
