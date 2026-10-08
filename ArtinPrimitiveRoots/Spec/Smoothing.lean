@@ -1,12 +1,18 @@
 import ArtinPrimitiveRoots.Spec.EisensteinExtra
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SMOOTHING.All
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.Equivariance
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.RadialTransform
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.EisensteinInterchange
+import Mathlib.Analysis.Complex.CauchyIntegral
 
 /-! Smoothing and pointwise continuation nodes S1--S4. -/
 
 set_option autoImplicit false
 
 open NumberField Matrix MeasureTheory
+open Filter
 open scoped MatrixGroups ContDiff BoundedContinuousFunction
+open scoped Topology
 
 noncomputable section
 
@@ -83,7 +89,25 @@ theorem S2_smoothing_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (∀ s : ℂ, 1 / 2 < s.re → ∀ z : X F,
       smoothingOperator F k₀ (eisSeries F Γ σ s) z =
         radialTransform F k₀ (1 + 2 * s) * eisSeries F Γ σ s z) := by
-  sorry
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro g a z
+    calc
+      smoothingOperator F k₀
+          (fun w => ((normHeight F (actAtPlaces F g w) : ℝ) : ℂ) ^ a) z =
+          smoothingOperator F k₀
+            (fun w => ((normHeight F w : ℝ) : ℂ) ^ a) (actAtPlaces F g z) :=
+          smoothing_isometry_equivariant_of_Geometry k₀ g
+            (fun w => ((normHeight F w : ℝ) : ℂ) ^ a) z
+      _ = radialTransform F k₀ a *
+          ((normHeight F (actAtPlaces F g z) : ℝ) : ℂ) ^ a :=
+          smoothing_radial_power k₀ a _
+  · rw [Complex.analyticOnNhd_univ_iff_differentiable]
+    intro a
+    exact radialTransform₀_differentiableAt F k₀ hkSmooth hkSupport a
+  · intro s hs
+    exact radialTransform₀_realPart_pos F k₀ hkSmooth hkNonneg hkSupport hkNonzero s hs
+  · intro s hs z
+    exact smoothing_eisSeries_interchange Γ σ k₀ hkSmooth hkSupport s hs z
 
 /-- The unsmoothed equality on the original convergence ball, needed to identify the continuation
 with the Eisenstein series before applying the smoothing operator. -/
