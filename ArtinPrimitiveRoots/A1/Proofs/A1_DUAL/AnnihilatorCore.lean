@@ -348,7 +348,20 @@ theorem finite_component_from_trivial (S : A1.SData F CE condη)
       (∏ v : S.Sf, A.ψ v.1 (x v * y v)) = 1)
     (v : S.Sf) (a : v.1.adicCompletion F) :
     A.ψ v.1 (a * y v) = 1 := by
-  sorry
+  classical
+  let x : ∀ w : S.Sf, w.1.adicCompletion F :=
+    Pi.single (M := fun w : S.Sf => w.1.adicCompletion F) v a
+  have hprod :
+      (∏ w : S.Sf, A.ψ w.1 (x w * y w)) = A.ψ v.1 (a * y v) := by
+    rw [Finset.prod_eq_single v]
+    · simp [x, Pi.single_apply]
+    · intro w hw hwne
+      simp [x, Pi.single_apply, hwne]
+    · intro hv
+      exact (hv (Finset.mem_univ v)).elim
+  have hx := h x
+  rw [hprod] at hx
+  exact hx
 
 /-- The field trace on a totally complex number field is twice the sum of the real parts at its
 complex places. -/
