@@ -109,7 +109,12 @@ theorem e_add (S : A1.SData F CE condη) (A : A1.AddCharData F) (x y : S.FS) :
 /-- The fixed character sends a negation to the inverse value. -/
 theorem e_neg (S : A1.SData F CE condη) (A : A1.AddCharData F) (x : S.FS) :
     S.e A (-x) = (S.e A x)⁻¹ := by
-  sorry
+  have hzero : S.e A (0 : S.FS) = 1 := by
+    simp [A1.SData.e, A1.psiC]
+  have hadd := e_add S A x (-x)
+  have hmul : S.e A x * S.e A (-x) = 1 := by
+    simpa [hzero] using hadd.symm
+  exact eq_inv_of_mul_eq_one_right hmul
 
 /-- Subtracting a diagonal S-integer preserves annihilation of the diagonal S-integers. -/
 theorem sub_diag_preserves_annihilator [IsTotallyComplex F]
