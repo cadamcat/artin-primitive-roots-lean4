@@ -134,4 +134,31 @@ theorem qs_nq0_primitive_conductor_exists (χ : HeckeChar K)
     exact Nat.find_min' hp ⟨g, hg, hgc, rfl⟩
   exact ⟨f, ⟨hf, hfc, hmin⟩, hmin q hq hbound⟩
 
+/-!
+The exponent-supremum step has this exact signature:
+```
+theorem qs_nq0_idealExp_sup (I J : Ideal (𝓞 K))
+    (hI : I ≠ ⊥) (hJ : J ≠ ⊥) (v : FinPlace K) :
+    idealExp v (I ⊔ J) = min (idealExp v I) (idealExp v J)
+```
+-/
+
+/-- The prime exponent of an ideal supremum is the minimum of the two exponents. -/
+theorem qs_nq0_idealExp_sup (I J : Ideal (𝓞 K))
+    (hI : I ≠ ⊥) (hJ : J ≠ ⊥) (v : FinPlace K) :
+    idealExp v (I ⊔ J) = min (idealExp v I) (idealExp v J) := by
+  classical
+  have hpow (L : Ideal (𝓞 K)) (hL : L ≠ ⊥) (k : ℕ) :
+      k ≤ idealExp v L ↔ L ≤ v.asIdeal ^ k := by
+    change k ≤ (Associates.mk v.asIdeal).count (Associates.mk L).factors ↔
+      L ≤ v.asIdeal ^ k
+    rw [← Associates.prime_pow_dvd_iff_le (Associates.mk_ne_zero.mpr hL)
+      v.associates_irreducible, ← Associates.mk_pow,
+      Associates.mk_le_mk_iff_dvd, Ideal.dvd_iff_le]
+  have hsup : I ⊔ J ≠ ⊥ := ne_bot_of_le_ne_bot hI le_sup_left
+  have hiff (k : ℕ) :
+      k ≤ idealExp v (I ⊔ J) ↔ k ≤ min (idealExp v I) (idealExp v J) := by
+    rw [hpow (I ⊔ J) hsup k, sup_le_iff, ← hpow I hI k, ← hpow J hJ k, le_min_iff]
+  exact le_antisymm ((hiff _).mp le_rfl) ((hiff _).mpr le_rfl)
+
 end ArtinPrimitiveRoots.A2
