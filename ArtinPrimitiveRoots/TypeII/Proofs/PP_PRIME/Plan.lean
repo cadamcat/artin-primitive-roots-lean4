@@ -2280,6 +2280,21 @@ private theorem ppPrimeRightLineLogDeriv_bound
     nlinarith [hratio, hKle]
   simpa [s, δ] using hratio'
 
+private theorem ppPrime_log_rpow_le_rpow_eventually {r s : ℝ} (hs : 0 < s) :
+    ∀ᶠ x : ℝ in atTop, (Real.log x) ^ r ≤ Real.rpow x s := by
+  have hlim :
+      Tendsto (fun x : ℝ => (Real.log x) ^ r / Real.rpow x s) atTop (𝓝 0) :=
+    (isLittleO_log_rpow_rpow_atTop r hs).tendsto_div_nhds_zero
+  filter_upwards [hlim.eventually (Iio_mem_nhds (by norm_num : (0 : ℝ) < 1)),
+    eventually_gt_atTop (1 : ℝ)] with x hratio hx
+  have hlog : 0 < Real.log x := Real.log_pos hx
+  have hxpos : 0 < x := lt_trans zero_lt_one hx
+  have hden : 0 < Real.rpow x s := Real.rpow_pos_of_pos hxpos s
+  have hratio' : (Real.log x) ^ r / Real.rpow x s < 1 := hratio
+  have hlt : (Real.log x) ^ r < Real.rpow x s := by
+    simpa using (div_lt_iff₀ hden).mp hratio'
+  exact hlt.le
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
     (hzeta : ppPrimeZetaLogDerivBound) :
