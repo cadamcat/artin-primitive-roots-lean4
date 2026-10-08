@@ -779,6 +779,33 @@ private theorem covol_traceDual_valuation_bound (v : FinPlace F) {z : F}
   exact (WithZero.log_le_iff_le_exp
     ((v.valuation F).ne_zero_iff.mpr hz0)).mp hlogle
 
+private theorem covol_different_mem_valuation_bound (v : FinPlace F)
+    {a : 𝓞 F} (ha : a ∈ differentIdeal ℤ (𝓞 F)) :
+    v.valuation F (a : F) ≤ WithZero.exp
+      (-FractionalIdeal.count F v
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)) := by
+  by_cases ha0 : a = 0
+  · simp [ha0]
+  have haF0 : (a : F) ≠ 0 := by
+    intro h
+    apply ha0
+    exact (FaithfulSMul.algebraMap_injective (𝓞 F) F) (by simpa using h)
+  let D := differentIdeal ℤ (𝓞 F)
+  have hspan : FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F) ≤
+      (D : FractionalIdeal (𝓞 F)⁰ F) := by
+    apply FractionalIdeal.spanSingleton_le_iff_mem.mpr
+    apply FractionalIdeal.mem_coe.mpr
+    exact FractionalIdeal.mem_coeIdeal_of_mem (nonZeroDivisors (𝓞 F)) ha
+  have hcount := FractionalIdeal.count_mono F v
+    (FractionalIdeal.spanSingleton_ne_zero_iff.mpr haF0) hspan
+  have hcountA := covol_count_spanSingleton_eq_neg_log_valuation v (a : F) haF0
+  have hlog : WithZero.log (v.valuation F (a : F)) ≤
+      -FractionalIdeal.count F v (D : FractionalIdeal (𝓞 F)⁰ F) := by
+    rw [hcountA] at hcount
+    linarith
+  exact (WithZero.log_le_iff_le_exp
+    ((v.valuation F).ne_zero_iff.mpr haF0)).mp hlog
+
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
   have hπcoerce : (unifLoc v : v.adicCompletion F) =
