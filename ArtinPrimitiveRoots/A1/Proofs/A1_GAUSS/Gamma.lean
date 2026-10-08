@@ -210,4 +210,53 @@ theorem gamma_two_cube_of_norm_lift (D : FieldData F) (S : SData F CE condη)
   rw [hJ, neg_neg] at hnorm
   exact hgamma.trans hnorm
 
+theorem gamma_prime_cubic_norm_data (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (v : FinPlace F) (hv : v ∉ S.Sf)
+    {k : Type*} [Field k] [Fintype k] :
+    letI : v.asIdeal.IsMaximal := v.isMaximal
+    letI : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+    letI : Fintype (𝓞 F ⧸ v.asIdeal) := Fintype.ofFinite _
+    ∀ (alg : Algebra k (𝓞 F ⧸ v.asIdeal)),
+    letI : Algebra k (𝓞 F ⧸ v.asIdeal) := alg
+    3 ∣ Nat.card k - 1 →
+    ∃ α : MulChar k ℂ, α ≠ 1 ∧ α ^ 3 = 1 ∧
+      (∃ readRoot : (𝓞 F ⧸ v.asIdeal) → ℂ,
+        (∀ ζ : rootsOfUnity 6 (𝓞 F),
+          readRoot (Ideal.Quotient.mk v.asIdeal ((ζ : (𝓞 F)ˣ) : 𝓞 F)) =
+            D.σ0 (algebraMap (𝓞 F) F ((ζ : (𝓞 F)ˣ) : 𝓞 F))) ∧
+        ∀ u : kˣ, α (u : k) =
+          readRoot (algebraMap k (𝓞 F ⧸ v.asIdeal)
+            ((u : k) ^ ((Nat.card k - 1) / 3)))) ∧
+      ∀ c : F, S.IsGen c v.asIdeal →
+        let J : ℂ := ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) * jacobiSum α α
+        gamma D S A 2 v.asIdeal c ^ 3 =
+          -((-J) ^ Module.finrank k (𝓞 F ⧸ v.asIdeal)) := by
+  classical
+  let : v.asIdeal.IsMaximal := v.isMaximal
+  let : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  let : Fintype (𝓞 F ⧸ v.asIdeal) := Fintype.ofFinite _
+  intro alg
+  let : Algebra k (𝓞 F ⧸ v.asIdeal) := alg
+  intro h3
+  have h6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  obtain ⟨χ, hχ, hχ6⟩ := residue_character_exists D v h6
+  have hβ : χ ^ 2 ≠ 1 :=
+    residue_character_pow_ne_one D v h6 χ hχ 2 (by decide) (by decide)
+  have hβ3 : (χ ^ 2) ^ 3 = 1 := by
+    simpa only [← pow_mul] using hχ6
+  obtain ⟨readRoot, hroot, hreadAbs⟩ := residue_cubic_readout_exists D v h6 χ hχ
+  have hcard : Nat.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+    rw [← Submodule.cardQuot_apply, ← Ideal.absNorm_apply]
+  have hread (u : (𝓞 F ⧸ v.asIdeal)ˣ) : (χ ^ 2) (u : 𝓞 F ⧸ v.asIdeal) =
+      readRoot ((u : 𝓞 F ⧸ v.asIdeal) ^ ((Nat.card (𝓞 F ⧸ v.asIdeal) - 1) / 3)) := by
+    simpa only [hcard] using hreadAbs u
+  obtain ⟨α, hα, hα3, hαread, hlift⟩ :=
+    cubic_character_descends_norm h3 (χ ^ 2) hβ hβ3 readRoot hread
+  refine ⟨α, hα, hα3, ⟨readRoot, hroot, hαread⟩, ?_⟩
+  intro c hc
+  let J : ℂ := ((Fintype.card k : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) * jacobiSum α α
+  change gamma D S A 2 v.asIdeal c ^ 3 = -((-J) ^ Module.finrank k (𝓞 F ⧸ v.asIdeal))
+  exact gamma_two_cube_of_norm_lift D S A v hv c hc χ hχ hχ6
+    alg α hα hα3 hlift (-J) (by rw [neg_neg])
+
 end ArtinPrimitiveRoots.Proofs.a1_gauss_sol
