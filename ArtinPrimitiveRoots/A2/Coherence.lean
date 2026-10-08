@@ -1,10 +1,12 @@
+import ArtinPrimitiveRoots.A2.Proofs.A2_ZF_TOP.PuncturedHalfPlane
 import ArtinPrimitiveRoots.A2.ZeroFree.Missing
+import ArtinPrimitiveRoots.A2.Proofs.A2_PRINCIPAL_INPUTS.LSeries
 import ArtinPrimitiveRoots.Hecke.Defs
 
 set_option autoImplicit false
 set_option maxHeartbeats 800000
-open NumberField IsDedekindDomain MeasureTheory ClassFieldTheory
-open scoped Classical
+ open NumberField IsDedekindDomain MeasureTheory ClassFieldTheory Filter Asymptotics
+ open scoped Classical Topology
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
 open ArtinPrimitiveRoots A1 A2
@@ -38,7 +40,9 @@ def eulerProductWithDictionaryStatement
 from `HeckeAnalysis` to the stored incomplete continuation values. -/
 theorem prop_euler_product_with_dictionary (K : IncompleteDictionary η U HA) :
     eulerProductWithDictionaryStatement R η U HA HC K := by
-  sorry
+  unfold eulerProductWithDictionaryStatement
+  intro hInputs
+  exact prop_euler_product R η U HC HA hInputs.2
 
 end EulerProductDictionary
 
@@ -133,7 +137,13 @@ theorem principal_mellin_inputs
     (sd : S.SelfDualMeasure A) (W : PoissonWeights (S := S)) (η : HeckeChar F)
     (U : FrequencyData S D η) (HA : HeckeAnalysis F) (HC : EulerCorrection R η U) :
     principalMellinInputsStatement R sd W η U HA HC := by
-  sorry
+  intro hSplit hEuler hloc hWeight
+  have hH := po_H_eta_properties R η U HC hEuler hloc
+  have hEnds := zf_f_bounds R sd W η U HA HC hSplit hEuler hloc hWeight
+  have hL := principalLS_right_half_plane_inputs (S := S) η HA hEuler.1
+  obtain ⟨B, hB, hLrecip⟩ := hL.2.2
+  exact mellinInputs_of_nodes R sd W η U HA HC
+    hH hL.1 hL.2.1 ⟨B, hLrecip⟩ hEnds
 
 /-- Mellin transform identity and analytic continuation for the actual `fEta`/amplitude pair;
 the line identity is stated explicitly (06:691–752). -/
@@ -147,7 +157,83 @@ def mellinIdentificationStatement : Prop := ∀ H L : ℂ → ℂ, MellinInputs 
 
 /-- New analytic producer obligation for `mellinIdentificationStatement` (06:691–752). -/
 theorem mellin_identification_from_inputs : mellinIdentificationStatement := by
-  sorry
+  intro H L hI
+  let p : ℝ := (7 : ℝ) / 15 - 1 / 20000
+  have hlarge : ∃ C Z0 : ℝ, 0 < C ∧ 1 ≤ Z0 ∧ ∀ Z : ℝ, Z0 ≤ Z →
+      ‖fEta H L Z‖ ≤ C * Real.rpow Z (7 / 15 - 1 / 20000) := by
+    obtain ⟨C, Z0, hC, hZ0, hbound⟩ := hI.large
+    exact ⟨C, Z0, hC, le_trans (by norm_num) hZ0, hbound⟩
+  have hcont := fEta_continuousOn_of_bounds H L hI.H_holomorphic hI.L_holomorphic
+    hI.L_nonzero hI.H_bound hI.L_reciprocal_bound
+  have hloc : LocallyIntegrableOn (fEta H L) (Set.Ioi 0) :=
+    hcont.locallyIntegrableOn measurableSet_Ioi
+  have htop : fEta H L =O[atTop] (fun Z : ℝ => Z ^ p) := by
+    obtain ⟨C, Z0, hC, hZ0, hbound⟩ := hI.large
+    apply IsBigO.of_bound (C + 1)
+    filter_upwards [eventually_ge_atTop Z0] with Z hZ
+    have hZpos : 0 < Z := lt_of_lt_of_le (by linarith) hZ
+    have hpow : 0 ≤ Z ^ p := Real.rpow_nonneg hZpos.le _
+    calc
+      ‖fEta H L Z‖ ≤ C * Z ^ p := by simpa [p] using hbound Z hZ
+      _ ≤ (C + 1) * Z ^ p :=
+        mul_le_mul_of_nonneg_right (by linarith) hpow
+      _ = (C + 1) * ‖Z ^ p‖ := by
+        rw [Real.norm_eq_abs, abs_of_nonneg hpow]
+  have hbot (A0 : ℝ) (hA0 : 0 < A0) :
+      fEta H L =O[𝓝[>] (0 : ℝ)] (fun Z : ℝ => Z ^ A0) := by
+    obtain ⟨C, hC, hbound⟩ := hI.small A0 hA0
+    apply IsBigO.of_bound C
+    filter_upwards [self_mem_nhdsWithin,
+      mem_nhdsWithin_of_mem_nhds (Iic_mem_nhds (show (0 : ℝ) < 1 by norm_num))]
+        with Z hZ hZ1
+    have hZpos : 0 < Z := by simpa using hZ
+    have hZle : Z ≤ 1 := by simpa using hZ1
+    have hsmall := hbound Z hZpos hZle
+    have hpow : 0 ≤ Z ^ A0 := Real.rpow_nonneg hZpos.le _
+    calc
+      ‖fEta H L Z‖ ≤ C * Z ^ A0 := hsmall
+      _ = C * ‖Z ^ A0‖ := by
+        rw [Real.norm_eq_abs, abs_of_nonneg hpow]
+  have hdifferentiable : DifferentiableOn ℂ (mellinT (fEta H L))
+      {s : ℂ | 1 - 1 / 20000 < s.re} := by
+    intro s hs
+    let A0 : ℝ := max 0 (s.re - 8 / 15) + 1
+    have hA0 : 0 < A0 := by
+      dsimp [A0]
+      linarith [le_max_left 0 (s.re - 8 / 15)]
+    have hAgt : s.re - 8 / 15 < A0 := by
+      dsimp [A0]
+      linarith [le_max_right 0 (s.re - 8 / 15)]
+    have hqre : (-Cstar s).re = 8 / 15 - s.re := by simp [Cstar]
+    change 1 - 1 / 20000 < s.re at hs
+    have htop' : fEta H L =O[atTop] (fun Z : ℝ => Z ^ (-(-p))) := by
+      simpa only [neg_neg] using htop
+    have hbot' : fEta H L =O[𝓝[>] (0 : ℝ)]
+        (fun Z : ℝ => Z ^ (-(-A0))) := by
+      simpa only [neg_neg] using hbot A0 hA0
+    have hqtop : (-Cstar s).re < -p := by
+      rw [hqre]
+      dsimp [p]
+      linarith [hs]
+    have hqbot : -A0 < (-Cstar s).re := by
+      rw [hqre]
+      linarith [hAgt]
+    have hmellin : DifferentiableAt ℂ (mellin (fEta H L)) (-Cstar s) :=
+      mellin_differentiableAt_of_isBigO_rpow (a := -p) (b := -A0)
+        hloc htop' hqtop hbot' hqbot
+    have hcomp : DifferentiableAt ℂ (fun z : ℂ => -Cstar z) s := by
+      fun_prop [Cstar]
+    have hAt : DifferentiableAt ℂ (mellinT (fEta H L)) s := by
+      change DifferentiableAt ℂ (mellin (fEta H L) ∘ (fun z : ℂ => -Cstar z)) s
+      exact hmellin.comp s hcomp
+    exact hAt.differentiableWithinAt
+  have hline : ∀ t : ℝ,
+      mellinT (fEta H L) (2 + t * Complex.I) = amplitude H L (2 + t * Complex.I) :=
+    fun t => mellinT_fEta_line_eq_amplitude_of_bounds H L hI.H_holomorphic
+      hI.L_holomorphic hI.L_nonzero hI.H_bound hI.L_reciprocal_bound hlarge t
+  refine ⟨hdifferentiable, hline, ?_⟩
+  exact mellin_identification H L hI.H_holomorphic hI.H_nonzero hI.H_bound
+    hI.L_holomorphic hI.L_nonzero hI.L_reciprocal_bound hI.small hlarge
 
 /-- Boundary-width version of Mellin identification. It matches the frozen `δ₀ = 10⁻⁶`
 continuation domain in `Hecke/Boundary.lean`; its analytic proof is a separate obligation
@@ -161,7 +247,131 @@ def mellinIdentificationNarrowStatement : Prop := ∀ H L : ℂ → ℂ, MellinI
 /-- New analytic producer obligation on the frozen narrow half-plane. The wider `1/20000` result
 does not itself accept a continuation known only on this smaller domain. -/
 theorem mellin_identification_narrow : mellinIdentificationNarrowStatement := by
-  sorry
+  intro H L hInputs P Λ hΛ hΛL s hs hsP
+  let M : ℂ → ℂ := mellinT (fEta H L)
+  let E : ℂ → ℂ := fun z => Complex.exp ((z - 5 / 6) ^ 2) * H z
+  let D₁ : Set ℂ := {z | 1 < z.re}
+  let D₀ : Set ℂ := {z | 1 - a2Delta0 < z.re} \ ↑P
+  obtain ⟨hMdiff, hMline, _⟩ := mellin_identification_from_inputs H L hInputs
+  have hExpDiff : Differentiable ℂ (fun z : ℂ => Complex.exp ((z - 5 / 6) ^ 2)) := by
+    fun_prop
+  have hD₁open : IsOpen D₁ := by
+    exact isOpen_lt continuous_const Complex.continuous_re
+  have hD₁pre : IsPreconnected D₁ := by
+    simpa [D₁] using (convex_halfSpace_re_gt (1 : ℝ)).isPreconnected
+  have hMdiff₁ : DifferentiableOn ℂ M D₁ := by
+    apply hMdiff.mono
+    intro z hz
+    dsimp [D₁] at hz ⊢
+    exact lt_trans (by norm_num : (1 : ℝ) - 1 / 20000 < 1) hz
+  have hLdiff₁ : DifferentiableOn ℂ L D₁ := by
+    simpa [D₁] using hInputs.L_holomorphic
+  have hHdiff₁ : DifferentiableOn ℂ H D₁ := by
+    apply hInputs.H_holomorphic.mono
+    intro z hz
+    dsimp [D₁] at hz ⊢
+    linarith
+  have hEdiff₁ : DifferentiableOn ℂ E D₁ := by
+    dsimp [E]
+    exact hExpDiff.differentiableOn.mul hHdiff₁
+  have hMprodAnalytic₁ : AnalyticOnNhd ℂ (fun z => M z * L z) D₁ := by
+    apply (Complex.analyticOnNhd_iff_differentiableOn hD₁open).2
+    exact hMdiff₁.mul hLdiff₁
+  have hEanalytic₁ : AnalyticOnNhd ℂ E D₁ :=
+    (Complex.analyticOnNhd_iff_differentiableOn hD₁open).2 hEdiff₁
+  let line : ℝ → ℂ := fun t => (2 : ℂ) + (t : ℂ) * Complex.I
+  have hlineCont : ContinuousAt line 0 := by
+    fun_prop
+  have hlineNe (t : ℝ) (ht : t ≠ 0) : line t ≠ (2 : ℂ) := by
+    intro heq
+    have him := congrArg Complex.im heq
+    exact ht (by simpa [line] using him)
+  have hlineTendsto : Tendsto line (𝓝[≠] (0 : ℝ)) (𝓝[≠] (2 : ℂ)) := by
+    rw [tendsto_nhdsWithin_iff]
+    refine ⟨?_, ?_⟩
+    · have hcont := hlineCont.tendsto.mono_left
+        (nhdsWithin_le_nhds : 𝓝[≠] (0 : ℝ) ≤ 𝓝 (0 : ℝ))
+      simpa [line] using hcont
+    · filter_upwards [self_mem_nhdsWithin] with t ht
+      exact hlineNe t (by simpa using ht)
+  have hlineEq (t : ℝ) : M (line t) * L (line t) = E (line t) := by
+    have hM := hMline t
+    have hL0 := hInputs.L_nonzero (line t) (by simp [line])
+    calc
+      M (line t) * L (line t) = amplitude H L (line t) * L (line t) := by
+        simpa [M, line] using congrArg (fun z : ℂ => z * L (2 + t * Complex.I)) hM
+      _ = E (line t) := by
+        simp [amplitude, E]
+        field_simp [hL0]
+  have hfreq : ∃ᶠ z in 𝓝[≠] (2 : ℂ), M z * L z = E z := by
+    rw [frequently_iff]
+    intro V hV
+    have hlineV : ∀ᶠ t in 𝓝[≠] (0 : ℝ), line t ∈ V := hlineTendsto hV
+    obtain ⟨t, htV⟩ := hlineV.exists
+    exact ⟨line t, htV, hlineEq t⟩
+  have hprodEq₁ := hMprodAnalytic₁.eqOn_of_preconnected_of_frequently_eq
+    hEanalytic₁ hD₁pre (by norm_num [D₁]) hfreq
+  have hprodEq₁' : ∀ z : ℂ, 1 < z.re → M z * L z = E z := by
+    intro z hz
+    exact hprodEq₁ (by simpa [D₁] using hz)
+
+  have hPfinite : (↑P : Set ℂ).Finite := by simp
+  have hPcount : (↑P : Set ℂ).Countable := hPfinite.countable
+  have hPopen : IsOpen ((↑P : Set ℂ)ᶜ) := hPfinite.isClosed.isOpen_compl
+  have hD₀open : IsOpen D₀ := by
+    exact (isOpen_lt continuous_const Complex.continuous_re).inter hPopen
+  have hD₀pre : IsPreconnected D₀ := by
+    have hUopen : IsOpen {z : ℂ | 1 - a2Delta0 < z.re} :=
+      isOpen_lt continuous_const Complex.continuous_re
+    have hUconv : Convex ℝ {z : ℂ | 1 - a2Delta0 < z.re} :=
+      convex_halfSpace_re_gt _
+    have hUne : ({z : ℂ | 1 - a2Delta0 < z.re} : Set ℂ).Nonempty :=
+      ⟨2, by norm_num [a2Delta0]⟩
+    have hpath := convex_open_diff_countable_isPathConnected hUconv hUopen hUne hPcount
+    simpa [D₀] using hpath.isConnected.isPreconnected
+  have hwideNarrow : {z : ℂ | 1 - 1 / 20000 < z.re} ⊇
+      {z : ℂ | 1 - a2Delta0 < z.re} := by
+    intro z hz
+    exact lt_trans (by norm_num [a2Delta0] : (1 : ℝ) - 1 / 20000 < 1 - a2Delta0) hz
+  have hMdiff₀ : DifferentiableOn ℂ M D₀ := by
+    apply hMdiff.mono
+    intro z hz
+    exact hwideNarrow (by simpa [D₀] using hz.1)
+  have hHdiff₀ : DifferentiableOn ℂ H D₀ := by
+    apply hInputs.H_holomorphic.mono
+    intro z hz
+    have hm : (998 / 1000 : ℝ) < 1 - a2Delta0 := by norm_num [a2Delta0]
+    exact lt_trans hm (by simpa [D₀] using hz.1)
+  have hEdiff₀ : DifferentiableOn ℂ E D₀ := by
+    dsimp [E]
+    exact hExpDiff.differentiableOn.mul hHdiff₀
+  have hMprodAnalytic₀ : AnalyticOnNhd ℂ (fun z => M z * Λ z) D₀ := by
+    apply (Complex.analyticOnNhd_iff_differentiableOn hD₀open).2
+    exact hMdiff₀.mul hΛ
+  have hEanalytic₀ : AnalyticOnNhd ℂ E D₀ :=
+    (Complex.analyticOnNhd_iff_differentiableOn hD₀open).2 hEdiff₀
+  have hD₁openAt (z : ℂ) (hz : z ∈ D₁) : D₁ ∈ 𝓝 z := hD₁open.mem_nhds hz
+  have hPopenAt (z : ℂ) (hz : z ∉ (↑P : Set ℂ)) :
+      (↑P : Set ℂ)ᶜ ∈ 𝓝 z := hPopen.mem_nhds hz
+  obtain ⟨z₀, hz₀P, hz₀D₁⟩ :=
+    hPcount.dense_compl ℝ |>.exists_mem_open hD₁open ⟨2, by norm_num [D₁]⟩
+  have hevent : (fun z => M z * Λ z) =ᶠ[𝓝 z₀] E := by
+    filter_upwards [hD₁openAt z₀ hz₀D₁, hPopenAt z₀ hz₀P] with z hzD₁ hzP
+    calc
+      M z * Λ z = M z * L z := by rw [hΛL z (by simpa [D₁] using hzD₁)]
+      _ = E z := hprodEq₁' z (by simpa [D₁] using hzD₁)
+  have hz₀D₀ : z₀ ∈ D₀ := by
+    have hmargin : 1 - a2Delta0 < (1 : ℝ) := by norm_num [a2Delta0]
+    exact ⟨lt_trans hmargin (by simpa [D₁] using hz₀D₁), hz₀P⟩
+  have hprodEq₀ := hMprodAnalytic₀.eqOn_of_preconnected_of_eventuallyEq
+    hEanalytic₀ hD₀pre hz₀D₀ hevent
+  have hprodAt : M s * Λ s = E s := hprodEq₀ ⟨hs, hsP⟩
+  have hEnonzero : E s ≠ 0 := by
+    apply mul_ne_zero (Complex.exp_ne_zero _)
+    exact hInputs.H_nonzero s (lt_trans (by norm_num [a2Delta0]) hs)
+  intro hΛzero
+  apply hEnonzero
+  rw [← hprodAt, hΛzero, mul_zero]
 
 /-- Deleted finite Euler factors relating the actual S-incomplete Hecke series to the ray-class
 series. Constructing this relation needs the modulus dictionary (06:754–764). -/

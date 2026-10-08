@@ -1,6 +1,17 @@
 import Mathlib.Topology.Defs.Induced
 import Mathlib.Topology.Algebra.RestrictedProduct.TopologicalSpace
 import ArtinPrimitiveRoots.A1.ThetaInterface
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedComponents
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CocycleQuotient
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.SmallPowers
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.Congruence
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.SubgroupTopology
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CongruenceTopology
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CompletionCompact
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CongruenceCompact
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.IntegralGL
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.LocalEffective
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedCentralQuotient
 
 
 /-!
@@ -1666,13 +1677,1793 @@ end CocycleThm
 
 /-! ## Local and global outcome -/
 
+/-- The normalized KP extension modulo its central scalar section, before choosing topology
+or the distinguished root and torus maps. -/
+theorem kpCocycle_centralQuotient (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) :
+    Nonempty (TH_COVER.CocycleQuotient
+      (Subgroup.center (GL (Fin 2) (v.adicCompletion F))) (kpCocycle D H v)) := by
+  have hx1 : xU v (1 : GL (Fin 2) (v.adicCompletion F)) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry]
+  have hd1 : detU v (1 : GL (Fin 2) (v.adicCompletion F)) = 1 := by
+    simp [detU]
+  refine TH_COVER.exists_cocycleQuotient _ _ ?_ ?_ ?_ ?_
+  · exact {
+      one_left := fun g => by
+        simp [kpCocycle, hx1, hd1, hilb_one_left, muThree_one]
+      one_right := fun g => by
+        simp [kpCocycle, hx1, hd1, hilb_one_right, muThree_one]
+      assoc := kpCocycle_cocycle D H v hSt
+    }
+  · intro g hg h hh
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hg hh
+    obtain ⟨c, rfl⟩ := hg
+    obtain ⟨c', rfl⟩ := hh
+    exact kpCocycle_scalar_scalar D H v hSt c c'
+  · intro g hg h
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hg
+    obtain ⟨c, rfl⟩ := hg
+    exact Matrix.GeneralLinearGroup.scalar_commute c h
+  · intro g hg h
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hg
+    obtain ⟨c, rfl⟩ := hg
+    exact kpCocycle_scalar D H v hSt c h
+
+/-- The algebraic fields of the finite local cover, before constructing its topology. -/
+structure FinLocalAlgebra (D : FieldData F) (H : HilbertData F) (v : FinPlace F) where
+  L : Type
+  [grp : Group L]
+  z : rootsOfUnity 3 ℂ →* L
+  z_inj : Function.Injective z
+  z_central : ∀ ζ g, z ζ * g = g * z ζ
+  pr : L →* PGL2 (v.adicCompletion F)
+  pr_surj : Function.Surjective pr
+  pr_ker : pr.ker = z.range
+  n : Multiplicative (v.adicCompletion F) →* L
+  nbar : Multiplicative (v.adicCompletion F) →* L
+  a : (v.adicCompletion F)ˣ → L
+  w : L
+  /-- the set-theoretic section `g ↦ (g, 1)` of the KP construction -/
+  sec : GL (Fin 2) (v.adicCompletion F) → L
+  sec_mul : ∀ g h, sec g * sec h = z (kpCocycle D H v g h) * sec (g * h)
+  sec_pr : ∀ g, pr (sec g) = QuotientGroup.mk g
+  sec_scalar : ∀ c, sec (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1
+  sec_n : ∀ x, n (Multiplicative.ofAdd x) = sec (upperM _ x)
+  sec_nbar : ∀ x, nbar (Multiplicative.ofAdd x) = sec (lowerM _ x)
+  sec_a : ∀ y, a y = sec (diagM _ y)
+  sec_w : w = sec (weylM _)
+  pr_n : ∀ x, pr (n (Multiplicative.ofAdd x)) = QuotientGroup.mk (upperM _ x)
+  pr_nbar : ∀ x, pr (nbar (Multiplicative.ofAdd x)) = QuotientGroup.mk (lowerM _ x)
+  pr_a : ∀ y, pr (a y) = QuotientGroup.mk (diagM _ y)
+  pr_w : pr w = QuotientGroup.mk (weylM (v.adicCompletion F))
+  a_one : a 1 = 1
+  /-- torus law `a(x)a(y) = C(x,y)a(xy)`, `C = muThree ∘ hilb` (10:96–97 with `ι = σ0⁻¹`). -/
+  a_mul : ∀ x y, a x * a y = z (muThree D (H.hilb v x y)) * a (x * y)
+  /-- exact lift identities (eq:theta-lift-identities, 10:206–248). -/
+  lift_na : ∀ (x : v.adicCompletion F) (y : (v.adicCompletion F)ˣ),
+    n (Multiplicative.ofAdd x) * a y = a y * n (Multiplicative.ofAdd (x * ↑y⁻¹))
+  lift_wa : ∀ y, w * a y * w⁻¹ = a y⁻¹
+  lift_wn : ∀ Hh : (v.adicCompletion F)ˣ,
+    w * n (Multiplicative.ofAdd (Hh : v.adicCompletion F)) =
+      n (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) *
+        a (-(Hh⁻¹ * Hh⁻¹)) *
+          nbar (Multiplicative.ofAdd ((Hh⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F))
+  w_sq : w * w = 1
+  w_n_w : ∀ x, w * n (Multiplicative.ofAdd x) * w = nbar (Multiplicative.ofAdd x)
+
+attribute [instance] FinLocalAlgebra.grp
+
+/-- Add the distinguished root, torus, and Weyl lifts to the KP scalar quotient. -/
+theorem exists_finLocalAlgebra (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) : Nonempty (FinLocalAlgebra D H v) := by
+  classical
+  obtain ⟨Q⟩ := kpCocycle_centralQuotient D H v hSt
+  let K := v.adicCompletion F
+  have upper_zero : upperM K 0 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [upperM]
+  have upper_add : ∀ x y : K, upperM K (x + y) = upperM K x * upperM K y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  have diag_one : diagM K 1 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [diagM]
+  have diag_mul : ∀ x y : Kˣ, diagM K (x * y) = diagM K x * diagM K y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  have weyl_sq : weylM K * weylM K = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+  have weyl_upper : ∀ x : K, weylM K * upperM K x * weylM K = lowerM K x := by
+    intro x
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, upperM, lowerM, Matrix.mul_apply, Fin.sum_univ_two]
+  have weyl_diag : ∀ y : Kˣ, weylM K * diagM K y * weylM K =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) y * diagM K y⁻¹ := by
+    intro y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, diagM, Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply,
+        Fin.sum_univ_two]
+  have upper_diag : ∀ (x : K) (y : Kˣ), upperM K x * diagM K y =
+      diagM K y * upperM K (x * (y⁻¹ : Kˣ)) := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+    all_goals
+      rw [mul_left_comm]
+      have hy : (y : K) * (y : K)⁻¹ = 1 := mul_inv_cancel₀ (a := (y : K)) y.ne_zero
+      rw [hy, mul_one]
+  have wn_factor : ∀ t : Kˣ, weylM K * upperM K (t : K) =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) t *
+        (upperM K ((t⁻¹ : Kˣ) : K) * diagM K (-(t⁻¹ * t⁻¹)) *
+          lowerM K ((t⁻¹ : Kˣ) : K)) := by
+    intro t
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, upperM, diagM, lowerM, Matrix.GeneralLinearGroup.scalar,
+        Matrix.mul_apply, Fin.sum_univ_two] <;> try field_simp <;> ring
+  have sec_one : Q.sec (1 : GL (Fin 2) K) = 1 := Q.sec_triv _ (Subgroup.one_mem _)
+  have scalar_sec : ∀ c : Kˣ, Q.sec (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1 := by
+    intro c
+    apply Q.sec_triv
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar]
+    exact ⟨c, rfl⟩
+  have scalar_cancel : ∀ (c : Kˣ) (g : GL (Fin 2) K),
+      kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) c) g = 1 →
+      Q.sec (Matrix.GeneralLinearGroup.scalar (Fin 2) c * g) = Q.sec g := by
+    intro c g hc
+    have h := Q.sec_mul (Matrix.GeneralLinearGroup.scalar (Fin 2) c) g
+    rw [scalar_sec, one_mul, hc, map_one, one_mul] at h
+    exact h.symm
+  have pair_inv_right : ∀ a b : Kˣ,
+      kpPairing D H v a b⁻¹ = (kpPairing D H v a b)⁻¹ := by
+    intro a b
+    exact map_inv (kpPairing D H v a) b
+  have upper_diag_sigma : ∀ (x : K) (y : Kˣ),
+      kpCocycle D H v (upperM K x) (diagM K y) = 1 := by
+    intro x y
+    rw [kpCocycle_diagM_formula, detU_upperM]
+    simp [upperM, kpPairing_one_left]
+  have diag_sigma : ∀ x y : Kˣ,
+      kpCocycle D H v (diagM K x) (diagM K y) = muThree D (H.hilb v x y) := by
+    intro x y
+    rw [kpCocycle_diagM_formula, detU_diagM]
+    simp [diagM, kpPairing]
+  have lower_det : ∀ x : K, detU v (lowerM K x) = 1 := by
+    intro x
+    apply Units.ext
+    simp [detU, lowerM, Matrix.det_fin_two]
+  -- The big-cell lift is checked before the remaining root-map assembly.
+  have wn_sec : ∀ t : Kˣ, Q.sec (weylM K) * Q.sec (upperM K (t : K)) =
+      Q.sec (upperM K ((t⁻¹ : Kˣ) : K)) * Q.sec (diagM K (-(t⁻¹ * t⁻¹))) *
+        Q.sec (lowerM K ((t⁻¹ : Kˣ) : K)) := by
+    intro t
+    let u : Kˣ := t⁻¹
+    let Y := upperM K (u : K) * diagM K (-(u * u)) * lowerM K (u : K)
+    have hY : weylM K * upperM K (t : K) =
+        Matrix.GeneralLinearGroup.scalar (Fin 2) t * Y := wn_factor t
+    have hxY : xU v Y = u := by
+      have h := congrArg (xU v) hY
+      rw [xU_mul_upperM, xU_weylM, xU_scalar_left] at h
+      calc
+        xU v Y = t⁻¹ * (t * xU v Y) := by simp [mul_assoc]
+        _ = t⁻¹ := by rw [← h]; simp
+    have hdY : detU v Y = -(u * u) := by
+      dsimp [Y]
+      rw [detU_mul, detU_mul, detU_upperM, detU_diagM, lower_det]
+      simp
+    have hxL : xU v (lowerM K (u : K)) = u := by
+      apply Units.ext
+      simp [xU, xEntry, lowerM, u.ne_zero]
+    have hxUA : xU v (upperM K (u : K) * diagM K (-(u * u))) = 1 := by
+      rw [xU_mul_diagM, xU_upperM]
+      simp [upperM]
+    have hdUA : detU v (upperM K (u : K) * diagM K (-(u * u))) = -(u * u) := by
+      rw [detU_mul, detU_upperM, detU_diagM, one_mul]
+    have hdiv : u / (u * -(u * u)) = -(t * t) := by
+      simp [u, div_eq_mul_inv, mul_inv_rev, mul_comm, mul_left_comm, mul_assoc]
+    have hlast : kpCocycle D H v
+        (upperM K (u : K) * diagM K (-(u * u))) (lowerM K (u : K)) = 1 := by
+      rw [kpCocycle_pairing]
+      change kpPairing D H v (xU v Y / (xU v (lowerM K (u : K)) *
+          detU v (upperM K (u : K) * diagM K (-(u * u)))))
+          (xU v Y / xU v (upperM K (u : K) * diagM K (-(u * u)))) *
+        kpPairing D H v (detU v (upperM K (u : K) * diagM K (-(u * u))))
+          (detU v (lowerM K (u : K))) = 1
+      rw [hxY, hxL, hxUA, hdUA, lower_det, hdiv]
+      rw [kpPairing_one_right, mul_one, div_one, kpPairing_neg_mul_left, kpPairing_mul_left]
+      change kpPairing D H v t t⁻¹ * kpPairing D H v t t⁻¹ = 1
+      have hp : kpPairing D H v t t⁻¹ = 1 := by
+        rw [pair_inv_right, kpPairing_self, inv_one]
+      simp only [hp, one_mul]
+    have hscalar : kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) t) Y = 1 := by
+      rw [kpCocycle_scalar D H v hSt, kpCocycle_scalar_right_formula, hxY, hdY]
+      rw [kpPairing_neg_mul_left, kpPairing_mul_left]
+      change kpPairing D H v t⁻¹ t *
+        (kpPairing D H v t⁻¹ t * kpPairing D H v t⁻¹ t) = 1
+      have hp : kpPairing D H v t⁻¹ t = 1 := by
+        rw [kpPairing_inv_left, kpPairing_self, inv_one]
+      simp only [hp, one_mul]
+    have hUA : Q.sec (upperM K (u : K)) * Q.sec (diagM K (-(u * u))) =
+        Q.sec (upperM K (u : K) * diagM K (-(u * u))) := by
+      rw [Q.sec_mul, upper_diag_sigma, map_one, one_mul]
+    have hUAL : Q.sec (upperM K (u : K) * diagM K (-(u * u))) *
+        Q.sec (lowerM K (u : K)) = Q.sec Y := by
+      rw [Q.sec_mul, hlast, map_one, one_mul]
+    calc
+      _ = Q.sec (weylM K * upperM K (t : K)) := by
+        rw [Q.sec_mul, kpCocycle_upperM, map_one, one_mul]
+      _ = Q.sec (Matrix.GeneralLinearGroup.scalar (Fin 2) t * Y) := congrArg Q.sec hY
+      _ = Q.sec Y := scalar_cancel t Y hscalar
+      _ = _ := by rw [← hUAL, ← hUA]
+  have hx1 : xU v (1 : GL (Fin 2) K) = 1 := by
+    apply Units.ext
+    simp [xU, xEntry]
+  have w_sigma : kpCocycle D H v (weylM K) (weylM K) = 1 := by
+    rw [kpCocycle_pairing, weyl_sq, hx1, xU_weylM, detU_weylM]
+    simp [kpPairing_one_right, kpPairing_neg_one_left]
+  have ww : Q.sec (weylM K) * Q.sec (weylM K) = 1 := by
+    rw [Q.sec_mul, w_sigma, map_one, one_mul, weyl_sq, sec_one]
+  have winv : (Q.sec (weylM K))⁻¹ = Q.sec (weylM K) := by
+    exact inv_eq_of_mul_eq_one_right ww
+  have wupper_sigma : ∀ x : K,
+      kpCocycle D H v (weylM K * upperM K x) (weylM K) = 1 := by
+    intro x
+    rw [kpCocycle_pairing, weyl_upper, xU_mul_upperM, xU_weylM,
+      detU_mul, detU_weylM, detU_upperM]
+    simp [kpPairing_neg_mul_left, kpPairing_self, kpPairing_neg_one_left]
+  have wupper_sec : ∀ x : K,
+      Q.sec (weylM K) * Q.sec (upperM K x) * Q.sec (weylM K) = Q.sec (lowerM K x) := by
+    intro x
+    rw [Q.sec_mul, kpCocycle_upperM, map_one, one_mul, Q.sec_mul,
+      wupper_sigma, map_one, one_mul, weyl_upper]
+  have wdiag_sigma : ∀ y : Kˣ, kpCocycle D H v (weylM K) (diagM K y) = 1 := by
+    intro y
+    rw [kpCocycle_diagM_formula, xU_weylM]
+    simp [weylM, kpPairing_one_left]
+  have wdiag_w_sigma : ∀ y : Kˣ,
+      kpCocycle D H v (weylM K * diagM K y) (weylM K) = 1 := by
+    intro y
+    rw [kpCocycle_pairing, weyl_diag, xU_scalar_left, xU_diagM,
+      xU_weylM, detU_mul, detU_weylM, detU_diagM, xU_mul_diagM]
+    rw [xU_weylM]
+    simp [weylM, kpPairing_one_right, kpPairing_neg_one_right]
+  have scalar_diag_sigma : ∀ y : Kˣ,
+      kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) y) (diagM K y⁻¹) = 1 := by
+    intro y
+    rw [kpCocycle_scalar D H v hSt, kpCocycle_scalar_right_formula,
+      xU_diagM, detU_diagM]
+    simp [kpPairing_one_left, kpPairing_inv_left, kpPairing_self]
+  have wdiag_sec : ∀ y : Kˣ,
+      Q.sec (weylM K) * Q.sec (diagM K y) * (Q.sec (weylM K))⁻¹ = Q.sec (diagM K y⁻¹) := by
+    intro y
+    rw [winv, Q.sec_mul, wdiag_sigma, map_one, one_mul, Q.sec_mul,
+      wdiag_w_sigma, map_one, one_mul, weyl_diag]
+    exact scalar_cancel y (diagM K y⁻¹) (scalar_diag_sigma y)
+  let n : Multiplicative K →* Q.E := {
+    toFun := fun x => Q.sec (upperM K (Multiplicative.toAdd x))
+    map_one' := by
+      change Q.sec (upperM K 0) = 1
+      rw [upper_zero, sec_one]
+    map_mul' := by
+      intro x y
+      change Q.sec (upperM K (Multiplicative.toAdd x + Multiplicative.toAdd y)) = _
+      rw [upper_add, Q.sec_mul, kpCocycle_upperM, map_one, one_mul]
+  }
+  let nbar : Multiplicative K →* Q.E := (MulAut.conj (Q.sec (weylM K))).toMonoidHom.comp n
+  have nbar_sec : ∀ x : K, nbar (Multiplicative.ofAdd x) = Q.sec (lowerM K x) := by
+    intro x
+    change Q.sec (weylM K) * Q.sec (upperM K x) * (Q.sec (weylM K))⁻¹ = _
+    rw [winv]
+    exact wupper_sec x
+  refine ⟨{
+    L := Q.E
+    grp := Q.grp
+    z := Q.z
+    z_inj := Q.z_inj
+    z_central := Q.z_central
+    pr := Q.pr
+    pr_surj := Q.pr_surj
+    pr_ker := Q.pr_ker
+    n := n
+    nbar := nbar
+    a := fun y => Q.sec (diagM K y)
+    w := Q.sec (weylM K)
+    sec := Q.sec
+    sec_mul := Q.sec_mul
+    sec_pr := Q.sec_pr
+    sec_scalar := scalar_sec
+    sec_n := fun _ => rfl
+    sec_nbar := nbar_sec
+    sec_a := fun _ => rfl
+    sec_w := rfl
+    pr_n := fun _ => Q.sec_pr _
+    pr_nbar := ?_
+    pr_a := fun _ => Q.sec_pr _
+    pr_w := Q.sec_pr _
+    a_one := by rw [diag_one, sec_one]
+    a_mul := ?_
+    lift_na := ?_
+    lift_wa := wdiag_sec
+    lift_wn := ?_
+    w_sq := ww
+    w_n_w := ?_
+  }⟩
+  · intro x
+    rw [nbar_sec]
+    exact Q.sec_pr _
+  · intro x y
+    rw [Q.sec_mul, diag_sigma, ← diag_mul]
+  · intro x y
+    change Q.sec (upperM K x) * Q.sec (diagM K y) =
+      Q.sec (diagM K y) * Q.sec (upperM K (x * (y⁻¹ : Kˣ)))
+    rw [Q.sec_mul, upper_diag_sigma, map_one, one_mul, Q.sec_mul,
+      kpCocycle_upperM, map_one, one_mul, upper_diag]
+  · intro t
+    change Q.sec (weylM K) * Q.sec (upperM K (t : K)) =
+      Q.sec (upperM K ((t⁻¹ : Kˣ) : K)) * Q.sec (diagM K (-(t⁻¹ * t⁻¹))) *
+        nbar (Multiplicative.ofAdd ((t⁻¹ : Kˣ) : K))
+    rw [nbar_sec]
+    exact wn_sec t
+  · intro x
+    change Q.sec (weylM K) * Q.sec (upperM K x) * Q.sec (weylM K) =
+      nbar (Multiplicative.ofAdd x)
+    rw [nbar_sec]
+    exact wupper_sec x
+
+private theorem exists_smallCocycle_trivial
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) :
+    ∃ m0 : ℕ, 1 ≤ m0 ∧ ∀ m : ℕ, m0 ≤ m →
+      ∀ g h : GL (Fin 2) (v.adicCompletion F),
+        (∀ i j, ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+          (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m) →
+        (∀ i j, ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+          (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m) →
+        kpCocycle D H v g h = 1 := by
+  classical
+  obtain ⟨m0, hm0, hpowers⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  refine ⟨m0, hm0, ?_⟩
+  intro m hm g h hg hh
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let r := WithZero.exp (-(m : ℤ))
+  have hr : r < 1 := by
+    dsimp [r]
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    omega
+  have hrr : r ≤ WithZero.exp (-(m0 : ℤ)) := by
+    apply WithZero.exp_le_exp.mpr
+    omega
+  have small_pairing (u : Kˣ) (hu : V ((u : K) - 1) ≤ r) (b : Kˣ) :
+      kpPairing D H v u b = 1 := by
+    change muThree D (H.hilb v u b) = 1
+    rw [H.sixth_power v u b (hpowers u (hu.trans hrr)), muThree_one D]
+  have right_pairing (u : Kˣ) (hu : ∀ b, kpPairing D H v u b = 1) (b : Kˣ) :
+      kpPairing D H v b u = 1 := by
+    have hs := kpPairing_skew D H v b u
+    rw [hu b, mul_one] at hs
+    exact hs
+  have entries (k : GL (Fin 2) K)
+      (hk : ∀ i j, ((k : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m) :
+      V ((k : Matrix (Fin 2) (Fin 2) K) 0 0 - 1) ≤ r ∧
+      V ((k : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ r ∧
+      V ((k : Matrix (Fin 2) (Fin 2) K) 0 1) ≤ r ∧
+      V ((k : Matrix (Fin 2) (Fin 2) K) 1 0) ≤ r := by
+    change ∀ i j, V ((k : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ r at hk
+    exact ⟨by simpa using hk 0 0, by simpa using hk 1 1,
+      by simpa using hk 0 1, by simpa using hk 1 0⟩
+  have near_one_bound (x : K) (hx : V (x - 1) ≤ r) : V x ≤ 1 := by
+    have hb := V.map_add_le (hx.trans hr.le) (show V (1 : K) ≤ 1 by simp)
+    simpa only [sub_add_cancel] using hb
+  have near_one_ne (x : K) (hx : V (x - 1) ≤ r) : x ≠ 0 := by
+    intro hx0
+    have hb : (1 : WithZero (Multiplicative ℤ)) ≤ r := by
+      simpa [hx0] using hx
+    exact (not_le_of_gt hr) hb
+  have small_mul {x y : K} (hx : V x ≤ r) (hy : V y ≤ 1) : V (x * y) ≤ r := by
+    rw [map_mul]
+    simpa only [mul_one] using mul_le_mul' hx hy
+  have det_small (k : GL (Fin 2) K)
+      (hk : ∀ i j, ((k : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m) :
+      V ((detU v k : K) - 1) ≤ r := by
+    obtain ⟨ha, hd, hb, hc⟩ := entries k hk
+    have heq : (detU v k : K) - 1 =
+        ((k : Matrix (Fin 2) (Fin 2) K) 0 0 - 1) *
+          (k : Matrix (Fin 2) (Fin 2) K) 1 1 +
+        ((k : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) -
+          (k : Matrix (Fin 2) (Fin 2) K) 0 1 *
+            (k : Matrix (Fin 2) (Fin 2) K) 1 0 := by
+      change (k : Matrix (Fin 2) (Fin 2) K).det - 1 = _
+      rw [Matrix.det_fin_two]
+      ring
+    rw [heq]
+    exact V.map_sub_le
+      (V.map_add_le (small_mul ha (near_one_bound _ hd)) hd)
+      (small_mul hb (hc.trans hr.le))
+  obtain ⟨hga, hgd, hgb, hgc⟩ := entries g hg
+  obtain ⟨hha, hhd, hhb, hhc⟩ := entries h hh
+  have product_d_small :
+      V (((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ r := by
+    have heq : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1 =
+        (g : Matrix (Fin 2) (Fin 2) K) 1 0 * (h : Matrix (Fin 2) (Fin 2) K) 0 1 +
+        ((g : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) *
+          (h : Matrix (Fin 2) (Fin 2) K) 1 1 +
+        ((h : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) := by
+      rw [matrix_mul_22]
+      ring
+    rw [heq]
+    exact V.map_add_le (V.map_add_le (small_mul hgc (hhb.trans hr.le))
+      (small_mul hgd (near_one_bound _ hhd))) hhd
+  let Gd : Kˣ := Units.mk0 _ (near_one_ne _ hgd)
+  let Ha : Kˣ := Units.mk0 _ (near_one_ne _ hha)
+  have hGd : ∀ b, kpPairing D H v Gd b = 1 := small_pairing Gd hgd
+  have hHa : ∀ b, kpPairing D H v Ha b = 1 := small_pairing Ha hha
+  have hdg : ∀ b, kpPairing D H v (detU v g) b = 1 :=
+    small_pairing (detU v g) (det_small g hg)
+  have hdh : ∀ b, kpPairing D H v (detU v h) b = 1 :=
+    small_pairing (detU v h) (det_small h hh)
+  have hσ : kpCocycle D H v g h =
+      kpPairing D H v (xU v (g * h) / xU v h) (xU v (g * h) / xU v g) := by
+    rw [kpCocycle_pairing, hdg, mul_one]
+    have heq : xU v (g * h) / (xU v h * detU v g) =
+        (xU v (g * h) / xU v h) / detU v g := div_mul_eq_div_div _ _ _
+    rw [heq, kpPairing_div_left, hdg, inv_one, mul_one]
+  rw [hσ]
+  by_cases hcg : (g : Matrix (Fin 2) (Fin 2) K) 1 0 = 0
+  · have hxgh : xU v (g * h) = Gd * xU v h := by
+      apply Units.ext
+      change xEntry v (g * h) = (g : Matrix (Fin 2) (Fin 2) K) 1 1 * xEntry v h
+      by_cases hch : (h : Matrix (Fin 2) (Fin 2) K) 1 0 = 0
+      · have hcgh : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 0 = 0 := by
+          simp [matrix_mul_21, hcg, hch]
+        rw [xEntry, if_neg (by simpa using hcgh), matrix_mul_22]
+        simp [xEntry, hcg, hch]
+      · have hcgh : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 0 ≠ 0 := by
+          rw [matrix_mul_21, hcg, zero_mul, zero_add]
+          exact mul_ne_zero (near_one_ne _ hgd) hch
+        rw [xEntry, if_pos hcgh, matrix_mul_21]
+        simp [xEntry, hch, hcg]
+    have hfirst : xU v (g * h) / xU v h = Gd := by rw [hxgh]; simp
+    rw [hfirst]
+    exact hGd _
+  by_cases hch : (h : Matrix (Fin 2) (Fin 2) K) 1 0 = 0
+  · have hcgh : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 0 ≠ 0 := by
+      rw [matrix_mul_21, hch, mul_zero, add_zero]
+      exact mul_ne_zero hcg (near_one_ne _ hha)
+    have hxgh : xU v (g * h) = xU v g * Ha := by
+      apply Units.ext
+      change xEntry v (g * h) = xEntry v g * (h : Matrix (Fin 2) (Fin 2) K) 0 0
+      rw [xEntry, if_pos hcgh, matrix_mul_21]
+      simp [xEntry, hcg, hch]
+    have hsecond : xU v (g * h) / xU v g = Ha := by rw [hxgh, mul_div_cancel_left]
+    rw [hsecond]
+    exact right_pairing Ha hHa _
+  by_cases hcgh : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 0 = 0
+  · have hX : ∀ b, kpPairing D H v (xU v (g * h)) b = 1 := by
+      apply small_pairing
+      simpa [xU, xEntry, hcgh] using product_d_small
+    have hrel := xU_diag_relation_10 v g h hch hcgh
+    have hrel' : -xU v g * detU v h = xU v (g * h) * xU v h := by
+      simpa only [neg_mul] using hrel.symm
+    have hZ : xU v g = -(xU v (g * h) * xU v h / detU v h) := by
+      apply neg_injective
+      simpa only [neg_neg] using (eq_div_iff_mul_eq').2 hrel'
+    have hYZ : kpPairing D H v (xU v h) (xU v g) = 1 := by
+      rw [hZ, kpPairing_neg_mul_right, kpPairing_div_right, kpPairing_mul_right,
+        right_pairing _ hX, kpPairing_self, right_pairing _ hdh]
+      simp
+    simp only [kpPairing_div_left, kpPairing_div_right, hX,
+      right_pairing _ hX, hYZ, mul_one, inv_one]
+  · let X : Kˣ := xU v g * Ha / xU v (g * h)
+    let Y : Kˣ := Gd * xU v h / xU v (g * h)
+    have hrow : (xU v g : K) * (Ha : K) + (Gd : K) * (xU v h : K) =
+        (xU v (g * h) : K) := by
+      change xEntry v g * (h : Matrix (Fin 2) (Fin 2) K) 0 0 +
+        (g : Matrix (Fin 2) (Fin 2) K) 1 1 * xEntry v h = xEntry v (g * h)
+      rw [xEntry, if_pos hcg, xEntry, if_pos hch, xEntry, if_pos hcgh]
+      exact (matrix_mul_21 v g h).symm
+    have hsum : (X : K) + (Y : K) = 1 := by
+      change (xU v g : K) * (Ha : K) / (xU v (g * h) : K) +
+        (Gd : K) * (xU v h : K) / (xU v (g * h) : K) = 1
+      rw [← add_div, hrow, div_self (xU v (g * h)).ne_zero]
+    have hXY : (1 : K) - (X : K) = (Y : K) := by
+      linear_combination -hsum
+    have hXne : (1 : K) - (X : K) ≠ 0 := by rw [hXY]; exact Y.ne_zero
+    have hYunit : Y = Units.mk0 _ hXne := by apply Units.ext; exact hXY.symm
+    have hStein := kpPairing_st D H v hSt X hXne
+    rw [← hYunit] at hStein
+    have hXform : X = Ha * (xU v g / xU v (g * h)) := by
+      dsimp only [X]
+      simp only [div_eq_mul_inv]
+      ac_rfl
+    rw [hXform, kpPairing_mul_left, hHa, one_mul] at hStein
+    dsimp only [Y] at hStein
+    have hYform : Gd * xU v h / xU v (g * h) =
+        Gd * (xU v h / xU v (g * h)) := mul_div_assoc _ _ _
+    rw [hYform, kpPairing_mul_right, right_pairing _ hGd, one_mul] at hStein
+    have hZX : xU v g / xU v (g * h) = (xU v (g * h) / xU v g)⁻¹ := by simp
+    have hYX : xU v h / xU v (g * h) = (xU v (g * h) / xU v h)⁻¹ := by simp
+    have hinv (a b : Kˣ) : kpPairing D H v a⁻¹ b⁻¹ = kpPairing D H v a b := by
+      rw [kpPairing_inv_left, map_inv, inv_inv]
+    rw [hZX, hYX, hinv] at hStein
+    have hs := kpPairing_skew D H v (xU v (g * h) / xU v h) (xU v (g * h) / xU v g)
+    simpa only [hStein, mul_one] using hs
+
+private theorem exists_smallSectionHom
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (C : FinLocalAlgebra D H v) :
+    ∃ m0 : ℕ, 1 ≤ m0 ∧ ∀ m : ℕ, m0 ≤ m →
+      ∃ U : Subgroup (GL (Fin 2) (v.adicCompletion F)),
+        (∀ g, g ∈ U ↔ ∀ i j,
+          ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+            (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m) ∧
+        ∃ s : U →* C.L,
+          (∀ g : U, s g = C.sec g) ∧ Set.InjOn C.pr (s.range : Set C.L) := by
+  classical
+  let K := v.adicCompletion F
+  obtain ⟨ms, hms, hsigma⟩ := exists_smallCocycle_trivial D H v hSt
+  obtain ⟨mp, _, hpowers⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  let m0 := max ms mp
+  refine ⟨m0, hms.trans (le_max_left _ _), ?_⟩
+  intro m hm
+  have hmσ : ms ≤ m := (le_max_left ms mp).trans hm
+  have hmp : mp ≤ m := (le_max_right ms mp).trans hm
+  have hm1 : 1 ≤ m := hms.trans hmσ
+  obtain ⟨U, hUval⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_congruenceSubgroup v m hm1
+  have hU : ∀ g, g ∈ U ↔ ∀ i j,
+      (((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m := fun g => hUval g
+  refine ⟨U, hU, ?_⟩
+  let s : U →* C.L := {
+    toFun := fun g => C.sec (g : GL (Fin 2) K)
+    map_one' := by simpa using C.sec_scalar (1 : Kˣ)
+    map_mul' := by
+      intro g h
+      change C.sec ((g : GL (Fin 2) K) * (h : GL (Fin 2) K)) =
+        C.sec (g : GL (Fin 2) K) * C.sec (h : GL (Fin 2) K)
+      have hσ := hsigma m hmσ (g : GL (Fin 2) K) (h : GL (Fin 2) K)
+        ((hU _).mp g.property) ((hU _).mp h.property)
+      have heq := C.sec_mul (g : GL (Fin 2) K) (h : GL (Fin 2) K)
+      rw [hσ, map_one, one_mul] at heq
+      exact heq.symm
+  }
+  refine ⟨s, fun _ => rfl, ?_⟩
+  rintro x ⟨g, rfl⟩ y ⟨h, rfl⟩ hpr
+  change C.sec (g : GL (Fin 2) K) = C.sec (h : GL (Fin 2) K)
+  change C.pr (C.sec (g : GL (Fin 2) K)) = C.pr (C.sec (h : GL (Fin 2) K)) at hpr
+  rw [C.sec_pr, C.sec_pr] at hpr
+  have hcent : (g : GL (Fin 2) K) / (h : GL (Fin 2) K) ∈
+      Subgroup.center (GL (Fin 2) K) := QuotientGroup.eq_iff_div_mem.mp hpr
+  rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hcent
+  obtain ⟨c, hc⟩ := hcent
+  have hmat : (g : GL (Fin 2) K) =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) c * (h : GL (Fin 2) K) := by
+    rw [hc]
+    simp
+  have hentry : ((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 =
+      (c : K) * ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 := by
+    have heq := congrArg (fun k : GL (Fin 2) K => (k : Matrix (Fin 2) (Fin 2) K) 1 1) hmat
+    simpa [Matrix.mul_apply] using heq
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let r := WithZero.exp (-(m : ℤ))
+  have hr : r < 1 := by
+    dsimp [r]
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    omega
+  have hrr : r ≤ WithZero.exp (-(mp : ℤ)) := by
+    apply WithZero.exp_le_exp.mpr
+    omega
+  have hg := ((hU _).mp g.property) 1 1
+  have hh := ((hU _).mp h.property) 1 1
+  change V (((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ r at hg
+  change V (((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ r at hh
+  have hHval : V (((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1) = 1 := by
+    simpa using V.map_eq_of_sub_lt (x := 1)
+      (y := ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1) (by simpa using hh.trans_lt hr)
+  have hdiff : V (((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 -
+      ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1) ≤ r := by
+    have heq : ((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 =
+        (((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) -
+          (((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) := by ring
+    rw [heq]
+    exact V.map_sub_le hg hh
+  have hmult : ((c : K) - 1) * ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 =
+      ((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 := by
+    rw [hentry]
+    ring
+  have hval := congrArg V hmult
+  rw [map_mul, hHval, mul_one] at hval
+  have hcsmall : V ((c : K) - 1) ≤ r := hval.le.trans hdiff
+  have hcpow : ∃ u : Kˣ, c = u ^ 6 := hpowers c (hcsmall.trans hrr)
+  have hcleft (b : Kˣ) : kpPairing D H v c b = 1 := by
+    change muThree D (H.hilb v c b) = 1
+    rw [H.sixth_power v c b hcpow, muThree_one D]
+  have hcright (b : Kˣ) : kpPairing D H v b c = 1 := by
+    have heq := kpPairing_skew D H v b c
+    rw [hcleft b, mul_one] at heq
+    exact heq
+  have hscalar : kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) c)
+      (h : GL (Fin 2) K) = 1 := by
+    rw [kpCocycle_scalar D H v hSt, kpCocycle_scalar_right_formula, hcright, hcright, one_mul]
+  have heq := C.sec_mul (Matrix.GeneralLinearGroup.scalar (Fin 2) c) (h : GL (Fin 2) K)
+  rw [C.sec_scalar, one_mul, hscalar, map_one, one_mul] at heq
+  rw [hmat]
+  exact heq.symm
+
+/-- The small splitting subgroups and their algebraic membership properties. -/
+private structure FinLocalSmallAlgebra
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (C : FinLocalAlgebra D H v) where
+  m0 : ℕ
+  one_le_m0 : 1 ≤ m0
+  Kc : ℕ → Subgroup C.L
+  Kc_eq : ∀ m, m0 ≤ m → (Kc m : Set C.L) =
+    C.sec '' {g : GL (Fin 2) (v.adicCompletion F) | ∀ i j,
+      ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+        (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m}
+  Kc_anti : ∀ m m', m0 ≤ m → m ≤ m' → Kc m' ≤ Kc m
+  Kc_inj : ∀ m, m0 ≤ m → Set.InjOn C.pr (Kc m : Set C.L)
+  n_Kc : ∀ m, m0 ≤ m → ∀ x ∈ ball v m, C.n (Multiplicative.ofAdd x) ∈ Kc m
+  nbar_Kc : ∀ m, m0 ≤ m → ∀ x ∈ ball v m, C.nbar (Multiplicative.ofAdd x) ∈ Kc m
+  a_Kc : ∀ m, m0 ≤ m → ∀ u : (v.adicCompletion F)ˣ,
+    ((u : v.adicCompletion F) - 1) ∈ ball v m → C.a u ∈ Kc m
+
+private theorem exists_finLocalSmallAlgebra
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (C : FinLocalAlgebra D H v) :
+    Nonempty (FinLocalSmallAlgebra C) := by
+  classical
+  let K := v.adicCompletion F
+  obtain ⟨m0, hm0, hfamily⟩ := exists_smallSectionHom D H v hSt C
+  let U (m : ℕ) (hm : m0 ≤ m) : Subgroup (GL (Fin 2) K) := (hfamily m hm).choose
+  have hU (m : ℕ) (hm : m0 ≤ m) : ∀ g, g ∈ U m hm ↔ ∀ i j,
+      ((g : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m :=
+    (hfamily m hm).choose_spec.1
+  let s (m : ℕ) (hm : m0 ≤ m) : U m hm →* C.L :=
+    (hfamily m hm).choose_spec.2.choose
+  have hs (m : ℕ) (hm : m0 ≤ m) : ∀ g : U m hm, s m hm g = C.sec g :=
+    (hfamily m hm).choose_spec.2.choose_spec.1
+  have hsinj (m : ℕ) (hm : m0 ≤ m) : Set.InjOn C.pr ((s m hm).range : Set C.L) :=
+    (hfamily m hm).choose_spec.2.choose_spec.2
+  let Kc (m : ℕ) : Subgroup C.L := if hm : m0 ≤ m then (s m hm).range else ⊥
+  have hKc (m : ℕ) (hm : m0 ≤ m) : Kc m = (s m hm).range := dif_pos hm
+  have himage (m : ℕ) (hm : m0 ≤ m) : (Kc m : Set C.L) =
+      C.sec '' {g : GL (Fin 2) K | ∀ i j,
+        ((g : Matrix (Fin 2) (Fin 2) K) i j -
+          (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m} := by
+    rw [hKc m hm]
+    ext x
+    constructor
+    · rintro ⟨g, rfl⟩
+      exact ⟨(g : GL (Fin 2) K), (hU m hm _).mp g.property, (hs m hm g).symm⟩
+    · rintro ⟨g, hg, rfl⟩
+      exact ⟨⟨g, (hU m hm g).mpr hg⟩, hs m hm ⟨g, (hU m hm g).mpr hg⟩⟩
+  have hzero (m : ℕ) : (0 : K) ∈ ball v m := by
+    change Valued.v (0 : K) ≤ WithZero.exp (-(m : ℤ))
+    rw [map_zero]
+    exact zero_le
+  refine ⟨{
+    m0 := m0
+    one_le_m0 := hm0
+    Kc := Kc
+    Kc_eq := himage
+    Kc_anti := ?_
+    Kc_inj := ?_
+    n_Kc := ?_
+    nbar_Kc := ?_
+    a_Kc := ?_
+  }⟩
+  · intro m m' hm hmm' x hx
+    have hm' : m0 ≤ m' := hm.trans hmm'
+    change x ∈ (Kc m' : Set C.L) at hx
+    change x ∈ (Kc m : Set C.L)
+    rw [himage m' hm'] at hx
+    rw [himage m hm]
+    obtain ⟨g, hg, rfl⟩ := hx
+    refine ⟨g, ?_, rfl⟩
+    intro i j
+    exact (hg i j).trans (WithZero.exp_le_exp.mpr (by omega))
+  · intro m hm
+    rw [hKc m hm]
+    exact hsinj m hm
+  · intro m hm x hx
+    rw [C.sec_n]
+    change C.sec (upperM K x) ∈ (Kc m : Set C.L)
+    rw [himage m hm]
+    refine ⟨upperM K x, ?_, rfl⟩
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [upperM] <;> first | exact hx | exact hzero m
+  · intro m hm x hx
+    rw [C.sec_nbar]
+    change C.sec (lowerM K x) ∈ (Kc m : Set C.L)
+    rw [himage m hm]
+    refine ⟨lowerM K x, ?_, rfl⟩
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [lowerM] <;> first | exact hx | exact hzero m
+  · intro m hm u hu
+    rw [C.sec_a]
+    change C.sec (diagM K u) ∈ (Kc m : Set C.L)
+    rw [himage m hm]
+    refine ⟨diagM K u, ?_, rfl⟩
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [diagM] <;> first | exact hu | exact hzero m
+
+/-- Every small lift has a Gauss decomposition with all three parameters small. -/
+private theorem finLocalSmallAlgebra_decomposition
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (C : FinLocalAlgebra D H v) (B : FinLocalSmallAlgebra C)
+    (m : ℕ) (hm : B.m0 ≤ m) (x : C.L) (hx : x ∈ B.Kc m) :
+    ∃ α β : v.adicCompletion F, ∃ u : (v.adicCompletion F)ˣ,
+      α ∈ ball v m ∧ β ∈ ball v m ∧ ((u : v.adicCompletion F) - 1) ∈ ball v m ∧
+        x = C.n (Multiplicative.ofAdd α) * C.a u * C.nbar (Multiplicative.ofAdd β) := by
+  classical
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let r := WithZero.exp (-(m : ℤ))
+  have hm1 : 1 ≤ m := B.one_le_m0.trans hm
+  have hr : r < 1 := by
+    dsimp [r]
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    omega
+  have hxK := hx
+  change x ∈ (B.Kc m : Set C.L) at hx
+  rw [B.Kc_eq m hm] at hx
+  obtain ⟨g, hg, rfl⟩ := hx
+  let M : Matrix (Fin 2) (Fin 2) K := g
+  change ∀ i j, V (M i j - (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ r at hg
+  have ha : V (M 0 0 - 1) ≤ r := by simpa using hg 0 0
+  have hd : V (M 1 1 - 1) ≤ r := by simpa using hg 1 1
+  have hb : V (M 0 1) ≤ r := by simpa using hg 0 1
+  have hc : V (M 1 0) ≤ r := by simpa using hg 1 0
+  have hdval : V (M 1 1) = 1 := by
+    simpa using V.map_eq_of_sub_lt (x := 1) (y := M 1 1) (by simpa using hd.trans_lt hr)
+  have hdne : M 1 1 ≠ 0 := by
+    intro h
+    simp [h] at hdval
+  let α : K := M 0 1 / M 1 1
+  let β : K := M 1 0 / M 1 1
+  let u : Kˣ := Units.mk0 (M.det / (M 1 1) ^ 2)
+    (div_ne_zero g.det_ne_zero (pow_ne_zero 2 hdne))
+  let dU : Kˣ := Units.mk0 (M 1 1) hdne
+  have hα : α ∈ ball v m := by
+    change V (M 0 1 / M 1 1) ≤ r
+    rw [map_div₀, hdval, div_one]
+    exact hb
+  have hβ : β ∈ ball v m := by
+    change V (M 1 0 / M 1 1) ≤ r
+    rw [map_div₀, hdval, div_one]
+    exact hc
+  have had : V (M 0 0 - M 1 1) ≤ r := by
+    have heq : M 0 0 - M 1 1 = (M 0 0 - 1) - (M 1 1 - 1) := by ring
+    rw [heq]
+    exact V.map_sub_le ha hd
+  have hdetdiff : V (M.det - (M 1 1) ^ 2) ≤ r := by
+    have heq : M.det - (M 1 1) ^ 2 =
+        (M 0 0 - M 1 1) * M 1 1 - M 0 1 * M 1 0 := by
+      rw [Matrix.det_fin_two]
+      ring
+    rw [heq]
+    apply V.map_sub_le
+    · rw [map_mul, hdval, mul_one]
+      exact had
+    · rw [map_mul]
+      simpa only [mul_one] using mul_le_mul' hb (hc.trans hr.le)
+  have hu : ((u : K) - 1) ∈ ball v m := by
+    change V (M.det / (M 1 1) ^ 2 - 1) ≤ r
+    have heq : M.det / (M 1 1) ^ 2 - 1 =
+        (M.det - (M 1 1) ^ 2) / (M 1 1) ^ 2 := by
+      rw [sub_div, div_self (pow_ne_zero 2 hdne)]
+    rw [heq, map_div₀, map_pow, hdval, one_pow, div_one]
+    exact hdetdiff
+  have hmat : g = Matrix.GeneralLinearGroup.scalar (Fin 2) dU *
+      (upperM K α * diagM K u * lowerM K β) := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, diagM, lowerM, Matrix.GeneralLinearGroup.scalar,
+        Matrix.mul_apply, Fin.sum_univ_two, α, β, u, dU, Matrix.det_fin_two, M] <;>
+      field_simp [hdne, M] <;> ring
+  have hscalar : (QuotientGroup.mk (Matrix.GeneralLinearGroup.scalar (Fin 2) dU) : PGL2 K) = 1 := by
+    rw [← C.sec_pr, C.sec_scalar, map_one]
+  let p : C.L := C.n (Multiplicative.ofAdd α) * C.a u * C.nbar (Multiplicative.ofAdd β)
+  have hp : p ∈ B.Kc m :=
+    (B.Kc m).mul_mem
+      ((B.Kc m).mul_mem (B.n_Kc m hm α hα) (B.a_Kc m hm u hu))
+      (B.nbar_Kc m hm β hβ)
+  have hpr : C.pr (C.sec g) = C.pr p := by
+    rw [C.sec_pr, hmat, QuotientGroup.mk_mul, hscalar, one_mul]
+    simp only [p, map_mul, C.pr_n, C.pr_a, C.pr_nbar, QuotientGroup.mk_mul]
+    rfl
+  exact ⟨α, β, u, hα, hβ, hu, B.Kc_inj m hm hxK hp hpr⟩
+
+/-- Every conjugation sends a sufficiently small splitting subgroup into a given one. -/
+private theorem finLocalSmallAlgebra_conjugation
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (C : FinLocalAlgebra D H v)
+    (B : FinLocalSmallAlgebra C) :
+    ∀ g : C.L, ∀ m : ℕ, B.m0 ≤ m →
+      ∃ m' : ℕ, B.m0 ≤ m' ∧
+        ∀ x ∈ B.Kc m', g * x * g⁻¹ ∈ B.Kc m := by
+  classical
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let conj (g : C.L) : C.L →* C.L := (MulAut.conj g).toMonoidHom
+  let Good (g : C.L) : Prop := ∀ m : ℕ, B.m0 ≤ m →
+    ∃ n : ℕ, B.m0 ≤ n ∧ ∀ x ∈ B.Kc n, conj g x ∈ B.Kc m
+  change ∀ g, Good g
+  have monoBall (p q : ℕ) (hpq : p ≤ q) : ball v q ⊆ ball v p := by
+    intro x hx
+    change V x ≤ WithZero.exp (-(p : ℤ))
+    change V x ≤ WithZero.exp (-(q : ℤ)) at hx
+    exact hx.trans (WithZero.exp_le_exp.mpr (by omega))
+  have scaledBall (a : K) (m : ℕ) :
+      ∃ n : ℕ, m ≤ n ∧ ∀ x ∈ ball v n, a * x ∈ ball v m := by
+    let c := (WithZero.log (V a)).toNat
+    have ha : V a ≤ WithZero.exp (c : ℤ) :=
+      WithZero.le_exp_log.trans (WithZero.exp_le_exp.mpr (Int.self_le_toNat _))
+    refine ⟨m + c, by omega, ?_⟩
+    intro x hx
+    change V (a * x) ≤ WithZero.exp (-(m : ℤ))
+    change V x ≤ WithZero.exp (-((m + c : ℕ) : ℤ)) at hx
+    rw [map_mul]
+    calc
+      V a * V x ≤ WithZero.exp (c : ℤ) * WithZero.exp (-((m + c : ℕ) : ℤ)) :=
+        mul_le_mul' ha hx
+      _ = WithZero.exp (-(m : ℤ)) := by
+        rw [← WithZero.exp_add]
+        congr 1
+        omega
+  have mulGood {g h : C.L} (hg : Good g) (hh : Good h) : Good (g * h) := by
+    intro m hm
+    obtain ⟨n, hn, hgn⟩ := hg m hm
+    obtain ⟨n', hn', hhn⟩ := hh n hn
+    refine ⟨n', hn', ?_⟩
+    intro x hx
+    have hk := hgn _ (hhn x hx)
+    change g * (h * x * h⁻¹) * g⁻¹ ∈ B.Kc m at hk
+    change (g * h) * x * (g * h)⁻¹ ∈ B.Kc m
+    simpa only [mul_inv_rev, mul_assoc] using hk
+  have centralGood (ζ : rootsOfUnity 3 ℂ) : Good (C.z ζ) := by
+    intro m hm
+    refine ⟨m, hm, ?_⟩
+    intro x hx
+    change C.z ζ * x * (C.z ζ)⁻¹ ∈ B.Kc m
+    rw [C.z_central, mul_assoc, mul_inv_cancel, mul_one]
+    exact hx
+  have nInv (t : K) : (C.n (Multiplicative.ofAdd t))⁻¹ =
+      C.n (Multiplicative.ofAdd (-t)) := (map_inv C.n (Multiplicative.ofAdd t)).symm
+  have upperLeftX (t : K) (g : GL (Fin 2) K) :
+      xU v (upperM K t * g) = xU v g := by
+    apply Units.ext
+    simp [xU, xEntry, upperM, Matrix.mul_apply, Fin.sum_univ_two]
+  have upperLeftSigma (t : K) (g : GL (Fin 2) K) :
+      kpCocycle D H v (upperM K t) g = 1 := by
+    rw [kpCocycle_pairing, upperLeftX, xU_upperM, detU_upperM]
+    simp [kpPairing_one_left]
+  have nGood (t : K) : Good (C.n (Multiplicative.ofAdd t)) := by
+    intro m hm
+    obtain ⟨nt, hmt, hscale⟩ := scaledBall t m
+    obtain ⟨ntt, hmtt, hscale2⟩ := scaledBall (t * t) m
+    let n := max B.m0 (max nt ntt)
+    have hn : B.m0 ≤ n := le_max_left _ _
+    have hnt : nt ≤ n := (le_max_left nt ntt).trans (le_max_right _ _)
+    have hntt : ntt ≤ n := (le_max_right nt ntt).trans (le_max_right _ _)
+    have hmn : m ≤ n := hmt.trans hnt
+    refine ⟨n, hn, ?_⟩
+    intro x hx
+    change x ∈ (B.Kc n : Set C.L) at hx
+    rw [B.Kc_eq n hn] at hx
+    obtain ⟨g, hg, rfl⟩ := hx
+    let M : Matrix (Fin 2) (Fin 2) K := g
+    have ha : M 0 0 - 1 ∈ ball v n := by simpa using hg 0 0
+    have hd : M 1 1 - 1 ∈ ball v n := by simpa using hg 1 1
+    have hb : M 0 1 ∈ ball v n := by simpa using hg 0 1
+    have hc : M 1 0 ∈ ball v n := by simpa using hg 1 0
+    let k : GL (Fin 2) K := upperM K t * g * upperM K (-t)
+    have h00 : ((k : Matrix (Fin 2) (Fin 2) K) 0 0 - 1) =
+        (M 0 0 - 1) + t * M 1 0 := by
+      simp [k, M, upperM, Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two] <;> ring
+    have h01 : (k : Matrix (Fin 2) (Fin 2) K) 0 1 =
+        M 0 1 + t * (M 1 1 - 1) - t * (M 0 0 - 1) - (t * t) * M 1 0 := by
+      simp [k, M, upperM, Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two] <;> ring
+    have h10 : (k : Matrix (Fin 2) (Fin 2) K) 1 0 = M 1 0 := by
+      simp [k, M, upperM, Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two] <;> ring
+    have h11 : ((k : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) =
+        (M 1 1 - 1) - t * M 1 0 := by
+      simp [k, M, upperM, Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two] <;> ring
+    have hkg : ∀ i j, ((k : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m := by
+      have hc1 := hscale _ (monoBall nt n hnt hc)
+      have hd1 := hscale _ (monoBall nt n hnt hd)
+      have ha1 := hscale _ (monoBall nt n hnt ha)
+      have hc2 := hscale2 _ (monoBall ntt n hntt hc)
+      intro i j
+      fin_cases i <;> fin_cases j
+      · change V ((k : Matrix (Fin 2) (Fin 2) K) 0 0 - 1) ≤ WithZero.exp (-(m : ℤ))
+        rw [h00]
+        exact V.map_add_le (monoBall m n hmn ha) hc1
+      · have hbound : V ((k : Matrix (Fin 2) (Fin 2) K) 0 1) ≤ WithZero.exp (-(m : ℤ)) := by
+          rw [h01]
+          exact V.map_sub_le (V.map_sub_le (V.map_add_le (monoBall m n hmn hb) hd1) ha1) hc2
+        change V ((k : Matrix (Fin 2) (Fin 2) K) 0 1 - 0) ≤ WithZero.exp (-(m : ℤ))
+        simpa only [sub_zero] using hbound
+      · simpa [h10] using monoBall m n hmn hc
+      · change V ((k : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ WithZero.exp (-(m : ℤ))
+        rw [h11]
+        exact V.map_sub_le (monoBall m n hmn hd) hc1
+    have heq : conj (C.n (Multiplicative.ofAdd t)) (C.sec g) = C.sec k := by
+      change C.n (Multiplicative.ofAdd t) * C.sec g *
+        (C.n (Multiplicative.ofAdd t))⁻¹ = C.sec k
+      rw [nInv, C.sec_n, C.sec_n, C.sec_mul, upperLeftSigma, map_one, one_mul,
+        C.sec_mul, kpCocycle_upperM, map_one, one_mul]
+    change conj (C.n (Multiplicative.ofAdd t)) (C.sec g) ∈ (B.Kc m : Set C.L)
+    rw [B.Kc_eq m hm]
+    exact ⟨k, hkg, heq.symm⟩
+  have wInv : C.w⁻¹ = C.w := inv_eq_of_mul_eq_one_right C.w_sq
+  have wN (α : K) : conj C.w (C.n (Multiplicative.ofAdd α)) =
+      C.nbar (Multiplicative.ofAdd α) := by
+    change C.w * C.n (Multiplicative.ofAdd α) * C.w⁻¹ = _
+    rw [wInv]
+    exact C.w_n_w α
+  have wNbar (β : K) : conj C.w (C.nbar (Multiplicative.ofAdd β)) =
+      C.n (Multiplicative.ofAdd β) := by
+    change C.w * C.nbar (Multiplicative.ofAdd β) * C.w⁻¹ = _
+    rw [wInv, ← C.w_n_w β]
+    calc
+      _ = (C.w * C.w) * C.n (Multiplicative.ofAdd β) * (C.w * C.w) := by group
+      _ = _ := by simp only [C.w_sq, one_mul, mul_one]
+  have inverseSmall (m : ℕ) (hm : B.m0 ≤ m) (u : Kˣ)
+      (hu : ((u : K) - 1) ∈ ball v m) :
+      (((u⁻¹ : Kˣ) : K) - 1) ∈ ball v m := by
+    have hr : WithZero.exp (-(m : ℤ)) < 1 := by
+      rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+      have hm1 := B.one_le_m0.trans hm
+      omega
+    have huval : V (u : K) = 1 := by
+      simpa using V.map_eq_of_sub_lt (x := 1) (y := (u : K)) (by simpa using hu.trans_lt hr)
+    have hinvval : V ((u⁻¹ : Kˣ) : K) = 1 := by
+      rw [Units.val_inv_eq_inv_val, map_inv₀, huval, inv_one]
+    have hform : ((u⁻¹ : Kˣ) : K) - 1 = ((u⁻¹ : Kˣ) : K) * (1 - (u : K)) := by
+      simp [Units.val_inv_eq_inv_val, mul_sub, u.ne_zero]
+    change V (((u⁻¹ : Kˣ) : K) - 1) ≤ WithZero.exp (-(m : ℤ))
+    rw [hform, map_mul, hinvval, one_mul]
+    have hneg : (1 : K) - u = -((u : K) - 1) := by ring
+    rw [hneg, V.map_neg]
+    exact hu
+  have wGood : Good C.w := by
+    intro m hm
+    refine ⟨m, hm, ?_⟩
+    intro x hx
+    obtain ⟨α, β, u, hα, hβ, hu, heq⟩ := finLocalSmallAlgebra_decomposition C B m hm x hx
+    rw [heq, map_mul, map_mul, wN, wNbar]
+    have hwa : conj C.w (C.a u) = C.a u⁻¹ := C.lift_wa u
+    rw [hwa]
+    exact (B.Kc m).mul_mem
+      ((B.Kc m).mul_mem (B.nbar_Kc m hm α hα) (B.a_Kc m hm u⁻¹ (inverseSmall m hm u hu)))
+      (B.n_Kc m hm β hβ)
+  have aInv (y : Kˣ) : (C.a y)⁻¹ = C.a y⁻¹ := by
+    have hp : kpPairing D H v y y⁻¹ = 1 := by
+      rw [map_inv, kpPairing_self, inv_one]
+    change muThree D (H.hilb v y y⁻¹) = 1 at hp
+    have hh := C.a_mul y y⁻¹
+    rw [hp, map_one, one_mul, mul_inv_cancel, C.a_one] at hh
+    exact inv_eq_of_mul_eq_one_right hh
+  have aN (y : Kˣ) (α : K) : conj (C.a y) (C.n (Multiplicative.ofAdd α)) =
+      C.n (Multiplicative.ofAdd (α * (y : K))) := by
+    have hh := C.lift_na (α * (y : K)) y
+    have hparam : α * (y : K) * ((y⁻¹ : Kˣ) : K) = α := by
+      rw [mul_assoc, ← Units.val_mul, mul_inv_cancel, Units.val_one, mul_one]
+    rw [hparam] at hh
+    change C.a y * C.n (Multiplicative.ofAdd α) * (C.a y)⁻¹ = _
+    rw [← hh, mul_assoc, mul_inv_cancel, mul_one]
+  have aW (y : Kˣ) : C.a y * C.w = C.w * C.a y⁻¹ := by
+    have hh := congrArg (fun x : C.L => x * C.w) (C.lift_wa y⁻¹)
+    simpa only [inv_inv, mul_assoc, inv_mul_cancel, mul_one] using hh.symm
+  have aNbar (y : Kˣ) (β : K) : conj (C.a y) (C.nbar (Multiplicative.ofAdd β)) =
+      C.nbar (Multiplicative.ofAdd (β * ((y⁻¹ : Kˣ) : K))) := by
+    have hh := aN y⁻¹ β
+    change C.a y⁻¹ * C.n (Multiplicative.ofAdd β) * (C.a y⁻¹)⁻¹ = _ at hh
+    rw [aInv, inv_inv] at hh
+    change C.a y * C.nbar (Multiplicative.ofAdd β) * (C.a y)⁻¹ = _
+    rw [aInv, ← C.w_n_w β]
+    calc
+      _ = (C.a y * C.w) * C.n (Multiplicative.ofAdd β) * (C.w * C.a y⁻¹) := by group
+      _ = (C.w * C.a y⁻¹) * C.n (Multiplicative.ofAdd β) * (C.a y * C.w) :=
+        congrArg₂ (fun p q : C.L => p * C.n (Multiplicative.ofAdd β) * q) (aW y) (aW y).symm
+      _ = C.w * (C.a y⁻¹ * C.n (Multiplicative.ofAdd β) * C.a y) * C.w := by group
+      _ = C.w * C.n (Multiplicative.ofAdd (β * ((y⁻¹ : Kˣ) : K))) * C.w := by rw [hh]
+      _ = _ := C.w_n_w _
+  obtain ⟨mp, _, hpowers⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  have aGood (y : Kˣ) : Good (C.a y) := by
+    intro m hm
+    obtain ⟨ny, hmy, hscale⟩ := scaledBall (y : K) m
+    obtain ⟨nyi, hmyi, hscalei⟩ := scaledBall ((y⁻¹ : Kˣ) : K) m
+    let n := max B.m0 (max mp (max ny nyi))
+    have hn : B.m0 ≤ n := le_max_left _ _
+    have hmp : mp ≤ n := (le_max_left mp _).trans (le_max_right _ _)
+    have hny : ny ≤ n := ((le_max_left ny nyi).trans (le_max_right mp _)).trans (le_max_right _ _)
+    have hnyi : nyi ≤ n := ((le_max_right ny nyi).trans (le_max_right mp _)).trans (le_max_right _ _)
+    have hmn : m ≤ n := hmy.trans hny
+    refine ⟨n, hn, ?_⟩
+    intro x hx
+    obtain ⟨α, β, u, hα, hβ, hu, heq⟩ := finLocalSmallAlgebra_decomposition C B n hn x hx
+    have hp : kpPairing D H v u y = 1 := by
+      change muThree D (H.hilb v u y) = 1
+      rw [H.sixth_power v u y (hpowers u (monoBall mp n hmp hu)), muThree_one D]
+    have hq := kpPairing_skew D H v y u
+    rw [hp, mul_one] at hq
+    change muThree D (H.hilb v u y) = 1 at hp
+    change muThree D (H.hilb v y u) = 1 at hq
+    have hcomm : C.a y * C.a u = C.a u * C.a y := by
+      rw [C.a_mul, C.a_mul, hp, hq, map_one, one_mul, mul_comm y u]
+      simp only [one_mul]
+    have hau : conj (C.a y) (C.a u) = C.a u := by
+      change C.a y * C.a u * (C.a y)⁻¹ = _
+      rw [hcomm, mul_assoc, mul_inv_cancel, mul_one]
+    rw [heq, map_mul, map_mul, aN, aNbar, hau]
+    exact (B.Kc m).mul_mem
+      ((B.Kc m).mul_mem
+        (B.n_Kc m hm _ (by simpa only [mul_comm] using hscale α (monoBall ny n hny hα)))
+        (B.a_Kc m hm u (monoBall m n hmn hu)))
+      (B.nbar_Kc m hm _ (by simpa only [mul_comm] using hscalei β (monoBall nyi n hnyi hβ)))
+  have scalarPr (c : Kˣ) :
+      (QuotientGroup.mk (Matrix.GeneralLinearGroup.scalar (Fin 2) c) : PGL2 K) = 1 := by
+    rw [← C.sec_pr, C.sec_scalar, map_one]
+  have samePrGood (g p : C.L) (hp : Good p) (hpr : C.pr g = C.pr p) : Good g := by
+    have hk : g / p ∈ C.pr.ker := by
+      change C.pr (g / p) = 1
+      rw [map_div, hpr]
+      simp
+    rw [C.pr_ker] at hk
+    obtain ⟨ζ, hζ⟩ := hk
+    have hg : g = C.z ζ * p := by
+      rw [hζ]
+      simp
+    rw [hg]
+    exact mulGood (centralGood ζ) hp
+  intro g
+  obtain ⟨k, hk⟩ := QuotientGroup.mk_surjective (C.pr g)
+  rcases gl2_factorization v k with ⟨c, y, t, hmat⟩ | ⟨c, t, y, u, hmat⟩
+  · have hpr : C.pr (C.a y * C.n (Multiplicative.ofAdd t)) = C.pr g := by
+      calc
+        _ = QuotientGroup.mk (diagM K y * upperM K t) := by
+          simp only [map_mul, C.pr_a, C.pr_n, QuotientGroup.mk_mul] <;> rfl
+        _ = QuotientGroup.mk k := by
+          rw [hmat]
+          simp only [QuotientGroup.mk_mul, scalarPr, one_mul] <;> rfl
+        _ = _ := hk
+    exact samePrGood g _ (mulGood (aGood y) (nGood t)) hpr.symm
+  · have hpr : C.pr (C.n (Multiplicative.ofAdd t) * C.a y * C.w *
+        C.n (Multiplicative.ofAdd u)) = C.pr g := by
+      calc
+        _ = QuotientGroup.mk (upperM K t * diagM K y * weylM K * upperM K u) := by
+          simp only [map_mul, C.pr_n, C.pr_a, C.pr_w, QuotientGroup.mk_mul] <;> rfl
+        _ = QuotientGroup.mk k := by
+          rw [hmat]
+          simp only [QuotientGroup.mk_mul, scalarPr, one_mul] <;> rfl
+        _ = _ := hk
+    exact samePrGood g _ (mulGood (mulGood (mulGood (nGood t) (aGood y)) wGood) (nGood u)) hpr.symm
+
+/-- The small splitting subgroups form an open neighborhood basis for a group topology. -/
+private theorem exists_finLocalSmallTopology
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (C : FinLocalAlgebra D H v)
+    (B : FinLocalSmallAlgebra C) :
+    ∃ t : TopologicalSpace C.L, @IsTopologicalGroup C.L t C.grp ∧
+      (∀ m, B.m0 ≤ m → @IsOpen C.L t (B.Kc m : Set C.L)) ∧
+      (∀ U ∈ @nhds C.L t (1 : C.L), ∃ m, B.m0 ≤ m ∧ (B.Kc m : Set C.L) ⊆ U) := by
+  exact ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_subgroupBasisTopology
+    B.m0 B.Kc B.Kc_anti (finLocalSmallAlgebra_conjugation D H v hSt C B)
+
+/-- The small subgroup basis makes the projection to canonical PGL₂ continuous and open. -/
+private theorem finLocalSmallTopology_projection
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (C : FinLocalAlgebra D H v) (B : FinLocalSmallAlgebra C)
+    (t : TopologicalSpace C.L)
+    (htg : @IsTopologicalGroup C.L t C.grp)
+    (hKopen : ∀ m, B.m0 ≤ m → @IsOpen C.L t (B.Kc m : Set C.L))
+    (hKbasis : ∀ U ∈ @nhds C.L t (1 : C.L),
+      ∃ m, B.m0 ≤ m ∧ (B.Kc m : Set C.L) ⊆ U) :
+    @Continuous C.L (PGL2 (v.adicCompletion F)) t inferInstance C.pr ∧
+      @IsOpenMap C.L (PGL2 (v.adicCompletion F)) t inferInstance C.pr := by
+  classical
+  letI : TopologicalSpace C.L := t
+  letI : IsTopologicalGroup C.L := htg
+  let K := v.adicCompletion F
+  let Uc : ℕ → Set (GL (Fin 2) K) := fun m => {g | ∀ i j,
+    Valued.v ((g : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ WithZero.exp (-(m : ℤ))}
+  have hcong := ArtinPrimitiveRoots.Proofs.th_cover_sol.congruenceTopology v
+  have himage (m : ℕ) (hm : B.m0 ≤ m) :
+      C.pr '' (B.Kc m : Set C.L) = QuotientGroup.mk '' Uc m := by
+    rw [B.Kc_eq m hm]
+    change C.pr '' (C.sec '' Uc m) = QuotientGroup.mk '' Uc m
+    ext y
+    constructor
+    · rintro ⟨x, ⟨g, hg, rfl⟩, rfl⟩
+      exact ⟨g, hg, (C.sec_pr g).symm⟩
+    · rintro ⟨g, hg, rfl⟩
+      exact ⟨C.sec g, ⟨g, hg, rfl⟩, C.sec_pr g⟩
+  have hpopen (m : ℕ) (hm : B.m0 ≤ m) :
+      IsOpen (C.pr '' (B.Kc m : Set C.L)) := by
+    rw [himage m hm]
+    exact QuotientGroup.isOpenQuotientMap_mk.isOpenMap _ (hcong.1 m)
+  have hKnhds (m : ℕ) (hm : B.m0 ≤ m) : (B.Kc m : Set C.L) ∈ nhds (1 : C.L) :=
+    (hKopen m hm).mem_nhds (B.Kc m).one_mem
+  refine ⟨continuous_of_tendsto_nhds_one C.pr ?_, ?_⟩
+  · change Filter.map C.pr (nhds (1 : C.L)) ≤ nhds (1 : PGL2 K)
+    intro U hU
+    have hq : QuotientGroup.mk ⁻¹' U ∈ nhds (1 : GL (Fin 2) K) := by
+      exact QuotientGroup.continuous_mk.continuousAt.preimage_mem_nhds (by simpa using hU)
+    obtain ⟨m, hm, hsmall⟩ := hcong.2 B.m0 _ hq
+    change C.pr ⁻¹' U ∈ nhds (1 : C.L)
+    apply Filter.mem_of_superset (hKnhds m hm)
+    intro x hx
+    have hximage : C.pr x ∈ QuotientGroup.mk '' Uc m := by
+      rw [← himage m hm]
+      exact ⟨x, hx, rfl⟩
+    obtain ⟨g, hg, heq⟩ := hximage
+    change C.pr x ∈ U
+    rw [← heq]
+    exact hsmall hg
+  · apply IsTopologicalGroup.isOpenMap_iff_nhds_one.mpr
+    intro U hU
+    obtain ⟨m, hm, hsub⟩ := hKbasis (C.pr ⁻¹' U) (Filter.mem_map.mp hU)
+    have hI : C.pr '' (B.Kc m : Set C.L) ∈ nhds (1 : PGL2 K) :=
+      (hpopen m hm).mem_nhds ⟨1, (B.Kc m).one_mem, C.pr.map_one⟩
+    apply Filter.mem_of_superset hI
+    rintro y ⟨x, hx, rfl⟩
+    exact hsub hx
+
+/-- The small splitting subgroups are compact in their constructed local topology. -/
+private theorem finLocalSmallTopology_compact
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (C : FinLocalAlgebra D H v) (B : FinLocalSmallAlgebra C)
+    (t : TopologicalSpace C.L)
+    (htg : @IsTopologicalGroup C.L t C.grp)
+    (hKopen : ∀ m, B.m0 ≤ m → @IsOpen C.L t (B.Kc m : Set C.L))
+    (hKbasis : ∀ U ∈ @nhds C.L t (1 : C.L),
+      ∃ m, B.m0 ≤ m ∧ (B.Kc m : Set C.L) ⊆ U) :
+    ∀ m, B.m0 ≤ m → @IsCompact C.L t (B.Kc m : Set C.L) := by
+  classical
+  let : TopologicalSpace C.L := t
+  let : IsTopologicalGroup C.L := htg
+  obtain ⟨hcont, hopen⟩ := finLocalSmallTopology_projection C B t htg hKopen hKbasis
+  intro m hm
+  let K := v.adicCompletion F
+  let s : Set C.L := B.Kc m
+  let r : s → PGL2 K := fun x => C.pr x
+  have hrc : Continuous r := hcont.comp continuous_subtype_val
+  have hri : Function.Injective r := by
+    intro x y h
+    exact Subtype.ext (B.Kc_inj m hm x.property y.property h)
+  have hro : IsOpenMap r := hopen.comp (hKopen m hm).isOpenMap_subtype_val
+  have hremb := Topology.IsOpenEmbedding.of_continuous_injective_isOpenMap hrc hri hro
+  let Uc : Set (GL (Fin 2) K) := {g | ∀ i j,
+    Valued.v ((g : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ WithZero.exp (-(m : ℤ))}
+  have himage : C.pr '' s = QuotientGroup.mk '' Uc := by
+    change C.pr '' (B.Kc m : Set C.L) = QuotientGroup.mk '' Uc
+    rw [B.Kc_eq m hm]
+    change C.pr '' (C.sec '' Uc) = QuotientGroup.mk '' Uc
+    ext y
+    constructor
+    · rintro ⟨x, ⟨g, hg, rfl⟩, rfl⟩
+      exact ⟨g, hg, (C.sec_pr g).symm⟩
+    · rintro ⟨g, hg, rfl⟩
+      exact ⟨C.sec g, ⟨g, hg, rfl⟩, C.sec_pr g⟩
+  have hcompactImage : IsCompact (C.pr '' s) := by
+    rw [himage]
+    exact (ArtinPrimitiveRoots.Proofs.th_cover_sol.congruenceCompact v m
+      (B.one_le_m0.trans hm)).image QuotientGroup.continuous_mk
+  have hrange : Set.range r = C.pr '' s := by
+    ext y
+    constructor
+    · rintro ⟨x, rfl⟩
+      exact ⟨x.val, x.property, rfl⟩
+    · rintro ⟨x, hx, rfl⟩
+      exact ⟨⟨x, hx⟩, rfl⟩
+  have hcu : IsCompact (Set.univ : Set s) := hremb.isEmbedding.isCompact_iff.mpr (by
+    rw [Set.image_univ, hrange]
+    exact hcompactImage)
+  exact isCompact_iff_isCompact_univ.mpr hcu
+
+/-- Assemble the algebraic cover and the compact open small-subgroup topology. -/
+private theorem exists_finLocalCoverBase
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) : Nonempty (FinLocalCover D H v) := by
+  obtain ⟨C⟩ := exists_finLocalAlgebra D H v hSt
+  obtain ⟨B⟩ := exists_finLocalSmallAlgebra D H v hSt C
+  obtain ⟨t, htg, hKopen, hKbasis⟩ := exists_finLocalSmallTopology D H v hSt C B
+  obtain ⟨hcont, hopen⟩ := finLocalSmallTopology_projection C B t htg hKopen hKbasis
+  have hcompact := finLocalSmallTopology_compact C B t htg hKopen hKbasis
+  exact ⟨{
+    L := C.L
+    grp := C.grp
+    top := t
+    tg := htg
+    z := C.z
+    z_inj := C.z_inj
+    z_central := C.z_central
+    pr := C.pr
+    pr_surj := C.pr_surj
+    pr_ker := C.pr_ker
+    pr_cont := hcont
+    pr_open := hopen
+    n := C.n
+    nbar := C.nbar
+    a := C.a
+    w := C.w
+    sec := C.sec
+    sec_mul := C.sec_mul
+    sec_pr := C.sec_pr
+    sec_scalar := C.sec_scalar
+    sec_n := C.sec_n
+    sec_nbar := C.sec_nbar
+    sec_a := C.sec_a
+    sec_w := C.sec_w
+    pr_n := C.pr_n
+    pr_nbar := C.pr_nbar
+    pr_a := C.pr_a
+    pr_w := C.pr_w
+    a_one := C.a_one
+    a_mul := C.a_mul
+    lift_na := C.lift_na
+    lift_wa := C.lift_wa
+    lift_wn := C.lift_wn
+    w_sq := C.w_sq
+    w_n_w := C.w_n_w
+    m0 := B.m0
+    Kc := B.Kc
+    Kc_open := hKopen
+    Kc_compact := hcompact
+    Kc_anti := B.Kc_anti
+    Kc_nhds := hKbasis
+    Kc_inj := B.Kc_inj
+    n_Kc := B.n_Kc
+    nbar_Kc := B.nbar_Kc
+    a_Kc := B.a_Kc
+  }⟩
+
+/-- The tame splitting correction is trivial on a sufficiently small congruence subgroup. -/
+private theorem exists_tameSmallIdentity
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F) :
+    ∃ m0 : ℕ, 1 ≤ m0 ∧ ∀ m : ℕ, m0 ≤ m →
+      ∀ g : GL (Fin 2) (v.adicCompletion F),
+        (∀ i j, ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+          (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m) →
+        tameSplit D H v g = 1 := by
+  classical
+  obtain ⟨m0, hm0, hpowers⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  refine ⟨m0, hm0, ?_⟩
+  intro m hm g hg
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let r := WithZero.exp (-(m : ℤ))
+  let M : Matrix (Fin 2) (Fin 2) K := g
+  let Δ : K := M.det
+  have hr : r < 1 := by
+    dsimp [r]
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    omega
+  have hrr : r ≤ WithZero.exp (-(m0 : ℤ)) := by
+    dsimp [r]
+    exact WithZero.exp_le_exp.mpr (by omega)
+  change ∀ i j, V (M i j - (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ r at hg
+  have ha : V (M 0 0 - 1) ≤ r := by simpa using hg 0 0
+  have hd : V (M 1 1 - 1) ≤ r := by simpa using hg 1 1
+  have hb : V (M 0 1) ≤ r := by simpa using hg 0 1
+  have hc : V (M 1 0) ≤ r := by simpa using hg 1 0
+  have near_one (x : K) (hx : V (x - 1) ≤ r) : V x = 1 := by
+    simpa using V.map_eq_of_sub_lt (x := 1) (y := x) (by simpa using hx.trans_lt hr)
+  have small_mul {x y : K} (hx : V x ≤ r) (hy : V y ≤ 1) : V (x * y) ≤ r := by
+    rw [map_mul]
+    simpa only [mul_one] using mul_le_mul' hx hy
+  have hΔsmall : V (Δ - 1) ≤ r := by
+    have heq : Δ - 1 = (M 0 0 - 1) * M 1 1 + (M 1 1 - 1) - M 0 1 * M 1 0 := by
+      dsimp [Δ]
+      rw [Matrix.det_fin_two]
+      ring
+    rw [heq]
+    exact V.map_sub_le (V.map_add_le (small_mul ha (near_one _ hd).le) hd)
+      (small_mul hb (hc.trans hr.le))
+  have hΔval : V Δ = 1 := near_one Δ hΔsmall
+  have hΔne : Δ ≠ 0 := g.det_ne_zero
+  have hratio : V (M 1 1 / Δ - 1) ≤ r := by
+    have hdiff : V (M 1 1 - Δ) ≤ r := by
+      have heq : M 1 1 - Δ = (M 1 1 - 1) - (Δ - 1) := by ring
+      rw [heq]
+      exact V.map_sub_le hd hΔsmall
+    have heq : M 1 1 / Δ - 1 = (M 1 1 - Δ) / Δ := by
+      rw [sub_div, div_self hΔne]
+    rw [heq, map_div₀, hΔval, div_one]
+    exact hdiff
+  unfold tameSplit
+  split_ifs with h
+  · let u : Kˣ := Units.mk0 (M 1 1) h.2 / detU v g
+    have hu : V ((u : K) - 1) ≤ r := by
+      dsimp only [u]
+      rw [Units.val_div_eq_div_val, Units.val_mk0]
+      change V (M 1 1 / Δ - 1) ≤ r
+      exact hratio
+    change muThree D (H.hilb v u (Units.mk0 (M 1 0) h.1.1)) = 1
+    rw [H.sixth_power v u _ (hpowers u (hu.trans hrr)), muThree_one D]
+  · rfl
+
+/-- The algebraic view of an arbitrary finite local cover. -/
+private def finLocalAlgebraOfCover
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (L : FinLocalCover D H v) : FinLocalAlgebra D H v where
+  L := L.L
+  grp := L.grp
+  z := L.z
+  z_inj := L.z_inj
+  z_central := L.z_central
+  pr := L.pr
+  pr_surj := L.pr_surj
+  pr_ker := L.pr_ker
+  n := L.n
+  nbar := L.nbar
+  a := L.a
+  w := L.w
+  sec := L.sec
+  sec_mul := L.sec_mul
+  sec_pr := L.sec_pr
+  sec_scalar := L.sec_scalar
+  sec_n := L.sec_n
+  sec_nbar := L.sec_nbar
+  sec_a := L.sec_a
+  sec_w := L.sec_w
+  pr_n := L.pr_n
+  pr_nbar := L.pr_nbar
+  pr_a := L.pr_a
+  pr_w := L.pr_w
+  a_one := L.a_one
+  a_mul := L.a_mul
+  lift_na := L.lift_na
+  lift_wa := L.lift_wa
+  lift_wn := L.lift_wn
+  w_sq := L.w_sq
+  w_n_w := L.w_n_w
+
+/-- The corrected integral section used for the tame maximal compact. -/
+private def tameIntegralLift
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (L : FinLocalCover D H v)
+    (k : GL (Fin 2) (v.adicCompletionIntegers F)) : L.L :=
+  L.z (tameSplit D H v
+    (Matrix.GeneralLinearGroup.map (v.adicCompletionIntegers F).subtype k)) *
+      L.sec (Matrix.GeneralLinearGroup.map (v.adicCompletionIntegers F).subtype k)
+
+/-- The integral tame lift is continuous at one, independently of the tame hypothesis. -/
+private theorem tameIntegralLift_continuousAt_one
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (L : FinLocalCover D H v) :
+    ContinuousAt (tameIntegralLift D H v L) 1 := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let j : O →+* K := O.subtype
+  let ιM : Matrix (Fin 2) (Fin 2) O →+* Matrix (Fin 2) (Fin 2) K := RingHom.mapMatrix j
+  let ι : GL (Fin 2) O →* GL (Fin 2) K := Matrix.GeneralLinearGroup.map j
+  have hM : Continuous ιM := continuous_id.matrix_map continuous_subtype_val
+  have hι : Continuous ι := hM.units_map ιM.toMonoidHom
+  let C := finLocalAlgebraOfCover L
+  obtain ⟨B⟩ := exists_finLocalSmallAlgebra D H v hSt C
+  obtain ⟨ms, _, hcorrection⟩ := exists_tameSmallIdentity D H v
+  have hsecOne : L.sec (1 : GL (Fin 2) K) = 1 := by
+    simpa only [map_one] using L.sec_scalar (1 : Kˣ)
+  have hOne : tameIntegralLift D H v L 1 = 1 := by
+    simp only [tameIntegralLift, map_one]
+    rw [show tameSplit D H v (1 : GL (Fin 2) K) = 1 by simp [tameSplit],
+      map_one, one_mul, hsecOne]
+  rw [ContinuousAt, hOne]
+  change Filter.map (tameIntegralLift D H v L) (nhds (1 : GL (Fin 2) O)) ≤ nhds (1 : L.L)
+  intro U hU
+  obtain ⟨m, hm, hsub⟩ := L.Kc_nhds U hU
+  let N := max m (max B.m0 ms)
+  have hmn : m ≤ N := le_max_left _ _
+  have hBN : B.m0 ≤ N := (le_max_left B.m0 ms).trans (le_max_right _ _)
+  have hmsN : ms ≤ N := (le_max_right B.m0 ms).trans (le_max_right _ _)
+  let Uc : Set (GL (Fin 2) K) := {g | ∀ i j,
+    Valued.v ((g : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ WithZero.exp (-(N : ℤ))}
+  have hWopen : IsOpen (ι ⁻¹' Uc) :=
+    ((ArtinPrimitiveRoots.Proofs.th_cover_sol.congruenceTopology v).1 N).preimage hι
+  have hWone : (1 : GL (Fin 2) O) ∈ ι ⁻¹' Uc := by
+    simp only [Set.mem_preimage, map_one]
+    simp [Uc]
+  have monoBall (x : K) (hx : x ∈ ball v N) : x ∈ ball v m := by
+    change Valued.v x ≤ WithZero.exp (-(N : ℤ)) at hx
+    change Valued.v x ≤ WithZero.exp (-(m : ℤ))
+    exact hx.trans (WithZero.exp_le_exp.mpr (by omega))
+  change (tameIntegralLift D H v L) ⁻¹' U ∈ nhds (1 : GL (Fin 2) O)
+  apply Filter.mem_of_superset (hWopen.mem_nhds hWone)
+  intro k hk
+  have hg : ∀ i j, ((ι k : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v N := hk
+  have hsecB : C.sec (ι k) ∈ B.Kc N := by
+    change C.sec (ι k) ∈ (B.Kc N : Set C.L)
+    rw [B.Kc_eq N hBN]
+    exact ⟨ι k, hg, rfl⟩
+  obtain ⟨α, β, u, hα, hβ, hu, heq⟩ :=
+    finLocalSmallAlgebra_decomposition C B N hBN (C.sec (ι k)) hsecB
+  have hsecL : L.sec (ι k) ∈ L.Kc m := by
+    change C.sec (ι k) ∈ L.Kc m
+    rw [heq]
+    exact (L.Kc m).mul_mem
+      ((L.Kc m).mul_mem (L.n_Kc m hm α (monoBall α hα))
+        (L.a_Kc m hm u (monoBall ((u : K) - 1) hu)))
+      (L.nbar_Kc m hm β (monoBall β hβ))
+  have heval : tameIntegralLift D H v L k = L.sec (ι k) := by
+    change L.z (tameSplit D H v (ι k)) * L.sec (ι k) = L.sec (ι k)
+    rw [hcorrection N hmsN (ι k) hg, map_one, one_mul]
+  change tameIntegralLift D H v L k ∈ U
+  rw [heval]
+  exact hsub hsecL
+
+/-- At a tame place the integral corrected section is a continuous homomorphism. -/
+private theorem exists_tameIntegralLiftHom
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (L : FinLocalCover D H v)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) :
+    ∃ κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L,
+      (∀ k, κ k = tameIntegralLift D H v L k) ∧ Continuous κ := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let j : O →+* K := O.subtype
+  let ι : GL (Fin 2) O →* GL (Fin 2) K := Matrix.GeneralLinearGroup.map j
+  have integral (k : GL (Fin 2) O) :
+      ∀ i j, (ι k : Matrix (Fin 2) (Fin 2) K) i j ∈ O := by
+    intro i j
+    exact ((k : Matrix (Fin 2) (Fin 2) O) i j).property
+  have detUnit (k : GL (Fin 2) O) :
+      Valued.v ((ι k : Matrix (Fin 2) (Fin 2) K).det) = 1 := by
+    have hdet : (ι k : Matrix (Fin 2) (Fin 2) K).det =
+        j ((k : Matrix (Fin 2) (Fin 2) O).det) :=
+      (j.map_det (k : Matrix (Fin 2) (Fin 2) O)).symm
+    rw [hdet]
+    exact (Valuation.integer.integers (Valued.v : Valuation K _)).valuation_unit
+      (Matrix.GeneralLinearGroup.det k)
+  have hsecOne : L.sec (1 : GL (Fin 2) K) = 1 := by
+    simpa only [map_one] using L.sec_scalar (1 : Kˣ)
+  let κ : GL (Fin 2) O →* L.L := {
+    toFun := tameIntegralLift D H v L
+    map_one' := by
+      simp only [tameIntegralLift, map_one]
+      rw [show tameSplit D H v (1 : GL (Fin 2) K) = 1 by simp [tameSplit],
+        map_one, one_mul, hsecOne]
+    map_mul' := by
+      intro k₁ k₂
+      have hs := tameSplit_mul D H v hv (ι k₁) (ι k₂)
+        (integral k₁) (integral k₂) (detUnit k₁) (detUnit k₂)
+      change L.z (tameSplit D H v (ι (k₁ * k₂))) * L.sec (ι (k₁ * k₂)) =
+        (L.z (tameSplit D H v (ι k₁)) * L.sec (ι k₁)) *
+          (L.z (tameSplit D H v (ι k₂)) * L.sec (ι k₂))
+      rw [map_mul, hs, map_mul, map_mul]
+      rw [mul_assoc, mul_assoc, ← L.sec_mul]
+      rw [← mul_assoc (L.z (tameSplit D H v (ι k₂))),
+        L.z_central (tameSplit D H v (ι k₂)) (L.sec (ι k₁))]
+      simp only [mul_assoc]
+  }
+  refine ⟨κ, fun _ => rfl, ?_⟩
+  exact continuous_of_continuousAt_one κ
+    (tameIntegralLift_continuousAt_one D H v hSt L)
+
+/-- The tame integral range has no nontrivial central phase in its projection kernel. -/
+private theorem tameIntegralLift_range_inj
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (L : FinLocalCover D H v)
+    (κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L)
+    (hκ : ∀ k, κ k = tameIntegralLift D H v L k) :
+    Set.InjOn L.pr (κ.range : Set L.L) := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let ι : GL (Fin 2) O →* GL (Fin 2) K := Matrix.GeneralLinearGroup.map O.subtype
+  have hz (ζ : rootsOfUnity 3 ℂ) : L.pr (L.z ζ) = 1 := by
+    change L.z ζ ∈ L.pr.ker
+    rw [L.pr_ker]
+    exact ⟨ζ, rfl⟩
+  have hpr (k : GL (Fin 2) O) : L.pr (κ k) = QuotientGroup.mk (ι k) := by
+    rw [hκ]
+    change L.pr (L.z (tameSplit D H v (ι k)) * L.sec (ι k)) = QuotientGroup.mk (ι k)
+    rw [map_mul, hz, L.sec_pr, one_mul]
+  have hker (k : GL (Fin 2) O) (hk : L.pr (κ k) = 1) : κ k = 1 := by
+    have hc : ι k ∈ Subgroup.center (GL (Fin 2) K) :=
+      (QuotientGroup.eq_one_iff (ι k)).mp (by rw [← hpr]; exact hk)
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hc
+    obtain ⟨c, hc⟩ := hc
+    rw [hκ]
+    change L.z (tameSplit D H v (ι k)) * L.sec (ι k) = 1
+    rw [← hc, L.sec_scalar]
+    have hs : tameSplit D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1 := by
+      simp [tameSplit, Matrix.GeneralLinearGroup.coe_scalar, Matrix.scalar]
+    rw [hs, map_one, one_mul]
+  intro x hx y hy hxy
+  obtain ⟨kx, rfl⟩ := hx
+  obtain ⟨ky, rfl⟩ := hy
+  have h := hker (kx * ky⁻¹) (by
+    simp only [map_mul, map_inv, hxy, mul_inv_cancel])
+  have heq : κ kx * (κ ky)⁻¹ = 1 := by
+    simpa only [map_mul, map_inv] using h
+  exact mul_inv_eq_one.mp heq
+
+/-- The corrected integral lift range contains an open small splitting neighborhood. -/
+private theorem tameIntegralLift_range_open
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (L : FinLocalCover D H v)
+    (κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L)
+    (hκ : ∀ k, κ k = tameIntegralLift D H v L k) :
+    IsOpen (κ.range : Set L.L) := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let C := finLocalAlgebraOfCover L
+  obtain ⟨B⟩ := exists_finLocalSmallAlgebra D H v hSt C
+  obtain ⟨ms, _, hcorrection⟩ := exists_tameSmallIdentity D H v
+  let N := max 1 (max L.m0 (max B.m0 ms))
+  have h1N : 1 ≤ N := le_max_left _ _
+  have hN : max L.m0 (max B.m0 ms) ≤ N := le_max_right _ _
+  have hmN : L.m0 ≤ N := (le_max_left _ _).trans hN
+  have hBN : B.m0 ≤ N := (le_max_left B.m0 ms).trans ((le_max_right _ _).trans hN)
+  have hmsN : ms ≤ N := (le_max_right B.m0 ms).trans ((le_max_right _ _).trans hN)
+  let Uc : Set (GL (Fin 2) K) := {g | ∀ i j,
+    V ((g : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ WithZero.exp (-(N : ℤ))}
+  have hr : WithZero.exp (-(N : ℤ)) ≤ (1 : WithZero (Multiplicative ℤ)) := by
+    rw [← WithZero.exp_zero, WithZero.exp_le_exp]
+    omega
+  have integralEntries (g : GL (Fin 2) K) (hg : g ∈ Uc) :
+      ∀ i j, (g : Matrix (Fin 2) (Fin 2) K) i j ∈ O := by
+    intro i j
+    change V ((g : Matrix (Fin 2) (Fin 2) K) i j) ≤ 1
+    have hδ : V ((1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ 1 := by
+      fin_cases i <;> fin_cases j <;> simp
+    have hb := V.map_add_le ((hg i j).trans hr) hδ
+    simpa only [sub_add_cancel] using hb
+  obtain ⟨Ug, hUg⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_congruenceSubgroup v N h1N
+  have invCongruent (g : GL (Fin 2) K) (hg : g ∈ Uc) : g⁻¹ ∈ Uc :=
+    (hUg g⁻¹).mp (Ug.inv_mem ((hUg g).mpr hg))
+  have monoBall (x : K) (hx : x ∈ ball v N) : x ∈ ball v L.m0 := by
+    change V x ≤ WithZero.exp (-(N : ℤ)) at hx
+    change V x ≤ WithZero.exp (-(L.m0 : ℤ))
+    exact hx.trans (WithZero.exp_le_exp.mpr (by omega))
+  have smallSec (g : GL (Fin 2) K) (hg : g ∈ Uc) : L.sec g ∈ L.Kc L.m0 := by
+    have hsecB : C.sec g ∈ B.Kc N := by
+      change C.sec g ∈ (B.Kc N : Set C.L)
+      rw [B.Kc_eq N hBN]
+      exact ⟨g, hg, rfl⟩
+    obtain ⟨α, β, u, hα, hβ, hu, heq⟩ :=
+      finLocalSmallAlgebra_decomposition C B N hBN (C.sec g) hsecB
+    change C.sec g ∈ L.Kc L.m0
+    rw [heq]
+    exact (L.Kc L.m0).mul_mem
+      ((L.Kc L.m0).mul_mem (L.n_Kc L.m0 le_rfl α (monoBall α hα))
+        (L.a_Kc L.m0 le_rfl u (monoBall ((u : K) - 1) hu)))
+      (L.nbar_Kc L.m0 le_rfl β (monoBall β hβ))
+  let q : GL (Fin 2) K → PGL2 K := QuotientGroup.mk
+  let W : Set L.L := (L.Kc L.m0 : Set L.L) ∩ L.pr ⁻¹' (q '' Uc)
+  have hUcOpen : IsOpen Uc :=
+    (ArtinPrimitiveRoots.Proofs.th_cover_sol.congruenceTopology v).1 N
+  have hqOpen : IsOpen (q '' Uc) := QuotientGroup.isOpenMap_coe Uc hUcOpen
+  have hWopen : IsOpen W :=
+    (L.Kc_open L.m0 le_rfl).inter (hqOpen.preimage L.pr_cont)
+  have hWone : (1 : L.L) ∈ W := by
+    refine ⟨(L.Kc L.m0).one_mem, ?_⟩
+    change L.pr (1 : L.L) ∈ q '' Uc
+    refine ⟨1, ?_, ?_⟩
+    · simp [Uc]
+    · simp [q]
+  have hsub : W ⊆ (κ.range : Set L.L) := by
+    intro x hx
+    obtain ⟨g, hg, hgpr⟩ := hx.2
+    have hgi := integralEntries g hg
+    have hginv := integralEntries g⁻¹ (invCongruent g hg)
+    have hd : (g⁻¹ : GL (Fin 2) K).val.det ∈ O := by
+      rw [Matrix.det_fin_two]
+      exact O.toSubring.sub_mem
+        (O.toSubring.mul_mem (hginv 0 0) (hginv 1 1))
+        (O.toSubring.mul_mem (hginv 0 1) (hginv 1 0))
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.integralGL2_lift v g hgi hd
+    have hκsec : κ k = L.sec g := by
+      rw [hκ]
+      change L.z (tameSplit D H v (Matrix.GeneralLinearGroup.map O.subtype k)) *
+        L.sec (Matrix.GeneralLinearGroup.map O.subtype k) = L.sec g
+      rw [hk, hcorrection N hmsN g hg, map_one, one_mul]
+    have heq : κ k = x := by
+      apply L.Kc_inj L.m0 le_rfl (by rw [hκsec]; exact smallSec g hg) hx.1
+      rw [hκsec, L.sec_pr]
+      exact hgpr
+    exact ⟨k, heq⟩
+  exact κ.range.isOpen_of_mem_nhds
+    (Filter.mem_of_superset (hWopen.mem_nhds hWone) hsub)
+
+/-- The compact integral lift range projects exactly onto the integral PGL₂ image. -/
+private theorem tameIntegralLift_range_compact_image
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (L : FinLocalCover D H v)
+    (κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L)
+    (hκ : ∀ k, κ k = tameIntegralLift D H v L k)
+    (hκcont : Continuous κ) :
+    IsCompact (κ.range : Set L.L) ∧
+      L.pr '' (κ.range : Set L.L) =
+        {g | ∃ k : GL (Fin 2) (v.adicCompletion F),
+          (∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+            v.adicCompletionIntegers F) ∧
+          (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det ∈
+            v.adicCompletionIntegers F ∧ QuotientGroup.mk k = g} := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let : CompactSpace O := ArtinPrimitiveRoots.Proofs.th_cover_sol.compact_adicCompletionIntegers v
+  let : CompactSpace (Matrix (Fin 2) (Fin 2) O) :=
+    inferInstanceAs (CompactSpace (Fin 2 → Fin 2 → O))
+  let j : O →+* K := O.subtype
+  let ι : GL (Fin 2) O →* GL (Fin 2) K := Matrix.GeneralLinearGroup.map j
+  have hc : IsCompact (κ.range : Set L.L) := isCompact_range hκcont
+  have hz (ζ : rootsOfUnity 3 ℂ) : L.pr (L.z ζ) = 1 := by
+    change L.z ζ ∈ L.pr.ker
+    rw [L.pr_ker]
+    exact ⟨ζ, rfl⟩
+  have hpr (k : GL (Fin 2) O) : L.pr (κ k) = QuotientGroup.mk (ι k) := by
+    rw [hκ]
+    change L.pr (L.z (tameSplit D H v (ι k)) * L.sec (ι k)) = QuotientGroup.mk (ι k)
+    rw [map_mul, hz, L.sec_pr, one_mul]
+  have integralDetInv (k : GL (Fin 2) O) : (ι k)⁻¹.val.det ∈ O := by
+    have hinv : (ι k)⁻¹ = ι k⁻¹ := (map_inv ι k).symm
+    have hdet : (ι k⁻¹ : Matrix (Fin 2) (Fin 2) K).det = j (k⁻¹.val.det) :=
+      (j.map_det ((k⁻¹ : GL (Fin 2) O) : Matrix (Fin 2) (Fin 2) O)).symm
+    rw [hinv]
+    change (ι k⁻¹ : Matrix (Fin 2) (Fin 2) K).det ∈ O
+    rw [hdet]
+    exact (k⁻¹.val.det).property
+  refine ⟨hc, ?_⟩
+  ext q
+  constructor
+  · rintro ⟨x, hx, hqx⟩
+    obtain ⟨k, rfl⟩ := hx
+    refine ⟨ι k, ?_, integralDetInv k, ?_⟩
+    · intro i j
+      exact ((k : Matrix (Fin 2) (Fin 2) O) i j).property
+    · exact (hpr k).symm.trans hqx
+  · rintro ⟨g, hg, hd, hgq⟩
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.integralGL2_lift v g hg hd
+    refine ⟨κ k, ⟨k, rfl⟩, ?_⟩
+    rw [hpr, show ι k = g from hk]
+    exact hgq
+
+/-- Integral standard generators have trivial tame correction and belong to the lift range. -/
+private theorem tameIntegralLift_generators_mem
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (L : FinLocalCover D H v)
+    (κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L)
+    (hκ : ∀ k, κ k = tameIntegralLift D H v L k) :
+    (∀ x ∈ v.adicCompletionIntegers F,
+      L.n (Multiplicative.ofAdd x) ∈ κ.range) ∧
+    (∀ u : (v.adicCompletion F)ˣ,
+      (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F →
+      ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+        v.adicCompletionIntegers F → L.a u ∈ κ.range) ∧
+    L.w ∈ κ.range ∧
+    (∀ x : v.adicCompletion F, Valued.v x < 1 →
+      L.nbar (Multiplicative.ofAdd x) ∈ κ.range) := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  have inverseDet (g : GL (Fin 2) K) :
+      g⁻¹.val.det = (((detU v g)⁻¹ : Kˣ) : K) := by
+    change ((Matrix.GeneralLinearGroup.det g⁻¹ : Kˣ) : K) =
+      (((Matrix.GeneralLinearGroup.det g)⁻¹ : Kˣ) : K)
+    rw [map_inv]
+  have lowerDet (x : K) : detU v (lowerM K x) = 1 := by
+    apply Units.ext
+    simp [detU, lowerM, Matrix.det_fin_two]
+  have sec_mem (g : GL (Fin 2) K)
+      (hg : ∀ i j, (g : Matrix (Fin 2) (Fin 2) K) i j ∈ O)
+      (hd : g⁻¹.val.det ∈ O) (hs : tameSplit D H v g = 1) : L.sec g ∈ κ.range := by
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.integralGL2_lift v g hg hd
+    refine ⟨k, ?_⟩
+    rw [hκ]
+    change L.z (tameSplit D H v (Matrix.GeneralLinearGroup.map O.subtype k)) *
+      L.sec (Matrix.GeneralLinearGroup.map O.subtype k) = L.sec g
+    rw [hk, hs, map_one, one_mul]
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro x hx
+    rw [L.sec_n]
+    apply sec_mem (upperM K x)
+    · intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [upperM, O, ValuationSubring.one_mem, ValuationSubring.zero_mem, hx]
+    · rw [inverseDet, detU_upperM]
+      simpa using O.one_mem
+    · simp [tameSplit, upperM]
+  · intro u hu huinv
+    rw [L.sec_a]
+    apply sec_mem (diagM K u)
+    · intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [diagM, O, ValuationSubring.one_mem, ValuationSubring.zero_mem, hu]
+    · rw [inverseDet, detU_diagM]
+      exact huinv
+    · simp [tameSplit, diagM]
+  · rw [L.sec_w]
+    apply sec_mem (weylM K)
+    · intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [weylM, ValuationSubring.one_mem, ValuationSubring.zero_mem]
+    · rw [inverseDet, detU_weylM]
+      simpa using O.toSubring.neg_mem O.one_mem
+    · simp [tameSplit, weylM]
+  · intro x hx
+    have hxi : x ∈ O := hx.le
+    rw [L.sec_nbar]
+    apply sec_mem (lowerM K x)
+    · intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [lowerM, ValuationSubring.one_mem, ValuationSubring.zero_mem, hxi]
+    · rw [inverseDet, lowerDet]
+      simpa using O.one_mem
+    · unfold tameSplit
+      rw [lowerDet]
+      simp [lowerM, hilb_one_left, muThree_one]
+
+/-- The corrected integral range supplies all fields of the tame splitting package. -/
+private theorem exists_finLocalTameSplitting
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (L : FinLocalCover D H v)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) : Nonempty (TameSplitting L) := by
+  obtain ⟨κ, hκ, hκcont⟩ := exists_tameIntegralLiftHom D H v hSt L hv
+  obtain ⟨hc, himage⟩ := tameIntegralLift_range_compact_image D H v L κ hκ hκcont
+  obtain ⟨hn, ha, hw, hnbar⟩ := tameIntegralLift_generators_mem D H v L κ hκ
+  exact ⟨{
+    Kmax := κ.range
+    open_ := tameIntegralLift_range_open D H v hSt L κ hκ
+    compact := hc
+    inj := tameIntegralLift_range_inj D H v L κ hκ
+    image := himage
+    n_mem := hn
+    a_mem := ha
+    w_mem := hw
+    nbar_mem := hnbar
+  }⟩
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
 theorem exists_finLocalCover (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
     (hSt : SteinbergAt H v) :
     ∃ L : FinLocalCover D H v, (6 : 𝓞 F) ∉ v.asIdeal → Nonempty (TameSplitting L) := by
-  sorry
+  obtain ⟨L⟩ := exists_finLocalCoverBase D H v hSt
+  exact ⟨L, fun hv => exists_finLocalTameSplitting D H v hSt L hv⟩
 
 /-- The places of `F`. -/
 abbrev Place (F : Type) [Field F] [NumberField F] := FinPlace F ⊕ InfinitePlace F
@@ -1760,6 +3551,12 @@ structure CoverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)} (S
   wS_components : ∃ x : RP, q x = tc.wS ∧
     (∀ v : FinPlace F, compF v x = if v ∈ S.Sf then (loc v).w else 1) ∧
     ∀ w, compC w x = QuotientGroup.mk (weylM ℂ)
+  /-- Every element of the exterior compact `Kext = Π_{v∉S} κ_v(PGL₂(O_v))` is represented by
+  components in the tame maximal compacts outside `S`, trivial at the finite places of `S` and at
+  the complex places (theta-iface amendment). -/
+  Kext_components : ∀ k ∈ tc.Kext, ∃ x : RP, q x = k ∧
+    (∀ v (hv : v ∉ S.Sf), compF v x ∈ (tame v hv).Kmax) ∧
+    (∀ v, v ∈ S.Sf → compF v x = 1) ∧ ∀ w, compC w x = 1
 
 attribute [instance] CoverPackage.rpGrp
 
@@ -1794,6 +3591,79 @@ def HasRestrictedProductTopology (P : CoverPackage D S H A) : Prop :=
   ∃ e : @Homeomorph P.RP (CanonicalRP P) P.rpTopology inferInstance,
     (∀ x v, e x (.inl v) = P.compF v x) ∧
     ∀ x w, e x (.inr w) = P.compC w x
+
+/-- The component axioms identify the package's tuples with the canonical restricted product.
+Continuity of this equivalence is a separate obligation of the global construction. -/
+theorem coverPackage_components_equiv (P : CoverPackage D S H A) :
+    ∃ e : P.RP ≃ CanonicalRP P,
+      (∀ x v, e x (.inl v) = P.compF v x) ∧
+      ∀ x w, e x (.inr w) = P.compC w x := by
+  have he := TH_COVER.restrictedSum_componentEquiv S.Sf
+    (fun v hv => ((P.tame v hv).Kmax : Set (P.loc v).L))
+    (fun v x => P.compF v x) (fun w x => P.compC w x)
+    P.comp_ext P.comp_restricted P.comp_surj
+  have href :
+      (TH_COVER.sumReference S.Sf (fun v hv => ((P.tame v hv).Kmax : Set (P.loc v).L)) :
+        (p : Place F) → Set (LocalComponent P p)) = referenceSubset P := by
+    funext p
+    cases p with
+    | inl v =>
+      by_cases hv : v ∉ S.Sf <;>
+        simp [TH_COVER.sumReference, referenceSubset, LocalComponent, hv]
+    | inr w => rfl
+  rw [href] at he
+  exact he
+
+/-- The effective exterior coefficient agrees with the actual local torus product. -/
+private theorem cover_local_effectiveLaw (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (L : FinLocalCover D H v) (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (x y : (v.adicCompletion F)ˣ) :
+    ∃ ζ : rootsOfUnity 3 ℂ, ((ζ : ℂˣ) : ℂ) = extCocycle D v x y ∧
+      L.a x * L.a y = L.z ζ * L.a (x * y) := by
+  exact ⟨muThree D (H.hilb v x y),
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.muThree_hilb_eq_extCocycle D H v hv x y,
+    L.a_mul x y⟩
+
+/-- Local factors chosen before constructing their adelic quotient. -/
+private structure CoverLocalFamily (D : FieldData F) (S : SData F CE condη)
+    (H : HilbertData F) where
+  loc : ∀ v : FinPlace F, FinLocalCover D H v
+  tame : ∀ v : FinPlace F, v ∉ S.Sf → TameSplitting (loc v)
+
+private def coverFamilyReference (C : CoverLocalFamily D S H) (v : FinPlace F) :
+    Subgroup (C.loc v).L :=
+  if hv : v ∉ S.Sf then (C.tame v hv).Kmax else ⊤
+
+private theorem coverFamilyReference_open (C : CoverLocalFamily D S H) (v : FinPlace F) :
+    IsOpen (coverFamilyReference C v : Set (C.loc v).L) := by
+  by_cases hv : v ∉ S.Sf
+  · simpa [coverFamilyReference, hv] using (C.tame v hv).open_
+  · simp [coverFamilyReference, hv]
+
+/-- The canonical tuple and quotient foundation for the global producer. -/
+private structure CoverQuotientBase (D : FieldData F) (S : SData F CE condη)
+    (H : HilbertData F) where
+  family : CoverLocalFamily D S H
+  quotient : ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.CentralQuotient
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference family)
+    (fun v => (family.loc v).z)
+
+private theorem exists_coverQuotientBase (D : FieldData F) (S : SData F CE condη)
+    (H : HilbertData F) (hSt : ∀ v, SteinbergAt H v) :
+    Nonempty (CoverQuotientBase D S H) := by
+  classical
+  choose loc hloc using fun v => exists_finLocalCover D H v (hSt v)
+  let C : CoverLocalFamily D S H := {
+    loc := loc
+    tame := fun v hv => Classical.choice (hloc v (fun h => hv (S.over6 v h)))
+  }
+  obtain ⟨Q⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.exists_centralQuotient
+      (H := fun _ : InfinitePlace F => PGL2 ℂ)
+      (coverFamilyReference C) (coverFamilyReference_open C)
+      (fun v => (C.loc v).z) (fun v => (C.loc v).z_inj)
+      (fun v => (C.loc v).z_central)
+  exact ⟨{ family := C, quotient := Q }⟩
 
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The

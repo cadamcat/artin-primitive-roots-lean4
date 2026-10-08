@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-BOOT».Boot
 import ArtinPrimitiveRoots.A1.Residue
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.IntegralSymbols
+import ArtinPrimitiveRoots.Proofs.qs_e_p.NQ1Helpers
 
 /-!
 # A2-QS-NARROW: canonical narrow family, representatives, and the three frozen endpoints
@@ -194,6 +195,8 @@ theorem qs_core_symbol_bound_NQ0a (S' : Finset (HeightOneSpectrum (𝓞 K)))
   rw [hsumRows, hsumCoeff] at henergy
   exact henergy
 
+set_option maxHeartbeats 800000 in
+open Classical in
 /-- NQ1 (IMPL; found:593-598): arbitrary integral representatives and the smaller set `S`.
 Split rows and columns by their (finitely many) intersections with `S' \ S` (deletion is
 injective and lowers norms; the deleted symbols are diagonal twists in `{0, ±1}`), and columns
@@ -222,7 +225,411 @@ theorem qs_arbitrary_representatives_NQ1 (hμ : ∃ ζ : K, IsPrimitiveRoot ζ 1
         ∀ z : Finset (HeightOneSpectrum (𝓞 K)) → ℂ,
           ∑ D ∈ rows, ‖∑ T ∈ cols, z T * (qsQuadSymbol D (gen T) : ℂ)‖ ^ 2 ≤
             C * (Cmax + Dmax) * (Cmax * Dmax) ^ ε * ∑ T ∈ cols, ‖z T‖ ^ 2 := by
-  sorry
+  classical
+  intro ε hε
+  obtain ⟨Ccore, hCcore, hboundε⟩ := hbound ε hε
+  let A : Finset (HeightOneSpectrum (𝓞 K)) := S' \ S
+  let patterns : Finset (Finset (HeightOneSpectrum (𝓞 K))) := A.powerset
+  let Q : Type := qsSUnitSquareClasses (K := K) S'
+  letI : Finite Q := qsSUnitSquareClasses_finite (K := K) S'
+  letI : Fintype Q := Fintype.ofFinite Q
+  let keys : Finset (Finset (HeightOneSpectrum (𝓞 K)) × Q) :=
+    patterns.product Finset.univ
+  have hpatterns : 0 < patterns.card := by
+    apply Finset.card_pos.mpr
+    exact ⟨∅, by simp [patterns]⟩
+  have hkeys : 0 < keys.card := by
+    apply Finset.card_pos.mpr
+    exact ⟨(∅, (1 : Q)), by simp [keys, patterns]⟩
+  have hkeysAsReal : 0 < (keys.card : ℝ) := by exact_mod_cast hkeys
+  have hpatternsAsReal : 0 < (patterns.card : ℝ) := by exact_mod_cast hpatterns
+  have hsurj : Function.Surjective
+      (QuotientGroup.mk : SUnitGroup (K := K) S' → qsSUnitSquareClasses (K := K) S') :=
+    QuotientGroup.mk_surjective
+  choose uRep huRep using hsurj
+  let C : ℝ := (keys.card : ℝ) * (patterns.card : ℝ) * Ccore
+  have hC : 0 < C := by dsimp [C]; positivity
+  refine ⟨C, hC, ?_⟩
+  intro Cmax Dmax hCmax hDmax gen cols rows hcols hrows z
+  let colT0 : Finset (HeightOneSpectrum (𝓞 K)) → Finset (HeightOneSpectrum (𝓞 K)) :=
+    fun T => T \ S'
+  let rowD0 : Finset (HeightOneSpectrum (𝓞 K)) → Finset (HeightOneSpectrum (𝓞 K)) :=
+    fun D => D \ S'
+  have hunitExists (T : Finset (HeightOneSpectrum (𝓞 K))) (hT : T ∈ cols) :
+      ∃ u : SUnitGroup (K := K) S',
+        ((u : Kˣ) : K) = (gen T : K) / (gen₀ (colT0 T) : K) := by
+    have hT0disj : Disjoint (colT0 T) S' := by
+      apply Finset.disjoint_left.mpr
+      intro v hvT0 hvS'
+      exact (Finset.mem_sdiff.mp hvT0).2 hvS'
+    obtain ⟨u, hu⟩ := qsSUnit_of_exterior_ratio_NQ1 S S' T (colT0 T) hSS'
+      (gen T) (gen₀ (colT0 T)) (hcols T hT).2.2 (hgen₀ (colT0 T) hT0disj)
+      (by intro v hv; simp [colT0, hv])
+    refine ⟨u, ?_⟩
+    simpa [colT0, Units.val_mk0] using congrArg (fun x : Kˣ => (x : K)) hu
+  choose uCol huCol using hunitExists
+  let colClass : Finset (HeightOneSpectrum (𝓞 K)) → Q := fun T =>
+    if hT : T ∈ cols then QuotientGroup.mk (uCol T hT) else 1
+  let colKey : Finset (HeightOneSpectrum (𝓞 K)) →
+      Finset (HeightOneSpectrum (𝓞 K)) × Q := fun T => (T ∩ A, colClass T)
+  have hcolKeyMaps (T : Finset (HeightOneSpectrum (𝓞 K))) (hT : T ∈ cols) :
+      colKey T ∈ keys := by
+    apply Finset.mem_product.mpr
+    refine ⟨Finset.mem_powerset.mpr ?_, Finset.mem_univ _⟩
+    exact Finset.inter_subset_right
+  let colFiber (k : Finset (HeightOneSpectrum (𝓞 K)) × Q) :
+      Finset (Finset (HeightOneSpectrum (𝓞 K))) :=
+    cols.filter (fun T => colKey T = k)
+  let rowPattern (D : Finset (HeightOneSpectrum (𝓞 K))) := D ∩ A
+  let rowFiber (F : Finset (HeightOneSpectrum (𝓞 K))) :=
+    rows.filter (fun D => rowPattern D = F)
+  let colCore (k : Finset (HeightOneSpectrum (𝓞 K)) × Q) :=
+    (colFiber k).image colT0
+  let rowCore (F : Finset (HeightOneSpectrum (𝓞 K))) :=
+    (rowFiber F).image rowD0
+  have hrowPatternMaps (D : Finset (HeightOneSpectrum (𝓞 K))) (hD : D ∈ rows) :
+      rowPattern D ∈ patterns := by
+    apply Finset.mem_powerset.mpr
+    exact Finset.inter_subset_right
+  have hcolInj (k : Finset (HeightOneSpectrum (𝓞 K)) × Q) :
+      Set.InjOn colT0 (colFiber k) := by
+    intro T hT U hU h0
+    have hTdisj := (hcols T (Finset.mem_filter.mp hT).1).1
+    have hUdisj := (hcols U (Finset.mem_filter.mp hU).1).1
+    have hTdec := qs_decompose_at_S_NQ1 S S' T hSS' hTdisj
+    have hUdec := qs_decompose_at_S_NQ1 S S' U hSS' hUdisj
+    have hTpat : T ∩ A = k.1 := by
+      have hk := (Finset.mem_filter.mp hT).2
+      simpa [colKey] using congrArg Prod.fst hk
+    have hUpat : U ∩ A = k.1 := by
+      have hk := (Finset.mem_filter.mp hU).2
+      simpa [colKey] using congrArg Prod.fst hk
+    calc
+      T = colT0 T ∪ (T ∩ A) := hTdec
+      _ = colT0 U ∪ (U ∩ A) := by rw [h0, hTpat, hUpat]
+      _ = U := hUdec.symm
+  have hrowInj (F : Finset (HeightOneSpectrum (𝓞 K))) :
+      Set.InjOn rowD0 (rowFiber F) := by
+    intro D hD E hE h0
+    have hDdisj := (hrows D (Finset.mem_filter.mp hD).1).1
+    have hEdisj := (hrows E (Finset.mem_filter.mp hE).1).1
+    have hDdec := qs_decompose_at_S_NQ1 S S' D hSS' hDdisj
+    have hEdec := qs_decompose_at_S_NQ1 S S' E hSS' hEdisj
+    have hDpat : D ∩ A = F := (Finset.mem_filter.mp hD).2
+    have hEpat : E ∩ A = F := (Finset.mem_filter.mp hE).2
+    calc
+      D = rowD0 D ∪ (D ∩ A) := hDdec
+      _ = rowD0 E ∪ (E ∩ A) := by rw [h0, hDpat, hEpat]
+      _ = E := hEdec.symm
+  let preCol (k : Finset (HeightOneSpectrum (𝓞 K)) × Q)
+      (T0 : Finset (HeightOneSpectrum (𝓞 K))) (hT0 : T0 ∈ colCore k) :=
+    Classical.choose (Finset.mem_image.mp hT0)
+  have hpreCol (k : Finset (HeightOneSpectrum (𝓞 K)) × Q)
+      (T0 : Finset (HeightOneSpectrum (𝓞 K))) (hT0 : T0 ∈ colCore k) :
+      preCol k T0 hT0 ∈ colFiber k ∧ colT0 (preCol k T0 hT0) = T0 :=
+    Classical.choose_spec (Finset.mem_image.mp hT0)
+  let zPart (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q)
+      (T0 : Finset (HeightOneSpectrum (𝓞 K))) : ℂ :=
+    if hT0 : T0 ∈ colCore k then
+      z (preCol k T0 hT0) *
+        (qsQuadSymbol F (gen (preCol k T0 hT0)) : ℂ)
+    else 0
+  have hzPartNorm (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q) :
+      ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2 ≤
+        ∑ T ∈ colFiber k, ‖z T‖ ^ 2 := by
+    rw [Finset.sum_image (hcolInj k)]
+    apply Finset.sum_le_sum
+    intro T hT
+    have hT0 : colT0 T ∈ colCore k := Finset.mem_image.mpr ⟨T, hT, rfl⟩
+    have hpre := hpreCol k (colT0 T) hT0
+    have hpreEq : preCol k (colT0 T) hT0 = T := hcolInj k hpre.1 hT hpre.2
+    have hdel : ‖(qsQuadSymbol F (gen T) : ℂ)‖ ≤ 1 :=
+      qsQuadSymbol_norm_le_one_NQ1 F (gen T)
+    have hdel2 : ‖(qsQuadSymbol F (gen T) : ℂ)‖ ^ 2 ≤ 1 := by
+      calc
+        ‖(qsQuadSymbol F (gen T) : ℂ)‖ ^ 2 ≤ 1 ^ 2 :=
+          (sq_le_sq₀ (norm_nonneg _) (by norm_num)).2 hdel
+        _ = 1 := by norm_num
+    calc
+      ‖zPart F k (colT0 T)‖ ^ 2 =
+          ‖z T * (qsQuadSymbol F (gen T) : ℂ)‖ ^ 2 := by
+            simp [zPart, hT0, hpreEq]
+      _ ≤ ‖z T‖ ^ 2 := by
+        rw [norm_mul, mul_pow]
+        simpa using mul_le_mul_of_nonneg_left hdel2 (sq_nonneg _)
+  have hcolCoreAdm (k : Finset (HeightOneSpectrum (𝓞 K)) × Q) :
+      ∀ T0 ∈ colCore k, Disjoint T0 S' ∧ (qsNormT T0 : ℝ) ≤ Cmax := by
+    intro T0 hT0
+    obtain ⟨T, hT, rfl⟩ := Finset.mem_image.mp hT0
+    have hTcols : T ∈ cols := (Finset.mem_filter.mp hT).1
+    refine ⟨?_, ?_⟩
+    · apply Finset.disjoint_left.mpr
+      intro v hvT0 hvS'
+      exact (Finset.mem_sdiff.mp hvT0).2 hvS'
+    · calc
+        (qsNormT (colT0 T) : ℝ) ≤ (qsNormT T : ℝ) := by
+          exact_mod_cast qsNormT_mono_NQ1 (Finset.sdiff_subset (s := T) (t := S'))
+        _ ≤ Cmax := (hcols T hTcols).2.1
+  have hrowCoreAdm (F : Finset (HeightOneSpectrum (𝓞 K))) :
+      ∀ D0 ∈ rowCore F, Disjoint D0 S' ∧ (qsNormT D0 : ℝ) ≤ Dmax := by
+    intro D0 hD0
+    obtain ⟨D, hD, rfl⟩ := Finset.mem_image.mp hD0
+    have hDrows : D ∈ rows := (Finset.mem_filter.mp hD).1
+    refine ⟨?_, ?_⟩
+    · apply Finset.disjoint_left.mpr
+      intro v hvD0 hvS'
+      exact (Finset.mem_sdiff.mp hvD0).2 hvS'
+    · calc
+        (qsNormT (rowD0 D) : ℝ) ≤ (qsNormT D : ℝ) := by
+          exact_mod_cast qsNormT_mono_NQ1 (Finset.sdiff_subset (s := D) (t := S'))
+        _ ≤ Dmax := (hrows D hDrows).2
+  let coreMatrix (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q)
+      (D0 : Finset (HeightOneSpectrum (𝓞 K))) : ℂ :=
+    ∑ T0 ∈ colCore k, zPart F k T0 * (qsQuadSymbol D0 (gen₀ T0) : ℂ)
+  let component (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q)
+      (D : Finset (HeightOneSpectrum (𝓞 K))) : ℂ :=
+    (qsUnitSymbolOnRows S' (rowD0 D) (uRep k.2) : ℂ) * coreMatrix F k (rowD0 D)
+  let coreConst : ℝ := Ccore * (Cmax + Dmax) * (Cmax * Dmax) ^ ε
+  have hcoreConst : 0 ≤ coreConst := by dsimp [coreConst]; positivity
+  have hcoreBound (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q) :
+      ∑ D0 ∈ rowCore F, ‖coreMatrix F k D0‖ ^ 2 ≤
+        coreConst * ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2 := by
+    dsimp [coreConst]
+    exact hboundε Cmax Dmax hCmax hDmax (colCore k) (rowCore F)
+      (hcolCoreAdm k) (hrowCoreAdm F) (zPart F k)
+  have hsumCore (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q)
+      (D : Finset (HeightOneSpectrum (𝓞 K))) :
+      coreMatrix F k (rowD0 D) =
+        ∑ T ∈ colFiber k,
+          z T * (qsQuadSymbol F (gen T) : ℂ) *
+            (qsQuadSymbol (rowD0 D) (gen₀ (colT0 T)) : ℂ) := by
+    dsimp [coreMatrix]
+    rw [Finset.sum_image (hcolInj k)]
+    refine Finset.sum_congr rfl ?_
+    intro T hT
+    have hT0 : colT0 T ∈ colCore k := Finset.mem_image.mpr ⟨T, hT, rfl⟩
+    have hpre := hpreCol k (colT0 T) hT0
+    have hpreEq : preCol k (colT0 T) hT0 = T := hcolInj k hpre.1 hT hpre.2
+    simp [zPart, hT0, hpreEq]
+  have hinnerFiber (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q)
+      (D : Finset (HeightOneSpectrum (𝓞 K))) (hD : D ∈ rowFiber F) :
+      ∑ T ∈ colFiber k, z T * (qsQuadSymbol D (gen T) : ℂ) = component F k D := by
+    let D0 := rowD0 D
+    have hDrows : D ∈ rows := (Finset.mem_filter.mp hD).1
+    have hDdisj := (hrows D hDrows).1
+    have hDpattern : D ∩ A = F := (Finset.mem_filter.mp hD).2
+    have hDdecomp : D = D0 ∪ F := by
+      simpa [A, D0, rowD0, hDpattern] using qs_decompose_at_S_NQ1 S S' D hSS' hDdisj
+    have hD0S' : Disjoint D0 S' := by
+      apply Finset.disjoint_left.mpr
+      intro v hvD0 hvS'
+      exact (Finset.mem_sdiff.mp hvD0).2 hvS'
+    have hD0F : Disjoint D0 F := by
+      apply Finset.disjoint_left.mpr
+      intro v hvD0 hvF
+      have hvInt : v ∈ D ∩ A := by rw [hDpattern]; exact hvF
+      have hvA : v ∈ A := (Finset.mem_inter.mp hvInt).2
+      have hvA' : v ∈ (S' \ S) := by simpa [A] using hvA
+      exact (Finset.mem_sdiff.mp hvD0).2 (Finset.mem_sdiff.mp hvA').1
+    have hterm (T : Finset (HeightOneSpectrum (𝓞 K))) (hT : T ∈ colFiber k) :
+        z T * (qsQuadSymbol D (gen T) : ℂ) =
+          (qsUnitSymbolOnRows S' D0 (uRep k.2) : ℂ) *
+            (z T * (qsQuadSymbol F (gen T) : ℂ) *
+              (qsQuadSymbol D0 (gen₀ (colT0 T)) : ℂ)) := by
+      have hcolsT : T ∈ cols := (Finset.mem_filter.mp hT).1
+      have hkeyT : colKey T = k := (Finset.mem_filter.mp hT).2
+      have hclassT : QuotientGroup.mk (uCol T hcolsT) = k.2 := by
+        have h := congrArg Prod.snd hkeyT
+        simpa [colKey, colClass, hcolsT] using h
+      have hclassRep : QuotientGroup.mk (uCol T hcolsT) = QuotientGroup.mk (uRep k.2) :=
+        hclassT.trans (huRep k.2).symm
+      have hT0S' : Disjoint (colT0 T) S' := by
+        apply Finset.disjoint_left.mpr
+        intro v hvT0 hvS'
+        exact (Finset.mem_sdiff.mp hvT0).2 hvS'
+      have hgen0ext := hgen₀ (colT0 T) hT0S'
+      have hratio := huCol T hcolsT
+      have hg'K : (gen₀ (colT0 T) : K) ≠ 0 :=
+        (IsFractionRing.injective (𝓞 K) K).ne hgen0ext.1
+      have hrel : (gen T : K) = (gen₀ (colT0 T) : K) * ((uCol T hcolsT : Kˣ) : K) := by
+        rw [hratio]
+        field_simp [hg'K]
+      have hunitRatio := qsQuadSymbol_mul_sunit_NQ1 S' D0 hD0S'
+        (gen T) (gen₀ (colT0 T)) (uCol T hcolsT) hrel
+      have hunitEq := qsUnitSymbolOnRows_eq_of_squareClass S' D0 hD0S'
+        (uCol T hcolsT) (uRep k.2) hclassRep
+      have hDfac : qsQuadSymbol D (gen T) =
+          qsQuadSymbol D0 (gen T) * qsQuadSymbol F (gen T) := by
+        calc
+          qsQuadSymbol D (gen T) = qsQuadSymbol (D0 ∪ F) (gen T) := by rw [hDdecomp]
+          _ = qsQuadSymbol D0 (gen T) * qsQuadSymbol F (gen T) :=
+            qsQuadSymbol_union_NQ1 hD0F (gen T)
+      have hfactorInt : qsQuadSymbol D (gen T) =
+          qsQuadSymbol D0 (gen₀ (colT0 T)) *
+            qsUnitSymbolOnRows S' D0 (uRep k.2) * qsQuadSymbol F (gen T) := by
+        calc
+          qsQuadSymbol D (gen T) = qsQuadSymbol D0 (gen T) * qsQuadSymbol F (gen T) := hDfac
+          _ = (qsQuadSymbol D0 (gen₀ (colT0 T)) *
+                qsUnitSymbolOnRows S' D0 (uCol T hcolsT)) * qsQuadSymbol F (gen T) := by
+              rw [hunitRatio]
+          _ = qsQuadSymbol D0 (gen₀ (colT0 T)) *
+                qsUnitSymbolOnRows S' D0 (uRep k.2) * qsQuadSymbol F (gen T) := by
+              rw [hunitEq]
+      rw [hfactorInt]
+      push_cast
+      ring
+    calc
+      ∑ T ∈ colFiber k, z T * (qsQuadSymbol D (gen T) : ℂ) =
+          ∑ T ∈ colFiber k,
+            (qsUnitSymbolOnRows S' D0 (uRep k.2) : ℂ) *
+              (z T * (qsQuadSymbol F (gen T) : ℂ) *
+                (qsQuadSymbol D0 (gen₀ (colT0 T)) : ℂ)) := by
+        refine Finset.sum_congr rfl ?_
+        intro T hT
+        exact hterm T hT
+      _ = (qsUnitSymbolOnRows S' D0 (uRep k.2) : ℂ) *
+          coreMatrix F k D0 := by
+        rw [← Finset.mul_sum]
+        exact congrArg (fun x : ℂ =>
+          (qsUnitSymbolOnRows S' D0 (uRep k.2) : ℂ) * x) (hsumCore F k D).symm
+      _ = component F k D := rfl
+  have hinnerDecomp (D : Finset (HeightOneSpectrum (𝓞 K))) (hD : D ∈ rows) :
+      ∑ T ∈ cols, z T * (qsQuadSymbol D (gen T) : ℂ) =
+        ∑ k ∈ keys, component (rowPattern D) k D := by
+    have hDfiber : D ∈ rowFiber (rowPattern D) := by
+      exact Finset.mem_filter.mpr ⟨hD, rfl⟩
+    calc
+      ∑ T ∈ cols, z T * (qsQuadSymbol D (gen T) : ℂ) =
+          ∑ k ∈ keys, ∑ T ∈ colFiber k, z T * (qsQuadSymbol D (gen T) : ℂ) := by
+        simpa [colFiber] using
+          (Finset.sum_fiberwise_of_maps_to hcolKeyMaps
+            (fun T => z T * (qsQuadSymbol D (gen T) : ℂ))).symm
+      _ = ∑ k ∈ keys, component (rowPattern D) k D := by
+        refine Finset.sum_congr rfl ?_
+        intro k hk
+        exact hinnerFiber (rowPattern D) k D hDfiber
+  have hrowImage (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q) :
+      ∑ D ∈ rowFiber F, ‖coreMatrix F k (rowD0 D)‖ ^ 2 =
+        ∑ D0 ∈ rowCore F, ‖coreMatrix F k D0‖ ^ 2 := by
+    dsimp [rowCore]
+    rw [Finset.sum_image (hrowInj F)]
+  have hcomponentNorm (F : Finset (HeightOneSpectrum (𝓞 K)))
+      (k : Finset (HeightOneSpectrum (𝓞 K)) × Q) :
+      ∑ D ∈ rowFiber F, ‖component F k D‖ ^ 2 ≤
+        coreConst * ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2 := by
+    calc
+      ∑ D ∈ rowFiber F, ‖component F k D‖ ^ 2 =
+          ∑ D ∈ rowFiber F, ‖coreMatrix F k (rowD0 D)‖ ^ 2 := by
+        refine Finset.sum_congr rfl ?_
+        intro D hD
+        have hD0S' : Disjoint (rowD0 D) S' := by
+          apply Finset.disjoint_left.mpr
+          intro v hvD0 hvS'
+          exact (Finset.mem_sdiff.mp hvD0).2 hvS'
+        have hunitNorm := qsUnitSymbolOnRows_norm_eq_one S' (rowD0 D) hD0S'
+        calc
+          ‖component F k D‖ ^ 2 =
+              (‖(qsUnitSymbolOnRows S' (rowD0 D) (uRep k.2) : ℂ)‖ *
+                ‖coreMatrix F k (rowD0 D)‖) ^ 2 := by
+                  change ‖(qsUnitSymbolOnRows S' (rowD0 D) (uRep k.2) : ℂ) *
+                    coreMatrix F k (rowD0 D)‖ ^ 2 = _
+                  rw [norm_mul]
+          _ = ‖coreMatrix F k (rowD0 D)‖ ^ 2 := by
+            rw [hunitNorm]
+            simp
+      _ = ∑ D0 ∈ rowCore F, ‖coreMatrix F k D0‖ ^ 2 := hrowImage F k
+      _ ≤ coreConst * ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2 := hcoreBound F k
+  have hcoeffTotal (F : Finset (HeightOneSpectrum (𝓞 K))) :
+      ∑ k ∈ keys, ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2 ≤
+        ∑ T ∈ cols, ‖z T‖ ^ 2 := by
+    calc
+      ∑ k ∈ keys, ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2 ≤
+          ∑ k ∈ keys, ∑ T ∈ colFiber k, ‖z T‖ ^ 2 := by
+        apply Finset.sum_le_sum
+        intro k hk
+        exact hzPartNorm F k
+      _ = ∑ T ∈ cols, ‖z T‖ ^ 2 := by
+        simpa [colFiber] using
+          (Finset.sum_fiberwise_of_maps_to hcolKeyMaps (fun T => ‖z T‖ ^ 2))
+  have hpatternEnergy (F : Finset (HeightOneSpectrum (𝓞 K))) :
+      ∑ D ∈ rowFiber F, ∑ k ∈ keys, ‖component F k D‖ ^ 2 ≤
+        coreConst * ∑ T ∈ cols, ‖z T‖ ^ 2 := by
+    calc
+      ∑ D ∈ rowFiber F, ∑ k ∈ keys, ‖component F k D‖ ^ 2 =
+          ∑ k ∈ keys, ∑ D ∈ rowFiber F, ‖component F k D‖ ^ 2 := by
+        rw [Finset.sum_comm]
+      _ ≤ ∑ k ∈ keys, coreConst * ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2 := by
+        apply Finset.sum_le_sum
+        intro k hk
+        exact hcomponentNorm F k
+      _ = coreConst * ∑ k ∈ keys, ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2 := by
+        exact (Finset.mul_sum keys (fun k => ∑ T0 ∈ colCore k, ‖zPart F k T0‖ ^ 2)
+          coreConst).symm
+      _ ≤ coreConst * ∑ T ∈ cols, ‖z T‖ ^ 2 :=
+        mul_le_mul_of_nonneg_left (hcoeffTotal F) hcoreConst
+  have hpatternsEnergy :
+      ∑ F ∈ patterns, ∑ D ∈ rowFiber F, ∑ k ∈ keys, ‖component F k D‖ ^ 2 ≤
+        (patterns.card : ℝ) * coreConst * ∑ T ∈ cols, ‖z T‖ ^ 2 := by
+    calc
+      ∑ F ∈ patterns, ∑ D ∈ rowFiber F, ∑ k ∈ keys, ‖component F k D‖ ^ 2 ≤
+          ∑ F ∈ patterns, coreConst * ∑ T ∈ cols, ‖z T‖ ^ 2 :=
+        Finset.sum_le_sum fun F hF => hpatternEnergy F
+      _ = (patterns.card : ℝ) * coreConst * ∑ T ∈ cols, ‖z T‖ ^ 2 := by
+        simp [Finset.sum_const, nsmul_eq_mul]
+        ring
+  have henergy :
+      ∑ D ∈ rows, ‖∑ T ∈ cols, z T * (qsQuadSymbol D (gen T) : ℂ)‖ ^ 2 ≤
+        (keys.card : ℝ) * (patterns.card : ℝ) * coreConst *
+          ∑ T ∈ cols, ‖z T‖ ^ 2 := by
+    calc
+      ∑ D ∈ rows, ‖∑ T ∈ cols, z T * (qsQuadSymbol D (gen T) : ℂ)‖ ^ 2 =
+          ∑ F ∈ patterns, ∑ D ∈ rowFiber F,
+            ‖∑ T ∈ cols, z T * (qsQuadSymbol D (gen T) : ℂ)‖ ^ 2 := by
+        simpa [rowFiber, rowPattern] using
+          (Finset.sum_fiberwise_of_maps_to hrowPatternMaps
+            (fun D => ‖∑ T ∈ cols, z T * (qsQuadSymbol D (gen T) : ℂ)‖ ^ 2)).symm
+      _ ≤ ∑ F ∈ patterns, ∑ D ∈ rowFiber F,
+            (keys.card : ℝ) * ∑ k ∈ keys, ‖component F k D‖ ^ 2 := by
+        apply Finset.sum_le_sum
+        intro F hF
+        apply Finset.sum_le_sum
+        intro D hD
+        rw [hinnerDecomp D (Finset.mem_filter.mp hD).1]
+        rw [(Finset.mem_filter.mp hD).2]
+        exact qs_norm_sum_sq_le_card_NQ1 keys (fun k => component F k D)
+      _ = (keys.card : ℝ) *
+            ∑ F ∈ patterns, ∑ D ∈ rowFiber F, ∑ k ∈ keys, ‖component F k D‖ ^ 2 := by
+        calc
+          _ = ∑ F ∈ patterns,
+                (keys.card : ℝ) * ∑ D ∈ rowFiber F, ∑ k ∈ keys, ‖component F k D‖ ^ 2 := by
+              apply Finset.sum_congr rfl
+              intro F hF
+              exact (Finset.mul_sum (rowFiber F)
+                (fun D => ∑ k ∈ keys, ‖component F k D‖ ^ 2) (keys.card : ℝ)).symm
+          _ = _ := (Finset.mul_sum patterns
+                (fun F => ∑ D ∈ rowFiber F, ∑ k ∈ keys, ‖component F k D‖ ^ 2)
+                (keys.card : ℝ)).symm
+      _ ≤ (keys.card : ℝ) *
+            ((patterns.card : ℝ) * coreConst * ∑ T ∈ cols, ‖z T‖ ^ 2) :=
+        mul_le_mul_of_nonneg_left hpatternsEnergy (by positivity)
+      _ = (keys.card : ℝ) * (patterns.card : ℝ) * coreConst *
+            ∑ T ∈ cols, ‖z T‖ ^ 2 := by ring
+  have henergyEq :
+      (keys.card : ℝ) * (patterns.card : ℝ) * coreConst *
+          ∑ T ∈ cols, ‖z T‖ ^ 2 =
+        C * (Cmax + Dmax) * (Cmax * Dmax) ^ ε * ∑ T ∈ cols, ‖z T‖ ^ 2 := by
+    dsimp [C, coreConst]
+    ring
+  rw [← henergyEq]
+  exact henergy
 
 /-- The narrow theorem in the mirrored vocabulary (glue, proved here from the parts); the
 frozen `narrow_quadratic_large_sieve` is this statement up to unfolding the copied
