@@ -111,4 +111,61 @@ theorem qs_nq0_equal_rayclass_generator
     (ArtinPrimitiveRoots.Hecke.rayPrincipalIdealSubgroupInPrimeTo_mem_iff m (pI / pJ)).mp hmem
   exact ⟨x, hx, hprincipal⟩
 
+
+/-- Exterior generators differ from a principal quotient generator by an S-unit. -/
+theorem qs_nq0_generator_ratio_sunit
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (Sd : SData K CE condη) (I J : Ideal (𝓞 K)) (a b x : Kˣ)
+    (ha : Sd.IsGen (a : K) I) (hb : Sd.IsGen (b : K) J)
+    (hx : toPrincipalIdeal (𝓞 K) K x =
+      ArtinPrimitiveRoots.Hecke.idealUnit I ha.1.1 /
+        ArtinPrimitiveRoots.Hecke.idealUnit J hb.1.1) :
+    a / b / x ∈ Sd.US := by
+  have hprincipal : FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (x : K) =
+      (I : FractionalIdeal (nonZeroDivisors (𝓞 K)) K) /
+        (J : FractionalIdeal (nonZeroDivisors (𝓞 K)) K) := by
+    have h := congrArg (fun U : ClassFieldTheory.NumberFieldFractionalIdealGroup K =>
+      (U : FractionalIdeal (nonZeroDivisors (𝓞 K)) K)) hx
+    simpa only [coe_toPrincipalIdeal, Units.val_div_eq_div_val,
+      ArtinPrimitiveRoots.Hecke.idealUnit, Units.val_mk0] using h
+  have hdiv (v : FinPlace K) (L M : FractionalIdeal (nonZeroDivisors (𝓞 K)) K)
+      (hL : L ≠ 0) (hM : M ≠ 0) :
+      FractionalIdeal.count K v (L / M) =
+        FractionalIdeal.count K v L - FractionalIdeal.count K v M := by
+    rw [div_eq_mul_inv, FractionalIdeal.count_mul K v hL (inv_ne_zero hM),
+      FractionalIdeal.count_inv]
+    ring
+  change ∀ v : FinPlace K, v ∉ Sd.Sf → v.valuation K ((a / b / x : Kˣ) : K) = 1
+  intro v hv
+  have hcountx : FractionalIdeal.count K v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (x : K)) =
+      FractionalIdeal.count K v (I : FractionalIdeal (nonZeroDivisors (𝓞 K)) K) -
+        FractionalIdeal.count K v (J : FractionalIdeal (nonZeroDivisors (𝓞 K)) K) := by
+    rw [hprincipal]
+    exact hdiv v _ _ (FractionalIdeal.coeIdeal_ne_zero.mpr ha.1.1)
+      (FractionalIdeal.coeIdeal_ne_zero.mpr hb.1.1)
+  have hcount (c d : Kˣ) : FractionalIdeal.count K v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) ((c / d : Kˣ) : K)) =
+      FractionalIdeal.count K v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (c : K)) -
+        FractionalIdeal.count K v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (d : K)) := by
+    rw [Units.val_div_eq_div_val, ← FractionalIdeal.spanSingleton_div_spanSingleton]
+    exact hdiv v _ _ (FractionalIdeal.spanSingleton_ne_zero_iff.mpr c.ne_zero)
+      (FractionalIdeal.spanSingleton_ne_zero_iff.mpr d.ne_zero)
+  have hzero : FractionalIdeal.count K v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) ((a / b / x : Kˣ) : K)) = 0 := by
+    rw [hcount (a / b) x, hcount a b, ha.2.2 v hv, hb.2.2 v hv, hcountx]
+    ring
+  have hlog := qs_nq0_count_spanSingleton_eq_neg_log_valuation v
+    ((a / b / x : Kˣ) : K) (a / b / x).ne_zero
+  rw [hzero] at hlog
+  have hzlog : WithZero.log (v.valuation K ((a / b / x : Kˣ) : K)) = 0 :=
+    neg_eq_zero.mp hlog.symm
+  calc
+    v.valuation K ((a / b / x : Kˣ) : K) =
+        WithZero.exp (WithZero.log (v.valuation K ((a / b / x : Kˣ) : K))) :=
+      (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr (a / b / x).ne_zero)).symm
+    _ = 1 := by rw [hzlog, WithZero.exp_zero]
+
 end ArtinPrimitiveRoots.A2
