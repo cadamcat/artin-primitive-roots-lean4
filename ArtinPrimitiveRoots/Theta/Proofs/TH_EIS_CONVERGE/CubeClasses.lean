@@ -65,4 +65,50 @@ theorem finite_power_fiber_classes {A B : Type*} [CommGroup A] [CommGroup B]
       rw [hu, ← mul_assoc, map_mul, hp, mul_one]
     _ = p a := by simp only [ha, map_mul, hp, one_mul]
 
+open scoped NumberField nonZeroDivisors in
+/-- Shifted power fibers of principal fractional ideals have finitely many rational power classes. -/
+theorem finite_principal_power_fiber_classes (F : Type*) [Field F] [NumberField F]
+    (n : ℕ) (hn : n ≠ 0) (r : (FractionalIdeal (𝓞 F)⁰ F)ˣ) :
+    Set.Finite ((QuotientGroup.mk' (powMonoidHom n : Fˣ →* Fˣ).range) ''
+      {a : Fˣ | ∃ J : (FractionalIdeal (𝓞 F)⁰ F)ˣ,
+        toPrincipalIdeal (𝓞 F) F a = J ^ n * r}) := by
+  classical
+  let φ : Fˣ →* (FractionalIdeal (𝓞 F)⁰ F)ˣ := toPrincipalIdeal (𝓞 F) F
+  let j : (𝓞 F)ˣ →* φ.ker :=
+    { toFun := fun u => ⟨Units.map (algebraMap (𝓞 F) F).toMonoidHom u, by
+        apply MonoidHom.mem_ker.mpr
+        change toPrincipalIdeal (𝓞 F) F (Units.map (algebraMap (𝓞 F) F).toMonoidHom u) = 1
+        apply Units.ext
+        simp only [coe_toPrincipalIdeal, Units.val_one, Units.coe_map]
+        rw [← FractionalIdeal.spanSingleton_one (S := (𝓞 F)⁰)]
+        apply FractionalIdeal.spanSingleton_eq_spanSingleton.mpr
+        refine ⟨u⁻¹, ?_⟩
+        simp [Units.smul_def, Algebra.smul_def]⟩
+      map_one' := by apply Subtype.ext; exact (Units.map _).map_one
+      map_mul' := by intro u v; apply Subtype.ext; exact (Units.map _).map_mul u v }
+  have hj : Function.Surjective j := by
+    intro k
+    have hk : toPrincipalIdeal (𝓞 F) F k.val = 1 := k.property
+    have hspan : FractionalIdeal.spanSingleton (𝓞 F)⁰ (k.val : F) =
+        FractionalIdeal.spanSingleton (𝓞 F)⁰ (1 : F) := by
+      have h := congrArg (fun J : (FractionalIdeal (𝓞 F)⁰ F)ˣ => (J : FractionalIdeal (𝓞 F)⁰ F)) hk
+      simpa only [coe_toPrincipalIdeal, Units.val_one, FractionalIdeal.spanSingleton_one] using h
+    obtain ⟨u, hu⟩ := FractionalIdeal.spanSingleton_eq_spanSingleton.mp hspan
+    have hue : Units.map (algebraMap (𝓞 F) F).toMonoidHom u * k.val = 1 := by
+      apply Units.ext
+      change algebraMap (𝓞 F) F (u : 𝓞 F) * (k.val : F) = 1
+      simpa only [Units.smul_def, Algebra.smul_def] using hu
+    refine ⟨u⁻¹, ?_⟩
+    apply Subtype.ext
+    change Units.map (algebraMap (𝓞 F) F).toMonoidHom (u⁻¹) = k.val
+    apply mul_left_cancel (a := Units.map (algebraMap (𝓞 F) F).toMonoidHom u)
+    rw [map_inv, mul_inv_cancel, hue]
+  let : Group.FG (𝓞 F)ˣ := Group.fg_iff_monoid_fg.mpr inferInstance
+  let : Group.FG φ.ker := Group.fg_of_surjective (f := j) hj
+  let : Finite ((FractionalIdeal (𝓞 F)⁰ F)ˣ ⧸ φ.range) :=
+    Finite.of_equiv (ClassGroup (𝓞 F)) (ClassGroup.equiv (R := 𝓞 F) F).toEquiv
+  let : (powMonoidHom n : φ.ker →* φ.ker).range.FiniteIndex :=
+    Subgroup.finiteIndex_range_powMonoidHom_of_fg φ.ker hn
+  exact finite_power_fiber_classes φ n r
+
 end ArtinPrimitiveRoots.A1.Theta
