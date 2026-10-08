@@ -3400,6 +3400,69 @@ theorem local_scalar_ideal_periods_of_nonzero
   rw [hZmul, heval, heval] at hper
   exact mul_right_cancel₀ hB hper
 
+/-- An identically zero scalar tensor has a zero finite exceptional or complex factor. -/
+theorem scalarOf_zero_has_zero_factor
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s)
+    (hzero : ∀ g : P.tc.G, scalarOf P G Fs.f Fs.fC g = 0) :
+    (∃ v : FinPlace F, v ∈ Fs.T0 ∧
+      ∀ k : (P.loc v).L, G.lam v (Fs.f v k) = 0) ∨
+    (∃ w : InfinitePlace F, ∀ k : PGL2 ℂ, Fs.fC w k = 0) := by
+  classical
+  by_contra hnone
+  have hfin : ∀ v : Fs.T0, ∃ a : (P.loc v.1).L,
+      G.lam v.1 (Fs.f v.1 a) ≠ 0 := by
+    intro v
+    by_contra hn
+    push_neg at hn
+    exact hnone (Or.inl ⟨v.1, v.property, hn⟩)
+  have harch : ∀ w : InfinitePlace F, ∃ k : PGL2 ℂ, Fs.fC w k ≠ 0 := by
+    intro w
+    by_contra hn
+    push_neg at hn
+    exact hnone (Or.inr ⟨w, hn⟩)
+  choose a ha using hfin
+  choose k hk using harch
+  let lf (v : FinPlace F) : (P.loc v).L :=
+    if hv : v ∈ Fs.T0 then a ⟨v, hv⟩ else 1
+  have hrestricted :
+      Set.Finite {v : FinPlace F | ∃ hv : v ∉ S.Sf, lf v ∉ (P.tame v hv).Kmax} := by
+    apply Fs.T0.finite_toSet.subset
+    intro v hv
+    by_contra hvT
+    change v ∉ Fs.T0 at hvT
+    obtain ⟨hvS, hnot⟩ := hv
+    apply hnot
+    simpa only [lf, dif_neg hvT] using (P.tame v hvS).Kmax.one_mem
+  obtain ⟨r, hrF, hrC⟩ := P.comp_surj lf k hrestricted
+  let f (v : FinPlace F) : ℂ := G.lam v (Fs.f v (P.compF v r))
+  have hout (v : FinPlace F) (hv : v ∉ Fs.T0) : f v = 1 := by
+    dsimp only [f]
+    rw [hrF]
+    simp only [lf, dif_neg hv]
+    rw [(Fs.f_sph v hv).1]
+    simpa using G.lam_tame v (fun h => hv (Fs.sub h)) 0
+  have hprod : (∏ᶠ v, f v) = ∏ v ∈ Fs.T0, f v :=
+    finprod_eq_prod_of_mulSupport_subset f (Function.mulSupport_subset_iff'.2 hout)
+  have hlocalNe : (∏ v ∈ Fs.T0, f v) ≠ 0 := by
+    apply Finset.prod_ne_zero_iff.mpr
+    intro v hv
+    dsimp only [f]
+    rw [hrF]
+    simp only [lf, dif_pos hv]
+    exact ha ⟨v, hv⟩
+  have harchNe : (∏ w, Fs.fC w (P.compC w r)) ≠ 0 := by
+    apply Finset.prod_ne_zero_iff.mpr
+    intro w hw
+    rw [hrC]
+    exact hk w
+  have hne : scalarOf P G Fs.f Fs.fC (P.q r) ≠ 0 := by
+    rw [(scalarOf_q P G Fs r).2]
+    change (∏ᶠ v, f v) * (∏ w, Fs.fC w (P.compC w r)) ≠ 0
+    rw [hprod]
+    exact mul_ne_zero hlocalNe harchNe
+  exact hne (hzero (P.q r))
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
