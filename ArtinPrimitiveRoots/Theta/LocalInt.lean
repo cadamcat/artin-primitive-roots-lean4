@@ -1075,6 +1075,226 @@ theorem jacquetC_spherical (y : ℂˣ) :
                 (besselK (1 / 3) (4 * Real.pi * r) : ℂ)) := by ring
         _ = _ := by rw [hpC]; ring
 
+private theorem sphC_bottom_norm_pos (g : GL (Fin 2) ℂ) :
+    0 < Complex.normSq ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0) +
+      Complex.normSq ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1) := by
+  let M : Matrix (Fin 2) (Fin 2) ℂ := (g : Matrix (Fin 2) (Fin 2) ℂ)
+  have hrow : M 1 0 ≠ 0 ∨ M 1 1 ≠ 0 := by
+    by_contra h
+    push_neg at h
+    apply g.det_ne_zero
+    simp [Matrix.det_fin_two, M, h.1, h.2]
+  rcases hrow with hc | hd
+  · have hcpos : 0 < Complex.normSq (M 1 0) := Complex.normSq_pos.mpr hc
+    have hdnonneg : 0 ≤ Complex.normSq (M 1 1) := Complex.normSq_nonneg _
+    simpa [M] using add_pos_of_pos_of_nonneg hcpos hdnonneg
+  · have hdpos : 0 < Complex.normSq (M 1 1) := Complex.normSq_pos.mpr hd
+    have hcnonneg : 0 ≤ Complex.normSq (M 1 0) := Complex.normSq_nonneg _
+    simpa [M, add_comm] using add_pos_of_pos_of_nonneg hdpos hcnonneg
+
+private theorem sphC_right_n_mk (s : ℂ) (g : GL (Fin 2) ℂ) (x : ℂ) :
+    sphC s (QuotientGroup.mk g * nC x) =
+      (↑(‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖ /
+        (‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+          ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0 * x +
+            (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2)) : ℂ) ^ (1 + 2 * s) := by
+  have hq : QuotientGroup.mk g * nC x = QuotientGroup.mk (g * upperM ℂ x) := by
+    change QuotientGroup.mk g * QuotientGroup.mk (upperM ℂ x) = _
+    simp only [QuotientGroup.mk_mul]
+  rw [hq, sphC_mk, sphericalC]
+  have hdet : ‖Matrix.det ((g * upperM ℂ x : GL (Fin 2) ℂ) :
+      Matrix (Fin 2) (Fin 2) ℂ)‖ = ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖ := by
+    change ‖((Matrix.GeneralLinearGroup.det (g * upperM ℂ x) : ℂˣ) : ℂ)‖ = _
+    rw [map_mul]
+    simp [upperM]
+  have hrow :
+      ‖((g * upperM ℂ x : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖((g * upperM ℂ x : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 =
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0 * x +
+          (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 := by
+    simp [upperM, Matrix.mul_apply, Fin.sum_univ_two]
+  rw [hdet, hrow]
+
+private theorem sphC_right_n_fderiv (s : ℂ) (g : GL (Fin 2) ℂ) (v : ℂ) :
+    fderiv ℝ (fun z : ℂ => sphC s (QuotientGroup.mk g * nC z)) 0 v =
+      -((1 + 2 * s) / ((Complex.normSq ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0) +
+          Complex.normSq ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1) : ℝ) : ℂ)) *
+        sphericalC s g *
+        ((2 * (((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0) * v *
+          star ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re : ℝ) : ℂ) := by
+  let c : ℂ := (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0
+  let d : ℂ := (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1
+  let B : ℝ := Complex.normSq c + Complex.normSq d
+  let N : ℝ := ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖
+  let lam : ℂ := 1 + 2 * s
+  let D : ℂ → ℝ := fun z => ‖c‖ ^ 2 + ‖z * c + d‖ ^ 2
+  let R : ℂ → ℝ := fun z => N / D z
+  let H : ℂ → ℂ := fun z => ((R z : ℝ) : ℂ) ^ lam
+  have hBpos : 0 < B := by
+    simpa [B, c, d] using sphC_bottom_norm_pos g
+  have hBne : B ≠ 0 := ne_of_gt hBpos
+  have hNpos : 0 < N := by
+    dsimp [N]
+    exact norm_pos_iff.mpr g.det_ne_zero
+  have hD0 : D 0 = B := by
+    simp [D, B, c, d, Complex.normSq_eq_norm_sq]
+  have hR0 : R 0 = N / B := by simp [R, hD0]
+  have hR0pos : 0 < R 0 := by rw [hR0]; exact div_pos hNpos hBpos
+  have hf (z : ℂ) : sphC s (QuotientGroup.mk g * nC z) = H z := by
+    rw [sphC_right_n_mk]
+    simpa [H, R, D, N, c, d, lam, Complex.normSq_eq_norm_sq, mul_comm]
+  have hfun : (fun z : ℂ => sphC s (QuotientGroup.mk g * nC z)) = H := by
+    funext z
+    exact hf z
+  rw [hfun]
+  by_cases hlamzero : lam = 0
+  · have hconst : H = fun _ : ℂ => 1 := by
+      funext z
+      dsimp [H]
+      rw [hlamzero, Complex.cpow_zero]
+    rw [hconst]
+    rw [show (1 : ℂ) + 2 * s = 0 by simpa [lam] using hlamzero]
+    simp
+  · have hlamne : lam ≠ 0 := hlamzero
+    have haff : DifferentiableAt ℝ (fun z : ℂ => z * c + d) 0 := by fun_prop
+    have hDdiff : DifferentiableAt ℝ D 0 := by
+      unfold D
+      exact (DifferentiableAt.norm_sq (𝕜 := ℂ) haff).const_add (‖c‖ ^ 2)
+    have hD0ne : D 0 ≠ 0 := by rw [hD0]; exact hBne
+    have hRdiff : DifferentiableAt ℝ R 0 := by
+      unfold R
+      fun_prop (disch := aesop)
+    have hQ : DifferentiableAt ℝ (fun x : ℝ => (x : ℂ) ^ lam) (R 0) :=
+      (hasDerivAt_ofReal_cpow_const (ne_of_gt hR0pos) hlamne).differentiableAt
+    have hHdiff : DifferentiableAt ℝ H 0 := by
+      change DifferentiableAt ℝ ((fun x : ℝ => (x : ℂ) ^ lam) ∘ R) 0
+      exact hQ.comp 0 hRdiff
+    have hv : HasDerivAt (fun t : ℝ => t • v) v 0 := by
+      simpa using (hasDerivAt_id (0 : ℝ)).smul_const v
+    have hcomp : HasDerivAt (fun t : ℝ => H (t • v)) (fderiv ℝ H 0 v) 0 :=
+      hHdiff.hasFDerivAt.comp_hasDerivAt_of_eq (0 : ℝ) hv (by simp)
+    have hlin : HasDerivAt (fun t : ℝ => (t • v) * c + d) (v * c) 0 := by
+      simpa using (hv.mul_const c).add_const d
+    have hdenLine : HasDerivAt (fun t : ℝ => D (t • v))
+        (2 * (v * c * star d).re) 0 := by
+      simpa [D, Complex.inner] using hlin.norm_sq.const_add (‖c‖ ^ 2)
+    have hRLine := (hasDerivAt_const (0 : ℝ) N).div hdenLine
+      (by simpa [hD0] using hBne)
+    have hbaseEq : R 0 = (fun t : ℝ => N / D (t • v)) 0 := by simp [R, hD0]
+    have hpow := HasDerivAt.scomp_of_eq (𝕜 := ℝ) (x := (0 : ℝ))
+      (hg := hasDerivAt_ofReal_cpow_const (ne_of_gt hR0pos) hlamne)
+      (hh := hRLine) (hy := hbaseEq)
+    have hpath : (fun t : ℝ => H (t • v)) =
+        (fun t : ℝ => ((N / D (t • v) : ℝ) : ℂ) ^ lam) := by
+      funext t
+      simp [H, R]
+    have hcompPowFun : (fun t : ℝ => H (t • v)) =
+        ((fun y : ℝ => (y : ℂ) ^ lam) ∘
+          ((fun _ : ℝ => N) / fun t : ℝ => D (t • v))) := by
+      funext t
+      simp [H, R]
+    have hderiv : fderiv ℝ H 0 v =
+        ((0 * B - N * (2 * (v * c * star d).re)) / B ^ 2 : ℝ) •
+          (lam * ((R 0 : ℝ) : ℂ) ^ (lam - 1)) := by
+      calc
+        fderiv ℝ H 0 v = deriv (fun t : ℝ => H (t • v)) 0 := by
+          simpa using hcomp.deriv.symm
+      _ = deriv ((fun y : ℝ => (y : ℂ) ^ lam) ∘
+            ((fun _ : ℝ => N) / fun t : ℝ => D (t • v))) 0 :=
+        congrArg (fun f : ℝ → ℂ => deriv f 0) hcompPowFun
+      _ = _ := by
+        have h := hpow.deriv
+        rw [zero_smul, hD0] at h
+        exact h
+    have hderiv' : fderiv ℝ H 0 v =
+        lam * ((R 0 : ℝ) : ℂ) ^ (lam - 1) *
+          ((0 * B - N * (2 * (v * c * star d).re)) / B ^ 2 : ℝ) := by
+      rw [hderiv]
+      calc
+        _ = (((0 * B - N * (2 * (v * c * star d).re)) / B ^ 2 : ℝ) : ℂ) *
+              (lam * ((R 0 : ℝ) : ℂ) ^ (lam - 1)) :=
+          RCLike.real_smul_eq_coe_mul _ _
+        _ = _ := by ring
+    have hpowMul : ((R 0 : ℝ) : ℂ) ^ (lam - 1) * ((R 0 : ℝ) : ℂ) =
+        ((R 0 : ℝ) : ℂ) ^ lam := by
+      calc
+        _ = ((R 0 : ℝ) : ℂ) ^ (lam - 1) * ((R 0 : ℝ) : ℂ) ^ (1 : ℂ) := by
+          rw [Complex.cpow_one]
+        _ = ((R 0 : ℝ) : ℂ) ^ ((lam - 1) + 1) := by
+          rw [← Complex.cpow_add _ _ (Complex.ofReal_ne_zero.mpr hR0pos.ne')]
+        _ = _ := by congr 1; ring
+    have hscalar :
+        lam * ((R 0 : ℝ) : ℂ) ^ (lam - 1) *
+            ((0 * B - N * (2 * (v * c * star d).re)) / B ^ 2 : ℝ) =
+        -(lam / (B : ℂ)) * sphericalC s g *
+          ((2 * (v * c * star d).re : ℝ) : ℂ) := by
+      let delta : ℝ := 2 * (v * c * star d).re
+      have hreal : (0 * B - N * delta) / B ^ 2 = (-R 0 / B) * delta := by
+        rw [hR0]
+        field_simp [hBne]
+        ring
+      have hrealC : (((0 * B - N * delta) / B ^ 2 : ℝ) : ℂ) =
+          -((R 0 : ℝ) : ℂ) / (B : ℂ) * (delta : ℂ) := by
+        have hc := congrArg (fun x : ℝ => (x : ℂ)) hreal
+        simpa [Complex.ofReal_div, Complex.ofReal_mul] using hc
+      have hsph : sphericalC s g = ((R 0 : ℝ) : ℂ) ^ lam := by
+        rw [hR0]
+        unfold sphericalC
+        dsimp [N, B, c, d]
+        simp only [Complex.normSq_eq_norm_sq]
+        rfl
+      rw [hrealC, hsph]
+      calc
+        _ = -(lam / (B : ℂ)) *
+              (((R 0 : ℝ) : ℂ) ^ (lam - 1) * ((R 0 : ℝ) : ℂ)) * (delta : ℂ) := by ring
+        _ = _ := by rw [hpowMul]
+    change fderiv ℝ H 0 v = _
+    rw [hderiv', hscalar]
+    simp only [B, c, d, lam]
+    rw [mul_comm v ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0)]
+
+private theorem derivVecC_spherical_mk (m : ℤ) (s : ℂ) (g : GL (Fin 2) ℂ) :
+    derivVecC m (sphC s) (QuotientGroup.mk g) =
+      -(2 * (1 + 2 * s) /
+          ((Complex.normSq ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0) +
+            Complex.normSq ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1) : ℝ) : ℂ)) *
+        sphericalC s g *
+          (Complex.ofReal (((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0) *
+              star ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re +
+            (m : ℂ) * Complex.I * Complex.ofReal ((((g : Matrix (Fin 2) (Fin 2) ℂ) 1 0) *
+              star ((g : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).im)) := by
+  let c : ℂ := (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0
+  let d : ℂ := (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1
+  let B : ℝ := Complex.normSq c + Complex.normSq d
+  let z : ℂ := c * star d
+  let lam : ℂ := 1 + 2 * s
+  have hzI : (Complex.I * c * star d).re = -z.im := by
+    rw [mul_assoc]
+    simpa [z] using (RCLike.I_mul_re (z := c * star d))
+  have h1' : fderiv ℝ (fun w : ℂ => sphC s (QuotientGroup.mk g * nC w)) 0 1 =
+      -(lam / (B : ℂ)) * sphericalC s g * ((2 * z.re : ℝ) : ℂ) := by
+    simpa [B, c, d, z, lam, one_mul] using sphC_right_n_fderiv s g 1
+  have hI' : fderiv ℝ (fun w : ℂ => sphC s (QuotientGroup.mk g * nC w)) 0 Complex.I =
+      -(lam / (B : ℂ)) * sphericalC s g * ((-2 * z.im : ℝ) : ℂ) := by
+    have hI0 : fderiv ℝ (fun w : ℂ => sphC s (QuotientGroup.mk g * nC w)) 0 Complex.I =
+        -(lam / (B : ℂ)) * sphericalC s g *
+          ((2 * (Complex.I * c * star d).re : ℝ) : ℂ) := by
+      simpa [B, c, d, lam] using sphC_right_n_fderiv s g Complex.I
+    calc
+      _ = -(lam / (B : ℂ)) * sphericalC s g *
+            ((2 * (Complex.I * c * star d).re : ℝ) : ℂ) := hI0
+      _ = _ := by rw [hzI]; push_cast; ring
+  unfold derivVecC
+  rw [h1', hI']
+  change -(lam / (B : ℂ)) * sphericalC s g * ((2 * z.re : ℝ) : ℂ) -
+      (m : ℂ) * Complex.I *
+        (-(lam / (B : ℂ)) * sphericalC s g * ((-2 * z.im : ℝ) : ℂ)) =
+      -(2 * lam / (B : ℂ)) * sphericalC s g *
+        (Complex.ofReal z.re + (m : ℂ) * Complex.I * Complex.ofReal z.im)
+  push_cast
+  ring_nf
+
 /-- **jq:complex-derivative** (eq:theta-complex-derivative, 03:292–312). -/
 theorem jacquetC_derivative (m : ℤ) (hm : m = 1 ∨ m = -1) (y : ℂˣ) :
     jacquetC (rtr (aC y) (derivVecC m (sphC (1 / 6)))) =
@@ -1083,9 +1303,38 @@ theorem jacquetC_derivative (m : ℤ) (hm : m = 1 ∨ m = -1) (y : ℂˣ) :
   sorry
 
 /-- **jq:complex-rotation**: `π(w) f_m = f_{-m}` (`Ad(w)E_a ≡ E_{ā}` modulo `𝔰𝔲(2)`). -/
+private theorem sphericalC_right_w (s : ℂ) (g : GL (Fin 2) ℂ) :
+    sphericalC s (g * weylM ℂ) = sphericalC s g := by
+  have hdet :
+      ‖Matrix.det ((g * weylM ℂ : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ)‖ =
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖ := by
+    change ‖((Matrix.GeneralLinearGroup.det (g * weylM ℂ) : ℂˣ) : ℂ)‖ = _
+    rw [map_mul]
+    simp [weylM]
+  have hrow :
+      ‖((g * weylM ℂ : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖((g * weylM ℂ : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 =
+      ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 0‖ ^ 2 +
+        ‖(g : Matrix (Fin 2) (Fin 2) ℂ) 1 1‖ ^ 2 := by
+    simp [weylM, Matrix.mul_apply, Fin.sum_univ_two, add_comm]
+  unfold sphericalC
+  rw [hdet, hrow]
+
 theorem derivVecC_rotate (m : ℤ) (s : ℂ) :
     rtr wC (derivVecC m (sphC s)) = derivVecC (-m) (sphC s) := by
-  sorry
+  funext q
+  refine QuotientGroup.induction_on q ?_
+  intro g
+  change derivVecC m (sphC s) (QuotientGroup.mk g * wC) =
+    derivVecC (-m) (sphC s) (QuotientGroup.mk g)
+  have hq : QuotientGroup.mk g * wC = QuotientGroup.mk (g * weylM ℂ) := by
+    change QuotientGroup.mk g * QuotientGroup.mk (weylM ℂ) = _
+    simp only [QuotientGroup.mk_mul]
+  rw [hq, derivVecC_spherical_mk, derivVecC_spherical_mk, sphericalC_right_w]
+  simp [Matrix.GeneralLinearGroup.coe_mul, weylM, Matrix.mul_apply, Fin.sum_univ_two,
+    RCLike.star_def, Complex.conj_re, Complex.conj_im]
+  push_cast
+  ring_nf
 
 theorem derivVecC_isSection (m : ℤ) (s : ℂ) :
     IsSectionC s (derivVecC m (sphC s)) ∧ Continuous (derivVecC m (sphC s)) := by
