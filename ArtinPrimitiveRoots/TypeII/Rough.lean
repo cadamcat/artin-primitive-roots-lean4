@@ -3471,6 +3471,14 @@ private theorem rough_family_long_cancellation
       rw [hsumEq]
       exact hPolyNorm
 
+private structure RoughTypeIIData where
+  Hm : ℝ
+  Hn : ℝ
+  interval : Set ℕ
+  v : ℝ
+  beta : ℕ → ℂ
+  F : ℕ → ℂ
+
 /-- `prop:rough-type-ii` — `08-type-ii.tex:321-536`. Fix the parameters in the
 paper. Uniformly over admissible dyads, intervals, real twists, rough second-variable coefficients,
 and marked-invariant multipliers, the coefficient `roughCoefficient` has the Type II saving once
@@ -3506,7 +3514,577 @@ theorem rough_type_ii
                           roughCoefficient x γ v m * beta n * F (m * n - 1) *
                             (markedWeight x K a q_d (m * n - 1) : ℂ)‖ ≤
                         C' * (Hm * Hn) * Real.rpow (Real.log x) (-Dstar) := by
-  sorry
+  classical
+  let δ' := min δ (1 / 4 : ℝ)
+  have hδ'pos : 0 < δ' := by dsimp [δ']; positivity
+  have hδ'δ : δ' ≤ δ := by dsimp [δ']; exact min_le_left _ _
+  have hδ'quarter : δ' ≤ 1 / 4 := by dsimp [δ']; exact min_le_right _ _
+  have hδ'half : δ' < 1 / 2 := by linarith
+
+  let fillDiff := 1 - 2 * δ'
+  have hfillDiff : 0 < fillDiff := by dsimp [fillDiff]; linarith
+  obtain ⟨Tfill, hTfill⟩ := Filter.eventually_atTop.mp
+    ((tendsto_rpow_atTop hfillDiff).eventually_ge_atTop (1 / c₁))
+  have hfill_bound : ∀ x : ℝ, 2 ≤ x → Tfill ≤ x →
+      Real.rpow x δ' ≤ Real.sqrt (c₁ * x) := by
+    intro x hx₂ hxT
+    have hxpos : 0 < x := by linarith
+    have hpowlower := hTfill x hxT
+    have hfactor : 1 ≤ c₁ * Real.rpow x fillDiff := by
+      have h := (div_le_iff₀ hc₁).mp hpowlower
+      simpa [mul_comm] using h
+    have hpowMul : Real.rpow x fillDiff * Real.rpow x (2 * δ') = x := by
+      change x ^ fillDiff * x ^ (2 * δ') = x
+      rw [← Real.rpow_add hxpos fillDiff (2 * δ')]
+      have he : fillDiff + 2 * δ' = 1 := by dsimp [fillDiff]; ring
+      rw [he, Real.rpow_one]
+    have hpowSq : (Real.rpow x δ') ^ 2 = Real.rpow x (2 * δ') := by
+      calc
+        (Real.rpow x δ') ^ 2 = Real.rpow x δ' * Real.rpow x δ' := by ring
+        _ = Real.rpow x (δ' + δ') := by
+          change x ^ δ' * x ^ δ' = x ^ (δ' + δ')
+          exact (Real.rpow_add hxpos δ' δ').symm
+        _ = Real.rpow x (2 * δ') := by congr 1 <;> ring
+    have hsq : (Real.rpow x δ') ^ 2 ≤ c₁ * x := by
+      rw [hpowSq]
+      calc
+        Real.rpow x (2 * δ') = 1 * Real.rpow x (2 * δ') := by ring
+        _ ≤ (c₁ * Real.rpow x fillDiff) * Real.rpow x (2 * δ') :=
+          mul_le_mul_of_nonneg_right hfactor (Real.rpow_nonneg (by linarith : 0 ≤ x) _)
+        _ = c₁ * x := by rw [mul_assoc, hpowMul]
+    exact Real.le_sqrt_of_sq_le hsq
+
+  have hL76 : Filter.Tendsto
+      (fun x : ℝ => Real.rpow (Real.log x) (76 / 100 : ℝ))
+      Filter.atTop Filter.atTop :=
+    (tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 76 / 100)).comp
+      Real.tendsto_log_atTop
+  obtain ⟨Tcut, hTcut⟩ := Filter.eventually_atTop.mp
+    (hL76.eventually_ge_atTop (1 / γ))
+  have hcut_bound : ∀ x : ℝ, 2 ≤ x → Tcut ≤ x →
+      roughCutoff x ≤ Real.rpow x γ := by
+    intro x hx₂ hxT
+    have hxpos : 0 < x := by linarith
+    have hLpos : 0 < Real.log x := Real.log_pos (by linarith)
+    have hLlarge := hTcut x hxT
+    have hfactor : 1 ≤ γ * Real.rpow (Real.log x) (76 / 100 : ℝ) := by
+      have h := (div_le_iff₀ hγ).mp hLlarge
+      simpa [mul_comm] using h
+    have hsplit : Real.rpow (Real.log x) (76 / 100 : ℝ) *
+        Real.rpow (Real.log x) (24 / 100 : ℝ) = Real.log x := by
+      change (Real.log x) ^ (76 / 100 : ℝ) *
+        (Real.log x) ^ (24 / 100 : ℝ) = Real.log x
+      rw [← Real.rpow_add hLpos]
+      rw [show (76 / 100 + 24 / 100 : ℝ) = 1 by norm_num]
+      exact Real.rpow_one _
+    have hpow24 : Real.rpow (Real.log x) (24 / 100 : ℝ) ≤
+        γ * Real.log x := by
+      have hmul := mul_le_mul_of_nonneg_right hfactor
+        (Real.rpow_nonneg hLpos.le (24 / 100 : ℝ))
+      calc
+        Real.rpow (Real.log x) (24 / 100 : ℝ) =
+            1 * Real.rpow (Real.log x) (24 / 100 : ℝ) := by ring
+        _ ≤ (γ * Real.rpow (Real.log x) (76 / 100 : ℝ)) *
+            Real.rpow (Real.log x) (24 / 100 : ℝ) := hmul
+        _ = γ * Real.log x := by rw [mul_assoc, hsplit]
+    calc
+      roughCutoff x = Real.exp (Real.rpow (Real.log x) (24 / 100 : ℝ)) := rfl
+      _ ≤ Real.exp (γ * Real.log x) := Real.exp_le_exp.mpr hpow24
+      _ = Real.rpow x γ := by
+        calc
+          Real.exp (γ * Real.log x) = Real.exp (Real.log x * γ) := by rw [mul_comm]
+          _ = Real.rpow x γ := (Real.rpow_def_of_pos hxpos γ).symm
+
+  have hroughCoefficient_support : ∀ x : ℝ, roughCutoff x ≤ Real.rpow x γ →
+      ∀ v : ℝ, ∀ m : ℕ, roughCoefficient x γ v m ≠ 0 →
+        roughAbove m (roughCutoff x) := by
+    intro x hcut v m hcoeff
+    by_contra hroughW
+    have hbad : ∃ p : ℕ, p.Prime ∧ p ∣ m ∧ (p : ℝ) ≤ roughCutoff x := by
+      unfold roughAbove at hroughW
+      push_neg at hroughW
+      exact hroughW
+    rcases hbad with ⟨p, hp, hpdvd, hpW⟩
+    have hnotγ : ¬ roughAbove m (Real.rpow x γ) := by
+      intro hrough
+      have hlt := hrough p hp hpdvd
+      have hle : (p : ℝ) ≤ Real.rpow x γ := hpW.trans hcut
+      exact (not_lt_of_ge hle) hlt
+    have hnotγ' : ¬ roughAbove m (x ^ γ) := by
+      change ¬ roughAbove m (Real.rpow x γ)
+      exact hnotγ
+    apply hcoeff
+    unfold roughCoefficient
+    simp [hnotγ', hroughW]
+
+  have hcontinuousMap : ContinuousOn (fun w : ℝ => (γ, w)) (Set.Icc wMin wMax) := by
+    fun_prop
+  have hmaps : Set.MapsTo (fun w : ℝ => (γ, w)) (Set.Icc wMin wMax)
+      {p : ℝ × ℝ | 0 < p.1 ∧ p.1 < p.2} := by
+    intro w hw
+    exact ⟨hγ, hγwMin.trans_le hw.1⟩
+  have hcontinuousDensity : ContinuousOn
+      (fun w : ℝ => roughDensity γ w) (Set.Icc wMin wMax) := by
+    have h := density_regularity.1.comp' hcontinuousMap hmaps
+    simpa using h
+  obtain ⟨Ddensity, hDdensity⟩ :=
+    isCompact_Icc.exists_bound_of_continuousOn hcontinuousDensity
+  let Bdensity := max Ddensity 1
+  have hBdensityPos : 0 < Bdensity := by dsimp [Bdensity]; positivity
+  have hDensityAbs : ∀ w : ℝ, w ∈ Set.Icc wMin wMax →
+      |roughDensity γ w| ≤ Bdensity := by
+    intro w hw
+    have h := hDdensity w hw
+    rw [Real.norm_eq_abs] at h
+    exact h.trans (le_max_left _ _)
+  let cM := Real.exp (-Real.eulerMascheroniConstant)
+  have hcM : 0 < cM := by dsimp [cM]; positivity
+  let coeffBound := 1 + 2 * Bdensity / cM
+  have hcoeffBoundPos : 0 < coeffBound := by dsimp [coeffBound]; positivity
+  obtain ⟨y₀, hy₀, hMertens⟩ :=
+    ArtinPrimitiveRoots.Ext.TypeIIInputs.mertens.2 (cM / 2) (by positivity)
+  have hWtendsto : Filter.Tendsto (fun x : ℝ => roughCutoff x)
+      Filter.atTop Filter.atTop := by
+    have hL := (tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 24 / 100)).comp
+      Real.tendsto_log_atTop
+    change Filter.Tendsto
+      (fun x : ℝ => Real.exp (Real.rpow (Real.log x) (24 / 100 : ℝ)))
+      Filter.atTop Filter.atTop
+    exact Real.tendsto_exp_atTop.comp hL
+  obtain ⟨Ty, hTy⟩ := Filter.eventually_atTop.mp
+    (hWtendsto.eventually_ge_atTop y₀)
+  obtain ⟨Tl, hTl⟩ := Filter.eventually_atTop.mp
+    (Real.tendsto_log_atTop.eventually_ge_atTop (1 : ℝ))
+  have hpowC : Filter.Tendsto
+      (fun x : ℝ => Real.rpow (Real.log x) C) Filter.atTop Filter.atTop :=
+    (tendsto_rpow_atTop hC).comp Real.tendsto_log_atTop
+  obtain ⟨TC, hTC⟩ := Filter.eventually_atTop.mp
+    (hpowC.eventually_ge_atTop coeffBound)
+  let Tcoeff := max 2 (max Ty (max Tl TC))
+  have hcoeff_bound : ∀ x : ℝ, Tcoeff ≤ x → ∀ v : ℝ, ∀ m : ℕ,
+      Real.log (m : ℝ) / Real.log x ∈ Set.Icc wMin wMax →
+        ‖roughCoefficient x γ v m‖ ≤ Real.rpow (Real.log x) C := by
+    intro x hx v m hw
+    have hx₂ : 2 ≤ x := le_trans (le_max_left 2 _) hx
+    have hTyCoeff : Ty ≤ Tcoeff := by
+      dsimp [Tcoeff]
+      exact le_trans (le_max_left Ty (max Tl TC)) (le_max_right 2 _)
+    have hTlCoeff : Tl ≤ Tcoeff := by
+      dsimp [Tcoeff]
+      exact le_trans (le_trans (le_max_left Tl TC) (le_max_right Ty _))
+        (le_max_right 2 _)
+    have hTCCoeff : TC ≤ Tcoeff := by
+      dsimp [Tcoeff]
+      exact le_trans (le_trans (le_max_right Tl TC) (le_max_right Ty _))
+        (le_max_right 2 _)
+    have hTyx : Ty ≤ x := hTyCoeff.trans hx
+    have hTlx : Tl ≤ x := hTlCoeff.trans hx
+    have hTCx : TC ≤ x := hTCCoeff.trans hx
+    have hxpos : 0 < x := by linarith
+    have hLpos : 0 < Real.log x := Real.log_pos (by linarith)
+    have hLone : 1 ≤ Real.log x := hTl x hTlx
+    let W := roughCutoff x
+    let V := roughSieveProduct W
+    have hWlarge : y₀ ≤ W := hTy x hTyx
+    have hlogW : Real.log W = Real.rpow (Real.log x) (24 / 100 : ℝ) := by
+      simp [W, roughCutoff]
+    have hlogWpos : 0 < Real.log W := by
+      rw [hlogW]
+      exact Real.rpow_pos_of_pos hLpos _
+    have hlogWle : Real.log W ≤ Real.log x := by
+      rw [hlogW]
+      simpa [Real.rpow_one] using
+        (Real.rpow_le_rpow_of_exponent_le hLone
+          (by norm_num : (24 / 100 : ℝ) ≤ 1))
+    have hMerr := hMertens W hWlarge
+    have hVlog : cM / 2 ≤ V * Real.log W := by
+      have h := abs_le.mp hMerr
+      dsimp [cM] at h ⊢
+      linarith
+    have hVpos : 0 < V := by
+      by_contra h
+      have hVnonpos : V ≤ 0 := le_of_not_gt h
+      have hnonpos : Real.log W * V ≤ 0 :=
+        mul_nonpos_of_nonneg_of_nonpos hlogWpos.le hVnonpos
+      have hnonpos' : V * Real.log W ≤ 0 := by simpa [mul_comm] using hnonpos
+      linarith [hVlog]
+    have hLV : cM / 2 ≤ Real.log x * V := by
+      calc
+        cM / 2 ≤ V * Real.log W := hVlog
+        _ ≤ V * Real.log x := mul_le_mul_of_nonneg_left hlogWle hVpos.le
+        _ = Real.log x * V := by ring
+    have hLVpos : 0 < Real.log x * V := lt_of_lt_of_le (by positivity) hLV
+    have hLVbound :
+        |roughDensity γ (Real.log (m : ℝ) / Real.log x) / (Real.log x * V)| ≤
+          2 * Bdensity / cM := by
+      have hdens := hDensityAbs (Real.log (m : ℝ) / Real.log x) hw
+      rw [abs_div, abs_of_pos hLVpos]
+      calc
+        |roughDensity γ (Real.log (m : ℝ) / Real.log x)| / (Real.log x * V) ≤
+            Bdensity / (Real.log x * V) :=
+              div_le_div_of_nonneg_right hdens hLVpos.le
+        _ ≤ Bdensity / (cM / 2) :=
+              div_le_div_of_nonneg_left hBdensityPos.le (by positivity) hLV
+        _ = 2 * Bdensity / cM := by field_simp [ne_of_gt hcM] <;> ring
+    have hphase : ‖Complex.exp (Complex.I * v * Real.log (m : ℝ))‖ = 1 := by
+      have harg : Complex.I * (v : ℂ) * (Real.log (m : ℝ) : ℂ) =
+          Complex.I * ((v * Real.log (m : ℝ) : ℝ) : ℂ) := by
+        push_cast
+        ring
+      rw [harg, Complex.norm_exp_I_mul_ofReal]
+    let e₁ : ℝ := if roughAbove m (Real.rpow x γ) then 1 else 0
+    let e₂ : ℝ := if roughAbove m W then 1 else 0
+    let d : ℝ := roughDensity γ (Real.log (m : ℝ) / Real.log x) /
+      (Real.log x * V)
+    have he₁ : |e₁| ≤ 1 := by dsimp [e₁]; split_ifs <;> norm_num
+    have he₂ : |e₂| ≤ 1 := by dsimp [e₂]; split_ifs <;> norm_num
+    have hd : |d| ≤ 2 * Bdensity / cM := by simpa [d] using hLVbound
+    have hscalar :
+        (if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0) -
+          roughDensity γ (Real.log (m : ℝ) / Real.log x) /
+            (Real.log x * roughSieveProduct (roughCutoff x)) *
+              (if roughAbove m W then (1 : ℝ) else 0) = e₁ - d * e₂ := by
+      rfl
+    have hEqNorm : ‖roughCoefficient x γ v m‖ = |e₁ - d * e₂| := by
+      calc
+        ‖roughCoefficient x γ v m‖ =
+            ‖Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+              (((if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0) -
+                roughDensity γ (Real.log (m : ℝ) / Real.log x) /
+                  (Real.log x * roughSieveProduct (roughCutoff x)) *
+                    (if roughAbove m (roughCutoff x) then (1 : ℝ) else 0)) : ℂ)‖ := rfl
+        _ = ‖Complex.exp (Complex.I * v * Real.log (m : ℝ))‖ *
+              ‖(((if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0) -
+                roughDensity γ (Real.log (m : ℝ) / Real.log x) /
+                  (Real.log x * roughSieveProduct (roughCutoff x)) *
+                    (if roughAbove m (roughCutoff x) then (1 : ℝ) else 0)) : ℂ)‖ :=
+                norm_mul _ _
+        _ = |e₁ - d * e₂| := by
+              rw [hphase, ← Complex.ofReal_mul, ← Complex.ofReal_div,
+                ← Complex.ofReal_mul, ← Complex.ofReal_sub,
+                Complex.norm_real, Real.norm_eq_abs, one_mul, hscalar]
+    have hamp : |e₁ - d * e₂| ≤ coeffBound := by
+      calc
+        |e₁ - d * e₂| ≤ |e₁| + |d * e₂| := by
+          simpa [sub_eq_add_neg, neg_mul] using abs_add_le e₁ (-d * e₂)
+        _ ≤ 1 + |d| * |e₂| := add_le_add he₁ (by rw [abs_mul])
+        _ ≤ 1 + (2 * Bdensity / cM) * 1 := by
+          have hprod : |d| * |e₂| ≤ (2 * Bdensity / cM) * 1 := by
+            calc
+              |d| * |e₂| ≤ (2 * Bdensity / cM) * |e₂| :=
+                mul_le_mul_of_nonneg_right hd (abs_nonneg e₂)
+              _ ≤ (2 * Bdensity / cM) * 1 :=
+                mul_le_mul_of_nonneg_left he₂ (by positivity)
+          nlinarith
+        _ = coeffBound := by dsimp [coeffBound]; ring
+    calc
+      ‖roughCoefficient x γ v m‖ = |e₁ - d * e₂| := hEqNorm
+      _ ≤ coeffBound := hamp
+      _ ≤ Real.rpow (Real.log x) C := hTC x hTCx
+
+  let T := max 2 (max Tfill (max Tcut Tcoeff))
+  have hTtwo : 2 ≤ T := le_max_left _ _
+  have hTfillLe : Tfill ≤ T := by
+    dsimp [T]
+    exact le_trans (le_max_left Tfill (max Tcut Tcoeff)) (le_max_right 2 _)
+  have hTcutLe : Tcut ≤ T := by
+    dsimp [T]
+    exact le_trans (le_trans (le_max_left Tcut Tcoeff) (le_max_right Tfill _))
+      (le_max_right 2 _)
+  have hTcoeffLe : Tcoeff ≤ T := by
+    dsimp [T]
+    exact le_trans (le_trans (le_max_right Tcut Tcoeff) (le_max_right Tfill _))
+      (le_max_right 2 _)
+  have hfill_at : ∀ x : ℝ, T ≤ x → Real.rpow x δ' ≤ Real.sqrt (c₁ * x) := by
+    intro x hx
+    exact hfill_bound x (le_trans hTtwo hx) (le_trans hTfillLe hx)
+  have hcut_at : ∀ x : ℝ, T ≤ x → roughCutoff x ≤ Real.rpow x γ := by
+    intro x hx
+    exact hcut_bound x (le_trans hTtwo hx) (le_trans hTcutLe hx)
+  have hcoef_at : ∀ x : ℝ, T ≤ x → ∀ v : ℝ, ∀ m : ℕ,
+      Real.log (m : ℝ) / Real.log x ∈ Set.Icc wMin wMax →
+        ‖roughCoefficient x γ v m‖ ≤ Real.rpow (Real.log x) C := by
+    intro x hx v m hw
+    exact hcoeff_bound x (le_trans hTcoeffLe hx) v m hw
+
+  obtain ⟨K₀, htransfer⟩ :=
+    marked_coefficient_transfer δ' C Dstar q_d c₁ c₂
+      hδ'pos hC hD hqd₀ hqd₁ hc₁ hc₂ hc₁₂
+  refine ⟨K₀, ?_⟩
+  intro K hK a ha
+  let Good : ℝ → RoughTypeIIData → Prop := fun x d =>
+    Real.rpow x δ' ≤ d.Hm ∧
+    Real.rpow x δ' ≤ d.Hn ∧
+    c₁ * x ≤ d.Hm * d.Hn ∧
+    d.Hm * d.Hn ≤ c₂ * x ∧
+    (d.interval = ∅ ∨
+      (Real.log d.Hm / Real.log x ∈ Set.Icc wMin wMax ∧
+        Real.log (2 * d.Hm) / Real.log x ∈ Set.Icc wMin wMax)) ∧
+    IsNatInterval d.interval ∧
+    d.interval ⊆ {m : ℕ | d.Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * d.Hm} ∧
+    |d.v| ≤ Real.rpow (Real.log x) C ∧
+    (∀ n, d.beta n ≠ 0 → n ∈ dyadicIntegers d.Hn ∧
+      roughAbove n (roughCutoff x)) ∧
+    (∀ n ∈ dyadicIntegers d.Hn,
+      ‖d.beta n‖ ≤ Real.rpow (Real.log x) C) ∧
+    IsMarkedInvariant x K a d.F ∧
+    roughCutoff x ≤ Real.rpow x γ
+  let default : ℝ → RoughTypeIIData := fun x =>
+    { Hm := Real.sqrt (c₁ * x)
+      Hn := Real.sqrt (c₁ * x)
+      interval := ∅
+      v := 0
+      beta := fun _ => 0
+      F := fun _ => 0 }
+  let score : ℝ → RoughTypeIIData → ℝ := fun x d =>
+    ‖markedBilinearSum x K a q_d d.F d.Hm d.Hn d.interval
+      (fun m => roughCoefficient x γ d.v m) d.beta‖ /
+      ((d.Hm * d.Hn) * Real.rpow (Real.log x) (-Dstar))
+  have hdefault : ∀ x : ℝ, T ≤ x → Good x (default x) := by
+    intro x hx
+    dsimp [Good, default]
+    have hx₂ : 2 ≤ x := le_trans hTtwo hx
+    have hxpos : 0 < x := by linarith
+    have hfill := hfill_at x hx
+    have hroot : Real.sqrt (c₁ * x) * Real.sqrt (c₁ * x) = c₁ * x := by
+      have h := Real.sq_sqrt (by positivity : 0 ≤ c₁ * x)
+      simpa [pow_two] using h
+    have hprodUpper : c₁ * x ≤ c₂ * x :=
+      mul_le_mul_of_nonneg_right hc₁₂ (by linarith)
+    have hlogpos : 0 < Real.log x := Real.log_pos (by linarith)
+    refine ⟨hfill, hfill, ?_, ?_, Or.inl rfl, ?_, ?_, ?_, ?_, ?_, ?_, hcut_at x hx⟩
+    · rw [hroot]
+    · rw [hroot]
+      exact hprodUpper
+    · intro m n k hm hn hmk hkn
+      simp at hm
+    · intro m hm
+      simp at hm
+    · have hlogpos : 0 < Real.log x := Real.log_pos (by linarith)
+      simpa using (Real.rpow_nonneg hlogpos.le C)
+    · intro n hn
+      simp at hn
+    · intro n hn
+      have hlogpos : 0 < Real.log x := Real.log_pos (by linarith)
+      simpa using (Real.rpow_nonneg hlogpos.le C)
+    · constructor
+      · intro h
+        simpa [IsMarkedInvariant]
+      · intro p hmem hp hprime
+        simp [IsMarkedInvariant]
+
+  have hselection : ∀ f : ℝ → RoughTypeIIData,
+      (∀ x : ℝ, T ≤ x → Good x (f x)) →
+      ∃ Csel xsel : ℝ, 0 < Csel ∧ T ≤ xsel ∧
+        ∀ x : ℝ, xsel ≤ x → score x (f x) ≤ Csel := by
+    intro f hf
+    let famHm : ℝ → ℝ := fun x => if T ≤ x then (f x).Hm else Real.sqrt (c₁ * x)
+    let famHn : ℝ → ℝ := fun x => if T ≤ x then (f x).Hn else Real.sqrt (c₁ * x)
+    let famI : ℝ → Set ℕ := fun x => if T ≤ x then (f x).interval else ∅
+    let famAlpha : ℝ → ℕ → ℂ := fun x m =>
+      if T ≤ x then
+        if m ∈ (f x).interval then roughCoefficient x γ (f x).v m else 0
+      else 0
+    let family : CoefficientFamily δ' C c₁ c₂ :=
+      { xMin := T
+        xMin_ge_two := hTtwo
+        Hm := famHm
+        Hn := famHn
+        interval := famI
+        alpha := famAlpha
+        interval_property := by
+          intro x m n k hm hn hmk hkn
+          by_cases hx : T ≤ x
+          · rcases hf x hx with
+              ⟨_, _, _, _, _, hIprop, _, _, _, _, _, _⟩
+            have hmI : m ∈ (f x).interval := by simpa [famI, hx] using hm
+            have hnI : n ∈ (f x).interval := by simpa [famI, hx] using hn
+            simpa [famI, hx] using hIprop hmI hnI hmk hkn
+          · simp [famI, hx] at hm
+        scales := by
+          intro x hx
+          rcases hf x hx with
+            ⟨hHmδ, hHnδ, hprodLo, hprodHi, _, _, _, _, _, _, _, _⟩
+          simpa [famHm, famHn, hx] using ⟨hHmδ, hHnδ, hprodLo, hprodHi⟩
+        interval_bounds := by
+          intro x hx m hm
+          rcases hf x hx with
+            ⟨_, _, _, _, _, _, hsubset, _, _, _, _, _⟩
+          have hmI : m ∈ (f x).interval := by simpa [famI, hx] using hm
+          simpa [famHm, famI, hx] using hsubset hmI
+        rough_support := by
+          intro x hx m hα
+          rcases hf x hx with
+            ⟨_, _, _, _, _, _, _, _, _, _, _, hcut⟩
+          have hmI : m ∈ (f x).interval := by
+            by_contra hmI
+            have hzero : famAlpha x m = 0 := by simp [famAlpha, hx, hmI]
+            exact hα (by simpa [famAlpha, hx, hmI] using hzero)
+          have hαrough : roughCoefficient x γ (f x).v m ≠ 0 := by
+            simpa [famAlpha, hx, hmI] using hα
+          refine ⟨?_, hroughCoefficient_support x hcut (f x).v m hαrough⟩
+          simpa [famI, hx] using hmI
+        coefficient_bound := by
+          intro x hx m hm
+          rcases hf x hx with
+            ⟨hHmδ, _, _, _, hlogCase, _, hsubset, _, _, _, _, _⟩
+          have hmI : m ∈ (f x).interval := by simpa [famI, hx] using hm
+          rcases hlogCase with hIempty | ⟨hlogHm, hlog2Hm⟩
+          · have : False := by simpa [hIempty] using hmI
+            exact this.elim
+          · rcases hsubset hmI with ⟨hmlo, hmhi⟩
+            have hxpos : 0 < x := by linarith [le_trans hTtwo hx]
+            have hHmpos : 0 < (f x).Hm :=
+              lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ') hHmδ
+            have hmpos : 0 < (m : ℝ) := lt_of_lt_of_le hHmpos hmlo
+            have hlogxpos : 0 < Real.log x :=
+              Real.log_pos (by linarith [le_trans hTtwo hx])
+            have hHmToM : Real.log ((f x).Hm) ≤ Real.log (m : ℝ) :=
+              Real.log_le_log hHmpos hmlo
+            have hMTo2Hm : Real.log (m : ℝ) ≤ Real.log (2 * (f x).Hm) :=
+              Real.log_le_log hmpos hmhi
+            have hlowMul := (le_div_iff₀ hlogxpos).mp hlogHm.1
+            have hhighMul := (div_le_iff₀ hlogxpos).mp hlog2Hm.2
+            have hlogRatio :
+                Real.log (m : ℝ) / Real.log x ∈ Set.Icc wMin wMax :=
+              ⟨(le_div_iff₀ hlogxpos).2 (hlowMul.trans hHmToM),
+                (div_le_iff₀ hlogxpos).2 (hMTo2Hm.trans hhighMul)⟩
+            simpa [famAlpha, hx, hmI] using hcoef_at x hx (f x).v m hlogRatio
+        }
+    have hfamilyData : ∀ x : ℝ, family.xMin ≤ x →
+        family.interval x = ∅ ∨
+          ∃ v : ℝ, |v| ≤ Real.rpow (Real.log x) C ∧
+            Real.log (family.Hm x) / Real.log x ∈ Set.Icc wMin wMax ∧
+            Real.log (2 * family.Hm x) / Real.log x ∈ Set.Icc wMin wMax ∧
+            ∀ m ∈ family.interval x,
+              family.alpha x m = roughCoefficient x γ v m := by
+      intro x hx
+      have hxT : T ≤ x := by simpa [family] using hx
+      rcases hf x hxT with
+        ⟨_, _, _, _, hlogCase, _, _, hv, _, _, _, _⟩
+      by_cases hIempty : (f x).interval = ∅
+      · left
+        change (if T ≤ x then (f x).interval else ∅) = ∅
+        rw [if_pos hxT, hIempty]
+      · rcases hlogCase with hLogEmpty | hlogs
+        · exact (hIempty hLogEmpty).elim
+        · right
+          refine ⟨(f x).v, hv, ?_, ?_, ?_⟩
+          · simpa [family, famHm, hxT] using hlogs.1
+          · simpa [family, famHm, hxT] using hlogs.2
+          · intro m hm
+            have hmI : m ∈ (f x).interval := by
+              simpa [family, famI, hxT] using hm
+            simpa [family, famAlpha, famI, hxT, hmI]
+    have hlong := rough_family_long_cancellation γ wMin wMax δ' C c₁ c₂
+      hγ hγwMin hwMinMax hwMax hδ'pos hC hc₂ family hfamilyData
+    obtain ⟨Ctransfer, xtransfer, hCtransfer, hxtransfer2, htransferBound⟩ :=
+      htransfer K hK family hlong a ha
+    let xout := max T xtransfer
+    have hxoutT : T ≤ xout := le_max_left _ _
+    have hxoutTransfer : xtransfer ≤ xout := le_max_right _ _
+    refine ⟨Ctransfer, xout, hCtransfer, hxoutT, ?_⟩
+    intro x hx
+    have hxT : T ≤ x := hxoutT.trans hx
+    have hxtr : xtransfer ≤ x := hxoutTransfer.trans hx
+    rcases hf x hxT with
+      ⟨hHmδ, hHnδ, hprodLo, hprodHi, hlogCase, hIprop, hsubset, hv,
+        hβsupport, hβbound, hF, hcut⟩
+    have hHmpos : 0 < (f x).Hm :=
+      lt_of_lt_of_le (Real.rpow_pos_of_pos (by linarith [le_trans hTtwo hxT]) δ') hHmδ
+    have hHnpos : 0 < (f x).Hn :=
+      lt_of_lt_of_le (Real.rpow_pos_of_pos (by linarith [le_trans hTtwo hxT]) δ') hHnδ
+    have hdenpos : 0 < ((f x).Hm * (f x).Hn) *
+        Real.rpow (Real.log x) (-Dstar) := by
+      have hlogpos : 0 < Real.log x := Real.log_pos (by linarith [le_trans hTtwo hxT])
+      exact mul_pos (mul_pos hHmpos hHnpos) (Real.rpow_pos_of_pos hlogpos _)
+    have hHmEq : family.Hm x = (f x).Hm := by simp [family, famHm, hxT]
+    have hHnEq : family.Hn x = (f x).Hn := by simp [family, famHn, hxT]
+    have hIEq : family.interval x = (f x).interval := by simp [family, famI, hxT]
+    have hBilinearEq :
+        markedBilinearSum x K a q_d (f x).F (family.Hm x) (family.Hn x)
+          (family.interval x) (family.alpha x) (f x).beta =
+        markedBilinearSum x K a q_d (f x).F (f x).Hm (f x).Hn
+          (f x).interval (fun m => roughCoefficient x γ (f x).v m) (f x).beta := by
+      rw [hHmEq, hHnEq, hIEq]
+      unfold markedBilinearSum
+      apply Finset.sum_congr rfl
+      intro m hm
+      have hmI : m ∈ (f x).interval := (Finset.mem_filter.mp hm).2
+      apply Finset.sum_congr rfl
+      intro n hn
+      have hα : family.alpha x m = roughCoefficient x γ (f x).v m := by
+        simp [family, famAlpha, hxT, hmI]
+      rw [hα]
+    have hβsupportFam : ∀ n, (f x).beta n ≠ 0 →
+        n ∈ dyadicIntegers (family.Hn x) ∧ roughAbove n (roughCutoff x) := by
+      intro n hn
+      simpa [hHnEq] using hβsupport n hn
+    have hβboundFam : ∀ n ∈ dyadicIntegers (family.Hn x),
+        ‖(f x).beta n‖ ≤ Real.rpow (Real.log x) C := by
+      intro n hn
+      have hn' : n ∈ dyadicIntegers (f x).Hn := by simpa [hHnEq] using hn
+      exact hβbound n hn'
+    have hraw := htransferBound x hxtr (f x).beta hβsupportFam hβboundFam (f x).F hF
+    rw [hBilinearEq, hHmEq, hHnEq] at hraw
+    have hscore : score x (f x) ≤ Ctransfer := by
+      dsimp [score]
+      apply (div_le_iff₀ hdenpos).2
+      calc
+        ‖markedBilinearSum x K a q_d (f x).F (f x).Hm (f x).Hn
+            (f x).interval (fun m => roughCoefficient x γ (f x).v m) (f x).beta‖ ≤
+            Ctransfer * ((f x).Hm * (f x).Hn) * Real.rpow (Real.log x) (-Dstar) := hraw
+      _ = Ctransfer * (((f x).Hm * (f x).Hn) *
+            Real.rpow (Real.log x) (-Dstar)) := by ring
+    exact hscore
+
+  obtain ⟨Cuniform, xuniform, hCuniform, hTuniform, huniform⟩ :=
+    ArtinPrimitiveRoots.Proofs.r_typeii_p.familyUniformization
+      RoughTypeIIData Good score default T hdefault hselection
+  have hxuniform₂ : 2 ≤ xuniform := hTtwo.trans hTuniform
+  refine ⟨Cuniform, xuniform, hCuniform, hxuniform₂, ?_⟩
+  intro x hx Hm Hn hHmδ hHnδ hprodLo hprodHi hlogHm hlog2Hm
+    I hIprop hIbound v hv beta hβsupport hβbound F hF
+  have hxT : T ≤ x := hTuniform.trans hx
+  have hx₂ : 2 ≤ x := hTtwo.trans hxT
+  have hHmδ' : Real.rpow x δ' ≤ Hm :=
+    (Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ x) hδ'δ).trans hHmδ
+  have hHnδ' : Real.rpow x δ' ≤ Hn :=
+    (Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ x) hδ'δ).trans hHnδ
+  let datum : RoughTypeIIData :=
+    { Hm := Hm
+      Hn := Hn
+      interval := I
+      v := v
+      beta := beta
+      F := F }
+  have hGood : Good x datum := by
+    refine ⟨hHmδ', hHnδ', hprodLo, hprodHi, Or.inr ⟨hlogHm, hlog2Hm⟩,
+      hIprop, hIbound, hv, hβsupport, hβbound, hF, hcut_at x hxT⟩
+  have hscore := huniform x hx datum hGood
+  have hHmpos : 0 < Hm := lt_of_lt_of_le
+    (Real.rpow_pos_of_pos (by linarith) δ') hHmδ'
+  have hHnpos : 0 < Hn := lt_of_lt_of_le
+    (Real.rpow_pos_of_pos (by linarith) δ') hHnδ'
+  have hdenpos : 0 < (Hm * Hn) * Real.rpow (Real.log x) (-Dstar) := by
+    have hlogpos : 0 < Real.log x := Real.log_pos (by linarith [hx₂])
+    exact mul_pos (mul_pos hHmpos hHnpos) (Real.rpow_pos_of_pos hlogpos _)
+  have hratio :
+      ‖markedBilinearSum x K a q_d F Hm Hn I
+          (fun m => roughCoefficient x γ v m) beta‖ /
+        ((Hm * Hn) * Real.rpow (Real.log x) (-Dstar)) ≤ Cuniform := by
+    simpa [score, datum] using hscore
+  have hnum := (div_le_iff₀ hdenpos).mp hratio
+  calc
+    ‖∑ m ∈ (dyadicIntegers Hm).filter (fun m => m ∈ I),
+        ∑ n ∈ dyadicIntegers Hn,
+          roughCoefficient x γ v m * beta n * F (m * n - 1) *
+            (markedWeight x K a q_d (m * n - 1) : ℂ)‖
+        = ‖markedBilinearSum x K a q_d F Hm Hn I
+            (fun m => roughCoefficient x γ v m) beta‖ := by
+          simp [markedBilinearSum]
+    _ ≤ Cuniform * ((Hm * Hn) * Real.rpow (Real.log x) (-Dstar)) := hnum
+    _ = Cuniform * (Hm * Hn) * Real.rpow (Real.log x) (-Dstar) := by ring
 
 
 end ArtinPrimitiveRoots.TypeII.Rough
