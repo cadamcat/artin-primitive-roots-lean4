@@ -361,6 +361,43 @@ theorem truncated_source_reindex_with_weight
       simp [P, Q]
       ring
 
+/-- Split a character-weighted finite sum into its residue classes. -/
+theorem sum_character_mul_residue_classes
+    (q : ℕ) [NeZero q] (χ : DirichletCharacter ℂ q)
+    (I : Finset ℕ) (f : ℕ → ℂ) :
+    (∑ h ∈ I, (χ (h : ZMod q) : ℂ) * f h) =
+      ∑ a ∈ (Finset.univ : Finset (ZMod q)), (χ a : ℂ) *
+        ∑ h ∈ (I.filter (fun h : ℕ => (h : ZMod q) = a)), f h := by
+  classical
+  let ρ : ℕ → ZMod q := fun h => h
+  let g : ℕ → ℂ := fun h => (χ (ρ h) : ℂ) * f h
+  have hpartition :
+      (∑ a ∈ (Finset.univ : Finset (ZMod q)),
+        ∑ h ∈ (I.filter (fun h : ℕ => ρ h = a)), g h) =
+        ∑ h ∈ I, g h := by
+    simpa [ρ, g] using
+      (Finset.sum_fiberwise_eq_sum_filter I Finset.univ ρ g)
+  calc
+    _ = ∑ a ∈ (Finset.univ : Finset (ZMod q)),
+          ∑ h ∈ (I.filter (fun h : ℕ => ρ h = a)), g h :=
+      hpartition.symm
+    _ = ∑ a ∈ (Finset.univ : Finset (ZMod q)), (χ a : ℂ) *
+          ∑ h ∈ (I.filter (fun h : ℕ => (h : ZMod q) = a)), f h := by
+      apply Finset.sum_congr rfl
+      intro a ha
+      calc
+        _ = ∑ h ∈ (I.filter (fun h : ℕ => (h : ZMod q) = a)),
+              (χ a : ℂ) * f h := by
+          apply Finset.sum_congr rfl
+          intro h hh
+          have hres := (Finset.mem_filter.mp hh).2
+          change (χ (ρ h) : ℂ) * f h = (χ a : ℂ) * f h
+          rw [hres]
+        _ = (χ a : ℂ) *
+              ∑ h ∈ (I.filter (fun h : ℕ => (h : ZMod q) = a)), f h := by
+          rw [Finset.mul_sum]
+    _ = _ := by rfl
+
 /-- Identify the quotient set of a dyadic interval with the corresponding
 rescaled dyadic interval. -/
 theorem divisorQuotients_dyadic_interval (l r : ℝ) (d : ℕ)
