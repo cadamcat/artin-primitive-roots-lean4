@@ -40,4 +40,26 @@ theorem qs_nq0_quadratic_local_mul_div
   change f (a / b) = f a / f b
   exact map_div f a b
 
+
+/-- Products of exterior generators generate the product exterior ideal. -/
+theorem qs_nq0_generators_mul
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (Sd : SData K CE condη) (I J : Ideal (𝓞 K)) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I) (hb : Sd.IsGen (b : K) J) :
+    Sd.IsGen ((a * b : Kˣ) : K) (I * J) := by
+  refine ⟨⟨mul_ne_zero ha.1.1 hb.1.1, ?_⟩, (a * b).ne_zero, ?_⟩
+  · intro v hv hIJ
+    obtain hI | hJ := v.isPrime.mul_le.mp hIJ
+    · exact ha.1.2 v hv hI
+    · exact hb.1.2 v hv hJ
+  · intro v hv
+    rw [Units.val_mul, ← FractionalIdeal.spanSingleton_mul_spanSingleton,
+      FractionalIdeal.count_mul K v
+        (FractionalIdeal.spanSingleton_ne_zero_iff.mpr a.ne_zero)
+        (FractionalIdeal.spanSingleton_ne_zero_iff.mpr b.ne_zero),
+      ha.2.2 v hv, hb.2.2 v hv, FractionalIdeal.coeIdeal_mul,
+      FractionalIdeal.count_mul K v
+        (FractionalIdeal.coeIdeal_ne_zero.mpr ha.1.1)
+        (FractionalIdeal.coeIdeal_ne_zero.mpr hb.1.1)]
+
 end ArtinPrimitiveRoots.A2
