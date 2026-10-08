@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C2
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P2
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C3.Main
+import ArtinPrimitiveRoots.Proofs.qs_c_p.C3Helpers
 
 /-!
 # A2-QS-CANCEL, part C3: the remainder terms of the error tuple

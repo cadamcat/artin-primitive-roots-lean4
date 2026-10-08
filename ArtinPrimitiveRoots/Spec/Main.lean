@@ -107,7 +107,7 @@ theorem res_lincomb_eq_zero (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (hfre
       ∃ P : Set (InfinitePlace F → ℂ), IsAddFundamentalDomain (cuspTranslations F Γ τ) P ∧
         ∫ x in P, (∑ i, c i * (d i).res (τ • ptX' F x y)) = 0) :
     ∀ z, ∑ i, c i * (d i).res z = 0 := by
-  sorry
+  exact C3_cuspidal Γ hfree s₁ h₀ h₁ σ d c hct
 
 end C
 

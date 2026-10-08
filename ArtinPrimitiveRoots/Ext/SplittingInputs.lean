@@ -4,6 +4,7 @@ import Mathlib.FieldTheory.KummerExtension
 import Mathlib.FieldTheory.SplittingField.IsSplittingField
 import Mathlib.RingTheory.Frobenius
 import Mathlib.Analysis.MellinInversion
+import PrimeNumberTheoremAnd.SmoothExistence
 import TauCeti.NumberTheory.NumberField.Discriminant.Relative
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_EULER.Helpers
 
@@ -189,7 +190,7 @@ theorem ext_mellin_inversion {E : Type*} [NormedAddCommGroup E] [NormedSpace ℂ
     [CompleteSpace E] (σ : ℝ) (f : ℝ → E) {x : ℝ} (hx : 0 < x)
     (hf : MellinConvergent f σ) (hFf : VerticalIntegrable (mellin f) σ)
     (hfx : ContinuousAt f x) : mellinInv σ (mellin f) x = f x := by
-  sorry
+  exact mellinInv_mellin_eq σ f hx hf hFf hfx
 
 /-- **`ext:digamma-strip`**, `07-splitting.tex:164-170`. The PNT+ source declaration
 `Complex.exists_norm_digamma_le_log`
@@ -247,7 +248,41 @@ theorem smooth_bump_exists :
     ∃ f : ℝ → ℝ, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f ∧ HasCompactSupport f ∧
       Function.support f ⊆ Set.Ioo 0 3 ∧ (∀ t ∈ Set.Icc 1 2, 1 ≤ f t) ∧
       ∀ t, 0 ≤ f t := by
-  sorry
+  obtain ⟨ψ, hψsmooth, hψcompact, hψlower, hψupper, hψsupport⟩ :=
+    smooth_urysohn_support_Ioo (a := 0) (b := 1) (c := 2) (d := 3)
+      (by norm_num) (by norm_num)
+  let f : ℝ → ℝ := fun t => ψ t ^ 2
+  have hfsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f := by
+    change ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun t => ψ t ^ 2)
+    exact hψsmooth.pow 2
+  have hfsupport : Function.support f ⊆ Set.Ioo 0 3 := by
+    intro t ht
+    have htψ : ψ t ≠ 0 := by
+      intro hzero
+      apply ht
+      change ψ t ^ 2 = 0
+      simp [hzero]
+    have : t ∈ Function.support ψ := by
+      simpa [Function.mem_support] using htψ
+    rw [hψsupport] at this
+    exact this
+  have hfcompact : HasCompactSupport f := by
+    apply HasCompactSupport.of_support_subset_isCompact (K := Set.Icc 0 3)
+      isCompact_Icc
+    intro t ht
+    have ht' := hfsupport ht
+    exact ⟨le_of_lt ht'.1, le_of_lt ht'.2⟩
+  refine ⟨f, hfsmooth, hfcompact, hfsupport, ?_, ?_⟩
+  · intro t ht
+    change 1 ≤ ψ t ^ 2
+    have h := hψlower t
+    have hval : 1 ≤ ψ t := by
+      rw [Set.indicator_of_mem ht] at h
+      simpa using h
+    nlinarith [sq_nonneg (ψ t - 1)]
+  · intro t
+    change 0 ≤ ψ t ^ 2
+    exact sq_nonneg _
 
 end ArtinPrimitiveRoots.Ext.SplittingInputs
 
