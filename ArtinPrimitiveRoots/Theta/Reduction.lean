@@ -2,6 +2,8 @@ import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Eis
+import ArtinPrimitiveRoots.Theta.Proofs.TH_CLASSICAL.Helpers
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-GOOD-SUBGROUP».Helpers
 
 set_option autoImplicit false
 
@@ -53,6 +55,52 @@ def infCompact (P : CoverPackage D S H A) : Set P.tc.G :=
     ∀ w, ∃ k : GL (Fin 2) ℂ, (k : Matrix (Fin 2) (Fin 2) ℂ) ∈ Matrix.unitaryGroup (Fin 2) ℂ ∧
       P.compC w x = QuotientGroup.mk k}
 
+/-- Geometric form of finite classical components, also exposing the actual factorization. -/
+theorem th_classical_geometric_components (P : CoverPackage D S H A)
+    (T0 : Finset (FinPlace F)) (hT0 : S.Sf ⊆ T0) (m : FinPlace F → ℕ)
+    (hm : ∀ v ∈ T0, (P.loc v).m0 ≤ m v) :
+    ∃ J : Finset P.tc.G,
+      (∀ j ∈ J, ∃ r : P.RP, P.q r = j ∧ ∀ w, P.compC w r = 1) ∧
+      ∀ g, ∃ γ : GL (Fin 2) F, ∃ j ∈ J,
+        ∃ x : InfinitePlace F → ℂ, ∃ y : InfinitePlace F → ℝ,
+          (∀ w, 0 < y w) ∧ ∃ ki ∈ infCompact P,
+            ∃ kf ∈ levelSet P T0 hT0 m,
+              P.tc.rat γ * g = nInf P x * aInf P y * j * (ki * kf) := by
+  classical
+  obtain ⟨J, hJ, hfinite⟩ := th_classical_finite_components P T0 hT0 m hm
+  refine ⟨J.image P.q, ?_, ?_⟩
+  · intro j hj
+    obtain ⟨r, hr, rfl⟩ := Finset.mem_image.mp hj
+    exact ⟨r, rfl, hJ r hr⟩
+  · intro g
+    obtain ⟨r, hqr⟩ := P.q_surj g
+    obtain ⟨γ, j, hj, kf, ⟨hkfC, hkfT, hkfO⟩, ζ, hζfin, hζprod, hf⟩ := hfinite r
+    choose x y hy k hk hc using
+      fun w => th_classical_pgl_reconstruction (P.compC w (P.ratRP γ * r))
+    obtain ⟨ki, hkiF, hkiC⟩ := P.comp_surj (fun _ => 1)
+      (fun w => QuotientGroup.mk (k w)) (by
+        apply Set.finite_empty.subset
+        intro v hv
+        obtain ⟨hv, hbad⟩ := hv
+        exact (hbad (P.tame v hv).Kmax.one_mem).elim)
+    obtain ⟨a, hqa, haF, haC⟩ := th_classical_arch_lift P x y hy
+    have harch : th_classical_archTerm P y hy = aInf P y := by
+      simp only [aInf, dif_pos hy]
+      rfl
+    rw [harch] at hqa
+    have he : P.q (P.ratRP γ * r) = P.q (a * j * (ki * kf)) := by
+      apply (P.q_eq _ _).mpr
+      refine ⟨ζ, hζfin, hζprod, ?_, ?_⟩
+      · intro v
+        simpa only [map_mul, haF, hkiF, one_mul] using hf v
+      · intro w
+        simpa only [map_mul, haC, hJ j hj, hkiC, hkfC, mul_one,
+          ← QuotientGroup.mk_mul] using hc w
+    refine ⟨γ, P.q j, Finset.mem_image.mpr ⟨j, hj, rfl⟩, x, y, hy,
+      P.q ki, ⟨ki, rfl, hkiF, fun w => ⟨k w, hk w, hkiC w⟩⟩,
+      P.q kf, ⟨kf, rfl, hkfC, hkfT, hkfO⟩, ?_⟩
+    simpa only [map_mul, P.q_ratRP, hqr, hqa] using he
+
 /-- **red:components** (strong approximation for `SL₂`, finiteness of `F^×\𝔸_f^×/det K_f 𝔸_f^{×2}`):
 finitely many finite-adelic points `g_j`; an automorphic, level- and `PU(2)^r`-invariant function
 vanishing on all `g_∞ g_j` vanishes. C7 of `sol-gate-theta` requires the prescribed level to be at
@@ -65,7 +113,20 @@ theorem exists_classical_components (P : CoverPackage D S H A) (T0 : Finset (Fin
         (∀ g, ∀ k ∈ levelSet P T0 hT0 m, Ψ (g * k) = Ψ g) →
         (∀ g, ∀ k ∈ infCompact P, Ψ (g * k) = Ψ g) →
         (∀ gj ∈ J, ∀ z, classicalOf P Ψ gj z = 0) → ∀ g, Ψ g = 0 := by
-  sorry
+  obtain ⟨J, hJ, hgeom⟩ := th_classical_geometric_components P T0 hT0 m hm
+  refine ⟨J, hJ, ?_⟩
+  intro Ψ hAut hLevel hInf hzero g
+  obtain ⟨γ, j, hj, x, y, hy, ki, hki, kf, hkf, hfac⟩ := hgeom g
+  have hsection : Ψ (nInf P x * aInf P y * j) = 0 := by
+    have hz := hzero j hj (Spec.ptX' F x y)
+    simpa only [classicalOf, Spec.ptX', Spec.horiz_pt _ _ (hy _),
+      Spec.height_pt _ _ (hy _)] using hz
+  calc
+    Ψ g = Ψ (P.tc.rat γ * g) := (hAut γ g).symm
+    _ = Ψ (nInf P x * aInf P y * j * (ki * kf)) := congrArg Ψ hfac
+    _ = Ψ (nInf P x * aInf P y * j) := by
+      rw [← mul_assoc, hLevel _ kf hkf, hInf _ ki hki]
+    _ = 0 := hsection
 
 /-- **red:congruence** (Kubota's splitting on `Γ(N₀)`, archimedean Iwasawa, free action): for each
 `g_j` there is a finite-index, freely acting `Γ'' ≤ SL₂(O_F)` with
@@ -85,7 +146,54 @@ theorem exists_good_subgroup [IsTotallyComplex F] (P : CoverPackage D S H A)
                 ((γ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) w)) *
               aInf P (fun w => ArtinPrimitiveRoots.A1.Spec.height
                 ((γ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) w)) * gj * (kinf * k) := by
-  sorry
+  classical
+  obtain ⟨j, hqj, hjC⟩ := hgj
+  obtain ⟨Γ, hindex, hfree, hfinite⟩ := th_good_finite_level P T0 hT0 m hm j
+  refine ⟨Γ, hindex, hfree, ?_⟩
+  intro γ hγ x y hy
+  obtain ⟨kf, ⟨hkfC, hkfT, hkfO⟩, ζ, hζfin, hζprod, hf⟩ := hfinite γ hγ
+  choose k hk hy' hc using fun w => th_classical_sl_reconstruction
+    (Spec.toInf F (Spec.toSLF F γ) w) (x w) (y w) (hy w)
+  let x' : InfinitePlace F → ℂ := fun w => Spec.horiz ((γ • Spec.ptX' F x y) w)
+  let y' : InfinitePlace F → ℝ := fun w => Spec.height ((γ • Spec.ptX' F x y) w)
+  have hpos : ∀ w, 0 < y' w := hy'
+  obtain ⟨ki, hkiF, hkiC⟩ := P.comp_surj (fun _ => 1)
+    (fun w => QuotientGroup.mk (k w)) (by
+      apply Set.finite_empty.subset
+      intro v hv
+      obtain ⟨hv, hbad⟩ := hv
+      exact (hbad (P.tame v hv).Kmax.one_mem).elim)
+  obtain ⟨a, hqa, haF, haC⟩ := th_classical_arch_lift P x y hy
+  obtain ⟨a', hqa', haF', haC'⟩ := th_classical_arch_lift P x' y' hpos
+  have harch : th_classical_archTerm P y hy = aInf P y := by
+    simp only [aInf, dif_pos hy]
+    rfl
+  have harch' : th_classical_archTerm P y' hpos = aInf P y' := by
+    simp only [aInf, dif_pos hpos]
+    rfl
+  rw [harch] at hqa
+  rw [harch'] at hqa'
+  have he : P.q (P.ratRP (Matrix.SpecialLinearGroup.toGL (Spec.toSLF F γ)) * a * j) =
+      P.q (a' * j * (ki * kf)) := by
+    apply (P.q_eq _ _).mpr
+    refine ⟨ζ, hζfin, hζprod, ?_, ?_⟩
+    · intro v
+      simpa only [map_mul, haF, haF', hkiF, mul_one, one_mul] using hf v
+    · intro w
+      simp only [map_mul, P.compC_ratRP, haC, haC', hjC, hkiC, hkfC, mul_one,
+        ← QuotientGroup.mk_mul]
+      have hmap : Matrix.GeneralLinearGroup.map w.embedding
+          (Matrix.SpecialLinearGroup.toGL (Spec.toSLF F γ)) =
+          Matrix.SpecialLinearGroup.toGL (Spec.toInf F (Spec.toSLF F γ) w) := by
+        ext i j
+        rfl
+      rw [hmap]
+      have hact : (γ • Spec.ptX' F x y) w =
+          (Spec.toInf F (Spec.toSLF F γ) w) • Spec.pt (x w) (y w) := rfl
+      simpa only [← QuotientGroup.mk_mul, x', y', hact] using hc w
+  refine ⟨P.q kf, ⟨kf, rfl, hkfC, hkfT, hkfO⟩, P.q ki,
+    ⟨ki, rfl, hkiF, fun w => ⟨k w, hk w, hkiC w⟩⟩, ?_⟩
+  simpa only [map_mul, P.q_ratRP, hqa, hqa', hqj, mul_assoc] using he
 
 /-- **red:decompose** (P-SPEC obligation (1)): for sections with spherical complex components and a
 uniform level, on the component of `g_j` the adelic Eisenstein series is a finite combination of
