@@ -9,6 +9,7 @@ import ArtinPrimitiveRoots.Proofs.th_family_lead_p.ArchMatrixResidue
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.CompactPGLMatrixLifts
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.CompactFiniteLevelMatrixCharts
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.MatrixChartDerivatives
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.MatrixChartBounds
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
