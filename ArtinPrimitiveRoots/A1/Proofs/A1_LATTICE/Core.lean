@@ -576,6 +576,56 @@ theorem diagR_has_compact_cover (S : ArtinPrimitiveRoots.A1.SData F CE condη)
     (D : ArtinPrimitiveRoots.A1.FieldData F) :
     ∃ K : Set S.FS, IsCompact K ∧ ∀ x : S.FS, ∃ r : S.R, ∃ k ∈ K,
       x = S.diag (r : F) + k := by
-  sorry
+  classical
+  let O : ∀ v : S.Sf, Set (v.1.adicCompletion F) :=
+    fun v => v.1.adicCompletionIntegers F
+  have hOcompact (v : S.Sf) : IsCompact (O v) :=
+    adicCompletionIntegers_compact v.1
+  let B : Set (∀ v : S.Sf, v.1.adicCompletion F) := Set.pi Set.univ O
+  have hBcompact : IsCompact B := isCompact_univ_pi hOcompact
+  obtain ⟨C, hCcompact, hCred⟩ := arch_integer_compact_reduction D
+  let K : Set S.FS := B ×ˢ C
+  refine ⟨K, hBcompact.prod hCcompact, ?_⟩
+  intro x
+  obtain ⟨r₀, hr₀⟩ := s_integer_finite_approx S x.1
+  obtain ⟨a, p, hpC, hp⟩ := hCred (x.2 - (fun w => w.embedding (r₀ : F)))
+  let aR : S.R := algebraMap (𝓞 F) (S.R) a
+  let r : S.R := r₀ + aR
+  have hrCast : (r : F) = (r₀ : F) + (a : F) := by
+    simp [r, aR]
+  have harch : x.2 - (fun w => w.embedding (r₀ : F)) =
+      (fun w => w.embedding (a : F)) + p := by
+    simpa [ArtinPrimitiveRoots.A1.SData.diag] using hp
+  let k : S.FS := x - S.diag (r : F)
+  have hkB : k.1 ∈ B := by
+    change ∀ v : S.Sf, v ∈ Set.univ → k.1 v ∈ O v
+    intro v _
+    have h₁ := hr₀ v
+    have h₂ : algebraMap F (v.1.adicCompletion F) (a : F) ∈ O v := by
+      exact completion_integer_of_valuation v.1 (a : F) (v.1.valuation_le_one a)
+    have hsub := (v.1.adicCompletionIntegers F).sub_mem h₁ h₂
+    change x.1 v - algebraMap F (v.1.adicCompletion F) (r : F) ∈ O v
+    rw [hrCast, map_add]
+    simpa [O, sub_eq_add_neg, add_assoc, add_left_comm, add_comm] using hsub
+  have hkArch : k.2 ∈ C := by
+    change x.2 - (fun w => w.embedding (r : F)) ∈ C
+    have hfun : (fun w : InfinitePlace F => x.2 w - w.embedding (r : F)) = p := by
+      funext w
+      have hw := congrFun harch w
+      have hw' : x.2 w - w.embedding (r₀ : F) = w.embedding (a : F) + p w := by
+        simpa using hw
+      rw [hrCast, map_add]
+      calc
+        x.2 w - (w.embedding (r₀ : F) + w.embedding (a : F)) =
+            (x.2 w - w.embedding (r₀ : F)) - w.embedding (a : F) := by abel
+        _ = (w.embedding (a : F) + p w) - w.embedding (a : F) := by rw [hw']
+        _ = p w := by abel
+    change (fun w : InfinitePlace F => x.2 w - w.embedding (r : F)) ∈ C
+    rw [hfun]
+    exact hpC
+  have hk : k ∈ K := ⟨hkB, hkArch⟩
+  refine ⟨r, k, hk, ?_⟩
+  dsimp [k]
+  abel
 
 end ArtinPrimitiveRoots.Proofs.A1_LATTICE
