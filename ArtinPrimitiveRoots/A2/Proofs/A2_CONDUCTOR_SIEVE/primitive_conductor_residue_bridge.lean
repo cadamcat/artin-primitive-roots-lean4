@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.ideal_S_exterior_split_count
 import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.conductor_residues_exists
 import ArtinPrimitiveRoots.Proofs.a2_cond_lead_p.RestrictedProductDensity
+import ArtinPrimitiveRoots.Proofs.a2_cond_lead_p.ConductorGenerator
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain ClassFieldTheory
@@ -1028,6 +1029,147 @@ private theorem conductorIdealValue_eq_prod_primeValue
     change ω.primeValue (place J hJ).1 ^ factors.count J =
       ω.primeValue (place J hJ).1 ^ A1.idealExp (place J hJ).1 I
     rw [hcount]
+
+set_option maxHeartbeats 1000000 in
+private theorem conductorGeneratorPrincipalProduct
+    (S : A1.SData F CE condη) (ω : A1.HeckeChar F)
+    (f : Ideal (𝓞 F)) (hf : IsPrimitiveConductor ω f)
+    (J : Ideal (𝓞 F)) (hJ : ConductorSupportedAtS S J)
+    (q : S.ExtIdeal) (hfactor : f = J * q.1)
+    (I : S.ExtIdeal) (a : Fˣ) (hgen : S.IsGen (a : F) I.1)
+    (hcop : ∀ v : A1.FinPlace F, v.asIdeal ∣ I.1 → ¬ v.asIdeal ∣ q.1) :
+    ω.idealValue I.1 =
+      conductorLambdaS S (SComponent S ω) (conductorInfiniteComponent ω) a *
+        (((∏ v : conductorPrimeSupport q.1 q.2.1,
+          ω.loc v.1 (A1.toLoc v.1 a)) : ℂˣ)⁻¹ : ℂ) := by
+  classical
+  let PI := conductorPrimeSupport I.1 I.2.1
+  let Q := conductorPrimeSupport q.1 q.2.1
+  let B := S.Sf ∪ PI
+  let T := S.Sf ∪ conductorPrimeSupport f hf.1
+  have hIoffS : ∀ v : A1.FinPlace F, v.asIdeal ∣ I.1 → v ∉ S.Sf := by
+    intro v hv hvS
+    exact I.2.2 v hvS (Ideal.dvd_iff_le.mp hv)
+  have hQoffS : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → v ∉ S.Sf := by
+    intro v hv hvS
+    exact q.2.2 v hvS (Ideal.dvd_iff_le.mp hv)
+  have hnotF : ∀ v : A1.FinPlace F, v.asIdeal ∣ I.1 → ¬ v.asIdeal ∣ f := by
+    intro v hvI hvf
+    rw [hfactor] at hvf
+    rcases v.prime.dvd_or_dvd hvf with hvJ | hvq
+    · exact hIoffS v hvI (hJ.2 v hvJ)
+    · exact hcop v hvI hvq
+  have hunr : ∀ v : PI, ω.UnramifiedAt v.1 := by
+    intro v
+    have hvI : v.1.asIdeal ∣ I.1 := (mem_conductorPrimeSupport I.1 I.2.1 v.1).mp v.2
+    exact conductor_unramified_of_idealExp_zero ω f hf.2.1 v.1
+      (conductor_idealExp_zero_of_not_dvd f hf.1 v.1 (hnotF v.1 hvI))
+  have hvalOutside : ∀ v : A1.FinPlace F, v ∉ B → v.valuation F (a : F) = 1 := by
+    intro v hv
+    have hvS : v ∉ S.Sf := fun h => hv (Finset.mem_union.mpr (Or.inl h))
+    have hvI : ¬ v.asIdeal ∣ I.1 := by
+      intro h
+      exact hv (Finset.mem_union.mpr (Or.inr
+        ((mem_conductorPrimeSupport I.1 I.2.1 v).mpr h)))
+    rw [SData.IsGen.valuation_eq_exp_neg_idealExp S hgen v hvS,
+      conductor_idealExp_zero_of_not_dvd I.1 I.2.1 v hvI]
+    simp
+  let u : ConductorLocalIntegralUnits (F := F) := fun v =>
+    if hv : v ∈ B then 1 else
+      ⟨A1.toLoc v a, by
+        apply IsDedekindDomain.HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one.mpr
+        change Valued.v (algebraMap F (v.adicCompletion F) (a : F)) = 1
+        exact (v.valuedAdicCompletion_eq_valuation' (a : F)).trans (hvalOutside v hv)⟩
+  have hprodDiag : ∀ v : A1.FinPlace F,
+      (∏ w : B, Pi.mulSingle
+        (M := fun t : A1.FinPlace F => (t.adicCompletion F)ˣ)
+        w.1 (A1.toLoc w.1 a) v) = if v ∈ B then A1.toLoc v a else 1 := by
+    intro v
+    exact (Finset.prod_coe_sort B (fun w => Pi.mulSingle w (A1.toLoc w a) v)).trans
+      (Finset.prod_pi_mulSingle v (fun w => A1.toLoc w a) B)
+  have hfinite : ∀ v : A1.FinPlace F, A1.toLoc v a =
+      (∏ w : B, Pi.mulSingle
+        (M := fun t : A1.FinPlace F => (t.adicCompletion F)ˣ)
+        w.1 (A1.toLoc w.1 a) v) * (u v).val := by
+    intro v
+    rw [hprodDiag]
+    by_cases hv : v ∈ B <;> simp [u, hv]
+  let c : A1.FinPlace F → ℂˣ := fun v => ω.loc v (A1.toLoc v a)
+  let k : A1.FinPlace F → ℂˣ := fun v => ω.loc v (u v).val
+  let sval : ℂˣ := ∏ v : S.Sf, c v.1
+  let ival : ℂˣ := ∏ v : PI, c v.1
+  let qval : ℂˣ := ∏ v : Q, c v.1
+  let aval : ℂˣ := ∏ w : InfinitePlace F, ω.locInf w
+    (Units.map (algebraMap F w.Completion).toMonoidHom a)
+  have hdis : Disjoint S.Sf PI := by
+    apply Finset.disjoint_left.mpr
+    intro v hvS hvI
+    exact hIoffS v ((mem_conductorPrimeSupport I.1 I.2.1 v).mp hvI) hvS
+  have hBprod : (∏ v : B, c v.1) = sval * ival := by
+    dsimp only [sval, ival]
+    simp only [Finset.prod_coe_sort]
+    exact Finset.prod_union hdis
+  have hQsubset : Q ⊆ T := by
+    intro v hv
+    have hvq : v.asIdeal ∣ q.1 := (mem_conductorPrimeSupport q.1 q.2.1 v).mp hv
+    have hvf : v.asIdeal ∣ f := by
+      rw [hfactor]
+      exact dvd_mul_of_dvd_right hvq J
+    exact Finset.mem_union.mpr (Or.inr ((mem_conductorPrimeSupport f hf.1 v).mpr hvf))
+  have hQnotB : ∀ v : A1.FinPlace F, v ∈ Q → v ∉ B := by
+    intro v hv hB
+    have hvq : v.asIdeal ∣ q.1 := (mem_conductorPrimeSupport q.1 q.2.1 v).mp hv
+    rcases Finset.mem_union.mp hB with hvS | hvI
+    · exact hQoffS v hvq hvS
+    · exact hcop v ((mem_conductorPrimeSupport I.1 I.2.1 v).mp hvI) hvq
+  have hTnotQ_S : ∀ v : A1.FinPlace F, v ∈ T → v ∉ Q → v ∈ S.Sf := by
+    intro v hvT hvQ
+    rcases Finset.mem_union.mp hvT with hvS | hvf
+    · exact hvS
+    · have hdiv : v.asIdeal ∣ f := (mem_conductorPrimeSupport f hf.1 v).mp hvf
+      rw [hfactor] at hdiv
+      rcases v.prime.dvd_or_dvd hdiv with hvJ | hvq
+      · exact hJ.2 v hvJ
+      · exact (hvQ ((mem_conductorPrimeSupport q.1 q.2.1 v).mpr hvq)).elim
+  have hTprod : (∏ v : T, k v.1) = qval := by
+    rw [Finset.prod_coe_sort]
+    calc
+      (∏ v ∈ T, k v) = ∏ v ∈ Q, k v := by
+        apply (Finset.prod_eq_of_subset hQsubset k ?_).symm
+        intro v hvT hvQ
+        have hvB : v ∈ B := Finset.mem_union.mpr (Or.inl (hTnotQ_S v hvT hvQ))
+        simp [k, u, hvB]
+      _ = ∏ v ∈ Q, c v := by
+        apply Finset.prod_congr rfl
+        intro v hv
+        simp [k, c, u, hQnotB v hv]
+      _ = qval := (Finset.prod_coe_sort Q c).symm
+  have hIprod : (ival : ℂ) = ω.idealValue I.1 := by
+    change Units.coeHom ℂ (∏ v : PI, c v.1) = _
+    rw [map_prod, conductorIdealValue_eq_prod_primeValue ω I.1 I.2.1]
+    apply Finset.prod_congr rfl
+    intro v hv
+    have hvI : v.1.asIdeal ∣ I.1 := (mem_conductorPrimeSupport I.1 I.2.1 v.1).mp v.2
+    exact conductorLocalValue_eq_primeValue_pow ω v.1 (hunr v) a
+      (A1.idealExp v.1 I.1)
+      (SData.IsGen.valuation_eq_exp_neg_idealExp S hgen v.1 (hIoffS v.1 hvI))
+  have hprincipal := conductorPrincipalFactorization S ω f hf a B
+    (fun v => A1.toLoc v.1 a) u hfinite
+  change aval * (∏ v : B, c v.1) * (∏ v : T, k v.1) = 1 at hprincipal
+  rw [hBprod, hTprod] at hprincipal
+  have hsolve : ival = (sval * aval)⁻¹ * qval⁻¹ := by
+    calc
+      ival = (aval * sval)⁻¹ * (aval * (sval * ival) * qval) * qval⁻¹ := by group
+      _ = (sval * aval)⁻¹ * qval⁻¹ := by
+        rw [hprincipal, mul_one, mul_comm aval sval]
+  calc
+    ω.idealValue I.1 = (ival : ℂ) := hIprod.symm
+    _ = (((sval * aval)⁻¹ * qval⁻¹ : ℂˣ) : ℂ) :=
+      congrArg (fun x : ℂˣ => (x : ℂ)) hsolve
+    _ = _ := by
+      change (((sval * aval)⁻¹ * qval⁻¹ : ℂˣ) : ℂ) =
+        (((sval * aval : ℂˣ) : ℂ))⁻¹ * (((qval : ℂˣ) : ℂ))⁻¹
+      simp only [Units.val_mul, Units.val_inv_eq_inv_val]
 
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
