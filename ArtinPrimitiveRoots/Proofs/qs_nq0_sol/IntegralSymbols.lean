@@ -113,4 +113,47 @@ theorem qs_nq0_quadratic_local_square_correction
       (qs_nq0_quadratic_local_square D H v b)
   rw [← pow_two, hsq, mul_one]
 
+/-- An integral generator of a finite exterior prime product has the exterior-generator predicate. -/
+theorem qs_nq0_integral_exterior_of_isGen
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (Sd : SData K CE condη) (T : Finset (FinPlace K)) (c : 𝓞 K)
+    (hc : Sd.IsGen (c : K) (qsIdealOf T)) :
+    qsIsExteriorGenerator Sd.Sf T c := by
+  classical
+  have hcount (v : FinPlace K) :
+      FractionalIdeal.count K v
+        (qsIdealOf T : FractionalIdeal (nonZeroDivisors (𝓞 K)) K) =
+          if v ∈ T then 1 else 0 := by
+    change FractionalIdeal.count K v
+      ((FractionalIdeal.coeIdealHom (nonZeroDivisors (𝓞 K)) K)
+        (∏ w ∈ T, w.asIdeal)) = _
+    rw [map_prod]
+    change FractionalIdeal.count K v
+      (∏ w ∈ T, (w.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 K)) K)) = _
+    rw [FractionalIdeal.count_prod K v T
+      (fun w : FinPlace K => (w.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 K)) K))
+      (fun w _ => FractionalIdeal.coeIdeal_ne_zero.mpr w.ne_bot)]
+    simp [FractionalIdeal.count_maximal]
+  have hc0 : c ≠ 0 := fun h => hc.2.1 (by simp [h])
+  refine ⟨hc0, ?_⟩
+  intro v hv
+  have hlog : WithZero.log (v.valuation K (c : K)) =
+      -(if v ∈ T then (1 : ℤ) else 0) := by
+    have h := qs_nq0_count_spanSingleton_eq_neg_log_valuation v (c : K) hc.2.1
+    rw [hc.2.2 v hv, hcount v] at h
+    omega
+  have hval : v.valuation K (c : K) =
+      if v ∈ T then WithZero.exp (-1 : ℤ) else 1 := by
+    calc
+      v.valuation K (c : K) = WithZero.exp (WithZero.log (v.valuation K (c : K))) :=
+        (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr hc.2.1)).symm
+      _ = _ := by rw [hlog]; split_ifs <;> simp
+  constructor
+  · rw [← v.valuation_lt_one_iff_mem (K := K) c, hval]
+    by_cases hvT : v ∈ T <;> simp [hvT]
+  · intro hmem
+    have hle := (v.intValuation_le_pow_iff_mem c 2).mpr hmem
+    rw [← v.valuation_of_algebraMap (K := K), hval] at hle
+    by_cases hvT : v ∈ T <;> norm_num [hvT] at hle
+
 end ArtinPrimitiveRoots.A2
