@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealLatticeChart
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.DualIdealEquiv
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealCharacterChart
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.FourierCoordinateDerivative
 import ArtinPrimitiveRoots.Theta.Res
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
