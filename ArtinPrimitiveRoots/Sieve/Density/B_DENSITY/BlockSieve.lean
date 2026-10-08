@@ -208,4 +208,30 @@ lemma primeSetProduct_injective (P : Finset ℕ) (hP : ∀ p ∈ P, p.Prime) :
     have hpqeq : p = q := (Nat.prime_dvd_prime_iff_eq hpPrime hqPrime).mp hpq
     simpa [hpqeq] using hqD
 
+/-- There are at most `⌊y⌋ + 1` subsets of a finite prime set whose product is at most `y`. -/
+lemma primeProducts_card_le (P : Finset ℕ) (hP : ∀ p ∈ P, p.Prime)
+    (y : ℝ) (hy : 0 ≤ y) :
+    ((P.powerset.filter fun D : Finset ℕ => (∏ p ∈ D, p : ℕ) ≤ y)).card ≤ ⌊y⌋₊ + 1 := by
+  classical
+  let S := P.powerset.filter fun D : Finset ℕ => (∏ p ∈ D, p : ℕ) ≤ y
+  let f : Finset ℕ → ℕ := fun D => ∏ p ∈ D, p
+  have hmaps : Set.MapsTo f S (Finset.range (⌊y⌋₊ + 1) : Set ℕ) := by
+    intro D hD
+    change D ∈ S at hD
+    have hD' := Finset.mem_filter.mp hD
+    change f D ∈ Finset.range (⌊y⌋₊ + 1)
+    apply Finset.mem_range.mpr
+    have hprod : f D ≤ ⌊y⌋₊ := (Nat.le_floor_iff hy).2 hD'.2
+    exact Nat.lt_succ_of_le hprod
+  have hinj : (S : Set (Finset ℕ)).InjOn f := by
+    intro D hD E hE hDE
+    change D ∈ S at hD
+    change E ∈ S at hE
+    exact primeSetProduct_injective P hP D
+      ((Finset.mem_filter.mp hD).1) E ((Finset.mem_filter.mp hE).1) hDE
+  calc
+    S.card ≤ (Finset.range (⌊y⌋₊ + 1)).card := Finset.card_le_card_of_injOn f hmaps hinj
+    _ = ⌊y⌋₊ + 1 := by simp
+    _ = ⌊y⌋₊ + 1 := rfl
+
 end ArtinPrimitiveRoots.Proofs.b_density_sol
