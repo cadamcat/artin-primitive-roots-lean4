@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.LocalMellin
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.FiniteHaar
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.WeightedHaar
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.CutoffMass
+import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.ProductMellin
 
 open MeasureTheory
 open scoped FourierTransform
