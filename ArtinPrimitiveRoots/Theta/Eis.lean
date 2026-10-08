@@ -469,6 +469,55 @@ theorem eisenstein_whittaker (P : CoverPackage D S H A) (G : GlobalDatum P)
   rw [← hx, whit_atLift P G μ hs Fs x]
   exact whit_unfold_integral P G μ hs Fs g 𝔞 h𝔞 hfix Pd hPd ν hν x hx
 
+/-- Local scalar translation factors pass through the convergent Whittaker series. -/
+theorem whit_translate_scalar (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (y x : P.RP)
+    (cf : FinPlace F → ℂ) (hcf : (Function.mulSupport cf).Finite)
+    (cC : InfinitePlace F → ℂ)
+    (hF : ∀ v, jacquet (P.loc v) A (μ v)
+      (rtr (P.compF v y) (rtr (P.compF v x) (Fs.f v))) =
+      cf v • jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))
+    (hC : ∀ w, jacquetC (rtr (P.compC w y) (rtr (P.compC w x) (Fs.fC w))) =
+      cC w * jacquetC (rtr (P.compC w x) (Fs.fC w))) :
+    whittakerE P G μ Fs (P.q (y * x)) =
+      ((∏ᶠ v, cf v) * ∏ w, cC w) * whittakerE P G μ Fs (P.q x) := by
+  classical
+  have htrF (v : FinPlace F) :
+      rtr (P.compF v (y * x)) (Fs.f v) =
+        rtr (P.compF v y) (rtr (P.compF v x) (Fs.f v)) := by
+    funext h
+    simp only [rtr, map_mul, mul_assoc]
+  have htrC (w : InfinitePlace F) :
+      rtr (P.compC w (y * x)) (Fs.fC w) =
+        rtr (P.compC w y) (rtr (P.compC w x) (Fs.fC w)) := by
+    funext h
+    simp only [rtr, map_mul, mul_assoc]
+  have hlocal (δ : Fˣ ⧸ G.Δ) (v : FinPlace F) :
+      G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v (y * x)) (Fs.f v)))) =
+      cf v * G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) := by
+    rw [htrF v, hF v]
+    simp only [map_smul, smul_eq_mul]
+  have hcomplex (w : InfinitePlace F) :
+      jacquetC (rtr (P.compC w (y * x)) (Fs.fC w)) =
+        cC w * jacquetC (rtr (P.compC w x) (Fs.fC w)) := by
+    rw [htrC w, hC w]
+  have hterm (δ : Fˣ ⧸ G.Δ) :
+      whitLiftTerm P G μ Fs (y * x) δ =
+        ((∏ᶠ v, cf v) * ∏ w, cC w) * whitLiftTerm P G μ Fs x δ := by
+    unfold whitLiftTerm
+    simp_rw [hlocal δ, hcomplex]
+    rw [finprod_mul_distrib hcf
+      (whit_finite_mulSupport P G μ Fs x (Quotient.out δ)), Finset.prod_mul_distrib]
+    ac_rfl
+  have hsum := (whitLiftTerm_summable P G μ hs Fs x).of_norm
+  rw [whit_atLift P G μ hs Fs (y * x), whit_atLift P G μ hs Fs x]
+  simp_rw [hterm]
+  rw [hsum.tsum_mul_left ((∏ᶠ v, cf v) * ∏ w, cC w)]
+  ac_rfl
+
 /-- Genuineness follows by inserting the center into one local component. -/
 theorem whit_center (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
