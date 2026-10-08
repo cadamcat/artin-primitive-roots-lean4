@@ -277,13 +277,18 @@ private theorem ppPrimeSmoothTransition_affine_deriv_bound (j : ℕ) (c d : ℝ)
       mul_le_mul_of_nonneg_left (hbound (c * (x - d))) (pow_nonneg (abs_nonneg c) _)
     _ = ppPrimeSmoothTransitionConstant j * |c| ^ j := by ring
 
-private theorem ppPrimeLogCutoff_deriv_bound (a b δ : ℝ) (hδ : 0 < δ)
-    (j : ℕ) :
-    ∃ Kj : ℝ, 0 ≤ Kj ∧ ∀ u : ℝ,
+private noncomputable def ppPrimeLogCutoffDerivativeConstant (j : ℕ) : ℝ :=
+  ∑ i ∈ Finset.range (j + 1),
+    (j.choose i : ℝ) * ppPrimeSmoothTransitionConstant i *
+      ppPrimeSmoothTransitionConstant (j - i)
+
+private theorem ppPrimeLogCutoff_deriv_bound (j : ℕ) (a b δ : ℝ)
+    (hδ : 0 < δ) :
+    ∀ u : ℝ,
       ‖iteratedDeriv j
         (fun v : ℝ =>
           (ppPrimeLogCutoff (Real.log a) (Real.log b) δ (-v) : ℂ)) u‖ ≤
-        Kj * (δ⁻¹) ^ j := by
+        ppPrimeLogCutoffDerivativeConstant j * (δ⁻¹) ^ j := by
   classical
   let cLeft : ℝ := -(δ⁻¹)
   let dLeft : ℝ := δ - Real.log a
@@ -292,16 +297,7 @@ private theorem ppPrimeLogCutoff_deriv_bound (a b δ : ℝ) (hδ : 0 < δ)
   let f : ℝ → ℝ := fun u => Real.smoothTransition (cLeft * (u - dLeft))
   let g : ℝ → ℝ := fun u => Real.smoothTransition (cRight * (u - dRight))
   let F : ℝ → ℝ := fun u => ppPrimeLogCutoff (Real.log a) (Real.log b) δ (-u)
-  let K : ℝ := ∑ i ∈ Finset.range (j + 1),
-    (j.choose i : ℝ) * ppPrimeSmoothTransitionConstant i *
-      ppPrimeSmoothTransitionConstant (j - i)
-  have hK : 0 ≤ K := by
-    dsimp [K]
-    apply Finset.sum_nonneg
-    intro i hi
-    have hiC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound i)
-    have hjC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound (j - i))
-    exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) hiC.1.le) hjC.1.le
+  let K : ℝ := ppPrimeLogCutoffDerivativeConstant j
   have hargLeft (u : ℝ) :
       cLeft * (u - dLeft) = ((-u) - (Real.log a - δ)) / δ := by
     dsimp [cLeft, dLeft]
@@ -386,7 +382,8 @@ private theorem ppPrimeLogCutoff_deriv_bound (a b δ : ℝ) (hδ : 0 < δ)
             intro i hi
             exact hterm u i hi
       _ = K * (δ⁻¹) ^ j := by
-            simp [K, Finset.sum_mul]
+            dsimp [K, ppPrimeLogCutoffDerivativeConstant]
+            rw [← Finset.sum_mul]
   have hcast (n : ℕ) :
       iteratedDeriv n (fun u : ℝ => (F u : ℂ)) =
         fun u => ((iteratedDeriv n F u : ℝ) : ℂ) := by
@@ -402,7 +399,6 @@ private theorem ppPrimeLogCutoff_deriv_bound (a b δ : ℝ) (hδ : 0 < δ)
         change deriv (fun y : ℝ => ((iteratedDeriv n F y : ℝ) : ℂ)) u =
           ((deriv (iteratedDeriv n F) u : ℝ) : ℂ)
         exact hcast'.deriv
-  refine ⟨K, hK, ?_⟩
   intro u
   change ‖iteratedDeriv j (fun v : ℝ => (F v : ℂ)) u‖ ≤ K * (δ⁻¹) ^ j
   calc
@@ -411,6 +407,292 @@ private theorem ppPrimeLogCutoff_deriv_bound (a b δ : ℝ) (hδ : 0 < δ)
           rw [congrFun (hcast j) u]
           simp
     _ ≤ K * (δ⁻¹) ^ j := hrealBound u
+
+private noncomputable def ppPrimePositiveCutoffLogWeightConstant (j : ℕ) : ℝ :=
+  6 * (∑ i ∈ Finset.range (j + 1),
+    (j.choose i : ℝ) * Real.exp 2 *
+      ppPrimeLogCutoffDerivativeConstant (j - i)) + 1
+
+private theorem ppPrimePositiveCutoff_logWeight_lintegral_bound
+    (a b δ α : ℝ) (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ 2)
+    (hδ : 0 < δ) (hδsmall : δ ≤ 1 / 4) (hα : |α| ≤ 1) (j : ℕ) :
+    Integrable (iteratedDeriv j
+      (mellinLogWeight (ppPrimePositiveCutoff a b δ) α)) ∧
+    ∫ u : ℝ, ‖iteratedDeriv j
+      (mellinLogWeight (ppPrimePositiveCutoff a b δ) α) u‖ ≤
+        ppPrimePositiveCutoffLogWeightConstant j * (δ⁻¹) ^ j := by
+  classical
+  let F : ℝ → ℝ := fun u => ppPrimeLogCutoff (Real.log a) (Real.log b) δ (-u)
+  let G : ℝ → ℂ := fun u => (F u : ℂ)
+  let R : ℝ → ℝ := fun u => Real.exp (-α * u)
+  let E : ℝ → ℂ := fun u => (R u : ℂ)
+  let W : ℝ → ℂ := mellinLogWeight (ppPrimePositiveCutoff a b δ) α
+  have hW_eq : W = E * G := by
+    funext u
+    simp [W, E, G, R, F, mellinLogWeight, ppPrimePositiveCutoff, Real.exp_pos]
+  have hFcont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) F := by
+    dsimp [F]
+    exact (ppPrimeLogCutoff_contDiff _ _ _).comp (by fun_prop)
+  have hGcont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) G := by
+    exact Complex.ofRealCLM.contDiff.comp hFcont
+  have hRcont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) R := by
+    dsimp [R]
+    fun_prop
+  have hEcont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) E :=
+    Complex.ofRealCLM.contDiff.comp hRcont
+  have hWcont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) W := by
+    simpa [W] using ppPrimePositiveCutoff_logWeight_contDiff a b δ α
+  have haPos : 0 < a := lt_of_lt_of_le (by norm_num) ha
+  have hbOne : 1 ≤ b := le_trans ha hab
+  have hbPos : 0 < b := lt_of_lt_of_le (by norm_num) hbOne
+  have haLog : 0 ≤ Real.log a := by
+    have h := Real.log_le_log (by norm_num : (0 : ℝ) < 1) ha
+    simpa using h
+  have hbLog : Real.log b ≤ 1 := by
+    calc
+      Real.log b ≤ b - 1 := Real.log_le_sub_one_of_pos hbPos
+      _ ≤ 1 := by linarith
+  have hFsupport : Function.support F ⊆ Set.Icc (-2 : ℝ) 2 := by
+    intro u hu
+    have hmem : -u ∈ Function.support
+        (ppPrimeLogCutoff (Real.log a) (Real.log b) δ) := by
+      simpa [F, Function.mem_support] using hu
+    have hbds := ppPrimeLogCutoff_support (Real.log a) (Real.log b) δ hδ hmem
+    constructor <;> linarith [hbds.1, hbds.2, haLog, hbLog, hδsmall]
+  have hGsupport : Function.support G ⊆ Set.Icc (-2 : ℝ) 2 := by
+    intro u hu
+    have hGne : G u ≠ 0 := by
+      simpa only [Function.mem_support] using hu
+    have hFne : F u ≠ 0 := by
+      intro hzero
+      apply hGne
+      simp [G, hzero]
+    exact hFsupport (by simpa only [Function.mem_support] using hFne)
+  have hGtsupport : tsupport G ⊆ Set.Icc (-2 : ℝ) 2 :=
+    closure_minimal hGsupport isClosed_Icc
+  have hWsupport : Function.support W ⊆ Set.Icc (-2 : ℝ) 2 := by
+    intro u hu
+    have hWne : W u ≠ 0 := by
+      simpa only [Function.mem_support] using hu
+    have hGne : G u ≠ 0 := by
+      intro hzero
+      apply hWne
+      rw [hW_eq]
+      simp [hzero]
+    exact hGsupport (by simpa only [Function.mem_support] using hGne)
+  have hWtsupport : tsupport W ⊆ Set.Icc (-2 : ℝ) 2 :=
+    closure_minimal hWsupport isClosed_Icc
+  have hiterTsupport (f : ℝ → ℂ) (n : ℕ) :
+      tsupport (iteratedDeriv n f) ⊆ tsupport f := by
+    induction n with
+    | zero => simp [iteratedDeriv_zero]
+    | succ n ih =>
+        simpa only [iteratedDeriv_succ] using tsupport_deriv_subset.trans ih
+  have hGderivSupport (k : ℕ) :
+      Function.support (iteratedDeriv k G) ⊆ Set.Icc (-2 : ℝ) 2 :=
+    (subset_tsupport _).trans ((hiterTsupport G k).trans hGtsupport)
+  have hWderivSupport (k : ℕ) :
+      Function.support (iteratedDeriv k W) ⊆ Set.Icc (-2 : ℝ) 2 :=
+    (subset_tsupport _).trans ((hiterTsupport W k).trans hWtsupport)
+  have hGbound (k : ℕ) (u : ℝ) :
+      ‖iteratedDeriv k G u‖ ≤ ppPrimeLogCutoffDerivativeConstant k * (δ⁻¹) ^ k := by
+    simpa [G, F] using ppPrimeLogCutoff_deriv_bound k a b δ hδ u
+  have hcastIter (f : ℝ → ℝ)
+      (hf : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f) (n : ℕ) :
+      iteratedDeriv n (fun u : ℝ => (f u : ℂ)) =
+        fun u => ((iteratedDeriv n f u : ℝ) : ℂ) := by
+    induction n with
+    | zero => rfl
+    | succ n ih =>
+        rw [iteratedDeriv_succ, iteratedDeriv_succ, ih]
+        funext u
+        have hdiff : DifferentiableAt ℝ (iteratedDeriv n f) u :=
+          (hf.differentiable_iteratedDeriv n
+            (WithTop.coe_lt_coe.mpr (WithTop.coe_lt_top n))).differentiableAt
+        have hcast := HasDerivAt.ofReal_comp hdiff.hasDerivAt
+        change deriv (fun y : ℝ => ((iteratedDeriv n f y : ℝ) : ℂ)) u =
+          ((deriv (iteratedDeriv n f) u : ℝ) : ℂ)
+        exact hcast.deriv
+  have hRiter (k : ℕ) :
+      iteratedDeriv k R = fun u => (-α) ^ k * Real.exp (-α * u) := by
+    simpa [R] using (iteratedDeriv_exp_const_mul k (-α))
+  have hEiter (k : ℕ) :
+      iteratedDeriv k E =
+        fun u => ((((-α) ^ k * Real.exp (-α * u) : ℝ) : ℂ)) := by
+    rw [show E = fun u : ℝ => (R u : ℂ) by rfl, hcastIter R hRcont k]
+    funext u
+    rw [congrFun (hRiter k) u]
+  have hExpBound (k : ℕ) (u : ℝ) (hu : u ∈ Set.Icc (-2 : ℝ) 2) :
+      ‖iteratedDeriv k E u‖ ≤ Real.exp 2 := by
+    have huabs : |u| ≤ 2 := abs_le.mpr ⟨by linarith [hu.1], by linarith [hu.2]⟩
+    have hcoeff : |(-α) ^ k| ≤ 1 := by
+      rw [abs_pow, abs_neg]
+      exact pow_le_one₀ (abs_nonneg α) hα
+    have hexpArg : (-α) * u ≤ 2 := by
+      have habs : |(-α) * u| ≤ 2 := by
+        rw [abs_mul, abs_neg]
+        calc
+          |α| * |u| ≤ 1 * 2 := mul_le_mul hα huabs (abs_nonneg u) (by norm_num)
+          _ = 2 := by norm_num
+      exact (le_abs_self _).trans habs
+    have hexp := Real.exp_le_exp.mpr hexpArg
+    rw [congrFun (hEiter k) u, Complex.norm_real, Real.norm_eq_abs]
+    calc
+      |(-α) ^ k * Real.exp (-α * u)| =
+          |(-α) ^ k| * Real.exp (-α * u) := by
+            rw [abs_mul, abs_of_pos (Real.exp_pos _)]
+      _ ≤ 1 * Real.exp 2 :=
+        mul_le_mul hcoeff hexp (Real.exp_nonneg _) (by norm_num)
+      _ = Real.exp 2 := by ring
+  have hρ : 1 ≤ δ⁻¹ := (one_le_inv₀ hδ).2 (by linarith [hδsmall])
+  have hCutNonneg (k : ℕ) : 0 ≤ ppPrimeLogCutoffDerivativeConstant k := by
+    dsimp [ppPrimeLogCutoffDerivativeConstant]
+    apply Finset.sum_nonneg
+    intro i hi
+    have hiC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound i)
+    have hkC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound (k - i))
+    exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) hiC.1.le) hkC.1.le
+  let Ksum : ℝ := ∑ i ∈ Finset.range (j + 1),
+    (j.choose i : ℝ) * Real.exp 2 * ppPrimeLogCutoffDerivativeConstant (j - i)
+  have hKsum : 0 ≤ Ksum := by
+    dsimp [Ksum]
+    apply Finset.sum_nonneg
+    intro i hi
+    exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) (Real.exp_nonneg _))
+      (hCutNonneg (j - i))
+  have hmulW (u : ℝ) :
+      iteratedDeriv j (E * G) u =
+        ∑ i ∈ Finset.range (j + 1), (j.choose i : ℂ) *
+          iteratedDeriv i E u * iteratedDeriv (j - i) G u := by
+    simpa using (iteratedDeriv_mul (n := j) (x := u)
+      (hEcont.contDiffAt.of_le (by simp)) (hGcont.contDiffAt.of_le (by simp)))
+  have hterm (u : ℝ) (i : ℕ) (hi : i ∈ Finset.range (j + 1)) :
+      ‖(j.choose i : ℂ) * iteratedDeriv i E u * iteratedDeriv (j - i) G u‖ ≤
+        ((j.choose i : ℝ) * Real.exp 2 *
+          ppPrimeLogCutoffDerivativeConstant (j - i)) * (δ⁻¹) ^ j := by
+    have hi' : i ≤ j := Nat.le_of_lt_succ (Finset.mem_range.mp hi)
+    have hcoeff : 0 ≤ (j.choose i : ℝ) := Nat.cast_nonneg _
+    by_cases hzero : iteratedDeriv (j - i) G u = 0
+    · have hRhs : 0 ≤ ((j.choose i : ℝ) * Real.exp 2 *
+          ppPrimeLogCutoffDerivativeConstant (j - i)) * (δ⁻¹) ^ j :=
+        mul_nonneg
+          (mul_nonneg (mul_nonneg hcoeff (Real.exp_nonneg _))
+            (hCutNonneg (j - i)))
+          (pow_nonneg (inv_nonneg.mpr hδ.le) _)
+      simpa [hzero] using hRhs
+    · have huG : u ∈ Function.support (iteratedDeriv (j - i) G) := by
+        simpa only [Function.mem_support] using hzero
+      have huIcc : u ∈ Set.Icc (-2 : ℝ) 2 := hGderivSupport (j - i) huG
+      have hE := hExpBound i u huIcc
+      have hG := hGbound (j - i) u
+      rw [norm_mul, norm_mul, Complex.norm_natCast]
+      calc
+        (j.choose i : ℝ) * ‖iteratedDeriv i E u‖ *
+            ‖iteratedDeriv (j - i) G u‖ ≤
+          ((j.choose i : ℝ) * Real.exp 2) *
+            (ppPrimeLogCutoffDerivativeConstant (j - i) * (δ⁻¹) ^ (j - i)) := by
+              apply mul_le_mul
+              · exact mul_le_mul_of_nonneg_left hE hcoeff
+              · exact hG
+              · exact norm_nonneg _
+              · exact mul_nonneg hcoeff (Real.exp_nonneg _)
+        _ ≤ ((j.choose i : ℝ) * Real.exp 2 *
+            ppPrimeLogCutoffDerivativeConstant (j - i)) * (δ⁻¹) ^ j := by
+              calc
+                _ = ((j.choose i : ℝ) * Real.exp 2 *
+                    ppPrimeLogCutoffDerivativeConstant (j - i)) *
+                      (δ⁻¹) ^ (j - i) := by ring
+                _ ≤ ((j.choose i : ℝ) * Real.exp 2 *
+                    ppPrimeLogCutoffDerivativeConstant (j - i)) *
+                      (δ⁻¹) ^ j :=
+                  mul_le_mul_of_nonneg_left
+                    (pow_le_pow_right₀ hρ (Nat.sub_le _ _))
+                    (mul_nonneg (mul_nonneg hcoeff (Real.exp_nonneg _))
+                      (hCutNonneg (j - i)))
+  have hWpoint (u : ℝ) :
+      ‖iteratedDeriv j W u‖ ≤ Ksum * (δ⁻¹) ^ j := by
+    rw [hW_eq, hmulW]
+    calc
+      ‖∑ i ∈ Finset.range (j + 1), (j.choose i : ℂ) *
+          iteratedDeriv i E u * iteratedDeriv (j - i) G u‖ ≤
+        ∑ i ∈ Finset.range (j + 1),
+          ‖(j.choose i : ℂ) * iteratedDeriv i E u * iteratedDeriv (j - i) G u‖ :=
+            norm_sum_le _ _
+      _ ≤ ∑ i ∈ Finset.range (j + 1),
+          ((j.choose i : ℝ) * Real.exp 2 *
+            ppPrimeLogCutoffDerivativeConstant (j - i)) * (δ⁻¹) ^ j := by
+              apply Finset.sum_le_sum
+              intro i hi
+              exact hterm u i hi
+      _ = Ksum * (δ⁻¹) ^ j := by
+            dsimp [Ksum]
+            rw [← Finset.sum_mul]
+  have hWderivCompact : HasCompactSupport (iteratedDeriv j W) :=
+    HasCompactSupport.of_support_subset_isCompact isCompact_Icc (hWderivSupport j)
+  have hWderivInt : Integrable (iteratedDeriv j W) :=
+    (hWcont.continuous_iteratedDeriv j (by simp)).integrable_of_hasCompactSupport
+      hWderivCompact
+  let Nfun : ℝ → ℝ := fun u => ‖iteratedDeriv j W u‖
+  have hNcont : Continuous Nfun :=
+    (hWcont.continuous_iteratedDeriv j (by simp)).norm
+  have hNsupport : Function.support Nfun ⊆ Set.Icc (-2 : ℝ) 2 := by
+    intro u hu
+    have hNne : Nfun u ≠ 0 := by
+      simpa only [Function.mem_support] using hu
+    have hWne : iteratedDeriv j W u ≠ 0 := by
+      intro hz
+      apply hNne
+      simp [Nfun, hz]
+    exact hWderivSupport j (by simpa only [Function.mem_support] using hWne)
+  have hNsupportIoc : Function.support Nfun ⊆ Set.Ioc (-3 : ℝ) 3 := by
+    intro u hu
+    rcases hNsupport hu with ⟨hlo, hhi⟩
+    exact ⟨by linarith, by linarith⟩
+  have hNint : IntervalIntegrable Nfun volume (-3) 3 := hNcont.intervalIntegrable _ _
+  have hCint : IntervalIntegrable (fun _ : ℝ => Ksum * (δ⁻¹) ^ j)
+      volume (-3) 3 := intervalIntegrable_const
+  have hIntervalBound :
+      (∫ u in (-3 : ℝ)..3, Nfun u) ≤
+        ∫ u in (-3 : ℝ)..3, Ksum * (δ⁻¹) ^ j := by
+    apply intervalIntegral.integral_mono_on (by norm_num) hNint hCint
+    intro u hu
+    exact hWpoint u
+  have hIntegralBound :
+      (∫ u : ℝ, Nfun u) ≤ 6 * (Ksum * (δ⁻¹) ^ j) := by
+    calc
+      (∫ u : ℝ, Nfun u) = ∫ u in (-3 : ℝ)..3, Nfun u :=
+        (intervalIntegral.integral_eq_integral_of_support_subset (μ := volume)
+          hNsupportIoc).symm
+      _ ≤ ∫ u in (-3 : ℝ)..3, Ksum * (δ⁻¹) ^ j := hIntervalBound
+      _ = 6 * (Ksum * (δ⁻¹) ^ j) := by
+        rw [intervalIntegral.integral_const]
+        simp only [smul_eq_mul]
+        ring
+  have hConstantBound :
+      6 * (Ksum * (δ⁻¹) ^ j) ≤
+        ppPrimePositiveCutoffLogWeightConstant j * (δ⁻¹) ^ j := by
+    have hpow : 0 ≤ (δ⁻¹) ^ j := pow_nonneg (inv_nonneg.mpr hδ.le) _
+    dsimp [ppPrimePositiveCutoffLogWeightConstant, Ksum]
+    calc
+      6 * ((∑ i ∈ Finset.range (j + 1),
+          (j.choose i : ℝ) * Real.exp 2 *
+            ppPrimeLogCutoffDerivativeConstant (j - i)) * (δ⁻¹) ^ j) =
+        (6 * ∑ i ∈ Finset.range (j + 1),
+          (j.choose i : ℝ) * Real.exp 2 *
+            ppPrimeLogCutoffDerivativeConstant (j - i)) * (δ⁻¹) ^ j := by ring
+      _ ≤ (6 * ∑ i ∈ Finset.range (j + 1),
+          (j.choose i : ℝ) * Real.exp 2 *
+            ppPrimeLogCutoffDerivativeConstant (j - i) + 1) * (δ⁻¹) ^ j := by
+          exact mul_le_mul_of_nonneg_right (by linarith) hpow
+  refine ⟨?_, ?_⟩
+  · change Integrable (iteratedDeriv j W)
+    exact hWderivInt
+  · change (∫ u : ℝ, ‖iteratedDeriv j W u‖) ≤
+      ppPrimePositiveCutoffLogWeightConstant j * (δ⁻¹) ^ j
+    calc
+      (∫ u : ℝ, ‖iteratedDeriv j W u‖) = ∫ u : ℝ, Nfun u := by rfl
+      _ ≤ 6 * (Ksum * (δ⁻¹) ^ j) := hIntegralBound
+      _ ≤ ppPrimePositiveCutoffLogWeightConstant j * (δ⁻¹) ^ j := hConstantBound
 
 /-- The kernel is Mathlib's Mellin transform, with the positive-base power
 rewritten only on the domain of integration. -/
