@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.Interface
+import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
@@ -562,7 +563,134 @@ theorem rf_forward_frequency_factors :
   (∀ u ν y, R.T.WS (R.chars.L u) (R.C.aS (S.diagU ν) * R.C.aS y) =
     sCocycle (D := D) (H := H) (S.diagU ν) y * unrotated R u (S.diagU ν * y)) ∧
   ∀ (γ : Gamma S) ν, forwardExterior R ((γ.1 : Fˣ) * ν) = forwardExterior R ν := by
-  sorry
+  constructor
+  · intro u ν y
+    rw [R.C.aS_mul]
+    rw [R.T.WS_genuine (R.chars.L u) (R.mem_family u)]
+    simp [sCocycle, unrotated, muThree, map_pow]
+  · intro γ ν
+    classical
+    have hroot : ∃ u : S.US, (γ.1 : S.US) = u ^ 6 := by
+      have hmem : (γ.1 : S.US) ∈ (sixthPowerOnUS S).range := γ.2
+      rcases MonoidHom.mem_range.mp hmem with ⟨u, hu⟩
+      change u ^ 6 = γ.1 at hu
+      exact ⟨u, hu.symm⟩
+    obtain ⟨u, hu⟩ := hroot
+    have localVal (v : FinPlace F) (hv : v ∉ S.Sf) (e : S.US) :
+        Valued.v (toLoc v (e : Fˣ) : v.adicCompletion F) = 1 := by
+      have hglob : HeightOneSpectrum.valuation F v ((e : Fˣ) : F) = 1 :=
+        Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) e hv
+      change Valued.v (algebraMap F (v.adicCompletion F) ((e : Fˣ) : F)) = 1
+      simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+        Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation', hglob]
+    have hglobalPow : (γ.1 : Fˣ) = (u : Fˣ) ^ 6 := by
+      exact congrArg (fun e : S.US => (e : Fˣ)) hu
+    have hlocal (v : FinPlace F) (hv : v ∉ S.Sf) :
+        R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) =
+          R.T.Wv v (R.C.a v (toLoc v ν)) := by
+      let g : (v.adicCompletion F)ˣ := toLoc v (γ.1 : Fˣ)
+      let t : (v.adicCompletion F)ˣ := toLoc v (u : Fˣ)
+      have hvalg : Valued.v (g : v.adicCompletion F) = 1 := by
+        exact localVal v hv (γ.1 : S.US)
+      have hvalt : Valued.v (t : v.adicCompletion F) = 1 := by
+        exact localVal v hv u
+      have hgintegral : (g : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers, hvalg]
+      have hginvIntegral : ((g⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+          v.adicCompletionIntegers F := by
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        simp only [Units.val_inv_eq_inv_val, map_inv₀, hvalg, inv_one, le_refl]
+      have hK : R.C.a v g ∈ R.C.Kext :=
+        R.C.a_Kext v hv g hgintegral hginvIntegral
+      have hv6 : (6 : 𝓞 F) ∉ v.asIdeal := by
+        intro h
+        exact hv (S.over6 v h)
+      have hbasic := ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) hv6
+      have htLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t := by
+        constructor
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hvalt]
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+          simp only [Units.val_inv_eq_inv_val, map_inv₀, hvalt, inv_one, le_refl]
+      have htPowLoc (n : ℕ) : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (t ^ n) := by
+        have hpowval : Valued.v ((t ^ n : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+          simp only [Units.val_pow_eq_pow_val, map_pow, hvalt, one_pow]
+        constructor
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hpowval]
+        · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+          have hinv : Valued.v (((t ^ n)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+            simp only [Units.val_inv_eq_inv_val, map_inv₀, hpowval, inv_one]
+          rw [hinv]
+      have hchiPow : ∀ n : ℕ,
+          ArtinPrimitiveRoots.A1.localChi D v (t ^ n) =
+            ArtinPrimitiveRoots.A1.localChi D v t ^ n := by
+        intro n
+        induction n with
+        | zero => simpa using hbasic.1
+        | succ n ih =>
+          calc
+            ArtinPrimitiveRoots.A1.localChi D v (t ^ (n + 1)) =
+                ArtinPrimitiveRoots.A1.localChi D v (t ^ n * t) := by rw [pow_succ]
+            _ = ArtinPrimitiveRoots.A1.localChi D v (t ^ n) *
+                ArtinPrimitiveRoots.A1.localChi D v t :=
+              hbasic.2.2.1 _ _ (htPowLoc n) htLoc
+            _ = _ := by rw [ih, pow_succ]
+      have hgammaLocalPow : g = t ^ 6 := by
+        change toLoc v ((γ.1 : Fˣ)) = (toLoc v (u : Fˣ)) ^ 6
+        rw [← map_pow]
+        exact congrArg (toLoc v) hglobalPow
+      have hchiG : ArtinPrimitiveRoots.A1.localChi D v g = 1 := by
+        calc
+          ArtinPrimitiveRoots.A1.localChi D v g =
+              ArtinPrimitiveRoots.A1.localChi D v (t ^ 6) := by rw [hgammaLocalPow]
+          _ = ArtinPrimitiveRoots.A1.localChi D v t ^ 6 := hchiPow 6
+          _ = 1 := hbasic.2.2.2.1 t htLoc
+      have hordG : ArtinPrimitiveRoots.A1.ordv v g = 0 := by
+        have hne : Valued.v (g : v.adicCompletion F) ≠ 0 := by
+          rw [hvalg]
+          exact one_ne_zero
+        unfold ArtinPrimitiveRoots.A1.ordv
+        rw [WithZero.toAdd_unzero_eq_log hne, hvalg]
+        simp
+      have hunitPartG : ArtinPrimitiveRoots.A1.unitPart v g = g := by
+        simp [ArtinPrimitiveRoots.A1.unitPart, hordG]
+      have hCocLeft : ArtinPrimitiveRoots.A1.extCocycle D v g (toLoc v ν) = 1 := by
+        simp [ArtinPrimitiveRoots.A1.extCocycle, hunitPartG, hchiG, hordG]
+      have hCocRight : ArtinPrimitiveRoots.A1.extCocycle D v (toLoc v ν) g = 1 := by
+        simp [ArtinPrimitiveRoots.A1.extCocycle, hunitPartG, hchiG, hordG]
+      obtain ⟨ζ₁, hζ₁, hmul₁⟩ := R.C.a_mul v hv g (toLoc v ν)
+      have hζ₁ : ζ₁ = 1 := by
+        apply Subtype.ext
+        apply Units.ext
+        exact hζ₁.trans hCocLeft
+      have hmul₁ : R.C.a v g * R.C.a v (toLoc v ν) = R.C.a v (g * toLoc v ν) := by
+        simpa [hζ₁] using hmul₁
+      obtain ⟨ζ₂, hζ₂, hmul₂⟩ := R.C.a_mul v hv (toLoc v ν) g
+      have hζ₂ : ζ₂ = 1 := by
+        apply Subtype.ext
+        apply Units.ext
+        exact hζ₂.trans hCocRight
+      have hmul₂ : R.C.a v (toLoc v ν) * R.C.a v g =
+          R.C.a v (toLoc v ν * g) := by
+        simpa [hζ₂] using hmul₂
+      have hcomm : R.C.a v g * R.C.a v (toLoc v ν) =
+          R.C.a v (toLoc v ν) * R.C.a v g := by
+        calc
+          _ = R.C.a v (g * toLoc v ν) := hmul₁
+          _ = R.C.a v (toLoc v ν * g) := by rw [mul_comm]
+          _ = _ := hmul₂.symm
+      calc
+        R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) =
+            R.T.Wv v (R.C.a v g * R.C.a v (toLoc v ν)) := by
+              rw [map_mul]
+              exact congrArg (R.T.Wv v) hmul₁.symm
+        _ = R.T.Wv v (R.C.a v (toLoc v ν) * R.C.a v g) := by rw [hcomm]
+        _ = R.T.Wv v (R.C.a v (toLoc v ν)) :=
+          R.T.Wv_right v hv (R.C.a v (toLoc v ν)) (R.C.a v g) hK (R.C.a_mem v g)
+    apply finprod_congr
+    intro v
+    by_cases hv : v ∉ S.Sf
+    · simpa [forwardExterior, hv] using hlocal v hv
+    · simp [forwardExterior, hv]
 /-- rf:reflected-absolute: spherical series and convergence BEFORE digit evaluation. -/
 theorem rf_reflected_pre_digit_absolute :
   (∀ v, v ∉ S.Sf → ∀ σ : ℝ, 1 / 2 < σ →
@@ -581,7 +709,96 @@ theorem rf_original_majorant : ∀ σ : ℝ, 1 / 2 < σ →
   sphericalMajorant (S := S) σ ≤ exteriorZeta (S := S) (σ + 1 / 2) * exteriorZeta (S := S) (3 * σ + 1) ∧
   Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(σ + 1 / 2))) ∧
   Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(3 * σ + 1))) := by
-  sorry
+  intro σ hσ
+  let a : S.ExtIdeal → ℝ := fun I => qI I.1 ^ (-1 / 2 - σ)
+  let b : S.ExtIdeal → ℝ := fun I => qI I.1 ^ (-1 - 3 * σ)
+  have haBase := a2_bridge_COUNT_summable (S := S) (σ + 1 / 2) (by linarith)
+  have hbBase := a2_bridge_COUNT_summable (S := S) (3 * σ + 1) (by linarith)
+  have ha : Summable a := by
+    apply haBase.congr
+    intro I
+    dsimp [a, qI, idealNorm]
+    congr 1
+    ring
+  have hb : Summable b := by
+    apply hbBase.congr
+    intro I
+    dsimp [b, qI, idealNorm]
+    congr 1
+    ring
+  have haResult : Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(σ + 1 / 2))) := by
+    simpa [qI, idealNorm] using haBase
+  have hbResult : Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(3 * σ + 1))) := by
+    simpa [qI, idealNorm] using hbBase
+  have ha_nonneg : ∀ I, 0 ≤ a I := by
+    intro I
+    change 0 ≤ Real.rpow (Ideal.absNorm I.1 : ℝ) _
+    exact Real.rpow_nonneg (Nat.cast_nonneg _) _
+  have hb_nonneg : ∀ I, 0 ≤ b I := by
+    intro I
+    change 0 ≤ Real.rpow (Ideal.absNorm I.1 : ℝ) _
+    exact Real.rpow_nonneg (Nat.cast_nonneg _) _
+  let incl : S.SqfExtIdeal → S.ExtIdeal := fun I => ⟨I.1, I.2.1⟩
+  have hincl : Function.Injective incl := by
+    intro I J h
+    apply Subtype.ext
+    change (incl I).1 = (incl J).1
+    exact congrArg (fun x : S.ExtIdeal => x.1) h
+  let aSqf : S.SqfExtIdeal → ℝ := fun I => a (incl I)
+  have haSqf : Summable aSqf := by
+    let e : S.SqfExtIdeal ≃ {I : S.ExtIdeal // Squarefree I.1} :=
+      { toFun := fun I => ⟨incl I, I.2.2⟩
+        invFun := fun I => ⟨I.1.1, ⟨I.1.2, I.2⟩⟩
+        left_inv := by intro I; apply Subtype.ext; rfl
+        right_inv := by intro I; apply Subtype.ext; apply Subtype.ext; rfl }
+    have hsub : Summable (fun I : {I : S.ExtIdeal // Squarefree I.1} => a I.1) :=
+      ha.subtype (fun I : S.ExtIdeal => Squarefree I.1)
+    have heq : aSqf = fun I : S.SqfExtIdeal => a (e I).1 := by
+      funext I
+      rfl
+    rw [heq]
+    exact (Equiv.summable_iff e).mpr hsub
+  have hpair : Summable (fun p : S.SqfExtIdeal × S.ExtIdeal => aSqf p.1 * b p.2) :=
+    haSqf.mul_of_nonneg hb (fun I => ha_nonneg (incl I)) hb_nonneg
+  have hprod :
+      (∑' p : S.SqfExtIdeal × S.ExtIdeal, aSqf p.1 * b p.2) =
+        (∑' I : S.SqfExtIdeal, aSqf I) * (∑' I : S.ExtIdeal, b I) := by
+    calc
+      _ = ∑' I : S.SqfExtIdeal, ∑' J : S.ExtIdeal, aSqf I * b J := hpair.tsum_prod
+      _ = _ := by simp [tsum_mul_left, tsum_mul_right]
+  have hsub : (∑' I : S.SqfExtIdeal, aSqf I) ≤ ∑' I : S.ExtIdeal, a I :=
+    tsum_comp_le_tsum_of_inj ha ha_nonneg hincl
+  have hb_tsum_nonneg : 0 ≤ ∑' I : S.ExtIdeal, b I := tsum_nonneg hb_nonneg
+  have hbound :
+      (∑' p : S.SqfExtIdeal × S.ExtIdeal, aSqf p.1 * b p.2) ≤
+        (∑' I : S.ExtIdeal, a I) * (∑' I : S.ExtIdeal, b I) := by
+    rw [hprod]
+    exact mul_le_mul_of_nonneg_right hsub hb_tsum_nonneg
+  have hmaj_eq : sphericalMajorant (S := S) σ =
+      ∑' p : S.SqfExtIdeal × S.ExtIdeal, aSqf p.1 * b p.2 := by
+    unfold sphericalMajorant
+    apply tsum_congr
+    intro p
+    rfl
+  have hza : (∑' I : S.ExtIdeal, a I) = exteriorZeta (S := S) (σ + 1 / 2) := by
+    unfold exteriorZeta
+    apply tsum_congr
+    intro I
+    dsimp [a]
+    congr 1
+    ring
+  have hzb : (∑' I : S.ExtIdeal, b I) = exteriorZeta (S := S) (3 * σ + 1) := by
+    unfold exteriorZeta
+    apply tsum_congr
+    intro I
+    dsimp [b]
+    congr 1
+    ring
+  refine ⟨?_, haResult, hbResult⟩
+  calc
+    sphericalMajorant (S := S) σ = _ := hmaj_eq
+    _ ≤ (∑' I : S.ExtIdeal, a I) * (∑' I : S.ExtIdeal, b I) := hbound
+    _ = _ := by rw [hza, hzb]
 /-- rf:S-unfolding, 04:804-857. The norm identity and selected frequency class are fixed together. -/
 theorem rf_frozen_frequency_norm_class : ∀ h (t : FrozenIndex R h) d c sd sc,
   cls (S.diagU (bc.gen d)) = sd.1 → cls (S.diagU (bc.gen (R.exterior.ofSqf c))) = sc.1 →

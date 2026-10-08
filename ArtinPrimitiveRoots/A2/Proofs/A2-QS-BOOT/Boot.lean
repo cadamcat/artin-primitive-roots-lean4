@@ -1,5 +1,7 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».Block
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M2
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».S0Slice
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-BOOT».B0.Final
 
 /-!
 # A2-QS-BOOT: monotone row norm, finite descent, bootstrap and the core theorem
@@ -196,7 +198,7 @@ theorem qs_row_split_B (F : QSFamily m qS) (W : ℝ → ℝ) (hW : IsCapWeight W
 
 /-- B0 (SOL-LEAD; RETIER `qs_boot_parameters_B0`): the high-core norm in the optimized range,
 by `r ≥ 40/ε` successive gcd descents with the original `G = N^{1/r}` (`qs_gcd_descent_S0`),
-class/dyad slicing (`qs_class_dyad_slice_S0`), the residual form (`qs_residual_form_S0`), the
+class/dyad slicing (`qs_class_dyad_slice_pos_S0`; rows are empty at `M = 0`), the residual form (`qs_residual_form_S0`), the
 block bound (`qs_residual_block_bound_C4`) with `n = N/N g`, `𝔮 = qsBadRad · g`,
 `Σ_{N g ≤ G} (N𝔮)^8 ≪ G^{9+η}`, and the terminal unit-column case.  Here
 `κ = N²/M · (MN)^η` and `2N(MN)^η ≤ M ≤ N²`. -/
@@ -206,8 +208,8 @@ theorem qs_high_core_bound_B0 [IsTotallyComplex K] (F : QSFamily m qS)
     ∃ η : ℝ, 0 < η ∧ η ≤ δ ∧ ∃ C : ℝ, 0 < C ∧ ∀ M N : ℝ, 1 ≤ N →
       2 * N * (M * N) ^ η ≤ M → M ≤ N ^ (2 : ℝ) →
       qsHighNorm F W M N (N ^ (2 : ℝ) / M * (M * N) ^ η) ≤
-        C * (M * N) ^ δ * (M + N + N ^ (2 * α - 1) * M ^ (1 - α)) := by
-  sorry
+        C * (M * N) ^ δ * (M + N + N ^ (2 * α - 1) * M ^ (1 - α)) :=
+  QSB0.b0_main F hrf hqS W hW α hα1 hα2 hexp δ hδ
 
 /-- Recursion (IMPL): `HasExponent α ⇒ B1(M,N) ≪_δ (MN)^δ (M + N + N^{2α-1} M^{1-α})` for
 `M ≥ N ≥ 1` (found:556-570): row split at `κ = N²/M (MN)^η`, `B1(κ,N) = B1(N,κ) ≪ N + κ^α`
