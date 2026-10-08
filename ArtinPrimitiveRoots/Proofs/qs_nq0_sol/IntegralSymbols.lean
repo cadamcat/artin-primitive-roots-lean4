@@ -185,4 +185,65 @@ theorem qs_nq0_integral_corrected_generator
     exact ha.2.2 v hv
   exact ⟨b, c, hb, hceq, hcgen, qs_nq0_integral_exterior_of_isGen Sd T c hcgen⟩
 
+/-- The integral quadratic symbol equals the quadratic prime value, including ramified zeros. -/
+theorem qs_nq0_integral_quadratic_prime_value
+    (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (c : 𝓞 K) (hc : (c : K) ≠ 0) (hsq : c ∉ v.asIdeal ^ 2)
+    (χ : HeckeChar K)
+    (hloc : χ.loc v = qsNQQuadraticLocal D H v
+      (toLoc v (Units.mk0 (c : K) hc))) :
+    χ.primeValue v = (qsQuadSymbolAt v c : ℂ) := by
+  classical
+  let a : Kˣ := Units.mk0 (c : K) hc
+  by_cases hmem : c ∈ v.asIdeal
+  · have hexp : v.valuation K (c : K) =
+        WithZero.exp (WithZero.log (v.valuation K (c : K))) :=
+      (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr hc)).symm
+    have hloglt : WithZero.log (v.valuation K (c : K)) < 0 := by
+      have hlt := (v.valuation_lt_one_iff_mem (K := K) c).mpr hmem
+      rw [hexp, WithZero.exp_lt_one_iff] at hlt
+      exact hlt
+    have hloggt : (-2 : ℤ) < WithZero.log (v.valuation K (c : K)) := by
+      have hnotle : ¬ v.valuation K (c : K) ≤ WithZero.exp (-2 : ℤ) := by
+        intro hle
+        apply hsq
+        apply (v.intValuation_le_pow_iff_mem c 2).mp
+        rwa [← v.valuation_of_algebraMap (K := K)]
+      have hlt := lt_of_not_ge hnotle
+      rw [hexp, WithZero.exp_lt_exp] at hlt
+      exact hlt
+    have hlog : WithZero.log (v.valuation K (c : K)) = -1 := by omega
+    have hcount : FractionalIdeal.count K v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (a : K)) = 1 := by
+      rw [qs_nq0_count_spanSingleton_eq_neg_log_valuation v (a : K) a.ne_zero]
+      change -WithZero.log (v.valuation K (c : K)) = 1
+      rw [hlog]
+      norm_num
+    obtain ⟨b, hbval, hbnontrivial⟩ :=
+      qs_nq0_quadratic_local_nontrivial D H v h6 a hcount
+    have hram : ¬ χ.UnramifiedAt v := by
+      intro hunram
+      let L := v.adicCompletion K
+      have hval : Valued.v ((toLoc v b : Lˣ) : L) = 1 := by
+        change Valued.v (algebraMap K L (b : K)) = 1
+        exact (v.valuedAdicCompletion_eq_valuation' (b : K)).trans hbval
+      have hunit : toLoc v b ∈ (v.adicCompletionIntegers K).units :=
+        HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one.mpr hval
+      apply hbnontrivial
+      rw [← hloc]
+      exact hunram (toLoc v b) hunit.1 hunit.2
+    let : v.asIdeal.IsMaximal := v.isMaximal
+    let : Field (𝓞 K ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+    let : Fintype (𝓞 K ⧸ v.asIdeal) := Fintype.ofFinite _
+    have hzero : Ideal.Quotient.mk v.asIdeal c = 0 :=
+      Ideal.Quotient.eq_zero_iff_mem.mpr hmem
+    simp [HeckeChar.primeValue, hram, qsQuadSymbolAt, hzero]
+  · have hval : v.valuation K (c : K) = 1 :=
+      v.valuation_eq_one_iff_notMem.mpr hmem
+    calc
+      χ.primeValue v = chi D v (c : K) ^ 3 :=
+        (qs_nq0_quadratic_prime_value D H v h6 a hval χ hloc).2
+      _ = (qsQuadSymbolAt v c : ℂ) := qs_nq0_chi_cube_quad_symbol D v h6 c
+
 end ArtinPrimitiveRoots.A2
