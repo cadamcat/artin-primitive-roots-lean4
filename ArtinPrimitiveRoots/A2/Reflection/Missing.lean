@@ -299,7 +299,12 @@ theorem lem_reflection_local_Weyl :
 theorem rf_local_zero_digit : ∀ v, v ∉ S.Sf → ∀ ν : Fˣ,
   maskAlpha D A v (primeGen R v) 0 0 * R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v) =
     (1 - (qI v.asIdeal : ℂ)⁻¹) * R.T.Wv v (R.C.a v (toLoc v ν)) := by
-  sorry
+  intro v hv ν
+  have hmask : maskAlpha D A v (primeGen R v) 0 0 =
+      1 - (qI v.asIdeal : ℂ)⁻¹ := by
+    simp [maskAlpha, qI]
+  rw [hmask, R.T.Wv_right v hv (R.C.a v (toLoc v ν)) (R.C.w v)
+    (R.C.w_Kext v hv) (R.C.w_mem v)]
 /-- def:rf-active: ideal support and inactive scalar, completing the old partial node. -/
 def activeFactor (h f : S.ExtIdeal) : Prop :=
   Squarefree f.1 ∧ (∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h) ∧
