@@ -8138,6 +8138,73 @@ private theorem po_H_absolute_region_margins (p : Triple)
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     linarith only [hξ, hw, hz]
 
+private theorem po_H_absolute_positive_term_norm_le
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ)
+    (i : Fin 2 × ℕ × ℕ × ℕ)
+    (ht : 0 < i.1.1 + 3 * i.2.1) (hk : i.2.2.1 ≤ 1) :
+    ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+      qI v.asIdeal ^
+        ((i.1.1 : ℝ) * (1 / 2 - ξ.re) +
+          (i.2.1 : ℝ) * (2 - 3 * ξ.re) +
+          (i.2.2.1 : ℝ) * (1 / 2 - w.re) -
+          6 * (i.2.2.2 : ℝ) * z.re) := by
+  let e : ℕ := i.1.1
+  let l : ℕ := i.2.1
+  let k : ℕ := i.2.2.1
+  let m : ℕ := i.2.2.2
+  let j : ℕ := frequencyValuation η U u v
+  let E : ℂ := -(e : ℂ) * (1 / 2 + ξ) - (l : ℂ) * (1 + 3 * ξ) -
+    (k : ℂ) * w - 6 * (m : ℂ) * z
+  have hqpos : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hgamma : ‖gamma D S A 2 v.asIdeal (primeGen R v : F) ^ e‖ = 1 := by
+    rw [norm_pow, po_H_absolute_gamma_norm_one R v hv 2 (by norm_num), one_pow]
+  have htheta : ‖ϑ.primeValue v ^ (e + 3 * l)‖ ≤ 1 := by
+    rw [norm_pow]
+    exact pow_le_one₀ (norm_nonneg _) (euler_hecke_prime_norm_le R v)
+  have hchi := euler_chi_zpow_norm_le_one (D := D) v
+    ((U.repr u : F) / (primeGen R v : F) ^ j)
+    ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ))
+  have hCT := (po_C_local_values R v hv (j + 6 * m)).2.2 (e + 3 * l) ht
+  have hC : ‖localC R v hv (e + 3 * l) k (j + 6 * m)‖ ≤
+      qI v.asIdeal ^ (((e + 3 * l : ℕ) : ℝ) + (k : ℝ) / 2) := by
+    by_cases hk0 : k = 0
+    · simpa [hk0, Real.rpow_natCast] using hCT.2.2.2.1
+    · have hk1 : k = 1 := by change i.2.2.1 = 1; omega
+      simpa [hk1] using hCT.2.2.2.2
+  have hpow : ‖(qI v.asIdeal : ℂ) ^ E‖ = qI v.asIdeal ^ E.re :=
+    Complex.norm_cpow_eq_rpow_re_of_pos hqpos E
+  have hEre : E.re =
+      -(e : ℝ) * (1 / 2 + ξ.re) - (l : ℝ) * (1 + 3 * ξ.re) -
+        (k : ℝ) * w.re - 6 * (m : ℝ) * z.re := by
+    simp [E, Complex.mul_re] <;> ring
+  have htotal : ((e + 3 * l : ℕ) : ℝ) + (k : ℝ) / 2 + E.re =
+      (e : ℝ) * (1 / 2 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+        (k : ℝ) * (1 / 2 - w.re) - 6 * (m : ℝ) * z.re := by
+    rw [hEre]
+    push_cast
+    ring
+  change ‖gamma D S A 2 v.asIdeal (primeGen R v : F) ^ e *
+      ϑ.primeValue v ^ (e + 3 * l) *
+      chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^
+        ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ)) *
+      localC R v hv (e + 3 * l) k (j + 6 * m) *
+      (qI v.asIdeal : ℂ) ^ E‖ ≤
+    qI v.asIdeal ^ ((e : ℝ) * (1 / 2 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+      (k : ℝ) * (1 / 2 - w.re) - 6 * (m : ℝ) * z.re)
+  calc
+    _ = 1 * ‖ϑ.primeValue v ^ (e + 3 * l)‖ *
+        ‖chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^
+          ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ))‖ *
+        ‖localC R v hv (e + 3 * l) k (j + 6 * m)‖ *
+        qI v.asIdeal ^ E.re := by rw [norm_mul, norm_mul, norm_mul, norm_mul, hgamma, hpow]
+    _ ≤ 1 * 1 * 1 *
+        qI v.asIdeal ^ (((e + 3 * l : ℕ) : ℝ) + (k : ℝ) / 2) *
+        qI v.asIdeal ^ E.re := by gcongr
+    _ = qI v.asIdeal ^ (((e + 3 * l : ℕ) : ℝ) + (k : ℝ) / 2 + E.re) := by
+      simp only [one_mul]
+      rw [← Real.rpow_add hqpos]
+    _ = _ := by rw [htotal]
+
 /-- po:H-local-bounds: C,Q0 chosen before the field, set S, phases, or frequency.
 This is the absolute-cutoff obligation used when choosing S in A1. -/
 theorem po_H_local_bounds_absolute :
