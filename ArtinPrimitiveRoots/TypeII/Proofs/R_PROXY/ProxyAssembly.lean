@@ -209,24 +209,41 @@ theorem reciprocal_log_phase_regime_bound
       q hq hqBound a u hPPfreqLower hPPfreqUpper l r hl hlr hr
     simpa [L, Tstar, huModerate] using hHighBound
 
-/-- Apply the two phase regimes uniformly to each retained inclusion-exclusion
-divisor.  The retained product is small enough that the quotient interval
-still lies above the phase estimates' lower scale. -/
-theorem retained_subset_residue_phase_bound
-    (δ A₀ lam : ℝ) (hδ : 0 < δ) (hA₀ : 0 < A₀) (hlam : 0 < lam) :
-    ∃ C_m c_m C_p C₃p x₀ : ℝ,
-      0 < C_m ∧ 0 < c_m ∧ 0 < C_p ∧ 0 < C₃p ∧ 2 ≤ x₀ ∧
-        ∀ x : ℝ, x₀ ≤ x →
-          let L := Real.log x
-          let Tstar := Real.exp (L / Real.log L ^ 2)
-          ∀ M : ℝ, Real.rpow x δ ≤ M → 1 < M →
-            M ≤ 2 * Real.rpow x 5 → 1 ≤ Real.log M →
-            ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L A₀ →
-              ∀ r : ℕ, r = ⌈lam * Real.log L⌉₊ →
-                ∀ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
-                    (fun S => S.card < r),
-                  ∀ a : ZMod q, ∀ u : ℝ, 1 ≤ |u| →
-                    |u| ≤ Real.rpow x 2 →
+/-- Keep the analytic phase constants fixed while varying the sieve order. -/
+theorem retained_subset_residue_phase_bound_fixed
+    (δ A₀ lam C_m c_m C_p C₃p xPhase : ℝ)
+    (hδ : 0 < δ) (hlam : 0 < lam)
+    (hCm : 0 < C_m) (hcm : 0 < c_m) (hCp : 0 < C_p) (hC₃p : 0 < C₃p)
+    (hxPhase : 2 ≤ xPhase)
+    (hPhase : ∀ x : ℝ, xPhase ≤ x →
+      let L := Real.log x
+      let Tstar := Real.exp (L / Real.log L ^ 2)
+      ∀ N M : ℝ, Real.rpow x (δ / 2) ≤ N →
+        N ≤ 2 * Real.rpow x 5 → 1 < M → 1 ≤ Real.log M →
+        ∀ d : ℕ, 0 < d → M ≤ (d : ℝ) * N →
+          ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L A₀ →
+            ∀ a : ZMod q, ∀ u : ℝ, 1 ≤ |u| →
+              |u| ≤ Real.rpow x 2 →
+                ∀ l rr : ℝ, N ≤ l → l ≤ rr → rr ≤ 2 * N →
+                  ‖reciprocalLogResiduePhaseSum d q a u l rr‖ ≤
+                    if |u| ≤ Tstar then
+                      4 * C_m * (N / (q : ℝ)) / Real.log M *
+                        (|u|⁻¹ + Real.rpow x (-c_m))
+                    else
+                      4 * C_p * (N / (q : ℝ)) / Real.log M *
+                        Real.exp (-L / Real.rpow (Real.log L) C₃p)) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        let L := Real.log x
+        let Tstar := Real.exp (L / Real.log L ^ 2)
+        ∀ M : ℝ, Real.rpow x δ ≤ M → 1 < M →
+          M ≤ 2 * Real.rpow x 5 → 1 ≤ Real.log M →
+          ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L A₀ →
+            ∀ r : ℕ, r = ⌈lam * Real.log L⌉₊ →
+              ∀ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+                  (fun S => S.card < r),
+                ∀ a : ZMod q, ∀ u : ℝ, 1 ≤ |u| →
+                  |u| ≤ Real.rpow x 2 →
                     ∀ l rr : ℝ, M ≤ l → l ≤ rr → rr ≤ 2 * M →
                       ‖reciprocalLogResiduePhaseSum (∏ p ∈ S, p) q a u
                           (l / ((∏ p ∈ S, p : ℕ) : ℝ))
@@ -241,14 +258,12 @@ theorem retained_subset_residue_phase_bound
                             ((M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (q : ℝ)) /
                               Real.log M *
                             Real.exp (-L / Real.rpow (Real.log L) C₃p) := by
-  obtain ⟨C_m, c_m, C_p, C₃p, xPhase, hCm, hcm, hCp, hC3p, hxPhase,
-      hPhase⟩ := reciprocal_log_phase_regime_bound δ A₀ hδ hA₀
   obtain ⟨xRet, hxRet, hRet⟩ := retained_subset_product_bound δ lam hδ hlam
   let x₀ := max xPhase xRet
   have hx₀two : 2 ≤ x₀ := by
     dsimp [x₀]
     exact le_trans hxPhase (le_max_left _ _)
-  refine ⟨C_m, c_m, C_p, C₃p, x₀, hCm, hcm, hCp, hC3p, hx₀two, ?_⟩
+  refine ⟨x₀, hx₀two, ?_⟩
   intro x hx
   dsimp
   intro M hMx hMgt hMupper hlogM q hq hqBound r hr S hS a u huLower huUpper
@@ -329,6 +344,44 @@ theorem retained_subset_residue_phase_bound
       _ = 2 * (M / dR) := by ring
   have hphase' := hphase hl' hlr' hrr'
   simpa [dR, N] using hphase'
+
+/-- Apply the two phase regimes uniformly to each retained inclusion-exclusion
+divisor. The retained product is small enough that the quotient interval still
+lies above the phase estimates' lower scale. -/
+theorem retained_subset_residue_phase_bound
+    (δ A₀ lam : ℝ) (hδ : 0 < δ) (hA₀ : 0 < A₀) (hlam : 0 < lam) :
+    ∃ C_m c_m C_p C₃p x₀ : ℝ,
+      0 < C_m ∧ 0 < c_m ∧ 0 < C_p ∧ 0 < C₃p ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          let L := Real.log x
+          let Tstar := Real.exp (L / Real.log L ^ 2)
+          ∀ M : ℝ, Real.rpow x δ ≤ M → 1 < M →
+            M ≤ 2 * Real.rpow x 5 → 1 ≤ Real.log M →
+            ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L A₀ →
+              ∀ r : ℕ, r = ⌈lam * Real.log L⌉₊ →
+                ∀ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+                    (fun S => S.card < r),
+                  ∀ a : ZMod q, ∀ u : ℝ, 1 ≤ |u| →
+                    |u| ≤ Real.rpow x 2 →
+                    ∀ l rr : ℝ, M ≤ l → l ≤ rr → rr ≤ 2 * M →
+                      ‖reciprocalLogResiduePhaseSum (∏ p ∈ S, p) q a u
+                          (l / ((∏ p ∈ S, p : ℕ) : ℝ))
+                          (rr / ((∏ p ∈ S, p : ℕ) : ℝ))‖ ≤
+                        if |u| ≤ Tstar then
+                          4 * C_m *
+                            ((M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (q : ℝ)) /
+                              Real.log M *
+                            (|u|⁻¹ + Real.rpow x (-c_m))
+                        else
+                          4 * C_p *
+                            ((M / ((∏ p ∈ S, p : ℕ) : ℝ)) / (q : ℝ)) /
+                              Real.log M *
+                            Real.exp (-L / Real.rpow (Real.log L) C₃p) := by
+  obtain ⟨C_m, c_m, C_p, C₃p, xPhase, hCm, hcm, hCp, hC3p, hxPhase,
+      hPhase⟩ := reciprocal_log_phase_regime_bound δ A₀ hδ hA₀
+  obtain ⟨x₀, hx₀, hBound⟩ := retained_subset_residue_phase_bound_fixed
+    δ A₀ lam C_m c_m C_p C₃p xPhase hδ hlam hCm hcm hCp hC3p hxPhase hPhase
+  exact ⟨C_m, c_m, C_p, C₃p, x₀, hCm, hcm, hCp, hC3p, hx₀, hBound⟩
 
 /-- Sum the per-residue phase estimates over all retained subset divisors.
 The hypotheses isolate the analytic estimate from the finite reindexing. -/
