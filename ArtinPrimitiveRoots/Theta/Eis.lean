@@ -3969,7 +3969,35 @@ theorem whit_nFin_lift (P : CoverPackage D S H A) (ξ : F) :
       (∀ v : FinPlace F, P.compF v y =
         (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ))) ∧
       ∀ w, P.compC w y = 1 := by
-  sorry
+  classical
+  have upper_map {K : Type} [Field K] (f : F →+* K) :
+      Matrix.GeneralLinearGroup.map f (upperGL ξ) = upperM K (f ξ) := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map_apply, upperGL, upperM]
+  obtain ⟨z, hzq, hzF, hzC⟩ := P.nS_components
+    ((0 : ∀ v : S.Sf, v.1.adicCompletion F), -(infEmbA ξ))
+  refine ⟨P.ratRP (upperGL ξ) * z, ?_, ?_, ?_⟩
+  · rw [map_mul, P.q_ratRP, hzq]
+    rfl
+  · intro v
+    rw [map_mul, P.compF_ratRP, upper_map, hzF v]
+    have hz : (if hv : v ∈ S.Sf then
+        (P.loc v).n (Multiplicative.ofAdd
+          ((0 : ∀ u : S.Sf, u.1.adicCompletion F) ⟨v, hv⟩)) else 1) = 1 := by
+      split_ifs <;> simp
+    rw [hz, mul_one, ← (P.loc v).sec_n]
+  · intro w
+    rw [map_mul, P.compC_ratRP, upper_map, hzC w]
+    have hupper : upperM ℂ (w.embedding ξ) * upperM ℂ (-w.embedding ξ) = 1 := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [upperM, Matrix.mul_apply, Fin.sum_univ_two]
+    change QuotientGroup.mk (upperM ℂ (w.embedding ξ)) *
+      QuotientGroup.mk (upperM ℂ (-w.embedding ξ)) = (1 : PGL2 ℂ)
+    rw [← QuotientGroup.mk_mul, hupper, QuotientGroup.mk_one]
 
 /-- Smoothness at the finite places gives a nonzero integral ideal of periods. -/
 theorem whit_finite_period (P : CoverPackage D S H A) (G : GlobalDatum P)
