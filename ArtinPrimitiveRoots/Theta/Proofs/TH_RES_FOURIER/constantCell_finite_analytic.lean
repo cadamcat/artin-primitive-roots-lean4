@@ -575,9 +575,9 @@ theorem constantCell_finite_analytic {P : CoverPackage D S H A} {G : GlobalDatum
     let e : ℤ := ordv v (toLoc v δ0)
     let u : (v.adicCompletion F)ˣ := unitPart v (toLoc v δ0)
     have he : (e : ZMod 3) ≠ 0 := by simpa [e] using hord
-    have hu : IsLocUnit v u := by simpa [u] using unitPart_isLocUnit v (toLoc v δ0)
+    have hu : IsLocUnit v u := by simpa [u] using unitPart_isLocUnit_rf v (toLoc v δ0)
     have hy : toLoc v δ0 = unifLoc v ^ e * u := by
-      simpa [e, u] using (unitPart_factor v (toLoc v δ0)).symm
+      simpa [e, u] using (unitPart_factor_rf v (toLoc v δ0)).symm
     have hvT : v ∉ T0 := by
       intro hm
       exact hvV (Finset.mem_union_left _ hm)

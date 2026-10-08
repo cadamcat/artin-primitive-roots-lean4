@@ -184,7 +184,7 @@ theorem valuationMod_eq_one_iff_ordvMod_eq_zero {F : Type} [Field F] [NumberFiel
       countVector_principal_eq_ordv δ v
   rw [hcount]
 
-theorem unitPart_factor {F : Type} [Field F] [NumberField F]
+theorem unitPart_factor_rf {F : Type} [Field F] [NumberField F]
     (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
     unifLoc v ^ ordv v x * unitPart v x = x := by
   dsimp [unitPart]
@@ -195,7 +195,7 @@ theorem unitPart_factor {F : Type} [Field F] [NumberField F]
           ac_rfl
     _ = x := by simp
 
-theorem unitPart_isLocUnit {F : Type} [Field F] [NumberField F]
+theorem unitPart_isLocUnit_rf {F : Type} [Field F] [NumberField F]
     (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
     IsLocUnit v (unitPart v x) := by
   have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
