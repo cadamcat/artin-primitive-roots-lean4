@@ -1293,7 +1293,13 @@ private theorem phase_box_rescaled_eq {k M : ℕ}
     (ha : a ∈ phaseClosedBox r) :
     phaseWeylSum k M a = phaseBoxRescaledSum r
       (fun j => (M : ℝ) ^ (j.val + 1) * a j - (r j).val) := by
-  sorry
+  unfold phaseBoxRescaledSum
+  congr 1
+  funext j
+  simp only [phaseBoxPoint]
+  have hd : (M : ℝ) ^ (j.val + 1) ≠ 0 := by positivity
+  field_simp
+  <;> ring
 
 private theorem phase_box_mixed_derivative {k M : ℕ}
     (r : PhaseBoxIndex k M) (e : Finset (Fin k)) (j : Fin k)
