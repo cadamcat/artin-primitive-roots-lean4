@@ -26,7 +26,7 @@ theorem unitPart_factor (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
         ac_rfl
     _ = x := by simp
 
-theorem unitPart_isLocUnit (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+theorem thFactorB_unitPart_isLocUnit (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
     IsLocUnit v (unitPart v x) := by
   have hx0 : Valued.v (x : v.adicCompletion F) ≠ 0 :=
     (Valuation.ne_zero_iff _).mpr x.ne_zero
@@ -143,7 +143,7 @@ theorem spherical_jacquet_analytic {P : CoverPackage D S H A} {G : GlobalDatum P
             rw [(jacquet_equiv (P.loc v) (G.T v) A (μ v) z _ ha).2 ζ]
   let e := ordv v y
   let u := unitPart v y
-  have hu : IsLocUnit v u := unitPart_isLocUnit v y
+  have hu : IsLocUnit v u := thFactorB_unitPart_isLocUnit v y
   have hy : unifLoc v ^ e * u = y := unitPart_factor v y
   by_cases he : e < 0
   · have hzero (z : ℂ) :
