@@ -268,6 +268,110 @@ private theorem a1_bdata_sol_mu6_of_hilbertData (H : HilbertData F) :
   rw [show Nat.lcm 2 3 = 6 by decide] at hprim6
   exact ⟨_, hprim6⟩
 
+open Filter Topology in
+private theorem a1_bdata_sol_local_sixth_everywhere_of_hilbert (S : SData F CE condη)
+    (H : HilbertData F) (u : Fˣ) (hu : u ∈ S.US)
+    (hlocal : ∃ x : S.FSˣ, S.diagU u = x ^ 6) :
+    ∀ v : FinPlace F, ∃ c : (v.adicCompletion F)ˣ, toLoc v u = c ^ 6 := by
+  classical
+  obtain ⟨x, hx⟩ := hlocal
+  intro v
+  by_cases hv : v ∈ S.Sf
+  · let vs : S.Sf := ⟨v, hv⟩
+    refine ⟨S.compU vs x, ?_⟩
+    have hcomp : S.compU vs (S.diagU u) = toLoc v u := by
+      apply Units.ext
+      rfl
+    have hroot := congrArg (S.compU vs) hx
+    rw [hcomp, map_pow] at hroot
+    exact hroot
+  · have hext := a1_bdata_sol_exterior_symbol_trivial S H u hu ⟨x, hx⟩ v hv
+    let L := v.adicCompletion F
+    have hpow : {y : Lˣ | ∃ c, y = c ^ 6} ∈ 𝓝 (1 : Lˣ) := by
+      obtain ⟨t, ht, ht0⟩ := Submodule.exists_mem_ne_zero_of_ne_bot v.ne_bot
+      let a : L := NumberField.FinitePlace.embedding v (algebraMap (𝓞 F) F t)
+      have htF : algebraMap (𝓞 F) F t ≠ 0 :=
+        NumberField.RingOfIntegers.coe_ne_zero_iff.mpr ht0
+      have ha0 : a ≠ 0 := (NumberField.FinitePlace.embedding v).injective.ne htF
+      have hanorm : ‖a‖ < 1 :=
+        (NumberField.FinitePlace.norm_lt_one_iff_mem (K := F) v t).mpr ht
+      letI : NontriviallyNormedField L :=
+        NontriviallyNormedField.ofNormNeOne ⟨a, ha0, ne_of_lt hanorm⟩
+      have h6 : (6 : L) ≠ 0 := by
+        intro h
+        have hF : (6 : F) = 0 := (algebraMap F L).injective
+          (by simpa only [map_ofNat, map_zero] using h)
+        exact (by norm_num : (6 : F) ≠ 0) hF
+      have hs : {y : L | ∃ c : L, y = c ^ 6} ∈ 𝓝 (1 : L) := by
+        have hd : HasStrictDerivAt (fun y : L => y ^ 6) (6 : L) 1 := by
+          simpa using hasStrictDerivAt_pow 6 (1 : L)
+        have hm : Filter.map (fun y : L => y ^ 6) (𝓝 1) = 𝓝 1 := by
+          simpa using hd.map_nhds_eq h6
+        have hp : {y : L | ∃ c : L, y = c ^ 6} ∈
+            Filter.map (fun y : L => y ^ 6) (𝓝 1) :=
+          Filter.mem_map.mpr (Filter.Eventually.of_forall fun y => ⟨y, rfl⟩)
+        rw [hm] at hp
+        exact hp
+      filter_upwards [(Units.continuous_val.tendsto (1 : Lˣ)).eventually hs] with y hy
+      obtain ⟨c, hc⟩ := hy
+      have hc0 : c ≠ 0 := by
+        intro h
+        apply y.ne_zero
+        rw [hc, h, zero_pow (by decide : 6 ≠ 0)]
+      refine ⟨Units.mk0 c hc0, ?_⟩
+      apply Units.ext
+      exact hc
+    have hdu : DenseRange (toLoc v) := by
+      let val : Lˣ → L := fun y => (y : L)
+      have hval : IsOpenEmbedding val :=
+        IsOpenUnits.isOpenEmbedding_unitsVal (M := L)
+      rw [DenseRange, dense_iff_inter_open]
+      intro V hV hVne
+      obtain ⟨a, ha⟩ := (v.denseRange_algebraMap F).exists_mem_open
+        (hval.isOpenMap V hV) (hVne.image val)
+      obtain ⟨z, hz, hza⟩ := ha
+      have ha0 : a ≠ 0 := by
+        intro h
+        have hzero : (z : L) = 0 := by simpa only [val, h, map_zero] using hza
+        exact z.ne_zero hzero
+      let au : Fˣ := Units.mk0 a ha0
+      have heq : toLoc v au = z := by
+        apply Units.ext
+        exact hza.symm
+      refine ⟨toLoc v au, ?_, au, rfl⟩
+      rw [heq]
+      exact hz
+    let row : Lˣ →* rootsOfUnity 6 F :=
+      MonoidHom.mk' (fun y => H.hilb v (toLoc v u) y)
+        (fun y z => H.mul_right v (toLoc v u) y z)
+    have hglobal (a : Fˣ) : row (toLoc v a) = 1 := by
+      have h6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+      have hres : residue v (u : F) ≠ 0 :=
+        (ArtinPrimitiveRoots.A2.qs_nq0_residue_ne_zero_iff_valuation_one v (u : F)).mpr
+          (hu v hv)
+      have htame := H.tame v h6 u a hres
+      change H.hilb v (toLoc v u) (toLoc v a) = 1
+      apply Subtype.ext
+      exact Units.ext (by simpa [hext] using htame)
+    have hright6 (c : Lˣ) : row (c ^ 6) = 1 := by
+      have hl := H.sixth_power v (c ^ 6) (toLoc v u) ⟨c, rfl⟩
+      have hs := H.skew v (toLoc v u) (c ^ 6)
+      rw [hl, mul_one] at hs
+      exact hs
+    apply H.nondeg v (toLoc v u)
+    intro y
+    have hW : {z : Lˣ | ∃ c, y / z = c ^ 6} ∈ 𝓝 y := by
+      have hcont : Continuous (fun z : Lˣ => y / z) := continuous_const.div' continuous_id
+      have ht : Tendsto (fun z : Lˣ => y / z) (𝓝 y) (𝓝 (1 : Lˣ)) := by
+        simpa only [div_self'] using hcont.tendsto y
+      exact ht.eventually hpow
+    obtain ⟨z, hz, hzrange⟩ := mem_closure_iff_nhds.mp (hdu y) _ hW
+    obtain ⟨a, rfl⟩ := hzrange
+    obtain ⟨c, hc⟩ := hz
+    have heq := congrArg row hc
+    rw [map_div, hright6, hglobal, div_one] at heq
+    exact heq
+
 theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
     (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
