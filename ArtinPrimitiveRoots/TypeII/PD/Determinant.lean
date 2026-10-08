@@ -11,6 +11,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootCRTModel
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootAsymptotic
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootReversal
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootRestrictedFourier
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootMainTerm
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Goodness
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.BandGeometry
 
