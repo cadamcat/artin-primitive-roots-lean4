@@ -1,6 +1,8 @@
 import Mathlib.Analysis.Complex.CauchyIntegral
 import Mathlib.Analysis.Analytic.Order
 import Mathlib.Analysis.SpecialFunctions.ExpDeriv
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-EXT-HAD».Dyadic
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-EXT-HAD».Counts
 
 set_option autoImplicit false
 open scoped BigOperators
@@ -23,7 +25,14 @@ theorem inverse_square_summable (G : ℂ → ℂ) (hG : Differentiable ℂ G) (h
     (hgrowth : ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ,
       ‖G s‖ ≤ Real.exp (C * (‖s‖ + 1) * Real.log (‖s‖ + 2))) :
     Summable (inverseSquareTerms G) := by
-  sorry
+  obtain ⟨A, hA, hfinite, hcount⟩ := entire_dyadic_zero_count G hG hG0 hgrowth
+  have hsum := inverse_square_of_dyadic_count hA hfinite hcount
+  have heq : (fun z : ℂ => (zeroOrderWeights G z : ℝ) * ‖z‖⁻¹ ^ 2) =
+      inverseSquareTerms G := by
+    funext z
+    by_cases hz : G z = 0 <;> simp [zeroOrderWeights, inverseSquareTerms, hz]
+  rw [heq] at hsum
+  exact hsum
 
 /-- Local uniform convergence permits differentiating the genus-one product. -/
 theorem genus_one_hasDerivAt (G : ℂ → ℂ) (hG : Differentiable ℂ G) (hG0 : G 0 ≠ 0)
