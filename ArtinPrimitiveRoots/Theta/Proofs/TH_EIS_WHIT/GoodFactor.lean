@@ -37,4 +37,30 @@ theorem whit_good_local_factor (L : FinLocalCover D H v) (τ : TameSplitting L)
   have hJ := congrArg lam (jacquet_spherical L τ T B A μ hv hd s f hf h1 hK 0)
   simpa [L.a_one, hrtrOne, map_add, map_smul, hlam, htwo] using hJ
 
+/-- A rational unit fails to be a local integral unit at only finitely many places. -/
+theorem whit_rational_nonunit_finite (δ : Fˣ) :
+    Set.Finite {v : FinPlace F | ¬ IsLocUnit v (toLoc v δ)} := by
+  refine ((HeightOneSpectrum.Support.finite (𝓞 F) (δ : F)).union
+    (HeightOneSpectrum.Support.finite (𝓞 F) ((δ⁻¹ : Fˣ) : F))).subset ?_
+  intro v hv
+  by_contra hnot
+  have hval : v.valuation F (δ : F) ≤ 1 := by
+    apply le_of_not_gt
+    intro hgt
+    exact hnot (Or.inl hgt)
+  have hinv : v.valuation F ((δ⁻¹ : Fˣ) : F) ≤ 1 := by
+    apply le_of_not_gt
+    intro hgt
+    exact hnot (Or.inr hgt)
+  apply hv
+  constructor
+  · change ((δ : F) : v.adicCompletion F) ∈ v.adicCompletionIntegers F
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hval
+  · change (((δ⁻¹ : Fˣ) : F) : v.adicCompletion F) ∈ v.adicCompletionIntegers F
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hinv
+
 end ArtinPrimitiveRoots.A1.Theta
