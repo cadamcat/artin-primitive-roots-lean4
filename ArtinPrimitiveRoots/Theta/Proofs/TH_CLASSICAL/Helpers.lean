@@ -32,7 +32,94 @@ theorem th_classical_arch_lift (P : CoverPackage D S H A)
       (∀ v, P.compF v r = 1) ∧ ∀ w, P.compC w r =
         QuotientGroup.mk (upperM ℂ (x w) * diagM ℂ
           (Units.mk0 (y w : ℂ) (Complex.ofReal_ne_zero.mpr (hy w).ne'))) := by
-  sorry
+  classical
+  obtain ⟨rN, hNq, hNF, hNC⟩ := P.nS_components
+    ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x)
+  have hN (v : FinPlace F) : P.compF v rN = 1 := by
+    rw [hNF v]
+    by_cases hv : v ∈ S.Sf <;> simp [hv]
+  let u (w : InfinitePlace F) : ℂˣ :=
+    Units.mk0 (y w : ℂ) (Complex.ofReal_ne_zero.mpr (hy w).ne')
+  choose rA hAq hAF hAC using fun w => P.aS_components (S.atComplex w (u w))
+  have hcompU (v : S.Sf) (w : InfinitePlace F) : S.compU v (S.atComplex w (u w)) = 1 := by
+    apply Units.ext
+    simp [SData.compU, SData.atComplex]
+  have hcompC (w w' : InfinitePlace F) :
+      S.compC w (S.atComplex w' (u w')) = if w' = w then u w else 1 := by
+    by_cases h : w' = w
+    · subst w'
+      apply Units.ext
+      simp [SData.compC, SData.atComplex]
+    · have h' : w ≠ w' := fun he => h he.symm
+      apply Units.ext
+      simp [SData.compC, SData.atComplex, h, h']
+  have hAfin (w : InfinitePlace F) (v : FinPlace F) : P.compF v (rA w) = 1 := by
+    rw [hAF w v]
+    by_cases hv : v ∈ S.Sf <;> simp [hv, hcompU, (P.loc v).a_one]
+  have hdiag : diagM ℂ (1 : ℂˣ) = (1 : GL (Fin 2) ℂ) := by
+    ext i j
+    fin_cases i <;> fin_cases j <;> simp [diagM]
+  have hAinf (w' w : InfinitePlace F) : P.compC w (rA w') =
+      if w' = w then QuotientGroup.mk (diagM ℂ (u w)) else 1 := by
+    rw [hAC w' w, hcompC]
+    by_cases h : w' = w <;> simp [h, hdiag]
+  have single (l : List (InfinitePlace F)) (hl : l.Nodup) (w : InfinitePlace F)
+      (hw : w ∈ l) (a : PGL2 ℂ) : (l.map fun w' => if w' = w then a else 1).prod = a := by
+    induction l with
+    | nil => simp at hw
+    | cons b l ih =>
+      obtain ⟨hb, hl⟩ := List.nodup_cons.mp hl
+      simp only [List.mem_cons] at hw
+      by_cases h : b = w
+      · subst b
+        have htail : (l.map fun w' => if w' = w then a else 1).prod = 1 := by
+          apply List.prod_eq_one
+          intro z hz
+          obtain ⟨w', hw', rfl⟩ := List.mem_map.mp hz
+          have hne : w' ≠ w := by
+            intro he
+            subst w'
+            exact hb hw'
+          simp [hne]
+        simp [htail]
+      · have hw' : w ∈ l := by
+          obtain hEq | hmem := hw
+          · exact (h hEq.symm).elim
+          · exact hmem
+        simp only [List.map_cons, List.prod_cons, if_neg h, one_mul]
+        exact ih hl hw'
+  let rArch : P.RP := ((Finset.univ : Finset (InfinitePlace F)).toList.map rA).prod
+  have hrq : P.q rArch = th_classical_archTerm P y hy := by
+    rw [show rArch = ((Finset.univ : Finset (InfinitePlace F)).toList.map rA).prod from rfl,
+      map_list_prod]
+    simp only [List.map_map]
+    change ((Finset.univ : Finset (InfinitePlace F)).toList.map fun w => P.q (rA w)).prod =
+      ((Finset.univ : Finset (InfinitePlace F)).toList.map fun w => P.tc.aS (S.atComplex w (u w))).prod
+    simp only [hAq]
+  have hrF (v : FinPlace F) : P.compF v rArch = 1 := by
+    rw [show rArch = ((Finset.univ : Finset (InfinitePlace F)).toList.map rA).prod from rfl,
+      map_list_prod]
+    simp only [List.map_map]
+    change ((Finset.univ : Finset (InfinitePlace F)).toList.map fun w => P.compF v (rA w)).prod = 1
+    apply List.prod_eq_one
+    intro z hz
+    obtain ⟨w, _, rfl⟩ := List.mem_map.mp hz
+    exact hAfin w v
+  have hrC (w : InfinitePlace F) : P.compC w rArch = QuotientGroup.mk (diagM ℂ (u w)) := by
+    rw [show rArch = ((Finset.univ : Finset (InfinitePlace F)).toList.map rA).prod from rfl,
+      map_list_prod]
+    simp only [List.map_map]
+    change ((Finset.univ : Finset (InfinitePlace F)).toList.map fun w' => P.compC w (rA w')).prod = _
+    simp only [hAinf]
+    exact single (Finset.univ : Finset (InfinitePlace F)).toList
+      (Finset.nodup_toList _) w (Finset.mem_toList.mpr (Finset.mem_univ w)) _
+  refine ⟨rN * rArch, ?_, ?_, ?_⟩
+  · rw [map_mul, hNq, hrq]
+    rfl
+  · intro v
+    rw [map_mul, hN v, hrF v, one_mul]
+  · intro w
+    rw [map_mul, hNC w, hrC w, ← QuotientGroup.mk_mul]
 
 /-- Projective Iwasawa decomposition uses the full unitary compact. -/
 theorem th_classical_pgl_reconstruction (g : PGL2 ℂ) :
