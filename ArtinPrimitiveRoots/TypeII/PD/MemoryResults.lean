@@ -11426,6 +11426,122 @@ private theorem pd4d_raw_good_fixed_anchor {K : ℕ}
     s.1 hs.1 hU hw hbox hfin hsep s.2.2 T ρ CF hρ0 hρ1 hCF W hW hsupport
   simpa only [χ, source, Q, CF, W] using h
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Rewrite the actual fixed-pattern raw row into fresh labels and indexed promotions. -/
+private theorem pd4d_raw_row_sum_reindex {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s : MemPoint S.x K)
+    (St I : Finset (Fin K)) (iStar : Fin K) (hstar : iStar ∈ I)
+    (ρ : ℝ) (w : ArchRoot) (j : ℕ) (v : ℝ) (Z : Finset (ℤ × ℤ))
+    (hcover : ∀ z', envBox S w z' → z' ∈ Z) :
+    let source := fun σ : Fin K → Equiv.Perm (Fin (slotCount S.x)) =>
+      (s.1, permuteLists σ s.2.1, s.2.2)
+    let χ := fun (fresh : RawFreshLabels S.x F.a I)
+      (kStar : Fin (s.2.2 iStar).length) (κ : RawPromotionIndices I iStar s.2.2) =>
+      rawPatternChoice S.x F.a s.2.2 St I iStar kStar κ fresh
+    (permCount S.x K : ℝ)⁻¹ *
+      (∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        pd4c_edgeRowMass F S ρ w j true St I v (source σ)) =
+      ∑ fresh : RawFreshLabels S.x F.a I,
+        ∑ kStar : Fin (s.2.2 iStar).length,
+          (permCount S.x K : ℝ)⁻¹ *
+            (∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+              ∑ z' ∈ Z, ∑ κ : RawPromotionIndices I iStar s.2.2,
+                if EdgeAdmissible F S w (source σ) (χ fresh kStar κ) z' then
+                  ‖pd4c_edgeChoiceCoeff F S ρ j true (source σ) (χ fresh kStar κ) z'‖ *
+                    v ^ memSize (z', edgeTargetLists F S (source σ) (χ fresh kStar κ),
+                      edgeNewMemory F S (source σ) (χ fresh kStar κ))
+                else 0) := by
+  classical
+  dsimp only
+  let G := Fin K → Equiv.Perm (Fin (slotCount S.x))
+  let C := (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i
+  let source (σ : G) : MemPoint S.x K := (s.1, permuteLists σ s.2.1, s.2.2)
+  let χ (fresh : RawFreshLabels S.x F.a I) (kStar : Fin (s.2.2 iStar).length)
+      (κ : RawPromotionIndices I iStar s.2.2) : C :=
+    rawPatternChoice S.x F.a s.2.2 St I iStar kStar κ fresh
+  let W (σ : G) (c : C) (z' : ℤ × ℤ) : ℝ :=
+    if EdgeAdmissible F S w (source σ) c z' then
+      ‖pd4c_edgeChoiceCoeff F S ρ j true (source σ) c z'‖ *
+        v ^ memSize (z', edgeTargetLists F S (source σ) c, edgeNewMemory F S (source σ) c)
+    else 0
+  have hfin (σ : G) (c : C) :
+      (∑' z' : ℤ × ℤ,
+        if edgeStoredSet (s := source σ) c = St ∧
+            edgePromotedSet (s := source σ) c = I ∧ EdgeAdmissible F S w (source σ) c z'
+        then ‖pd4c_edgeChoiceCoeff F S ρ j true (source σ) c z'‖ *
+          v ^ memSize (z', edgeTargetLists F S (source σ) c, edgeNewMemory F S (source σ) c)
+        else 0) =
+      if edgeStoredSet (s := source σ) c = St ∧ edgePromotedSet (s := source σ) c = I
+      then ∑ z' ∈ Z, W σ c z' else 0 := by
+    rw [tsum_eq_sum (s := Z)]
+    · by_cases hp : edgeStoredSet (s := source σ) c = St ∧
+          edgePromotedSet (s := source σ) c = I
+      · rw [if_pos hp]
+        apply Finset.sum_congr rfl
+        intro z' hz'
+        simp only [hp.1, hp.2, true_and, W]
+      · rw [if_neg hp]
+        apply Finset.sum_eq_zero
+        intro z' hz'
+        have hn : ¬ (edgeStoredSet (s := source σ) c = St ∧
+            edgePromotedSet (s := source σ) c = I ∧
+            EdgeAdmissible F S w (source σ) c z') := fun hg => hp ⟨hg.1, hg.2.1⟩
+        exact if_neg hn
+    · intro z' hz'
+      have hn : ¬ (edgeStoredSet (s := source σ) c = St ∧
+          edgePromotedSet (s := source σ) c = I ∧
+          EdgeAdmissible F S w (source σ) c z') := by
+        intro hg
+        have ha := hg.2.2
+        exact hz' (hcover z' ha.2.2.2.2.2.2.2.1)
+      exact if_neg hn
+  have hrow (σ : G) :
+      pd4c_edgeRowMass F S ρ w j true St I v (source σ) =
+        ∑ fresh : RawFreshLabels S.x F.a I,
+          ∑ kStar : Fin (s.2.2 iStar).length,
+            ∑ z' ∈ Z, ∑ κ : RawPromotionIndices I iStar s.2.2,
+              W σ (χ fresh kStar κ) z' := by
+    change (∑ c : C, ∑' z' : ℤ × ℤ,
+      if edgeStoredSet (s := source σ) c = St ∧
+          edgePromotedSet (s := source σ) c = I ∧ EdgeAdmissible F S w (source σ) c z'
+      then ‖pd4c_edgeChoiceCoeff F S ρ j true (source σ) c z'‖ *
+        v ^ memSize (z', edgeTargetLists F S (source σ) c, edgeNewMemory F S (source σ) c)
+      else 0) = _
+    simp_rw [hfin σ]
+    rw [raw_choice_sum_reindex S.x F.a (source σ) St I iStar hstar
+      (fun c => ∑ z' ∈ Z, W σ c z')]
+    apply Finset.sum_congr rfl
+    intro fresh hfresh
+    apply Finset.sum_congr rfl
+    intro kStar hkStar
+    exact Finset.sum_comm
+  change (permCount S.x K : ℝ)⁻¹ *
+      (∑ σ : G, pd4c_edgeRowMass F S ρ w j true St I v (source σ)) =
+    ∑ fresh : RawFreshLabels S.x F.a I,
+      ∑ kStar : Fin (s.2.2 iStar).length,
+        (permCount S.x K : ℝ)⁻¹ *
+          (∑ σ : G, ∑ z' ∈ Z, ∑ κ : RawPromotionIndices I iStar s.2.2,
+            W σ (χ fresh kStar κ) z')
+  simp_rw [hrow]
+  have hcomm :
+      (∑ σ : G, ∑ fresh : RawFreshLabels S.x F.a I,
+        ∑ kStar : Fin (s.2.2 iStar).length,
+          ∑ z' ∈ Z, ∑ κ : RawPromotionIndices I iStar s.2.2,
+            W σ (χ fresh kStar κ) z') =
+      ∑ fresh : RawFreshLabels S.x F.a I,
+        ∑ kStar : Fin (s.2.2 iStar).length,
+          ∑ σ : G, ∑ z' ∈ Z, ∑ κ : RawPromotionIndices I iStar s.2.2,
+            W σ (χ fresh kStar κ) z' := by
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl
+    intro fresh hfresh
+    exact Finset.sum_comm
+  rw [hcomm, Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro fresh hfresh
+  rw [Finset.mul_sum]
+
+
 /-- `t2:pd.dirty-raw` — PD 04:605-714.  REPLACES the frozen `dirty_raw`.  With
 `ε_K = C_K(B/M_J^K + B^K e^{-cL^{0.1}})`: every raw piece with `(St,Pr) ≠ (∅,∅)` has weighted row
 sum `≤ ε_K` if `Pr ≠ ∅` (one compatible omission tuple by test (ii), mass `M_J^{-K}`,
