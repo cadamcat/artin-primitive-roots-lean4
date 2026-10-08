@@ -1160,6 +1160,90 @@ theorem rational_bruhat_coset_equiv
   · intro δ x
     rfl
 
+/-- Compare any ideal-lattice domain with a bounded measurable domain, including periodic integrals. -/
+theorem ideal_periodic_domain_comparison (D : FieldData F)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume) :
+    ∃ Pb : Set (InfinitePlace F → ℂ), MeasurableSet Pb ∧ IsCompact (closure Pb) ∧
+      IsAddFundamentalDomain
+        ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pb volume ∧
+      volume Pd = volume Pb ∧ 0 < (volume Pb).toReal ∧
+      ∀ f : (InfinitePlace F → ℂ) → ℂ,
+        (∀ t ∈ ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom),
+          ∀ x, f (t + x) = f x) → (∫ x in Pd, f x) = ∫ x in Pb, f x := by
+  classical
+  let : IsTotallyComplex F := D.isTotallyComplex
+  let I : (FractionalIdeal (nonZeroDivisors (𝓞 F)) F)ˣ := Units.mk0 𝔞 h𝔞
+  let b₀ := mixedEmbedding.fractionalIdealLatticeBasis F I
+  let e := ArtinPrimitiveRoots.A1.Spec.complexPlaceLinearEquiv (F := F)
+  let b := b₀.map e
+  let j : mixedEmbedding.mixedSpace F →ₗ[ℤ] (InfinitePlace F → ℂ) :=
+    e.toLinearMap.restrictScalars ℤ
+  have hj (y : F) : j (mixedEmbedding F y) = infEmbA y := by
+    ext w
+    simp [j, e, ArtinPrimitiveRoots.A1.Spec.complexPlaceLinearEquiv, infEmbA,
+      mixedEmbedding]
+  have hlat : (Submodule.span ℤ (Set.range b)).toAddSubgroup =
+      (𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom := by
+    have hrange : Set.range b = j '' Set.range b₀ := by
+      ext x
+      constructor
+      · rintro ⟨i, rfl⟩
+        exact ⟨b₀ i, ⟨i, rfl⟩, rfl⟩
+      · rintro ⟨y, ⟨i, rfl⟩, rfl⟩
+        exact ⟨i, rfl⟩
+    have hspanMap : Submodule.span ℤ (Set.range b) =
+        (Submodule.span ℤ (Set.range b₀)).map j := by
+      rw [hrange, ← Submodule.map_span]
+    have hspan₀ : Submodule.span ℤ (Set.range b₀) = mixedEmbedding.idealLattice F I :=
+      mixedEmbedding.span_idealLatticeBasis F I
+    have hspan (x : InfinitePlace F → ℂ) :
+        x ∈ Submodule.span ℤ (Set.range b) ↔
+          ∃ y : F, y ∈ (I : Submodule (𝓞 F) F) ∧ infEmbA y = x := by
+      rw [hspanMap, Submodule.mem_map]
+      constructor
+      · rintro ⟨z, hz, rfl⟩
+        rw [hspan₀] at hz
+        obtain ⟨y, hy, rfl⟩ := (mixedEmbedding.mem_idealLattice F I).mp hz
+        exact ⟨y, hy, hj y⟩
+      · rintro ⟨y, hy, rfl⟩
+        apply Submodule.mem_map.mpr
+        refine ⟨mixedEmbedding F y, ?_, hj y⟩
+        rw [hspan₀]
+        exact (mixedEmbedding.mem_idealLattice F I).mpr ⟨y, hy, rfl⟩
+    apply AddSubgroup.ext
+    intro x
+    change x ∈ Submodule.span ℤ (Set.range b) ↔
+      x ∈ (I : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom
+    rw [hspan]
+    rfl
+  let Pb := ZSpan.fundamentalDomain b
+  have hcompact : IsCompact (closure Pb) :=
+    (ZSpan.fundamentalDomain_isBounded b).isCompact_closure
+  have hfinite : volume Pb ≠ ⊤ :=
+    (lt_of_le_of_lt (measure_mono subset_closure) hcompact.measure_lt_top).ne
+  have hpositive : 0 < (volume Pb).toReal :=
+    ENNReal.toReal_pos (ZSpan.measure_fundamentalDomain_ne_zero b) hfinite
+  let : Countable (Submodule.span ℤ (Set.range b)).toAddSubgroup :=
+    inferInstanceAs (Countable (Submodule.span ℤ (Set.range b)))
+  have hPb : IsAddFundamentalDomain
+      (Submodule.span ℤ (Set.range b)).toAddSubgroup Pb volume :=
+    ZSpan.isAddFundamentalDomain' b volume
+  have hPd' : IsAddFundamentalDomain
+      (Submodule.span ℤ (Set.range b)).toAddSubgroup Pd volume := by
+    rw [hlat]
+    exact hPd
+  refine ⟨Pb, ZSpan.fundamentalDomain_measurableSet b, hcompact, ?_,
+    hPd'.measure_eq hPb, hpositive, ?_⟩
+  · rwa [hlat] at hPb
+  · intro f hf
+    apply hPd'.setIntegral_eq hPb
+    intro t x
+    change f ((t : InfinitePlace F → ℂ) + x) = f x
+    exact hf t (by rw [← hlat]; exact t.property) x
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
