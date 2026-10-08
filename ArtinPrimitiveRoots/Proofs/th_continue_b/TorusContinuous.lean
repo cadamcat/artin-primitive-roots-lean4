@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusRatioChart
 import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusRootReduction
+import ArtinPrimitiveRoots.Proofs.th_continue_b.TorusExpLift
 
 set_option autoImplicit false
 set_option maxHeartbeats 30000
