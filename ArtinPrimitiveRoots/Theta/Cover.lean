@@ -4290,6 +4290,49 @@ private theorem finLocalCover_maps_continuous {D : FieldData F} {H : HilbertData
       (nhds (L.a u * 1)) := tendsto_const_nhds.mul (ha1.comp hδ)
   simpa only [mul_one] using hcont.congr' htranslate
 
+/-- A finite tuple of central phases becomes their product in the common center. -/
+private theorem coverEmbedding_phaseProduct (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (x : CoverRP B.family)
+    (ζ : FinPlace F → rootsOfUnity 3 ℂ)
+    (hζ : (Function.mulSupport ζ).Finite)
+    (hx : ∀ v, x (.inl v) = (B.family.loc v).z (ζ v))
+    (hxC : ∀ w, x (.inr w) = 1) :
+    B.quotient.q x = E.z (∏ᶠ v, ζ v) := by
+  classical
+  obtain ⟨p, hpNe, hpMax⟩ := Ring.exists_maximal_of_not_isField
+    (NumberField.RingOfIntegers.not_isField F)
+  let v0 : FinPlace F := ⟨p, hpMax.isPrime, hpNe⟩
+  let τ := ∏ᶠ v, ζ v
+  let ψ : FinPlace F → rootsOfUnity 3 ℂ := fun v => if v = v0 then τ else 1
+  have hψ : (Function.mulSupport ψ).Finite := by
+    apply (Set.finite_singleton v0).subset
+    intro v hv
+    change v = v0
+    by_contra hne
+    change ψ v ≠ 1 at hv
+    exact hv (by simp [ψ, hne])
+  have hprodψ : (∏ᶠ v, ψ v) = τ := by
+    have h := finprod_eq_single ψ v0 (fun v hv => by simp [ψ, hv])
+    simpa [ψ] using h
+  have hq : B.quotient.q x = B.quotient.q (E.incl v0 ((B.family.loc v0).z τ)) := by
+    apply (B.quotient.q_eq _ _).mpr
+    refine ⟨fun v => ζ v / ψ v, Function.HasFiniteMulSupport.div hζ hψ, ?_, ?_, ?_⟩
+    · rw [finprod_div_distrib hζ hψ, hprodψ]
+      simp [τ]
+    · intro v
+      rw [hx v]
+      by_cases hv : v = v0
+      · subst v
+        rw [E.incl_compF, ← map_mul]
+        simp [ψ]
+      · rw [E.incl_compF_other v0 v (Ne.symm hv)]
+        simp [ψ, hv]
+    · intro w
+      rw [hxC w, E.incl_compC]
+  calc
+    B.quotient.q x = B.quotient.q (E.incl v0 ((B.family.loc v0).z τ)) := hq
+    _ = E.z τ := (E.q_incl v0 _).trans (E.emb_z v0 τ)
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
