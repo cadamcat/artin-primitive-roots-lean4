@@ -2350,6 +2350,55 @@ theorem eisenstein_bigCell_unfold_periods
             exact hperiod (Quotient.out η) α x
           _ = _ := (ht η).2.symm
 
+/-- Rational unipotent representatives can be shifted to finite coordinates under global integration. -/
+theorem scalarOf_finitePeriod_arch_integral
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (g : P.tc.G)
+    (γ : GL (Fin 2) F) (ξ : F)
+    (hint : Integrable (fun x : InfinitePlace F → ℂ => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (γ * upperGL ξ) * nInf P x * g))) :
+    Integrable (fun x : InfinitePlace F → ℂ => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat γ * nFin P ξ * nInf P x * g)) ∧
+    (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (γ * upperGL ξ) * nInf P x * g)) =
+      (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat γ * nFin P ξ * nInf P x * g)) ∧
+    (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (γ * upperGL ξ) * nInf P x * g)‖) =
+      ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat γ * nFin P ξ * nInf P x * g)‖ := by
+  have hni (y z : InfinitePlace F → ℂ) : nInf P (y + z) = nInf P y * nInf P z := by
+    dsimp only [nInf]
+    have hp : ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y + z) =
+        ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y) +
+          ((0 : ∀ v : S.Sf, v.1.adicCompletion F), z) := by simp
+    rw [hp, ofAdd_add, map_mul]
+  have hfactor (x : InfinitePlace F → ℂ) :
+      P.tc.rat γ * nFin P ξ * nInf P x * g =
+        P.tc.rat (γ * upperGL ξ) * nInf P (-infEmbA ξ + x) * g := by
+    dsimp only [nFin]
+    calc
+      _ = (P.tc.rat γ * P.tc.rat (upperGL ξ)) *
+          (nInf P (-infEmbA ξ) * nInf P x) * g := by group
+      _ = (P.tc.rat γ * P.tc.rat (upperGL ξ)) *
+          nInf P (-infEmbA ξ + x) * g := by rw [← hni]
+      _ = _ := by rw [map_mul]
+  have heq (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC (P.tc.rat γ * nFin P ξ * nInf P x * g) =
+        scalarOf P G Fs.f Fs.fC
+          (P.tc.rat (γ * upperGL ξ) * nInf P (-infEmbA ξ + x) * g) := by
+    rw [hfactor]
+  refine ⟨?_, ?_, ?_⟩
+  · simpa only [heq] using hint.comp_add_left (-infEmbA ξ)
+  · simp_rw [heq]
+    exact (integral_add_left_eq_self
+      (fun x : InfinitePlace F → ℂ => scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (γ * upperGL ξ) * nInf P x * g)) (-infEmbA ξ)).symm
+  · simp_rw [heq]
+    exact (integral_add_left_eq_self
+      (fun x : InfinitePlace F → ℂ => ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (γ * upperGL ξ) * nInf P x * g)‖) (-infEmbA ξ)).symm
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
