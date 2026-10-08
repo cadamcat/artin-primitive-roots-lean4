@@ -10,6 +10,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_invariant_genuine_zero
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_genuine
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.unitTorus_constant_of_nonzero_fourier_zero
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.totallyComplexMixedEquiv_embedding
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.mem_span_idealArchBasis
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
