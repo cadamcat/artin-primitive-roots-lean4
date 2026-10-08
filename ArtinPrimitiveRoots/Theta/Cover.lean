@@ -5319,6 +5319,285 @@ cover exists with the component compatibility identities of C2 in `sol-gate-thet
 theorem exists_coverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)}
     (S : SData F CE condη) (H : HilbertData F) (A : AddCharData F)
     (hSt : ∀ v, SteinbergAt H v) : ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P := by
-  sorry
+  classical
+  obtain ⟨B⟩ := exists_coverQuotientBase D S H hSt
+  obtain ⟨E⟩ := exists_coverEmbeddingBase B
+  obtain ⟨U⟩ := exists_coverSubgroupBase B E
+  obtain ⟨R⟩ := exists_coverRationalBase B
+  obtain ⟨T⟩ := exists_coverSTupleBase B
+  obtain ⟨L⟩ := exists_coverSLawBase B E T
+  obtain ⟨X⟩ := exists_coverExteriorBase B E U R T
+  obtain ⟨Y⟩ := exists_coverTailBase B E U R T X
+  let C := B.family
+  let q := B.quotient.q
+  let Comp := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.Component
+    (G := fun v : FinPlace F => (C.loc v).L) (H := fun _ : InfinitePlace F => PGL2 ℂ)
+  let ref := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference C)
+  letI : Fact (∀ p : Place F, IsOpen (ref p : Set (Comp p))) := ⟨by
+    intro p
+    cases p with
+    | inl v => exact coverFamilyReference_open C v
+    | inr w => exact isOpen_univ⟩
+  let compF (v : FinPlace F) : CoverRP C →* (C.loc v).L :=
+    RestrictedProduct.evalMonoidHom Comp (.inl v)
+  let compC (w : InfinitePlace F) : CoverRP C →* PGL2 ℂ :=
+    RestrictedProduct.evalMonoidHom Comp (.inr w)
+  have scalar_eq (c : Fˣ) : scalarGL c = Matrix.GeneralLinearGroup.scalar (Fin 2) c := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [scalarGL]
+  let tc : ThetaCover D S H A := {
+    G := B.quotient.Q
+    grp := inferInstance
+    topology := inferInstance
+    topGroup := inferInstance
+    z := E.z
+    z_inj := E.z_inj
+    z_central := E.z_central
+    GS := U.GS
+    nS := q.comp T.nRP
+    aS := fun y => q (T.aRP y)
+    wS := q T.wRP
+    nbarS := q.comp T.nbarRP
+    nS_mem := by
+      intro x
+      apply U.GS_of_components
+      intro v hv
+      simpa only [dite_eq_right hv, ofAdd_toAdd] using T.nF x.toAdd v
+    aS_mem := by
+      intro y
+      apply U.GS_of_components
+      intro v hv
+      simpa only [dite_eq_right hv] using T.aF y v
+    wS_mem := U.GS_of_components T.wRP (fun v hv => by
+      simpa only [ite_eq_right hv] using T.wF v)
+    nbarS_mem := by
+      intro x
+      apply U.GS_of_components
+      intro v hv
+      simpa only [dite_eq_right hv, ofAdd_toAdd] using T.nbarF x.toAdd v
+    aS_mul := L.a_mul
+    liftS_na := by
+      intro x y
+      simpa only [map_mul, MonoidHom.comp_apply] using congrArg q (L.lift_na x y)
+    liftS_wa := by
+      intro y
+      simpa only [map_mul, map_inv] using congrArg q (L.lift_wa y)
+    liftS_wn := by
+      intro y
+      simpa only [map_mul, MonoidHom.comp_apply] using congrArg q (L.lift_wn y)
+    Gloc := fun v => (E.emb v).range
+    n := fun v => (E.emb v).comp (C.loc v).n
+    a := fun v y => E.emb v ((C.loc v).a y)
+    w := fun v => E.emb v (C.loc v).w
+    nbar := fun v => (E.emb v).comp (C.loc v).nbar
+    n_mem := fun v x => ⟨(C.loc v).n x, rfl⟩
+    a_mem := fun v y => ⟨(C.loc v).a y, rfl⟩
+    w_mem := fun v => ⟨(C.loc v).w, rfl⟩
+    nbar_mem := fun v x => ⟨(C.loc v).nbar x, rfl⟩
+    comm_loc := by
+      intro v v' hv g hg h hh
+      obtain ⟨g0, rfl⟩ := hg
+      obtain ⟨h0, rfl⟩ := hh
+      exact E.emb_comm v v' hv g0 h0
+    comm_S := U.comm_S
+    a_mul := by
+      intro v hv x y
+      obtain ⟨ζ, hζ, heq⟩ := cover_local_effectiveLaw D H v (C.loc v)
+        (fun h6 => hv (S.over6 v h6)) x y
+      refine ⟨ζ, hζ, ?_⟩
+      simpa only [C, map_mul, E.emb_z] using congrArg (E.emb v) heq
+    lift_na := by
+      intro v x y
+      simpa only [map_mul, MonoidHom.comp_apply] using congrArg (E.emb v) ((C.loc v).lift_na x y)
+    lift_wa := by
+      intro v y
+      simpa only [map_mul, map_inv] using congrArg (E.emb v) ((C.loc v).lift_wa y)
+    lift_wn := by
+      intro v y
+      simpa only [map_mul, MonoidHom.comp_apply] using congrArg (E.emb v) ((C.loc v).lift_wn y)
+    Kext := U.Kext
+    Kext_comm_S := U.Kext_comm_S
+    n_Kext := fun v hv x hx =>
+      (U.emb_Kext_iff v hv _).mpr ((C.tame v hv).n_mem x hx)
+    a_Kext := fun v hv u hu hi =>
+      (U.emb_Kext_iff v hv _).mpr ((C.tame v hv).a_mem u hu hi)
+    w_Kext := fun v hv => (U.emb_Kext_iff v hv _).mpr (C.tame v hv).w_mem
+    nbar_Kext := fun v hv x hx =>
+      (U.emb_Kext_iff v hv _).mpr ((C.tame v hv).nbar_mem x hx)
+    rat := R.rat
+    rat_scalar := by
+      intro c
+      rw [scalar_eq]
+      exact R.rat_scalar c
+    aExt := fun u => q (X.aRP u)
+    nExt := q.comp X.nRP
+    wExt := q X.wRP
+    rat_diag := by
+      intro u
+      rw [← R.q_ratRP, X.rat_diag, map_mul]
+    rat_upper := by
+      intro x
+      rw [← R.q_ratRP, X.rat_upper, map_mul]
+      simp only [MonoidHom.comp_apply, q]
+    rat_weyl := by
+      rw [← R.q_ratRP, X.rat_weyl, map_mul]
+    wExt_Kext := X.w_mem
+    aExt_unit := X.a_unit
+    aExt_split := Y.a_split
+    nExt_split := Y.n_split
+    wExt_split := Y.w_split
+  }
+  let P : CoverPackage D S H A := {
+    loc := C.loc
+    tame := C.tame
+    tc := tc
+    emb := E.emb
+    emb_inj := E.emb_inj
+    emb_z := E.emb_z
+    emb_n := fun _ _ _ => rfl
+    emb_a := fun _ _ _ => rfl
+    emb_w := fun _ _ => rfl
+    emb_nbar := fun _ _ _ => rfl
+    emb_Kext := fun v hv g hg => (U.emb_Kext_iff v hv g).mpr hg
+    emb_comm := E.emb_comm
+    RP := CoverRP C
+    rpGrp := inferInstance
+    q := q
+    q_surj := B.quotient.q_surj
+    compF := compF
+    compC := compC
+    rpTopology := inferInstance
+    rpTopGroup := inferInstance
+    q_quotient := B.quotient.q_quotient
+    compF_cont := fun v => RestrictedProduct.continuous_eval
+      (R := Comp) (A := fun p => (ref p : Set (Comp p))) (𝓕 := cofinite) (.inl v)
+    nS_cont := B.quotient.q_quotient.continuous.comp T.n_cont
+    aS_cont := B.quotient.q_quotient.continuous.comp T.a_cont
+    comp_ext := by
+      intro x y hf hc
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v => exact hf v
+      | inr w => exact hc w
+    comp_restricted := by
+      intro x
+      have hb := Filter.eventually_cofinite.mp x.2
+      apply (hb.preimage Sum.inl_injective.injOn).subset
+      rintro v ⟨hv, hbad⟩
+      change x (.inl v) ∉ coverFamilyReference C v
+      rw [coverFamilyReference, dite_eq_left hv]
+      exact hbad
+    q_eq := B.quotient.q_eq
+    ratRP := R.ratRP
+    q_ratRP := R.q_ratRP
+    compF_ratRP := R.compF
+    compC_ratRP := R.compC
+    incl := E.incl
+    incl_compF := E.incl_compF
+    incl_compF_other := E.incl_compF_other
+    incl_compC := E.incl_compC
+    q_incl := E.q_incl
+    comp_surj := by
+      intro lf lc hfin
+      let x : CoverRP C := ⟨fun p => match p with
+        | .inl v => lf v
+        | .inr w => lc w, by
+        apply Filter.eventually_cofinite.mpr
+        apply (hfin.image Sum.inl).subset
+        intro p hp
+        cases p with
+        | inl v =>
+          change lf v ∉ coverFamilyReference C v at hp
+          by_cases hv : v ∉ S.Sf
+          · refine ⟨v, ⟨hv, ?_⟩, rfl⟩
+            simpa only [coverFamilyReference, dite_eq_left hv] using hp
+          · simp [coverFamilyReference, hv] at hp
+        | inr w =>
+          change lc w ∉ (⊤ : Subgroup (PGL2 ℂ)) at hp
+          exact False.elim (hp (Subgroup.mem_top _))⟩
+      exact ⟨x, fun _ => rfl, fun _ => rfl⟩
+    emb_Gloc := fun _ _ => rfl
+    emb_Kext_iff := U.emb_Kext_iff
+    emb_aS := L.emb_a
+    nS_components := fun u => ⟨T.nRP (Multiplicative.ofAdd u), rfl, T.nF u, T.nC u⟩
+    aS_components := fun u => ⟨T.aRP u, rfl, T.aF u, T.aC u⟩
+    wS_components := ⟨T.wRP, rfl, T.wF, T.wC⟩
+    Kext_components := U.Kext_components
+  }
+  refine ⟨P, ?_⟩
+  let e (p : Place F) : Comp p ≃ₜ LocalComponent P p := by
+    cases p with
+    | inl v => exact Homeomorph.refl (C.loc v).L
+    | inr w => exact Homeomorph.refl (PGL2 ℂ)
+  have hmap (p : Place F) : Set.MapsTo (e p) (ref p : Set (Comp p))
+      (referenceSubset P p) := by
+    cases p with
+    | inl v =>
+      intro x hx
+      change x ∈ (if hv : v ∉ S.Sf then
+        ((C.tame v hv).Kmax : Set (C.loc v).L) else Set.univ)
+      change x ∈ coverFamilyReference C v at hx
+      by_cases hv : v ∉ S.Sf <;> simpa [coverFamilyReference, hv] using hx
+    | inr w =>
+      intro x hx
+      exact Set.mem_univ _
+  have hmap_inv (p : Place F) : Set.MapsTo (e p).symm (referenceSubset P p)
+      (ref p : Set (Comp p)) := by
+    cases p with
+    | inl v =>
+      intro x hx
+      change x ∈ coverFamilyReference C v
+      change x ∈ (if hv : v ∉ S.Sf then
+        ((C.tame v hv).Kmax : Set (C.loc v).L) else Set.univ) at hx
+      by_cases hv : v ∉ S.Sf
+      · rw [coverFamilyReference, dite_eq_left hv]
+        rw [dite_eq_left hv] at hx
+        change x ∈ ((C.tame v hv).Kmax : Set (C.loc v).L)
+        exact hx
+      · rw [coverFamilyReference, dite_eq_right hv]
+        change True
+        exact True.intro
+    | inr w =>
+      intro x hx
+      exact Set.mem_univ _
+  let f : CoverRP C → CanonicalRP P := RestrictedProduct.mapAlong
+    Comp (LocalComponent P) id tendsto_id (fun p => e p) (Filter.Eventually.of_forall hmap)
+  let g : CanonicalRP P → CoverRP C := RestrictedProduct.mapAlong
+    (LocalComponent P) Comp id tendsto_id (fun p => (e p).symm)
+      (Filter.Eventually.of_forall hmap_inv)
+  let homeo : @Homeomorph P.RP (CanonicalRP P) P.rpTopology inferInstance := {
+    toEquiv := {
+      toFun := f
+      invFun := g
+      left_inv := by
+        intro x
+        apply RestrictedProduct.ext
+        intro p
+        change (e p).symm (e p (x p)) = x p
+        exact (e p).symm_apply_apply (x p)
+      right_inv := by
+        intro x
+        apply RestrictedProduct.ext
+        intro p
+        change e p ((e p).symm (x p)) = x p
+        exact (e p).apply_symm_apply (x p)
+    }
+    continuous_toFun := RestrictedProduct.mapAlong_continuous
+      Comp (LocalComponent P) id tendsto_id (fun p => e p)
+      (Filter.Eventually.of_forall hmap) (fun p => (e p).continuous_toFun)
+    continuous_invFun := RestrictedProduct.mapAlong_continuous
+      (LocalComponent P) Comp id tendsto_id (fun p => (e p).symm)
+      (Filter.Eventually.of_forall hmap_inv) (fun p => (e p).symm.continuous_toFun)
+  }
+  refine ⟨homeo, ?_, ?_⟩
+  · intro x v
+    change e (.inl v) (x (.inl v)) = x (.inl v)
+    rfl
+  · intro x w
+    change e (.inr w) (x (.inr w)) = x (.inr w)
+    rfl
 
 end ArtinPrimitiveRoots.A1.Theta
