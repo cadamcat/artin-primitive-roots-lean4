@@ -532,6 +532,172 @@ private theorem thetaN_deriv_const_mul {P : CoverPackage D S H A}
       (fun w acc => thetaRootStep w (m w) acc) Ψ) g
   exact hFold (Finset.univ : Finset (InfinitePlace F)).toList g
 
+/-! ### The derivative fold in root-chart coordinates -/
+
+/-- One right root step in the archimedean root chart. -/
+private def thetaN_chartStep (w : InfinitePlace F) (m : ℤ)
+    (f : (InfinitePlace F → ℂ) → ℂ) : (InfinitePlace F → ℂ) → ℂ := fun x =>
+  fderiv ℝ (fun z : ℂ => f (x + Pi.single w z)) 0 1 -
+    (m : ℂ) * Complex.I * fderiv ℝ (fun z : ℂ => f (x + Pi.single w z)) 0 Complex.I
+
+/-- The one-variable complex derivative vector `(∂₁ - m i ∂₂) φ`. -/
+private def thetaN_D (m : ℤ) (φ : ℂ → ℂ) : ℂ → ℂ := fun z =>
+  fderiv ℝ φ z 1 - (m : ℂ) * Complex.I * fderiv ℝ φ z Complex.I
+
+private def thetaN_groupStep {P : CoverPackage D S H A} (w : InfinitePlace F) (m : ℤ)
+    (Ψ : P.tc.G → ℂ) : P.tc.G → ℂ := fun g =>
+  fderiv ℝ (fun z : ℂ => Ψ (g * P.tc.nS
+      (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))) 0 1 -
+    (m : ℂ) * Complex.I *
+      fderiv ℝ (fun z : ℂ => Ψ (g * P.tc.nS
+        (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))) 0 Complex.I
+
+private theorem thetaN_nInf_add {P : CoverPackage D S H A} (x y : InfinitePlace F → ℂ) :
+    nInf P (x + y) = nInf P x * nInf P y := by
+  have hp : ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x + y) =
+      ((0, x) : S.FS) + ((0, y) : S.FS) := by
+    ext v <;> simp
+  change P.tc.nS (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x + y)) =
+    P.tc.nS (Multiplicative.ofAdd ((0, x) : S.FS)) *
+      P.tc.nS (Multiplicative.ofAdd ((0, y) : S.FS))
+  rw [hp, ofAdd_add, map_mul]
+
+private theorem thetaN_fold_chart {P : CoverPackage D S H A}
+    (m : InfinitePlace F → ℤ) (ws : List (InfinitePlace F))
+    (Ψ : P.tc.G → ℂ) (g : P.tc.G) (x : InfinitePlace F → ℂ) :
+    ws.foldr (fun w acc => thetaN_groupStep w (m w) acc) Ψ (g * nInf P x) =
+      ws.foldr (fun w acc => thetaN_chartStep w (m w) acc)
+        (fun y => Ψ (g * nInf P y)) x := by
+  revert x
+  induction ws with
+  | nil => intro x; rfl
+  | cons w ws ih =>
+      intro x
+      have hcurve :
+          (fun z : ℂ => ws.foldr (fun w acc => thetaN_groupStep w (m w) acc) Ψ
+            (g * nInf P x * P.tc.nS (Multiplicative.ofAdd
+              ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))) =
+          (fun z => ws.foldr (fun w acc => thetaN_chartStep w (m w) acc)
+            (fun y => Ψ (g * nInf P y)) (x + Pi.single w z)) := by
+        funext z
+        have hsingle : P.tc.nS (Multiplicative.ofAdd
+            ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)) =
+            nInf P (Pi.single w z) := rfl
+        rw [mul_assoc, hsingle, ← thetaN_nInf_add]
+        exact ih (x + Pi.single w z)
+      change thetaN_groupStep w (m w)
+          (ws.foldr (fun w acc => thetaN_groupStep w (m w) acc) Ψ) (g * nInf P x) =
+        thetaN_chartStep w (m w)
+          (ws.foldr (fun w acc => thetaN_chartStep w (m w) acc)
+            (fun y => Ψ (g * nInf P y))) x
+      simp only [thetaN_groupStep, thetaN_chartStep]
+      rw [hcurve]
+
+private theorem thetaN_deriv_chart {P : CoverPackage D S H A}
+    (m : InfinitePlace F → ℤ) (Ψ : P.tc.G → ℂ) (g : P.tc.G) :
+    thetaFamilyDeriv P m Ψ g =
+      ((Finset.univ : Finset (InfinitePlace F)).toList).foldr
+        (fun w acc => thetaN_chartStep w (m w) acc) (fun x => Ψ (g * nInf P x)) 0 := by
+  have h := thetaN_fold_chart m (Finset.univ : Finset (InfinitePlace F)).toList Ψ g 0
+  change ((Finset.univ : Finset (InfinitePlace F)).toList).foldr
+      (fun w acc => thetaN_groupStep w (m w) acc) Ψ g =
+    ((Finset.univ : Finset (InfinitePlace F)).toList).foldr
+      (fun w acc => thetaN_chartStep w (m w) acc) (fun x => Ψ (g * nInf P x)) 0
+  have hzero : P.tc.nS (Multiplicative.ofAdd
+      ((0 : ∀ v : S.Sf, v.1.adicCompletion F), (0 : InfinitePlace F → ℂ))) = 1 := by
+    change P.tc.nS (1 : Multiplicative S.FS) = 1
+    exact map_one P.tc.nS
+  simpa [nInf, hzero] using h
+
+/-- Finite sums of products of one-variable functions of the root coordinates. -/
+private def thetaN_sumProd {ι : Type} (T : Finset ι) (a : ι → ℂ)
+    (φ : ι → InfinitePlace F → ℂ → ℂ) (x : InfinitePlace F → ℂ) : ℂ :=
+  ∑ i ∈ T, a i * ∏ u, φ i u (x u)
+
+private theorem thetaN_chartStep_sumProd {ι : Type} (T : Finset ι) (a : ι → ℂ)
+    (φ : ι → InfinitePlace F → ℂ → ℂ) (w : InfinitePlace F) (m : ℤ)
+    (hφ : ∀ i, Differentiable ℝ (φ i w)) :
+    thetaN_chartStep w m (thetaN_sumProd T a φ) =
+      thetaN_sumProd T a (fun i u => if u = w then thetaN_D m (φ i w) else φ i u) := by
+  classical
+  funext x
+  let C : ι → ℂ := fun i => a i * ∏ u ∈ Finset.univ.erase w, φ i u (x u)
+  have hrest (i : ι) (z : ℂ) :
+      ∏ u ∈ Finset.univ.erase w, φ i u ((x + Pi.single w z : InfinitePlace F → ℂ) u) =
+        ∏ u ∈ Finset.univ.erase w, φ i u (x u) := by
+    apply Finset.prod_congr rfl
+    intro u hu
+    have huw : u ≠ w := Finset.ne_of_mem_erase hu
+    simp [Pi.single_eq_of_ne huw]
+  have hcurve : (fun z : ℂ => thetaN_sumProd T a φ (x + Pi.single w z)) =
+      fun z => ∑ i ∈ T, C i * φ i w (x w + z) := by
+    funext z
+    unfold thetaN_sumProd
+    apply Finset.sum_congr rfl
+    intro i _
+    rw [← Finset.mul_prod_erase Finset.univ _ (Finset.mem_univ w), hrest]
+    simp only [C, Pi.add_apply, Pi.single_eq_same]
+    ring
+  have hderiv : HasFDerivAt (fun z : ℂ => ∑ i ∈ T, C i * φ i w (x w + z))
+      (∑ i ∈ T, C i • (fderiv ℝ (φ i w) (x w))) 0 := by
+    apply HasFDerivAt.fun_sum
+    intro i _
+    have hin : HasFDerivAt (fun z : ℂ => x w + z) (ContinuousLinearMap.id ℝ ℂ) 0 :=
+      (hasFDerivAt_id (0 : ℂ)).const_add (x w)
+    have hφi : HasFDerivAt (φ i w) (fderiv ℝ (φ i w) (x w)) (x w + 0) := by
+      rw [add_zero]
+      exact (hφ i (x w)).hasFDerivAt
+    have hcomp := hφi.comp (0 : ℂ) hin
+    simpa using hcomp.const_mul (C i)
+  have hval (v : ℂ) : fderiv ℝ (fun z : ℂ => thetaN_sumProd T a φ (x + Pi.single w z)) 0 v =
+      ∑ i ∈ T, C i * fderiv ℝ (φ i w) (x w) v := by
+    rw [hcurve, hderiv.fderiv]
+    simp
+  unfold thetaN_chartStep
+  rw [hval, hval]
+  unfold thetaN_sumProd
+  rw [Finset.mul_sum, ← Finset.sum_sub_distrib]
+  apply Finset.sum_congr rfl
+  intro i _
+  rw [← Finset.mul_prod_erase Finset.univ _ (Finset.mem_univ w)]
+  have hrest' : ∏ u ∈ Finset.univ.erase w,
+      (if u = w then thetaN_D m (φ i w) else φ i u) (x u) =
+        ∏ u ∈ Finset.univ.erase w, φ i u (x u) := by
+    apply Finset.prod_congr rfl
+    intro u hu
+    simp [Finset.ne_of_mem_erase hu]
+  rw [hrest']
+  simp only [if_pos, C, thetaN_D]
+  ring
+
+private theorem thetaN_fold_sumProd {ι : Type} (T : Finset ι) (a : ι → ℂ)
+    (m : InfinitePlace F → ℤ) (φ : ι → InfinitePlace F → ℂ → ℂ)
+    (hφ : ∀ i u, Differentiable ℝ (φ i u)) (ws : List (InfinitePlace F)) (hws : ws.Nodup) :
+    ws.foldr (fun w acc => thetaN_chartStep w (m w) acc) (thetaN_sumProd T a φ) =
+      thetaN_sumProd T a (fun i u => if u ∈ ws then thetaN_D (m u) (φ i u) else φ i u) := by
+  classical
+  induction ws with
+  | nil =>
+      simp
+  | cons w ws ih =>
+      rw [List.nodup_cons] at hws
+      obtain ⟨hw, hws⟩ := hws
+      change thetaN_chartStep w (m w)
+          (ws.foldr (fun w acc => thetaN_chartStep w (m w) acc) (thetaN_sumProd T a φ)) = _
+      rw [ih hws]
+      have hdiff : ∀ i, Differentiable ℝ
+          ((fun i u => if u ∈ ws then thetaN_D (m u) (φ i u) else φ i u) i w) := by
+        intro i
+        simp only [if_neg hw]
+        exact hφ i w
+      rw [thetaN_chartStep_sumProd T a _ w (m w) hdiff]
+      congr 1
+      funext i u
+      by_cases huw : u = w
+      · subst huw
+        simp [hw]
+      · simp [huw]
+
 /-- Export the constant-term invariances, torus continuity and T7 radiality for the same normalized constant term.
 Guide: sol-thin-thglobal/PROOFS.md:1200–1210.
 Uses thetaFamilyBaseN, theta_constantTerm, intertwineC_spherical and left-translation commutation with thetaFamilyDeriv. -/
