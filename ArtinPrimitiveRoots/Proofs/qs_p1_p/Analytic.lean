@@ -1354,6 +1354,275 @@ private theorem qs_p1_iteratedDeriv_ofReal_comp (f : ℝ → ℝ)
         ((deriv (iteratedDeriv n f) x : ℝ) : ℂ)
       exact hcast.deriv
 
+private theorem qs_p1_mellinLogKernel_iteratedDeriv_uniform_majorant
+    (h : ℝ → ℂ) (hh : IsQSWeight h) (a b : ℝ)
+    (ha : 0 < a) (hab : a ≤ b) (j : ℕ) :
+    ∃ G : ℝ → ℝ, Integrable G ∧ ∀ c ∈ Set.Icc a b, ∀ u : ℝ,
+      ‖iteratedDeriv j (qsP1MellinLogKernel c h) u‖ ≤ G u := by
+  classical
+  obtain ⟨B, hB⟩ := hh.2.1
+  obtain ⟨δ, hδ, hconst⟩ := hh.2.2
+  let B₀ : ℝ := max B 1
+  let δ₀ : ℝ := min δ (1 / 2)
+  have hB₀ : 0 < B₀ := lt_of_lt_of_le zero_lt_one (le_max_right _ _)
+  have hδ₀ : 0 < δ₀ := lt_min hδ (by norm_num)
+  have hδ₀δ : δ₀ ≤ δ := min_le_left _ _
+  have hδ₀_le : δ₀ ≤ 1 / 2 := min_le_right _ _
+  let A : ℝ := -Real.log B₀
+  let C : ℝ := -Real.log δ₀
+  have hAC : A ≤ C := by
+    have hA : A ≤ 0 := by
+      dsimp [A]
+      exact neg_nonpos.mpr (Real.log_nonneg (by dsimp [B₀]; exact le_max_right _ _))
+    have hC : 0 ≤ C := by
+      dsimp [C]
+      have hδ₀_le_one : δ₀ ≤ 1 := hδ₀_le.trans (by norm_num)
+      exact neg_nonneg.mpr (Real.log_nonpos hδ₀.le hδ₀_le_one)
+    linarith
+  have hC_nonneg : 0 ≤ C := by
+    dsimp [C]
+    have hδ₀_le_one : δ₀ ≤ 1 := hδ₀_le.trans (by norm_num)
+    exact neg_nonneg.mpr (Real.log_nonpos hδ₀.le hδ₀_le_one)
+  let H : ℝ → ℂ := fun u => h (Real.exp (-u))
+  let E : ℝ → ℝ → ℂ := fun c u => ((Real.exp (-c * u) : ℝ) : ℂ)
+  have hHtop : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) H := by
+    have hExp : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun u : ℝ => Real.exp (-u)) := by fun_prop
+    simpa [H, Function.comp_def] using hh.1.comp hExp
+  have hEtop (c : ℝ) : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (E c) := by
+    apply contDiff_iff_contDiffAt.2
+    intro u
+    dsimp [E]
+    have hlin : ContDiffAt ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun v : ℝ => -c * v) u := by fun_prop
+    exact Complex.ofRealCLM.contDiff.comp_contDiffAt u
+      (Real.contDiff_exp.contDiffAt.comp u hlin)
+  have hEderiv (c : ℝ) (i : ℕ) (u : ℝ) :
+      iteratedDeriv i (E c) u =
+        ((((-c : ℝ) ^ i * Real.exp (-c * u) : ℝ) : ℂ)) := by
+    have hcast := congrFun
+      (qs_p1_iteratedDeriv_ofReal_comp (fun v : ℝ => Real.exp (-c * v))
+        (by fun_prop) i) u
+    have hreal := congrFun (iteratedDeriv_exp_const_mul i (-c : ℝ)) u
+    simpa [E, neg_mul] using hcast.trans (congrArg (fun x : ℝ => (x : ℂ)) hreal)
+  have hformula (c u : ℝ) :
+      iteratedDeriv j (E c * H) u =
+        ∑ i ∈ Finset.range (j + 1),
+          (j.choose i : ℂ) * iteratedDeriv i (E c) u *
+            iteratedDeriv (j - i) H u := by
+    have hE : ContDiffAt ℝ (j : ℕ∞) (E c) u :=
+      ((contDiff_iff_contDiffAt.1 (hEtop c)) u).of_le (by simp)
+    have hH : ContDiffAt ℝ (j : ℕ∞) H u :=
+      ((contDiff_iff_contDiffAt.1 hHtop u).of_le (by simp))
+    exact iteratedDeriv_mul hE hH
+  let F : ℝ × ℝ → ℂ := fun z =>
+    ∑ i ∈ Finset.range (j + 1),
+      (j.choose i : ℂ) *
+        ((((-z.1 : ℝ) ^ i * Real.exp (-z.1 * z.2) : ℝ) : ℂ)) *
+          iteratedDeriv (j - i) H z.2
+  have hHderivCont (k : ℕ) : Continuous (iteratedDeriv k H) :=
+    hHtop.continuous_iteratedDeriv k (by simp)
+  have hFcont : Continuous F := by
+    dsimp [F]
+    fun_prop
+  have hformulaF (c u : ℝ) : iteratedDeriv j (E c * H) u = F (c, u) := by
+    rw [hformula c u]
+    simp [F, hEderiv]
+  have hline (c : ℝ) : qsP1MellinLogKernel c h = E c * H := by
+    funext u
+    simp [qsP1MellinLogKernel, E, H, smul_eq_mul]
+  let S : Set (ℝ × ℝ) := Set.Icc a b ×ˢ Set.Icc A C
+  have hScompact : IsCompact S := isCompact_Icc.prod isCompact_Icc
+  have hSnonempty : S.Nonempty := by
+    refine ⟨(a, A), ?_⟩
+    exact ⟨⟨le_rfl, hab⟩, ⟨le_rfl, hAC⟩⟩
+  let Fnorm : ℝ × ℝ → ℝ := fun z => ‖F z‖
+  have hFnormCont : Continuous Fnorm := by
+    dsimp [Fnorm]
+    exact hFcont.norm
+  obtain ⟨zmax, hzmax, hmax⟩ := hScompact.exists_isMaxOn hSnonempty hFnormCont.continuousOn
+  let M : ℝ := Fnorm zmax
+  have hM : 0 ≤ M := by dsimp [M, Fnorm]; exact norm_nonneg _
+  have hcompactBound (c : ℝ) (hc : c ∈ Set.Icc a b) (u : ℝ)
+      (huA : A ≤ u) (huC : u ≤ C) :
+      ‖iteratedDeriv j (qsP1MellinLogKernel c h) u‖ ≤ M := by
+    rw [hline c, hformulaF c u]
+    apply hmax
+    exact ⟨hc, ⟨huA, huC⟩⟩
+  have hleft (c : ℝ) (u : ℝ) (hu : u < A) :
+      iteratedDeriv j (qsP1MellinLogKernel c h) u = 0 := by
+    have hloc : qsP1MellinLogKernel c h =ᶠ[𝓝 u] (fun _ : ℝ => (0 : ℂ)) := by
+      filter_upwards [IsOpen.mem_nhds isOpen_Iio hu] with v hv
+      change v < A at hv
+      have hlog : Real.log B₀ < -v := by
+        have := neg_lt_neg hv
+        simpa [A] using this
+      have hnorm : B₀ < Real.exp (-v) := by
+        have he := Real.exp_lt_exp.mpr hlog
+        simpa [Real.exp_log hB₀] using he
+      have hzero := hB (Real.exp (-v)) (le_trans (le_max_left _ _) hnorm.le)
+      simp [qsP1MellinLogKernel, hzero]
+    rw [hloc.iteratedDeriv_eq j]
+    simp [iteratedDeriv_const]
+  let coef : ℝ → ℂ := fun c => ((((-c : ℝ) ^ j : ℝ) : ℂ) * h 0)
+  have hright (c : ℝ) (u : ℝ) (hu : C < u) :
+      iteratedDeriv j (qsP1MellinLogKernel c h) u =
+        coef c * ((Real.exp (-c * u) : ℝ) : ℂ) := by
+    have hloc : qsP1MellinLogKernel c h =ᶠ[𝓝 u]
+        (fun v : ℝ => (Real.exp (-c * v) : ℝ) • h 0) := by
+      filter_upwards [IsOpen.mem_nhds isOpen_Ioi hu] with v hv
+      change C < v at hv
+      have hlog : -v < Real.log δ₀ := by
+        have := neg_lt_neg hv
+        simpa [C] using this
+      have hnorm : Real.exp (-v) < δ₀ := by
+        have he := Real.exp_lt_exp.mpr hlog
+        simpa [Real.exp_log hδ₀] using he
+      have hval := hconst (Real.exp (-v))
+        ⟨(Real.exp_pos _).le, hnorm.le.trans hδ₀δ⟩
+      simpa [qsP1MellinLogKernel, hval]
+    rw [hloc.iteratedDeriv_eq j]
+    have hExpCont : ContDiffAt ℝ (j : ℕ∞)
+        (fun v : ℝ => Real.exp (-c * v)) u := by fun_prop
+    have hexp : iteratedDeriv j (fun v : ℝ => Real.exp (-c * v)) u =
+        (-c : ℝ) ^ j * Real.exp (-c * u) := by
+      simpa using congrFun (iteratedDeriv_exp_const_mul j (-c : ℝ)) u
+    rw [iteratedDeriv_smul_const hExpCont (h 0), hexp]
+    dsimp [coef]
+    simp only [smul_eq_mul, Complex.ofReal_mul]
+    ring
+  have hbc : max 1 b ≥ 0 := le_trans (by norm_num) (le_max_left 1 b)
+  let Bc : ℝ := max 1 b
+  let D : ℝ := Bc ^ j * ‖h 0‖
+  have hD : 0 ≤ D := by dsimp [D]; positivity
+  have hrightBound (c : ℝ) (hc : c ∈ Set.Icc a b) (u : ℝ)
+      (hu : C < u) :
+      ‖iteratedDeriv j (qsP1MellinLogKernel c h) u‖ ≤ D * Real.exp (-a * u) := by
+    have hcpos : 0 < c := lt_of_lt_of_le ha hc.1
+    have hcBc : c ≤ Bc := le_trans hc.2 (le_max_right _ _)
+    have hu0 : 0 ≤ u := le_trans hC_nonneg hu.le
+    have hpow : c ^ j ≤ Bc ^ j := pow_le_pow_left₀ (le_of_lt hcpos) hcBc j
+    have hexp : Real.exp (-c * u) ≤ Real.exp (-a * u) := by
+      apply Real.exp_le_exp.mpr
+      nlinarith [mul_le_mul_of_nonneg_right hc.1 hu0]
+    calc
+      ‖iteratedDeriv j (qsP1MellinLogKernel c h) u‖ =
+          c ^ j * Real.exp (-c * u) * ‖h 0‖ := by
+        rw [hright c u hu, norm_mul]
+        have hcoefNorm : ‖coef c‖ = c ^ j * ‖h 0‖ := by
+          dsimp [coef]
+          rw [norm_mul, Complex.norm_real, Real.norm_eq_abs,
+            abs_pow, abs_neg, abs_of_pos hcpos]
+        rw [hcoefNorm, Complex.norm_real, Real.norm_eq_abs,
+          abs_of_pos (Real.exp_pos _)]
+        ring
+      _ ≤ Bc ^ j * Real.exp (-c * u) * ‖h 0‖ := by gcongr
+      _ ≤ Bc ^ j * Real.exp (-a * u) * ‖h 0‖ := by
+        gcongr
+      _ = D * Real.exp (-a * u) := by dsimp [D]; ring
+  let K₀ : ℝ := max (M * Real.exp (-A))
+    (max (M * Real.exp (a * C)) D)
+  have hK₀ : 0 ≤ K₀ := by dsimp [K₀]; positivity
+  have hKleft : M * Real.exp (-A) ≤ K₀ := le_max_left _ _
+  have hKright : M * Real.exp (a * C) ≤ K₀ := le_trans (le_max_left _ _) (le_max_right _ _)
+  have hKD : D ≤ K₀ := le_trans (le_max_right _ _) (le_max_right _ _)
+  let G : ℝ → ℝ := fun u => K₀ * Real.exp (min u 0 - a * max u 0)
+  have hGcont : Continuous G := by
+    have hmin : Continuous (fun u : ℝ => min u 0) := continuous_id.min continuous_const
+    have hmax : Continuous (fun u : ℝ => max u 0) := continuous_id.max continuous_const
+    change Continuous (fun u : ℝ => K₀ * Real.exp (min u 0 - a * max u 0))
+    exact continuous_const.mul (Real.continuous_exp.comp
+      (hmin.sub (continuous_const.mul hmax)))
+  have hG : Integrable G := by
+    have hleftBase : IntegrableOn (fun u : ℝ => K₀ * Real.exp u) (Set.Iic 0) := by
+      have h := (integrableOn_exp_mul_Iic (by norm_num : 0 < (1 : ℝ)) 0).const_mul K₀
+      simpa [IntegrableOn, mul_comm] using h
+    have hrightBase : IntegrableOn (fun u : ℝ => K₀ * Real.exp (-a * u)) (Set.Ioi 0) := by
+      have h := (integrableOn_exp_mul_Ioi (neg_neg_of_pos ha) 0).const_mul K₀
+      simpa [IntegrableOn, mul_comm] using h
+    have hleft : IntegrableOn G (Set.Iic 0) := by
+      apply hleftBase.congr_fun
+      · intro u hu
+        change u ≤ 0 at hu
+        change K₀ * Real.exp u = K₀ * Real.exp (min u 0 - a * max u 0)
+        rw [min_eq_left hu, max_eq_right hu]
+        ring_nf
+      · exact measurableSet_Iic
+    have hright : IntegrableOn G (Set.Ioi 0) := by
+      apply hrightBase.congr_fun
+      · intro u hu
+        change 0 < u at hu
+        change K₀ * Real.exp (-a * u) = K₀ * Real.exp (min u 0 - a * max u 0)
+        rw [min_eq_right hu.le, max_eq_left hu.le]
+        ring_nf
+      · exact measurableSet_Ioi
+    have hU : IntegrableOn G (Set.Iic 0 ∪ Set.Ioi 0) := by
+      rw [integrableOn_union]
+      exact ⟨hleft, hright⟩
+    have hsub : (Set.univ : Set ℝ) ⊆ Set.Iic 0 ∪ Set.Ioi 0 := by
+      intro u _
+      simp only [Set.mem_union, Set.mem_Iic, Set.mem_Ioi]
+      exact le_or_gt u 0
+    exact integrableOn_univ.mp (hU.mono_set hsub)
+  refine ⟨G, hG, ?_⟩
+  intro c hc u
+  have hGnonneg : 0 ≤ G u := by
+    dsimp [G]
+    exact mul_nonneg hK₀ (Real.exp_pos _).le
+  by_cases huA : u < A
+  · rw [hleft c u huA]
+    simpa using hGnonneg
+  · have huA' : A ≤ u := le_of_not_gt huA
+    by_cases huC : C < u
+    · have hGform : G u = K₀ * Real.exp (-a * u) := by
+        simp [G, min_eq_right (le_trans hC_nonneg huC.le),
+          max_eq_left (le_trans hC_nonneg huC.le)]
+      calc
+        ‖iteratedDeriv j (qsP1MellinLogKernel c h) u‖ ≤ D * Real.exp (-a * u) :=
+          hrightBound c hc u huC
+        _ ≤ K₀ * Real.exp (-a * u) :=
+          mul_le_mul_of_nonneg_right hKD (Real.exp_pos _).le
+        _ = G u := hGform.symm
+    · have huC' : u ≤ C := le_of_not_gt huC
+      have hcomp := hcompactBound c hc u huA' huC'
+      by_cases hu0 : u ≤ 0
+      · have hGform : G u = K₀ * Real.exp u := by
+          simp [G, min_eq_left hu0, max_eq_right hu0]
+        have hExp : 1 ≤ Real.exp (u - A) :=
+          Real.one_le_exp_iff.mpr (sub_nonneg.mpr (by linarith))
+        calc
+          _ ≤ M := hcomp
+          _ ≤ M * Real.exp (u - A) := by
+            calc
+              M = M * 1 := by ring
+              _ ≤ M * Real.exp (u - A) := mul_le_mul_of_nonneg_left hExp hM
+          _ = M * Real.exp (-A) * Real.exp u := by
+            have hExpEq : Real.exp (u - A) = Real.exp (-A) * Real.exp u := by
+              rw [show u - A = (-A) + u by ring, Real.exp_add]
+            rw [hExpEq]
+            ring
+          _ ≤ K₀ * Real.exp u := mul_le_mul_of_nonneg_right hKleft (Real.exp_pos _).le
+          _ = G u := hGform.symm
+      · have hu0' : 0 ≤ u := (lt_of_not_ge hu0).le
+        have hExp : 1 ≤ Real.exp (a * (C - u)) :=
+          Real.one_le_exp_iff.mpr (mul_nonneg ha.le (sub_nonneg.mpr huC'))
+        have hGform : G u = K₀ * Real.exp (-a * u) := by
+          simp [G, min_eq_right hu0', max_eq_left hu0']
+        calc
+          _ ≤ M := hcomp
+          _ ≤ M * Real.exp (a * (C - u)) := by
+            calc
+              M = M * 1 := by ring
+              _ ≤ M * Real.exp (a * (C - u)) := mul_le_mul_of_nonneg_left hExp hM
+          _ = M * Real.exp (a * C) * Real.exp (-a * u) := by
+            have hExpEq : Real.exp (a * (C - u)) =
+                Real.exp (a * C) * Real.exp (-a * u) := by
+              rw [show a * (C - u) = a * C + (-a * u) by ring, Real.exp_add]
+            rw [hExpEq]
+            ring
+          _ ≤ K₀ * Real.exp (-a * u) := mul_le_mul_of_nonneg_right hKright (Real.exp_pos _).le
+          _ = G u := hGform.symm
+
 private def qsP1LogCompTerm (c : ℝ) (h : ℝ → ℂ) {j : ℕ}
     (p : OrderedFinpartition j) (u : ℝ) : ℂ :=
   ((Real.exp (-c * u) : ℝ) : ℂ) *
@@ -1926,18 +2195,6 @@ private theorem qs_p1_transform_mellin_eq_regularized [IsTotallyComplex K]
     hmid hfg
   exact hEq ⟨hu, hu1⟩
 
-private theorem qs_p1_mellin_eq_fourier_line (h : ℝ → ℂ) (c t : ℝ) :
-    mellin h ((c : ℂ) + (t : ℂ) * Complex.I) =
-      𝓕 (qsP1MellinLogKernel c h) (t / (2 * Real.pi)) := by
-  rw [mellin_eq_fourier]
-  have hfun : (fun u : ℝ =>
-      Real.exp (-((c : ℂ) + (t : ℂ) * Complex.I).re * u) • h (Real.exp (-u))) =
-        qsP1MellinLogKernel c h := by
-    funext u
-    simp [qsP1MellinLogKernel, smul_eq_mul, Complex.ofReal_exp]
-  rw [hfun]
-  simp
-
 private theorem qs_p1_fourier_norm_bound (f : ℝ → ℂ) (hf : Integrable f) (w : ℝ) :
     ‖𝓕 f w‖ ≤ ∫ u : ℝ, ‖f u‖ := by
   exact VectorFourier.norm_fourierIntegral_le_integral_norm 𝐞 volume (innerₗ ℝ) f w
@@ -2107,6 +2364,111 @@ private theorem qs_p1_fourier_polynomial_decay_uniform
     calc
       ‖𝓕 (g c) w‖ * (1 + |w|) ^ N ≤ Aₙ := hprod
       _ ≤ C := le_max_right _ _
+
+private theorem qs_p1_mellin_eq_fourier_line (h : ℝ → ℂ) (c t : ℝ) :
+    mellin h ((c : ℂ) + (t : ℂ) * Complex.I) =
+      𝓕 (qsP1MellinLogKernel c h) (t / (2 * Real.pi)) := by
+  rw [mellin_eq_fourier]
+  have hfun : (fun u : ℝ =>
+      Real.exp (-((c : ℂ) + (t : ℂ) * Complex.I).re * u) • h (Real.exp (-u))) =
+        qsP1MellinLogKernel c h := by
+    funext u
+    simp [qsP1MellinLogKernel, smul_eq_mul, Complex.ofReal_exp]
+  rw [hfun]
+  simp
+
+private theorem qs_p1_mellin_vertical_polynomial_decay_uniform (h : ℝ → ℂ)
+    (hh : IsQSWeight h) (a b : ℝ) (ha : 0 < a) (hab : a ≤ b) (N : ℕ) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ c ∈ Set.Icc a b, ∀ t : ℝ,
+      ‖mellin h ((c : ℂ) + (t : ℂ) * Complex.I)‖ ≤ C / (1 + |t|) ^ N := by
+  classical
+  let g : ℝ → ℝ → ℂ := fun c => qsP1MellinLogKernel c h
+  have hg (c : ℝ) : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (g c) := by
+    have hker : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (qsP1MellinLogKernel c h) := by
+      have hhs : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) h := hh.1
+      unfold qsP1MellinLogKernel
+      fun_prop
+    simpa [g] using hker
+  have hderiv : ∀ c ∈ Set.Icc a b, ∀ n,
+      Integrable (iteratedDeriv n (g c)) := by
+    intro c hc n
+    have hcpos : 0 < c := lt_of_lt_of_le ha hc.1
+    simpa [g] using qs_p1_iteratedDeriv_logKernel_integrable h hh c hcpos n
+  have hmajor (n : ℕ) :
+      ∃ G : ℝ → ℝ, Integrable G ∧ ∀ c ∈ Set.Icc a b, ∀ u : ℝ,
+        ‖iteratedDeriv n (g c) u‖ ≤ G u := by
+    simpa [g] using
+      qs_p1_mellinLogKernel_iteratedDeriv_uniform_majorant h hh a b ha hab n
+  let G₀ : ℝ → ℝ := Classical.choose (hmajor 0)
+  let Gₙ : ℝ → ℝ := Classical.choose (hmajor N)
+  have hG₀ : Integrable G₀ := (Classical.choose_spec (hmajor 0)).1
+  have hGₙ : Integrable Gₙ := (Classical.choose_spec (hmajor N)).1
+  have hG₀eq : G₀ = Classical.choose (hmajor 0) := by rfl
+  have hGₙeq : Gₙ = Classical.choose (hmajor N) := by rfl
+  have hG₀bound (c : ℝ) (hc : c ∈ Set.Icc a b) (u : ℝ) : ‖g c u‖ ≤ G₀ u := by
+    rw [hG₀eq]
+    simpa [g, iteratedDeriv_zero] using (Classical.choose_spec (hmajor 0)).2 c hc u
+  have hGₙbound (c : ℝ) (hc : c ∈ Set.Icc a b) (u : ℝ) :
+      ‖iteratedDeriv N (g c) u‖ ≤ Gₙ u := by
+    rw [hGₙeq]
+    exact (Classical.choose_spec (hmajor N)).2 c hc u
+  let A₀ : ℝ := ∫ u : ℝ, G₀ u
+  let Aₙ : ℝ := ∫ u : ℝ, Gₙ u
+  have hA₀ : 0 ≤ A₀ := by
+    dsimp [A₀]
+    exact integral_nonneg
+      (fun u => le_trans (norm_nonneg _) (hG₀bound a ⟨le_rfl, hab⟩ u))
+  have hAₙ : 0 ≤ Aₙ := by
+    dsimp [Aₙ]
+    exact integral_nonneg
+      (fun u => le_trans (norm_nonneg _) (hGₙbound a ⟨le_rfl, hab⟩ u))
+  have hbound₀ (c : ℝ) (hc : c ∈ Set.Icc a b) :
+      ∫ u : ℝ, ‖g c u‖ ≤ A₀ := by
+    have hnorm : Integrable (fun u : ℝ => ‖g c u‖) := by
+      simpa [iteratedDeriv_zero] using (hderiv c hc 0).norm
+    calc
+      _ ≤ ∫ u : ℝ, G₀ u := integral_mono_ae hnorm hG₀
+        (Filter.Eventually.of_forall fun u => hG₀bound c hc u)
+      _ = A₀ := by rfl
+  have hboundₙ (c : ℝ) (hc : c ∈ Set.Icc a b) :
+      ∫ u : ℝ, ‖iteratedDeriv N (g c) u‖ ≤ Aₙ := by
+    calc
+      _ ≤ ∫ u : ℝ, Gₙ u := integral_mono_ae (hderiv c hc N).norm hGₙ
+        (Filter.Eventually.of_forall fun u => hGₙbound c hc u)
+      _ = Aₙ := by rfl
+  obtain ⟨C, hC, hFourier⟩ := qs_p1_fourier_polynomial_decay_uniform
+    g hg a b hderiv N A₀ Aₙ hA₀ hAₙ hbound₀ hboundₙ
+  refine ⟨C * (2 * Real.pi) ^ N, mul_nonneg hC (by positivity), ?_⟩
+  intro c hc t
+  let w : ℝ := t / (2 * Real.pi)
+  have ht : t = (2 * Real.pi) * w := by
+    dsimp [w]
+    field_simp
+  have habs : |t| = 2 * Real.pi * |w| := by
+    rw [ht, abs_mul, abs_of_pos (by positivity : 0 < 2 * Real.pi)]
+  have hscale : 1 + |t| ≤ (2 * Real.pi) * (1 + |w|) := by
+    rw [habs]
+    have hq : 1 ≤ 2 * Real.pi := by nlinarith [Real.pi_gt_three]
+    nlinarith [abs_nonneg w]
+  have hscalePow : (1 + |t|) ^ N ≤ (2 * Real.pi) ^ N * (1 + |w|) ^ N := by
+    calc
+      (1 + |t|) ^ N ≤ ((2 * Real.pi) * (1 + |w|)) ^ N :=
+        pow_le_pow_left₀ (by positivity) hscale N
+      _ = (2 * Real.pi) ^ N * (1 + |w|) ^ N := by rw [mul_pow]
+  have hline : mellin h ((c : ℂ) + (t : ℂ) * Complex.I) = 𝓕 (g c) w := by
+    simpa [g, w] using qs_p1_mellin_eq_fourier_line h c t
+  have hdenw : 0 < (1 + |w|) ^ N := pow_pos (by positivity) _
+  have hdent : 0 < (1 + |t|) ^ N := pow_pos (by positivity) _
+  calc
+    ‖mellin h ((c : ℂ) + (t : ℂ) * Complex.I)‖ = ‖𝓕 (g c) w‖ := by rw [hline]
+    _ ≤ C / (1 + |w|) ^ N := hFourier c hc w
+    _ ≤ C * (2 * Real.pi) ^ N / (1 + |t|) ^ N := by
+      apply (div_le_div_iff₀ hdenw hdent).2
+      calc
+        C * (1 + |t|) ^ N ≤ C * ((2 * Real.pi) ^ N * (1 + |w|) ^ N) :=
+          mul_le_mul_of_nonneg_left hscalePow hC
+        _ = (C * (2 * Real.pi) ^ N) * (1 + |w|) ^ N := by ring
 
 private theorem qs_p1_vertical_integral_shift (F : ℂ → ℂ) (a b : ℝ) (hab : a < b)
     (hcont : ContinuousOn F {z : ℂ | a ≤ z.re ∧ z.re ≤ b})
