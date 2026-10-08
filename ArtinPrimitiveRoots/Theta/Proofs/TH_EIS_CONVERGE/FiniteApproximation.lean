@@ -341,4 +341,86 @@ theorem ideal_additive_quotient_equiv
   rw [QuotientAddGroup.liftEquiv_mk]
   exact hf ξ v
 
+open MeasureTheory
+
+/-- Local ideal periods are compact open and have their normalized fractional-ideal mass. -/
+theorem idealLocalPeriods_haar_mass
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (v : FinPlace F) (μ : LocHaar v) :
+    IsCompact (idealLocalPeriods 𝔞 v : Set (v.adicCompletion F)) ∧
+    IsOpen (idealLocalPeriods 𝔞 v : Set (v.adicCompletion F)) ∧
+    (μ.μ (idealLocalPeriods 𝔞 v : Set (v.adicCompletion F))).toReal =
+      (qv v) ^ (-FractionalIdeal.count F v 𝔞) := by
+  classical
+  let K := v.adicCompletion F
+  let c := FractionalIdeal.count F v 𝔞
+  let R : ℝ := (qv v) ^ (-c)
+  let U : Set K := idealLocalPeriods 𝔞 v
+  let O := v.adicCompletionIntegers F
+  let ρ : Kˣ := unifLoc v ^ c
+  have hR : 0 < R := zpow_pos (zero_lt_one.trans (qv_gt_one v)) _
+  have hπval : Valued.v (unifLoc v : K) = WithZero.exp (-1 : ℤ) := by
+    have hcoe : (unifLoc v : K) = algebraMap F K (unif v) := by
+      simp [unifLoc, toLoc, K]
+    rw [hcoe]
+    change Valued.v ((unif v : F) : v.adicCompletion F) = _
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hπnorm : absFin v (unifLoc v : K) = (qv v)⁻¹ := by
+    rw [absFin_eq_norm, FinitePlace.norm_def, hπval]
+    rw [WithZeroMulInt.toNNReal_neg_apply (HeightOneSpectrum.absNorm_ne_zero v) (by simp)]
+    rw [WithZero.toAdd_unzero_eq_log (by simp)]
+    simp [qv]
+  have hρnorm : absFin v (ρ : K) = R := by
+    dsimp only [ρ, R]
+    rw [absFin_eq_norm, Units.val_zpow_eq_zpow_val, norm_zpow,
+      ← absFin_eq_norm v (unifLoc v : K), hπnorm, inv_zpow, zpow_neg]
+  have hρval : Valued.v (ρ : K) = WithZero.exp (-c) := by
+    dsimp only [ρ]
+    rw [Units.val_zpow_eq_zpow_val, map_zpow₀, hπval]
+    simp [← WithZero.exp_zsmul]
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  have hball : U = Metric.closedBall (0 : K) R := by
+    ext x
+    change absFin v x ≤ R ↔ dist x 0 ≤ R
+    rw [absFin_eq_norm, dist_zero_right]
+  have hcompact : IsCompact U := by
+    rw [hball]
+    exact hproper.isCompact_closedBall 0 R
+  have hvalset : U = {x : K | Valued.v x ≤ WithZero.exp (-c)} := by
+    ext x
+    change absFin v x ≤ R ↔ Valued.v x ≤ WithZero.exp (-c)
+    rw [← hρnorm, absFin_eq_norm, absFin_eq_norm, ← hρval]
+    exact Valued.toNormedField.norm_le_iff
+  have hopen : IsOpen U := by
+    rw [hvalset]
+    exact v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero
+  have hpre (t : K) : (ρ : K) * t ∈ U ↔ t ∈ O := by
+    change absFin v ((ρ : K) * t) ≤ R ↔ t ∈ O
+    rw [absFin_eq_norm, norm_mul, ← absFin_eq_norm v (ρ : K), hρnorm]
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers, ← Valued.toNormedField.norm_le_one_iff]
+    simpa only [mul_one] using (mul_le_mul_iff_right₀ hR : R * ‖t‖ ≤ R * 1 ↔ ‖t‖ ≤ 1)
+  have hOmeas : MeasurableSet (O : Set K) := (Valued.isOpen_integer K).measurableSet
+  have hcomp : (fun t : K => U.indicator (fun _ : K => (1 : ℝ)) ((ρ : K) * t)) =
+      (O : Set K).indicator (fun _ : K => (1 : ℝ)) := by
+    funext t
+    by_cases ht : t ∈ O
+    · rw [Set.indicator_of_mem ((hpre t).mpr ht), Set.indicator_of_mem ht]
+    · rw [Set.indicator_of_notMem (mt (hpre t).mp ht), Set.indicator_of_notMem ht]
+  have hscale := μ.integral_comp_mul ρ (U.indicator (fun _ : K => (1 : ℝ)))
+  rw [hcomp, integral_indicator hOmeas, setIntegral_const,
+    integral_indicator hopen.measurableSet, setIntegral_const] at hscale
+  have hmassO : μ.μ (O : Set K) = 1 := μ.norm_O
+  simp only [measureReal_def, hmassO, ENNReal.toReal_one, smul_eq_mul, mul_one,
+    hρnorm] at hscale
+  have hm := congrArg (fun z : ℝ => R * z) hscale
+  rw [mul_one, ← mul_assoc, mul_inv_cancel₀ hR.ne', one_mul] at hm
+  exact ⟨hcompact, hopen, hm.symm⟩
+
 end ArtinPrimitiveRoots.A1.Theta
