@@ -97,7 +97,7 @@ private theorem thetaRootStep_jointRootSmooth {P : CoverPackage D S H A}
     exact h₁.sub (contDiff_const.mul hᵢ)
   exact hsm
 
-private theorem thetaFamilyDeriv_jointRootSmooth {P : CoverPackage D S H A}
+theorem thetaFamilyDeriv_jointRootSmooth {P : CoverPackage D S H A}
     (m : InfinitePlace F → ℤ) (Ψ : P.tc.G → ℂ) (hΨ : JointRootSmooth P Ψ) :
     JointRootSmooth P (thetaFamilyDeriv P m Ψ) := by
   classical
