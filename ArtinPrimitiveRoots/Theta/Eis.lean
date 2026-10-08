@@ -327,6 +327,75 @@ theorem rational_cusp_factorization (P : CoverPackage D S H A)
   refine ⟨i, q, δ, b, hb, ?_⟩
   exact hga.trans (congrArg (fun t => t * Matrix.SpecialLinearGroup.toGL c) ha)
 
+/-- The finite torus support remains uniform over integral translates of a finite rational family. -/
+theorem finite_integral_translate_torus_support
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) {ι : Type} [Fintype ι]
+    (c : ι → GL (Fin 2) F) (r : P.RP) :
+    ∃ U : Set (Fˣ ⧸ G.Δ), U.Finite ∧
+      ∀ (i : ι) (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)),
+        {δ : Fˣ ⧸ G.Δ |
+          (∏ᶠ v, G.lam v (Fs.f v
+            ((P.loc v).a (toLoc v (Quotient.out δ)) *
+              P.compF v (P.ratRP
+                (c i * Matrix.SpecialLinearGroup.toGL
+                  (ArtinPrimitiveRoots.A1.Spec.toSLF F γ)) * r)))) ≠ 0} ⊆ U := by
+  classical
+  let W : Finset (FinPlace F) := Fs.T0 ∪ (P.comp_restricted r).toFinset ∪
+    Finset.univ.biUnion (fun i : ι => (P.comp_restricted (P.ratRP (c i))).toFinset)
+  have hW : Fs.T0 ⊆ W := by
+    intro v hv
+    exact Finset.mem_union.mpr (Or.inl (Finset.mem_union.mpr (Or.inl hv)))
+  have hIntegral (v : FinPlace F) (hSf : v ∉ S.Sf)
+      (γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)) :
+      (P.loc v).pr (P.compF v (P.ratRP (Matrix.SpecialLinearGroup.toGL
+        (ArtinPrimitiveRoots.A1.Spec.toSLF F γ)))) ∈
+        (P.loc v).pr '' ((P.tame v hSf).Kmax : Set (P.loc v).L) := by
+    rw [P.compF_ratRP, (P.loc v).sec_pr, (P.tame v hSf).image]
+    let k : GL (Fin 2) (v.adicCompletion F) :=
+      Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (Matrix.SpecialLinearGroup.toGL (ArtinPrimitiveRoots.A1.Spec.toSLF F γ))
+    refine ⟨k, ?_, ?_, rfl⟩
+    · intro j l
+      change ((algebraMap (𝓞 F) F (γ j l) : F) : v.adicCompletion F) ∈
+        v.adicCompletionIntegers F
+      exact HeightOneSpectrum.coe_algebraMap_mem (𝓞 F) F v (γ j l)
+    · have hdet : Matrix.GeneralLinearGroup.det k = 1 := by
+        simp [k, Matrix.GeneralLinearGroup.map_det]
+      have hdetinv : (k⁻¹ : GL (Fin 2) (v.adicCompletion F)).val.det = 1 := by
+        rw [← Matrix.GeneralLinearGroup.val_det_apply, map_inv, hdet]
+        rfl
+      rw [hdetinv]
+      exact (v.adicCompletionIntegers F).one_mem
+  have hproj (v : FinPlace F) (a b : GL (Fin 2) F) :
+      (P.loc v).pr (P.compF v (P.ratRP (a * b))) =
+        (P.loc v).pr (P.compF v (P.ratRP a)) *
+          (P.loc v).pr (P.compF v (P.ratRP b)) := by
+    simp only [P.compF_ratRP, (P.loc v).sec_pr, map_mul, QuotientGroup.mk_mul]
+  obtain ⟨U, hU, hcover⟩ := finite_torus_scalar_support_uniform P G Fs W hW
+  refine ⟨U, hU, ?_⟩
+  intro i γ
+  apply hcover
+  intro v hv
+  have hSf : v ∉ S.Sf := fun h => hv (hW (Fs.sub h))
+  have hVr : v ∉ (P.comp_restricted r).toFinset := by
+    intro h
+    exact hv (Finset.mem_union.mpr (Or.inl (Finset.mem_union.mpr (Or.inr h))))
+  have hVc : v ∉ (P.comp_restricted (P.ratRP (c i))).toFinset := by
+    intro h
+    exact hv (Finset.mem_union.mpr (Or.inr
+      (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, h⟩)))
+  have hkr : P.compF v r ∈ (P.tame v hSf).Kmax := by
+    by_contra h
+    exact hVr ((P.comp_restricted r).mem_toFinset.mpr ⟨hSf, h⟩)
+  have hkc : P.compF v (P.ratRP (c i)) ∈ (P.tame v hSf).Kmax := by
+    by_contra h
+    exact hVc ((P.comp_restricted (P.ratRP (c i))).mem_toFinset.mpr ⟨hSf, h⟩)
+  obtain ⟨k, hk, hkpr⟩ := hIntegral v hSf γ
+  refine ⟨P.compF v (P.ratRP (c i)) * k * P.compF v r,
+    (P.tame v hSf).Kmax.mul_mem ((P.tame v hSf).Kmax.mul_mem hkc hk) hkr, ?_⟩
+  simp only [map_mul, hkpr, hproj]
+
 /-- Finite cusp majorants after bounding the complex components by real spherical sections. -/
 theorem eisenstein_finite_majorants (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ}
     (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
