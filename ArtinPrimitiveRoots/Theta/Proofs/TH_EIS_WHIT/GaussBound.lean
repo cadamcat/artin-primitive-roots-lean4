@@ -75,7 +75,50 @@ theorem whit_psi_norm (A : AddCharData F) (v : FinPlace F) (x : v.adicCompletion
 theorem whit_gaussLoc_norm_le (D : FieldData F) (A : AddCharData F)
     (v : FinPlace F) (j : ℤ) :
     ‖gaussLoc D A v j‖ ≤ Real.sqrt (qv v) := by
-  sorry
+  classical
+  let _ : Finite (𝓞 F ⧸ v.asIdeal) :=
+    Ring.HasFiniteQuotients.finiteQuotient v.ne_bot
+  let _ := Fintype.ofFinite (𝓞 F ⧸ v.asIdeal)
+  have hcard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  have hchi (t : F) : ‖chiPow D v t j‖ ≤ 1 := by
+    by_cases ht : residue v t = 0
+    · simp [chiPow, ht]
+    · have hpow : chi D v t ^ (6 : ℕ) = 1 := by
+        have h := congrArg Units.val
+          ((mem_rootsOfUnity 6 (chiAlg v t : (𝓞 F)ˣ)).1 (chiAlg v t).property)
+        rw [chi, if_neg ht, ← map_pow, ← map_pow]
+        simpa only [Units.val_pow_eq_pow_val, Units.val_one, map_one] using
+          congrArg (fun a : 𝓞 F => D.σ0 (algebraMap (𝓞 F) F a)) h
+      have hn : ‖chi D v t‖ = 1 :=
+        Complex.norm_eq_one_of_pow_eq_one hpow (by decide)
+      simp [chiPow, ht, norm_zpow, hn]
+  let b : 𝓞 F ⧸ v.asIdeal → ℂ := fun x =>
+    chiPow D v (algebraMap (𝓞 F) F x.out) j *
+      A.ψ v (algebraMap F _ (algebraMap (𝓞 F) F x.out / unif v))
+  have hb (x : 𝓞 F ⧸ v.asIdeal) : ‖b x‖ ≤ 1 := by
+    dsimp only [b]
+    rw [norm_mul, whit_psi_norm, mul_one]
+    exact hchi _
+  have hsum : ‖∑ᶠ x, b x‖ ≤ qv v := by
+    rw [finsum_eq_sum_of_fintype]
+    calc
+      ‖∑ x, b x‖ ≤ ∑ x, ‖b x‖ := norm_sum_le _ _
+      _ ≤ ∑ _x : 𝓞 F ⧸ v.asIdeal, (1 : ℝ) :=
+        Finset.sum_le_sum fun x _ => hb x
+      _ = qv v := by simp [hcard, qv]
+  have hq : 0 < qv v := lt_trans zero_lt_one (qv_gt_one v)
+  have hc : 0 ≤ qv v ^ (-(1 / 2 : ℝ)) := Real.rpow_nonneg hq.le _
+  have hreal : qv v ^ (-(1 / 2 : ℝ)) * qv v = Real.sqrt (qv v) := by
+    rw [Real.sqrt_eq_rpow]
+    calc
+      qv v ^ (-(1 / 2 : ℝ)) * qv v =
+          qv v ^ (-(1 / 2 : ℝ)) * qv v ^ (1 : ℝ) := by rw [Real.rpow_one]
+      _ = qv v ^ (-(1 / 2 : ℝ) + 1) := (Real.rpow_add hq _ _).symm
+      _ = qv v ^ (1 / 2 : ℝ) := by norm_num
+  change ‖((qv v ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ∑ᶠ x, b x‖ ≤ Real.sqrt (qv v)
+  rw [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hc]
+  exact (mul_le_mul_of_nonneg_left hsum hc).trans_eq hreal
 
 /-- The terminal coefficient in the exponent-zero spherical Jacquet vector is bounded by one. -/
 theorem whit_shellTerm_one_norm_le (D : FieldData F) (A : AddCharData F)
