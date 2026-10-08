@@ -50,4 +50,20 @@ theorem zero_window_finite_count (K : Type*) [Field K] [NumberField K] (T : ℝ)
     _ ≤ ∑' ρ : ℂ, F ρ := hF.sum_le_tsum hfinite.toFinset (fun ρ _ => hnonneg ρ)
     _ = dedekindZeroWindowCount K T := rfl
 
+/-- Every bounded closed height interval contains only finitely many nontrivial zeros. -/
+theorem zero_strip_finite (K : Type*) [Field K] [NumberField K] (a b : ℝ) :
+    {ρ : ℂ | ρ ∈ nontrivialZeros K ∧ a ≤ ρ.im ∧ ρ.im ≤ b}.Finite := by
+  classical
+  let I : Finset ℤ := Finset.Icc ⌊a⌋ ⌊b⌋
+  let V : ℤ → Set ℂ := fun n =>
+    {ρ : ℂ | ρ ∈ nontrivialZeros K ∧ (n : ℝ) ≤ ρ.im ∧ ρ.im < (n : ℝ) + 1}
+  have hfinite : (⋃ n ∈ (I : Set ℤ), V n).Finite :=
+    I.finite_toSet.biUnion fun n _ => (zero_window_finite_count K (n : ℝ)).1
+  refine hfinite.subset ?_
+  intro ρ hρ
+  refine Set.mem_iUnion₂.mpr ⟨⌊ρ.im⌋, ?_, ?_⟩
+  · change ⌊ρ.im⌋ ∈ Finset.Icc ⌊a⌋ ⌊b⌋
+    exact Finset.mem_Icc.mpr ⟨Int.floor_mono hρ.2.1, Int.floor_mono hρ.2.2⟩
+  · exact ⟨hρ.1, Int.floor_le ρ.im, Int.lt_floor_add_one ρ.im⟩
+
 end ArtinPrimitiveRoots.Proofs.s7sol_mellin
