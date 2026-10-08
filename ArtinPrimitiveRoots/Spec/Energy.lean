@@ -2263,6 +2263,925 @@ theorem T2_tests (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     exact t2_partition_reconstruct Γ K ψ hψcompact hpartitionSat
       (f : X F → ℂ) (hmem (f : X F → ℂ) |>.mp hf).1 hfsupport
 
+/-- Complex conjugation preserves smoothness on the product-coordinate chart. -/
+private theorem t3_star_smooth (f : X F → ℂ) (hf : IsSmoothX F f) :
+    IsSmoothX F (fun z => star (f z)) := by
+  change ContDiffOn ℝ ∞ (fun p : Coord F => star (f (ptX F p))) (posSet F)
+  change ContDiffOn ℝ ∞ (fun p : Coord F =>
+    ((starL' ℝ : ℂ ≃L[ℝ] ℂ) (f (ptX F p)))) (posSet F)
+  exact ContDiffOn.continuousLinearMap_comp
+    ((starL' ℝ : ℂ ≃L[ℝ] ℂ) : ℂ →L[ℝ] ℂ) hf
+
+private theorem t3_coord_differentiable (f : X F → ℂ) (hf : IsSmoothX F f)
+    {p : Coord F} (hp : p ∈ posSet F) :
+    DifferentiableAt ℝ (fun q : Coord F => f (ptX F q)) p := by
+  have hposOpen := t2_posSet_open (F := F)
+  exact hf.differentiableOn (by norm_num) |>.differentiableAt (hposOpen.mem_nhds hp)
+
+private theorem t3_placeGradient_mul (w : InfinitePlace F) (f g : X F → ℂ)
+    (hf : IsSmoothX F f) (hg : IsSmoothX F g) (z : X F) (j : Fin 3) :
+    placeGradient F w (fun x => f x * g x) z j =
+      f z * placeGradient F w g z j + g z * placeGradient F w f z j := by
+  obtain ⟨e, hept, hecoords⟩ := t2_chartEquiv (F := F)
+  have hp : coordsX F z ∈ posSet F := by
+    rw [← hecoords z]
+    exact (e.symm z).property
+  have hpt : ptX F (coordsX F z) = z := by
+    calc
+      ptX F (coordsX F z) = ptX F ((e.symm z).1) := by rw [← hecoords z]
+      _ = e (e.symm z) := (hept (e.symm z)).symm
+      _ = z := e.apply_symm_apply z
+  have hfd : DifferentiableAt ℝ (fun p : Coord F => f (ptX F p)) (coordsX F z) :=
+    t3_coord_differentiable f hf hp
+  have hgd : DifferentiableAt ℝ (fun p : Coord F => g (ptX F p)) (coordsX F z) :=
+    t3_coord_differentiable g hg hp
+  have hfun : (fun p : Coord F => (fun x => f x * g x) (ptX F p)) =
+      (fun p => f (ptX F p)) * (fun p => g (ptX F p)) := by
+    funext p
+    rfl
+  change ((coordsX F z w).2 : ℂ) *
+      fderiv ℝ ((fun x => f x * g x) ∘ ptX F) (coordsX F z)
+        (placeDirection F w j) = _
+  rw [show ((fun x => f x * g x) ∘ ptX F) =
+      (fun p => f (ptX F p)) * (fun p => g (ptX F p)) by exact hfun,
+    fderiv_mul hfd hgd]
+  simp only [ContinuousLinearMap.add_apply, ContinuousLinearMap.smul_apply,
+    placeGradient]
+  rw [hpt]
+  simp only [Function.comp_def]
+  ring_nf
+
+private theorem t3_placeGradient_star (w : InfinitePlace F) (f : X F → ℂ)
+    (hf : IsSmoothX F f) (z : X F) (j : Fin 3) :
+    placeGradient F w (fun x => star (f x)) z j = star (placeGradient F w f z j) := by
+  have hp : coordsX F z ∈ posSet F := by
+    obtain ⟨e, _, hecoords⟩ := t2_chartEquiv (F := F)
+    rw [← hecoords z]
+    exact (e.symm z).property
+  change ((coordsX F z w).2 : ℂ) *
+      fderiv ℝ (fun p : Coord F => star (f (ptX F p))) (coordsX F z)
+        (placeDirection F w j) = _
+  rw [fderiv_star]
+  simp [placeGradient, Function.comp_def]
+
+private theorem t3_partialLap_star (w : InfinitePlace F) (f : X F → ℂ)
+    (hf : IsSmoothX F f) (z : X F) :
+    partialLap F w (fun x => star (f x)) z = star (partialLap F w f z) := by
+  classical
+  obtain ⟨e, _, hecoords⟩ := t2_chartEquiv (F := F)
+  let p := coordsX F z
+  let q : Coord F → ℂ := fun x => f (ptX F x)
+  have hp : p ∈ posSet F := by
+    dsimp [p]
+    rw [← hecoords z]
+    exact (e.symm z).property
+  have hposOpen := t2_posSet_open (F := F)
+  have hqcd : ContDiffAt ℝ 2 q p := by
+    have h := hf.contDiffAt (hposOpen.mem_nhds hp)
+    exact h.of_le (by norm_num)
+  have hstar2 : iteratedFDeriv ℝ 2 (fun x : Coord F => star (q x)) p =
+      ((starL' ℝ : ℂ ≃L[ℝ] ℂ) : ℂ →L[ℝ] ℂ).compContinuousMultilinearMap
+        (iteratedFDeriv ℝ 2 q p) := by
+    exact (starL' ℝ : ℂ ≃L[ℝ] ℂ).toContinuousLinearMap
+      |>.iteratedFDeriv_comp_left hqcd (by norm_num)
+  have hstar1Eval (v : Coord F) :
+      fderiv ℝ (fun x : Coord F => star (q x)) p v =
+        star (fderiv ℝ q p v) := by
+    rw [fderiv_star]
+    simp [Function.comp_def]
+  have hstar2Eval (v u : Coord F) :
+      iteratedFDeriv ℝ 2 (fun x : Coord F => star (q x)) p ![v, u] =
+        star (iteratedFDeriv ℝ 2 q p ![v, u]) := by
+    rw [hstar2]
+    simp [ContinuousLinearMap.compContinuousMultilinearMap_coe, Function.comp_apply]
+  -- The second derivative is obtained by applying conjugation to the value of the
+  -- second iterated derivative; all coordinate directions are real.
+  let e1 : Coord F := Pi.single w ((1 : ℂ), (0 : ℝ))
+  let e2 : Coord F := Pi.single w (Complex.I, (0 : ℝ))
+  let e3 : Coord F := Pi.single w ((0 : ℂ), (1 : ℝ))
+  change ((p w).2 : ℂ) * fderiv ℝ (fun x : Coord F => star (q x)) p e3 -
+      ((p w).2 : ℂ) ^ 2 *
+        (iteratedFDeriv ℝ 2 (fun x : Coord F => star (q x)) p ![e1, e1] +
+          iteratedFDeriv ℝ 2 (fun x : Coord F => star (q x)) p ![e2, e2] +
+          iteratedFDeriv ℝ 2 (fun x : Coord F => star (q x)) p ![e3, e3]) =
+      star (((p w).2 : ℂ) * fderiv ℝ q p e3 -
+        ((p w).2 : ℂ) ^ 2 *
+          (iteratedFDeriv ℝ 2 q p ![e1, e1] + iteratedFDeriv ℝ 2 q p ![e2, e2] +
+            iteratedFDeriv ℝ 2 q p ![e3, e3]))
+  rw [hstar1Eval, hstar2Eval, hstar2Eval, hstar2Eval]
+  simp only [star_add, star_mul, star_pow, star_sub, Complex.star_def,
+    Complex.conj_ofReal]
+  ring
+
+private theorem t3_placeGradient_continuous (w : InfinitePlace F) (f : X F → ℂ)
+    (hf : IsSmoothX F f) (j : Fin 3) :
+    Continuous (fun z => placeGradient F w f z j) := by
+  have heval : Continuous (fun v : GradientField F => v.ofLp (w, j)) :=
+    (continuous_apply (w, j)).comp (PiLp.continuous_ofLp 2 (fun _ : InfinitePlace F × Fin 3 => ℂ))
+  have h := heval.comp (t2_fullGradient_continuous f hf)
+  have htarget : Continuous (fun z => (fullGradient F f z).ofLp (w, j)) := by
+    change Continuous ((fun v : GradientField F => v.ofLp (w, j)) ∘ fullGradient F f)
+    exact h
+  have hEq : (fun z => placeGradient F w f z j) =
+      (fun z => (fullGradient F f z).ofLp (w, j)) := by
+    funext z
+    simp [fullGradient, placeGradient, PiLp.coe_symm_continuousLinearEquiv]
+  rw [hEq]
+  exact htarget
+
+private theorem t3_placeGradInner_continuous (w : InfinitePlace F)
+    (f g : X F → ℂ) (hf : IsSmoothX F f) (hg : IsSmoothX F g) :
+    Continuous (placeGradInner F w f g) := by
+  have h1 (j : Fin 3) : Continuous (fun z => placeGradient F w f z j) :=
+    t3_placeGradient_continuous w f hf j
+  have h2 (j : Fin 3) : Continuous (fun z => placeGradient F w g z j) :=
+    t3_placeGradient_continuous w g hg j
+  unfold placeGradInner
+  exact continuous_finset_sum _ fun j hj =>
+    (continuous_star.comp (h1 j)).mul (h2 j)
+
+private theorem t3_placeGradBilinear_continuous (w : InfinitePlace F)
+    (f g : X F → ℂ) (hf : IsSmoothX F f) (hg : IsSmoothX F g) :
+    Continuous (placeGradBilinear F w f g) := by
+  have h1 (j : Fin 3) : Continuous (fun z => placeGradient F w f z j) :=
+    t3_placeGradient_continuous w f hf j
+  have h2 (j : Fin 3) : Continuous (fun z => placeGradient F w g z j) :=
+    t3_placeGradient_continuous w g hg j
+  unfold placeGradBilinear
+  exact continuous_finset_sum _ fun j hj => (h1 j).mul (h2 j)
+
+private theorem t3_partialLap_continuous (w : InfinitePlace F) (f : X F → ℂ)
+    (hf : IsSmoothX F f) : Continuous (partialLap F w f) := by
+  classical
+  obtain ⟨e, hept, _⟩ := t2_chartEquiv (F := F)
+  rcases G1_h3_basics (F := F) with
+    ⟨_, _, _, _, _, _, hcoordPt, _, _, _, _, _⟩
+  have hposOpen := t2_posSet_open (F := F)
+  let q : Coord F → ℂ := fun p => f (ptX F p)
+  have hfcoord : ContDiffOn ℝ ∞ q (posSet F) := hf
+  have hfd : ContinuousOn (fderiv ℝ q) (posSet F) :=
+    hfcoord.continuousOn_fderiv_of_isOpen hposOpen (by norm_num)
+  have hderivCD : ContDiffOn ℝ ∞ (fderiv ℝ q) (posSet F) :=
+    hfcoord.fderiv_of_isOpen hposOpen (by norm_num)
+  have hsecond : ContinuousOn (fderiv ℝ (fderiv ℝ q)) (posSet F) :=
+    hderivCD.continuousOn_fderiv_of_isOpen hposOpen (by norm_num)
+  let e1 : Coord F := Pi.single w ((1 : ℂ), (0 : ℝ))
+  let e2 : Coord F := Pi.single w (Complex.I, (0 : ℝ))
+  let e3 : Coord F := Pi.single w ((0 : ℂ), (1 : ℝ))
+  have hfirstEval (v : Coord F) :
+      ContinuousOn (fun p => fderiv ℝ q p v) (posSet F) := by
+    exact hfd.clm_apply continuousOn_const
+  have hsecondEval (v u : Coord F) :
+      ContinuousOn (fun p => iteratedFDeriv ℝ 2 q p ![v, u]) (posSet F) := by
+    have hEvalV : ContinuousOn
+        (fun p => fderiv ℝ (fderiv ℝ q) p v) (posSet F) :=
+      hsecond.clm_apply continuousOn_const
+    have hEvalVU : ContinuousOn
+        (fun p => fderiv ℝ (fderiv ℝ q) p v u) (posSet F) :=
+      hEvalV.clm_apply continuousOn_const
+    apply hEvalVU.congr
+    intro p hp
+    change iteratedFDeriv ℝ 2 q p ![v, u] = fderiv ℝ (fderiv ℝ q) p v u
+    simp [iteratedFDeriv_two_apply]
+  have hy : ContinuousOn (fun p : Coord F => ((p w).2 : ℂ)) (posSet F) := by
+    fun_prop
+  have hformula : ∀ p : Coord F, p ∈ posSet F →
+      partialLap F w f (ptX F p) =
+      ((p w).2 : ℂ) * fderiv ℝ q p e3 - ((p w).2 : ℂ) ^ 2 *
+        (iteratedFDeriv ℝ 2 q p ![e1, e1] + iteratedFDeriv ℝ 2 q p ![e2, e2] +
+          iteratedFDeriv ℝ 2 q p ![e3, e3]) := by
+    intro p hp
+    have hcoords := hcoordPt p hp
+    simp [partialLap, q, hcoords, e1, e2, e3, Function.comp_def]
+  have hcoord : ContinuousOn
+      (fun p : Coord F => partialLap F w f (ptX F p)) (posSet F) := by
+    have hsum : ContinuousOn
+        (fun p => iteratedFDeriv ℝ 2 q p ![e1, e1] +
+          iteratedFDeriv ℝ 2 q p ![e2, e2] + iteratedFDeriv ℝ 2 q p ![e3, e3])
+        (posSet F) := by
+      exact ((hsecondEval e1 e1).add (hsecondEval e2 e2)).add (hsecondEval e3 e3)
+    have hp : ContinuousOn
+        (fun p => ((p w).2 : ℂ) * fderiv ℝ q p e3) (posSet F) :=
+      hy.mul (hfirstEval e3)
+    have hq : ContinuousOn
+        (fun p => ((p w).2 : ℂ) ^ 2 *
+          (iteratedFDeriv ℝ 2 q p ![e1, e1] + iteratedFDeriv ℝ 2 q p ![e2, e2] +
+            iteratedFDeriv ℝ 2 q p ![e3, e3])) (posSet F) :=
+      (hy.pow 2).mul hsum
+    apply (hp.sub hq).congr
+    intro p hp
+    exact hformula p hp
+  let Pos := {p : Coord F // p ∈ posSet F}
+  have hcoordPos : Continuous
+      (fun p : Pos => partialLap F w f (ptX F p.1)) := by
+    apply continuousOn_univ.mp
+    exact hcoord.comp continuous_subtype_val.continuousOn
+      (by intro p hp; exact p.property)
+  have hchart : Continuous (fun p : Pos => partialLap F w f (e p)) := by
+    convert hcoordPos using 1
+    funext p
+    rw [hept]
+  have hfactor : partialLap F w f =
+      (fun p : Pos => partialLap F w f (e p)) ∘ e.symm := by
+    funext z
+    simp
+  rw [hfactor]
+  exact hchart.comp e.symm.continuous
+
+private theorem t3_placeGradient_zero_of_not_compact (w : InfinitePlace F)
+    (ψ : X F → ℝ) (K : Set (X F)) (hK : IsCompact K)
+    (hψsupport : {z | (ψ z : ℂ) ≠ 0} ⊆ K) {z : X F} (hz : z ∉ K) :
+    placeGradient F w (fun x => (ψ x : ℂ)) z = 0 := by
+  classical
+  obtain ⟨e, hept, hecoords⟩ := t2_chartEquiv (F := F)
+  have hKclosed := t2_compact_isClosed hK
+  let Pos := {p : Coord F // p ∈ posSet F}
+  let V : Set Pos := e ⁻¹' Kᶜ
+  have hVopen : IsOpen V := hKclosed.isOpen_compl.preimage e.continuous
+  let W : Set (Coord F) := Subtype.val '' V
+  have hWopen : IsOpen W := (t2_posSet_open (F := F)).isOpenMap_subtype_val V hVopen
+  let p : Pos := e.symm z
+  have hpV : p ∈ V := by
+    change e p ∉ K
+    simpa [p] using hz
+  have hpW : p.1 ∈ W := ⟨p, hpV, rfl⟩
+  have hcoordEventually : (fun q : Coord F => (ψ (ptX F q) : ℂ)) =ᶠ[𝓝 p.1] 0 := by
+    filter_upwards [hWopen.mem_nhds hpW] with q hq
+    rcases hq with ⟨q', hq', hqq'⟩
+    have hzero : (ψ (e q') : ℂ) = 0 := by
+      by_contra hne
+      exact hq' (hψsupport hne)
+    rw [← hqq', ← hept q']
+    exact hzero
+  have hpcoord : p.1 = coordsX F z := hecoords z
+  have hcoordEventually' :
+      (fun q : Coord F => (ψ (ptX F q) : ℂ)) =ᶠ[𝓝 (coordsX F z)] 0 := by
+    rw [← hpcoord]
+    exact hcoordEventually
+  have hderiv : fderiv ℝ (fun q : Coord F => (ψ (ptX F q) : ℂ)) (coordsX F z) = 0 := by
+    rw [hcoordEventually'.fderiv_eq]
+    simp
+  have hderiv' : fderiv ℝ ((fun x => (ψ x : ℂ)) ∘ ptX F) (coordsX F z) = 0 := by
+    simpa [Function.comp_def] using hderiv
+  ext j
+  simp [placeGradient, hderiv']
+
+private theorem t3_placeGradient_congr_open (w : InfinitePlace F)
+    (f g : X F → ℂ) (U : Set (X F)) (hU : IsOpen U) {z : X F}
+    (hz : z ∈ U) (hfg : ∀ x ∈ U, f x = g x) :
+    placeGradient F w f z = placeGradient F w g z := by
+  classical
+  obtain ⟨e, hept, hecoords⟩ := t2_chartEquiv (F := F)
+  let Pos := {p : Coord F // p ∈ posSet F}
+  let V : Set Pos := e ⁻¹' U
+  have hVopen : IsOpen V := hU.preimage e.continuous
+  let W : Set (Coord F) := Subtype.val '' V
+  have hWopen : IsOpen W := (t2_posSet_open (F := F)).isOpenMap_subtype_val V hVopen
+  let p : Pos := e.symm z
+  have hpV : p ∈ V := by
+    change e p ∈ U
+    simpa [p] using hz
+  have hpW : p.1 ∈ W := by
+    exact ⟨p, hpV, rfl⟩
+  have hcoordEventually : (fun q : Coord F => f (ptX F q)) =ᶠ[𝓝 p.1]
+      (fun q => g (ptX F q)) := by
+    filter_upwards [hWopen.mem_nhds hpW] with q hq
+    rcases hq with ⟨q', hq', hqq'⟩
+    have hEq : f (e q') = g (e q') := hfg (e q') hq'
+    rw [← hqq', ← hept q']
+    exact hEq
+  have hpcoord : p.1 = coordsX F z := hecoords z
+  have hcoordEventually' : (fun q : Coord F => f (ptX F q)) =ᶠ[𝓝 (coordsX F z)]
+      (fun q => g (ptX F q)) := by
+    rw [← hpcoord]
+    exact hcoordEventually
+  have hderiv : fderiv ℝ (fun q : Coord F => f (ptX F q)) (coordsX F z) =
+      fderiv ℝ (fun q : Coord F => g (ptX F q)) (coordsX F z) :=
+    hcoordEventually'.fderiv_eq
+  have hderiv' : fderiv ℝ (f ∘ ptX F) (coordsX F z) =
+      fderiv ℝ (g ∘ ptX F) (coordsX F z) := by
+    simpa [Function.comp_def] using hderiv
+  ext j
+  simp only [placeGradient]
+  rw [hderiv']
+
+private theorem t3_ofReal_smooth (ψ : X F → ℝ) (hψ : IsSmoothRealX F ψ) :
+    IsSmoothX F (fun z => (ψ z : ℂ)) := by
+  unfold IsSmoothX IsSmoothRealX at *
+  exact ContDiffOn.continuousLinearMap_comp Complex.ofRealCLM hψ
+
+private theorem t3_periodize_gradInner (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (w : InfinitePlace F) (u : X F → ℂ) (hu : IsSmoothX F u)
+    (ψ : X F → ℝ) (hψ : IsSmoothRealX F ψ)
+    (hψcompact : HasCompactSupportX F (fun z => (ψ z : ℂ))) (z : X F) :
+    (∑' γ : Γ, placeGradInner F w u
+      (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z) =
+      placeGradInner F w u (fun x => (t2_periodize Γ ψ x : ℂ)) z := by
+  classical
+  rcases t2_translate_locally_finite Γ ψ hψcompact z with
+    ⟨U, hU, hzU, hfinite⟩
+  let T := hfinite.toFinset
+  have hzero (x : X F) (hx : x ∈ U) (γ : Γ) (hγ : γ ∉ T) :
+      ψ ((γ : SL(2,𝓞 F)) • x) = 0 := by
+    by_contra hne
+    have hmem : γ ∈ {δ : Γ | ∃ y ∈ U,
+        ψ ((δ : SL(2,𝓞 F)) • y) ≠ 0} := ⟨x, hx, hne⟩
+    exact hγ (by simpa [T] using hmem)
+  have hPsum (x : X F) (hx : x ∈ U) :
+      t2_periodize Γ ψ x = ∑ γ ∈ T, ψ ((γ : SL(2,𝓞 F)) • x) := by
+    rw [t2_periodize]
+    exact tsum_eq_sum (s := T) (fun γ hγ => hzero x hx γ hγ)
+  have hPsumC (x : X F) (hx : x ∈ U) :
+      (t2_periodize Γ ψ x : ℂ) = ∑ γ ∈ T,
+        (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ) := by
+    exact_mod_cast hPsum x hx
+  have hsumGradient (j : Fin 3) :
+      placeGradient F w (fun x => (t2_periodize Γ ψ x : ℂ)) z j =
+        ∑ γ ∈ T, placeGradient F w
+          (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z j := by
+    obtain ⟨chart, heptChart, hecoords⟩ := t2_chartEquiv (F := F)
+    let Pos := {p : Coord F // p ∈ posSet F}
+    let p : Coord F := coordsX F z
+    have hpPos : p ∈ posSet F := by
+      dsimp [p]
+      rw [← hecoords z]
+      exact (chart.symm z).property
+    have hpcoord : (chart.symm z).1 = p := hecoords z
+    let V : Set Pos := {q | chart q ∈ U}
+    have hV : IsOpen V := hU.preimage chart.continuous
+    let W : Set (Coord F) := Subtype.val '' V
+    have hW : IsOpen W := (t2_posSet_open (F := F)).isOpenMap_subtype_val V hV
+    have hpW : p ∈ W := by
+      refine ⟨chart.symm z, ?_, hpcoord⟩
+      change chart (chart.symm z) ∈ U
+      simpa using hzU
+    have hptU : ∀ q ∈ W, ptX F q ∈ U := by
+      intro q hq
+      rcases hq with ⟨q', hqV, hqq'⟩
+      change chart q' ∈ U at hqV
+      rw [← hqq', ← heptChart q']
+      exact hqV
+    have hfunAt : (fun q : Coord F =>
+        (t2_periodize Γ ψ (ptX F q) : ℂ)) =ᶠ[𝓝 p]
+        (fun q => ∑ γ ∈ T,
+          (ψ ((γ : SL(2,𝓞 F)) • ptX F q) : ℂ)) := by
+      filter_upwards [hW.mem_nhds hpW] with q hq
+      exact hPsumC (ptX F q) (hptU q hq)
+    have htermsmooth (γ : Γ) : IsSmoothX F
+        (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) :=
+      t3_ofReal_smooth _ (t2_translate_smooth Γ γ ψ hψ)
+    have hdiff (γ : Γ) (hγ : γ ∈ T) :
+        DifferentiableAt ℝ
+          (fun q : Coord F => (ψ ((γ : SL(2,𝓞 F)) • ptX F q) : ℂ)) p :=
+      t3_coord_differentiable _ (htermsmooth γ) hpPos
+    have hderiv := fderiv_fun_sum (u := T) hdiff
+    have hderivEq : fderiv ℝ (fun q : Coord F =>
+        (t2_periodize Γ ψ (ptX F q) : ℂ)) p =
+        ∑ γ ∈ T, fderiv ℝ
+          (fun q : Coord F => (ψ ((γ : SL(2,𝓞 F)) • ptX F q) : ℂ)) p := by
+      rw [hfunAt.fderiv_eq, hderiv]
+    change ((coordsX F z w).2 : ℂ) *
+        fderiv ℝ (fun q : Coord F =>
+          (t2_periodize Γ ψ (ptX F q) : ℂ)) (coordsX F z)
+          (placeDirection F w j) = _
+    rw [hderivEq]
+    have hEval : (∑ γ ∈ T, fderiv ℝ
+        (fun q : Coord F => (ψ ((γ : SL(2,𝓞 F)) • ptX F q) : ℂ)) p)
+          (placeDirection F w j) =
+        ∑ γ ∈ T, fderiv ℝ
+          (fun q : Coord F => (ψ ((γ : SL(2,𝓞 F)) • ptX F q) : ℂ)) p
+            (placeDirection F w j) := by simp
+    rw [hEval, Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro γ hγ
+    rw [show p = coordsX F z from rfl]
+    simp only [placeGradient]
+    rfl
+
+  have hinnerFinite :
+      placeGradInner F w u (fun x => (t2_periodize Γ ψ x : ℂ)) z =
+        ∑ γ ∈ T, placeGradInner F w u
+          (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z := by
+    unfold placeGradInner
+    calc
+      _ = ∑ j : Fin 3, ∑ γ ∈ T,
+            star (placeGradient F w u z j) *
+              placeGradient F w (fun x =>
+                (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z j := by
+          apply Finset.sum_congr rfl
+          intro j hj
+          rw [hsumGradient j]
+          simp only [Finset.mul_sum]
+      _ = _ := by
+          rw [Finset.sum_comm]
+  have hzeroInner (γ : Γ) (hγ : γ ∉ T) :
+      placeGradInner F w u
+        (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z = 0 := by
+    have hcongr := t3_placeGradient_congr_open w
+      (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) (fun _ => (0 : ℂ))
+      U hU hzU (by
+        intro x hx
+        simp [hzero x hx γ hγ])
+    have hgrad : placeGradient F w
+        (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z = 0 := by
+      have hzeroGrad : placeGradient F w (fun _ => (0 : ℂ)) z = 0 := by
+        ext j
+        simp [placeGradient, Function.comp_def]
+      exact hcongr.trans hzeroGrad
+    simp [placeGradInner, hgrad]
+  calc
+    _ = ∑ γ ∈ T, placeGradInner F w u
+          (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z := by
+      rw [tsum_eq_sum (s := T) hzeroInner]
+    _ = placeGradInner F w u (fun x => (t2_periodize Γ ψ x : ℂ)) z :=
+      hinnerFinite.symm
+
+private theorem t3_integral_unfold (Γ : Subgroup SL(2,𝓞 F))
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (q : X F → ℂ) (hq : Integrable q (volX F)) :
+    ∫ z in D, (∑' γ : Γ, q ((γ : SL(2,𝓞 F)) • z)) ∂(volX F) =
+      ∫ z, q z ∂(volX F) := by
+  classical
+  rcases t1_action_facts (F := F) Γ with ⟨hCountable, hMeasurable, hInvariant⟩
+  letI : Countable Γ := hCountable
+  letI : MeasurableConstSMul Γ (X F) := hMeasurable
+  letI : SMulInvariantMeasure Γ (X F) (volX F) := hInvariant
+  have hpres (γ : Γ) : MeasurePreserving
+      (fun z : X F => (γ : SL(2,𝓞 F)) • z) (volX F) (volX F) := by
+    change MeasurePreserving (fun z : X F => γ • z) (volX F) (volX F)
+    exact measurePreserving_smul γ (volX F)
+  have hsumNorm := ne_of_lt (hasFiniteIntegral_iff_enorm.mp hq.hasFiniteIntegral)
+  rw [hD.lintegral_eq_tsum'' (fun z => ‖q z‖ₑ)] at hsumNorm
+  have hmeas (γ : Γ) : AEStronglyMeasurable
+      (fun z : X F => q ((γ : SL(2,𝓞 F)) • z)) ((volX F).restrict D) := by
+    exact (hq.aestronglyMeasurable.comp_measurePreserving (hpres γ)).restrict
+  calc
+    ∫ z in D, (∑' γ : Γ, q ((γ : SL(2,𝓞 F)) • z)) ∂(volX F) =
+        ∑' γ : Γ, ∫ z in D, q ((γ : SL(2,𝓞 F)) • z) ∂(volX F) :=
+      integral_tsum (μ := (volX F).restrict D) hmeas hsumNorm
+    _ = ∫ z, q z ∂(volX F) := (hD.integral_eq_tsum'' q hq).symm
+
+private theorem t3_quotient_weight (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (K : Set (X F)) (ψ : X F → ℝ) (hψ : IsSmoothRealX F ψ)
+    (hψcompact : HasCompactSupportX F (fun z => (ψ z : ℂ)))
+    (hpartition : ∀ z ∈ orbitSaturation F Γ K,
+      ∑' γ : Γ, ψ ((γ : SL(2,𝓞 F)) • z) = 1)
+    (H : X F → ℂ) (hHcont : Continuous H)
+    (hHinv : ∀ γ ∈ Γ, ∀ z, H ((γ : SL(2,𝓞 F)) • z) = H z)
+    (hHsupport : {z | H z ≠ 0} ⊆ orbitSaturation F Γ K) :
+    ∫ z in D, H z ∂(volX F) =
+      ∫ z, (ψ z : ℂ) * H z ∂(volX F) := by
+  classical
+  letI : Finite (InfinitePlace F) := inferInstance
+  letI : Countable (InfinitePlace F) := Finite.to_countable
+  letI : TopologicalSpace (X F) := Pi.topologicalSpace
+  letI : TopologicalSpace SL(2,ℂ) := Matrix.SpecialLinearGroup.instTopologicalSpace
+  letI : IsTopologicalGroup SL(2,ℂ) := Matrix.SpecialLinearGroup.isTopologicalGroup
+  letI : SecondCountableTopology (Fin 2 → ℝ) := inferInstance
+  letI : SecondCountableTopology ℂ :=
+    Complex.basisOneI.equivFun.toContinuousLinearEquiv.toHomeomorph.secondCountableTopology
+  letI : SecondCountableTopology (Fin 2 → ℂ) := by infer_instance
+  letI : SecondCountableTopology (Fin 2 → Fin 2 → ℂ) := by infer_instance
+  letI : SecondCountableTopology (Matrix (Fin 2) (Fin 2) ℂ) := by
+    change SecondCountableTopology (Fin 2 → Fin 2 → ℂ)
+    infer_instance
+  letI : SecondCountableTopology SL(2,ℂ) :=
+    TopologicalSpace.secondCountableTopology_induced
+      (SL(2,ℂ)) (Matrix (Fin 2) (Fin 2) ℂ) Subtype.val
+  have hsecH3 : SecondCountableTopology H3 :=
+    TopologicalSpace.Quotient.secondCountableTopology
+      QuotientGroup.isOpenQuotientMap_mk.isOpenMap
+  letI : SecondCountableTopology H3 := hsecH3
+  letI : BorelSpace H3 := ⟨rfl⟩
+  letI : OpensMeasurableSpace H3 := BorelSpace.opensMeasurable
+  letI : ∀ w : InfinitePlace F,
+      SecondCountableTopology ((fun _ : InfinitePlace F => H3) w) := fun _ => hsecH3
+  letI : ∀ w : InfinitePlace F,
+      BorelSpace ((fun _ : InfinitePlace F => H3) w) := fun _ => ⟨rfl⟩
+  letI : ∀ w : InfinitePlace F,
+      OpensMeasurableSpace ((fun _ : InfinitePlace F => H3) w) :=
+    fun _ => BorelSpace.opensMeasurable
+  letI : OpensMeasurableSpace (X F) := by
+    exact @Pi.opensMeasurableSpace (InfinitePlace F) (fun _ => H3) Finite.to_countable
+      (fun _ => inferInstance) (fun _ => inferInstance)
+      (fun _ => hsecH3) (fun _ => BorelSpace.opensMeasurable)
+  letI : IsFiniteMeasureOnCompacts (volX F) :=
+    ⟨fun hK => (G3_volume (F := F)).2.2.1 hK⟩
+  let Q : X F → ℂ := fun z => (ψ z : ℂ) * H z
+  have hψcont : Continuous (fun z => (ψ z : ℂ)) :=
+    Complex.ofRealCLM.continuous.comp (t2_realSmooth_continuous ψ hψ)
+  have hQcont : Continuous Q := by
+    dsimp [Q]
+    exact hψcont.mul hHcont
+  have hQcompact : HasCompactSupport Q := by
+    rcases hψcompact with ⟨Kψ, hKψ, hψsupport⟩
+    have hKψclosed := t2_compact_isClosed hKψ
+    have hsupport : Function.support Q ⊆ Kψ := by
+      intro z hz
+      apply hψsupport
+      have hψne : (ψ z : ℂ) ≠ 0 := by
+        intro hzero
+        apply hz
+        simp [Q, hzero]
+      exact hψne
+    change IsCompact (tsupport Q)
+    exact hKψ.of_isClosed_subset (isClosed_tsupport _) <|
+      closure_minimal hsupport hKψclosed
+  have hQint : Integrable Q (volX F) := hQcont.integrable_of_hasCompactSupport hQcompact
+  have hpoint (z : X F) : ∑' γ : Γ, Q ((γ : SL(2,𝓞 F)) • z) = H z := by
+    by_cases hz : z ∈ orbitSaturation F Γ K
+    · obtain ⟨S, hSsum, hSzero⟩ := t2_periodize_eq_sum Γ ψ hψcompact z
+      have hsumReal : (∑' γ : Γ, ψ ((γ : SL(2,𝓞 F)) • z)) =
+          ∑ γ ∈ S, ψ ((γ : SL(2,𝓞 F)) • z) := by
+        simpa [t2_periodize] using hSsum
+      have hpartFin : ∑ γ ∈ S, ψ ((γ : SL(2,𝓞 F)) • z) = 1 := by
+        calc
+          _ = ∑' γ : Γ, ψ ((γ : SL(2,𝓞 F)) • z) := hsumReal.symm
+          _ = 1 := hpartition z hz
+      have hSzeroC (γ : Γ) (hγ : γ ∉ S) :
+          (ψ ((γ : SL(2,𝓞 F)) • z) : ℂ) = 0 := by
+        exact_mod_cast hSzero γ hγ
+      have hsumC : (∑' γ : Γ, (ψ ((γ : SL(2,𝓞 F)) • z) : ℂ)) =
+          ∑ γ ∈ S, (ψ ((γ : SL(2,𝓞 F)) • z) : ℂ) :=
+        tsum_eq_sum (s := S) hSzeroC
+      have hpartC : ∑ γ ∈ S, (ψ ((γ : SL(2,𝓞 F)) • z) : ℂ) = 1 := by
+        exact_mod_cast hpartFin
+      have hterm (γ : Γ) : Q ((γ : SL(2,𝓞 F)) • z) =
+          (ψ ((γ : SL(2,𝓞 F)) • z) : ℂ) * H z := by
+        simp [Q, hHinv γ γ.property z]
+      calc
+        _ = ∑' γ : Γ, (ψ ((γ : SL(2,𝓞 F)) • z) : ℂ) * H z := tsum_congr hterm
+        _ = (∑' γ : Γ, (ψ ((γ : SL(2,𝓞 F)) • z) : ℂ)) * H z := tsum_mul_right
+        _ = H z := by rw [hsumC, hpartC]; simp
+    · have hHz : H z = 0 := by
+        by_contra hne
+        exact hz (hHsupport hne)
+      have hterm (γ : Γ) : Q ((γ : SL(2,𝓞 F)) • z) = 0 := by
+        simp [Q, hHinv γ γ.property z, hHz]
+      have hfun : (fun γ : Γ => Q ((γ : SL(2,𝓞 F)) • z)) = 0 := by
+        funext γ
+        exact hterm γ
+      rw [hfun, hHz]
+      change (∑' γ : Γ, (0 : ℂ)) = 0
+      exact tsum_zero
+  calc
+    ∫ z in D, H z ∂(volX F) =
+        ∫ z in D, (∑' γ : Γ, Q ((γ : SL(2,𝓞 F)) • z)) ∂(volX F) := by
+      apply integral_congr_ae
+      exact ae_of_all _ fun z => (hpoint z).symm
+    _ = ∫ z, Q z ∂(volX F) := t3_integral_unfold Γ D hD Q hQint
+
+private theorem t3_partialLap_zero_of_open_zero (w : InfinitePlace F)
+    (f : X F → ℂ) (U : Set (X F)) (hU : IsOpen U) {z : X F}
+    (hz : z ∈ U) (hzero : ∀ x ∈ U, f x = 0) :
+    partialLap F w f z = 0 := by
+  classical
+  obtain ⟨e, hept, hecoords⟩ := t2_chartEquiv (F := F)
+  let Pos := {p : Coord F // p ∈ posSet F}
+  let V : Set Pos := e ⁻¹' U
+  have hV : IsOpen V := hU.preimage e.continuous
+  let W : Set (Coord F) := Subtype.val '' V
+  have hW : IsOpen W := (t2_posSet_open (F := F)).isOpenMap_subtype_val V hV
+  let p : Coord F := coordsX F z
+  have hpPos : p ∈ posSet F := by
+    dsimp [p]
+    rw [← hecoords z]
+    exact (e.symm z).property
+  have hpcoord : (e.symm z).1 = p := hecoords z
+  have hpW : p ∈ W := ⟨e.symm z, by simpa [V] using hz, hpcoord⟩
+  have hptU : ∀ q ∈ W, ptX F q ∈ U := by
+    intro q hq
+    rcases hq with ⟨q', hq', hqq'⟩
+    change e q' ∈ U at hq'
+    rw [← hqq', ← hept q']
+    exact hq'
+  have hcoordZero (q : Coord F) (hq : q ∈ W) : f (ptX F q) = 0 :=
+    hzero (ptX F q) (hptU q hq)
+  have hcoordLocal (q : Coord F) (hq : q ∈ W) :
+      (fun r : Coord F => f (ptX F r)) =ᶠ[𝓝 q] 0 := by
+    filter_upwards [hW.mem_nhds hq] with r hr
+    exact hcoordZero r hr
+  have hderivLocal (q : Coord F) (hq : q ∈ W) :
+      fderiv ℝ (fun r : Coord F => f (ptX F r)) q = 0 := by
+    rw [(hcoordLocal q hq).fderiv_eq]
+    simp
+  have hfirst : fderiv ℝ (f ∘ ptX F) p = 0 := by
+    simpa [Function.comp_def, p] using hderivLocal p hpW
+  have hderivEventually : (fun q : Coord F =>
+      fderiv ℝ (fun r : Coord F => f (ptX F r)) q) =ᶠ[𝓝 p] 0 := by
+    filter_upwards [hW.mem_nhds hpW] with q hq
+    exact hderivLocal q hq
+  have hsecond : fderiv ℝ (fderiv ℝ (fun q : Coord F => f (ptX F q))) p = 0 := by
+    rw [hderivEventually.fderiv_eq]
+    simp
+  let e1 : Coord F := Pi.single w ((1 : ℂ), (0 : ℝ))
+  let e2 : Coord F := Pi.single w (Complex.I, (0 : ℝ))
+  let e3 : Coord F := Pi.single w ((0 : ℂ), (1 : ℝ))
+  have hsecondEval (a b : Coord F) :
+      iteratedFDeriv ℝ 2 (fun q : Coord F => f (ptX F q)) p ![a, b] = 0 := by
+    rw [iteratedFDeriv_two_apply, hsecond]
+    simp
+  change ((coordsX F z w).2 : ℂ) *
+      fderiv ℝ (f ∘ ptX F) (coordsX F z) e3 -
+        ((coordsX F z w).2 : ℂ) ^ 2 *
+          (iteratedFDeriv ℝ 2 (f ∘ ptX F) (coordsX F z) ![e1, e1] +
+            iteratedFDeriv ℝ 2 (f ∘ ptX F) (coordsX F z) ![e2, e2] +
+            iteratedFDeriv ℝ 2 (f ∘ ptX F) (coordsX F z) ![e3, e3]) = 0
+  rw [hfirst]
+  have hs1 : iteratedFDeriv ℝ 2 (f ∘ ptX F) (coordsX F z) ![e1, e1] = 0 := by
+    simpa [Function.comp_def, p] using hsecondEval e1 e1
+  have hs2 : iteratedFDeriv ℝ 2 (f ∘ ptX F) (coordsX F z) ![e2, e2] = 0 := by
+    simpa [Function.comp_def, p] using hsecondEval e2 e2
+  have hs3 : iteratedFDeriv ℝ 2 (f ∘ ptX F) (coordsX F z) ![e3, e3] = 0 := by
+    simpa [Function.comp_def, p] using hsecondEval e3 e3
+  rw [hs1, hs2, hs3]
+  simp
+
+private theorem t3_partialLap_invariant (Γ : Subgroup SL(2,𝓞 F))
+    (ψ : X F → ℝ) (hψ : IsSmoothRealX F ψ)
+    (hψcompact : HasCompactSupportX F (fun z => (ψ z : ℂ)))
+    (f : X F → ℂ) (hfInv : IsGammaInvariant F Γ f) (hf : IsSmoothX F f)
+    (γ : Γ) (w : InfinitePlace F) (z : X F) :
+    partialLap F w f ((γ : SL(2,𝓞 F)) • z) = partialLap F w f z := by
+  let gAct : InfinitePlace F → SL(2,ℂ) := toInf F (toSLF F (γ : SL(2,𝓞 F)))
+  have hact (x : X F) : actAtPlaces F gAct x =
+      (γ : SL(2,𝓞 F)) • x := rfl
+  have hcomp : (fun x => f (actAtPlaces F gAct x)) = f := by
+    funext x
+    rw [hact]
+    exact hfInv γ γ.property x
+  have hψC : IsSmoothX F (fun x => (ψ x : ℂ)) := t3_ofReal_smooth ψ hψ
+  have hcomm := (G5_green_x f (fun x => (ψ x : ℂ)) hf hψC hψcompact).2.2
+    gAct f hf w z
+  calc
+    partialLap F w f ((γ : SL(2,𝓞 F)) • z) = partialLap F w f (actAtPlaces F gAct z) := by
+      rw [hact]
+    _ = partialLap F w (fun x => f (actAtPlaces F gAct x)) z := hcomm.symm
+    _ = partialLap F w f z := by rw [hcomp]
+
+private theorem t3_continuous_compact_integrable (q : X F → ℂ)
+    (hq : Continuous q) (hcompact : HasCompactSupport q) :
+    Integrable q (volX F) := by
+  classical
+  letI : Finite (InfinitePlace F) := inferInstance
+  letI : Countable (InfinitePlace F) := Finite.to_countable
+  letI : TopologicalSpace (X F) := Pi.topologicalSpace
+  letI : TopologicalSpace SL(2,ℂ) := Matrix.SpecialLinearGroup.instTopologicalSpace
+  letI : IsTopologicalGroup SL(2,ℂ) := Matrix.SpecialLinearGroup.isTopologicalGroup
+  letI : SecondCountableTopology (Fin 2 → ℝ) := inferInstance
+  letI : SecondCountableTopology ℂ :=
+    Complex.basisOneI.equivFun.toContinuousLinearEquiv.toHomeomorph.secondCountableTopology
+  letI : SecondCountableTopology (Fin 2 → ℂ) := by infer_instance
+  letI : SecondCountableTopology (Fin 2 → Fin 2 → ℂ) := by infer_instance
+  letI : SecondCountableTopology (Matrix (Fin 2) (Fin 2) ℂ) := by
+    change SecondCountableTopology (Fin 2 → Fin 2 → ℂ)
+    infer_instance
+  letI : SecondCountableTopology SL(2,ℂ) :=
+    TopologicalSpace.secondCountableTopology_induced
+      (SL(2,ℂ)) (Matrix (Fin 2) (Fin 2) ℂ) Subtype.val
+  have hsecH3 : SecondCountableTopology H3 :=
+    TopologicalSpace.Quotient.secondCountableTopology
+      QuotientGroup.isOpenQuotientMap_mk.isOpenMap
+  letI : SecondCountableTopology H3 := hsecH3
+  letI : BorelSpace H3 := ⟨rfl⟩
+  letI : OpensMeasurableSpace H3 := BorelSpace.opensMeasurable
+  letI : ∀ w : InfinitePlace F,
+      SecondCountableTopology ((fun _ : InfinitePlace F => H3) w) := fun _ => hsecH3
+  letI : ∀ w : InfinitePlace F,
+      BorelSpace ((fun _ : InfinitePlace F => H3) w) := fun _ => ⟨rfl⟩
+  letI : ∀ w : InfinitePlace F,
+      OpensMeasurableSpace ((fun _ : InfinitePlace F => H3) w) :=
+    fun _ => BorelSpace.opensMeasurable
+  letI : OpensMeasurableSpace (X F) := by
+    exact @Pi.opensMeasurableSpace (InfinitePlace F) (fun _ => H3) Finite.to_countable
+      (fun _ => inferInstance) (fun _ => inferInstance)
+      (fun _ => hsecH3) (fun _ => BorelSpace.opensMeasurable)
+  letI : IsFiniteMeasureOnCompacts (volX F) :=
+    ⟨fun hK => (G3_volume (F := F)).2.2.1 hK⟩
+  exact hq.integrable_of_hasCompactSupport hcompact
+
+private theorem t3_mul_hasCompactSupportX (φ g : X F → ℂ)
+    (hφcompact : HasCompactSupportX F φ) :
+    HasCompactSupportX F (fun z => φ z * g z) := by
+  rcases hφcompact with ⟨K, hK, hφsupport⟩
+  refine ⟨K, hK, ?_⟩
+  intro z hz
+  apply hφsupport
+  intro hφzero
+  apply hz
+  simp [hφzero]
+
+private theorem t3_compact_mul_integrable (ψ : X F → ℝ) (hψcont : Continuous ψ)
+    (hψcompact : HasCompactSupportX F (fun z => (ψ z : ℂ)))
+    (H : X F → ℂ) (hHcont : Continuous H) :
+    Integrable (fun z => (ψ z : ℂ) * H z) (volX F) := by
+  let q : X F → ℂ := fun z => (ψ z : ℂ) * H z
+  have hqcont : Continuous q := by
+    dsimp [q]
+    exact Complex.ofRealCLM.continuous.comp hψcont |>.mul hHcont
+  have hqcompact : HasCompactSupport q := by
+    rcases hψcompact with ⟨K, hK, hψsupport⟩
+    have hKclosed := t2_compact_isClosed hK
+    have hsupport : Function.support q ⊆ K := by
+      intro z hz
+      apply hψsupport
+      have hψne : (ψ z : ℂ) ≠ 0 := by
+        intro hzero
+        apply hz
+        simp [q, hzero]
+      exact hψne
+    change IsCompact (tsupport q)
+    exact hK.of_isClosed_subset (isClosed_tsupport _) <|
+      closure_minimal hsupport hKclosed
+  simpa [q] using t3_continuous_compact_integrable q hqcont hqcompact
+
+private theorem t3_partition_gradient_correction_zero
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (K : Set (X F)) (hK : IsCompact K)
+    (ψ : X F → ℝ) (hψ : IsSmoothRealX F ψ)
+    (hψcompact : HasCompactSupportX F (fun z => (ψ z : ℂ)))
+    (U : Set (X F)) (hU : IsOpen U)
+    (hUsat : orbitSaturation F Γ K ⊆ U)
+    (hpartition : ∀ z ∈ U,
+      ∑' γ : Γ, ψ ((γ : SL(2,𝓞 F)) • z) = 1)
+    (a u : X F → ℂ) (haCont : Continuous a)
+    (haInv : IsGammaInvariant F Γ a)
+    (hOffSupport : ∀ z, z ∉ orbitSaturation F Γ K →
+      a z = 0 ∨ ∀ x, x ∉ orbitSaturation F Γ K → u x = 0)
+    (hu : IsGammaInvariant F Γ u) (huSmooth : IsSmoothX F u)
+    (w : InfinitePlace F) :
+    (∫ z, a z * placeGradInner F w u (fun x => (ψ x : ℂ)) z ∂(volX F) = 0) ∧
+      Integrable (fun z => a z * placeGradInner F w u (fun x => (ψ x : ℂ)) z)
+        (volX F) := by
+  classical
+  let ψC : X F → ℂ := fun z => (ψ z : ℂ)
+  let Q : X F → ℂ := fun z => a z * placeGradInner F w u ψC z
+  have hψCsmooth : IsSmoothX F ψC := t3_ofReal_smooth ψ hψ
+  have hinnerCont : Continuous (placeGradInner F w u ψC) :=
+    t3_placeGradInner_continuous w u ψC huSmooth hψCsmooth
+  have hQcont : Continuous Q := by
+    dsimp [Q]
+    exact haCont.mul hinnerCont
+  have hQcompact : HasCompactSupport Q := by
+    rcases hψcompact with ⟨Kψ, hKψ, hψsupport⟩
+    have hKψclosed := t2_compact_isClosed hKψ
+    have hQsupport : Function.support Q ⊆ Kψ := by
+      intro z hz
+      by_contra hzK
+      have hgrad := t3_placeGradient_zero_of_not_compact w ψ Kψ hKψ hψsupport hzK
+      have hgrad' : placeGradient F w ψC z = 0 := by
+        simpa [ψC] using hgrad
+      have hinner : placeGradInner F w u ψC z = 0 := by
+        simp [placeGradInner, hgrad']
+      have hQzero : Q z = 0 := by simp [Q, hinner]
+      have hQne : Q z ≠ 0 := by simpa [Function.mem_support] using hz
+      exact hQne hQzero
+    change IsCompact (tsupport Q)
+    exact hKψ.of_isClosed_subset (isClosed_tsupport _) <|
+      closure_minimal hQsupport hKψclosed
+  have hQint := t3_continuous_compact_integrable Q hQcont hQcompact
+  have hG4pair (γ : Γ) (z : X F) :
+      placeGradInner F w u (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z =
+        placeGradInner F w u ψC ((γ : SL(2,𝓞 F)) • z) := by
+    let gAct : InfinitePlace F → SL(2,ℂ) := toInf F (toSLF F (γ : SL(2,𝓞 F)))
+    have hact (x : X F) : actAtPlaces F gAct x =
+        (γ : SL(2,𝓞 F)) • x := rfl
+    have hucomp : (fun x => u (actAtPlaces F gAct x)) = u := by
+      funext x
+      rw [hact]
+      exact hu γ γ.property x
+    have hψcomp : (fun x => ψC (actAtPlaces F gAct x)) =
+        (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) := by
+      funext x
+      rw [hact]
+    have hG := (G4_energy gAct u ψC huSmooth hψCsmooth).1 w z
+    calc
+      placeGradInner F w u (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z =
+          placeGradInner F w (fun x => u (actAtPlaces F gAct x))
+            (fun x => ψC (actAtPlaces F gAct x)) z := by
+        rw [hucomp, hψcomp]
+      _ = placeGradInner F w u ψC (actAtPlaces F gAct z) := hG
+      _ = placeGradInner F w u ψC ((γ : SL(2,𝓞 F)) • z) := by rw [hact]
+  have hPone (x : X F) (hx : x ∈ U) :
+      (t2_periodize Γ ψ x : ℂ) = 1 := by
+    have hreal : t2_periodize Γ ψ x = 1 := by
+      simpa [t2_periodize] using hpartition x hx
+    exact_mod_cast hreal
+  have hPgrad (z : X F) (hz : z ∈ U) :
+      placeGradient F w (fun x => (t2_periodize Γ ψ x : ℂ)) z = 0 := by
+    have hcongr := t3_placeGradient_congr_open w
+      (fun x => (t2_periodize Γ ψ x : ℂ)) (fun _ => (1 : ℂ)) U hU hz hPone
+    have hgradOne : placeGradient F w (fun _ => (1 : ℂ)) z = 0 := by
+      ext j
+      simp [placeGradient, Function.comp_def]
+    exact hcongr.trans hgradOne
+  have hPinner (z : X F) (hz : z ∈ U) :
+      placeGradInner F w u (fun x => (t2_periodize Γ ψ x : ℂ)) z = 0 := by
+    simp [placeGradInner, hPgrad z hz]
+  have hsumInner (z : X F) :=
+    t3_periodize_gradInner Γ w u huSmooth ψ hψ hψcompact z
+  have htermEq (γ : Γ) (z : X F) : Q ((γ : SL(2,𝓞 F)) • z) =
+      a z * placeGradInner F w u
+        (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z := by
+    dsimp [Q]
+    rw [haInv γ γ.property z, ← hG4pair γ z]
+  have hSatClosed := t2_orbitSaturation_closed Γ K hK
+  have hsumZero (z : X F) : ∑' γ : Γ, Q ((γ : SL(2,𝓞 F)) • z) = 0 := by
+    by_cases hzSat : z ∈ orbitSaturation F Γ K
+    · have hzU := hUsat hzSat
+      calc
+        _ = ∑' γ : Γ, a z * placeGradInner F w u
+              (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z :=
+            tsum_congr (fun γ => htermEq γ z)
+        _ = a z * ∑' γ : Γ, placeGradInner F w u
+              (fun x => (ψ ((γ : SL(2,𝓞 F)) • x) : ℂ)) z := tsum_mul_left
+        _ = a z * placeGradInner F w u
+              (fun x => (t2_periodize Γ ψ x : ℂ)) z := by rw [hsumInner z]
+        _ = 0 := by rw [hPinner z hzU]; simp
+    · rcases hOffSupport z hzSat with ha0 | huZero
+      · have hterm (γ : Γ) : Q ((γ : SL(2,𝓞 F)) • z) = 0 := by
+          rw [htermEq γ z, ha0]
+          simp
+        have hfun : (fun γ : Γ => Q ((γ : SL(2,𝓞 F)) • z)) = 0 := by
+          funext γ
+          exact hterm γ
+        rw [hfun]
+        change (∑' γ : Γ, (0 : ℂ)) = 0
+        exact tsum_zero
+      · have hgradU : placeGradient F w u z = 0 := by
+          have hUzero : IsOpen (orbitSaturation F Γ K)ᶜ := hSatClosed.isOpen_compl
+          have hcongr := t3_placeGradient_congr_open w u (fun _ => (0 : ℂ))
+            (orbitSaturation F Γ K)ᶜ hUzero hzSat (fun x hx => huZero x hx)
+          have hzeroGrad : placeGradient F w (fun _ => (0 : ℂ)) z = 0 := by
+            ext j
+            simp [placeGradient, Function.comp_def]
+          exact hcongr.trans hzeroGrad
+        have hterm (γ : Γ) : Q ((γ : SL(2,𝓞 F)) • z) = 0 := by
+          rw [htermEq γ z]
+          simp [placeGradInner, hgradU]
+        have hfun : (fun γ : Γ => Q ((γ : SL(2,𝓞 F)) • z)) = 0 := by
+          funext γ
+          exact hterm γ
+        rw [hfun]
+        change (∑' γ : Γ, (0 : ℂ)) = 0
+        exact tsum_zero
+  refine ⟨?_, hQint⟩
+  change ∫ z, Q z ∂(volX F) = 0
+  calc
+    ∫ z, Q z ∂(volX F) =
+        ∫ z in D, (∑' γ : Γ, Q ((γ : SL(2,𝓞 F)) • z)) ∂(volX F) :=
+      (t3_integral_unfold Γ D hD Q hQint).symm
+    _ = ∫ z in D, (0 : ℂ) ∂(volX F) := by
+      apply integral_congr_ae
+      exact ae_of_all _ hsumZero
+    _ = 0 := by simp
+
+private theorem t3_mul_smooth (f g : X F → ℂ)
+    (hf : IsSmoothX F f) (hg : IsSmoothX F g) :
+    IsSmoothX F (fun z => f z * g z) := by
+  unfold IsSmoothX at *
+  simpa only [Function.comp_def] using hf.mul hg
+
+private theorem t3_placeGradBilinear_mul_right (w : InfinitePlace F)
+    (a b c : X F → ℂ) (ha : IsSmoothX F a) (hb : IsSmoothX F b)
+    (hc : IsSmoothX F c) (z : X F) :
+    placeGradBilinear F w a (fun x => b x * c x) z =
+      b z * placeGradBilinear F w a c z + c z * placeGradBilinear F w a b z := by
+  unfold placeGradBilinear
+  rw [show (fun j : Fin 3 => placeGradient F w a z j *
+      placeGradient F w (fun x => b x * c x) z j) =
+      (fun j => placeGradient F w a z j *
+        (b z * placeGradient F w c z j + c z * placeGradient F w b z j)) by
+    funext j
+    rw [t3_placeGradient_mul w b c hb hc z j]]
+  calc
+    _ = ∑ j : Fin 3,
+        (b z * (placeGradient F w a z j * placeGradient F w c z j) +
+          c z * (placeGradient F w a z j * placeGradient F w b z j)) := by
+      apply Finset.sum_congr rfl
+      intro j hj
+      ring
+    _ = _ := by rw [Finset.sum_add_distrib, Finset.mul_sum, Finset.mul_sum]
+
+private theorem t3_placeGradBilinear_star_left (w : InfinitePlace F)
+    (f g : X F → ℂ) (hf : IsSmoothX F f) (hg : IsSmoothX F g) (z : X F) :
+    placeGradBilinear F w (fun x => star (f x)) g z = placeGradInner F w f g z := by
+  unfold placeGradBilinear placeGradInner
+  apply Finset.sum_congr rfl
+  intro j hj
+  rw [t3_placeGradient_star w f hf z j]
+
+private theorem t3_placeGradBilinear_star_right (w : InfinitePlace F)
+    (f g : X F → ℂ) (hf : IsSmoothX F f) (hg : IsSmoothX F g) (z : X F) :
+    placeGradBilinear F w g (fun x => star (f x)) z = placeGradInner F w f g z := by
+  unfold placeGradBilinear placeGradInner
+  apply Finset.sum_congr rfl
+  intro j hj
+  rw [t3_placeGradient_star w f hf z j]
+  ring
+
 /-- T3 `spec:green-q` — P-SPEC.md:230, 349–352. Green's identity on a finite-volume
 fundamental domain with one test factor and one invariant smooth factor. -/
 theorem T3_green_q (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
@@ -2277,7 +3196,255 @@ theorem T3_green_q (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       ∀ w : InfinitePlace F,
         ∫ z in D, star (partialLap F w f z) * g z ∂(volX F) =
           ∫ z in D, placeGradInner F w f g z ∂(volX F)) := by
-  sorry
+  classical
+  rcases T2_tests Γ D hD with ⟨hmem, ⟨toL2, gradL2, hmassRep, hgradRep, hpart⟩⟩
+  have hBoth : ∀ f : X F → ℂ, f ∈ testSubmodule F Γ →
+      ∀ g : X F → ℂ, IsGammaInvariant F Γ g → IsSmoothX F g →
+      ∀ w : InfinitePlace F,
+        (∫ z in D, star (f z) * partialLap F w g z ∂(volX F) =
+          ∫ z in D, placeGradInner F w f g z ∂(volX F)) ∧
+        (∫ z in D, star (partialLap F w f z) * g z ∂(volX F) =
+          ∫ z in D, placeGradInner F w f g z ∂(volX F)) := by
+    intro f hf g hgInv hgSmooth w
+    rcases (hmem f).mp hf with ⟨hfInv, hfSmooth, hfSupportMod⟩
+    rcases hfSupportMod with ⟨K, hK, hfSupport⟩
+    rcases hpart K hK with
+      ⟨ψ, hψsmooth, hψcompact, hψnonneg, hψlocal,
+        ⟨U, hUopen, hUsat, hpartitionU⟩, hReconstruct⟩
+    let ψC : X F → ℂ := fun z => (ψ z : ℂ)
+    let fStar : X F → ℂ := fun z => star (f z)
+    let gStar : X F → ℂ := fun z => star (g z)
+    let H₁ : X F → ℂ := fun z => star (f z) * partialLap F w g z
+    let H₂ : X F → ℂ := fun z => star (partialLap F w f z) * g z
+    let J : X F → ℂ := placeGradInner F w f g
+    have hψCsmooth : IsSmoothX F ψC := t3_ofReal_smooth ψ hψsmooth
+    have hψCcompact : HasCompactSupportX F ψC := by simpa [ψC] using hψcompact
+    have hψcont : Continuous ψ := t2_realSmooth_continuous ψ hψsmooth
+    have hpartSat : ∀ z ∈ orbitSaturation F Γ K,
+        ∑' γ : Γ, ψ ((γ : SL(2,𝓞 F)) • z) = 1 := by
+      intro z hz
+      exact hpartitionU z (hUsat hz)
+    have hSatClosed : IsClosed (orbitSaturation F Γ K) :=
+      t2_orbitSaturation_closed Γ K hK
+    have hLapFInv : IsGammaInvariant F Γ (partialLap F w f) := by
+      intro γ hγ z
+      exact t3_partialLap_invariant Γ ψ hψsmooth hψcompact f hfInv hfSmooth
+        ⟨γ, hγ⟩ w z
+    have hLapGInv : IsGammaInvariant F Γ (partialLap F w g) := by
+      intro γ hγ z
+      exact t3_partialLap_invariant Γ ψ hψsmooth hψcompact g hgInv hgSmooth
+        ⟨γ, hγ⟩ w z
+    have hLapFSupport : {z | partialLap F w f z ≠ 0} ⊆ orbitSaturation F Γ K := by
+      intro z hz
+      by_contra hzSat
+      have hzero : ∀ x ∈ (orbitSaturation F Γ K)ᶜ, f x = 0 := by
+        intro x hx
+        by_contra hne
+        exact hx (hfSupport hne)
+      have hLapZero := t3_partialLap_zero_of_open_zero w f
+        (orbitSaturation F Γ K)ᶜ hSatClosed.isOpen_compl hzSat hzero
+      exact hz hLapZero
+    have hJSupport : {z | J z ≠ 0} ⊆ orbitSaturation F Γ K := by
+      intro z hz
+      by_contra hzSat
+      have hzero : ∀ x ∈ (orbitSaturation F Γ K)ᶜ, f x = 0 := by
+        intro x hx
+        by_contra hne
+        exact hx (hfSupport hne)
+      have hgradZero := t3_placeGradient_congr_open w f (fun _ => (0 : ℂ))
+        (orbitSaturation F Γ K)ᶜ hSatClosed.isOpen_compl hzSat hzero
+      have hzeroGrad : placeGradient F w (fun _ => (0 : ℂ)) z = 0 := by
+        ext j
+        simp [placeGradient, Function.comp_def]
+      have hJzero : J z = 0 := by
+        change placeGradInner F w f g z = 0
+        simp [placeGradInner, hgradZero, hzeroGrad]
+      exact hz hJzero
+    have hH₁support : {z | H₁ z ≠ 0} ⊆ orbitSaturation F Γ K := by
+      intro z hz
+      by_contra hzSat
+      have hfz : f z = 0 := by
+        by_contra hne
+        exact hzSat (hfSupport hne)
+      exact hz (by simp [H₁, hfz])
+    have hH₂support : {z | H₂ z ≠ 0} ⊆ orbitSaturation F Γ K := by
+      intro z hz
+      by_contra hzSat
+      have hLapZero : partialLap F w f z = 0 := by
+        by_contra hne
+        exact hzSat (hLapFSupport hne)
+      exact hz (by simp [H₂, hLapZero])
+    have hfcont : Continuous f := t2_smooth_continuous f hfSmooth
+    have hgcont : Continuous g := t2_smooth_continuous g hgSmooth
+    have hLapFcont : Continuous (partialLap F w f) := t3_partialLap_continuous w f hfSmooth
+    have hLapGcont : Continuous (partialLap F w g) := t3_partialLap_continuous w g hgSmooth
+    have hH₁cont : Continuous H₁ := by
+      dsimp [H₁]
+      exact (continuous_star.comp hfcont).mul hLapGcont
+    have hH₂cont : Continuous H₂ := by
+      dsimp [H₂]
+      exact (continuous_star.comp hLapFcont).mul hgcont
+    have hJcont : Continuous J := by
+      dsimp [J]
+      exact t3_placeGradInner_continuous w f g hfSmooth hgSmooth
+    have hH₁inv : ∀ γ ∈ Γ, ∀ z, H₁ ((γ : SL(2,𝓞 F)) • z) = H₁ z := by
+      intro γ hγ z
+      simp [H₁, hfInv γ hγ z, hLapGInv γ hγ z]
+    have hH₂inv : ∀ γ ∈ Γ, ∀ z, H₂ ((γ : SL(2,𝓞 F)) • z) = H₂ z := by
+      intro γ hγ z
+      simp [H₂, hLapFInv γ hγ z, hgInv γ hγ z]
+    have hJinv : ∀ γ ∈ Γ, ∀ z, J ((γ : SL(2,𝓞 F)) • z) = J z := by
+      intro γ hγ z
+      let gAct : InfinitePlace F → SL(2,ℂ) := toInf F (toSLF F (γ : SL(2,𝓞 F)))
+      have hact (x : X F) : actAtPlaces F gAct x =
+          (γ : SL(2,𝓞 F)) • x := rfl
+      have hfcomp : (fun x => f (actAtPlaces F gAct x)) = f := by
+        funext x
+        rw [hact]
+        exact hfInv γ hγ x
+      have hgcomp : (fun x => g (actAtPlaces F gAct x)) = g := by
+        funext x
+        rw [hact]
+        exact hgInv γ hγ x
+      have hG4 := (G4_energy gAct f g hfSmooth hgSmooth).1 w z
+      calc
+        J ((γ : SL(2,𝓞 F)) • z) = J (actAtPlaces F gAct z) := by rw [hact]
+        _ = placeGradInner F w (fun x => f (actAtPlaces F gAct x))
+              (fun x => g (actAtPlaces F gAct x)) z := hG4.symm
+        _ = J z := by rw [hfcomp, hgcomp]
+    have hWeight₁ := t3_quotient_weight Γ D hD K ψ hψsmooth hψcompact
+      hpartSat H₁ hH₁cont hH₁inv hH₁support
+    have hWeight₂ := t3_quotient_weight Γ D hD K ψ hψsmooth hψcompact
+      hpartSat H₂ hH₂cont hH₂inv hH₂support
+    have hWeightJ := t3_quotient_weight Γ D hD K ψ hψsmooth hψcompact
+      hpartSat J hJcont hJinv hJSupport
+    have hPsiJint : Integrable (fun z => ψC z * J z) (volX F) :=
+      t3_compact_mul_integrable ψ hψcont hψcompact J hJcont
+    let φ₁ : X F → ℂ := fun z => ψC z * fStar z
+    let φ₂ : X F → ℂ := fun z => ψC z * g z
+    have hfStarSmooth : IsSmoothX F fStar := t3_star_smooth f hfSmooth
+    have hgStarSmooth : IsSmoothX F gStar := t3_star_smooth g hgSmooth
+    have hφ₁smooth : IsSmoothX F φ₁ := t3_mul_smooth ψC fStar hψCsmooth hfStarSmooth
+    have hφ₂smooth : IsSmoothX F φ₂ := t3_mul_smooth ψC g hψCsmooth hgSmooth
+    have hφ₁compact : HasCompactSupportX F φ₁ := by
+      simpa [φ₁, ψC] using t3_mul_hasCompactSupportX ψC fStar hψCcompact
+    have hφ₂compact : HasCompactSupportX F φ₂ := by
+      simpa [φ₂] using t3_mul_hasCompactSupportX ψC g hψCcompact
+    have hBcorrG (z : X F) :
+        placeGradBilinear F w g ψC z = placeGradInner F w gStar ψC z := by
+      simpa [gStar] using t3_placeGradBilinear_star_left w
+        (fun x => star (g x)) ψC (t3_star_smooth g hgSmooth) hψCsmooth z
+    have hB₁point (z : X F) :
+        placeGradBilinear F w g φ₁ z =
+          ψC z * J z + fStar z * placeGradInner F w gStar ψC z := by
+      rw [show φ₁ = fun x => ψC x * fStar x by rfl]
+      rw [t3_placeGradBilinear_mul_right w g ψC fStar hgSmooth hψCsmooth hfStarSmooth z]
+      rw [t3_placeGradBilinear_star_right w f g hfSmooth hgSmooth z, hBcorrG z]
+    have hB₂point (z : X F) :
+        placeGradBilinear F w fStar φ₂ z =
+          ψC z * J z + g z * placeGradInner F w f ψC z := by
+      rw [show φ₂ = fun x => ψC x * g x by rfl]
+      rw [t3_placeGradBilinear_mul_right w fStar ψC g hfStarSmooth hψCsmooth hgSmooth z]
+      rw [t3_placeGradBilinear_star_left w f g hfSmooth hgSmooth z,
+        t3_placeGradBilinear_star_left w f ψC hfSmooth hψCsmooth z]
+    have hStarFcont : Continuous fStar := continuous_star.comp hfcont
+    have hStarGcont : Continuous gStar := continuous_star.comp hgcont
+    have hStarFInv : IsGammaInvariant F Γ fStar := by
+      intro γ hγ z
+      simp [fStar, hfInv γ hγ z]
+    have hStarGInv : IsGammaInvariant F Γ gStar := by
+      intro γ hγ z
+      simp [gStar, hgInv γ hγ z]
+    have hOffStarF : ∀ z, z ∉ orbitSaturation F Γ K →
+        fStar z = 0 ∨ ∀ x, x ∉ orbitSaturation F Γ K → gStar x = 0 := by
+      intro z hz
+      left
+      have hfz : f z = 0 := by
+        by_contra hne
+        exact hz (hfSupport hne)
+      simp [fStar, hfz]
+    have hOffG : ∀ z, z ∉ orbitSaturation F Γ K →
+        g z = 0 ∨ ∀ x, x ∉ orbitSaturation F Γ K → f x = 0 := by
+      intro z hz
+      right
+      intro x hx
+      by_contra hne
+      exact hx (hfSupport hne)
+    have hCorr₁ := t3_partition_gradient_correction_zero Γ D hD K hK ψ hψsmooth
+      hψcompact U hUopen hUsat hpartitionU fStar gStar hStarFcont hStarFInv
+      hOffStarF hStarGInv hgStarSmooth w
+    have hCorr₂ := t3_partition_gradient_correction_zero Γ D hD K hK ψ hψsmooth
+      hψcompact U hUopen hUsat hpartitionU g f hgcont hgInv hOffG hfInv hfSmooth w
+    have hA₁int : Integrable (fun z => ψC z * J z) (volX F) := hPsiJint
+    have hB₁int : Integrable (fun z => fStar z * placeGradInner F w gStar ψC z)
+        (volX F) := by simpa [fStar, gStar, ψC] using hCorr₁.2
+    have hB₂int : Integrable (fun z => g z * placeGradInner F w f ψC z)
+        (volX F) := by simpa [ψC] using hCorr₂.2
+    have hGreen₁ := (G5_green_x g φ₁ hgSmooth hφ₁smooth hφ₁compact).1 w
+    have hGreen₂ := (G5_green_x fStar φ₂ hfStarSmooth hφ₂smooth hφ₂compact).1 w
+    have hLeft₁ :
+        ∫ z, ψC z * H₁ z ∂(volX F) =
+          ∫ z, partialLap F w g z * φ₁ z ∂(volX F) := by
+      apply integral_congr_ae
+      exact ae_of_all _ fun z => by simp [H₁, φ₁, ψC, fStar]; ring
+    have hRight₁ :
+        ∫ z, placeGradBilinear F w g φ₁ z ∂(volX F) =
+          ∫ z, ψC z * J z + fStar z * placeGradInner F w gStar ψC z ∂(volX F) := by
+      apply integral_congr_ae
+      exact ae_of_all _ fun z => hB₁point z
+    have hRight₂ :
+        ∫ z, placeGradBilinear F w fStar φ₂ z ∂(volX F) =
+          ∫ z, ψC z * J z + g z * placeGradInner F w f ψC z ∂(volX F) := by
+      apply integral_congr_ae
+      exact ae_of_all _ fun z => hB₂point z
+    have hExpand₁ :
+        ∫ z, ψC z * J z + fStar z * placeGradInner F w gStar ψC z ∂(volX F) =
+          ∫ z, ψC z * J z ∂(volX F) +
+            ∫ z, fStar z * placeGradInner F w gStar ψC z ∂(volX F) :=
+      integral_add hA₁int hB₁int
+    have hExpand₂ :
+        ∫ z, ψC z * J z + g z * placeGradInner F w f ψC z ∂(volX F) =
+          ∫ z, ψC z * J z ∂(volX F) +
+            ∫ z, g z * placeGradInner F w f ψC z ∂(volX F) :=
+      integral_add hA₁int hB₂int
+    have hWhole₁ :
+        ∫ z, ψC z * H₁ z ∂(volX F) = ∫ z, ψC z * J z ∂(volX F) := by
+      calc
+        _ = ∫ z, partialLap F w g z * φ₁ z ∂(volX F) := hLeft₁
+        _ = ∫ z, placeGradBilinear F w g φ₁ z ∂(volX F) := hGreen₁
+        _ = ∫ z, ψC z * J z + fStar z * placeGradInner F w gStar ψC z ∂(volX F) := hRight₁
+        _ = ∫ z, ψC z * J z ∂(volX F) +
+              ∫ z, fStar z * placeGradInner F w gStar ψC z ∂(volX F) := hExpand₁
+        _ = ∫ z, ψC z * J z ∂(volX F) := by rw [hCorr₁.1]; simp
+    have hWhole₂ :
+        ∫ z, ψC z * H₂ z ∂(volX F) = ∫ z, ψC z * J z ∂(volX F) := by
+      calc
+        _ = ∫ z, partialLap F w fStar z * φ₂ z ∂(volX F) := by
+          apply integral_congr_ae
+          exact ae_of_all _ fun z => by
+            change ψC z * (star (partialLap F w f z) * g z) =
+              partialLap F w (fun x => star (f x)) z * (ψC z * g z)
+            rw [t3_partialLap_star w f hfSmooth z]
+            ring
+        _ = ∫ z, placeGradBilinear F w fStar φ₂ z ∂(volX F) := hGreen₂
+        _ = ∫ z, ψC z * J z + g z * placeGradInner F w f ψC z ∂(volX F) := hRight₂
+        _ = ∫ z, ψC z * J z ∂(volX F) +
+              ∫ z, g z * placeGradInner F w f ψC z ∂(volX F) := hExpand₂
+        _ = ∫ z, ψC z * J z ∂(volX F) := by rw [hCorr₂.1]; simp
+    refine ⟨?_, ?_⟩
+    · calc
+        ∫ z in D, H₁ z ∂(volX F) = ∫ z, ψC z * H₁ z ∂(volX F) := hWeight₁
+        _ = ∫ z, ψC z * J z ∂(volX F) := hWhole₁
+        _ = ∫ z in D, J z ∂(volX F) := hWeightJ.symm
+    · calc
+        ∫ z in D, H₂ z ∂(volX F) = ∫ z, ψC z * H₂ z ∂(volX F) := hWeight₂
+        _ = ∫ z, ψC z * J z ∂(volX F) := hWhole₂
+        _ = ∫ z in D, J z ∂(volX F) := hWeightJ.symm
+  constructor
+  · intro f hf g hgInv hgSmooth w
+    exact (hBoth f hf g hgInv hgSmooth w).1
+  · intro f hf g hgInv hgSmooth w
+    exact (hBoth f hf g hgInv hgSmooth w).2
 
 /-- T4 `spec:energy-space` — P-SPEC.md:231. The energy space is the closed graph closure of the
 mass and gradient maps; its test graph is dense and its norm splits into the two components.
