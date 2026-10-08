@@ -2070,6 +2070,65 @@ theorem eisenstein_zeroCoeff_bruhat_on_compact
   simp_rw [hsmallIntegral]
   rw [tsum_mul_left, mul_add, ← mul_assoc, inv_mul_cancel₀ hvolC, one_mul]
 
+/-- A fixed finite rational period becomes an archimedean translation in a scalar summand. -/
+theorem scalarOf_rational_period_translate
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (g : P.tc.G)
+    (γ : GL (Fin 2) F) (α : F) (x : InfinitePlace F → ℂ)
+    (hfix : ∀ h, scalarOf P G Fs.f Fs.fC
+      (h * (g⁻¹ * nFin P α * g)) = scalarOf P G Fs.f Fs.fC h) :
+    scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (γ * upperGL α) * nInf P x * g) =
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat γ * nInf P (infEmbA α + x) * g) := by
+  classical
+  have hupper (a b : ℂ) : upperM ℂ a * upperM ℂ b = upperM ℂ b * upperM ℂ a := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two, add_comm]
+  have hcomm (y : InfinitePlace F → ℂ) :
+      P.tc.rat (upperGL α) * nInf P y = nInf P y * P.tc.rat (upperGL α) := by
+    obtain ⟨r, hq, hf, hc⟩ := P.nS_components
+      ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y)
+    have hf1 (v : FinPlace F) : P.compF v r = 1 := by simpa using hf v
+    have hRP : P.ratRP (upperGL α) * r = r * P.ratRP (upperGL α) := by
+      apply P.comp_ext
+      · intro v
+        simp only [map_mul, hf1, mul_one, one_mul]
+      · intro w
+        have hu : Matrix.GeneralLinearGroup.map w.embedding (upperGL α) =
+            upperM ℂ (w.embedding α) := by
+          apply Units.ext
+          ext i j
+          fin_cases i <;> fin_cases j <;>
+            simp [Matrix.GeneralLinearGroup.map, upperGL, upperM]
+        rw [map_mul, map_mul, P.compC_ratRP, hc, hu]
+        rw [← QuotientGroup.mk_mul, ← QuotientGroup.mk_mul]
+        exact congrArg (fun a : GL (Fin 2) ℂ => (QuotientGroup.mk a : PGL2 ℂ))
+          (hupper (w.embedding α) (y w))
+    simpa only [map_mul, P.q_ratRP, hq, nInf] using congrArg P.q hRP
+  have hni (y z : InfinitePlace F → ℂ) : nInf P (y + z) = nInf P y * nInf P z := by
+    dsimp only [nInf]
+    have hp : ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y + z) =
+        ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y) +
+          ((0 : ∀ v : S.Sf, v.1.adicCompletion F), z) := by simp
+    rw [hp, ofAdd_add, map_mul]
+  have hy : (infEmbA α + x) + (-infEmbA α) = x := by abel
+  have hfactor : (P.tc.rat γ * nInf P (infEmbA α + x) * g) *
+      (g⁻¹ * nFin P α * g) = P.tc.rat (γ * upperGL α) * nInf P x * g := by
+    dsimp only [nFin]
+    calc
+      _ = P.tc.rat γ * (nInf P (infEmbA α + x) * P.tc.rat (upperGL α)) *
+          nInf P (-infEmbA α) * g := by group
+      _ = P.tc.rat γ * (P.tc.rat (upperGL α) * nInf P (infEmbA α + x)) *
+          nInf P (-infEmbA α) * g := by rw [← hcomm]
+      _ = (P.tc.rat γ * P.tc.rat (upperGL α)) *
+          (nInf P (infEmbA α + x) * nInf P (-infEmbA α)) * g := by group
+      _ = (P.tc.rat γ * P.tc.rat (upperGL α)) * nInf P x * g := by rw [← hni, hy]
+      _ = _ := by rw [map_mul]
+  simpa only [hfactor] using hfix (P.tc.rat γ * nInf P (infEmbA α + x) * g)
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
