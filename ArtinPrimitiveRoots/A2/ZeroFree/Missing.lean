@@ -1,3 +1,4 @@
+import DedekindResidue.CompletedZeta.Existence
 import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
 import ArtinPrimitiveRoots.A2.ZeroFree.Density
 import ArtinPrimitiveRoots.A2.Poisson.Missing
@@ -2792,6 +2793,103 @@ structure DyadEnumeration where
   mem_rows : ∀ T, 1 ≤ T → ∀ u, u ∈ rows T ↔ u ≠ U.one ∧ u ∈ frequencyDyad η U T
 variable (DE : DyadEnumeration η U)
 def nonprincipalDyad (T Z : ℝ) : ℂ := rowContribution R sd W η U (DE.rows T) Z
+
+open scoped nonZeroDivisors in
+open ArtinPrimitiveRoots.Hecke.EulerProduct in
+private theorem finiteOrder_idealTerm_summable (χ : HeckeChar F)
+    (hχ : IsOfFinOrder χ) (s : ℂ) (hs : 1 < s.re) :
+    Summable (idealTerm (K := F)
+      (fun I : (Ideal (𝓞 F))⁰ => χ.idealValue I) s) := by
+  classical
+  let f : IdealArithmeticFunction F := fun I => χ.idealValue I
+  let count : ℕ → ℕ := fun n => Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n}
+  have hprod (t : Multiset (Ideal (𝓞 F))) (g : Ideal (𝓞 F) → ℂ)
+      (hg : ∀ I ∈ t, ‖g I‖ ≤ 1) : ‖(t.map g).prod‖ ≤ 1 := by
+    induction t using Multiset.induction_on with
+    | empty => simp
+    | cons I t ih =>
+      rw [Multiset.map_cons, Multiset.prod_cons, norm_mul]
+      exact mul_le_one₀ (hg I (by simp)) (norm_nonneg _) <|
+        ih fun J hJ => hg J (Multiset.mem_cons_of_mem hJ)
+  have hfnorm : ∀ I : (Ideal (𝓞 F))⁰, ‖f I‖ ≤ 1 := by
+    intro I
+    dsimp [f]
+    unfold HeckeChar.idealValue
+    apply hprod
+    intro P hP
+    split_ifs with h
+    · exact primeValue_norm_le_one χ hχ ⟨P, h.1, h.2⟩
+    · simp
+  have hcard (n : ℕ) : (normFiber F n).card ≤ count n := by
+    let T := Ideal.finite_setOfPred_absNorm_eq (S := 𝓞 F) n
+    have hle : (normFiber F n).card ≤ T.toFinset.card := by
+      refine Finset.card_le_card_of_injOn (s := normFiber F n) (t := T.toFinset)
+        (fun I => (I : Ideal (𝓞 F))) ?_ ?_
+      · intro I hI
+        have hnorm : Ideal.absNorm (I : Ideal (𝓞 F)) = n := (mem_normFiber F).mp hI
+        exact T.mem_toFinset.mpr hnorm
+      · intro I hI J hJ hEq
+        exact Subtype.ext hEq
+    exact hle.trans_eq (Nat.card_eq_card_finite_toFinset T).symm
+  have hcount : LSeriesSummable (fun n => (count n : ℂ)) (s.re : ℂ) := by
+    exact_mod_cast DedekindResidue.count_LSeriesSummable F hs
+  have hcountNorm := hcount.norm
+  have hfiber (n : ℕ) :
+      ∑ I ∈ normFiber F n, ‖idealTerm f s I‖ ≤
+        ‖LSeries.term (fun k => (count k : ℂ)) (s.re : ℂ) n‖ := by
+    rcases eq_or_ne n 0 with rfl | hn
+    · simp [normFiber_zero]
+    calc
+      _ ≤ ∑ I ∈ normFiber F n, (1 : ℝ) / (n : ℝ) ^ s.re := by
+        apply Finset.sum_le_sum
+        intro I hI
+        rw [norm_idealTerm, (mem_normFiber F).mp hI]
+        exact div_le_div_of_nonneg_right (hfnorm I) (by positivity)
+      _ = ((normFiber F n).card : ℝ) / (n : ℝ) ^ s.re := by
+        rw [← Finset.sum_div]
+        simp
+      _ ≤ (count n : ℝ) / (n : ℝ) ^ s.re := by
+        gcongr
+        exact_mod_cast hcard n
+      _ = _ := by
+        rw [LSeries.norm_term_eq]
+        simp [hn, Complex.norm_natCast]
+  have hpartition : ∀ I : (Ideal (𝓞 F))⁰,
+      ∃! n : ℕ, I ∈ ((fun J : (Ideal (𝓞 F))⁰ =>
+        Ideal.absNorm (J : Ideal (𝓞 F))) ⁻¹' {n}) := by
+    intro I
+    refine ⟨Ideal.absNorm (I : Ideal (𝓞 F)), by simp, ?_⟩
+    intro n hn
+    simpa using hn.symm
+  have hnorm : Summable (fun I : (Ideal (𝓞 F))⁰ => ‖idealTerm f s I‖) := by
+    apply (summable_partition (f := fun I : (Ideal (𝓞 F))⁰ => ‖idealTerm f s I‖)
+      (fun _ => norm_nonneg _) (s := fun n =>
+        (fun I : (Ideal (𝓞 F))⁰ => Ideal.absNorm (I : Ideal (𝓞 F))) ⁻¹' {n})
+      hpartition).2
+    constructor
+    · intro n
+      let fiber : Set ((Ideal (𝓞 F))⁰) :=
+        (fun I : (Ideal (𝓞 F))⁰ => Ideal.absNorm (I : Ideal (𝓞 F))) ⁻¹' {n}
+      have hEq : fiber = {I : (Ideal (𝓞 F))⁰ | Ideal.absNorm (I : Ideal (𝓞 F)) = n} := by
+        ext I
+        simp [fiber]
+      letI : Fintype fiber := (hEq ▸ finite_normFiber F n).fintype
+      exact Summable.of_finite
+    · refine Summable.of_nonneg_of_le
+        (f := fun n => ‖LSeries.term (fun k => (count k : ℂ)) (s.re : ℂ) n‖)
+        (g := fun n => ∑' I : (fun J : (Ideal (𝓞 F))⁰ =>
+          Ideal.absNorm (J : Ideal (𝓞 F))) ⁻¹' {n}, ‖idealTerm f s I‖)
+        (fun n => tsum_nonneg fun I => norm_nonneg _) (fun n => ?_) hcountNorm
+      let fiber : Set ((Ideal (𝓞 F))⁰) :=
+        (fun I : (Ideal (𝓞 F))⁰ => Ideal.absNorm (I : Ideal (𝓞 F))) ⁻¹' {n}
+      have hEq : fiber = {I : (Ideal (𝓞 F))⁰ | Ideal.absNorm (I : Ideal (𝓞 F)) = n} := by
+        ext I
+        simp [fiber]
+      letI : Fintype fiber := (hEq ▸ finite_normFiber F n).fintype
+      rw [← coe_normFiber, Finset.tsum_subtype' (normFiber F n)
+        (fun I => ‖idealTerm f s I‖)]
+      exact hfiber n
+  exact summable_norm_iff.mp hnorm
 
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
