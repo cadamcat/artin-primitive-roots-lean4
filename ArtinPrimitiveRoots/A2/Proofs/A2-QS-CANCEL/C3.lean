@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C2
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P2
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».C3.Main
 
 /-!
 # A2-QS-CANCEL, part C3: the remainder terms of the error tuple
@@ -71,8 +72,8 @@ theorem qs_dual_transition_C3c [IsTotallyComplex K] (F : QSFamily m qS)
       ∀ (M n κ : ℝ) (𝔮 : Ideal (𝓞 K)) (cols : Finset (Ideal (𝓞 K))) (z : Ideal (𝓞 K) → ℂ),
         1 ≤ n → 1 ≤ κ → 2 * κ ≤ M → QSBlockCols m qS 𝔮 n cols →
         ‖qsPairSum cols z (qsDualKernel (qsInnerTrans K) F W M κ ((M * n) ^ η) n 𝔮)‖ ≤
-          C * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α * ∑ c ∈ cols, ‖z c‖ ^ 2 := by
-  sorry
+          C * qsN 𝔮 ^ 8 * (M * n) ^ δ * qsBlockShape M n κ α * ∑ c ∈ cols, ‖z c‖ ^ 2 :=
+  QSC3.c3c_main F hrf hqS W hW α hα1 hα2 hexp δ hδ
 
 /-- C3d (IMPL): rapid tails (both inner tails and the dual high-core kernel), under the margin
 `N𝔮 n² (Mn)^θ ≤ κ M`. -/

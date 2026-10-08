@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-CANCEL».Block
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M2
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».S0Slice
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-BOOT».B0.Final
 
 /-!
 # A2-QS-BOOT: monotone row norm, finite descent, bootstrap and the core theorem
@@ -207,8 +208,8 @@ theorem qs_high_core_bound_B0 [IsTotallyComplex K] (F : QSFamily m qS)
     ∃ η : ℝ, 0 < η ∧ η ≤ δ ∧ ∃ C : ℝ, 0 < C ∧ ∀ M N : ℝ, 1 ≤ N →
       2 * N * (M * N) ^ η ≤ M → M ≤ N ^ (2 : ℝ) →
       qsHighNorm F W M N (N ^ (2 : ℝ) / M * (M * N) ^ η) ≤
-        C * (M * N) ^ δ * (M + N + N ^ (2 * α - 1) * M ^ (1 - α)) := by
-  sorry
+        C * (M * N) ^ δ * (M + N + N ^ (2 * α - 1) * M ^ (1 - α)) :=
+  QSB0.b0_main F hrf hqS W hW α hα1 hα2 hexp δ hδ
 
 /-- Recursion (IMPL): `HasExponent α ⇒ B1(M,N) ≪_δ (MN)^δ (M + N + N^{2α-1} M^{1-α})` for
 `M ≥ N ≥ 1` (found:556-570): row split at `κ = N²/M (MN)^η`, `B1(κ,N) = B1(N,κ) ≪ N + κ^α`
