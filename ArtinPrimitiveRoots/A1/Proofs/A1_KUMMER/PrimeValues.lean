@@ -36,6 +36,12 @@ theorem kummer_prime_values (D : FieldData F) (H : HilbertData F) (a : Fˣ)
     (hloc : ∀ P : FinPlace F, localComponent κ P = kummerLocal D H P (toLoc P a))
     (P : FinPlace F) (h6 : (6 : 𝓞 F) ∉ P.asIdeal) (ha : residue P (a : F) ≠ 0) :
     unramifiedAt κ P ∧ primeValue κ P = chi D P (a : F) := by
-  sorry
+  have hnr : unramifiedAt κ P := by
+    intro x hx hxinv
+    rw [hloc P]
+    exact kummer_local_unit_trivial D H P h6 a ha x ⟨hx, hxinv⟩
+  refine ⟨hnr, ?_⟩
+  rw [primeValue, ite_eq_left hnr, hloc P]
+  exact frobenius_residue_root D H a P h6 ha
 
 end ArtinPrimitiveRoots.A1.KummerProofs
