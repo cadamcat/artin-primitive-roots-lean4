@@ -828,7 +828,135 @@ theorem rf_tail_negligible : ∀ C0 δ δ₁ σ N A0 : ℝ, 0 < C0 → 0 < δ �
   A0 + 2 * M0 * δ₁ + 2 * σ * (2 * M0 - 1) < 2 * δ * (N - σ) →
     ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z, 1 ≤ P → 1 ≤ D0 → 2 ≤ Z → P * D0 ≤ C0 * Z ^ M0 →
       reflectionMass R false υ P D0 Z δ ≤ C * Z ^ (-A0) * P ^ (1 / 2 : ℝ) * D0 := by
-  sorry
+  intro C0 δ δ₁ σ N A0 hC0 hδ hδ₁ hσ hσN hA0 hExp
+  obtain ⟨Cm, hCm, htail⟩ := rf_tail_mass (R := R) δ δ₁ σ N hδ hδ₁ hσ hσN
+  let K : ℝ := 8 * C0 ^ 2
+  let a : ℝ := 2 * M0 * δ₁
+  let b : ℝ := 2 * σ * (2 * M0 - 1)
+  let c : ℝ := -2 * δ * (N - σ)
+  let e : ℝ := a + b + c
+  let C : ℝ := Cm * C0 ^ (2 * δ₁) * K ^ (2 * σ)
+  have hK : 0 < K := by dsimp [K]; positivity
+  have hC : 0 < C := by dsimp [C]; positivity
+  have he : e < -A0 := by
+    dsimp [e, a, b, c]
+    linarith
+  refine ⟨C, hC, ?_⟩
+  intro υ P D0 Z hP hD0 hZ hPD
+  have hPpos : 0 < P := by linarith
+  have hDpos : 0 < D0 := by linarith
+  have hZpos : 0 < Z := by linarith
+  have hPbound : P ≤ C0 * Z ^ M0 := by
+    calc
+      P = P * 1 := by ring
+      _ ≤ P * D0 := mul_le_mul_of_nonneg_left hD0 hPpos.le
+      _ ≤ C0 * Z ^ M0 := hPD
+  have hP2 : P ≤ P ^ 2 := by
+    calc
+      P = P * 1 := by ring
+      _ ≤ P * P := mul_le_mul_of_nonneg_left hP hPpos.le
+      _ = P ^ 2 := by ring
+  have hD2P : D0 ^ 2 * P ≤ (P * D0) ^ 2 := by
+    calc
+      D0 ^ 2 * P ≤ D0 ^ 2 * P ^ 2 := mul_le_mul_of_nonneg_left hP2 (by positivity)
+      _ = (P * D0) ^ 2 := by ring
+  have hPDsquare : (P * D0) ^ 2 ≤ C0 ^ 2 * Z ^ (2 * M0) := by
+    have hpow := pow_le_pow_left₀ (by positivity : 0 ≤ P * D0) hPD 2
+    calc
+      (P * D0) ^ 2 ≤ (C0 * Z ^ M0) ^ 2 := hpow
+      _ = C0 ^ 2 * Z ^ (2 * M0) := by
+        rw [mul_pow]
+        congr 1
+        rw [← Real.rpow_natCast, ← Real.rpow_mul hZpos.le]
+        congr 1 <;> ring
+  have hLpos : 0 < reflectionColumnLength P D0 Z := by
+    dsimp [reflectionColumnLength]
+    positivity
+  have hLbound : reflectionColumnLength P D0 Z ≤ K * Z ^ (2 * M0 - 1) := by
+    have hcoef : 0 ≤ 8 / Z := by positivity
+    have hdivPow (x : ℝ) : Z ^ x / Z = Z ^ (x - 1) := by
+      calc
+        Z ^ x / Z = Z ^ x * Z ^ (-1 : ℝ) := by rw [div_eq_mul_inv, ← Real.rpow_neg_one]
+        _ = Z ^ (x + (-1 : ℝ)) := by rw [← Real.rpow_add hZpos]
+        _ = Z ^ (x - 1) := by congr 1 <;> ring
+    calc
+      reflectionColumnLength P D0 Z = (8 / Z) * (D0 ^ 2 * P) := by
+        dsimp [reflectionColumnLength]
+        ring
+      _ ≤ (8 / Z) * (C0 ^ 2 * Z ^ (2 * M0)) := by
+        exact mul_le_mul_of_nonneg_left (hD2P.trans hPDsquare) hcoef
+      _ = K * Z ^ (2 * M0) / Z := by dsimp [K]; ring
+      _ = K * Z ^ (2 * M0 - 1) := by
+        calc
+          K * Z ^ (2 * M0) / Z = K * (Z ^ (2 * M0) / Z) := by ring
+          _ = K * Z ^ (2 * M0 - 1) := by rw [hdivPow]
+  have hPpow : P ^ (2 * δ₁) ≤ C0 ^ (2 * δ₁) * Z ^ a := by
+    have hδpow : 0 < 2 * δ₁ := by positivity
+    calc
+      P ^ (2 * δ₁) ≤ (C0 * Z ^ M0) ^ (2 * δ₁) :=
+        Real.rpow_le_rpow hPpos.le hPbound hδpow.le
+      _ = C0 ^ (2 * δ₁) * Z ^ a := by
+        rw [Real.mul_rpow hC0.le (Real.rpow_nonneg hZpos.le M0), ← Real.rpow_mul hZpos.le]
+        congr 1 <;> dsimp [a] <;> ring
+  have hLpow : reflectionColumnLength P D0 Z ^ (2 * σ) ≤
+      K ^ (2 * σ) * Z ^ b := by
+    have hσpow : 0 < 2 * σ := by linarith
+    calc
+      reflectionColumnLength P D0 Z ^ (2 * σ) ≤ (K * Z ^ (2 * M0 - 1)) ^ (2 * σ) :=
+        Real.rpow_le_rpow hLpos.le hLbound hσpow.le
+      _ = K ^ (2 * σ) * Z ^ b := by
+        rw [Real.mul_rpow hK.le (Real.rpow_nonneg hZpos.le _), ← Real.rpow_mul hZpos.le]
+        congr 1 <;> dsimp [b] <;> ring
+  have hJpow :
+      max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) ≤
+        Z ^ c := by
+    have hZδpos : 0 < Z ^ δ := Real.rpow_pos_of_pos hZpos δ
+    have hbase : Z ^ δ ≤ max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ := le_max_left _ _
+    have hexp : -2 * (N - σ) ≤ 0 := by linarith
+    calc
+      max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) ≤
+          (Z ^ δ) ^ (-2 * (N - σ)) :=
+        Real.rpow_le_rpow_of_nonpos hZδpos hbase hexp
+      _ = Z ^ c := by
+        rw [← Real.rpow_mul hZpos.le]
+        congr 1 <;> dsimp [c] <;> ring
+  have hprod :
+      P ^ (1 / 2 + 2 * δ₁) * reflectionColumnLength P D0 Z ^ (2 * σ) *
+          max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) ≤
+        P ^ (1 / 2 : ℝ) * (C0 ^ (2 * δ₁) * Z ^ a) * (K ^ (2 * σ) * Z ^ b) * Z ^ c := by
+    rw [Real.rpow_add hPpos]
+    gcongr
+  have hZprod : Z ^ a * Z ^ b * Z ^ c = Z ^ e := by
+    calc
+      Z ^ a * Z ^ b * Z ^ c = Z ^ (a + b) * Z ^ c := by rw [← Real.rpow_add hZpos]
+      _ = Z ^ ((a + b) + c) := by rw [← Real.rpow_add hZpos]
+      _ = Z ^ e := by congr 1 <;> dsimp [e] <;> ring
+  have hmass := htail υ P D0 Z hP hD0 hZ
+  calc
+    reflectionMass R false υ P D0 Z δ ≤
+        Cm * P ^ (1 / 2 + 2 * δ₁) * D0 *
+          reflectionColumnLength P D0 Z ^ (2 * σ) *
+            max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) := hmass
+    _ = Cm * D0 * (P ^ (1 / 2 + 2 * δ₁) *
+          reflectionColumnLength P D0 Z ^ (2 * σ) *
+            max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) ) := by ring
+    _ ≤ Cm * D0 * (P ^ (1 / 2 : ℝ) * (C0 ^ (2 * δ₁) * Z ^ a) *
+          (K ^ (2 * σ) * Z ^ b) * Z ^ c) :=
+        mul_le_mul_of_nonneg_left hprod (by positivity)
+    _ = C * Z ^ e * P ^ (1 / 2 : ℝ) * D0 := by
+      rw [← hZprod]
+      dsimp [C]
+      ring
+    _ ≤ C * Z ^ (-A0) * P ^ (1 / 2 : ℝ) * D0 := by
+      have hZpow : Z ^ e ≤ Z ^ (-A0) :=
+        Real.rpow_le_rpow_of_exponent_le (by linarith) he.le
+      have hfactor : 0 ≤ C * P ^ (1 / 2 : ℝ) * D0 := by positivity
+      calc
+        C * Z ^ e * P ^ (1 / 2 : ℝ) * D0 =
+            (C * P ^ (1 / 2 : ℝ) * D0) * Z ^ e := by ring
+        _ ≤ (C * P ^ (1 / 2 : ℝ) * D0) * Z ^ (-A0) :=
+          mul_le_mul_of_nonneg_left hZpow hfactor
+        _ = C * Z ^ (-A0) * P ^ (1 / 2 : ℝ) * D0 := by ring
 /-- Fourier transform with the 2π convention; only its L1 bound is used by retained mass. -/
 def separatedFourier (ρ : ℝ → ℂ) (υ : UnitSix S) (κ : S.V) (v τ : ℝ) : ℂ :=
   ∫ x : ℝ, ρ x * profilePhi R υ κ (v * Real.exp x) * Complex.exp (-2 * Real.pi * Complex.I * (x : ℂ) * τ)
