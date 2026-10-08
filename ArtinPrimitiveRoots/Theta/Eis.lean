@@ -3562,6 +3562,55 @@ theorem scalarM_q
   intro w hw
   exact (congrArg (intertwineC (Fs.fC w)) (hcompC w)).symm
 
+/-- Intertwining preserves an identically zero global scalar section. -/
+theorem scalarM_eq_zero_of_scalarOf_eq_zero
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s)
+    (hzero : ∀ g : P.tc.G, scalarOf P G Fs.f Fs.fC g = 0)
+    (g : P.tc.G) : scalarM P G μ Fs g = 0 := by
+  classical
+  obtain ⟨r, hr⟩ := P.q_surj g
+  let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+    if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+    else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+  have hfinite : (Function.mulSupport fun v => G.lam v (fM v (P.compF v r))).Finite :=
+    (scalarM_q P G μ hs Fs r).1
+  rw [← hr, (scalarM_q P G μ hs Fs r).2]
+  change (κF F)⁻¹ * cprod Fs.T0 s *
+    ((∏ᶠ v, G.lam v (fM v (P.compF v r))) *
+      ∏ w, intertwineC (Fs.fC w) (P.compC w r)) = 0
+  rcases scalarOf_zero_has_zero_factor P G Fs hzero with ⟨v, hv, hlocal⟩ | ⟨w, harch⟩
+  · have hM : G.lam v (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) = 0 := by
+      let lam : (G.T v).V →L[ℂ] ℂ := LinearMap.toContinuousLinearMap (G.lam v)
+      have hint := (intertwine_isSection (P.loc v) (G.T v) (μ v) s hs
+        (Fs.f v) (Fs.f_sec v)).1 (P.compF v r)
+      have hfun : (fun x : v.adicCompletion F =>
+          lam (Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))) =
+          fun _ => (0 : ℂ) := by
+        funext x
+        exact hlocal _
+      calc
+        G.lam v (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) =
+            lam (∫ x, Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) *
+              P.compF v r) ∂(μ v).μ) := rfl
+        _ = ∫ x, lam (Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) *
+              P.compF v r)) ∂(μ v).μ :=
+          (ContinuousLinearMap.integral_comp_comm lam hint).symm
+        _ = 0 := by rw [hfun, integral_zero]
+    have hfactor : G.lam v (fM v (P.compF v r)) = 0 := by
+      simpa only [fM, dite_eq_left hv] using hM
+    rw [finprod_eq_zero _ v hfactor hfinite, zero_mul, mul_zero]
+  · have hM : intertwineC (Fs.fC w) (P.compC w r) = 0 := by
+      have hfun : (fun x : ℂ => Fs.fC w (wC * nC x * P.compC w r)) =
+          fun _ => (0 : ℂ) := by
+        funext x
+        exact harch _
+      rw [intertwineC, hfun, integral_zero]
+    have hprod : (∏ w, intertwineC (Fs.fC w) (P.compC w r)) = 0 :=
+      Finset.prod_eq_zero (Finset.mem_univ w) hM
+    rw [hprod, mul_zero, mul_zero]
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
