@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
 import ArtinPrimitiveRoots.A2.ZeroFree.Density
 import ArtinPrimitiveRoots.A2.Poisson.Missing
 import ArtinPrimitiveRoots.A2.Interface
+import ArtinPrimitiveRoots.A2.Proofs.A2_ROWS.HeightConvolution
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
@@ -125,7 +126,7 @@ theorem zf_height_decay : ∀ lξ rξ lw rw lz rz A0 : ℝ,
 /-- zf:height-decay, 06:389-411. Gaussian convolution preserves arbitrary polynomial decay. -/
 theorem zf_height_convolution : ∀ A1 : ℝ, 0 < A1 → ∃ A0 C : ℝ, 1 < A0 ∧ 0 < C ∧ ∀ T : ℝ,
   (∫ v : ℝ, Real.exp (-((T + v) ^ 2)) * (1 + |v|) ^ (-A0)) ≤ C * (1 + |T|) ^ (-A1) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.A2Rows.zf_height_convolution_proof
 /-- def:zf-principal-mellin, 06:458–476: the exact residue scalar in the chosen normalization. -/
 def principalConstant : ℂ := HA.RS S ^ 2 / 6 * weightM R sd W (1 / 6) * weightW1hat W 1
 def principalSignal (Z : ℝ) : ℂ := fEta (Heta R η U HC) (HA.LS S η) Z
