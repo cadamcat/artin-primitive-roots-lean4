@@ -839,7 +839,35 @@ theorem sheet_profile [IsTotallyComplex F] (μ : ∀ v : FinPlace F, LocHaar v) 
           absProfile S μ v0 J ff fc j u ≤ C * u ^ (-σ)) ∧
     (∀ (j : ℕ) (α A : ℝ), 0 < α → α < δ → 0 < A → ∃ C : ℝ, ∀ u : ℝ, 0 < u →
       ‖normDerivR j Hf u‖ + absProfile S μ v0 J ff fc j u ≤ C * min (u ^ α) (u ^ (-A))) := by
-  sorry
+  dsimp only
+  obtain ⟨hs, Cm, hCm, hd⟩ := thsol_profile_differentiation S μ v0 δ hδ J ff fc hff hfc m hm
+  refine ⟨hs, ⟨Cm, hCm, ?_⟩, ?_⟩
+  · intro j σ hσ
+    obtain ⟨C, _, hC⟩ := thsol_profile_weighted S μ v0 δ hδ J ff fc hff hfc j σ hσ
+    exact ⟨C, fun u hu => ⟨hd j u hu, (hC u hu).2⟩⟩
+  · intro j α A hα hαδ hA
+    obtain ⟨C₁, hC₁, h₁⟩ :=
+      thsol_profile_weighted S μ v0 δ hδ J ff fc hff hfc j (-α) (by linarith)
+    obtain ⟨C₂, hC₂, h₂⟩ :=
+      thsol_profile_weighted S μ v0 δ hδ J ff fc hff hfc j A (by linarith)
+    refine ⟨(Cm + 1) * max C₁ C₂, ?_⟩
+    intro u hu
+    have hp₁ := (h₁ u hu).2
+    simp only [neg_neg] at hp₁
+    have hp₂ := (h₂ u hu).2
+    have hc₁ : absProfile S μ v0 J ff fc j u ≤ max C₁ C₂ * u ^ α :=
+      hp₁.trans (mul_le_mul_of_nonneg_right (le_max_left _ _) (Real.rpow_nonneg hu.le _))
+    have hc₂ : absProfile S μ v0 J ff fc j u ≤ max C₁ C₂ * u ^ (-A) :=
+      hp₂.trans (mul_le_mul_of_nonneg_right (le_max_right _ _) (Real.rpow_nonneg hu.le _))
+    have hd' := hd j u hu
+    have hm₁ : 0 ≤ Cm + 1 := by linarith
+    rcases le_total (u ^ α) (u ^ (-A)) with h | h
+    · rw [min_eq_left h]
+      have := mul_le_mul_of_nonneg_left hc₁ hm₁
+      nlinarith
+    · rw [min_eq_right h]
+      have := mul_le_mul_of_nonneg_left hc₂ hm₁
+      nlinarith
 
 /-- Absolute Mellin moments `M_β(𝒦) = ∫_0^∞ |𝒦(T)| T^β dT/T`. -/
 def absMoment (K : ℝ → ℂ) (β : ℝ) : ℝ := ∫ T in Set.Ioi (0 : ℝ), ‖K T‖ * T ^ β / T
