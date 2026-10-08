@@ -171,6 +171,13 @@ theorem classical_constTerm_eq_zero [IsTotallyComplex F] (P : CoverPackage D S H
   refine ⟨Pτ, hPτ, ?_⟩
   change ∫ x in Pτ, cuspClassical P (aInf P) Ψ gj
     (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y) = 0
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ) (M := F)
+  have hcount : (ArtinPrimitiveRoots.A1.Spec.cuspTranslations F Γ τ :
+      Set (InfinitePlace F → ℂ)).Countable := by
+    change ((ArtinPrimitiveRoots.A1.Spec.infEmb F) ''
+      (ArtinPrimitiveRoots.A1.Spec.cuspLattice F Γ τ : Set F)).Countable
+    exact (Set.to_countable _).image _
+  letI : Countable (ArtinPrimitiveRoots.A1.Spec.cuspTranslations F Γ τ) := hcount.to_subtype
   apply th_cusp_part3 _ _ hle hindex P₀ Pτ hP₀ hPτ
     (fun x => cuspClassical P (aInf P) Ψ gj (τ • ArtinPrimitiveRoots.A1.Spec.ptX' F x y))
   · exact th_cusp_periodic P (aInf P) Ψ gj Γ

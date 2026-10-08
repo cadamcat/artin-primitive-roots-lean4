@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-CUSP».IntegralDescent
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
@@ -455,7 +456,7 @@ theorem th_cusp_periodic [IsTotallyComplex F] (P : CoverPackage D S H A)
   sorry
 
 /-- A zero integral descends from a finite-index period sublattice, including nonintegrable functions. -/
-theorem th_cusp_part3 (Λ₀ Λ : AddSubgroup (InfinitePlace F → ℂ))
+theorem th_cusp_part3 (Λ₀ Λ : AddSubgroup (InfinitePlace F → ℂ)) [Countable Λ]
     (hle : Λ₀ ≤ Λ) (hindex : Λ₀.relIndex Λ ≠ 0)
     (P₀ Pτ : Set (InfinitePlace F → ℂ))
     (hP₀ : IsAddFundamentalDomain Λ₀ P₀ volume)
@@ -463,6 +464,6 @@ theorem th_cusp_part3 (Λ₀ Λ : AddSubgroup (InfinitePlace F → ℂ))
     (f : (InfinitePlace F → ℂ) → ℂ)
     (hf : ∀ μ ∈ Λ, ∀ x, f (μ + x) = f x) (hzero : ∫ x in P₀, f x = 0) :
     ∫ x in Pτ, f x = 0 := by
-  sorry
+  exact cusp_integral_descent Λ₀ Λ hle hindex P₀ Pτ hP₀ hPτ f hf hzero
 
 end ArtinPrimitiveRoots.A1.Theta
