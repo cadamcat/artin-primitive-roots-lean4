@@ -4660,6 +4660,88 @@ private theorem rf_forward_Bm_series (r : ReflectionRow S) (Z : ℝ)
   simp only [qI, div_eq_mul_inv, Complex.ofReal_mul, Complex.ofReal_inv]
   ring
 
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_constant_integrable (r : ReflectionRow S) (l : ℝ)
+    (hl : 0 < l) :
+    IntegrableOn (onUnits (fun y : S.FSˣ => bCut (Bd := Bd) y *
+      (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r false true y))
+      (omegaAt R l) (R.sheets.sheet l) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  letI : ∀ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+      Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let L := R.chars.L (rowClass R r)
+  let nd (d : Digits R r) : R.C.G :=
+    ((R.exterior.support r.ideal).attach.toList.map (fun v =>
+      R.C.n v.1 (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))))).prod
+  have hN (d : Digits R r) :
+      Continuous (fun y : S.FSˣ => R.T.θN L (R.C.aS y * nd d)) := by
+    simpa only [one_mul] using
+      R.T.cont_N L (R.mem_family (rowClass R r)) 1 (nd d)
+  have hSum : Continuous (fun y : S.FSˣ =>
+      ∑ d : Digits R r, digitAlpha R r d * R.T.θN L (R.C.aS y * nd d)) := by
+    apply continuous_finsetSum Finset.univ
+    intro d hd
+    exact continuous_const.mul (hN d)
+  have hDigitCont : Continuous (fun y : S.FSˣ => digitSum R r false true y) := by
+    simpa [digitSum, digitPoint, L, nd, finsum_eq_sum_of_fintype] using hSum
+  have hLcont : Continuous (fun y : S.FSˣ => Lvalue R (rowClass R r) y) := by
+    simpa [Lvalue] using L.cont
+  let f : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y *
+    (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r false true y
+  have hfMeas : Measurable f :=
+    ((rf_bCut_measurable R).mul (measurable_inv.comp hLcont.measurable)).mul
+      hDigitCont.measurable
+  have hAES : AEStronglyMeasurable (onUnits f)
+      ((R.sheets.sheet l).restrict (omegaAt R l)) :=
+    (rf_onUnits_measurable f hfMeas).aestronglyMeasurable
+  have hData := a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl
+  have hOmegaMeas : MeasurableSet (omegaAt R l) := hData.1.1
+  have hOmegaUnit : ∀ y ∈ omegaAt R l, IsUnit y ∧ S.absS y = l := hData.1.2.1
+  have hMass : R.sheets.sheet l (omegaAt R l) < ⊤ := hData.2.1
+  obtain ⟨K, hK, hOmegaK⟩ := R.sheets.omega_bounded
+  let a := (R.sheets.ellU l : S.FS)
+  let Kl : Set S.FS := (fun y : S.FS => a * y) '' K
+  have hMul : Continuous (fun y : S.FS => a * y) :=
+    continuous_const.mul continuous_id
+  have hKl : IsCompact Kl := hK.image hMul
+  have hOmegaKl : omegaAt R l ⊆ Kl := by
+    intro y hy
+    rcases hy with ⟨x, hx, hxy⟩
+    exact ⟨x, hOmegaK hx, hxy.symm⟩
+  obtain ⟨C, hC⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.continuous_unit_function_bound_on_sheet
+      S Kl hKl l hl (fun y => digitSum R r false true y) hDigitCont
+  have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+    unfold bCut
+    split_ifs <;> simp
+  have hLinvNorm (y : S.FSˣ) : ‖(Lvalue R (rowClass R r) y)⁻¹‖ = 1 := by
+    rw [norm_inv]
+    have hLnorm : ‖Lvalue R (rowClass R r) y‖ = 1 := by
+      simpa [Lvalue] using L.unitary y
+    rw [hLnorm]
+    norm_num
+  have hBound : ∀ᵐ y ∂((R.sheets.sheet l).restrict (omegaAt R l)),
+      ‖onUnits f y‖ ≤ C := by
+    filter_upwards [ae_restrict_mem hOmegaMeas] with y hy
+    obtain ⟨hyUnit, hyNorm⟩ := hOmegaUnit y hy
+    let u : S.FSˣ := hyUnit.unit
+    have hval : (u : S.FS) = y := hyUnit.unit_spec
+    have hleft : onUnits f y = f u := by simp [onUnits, hyUnit, u]
+    rw [hleft]
+    have hD : ‖digitSum R r false true u‖ ≤ C :=
+      hC u (by rw [hval]; exact hOmegaKl hy) (by rw [hval]; exact hyNorm)
+    calc
+      ‖f u‖ = ‖bCut (Bd := Bd) u‖ * ‖digitSum R r false true u‖ := by
+        simp only [f, norm_mul, hLinvNorm, mul_one]
+      _ ≤ 1 * ‖digitSum R r false true u‖ :=
+        mul_le_mul_of_nonneg_right (hBnorm u) (norm_nonneg _)
+      _ ≤ C := by simpa only [one_mul] using hD
+  exact IntegrableOn.of_bound hMass hAES C hBound
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
