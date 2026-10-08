@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A1.AddChar
 import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.Core
+import ArtinPrimitiveRoots.Arith.SUnit
 import ArtinPrimitiveRoots.Theta.LocalInt
 import ArtinPrimitiveRoots.A2.Proofs.A2_ZF_TOP.ArchFourier
 import Mathlib.MeasureTheory.Group.Measure
@@ -2921,7 +2922,13 @@ def SData.fsOneSetoid (S : SData F CE condη) : Setoid S.FSOne where
 
 private theorem S_units_finite_mod_six (S : SData F CE condη) :
     Finite (S.US ⧸ (powMonoidHom 6 : S.US →* S.US).range) := by
-  sorry
+  have hfg : Monoid.FG S.US := by
+    change Monoid.FG ((S.Sf : Set (HeightOneSpectrum (𝓞 F))).unit F)
+    exact ArtinPrimitiveRoots.Arith.sUnit_fg F S.Sf
+  letI : Group.FG S.US := Group.fg_iff_monoid_fg.mpr hfg
+  have hindex : (powMonoidHom (α := S.US) 6).range.FiniteIndex :=
+    Subgroup.finiteIndex_range_powMonoidHom_of_fg S.US (by norm_num)
+  exact Subgroup.finiteIndex_iff_finite_quotient.mp hindex
 
 private theorem fsOne_compact_representatives (S : SData F CE condη) (D : FieldData F) :
     ∃ K : Set S.FS, IsCompact K ∧
