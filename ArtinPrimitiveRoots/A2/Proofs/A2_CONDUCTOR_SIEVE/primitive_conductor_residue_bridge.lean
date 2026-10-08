@@ -932,6 +932,57 @@ private theorem conductorPrincipalFactorization
     _ = φ (IdeleGroup.unitEmbedding (𝓞 F) F a) := congrArg φ hfactor.symm
     _ = 1 := hprincipal
 
+private theorem conductorLocalValue_eq_primeValue_pow
+    (ω : A1.HeckeChar F) (v : A1.FinPlace F)
+    (hunr : ω.UnramifiedAt v) (a : Fˣ) (n : ℕ)
+    (hval : v.valuation F (a : F) = WithZero.exp (-(n : ℤ))) :
+    ((ω.loc v (A1.toLoc v a) : ℂˣ) : ℂ) = ω.primeValue v ^ n := by
+  let α := A1.toLoc v a
+  let π : (v.adicCompletion F)ˣ :=
+    A1.toLoc v (Units.mk0 (A1.unif v) (A1.unif_ne_zero v))
+  have hαval : Valued.v (α : v.adicCompletion F) = WithZero.exp (-(n : ℤ)) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (a : F)) = _
+    exact (v.valuedAdicCompletion_eq_valuation' (a : F)).trans hval
+  have hπval : Valued.v (π : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (A1.unif v)) = _
+    refine (v.valuedAdicCompletion_eq_valuation' (A1.unif v)).trans ?_
+    simpa [A1.unif] using (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hpow : Valued.v ((π ^ (n : ℤ) : (v.adicCompletion F)ˣ) :
+      v.adicCompletion F) = Valued.v (α : v.adicCompletion F) := by
+    calc
+      _ = Valued.v (π : v.adicCompletion F) ^ (n : ℤ) := by simp
+      _ = WithZero.exp (-(n : ℤ)) := by
+        rw [hπval]
+        simpa using (WithZero.exp_zsmul (n : ℤ) (-1 : ℤ)).symm
+      _ = Valued.v (α : v.adicCompletion F) := hαval.symm
+  have hαnonzero : Valued.v (α : v.adicCompletion F) ≠ 0 := by
+    simpa using α.ne_zero
+  let u₀ : (v.adicCompletion F)ˣ := α * (π ^ (n : ℤ))⁻¹
+  have hu₀val : Valued.v (u₀ : v.adicCompletion F) = 1 := by
+    dsimp [u₀]
+    rw [map_mul, Units.val_inv_eq_inv_val, map_inv₀, hpow]
+    exact mul_inv_cancel₀ hαnonzero
+  have hu₀int : (u₀ : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+    rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hu₀val.le
+  have hu₀invint : ((u₀⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F := by
+    rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers,
+      Units.val_inv_eq_inv_val, map_inv₀, hu₀val]
+    simp
+  have hunit := hunr u₀ hu₀int hu₀invint
+  have hdecomp : u₀ * π ^ (n : ℤ) = α := by
+    dsimp [u₀]
+    group
+  have hvalue : ω.loc v α = ω.loc v π ^ (n : ℤ) := by
+    calc
+      ω.loc v α = ω.loc v (u₀ * π ^ (n : ℤ)) := congrArg (ω.loc v) hdecomp.symm
+      _ = ω.loc v u₀ * ω.loc v π ^ (n : ℤ) := by rw [map_mul, map_zpow]
+      _ = ω.loc v π ^ (n : ℤ) := by rw [hunit, one_mul]
+  change ((ω.loc v α : ℂˣ) : ℂ) = _
+  rw [hvalue]
+  simp [A1.HeckeChar.primeValue, hunr, π]
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
