@@ -11016,6 +11016,343 @@ private lemma factorial_gap_decay (Cb : ℝ) (hCb : 0 ≤ Cb) :
       have hm := mul_le_mul_of_nonpos_left hk (by nlinarith : Real.log L*(-1/10:ℝ) ≤ 0)
       nlinarith)
 
+private lemma pathBonferroniUpper_measurable {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (m : ℕ) (ℓ : LineData S.x K F.a) :
+    Measurable (fun y : ℝ×ℝ×ℝ => pathBonferroniUpper F S γ m ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ) :=
+  ((pathArch_measurable F S γ).mul measurable_const).mul measurable_const
+
+private lemma pathBonferroniGap_measurable {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (m : ℕ) (ℓ : LineData S.x K F.a) :
+    Measurable (fun y : ℝ×ℝ×ℝ => pathBonferroniGap F S γ m ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ) :=
+  ((pathArch_measurable F S γ).mul measurable_const).mul measurable_const
+
+private lemma pathBonferroni_abs_bounds {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (γ : EnvPath S.x K) (m : ℕ) (hm : Even m) (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+    |pathBonferroniUpper F S γ m w ℓ| ≤
+      (((inactiveSubtype F S γ).powerset.filter fun W => W.card ≤ m+1).card : ℝ) ∧
+    |pathBonferroniGap F S γ m w ℓ| ≤
+      (((inactiveSubtype F S γ).powerset.filter fun W => W.card ≤ m+1).card : ℝ) := by
+  classical
+  let T := inactiveSubtype F S γ
+  let B := T.powerset.filter fun W => W.card ≤ m+1
+  have hAbs (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) : |monomialObservable F S γ W w ℓ| ≤ 1 := by
+    have hb := monomialObservable_bounds F S hF γ W w ℓ
+    rw [abs_of_nonneg hb.1]
+    exact hb.2
+  constructor
+  · rw [pathBonferroniUpper_expansion]
+    have hc : (T.powerset.filter fun W => W.card ≤ m).card ≤ B.card := Finset.card_le_card (by
+      intro W hW
+      exact Finset.mem_filter.mpr ⟨(Finset.mem_filter.mp hW).1,by have hc := (Finset.mem_filter.mp hW).2;omega⟩)
+    calc
+      _ ≤ ∑ W∈T.powerset.filter (fun W => W.card ≤ m),|(-1:ℝ)^W.card*monomialObservable F S γ W w ℓ| := by
+        simpa only [Real.norm_eq_abs] using norm_sum_le (T.powerset.filter fun W => W.card ≤ m)
+          (fun W => (-1:ℝ)^W.card*monomialObservable F S γ W w ℓ)
+      _ ≤ ∑ _W∈T.powerset.filter (fun W => W.card ≤ m),(1:ℝ) := by
+        apply Finset.sum_le_sum
+        intro W hW
+        simpa only [abs_mul,abs_pow,abs_neg,abs_one,one_pow,one_mul] using hAbs W
+      _ = ((T.powerset.filter fun W => W.card ≤ m).card : ℝ) := by simp
+      _ ≤ (B.card : ℝ) := Nat.cast_le.mpr hc
+  · rw [pathBonferroniGap_expansion F S γ m hm]
+    have hc : (T.powerset.filter fun W => W.card=m+1).card ≤ B.card := Finset.card_le_card (by
+      intro W hW
+      exact Finset.mem_filter.mpr ⟨(Finset.mem_filter.mp hW).1,(Finset.mem_filter.mp hW).2.le⟩)
+    calc
+      _ ≤ ∑ W∈T.powerset.filter (fun W => W.card=m+1),|monomialObservable F S γ W w ℓ| := by
+        simpa only [Real.norm_eq_abs] using norm_sum_le (T.powerset.filter fun W => W.card=m+1)
+          (fun W => monomialObservable F S γ W w ℓ)
+      _ ≤ ∑ _W∈T.powerset.filter (fun W => W.card=m+1),(1:ℝ) := Finset.sum_le_sum (fun W _ => hAbs W)
+      _ = ((T.powerset.filter fun W => W.card=m+1).card : ℝ) := by simp
+      _ ≤ (B.card : ℝ) := Nat.cast_le.mpr hc
+
+set_option maxHeartbeats 1000000 in
+private lemma full_path_transfer_of_monomials {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (hU : 0<S.U) (hV : 0<S.V) (γ : EnvPath S.x K) (m : ℕ) (hm : Even m)
+    (E B : ℝ) (hE : 0 ≤ E) (hB : 0 ≤ B)
+    (he : ∀ W : Finset {p : ℕ // p∈markedPrimes S.x K F.a},W⊆inactiveSubtype F S γ → W.card ≤ m+1 →
+      |physicalFunctional F S (monomialObservable F S γ W)-modelFunctional F S (monomialObservable F S γ W)| ≤ E)
+    (hExcess : (∑ p∈inactiveSubtype F S γ,((p.1 : ℝ)+1)⁻¹*∑ lam : Fin (p.1+1),pathExcess F S γ p lam) ≤ B) :
+    |physicalFunctional F S (pathObservable F S γ)-modelFunctional F S (pathObservable F S γ)| ≤
+      30*(6/Real.pi^2)*(B^(m+1)/((m+1).factorial : ℝ))+
+        2*(((inactiveSubtype F S γ).powerset.filter fun W => W.card ≤ m+1).card : ℝ)*E := by
+  classical
+  let C : ℝ := (((inactiveSubtype F S γ).powerset.filter fun W => W.card ≤ m+1).card : ℝ)
+  let P := pathBonferroniUpper F S γ m
+  let G := pathBonferroniGap F S γ m
+  let A := pathObservable F S γ
+  have hC : 0 ≤ C := Nat.cast_nonneg _
+  have hPMeas := pathBonferroniUpper_measurable F S γ m
+  have hGMeas := pathBonferroniGap_measurable F S γ m
+  have hAMeas := pathObservable_measurable F S γ
+  have hPAbs (w) (ℓ) : |P w ℓ| ≤ C := (pathBonferroni_abs_bounds F S hF γ m hm w ℓ).1
+  have hGAbs (w) (ℓ) : |G w ℓ| ≤ C := (pathBonferroni_abs_bounds F S hF γ m hm w ℓ).2
+  have hAAbs (w) (ℓ) : |A w ℓ| ≤ 1 := by
+    have hb : 0 ≤ A w ℓ ∧ A w ℓ ≤ 1 := pathObservable_bounds F S hF γ w ℓ
+    rw [abs_of_nonneg hb.1]
+    exact hb.2
+  have hDiffAbs (w) (ℓ) : |P w ℓ-A w ℓ| ≤ C+1 := by
+    have ha := abs_add_le (P w ℓ) (-(A w ℓ))
+    rw [abs_neg,←sub_eq_add_neg] at ha
+    linarith [hPAbs w ℓ,hAAbs w ℓ]
+  have hPoint (w) (ℓ) : 0 ≤ P w ℓ-A w ℓ ∧ P w ℓ-A w ℓ ≤ G w ℓ :=
+    pathBonferroni_sandwich F S hF γ m hm w ℓ
+  have hp0 := physicalFunctional_mono F S hU hV (fun _ _ => 0) (fun w ℓ => P w ℓ-A w ℓ)
+    (fun w ℓ => (hPoint w ℓ).1)
+  rw [physicalFunctional_zero F S hU hV,physicalFunctional_sub F S hU hV] at hp0
+  have hp1 := physicalFunctional_mono F S hU hV (fun w ℓ => P w ℓ-A w ℓ) G
+    (fun w ℓ => (hPoint w ℓ).2)
+  rw [physicalFunctional_sub F S hU hV] at hp1
+  have hm0 := modelFunctional_mono F S hU hV (fun _ _ => 0) (fun w ℓ => P w ℓ-A w ℓ)
+    (fun _ => measurable_const) (fun ℓ => (hPMeas ℓ).sub (hAMeas ℓ)) 0 (C+1) (by norm_num) (by linarith)
+    (fun _ _ => by norm_num) hDiffAbs (fun w _ ℓ => (hPoint w ℓ).1)
+  rw [modelFunctional_zero F S,modelFunctional_sub F S P A hPMeas hAMeas C 1 hC (by norm_num) hPAbs hAAbs] at hm0
+  have hm1 := modelFunctional_mono F S hU hV (fun w ℓ => P w ℓ-A w ℓ) G
+    (fun ℓ => (hPMeas ℓ).sub (hAMeas ℓ)) hGMeas (C+1) C (by linarith) hC hDiffAbs hGAbs
+    (fun w _ ℓ => (hPoint w ℓ).2)
+  rw [modelFunctional_sub F S P A hPMeas hAMeas C 1 hC (by norm_num) hPAbs hAAbs] at hm1
+  have hs := bonferroni_sandwich_transfer (physicalFunctional F S A) (physicalFunctional F S P)
+    (physicalFunctional F S G) (modelFunctional F S A) (modelFunctional F S P) (modelFunctional F S G)
+    ⟨hp0,hp1⟩ ⟨hm0,hm1⟩
+  obtain ⟨hPT,hGT⟩ := pathBonferroni_transfer F S hF hU hV γ m hm E hE he
+  have hGM := pathBonferroniGap_model_bound F S hF hU hV γ m hm B hB hExcess
+  change |physicalFunctional F S A-modelFunctional F S A| ≤ _
+  apply hs.trans
+  linarith
+
+private lemma bonferroni_degree (L : ℝ) (hL : 1 ≤ L) :
+    ∃ m : ℕ,Even m ∧ Real.rpow L (19/25:ℝ) ≤ ((m+1:ℕ):ℝ) ∧
+      ((m+1:ℕ):ℝ) ≤ 4*Real.rpow L (19/25:ℝ) := by
+  let T : ℕ := ⌈Real.rpow L (19/25:ℝ)⌉₊
+  let m : ℕ := 2*((T+1)/2)
+  have hmod := Nat.mod_lt (T+1) (by norm_num : 0<2)
+  have hdiv := Nat.div_add_mod (T+1) 2
+  have hmLo : T ≤ m := by dsimp [m];omega
+  have hmHi : m ≤ T+1 := by dsimp [m];omega
+  have hPow : 1 ≤ Real.rpow L (19/25:ℝ) := by
+    simpa using Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (0:ℝ)≤19/25)
+  have hTLo : Real.rpow L (19/25:ℝ) ≤ (T:ℝ) := Nat.le_ceil _
+  have hTHi : (T:ℝ) < Real.rpow L (19/25:ℝ)+1 := Nat.ceil_lt_add_one (Real.rpow_nonneg (by linarith) _)
+  have hmLoR : (T:ℝ) ≤ (m:ℝ) := Nat.cast_le.mpr hmLo
+  have hmHiR : (m:ℝ) ≤ (T:ℝ)+1 := by exact_mod_cast hmHi
+  refine ⟨m,⟨(T+1)/2,by dsimp [m];omega⟩,?_,?_⟩
+  · push_cast
+    linarith
+  · push_cast
+    nlinarith
+
+private lemma monomial_count_exp {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (δ c₁ c₂ : ℝ) (hS : S.Valid K δ c₁ c₂) (hL : 1 ≤ S.L)
+    (γ : EnvPath S.x K) (k : ℕ) (hk : (k:ℝ) ≤ 4*Real.rpow S.L (19/25:ℝ)) :
+    (((inactiveSubtype F S γ).powerset.filter fun W => W.card ≤ k).card : ℝ) ≤
+      Real.exp (30*Real.rpow S.L (24/25:ℝ)) := by
+  classical
+  let T := inactiveSubtype F S γ
+  let W := Real.rpow S.L (1/5:ℝ)
+  let R := Real.rpow S.L (24/25:ℝ)
+  have hLpos : 0<S.L := by linarith
+  have hW : 1 ≤ W := by simpa [W] using Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (0:ℝ)≤1/5)
+  have hR : W ≤ R := Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (1/5:ℝ)≤24/25)
+  have hPow : 1 ≤ Real.rpow S.L (19/25:ℝ) := by
+    simpa using Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (0:ℝ)≤19/25)
+  have hTCard : T.card ≤ (markedPrimes S.x K F.a).card :=
+    (Finset.card_filter_le _ _).trans_eq Finset.card_attach
+  have hP := (budget_scale_bounds F S δ c₁ c₂ hF hS hL).2.2.2.2
+  have hTCast : (T.card:ℝ) ≤ Real.exp (2*W)+1 := by
+    have hfloor : (⌊Real.exp (2*W)⌋₊:ℝ) ≤ Real.exp (2*W) := Nat.floor_le (Real.exp_pos _).le
+    have hc : (T.card:ℝ) ≤ (⌊Real.exp (2*W)⌋₊:ℝ)+1 := by exact_mod_cast hTCard.trans hP
+    linarith
+  have hBase : (T.card:ℝ)+1 ≤ Real.exp (5*W) := by
+    have he : 1 ≤ Real.exp (2*W) := Real.one_le_exp (by linarith)
+    have h3 : (3:ℝ) ≤ Real.exp (3*W) := by linarith [Real.add_one_le_exp (3*W)]
+    calc
+      _ ≤ 3*Real.exp (2*W) := by linarith
+      _ ≤ Real.exp (3*W)*Real.exp (2*W) := mul_le_mul_of_nonneg_right h3 (Real.exp_pos _).le
+      _ = _ := by rw [←Real.exp_add];congr 1;ring
+  have hProdPow : W*Real.rpow S.L (19/25:ℝ)=R := by
+    calc
+      _ = Real.rpow S.L ((1/5:ℝ)+19/25) := (Real.rpow_add hLpos _ _).symm
+      _ = _ := by congr 1;norm_num
+  have hBasePow : ((T.card:ℝ)+1)^k ≤ Real.exp (20*R) := by
+    calc
+      _ ≤ (Real.exp (5*W))^k := pow_le_pow_left₀ (by positivity) hBase k
+      _ = Real.exp (5*W*(k:ℝ)) := real_exp_pow_nat _ _
+      _ ≤ _ := Real.exp_le_exp.mpr (by
+        have hW0 : 0 ≤ W := by linarith
+        have hm := mul_le_mul_of_nonneg_left hk (mul_nonneg (by norm_num : (0:ℝ)≤5) hW0)
+        nlinarith [hProdPow])
+  have hPowExp : Real.rpow S.L (19/25:ℝ) ≤ Real.exp (4*W) := by
+    have hlog : Real.log S.L ≤ W/(1/5:ℝ) := Real.log_le_rpow_div hLpos.le (by norm_num)
+    calc
+      _ = Real.exp (Real.log S.L*(19/25:ℝ)) := Real.rpow_def_of_pos hLpos _
+      _ ≤ _ := Real.exp_le_exp.mpr (by nlinarith)
+  have hkPlus : (k:ℝ)+1 ≤ Real.exp (10*R) := by
+    have h5 : (5:ℝ) ≤ Real.exp (6*W) := by
+      have ht := constant_exp_bound 5 W (by norm_num) hW
+      norm_num only at ht
+      exact ht
+    calc
+      _ ≤ 5*Real.rpow S.L (19/25:ℝ) := by linarith
+      _ ≤ 5*Real.exp (4*W) := mul_le_mul_of_nonneg_left hPowExp (by norm_num)
+      _ ≤ Real.exp (6*W)*Real.exp (4*W) := mul_le_mul_of_nonneg_right h5 (Real.exp_pos _).le
+      _ = Real.exp (10*W) := by rw [←Real.exp_add];congr 1;ring
+      _ ≤ _ := Real.exp_le_exp.mpr (by linarith)
+  have hCount : ((T.powerset.filter fun W => W.card ≤ k).card:ℝ) ≤
+      ((k:ℝ)+1)*((T.card:ℝ)+1)^k := by exact_mod_cast truncated_powerset_card T k
+  apply hCount.trans
+  have hm := mul_le_mul hkPlus hBasePow (by positivity : (0:ℝ)≤((T.card:ℝ)+1)^k) (Real.exp_pos _).le
+  apply hm.trans_eq
+  rw [←Real.exp_add]
+  congr 1
+  ring
+
+set_option maxHeartbeats 1000000 in
+private lemma replacement_error_absorption (A ε ζ Cb Cline CR : ℝ)
+    (hA : 0<A) (hε : 0<ε) (hζ : 0<ζ) (hCb : 0 ≤ Cb) (hCline : 0 ≤ Cline) (hCR : 0 ≤ CR) :
+    ∃ CA L₀ : ℝ,0<CA ∧ 1 ≤ L₀ ∧ ∀ L : ℝ,L₀ ≤ L → ∀ N : ℕ,
+      (N:ℝ)+1 ≤ 4*Real.rpow L (1/2:ℝ) →
+      Real.exp (Cb*Real.rpow L (73/100:ℝ)) *
+        (30*(6/Real.pi^2)*Real.exp (-(1/10:ℝ)*Real.rpow L (19/25:ℝ)*Real.log L)+
+          2*Real.exp (30*Real.rpow L (24/25:ℝ))*
+            ((6/Real.pi^2)*((N:ℝ)+1)*Real.exp (Real.rpow L (9/10:ℝ))*Real.exp (-ε*L)+
+              4000*CR*Real.exp (Cline*Real.rpow L (24/25:ℝ))*Real.exp (-ζ*L))) ≤
+        CA*Real.rpow L (-A*(N:ℝ)) := by
+  let μ := min ε ζ
+  let Ctot := Cb+Cline+32
+  let rho := 6/Real.pi^2
+  let CA := 38*rho+8000*CR+1
+  have hμ : 0<μ := lt_min hε hζ
+  have hρ : 0 ≤ rho := by dsimp [rho];positivity
+  obtain ⟨LP,hLP,hPoly⟩ := eventually_const_rpow_le (2*Ctot/μ) (24/25) 1 (by norm_num)
+  obtain ⟨LA,hLA,hALog⟩ := eventually_const_rpow_le (40*A/μ) (7/10) 1 (by norm_num)
+  obtain ⟨LB,hLB,hBudget⟩ := eventually_const_rpow_le (20*Cb) (73/100) (19/25) (by norm_num)
+  obtain ⟨LT,hLT,hATail⟩ := eventually_const_rpow_le (80*A) (1/2) (19/25) (by norm_num)
+  let L₀ := max (Real.exp 1) (max LP (max LA (max LB LT)))
+  have hExp₀ : Real.exp 1 ≤ L₀ := le_max_left _ _
+  have hLP₀ : LP ≤ L₀ := (le_max_left _ _).trans (le_max_right _ _)
+  have hLA₀ : LA ≤ L₀ := (le_max_left _ _).trans ((le_max_right _ _).trans (le_max_right _ _))
+  have hLB₀ : LB ≤ L₀ := (le_max_left _ _).trans ((le_max_right _ _).trans ((le_max_right _ _).trans (le_max_right _ _)))
+  have hLT₀ : LT ≤ L₀ := (le_max_right _ _).trans ((le_max_right _ _).trans ((le_max_right _ _).trans (le_max_right _ _)))
+  refine ⟨CA,L₀,by dsimp [CA];nlinarith,hLP.trans hLP₀,?_⟩
+  intro L hL N hN
+  have hL1 : 1 ≤ L := (hLP.trans hLP₀).trans hL
+  have hLpos : 0<L := by linarith
+  have hlog1 : 1 ≤ Real.log L := (Real.le_log_iff_exp_le hLpos).2 (hExp₀.trans hL)
+  have hlog : 0 ≤ Real.log L := by linarith
+  let RH := Real.rpow L (1/2:ℝ)
+  let R73 := Real.rpow L (73/100:ℝ)
+  let R76 := Real.rpow L (19/25:ℝ)
+  let R96 := Real.rpow L (24/25:ℝ)
+  let R9 := Real.rpow L (9/10:ℝ)
+  let R2 := Real.rpow L (1/5:ℝ)
+  let R7 := Real.rpow L (7/10:ℝ)
+  let Q := Real.rpow L (-A*(N:ℝ))
+  have hQ : Q=Real.exp (Real.log L*(-A*(N:ℝ))) := Real.rpow_def_of_pos hLpos _
+  have hQ0 : 0 ≤ Q := Real.rpow_nonneg hLpos.le _
+  have hR73 : R73 ≤ R96 := Real.rpow_le_rpow_of_exponent_le hL1 (by norm_num : (73/100:ℝ)≤24/25)
+  have hR9 : R9 ≤ R96 := Real.rpow_le_rpow_of_exponent_le hL1 (by norm_num : (9/10:ℝ)≤24/25)
+  have hR960 : 0 ≤ R96 := Real.rpow_nonneg hLpos.le _
+  have hR760 : 0 ≤ R76 := Real.rpow_nonneg hLpos.le _
+  have hRH0 : 0 ≤ RH := Real.rpow_nonneg hLpos.le _
+  change (N:ℝ)+1 ≤ 4*RH at hN
+  have hN' : (N:ℝ) ≤ 4*RH := by linarith
+  have hPolyRaw := hPoly L (hLP₀.trans hL)
+  have hOne : Real.rpow L 1=L := Real.rpow_one L
+  rw [hOne] at hPolyRaw
+  have hPolySmall : Ctot*R96 ≤ μ*L/2 := by
+    have hm := mul_le_mul_of_nonneg_left hPolyRaw (by positivity : (0:ℝ)≤μ/2)
+    have he : (μ/2)*(2*Ctot/μ)=Ctot := by field_simp
+    rw [←mul_assoc,he] at hm
+    nlinarith
+  have hLogRaw := hALog L (hLA₀.trans hL)
+  rw [hOne] at hLogRaw
+  have hLogSmall : 20*A*R7 ≤ μ*L/2 := by
+    have hm := mul_le_mul_of_nonneg_left hLogRaw (by positivity : (0:ℝ)≤μ/2)
+    have he : (μ/2)*(40*A/μ)=20*A := by field_simp;ring
+    rw [←mul_assoc,he] at hm
+    nlinarith
+  have hlogUpper : Real.log L ≤ 5*R2 := by
+    have ht : Real.log L ≤ R2/(1/5:ℝ) := Real.log_le_rpow_div hLpos.le (by norm_num)
+    calc
+      _ ≤ _ := ht
+      _ = _ := by ring
+  have hPower7 : RH*R2=R7 := by
+    calc
+      _ = Real.rpow L ((1/2:ℝ)+1/5) := (Real.rpow_add hLpos _ _).symm
+      _ = _ := by congr 1;norm_num
+  have hANlog : A*(N:ℝ)*Real.log L ≤ μ*L/2 := by
+    have hn := mul_le_mul_of_nonneg_left hN' hA.le
+    have hn0 : (0:ℝ) ≤ A*(4*RH) := mul_nonneg hA.le (mul_nonneg (by norm_num) hRH0)
+    have hm := mul_le_mul hn hlogUpper hlog hn0
+    have he : A*(4*RH)*(5*R2)=20*A*R7 := by rw [←hPower7];ring
+    rw [he] at hm
+    exact hm.trans hLogSmall
+  have hDecay : Real.exp (-μ*L/2) ≤ Q := by
+    rw [hQ]
+    exact Real.exp_le_exp.mpr (by nlinarith)
+  have hBudgetRaw := hBudget L (hLB₀.trans hL)
+  change 20*Cb*R73 ≤ R76 at hBudgetRaw
+  have hTailBudget : Cb*R73 ≤ (1/20:ℝ)*R76*Real.log L := by
+    have hm := mul_le_mul_of_nonneg_left hlog1 hR760
+    nlinarith
+  have hATailRaw := hATail L (hLT₀.trans hL)
+  change 80*A*RH ≤ R76 at hATailRaw
+  have hATailSmall : A*(N:ℝ) ≤ (1/20:ℝ)*R76 := by
+    have hm := mul_le_mul_of_nonneg_left hN' (by positivity : (0:ℝ)≤20*A)
+    nlinarith
+  have hTail : Real.exp (Cb*R73-(1/10:ℝ)*R76*Real.log L) ≤ Q := by
+    rw [hQ]
+    have hm := mul_le_mul_of_nonneg_right hATailSmall hlog
+    exact Real.exp_le_exp.mpr (by nlinarith)
+  have h73Cb : Cb*R73 ≤ Cb*R96 := mul_le_mul_of_nonneg_left hR73 hCb
+  have hFirstPoly : Cb*R73+31*R96+R9 ≤ Ctot*R96 := by
+    dsimp only [Ctot]
+    nlinarith [mul_nonneg hCline hR960]
+  have hSecondPoly : Cb*R73+(30+Cline)*R96 ≤ Ctot*R96 := by dsimp only [Ctot];nlinarith
+  have hεμ : μ ≤ ε := min_le_left _ _
+  have hζμ : μ ≤ ζ := min_le_right _ _
+  have hFirstExp : Real.exp (Cb*R73+31*R96+R9-ε*L) ≤ Q := by
+    apply le_trans _ hDecay
+    apply Real.exp_le_exp.mpr
+    nlinarith [mul_nonneg (sub_nonneg.mpr hεμ) hLpos.le]
+  have hSecondExp : Real.exp (Cb*R73+(30+Cline)*R96-ζ*L) ≤ Q := by
+    apply le_trans _ hDecay
+    apply Real.exp_le_exp.mpr
+    nlinarith [mul_nonneg (sub_nonneg.mpr hζμ) hLpos.le]
+  have hSqrtExp : RH ≤ Real.exp R96 := by
+    have ht : Real.log L ≤ R96/(24/25:ℝ) := Real.log_le_rpow_div hLpos.le (by norm_num)
+    calc
+      _ = Real.exp (Real.log L*(1/2:ℝ)) := Real.rpow_def_of_pos hLpos _
+      _ ≤ _ := Real.exp_le_exp.mpr (by nlinarith)
+  have hNExp : (N:ℝ)+1 ≤ 4*Real.exp R96 := hN.trans (mul_le_mul_of_nonneg_left hSqrtExp (by norm_num))
+  have hFirst : 2*rho*((N:ℝ)+1)*Real.exp (Cb*R73+30*R96+R9-ε*L) ≤ 8*rho*Q := by
+    calc
+      _ ≤ 2*rho*(4*Real.exp R96)*Real.exp (Cb*R73+30*R96+R9-ε*L) :=
+        mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left hNExp (mul_nonneg (by norm_num) hρ)) (Real.exp_pos _).le
+      _ = 8*rho*Real.exp (Cb*R73+31*R96+R9-ε*L) := by
+        rw [show Cb*R73+31*R96+R9-ε*L=R96+(Cb*R73+30*R96+R9-ε*L) by ring,Real.exp_add]
+        ring
+      _ ≤ _ := mul_le_mul_of_nonneg_left hFirstExp (mul_nonneg (by norm_num) hρ)
+  have hTailTerm : 30*rho*Real.exp (Cb*R73-(1/10:ℝ)*R76*Real.log L) ≤ 30*rho*Q :=
+    mul_le_mul_of_nonneg_left hTail (mul_nonneg (by norm_num) hρ)
+  have hSecond : 8000*CR*Real.exp (Cb*R73+(30+Cline)*R96-ζ*L) ≤ 8000*CR*Q :=
+    mul_le_mul_of_nonneg_left hSecondExp (mul_nonneg (by norm_num) hCR)
+  have heq : Real.exp (Cb*R73)*(30*rho*Real.exp (-(1/10:ℝ)*R76*Real.log L)+
+      2*Real.exp (30*R96)*(rho*((N:ℝ)+1)*Real.exp R9*Real.exp (-ε*L)+
+        4000*CR*Real.exp (Cline*R96)*Real.exp (-ζ*L))) =
+      30*rho*Real.exp (Cb*R73-(1/10:ℝ)*R76*Real.log L)+
+      2*rho*((N:ℝ)+1)*Real.exp (Cb*R73+30*R96+R9-ε*L)+
+      8000*CR*Real.exp (Cb*R73+(30+Cline)*R96-ζ*L) := by
+    rw [show (30+Cline)*R96=30*R96+Cline*R96 by ring]
+    simp_rw [sub_eq_add_neg,Real.exp_add]
+    ring
+  change Real.exp (Cb*R73)*(30*rho*Real.exp (-(1/10:ℝ)*R76*Real.log L)+
+      2*Real.exp (30*R96)*(rho*((N:ℝ)+1)*Real.exp R9*Real.exp (-ε*L)+
+        4000*CR*Real.exp (Cline*R96)*Real.exp (-ζ*L))) ≤ CA*Q
+  rw [heq]
+  dsimp only [CA]
+  nlinarith
+
 /-- `det:root-replacement` — PD 03:593-737 (Lemma 3.4).  REPLACES the frozen `root_replacement`
 (which concerned one observable on `SL₂(ℤ/S)` with few nonzero values).  Proof: keep exact
 factors at active primes, sandwich the inactive product by Bonferroni polynomials of degrees near
@@ -11029,7 +11366,105 @@ theorem root_replacement (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) 
       ∃ C_A x₀ : ℝ, 0 < C_A ∧ 2 ≤ x₀ ∧ ∀ S : PDScale, S.Valid K δ c₁ c₂ → x₀ ≤ S.x →
         |physicalRootAverage F S - modelRootAverage F S| ≤
           C_A * Real.rpow S.L (-A * (S.N : ℝ)) := by
-  sorry
+  classical
+  intro K F hF A hA
+  obtain ⟨Cb,xB,hCb,hxB,hBudget⟩ := root_budget δ c₁ c₂ hδ hc₁ K F hF
+  let ε : ℝ := min (δ/8000) (1/8)
+  have hε : 0<ε := lt_min (by linarith) (by norm_num)
+  have hε1 : ε<1 := lt_of_le_of_lt (min_le_right _ _) (by norm_num)
+  let ζ : ℝ := δ/1000-3*ε
+  have hζ : 0<ζ := by have he : ε ≤ δ/8000 := min_le_left _ _;dsimp [ζ];nlinarith
+  let Cline : ℝ := Cb+8+(8*(K:ℝ)+4)*Real.log 2
+  have hLog2 : 0 ≤ Real.log 2 := (Real.log_pos (by norm_num : (1:ℝ)<2)).le
+  have hCline : 0 ≤ Cline := by dsimp [Cline];positivity
+  obtain ⟨CR,xM,hCR,hxM,hMonomial⟩ := monomial_transfer_eventually δ c₁ c₂ hδ hc₁ F hF ε hε hε1
+  obtain ⟨xF,hxF,hEnv⟩ := env_path_form δ c₁ c₂ hδ hc₁ K F hF
+  obtain ⟨LG,hLG,hGapDecay⟩ := factorial_gap_decay Cb hCb.le
+  obtain ⟨CA,LA,hCA,hLA,hAbsorb⟩ := replacement_error_absorption A ε ζ Cb Cline CR hA hε hζ hCb.le hCline hCR.le
+  let x₀ := max (max xB xM) (max xF (Real.exp (max LG LA)))
+  have hB₀ : xB ≤ x₀ := (le_max_left _ _).trans (le_max_left _ _)
+  have hM₀ : xM ≤ x₀ := (le_max_right _ _).trans (le_max_left _ _)
+  have hF₀ : xF ≤ x₀ := (le_max_left _ _).trans (le_max_right _ _)
+  have hL₀ : Real.exp (max LG LA) ≤ x₀ := (le_max_right _ _).trans (le_max_right _ _)
+  refine ⟨CA,x₀,hCA,hxB.trans hB₀,?_⟩
+  intro S hS hx
+  have hxpos : 0<S.x := by linarith [hS.1]
+  have hL : max LG LA ≤ S.L := (Real.le_log_iff_exp_le hxpos).2 (hL₀.trans hx)
+  have hLG' : LG ≤ S.L := (le_max_left _ _).trans hL
+  have hLA' : LA ≤ S.L := (le_max_right _ _).trans hL
+  have hL1 : 1 ≤ S.L := hLG.trans hLG'
+  have hUpos : 0<S.U := (pdScale_positive S δ c₁ c₂ hδ hS).2.1
+  have hVpos : 0<S.V := (Real.rpow_pos_of_pos hxpos δ).trans_le hS.2.2.1
+  obtain ⟨hΓ,hMass,hPaths⟩ := hBudget S hS (hB₀.trans hx)
+  have hform (w : ArchRoot) (hw : w.InRegion S) (ℓ : LineData S.x K F.a) :
+      envMomentC F S w ℓ=∑ γ∈hΓ.toFinset,pathCoefficient F S γ*(pathObservable F S γ w ℓ : ℂ) :=
+    envMoment_contributing_sum F S hΓ w hw ℓ (hEnv S hS (hF₀.trans hx) w ℓ)
+  have hMassFinite : (∑ γ∈hΓ.toFinset,‖pathCoefficient F S γ‖) ≤ Real.exp (Cb*Real.rpow S.L (73/100:ℝ)) := by
+    have hz (γ : EnvPath S.x K) (hn : γ∉hΓ.toFinset) :
+        (if IsContributingPath F S γ then ‖pathCoefficient F S γ‖ else 0)=0 :=
+      if_neg (fun hc => hn ((Set.Finite.mem_toFinset hΓ).2 hc))
+    have heq : (∑' γ : EnvPath S.x K,if IsContributingPath F S γ then ‖pathCoefficient F S γ‖ else 0) =
+        ∑ γ∈hΓ.toFinset,‖pathCoefficient F S γ‖ := by
+      rw [tsum_eq_sum hz]
+      apply Finset.sum_congr rfl
+      intro γ hγ
+      have hc : IsContributingPath F S γ := (Set.Finite.mem_toFinset hΓ).1 hγ
+      rw [if_pos hc]
+    rw [heq] at hMass
+    exact hMass
+  have hN := (budget_scale_bounds F S δ c₁ c₂ hF hS hL1).1
+  obtain ⟨m,hm,hDegreeLo,hDegreeHi⟩ := bonferroni_degree S.L hL1
+  let rho : ℝ := 6/Real.pi^2
+  have hρ : 0 ≤ rho := by dsimp [rho];positivity
+  have hRPε : 0 ≤ Real.rpow S.x (-ε) := Real.rpow_nonneg hxpos.le _
+  have hRPζ : 0 ≤ Real.rpow S.x (-ζ) := Real.rpow_nonneg hxpos.le _
+  let Emono : ℝ := rho*((pathLength S.x:ℝ)+1)*Real.exp (Real.rpow S.L (9/10:ℝ))*Real.rpow S.x (-ε)+
+    4000*CR*Real.exp (Cline*Real.rpow S.L (24/25:ℝ))*Real.rpow S.x (-ζ)
+  have hEmono : 0 ≤ Emono := by dsimp only [Emono];positivity
+  let Efull : ℝ := 30*rho*Real.exp (-(1/10:ℝ)*Real.rpow S.L (19/25:ℝ)*Real.log S.L)+
+    2*Real.exp (30*Real.rpow S.L (24/25:ℝ))*Emono
+  have hEfull : 0 ≤ Efull := by dsimp only [Efull];positivity
+  have hTransfer (γ : EnvPath S.x K) (hγ : IsContributingPath F S γ) :
+      |physicalFunctional F S (pathObservable F S γ)-modelFunctional F S (pathObservable F S γ)| ≤ Efull := by
+    have hMono (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a})
+        (hW : W⊆inactiveSubtype F S γ) (hcard : W.card ≤ m+1) :
+        |physicalFunctional F S (monomialObservable F S γ W)-modelFunctional F S (monomialObservable F S γ W)| ≤ Emono := by
+      have hcardR : (W.card:ℝ) ≤ 4*Real.rpow S.L (19/25:ℝ) :=
+        (Nat.cast_le.mpr hcard).trans hDegreeHi
+      have ht := hMonomial S hS (hM₀.trans hx) γ hγ W hW hcardR
+      have hExp : -(δ/1000)+3*ε=-ζ := by dsimp [ζ];ring
+      rw [hExp] at ht
+      have hLines := (monomial_modulus_budget F S hF δ c₁ c₂ Cb hS hL1 hCb.le
+        γ hγ.1 (hPaths γ hγ).1 W hW hcardR).2
+      have hLineErr := mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_left hLines (by positivity : (0:ℝ)≤4000*CR)) hRPζ
+      exact ht.trans (add_le_add le_rfl hLineErr)
+    have hExcess : (∑ p∈inactiveSubtype F S γ,((p.1:ℝ)+1)⁻¹*∑ lam : Fin (p.1+1),pathExcess F S γ p lam) ≤
+        Cb*((pathLength S.x:ℝ)+1) := by
+      rw [inactive_excess_sum]
+      exact (hPaths γ hγ).2
+    have ht := full_path_transfer_of_monomials F S hF hUpos hVpos γ m hm Emono
+      (Cb*((pathLength S.x:ℝ)+1)) hEmono (by positivity) hMono hExcess
+    have hFactorial := hGapDecay S.L hLG' (pathLength S.x) (m+1) hN hDegreeLo
+    have hCount := monomial_count_exp F S hF δ c₁ c₂ hS hL1 γ (m+1) hDegreeHi
+    have hTerm1 := mul_le_mul_of_nonneg_left hFactorial (mul_nonneg (by norm_num : (0:ℝ)≤30) hρ)
+    have hTerm2 := mul_le_mul_of_nonneg_right
+      (mul_le_mul_of_nonneg_left hCount (by norm_num : (0:ℝ)≤2)) hEmono
+    exact ht.trans (add_le_add hTerm1 hTerm2)
+  have hRoot := rootReplacement_mass_transfer F S hF hUpos hVpos hΓ hform Efull
+    (Real.exp (Cb*Real.rpow S.L (73/100:ℝ))) hEfull hMassFinite hTransfer
+  have hXε : Real.rpow S.x (-ε)=Real.exp (-ε*S.L) := by
+    calc
+      _ = Real.exp (Real.log S.x*(-ε)) := Real.rpow_def_of_pos hxpos _
+      _ = _ := by congr 1;dsimp [PDScale.L];ring
+  have hXζ : Real.rpow S.x (-ζ)=Real.exp (-ζ*S.L) := by
+    calc
+      _ = Real.exp (Real.log S.x*(-ζ)) := Real.rpow_def_of_pos hxpos _
+      _ = _ := by congr 1;dsimp [PDScale.L];ring
+  dsimp only [Efull,Emono,rho] at hRoot
+  rw [hXε,hXζ] at hRoot
+  exact hRoot.trans (hAbsorb S.L hLA' (pathLength S.x) hN)
+
 
 
 end
