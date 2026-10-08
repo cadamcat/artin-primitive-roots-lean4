@@ -13,6 +13,7 @@ import ArtinPrimitiveRoots.Proofs.th_family_lead_p.MatrixChartBounds
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.PeriodicFourier
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.CharacterIntegralDerivative
 import ArtinPrimitiveRoots.Proofs.th_family_lead_p.DirectionalFourier
+import ArtinPrimitiveRoots.Proofs.th_family_lead_p.IteratedDirectionalFourier
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory Filter Topology
