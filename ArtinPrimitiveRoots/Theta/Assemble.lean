@@ -8,6 +8,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.IdealCharacterChart
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.FourierCoordinateDerivative
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.PeriodicTorusLift
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.SmoothPeriodicCoordinate
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.TorusDerivativeLift
 import ArtinPrimitiveRoots.Theta.Res
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
