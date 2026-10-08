@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedComponents
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CocycleQuotient
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.SmallPowers
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.Congruence
 
 
 /-!
