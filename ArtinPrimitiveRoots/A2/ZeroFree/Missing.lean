@@ -4036,6 +4036,95 @@ private theorem initial_contour_LS_bounds :
       dsimp [Cζ]
       linarith
 
+/-- Absolute frequency summability and unique finite dyadic shells. -/
+private theorem frequency_absolute_dyads :
+    Summable (fun u : U.U => (U.q u) ^ (-5 / 4 : ℝ)) ∧
+      Countable U.U ∧ Nonempty (DyadEnumeration η U) ∧
+        ∀ u : U.U, ∃! j : ℕ, u ∈ frequencyDyad η U ((2 : ℝ) ^ j) := by
+  classical
+  obtain ⟨Cc, hCc, hcount⟩ := (frequency_norm_count_from_data S D η U).2.2
+  let shell : ℕ → Set U.U := fun j => frequencyDyad η U ((2 : ℝ) ^ j)
+  have hT1 (j : ℕ) : 1 ≤ (2 : ℝ) ^ j := one_le_pow₀ (by norm_num)
+  have hfin (j : ℕ) : (shell j).Finite := (hcount ((2 : ℝ) ^ j) (hT1 j)).1
+  have hpartition : ∀ u : U.U, ∃! j : ℕ, u ∈ shell j := by
+    intro u
+    obtain ⟨N, hNlo, hNhi⟩ := exists_nat_pow_near (U.q_ge_one u)
+      (by norm_num : (1 : ℝ) < 2)
+    have hN : u ∈ shell N := by
+      exact ⟨hNlo, by simpa [pow_succ, mul_comm] using hNhi⟩
+    refine ⟨N, hN, ?_⟩
+    intro k hk
+    change (2 : ℝ) ^ k ≤ U.q u ∧ U.q u < 2 * (2 : ℝ) ^ k at hk
+    rcases lt_trichotomy k N with hlt | heq | hgt
+    · have hp : (2 : ℝ) ^ (k + 1) ≤ (2 : ℝ) ^ N :=
+        pow_le_pow_right₀ (by norm_num) (by omega)
+      have hle : 2 * (2 : ℝ) ^ k ≤ U.q u := by
+        simpa [pow_succ, mul_comm] using hp.trans hNlo
+      exact False.elim ((not_lt_of_ge hle) hk.2)
+    · exact heq
+    · have hp : (2 : ℝ) ^ (N + 1) ≤ (2 : ℝ) ^ k :=
+        pow_le_pow_right₀ (by norm_num) (by omega)
+      exact False.elim ((not_lt_of_ge (hp.trans hk.1)) hNhi)
+  have hsumShell (j : ℕ) : Summable (fun u : shell j => (U.q u) ^ (-5 / 4 : ℝ)) := by
+    letI : Fintype (shell j) := (hfin j).fintype
+    exact Summable.of_finite
+  let ratio : ℝ := (2 : ℝ) ^ (-1 / 4 : ℝ)
+  have hratio0 : 0 ≤ ratio := (Real.rpow_pos_of_pos (by norm_num) _).le
+  have hratio1 : ratio < 1 := Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) (by norm_num)
+  have hgeom : Summable (fun j : ℕ => Cc * ratio ^ j) :=
+    (summable_geometric_of_lt_one hratio0 hratio1).mul_left Cc
+  have hbound (j : ℕ) : (∑' u : shell j, (U.q u) ^ (-5 / 4 : ℝ)) ≤ Cc * ratio ^ j := by
+    let T : ℝ := (2 : ℝ) ^ j
+    have hTpos : 0 < T := by dsimp [T]; positivity
+    have hcard : ((hfin j).toFinset.card : ℝ) ≤ Cc * T := by
+      rw [← Set.ncard_eq_toFinset_card _ (hfin j)]
+      exact (hcount T (hT1 j)).2
+    have hsum : (∑' u : shell j, (U.q u) ^ (-5 / 4 : ℝ)) =
+        ∑ u ∈ (hfin j).toFinset, (U.q u) ^ (-5 / 4 : ℝ) := by
+      conv_lhs => rw [← Set.Finite.coe_toFinset (hfin j)]
+      exact Finset.tsum_subtype' (hfin j).toFinset
+        (fun u : U.U => (U.q u) ^ (-5 / 4 : ℝ))
+    calc
+      _ = ∑ u ∈ (hfin j).toFinset, (U.q u) ^ (-5 / 4 : ℝ) := hsum
+      _ ≤ ∑ _u ∈ (hfin j).toFinset, T ^ (-5 / 4 : ℝ) := by
+        apply Finset.sum_le_sum
+        intro u hu
+        have hShell : u ∈ shell j := (hfin j).mem_toFinset.mp hu
+        exact Real.rpow_le_rpow_of_nonpos hTpos hShell.1 (by norm_num)
+      _ = ((hfin j).toFinset.card : ℝ) * T ^ (-5 / 4 : ℝ) := by simp
+      _ ≤ (Cc * T) * T ^ (-5 / 4 : ℝ) :=
+        mul_le_mul_of_nonneg_right hcard (Real.rpow_nonneg hTpos.le _)
+      _ = Cc * T ^ (-1 / 4 : ℝ) := by
+        rw [mul_assoc]
+        nth_rw 1 [← Real.rpow_one T]
+        rw [← Real.rpow_add hTpos]
+        norm_num
+      _ = Cc * ratio ^ j := by
+        dsimp [T, ratio]
+        rw [Real.rpow_pow_comm (by norm_num)]
+  have hqsum : Summable (fun u : U.U => (U.q u) ^ (-5 / 4 : ℝ)) := by
+    apply (summable_partition (fun u => Real.rpow_nonneg (U.q_pos u).le _)
+      hpartition).2
+    refine ⟨hsumShell, ?_⟩
+    exact Summable.of_nonneg_of_le (fun j => tsum_nonneg fun u =>
+      Real.rpow_nonneg (U.q_pos u).le _) hbound hgeom
+  have hsupport : Function.support (fun u : U.U => (U.q u) ^ (-5 / 4 : ℝ)) = Set.univ := by
+    ext u
+    simp only [Function.mem_support, Set.mem_univ, iff_true]
+    exact (Real.rpow_pos_of_pos (U.q_pos u) _).ne'
+  have hCountable : Countable U.U := by
+    have hs := hqsum.countable_support
+    rw [hsupport] at hs
+    exact Set.countable_univ_iff.mp hs
+  let rows : ℝ → Finset U.U := fun T =>
+    if hT : 1 ≤ T then (hcount T hT).1.toFinset.erase U.one else ∅
+  have hDE : Nonempty (DyadEnumeration η U) := by
+    refine ⟨⟨rows, ?_⟩⟩
+    intro T hT u
+    simp only [rows, dif_pos hT, Finset.mem_erase, Set.Finite.mem_toFinset]
+    rfl
+  exact ⟨hqsum, hCountable, hDE, hpartition⟩
+
 /-- `zf:probe-asymptotic`, 06:647–681, for the actual probe and exact principal scalar. The
 corrected probe-low route consumes the split Gauss data from `sol-gate-a2b`. -/
 theorem zf_probe_asymptotic
