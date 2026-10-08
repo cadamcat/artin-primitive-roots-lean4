@@ -6,6 +6,8 @@ import Mathlib.RingTheory.Frobenius
 import Mathlib.Analysis.MellinInversion
 import TauCeti.NumberTheory.NumberField.Discriminant.Relative
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_EULER.Helpers
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.Plan
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-EXT-HAD».Plan
 
 /-!
 # External inputs for §7
@@ -219,7 +221,26 @@ theorem ext_hadamard_order_one (G : ℂ → ℂ) (hG : Differentiable ℂ G)
         if G ρ = 0 then
           (analyticOrderNatAt G ρ : ℂ) * ((s - ρ)⁻¹ + ρ⁻¹)
         else 0 := by
-  sorry
+  obtain hsq := ArtinPrimitiveRoots.Proofs.s7sol_zeros.inverse_square_summable G hG hG0 hgrowth
+  obtain ⟨A, B, hfac⟩ :=
+    ArtinPrimitiveRoots.Proofs.s7sol_zeros.genus_one_affine_factorization G hG hG0 hsq hgrowth
+  refine ⟨B, fun s hs => ?_⟩
+  obtain ⟨hsum, hder⟩ :=
+    ArtinPrimitiveRoots.Proofs.s7sol_zeros.genus_one_hasDerivAt G hG hG0 hsq s hs
+  refine ⟨hsum, ?_⟩
+  have heder : HasDerivAt (fun z : ℂ => Complex.exp (A + B * z))
+      (Complex.exp (A + B * s) * B) s := by
+    simpa using (((hasDerivAt_id s).const_mul B).const_add A).cexp
+  have hGder := (heder.mul hder).congr_of_eventuallyEq
+    (Filter.Eventually.of_forall hfac)
+  have hprod : ArtinPrimitiveRoots.Proofs.s7sol_zeros.genusOneProduct G s ≠ 0 := by
+    intro h
+    apply hs
+    rw [hfac s, h, mul_zero]
+  rw [hGder.deriv, hfac s]
+  change _ = B + ∑' z : ℂ, ArtinPrimitiveRoots.Proofs.s7sol_zeros.zeroLogTerms G s z
+  field_simp [Complex.exp_ne_zero, hprod]
+  <;> ring
 
 /-- The multiplicity-weighted number of nontrivial zeros of `ζ_K^♮` in a unit-height window. -/
 noncomputable def dedekindZeroWindowCount (K : Type*) [Field K] [NumberField K]
@@ -237,7 +258,21 @@ theorem ext_dedekind_zero_count :
         (zeroMultiplicity K ρ : ℝ) else 0) ∧
       dedekindZeroWindowCount K T ≤ C *
         (Real.log (absoluteDiscriminant K) + Module.finrank ℚ K * Real.log (2 + |T|)) := by
-  sorry
+  obtain ⟨C, hC, hbound⟩ := ArtinPrimitiveRoots.Proofs.s7sol_zeros.xi_window_count
+  refine ⟨C, hC, fun K _ _ T => ?_⟩
+  have heq : (fun z : ℂ => if z ∈ nontrivialZeros K ∧ T ≤ z.im ∧ z.im < T + 1 then
+      (zeroMultiplicity K z : ℝ) else 0) =
+      (fun z : ℂ => if z ∈ nontrivialZeros K ∧ T ≤ z.im ∧ z.im < T + 1 then
+      (analyticOrderNatAt (dedekindXi K) z : ℝ) else 0) := by
+    funext z
+    by_cases hz : z ∈ nontrivialZeros K ∧ T ≤ z.im ∧ z.im < T + 1
+    · rw [if_pos hz, if_pos hz]
+      rw [zeroMultiplicity,
+        ArtinPrimitiveRoots.Proofs.s7sol_zeros.sharp_xi_order K hz.1.1 hz.1.2.1]
+    · rw [if_neg hz, if_neg hz]
+  have heqSharp := heq
+  simp only [zeroMultiplicity] at heqSharp
+  simpa only [dedekindZeroWindowCount, zeroMultiplicity, heqSharp] using hbound K T
 
 /-- Auxiliary smooth bump for **`sp:count-from-theta`**, `07-splitting.tex:227-230`. The PNT+ source
 `smooth_urysohn_support_Ioo` (`PrimeNumberTheoremAnd/SmoothExistence.lean`) yields a nonnegative
