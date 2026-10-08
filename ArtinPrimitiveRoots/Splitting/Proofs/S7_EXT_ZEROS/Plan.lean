@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.GammaGrowth
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.DeligneGrowth
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.XiGrowth
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.DeligneRatio
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_ZEROS.XiBoundary
 
 set_option autoImplicit false
 open scoped NumberField BigOperators
