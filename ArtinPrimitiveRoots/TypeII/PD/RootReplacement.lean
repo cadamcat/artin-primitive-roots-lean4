@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd2.SL2Fibers
 import ArtinPrimitiveRoots.TypeII.Proofs.pd2.SL2CRT
 import ArtinPrimitiveRoots.TypeII.Proofs.pd2.GridIntegration
 import ArtinPrimitiveRoots.TypeII.Proofs.pd2.BoundedIntegral
+import ArtinPrimitiveRoots.TypeII.Proofs.pd2.Raw.RootLineAbsorb
 import Mathlib.Topology.MetricSpace.HausdorffDistance
 import Mathlib.Topology.Instances.Int
 import Mathlib.Topology.Order.IntermediateValue
@@ -4221,6 +4222,64 @@ private lemma matrix_line_fiber_density (m : ℕ) (hm : Squarefree m) (hpos : 0 
         ∏ p : ModulusPrimes m, ((p.1 : ℝ) + 1)⁻¹ := Finset.prod_mul_distrib
     _ = _ := by rw [← htotal, hprod]
 
+private lemma root_lines_power_bound :
+    ∃ C : ℝ,0<C ∧ ∀ U V : ℝ,2 ≤ U → 2 ≤ V → ∀ Sq : ℕ,Squarefree Sq → 0<Sq →
+      ∀ lam : (p : ℕ) → Fin (p+1),∀ l₁ r₁ l₂ r₂ l₃ r₃ : ℝ,
+      1 ≤ l₁ → l₁ ≤ r₁ → r₁ ≤ 16 → 1 ≤ l₂ → l₂ ≤ r₂ → r₂ ≤ 2 →
+      0 ≤ l₃ → l₃ ≤ r₃ → r₃ ≤ 1 →
+      |(Set.ncard {uv : ℕ×ℕ | Nat.Coprime uv.1 uv.2 ∧ 0<uv.1 ∧
+        l₁ ≤ (uv.1:ℝ)/U ∧ (uv.1:ℝ)/U ≤ r₁ ∧ l₂ ≤ (uv.2:ℝ)/V ∧ (uv.2:ℝ)/V ≤ r₂ ∧
+        l₃ ≤ (rootC uv.1 uv.2:ℝ)/uv.1 ∧ (rootC uv.1 uv.2:ℝ)/uv.1 ≤ r₃ ∧
+        ∀ p∈Sq.primeFactors,kernelLine p uv.1 (rootC uv.1 uv.2)=lam p}:ℝ)-
+        U*V*(r₁-l₁)*(r₂-l₂)*(r₃-l₃)*(6/Real.pi^2)*∏ p∈Sq.primeFactors,((p:ℝ)+1)⁻¹| ≤
+        C*U*V*(min U V)^(-(1/200:ℝ))*(Sq:ℝ)^6 := by
+  classical
+  obtain ⟨C,hC,hRaw⟩ := pd2a_root_residue_power_bound
+  refine ⟨C,hC,?_⟩
+  intro U V hU hV Sq hSq hpos lam l₁ r₁ l₂ r₂ l₃ r₃ hl₁ hle₁ hr₁ hl₂ hle₂ hr₂ hl₃ hle₃ hr₃
+  letI : NeZero Sq := ⟨hpos.ne'⟩
+  have hUp : 0<U := by linarith
+  have hVp : 0<V := by linarith
+  have hMp : 0 < min U V := lt_min hUp hVp
+  let T : Finset (Matrix (Fin 2) (Fin 2) (ZMod Sq)) := Finset.univ.filter (matrixLineCondition Sq lam)
+  have hT (g) : g∈T ↔ matrixLineCondition Sq lam g := by simp only [T,Finset.mem_filter,Finset.mem_univ,true_and]
+  have hCardT : (T.card:ℝ)=(sl2Card Sq hpos:ℝ)*∏ p∈Sq.primeFactors,((p:ℝ)+1)⁻¹ := by
+    have hd := matrix_line_fiber_density Sq hSq hpos lam
+    rw [Nat.card_eq_fintype_card,Fintype.card_subtype] at hd
+    exact hd
+  have hAll : Fintype.card (Matrix (Fin 2) (Fin 2) (ZMod Sq))=Sq^4 := by
+    change Fintype.card (Fin 2 → Fin 2 → ZMod Sq)=Sq^4
+    simp only [Fintype.card_fun,Fintype.card_fin,ZMod.card]
+    rw [←pow_mul]
+  have hTN : T.card ≤ Sq^4 := by
+    have hc : T.card ≤ Fintype.card (Matrix (Fin 2) (Fin 2) (ZMod Sq)) := by
+      simpa only [T,Finset.card_univ] using Finset.card_filter_le Finset.univ (matrixLineCondition Sq lam)
+    exact hc.trans_eq hAll
+  have hTR : (T.card:ℝ) ≤ (Sq:ℝ)^4 := by exact_mod_cast hTN
+  have hSL : 0<(sl2Card Sq hpos:ℝ) := by exact_mod_cast pd2a_sl2Card_pos Sq hpos
+  let M := U*V*(r₁-l₁)*(r₂-l₂)*(r₃-l₃)/((Real.pi^2/6)*(sl2Card Sq hpos:ℝ))
+  have hMain : (T.card:ℝ)*M=U*V*(r₁-l₁)*(r₂-l₂)*(r₃-l₃)*(6/Real.pi^2)*
+      ∏ p∈Sq.primeFactors,((p:ℝ)+1)⁻¹ := by
+    rw [hCardT]
+    dsimp only [M]
+    field_simp [Real.pi_ne_zero,hSL.ne']
+    <;> ring
+  have hConst : (∑ _g∈T,M)=(T.card:ℝ)*M := by simp only [Finset.sum_const,nsmul_eq_mul]
+  rw [root_lines_residue_partition U V hUp hVp Sq hpos lam T hT l₁ r₁ l₂ r₂ l₃ r₃ hl₁ hr₁ hr₂,
+    ←hMain,←hConst,←Finset.sum_sub_distrib]
+  let E := C*U*V*(min U V)^(-(1/200:ℝ))*(Sq:ℝ)^2
+  have hE : 0 ≤ E := by dsimp [E];positivity
+  have hEach (g) (hg : g∈T) : |rootResidueCount U V Sq g l₁ r₁ l₂ r₂ l₃ r₃-M| ≤ E :=
+    hRaw U V hU hV Sq hSq hpos g ((hT g).mp hg).1 l₁ r₁ l₂ r₂ l₃ r₃
+      hl₁ hle₁ hr₁ hl₂ hle₂ (by linarith) hl₃ hle₃ hr₃
+  calc
+    _ ≤ ∑ g∈T,|rootResidueCount U V Sq g l₁ r₁ l₂ r₂ l₃ r₃-M| := by
+      simpa only [Real.norm_eq_abs] using norm_sum_le T (fun g => rootResidueCount U V Sq g l₁ r₁ l₂ r₂ l₃ r₃-M)
+    _ ≤ ∑ _g∈T,E := Finset.sum_le_sum hEach
+    _ = (T.card:ℝ)*E := by simp only [Finset.sum_const,nsmul_eq_mul]
+    _ ≤ (Sq:ℝ)^4*E := mul_le_mul_of_nonneg_right hTR hE
+    _ = _ := by dsimp [E];ring
+
 /-- `t2:pd.root-lines` (new node) — corollary of `lem:root-residue` (frozen `root_residue`),
 PD 03:667-678.  Counting primitive roots in a box with prescribed kernel lines at the primes of a
 squarefree `S`: the number of `g₀ ∈ SL₂(ℤ/S)` with prescribed first-row kernel lines is
@@ -4242,7 +4301,43 @@ theorem root_lines (δ C_K : ℝ) (hδ : 0 < δ) (hCK : 0 < C_K) :
                 U * V * (r₁ - l₁) * (r₂ - l₂) * (r₃ - l₃) * (6 / Real.pi ^ 2) *
                   ∏ p ∈ Sq.primeFactors, ((p : ℝ) + 1)⁻¹| ≤
                 C₀ * U * V * Real.rpow x (-cδ) := by
-  sorry
+  classical
+  obtain ⟨C,hC,hPower⟩ := root_lines_power_bound
+  obtain ⟨xA,hxA,hAbsorb⟩ := pd2a_line_error_absorb δ C_K hδ hCK
+  let xT := max 2 (Real.exp (Real.log 2/δ))
+  let x₀ := max xA xT
+  refine ⟨δ/1000,C,x₀,rfl,hC,hxA.trans (le_max_left _ _),?_⟩
+  intro x hx U V hU hV Sq hSq hpos hSqBound lam l₁ r₁ l₂ r₂ l₃ r₃
+    hl₁ hle₁ hr₁ hl₂ hle₂ hr₂ hl₃ hle₃ hr₃
+  have hxA' : xA ≤ x := (le_max_left _ _).trans hx
+  have hxT' : xT ≤ x := (le_max_right _ _).trans hx
+  have hx2 : 2 ≤ x := (le_max_left _ _).trans hxT'
+  have hxp : 0<x := by linarith
+  have hLog : Real.log 2/δ ≤ Real.log x :=
+    (Real.le_log_iff_exp_le hxp).2 ((le_max_right _ _).trans hxT')
+  have hxPow : 2 ≤ Real.rpow x δ := by
+    calc
+      2 = Real.exp (Real.log 2) := (Real.exp_log (by norm_num : (0:ℝ)<2)).symm
+      _ ≤ Real.exp (Real.log x*δ) := Real.exp_le_exp.mpr (by
+        have ht := (div_le_iff₀ hδ).mp hLog
+        nlinarith)
+      _ = _ := (Real.rpow_def_of_pos hxp δ).symm
+  have hU2 : 2 ≤ U := hxPow.trans hU
+  have hV2 : 2 ≤ V := hxPow.trans hV
+  have hUp : 0<U := by linarith
+  have hVp : 0<V := by linarith
+  have ht := hPower U V hU2 hV2 Sq hSq hpos lam l₁ r₁ l₂ r₂ l₃ r₃
+    hl₁ hle₁ hr₁ hl₂ hle₂ hr₂ hl₃ hle₃ hr₃
+  have hM : Real.rpow x δ ≤ min U V := le_min hU hV
+  have ha := hAbsorb x hxA' (min U V) hM Sq hSqBound
+  have he : C*U*V*(min U V)^(-(1/200:ℝ))*(Sq:ℝ)^6 =
+      (C*U*V)*(Real.rpow (min U V) (-(1/200:ℝ))*(Sq:ℝ)^6) := by
+    change C*U*V*(Real.rpow (min U V) (-(1/200:ℝ)))*(Sq:ℝ)^6 = _
+    ring
+  apply ht.trans
+  rw [he]
+  exact mul_le_mul_of_nonneg_left ha (mul_nonneg (mul_nonneg hC.le hUp.le) hVp.le)
+
 
 /-- Closed grid cube of side `h` with integer index `k`, in the normalized root coordinates
 `(u/U, v/V, r)`. -/
