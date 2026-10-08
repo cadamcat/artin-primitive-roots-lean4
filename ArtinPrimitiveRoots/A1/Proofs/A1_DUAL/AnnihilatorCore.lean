@@ -245,6 +245,54 @@ theorem arch_trace_eq_two_real_sum [IsTotallyComplex F] (z : F) :
   simp only [Complex.ofReal_mul, Complex.ofReal_ofNat]
   rw [Finset.mul_sum]
 
+/-- Triviality of the archimedean character on an integer argument makes its real trace pairing
+an integer. -/
+theorem arch_character_condition_integer [IsTotallyComplex F]
+    (x : InfinitePlace F → ℂ)
+    (h : ∀ n : 𝓞 F,
+      (∏ w : InfinitePlace F,
+        A1.psiC (w.embedding (n : F) * x w)) = 1)
+    (n : 𝓞 F) :
+    ∃ m : ℤ, (m : ℝ) =
+      2 * ∑ w : InfinitePlace F, ((w.embedding (n : F) * x w).re) := by
+  let q : ℝ := 2 * ∑ w : InfinitePlace F, ((w.embedding (n : F) * x w).re)
+  have hprod :
+      (∏ w : InfinitePlace F, A1.psiC (w.embedding (n : F) * x w)) =
+        Complex.exp (-(2 * (Real.pi : ℂ) * Complex.I * (q : ℂ))) := by
+    unfold A1.psiC
+    rw [← Complex.exp_sum]
+    congr 1
+    calc
+      (∑ w : InfinitePlace F,
+          -(4 * Real.pi * Complex.I * ((w.embedding (n : F) * x w).re : ℂ))) =
+          -(4 * Real.pi * Complex.I *
+            ∑ w : InfinitePlace F, ((w.embedding (n : F) * x w).re : ℂ)) := by
+        rw [Finset.sum_neg_distrib, ← Finset.mul_sum]
+      _ = -(2 * (Real.pi : ℂ) * Complex.I * (q : ℂ)) := by
+        dsimp [q]
+        push_cast
+        ring
+  have hqexp : Complex.exp (-(2 * (Real.pi : ℂ) * Complex.I * (q : ℂ))) = 1 := by
+    rw [← hprod]
+    exact h n
+  obtain ⟨k, hk⟩ := Complex.exp_eq_one_iff.mp hqexp
+  have hc : (2 * (Real.pi : ℂ) * Complex.I) ≠ 0 := by
+    simp [Real.pi_ne_zero]
+  have hmul :
+      (2 * (Real.pi : ℂ) * Complex.I) * (-(q : ℂ)) =
+        (2 * (Real.pi : ℂ) * Complex.I) * (k : ℂ) := by
+    calc
+      (2 * (Real.pi : ℂ) * Complex.I) * (-(q : ℂ)) =
+          -(2 * (Real.pi : ℂ) * Complex.I * (q : ℂ)) := by ring
+      _ = (k : ℂ) * (2 * (Real.pi : ℂ) * Complex.I) := hk
+      _ = (2 * (Real.pi : ℂ) * Complex.I) * (k : ℂ) := by ring
+  have hq : -(q : ℂ) = (k : ℂ) := mul_left_cancel₀ hc hmul
+  have hq' : (q : ℂ) = ((-k : ℤ) : ℂ) := by
+    have h := congrArg (fun z : ℂ => -z) hq
+    simpa using h
+  have hqReal : q = ((-k : ℤ) : ℝ) := by exact_mod_cast hq'
+  exact ⟨-k, by simpa [q] using hqReal.symm⟩
+
 /-- The archimedean annihilator of the integral lattice is the embedded inverse trace-dual
 lattice; all its elements lie in the S-integers because the different is supported in `S`. -/
 theorem arch_trace_dual_lattice [IsTotallyComplex F]
