@@ -202,4 +202,41 @@ theorem qs_nq0_quadratic_local_unit_trivial (D : FieldData K) (H : HilbertData K
   rw [htloc]
   exact hglobal (Units.mk0 b hb0) hbval
 
+/-!
+The next almost-everywhere statement is:
+```
+theorem qs_nq0_quadratic_local_eventually_unit_trivial
+    (D : FieldData K) (H : HilbertData K) (a : Kˣ) :
+    ∀ᶠ v : FinPlace K in Filter.cofinite,
+      ∀ u : (v.adicCompletion K)ˣ,
+        u ∈ (v.adicCompletionIntegers K).units →
+          qsNQQuadraticLocal D H v (toLoc v a) u = 1
+```
+-/
+
+/-- The local quadratic character is trivial on integral units at almost every finite place. -/
+theorem qs_nq0_quadratic_local_eventually_unit_trivial
+    (D : FieldData K) (H : HilbertData K) (a : Kˣ) :
+    ∀ᶠ v : FinPlace K in Filter.cofinite,
+      ∀ u : (v.adicCompletion K)ˣ,
+        u ∈ (v.adicCompletionIntegers K).units →
+          qsNQQuadraticLocal D H v (toLoc v a) u = 1 := by
+  have hval (x : K) (hx : x ≠ 0) :
+      ∀ᶠ v : FinPlace K in Filter.cofinite, v.valuation K x = 1 := by
+    filter_upwards [FractionalIdeal.finite_factors
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) x)] with v hv
+    have hcount := qs_nq0_count_spanSingleton_eq_neg_log_valuation v x hx
+    rw [hv] at hcount
+    have hlog : WithZero.log (v.valuation K x) = 0 := neg_eq_zero.mp hcount.symm
+    have hv0 : v.valuation K x ≠ 0 := (Valuation.ne_zero_iff _).mpr hx
+    calc
+      v.valuation K x = WithZero.exp (WithZero.log (v.valuation K x)) :=
+        (WithZero.exp_log hv0).symm
+      _ = 1 := by rw [hlog, WithZero.exp_zero]
+  filter_upwards [hval (a : K) a.ne_zero, hval (6 : K) (by norm_num)] with v hva hv6
+  have h6 : (6 : 𝓞 K) ∉ v.asIdeal :=
+    (v.valuation_eq_one_iff_notMem (K := K)).mp (by simpa only [map_ofNat] using hv6)
+  intro u hu
+  exact qs_nq0_quadratic_local_unit_trivial D H v h6 a hva u hu
+
 end ArtinPrimitiveRoots.A2
