@@ -10,7 +10,7 @@ namespace ArtinPrimitiveRoots.Proofs.pp_phase_p
 open MeasureTheory
 open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.TypeII.PP
-open scoped ComplexConjugate
+open scoped ComplexConjugate ENNReal
 
 def phaseMeanValueInput : Prop :=
   ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
@@ -1813,6 +1813,304 @@ private theorem phase_box_sobolev (k M : ℕ) (hM : 0 < M)
     Finset.sum_nonneg fun e _ => hnonneg e
   exact (ENNReal.ofReal_le_ofReal_iff hsumNonneg).mp hlinCube
 
+private noncomputable def phase_box_affineHomeomorph (a b : ℝ) (ha : a ≠ 0) : ℝ ≃ₜ ℝ where
+  toFun x := (b + x) / a
+  invFun y := a * y - b
+  left_inv x := by
+    dsimp
+    field_simp [ha]
+    ring
+  right_inv y := by
+    dsimp
+    field_simp [ha]
+    ring
+  continuous_toFun := by fun_prop
+  continuous_invFun := by fun_prop
+
+private theorem phase_box_affine_map_ioc {a b : ℝ} (ha : 0 < a) :
+    Measure.map (phase_box_affineHomeomorph a b ha.ne')
+        (volume.restrict (Set.Ioc (0 : ℝ) 1)) =
+      ENNReal.ofReal a • volume.restrict (Set.Ioc (b / a) ((b + 1) / a)) := by
+  let e := phase_box_affineHomeomorph a b ha.ne'
+  have himage : e '' Set.Ioc (0 : ℝ) 1 = Set.Ioc (b / a) ((b + 1) / a) := by
+    ext y
+    constructor
+    · rintro ⟨x, hx, rfl⟩
+      rw [Set.mem_Ioc] at hx ⊢
+      constructor
+      · apply (div_lt_div_iff_of_pos_right ha).2
+        linarith
+      · apply (div_le_div_iff_of_pos_right ha).2
+        linarith
+    · intro hy
+      refine ⟨e.symm y, ?_, e.apply_symm_apply y⟩
+      rw [Set.mem_Ioc]
+      constructor
+      · have h := (div_lt_iff₀ ha).mp hy.1
+        dsimp [e, phase_box_affineHomeomorph]
+        linarith
+      · have h := (le_div_iff₀ ha).mp hy.2
+        dsimp [e, phase_box_affineHomeomorph]
+        linarith
+  have hpre : e ⁻¹' Set.Ioc (b / a) ((b + 1) / a) = Set.Ioc (0 : ℝ) 1 := by
+    rw [← himage]
+    exact Set.preimage_image_eq _ e.injective
+  have hscale : Measure.map (fun x : ℝ => a⁻¹ * x) volume =
+      ENNReal.ofReal a • volume := by
+    rw [show (fun x : ℝ => a⁻¹ * x) = (a⁻¹ * ·) by rfl,
+      Real.map_volume_mul_left (inv_ne_zero ha.ne')]
+    simp [abs_of_pos ha]
+  have hvol : Measure.map e volume = ENNReal.ofReal a • volume := by
+    have hfun : (e : ℝ → ℝ) =
+        (fun y : ℝ => y + b / a) ∘ (fun x : ℝ => a⁻¹ * x) := by
+      funext x
+      dsimp [e, phase_box_affineHomeomorph]
+      field_simp [ha.ne']
+      ring
+    rw [hfun, ← Measure.map_map (μ := volume) (by fun_prop) (by fun_prop)]
+    rw [hscale, Measure.map_smul, map_add_right_eq_self]
+    fun_prop
+  calc
+    _ = (volume.restrict (e ⁻¹' Set.Ioc (b / a) ((b + 1) / a))).map e := by
+      rw [hpre]
+    _ = (volume.map e).restrict (Set.Ioc (b / a) ((b + 1) / a)) :=
+      e.measurableEmbedding.restrict_map volume _ |>.symm
+    _ = (ENNReal.ofReal a • volume).restrict (Set.Ioc (b / a) ((b + 1) / a)) := by
+      rw [hvol]
+    _ = ENNReal.ofReal a •
+        volume.restrict (Set.Ioc (b / a) ((b + 1) / a)) := by
+      rw [Measure.restrict_smul]
+
+private def phaseBoxIoc {k M : ℕ} (r : PhaseBoxIndex k M) : Set (Fin k → ℝ) :=
+  Set.univ.pi (fun j : Fin k =>
+    Set.Ioc (((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1))
+      ((((r j).val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1)))
+
+private def phaseBoxUnitIoc (k : ℕ) : Set (Fin k → ℝ) :=
+  Set.univ.pi (fun _ : Fin k => Set.Ioc (0 : ℝ) 1)
+
+private theorem phase_box_pi_smul {k : ℕ} (μ : Fin k → Measure ℝ)
+    (c : Fin k → ℝ≥0∞) [∀ j, SigmaFinite (μ j)]
+    (hfinite : ∀ j, IsFiniteMeasure (c j • μ j)) :
+    Measure.pi (fun j => c j • μ j) = (∏ j, c j) • Measure.pi μ := by
+  classical
+  haveI (j : Fin k) : SigmaFinite (c j • μ j) := (hfinite j).toSigmaFinite
+  apply Measure.pi_eq
+  intro s hs
+  simp only [Measure.smul_apply, smul_eq_mul, Measure.pi_pi]
+  rw [← Finset.prod_mul_distrib]
+
+private theorem phase_box_map_cube (k M : ℕ) (hM : 0 < M)
+    (r : PhaseBoxIndex k M) :
+    Measure.map (fun x : Fin k → ℝ => phaseBoxPoint r x)
+        (Measure.pi (fun _ : Fin k => volume.restrict (Set.Ioc (0 : ℝ) 1))) =
+      ENNReal.ofReal ((M : ℝ) ^ phaseBoxExponent k) •
+        Measure.pi (fun j : Fin k => volume.restrict
+          (Set.Ioc (((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1))
+            ((((r j).val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1)))) := by
+  classical
+  let m (j : Fin k) : ℝ := (M : ℝ) ^ (j.val + 1)
+  let b (j : Fin k) : ℝ := (r j).val
+  let μ : Measure ℝ := volume.restrict (Set.Ioc (0 : ℝ) 1)
+  have hm (j : Fin k) : 0 < m j := by
+    dsimp [m]
+    positivity
+  have hcoord (j : Fin k) :
+      Measure.map (fun x : ℝ => (b j + x) / m j) μ =
+        ENNReal.ofReal (m j) • volume.restrict (Set.Ioc (b j / m j) ((b j + 1) / m j)) := by
+    simpa [μ, phase_box_affineHomeomorph] using phase_box_affine_map_ioc (hm j)
+  have hpi := Measure.pi_map_pi
+    (μ := fun _ : Fin k => μ)
+    (f := fun j x => (b j + x) / m j)
+    (fun j => (by fun_prop : AEMeasurable (fun x : ℝ => (b j + x) / m j) μ))
+  have hscale : ∏ j : Fin k, ENNReal.ofReal (m j) =
+      ENNReal.ofReal ((M : ℝ) ^ phaseBoxExponent k) := by
+    calc
+      _ = ENNReal.ofReal (∏ j : Fin k, m j) := by
+        symm
+        exact ENNReal.ofReal_prod_of_nonneg (fun j _ => (le_of_lt (hm j)))
+      _ = ENNReal.ofReal ((M : ℝ) ^ phaseBoxExponent k) := by
+        congr 1
+        simp only [m, phaseBoxExponent]
+        rw [← Finset.prod_pow_eq_pow_sum]
+  have hfinite (j : Fin k) : IsFiniteMeasure
+      (ENNReal.ofReal (m j) • volume.restrict
+        (Set.Ioc (b j / m j) ((b j + 1) / m j))) := by
+    exact Measure.smul_finite
+      (volume.restrict (Set.Ioc (b j / m j) ((b j + 1) / m j)))
+      ENNReal.ofReal_ne_top
+  calc
+    _ = Measure.pi (fun j : Fin k =>
+          ENNReal.ofReal (m j) • volume.restrict
+            (Set.Ioc (b j / m j) ((b j + 1) / m j))) := by
+      rw [show (fun x : Fin k → ℝ => phaseBoxPoint r x) =
+        (fun x j => (b j + x j) / m j) by
+          funext x
+          funext j
+          simp [phaseBoxPoint, b, m]]
+      rw [hpi]
+      simp_rw [hcoord]
+    _ = (∏ j : Fin k, ENNReal.ofReal (m j)) •
+          Measure.pi (fun j : Fin k => volume.restrict
+            (Set.Ioc (b j / m j) ((b j + 1) / m j))) :=
+      phase_box_pi_smul _ _ hfinite
+    _ = _ := by
+      rw [hscale]
+      simp [b, m]
+
+private theorem phase_box_ioc_disjoint {k M : ℕ} (hM : 0 < M) :
+    ∀ r s : PhaseBoxIndex k M, r ≠ s → Disjoint (phaseBoxIoc r) (phaseBoxIoc s) := by
+  classical
+  intro r s hrs
+  rw [Set.disjoint_left]
+  intro x hxr hxs
+  simp only [phaseBoxIoc, Set.mem_pi, Set.mem_univ, true_implies] at hxr hxs
+  have hcoord : ∃ j : Fin k, r j ≠ s j := by
+    by_contra h
+    push_neg at h
+    apply hrs
+    funext j
+    exact h j
+  obtain ⟨j, hj⟩ := hcoord
+  have hd : 0 < (M : ℝ) ^ (j.val + 1) := by positivity
+  rcases lt_or_gt_of_ne hj with hlt | hgt
+  · have hltval : (r j).val < (s j).val := hlt
+    have hend : (((r j).val + 1 : ℕ) : ℝ) ≤ (s j).val := by
+      exact_mod_cast Nat.succ_le_of_lt hltval
+    have hinterval :
+        (((r j).val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1) ≤
+          ((s j).val : ℝ) / (M : ℝ) ^ (j.val + 1) :=
+      (div_le_div_iff_of_pos_right hd).2 hend
+    have h₁ := (Set.mem_Ioc.mp (hxr j)).2
+    have h₂ := (Set.mem_Ioc.mp (hxs j)).1
+    linarith
+  · have hltval : (s j).val < (r j).val := hgt
+    have hend : (((s j).val + 1 : ℕ) : ℝ) ≤ (r j).val := by
+      exact_mod_cast Nat.succ_le_of_lt hltval
+    have hinterval :
+        (((s j).val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1) ≤
+          ((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1) :=
+      (div_le_div_iff_of_pos_right hd).2 hend
+    have h₁ := (Set.mem_Ioc.mp (hxs j)).2
+    have h₂ := (Set.mem_Ioc.mp (hxr j)).1
+    linarith
+
+private theorem phase_box_ioc_cover {k M : ℕ} (hM : 0 < M) :
+    Set.iUnion (fun r : PhaseBoxIndex k M => phaseBoxIoc (k := k) (M := M) r) =
+      phaseBoxUnitIoc k := by
+  classical
+  ext x
+  simp only [Set.mem_iUnion]
+  constructor
+  · rintro ⟨r, hr⟩
+    simp only [phaseBoxIoc, Set.mem_pi, Set.mem_univ, true_implies] at hr
+    simp only [phaseBoxUnitIoc, Set.mem_pi, Set.mem_univ, true_implies]
+    intro j
+    have hj := Set.mem_Ioc.mp (hr j)
+    have hd : 0 < (M : ℝ) ^ (j.val + 1) := by positivity
+    have hrle : (((r j).val + 1 : ℕ) : ℝ) ≤ (M : ℝ) ^ (j.val + 1) := by
+      have hfin := (r j).isLt
+      exact_mod_cast Nat.succ_le_of_lt hfin
+    constructor
+    · have hnonneg : 0 ≤ ((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1) := by positivity
+      linarith
+    · have hdiv : (((r j).val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1) ≤ 1 :=
+        (div_le_one₀ hd).2 hrle
+      exact hj.2.trans hdiv
+  · intro hx
+    simp only [phaseBoxUnitIoc, Set.mem_pi, Set.mem_univ, true_implies] at hx
+    have hcoord (j : Fin k) :
+        ∃ q : Fin (M ^ (j.val + 1)),
+          x j ∈ Set.Ioc (((q.val : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1))
+            ((((q.val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1))) := by
+      let n : ℕ := M ^ (j.val + 1)
+      let z : ℝ := (n : ℝ) * x j
+      have hn : 0 < n := by dsimp [n]; exact Nat.pow_pos hM
+      have hnreal : 0 < (n : ℝ) := by exact_mod_cast hn
+      have hncast : (n : ℝ) = (M : ℝ) ^ (j.val + 1) := by simp [n]
+      have hxj := Set.mem_Ioc.mp (hx j)
+      have hzpos : 0 < z := by dsimp [z]; exact mul_pos hnreal hxj.1
+      have hzle : z ≤ (n : ℝ) := by
+        dsimp [z]
+        calc
+          (n : ℝ) * x j ≤ (n : ℝ) * 1 := mul_le_mul_of_nonneg_left hxj.2 hnreal.le
+          _ = (n : ℝ) := by ring
+      have hceilpos : 1 ≤ Nat.ceil z := Nat.ceil_pos.mpr hzpos
+      have hceille : Nat.ceil z ≤ n := Nat.ceil_le.mpr hzle
+      let q : Fin n := ⟨Nat.ceil z - 1, by omega⟩
+      refine ⟨q, ?_⟩
+      rw [Set.mem_Ioc]
+      constructor
+      · have hceillt : (Nat.ceil z : ℝ) < z + 1 := Nat.ceil_lt_add_one (le_of_lt hzpos)
+        have hcast : ((Nat.ceil z - 1 : ℕ) : ℝ) = (Nat.ceil z : ℝ) - 1 := by
+          simpa using (Nat.cast_sub hceilpos : (↑(Nat.ceil z - 1) : ℝ) = ↑(Nat.ceil z) - ↑(1 : ℕ))
+        rw [hcast]
+        rw [← hncast]
+        change ((Nat.ceil z : ℝ) - 1) / (n : ℝ) < x j
+        apply (div_lt_iff₀ hnreal).2
+        dsimp [z]
+        nlinarith
+      · have hsucc : q.val + 1 = Nat.ceil z := Nat.sub_add_cancel hceilpos
+        rw [hsucc]
+        rw [← hncast]
+        change x j ≤ (Nat.ceil z : ℝ) / (n : ℝ)
+        apply (le_div_iff₀ hnreal).2
+        simpa [z, mul_comm] using (Nat.le_ceil z)
+    choose q hq using hcoord
+    refine ⟨q, ?_⟩
+    simp only [phaseBoxIoc, Set.mem_pi, Set.mem_univ, true_implies]
+    intro j
+    simpa using hq j
+
+private theorem phase_box_mixed_coefficient_norm_le {k M : ℕ}
+    (hM : 1 ≤ M) (e : Finset (Fin k)) {h : ℕ}
+    (hh : h ∈ Finset.Icc 1 M) :
+    ‖∏ j ∈ e, (2 * Real.pi * Complex.I) *
+      (((((h : ℝ) / (M : ℝ)) ^ (j.val + 1)) : ℝ) : ℂ)‖ ≤
+        (2 * Real.pi : ℝ) ^ k := by
+  classical
+  have hMreal : 0 < (M : ℝ) := by exact_mod_cast (lt_of_lt_of_le (by norm_num) hM)
+  have hratio : 0 ≤ (h : ℝ) / (M : ℝ) ∧ (h : ℝ) / (M : ℝ) ≤ 1 := by
+    constructor
+    · exact div_nonneg (Nat.cast_nonneg _) hMreal.le
+    · exact (div_le_one₀ hMreal).2 (by exact_mod_cast (Finset.mem_Icc.mp hh).2)
+  have hfactor (j : Fin k) :
+    ‖(2 * Real.pi * Complex.I) *
+      (((((h : ℝ) / (M : ℝ)) ^ (j.val + 1)) : ℝ) : ℂ)‖ ≤
+          2 * Real.pi := by
+    rw [norm_mul]
+    have hconst : ‖(2 * Real.pi : ℂ) * Complex.I‖ = 2 * Real.pi := by
+      rw [norm_mul, Complex.norm_I, mul_one, norm_mul]
+      have htwo : ‖(2 : ℂ)‖ = 2 := by norm_num
+      rw [htwo, Complex.norm_real, Real.norm_eq_abs, abs_of_pos Real.pi_pos]
+    have hpow : ((h : ℝ) / (M : ℝ)) ^ (j.val + 1) ≤ 1 :=
+      pow_le_one₀ hratio.1 hratio.2
+    have hnorm : ‖((((h : ℝ) / (M : ℝ)) ^ (j.val + 1) : ℝ) : ℂ)‖ =
+        ((h : ℝ) / (M : ℝ)) ^ (j.val + 1) := by
+      rw [Complex.norm_real, Real.norm_eq_abs,
+        abs_of_nonneg (pow_nonneg hratio.1 _)]
+    rw [hconst, hnorm]
+    calc
+      2 * Real.pi * ((h : ℝ) / (M : ℝ)) ^ (j.val + 1) ≤
+          2 * Real.pi * 1 :=
+        mul_le_mul_of_nonneg_left hpow (by positivity)
+      _ = 2 * Real.pi := by ring
+  have hprod :
+      ‖∏ j ∈ e, (2 * Real.pi * Complex.I) *
+        (((((h : ℝ) / (M : ℝ)) ^ (j.val + 1)) : ℝ) : ℂ)‖ ≤
+        ∏ j ∈ e, (2 * Real.pi : ℝ) := by
+    rw [norm_prod]
+    apply Finset.prod_le_prod₀
+    · intro j hj
+      positivity
+    · intro j hj
+      exact hfactor j
+  have hcard : e.card ≤ k := by simpa [Fintype.card_fin] using (Finset.card_le_univ e)
+  have hpi : 1 ≤ 2 * Real.pi := by nlinarith [Real.pi_gt_three]
+  calc
+    _ ≤ (2 * Real.pi) ^ e.card := by simpa using hprod
+    _ ≤ (2 * Real.pi) ^ k := pow_le_pow_right₀ hpi hcard
+
 private theorem phase_box_summed_mixed_moment (s k M : ℕ) (hM : 0 < M)
     (e : Finset (Fin k)) :
     ∑ r : PhaseBoxIndex k M,
@@ -1820,7 +2118,151 @@ private theorem phase_box_summed_mixed_moment (s k M : ℕ) (hM : 0 < M)
         ‖phaseBoxMixedWeylSum r e x‖ ^ (2 * s) ≤
       (M : ℝ) ^ phaseBoxExponent k *
         (2 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) := by
-  sorry
+  classical
+  let coeff : ℕ → ℂ := fun h =>
+    ∏ j ∈ e, (2 * Real.pi * Complex.I) *
+      (((((h : ℝ) / (M : ℝ)) ^ (j.val + 1)) : ℝ) : ℂ)
+  let F : (Fin k → ℝ) → ℝ := fun a =>
+    ‖phaseWeightedWeylSum (M := M) coeff a‖ ^ (2 * s)
+  have hM1 : 1 ≤ M := by omega
+  have hcoeff (h : ℕ) (hh : h ∈ Finset.Icc 1 M) :
+      ‖coeff h‖ ≤ (2 * Real.pi : ℝ) ^ k := by
+    simpa [coeff] using phase_box_mixed_coefficient_norm_le hM1 e hh
+  have hFcont : Continuous F := by
+    dsimp [F, phaseWeightedWeylSum, additiveCharacter]
+    fun_prop
+  have hcubeEq : phaseBoxUnitCube k =
+      Set.univ.pi (fun _ : Fin k => Set.Icc (0 : ℝ) 1) := by
+    ext a
+    simp [phaseBoxUnitCube, Pi.le_def, forall_and]
+  have hcubeMeas : MeasurableSet (phaseBoxUnitCube k) := by
+    rw [hcubeEq]
+    exact MeasurableSet.univ_pi fun _ => measurableSet_Icc
+  have hcubeCompact : IsCompact (phaseBoxUnitCube k) := by
+    rw [hcubeEq]
+    exact isCompact_univ_pi fun _ => isCompact_Icc
+  have hcubeIcc : Set.Icc (fun _ : Fin k => (0 : ℝ)) (fun _ => (1 : ℝ)) =
+      phaseBoxUnitCube k := by
+    ext x
+    simp [phaseBoxUnitCube, Set.mem_Icc, Pi.le_def, forall_and]
+  have hcubeAe : phaseBoxUnitIoc k =ᵐ[volume] phaseBoxUnitCube k := by
+    simpa [phaseBoxUnitIoc, volume_pi, hcubeIcc] using
+      (Measure.univ_pi_Ioc_ae_eq_Icc
+        (μ := fun _ : Fin k => (volume : Measure ℝ))
+        (f := fun _ : Fin k => (0 : ℝ)) (g := fun _ => (1 : ℝ)))
+  have hmuCube : volume.restrict (phaseBoxUnitIoc k) =
+      volume.restrict (phaseBoxUnitCube k) :=
+    Measure.restrict_congr_set hcubeAe
+  have hsource : volume.restrict (phaseBoxUnitIoc k) =
+      Measure.pi (fun _ : Fin k => volume.restrict (Set.Ioc (0 : ℝ) 1)) := by
+    rw [phaseBoxUnitIoc, volume_pi, Measure.restrict_pi_pi]
+  have hclosedMoment :
+      ∫ a in phaseBoxUnitCube k, F a ≤
+        ((2 * Real.pi : ℝ) ^ k) ^ (2 * s) * (vinogradovCount s k M : ℝ) := by
+    let cubeSet : Set (Fin k → ℝ) := {a | ∀ j, 0 ≤ a j ∧ a j ≤ 1}
+    have hcubeSetEq : cubeSet = phaseBoxUnitCube k := by
+      ext a
+      simp [cubeSet, phaseBoxUnitCube, Pi.le_def, forall_and]
+    have hcubeSetMeas : MeasurableSet cubeSet := by
+      rw [hcubeSetEq, hcubeEq]
+      exact MeasurableSet.univ_pi fun _ => measurableSet_Icc
+    have htorus := phase_torus_moment (s := s) (k := k) (M := M)
+      (D := (2 * Real.pi : ℝ) ^ k) (by positivity) coeff hcoeff
+    rw [integral_indicator hcubeSetMeas, hcubeSetEq] at htorus
+    simpa [F, phaseWeightedWeylSum] using htorus
+  have hFintClosed : Integrable F (volume.restrict (phaseBoxUnitCube k)) :=
+    hFcont.continuousOn.integrableOn_compact hcubeCompact
+  have hFintOpen : Integrable F (volume.restrict (phaseBoxUnitIoc k)) := by
+    rw [hmuCube]
+    exact hFintClosed
+  let boxMeasure (r : PhaseBoxIndex k M) : Measure (Fin k → ℝ) :=
+    volume.restrict (phaseBoxIoc r)
+  have hboxMeas (r : PhaseBoxIndex k M) : MeasurableSet (phaseBoxIoc r) := by
+    rw [phaseBoxIoc]
+    exact MeasurableSet.univ_pi fun _ => measurableSet_Ioc
+  have hdisjoint : Pairwise (fun r s : PhaseBoxIndex k M =>
+      Disjoint (phaseBoxIoc r) (phaseBoxIoc s)) := by
+    intro r s hrs
+    exact phase_box_ioc_disjoint hM r s hrs
+  have hsumMeasure : Measure.sum boxMeasure =
+      volume.restrict (phaseBoxUnitIoc k) := by
+    rw [← Measure.restrict_iUnion hdisjoint hboxMeas]
+    rw [phase_box_ioc_cover hM]
+  have hFintSum : Integrable F (Measure.sum boxMeasure) := by
+    rw [hsumMeasure]
+    exact hFintOpen
+  have htarget (r : PhaseBoxIndex k M) :
+      Measure.pi (fun j : Fin k => volume.restrict
+        (Set.Ioc (((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1))
+          ((((r j).val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1)))) =
+      volume.restrict (phaseBoxIoc r) := by
+    rw [phaseBoxIoc, volume_pi, Measure.restrict_pi_pi]
+  have hboxMap (r : PhaseBoxIndex k M) :
+      Measure.map (fun x : Fin k → ℝ => phaseBoxPoint r x)
+        (Measure.pi (fun _ : Fin k => volume.restrict (Set.Ioc (0 : ℝ) 1))) =
+      ENNReal.ofReal ((M : ℝ) ^ phaseBoxExponent k) • boxMeasure r := by
+    rw [phase_box_map_cube k M hM r, htarget]
+  have hboxComp (r : PhaseBoxIndex k M) :
+      (∫ x, F (phaseBoxPoint r x) ∂(Measure.pi
+          (fun _ : Fin k => volume.restrict (Set.Ioc (0 : ℝ) 1)))) =
+        ((M : ℝ) ^ phaseBoxExponent k) *
+          (∫ x, F x ∂boxMeasure r) := by
+    have hmap := MeasureTheory.integral_map
+      (by
+        have hcontinuous : Continuous (fun x : Fin k → ℝ => phaseBoxPoint r x) := by
+          unfold phaseBoxPoint
+          fun_prop
+        exact hcontinuous.measurable.aemeasurable
+          (μ := Measure.pi (fun _ : Fin k => volume.restrict (Set.Ioc (0 : ℝ) 1))))
+      (hFcont.aestronglyMeasurable)
+    have hpow : 0 ≤ (M : ℝ) ^ phaseBoxExponent k := by positivity
+    calc
+      _ = ∫ x, F x ∂Measure.map (fun x : Fin k → ℝ => phaseBoxPoint r x)
+          (Measure.pi (fun _ : Fin k => volume.restrict (Set.Ioc (0 : ℝ) 1))) := hmap.symm
+      _ = ∫ x, F x ∂(ENNReal.ofReal ((M : ℝ) ^ phaseBoxExponent k) • boxMeasure r) := by
+        rw [hboxMap]
+      _ = ((M : ℝ) ^ phaseBoxExponent k) * (∫ x, F x ∂boxMeasure r) := by
+        rw [MeasureTheory.integral_smul_measure, ENNReal.toReal_ofReal hpow, smul_eq_mul]
+  have hboxInt (r : PhaseBoxIndex k M) :
+      (∫ x in phaseBoxUnitCube k,
+        ‖phaseBoxMixedWeylSum r e x‖ ^ (2 * s)) =
+      ((M : ℝ) ^ phaseBoxExponent k) * (∫ x, F x ∂boxMeasure r) := by
+    calc
+      _ = ∫ x in phaseBoxUnitIoc k,
+          ‖phaseBoxMixedWeylSum r e x‖ ^ (2 * s) :=
+        setIntegral_congr_set hcubeAe.symm
+      _ = ∫ x, F (phaseBoxPoint r x) ∂(Measure.pi
+          (fun _ : Fin k => volume.restrict (Set.Ioc (0 : ℝ) 1))) := by
+        rw [hsource]
+        simp [F, coeff, phaseBoxMixedWeylSum, phaseWeightedWeylSum]
+      _ = _ := hboxComp r
+  have hsumInt :
+      ∑ r : PhaseBoxIndex k M, ∫ x, F x ∂boxMeasure r =
+        ∫ x, F x ∂(volume.restrict (phaseBoxUnitIoc k)) := by
+    calc
+      _ = ∫ x, F x ∂Measure.sum boxMeasure := by
+        calc
+          _ = ∑' r, ∫ x, F x ∂boxMeasure r := by simp
+          _ = ∫ x, F x ∂Measure.sum boxMeasure := (integral_sum_measure hFintSum).symm
+      _ = _ := by rw [hsumMeasure]
+  calc
+    _ = ((M : ℝ) ^ phaseBoxExponent k) *
+        (∑ r : PhaseBoxIndex k M, ∫ x, F x ∂boxMeasure r) := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro r hr
+      exact hboxInt r
+    _ = ((M : ℝ) ^ phaseBoxExponent k) *
+        (∫ x in phaseBoxUnitCube k, F x) := by
+      rw [hsumInt, hmuCube]
+    _ ≤ ((M : ℝ) ^ phaseBoxExponent k) *
+        (((2 * Real.pi : ℝ) ^ k) ^ (2 * s) * (vinogradovCount s k M : ℝ)) := by
+      exact mul_le_mul_of_nonneg_left hclosedMoment (by positivity)
+    _ = (M : ℝ) ^ phaseBoxExponent k *
+        (2 * Real.pi : ℝ) ^ (2 * s * k) * (vinogradovCount s k M : ℝ) := by
+      rw [← pow_mul]
+      rw [Nat.mul_comm k (2 * s)]
+      ring
 
 /-
 The former single-box moment and supremum contracts were false: summing them
