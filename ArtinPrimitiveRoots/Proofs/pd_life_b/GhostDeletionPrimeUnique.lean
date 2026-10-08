@@ -79,4 +79,21 @@ theorem finiteHistoryTrace_ghost_deletion_existsUnique_of_mem_prime {K : ℕ}
   exact finiteHistoryTrace_ghost_deletion_eq_of_prime_eq F S w γ k σ t ht hσ
     hMem hBands he.1 hd he.2
 
+/-- Equal-prime ghost births are the same recorded event. -/
+theorem finiteHistoryTrace_ghost_birth_eq_of_prime_eq {K : ℕ}
+    (F : PDFix K) (S : PDScale) (w : ArchRoot) (γ : EnvPath S.x K)
+    (k : ℕ) (σ : LogPoint S.x K) (t : FiniteHistoryTrace F S γ k σ)
+    (ht : FiniteHistoryTraceValid F S w γ k σ t)
+    {b b' : Fin (pathLength S.x + 1) × Fin K × ℕ}
+    (hb : b ∈ finiteHistoryTraceGhostBirths F S γ k σ t)
+    (hb' : b' ∈ finiteHistoryTraceGhostBirths F S γ k σ t)
+    (hprime : b.2.2 = b'.2.2) : b = b' := by
+  let G := finiteHistoryTraceGhostBirths F S γ k σ t
+  have hPrime : (G.map fun b => b.2.2).Nodup := by
+    simpa [G] using
+      (finiteHistoryTrace_ghost_birth_data F S w γ k σ t ht).1
+  have hG : G.Nodup := hPrime.of_map
+  have hInj := (List.nodup_map_iff_inj_on hG).1 hPrime
+  exact hInj b (by simpa [G] using hb) b' (by simpa [G] using hb') hprime
+
 end ArtinPrimitiveRoots.Proofs.pd_lifeb_sol
