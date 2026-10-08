@@ -1632,8 +1632,7 @@ private theorem ppPrimeSmoothed_mellin_identity
       (g w : ℂ) = (1 / (2 * Real.pi) : ℂ) *
         ∫ v : ℝ, mellinKernel g (⟨c, v⟩ : ℂ) *
           Complex.exp (-((⟨c, v⟩ : ℂ) * Real.log w)))
-    (hKernelL1 : Integrable (fun v : ℝ =>
-      ‖mellinKernel g (⟨c, v⟩ : ℂ)‖)) :
+    (hKernel : Integrable (fun v : ℝ => mellinKernel g (⟨c, v⟩ : ℂ))) :
     smoothedMangoldtPolynomial N q χ t g =
       (1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ,
         mellinKernel g (⟨c, v⟩ : ℂ) *
@@ -1642,7 +1641,280 @@ private theorem ppPrimeSmoothed_mellin_identity
                 (1 - Complex.I * t + (⟨c, v⟩ : ℂ)) /
               dirichletLValue q hq χ
                 (1 - Complex.I * t + (⟨c, v⟩ : ℂ))) := by
-  sorry
+  classical
+  let f : ℕ → ℂ := fun n => χ (n : ZMod q) *
+    (ArithmeticFunction.vonMangoldt n : ℂ)
+  let z : ℝ → ℂ := fun v => (c : ℂ) + Complex.I * (v : ℂ)
+  let s : ℝ → ℂ := fun v => 1 - Complex.I * t + z v
+  let D : ℂ → ℂ := dirichletLValue q hq χ
+  let a : ℂ := (1 / (2 * Real.pi) : ℂ)
+  let E : ℝ → ℂ := fun v => Complex.exp (z v * (Real.log N : ℂ))
+  let Cₙ : ℕ → ℝ → ℂ := fun n v => a * E v * LSeries.term f (s v) n
+  let F : ℕ → ℝ → ℂ := fun n v => mellinKernel g (z v) * Cₙ n v
+  let G : ℝ → ℂ := fun v => mellinKernel g (z v) *
+    (a * E v * (-deriv D (s v) / D (s v)))
+  let Q : ℕ → ℂ := fun n =>
+    (ArithmeticFunction.vonMangoldt n : ℂ) * χ (n : ZMod q) *
+      Complex.exp ((-1 + Complex.I * t) * Real.log (n : ℝ))
+  let W : ℕ → ℂ := fun n => Q n * (g ((n : ℝ) / N) : ℂ)
+  let σ : ℂ := (1 + c : ℝ)
+  let K : ℝ := ‖a‖ * Real.rpow N c
+  have hΛ0 : ArithmeticFunction.vonMangoldt 0 = 0 := by
+    simp [ArithmeticFunction.vonMangoldt_apply, not_isPrimePow_zero]
+  have hf0 : f 0 = 0 := by simp [f, hΛ0]
+  have hz (v : ℝ) : z v = (⟨c, v⟩ : ℂ) := by
+    apply Complex.ext <;> simp [z]
+  have hKernelZ : Integrable (fun v : ℝ => mellinKernel g (z v)) := by
+    convert hKernel using 1
+    funext v
+    rw [hz]
+  have hσ : 1 < σ.re := by
+    dsimp [σ]
+    simp
+    linarith
+  have hLσ : LSeriesSummable f σ := by
+    change LSeriesSummable ((fun n : ℕ => χ (n : ZMod q)) *
+      (fun n => (ArithmeticFunction.vonMangoldt n : ℂ))) σ
+    exact DirichletCharacter.LSeriesSummable_twist_vonMangoldt χ hσ
+  have hSeriesσ : Summable (fun n => LSeries.term f σ n) := hLσ
+  have hbn : Summable (fun n => ‖LSeries.term f σ n‖) := hSeriesσ.norm
+  have hsRe (v : ℝ) : (s v).re = 1 + c := by
+    simp [s, z]
+  have htermNorm (n : ℕ) (v : ℝ) :
+      ‖LSeries.term f (s v) n‖ = ‖LSeries.term f σ n‖ := by
+    simp [LSeries.norm_term_eq, hsRe v, σ]
+  have hE_norm (v : ℝ) : ‖E v‖ = Real.rpow N c := by
+    calc
+      ‖E v‖ = Real.exp (c * Real.log N) := by
+        rw [Complex.norm_exp]
+        simp [E, z]
+      _ = Real.rpow N c := by
+        rw [mul_comm c (Real.log N)]
+        exact (Real.rpow_def_of_pos hN c).symm
+  have ha_ne : a ≠ 0 := by
+    dsimp [a]
+    exact_mod_cast (one_div_ne_zero (by positivity : (2 * Real.pi : ℝ) ≠ 0))
+  have hK : 0 < K := by
+    dsimp [K]
+    exact mul_pos (norm_pos_iff.mpr ha_ne) (Real.rpow_pos_of_pos hN c)
+  have hC_norm (n : ℕ) (v : ℝ) : ‖Cₙ n v‖ = K * ‖LSeries.term f σ n‖ := by
+    simp [Cₙ, K, norm_mul, hE_norm v, htermNorm n v, mul_assoc]
+  have hC_cont (n : ℕ) : Continuous (Cₙ n) := by
+    by_cases hn : n = 0
+    · have hzero : Cₙ n = fun _ => 0 := by
+        funext v
+        simp [Cₙ, hn, LSeries.term]
+      rw [hzero]
+      exact continuous_const
+    · have hterm : (fun v : ℝ => LSeries.term f (s v) n) =
+          fun v : ℝ => f n / (n : ℂ) ^ (s v) := by
+        funext v
+        rw [LSeries.term_of_ne_zero hn]
+      have hterm_cont : Continuous (fun v : ℝ => LSeries.term f (s v) n) := by
+        rw [hterm]
+        have hs_cont : Continuous s := by
+          dsimp [s, z]
+          fun_prop
+        have hpow_cont : Continuous (fun v : ℝ => (n : ℂ) ^ s v) :=
+          hs_cont.const_cpow (Or.inl (Nat.cast_ne_zero.mpr hn))
+        have hpow_ne : ∀ v : ℝ, (n : ℂ) ^ s v ≠ 0 := by
+          intro v
+          exact (Complex.cpow_ne_zero_iff).2 (Or.inl (Nat.cast_ne_zero.mpr hn))
+        exact continuous_const.div hpow_cont hpow_ne
+      have hE_cont : Continuous E := by
+        dsimp [E, z]
+        fun_prop
+      have hC_eq : Cₙ n = fun v => a * (E v * LSeries.term f (s v) n) := by
+        funext v
+        simp [Cₙ, mul_assoc]
+      rw [hC_eq]
+      exact continuous_const.mul (hE_cont.mul hterm_cont)
+  have hF_int : ∀ n : ℕ, Integrable (F n) := by
+    intro n
+    change Integrable (fun v => mellinKernel g (z v) * Cₙ n v)
+    exact hKernelZ.mul_bdd (hC_cont n).aestronglyMeasurable
+      (Filter.Eventually.of_forall (fun v => (hC_norm n v).le))
+  have hFnorm (n : ℕ) (v : ℝ) :
+      ‖F n v‖ = ‖mellinKernel g (z v)‖ * (K * ‖LSeries.term f σ n‖) := by
+    simp [F, norm_mul, hC_norm n v]
+  let k : ℝ := ∫ v : ℝ, ‖mellinKernel g (z v)‖
+  have hFsum : Summable (fun n : ℕ => ∫ v : ℝ, ‖F n v‖) := by
+    have hintEq (n : ℕ) :
+        ∫ v : ℝ, ‖F n v‖ = (K * ‖LSeries.term f σ n‖) * k := by
+      calc
+        ∫ v : ℝ, ‖F n v‖ = ∫ v : ℝ,
+            (K * ‖LSeries.term f σ n‖) * ‖mellinKernel g (z v)‖ := by
+          apply integral_congr_ae
+          filter_upwards [] with v
+          rw [hFnorm]
+          ring
+        _ = (K * ‖LSeries.term f σ n‖) * k := by
+          dsimp [k]
+          rw [integral_const_mul]
+    have hmajor : Summable (fun n : ℕ =>
+        (K * ‖LSeries.term f σ n‖) * k) := by
+      simpa [mul_assoc, mul_left_comm, mul_comm] using hbn.mul_left (K * k)
+    exact hmajor.of_nonneg_of_le
+      (fun n => integral_nonneg (fun _ => norm_nonneg _))
+      (fun n => hintEq n ▸ le_rfl)
+  have hHasSum : ∀ v : ℝ, HasSum (fun n : ℕ => F n v) (G v) := by
+    intro v
+    have hsv : 1 < (s v).re := by rw [hsRe v]; linarith
+    have hLsv : LSeriesSummable f (s v) := by
+      change LSeriesSummable ((fun n : ℕ => χ (n : ZMod q)) *
+        (fun n => (ArithmeticFunction.vonMangoldt n : ℂ))) (s v)
+      exact DirichletCharacter.LSeriesSummable_twist_vonMangoldt χ hsv
+    have hsum := hLsv.LSeriesHasSum
+    have hlog := ppPrimeTwistedMangoldt_lseries_eq hq χ hsv
+    have hsumScaled : HasSum (fun n : ℕ => F n v)
+        (mellinKernel g (z v) * (a * E v * LSeries f (s v))) := by
+      simpa [F, Cₙ, mul_assoc] using
+        (hsum.mul_left (mellinKernel g (z v) * (a * E v)))
+    rw [hlog] at hsumScaled
+    simpa [G, mul_assoc] using hsumScaled
+  have hexchange := ppPrimeIntegral_tsum_exchange hF_int hFsum hHasSum
+  have hIntegral (n : ℕ) : (∫ v : ℝ, F n v) = W n := by
+    by_cases hn : n = 0
+    · subst n
+      have hzero : (fun v : ℝ => F 0 v) = 0 := by
+        funext v
+        simp [F, Cₙ, LSeries.term]
+      rw [hzero]
+      simp [W, Q, hΛ0]
+    · have hnpos : 0 < n := Nat.pos_of_ne_zero hn
+      let w : ℝ := (n : ℝ) / N
+      have hw : 0 < w := by dsimp [w]; positivity
+      have hlogdiv : Real.log w = Real.log (n : ℝ) - Real.log N := by
+        dsimp [w]
+        exact Real.log_div (by positivity) hN.ne'
+      have hlogdivC : (Real.log w : ℂ) =
+          (Real.log (n : ℝ) : ℂ) - (Real.log N : ℂ) := by
+        exact_mod_cast hlogdiv
+      have hpow (v : ℝ) : (n : ℂ) ^ (-s v) =
+          Complex.exp (-(s v) * (Real.log (n : ℝ) : ℂ)) := by
+        rw [Complex.cpow_def_of_ne_zero (Nat.cast_ne_zero.mpr hn)]
+        rw [← Complex.natCast_log]
+        congr 1
+        ring
+      have hExp (v : ℝ) :
+          Complex.exp (z v * (Real.log N : ℂ)) *
+              Complex.exp (-(s v) * (Real.log (n : ℝ) : ℂ)) =
+            Complex.exp ((-1 + Complex.I * t) * (Real.log (n : ℝ) : ℂ)) *
+              Complex.exp (-z v * (Real.log w : ℂ)) := by
+        rw [← Complex.exp_add, ← Complex.exp_add, hlogdivC]
+        simp only [s]
+        congr 1
+        ring
+      have hpoint (v : ℝ) : F n v =
+          (mellinKernel g (z v) * a * f n) *
+            (Complex.exp (z v * (Real.log N : ℂ)) *
+              Complex.exp (-(s v) * (Real.log (n : ℝ) : ℂ))) := by
+        simp only [F, Cₙ, E]
+        rw [LSeries.term_def₀ hf0, hpow v]
+        ring
+      have hpoint' (v : ℝ) : F n v =
+          Q n * (a * (mellinKernel g (z v) *
+            Complex.exp (-z v * (Real.log w : ℂ)))) := by
+        rw [hpoint v, hExp v]
+        dsimp [Q]
+        ring
+      have hInvZ : (g w : ℂ) = a * ∫ v : ℝ,
+          mellinKernel g (z v) * Complex.exp (-z v * (Real.log w : ℂ)) := by
+        have hInv := hginv w hw
+        have hIntegralEq :
+            (∫ v : ℝ, mellinKernel g (z v) *
+              Complex.exp (-z v * (Real.log w : ℂ))) =
+            ∫ v : ℝ, mellinKernel g (⟨c, v⟩ : ℂ) *
+              Complex.exp (-((⟨c, v⟩ : ℂ) * Real.log w)) := by
+          apply integral_congr_ae
+          filter_upwards [] with v
+          rw [hz v]
+          ring_nf
+        rw [← hIntegralEq] at hInv
+        exact hInv
+      have hIntegralEq : (∫ v : ℝ, F n v) =
+          (Q n * a) * ∫ v : ℝ, mellinKernel g (z v) *
+            Complex.exp (-z v * (Real.log w : ℂ)) := by
+        calc
+          ∫ v : ℝ, F n v = ∫ v : ℝ, (Q n * a) *
+              (mellinKernel g (z v) * Complex.exp (-z v * (Real.log w : ℂ))) := by
+            apply integral_congr_ae
+            filter_upwards [] with v
+            rw [hpoint' v]
+            ring
+          _ = (Q n * a) * ∫ v : ℝ, mellinKernel g (z v) *
+              Complex.exp (-z v * (Real.log w : ℂ)) := by
+            rw [integral_const_mul]
+      rw [hIntegralEq]
+      calc
+        _ = Q n * (a * ∫ v : ℝ, mellinKernel g (z v) *
+              Complex.exp (-z v * (Real.log w : ℂ))) := by ring
+        _ = Q n * (g w : ℂ) := by rw [← hInvZ]
+        _ = W n := rfl
+  have hW_support : ∀ n : ℕ, n ∉ Finset.range (⌊3 * N⌋₊ + 1) → W n = 0 := by
+    intro n hn
+    have hnlarge : ⌊3 * N⌋₊ + 1 ≤ n := by
+      exact Nat.le_of_not_gt (by simpa using hn)
+    have h3Nlt : 3 * N < (n : ℝ) := by
+      have hfloorlt : 3 * N < ((⌊3 * N⌋₊ + 1 : ℕ) : ℝ) := by
+        push_cast
+        exact Nat.lt_floor_add_one (3 * N)
+      exact hfloorlt.trans_le (by exact_mod_cast hnlarge)
+    have hgzero : g ((n : ℝ) / N) = 0 := by
+      by_contra hgn
+      have hmem : (n : ℝ) / N ∈ Function.support g := by
+        simpa only [Function.mem_support] using hgn
+      have hupper := (hgsupport hmem).2
+      have hnle : (n : ℝ) ≤ 3 * N := (div_le_iff₀ hN).mp hupper
+      linarith
+    simp [W, hgzero]
+  have hWsum : smoothedMangoldtPolynomial N q χ t g = ∑' n : ℕ, W n := by
+    rw [tsum_eq_sum (s := Finset.range (⌊3 * N⌋₊ + 1)) hW_support]
+    unfold smoothedMangoldtPolynomial
+    rw [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro n hn
+    by_cases hnpos : 1 ≤ n
+    · simp [W, Q, hnpos, mul_assoc]
+    · have hnzero : n = 0 := by omega
+      simp [W, Q, hnzero, hΛ0]
+  calc
+    smoothedMangoldtPolynomial N q χ t g = ∑' n : ℕ, W n := hWsum
+    _ = ∑' n : ℕ, ∫ v : ℝ, F n v := by
+      apply tsum_congr
+      intro n
+      exact (hIntegral n).symm
+    _ = ∫ v : ℝ, G v := hexchange.symm
+    _ = (1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ,
+        mellinKernel g (⟨c, v⟩ : ℂ) *
+          Complex.exp ((⟨c, v⟩ : ℂ) * (Real.log N : ℂ)) *
+            (-deriv (dirichletLValue q hq χ)
+                (1 - Complex.I * t + (⟨c, v⟩ : ℂ)) /
+              dirichletLValue q hq χ
+                (1 - Complex.I * t + (⟨c, v⟩ : ℂ))) := by
+      calc
+        ∫ v : ℝ, G v = ∫ v : ℝ, a *
+            (mellinKernel g (z v) * E v *
+              (-deriv D (s v) / D (s v))) := by
+          apply integral_congr_ae
+          filter_upwards [] with v
+          dsimp [G]
+          ring
+        _ = a * ∫ v : ℝ, mellinKernel g (z v) * E v *
+              (-deriv D (s v) / D (s v)) := by
+          rw [integral_const_mul]
+        _ = (1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ,
+              mellinKernel g (⟨c, v⟩ : ℂ) *
+                Complex.exp ((⟨c, v⟩ : ℂ) * (Real.log N : ℂ)) *
+                  (-deriv (dirichletLValue q hq χ)
+                      (1 - Complex.I * t + (⟨c, v⟩ : ℂ)) /
+                    dirichletLValue q hq χ
+                      (1 - Complex.I * t + (⟨c, v⟩ : ℂ))) := by
+          dsimp [a, D, E, s]
+          congr 1
+          apply integral_congr_ae
+          filter_upwards [] with v
+          rw [hz v]
 
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound :
