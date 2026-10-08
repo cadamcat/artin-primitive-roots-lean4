@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Theta.Shared
+import ArtinPrimitiveRoots.Theta.Proofs.TH_S_CONV.FourierL1
 
 open MeasureTheory
 open scoped FourierTransform
@@ -98,6 +99,21 @@ theorem sheet_profile [IsTotallyComplex F] (μ : ∀ v : FinPlace F, LocHaar v) 
 /-- Absolute Mellin moments `M_β(𝒦) = ∫_0^∞ |𝒦(T)| T^β dT/T`. -/
 def absMoment (K : ℝ → ℂ) (β : ℝ) : ℝ := ∫ T in Set.Ioi (0 : ℝ), ‖K T‖ * T ^ β / T
 
+private theorem iteratedDeriv_log_scale (Φ : ℝ → ℂ) (u : ℝ) (hu : 0 < u)
+    (j : ℕ) (t : ℝ) :
+    iteratedDeriv j (fun z : ℝ => Φ (u * Real.exp z)) t =
+      normDerivR j Φ (u * Real.exp t) := by
+  let f : ℝ → ℂ := fun s => Φ (Real.exp s)
+  have hfun : (fun z : ℝ => Φ (u * Real.exp z)) = fun z => f (Real.log u + z) := by
+    funext z
+    dsimp [f]
+    congr 1
+    rw [Real.exp_add, Real.exp_log hu]
+  have hlog : Real.log (u * Real.exp t) = Real.log u + t := by
+    rw [Real.log_mul (ne_of_gt hu) (ne_of_gt (Real.exp_pos t)), Real.log_exp]
+  rw [hfun, iteratedDeriv_comp_const_add]
+  simp [normDerivR, f, hlog]
+
 /-- **lem:sheet-profile**, convolution part: for a kernel with all moments finite, both
 convolutions `∫𝒦(T)H(uT^{±1})dT/T` and their absolute majorants obey the two-ended bound; and
 eq:sheet-absolute-sum. C9 of `sol-gate-theta` keeps the already C-infinity `SheetHypC` input.
@@ -135,7 +151,261 @@ theorem sheet_fourier_separation (ρ : ℝ → ℂ)
     ∀ A : ℝ, 0 < A → ∃ C : ℝ, ∀ u : ℝ, 0 < u →
       ∫ ξ : ℝ, ‖𝓕 (fun t : ℝ => ρ t * Φ (u * Real.exp t)) ξ‖ ≤
         C * min (u ^ α) (u ^ (-A)) := by
-  sorry
+  have hρtwo : ContDiff ℝ 2 ρ := hρ.of_le (by norm_num)
+  obtain ⟨b, hb⟩ := bddAbove_def.mp (hρc.bddAbove_image continuous_abs.continuousOn)
+  let B : ℝ := max b 0
+  have hB0 : 0 ≤ B := le_max_right _ _
+  have hB (t : ℝ) (ht : t ∈ tsupport ρ) : |t| ≤ B := by
+    have htb : |t| ≤ b := hb _ ⟨t, ht, rfl⟩
+    dsimp [B]
+    exact le_trans htb (le_max_left _ _)
+  have hρone : ContDiff ℝ 1 (deriv ρ) := hρtwo.deriv'
+  have hρtwo' : ContDiff ℝ 0 (deriv (deriv ρ)) := hρone.deriv'
+  have hρsupp₁ : HasCompactSupport (deriv ρ) := hρc.deriv
+  have hρsupp₂ : HasCompactSupport (deriv (deriv ρ)) := hρsupp₁.deriv
+  have hR0int : Integrable (fun t : ℝ => ‖ρ t‖) :=
+    (hρtwo.continuous.integrable_of_hasCompactSupport hρc).norm
+  have hR1int : Integrable (fun t : ℝ => ‖deriv ρ t‖) :=
+    (hρone.continuous.integrable_of_hasCompactSupport hρsupp₁).norm
+  have hR2int : Integrable (fun t : ℝ => ‖iteratedDeriv 2 ρ t‖) := by
+    simpa [iteratedDeriv_succ] using
+      (hρtwo'.continuous.integrable_of_hasCompactSupport hρsupp₂).norm
+  let R0 : ℝ := ∫ t : ℝ, ‖ρ t‖
+  let R1 : ℝ := ∫ t : ℝ, ‖deriv ρ t‖
+  let R2 : ℝ := ∫ t : ℝ, ‖iteratedDeriv 2 ρ t‖
+  have hR0 : 0 ≤ R0 := by
+    dsimp [R0]
+    exact integral_nonneg (fun _ => norm_nonneg _)
+  have hR1 : 0 ≤ R1 := by
+    dsimp [R1]
+    exact integral_nonneg (fun _ => norm_nonneg _)
+  have hR2 : 0 ≤ R2 := by
+    dsimp [R2]
+    exact integral_nonneg (fun _ => norm_nonneg _)
+  intro A hA
+  obtain ⟨C0, hC0⟩ := hΦ 0 (by norm_num) A hA
+  obtain ⟨C1, hC1⟩ := hΦ 1 (by norm_num) A hA
+  obtain ⟨C2, hC2⟩ := hΦ 2 (by norm_num) A hA
+  have hC0nonneg : 0 ≤ C0 := by
+    have h := hC0 1 (by norm_num)
+    have h' : ‖normDerivR 0 Φ 1‖ ≤ C0 := by simpa using h
+    exact le_trans (norm_nonneg _) h'
+  have hC1nonneg : 0 ≤ C1 := by
+    have h := hC1 1 (by norm_num)
+    have h' : ‖normDerivR 1 Φ 1‖ ≤ C1 := by simpa using h
+    exact le_trans (norm_nonneg _) h'
+  have hC2nonneg : 0 ≤ C2 := by
+    have h := hC2 1 (by norm_num)
+    have h' : ‖normDerivR 2 Φ 1‖ ≤ C2 := by simpa using h
+    exact le_trans (norm_nonneg _) h'
+  let E : ℝ := Real.exp (B * max α A)
+  have hEpos : 0 < E := by positivity
+  have hpow (u t : ℝ) (hu : 0 < u) (ht : t ∈ tsupport ρ) :
+      (u * Real.exp t) ^ α ≤ E * u ^ α ∧
+        (u * Real.exp t) ^ (-A) ≤ E * u ^ (-A) := by
+    have htupper : t ≤ B := (abs_le.mp (hB t ht)).2
+    have htlower : -t ≤ B := by
+      have := (abs_le.mp (hB t ht)).1
+      linarith
+    have heα : α * t ≤ B * max α A := by
+      calc
+        α * t ≤ α * B := mul_le_mul_of_nonneg_left htupper hα.le
+        _ ≤ B * max α A := by
+          calc
+            α * B ≤ max α A * B := mul_le_mul_of_nonneg_right (le_max_left _ _) hB0
+            _ = B * max α A := by ring
+    have heA : (-A) * t ≤ B * max α A := by
+      calc
+        (-A) * t = A * (-t) := by ring
+        _ ≤ A * B := mul_le_mul_of_nonneg_left htlower hA.le
+        _ ≤ B * max α A := by
+          calc
+            A * B ≤ max α A * B := mul_le_mul_of_nonneg_right (le_max_right _ _) hB0
+            _ = B * max α A := by ring
+    have hexpα : (Real.exp t) ^ α = Real.exp (α * t) := by
+      rw [Real.rpow_def_of_pos (Real.exp_pos t)]
+      simp [Real.log_exp, mul_comm]
+    have hexpA : (Real.exp t) ^ (-A) = Real.exp ((-A) * t) := by
+      rw [Real.rpow_def_of_pos (Real.exp_pos t)]
+      simp [Real.log_exp, mul_comm]
+    constructor
+    · calc
+        (u * Real.exp t) ^ α = u ^ α * Real.exp (α * t) := by
+          rw [Real.mul_rpow hu.le (Real.exp_pos t).le, hexpα]
+        _ ≤ u ^ α * E := mul_le_mul_of_nonneg_left (Real.exp_le_exp.mpr heα) (by positivity)
+        _ = E * u ^ α := by ring
+    · calc
+        (u * Real.exp t) ^ (-A) = u ^ (-A) * Real.exp ((-A) * t) := by
+          rw [Real.mul_rpow hu.le (Real.exp_pos t).le, hexpA]
+        _ ≤ u ^ (-A) * E := mul_le_mul_of_nonneg_left (Real.exp_le_exp.mpr heA) (by positivity)
+        _ = E * u ^ (-A) := by ring
+  have hscale (j : ℕ) (Cj : ℝ) (hCj : ∀ z : ℝ, 0 < z →
+      ‖normDerivR j Φ z‖ ≤ Cj * min (z ^ α) (z ^ (-A)))
+      (hCjnonneg : 0 ≤ Cj) (u t : ℝ) (hu : 0 < u) (ht : t ∈ tsupport ρ) :
+      ‖normDerivR j Φ (u * Real.exp t)‖ ≤ Cj * E * min (u ^ α) (u ^ (-A)) := by
+    have hz : 0 < u * Real.exp t := mul_pos hu (Real.exp_pos t)
+    have hp := hpow u t hu ht
+    rcases le_total (u ^ α) (u ^ (-A)) with hmin | hmin
+    · have hm : min (u ^ α) (u ^ (-A)) = u ^ α := min_eq_left hmin
+      calc
+        ‖normDerivR j Φ (u * Real.exp t)‖ ≤ Cj * min ((u * Real.exp t) ^ α) ((u * Real.exp t) ^ (-A)) := hCj _ hz
+        _ ≤ Cj * (E * u ^ α) := mul_le_mul_of_nonneg_left (le_trans (min_le_left _ _) hp.1) hCjnonneg
+        _ = Cj * E * min (u ^ α) (u ^ (-A)) := by rw [hm]; ring
+    · have hm : min (u ^ α) (u ^ (-A)) = u ^ (-A) := min_eq_right hmin
+      calc
+        ‖normDerivR j Φ (u * Real.exp t)‖ ≤ Cj * min ((u * Real.exp t) ^ α) ((u * Real.exp t) ^ (-A)) := hCj _ hz
+        _ ≤ Cj * (E * u ^ (-A)) := mul_le_mul_of_nonneg_left (le_trans (min_le_right _ _) hp.2) hCjnonneg
+        _ = Cj * E * min (u ^ α) (u ^ (-A)) := by rw [hm]; ring
+  refine ⟨Real.pi * E * (2 * C0 * R0 + C0 * R2 + 2 * C1 * R1 + C2 * R0), ?_⟩
+  intro u hu
+  let φ : ℝ → ℂ := fun t => Φ (u * Real.exp t)
+  let g : ℝ → ℂ := fun t => ρ t * φ t
+  have hφ : ContDiff ℝ 2 φ := by
+    simpa [φ, Function.comp_def] using hΦs.comp_contDiff (by fun_prop : ContDiff ℝ 2 (fun t : ℝ => u * Real.exp t))
+      (fun t => mul_pos hu (Real.exp_pos t))
+  have hg : ContDiff ℝ 2 g := by
+    dsimp [g]
+    exact hρtwo.mul hφ
+  have hgc : HasCompactSupport g := by
+    dsimp [g, φ]
+    exact HasCompactSupport.mul_right hρc
+  have hform (t : ℝ) : iteratedDeriv 2 g t =
+      iteratedDeriv 2 ρ t * Φ (u * Real.exp t) +
+        2 * deriv ρ t * normDerivR 1 Φ (u * Real.exp t) +
+        ρ t * normDerivR 2 Φ (u * Real.exp t) := by
+    change iteratedDeriv 2 (ρ * φ) t = _
+    have hφiter0 : iteratedDeriv 0 φ t = Φ (u * Real.exp t) := by simp [φ]
+    have hφiter1 : iteratedDeriv 1 φ t = normDerivR 1 Φ (u * Real.exp t) := by
+      simpa [φ] using iteratedDeriv_log_scale Φ u hu 1 t
+    have hφiter2 : iteratedDeriv 2 φ t = normDerivR 2 Φ (u * Real.exp t) := by
+      simpa [φ] using iteratedDeriv_log_scale Φ u hu 2 t
+    rw [iteratedDeriv_mul hρtwo.contDiffAt hφ.contDiffAt]
+    simp [Finset.sum_range_succ, iteratedDeriv_succ, hφiter0, hφiter1, hφiter2]
+    ring_nf
+  have hpoint0 (t : ℝ) : ‖g t‖ ≤ E * min (u ^ α) (u ^ (-A)) * C0 * ‖ρ t‖ := by
+    by_cases ht : t ∈ tsupport ρ
+    · have hs := hscale 0 C0 hC0 hC0nonneg u t hu ht
+      have hz : 0 < u * Real.exp t := mul_pos hu (Real.exp_pos t)
+      have hs' : ‖Φ (u * Real.exp t)‖ ≤ C0 * E * min (u ^ α) (u ^ (-A)) := by
+        rw [← Real.exp_log hz]
+        simpa [normDerivR] using hs
+      calc
+        ‖g t‖ = ‖ρ t‖ * ‖Φ (u * Real.exp t)‖ := by simp [g, φ, norm_mul]
+        _ ≤ ‖ρ t‖ * (C0 * E * min (u ^ α) (u ^ (-A))) :=
+          mul_le_mul_of_nonneg_left hs' (norm_nonneg _)
+        _ = E * min (u ^ α) (u ^ (-A)) * C0 * ‖ρ t‖ := by ring
+    · have hρzero : ρ t = 0 := (notMem_tsupport_iff_eventuallyEq.mp ht).eq_of_nhds
+      simp [g, φ, hρzero]
+  have hpoint2 (t : ℝ) :
+      ‖iteratedDeriv 2 g t‖ ≤
+        E * min (u ^ α) (u ^ (-A)) * C0 * ‖iteratedDeriv 2 ρ t‖ +
+          E * min (u ^ α) (u ^ (-A)) * (2 * C1) * ‖deriv ρ t‖ +
+          E * min (u ^ α) (u ^ (-A)) * C2 * ‖ρ t‖ := by
+    by_cases ht : t ∈ tsupport ρ
+    · have hs0 := hscale 0 C0 hC0 hC0nonneg u t hu ht
+      have hs1 := hscale 1 C1 hC1 hC1nonneg u t hu ht
+      have hs2 := hscale 2 C2 hC2 hC2nonneg u t hu ht
+      let a : ℂ := iteratedDeriv 2 ρ t * Φ (u * Real.exp t)
+      let b : ℂ := 2 * deriv ρ t * normDerivR 1 Φ (u * Real.exp t)
+      let c : ℂ := ρ t * normDerivR 2 Φ (u * Real.exp t)
+      have htriangle : ‖a + b + c‖ ≤ ‖a‖ + ‖b‖ + ‖c‖ := by
+        calc
+          ‖a + b + c‖ ≤ ‖a + b‖ + ‖c‖ := norm_add_le (a + b) c
+          _ ≤ ‖a‖ + ‖b‖ + ‖c‖ := by nlinarith [norm_add_le a b]
+      have hz : 0 < u * Real.exp t := mul_pos hu (Real.exp_pos t)
+      have hs0' : ‖Φ (u * Real.exp t)‖ ≤ C0 * E * min (u ^ α) (u ^ (-A)) := by
+        rw [← Real.exp_log hz]
+        simpa [normDerivR] using hs0
+      have ha := mul_le_mul_of_nonneg_left hs0' (norm_nonneg (iteratedDeriv 2 ρ t))
+      have hb := mul_le_mul_of_nonneg_left hs1 (by positivity : 0 ≤ 2 * ‖deriv ρ t‖)
+      have hc := mul_le_mul_of_nonneg_left hs2 (norm_nonneg (ρ t))
+      have hproducts : ‖a‖ + ‖b‖ + ‖c‖ ≤
+          ‖iteratedDeriv 2 ρ t‖ * (C0 * E * min (u ^ α) (u ^ (-A))) +
+            2 * ‖deriv ρ t‖ * (C1 * E * min (u ^ α) (u ^ (-A))) +
+            ‖ρ t‖ * (C2 * E * min (u ^ α) (u ^ (-A))) := by
+        calc
+          ‖a‖ + ‖b‖ + ‖c‖ =
+              ‖iteratedDeriv 2 ρ t‖ * ‖Φ (u * Real.exp t)‖ +
+                (2 * ‖deriv ρ t‖ * ‖normDerivR 1 Φ (u * Real.exp t)‖) +
+                (‖ρ t‖ * ‖normDerivR 2 Φ (u * Real.exp t)‖) := by
+                  simp [a, b, c, norm_mul, Complex.norm_ofNat, mul_assoc]
+          _ ≤ _ := add_le_add (add_le_add ha hb) hc
+      rw [hform]
+      calc
+        ‖a + b + c‖ ≤ ‖a‖ + ‖b‖ + ‖c‖ := htriangle
+        _ ≤ ‖iteratedDeriv 2 ρ t‖ * (C0 * E * min (u ^ α) (u ^ (-A))) +
+              2 * ‖deriv ρ t‖ * (C1 * E * min (u ^ α) (u ^ (-A))) +
+              ‖ρ t‖ * (C2 * E * min (u ^ α) (u ^ (-A))) := hproducts
+        _ = E * min (u ^ α) (u ^ (-A)) * C0 * ‖iteratedDeriv 2 ρ t‖ +
+              E * min (u ^ α) (u ^ (-A)) * (2 * C1) * ‖deriv ρ t‖ +
+              E * min (u ^ α) (u ^ (-A)) * C2 * ‖ρ t‖ := by ring
+    · have hρzero : ρ t = 0 := (notMem_tsupport_iff_eventuallyEq.mp ht).eq_of_nhds
+      have hρ₁zero : deriv ρ t = 0 := deriv_of_notMem_tsupport ht
+      have hnotρ₁ : t ∉ tsupport (deriv ρ) := fun h => ht (tsupport_deriv_subset h)
+      have hρ₂zero : iteratedDeriv 2 ρ t = 0 := by
+        simpa [iteratedDeriv_succ] using deriv_of_notMem_tsupport hnotρ₁
+      rw [hform]
+      simp [hρzero, hρ₁zero, hρ₂zero]
+  have hIntg : Integrable g := hg.continuous.integrable_of_hasCompactSupport hgc
+  have hIntg2 : Integrable (fun t : ℝ => iteratedDeriv 2 g t) := by
+    have hcont : ContDiff ℝ 0 (iteratedDeriv 2 g) := by
+      have hderiv₁ : ContDiff ℝ 1 (deriv g) := hg.deriv'
+      have hderiv₂ : ContDiff ℝ 0 (deriv (deriv g)) := hderiv₁.deriv'
+      simpa [iteratedDeriv_succ] using hderiv₂
+    have hsupport : HasCompactSupport (iteratedDeriv 2 g) := by
+      have hderiv₁ : HasCompactSupport (deriv g) := hgc.deriv
+      have hderiv₂ : HasCompactSupport (deriv (deriv g)) := hderiv₁.deriv
+      simpa [iteratedDeriv_succ] using hderiv₂
+    exact hcont.continuous.integrable_of_hasCompactSupport hsupport
+  have hI0 : ∫ t : ℝ, ‖g t‖ ≤ E * min (u ^ α) (u ^ (-A)) * C0 * R0 := by
+    calc
+      ∫ t, ‖g t‖ ≤ ∫ t, E * min (u ^ α) (u ^ (-A)) * C0 * ‖ρ t‖ :=
+        integral_mono_ae hIntg.norm (hR0int.const_mul _) (Filter.Eventually.of_forall hpoint0)
+      _ = E * min (u ^ α) (u ^ (-A)) * C0 * R0 := by
+        simp [R0, integral_const_mul, mul_assoc]
+  let q0 : ℝ := E * min (u ^ α) (u ^ (-A)) * C0
+  let q1 : ℝ := E * min (u ^ α) (u ^ (-A)) * (2 * C1)
+  let q2 : ℝ := E * min (u ^ α) (u ^ (-A)) * C2
+  let rhs2 : ℝ → ℝ := fun t =>
+    q0 * ‖iteratedDeriv 2 ρ t‖ + (q1 * ‖deriv ρ t‖ + q2 * ‖ρ t‖)
+  have hterm0 : Integrable (fun t : ℝ => q0 * ‖iteratedDeriv 2 ρ t‖) := hR2int.const_mul q0
+  have hterm1 : Integrable (fun t : ℝ => q1 * ‖deriv ρ t‖) := hR1int.const_mul q1
+  have hterm2 : Integrable (fun t : ℝ => q2 * ‖ρ t‖) := hR0int.const_mul q2
+  have hRhs2 : Integrable rhs2 := by
+    exact hterm0.add (hterm1.add hterm2)
+  have hRhs2Integral : ∫ t : ℝ, rhs2 t = q0 * R2 + (q1 * R1 + q2 * R0) := by
+    let f0 : ℝ → ℝ := fun t => q0 * ‖iteratedDeriv 2 ρ t‖
+    let f1 : ℝ → ℝ := fun t => q1 * ‖deriv ρ t‖
+    let f2 : ℝ → ℝ := fun t => q2 * ‖ρ t‖
+    change ∫ t : ℝ, f0 t + (f1 t + f2 t) = _
+    calc
+      ∫ t : ℝ, f0 t + (f1 t + f2 t) =
+          (∫ t : ℝ, f0 t) + ∫ t : ℝ, f1 t + f2 t :=
+        integral_add hterm0 (hterm1.add hterm2)
+      _ = q0 * R2 + (q1 * R1 + q2 * R0) := by
+        rw [integral_add hterm1 hterm2]
+        simp [f0, f1, f2, R0, R1, R2, integral_const_mul, mul_assoc]
+  have hI2 : ∫ t : ℝ, ‖iteratedDeriv 2 g t‖ ≤
+      E * min (u ^ α) (u ^ (-A)) *
+        (C0 * R2 + 2 * C1 * R1 + C2 * R0) := by
+    calc
+      ∫ t, ‖iteratedDeriv 2 g t‖ ≤ ∫ t, rhs2 t :=
+        integral_mono_ae hIntg2.norm hRhs2 (Filter.Eventually.of_forall (fun t => by
+          simpa [rhs2, q0, q1, q2, mul_assoc, add_assoc] using hpoint2 t))
+      _ = q0 * R2 + (q1 * R1 + q2 * R0) := hRhs2Integral
+      _ = E * min (u ^ α) (u ^ (-A)) *
+          (C0 * R2 + 2 * C1 * R1 + C2 * R0) := by
+        dsimp [q0, q1, q2]
+        ring
+  have hfourier := ArtinPrimitiveRoots.Proofs.TH_S_CONV.fourier_integral_norm_le_of_compactSupport hg hgc
+  calc
+    ∫ ξ : ℝ, ‖𝓕 g ξ‖ ≤
+        Real.pi * (2 * (∫ t, ‖g t‖) + ∫ t, ‖iteratedDeriv 2 g t‖) := hfourier
+    _ ≤ Real.pi * (2 * (E * min (u ^ α) (u ^ (-A)) * C0 * R0) +
+          E * min (u ^ α) (u ^ (-A)) * (C0 * R2 + 2 * C1 * R1 + C2 * R0)) := by
+      gcongr
+    _ = (Real.pi * E * (2 * C0 * R0 + C0 * R2 + 2 * C1 * R1 + C2 * R0)) *
+          min (u ^ α) (u ^ (-A)) := by ring
 
 /-- **eq:theta-V-profile** (03:661–669): the radial profile of the chosen S-function (T5 without
 its angular characters), with the cutoff `U` and constants `cS`. -/
