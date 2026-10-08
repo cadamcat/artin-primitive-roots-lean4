@@ -4,6 +4,7 @@ import Mathlib.Algebra.Module.ZLattice.Basic
 import Mathlib.NumberTheory.NumberField.CanonicalEmbedding.Basic
 import Mathlib.Algebra.Module.ZLattice.Summable
 import Mathlib.NumberTheory.NumberField.InfinitePlace.TotallyRealComplex
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_MINK.R11
 
 /-! Reduction-theory nodes R1--R14. This first stage states the nodes that can start against
 the frozen interface. -/
@@ -2946,6 +2947,6 @@ theorem R7_minkowski :
 acts freely on the product hyperbolic space. -/
 theorem R11_free_level :
     ∃ N : Ideal (𝓞 F), N ≠ ⊥ ∧ FreeAction F (congrSubgroup F N) := by
-  sorry
+  exact specMink_R11_free_level (F := F)
 
 end ArtinPrimitiveRoots.A1.Spec
