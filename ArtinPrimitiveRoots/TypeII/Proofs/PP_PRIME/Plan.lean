@@ -923,6 +923,66 @@ theorem mellinKernel_uniform_decay (g : ℝ → ℝ) (L A : ℝ)
   rw [hRpow]
   simpa [E, div_eq_mul_inv, mul_assoc] using hFinal
 
+/-- The endpoint cutoff supplies the log-weight hypotheses for uniform Mellin decay. -/
+theorem ppPrimePositiveCutoff_mellinKernel_uniform_decay
+    (a b L A : ℝ) (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ 2)
+    (hL : 1 ≤ L) (hA : 0 < A)
+    (hδsmall : Real.rpow L (-A - 4) ≤ 1 / 4) :
+    ∀ j : ℕ, ∃ Mj : ℝ, 0 < Mj ∧
+      ∀ α v : ℝ, |α| ≤ 1 →
+        ‖mellinKernel (ppPrimePositiveCutoff a b (Real.rpow L (-A - 4)))
+            (⟨α, v⟩ : ℂ)‖ ≤
+          Mj * Real.rpow L (((j + 1 : ℕ) : ℝ) * (A + 5)) *
+            Real.rpow (1 + |v|) (-(j : ℝ)) := by
+  let δ : ℝ := Real.rpow L (-A - 4)
+  let K : ℕ → ℝ := ppPrimePositiveCutoffLogWeightConstant
+  have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) hL
+  have hδpos : 0 < δ := by
+    dsimp [δ]
+    exact Real.rpow_pos_of_pos hLpos _
+  have hδinv : δ⁻¹ = Real.rpow L (A + 4) := by
+    dsimp [δ]
+    rw [show -A - 4 = -(A + 4) by ring, Real.rpow_neg hLpos.le]
+    simp
+  have hpow (j : ℕ) : (δ⁻¹) ^ j = Real.rpow L ((j : ℝ) * (A + 4)) := by
+    rw [hδinv]
+    calc
+      (Real.rpow L (A + 4)) ^ j = (Real.rpow L (j : ℝ)) ^ (A + 4) :=
+        by
+          have hcomm := Real.rpow_pow_comm hLpos.le (A + 4) j
+          rw [← Real.rpow_natCast L j] at hcomm
+          exact hcomm
+      _ = Real.rpow L ((j : ℝ) * (A + 4)) :=
+        (Real.rpow_mul hLpos.le (j : ℝ) (A + 4)).symm
+  have hCutNonneg (j : ℕ) : 0 ≤ ppPrimeLogCutoffDerivativeConstant j := by
+    dsimp [ppPrimeLogCutoffDerivativeConstant]
+    apply Finset.sum_nonneg
+    intro i hi
+    have hiC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound i)
+    have hkC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound (j - i))
+    exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) hiC.1.le) hkC.1.le
+  have hK : ∀ j, 0 ≤ K j := by
+    intro j
+    dsimp [K, ppPrimePositiveCutoffLogWeightConstant]
+    have hsum : 0 ≤ ∑ i ∈ Finset.range (j + 1),
+        (j.choose i : ℝ) * Real.exp 2 * ppPrimeLogCutoffDerivativeConstant (j - i) := by
+      apply Finset.sum_nonneg
+      intro i hi
+      exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) (Real.exp_nonneg _))
+        (hCutNonneg (j - i))
+    positivity
+  apply mellinKernel_uniform_decay
+    (g := ppPrimePositiveCutoff a b δ) (L := L) (A := A) hL hA K hK
+  · intro α hα
+    simpa [δ] using ppPrimePositiveCutoff_logWeight_contDiff a b δ α
+  · intro α hα j
+    exact (ppPrimePositiveCutoff_logWeight_lintegral_bound
+      a b δ α ha hab hb hδpos hδsmall hα j).1
+  · intro α hα j
+    have hbound := (ppPrimePositiveCutoff_logWeight_lintegral_bound
+      a b δ α ha hab hb hδpos hδsmall hα j).2
+    simpa only [K, hpow j] using hbound
+
 /-- Mellin inversion on a compactly supported smooth positive-coordinate weight. -/
 theorem mellinKernel_inversion (g : ℝ → ℝ)
     (hlogSmooth : ∀ α, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (mellinLogWeight g α))
