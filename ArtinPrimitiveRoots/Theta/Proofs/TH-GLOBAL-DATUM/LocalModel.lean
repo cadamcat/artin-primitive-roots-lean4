@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Theta.TorusInd
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».CubicQuotient
 
 set_option autoImplicit false
 
