@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.Types
+import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.ContinuousCharacters
 
 /-! Global sixth-power detection from the Hilbert character kernel. -/
 
