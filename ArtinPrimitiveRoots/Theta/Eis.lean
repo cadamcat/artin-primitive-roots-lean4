@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».LocalModel
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.GoodFactor
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.GaussBound
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.SphericalBound
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.QuotientCoordinates
 
 set_option autoImplicit false
 
