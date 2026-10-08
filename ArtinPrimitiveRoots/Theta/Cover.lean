@@ -3174,6 +3174,45 @@ private theorem exists_tameIntegralLiftHom
   exact continuous_of_continuousAt_one κ
     (tameIntegralLift_continuousAt_one D H v hSt L)
 
+/-- The tame integral range has no nontrivial central phase in its projection kernel. -/
+private theorem tameIntegralLift_range_inj
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (L : FinLocalCover D H v)
+    (κ : GL (Fin 2) (v.adicCompletionIntegers F) →* L.L)
+    (hκ : ∀ k, κ k = tameIntegralLift D H v L k) :
+    Set.InjOn L.pr (κ.range : Set L.L) := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let ι : GL (Fin 2) O →* GL (Fin 2) K := Matrix.GeneralLinearGroup.map O.subtype
+  have hz (ζ : rootsOfUnity 3 ℂ) : L.pr (L.z ζ) = 1 := by
+    change L.z ζ ∈ L.pr.ker
+    rw [L.pr_ker]
+    exact ⟨ζ, rfl⟩
+  have hpr (k : GL (Fin 2) O) : L.pr (κ k) = QuotientGroup.mk (ι k) := by
+    rw [hκ]
+    change L.pr (L.z (tameSplit D H v (ι k)) * L.sec (ι k)) = QuotientGroup.mk (ι k)
+    rw [map_mul, hz, L.sec_pr, one_mul]
+  have hker (k : GL (Fin 2) O) (hk : L.pr (κ k) = 1) : κ k = 1 := by
+    have hc : ι k ∈ Subgroup.center (GL (Fin 2) K) :=
+      (QuotientGroup.eq_one_iff (ι k)).mp (by rw [← hpr]; exact hk)
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hc
+    obtain ⟨c, hc⟩ := hc
+    rw [hκ]
+    change L.z (tameSplit D H v (ι k)) * L.sec (ι k) = 1
+    rw [← hc, L.sec_scalar]
+    have hs : tameSplit D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1 := by
+      simp [tameSplit, Matrix.GeneralLinearGroup.coe_scalar, Matrix.scalar]
+    rw [hs, map_one, one_mul]
+  intro x hx y hy hxy
+  obtain ⟨kx, rfl⟩ := hx
+  obtain ⟨ky, rfl⟩ := hy
+  have h := hker (kx * ky⁻¹) (by
+    simp only [map_mul, map_inv, hxy, mul_inv_cancel])
+  have heq : κ kx * (κ ky)⁻¹ = 1 := by
+    simpa only [map_mul, map_inv] using h
+  exact mul_inv_eq_one.mp heq
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
