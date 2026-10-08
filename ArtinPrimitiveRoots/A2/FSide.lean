@@ -1571,3 +1571,58 @@ theorem Hlocal_E1_zero (Q V W D1 : ℂ) (hV : V ≠ 1) (hW : W ≠ 1) (hD : D1 �
   ring
 
 end ArtinPrimitiveRoots.A2
+
+namespace ArtinPrimitiveRoots.Proofs.A2FreqP
+
+open ArtinPrimitiveRoots.A2
+open Classical
+
+variable {F : Type} [Field F] [NumberField F]
+
+theorem detectorCoeff_divisor_sum (U : ℝ) (hU : 1 ≤ U)
+    (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) :
+    detectorCoeff U I =
+      ∑ D ∈ (Ideal.finite_setOfPred_absNorm_le (S := 𝓞 F) ⌊U ^ 2⌋₊).toFinset,
+        if D ∣ I then idealMoebius D else 0 := by
+  simpa [ArtinPrimitiveRoots.A2.detectorCutoffSet] using
+    (ArtinPrimitiveRoots.A2.detectorCoeff_divisor_sum (K := F) U hU I hI)
+
+theorem detector_divisor_weight_summable (f : Ideal (𝓞 F) → ℂ)
+    (hb : ∀ I, ‖f I‖ ≤ 1) {s : ℂ} (hs : 1 < s.re) (D : Ideal (𝓞 F)) :
+    Summable (fun J : {I : Ideal (𝓞 F) // I ≠ ⊥} =>
+      if D ∣ J.1 then (idealMoebius D : ℂ) * f J.1 *
+        ((Ideal.absNorm J.1 : ℕ) : ℂ) ^ (-s) else 0) := by
+  classical
+  have hmu : ‖(idealMoebius D : ℂ)‖ ≤ 1 :=
+    ArtinPrimitiveRoots.A2.detectorIdealMoebius_norm_le_one D
+  have hb' : ∀ I, ‖(idealMoebius D : ℂ) * f I‖ ≤ 1 := by
+    intro I
+    rw [norm_mul]
+    calc
+      ‖(idealMoebius D : ℂ)‖ * ‖f I‖ ≤ 1 * ‖f I‖ :=
+        mul_le_mul_of_nonneg_right hmu (norm_nonneg _)
+      _ ≤ 1 := by simpa using hb I
+  have hbase := ArtinPrimitiveRoots.A2.detector_series_summable
+    (fun I => (idealMoebius D : ℂ) * f I) hb' hs
+  apply Summable.of_norm_bounded hbase.norm
+  intro J
+  by_cases hdiv : D ∣ J.1
+  · simp [hdiv, norm_mul]
+  · change ‖if D ∣ J.1 then
+        (idealMoebius D : ℂ) * f J.1 * ((Ideal.absNorm J.1 : ℕ) : ℂ) ^ (-s)
+      else 0‖ ≤ ‖(idealMoebius D : ℂ) * f J.1 *
+        ((Ideal.absNorm J.1 : ℕ) : ℂ) ^ (-s)‖
+    rw [if_neg hdiv, norm_zero]
+    exact norm_nonneg _
+
+theorem detector_mulDiv_tsum_reindex (D : Ideal (𝓞 F)) (hD : D ≠ ⊥)
+    (g : {J : {I : Ideal (𝓞 F) // I ≠ ⊥} // D ∣ J.1} → ℂ) :
+    (∑' I : {I : Ideal (𝓞 F) // I ≠ ⊥},
+      g ⟨⟨D * I.1, mul_ne_zero hD I.2⟩, ⟨I.1, rfl⟩⟩) =
+      ∑' J : {J : {I : Ideal (𝓞 F) // I ≠ ⊥} // D ∣ J.1}, g J := by
+  classical
+  let D' : detectorNZIdeal (K := F) := ⟨D, hD⟩
+  let e := detectorMulDivEquiv D'
+  simpa [D', e, detectorMulDivEquiv, detectorNZIdeal, detectorDivisor] using e.tsum_eq g
+
+end ArtinPrimitiveRoots.Proofs.A2FreqP
