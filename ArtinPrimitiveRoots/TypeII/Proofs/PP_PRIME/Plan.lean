@@ -239,6 +239,38 @@ private theorem ppPrimeSmoothTransition_deriv_bound (j : ℕ) :
         _ ≤ C := hnorm
         _ ≤ C + 1 := by linarith
 
+private theorem ppPrimeSmoothTransition_affine_deriv_bound (j : ℕ) (c d : ℝ) :
+    ∃ Cj : ℝ, 0 < Cj ∧ ∀ x : ℝ,
+      ‖iteratedDeriv j (fun y : ℝ => Real.smoothTransition (c * (y - d))) x‖ ≤
+        Cj * |c| ^ j := by
+  obtain ⟨Cj, hCj, hbound⟩ := ppPrimeSmoothTransition_deriv_bound j
+  have hst : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Real.smoothTransition := by
+    fun_prop
+  have hstj : ContDiff ℝ ((j : ℕ∞) : WithTop ℕ∞) Real.smoothTransition :=
+    hst.of_le (by simp)
+  let f : ℝ → ℝ := fun y => Real.smoothTransition (c * y)
+  have hscale := iteratedDeriv_comp_const_mul (n := j)
+    (f := Real.smoothTransition) hstj c
+  refine ⟨Cj, hCj, ?_⟩
+  intro x
+  have htrans : iteratedDeriv j (fun y : ℝ => f (y - d)) x =
+      iteratedDeriv j f (x - d) := by
+    have h := congrFun
+      (iteratedDerivWithin_comp_sub_const (n := j) (f := f) (s := Set.univ) d) x
+    simpa [iteratedDerivWithin_univ] using h
+  change ‖iteratedDeriv j (fun y : ℝ => f (y - d)) x‖ ≤ Cj * |c| ^ j
+  calc
+    ‖iteratedDeriv j (fun y : ℝ => f (y - d)) x‖ =
+        ‖iteratedDeriv j f (x - d)‖ := by rw [htrans]
+    _ = ‖c ^ j * iteratedDeriv j Real.smoothTransition (c * (x - d))‖ := by
+      rw [show f = fun y : ℝ => Real.smoothTransition (c * y) by rfl]
+      rw [congrFun hscale (x - d)]
+    _ = |c| ^ j * ‖iteratedDeriv j Real.smoothTransition (c * (x - d))‖ := by
+      rw [norm_mul, norm_pow, Real.norm_eq_abs]
+    _ ≤ |c| ^ j * Cj :=
+      mul_le_mul_of_nonneg_left (hbound (c * (x - d))) (pow_nonneg (abs_nonneg c) _)
+    _ = Cj * |c| ^ j := by ring
+
 /-- The kernel is Mathlib's Mellin transform, with the positive-base power
 rewritten only on the domain of integration. -/
 theorem mellinKernel_eq_mellin (g : ℝ → ℝ) (z : ℂ) :
