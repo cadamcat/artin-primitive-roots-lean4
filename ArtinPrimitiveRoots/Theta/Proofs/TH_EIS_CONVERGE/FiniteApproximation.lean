@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.Theta.LocalInt
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Approximation
 import Mathlib.Data.DFinsupp.Defs
+import Mathlib.Analysis.Normed.Group.Tannery
 
 set_option autoImplicit false
 
@@ -521,5 +522,29 @@ theorem idealLocalPeriods_integral_cosets
   simp only [hcover, setIntegral_univ] at hsum
   simp only [hcover, setIntegral_univ] at hsumNorm
   exact ⟨hsum, hsumNorm⟩
+
+/-- Absolutely summable direct-sum series are limits of their finite-coordinate cutoffs. -/
+theorem dfinsupp_tsum_support_limit
+    {ι : Type} {Q : ι → Type} [∀ i, Zero (Q i)]
+    (f : (Π₀ i, Q i) → ℂ)
+    (hf : Summable (fun a : Π₀ i, Q i => ‖f a‖)) :
+    Filter.Tendsto
+      (fun t : Finset ι => ∑' a : Π₀ i, Q i,
+        if a.support ⊆ t then f a else 0)
+      Filter.atTop (nhds (∑' a : Π₀ i, Q i, f a)) := by
+  classical
+  apply tendsto_tsum_of_dominated_convergence hf
+  · intro a
+    have heq : (fun t : Finset ι => if a.support ⊆ t then f a else 0) =ᶠ[Filter.atTop]
+        (fun _ : Finset ι => f a) := by
+      exact Filter.eventually_atTop.mpr ⟨a.support, fun t ht => ite_eq_left ht⟩
+    exact (Filter.tendsto_congr' heq).mpr tendsto_const_nhds
+  · apply Filter.Eventually.of_forall
+    intro t a
+    by_cases ha : a.support ⊆ t
+    · simp only [ite_eq_left ha]
+      exact le_rfl
+    · simp only [ite_eq_right ha, norm_zero]
+      exact norm_nonneg _
 
 end ArtinPrimitiveRoots.A1.Theta
