@@ -2,6 +2,7 @@ import ArtinPrimitiveRoots.A2.Interface
 import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
 import ArtinPrimitiveRoots.Proofs.th_factor_b.Analytic
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteMass
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.MaskTau
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
@@ -3677,7 +3678,7 @@ private theorem rf_t5_signed_sheet_eq (u : UnitSix S) (a : S.FSˣ) (l x : ℝ)
         simpa [radialU] using hRadPair.2
       rw [hTheta]
 
-set_option maxHeartbeats 12000000 in
+set_option maxHeartbeats 1000000 in
 private theorem rf_forward_norm_unfold (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     (hl : 0 < l) (σ C : ℝ)
     (hProfileBound : ∀ x : ℝ, 0 < x →
@@ -3686,15 +3687,16 @@ private theorem rf_forward_norm_unfold (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ
     let a := S.diagU (bc.gen I)
     let g : S.FSˣ → ℂ := fun y => (‖unrotated R u y‖ : ℂ)
     let gA : S.FSˣ → ℂ := fun y => g (a * y)
-    (∀ γ : Gamma S, IntegrableOn (onUnits (fun y => gA (rfGammaDiag (S := S) γ * y)))
+    (∀ γ : Gamma S, IntegrableOn (onUnits (fun y => gA (S.diagU (γ.1 : Fˣ) * y)))
       (omegaAt R l) (R.sheets.sheet l)) ∧
     Summable (fun γ : Gamma S => bridgeOmegaInt R.sheets l
-      (fun y => gA (rfGammaDiag (S := S) γ * y))) ∧
+      (fun y => gA (S.diagU (γ.1 : Fˣ) * y))) ∧
     (∑' γ : Gamma S, bridgeOmegaInt R.sheets l
-      (fun y => gA (rfGammaDiag (S := S) γ * y))) =
+      (fun y => gA (S.diagU (γ.1 : Fˣ) * y))) =
         bridgeSheetIntegral R.sheets (qI I.1 * l) g ∧
     (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ≤
       C * (qI I.1 * l) ^ (-σ) := by
+  dsimp only
   letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
   letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
   let a := S.diagU (bc.gen I)
@@ -3713,19 +3715,19 @@ private theorem rf_forward_norm_unfold (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ
   have hTransport := a2_bridge_SHEET_transport (G := R.sheets) l hl a g hBaseInt
   have hUnfold := a2_bridge_SHEET_unfold (G := R.sheets) l hl gA hTransport.1
   have hFirst : ∀ γ : Gamma S, IntegrableOn
-      (onUnits (fun y => gA (rfGammaDiag (S := S) γ * y)))
+      (onUnits (fun y => gA (S.diagU (γ.1 : Fˣ) * y)))
       (omegaAt R l) (R.sheets.sheet l) := by
     intro γ
-    simpa only [rfGammaDiag_eq, omegaAt, bridgeOmegaAt] using hUnfold.1 γ
+    simpa only [omegaAt, bridgeOmegaAt] using hUnfold.1 γ
   have hSum : Summable (fun γ : Gamma S => bridgeOmegaInt R.sheets l
-      (fun y => gA (rfGammaDiag (S := S) γ * y))) := by
-    simpa only [rfGammaDiag_eq, gA] using hUnfold.2.1
+      (fun y => gA (S.diagU (γ.1 : Fˣ) * y))) := by
+    simpa only [gA] using hUnfold.2.1
   have hSumEq : (∑' γ : Gamma S, bridgeOmegaInt R.sheets l
-      (fun y => gA (rfGammaDiag (S := S) γ * y))) =
+      (fun y => gA (S.diagU (γ.1 : Fˣ) * y))) =
         bridgeSheetIntegral R.sheets (qI I.1 * l) g := by
     calc
       _ = bridgeSheetIntegral R.sheets l gA := by
-        simpa only [rfGammaDiag_eq, gA] using hUnfold.2.2
+        simpa only [gA] using hUnfold.2.2
       _ = bridgeSheetIntegral R.sheets (S.absS (a : S.FS) * l) g := by
         simpa only [gA] using hTransport.2
       _ = bridgeSheetIntegral R.sheets (qI I.1 * l) g := by rw [hscale]
@@ -3733,7 +3735,7 @@ private theorem rf_forward_norm_unfold (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ
       (fun y => (‖unrotated R u y‖ : ℂ))).re ≤ C * (qI I.1 * l) ^ (-σ) := hNormAt.2
   exact ⟨hFirst, hSum, hSumEq, hBound⟩
 
-set_option maxHeartbeats 15000000 in
+set_option maxHeartbeats 1000000 in
 private theorem rf_forward_norm_first (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     (hl : 0 < l) (σ C : ℝ)
     (hProfileBound : ∀ x : ℝ, 0 < x →
@@ -3743,6 +3745,7 @@ private theorem rf_forward_norm_first (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     let f := fun γ : Gamma S => fun y : S.FSˣ =>
       unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
     ∀ γ : Gamma S, IntegrableOn (onUnits (f γ)) (omegaAt R l) (R.sheets.sheet l) := by
+  dsimp only
   letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
   letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
   intro (γ : Gamma S)
@@ -3767,7 +3770,7 @@ private theorem rf_forward_norm_first (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
   have hNormOrbitInt : IntegrableOn (onUnits (fun y => (‖f γ y‖ : ℂ)))
       (omegaAt R l) (R.sheets.sheet l) := by
     rw [hNormOrbitUnits γ]
-    simpa only [rfGammaDiag_eq] using hData.1 γ
+    exact hData.1 γ
   have hMeasOrbit : Measurable (f γ) := by
     dsimp [f]
     exact (rf_t5_unrotated_measurable R u).comp
@@ -3785,7 +3788,7 @@ private theorem rf_forward_norm_first (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
   change Integrable (onUnits (f γ)) ((R.sheets.sheet l).restrict (omegaAt R l))
   exact hInt
 
-set_option maxHeartbeats 15000000 in
+set_option maxHeartbeats 1000000 in
 private theorem rf_forward_norm_sum (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     (hl : 0 < l) (σ C : ℝ)
     (hProfileBound : ∀ x : ℝ, 0 < x →
@@ -3799,6 +3802,7 @@ private theorem rf_forward_norm_sum (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
       (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ∧
     (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ≤
       C * (qI I.1 * l) ^ (-σ) := by
+  dsimp only
   letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
   letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
   let a := S.diagU (bc.gen I)
@@ -3826,10 +3830,10 @@ private theorem rf_forward_norm_sum (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     rw [hNormOrbitUnits γ]
   let T : Gamma S → ℂ := fun γ =>
     bridgeOmegaInt R.sheets l (fun y => gA (S.diagU (γ.1 : Fˣ) * y))
-  have hTSummable : Summable T := by simpa only [T, rfGammaDiag_eq] using hData.2.1
+  have hTSummable : Summable T := by simpa only [T, a, g, gA] using hData.2.1
   have hTSumEq : (∑' γ, T γ) =
       bridgeSheetIntegral R.sheets (qI I.1 * l) g := by
-    simpa only [T, rfGammaDiag_eq] using hData.2.2.1
+    simpa only [T, a, g, gA] using hData.2.2.1
   have hSummable : Summable (fun γ =>
       (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) := by
     have h := Complex.reCLM.summable hTSummable
@@ -3849,7 +3853,7 @@ private theorem rf_forward_norm_sum (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
           (fun y => (‖unrotated R u y‖ : ℂ))).re := by rfl
   exact ⟨hSummable, hSumEq, hData.2.2.2⟩
 
-set_option maxHeartbeats 30000000 in
+set_option maxHeartbeats 1000000 in
 private theorem rf_forward_norm_orbit (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     (hl : 0 < l) (σ C : ℝ)
     (hProfileBound : ∀ x : ℝ, 0 < x →
@@ -3864,11 +3868,12 @@ private theorem rf_forward_norm_orbit (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
       (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ∧
     (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re ≤
       C * (qI I.1 * l) ^ (-σ) := by
+  dsimp only
   have hFirst := rf_forward_norm_first R u I l hl σ C hProfileBound
   have hRest := rf_forward_norm_sum R u I l hl σ C hProfileBound
   exact ⟨hFirst, hRest.1, hRest.2.1, hRest.2.2⟩
 
-set_option maxHeartbeats 20000000 in
+set_option maxHeartbeats 1000000 in
 private theorem rf_forward_signed_setup (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     (hl : 0 < l) (σ C : ℝ)
     (hProfileBound : ∀ x : ℝ, 0 < x →
@@ -3883,6 +3888,7 @@ private theorem rf_forward_signed_setup (u : UnitSix S) (I : S.ExtIdeal) (l : �
     Integrable (onUnits fSign) (R.sheets.sheet l) ∧
     ∀ (γ : Gamma S) (y : S.FSˣ), fSign (S.diagU (γ.1 : Fˣ) * y) =
       bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y := by
+  dsimp only
   letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
   letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
   let a := S.diagU (bc.gen I)
@@ -3958,7 +3964,7 @@ private theorem rf_forward_signed_setup (u : UnitSix S) (I : S.ExtIdeal) (l : �
     simp [hmul]
   exact ⟨hSignInt, hOrbit⟩
 
-set_option maxHeartbeats 20000000 in
+set_option maxHeartbeats 1000000 in
 private theorem rf_forward_signed_integral (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     (hl : 0 < l) (σ C : ℝ)
     (hProfileBound : ∀ x : ℝ, 0 < x →
@@ -3974,6 +3980,7 @@ private theorem rf_forward_signed_integral (u : UnitSix S) (I : S.ExtIdeal) (l :
     (∑' γ : Gamma S, omegaInt R l
       (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
         bridgeSheetIntegral R.sheets l fSign := by
+  dsimp only
   letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
   letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
   let a := S.diagU (bc.gen I)
@@ -4009,16 +4016,10 @@ private theorem rf_forward_signed_integral (u : UnitSix S) (I : S.ExtIdeal) (l :
       (∑' γ : Gamma S, omegaInt R l
         (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
           bridgeSheetIntegral R.sheets l fSign := by
-    calc
-      _ = ∑' γ, bridgeOmegaInt R.sheets l
-          (fun y => fSign (S.diagU (γ.1 : Fˣ) * y)) := by
-            apply tsum_congr
-            intro γ
-            exact hSignTermEq γ
-      _ = bridgeSheetIntegral R.sheets l fSign := hSignUnfold.2.2
+    exact (tsum_congr hSignTermEq).trans hSignUnfold.2.2
   exact ⟨hSignedSummable, hSignedEq⟩
 
-set_option maxHeartbeats 12000000 in
+set_option maxHeartbeats 1000000 in
 private theorem rf_forward_signed_orbit (u : UnitSix S) (I : S.ExtIdeal) (l : ℝ)
     (hl : 0 < l) (σ C : ℝ)
     (hProfileBound : ∀ x : ℝ, 0 < x →
@@ -4032,6 +4033,7 @@ private theorem rf_forward_signed_orbit (u : UnitSix S) (I : S.ExtIdeal) (l : �
     (∑' γ, omegaInt R l
       (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
         Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) := by
+  dsimp only
   letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
   letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
   let a := S.diagU (bc.gen I)
@@ -4063,7 +4065,7 @@ private theorem rf_forward_signed_orbit (u : UnitSix S) (I : S.ExtIdeal) (l : �
         simpa [fSign] using hSignedSheet
   exact ⟨hIntegral.1, hSignedEq⟩
 
-set_option maxHeartbeats 45000000 in
+set_option maxHeartbeats 1000000 in
 /-- rf:forward-unfolding, 04:272–301. Integrability accompanies equalities to avoid total-integral traps. -/
 theorem rf_forward_unfolding :
   ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ u (I : S.ExtIdeal) l, 0 < l →
