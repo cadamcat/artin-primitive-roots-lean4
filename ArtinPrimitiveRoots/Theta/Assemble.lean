@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Res
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
+import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
 
 set_option autoImplicit false
 
@@ -119,7 +120,21 @@ topology. -/
 theorem exists_thetaFamily (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt H v)
     (hRP : HasRestrictedProductTopology P) (𝓛 : Finset (SChar S)) :
     Nonempty (ThetaFamily P.tc 𝓛) := by
-  sorry
+  have hFactor : ThetaFactorizationInput P := by
+    intro G μ Fam hT C
+    exact thetaWhit_factor Fam hT C
+  obtain ⟨N⟩ := theta_normalization_input P hSt hFactor
+  obtain ⟨B⟩ := theta_T5_common_sections P N 𝓛
+  have Q : ThetaFamilyUpstream B := {
+    action := fun m => by
+      have hr := Rderiv_spec B.Fam B.C m B.level B.C.archSmooth
+      exact ⟨hr.1, hr.2.1, hr.2.2.1⟩
+    commutation := fun m => (Rderiv_spec B.Fam B.C m B.level B.C.archSmooth).2.2.2
+    factor := thetaWhit_factor B.Fam B.level B.C
+    finite_unipotent := thetaWhit_nFin B.Fam B.C
+    exterior := WvAll_spec P N.G N.μ
+    torus_fourier := torus_fourier_expansion P }
+  exact ⟨thetaFamily_from_normalized_sections hRP N 𝓛 B Q⟩
 
 /-- **th:theta-interface** under the Steinberg relation (P-COVER gap G1). With G1 resolved by a
 `HilbertData` field, this is the explicit-Steinberg form of the corrected `theta_interface`.
@@ -130,7 +145,8 @@ theorem theta_interface_of_steinberg (D : FieldData F) (S : SData F CE condη) (
     (A : AddCharData F) (hSt : ∀ v, SteinbergAt H v) :
     ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P ∧
       ∀ 𝓛 : Finset (SChar S), Nonempty (ThetaFamily P.tc 𝓛) := by
-  sorry
+  exact theta_interface_from_family_constructor D S H A hSt
+    (fun P hRP 𝓛 => exists_thetaFamily P hSt hRP 𝓛)
 
 private theorem unitPart_isLocUnit (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
     IsLocUnit v (unitPart v x) := by
