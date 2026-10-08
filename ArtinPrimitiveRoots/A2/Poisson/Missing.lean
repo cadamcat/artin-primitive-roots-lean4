@@ -6882,6 +6882,997 @@ def normalizedLocal (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ) 
   (1 - localV v z) * (1 - localWvar η U u v w) / (1 - localDvar η U u v ξ) *
     localEuler R η U u v hv ξ w z
 
+private theorem euler_trace_eq_pair_sum_re [IsTotallyComplex F] (z : F) :
+    (Algebra.trace ℚ F z : ℂ) =
+      ∑ w : InfinitePlace F, (w.embedding z + ComplexEmbedding.conjugate w.embedding z) := by
+  classical
+  have htrace := trace_eq_sum_embeddings (K := ℚ) (L := F) (E := ℂ) (x := z)
+  have hring : (∑ φ : F →+* ℂ, φ z) = ∑ σ : F →ₐ[ℚ] ℂ, σ z := by
+    exact Fintype.sum_equiv (RingHom.equivRatAlgHom F ℂ) _ _ (fun _ => rfl)
+  have hall : (Algebra.trace ℚ F z : ℂ) = ∑ φ : F →+* ℂ, φ z := by
+    rw [hring.symm] at htrace
+    exact htrace
+  rw [hall]
+  rw [← Finset.sum_fiberwise (s := Finset.univ)
+    (g := fun φ : F →+* ℂ => InfinitePlace.mk φ) (f := fun φ => φ z)]
+  apply Finset.sum_congr rfl
+  intro w hw
+  have hmk (φ : F →+* ℂ) : InfinitePlace.mk φ = w ↔
+      φ = w.embedding ∨ φ = ComplexEmbedding.conjugate w.embedding := by
+    constructor
+    · intro h
+      rw [← InfinitePlace.mk_embedding w] at h
+      have h' := InfinitePlace.mk_eq_iff.mp h
+      rcases h' with h' | h'
+      · exact Or.inl (by simpa using h')
+      · right
+        have hc := congrArg ComplexEmbedding.conjugate h'
+        simpa using hc
+    · intro h
+      rw [← InfinitePlace.mk_embedding w]
+      apply InfinitePlace.mk_eq_iff.mpr
+      rcases h with h | h
+      · exact Or.inl (by simpa using h)
+      · right
+        have hc := congrArg ComplexEmbedding.conjugate h
+        simpa using hc
+  have hneq : w.embedding ≠ ComplexEmbedding.conjugate w.embedding := by
+    intro h
+    apply (IsTotallyComplex.complexEmbedding_not_isReal w.embedding)
+    rw [ComplexEmbedding.isReal_iff]
+    exact h.symm
+  have hset : Finset.univ.filter (fun φ : F →+* ℂ => InfinitePlace.mk φ = w) =
+      ({w.embedding, ComplexEmbedding.conjugate w.embedding} : Finset (F →+* ℂ)) := by
+    ext φ
+    simp [hmk]
+  change (∑ φ ∈ Finset.univ.filter (fun φ : F →+* ℂ => InfinitePlace.mk φ = w), φ z) = _
+  rw [hset, Finset.sum_pair hneq]
+
+private theorem euler_trace_eq_two_real_sum [IsTotallyComplex F] (z : F) :
+    (Algebra.trace ℚ F z : ℂ) =
+      (2 : ℂ) * ∑ w : InfinitePlace F, ((w.embedding z).re : ℂ) := by
+  rw [euler_trace_eq_pair_sum_re]
+  simp only [ComplexEmbedding.conjugate_coe_eq, Complex.add_conj,
+    Complex.ofReal_mul, Complex.ofReal_ofNat]
+  rw [Finset.mul_sum]
+
+private theorem euler_arch_exp_eq_trace [IsTotallyComplex F] (z : F) :
+    (∏ w : InfinitePlace F, psiC (w.embedding z)) =
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) := by
+  change (∏ w : InfinitePlace F,
+      Complex.exp (-(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)))) = _
+  rw [← Complex.exp_sum]
+  apply congrArg Complex.exp
+  calc
+    ∑ w : InfinitePlace F, -(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)) =
+        -(4 * Real.pi * Complex.I * ∑ w : InfinitePlace F, ((w.embedding z).re : ℂ)) := by
+          rw [Finset.sum_neg_distrib, Finset.mul_sum]
+    _ = -(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)) := by
+          rw [euler_trace_eq_two_real_sum]
+          ring
+
+private theorem euler_primeGen_isGen (v : FinPlace F) (hv : v ∉ S.Sf) :
+    S.IsGen (primeGen R v : F) v.asIdeal := by
+  have h := (bc.gen_spec (R.exterior.prime v hv)).1
+  simpa [primeGen, hv, R.exterior.prime_val] using h
+
+private theorem euler_primeGen_other_valuation (v : FinPlace F) (hv : v ∉ S.Sf)
+    (w : FinPlace F) (hw : w ∉ S.Sf) (hwv : w ≠ v) :
+    HeightOneSpectrum.valuation F w (primeGen R v : F) = 1 := by
+  have hpGen := euler_primeGen_isGen R v hv
+  have hnotdvd : ¬ w.asIdeal ∣ v.asIdeal := by
+    intro hdiv
+    have hle : v.asIdeal ≤ w.asIdeal := Ideal.le_of_dvd hdiv
+    have heq : v.asIdeal = w.asIdeal := v.isMaximal.eq_of_le w.isPrime.ne_top hle
+    exact hwv (HeightOneSpectrum.ext heq.symm)
+  have hcountNat : (Associates.mk w.asIdeal).count (Associates.mk v.asIdeal).factors = 0 := by
+    apply Nat.eq_zero_of_not_pos
+    intro hpos
+    exact hnotdvd ((Associates.count_ne_zero_iff_dvd v.ne_bot w.irreducible).mp
+      (Nat.ne_of_gt hpos))
+  have hcount0 : FractionalIdeal.count F w
+      (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0 := by
+    rw [FractionalIdeal.count_coe F w v.ne_bot]
+    exact_mod_cast hcountNat
+  have hcountp := hpGen.2.2 w hw
+  rw [hcount0] at hcountp
+  have hlog := euler_count_spanSingleton_eq_neg_log_valuation w
+    (primeGen R v : F) hpGen.2.1
+  rw [hcountp] at hlog
+  have hlog0 : WithZero.log (HeightOneSpectrum.valuation F w (primeGen R v : F)) = 0 := by
+    linarith
+  have hvalne : HeightOneSpectrum.valuation F w (primeGen R v : F) ≠ 0 :=
+    (w.valuation F).ne_zero_iff.mpr hpGen.2.1
+  calc
+    HeightOneSpectrum.valuation F w (primeGen R v : F) =
+        WithZero.exp (WithZero.log (HeightOneSpectrum.valuation F w (primeGen R v : F))) :=
+      (WithZero.exp_log hvalne).symm
+    _ = 1 := by rw [hlog0, WithZero.exp_zero]
+
+private theorem euler_additive_phase_at_prime (v : FinPlace F) (hv : v ∉ S.Sf)
+    (x : 𝓞 F ⧸ v.asIdeal) :
+    S.e A (S.diag (algebraMap (𝓞 F) F x.out / (primeGen R v : F))) =
+      A.ψ v (algebraMap F (v.adicCompletion F)
+        (-(algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) := by
+  classical
+  let z : F := algebraMap (𝓞 F) F x.out / (primeGen R v : F)
+  let f : FinPlace F → ℂ := fun w => A.ψ w (algebraMap F (w.adicCompletion F) z)
+  have hvalz (w : FinPlace F) (hw : w ∉ S.Sf) (hwv : w ≠ v) :
+      HeightOneSpectrum.valuation F w z ≤ 1 := by
+    by_cases hx : x.out = 0
+    · simp [z, hx]
+    have hvalx : HeightOneSpectrum.valuation F w (algebraMap (𝓞 F) F x.out) ≤ 1 :=
+      w.valuation_le_one x.out
+    calc
+      HeightOneSpectrum.valuation F w z =
+          HeightOneSpectrum.valuation F w (algebraMap (𝓞 F) F x.out) /
+            HeightOneSpectrum.valuation F w (primeGen R v : F) := by
+              dsimp [z]
+              rw [map_div₀]
+      _ = HeightOneSpectrum.valuation F w (algebraMap (𝓞 F) F x.out) := by
+            rw [euler_primeGen_other_valuation R v hv w hw hwv, div_one]
+      _ ≤ 1 := hvalx
+  have hsupport : Function.mulSupport f ⊆
+      ((insert v S.Sf : Finset (FinPlace F)) : Set (FinPlace F)) := by
+    intro w hw
+    change f w ≠ 1 at hw
+    by_cases hws : w ∈ S.Sf
+    · exact Finset.mem_insert_of_mem hws
+    · by_cases hwv : w = v
+      · simp [hwv]
+      · have hmem : (algebraMap F (w.adicCompletion F) z) ∈
+          w.adicCompletionIntegers F := by
+          change ((z : F) : w.adicCompletion F) ∈ w.adicCompletionIntegers F
+          rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+            HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+          exact hvalz w hws hwv
+        exact (hw (A.integral w _ hmem)).elim
+  have hfinprod : (∏ᶠ w : FinPlace F, f w) = ∏ w ∈ insert v S.Sf, f w :=
+    finprod_eq_prod_of_mulSupport_subset f hsupport
+  have hattach : (∏ w : S.Sf, f w) = ∏ w ∈ S.Sf, f w := by
+    simp [Finset.prod_attach]
+  have hglobal := (A.trivial_on_F z).2
+  have hglobal' : f v * ((∏ w : S.Sf, f w) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)))) = 1 := by
+    rw [hfinprod, Finset.prod_insert (by simpa using hv)] at hglobal
+    rw [← hattach] at hglobal
+    simpa [f, z, mul_assoc] using hglobal
+  have hSprod : (∏ w : S.Sf, f w) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = (f v)⁻¹ := by
+    have hcomm : ((∏ w : S.Sf, f w) *
+        Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)))) * f v = 1 := by
+      simpa [mul_comm, mul_left_comm, mul_assoc] using hglobal'
+    exact eq_inv_of_mul_eq_one_left hcomm
+  have hE : S.e A (S.diag z) = (∏ w : S.Sf, f w) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) := by
+    letI : IsTotallyComplex F := D.isTotallyComplex
+    change (∏ w : S.Sf, A.ψ w.1 (algebraMap F (w.1.adicCompletion F) z)) *
+      ∏ w : InfinitePlace F, psiC (w.embedding z) = _
+    rw [euler_arch_exp_eq_trace]
+  calc
+    S.e A (S.diag z) = (∏ w : S.Sf, f w) *
+        Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) := hE
+    _ = (f v)⁻¹ := hSprod
+    _ = A.ψ v (algebraMap F (v.adicCompletion F) (-z)) := by
+      change (A.ψ v (algebraMap F (v.adicCompletion F) z))⁻¹ = _
+      rw [← AddChar.inv_apply' (A.ψ v) (algebraMap F (v.adicCompletion F) z)]
+      rw [AddChar.inv_apply]
+      simp
+
+private theorem euler_gamma_localT (v : FinPlace F) (hv : v ∉ S.Sf) (e : ℤ) :
+    gamma D S A e v.asIdeal (primeGen R v : F) =
+      (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * localT R v e 1 := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  let Q := 𝓞 F ⧸ v.asIdeal
+  have hvprime : Prime v.asIdeal := (Ideal.prime_iff_isPrime v.ne_bot).2 v.isPrime
+  have hIdealPow (x : Q) :
+      chiIdealPow D v.asIdeal (algebraMap (𝓞 F) F x.out) e =
+        chiPow D v (algebraMap (𝓞 F) F x.out) e := by
+    unfold chiIdealPow
+    rw [UniqueFactorizationMonoid.normalizedFactors_irreducible hvprime.irreducible]
+    simp [v.isPrime, v.ne_bot]
+  have hsum :
+      (∑ x : Q, chiIdealPow D v.asIdeal (algebraMap (𝓞 F) F x.out) e *
+        S.e A (S.diag (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) =
+      ∑ x : Q, chiPow D v (algebraMap (𝓞 F) F x.out) e *
+        A.ψ v (algebraMap F (v.adicCompletion F)
+          (-(algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) := by
+    apply Finset.sum_congr rfl
+    intro x hx
+    rw [hIdealPow x, euler_additive_phase_at_prime R v hv x]
+  unfold gamma localT
+  simp only [qI, one_mul]
+  rw [finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype]
+  congr 1
+
+private theorem euler_bridge_additive_shift (D0 : FieldData F)
+    (v : FinPlace F) (hv : v ∉ S.Sf)
+    (p : Fˣ) (hpVal : HeightOneSpectrum.valuation F v (p : F) = WithZero.exp (-1 : ℤ))
+    (ψ : AddChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hψspec : ∀ t x, ψ (t * x) = A.ψ v (algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F x.out * algebraMap (𝓞 F) F t.out / (p : F))))
+    (x : 𝓞 F ⧸ v.asIdeal) :
+    A.ψ v (algebraMap F (v.adicCompletion F)
+      (-(algebraMap (𝓞 F) F x.out / (p : F)))) = ψ ((-1 : 𝓞 F ⧸ v.asIdeal) * x) := by
+  classical
+  let SB : SymbolBridge D0 S := a2_bridge_SYMBOL D0 S
+  let a : 𝓞 F := x.out * (-1 : 𝓞 F ⧸ v.asIdeal).out
+  let b : 𝓞 F := -x.out
+  have hres : residue v (algebraMap (𝓞 F) F (a : 𝓞 F)) =
+      residue v (algebraMap (𝓞 F) F (b : 𝓞 F)) := by
+    rw [SB.residue_algebraMap, SB.residue_algebraMap]
+    change Ideal.Quotient.mk v.asIdeal a = Ideal.Quotient.mk v.asIdeal b
+    dsimp [a, b]
+    rw [map_mul]
+    simp
+  let aR : S.R := ⟨algebraMap (𝓞 F) F a, fun w hw => w.valuation_le_one a⟩
+  let bR : S.R := ⟨algebraMap (𝓞 F) F b, fun w hw => w.valuation_le_one b⟩
+  have hcmp := euler_addchar_div_residue_congr D0 A v hv p hpVal aR bR (by
+    simpa [aR, bR] using hres)
+  have hψ := hψspec (-1 : 𝓞 F ⧸ v.asIdeal) x
+  calc
+    A.ψ v (algebraMap F (v.adicCompletion F) (-(algebraMap (𝓞 F) F x.out / (p : F)))) =
+        A.ψ v (algebraMap F (v.adicCompletion F) ((algebraMap (𝓞 F) F b : F) / (p : F))) := by
+          congr 2
+          simp [b, map_neg, neg_div]
+    _ = A.ψ v (algebraMap F (v.adicCompletion F) ((a : F) / (p : F))) := hcmp.symm
+    _ = ψ ((-1 : 𝓞 F ⧸ v.asIdeal) * x) := hψ.symm
+
+private theorem euler_localT_gaussSum (v : FinPlace F) (hv : v ∉ S.Sf) (e : ℤ)
+    [Fintype (𝓞 F ⧸ v.asIdeal)]
+    (χ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) (ψ : AddChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hχeval : ∀ x, chiPow D v (algebraMap (𝓞 F) F x.out) e = χ x)
+    (hψeval : ∀ x, A.ψ v (algebraMap F (v.adicCompletion F)
+      (-(algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) =
+        ψ ((-1 : 𝓞 F ⧸ v.asIdeal) * x))
+    (hχminus : χ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1) :
+    localT R v e 1 = gaussSum χ ψ := by
+  classical
+  have hsum : localT R v e 1 = gaussSum χ (ψ.mulShift (-1)) := by
+    unfold localT
+    simp only [one_mul]
+    rw [finsum_eq_sum_of_fintype]
+    simp only [gaussSum, AddChar.mulShift_apply]
+    apply Finset.sum_congr rfl
+    intro x hx
+    rw [hχeval x, hψeval x]
+  have hinv : χ⁻¹ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+    rw [MulChar.inv_apply_eq_inv', hχminus]
+    simp
+  have hsumU : localT R v e 1 =
+      gaussSum χ (ψ.mulShift (-1 : (𝓞 F ⧸ v.asIdeal)ˣ)) := by
+    simpa using hsum
+  have hshift : gaussSum χ (ψ.mulShift (-1 : (𝓞 F ⧸ v.asIdeal)ˣ)) =
+      gaussSum χ ψ := by
+    rw [gaussSum_mulShift_eq χ ψ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ)]
+    simpa only [hinv, one_mul]
+  exact hsumU.trans hshift
+
+private theorem euler_localT_inverse_product (v : FinPlace F) (hv : v ∉ S.Sf) :
+    localT R v 1 1 * localT R v (-1) 1 = (qI v.asIdeal : ℂ) := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  let p : Fˣ := primeGen R v
+  have hp : S.IsGen (p : F) v.asIdeal := by
+    simpa [p, primeGen, hv, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime v hv)).1
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  obtain ⟨χ, hχorder, hχeval⟩ :=
+    ((a2_bridge_FINITE_CHAR D S A v hv p hp).2.1)
+  obtain ⟨ψ, hψprim, hψspec⟩ :=
+    ((a2_bridge_FINITE_CHAR D S A v hv p hp).2.2)
+  have hresAlg (x : 𝓞 F ⧸ v.asIdeal) :
+      residue v (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  have hresMinus : residue v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) = -1 := by
+    simpa [hresAlg] using hresAlg (-1 : 𝓞 F ⧸ v.asIdeal)
+  have hresNeg : residue v (-1 : F) = -1 := by
+    simpa using SB.residue_algebraMap v (-1 : 𝓞 F)
+  have hχminus : χ (-1 : 𝓞 F ⧸ v.asIdeal) = 1 := by
+    calc
+      χ (-1 : 𝓞 F ⧸ v.asIdeal) =
+          chiPow D v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) 1 := hχeval _
+      _ = chi D v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) := by
+          simpa [pow_one] using SB.chiPow_nonzero v _ 1
+            (by rw [hresMinus]; exact neg_ne_zero.mpr one_ne_zero)
+      _ = chi D v (-1 : F) := SB.chi_congr v _ _ (hresMinus.trans hresNeg.symm)
+      _ = 1 := SB.chi_minus_one v hv
+  have hχunit : χ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+    simpa using hχminus
+  have hχinvUnit : χ⁻¹ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+    rw [MulChar.inv_apply_eq_inv', hχunit]
+    simp
+  have hχinvEval (x : 𝓞 F ⧸ v.asIdeal) :
+      chiPow D v (algebraMap (𝓞 F) F x.out) (-1) = χ⁻¹ x := by
+    by_cases hx : x = 0
+    · subst x
+      have hzero : residue v (algebraMap (𝓞 F) F (Quotient.out (0 : 𝓞 F ⧸ v.asIdeal))) = 0 :=
+        hresAlg 0
+      have hχzero : χ (0 : 𝓞 F ⧸ v.asIdeal) = 0 := by
+        rw [hχeval 0, SB.chiPow_zero v _ 1 hzero]
+      rw [SB.chiPow_zero v _ (-1) hzero]
+      rw [MulChar.inv_apply_eq_inv', hχzero, inv_zero]
+    · have hresx : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+        simpa [hresAlg] using hx
+      rw [SB.chiPow_nonzero v _ (-1) hresx,
+        MulChar.inv_apply_eq_inv', hχeval x,
+        SB.chiPow_nonzero v _ 1 hresx]
+      simp
+  have hphase (x : 𝓞 F ⧸ v.asIdeal) :
+      A.ψ v (algebraMap F (v.adicCompletion F)
+          (-(algebraMap (𝓞 F) F x.out / (p : F)))) =
+        ψ ((-1 : 𝓞 F ⧸ v.asIdeal) * x) := by
+    exact euler_bridge_additive_shift D v hv p
+      (euler_primeGen_valuation R v hv) ψ hψspec x
+  have hT1 := euler_localT_gaussSum R v hv 1 χ ψ
+    (fun x => (hχeval x).symm) hphase hχunit
+  have hTneg := euler_localT_gaussSum R v hv (-1) χ⁻¹ ψ
+    hχinvEval hphase hχinvUnit
+  have hχne : χ ≠ 1 := by
+    intro h
+    rw [h] at hχorder
+    simp at hχorder
+  have hpowInv : χ ^ (orderOf χ - 1) = χ⁻¹ := by
+    have hmul : χ ^ (orderOf χ - 1) * χ = 1 := by
+      have horder : 1 ≤ orderOf χ := Nat.succ_le_of_lt χ.orderOf_pos
+      rw [← pow_succ, Nat.sub_add_cancel horder]
+      exact pow_orderOf_eq_one χ
+    simpa using congrArg Inv.inv (inv_eq_of_mul_eq_one_right hmul)
+  have hGauss := gaussSum_mul_gaussSum_pow_orderOf_sub_one hχne hψprim
+  have hGauss' : gaussSum χ ψ * gaussSum χ⁻¹ ψ =
+      (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := by
+    calc
+      gaussSum χ ψ * gaussSum χ⁻¹ ψ =
+          gaussSum χ ψ * gaussSum (χ ^ (orderOf χ - 1)) ψ := by
+            congr 1
+            exact congrArg (fun θ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ => gaussSum θ ψ)
+              hpowInv.symm
+      _ = χ (-1) * (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := hGauss
+      _ = (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := by rw [hχminus]; ring
+  have hcard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  calc
+    localT R v 1 1 * localT R v (-1) 1 = gaussSum χ ψ * gaussSum χ⁻¹ ψ := by
+      rw [hT1, hTneg]
+    _ = (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := hGauss'
+    _ = (qI v.asIdeal : ℂ) := by
+      change (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) =
+        ((Ideal.absNorm v.asIdeal : ℝ) : ℂ)
+      exact_mod_cast hcard
+
+private theorem euler_residue_primeGen_pow_zero (v : FinPlace F) (hv : v ∉ S.Sf)
+    (n : ℕ) (hn : 0 < n) :
+    residue v ((primeGen R v : F) ^ n) = 0 := by
+  classical
+  letI := bridgeResidueField v
+  let p : Fˣ := primeGen R v
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  have hpVal : HeightOneSpectrum.valuation F v (p : F) = WithZero.exp (-1 : ℤ) := by
+    simpa [p] using euler_primeGen_valuation R v hv
+  have hpValLt : HeightOneSpectrum.valuation F v (p : F) < 1 := by
+    rw [hpVal]
+    simp
+  have hpValLe : HeightOneSpectrum.valuation F v (p : F) ≤ 1 := hpValLt.le
+  have hvalPowLe (m : ℕ) : HeightOneSpectrum.valuation F v ((p : F) ^ m) ≤ 1 := by
+    obtain ⟨_, _, pR, hpR, _⟩ := euler_prime_power_quotient_generator R v hv m
+    rw [hpR]
+    exact pR.property v hv
+  have hvalPowLt : HeightOneSpectrum.valuation F v ((p : F) ^ n) < 1 := by
+    rw [(v.valuation F).map_pow]
+    exact pow_lt_one₀ zero_le hpValLt hn.ne'
+  have hresOne : residue v (1 : F) = 1 := by
+    simpa using SB.residue_algebraMap v (1 : 𝓞 F)
+  have hresPow : ∀ m : ℕ, residue v ((p : F) ^ m) = residue v (p : F) ^ m := by
+    intro m
+    induction m with
+    | zero => simp [hresOne]
+    | succ m ih =>
+      calc
+        residue v ((p : F) ^ (m + 1)) = residue v ((p : F) ^ m * (p : F)) := by rw [pow_succ]
+        _ = residue v ((p : F) ^ m) * residue v (p : F) :=
+          SB.residue_mul v _ _ (hvalPowLe m) hpValLe
+        _ = residue v (p : F) ^ m * residue v (p : F) := by rw [ih]
+        _ = residue v (p : F) ^ (m + 1) := by rw [pow_succ]
+  have hresPzero : residue v (p : F) = 0 := by
+    by_contra hne
+    have hvalOne := (SB.residue_ne_zero v (p : F) hpValLe).mp hne
+    have hexpOne : WithZero.exp (-1 : ℤ) = 1 := hpVal.symm.trans hvalOne
+    have hlog := congrArg WithZero.log hexpOne
+    simp at hlog
+  rw [hresPow, hresPzero]
+  simp [hn.ne']
+
+private theorem euler_localT_primeGen_pow (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (n : ℕ) :
+    localT R v e ((primeGen R v : F) ^ n) =
+      if n = 0 then localT R v e 1 else if e % 6 = 0 then qI v.asIdeal - 1 else 0 := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  by_cases hn : n = 0
+  · subst n
+    simp
+  · obtain ⟨_, _, pR, hpR, _⟩ := euler_prime_power_quotient_generator R v hv n
+    have hres : residue v (pR : F) = 0 := by
+      rw [← hpR]
+      exact euler_residue_primeGen_pow_zero R v hv n (Nat.pos_of_ne_zero hn)
+    have hT := (po_C_local_T_values R v hv e pR).1
+    rw [hres] at hT
+    simpa [hn, hpR] using hT
+
+private theorem euler_localT_periodic_six (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (d : ℕ) : localT R v (e + 6 * (d : ℤ)) 1 = localT R v e 1 := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  unfold localT
+  rw [finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype]
+  apply Finset.sum_congr rfl
+  intro x hx
+  have hres : residue v (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  by_cases hx0 : x = 0
+  · have hzero : residue v (algebraMap (𝓞 F) F x.out) = 0 := by simpa [hx0] using hres
+    simp [chiPow, hzero]
+  · have hxres : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by simpa [hres] using hx0
+    have hchi6 : chi D v (algebraMap (𝓞 F) F x.out) ^ (6 : ℕ) = 1 :=
+      SB.chi_six v _ hxres
+    have hchi0 : chi D v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+      have hnorm := SB.chi_norm v _ hxres
+      exact norm_ne_zero_iff.mp (by rw [hnorm]; norm_num)
+    have hchi6z : chi D v (algebraMap (𝓞 F) F x.out) ^ (6 : ℤ) = 1 := by
+      simpa using hchi6
+    have hpow6d : chi D v (algebraMap (𝓞 F) F x.out) ^ (6 * (d : ℤ)) = 1 := by
+      rw [zpow_mul, hchi6z]
+      simp
+    have hpow : chi D v (algebraMap (𝓞 F) F x.out) ^ (e + 6 * (d : ℤ)) =
+        chi D v (algebraMap (𝓞 F) F x.out) ^ e := by
+      rw [zpow_add₀ hchi0, hpow6d, mul_one]
+    simp only [chiPow, if_neg hxres]
+    rw [hpow]
+
+private theorem euler_frequency_zero_residue (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (hfreq : frequencyValuation η U u v = 0) :
+    residue v (U.repr u : F) ≠ 0 := by
+  classical
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  let x : S.R := U.repr u
+  have hcountNonneg := (U.sixth_power_free u v hv).1
+  have htoNat :
+      (FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x : F))).toNat = 0 := by
+    simpa [frequencyValuation, x] using hfreq
+  have hcount : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x : F)) = 0 := by
+    have h := Int.toNat_of_nonneg hcountNonneg
+    rw [htoNat] at h
+    exact h.symm
+  have hx : (x : F) ≠ 0 := U.repr_nonzero u
+  have hcountLog := euler_count_spanSingleton_eq_neg_log_valuation v (x : F) hx
+  rw [hcount] at hcountLog
+  have hlog : WithZero.log (HeightOneSpectrum.valuation F v (x : F)) = 0 := by
+    linarith
+  have hvalne : HeightOneSpectrum.valuation F v (x : F) ≠ 0 :=
+    (v.valuation F).ne_zero_iff.mpr hx
+  have hvalOne : HeightOneSpectrum.valuation F v (x : F) = 1 := by
+    calc
+      HeightOneSpectrum.valuation F v (x : F) =
+          WithZero.exp (WithZero.log (HeightOneSpectrum.valuation F v (x : F))) :=
+        (WithZero.exp_log hvalne).symm
+      _ = 1 := by rw [hlog, WithZero.exp_zero]
+  have hxval : HeightOneSpectrum.valuation F v (x : F) ≤ 1 := x.property v hv
+  exact (SB.residue_ne_zero v (x : F) hxval).mpr hvalOne
+
+private theorem euler_good_t_zero_term (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (k m : ℕ) :
+    localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 0, k, m) =
+      if k = 0 then localV v z ^ m else if m = 0 then
+        localWvar η U u v w ^ k else 0 := by
+  classical
+  have hCbase := po_C_local_values R v hv (6 * m)
+  have hC : localC R v hv 0 k (6 * m) =
+      if k = 0 then 1 else if m = 0 then 1 else 0 := by
+    by_cases hk : k = 0
+    · subst k
+      simpa using hCbase.1
+    · have hkpos : 0 < k := Nat.pos_of_ne_zero hk
+      have hCk := hCbase.2.1 k hkpos
+      by_cases hm : m = 0
+      · subst m
+        simpa using hCk
+      · have hJ : 6 * m ≠ 0 := by omega
+        simpa [hJ, hk, hm] using hCk
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  have hWpow : localWvar η U u v w ^ k =
+      chi D v (U.repr u : F) ^ k * Q ^ (-(k : ℂ) * w) := by
+    dsimp [localWvar, Q]
+    calc
+      (chi D v (U.repr u : F) * (qI v.asIdeal : ℂ) ^ (-w)) ^ k =
+          chi D v (U.repr u : F) ^ k * ((qI v.asIdeal : ℂ) ^ (-w)) ^ k := mul_pow _ _ _
+      _ = chi D v (U.repr u : F) ^ k * (qI v.asIdeal : ℂ) ^ ((-w) * (k : ℂ)) := by
+          rw [← Complex.cpow_mul_nat]
+      _ = chi D v (U.repr u : F) ^ k * (qI v.asIdeal : ℂ) ^ (-(k : ℂ) * w) := by
+          congr 2
+          ring
+  by_cases hk : k = 0
+  · subst k
+    have hVpow : localV v z ^ m = Q ^ (-(6 : ℂ) * (m : ℂ) * z) := by
+      dsimp [localV, Q]
+      calc
+        ((qI v.asIdeal : ℂ) ^ (-(6 : ℂ) * z)) ^ m =
+            (qI v.asIdeal : ℂ) ^ ((-(6 : ℂ) * z) * (m : ℂ)) := by
+              rw [Complex.cpow_mul_nat]
+        _ = (qI v.asIdeal : ℂ) ^ (-(6 : ℂ) * (m : ℂ) * z) := by
+              congr 1
+              ring
+    simpa [localEulerTerm, hC, localV, Q, hfreq] using hVpow.symm
+  · by_cases hm : m = 0
+    · subst m
+      simpa [localEulerTerm, hC, localWvar, Q, hfreq, hk] using hWpow.symm
+    · simp [localEulerTerm, hC, hk, hm, hfreq]
+
+private theorem euler_good_k_ge_two_term_zero (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (e : Fin 2) (l k m : ℕ) (ht : 0 < (e : ℕ) + 3 * l) (hk : 2 ≤ k) :
+    localEulerTerm R η U u v hv ξ w z (e, l, k, m) = 0 := by
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 ((e : ℕ) + 3 * l) ht
+  have hCzero : localC R v hv ((e : ℕ) + 3 * l) k (6 * m) = 0 := hC.2.2.1 k hk
+  simp [localEulerTerm, hCzero, hfreq]
+
+private def eulerGoodTermModel (Q V W D1 E1 : ℂ) (e l k m : ℕ) : ℂ :=
+  if e = 0 then
+    if l = 0 then
+      if k = 0 then V ^ m else if m = 0 then W ^ k else 0
+    else if l % 2 = 0 then
+      if k = 0 then
+        if l / 2 ≤ m then E1 ^ (l / 2) * (1 - Q⁻¹) * V ^ (m - l / 2) else 0
+      else if k = 1 then
+        if m = l / 2 then E1 ^ (l / 2) * W else 0
+      else 0
+    else 0
+  else if l % 2 = 0 then
+    if k = 0 then
+      if m = l / 2 then -D1 * E1 ^ (l / 2) else 0
+    else if k = 1 then
+      if l / 2 < m then -(Q - 1) * D1 * E1 ^ (l / 2) * W * V ^ (m - l / 2) else 0
+    else 0
+  else 0
+
+private theorem euler_good_odd_l_term_zero (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (e : Fin 2) (l k m : ℕ) (hlmod : l % 2 = 1) :
+    localEulerTerm R η U u v hv ξ w z (e, l, k, m) = 0 := by
+  classical
+  let d : ℕ := l / 2
+  have hldecomp : l = 2 * d + 1 := by
+    have h := Nat.mod_add_div l 2
+    rw [hlmod] at h
+    omega
+  have htpos : 0 < (e : ℕ) + 3 * l := by omega
+  have hCT := po_C_local_values R v hv (6 * m)
+  have hCpos := hCT.2.2 ((e : ℕ) + 3 * l) htpos
+  by_cases hk2 : 2 ≤ k
+  · exact euler_good_k_ge_two_term_zero R η U u v hv ξ w z hfreq e l k m htpos hk2
+  · have hkeq : k = 0 ∨ k = 1 := by omega
+    rcases hkeq with rfl | rfl
+    · have hCzero : localC R v hv ((e : ℕ) + 3 * l) 0 (6 * m) = 0 := by
+        by_cases he0 : (e : ℕ) = 0
+        · have ht : (e : ℕ) + 3 * l = 6 * d + 3 := by rw [he0, hldecomp]; omega
+          have hmod : ¬ (6 : ℤ) ∣ ((6 * d + 3 : ℕ) : ℤ) := by omega
+          have hCformula := hCpos.1
+          by_cases hcond : (6 * d + 3) - 1 ≤ 6 * m
+          · have hn : 0 < 6 * m + 1 - (6 * d + 3) := by omega
+            have hT := euler_localT_primeGen_pow R v hv ((6 * d + 3 : ℕ) : ℤ)
+              (6 * m + 1 - (6 * d + 3))
+            have hTzero : localT R v ((6 * d + 3 : ℕ) : ℤ)
+                ((primeGen R v : F) ^ (6 * m + 1 - (6 * d + 3))) = 0 := by
+              have hne : 6 * m - (6 * d + 2) ≠ 0 := by omega
+              simpa [hne, hmod] using hT
+            rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            rw [hTzero]
+            simp [hcond]
+          · rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            have hfalse : ¬ 6 * d + 2 ≤ 6 * m := by omega
+            simp [hcond, hfalse]
+        · have ht : (e : ℕ) + 3 * l = 6 * d + 4 := by
+            have he1 : (e : ℕ) = 1 := by have := e.isLt; omega
+            rw [he1, hldecomp]
+            omega
+          have hmod : ¬ (6 : ℤ) ∣ ((6 * d + 4 : ℕ) : ℤ) := by omega
+          have hCformula := hCpos.1
+          by_cases hcond : (6 * d + 4) - 1 ≤ 6 * m
+          · have hn : 0 < 6 * m + 1 - (6 * d + 4) := by omega
+            have hT := euler_localT_primeGen_pow R v hv ((6 * d + 4 : ℕ) : ℤ)
+              (6 * m + 1 - (6 * d + 4))
+            have hTzero : localT R v ((6 * d + 4 : ℕ) : ℤ)
+                ((primeGen R v : F) ^ (6 * m + 1 - (6 * d + 4))) = 0 := by
+              have hne : 6 * m - (6 * d + 3) ≠ 0 := by omega
+              simpa [hne, hmod] using hT
+            rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            rw [hTzero]
+            simp [hcond]
+          · rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            have hfalse : ¬ 6 * d + 3 ≤ 6 * m := by omega
+            simp [hcond, hfalse]
+      simp [localEulerTerm, hfreq, hCzero]
+
+    · have hCzero : localC R v hv ((e : ℕ) + 3 * l) 1 (6 * m) = 0 := by
+        by_cases he0 : (e : ℕ) = 0
+        · have ht : (e : ℕ) + 3 * l = 6 * d + 3 := by rw [he0, hldecomp]; omega
+          have hmod : ¬ (6 : ℤ) ∣ (6 * (d : ℤ) + 2) := by omega
+          have htInt : (((6 * d + 3 : ℕ) : ℤ) - 1) = 6 * (d : ℤ) + 2 := by omega
+          have hCformula := hCpos.2.1
+          by_cases hcond : 6 * d + 3 ≤ 6 * m
+          · have hn : 0 < 6 * m - (6 * d + 3) := by omega
+            have hT := euler_localT_primeGen_pow R v hv (6 * (d : ℤ) + 2)
+              (6 * m - (6 * d + 3))
+            have hTzero : localT R v (6 * (d : ℤ) + 2)
+                ((primeGen R v : F) ^ (6 * m - (6 * d + 3))) = 0 := by
+              have hne : 6 * m - (6 * d + 3) ≠ 0 := by omega
+              simpa [hne, hmod] using hT
+            have hTzeroRaw : localT R v (((6 * d + 3 : ℕ) : ℤ) - 1)
+                ((primeGen R v : F) ^ (6 * m - (6 * d + 3))) = 0 := by
+              rw [htInt]
+              exact hTzero
+            rw [ht]
+            rw [ht] at hCformula
+            rw [hCformula]
+            rw [hTzeroRaw]
+            simp [hcond]
+          · rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            have hfalse : ¬ 6 * d + 3 ≤ 6 * m := by omega
+            simp [hcond, hfalse]
+        · have ht : (e : ℕ) + 3 * l = 6 * d + 4 := by
+            have he1 : (e : ℕ) = 1 := by have := e.isLt; omega
+            rw [he1, hldecomp]
+            omega
+          have hmod : ¬ (6 : ℤ) ∣ (6 * (d : ℤ) + 3) := by omega
+          have htInt : (((6 * d + 4 : ℕ) : ℤ) - 1) = 6 * (d : ℤ) + 3 := by omega
+          have hCformula := hCpos.2.1
+          by_cases hcond : 6 * d + 4 ≤ 6 * m
+          · have hn : 0 < 6 * m - (6 * d + 4) := by omega
+            have hT := euler_localT_primeGen_pow R v hv (6 * (d : ℤ) + 3)
+              (6 * m - (6 * d + 4))
+            have hTzero : localT R v (6 * (d : ℤ) + 3)
+                ((primeGen R v : F) ^ (6 * m - (6 * d + 4))) = 0 := by
+              have hne : 6 * m - (6 * d + 4) ≠ 0 := by omega
+              simpa [hne, hmod] using hT
+            have hTzeroRaw : localT R v (((6 * d + 4 : ℕ) : ℤ) - 1)
+                ((primeGen R v : F) ^ (6 * m - (6 * d + 4))) = 0 := by
+              rw [htInt]
+              exact hTzero
+            rw [ht]
+            rw [ht] at hCformula
+            rw [hCformula]
+            rw [hTzeroRaw]
+            simp [hcond]
+          · rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            have hfalse : ¬ 6 * d + 4 ≤ 6 * m := by omega
+            simp [hcond, hfalse]
+      simp [localEulerTerm, hfreq, hCzero]
+
+private theorem euler_good_localC_e0_even_k0 (v : FinPlace F) (hv : v ∉ S.Sf)
+    (d : ℕ) (hd : 0 < d) (m : ℕ) :
+    localC R v hv (6 * d) 0 (6 * m) =
+      if d ≤ m then (qI v.asIdeal : ℂ) ^ (6 * d - 1) *
+        ((qI v.asIdeal : ℂ) - 1) else 0 := by
+  classical
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 (6 * d) (by omega)
+  have hCformula := hC.1
+  by_cases hdm : d ≤ m
+  · have hcond : 6 * d - 1 ≤ 6 * m := by omega
+    let n : ℕ := 6 * m + 1 - 6 * d
+    have hn : 0 < n := by dsimp [n]; omega
+    have hdiv : (6 : ℤ) ∣ (6 * (d : ℤ)) := ⟨(d : ℤ), by ring⟩
+    have hmod : (6 * (d : ℤ)) % 6 = 0 := Int.dvd_iff_emod_eq_zero.mp hdiv
+    have hT := euler_localT_primeGen_pow R v hv (6 * (d : ℤ)) n
+    have hTval : localT R v (6 * (d : ℤ)) ((primeGen R v : F) ^ n) =
+        (qI v.asIdeal : ℂ) - 1 := by
+      simpa [n, hn.ne', hmod] using hT
+    have hcast : ((6 * d : ℕ) : ℤ) = 6 * (d : ℤ) := by push_cast; ring
+    have hTval' : localT R v ((6 * d : ℕ) : ℤ) ((primeGen R v : F) ^ n) =
+        (qI v.asIdeal : ℂ) - 1 := by
+      rw [hcast]
+      exact hTval
+    rw [hCformula]
+    rw [if_pos hcond]
+    rw [if_pos hdm]
+    rw [show 6 * m + 1 - 6 * d = n by rfl]
+    rw [hTval']
+  · have hcond : ¬ 6 * d - 1 ≤ 6 * m := by omega
+    simp [hCformula, hdm, hcond]
+
+private theorem euler_good_localC_e0_even_k1 (v : FinPlace F) (hv : v ∉ S.Sf)
+    (d : ℕ) (hd : 0 < d) (m : ℕ) :
+    localC R v hv (6 * d) 1 (6 * m) =
+      if m = d then (qI v.asIdeal : ℂ) ^ (6 * d) else 0 := by
+  classical
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 (6 * d) (by omega)
+  have hCformula := hC.2.1
+  have hExp : (((6 * d : ℕ) : ℤ) - 1) = -1 + 6 * (d : ℤ) := by push_cast; ring
+  have hTperiod : localT R v (((6 * d : ℕ) : ℤ) - 1) 1 = localT R v (-1) 1 := by
+    calc
+      localT R v (((6 * d : ℕ) : ℤ) - 1) 1 = localT R v (-1 + 6 * (d : ℤ)) 1 := by
+        rw [hExp]
+      _ = localT R v (-1) 1 := euler_localT_periodic_six R v hv (-1) d
+  have hTprod := euler_localT_inverse_product R v hv
+  by_cases hdm : d ≤ m
+  · by_cases hmeq : m = d
+    · subst m
+      have hE : localT R v 1 1 * (qI v.asIdeal : ℂ) ^ (6 * d - 1) *
+          localT R v (-1) 1 = (qI v.asIdeal : ℂ) ^ (6 * d) := by
+        calc
+          _ = (qI v.asIdeal : ℂ) ^ (6 * d - 1) *
+              (localT R v 1 1 * localT R v (-1) 1) := by ring
+          _ = (qI v.asIdeal : ℂ) ^ (6 * d - 1) * (qI v.asIdeal : ℂ) := by rw [hTprod]
+          _ = (qI v.asIdeal : ℂ) ^ (6 * d) := by
+            have hpow : 6 * d - 1 + 1 = 6 * d := by omega
+            rw [← pow_succ, hpow]
+      rw [hCformula, if_pos (by omega), Nat.sub_self, pow_zero, hTperiod]
+      simpa using hE
+    · have hlt : d < m := lt_of_le_of_ne hdm (Ne.symm hmeq)
+      have hn : 0 < 6 * m - 6 * d := by omega
+      have hmod : ¬ (6 : ℤ) ∣ (((6 * d : ℕ) : ℤ) - 1) := by omega
+      have hT := euler_localT_primeGen_pow R v hv (((6 * d : ℕ) : ℤ) - 1)
+        (6 * m - 6 * d)
+      have hTzero : localT R v (((6 * d : ℕ) : ℤ) - 1)
+          ((primeGen R v : F) ^ (6 * m - 6 * d)) = 0 := by
+        have hne : 6 * m - 6 * d ≠ 0 := by omega
+        simpa [hne, hmod] using hT
+      rw [hCformula, if_pos (by omega), hTzero]
+      simp [hmeq]
+  · have hcond : ¬ 6 * d ≤ 6 * m := by omega
+    rw [hCformula, if_neg hcond]
+    have hmeq : m ≠ d := by omega
+    simp [hmeq]
+
+private theorem euler_good_localC_e1_even_k0 (v : FinPlace F) (hv : v ∉ S.Sf)
+    (d m : ℕ) :
+    localC R v hv (6 * d + 1) 0 (6 * m) =
+      if m = d then (qI v.asIdeal : ℂ) ^ (6 * d) * localT R v 1 1 else 0 := by
+  classical
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 (6 * d + 1) (by omega)
+  have hCformula := hC.1
+  have hExp : ((6 * d + 1 : ℕ) : ℤ) = 1 + 6 * (d : ℤ) := by push_cast; ring
+  have hTperiod : localT R v ((6 * d + 1 : ℕ) : ℤ) 1 = localT R v 1 1 := by
+    calc
+      localT R v ((6 * d + 1 : ℕ) : ℤ) 1 = localT R v (1 + 6 * (d : ℤ)) 1 := by
+        rw [hExp]
+      _ = localT R v 1 1 := euler_localT_periodic_six R v hv 1 d
+  by_cases hdm : d ≤ m
+  · by_cases hmeq : m = d
+    · subst m
+      rw [hCformula, if_pos (by omega)]
+      rw [show 6 * d + 1 - (6 * d + 1) = 0 by omega, pow_zero, hTperiod]
+      simp
+    · have hlt : d < m := lt_of_le_of_ne hdm (Ne.symm hmeq)
+      have hn : 0 < 6 * m - 6 * d := by omega
+      have hmod : ¬ (6 : ℤ) ∣ ((6 * d + 1 : ℕ) : ℤ) := by omega
+      have hT := euler_localT_primeGen_pow R v hv ((6 * d + 1 : ℕ) : ℤ)
+        (6 * m - 6 * d)
+      have hTzero : localT R v ((6 * d + 1 : ℕ) : ℤ)
+          ((primeGen R v : F) ^ (6 * m - 6 * d)) = 0 := by
+        have hne : 6 * m - 6 * d ≠ 0 := by omega
+        simpa [hne, hmod] using hT
+      rw [hCformula, if_pos (by omega)]
+      rw [show 6 * m + 1 - (6 * d + 1) = 6 * m - 6 * d by omega]
+      rw [hTzero]
+      simp [hmeq]
+  · have hcond : ¬ (6 * d + 1) - 1 ≤ 6 * m := by omega
+    rw [hCformula, if_neg hcond]
+    have hmeq : m ≠ d := by omega
+    simp [hmeq]
+
+private theorem euler_good_localC_e1_even_k1 (v : FinPlace F) (hv : v ∉ S.Sf)
+    (d m : ℕ) :
+    localC R v hv (6 * d + 1) 1 (6 * m) =
+      if d < m then localT R v 1 1 * (qI v.asIdeal : ℂ) ^ (6 * d) *
+        ((qI v.asIdeal : ℂ) - 1) else 0 := by
+  classical
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 (6 * d + 1) (by omega)
+  have hCformula := hC.2.1
+  by_cases hdm : d < m
+  · have hdm' : d + 1 ≤ m := Nat.succ_le_of_lt hdm
+    have hcond : 6 * d + 1 ≤ 6 * m := by omega
+    have hn : 0 < 6 * m - (6 * d + 1) := by omega
+    have hdiv : (6 : ℤ) ∣ (6 * (d : ℤ)) := ⟨(d : ℤ), by ring⟩
+    have hmod : (6 * (d : ℤ)) % 6 = 0 := Int.dvd_iff_emod_eq_zero.mp hdiv
+    have hT := euler_localT_primeGen_pow R v hv (6 * (d : ℤ)) (6 * m - (6 * d + 1))
+    have hTval : localT R v (6 * (d : ℤ))
+        ((primeGen R v : F) ^ (6 * m - (6 * d + 1))) =
+        (qI v.asIdeal : ℂ) - 1 := by
+      have hne : 6 * m - (6 * d + 1) ≠ 0 := by omega
+      simpa [hne, hmod] using hT
+    have htInt : ((6 * d + 1 : ℕ) : ℤ) - 1 = 6 * (d : ℤ) := by omega
+    have hTvalRaw : localT R v (((6 * d + 1 : ℕ) : ℤ) - 1)
+        ((primeGen R v : F) ^ (6 * m - (6 * d + 1))) = (qI v.asIdeal : ℂ) - 1 := by
+      rw [htInt]
+      exact hTval
+    rw [hCformula, if_pos hcond, hTvalRaw]
+    have hnot : ¬ m ≤ d := by omega
+    simp [hdm, hnot]
+  · have hcond : ¬ 6 * d + 1 ≤ 6 * m := by omega
+    rw [hCformula, if_neg hcond]
+    simp [hdm]
+
+private theorem euler_good_E1_pow (v : FinPlace F) (ξ z : ℂ) (d : ℕ) :
+    localEvar (ϑ := ϑ) v ξ z ^ d =
+      ϑ.primeValue v ^ (6 * d) * (qI v.asIdeal : ℂ) ^
+        ((4 - 6 * ξ) * (d : ℂ)) * localV v z ^ d := by
+  classical
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  calc
+    localEvar (ϑ := ϑ) v ξ z ^ d =
+        (ϑ.primeValue v ^ 6 * Q ^ (4 - 6 * ξ) * localV v z) ^ d := by
+          rfl
+    _ = (ϑ.primeValue v ^ 6) ^ d * (Q ^ (4 - 6 * ξ)) ^ d * localV v z ^ d := by
+          rw [mul_pow, mul_pow]
+    _ = ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * localV v z ^ d := by
+          rw [← pow_mul, ← Complex.cpow_mul_nat]
+
+private theorem euler_good_chi_norm_facts (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (hfreq : frequencyValuation η U u v = 0) :
+    chi D v (U.repr u : F) ^ (6 : ℕ) = 1 ∧
+      chi D v (U.repr u : F) ≠ 0 ∧
+      star (chi D v (U.repr u : F)) = (chi D v (U.repr u : F))⁻¹ := by
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  have hres := euler_frequency_zero_residue η U u v hv hfreq
+  have h6 := SB.chi_six v (U.repr u : F) hres
+  have hnorm := SB.chi_norm v (U.repr u : F) hres
+  have hne : chi D v (U.repr u : F) ≠ 0 := by
+    exact norm_ne_zero_iff.mp (by rw [hnorm]; norm_num)
+  exact ⟨h6, hne, (Complex.inv_eq_conj hnorm).symm⟩
+
+private theorem euler_good_gammaTheta_localT (hE : EulerHypotheses R η)
+    (v : FinPlace F) (hv : v ∉ S.Sf) :
+    gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v *
+        (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * localT R v 1 1 =
+      -η.primeValue v := by
+  have hEuler := hE.2.2 v hv
+  have hgamma := euler_gamma_localT R v hv 1
+  calc
+    gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v *
+        (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * localT R v 1 1 =
+        (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * localT R v 1 1 *
+          gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v := by ring
+    _ = gamma D S A 1 v.asIdeal (primeGen R v : F) *
+          gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v := by
+        rw [← hgamma]
+    _ = -η.primeValue v := hEuler
+
+private theorem euler_good_even_e0_k0_term (hE : EulerHypotheses R η)
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (d : ℕ) (hd : 0 < d) (m : ℕ) (hdm : d ≤ m) :
+    localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 0, m) =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        0 (2 * d) 0 m := by
+  classical
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  let V : ℂ := localV v z
+  let E1 : ℂ := localEvar (ϑ := ϑ) v ξ z
+  let c : ℂ := chi D v (U.repr u : F)
+  have hqreal : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hqne : qI v.asIdeal ≠ 0 := ne_of_gt hqreal
+  have hQ : Q ≠ 0 := by
+    dsimp [Q]
+    exact_mod_cast hqreal.ne'
+  have hχ := euler_good_chi_norm_facts η U u v hv hfreq
+  have hχ6z : c ^ (6 : ℤ) = 1 := by
+    dsimp [c]
+    simpa using hχ.1
+  have hχpow6d : c ^ (6 * (d : ℤ)) = 1 := by
+    rw [zpow_mul, hχ6z]
+    simp
+  have hχpowNeg6d : c ^ (-(6 * (d : ℤ))) = 1 := by
+    rw [zpow_neg, hχpow6d]
+    simp
+  have hexpχ : (0 : ℤ) - 0 - 3 * ((2 * d : ℕ) : ℤ) = -(6 * (d : ℤ)) := by
+    push_cast
+    ring
+  have hχeval : c ^ ((0 : ℤ) - 0 - 3 * ((2 * d : ℕ) : ℤ)) = 1 := by
+    rw [hexpχ]
+    exact hχpowNeg6d
+  have hχpow6dNat : c ^ (6 * d) = 1 := by
+    rw [pow_mul, hχ.1]
+    simp
+  have hχpowTerm : c ^ (3 * (2 * (d : ℤ))) = 1 := by
+    have he : 3 * (2 * (d : ℤ)) = 6 * (d : ℤ) := by ring
+    rw [he, hχpow6d]
+  have hC := euler_good_localC_e0_even_k0 R v hv d hd m
+  have hCval : localC R v hv (6 * d) 0 (6 * m) =
+      (qI v.asIdeal : ℂ) ^ (6 * d - 1) * ((qI v.asIdeal : ℂ) - 1) := by
+    simpa [hdm] using hC
+  have htNat : 3 * (2 * d) = 6 * d := by omega
+  have hterm : localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 0, m) =
+      ϑ.primeValue v ^ (6 * d) * Q ^ (6 * d - 1) * (Q - 1) *
+        Q ^ (-(2 * (d : ℂ)) * (1 + 3 * ξ) - 6 * (m : ℂ) * z) := by
+    simp [localEulerTerm, hfreq, hCval, Q, c, htNat, hχpowTerm, hqne]
+    ring
+  let B : ℂ := (4 - 6 * ξ) * (d : ℂ) - 6 * z * (m : ℂ)
+  let A : ℂ := -(2 * (d : ℂ)) * (1 + 3 * ξ) - 6 * (m : ℂ) * z
+  have hcastNat : ((6 * d - 1 : ℕ) : ℂ) = (6 * d : ℂ) - 1 := by
+    rw [Nat.cast_sub (by omega : 1 ≤ 6 * d)]
+    simp
+  have hqexp : Q ^ (6 * d - 1) * Q ^ A = Q ^ (B - 1) := by
+    rw [← Complex.cpow_natCast, ← Complex.cpow_add _ _ hQ]
+    congr 1
+    rw [hcastNat]
+    dsimp [A, B]
+    push_cast
+    ring
+  have hqfactor : Q ^ (B - 1) * (Q - 1) = Q ^ B * (1 - Q⁻¹) := by
+    rw [Complex.cpow_sub _ _ hQ]
+    field_simp [hQ]
+    simp only [Complex.cpow_one]
+  have hEpow : E1 ^ d =
+      ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d := by
+    simpa [E1, V, Q] using euler_good_E1_pow v ξ z d
+  have hVtail : V ^ d * V ^ (m - d) = Q ^ (-6 * z * (m : ℂ)) := by
+    calc
+      V ^ d * V ^ (m - d) = V ^ (d + (m - d)) := by rw [← pow_add]
+      _ = V ^ m := by rw [Nat.add_sub_of_le hdm]
+      _ = Q ^ (-6 * z * (m : ℂ)) := by
+        dsimp [V, localV, Q]
+        exact (Complex.cpow_mul_nat (qI v.asIdeal : ℂ) (-6 * z) m).symm
+  have hQrest : Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * V ^ (m - d) = Q ^ B := by
+    calc
+      Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * V ^ (m - d) =
+          Q ^ ((4 - 6 * ξ) * (d : ℂ)) * Q ^ (-6 * z * (m : ℂ)) := by
+            rw [mul_assoc, hVtail]
+      _ = Q ^ (((4 - 6 * ξ) * (d : ℂ)) + (-6 * z * (m : ℂ))) := by
+            rw [← Complex.cpow_add _ _ hQ]
+      _ = Q ^ B := by congr 1 <;> dsimp [B] <;> ring
+  have hmonomial : ϑ.primeValue v ^ (6 * d) * Q ^ (6 * d - 1) *
+      (Q - 1) * Q ^ A =
+      E1 ^ d * (1 - Q⁻¹) * V ^ (m - d) := by
+    calc
+      ϑ.primeValue v ^ (6 * d) * Q ^ (6 * d - 1) * (Q - 1) * Q ^ A =
+          ϑ.primeValue v ^ (6 * d) * Q ^ B * (1 - Q⁻¹) := by
+        calc
+          _ = ϑ.primeValue v ^ (6 * d) *
+              (Q ^ (6 * d - 1) * Q ^ A) * (Q - 1) := by ring
+          _ = ϑ.primeValue v ^ (6 * d) * Q ^ (B - 1) * (Q - 1) := by rw [hqexp]
+          _ = ϑ.primeValue v ^ (6 * d) * (Q ^ (B - 1) * (Q - 1)) := by ring
+          _ = ϑ.primeValue v ^ (6 * d) * (Q ^ B * (1 - Q⁻¹)) := by rw [hqfactor]
+          _ = ϑ.primeValue v ^ (6 * d) * Q ^ B * (1 - Q⁻¹) := by ring
+      _ = E1 ^ d * (1 - Q⁻¹) * V ^ (m - d) := by
+        rw [hEpow]
+        calc
+          ϑ.primeValue v ^ (6 * d) * Q ^ B * (1 - Q⁻¹) =
+              ϑ.primeValue v ^ (6 * d) *
+                (Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * V ^ (m - d)) *
+                (1 - Q⁻¹) := by rw [hQrest]
+          _ = ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) *
+                V ^ d * (1 - Q⁻¹) * V ^ (m - d) := by ring
+  calc
+    localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 0, m) =
+        ϑ.primeValue v ^ (6 * d) * Q ^ (6 * d - 1) * (Q - 1) *
+          Q ^ (-(2 * (d : ℂ)) * (1 + 3 * ξ) - 6 * (m : ℂ) * z) := hterm
+    _ = E1 ^ d * (1 - Q⁻¹) * V ^ (m - d) := hmonomial
+    _ = eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        0 (2 * d) 0 m := by
+      simp [eulerGoodTermModel, V, E1, Q, hdm, hd.ne']
+
 /-- po:euler-good-closed, 05:596-659. The zero-valuation local series is the frozen closed factor. -/
 theorem po_euler_good_closed : EulerHypotheses R η → ∀ u v hv ξ w z, initialRegion ξ w z → frequencyValuation η U u v = 0 →
   localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal) (localV v z)
