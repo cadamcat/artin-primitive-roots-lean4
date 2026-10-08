@@ -94,6 +94,43 @@ theorem tameLocal_evaluation (T : TorusRep D H v) (B : TameTorusBasis T)
     ∃ lam : T.V →ₗ[ℂ] ℂ, lam ≠ 0 ∧
       (∀ y ∈ Q.Alag, ∀ x, lam (T.σa y x) = lam x) ∧
       ∀ k : ZMod 3, lam (B.e k) = if k = 0 then 1 else 0 := by
-  sorry
+  classical
+  let b : Module.Basis (ZMod 3) ℂ T.V := Module.Basis.mk B.linIndep (by rw [B.spans])
+  let lam : T.V →ₗ[ℂ] ℂ := b.coord 0
+  have hb (i : ZMod 3) : b i = B.e i := Module.Basis.mk_apply _ _ i
+  have hnorm (i : ZMod 3) : lam (B.e i) = if i = 0 then 1 else 0 := by
+    simp [lam, ← hb, Finsupp.single_apply]
+  refine ⟨lam, ?_, ?_, hnorm⟩
+  · intro h
+    have hone : lam (B.e 0) = 1 := by simpa using hnorm 0
+    have h' := DFunLike.congr_fun h (B.e 0)
+    rw [hone] at h'
+    exact (one_ne_zero : (1 : ℂ) ≠ 0) (by simpa using h')
+  · intro y hy x
+    obtain ⟨k, u, hu, hyu⟩ := (Q.mem_alag y).mp hy
+    have hmod : ((3 * k : ℤ) : ZMod 3) = 0 :=
+      (ZMod.intCast_zmod_eq_zero_iff_dvd _ _).mpr ⟨k, rfl⟩
+    have hχ6 := (localChi_basic (D := D) hv).2.2.2.1 u hu
+    have hpow : localChi D v u ^ (6 * k) = 1 := by
+      calc
+        localChi D v u ^ (6 * k) = (localChi D v u ^ (6 : ℕ)) ^ k := by
+          rw [zpow_mul, zpow_ofNat]
+        _ = 1 := by rw [hχ6]; simp
+    have hzero : T.σa y (B.e 0) = B.e 0 := by
+      rw [hyu, B.act (3 * k) u hu 0, hmod, zero_add]
+      have hexp : 2 * (3 * k + 2 * ((0 : ZMod 3).val : ℤ)) = 6 * k := by
+        simp only [ZMod.val_zero, Int.natCast_zero, mul_zero, add_zero]
+        ring
+      rw [hexp, hpow, one_smul]
+    have hmap : lam.comp (T.σa y) = lam := by
+      apply LinearMap.ext_on_range B.spans
+      intro i
+      change lam (T.σa y (B.e i)) = lam (B.e i)
+      by_cases hi : i = 0
+      · subst i
+        rw [hzero]
+      · rw [hyu, B.act (3 * k) u hu i, hmod, add_zero]
+        simp only [map_smul, hnorm, if_neg hi, smul_zero]
+    exact LinearMap.congr_fun hmap x
 
 end ArtinPrimitiveRoots.A1.Theta
