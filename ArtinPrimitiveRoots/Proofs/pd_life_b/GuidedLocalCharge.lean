@@ -86,7 +86,7 @@ private lemma pending_inactive_none {K : ℕ} (S : PDScale) (γ : EnvPath S.x K)
   subst hnone
   exact h
 
-private lemma pending_true_last {K : ℕ} (S : PDScale) (γ : EnvPath S.x K) (p : ℕ)
+theorem pending_true_last {K : ℕ} (S : PDScale) (γ : EnvPath S.x K) (p : ℕ)
     (e : PrimeLife S γ p) : ¬ pdLifePending S γ p e true (Fin.last (pathLength S.x)) := by
   intro h
   by_cases hA : (pdLifeActive S γ p).Nonempty
