@@ -1826,6 +1826,55 @@ theorem scalarOf_unipotent_continuous
     continuous_const.mul hprod
   exact hc.congr fun x => (hformula x).symm
 
+/-- Compact majorants justify absolute termwise integration of the Eisenstein series. -/
+theorem eisenstein_integral_tsum_on_compact
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
+    (K : Set (InfinitePlace F → ℂ)) (hK : IsCompact K)
+    (B : Set (InfinitePlace F → ℂ)) (hB : MeasurableSet B) (hBK : B ⊆ K) :
+    (∀ β : Quotient (QuotientGroup.rightRel (Bstar G)),
+      IntegrableOn (fun x => scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (Quotient.out β) * nInf P x * g)) B) ∧
+    Summable (fun β : Quotient (QuotientGroup.rightRel (Bstar G)) =>
+      ∫ x in B, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (Quotient.out β) * nInf P x * g)‖) ∧
+    (∫ x in B, eisenstein P G Fs (nInf P x * g)) =
+      ∑' β : Quotient (QuotientGroup.rightRel (Bstar G)),
+        ∫ x in B, scalarOf P G Fs.f Fs.fC
+          (P.tc.rat (Quotient.out β) * nInf P x * g) := by
+  classical
+  let : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let : Countable (Matrix (Fin 2) (Fin 2) F) := by
+    change Countable (Fin 2 → Fin 2 → F)
+    infer_instance
+  let : Countable (GL (Fin 2) F) :=
+    (Units.val_injective : Function.Injective
+      (fun a : GL (Fin 2) F => (a : Matrix (Fin 2) (Fin 2) F))).countable
+  let Q := Quotient (QuotientGroup.rightRel (Bstar G))
+  let f (β : Q) (x : InfinitePlace F → ℂ) : ℂ :=
+    scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out β) * nInf P x * g)
+  have hint (β : Q) : IntegrableOn (f β) B := by
+    exact (ContinuousOn.integrableOn_compact hK
+      (scalarOf_unipotent_continuous P G Fs g (Quotient.out β)).continuousOn).mono_set hBK
+  have hBlt : volume B < ⊤ := lt_of_le_of_lt (measure_mono hBK)
+    (lt_top_iff_ne_top.mpr hK.measure_ne_top)
+  let : IsFiniteMeasure (volume.restrict B) := ⟨by
+    simpa only [Measure.restrict_apply_univ] using hBlt⟩
+  obtain ⟨M, hM, _, hbound⟩ := eisenstein_majorant_on_compact P G hs Fs g K hK
+  have hnonneg (β : Q) : 0 ≤ ∫ x in B, ‖f β x‖ :=
+    integral_nonneg fun x => norm_nonneg _
+  have hboundint (β : Q) : (∫ x in B, ‖f β x‖) ≤ volume.real B * M β := by
+    calc
+      _ ≤ ∫ x in B, M β := integral_mono_ae (hint β).norm (integrable_const _) (by
+        filter_upwards [ae_restrict_mem hB] with x hx
+        exact hbound x (hBK hx) β)
+      _ = _ := by rw [setIntegral_const, smul_eq_mul]
+  have hsum : Summable (fun β : Q => ∫ x in B, ‖f β x‖) :=
+    Summable.of_nonneg_of_le hnonneg hboundint (hM.mul_left (volume.real B))
+  refine ⟨hint, hsum, ?_⟩
+  simpa only [eisenstein, f, mul_assoc] using
+    (integral_tsum_of_summable_integral_norm hint hsum).symm
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
