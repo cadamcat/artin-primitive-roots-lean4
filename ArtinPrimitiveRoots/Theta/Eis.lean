@@ -3296,6 +3296,110 @@ theorem scalarOf_ideal_local_periods
       rw [harg, map_mul]
       exact hfix ξ hξmem (P.q z * P.q r)
 
+/-- A nonzero global scalar tensor transfers its ideal periods to each local scalar factor. -/
+theorem local_scalar_ideal_periods_of_nonzero
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0)
+    (v : FinPlace F) (a : (P.loc v).L)
+    (y : v.adicCompletion F) (hy : y ∈ idealLocalPeriods 𝔞 v) :
+    G.lam v (Fs.f v (a * (P.loc v).n (Multiplicative.ofAdd y) * P.compF v r)) =
+      G.lam v (Fs.f v (a * P.compF v r)) := by
+  classical
+  obtain ⟨g0, hg0⟩ := hΦ
+  obtain ⟨b, hqb⟩ := P.q_surj g0
+  let β (u : FinPlace F) : ℂ := G.lam u (Fs.f u (P.compF u b))
+  have hβ : (Function.mulSupport β).Finite := (scalarOf_q P G Fs b).1
+  let U : Finset (FinPlace F) := hβ.toFinset.erase v
+  let C : ℂ := ∏ w, Fs.fC w (P.compC w b)
+  let B : ℂ := (∏ u ∈ U, β u) * C
+  have hprod (f : FinPlace F → ℂ) (hf : ∀ u, u ≠ v → f u = β u) :
+      (∏ᶠ u, f u) = f v * ∏ u ∈ U, β u := by
+    have hs : Function.mulSupport f ⊆ ((insert v U : Finset (FinPlace F)) : Set (FinPlace F)) := by
+      intro u hu
+      by_cases huv : u = v
+      · subst u
+        exact Finset.mem_insert_self _ _
+      · apply Finset.mem_insert_of_mem
+        apply Finset.mem_erase.mpr
+        refine ⟨huv, hβ.mem_toFinset.mpr ?_⟩
+        change β u ≠ 1
+        rw [← hf u huv]
+        exact hu
+    rw [finprod_eq_prod_of_mulSupport_subset f hs,
+      Finset.prod_insert (Finset.notMem_erase v hβ.toFinset)]
+    congr 1
+    apply Finset.prod_congr rfl
+    intro u hu
+    exact hf u (Finset.mem_erase.mp hu).1
+  have hbaseline : scalarOf P G Fs.f Fs.fC (P.q b) = β v * B := by
+    rw [(scalarOf_q P G Fs b).2]
+    change (∏ᶠ u, β u) * C = β v * B
+    rw [hprod β (fun _ _ => rfl)]
+    exact mul_assoc _ _ _
+  have hB : B ≠ 0 := by
+    apply (mul_ne_zero_iff.mp (show β v * B ≠ 0 from ?_)).2
+    rw [← hbaseline, hqb]
+    exact hg0
+  let Z (k : (P.loc v).L) : P.RP :=
+    (b * r⁻¹) * P.incl v ((P.compF v (b * r⁻¹))⁻¹ * k)
+  have hZF (k : (P.loc v).L) : P.compF v (Z k * r) = k * P.compF v r := by
+    simp only [Z, map_mul, P.incl_compF, map_inv]
+    group
+  have hZFother (k : (P.loc v).L) (u : FinPlace F) (hu : u ≠ v) :
+      P.compF u (Z k * r) = P.compF u b := by
+    simp only [Z, map_mul, P.incl_compF_other v u hu.symm, map_inv, mul_one]
+    group
+  have hZC (k : (P.loc v).L) (w : InfinitePlace F) :
+      P.compC w (Z k * r) = P.compC w b := by
+    simp only [Z, map_mul, P.incl_compC, map_inv, mul_one]
+    group
+  have heval (k : (P.loc v).L) :
+      scalarOf P G Fs.f Fs.fC (P.q (Z k * r)) =
+        G.lam v (Fs.f v (k * P.compF v r)) * B := by
+    rw [(scalarOf_q P G Fs (Z k * r)).2]
+    rw [hprod (fun u => G.lam u (Fs.f u (P.compF u (Z k * r)))) (by
+      intro u hu
+      rw [hZFother k u hu]), hZF]
+    have harch : (∏ w, Fs.fC w (P.compC w (Z k * r))) = C := by
+      dsimp only [C]
+      apply Finset.prod_congr rfl
+      intro w hw
+      rw [hZC]
+    rw [harch]
+    exact mul_assoc _ _ _
+  let x : ∀ u : FinPlace F, u.adicCompletion F := Pi.single v y
+  have hx : ∀ u : FinPlace F, x u ∈ idealLocalPeriods 𝔞 u := by
+    intro u
+    by_cases hu : u = v
+    · subst u
+      simpa only [x, Pi.single_eq_same] using hy
+    · have hx0 : x u = 0 := by simp [x, hu]
+      rw [hx0]
+      exact (idealLocalPeriods 𝔞 u).zero_mem
+  let t : P.RP := P.incl v ((P.loc v).n (Multiplicative.ofAdd y))
+  have htF (u : FinPlace F) :
+      P.compF u t = (P.loc u).n (Multiplicative.ofAdd (x u)) := by
+    by_cases hu : u = v
+    · subst u
+      simp only [t, P.incl_compF, x, Pi.single_eq_same]
+    · dsimp only [t]
+      rw [P.incl_compF_other v u (Ne.symm hu)]
+      simp [x, hu]
+  have htC (w : InfinitePlace F) : P.compC w t = 1 :=
+    P.incl_compC v _ w
+  have hZmul (k l : (P.loc v).L) : Z k * P.incl v l = Z (k * l) := by
+    dsimp only [Z]
+    simp only [map_mul, mul_assoc]
+  have hper := scalarOf_ideal_local_periods P G Fs r 𝔞 h𝔞 hfix x hx t htF htC (Z a)
+  dsimp only [t] at hper
+  rw [hZmul, heval, heval] at hper
+  exact mul_right_cancel₀ hB hper
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
