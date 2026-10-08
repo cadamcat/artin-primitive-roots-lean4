@@ -98,4 +98,43 @@ theorem fourierCoeffOn_uniform_summable {ι : Type*}
           ring
     simpa [bound, hn] using hnorm
 
+/-- Summable interval Fourier coefficients reconstruct a continuous function with matching
+endpoint values at every point of the closed interval, including both endpoints. -/
+theorem fourierCoeffOn_reconstruct (lo hi : ℝ) (hlohi : lo < hi)
+    (f : ℝ → ℂ) (hcont : ContinuousOn f (Set.Icc lo hi))
+    (hperiod : f lo = f hi)
+    (hsum : Summable (fourierCoeffOn hlohi f)) :
+    ∀ x ∈ Set.Icc lo hi,
+      HasSum (fun n : ℤ => fourierCoeffOn hlohi f n *
+        Complex.exp (2 * (Real.pi : ℂ) * Complex.I * (n : ℂ) *
+          (x : ℂ) / ((hi - lo : ℝ) : ℂ))) (f x) := by
+  letI : Fact (0 < hi - lo) := ⟨sub_pos.mpr hlohi⟩
+  have hend : lo + (hi - lo) = hi := by ring
+  have hp : f lo = f (lo + (hi - lo)) := by rwa [hend]
+  have hc : ContinuousOn f (Set.Icc lo (lo + (hi - lo))) := by rwa [hend]
+  let g : C(AddCircle (hi - lo), ℂ) :=
+    ⟨AddCircle.liftIoc (hi - lo) lo f, AddCircle.liftIoc_continuous hp hc⟩
+  have hcoeff : ∀ n : ℤ, fourierCoeff g n = fourierCoeffOn hlohi f n := by
+    intro n
+    rfl
+  have hgSum : Summable (fourierCoeff g) := by
+    rw [show fourierCoeff g = fourierCoeffOn hlohi f from funext hcoeff]
+    exact hsum
+  intro x hx
+  have hvalue : g (x : AddCircle (hi - lo)) = f x := by
+    change AddCircle.liftIoc (hi - lo) lo f (x : AddCircle (hi - lo)) = f x
+    by_cases hxlo : x = lo
+    · subst x
+      rw [← AddCircle.coe_add_period (hi - lo) lo]
+      rw [AddCircle.liftIoc_coe_apply]
+      · simpa only [hend] using hperiod.symm
+      · rw [hend]
+        exact ⟨hlohi, le_rfl⟩
+    · apply AddCircle.liftIoc_coe_apply
+      rw [hend]
+      exact ⟨lt_of_le_of_ne hx.1 (Ne.symm hxlo), hx.2⟩
+  have hs := has_pointwise_sum_fourier_series_of_summable hgSum
+    (x : AddCircle (hi - lo))
+  simpa only [hcoeff, hvalue, smul_eq_mul, fourier_coe_apply] using hs
+
 end ArtinPrimitiveRoots.Proofs.a2_probe_sol
