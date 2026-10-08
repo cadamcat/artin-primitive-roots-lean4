@@ -122,7 +122,7 @@ theorem pending_true_last {K : ℕ} (S : PDScale) (γ : EnvPath S.x K) (p : ℕ)
             have := (pd_life_b_pending_ghostOnly S γ p e hA a c hlife _).1.mp h
             exact absurd (Fin.le_last c) (not_le.mpr this.2)
 
-private lemma pending_false_zero {K : ℕ} (S : PDScale) (γ : EnvPath S.x K) (p : ℕ)
+theorem pending_false_zero {K : ℕ} (S : PDScale) (γ : EnvPath S.x K) (p : ℕ)
     (e : PrimeLife S γ p) : ¬ pdLifePending S γ p e false 0 := by
   intro h
   by_cases hA : (pdLifeActive S γ p).Nonempty
