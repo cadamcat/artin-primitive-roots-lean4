@@ -1301,7 +1301,75 @@ private theorem phase_box_mixed_derivative {k M : ℕ}
     HasDerivAt
       (fun t => phaseBoxMixedWeylSum r e (Function.update x j t))
       (phaseBoxMixedWeylSum r (insert j e) x) (x j) := by
-  sorry
+  classical
+  unfold phaseBoxMixedWeylSum
+  apply HasDerivAt.fun_sum
+  intro h hh
+  let p : ℕ := j.val + 1
+  let d : ℝ := (M : ℝ) ^ p
+  let w : ℝ := (h : ℝ) ^ p
+  have hd : d ≠ 0 := by
+    dsimp [d]
+    positivity
+  have hratio : (1 / d) * w = (((h : ℝ) / (M : ℝ)) ^ p) := by
+    dsimp [d, w]
+    rw [div_pow]
+    field_simp
+  have hcoords (i : Fin k) :
+      HasDerivAt
+        (fun t => phaseBoxPoint r (Function.update x j t) i *
+          (h : ℝ) ^ (i.val + 1))
+        (if i = j then (1 / d) * w else 0) (x j) := by
+    by_cases hij : i = j
+    · subst i
+      have hlin : HasDerivAt
+          (fun t : ℝ => (((r j).val : ℝ) + t) / d * w)
+          ((1 / d) * w) (x j) := by
+        have h₀ := ((hasDerivAt_id (x j)).add_const ((r j).val : ℝ)).div_const d
+        have h₁ := h₀.mul_const w
+        convert h₁ using 1
+        · funext t
+          simp [d, w, add_comm]
+      simpa [phaseBoxPoint, Function.update_self, d, w, add_comm] using hlin
+    · have hconst : HasDerivAt
+          (fun _ : ℝ => phaseBoxPoint r x i * (h : ℝ) ^ (i.val + 1))
+          0 (x j) := hasDerivAt_const _ _
+      simpa [phaseBoxPoint, Function.update_of_ne hij, hij] using hconst
+  have hangle : HasDerivAt
+      (fun t => ∑ i : Fin k,
+        phaseBoxPoint r (Function.update x j t) i * (h : ℝ) ^ (i.val + 1))
+      (((h : ℝ) / (M : ℝ)) ^ p) (x j) := by
+    have hsum := HasDerivAt.fun_sum (fun i (_hi : i ∈ (Finset.univ : Finset (Fin k))) =>
+      hcoords i)
+    convert hsum using 1
+    simpa [Finset.sum_ite_eq, hratio.symm]
+  let angle : ℝ → ℝ := fun t =>
+    ∑ i : Fin k,
+      phaseBoxPoint r (Function.update x j t) i * (h : ℝ) ^ (i.val + 1)
+  let coeff : Fin k → ℂ := fun i =>
+    (2 * Real.pi * Complex.I) *
+      (((((h : ℝ) / (M : ℝ)) ^ (i.val + 1)) : ℝ) : ℂ)
+  have hcast := hangle.ofReal_comp
+  have hcomplex : HasDerivAt
+      (fun t : ℝ => Complex.I *
+        ((2 * Real.pi * angle t : ℝ) : ℂ))
+      (Complex.I * ((2 * Real.pi : ℂ) *
+        (((h : ℝ) / (M : ℝ)) ^ p : ℝ) : ℂ)) (x j) := by
+    convert (hcast.const_mul (2 * Real.pi : ℂ)).const_mul Complex.I using 1
+    · funext t
+      simp [angle, Complex.ofReal_mul]
+  have hchar : HasDerivAt
+      (fun t => additiveCharacter (angle t))
+      (coeff j * additiveCharacter (angle (x j))) (x j) := by
+    have hcexp := hcomplex.cexp
+    convert hcexp using 1
+    · funext t
+      simp [additiveCharacter, angle, Complex.ofReal_mul]
+    · simp [coeff, additiveCharacter, angle, Complex.ofReal_mul]
+      ring
+  have hterm := HasDerivAt.const_mul (∏ i ∈ e, coeff i) hchar
+  simpa [coeff, angle, Finset.prod_insert, hje, mul_assoc, mul_left_comm,
+    mul_comm] using hterm
 
 private theorem phase_box_sobolev (k M : ℕ) (hM : 0 < M)
     (r : PhaseBoxIndex k M) (x : Fin k → ℝ)
