@@ -795,14 +795,6 @@ private lemma rf_retained_natlog_count (X : ℝ) (hX : 1 ≤ X) :
     ((Nat.log 2 ⌊X⌋₊ + 1 : ℕ) : ℝ) ≤ Real.log (2 * X) / Real.log 2 := hdivide
     _ = (1 / Real.log 2) * Real.log (2 * X) := by ring
 
-/-- rf:reflection-assembly, 04:1198–1228. Compact shape and translation sets are fixed first. -/
-theorem rf_reflection_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
-  (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
-    ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ t ∈ T, ∀ rows : Finset (ReflectionRow S),
-      Set.InjOn (fun r : ReflectionRow S => (r.m : F)) (↑rows : Set (ReflectionRow S)) →
-      (∀ r ∈ rows, InReflectionBox D S K t Z (by linarith) r) →
-      (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤ C * Z ^ (2 * M0 - 1 + ε) := by
-  sorry
 end Reflection
 
 section SupplementaryClauses
@@ -2348,17 +2340,6 @@ private lemma rf_retained_fourier_phase_sub (τ x y : ℝ) :
   congr 1
   push_cast
   ring
-/-- rf:reflection-assembly: dyadic clause, restoring bounded element multiplicity. -/
-theorem rf_reflection_dyadic_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
-  (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
-  ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ P D0 : ℝ, 1 ≤ P → 1 ≤ D0 → ∀ t ∈ T,
-    ∀ rows : Finset (ReflectionRow S),
-      Set.InjOn (fun r : ReflectionRow S => (r.m : F)) (↑rows : Set (ReflectionRow S)) →
-      (∀ r ∈ rows, InReflectionBox D S K t Z (by linarith) r ∧
-        P ≤ qI r.h.1 ∧ qI r.h.1 < 2 * P ∧ D0 ≤ qI r.d.1 ∧ qI r.d.1 < 2 * D0) →
-      (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
-        C * Z ^ ε * P ^ (1 / 2 : ℝ) * (D0 + D0 ^ 2 * P / Z) := by
-  sorry
 end SupplementaryClauses
 section FinalSourceClauses
 variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
@@ -4735,5 +4716,605 @@ theorem prop_reflection_total_from_assembly_exact
   · simpa [hSplit.vartheta_eq] using hbound
 
 end ReflectionAssemblyAdapter
+
+section ReflectionAssemblyResults
+variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
+  {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
+  {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
+  {v0 : InfinitePlace F}
+variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+
+private lemma rf_diagR_closed (D : FieldData F) : IsClosed (S.diagR : Set S.FS) := by
+  let f : S.R →+ S.FS := {
+    toFun := fun x => S.diag (x : F)
+    map_zero' := by simp [SData.diag]
+    map_add' := by intro x y; simp [SData.diag]
+  }
+  have hRange : (f.range : Set S.FS) = S.diagR := by
+    rfl
+  have hdisc := (SData.diagR_discrete_cocompact S D).1
+  have hdisc' : IsDiscrete (f.range : Set S.FS) := by
+    simpa [hRange] using hdisc
+  rw [← hRange]
+  exact f.range.isClosed_of_isDiscrete hdisc'
+
+private lemma rf_reflectionRowFiber_finite (K : Set S.FSˣ) (hK : IsCompact K)
+    (t : S.FSˣ) (Z : ℝ) (hZ : 0 < Z) (I : S.ExtIdeal) :
+    (reflectionRowFiber D S K t Z hZ I).Finite := by
+  classical
+  let scale := S.ell D (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0)
+  let B : Set S.FS := (fun y : S.FSˣ => scale * ((t * y : S.FSˣ) : S.FS)) '' K
+  have hmap : Continuous (fun y : S.FSˣ => scale * ((t * y : S.FSˣ) : S.FS)) := by fun_prop
+  have hB : IsCompact B := hK.image hmap
+  have hclosed : IsClosed (S.diagR : Set S.FS) := rf_diagR_closed (D := D) (S := S)
+  have hdisc : IsDiscrete (B ∩ S.diagR : Set S.FS) :=
+    (SData.diagR_discrete_cocompact S D).1 |>.mono (fun _ hx => hx.2)
+  have htarget : (B ∩ S.diagR : Set S.FS).Finite :=
+    (hB.inter_right hclosed).finite hdisc
+  let e : ReflectionRow S → S.FS := fun r => S.diag (r.m : F)
+  have hmaps : Set.MapsTo e (reflectionRowFiber D S K t Z hZ I) (B ∩ S.diagR) := by
+    intro r hr
+    rcases hr.1 with ⟨y, hy, hbox⟩
+    constructor
+    · refine ⟨y, hy, ?_⟩
+      simpa [e, B, scale] using hbox.symm
+    · exact ⟨r.m, rfl⟩
+  have hinj : Set.InjOn e (reflectionRowFiber D S K t Z hZ I) := by
+    intro r hr s hs hrs
+    apply reflection_row_element_injective (S := S)
+    exact S.diag.injective hrs
+  exact htarget.of_injOn hmaps hinj
+
+private lemma rf_reflection_mass_finite_sum (retained : Bool) (υ : UnitSix S)
+    (P D0 Z δ : ℝ) (hP : 1 ≤ P) (hD0 : 1 ≤ D0) (hZ : 2 ≤ Z) :
+    reflectionMass R retained υ P D0 Z δ =
+      ∑ hd ∈ ((bridgeNormFinset S (2 * P)).filter (fun h => IsPowerful h.1)).product
+          (bridgeNormFinset S (2 * D0)),
+        if IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+            D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
+          ‖splitReflection R retained υ hd.1 hd.2 Z (reflectionColumnCutoff P D0 Z δ)‖ ^ 2
+        else 0 := by
+  classical
+  let Hset : Finset S.ExtIdeal :=
+    (bridgeNormFinset S (2 * P)).filter (fun h => IsPowerful h.1)
+  let Dset : Finset S.ExtIdeal := bridgeNormFinset S (2 * D0)
+  let Kset : Finset (S.ExtIdeal × S.ExtIdeal) := Hset.product Dset
+  have hFinP := a2_bridge_COUNT_finite S (2 * P) (by positivity)
+  have hFinD := a2_bridge_COUNT_finite S (2 * D0) (by positivity)
+  have hmemH (h : S.ExtIdeal) (hh : IsPowerful h.1) (hhi : qI h.1 < 2 * P) :
+      h ∈ Hset := by
+    apply Finset.mem_filter.mpr
+    constructor
+    · exact (hFinP.2 h).mpr (by simpa [qI, idealNorm] using hhi.le)
+    · exact hh
+  have hmemD (d : S.ExtIdeal) (hhi : qI d.1 < 2 * D0) : d ∈ Dset :=
+    (hFinD.2 d).mpr (by simpa [qI, idealNorm] using hhi.le)
+  have hzero (hd : S.ExtIdeal × S.ExtIdeal) (hnot : hd ∉ Kset) :
+      (if IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+          D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
+        ‖splitReflection R retained υ hd.1 hd.2 Z (reflectionColumnCutoff P D0 Z δ)‖ ^ 2
+      else 0) = 0 := by
+    by_cases hc : IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+        D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0
+    · rcases hc with ⟨hh, _, hhi, _, dhi⟩
+      have hm : hd.1 ∈ Hset := hmemH hd.1 hh hhi
+      have hdmem : hd.2 ∈ Dset := hmemD hd.2 dhi
+      exact (hnot (Finset.mem_product.mpr ⟨hm, hdmem⟩)).elim
+    · simp [hc]
+  unfold reflectionMass
+  change (∑' hd : S.ExtIdeal × S.ExtIdeal,
+      if IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+          D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
+        ‖splitReflection R retained υ hd.1 hd.2 Z (reflectionColumnCutoff P D0 Z δ)‖ ^ 2
+      else 0) = _
+  exact tsum_eq_sum hzero
+
+private lemma rf_reflection_row_split (r : ReflectionRow S) (Z R0 : ℝ) (hZ : 0 < Z) :
+    Bm D S A ϑ (cgen R) (r.m : F) Z =
+      splitReflection R true (rowClass R r) r.h r.d Z R0 +
+        splitReflection R false (rowClass R r) r.h r.d Z R0 := by
+  classical
+  have hpair := lem_reflection_quadratic_pairing (R := R) r Z hZ
+  let term := fun p : FrozenIndex R r.h × Bd.B × Bd.B × S.SqfExtIdeal =>
+    reflectedTerm R (rowClass R r) r.h r.d Z p
+  let cut := fun p : FrozenIndex R r.h × Bd.B × Bd.B × S.SqfExtIdeal =>
+    qI p.1.a.1 * qI p.2.2.2.1 * qI p.1.n.1 ^ 3 ≤ R0
+  have hret : Summable (fun p => if cut p then term p else 0) :=
+    hpair.1.of_norm_bounded (fun p => by
+      by_cases hp : cut p <;> simp [hp, term])
+  have htail : Summable (fun p => if cut p then 0 else term p) :=
+    hpair.1.of_norm_bounded (fun p => by
+      by_cases hp : cut p <;> simp [hp, term])
+  have hparts :
+      (∑' p, if cut p then term p else 0) +
+        (∑' p, if cut p then 0 else term p) = ∑' p, term p := by
+    rw [← hret.tsum_add htail]
+    apply tsum_congr
+    intro p
+    by_cases hp : cut p <;> simp [hp]
+  have hdc : Squarefree r.d.1 ∧ IsCoprime r.d.1 r.h.1 :=
+    ⟨r.d_squarefree, r.coprime.symm⟩
+  have hsplitRet : splitReflection R true (rowClass R r) r.h r.d Z R0 =
+      ∑' p, if cut p then term p else 0 := by
+    unfold splitReflection
+    rw [if_pos hdc]
+    apply tsum_congr
+    intro p
+    by_cases hp : cut p <;> simp [cut, hp, term]
+  have hsplitTail : splitReflection R false (rowClass R r) r.h r.d Z R0 =
+      ∑' p, if cut p then 0 else term p := by
+    unfold splitReflection
+    rw [if_pos hdc]
+    apply tsum_congr
+    intro p
+    by_cases hp : cut p <;> simp [cut, hp, term]
+  calc
+    Bm D S A ϑ (cgen R) (r.m : F) Z = ∑' p, term p := by
+      simpa [term] using hpair.2
+    _ = (∑' p, if cut p then term p else 0) +
+          (∑' p, if cut p then 0 else term p) := hparts.symm
+    _ = _ := by rw [hsplitRet, hsplitTail]
+
+end ReflectionAssemblyResults
+
+section ReflectionAssemblyMain
+variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
+  {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
+  {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
+  {v0 : InfinitePlace F}
+variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+
+set_option maxHeartbeats 8000000 in
+/-- rf:reflection-assembly: dyadic clause, restoring bounded element multiplicity. -/
+theorem rf_reflection_dyadic_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
+  (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+  ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ P D0 : ℝ, 1 ≤ P → 1 ≤ D0 → ∀ t ∈ T,
+    ∀ rows : Finset (ReflectionRow S),
+      Set.InjOn (fun r : ReflectionRow S => (r.m : F)) (↑rows : Set (ReflectionRow S)) →
+      (∀ r ∈ rows, InReflectionBox D S K t Z (by linarith) r ∧
+        P ≤ qI r.h.1 ∧ qI r.h.1 < 2 * P ∧ D0 ≤ qI r.d.1 ∧ qI r.d.1 < 2 * D0) →
+      (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
+        C * Z ^ ε * P ^ (1 / 2 : ℝ) * (D0 + D0 ^ 2 * P / Z) := by
+  classical
+  intro K T hK hT hTnorm ε hε
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  obtain ⟨δ, δ₁, δ₂, δ₃, hδ, hδ₁, hδ₂, hδ₃, hLoss⟩ :=
+    (rf_assembly_scale_bounds).1 ε hε
+  obtain ⟨c₁, c₂, Cmult, hc₁, hc₂, hCmult, K', hK', hK'norm, hElem⟩ :=
+    rf_element_to_ideal D S H Bd bc K T hK hT hTnorm
+  let C₀ : ℝ := c₂
+  have hC₀ : 0 < C₀ := by dsimp [C₀]; linarith [hc₁, hc₂]
+  obtain ⟨Cscale, hCscale, hScale⟩ :=
+    (rf_assembly_scale_bounds).2 C₀ δ δ₃ hC₀ hδ hδ₃
+  obtain ⟨Cret, hCret, hRetMass⟩ := rf_retained_mass R δ δ₁ δ₂ hδ hδ₁ hδ₂
+  let σ : ℝ := 3 / 4
+  have hσ : 1 / 2 < σ := by norm_num [σ]
+  have hM0 : 1 < M0 := by norm_num [M0, a, b]
+  let N : ℝ := (2 + 2 * M0 * δ₁ + 2 * σ * (2 * M0 - 1)) / (2 * δ) + σ
+  have hNval : 2 * δ * (N - σ) = 2 + 2 * M0 * δ₁ + 2 * σ * (2 * M0 - 1) := by
+    dsimp [N]
+    field_simp [ne_of_gt hδ]
+    ring
+  have hσN : σ < N := by
+    have h2δ : 0 < 2 * δ := by positivity
+    have hdiff : 0 < 2 * δ * (N - σ) := by
+      rw [hNval]
+      have hMpos : 0 < M0 := by linarith
+      have hσpos : 0 < σ := by norm_num [σ]
+      have hfactor : 0 < 2 * M0 - 1 := by linarith
+      positivity
+    have hNminus : 0 < N - σ := (mul_pos_iff_of_pos_left h2δ).mp hdiff
+    linarith
+  have hTailExp : 1 + 2 * M0 * δ₁ + 2 * σ * (2 * M0 - 1) < 2 * δ * (N - σ) := by
+    rw [hNval]
+    linarith
+  obtain ⟨Ctail, hCtail, hTailMass⟩ :=
+    rf_tail_negligible R C₀ δ δ₁ σ N 1 hC₀ hδ hδ₁ hσ hσN (by norm_num) hTailExp
+  let M : ℝ := (max 1 ⌊Cmult⌋₊ : ℕ)
+  let U : ℝ := Fintype.card (UnitSix S)
+  let CscaleFactor : ℝ := Cscale ^ (2 * δ₁) * Cscale * Cscale * Cscale ^ δ₂
+  let CretFinal : ℝ := Cret * CscaleFactor
+  let Cfinal : ℝ := 2 * M * U * (CretFinal + Ctail)
+  have hM : 0 < M := by dsimp [M]; positivity
+  have hU : 0 < U := by
+    dsimp [U]
+    exact_mod_cast (Fintype.card_pos_iff.mpr ⟨unitSixClass S 1⟩)
+  have hCfinal : 0 < Cfinal := by
+    dsimp [Cfinal]
+    positivity
+  refine ⟨Cfinal, hCfinal, ?_⟩
+  intro Z hZ P D₀ hP hD₀ t ht rows hinj hrows
+  have hZpos : 0 < Z := by linarith
+  by_cases hrowsEmpty : rows = ∅
+  · simp [hrowsEmpty]
+    positivity
+  · have hrowsNE : rows.Nonempty := Finset.nonempty_iff_ne_empty.mpr hrowsEmpty
+    obtain ⟨r₀, hr₀⟩ := hrowsNE
+    have hrow₀ := hrows r₀ hr₀
+    have hElem₀ := hElem Z hZ t ht r₀ hrow₀.1
+    have hNormIdeal : qI r₀.ideal.1 ≤ C₀ * Z ^ M0 := by
+      simpa [C₀, qI, idealNorm] using hElem₀.2.1
+    have hqMul : qI r₀.h.1 * qI r₀.d.1 = qI (r₀.h.1 * r₀.d.1) := by
+      simp [qI, map_mul]
+    have hqHpos := rf_qI_pos_ge_one r₀.h.1 r₀.h.2.1
+    have hPD : P * D₀ ≤ C₀ * Z ^ M0 := by
+      calc
+        P * D₀ ≤ qI r₀.h.1 * qI r₀.d.1 :=
+          mul_le_mul hrow₀.2.1 hrow₀.2.2.2.1 (by linarith [hD₀])
+            (le_of_lt hqHpos.1)
+        _ = qI (r₀.h.1 * r₀.d.1) := hqMul
+        _ = qI r₀.ideal.1 := by rw [← r₀.factorization]
+        _ ≤ C₀ * Z ^ M0 := hNormIdeal
+    let R₀ : ℝ := reflectionColumnCutoff P D₀ Z δ
+    let shape : ℝ := D₀ + D₀ ^ 2 * P / Z
+    let key : ReflectionRow S → UnitSix S × (S.ExtIdeal × S.ExtIdeal) :=
+      fun r => (rowClass R r, (r.h, r.d))
+    let keys : Finset (UnitSix S × (S.ExtIdeal × S.ExtIdeal)) := rows.image key
+    let Hset : Finset S.ExtIdeal :=
+      (bridgeNormFinset S (2 * P)).filter (fun h => IsPowerful h.1)
+    let Dset : Finset S.ExtIdeal := bridgeNormFinset S (2 * D₀)
+    let Kset : Finset (S.ExtIdeal × S.ExtIdeal) := Hset.product Dset
+    let keysAll : Finset (UnitSix S × (S.ExtIdeal × S.ExtIdeal)) := Finset.univ.product Kset
+    let massTerm (retained : Bool) (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) : ℝ :=
+      if IsPowerful k.2.1.1 ∧ P ≤ qI k.2.1.1 ∧ qI k.2.1.1 < 2 * P ∧
+          D₀ ≤ qI k.2.2.1 ∧ qI k.2.2.1 < 2 * D₀ then
+        ‖splitReflection R retained k.1 k.2.1 k.2.2 Z R₀‖ ^ 2
+      else 0
+    let retVal (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) : ℝ :=
+      ‖splitReflection R true k.1 k.2.1 k.2.2 Z R₀‖ ^ 2
+    let tailVal (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) : ℝ :=
+      ‖splitReflection R false k.1 k.2.1 k.2.2 Z R₀‖ ^ 2
+    have hCountP := a2_bridge_COUNT_finite S (2 * P) (by positivity)
+    have hCountD := a2_bridge_COUNT_finite S (2 * D₀) (by positivity)
+    have hmemH (h : S.ExtIdeal) (hh : IsPowerful h.1) (hhi : qI h.1 < 2 * P) :
+        h ∈ Hset := by
+      apply Finset.mem_filter.mpr
+      constructor
+      · exact (hCountP.2 h).mpr (by simpa [qI, idealNorm] using hhi.le)
+      · exact hh
+    have hmemD (d : S.ExtIdeal) (hhi : qI d.1 < 2 * D₀) : d ∈ Dset :=
+      (hCountD.2 d).mpr (by simpa [qI, idealNorm] using hhi.le)
+    have hkeysMaps : (rows : Set (ReflectionRow S)).MapsTo key keys := by
+      intro r hr
+      exact Finset.mem_image_of_mem key hr
+    have hkeysSub : keys ⊆ keysAll := by
+      intro k hk
+      rcases Finset.mem_image.mp hk with ⟨r, hr, rfl⟩
+      have hdyad := (hrows r hr).2
+      apply Finset.mem_product.mpr
+      constructor
+      · exact Finset.mem_univ _
+      · apply Finset.mem_product.mpr
+        exact ⟨hmemH r.h r.h_powerful hdyad.2.1,
+          hmemD r.d hdyad.2.2.2⟩
+    have hkeysRetMass (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) (hk : k ∈ keys) :
+        retVal k = massTerm true k := by
+      rcases Finset.mem_image.mp hk with ⟨r, hr, rfl⟩
+      have hdyad := (hrows r hr).2
+      have hc : IsPowerful r.h.1 ∧ P ≤ qI r.h.1 ∧ qI r.h.1 < 2 * P ∧
+          D₀ ≤ qI r.d.1 ∧ qI r.d.1 < 2 * D₀ := ⟨r.h_powerful, hdyad⟩
+      simp [retVal, massTerm, key, hc]
+    have hkeysTailMass (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) (hk : k ∈ keys) :
+        tailVal k = massTerm false k := by
+      rcases Finset.mem_image.mp hk with ⟨r, hr, rfl⟩
+      have hdyad := (hrows r hr).2
+      have hc : IsPowerful r.h.1 ∧ P ≤ qI r.h.1 ∧ qI r.h.1 < 2 * P ∧
+          D₀ ≤ qI r.d.1 ∧ qI r.d.1 < 2 * D₀ := ⟨r.h_powerful, hdyad⟩
+      simp [tailVal, massTerm, key, hc]
+    have hretAll :
+        (∑ k ∈ keysAll, massTerm true k) =
+          ∑ υ ∈ (Finset.univ : Finset (UnitSix S)), reflectionMass R true υ P D₀ Z δ := by
+      calc
+        _ = ∑ υ ∈ (Finset.univ : Finset (UnitSix S)),
+              ∑ hd ∈ Kset, massTerm true (υ, hd) := by
+          simpa [keysAll] using
+            (Finset.sum_product (Finset.univ : Finset (UnitSix S)) Kset
+              (massTerm true))
+        _ = _ := by
+          apply Finset.sum_congr rfl
+          intro υ hυ
+          simpa [massTerm, Hset, Dset, Kset] using
+            (rf_reflection_mass_finite_sum R true υ P D₀ Z δ hP hD₀ hZ).symm
+    have htailAll :
+        (∑ k ∈ keysAll, massTerm false k) =
+          ∑ υ ∈ (Finset.univ : Finset (UnitSix S)), reflectionMass R false υ P D₀ Z δ := by
+      calc
+        _ = ∑ υ ∈ (Finset.univ : Finset (UnitSix S)),
+              ∑ hd ∈ Kset, massTerm false (υ, hd) := by
+          simpa [keysAll] using
+            (Finset.sum_product (Finset.univ : Finset (UnitSix S)) Kset
+              (massTerm false))
+        _ = _ := by
+          apply Finset.sum_congr rfl
+          intro υ hυ
+          simpa [massTerm, Hset, Dset, Kset] using
+            (rf_reflection_mass_finite_sum R false υ P D₀ Z δ hP hD₀ hZ).symm
+    let grp (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) : Finset (ReflectionRow S) :=
+      rows.filter (fun r => key r = k)
+    have hgroupCard (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) (hk : k ∈ keys) :
+        ((grp k).card : ℝ) ≤ M := by
+      rcases Finset.mem_image.mp hk with ⟨r₀, hr₀, hkEq⟩
+      have hFiber := rf_reflectionRowFiber_finite (D := D) (S := S)
+        K hK t Z (by linarith) r₀.ideal
+      have hFiberBound :
+          (reflectionRowFiber D S K t Z (by linarith) r₀.ideal).ncard ≤ ⌊Cmult⌋₊ := by
+        exact (hElem Z hZ t ht r₀ (hrows r₀ hr₀).1).2.2.2
+      have hgrpSub :
+          (grp k : Set (ReflectionRow S)) ⊆ reflectionRowFiber D S K t Z (by linarith) r₀.ideal := by
+        intro r hr
+        have hrf := Finset.mem_filter.mp hr
+        have hEqKey : key r = key r₀ := hrf.2.trans hkEq.symm
+        have hEqHD : (r.h, r.d) = (r₀.h, r₀.d) := by
+          simpa [key] using congrArg Prod.snd hEqKey
+        have hh : r.h = r₀.h := congrArg Prod.fst hEqHD
+        have hd : r.d = r₀.d := congrArg Prod.snd hEqHD
+        have hIdeal : r.ideal = r₀.ideal := by
+          apply Subtype.ext
+          rw [r.factorization, r₀.factorization, hh, hd]
+        change InReflectionBox D S K t Z (by linarith) r ∧ r.ideal = r₀.ideal
+        exact ⟨(hrows r hrf.1).1, hIdeal⟩
+      have hgrpSubFinset : grp k ⊆ hFiber.toFinset := by
+        intro r hr
+        exact hFiber.mem_toFinset.mpr (hgrpSub hr)
+      have hgrpNat : (grp k).card ≤ ⌊Cmult⌋₊ := by
+        calc
+          (grp k).card ≤ hFiber.toFinset.card := Finset.card_le_card hgrpSubFinset
+          _ = (reflectionRowFiber D S K t Z (by linarith) r₀.ideal).ncard :=
+            (Set.ncard_eq_toFinset_card _ hFiber).symm
+          _ ≤ ⌊Cmult⌋₊ := hFiberBound
+      have hgrpMax : (grp k).card ≤ max 1 ⌊Cmult⌋₊ :=
+        le_trans hgrpNat (Nat.le_max_right 1 ⌊Cmult⌋₊)
+      change ((grp k).card : ℝ) ≤ ((max 1 ⌊Cmult⌋₊ : ℕ) : ℝ)
+      exact_mod_cast hgrpMax
+    have hgrpRet (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) :
+        (∑ r ∈ grp k, retVal (key r)) ≤ M * retVal k := by
+      have hconst : ∀ r ∈ grp k, retVal (key r) = retVal k := by
+        intro r hr
+        exact congrArg retVal (Finset.mem_filter.mp hr).2
+      rw [Finset.sum_congr rfl hconst]
+      rw [Finset.sum_const, nsmul_eq_mul]
+      by_cases hk : k ∈ keys
+      · exact mul_le_mul_of_nonneg_right (hgroupCard k hk) (by positivity)
+      · have hz : grp k = ∅ := by
+          apply Finset.eq_empty_iff_forall_notMem.mpr
+          intro r hr
+          exact hk (Finset.mem_image.mpr ⟨r, (Finset.mem_filter.mp hr).1,
+            (Finset.mem_filter.mp hr).2⟩)
+        simp [hz]
+        positivity
+    have hgrpTail (k : UnitSix S × (S.ExtIdeal × S.ExtIdeal)) :
+        (∑ r ∈ grp k, tailVal (key r)) ≤ M * tailVal k := by
+      have hconst : ∀ r ∈ grp k, tailVal (key r) = tailVal k := by
+        intro r hr
+        exact congrArg tailVal (Finset.mem_filter.mp hr).2
+      rw [Finset.sum_congr rfl hconst]
+      rw [Finset.sum_const, nsmul_eq_mul]
+      by_cases hk : k ∈ keys
+      · exact mul_le_mul_of_nonneg_right (hgroupCard k hk) (by positivity)
+      · have hz : grp k = ∅ := by
+          apply Finset.eq_empty_iff_forall_notMem.mpr
+          intro r hr
+          exact hk (Finset.mem_image.mpr ⟨r, (Finset.mem_filter.mp hr).1,
+            (Finset.mem_filter.mp hr).2⟩)
+        simp [hz]
+        positivity
+    have hretRowDecomp :
+        (∑ r ∈ rows, retVal (key r)) =
+          ∑ k ∈ keys, ∑ r ∈ grp k, retVal (key r) := by
+      exact (Finset.sum_fiberwise_of_maps_to hkeysMaps _).symm
+    have htailRowDecomp :
+        (∑ r ∈ rows, tailVal (key r)) =
+          ∑ k ∈ keys, ∑ r ∈ grp k, tailVal (key r) := by
+      exact (Finset.sum_fiberwise_of_maps_to hkeysMaps _).symm
+    have hretRows :
+        (∑ r ∈ rows, retVal (key r)) ≤ M * (∑ k ∈ keys, retVal k) := by
+      calc
+        _ = ∑ k ∈ keys, ∑ r ∈ grp k, retVal (key r) := hretRowDecomp
+        _ ≤ ∑ k ∈ keys, M * retVal k := Finset.sum_le_sum fun k hk => hgrpRet k
+        _ = M * (∑ k ∈ keys, retVal k) := by rw [Finset.mul_sum]
+    have htailRows :
+        (∑ r ∈ rows, tailVal (key r)) ≤ M * (∑ k ∈ keys, tailVal k) := by
+      calc
+        _ = ∑ k ∈ keys, ∑ r ∈ grp k, tailVal (key r) := htailRowDecomp
+        _ ≤ ∑ k ∈ keys, M * tailVal k := Finset.sum_le_sum fun k hk => hgrpTail k
+        _ = M * (∑ k ∈ keys, tailVal k) := by rw [Finset.mul_sum]
+    have hretKeys :
+        (∑ k ∈ keys, retVal k) ≤
+          ∑ υ ∈ (Finset.univ : Finset (UnitSix S)), reflectionMass R true υ P D₀ Z δ := by
+      calc
+        _ = ∑ k ∈ keys, massTerm true k := by
+          apply Finset.sum_congr rfl
+          intro k hk
+          exact hkeysRetMass k hk
+        _ ≤ ∑ k ∈ keysAll, massTerm true k :=
+          Finset.sum_le_sum_of_subset_of_nonneg hkeysSub (by
+            intro k hk hnot
+            dsimp [massTerm]
+            split_ifs <;> positivity)
+        _ = _ := hretAll
+    have htailKeys :
+        (∑ k ∈ keys, tailVal k) ≤
+          ∑ υ ∈ (Finset.univ : Finset (UnitSix S)), reflectionMass R false υ P D₀ Z δ := by
+      calc
+        _ = ∑ k ∈ keys, massTerm false k := by
+          apply Finset.sum_congr rfl
+          intro k hk
+          exact hkeysTailMass k hk
+        _ ≤ ∑ k ∈ keysAll, massTerm false k :=
+          Finset.sum_le_sum_of_subset_of_nonneg hkeysSub (by
+            intro k hk hnot
+            dsimp [massTerm]
+            split_ifs <;> positivity)
+        _ = _ := htailAll
+    have hretMassBound (υ : UnitSix S) :
+        reflectionMass R true υ P D₀ Z δ ≤
+          CretFinal * Z ^ ε * P ^ (1 / 2 : ℝ) * shape := by
+      have hretData := hRetMass υ P D₀ Z hP hD₀ hZ
+      by_cases hsmall : R₀ < 1
+      · rw [hretData.1 hsmall]
+        dsimp [CretFinal, CscaleFactor, shape]
+        positivity
+      · have hlarge : 1 ≤ R₀ := le_of_not_gt hsmall
+        obtain ⟨hDsum, hDprod, hPbound, hLog, hShape⟩ :=
+          hScale P D₀ Z hP hD₀ hZ hPD
+        have hLog' : Real.log (2 * R₀) ^ 4 ≤ Cscale * Z ^ δ₃ := by
+          apply hLog
+          exact hlarge
+        have hPexp : P ^ (2 * δ₁) ≤ Cscale ^ (2 * δ₁) * Z ^ (2 * M0 * δ₁) := by
+          calc
+            P ^ (2 * δ₁) ≤ (Cscale * Z ^ M0) ^ (2 * δ₁) :=
+              Real.rpow_le_rpow (by positivity) hPbound (by positivity)
+            _ = Cscale ^ (2 * δ₁) * Z ^ (2 * M0 * δ₁) := by
+              rw [Real.mul_rpow (by positivity) (by positivity), ← Real.rpow_mul (by positivity)]
+              congr 1
+              ring
+        have hDprodexp : (D₀ * R₀) ^ δ₂ ≤
+            Cscale ^ δ₂ * Z ^ ((3 * M0 - 1 + δ) * δ₂) := by
+          calc
+            (D₀ * R₀) ^ δ₂ ≤ (Cscale * Z ^ (3 * M0 - 1 + δ)) ^ δ₂ :=
+              Real.rpow_le_rpow (by positivity) hDprod hδ₂.le
+            _ = Cscale ^ δ₂ * Z ^ ((3 * M0 - 1 + δ) * δ₂) := by
+              rw [Real.mul_rpow (by positivity) (by positivity), ← Real.rpow_mul (by positivity)]
+        have hscaleProduct :
+            P ^ (2 * δ₁) * Real.log (2 * R₀) ^ 4 * (D₀ + R₀) * (D₀ * R₀) ^ δ₂ ≤
+              (Cscale ^ (2 * δ₁) * Z ^ (2 * M0 * δ₁)) *
+                (Cscale * Z ^ δ₃) * (Cscale * Z ^ δ * shape) *
+                  (Cscale ^ δ₂ * Z ^ ((3 * M0 - 1 + δ) * δ₂)) := by
+          gcongr
+        let Eloss : ℝ := δ + 2 * M0 * δ₁ + (3 * M0 - 1 + δ) * δ₂ + δ₃
+        have hEloss : Eloss < ε := by dsimp [Eloss]; linarith [hLoss]
+        have hZprod :
+            Z ^ (2 * M0 * δ₁) * Z ^ δ₃ * Z ^ δ *
+              Z ^ ((3 * M0 - 1 + δ) * δ₂) = Z ^ Eloss := by
+          calc
+            _ = Z ^ (2 * M0 * δ₁ + δ₃) * Z ^ δ *
+                Z ^ ((3 * M0 - 1 + δ) * δ₂) := by rw [← Real.rpow_add hZpos]
+            _ = Z ^ (2 * M0 * δ₁ + δ₃ + δ) *
+                Z ^ ((3 * M0 - 1 + δ) * δ₂) := by rw [← Real.rpow_add hZpos]
+            _ = Z ^ (2 * M0 * δ₁ + δ₃ + δ + (3 * M0 - 1 + δ) * δ₂) :=
+              by rw [← Real.rpow_add hZpos]
+            _ = Z ^ Eloss := by congr 1; dsimp [Eloss]; ring
+        have hfactorEq :
+            (Cscale ^ (2 * δ₁) * Z ^ (2 * M0 * δ₁)) *
+                (Cscale * Z ^ δ₃) * (Cscale * Z ^ δ * shape) *
+                  (Cscale ^ δ₂ * Z ^ ((3 * M0 - 1 + δ) * δ₂)) =
+              CscaleFactor * Z ^ Eloss * shape := by
+          dsimp [CscaleFactor]
+          calc
+            _ = (Cscale ^ (2 * δ₁) * Cscale * Cscale * Cscale ^ δ₂) *
+                  (Z ^ (2 * M0 * δ₁) * Z ^ δ₃ * Z ^ δ *
+                    Z ^ ((3 * M0 - 1 + δ) * δ₂)) * shape := by ring
+            _ = _ := by rw [hZprod]
+        have hZexp : Z ^ Eloss ≤ Z ^ ε :=
+          Real.rpow_le_rpow_of_exponent_le (by linarith) hEloss.le
+        have hRaw := hretData.2 hlarge
+        calc
+          reflectionMass R true υ P D₀ Z δ ≤
+              Cret * P ^ (1 / 2 + 2 * δ₁) * Real.log (2 * R₀) ^ 4 *
+                (D₀ + R₀) * (D₀ * R₀) ^ δ₂ := hRaw
+          _ = Cret * P ^ (1 / 2 : ℝ) *
+                (P ^ (2 * δ₁) * Real.log (2 * R₀) ^ 4 *
+                  (D₀ + R₀) * (D₀ * R₀) ^ δ₂) := by
+              rw [Real.rpow_add (by positivity)]
+              ring
+          _ ≤ Cret * P ^ (1 / 2 : ℝ) *
+                ((Cscale ^ (2 * δ₁) * Z ^ (2 * M0 * δ₁)) *
+                  (Cscale * Z ^ δ₃) * (Cscale * Z ^ δ * shape) *
+                    (Cscale ^ δ₂ * Z ^ ((3 * M0 - 1 + δ) * δ₂))) := by
+              exact mul_le_mul_of_nonneg_left hscaleProduct (by positivity)
+          _ = CretFinal * Z ^ Eloss * P ^ (1 / 2 : ℝ) * shape := by
+              rw [hfactorEq]
+              dsimp [CretFinal]
+              ring
+          _ ≤ CretFinal * Z ^ ε * P ^ (1 / 2 : ℝ) * shape := by
+              have hfac : 0 ≤ CretFinal * P ^ (1 / 2 : ℝ) * shape := by positivity
+              calc
+                CretFinal * Z ^ Eloss * P ^ (1 / 2 : ℝ) * shape =
+                    (CretFinal * P ^ (1 / 2 : ℝ) * shape) * Z ^ Eloss := by ring
+                _ ≤ (CretFinal * P ^ (1 / 2 : ℝ) * shape) * Z ^ ε :=
+                  mul_le_mul_of_nonneg_left hZexp hfac
+                _ = CretFinal * Z ^ ε * P ^ (1 / 2 : ℝ) * shape := by ring
+    have htailMassBound (υ : UnitSix S) :
+        reflectionMass R false υ P D₀ Z δ ≤
+          Ctail * Z ^ ε * P ^ (1 / 2 : ℝ) * shape := by
+      have hraw := hTailMass υ P D₀ Z hP hD₀ hZ hPD
+      have hZexp : Z ^ (-1 : ℝ) ≤ Z ^ ε :=
+        Real.rpow_le_rpow_of_exponent_le (by linarith) (by linarith : (-1 : ℝ) ≤ ε)
+      have hDshape : D₀ ≤ shape := by
+        dsimp [shape]
+        exact le_add_of_nonneg_right (by positivity)
+      calc
+        reflectionMass R false υ P D₀ Z δ ≤
+            Ctail * Z ^ (-1 : ℝ) * P ^ (1 / 2 : ℝ) * D₀ := hraw
+        _ ≤ Ctail * Z ^ ε * P ^ (1 / 2 : ℝ) * shape := by
+          gcongr
+    have hretTotal :
+        (∑ υ ∈ (Finset.univ : Finset (UnitSix S)), reflectionMass R true υ P D₀ Z δ) ≤
+          U * (CretFinal * Z ^ ε * P ^ (1 / 2 : ℝ) * shape) := by
+      calc
+        _ ≤ ∑ υ ∈ (Finset.univ : Finset (UnitSix S)),
+              CretFinal * Z ^ ε * P ^ (1 / 2 : ℝ) * shape :=
+          Finset.sum_le_sum fun υ hυ => hretMassBound υ
+        _ = _ := by simp [U, Finset.sum_const, nsmul_eq_mul]
+    have htailTotal :
+        (∑ υ ∈ (Finset.univ : Finset (UnitSix S)), reflectionMass R false υ P D₀ Z δ) ≤
+          U * (Ctail * Z ^ ε * P ^ (1 / 2 : ℝ) * shape) := by
+      calc
+        _ ≤ ∑ υ ∈ (Finset.univ : Finset (UnitSix S)),
+              Ctail * Z ^ ε * P ^ (1 / 2 : ℝ) * shape :=
+          Finset.sum_le_sum fun υ hυ => htailMassBound υ
+        _ = _ := by simp [U, Finset.sum_const, nsmul_eq_mul]
+    have hpoint (r : ReflectionRow S) (hr : r ∈ rows) :
+        ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2 ≤
+          2 * retVal (key r) + 2 * tailVal (key r) := by
+      have hsplit := rf_reflection_row_split R r Z R₀ hZpos
+      let x := splitReflection R true (rowClass R r) r.h r.d Z R₀
+      let y := splitReflection R false (rowClass R r) r.h r.d Z R₀
+      calc
+        _ = ‖x + y‖ ^ 2 := by rw [hsplit]
+        _ ≤ (‖x‖ + ‖y‖) ^ 2 := by gcongr; exact norm_add_le x y
+        _ ≤ 2 * ‖x‖ ^ 2 + 2 * ‖y‖ ^ 2 := by
+          nlinarith [sq_nonneg (‖x‖ - ‖y‖)]
+    have hpointSum :
+        (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
+          2 * (∑ r ∈ rows, retVal (key r)) +
+            2 * (∑ r ∈ rows, tailVal (key r)) := by
+      calc
+        _ ≤ ∑ r ∈ rows, (2 * retVal (key r) + 2 * tailVal (key r)) :=
+          Finset.sum_le_sum fun r hr => hpoint r hr
+        _ = _ := by simp [Finset.sum_add_distrib, Finset.mul_sum]
+    have hmain :
+        (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤
+          2 * M * U * (CretFinal + Ctail) * Z ^ ε * P ^ (1 / 2 : ℝ) * shape := by
+      calc
+        _ ≤ 2 * (∑ r ∈ rows, retVal (key r)) +
+              2 * (∑ r ∈ rows, tailVal (key r)) := hpointSum
+        _ ≤ 2 * (M * (∑ k ∈ keys, retVal k)) +
+              2 * (M * (∑ k ∈ keys, tailVal k)) := by
+          exact add_le_add (mul_le_mul_of_nonneg_left hretRows (by norm_num))
+            (mul_le_mul_of_nonneg_left htailRows (by norm_num))
+        _ = 2 * M * ((∑ k ∈ keys, retVal k) + (∑ k ∈ keys, tailVal k)) := by ring
+        _ ≤ 2 * M * ((∑ υ ∈ (Finset.univ : Finset (UnitSix S)),
+              reflectionMass R true υ P D₀ Z δ) +
+            (∑ υ ∈ (Finset.univ : Finset (UnitSix S)),
+              reflectionMass R false υ P D₀ Z δ)) := by
+          gcongr
+        _ ≤ 2 * M * (U * (CretFinal * Z ^ ε * P ^ (1 / 2 : ℝ) * shape) +
+              U * (Ctail * Z ^ ε * P ^ (1 / 2 : ℝ) * shape)) := by
+          exact mul_le_mul_of_nonneg_left (add_le_add hretTotal htailTotal)
+            (by positivity)
+        _ = 2 * M * U * (CretFinal + Ctail) * Z ^ ε * P ^ (1 / 2 : ℝ) * shape := by
+          ring
+    simpa [Cfinal, R₀, shape] using hmain
+
+/-- rf:reflection-assembly, 04:1198–1228. Compact shape and translation sets are fixed first. -/
+theorem rf_reflection_assembly : ∀ K T : Set S.FSˣ, IsCompact K → IsCompact T →
+  (∀ t ∈ T, S.absS (t : S.FS) = 1) → ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+    ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ t ∈ T, ∀ rows : Finset (ReflectionRow S),
+      Set.InjOn (fun r : ReflectionRow S => (r.m : F)) (↑rows : Set (ReflectionRow S)) →
+      (∀ r ∈ rows, InReflectionBox D S K t Z (by linarith) r) →
+      (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) ≤ C * Z ^ (2 * M0 - 1 + ε) := by
+  sorry
+end ReflectionAssemblyMain
 
 end ArtinPrimitiveRoots.A2
