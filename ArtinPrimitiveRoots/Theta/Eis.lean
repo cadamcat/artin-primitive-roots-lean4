@@ -298,7 +298,54 @@ theorem whit_atLift (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
     (Fs : GlobalSection P G s) (x : P.RP) :
     whittakerE P G μ Fs (P.q x) = (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
-  sorry
+  classical
+  let y := Function.surjInv P.q_surj (P.q x)
+  have hq : P.q y = P.q x := Function.surjInv_eq P.q_surj (P.q x)
+  obtain ⟨ζ, hζ, hprod, hF, hC⟩ := (P.q_eq y x).1 hq
+  let ev : rootsOfUnity 3 ℂ →* ℂ :=
+    { toFun := fun z => ((z : ℂˣ) : ℂ)
+      map_one' := rfl
+      map_mul' := fun _ _ => rfl }
+  have hev : (Function.mulSupport fun v => ev (ζ v)).Finite := by
+    refine hζ.subset ?_
+    intro v hv
+    contrapose! hv
+    simp only [Function.mem_mulSupport, not_not] at hv ⊢
+    rw [hv, ev.map_one]
+  have hevprod : (∏ᶠ v, ev (ζ v)) = 1 := by
+    rw [← ev.map_finprod hζ, hprod, ev.map_one]
+  have hlocal (δ : Fˣ) (v : FinPlace F) :
+      G.lam v ((G.T v).σa (toLoc v δ)
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v y) (Fs.f v)))) =
+      ev (ζ v) * G.lam v ((G.T v).σa (toLoc v δ)
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) := by
+    have htr : rtr ((P.loc v).z (ζ v) * P.compF v x) (Fs.f v) =
+        rtr ((P.loc v).z (ζ v)) (rtr (P.compF v x) (Fs.f v)) := by
+      funext h
+      simp only [rtr, mul_assoc]
+    rw [hF v, htr, (jacquet_equiv (P.loc v) (G.T v) A (μ v) s
+      (rtr (P.compF v x) (Fs.f v)) ((Fs.f_sec v).rtr (P.compF v x))).2 (ζ v)]
+    simp only [map_smul, smul_eq_mul]
+    rfl
+  unfold whittakerE
+  apply congrArg (fun z : ℂ => (κF F)⁻¹ * z)
+  apply tsum_congr
+  intro δ
+  change whitLiftTerm P G μ Fs y δ = whitLiftTerm P G μ Fs x δ
+  unfold whitLiftTerm
+  have hfinite :
+      (∏ᶠ v, G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v y) (Fs.f v))))) =
+      ∏ᶠ v, G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) := by
+    simp_rw [hlocal]
+    rw [finprod_mul_distrib hev (whit_finite_mulSupport P G μ Fs x (Quotient.out δ)),
+      hevprod, one_mul]
+  rw [hfinite]
+  congr 1
+  apply Finset.prod_congr rfl
+  intro w _
+  rw [hC w]
 
 /-- The small cell vanishes and the big cell tiles the archimedean integral. -/
 theorem whit_unfold_integral (P : CoverPackage D S H A) (G : GlobalDatum P)
