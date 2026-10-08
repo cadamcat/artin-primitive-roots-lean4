@@ -88,7 +88,7 @@ theorem card_filter_get_eq {s : Finset ℕ} (l : List Particle) (hnd : (l.map Pr
     obtain ⟨r, hr, hR⟩ := h2 p (Finset.mem_filter.mp hp).2
     exact ⟨r, Finset.mem_filter.mpr ⟨Finset.mem_univ _, hR⟩, Subtype.ext hr⟩
 
-private lemma prod_ite_one_pow {α : Type*} [Fintype α] (c : α → Prop) [DecidablePred c]
+theorem prod_ite_one_pow {α : Type*} [Fintype α] (c : α → Prop) [DecidablePred c]
     (X : ℝ) :
     (∏ a : α, if c a then X else 1) = X ^ (Finset.univ.filter c).card := by
   rw [← Finset.prod_filter, Finset.prod_const]
