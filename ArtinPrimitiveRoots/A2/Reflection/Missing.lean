@@ -6848,6 +6848,60 @@ private theorem rf_pairing_unit_orbit
     · apply Subtype.ext
       exact hγ.symm
 
+private theorem rf_pairing_minus_fourier
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (y : S.FSˣ) :
+    let term : Fˣ → ℂ := fun ν =>
+      ∑ᶠ d : Digits R r, digitAlpha R r d *
+        R.T.W (R.chars.L (rowClass R r))
+          (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+    Summable term ∧
+      digitSum R r true false y = digitSum R r true true y + ∑' ν, term ν := by
+  classical
+  let V := {v : FinPlace F // v ∈ R.exterior.support r.ideal}
+  letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let L := R.chars.L (rowClass R r)
+  let W (d : Digits R r) (ν : Fˣ) : ℂ :=
+    R.T.W L (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+  have hW (d : Digits R r) : Summable (W d) := by
+    simpa only [W, mul_assoc] using
+      (R.T.fourier L (R.mem_family (rowClass R r))
+        (R.C.rat weylGL * digitPoint R r y d)).1
+  have hA (d : Digits R r) : Summable (fun ν => digitAlpha R r d * W d ν) :=
+    (hW d).mul_left _
+  have hsum : Summable (fun ν => ∑ d : Digits R r, digitAlpha R r d * W d ν) :=
+    summable_sum (fun d _ => hA d)
+  have hθ (d : Digits R r) :
+      digitAlpha R r d * R.T.θ L (R.C.rat weylGL * digitPoint R r y d) =
+        digitAlpha R r d * R.T.θN L (R.C.rat weylGL * digitPoint R r y d) +
+          ∑' ν, digitAlpha R r d * W d ν := by
+    have h := (R.T.fourier L (R.mem_family (rowClass R r))
+      (R.C.rat weylGL * digitPoint R r y d)).2
+    have h' : R.T.θ L (R.C.rat weylGL * digitPoint R r y d) =
+        R.T.θN L (R.C.rat weylGL * digitPoint R r y d) + ∑' ν, W d ν := by
+      simpa only [W, mul_assoc] using h
+    rw [h', mul_add, (hW d).tsum_mul_left]
+  constructor
+  · simpa only [finsum_eq_sum_of_fintype] using hsum
+  · change (∑ᶠ d : Digits R r,
+        digitAlpha R r d * R.T.θ L (R.C.rat weylGL * digitPoint R r y d)) =
+      (∑ᶠ d : Digits R r,
+        digitAlpha R r d * R.T.θN L (R.C.rat weylGL * digitPoint R r y d)) +
+          ∑' ν, ∑ᶠ d : Digits R r, digitAlpha R r d * W d ν
+    simp only [finsum_eq_sum_of_fintype]
+    calc
+      (∑ d : Digits R r,
+          digitAlpha R r d * R.T.θ L (R.C.rat weylGL * digitPoint R r y d)) =
+        ∑ d : Digits R r,
+          (digitAlpha R r d * R.T.θN L (R.C.rat weylGL * digitPoint R r y d) +
+            ∑' ν, digitAlpha R r d * W d ν) :=
+        Finset.sum_congr rfl (fun d _ => hθ d)
+      _ = (∑ d : Digits R r,
+          digitAlpha R r d * R.T.θN L (R.C.rat weylGL * digitPoint R r y d)) +
+            ∑' ν, ∑ d : Digits R r, digitAlpha R r d * W d ν := by
+        rw [Finset.sum_add_distrib, Summable.tsum_finsetSum (fun d _ => hA d)]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
