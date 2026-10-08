@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».RationalCharacter
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».TraceCharacters
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».NativeTraceCharacters
 import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».FiniteTraceCharacters
+import ArtinPrimitiveRoots.A1.Proofs.«A1-ADDITIVE».RationalProduct
 
 /-!
 # Existence of the standard additive character data
