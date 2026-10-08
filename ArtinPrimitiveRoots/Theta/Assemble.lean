@@ -11,6 +11,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.SmoothPeriodicCoordinat
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.TorusDerivativeLift
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.ProductFourierMultiplier
 import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.ProductFourierDecay
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TORUS_FOURIER.SummableQuadraticProduct
 import ArtinPrimitiveRoots.Theta.Res
 import ArtinPrimitiveRoots.Theta.Proofs.TH_FACTOR.thetaWhit_factor_iteration
 import ArtinPrimitiveRoots.Theta.Proofs.TH_ASSEMBLE.theta_interface_of_steinberg
