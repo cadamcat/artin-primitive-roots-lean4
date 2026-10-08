@@ -1,4 +1,7 @@
 import ArtinPrimitiveRoots.Splitting.Defs
+import /- Reciprocity is prebuilt on the Mac. -/ Mathlib
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-EXT-ARTIN».Core
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_EXT_GAMMA.Helpers
 import Mathlib.FieldTheory.KummerPolynomial
 import Mathlib.FieldTheory.KummerExtension
 import Mathlib.FieldTheory.SplittingField.IsSplittingField
@@ -83,6 +86,61 @@ def FrobeniusNormalizedArtinMap {K L : Type*} [Field K] [NumberField K] [Field L
       ∃ σ : L ≃ₐ[K] L, Art (rayClass m p hcop) = σ ∧
         IsArithmeticFrobeniusAt p P σ
 
+private theorem normalized_artin_of_data {K L : Type*}
+    [Field K] [NumberField K] [Field L] [NumberField L]
+    [Algebra K L] [ringAlg : Algebra (𝓞 K) (𝓞 L)] [IsScalarTower (𝓞 K) (𝓞 L) L]
+    [IsAbelianGalois K L]
+    (D : ClassFieldTheory.FiniteAbelianReciprocityData K L) :
+    ∃ (m : RayClassModulus K) (Art : RayClassGroup m →* (L ≃ₐ[K] L)),
+      Function.Surjective Art ∧ FrobeniusNormalizedArtinMap m Art := by
+  have halg : ringAlg = NumberField.inst_ringOfIntegersAlgebra K L := by
+    apply Algebra.algebra_ext
+    intro x
+    apply RingOfIntegers.coe_injective
+    change algebraMap (𝓞 L) L (algebraMap (𝓞 K) (𝓞 L) x) =
+      algebraMap (𝓞 K) L x
+    exact (IsScalarTower.algebraMap_apply (𝓞 K) (𝓞 L) L x).symm
+  subst ringAlg
+  have away (v : HeightOneSpectrum (𝓞 K))
+      (hcop : IsCoprimeTo D.modulus v.asIdeal) :
+      v ∉ D.modulus.finitePart.support := by
+    intro hv
+    have hc := hcop.2 v hv
+    change FractionalIdeal.count K v
+      (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 K)) K) = 0 at hc
+    rw [FractionalIdeal.count_self] at hc
+    norm_num at hc
+  refine ⟨D.modulus, D.artin, D.artin_surjective, ?_, ?_⟩
+  · intro p hp hcop
+    let : p.IsPrime := hp
+    let v : HeightOneSpectrum (𝓞 K) := ⟨p, hp, hcop.1⟩
+    have hunr := D.unramifiedOutsideModulus.1 v (away v hcop)
+    have he : ∃ P : Ideal (𝓞 L), P.IsPrime ∧ P.LiesOver p := by
+      let P : p.primesOver (𝓞 L) := Classical.choice inferInstance
+      exact ⟨P.1, P.2⟩
+    rw [Ideal.ramificationIdxIn, dite_eq_left he]
+    let : he.choose.IsPrime := he.choose_spec.1
+    exact hunr.ramificationIdx_eq_one he.choose_spec.2
+  · intro p hp hcop P hP hlie
+    let : p.IsPrime := hp
+    let : P.IsPrime := hP
+    let : P.LiesOver p := hlie
+    let v : HeightOneSpectrum (𝓞 K) := ⟨p, hp, hcop.1⟩
+    let w : HeightOneSpectrum (𝓞 L) :=
+      ⟨P, hP, Ideal.ne_bot_of_liesOver_of_ne_bot hcop.1 P⟩
+    have hv := away v hcop
+    refine ⟨arithmeticFrobeniusAt (K := K) w, ?_, ?_⟩
+    · exact D.artin_frobenius v hv w hlie
+    · intro x
+      let σ := arithmeticFrobeniusAt (K := K) w
+      let : Finite (𝓞 L ⧸ P) := Ring.HasFiniteQuotients.finiteQuotient w.ne_bot
+      refine ⟨MulSemiringAction.toAlgHom (𝓞 K) (𝓞 L) σ x, rfl, ?_⟩
+      have hf := IsArithFrobAt.arithFrobAt (𝓞 K) (Gal(L/K)) w.asIdeal x
+      change MulSemiringAction.toAlgHom (𝓞 K) (𝓞 L) σ x -
+        x ^ Nat.card (𝓞 K ⧸ P.under (𝓞 K)) ∈ P at hf
+      rw [← hlie.over] at hf
+      exact hf
+
 /-- **`ext:cft-artin`**, `07-splitting.tex:78-91`. ClassFieldTheory
 `finiteAbelianGlobalReciprocity` (`Lean4/ClassFieldTheory/Theorems/GlobalClassFieldTheory/
 FiniteAbelianGlobalReciprocity.lean:31-37`) supplies a modulus, a surjective Artin map, and
@@ -94,7 +152,8 @@ theorem ext_cft_artin {K L : Type*} [Field K] [NumberField K] [Field L] [NumberF
     [Algebra K L] [Algebra (𝓞 K) (𝓞 L)] [IsScalarTower (𝓞 K) (𝓞 L) L] [IsAbelianGalois K L] :
     ∃ (m : RayClassModulus K) (Art : RayClassGroup m →* (L ≃ₐ[K] L)),
       Function.Surjective Art ∧ FrobeniusNormalizedArtinMap m Art := by
-  sorry
+  obtain ⟨D⟩ := ArtinPrimitiveRoots.Proofs.s7sol_gamma.Artin.reciprocity_data (K := K) (L := L)
+  exact normalized_artin_of_data D
 
 /-- **`ext:split-criterion`**, `07-splitting.tex:231-233`. TauCeti
 `NumberField.ncard_primesOver_eq_finrank_iff` (`TauCeti/NumberField/SplitsCompletely/Basic.lean:82`)
@@ -201,7 +260,8 @@ set. The recurrence
 theorem ext_digamma_strip {a b : ℝ} (ha : 0 < a) :
     ∃ C : ℝ, 0 < C ∧ ∀ z : ℂ, a ≤ z.re → z.re ≤ b →
       ‖deriv Complex.Gamma z / Complex.Gamma z‖ ≤ C * Real.log (|z.im| + 2) := by
-  sorry
+  simpa [Complex.digamma, logDeriv_apply] using
+    ArtinPrimitiveRoots.Proofs.s7sol_gamma.exists_norm_digamma_le_log (b := b) ha
 
 /-- **`ext:hadamard-order-one`**, `07-splitting.tex:194-199`. The PNT+ source declaration
 `Complex.Hadamard.hadamard_factorization_of_order`
