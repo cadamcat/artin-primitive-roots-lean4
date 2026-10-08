@@ -893,6 +893,150 @@ private theorem covol_sunit_finite_compact_reduction_core (S : SData F CE condη
     exact (Classical.choose_spec (covol_local_log_compact_cover_core v.1 M)).2.2
       _ he (z v) hzv
 
+private theorem covol_absFin_log_formula_core (v : FinPlace F)
+    (z : v.adicCompletion F) (hz : Valued.v z ≠ 0) :
+    absFin v z = (Ideal.absNorm v.asIdeal : ℝ) ^ WithZero.log (Valued.v z) := by
+  dsimp [absFin]
+  have hq : (Ideal.absNorm v.asIdeal : NNReal) ≠ 0 := HeightOneSpectrum.absNorm_ne_zero v
+  rw [dif_pos hq, WithZeroMulInt.toNNReal_neg_apply hq hz,
+    WithZero.toAdd_unzero_eq_log hz]
+  norm_cast
+
+private theorem covol_arch_log_mean_bound_core (S : SData F CE condη)
+    (x : {x : S.FSˣ // S.absS (x : S.FS) = 1}) (M : ℕ)
+    (hfinite : ∀ v : S.Sf,
+      0 ≤ WithZero.log (Valued.v
+        ((S.compU v x.1 : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) ∧
+      WithZero.log (Valued.v
+        ((S.compU v x.1 : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) < (M : ℤ)) :
+    |(Fintype.card (InfinitePlace F) : ℝ)⁻¹ *
+        ∑ w : InfinitePlace F, Real.log ‖(S.compC w x.1 : ℂ)‖| ≤
+      (M : ℝ) * (∑ v : S.Sf, Real.log (Ideal.absNorm v.1.asIdeal : ℝ)) /
+        (2 * (Fintype.card (InfinitePlace F) : ℝ)) := by
+  classical
+  let y : S.FS := x.1
+  let m : S.Sf → ℤ := fun v => WithZero.log (Valued.v (y.1 v))
+  let q : S.Sf → ℝ := fun v => (Ideal.absNorm v.1.asIdeal : ℝ)
+  have hcoordFin (v : S.Sf) :
+      ((S.compU v x.1 : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F) = y.1 v := by
+    simp [SData.compU, y]
+  have hcoordArch (w : InfinitePlace F) :
+      (S.compC w x.1 : ℂ) = y.2 w := by
+    simp [SData.compC, y]
+  have hm (v : S.Sf) : 0 ≤ m v ∧ m v < (M : ℤ) := by
+    simpa [m, hcoordFin] using hfinite v
+  have hvalnz (v : S.Sf) : Valued.v (y.1 v) ≠ 0 := by
+    rw [← hcoordFin]
+    exact (Valued.v).ne_zero_iff.mpr (Units.ne_zero (S.compU v x.1))
+  have hqone (v : S.Sf) : 1 < q v := by
+    dsimp [q]
+    exact_mod_cast HeightOneSpectrum.one_lt_absNorm v.1
+  have hqlog (v : S.Sf) : 0 < Real.log (q v) := Real.log_pos (hqone v)
+  have habsFin (v : S.Sf) : absFin v.1 (y.1 v) = q v ^ m v := by
+    simpa [m, q] using covol_absFin_log_formula_core v.1 (y.1 v) (hvalnz v)
+  have hfinPos (v : S.Sf) : 0 < absFin v.1 (y.1 v) := by
+    rw [habsFin]
+    exact zpow_pos (by linarith [hqone v]) (m v)
+  have hfinLog (v : S.Sf) :
+      Real.log (absFin v.1 (y.1 v)) = (m v : ℝ) * Real.log (q v) := by
+    rw [habsFin, Real.log_zpow]
+  let P : ℝ := ∏ v : S.Sf, absFin v.1 (y.1 v)
+  let A : ℝ := ∏ w : InfinitePlace F, Complex.normSq (y.2 w)
+  have hPpos : 0 < P := by
+    dsimp [P]
+    exact Finset.prod_pos (fun v hv => hfinPos v)
+  have hnormPos (w : InfinitePlace F) : 0 < ‖y.2 w‖ := by
+    rw [← hcoordArch]
+    exact norm_pos_iff.mpr (Units.ne_zero (S.compC w x.1))
+  have hApos : 0 < A := by
+    dsimp [A]
+    exact Finset.prod_pos (fun w hw => by
+      rw [Complex.normSq_eq_norm_sq]
+      exact sq_pos_of_pos (hnormPos w))
+  have hnormone : P * A = 1 := by
+    simpa [P, A, y, SData.absS] using x.2
+  have hPlog : Real.log P =
+      ∑ v : S.Sf, Real.log (absFin v.1 (y.1 v)) := by
+    dsimp [P]
+    exact Real.log_prod (fun v hv => (hfinPos v).ne')
+  have hAlog : Real.log A =
+      2 * ∑ w : InfinitePlace F, Real.log ‖y.2 w‖ := by
+    calc
+      Real.log A = ∑ w : InfinitePlace F, Real.log (Complex.normSq (y.2 w)) := by
+        dsimp [A]
+        exact Real.log_prod (fun w hw => by
+          rw [Complex.normSq_eq_norm_sq]
+          exact (sq_pos_of_pos (hnormPos w)).ne')
+      _ = ∑ w : InfinitePlace F, 2 * Real.log ‖y.2 w‖ := by
+        apply Finset.sum_congr rfl
+        intro w hw
+        rw [Complex.normSq_eq_norm_sq, Real.log_pow]
+        norm_num
+      _ = 2 * ∑ w : InfinitePlace F, Real.log ‖y.2 w‖ := by rw [Finset.mul_sum]
+  have hlogprod : Real.log P + Real.log A = 0 := by
+    have h := congrArg Real.log hnormone
+    rw [Real.log_mul hPpos.ne' hApos.ne', Real.log_one] at h
+    exact h
+  have htotal :
+      (∑ v : S.Sf, Real.log (absFin v.1 (y.1 v))) +
+        2 * ∑ w : InfinitePlace F, Real.log ‖y.2 w‖ = 0 := by
+    rw [← hPlog, ← hAlog]
+    exact hlogprod
+  have hfinNonneg :
+      0 ≤ ∑ v : S.Sf, Real.log (absFin v.1 (y.1 v)) := by
+    apply Finset.sum_nonneg
+    intro v hv
+    rw [hfinLog]
+    exact mul_nonneg (by exact_mod_cast (hm v).1) (le_of_lt (hqlog v))
+  have hfinUpper :
+      (∑ v : S.Sf, Real.log (absFin v.1 (y.1 v))) ≤
+        (M : ℝ) * ∑ v : S.Sf, Real.log (q v) := by
+    calc
+      _ = ∑ v : S.Sf, (m v : ℝ) * Real.log (q v) := by
+        apply Finset.sum_congr rfl
+        intro v hv
+        exact hfinLog v
+      _ ≤ ∑ v : S.Sf, (M : ℝ) * Real.log (q v) := by
+        apply Finset.sum_le_sum
+        intro v hv
+        apply mul_le_mul_of_nonneg_right _ (le_of_lt (hqlog v))
+        exact_mod_cast (le_of_lt (hm v).2)
+      _ = (M : ℝ) * ∑ v : S.Sf, Real.log (q v) := by rw [Finset.mul_sum]
+  let r : ℝ := Fintype.card (InfinitePlace F)
+  have hr : 0 < r := by
+    dsimp [r]
+    exact_mod_cast (Fintype.card_pos : 0 < Fintype.card (InfinitePlace F))
+  let finLog : ℝ := ∑ v : S.Sf, Real.log (absFin v.1 (y.1 v))
+  let archLog : ℝ := ∑ w : InfinitePlace F, Real.log ‖y.2 w‖
+  have harchEq : archLog = -finLog / 2 := by
+    have htotal' := htotal
+    dsimp [archLog, finLog] at htotal'
+    dsimp [archLog, finLog]
+    linarith [htotal']
+  have hmeanEq : r⁻¹ * archLog = -finLog / (2 * r) := by
+    rw [harchEq]
+    field_simp
+    <;> ring
+  have hmeanNonpos : r⁻¹ * archLog ≤ 0 := by
+    rw [hmeanEq]
+    have : 0 ≤ finLog := by simpa [finLog] using hfinNonneg
+    apply div_nonpos_of_nonpos_of_nonneg
+    · exact neg_nonpos.mpr this
+    · positivity
+  have hmeanAbs : |r⁻¹ * archLog| = finLog / (2 * r) := by
+    rw [abs_of_nonpos hmeanNonpos, hmeanEq]
+    ring
+  have hfinUpper' : finLog ≤ (M : ℝ) * ∑ v : S.Sf, Real.log (q v) := by
+    simpa [finLog] using hfinUpper
+  have hdenpos : 0 < 2 * r := by positivity
+  calc
+    |r⁻¹ * archLog| = finLog / (2 * r) := hmeanAbs
+    _ ≤ ((M : ℝ) * ∑ v : S.Sf, Real.log (q v)) / (2 * r) :=
+      div_le_div_of_nonneg_right hfinUpper' hdenpos.le
+    _ = (M : ℝ) * (∑ v : S.Sf, Real.log (Ideal.absNorm v.1.asIdeal : ℝ)) /
+          (2 * (Fintype.card (InfinitePlace F) : ℝ)) := by
+        simp [q, r, div_eq_mul_inv, mul_assoc, mul_comm]
+
 
 /-- Compact norm-one representatives modulo sixth powers of S-units, stated using only `Field`.
 The norm-one condition on every point of `K` is needed by the balanced-generator target. -/
