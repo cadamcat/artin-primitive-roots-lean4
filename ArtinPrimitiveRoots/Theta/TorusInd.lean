@@ -238,6 +238,43 @@ private theorem hilb_inv_inv (H : HilbertData F) (v : FinPlace F)
     H.hilb v (x⁻¹) (y⁻¹) = H.hilb v x y := by
   rw [hilb_inv_left H v x (y⁻¹), hilb_inv_right H v x y, inv_inv]
 
+private theorem muThree_sq_one (D : FieldData F) (ζ : rootsOfUnity 6 F)
+    (hζ : ζ ^ 2 = 1) : muThree D ζ = 1 := by
+  apply rootsOfUnity.coe_injective
+  change D.σ0 ((((ζ ^ 2 : rootsOfUnity 6 F) : Fˣ) : F)) = 1
+  rw [hζ]
+  simp
+
+private theorem torusRep_sigma_inv (T : TorusRep D H v) (x : (v.adicCompletion F)ˣ) :
+    (T.σa x⁻¹).comp (T.σa x) = LinearMap.id := by
+  let z := H.hilb v x x
+  have hz : z ^ 2 = 1 := by simpa [z, pow_two] using H.skew v x x
+  have hzinv : z⁻¹ = z := by
+    calc
+      z⁻¹ = z⁻¹ * 1 := by simp
+      _ = z⁻¹ * (z * z) := by rw [← pow_two, hz]
+      _ = z := by group
+  have hcoeff : muThree D (H.hilb v (x⁻¹) x) = 1 := by
+    rw [hilb_inv_left H v x x, hzinv]
+    exact muThree_sq_one D z hz
+  have h := T.σa_mul x⁻¹ x
+  rw [hcoeff] at h
+  simpa [T.σa_one] using h
+
+private theorem torusRep_sigma_injective (T : TorusRep D H v) (x : (v.adicCompletion F)ˣ) :
+    Function.Injective (T.σa x) := by
+  intro a b hab
+  have h := congrArg (T.σa x⁻¹) hab
+  have hinv := congrArg (fun f : T.V →ₗ[ℂ] T.V => f a) (torusRep_sigma_inv T x)
+  have hinv' : T.σa x⁻¹ (T.σa x a) = a := by
+    simpa [LinearMap.comp_apply] using hinv
+  rw [hinv'] at h
+  have hinvB : T.σa x⁻¹ (T.σa x b) = b := by
+    have hB := congrArg (fun f : T.V →ₗ[ℂ] T.V => f b) (torusRep_sigma_inv T x)
+    simpa [LinearMap.comp_apply] using hB
+  rw [hinvB] at h
+  exact h
+
 /-- **def:weyl-rep**: the Weyl conjugate `y ↦ σa(y⁻¹)` (same cocycle, since `hilb(x⁻¹,y⁻¹) = hilb(x,y)`);
 `I(T.weyl, -s)` is the target of the intertwining operator (P-LOCAL-INT). -/
 def TorusRep.weyl (T : TorusRep D H v) : TorusRep D H v where
@@ -299,6 +336,37 @@ structure TameTorusBasis (T : TorusRep D H v) where
   act : ∀ (j : ℤ) (u : (v.adicCompletion F)ˣ), IsLocUnit v u → ∀ k : ZMod 3,
     T.σa (unifLoc v ^ j * u) (e k) = (localChi D v u) ^ (2 * (j + 2 * (k.val : ℤ))) • e (k + (j : ZMod 3))
 
+private theorem chi_six_of_residue (D : FieldData F) (v : FinPlace F) (x : F)
+    (hx : residue v x ≠ 0) : chi D v x ^ (6 : ℕ) = 1 := by
+  have h := congrArg Units.val
+    ((mem_rootsOfUnity 6 (chiAlg v x : (𝓞 F)ˣ)).1 (chiAlg v x).property)
+  rw [chi, if_neg hx, ← map_pow, ← map_pow]
+  simpa only [Units.val_pow_eq_pow_val, Units.val_one, map_one] using
+    congrArg (fun a : 𝓞 F => D.σ0 (algebraMap (𝓞 F) F a)) h
+
+private theorem localChi_six_of_nezero (D : FieldData F) (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ) (hu : localChi D v u ≠ 0) : localChi D v u ^ (6 : ℕ) = 1 := by
+  classical
+  by_cases h : ∃ a : 𝓞 F, a ∉ v.asIdeal ∧
+      Valued.v ((u : v.adicCompletion F) - algebraMap F _ (algebraMap (𝓞 F) F a)) < 1
+  · let a := h.choose
+    have ha := h.choose_spec.1
+    have heq : localChi D v u = chi D v (algebraMap (𝓞 F) F a) := by
+      unfold localChi
+      rw [dif_pos h]
+    have hχ : chi D v (algebraMap (𝓞 F) F a) ≠ 0 := by
+      rw [← heq]
+      exact hu
+    have hres : residue v (algebraMap (𝓞 F) F a) ≠ 0 := by
+      intro hr
+      exact hχ (by simp [chi, hr])
+    rw [heq]
+    exact chi_six_of_residue D v _ hres
+  · have hzero : localChi D v u = 0 := by
+      unfold localChi
+      rw [dif_neg h]
+    exact False.elim (hu hzero)
+
 /-- **tor:rep** (top): at every finite place a torus representation exists, of dimension
 `√[K^×:K^{×3}]`; at `v ∤ 6` one with the tame basis. The nontrivial-carrier clause is
 installed per `sol-thin-thlocal`, since `GlobalDatum.lam_ne` excludes the zero space. -/
@@ -317,9 +385,88 @@ theorem tame_unitFixed (T : TorusRep D H v) (B : TameTorusBasis T) (hv : (6 : �
 (uses `localChi(u⁻¹) = localChi(u)⁻¹` and `localChi(u)^6 = 1` on local units). -/
 def TameTorusBasis.weyl {T : TorusRep D H v} (B : TameTorusBasis T) : TameTorusBasis T.weyl where
   e k := B.e (-k)
-  linIndep := by sorry
-  spans := by sorry
-  act := by sorry
+  linIndep := by
+    dsimp [TorusRep.weyl]
+    exact B.linIndep.comp (fun k : ZMod 3 => -k) (by
+      intro k k' h
+      exact neg_injective h)
+  spans := by
+    simp only [TorusRep.weyl]
+    have hrange : Set.range (fun k : ZMod 3 => B.e (-k)) = Set.range B.e := by
+      ext x
+      constructor
+      · rintro ⟨k, rfl⟩
+        exact ⟨-k, by simp⟩
+      · rintro ⟨k, rfl⟩
+        exact ⟨-k, by simp⟩
+    rw [hrange]
+    exact B.spans
+  act := by
+    intro j u hu k
+    let χ := localChi D v u
+    let i : ZMod 3 := -k - (j : ZMod 3)
+    let y : (v.adicCompletion F)ˣ := unifLoc v ^ j * u
+    let n : ℤ := 2 * (j + 2 * (i.val : ℤ))
+    let m : ℤ := 2 * (j + 2 * (k.val : ℤ))
+    have he1 : B.e (1 : ZMod 3) ≠ 0 := B.linIndep.ne_zero 1
+    have hact1 := B.act 0 u hu (1 : ZMod 3)
+    have hχne : χ ≠ 0 := by
+      intro hzero
+      have hval1 : (1 : ZMod 3).val = 1 := by
+        rw [ZMod.val_one_eq_one_mod]
+      have hact1' : T.σa u (B.e (1 : ZMod 3)) =
+          χ ^ (2 * (0 + 2 * ((1 : ZMod 3).val : ℤ))) • B.e (1 : ZMod 3) := by
+        simpa [hval1] using hact1
+      have hzeroAct : T.σa u (B.e (1 : ZMod 3)) = 0 := by
+        calc
+          T.σa u (B.e (1 : ZMod 3)) =
+              χ ^ (2 * (0 + 2 * ((1 : ZMod 3).val : ℤ))) • B.e (1 : ZMod 3) := hact1'
+          _ = 0 := by rw [hzero]; norm_num [hval1]
+      apply he1
+      exact torusRep_sigma_injective T u (by simpa using hzeroAct)
+    have hχ6 : χ ^ (6 : ℕ) = 1 := localChi_six_of_nezero D v u hχne
+    have hidx : i + (j : ZMod 3) = -k := by
+      dsimp [i]
+      group
+    have hact : T.σa y (B.e i) = χ ^ n • B.e (-k) := by
+      simpa [y, χ, n, hidx] using B.act j u hu i
+    have hleft : T.σa y⁻¹ (T.σa y (B.e i)) = B.e i := by
+      have h := congrArg (fun f : T.V →ₗ[ℂ] T.V => f (B.e i)) (torusRep_sigma_inv T y)
+      simpa [LinearMap.comp_apply] using h
+    have hscaled : B.e i = χ ^ n • T.σa y⁻¹ (B.e (-k)) := by
+      calc
+        B.e i = T.σa y⁻¹ (T.σa y (B.e i)) := hleft.symm
+        _ = T.σa y⁻¹ (χ ^ n • B.e (-k)) := by rw [hact]
+        _ = χ ^ n • T.σa y⁻¹ (B.e (-k)) := map_smul _ _ _
+    have hscale : T.σa y⁻¹ (B.e (-k)) = χ ^ (-n) • B.e i := by
+      have h := congrArg (fun z : T.V => (χ ^ n)⁻¹ • z) hscaled
+      have hcoef : χ ^ n ≠ 0 := zpow_ne_zero _ hχne
+      calc
+        T.σa y⁻¹ (B.e (-k)) = (χ ^ n)⁻¹ • ((χ ^ n) • T.σa y⁻¹ (B.e (-k))) := by
+          rw [smul_smul, inv_mul_cancel₀ hcoef, one_smul]
+        _ = (χ ^ n)⁻¹ • B.e i := h.symm
+        _ = χ ^ (-n) • B.e i := by rw [← zpow_neg]
+    have hsumZval : (i.val : ZMod 3) + (k.val : ZMod 3) + (j : ZMod 3) = 0 := by
+      rw [ZMod.natCast_zmod_val, ZMod.natCast_zmod_val]
+      dsimp [i]
+      group
+    have hdiv : (3 : ℤ) ∣ (i.val : ℤ) + (k.val : ℤ) + j := by
+      apply (ZMod.intCast_zmod_eq_zero_iff_dvd _ 3).mp
+      simpa only [Int.cast_add, Int.cast_natCast] using hsumZval
+    obtain ⟨r, hr⟩ := hdiv
+    have hmn : m + n = 6 * (2 * r) := by
+      dsimp [m, n]
+      nlinarith [hr]
+    have hneg : -n = m - 6 * (2 * r) := by omega
+    have hχ6z : χ ^ (6 : ℤ) = 1 := by simpa using hχ6
+    have hpower : χ ^ (-n) = χ ^ m := by
+      rw [hneg, zpow_sub₀ hχne]
+      simp [zpow_mul, hχ6z]
+    have hi : i = -(k + (j : ZMod 3)) := by
+      dsimp [i]
+      group
+    change T.σa y⁻¹ (B.e (-k)) = χ ^ m • B.e (-(k + (j : ZMod 3)))
+    simpa [χ, y, m, hi, hpower] using hscale
 
 /-- **def:ind**: sections of the normalized induced representation `I(σ, s)`:
 `f(n(x) z(ζ) a(y) g) = ζ |y|^{1/2+s} σ(a(y)) f(g)`, right-invariant under some `Kc m`. -/
