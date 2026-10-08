@@ -7,11 +7,13 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.MaskTau
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.DigitMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.PrimeGauss
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.SquarefreeGauss
+import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
+import Mathlib.Analysis.Asymptotics.Basic
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
 set_option maxHeartbeats 800000
-open NumberField IsDedekindDomain MeasureTheory
+open NumberField IsDedekindDomain MeasureTheory Filter Topology Asymptotics
 open scoped Classical Pointwise
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
@@ -57,6 +59,69 @@ structure ReflectionSetup (D : FieldData F) (S : SData F CE condη)
   K_gaussian : ∀ u, 0 < u →
     ∫ t in Set.Ioi (0 : ℝ), K t * Theta.thetaV S μ v0 T.U T.cS (u * t) / (t : ℂ) = (PG u : ℂ)
 
+private theorem heckeChar_unitary_of_finOrder (χ : HeckeChar F) (hχ : IsOfFinOrder χ) :
+    ∀ x, ‖((χ x : ℂˣ) : ℂ)‖ = 1 := by
+  obtain ⟨n, hn, hpow⟩ := (isOfFinOrder_iff_pow_eq_one.mp hχ)
+  intro x
+  have hxpow : (χ x : ℂˣ) ^ n = 1 := by
+    have hx := congrArg (fun f : HeckeChar F => f x) hpow
+    simpa using hx
+  have hxpowC : (((χ x : ℂˣ) : ℂ) ^ n) = 1 := by
+    simpa using congrArg (fun z : ℂˣ => (z : ℂ)) hxpow
+  exact ((isOfFinOrder_iff_pow_eq_one.mpr ⟨n, hn, hxpowC⟩).norm_eq_one)
+
+private theorem reflection_kernel_moments (K : ℝ → ℂ)
+    (hK : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) K (Set.Ioi 0))
+    (hbounds : ∀ N : ℝ, ∀ j : ℕ, ∃ C : ℝ, ∀ t, 0 < t →
+      ‖Theta.normDerivR j K t‖ ≤ C * min (t ^ N) (t ^ (-N))) :
+    ∀ β : ℝ, IntegrableOn (fun t => ‖K t‖ * t ^ β / t) (Set.Ioi 0) := by
+  classical
+  intro β
+  let N : ℝ := |β| + 2
+  have hβlo : -N < β := by dsimp [N]; have := neg_le_abs β; linarith
+  have hβhi : β < N := by dsimp [N]; have := le_abs_self β; linarith
+  obtain ⟨C, hC⟩ := hbounds N 0
+  have hC_nonneg : 0 ≤ C := by
+    have h := hC 1 (by norm_num)
+    have h' : ‖K 1‖ ≤ C := by simpa [Theta.normDerivR, N] using h
+    exact (norm_nonneg (K 1)).trans h'
+  have hnorm (t : ℝ) (ht : 0 < t) : ‖Theta.normDerivR 0 K t‖ = ‖K t‖ := by
+    simp [Theta.normDerivR, Real.exp_log ht]
+  have htop : K =O[atTop] (fun t : ℝ => t ^ (-N)) := by
+    refine (IsBigOWith.of_bound (c := C) ?_).isBigO
+    filter_upwards [eventually_ge_atTop (1 : ℝ)] with t ht
+    have ht0 : 0 < t := by linarith
+    have h := hC t ht0
+    rw [hnorm t ht0] at h
+    have hp : t ^ (-N) ≤ t ^ N :=
+      Real.rpow_le_rpow_of_exponent_le ht (by linarith)
+    rw [min_eq_right hp] at h
+    simpa only [Real.norm_of_nonneg (Real.rpow_nonneg ht0.le _)] using h
+  have hbot : K =O[𝓝[>] (0 : ℝ)] (fun t : ℝ => t ^ N) := by
+    refine (IsBigOWith.of_bound (c := C) ?_).isBigO
+    filter_upwards [self_mem_nhdsWithin] with t ht
+    have h := hC t ht
+    rw [hnorm t ht] at h
+    have h' : ‖K t‖ ≤ C * t ^ N := by
+      calc
+        ‖K t‖ ≤ C * min (t ^ N) (t ^ (-N)) := h
+        _ ≤ C * t ^ N := mul_le_mul_of_nonneg_left (min_le_left _ _) hC_nonneg
+    simpa only [Real.norm_of_nonneg (Real.rpow_nonneg ht.le _)] using h'
+  have hconv : MellinConvergent K (β : ℂ) :=
+    mellinConvergent_of_isBigO_rpow (a := N) (b := -N)
+      (hK.continuousOn.locallyIntegrableOn measurableSet_Ioi) htop
+      (by simpa using hβhi) (by simpa only [neg_neg] using hbot) (by simpa using hβlo)
+  have hconv' : IntegrableOn (fun t : ℝ => (t : ℂ) ^ ((β : ℂ) - 1) * K t) (Set.Ioi 0) := by
+    simpa [MellinConvergent, smul_eq_mul] using hconv
+  have hEq : (fun t : ℝ => ‖(t : ℂ) ^ ((β : ℂ) - 1) * K t‖) =ᵐ[
+      volume.restrict (Set.Ioi 0)] (fun t => ‖K t‖ * t ^ β / t) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+    simp only [norm_mul, Complex.norm_cpow_eq_rpow_re_of_pos ht,
+      Complex.sub_re, Complex.ofReal_re, Complex.one_re]
+    rw [Real.rpow_sub_one ht.ne']
+    ring
+  exact hconv'.norm.congr hEq
+
 /-- A1/Theta producer obligation for the composite reflection input (02:606-625; 03:474-659;
 04:51-65). Corrected by `sol-gate-a2b`: it supplies the split Gauss data and the complete setup,
 including angular admissibility, without assuming a reflection estimate. -/
@@ -73,7 +138,140 @@ theorem reflectionSetup_exists (D : FieldData F) (S : SData F CE condη)
           gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
             -(Λ.primeValue v * G.primeValue v)) →
       Nonempty (ReflectionSetup D S H Bd A (vartheta Λ G η) bc μ v0) := by
-  sorry
+  classical
+  intro η Λ G hη hηram hΛunit hΛangular hG hGauss
+  let ϑ : HeckeChar F := vartheta Λ G η
+  have hΛram : ∀ v, v ∉ S.Sf → Λ.UnramifiedAt v := fun v hv => (hGauss v hv).1
+  have hGram : ∀ v, v ∉ S.Sf → G.UnramifiedAt v := fun v hv => (hGauss v hv).2.1
+  have hηunit : ∀ x, ‖((η x : ℂˣ) : ℂ)‖ = 1 :=
+    heckeChar_unitary_of_finOrder η hη
+  have hGunit : ∀ x, ‖((G x : ℂˣ) : ℂ)‖ = 1 :=
+    heckeChar_unitary_of_finOrder G hG
+  have hϑunit : ∀ x, ‖((ϑ x : ℂˣ) : ℂ)‖ = 1 := by
+    intro x
+    change ‖((((Λ x : ℂˣ)⁻¹ * (G x : ℂˣ)⁻¹) * (η x : ℂˣ) : ℂˣ) : ℂ)‖ = 1
+    simp [Units.val_mul, Units.val_inv, norm_mul, norm_inv,
+      hΛunit x, hGunit x, hηunit x]
+  have hϑram : ∀ v, v ∉ S.Sf → ϑ.UnramifiedAt v := by
+    intro v hv u hu huinv
+    change (Λ.loc v u)⁻¹ * (G.loc v u)⁻¹ * η.loc v u = 1
+    rw [hΛram v hv u hu huinv, hGram v hv u hu huinv, hηram v hv u hu huinv]
+    simp
+  have hΛG : ∀ v, v ∉ S.Sf → ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+      gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
+        -(Λ.primeValue v * G.primeValue v) := fun v hv => (hGauss v hv).2.2
+  have hVS := vartheta_S D S A H Bd η Λ G hηram hΛram hGram hη hG hΛunit hΛangular hΛG
+  have hϑangular : HeckeChar.HasAngularType D ϑ := by
+    intro w
+    obtain ⟨m, hm, hangle⟩ := hVS.2.2.1 w
+    have hwc : w.IsComplex := D.isTotallyComplex.isComplex w
+    refine ⟨-m, ?_, ?_⟩
+    · rcases hm with hm | hm <;> simp [hm]
+    · intro z
+      let zInf : w.Completionˣ := Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex hwc).symm.toMonoidHom z
+      let zInf' (w' : InfinitePlace F) : w'.Completionˣ := Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+          (D.isTotallyComplex.isComplex w')).symm.toMonoidHom
+          (S.compC w' (S.atComplex w z))
+      let g (w' : InfinitePlace F) : ℂ :=
+        (((ϑ.locInf w' (zInf' w'))⁻¹ : ℂˣ) : ℂ)
+      have hmap : zInf' w = zInf := by
+        apply Units.ext
+        simp [zInf', zInf, SData.atComplex, SData.compC]
+      have hfinite :
+          ∏ v : S.Sf,
+            (((ϑ.loc v (S.compU v (S.atComplex w z)))⁻¹ : ℂˣ) : ℂ) = 1 := by
+        apply Fintype.prod_eq_one
+        intro v
+        have hU : S.compU v (S.atComplex w z) = 1 := by
+          apply Units.ext
+          simp [SData.atComplex, SData.compU]
+        rw [hU]
+        simp [HeckeChar.loc]
+      have hcomplex : ∏ w' : InfinitePlace F, g w' =
+          (((ϑ.locInf w zInf)⁻¹ : ℂˣ) : ℂ) := by
+        rw [Fintype.prod_eq_single w]
+        · simp [g, hmap]
+        · intro w' hne
+          have hC : S.compC w' (S.atComplex w z) = 1 := by
+            apply Units.ext
+            simp [SData.atComplex, SData.compC, hne]
+          simp [g, zInf', hC]
+      have hLS : S.LS ϑ (S.atComplex w z) =
+          (((ϑ.locInf w zInf)⁻¹ : ℂˣ) : ℂ) := by
+        unfold SData.LS
+        rw [hfinite]
+        simp_rw [dif_pos (D.isTotallyComplex.isComplex _)]
+        rw [hcomplex]
+        simp
+      have hval := hangle z
+      rw [hLS] at hval
+      have hval' : ((ϑ.locInf w zInf : ℂˣ) : ℂ)⁻¹ =
+          ((z : ℂ) / ‖(z : ℂ)‖) ^ m := by simpa using hval
+      have hlocal : ((ϑ.locInf w zInf : ℂˣ) : ℂ) =
+          ((z : ℂ) / ‖(z : ℂ)‖) ^ (-m) := by
+        calc
+          ((ϑ.locInf w zInf : ℂˣ) : ℂ) =
+              ((((ϑ.locInf w zInf : ℂˣ) : ℂ)⁻¹)⁻¹) := by simp
+          _ = (((z : ℂ) / ‖(z : ℂ)‖) ^ m)⁻¹ := congrArg Inv.inv hval'
+          _ = ((z : ℂ) / ‖(z : ℂ)‖) ^ (-m) := by rw [← zpow_neg]
+      exact hlocal
+  obtain ⟨E⟩ := exteriorArithmetic_exists D S H Bd bc
+  obtain ⟨Sh⟩ := sheetGeometry_exists D S μ v0
+  obtain ⟨Chars⟩ := reflectionCharacters_exists D S H Bd bc ϑ hϑunit hϑram hϑangular
+  obtain ⟨Pair⟩ := classPairing_exists D S H
+  letI : Fintype (UnitSix S) := Sh.unitSixFinite
+  let family : Finset (SChar S) := Finset.univ.image Chars.L
+  have hmem : ∀ u, Chars.L u ∈ family := by
+    intro u
+    exact Finset.mem_image.mpr ⟨u, Finset.mem_univ u, rfl⟩
+  obtain ⟨P, hRP, hfamily⟩ := A1.theta_interface D S H A
+  let T : ThetaFamily P.tc family := Classical.choice (hfamily family)
+  rcases T.U_spec with ⟨hUo, hUc, hU1, _, hUunit, _, _⟩
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  obtain ⟨C₀, A₀, hC₀, hA₀, hMellin, K, hKsmooth, hKbounds, hKgaussian, hKmellin⟩ :=
+    Theta.gaussian_smoothing S μ v0 T.U hUo hUc hU1 hUunit T.cS T.cS_pos
+  let h6 (u : UnitSix S) := T.T6 (Chars.L u) (hmem u)
+  let rotJ (u : UnitSix S) : ℕ := Classical.choose (h6 u)
+  let hffExists (u : UnitSix S) := Classical.choose_spec (h6 u)
+  let rotFF (u : UnitSix S) : Fin (rotJ u) → (v : S.Sf) → v.1.adicCompletion F → ℂ :=
+    Classical.choose (hffExists u)
+  let hfcExists (u : UnitSix S) := Classical.choose_spec (hffExists u)
+  let rotFC (u : UnitSix S) : Fin (rotJ u) → InfinitePlace F → ℂ → ℂ :=
+    Classical.choose (hfcExists u)
+  let rotData (u : UnitSix S) := Classical.choose_spec (hfcExists u)
+  let rotated : UnitSix S → RotatedPresentation S T.δ := fun u =>
+    ⟨rotJ u, rotFF u, rotFC u, (rotData u).1, (rotData u).2.1⟩
+  have hrotated_eq : ∀ u y,
+      T.WS (Chars.L u) (P.tc.aS y * P.tc.wS) =
+        Theta.sumProd S (rotated u).J (rotated u).ff (rotated u).fc (y : S.FS) := by
+    intro u y
+    have hWS := (rotData u).2.2 y
+    simpa only [Theta.sumProd] using hWS
+  refine ⟨{
+    vartheta_unitary := hϑunit
+    vartheta_unramified := hϑram
+    vartheta_angular := hϑangular
+    vartheta_generator := ?_
+    exterior := E
+    sheets := Sh
+    chars := Chars
+    pairing := Pair
+    C := P.tc
+    family := family
+    T := T
+    mem_family := hmem
+    rotated := rotated
+    rotated_eq := hrotated_eq
+    K := K
+    K_smooth := hKsmooth
+    K_moments := reflection_kernel_moments K hKsmooth hKbounds
+    K_bounds := hKbounds
+    K_gaussian := hKgaussian
+  }⟩
+  · intro I
+    exact hVS.1 I.1 (bc.gen I) I.2 (bc.gen_spec I).1
 
 section Reflection
 variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
@@ -9411,10 +9609,252 @@ variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
 def rowElementInjectiveStatement : Prop :=
   Function.Injective (fun r : ReflectionRow S => (r.m : F))
 
+private theorem a2Setup_same_generator_ideal
+    (S : SData F CE condη) (x : F) (I J : Ideal (𝓞 F))
+    (hI : S.IsGen x I) (hJ : S.IsGen x J) : I = J := by
+  classical
+  have hI0 : I ≠ 0 := by simpa [Ideal.zero_eq_bot] using hI.1.1
+  have hJ0 : J ≠ 0 := by simpa [Ideal.zero_eq_bot] using hJ.1.1
+  have hcounts : ∀ v : FinPlace F,
+      FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+        FractionalIdeal.count F v (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    intro v
+    by_cases hv : v ∈ S.Sf
+    · have hnotI : ¬ v.asIdeal ∣ I := by
+        intro hdiv
+        exact hI.1.2 v hv (Ideal.dvd_iff_le.mp hdiv)
+      have hnotJ : ¬ v.asIdeal ∣ J := by
+        intro hdiv
+        exact hJ.1.2 v hv (Ideal.dvd_iff_le.mp hdiv)
+      have hcountI : (Associates.mk v.asIdeal).count (Associates.mk I).factors = 0 := by
+        by_contra hn
+        exact hnotI ((Associates.count_ne_zero_iff_dvd hI0 v.irreducible).mp hn)
+      have hcountJ : (Associates.mk v.asIdeal).count (Associates.mk J).factors = 0 := by
+        by_contra hn
+        exact hnotJ ((Associates.count_ne_zero_iff_dvd hJ0 v.irreducible).mp hn)
+      rw [FractionalIdeal.count_coe F v hI0, FractionalIdeal.count_coe F v hJ0,
+        hcountI, hcountJ]
+    · exact (hI.2.2 v hv).symm.trans (hJ.2.2 v hv)
+  let gI : ClassFieldTheory.NumberFieldFractionalIdealGroup F :=
+    Units.mk0 (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (FractionalIdeal.coeIdeal_ne_zero.mpr hI0)
+  let gJ : ClassFieldTheory.NumberFieldFractionalIdealGroup F :=
+    Units.mk0 (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (FractionalIdeal.coeIdeal_ne_zero.mpr hJ0)
+  have hg : gI = gJ := by
+    apply ClassFieldTheory.NumberFieldFractionalIdealGroup.ext_count
+    intro v
+    change FractionalIdeal.count F v
+        (gI : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      FractionalIdeal.count F v (gJ : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    simpa [gI, gJ] using hcounts v
+  have hfrac : (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    have hval := congrArg
+      (fun g : ClassFieldTheory.NumberFieldFractionalIdealGroup F =>
+        (g : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)) hg
+    simpa [gI, gJ] using hval
+  exact FractionalIdeal.coeIdeal_injective hfrac
+
+private theorem a2Setup_emultiplicity_eq_factorization (p I : Ideal (𝓞 F))
+    (hp : Prime p) (hI : I ≠ 0) :
+    emultiplicity p I = (factorization I p : ℕ∞) := by
+  rw [UniqueFactorizationMonoid.emultiplicity_eq_count_normalizedFactors hp.irreducible hI]
+  simp [factorization, normalize_eq]
+
+private theorem a2Setup_powerful_split_unique
+    (I h d h' d' : Ideal (𝓞 F))
+    (hI : I = h * d) (hI' : I = h' * d')
+    (hh : h ≠ ⊥) (hd : d ≠ ⊥) (hh' : h' ≠ ⊥) (hd' : d' ≠ ⊥)
+    (hpower : IsPowerful h) (hpower' : IsPowerful h')
+    (hsq : Squarefree d) (hsq' : Squarefree d')
+    (hcop : IsCoprime h d) (hcop' : IsCoprime h' d') : h = h' ∧ d = d' := by
+  have hh0 : h ≠ 0 := by simpa [Ideal.zero_eq_bot] using hh
+  have hd0 : d ≠ 0 := by simpa [Ideal.zero_eq_bot] using hd
+  have hh'0 : h' ≠ 0 := by simpa [Ideal.zero_eq_bot] using hh'
+  have hd'0 : d' ≠ 0 := by simpa [Ideal.zero_eq_bot] using hd'
+  have hfac : factorization I = factorization h + factorization d := by
+    rw [hI]
+    exact factorization_mul hh0 hd0
+  have hfac' : factorization I = factorization h' + factorization d' := by
+    rw [hI']
+    exact factorization_mul hh'0 hd'0
+  have hcountEq : ∀ p : Ideal (𝓞 F), factorization h p = factorization h' p := by
+    intro p
+    by_cases hp : Prime p
+    · let eI := factorization I p
+      let eh := factorization h p
+      let ed := factorization d p
+      let eh' := factorization h' p
+      let ed' := factorization d' p
+      have hsum : eI = eh + ed := congrArg (fun f : Ideal (𝓞 F) →₀ ℕ => f p) hfac
+      have hsum' : eI = eh' + ed' := congrArg (fun f : Ideal (𝓞 F) →₀ ℕ => f p) hfac'
+      have hdBound : ed ≤ 1 := by
+        have hsqE := (squarefree_iff_emultiplicity_le_one d).mp hsq p
+        have hle : emultiplicity p d ≤ 1 := hsqE.resolve_right hp.not_isUnit
+        rw [a2Setup_emultiplicity_eq_factorization p d hp hd0] at hle
+        exact_mod_cast hle
+      have hd'Bound : ed' ≤ 1 := by
+        have hsqE := (squarefree_iff_emultiplicity_le_one d').mp hsq' p
+        have hle : emultiplicity p d' ≤ 1 := hsqE.resolve_right hp.not_isUnit
+        rw [a2Setup_emultiplicity_eq_factorization p d' hp hd'0] at hle
+        exact_mod_cast hle
+      have hpowBound : 0 < eh → 2 ≤ eh := by
+        intro heh
+        have hem : 0 < emultiplicity p h := by
+          rw [a2Setup_emultiplicity_eq_factorization p h hp hh0]
+          exact_mod_cast heh
+        have hdiv : p ∣ h := (dvd_iff_emultiplicity_pos).mp hem
+        let v : FinPlace F := HeightOneSpectrum.ofPrime hp
+        have hp2 : p ^ 2 ∣ h := by simpa [v] using hpower v hdiv
+        have hle : (2 : ℕ∞) ≤ emultiplicity p h :=
+          (pow_dvd_iff_le_emultiplicity).mp hp2
+        rw [a2Setup_emultiplicity_eq_factorization p h hp hh0] at hle
+        exact_mod_cast hle
+      have hpowBound' : 0 < eh' → 2 ≤ eh' := by
+        intro heh
+        have hem : 0 < emultiplicity p h' := by
+          rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0]
+          exact_mod_cast heh
+        have hdiv : p ∣ h' := (dvd_iff_emultiplicity_pos).mp hem
+        let v : FinPlace F := HeightOneSpectrum.ofPrime hp
+        have hp2 : p ^ 2 ∣ h' := by simpa [v] using hpower' v hdiv
+        have hle : (2 : ℕ∞) ≤ emultiplicity p h' :=
+          (pow_dvd_iff_le_emultiplicity).mp hp2
+        rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0] at hle
+        exact_mod_cast hle
+      have hcopCounts : ¬ (0 < eh ∧ 0 < ed) := by
+        rintro ⟨heh, hed⟩
+        have hemH : 0 < emultiplicity p h := by
+          rw [a2Setup_emultiplicity_eq_factorization p h hp hh0]
+          exact_mod_cast heh
+        have hemD : 0 < emultiplicity p d := by
+          rw [a2Setup_emultiplicity_eq_factorization p d hp hd0]
+          exact_mod_cast hed
+        have hdivH : p ∣ h := (dvd_iff_emultiplicity_pos).mp hemH
+        have hdivD : p ∣ d := (dvd_iff_emultiplicity_pos).mp hemD
+        have hpne : p ≠ ⊤ := by
+          intro htop
+          apply hp.not_isUnit
+          rw [htop]
+          simpa [Ideal.one_eq_top] using (isUnit_one : IsUnit (1 : Ideal (𝓞 F)))
+        have htop : (⊤ : Ideal (𝓞 F)) ≤ p := by
+          rw [← hcop.sup_eq]
+          exact sup_le (Ideal.dvd_iff_le.mp hdivH) (Ideal.dvd_iff_le.mp hdivD)
+        exact hpne (top_unique htop)
+      have hcopCounts' : ¬ (0 < eh' ∧ 0 < ed') := by
+        rintro ⟨heh, hed⟩
+        have hemH : 0 < emultiplicity p h' := by
+          rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0]
+          exact_mod_cast heh
+        have hemD : 0 < emultiplicity p d' := by
+          rw [a2Setup_emultiplicity_eq_factorization p d' hp hd'0]
+          exact_mod_cast hed
+        have hdivH : p ∣ h' := (dvd_iff_emultiplicity_pos).mp hemH
+        have hdivD : p ∣ d' := (dvd_iff_emultiplicity_pos).mp hemD
+        have hpne : p ≠ ⊤ := by
+          intro htop
+          apply hp.not_isUnit
+          rw [htop]
+          simpa [Ideal.one_eq_top] using (isUnit_one : IsUnit (1 : Ideal (𝓞 F)))
+        have htop : (⊤ : Ideal (𝓞 F)) ≤ p := by
+          rw [← hcop'.sup_eq]
+          exact sup_le (Ideal.dvd_iff_le.mp hdivH) (Ideal.dvd_iff_le.mp hdivD)
+        exact hpne (top_unique htop)
+      have hcanonical : eh = if 2 ≤ eI then eI else 0 := by
+        by_cases heI : 2 ≤ eI
+        · have heh : 0 < eh := by
+            by_contra hnot
+            have heh0 : eh = 0 := Nat.eq_zero_of_not_pos hnot
+            have heq : eI = ed := by rw [hsum, heh0]; omega
+            have : eI ≤ 1 := by rw [heq]; exact hdBound
+            omega
+          have hed0 : ed = 0 := by
+            by_contra hne
+            exact hcopCounts ⟨heh, Nat.pos_of_ne_zero hne⟩
+          have heq : eI = eh := by rw [hsum, hed0]; omega
+          rw [if_pos heI]
+          exact heq.symm
+        · have heh0 : eh = 0 := by
+            by_contra hne
+            have hehpos := Nat.pos_of_ne_zero hne
+            have : 2 ≤ eI := by rw [hsum]; omega
+            exact heI this
+          rw [if_neg heI]
+          exact heh0
+      have hcanonical' : eh' = if 2 ≤ eI then eI else 0 := by
+        by_cases heI : 2 ≤ eI
+        · have heh : 0 < eh' := by
+            by_contra hnot
+            have heh0 : eh' = 0 := Nat.eq_zero_of_not_pos hnot
+            have heq : eI = ed' := by rw [hsum', heh0]; omega
+            have : eI ≤ 1 := by rw [heq]; exact hd'Bound
+            omega
+          have hed0 : ed' = 0 := by
+            by_contra hne
+            exact hcopCounts' ⟨heh, Nat.pos_of_ne_zero hne⟩
+          have heq : eI = eh' := by rw [hsum', hed0]; omega
+          rw [if_pos heI]
+          exact heq.symm
+        · have heh0 : eh' = 0 := by
+            by_contra hne
+            have hehpos := Nat.pos_of_ne_zero hne
+            have : 2 ≤ eI := by rw [hsum']; omega
+            exact heI this
+          rw [if_neg heI]
+          exact heh0
+      change eh = eh'
+      exact hcanonical.trans hcanonical'.symm
+    · have hnotNorm (J : Ideal (𝓞 F)) :
+          p ∉ UniqueFactorizationMonoid.normalizedFactors J := by
+        intro hpJ
+        exact hp (UniqueFactorizationMonoid.prime_of_normalized_factor p hpJ)
+      have hzero (J : Ideal (𝓞 F)) : factorization J p = 0 := by
+        apply Finsupp.notMem_support_iff.mp
+        intro hsupp
+        have hpfin : p ∈ (UniqueFactorizationMonoid.normalizedFactors J).toFinset := by
+          simpa [support_factorization] using hsupp
+        exact hnotNorm J (Multiset.mem_toFinset.mp hpfin)
+      rw [hzero h, hzero h']
+  have hfacEq : factorization h = factorization h' := by
+    ext p
+    exact hcountEq p
+  have hassoc : Associated h h' :=
+    associated_of_factorization_eq h h' hh0 hh'0 hfacEq
+  have hhEq : h = h' := associated_iff_eq.mp hassoc
+  constructor
+  · exact hhEq
+  · have hmul : h * d = h * d' := by
+      calc
+        h * d = I := hI.symm
+        _ = h' * d' := hI'
+        _ = h * d' := by rw [hhEq]
+    exact (mul_left_cancel₀ hh0) hmul
+
 /-- Row-factorization obligation for the finite/`tsum` bridge to `prop:reflection`
 (04:1198–1228). -/
 theorem reflection_row_element_injective : rowElementInjectiveStatement (S := S) := by
-  sorry
+  intro r s hrs
+  cases r with
+  | mk rm rI rh rd rgen rfac rhp rds rc =>
+    cases s with
+    | mk sm sI sh sd sgen sfac shp sds sc =>
+      have hm : rm = sm := Subtype.ext hrs
+      have hideal : rI.1 = sI.1 :=
+        a2Setup_same_generator_ideal S (rm : F) rI.1 sI.1 rgen
+          (by simpa [hm] using sgen)
+      have hsplit := a2Setup_powerful_split_unique rI.1 rh.1 rd.1 sh.1 sd.1
+        rfac (hideal.trans sfac)
+        rh.2.1 rd.2.1 sh.2.1 sd.2.1
+        rhp shp rds sds rc sc
+      have hI : rI = sI := Subtype.ext hideal
+      have hh : rh = sh := Subtype.ext hsplit.1
+      have hd : rd = sd := Subtype.ext hsplit.2
+      subst sm
+      subst sI
+      subst sh
+      subst sd
+      rfl
 
 /-- A uniform finite-set bound gives summability and the same bound for the subtype `tsum`.
 This is the proved finite/`tsum` adapter for `prop:reflection` (04:1027–1228). -/
