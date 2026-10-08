@@ -8989,6 +8989,89 @@ private theorem rf_pairing_spherical_support_finite
     exact hv (by simp only [if_pos hvS, hW])
   · exact hv (by simp only [if_neg hvS])
 
+private theorem rf_pairing_spherical_tail_split
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (s : Finset (FinPlace F))
+    (hs : s ⊆ R.exterior.support r.h) :
+    (∏ v ∈ R.exterior.support r.h \ s, R.T.Wv v (R.C.a v (toLoc v ν))) *
+      (∏ᶠ v : FinPlace F, if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 1) =
+    ∏ᶠ v : FinPlace F, if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1 := by
+  classical
+  let inactive (v : FinPlace F) : ℂ :=
+    if v ∈ R.exterior.support r.h \ s then R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  let tail (v : FinPlace F) : ℂ :=
+    if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  have hInactiveSubset : Function.mulSupport inactive ⊆
+      (R.exterior.support r.h \ s : Finset (FinPlace F)) := by
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv
+    by_contra hvnot
+    change v ∉ R.exterior.support r.h \ s at hvnot
+    exact hv (by simp only [inactive, if_neg hvnot])
+  have hInactive : inactive.HasFiniteMulSupport :=
+    (R.exterior.support r.h \ s).finite_toSet.subset hInactiveSubset
+  have hTail : tail.HasFiniteMulSupport := by
+    apply (rf_pairing_spherical_support_finite R ν).subset
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv ⊢
+    by_cases ht : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal
+    · simpa only [tail, if_pos ht, if_pos ht.1] using hv
+    · exact (hv (by simp only [tail, if_neg ht])).elim
+  obtain ⟨hrow, hdis, _, _⟩ := rf_pairing_row_support R r
+  have hFactor (v : FinPlace F) : inactive v * tail v =
+      if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s then
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 1 := by
+    by_cases hi : v ∈ R.exterior.support r.h \ s
+    · have hvh := (Finset.mem_sdiff.mp hi).1
+      have hvs := (Finset.mem_sdiff.mp hi).2
+      have hvD : v ∉ R.exterior.support r.d := by
+        intro hvd
+        exact Finset.disjoint_left.mp hdis hvd hvh
+      have hvS := R.exterior.support_exterior r.h v hvh
+      have hvI : v ∈ R.exterior.support r.ideal := by
+        rw [hrow]
+        exact Finset.mem_union.mpr (Or.inr hvh)
+      have hsmall : v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s :=
+        ⟨hvS, hvD, hvs⟩
+      simp only [inactive, if_pos hi, tail, not_not.mpr hvI,
+        and_false, if_false, mul_one, if_pos hsmall]
+    · by_cases ht : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal
+      · have hvD : v ∉ R.exterior.support r.d := by
+          intro hvd
+          apply ht.2
+          rw [hrow]
+          exact Finset.mem_union.mpr (Or.inl hvd)
+        have hvs : v ∉ s := by
+          intro hvs
+          apply ht.2
+          rw [hrow]
+          exact Finset.mem_union.mpr (Or.inr (hs hvs))
+        have hsmall : v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s :=
+          ⟨ht.1, hvD, hvs⟩
+        simp only [inactive, if_neg hi, tail, if_pos ht, one_mul, if_pos hsmall]
+      · have hsmall : ¬(v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s) := by
+          intro h
+          apply ht
+          refine ⟨h.1, ?_⟩
+          intro hvI
+          rw [hrow] at hvI
+          rcases Finset.mem_union.mp hvI with hvd | hvh
+          · exact h.2.1 hvd
+          · exact hi (Finset.mem_sdiff.mpr ⟨hvh, h.2.2⟩)
+        simp only [inactive, if_neg hi, tail, if_neg ht, one_mul, if_neg hsmall]
+  have hInactiveProd : (∏ᶠ v, inactive v) =
+      ∏ v ∈ R.exterior.support r.h \ s, R.T.Wv v (R.C.a v (toLoc v ν)) := by
+    rw [finprod_eq_prod_of_mulSupport_subset inactive hInactiveSubset]
+    apply Finset.prod_congr rfl
+    intro v hv
+    simp only [inactive, if_pos hv]
+  change _ * (∏ᶠ v, tail v) = _
+  rw [← hInactiveProd, ← finprod_mul_distrib hInactive hTail]
+  exact finprod_congr hFactor
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
