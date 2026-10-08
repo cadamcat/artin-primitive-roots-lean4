@@ -557,6 +557,18 @@ theorem twisted_rough_type_ii
   rw [hsum, hHm, hHn] at hbilinear
   exact hbilinear
 
+private theorem dyadic_card_le_three (H : ℝ) (hH : 1 ≤ H) :
+    ((dyadicIntegers H).card : ℝ) ≤ 3 * H := by
+  have hNat : (dyadicIntegers H).card ≤ ⌊2 * H⌋₊ + 1 := by
+    dsimp [dyadicIntegers]
+    calc
+      _ ≤ (Finset.range (⌊2 * H⌋₊ + 1)).card := Finset.card_filter_le _ _
+      _ = _ := by simp
+  have hcast : ((dyadicIntegers H).card : ℝ) ≤ (⌊2 * H⌋₊ : ℝ) + 1 := by
+    exact_mod_cast hNat
+  have hfloor : (⌊2 * H⌋₊ : ℝ) ≤ 2 * H := Nat.floor_le (by positivity)
+  linarith
+
 /-- Fourier inversion and character orthogonality turn the common twisted estimate into
 an estimate for the actual construction weight. -/
 theorem fourier_progression
@@ -586,7 +598,215 @@ theorem fourier_progression
                       ((roughIndicator x γ m - roughProxy x γ m : ℝ) : ℂ) *
                         b n * (conWeight x M c u K a Ψ (m * n) : ℂ)‖ ≤
                     C₀ * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ) := by
-  sorry
+  obtain ⟨CType, XType, hCType, hXType, hType⟩ := htw
+  obtain ⟨Bcoef, XCoef, hBcoef, hXCoef, hCoef⟩ :=
+    coefficient_preparation γ sMin sMax hγ hγs hs
+  obtain ⟨XMarked, hXMarked, hMass⟩ := bandMass_lower_all ha
+  obtain ⟨CFT, hCFT, hFT⟩ := log_fourier_bilinear_bound Ψ hsmooth hsupp
+  let Bmarked : ℝ := (4 / Real.log 2) ^ K
+  have hBmarked : 0 ≤ Bmarked := by dsimp [Bmarked]; positivity
+  let Rcard : ℝ := (Fintype.card (DirichletCharacter ℂ M) : ℝ)
+  have hRcard : 0 ≤ Rcard := by dsimp [Rcard]; positivity
+  let D : ℝ := CFT * (Rcard * CType + 9 * Rcard * Bcoef * Bmarked)
+  have hD : 0 ≤ D := by dsimp [D]; positivity
+  let x₀ : ℝ := max XType (max XCoef (max XMarked (Real.exp 1)))
+  have hx₀ : 2 ≤ x₀ := hXType.trans (le_max_left _ _)
+  refine ⟨D + 1, x₀, by positivity, hx₀, ?_⟩
+  intro x hx Hm Hn hm hn hprod₁ hprod₂ hw₁ hw₂ I hI hbox b hb₀ hb₁
+  have hxType : XType ≤ x := (le_max_left _ _).trans hx
+  have hxCoef : XCoef ≤ x := (le_max_left _ _).trans ((le_max_right _ _).trans hx)
+  have hxMarked : XMarked ≤ x :=
+    (le_max_left _ _).trans ((le_max_right _ _).trans ((le_max_right _ _).trans hx))
+  have hxExp : Real.exp 1 ≤ x :=
+    (le_max_right _ _).trans ((le_max_right _ _).trans ((le_max_right _ _).trans hx))
+  have hx2 : 2 ≤ x := hx₀.trans hx
+  have hxgt : 1 < x := by linarith
+  have hxpos : 0 < x := by linarith
+  have hL : 1 ≤ Real.log x := by
+    have h := Real.log_le_log (Real.exp_pos 1) hxExp
+    simpa using h
+  have hLpos : 0 < Real.log x := by linarith
+  have hPow : 0 ≤ Real.rpow (Real.log x) (-6 : ℝ) :=
+    (Real.rpow_pos_of_pos hLpos _).le
+  have hScal : 1 < Real.rpow x δ := Real.one_lt_rpow hxgt hδ
+  have hHmgt : 1 < Hm := hScal.trans_le hm
+  have hHngt : 1 < Hn := hScal.trans_le hn
+  have hHmpos : 0 < Hm := by linarith
+  have hHnpos : 0 < Hn := by linarith
+  have hP : 0 < Hm * Hn := mul_pos hHmpos hHnpos
+  have hcne : c ≠ 0 := by rcases hc with rfl | rfl <;> norm_num
+  have hφ : 1 ≤ (Nat.totient M : ℝ) := by
+    exact_mod_cast Nat.succ_le_of_lt (Nat.totient_pos.mpr hM)
+  have hRecip : ‖(1 / (Nat.totient M : ℂ))‖ ≤ 1 := by
+    rw [norm_div, norm_one, Complex.norm_natCast]
+    exact (div_le_one (by linarith : 0 < (Nat.totient M : ℝ))).2 hφ
+  have huUnit : IsUnit (u : ZMod M) :=
+    (ZMod.coe_int_isUnit_iff_isCoprime u M).mpr
+      ((Int.isCoprime_iff_gcd_eq_one.mpr hu).symm)
+  let Dm : Finset ℕ := (dyadicIntegers Hm).filter (fun m => m ∈ I)
+  let Dn : Finset ℕ := dyadicIntegers Hn
+  have hDm (m : ℕ) (hmm : m ∈ Dm) : 1 < m := by
+    have hmb : Hm ≤ (m : ℝ) :=
+      (Finset.mem_filter.mp (Finset.mem_filter.mp hmm).1).2.1
+    exact_mod_cast hHmgt.trans_le hmb
+  have hDn (n : ℕ) (hnn : n ∈ Dn) : 1 < n := by
+    have hnb : Hn ≤ (n : ℝ) := (Finset.mem_filter.mp hnn).2.1
+    exact_mod_cast hHngt.trans_le hnb
+  let F : ℕ → ℂ := fun h => (conFactor x c K a h : ℂ)
+  have hF : IsMarkedInvariant x K a F := by
+    constructor
+    · intro h
+      dsimp [F, conFactor]
+      split_ifs <;> norm_num
+    · intro p h hp hprime
+      exact congrArg (fun y : ℝ => (y : ℂ)) (conFactor_mul_marked hcne hp hprime)
+  let β : ℝ → ℕ → ℂ := fun v n =>
+    b n * Complex.exp (Complex.I * v * Real.log (n : ℝ))
+  have hβ₀ (v : ℝ) : ∀ n, β v n ≠ 0 →
+      n ∈ dyadicIntegers Hn ∧ roughAbove n (roughCutoff x) := by
+    intro n hne
+    apply hb₀ n
+    intro hz
+    apply hne
+    simp [β, hz]
+  have hβ₁ (v : ℝ) : ∀ n ∈ Dn, ‖β v n‖ ≤ 1 := by
+    intro n hnn
+    simpa only [β, norm_mul, norm_complex_log_phase, mul_one] using hb₁ n hnn
+  have hβ₂ (v : ℝ) : ∀ n ∈ dyadicIntegers Hn,
+      ‖β v n‖ ≤ Real.rpow (Real.log x) 2 := by
+    intro n hnn
+    exact (hβ₁ v n hnn).trans (Real.one_le_rpow hL (by norm_num))
+  have hMarked (h : ℕ) : ‖(markedWeight x K a (1 / 2 : ℝ) h : ℂ)‖ ≤ Bmarked := by
+    have h := markedWeight_nonneg_le (hMass x hxMarked) (h := h)
+    simpa only [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg h.1] using h.2
+  have hα (v : ℝ) (m : ℕ) (hmm : m ∈ Dm) : ‖roughCoefficient x γ v m‖ ≤ Bcoef := by
+    have hmb := (Finset.mem_filter.mp (Finset.mem_filter.mp hmm).1).2
+    rw [roughCoefficient_norm]
+    exact (hCoef x hxCoef).2.2 Hm hHmpos hw₁ hw₂ m hmb.1 hmb.2
+  let Q : ℝ → DirichletCharacter ℂ M → ℂ := fun v χ =>
+    ∑ m ∈ Dm, ∑ n ∈ Dn,
+      (roughCoefficient x γ v m * χ (m : ZMod M)) *
+        (β v n * χ (n : ZMod M)) * F (m * n - 1) *
+        (markedWeight x K a (1 / 2 : ℝ) (m * n - 1) : ℂ)
+  let S : ℝ → ℂ := progressionBilinear x γ M c K u a Dm Dn b
+  have hSeq (v : ℝ) : S v =
+      (1 / (Nat.totient M : ℂ)) * ∑ χ : DirichletCharacter ℂ M,
+        star (χ (u : ZMod M)) * Q v χ := rfl
+  have hQnear (v : ℝ) (hv : |v| ≤ Real.log x) (χ : DirichletCharacter ℂ M) :
+      ‖Q v χ‖ ≤ CType * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ) := by
+    exact hType x hxType Hm Hn hm hn hprod₁ hprod₂ hw₁ hw₂ I hI hbox
+      v hv χ (β v) (hβ₀ v) (hβ₂ v) F hF
+  have hSnear (v : ℝ) (hv : |v| ≤ Real.log x) :
+      ‖S v‖ ≤ (Rcard * CType * (Hm * Hn)) * Real.rpow (Real.log x) (-6 : ℝ) := by
+    rw [hSeq, norm_mul]
+    calc
+      _ ≤ 1 * ‖∑ χ : DirichletCharacter ℂ M, star (χ (u : ZMod M)) * Q v χ‖ :=
+        mul_le_mul_of_nonneg_right hRecip (norm_nonneg _)
+      _ = ‖∑ χ : DirichletCharacter ℂ M, star (χ (u : ZMod M)) * Q v χ‖ := by ring
+      _ ≤ ∑ χ : DirichletCharacter ℂ M, ‖star (χ (u : ZMod M)) * Q v χ‖ :=
+        norm_sum_le _ _
+      _ ≤ ∑ χ : DirichletCharacter ℂ M,
+          CType * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ) := by
+        apply Finset.sum_le_sum
+        intro χ hχ
+        rw [norm_mul, norm_star]
+        calc
+          _ ≤ 1 * (CType * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ)) :=
+            mul_le_mul (χ.norm_le_one _) (hQnear v hv χ) (norm_nonneg _) (by positivity)
+          _ = _ := by ring
+      _ = _ := by simp [Rcard, mul_assoc]
+  have hTerm (v : ℝ) (χ : DirichletCharacter ℂ M)
+      (m : ℕ) (hmm : m ∈ Dm) (n : ℕ) (hnn : n ∈ Dn) :
+      ‖(roughCoefficient x γ v m * χ (m : ZMod M)) *
+          (β v n * χ (n : ZMod M)) * F (m * n - 1) *
+          (markedWeight x K a (1 / 2 : ℝ) (m * n - 1) : ℂ)‖ ≤ Bcoef * Bmarked := by
+    simp only [norm_mul]
+    calc
+      _ ≤ (Bcoef * 1) * (1 * 1) * 1 * Bmarked := by
+        gcongr
+        · exact hα v m hmm
+        · exact χ.norm_le_one _
+        · exact hβ₁ v n hnn
+        · exact χ.norm_le_one _
+        · exact hF.1 _
+        · exact hMarked _
+      _ = _ := by ring
+  have hCardm : (Dm.card : ℝ) ≤ 3 * Hm := by
+    have hc : Dm.card ≤ (dyadicIntegers Hm).card := Finset.card_filter_le _ _
+    have hc' : (Dm.card : ℝ) ≤ ((dyadicIntegers Hm).card : ℝ) := by exact_mod_cast hc
+    exact hc'.trans (dyadic_card_le_three Hm hHmgt.le)
+  have hCardn : (Dn.card : ℝ) ≤ 3 * Hn := dyadic_card_le_three Hn hHngt.le
+  have hQglobal (v : ℝ) (χ : DirichletCharacter ℂ M) :
+      ‖Q v χ‖ ≤ 9 * Bcoef * Bmarked * (Hm * Hn) := by
+    calc
+      _ ≤ ∑ m ∈ Dm, ∑ n ∈ Dn, Bcoef * Bmarked := by
+        dsimp [Q]
+        apply (norm_sum_le _ _).trans
+        apply Finset.sum_le_sum
+        intro m hmm
+        apply (norm_sum_le _ _).trans
+        exact Finset.sum_le_sum (fun n hnn => hTerm v χ m hmm n hnn)
+      _ = (Dm.card : ℝ) * (Dn.card : ℝ) * Bcoef * Bmarked := by
+        simp only [Finset.sum_const, nsmul_eq_mul]
+        ring
+      _ ≤ (3 * Hm) * (3 * Hn) * Bcoef * Bmarked := by gcongr
+      _ = _ := by ring
+  have hSglobal (v : ℝ) : ‖S v‖ ≤
+      (9 * Rcard * Bcoef * Bmarked) * (Hm * Hn) := by
+    rw [hSeq, norm_mul]
+    calc
+      _ ≤ 1 * ‖∑ χ : DirichletCharacter ℂ M, star (χ (u : ZMod M)) * Q v χ‖ :=
+        mul_le_mul_of_nonneg_right hRecip (norm_nonneg _)
+      _ = ‖∑ χ : DirichletCharacter ℂ M, star (χ (u : ZMod M)) * Q v χ‖ := by ring
+      _ ≤ ∑ χ : DirichletCharacter ℂ M, ‖star (χ (u : ZMod M)) * Q v χ‖ :=
+        norm_sum_le _ _
+      _ ≤ ∑ χ : DirichletCharacter ℂ M, 9 * Bcoef * Bmarked * (Hm * Hn) := by
+        apply Finset.sum_le_sum
+        intro χ hχ
+        rw [norm_mul, norm_star]
+        calc
+          _ ≤ 1 * (9 * Bcoef * Bmarked * (Hm * Hn)) :=
+            mul_le_mul (χ.norm_le_one _) (hQglobal v χ) (norm_nonneg _) (by positivity)
+          _ = _ := by ring
+      _ = _ := by simp [Rcard]; ring
+  have hαcont (m : ℕ) : Continuous (fun v : ℝ => roughCoefficient x γ v m) := by
+    dsimp [roughCoefficient]
+    fun_prop
+  have hβcont (n : ℕ) : Continuous (fun v : ℝ => β v n) := by
+    dsimp [β]
+    fun_prop
+  have hQcont (χ : DirichletCharacter ℂ M) : Continuous (fun v : ℝ => Q v χ) := by
+    apply continuous_finsetSum Dm
+    intro m hmm
+    apply continuous_finsetSum Dn
+    intro n hnn
+    exact ((((hαcont m).mul continuous_const).mul
+      ((hβcont n).mul continuous_const)).mul continuous_const).mul continuous_const
+  have hScont : Continuous S := by
+    have heq : S = fun v => (1 / (Nat.totient M : ℂ)) *
+        ∑ χ : DirichletCharacter ℂ M, star (χ (u : ZMod M)) * Q v χ := by
+      funext v
+      exact hSeq v
+    rw [heq]
+    apply continuous_const.mul
+    apply continuous_finsetSum Finset.univ
+    intro χ hχ
+    exact continuous_const.mul (hQcont χ)
+  have hIntegrated := hFT (Real.log x) hL x
+    (Rcard * CType * (Hm * Hn)) ((9 * Rcard * Bcoef * Bmarked) * (Hm * Hn))
+    (by positivity) (by positivity) S hScont hSglobal hSnear
+  have hIdentity := progression_fourier_identity x γ M c K u a hxpos hM huUnit
+    Ψ hsupp hsmooth Dm Dn hDm hDn b
+  rw [hIdentity]
+  calc
+    _ ≤ CFT * ((Rcard * CType * (Hm * Hn)) +
+          ((9 * Rcard * Bcoef * Bmarked) * (Hm * Hn))) *
+          Real.rpow (Real.log x) (-6 : ℝ) := hIntegrated
+    _ = D * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ) := by dsimp [D]; ring
+    _ ≤ (D + 1) * (Hm * Hn) * Real.rpow (Real.log x) (-6 : ℝ) := by
+      apply mul_le_mul_of_nonneg_right _ hPow
+      exact mul_le_mul_of_nonneg_right (by linarith) hP.le
+
 
 theorem construction_type_ii
     (δ γ sMin sMax c₁ c₂ : ℝ) (hδ : 0 < δ) (hγ : 0 < γ)
