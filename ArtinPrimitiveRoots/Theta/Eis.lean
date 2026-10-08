@@ -8,7 +8,6 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexMajorant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.CubeClasses
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.LocalValuation
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.FiniteMajorant
-import Mathlib.NumberTheory.NumberField.Discriminant.Basic
 set_option autoImplicit false
 open NumberField IsDedekindDomain
 open scoped Classical
