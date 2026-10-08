@@ -128,9 +128,9 @@ theorem qs_p1_dual_summable [IsTotallyComplex K]
   simpa [g, D, hterm, mul_assoc] using hmul
 
 private theorem qs_p1_integrable_of_tails {f : ℝ → ℂ} (hcont : Continuous f)
-    (A B : ℝ) (hAB : A ≤ B)
+    (A B b : ℝ) (hAB : A ≤ B) (hb : 0 < b)
     (hleft : ∀ x, x < A → f x = 0)
-    (hright : ∃ c : ℂ, ∀ x, B < x → f x = c * ((Real.exp (-2 * x) : ℝ) : ℂ)) :
+    (hright : ∃ c : ℂ, ∀ x, B < x → f x = c * ((Real.exp (-b * x) : ℝ) : ℂ)) :
     Integrable f := by
   rcases hright with ⟨c, hright⟩
   have hleftI : IntegrableOn f (Set.Iio A) := by
@@ -158,12 +158,12 @@ private theorem qs_p1_integrable_of_tails {f : ℝ → ℂ} (hcont : Continuous 
         · exact hx
     rw [hdecomp, integrableOn_union]
     exact ⟨hleftI, hmidI⟩
-  have hexpI : IntegrableOn (fun x : ℝ => Real.exp (-2 * x)) (Set.Ioi B) :=
-    integrableOn_exp_mul_Ioi (by norm_num) B
+  have hexpI : IntegrableOn (fun x : ℝ => Real.exp (-b * x)) (Set.Ioi B) :=
+    integrableOn_exp_mul_Ioi (by linarith) B
   have hrightI : IntegrableOn f (Set.Ioi B) := by
-    have hbase : IntegrableOn (fun x : ℝ => c * ((Real.exp (-2 * x) : ℝ) : ℂ))
+    have hbase : IntegrableOn (fun x : ℝ => c * ((Real.exp (-b * x) : ℝ) : ℂ))
         (Set.Ioi B) := by
-      have hsmul : IntegrableOn (fun x : ℝ => (Real.exp (-2 * x)) • c) (Set.Ioi B) :=
+      have hsmul : IntegrableOn (fun x : ℝ => (Real.exp (-b * x)) • c) (Set.Ioi B) :=
         hexpI.smul_const c
       simpa [smul_eq_mul, mul_comm] using hsmul
     apply hbase.congr_fun
@@ -235,12 +235,15 @@ private theorem qs_p1_integrable_of_exponential_tails {f : ℝ → ℂ}
   rw [← integrableOn_univ, huniv, integrableOn_union]
   exact ⟨hleftMid, hrightI⟩
 
+private def qsP1MellinLogKernel (c : ℝ) (h : ℝ → ℂ) (u : ℝ) : ℂ :=
+  (Real.exp (-c * u) : ℝ) • h (Real.exp (-u))
+
 private def qsP1LogKernel (h : ℝ → ℂ) (u : ℝ) : ℂ :=
-  (Real.exp (-2 * u) : ℝ) • h (Real.exp (-u))
+  qsP1MellinLogKernel 2 h u
 
 private theorem qs_p1_iteratedDeriv_logKernel_integrable
-    (h : ℝ → ℂ) (hh : IsQSWeight h) (j : ℕ) (hj : j ≤ 2) :
-    Integrable (fun u : ℝ => iteratedDeriv j (qsP1LogKernel h) u) := by
+    (h : ℝ → ℂ) (hh : IsQSWeight h) (c : ℝ) (hc : 0 < c) (j : ℕ) :
+    Integrable (fun u : ℝ => iteratedDeriv j (qsP1MellinLogKernel c h) u) := by
   obtain ⟨B, hB⟩ := hh.2.1
   obtain ⟨δ, hδ, hconst⟩ := hh.2.2
   let B₀ := max B 1
@@ -260,15 +263,15 @@ private theorem qs_p1_iteratedDeriv_logKernel_integrable
       have hδ₀_le_one : δ₀ ≤ 1 := hδ₀_le.trans (by norm_num)
       exact neg_nonneg.mpr (Real.log_nonpos hδ₀.le hδ₀_le_one)
     linarith
-  have hker : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (qsP1LogKernel h) := by
+  have hker : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (qsP1MellinLogKernel c h) := by
     have hhs : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) h := hh.1
-    unfold qsP1LogKernel
+    unfold qsP1MellinLogKernel
     fun_prop
-  have hdercont : Continuous (fun u : ℝ => iteratedDeriv j (qsP1LogKernel h) u) :=
+  have hdercont : Continuous (fun u : ℝ => iteratedDeriv j (qsP1MellinLogKernel c h) u) :=
     hker.continuous_iteratedDeriv j (by simp)
-  have hleft : ∀ u : ℝ, u < A → iteratedDeriv j (qsP1LogKernel h) u = 0 := by
+  have hleft : ∀ u : ℝ, u < A → iteratedDeriv j (qsP1MellinLogKernel c h) u = 0 := by
     intro u hu
-    have hloc : qsP1LogKernel h =ᶠ[𝓝 u] (fun _ : ℝ => (0 : ℂ)) := by
+    have hloc : qsP1MellinLogKernel c h =ᶠ[𝓝 u] (fun _ : ℝ => (0 : ℂ)) := by
       filter_upwards [IsOpen.mem_nhds isOpen_Iio hu] with v hv
       change v < A at hv
       have hlog : Real.log B₀ < -v := by
@@ -278,16 +281,17 @@ private theorem qs_p1_iteratedDeriv_logKernel_integrable
         have he := Real.exp_lt_exp.mpr hlog
         simpa [Real.exp_log hB₀] using he
       have hzero := hB (Real.exp (-v)) (le_trans (le_max_left _ _) hnorm.le)
-      simp [qsP1LogKernel, hzero]
+      simp [qsP1MellinLogKernel, hzero]
     rw [hloc.iteratedDeriv_eq j]
     simp [iteratedDeriv_const]
-  have hright : ∃ c : ℂ, ∀ u : ℝ, C < u →
-      iteratedDeriv j (qsP1LogKernel h) u = c * ((Real.exp (-2 * u) : ℝ) : ℂ) := by
-    let c : ℂ := ((((-2 : ℝ) ^ j) : ℝ) : ℂ) * h 0
-    refine ⟨c, ?_⟩
+  have hright : ∃ coef : ℂ, ∀ u : ℝ, C < u →
+      iteratedDeriv j (qsP1MellinLogKernel c h) u =
+        coef * ((Real.exp (-c * u) : ℝ) : ℂ) := by
+    let coef : ℂ := ((((-c : ℝ) ^ j) : ℝ) : ℂ) * h 0
+    refine ⟨coef, ?_⟩
     intro u hu
-    have hloc : qsP1LogKernel h =ᶠ[𝓝 u]
-        (fun v : ℝ => (Real.exp (-2 * v) : ℝ) • h 0) := by
+    have hloc : qsP1MellinLogKernel c h =ᶠ[𝓝 u]
+        (fun v : ℝ => (Real.exp (-c * v) : ℝ) • h 0) := by
       filter_upwards [IsOpen.mem_nhds isOpen_Ioi hu] with v hv
       change C < v at hv
       have hlog : -v < Real.log δ₀ := by
@@ -298,19 +302,19 @@ private theorem qs_p1_iteratedDeriv_logKernel_integrable
         simpa [Real.exp_log hδ₀] using he
       have hval := hconst (Real.exp (-v))
         ⟨(Real.exp_pos _).le, hnorm.le.trans hδ₀δ⟩
-      simpa [qsP1LogKernel, hval]
+      simpa [qsP1MellinLogKernel, hval]
     have hEq := hloc.iteratedDeriv_eq j
-    have hexp : iteratedDeriv j (fun v : ℝ => Real.exp (-2 * v)) u =
-        (-2 : ℝ) ^ j * Real.exp (-2 * u) := by
-      simpa using congrFun (iteratedDeriv_exp_const_mul j (-2 : ℝ)) u
+    have hexp : iteratedDeriv j (fun v : ℝ => Real.exp (-c * v)) u =
+        (-c : ℝ) ^ j * Real.exp (-c * u) := by
+      simpa using congrFun (iteratedDeriv_exp_const_mul j (-c : ℝ)) u
     rw [hEq]
-    have hExpCont : ContDiffAt ℝ (j : ℕ∞) (fun v : ℝ => Real.exp (-2 * v)) u := by
+    have hExpCont : ContDiffAt ℝ (j : ℕ∞) (fun v : ℝ => Real.exp (-c * v)) u := by
       fun_prop
     rw [iteratedDeriv_smul_const hExpCont (h 0), hexp]
-    dsimp [c]
+    dsimp [coef]
     simp only [smul_eq_mul, Complex.ofReal_mul]
     ring
-  exact qs_p1_integrable_of_tails hdercont A C hAC hleft hright
+  exact qs_p1_integrable_of_tails hdercont A C c hAC hc hleft hright
 
 private theorem qs_p1_mellin_convergent (h : ℝ → ℂ) (hh : IsQSWeight h)
     (s : ℂ) (hs : 0 < s.re) : MellinConvergent h s := by
@@ -1277,21 +1281,155 @@ private theorem qs_p1_transform_mellin_eq_regularized [IsTotallyComplex K]
     hmid hfg
   exact hEq ⟨hu, hu1⟩
 
-private theorem qs_p1_mellin_eq_fourier_line (h : ℝ → ℂ) (t : ℝ) :
-    mellin h ((2 : ℂ) + (t : ℂ) * Complex.I) =
-      𝓕 (qsP1LogKernel h) (t / (2 * Real.pi)) := by
+private theorem qs_p1_mellin_eq_fourier_line (h : ℝ → ℂ) (c t : ℝ) :
+    mellin h ((c : ℂ) + (t : ℂ) * Complex.I) =
+      𝓕 (qsP1MellinLogKernel c h) (t / (2 * Real.pi)) := by
   rw [mellin_eq_fourier]
   have hfun : (fun u : ℝ =>
-      Real.exp (-(2 + (t : ℂ) * Complex.I).re * u) • h (Real.exp (-u))) =
-        qsP1LogKernel h := by
+      Real.exp (-((c : ℂ) + (t : ℂ) * Complex.I).re * u) • h (Real.exp (-u))) =
+        qsP1MellinLogKernel c h := by
     funext u
-    simp [qsP1LogKernel]
+    simp [qsP1MellinLogKernel, smul_eq_mul, Complex.ofReal_exp]
   rw [hfun]
   simp
 
 private theorem qs_p1_fourier_norm_bound (f : ℝ → ℂ) (hf : Integrable f) (w : ℝ) :
     ‖𝓕 f w‖ ≤ ∫ u : ℝ, ‖f u‖ := by
   exact VectorFourier.norm_fourierIntegral_le_integral_norm 𝐞 volume (innerₗ ℝ) f w
+
+private theorem qs_p1_fourier_polynomial_decay (g : ℝ → ℂ)
+    (hg : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g)
+    (hderiv : ∀ j : ℕ, Integrable (iteratedDeriv j g)) (N : ℕ) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ w : ℝ, ‖𝓕 g w‖ ≤ C / (1 + |w|) ^ N := by
+  let A₀ : ℝ := ∫ u : ℝ, ‖g u‖
+  let Aₙ : ℝ := ∫ u : ℝ, ‖iteratedDeriv N g u‖
+  have hA₀ : 0 ≤ A₀ := by
+    dsimp [A₀]
+    exact integral_nonneg (fun _ => norm_nonneg _)
+  have hAₙ : 0 ≤ Aₙ := by
+    dsimp [Aₙ]
+    exact integral_nonneg (fun _ => norm_nonneg _)
+  let C : ℝ := max (A₀ * 2 ^ N) Aₙ
+  have hC : 0 ≤ C := by dsimp [C]; positivity
+  have hfreq : ∀ w : ℝ, ∀ n : ℕ,
+      𝓕 (iteratedDeriv n g) w =
+        (2 * Real.pi * Complex.I * (w : ℂ)) ^ n * 𝓕 g w := by
+    intro w n
+    induction n with
+    | zero => simp
+    | succ n ih =>
+      have hdiff : Differentiable ℝ (iteratedDeriv n g) :=
+        hg.differentiable_iteratedDeriv n
+          (WithTop.coe_lt_coe.mpr (WithTop.coe_lt_top n))
+      have hIntDeriv : Integrable (deriv (iteratedDeriv n g)) := by
+        rw [← iteratedDeriv_succ]
+        exact hderiv (n + 1)
+      have hfd := Real.fourier_deriv (hderiv n) hdiff hIntDeriv
+      have hpoint := congrFun hfd w
+      rw [iteratedDeriv_succ]
+      calc
+        𝓕 (deriv (iteratedDeriv n g)) w =
+            (2 * Real.pi * Complex.I * (w : ℂ)) *
+              𝓕 (iteratedDeriv n g) w := by
+          simpa [smul_eq_mul] using hpoint
+        _ = (2 * Real.pi * Complex.I * (w : ℂ)) ^ (n + 1) * 𝓕 g w := by
+          rw [ih]
+          ring
+  have hqnorm (w : ℝ) :
+      ‖(2 * Real.pi * Complex.I * (w : ℂ))‖ = 2 * Real.pi * |w| := by
+    have htwo : ‖(2 : ℂ)‖ = 2 := by norm_num
+    have hpi : ‖(Real.pi : ℂ)‖ = Real.pi := by
+      rw [Complex.norm_real, Real.norm_of_nonneg Real.pi_pos.le]
+    have hI : ‖Complex.I‖ = 1 := by simp
+    have hwR : ‖(w : ℂ)‖ = |w| := by
+      rw [Complex.norm_real, Real.norm_eq_abs]
+    calc
+      _ = ‖(2 : ℂ)‖ * ‖(Real.pi : ℂ)‖ * ‖Complex.I‖ * ‖(w : ℂ)‖ := by
+        simp only [norm_mul]
+      _ = 2 * Real.pi * |w| := by rw [htwo, hpi, hI, hwR]; ring
+  refine ⟨C, hC, ?_⟩
+  intro w
+  have hFourier₀ := qs_p1_fourier_norm_bound g (hderiv 0) w
+  have hden : 0 < (1 + |w|) ^ N := pow_pos (by positivity) _
+  rcases le_total |w| 1 with hw | hw
+  · apply (le_div_iff₀ hden).2
+    have hdenLe : (1 + |w|) ^ N ≤ (2 : ℝ) ^ N :=
+      pow_le_pow_left₀ (by positivity) (by linarith) N
+    calc
+      ‖𝓕 g w‖ * (1 + |w|) ^ N ≤ A₀ * (1 + |w|) ^ N :=
+        mul_le_mul_of_nonneg_right hFourier₀ (by positivity)
+      _ ≤ A₀ * 2 ^ N := mul_le_mul_of_nonneg_left hdenLe hA₀
+      _ ≤ C := le_max_left _ _
+  · have hqpos : 0 < 2 * Real.pi * |w| := by positivity
+    have hqge : 1 + |w| ≤ 2 * Real.pi * |w| := by
+      nlinarith [Real.pi_gt_three, abs_nonneg w, hw]
+    have hqpow : (1 + |w|) ^ N ≤ (2 * Real.pi * |w|) ^ N :=
+      pow_le_pow_left₀ (by positivity) hqge N
+    have hFourierN := qs_p1_fourier_norm_bound (iteratedDeriv N g) (hderiv N) w
+    have hnormN : ‖𝓕 (iteratedDeriv N g) w‖ =
+        (2 * Real.pi * |w|) ^ N * ‖𝓕 g w‖ := by
+      rw [hfreq w N, norm_mul, norm_pow, hqnorm]
+    have hprod : ‖𝓕 g w‖ * (1 + |w|) ^ N ≤ Aₙ := by
+      calc
+        _ ≤ ‖𝓕 g w‖ * (2 * Real.pi * |w|) ^ N :=
+          mul_le_mul_of_nonneg_left hqpow (norm_nonneg _)
+        _ = ‖𝓕 (iteratedDeriv N g) w‖ := by rw [hnormN]; ring
+        _ ≤ Aₙ := by simpa [Aₙ] using hFourierN
+    apply (le_div_iff₀ hden).2
+    calc
+      ‖𝓕 g w‖ * (1 + |w|) ^ N ≤ Aₙ := hprod
+      _ ≤ C := le_max_right _ _
+
+/-- The Mellin transform of a QS weight decays faster than any fixed polynomial on every
+positive vertical line. -/
+theorem qs_p1_mellin_vertical_polynomial_decay (h : ℝ → ℂ)
+    (hh : IsQSWeight h) (c : ℝ) (hc : 0 < c) (N : ℕ) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ t : ℝ,
+      ‖mellin h ((c : ℂ) + (t : ℂ) * Complex.I)‖ ≤ C / (1 + |t|) ^ N := by
+  let g : ℝ → ℂ := qsP1MellinLogKernel c h
+  have hgCont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g := by
+    have hker : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (qsP1MellinLogKernel c h) := by
+      have hhs : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) h := hh.1
+      unfold qsP1MellinLogKernel
+      fun_prop
+    simpa [g] using hker
+  have hderiv : ∀ j : ℕ, Integrable (iteratedDeriv j g) := by
+    intro j
+    simpa [g] using
+      qs_p1_iteratedDeriv_logKernel_integrable h hh c hc j
+  obtain ⟨C, hC, hFourier⟩ := qs_p1_fourier_polynomial_decay g hgCont hderiv N
+  refine ⟨C * (2 * Real.pi) ^ N, mul_nonneg hC (by positivity), ?_⟩
+  intro t
+  let w : ℝ := t / (2 * Real.pi)
+  have ht : t = (2 * Real.pi) * w := by
+    dsimp [w]
+    field_simp
+  have habs : |t| = 2 * Real.pi * |w| := by
+    rw [ht, abs_mul, abs_of_pos (by positivity : 0 < 2 * Real.pi)]
+  have hscale : 1 + |t| ≤ (2 * Real.pi) * (1 + |w|) := by
+    rw [habs]
+    have hq : 1 ≤ 2 * Real.pi := by nlinarith [Real.pi_gt_three]
+    nlinarith [abs_nonneg w]
+  have hscalePow : (1 + |t|) ^ N ≤ (2 * Real.pi) ^ N * (1 + |w|) ^ N := by
+    calc
+      (1 + |t|) ^ N ≤ ((2 * Real.pi) * (1 + |w|)) ^ N :=
+        pow_le_pow_left₀ (by positivity) hscale N
+      _ = (2 * Real.pi) ^ N * (1 + |w|) ^ N := by rw [mul_pow]
+  have hline : mellin h ((c : ℂ) + (t : ℂ) * Complex.I) =
+      𝓕 g w := by
+    simpa [g, w] using qs_p1_mellin_eq_fourier_line h c t
+  have hdenw : 0 < (1 + |w|) ^ N := pow_pos (by positivity) _
+  have hdent : 0 < (1 + |t|) ^ N := pow_pos (by positivity) _
+  calc
+    ‖mellin h ((c : ℂ) + (t : ℂ) * Complex.I)‖ = ‖𝓕 g w‖ := by rw [hline]
+    _ ≤ C / (1 + |w|) ^ N := hFourier w
+    _ ≤ C * (2 * Real.pi) ^ N / (1 + |t|) ^ N := by
+      apply (div_le_div_iff₀ hdenw hdent).2
+      calc
+        C * (1 + |t|) ^ N ≤ C * ((2 * Real.pi) ^ N * (1 + |w|) ^ N) :=
+          mul_le_mul_of_nonneg_left hscalePow hC
+        _ = (C * (2 * Real.pi) ^ N) * (1 + |w|) ^ N := by ring
 
 private theorem qs_p1_fourier_integrable_of_two_derivatives (g : ℝ → ℂ)
     (hg : Integrable g) (hgDiff : Differentiable ℝ g) (hg₁ : Integrable (deriv g))
@@ -1514,16 +1652,21 @@ private theorem qs_p1_mellin_vertical_integrable (h : ℝ → ℂ) (hh : IsQSWei
   let g := qsP1LogKernel h
   have hgCont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g := by
     dsimp [g]
-    unfold qsP1LogKernel
+    unfold qsP1LogKernel qsP1MellinLogKernel
     have hhs : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) h := hh.1
     fun_prop
   have hg : Integrable g := by
-    simpa [g] using qs_p1_iteratedDeriv_logKernel_integrable h hh 0 (by omega)
+    change Integrable (qsP1MellinLogKernel 2 h)
+    simpa only [iteratedDeriv_zero] using
+      qs_p1_iteratedDeriv_logKernel_integrable h hh 2 (by norm_num) 0
   have hg₁ : Integrable (deriv g) := by
-    simpa [g, iteratedDeriv_one] using qs_p1_iteratedDeriv_logKernel_integrable h hh 1 (by omega)
+    change Integrable (deriv (qsP1MellinLogKernel 2 h))
+    simpa only [iteratedDeriv_one] using
+      qs_p1_iteratedDeriv_logKernel_integrable h hh 2 (by norm_num) 1
   have hg₂ : Integrable (deriv (deriv g)) := by
-    simpa [g, iteratedDeriv_succ, iteratedDeriv_one] using
-      qs_p1_iteratedDeriv_logKernel_integrable h hh 2 (by omega)
+    change Integrable (deriv (deriv (qsP1MellinLogKernel 2 h)))
+    simpa only [iteratedDeriv_succ, iteratedDeriv_one, iteratedDeriv_zero] using
+      qs_p1_iteratedDeriv_logKernel_integrable h hh 2 (by norm_num) 2
   have hgDiff : Differentiable ℝ g := hgCont.differentiable (by simp)
   have hgDerivDiff : Differentiable ℝ (deriv g) := by
     have hgCont2 : ContDiff ℝ ((2 : ℕ∞) : WithTop ℕ∞) g := hgCont.of_le (by simp)
@@ -1633,7 +1776,7 @@ private theorem qs_p1_mellin_vertical_integrable (h : ℝ → ℂ) (hh : IsQSWei
       hFourierInt.comp_mul_right' (R := (2 * Real.pi)⁻¹) (by positivity)
   change Integrable (fun t : ℝ => mellin h ((2 : ℂ) + (t : ℂ) * Complex.I))
   exact hScaled.congr (Filter.Eventually.of_forall fun t =>
-    (qs_p1_mellin_eq_fourier_line h t).symm)
+    (qs_p1_mellin_eq_fourier_line h 2 t).symm)
 
 theorem qs_p1_original_mellin_representation [IsTotallyComplex K]
     (χ : ArtinPrimitiveRoots.A1.HeckeChar K) (hsq : χ ^ 2 = 1)
