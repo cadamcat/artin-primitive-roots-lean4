@@ -19,6 +19,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.Positivity
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.BlockBounds
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ProgressionSieve
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.RoughMass
+import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.Aggregation
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
