@@ -70,7 +70,32 @@ theorem qs_canonical_family_NQ0 (hμ : ∃ ζ : K, IsPrimitiveRoot ζ 12)
         QSAdm m qS (qsIdealOf T) ∧ qsIsExteriorGenerator S' T (gen₀ T)) ∧
       (∀ T D : Finset (HeightOneSpectrum (𝓞 K)), Disjoint T S' → Disjoint D S' →
         (F.character (qsIdealOf T)).idealValue (qsIdealOf D) = (qsQuadSymbol D (gen₀ T) : ℂ)) := by
-  sorry
+  classical
+  obtain ⟨D⟩ := qs_nq0_field_data hμ
+  obtain ⟨CE, Sd, hSS⟩ := qs_nq0_sdata_enlargement S
+  obtain ⟨H⟩ := ArtinPrimitiveRoots.A1.HilbertData.nonempty D
+  obtain ⟨Bd⟩ := ArtinPrimitiveRoots.A1.BData.nonempty D Sd H
+  obtain ⟨a, ha⟩ := qs_nq0_allowed_generators Sd H Bd
+  have hcharacters (I : Ideal (𝓞 K)) := qs_nq0_quadratic_character_exists D H (a I)
+  choose χ hχ hinf hlocal using hcharacters
+  have hscalar (I : Ideal (𝓞 K)) (v : HeightOneSpectrum (𝓞 K))
+      (u : (v.adicCompletion K)ˣ) :
+      (((χ I).loc v u : ℂˣ) : ℂ) =
+        D.σ0 (((H.hilb v (ArtinPrimitiveRoots.A1.toLoc v (a I)) u : Kˣ) : K)) ^ 3 := by
+    rw [hlocal I v]
+    rfl
+  obtain ⟨m, qS, F, hqS, hm, hsupport, hray, hF⟩ :=
+    qs_nq0_conductor_family D Sd H Bd a ha χ hχ hinf hscalar
+  obtain ⟨gen₀, hgen, hsym⟩ := qs_nq0_integral_symbol_representatives D Sd H a
+    (fun I hI => (ha I hI).1) χ hscalar
+  refine ⟨Sd.Sf, m, qS, F, gen₀, hSS, hqS, hray, ?_, ?_⟩
+  · intro T hT
+    have hadm := qs_nq0_support_admissible Sd m hm qS hqS hsupport T hT
+    exact ⟨hadm.2, hgen T hT⟩
+  · intro T U hT hU
+    have hexterior := (qs_nq0_support_admissible Sd m hm qS hqS hsupport T hT).1
+    rw [hF (qsIdealOf T) hexterior]
+    exact hsym T U hT hU
 
 /-- NQ0a (IMPL): the core bound transported to finite prime supports
 (`T ↦ ∏_{v∈T} 𝔭_v` is injective on finite sets of primes, `N(qsIdealOf T) = qsNormT T`;
