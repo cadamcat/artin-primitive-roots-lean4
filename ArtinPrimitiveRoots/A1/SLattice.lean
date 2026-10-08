@@ -123,7 +123,8 @@ This is the corrected version of the frozen `SData.absS_diag_eq_norm`, whose int
 theorem SData.absS_diag_eq_norm_ofFieldData (S : SData F CE condη) (D : FieldData F)
     (x : F) (I : Ideal (𝓞 F)) (hI : S.IsExterior I) (hx : S.IsGen x I) :
     S.absS (S.diag x) = Ideal.absNorm I := by
-  sorry
+  have : IsTotallyComplex F := D.isTotallyComplex
+  exact S.absS_diag_eq_norm x I hI hx
 
 /-- Scaling Poisson summation from `R` to the exterior fractional ideal `aR`. -/
 theorem SData.poisson_scaled (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
@@ -139,7 +140,51 @@ theorem SData.poisson_scaled (S : SData F CE condη) (D : FieldData F) (A : AddC
 theorem SData.absS_diag_ge_one (S : SData F CE condη) (D : FieldData F)
     (x : S.R) (hx : (x : F) ≠ 0) :
     1 ≤ S.absS (S.diag (x : F)) := by
-  sorry
+  have : IsTotallyComplex F := D.isTotallyComplex
+  have hprod := prod_abs_eq_one hx
+  have hf_supp : (Function.mulSupport fun v => ‖FinitePlace.embedding v (x : F)‖).Finite :=
+    finitePlace_mk_hasFiniteMulSupport hx
+  have h_split : (∏ᶠ v : HeightOneSpectrum (𝓞 F), ‖FinitePlace.embedding v (x : F)‖) =
+      (∏ v ∈ S.Sf, ‖FinitePlace.embedding v (x : F)‖) * ∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖ := by
+    have h_union := finprod_mem_union' (hst := disjoint_compl_right)
+      (hs := S.Sf.finite_toSet.inter_of_left _)
+      (ht := Set.Finite.subset hf_supp Set.inter_subset_right)
+      (f := fun v => ‖FinitePlace.embedding v (x : F)‖)
+    rw [Set.union_compl_self, finprod_mem_univ] at h_union
+    rw [finprod_mem_coe_finset] at h_union
+    exact h_union
+  have h_prod_decomp : (∏ᶠ w : FinitePlace F, w (x : F)) =
+      (∏ v ∈ S.Sf, ‖FinitePlace.embedding v (x : F)‖) * ∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖ := by
+    rw [← finprod_comp_equiv FinitePlace.equivHeightOneSpectrum.symm]
+    change (∏ᶠ v : HeightOneSpectrum (𝓞 F), ‖FinitePlace.embedding v (x : F)‖) = _
+    exact h_split
+  rw [h_prod_decomp] at hprod
+  have h_absS : S.absS (S.diag (x : F)) =
+      (∏ v ∈ S.Sf, ‖FinitePlace.embedding v (x : F)‖) * ∏ w : InfinitePlace F, w (x : F) ^ w.mult :=
+    absS_diag_eq S (x : F)
+  have h_prod_absS : S.absS (S.diag (x : F)) * (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖) = 1 := by
+    rw [h_absS]
+    calc ((∏ v ∈ S.Sf, ‖FinitePlace.embedding v (x : F)‖) * ∏ w : InfinitePlace F, w (x : F) ^ w.mult) *
+          (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖)
+      _ = (∏ w : InfinitePlace F, w (x : F) ^ w.mult) *
+          ((∏ v ∈ S.Sf, ‖FinitePlace.embedding v (x : F)‖) * ∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖) := by ring
+      _ = 1 := hprod
+  have h_eq : (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖) =
+      ∏ v ∈ hf_supp.toFinset with v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖ :=
+    finprod_mem_eq_prod_filter (fun v => ‖FinitePlace.embedding v (x : F)‖) ((S.Sf : Set _)ᶜ) hf_supp
+  have hP_le_one : (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖) ≤ 1 := by
+    rw [h_eq]
+    refine Finset.prod_le_one₀ (fun _ _ => norm_nonneg _) fun v hv =>
+      norm_embedding_le_one_of_valuation_le_one v (x : F) (x.property v (Finset.mem_filter.mp hv).2)
+  have h_absS_nonneg : 0 ≤ S.absS (S.diag (x : F)) := by
+    rw [h_absS]
+    refine mul_nonneg (Finset.prod_nonneg fun _ _ => norm_nonneg _)
+      (Finset.prod_nonneg fun w _ => ?_)
+    exact pow_nonneg (w.1.nonneg _) _
+  calc 1
+    _ = S.absS (S.diag (x : F)) * (∏ᶠ v ∉ S.Sf, ‖FinitePlace.embedding v (x : F)‖) := h_prod_absS.symm
+    _ ≤ S.absS (S.diag (x : F)) * 1 := mul_le_mul_of_nonneg_left hP_le_one h_absS_nonneg
+    _ = S.absS (S.diag (x : F)) := mul_one _
 
 /-! ## Compactness modulo sixth powers of S-units -/
 

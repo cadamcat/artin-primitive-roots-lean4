@@ -1,4 +1,7 @@
 import ArtinPrimitiveRoots.Spec.Energy
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SIEGEL_BOUND.triangular_transition_unique
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SIEGEL_BOUND.triangular_transition_term
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SIEGEL_BOUND.nontriangular_siegel_summable
 
 /-! Remaining Eisenstein and resolvent nodes E3--E7. -/
 
@@ -58,7 +61,13 @@ theorem E4_eis_siegel (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
           eisTerm F Γ σ s ((d.σ i) • z) q =
             ((absFieldNorm F (b 0 0) : ℝ) : ℂ) ^ (1 + 2 * s) *
               ((normHeight F z : ℝ) : ℂ) ^ (1 + 2 * s)) := by
-  sorry
+  intro i
+  refine ⟨?_, ?_, ?_⟩
+  · intro q q' hq hq'
+    exact triangular_transition_unique Γ σ (d.σ i) q q' hq hq'
+  · exact nontriangular_siegel_summable Γ d σ Kₛ hKₛ hKₛstrip i
+  · intro q hq s hs z hz
+    exact triangular_transition_term Γ σ (d.σ i) q hq s z
 
 /-- E5 `spec:seed` — P-SPEC.md:241, 131–133. The truncated seed and its defect are locally finite,
 smooth and invariant; the defect is compactly supported modulo `Γ`, entire as an `L²` family, and
