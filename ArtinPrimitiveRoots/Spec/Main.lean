@@ -67,7 +67,7 @@ theorem eisSeries_majorant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ : 
     (K : Set (X F)) (hK : IsCompact K) (σ₀ σ₁ : ℝ) (h₀ : 1 / 2 < σ₀) :
     ∃ m : CuspCosets F Γ σ → ℝ, Summable m ∧
       ∀ z ∈ K, ∀ s : ℂ, σ₀ ≤ s.re → s.re ≤ σ₁ → ∀ q, ‖eisTerm F Γ σ s z q‖ ≤ m q := by
-  sorry
+  exact (E2_eis_converge Γ σ).1 K hK σ₀ σ₁ h₀
 
 /-- `spec:eis-converge`: `Γ`-invariance in the convergence region. -/
 theorem eisSeries_invariant (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex] (σ : SL(2,F)) (s : ℂ)
