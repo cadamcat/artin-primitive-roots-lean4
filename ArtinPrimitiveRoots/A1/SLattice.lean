@@ -1791,6 +1791,71 @@ private theorem covol_local_selfdual_integer_mass
     simp
   simp [hOne]
 
+private theorem covol_finite_selfdual_integer_mass_product
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) :
+    ∏ v : S.Sf, (covol_local_selfdual_at D S A v).real
+      (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) =
+    (Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ))⁻¹ := by
+  classical
+  have hlocal (v : S.Sf) :
+      (covol_local_selfdual_at D S A v).real
+        (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) =
+      (Real.sqrt ((qv v.1) ^
+        (FractionalIdeal.count F v.1
+          (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat))⁻¹ := by
+    let K := v.1.adicCompletion F
+    have hpow (n : ℤ) :
+        absFin v.1 ((unifLoc v.1 : K) ^ n) =
+          absFin v.1 (unifLoc v.1 : K) ^ n := by
+      rw [absFin_eq_norm, absFin_eq_norm]
+      simp [norm_zpow]
+    have hπ : absFin v.1 (unifLoc v.1 : K) = (qv v.1)⁻¹ := by
+      simpa using covol_absFin_unifLoc_zpow v.1 1
+    rw [covol_local_selfdual_integer_mass,
+      covol_local_conductor_exponent_eq_different,
+      covol_local_selfdual_scale]
+    rw [hpow, hπ, inv_zpow']
+    have hcount0 : 0 ≤ FractionalIdeal.count F v.1
+        (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F) :=
+      FractionalIdeal.count_coe_nonneg F v.1 (differentIdeal ℤ (𝓞 F))
+    have hnat :
+        ((FractionalIdeal.count F v.1
+          (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat : ℤ) =
+          FractionalIdeal.count F v.1
+            (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F) :=
+      Int.toNat_of_nonneg hcount0
+    rw [← zpow_natCast, hnat]
+    simp
+  have hnorm :
+      (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ) =
+        ∏ v : S.Sf, (qv v.1) ^
+          (FractionalIdeal.count F v.1
+            (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat := by
+    simpa [qv] using covol_different_absNorm_factorization S
+  have hqv (v : S.Sf) : 0 < qv v.1 := by
+    have hqv0 : qv v.1 ≠ 0 := by
+      change (Ideal.absNorm v.1.asIdeal : ℝ) ≠ 0
+      exact_mod_cast HeightOneSpectrum.absNorm_ne_zero v.1
+    exact lt_of_le_of_ne (Nat.cast_nonneg _) (Ne.symm hqv0)
+  calc
+    ∏ v : S.Sf, (covol_local_selfdual_at D S A v).real
+        (v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)) =
+      ∏ v : S.Sf, (Real.sqrt ((qv v.1) ^
+        (FractionalIdeal.count F v.1
+          (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat))⁻¹ := by
+            apply Finset.prod_congr rfl
+            intro v hv
+            exact hlocal v
+    _ = (Real.sqrt (∏ v : S.Sf, (qv v.1) ^
+          (FractionalIdeal.count F v.1
+            (differentIdeal ℤ (𝓞 F) : FractionalIdeal (𝓞 F)⁰ F)).toNat))⁻¹ := by
+          rw [Finset.prod_inv_distrib,
+            ← Real.sqrt_prod Finset.univ (by
+              intro v hv
+              exact (pow_nonneg (hqv v).le _))]
+    _ = (Real.sqrt (Ideal.absNorm (differentIdeal ℤ (𝓞 F)) : ℝ))⁻¹ := by
+          rw [← hnorm]
+
 private theorem covol_arch_test_fourier_inversion (x : InfinitePlace F → ℂ) :
     ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier
       (fun y => ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier
