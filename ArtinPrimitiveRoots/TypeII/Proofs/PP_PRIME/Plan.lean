@@ -239,11 +239,17 @@ private theorem ppPrimeSmoothTransition_deriv_bound (j : ℕ) :
         _ ≤ C := hnorm
         _ ≤ C + 1 := by linarith
 
+private noncomputable def ppPrimeSmoothTransitionConstant (j : ℕ) : ℝ :=
+  Classical.choose (ppPrimeSmoothTransition_deriv_bound j)
+
 private theorem ppPrimeSmoothTransition_affine_deriv_bound (j : ℕ) (c d : ℝ) :
-    ∃ Cj : ℝ, 0 < Cj ∧ ∀ x : ℝ,
+    ∀ x : ℝ,
       ‖iteratedDeriv j (fun y : ℝ => Real.smoothTransition (c * (y - d))) x‖ ≤
-        Cj * |c| ^ j := by
-  obtain ⟨Cj, hCj, hbound⟩ := ppPrimeSmoothTransition_deriv_bound j
+        ppPrimeSmoothTransitionConstant j * |c| ^ j := by
+  have hC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound j)
+  have hCpos : 0 < ppPrimeSmoothTransitionConstant j := hC.1
+  have hbound : ∀ x : ℝ, ‖iteratedDeriv j Real.smoothTransition x‖ ≤
+      ppPrimeSmoothTransitionConstant j := hC.2
   have hst : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Real.smoothTransition := by
     fun_prop
   have hstj : ContDiff ℝ ((j : ℕ∞) : WithTop ℕ∞) Real.smoothTransition :=
@@ -251,14 +257,14 @@ private theorem ppPrimeSmoothTransition_affine_deriv_bound (j : ℕ) (c d : ℝ)
   let f : ℝ → ℝ := fun y => Real.smoothTransition (c * y)
   have hscale := iteratedDeriv_comp_const_mul (n := j)
     (f := Real.smoothTransition) hstj c
-  refine ⟨Cj, hCj, ?_⟩
   intro x
   have htrans : iteratedDeriv j (fun y : ℝ => f (y - d)) x =
       iteratedDeriv j f (x - d) := by
     have h := congrFun
       (iteratedDerivWithin_comp_sub_const (n := j) (f := f) (s := Set.univ) d) x
     simpa [iteratedDerivWithin_univ] using h
-  change ‖iteratedDeriv j (fun y : ℝ => f (y - d)) x‖ ≤ Cj * |c| ^ j
+  change ‖iteratedDeriv j (fun y : ℝ => f (y - d)) x‖ ≤
+    ppPrimeSmoothTransitionConstant j * |c| ^ j
   calc
     ‖iteratedDeriv j (fun y : ℝ => f (y - d)) x‖ =
         ‖iteratedDeriv j f (x - d)‖ := by rw [htrans]
@@ -267,9 +273,144 @@ private theorem ppPrimeSmoothTransition_affine_deriv_bound (j : ℕ) (c d : ℝ)
       rw [congrFun hscale (x - d)]
     _ = |c| ^ j * ‖iteratedDeriv j Real.smoothTransition (c * (x - d))‖ := by
       rw [norm_mul, norm_pow, Real.norm_eq_abs]
-    _ ≤ |c| ^ j * Cj :=
+    _ ≤ |c| ^ j * ppPrimeSmoothTransitionConstant j :=
       mul_le_mul_of_nonneg_left (hbound (c * (x - d))) (pow_nonneg (abs_nonneg c) _)
-    _ = Cj * |c| ^ j := by ring
+    _ = ppPrimeSmoothTransitionConstant j * |c| ^ j := by ring
+
+private theorem ppPrimeLogCutoff_deriv_bound (a b δ : ℝ) (hδ : 0 < δ)
+    (j : ℕ) :
+    ∃ Kj : ℝ, 0 ≤ Kj ∧ ∀ u : ℝ,
+      ‖iteratedDeriv j
+        (fun v : ℝ =>
+          (ppPrimeLogCutoff (Real.log a) (Real.log b) δ (-v) : ℂ)) u‖ ≤
+        Kj * (δ⁻¹) ^ j := by
+  classical
+  let cLeft : ℝ := -(δ⁻¹)
+  let dLeft : ℝ := δ - Real.log a
+  let cRight : ℝ := δ⁻¹
+  let dRight : ℝ := -(Real.log b + δ)
+  let f : ℝ → ℝ := fun u => Real.smoothTransition (cLeft * (u - dLeft))
+  let g : ℝ → ℝ := fun u => Real.smoothTransition (cRight * (u - dRight))
+  let F : ℝ → ℝ := fun u => ppPrimeLogCutoff (Real.log a) (Real.log b) δ (-u)
+  let K : ℝ := ∑ i ∈ Finset.range (j + 1),
+    (j.choose i : ℝ) * ppPrimeSmoothTransitionConstant i *
+      ppPrimeSmoothTransitionConstant (j - i)
+  have hK : 0 ≤ K := by
+    dsimp [K]
+    apply Finset.sum_nonneg
+    intro i hi
+    have hiC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound i)
+    have hjC := Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound (j - i))
+    exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) hiC.1.le) hjC.1.le
+  have hargLeft (u : ℝ) :
+      cLeft * (u - dLeft) = ((-u) - (Real.log a - δ)) / δ := by
+    dsimp [cLeft, dLeft]
+    field_simp [ne_of_gt hδ]
+    ring
+  have hargRight (u : ℝ) :
+      cRight * (u - dRight) = ((Real.log b + δ) - (-u)) / δ := by
+    dsimp [cRight, dRight]
+    field_simp [ne_of_gt hδ]
+    ring
+  have hF : F = f * g := by
+    funext u
+    dsimp [F, f, g, ppPrimeLogCutoff]
+    rw [← hargLeft u, ← hargRight u]
+  have hf : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f := by
+    dsimp [f]
+    fun_prop
+  have hg : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) g := by
+    dsimp [g]
+    fun_prop
+  have hFcont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) F := by
+    dsimp [F]
+    exact (ppPrimeLogCutoff_contDiff _ _ _).comp (by fun_prop)
+  have hleftSlope : |cLeft| = δ⁻¹ := by
+    dsimp [cLeft]
+    rw [abs_neg, abs_of_pos (inv_pos.mpr hδ)]
+  have hrightSlope : |cRight| = δ⁻¹ := by
+    dsimp [cRight]
+    exact abs_of_pos (inv_pos.mpr hδ)
+  have hfBound (i : ℕ) (u : ℝ) :
+      ‖iteratedDeriv i f u‖ ≤ ppPrimeSmoothTransitionConstant i * (δ⁻¹) ^ i := by
+    have h := ppPrimeSmoothTransition_affine_deriv_bound i cLeft dLeft u
+    simpa [f, hleftSlope] using h
+  have hgBound (i : ℕ) (u : ℝ) :
+      ‖iteratedDeriv i g u‖ ≤ ppPrimeSmoothTransitionConstant i * (δ⁻¹) ^ i := by
+    have h := ppPrimeSmoothTransition_affine_deriv_bound i cRight dRight u
+    simpa [g, hrightSlope] using h
+  have hmul (u : ℝ) :
+      iteratedDeriv j (f * g) u =
+        ∑ i ∈ Finset.range (j + 1), (j.choose i : ℝ) *
+          iteratedDeriv i f u * iteratedDeriv (j - i) g u := by
+    simpa using (iteratedDeriv_mul (n := j) (x := u)
+      (hf.contDiffAt.of_le (by simp)) (hg.contDiffAt.of_le (by simp)))
+  have hterm (u : ℝ) (i : ℕ) (hi : i ∈ Finset.range (j + 1)) :
+      ‖(j.choose i : ℝ) * iteratedDeriv i f u * iteratedDeriv (j - i) g u‖ ≤
+        ((j.choose i : ℝ) * ppPrimeSmoothTransitionConstant i *
+          ppPrimeSmoothTransitionConstant (j - i)) * (δ⁻¹) ^ j := by
+    have hi' : i ≤ j := Nat.le_of_lt_succ (Finset.mem_range.mp hi)
+    have hcoeff : 0 ≤ (j.choose i : ℝ) := Nat.cast_nonneg _
+    rw [norm_mul, norm_mul, Real.norm_eq_abs, abs_of_nonneg hcoeff]
+    calc
+      (j.choose i : ℝ) * ‖iteratedDeriv i f u‖ *
+          ‖iteratedDeriv (j - i) g u‖ ≤
+        ((j.choose i : ℝ) * (ppPrimeSmoothTransitionConstant i * (δ⁻¹) ^ i)) *
+          (ppPrimeSmoothTransitionConstant (j - i) * (δ⁻¹) ^ (j - i)) := by
+            apply mul_le_mul
+            · exact mul_le_mul_of_nonneg_left (hfBound i u) hcoeff
+            · exact hgBound (j - i) u
+            · exact norm_nonneg _
+            · exact mul_nonneg hcoeff (mul_nonneg
+                ((Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound i)).1.le)
+                (pow_nonneg (inv_nonneg.mpr hδ.le) _))
+      _ = ((j.choose i : ℝ) * ppPrimeSmoothTransitionConstant i *
+          ppPrimeSmoothTransitionConstant (j - i)) *
+            ((δ⁻¹) ^ i * (δ⁻¹) ^ (j - i)) := by ring
+      _ = ((j.choose i : ℝ) * ppPrimeSmoothTransitionConstant i *
+          ppPrimeSmoothTransitionConstant (j - i)) * (δ⁻¹) ^ j := by
+            rw [← pow_add, Nat.add_sub_of_le hi']
+  have hrealBound (u : ℝ) :
+      ‖iteratedDeriv j F u‖ ≤ K * (δ⁻¹) ^ j := by
+    rw [hF, hmul]
+    calc
+      ‖∑ i ∈ Finset.range (j + 1), (j.choose i : ℝ) *
+          iteratedDeriv i f u * iteratedDeriv (j - i) g u‖ ≤
+        ∑ i ∈ Finset.range (j + 1),
+          ‖(j.choose i : ℝ) * iteratedDeriv i f u * iteratedDeriv (j - i) g u‖ :=
+            norm_sum_le _ _
+      _ ≤ ∑ i ∈ Finset.range (j + 1),
+          ((j.choose i : ℝ) * ppPrimeSmoothTransitionConstant i *
+            ppPrimeSmoothTransitionConstant (j - i)) * (δ⁻¹) ^ j := by
+            apply Finset.sum_le_sum
+            intro i hi
+            exact hterm u i hi
+      _ = K * (δ⁻¹) ^ j := by
+            simp [K, Finset.sum_mul]
+  have hcast (n : ℕ) :
+      iteratedDeriv n (fun u : ℝ => (F u : ℂ)) =
+        fun u => ((iteratedDeriv n F u : ℝ) : ℂ) := by
+    induction n with
+    | zero => rfl
+    | succ n ih =>
+        rw [iteratedDeriv_succ, iteratedDeriv_succ, ih]
+        funext u
+        have hdiff : DifferentiableAt ℝ (iteratedDeriv n F) u :=
+          (hFcont.differentiable_iteratedDeriv n
+            (WithTop.coe_lt_coe.mpr (WithTop.coe_lt_top n))).differentiableAt
+        have hcast' := HasDerivAt.ofReal_comp hdiff.hasDerivAt
+        change deriv (fun y : ℝ => ((iteratedDeriv n F y : ℝ) : ℂ)) u =
+          ((deriv (iteratedDeriv n F) u : ℝ) : ℂ)
+        exact hcast'.deriv
+  refine ⟨K, hK, ?_⟩
+  intro u
+  change ‖iteratedDeriv j (fun v : ℝ => (F v : ℂ)) u‖ ≤ K * (δ⁻¹) ^ j
+  calc
+    ‖iteratedDeriv j (fun v : ℝ => (F v : ℂ)) u‖ =
+        ‖iteratedDeriv j F u‖ := by
+          rw [congrFun (hcast j) u]
+          simp
+    _ ≤ K * (δ⁻¹) ^ j := hrealBound u
 
 /-- The kernel is Mathlib's Mellin transform, with the positive-base power
 rewritten only on the domain of integration. -/
