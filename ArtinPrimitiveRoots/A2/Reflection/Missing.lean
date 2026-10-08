@@ -1,11 +1,13 @@
 import ArtinPrimitiveRoots.A2.Interface
 import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
 import ArtinPrimitiveRoots.Proofs.th_factor_b.Analytic
+import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
+import Mathlib.Analysis.Asymptotics.Basic
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
 set_option maxHeartbeats 800000
-open NumberField IsDedekindDomain MeasureTheory
+open NumberField IsDedekindDomain MeasureTheory Filter Topology Asymptotics
 open scoped Classical Pointwise
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
@@ -51,6 +53,69 @@ structure ReflectionSetup (D : FieldData F) (S : SData F CE condη)
   K_gaussian : ∀ u, 0 < u →
     ∫ t in Set.Ioi (0 : ℝ), K t * Theta.thetaV S μ v0 T.U T.cS (u * t) / (t : ℂ) = (PG u : ℂ)
 
+private theorem heckeChar_unitary_of_finOrder (χ : HeckeChar F) (hχ : IsOfFinOrder χ) :
+    ∀ x, ‖((χ x : ℂˣ) : ℂ)‖ = 1 := by
+  obtain ⟨n, hn, hpow⟩ := (isOfFinOrder_iff_pow_eq_one.mp hχ)
+  intro x
+  have hxpow : (χ x : ℂˣ) ^ n = 1 := by
+    have hx := congrArg (fun f : HeckeChar F => f x) hpow
+    simpa using hx
+  have hxpowC : (((χ x : ℂˣ) : ℂ) ^ n) = 1 := by
+    simpa using congrArg (fun z : ℂˣ => (z : ℂ)) hxpow
+  exact ((isOfFinOrder_iff_pow_eq_one.mpr ⟨n, hn, hxpowC⟩).norm_eq_one)
+
+private theorem reflection_kernel_moments (K : ℝ → ℂ)
+    (hK : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) K (Set.Ioi 0))
+    (hbounds : ∀ N : ℝ, ∀ j : ℕ, ∃ C : ℝ, ∀ t, 0 < t →
+      ‖Theta.normDerivR j K t‖ ≤ C * min (t ^ N) (t ^ (-N))) :
+    ∀ β : ℝ, IntegrableOn (fun t => ‖K t‖ * t ^ β / t) (Set.Ioi 0) := by
+  classical
+  intro β
+  let N : ℝ := |β| + 2
+  have hβlo : -N < β := by dsimp [N]; have := neg_le_abs β; linarith
+  have hβhi : β < N := by dsimp [N]; have := le_abs_self β; linarith
+  obtain ⟨C, hC⟩ := hbounds N 0
+  have hC_nonneg : 0 ≤ C := by
+    have h := hC 1 (by norm_num)
+    have h' : ‖K 1‖ ≤ C := by simpa [Theta.normDerivR, N] using h
+    exact (norm_nonneg (K 1)).trans h'
+  have hnorm (t : ℝ) (ht : 0 < t) : ‖Theta.normDerivR 0 K t‖ = ‖K t‖ := by
+    simp [Theta.normDerivR, Real.exp_log ht]
+  have htop : K =O[atTop] (fun t : ℝ => t ^ (-N)) := by
+    refine (IsBigOWith.of_bound (c := C) ?_).isBigO
+    filter_upwards [eventually_ge_atTop (1 : ℝ)] with t ht
+    have ht0 : 0 < t := by linarith
+    have h := hC t ht0
+    rw [hnorm t ht0] at h
+    have hp : t ^ (-N) ≤ t ^ N :=
+      Real.rpow_le_rpow_of_exponent_le ht (by linarith)
+    rw [min_eq_right hp] at h
+    simpa only [Real.norm_of_nonneg (Real.rpow_nonneg ht0.le _)] using h
+  have hbot : K =O[𝓝[>] (0 : ℝ)] (fun t : ℝ => t ^ N) := by
+    refine (IsBigOWith.of_bound (c := C) ?_).isBigO
+    filter_upwards [self_mem_nhdsWithin] with t ht
+    have h := hC t ht
+    rw [hnorm t ht] at h
+    have h' : ‖K t‖ ≤ C * t ^ N := by
+      calc
+        ‖K t‖ ≤ C * min (t ^ N) (t ^ (-N)) := h
+        _ ≤ C * t ^ N := mul_le_mul_of_nonneg_left (min_le_left _ _) hC_nonneg
+    simpa only [Real.norm_of_nonneg (Real.rpow_nonneg ht.le _)] using h'
+  have hconv : MellinConvergent K (β : ℂ) :=
+    mellinConvergent_of_isBigO_rpow (a := N) (b := -N)
+      (hK.continuousOn.locallyIntegrableOn measurableSet_Ioi) htop
+      (by simpa using hβhi) (by simpa only [neg_neg] using hbot) (by simpa using hβlo)
+  have hconv' : IntegrableOn (fun t : ℝ => (t : ℂ) ^ ((β : ℂ) - 1) * K t) (Set.Ioi 0) := by
+    simpa [MellinConvergent, smul_eq_mul] using hconv
+  have hEq : (fun t : ℝ => ‖(t : ℂ) ^ ((β : ℂ) - 1) * K t‖) =ᵐ[
+      volume.restrict (Set.Ioi 0)] (fun t => ‖K t‖ * t ^ β / t) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+    simp only [norm_mul, Complex.norm_cpow_eq_rpow_re_of_pos ht,
+      Complex.sub_re, Complex.ofReal_re, Complex.one_re]
+    rw [Real.rpow_sub_one ht.ne']
+    ring
+  exact hconv'.norm.congr hEq
+
 /-- A1/Theta producer obligation for the composite reflection input (02:606-625; 03:474-659;
 04:51-65). Corrected by `sol-gate-a2b`: it supplies the split Gauss data and the complete setup,
 including angular admissibility, without assuming a reflection estimate. -/
@@ -67,7 +132,140 @@ theorem reflectionSetup_exists (D : FieldData F) (S : SData F CE condη)
           gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
             -(Λ.primeValue v * G.primeValue v)) →
       Nonempty (ReflectionSetup D S H Bd A (vartheta Λ G η) bc μ v0) := by
-  sorry
+  classical
+  intro η Λ G hη hηram hΛunit hΛangular hG hGauss
+  let ϑ : HeckeChar F := vartheta Λ G η
+  have hΛram : ∀ v, v ∉ S.Sf → Λ.UnramifiedAt v := fun v hv => (hGauss v hv).1
+  have hGram : ∀ v, v ∉ S.Sf → G.UnramifiedAt v := fun v hv => (hGauss v hv).2.1
+  have hηunit : ∀ x, ‖((η x : ℂˣ) : ℂ)‖ = 1 :=
+    heckeChar_unitary_of_finOrder η hη
+  have hGunit : ∀ x, ‖((G x : ℂˣ) : ℂ)‖ = 1 :=
+    heckeChar_unitary_of_finOrder G hG
+  have hϑunit : ∀ x, ‖((ϑ x : ℂˣ) : ℂ)‖ = 1 := by
+    intro x
+    change ‖((((Λ x : ℂˣ)⁻¹ * (G x : ℂˣ)⁻¹) * (η x : ℂˣ) : ℂˣ) : ℂ)‖ = 1
+    simp [Units.val_mul, Units.val_inv, norm_mul, norm_inv,
+      hΛunit x, hGunit x, hηunit x]
+  have hϑram : ∀ v, v ∉ S.Sf → ϑ.UnramifiedAt v := by
+    intro v hv u hu huinv
+    change (Λ.loc v u)⁻¹ * (G.loc v u)⁻¹ * η.loc v u = 1
+    rw [hΛram v hv u hu huinv, hGram v hv u hu huinv, hηram v hv u hu huinv]
+    simp
+  have hΛG : ∀ v, v ∉ S.Sf → ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+      gamma D S A 1 v.asIdeal p * gamma D S A 2 v.asIdeal p =
+        -(Λ.primeValue v * G.primeValue v) := fun v hv => (hGauss v hv).2.2
+  have hVS := vartheta_S D S A H Bd η Λ G hηram hΛram hGram hη hG hΛunit hΛangular hΛG
+  have hϑangular : HeckeChar.HasAngularType D ϑ := by
+    intro w
+    obtain ⟨m, hm, hangle⟩ := hVS.2.2.1 w
+    have hwc : w.IsComplex := D.isTotallyComplex.isComplex w
+    refine ⟨-m, ?_, ?_⟩
+    · rcases hm with hm | hm <;> simp [hm]
+    · intro z
+      let zInf : w.Completionˣ := Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex hwc).symm.toMonoidHom z
+      let zInf' (w' : InfinitePlace F) : w'.Completionˣ := Units.map
+        (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+          (D.isTotallyComplex.isComplex w')).symm.toMonoidHom
+          (S.compC w' (S.atComplex w z))
+      let g (w' : InfinitePlace F) : ℂ :=
+        (((ϑ.locInf w' (zInf' w'))⁻¹ : ℂˣ) : ℂ)
+      have hmap : zInf' w = zInf := by
+        apply Units.ext
+        simp [zInf', zInf, SData.atComplex, SData.compC]
+      have hfinite :
+          ∏ v : S.Sf,
+            (((ϑ.loc v (S.compU v (S.atComplex w z)))⁻¹ : ℂˣ) : ℂ) = 1 := by
+        apply Fintype.prod_eq_one
+        intro v
+        have hU : S.compU v (S.atComplex w z) = 1 := by
+          apply Units.ext
+          simp [SData.atComplex, SData.compU]
+        rw [hU]
+        simp [HeckeChar.loc]
+      have hcomplex : ∏ w' : InfinitePlace F, g w' =
+          (((ϑ.locInf w zInf)⁻¹ : ℂˣ) : ℂ) := by
+        rw [Fintype.prod_eq_single w]
+        · simp [g, hmap]
+        · intro w' hne
+          have hC : S.compC w' (S.atComplex w z) = 1 := by
+            apply Units.ext
+            simp [SData.atComplex, SData.compC, hne]
+          simp [g, zInf', hC]
+      have hLS : S.LS ϑ (S.atComplex w z) =
+          (((ϑ.locInf w zInf)⁻¹ : ℂˣ) : ℂ) := by
+        unfold SData.LS
+        rw [hfinite]
+        simp_rw [dif_pos (D.isTotallyComplex.isComplex _)]
+        rw [hcomplex]
+        simp
+      have hval := hangle z
+      rw [hLS] at hval
+      have hval' : ((ϑ.locInf w zInf : ℂˣ) : ℂ)⁻¹ =
+          ((z : ℂ) / ‖(z : ℂ)‖) ^ m := by simpa using hval
+      have hlocal : ((ϑ.locInf w zInf : ℂˣ) : ℂ) =
+          ((z : ℂ) / ‖(z : ℂ)‖) ^ (-m) := by
+        calc
+          ((ϑ.locInf w zInf : ℂˣ) : ℂ) =
+              ((((ϑ.locInf w zInf : ℂˣ) : ℂ)⁻¹)⁻¹) := by simp
+          _ = (((z : ℂ) / ‖(z : ℂ)‖) ^ m)⁻¹ := congrArg Inv.inv hval'
+          _ = ((z : ℂ) / ‖(z : ℂ)‖) ^ (-m) := by rw [← zpow_neg]
+      exact hlocal
+  obtain ⟨E⟩ := exteriorArithmetic_exists D S H Bd bc
+  obtain ⟨Sh⟩ := sheetGeometry_exists D S μ v0
+  obtain ⟨Chars⟩ := reflectionCharacters_exists D S H Bd bc ϑ hϑunit hϑram hϑangular
+  obtain ⟨Pair⟩ := classPairing_exists D S H
+  letI : Fintype (UnitSix S) := Sh.unitSixFinite
+  let family : Finset (SChar S) := Finset.univ.image Chars.L
+  have hmem : ∀ u, Chars.L u ∈ family := by
+    intro u
+    exact Finset.mem_image.mpr ⟨u, Finset.mem_univ u, rfl⟩
+  obtain ⟨P, hRP, hfamily⟩ := A1.theta_interface D S H A
+  let T : ThetaFamily P.tc family := Classical.choice (hfamily family)
+  rcases T.U_spec with ⟨hUo, hUc, hU1, _, hUunit, _, _⟩
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  obtain ⟨C₀, A₀, hC₀, hA₀, hMellin, K, hKsmooth, hKbounds, hKgaussian, hKmellin⟩ :=
+    Theta.gaussian_smoothing S μ v0 T.U hUo hUc hU1 hUunit T.cS T.cS_pos
+  let h6 (u : UnitSix S) := T.T6 (Chars.L u) (hmem u)
+  let rotJ (u : UnitSix S) : ℕ := Classical.choose (h6 u)
+  let hffExists (u : UnitSix S) := Classical.choose_spec (h6 u)
+  let rotFF (u : UnitSix S) : Fin (rotJ u) → (v : S.Sf) → v.1.adicCompletion F → ℂ :=
+    Classical.choose (hffExists u)
+  let hfcExists (u : UnitSix S) := Classical.choose_spec (hffExists u)
+  let rotFC (u : UnitSix S) : Fin (rotJ u) → InfinitePlace F → ℂ → ℂ :=
+    Classical.choose (hfcExists u)
+  let rotData (u : UnitSix S) := Classical.choose_spec (hfcExists u)
+  let rotated : UnitSix S → RotatedPresentation S T.δ := fun u =>
+    ⟨rotJ u, rotFF u, rotFC u, (rotData u).1, (rotData u).2.1⟩
+  have hrotated_eq : ∀ u y,
+      T.WS (Chars.L u) (P.tc.aS y * P.tc.wS) =
+        Theta.sumProd S (rotated u).J (rotated u).ff (rotated u).fc (y : S.FS) := by
+    intro u y
+    have hWS := (rotData u).2.2 y
+    simpa only [Theta.sumProd] using hWS
+  refine ⟨{
+    vartheta_unitary := hϑunit
+    vartheta_unramified := hϑram
+    vartheta_angular := hϑangular
+    vartheta_generator := ?_
+    exterior := E
+    sheets := Sh
+    chars := Chars
+    pairing := Pair
+    C := P.tc
+    family := family
+    T := T
+    mem_family := hmem
+    rotated := rotated
+    rotated_eq := hrotated_eq
+    K := K
+    K_smooth := hKsmooth
+    K_moments := reflection_kernel_moments K hKsmooth hKbounds
+    K_bounds := hKbounds
+    K_gaussian := hKgaussian
+  }⟩
+  · intro I
+    exact hVS.1 I.1 (bc.gen I) I.2 (bc.gen_spec I).1
 
 section Reflection
 variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
