@@ -3134,6 +3134,94 @@ private theorem c3_source_pairing_zero
     simp [Gfun, source, θ, hzsource, hztheta, mul_comm]
   rw [hInnerEq, hIntegralD]
 
+theorem c3_cuspidal_core
+    {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (hfree : FreeAction F Γ) (s₁ : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ ≤ 1 / 2)
+    {ι : Type} [Fintype ι] (σ : ι → SL(2,F))
+    (d : ∀ i, ContinuedEisenstein F Γ (σ i) s₁) (c : ι → ℂ)
+    (hct : ∀ (τ : SL(2,F)) (y : InfinitePlace F → ℝ), (∀ w, 0 < y w) →
+      ∃ P : Set (InfinitePlace F → ℂ),
+        IsAddFundamentalDomain (cuspTranslations F Γ τ) P ∧
+          ∫ x in P, (∑ i, c i * (d i).res (τ • ptX' F x y)) = 0) :
+    ∀ z, ∑ i, c i * (d i).res z = 0 := by
+  classical
+  obtain ⟨setup⟩ := c3_spectral_setup Γ hfree s₁ h₀ h₁
+  obtain ⟨k₀, hkSmooth, hkNonneg, hkSupport, hkNonzero⟩ := radialKernel_bump
+  let data : ∀ i, C3CuspData s₁ setup hfree (σ i) := fun i =>
+    Classical.choice (c3_cusp_data s₁ setup hfree (σ i) h₀ h₁
+      k₀ hkSmooth hkNonneg hkSupport hkNonzero)
+  let L := setup.E.M.comp (setup.P.comp setup.E.M.adjoint)
+  let raw : ι → L2Space F setup.D := fun i =>
+    -setup.κ • L ((data i).G (s₁ : ℂ))
+  let Θ : L2Space F setup.D := ∑ i, c i • raw i
+  let μ := (volX F).restrict setup.D
+  have hresD (i : ι) : (d i).res =ᵐ[μ] raw i := by
+    have heq := (continuedEisenstein_E_eq (d i) (data i).d h₁).2
+    have ha : (d i).res =ᵐ[volX F] l2Lift F Γ setup.D (raw i) := by
+      rw [heq]
+      exact (data i).d_res_ae
+    have hb := c3_l2Lift_eq_on_D Γ setup.D setup.hD (raw i)
+    filter_upwards [ha.filter_mono ae_restrict_le,
+      hb.filter_mono ae_restrict_le,
+      ae_restrict_mem₀ setup.hD.nullMeasurableSet] with z hza hzb hzD
+    exact hza.trans (hzb hzD)
+  have htermRep (i : ι) :
+      (fun z => (c i • raw i) z) =ᵐ[μ] (fun z => c i * (d i).res z) := by
+    filter_upwards [Lp.coeFn_smul (c i) (raw i), hresD i] with z hz hr
+    calc
+      (c i • raw i) z = c i * raw i z := by
+        simpa only [Pi.smul_apply, smul_eq_mul] using hz
+      _ = c i * (d i).res z := by rw [hr]
+  have hThetaRep : ∀ᵐ z ∂μ, Θ z = c3_residueTheta s₁ σ d c z := by
+    have hsum := Lp.coeFn_fun_finsetSum Finset.univ (fun i => c i • raw i)
+    have hterms := ae_all_iff.mpr htermRep
+    filter_upwards [hsum, hterms] with z hz hzi
+    calc
+      Θ z = ∑ i, (c i • raw i) z := hz
+      _ = ∑ i, c i * (d i).res z := Finset.sum_congr rfl (fun i _ => hzi i)
+  have hThetaMem := c3_residueTheta_memLp Γ setup.D setup.hD s₁ σ d c
+  have hpair (i : ι) : inner ℂ ((data i).G (s₁ : ℂ)) Θ = 0 :=
+    c3_source_pairing_zero Γ hfree s₁ h₀ h₁ setup σ d c hct i (data i)
+      Θ hThetaRep hThetaMem
+  let G₀ : L2Space F setup.D :=
+    ∑ i, c i • (-setup.κ • (data i).G (s₁ : ℂ))
+  have hprojected : L G₀ = Θ := by
+    dsimp only [G₀, Θ, raw]
+    rw [map_sum]
+    apply Finset.sum_congr rfl
+    intro i hi
+    rw [map_smul, LinearMapClass.map_smul_of_tower]
+  have hInnerG : inner ℂ G₀ Θ = 0 := by
+    dsimp only [G₀]
+    rw [sum_inner]
+    apply Finset.sum_eq_zero
+    intro i hi
+    rw [inner_smul_left, inner_smul_left_eq_smul, hpair i]
+    simp
+  have hNorm := setup.hPnorm G₀
+  change (‖L G₀‖ ^ 2 : ℂ) =
+    (((setup.lam + 1)⁻¹ : ℝ) : ℂ) * inner ℂ G₀ (L G₀) at hNorm
+  rw [hprojected, hInnerG, mul_zero] at hNorm
+  have hNormSq : ‖Θ‖ ^ 2 = 0 := by exact_mod_cast hNorm
+  have hNormZero : ‖Θ‖ = 0 := by nlinarith [norm_nonneg Θ]
+  have hThetaZero : Θ = 0 := norm_eq_zero.mp hNormZero
+  have hzeroAE : (fun z => Θ z) =ᵐ[μ] (fun _ => (0 : ℂ)) := by
+    rw [hThetaZero]
+    exact Lp.coeFn_zero ℂ 2 μ
+  have hthetaD : c3_residueTheta s₁ σ d c =ᵐ[μ] (fun _ => (0 : ℂ)) := by
+    filter_upwards [hThetaRep, hzeroAE] with z hr hz
+    exact hr.symm.trans hz
+  have hthetaGlobal := ae_eq_of_invariant_on_fundamentalDomain_C3 Γ setup.D
+    setup.hD (c3_residueTheta s₁ σ d c) (fun _ => (0 : ℂ))
+    (c3_residueTheta_invariant s₁ σ d c) (by intro γ hγ z; rfl)
+    ((ae_restrict_iff'₀ setup.hD.nullMeasurableSet).mp hthetaD)
+  letI : Measure.IsOpenPosMeasure (volX F) := ⟨(G3_volume (F := F)).2.2.2.1⟩
+  have hthetaEq := Measure.eq_of_ae_eq hthetaGlobal
+    (c3_residueTheta_continuous s₁ σ d c) continuous_const
+  intro z
+  exact congrFun hthetaEq z
+
 end ArtinPrimitiveRoots.Proofs.spec_domcusp_sol
 
 end
