@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ModulusIdeals
+import ArtinPrimitiveRoots.A2.ZeroFree.Results
 
 /-!
 # A fixed conductor bound for the quadratic family
@@ -106,5 +107,31 @@ theorem qs_nq0_quadratic_conductor_bound
             _ = 1 := WithZero.exp_zero
         exact qs_nq0_quadratic_local_principal_unit_trivial D H v h6 a u
           (lt_of_le_of_lt hubound hlt)
+
+/-!
+The primitive-conductor selection step has this exact signature:
+```
+theorem qs_nq0_primitive_conductor_exists (χ : HeckeChar K)
+    (q : Ideal (𝓞 K)) (hq : q ≠ ⊥) (hbound : χ.ConductorDvd q) :
+    ∃ f : Ideal (𝓞 K), IsPrimitiveConductor χ f ∧
+      Ideal.absNorm f ≤ Ideal.absNorm q
+```
+-/
+
+/-- Every nonzero conductor bound supplies a primitive conductor of no greater norm. -/
+theorem qs_nq0_primitive_conductor_exists (χ : HeckeChar K)
+    (q : Ideal (𝓞 K)) (hq : q ≠ ⊥) (hbound : χ.ConductorDvd q) :
+    ∃ f : Ideal (𝓞 K), IsPrimitiveConductor χ f ∧
+      Ideal.absNorm f ≤ Ideal.absNorm q := by
+  classical
+  let P (n : ℕ) := ∃ f : Ideal (𝓞 K),
+    f ≠ ⊥ ∧ χ.ConductorDvd f ∧ Ideal.absNorm f = n
+  have hp : ∃ n : ℕ, P n := ⟨Ideal.absNorm q, q, hq, hbound, rfl⟩
+  obtain ⟨f, hf, hfc, he⟩ := Nat.find_spec hp
+  have hmin (g : Ideal (𝓞 K)) (hg : g ≠ ⊥) (hgc : χ.ConductorDvd g) :
+      Ideal.absNorm f ≤ Ideal.absNorm g := by
+    rw [he]
+    exact Nat.find_min' hp ⟨g, hg, hgc, rfl⟩
+  exact ⟨f, ⟨hf, hfc, hmin⟩, hmin q hq hbound⟩
 
 end ArtinPrimitiveRoots.A2
