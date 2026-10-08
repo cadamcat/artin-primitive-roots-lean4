@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
 import ArtinPrimitiveRoots.A2.FSide
+import ArtinPrimitiveRoots.A2.Proofs.A2_ZERO_DETECT.Detect
 import ArtinPrimitiveRoots.Hecke.Dedekind
 import Mathlib.Analysis.Complex.PhragmenLindelof
 import Mathlib.Analysis.Complex.Hadamard
@@ -488,7 +489,27 @@ theorem zf_detector_count
           ∃ hnon : fd.omega u ≠ 1, ∃ s : ℂ,
             996 / 1000 ≤ s.re ∧ |s.im| ≤ 4 * Real.rpow U ρ ∧ (L u hnon).value s = 0) →
         (E.card : ℝ) ≤ C * Real.rpow U (88 / 1000 + ρ + ε) := by
-  sorry
+  obtain ⟨Cf, hCf, hcond⟩ := fd.conductor_bound
+  have hAρ : A_F * ρ < 1 := by
+    have h1 : ρ < 1 / (A_F + 1) := lt_of_lt_of_le hρ.2 (min_le_right _ _)
+    have h2 : ρ * (A_F + 1) < 1 := by
+      rwa [lt_div_iff₀ (by linarith)] at h1
+    nlinarith [hρ.1]
+  refine Proofs.A2ZeroDetect.detector_count_core S D η fd L A_F ρ ε hρ.1 hAρ hε
+    ext_ideal_count ?_ ?_
+  · intro δ hδ
+    obtain ⟨C, hC, h⟩ := ext_divisor_bound (F := F) δ hδ
+    exact ⟨C, hC, fun I hI => (h I hI).1⟩
+  · intro δ hδ
+    obtain ⟨C, hC, hsh⟩ := zf_detector_shift (F := F) A_F ρ δ (2 * Cf) hAF hδ (by positivity)
+      hρ hGrowth
+    refine ⟨C, hC, ?_⟩
+    intro u hnon U β γ hU hq1 hq2 hz hβ hγ
+    obtain ⟨𝔣, hprim, hnorm⟩ := hcond u
+    have hN : (Ideal.absNorm 𝔣 : ℝ) ≤ 2 * Cf * U := by nlinarith
+    have h := hsh (fd.omega u) 𝔣 hprim (fd.omega_finiteOrder u) hnon (L u hnon) U β γ hU hN hz
+      hβ hγ (c := 2) (by norm_num)
+    exact ⟨h.1, h.2.2⟩
 
 /-- The exponent in the three-circles interpolation used for reciprocal bounds. -/
 def reciprocalExponent : ℝ :=

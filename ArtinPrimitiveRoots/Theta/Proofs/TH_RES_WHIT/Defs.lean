@@ -49,7 +49,11 @@ structure ContinuedEis {P : CoverPackage D S H A} {G : GlobalDatum P}
     MeasurableSet Pd → ∀ ν : F, ∃ Ψ : ℂ → ℂ, AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) ε) ∧
       Ψ (1 / 6) = torusCoeff P theta g Pd ν ∧
       ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 → Ψ s = (s - 1 / 6) * torusCoeff P (E s) g Pd ν
-  theta_cont : ∀ g h, Continuous fun y : S.FSˣ => theta (g * P.tc.aS y * h)
+  /-- Continuity in the S-torus parameter of every iterated right archimedean root derivative at
+  the identity; order `0` is torus continuity. Strengthened by the theta-iface amendment: separate
+  torus continuity and root smoothness do not control the mixed derivatives in `Rderiv`. -/
+  theta_cont : ∀ (g h : P.tc.G) (n : ℕ), Continuous fun y : S.FSˣ =>
+    iteratedFDeriv ℝ n (fun x : InfinitePlace F → ℂ => theta (g * P.tc.aS y * h * nInf P x)) 0
   archSmooth : ∀ (g : P.tc.G) (w : InfinitePlace F),
     ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
       (fun z : ℂ => theta (g * P.tc.nS

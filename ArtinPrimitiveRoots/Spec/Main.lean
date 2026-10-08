@@ -38,7 +38,7 @@ variable (F : Type) [Field F] [NumberField F]
 variable [IsTotallyComplex F]
 /-- `spec:free-level`: some principal congruence subgroup acts freely. -/
 theorem exists_free_congr : ∃ N : Ideal (𝓞 F), N ≠ ⊥ ∧ FreeAction F (congrSubgroup F N) := by
-  sorry
+  exact R11_free_level (F := F)
 
 /-- `spec:cusps-finite` (boundary to P-EIS / P-REDUCTION): finitely many cusps; the map
 `⊔_i Γ_{σ_i}\Γ → B(F)\SL(2,F)`, `(i, Γ_{σ_i}γ) ↦ B(F)σ_i⁻¹γ`, is a bijection. -/
