@@ -2021,6 +2021,189 @@ theorem exists_finLocalAlgebra (D : FieldData F) (H : HilbertData F) (v : FinPla
     rw [nbar_sec]
     exact wupper_sec x
 
+private theorem exists_smallCocycle_trivial
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) :
+    ∃ m0 : ℕ, 1 ≤ m0 ∧ ∀ m : ℕ, m0 ≤ m →
+      ∀ g h : GL (Fin 2) (v.adicCompletion F),
+        (∀ i j, ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+          (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m) →
+        (∀ i j, ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+          (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m) →
+        kpCocycle D H v g h = 1 := by
+  classical
+  obtain ⟨m0, hm0, hpowers⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  refine ⟨m0, hm0, ?_⟩
+  intro m hm g h hg hh
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let r := WithZero.exp (-(m : ℤ))
+  have hr : r < 1 := by
+    dsimp [r]
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    omega
+  have hrr : r ≤ WithZero.exp (-(m0 : ℤ)) := by
+    apply WithZero.exp_le_exp.mpr
+    omega
+  have small_pairing (u : Kˣ) (hu : V ((u : K) - 1) ≤ r) (b : Kˣ) :
+      kpPairing D H v u b = 1 := by
+    change muThree D (H.hilb v u b) = 1
+    rw [H.sixth_power v u b (hpowers u (hu.trans hrr)), muThree_one D]
+  have right_pairing (u : Kˣ) (hu : ∀ b, kpPairing D H v u b = 1) (b : Kˣ) :
+      kpPairing D H v b u = 1 := by
+    have hs := kpPairing_skew D H v b u
+    rw [hu b, mul_one] at hs
+    exact hs
+  have entries (k : GL (Fin 2) K)
+      (hk : ∀ i j, ((k : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m) :
+      V ((k : Matrix (Fin 2) (Fin 2) K) 0 0 - 1) ≤ r ∧
+      V ((k : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ r ∧
+      V ((k : Matrix (Fin 2) (Fin 2) K) 0 1) ≤ r ∧
+      V ((k : Matrix (Fin 2) (Fin 2) K) 1 0) ≤ r := by
+    change ∀ i j, V ((k : Matrix (Fin 2) (Fin 2) K) i j -
+      (1 : Matrix (Fin 2) (Fin 2) K) i j) ≤ r at hk
+    exact ⟨by simpa using hk 0 0, by simpa using hk 1 1,
+      by simpa using hk 0 1, by simpa using hk 1 0⟩
+  have near_one_bound (x : K) (hx : V (x - 1) ≤ r) : V x ≤ 1 := by
+    have hb := V.map_add_le (hx.trans hr.le) (show V (1 : K) ≤ 1 by simp)
+    simpa only [sub_add_cancel] using hb
+  have near_one_ne (x : K) (hx : V (x - 1) ≤ r) : x ≠ 0 := by
+    intro hx0
+    have hb : (1 : WithZero (Multiplicative ℤ)) ≤ r := by
+      simpa [hx0] using hx
+    exact (not_le_of_gt hr) hb
+  have small_mul {x y : K} (hx : V x ≤ r) (hy : V y ≤ 1) : V (x * y) ≤ r := by
+    rw [map_mul]
+    simpa only [mul_one] using mul_le_mul' hx hy
+  have det_small (k : GL (Fin 2) K)
+      (hk : ∀ i j, ((k : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m) :
+      V ((detU v k : K) - 1) ≤ r := by
+    obtain ⟨ha, hd, hb, hc⟩ := entries k hk
+    have heq : (detU v k : K) - 1 =
+        ((k : Matrix (Fin 2) (Fin 2) K) 0 0 - 1) *
+          (k : Matrix (Fin 2) (Fin 2) K) 1 1 +
+        ((k : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) -
+          (k : Matrix (Fin 2) (Fin 2) K) 0 1 *
+            (k : Matrix (Fin 2) (Fin 2) K) 1 0 := by
+      change (k : Matrix (Fin 2) (Fin 2) K).det - 1 = _
+      rw [Matrix.det_fin_two]
+      ring
+    rw [heq]
+    exact V.map_sub_le
+      (V.map_add_le (small_mul ha (near_one_bound _ hd)) hd)
+      (small_mul hb (hc.trans hr.le))
+  obtain ⟨hga, hgd, hgb, hgc⟩ := entries g hg
+  obtain ⟨hha, hhd, hhb, hhc⟩ := entries h hh
+  have product_d_small :
+      V (((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ r := by
+    have heq : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1 =
+        (g : Matrix (Fin 2) (Fin 2) K) 1 0 * (h : Matrix (Fin 2) (Fin 2) K) 0 1 +
+        ((g : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) *
+          (h : Matrix (Fin 2) (Fin 2) K) 1 1 +
+        ((h : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) := by
+      rw [matrix_mul_22]
+      ring
+    rw [heq]
+    exact V.map_add_le (V.map_add_le (small_mul hgc (hhb.trans hr.le))
+      (small_mul hgd (near_one_bound _ hhd))) hhd
+  let Gd : Kˣ := Units.mk0 _ (near_one_ne _ hgd)
+  let Ha : Kˣ := Units.mk0 _ (near_one_ne _ hha)
+  have hGd : ∀ b, kpPairing D H v Gd b = 1 := small_pairing Gd hgd
+  have hHa : ∀ b, kpPairing D H v Ha b = 1 := small_pairing Ha hha
+  have hdg : ∀ b, kpPairing D H v (detU v g) b = 1 :=
+    small_pairing (detU v g) (det_small g hg)
+  have hdh : ∀ b, kpPairing D H v (detU v h) b = 1 :=
+    small_pairing (detU v h) (det_small h hh)
+  have hσ : kpCocycle D H v g h =
+      kpPairing D H v (xU v (g * h) / xU v h) (xU v (g * h) / xU v g) := by
+    rw [kpCocycle_pairing, hdg, mul_one]
+    have heq : xU v (g * h) / (xU v h * detU v g) =
+        (xU v (g * h) / xU v h) / detU v g := div_mul_eq_div_div _ _ _
+    rw [heq, kpPairing_div_left, hdg, inv_one, mul_one]
+  rw [hσ]
+  by_cases hcg : (g : Matrix (Fin 2) (Fin 2) K) 1 0 = 0
+  · have hxgh : xU v (g * h) = Gd * xU v h := by
+      apply Units.ext
+      change xEntry v (g * h) = (g : Matrix (Fin 2) (Fin 2) K) 1 1 * xEntry v h
+      by_cases hch : (h : Matrix (Fin 2) (Fin 2) K) 1 0 = 0
+      · have hcgh : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 0 = 0 := by
+          simp [matrix_mul_21, hcg, hch]
+        rw [xEntry, if_neg (by simpa using hcgh), matrix_mul_22]
+        simp [xEntry, hcg, hch]
+      · have hcgh : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 0 ≠ 0 := by
+          rw [matrix_mul_21, hcg, zero_mul, zero_add]
+          exact mul_ne_zero (near_one_ne _ hgd) hch
+        rw [xEntry, if_pos hcgh, matrix_mul_21]
+        simp [xEntry, hch, hcg]
+    have hfirst : xU v (g * h) / xU v h = Gd := by rw [hxgh]; simp
+    rw [hfirst]
+    exact hGd _
+  by_cases hch : (h : Matrix (Fin 2) (Fin 2) K) 1 0 = 0
+  · have hcgh : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 0 ≠ 0 := by
+      rw [matrix_mul_21, hch, mul_zero, add_zero]
+      exact mul_ne_zero hcg (near_one_ne _ hha)
+    have hxgh : xU v (g * h) = xU v g * Ha := by
+      apply Units.ext
+      change xEntry v (g * h) = xEntry v g * (h : Matrix (Fin 2) (Fin 2) K) 0 0
+      rw [xEntry, if_pos hcgh, matrix_mul_21]
+      simp [xEntry, hcg, hch]
+    have hsecond : xU v (g * h) / xU v g = Ha := by rw [hxgh, mul_div_cancel_left]
+    rw [hsecond]
+    exact right_pairing Ha hHa _
+  by_cases hcgh : ((g * h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 0 = 0
+  · have hX : ∀ b, kpPairing D H v (xU v (g * h)) b = 1 := by
+      apply small_pairing
+      simpa [xU, xEntry, hcgh] using product_d_small
+    have hrel := xU_diag_relation_10 v g h hch hcgh
+    have hrel' : -xU v g * detU v h = xU v (g * h) * xU v h := by
+      simpa only [neg_mul] using hrel.symm
+    have hZ : xU v g = -(xU v (g * h) * xU v h / detU v h) := by
+      apply neg_injective
+      simpa only [neg_neg] using (eq_div_iff_mul_eq').2 hrel'
+    have hYZ : kpPairing D H v (xU v h) (xU v g) = 1 := by
+      rw [hZ, kpPairing_neg_mul_right, kpPairing_div_right, kpPairing_mul_right,
+        right_pairing _ hX, kpPairing_self, right_pairing _ hdh]
+      simp
+    simp only [kpPairing_div_left, kpPairing_div_right, hX,
+      right_pairing _ hX, hYZ, mul_one, inv_one]
+  · let X : Kˣ := xU v g * Ha / xU v (g * h)
+    let Y : Kˣ := Gd * xU v h / xU v (g * h)
+    have hrow : (xU v g : K) * (Ha : K) + (Gd : K) * (xU v h : K) =
+        (xU v (g * h) : K) := by
+      change xEntry v g * (h : Matrix (Fin 2) (Fin 2) K) 0 0 +
+        (g : Matrix (Fin 2) (Fin 2) K) 1 1 * xEntry v h = xEntry v (g * h)
+      rw [xEntry, if_pos hcg, xEntry, if_pos hch, xEntry, if_pos hcgh]
+      exact (matrix_mul_21 v g h).symm
+    have hsum : (X : K) + (Y : K) = 1 := by
+      change (xU v g : K) * (Ha : K) / (xU v (g * h) : K) +
+        (Gd : K) * (xU v h : K) / (xU v (g * h) : K) = 1
+      rw [← add_div, hrow, div_self (xU v (g * h)).ne_zero]
+    have hXY : (1 : K) - (X : K) = (Y : K) := by
+      linear_combination -hsum
+    have hXne : (1 : K) - (X : K) ≠ 0 := by rw [hXY]; exact Y.ne_zero
+    have hYunit : Y = Units.mk0 _ hXne := by apply Units.ext; exact hXY.symm
+    have hStein := kpPairing_st D H v hSt X hXne
+    rw [← hYunit] at hStein
+    have hXform : X = Ha * (xU v g / xU v (g * h)) := by
+      dsimp only [X]
+      simp only [div_eq_mul_inv]
+      ac_rfl
+    rw [hXform, kpPairing_mul_left, hHa, one_mul] at hStein
+    dsimp only [Y] at hStein
+    have hYform : Gd * xU v h / xU v (g * h) =
+        Gd * (xU v h / xU v (g * h)) := mul_div_assoc _ _ _
+    rw [hYform, kpPairing_mul_right, right_pairing _ hGd, one_mul] at hStein
+    have hZX : xU v g / xU v (g * h) = (xU v (g * h) / xU v g)⁻¹ := by simp
+    have hYX : xU v h / xU v (g * h) = (xU v (g * h) / xU v h)⁻¹ := by simp
+    have hinv (a b : Kˣ) : kpPairing D H v a⁻¹ b⁻¹ = kpPairing D H v a b := by
+      rw [kpPairing_inv_left, map_inv, inv_inv]
+    rw [hZX, hYX, hinv] at hStein
+    have hs := kpPairing_skew D H v (xU v (g * h) / xU v h) (xU v (g * h) / xU v g)
+    simpa only [hStein, mul_one] using hs
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
