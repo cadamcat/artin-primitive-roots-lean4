@@ -96,4 +96,21 @@ theorem qs_nq0_generator_is_sinteger
       (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr hc.2.1)).symm
     _ ≤ 1 := WithZero.exp_le_one_iff.mpr hnonpos
 
+/-- Multiplying the local parameter by a square preserves the quadratic character. -/
+theorem qs_nq0_quadratic_local_square_correction
+    (D : FieldData K) (H : HilbertData K) (v : FinPlace K)
+    (a b : (v.adicCompletion K)ˣ) :
+    qsNQQuadraticLocal D H v (a * b ^ 2) = qsNQQuadraticLocal D H v a := by
+  rw [pow_two, (qs_nq0_quadratic_local_mul_div D H v a (b * b)).1,
+    (qs_nq0_quadratic_local_mul_div D H v b b).1]
+  apply MonoidHom.ext
+  intro u
+  change qsNQQuadraticLocal D H v a u *
+    (qsNQQuadraticLocal D H v b u * qsNQQuadraticLocal D H v b u) =
+      qsNQQuadraticLocal D H v a u
+  have hsq : qsNQQuadraticLocal D H v b u ^ 2 = 1 :=
+    congrArg (fun f : (v.adicCompletion K)ˣ →* ℂˣ => f u)
+      (qs_nq0_quadratic_local_square D H v b)
+  rw [← pow_two, hsq, mul_one]
+
 end ArtinPrimitiveRoots.A2
