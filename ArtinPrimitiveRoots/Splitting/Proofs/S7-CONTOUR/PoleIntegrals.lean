@@ -120,4 +120,32 @@ theorem vertical_simple_pole_integral (A : ℂ) (a b x : ℝ) (hx : x ≠ 0) :
       simpa only [neg_sq] using
         horizontal_simple_pole_integral (A / Complex.I) a b (-x) (neg_ne_zero.mpr hx)
 
+/-- The counterclockwise rectangle integral of a simple pole surrounding zero. -/
+theorem rectangle_simple_pole_integral (A : ℂ) (a b c d : ℝ)
+    (ha : a < 0) (hb : 0 < b) (hc : c < 0) (hd : 0 < d) :
+    (∫ t : ℝ in a..b, A / ((t : ℂ) + (c : ℂ) * Complex.I)) -
+      (∫ t : ℝ in a..b, A / ((t : ℂ) + (d : ℂ) * Complex.I)) +
+      Complex.I * (∫ t : ℝ in c..d, A / ((b : ℂ) + (t : ℂ) * Complex.I)) -
+      Complex.I * (∫ t : ℝ in c..d, A / ((a : ℂ) + (t : ℂ) * Complex.I)) =
+      2 * (Real.pi : ℂ) * Complex.I * A := by
+  rw [horizontal_simple_pole_integral A a b c hc.ne,
+    horizontal_simple_pole_integral A a b d hd.ne',
+    vertical_simple_pole_integral A c d b hb.ne',
+    vertical_simple_pole_integral A c d a ha.ne]
+  have hrec₁ := Real.arctan_inv_of_pos (div_pos_of_neg_of_neg ha hc)
+  have hrec₂ := Real.arctan_inv_of_pos (div_pos hb hd)
+  have hrec₃ := Real.arctan_inv_of_neg (div_neg_of_pos_of_neg hb hc)
+  have hrec₄ := Real.arctan_inv_of_neg (div_neg_of_neg_of_pos ha hd)
+  rw [inv_div] at hrec₁ hrec₂ hrec₃ hrec₄
+  have hAI : A / Complex.I = -(A * Complex.I) := by
+    simp [div_eq_mul_inv, Complex.inv_I]
+  simp only [hAI, div_neg, Real.arctan_neg]
+  rw [hrec₁, hrec₂, hrec₃, hrec₄]
+  rw [add_comm (d ^ 2) (b ^ 2), add_comm (c ^ 2) (b ^ 2),
+    add_comm (d ^ 2) (a ^ 2), add_comm (c ^ 2) (a ^ 2)]
+  push_cast
+  ring_nf
+  <;> simp [Complex.I_sq]
+  <;> ring
+
 end ArtinPrimitiveRoots.Proofs.s7sol_mellin
