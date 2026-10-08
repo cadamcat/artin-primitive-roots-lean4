@@ -269,7 +269,19 @@ theorem finite_character_condition_of_zero_arch
     ∀ r : S.R,
       (∏ v : S.Sf,
         A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y.1 v)) = 1 := by
-  sorry
+  intro r
+  have harchprod :
+      (∏ w : InfinitePlace F, A1.psiC (w.embedding (r : F) * y.2 w)) = 1 := by
+    apply Finset.prod_eq_one
+    intro w hw
+    rw [harch w]
+    simp [A1.psiC]
+  have h := hann r
+  change (∏ v : S.Sf,
+      A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y.1 v)) *
+    ∏ w : InfinitePlace F, A1.psiC (w.embedding (r : F) * y.2 w) = 1 at h
+  rw [harchprod, mul_one] at h
+  exact h
 
 /-- Density and the open kernels of the finite characters extend triviality from `R` to all
 finite S-components. -/
