@@ -2312,6 +2312,7 @@ private theorem specIdentify_weak_resolvent
   change E.M x = E.M (faInverse E lam (E.M.adjoint g))
   rw [← hAx, hinverse]
 
+set_option maxHeartbeats 1000000 in
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
@@ -2330,7 +2331,128 @@ theorem E6_identify (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (∃ x : E.V, (∀ᵐ z ∂(volX F), z ∈ D → E.M x z = w z) ∧
       (∀ᵐ z ∂(volX F), z ∈ D → E.Gr x z = fullGradient F w z) ∧
       E.M x = faResolvent E (spectralParameter F s) (-gL2)) := by
-  sorry
+  classical
+  let w : X F → ℂ := fun z => eisSeries F Γ σ s z - eisSeed F Γ σ τ s z
+  obtain ⟨B, hB, hBounds⟩ := specIdentify_global_bound Γ D hD σ τ cut s hs
+  have hdist : ‖s - (5 / 2 : ℂ)‖ < 1 / 2 := by
+    simpa only [Metric.mem_ball, dist_eq_norm] using hs
+  have hReAbs : |s.re - (5 / 2 : ℝ)| < 1 / 2 := by
+    have h := Complex.abs_re_le_norm (s - (5 / 2 : ℂ))
+    have heq : (s - (5 / 2 : ℂ)).re = s.re - (5 / 2 : ℝ) := by norm_num
+    rw [heq] at h
+    exact h.trans_lt hdist
+  have hImAbs : |s.im| < 1 / 2 := by
+    have h := Complex.abs_im_le_norm (s - (5 / 2 : ℂ))
+    have heq : (s - (5 / 2 : ℂ)).im = s.im := by norm_num
+    rw [heq] at h
+    exact h.trans_lt hdist
+  have hRe : 2 < s.re := by
+    have hlo := (abs_lt.mp hReAbs).1
+    linarith only [hlo]
+  have hhalf : 1 / 2 < s.re := by linarith only [hRe]
+  have hE3 := E3_eis_smooth Γ σ s hhalf
+  have hE5 := E5_seed Γ D hD σ cut.A₀ cut.A cut.A₀_ge cut.A_ge
+    cut.separation τ cut.cutoff
+  have hSeedSmooth : IsSmoothX F (eisSeed F Γ σ τ s) := (hE5.2.1 s).1
+  have hSmooth : IsSmoothX F w := by
+    have hsmE : ContDiffOn ℝ ∞ (fun p => eisSeries F Γ σ s (ptX F p)) (posSet F) := hE3.1
+    have hsmS : ContDiffOn ℝ ∞ (fun p => eisSeed F Γ σ τ s (ptX F p)) (posSet F) :=
+      hSeedSmooth
+    exact hsmE.sub hsmS
+  have hInv : IsGammaInvariant F Γ w := by
+    intro γ hγ z
+    change eisSeries F Γ σ s (γ • z) - eisSeed F Γ σ τ s (γ • z) =
+      eisSeries F Γ σ s z - eisSeed F Γ σ τ s z
+    rw [(E2_eis_converge Γ σ).2.1 s hhalf γ hγ z, (hE5.2.1 s).2.1 γ hγ z]
+  obtain ⟨hWmeas, hGradMeas⟩ := specIdentify_smooth_meas D w hSmooth
+  obtain ⟨x, hMx, hGrx⟩ := specIdentify_bounded_smooth_energy_repr Γ D hD E e
+    w B hB hInv hSmooth (fun z => (hBounds z).1) (fun z => (hBounds z).2)
+    hWmeas hGradMeas
+  have hLapSub (f g : X F → ℂ) (hf : IsSmoothX F f)
+      (hg : IsSmoothX F g) (z : X F) :
+      totalLap F (fun y => f y - g y) z = totalLap F f z - totalLap F g z := by
+    unfold totalLap
+    rw [← Finset.sum_sub_distrib]
+    apply Finset.sum_congr rfl
+    intro v hv
+    let p : Coord F := coordsX F z
+    have hp : p ∈ posSet F := by
+      intro v'
+      change 0 < height (z v')
+      rw [height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos (z v')
+    have hfOn : ContDiffOn ℝ ∞ (fun p' => f (ptX F p')) (posSet F) := hf
+    have hgOn : ContDiffOn ℝ ∞ (fun p' => g (ptX F p')) (posSet F) := hg
+    have hfAt := hfOn.contDiffAt ((specIdentify_posSet_open (F := F)).mem_nhds hp)
+    have hgAt := hgOn.contDiffAt ((specIdentify_posSet_open (F := F)).mem_nhds hp)
+    have hfDiff := hfAt.differentiableAt (by norm_num)
+    have hgDiff := hgAt.differentiableAt (by norm_num)
+    have hf2 : ContDiffAt ℝ 2 (fun p' => f (ptX F p')) p := hfAt.of_le (by simp)
+    have hg2 : ContDiffAt ℝ 2 (fun p' => g (ptX F p')) p := hgAt.of_le (by simp)
+    have hFd : fderiv ℝ (fun p' => f (ptX F p') - g (ptX F p')) p =
+        fderiv ℝ (fun p' => f (ptX F p')) p - fderiv ℝ (fun p' => g (ptX F p')) p :=
+      fderiv_fun_sub hfDiff hgDiff
+    have hD2 : iteratedFDeriv ℝ 2 (fun p' => f (ptX F p') - g (ptX F p')) p =
+        iteratedFDeriv ℝ 2 (fun p' => f (ptX F p')) p -
+          iteratedFDeriv ℝ 2 (fun p' => g (ptX F p')) p :=
+      fun_iteratedFDeriv_sub_apply hf2 hg2
+    dsimp only [p] at hFd hD2
+    simp only [partialLap, Function.comp_def]
+    rw [hFd]
+    simp only [hD2, ContinuousLinearMap.sub_apply, ContinuousMultilinearMap.sub_apply]
+    ring
+  have hEigen (z : X F) : totalLap F (eisSeries F Γ σ s) z =
+      spectralParameter F s * eisSeries F Γ σ s z := by
+    simp only [totalLap, hE3.2.1, Finset.sum_const, Finset.card_univ,
+      nsmul_eq_mul, spectralParameter, placeCount, Complex.ofReal_natCast, mul_assoc]
+  have hPointPDE (z : X F) : totalLap F w z - spectralParameter F s * w z =
+      -eisSeedDefect F Γ σ τ s z := by
+    change totalLap F (fun y => eisSeries F Γ σ s y - eisSeed F Γ σ τ s y) z -
+      spectralParameter F s * (eisSeries F Γ σ s z - eisSeed F Γ σ τ s z) = _
+    rw [hLapSub _ _ hE3.1 hSeedSmooth z, hEigen z]
+    have hSeedPDE := (hE5.2.1 s).2.2 z
+    linear_combination -hSeedPDE
+  have hNeg : ∀ᵐ z ∂(volX F), z ∈ D → (-gL2) z = -(gL2 z) :=
+    (ae_restrict_iff'₀ hD.nullMeasurableSet).1 (Lp.coeFn_neg gL2)
+  have hPDE : ∀ᵐ z ∂(volX F), z ∈ D →
+      totalLap F w z - spectralParameter F s * w z = (-gL2) z := by
+    filter_upwards [hg, hNeg] with z hsource hneg
+    intro hzD
+    calc
+      totalLap F w z - spectralParameter F s * w z =
+          -eisSeedDefect F Γ σ τ s z := hPointPDE z
+      _ = -(gL2 z) := congrArg Neg.neg (hsource hzD).symm
+      _ = (-gL2) z := (hneg hzD).symm
+  have hr : 0 < placeCount F := by
+    unfold placeCount
+    exact_mod_cast (Fintype.card_pos_iff.mpr
+      (inferInstance : Nonempty (InfinitePlace F)))
+  have hsqRe : (s ^ 2).re = s.re ^ 2 - s.im ^ 2 := by
+    rw [pow_two, Complex.mul_re]
+    ring
+  have hinnerRe : (1 - 4 * s ^ 2).re = 1 - 4 * s.re ^ 2 + 4 * s.im ^ 2 := by
+    rw [Complex.sub_re, Complex.mul_re]
+    norm_num
+    rw [hsqRe]
+    ring
+  have hparamRe : (spectralParameter F s).re =
+      placeCount F * (1 - 4 * s.re ^ 2 + 4 * s.im ^ 2) := by
+    change ((placeCount F : ℂ) * (1 - 4 * s ^ 2)).re = _
+    rw [Complex.mul_re]
+    simp only [Complex.ofReal_re, Complex.ofReal_im, zero_mul, sub_zero, hinnerRe]
+  have hImSq : s.im ^ 2 < (1 / 2 : ℝ) ^ 2 := by
+    have h := abs_lt.mp hImAbs
+    nlinarith only [h.1, h.2]
+  have hparamNeg : (spectralParameter F s).re < 0 := by
+    rw [hparamRe]
+    have hq : 1 - 4 * s.re ^ 2 + 4 * s.im ^ 2 < 0 := by
+      nlinarith only [hRe, hImSq, sq_nonneg (s.re - 2)]
+    exact mul_neg_of_pos_of_neg hr hq
+  have hOff : ¬ ((spectralParameter F s).im = 0 ∧ 0 ≤ (spectralParameter F s).re) :=
+    fun h => (not_le_of_gt hparamNeg) h.2
+  have hResolve := specIdentify_weak_resolvent Γ D hD E e w hSmooth hInv x
+    (-gL2) (spectralParameter F s) hOff hMx hGrx hPDE
+  exact ⟨⟨B, hB, hBounds⟩, x, hMx, hGrx, hResolve⟩
 
 /-- The compact energy error and strict Fredholm threshold used by E7. The `sol-gate-spec`
 correction makes the compact coercivity input and its center threshold explicit. -/
