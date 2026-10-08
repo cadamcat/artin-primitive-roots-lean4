@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.LocalInt
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.LocalIwasawa
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.FiniteApproximation
 import Mathlib.Topology.Algebra.Module.FiniteDimension
 import Mathlib.Analysis.Normed.Ring.Finite
 
