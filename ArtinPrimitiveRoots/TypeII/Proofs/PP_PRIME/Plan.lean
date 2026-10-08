@@ -1194,6 +1194,364 @@ private theorem ppPrimeFinset_real_interval_card_le
         _ ≤ b - a + 1 := by linarith
     simpa using hR
 
+/-- Smoothing an integer interval changes the Mangoldt polynomial only near its endpoints. -/
+theorem ppPrimePositiveCutoff_mangoldt_smoothing_error
+    {N : ℝ} (hN : 4 ≤ N) (q : ℕ)
+    (χ : DirichletCharacter ℂ q) (t : ℝ) (m u : ℕ)
+    (hm : N ≤ (m : ℝ)) (hmu : (m : ℝ) ≤ u)
+    (hu : (u : ℝ) ≤ 2 * N) (δ : ℝ)
+    (hδ : 0 < δ) (hδsmall : δ ≤ 1 / 4) :
+    ‖mangoldtIntervalPolynomial N q χ t (Set.Icc m u) -
+      smoothedMangoldtPolynomial N q χ t
+        (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N) δ)‖ ≤
+      20 * (δ + 1 / N) * Real.log (3 * N) := by
+  let a : ℝ := (m : ℝ) / N
+  let b : ℝ := (u : ℝ) / N
+  let g : ℝ → ℝ := ppPrimePositiveCutoff a b δ
+  let S : Finset ℕ := (Finset.range (⌊3 * N⌋₊ + 1)).filter (fun n : ℕ => 1 ≤ n)
+  let Q : ℕ → Prop := fun n => m ≤ n ∧ n ≤ u
+  let W : ℕ → ℂ := fun n =>
+    (ArithmeticFunction.vonMangoldt n : ℂ) * χ (n : ZMod q) *
+      Complex.exp ((-1 + Complex.I * t) * Real.log (n : ℝ))
+  let E : ℕ → ℂ := fun n =>
+    (if Q n then W n else 0) - W n * (g ((n : ℝ) / N) : ℂ)
+  have hNpos : 0 < N := lt_of_lt_of_le (by norm_num) hN
+  have hfinite :
+      (Finset.range (⌊2 * N⌋₊ + 1)).filter
+        (fun n : ℕ => 1 ≤ n ∧ N ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N ∧ n ∈ Set.Icc m u) =
+        S.filter Q := by
+    ext n
+    simp only [Finset.mem_filter, Finset.mem_range, S, Q]
+    constructor
+    · rintro ⟨_, hnpos, hnN, hn2, hIcc⟩
+      rcases Set.mem_Icc.mp hIcc with ⟨hmn, hnu⟩
+      have hn3 : (n : ℝ) ≤ 3 * N := by nlinarith [hn2, hN]
+      have hnfloor : n ≤ ⌊3 * N⌋₊ := Nat.le_floor hn3
+      exact ⟨⟨by omega, hnpos⟩, ⟨hmn, hnu⟩⟩
+    · rintro ⟨⟨_, hnpos⟩, ⟨hmn, hnu⟩⟩
+      have hnN : N ≤ (n : ℝ) := le_trans hm (by exact_mod_cast hmn)
+      have hn2 : (n : ℝ) ≤ 2 * N := le_trans (by exact_mod_cast hnu) hu
+      have hnfloor : n ≤ ⌊2 * N⌋₊ := Nat.le_floor hn2
+      exact ⟨by omega, hnpos, hnN, hn2, Set.mem_Icc.mpr ⟨hmn, hnu⟩⟩
+  have hsharp : mangoldtIntervalPolynomial N q χ t (Set.Icc m u) =
+      ∑ n ∈ S.filter Q, W n := by
+    unfold mangoldtIntervalPolynomial
+    simpa [W] using congrArg (fun F : Finset ℕ => ∑ n ∈ F, W n) hfinite
+  have hsmooth : smoothedMangoldtPolynomial N q χ t g =
+      ∑ n ∈ S, W n * (g ((n : ℝ) / N) : ℂ) := rfl
+  have hsum :
+    mangoldtIntervalPolynomial N q χ t (Set.Icc m u) -
+        smoothedMangoldtPolynomial N q χ t g = ∑ n ∈ S, E n := by
+    rw [hsharp, hsmooth, Finset.sum_filter, Finset.sum_sub_distrib]
+  have ha1 : 1 ≤ a := by
+    dsimp [a]
+    exact (one_le_div hNpos).2 hm
+  have hab : a ≤ b := by
+    dsimp [a, b]
+    exact div_le_div_of_nonneg_right (by exact_mod_cast hmu) hNpos.le
+  have hb2 : b ≤ 2 := by
+    dsimp [b]
+    exact (div_le_iff₀ hNpos).2 hu
+  have haPos : 0 < a := lt_of_lt_of_le (by norm_num) ha1
+  have hbPos : 0 < b := lt_of_lt_of_le haPos hab
+  have hcutBounds (w : ℝ) : 0 ≤ g w ∧ g w ≤ 1 := by
+    simpa [g] using ppPrimePositiveCutoff_nonneg_le_one a b δ w
+  have hcutSupport : Function.support g ⊆
+      Set.Icc (a * Real.exp (-δ)) (b * Real.exp δ) := by
+    exact ppPrimePositiveCutoff_support a b δ haPos hbPos hδ
+  have hNa : N * a = (m : ℝ) := by
+    dsimp [a]
+    field_simp
+  have hNb : N * b = (u : ℝ) := by
+    dsimp [b]
+    field_simp
+  have hinteriorQ (n : ℕ) (hlo : a ≤ (n : ℝ) / N)
+      (hhi : (n : ℝ) / N ≤ b) : Q n := by
+    constructor
+    · have hmul := (div_le_iff₀ hNpos).1 (by simpa [a] using hlo)
+      have hcancel : (n : ℝ) / N * N = (n : ℝ) := by field_simp
+      rw [hcancel] at hmul
+      exact_mod_cast hmul
+    · have hmul := (div_le_iff₀ hNpos).1 (by simpa [b] using hhi)
+      have hcancel : (u : ℝ) / N * N = (u : ℝ) := by field_simp
+      rw [hcancel] at hmul
+      exact_mod_cast hmul
+  have hQinterior (n : ℕ) (hq : Q n) :
+      a ≤ (n : ℝ) / N ∧ (n : ℝ) / N ≤ b := by
+    rcases hq with ⟨hmn, hnu⟩
+    constructor
+    · dsimp [a]
+      exact div_le_div_of_nonneg_right (by exact_mod_cast hmn) hNpos.le
+    · dsimp [b]
+      exact div_le_div_of_nonneg_right (by exact_mod_cast hnu) hNpos.le
+  let Bad : ℕ → Prop := fun n =>
+    (a * Real.exp (-δ) ≤ (n : ℝ) / N ∧ (n : ℝ) / N ≤ a) ∨
+      (b ≤ (n : ℝ) / N ∧ (n : ℝ) / N ≤ b * Real.exp δ)
+  have hEzero_or_bad (n : ℕ) : E n = 0 ∨ Bad n := by
+    by_cases hq : Q n
+    · have hplateau : g ((n : ℝ) / N) = 1 := by
+        exact ppPrimePositiveCutoff_eq_one a b δ ((n : ℝ) / N)
+          haPos hδ (hQinterior n hq).1 (hQinterior n hq).2
+      left
+      simp [E, hq, hplateau]
+    · by_cases hg : g ((n : ℝ) / N) = 0
+      · left
+        simp [E, hq, hg]
+      · right
+        have hwSupport : (n : ℝ) / N ∈ Function.support g := by
+          simpa only [Function.mem_support] using hg
+        rcases hcutSupport hwSupport with ⟨hlo, hhi⟩
+        by_cases hleft : (n : ℝ) / N < a
+        · exact Or.inl ⟨hlo, hleft.le⟩
+        · by_cases hright : b < (n : ℝ) / N
+          · exact Or.inr ⟨hright.le, hhi⟩
+          · have hQ' := hinteriorQ n (le_of_not_gt hleft) (le_of_not_gt hright)
+            exact False.elim (hq hQ')
+  have hδabs : |δ| ≤ 1 := by
+    rw [abs_of_pos hδ]
+    linarith [hδsmall]
+  have hExpNegAbs : |Real.exp (-δ) - 1| ≤ 2 * δ := by
+    have h := Real.abs_exp_sub_one_le (x := -δ)
+      (by simpa [abs_neg] using hδabs)
+    simpa [abs_of_pos hδ] using h
+  have hExpPosAbs : |Real.exp δ - 1| ≤ 2 * δ := by
+    simpa [abs_of_pos hδ] using Real.abs_exp_sub_one_le hδabs
+  have hExpNegOne : Real.exp (-δ) ≤ 1 :=
+    Real.exp_le_one_iff.mpr (by linarith)
+  have hExpPosOne : 1 ≤ Real.exp δ := by
+    rw [← Real.exp_zero]
+    exact Real.exp_le_exp.mpr hδ.le
+  have hGapNeg : 0 ≤ 1 - Real.exp (-δ) ∧ 1 - Real.exp (-δ) ≤ 2 * δ := by
+    constructor
+    · exact sub_nonneg.mpr hExpNegOne
+    · have h := (abs_le.mp hExpNegAbs).1
+      linarith
+  have hGapPos : 0 ≤ Real.exp δ - 1 ∧ Real.exp δ - 1 ≤ 2 * δ := by
+    constructor
+    · linarith
+    · have h := (abs_le.mp hExpPosAbs).2
+      linarith
+  have hExpHalf : (1 / 2 : ℝ) ≤ Real.exp (-δ) := by
+    have h := (abs_le.mp hExpNegAbs).1
+    have hsmall : 2 * δ ≤ 1 / 2 := by linarith [hδsmall]
+    linarith
+  let Lower : Finset ℕ := S.filter (fun n =>
+    a * Real.exp (-δ) ≤ (n : ℝ) / N ∧ (n : ℝ) / N ≤ a)
+  let Upper : Finset ℕ := S.filter (fun n =>
+    b ≤ (n : ℝ) / N ∧ (n : ℝ) / N ≤ b * Real.exp δ)
+  let BadFin : Finset ℕ := S.filter Bad
+  have hLowerOrder : (m : ℝ) * Real.exp (-δ) ≤ (m : ℝ) := by
+    calc
+      (m : ℝ) * Real.exp (-δ) ≤ (m : ℝ) * 1 :=
+        mul_le_mul_of_nonneg_left hExpNegOne (Nat.cast_nonneg m)
+      _ = (m : ℝ) := by ring
+  have hUpperOrder : (u : ℝ) ≤ (u : ℝ) * Real.exp δ := by
+    calc
+      (u : ℝ) = (u : ℝ) * 1 := by ring
+      _ ≤ (u : ℝ) * Real.exp δ :=
+        mul_le_mul_of_nonneg_left hExpPosOne (Nat.cast_nonneg u)
+  have hLowerCard : (Lower.card : ℝ) ≤
+      (m : ℝ) - (m : ℝ) * Real.exp (-δ) + 1 := by
+    apply ppPrimeFinset_real_interval_card_le Lower
+      ((m : ℝ) * Real.exp (-δ)) (m : ℝ) hLowerOrder
+    intro n hn
+    rcases Finset.mem_filter.mp hn with ⟨hnS, hnBounds⟩
+    rcases hnBounds with ⟨hnLow, hnHigh⟩
+    constructor
+    · have hscale := mul_le_mul_of_nonneg_left hnLow hNpos.le
+      have hleft : N * (a * Real.exp (-δ)) = (m : ℝ) * Real.exp (-δ) := by
+        rw [← mul_assoc, hNa]
+      calc
+        (m : ℝ) * Real.exp (-δ) = N * (a * Real.exp (-δ)) := hleft.symm
+        _ ≤ N * ((n : ℝ) / N) := hscale
+        _ = (n : ℝ) := by field_simp
+    · calc
+        (n : ℝ) = N * ((n : ℝ) / N) := by field_simp
+        _ ≤ N * a := mul_le_mul_of_nonneg_left hnHigh hNpos.le
+        _ = (m : ℝ) := hNa
+  have hUpperCard : (Upper.card : ℝ) ≤
+      (u : ℝ) * Real.exp δ - (u : ℝ) + 1 := by
+    apply ppPrimeFinset_real_interval_card_le Upper
+      (u : ℝ) ((u : ℝ) * Real.exp δ) hUpperOrder
+    intro n hn
+    rcases Finset.mem_filter.mp hn with ⟨hnS, hnBounds⟩
+    rcases hnBounds with ⟨hnLow, hnHigh⟩
+    constructor
+    · calc
+        (u : ℝ) = N * b := hNb.symm
+        _ ≤ N * ((n : ℝ) / N) := mul_le_mul_of_nonneg_left hnLow hNpos.le
+        _ = (n : ℝ) := by field_simp
+    · have hscale := mul_le_mul_of_nonneg_left hnHigh hNpos.le
+      have hright : N * (b * Real.exp δ) = (u : ℝ) * Real.exp δ := by
+        rw [← mul_assoc, hNb]
+      calc
+        (n : ℝ) = N * ((n : ℝ) / N) := by field_simp
+        _ ≤ N * (b * Real.exp δ) := hscale
+        _ = (u : ℝ) * Real.exp δ := hright
+  have hmle2 : (m : ℝ) ≤ 2 * N := le_trans (by exact_mod_cast hmu) hu
+  have hule2 : (u : ℝ) ≤ 2 * N := by exact_mod_cast hu
+  have hLowerLength : (m : ℝ) - (m : ℝ) * Real.exp (-δ) ≤ 4 * N * δ := by
+    calc
+      (m : ℝ) - (m : ℝ) * Real.exp (-δ) =
+          (m : ℝ) * (1 - Real.exp (-δ)) := by ring
+      _ ≤ (2 * N) * (1 - Real.exp (-δ)) :=
+        mul_le_mul_of_nonneg_right hmle2 hGapNeg.1
+      _ ≤ (2 * N) * (2 * δ) :=
+        mul_le_mul_of_nonneg_left hGapNeg.2 (by positivity)
+      _ = 4 * N * δ := by ring
+  have hUpperLength : (u : ℝ) * Real.exp δ - (u : ℝ) ≤ 4 * N * δ := by
+    calc
+      (u : ℝ) * Real.exp δ - (u : ℝ) =
+          (u : ℝ) * (Real.exp δ - 1) := by ring
+      _ ≤ (2 * N) * (Real.exp δ - 1) :=
+        mul_le_mul_of_nonneg_right hule2 hGapPos.1
+      _ ≤ (2 * N) * (2 * δ) :=
+        mul_le_mul_of_nonneg_left hGapPos.2 (by positivity)
+      _ = 4 * N * δ := by ring
+  have hLowerCard' : (Lower.card : ℝ) ≤ 4 * N * δ + 1 := by
+    calc
+      (Lower.card : ℝ) ≤ (m : ℝ) - (m : ℝ) * Real.exp (-δ) + 1 := hLowerCard
+      _ ≤ 4 * N * δ + 1 := by linarith [hLowerLength]
+  have hUpperCard' : (Upper.card : ℝ) ≤ 4 * N * δ + 1 := by
+    calc
+      (Upper.card : ℝ) ≤ (u : ℝ) * Real.exp δ - (u : ℝ) + 1 := hUpperCard
+      _ ≤ 4 * N * δ + 1 := by linarith [hUpperLength]
+  have hBadSub : BadFin ⊆ Lower ∪ Upper := by
+    intro n hn
+    simp only [BadFin, Lower, Upper, Finset.mem_filter, Finset.mem_union, Bad] at hn ⊢
+    rcases hn with ⟨hnS, hbad⟩
+    rcases hbad with hlow | hhigh
+    · exact Or.inl ⟨hnS, hlow⟩
+    · exact Or.inr ⟨hnS, hhigh⟩
+  have hBadCardNat : BadFin.card ≤ Lower.card + Upper.card := by
+    calc
+      BadFin.card ≤ (Lower ∪ Upper).card := Finset.card_le_card hBadSub
+      _ ≤ Lower.card + Upper.card := Finset.card_union_le _ _
+  have hBadCard : (BadFin.card : ℝ) ≤ 8 * N * δ + 2 := by
+    calc
+      (BadFin.card : ℝ) ≤ (Lower.card : ℝ) + (Upper.card : ℝ) := by
+        exact_mod_cast hBadCardNat
+      _ ≤ (4 * N * δ + 1) + (4 * N * δ + 1) := add_le_add hLowerCard' hUpperCard'
+      _ = 8 * N * δ + 2 := by ring
+  have hlog3nonneg : 0 ≤ Real.log (3 * N) :=
+    Real.log_nonneg (by nlinarith [hN])
+  have htermnonneg : 0 ≤ (2 / N) * Real.log (3 * N) :=
+    mul_nonneg (by positivity) hlog3nonneg
+  have hWbound (n : ℕ) (hnS : n ∈ S) (hbad : Bad n) :
+      ‖W n‖ ≤ (2 / N) * Real.log (3 * N) := by
+    rcases Finset.mem_filter.mp hnS with ⟨hnrange, hnpos⟩
+    have hnFloor : n ≤ ⌊3 * N⌋₊ := by
+      have hlt := Finset.mem_range.mp hnrange
+      omega
+    have hnUpper : (n : ℝ) ≤ 3 * N :=
+      le_trans (Nat.cast_le.mpr hnFloor) (Nat.floor_le (by positivity))
+    have hnPosReal : 0 < (n : ℝ) := by exact_mod_cast (lt_of_lt_of_le (by norm_num) hnpos)
+    have hhalf : (1 / 2 : ℝ) ≤ (n : ℝ) / N := by
+      rcases hbad with hlow | hhigh
+      · have hfirst : (1 / 2 : ℝ) ≤ a * Real.exp (-δ) := by
+          calc
+            (1 / 2 : ℝ) ≤ Real.exp (-δ) := hExpHalf
+            _ = 1 * Real.exp (-δ) := by ring
+            _ ≤ a * Real.exp (-δ) :=
+              mul_le_mul_of_nonneg_right ha1 (Real.exp_nonneg _)
+        exact le_trans hfirst hlow.1
+      · have hb1 : 1 ≤ b := le_trans ha1 hab
+        exact le_trans (by linarith) hhigh.1
+    have hnHalf : N / 2 ≤ (n : ℝ) := by
+      have h := (le_div_iff₀ hNpos).1 hhalf
+      nlinarith
+    have hlogn : Real.log (n : ℝ) ≤ Real.log (3 * N) :=
+      Real.log_le_log hnPosReal hnUpper
+    have hLambdaNonneg : 0 ≤ ArithmeticFunction.vonMangoldt n :=
+      ArithmeticFunction.vonMangoldt_nonneg
+    have hLambda : ‖(ArithmeticFunction.vonMangoldt n : ℂ)‖ ≤ Real.log (3 * N) := by
+      rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hLambdaNonneg]
+      exact (ArithmeticFunction.vonMangoldt_le_log).trans hlogn
+    have hχ : ‖χ (n : ZMod q)‖ ≤ 1 := χ.norm_le_one _
+    have hphaseRe :
+        (((-1 + Complex.I * t) * Real.log (n : ℝ) : ℂ).re) = -Real.log (n : ℝ) := by
+      simp only [Complex.mul_re, Complex.add_re, Complex.ofReal_re, Complex.ofReal_im,
+        Complex.I_re, Complex.I_im, zero_mul, mul_zero, sub_zero, one_mul]
+      norm_num
+    have hphase :
+        ‖Complex.exp ((-1 + Complex.I * t) * Real.log (n : ℝ))‖ = (n : ℝ)⁻¹ := by
+      rw [Complex.norm_exp, hphaseRe, Real.exp_neg, Real.exp_log hnPosReal]
+    have hinv : (n : ℝ)⁻¹ ≤ 2 / N := by
+      calc
+        (n : ℝ)⁻¹ ≤ (N / 2)⁻¹ :=
+          (inv_le_inv₀ hnPosReal (by positivity)).2 hnHalf
+        _ = 2 / N := by field_simp
+    have hfirst : ‖(ArithmeticFunction.vonMangoldt n : ℂ)‖ *
+        ‖χ (n : ZMod q)‖ ≤ Real.log (3 * N) * 1 :=
+      mul_le_mul hLambda hχ (norm_nonneg _) hlog3nonneg
+    calc
+      ‖W n‖ = ‖(ArithmeticFunction.vonMangoldt n : ℂ)‖ *
+          ‖χ (n : ZMod q)‖ *
+            ‖Complex.exp ((-1 + Complex.I * t) * Real.log (n : ℝ))‖ := by
+          simp [W, mul_assoc]
+      _ ≤ Real.log (3 * N) * 1 * (2 / N) := by
+          calc
+            _ ≤ (Real.log (3 * N) * 1) *
+                ‖Complex.exp ((-1 + Complex.I * t) * Real.log (n : ℝ))‖ :=
+              mul_le_mul_of_nonneg_right hfirst (norm_nonneg _)
+            _ ≤ (Real.log (3 * N) * 1) * (2 / N) :=
+              mul_le_mul_of_nonneg_left (by rw [hphase]; exact hinv) (by positivity)
+      _ = (2 / N) * Real.log (3 * N) := by ring
+  have hEbound (n : ℕ) (hnS : n ∈ S) (hbad : Bad n) :
+      ‖E n‖ ≤ (2 / N) * Real.log (3 * N) := by
+    by_cases hq : Q n
+    · have hplateau : g ((n : ℝ) / N) = 1 := by
+        exact ppPrimePositiveCutoff_eq_one a b δ ((n : ℝ) / N)
+          haPos hδ (hQinterior n hq).1 (hQinterior n hq).2
+      have hzero : E n = 0 := by simp [E, hq, hplateau]
+      rw [hzero]
+      simpa using htermnonneg
+    · have hg := hcutBounds ((n : ℝ) / N)
+      have hgnorm : ‖(g ((n : ℝ) / N) : ℂ)‖ = g ((n : ℝ) / N) := by
+        simp [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hg.1]
+      simp only [E, if_neg hq, zero_sub, norm_neg, norm_mul]
+      rw [hgnorm]
+      calc
+        ‖W n‖ * g ((n : ℝ) / N) ≤
+            ((2 / N) * Real.log (3 * N)) * g ((n : ℝ) / N) :=
+          mul_le_mul_of_nonneg_right (hWbound n hnS hbad) hg.1
+        _ ≤ ((2 / N) * Real.log (3 * N)) * 1 :=
+          mul_le_mul_of_nonneg_left hg.2 htermnonneg
+        _ = (2 / N) * Real.log (3 * N) := by ring
+  have hsumNorm : ‖∑ n ∈ S, E n‖ ≤ (BadFin.card : ℝ) *
+      ((2 / N) * Real.log (3 * N)) := by
+    calc
+      ‖∑ n ∈ S, E n‖ ≤ ∑ n ∈ S, ‖E n‖ := norm_sum_le _ _
+      _ ≤ ∑ n ∈ S, if Bad n then (2 / N) * Real.log (3 * N) else 0 := by
+        apply Finset.sum_le_sum
+        intro n hnS
+        by_cases hbad : Bad n
+        · simpa [hbad] using hEbound n hnS hbad
+        · have hzero := (hEzero_or_bad n).resolve_right hbad
+          simp [hbad, hzero]
+      _ = (BadFin.card : ℝ) * ((2 / N) * Real.log (3 * N)) := by
+        rw [← Finset.sum_filter]
+        simp [BadFin, smul_eq_mul]
+  rw [hsum]
+  calc
+    ‖∑ n ∈ S, E n‖ ≤ (BadFin.card : ℝ) * ((2 / N) * Real.log (3 * N)) := hsumNorm
+    _ ≤ (8 * N * δ + 2) * ((2 / N) * Real.log (3 * N)) :=
+      mul_le_mul_of_nonneg_right hBadCard htermnonneg
+    _ = (16 * δ + 4 / N) * Real.log (3 * N) := by
+      field_simp [ne_of_gt hNpos]
+      ring
+    _ ≤ 20 * (δ + 1 / N) * Real.log (3 * N) := by
+      apply mul_le_mul_of_nonneg_right _ hlog3nonneg
+      have hδ4 : 16 * δ ≤ 20 * δ := by nlinarith [hδ.le]
+      have hInvNonneg : 0 ≤ (1 / N : ℝ) := by positivity
+      have hInv4 : 4 / N ≤ 20 / N := by
+        have h := mul_le_mul_of_nonneg_right (by norm_num : (4 : ℝ) ≤ 20) hInvNonneg
+        simpa [div_eq_mul_inv] using h
+      calc
+        16 * δ + 4 / N ≤ 20 * δ + 4 / N := add_le_add hδ4 le_rfl
+        _ ≤ 20 * δ + 20 / N := add_le_add le_rfl hInv4
+        _ = 20 * (δ + 1 / N) := by ring
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
