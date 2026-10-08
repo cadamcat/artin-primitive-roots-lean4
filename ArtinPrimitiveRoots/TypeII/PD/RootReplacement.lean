@@ -2,11 +2,14 @@ import ArtinPrimitiveRoots.TypeII.PD.Physical
 import ArtinPrimitiveRoots.TypeII.Proofs.pd2.MoebiusSeries
 import ArtinPrimitiveRoots.TypeII.Proofs.pd2.SL2Fibers
 import ArtinPrimitiveRoots.TypeII.Proofs.pd2.SL2CRT
+import ArtinPrimitiveRoots.TypeII.Proofs.pd2.GridIntegration
+import ArtinPrimitiveRoots.TypeII.Proofs.pd2.BoundedIntegral
 import Mathlib.Topology.MetricSpace.HausdorffDistance
 import Mathlib.Topology.Instances.Int
 import Mathlib.Topology.Order.IntermediateValue
 import Mathlib.MeasureTheory.Constructions.Polish.Basic
 import Mathlib.MeasureTheory.Integral.Prod
+import Mathlib.Data.Nat.Choose.Bounds
 set_option autoImplicit false
 set_option linter.unusedVariables false
 
@@ -9024,6 +9027,1994 @@ private lemma rootReplacement_mass_transfer {K : ℕ} (F : PDFix K) (S : PDScale
         (abs_nonneg _) (norm_nonneg _)
     _ = (∑ γ ∈ hΓ.toFinset, ‖pathCoefficient F S γ‖) * E := (Finset.sum_mul _ _ _).symm
     _ ≤ Cmass * E := mul_le_mul_of_nonneg_right hmass hE
+
+private def rootRegion : Set (ℝ × ℝ × ℝ) :=
+  Set.Icc 1 16 ×ˢ (Set.Icc 1 2 ×ˢ Set.Icc 0 1)
+
+private lemma pathArch_indicator {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (w : ArchRoot) :
+    pathArch F S w γ = if ∀ j, envBox S w (γ j).1 ∧ envGood F S w (γ j) then 1 else 0 := by
+  classical
+  by_cases h : ∀ j, envBox S w (γ j).1 ∧ envGood F S w (γ j)
+  · simp [pathArch, h]
+  · obtain ⟨j, hj⟩ := not_forall.mp h
+    simp only [pathArch, if_neg h]
+    exact Finset.prod_eq_zero (Finset.mem_univ j) (if_neg hj)
+
+private lemma path_nonconstant_visit {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (C : Set (ℝ × ℝ × ℝ))
+    (h : IsNonconstantOn (fun y => ∀ j,
+      envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j).1 ∧
+      envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j)) C) :
+    ∃ j : Fin (pathLength S.x + 1), IsNonconstantOn (fun y =>
+      envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j).1 ∧
+      envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j)) C := by
+  rcases h with ⟨y, hy, y', hy', hyes, hno⟩
+  obtain ⟨j, hj⟩ := not_forall.mp hno
+  exact ⟨j, y, hy, y', hy', hyes j, hj⟩
+
+private lemma path_boundary_card {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (h E : ℝ)
+    (hvisit : ∀ j : Fin (pathLength S.x + 1),
+      (((gridIndices h).filter fun k => IsNonconstantOn (fun y =>
+        envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j).1 ∧
+        envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j)) (gridCube h k)).card : ℝ) ≤ E) :
+    (((gridIndices h).filter fun k => IsNonconstantOn (fun y => ∀ j,
+      envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j).1 ∧
+      envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j)) (gridCube h k)).card : ℝ) ≤
+      ((pathLength S.x : ℝ) + 1) * E := by
+  classical
+  let B := fun j : Fin (pathLength S.x + 1) => (gridIndices h).filter fun k =>
+    IsNonconstantOn (fun y => envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j).1 ∧
+      envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j)) (gridCube h k)
+  have hsub : ((gridIndices h).filter fun k => IsNonconstantOn (fun y => ∀ j,
+      envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j).1 ∧
+      envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j)) (gridCube h k)) ⊆
+      Finset.univ.biUnion B := by
+    intro k hk
+    obtain ⟨j, hj⟩ := path_nonconstant_visit F S γ _ (Finset.mem_filter.mp hk).2
+    exact Finset.mem_biUnion.mpr ⟨j, Finset.mem_univ j,
+      Finset.mem_filter.mpr ⟨(Finset.mem_filter.mp hk).1, hj⟩⟩
+  have hc := (Finset.card_le_card hsub).trans (Finset.card_biUnion_le :
+    (Finset.univ.biUnion B).card ≤ ∑ j, (B j).card)
+  have hcR : (((gridIndices h).filter fun k => IsNonconstantOn (fun y => ∀ j,
+      envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j).1 ∧
+      envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (γ j)) (gridCube h k)).card : ℝ) ≤
+      ∑ j, ((B j).card : ℝ) := by exact_mod_cast hc
+  calc
+    _ ≤ ∑ j, ((B j).card : ℝ) := hcR
+    _ ≤ ∑ _j : Fin (pathLength S.x + 1), E := Finset.sum_le_sum (fun j _ => hvisit j)
+    _ = _ := by simp [Finset.sum_const, nsmul_eq_mul, Nat.cast_add]
+
+private lemma grid_indices_card (h : ℝ) (hh : 0 < h) (hh1 : h ≤ 1) :
+    ((gridIndices h).card : ℝ) ≤ 1000 / h ^ 3 := by
+  have h1 := grid_axis_card_le h 1 16 hh hh1 (by norm_num)
+  have h2 := grid_axis_card_le h 1 2 hh hh1 (by norm_num)
+  have h3 := grid_axis_card_le h 0 1 hh hh1 (by norm_num)
+  norm_num only at h1 h2 h3
+  simp only [zero_div, Int.floor_zero, zero_sub] at h3
+  have hprod := mul_le_mul h1 (mul_le_mul h2 h3 (Nat.cast_nonneg _)
+    (by positivity : 0 ≤ (5 : ℝ) / h))
+    (mul_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (by positivity : 0 ≤ (19 : ℝ) / h)
+  change (((Finset.Icc (⌊1 / h⌋ - 1) ⌈16 / h⌉).card : ℝ) *
+    (((Finset.Icc (⌊1 / h⌋ - 1) ⌈2 / h⌉).card : ℝ) *
+    ((Finset.Icc (-1) ⌈1 / h⌉).card : ℝ))) ≤ _ at hprod
+  have heq : ((gridIndices h).card : ℝ) =
+      ((Finset.Icc (⌊1 / h⌋ - 1) ⌈16 / h⌉).card : ℝ) *
+      (((Finset.Icc (⌊1 / h⌋ - 1) ⌈2 / h⌉).card : ℝ) *
+      ((Finset.Icc (-1) ⌈1 / h⌉).card : ℝ)) := by
+    simp only [gridIndices, Finset.card_product, Nat.cast_mul]
+  rw [heq]
+  calc
+    _ ≤ (19 / h) * ((5 / h) * (5 / h)) := hprod
+    _ ≤ 1000 / h ^ 3 := by field_simp; nlinarith
+
+private def gridOwner (h : ℝ) (y : ℝ × ℝ × ℝ) : ℤ × ℤ × ℤ :=
+  (⌊y.1 / h⌋, ⌊y.2.1 / h⌋, ⌊y.2.2 / h⌋)
+
+private lemma grid_owner_cube (h : ℝ) (hh : 0 < h) (y : ℝ × ℝ × ℝ) :
+    y ∈ gridCube h (gridOwner h y) := by
+  have hf (a : ℝ) : (⌊a / h⌋ : ℝ) * h ≤ a ∧ a ≤ ((⌊a / h⌋ : ℝ) + 1) * h := by
+    constructor
+    · exact (le_div_iff₀ hh).1 (Int.floor_le _)
+    · exact (div_le_iff₀ hh).1 (Int.lt_floor_add_one _).le
+  exact ⟨(hf y.1).1, (hf y.1).2, (hf y.2.1).1, (hf y.2.1).2,
+    (hf y.2.2).1, (hf y.2.2).2⟩
+
+private lemma grid_owner_mem (h : ℝ) (hh : 0 < h) (y : ℝ × ℝ × ℝ) (hy : y ∈ rootRegion) :
+    gridOwner h y ∈ gridIndices h := by
+  have hf (l r a : ℝ) (ha : a ∈ Set.Icc l r) :
+      ⌊a / h⌋ ∈ Finset.Icc (⌊l / h⌋ - 1) ⌈r / h⌉ := by
+    apply Finset.mem_Icc.mpr
+    have hl := Int.floor_mono (div_le_div_of_nonneg_right ha.1 hh.le)
+    have hr : ⌊a / h⌋ ≤ ⌈r / h⌉ :=
+      (Int.floor_mono (div_le_div_of_nonneg_right ha.2 hh.le)).trans (Int.floor_le_ceil _)
+    exact ⟨by omega, hr⟩
+  exact Finset.mem_product.mpr ⟨hf 1 16 y.1 hy.1,
+    Finset.mem_product.mpr ⟨hf 1 2 y.2.1 hy.2.1, by simpa [gridOwner] using hf 0 1 y.2.2 hy.2.2⟩⟩
+
+private def gridCell (h : ℝ) (k : ℤ × ℤ × ℤ) : Set (ℝ × ℝ × ℝ) :=
+  {y | y ∈ rootRegion ∧ gridOwner h y = k}
+
+private lemma grid_cell_subset_cube (h : ℝ) (hh : 0 < h) (k : ℤ × ℤ × ℤ) :
+    gridCell h k ⊆ gridCube h k := by
+  intro y hy
+  rw [← hy.2]
+  exact grid_owner_cube h hh y
+
+private lemma grid_cell_partition (h : ℝ) (hh : 0 < h) (y : ℝ × ℝ × ℝ)
+    (hy : y ∈ rootRegion) (f : (ℤ × ℤ × ℤ) → ℝ) :
+    (∑ k ∈ gridIndices h, if y ∈ gridCell h k then f k else 0) = f (gridOwner h y) := by
+  classical
+  rw [Finset.sum_eq_single (gridOwner h y)]
+  · simp [gridCell, hy]
+  · intro k hk hne
+    simp [gridCell, Ne.symm hne]
+  · exact fun hnot => (hnot (grid_owner_mem h hh y hy)).elim
+
+private lemma grid_owner_of_upper_ne (h a : ℝ) (hh : 0 < h) (k : ℤ)
+    (hl : (k : ℝ) * h ≤ a) (hr : a ≤ ((k : ℝ) + 1) * h)
+    (hne : a ≠ ((k : ℝ) + 1) * h) : ⌊a / h⌋ = k := by
+  apply Int.floor_eq_iff.mpr
+  exact ⟨(le_div_iff₀ hh).2 hl, (div_lt_iff₀ hh).2 (lt_of_le_of_ne hr hne)⟩
+
+private lemma grid_cell_excluded_face (h : ℝ) (hh : 0 < h) (k : ℤ × ℤ × ℤ)
+    (y : ℝ × ℝ × ℝ) (hy : y ∈ rootRegion) (hc : y ∈ gridCube h k)
+    (hne : y ∉ gridCell h k) :
+    y.1 = ((k.1 : ℝ) + 1) * h ∨ y.2.1 = ((k.2.1 : ℝ) + 1) * h ∨
+      y.2.2 = ((k.2.2 : ℝ) + 1) * h := by
+  by_contra hf
+  push_neg at hf
+  have h1 := grid_owner_of_upper_ne h y.1 hh k.1 hc.1 hc.2.1 hf.1
+  have h2 := grid_owner_of_upper_ne h y.2.1 hh k.2.1 hc.2.2.1 hc.2.2.2.1 hf.2.1
+  have h3 := grid_owner_of_upper_ne h y.2.2 hh k.2.2 hc.2.2.2.2.1 hc.2.2.2.2.2 hf.2.2
+  apply hne
+  exact ⟨hy, by simp [gridOwner, h1, h2, h3]⟩
+
+private lemma grid_closed_clipped (h : ℝ) (k : ℤ × ℤ × ℤ) (y : ℝ × ℝ × ℝ) :
+    y ∈ rootRegion ∧ y ∈ gridCube h k ↔
+      y.1 ∈ Set.Icc (max 1 ((k.1 : ℝ) * h)) (min 16 (((k.1 : ℝ) + 1) * h)) ∧
+      y.2.1 ∈ Set.Icc (max 1 ((k.2.1 : ℝ) * h)) (min 2 (((k.2.1 : ℝ) + 1) * h)) ∧
+      y.2.2 ∈ Set.Icc (max 0 ((k.2.2 : ℝ) * h)) (min 1 (((k.2.2 : ℝ) + 1) * h)) := by
+  simp only [rootRegion, Set.mem_prod, Set.mem_Icc, gridCube, Set.mem_setOf_eq,
+    max_le_iff, le_min_iff]
+  tauto
+
+private lemma finite_cell_discrepancy {α : Type*} (A C D₁ D₂ D₃ : Set α)
+    (hA : A.Finite) (hC : C ⊆ A) (hfaces : A \ C ⊆ D₁ ∪ D₂ ∪ D₃)
+    (hD₁ : D₁.Finite) (hD₂ : D₂.Finite) (hD₃ : D₃.Finite)
+    (E M : ℝ) (hE : 0 ≤ E) (hcount : |(A.ncard : ℝ) - M| ≤ E)
+    (hf₁ : (D₁.ncard : ℝ) ≤ E) (hf₂ : (D₂.ncard : ℝ) ≤ E)
+    (hf₃ : (D₃.ncard : ℝ) ≤ E) : |(C.ncard : ℝ) - M| ≤ 4 * E := by
+  have hcard := Set.ncard_le_ncard hfaces ((hD₁.union hD₂).union hD₃)
+  have hsum := (Set.ncard_union_le (D₁ ∪ D₂) D₃).trans
+    (Nat.add_le_add_right (Set.ncard_union_le D₁ D₂) D₃.ncard)
+  have hcR : ((A \ C).ncard : ℝ) ≤ (D₁.ncard : ℝ) + (D₂.ncard : ℝ) + (D₃.ncard : ℝ) := by
+    exact_mod_cast hcard.trans hsum
+  have heqR : ((A \ C).ncard : ℝ) + (C.ncard : ℝ) = (A.ncard : ℝ) := by
+    exact_mod_cast Set.ncard_sdiff_add_ncard_of_subset hC hA
+  have hd : |(C.ncard : ℝ) - (A.ncard : ℝ)| ≤ 3 * E := by
+    rw [← heqR]
+    have he : (C.ncard : ℝ) - (((A \ C).ncard : ℝ) + (C.ncard : ℝ)) =
+        -((A \ C).ncard : ℝ) := by ring
+    rw [he, abs_neg, abs_of_nonneg (Nat.cast_nonneg _)]
+    linarith
+  calc
+    _ = |((C.ncard : ℝ) - (A.ncard : ℝ)) + ((A.ncard : ℝ) - M)| := by congr 1; ring
+    _ ≤ |(C.ncard : ℝ) - (A.ncard : ℝ)| + |(A.ncard : ℝ) - M| := abs_add_le _ _
+    _ ≤ 4 * E := by linarith
+
+private def gridCellVolume (h : ℝ) (k : ℤ × ℤ × ℤ) : ℝ :=
+  max 0 (min (((k.1 : ℝ) + 1) * h) 16 - max ((k.1 : ℝ) * h) 1) *
+    max 0 (min (((k.2.1 : ℝ) + 1) * h) 2 - max ((k.2.1 : ℝ) * h) 1) *
+    max 0 (min (((k.2.2 : ℝ) + 1) * h) 1 - max ((k.2.2 : ℝ) * h) 0)
+
+private lemma grid_cell_volume_bound (h : ℝ) (hh : 0 ≤ h) (k : ℤ × ℤ × ℤ) :
+    0 ≤ gridCellVolume h k ∧ gridCellVolume h k ≤ h ^ 3 := by
+  have haxis (a b : ℝ) (i : ℤ) :
+      0 ≤ max 0 (min (((i : ℝ) + 1) * h) b - max ((i : ℝ) * h) a) ∧
+      max 0 (min (((i : ℝ) + 1) * h) b - max ((i : ℝ) * h) a) ≤ h := by
+    constructor
+    · exact le_max_left _ _
+    · apply max_le hh
+      have hl := le_max_left ((i : ℝ) * h) a
+      have hr := min_le_left (((i : ℝ) + 1) * h) b
+      nlinarith
+  have h1 := haxis 1 16 k.1
+  have h2 := haxis 1 2 k.2.1
+  have h3 := haxis 0 1 k.2.2
+  refine ⟨mul_nonneg (mul_nonneg h1.1 h2.1) h3.1, ?_⟩
+  have hm := mul_le_mul (mul_le_mul h1.2 h2.2 h2.1 hh) h3.2 h3.1 (mul_nonneg hh hh)
+  simpa only [gridCellVolume, pow_succ, pow_zero, one_mul] using hm
+
+private lemma physicalFunctional_indicator {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V)
+    (R : ArchRoot → LineData S.x K F.a → Prop) :
+    physicalFunctional F S (fun w ℓ => if R w ℓ then 1 else 0) =
+      (S.U * S.V)⁻¹ * (Set.ncard {uv : ℕ × ℕ | IsOmegaPosition S uv.1 uv.2 ∧
+        R (rootArch uv.1 uv.2) (rootLines F S uv.1 uv.2)} : ℝ) := by
+  classical
+  let A : Set (ℕ × ℕ) := {uv | IsOmegaPosition S uv.1 uv.2 ∧
+    R (rootArch uv.1 uv.2) (rootLines F S uv.1 uv.2)}
+  have hA : A.Finite := (omega_positions_finite S hU hV).subset (fun _ h => h.1)
+  have hfilter : (omega_positions_finite S hU hV).toFinset.filter (fun uv =>
+      R (rootArch uv.1 uv.2) (rootLines F S uv.1 uv.2)) = hA.toFinset := by
+    ext uv
+    simp only [Finset.mem_filter, Set.Finite.mem_toFinset, A, Set.mem_setOf_eq]
+  rw [physicalFunctional_eq_sum F S hU hV]
+  change _ = (S.U * S.V)⁻¹ * (A.ncard : ℝ)
+  rw [← Finset.sum_filter, hfilter, Finset.sum_const, nsmul_eq_mul, mul_one,
+    Set.ncard_eq_toFinset_card A hA]
+
+private def archRectangle (S : PDScale) (l₁ r₁ l₂ r₂ l₃ r₃ : ℝ) (w : ArchRoot) : Prop :=
+  l₁ ≤ w.u / S.U ∧ w.u / S.U ≤ r₁ ∧ l₂ ≤ w.v / S.V ∧ w.v / S.V ≤ r₂ ∧
+    l₃ ≤ w.r ∧ w.r ≤ r₃
+
+private def assignedLines {K : ℕ} (F : PDFix K) (S : PDScale) (J : Finset ℕ)
+    (hJ : J ⊆ markedPrimes S.x K F.a) (lam : (p : ℕ) → Fin (p + 1))
+    (ℓ : LineData S.x K F.a) : Prop :=
+  ∀ p (hp : p ∈ J), ℓ ⟨p, hJ hp⟩ = lam p
+
+private lemma rectangle_root_count {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a)
+    (lam : (p : ℕ) → Fin (p + 1)) (l₁ r₁ l₂ r₂ l₃ r₃ : ℝ)
+    (hl₁ : 1 ≤ l₁) (hr₁ : r₁ ≤ 16) (hl₂ : 1 ≤ l₂) (hr₂ : r₂ ≤ 2)
+    (hl₃ : 0 ≤ l₃) (hr₃ : r₃ ≤ 1) :
+    physicalFunctional F S (fun w ℓ =>
+      if archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ w ∧ assignedLines F S J hJ lam ℓ then 1 else 0) =
+      (S.U * S.V)⁻¹ * (Set.ncard {uv : ℕ × ℕ | Nat.Coprime uv.1 uv.2 ∧ 0 < uv.1 ∧
+        l₁ ≤ (uv.1 : ℝ) / S.U ∧ (uv.1 : ℝ) / S.U ≤ r₁ ∧
+        l₂ ≤ (uv.2 : ℝ) / S.V ∧ (uv.2 : ℝ) / S.V ≤ r₂ ∧
+        l₃ ≤ (rootC uv.1 uv.2 : ℝ) / uv.1 ∧ (rootC uv.1 uv.2 : ℝ) / uv.1 ≤ r₃ ∧
+        ∀ p ∈ J, kernelLine p uv.1 (rootC uv.1 uv.2) = lam p} : ℝ) := by
+  trans (S.U * S.V)⁻¹ * (Set.ncard {uv : ℕ × ℕ | IsOmegaPosition S uv.1 uv.2 ∧
+    archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ (rootArch uv.1 uv.2) ∧
+      assignedLines F S J hJ lam (rootLines F S uv.1 uv.2)} : ℝ)
+  · convert physicalFunctional_indicator F S hU hV (fun w ℓ =>
+      archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ w ∧ assignedLines F S J hJ lam ℓ) using 1
+    congr 1
+    funext w ℓ
+    by_cases h : archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ w ∧ assignedLines F S J hJ lam ℓ <;> simp [h]
+  apply congrArg (fun A : Set (ℕ × ℕ) => (S.U * S.V)⁻¹ * (A.ncard : ℝ))
+  ext uv
+  change (IsOmegaPosition S uv.1 uv.2 ∧
+    (l₁ ≤ (uv.1 : ℝ) / S.U ∧ (uv.1 : ℝ) / S.U ≤ r₁ ∧
+      l₂ ≤ (uv.2 : ℝ) / S.V ∧ (uv.2 : ℝ) / S.V ≤ r₂ ∧
+      l₃ ≤ (rootC uv.1 uv.2 : ℝ) / uv.1 ∧ (rootC uv.1 uv.2 : ℝ) / uv.1 ≤ r₃) ∧
+    ∀ p ∈ J, kernelLine p uv.1 (rootC uv.1 uv.2) = lam p) ↔ _
+  constructor
+  · rintro ⟨hω, hb, hlines⟩
+    have hu : 0 < uv.1 := by exact_mod_cast hU.trans_le hω.2.1
+    exact ⟨hω.1, hu, hb.1, hb.2.1, hb.2.2.1, hb.2.2.2.1,
+      hb.2.2.2.2.1, hb.2.2.2.2.2, hlines⟩
+  · rintro ⟨hcop, hu, h1, h2, h3, h4, h5, h6, hlines⟩
+    refine ⟨⟨hcop, ?_, ?_, ?_, ?_⟩, ⟨h1, h2, h3, h4, h5, h6⟩, hlines⟩
+    · have hm := (le_div_iff₀ hU).1 (hl₁.trans h1)
+      simpa only [one_mul] using hm
+    · exact (div_le_iff₀ hU).1 (h2.trans hr₁)
+    · have hm := (le_div_iff₀ hV).1 (hl₂.trans h3)
+      simpa only [one_mul] using hm
+    · exact (div_le_iff₀ hV).1 (h4.trans hr₂)
+
+private lemma line_assignment_average {K : ℕ} (F : PDFix K) (S : PDScale)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a)
+    (lam : (p : ℕ) → Fin (p + 1)) :
+    (lineAverage (fun ℓ : LineData S.x K F.a =>
+      ((if assignedLines F S J hJ lam ℓ then 1 else 0 : ℝ) : ℂ))).re =
+      ∏ p ∈ J, ((p : ℝ) + 1)⁻¹ := by
+  classical
+  let T := (markedPrimes S.x K F.a).attach.filter fun p => p.1 ∈ J
+  let X := fun p : {p : ℕ // p ∈ markedPrimes S.x K F.a} =>
+    fun z : Fin (p.1 + 1) => if z = lam p.1 then (1 : ℝ) else 0
+  have hpoint (ℓ : LineData S.x K F.a) :
+      (if assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) = ∏ p ∈ T, X p (ℓ p) := by
+    by_cases h : assignedLines F S J hJ lam ℓ
+    · simp only [if_pos h]
+      symm
+      apply Finset.prod_eq_one
+      intro p hp
+      simp only [X, if_pos (h p.1 (Finset.mem_filter.mp hp).2)]
+    · obtain ⟨p, hp⟩ := not_forall.mp h
+      obtain ⟨hp, hneq⟩ := not_forall.mp hp
+      simp only [if_neg h]
+      symm
+      apply Finset.prod_eq_zero (i := ⟨p, hJ hp⟩)
+      · simp [T, hp]
+      · exact if_neg hneq
+  have hmean := congrArg Complex.re (lineAverage_prod T X)
+  simp only [Complex.ofReal_re] at hmean
+  simp_rw [← hpoint] at hmean
+  rw [hmean]
+  have heach (p : {p : ℕ // p ∈ markedPrimes S.x K F.a}) :
+      (∑ z : Fin (p.1 + 1), X p z) = 1 := by
+    simp [X]
+  simp_rw [heach, mul_one]
+  have hT : T = J.attach.map ⟨fun p => ⟨p.1, hJ p.2⟩, by
+    intro a b h
+    exact Subtype.ext (congrArg (fun p : {p : ℕ // p ∈ markedPrimes S.x K F.a} => p.1) h)⟩ := by
+    ext p
+    simp only [T, Finset.mem_filter, Finset.mem_attach, true_and]
+    constructor
+    · intro hp
+      exact Finset.mem_map.mpr ⟨⟨p.1, hp⟩, Finset.mem_attach _ _, Subtype.ext rfl⟩
+    · intro hp
+      obtain ⟨a, _, ha⟩ := Finset.mem_map.mp hp
+      have heq := congrArg (fun p : {p : ℕ // p ∈ markedPrimes S.x K F.a} => p.1) ha
+      change a.1 = p.1 at heq
+      exact heq ▸ a.2
+  rw [hT, Finset.prod_map]
+  exact Finset.prod_attach J (fun p : ℕ => ((p : ℝ) + 1)⁻¹)
+
+private lemma normalized_arch_rectangle (S : PDScale) (hU : 0 < S.U) (hV : 0 < S.V)
+    (l₁ r₁ l₂ r₂ l₃ r₃ u v r : ℝ) :
+    archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ ⟨S.U * u, S.V * v, r⟩ ↔
+      u ∈ Set.Icc l₁ r₁ ∧ v ∈ Set.Icc l₂ r₂ ∧ r ∈ Set.Icc l₃ r₃ := by
+  have hu : S.U * u / S.U = u := by field_simp
+  have hv : S.V * v / S.V = v := by field_simp
+  simp only [archRectangle, hu, hv, Set.mem_Icc]
+  tauto
+
+private lemma line_assignment_with_arch {K : ℕ} (F : PDFix K) (S : PDScale)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a)
+    (lam : (p : ℕ) → Fin (p + 1)) (P : Prop) :
+    (lineAverage (fun ℓ : LineData S.x K F.a =>
+      ((if P ∧ assignedLines F S J hJ lam ℓ then 1 else 0 : ℝ) : ℂ))).re =
+      (if P then 1 else 0) * ∏ p ∈ J, ((p : ℝ) + 1)⁻¹ := by
+  classical
+  by_cases hP : P
+  · simp only [hP, true_and, if_true, one_mul]
+    exact line_assignment_average F S J hJ lam
+  · simp [hP, lineAverage]
+
+private lemma rectangle_model_average {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a)
+    (lam : (p : ℕ) → Fin (p + 1)) (l₁ r₁ l₂ r₂ l₃ r₃ : ℝ)
+    (hl₁ : 1 ≤ l₁) (hle₁ : l₁ ≤ r₁) (hr₁ : r₁ ≤ 16)
+    (hl₂ : 1 ≤ l₂) (hle₂ : l₂ ≤ r₂) (hr₂ : r₂ ≤ 2)
+    (hl₃ : 0 ≤ l₃) (hle₃ : l₃ ≤ r₃) (hr₃ : r₃ ≤ 1) :
+    modelFunctional F S (fun w ℓ =>
+      if archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ w ∧ assignedLines F S J hJ lam ℓ then 1 else 0) =
+      (6 / Real.pi ^ 2) * (r₁-l₁) * (r₂-l₂) * (r₃-l₃) *
+        ∏ p ∈ J, ((p : ℝ) + 1)⁻¹ := by
+  classical
+  unfold modelFunctional
+  simp_rw [line_assignment_with_arch F S J hJ lam,
+    normalized_arch_rectangle S hU hV,
+    intervalIntegral.integral_mul_const]
+  rw [triple_rectangle_indicator 1 16 1 2 0 1 l₁ r₁ l₂ r₂ l₃ r₃
+    (by norm_num) (by norm_num) (by norm_num)]
+  simp only [min_eq_left hr₁, max_eq_left hl₁, min_eq_left hr₂, max_eq_left hl₂,
+    min_eq_left hr₃, max_eq_left hl₃, max_eq_right (sub_nonneg.mpr hle₁),
+    max_eq_right (sub_nonneg.mpr hle₂), max_eq_right (sub_nonneg.mpr hle₃)]
+  ring
+
+private def normalizedArch (S : PDScale) (w : ArchRoot) : ℝ × ℝ × ℝ :=
+  (w.u / S.U, w.v / S.V, w.r)
+
+private lemma normalized_arch_point (S : PDScale) (hU : 0 < S.U) (hV : 0 < S.V)
+    (u v r : ℝ) : normalizedArch S ⟨S.U * u, S.V * v, r⟩ = (u,v,r) := by
+  have hu : S.U * u / S.U = u := by field_simp
+  have hv : S.V * v / S.V = v := by field_simp
+  simp only [normalizedArch, hu, hv]
+
+private lemma grid_cell_model_average {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (h : ℝ) (hh : 0 < h) (k : ℤ × ℤ × ℤ)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a) (lam : (p : ℕ) → Fin (p + 1)) :
+    modelFunctional F S (fun w ℓ =>
+      if normalizedArch S w ∈ gridCell h k ∧ assignedLines F S J hJ lam ℓ then 1 else 0) =
+      (6 / Real.pi ^ 2) * gridCellVolume h k * ∏ p ∈ J, ((p : ℝ) + 1)⁻¹ := by
+  classical
+  have hIntegral :
+      (∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1,
+        (lineAverage (fun ℓ => ((if normalizedArch S ⟨S.U*u,S.V*v,r⟩ ∈ gridCell h k ∧
+          assignedLines F S J hJ lam ℓ then 1 else 0 : ℝ) : ℂ))).re) =
+      ∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2, ∫ r in (0 : ℝ)..1,
+        (if (⌊u/h⌋,⌊v/h⌋,⌊r/h⌋) = k then (1 : ℝ) else 0) *
+          ∏ p ∈ J, ((p : ℝ) + 1)⁻¹ := by
+    apply intervalIntegral.integral_congr
+    intro u hu
+    apply intervalIntegral.integral_congr
+    intro v hv
+    apply intervalIntegral.integral_congr
+    intro r hr
+    have hy : (u,v,r) ∈ rootRegion := by
+      simpa only [rootRegion, Set.mem_prod, Set.uIcc_of_le (by norm_num : (1 : ℝ) ≤ 16),
+        Set.uIcc_of_le (by norm_num : (1 : ℝ) ≤ 2),
+        Set.uIcc_of_le (by norm_num : (0 : ℝ) ≤ 1)] using And.intro hu (And.intro hv hr)
+    dsimp only
+    simp only [line_assignment_with_arch F S J hJ lam]
+    simp only [normalized_arch_point S hU hV, gridCell, Set.mem_setOf_eq, hy,
+      true_and, gridOwner]
+  unfold modelFunctional
+  rw [hIntegral]
+  simp_rw [intervalIntegral.integral_mul_const]
+  rw [triple_floor_indicator h hh k]
+  dsimp only [gridCellVolume]
+  ring
+
+private lemma lineData_real_card {x : ℝ} {K : ℕ} {a : Fin K → ℝ} :
+    (Fintype.card (LineData x K a) : ℝ) = ∏ p ∈ markedPrimes x K a, ((p : ℝ) + 1) := by
+  rw [Fintype.card_pi]
+  simp only [Fintype.card_fin]
+  push_cast
+  exact Finset.prod_attach (s := markedPrimes x K a) (f := fun p : ℕ => (p : ℝ) + 1)
+
+private lemma lineAverage_abs_bound {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (G : LineData x K a → ℝ) (B : ℝ) (hB : 0 ≤ B) (hG : ∀ ℓ, |G ℓ| ≤ B) :
+    |(lineAverage (fun ℓ => (G ℓ : ℂ))).re| ≤ B := by
+  rw [lineAverage_real, abs_mul, abs_of_nonneg (by positivity :
+    0 ≤ (∏ p ∈ markedPrimes x K a, ((p : ℝ) + 1))⁻¹)]
+  have hD : 0 < ∏ p ∈ markedPrimes x K a, ((p : ℝ) + 1) :=
+    Finset.prod_pos (fun p hp => by positivity)
+  have hs : |∑ ℓ, G ℓ| ≤ (∏ p ∈ markedPrimes x K a, ((p : ℝ) + 1)) * B := by
+    calc
+      _ ≤ ∑ ℓ, |G ℓ| := by simpa only [Real.norm_eq_abs] using norm_sum_le Finset.univ G
+      _ ≤ ∑ _ℓ : LineData x K a, B := Finset.sum_le_sum (fun ℓ _ => hG ℓ)
+      _ = _ := by simp only [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, lineData_real_card]
+  have hm := mul_le_mul_of_nonneg_left hs (inv_nonneg.mpr hD.le)
+  simpa only [← mul_assoc, inv_mul_cancel₀ hD.ne', one_mul] using hm
+
+private lemma lineAverage_mono {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (G H : LineData x K a → ℝ) (hGH : ∀ ℓ, G ℓ ≤ H ℓ) :
+    (lineAverage (fun ℓ => (G ℓ : ℂ))).re ≤ (lineAverage (fun ℓ => (H ℓ : ℂ))).re := by
+  simp only [lineAverage_real]
+  exact mul_le_mul_of_nonneg_left (Finset.sum_le_sum (fun ℓ _ => hGH ℓ)) (by positivity)
+
+private def normalizedObservableMean {K : ℕ} (F : PDFix K) (S : PDScale)
+    (G : ArchRoot → LineData S.x K F.a → ℝ) (y : ℝ × ℝ × ℝ) : ℝ :=
+  (lineAverage (fun ℓ => (G ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ : ℂ))).re
+
+private lemma normalizedObservableMean_measurable {K : ℕ} (F : PDFix K) (S : PDScale)
+    (G : ArchRoot → LineData S.x K F.a → ℝ)
+    (hG : ∀ ℓ, Measurable (fun y : ℝ × ℝ × ℝ => G ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ)) :
+    Measurable (normalizedObservableMean F S G) := by
+  unfold normalizedObservableMean
+  simp_rw [lineAverage_real]
+  exact measurable_const.mul (Finset.measurable_sum Finset.univ (fun ℓ _ => hG ℓ))
+
+private lemma normalizedObservableMean_bound {K : ℕ} (F : PDFix K) (S : PDScale)
+    (G : ArchRoot → LineData S.x K F.a → ℝ) (B : ℝ) (hB : 0 ≤ B)
+    (hG : ∀ w ℓ, |G w ℓ| ≤ B) : ∀ y, |normalizedObservableMean F S G y| ≤ B :=
+  fun y => lineAverage_abs_bound _ B hB (fun ℓ => hG _ ℓ)
+
+private lemma modelFunctional_eq_integral {K : ℕ} (F : PDFix K) (S : PDScale)
+    (G : ArchRoot → LineData S.x K F.a → ℝ)
+    (hG : ∀ ℓ, Measurable (fun y : ℝ × ℝ × ℝ => G ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ))
+    (B : ℝ) (hB : 0 ≤ B) (hb : ∀ w ℓ, |G w ℓ| ≤ B) :
+    modelFunctional F S G = (6 / Real.pi ^ 2) *
+      ∫ y, normalizedObservableMean F S G y ∂rootBoxMeasure := by
+  exact congrArg (fun t : ℝ => (6 / Real.pi ^ 2) * t)
+    (triple_integral_eq_rootBox _ (normalizedObservableMean_measurable F S G hG)
+      B hB (normalizedObservableMean_bound F S G B hB hb))
+
+private lemma modelFunctional_mono {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V)
+    (G H : ArchRoot → LineData S.x K F.a → ℝ)
+    (hG : ∀ ℓ, Measurable (fun y : ℝ × ℝ × ℝ => G ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ))
+    (hH : ∀ ℓ, Measurable (fun y : ℝ × ℝ × ℝ => H ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ))
+    (BG BH : ℝ) (hBG : 0 ≤ BG) (hBH : 0 ≤ BH)
+    (hbG : ∀ w ℓ, |G w ℓ| ≤ BG) (hbH : ∀ w ℓ, |H w ℓ| ≤ BH)
+    (hGH : ∀ w : ArchRoot, w.InRegion S → ∀ ℓ, G w ℓ ≤ H w ℓ) :
+    modelFunctional F S G ≤ modelFunctional F S H := by
+  rw [modelFunctional_eq_integral F S G hG BG hBG hbG,
+    modelFunctional_eq_integral F S H hH BH hBH hbH]
+  apply mul_le_mul_of_nonneg_left _ (by positivity)
+  apply integral_mono_ae
+    (bounded_integrable _ _ (normalizedObservableMean_measurable F S G hG)
+      BG hBG (normalizedObservableMean_bound F S G BG hBG hbG))
+    (bounded_integrable _ _ (normalizedObservableMean_measurable F S H hH)
+      BH hBH (normalizedObservableMean_bound F S H BH hBH hbH))
+  exact rootBoxMeasure_ae_region.mono (fun y hy =>
+    lineAverage_mono _ _ (hGH _ (normalized_root_in_region S hU hV _ _ _ hy.1 hy.2.1 hy.2.2)))
+
+private lemma modelFunctional_finset_sum {K : ℕ} {ι : Type*} (F : PDFix K) (S : PDScale)
+    (T : Finset ι) (G : ι → ArchRoot → LineData S.x K F.a → ℝ)
+    (hG : ∀ i ∈ T, ∀ ℓ, Measurable (fun y : ℝ × ℝ × ℝ => G i ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ))
+    (B : ι → ℝ) (hB : ∀ i ∈ T, 0 ≤ B i) (hb : ∀ i ∈ T, ∀ w ℓ, |G i w ℓ| ≤ B i) :
+    modelFunctional F S (fun w ℓ => ∑ i ∈ T, G i w ℓ) = ∑ i ∈ T, modelFunctional F S (G i) := by
+  classical
+  have hm (y : ℝ × ℝ × ℝ) :
+      normalizedObservableMean F S (fun w ℓ => ∑ i ∈ T, G i w ℓ) y =
+        ∑ i ∈ T, normalizedObservableMean F S (G i) y := by
+    simpa only [normalizedObservableMean, Complex.re_sum] using
+      congrArg Complex.re (lineAverage_sum T (fun i ℓ => G i ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ))
+  unfold modelFunctional
+  change (6 / Real.pi ^ 2) * (∫ u in (1 : ℝ)..16, ∫ v in (1 : ℝ)..2,
+    ∫ r in (0 : ℝ)..1, normalizedObservableMean F S (fun w ℓ => ∑ i ∈ T, G i w ℓ) (u,v,r)) = _
+  simp_rw [hm]
+  rw [triple_integral_finset_sum T (fun i => normalizedObservableMean F S (G i)) B
+    (fun i hi => normalizedObservableMean_measurable F S (G i) (hG i hi)) hB
+    (fun i hi => normalizedObservableMean_bound F S (G i) (B i) (hB i hi) (hb i hi)), Finset.mul_sum]
+  rfl
+
+private def RootBoxEstimate {K : ℕ} (F : PDFix K) (S : PDScale)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a)
+    (lam : (p : ℕ) → Fin (p + 1)) (E : ℝ) : Prop :=
+  ∀ l₁ r₁ l₂ r₂ l₃ r₃ : ℝ,
+    1 ≤ l₁ → l₁ ≤ r₁ → r₁ ≤ 16 → 1 ≤ l₂ → l₂ ≤ r₂ → r₂ ≤ 2 →
+    0 ≤ l₃ → l₃ ≤ r₃ → r₃ ≤ 1 →
+    |physicalFunctional F S (fun w ℓ =>
+      if archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ w ∧ assignedLines F S J hJ lam ℓ then 1 else 0) -
+      (6 / Real.pi ^ 2) * (r₁-l₁) * (r₂-l₂) * (r₃-l₃) *
+        ∏ p ∈ J, ((p : ℝ) + 1)⁻¹| ≤ E
+
+private lemma physicalFunctional_zero {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) : physicalFunctional F S (fun _ _ => 0) = 0 := by
+  rw [physicalFunctional_eq_sum F S hU hV]
+  simp
+
+private lemma grid_first_face_mass {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a)
+    (lam : (p : ℕ) → Fin (p + 1)) (E c : ℝ) (hE : 0 ≤ E)
+    (hbox : RootBoxEstimate F S J hJ lam E) :
+    physicalFunctional F S (fun w ℓ => if normalizedArch S w ∈ rootRegion ∧
+      (normalizedArch S w).1 = c ∧ assignedLines F S J hJ lam ℓ then 1 else 0) ≤ E := by
+  classical
+  by_cases hc : c ∈ Set.Icc (1 : ℝ) 16
+  · have heq (w : ArchRoot) : normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).1 = c ↔
+        archRectangle S c c 1 2 0 1 w := by
+      let y := normalizedArch S w
+      have hr : y ∈ rootRegion ∧ y.1 = c ↔ y.1 ∈ Set.Icc c c ∧ y.2.1 ∈ Set.Icc 1 2 ∧ y.2.2 ∈ Set.Icc 0 1 := by
+        by_cases hy : y.1 = c
+        · simp only [rootRegion, Set.mem_prod, Set.Icc_self, Set.mem_singleton_iff,
+            hy, hc, true_and, and_true]
+        · simp only [Set.Icc_self, Set.mem_singleton_iff, hy, and_false, false_and]
+      dsimp only [y, normalizedArch] at hr
+      simp only [archRectangle, Set.mem_Icc] at hr ⊢
+      tauto
+    have hfun : (fun w ℓ => if normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).1 = c ∧
+        assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) =
+        (fun w ℓ => if archRectangle S c c 1 2 0 1 w ∧ assignedLines F S J hJ lam ℓ then 1 else 0) := by
+      funext w ℓ
+      have hp := heq w
+      simp only [← and_assoc, hp]
+    rw [hfun]
+    have hb := hbox c c 1 2 0 1 hc.1 le_rfl hc.2 (by norm_num) (by norm_num) (by norm_num)
+      (by norm_num) (by norm_num) (by norm_num)
+    simp only [sub_self, mul_zero, zero_mul, sub_zero] at hb
+    exact (le_abs_self _).trans hb
+  · have hz (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+        (if normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).1 = c ∧
+          assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) = 0 := by
+      apply if_neg
+      rintro ⟨hy, he, _⟩
+      exact hc (he ▸ hy.1)
+    simp_rw [hz]
+    rw [physicalFunctional_zero F S hU hV]
+    exact hE
+
+private lemma grid_second_face_mass {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a)
+    (lam : (p : ℕ) → Fin (p + 1)) (E c : ℝ) (hE : 0 ≤ E)
+    (hbox : RootBoxEstimate F S J hJ lam E) :
+    physicalFunctional F S (fun w ℓ => if normalizedArch S w ∈ rootRegion ∧
+      (normalizedArch S w).2.1 = c ∧ assignedLines F S J hJ lam ℓ then 1 else 0) ≤ E := by
+  classical
+  by_cases hc : c ∈ Set.Icc (1 : ℝ) 2
+  · have heq (w : ArchRoot) : normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).2.1 = c ↔
+        archRectangle S 1 16 c c 0 1 w := by
+      let y := normalizedArch S w
+      have hr : y ∈ rootRegion ∧ y.2.1 = c ↔ y.1 ∈ Set.Icc 1 16 ∧ y.2.1 ∈ Set.Icc c c ∧ y.2.2 ∈ Set.Icc 0 1 := by
+        by_cases hy : y.2.1 = c
+        · simp only [rootRegion, Set.mem_prod, Set.Icc_self, Set.mem_singleton_iff,
+            hy, hc, true_and, and_true]
+        · simp only [Set.Icc_self, Set.mem_singleton_iff, hy, and_false, false_and]
+      dsimp only [y, normalizedArch] at hr
+      simp only [archRectangle, Set.mem_Icc] at hr ⊢
+      tauto
+    have hfun : (fun w ℓ => if normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).2.1 = c ∧
+        assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) =
+        (fun w ℓ => if archRectangle S 1 16 c c 0 1 w ∧ assignedLines F S J hJ lam ℓ then 1 else 0) := by
+      funext w ℓ
+      have hp := heq w
+      simp only [← and_assoc, hp]
+    rw [hfun]
+    have hb := hbox 1 16 c c 0 1 (by norm_num) (by norm_num) (by norm_num) hc.1 le_rfl hc.2
+      (by norm_num) (by norm_num) (by norm_num)
+    simp only [sub_self, mul_zero, zero_mul, sub_zero] at hb
+    exact (le_abs_self _).trans hb
+  · have hz (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+        (if normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).2.1 = c ∧
+          assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) = 0 := by
+      apply if_neg
+      rintro ⟨hy, he, _⟩
+      exact hc (he ▸ hy.2.1)
+    simp_rw [hz]
+    rw [physicalFunctional_zero F S hU hV]
+    exact hE
+
+private lemma grid_third_face_mass {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a)
+    (lam : (p : ℕ) → Fin (p + 1)) (E c : ℝ) (hE : 0 ≤ E)
+    (hbox : RootBoxEstimate F S J hJ lam E) :
+    physicalFunctional F S (fun w ℓ => if normalizedArch S w ∈ rootRegion ∧
+      (normalizedArch S w).2.2 = c ∧ assignedLines F S J hJ lam ℓ then 1 else 0) ≤ E := by
+  classical
+  by_cases hc : c ∈ Set.Icc (0 : ℝ) 1
+  · have heq (w : ArchRoot) : normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).2.2 = c ↔
+        archRectangle S 1 16 1 2 c c w := by
+      let y := normalizedArch S w
+      have hr : y ∈ rootRegion ∧ y.2.2 = c ↔ y.1 ∈ Set.Icc 1 16 ∧ y.2.1 ∈ Set.Icc 1 2 ∧ y.2.2 ∈ Set.Icc c c := by
+        by_cases hy : y.2.2 = c
+        · simp only [rootRegion, Set.mem_prod, Set.Icc_self, Set.mem_singleton_iff,
+            hy, hc, true_and, and_true]
+        · simp only [Set.Icc_self, Set.mem_singleton_iff, hy, and_false, false_and]
+      dsimp only [y, normalizedArch] at hr
+      simp only [archRectangle, Set.mem_Icc] at hr ⊢
+      tauto
+    have hfun : (fun w ℓ => if normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).2.2 = c ∧
+        assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) =
+        (fun w ℓ => if archRectangle S 1 16 1 2 c c w ∧ assignedLines F S J hJ lam ℓ then 1 else 0) := by
+      funext w ℓ
+      have hp := heq w
+      simp only [← and_assoc, hp]
+    rw [hfun]
+    have hb := hbox 1 16 1 2 c c (by norm_num) (by norm_num) (by norm_num)
+      (by norm_num) (by norm_num) (by norm_num) hc.1 le_rfl hc.2
+    simp only [sub_self, mul_zero, zero_mul, sub_zero] at hb
+    exact (le_abs_self _).trans hb
+  · have hz (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+        (if normalizedArch S w ∈ rootRegion ∧ (normalizedArch S w).2.2 = c ∧
+          assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) = 0 := by
+      apply if_neg
+      rintro ⟨hy, he, _⟩
+      exact hc (he ▸ hy.2.2)
+    simp_rw [hz]
+    rw [physicalFunctional_zero F S hU hV]
+    exact hE
+
+private lemma grid_cell_transfer {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (h : ℝ) (hh : 0 < h) (k : ℤ × ℤ × ℤ)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a) (lam : (p : ℕ) → Fin (p + 1))
+    (E : ℝ) (hE : 0 ≤ E) (hbox : RootBoxEstimate F S J hJ lam E)
+    (hc₁ : max 1 ((k.1 : ℝ)*h) ≤ min 16 (((k.1 : ℝ)+1)*h))
+    (hc₂ : max 1 ((k.2.1 : ℝ)*h) ≤ min 2 (((k.2.1 : ℝ)+1)*h))
+    (hc₃ : max 0 ((k.2.2 : ℝ)*h) ≤ min 1 (((k.2.2 : ℝ)+1)*h)) :
+    |physicalFunctional F S (fun w ℓ =>
+        if normalizedArch S w ∈ gridCell h k ∧ assignedLines F S J hJ lam ℓ then 1 else 0) -
+      modelFunctional F S (fun w ℓ =>
+        if normalizedArch S w ∈ gridCell h k ∧ assignedLines F S J hJ lam ℓ then 1 else 0)| ≤ 4*E := by
+  classical
+  let A := fun w ℓ => if normalizedArch S w ∈ rootRegion ∧ normalizedArch S w ∈ gridCube h k ∧
+    assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0
+  let C := fun w ℓ => if normalizedArch S w ∈ gridCell h k ∧ assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0
+  let D₁ := fun w ℓ => if normalizedArch S w ∈ rootRegion ∧
+    (normalizedArch S w).1 = ((k.1 : ℝ)+1)*h ∧ assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0
+  let D₂ := fun w ℓ => if normalizedArch S w ∈ rootRegion ∧
+    (normalizedArch S w).2.1 = ((k.2.1 : ℝ)+1)*h ∧ assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0
+  let D₃ := fun w ℓ => if normalizedArch S w ∈ rootRegion ∧
+    (normalizedArch S w).2.2 = ((k.2.2 : ℝ)+1)*h ∧ assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0
+  have hd₁ (w ℓ) : 0 ≤ D₁ w ℓ := by dsimp [D₁]; split_ifs <;> norm_num
+  have hd₂ (w ℓ) : 0 ≤ D₂ w ℓ := by dsimp [D₂]; split_ifs <;> norm_num
+  have hd₃ (w ℓ) : 0 ≤ D₃ w ℓ := by dsimp [D₃]; split_ifs <;> norm_num
+  have hdiff (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+      0 ≤ A w ℓ-C w ℓ ∧ A w ℓ-C w ℓ ≤ D₁ w ℓ+D₂ w ℓ+D₃ w ℓ := by
+    by_cases hl : assignedLines F S J hJ lam ℓ
+    · by_cases hc : normalizedArch S w ∈ gridCell h k
+      · have hreg := hc.1
+        have hcube := grid_cell_subset_cube h hh k hc
+        have hz : A w ℓ-C w ℓ = 0 := by simp [A,C,hl,hc,hreg,hcube]
+        rw [hz]
+        exact ⟨le_rfl, by linarith [hd₁ w ℓ,hd₂ w ℓ,hd₃ w ℓ]⟩
+      · by_cases ha : normalizedArch S w ∈ rootRegion ∧ normalizedArch S w ∈ gridCube h k
+        · have hz : A w ℓ-C w ℓ = 1 := by simp [A,C,hl,hc,ha.1,ha.2]
+          rw [hz]
+          refine ⟨by norm_num, ?_⟩
+          obtain (hf|hf|hf) := grid_cell_excluded_face h hh k _ ha.1 ha.2 hc
+          · have he : D₁ w ℓ=1 := by simp [D₁,ha.1,hf,hl]
+            linarith [hd₂ w ℓ,hd₃ w ℓ]
+          · have he : D₂ w ℓ=1 := by simp [D₂,ha.1,hf,hl]
+            linarith [hd₁ w ℓ,hd₃ w ℓ]
+          · have he : D₃ w ℓ=1 := by simp [D₃,ha.1,hf,hl]
+            linarith [hd₁ w ℓ,hd₂ w ℓ]
+        · have hz : A w ℓ-C w ℓ=0 := by simp [A,C,hl,hc,ha]
+          rw [hz]
+          exact ⟨le_rfl, by linarith [hd₁ w ℓ,hd₂ w ℓ,hd₃ w ℓ]⟩
+    · simp [A,C,D₁,D₂,D₃,hl]
+  have hPD₁ : physicalFunctional F S D₁ ≤ E := grid_first_face_mass F S hU hV J hJ lam E _ hE hbox
+  have hPD₂ : physicalFunctional F S D₂ ≤ E := grid_second_face_mass F S hU hV J hJ lam E _ hE hbox
+  have hPD₃ : physicalFunctional F S D₃ ≤ E := grid_third_face_mass F S hU hV J hJ lam E _ hE hbox
+  have hzero := physicalFunctional_mono F S hU hV (fun _ _ => 0) (fun w ℓ => A w ℓ-C w ℓ)
+    (fun w ℓ => (hdiff w ℓ).1)
+  rw [physicalFunctional_zero F S hU hV, physicalFunctional_sub F S hU hV] at hzero
+  have hup := physicalFunctional_mono F S hU hV (fun w ℓ => A w ℓ-C w ℓ)
+    (fun w ℓ => D₁ w ℓ+D₂ w ℓ+D₃ w ℓ) (fun w ℓ => (hdiff w ℓ).2)
+  have hadd : physicalFunctional F S (fun w ℓ => D₁ w ℓ+D₂ w ℓ+D₃ w ℓ) =
+      physicalFunctional F S D₁+physicalFunctional F S D₂+physicalFunctional F S D₃ := by
+    simp_rw [physicalFunctional_eq_sum F S hU hV]
+    rw [Finset.sum_add_distrib,Finset.sum_add_distrib]
+    ring
+  rw [physicalFunctional_sub F S hU hV,hadd] at hup
+  have hdist : |physicalFunctional F S C-physicalFunctional F S A| ≤ 3*E := by
+    rw [abs_of_nonpos (by linarith)]
+    linarith
+  let l₁ := max 1 ((k.1 : ℝ)*h)
+  let r₁ := min 16 (((k.1 : ℝ)+1)*h)
+  let l₂ := max 1 ((k.2.1 : ℝ)*h)
+  let r₂ := min 2 (((k.2.1 : ℝ)+1)*h)
+  let l₃ := max 0 ((k.2.2 : ℝ)*h)
+  let r₃ := min 1 (((k.2.2 : ℝ)+1)*h)
+  have hfun : A = (fun w ℓ => if archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ w ∧
+      assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) := by
+    funext w ℓ
+    have hp := grid_closed_clipped h k (normalizedArch S w)
+    dsimp only [normalizedArch] at hp
+    have he : normalizedArch S w ∈ rootRegion ∧ normalizedArch S w ∈ gridCube h k ↔
+        archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ w := by
+      simp only [archRectangle,Set.mem_Icc] at hp ⊢
+      exact hp.trans (by tauto)
+    dsimp only [A]
+    simp only [← and_assoc,he]
+  have hvol : gridCellVolume h k=(r₁-l₁)*(r₂-l₂)*(r₃-l₃) := by
+    unfold gridCellVolume
+    rw [min_comm (((k.1 : ℝ)+1)*h) 16,max_comm ((k.1 : ℝ)*h) 1,
+      min_comm (((k.2.1 : ℝ)+1)*h) 2,max_comm ((k.2.1 : ℝ)*h) 1,
+      min_comm (((k.2.2 : ℝ)+1)*h) 1,max_comm ((k.2.2 : ℝ)*h) 0]
+    simp only [max_eq_right (sub_nonneg.mpr hc₁),max_eq_right (sub_nonneg.mpr hc₂),
+      max_eq_right (sub_nonneg.mpr hc₃)]
+    rfl
+  have hb := hbox l₁ r₁ l₂ r₂ l₃ r₃ (le_max_left _ _) hc₁ (min_le_left _ _)
+    (le_max_left _ _) hc₂ (min_le_left _ _) (le_max_left _ _) hc₃ (min_le_left _ _)
+  have hmain : (6/Real.pi^2)*(r₁-l₁)*(r₂-l₂)*(r₃-l₃)*∏ p∈J,((p:ℝ)+1)⁻¹ =
+      (6/Real.pi^2)*gridCellVolume h k*∏ p∈J,((p:ℝ)+1)⁻¹ := by rw [hvol]; ring
+  have hclosed : |physicalFunctional F S A-(6/Real.pi^2)*gridCellVolume h k*
+      ∏ p∈J,((p:ℝ)+1)⁻¹| ≤ E := by rw [hfun,←hmain]; exact hb
+  change |physicalFunctional F S C-modelFunctional F S C| ≤ _
+  rw [grid_cell_model_average F S hU hV h hh k J hJ lam]
+  calc
+    _ = |(physicalFunctional F S C-physicalFunctional F S A)+
+        (physicalFunctional F S A-(6/Real.pi^2)*gridCellVolume h k*∏ p∈J,((p:ℝ)+1)⁻¹)| := by congr 1; ring
+    _ ≤ |physicalFunctional F S C-physicalFunctional F S A|+
+        |physicalFunctional F S A-(6/Real.pi^2)*gridCellVolume h k*∏ p∈J,((p:ℝ)+1)⁻¹| := abs_add_le _ _
+    _ ≤ 4*E := by linarith
+
+private lemma modelFunctional_zero {K : ℕ} (F : PDFix K) (S : PDScale) :
+    modelFunctional F S (fun _ _ => 0)=0 := by simp [modelFunctional,lineAverage]
+
+private lemma grid_cell_transfer_all {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (h : ℝ) (hh : 0 < h) (k : ℤ × ℤ × ℤ)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a) (lam : (p : ℕ) → Fin (p + 1))
+    (E : ℝ) (hE : 0 ≤ E) (hbox : RootBoxEstimate F S J hJ lam E) :
+    |physicalFunctional F S (fun w ℓ =>
+        if normalizedArch S w ∈ gridCell h k ∧ assignedLines F S J hJ lam ℓ then 1 else 0) -
+      modelFunctional F S (fun w ℓ =>
+        if normalizedArch S w ∈ gridCell h k ∧ assignedLines F S J hJ lam ℓ then 1 else 0)| ≤ 4*E := by
+  classical
+  by_cases hcell : (gridCell h k).Nonempty
+  · obtain ⟨y,hy⟩ := hcell
+    have hclip := (grid_closed_clipped h k y).1 ⟨hy.1,grid_cell_subset_cube h hh k hy⟩
+    exact grid_cell_transfer F S hU hV h hh k J hJ lam E hE hbox
+      (hclip.1.1.trans hclip.1.2) (hclip.2.1.1.trans hclip.2.1.2)
+      (hclip.2.2.1.trans hclip.2.2.2)
+  · have hz : (fun (w : ArchRoot) (ℓ : LineData S.x K F.a) =>
+        if normalizedArch S w ∈ gridCell h k ∧ assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) =
+        (fun _ _ => 0) := by
+      funext w ℓ
+      apply if_neg
+      exact fun hc => hcell ⟨_,hc.1⟩
+    rw [hz,physicalFunctional_zero F S hU hV,modelFunctional_zero F S]
+    simpa using mul_nonneg (by norm_num : (0:ℝ) ≤ 4) hE
+
+private lemma gridOwner_measurable (h : ℝ) : Measurable (gridOwner h) :=
+  (Int.measurable_floor.comp (measurable_fst.div_const h)).prodMk
+    ((Int.measurable_floor.comp (measurable_fst.comp measurable_snd |>.div_const h)).prodMk
+      (Int.measurable_floor.comp (measurable_snd.comp measurable_snd |>.div_const h)))
+
+private lemma gridCell_measurableSet (h : ℝ) (k : ℤ × ℤ × ℤ) : MeasurableSet (gridCell h k) :=
+  (measurableSet_Icc.prod (measurableSet_Icc.prod measurableSet_Icc)).inter
+    ((measurableSet_singleton k).preimage (gridOwner_measurable h))
+
+private lemma cell_indicator_measurable {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (h : ℝ) (k : ℤ × ℤ × ℤ)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a) (lam : (p : ℕ) → Fin (p + 1))
+    (ℓ : LineData S.x K F.a) : Measurable (fun y : ℝ × ℝ × ℝ =>
+      if normalizedArch S ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ∈ gridCell h k ∧
+        assignedLines F S J hJ lam ℓ then (1 : ℝ) else 0) := by
+  classical
+  simp only [normalized_arch_point S hU hV]
+  by_cases hl : assignedLines F S J hJ lam ℓ
+  · simp only [hl,and_true]
+    exact Measurable.ite (gridCell_measurableSet h k) measurable_const measurable_const
+  · simpa only [hl,and_false,if_false] using (measurable_const : Measurable (fun _ : ℝ×ℝ×ℝ => (0:ℝ)))
+
+private abbrev LocalLineData (J : Finset ℕ) := (p : {p : ℕ // p ∈ J}) → Fin (p.1+1)
+
+private def restrictLines {K : ℕ} (F : PDFix K) (S : PDScale) (J : Finset ℕ)
+    (hJ : J ⊆ markedPrimes S.x K F.a) (ℓ : LineData S.x K F.a) : LocalLineData J :=
+  fun p => ℓ ⟨p.1,hJ p.2⟩
+
+private def extendLines (J : Finset ℕ) (lam : LocalLineData J) : (p : ℕ) → Fin (p+1) :=
+  fun p => if hp : p∈J then lam ⟨p,hp⟩ else 0
+
+private lemma assignedLines_extend {K : ℕ} (F : PDFix K) (S : PDScale) (J : Finset ℕ)
+    (hJ : J ⊆ markedPrimes S.x K F.a) (lam : LocalLineData J) (ℓ : LineData S.x K F.a) :
+    assignedLines F S J hJ (extendLines J lam) ℓ ↔ restrictLines F S J hJ ℓ=lam := by
+  constructor
+  · intro h
+    funext p
+    simpa only [extendLines,restrictLines,dif_pos p.2] using h p.1 p.2
+  · intro h p hp
+    have he := congrFun h ⟨p,hp⟩
+    simpa only [extendLines,restrictLines,dif_pos hp] using he
+
+private lemma localLineData_card (J : Finset ℕ) :
+    (Fintype.card (LocalLineData J) : ℝ)=∏ p∈J,((p:ℝ)+1) := by
+  rw [Fintype.card_pi]
+  simp only [Fintype.card_fin]
+  push_cast
+  exact Finset.prod_attach J (fun p : ℕ => (p:ℝ)+1)
+
+private lemma restricted_line_expansion {K : ℕ} (F : PDFix K) (S : PDScale)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a) (f : LocalLineData J → ℝ)
+    (ℓ : LineData S.x K F.a) :
+    f (restrictLines F S J hJ ℓ) = ∑ lam : LocalLineData J,
+      if assignedLines F S J hJ (extendLines J lam) ℓ then f lam else 0 := by
+  classical
+  simp only [assignedLines_extend]
+  simp
+
+private lemma modelFunctional_mul_const {K : ℕ} (F : PDFix K) (S : PDScale)
+    (c : ℝ) (G : ArchRoot → LineData S.x K F.a → ℝ) :
+    modelFunctional F S (fun w ℓ => c*G w ℓ)=c*modelFunctional F S G := by
+  unfold modelFunctional
+  simp_rw [lineAverage_real,←Finset.mul_sum]
+  have he (u v r : ℝ) : (∏ p∈markedPrimes S.x K F.a,((p:ℝ)+1))⁻¹ *
+      (c*∑ ℓ, G ⟨S.U*u,S.V*v,r⟩ ℓ) =
+      c*((∏ p∈markedPrimes S.x K F.a,((p:ℝ)+1))⁻¹ *∑ ℓ,G ⟨S.U*u,S.V*v,r⟩ ℓ) := by ring
+  simp_rw [he,intervalIntegral.integral_const_mul]
+  ring
+
+private lemma weighted_grid_cell_transfer {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0 < S.U) (hV : 0 < S.V) (h : ℝ) (hh : 0 < h) (k : ℤ × ℤ × ℤ)
+    (J : Finset ℕ) (hJ : J ⊆ markedPrimes S.x K F.a) (f : LocalLineData J → ℝ)
+    (hf : ∀ lam, 0 ≤ f lam ∧ f lam ≤ 1) (E : ℝ) (hE : 0 ≤ E)
+    (hbox : ∀ lam : (p : ℕ) → Fin (p+1), RootBoxEstimate F S J hJ lam E) :
+    |physicalFunctional F S (fun w ℓ => if normalizedArch S w ∈ gridCell h k then f (restrictLines F S J hJ ℓ) else 0) -
+      modelFunctional F S (fun w ℓ => if normalizedArch S w ∈ gridCell h k then f (restrictLines F S J hJ ℓ) else 0)| ≤
+      4*E*∏ p∈J,((p:ℝ)+1) := by
+  classical
+  let B := fun lam : LocalLineData J => fun w ℓ =>
+    if normalizedArch S w ∈ gridCell h k ∧ assignedLines F S J hJ (extendLines J lam) ℓ then (1:ℝ) else 0
+  let G := fun lam : LocalLineData J => fun w ℓ => f lam*B lam w ℓ
+  have hG (lam) (ℓ) : Measurable (fun y : ℝ×ℝ×ℝ => G lam ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ) :=
+    measurable_const.mul (cell_indicator_measurable F S hU hV h k J hJ (extendLines J lam) ℓ)
+  have hb (lam) (w) (ℓ) : |G lam w ℓ| ≤ 1 := by
+    dsimp [G,B]
+    split_ifs
+    · simpa only [mul_one,abs_of_nonneg (hf lam).1] using (hf lam).2
+    · norm_num
+  have hfun : (fun w ℓ => if normalizedArch S w ∈ gridCell h k then f (restrictLines F S J hJ ℓ) else 0) =
+      (fun w ℓ => ∑ lam : LocalLineData J,G lam w ℓ) := by
+    funext w ℓ
+    by_cases hc : normalizedArch S w ∈ gridCell h k
+    · simp only [if_pos hc,G,B,hc,true_and]
+      rw [restricted_line_expansion F S J hJ f ℓ]
+      apply Finset.sum_congr rfl
+      intro lam hlam
+      split_ifs <;> simp
+    · simp [G,B,hc]
+  rw [hfun,physicalFunctional_finset_sum F S hU hV,
+    modelFunctional_finset_sum F S Finset.univ G (fun lam _ => hG lam) (fun _ => 1)
+      (fun _ _ => by norm_num) (fun lam _ => hb lam),←Finset.sum_sub_distrib]
+  have hterms (lam : LocalLineData J) :
+      |physicalFunctional F S (G lam)-modelFunctional F S (G lam)| ≤ 4*E := by
+    rw [physicalFunctional_mul_const F S hU hV,modelFunctional_mul_const F S,
+      ←mul_sub,abs_mul,abs_of_nonneg (hf lam).1]
+    have ht := grid_cell_transfer_all F S hU hV h hh k J hJ (extendLines J lam) E hE (hbox _)
+    exact (mul_le_mul_of_nonneg_left ht (hf lam).1).trans
+      (by nlinarith [hf lam])
+  calc
+    _ ≤ ∑ lam : LocalLineData J,|physicalFunctional F S (G lam)-modelFunctional F S (G lam)| := by
+      simpa only [Real.norm_eq_abs] using norm_sum_le Finset.univ (fun lam =>
+        physicalFunctional F S (G lam)-modelFunctional F S (G lam))
+    _ ≤ ∑ _lam : LocalLineData J,4*E := Finset.sum_le_sum (fun lam _ => hterms lam)
+    _ = _ := by simp only [Finset.sum_const,Finset.card_univ,nsmul_eq_mul,localLineData_card]; ring
+
+private lemma prime_set_product_squarefree (J : Finset ℕ) (hp : ∀ p∈J,p.Prime) :
+    Squarefree (∏ p∈J,p) := by
+  refine Finset.squarefree_prod_of_pairwise_isCoprime (fun p hpJ q hqJ hpq => ?_)
+    (fun p hpJ => (hp p hpJ).squarefree)
+  change IsRelPrime p q
+  rw [←Nat.coprime_iff_isRelPrime]
+  exact (Nat.coprime_primes (hp p hpJ) (hp q hqJ)).mpr hpq
+
+private lemma root_box_estimate_eventually (δ C_K : ℝ) (hδ : 0<δ) (hCK : 0<C_K) :
+    ∃ C_R x₀ : ℝ, 0<C_R ∧ 2≤x₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale) (c₁ c₂ : ℝ),
+        S.Valid K δ c₁ c₂ → x₀≤S.x →
+        ∀ J : Finset ℕ, ∀ hJ : J⊆markedPrimes S.x K F.a,
+          ((∏ p∈J,p : ℕ) : ℝ) ≤ Real.exp (C_K*Real.rpow S.L (98/100:ℝ)) →
+          ∀ lam : (p : ℕ) → Fin (p+1),
+            RootBoxEstimate F S J hJ lam (C_R*Real.rpow S.x (-(δ/1000))) := by
+  classical
+  obtain ⟨c,C_R,x₀,hc,hCR,hx₀,hcount⟩ := root_lines δ C_K hδ hCK
+  refine ⟨C_R,x₀,hCR,hx₀,?_⟩
+  intro K F S c₁ c₂ hS hx J hJ hmod lam
+  obtain ⟨hYpos,hUpos,hd⟩ := pdScale_positive S δ c₁ c₂ hδ hS
+  have hxpos : 0<S.x := by linarith [hS.1]
+  have hHmpos : 0<S.Hm := (Real.rpow_pos_of_pos hxpos δ).trans_le hS.2.1
+  have hVpos : 0<S.V := (Real.rpow_pos_of_pos hxpos δ).trans_le hS.2.2.1
+  have hY : 1≤S.Y := by
+    obtain ⟨hm,_⟩ := Finset.mem_filter.mp hS.2.2.2.2.2.1
+    obtain ⟨n,_,hn⟩ := Finset.mem_image.mp hm
+    rw [←hn]
+    exact one_le_pow₀ (by norm_num)
+  have hdR : (1:ℝ)≤S.d₀ := by exact_mod_cast hd
+  have hH : 1≤S.H := by
+    have hm := mul_le_mul hdR hY (by norm_num : (0:ℝ)≤1) (Nat.cast_nonneg S.d₀)
+    simpa only [one_mul,PDScale.H] using hm
+  have hU : Real.rpow S.x δ≤S.U := hS.2.1.trans (by
+    change S.Hm≤S.H*S.Hm
+    have hm := mul_le_mul_of_nonneg_right hH hHmpos.le
+    simpa only [one_mul] using hm)
+  have hp (p : ℕ) (hpJ : p∈J) : p.Prime := by
+    obtain ⟨i,hi,hpi⟩ := Finset.mem_biUnion.mp (hJ hpJ)
+    exact (Finset.mem_filter.mp hpi).2.1
+  let Sq := ∏ p∈J,p
+  have hSq : Squarefree Sq := prime_set_product_squarefree J hp
+  have hSqpos : 0<Sq := Finset.prod_pos (fun p hpJ => (hp p hpJ).pos)
+  have hpf : Sq.primeFactors=J := Nat.primeFactors_prod hp
+  intro l₁ r₁ l₂ r₂ l₃ r₃ hl₁ hle₁ hr₁ hl₂ hle₂ hr₂ hl₃ hle₃ hr₃
+  have hb := hcount S.x hx S.U S.V hU hS.2.2.1 Sq hSq hSqpos hmod lam
+    l₁ r₁ l₂ r₂ l₃ r₃ hl₁ hle₁ hr₁ hl₂ hle₂ hr₂ hl₃ hle₃ hr₃
+  rw [hpf] at hb
+  change |physicalFunctional F S (fun w ℓ =>
+    if archRectangle S l₁ r₁ l₂ r₂ l₃ r₃ w ∧ assignedLines F S J hJ lam ℓ then 1 else 0)-
+      (6/Real.pi^2)*(r₁-l₁)*(r₂-l₂)*(r₃-l₃)*∏ p∈J,((p:ℝ)+1)⁻¹| ≤ _
+  rw [rectangle_root_count F S hUpos hVpos J hJ lam l₁ r₁ l₂ r₂ l₃ r₃ hl₁ hr₁ hl₂ hr₂ hl₃ hr₃]
+  have hUV : 0<S.U*S.V := mul_pos hUpos hVpos
+  have heq (n : ℝ) : (S.U*S.V)⁻¹*n-(6/Real.pi^2)*(r₁-l₁)*(r₂-l₂)*(r₃-l₃)*∏ p∈J,((p:ℝ)+1)⁻¹ =
+      (S.U*S.V)⁻¹*(n-S.U*S.V*(r₁-l₁)*(r₂-l₂)*(r₃-l₃)*(6/Real.pi^2)*∏ p∈J,((p:ℝ)+1)⁻¹) := by
+    field_simp [hUpos.ne',hVpos.ne']
+    <;> ring
+  rw [heq,abs_mul,abs_of_nonneg (inv_nonneg.mpr hUV.le)]
+  have hm := mul_le_mul_of_nonneg_left hb (inv_nonneg.mpr hUV.le)
+  have hright : (S.U*S.V)⁻¹*(C_R*S.U*S.V*Real.rpow S.x (-c)) =
+      C_R*Real.rpow S.x (-(δ/1000)) := by
+    rw [hc]
+    field_simp [hUpos.ne',hVpos.ne']
+    <;> ring
+  exact hright ▸ hm
+
+private lemma modelFunctional_sub {K : ℕ} (F : PDFix K) (S : PDScale)
+    (G H : ArchRoot → LineData S.x K F.a → ℝ)
+    (hG : ∀ ℓ,Measurable (fun y : ℝ×ℝ×ℝ => G ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ))
+    (hH : ∀ ℓ,Measurable (fun y : ℝ×ℝ×ℝ => H ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ))
+    (BG BH : ℝ) (hBG : 0≤BG) (hBH : 0≤BH)
+    (hbG : ∀ w ℓ,|G w ℓ|≤BG) (hbH : ∀ w ℓ,|H w ℓ|≤BH) :
+    modelFunctional F S (fun w ℓ => G w ℓ-H w ℓ)=modelFunctional F S G-modelFunctional F S H := by
+  have hsub (w ℓ) : |G w ℓ-H w ℓ|≤BG+BH := by
+    have ha := abs_add_le (G w ℓ) (-(H w ℓ))
+    rw [abs_neg] at ha
+    rw [←sub_eq_add_neg] at ha
+    linarith [hbG w ℓ,hbH w ℓ]
+  have hm : normalizedObservableMean F S (fun w ℓ => G w ℓ-H w ℓ) =
+      fun y => normalizedObservableMean F S G y-normalizedObservableMean F S H y := by
+    funext y
+    unfold normalizedObservableMean
+    simp only [lineAverage_real,Finset.sum_sub_distrib,mul_sub]
+  rw [modelFunctional_eq_integral F S (fun w ℓ => G w ℓ-H w ℓ)
+      (fun ℓ => (hG ℓ).sub (hH ℓ)) (BG+BH) (add_nonneg hBG hBH) hsub,
+    modelFunctional_eq_integral F S G hG BG hBG hbG,
+    modelFunctional_eq_integral F S H hH BH hBH hbH,hm,
+    integral_sub (bounded_integrable _ _ (normalizedObservableMean_measurable F S G hG)
+      BG hBG (normalizedObservableMean_bound F S G BG hBG hbG))
+      (bounded_integrable _ _ (normalizedObservableMean_measurable F S H hH)
+      BH hBH (normalizedObservableMean_bound F S H BH hBH hbH))]
+  ring
+
+private lemma physicalFunctional_mono_region {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (G H : ArchRoot → LineData S.x K F.a → ℝ)
+    (hGH : ∀ w : ArchRoot,w.InRegion S → ∀ ℓ,G w ℓ≤H w ℓ) :
+    physicalFunctional F S G≤physicalFunctional F S H := by
+  rw [physicalFunctional_eq_sum F S hU hV,physicalFunctional_eq_sum F S hU hV]
+  apply mul_le_mul_of_nonneg_left _ (by positivity)
+  apply Finset.sum_le_sum
+  intro uv huv
+  exact hGH _ (physical_root_in_region S hU uv.1 uv.2
+    ((Set.Finite.mem_toFinset (omega_positions_finite S hU hV)).1 huv)) _
+
+private lemma arch_in_region_normalized (S : PDScale) (hU : 0<S.U) (hV : 0<S.V)
+    (w : ArchRoot) (hw : w.InRegion S) : normalizedArch S w∈rootRegion := by
+  refine ⟨⟨?_,?_⟩,⟨⟨?_,?_⟩,⟨hw.2.2.2.2.1,hw.2.2.2.2.2⟩⟩⟩
+  · exact (le_div_iff₀ hU).2 (by simpa using hw.1)
+  · exact (div_le_iff₀ hU).2 hw.2.1
+  · exact (le_div_iff₀ hV).2 (by simpa using hw.2.2.1)
+  · exact (div_le_iff₀ hV).2 hw.2.2.2.1
+
+private def weightedGridFunction {K : ℕ} (F : PDFix K) (S : PDScale) (h : ℝ)
+    (J : Finset ℕ) (hJ : J⊆markedPrimes S.x K F.a)
+    (f : (ℤ×ℤ×ℤ) → LocalLineData J → ℝ) (w : ArchRoot) (ℓ : LineData S.x K F.a) : ℝ :=
+  ∑ k∈gridIndices h,if normalizedArch S w∈gridCell h k then f k (restrictLines F S J hJ ℓ) else 0
+
+private lemma weighted_cell_measurable {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (h : ℝ) (k : ℤ×ℤ×ℤ)
+    (J : Finset ℕ) (hJ : J⊆markedPrimes S.x K F.a) (f : LocalLineData J → ℝ)
+    (ℓ : LineData S.x K F.a) : Measurable (fun y : ℝ×ℝ×ℝ =>
+      if normalizedArch S ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩∈gridCell h k then f (restrictLines F S J hJ ℓ) else 0) := by
+  simp only [normalized_arch_point S hU hV]
+  exact Measurable.ite (gridCell_measurableSet h k) measurable_const measurable_const
+
+private lemma weightedGridFunction_measurable {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (h : ℝ) (J : Finset ℕ) (hJ : J⊆markedPrimes S.x K F.a)
+    (f : (ℤ×ℤ×ℤ) → LocalLineData J → ℝ) (ℓ : LineData S.x K F.a) :
+    Measurable (fun y : ℝ×ℝ×ℝ => weightedGridFunction F S h J hJ f ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ) :=
+  Finset.measurable_sum (gridIndices h) (fun k _ => weighted_cell_measurable F S hU hV h k J hJ (f k) ℓ)
+
+private lemma weightedGridFunction_eval {K : ℕ} (F : PDFix K) (S : PDScale)
+    (h : ℝ) (hh : 0<h) (J : Finset ℕ) (hJ : J⊆markedPrimes S.x K F.a)
+    (f : (ℤ×ℤ×ℤ) → LocalLineData J → ℝ) (w : ArchRoot) (ℓ : LineData S.x K F.a)
+    (hw : normalizedArch S w∈rootRegion) :
+    weightedGridFunction F S h J hJ f w ℓ = f (gridOwner h (normalizedArch S w)) (restrictLines F S J hJ ℓ) :=
+  grid_cell_partition h hh _ hw (fun k => f k (restrictLines F S J hJ ℓ))
+
+private lemma weightedGridFunction_bounds {K : ℕ} (F : PDFix K) (S : PDScale)
+    (h : ℝ) (hh : 0<h) (J : Finset ℕ) (hJ : J⊆markedPrimes S.x K F.a)
+    (f : (ℤ×ℤ×ℤ) → LocalLineData J → ℝ)
+    (hf : ∀ k∈gridIndices h,∀ lam,0≤f k lam ∧ f k lam≤1) :
+    ∀ w ℓ,0≤weightedGridFunction F S h J hJ f w ℓ ∧ weightedGridFunction F S h J hJ f w ℓ≤1 := by
+  classical
+  intro w ℓ
+  by_cases hw : normalizedArch S w∈rootRegion
+  · rw [weightedGridFunction_eval F S h hh J hJ f w ℓ hw]
+    exact hf _ (grid_owner_mem h hh _ hw) _
+  · have hz : weightedGridFunction F S h J hJ f w ℓ=0 := by
+      apply Finset.sum_eq_zero
+      intro k hk
+      exact if_neg (fun hc => hw hc.1)
+    simp only [hz,le_refl,zero_le_one,and_self]
+
+private lemma weighted_grid_sum_transfer {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (h : ℝ) (hh : 0<h)
+    (J : Finset ℕ) (hJ : J⊆markedPrimes S.x K F.a)
+    (f : (ℤ×ℤ×ℤ) → LocalLineData J → ℝ)
+    (hf : ∀ k∈gridIndices h,∀ lam,0≤f k lam ∧ f k lam≤1)
+    (E : ℝ) (hE : 0≤E)
+    (hbox : ∀ lam : (p : ℕ) → Fin (p+1),RootBoxEstimate F S J hJ lam E) :
+    |physicalFunctional F S (weightedGridFunction F S h J hJ f)-
+      modelFunctional F S (weightedGridFunction F S h J hJ f)| ≤
+      ((gridIndices h).card : ℝ)*(4*E*∏ p∈J,((p:ℝ)+1)) := by
+  classical
+  let G := fun k : ℤ×ℤ×ℤ => fun w ℓ =>
+    if normalizedArch S w∈gridCell h k then f k (restrictLines F S J hJ ℓ) else 0
+  have hm (k) (ℓ) : Measurable (fun y : ℝ×ℝ×ℝ => G k ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ) :=
+    weighted_cell_measurable F S hU hV h k J hJ (f k) ℓ
+  have hb (k) (hk : k∈gridIndices h) (w) (ℓ) : |G k w ℓ|≤1 := by
+    dsimp [G]
+    split_ifs
+    · simpa only [abs_of_nonneg (hf k hk _).1] using (hf k hk _).2
+    · norm_num
+  unfold weightedGridFunction
+  rw [physicalFunctional_finset_sum F S hU hV,
+    modelFunctional_finset_sum F S (gridIndices h) G (fun k _ => hm k) (fun _ => 1)
+      (fun _ _ => by norm_num) hb,←Finset.sum_sub_distrib]
+  calc
+    _ ≤ ∑ k∈gridIndices h,|physicalFunctional F S (G k)-modelFunctional F S (G k)| := by
+      simpa only [Real.norm_eq_abs] using norm_sum_le (gridIndices h) (fun k =>
+        physicalFunctional F S (G k)-modelFunctional F S (G k))
+    _ ≤ ∑ _k∈gridIndices h,4*E*∏ p∈J,((p:ℝ)+1) := Finset.sum_le_sum (fun k hk =>
+      weighted_grid_cell_transfer F S hU hV h hh k J hJ (f k) (hf k hk) E hE hbox)
+    _ = _ := by simp only [Finset.sum_const,nsmul_eq_mul]
+
+private lemma expectation_sandwich (a b lP uP lM uM E B : ℝ)
+    (hlP : lP≤a) (huP : a≤uP) (hlM : lM≤b) (huM : b≤uM)
+    (hl : |lP-lM|≤E) (hu : |uP-uM|≤E) (hgap : uM-lM≤B) : |a-b|≤B+E := by
+  obtain ⟨hl₁,hl₂⟩ := abs_le.mp hl
+  obtain ⟨hu₁,hu₂⟩ := abs_le.mp hu
+  exact abs_le.mpr ⟨by linarith,by linarith⟩
+
+private lemma contributing_tube_eventually {K : ℕ} (δ c₁ c₂ : ℝ) (hδ : 0<δ)
+    (F : PDFix K) (hF : F.Valid) :
+    ∃ x₀ : ℝ,2≤x₀ ∧ ∀ S : PDScale,S.Valid K δ c₁ c₂ → x₀≤S.x →
+      ∀ γ : EnvPath S.x K,IsContributingPath F S γ →
+      ∀ j : Fin (pathLength S.x+1),
+        |((γ j).1.1 : ℝ)|≤Real.exp (Real.rpow S.L (1/2:ℝ)) ∧
+        |((γ j).1.2 : ℝ)|≤Real.exp (Real.rpow S.L (1/2:ℝ)) := by
+  obtain ⟨Bψ,hBψ,hpsi⟩ := pdfix_psi_abs_bound F hF
+  let k : ℝ := ((K+1 : ℕ) : ℝ)
+  let C : ℝ := 2048*Bψ+23+2*k
+  obtain ⟨L₀,hL₀,hsmall⟩ := eventually_const_rpow_le C (21/100) (1/2) (by norm_num)
+  refine ⟨max 2 (Real.exp L₀),le_max_left _ _,?_⟩
+  intro S hS hx γ hγ j
+  have hxpos : 0<S.x := by linarith [hS.1]
+  have hL : L₀≤S.L := (Real.le_log_iff_exp_le hxpos).2 ((le_max_right _ _).trans hx)
+  have hL1 : 1≤S.L := hL₀.trans hL
+  have hLpos : 0<S.L := by linarith
+  let W := Real.rpow S.L (21/100:ℝ)
+  have hW : 1≤W := by
+    simpa [W] using Real.rpow_le_rpow_of_exponent_le hL1 (by norm_num : (0:ℝ)≤21/100)
+  obtain ⟨hN,hM,hd,hY,hP⟩ := budget_scale_bounds F S δ c₁ c₂ hF hS hL1
+  have hY' : S.Y≤Real.exp (k*W) := hY.trans (Real.exp_le_exp.mpr
+    (mul_le_mul_of_nonneg_left
+      (Real.rpow_le_rpow_of_exponent_le hL1 (by norm_num : (1/5:ℝ)≤21/100))
+      (Nat.cast_nonneg (K+1))))
+  have hlog : Real.log S.L≤W/(21/100:ℝ) := Real.log_le_rpow_div hLpos.le (by norm_num)
+  have hsqrt : Real.rpow S.L (1/2:ℝ)≤Real.exp (3*W) := by
+    calc
+      _ = Real.exp (Real.log S.L*(1/2:ℝ)) := Real.rpow_def_of_pos hLpos (1/2)
+      _ ≤ _ := Real.exp_le_exp.mpr (by nlinarith [Real.rpow_nonneg hLpos.le (21/100:ℝ)])
+  have hN' : (pathLength S.x : ℝ)≤4*Real.exp (3*W) := by nlinarith
+  have hYpos : 0<S.Y := (pdScale_positive S δ c₁ c₂ hδ hS).1
+  have hprod : 512*(pathLength S.x : ℝ)*Bψ*(S.d₀ : ℝ)*S.Y≤
+      Real.exp ((2048*Bψ+4+2*k)*W) := by
+    calc
+      _ ≤ 512*(4*Real.exp (3*W))*Bψ*Real.exp (k*W)*Real.exp (k*W) := by gcongr
+      _ = 2048*Bψ*Real.exp ((3+2*k)*W) := by
+        rw [show (3+2*k)*W=3*W+k*W+k*W by ring,Real.exp_add,Real.exp_add]
+        ring
+      _ ≤ Real.exp ((2048*Bψ+1)*W)*Real.exp ((3+2*k)*W) :=
+        mul_le_mul_of_nonneg_right (constant_exp_bound (2048*Bψ) W (by positivity) hW) (Real.exp_pos _).le
+      _ = _ := by rw [←Real.exp_add];congr 1;ring
+  have h16 : (16:ℝ)≤Real.exp (17*W) := by
+    simpa only [show (16:ℝ)+1=17 by norm_num] using constant_exp_bound 16 W (by norm_num) hW
+  have hB := sum_exp_bound 16 (512*(pathLength S.x : ℝ)*Bψ*(S.d₀ : ℝ)*S.Y)
+    17 (2048*Bψ+4+2*k) W (by norm_num) (by dsimp [k];positivity) hW h16 hprod
+  have hExp : 16+512*(pathLength S.x : ℝ)*Bψ*(S.d₀ : ℝ)*S.Y≤Real.exp (Real.rpow S.L (1/2:ℝ)) := by
+    apply hB.trans
+    apply Real.exp_le_exp.mpr
+    convert hsmall S.L hL using 1 <;> dsimp [C,W] <;> ring
+  obtain ⟨B,hBeq,hB0,hcoords⟩ := contributing_coordinate_bound F S δ c₁ c₂ Bψ hδ hBψ hpsi hS
+  obtain ⟨hc1,hc2⟩ := hcoords γ hγ j
+  rw [hBeq] at hc1 hc2
+  exact ⟨hc1.trans hExp,hc2.trans hExp⟩
+
+private lemma contributing_path_boundary_eventually (δ c₁ c₂ : ℝ) (hδ : 0<δ) (hc₁ : 0<c₁)
+    {K : ℕ} (F : PDFix K) (hF : F.Valid) (ε : ℝ) (hε : 0<ε) (hε1 : ε<1) :
+    ∃ x₀ : ℝ,2≤x₀ ∧ ∀ S : PDScale,S.Valid K δ c₁ c₂ → x₀≤S.x →
+      ∀ γ : EnvPath S.x K,IsContributingPath F S γ →
+      (((gridIndices (Real.rpow S.x (-ε))).filter fun k => IsNonconstantOn (fun y =>
+        ∀ j,envBox S ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ (γ j).1 ∧
+          envGood F S ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ (γ j))
+        (gridCube (Real.rpow S.x (-ε)) k)).card : ℝ) ≤
+      ((pathLength S.x : ℝ)+1)*Real.exp (Real.rpow S.L (9/10:ℝ))*Real.rpow S.x (2*ε) := by
+  obtain ⟨xT,hxT,hTube⟩ := contributing_tube_eventually δ c₁ c₂ hδ F hF
+  obtain ⟨xB,hxB,hBoundary⟩ := root_arch_boundary δ c₁ c₂ hδ hc₁ K F hF ε hε hε1
+  refine ⟨max xT xB,hxT.trans (le_max_left _ _),?_⟩
+  intro S hS hx γ hγ
+  have hcoords := hTube S hS ((le_max_left _ _).trans hx) γ hγ
+  have hb := path_boundary_card F S γ (Real.rpow S.x (-ε))
+    (Real.exp (Real.rpow S.L (9/10:ℝ))*Real.rpow S.x (2*ε))
+    (fun j => hBoundary S hS ((le_max_right _ _).trans hx) (γ j) (hγ.1.1 j)
+      (hcoords j).1 (hcoords j).2)
+  simpa only [mul_assoc] using hb
+
+private def gridBadCells (h : ℝ) (P : ℝ×ℝ×ℝ → Prop) : Finset (ℤ×ℤ×ℤ) :=
+  (gridIndices h).filter fun k => IsNonconstantOn P (gridCube h k)
+
+private def gridTruth (h : ℝ) (P : ℝ×ℝ×ℝ → Prop) (k : ℤ×ℤ×ℤ) : ℝ :=
+  if ∃ y∈gridCube h k,P y then 1 else 0
+
+private def gridLowerWeights {J : Finset ℕ} (h : ℝ) (P : ℝ×ℝ×ℝ → Prop)
+    (f : LocalLineData J → ℝ) (k : ℤ×ℤ×ℤ) (lam : LocalLineData J) : ℝ :=
+  if k∈gridBadCells h P then 0 else gridTruth h P k*f lam
+
+private def gridUpperWeights {J : Finset ℕ} (h : ℝ) (P : ℝ×ℝ×ℝ → Prop)
+    (f : LocalLineData J → ℝ) (k : ℤ×ℤ×ℤ) (lam : LocalLineData J) : ℝ :=
+  if k∈gridBadCells h P then 1 else gridTruth h P k*f lam
+
+private lemma gridTruth_bounds (h : ℝ) (P : ℝ×ℝ×ℝ → Prop) (k : ℤ×ℤ×ℤ) :
+    0≤gridTruth h P k ∧ gridTruth h P k≤1 := by unfold gridTruth;split_ifs <;> norm_num
+
+private lemma gridTruth_eq (h : ℝ) (P : ℝ×ℝ×ℝ → Prop) (k : ℤ×ℤ×ℤ)
+    (hk : k∈gridIndices h) (hgood : k∉gridBadCells h P)
+    (y : ℝ×ℝ×ℝ) (hy : y∈gridCube h k) : gridTruth h P k=if P y then 1 else 0 := by
+  classical
+  by_cases hP : P y
+  · have hex : ∃ z∈gridCube h k,P z := ⟨y,hy,hP⟩
+    simp [gridTruth,hP,hex]
+  · have hno : ¬∃ z∈gridCube h k,P z := by
+      rintro ⟨z,hz,hPz⟩
+      exact hgood (Finset.mem_filter.mpr ⟨hk,z,hz,y,hy,hPz,hP⟩)
+    simp [gridTruth,hP,hno]
+
+private lemma grid_weights_bounds {J : Finset ℕ} (h : ℝ) (P : ℝ×ℝ×ℝ → Prop)
+    (f : LocalLineData J → ℝ) (hf : ∀ lam,0≤f lam ∧ f lam≤1) (k : ℤ×ℤ×ℤ) (lam : LocalLineData J) :
+    (0≤gridLowerWeights h P f k lam ∧ gridLowerWeights h P f k lam≤1) ∧
+      (0≤gridUpperWeights h P f k lam ∧ gridUpperWeights h P f k lam≤1) := by
+  classical
+  have ht := gridTruth_bounds h P k
+  have hp : 0≤gridTruth h P k*f lam ∧ gridTruth h P k*f lam≤1 :=
+    ⟨mul_nonneg ht.1 (hf lam).1,by simpa only [one_mul] using mul_le_mul ht.2 (hf lam).2 (hf lam).1 (by norm_num : (0:ℝ)≤1)⟩
+  by_cases hb : k∈gridBadCells h P <;> simp [gridLowerWeights,gridUpperWeights,hb,hp]
+
+private lemma grid_cell_model_mass {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (h : ℝ) (hh : 0<h) (k : ℤ×ℤ×ℤ) :
+    modelFunctional F S (fun w _ => if normalizedArch S w∈gridCell h k then 1 else 0)=
+      (6/Real.pi^2)*gridCellVolume h k := by
+  simpa [assignedLines] using grid_cell_model_average F S hU hV h hh k ∅ (by simp) (fun p => 0)
+
+set_option maxHeartbeats 1000000 in
+private lemma bounded_grid_transfer {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (h : ℝ) (hh : 0<h)
+    (J : Finset ℕ) (hJ : J⊆markedPrimes S.x K F.a)
+    (P : ℝ×ℝ×ℝ → Prop) (hP : MeasurableSet {y|P y})
+    (f : LocalLineData J → ℝ) (hf : ∀ lam,0≤f lam ∧ f lam≤1)
+    (E : ℝ) (hE : 0≤E)
+    (hbox : ∀ lam : (p : ℕ) → Fin (p+1),RootBoxEstimate F S J hJ lam E) :
+    |physicalFunctional F S (fun w ℓ => if P (normalizedArch S w) then f (restrictLines F S J hJ ℓ) else 0)-
+      modelFunctional F S (fun w ℓ => if P (normalizedArch S w) then f (restrictLines F S J hJ ℓ) else 0)| ≤
+      (6/Real.pi^2)*((gridBadCells h P).card : ℝ)*h^3+
+        ((gridIndices h).card : ℝ)*(4*E*∏ p∈J,((p:ℝ)+1)) := by
+  classical
+  let Bad := gridBadCells h P
+  let G := fun w ℓ => if P (normalizedArch S w) then f (restrictLines F S J hJ ℓ) else 0
+  let Lo := weightedGridFunction F S h J hJ (gridLowerWeights h P f)
+  let Hi := weightedGridFunction F S h J hJ (gridUpperWeights h P f)
+  have hLoWeights : ∀ k∈gridIndices h,∀ lam,0≤gridLowerWeights h P f k lam ∧ gridLowerWeights h P f k lam≤1 :=
+    fun k _ lam => (grid_weights_bounds h P f hf k lam).1
+  have hHiWeights : ∀ k∈gridIndices h,∀ lam,0≤gridUpperWeights h P f k lam ∧ gridUpperWeights h P f k lam≤1 :=
+    fun k _ lam => (grid_weights_bounds h P f hf k lam).2
+  have hLoMeas := weightedGridFunction_measurable F S hU hV h J hJ (gridLowerWeights h P f)
+  have hHiMeas := weightedGridFunction_measurable F S hU hV h J hJ (gridUpperWeights h P f)
+  have hLoBounds := weightedGridFunction_bounds F S h hh J hJ (gridLowerWeights h P f) hLoWeights
+  have hHiBounds := weightedGridFunction_bounds F S h hh J hJ (gridUpperWeights h P f) hHiWeights
+  have hGMeas (ℓ) : Measurable (fun y : ℝ×ℝ×ℝ => G ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ) := by
+    dsimp only [G]
+    simp only [normalized_arch_point S hU hV]
+    exact Measurable.ite hP measurable_const measurable_const
+  have hGBounds (w) (ℓ) : 0≤G w ℓ ∧ G w ℓ≤1 := by
+    dsimp only [G]
+    split_ifs
+    · exact hf _
+    · norm_num
+  have hLoAbs (w) (ℓ) : |Lo w ℓ|≤1 := by
+    have hb : 0≤Lo w ℓ ∧ Lo w ℓ≤1 := hLoBounds w ℓ
+    rw [abs_of_nonneg hb.1]
+    exact hb.2
+  have hHiAbs (w) (ℓ) : |Hi w ℓ|≤1 := by
+    have hb : 0≤Hi w ℓ ∧ Hi w ℓ≤1 := hHiBounds w ℓ
+    rw [abs_of_nonneg hb.1]
+    exact hb.2
+  have hGAbs (w) (ℓ) : |G w ℓ|≤1 := by simpa only [abs_of_nonneg (hGBounds w ℓ).1] using (hGBounds w ℓ).2
+  have hpoint (w : ArchRoot) (hw : w.InRegion S) (ℓ : LineData S.x K F.a) :
+      Lo w ℓ≤G w ℓ ∧ G w ℓ≤Hi w ℓ := by
+    have hy := arch_in_region_normalized S hU hV w hw
+    have hk := grid_owner_mem h hh (normalizedArch S w) hy
+    have hc := grid_owner_cube h hh (normalizedArch S w)
+    dsimp only [Lo,Hi]
+    rw [weightedGridFunction_eval F S h hh J hJ _ w ℓ hy,
+      weightedGridFunction_eval F S h hh J hJ _ w ℓ hy]
+    by_cases hb : gridOwner h (normalizedArch S w)∈gridBadCells h P
+    · simpa only [gridLowerWeights,gridUpperWeights,if_pos hb] using hGBounds w ℓ
+    · have ht := gridTruth_eq h P _ hk hb _ hc
+      dsimp only [gridLowerWeights,gridUpperWeights]
+      rw [if_neg hb,if_neg hb,ht]
+      by_cases hp : P (normalizedArch S w) <;> simp [G,hp]
+  have hloP := physicalFunctional_mono_region F S hU hV Lo G (fun w hw ℓ => (hpoint w hw ℓ).1)
+  have hhiP := physicalFunctional_mono_region F S hU hV G Hi (fun w hw ℓ => (hpoint w hw ℓ).2)
+  have hloM := modelFunctional_mono F S hU hV Lo G hLoMeas hGMeas 1 1 (by norm_num) (by norm_num)
+    hLoAbs hGAbs (fun w hw ℓ => (hpoint w hw ℓ).1)
+  have hhiM := modelFunctional_mono F S hU hV G Hi hGMeas hHiMeas 1 1 (by norm_num) (by norm_num)
+    hGAbs hHiAbs (fun w hw ℓ => (hpoint w hw ℓ).2)
+  have hLoTransfer := weighted_grid_sum_transfer F S hU hV h hh J hJ (gridLowerWeights h P f) hLoWeights E hE hbox
+  have hHiTransfer := weighted_grid_sum_transfer F S hU hV h hh J hJ (gridUpperWeights h P f) hHiWeights E hE hbox
+  have hdiff : (fun w ℓ => Hi w ℓ-Lo w ℓ) =
+      (fun (w : ArchRoot) (ℓ : LineData S.x K F.a) => ∑ k∈Bad,if normalizedArch S w∈gridCell h k then (1:ℝ) else 0) := by
+    funext w ℓ
+    dsimp only [Hi,Lo,weightedGridFunction]
+    rw [←Finset.sum_sub_distrib]
+    have he (k) :
+        (if normalizedArch S w∈gridCell h k then gridUpperWeights h P f k (restrictLines F S J hJ ℓ) else 0)-
+        (if normalizedArch S w∈gridCell h k then gridLowerWeights h P f k (restrictLines F S J hJ ℓ) else 0) =
+        if k∈Bad then (if normalizedArch S w∈gridCell h k then (1:ℝ) else 0) else 0 := by
+      by_cases hb : k∈gridBadCells h P <;> by_cases hc : normalizedArch S w∈gridCell h k <;>
+        simp [Bad,gridUpperWeights,gridLowerWeights,hb,hc]
+    simp_rw [he]
+    rw [←Finset.sum_filter]
+    congr 1
+    ext k
+    simp only [Finset.mem_filter,Bad,gridBadCells]
+    tauto
+  have hMassMeas (k) (ℓ : LineData S.x K F.a) : Measurable (fun y : ℝ×ℝ×ℝ =>
+      if normalizedArch S ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩∈gridCell h k then (1:ℝ) else 0) := by
+    simp only [normalized_arch_point S hU hV]
+    exact Measurable.ite (gridCell_measurableSet h k) measurable_const measurable_const
+  have hMassBound (k) (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+      |if normalizedArch S w∈gridCell h k then (1:ℝ) else 0|≤1 := by split_ifs <;> norm_num
+  have hgap : modelFunctional F S Hi-modelFunctional F S Lo≤(6/Real.pi^2)*(Bad.card : ℝ)*h^3 := by
+    rw [←modelFunctional_sub F S Hi Lo hHiMeas hLoMeas 1 1 (by norm_num) (by norm_num) hHiAbs hLoAbs,hdiff,
+      modelFunctional_finset_sum F S Bad (fun k w _ => if normalizedArch S w∈gridCell h k then (1:ℝ) else 0)
+        (fun k _ => hMassMeas k) (fun _ => 1) (fun _ _ => by norm_num) (fun k _ => hMassBound k)]
+    simp_rw [grid_cell_model_mass F S hU hV h hh]
+    rw [←Finset.mul_sum]
+    have hv : (∑ k∈Bad,gridCellVolume h k)≤(Bad.card : ℝ)*h^3 := by
+      calc
+        _ ≤ ∑ _k∈Bad,h^3 := Finset.sum_le_sum (fun k _ => (grid_cell_volume_bound h hh.le k).2)
+        _ = _ := by simp only [Finset.sum_const,nsmul_eq_mul]
+    have hm := mul_le_mul_of_nonneg_left hv (by positivity : (0:ℝ)≤6/Real.pi^2)
+    simpa only [mul_assoc] using hm
+  exact expectation_sandwich _ _ _ _ _ _ _ _ hloP hhiP hloM hhiM hLoTransfer hHiTransfer hgap
+
+private lemma truncated_powerset_card {ι : Type*} (T : Finset ι) (k : ℕ) :
+    (T.powerset.filter fun W => W.card≤k).card≤(k+1)*(T.card+1)^k := by
+  classical
+  have he : (T.powerset.filter fun W => W.card≤k) =
+      (Finset.range (k+1)).biUnion (fun r => T.powersetCard r) := by
+    ext W
+    simp only [Finset.mem_filter,Finset.mem_powerset,Finset.mem_biUnion,Finset.mem_range,Finset.mem_powersetCard]
+    constructor
+    · rintro ⟨hWT,hcard⟩
+      exact ⟨W.card,by omega,hWT,rfl⟩
+    · rintro ⟨r,hr,hWT,hcard⟩
+      exact ⟨hWT,by omega⟩
+  rw [he]
+  apply Finset.card_biUnion_le.trans
+  calc
+    _ ≤ ∑ _r∈Finset.range (k+1),(T.card+1)^k := by
+      apply Finset.sum_le_sum
+      intro r hr
+      rw [Finset.card_powersetCard]
+      exact (Nat.choose_le_pow T.card r).trans
+        ((pow_le_pow_left₀ (Nat.zero_le T.card) (Nat.le_succ T.card) r).trans
+          (pow_le_pow_right₀ (by omega : 1≤T.card+1) (Nat.lt_succ_iff.mp (Finset.mem_range.mp hr))))
+    _ = _ := by simp
+
+private lemma normalized_arch_reconstruct (S : PDScale) (hU : 0<S.U) (hV : 0<S.V) (w : ArchRoot) :
+    (⟨S.U*(normalizedArch S w).1,S.V*(normalizedArch S w).2.1,(normalizedArch S w).2.2⟩ : ArchRoot)=w := by
+  cases w
+  congr 1 <;> dsimp only [normalizedArch] <;> field_simp
+
+private def pathPredicate {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K) :
+    ℝ×ℝ×ℝ → Prop := fun y => ∀ j,envBox S ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ (γ j).1 ∧
+      envGood F S ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ (γ j)
+
+private lemma pathPredicate_measurable {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K) :
+    MeasurableSet {y|pathPredicate F S γ y} :=
+  (Measurable.forall (fun j => (envBox_measurable S (γ j).1).and (envGood_measurable F S (γ j)))).setOf
+
+private lemma pathArch_normalized_indicator {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (γ : EnvPath S.x K) (w : ArchRoot) :
+    pathArch F S w γ=if pathPredicate F S γ (normalizedArch S w) then 1 else 0 := by
+  rw [pathArch_indicator]
+  unfold pathPredicate
+  rw [normalized_arch_reconstruct S hU hV]
+  split_ifs <;> rfl
+
+private lemma bounded_path_local_transfer {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (h : ℝ) (hh : 0<h) (γ : EnvPath S.x K)
+    (J : Finset ℕ) (hJ : J⊆markedPrimes S.x K F.a) (f : LocalLineData J → ℝ)
+    (hf : ∀ lam,0≤f lam ∧ f lam≤1) (E : ℝ) (hE : 0≤E)
+    (hbox : ∀ lam : (p : ℕ) → Fin (p+1),RootBoxEstimate F S J hJ lam E) :
+    |physicalFunctional F S (fun w ℓ => pathArch F S w γ*f (restrictLines F S J hJ ℓ))-
+      modelFunctional F S (fun w ℓ => pathArch F S w γ*f (restrictLines F S J hJ ℓ))| ≤
+      (6/Real.pi^2)*((gridBadCells h (pathPredicate F S γ)).card : ℝ)*h^3+
+        ((gridIndices h).card : ℝ)*(4*E*∏ p∈J,((p:ℝ)+1)) := by
+  classical
+  have hfun : (fun w ℓ => pathArch F S w γ*f (restrictLines F S J hJ ℓ))=
+      (fun w ℓ => if pathPredicate F S γ (normalizedArch S w) then f (restrictLines F S J hJ ℓ) else 0) := by
+    funext w ℓ
+    rw [pathArch_normalized_indicator F S hU hV]
+    split_ifs <;> simp
+  rw [hfun]
+  exact bounded_grid_transfer F S hU hV h hh J hJ (pathPredicate F S γ)
+    (pathPredicate_measurable F S γ) f hf E hE hbox
+
+private def activeSubtype {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K) :
+    Finset {p : ℕ // p∈markedPrimes S.x K F.a} :=
+  (markedPrimes S.x K F.a).attach.filter fun p => p.1∈pathActivePrimes γ
+
+private def inactiveSubtype {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K) :
+    Finset {p : ℕ // p∈markedPrimes S.x K F.a} :=
+  (markedPrimes S.x K F.a).attach.filter fun p => p.1∉pathActivePrimes γ
+
+private def monomialPrimes {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) : Finset ℕ :=
+  pathActivePrimes γ ∪ W.image Subtype.val
+
+private def monomialLineFunction {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) (ℓ : LineData S.x K F.a) : ℝ :=
+  (∏ p∈activeSubtype F S γ,pathPrimeFactor F S γ p.1 (ℓ p))*
+    ∏ p∈W,(1-pathPrimeFactor F S γ p.1 (ℓ p))
+
+private def monomialObservable {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) (w : ArchRoot) (ℓ : LineData S.x K F.a) : ℝ :=
+  pathArch F S w γ*monomialLineFunction F S γ W ℓ
+
+private def monomialLocalFunction {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) (lam : LocalLineData (monomialPrimes F S γ W)) : ℝ :=
+  (∏ p∈activeSubtype F S γ,pathPrimeFactor F S γ p.1 (extendLines (monomialPrimes F S γ W) lam p.1))*
+    ∏ p∈W,(1-pathPrimeFactor F S γ p.1 (extendLines (monomialPrimes F S γ W) lam p.1))
+
+private lemma pathActivePrimes_subset_marked {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ) :
+    pathActivePrimes γ⊆markedPrimes S.x K F.a := by
+  intro p hp
+  have hrepr : ∃ j i jj,(γ j).2 i jj=p := by simpa [pathActivePrimes] using hp
+  obtain ⟨j,i,jj,rfl⟩ := hrepr
+  exact Finset.mem_biUnion.mpr ⟨i,Finset.mem_univ i,(hγ.1 j).2.1 i jj |>.2⟩
+
+private lemma monomialPrimes_subset_marked {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) :
+    monomialPrimes F S γ W⊆markedPrimes S.x K F.a := by
+  intro p hp
+  obtain hp|hp := Finset.mem_union.mp hp
+  · exact pathActivePrimes_subset_marked F S γ hγ hp
+  · obtain ⟨q,hq,rfl⟩ := Finset.mem_image.mp hp
+    exact q.2
+
+private lemma monomialLocalFunction_bounds {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (γ : EnvPath S.x K) (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a})
+    (lam : LocalLineData (monomialPrimes F S γ W)) :
+    0 ≤ monomialLocalFunction F S γ W lam ∧ monomialLocalFunction F S γ W lam ≤ 1 := by
+  unfold monomialLocalFunction
+  have hfac (p : {p : ℕ // p∈markedPrimes S.x K F.a}) :=
+    pathPrimeFactor_bounds F S hF.2.1 hF.2.2.1 γ p.1 (extendLines (monomialPrimes F S γ W) lam p.1)
+  have hA0 : 0≤∏ p∈activeSubtype F S γ,pathPrimeFactor F S γ p.1 (extendLines (monomialPrimes F S γ W) lam p.1) :=
+    Finset.prod_nonneg (fun p _ => (hfac p).1)
+  have hA1 : (∏ p∈activeSubtype F S γ,pathPrimeFactor F S γ p.1 (extendLines (monomialPrimes F S γ W) lam p.1))≤1 :=
+    Finset.prod_le_one₀ (fun p _ => (hfac p).1) (fun p _ => (hfac p).2)
+  have hW0 : 0≤∏ p∈W,(1-pathPrimeFactor F S γ p.1 (extendLines (monomialPrimes F S γ W) lam p.1)) :=
+    Finset.prod_nonneg (fun p _ => sub_nonneg.mpr (hfac p).2)
+  have hW1 : (∏ p∈W,(1-pathPrimeFactor F S γ p.1 (extendLines (monomialPrimes F S γ W) lam p.1)))≤1 :=
+    Finset.prod_le_one₀ (fun p _ => sub_nonneg.mpr (hfac p).2) (fun p _ => by linarith [hfac p])
+  exact ⟨mul_nonneg hA0 hW0,by simpa only [one_mul] using mul_le_mul hA1 hW1 hW0 (by norm_num : (0:ℝ)≤1)⟩
+
+section
+attribute [local irreducible] pathPrimeFactor
+set_option maxHeartbeats 1000000 in
+private lemma monomialLocalFunction_restrict {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a})
+    (hJ : monomialPrimes F S γ W⊆markedPrimes S.x K F.a) (ℓ : LineData S.x K F.a) :
+    monomialLocalFunction F S γ W (restrictLines F S (monomialPrimes F S γ W) hJ ℓ)=
+      monomialLineFunction F S γ W ℓ := by
+  have hline (p : {p : ℕ // p∈markedPrimes S.x K F.a}) (hp : p.1∈monomialPrimes F S γ W) :
+      extendLines (monomialPrimes F S γ W) (restrictLines F S (monomialPrimes F S γ W) hJ ℓ) p.1=ℓ p := by
+    simp only [extendLines,dif_pos hp,restrictLines]
+  unfold monomialLocalFunction monomialLineFunction
+  congr 1
+  · apply Finset.prod_congr rfl
+    intro p hp
+    rw [hline p (Finset.mem_union.mpr (Or.inl (Finset.mem_filter.mp hp).2))]
+  · apply Finset.prod_congr rfl
+    intro p hp
+    rw [hline p (Finset.mem_union.mpr (Or.inr (Finset.mem_image.mpr ⟨p,hp,rfl⟩)))]
+
+end
+
+private lemma monomial_primes_disjoint {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) (hW : W⊆inactiveSubtype F S γ) :
+    Disjoint (pathActivePrimes γ) (W.image Subtype.val) := by
+  apply Finset.disjoint_left.mpr
+  intro p ha hw
+  obtain ⟨q,hq,rfl⟩ := Finset.mem_image.mp hw
+  exact (Finset.mem_filter.mp (hW hq)).2 ha
+
+private lemma monomial_line_modulus {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a})
+    (hU : 0<S.U) (hV : 0<S.V) (h : ℝ) (hh : 0<h) (E : ℝ) (hE : 0≤E)
+    (hbox : ∀ lam : (p : ℕ) → Fin (p+1),RootBoxEstimate F S (monomialPrimes F S γ W)
+      (monomialPrimes_subset_marked F S γ hγ W) lam E) :
+    |physicalFunctional F S (monomialObservable F S γ W)-modelFunctional F S (monomialObservable F S γ W)| ≤
+      (6/Real.pi^2)*((gridBadCells h (pathPredicate F S γ)).card : ℝ)*h^3+
+        ((gridIndices h).card : ℝ)*(4*E*∏ p∈monomialPrimes F S γ W,((p:ℝ)+1)) := by
+  have hf := bounded_path_local_transfer F S hU hV h hh γ (monomialPrimes F S γ W)
+    (monomialPrimes_subset_marked F S γ hγ W) (monomialLocalFunction F S γ W)
+    (monomialLocalFunction_bounds F S hF γ W) E hE hbox
+  change |physicalFunctional F S (fun w ℓ => pathArch F S w γ*monomialLineFunction F S γ W ℓ)-
+    modelFunctional F S (fun w ℓ => pathArch F S w γ*monomialLineFunction F S γ W ℓ)| ≤ _
+  simpa only [monomialLocalFunction_restrict] using hf
+
+private lemma monomial_modulus_budget {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (δ c₁ c₂ Cb : ℝ) (hS : S.Valid K δ c₁ c₂) (hL : 1≤S.L) (hCb : 0≤Cb)
+    (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (hActive : (∏ p∈pathActivePrimes γ,(p:ℝ))≤Real.exp (Cb*Real.rpow S.L (72/100:ℝ)))
+    (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) (hW : W⊆inactiveSubtype F S γ)
+    (hcard : (W.card : ℝ)≤4*Real.rpow S.L (19/25:ℝ)) :
+    (∏ p∈monomialPrimes F S γ W,(p:ℝ))≤Real.exp ((Cb+8)*Real.rpow S.L (24/25:ℝ)) ∧
+      (∏ p∈monomialPrimes F S γ W,((p:ℝ)+1))≤
+        Real.exp ((Cb+8+(8*(K:ℝ)+4)*Real.log 2)*Real.rpow S.L (24/25:ℝ)) := by
+  classical
+  let J := monomialPrimes F S γ W
+  let WN := W.image Subtype.val
+  have hLpos : 0<S.L := by linarith
+  have hJsub := monomialPrimes_subset_marked F S γ hγ W
+  have hp (p : ℕ) (hpJ : p∈J) : p.Prime := by
+    obtain ⟨i,hi,hpi⟩ := Finset.mem_biUnion.mp (hJsub hpJ)
+    exact (Finset.mem_filter.mp hpi).2.1
+  have hPrimeBound (p : ℕ) (hpP : p∈markedPrimes S.x K F.a) :
+      (p:ℝ)≤Real.exp (2*Real.rpow S.L (1/5:ℝ)) := by
+    obtain ⟨i,hi,hpi⟩ := Finset.mem_biUnion.mp hpP
+    exact primeBand_uniform_upper F S hF hL i p hpi
+  have hWNcard : WN.card=W.card := Finset.card_image_of_injective W Subtype.val_injective
+  have hWNbound : ∀ p∈WN,(p:ℝ)≤Real.exp (2*Real.rpow S.L (1/5:ℝ)) := by
+    intro p hpW
+    obtain ⟨q,hq,rfl⟩ := Finset.mem_image.mp hpW
+    exact hPrimeBound q.1 q.2
+  have hWprod : (∏ p∈WN,(p:ℝ))≤Real.exp (8*Real.rpow S.L (24/25:ℝ)) := by
+    have hb := Finset.prod_le_prod₀ (fun p hp => Nat.cast_nonneg p) hWNbound
+    have he : (∏ _p∈WN,Real.exp (2*Real.rpow S.L (1/5:ℝ))) =
+        Real.exp ((2*Real.rpow S.L (1/5:ℝ))*(W.card : ℝ)) := by
+      rw [Finset.prod_const,hWNcard]
+      exact real_exp_pow_nat _ _
+    have hpow : Real.rpow S.L (1/5:ℝ)*Real.rpow S.L (19/25:ℝ)=Real.rpow S.L (24/25:ℝ) := by
+      calc
+        _ = Real.rpow S.L ((1/5:ℝ)+19/25) := (Real.rpow_add hLpos _ _).symm
+        _ = _ := by congr 1;norm_num
+    calc
+      _ ≤ _ := hb
+      _ = _ := he
+      _ ≤ _ := Real.exp_le_exp.mpr (by
+        have hnon : (0:ℝ)≤2*Real.rpow S.L (1/5:ℝ) :=
+          mul_nonneg (by norm_num : (0:ℝ)≤2) (Real.rpow_nonneg hLpos.le (1/5:ℝ))
+        have hm := mul_le_mul_of_nonneg_left hcard hnon
+        nlinarith [hpow])
+  have hAprod : (∏ p∈pathActivePrimes γ,(p:ℝ))≤Real.exp (Cb*Real.rpow S.L (24/25:ℝ)) :=
+    hActive.trans (Real.exp_le_exp.mpr (mul_le_mul_of_nonneg_left
+      (Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (72/100:ℝ)≤24/25)) hCb))
+  have hJprod : (∏ p∈J,(p:ℝ))≤Real.exp ((Cb+8)*Real.rpow S.L (24/25:ℝ)) := by
+    rw [show J=pathActivePrimes γ∪WN from rfl,Finset.prod_union (monomial_primes_disjoint F S γ W hW)]
+    have hm := mul_le_mul hAprod hWprod (Finset.prod_nonneg (fun p _ => Nat.cast_nonneg p)) (Real.exp_pos _).le
+    apply hm.trans_eq
+    rw [←Real.exp_add]
+    congr 1
+    ring
+  obtain ⟨hN,hM,hd,hY,hP⟩ := budget_scale_bounds F S δ c₁ c₂ hF hS hL
+  have hAcard : ((pathActivePrimes γ).card : ℝ)≤8*(K:ℝ)*Real.rpow S.L (51/100:ℝ) := by
+    have hc : ((pathActivePrimes γ).card : ℝ)≤((pathLength S.x : ℝ)+1)*(K:ℝ)*(slotCount S.x : ℝ) := by
+      exact_mod_cast pathActivePrimes_card_le γ
+    have hm := mul_le_mul (mul_le_mul_of_nonneg_right hN (Nat.cast_nonneg K)) hM
+      (Nat.cast_nonneg (slotCount S.x))
+      (mul_nonneg (mul_nonneg (by norm_num : (0:ℝ)≤4) (Real.rpow_nonneg hLpos.le (1/2:ℝ))) (Nat.cast_nonneg K))
+    have hpow : Real.rpow S.L (1/2:ℝ)*Real.rpow S.L (1/100:ℝ)=Real.rpow S.L (51/100:ℝ) := by
+      calc
+        _ = Real.rpow S.L ((1/2:ℝ)+1/100) := (Real.rpow_add hLpos _ _).symm
+        _ = _ := by congr 1;norm_num
+    apply hc.trans
+    apply hm.trans_eq
+    rw [←hpow]
+    ring
+  have hJcard : (J.card : ℝ)≤(8*(K:ℝ)+4)*Real.rpow S.L (19/25:ℝ) := by
+    have hc : (J.card : ℝ)≤((pathActivePrimes γ).card : ℝ)+(W.card : ℝ) := by
+      have hn := Finset.card_union_le (pathActivePrimes γ) WN
+      rw [hWNcard] at hn
+      exact_mod_cast hn
+    have hpow : Real.rpow S.L (51/100:ℝ)≤Real.rpow S.L (19/25:ℝ) :=
+      Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (51/100:ℝ)≤19/25)
+    have hm := mul_le_mul_of_nonneg_left hpow (by positivity : (0:ℝ)≤8*(K:ℝ))
+    nlinarith
+  have hLineProd : (∏ p∈J,((p:ℝ)+1))≤(2:ℝ)^J.card*(∏ p∈J,(p:ℝ)) := by
+    have hm : (∏ p∈J,((p:ℝ)+1))≤∏ p∈J,2*(p:ℝ) := by
+      apply Finset.prod_le_prod₀ (fun p _ => by positivity)
+      intro p hpJ
+      have h1 : (1:ℝ)≤p := by exact_mod_cast (hp p hpJ).one_lt.le
+      linarith
+    simpa only [Finset.prod_mul_distrib,Finset.prod_const] using hm
+  have h2power : (2:ℝ)^J.card=Real.exp (Real.log 2*(J.card : ℝ)) := by
+    have he : (2:ℝ)=Real.exp (Real.log 2) := (Real.exp_log (by norm_num : (0:ℝ)<2)).symm
+    calc
+      _ = Real.exp (Real.log 2)^J.card := congrArg (fun t : ℝ => t^J.card) he
+      _ = _ := real_exp_pow_nat _ _
+  have hlog2 : 0≤Real.log 2 := (Real.log_pos (by norm_num : (1:ℝ)<2)).le
+  have hcard96 : (J.card : ℝ)≤(8*(K:ℝ)+4)*Real.rpow S.L (24/25:ℝ) :=
+    hJcard.trans (mul_le_mul_of_nonneg_left
+      (Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (19/25:ℝ)≤24/25)) (by positivity))
+  have h2bound : (2:ℝ)^J.card≤Real.exp (((8*(K:ℝ)+4)*Real.log 2)*Real.rpow S.L (24/25:ℝ)) := by
+    rw [h2power]
+    apply Real.exp_le_exp.mpr
+    have hm := mul_le_mul_of_nonneg_left hcard96 hlog2
+    nlinarith
+  refine ⟨hJprod,?_⟩
+  apply hLineProd.trans
+  have hm := mul_le_mul h2bound hJprod (Finset.prod_nonneg (fun p _ => Nat.cast_nonneg p)) (Real.exp_pos _).le
+  apply hm.trans_eq
+  rw [←Real.exp_add]
+  congr 1
+  ring
+
+private lemma monomial_transfer_eventually (δ c₁ c₂ : ℝ) (hδ : 0<δ) (hc₁ : 0<c₁)
+    {K : ℕ} (F : PDFix K) (hF : F.Valid) (ε : ℝ) (hε : 0<ε) (hε1 : ε<1) :
+    ∃ C_R x₀ : ℝ,0<C_R ∧ 2≤x₀ ∧ ∀ S : PDScale,S.Valid K δ c₁ c₂ → x₀≤S.x →
+      ∀ γ : EnvPath S.x K,IsContributingPath F S γ →
+      ∀ W : Finset {p : ℕ // p∈markedPrimes S.x K F.a},W⊆inactiveSubtype F S γ →
+        (W.card : ℝ)≤4*Real.rpow S.L (19/25:ℝ) →
+        |physicalFunctional F S (monomialObservable F S γ W)-modelFunctional F S (monomialObservable F S γ W)| ≤
+          (6/Real.pi^2)*((pathLength S.x : ℝ)+1)*Real.exp (Real.rpow S.L (9/10:ℝ))*Real.rpow S.x (-ε)+
+            4000*C_R*(∏ p∈monomialPrimes F S γ W,((p:ℝ)+1))*Real.rpow S.x (-(δ/1000)+3*ε) := by
+  classical
+  obtain ⟨Cb,xCb,hCb,hxCb,hBudget⟩ := root_budget δ c₁ c₂ hδ hc₁ K F hF
+  obtain ⟨C_R,xR,hCR,hxR,hBoxes⟩ := root_box_estimate_eventually δ (Cb+8) hδ (by linarith)
+  obtain ⟨xB,hxB,hBoundary⟩ := contributing_path_boundary_eventually δ c₁ c₂ hδ hc₁ F hF ε hε hε1
+  let x₀ := max (max xCb xR) (max xB (Real.exp 1))
+  have hCb₀ : xCb≤x₀ := (le_max_left _ _).trans (le_max_left _ _)
+  have hR₀ : xR≤x₀ := (le_max_right _ _).trans (le_max_left _ _)
+  have hB₀ : xB≤x₀ := (le_max_left _ _).trans (le_max_right _ _)
+  have hE₀ : Real.exp 1≤x₀ := (le_max_right _ _).trans (le_max_right _ _)
+  refine ⟨C_R,x₀,hCR,hxCb.trans hCb₀,?_⟩
+  intro S hS hx γ hγ W hW hcard
+  have hxpos : 0<S.x := by linarith [hS.1]
+  have hL : 1≤S.L := (Real.le_log_iff_exp_le hxpos).2 (hE₀.trans hx)
+  have hUpos : 0<S.U := (pdScale_positive S δ c₁ c₂ hδ hS).2.1
+  have hVpos : 0<S.V := (Real.rpow_pos_of_pos hxpos δ).trans_le hS.2.2.1
+  have hActive := (hBudget S hS (hCb₀.trans hx)).2.2 γ hγ |>.1
+  obtain ⟨hMod,hLines⟩ := monomial_modulus_budget F S hF δ c₁ c₂ Cb hS hL hCb.le γ hγ.1 hActive W hW hcard
+  have hMod' : ((∏ p∈monomialPrimes F S γ W,p : ℕ) : ℝ)≤
+      Real.exp ((Cb+8)*Real.rpow S.L (98/100:ℝ)) := by
+    rw [Nat.cast_prod]
+    apply hMod.trans
+    exact Real.exp_le_exp.mpr (mul_le_mul_of_nonneg_left
+      (Real.rpow_le_rpow_of_exponent_le hL (by norm_num : (24/25:ℝ)≤98/100)) (by linarith))
+  have hbox := hBoxes K F S c₁ c₂ hS (hR₀.trans hx) (monomialPrimes F S γ W)
+    (monomialPrimes_subset_marked F S γ hγ.1 W) hMod'
+  let h := Real.rpow S.x (-ε)
+  have hh : 0<h := Real.rpow_pos_of_pos hxpos _
+  have hh1 : h≤1 := by
+    have he : h=Real.exp (S.L*(-ε)) := Real.rpow_def_of_pos hxpos (-ε)
+    rw [he]
+    exact Real.exp_le_one_iff.mpr (by nlinarith)
+  have hE0 : 0≤C_R*Real.rpow S.x (-(δ/1000)) :=
+    mul_nonneg hCR.le (Real.rpow_nonneg hxpos.le _)
+  have hraw := monomial_line_modulus F S hF γ hγ.1 W hUpos hVpos h hh
+    (C_R*Real.rpow S.x (-(δ/1000))) hE0 hbox
+  have hB := hBoundary S hS (hB₀.trans hx) γ hγ
+  change ((gridBadCells h (pathPredicate F S γ)).card : ℝ)≤
+    ((pathLength S.x : ℝ)+1)*Real.exp (Real.rpow S.L (9/10:ℝ))*Real.rpow S.x (2*ε) at hB
+  have hG := grid_indices_card h hh hh1
+  have hpow : h^3=Real.rpow S.x (-(3*ε)) := by
+    calc
+      _ = Real.rpow h (3:ℝ) := (Real.rpow_natCast h 3).symm
+      _ = Real.rpow S.x ((-ε)*3) := (Real.rpow_mul hxpos.le (-ε) 3).symm
+      _ = _ := by congr 1;ring
+  have hinv : (h^3)⁻¹=Real.rpow S.x (3*ε) := by
+    rw [hpow]
+    exact (congrArg (fun t : ℝ => t⁻¹) (Real.rpow_neg hxpos.le (3*ε))).trans (inv_inv _)
+  have hpowB : Real.rpow S.x (2*ε)*h^3=Real.rpow S.x (-ε) := by
+    rw [hpow]
+    calc
+      _ = Real.rpow S.x (2*ε-(3*ε)) := (Real.rpow_add hxpos _ _).symm
+      _ = _ := by congr 1;ring
+  have hpowG : Real.rpow S.x (-(δ/1000))*Real.rpow S.x (3*ε)=
+      Real.rpow S.x (-(δ/1000)+3*ε) := (Real.rpow_add hxpos _ _).symm
+  have hFirst := mul_le_mul_of_nonneg_right
+    (mul_le_mul_of_nonneg_left hB (by positivity : (0:ℝ)≤6/Real.pi^2)) (by positivity : (0:ℝ)≤h^3)
+  have hFirstEq : (6/Real.pi^2)*
+      (((pathLength S.x : ℝ)+1)*Real.exp (Real.rpow S.L (9/10:ℝ))*Real.rpow S.x (2*ε))*h^3 =
+      (6/Real.pi^2)*((pathLength S.x : ℝ)+1)*Real.exp (Real.rpow S.L (9/10:ℝ))*Real.rpow S.x (-ε) := by
+    calc
+      _ = ((6/Real.pi^2)*((pathLength S.x : ℝ)+1)*Real.exp (Real.rpow S.L (9/10:ℝ)))*
+        (Real.rpow S.x (2*ε)*h^3) := by ring
+      _ = _ := by rw [hpowB]
+  rw [hFirstEq] at hFirst
+  have hSecondFactor : (0:ℝ)≤4*(C_R*Real.rpow S.x (-(δ/1000)))*
+      ∏ p∈monomialPrimes F S γ W,((p:ℝ)+1) :=
+    mul_nonneg (mul_nonneg (by norm_num : (0:ℝ)≤4) hE0)
+      (Finset.prod_nonneg (fun p _ => add_nonneg (Nat.cast_nonneg p) (by norm_num : (0:ℝ)≤1)))
+  have hSecond := mul_le_mul_of_nonneg_right hG hSecondFactor
+  have hSecondEq : (1000/h^3)*(4*(C_R*Real.rpow S.x (-(δ/1000)))*
+      ∏ p∈monomialPrimes F S γ W,((p:ℝ)+1)) =
+      4000*C_R*(∏ p∈monomialPrimes F S γ W,((p:ℝ)+1))*Real.rpow S.x (-(δ/1000)+3*ε) := by
+    rw [div_eq_mul_inv,hinv]
+    calc
+      _ = 4000*C_R*(∏ p∈monomialPrimes F S γ W,((p:ℝ)+1))*
+        (Real.rpow S.x (-(δ/1000))*Real.rpow S.x (3*ε)) := by ring
+      _ = _ := by rw [hpowG]
+  rw [hSecondEq] at hSecond
+  exact hraw.trans (add_le_add hFirst hSecond)
+
+private def pathActiveFactor {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (ℓ : LineData S.x K F.a) : ℝ := ∏ p∈activeSubtype F S γ,pathPrimeFactor F S γ p.1 (ℓ p)
+
+private def pathExcess {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (p : {p : ℕ // p∈markedPrimes S.x K F.a}) (lam : Fin (p.1+1)) : ℝ :=
+  1-pathPrimeFactor F S γ p.1 lam
+
+private def pathBonferroniUpper {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (m : ℕ) (w : ArchRoot) (ℓ : LineData S.x K F.a) : ℝ :=
+  pathArch F S w γ*pathActiveFactor F S γ ℓ*
+    bonferroniTrunc (inactiveSubtype F S γ) (fun p => pathExcess F S γ p (ℓ p)) m
+
+private def pathBonferroniGap {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (m : ℕ) (w : ArchRoot) (ℓ : LineData S.x K F.a) : ℝ :=
+  pathArch F S w γ*pathActiveFactor F S γ ℓ*
+    (bonferroniTrunc (inactiveSubtype F S γ) (fun p => pathExcess F S γ p (ℓ p)) m-
+      bonferroniTrunc (inactiveSubtype F S γ) (fun p => pathExcess F S γ p (ℓ p)) (m+1))
+
+private lemma pathActiveFactor_bounds {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (γ : EnvPath S.x K) (ℓ : LineData S.x K F.a) :
+    0 ≤ pathActiveFactor F S γ ℓ ∧ pathActiveFactor F S γ ℓ ≤ 1 :=
+  ⟨Finset.prod_nonneg (fun p _ => (pathPrimeFactor_bounds F S hF.2.1 hF.2.2.1 γ p.1 (ℓ p)).1),
+    Finset.prod_le_one₀ (fun p _ => (pathPrimeFactor_bounds F S hF.2.1 hF.2.2.1 γ p.1 (ℓ p)).1)
+      (fun p _ => (pathPrimeFactor_bounds F S hF.2.1 hF.2.2.1 γ p.1 (ℓ p)).2)⟩
+
+private lemma pathExcess_bounds {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (γ : EnvPath S.x K) (p : {p : ℕ // p∈markedPrimes S.x K F.a}) (lam : Fin (p.1+1)) :
+    0 ≤ pathExcess F S γ p lam ∧ pathExcess F S γ p lam ≤ 1 := by
+  have hb := pathPrimeFactor_bounds F S hF.2.1 hF.2.2.1 γ p.1 lam
+  unfold pathExcess
+  constructor <;> linarith
+
+private lemma pathObservable_active_inactive {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+    pathObservable F S γ w ℓ=pathArch F S w γ*pathActiveFactor F S γ ℓ*
+      ∏ p∈inactiveSubtype F S γ,(1-pathExcess F S γ p (ℓ p)) := by
+  have he := (Finset.prod_filter_mul_prod_filter_not (markedPrimes S.x K F.a).attach
+    (fun p => p.1∈pathActivePrimes γ) (fun p => pathPrimeFactor F S γ p.1 (ℓ p))).symm
+  have hprod : (∏ p : {p : ℕ // p∈markedPrimes S.x K F.a},pathPrimeFactor F S γ p.1 (ℓ p)) =
+      pathActiveFactor F S γ ℓ*∏ p∈inactiveSubtype F S γ,pathPrimeFactor F S γ p.1 (ℓ p) := by
+    simpa only [pathActiveFactor,activeSubtype,inactiveSubtype,Finset.univ_eq_attach] using he
+  unfold pathObservable pathExcess
+  rw [hprod]
+  have hs (p : {p : ℕ // p∈markedPrimes S.x K F.a}) :
+      1-(1-pathPrimeFactor F S γ p.1 (ℓ p))=pathPrimeFactor F S γ p.1 (ℓ p) := by ring
+  simp_rw [hs]
+  ring
+
+private lemma pathBonferroni_sandwich {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (γ : EnvPath S.x K) (m : ℕ) (hm : Even m) (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+    0 ≤ pathBonferroniUpper F S γ m w ℓ-pathObservable F S γ w ℓ ∧
+      pathBonferroniUpper F S γ m w ℓ-pathObservable F S γ w ℓ ≤ pathBonferroniGap F S γ m w ℓ := by
+  have hb := (root_bonferroni (inactiveSubtype F S γ) (pathExcess F S γ)
+    (pathExcess_bounds F S hF γ) m hm).1 ℓ
+  have ha : 0 ≤ pathArch F S w γ*pathActiveFactor F S γ ℓ :=
+    mul_nonneg (pathArch_bounds F S w γ).1 (pathActiveFactor_bounds F S hF γ ℓ).1
+  have hn := mul_nonneg ha (sub_nonneg.mpr hb.2)
+  have hu := mul_le_mul_of_nonneg_left (sub_le_sub_left hb.1
+    (bonferroniTrunc (inactiveSubtype F S γ) (fun p => pathExcess F S γ p (ℓ p)) m)) ha
+  unfold pathBonferroniUpper pathBonferroniGap
+  rw [pathObservable_active_inactive]
+  simpa only [mul_sub] using And.intro hn hu
+
+private lemma pathBonferroniUpper_expansion {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (m : ℕ) (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+    pathBonferroniUpper F S γ m w ℓ =
+      ∑ W∈(inactiveSubtype F S γ).powerset.filter (fun W => W.card≤ m),
+        (-1:ℝ)^W.card*monomialObservable F S γ W w ℓ := by
+  unfold pathBonferroniUpper bonferroniTrunc
+  rw [Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro W hW
+  unfold monomialObservable monomialLineFunction pathActiveFactor pathExcess
+  ring
+
+private lemma pathBonferroniGap_expansion {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (m : ℕ) (hm : Even m) (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+    pathBonferroniGap F S γ m w ℓ =
+      ∑ W∈(inactiveSubtype F S γ).powerset.filter (fun W => W.card=m+1),monomialObservable F S γ W w ℓ := by
+  unfold pathBonferroniGap
+  rw [bonferroniTrunc_gap _ _ m hm,Finset.mul_sum]
+  apply Finset.sum_congr rfl
+  intro W hW
+  unfold monomialObservable monomialLineFunction pathActiveFactor pathExcess
+  ring
+
+private lemma monomialObservable_bounds {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (γ : EnvPath S.x K) (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a})
+    (w : ArchRoot) (ℓ : LineData S.x K F.a) :
+    0 ≤ monomialObservable F S γ W w ℓ ∧ monomialObservable F S γ W w ℓ ≤ 1 := by
+  have hb := pathActiveFactor_bounds F S hF γ ℓ
+  have ha := pathArch_bounds F S w γ
+  have hW0 : 0 ≤ ∏ p∈W,pathExcess F S γ p (ℓ p) := Finset.prod_nonneg (fun p _ => (pathExcess_bounds F S hF γ p (ℓ p)).1)
+  have hW1 : (∏ p∈W,pathExcess F S γ p (ℓ p)) ≤ 1 := Finset.prod_le_one₀
+    (fun p _ => (pathExcess_bounds F S hF γ p (ℓ p)).1) (fun p _ => (pathExcess_bounds F S hF γ p (ℓ p)).2)
+  have heq : monomialObservable F S γ W w ℓ=
+      pathArch F S w γ*pathActiveFactor F S γ ℓ*(∏ p∈W,pathExcess F S γ p (ℓ p)) := by
+    unfold monomialObservable monomialLineFunction pathActiveFactor pathExcess
+    ring
+  rw [heq]
+  constructor
+  · exact mul_nonneg (mul_nonneg ha.1 hb.1) hW0
+  · simpa only [one_mul] using mul_le_mul
+      (mul_le_mul ha.2 hb.2 hb.1 (by norm_num : (0:ℝ)≤1)) hW1 hW0 (by norm_num : (0:ℝ)≤1*1)
+
+private lemma monomialObservable_measurable {K : ℕ} (F : PDFix K) (S : PDScale)
+    (γ : EnvPath S.x K) (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) (ℓ : LineData S.x K F.a) :
+    Measurable (fun y : ℝ×ℝ×ℝ => monomialObservable F S γ W ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ) :=
+  (pathArch_measurable F S γ).mul measurable_const
+
+private lemma finite_observable_transfer {K : ℕ} {ι : Type*} (F : PDFix K) (S : PDScale)
+    (hU : 0<S.U) (hV : 0<S.V) (T : Finset ι) (c : ι → ℝ)
+    (G : ι → ArchRoot → LineData S.x K F.a → ℝ)
+    (hG : ∀ i∈T,∀ ℓ,Measurable (fun y : ℝ×ℝ×ℝ => G i ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ))
+    (hb : ∀ i∈T,∀ w ℓ,|G i w ℓ|≤1) (hc : ∀ i∈T,|c i|≤1)
+    (E : ℝ) (hE : 0≤E) (he : ∀ i∈T,|physicalFunctional F S (G i)-modelFunctional F S (G i)|≤E) :
+    |physicalFunctional F S (fun w ℓ => ∑ i∈T,c i*G i w ℓ)-
+      modelFunctional F S (fun w ℓ => ∑ i∈T,c i*G i w ℓ)|≤(T.card : ℝ)*E := by
+  classical
+  have hSigned (i) (hi : i∈T) (w) (ℓ) : |c i*G i w ℓ|≤1 := by
+    rw [abs_mul]
+    simpa only [one_mul] using mul_le_mul (hc i hi) (hb i hi w ℓ) (abs_nonneg _) (by norm_num : (0:ℝ)≤1)
+  rw [physicalFunctional_finset_sum F S hU hV,
+    modelFunctional_finset_sum F S T (fun i w ℓ => c i*G i w ℓ)
+      (fun i hi ℓ => measurable_const.mul (hG i hi ℓ)) (fun _ => 1)
+      (fun _ _ => by norm_num) hSigned,←Finset.sum_sub_distrib]
+  have hterm (i) (hi : i∈T) :
+      |physicalFunctional F S (fun w ℓ => c i*G i w ℓ)-modelFunctional F S (fun w ℓ => c i*G i w ℓ)|≤E := by
+    rw [physicalFunctional_mul_const F S hU hV,modelFunctional_mul_const F S,←mul_sub,abs_mul]
+    simpa only [one_mul] using mul_le_mul (hc i hi) (he i hi) (abs_nonneg _) (by norm_num : (0:ℝ)≤1)
+  calc
+    _ ≤ ∑ i∈T,|physicalFunctional F S (fun w ℓ => c i*G i w ℓ)-modelFunctional F S (fun w ℓ => c i*G i w ℓ)| := by
+      simpa only [Real.norm_eq_abs] using norm_sum_le T (fun i =>
+        physicalFunctional F S (fun w ℓ => c i*G i w ℓ)-modelFunctional F S (fun w ℓ => c i*G i w ℓ))
+    _ ≤ ∑ _i∈T,E := Finset.sum_le_sum hterm
+    _ = _ := by simp only [Finset.sum_const,nsmul_eq_mul]
+
+private lemma pathBonferroni_transfer {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (hU : 0<S.U) (hV : 0<S.V) (γ : EnvPath S.x K) (m : ℕ) (hm : Even m)
+    (E : ℝ) (hE : 0≤E)
+    (he : ∀ W : Finset {p : ℕ // p∈markedPrimes S.x K F.a},W⊆inactiveSubtype F S γ → W.card≤ m+1 →
+      |physicalFunctional F S (monomialObservable F S γ W)-modelFunctional F S (monomialObservable F S γ W)|≤E) :
+    |physicalFunctional F S (pathBonferroniUpper F S γ m)-modelFunctional F S (pathBonferroniUpper F S γ m)|≤
+      (((inactiveSubtype F S γ).powerset.filter fun W => W.card≤ m+1).card : ℝ)*E ∧
+    |physicalFunctional F S (pathBonferroniGap F S γ m)-modelFunctional F S (pathBonferroniGap F S γ m)|≤
+      (((inactiveSubtype F S γ).powerset.filter fun W => W.card≤ m+1).card : ℝ)*E := by
+  classical
+  let T := inactiveSubtype F S γ
+  let B := T.powerset.filter fun W => W.card≤ m+1
+  have hReg (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) (ℓ) := monomialObservable_measurable F S γ W ℓ
+  have hAbs (W : Finset {p : ℕ // p∈markedPrimes S.x K F.a}) (w) (ℓ) :
+      |monomialObservable F S γ W w ℓ|≤1 := by
+    have hb := monomialObservable_bounds F S hF γ W w ℓ
+    rw [abs_of_nonneg hb.1]
+    exact hb.2
+  have hUpperFun : pathBonferroniUpper F S γ m =
+      fun w ℓ => ∑ W∈T.powerset.filter (fun W => W.card≤ m),(-1:ℝ)^W.card*monomialObservable F S γ W w ℓ :=
+    funext (fun w => funext (fun ℓ => pathBonferroniUpper_expansion F S γ m w ℓ))
+  have hGapFun : pathBonferroniGap F S γ m =
+      fun w ℓ => ∑ W∈T.powerset.filter (fun W => W.card=m+1),(1:ℝ)*monomialObservable F S γ W w ℓ := by
+    funext w ℓ
+    simp only [one_mul]
+    exact pathBonferroniGap_expansion F S γ m hm w ℓ
+  constructor
+  · rw [hUpperFun]
+    have ht := finite_observable_transfer F S hU hV (T.powerset.filter fun W => W.card≤ m)
+      (fun W => (-1:ℝ)^W.card) (monomialObservable F S γ)
+      (fun W _ => hReg W) (fun W _ => hAbs W) (fun W _ => by simp)
+      E hE (fun W hW => he W (Finset.mem_powerset.mp (Finset.mem_filter.mp hW).1)
+        (by have hc := (Finset.mem_filter.mp hW).2;omega))
+    have hc : (T.powerset.filter fun W => W.card≤ m).card≤B.card := Finset.card_le_card (by
+      intro W hW
+      exact Finset.mem_filter.mpr ⟨(Finset.mem_filter.mp hW).1,by have hc := (Finset.mem_filter.mp hW).2;omega⟩)
+    exact ht.trans (mul_le_mul_of_nonneg_right (Nat.cast_le.mpr hc) hE)
+  · rw [hGapFun]
+    have ht := finite_observable_transfer F S hU hV (T.powerset.filter fun W => W.card=m+1)
+      (fun _ => 1) (monomialObservable F S γ)
+      (fun W _ => hReg W) (fun W _ => hAbs W) (fun _ _ => by norm_num)
+      E hE (fun W hW => he W (Finset.mem_powerset.mp (Finset.mem_filter.mp hW).1)
+        (Finset.mem_filter.mp hW).2.le)
+    have hc : (T.powerset.filter fun W => W.card=m+1).card≤B.card := Finset.card_le_card (by
+      intro W hW
+      exact Finset.mem_filter.mpr ⟨(Finset.mem_filter.mp hW).1,(Finset.mem_filter.mp hW).2.le⟩)
+    exact ht.trans (mul_le_mul_of_nonneg_right (Nat.cast_le.mpr hc) hE)
+
+private lemma modelFunctional_line_const {K : ℕ} (F : PDFix K) (S : PDScale)
+    (G : LineData S.x K F.a → ℝ) :
+    modelFunctional F S (fun _ ℓ => G ℓ)=15*(6/Real.pi^2)*(lineAverage (fun ℓ => (G ℓ : ℂ))).re := by
+  unfold modelFunctional
+  simp only [intervalIntegral.integral_const,smul_eq_mul]
+  ring
+
+private lemma bonferroni_gap_bounds {ι : Type*} (T : Finset ι) (X : ι → ℝ)
+    (hX : ∀ p∈T,0 ≤ X p ∧ X p ≤ 1) (m : ℕ) (hm : Even m) :
+    0 ≤ bonferroniTrunc T X m-bonferroniTrunc T X (m+1) ∧
+      bonferroniTrunc T X m-bonferroniTrunc T X (m+1) ≤
+        ((T.powerset.filter fun W => W.card=m+1).card : ℝ) := by
+  classical
+  rw [bonferroniTrunc_gap T X m hm]
+  have hTerm (W : Finset ι) (hW : W∈T.powerset.filter fun W => W.card=m+1) :
+      0 ≤ ∏ p∈W,X p ∧ (∏ p∈W,X p) ≤ 1 := by
+    have hs := Finset.mem_powerset.mp (Finset.mem_filter.mp hW).1
+    exact ⟨Finset.prod_nonneg (fun p hp => (hX p (hs hp)).1),
+      Finset.prod_le_one₀ (fun p hp => (hX p (hs hp)).1) (fun p hp => (hX p (hs hp)).2)⟩
+  constructor
+  · exact Finset.sum_nonneg (fun W hW => (hTerm W hW).1)
+  · calc
+      _ ≤ ∑ _W∈T.powerset.filter (fun W => W.card=m+1),(1:ℝ) := Finset.sum_le_sum (fun W hW => (hTerm W hW).2)
+      _ = _ := by simp
+
+private lemma inactive_excess_sum {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K) :
+    (∑ p∈inactiveSubtype F S γ,((p.1 : ℝ)+1)⁻¹*∑ lam : Fin (p.1+1),pathExcess F S γ p lam) =
+      ∑ p∈(markedPrimes S.x K F.a).filter (fun p => p∉pathActivePrimes γ),
+        ((p:ℝ)+1)⁻¹*∑ lam : Fin (p+1),(1-pathPrimeFactor F S γ p lam) := by
+  unfold inactiveSubtype pathExcess
+  simp only [Finset.sum_filter]
+  exact Finset.sum_attach (markedPrimes S.x K F.a) (fun p =>
+    if p∉pathActivePrimes γ then ((p:ℝ)+1)⁻¹*∑ lam : Fin (p+1),(1-pathPrimeFactor F S γ p lam) else 0)
+
+section
+attribute [local irreducible] pathPrimeFactor pathActiveFactor pathExcess
+set_option maxHeartbeats 1000000 in
+private lemma pathBonferroniGap_model_bound {K : ℕ} (F : PDFix K) (S : PDScale) (hF : F.Valid)
+    (hU : 0<S.U) (hV : 0<S.V) (γ : EnvPath S.x K) (m : ℕ) (hm : Even m)
+    (B : ℝ) (hB : 0 ≤ B)
+    (hExcess : (∑ p∈inactiveSubtype F S γ,((p.1 : ℝ)+1)⁻¹*∑ lam : Fin (p.1+1),pathExcess F S γ p lam) ≤ B) :
+    modelFunctional F S (pathBonferroniGap F S γ m) ≤
+      15*(6/Real.pi^2)*(B^(m+1)/((m+1).factorial : ℝ)) := by
+  classical
+  let T := inactiveSubtype F S γ
+  let X := pathExcess F S γ
+  let GapLine := fun ℓ : LineData S.x K F.a =>
+    bonferroniTrunc T (fun p => X p (ℓ p)) m-bonferroniTrunc T (fun p => X p (ℓ p)) (m+1)
+  let C : ℝ := ((T.powerset.filter fun W => W.card=m+1).card : ℝ)
+  have hC : 0 ≤ C := Nat.cast_nonneg _
+  have hGapLine (ℓ) : 0 ≤ GapLine ℓ ∧ GapLine ℓ ≤ C := bonferroni_gap_bounds T _
+    (fun p _ => pathExcess_bounds F S hF γ p (ℓ p)) m hm
+  have hActive (w) (ℓ) : 0 ≤ pathArch F S w γ*pathActiveFactor F S γ ℓ ∧
+      pathArch F S w γ*pathActiveFactor F S γ ℓ ≤ 1 := by
+    constructor
+    · exact mul_nonneg (pathArch_bounds F S w γ).1 (pathActiveFactor_bounds F S hF γ ℓ).1
+    · simpa only [one_mul] using (mul_le_mul (pathArch_bounds F S w γ).2
+        (pathActiveFactor_bounds F S hF γ ℓ).2 (pathActiveFactor_bounds F S hF γ ℓ).1 (by norm_num : (0:ℝ)≤1))
+  have hCompare (w) (ℓ) : pathBonferroniGap F S γ m w ℓ ≤ GapLine ℓ := by
+    change (pathArch F S w γ*pathActiveFactor F S γ ℓ)*GapLine ℓ ≤ GapLine ℓ
+    simpa only [one_mul] using mul_le_mul_of_nonneg_right (hActive w ℓ).2 (hGapLine ℓ).1
+  have hGapAbs (w) (ℓ) : |pathBonferroniGap F S γ m w ℓ| ≤ C := by
+    have hn : 0 ≤ pathBonferroniGap F S γ m w ℓ := mul_nonneg (hActive w ℓ).1 (hGapLine ℓ).1
+    rw [abs_of_nonneg hn]
+    exact (hCompare w ℓ).trans (hGapLine ℓ).2
+  have hLineAbs (w : ArchRoot) (ℓ) : |GapLine ℓ| ≤ C := by
+    rw [abs_of_nonneg (hGapLine ℓ).1]
+    exact (hGapLine ℓ).2
+  have hGapMeas (ℓ) : Measurable (fun y : ℝ×ℝ×ℝ => pathBonferroniGap F S γ m ⟨S.U*y.1,S.V*y.2.1,y.2.2⟩ ℓ) := by
+    convert (pathArch_measurable F S γ).mul_const (pathActiveFactor F S γ ℓ*GapLine ℓ) using 1
+    funext y
+    dsimp only [GapLine,T,X,pathBonferroniGap]
+    ring
+  have hMean := (root_bonferroni T X (pathExcess_bounds F S hF γ) m hm).2
+  have hSum0 : 0 ≤ ∑ p∈T,((p.1 : ℝ)+1)⁻¹*∑ lam : Fin (p.1+1),X p lam := by
+    apply Finset.sum_nonneg
+    intro p hp
+    exact mul_nonneg (by positivity) (Finset.sum_nonneg (fun lam _ => (pathExcess_bounds F S hF γ p lam).1))
+  have hMean' : (lineAverage (fun ℓ => (GapLine ℓ : ℂ))).re ≤ B^(m+1)/((m+1).factorial : ℝ) :=
+    hMean.trans (div_le_div_of_nonneg_right (pow_le_pow_left₀ hSum0 hExcess (m+1)) (by positivity))
+  calc
+    _ ≤ modelFunctional F S (fun _ ℓ => GapLine ℓ) :=
+      modelFunctional_mono F S hU hV _ _ hGapMeas (fun _ => measurable_const)
+        C C hC hC hGapAbs hLineAbs (fun w _ ℓ => hCompare w ℓ)
+    _ = 15*(6/Real.pi^2)*(lineAverage (fun ℓ => (GapLine ℓ : ℂ))).re := modelFunctional_line_const F S GapLine
+    _ ≤ _ := mul_le_mul_of_nonneg_left hMean' (by positivity)
+end
+
+private lemma factorial_gap_decay (Cb : ℝ) (hCb : 0 ≤ Cb) :
+    ∃ L₀ : ℝ,1 ≤ L₀ ∧ ∀ L : ℝ,L₀ ≤ L → ∀ N k : ℕ,
+      (N:ℝ)+1 ≤ 4*Real.rpow L (1/2:ℝ) → Real.rpow L (19/25:ℝ) ≤ (k:ℝ) →
+      (Cb*((N:ℝ)+1))^k/(k.factorial : ℝ) ≤
+        Real.exp (-(1/10:ℝ)*Real.rpow L (19/25:ℝ)*Real.log L) := by
+  let D := 4*Real.exp 1*Cb
+  obtain ⟨L₀,hL₀,hD⟩ := eventually_const_rpow_le D 0 (4/25) (by norm_num)
+  refine ⟨L₀,hL₀,?_⟩
+  intro L hL N k hN hk
+  have hL1 : 1 ≤ L := hL₀.trans hL
+  have hLpos : 0<L := by linarith
+  have hkposR : 0<(k:ℝ) := (Real.rpow_pos_of_pos hLpos (19/25:ℝ)).trans_le hk
+  have hkpos : 0<k := by exact_mod_cast hkposR
+  have hD' : D ≤ Real.rpow L (4/25:ℝ) := by simpa using hD L hL
+  have hFrac : Real.rpow L (1/2:ℝ)/Real.rpow L (19/25:ℝ)=Real.rpow L (-13/50:ℝ) := by
+    calc
+      _ = Real.rpow L ((1/2:ℝ)-19/25) := (Real.rpow_sub hLpos _ _).symm
+      _ = _ := by congr 1;norm_num
+  have hMul : Real.rpow L (4/25:ℝ)*Real.rpow L (-13/50:ℝ)=Real.rpow L (-1/10:ℝ) := by
+    calc
+      _ = Real.rpow L ((4/25:ℝ)+(-13/50)) := (Real.rpow_add hLpos _ _).symm
+      _ = _ := by congr 1;norm_num
+  have hnum : Real.exp 1*(Cb*((N:ℝ)+1)) ≤ D*Real.rpow L (1/2:ℝ) := by
+    have hm := mul_le_mul_of_nonneg_left hN (mul_nonneg (Real.exp_pos 1).le hCb)
+    dsimp only [D]
+    nlinarith
+  have hnum0 : 0 ≤ D*Real.rpow L (1/2:ℝ) :=
+    mul_nonneg (by dsimp [D];positivity) (Real.rpow_nonneg hLpos.le _)
+  have hratio : Real.exp 1*(Cb*((N:ℝ)+1))/(k:ℝ) ≤ Real.rpow L (-1/10:ℝ) := by
+    calc
+      _ ≤ D*Real.rpow L (1/2:ℝ)/(k:ℝ) := div_le_div_of_nonneg_right hnum hkposR.le
+      _ ≤ D*Real.rpow L (1/2:ℝ)/Real.rpow L (19/25:ℝ) :=
+        div_le_div_of_nonneg_left hnum0 (Real.rpow_pos_of_pos hLpos _) hk
+      _ = D*Real.rpow L (-13/50:ℝ) := by rw [mul_div_assoc,hFrac]
+      _ ≤ Real.rpow L (4/25:ℝ)*Real.rpow L (-13/50:ℝ) :=
+        mul_le_mul_of_nonneg_right hD' (Real.rpow_nonneg hLpos.le _)
+      _ = _ := hMul
+  have heq : (Real.rpow L (-1/10:ℝ))^k=Real.exp ((Real.log L*(-1/10:ℝ))*(k:ℝ)) := by
+    calc
+      _ = (Real.exp (Real.log L*(-1/10:ℝ)))^k :=
+        congrArg (fun t : ℝ => t^k) (Real.rpow_def_of_pos hLpos (-1/10))
+      _ = _ := real_exp_pow_nat _ _
+  calc
+    _ ≤ (Real.exp 1*(Cb*((N:ℝ)+1))/(k:ℝ))^k := factorial_tail_bound _ (by positivity) k hkpos
+    _ ≤ (Real.rpow L (-1/10:ℝ))^k := pow_le_pow_left₀ (by positivity) hratio k
+    _ = _ := heq
+    _ ≤ _ := Real.exp_le_exp.mpr (by
+      have hlog : 0 ≤ Real.log L := Real.log_nonneg hL1
+      have hm := mul_le_mul_of_nonpos_left hk (by nlinarith : Real.log L*(-1/10:ℝ) ≤ 0)
+      nlinarith)
 
 /-- `det:root-replacement` — PD 03:593-737 (Lemma 3.4).  REPLACES the frozen `root_replacement`
 (which concerned one observable on `SL₂(ℤ/S)` with few nonzero values).  Proof: keep exact
