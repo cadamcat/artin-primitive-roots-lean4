@@ -770,6 +770,636 @@ lemma primeClassTheta_le_log_mul_count (x : ℝ) (hx : 2 ≤ x) {q c : ℕ} :
 
 
 
+lemma primeProgressionError_eq_zero_of_q_eq_zero (y : ℝ) :
+    primeProgressionError y 0 = 0 := by
+  dsimp [primeProgressionError]
+  simp
+
+lemma fold_max_le {α : Type*} (s : Finset α) (f : α → ℝ) (B : ℝ)
+    (hB : 0 ≤ B) (hf : ∀ x ∈ s, f x ≤ B) :
+    s.fold max 0 f ≤ B := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp [hB]
+  | insert a s has ih =>
+    rw [Finset.fold_insert has]
+    have hfa := hf a (Finset.mem_insert_self a s)
+    have hih := ih (fun x hx => hf x (Finset.mem_insert_of_mem hx))
+    exact max_le hfa hih
+
+lemma primeProgressionError_le_of_forall (y : ℝ) (q : ℕ) (B : ℝ)
+    (hB : 0 ≤ B)
+    (hf : ∀ v < q, Nat.Coprime v q →
+      |(primeClassCount y q v : ℝ) - logarithmicIntegral y / (q.totient : ℝ)| ≤ B) :
+    primeProgressionError y q ≤ B := by
+  by_cases hq : q = 0
+  · subst hq
+    rw [primeProgressionError_eq_zero_of_q_eq_zero]
+    exact hB
+  · unfold primeProgressionError
+    apply fold_max_le _ _ B hB
+    intro v hv
+    rw [Finset.mem_filter, Finset.mem_range] at hv
+    exact hf v hv.1 hv.2
+
+lemma sum_range_primeProgressionError_eq_sum_Icc (y : ℝ) (Q : ℕ) :
+    (∑ q ∈ Finset.range (Q + 1), primeProgressionError y q) =
+      ∑ q ∈ Finset.Icc 1 Q, primeProgressionError y q := by
+  have hrange : Finset.range (Q + 1) = insert 0 (Finset.Icc 1 Q) := by
+    ext x
+    simp only [Finset.mem_range, Finset.mem_insert, Finset.mem_Icc]
+    omega
+  have h0 : 0 ∉ Finset.Icc 1 Q := by simp
+  rw [hrange, Finset.sum_insert h0, primeProgressionError_eq_zero_of_q_eq_zero, zero_add]
+
+lemma integral_one_div_log_sq_le {t₀ : ℝ} (ht₀ : 2 ≤ t₀) :
+    (∫ t in (2 : ℝ)..t₀, 1 / Real.log t ^ 2) ≤ t₀ / (Real.log 2) ^ 2 := by
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hsq2 : 0 < Real.log 2 ^ 2 := sq_pos_of_pos hlog2
+  have hintegrable : IntervalIntegrable (fun t : ℝ => 1 / Real.log t ^ 2) volume 2 t₀ := by
+    rw [intervalIntegrable_iff_integrableOn_Icc_of_le ht₀]
+    refine ContinuousOn.integrableOn_Icc fun t ht => ?_
+    have ht0 : t ≠ 0 := by linarith [ht.1]
+    have hlog : Real.log t ≠ 0 := ne_of_gt (Real.log_pos (by linarith [ht.1]))
+    have hlogsq : ContinuousWithinAt (fun u : ℝ => Real.log u ^ 2) (Set.Icc 2 t₀) t := by fun_prop
+    exact (continuousWithinAt_const (b := (1 : ℝ))).div hlogsq (pow_ne_zero 2 hlog)
+  have hconst : IntervalIntegrable (fun _ : ℝ => 1 / (Real.log 2) ^ 2) volume 2 t₀ :=
+    intervalIntegrable_const
+  have hbound : ∀ t ∈ Set.Icc (2 : ℝ) t₀, 1 / Real.log t ^ 2 ≤ 1 / (Real.log 2) ^ 2 := by
+    intro t ht
+    have ht2 : 2 ≤ t := ht.1
+    have hlogt : Real.log 2 ≤ Real.log t := Real.log_le_log (by norm_num) ht2
+    have hsq : Real.log 2 ^ 2 ≤ Real.log t ^ 2 := by
+      have : 0 ≤ Real.log 2 + Real.log t := by linarith
+      nlinarith [sub_nonneg.mpr hlogt]
+    exact one_div_le_one_div_of_le hsq2 hsq
+  have hle := intervalIntegral.integral_mono_on ht₀ hintegrable hconst hbound
+  rw [intervalIntegral.integral_const, smul_eq_mul, sub_mul] at hle
+  have heq : t₀ * (1 / (Real.log 2) ^ 2) = t₀ / (Real.log 2) ^ 2 := by ring
+  have hpos2 : 0 ≤ 2 * (1 / (Real.log 2) ^ 2) := by positivity
+  calc
+    (∫ t in (2 : ℝ)..t₀, 1 / Real.log t ^ 2) ≤ t₀ * (1 / (Real.log 2) ^ 2) - 2 * (1 / (Real.log 2) ^ 2) := hle
+    _ ≤ t₀ / (Real.log 2) ^ 2 := by linarith [heq, hpos2]
+
+lemma integral_theta_sub_linear_le_on_low {t₀ : ℝ} (ht₀2 : 2 ≤ t₀) {q c : ℕ} (hq : 0 < q) (hc : c < q) :
+    |(∫ t in (2 : ℝ)..t₀,
+        (primeClassTheta t q c - t / (q.totient : ℝ)) / (t * Real.log t ^ 2))| ≤
+      t₀ / (q : ℝ) + 1 + (t₀ / (Real.log 2) ^ 2) / (q.totient : ℝ) := by
+  have hphi : (q.totient : ℝ) ≠ 0 := by
+    exact_mod_cast (Nat.totient_pos.mpr hq).ne'
+  have hthetaInt := intervalIntegrable_primeClassTheta_kernel ht₀2 q c
+  have hsqInt : IntervalIntegrable (fun t : ℝ => 1 / Real.log t ^ 2) volume 2 t₀ := by
+    rw [intervalIntegrable_iff_integrableOn_Icc_of_le ht₀2]
+    refine ContinuousOn.integrableOn_Icc fun t ht => ?_
+    have ht0 : t ≠ 0 := by linarith [ht.1]
+    have hlog : Real.log t ≠ 0 := ne_of_gt (Real.log_pos (by linarith [ht.1]))
+    have hlogsq : ContinuousWithinAt (fun u : ℝ => Real.log u ^ 2) (Set.Icc 2 t₀) t := by fun_prop
+    exact (continuousWithinAt_const (b := (1 : ℝ))).div hlogsq (pow_ne_zero 2 hlog)
+  let mKernel : ℝ → ℝ := fun t => (1 / (q.totient : ℝ)) * (1 / Real.log t ^ 2)
+  have hmInt : IntervalIntegrable mKernel volume 2 t₀ := by
+    simpa [mKernel] using hsqInt.const_mul (1 / (q.totient : ℝ))
+  have hmainKernelEq {t : ℝ} (ht : t ∈ Set.uIcc (2 : ℝ) t₀) :
+      (t / (q.totient : ℝ)) / (t * Real.log t ^ 2) = mKernel t := by
+    have htIcc : t ∈ Set.Icc (2 : ℝ) t₀ := by simpa [Set.uIcc_of_le ht₀2] using ht
+    have ht0 : t ≠ 0 := by linarith [htIcc.1]
+    have hlog : Real.log t ≠ 0 := ne_of_gt (Real.log_pos (by linarith [htIcc.1]))
+    dsimp [mKernel]
+    field_simp [hphi, ht0, hlog]
+  have hsub :
+      (∫ t in (2 : ℝ)..t₀, primeClassTheta t q c / (t * Real.log t ^ 2)) -
+        (∫ t in (2 : ℝ)..t₀, mKernel t) =
+          ∫ t in (2 : ℝ)..t₀,
+            (primeClassTheta t q c - t / (q.totient : ℝ)) /
+              (t * Real.log t ^ 2) := by
+    rw [← intervalIntegral.integral_sub hthetaInt hmInt]
+    apply intervalIntegral.integral_congr
+    intro t ht
+    have htIcc : t ∈ Set.Icc (2 : ℝ) t₀ := by simpa [Set.uIcc_of_le ht₀2] using ht
+    have ht0 : t ≠ 0 := by linarith [htIcc.1]
+    have hlog : Real.log t ≠ 0 := ne_of_gt (Real.log_pos (by linarith [htIcc.1]))
+    change primeClassTheta t q c / (t * Real.log t ^ 2) - mKernel t =
+      (primeClassTheta t q c - t / (q.totient : ℝ)) /
+        (t * Real.log t ^ 2)
+    rw [← hmainKernelEq ht]
+    field_simp [hphi, ht0, hlog]
+  have hformula := primeClassCount_eq_theta_formula ht₀2 q c
+  have htheta_pos : 0 ≤ primeClassTheta t₀ q c / Real.log t₀ := by
+    have h1 : 0 ≤ primeClassTheta t₀ q c := Finset.sum_nonneg fun n _ => by
+      dsimp [primeClassWeight]
+      split_ifs <;> positivity
+    have h2 : 0 < Real.log t₀ := Real.log_pos (by linarith)
+    positivity
+  have hcount_le := primeClassCount_le t₀ ht₀2 hq hc
+  have htheta_int_nonneg : 0 ≤ ∫ t in (2 : ℝ)..t₀, primeClassTheta t q c / (t * Real.log t ^ 2) := by
+    apply intervalIntegral.integral_nonneg ht₀2
+    intro t ht
+    have h1 : 0 ≤ primeClassTheta t q c := Finset.sum_nonneg fun n _ => by
+      dsimp [primeClassWeight]
+      split_ifs <;> positivity
+    have ht0 : 0 < t := by linarith [ht.1]
+    have hlog : 0 < Real.log t := Real.log_pos (by linarith [ht.1])
+    positivity
+  have htheta_int_le : (∫ t in (2 : ℝ)..t₀, primeClassTheta t q c / (t * Real.log t ^ 2)) ≤
+      t₀ / (q : ℝ) + 1 := by
+    calc
+      _ ≤ (primeClassCount t₀ q c : ℝ) := by linarith [hformula, htheta_pos]
+      _ ≤ t₀ / (q : ℝ) + 1 := hcount_le
+  have hmInt_eq : (∫ t in (2 : ℝ)..t₀, mKernel t) =
+      (1 / (q.totient : ℝ)) * (∫ t in (2 : ℝ)..t₀, 1 / Real.log t ^ 2) := by
+    simp [mKernel, intervalIntegral.integral_const_mul]
+  have hmInt_nonneg : 0 ≤ ∫ t in (2 : ℝ)..t₀, mKernel t := by
+    rw [hmInt_eq]
+    have h1 : 0 ≤ (1 : ℝ) / (q.totient : ℝ) := by positivity
+    have h2 : 0 ≤ ∫ t in (2 : ℝ)..t₀, 1 / Real.log t ^ 2 := by
+      apply intervalIntegral.integral_nonneg ht₀2
+      intro t ht
+      have hlog : 0 < Real.log t := Real.log_pos (by linarith [ht.1])
+      positivity
+    positivity
+  have hmInt_le : (∫ t in (2 : ℝ)..t₀, mKernel t) ≤
+      (t₀ / (Real.log 2) ^ 2) / (q.totient : ℝ) := by
+    rw [hmInt_eq]
+    have h1 : 0 ≤ (1 : ℝ) / (q.totient : ℝ) := by positivity
+    have h2 := integral_one_div_log_sq_le ht₀2
+    have h3 := mul_le_mul_of_nonneg_left h2 h1
+    calc
+      (1 / (q.totient : ℝ)) * (∫ t in (2 : ℝ)..t₀, 1 / Real.log t ^ 2) ≤
+        (1 / (q.totient : ℝ)) * (t₀ / (Real.log 2) ^ 2) := h3
+      _ = (t₀ / (Real.log 2) ^ 2) / (q.totient : ℝ) := by ring
+  rw [← hsub, abs_le]
+  constructor
+  · linarith
+  · linarith
+
+lemma intervalIntegrable_upper_kernel {y : ℝ} (hy : 2 ≤ y) {t₀ : ℝ} (ht₀2 : 2 ≤ t₀) (ht₀y : t₀ ≤ y)
+    (q : ℕ) (hq : 0 < q) (C : ℝ) :
+    IntervalIntegrable (fun t : ℝ =>
+      (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2))
+      volume t₀ y := by
+  have hsub : Set.Icc t₀ y ⊆ Set.Icc 2 y := Set.Icc_subset_Icc ht₀2 le_rfl
+  have hg1_int : IntegrableOn (fun t : ℝ =>
+      (OAI.LargePrimeGaps.endpointError t q : ℝ) / (t * Real.log t ^ 2)) (Set.Icc t₀ y) :=
+    (integrable_endpointError_kernel hy q hq).mono_set hsub
+  have hg1 : IntervalIntegrable (fun t : ℝ =>
+      (OAI.LargePrimeGaps.endpointError t q : ℝ) / (t * Real.log t ^ 2)) volume t₀ y := by
+    rw [intervalIntegrable_iff_integrableOn_Icc_of_le ht₀y]
+    exact hg1_int
+  have hg2_cont : ContinuousOn (fun t : ℝ =>
+      ((|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) (Set.Icc t₀ y) := by
+    have hnz : Set.Icc t₀ y ⊆ {0}ᶜ := fun t ht =>
+      ne_of_gt (by linarith [ht₀2.trans ht.1])
+    have hlog : ContinuousOn Real.log (Set.Icc t₀ y) :=
+      Real.continuousOn_log.mono hnz
+    have hden : ContinuousOn (fun t => t * Real.log t ^ 2) (Set.Icc t₀ y) :=
+      continuousOn_id.mul (hlog.pow 2)
+    have hnum : ContinuousOn (fun t => (|C| + 1) * Real.sqrt t) (Set.Icc t₀ y) :=
+      continuousOn_const.mul Real.continuous_sqrt.continuousOn
+    refine ContinuousOn.div hnum hden ?_
+    intro t ht
+    have ht2 : 2 ≤ t := ht₀2.trans ht.1
+    have ht0 : t ≠ 0 := by linarith
+    have hlogpos : Real.log t ≠ 0 := ne_of_gt (Real.log_pos (by linarith))
+    positivity
+  have hg2 : IntervalIntegrable (fun t : ℝ =>
+      ((|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) volume t₀ y := by
+    rw [intervalIntegrable_iff_integrableOn_Icc_of_le ht₀y]
+    exact hg2_cont.integrableOn_Icc
+  have heq : (fun t : ℝ =>
+      (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) =
+      (fun t : ℝ =>
+        (OAI.LargePrimeGaps.endpointError t q : ℝ) / (t * Real.log t ^ 2) +
+        ((|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) := by
+    ext t
+    ring
+  rw [heq]
+  exact hg1.add hg2
+
+lemma primeProgressionError_le_bound {y : ℝ} (hy : 2 ≤ y) {t₀ : ℝ} (ht₀2 : 2 ≤ t₀) (ht₀y : t₀ ≤ y)
+    {q : ℕ} (hq : 0 < q)
+    (C : ℝ) (hC : ∀ x : ℝ, Chebyshev.psi x - Chebyshev.theta x ≤ C * Real.sqrt x) :
+    primeProgressionError y q ≤
+      (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y +
+      (∫ t in t₀..y, (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) +
+      (t₀ / (q : ℝ) + 1) +
+      (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ) := by
+  let K : ℝ → ℝ := fun t =>
+    (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)
+  let B : ℝ :=
+    (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y +
+    (∫ t in t₀..y, K t) +
+    (t₀ / (q : ℝ) + 1) +
+    (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ)
+  have hK_nonneg : ∀ t ∈ Set.Icc t₀ y, 0 ≤ K t := by
+    intro t ht
+    have ht2 : 2 ≤ t := ht₀2.trans ht.1
+    have ht0 : 0 < t := by linarith
+    have hlog : 0 < Real.log t := Real.log_pos (by linarith)
+    have h1 : 0 ≤ OAI.LargePrimeGaps.endpointError t q := by positivity
+    have h2 : 0 ≤ (|C| + 1) * Real.sqrt t := by positivity
+    dsimp [K]
+    positivity
+  have hK_int : IntervalIntegrable K volume t₀ y :=
+    intervalIntegrable_upper_kernel hy ht₀2 ht₀y q hq C
+  have hB_nonneg : 0 ≤ B := by
+    dsimp [B]
+    have h1 : 0 ≤ (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y := by
+      have : 0 < Real.log y := Real.log_pos (by linarith)
+      positivity
+    have h2 : 0 ≤ ∫ t in t₀..y, K t :=
+      intervalIntegral.integral_nonneg ht₀y hK_nonneg
+    have h3 : 0 ≤ t₀ / (q : ℝ) + 1 := by positivity
+    have h4 : 0 ≤ (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ) := by positivity
+    linarith [h1, h2, h3, h4]
+  apply primeProgressionError_le_of_forall y q B hB_nonneg
+  intro v hv hcop
+  have hphi : (q.totient : ℝ) ≠ 0 := by
+    exact_mod_cast (Nat.totient_pos.mpr hq).ne'
+  have hthetaInt := intervalIntegrable_primeClassTheta_kernel hy q v
+  have hsqInt : IntervalIntegrable (fun t : ℝ => 1 / Real.log t ^ 2) volume 2 y := by
+    rw [intervalIntegrable_iff_integrableOn_Icc_of_le hy]
+    refine ContinuousOn.integrableOn_Icc fun t ht => ?_
+    have ht0 : t ≠ 0 := by linarith [ht.1]
+    have hlog : Real.log t ≠ 0 := ne_of_gt (Real.log_pos (by linarith [ht.1]))
+    have hlogsq : ContinuousWithinAt (fun u : ℝ => Real.log u ^ 2) (Set.Icc 2 y) t := by fun_prop
+    exact (continuousWithinAt_const (b := (1 : ℝ))).div hlogsq (pow_ne_zero 2 hlog)
+  let mKernel : ℝ → ℝ := fun t => (1 / (q.totient : ℝ)) * (1 / Real.log t ^ 2)
+  have hmInt : IntervalIntegrable mKernel volume 2 y := by
+    simpa [mKernel] using hsqInt.const_mul (1 / (q.totient : ℝ))
+  let F : ℝ → ℝ := fun t =>
+    (primeClassTheta t q v - t / (q.totient : ℝ)) / (t * Real.log t ^ 2)
+  let fDiff : ℝ → ℝ := fun t =>
+    primeClassTheta t q v / (t * Real.log t ^ 2) - mKernel t
+  have hDiff_int : IntervalIntegrable fDiff volume 2 y :=
+    hthetaInt.sub hmInt
+  have hsub1 : Set.uIcc (2 : ℝ) t₀ ⊆ Set.uIcc (2 : ℝ) y := by
+    rw [Set.uIcc_of_le ht₀2, Set.uIcc_of_le hy]
+    exact Set.Icc_subset_Icc le_rfl ht₀y
+  have hsub2 : Set.uIcc t₀ y ⊆ Set.uIcc (2 : ℝ) y := by
+    rw [Set.uIcc_of_le ht₀y, Set.uIcc_of_le hy]
+    exact Set.Icc_subset_Icc ht₀2 le_rfl
+  have hF_eq_diff : ∀ t ∈ Set.Icc (2 : ℝ) y, F t = fDiff t := by
+    intro t ht
+    have ht0 : t ≠ 0 := by linarith [ht.1]
+    have hlog : Real.log t ≠ 0 := ne_of_gt (Real.log_pos (by linarith [ht.1]))
+    dsimp [F, fDiff, mKernel]
+    field_simp [hphi, ht0, hlog]
+  have hF_int : IntervalIntegrable F volume 2 y := by
+    apply hDiff_int.congr
+    intro t ht
+    rw [Set.uIoc_of_le hy] at ht
+    have htIcc : t ∈ Set.Icc (2 : ℝ) y := ⟨le_of_lt ht.1, ht.2⟩
+    exact (hF_eq_diff t htIcc).symm
+  have hF_2_t0 : IntervalIntegrable F volume 2 t₀ := hF_int.mono_set hsub1
+  have hF_t0_y : IntervalIntegrable F volume t₀ y := hF_int.mono_set hsub2
+  have hF_split : (∫ t in (2 : ℝ)..y, F t) =
+      (∫ t in (2 : ℝ)..t₀, F t) + (∫ t in t₀..y, F t) :=
+    (integral_add_adjacent_intervals hF_2_t0 hF_t0_y).symm
+  have hle_low := integral_theta_sub_linear_le_on_low ht₀2 hq hv
+  have hF_le_K : ∀ t ∈ Set.Icc t₀ y, F t ≤ K t := by
+    intro t ht
+    have ht2 : 2 ≤ t := ht₀2.trans ht.1
+    have ht0 : 0 < t := by linarith
+    have hlog : 0 < Real.log t := Real.log_pos (by linarith)
+    have hden : 0 < t * Real.log t ^ 2 := mul_pos ht0 (sq_pos_of_pos hlog)
+    have herr := primeClassTheta_error_le t hq hv hcop C hC
+    have hdiv := div_le_div_of_nonneg_right (le_trans (le_abs_self _) herr) (le_of_lt hden)
+    exact hdiv
+  have hnegF_le_K : ∀ t ∈ Set.Icc t₀ y, -F t ≤ K t := by
+    intro t ht
+    have ht2 : 2 ≤ t := ht₀2.trans ht.1
+    have ht0 : 0 < t := by linarith
+    have hlog : 0 < Real.log t := Real.log_pos (by linarith)
+    have hden : 0 < t * Real.log t ^ 2 := mul_pos ht0 (sq_pos_of_pos hlog)
+    have herr := primeClassTheta_error_le t hq hv hcop C hC
+    have hdiv := div_le_div_of_nonneg_right (le_trans (neg_le_abs _) herr) (le_of_lt hden)
+    dsimp [F]
+    rw [← neg_div]
+    exact hdiv
+  have hle_up1 := intervalIntegral.integral_mono_on ht₀y hF_t0_y hK_int hF_le_K
+  have hle_up2 : -(∫ t in t₀..y, F t) ≤ ∫ t in t₀..y, K t := by
+    rw [← intervalIntegral.integral_neg]
+    exact intervalIntegral.integral_mono_on ht₀y hF_t0_y.neg hK_int hnegF_le_K
+  have habs_up : |∫ t in t₀..y, F t| ≤ ∫ t in t₀..y, K t := by
+    rw [abs_le]
+    exact ⟨by linarith [hle_up2], hle_up1⟩
+  have habs_total_int : |∫ t in (2 : ℝ)..y, F t| ≤
+      (t₀ / (q : ℝ) + 1 + (t₀ / (Real.log 2) ^ 2) / (q.totient : ℝ)) +
+        ∫ t in t₀..y, K t := by
+    rw [hF_split]
+    calc
+      |(∫ t in (2 : ℝ)..t₀, F t) + (∫ t in t₀..y, F t)| ≤
+        |∫ t in (2 : ℝ)..t₀, F t| + |∫ t in t₀..y, F t| := abs_add_le _ _
+      _ ≤ _ := add_le_add hle_low habs_up
+  have hmain_eq := primeClassCount_li_error_eq hy hq (c := v)
+  have hy_log : 0 < Real.log y := Real.log_pos (by linarith)
+  have herr_y := primeClassTheta_error_le y hq hv hcop C hC
+  have habs_y : |(primeClassTheta y q v - y / (q.totient : ℝ)) / Real.log y| ≤
+      (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y := by
+    rw [abs_div, abs_of_pos hy_log]
+    exact div_le_div_of_nonneg_right herr_y (le_of_lt hy_log)
+  have hD_nonneg : 0 ≤ (2 / Real.log 2) / (q.totient : ℝ) := by positivity
+  have hsum_le :
+      |(primeClassCount y q v : ℝ) - logarithmicIntegral y / (q.totient : ℝ)| ≤
+        |(primeClassTheta y q v - y / (q.totient : ℝ)) / Real.log y| +
+        |∫ t in (2 : ℝ)..y, F t| +
+        (2 / Real.log 2) / (q.totient : ℝ) := by
+    rw [hmain_eq]
+    have h1 := abs_add_le ((primeClassTheta y q v - y / (q.totient : ℝ)) / Real.log y +
+        ∫ t in (2 : ℝ)..y, F t) ((2 / Real.log 2) / (q.totient : ℝ))
+    have h2 := abs_add_le ((primeClassTheta y q v - y / (q.totient : ℝ)) / Real.log y)
+        (∫ t in (2 : ℝ)..y, F t)
+    rw [abs_of_nonneg hD_nonneg] at h1
+    linarith
+  have hdiv_add :
+      (t₀ / (Real.log 2) ^ 2) / (q.totient : ℝ) + (2 / Real.log 2) / (q.totient : ℝ) =
+        (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ) := by
+    ring
+  have hB_eq : (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y +
+      ((t₀ / (q : ℝ) + 1 + (t₀ / (Real.log 2) ^ 2) / (q.totient : ℝ)) + ∫ t in t₀..y, K t) +
+      (2 / Real.log 2) / (q.totient : ℝ) = B := by
+    dsimp [B]
+    rw [← hdiv_add]
+    ring
+  calc
+    |(primeClassCount y q v : ℝ) - logarithmicIntegral y / (q.totient : ℝ)| ≤ _ := hsum_le
+    _ ≤ (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y +
+        ((t₀ / (q : ℝ) + 1 + (t₀ / (Real.log 2) ^ 2) / (q.totient : ℝ)) + ∫ t in t₀..y, K t) +
+        (2 / Real.log 2) / (q.totient : ℝ) := by gcongr
+    _ = B := hB_eq
+
+lemma eventually_log_rpow_le_rpow (r s : ℝ) (hs : 0 < s) :
+    ∀ᶠ x in Filter.atTop, Real.log x ^ r ≤ x ^ s := by
+  have ho := isLittleO_log_rpow_rpow_atTop r hs
+  have hb := ho.eventuallyLE
+  have h2 : ∀ᶠ x in Filter.atTop, (2 : ℝ) ≤ x := Filter.eventually_ge_atTop 2
+  refine (hb.and h2).mono fun x ⟨hx, hx2⟩ => ?_
+  have hxpos : 0 < x := by linarith
+  have hlogpos : 0 < Real.log x := Real.log_pos (by linarith)
+  rw [Real.norm_of_nonneg (by positivity), Real.norm_of_nonneg (by positivity)] at hx
+  exact hx
+
+lemma intervalIntegral_le_const_mul {a b B : ℝ} (hab : a ≤ b) (ha : 0 ≤ a)
+    {g : ℝ → ℝ} (hg : IntervalIntegrable g volume a b)
+    (hB : ∀ t ∈ Set.Icc a b, g t ≤ B) (hB0 : 0 ≤ B) :
+    (∫ t in a..b, g t) ≤ B * b := by
+  have hconst : IntervalIntegrable (fun _ => B) volume a b := intervalIntegrable_const
+  have hle := intervalIntegral.integral_mono_on hab hg hconst hB
+  rw [intervalIntegral.integral_const, smul_eq_mul] at hle
+  calc (∫ t in a..b, g t) ≤ (b - a) * B := hle
+  _ ≤ b * B := by nlinarith
+  _ = B * b := by ring
+
+lemma sum_Icc_endpointError_le
+    {x : ℝ} {Q : ℕ} {b M : ℝ} {A₁ : ℝ} (x₀ : ℝ)
+    (hBV : ∀ u : ℝ, x₀ ≤ u →
+      (∑ q ∈ Finset.Icc 1 ⌊u^(1/2:ℝ) * (Real.log u)^(-b)⌋₊,
+        (OAI.LargePrimeGaps.endpointError u q : ℝ)) ≤ M * u * (Real.log u)^(-A₁))
+    (hx : x₀ ≤ x)
+    (hQ : (Q : ℝ) ≤ x^(1/2:ℝ) * (Real.log x)^(-b)) :
+    (∑ q ∈ Finset.Icc 1 Q, (OAI.LargePrimeGaps.endpointError x q : ℝ)) ≤
+      M * x * (Real.log x)^(-A₁) := by
+  have hQ_floor : Q ≤ ⌊x^(1/2:ℝ) * (Real.log x)^(-b)⌋₊ := Nat.le_floor hQ
+  let s := Finset.Icc 1 Q
+  let t := Finset.Icc 1 ⌊x^(1/2:ℝ) * (Real.log x)^(-b)⌋₊
+  have hsub : s ⊆ t := Finset.Icc_subset_Icc le_rfl hQ_floor
+  calc (∑ q ∈ s, (OAI.LargePrimeGaps.endpointError x q : ℝ)) ≤
+      ∑ q ∈ t, (OAI.LargePrimeGaps.endpointError x q : ℝ) :=
+        Finset.sum_le_sum_of_subset_of_nonneg hsub (fun _ _ _ => NNReal.coe_nonneg _)
+    _ ≤ M * x * (Real.log x)^(-A₁) := hBV x hx
+
+lemma Q_le_x_pow_log_neg_b {y t₀ x : ℝ} (hy : 2 ≤ y)
+    {η η' b : ℝ} (hη : 0 < η) (hη' : 0 < η') (hη'η : η' ≤ η / 2) (hb : 0 < b)
+    (ht₀ : t₀ = y ^ (1 - η'))
+    (ht₀2 : 2 ≤ t₀)
+    (hx_mem : x ∈ Set.Icc t₀ y)
+    (hlog_b : Real.log y ^ b ≤ y ^ (η - η' / 2)) :
+    (⌊Real.rpow y (1 / 2 - η)⌋₊ : ℝ) ≤ x ^ (1 / 2 : ℝ) * Real.log x ^ (-b) := by
+  have hypos : 0 < y := by linarith
+  have hlogy_pos : 0 < Real.log y := Real.log_pos (by linarith)
+  have hxpos : 0 < x := by linarith [ht₀2.trans hx_mem.1]
+  have hlogx_pos : 0 < Real.log x := Real.log_pos (by linarith [ht₀2.trans hx_mem.1])
+  have hQ_le : (⌊Real.rpow y (1 / 2 - η)⌋₊ : ℝ) ≤ y ^ (1 / 2 - η) :=
+    Nat.floor_le (Real.rpow_nonneg (by linarith [hy]) _)
+  have hsqrt : t₀ ^ (1 / 2 : ℝ) ≤ x ^ (1 / 2 : ℝ) :=
+    Real.rpow_le_rpow (by linarith [ht₀2]) hx_mem.1 (by norm_num)
+  have hlog_le : Real.log x ≤ Real.log y := Real.log_le_log hxpos hx_mem.2
+  have hlogb_le : Real.log x ^ b ≤ Real.log y ^ b :=
+    Real.rpow_le_rpow (by positivity) hlog_le (le_of_lt hb)
+  have hlogneg : Real.log y ^ (-b) ≤ Real.log x ^ (-b) := by
+    rw [Real.rpow_neg (by positivity), Real.rpow_neg (by positivity)]
+    exact (inv_le_inv₀ (Real.rpow_pos_of_pos hlogy_pos b) (Real.rpow_pos_of_pos hlogx_pos b)).mpr hlogb_le
+  have ht0_half : t₀ ^ (1 / 2 : ℝ) = y ^ ((1 - η') / 2) := by
+    rw [ht₀, ← Real.rpow_mul (le_of_lt hypos)]
+    congr 1
+    ring
+  have hlog_inv : y ^ (-(η - η' / 2)) ≤ Real.log y ^ (-b) := by
+    rw [Real.rpow_neg (le_of_lt hypos), Real.rpow_neg (by positivity)]
+    exact (inv_le_inv₀ (Real.rpow_pos_of_pos hypos (η - η' / 2)) (Real.rpow_pos_of_pos hlogy_pos b)).mpr hlog_b
+  have hpow_eq : y ^ ((1 - η') / 2) * y ^ (-(η - η' / 2)) = y ^ (1 / 2 - η) := by
+    rw [← Real.rpow_add hypos]
+    congr 1
+    ring
+  have hprod : y ^ (1 / 2 - η) ≤ t₀ ^ (1 / 2 : ℝ) * Real.log y ^ (-b) := by
+    rw [← hpow_eq, ht0_half]
+    have ht0_pos : 0 ≤ y ^ ((1 - η') / 2) := by positivity
+    exact mul_le_mul_of_nonneg_left hlog_inv ht0_pos
+  calc
+    (⌊Real.rpow y (1 / 2 - η)⌋₊ : ℝ) ≤ y ^ (1 / 2 - η) := hQ_le
+    _ ≤ t₀ ^ (1 / 2 : ℝ) * Real.log y ^ (-b) := hprod
+    _ ≤ x ^ (1 / 2 : ℝ) * Real.log x ^ (-b) := by
+      have ht0_pos : 0 ≤ t₀ ^ (1 / 2 : ℝ) := Real.rpow_nonneg (by linarith [ht₀2]) _
+      have hx_pos : 0 ≤ x ^ (1 / 2 : ℝ) := Real.rpow_nonneg (by linarith [ht₀2.trans hx_mem.1]) _
+      have hlogneg_pos : 0 ≤ Real.log y ^ (-b) := by positivity
+      exact mul_le_mul hsqrt hlogneg hlogneg_pos hx_pos
+
+lemma sum_Icc_primeProgressionError_le
+    {y : ℝ} (hy : 2 ≤ y) {t₀ : ℝ} (ht₀2 : 2 ≤ t₀) (ht₀y : t₀ ≤ y)
+    (Q : ℕ)
+    (C : ℝ) (hC : ∀ x : ℝ, Chebyshev.psi x - Chebyshev.theta x ≤ C * Real.sqrt x) :
+    (∑ q ∈ Finset.Icc 1 Q, primeProgressionError y q) ≤
+      ((∑ q ∈ Finset.Icc 1 Q, (OAI.LargePrimeGaps.endpointError y q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt y)) / Real.log y +
+      (∫ t in t₀..y, ((∑ q ∈ Finset.Icc 1 Q, (OAI.LargePrimeGaps.endpointError t q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt t)) / (t * Real.log t ^ 2)) +
+      (t₀ * (harmonic Q : ℝ) + (Q : ℝ)) +
+      (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) * (harmonic Q : ℝ) ^ 2 := by
+  let s := Finset.Icc 1 Q
+  have hq_pos : ∀ q ∈ s, 0 < q := fun q hq => (Finset.mem_Icc.mp hq).1
+  have hcard : (s.card : ℝ) = (Q : ℝ) := by
+    dsimp [s]
+    by_cases hQ : 1 ≤ Q
+    · rw [Nat.card_Icc, Nat.add_sub_cancel_right]
+    · have : Q = 0 := by omega
+      subst this
+      simp
+  have hharm : (∑ q ∈ s, (1 : ℝ) / (q : ℝ)) = (harmonic Q : ℝ) := by
+    dsimp [s]
+    rw [harmonic_eq_sum_Icc]
+    push_cast
+    simp only [one_div]
+  have hle_q : ∀ q ∈ s, primeProgressionError y q ≤
+      (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y +
+      (∫ t in t₀..y, (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) +
+      (t₀ / (q : ℝ) + 1) +
+      (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ) :=
+    fun q hq => primeProgressionError_le_bound hy ht₀2 ht₀y (hq_pos q hq) C hC
+  have hsum_le := Finset.sum_le_sum hle_q
+  have h1 : (∑ q ∈ s, (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y) =
+      ((∑ q ∈ s, (OAI.LargePrimeGaps.endpointError y q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt y)) / Real.log y := by
+    rw [← Finset.sum_div, Finset.sum_add_distrib]
+    simp only [Finset.sum_const, nsmul_eq_mul, hcard]
+  have h2 : (∑ q ∈ s, ∫ t in t₀..y, (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) =
+      ∫ t in t₀..y, ((∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt t)) / (t * Real.log t ^ 2) := by
+    rw [← intervalIntegral.integral_finsetSum (s := s) (f := fun q t =>
+      (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2))]
+    · apply intervalIntegral.integral_congr
+      intro t _
+      dsimp
+      rw [← Finset.sum_div, Finset.sum_add_distrib]
+      simp only [Finset.sum_const, nsmul_eq_mul, hcard]
+    · intro q hq
+      exact intervalIntegrable_upper_kernel hy ht₀2 ht₀y q (hq_pos q hq) C
+  have h3 : (∑ q ∈ s, (t₀ / (q : ℝ) + 1)) = t₀ * (harmonic Q : ℝ) + (Q : ℝ) := by
+    rw [Finset.sum_add_distrib]
+    have hdiv (q : ℕ) : t₀ / (q : ℝ) = t₀ * ((1 : ℝ) / (q : ℝ)) := by ring
+    simp_rw [hdiv, ← Finset.mul_sum]
+    rw [hharm]
+    simp only [Finset.sum_const, nsmul_eq_mul, mul_one, hcard]
+  have h4 : (∑ q ∈ s, (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ)) ≤
+      (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) * (harmonic Q : ℝ) ^ 2 := by
+    have hdiv (q : ℕ) : (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ) =
+        (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) * (1 / (q.totient : ℝ)) := by ring
+    simp_rw [hdiv, ← Finset.mul_sum]
+    have hpos : 0 ≤ t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2 := by positivity
+    have htot := sum_reciprocal_totient_le_harmonic_sq Q
+    dsimp [s]
+    exact mul_le_mul_of_nonneg_left htot hpos
+  calc
+    (∑ q ∈ s, primeProgressionError y q) ≤
+        ∑ q ∈ s, ((OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y +
+          (∫ t in t₀..y, (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) +
+          (t₀ / (q : ℝ) + 1) +
+          (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ)) := hsum_le
+    _ = (∑ q ∈ s, (OAI.LargePrimeGaps.endpointError y q + (|C| + 1) * Real.sqrt y) / Real.log y) +
+        (∑ q ∈ s, ∫ t in t₀..y, (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)) +
+        (∑ q ∈ s, (t₀ / (q : ℝ) + 1)) +
+        (∑ q ∈ s, (t₀ / (Real.log 2) ^ 2 + 2 / Real.log 2) / (q.totient : ℝ)) := by
+      simp only [add_assoc, Finset.sum_add_distrib]
+    _ ≤ _ := by
+      rw [h1, h2, h3]
+      gcongr
+
+lemma upper_integral_le {y t₀ : ℝ} (hy : 2 ≤ y) (ht₀2 : 2 ≤ t₀) (ht₀y : t₀ ≤ y)
+    (Q : ℕ) (C : ℝ) (M A₁ : ℝ) (hM : 0 ≤ M) (hA₁ : 0 ≤ A₁)
+    (h_end : ∀ t ∈ Set.Icc t₀ y, (∑ q ∈ Finset.Icc 1 Q, (OAI.LargePrimeGaps.endpointError t q : ℝ)) ≤ M * t * Real.log t ^ (-A₁)) :
+    (∫ t in t₀..y, ((∑ q ∈ Finset.Icc 1 Q, (OAI.LargePrimeGaps.endpointError t q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt t)) / (t * Real.log t ^ 2)) ≤
+      (M * Real.log t₀ ^ (-A₁) / (Real.log 2 ^ 2) + (Q : ℝ) * (|C| + 1) * Real.sqrt y / (t₀ * Real.log 2 ^ 2)) * y := by
+  let s := Finset.Icc 1 Q
+  let K : ℕ → ℝ → ℝ := fun q t =>
+    (OAI.LargePrimeGaps.endpointError t q + (|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2)
+  have hq_pos : ∀ q ∈ s, 0 < q := fun q hq => (Finset.mem_Icc.mp hq).1
+  have hK_int : ∀ q ∈ s, IntervalIntegrable (K q) volume t₀ y :=
+    fun q hq => intervalIntegrable_upper_kernel hy ht₀2 ht₀y q (hq_pos q hq) C
+  have hcard : (s.card : ℝ) = (Q : ℝ) := by
+    dsimp [s]
+    by_cases hQ : 1 ≤ Q
+    · rw [Nat.card_Icc, Nat.add_sub_cancel_right]
+    · have : Q = 0 := by omega
+      subst this
+      simp
+  have hsum_int_gen : ∀ (u : Finset ℕ), (∀ q ∈ u, IntervalIntegrable (K q) volume t₀ y) →
+      IntervalIntegrable (fun t => ∑ q ∈ u, K q t) volume t₀ y := by
+    intro u
+    refine Finset.induction_on u ?_ ?_
+    · intro _
+      simp only [Finset.sum_empty]
+      exact intervalIntegrable_const
+    · intro i u' hi ih hK
+      simp only [Finset.sum_insert hi]
+      exact IntervalIntegrable.add (hK i (Finset.mem_insert_self i u'))
+        (ih (fun q hq => hK q (Finset.mem_insert_of_mem hq)))
+  have hsum_int := hsum_int_gen s hK_int
+  have heq : (fun t => ((∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt t)) / (t * Real.log t ^ 2)) =
+      (fun t => ∑ q ∈ s, K q t) := by
+    ext t
+    dsimp [K]
+    rw [← Finset.sum_div, Finset.sum_add_distrib]
+    simp only [Finset.sum_const, nsmul_eq_mul, hcard]
+  have hg_int : IntervalIntegrable (fun t => ((∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt t)) / (t * Real.log t ^ 2)) volume t₀ y := by
+    rw [heq]
+    exact hsum_int
+  let B := M * Real.log t₀ ^ (-A₁) / (Real.log 2 ^ 2) + (Q : ℝ) * (|C| + 1) * Real.sqrt y / (t₀ * Real.log 2 ^ 2)
+  have hB0 : 0 ≤ B := by
+    have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+    have ht0_pos : 0 < t₀ := by linarith [ht₀2]
+    have hlogt0 : 0 < Real.log t₀ := Real.log_pos (by linarith [ht₀2])
+    have h1 : 0 ≤ M * Real.log t₀ ^ (-A₁) / (Real.log 2 ^ 2) := by positivity
+    have h2 : 0 ≤ (Q : ℝ) * (|C| + 1) * Real.sqrt y / (t₀ * Real.log 2 ^ 2) := by positivity
+    linarith
+  have hB : ∀ t ∈ Set.Icc t₀ y,
+      ((∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt t)) / (t * Real.log t ^ 2) ≤ B := by
+    intro t ht
+    have ht0 : 0 < t := by linarith [ht₀2.trans ht.1]
+    have hlogt : 0 < Real.log t := Real.log_pos (by linarith [ht₀2.trans ht.1])
+    have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+    have hden : 0 < t * Real.log t ^ 2 := mul_pos ht0 (sq_pos_of_pos hlogt)
+    have hden_min : 0 < t * Real.log 2 ^ 2 := mul_pos ht0 (sq_pos_of_pos hlog2)
+    have hden2_min : 0 < t₀ * Real.log 2 ^ 2 := mul_pos (by linarith [ht₀2]) (sq_pos_of_pos hlog2)
+    have hlog_le : Real.log 2 ≤ Real.log t :=
+      Real.log_le_log (by norm_num) (by linarith [ht₀2, ht.1])
+    have hlog2_nonneg : 0 ≤ Real.log 2 := by positivity
+    have hsq_le : Real.log 2 ^ 2 ≤ Real.log t ^ 2 := by nlinarith [hlog_le, hlog2_nonneg]
+    have hden_le1 : t * Real.log 2 ^ 2 ≤ t * Real.log t ^ 2 := by nlinarith [hsq_le, ht0]
+    have hden_le2 : t₀ * Real.log 2 ^ 2 ≤ t * Real.log t ^ 2 := by
+      have : t₀ * Real.log 2 ^ 2 ≤ t * Real.log 2 ^ 2 := by nlinarith [ht.1, hlog2_nonneg]
+      linarith [hden_le1]
+    have hsum := h_end t ht
+    have hterm1 : (∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) / (t * Real.log t ^ 2) ≤
+        M * Real.log t₀ ^ (-A₁) / (Real.log 2 ^ 2) := by
+      have hlog_le_t0 : Real.log t₀ ≤ Real.log t := Real.log_le_log (by linarith [ht₀2]) ht.1
+      have hexp : -A₁ ≤ 0 := by linarith
+      have hpow_le : Real.log t ^ (-A₁) ≤ Real.log t₀ ^ (-A₁) :=
+        Real.rpow_le_rpow_of_nonpos (Real.log_pos (by linarith [ht₀2])) hlog_le_t0 hexp
+      have hnum_le : (∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) ≤
+          t * (M * Real.log t₀ ^ (-A₁)) := by
+        calc
+          (∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) ≤ M * t * Real.log t ^ (-A₁) := hsum
+          _ = t * (M * Real.log t ^ (-A₁)) := by ring
+          _ ≤ t * (M * Real.log t₀ ^ (-A₁)) := by
+            gcongr
+      have hlogt0_pos : 0 ≤ Real.log t₀ := Real.log_nonneg (by linarith [ht₀2])
+      have hpow_pos : 0 ≤ Real.log t₀ ^ (-A₁) := Real.rpow_nonneg hlogt0_pos _
+      have hnum_pos : 0 ≤ t * (M * Real.log t₀ ^ (-A₁)) := by
+        have : 0 ≤ M * Real.log t₀ ^ (-A₁) := mul_nonneg hM hpow_pos
+        exact mul_nonneg (le_of_lt ht0) this
+      calc
+        (∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) / (t * Real.log t ^ 2) ≤
+            (t * (M * Real.log t₀ ^ (-A₁))) / (t * Real.log t ^ 2) :=
+          div_le_div_of_nonneg_right hnum_le (le_of_lt hden)
+        _ ≤ (t * (M * Real.log t₀ ^ (-A₁))) / (t * Real.log 2 ^ 2) :=
+          div_le_div_of_nonneg_left hnum_pos hden_min hden_le1
+        _ = M * Real.log t₀ ^ (-A₁) / (Real.log 2 ^ 2) := by
+          field_simp [ne_of_gt ht0]
+    have hterm2 : (Q : ℝ) * ((|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2) ≤
+        (Q : ℝ) * (|C| + 1) * Real.sqrt y / (t₀ * Real.log 2 ^ 2) := by
+      have hsqrt_le : Real.sqrt t ≤ Real.sqrt y := Real.sqrt_le_sqrt ht.2
+      have hnum_le : (Q : ℝ) * ((|C| + 1) * Real.sqrt t) ≤ (Q : ℝ) * (|C| + 1) * Real.sqrt y := by
+        have : 0 ≤ (Q : ℝ) * (|C| + 1) := by positivity
+        nlinarith
+      have hnum_pos : 0 ≤ (Q : ℝ) * (|C| + 1) * Real.sqrt y := by positivity
+      calc
+        (Q : ℝ) * ((|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2) ≤
+            ((Q : ℝ) * (|C| + 1) * Real.sqrt y) / (t * Real.log t ^ 2) :=
+          div_le_div_of_nonneg_right hnum_le (le_of_lt hden)
+        _ ≤ ((Q : ℝ) * (|C| + 1) * Real.sqrt y) / (t₀ * Real.log 2 ^ 2) :=
+          div_le_div_of_nonneg_left hnum_pos hden2_min hden_le2
+    have hsum_split : ((∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) + (Q : ℝ) * ((|C| + 1) * Real.sqrt t)) / (t * Real.log t ^ 2) =
+        (∑ q ∈ s, (OAI.LargePrimeGaps.endpointError t q : ℝ)) / (t * Real.log t ^ 2) +
+        (Q : ℝ) * ((|C| + 1) * Real.sqrt t) / (t * Real.log t ^ 2) := by
+      ring
+    rw [hsum_split]
+    exact add_le_add hterm1 hterm2
+  have hle := intervalIntegral_le_const_mul ht₀y (by linarith [ht₀2]) hg_int hB hB0
+  exact hle
+
 /-- `ext:bombieri-vinogradov`, 12-construction.tex:286-292 (`con:bv-input`); matching OAI
 `bombieriVinogradov` (`PrimeGaps/Main.lean:158`), converted to the prime-counting form. -/
 theorem bombieri_vinogradov :
