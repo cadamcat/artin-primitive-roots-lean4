@@ -3916,6 +3916,100 @@ private theorem rf_profile_abs_analysis
       (R.rotated u).J (R.rotated u).ff (R.rotated u).fc hff hfc
       R.K hKmeas R.K_moments m hm x hx).1
 
+private theorem rf_profile_absolute_series
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (σ : ℝ) (hσ : 1 / 2 < σ) :
+    ∃ C : ℝ, 0 < C ∧
+      ∀ (ι : Type) [Countable ι] (q a : ι → ℝ),
+        (∀ i, 0 < q i) → (∀ i, 0 ≤ a i) →
+        Summable (fun i => a i * q i ^ (-σ)) →
+        ∀ u t, 0 < t →
+          IntegrableOn (fun T : ℝ => ‖R.K T‖ *
+            (∑' i, a i * profileAbs R u (q i / (t * T))) / T) (Set.Ioi 0) ∧
+          (∫ T in Set.Ioi (0 : ℝ), ‖R.K T‖ *
+            (∑' i, a i * profileAbs R u (q i / (t * T))) / T) ≤
+              C * t ^ σ * Theta.absMoment R.K σ * ∑' i, a i * q i ^ (-σ) := by
+  classical
+  obtain ⟨C, hC, hProfile⟩ := (rf_profile_bound R).2.2 σ hσ
+  refine ⟨C, hC, ?_⟩
+  intro ι hι q a hq ha hsum u t ht
+  let νT := volume.restrict (Set.Ioi (0 : ℝ))
+  let mass : ℝ := ∑' i, a i * q i ^ (-σ)
+  let f : ι → ℝ → ℝ := fun i T =>
+    (‖R.K T‖ / T) * (a i * profileAbs R u (q i / (t * T)))
+  let g : ℝ → ℝ := fun T =>
+    ‖R.K T‖ * (∑' i, a i * profileAbs R u (q i / (t * T))) / T
+  let majorant : ℝ → ℝ := fun T =>
+    (C * t ^ σ * mass) * (‖R.K T‖ * T ^ σ / T)
+  have hf (i : ι) : Integrable (f i) νT := by
+    have hi := (rf_profile_abs_analysis R u).2 (q i / t) (div_pos (hq i) ht)
+    convert hi.const_mul (a i) using 1
+    funext T
+    dsimp only [f]
+    rw [div_div]
+    ring
+  have hfg : (fun T => ∑' i, f i T) = g := by
+    funext T
+    dsimp only [f, g]
+    rw [tsum_mul_left]
+    ring
+  have hgMeas : AEStronglyMeasurable g νT := by
+    rw [← hfg]
+    exact AEStronglyMeasurable.tsum (fun i => (hf i).aestronglyMeasurable)
+  have hdom (T : ℝ) (hT : 0 < T) : 0 ≤ g T ∧ g T ≤ majorant T := by
+    have harg (i : ι) : 0 < q i / (t * T) := div_pos (hq i) (mul_pos ht hT)
+    have hpow (i : ι) : (q i / (t * T)) ^ (-σ) =
+        t ^ σ * T ^ σ * q i ^ (-σ) := by
+      rw [Real.div_rpow (hq i).le (mul_pos ht hT).le,
+        Real.mul_rpow ht.le hT.le, Real.rpow_neg ht.le σ, Real.rpow_neg hT.le σ]
+      simp only [div_eq_mul_inv, mul_inv_rev, inv_inv]
+      ring
+    let b : ι → ℝ := fun i => (C * t ^ σ * T ^ σ) * (a i * q i ^ (-σ))
+    have hb : Summable b := hsum.mul_left (C * t ^ σ * T ^ σ)
+    have hnonneg (i : ι) : 0 ≤ a i * profileAbs R u (q i / (t * T)) :=
+      mul_nonneg (ha i) ((rf_profile_abs_analysis R u).1 _ (harg i))
+    have hle (i : ι) : a i * profileAbs R u (q i / (t * T)) ≤ b i := by
+      calc
+        _ ≤ a i * (C * (q i / (t * T)) ^ (-σ)) :=
+          mul_le_mul_of_nonneg_left (hProfile u _ (harg i)) (ha i)
+        _ = b i := by rw [hpow]; dsimp only [b]; ring
+    have hseries : Summable (fun i => a i * profileAbs R u (q i / (t * T))) :=
+      Summable.of_nonneg_of_le hnonneg hle hb
+    have hmass : (∑' i, a i * profileAbs R u (q i / (t * T))) ≤
+        C * t ^ σ * T ^ σ * mass := by
+      calc
+        _ ≤ ∑' i, b i := hseries.tsum_le_tsum hle hb
+        _ = C * t ^ σ * T ^ σ * mass := by dsimp only [b, mass]; rw [tsum_mul_left]
+    have hkernel : 0 ≤ ‖R.K T‖ / T := div_nonneg (norm_nonneg _) hT.le
+    constructor
+    · dsimp only [g]
+      exact div_nonneg (mul_nonneg (norm_nonneg _) (tsum_nonneg hnonneg)) hT.le
+    · calc
+        g T = (‖R.K T‖ / T) * (∑' i, a i * profileAbs R u (q i / (t * T))) := by
+          dsimp only [g]
+          ring
+        _ ≤ (‖R.K T‖ / T) * (C * t ^ σ * T ^ σ * mass) :=
+          mul_le_mul_of_nonneg_left hmass hkernel
+        _ = majorant T := by dsimp only [majorant]; ring
+  have hmajorant : Integrable majorant νT :=
+    (R.K_moments σ).const_mul (C * t ^ σ * mass)
+  have hg : Integrable g νT := by
+    apply hmajorant.mono' hgMeas
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    rw [Real.norm_eq_abs, abs_of_nonneg (hdom T hT).1]
+    exact (hdom T hT).2
+  refine ⟨hg, ?_⟩
+  change (∫ T, g T ∂νT) ≤ C * t ^ σ * Theta.absMoment R.K σ * mass
+  calc
+    _ ≤ ∫ T, majorant T ∂νT := by
+      apply integral_mono_ae hg hmajorant
+      filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+      exact (hdom T hT).2
+    _ = C * t ^ σ * Theta.absMoment R.K σ * mass := by
+      dsimp only [majorant, νT]
+      rw [integral_const_mul]
+      unfold Theta.absMoment
+      ring
+
 /-- rf:grouped-absolute, 04:659-706. Absolute sums and the averaged integral use the same majorant. -/
 theorem rf_grouped_absolute : ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ f,
   Summable (reflectedDirichletTerm R f σ) ∧
