@@ -12977,6 +12977,39 @@ private theorem rf_pairing_active_coefficient_unique
   apply Subtype.ext
   rw [hfactor f₁ hf₁, hfactor f₂ hf₂, hs]
 
+private theorem rf_pairing_active_component_summable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (hf : activeFactor R r.h f)
+    (g : Fˣ → ℂ)
+    (hs : Summable (fun ν =>
+      (∑ᶠ k : {k : S.ExtIdeal // activeFactor R r.h k},
+        rf_pairing_active_coefficient R r k.1 ν) * g ν)) :
+    Summable (fun ν => rf_pairing_active_coefficient R r f ν * g ν) := by
+  classical
+  let AF := {k : S.ExtIdeal // activeFactor R r.h k}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let f0 : AF := ⟨f, hf⟩
+  have hsingle (ν : Fˣ) (hν : rf_pairing_active_coefficient R r f ν ≠ 0) :
+      (∑ k : AF, rf_pairing_active_coefficient R r k.1 ν) =
+        rf_pairing_active_coefficient R r f ν := by
+    apply Finset.sum_eq_single f0
+    · intro k hk hkne
+      by_contra hkn
+      have heq : k.1 = f :=
+        rf_pairing_active_coefficient_unique R r ν k.1 f k.property hf hkn hν
+      exact hkne (Subtype.ext heq)
+    · intro hn
+      exact (hn (Finset.mem_univ f0)).elim
+  have hle (ν : Fˣ) :
+      ‖rf_pairing_active_coefficient R r f ν * g ν‖ ≤
+        ‖(∑ᶠ k : AF, rf_pairing_active_coefficient R r k.1 ν) * g ν‖ := by
+    by_cases hν : rf_pairing_active_coefficient R r f ν = 0
+    · rw [hν, zero_mul, norm_zero]
+      exact norm_nonneg _
+    · rw [finsum_eq_sum_of_fintype, hsingle ν hν]
+  exact Summable.of_norm
+    (Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hle hs.norm)
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
