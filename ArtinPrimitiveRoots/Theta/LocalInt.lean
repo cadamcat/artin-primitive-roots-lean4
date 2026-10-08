@@ -586,7 +586,61 @@ theorem jacquet_spherical_neg (L : FinLocalCover D H v) (τ : TameSplitting L) (
     (hd : ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal) (s : ℂ) (f0 : L.L → T.V)
     (hf0 : IsSection L T s f0) (hK : ∀ g, ∀ k ∈ τ.Kmax, f0 (g * k) = f0 g) (e : ℤ) (he : e < 0) :
     jacquet L A μ (rtr (L.a (unifLoc v ^ e)) f0) = 0 := by
-  sorry
+  let y := unifLoc v ^ e
+  obtain ⟨t, ht, hψt⟩ := psi_conductor_unramified A v hd
+  have htval : Valued.v t ≤ WithZero.exp (1 : ℤ) := by
+    simpa [ball] using ht
+  have hπval : Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+    have hπcoerce : (unifLoc v : v.adicCompletion F) =
+        algebraMap F (v.adicCompletion F) (unif v) := by
+      simp [unifLoc, toLoc]
+    rw [hπcoerce]
+    change Valued.v ((unif v : F) : v.adicCompletion F) = WithZero.exp (-1 : ℤ)
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hyinvval : Valued.v ((y⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      WithZero.exp e := by
+    dsimp [y]
+    rw [Units.val_inv_eq_inv_val, Units.val_zpow_eq_zpow_val]
+    rw [map_inv₀, map_zpow₀, hπval, ← WithZero.exp_zsmul]
+    simp
+  let b := t * ((y⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)
+  have hbval : Valued.v b ≤ 1 := by
+    dsimp [b]
+    rw [map_mul, hyinvval]
+    calc
+      Valued.v t * WithZero.exp e ≤ WithZero.exp (1 : ℤ) * WithZero.exp e :=
+        by gcongr
+      _ = WithZero.exp (1 + e) := by rw [← WithZero.exp_add]
+      _ ≤ 1 := by
+        rw [← WithZero.exp_zero]
+        exact (WithZero.exp_le_exp).2 (by omega)
+  have hbO : b ∈ v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+    exact hbval
+  have hlift : L.n (Multiplicative.ofAdd t) * L.a y =
+      L.a y * L.n (Multiplicative.ofAdd b) := by
+    simpa [b] using L.lift_na t y
+  have hfix : rtr (L.n (Multiplicative.ofAdd t)) (rtr (L.a y) f0) = rtr (L.a y) f0 := by
+    funext g
+    change f0 ((g * L.n (Multiplicative.ofAdd t)) * L.a y) = f0 (g * L.a y)
+    rw [mul_assoc, hlift, ← mul_assoc]
+    exact hK (g * L.a y) (L.n (Multiplicative.ofAdd b)) (τ.n_mem b hbO)
+  have hcov := (jacquet_equiv L T A μ s (rtr (L.a y) f0)
+    (IsSection.rtr hf0 (L.a y))).1 t
+  have hJ : jacquet L A μ (rtr (L.a y) f0) =
+      A.ψ v t • jacquet L A μ (rtr (L.a y) f0) := by
+    exact (congrArg (fun f => jacquet L A μ f) hfix).symm.trans hcov
+  have hscalar : A.ψ v t - 1 ≠ 0 := sub_ne_zero.mpr hψt
+  have hzero : (A.ψ v t - 1) • jacquet L A μ (rtr (L.a y) f0) = 0 := by
+    calc
+      (A.ψ v t - 1) • jacquet L A μ (rtr (L.a y) f0) =
+          A.ψ v t • jacquet L A μ (rtr (L.a y) f0) -
+            jacquet L A μ (rtr (L.a y) f0) := by rw [sub_smul, one_smul]
+      _ = 0 := by rw [← hJ, sub_self]
+  have hJy : jacquet L A μ (rtr (L.a y) f0) = 0 :=
+    (smul_eq_zero.mp hzero).resolve_left hscalar
+  simpa [y] using hJy
 
 /-- **jq:unit-rule** (eq:app-unit-rule, 10:469–482). -/
 theorem jacquet_spherical_unit (L : FinLocalCover D H v) (τ : TameSplitting L) (T : TorusRep D H v)
