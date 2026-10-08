@@ -493,4 +493,106 @@ theorem qs_nq0_quadratic_local_generator_pair
 ```
 -/
 
+/-- At an exterior place, coprime generators give the two opposite prime-value factors. -/
+theorem qs_nq0_quadratic_local_generator_pair
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (I J : Ideal (𝓞 K)) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I) (hb : Sd.IsGen (b : K) J)
+    (hcoprime : IsCoprime I J)
+    (χa χb : HeckeChar K) (v : FinPlace K) (hv : v ∉ Sd.Sf)
+    (hloca : χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : χb.loc v = qsNQQuadraticLocal D H v (toLoc v b)) :
+    ((qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) : ℂˣ) : ℂ) =
+      χa.primeValue v ^ idealExp v J * χb.primeValue v ^ idealExp v I := by
+  have h6 : (6 : 𝓞 K) ∉ v.asIdeal := fun h => hv (Sd.over6 v h)
+  have hunitvalue (c d : Kˣ) (A B : Ideal (𝓞 K))
+      (hc : Sd.IsGen (c : K) A) (hd : Sd.IsGen (d : K) B)
+      (χ : HeckeChar K)
+      (hloc : χ.loc v = qsNQQuadraticLocal D H v (toLoc v c))
+      (hzero : idealExp v A = 0) :
+      ((qsNQQuadraticLocal D H v (toLoc v c) (toLoc v d) : ℂˣ) : ℂ) =
+        χ.primeValue v ^ idealExp v B := by
+    have hcount : FractionalIdeal.count K v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 K)) (c : K)) = 0 := by
+      rw [hc.2.2 v hv, FractionalIdeal.count_coe K v hc.1.1]
+      change (idealExp v A : ℤ) = 0
+      rw [hzero, Int.natCast_zero]
+    have hlog := qs_nq0_count_spanSingleton_eq_neg_log_valuation v (c : K) c.ne_zero
+    rw [hcount] at hlog
+    have hz : WithZero.log (v.valuation K (c : K)) = 0 := neg_eq_zero.mp hlog.symm
+    have hval : v.valuation K (c : K) = 1 := by
+      calc
+        v.valuation K (c : K) = WithZero.exp (WithZero.log (v.valuation K (c : K))) :=
+          (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr c.ne_zero)).symm
+        _ = 1 := by rw [hz, WithZero.exp_zero]
+    have hres : residue v (c : K) ≠ 0 :=
+      (qs_nq0_residue_ne_zero_iff_valuation_one v (c : K)).mpr hval
+    have hprime := (qs_nq0_quadratic_prime_value D H v h6 c hval χ hloc).2
+    have htame := H.tame v h6 c d hres
+    rw [hd.2.2 v hv, FractionalIdeal.count_coe K v hd.1.1] at htame
+    change (((H.hilb v (toLoc v c) (toLoc v d) : Kˣ) : K)) =
+      (algebraMap (𝓞 K) K (((chiAlg v (c : K)) : (𝓞 K)ˣ) : 𝓞 K)) ^
+        (idealExp v B : ℤ) at htame
+    change D.σ0 (((H.hilb v (toLoc v c) (toLoc v d) : Kˣ) : K)) ^ 3 =
+      χ.primeValue v ^ idealExp v B
+    rw [htame, zpow_natCast, map_pow, hprime, chi, ite_eq_right hres]
+    rw [← pow_mul, ← pow_mul, Nat.mul_comm]
+  have hsymm : qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) =
+      qsNQQuadraticLocal D H v (toLoc v b) (toLoc v a) := by
+    let g : rootsOfUnity 6 K →* ℂˣ :=
+      (powMonoidHom 3 : ℂˣ →* ℂˣ).comp
+        ((Units.map D.σ0.toMonoidHom).comp (rootsOfUnity 6 K).subtype)
+    have hskew : qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) *
+        qsNQQuadraticLocal D H v (toLoc v b) (toLoc v a) = 1 := by
+      change g (H.hilb v (toLoc v a) (toLoc v b)) *
+        g (H.hilb v (toLoc v b) (toLoc v a)) = 1
+      rw [← map_mul, H.skew, map_one]
+    have hsquare := congrArg
+      (fun f : (v.adicCompletion K)ˣ →* ℂˣ => f (toLoc v b))
+      (qs_nq0_quadratic_local_square D H v (toLoc v a))
+    change qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) ^ 2 = 1 at hsquare
+    calc
+      qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) =
+          qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) * 1 := (mul_one _).symm
+      _ = qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) *
+          (qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) *
+            qsNQQuadraticLocal D H v (toLoc v b) (toLoc v a)) := by rw [hskew]
+      _ = qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) ^ 2 *
+          qsNQQuadraticLocal D H v (toLoc v b) (toLoc v a) := by rw [pow_two, mul_assoc]
+      _ = qsNQQuadraticLocal D H v (toLoc v b) (toLoc v a) := by rw [hsquare, one_mul]
+  by_cases heI : idealExp v I = 0
+  · rw [hunitvalue a b I J ha hb χa hloca heI, heI, pow_zero, mul_one]
+  · have heJ : idealExp v J = 0 := by
+      by_contra hne
+      have hdI : v.asIdeal ∣ I :=
+        (Associates.count_ne_zero_iff_dvd ha.1.1 v.irreducible).mp heI
+      have hdJ : v.asIdeal ∣ J :=
+        (Associates.count_ne_zero_iff_dvd hb.1.1 v.irreducible).mp hne
+      exact v.irreducible.not_isUnit (hcoprime.isUnit_of_dvd' hdI hdJ)
+    rw [hsymm, hunitvalue b a J I hb ha χb hlocb heJ, heJ, pow_zero, one_mul]
+
+/-!
+The quadratic ideal-values step needed by reciprocity and QSFamily has this exact signature:
+```
+theorem qs_nq0_quadratic_ideal_values
+    (χ : HeckeChar K) (hχ : χ ^ 2 = 1) (I : Ideal (𝓞 K)) :
+    χ.idealValue I = 0 ∨ χ.idealValue I ^ 2 = 1
+```
+The following global reciprocity step will use it:
+```
+theorem qs_nq0_quadratic_reciprocity
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (Bd : BData Sd H) (I J : Ideal (𝓞 K)) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I ∧ Bd.Allowed a)
+    (hb : Sd.IsGen (b : K) J ∧ Bd.Allowed b)
+    (hcoprime : IsCoprime I J)
+    (χa χb : HeckeChar K) (hχa : χa ^ 2 = 1)
+    (hloca : ∀ v : FinPlace K, χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : ∀ v : FinPlace K, χb.loc v = qsNQQuadraticLocal D H v (toLoc v b)) :
+    χa.idealValue J = χb.idealValue I
+```
+-/
+
 end ArtinPrimitiveRoots.A2
