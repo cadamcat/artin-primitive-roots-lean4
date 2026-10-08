@@ -3356,6 +3356,16 @@ theorem sphC_isSection (s : ℂ) : IsSectionC s (sphC s) ∧ Continuous (sphC s)
     exact sphC_mk s g
   exact ⟨by simpa [heq] using hf, hcont⟩
 
+private theorem sphericalC_continuous (s : ℂ) : Continuous (sphericalC s) := by
+  have hmk : Continuous (fun g : GL (Fin 2) ℂ =>
+      (QuotientGroup.mk g : PGL2 ℂ)) :=
+    (QuotientGroup.isQuotientMap_mk
+      (Subgroup.center (GL (Fin 2) ℂ))).continuous
+  have h := (sphC_isSection s).2.comp hmk
+  convert h using 1
+  funext g
+  exact (sphC_mk s g).symm
+
 /-- **def:jacquet-C**: `𝒥_ℂ f = ∫_ℂ ψ_w(-x) f(w n(x)) dx` (Lebesgue measure). -/
 def jacquetC (f : PGL2 ℂ → ℂ) : ℂ := ∫ x : ℂ, psiC (-x) * f (wC * nC x)
 
@@ -3558,6 +3568,70 @@ private theorem psiC_neg_eq_breveE (z : ℂ) :
     Complex.exp (2 * Real.pi * Complex.I * (z + starRingEnd ℂ z))
   congr 1
   apply Complex.ext <;> simp [Complex.mul_re, Complex.mul_im] <;> ring
+
+private def jacquetMatrixC (y : ℂˣ) (x : ℂ) : GL (Fin 2) ℂ :=
+  weylM ℂ * upperM ℂ x * diagM ℂ y
+
+private theorem jacquetMatrixC_mk (y : ℂˣ) (x : ℂ) :
+    wC * nC x * aC y = QuotientGroup.mk (jacquetMatrixC y x) := by
+  change (QuotientGroup.mk (weylM ℂ) * QuotientGroup.mk (upperM ℂ x)) *
+      QuotientGroup.mk (diagM ℂ y) =
+        QuotientGroup.mk (weylM ℂ * upperM ℂ x * diagM ℂ y)
+  simp only [QuotientGroup.mk_mul]
+
+private theorem nC_add (x z : ℂ) : nC x * nC z = nC (x + z) := by
+  have hmat : upperM ℂ x * upperM ℂ z = upperM ℂ (x + z) := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  change ((upperM ℂ x : GL (Fin 2) ℂ) : PGL2 ℂ) *
+      ((upperM ℂ z : GL (Fin 2) ℂ) : PGL2 ℂ) =
+    ((upperM ℂ (x + z) : GL (Fin 2) ℂ) : PGL2 ℂ)
+  rw [← QuotientGroup.mk_mul]
+  exact congrArg (fun A : GL (Fin 2) ℂ => (A : PGL2 ℂ)) hmat
+
+private theorem aC_nC (y : ℂˣ) (z : ℂ) :
+    aC y * nC z = nC ((y : ℂ) * z) * aC y := by
+  have hmat : diagM ℂ y * upperM ℂ z =
+      upperM ℂ ((y : ℂ) * z) * diagM ℂ y := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [diagM, upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  change ((diagM ℂ y : GL (Fin 2) ℂ) : PGL2 ℂ) *
+      ((upperM ℂ z : GL (Fin 2) ℂ) : PGL2 ℂ) =
+    ((upperM ℂ ((y : ℂ) * z) : GL (Fin 2) ℂ) : PGL2 ℂ) *
+      ((diagM ℂ y : GL (Fin 2) ℂ) : PGL2 ℂ)
+  rw [← QuotientGroup.mk_mul, ← QuotientGroup.mk_mul]
+  exact congrArg (fun A : GL (Fin 2) ℂ => (A : PGL2 ℂ)) hmat
+
+private theorem continuous_upperM_complex : Continuous (upperM ℂ) := by
+  have hval : Continuous (fun x : ℂ =>
+      ((upperM ℂ x : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ)) := by
+    change Continuous (fun x : ℂ => !![(1 : ℂ), x; 0, 1])
+    fun_prop
+  have hmul (x : ℂ) : upperM ℂ x * upperM ℂ (-x) = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [upperM, Matrix.mul_apply]
+  have hinv (x : ℂ) : (upperM ℂ x)⁻¹ = upperM ℂ (-x) :=
+    inv_eq_of_mul_eq_one_right (hmul x)
+  have hinv_cont : Continuous (fun x : ℂ =>
+      (((upperM ℂ x)⁻¹ : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ)) := by
+    have heq : (fun x : ℂ =>
+        (((upperM ℂ x)⁻¹ : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ)) =
+        fun x => ((upperM ℂ (-x) : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) := by
+      funext x
+      exact congrArg (fun g : GL (Fin 2) ℂ =>
+        (g : Matrix (Fin 2) (Fin 2) ℂ)) (hinv x)
+    rw [heq]
+    exact hval.comp continuous_neg
+  exact Units.continuous_iff.mpr ⟨hval, hinv_cont⟩
+
+private theorem continuous_nC_complex : Continuous (nC : ℂ → PGL2 ℂ) := by
+  unfold nC
+  exact continuous_quotient_mk'.comp continuous_upperM_complex
 
 theorem jacquetC_spherical (y : ℂˣ) :
     jacquetC (rtr (aC y) (sphC (1 / 6))) =
@@ -3941,12 +4015,842 @@ private theorem derivVecC_spherical_mk (m : ℤ) (s : ℂ) (g : GL (Fin 2) ℂ) 
   push_cast
   ring_nf
 
+private theorem sphC_right_n_differentiableAt (g : GL (Fin 2) ℂ) (z : ℂ) :
+    DifferentiableAt ℝ (fun w : ℂ =>
+      sphC (1 / 6) (QuotientGroup.mk g * nC w)) z := by
+  let N : ℝ := ‖(g : Matrix (Fin 2) (Fin 2) ℂ).det‖
+  let c : ℂ := (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0
+  let d : ℂ := (g : Matrix (Fin 2) (Fin 2) ℂ) 1 1
+  let D : ℂ → ℝ := fun w => ‖c‖ ^ 2 + ‖c * w + d‖ ^ 2
+  let R : ℂ → ℝ := fun w => N / D w
+  have hNpos : 0 < N := by
+    dsimp [N]
+    exact norm_pos_iff.mpr g.det_ne_zero
+  have hDpos (w : ℂ) : 0 < D w := by
+    have h := sphC_bottom_norm_pos (g * upperM ℂ w)
+    simpa [D, c, d, upperM, Matrix.mul_apply, Fin.sum_univ_two,
+      Complex.normSq_eq_norm_sq] using h
+  have hRpos (w : ℂ) : 0 < R w := div_pos hNpos (hDpos w)
+  have haff : DifferentiableAt ℝ (fun w : ℂ => c * w + d) z := by
+    fun_prop
+  have hDdiff : DifferentiableAt ℝ D z := by
+    unfold D
+    exact (DifferentiableAt.norm_sq (𝕜 := ℂ) haff).const_add (‖c‖ ^ 2)
+  have hInvR : DifferentiableAt ℝ (fun t : ℝ => t⁻¹) (D z) :=
+    (differentiableAt_inv_iff).2 (ne_of_gt (hDpos z))
+  have hInv : DifferentiableAt ℝ (fun w : ℂ => (D w)⁻¹) z :=
+    hInvR.comp z hDdiff
+  have hRdiff : DifferentiableAt ℝ R z := by
+    simpa [R, div_eq_mul_inv] using hInv.const_mul N
+  have hQ : DifferentiableAt ℝ (fun r : ℝ =>
+      ((r : ℝ) : ℂ) ^ (4 / 3 : ℂ)) (R z) :=
+    (hasDerivAt_ofReal_cpow_const (ne_of_gt (hRpos z)) (by norm_num)).differentiableAt
+  have hcomp := hQ.comp z hRdiff
+  have heq : (fun w : ℂ => sphC (1 / 6) (QuotientGroup.mk g * nC w)) =
+      fun w => ((R w : ℝ) : ℂ) ^ (4 / 3 : ℂ) := by
+    funext w
+    rw [sphC_right_n_mk]
+    simp [R, D, N, c, d]
+    norm_num
+  rw [heq]
+  change DifferentiableAt ℝ ((fun r : ℝ =>
+    ((r : ℝ) : ℂ) ^ (4 / 3 : ℂ)) ∘ R) z
+  exact hcomp
+
+private theorem sphC_right_n_fderiv_at (s : ℂ) (g : GL (Fin 2) ℂ)
+    (u v : ℂ) :
+    fderiv ℝ (fun z : ℂ => sphC s (QuotientGroup.mk g * nC z)) u v =
+      fderiv ℝ (fun z : ℂ =>
+        sphC s (QuotientGroup.mk (g * upperM ℂ u) * nC z)) 0 v := by
+  have hn (a b : ℂ) : nC a * nC b = nC (a + b) := by
+    have hmat : upperM ℂ a * upperM ℂ b = upperM ℂ (a + b) := by
+      apply Units.ext
+      ext i j
+      fin_cases i <;> fin_cases j <;>
+        simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+    change ((upperM ℂ a : GL (Fin 2) ℂ) : PGL2 ℂ) *
+        ((upperM ℂ b : GL (Fin 2) ℂ) : PGL2 ℂ) =
+      ((upperM ℂ (a + b) : GL (Fin 2) ℂ) : PGL2 ℂ)
+    rw [← QuotientGroup.mk_mul]
+    exact congrArg (fun A : GL (Fin 2) ℂ => (A : PGL2 ℂ)) hmat
+  have hG : QuotientGroup.mk g * nC u = QuotientGroup.mk (g * upperM ℂ u) := by
+    change (g : PGL2 ℂ) * ((upperM ℂ u : GL (Fin 2) ℂ) : PGL2 ℂ) =
+      ((g * upperM ℂ u : GL (Fin 2) ℂ) : PGL2 ℂ)
+    rw [← QuotientGroup.mk_mul]
+  let h : ℂ → ℂ := fun z => sphC s (QuotientGroup.mk g * nC z)
+  have hshift : (fun z : ℂ =>
+      sphC s ((QuotientGroup.mk g * nC u) * nC z)) =
+      fun z => h (z + u) := by
+    funext z
+    dsimp [h]
+    calc
+      sphC s ((QuotientGroup.mk g * nC u) * nC z) =
+          sphC s (QuotientGroup.mk g * (nC u * nC z)) := by rw [mul_assoc]
+      _ = sphC s (QuotientGroup.mk g * nC (u + z)) := by rw [hn]
+      _ = sphC s (QuotientGroup.mk g * nC (z + u)) := by rw [add_comm]
+  have hGfunc : (fun z : ℂ =>
+      sphC s ((QuotientGroup.mk g * nC u) * nC z)) =
+      fun z => sphC s (QuotientGroup.mk (g * upperM ℂ u) * nC z) := by
+    funext z
+    rw [hG]
+  have hfd : fderiv ℝ h u = fderiv ℝ (fun z => h (z + u)) 0 := by
+    simpa using (fderiv_comp_add_right (𝕜 := ℝ) (f := h) (x := (0 : ℂ)) u).symm
+  calc
+    fderiv ℝ h u v = fderiv ℝ (fun z => h (z + u)) 0 v :=
+      congrArg (fun L : ℂ →L[ℝ] ℂ => L v) hfd
+    _ = fderiv ℝ (fun z : ℂ =>
+          sphC s ((QuotientGroup.mk g * nC u) * nC z)) 0 v := by
+      exact congrArg (fun f : ℂ → ℂ => fderiv ℝ f 0 v) hshift.symm
+    _ = fderiv ℝ (fun z : ℂ =>
+          sphC s (QuotientGroup.mk (g * upperM ℂ u) * nC z)) 0 v := by
+      exact congrArg (fun f : ℂ → ℂ => fderiv ℝ f 0 v) hGfunc
+
+private def jacquetKernelC (y : ℂˣ) (v : ℂ) (t : ℝ) (x : ℂ) : ℂ :=
+  psiC (-x) * sphC (1 / 6) (wC * nC x * aC y * nC ((t : ℝ) • v))
+
+private theorem jacquetKernelC_continuous (y : ℂˣ) (v : ℂ) (t : ℝ) :
+    Continuous (jacquetKernelC y v t) := by
+  have hnCcont : Continuous nC := continuous_nC_complex
+  have harg : Continuous (fun x : ℂ =>
+      wC * nC x * aC y * nC ((t : ℝ) • v)) := by
+    fun_prop
+  have hphase : Continuous fun x : ℂ => psiC (-x) := by
+    unfold psiC
+    fun_prop
+  change Continuous fun x : ℂ =>
+    psiC (-x) * sphC (1 / 6) (wC * nC x * aC y * nC ((t : ℝ) • v))
+  exact hphase.mul ((sphC_isSection (1 / 6)).2.comp harg)
+
+private def jacquetKernelC_deriv (y : ℂˣ) (v : ℂ) (t : ℝ) (x : ℂ) : ℂ :=
+  let G : GL (Fin 2) ℂ := jacquetMatrixC y x
+  let G' : GL (Fin 2) ℂ := G * upperM ℂ ((t : ℝ) • v)
+  psiC (-x) *
+    (-((4 / 3 : ℂ) /
+        ((Complex.normSq ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0) +
+          Complex.normSq ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1) : ℝ) : ℂ))) *
+    sphericalC (1 / 6) G' *
+      ((2 * (v * (G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0 *
+        star ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re : ℝ) : ℂ)
+
+private theorem jacquetKernelC_deriv_continuous (y : ℂˣ) (v : ℂ) (t : ℝ) :
+    Continuous (jacquetKernelC_deriv y v t) := by
+  let G : ℂ → GL (Fin 2) ℂ := fun x =>
+    jacquetMatrixC y x * upperM ℂ ((t : ℝ) • v)
+  let B : ℂ → ℝ := fun x =>
+    Complex.normSq ((G x : Matrix (Fin 2) (Fin 2) ℂ) 1 0) +
+      Complex.normSq ((G x : Matrix (Fin 2) (Fin 2) ℂ) 1 1)
+  have hU : Continuous (upperM ℂ) := continuous_upperM_complex
+  have hG : Continuous G := by
+    dsimp [G, jacquetMatrixC]
+    fun_prop
+  have hB : Continuous B := by
+    dsimp [B]
+    fun_prop
+  have hBpos (x : ℂ) : 0 < B x := by
+    simpa [B, G] using sphC_bottom_norm_pos (G x)
+  have hBne (x : ℂ) : (B x : ℂ) ≠ 0 := by
+    exact_mod_cast (ne_of_gt (hBpos x))
+  have hcoef : Continuous fun x : ℂ =>
+      -((4 / 3 : ℂ) / (B x : ℂ)) := by
+    exact (continuous_const.div (Complex.continuous_ofReal.comp hB) hBne).neg
+  have hsph : Continuous fun x : ℂ => sphericalC (1 / 6) (G x) :=
+    (sphericalC_continuous (1 / 6)).comp hG
+  have hdir : Continuous fun x : ℂ =>
+      ((2 * (v * (G x : Matrix (Fin 2) (Fin 2) ℂ) 1 0 *
+        star ((G x : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re : ℝ) : ℂ) := by
+    fun_prop
+  have hphase : Continuous fun x : ℂ => psiC (-x) := by
+    unfold psiC
+    fun_prop
+  change Continuous fun x : ℂ =>
+    psiC (-x) * (-((4 / 3 : ℂ) / (B x : ℂ))) *
+      sphericalC (1 / 6) (G x) *
+        ((2 * (v * (G x : Matrix (Fin 2) (Fin 2) ℂ) 1 0 *
+          star ((G x : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re : ℝ) : ℂ)
+  exact ((hphase.mul hcoef).mul hsph).mul hdir
+
+private theorem jacquetKernelC_hasDerivAt (y : ℂˣ) (v : ℂ) (t : ℝ) (x : ℂ) :
+    HasDerivAt (fun t' : ℝ => jacquetKernelC y v t' x)
+      (jacquetKernelC_deriv y v t x) t := by
+  let u : ℂ := (t : ℝ) • v
+  let G : GL (Fin 2) ℂ := jacquetMatrixC y x
+  let G' : GL (Fin 2) ℂ := G * upperM ℂ u
+  have hq : wC * nC x * aC y = QuotientGroup.mk G := by
+    simpa [G, jacquetMatrixC] using jacquetMatrixC_mk y x
+  let h : ℂ → ℂ := fun z => sphC (1 / 6) (QuotientGroup.mk G * nC z)
+  have hdiff : DifferentiableAt ℝ h u := sphC_right_n_differentiableAt G u
+  have hv : HasDerivAt (fun t' : ℝ => (t' : ℝ) • v) v t := by
+    simpa using (hasDerivAt_id t).smul_const v
+  have hcomp : HasDerivAt (fun t' : ℝ => h ((t' : ℝ) • v))
+      (fderiv ℝ h u v) t :=
+    hdiff.hasFDerivAt.comp_hasDerivAt_of_eq t hv (by simp [u])
+  have hfd : fderiv ℝ h u v =
+      -((4 / 3 : ℂ) /
+        ((Complex.normSq ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0) +
+          Complex.normSq ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1) : ℝ) : ℂ)) *
+        sphericalC (1 / 6) G' *
+          ((2 * (v * (G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0 *
+            star ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re : ℝ) : ℂ) := by
+    rw [sphC_right_n_fderiv_at]
+    have hbase := sphC_right_n_fderiv (1 / 6) G' v
+    change fderiv ℝ (fun z : ℂ =>
+      sphC (1 / 6) (QuotientGroup.mk (G * upperM ℂ u) * nC z)) 0 v = _ at hbase
+    have hcomm :
+        (((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0) * v *
+          star ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re =
+        (v * ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0) *
+          star ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re := by
+      congr 1
+      ring
+    rw [hcomm] at hbase
+    rw [show (1 : ℂ) + 2 * (1 / 6 : ℂ) = (4 / 3 : ℂ) by norm_num] at hbase
+    exact hbase
+  have hcomp' := hcomp.const_mul (psiC (-x))
+  have hfun : (fun t' : ℝ => jacquetKernelC y v t' x) =
+      fun t' => psiC (-x) * h ((t' : ℝ) • v) := by
+    funext t'
+    simp [jacquetKernelC, h, hq]
+  have hval : jacquetKernelC_deriv y v t x =
+      psiC (-x) * fderiv ℝ h u v := by
+    change psiC (-x) *
+        (-((4 / 3 : ℂ) /
+          ((Complex.normSq ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0) +
+            Complex.normSq ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1) : ℝ) : ℂ))) *
+          sphericalC (1 / 6) G' *
+            ((2 * (v * (G' : Matrix (Fin 2) (Fin 2) ℂ) 1 0 *
+              star ((G' : Matrix (Fin 2) (Fin 2) ℂ) 1 1)).re : ℝ) : ℂ) =
+      psiC (-x) * fderiv ℝ h u v
+    rw [hfd]
+    ring
+  rw [hfun, hval]
+  exact hcomp'
+
+private theorem jacquetMatrixC_bottom (y : ℂˣ) (x u : ℂ) :
+    ((jacquetMatrixC y x * upperM ℂ u : GL (Fin 2) ℂ) :
+      Matrix (Fin 2) (Fin 2) ℂ) 1 0 =
+        (y : ℂ) ∧
+      ((jacquetMatrixC y x * upperM ℂ u : GL (Fin 2) ℂ) :
+        Matrix (Fin 2) (Fin 2) ℂ) 1 1 =
+        x + (y : ℂ) * u := by
+  constructor
+  · simp [jacquetMatrixC, weylM, upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  · simp [jacquetMatrixC, weylM, upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+
+private theorem jacquetMatrixC_spherical (y : ℂˣ) (x u : ℂ) :
+    sphericalC (1 / 6) (jacquetMatrixC y x * upperM ℂ u) =
+      ((‖(y : ℂ)‖ / (‖(y : ℂ)‖ ^ 2 + ‖x + (y : ℂ) * u‖ ^ 2) : ℝ) : ℂ) ^
+        (4 / 3 : ℂ) := by
+  let G : GL (Fin 2) ℂ := jacquetMatrixC y x
+  let G' : GL (Fin 2) ℂ := G * upperM ℂ u
+  have hq : wC * nC x * aC y = QuotientGroup.mk G := by
+    simpa [G, jacquetMatrixC] using jacquetMatrixC_mk y x
+  have hroot : (wC * nC x * aC y) * nC u =
+      wC * nC (x + (y : ℂ) * u) * aC y := by
+    calc
+      (wC * nC x * aC y) * nC u =
+          wC * nC x * (aC y * nC u) := by rw [mul_assoc]
+      _ = wC * nC x * (nC ((y : ℂ) * u) * aC y) := by rw [aC_nC]
+      _ = wC * (nC x * nC ((y : ℂ) * u)) * aC y := by simp [mul_assoc]
+      _ = wC * nC (x + (y : ℂ) * u) * aC y := by rw [nC_add]
+  have hmul : QuotientGroup.mk G * nC u = QuotientGroup.mk G' := by
+    change (G : PGL2 ℂ) * ((upperM ℂ u : GL (Fin 2) ℂ) : PGL2 ℂ) =
+      ((G * upperM ℂ u : GL (Fin 2) ℂ) : PGL2 ℂ)
+    rw [← QuotientGroup.mk_mul]
+  have hG' : QuotientGroup.mk G' = wC * nC (x + (y : ℂ) * u) * aC y := by
+    calc
+      QuotientGroup.mk G' = QuotientGroup.mk G * nC u := hmul.symm
+      _ = (wC * nC x * aC y) * nC u := by rw [hq]
+      _ = _ := hroot
+  calc
+    sphericalC (1 / 6) (jacquetMatrixC y x * upperM ℂ u) =
+        sphericalC (1 / 6) G' := by rfl
+    _ = sphC (1 / 6) (QuotientGroup.mk G') := (sphC_mk (1 / 6) G').symm
+    _ = sphC (1 / 6) (wC * nC (x + (y : ℂ) * u) * aC y) :=
+      congrArg (sphC (1 / 6)) hG'
+    _ = _ := sphC_w_n_a y (x + (y : ℂ) * u)
+
+private def jacquetKernelC_majorantConst (y : ℂˣ) : ℝ :=
+  let r : ℝ := ‖(y : ℂ)‖
+  let c : ℝ := (min (r ^ 2) 1) / (3 + 2 * r ^ 2)
+  2 * (4 / 3 : ℝ) * r * (r / c) ^ (4 / 3 : ℝ) * c ^ (-(1 / 2 : ℝ))
+
+private theorem jacquetKernelC_deriv_bound (y : ℂˣ) (v : ℂ) (t : ℝ) (x : ℂ)
+    (hv : ‖v‖ = 1) (ht : t ∈ Metric.ball (0 : ℝ) 1) :
+    ‖jacquetKernelC_deriv y v t x‖ ≤
+      jacquetKernelC_majorantConst y *
+        ‖OAI.CubicEisenstein.hyperbolicKernel (11 / 6) x‖ := by
+  let r : ℝ := ‖(y : ℂ)‖
+  let u : ℂ := (t : ℝ) • v
+  let d : ℂ := x + (y : ℂ) * u
+  let D : ℝ := r ^ 2 + ‖d‖ ^ 2
+  let q : ℝ := ‖x‖ ^ 2
+  let c : ℝ := (min (r ^ 2) 1) / (3 + 2 * r ^ 2)
+  let p : ℝ := 4 / 3
+  have hr : 0 < r := by
+    dsimp [r]
+    exact norm_pos_iff.mpr y.ne_zero
+  have ht' : ‖t‖ < 1 := by
+    simpa [Metric.mem_ball] using ht
+  have hu : ‖u‖ ≤ 1 := by
+    calc
+      ‖u‖ = ‖(t : ℝ)‖ * ‖v‖ := by simp [u, norm_smul]
+      _ = ‖t‖ := by rw [hv]; simp
+      _ ≤ 1 := ht'.le
+  have hyu : ‖(y : ℂ) * u‖ ≤ r := by
+    calc
+      ‖(y : ℂ) * u‖ = ‖(y : ℂ)‖ * ‖u‖ := norm_mul _ _
+      _ = r * ‖u‖ := by rfl
+      _ ≤ r := by nlinarith [hu]
+  have hxle : ‖x‖ ≤ ‖d‖ + r := by
+    have hx : x = d - (y : ℂ) * u := by
+      dsimp [d]
+      ring
+    rw [hx]
+    exact (norm_sub_le _ _).trans (by nlinarith [hyu])
+  have hxq : q ≤ 2 * ‖d‖ ^ 2 + 2 * r ^ 2 := by
+    dsimp [q]
+    have hsq : ‖x‖ ^ 2 ≤ (‖d‖ + r) ^ 2 :=
+      (sq_le_sq₀ (norm_nonneg _) (add_nonneg (norm_nonneg _) hr.le)).2 hxle
+    nlinarith [hsq, sq_nonneg (‖d‖ - r)]
+  have hcpos : 0 < c := by
+    dsimp [c]
+    positivity
+  have hDpos : 0 < D := by
+    dsimp [D]
+    positivity
+  have hDlower : c * (1 + q) ≤ D := by
+    have hA : 0 < min (r ^ 2) 1 := lt_min (sq_pos_of_pos hr) zero_lt_one
+    have hA1 : min (r ^ 2) 1 ≤ 1 := min_le_right _ _
+    have hA2 : min (r ^ 2) 1 ≤ r ^ 2 := min_le_left _ _
+    have hDaux : min (r ^ 2) 1 * (1 + ‖d‖ ^ 2) ≤ D := by
+      dsimp [D]
+      nlinarith [mul_nonneg (sq_nonneg ‖d‖) (sub_nonneg.mpr hA1), hA2]
+    have haux : 1 + q ≤ (3 + 2 * r ^ 2) * (1 + ‖d‖ ^ 2) := by
+      dsimp [q]
+      nlinarith [hxq, sq_nonneg ‖d‖]
+    calc
+      c * (1 + q) ≤ c * ((3 + 2 * r ^ 2) * (1 + ‖d‖ ^ 2)) :=
+        mul_le_mul_of_nonneg_left haux (le_of_lt hcpos)
+      _ = min (r ^ 2) 1 * (1 + ‖d‖ ^ 2) := by
+        dsimp [c]
+        field_simp
+      _ ≤ D := hDaux
+  have hbasele : r / D ≤ (r / c) / (1 + q) := by
+    have hright : 0 < c * (1 + q) := mul_pos hcpos (by positivity)
+    rw [div_div]
+    apply (div_le_div_iff₀ hDpos hright).2
+    have hmul := mul_le_mul_of_nonneg_left hDlower hr.le
+    nlinarith [hmul]
+  have hbasepow : (r / D) ^ p ≤ (r / c) ^ p * (1 + q) ^ (-p) := by
+    calc
+      (r / D) ^ p ≤ ((r / c) / (1 + q)) ^ p :=
+        Real.rpow_le_rpow (by positivity) hbasele (by norm_num [p])
+      _ = (r / c) ^ p * (1 + q) ^ (-p) := by
+        rw [Real.div_rpow (by positivity) (by positivity)]
+        change (r / c) ^ p * ((1 + q) ^ p)⁻¹ = _
+        rw [← Real.rpow_neg (by positivity) p]
+  have hdsq : ‖d‖ ^ 2 ≤ D := by
+    dsimp [D]
+    nlinarith [sq_nonneg r]
+  have hdroot : ‖d‖ ≤ Real.sqrt D := by
+    have h := Real.sqrt_le_sqrt hdsq
+    simpa [Real.sqrt_sq (norm_nonneg d)] using h
+  have hrootdiv : Real.sqrt D / D = D ^ (-(1 / 2 : ℝ)) := by
+    rw [div_eq_mul_inv, Real.sqrt_eq_rpow, ← Real.rpow_neg_one, ← Real.rpow_add hDpos]
+    norm_num
+  have hdirpow : ‖d‖ / D ≤ D ^ (-(1 / 2 : ℝ)) := by
+    calc
+      ‖d‖ / D ≤ Real.sqrt D / D := div_le_div_of_nonneg_right hdroot (le_of_lt hDpos)
+      _ = _ := hrootdiv
+  have hdirpow' : ‖d‖ / D ≤ c ^ (-(1 / 2 : ℝ)) * (1 + q) ^ (-(1 / 2 : ℝ)) := by
+    calc
+      ‖d‖ / D ≤ (c * (1 + q)) ^ (-(1 / 2 : ℝ)) :=
+        hdirpow.trans (Real.rpow_le_rpow_of_nonpos (by positivity) hDlower (by norm_num))
+      _ = _ := by
+        rw [Real.mul_rpow (le_of_lt hcpos) (by positivity)]
+  have hphase : ‖psiC (-x)‖ = 1 := by
+    rw [psiC_neg_eq_breveE, OAI.CubicEisenstein.breveE_norm]
+  have hden : 0 < r ^ 2 + ‖d‖ ^ 2 := by positivity
+  have hrows := jacquetMatrixC_bottom y x ((t : ℝ) • v)
+  have hcM :
+      (((jacquetMatrixC y x : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) *
+        ((upperM ℂ ((t : ℂ) * v) : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ)) 1 0 =
+        (y : ℂ) := by
+    simpa [smul_eq_mul] using hrows.1
+  have hdM :
+      (((jacquetMatrixC y x : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ) *
+        ((upperM ℂ ((t : ℂ) * v) : GL (Fin 2) ℂ) : Matrix (Fin 2) (Fin 2) ℂ)) 1 1 =
+        d := by
+    simpa [smul_eq_mul, d, u] using hrows.2
+  have hkernelval : jacquetKernelC_deriv y v t x =
+      psiC (-x) * (-((4 / 3 : ℂ) / ((r ^ 2 + ‖d‖ ^ 2 : ℝ) : ℂ))) *
+        (((r / (r ^ 2 + ‖d‖ ^ 2) : ℝ) : ℂ) ^ (4 / 3 : ℂ)) *
+          ((2 * (v * (y : ℂ) * star d).re : ℝ) : ℂ) := by
+    dsimp [jacquetKernelC_deriv]
+    rw [hcM, hdM]
+    have hsph : sphericalC (1 / 6)
+        (jacquetMatrixC y x * upperM ℂ ((t : ℂ) * v)) =
+        (((r / (r ^ 2 + ‖d‖ ^ 2) : ℝ) : ℂ) ^ (4 / 3 : ℂ)) := by
+      simpa [smul_eq_mul, r, D, d, u, Complex.normSq_eq_norm_sq] using
+        jacquetMatrixC_spherical y x ((t : ℝ) • v)
+    rw [hsph]
+    simp [smul_eq_mul, r, D, d, u, Complex.normSq_eq_norm_sq]
+  have hcoefnorm :
+      ‖-((4 / 3 : ℂ) / ((r ^ 2 + ‖d‖ ^ 2 : ℝ) : ℂ))‖ =
+        (4 / 3 : ℝ) / (r ^ 2 + ‖d‖ ^ 2) := by
+    have hnum : ‖(4 / 3 : ℂ)‖ = (4 / 3 : ℝ) := by norm_num
+    have hdennorm :
+        ‖((r ^ 2 + ‖d‖ ^ 2 : ℝ) : ℂ)‖ = |r ^ 2 + ‖d‖ ^ 2| :=
+      RCLike.norm_ofReal _
+    calc
+      _ = ‖(4 / 3 : ℂ)‖ / ‖((r ^ 2 + ‖d‖ ^ 2 : ℝ) : ℂ)‖ := by rw [norm_neg, norm_div]
+      _ = _ := by rw [hnum, hdennorm, abs_of_pos hden]
+  have hsphnorm :
+      ‖(((r / (r ^ 2 + ‖d‖ ^ 2 : ℝ) : ℝ) : ℂ) ^ (4 / 3 : ℂ))‖ =
+        (r / (r ^ 2 + ‖d‖ ^ 2)) ^ p := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos (div_pos hr hden)]
+    norm_num [p]
+  have hdirnorm :
+      ‖((2 * (v * (y : ℂ) * star d).re : ℝ) : ℂ)‖ ≤ 2 * r * ‖d‖ := by
+    calc
+      ‖((2 * (v * (y : ℂ) * star d).re : ℝ) : ℂ)‖ =
+          |2 * (v * (y : ℂ) * star d).re| := RCLike.norm_ofReal _
+      _ =
+          2 * |(v * (y : ℂ) * star d).re| := by rw [abs_mul, abs_of_pos (by norm_num)]
+      _ ≤ 2 * ‖v * (y : ℂ) * star d‖ :=
+        mul_le_mul_of_nonneg_left (Complex.abs_re_le_norm _) (by norm_num)
+      _ = 2 * r * ‖d‖ := by simp [norm_mul, norm_star, hv, r, mul_assoc]
+  have hrough :
+      ‖jacquetKernelC_deriv y v t x‖ ≤
+        2 * (4 / 3 : ℝ) * r * (r / D) ^ p * (‖d‖ / D) := by
+    have hleft : 0 ≤ ((4 / 3 : ℝ) / D) * (r / D) ^ p := by positivity
+    calc
+      _ = ((4 / 3 : ℝ) / D) * (r / D) ^ p *
+          ‖((2 * (v * (y : ℂ) * star d).re : ℝ) : ℂ)‖ := by
+        rw [hkernelval, norm_mul, norm_mul, norm_mul, hphase, one_mul, hcoefnorm, hsphnorm] <;> ring
+      _ ≤ ((4 / 3 : ℝ) / D) * (r / D) ^ p * (2 * r * ‖d‖) :=
+        mul_le_mul_of_nonneg_left hdirnorm hleft
+      _ = _ := by
+        field_simp [ne_of_gt hDpos] <;> ring
+  have hprod : (r / D) ^ p * (‖d‖ / D) ≤
+      ((r / c) ^ p * (1 + q) ^ (-p)) *
+        (c ^ (-(1 / 2 : ℝ)) * (1 + q) ^ (-(1 / 2 : ℝ))) := by
+    calc
+      _ ≤ (r / D) ^ p *
+          (c ^ (-(1 / 2 : ℝ)) * (1 + q) ^ (-(1 / 2 : ℝ))) :=
+        mul_le_mul_of_nonneg_left hdirpow' (by positivity)
+      _ ≤ _ := mul_le_mul_of_nonneg_right hbasepow (by positivity)
+  have hcoef : 0 ≤ 2 * (4 / 3 : ℝ) * r := by positivity
+  have hpow : (1 + q) ^ (-p) * (1 + q) ^ (-(1 / 2 : ℝ)) =
+      (1 + q) ^ (-(11 / 6 : ℝ)) := by
+    rw [← Real.rpow_add (by positivity : 0 < 1 + q)]
+    norm_num [p]
+  have hmain :
+      ‖jacquetKernelC_deriv y v t x‖ ≤
+        2 * (4 / 3 : ℝ) * r * (r / c) ^ p * c ^ (-(1 / 2 : ℝ)) *
+          (1 + q) ^ (-(11 / 6 : ℝ)) := by
+    calc
+      _ ≤ 2 * (4 / 3 : ℝ) * r * ((r / D) ^ p * (‖d‖ / D)) := by
+        simpa [mul_assoc] using hrough
+      _ ≤ 2 * (4 / 3 : ℝ) * r *
+          (((r / c) ^ p * (1 + q) ^ (-p)) *
+            (c ^ (-(1 / 2 : ℝ)) * (1 + q) ^ (-(1 / 2 : ℝ)))) :=
+        mul_le_mul_of_nonneg_left hprod hcoef
+      _ = (2 * (4 / 3 : ℝ) * r * (r / c) ^ p * c ^ (-(1 / 2 : ℝ))) *
+            ((1 + q) ^ (-p) * (1 + q) ^ (-(1 / 2 : ℝ))) := by ring
+      _ = _ := by rw [hpow]
+  have hK11 :
+      ‖OAI.CubicEisenstein.hyperbolicKernel (11 / 6) x‖ =
+        (1 + ‖x‖ ^ 2) ^ (-(11 / 6 : ℝ)) := by
+    unfold OAI.CubicEisenstein.hyperbolicKernel
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos (by positivity)]
+    norm_num
+  simpa [jacquetKernelC_majorantConst, r, c, q, hK11, p] using hmain
+
+private theorem jacquetKernelC_integrable_zero (y : ℂˣ) (v : ℂ) :
+    Integrable (jacquetKernelC y v 0) := by
+  let r : ℝ := ‖(y : ℂ)‖
+  let A : ℝ := min (r ^ 2) 1
+  let C0 : ℝ := (r / A) ^ (4 / 3 : ℝ)
+  let K : ℂ → ℂ := OAI.CubicEisenstein.hyperbolicKernel (4 / 3)
+  have hr : 0 < r := by
+    dsimp [r]
+    exact norm_pos_iff.mpr y.ne_zero
+  have hA : 0 < A := by
+    dsimp [A]
+    exact lt_min (sq_pos_of_pos hr) zero_lt_one
+  have hu0 : upperM ℂ (0 : ℂ) = 1 := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;> simp [upperM]
+  have hn0 : nC (0 : ℂ) = 1 := by
+    change ((upperM ℂ 0 : GL (Fin 2) ℂ) : PGL2 ℂ) = 1
+    rw [hu0]
+    simp
+  have hkernel (x : ℂ) :
+      jacquetKernelC y v 0 x =
+        psiC (-x) * (((r / (r ^ 2 + ‖x‖ ^ 2) : ℝ) : ℂ) ^ (4 / 3 : ℂ)) := by
+    change psiC (-x) *
+        sphC (1 / 6) (wC * nC x * aC y * nC ((0 : ℝ) • v)) = _
+    rw [zero_smul, hn0, mul_one, sphC_w_n_a]
+  have hphase (x : ℂ) : ‖psiC (-x)‖ = 1 := by
+    rw [psiC_neg_eq_breveE, OAI.CubicEisenstein.breveE_norm]
+  have hKint : Integrable K := by
+    dsimp [K]
+    exact OAI.CubicEisenstein.hyperbolicKernel_integrable (4 / 3) (by norm_num)
+  have hKnorm (x : ℂ) : ‖K x‖ = (1 + ‖x‖ ^ 2) ^ (-(4 / 3 : ℝ)) := by
+    dsimp [K, OAI.CubicEisenstein.hyperbolicKernel]
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos (by positivity)]
+    norm_num
+  have hbasepos (x : ℂ) : 0 < r / (r ^ 2 + ‖x‖ ^ 2) := by
+    exact div_pos hr (by positivity)
+  have hF0norm (x : ℂ) :
+      ‖jacquetKernelC y v 0 x‖ =
+        (r / (r ^ 2 + ‖x‖ ^ 2)) ^ (4 / 3 : ℝ) := by
+    rw [hkernel, norm_mul, hphase, one_mul,
+      Complex.norm_cpow_eq_rpow_re_of_pos (hbasepos x)]
+    norm_num
+  have hdenlower (x : ℂ) : A * (1 + ‖x‖ ^ 2) ≤ r ^ 2 + ‖x‖ ^ 2 := by
+    by_cases hr2 : r ^ 2 ≤ 1
+    · rw [show A = r ^ 2 by simp [A, min_eq_left hr2]]
+      nlinarith [mul_nonneg (sq_nonneg ‖x‖) (sub_nonneg.mpr hr2)]
+    · have hr2' : 1 ≤ r ^ 2 := le_of_not_ge hr2
+      rw [show A = 1 by simp [A, min_eq_right hr2']]
+      nlinarith [sq_nonneg ‖x‖]
+  have hbasele (x : ℂ) :
+      r / (r ^ 2 + ‖x‖ ^ 2) ≤ (r / A) / (1 + ‖x‖ ^ 2) := by
+    have hD : 0 < r ^ 2 + ‖x‖ ^ 2 := by positivity
+    have hAD : 0 < A * (1 + ‖x‖ ^ 2) := mul_pos hA (by positivity)
+    rw [div_div]
+    apply (div_le_div_iff₀ hD hAD).2
+    have hmul := mul_le_mul_of_nonneg_left (hdenlower x) hr.le
+    nlinarith [hmul]
+  have hpowle (x : ℂ) :
+      (r / (r ^ 2 + ‖x‖ ^ 2)) ^ (4 / 3 : ℝ) ≤
+        C0 * (1 + ‖x‖ ^ 2) ^ (-(4 / 3 : ℝ)) := by
+    calc
+      _ ≤ ((r / A) / (1 + ‖x‖ ^ 2)) ^ (4 / 3 : ℝ) :=
+        Real.rpow_le_rpow (by positivity) (hbasele x) (by norm_num)
+      _ = C0 * (1 + ‖x‖ ^ 2) ^ (-(4 / 3 : ℝ)) := by
+        rw [Real.div_rpow (by positivity) (by positivity)]
+        change (r / A) ^ (4 / 3 : ℝ) *
+          ((1 + ‖x‖ ^ 2) ^ (4 / 3 : ℝ))⁻¹ = _
+        rw [← Real.rpow_neg (by positivity) (4 / 3 : ℝ)]
+  have hmajor : Integrable (fun x : ℂ => C0 * ‖K x‖) := by
+    have h := hKint.norm.const_mul C0
+    simpa [mul_comm] using h
+  have hmeas : AEStronglyMeasurable (jacquetKernelC y v 0) volume := by
+    have hnCcont : Continuous nC := continuous_nC_complex
+    have harg : Continuous (fun x : ℂ => wC * nC x * aC y * nC ((0 : ℝ) • v)) := by
+      fun_prop
+    have hcont : Continuous (jacquetKernelC y v 0) := by
+      change Continuous (fun x : ℂ =>
+        psiC (-x) * sphC (1 / 6) (wC * nC x * aC y * nC ((0 : ℝ) • v)))
+      have hphase : Continuous fun x : ℂ => psiC (-x) := by
+        unfold psiC
+        fun_prop
+      exact hphase.mul
+        ((sphC_isSection (1 / 6)).2.comp harg)
+    exact hcont.aestronglyMeasurable
+  apply hmajor.mono' hmeas
+  filter_upwards [] with x
+  calc
+    ‖jacquetKernelC y v 0 x‖ = (r / (r ^ 2 + ‖x‖ ^ 2)) ^ (4 / 3 : ℝ) := hF0norm x
+    _ ≤ C0 * (1 + ‖x‖ ^ 2) ^ (-(4 / 3 : ℝ)) := hpowle x
+    _ = C0 * ‖K x‖ := by rw [hKnorm]
+
+private theorem psiC_direction_hasDerivAt (y : ℂˣ) (v : ℂ) :
+    HasDerivAt (fun t : ℝ => psiC ((y : ℂ) * ((t : ℝ) • v)))
+      (-(4 * Real.pi * Complex.I) *
+        Complex.ofReal (((y : ℂ) * v).re)) 0 := by
+  let a : ℝ := ((y : ℂ) * v).re
+  let c : ℂ := -(4 * Real.pi * Complex.I * (a : ℂ))
+  have hsmul (t : ℝ) : (t : ℝ) • v = (t : ℂ) * v := by
+    simp [smul_eq_mul]
+  have hRe (t : ℝ) : ((y : ℂ) * ((t : ℝ) • v)).re = t * a := by
+    rw [hsmul]
+    have hmul : (y : ℂ) * ((t : ℂ) * v) = (t : ℂ) * ((y : ℂ) * v) := by ring
+    rw [hmul, Complex.mul_re]
+    simp [a]
+  have harg (t : ℝ) :
+      -(4 * Real.pi * Complex.I *
+        (((y : ℂ) * ((t : ℝ) • v)).re : ℂ)) = (t : ℂ) * c := by
+    rw [hRe]
+    dsimp [c, a]
+    rw [Complex.ofReal_mul]
+    ring
+  have hfun : (fun t : ℝ => psiC ((y : ℂ) * ((t : ℝ) • v))) =
+      fun t : ℝ => Complex.exp ((t : ℂ) * c) := by
+    funext t
+    unfold psiC
+    rw [harg]
+  have hcast : HasDerivAt (fun t : ℝ => (t : ℂ)) 1 0 :=
+    Complex.ofRealCLM.hasDerivAt
+  have hmul := hcast.const_mul c
+  have hlin : HasDerivAt (fun t : ℝ => (t : ℂ) * c) c 0 := by
+    have hfun : (fun t : ℝ => (t : ℂ) * c) = fun t : ℝ => c * (t : ℂ) := by
+      funext t
+      ring
+    rw [hfun]
+    simpa using hmul
+  have hExpF := (Complex.hasDerivAt_exp (0 : ℂ)).hasFDerivAt.restrictScalars ℝ
+  have hcompExp := HasFDerivAt.comp_hasDerivAt_of_eq
+    (f := fun t : ℝ => (t : ℂ) * c) (0 : ℝ) (y := (0 : ℂ)) hExpF hlin (by simp)
+  have hexp : HasDerivAt (fun t : ℝ => Complex.exp ((t : ℂ) * c)) c 0 := by
+    simpa [Function.comp_def, hExpF] using hcompExp
+  have hchar : HasDerivAt (fun t : ℝ => psiC ((y : ℂ) * ((t : ℝ) • v))) c 0 := by
+    rw [hfun]
+    simpa using hexp
+  simpa [c, a] using hchar
+
+private theorem jacquetKernelC_deriv_zero_eq (y : ℂˣ) (v : ℂ) (x : ℂ) :
+    jacquetKernelC_deriv y v 0 x =
+      psiC (-x) * fderiv ℝ
+        (fun z : ℂ => sphC (1 / 6) (wC * nC x * aC y * nC z)) 0 v := by
+  let G : GL (Fin 2) ℂ := jacquetMatrixC y x
+  have hq : wC * nC x * aC y = QuotientGroup.mk G := by
+    simpa [G, jacquetMatrixC] using jacquetMatrixC_mk y x
+  let h : ℂ → ℂ := fun z => sphC (1 / 6) (QuotientGroup.mk G * nC z)
+  have hdiff : DifferentiableAt ℝ h 0 := sphC_right_n_differentiableAt G 0
+  have hv : HasDerivAt (fun t : ℝ => (t : ℝ) • v) v 0 := by
+    simpa using (hasDerivAt_id (0 : ℝ)).smul_const v
+  have hcomp : HasDerivAt (fun t : ℝ => h ((t : ℝ) • v))
+      (fderiv ℝ h 0 v) 0 :=
+    hdiff.hasFDerivAt.comp_hasDerivAt_of_eq 0 hv (by simp)
+  have hcomp' := hcomp.const_mul (psiC (-x))
+  have hfun : (fun t : ℝ => jacquetKernelC y v t x) =
+      fun t => psiC (-x) * h ((t : ℝ) • v) := by
+    funext t
+    simp [jacquetKernelC, h, hq]
+  have hevent : (fun t : ℝ => jacquetKernelC y v t x) =ᶠ[nhds (0 : ℝ)]
+      fun t => psiC (-x) * h ((t : ℝ) • v) :=
+    Filter.Eventually.of_forall (fun t => congrFun hfun t)
+  have hcompKernel : HasDerivAt (fun t : ℝ => jacquetKernelC y v t x)
+      (psiC (-x) * fderiv ℝ h 0 v) 0 :=
+    (Filter.EventuallyEq.hasDerivAt_iff hevent).2 hcomp'
+  have heval := (jacquetKernelC_hasDerivAt y v 0 x).unique hcompKernel
+  simpa [h, hq, jacquetKernelC_deriv] using heval
+
+private theorem jacquetKernelC_integral_translate (y : ℂˣ) (v : ℂ) (t : ℝ) :
+    (∫ x : ℂ, jacquetKernelC y v t x) =
+      psiC ((y : ℂ) * ((t : ℝ) • v)) *
+        jacquetC (rtr (aC y) (sphC (1 / 6))) := by
+  let u : ℂ := (t : ℝ) • v
+  let f : PGL2 ℂ → ℂ := rtr (aC y) (sphC (1 / 6))
+  have hf : IsSectionC (1 / 6) f := by
+    intro x z g
+    simpa [f, rtr, mul_assoc] using
+      (sphC_isSection (1 / 6)).1 x z (g * aC y)
+  have hmul : Continuous (fun g : PGL2 ℂ => g * aC y) := by fun_prop
+  have hcont : Continuous f := by
+    change Continuous (fun g : PGL2 ℂ => sphC (1 / 6) (g * aC y))
+    exact (sphC_isSection (1 / 6)).2.comp hmul
+  have hact : rtr (aC y * nC u) (sphC (1 / 6)) =
+      rtr (nC ((y : ℂ) * u)) f := by
+    funext g
+    simp [f, rtr, aC_nC, mul_assoc]
+  have hkernel : (∫ x : ℂ, jacquetKernelC y v t x) =
+      jacquetC (rtr (aC y * nC u) (sphC (1 / 6))) := by
+    simp [jacquetKernelC, jacquetC, rtr, u, mul_assoc]
+  calc
+    (∫ x : ℂ, jacquetKernelC y v t x) =
+        jacquetC (rtr (aC y * nC u) (sphC (1 / 6))) := hkernel
+    _ = jacquetC (rtr (nC ((y : ℂ) * u)) f) := by rw [hact]
+    _ = psiC ((y : ℂ) * u) * jacquetC f :=
+      jacquetC_equiv (1 / 6) (by norm_num) f hf hcont ((y : ℂ) * u)
+    _ = _ := by rfl
+
+private theorem jacquetKernelC_line_deriv_integrable (y : ℂˣ) (v : ℂ)
+    (hv : ‖v‖ = 1) :
+    Integrable (jacquetKernelC_deriv y v 0) ∧
+      (∫ x : ℂ, jacquetKernelC_deriv y v 0 x) =
+        (-(4 * Real.pi * Complex.I) *
+          Complex.ofReal (((y : ℂ) * v).re)) *
+          jacquetC (rtr (aC y) (sphC (1 / 6))) := by
+  classical
+  let K : ℂ → ℂ := OAI.CubicEisenstein.hyperbolicKernel (11 / 6)
+  let bound : ℂ → ℝ := fun x => jacquetKernelC_majorantConst y * ‖K x‖
+  have hF_meas : ∀ᶠ t in nhds (0 : ℝ),
+      AEStronglyMeasurable (jacquetKernelC y v t) volume := by
+    filter_upwards [] with t
+    exact (jacquetKernelC_continuous y v t).aestronglyMeasurable
+  have hF_int : Integrable (jacquetKernelC y v 0) volume :=
+    jacquetKernelC_integrable_zero y v
+  have hF'_meas : AEStronglyMeasurable (jacquetKernelC_deriv y v 0) volume :=
+    (jacquetKernelC_deriv_continuous y v 0).aestronglyMeasurable
+  have h_bound : ∀ᵐ x ∂volume, ∀ t ∈ Metric.ball (0 : ℝ) 1,
+      ‖jacquetKernelC_deriv y v t x‖ ≤ bound x := by
+    filter_upwards [] with x
+    intro t ht
+    simpa [bound, K] using jacquetKernelC_deriv_bound y v t x hv ht
+  have hK_int : Integrable K := by
+    dsimp [K]
+    exact OAI.CubicEisenstein.hyperbolicKernel_integrable (11 / 6) (by norm_num)
+  have hbound_int : Integrable bound := by
+    dsimp [bound]
+    have h := hK_int.norm.const_mul (jacquetKernelC_majorantConst y)
+    simpa [mul_comm] using h
+  have h_diff : ∀ᵐ x ∂volume, ∀ t ∈ Metric.ball (0 : ℝ) 1,
+      HasDerivAt (jacquetKernelC y v · x) (jacquetKernelC_deriv y v t x) t := by
+    filter_upwards [] with x
+    intro t ht
+    exact jacquetKernelC_hasDerivAt y v t x
+  have hparam := hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    (F := fun t : ℝ => jacquetKernelC y v t)
+    (F' := fun t : ℝ => jacquetKernelC_deriv y v t)
+    (s := Metric.ball (0 : ℝ) 1) (x₀ := 0) (bound := bound) (μ := volume)
+    (Metric.ball_mem_nhds 0 (by norm_num)) hF_meas hF_int hF'_meas h_bound
+    hbound_int h_diff
+  let J : ℂ := jacquetC (rtr (aC y) (sphC (1 / 6)))
+  have hline : (fun t : ℝ => ∫ x : ℂ, jacquetKernelC y v t x) =
+      fun t => psiC ((y : ℂ) * ((t : ℝ) • v)) * J := by
+    funext t
+    exact jacquetKernelC_integral_translate y v t
+  have hchar := (psiC_direction_hasDerivAt y v).mul_const J
+  have hchar' : HasDerivAt (fun t : ℝ => ∫ x : ℂ, jacquetKernelC y v t x)
+      ((-(4 * Real.pi * Complex.I) *
+        Complex.ofReal (((y : ℂ) * v).re)) * J) 0 := by
+    rw [hline]
+    simpa [J] using hchar
+  have heq := hparam.2.unique hchar'
+  exact ⟨hparam.1, by simpa [J] using heq⟩
+
 /-- **jq:complex-derivative** (eq:theta-complex-derivative, 03:292–312). -/
 theorem jacquetC_derivative (m : ℤ) (hm : m = 1 ∨ m = -1) (y : ℂˣ) :
     jacquetC (rtr (aC y) (derivVecC m (sphC (1 / 6)))) =
       -(4 * Real.pi * Complex.I) * besselConst * (Complex.normSq (y : ℂ) : ℂ) * omegaAng m y *
         (besselK (1 / 3) (4 * Real.pi * ‖(y : ℂ)‖) : ℂ) := by
-  sorry
+  classical
+  let J : ℂ := jacquetC (rtr (aC y) (sphC (1 / 6)))
+  let D₁ : ℂ → ℂ := jacquetKernelC_deriv y 1 0
+  let Dᵢ : ℂ → ℂ := jacquetKernelC_deriv y Complex.I 0
+  have h₁ := jacquetKernelC_line_deriv_integrable y 1 (by simp)
+  have hᵢ := jacquetKernelC_line_deriv_integrable y Complex.I (by simp)
+  have hpoint (x : ℂ) : D₁ x - (m : ℂ) * Complex.I * Dᵢ x =
+      psiC (-x) * derivVecC m (sphC (1 / 6)) (wC * nC x * aC y) := by
+    dsimp only [D₁, Dᵢ]
+    rw [jacquetKernelC_deriv_zero_eq y 1 x,
+      jacquetKernelC_deriv_zero_eq y Complex.I x]
+    simp only [derivVecC]
+    ring
+  have h_integral : jacquetC (rtr (aC y) (derivVecC m (sphC (1 / 6)))) =
+      (∫ x : ℂ, D₁ x) - (m : ℂ) * Complex.I * (∫ x : ℂ, Dᵢ x) := by
+    calc
+      jacquetC (rtr (aC y) (derivVecC m (sphC (1 / 6)))) =
+          ∫ x : ℂ, psiC (-x) * derivVecC m (sphC (1 / 6)) (wC * nC x * aC y) := by
+            simp [jacquetC, rtr, mul_assoc]
+      _ = ∫ x : ℂ, D₁ x - (m : ℂ) * Complex.I * Dᵢ x := by
+            apply integral_congr_ae
+            filter_upwards [] with x
+            exact (hpoint x).symm
+      _ = (∫ x : ℂ, D₁ x) - (m : ℂ) * Complex.I * (∫ x : ℂ, Dᵢ x) := by
+            rw [integral_sub h₁.1 (hᵢ.1.const_mul ((m : ℂ) * Complex.I)),
+              integral_const_mul]
+  have hD₁ : (∫ x : ℂ, D₁ x) =
+      -(4 * Real.pi * Complex.I) * ((y : ℂ).re : ℂ) * J := by
+    simpa [D₁, J] using h₁.2
+  have hReᵢ : (((y : ℂ) * Complex.I).re) = -(y : ℂ).im := by
+    simp [Complex.mul_re]
+  have hDᵢ : (∫ x : ℂ, Dᵢ x) =
+      (4 * Real.pi * Complex.I) * ((y : ℂ).im : ℂ) * J := by
+    calc
+      _ = -(4 * Real.pi * Complex.I) *
+          Complex.ofReal (((y : ℂ) * Complex.I).re) * J := by
+            simpa [Dᵢ, J] using hᵢ.2
+      _ = _ := by rw [hReᵢ, Complex.ofReal_neg]; ring
+  have hcomb₁ : (∫ x : ℂ, D₁ x) - (1 : ℂ) * Complex.I * (∫ x : ℂ, Dᵢ x) =
+      -(4 * Real.pi * Complex.I) * (y : ℂ) * J := by
+    rw [hD₁, hDᵢ]
+    apply Complex.ext <;> simp [Complex.mul_re, Complex.mul_im] <;> ring
+  have hcomb_neg1 : (∫ x : ℂ, D₁ x) - (-1 : ℂ) * Complex.I * (∫ x : ℂ, Dᵢ x) =
+      -(4 * Real.pi * Complex.I) * star (y : ℂ) * J := by
+    rw [hD₁, hDᵢ]
+    apply Complex.ext <;> simp [Complex.mul_re, Complex.mul_im] <;> ring
+  let r : ℝ := ‖(y : ℂ)‖
+  have hr : 0 < r := by
+    dsimp [r]
+    exact norm_pos_iff.mpr y.ne_zero
+  have hrne : (r : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hr.ne'
+  have hnormSq : (Complex.normSq (y : ℂ) : ℂ) = star (y : ℂ) * (y : ℂ) := by
+    simp [Complex.normSq_eq_conj_mul_self]
+  have hAng₁ : omegaAng 1 (y : ℂ) = (y : ℂ) / (r : ℂ) := by
+    simp [omegaAng, r]
+  have hAng_neg1 : omegaAng (-1) (y : ℂ) = (r : ℂ) / (y : ℂ) := by
+    simp [omegaAng, r, zpow_neg_one]
+  have hpolar₁ : (y : ℂ) * (r : ℂ) =
+      (Complex.normSq (y : ℂ) : ℂ) * omegaAng 1 (y : ℂ) := by
+    rw [hAng₁]
+    have hnorm : (Complex.normSq (y : ℂ) : ℂ) = (r : ℂ) ^ 2 := by
+      simp [Complex.normSq_eq_norm_sq, r]
+    rw [hnorm]
+    field_simp [hrne]
+  have hpolar_neg1 : star (y : ℂ) * (r : ℂ) =
+      (Complex.normSq (y : ℂ) : ℂ) * omegaAng (-1) (y : ℂ) := by
+    rw [hAng_neg1, hnormSq]
+    field_simp [hrne, y.ne_zero]
+  rcases hm with hm | hm
+  · subst m
+    calc
+      jacquetC (rtr (aC y) (derivVecC 1 (sphC (1 / 6)))) =
+          (∫ x : ℂ, D₁ x) - (1 : ℂ) * Complex.I * (∫ x : ℂ, Dᵢ x) := by
+            simpa using h_integral
+      _ = -(4 * Real.pi * Complex.I) * (y : ℂ) * J := hcomb₁
+      _ = -(4 * Real.pi * Complex.I) * besselConst *
+            (Complex.normSq (y : ℂ) : ℂ) * omegaAng 1 (y : ℂ) *
+              (besselK (1 / 3) (4 * Real.pi * r) : ℂ) := by
+            rw [show J = ((besselConst * r *
+              besselK (1 / 3) (4 * Real.pi * r) : ℝ) : ℂ) by
+                dsimp [J, r]
+                exact jacquetC_spherical y]
+            have hpolar : (y : ℂ) *
+                ((besselConst * r * besselK (1 / 3) (4 * Real.pi * r) : ℝ) : ℂ) =
+                (besselConst : ℂ) * (Complex.normSq (y : ℂ) : ℂ) *
+                  omegaAng 1 (y : ℂ) *
+                    (besselK (1 / 3) (4 * Real.pi * r) : ℂ) := by
+              calc
+                _ = (besselConst : ℂ) * ((y : ℂ) * (r : ℂ)) *
+                    (besselK (1 / 3) (4 * Real.pi * r) : ℂ) := by push_cast; ring
+                _ = _ := by rw [hpolar₁]; ring
+            calc
+              _ = -(4 * Real.pi * Complex.I) *
+                  ((y : ℂ) *
+                    ((besselConst * r * besselK (1 / 3) (4 * Real.pi * r) : ℝ) : ℂ)) := by ring
+              _ = -(4 * Real.pi * Complex.I) *
+                  ((besselConst : ℂ) * (Complex.normSq (y : ℂ) : ℂ) *
+                    omegaAng 1 (y : ℂ) *
+                      (besselK (1 / 3) (4 * Real.pi * r) : ℂ)) := by rw [hpolar]
+              _ = _ := by ring
+  · subst m
+    calc
+      jacquetC (rtr (aC y) (derivVecC (-1) (sphC (1 / 6)))) =
+          (∫ x : ℂ, D₁ x) - (-1 : ℂ) * Complex.I * (∫ x : ℂ, Dᵢ x) := by
+            simpa using h_integral
+      _ = -(4 * Real.pi * Complex.I) * star (y : ℂ) * J := hcomb_neg1
+      _ = -(4 * Real.pi * Complex.I) * besselConst *
+            (Complex.normSq (y : ℂ) : ℂ) * omegaAng (-1) (y : ℂ) *
+              (besselK (1 / 3) (4 * Real.pi * r) : ℂ) := by
+            rw [show J = ((besselConst * r *
+              besselK (1 / 3) (4 * Real.pi * r) : ℝ) : ℂ) by
+                dsimp [J, r]
+                exact jacquetC_spherical y]
+            have hpolar : star (y : ℂ) *
+                ((besselConst * r * besselK (1 / 3) (4 * Real.pi * r) : ℝ) : ℂ) =
+                (besselConst : ℂ) * (Complex.normSq (y : ℂ) : ℂ) *
+                  omegaAng (-1) (y : ℂ) *
+                    (besselK (1 / 3) (4 * Real.pi * r) : ℂ) := by
+              calc
+                _ = (besselConst : ℂ) * (star (y : ℂ) * (r : ℂ)) *
+                    (besselK (1 / 3) (4 * Real.pi * r) : ℂ) := by push_cast; ring
+                _ = _ := by rw [hpolar_neg1]; ring
+            calc
+              _ = -(4 * Real.pi * Complex.I) *
+                  (star (y : ℂ) *
+                    ((besselConst * r * besselK (1 / 3) (4 * Real.pi * r) : ℝ) : ℂ)) := by ring
+              _ = -(4 * Real.pi * Complex.I) *
+                  ((besselConst : ℂ) * (Complex.normSq (y : ℂ) : ℂ) *
+                    omegaAng (-1) (y : ℂ) *
+                      (besselK (1 / 3) (4 * Real.pi * r) : ℂ)) := by rw [hpolar]
+              _ = _ := by ring
 
 /-- **jq:complex-rotation**: `π(w) f_m = f_{-m}` (`Ad(w)E_a ≡ E_{ā}` modulo `𝔰𝔲(2)`). -/
 private theorem sphericalC_right_w (s : ℂ) (g : GL (Fin 2) ℂ) :
