@@ -595,7 +595,32 @@ theorem whit_tensor_multilinear (P : CoverPackage D S H A) (G : GlobalDatum P)
     (Fs : GlobalSection P G s) (x0 : P.RP) :
     ∃ Λ : MultilinearMap ℂ (fun v : S.Sf => (G.T v.1).V) ℂ,
       ∀ z, Λ z = (κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0 z δ := by
-  sorry
+  let term (δ : Fˣ ⧸ G.Δ) :
+      MultilinearMap ℂ (fun v : S.Sf => (G.T v.1).V) ℂ :=
+    whitExteriorTerm P G μ Fs x0 δ •
+      (MultilinearMap.mkPiAlgebra ℂ S.Sf ℂ).compLinearMap
+        (fun v => (G.lam v.1).comp
+          ((G.T v.1).σa (toLoc v.1 (Quotient.out δ))))
+  have hterm (δ : Fˣ ⧸ G.Δ) (z : ∀ v : S.Sf, (G.T v.1).V) :
+      term δ z = whitTensorTerm P G μ Fs x0 z δ := by
+    rfl
+  have hsum (z : ∀ v : S.Sf, (G.T v.1).V) : Summable (fun δ => term δ z) := by
+    simpa only [hterm] using (whitTensorTerm_summable P G μ hs Fs x0 z).of_norm
+  let Λ0 : MultilinearMap ℂ (fun v : S.Sf => (G.T v.1).V) ℂ :=
+    { toFun := fun z => ∑' δ, term δ z
+      map_update_add' := by
+        intro _ z v x y
+        simp_rw [MultilinearMap.map_update_add]
+        exact (hsum (Function.update z v x)).tsum_add (hsum (Function.update z v y))
+      map_update_smul' := by
+        intro _ z v c x
+        simp_rw [MultilinearMap.map_update_smul]
+        exact (hsum (Function.update z v x)).tsum_const_smul c }
+  refine ⟨(κF F)⁻¹ • Λ0, ?_⟩
+  intro z
+  change (κF F)⁻¹ * (∑' δ, term δ z) =
+    (κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0 z δ
+  simp_rw [hterm]
 
 /-- Separate the finite S-product and the fixed exterior product at a common lift. -/
 theorem whit_tensor_formula (P : CoverPackage D S H A) (G : GlobalDatum P)
