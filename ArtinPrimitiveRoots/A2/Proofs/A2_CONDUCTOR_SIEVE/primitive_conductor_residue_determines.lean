@@ -35,6 +35,16 @@ private theorem conductorUnramifiedAt_of_not_dvd
   rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers] at hsub
   simpa using hsub
 
+private theorem conductorPrime_isExterior
+    (S : A1.SData F CE condη) (v : A1.FinPlace F) (hv : v ∉ S.Sf) :
+    S.IsExterior v.asIdeal := by
+  refine ⟨v.ne_bot, ?_⟩
+  intro w hw hle
+  have heq : v.asIdeal = w.asIdeal :=
+    v.isMaximal.eq_of_le w.isPrime.ne_top hle
+  have hvw : v = w := HeightOneSpectrum.ext heq
+  exact hv (hvw.symm ▸ hw)
+
 /-- A common finite/infinite component and residue realization determine the
 full idelic character. Guide: sol-thin-a2zf/PROOFS.md:680–693.
 Uses HK-DICT-RAY prime-value uniqueness off the finite conductor support.
