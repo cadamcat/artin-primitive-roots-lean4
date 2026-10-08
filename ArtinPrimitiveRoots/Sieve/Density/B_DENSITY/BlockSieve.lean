@@ -274,4 +274,40 @@ lemma roughBlockDivisibilityError_le_one {z x : ℝ} (hz : 2 ≤ z) (hx : 0 ≤ 
   rw [hsum, hweight]
   simpa [div_eq_mul_inv] using roughIntegerMultipleCount_error x hx d hd
 
+/-- The small-product error sum in the first block-sieve conclusion has at most `y+1` total
+weight. -/
+lemma roughBlockErrorSum_le {z x y : ℝ} (hz : 2 ≤ z) (hx : 0 ≤ x) (hy : 0 ≤ y) :
+    (∑ D ∈ (roughSievePrimes z).powerset with
+      ((∏ p ∈ D, p : ℕ) : ℝ) ≤ y,
+      |(∑ n ∈ roughIntegerInterval x with (∀ p ∈ D, p ∣ n), (1 : ℝ)) -
+        x * ∏ p ∈ D, (1 / (p : ℝ))|) ≤ y + 1 := by
+  classical
+  let P := roughSievePrimes z
+  let S := P.powerset.filter fun D : Finset ℕ => ((∏ p ∈ D, p : ℕ) : ℝ) ≤ y
+  have hP : ∀ p ∈ P, p.Prime := by
+    intro p hp
+    have hp' : (2 ≤ p ∧ p ≤ ⌊z⌋₊) ∧ p.Prime := by
+      simpa [P, roughSievePrimes, Finset.mem_filter, Finset.mem_Icc] using hp
+    exact hp'.2
+  have hsum :
+      (∑ D ∈ P.powerset with ((∏ p ∈ D, p : ℕ) : ℝ) ≤ y,
+        |(∑ n ∈ roughIntegerInterval x with (∀ p ∈ D, p ∣ n), (1 : ℝ)) -
+          x * ∏ p ∈ D, (1 / (p : ℝ))|) ≤
+        (∑ D ∈ P.powerset with ((∏ p ∈ D, p : ℕ) : ℝ) ≤ y, (1 : ℝ)) := by
+    apply Finset.sum_le_sum
+    intro D hD
+    have hDbase : D ∈ P.powerset := (Finset.mem_filter.mp hD).1
+    exact roughBlockDivisibilityError_le_one hz hx D (Finset.mem_powerset.mp hDbase)
+  have hcard :
+      (∑ D ∈ P.powerset with ((∏ p ∈ D, p : ℕ) : ℝ) ≤ y, (1 : ℝ)) =
+        (S.card : ℝ) := by
+    simp [S]
+  have hsubset : S.card ≤ ⌊y⌋₊ + 1 := by
+    exact primeProducts_card_le P hP y hy
+  have hfloor : (⌊y⌋₊ : ℝ) ≤ y := Nat.floor_le hy
+  have hrealcard : (S.card : ℝ) ≤ y + 1 := by
+    have hsubset' : (S.card : ℝ) ≤ (⌊y⌋₊ : ℝ) + 1 := by exact_mod_cast hsubset
+    linarith
+  exact hsum.trans (hcard ▸ hrealcard)
+
 end ArtinPrimitiveRoots.Proofs.b_density_sol
