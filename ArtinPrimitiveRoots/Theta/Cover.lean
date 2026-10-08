@@ -4333,6 +4333,273 @@ private theorem coverEmbedding_phaseProduct (B : CoverQuotientBase D S H)
     B.quotient.q x = B.quotient.q (E.incl v0 ((B.family.loc v0).z τ)) := hq
     _ = E.z τ := (E.q_incl v0 _).trans (E.emb_z v0 τ)
 
+/-- The S-generators as native restricted tuples, with their actual continuity certificates. -/
+private structure CoverSTupleBase (B : CoverQuotientBase D S H) where
+  nRP : Multiplicative S.FS →* CoverRP B.family
+  nbarRP : Multiplicative S.FS →* CoverRP B.family
+  aRP : S.FSˣ → CoverRP B.family
+  wRP : CoverRP B.family
+  nF : ∀ u : S.FS, ∀ v : FinPlace F,
+    nRP (Multiplicative.ofAdd u) (.inl v) = if hv : v ∈ S.Sf then
+      (B.family.loc v).n (Multiplicative.ofAdd (u.1 ⟨v, hv⟩)) else 1
+  nC : ∀ u : S.FS, ∀ w,
+    nRP (Multiplicative.ofAdd u) (.inr w) = QuotientGroup.mk (upperM ℂ (u.2 w))
+  nbarF : ∀ u : S.FS, ∀ v : FinPlace F,
+    nbarRP (Multiplicative.ofAdd u) (.inl v) = if hv : v ∈ S.Sf then
+      (B.family.loc v).nbar (Multiplicative.ofAdd (u.1 ⟨v, hv⟩)) else 1
+  nbarC : ∀ u : S.FS, ∀ w,
+    nbarRP (Multiplicative.ofAdd u) (.inr w) = QuotientGroup.mk (lowerM ℂ (u.2 w))
+  aF : ∀ u : S.FSˣ, ∀ v : FinPlace F,
+    aRP u (.inl v) = if hv : v ∈ S.Sf then
+      (B.family.loc v).a (S.compU ⟨v, hv⟩ u) else 1
+  aC : ∀ u : S.FSˣ, ∀ w,
+    aRP u (.inr w) = QuotientGroup.mk (diagM ℂ (S.compC w u))
+  wF : ∀ v : FinPlace F, wRP (.inl v) = if v ∈ S.Sf then (B.family.loc v).w else 1
+  wC : ∀ w, wRP (.inr w) = QuotientGroup.mk (weylM ℂ)
+  n_cont : Continuous nRP
+  a_cont : Continuous aRP
+
+private theorem exists_coverSTupleBase (B : CoverQuotientBase D S H) :
+    Nonempty (CoverSTupleBase B) := by
+  classical
+  let C := B.family
+  let Comp := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.Component
+    (G := fun v : FinPlace F => (C.loc v).L) (H := fun _ : InfinitePlace F => PGL2 ℂ)
+  let ref := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference C)
+  let TopRP := RestrictedProduct Comp (fun p => (ref p : Set (Comp p)))
+    (⊤ : Filter (Place F))
+  let topTuple (lf : ∀ v : S.Sf, (C.loc v.1).L) (lc : InfinitePlace F → PGL2 ℂ) : TopRP :=
+    ⟨fun p => match p with
+      | .inl v => if hv : v ∈ S.Sf then lf ⟨v, hv⟩ else 1
+      | .inr w => lc w, Filter.Eventually.of_forall (by
+      intro p
+      cases p with
+      | inl v =>
+        change (if hv : v ∈ S.Sf then lf ⟨v, hv⟩ else 1) ∈ coverFamilyReference C v
+        by_cases hv : v ∈ S.Sf <;> simp [coverFamilyReference, hv]
+      | inr w =>
+        change lc w ∈ (⊤ : Subgroup (PGL2 ℂ))
+        simp)⟩
+  let tuple (lf : ∀ v : S.Sf, (C.loc v.1).L) (lc : InfinitePlace F → PGL2 ℂ) : CoverRP C :=
+    RestrictedProduct.inclusion Comp (fun p => (ref p : Set (Comp p)))
+      (show (cofinite : Filter (Place F)) ≤ ⊤ from le_top) (topTuple lf lc)
+  have tuple_F (lf : ∀ v : S.Sf, (C.loc v.1).L) (lc : InfinitePlace F → PGL2 ℂ)
+      (v : FinPlace F) : tuple lf lc (.inl v) =
+        if hv : v ∈ S.Sf then lf ⟨v, hv⟩ else 1 := rfl
+  have tuple_cont {X : Type} [TopologicalSpace X]
+      (lf : X → ∀ v : S.Sf, (C.loc v.1).L) (lc : X → InfinitePlace F → PGL2 ℂ)
+      (hf : ∀ v, Continuous (fun x => lf x v))
+      (hc : ∀ w, Continuous (fun x => lc x w)) :
+      Continuous (fun x => tuple (lf x) (lc x)) := by
+    have ht : Continuous (fun x => topTuple (lf x) (lc x)) := by
+      apply RestrictedProduct.continuous_rng_of_top.mpr
+      apply continuous_pi
+      intro p
+      cases p with
+      | inl v =>
+        change Continuous (fun x : X => if hv : v ∈ S.Sf then lf x ⟨v, hv⟩
+          else (1 : (C.loc v).L))
+        by_cases hv : v ∈ S.Sf
+        · simpa only [dif_pos hv] using hf ⟨v, hv⟩
+        · simpa only [dif_neg hv] using
+            (continuous_const : Continuous (fun _ : X => (1 : (C.loc v).L)))
+      | inr w =>
+        change Continuous (fun x => lc x w)
+        exact hc w
+    exact (RestrictedProduct.continuous_inclusion
+      (R := Comp) (A := fun p => (ref p : Set (Comp p)))
+      (show (cofinite : Filter (Place F)) ≤ ⊤ from le_top)).comp ht
+  let Mat := Matrix (Fin 2) (Fin 2) ℂ
+  letI : Monoid Mat := inferInstanceAs (Monoid (Matrix (Fin 2) (Fin 2) ℂ))
+  let qC : GL (Fin 2) ℂ →* PGL2 ℂ := QuotientGroup.mk' _
+  have hqC : Continuous qC := QuotientGroup.continuous_mk
+  have upper_zero : upperM ℂ 0 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [upperM]
+  have upper_add : ∀ x y : ℂ, upperM ℂ (x + y) = upperM ℂ x * upperM ℂ y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  have upper_inv : ∀ x : ℂ, (upperM ℂ x)⁻¹ = upperM ℂ (-x) := by
+    intro x
+    have h : upperM ℂ (-x) * upperM ℂ x = 1 := by
+      rw [← upper_add, neg_add_cancel, upper_zero]
+    exact (eq_inv_of_mul_eq_one_left h).symm
+  have lower_zero : lowerM ℂ 0 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [lowerM]
+  have lower_add : ∀ x y : ℂ, lowerM ℂ (x + y) = lowerM ℂ x * lowerM ℂ y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [lowerM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  have diag_one : diagM ℂ 1 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [diagM]
+  have diag_mul : ∀ x y : ℂˣ, diagM ℂ (x * y) = diagM ℂ x * diagM ℂ y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  have diag_inv : ∀ y : ℂˣ, (diagM ℂ y)⁻¹ = diagM ℂ y⁻¹ := by
+    intro y
+    have h : diagM ℂ y⁻¹ * diagM ℂ y = 1 := by
+      rw [← diag_mul, inv_mul_cancel, diag_one]
+    exact (eq_inv_of_mul_eq_one_left h).symm
+  have upper_val : Continuous (fun x : ℂ => (upperM ℂ x : Mat)) := by
+    apply continuous_pi
+    intro i
+    apply continuous_pi
+    intro j
+    fin_cases i <;> fin_cases j <;> simp [upperM] <;> fun_prop
+  have upper_cont : Continuous (upperM ℂ) := by
+    apply Units.continuous_iff.mpr
+    refine ⟨upper_val, ?_⟩
+    change Continuous (fun x : ℂ => (((upperM ℂ x)⁻¹ : GL (Fin 2) ℂ) : Mat))
+    simp_rw [upper_inv]
+    exact upper_val.comp continuous_neg
+  have diag_val : Continuous (fun y : ℂˣ => (diagM ℂ y : Mat)) := by
+    apply continuous_pi
+    intro i
+    apply continuous_pi
+    intro j
+    fin_cases i <;> fin_cases j <;> simp [diagM] <;> fun_prop
+  have diag_cont : Continuous (diagM ℂ) := by
+    apply Units.continuous_iff.mpr
+    refine ⟨diag_val, ?_⟩
+    change Continuous (fun y : ℂˣ => (((diagM ℂ y)⁻¹ : GL (Fin 2) ℂ) : Mat))
+    simp_rw [diag_inv]
+    exact diag_val.comp continuous_inv
+  let n : Multiplicative S.FS →* CoverRP C := {
+    toFun := fun x => tuple
+      (fun v => (C.loc v.1).n (Multiplicative.ofAdd (x.toAdd.1 v)))
+      (fun w => qC (upperM ℂ (x.toAdd.2 w)))
+    map_one' := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        simp only [tuple_F, RestrictedProduct.one_apply]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          exact map_one _
+        · simp only [dif_neg hv]
+      | inr w =>
+        change qC (upperM ℂ 0) = 1
+        rw [upper_zero, map_one]
+    map_mul' := by
+      intro x y
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        simp only [RestrictedProduct.mul_apply, tuple_F]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          exact map_mul _ _ _
+        · simp only [dif_neg hv, one_mul]
+      | inr w =>
+        change qC (upperM ℂ (x.toAdd.2 w + y.toAdd.2 w)) =
+          qC (upperM ℂ (x.toAdd.2 w)) * qC (upperM ℂ (y.toAdd.2 w))
+        rw [upper_add, map_mul]
+  }
+  let nb : Multiplicative S.FS →* CoverRP C := {
+    toFun := fun x => tuple
+      (fun v => (C.loc v.1).nbar (Multiplicative.ofAdd (x.toAdd.1 v)))
+      (fun w => qC (lowerM ℂ (x.toAdd.2 w)))
+    map_one' := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        simp only [tuple_F, RestrictedProduct.one_apply]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          exact map_one _
+        · simp only [dif_neg hv]
+      | inr w =>
+        change qC (lowerM ℂ 0) = 1
+        rw [lower_zero, map_one]
+    map_mul' := by
+      intro x y
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        simp only [RestrictedProduct.mul_apply, tuple_F]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          exact map_mul _ _ _
+        · simp only [dif_neg hv, one_mul]
+      | inr w =>
+        change qC (lowerM ℂ (x.toAdd.2 w + y.toAdd.2 w)) =
+          qC (lowerM ℂ (x.toAdd.2 w)) * qC (lowerM ℂ (y.toAdd.2 w))
+        rw [lower_add, map_mul]
+  }
+  let a : S.FSˣ → CoverRP C := fun u => tuple
+    (fun v => (C.loc v.1).a (S.compU v u))
+    (fun w => qC (diagM ℂ (S.compC w u)))
+  let w : CoverRP C := tuple (fun v => (C.loc v.1).w) (fun _ => qC (weylM ℂ))
+  have hn : Continuous n := by
+    change Continuous (fun x : Multiplicative S.FS => tuple
+      (fun v => (C.loc v.1).n (Multiplicative.ofAdd (x.toAdd.1 v)))
+      (fun w => qC (upperM ℂ (x.toAdd.2 w))))
+    refine tuple_cont (X := Multiplicative S.FS)
+      (fun x v => (C.loc v.1).n (Multiplicative.ofAdd (x.toAdd.1 v)))
+      (fun x w => qC (upperM ℂ (x.toAdd.2 w))) ?_ ?_
+    · intro v
+      have hc : Continuous (fun x : Multiplicative S.FS =>
+          Multiplicative.ofAdd (x.toAdd.1 v)) :=
+        continuous_ofAdd.comp ((continuous_apply v).comp
+          (continuous_fst.comp continuous_toAdd))
+      exact (finLocalCover_maps_continuous v.1 (C.loc v.1)).1.comp hc
+    · intro w
+      exact hqC.comp (upper_cont.comp ((continuous_apply w).comp
+        (continuous_snd.comp continuous_toAdd)))
+  have ha : Continuous a := by
+    change Continuous (fun u : S.FSˣ => tuple
+      (fun v => (C.loc v.1).a (S.compU v u))
+      (fun w => qC (diagM ℂ (S.compC w u))))
+    refine tuple_cont (X := S.FSˣ)
+      (fun u v => (C.loc v.1).a (S.compU v u))
+      (fun u w => qC (diagM ℂ (S.compC w u))) ?_ ?_
+    · intro v
+      have hc : Continuous (S.compU v) := by
+        unfold SData.compU
+        apply Continuous.units_map
+        exact (continuous_apply v).comp continuous_fst
+      exact (finLocalCover_maps_continuous v.1 (C.loc v.1)).2.2.comp hc
+    · intro w
+      have hc : Continuous (S.compC w) := by
+        unfold SData.compC
+        apply Continuous.units_map
+        exact (continuous_apply w).comp continuous_snd
+      exact hqC.comp (diag_cont.comp hc)
+  exact ⟨{
+    nRP := n
+    nbarRP := nb
+    aRP := a
+    wRP := w
+    nF := fun _ _ => rfl
+    nC := fun _ _ => rfl
+    nbarF := fun _ _ => rfl
+    nbarC := fun _ _ => rfl
+    aF := fun _ _ => rfl
+    aC := fun _ _ => rfl
+    wF := fun _ => rfl
+    wC := fun _ => rfl
+    n_cont := hn
+    a_cont := ha
+  }⟩
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
