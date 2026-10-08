@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Residue
+import Mathlib.NumberTheory.LegendreSymbol.QuadraticChar.Basic
 
 /-!
 # Residue and local-unit conditions
@@ -282,5 +283,66 @@ theorem qs_nq0_residue_algebraMap (v : FinPlace K) (x : 𝓞 K) :
       rw [← h.choose_spec.2, map_mul]
     rw [hn, map_mul, mul_assoc, mul_inv_cancel₀ hdq, mul_one]
   · exact (h ⟨(x, 1), v.isPrime.one_notMem, by simp⟩).elim
+
+/-!
+The lifted quadratic-nonresidue step has this exact signature:
+```
+theorem qs_nq0_residue_quadratic_nontrivial
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal) :
+    ∃ b : Kˣ, v.valuation K (b : K) = 1 ∧
+      residue v (b : K) ^ ((Ideal.absNorm v.asIdeal - 1) / 2) ≠ 1
+```
+-/
+
+/-- Away from six, a residue-field nonsquare lifts to a global valuation-one unit. -/
+theorem qs_nq0_residue_quadratic_nontrivial
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal) :
+    ∃ b : Kˣ, v.valuation K (b : K) = 1 ∧
+      residue v (b : K) ^ ((Ideal.absNorm v.asIdeal - 1) / 2) ≠ 1 := by
+  classical
+  let : v.asIdeal.IsMaximal := v.isMaximal
+  let : Field (𝓞 K ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  let : Fintype (𝓞 K ⧸ v.asIdeal) := Fintype.ofFinite _
+  have hchar : ringChar (𝓞 K ⧸ v.asIdeal) ≠ 2 := by
+    intro hchar
+    have htwo : (2 : 𝓞 K ⧸ v.asIdeal) = 0 :=
+      (ringChar.spec (𝓞 K ⧸ v.asIdeal) 2).mpr (by rw [hchar])
+    have hmem : (2 : 𝓞 K) ∈ v.asIdeal :=
+      Ideal.Quotient.eq_zero_iff_mem.mp (by simpa only [map_ofNat] using htwo)
+    apply h6
+    have hsix : (6 : 𝓞 K) = 3 * 2 := by norm_num
+    rw [hsix]
+    exact Ideal.mul_mem_left _ _ hmem
+  obtain ⟨t, ht⟩ := quadraticChar_exists_neg_one (F := 𝓞 K ⧸ v.asIdeal) hchar
+  have ht0 : t ≠ 0 := by
+    intro hzero
+    rw [hzero, quadraticChar_zero] at ht
+    norm_num at ht
+  have hcard : Fintype.card (𝓞 K ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  have hdiv : Fintype.card (𝓞 K ⧸ v.asIdeal) / 2 =
+      (Ideal.absNorm v.asIdeal - 1) / 2 := by
+    have hodd := FiniteField.odd_card_of_char_ne_two hchar
+    omega
+  have hpow : t ^ ((Ideal.absNorm v.asIdeal - 1) / 2) ≠ 1 := by
+    have hp := quadraticChar_eq_pow_of_char_ne_two' hchar t
+    rw [ht, Int.cast_neg, Int.cast_one, hdiv] at hp
+    rw [← hp]
+    exact Ring.neg_one_ne_one_of_char_ne_two hchar
+  obtain ⟨c, hc⟩ := Ideal.Quotient.mk_surjective (I := v.asIdeal) t
+  have hc0 : c ≠ 0 := by
+    intro hzero
+    apply ht0
+    rw [← hc, hzero, map_zero]
+  have hmap : algebraMap (𝓞 K) K c ≠ 0 := by
+    intro hzero
+    exact hc0 ((IsFractionRing.injective (𝓞 K) K) (by simpa using hzero))
+  let b : Kˣ := Units.mk0 (algebraMap (𝓞 K) K c) hmap
+  have hb : residue v (b : K) = t := by
+    change residue v (algebraMap (𝓞 K) K c) = t
+    rw [qs_nq0_residue_algebraMap, hc]
+  refine ⟨b, qs_nq0_residue_ne_zero_iff_valuation_one v (b : K) |>.mp ?_, ?_⟩
+  · rwa [hb]
+  · rwa [hb]
 
 end ArtinPrimitiveRoots.A2
