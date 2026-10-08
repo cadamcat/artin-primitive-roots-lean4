@@ -1926,6 +1926,44 @@ theorem eisenstein_bruhat_integral_on_compact
         intro p
         exact hrep (Sum.inr p)
 
+/-- A small-cell summand is unchanged by the archimedean unipotent variable. -/
+theorem scalarOf_diag_unipotent
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (δ : Fˣ)
+    (g : P.tc.G) (x : InfinitePlace F → ℂ) :
+    scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL δ) * nInf P x * g) =
+      scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL δ) * g) := by
+  classical
+  let y : InfinitePlace F → ℂ := infEmbA (δ : F) * x
+  obtain ⟨r, hq, hf, hc⟩ := P.nS_components
+    ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x)
+  obtain ⟨t, hqt, hft, hct⟩ := P.nS_components
+    ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y)
+  have hf1 (v : FinPlace F) : P.compF v r = 1 := by simpa using hf v
+  have hft1 (v : FinPlace F) : P.compF v t = 1 := by simpa using hft v
+  have hmat (w : InfinitePlace F) :
+      Matrix.GeneralLinearGroup.map w.embedding (diagGL δ) * upperM ℂ (x w) =
+        upperM ℂ (y w) * Matrix.GeneralLinearGroup.map w.embedding (diagGL δ) := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map, diagGL, upperM, y, infEmbA,
+        Matrix.mul_apply, Fin.sum_univ_two]
+  have hRP : P.ratRP (diagGL δ) * r = t * P.ratRP (diagGL δ) := by
+    apply P.comp_ext
+    · intro v
+      simp only [map_mul, hf1, hft1, mul_one, one_mul]
+    · intro w
+      rw [map_mul, map_mul, P.compC_ratRP, hc, hct]
+      rw [← QuotientGroup.mk_mul, ← QuotientGroup.mk_mul]
+      exact congrArg (fun a : GL (Fin 2) ℂ => (QuotientGroup.mk a : PGL2 ℂ)) (hmat w)
+  have hcomm : P.tc.rat (diagGL δ) * nInf P x = nInf P y * P.tc.rat (diagGL δ) := by
+    simpa only [map_mul, P.q_ratRP, hq, hqt, nInf] using congrArg P.q hRP
+  rw [hcomm, mul_assoc]
+  exact (scalarOf_invariance P G Fs).2.1
+    (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y)) _
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
