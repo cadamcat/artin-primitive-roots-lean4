@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Hecke.Dict.LocalCongruence
 import ArtinPrimitiveRoots.Hecke.Dict.ConductorSupport
 import ArtinPrimitiveRoots.Hecke.Dict.WeakApproximation
 import ArtinPrimitiveRoots.Hecke.Proofs.«HK-DICT-IDELIC».Truncation
+import ArtinPrimitiveRoots.Hecke.Proofs.«HK-DICT-IDELIC».LocalBridge
 import Mathlib.NumberTheory.NumberField.Completion.FinitePlace
 
 
@@ -240,6 +241,788 @@ theorem conductorNorm_le_modulusNorm {m : RayClassModulus F} (η : RayClassGroup
 
 /-! ## §1 Ray class → idelic -/
 
+private def d1IdeleCongrOneSubgroup (m : RayClassModulus F) :
+    Subgroup (IdeleGroup (𝓞 F) F) where
+  carrier := {x |
+    (∀ v : FinPlace F, v ∈ m.finitePart.support →
+      ideleFiniteCoord v x ∈ rayLocalHigherUnitGroup v (m.finitePart v)) ∧
+    ∀ w : RayClassRealPlace F, w ∈ m.infinitePart →
+      0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+        (ideleInfiniteCoord w.1 x)}
+  one_mem' := by
+    constructor
+    · intro v hv
+      simpa only [map_one] using (rayLocalHigherUnitGroup v (m.finitePart v)).one_mem
+    · intro w hw
+      change 0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+        (1 : w.1.Completion)
+      simp
+  mul_mem' := by
+    rintro x y ⟨hx, hxinf⟩ ⟨hy, hyinf⟩
+    refine ⟨fun v hv => ?_, fun w hw => ?_⟩
+    · simpa only [map_mul] using
+        (rayLocalHigherUnitGroup v (m.finitePart v)).mul_mem (hx v hv) (hy v hv)
+    · simpa only [ideleInfiniteCoord_mul, map_mul] using mul_pos (hxinf w hw) (hyinf w hw)
+  inv_mem' := by
+    rintro x ⟨hx, hxinf⟩
+    refine ⟨fun v hv => ?_, fun w hw => ?_⟩
+    · simpa only [map_inv] using
+        (rayLocalHigherUnitGroup v (m.finitePart v)).inv_mem (hx v hv)
+    · change 0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+        (ideleInfiniteCoord w.1 (x⁻¹))
+      change 0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+        ((ideleInfiniteCoordUnit w.1 (x⁻¹) : w.1.Completionˣ) : w.1.Completion)
+      rw [map_inv, Units.val_inv_eq_inv_val, map_inv₀]
+      exact inv_pos.mpr (hxinf w hw)
+
+private theorem d1_ideleFiniteCoord_unitEmbedding (v : FinPlace F) (a : Fˣ) :
+    ideleFiniteCoord v (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+      finitePlaceUnitEmbedding v a := by
+  apply Units.ext
+  rfl
+
+private theorem d1_valued_eq_one_of_bound (v : FinPlace F) (n : ℕ) (hn : 0 < n)
+    (u : (v.adicCompletion F)ˣ)
+    (h : Valued.v ((u : v.adicCompletion F) - 1) ≤ WithZero.exp (-(n : ℤ))) :
+    Valued.v (u : v.adicCompletion F) = 1 := by
+  have he : WithZero.exp (-(n : ℤ)) < 1 := by
+    apply WithZero.exp_lt_one_iff.mpr
+    omega
+  have hsub : Valued.v ((u : v.adicCompletion F) - 1) <
+      Valued.v (1 : v.adicCompletion F) := by
+    simpa using h.trans_lt he
+  simpa using (Valuation.map_eq_of_sub_lt (v := Valued.v)
+    (x := (1 : v.adicCompletion F)) (y := (u : v.adicCompletion F)) hsub)
+
+set_option maxHeartbeats 1000000 in
+private theorem d1_exists_adjusted_idele (m : RayClassModulus F)
+    (x : IdeleGroup (𝓞 F) F) :
+    ∃ a : Fˣ, IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m := by
+  classical
+  let r : m.infinitePart → ℝ := fun w =>
+    InfinitePlace.Completion.extensionEmbeddingOfIsReal w.1.2
+      (ideleInfiniteCoord w.1.1 x)
+  have hr (w : m.infinitePart) : r w ≠ 0 :=
+    (map_ne_zero _).mpr (ideleInfiniteCoordUnit w.1.1 x).ne_zero
+  let U : Set ((∀ v : m.finitePart.support, v.1.adicCompletion F) ×
+      (∀ w : m.infinitePart, ℝ)) :=
+    {p | (∀ v, Valued.v (p.1 v *
+        (ideleFiniteCoord v.1 x : v.1.adicCompletion F) - 1) ≤
+          WithZero.exp (-(m.finitePart v.1 : ℤ))) ∧
+      ∀ w, 0 < p.2 w * r w}
+  have hU : IsOpen U := by
+    simp only [U, Set.setOf_and, Set.setOf_forall]
+    refine (isOpen_iInter_of_finite fun v => ?_).inter
+      (isOpen_iInter_of_finite fun w => ?_)
+    · exact (v.1.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero).preimage
+        (f := fun p : (∀ v : m.finitePart.support, v.1.adicCompletion F) ×
+          (∀ w : m.infinitePart, ℝ) =>
+            p.1 v * (ideleFiniteCoord v.1 x : v.1.adicCompletion F) - 1) (by fun_prop)
+    · exact isOpen_lt continuous_const (by fun_prop)
+  have hp₀ : ((fun v : m.finitePart.support =>
+      ((ideleFiniteCoord v.1 x)⁻¹ : (v.1.adicCompletion F)ˣ),
+      fun w : m.infinitePart => (r w)⁻¹) :
+      (∀ v : m.finitePart.support, v.1.adicCompletion F) ×
+        (∀ w : m.infinitePart, ℝ)) ∈ U := by
+    refine ⟨fun v => ?_, fun w => ?_⟩
+    · simp only [Prod.fst, Function.comp_apply, Units.val_inv_eq_inv_val]
+      rw [inv_mul_cancel₀ (ideleFiniteCoord v.1 x).ne_zero, sub_self, map_zero]
+      exact zero_le
+    · have hprod : (r w)⁻¹ * r w = 1 := inv_mul_cancel₀ (hr w)
+      rw [hprod]
+      exact zero_lt_one
+  obtain ⟨α, hαf, hαi⟩ := (denseRange_algebraMap_embedding_of_isReal
+      m.finitePart.support m.infinitePart).exists_mem_open hU ⟨_, hp₀⟩
+  have hkey (a : Fˣ)
+      (hfinite : ∀ v : m.finitePart.support,
+        Valued.v (algebraMap F (v.1.adicCompletion F) (a : F) *
+          (ideleFiniteCoord v.1 x : v.1.adicCompletion F) - 1) ≤
+            WithZero.exp (-(m.finitePart v.1 : ℤ)))
+      (hinf : ∀ w : m.infinitePart,
+        0 < w.1.1.embedding_of_isReal w.1.2 (a : F) * r w) :
+      IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m := by
+    refine ⟨fun v hv => ?_, fun w hw => ?_⟩
+    · have he : 0 < m.finitePart v := Nat.pos_of_ne_zero
+        (Finsupp.mem_support_iff.mp hv)
+      let u := finitePlaceUnitEmbedding v a * ideleFiniteCoord v x
+      have hu : Valued.v ((u : v.adicCompletion F) - 1) ≤
+          WithZero.exp (-(m.finitePart v : ℤ)) := by
+        simpa [u, finitePlaceUnitEmbedding] using hfinite ⟨v, hv⟩
+      have huv : Valued.v (u : v.adicCompletion F) = 1 :=
+        d1_valued_eq_one_of_bound v (m.finitePart v) he u hu
+      have huInt : (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+        rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers, huv]
+      have huInvInt : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+          v.adicCompletionIntegers F := by
+        rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers,
+          Units.val_inv_eq_inv_val, map_inv₀, huv]
+        simp
+      have hloc := ArtinPrimitiveRoots.Proofs.hk_misc_p.d1_mem_rayLocalHigherUnitGroup_iff
+        v (m.finitePart v) u
+      have hloc' := hloc.mpr ⟨huInt, huInvInt, hu⟩
+      change ideleFiniteCoord v (IdeleGroup.unitEmbedding (𝓞 F) F a * x) ∈ _
+      rw [map_mul, d1_ideleFiniteCoord_unitEmbedding]
+      exact hloc'
+    · change 0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+        (ideleInfiniteCoord w.1 (IdeleGroup.unitEmbedding (𝓞 F) F a * x))
+      rw [ideleInfiniteCoord_mul, ideleInfiniteCoord_unitEmbedding, map_mul]
+      have hglobal : InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+          (a : w.1.Completion) = w.1.embedding_of_isReal w.2 (a : F) :=
+        (InfinitePlace.Completion.extensionEmbeddingOfIsReal_coe w.2
+          (WithAbs.toAbs _ (a : F))).trans (by simp)
+      rw [hglobal]
+      exact hinf ⟨w, hw⟩
+  by_cases hα : α = 0
+  · by_cases hS : m.finitePart.support.Nonempty
+    · obtain ⟨v, hv⟩ := hS
+      have hbound := hαf ⟨v, hv⟩
+      have he : WithZero.exp (-(m.finitePart v : ℤ)) < 1 := by
+        apply WithZero.exp_lt_one_iff.mpr
+        have hp : 0 < m.finitePart v := Nat.pos_of_ne_zero
+          (Finsupp.mem_support_iff.mp hv)
+        omega
+      have : 1 ≤ WithZero.exp (-(m.finitePart v : ℤ)) := by
+        simpa [hα] using hbound
+      exact (not_lt_of_ge this he).elim
+    · by_cases hI : m.infinitePart.Nonempty
+      · obtain ⟨w, hw⟩ := hI
+        have hpos := hαi ⟨w, hw⟩
+        simpa [hα] using hpos
+      · refine ⟨1, ?_⟩
+        have hx : x ∈ d1IdeleCongrOneSubgroup m := by
+          constructor
+          · intro v hv
+            exact (hS ⟨v, hv⟩).elim
+          · intro w hw
+            exact (hI ⟨w, hw⟩).elim
+        simpa using hx
+  · exact ⟨Units.mk0 α hα, hkey (Units.mk0 α hα) hαf hαi⟩
+
+private def d1IdeleIdealHom : IdeleGroup (𝓞 F) F →*
+    NumberFieldFractionalIdealGroup F :=
+  Dictionary.toFractionalIdeal.comp (IdeleGroup.toFiniteIdele (𝓞 F) F)
+
+private theorem d1IdeleIdealPrimeTo (m : RayClassModulus F)
+    (x : IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleCongrOneSubgroup m) :
+    d1IdeleIdealHom x ∈ rayClassPrimeToIdeals m := by
+  intro v hv
+  have hlocal := ArtinPrimitiveRoots.Proofs.hk_misc_p.d1_mem_rayLocalHigherUnitGroup_iff
+    v (m.finitePart v) (ideleFiniteCoord v x)
+  have hdata := hlocal.mp (hx.1 v hv)
+  have he : 0 < m.finitePart v := Nat.pos_of_ne_zero
+    (Finsupp.mem_support_iff.mp hv)
+  have hval : Valued.v (ideleFiniteCoord v x : v.adicCompletion F) = 1 :=
+    d1_valued_eq_one_of_bound v (m.finitePart v) he (ideleFiniteCoord v x) hdata.2.2
+  change FractionalIdeal.count F v
+    (d1IdeleIdealHom x : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0
+  rw [d1IdeleIdealHom, MonoidHom.comp_apply, Dictionary.count_coe_toFractionalIdeal]
+  have hord : Dictionary.adicOrd (IdeleGroup.toFiniteIdele (𝓞 F) F x) v = 0 := by
+    rw [Dictionary.adicOrd_eq_zero_iff]
+    simpa only [IdeleGroup.coe_toFiniteIdele, ← Dictionary.ideleFiniteCoord_apply] using hval
+  exact hord
+
+private def d1IdeleRayClass (m : RayClassModulus F) :
+    d1IdeleCongrOneSubgroup m →* RayClassGroup m :=
+  (QuotientGroup.mk' (rayPrincipalIdealSubgroupInPrimeTo m)).comp
+    (MonoidHom.codRestrict
+      (d1IdeleIdealHom.comp (d1IdeleCongrOneSubgroup m).subtype)
+      (rayClassPrimeToIdeals m) (fun x => d1IdeleIdealPrimeTo m x.1 x.2))
+
+private theorem d1IdeleRayClass_apply (m : RayClassModulus F)
+    (x : d1IdeleCongrOneSubgroup m) :
+    d1IdeleRayClass m x = QuotientGroup.mk
+      ⟨d1IdeleIdealHom x.1, d1IdeleIdealPrimeTo m x.1 x.2⟩ := rfl
+
+private theorem d1IdeleRayClass_one_of_ideal_one (m : RayClassModulus F)
+    (x : d1IdeleCongrOneSubgroup m)
+    (hI : d1IdeleIdealHom x.1 = 1) : d1IdeleRayClass m x = 1 := by
+  rw [d1IdeleRayClass_apply]
+  apply (QuotientGroup.eq_one_iff _).2
+  apply Subgroup.mem_comap.mpr
+  change d1IdeleIdealHom x.1 ∈ rayPrincipalIdealSubgroup m
+  rw [hI]
+  exact one_mem _
+
+private theorem d1_ideleUnitEmbedding_mem_rayCongruent (m : RayClassModulus F)
+    (a : Fˣ) (ha : IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m) :
+    IsRayCongruent m a := by
+  refine ⟨fun v hv => ?_, fun w hw => ?_⟩
+  · simpa only [d1_ideleFiniteCoord_unitEmbedding] using ha.1 v hv
+  · have h := ha.2 w hw
+    rw [ideleInfiniteCoord_unitEmbedding] at h
+    have hglobal : InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+        (a : w.1.Completion) = w.1.embedding_of_isReal w.2 (a : F) :=
+      (InfinitePlace.Completion.extensionEmbeddingOfIsReal_coe w.2
+        (WithAbs.toAbs _ (a : F))).trans (by simp)
+    exact hglobal ▸ h
+
+private theorem d1IdeleIdealHom_unitEmbedding (a : Fˣ) :
+    d1IdeleIdealHom (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+      toPrincipalIdeal (𝓞 F) F a := by
+  simp [d1IdeleIdealHom, IdeleGroup.toFiniteIdele_unitEmbedding,
+    Dictionary.toFractionalIdeal_unitEmbedding]
+
+private theorem d1IdeleRayClass_unitEmbedding (m : RayClassModulus F) (a : Fˣ)
+    (ha : IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m) :
+    d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F a, ha⟩ = 1 := by
+  rw [d1IdeleRayClass_apply]
+  have hprincipal : toPrincipalIdeal (𝓞 F) F a ∈ rayPrincipalIdealSubgroup m :=
+    Subgroup.subset_closure ⟨a, d1_ideleUnitEmbedding_mem_rayCongruent m a ha, rfl⟩
+  have hmem : (⟨d1IdeleIdealHom (IdeleGroup.unitEmbedding (𝓞 F) F a),
+      d1IdeleIdealPrimeTo m (IdeleGroup.unitEmbedding (𝓞 F) F a) ha⟩ :
+        rayClassPrimeToIdeals m) ∈ rayPrincipalIdealSubgroupInPrimeTo m := by
+    apply Subgroup.mem_comap.mpr
+    change d1IdeleIdealHom (IdeleGroup.unitEmbedding (𝓞 F) F a) ∈
+      rayPrincipalIdealSubgroup m
+    rw [d1IdeleIdealHom_unitEmbedding]
+    exact hprincipal
+  exact (QuotientGroup.eq_one_iff _).2 hmem
+
+private theorem d1IdeleRayClass_eq_adjusted (m : RayClassModulus F)
+    (x : IdeleGroup (𝓞 F) F) (a b : Fˣ)
+    (ha : IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m)
+    (hb : IdeleGroup.unitEmbedding (𝓞 F) F b * x ∈ d1IdeleCongrOneSubgroup m) :
+    d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ =
+      d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩ := by
+  let c : Fˣ := a * b⁻¹
+  have hc : IdeleGroup.unitEmbedding (𝓞 F) F c ∈ d1IdeleCongrOneSubgroup m := by
+    have h := (d1IdeleCongrOneSubgroup m).mul_mem ha
+      ((d1IdeleCongrOneSubgroup m).inv_mem hb)
+    convert h using 1
+    simp only [c, map_mul, map_inv]
+    group
+  have hsplit : (⟨IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ :
+      d1IdeleCongrOneSubgroup m) =
+        ⟨IdeleGroup.unitEmbedding (𝓞 F) F c, hc⟩ *
+          ⟨IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩ := by
+    apply Subtype.ext
+    simp only [Subgroup.coe_mul]
+    simp only [c, map_mul, map_inv]
+    group
+  rw [hsplit, map_mul, d1IdeleRayClass_unitEmbedding m c hc]
+  exact one_mul (d1IdeleRayClass m
+    ⟨IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩)
+
+private noncomputable def d1IdeleToRayClassFun (m : RayClassModulus F)
+    (x : IdeleGroup (𝓞 F) F) : RayClassGroup m :=
+  let a := Classical.choose (d1_exists_adjusted_idele m x)
+  d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F a * x,
+    Classical.choose_spec (d1_exists_adjusted_idele m x)⟩
+
+private theorem d1IdeleToRayClassFun_eq (m : RayClassModulus F)
+    (x : IdeleGroup (𝓞 F) F) (a : Fˣ)
+    (ha : IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m) :
+    d1IdeleToRayClassFun m x =
+      d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ := by
+  exact d1IdeleRayClass_eq_adjusted m x
+    (Classical.choose (d1_exists_adjusted_idele m x)) a
+    (Classical.choose_spec (d1_exists_adjusted_idele m x)) ha
+
+set_option maxHeartbeats 1000000 in
+private noncomputable def d1IdeleToRayClass (m : RayClassModulus F) :
+    IdeleGroup (𝓞 F) F →* RayClassGroup m where
+  toFun := d1IdeleToRayClassFun m
+  map_one' := by
+    rw [d1IdeleToRayClassFun_eq m 1 1 (by simp)]
+    simpa using d1IdeleRayClass_unitEmbedding m 1 (by simp)
+  map_mul' x y := by
+    obtain ⟨a, ha⟩ := d1_exists_adjusted_idele m x
+    obtain ⟨b, hb⟩ := d1_exists_adjusted_idele m y
+    have hmul : IdeleGroup.unitEmbedding (𝓞 F) F (a * b) * (x * y) =
+        IdeleGroup.unitEmbedding (𝓞 F) F a * x *
+          (IdeleGroup.unitEmbedding (𝓞 F) F b * y) := by
+      rw [map_mul, mul_mul_mul_comm]
+    have hab : IdeleGroup.unitEmbedding (𝓞 F) F (a * b) * (x * y) ∈
+        d1IdeleCongrOneSubgroup m := by
+      rw [hmul]
+      exact (d1IdeleCongrOneSubgroup m).mul_mem ha hb
+    rw [d1IdeleToRayClassFun_eq m (x * y) (a * b) hab,
+      d1IdeleToRayClassFun_eq m x a ha, d1IdeleToRayClassFun_eq m y b hb,
+      ← map_mul]
+    exact congrArg (d1IdeleRayClass m) (Subtype.ext hmul)
+
+private theorem d1IdeleToRayClass_unitEmbedding (m : RayClassModulus F) (a : Fˣ) :
+    d1IdeleToRayClass m (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
+  change d1IdeleToRayClassFun m (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
+  have ha : IdeleGroup.unitEmbedding (𝓞 F) F (a⁻¹) *
+      IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m := by
+    simp
+  rw [d1IdeleToRayClassFun_eq m (IdeleGroup.unitEmbedding (𝓞 F) F a) a⁻¹ ha]
+  simpa using d1IdeleRayClass_unitEmbedding m 1 (by simp)
+
+private noncomputable def d1RayClassQuotient (m : RayClassModulus F) :
+    IdeleClassGroup (𝓞 F) F →* RayClassGroup m :=
+  QuotientGroup.lift (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F)
+    (d1IdeleToRayClass m) (by
+      rintro _ ⟨a, rfl⟩
+      exact MonoidHom.mem_ker.mpr (d1IdeleToRayClass_unitEmbedding m a))
+
+private theorem d1RayClassQuotient_mk (m : RayClassModulus F)
+    (x : IdeleGroup (𝓞 F) F) :
+    d1RayClassQuotient m (QuotientGroup.mk x) = d1IdeleToRayClass m x := by
+  simp [d1RayClassQuotient]
+
+private theorem d1RayClassQuotient_comp_mk (m : RayClassModulus F) :
+    (d1RayClassQuotient m).comp
+      (QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F)) =
+      d1IdeleToRayClass m := by
+  ext x
+  simp [d1RayClassQuotient]
+
+private def d1AdeleRayOpenSet (m : RayClassModulus F) :
+    Set (AdeleRing (𝓞 F) F) :=
+  {a | (∀ v : FinPlace F, a.2 v ∈ v.adicCompletionIntegers F) ∧
+    (∀ v, v ∈ m.finitePart.support →
+      Valued.v ((a.2 v : v.adicCompletion F) - 1) ≤
+        WithZero.exp (-(m.finitePart v : ℤ))) ∧
+    ∀ w : RayClassRealPlace F, w ∈ m.infinitePart →
+      0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2 (a.1 w.1)}
+
+private theorem d1AdeleRayOpenSet_isOpen (m : RayClassModulus F) :
+    IsOpen (d1AdeleRayOpenSet m) := by
+  classical
+  have hInt : IsOpen {a : AdeleRing (𝓞 F) F |
+      ∀ v : FinPlace F, a.2 v ∈ v.adicCompletionIntegers F} :=
+    (RestrictedProduct.isOpen_forall_mem fun v : FinPlace F =>
+      Valued.isOpen_valuationSubring _).preimage continuous_snd
+  have hBound : IsOpen {a : AdeleRing (𝓞 F) F |
+      ∀ v, v ∈ m.finitePart.support →
+        Valued.v ((a.2 v : v.adicCompletion F) - 1) ≤
+          WithZero.exp (-(m.finitePart v : ℤ))} := by
+    have hset : {a : AdeleRing (𝓞 F) F |
+        ∀ v, v ∈ m.finitePart.support →
+          Valued.v ((a.2 v : v.adicCompletion F) - 1) ≤
+            WithZero.exp (-(m.finitePart v : ℤ))} =
+        ⋂ v ∈ m.finitePart.support, {a : AdeleRing (𝓞 F) F |
+          Valued.v ((a.2 v : v.adicCompletion F) - 1) ≤
+            WithZero.exp (-(m.finitePart v : ℤ))} := by
+      ext a
+      simp
+    rw [hset]
+    exact isOpen_biInter_finset fun v _ =>
+      (v.isOpen_setOf_valued_le (K := F) WithZero.exp_ne_zero).preimage
+        (f := fun a : AdeleRing (𝓞 F) F => (a.2 v : v.adicCompletion F) - 1)
+        (((RestrictedProduct.continuous_eval v).comp continuous_snd).sub continuous_const)
+  have hPos : IsOpen {a : AdeleRing (𝓞 F) F |
+      ∀ w : RayClassRealPlace F, w ∈ m.infinitePart →
+        0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2 (a.1 w.1)} := by
+    have hset : {a : AdeleRing (𝓞 F) F |
+        ∀ w : RayClassRealPlace F, w ∈ m.infinitePart →
+          0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2 (a.1 w.1)} =
+        ⋂ w ∈ m.infinitePart, {a : AdeleRing (𝓞 F) F |
+          0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2 (a.1 w.1)} := by
+      ext a
+      simp
+    rw [hset]
+    exact isOpen_biInter_finset fun w _ =>
+      isOpen_lt continuous_const
+        ((InfinitePlace.Completion.isometry_extensionEmbeddingOfIsReal w.2).continuous.comp
+          ((continuous_apply w.1).comp continuous_fst))
+  change IsOpen (({a : AdeleRing (𝓞 F) F |
+      ∀ v : FinPlace F, a.2 v ∈ v.adicCompletionIntegers F} : Set _) ∩
+    ({a : AdeleRing (𝓞 F) F |
+      ∀ v, v ∈ m.finitePart.support →
+        Valued.v ((a.2 v : v.adicCompletion F) - 1) ≤
+          WithZero.exp (-(m.finitePart v : ℤ))} ∩
+    {a : AdeleRing (𝓞 F) F |
+      ∀ w : RayClassRealPlace F, w ∈ m.infinitePart →
+        0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2 (a.1 w.1)}))
+  exact hInt.inter (hBound.inter hPos)
+
+private def d1IdeleOpenNeighborhood (m : RayClassModulus F) :
+    Set (IdeleGroup (𝓞 F) F) :=
+  (fun x : IdeleGroup (𝓞 F) F => (x : AdeleRing (𝓞 F) F)) ⁻¹'
+      d1AdeleRayOpenSet m ∩
+    (fun x : IdeleGroup (𝓞 F) F =>
+      ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) ⁻¹' d1AdeleRayOpenSet m
+
+set_option maxHeartbeats 1000000 in
+private theorem d1IdeleOpenNeighborhood_isOpen (m : RayClassModulus F) :
+    IsOpen (d1IdeleOpenNeighborhood m) := by
+  have hcoe : Continuous fun x : IdeleGroup (𝓞 F) F => (x : AdeleRing (𝓞 F) F) :=
+    Units.continuous_val
+  have hcoeInv : Continuous fun x : IdeleGroup (𝓞 F) F =>
+      ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F) :=
+    Units.continuous_val.comp continuous_inv
+  exact (d1AdeleRayOpenSet_isOpen m).preimage hcoe |>.inter
+    ((d1AdeleRayOpenSet_isOpen m).preimage hcoeInv)
+
+private theorem d1_local_unit_valued_eq_one (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ)
+    (hu : (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F)
+    (huinv : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F) :
+    Valued.v (u : v.adicCompletion F) = 1 := by
+  have huVal : Valued.v (u : v.adicCompletion F) ≤ 1 := by
+    simpa only [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers] using hu
+  have huinvVal : Valued.v ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ≤ 1 := by
+    simpa only [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers] using huinv
+  have hinvVal : (Valued.v (u : v.adicCompletion F))⁻¹ ≤ 1 := by
+    simpa [Units.val_inv_eq_inv_val, map_inv₀] using huinvVal
+  have hpos : 0 < Valued.v (u : v.adicCompletion F) :=
+    (Valuation.pos_iff Valued.v).2 u.ne_zero
+  exact le_antisymm huVal ((inv_le_one₀ hpos).mp hinvVal)
+
+private theorem d1IdeleOpenNeighborhood_data (m : RayClassModulus F)
+    (x : IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleOpenNeighborhood m) :
+    x ∈ d1IdeleCongrOneSubgroup m ∧ d1IdeleIdealHom x = 1 := by
+  change ((x : AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m) ∧
+    (((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m) at hx
+  rcases hx with ⟨hx, hxi⟩
+  rcases hx with ⟨hxInt, hxBound, hxPos⟩
+  rcases hxi with ⟨hxiInt, hxiBound, hxiPos⟩
+  have huInt (v : FinPlace F) :
+      (ideleFiniteCoord v x : v.adicCompletion F) ∈ v.adicCompletionIntegers F := by
+    simpa only [ideleFiniteCoord_apply] using hxInt v
+  have huInvInt (v : FinPlace F) :
+      (((ideleFiniteCoord v x)⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+        v.adicCompletionIntegers F := by
+    have h := hxiInt v
+    simpa only [← ideleFiniteCoord_apply, map_inv, Units.val_inv_eq_inv_val] using h
+  have hlocal (v : FinPlace F) : Valued.v (ideleFiniteCoord v x : v.adicCompletion F) = 1 :=
+    d1_local_unit_valued_eq_one v (ideleFiniteCoord v x) (huInt v) (huInvInt v)
+  have hxSub : x ∈ d1IdeleCongrOneSubgroup m := by
+    refine ⟨fun v hv => ?_, fun w hw => ?_⟩
+    · exact (ArtinPrimitiveRoots.Proofs.hk_misc_p.d1_mem_rayLocalHigherUnitGroup_iff
+        v (m.finitePart v) (ideleFiniteCoord v x)).mpr
+          ⟨huInt v, huInvInt v, hxBound v hv⟩
+    · simpa [ideleInfiniteCoord] using hxPos w hw
+  have horder (v : FinPlace F) :
+      Dictionary.adicOrd (IdeleGroup.toFiniteIdele (𝓞 F) F x) v = 0 := by
+    rw [Dictionary.adicOrd_eq_zero_iff]
+    simpa only [IdeleGroup.coe_toFiniteIdele, ← ideleFiniteCoord_apply] using hlocal v
+  have hI : d1IdeleIdealHom x = 1 := by
+    change Dictionary.toFractionalIdeal (IdeleGroup.toFiniteIdele (𝓞 F) F x) = 1
+    exact (Dictionary.toFractionalIdeal_eq_one_iff).2 horder
+  exact ⟨hxSub, hI⟩
+
+private theorem d1IdeleToRayClass_one_of_openNeighborhood (m : RayClassModulus F)
+    (x : IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleOpenNeighborhood m) :
+    d1IdeleToRayClass m x = 1 := by
+  obtain ⟨hxSub, hI⟩ := d1IdeleOpenNeighborhood_data m x hx
+  have hOneSub : IdeleGroup.unitEmbedding (𝓞 F) F 1 * x ∈
+      d1IdeleCongrOneSubgroup m := by simpa using hxSub
+  have hrep : d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F 1 * x, hOneSub⟩ =
+      d1IdeleRayClass m ⟨x, hxSub⟩ := by
+    have heq : (⟨IdeleGroup.unitEmbedding (𝓞 F) F 1 * x, hOneSub⟩ :
+        d1IdeleCongrOneSubgroup m) = ⟨x, hxSub⟩ := by
+      apply Subtype.ext
+      simp
+    exact congrArg (d1IdeleRayClass m) heq
+  change d1IdeleToRayClassFun m x = 1
+  rw [d1IdeleToRayClassFun_eq m x 1 hOneSub]
+  rw [hrep]
+  exact d1IdeleRayClass_one_of_ideal_one m ⟨x, hxSub⟩ hI
+
+private theorem d1_continuous_of_isOpen_ker {G H : Type*} [Group G] [MulOneClass H]
+    [TopologicalSpace G] [TopologicalSpace H] [SeparatelyContinuousMul G]
+    (f : G →* H) (hf : IsOpen (f.ker : Set G)) : Continuous f := by
+  refine continuous_iff_continuousAt.mpr fun x => tendsto_const_nhds.congr' ?_
+  have hcoset : ∀ᶠ y in 𝓝 x, x⁻¹ * y ∈ f.ker := by
+    have hmul : Tendsto (fun y => x⁻¹ * y) (𝓝 x) (𝓝 1) := by
+      simpa using (continuous_const_mul x⁻¹).tendsto x
+    exact hmul.eventually (Filter.eventually_mem_set.mpr (hf.mem_nhds (one_mem f.ker)))
+  filter_upwards [hcoset] with y hy
+  calc
+    f x = f x * f (x⁻¹ * y) := by rw [MonoidHom.mem_ker.mp hy, mul_one]
+    _ = f y := by rw [← map_mul, mul_inv_cancel_left]
+
+private theorem d1RayClassPullback_continuous (m : RayClassModulus F)
+    (η : RayClassGroup m →* ℂˣ) :
+    Continuous (η.comp (d1RayClassQuotient m)) := by
+  classical
+  let N := NumberField.IdeleGroup.principalSubgroup (𝓞 F) F
+  let q : IdeleGroup (𝓞 F) F → IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' N
+  let ψ := η.comp (d1RayClassQuotient m)
+  have hUOpen : IsOpen (Set.image q (d1IdeleOpenNeighborhood m)) := by
+    exact QuotientGroup.isOpenMap_coe (d1IdeleOpenNeighborhood m)
+      (d1IdeleOpenNeighborhood_isOpen m)
+  have hAone : (1 : AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m := by
+    change (∀ v : FinPlace F,
+        (1 : FiniteAdeleRing (𝓞 F) F) v ∈ v.adicCompletionIntegers F) ∧
+      (∀ v, v ∈ m.finitePart.support →
+        Valued.v (((1 : FiniteAdeleRing (𝓞 F) F) v : v.adicCompletion F) - 1) ≤
+          WithZero.exp (-(m.finitePart v : ℤ))) ∧
+      ∀ w : RayClassRealPlace F, w ∈ m.infinitePart →
+        0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
+          ((1 : InfiniteAdeleRing F) w.1)
+    constructor
+    · intro v
+      simp
+    · constructor
+      · intro v hv
+        simp
+      · intro w hw
+        have hone : (1 : InfiniteAdeleRing F) w.1 = 1 := rfl
+        rw [hone]
+        norm_num
+  have hOneU : (1 : IdeleGroup (𝓞 F) F) ∈ d1IdeleOpenNeighborhood m := by
+    change (1 : AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m ∧
+      (((1 : IdeleGroup (𝓞 F) F)⁻¹ : IdeleGroup (𝓞 F) F) :
+        AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m
+    simp only [inv_one]
+    exact ⟨hAone, hAone⟩
+  have hOneImage : (1 : IdeleClassGroup (𝓞 F) F) ∈
+      Set.image q (d1IdeleOpenNeighborhood m) := by
+    exact ⟨1, hOneU, by simp [q]⟩
+  have hImageKer : Set.image q (d1IdeleOpenNeighborhood m) ⊆ ψ.ker := by
+    rintro z ⟨x, hx, rfl⟩
+    change η (d1RayClassQuotient m (QuotientGroup.mk x)) = 1
+    rw [d1RayClassQuotient_mk]
+    change η (d1IdeleToRayClass m x) = 1
+    rw [d1IdeleToRayClass_one_of_openNeighborhood m x hx]
+    simp
+  have hkerNhds : (ψ.ker : Set (IdeleClassGroup (𝓞 F) F)) ∈ 𝓝 1 :=
+    Filter.mem_of_superset (hUOpen.mem_nhds hOneImage) hImageKer
+  exact d1_continuous_of_isOpen_ker ψ
+    (Subgroup.isOpen_of_mem_nhds ψ.ker hkerNhds)
+
+private theorem d1_localIdele_rayClass_one (m : RayClassModulus F) (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ)
+    (hu : (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F)
+    (huinv : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F)
+    (hbound : Valued.v ((u : v.adicCompletion F) - 1) ≤
+      WithZero.exp (-(m.finitePart v : ℤ))) :
+    d1IdeleToRayClass m (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = 1 := by
+  let y := IdeleGroup.ofAdicCompletion (𝓞 F) F v u
+  have hySub : y ∈ d1IdeleCongrOneSubgroup m := by
+    refine ⟨fun w hw => ?_, fun w hw => ?_⟩
+    · by_cases hEq : w = v
+      · subst w
+        simpa [y] using
+          (ArtinPrimitiveRoots.Proofs.hk_misc_p.d1_mem_rayLocalHigherUnitGroup_iff
+            v (m.finitePart v) u).mpr ⟨hu, huinv, hbound⟩
+      · simpa [y, ideleFiniteCoord_ofAdicCompletion_of_ne w v hEq] using
+          (rayLocalHigherUnitGroup w (m.finitePart w)).one_mem
+    · have hcoord : ideleInfiniteCoord w.1 y = 1 := by
+        rw [← ideleInfiniteCoordUnit_apply, ideleInfiniteCoordUnit_ofAdicCompletion]
+        simp
+      rw [hcoord]
+      simp
+  have hval (w : FinPlace F) : Valued.v (ideleFiniteCoord w y : w.adicCompletion F) = 1 := by
+    by_cases hEq : w = v
+    · subst w
+      simpa [y] using d1_local_unit_valued_eq_one v u hu huinv
+    · simp [y, ideleFiniteCoord_ofAdicCompletion_of_ne w v hEq]
+  have horder (w : FinPlace F) :
+      Dictionary.adicOrd (IdeleGroup.toFiniteIdele (𝓞 F) F y) w = 0 := by
+    rw [Dictionary.adicOrd_eq_zero_iff]
+    simpa only [IdeleGroup.coe_toFiniteIdele, ← ideleFiniteCoord_apply] using hval w
+  have hI : d1IdeleIdealHom y = 1 := by
+    change Dictionary.toFractionalIdeal (IdeleGroup.toFiniteIdele (𝓞 F) F y) = 1
+    exact (Dictionary.toFractionalIdeal_eq_one_iff).2 horder
+  have h1Sub : IdeleGroup.unitEmbedding (𝓞 F) F 1 * y ∈ d1IdeleCongrOneSubgroup m := by
+    simpa using hySub
+  change d1IdeleToRayClassFun m y = 1
+  rw [d1IdeleToRayClassFun_eq m y 1 h1Sub]
+  have hrep : d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F 1 * y, h1Sub⟩ =
+      d1IdeleRayClass m ⟨y, hySub⟩ := by
+    apply congrArg (d1IdeleRayClass m)
+    apply Subtype.ext
+    simp
+  rw [hrep]
+  exact d1IdeleRayClass_one_of_ideal_one m ⟨y, hySub⟩ hI
+
+private theorem d1_localIdele_rayClassQuotient_one (m : RayClassModulus F) (v : FinPlace F)
+    (u : (v.adicCompletion F)ˣ)
+    (hu : (u : v.adicCompletion F) ∈ v.adicCompletionIntegers F)
+    (huinv : ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F)
+    (hbound : Valued.v ((u : v.adicCompletion F) - 1) ≤
+      WithZero.exp (-(m.finitePart v : ℤ))) :
+    d1RayClassQuotient m
+      (QuotientGroup.mk (IdeleGroup.ofAdicCompletion (𝓞 F) F v u)) = 1 := by
+  rw [d1RayClassQuotient_mk]
+  exact d1_localIdele_rayClass_one m v u hu huinv hbound
+
+private noncomputable def d1RayClassHeckeChar (m : RayClassModulus F)
+    (η : RayClassGroup m →* ℂˣ) : HeckeChar F := {
+  toMonoidHom := η.comp (d1RayClassQuotient m)
+  continuous_toFun := d1RayClassPullback_continuous m η }
+
+private theorem d1_rayClassCharacter_pullback (m : RayClassModulus F)
+    (η : RayClassGroup m →* ℂˣ) :
+    IsOfFinOrder (d1RayClassHeckeChar m η) ∧
+      (d1RayClassHeckeChar m η).ConductorDvd (modulusIdeal m) ∧
+      ∀ v : FinPlace F, v ∉ m.finitePart.support →
+        (d1RayClassHeckeChar m η).UnramifiedAt v := by
+  classical
+  let χ : HeckeChar F := d1RayClassHeckeChar m η
+  have hχfin : IsOfFinOrder χ := by
+    apply isOfFinOrder_iff_pow_eq_one.mpr
+    refine ⟨Nat.card (RayClassGroup m), Nat.card_pos, ?_⟩
+    apply ContinuousMonoidHom.ext
+    intro c
+    rw [ContinuousMonoidHom.pow_apply]
+    change (η (d1RayClassQuotient m c)) ^ Nat.card (RayClassGroup m) = 1
+    rw [← map_pow, pow_card_eq_one', map_one]
+  have hcond : χ.ConductorDvd (modulusIdeal m) := by
+    intro v u hu huinv hbound
+    change η (d1RayClassQuotient m
+      (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v u)) = 1
+    have hbound' : Valued.v ((u : v.adicCompletion F) - 1) ≤
+        WithZero.exp (-(m.finitePart v : ℤ)) := by
+      simpa [idealExp_modulusIdeal] using hbound
+    have hq := d1_localIdele_rayClassQuotient_one m v u hu huinv hbound'
+    simpa using congrArg η hq
+  refine ⟨hχfin, hcond, ?_⟩
+  intro v hv u hu huinv
+  have huVal : Valued.v (u : v.adicCompletion F) ≤ 1 := by
+    simpa only [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers] using hu
+  have hsub : Valued.v ((u : v.adicCompletion F) - 1) ≤ 1 := by
+    calc
+      Valued.v ((u : v.adicCompletion F) - 1) ≤
+      max (Valued.v (u : v.adicCompletion F)) (Valued.v (1 : v.adicCompletion F)) :=
+        Valuation.map_sub _ _ _
+      _ ≤ 1 := max_le huVal (by simp)
+  have hbound : Valued.v ((u : v.adicCompletion F) - 1) ≤
+      WithZero.exp (-(A1.idealExp v (modulusIdeal m) : ℤ)) := by
+    rw [idealExp_modulusIdeal]
+    have hexp : m.finitePart v = 0 := Finsupp.notMem_support_iff.mp hv
+    simpa [hexp] using hsub
+  exact hcond v u hu huinv hbound
+
+private noncomputable def d1UniformizerUnit (v : FinPlace F) : (v.adicCompletion F)ˣ :=
+  ArtinPrimitiveRoots.A1.toLoc v
+    (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
+      (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v))
+
+private theorem d1UniformizerUnit_valued (v : FinPlace F) :
+    Valued.v (d1UniformizerUnit v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
+  change Valued.v (algebraMap F (v.adicCompletion F)
+    (ArtinPrimitiveRoots.A1.unif (F := F) v)) = _
+  have hmap : algebraMap F (v.adicCompletion F) (ArtinPrimitiveRoots.A1.unif (F := F) v) =
+      (ArtinPrimitiveRoots.A1.unif (F := F) v : v.adicCompletion F) := by
+    simpa using congrFun
+      (HeightOneSpectrum.algebraMap_adicCompletion (S := F) (K := F) (v := v))
+      (ArtinPrimitiveRoots.A1.unif (F := F) v)
+  rw [hmap]
+  rw [v.valuedAdicCompletion_eq_valuation'
+    (ArtinPrimitiveRoots.A1.unif (F := F) v)]
+  simpa [ArtinPrimitiveRoots.A1.unif] using
+    (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+
+private theorem d1IdeleIdealHom_uniformizer (v : FinPlace F) :
+    d1IdeleIdealHom (IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
+      finitePrimeFractionalIdeal v := by
+  let y := IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)
+  have hcount (w : FinPlace F) :
+      FractionalIdeal.count F w (d1IdeleIdealHom y :
+        FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+        FractionalIdeal.count F w
+          (finitePrimeFractionalIdeal v : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    rw [d1IdeleIdealHom, MonoidHom.comp_apply, Dictionary.count_coe_toFractionalIdeal]
+    rw [Dictionary.adicOrd_def, IdeleGroup.coe_toFiniteIdele,
+      ← ideleFiniteCoord_apply]
+    by_cases hw : w = v
+    · subst w
+      rw [ideleFiniteCoord_ofAdicCompletion, d1UniformizerUnit_valued]
+      simp [WithZero.log_exp]
+      have hself : FractionalIdeal.count F v
+          (finitePrimeFractionalIdeal v : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 1 := by
+        simpa [finitePrimeFractionalIdeal] using FractionalIdeal.count_self F v
+      rw [hself]
+    · rw [ideleFiniteCoord_ofAdicCompletion_of_ne w v hw]
+      simp
+      have hother : FractionalIdeal.count F w
+          (finitePrimeFractionalIdeal v : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0 := by
+        simpa [finitePrimeFractionalIdeal] using
+          (FractionalIdeal.count_maximal_coprime F w (Ne.symm hw))
+      rw [hother]
+  rw [FractionalIdeal.finprod_unitOfPrime_zpow_count (d1IdeleIdealHom y),
+    FractionalIdeal.finprod_unitOfPrime_zpow_count (finitePrimeFractionalIdeal v)]
+  apply finprod_congr
+  intro w
+  rw [hcount w]
+
+private theorem d1IdeleToRayClass_uniformizer (m : RayClassModulus F) (v : FinPlace F)
+    (hv : v ∉ m.finitePart.support) :
+    d1IdeleToRayClass m
+        (IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
+      rayClassOfFinitePrime m v hv := by
+  let y := IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)
+  have hySub : y ∈ d1IdeleCongrOneSubgroup m := by
+    refine ⟨fun w hw => ?_, fun w hw => ?_⟩
+    · have hne : w ≠ v := by
+        intro h
+        exact hv (h ▸ hw)
+      simpa [y, ideleFiniteCoord_ofAdicCompletion_of_ne w v hne] using
+        (rayLocalHigherUnitGroup w (m.finitePart w)).one_mem
+    · have hcoord : ideleInfiniteCoord w.1 y = 1 := by
+        rw [← ideleInfiniteCoordUnit_apply, ideleInfiniteCoordUnit_ofAdicCompletion]
+        simp
+      rw [hcoord]
+      simp
+  have h1Sub : IdeleGroup.unitEmbedding (𝓞 F) F 1 * y ∈ d1IdeleCongrOneSubgroup m := by
+    simpa using hySub
+  change d1IdeleToRayClassFun m y = _
+  rw [d1IdeleToRayClassFun_eq m y 1 h1Sub]
+  have hrep : d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F 1 * y, h1Sub⟩ =
+      d1IdeleRayClass m ⟨y, hySub⟩ := by
+    apply congrArg (d1IdeleRayClass m)
+    apply Subtype.ext
+    simp
+  rw [hrep, d1IdeleRayClass_apply]
+  have hsub : (⟨d1IdeleIdealHom y, d1IdeleIdealPrimeTo m y hySub⟩ :
+      rayClassPrimeToIdeals m) =
+        ⟨finitePrimeFractionalIdeal v, finitePrimeFractionalIdeal_mem_primeTo m v hv⟩ := by
+    apply Subtype.ext
+    exact d1IdeleIdealHom_uniformizer v
+  rw [hsub]
+  rfl
+
+private theorem d1_isCoprimeTo_prime (m : RayClassModulus F) (v : FinPlace F)
+    (hv : v ∉ m.finitePart.support) : IsCoprimeTo m v.asIdeal := by
+  refine ⟨v.ne_bot, ?_⟩
+  intro w hw
+  have hwv : w ≠ v := by
+    intro h
+    exact hv (h ▸ hw)
+  simpa [idealUnit] using
+    (FractionalIdeal.count_maximal_coprime F w (Ne.symm hwv))
+
+private theorem d1_rayClassOfFinitePrime_eq_rayClass (m : RayClassModulus F)
+    (v : FinPlace F) (hv : v ∉ m.finitePart.support) (hcop : IsCoprimeTo m v.asIdeal) :
+    rayClassOfFinitePrime m v hv = rayClass m v.asIdeal hcop := by
+  classical
+  unfold rayClassOfFinitePrime rayClass
+  congr 1
+
+private theorem d1_rayClassCharacter_primeValue (m : RayClassModulus F)
+    (η : RayClassGroup m →* ℂˣ) (v : FinPlace F)
+    (hv : v ∉ m.finitePart.support) :
+    (d1RayClassHeckeChar m η).UnramifiedAt v ∧
+      (d1RayClassHeckeChar m η).primeValue v = charValue η v.asIdeal := by
+  classical
+  obtain ⟨_, _, hunram⟩ := d1_rayClassCharacter_pullback m η
+  have hcop := d1_isCoprimeTo_prime m v hv
+  have hclass : d1RayClassQuotient m
+      (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
+        rayClass m v.asIdeal hcop := by
+    calc
+      d1RayClassQuotient m
+          (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
+          d1IdeleToRayClass m
+            (IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) := by
+              simpa only [IdeleClassGroup.ofAdicCompletion, MonoidHom.comp_apply] using
+                DFunLike.congr_fun (d1RayClassQuotient_comp_mk m)
+                  (IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v))
+      _ = rayClassOfFinitePrime m v hv := d1IdeleToRayClass_uniformizer m v hv
+      _ = rayClass m v.asIdeal hcop :=
+        d1_rayClassOfFinitePrime_eq_rayClass m v hv hcop
+  have hloc : (d1RayClassHeckeChar m η).loc v (d1UniformizerUnit v) =
+      η (rayClass m v.asIdeal hcop) := by
+    change η (d1RayClassQuotient m
+      (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v))) = _
+    rw [hclass]
+  refine ⟨hunram v hv, ?_⟩
+  simp only [HeckeChar.primeValue, hunram v hv, if_pos]
+  change (((d1RayClassHeckeChar m η).loc v (d1UniformizerUnit v) : ℂˣ) : ℂ) =
+    charValue η v.asIdeal
+  rw [hloc]
+  simp [charValue, hcop]
+
 /-- **DICT-1.** A ray-class character gives a finite-order idelic character with the same values at
 the primes prime to `𝔪`, unramified there, and with conductor dividing `modulusIdeal 𝔪`.
 Its local components at `S` (A1's `SData.LS`, `vartheta`) are the `S`-adic component of `η`.
@@ -249,7 +1032,12 @@ Consumers: `HeckeBoundary.a2_zero_free_every_continuation` (proof: builds A1's `
 theorem exists_heckeChar_of_rayClass (m : RayClassModulus F) (η : RayClassGroup m →* ℂˣ) :
     ∃ χ : HeckeChar F, IsOfFinOrder χ ∧ χ.ConductorDvd (modulusIdeal m) ∧
       ∀ v : FinPlace F, v ∉ m.finitePart.support →
-        χ.UnramifiedAt v ∧ χ.primeValue v = charValue η v.asIdeal := sorry
+        χ.UnramifiedAt v ∧ χ.primeValue v = charValue η v.asIdeal := by
+  let χ := d1RayClassHeckeChar m η
+  obtain ⟨hfin, hcond, _⟩ := d1_rayClassCharacter_pullback m η
+  refine ⟨χ, hfin, hcond, ?_⟩
+  intro v hv
+  simpa [χ] using d1_rayClassCharacter_primeValue m η v hv
 
 theorem normalizedFactor_not_mem_support {m : RayClassModulus F}
     {I : Ideal (𝓞 F)} (hI : IsCoprimeTo m I) {P : Ideal (𝓞 F)}
