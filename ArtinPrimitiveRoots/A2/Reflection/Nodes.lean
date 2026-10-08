@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A1.AddChar
 import ArtinPrimitiveRoots.Hecke.Elementary
 import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_ARITH.LocalHecke
+import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».SYMBOL
 
 /-!
 # Section 4: row replacement, moving twists, S-characters, and the finite mask
@@ -50,6 +51,483 @@ theorem rf_element_to_ideal
             Set.ncard (reflectionRowFiber D S K t Z (by linarith) r.ideal) ≤ ⌊C⌋₊ := by
   sorry
 
+private theorem rf_chiPow_pow_nat
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (x : F) (e : ℤ)
+    (n : ℕ) (hn : 0 < n) :
+    ArtinPrimitiveRoots.A1.chiPow D P x e ^ n =
+      ArtinPrimitiveRoots.A1.chiPow D P x (e * (n : ℤ)) := by
+  by_cases hx : ArtinPrimitiveRoots.A1.residue P x = 0
+  · simp [ArtinPrimitiveRoots.A1.chiPow, hx, hn.ne']
+  · simp only [ArtinPrimitiveRoots.A1.chiPow, if_neg hx]
+    rw [← zpow_natCast, ← zpow_mul]
+
+private theorem rf_chiIdealPow_finprod
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) (x : F) (e : ℤ) :
+    ArtinPrimitiveRoots.A1.chiIdealPow D I x e =
+      ∏ᶠ P : ArtinPrimitiveRoots.A1.FinPlace F,
+        if P.asIdeal ∣ I then
+          ArtinPrimitiveRoots.A1.chiPow D P x
+            (e * (ArtinPrimitiveRoots.A1.idealExp P I : ℤ))
+        else 1 := by
+  classical
+  have hI0 : I ≠ 0 := by simpa only [Ideal.zero_eq_bot] using hI
+  unfold ArtinPrimitiveRoots.A1.chiIdealPow
+  rw [Multiset.prod_map_eq_finprod]
+  rw [← finprod_emb_domain'
+    (IsDedekindDomain.HeightOneSpectrum.asIdeal_injective (R := 𝓞 F))
+    (fun P : ArtinPrimitiveRoots.A1.FinPlace F =>
+      if P.asIdeal ∣ I then
+        ArtinPrimitiveRoots.A1.chiPow D P x
+          (e * (ArtinPrimitiveRoots.A1.idealExp P I : ℤ))
+      else 1)]
+  apply finprod_congr
+  intro Q
+  by_cases hQ : Q.IsPrime ∧ Q ≠ ⊥
+  · let P : ArtinPrimitiveRoots.A1.FinPlace F := ⟨Q, hQ.1, hQ.2⟩
+    have hmem : Q ∈ Set.range
+        (fun v : ArtinPrimitiveRoots.A1.FinPlace F => v.asIdeal) := ⟨P, rfl⟩
+    rw [dif_pos hQ, dif_pos hmem]
+    have hchoose : Classical.choose hmem = P :=
+      IsDedekindDomain.HeightOneSpectrum.asIdeal_injective (Classical.choose_spec hmem)
+    rw [hchoose]
+    by_cases hdiv : P.asIdeal ∣ I
+    · rw [if_pos hdiv]
+      have hcount :
+          (UniqueFactorizationMonoid.normalizedFactors I).count Q =
+            ArtinPrimitiveRoots.A1.idealExp P I := by
+        unfold ArtinPrimitiveRoots.A1.idealExp
+        exact (Ideal.count_associates_factors_eq hI0 hQ.1 hQ.2).symm
+      rw [hcount]
+      apply rf_chiPow_pow_nat
+      have hmemNorm : Q ∈ UniqueFactorizationMonoid.normalizedFactors I :=
+        (UniqueFactorizationMonoid.mem_normalizedFactors_iff hI0).2
+          ⟨Ideal.prime_of_isPrime hQ.2 hQ.1, hdiv⟩
+      rw [← hcount]
+      exact Multiset.count_pos.mpr hmemNorm
+    · rw [if_neg hdiv]
+      have hcount : (UniqueFactorizationMonoid.normalizedFactors I).count Q = 0 := by
+        apply Multiset.count_eq_zero.mpr
+        intro hmemNorm
+        exact hdiv (UniqueFactorizationMonoid.dvd_of_mem_normalizedFactors hmemNorm)
+      simp [hcount]
+  · have hnot : Q ∉ Set.range
+        (fun v : ArtinPrimitiveRoots.A1.FinPlace F => v.asIdeal) := by
+      rintro ⟨P, rfl⟩
+      exact hQ ⟨P.isPrime, P.ne_bot⟩
+    simp only [dif_neg hQ, one_pow, dif_neg hnot]
+
+private theorem rf_gen_count
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (I : Ideal (𝓞 F)) (a : Fˣ) (ha : S.IsGen (a : F) I)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (hP : P ∉ S.Sf) :
+    FractionalIdeal.count F P
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) =
+      (ArtinPrimitiveRoots.A1.idealExp P I : ℤ) := by
+  have hI0 : I ≠ ⊥ := ha.1.1
+  rw [ha.2.2 P hP, FractionalIdeal.count_coe F P hI0]
+  rfl
+
+private theorem rf_gen_valuation
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (I : Ideal (𝓞 F)) (a : Fˣ) (ha : S.IsGen (a : F) I)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (hP : P ∉ S.Sf) :
+    P.valuation F (a : F) =
+      WithZero.exp (-(ArtinPrimitiveRoots.A1.idealExp P I : ℤ)) := by
+  have hcount := rf_gen_count S I a ha P hP
+  have hlog := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+    P (a : F) a.ne_zero
+  rw [hcount] at hlog
+  have hLog : WithZero.log (P.valuation F (a : F)) =
+      -(ArtinPrimitiveRoots.A1.idealExp P I : ℤ) := by
+    linarith
+  have hval0 : P.valuation F (a : F) ≠ 0 :=
+    (Valuation.ne_zero_iff (P.valuation F)).mpr a.ne_zero
+  calc
+    P.valuation F (a : F) = WithZero.exp (WithZero.log (P.valuation F (a : F))) :=
+      (WithZero.exp_log hval0).symm
+    _ = WithZero.exp (-(ArtinPrimitiveRoots.A1.idealExp P I : ℤ)) := by rw [hLog]
+
+private theorem rf_idealExp_eq_zero_iff
+    (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) :
+    ArtinPrimitiveRoots.A1.idealExp P I = 0 ↔ ¬P.asIdeal ∣ I := by
+  unfold ArtinPrimitiveRoots.A1.idealExp
+  constructor
+  · intro h hdiv
+    exact ((Associates.count_ne_zero_iff_dvd hI P.irreducible).mpr hdiv) h
+  · intro h
+    by_contra hne
+    exact h ((Associates.count_ne_zero_iff_dvd hI P.irreducible).mp hne)
+
+private theorem rf_residue_zero_of_gen
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (SB : ArtinPrimitiveRoots.A2.SymbolBridge D S)
+    (I : Ideal (𝓞 F)) (x : Fˣ) (hx : S.IsGen (x : F) I)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (hP : P ∉ S.Sf)
+    (hdiv : P.asIdeal ∣ I) :
+    ArtinPrimitiveRoots.A1.residue P (x : F) = 0 := by
+  have hI0 : I ≠ ⊥ := hx.1.1
+  have hexpNe : ArtinPrimitiveRoots.A1.idealExp P I ≠ 0 := by
+    intro hz
+    exact ((rf_idealExp_eq_zero_iff I hI0 P).mp hz) hdiv
+  have hExpPos : 0 < ArtinPrimitiveRoots.A1.idealExp P I := Nat.pos_of_ne_zero hexpNe
+  have hval := rf_gen_valuation S I x hx P hP
+  have hlt : P.valuation F (x : F) < 1 := by
+    rw [hval]
+    calc
+      WithZero.exp (-(ArtinPrimitiveRoots.A1.idealExp P I : ℤ)) <
+          WithZero.exp (0 : ℤ) :=
+        WithZero.exp_lt_exp.mpr (by
+          have hExpPosZ : (0 : ℤ) < (ArtinPrimitiveRoots.A1.idealExp P I : ℤ) := by
+            exact_mod_cast hExpPos
+          exact neg_lt_zero.mpr hExpPosZ)
+      _ = 1 := WithZero.exp_zero
+  by_contra hres
+  have hvalone := (SB.residue_ne_zero P (x : F) hlt.le).mp hres
+  exact (ne_of_lt hlt) hvalone
+
+private theorem rf_residue_ne_zero_of_gen_not_dvd
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (SB : ArtinPrimitiveRoots.A2.SymbolBridge D S)
+    (I : Ideal (𝓞 F)) (x : Fˣ) (hx : S.IsGen (x : F) I)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (hP : P ∉ S.Sf)
+    (hnot : ¬P.asIdeal ∣ I) :
+    ArtinPrimitiveRoots.A1.residue P (x : F) ≠ 0 := by
+  have hexp : ArtinPrimitiveRoots.A1.idealExp P I = 0 :=
+    (rf_idealExp_eq_zero_iff I hx.1.1 P).2 hnot
+  have hval : P.valuation F (x : F) = 1 := by
+    simpa [hexp] using rf_gen_valuation S I x hx P hP
+  exact (SB.residue_ne_zero P (x : F) hval.le).2 hval
+
+private theorem rf_chiIdealPow_zero_of_prime
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (hdiv : P.asIdeal ∣ I)
+    (x : F) (hx : ArtinPrimitiveRoots.A1.residue P x = 0) (e : ℤ) :
+    ArtinPrimitiveRoots.A1.chiIdealPow D I x e = 0 := by
+  classical
+  unfold ArtinPrimitiveRoots.A1.chiIdealPow
+  apply Multiset.prod_eq_zero
+  have hmem : P.asIdeal ∈ UniqueFactorizationMonoid.normalizedFactors I :=
+    (UniqueFactorizationMonoid.mem_normalizedFactors_iff hI).2 ⟨P.prime, hdiv⟩
+  have hzero :
+      (if h : P.asIdeal.IsPrime ∧ P.asIdeal ≠ ⊥ then
+        ArtinPrimitiveRoots.A1.chiPow D ⟨P.asIdeal, h.1, h.2⟩ x e else 1) = 0 := by
+    rw [dif_pos ⟨P.isPrime, P.ne_bot⟩]
+    simp [ArtinPrimitiveRoots.A1.chiPow, hx]
+  exact Multiset.mem_map.mpr ⟨P.asIdeal, hmem, hzero⟩
+
+private theorem rf_twistProduct_zero
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+    (x : F) (e : ArtinPrimitiveRoots.A1.FinPlace F → ℤ)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (hdiv : P.asIdeal ∣ I)
+    (hx : ArtinPrimitiveRoots.A1.residue P x = 0) :
+    (∏ᶠ Q : ArtinPrimitiveRoots.A1.FinPlace F,
+      if Q.asIdeal ∣ I then ArtinPrimitiveRoots.A1.chiPow D Q x (e Q) else 1) = 0 := by
+  classical
+  let f : ArtinPrimitiveRoots.A1.FinPlace F → ℂ := fun Q =>
+    if Q.asIdeal ∣ I then ArtinPrimitiveRoots.A1.chiPow D Q x (e Q) else 1
+  have hsupp : Function.mulSupport f ⊆ {Q | Q.asIdeal ∣ I} := by
+    intro Q hQ
+    change f Q ≠ 1 at hQ
+    by_cases hdivQ : Q.asIdeal ∣ I
+    · exact hdivQ
+    · simp [f, hdivQ] at hQ
+  rw [finprod_eq_prod_of_mulSupport_subset_of_finite f hsupp (Ideal.finite_factors hI)]
+  apply Finset.prod_eq_zero ((Ideal.finite_factors hI).mem_toFinset.mpr hdiv)
+  simp [f, hdiv, ArtinPrimitiveRoots.A1.chiPow, hx]
+
+private theorem rf_chiPow_mod_six
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (SB : ArtinPrimitiveRoots.A2.SymbolBridge D S)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (x : F) (e : ℤ)
+    (hx : ArtinPrimitiveRoots.A1.residue P x ≠ 0) :
+    ArtinPrimitiveRoots.A1.chiPow D P x (e % 6) =
+      ArtinPrimitiveRoots.A1.chiPow D P x e := by
+  simp only [ArtinPrimitiveRoots.A1.chiPow, if_neg hx]
+  have hnorm := SB.chi_norm P x hx
+  have hχ0 : ArtinPrimitiveRoots.A1.chi D P x ≠ 0 := by
+    intro h
+    rw [h, norm_zero] at hnorm
+    norm_num at hnorm
+  let u : ℂˣ := Units.mk0 (ArtinPrimitiveRoots.A1.chi D P x) hχ0
+  have hu6 : u ^ 6 = 1 := by
+    apply Units.ext
+    change ArtinPrimitiveRoots.A1.chi D P x ^ 6 = 1
+    exact SB.chi_six P x hx
+  have hpow := congrArg (fun y : ℂˣ => (y : ℂ)) (zpow_eq_zpow_emod' e hu6)
+  simpa [u, Units.val_zpow_eq_zpow_val] using hpow.symm
+
+private def rf_symbolUnit
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (x : F) : ℂˣ :=
+  Units.map D.σ0.toMonoidHom
+    (Units.map (algebraMap (𝓞 F) F).toMonoidHom
+      (ArtinPrimitiveRoots.A1.chiAlg P x : (𝓞 F)ˣ))
+
+private theorem rf_symbolUnit_coe
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (P : ArtinPrimitiveRoots.A1.FinPlace F) (x : F)
+    (hx : ArtinPrimitiveRoots.A1.residue P x ≠ 0) :
+    (rf_symbolUnit D P x : ℂ) = ArtinPrimitiveRoots.A1.chi D P x := by
+  simp [rf_symbolUnit, ArtinPrimitiveRoots.A1.chi, hx]
+
+private theorem rf_ideal_symbol_reciprocity
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (H : ArtinPrimitiveRoots.A1.HilbertData F)
+    (Bd : ArtinPrimitiveRoots.A1.BData S H)
+    (I J : Ideal (𝓞 F)) (hI : S.IsExterior I) (hJ : S.IsExterior J)
+    (a b : Fˣ)
+    (ha : S.IsGen (a : F) J ∧ Bd.Allowed a)
+    (hb : S.IsGen (b : F) I ∧ Bd.Allowed b)
+    (hcop : IsCoprime I J) :
+    ArtinPrimitiveRoots.A1.chiIdealPow D J (b : F) 1 =
+      ArtinPrimitiveRoots.A1.chiIdealPow D I (a : F) 1 := by
+  classical
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  let g : rootsOfUnity 6 F →* ℂ :=
+    (Units.coeHom ℂ).comp
+      ((Units.map D.σ0.toMonoidHom).comp (rootsOfUnity 6 F).subtype)
+  let f : ArtinPrimitiveRoots.A1.FinPlace F → ℂ := fun P =>
+    g (H.hilb P (ArtinPrimitiveRoots.A1.toLoc P b) (ArtinPrimitiveRoots.A1.toLoc P a))
+  let gJ : ArtinPrimitiveRoots.A1.FinPlace F → ℂ := fun P =>
+    if P.asIdeal ∣ J then
+      (rf_symbolUnit D P (b : F) : ℂ) ^ (ArtinPrimitiveRoots.A1.idealExp P J : ℤ)
+    else 1
+  let gI : ArtinPrimitiveRoots.A1.FinPlace F → ℂ := fun P =>
+    if P.asIdeal ∣ I then
+      (rf_symbolUnit D P (a : F) : ℂ) ^ (ArtinPrimitiveRoots.A1.idealExp P I : ℤ)
+    else 1
+  have hglobal := H.product_formula b a
+  have hf : Function.HasFiniteMulSupport f := by
+    change Function.HasFiniteMulSupport
+      (fun P => g (H.hilb P (ArtinPrimitiveRoots.A1.toLoc P b)
+        (ArtinPrimitiveRoots.A1.toLoc P a)))
+    exact Function.HasFiniteMulSupport.fun_comp hglobal.1 g.map_one
+  have hglobalComplex : (∏ᶠ P : ArtinPrimitiveRoots.A1.FinPlace F, f P) = 1 := by
+    change (∏ᶠ P : ArtinPrimitiveRoots.A1.FinPlace F,
+      g (H.hilb P (ArtinPrimitiveRoots.A1.toLoc P b) (ArtinPrimitiveRoots.A1.toLoc P a))) = 1
+    rw [← g.map_finprod hglobal.1, hglobal.2, g.map_one]
+  have hcomp (v : S.Sf) (u : Fˣ) :
+      S.compU v (S.diagU u) = ArtinPrimitiveRoots.A1.toLoc v.1 u := by
+    ext
+    rfl
+  have hHS : S.HS H (S.diagU b) (S.diagU a) = 1 :=
+    Bd.isotropic (S.diagU b) (S.diagU a) hb.2 ha.2
+  have hSprod : (∏ P ∈ S.Sf, f P) = g (S.HS H (S.diagU b) (S.diagU a)) := by
+    calc
+      (∏ P ∈ S.Sf, f P) = ∏ P ∈ S.Sf.attach, f P.1 :=
+        (Finset.prod_attach S.Sf f).symm
+      _ = g (S.HS H (S.diagU b) (S.diagU a)) := by
+        unfold ArtinPrimitiveRoots.A1.SData.HS
+        simp [f, g, hcomp]
+  have splitS (u : ArtinPrimitiveRoots.A1.FinPlace F → ℂ)
+      (hu : Function.HasFiniteMulSupport u) :
+      (∏ᶠ P : ArtinPrimitiveRoots.A1.FinPlace F, u P) =
+        (∏ P ∈ S.Sf, u P) * ∏ᶠ P ∉ S.Sf, u P := by
+    have h_union := finprod_mem_union' (hst := disjoint_compl_right)
+      (hs := S.Sf.finite_toSet.inter_of_left _)
+      (ht := Set.Finite.subset hu Set.inter_subset_right) (f := u)
+    rw [Set.union_compl_self, finprod_mem_univ] at h_union
+    rw [finprod_mem_coe_finset] at h_union
+    exact h_union
+  have houtside : (∏ᶠ P ∉ S.Sf, f P) = 1 := by
+    have h := hglobalComplex
+    rw [splitS f hf, hSprod, hHS] at h
+    simpa using h
+  have hnotI (P : ArtinPrimitiveRoots.A1.FinPlace F)
+      (hPJ : P.asIdeal ∣ J) : ¬P.asIdeal ∣ I := by
+    intro hPI
+    exact P.irreducible.not_isUnit (hcop.isUnit_of_dvd' hPI hPJ)
+  have hnotJ (P : ArtinPrimitiveRoots.A1.FinPlace F)
+      (hPI : P.asIdeal ∣ I) : ¬P.asIdeal ∣ J := by
+    intro hPJ
+    exact P.irreducible.not_isUnit (hcop.isUnit_of_dvd' hPI hPJ)
+  have residue_of_gen (P : ArtinPrimitiveRoots.A1.FinPlace F)
+      (hP : P ∉ S.Sf) (X : Ideal (𝓞 F)) (x : Fˣ)
+      (hx : S.IsGen (x : F) X) (hnot : ¬P.asIdeal ∣ X) :
+      ArtinPrimitiveRoots.A1.residue P (x : F) ≠ 0 := by
+    have hexp : ArtinPrimitiveRoots.A1.idealExp P X = 0 :=
+      (rf_idealExp_eq_zero_iff X hx.1.1 P).2 hnot
+    have hval : P.valuation F (x : F) = 1 := by
+      simpa [hexp] using rf_gen_valuation S X x hx P hP
+    exact (SB.residue_ne_zero P (x : F) hval.le).2 hval
+  have tameEval (P : ArtinPrimitiveRoots.A1.FinPlace F)
+      (hP : P ∉ S.Sf) (h6 : (6 : 𝓞 F) ∉ P.asIdeal)
+      (u x : Fˣ) (hres : ArtinPrimitiveRoots.A1.residue P (u : F) ≠ 0)
+      (X : Ideal (𝓞 F)) (hx : S.IsGen (x : F) X) :
+      g (H.hilb P (ArtinPrimitiveRoots.A1.toLoc P u)
+          (ArtinPrimitiveRoots.A1.toLoc P x)) =
+        (rf_symbolUnit D P (u : F) : ℂ) ^
+          (ArtinPrimitiveRoots.A1.idealExp P X : ℤ) := by
+    have htame := H.tame P h6 u x hres
+    rw [rf_gen_count S X x hx P hP] at htame
+    change D.σ0 (((H.hilb P (ArtinPrimitiveRoots.A1.toLoc P u)
+        (ArtinPrimitiveRoots.A1.toLoc P x) : Fˣ) : F)) = _
+    rw [htame]
+    simp [rf_symbolUnit]
+  have hlocal (P : ArtinPrimitiveRoots.A1.FinPlace F) (hP : P ∉ S.Sf) :
+      f P = gJ P * (gI P)⁻¹ := by
+    have h6 : (6 : 𝓞 F) ∉ P.asIdeal := by
+      intro h
+      exact hP (S.over6 P h)
+    by_cases hPJ : P.asIdeal ∣ J
+    · have hPI : ¬P.asIdeal ∣ I := hnotI P hPJ
+      have hresB := residue_of_gen P hP I b hb.1 hPI
+      have hlocalB := tameEval P hP h6 b a hresB J ha.1
+      simp [f, gJ, gI, hPJ, hPI, hlocalB]
+    · by_cases hPI : P.asIdeal ∣ I
+      · have hresA := residue_of_gen P hP J a ha.1 hPJ
+        have hlocalA := tameEval P hP h6 a b hresA I hb.1
+        have hskewRoot :
+            g (H.hilb P (ArtinPrimitiveRoots.A1.toLoc P b)
+              (ArtinPrimitiveRoots.A1.toLoc P a)) *
+            g (H.hilb P (ArtinPrimitiveRoots.A1.toLoc P a)
+              (ArtinPrimitiveRoots.A1.toLoc P b)) = 1 := by
+          rw [← g.map_mul, H.skew, g.map_one]
+        have hskew' : f P * (rf_symbolUnit D P (a : F) : ℂ) ^
+            (ArtinPrimitiveRoots.A1.idealExp P I : ℤ) = 1 := by
+          calc
+            f P * (rf_symbolUnit D P (a : F) : ℂ) ^
+                (ArtinPrimitiveRoots.A1.idealExp P I : ℤ) =
+                g (H.hilb P (ArtinPrimitiveRoots.A1.toLoc P b)
+                  (ArtinPrimitiveRoots.A1.toLoc P a)) *
+                g (H.hilb P (ArtinPrimitiveRoots.A1.toLoc P a)
+                  (ArtinPrimitiveRoots.A1.toLoc P b)) := by rw [hlocalA]
+            _ = 1 := hskewRoot
+        have hfinv : f P =
+            ((rf_symbolUnit D P (a : F) : ℂ) ^
+              (ArtinPrimitiveRoots.A1.idealExp P I : ℤ))⁻¹ := by
+          calc
+            f P = f P * 1 := by simp
+            _ = f P * ((rf_symbolUnit D P (a : F) : ℂ) ^
+                (ArtinPrimitiveRoots.A1.idealExp P I : ℤ) *
+                ((rf_symbolUnit D P (a : F) : ℂ) ^
+                  (ArtinPrimitiveRoots.A1.idealExp P I : ℤ))⁻¹) := by simp
+            _ = (f P * (rf_symbolUnit D P (a : F) : ℂ) ^
+                (ArtinPrimitiveRoots.A1.idealExp P I : ℤ)) *
+                ((rf_symbolUnit D P (a : F) : ℂ) ^
+                  (ArtinPrimitiveRoots.A1.idealExp P I : ℤ))⁻¹ := by rw [mul_assoc]
+            _ = _ := by rw [hskew']; simp
+        simp [f, gJ, gI, hPJ, hPI, hfinv]
+      · have hresB := residue_of_gen P hP I b hb.1 hPI
+        have hlocalB := tameEval P hP h6 b a hresB J ha.1
+        have hExpJ : ArtinPrimitiveRoots.A1.idealExp P J = 0 :=
+          (rf_idealExp_eq_zero_iff J hJ.1 P).2 hPJ
+        simp [f, gJ, gI, hPJ, hPI, hlocalB, hExpJ]
+  have hgJ_support : Function.mulSupport gJ ⊆ {P | P.asIdeal ∣ J} := by
+    intro P hP
+    change gJ P ≠ 1 at hP
+    by_cases hdiv : P.asIdeal ∣ J
+    · exact hdiv
+    · simp [gJ, hdiv] at hP
+  have hgI_support : Function.mulSupport gI ⊆ {P | P.asIdeal ∣ I} := by
+    intro P hP
+    change gI P ≠ 1 at hP
+    by_cases hdiv : P.asIdeal ∣ I
+    · exact hdiv
+    · simp [gI, hdiv] at hP
+  have hgJ : Function.HasFiniteMulSupport gJ :=
+    Set.Finite.subset (Ideal.finite_factors hJ.1) hgJ_support
+  have hgI : Function.HasFiniteMulSupport gI :=
+    Set.Finite.subset (Ideal.finite_factors hI.1) hgI_support
+  have hJsf : ∀ P ∈ S.Sf, gJ P = 1 := by
+    intro P hP
+    have hnot : ¬P.asIdeal ∣ J := by
+      intro hdiv
+      exact hJ.2 P hP (Ideal.dvd_iff_le.mp hdiv)
+    simp [gJ, hnot]
+  have hIsf : ∀ P ∈ S.Sf, gI P = 1 := by
+    intro P hP
+    have hnot : ¬P.asIdeal ∣ I := by
+      intro hdiv
+      exact hI.2 P hP (Ideal.dvd_iff_le.mp hdiv)
+    simp [gI, hnot]
+  have hJall : (∏ᶠ P, gJ P) = ∏ᶠ P ∉ S.Sf, gJ P := by
+    rw [splitS gJ hgJ, Finset.prod_eq_one hJsf, one_mul]
+  have hIall : (∏ᶠ P, gI P) = ∏ᶠ P ∉ S.Sf, gI P := by
+    rw [splitS gI hgI, Finset.prod_eq_one hIsf, one_mul]
+  have hInvI : (∏ᶠ P ∉ S.Sf, gI P)⁻¹ =
+      ∏ᶠ P ∉ S.Sf, (gI P)⁻¹ := by
+    exact (MulEquiv.inv ℂ).toMonoidHom.map_finprod_mem'
+      (Set.Finite.subset hgI Set.inter_subset_right)
+  have hOutEq : (∏ᶠ P ∉ S.Sf, f P) =
+      (∏ᶠ P ∉ S.Sf, gJ P) * (∏ᶠ P ∉ S.Sf, gI P)⁻¹ := by
+    calc
+      (∏ᶠ P ∉ S.Sf, f P) =
+          ∏ᶠ P ∉ S.Sf, gJ P * (gI P)⁻¹ := by
+            exact finprod_mem_congr rfl (fun P hP => hlocal P hP)
+      _ = (∏ᶠ P ∉ S.Sf, gJ P) *
+            (∏ᶠ P ∉ S.Sf, (gI P)⁻¹) :=
+              finprod_mem_mul_distrib'
+                (f := gJ) (g := fun P => (gI P)⁻¹)
+                (Set.Finite.subset hgJ Set.inter_subset_right)
+                (Set.Finite.subset hgI.fun_inv Set.inter_subset_right)
+      _ = (∏ᶠ P ∉ S.Sf, gJ P) * (∏ᶠ P ∉ S.Sf, gI P)⁻¹ := by rw [← hInvI]
+  have hJχ : ArtinPrimitiveRoots.A1.chiIdealPow D J (b : F) 1 =
+      ∏ᶠ P, gJ P := by
+    rw [rf_chiIdealPow_finprod D J hJ.1 (b : F) 1]
+    apply finprod_congr
+    intro P
+    by_cases hdiv : P.asIdeal ∣ J
+    · have hP : P ∉ S.Sf := by
+        intro hP
+        exact hJ.2 P hP (Ideal.dvd_iff_le.mp hdiv)
+      have hresB := residue_of_gen P hP I b hb.1 (hnotI P hdiv)
+      simp [gJ, hdiv, ArtinPrimitiveRoots.A1.chiPow, hresB,
+        rf_symbolUnit_coe D P (b : F) hresB]
+    · simp [gJ, hdiv]
+  have hIχ : ArtinPrimitiveRoots.A1.chiIdealPow D I (a : F) 1 =
+      ∏ᶠ P, gI P := by
+    rw [rf_chiIdealPow_finprod D I hI.1 (a : F) 1]
+    apply finprod_congr
+    intro P
+    by_cases hdiv : P.asIdeal ∣ I
+    · have hP : P ∉ S.Sf := by
+        intro hP
+        exact hI.2 P hP (Ideal.dvd_iff_le.mp hdiv)
+      have hresA := residue_of_gen P hP J a ha.1 (hnotJ P hdiv)
+      simp [gI, hdiv, ArtinPrimitiveRoots.A1.chiPow, hresA,
+        rf_symbolUnit_coe D P (a : F) hresA]
+    · simp [gI, hdiv]
+  have hJoutIout : (∏ᶠ P ∉ S.Sf, gJ P) =
+      ∏ᶠ P ∉ S.Sf, gI P := by
+    have h := houtside
+    rw [hOutEq] at h
+    calc
+      (∏ᶠ P ∉ S.Sf, gJ P) =
+          (∏ᶠ P ∉ S.Sf, gJ P) * 1 := by simp
+      _ = (∏ᶠ P ∉ S.Sf, gJ P) *
+          ((∏ᶠ P ∉ S.Sf, gI P)⁻¹ * ∏ᶠ P ∉ S.Sf, gI P) := by
+            rw [inv_mul_cancel₀ (by
+              have htotal : (∏ᶠ P, gI P) ≠ 0 := by
+                apply finprod_ne_zero
+                intro P
+                by_cases hdiv : P.asIdeal ∣ I
+                · simp only [gI, if_pos hdiv]
+                  exact zpow_ne_zero _ (Units.ne_zero (rf_symbolUnit D P (a : F)))
+                · simp [gI, hdiv]
+              intro hz
+              apply htotal
+              rw [hIall, hz])]
+      _ = ((∏ᶠ P ∉ S.Sf, gJ P) *
+          (∏ᶠ P ∉ S.Sf, gI P)⁻¹) * ∏ᶠ P ∉ S.Sf, gI P := by rw [mul_assoc]
+      _ = 1 * ∏ᶠ P ∉ S.Sf, gI P := by rw [h]
+      _ = ∏ᶠ P ∉ S.Sf, gI P := by simp
+  calc
+    ArtinPrimitiveRoots.A1.chiIdealPow D J (b : F) 1 = ∏ᶠ P, gJ P := hJχ
+    _ = ∏ᶠ P ∉ S.Sf, gJ P := hJall
+    _ = ∏ᶠ P ∉ S.Sf, gI P := hJoutIout
+    _ = ∏ᶠ P, gI P := hIall.symm
+    _ = ArtinPrimitiveRoots.A1.chiIdealPow D I (a : F) 1 := hIχ.symm
+
 /-- **rf:moving-twist** (04-reflection.tex:37-49).  The zeroth-power convention is A1's masked
 `chiPow`, so a shared prime makes both sides vanish. -/
 theorem rf_moving_twist
@@ -61,12 +539,112 @@ theorem rf_moving_twist
     (r : ReflectionRow S) (J : Ideal (𝓞 F)) (hJ : S.IsExterior J)
     (a : Fˣ) (ha : S.IsGen (a : F) J ∧ Bd.Allowed a) :
     ArtinPrimitiveRoots.A1.chiIdealPow D J (rowElement S r : F) 1 =
-      ArtinPrimitiveRoots.A1.chiIdealPow D J ((rowEpsilon S bc r : Fˣ) : F) 1 *
+    ArtinPrimitiveRoots.A1.chiIdealPow D J ((rowEpsilon S bc r : Fˣ) : F) 1 *
         (∏ᶠ P : ArtinPrimitiveRoots.A1.FinPlace F,
           if P.asIdeal ∣ r.ideal.1 then
             ArtinPrimitiveRoots.A1.chiPow D P (a : F) (rowPrimeExponent S r P)
           else 1) := by
-  sorry
+  classical
+  let I := r.ideal.1
+  let ε := rowEpsilon S bc r
+  let b := bc.gen r.ideal
+  have hI : S.IsExterior I := r.ideal.2
+  have hI0 : I ≠ ⊥ := r.ideal.2.1
+  have hεgen : rowElement S r = ε * b :=
+    Classical.choose_spec (exists_rowUnit S bc r)
+  have hb : S.IsGen (b : F) I ∧ Bd.Allowed b := bc.gen_spec r.ideal
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hxy (P : ArtinPrimitiveRoots.A1.FinPlace F) (hPJ : P.asIdeal ∣ J) :
+      P.valuation F ((ε : Fˣ) : F) ≤ 1 ∧ P.valuation F (b : F) ≤ 1 := by
+    have hP : P ∉ S.Sf := by
+      intro hP
+      exact hJ.2 P hP (Ideal.dvd_iff_le.mp hPJ)
+    refine ⟨?_, ?_⟩
+    · simpa [ε.property P hP]
+    · have hval := rf_gen_valuation S I b hb.1 P hP
+      have hle :
+          WithZero.exp (-(ArtinPrimitiveRoots.A1.idealExp P I : ℤ)) ≤ 1 := by
+        rw [← WithZero.exp_zero]
+        have hn : (0 : ℤ) ≤ (ArtinPrimitiveRoots.A1.idealExp P I : ℤ) :=
+          by exact_mod_cast (Nat.zero_le (ArtinPrimitiveRoots.A1.idealExp P I))
+        exact WithZero.exp_le_exp.mpr (neg_nonpos.mpr hn)
+      simpa [hval] using hle
+  have hfactorBase :=
+    SB.ideal_element_mul J hJ ((ε : Fˣ) : F) (b : F) 1 hxy
+  have hfactor :
+      ArtinPrimitiveRoots.A1.chiIdealPow D J (rowElement S r : F) 1 =
+        ArtinPrimitiveRoots.A1.chiIdealPow D J ((ε : Fˣ) : F) 1 *
+          ArtinPrimitiveRoots.A1.chiIdealPow D J (b : F) 1 := by
+    rw [hεgen]
+    exact hfactorBase
+  by_cases hcop : IsCoprime I J
+  · have hrecip := rf_ideal_symbol_reciprocity D S H Bd I J hI hJ a b ha hb hcop
+    have hrowProduct :
+        (∏ᶠ P : ArtinPrimitiveRoots.A1.FinPlace F,
+          if P.asIdeal ∣ I then
+            ArtinPrimitiveRoots.A1.chiPow D P (a : F) (rowPrimeExponent S r P)
+          else 1) = ArtinPrimitiveRoots.A1.chiIdealPow D I (a : F) 1 := by
+      rw [rf_chiIdealPow_finprod D I hI0 (a : F) 1]
+      apply finprod_congr
+      intro P
+      by_cases hdiv : P.asIdeal ∣ I
+      · have hP : P ∉ S.Sf := by
+          intro hP
+          exact hI.2 P hP (Ideal.dvd_iff_le.mp hdiv)
+        have hnotJ : ¬P.asIdeal ∣ J := by
+          intro hdivJ
+          exact P.irreducible.not_isUnit (hcop.isUnit_of_dvd' hdiv hdivJ)
+        have hresA := rf_residue_ne_zero_of_gen_not_dvd D S SB J a ha.1 P hP hnotJ
+        have hexpRow : rowPrimeExponent S r P =
+            (ArtinPrimitiveRoots.A1.idealExp P I : ℤ) % 6 := by
+          unfold rowPrimeExponent rowExponentModSix
+          rw [FractionalIdeal.count_coe F P hI0]
+          rfl
+        rw [if_pos hdiv, if_pos hdiv, hexpRow]
+        simp only [one_mul]
+        exact rf_chiPow_mod_six D S SB P (a : F)
+          (ArtinPrimitiveRoots.A1.idealExp P I : ℤ) hresA
+      · simp [hdiv]
+    calc
+      ArtinPrimitiveRoots.A1.chiIdealPow D J (rowElement S r : F) 1 =
+          ArtinPrimitiveRoots.A1.chiIdealPow D J ((ε : Fˣ) : F) 1 *
+            ArtinPrimitiveRoots.A1.chiIdealPow D J (b : F) 1 := hfactor
+      _ = ArtinPrimitiveRoots.A1.chiIdealPow D J ((ε : Fˣ) : F) 1 *
+            ArtinPrimitiveRoots.A1.chiIdealPow D I (a : F) 1 := by rw [hrecip]
+      _ = ArtinPrimitiveRoots.A1.chiIdealPow D J ((ε : Fˣ) : F) 1 *
+            (∏ᶠ P : ArtinPrimitiveRoots.A1.FinPlace F,
+              if P.asIdeal ∣ I then
+                ArtinPrimitiveRoots.A1.chiPow D P (a : F) (rowPrimeExponent S r P)
+              else 1) := by rw [← hrowProduct]
+  · have hnotcop_sup : I ⊔ J ≠ ⊤ := by
+      intro htop
+      exact hcop (Ideal.isCoprime_iff_sup_eq.mpr htop)
+    obtain ⟨M, hM, hle⟩ := Ideal.exists_le_maximal (I ⊔ J) hnotcop_sup
+    have hMbot : M ≠ ⊥ := by
+      intro hbot
+      apply hI.1
+      apply le_antisymm
+      · exact (le_trans le_sup_left hle).trans_eq hbot
+      · exact bot_le
+    let P : ArtinPrimitiveRoots.A1.FinPlace F := ⟨M, hM.isPrime, hMbot⟩
+    have hPI : P.asIdeal ∣ I := Ideal.dvd_iff_le.mpr (le_trans le_sup_left hle)
+    have hPJ : P.asIdeal ∣ J := Ideal.dvd_iff_le.mpr (le_trans le_sup_right hle)
+    have hP : P ∉ S.Sf := by
+      intro hP
+      exact hI.2 P hP (Ideal.dvd_iff_le.mp hPI)
+    have hrowgen : S.IsGen (rowElement S r : F) I := by
+      simpa [rowElement] using r.generates
+    have hresRow := rf_residue_zero_of_gen D S SB I (rowElement S r) hrowgen P hP hPI
+    have hresB := rf_residue_zero_of_gen D S SB I b hb.1 P hP hPI
+    have hresA := rf_residue_zero_of_gen D S SB J a ha.1 P hP hPJ
+    have hzeroB := rf_chiIdealPow_zero_of_prime D J hJ.1 P hPJ (b : F) hresB 1
+    have hzeroL : ArtinPrimitiveRoots.A1.chiIdealPow D J (rowElement S r : F) 1 = 0 := by
+      rw [hfactor, hzeroB]
+      simp
+    have hzeroR := rf_twistProduct_zero D I hI0 (a : F)
+      (fun Q => rowPrimeExponent S r Q) P hPI hresA
+    rw [hzeroL, hzeroR]
+    simp
 
 /-- **def:rf-S-character** (04-reflection.tex:51-65): `λ_ε(y)=H_S(ε,y)⁻¹`. -/
 def lambdaEpsilon (D : ArtinPrimitiveRoots.A1.FieldData F)
