@@ -216,4 +216,35 @@ theorem complex_spherical_height_point (h : PGL2 ℂ) :
   rw [Complex.norm_cpow_eq_rpow_re_of_pos (inv_pos.mpr (hpos (γ * u)))]
   simp
 
+/-- The product of complex spherical norms is the corresponding adelic hyperbolic height power. -/
+theorem complex_spherical_height_product {F : Type} [Field F] [NumberField F]
+    (h : NumberField.InfinitePlace F → PGL2 ℂ) :
+    ∃ z : ArtinPrimitiveRoots.A1.Spec.X F,
+      ∀ (σ : ℝ) (γ : Matrix.SpecialLinearGroup (Fin 2) F),
+        (∏ w, ‖sphC (σ : ℂ)
+          (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL
+            (ArtinPrimitiveRoots.A1.Spec.toInf F γ w)) * h w)‖) =
+          ArtinPrimitiveRoots.A1.Spec.normHeight F (γ • z) ^ (1 + 2 * σ) := by
+  classical
+  choose z hz using fun w => complex_spherical_height_point (h w)
+  have hterm (σ : ℝ) (γ : Matrix.SpecialLinearGroup (Fin 2) F)
+      (w : NumberField.InfinitePlace F) :
+      ‖sphC (σ : ℂ) (QuotientGroup.mk (Matrix.SpecialLinearGroup.toGL
+        (ArtinPrimitiveRoots.A1.Spec.toInf F γ w)) * h w)‖ =
+        ArtinPrimitiveRoots.A1.Spec.height ((γ • z) w) ^ (1 + 2 * σ) :=
+    hz w σ (ArtinPrimitiveRoots.A1.Spec.toInf F γ w)
+  have hnonneg (γ : Matrix.SpecialLinearGroup (Fin 2) F)
+      (w : NumberField.InfinitePlace F) :
+      0 ≤ ArtinPrimitiveRoots.A1.Spec.height ((γ • z) w) := by
+    have heq := hterm 0 γ w
+    simp only [mul_zero, add_zero, Real.rpow_one] at heq
+    rw [← heq]
+    exact norm_nonneg _
+  refine ⟨z, ?_⟩
+  intro σ γ
+  calc
+    _ = ∏ w, ArtinPrimitiveRoots.A1.Spec.height ((γ • z) w) ^ (1 + 2 * σ) :=
+      Finset.prod_congr rfl fun w _ => hterm σ γ w
+    _ = _ := Real.finsetProd_rpow Finset.univ _ (fun w _ => hnonneg γ w) _
+
 end ArtinPrimitiveRoots.A1.Theta
