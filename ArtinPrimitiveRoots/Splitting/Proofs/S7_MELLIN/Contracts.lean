@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Ext.SplittingInputs
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».Boundary
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroEndpoint
 
 set_option autoImplicit false
 
