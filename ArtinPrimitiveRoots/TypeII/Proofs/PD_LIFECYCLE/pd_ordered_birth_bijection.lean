@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.Proofs.pd_life_b.HistoryPaths
 import ArtinPrimitiveRoots.Proofs.pd_life_b.OrderedContinuation
 import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostSubsetSum
 import ArtinPrimitiveRoots.Proofs.pd_life_b.IndexTransport
+import ArtinPrimitiveRoots.Proofs.pd_life_b.MemoryIndexTransport
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_lifecycle_parameters
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_ordered_distinct_batch_sum
