@@ -282,6 +282,42 @@ noncomputable def roughTupleIntegral (x γ lo hi : ℝ) (j : ℕ) : ℝ :=
           lo ≤ ∏ i : Fin j, t i ∧ (∏ i : Fin j, t i) ≤ hi then
         ∏ i : Fin j, 1 / Real.log (t i) else 0
 
+set_option maxHeartbeats 1000000 in
+private theorem roughCoefficient_phase_split
+    (x γ v t : ℝ) (m : ℕ) (z : ℂ) :
+    roughCoefficient x γ v m * z * Complex.exp (Complex.I * t * Real.log (m : ℝ)) =
+      (roughIndicator x γ m : ℂ) * z *
+          Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) -
+        z * Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) *
+          (roughProxy x γ m : ℂ) := by
+  simp only [roughCoefficient, roughIndicator, roughProxy, Complex.ofReal_div,
+    Complex.ofReal_mul]
+  have he : Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+      Complex.exp (Complex.I * t * Real.log (m : ℝ)) =
+        Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) := by
+    rw [← Complex.exp_add]
+    congr 1
+    ring
+  calc
+    _ = ((if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0 : ℝ) : ℂ) * z *
+        (Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+          Complex.exp (Complex.I * t * Real.log (m : ℝ))) -
+        z * (Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+          Complex.exp (Complex.I * t * Real.log (m : ℝ))) *
+          (((roughDensity γ (Real.log (m : ℝ) / Real.log x) : ℝ) : ℂ) /
+            (((Real.log x : ℝ) : ℂ) *
+              ((roughSieveProduct (roughCutoff x) : ℝ) : ℂ)) *
+                ((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0 : ℝ) : ℂ)) := by
+      ring
+    _ = ((if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0 : ℝ) : ℂ) * z *
+        Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) -
+        z * Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) *
+          (((roughDensity γ (Real.log (m : ℝ) / Real.log x) : ℝ) : ℂ) /
+            (((Real.log x : ℝ) : ℂ) *
+              ((roughSieveProduct (roughCutoff x) : ℝ) : ℂ)) *
+                ((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0 : ℝ) : ℂ)) := by
+      rw [he]
+
 /-- `prop:rough-type-ii` — `08-type-ii.tex:321-536`. Fix the parameters in the
 paper. Uniformly over admissible dyads, intervals, real twists, rough second-variable coefficients,
 and marked-invariant multipliers, the coefficient `roughCoefficient` has the Type II saving once
