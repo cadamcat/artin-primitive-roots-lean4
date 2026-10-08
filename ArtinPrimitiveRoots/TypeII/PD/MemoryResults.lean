@@ -6443,6 +6443,335 @@ private theorem ghostChoiceCoeff_norm_mul_outputWeight_eq {K : ℕ}
     _ = v ^ (base + ds) * ∏ i : Fin K, weight i := by rw [pow_add]; ring
     _ = _ := by rw [← hsource]
 
+set_option maxHeartbeats 1000000 in
+/-- The raw ordered column separates over groups after enlarging the finite
+source set to the product of its group projections. -/
+private theorem ghost_ordered_column_choice_bound {K : ℕ}
+    (F : PDFix K) (hF : F.Valid) (S : PDScale)
+    (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) (j B : ℕ) (v : ℝ) (hv : 0 < v)
+    (hV : ∀ i, 0 < bandMass S.x (F.a i))
+    (hbp : ∀ p ∈ markedPrimes S.x K F.a,
+      (1 / 2 : ℝ) ≤ memoryBPrime S.x F.q_d p)
+    (t : MemPoint S.x K) (ht : MemValid F S t) (htB : memSize t ≤ B)
+    (T : Finset (MemPoint S.x K)) (hT : ∀ s ∈ T, memSize s ≤ B) :
+    (∑ s ∈ T, memMeasure F S s * ‖memKernel (memGhost F S ρ j) s t‖ *
+      v ^ memSize s) ≤
+      memMeasure F S t * v ^ memSize t *
+        ∏ i : Fin K,
+          (Real.exp (2 * memoryEta S.x F.q_d j * v / ρ) *
+            ∑ m ∈ Finset.range ((t.2.2 i).length + 1),
+              if ∀ e ∈ (t.2.2 i).drop ((t.2.2 i).length - m), particleHits e t.1 then
+                (Nat.choose (t.2.2 i).length m : ℝ) *
+                  (memoryEta S.x F.q_d j * bandMass S.x (F.a i) / (ρ * v)) ^ m *
+                  (memoryQ S.x F.q_d j / ρ ^ 2) ^ (hitCount (t.2.2 i) t.1 - m)
+              else 0) := by
+  classical
+  let ν (i : Fin K) (p : ℕ) := memoryNu S.x K F.a F.q_d i p
+  let r := memoryEta S.x F.q_d j / ρ
+  let b := memoryQ S.x F.q_d j / ρ ^ 2
+  let c (i : Fin K) := memoryEta S.x F.q_d j * bandMass S.x (F.a i) / ρ
+  have hρsq : ρ ^ 2 < 1 := by nlinarith [hρ.1, hρ.2.1]
+  have hqLt : memoryQ S.x F.q_d j < 1 := by
+    unfold memoryQ
+    split_ifs <;> [exact lt_trans hρ.2.2 hρsq; exact hF.2.2.1]
+  have hη : 0 ≤ memoryEta S.x F.q_d j := by unfold memoryEta; linarith
+  have hq : 0 ≤ memoryQ S.x F.q_d j := by
+    unfold memoryQ
+    split_ifs <;> [exact Real.sqrt_nonneg _; exact hF.2.1.le]
+  have hr : 0 ≤ r := div_nonneg hη hρ.1.le
+  have hb : 0 ≤ b := div_nonneg hq (sq_nonneg ρ)
+  have hc (i : Fin K) : 0 ≤ c i := div_nonneg (mul_nonneg hη (hV i).le) hρ.1.le
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) : 0 ≤ ν i p := by
+    have hbpPos : 0 < memoryBPrime S.x F.q_d p :=
+      lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1 / 2)
+        (hbp p (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩))
+    have hden : 0 < bandMass S.x (F.a i) * ((p : ℝ) + 1) *
+        memoryBPrime S.x F.q_d p :=
+      mul_pos (mul_pos (hV i) (by positivity)) hbpPos
+    exact div_nonneg (by norm_num) hden.le
+  let W (i : Fin K) (l : List Particle) :=
+    (l.map fun e => ν i e.1).prod / (l.length.factorial : ℝ) * v ^ l.length
+  let H (i : Fin K) (l : List Particle) (D : Finset (Fin l.length))
+      (m : ℕ) (batch : Fin m → primeBand S.x (F.a i)) :=
+    if removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 t.1) = t.2.2 i then
+      r ^ D.card * b ^ (hitCount l t.1 - D.card) *
+        (c i ^ m / (m.factorial : ℝ)) * ∏ k : Fin m, ν i (batch k).1 else 0
+  let G (i : Fin K) (l : List Particle) :=
+    ∑ D ∈ (hitIndices l t.1).powerset,
+      ∑ m ∈ Finset.range (2 * B + 1), ∑ batch : Fin m → primeBand S.x (F.a i),
+        H i l D m batch
+  let Q (i : Fin K) :=
+    ∑ m ∈ Finset.range ((t.2.2 i).length + 1),
+      if ∀ e ∈ (t.2.2 i).drop ((t.2.2 i).length - m), particleHits e t.1 then
+        (Nat.choose (t.2.2 i).length m : ℝ) * (c i / v) ^ m *
+          b ^ (hitCount (t.2.2 i) t.1 - m) else 0
+  let E := Real.exp (2 * memoryEta S.x F.q_d j * v / ρ)
+  have hH (i : Fin K) (l : List Particle) (D : Finset (Fin l.length))
+      (m : ℕ) (batch : Fin m → primeBand S.x (F.a i)) : 0 ≤ H i l D m batch := by
+    dsimp [H]
+    split_ifs
+    · exact mul_nonneg
+        (mul_nonneg (mul_nonneg (pow_nonneg hr _) (pow_nonneg hb _))
+          (div_nonneg (pow_nonneg (hc i) _) (Nat.cast_nonneg _)))
+        (Finset.prod_nonneg fun k hk => hν i (batch k).1 (batch k).2)
+    · exact le_rfl
+  have hG (i : Fin K) (l : List Particle) : 0 ≤ G i l := by
+    exact Finset.sum_nonneg fun D hD => Finset.sum_nonneg fun m hm =>
+      Finset.sum_nonneg fun batch hbatch => hH i l D m batch
+  have hW (i : Fin K) (l : List Particle)
+      (hl : ∀ e ∈ l, e.1 ∈ primeBand S.x (F.a i)) : 0 ≤ W i l := by
+    apply mul_nonneg
+    · apply div_nonneg
+      · exact List.prod_nonneg fun x hx => by
+          rcases List.mem_map.mp hx with ⟨e, he, rfl⟩
+          exact hν i e.1 (hl e he)
+      · exact Nat.cast_nonneg _
+    · exact pow_nonneg hv.le _
+  have hQ (i : Fin K) : 0 ≤ Q i := by
+    apply Finset.sum_nonneg
+    intro m hm
+    split_ifs
+    · exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) (pow_nonneg (div_nonneg (hc i) hv.le) _))
+        (pow_nonneg hb _)
+    · exact le_rfl
+  have hnormGroup (s : MemPoint S.x K) (i : Fin K)
+      (a : GhostGroupChoice F s (2 * B) i) :
+      ‖((ghostGroupCoeff F S ρ j i (hitCount (s.2.2 i) s.1) a.1.1.card a.2.1.1
+        (List.ofFn fun k => (a.2.2 k).1) : ℝ) : ℂ)‖ =
+        r ^ a.1.1.card * b ^ (hitCount (s.2.2 i) s.1 - a.1.1.card) *
+          (c i ^ a.2.1.1 / (a.2.1.1.factorial : ℝ)) *
+            ∏ k : Fin a.2.1.1, ν i (a.2.2 k).1 := by
+    have hn := ghostGroupFiniteWeight_mul_pow_eq_normCoeff_mul_pow F S s (2 * B) j
+      ρ 1 i a hη hq (hV i).le hρ.1 (by norm_num)
+      (fun k => hν i (a.2.2 k).1 (a.2.2 k).2)
+    simpa only [ghostGroupFiniteWeight, one_pow, mul_one, r, b, c, ν, hitCount,
+      mul_assoc] using hn.symm
+  have hchoiceSum (s : MemPoint S.x K) (hs : s.1 = t.1) (i : Fin K) :
+      (∑ a : GhostGroupChoice F s (2 * B) i,
+        H i (s.2.2 i) a.1.1 a.2.1.1 a.2.2) = G i (s.2.2 i) := by
+    change (∑ a : Σ D : {D // D ∈ (hitIndices (s.2.2 i) s.1).powerset},
+      Σ m : {m // m ∈ Finset.range (2 * B + 1)}, Fin m.1 → primeBand S.x (F.a i),
+        H i (s.2.2 i) a.1.1 a.2.1.1 a.2.2) = _
+    simp only [Fintype.sum_sigma]
+    calc
+      _ = ∑ D : {D // D ∈ (hitIndices (s.2.2 i) s.1).powerset},
+          ∑ m ∈ Finset.range (2 * B + 1), ∑ batch : Fin m → primeBand S.x (F.a i),
+            H i (s.2.2 i) D.1 m batch := by
+        apply Finset.sum_congr rfl
+        intro D hD
+        exact sum_subtype_eq_sum_finset (Finset.range (2 * B + 1))
+          (fun m => ∑ batch : Fin m → primeBand S.x (F.a i), H i (s.2.2 i) D.1 m batch)
+      _ = ∑ D ∈ (hitIndices (s.2.2 i) s.1).powerset,
+          ∑ m ∈ Finset.range (2 * B + 1), ∑ batch : Fin m → primeBand S.x (F.a i),
+            H i (s.2.2 i) D m batch :=
+        sum_subtype_eq_sum_finset (hitIndices (s.2.2 i) s.1).powerset
+          (fun D => ∑ m ∈ Finset.range (2 * B + 1),
+            ∑ batch : Fin m → primeBand S.x (F.a i), H i (s.2.2 i) D m batch)
+      _ = _ := by simp only [hs, G]
+  have hkernel (s : MemPoint S.x K) (hs : memSize s ≤ B) (hpos : s.1 = t.1) :
+      ‖memKernel (memGhost F S ρ j) s t‖ ≤ ∏ i : Fin K, G i (s.2.2 i) := by
+    rw [memGhostOrderedKernel_choiceSum F S ρ j s t B hs htB]
+    calc
+      _ ≤ ∑ choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i,
+          ‖ghostOrderedChoiceKernelTerm F S s t ρ j B choices‖ := norm_sum_le _ _
+      _ ≤ ∑ choices : (i : Fin K) → GhostGroupChoice F s (2 * B) i,
+          ∏ i : Fin K, H i (s.2.2 i) (choices i).1.1 (choices i).2.1.1 (choices i).2.2 := by
+        apply Finset.sum_le_sum
+        intro choices hchoices
+        have hD : ∀ i, (choices i).1.1 ⊆ hitIndices (s.2.2 i) s.1 :=
+          fun i => Finset.mem_powerset.mp (choices i).1.2
+        let τ := ghostOutputState F s (fun i => (choices i).1.1)
+          (fun i => (choices i).2.1.1) (fun i k => (choices i).2.2 k)
+        by_cases hout : τ = t
+        · have hcomp := ghostOutputState_eq_components F s t _ _ _ hout
+          have hhit (i : Fin K) :
+              removeIndices (s.2.2 i) (choices i).1.1 ++
+                List.ofFn (fun k => anchorAt ((choices i).2.2 k).1 t.1) = t.2.2 i := by
+            simpa only [hpos] using hcomp.2.2 i
+          have hn :
+              ‖ghostOrderedChoiceKernelTerm F S s t ρ j B choices‖ =
+              ∏ i : Fin K,
+                ‖((ghostGroupCoeff F S ρ j i (hitCount (s.2.2 i) s.1)
+                  (choices i).1.1.card (choices i).2.1.1
+                  (List.ofFn fun k => ((choices i).2.2 k).1) : ℝ) : ℂ)‖ := by
+            simp [ghostOrderedChoiceKernelTerm, ghostOrderedKernelTerm, hD,
+              show ghostOutputState F s (fun i => (choices i).1.1)
+                (fun i => (choices i).2.1.1) (fun i k => (choices i).2.2 k) = t from hout,
+              Complex.norm_real, Real.norm_eq_abs]
+          rw [hn]
+          apply le_of_eq
+          apply Finset.prod_congr rfl
+          intro i hi
+          rw [hnormGroup]
+          simp only [H, if_pos (hhit i), hpos]
+        · have hz : ghostOrderedChoiceKernelTerm F S s t ρ j B choices = 0 := by
+            simp [ghostOrderedChoiceKernelTerm, ghostOrderedKernelTerm, hD,
+              show ghostOutputState F s (fun i => (choices i).1.1)
+                (fun i => (choices i).2.1.1) (fun i k => (choices i).2.2 k) ≠ t from hout]
+          rw [hz, norm_zero]
+          exact Finset.prod_nonneg fun i hi => hH i _ _ _ _
+      _ = ∏ i : Fin K,
+          ∑ a : GhostGroupChoice F s (2 * B) i, H i (s.2.2 i) a.1.1 a.2.1.1 a.2.2 :=
+        finite_pi_sum_prod (fun i => GhostGroupChoice F s (2 * B) i)
+          (fun i a => H i (s.2.2 i) a.1.1 a.2.1.1 a.2.2)
+      _ = _ := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        exact hchoiceSum s hpos i
+  let T₀ := T.filter fun s => MemValid F S s ∧ s.1 = t.1 ∧ s.2.1 = t.2.1
+  have hzero (s : MemPoint S.x K) (hs : s ∈ T) (hbad : s ∉ T₀) :
+      memMeasure F S s * ‖memKernel (memGhost F S ρ j) s t‖ * v ^ memSize s = 0 := by
+    by_cases hvalid : MemValid F S s
+    · have hnot : ¬ (s.1 = t.1 ∧ s.2.1 = t.2.1) := by
+        intro h
+        exact hbad (Finset.mem_filter.mpr ⟨hs, hvalid, h⟩)
+      have hk : memKernel (memGhost F S ρ j) s t = 0 := by
+        rw [memGhostOrderedKernel_choiceSum F S ρ j s t B (hT s hs) htB]
+        apply Finset.sum_eq_zero
+        intro choices hchoices
+        have hne : ghostOutputState F s (fun i => (choices i).1.1)
+            (fun i => (choices i).2.1.1) (fun i k => (choices i).2.2 k) ≠ t := by
+          intro heq
+          have hcpt := ghostOutputState_eq_components F s t _ _ _ heq
+          exact hnot ⟨hcpt.1, hcpt.2.1⟩
+        simp [ghostOrderedChoiceKernelTerm, ghostOrderedKernelTerm, hne]
+      simp [hk]
+    · simp [memMeasure, hvalid]
+  let A := ∏ i : Fin K, ∏ k : Fin (slotCount S.x), ν i (t.2.1 i k)
+  have hA : 0 ≤ A := Finset.prod_nonneg fun i hi =>
+    Finset.prod_nonneg fun k hk => hν i (t.2.1 i k) (ht.2.1 i k)
+  have hmeasure (s : MemPoint S.x K) (hs : MemValid F S s) (ha : s.2.1 = t.2.1) :
+      memMeasure F S s * v ^ memSize s = A * ∏ i : Fin K, W i (s.2.2 i) := by
+    simp only [memMeasure, if_pos hs, ha, W, Finset.prod_mul_distrib]
+    rw [Finset.prod_pow_eq_pow_sum]
+    simp only [A, ν, memSize, mul_assoc]
+  have hμ (s : MemPoint S.x K) (hs : MemValid F S s) : 0 ≤ memMeasure F S s := by
+    rw [memMeasure, if_pos hs]
+    apply mul_nonneg
+    · exact Finset.prod_nonneg fun i hi =>
+        Finset.prod_nonneg fun k hk => hν i _ (hs.2.1 i k)
+    · apply Finset.prod_nonneg
+      intro i hi
+      apply div_nonneg
+      · exact List.prod_nonneg fun x hx => by
+          rcases List.mem_map.mp hx with ⟨e, he, rfl⟩
+          exact hν i e.1 (hs.2.2 i e he).1
+      · exact Nat.cast_nonneg _
+  let Tᵢ (i : Fin K) : Finset (List Particle) := T₀.image fun s => s.2.2 i
+  have hprime (i : Fin K) (l : List Particle) (hl : l ∈ Tᵢ i) :
+      ∀ e ∈ l, e.1 ∈ primeBand S.x (F.a i) := by
+    rcases Finset.mem_image.mp hl with ⟨s, hs, rfl⟩
+    exact fun e he => ((Finset.mem_filter.mp hs).2.1.2.2 i e he).1
+  have hlength (s : MemPoint S.x K) (i : Fin K) : (s.2.2 i).length ≤ memSize s :=
+    Finset.single_le_sum (s := Finset.univ) (f := fun k : Fin K => (s.2.2 k).length)
+      (fun k hk => Nat.zero_le _) (Finset.mem_univ i)
+  have hgroup (i : Fin K) :
+      (∑ l ∈ Tᵢ i, W i l * G i l) ≤ W i (t.2.2 i) * (E * Q i) := by
+    have hg := ghost_group_ordered_column_le (primeBand S.x (F.a i)) (ν i) (hν i)
+      (t.2.2 i) (fun e he => (ht.2.2 i e he).1) t.1 r b (c i) v hr hb (hc i) hv
+      (Tᵢ i) B (2 * B)
+      (by intro l hl; rcases Finset.mem_image.mp hl with ⟨s, hs, rfl⟩
+          exact (hlength s i).trans (hT s (Finset.mem_filter.mp hs).1))
+      (hprime i) (by have := hlength t i; omega)
+    have hmass := memoryNu_band_mass_le_two F i (hV i) hbp
+    have hExp : Real.exp (r * v * ∑ p ∈ primeBand S.x (F.a i), ν i p) ≤ E := by
+      apply Real.exp_le_exp.mpr
+      calc
+        _ ≤ r * v * 2 := mul_le_mul_of_nonneg_left hmass (mul_nonneg hr hv.le)
+        _ = _ := by dsimp [r]; ring
+    calc
+      _ = ∑ l ∈ Tᵢ i, ∑ D ∈ (hitIndices l t.1).powerset,
+          ∑ m ∈ Finset.range (2 * B + 1), ∑ batch : Fin m → primeBand S.x (F.a i),
+            if removeIndices l D ++ List.ofFn (fun k => anchorAt (batch k).1 t.1) = t.2.2 i then
+              W i l * r ^ D.card * b ^ (hitCount l t.1 - D.card) *
+                (c i ^ m / (m.factorial : ℝ)) * ∏ k : Fin m, ν i (batch k).1 else 0 := by
+        simp only [G, Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro l hl
+        apply Finset.sum_congr rfl
+        intro D hD
+        apply Finset.sum_congr rfl
+        intro m hm
+        apply Finset.sum_congr rfl
+        intro batch hbatch
+        dsimp [H]
+        split_ifs <;> ring
+      _ ≤ W i (t.2.2 i) * Real.exp (r * v * ∑ p ∈ primeBand S.x (F.a i), ν i p) * Q i := hg
+      _ ≤ W i (t.2.2 i) * E * Q i :=
+        mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left hExp (hW i _ (fun e he => (ht.2.2 i e he).1))) (hQ i)
+      _ = _ := by ring
+  let α (i : Fin K) := {l : List Particle // l ∈ Tᵢ i}
+  let toLists : {s // s ∈ T₀} → (i : Fin K) → α i :=
+    fun s i => ⟨s.1.2.2 i, Finset.mem_image.mpr ⟨s.1, s.2, rfl⟩⟩
+  have hinj : Function.Injective toLists := by
+    intro s u hsu
+    have hmem : s.1.2.2 = u.1.2.2 := by
+      funext i
+      exact congrArg Subtype.val (congrFun hsu i)
+    have hs := (Finset.mem_filter.mp s.2).2
+    have hu := (Finset.mem_filter.mp u.2).2
+    apply Subtype.ext
+    exact Prod.ext (hs.2.1.trans hu.2.1.symm)
+      (Prod.ext (hs.2.2.trans hu.2.2.symm) hmem)
+  let f (ls : (i : Fin K) → α i) := ∏ i : Fin K, W i (ls i).1 * G i (ls i).1
+  have hf (ls : (i : Fin K) → α i) : 0 ≤ f ls := Finset.prod_nonneg fun i hi =>
+    mul_nonneg (hW i _ (hprime i _ (ls i).2)) (hG i _)
+  have hprodSum :
+      (∑ s ∈ T₀, ∏ i : Fin K, W i (s.2.2 i) * G i (s.2.2 i)) ≤
+        ∏ i : Fin K, ∑ l ∈ Tᵢ i, W i l * G i l := by
+    calc
+      _ = ∑ s : {s // s ∈ T₀}, f (toLists s) :=
+        (sum_subtype_eq_sum_finset T₀
+          (fun s => ∏ i : Fin K, W i (s.2.2 i) * G i (s.2.2 i))).symm
+      _ = ∑ ls ∈ Finset.univ.image toLists, f ls := by
+        exact (Finset.sum_image (fun s hs u hu h => hinj h)).symm
+      _ ≤ ∑ ls : (i : Fin K) → α i, f ls := by
+        exact Finset.sum_le_sum_of_subset_of_nonneg (Finset.subset_univ _)
+          (fun ls hls hnot => hf ls)
+      _ = ∏ i : Fin K, ∑ l : α i, W i l.1 * G i l.1 :=
+        finite_pi_sum_prod α (fun i l => W i l.1 * G i l.1)
+      _ = _ := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        exact sum_subtype_eq_sum_finset (Tᵢ i) (fun l => W i l * G i l)
+  have hfinal :
+      (∑ s ∈ T, memMeasure F S s * ‖memKernel (memGhost F S ρ j) s t‖ * v ^ memSize s) ≤
+        memMeasure F S t * v ^ memSize t * ∏ i : Fin K, E * Q i := by
+    calc
+      _ = ∑ s ∈ T₀, memMeasure F S s * ‖memKernel (memGhost F S ρ j) s t‖ *
+          v ^ memSize s := by
+        symm
+        apply Finset.sum_subset (Finset.filter_subset _ _)
+        exact hzero
+      _ ≤ ∑ s ∈ T₀, A * ∏ i : Fin K, W i (s.2.2 i) * G i (s.2.2 i) := by
+        apply Finset.sum_le_sum
+        intro s hs
+        have hparts := (Finset.mem_filter.mp hs).2
+        calc
+          _ ≤ memMeasure F S s * (∏ i : Fin K, G i (s.2.2 i)) * v ^ memSize s :=
+            mul_le_mul_of_nonneg_right
+              (mul_le_mul_of_nonneg_left (hkernel s (hT s (Finset.mem_filter.mp hs).1) hparts.2.1)
+                (hμ s hparts.1)) (pow_nonneg hv.le _)
+          _ = _ := by
+            rw [show memMeasure F S s * (∏ i : Fin K, G i (s.2.2 i)) * v ^ memSize s =
+              (memMeasure F S s * v ^ memSize s) * ∏ i : Fin K, G i (s.2.2 i) by ring,
+              hmeasure s hparts.1 hparts.2.2, mul_assoc, ← Finset.prod_mul_distrib]
+      _ = A * ∑ s ∈ T₀, ∏ i : Fin K, W i (s.2.2 i) * G i (s.2.2 i) := by rw [Finset.mul_sum]
+      _ ≤ A * ∏ i : Fin K, ∑ l ∈ Tᵢ i, W i l * G i l := mul_le_mul_of_nonneg_left hprodSum hA
+      _ ≤ A * ∏ i : Fin K, W i (t.2.2 i) * (E * Q i) := by
+        apply mul_le_mul_of_nonneg_left _ hA
+        apply Finset.prod_le_prod₀
+        · intro i hi
+          exact Finset.sum_nonneg fun l hl => mul_nonneg (hW i l (hprime i l hl)) (hG i l)
+        · intro i hi
+          exact hgroup i
+      _ = _ := by rw [Finset.prod_mul_distrib, ← mul_assoc, ← hmeasure t ht rfl]
+  have hcdiv (i : Fin K) : c i / v = memoryEta S.x F.q_d j * bandMass S.x (F.a i) / (ρ * v) := by
+    dsimp [c]
+    ring
+  simpa only [E, Q, b, hcdiv] using hfinal
+
 private theorem memGhostProjected_rowSchur_le_of_params {K : ℕ}
     (F : PDFix K) (hF : F.Valid) (S : PDScale) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ)
     (j B : ℕ) (v : ℝ) (hv : 0 < v)
