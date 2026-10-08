@@ -6972,6 +6972,144 @@ private theorem memGhostProjected_colSchur_le_of_params {K : ℕ}
       mul_le_mul_of_nonneg_left haverage (mul_nonneg (hμ t) (pow_nonneg hv.le _))
     _ = _ := by dsimp [E]; ring
 
+set_option maxHeartbeats 1000000 in
+/-- On finite support below the memory cutoff, the projected ghost operator
+is exactly its finite kernel sum. -/
+private theorem memGhostProjected_finite_kernel {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (j B : ℕ)
+    (s : MemPoint S.x K) (hsB : memSize s ≤ B)
+    (T : Finset (MemPoint S.x K)) (f : MemPoint S.x K → ℂ)
+    (hsupp : ∀ t, t ∉ T → f t = 0) (hT : ∀ t ∈ T, memSize t ≤ B) :
+    memGhost F S ρ j (memorySym f) s =
+      ∑ t ∈ T,
+        memKernel (fun g => memGhost F S ρ j (memorySym g)) s t * f t := by
+  classical
+  have hdecomp (u : MemPoint S.x K) :
+      (∑ t ∈ T, (if u = t then (1 : ℂ) else 0) * f t) = f u := by
+    by_cases hu : u ∈ T
+    · simp [eq_comm, hu]
+    · simp [eq_comm, hu, hsupp u hu]
+  have hsym (u : MemPoint S.x K) :
+      memorySym f u = ∑ t ∈ T, memorySym (fun u' => if u' = t then (1 : ℂ) else 0) u * f t := by
+    simp only [memorySym]
+    calc
+      _ = (Fintype.card (MemoryPermutation u) : ℂ)⁻¹ *
+          ∑ σ : MemoryPermutation u, ∑ t ∈ T,
+            (if memoryPermute u σ = t then (1 : ℂ) else 0) * f t := by
+        congr 1
+        apply Finset.sum_congr rfl
+        intro σ hσ
+        exact (hdecomp (memoryPermute u σ)).symm
+      _ = _ := by
+        rw [Finset.sum_comm, Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro t ht
+        rw [← Finset.sum_mul]
+        ring
+  have hlarge (u : MemPoint S.x K) (hu : B < memSize u) : memorySym f u = 0 := by
+    have hf (σ : MemoryPermutation u) : f (memoryPermute u σ) = 0 := by
+      apply hsupp
+      intro hmem
+      have hsize := hT (memoryPermute u σ) hmem
+      rw [memSize_memoryPermute] at hsize
+      omega
+    simp [memorySym, hf]
+  let H (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+      (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)}) : ℂ :=
+    if hD : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1 then
+      ((∏ i : Fin K,
+        ghostGroupCoeff F S ρ j i (hitCount (s.2.2 i) s.1) (D i).card (m i)
+          (List.ofFn fun k => (new i k).1) : ℝ) : ℂ) *
+        memorySym f (ghostOutputState F s D m new)
+    else 0
+  have hfinite : memGhost F S ρ j (memorySym f) s =
+      ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            H D m new := by
+    change logGhost F S ρ j (fun σL => memorySym f σL.1) (s, []) = _
+    unfold logGhost
+    change (∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+      ∑' m : Fin K → ℕ,
+        ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+          H D m new) = _
+    apply Finset.sum_congr rfl
+    intro D hD
+    apply tsum_eq_sum
+    intro m hm
+    apply Finset.sum_eq_zero
+    intro new hnew
+    have hnot : ¬ ∀ i : Fin K, m i ≤ 2 * B := by
+      intro h
+      apply hm
+      simpa only [GhostBatchLengths, Fintype.mem_piFinset, Finset.mem_range] using
+        (fun i => by have := h i; omega : ∀ i : Fin K, m i < 2 * B + 1)
+    rcases not_forall.mp hnot with ⟨i, hi⟩
+    have hout := ghostOutputState_memSize_gt_of_large_batch F s B D m new hsB i
+      (by omega : 2 * B < m i)
+    by_cases hg : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1
+    · simp only [H, dif_pos hg, hlarge _ hout, mul_zero]
+    · simp only [H, dif_neg hg]
+  have hterm (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) (m : Fin K → ℕ)
+      (new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)}) :
+      H D m new = ∑ t ∈ T, ghostKernelTerm F S s ρ j t D m new * f t := by
+    by_cases hg : ∀ i, D i ⊆ hitIndices (s.2.2 i) s.1
+    · simp only [H, ghostKernelTerm, dif_pos hg]
+      rw [hsym, Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      ring
+    · simp [H, ghostKernelTerm, hg]
+  have hswap (D : (i : Fin K) → Finset (Fin (s.2.2 i).length)) :
+      (∑ m ∈ GhostBatchLengths K B,
+        ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+          ∑ t ∈ T, ghostKernelTerm F S s ρ j t D m new * f t) =
+        ∑ t ∈ T, ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostKernelTerm F S s ρ j t D m new * f t := by
+    calc
+      _ = ∑ m ∈ GhostBatchLengths K B, ∑ t ∈ T,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostKernelTerm F S s ρ j t D m new * f t := by
+        apply Finset.sum_congr rfl
+        intro m hm
+        exact Finset.sum_comm
+      _ = _ := Finset.sum_comm
+  calc
+    _ = ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ∑ t ∈ T, ghostKernelTerm F S s ρ j t D m new * f t := by
+      rw [hfinite]
+      apply Finset.sum_congr rfl
+      intro D hD
+      apply Finset.sum_congr rfl
+      intro m hm
+      apply Finset.sum_congr rfl
+      intro new hnew
+      exact hterm D m new
+    _ = ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length), ∑ t ∈ T,
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostKernelTerm F S s ρ j t D m new * f t := by
+      apply Finset.sum_congr rfl
+      intro D hD
+      exact hswap D
+    _ = ∑ t ∈ T, ∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+        ∑ m ∈ GhostBatchLengths K B,
+          ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+            ghostKernelTerm F S s ρ j t D m new * f t := Finset.sum_comm
+    _ = ∑ t ∈ T,
+        (∑ D : (i : Fin K) → Finset (Fin (s.2.2 i).length),
+          ∑ m ∈ GhostBatchLengths K B,
+            ∑ new : (i : Fin K) → Fin (m i) → {p // p ∈ primeBand S.x (F.a i)},
+              ghostKernelTerm F S s ρ j t D m new) * f t := by
+      simp only [Finset.sum_mul]
+    _ = _ := by
+      apply Finset.sum_congr rfl
+      intro t ht
+      rw [memGhostProjectedKernel_finite F S ρ j s t B hsB (hT t ht)]
+
 private theorem memGhostProjected_rowSchur_le_of_params {K : ℕ}
     (F : PDFix K) (hF : F.Valid) (S : PDScale) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ)
     (j B : ℕ) (v : ℝ) (hv : 0 < v)
