@@ -1094,6 +1094,64 @@ private theorem covol_local_fourier_ball_inversion (v : FinPlace F)
           0 := by rw [hresult]; simp [hx]
       _ = (ball v n).indicator (fun _ => (1 : ℂ)) (-x) := by simp [hxneg, hx]
 
+private noncomputable def covol_base_locHaar (v : FinPlace F) : LocHaar v :=
+  Classical.choice (LocHaar.nonempty v)
+
+private noncomputable def covol_local_conductor_exponent
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : S.Sf) : ℕ :=
+  (Classical.choose (covol_local_addchar_conductor D S A v)).toNat
+
+private noncomputable def covol_local_selfdual_at
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : S.Sf) :
+    Measure (v.1.adicCompletion F) :=
+  covol_local_selfdual_measure v.1 (covol_base_locHaar v.1)
+    (covol_local_conductor_exponent D S A v)
+
+private theorem covol_local_selfdual_at_isHaar
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : S.Sf) :
+    Measure.IsAddHaarMeasure (covol_local_selfdual_at D S A v) := by
+  exact covol_local_selfdual_measure_isHaar v.1 (covol_base_locHaar v.1)
+    (covol_local_conductor_exponent D S A v)
+
+private theorem covol_local_integer_ball (v : FinPlace F) :
+    ball v 0 = (v.adicCompletionIntegers F : Set (v.adicCompletion F)) := by
+  ext x
+  rw [ball]
+  change Valued.v x ≤ WithZero.exp (-(0 : ℤ)) ↔ x ∈ v.adicCompletionIntegers F
+  rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+  simp
+
+private theorem covol_local_integer_indicator_fourier_inversion
+    (D : FieldData F) (S : SData F CE condη) (A : AddCharData F) (v : S.Sf)
+    (x : v.1.adicCompletion F) :
+    covol_local_fourier v.1 (A.ψ v.1) (covol_local_selfdual_at D S A v)
+      (covol_local_fourier v.1 (A.ψ v.1) (covol_local_selfdual_at D S A v)
+        ((v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)).indicator
+          (fun _ => (1 : ℂ)))) x =
+      ((v.1.adicCompletionIntegers F : Set (v.1.adicCompletion F)).indicator
+        (fun _ => (1 : ℂ))) (-x) := by
+  let c : ℤ := Classical.choose (covol_local_addchar_conductor D S A v)
+  let d : ℕ := covol_local_conductor_exponent D S A v
+  let ν : Measure (v.1.adicCompletion F) := covol_local_selfdual_at D S A v
+  letI : Measure.IsAddHaarMeasure ν := covol_local_selfdual_at_isHaar D S A v
+  have hspec := Classical.choose_spec (covol_local_addchar_conductor D S A v)
+  have hc : ∀ y, Valued.v y ≤ WithZero.exp c → A.ψ v.1 y = 1 := hspec.2.1
+  have hbdy : ∃ y, Valued.v y ≤ WithZero.exp (c + 1) ∧ A.ψ v.1 y ≠ 1 := hspec.2.2
+  have hcd : (d : ℤ) = c := by
+    dsimp [d, covol_local_conductor_exponent, c]
+    exact Int.toNat_of_nonneg hspec.1
+  have hvol : ν.real (ball v.1 0) * ν.real (ball v.1 (-c - 0)) = 1 := by
+    change (covol_local_selfdual_measure v.1 (covol_base_locHaar v.1) d).real
+        (ball v.1 0) *
+      (covol_local_selfdual_measure v.1 (covol_base_locHaar v.1) d).real
+      (ball v.1 (-c - 0)) = 1
+    have hpair := covol_local_selfdual_measure_ball_pair v.1
+      (covol_base_locHaar v.1) d 0
+    simpa [hcd] using hpair
+  have hinv := covol_local_fourier_ball_inversion v.1 (A.ψ v.1) ν c 0 hc hbdy hvol x
+  have hO := covol_local_integer_ball v.1
+  simpa [ν, hO] using hinv
+
 private theorem measurable_fundamental_domain_measure_one
     (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
     (μ : S.SelfDualMeasure A) (K : Set S.FS)
