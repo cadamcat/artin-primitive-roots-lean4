@@ -8,6 +8,18 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexMajorant
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.CubeClasses
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.LocalValuation
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.FiniteMajorant
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».LocalModel
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.GoodFactor
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.GaussBound
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.SphericalBound
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.QuotientCoordinates
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.ValuationGeometry
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.OrdinaryClasses
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealEncoding
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.RationalEncoding
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealMajorant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.LocalProduct
+
 set_option autoImplicit false
 open NumberField IsDedekindDomain
 open scoped Classical
@@ -52,11 +64,40 @@ structure GlobalDatum (P : CoverPackage D S H A) where
 def GlobalDatum.Δ {P : CoverPackage D S H A} (G : GlobalDatum P) : Subgroup Fˣ :=
   ⨅ v : FinPlace F, (G.Alag v).comap (toLoc v)
 
+/-- Choose the exceptional or tame local model at each finite place. -/
+theorem globalLocal_models (hSt : ∀ v, SteinbergAt H v) :
+    ∀ v : FinPlace F, Nonempty (GlobalLocalModel D H v (v ∉ S.Sf)) := by
+  intro v
+  by_cases hv : v ∈ S.Sf
+  · obtain ⟨L, hc, hl⟩ := globalLocal_lagrangian D H v
+    obtain ⟨M, _⟩ := globalLocal_wild_model D H v L hc hl
+    simpa only [hv, not_true_eq_false] using
+      (show Nonempty (GlobalLocalModel D H v False) from ⟨M⟩)
+  · simpa only [hv, not_false_eq_true] using
+      globalLocal_tame_model D H v (hSt v) (fun h => hv (S.over6 v h))
+
 /-- **eis:global-datum** (existence). The strengthened datum is required by C6 of
 `sol-gate-theta`. -/
 theorem exists_globalDatum (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt H v) :
     Nonempty (GlobalDatum P) := by
-  sorry
+  classical
+  let M : ∀ v, GlobalLocalModel D H v (v ∉ S.Sf) :=
+    fun v => Classical.choice (globalLocal_models hSt v)
+  exact ⟨{
+    T := fun v => (M v).T
+    B := fun v hv => (M v).B hv
+    Alag := fun v => (M v).Alag
+    alag_cubes := fun v => (M v).cubes
+    alag_lagrangian := fun v => (M v).lagrangian
+    lam := fun v => (M v).lam
+    ω := fun _ _ => 1
+    lam_equiv := by intro v y hy x; simpa using (M v).lam_fixed y hy x
+    lam_ne := fun v => (M v).lam_ne
+    alag_tame := fun v hv => (M v).alag_tame hv
+    ω_tame := by intros; rfl
+    lam_tame := fun v hv => (M v).lam_tame hv
+    ω_rational := by intros; simp
+  }⟩
 
 /-- **def:global-section**: a factorizable section of `I(σ_𝔸, s)`, spherical outside `T0 ⊇ S_f`.
 Corrected per rev-theta to include archimedean smoothness along the root subgroups; C11 of
@@ -3478,6 +3519,212 @@ theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
         scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out δ)) * g)) := by
   sorry
 
+/-- The local Whittaker factor is one outside the exceptional support. -/
+theorem whit_good_factor (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x : P.RP) (δ : Fˣ) (v : FinPlace F) (hv : v ∉ Fs.T0)
+    (hu : IsLocUnit v (toLoc v δ))
+    (hk : P.compF v x ∈ (P.tame v (fun h => hv (Fs.sub h))).Kmax) :
+    G.lam v ((G.T v).σa (toLoc v δ)
+      (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) = 1 := by
+  have hvS : v ∉ S.Sf := fun h => hv (Fs.sub h)
+  have hmem : toLoc v δ ∈ G.Alag v :=
+    (G.alag_tame v hvS (toLoc v δ)).2 ⟨0, toLoc v δ, hu, by simp⟩
+  have hfixed : ∀ z, G.lam v ((G.T v).σa (toLoc v δ) z) = G.lam v z := by
+    intro z
+    rw [G.lam_equiv v (toLoc v δ) hmem z, G.ω_tame v hvS (toLoc v δ) hmem, one_mul]
+  exact whit_good_local_factor (P.loc v) (P.tame v hvS) (G.T v) (G.B v hvS) A (μ v)
+    (fun h => hvS (S.over6 v h)) (fun h => hvS (S.different_mem v h)) s (Fs.f v)
+    (Fs.f_sec v) (Fs.f_sph v hv).1 (Fs.f_sph v hv).2 (G.lam v) (G.lam_tame v hvS)
+    (toLoc v δ) hfixed (P.compF v x) hk
+
+/-- A fixed lift and rational torus element have only finitely many nonidentity factors. -/
+theorem whit_finite_mulSupport (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x : P.RP) (δ : Fˣ) :
+    (Function.mulSupport fun v => G.lam v ((G.T v).σa (toLoc v δ)
+      (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v))))).Finite := by
+  refine ((Fs.T0.finite_toSet.union (P.comp_restricted x)).union
+    (whit_rational_nonunit_finite δ)).subset ?_
+  intro v hv
+  by_contra hvout
+  have hvT : v ∉ Fs.T0 := by
+    intro h
+    exact hvout (Or.inl (Or.inl h))
+  have hvS : v ∉ S.Sf := fun h => hvT (Fs.sub h)
+  have hu : IsLocUnit v (toLoc v δ) := by
+    by_contra h
+    exact hvout (Or.inr h)
+  have hk : P.compF v x ∈ (P.tame v hvS).Kmax := by
+    by_contra h
+    exact hvout (Or.inl (Or.inr ⟨hvS, h⟩))
+  exact hv (whit_good_factor P G μ Fs x δ v hvT hu hk)
+
+/-- The unfolded summand evaluated at a specified restricted-product lift. -/
+def whitLiftTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x : P.RP) (δ : Fˣ ⧸ G.Δ) : ℂ :=
+  (∏ᶠ v, G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+    (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v))))) *
+    ∏ w, jacquetC (rtr (P.compC w x) (Fs.fC w))
+
+/-- Changing finitely many local Jacquet vectors preserves absolute convergence. -/
+theorem whit_jacquet_family_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x : P.RP)
+    (E : Finset (FinPlace F)) (hE : Fs.T0 ⊆ E)
+    (hcomp : ∀ v (hv : v ∉ E),
+      P.compF v x ∈ (P.tame v (fun h => hv (hE (Fs.sub h)))).Kmax)
+    (z : ∀ v : FinPlace F, (G.T v).V)
+    (hz : ∀ v, v ∉ E → z v =
+      jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v))) :
+    Summable (fun δ : Fˣ ⧸ G.Δ =>
+      ‖∏ᶠ v, G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (z v))‖) := by
+  have hfin (v : FinPlace F) : Finite ((v.adicCompletion F)ˣ ⧸ G.Alag v) := by
+    obtain ⟨w, hw⟩ : ∃ w : (G.T v).V, G.lam v w ≠ 0 := by
+      by_contra h
+      push Not at h
+      apply G.lam_ne v
+      ext w
+      exact h w
+    letI : Nontrivial (G.T v).V := ⟨⟨w, 0, by
+      intro h
+      apply hw
+      rw [h, map_zero]⟩⟩
+    exact whit_alag_quotient_finite (G.T v) (G.Alag v) (G.alag_cubes v)
+  have hbounds (v : FinPlace F) : ∃ c : ℝ, 0 ≤ c ∧
+      ∀ t : (v.adicCompletion F)ˣ, ‖G.lam v ((G.T v).σa t (z v))‖ ≤ c := by
+    let R := (G.T v).σa_finite.toFinset
+    refine ⟨∑ ρ ∈ R, ‖G.lam v (ρ (z v))‖,
+      Finset.sum_nonneg (fun ρ _ => norm_nonneg _), ?_⟩
+    intro t
+    apply Finset.single_le_sum (f := fun ρ => ‖G.lam v (ρ (z v))‖)
+      (a := (G.T v).σa t) (fun ρ _ => norm_nonneg _)
+    exact (G.T v).σa_finite.mem_toFinset.mpr ⟨t, rfl⟩
+  choose c hc hbound using hbounds
+  let a (v : FinPlace F) (δ : Fˣ ⧸ G.Δ) : ℂ :=
+    G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (z v))
+  refine whit_local_product_summable G.Alag E
+    (fun v hv => G.alag_tame v (fun h => hv (hE (Fs.sub h))))
+    (fun v _ => hfin v) a ?_ (2 * s.re) (by linarith) c
+    (fun v _ => hc v) (fun δ v _ => hbound v (toLoc v (Quotient.out δ))) ?_
+  · intro δ
+    refine (E.finite_toSet.union
+      (whit_finite_mulSupport P G μ Fs x (Quotient.out δ))).subset ?_
+    intro v hv
+    by_cases hvE : v ∈ E
+    · exact Or.inl hvE
+    · refine Or.inr ?_
+      change G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (z v)) ≠ 1 at hv
+      change G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) ≠ 1
+      simpa only [hz v hvE] using hv
+  · intro δ v hv
+    have hvT : v ∉ Fs.T0 := fun h => hv (hE h)
+    have hvS : v ∉ S.Sf := fun h => hvT (Fs.sub h)
+    dsimp [a]
+    rw [hz v hv]
+    have hdec := (whit_ordv_geometry v).2.2.2.2 (toLoc v (Quotient.out δ))
+    have hloc := whit_spherical_factor_norm_le (P.loc v) (P.tame v hvS)
+      (G.T v) (G.B v hvS) A (μ v)
+      (fun h => hvS (S.over6 v h)) (fun h => hvS (S.different_mem v h))
+      s (Fs.f v) (Fs.f_sec v) (Fs.f_sph v hvT).1 (Fs.f_sph v hvT).2
+      (G.lam v) (G.lam_tame v hvS)
+      (ordv v (toLoc v (Quotient.out δ))) (unitPart v (toLoc v (Quotient.out δ)))
+      hdec.1 (P.compF v x) (hcomp v hv)
+    rw [← hdec.2] at hloc
+    convert hloc using 1 <;> first | rfl | simp only [neg_mul]
+
+/-- Absolute convergence of the unfolded series at any lift. -/
+theorem whitLiftTerm_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x : P.RP) :
+    Summable (fun δ : Fˣ ⧸ G.Δ => ‖whitLiftTerm P G μ Fs x δ‖) := by
+  let E := Fs.T0 ∪ (P.comp_restricted x).toFinset
+  have hE : Fs.T0 ⊆ E := Finset.subset_union_left
+  have hcomp (v : FinPlace F) (hv : v ∉ E) :
+      P.compF v x ∈ (P.tame v (fun h => hv (hE (Fs.sub h)))).Kmax := by
+    by_contra hk
+    apply hv
+    apply Finset.mem_union_right
+    exact (P.comp_restricted x).mem_toFinset.mpr
+      ⟨(fun h => hv (hE (Fs.sub h))), hk⟩
+  have hsum := whit_jacquet_family_summable P G μ hs Fs x E hE hcomp
+    (fun v => jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))
+    (fun _ _ => rfl)
+  simpa only [whitLiftTerm, norm_mul] using
+    hsum.mul_right ‖∏ w, jacquetC (rtr (P.compC w x) (Fs.fC w))‖
+
+/-- Central phases of a lift cancel in the local Jacquet product. -/
+theorem whit_atLift (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x : P.RP) :
+    whittakerE P G μ Fs (P.q x) = (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
+  classical
+  let y := Function.surjInv P.q_surj (P.q x)
+  have hq : P.q y = P.q x := Function.surjInv_eq P.q_surj (P.q x)
+  obtain ⟨ζ, hζ, hprod, hF, hC⟩ := (P.q_eq y x).1 hq
+  let ev : rootsOfUnity 3 ℂ →* ℂ :=
+    { toFun := fun z => ((z : ℂˣ) : ℂ)
+      map_one' := rfl
+      map_mul' := fun _ _ => rfl }
+  have hev : (Function.mulSupport fun v => ev (ζ v)).Finite := by
+    refine hζ.subset ?_
+    intro v hv
+    contrapose! hv
+    simp only [Function.mem_mulSupport, not_not] at hv ⊢
+    rw [hv, ev.map_one]
+  have hevprod : (∏ᶠ v, ev (ζ v)) = 1 := by
+    rw [← ev.map_finprod hζ, hprod, ev.map_one]
+  have hlocal (δ : Fˣ) (v : FinPlace F) :
+      G.lam v ((G.T v).σa (toLoc v δ)
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v y) (Fs.f v)))) =
+      ev (ζ v) * G.lam v ((G.T v).σa (toLoc v δ)
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) := by
+    have htr : rtr ((P.loc v).z (ζ v) * P.compF v x) (Fs.f v) =
+        rtr ((P.loc v).z (ζ v)) (rtr (P.compF v x) (Fs.f v)) := by
+      funext h
+      simp only [rtr, mul_assoc]
+    rw [hF v, htr, (jacquet_equiv (P.loc v) (G.T v) A (μ v) s
+      (rtr (P.compF v x) (Fs.f v)) ((Fs.f_sec v).rtr (P.compF v x))).2 (ζ v)]
+    simp only [map_smul, smul_eq_mul]
+    rfl
+  unfold whittakerE
+  apply congrArg (fun z : ℂ => (κF F)⁻¹ * z)
+  apply tsum_congr
+  intro δ
+  change whitLiftTerm P G μ Fs y δ = whitLiftTerm P G μ Fs x δ
+  unfold whitLiftTerm
+  have hfinite :
+      (∏ᶠ v, G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v y) (Fs.f v))))) =
+      ∏ᶠ v, G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) := by
+    simp_rw [hlocal]
+    rw [finprod_mul_distrib hev (whit_finite_mulSupport P G μ Fs x (Quotient.out δ)),
+      hevprod, one_mul]
+  rw [hfinite]
+  congr 1
+  apply Finset.prod_congr rfl
+  intro w _
+  rw [hC w]
+
+/-- The small cell vanishes and the big cell tiles the archimedean integral. -/
+theorem whit_unfold_integral (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (g : P.tc.G)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) = scalarOf P G Fs.f Fs.fC h)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume)
+    (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (ν : F) (infEmbA ξ) = 1)
+    (x : P.RP) (hx : P.q x = P.tc.rat (diagGL ν) * g) :
+    torusCoeff P (eisenstein P G Fs) g Pd (ν : F) =
+      (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
+  sorry
+
 /-- **eis:whittaker** (unfolding): the `ν`-th torus coefficient is `W_E(a(ν) g)`, for `ν` in the dual
 lattice. -/
 theorem eisenstein_whittaker (P : CoverPackage D S H A) (G : GlobalDatum P)
@@ -3491,6 +3738,185 @@ theorem eisenstein_whittaker (P : CoverPackage D S H A) (G : GlobalDatum P)
     (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (ν : F) (infEmbA ξ) = 1) :
     torusCoeff P (eisenstein P G Fs) g Pd (ν : F) =
       whittakerE P G μ Fs (P.tc.rat (diagGL ν) * g) := by
+  obtain ⟨x, hx⟩ := P.q_surj (P.tc.rat (diagGL ν) * g)
+  rw [← hx, whit_atLift P G μ hs Fs x]
+  exact whit_unfold_integral P G μ hs Fs g 𝔞 h𝔞 hfix Pd hPd ν hν x hx
+
+/-- Local scalar translation factors pass through the convergent Whittaker series. -/
+theorem whit_translate_scalar (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (y x : P.RP)
+    (cf : FinPlace F → ℂ) (hcf : (Function.mulSupport cf).Finite)
+    (cC : InfinitePlace F → ℂ)
+    (hF : ∀ v, jacquet (P.loc v) A (μ v)
+      (rtr (P.compF v y) (rtr (P.compF v x) (Fs.f v))) =
+      cf v • jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))
+    (hC : ∀ w, jacquetC (rtr (P.compC w y) (rtr (P.compC w x) (Fs.fC w))) =
+      cC w * jacquetC (rtr (P.compC w x) (Fs.fC w))) :
+    whittakerE P G μ Fs (P.q (y * x)) =
+      ((∏ᶠ v, cf v) * ∏ w, cC w) * whittakerE P G μ Fs (P.q x) := by
+  classical
+  have htrF (v : FinPlace F) :
+      rtr (P.compF v (y * x)) (Fs.f v) =
+        rtr (P.compF v y) (rtr (P.compF v x) (Fs.f v)) := by
+    funext h
+    simp only [rtr, map_mul, mul_assoc]
+  have htrC (w : InfinitePlace F) :
+      rtr (P.compC w (y * x)) (Fs.fC w) =
+        rtr (P.compC w y) (rtr (P.compC w x) (Fs.fC w)) := by
+    funext h
+    simp only [rtr, map_mul, mul_assoc]
+  have hlocal (δ : Fˣ ⧸ G.Δ) (v : FinPlace F) :
+      G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v (y * x)) (Fs.f v)))) =
+      cf v * G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) := by
+    rw [htrF v, hF v]
+    simp only [map_smul, smul_eq_mul]
+  have hcomplex (w : InfinitePlace F) :
+      jacquetC (rtr (P.compC w (y * x)) (Fs.fC w)) =
+        cC w * jacquetC (rtr (P.compC w x) (Fs.fC w)) := by
+    rw [htrC w, hC w]
+  have hterm (δ : Fˣ ⧸ G.Δ) :
+      whitLiftTerm P G μ Fs (y * x) δ =
+        ((∏ᶠ v, cf v) * ∏ w, cC w) * whitLiftTerm P G μ Fs x δ := by
+    unfold whitLiftTerm
+    simp_rw [hlocal δ, hcomplex]
+    rw [finprod_mul_distrib hcf
+      (whit_finite_mulSupport P G μ Fs x (Quotient.out δ)), Finset.prod_mul_distrib]
+    ac_rfl
+  have hsum := (whitLiftTerm_summable P G μ hs Fs x).of_norm
+  rw [whit_atLift P G μ hs Fs (y * x), whit_atLift P G μ hs Fs x]
+  simp_rw [hterm]
+  rw [hsum.tsum_mul_left ((∏ᶠ v, cf v) * ∏ w, cC w)]
+  ac_rfl
+
+/-- Genuineness follows by inserting the center into one local component. -/
+theorem whit_center (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (ζ : rootsOfUnity 3 ℂ) (g : P.tc.G) :
+    whittakerE P G μ Fs (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * whittakerE P G μ Fs g := by
+  classical
+  obtain ⟨I, hI, hImax⟩ :=
+    Ring.exists_maximal_of_not_isField (RingOfIntegers.not_isField F)
+  let v : FinPlace F := ⟨I, hImax.isPrime, hI⟩
+  obtain ⟨x, hx⟩ := P.q_surj g
+  let y : P.RP := P.incl v ((P.loc v).z ζ)
+  let cf : FinPlace F → ℂ := fun w => if w = v then ((ζ : ℂˣ) : ℂ) else 1
+  have hcf : (Function.mulSupport cf).Finite := by
+    refine (Set.finite_singleton v).subset ?_
+    intro w hw
+    change w = v
+    by_contra hwv
+    exact hw (by simp only [cf, if_neg hwv])
+  have hprod : (∏ᶠ w, cf w) = ((ζ : ℂˣ) : ℂ) := by
+    calc
+      (∏ᶠ w, cf w) = cf v := finprod_eq_single cf v (by
+        intro w hw
+        simp only [cf, if_neg hw])
+      _ = ((ζ : ℂˣ) : ℂ) := by simp only [cf, if_pos rfl]
+  have hlocal (w : FinPlace F) :
+      jacquet (P.loc w) A (μ w)
+        (rtr (P.compF w y) (rtr (P.compF w x) (Fs.f w))) =
+      cf w • jacquet (P.loc w) A (μ w) (rtr (P.compF w x) (Fs.f w)) := by
+    by_cases hw : w = v
+    · subst w
+      dsimp only [y]
+      rw [P.incl_compF]
+      simpa only [cf, if_pos rfl] using
+        (jacquet_equiv (P.loc v) (G.T v) A (μ v) s
+          (rtr (P.compF v x) (Fs.f v)) ((Fs.f_sec v).rtr (P.compF v x))).2 ζ
+    · have hother : P.compF w y = 1 :=
+        P.incl_compF_other v w (Ne.symm hw) ((P.loc v).z ζ)
+      rw [hother]
+      simp only [cf, if_neg hw, one_smul]
+      apply congrArg (jacquet (P.loc w) A (μ w))
+      funext h
+      simp only [rtr, mul_one]
+  have hcomplex (w : InfinitePlace F) :
+      jacquetC (rtr (P.compC w y) (rtr (P.compC w x) (Fs.fC w))) =
+      (1 : ℂ) * jacquetC (rtr (P.compC w x) (Fs.fC w)) := by
+    have hcomp : P.compC w y = 1 := P.incl_compC v ((P.loc v).z ζ) w
+    rw [hcomp, one_mul]
+    apply congrArg jacquetC
+    funext h
+    simp only [rtr, mul_one]
+  have hW := whit_translate_scalar P G μ hs Fs y x cf hcf (fun _ => 1) hlocal hcomplex
+  have hy : P.q y = P.tc.z ζ := (P.q_incl v ((P.loc v).z ζ)).trans (P.emb_z v ζ)
+  have hqx : P.q (y * x) = P.tc.z ζ * g := by rw [map_mul, hy, hx]
+  rw [hqx, hprod, hx] at hW
+  simpa only [Finset.prod_const_one, mul_one] using hW
+
+theorem whit_unipotentS (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (u : S.FS) (g : P.tc.G) :
+    whittakerE P G μ Fs (P.tc.nS (Multiplicative.ofAdd u) * g) =
+      S.e A u * whittakerE P G μ Fs g := by
+  classical
+  obtain ⟨x, hx⟩ := P.q_surj g
+  obtain ⟨y, hy, hFy, hCy⟩ := P.nS_components u
+  let cf : FinPlace F → ℂ := fun v =>
+    if hv : v ∈ S.Sf then A.ψ v (u.1 ⟨v, hv⟩) else 1
+  have hsupport : Function.mulSupport cf ⊆ (S.Sf : Set (FinPlace F)) := by
+    intro v hv
+    change v ∈ S.Sf
+    by_contra hvS
+    exact hv (by simp only [cf, dif_neg hvS])
+  have hcf : (Function.mulSupport cf).Finite := S.Sf.finite_toSet.subset hsupport
+  have hprod : (∏ᶠ v, cf v) = ∏ v : S.Sf, A.ψ v.1 (u.1 v) := by
+    rw [finprod_eq_prod_of_mulSupport_subset cf hsupport,
+      ← Finset.prod_coe_sort S.Sf cf]
+    apply Finset.prod_congr rfl
+    intro v _
+    simp only [cf, dif_pos v.property]
+  have hlocal (v : FinPlace F) :
+      jacquet (P.loc v) A (μ v)
+        (rtr (P.compF v y) (rtr (P.compF v x) (Fs.f v))) =
+      cf v • jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)) := by
+    by_cases hv : v ∈ S.Sf
+    · rw [hFy v, dif_pos hv]
+      simpa only [cf, dif_pos hv] using
+        (jacquet_equiv (P.loc v) (G.T v) A (μ v) s
+          (rtr (P.compF v x) (Fs.f v)) ((Fs.f_sec v).rtr (P.compF v x))).1
+            (u.1 ⟨v, hv⟩)
+    · rw [hFy v, dif_neg hv]
+      simp only [cf, dif_neg hv, one_smul]
+      apply congrArg (jacquet (P.loc v) A (μ v))
+      funext h
+      simp only [rtr, mul_one]
+  have hs0 : 0 < s.re := by linarith only [hs]
+  have hcomplex (w : InfinitePlace F) :
+      jacquetC (rtr (P.compC w y) (rtr (P.compC w x) (Fs.fC w))) =
+      psiC (u.2 w) * jacquetC (rtr (P.compC w x) (Fs.fC w)) := by
+    have hf : IsSectionC s (rtr (P.compC w x) (Fs.fC w)) := by
+      intro t a h
+      simpa only [rtr, mul_assoc] using (Fs.fC_sec w).1 t a (h * P.compC w x)
+    have hcont : Continuous (rtr (P.compC w x) (Fs.fC w)) := by
+      change Continuous (fun h : PGL2 ℂ => Fs.fC w (h * P.compC w x))
+      exact (Fs.fC_sec w).2.comp (continuous_id.mul continuous_const)
+    rw [hCy w]
+    change jacquetC (rtr (nC (u.2 w)) (rtr (P.compC w x) (Fs.fC w))) = _
+    exact jacquetC_equiv s hs0 (rtr (P.compC w x) (Fs.fC w)) hf hcont (u.2 w)
+  have hW := whit_translate_scalar P G μ hs Fs y x cf hcf
+    (fun w => psiC (u.2 w)) hlocal hcomplex
+  have hqx : P.q (y * x) = P.tc.nS (Multiplicative.ofAdd u) * g := by
+    rw [map_mul, hy, hx]
+  rw [hqx, hprod, hx] at hW
+  simpa only [SData.e] using hW
+
+theorem whit_unipotentExterior (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (u : v.adicCompletion F) (g : P.tc.G) :
+    whittakerE P G μ Fs (P.tc.n v (Multiplicative.ofAdd u) * g) =
+      A.ψ v u * whittakerE P G μ Fs g := by
+  sorry
+
+theorem whit_rightInvariant (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (k : P.tc.G)
+    (hk : ∀ h, scalarOf P G Fs.f Fs.fC (h * k) = scalarOf P G Fs.f Fs.fC h)
+    (g : P.tc.G) : whittakerE P G μ Fs (g * k) = whittakerE P G μ Fs g := by
   sorry
 
 /-- **eis:whittaker-equiv**: `W_E` is genuine, `(N(F_S), e)`- and `(N(K_v), ψ_v)`-equivariant,
@@ -3504,7 +3930,163 @@ theorem whittakerE_equiv (P : CoverPackage D S H A) (G : GlobalDatum P)
       A.ψ v x * whittakerE P G μ Fs g) ∧
     (∀ k : P.tc.G, (∀ h, scalarOf P G Fs.f Fs.fC (h * k) = scalarOf P G Fs.f Fs.fC h) →
       ∀ g, whittakerE P G μ Fs (g * k) = whittakerE P G μ Fs g) := by
-  sorry
+  exact ⟨whit_center P G μ hs Fs, whit_unipotentS P G μ hs Fs,
+    whit_unipotentExterior P G μ hs Fs, whit_rightInvariant P G μ hs Fs⟩
+
+/-- The exterior Jacquet product, which stays fixed as the S-part varies. -/
+def whitExteriorTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x0 : P.RP) (δ : Fˣ ⧸ G.Δ) : ℂ :=
+  ∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, G.lam v.1 ((G.T v.1).σa
+    (toLoc v.1 (Quotient.out δ))
+    (jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x0) (Fs.f v.1))))
+
+def whitTensorTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x0 : P.RP) (z : ∀ v : S.Sf, (G.T v.1).V) (δ : Fˣ ⧸ G.Δ) : ℂ :=
+  whitExteriorTerm P G μ Fs x0 δ *
+    ∏ v : S.Sf, G.lam v.1 ((G.T v.1).σa (toLoc v.1 (Quotient.out δ)) (z v))
+
+/-- Summability on basis tensors extends to every tensor in the finite dimensional S-part. -/
+theorem whitTensorTerm_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x0 : P.RP) (z : ∀ v : S.Sf, (G.T v.1).V) :
+    Summable (fun δ : Fˣ ⧸ G.Δ => ‖whitTensorTerm P G μ Fs x0 z δ‖) := by
+  let E := Fs.T0 ∪ (P.comp_restricted x0).toFinset
+  have hE : Fs.T0 ⊆ E := Finset.subset_union_left
+  have hcomp (v : FinPlace F) (hv : v ∉ E) :
+      P.compF v x0 ∈ (P.tame v (fun h => hv (hE (Fs.sub h)))).Kmax := by
+    by_contra hk
+    apply hv
+    apply Finset.mem_union_right
+    exact (P.comp_restricted x0).mem_toFinset.mpr
+      ⟨(fun h => hv (hE (Fs.sub h))), hk⟩
+  let w (v : FinPlace F) : (G.T v).V :=
+    if hv : v ∈ S.Sf then z ⟨v, hv⟩
+    else jacquet (P.loc v) A (μ v) (rtr (P.compF v x0) (Fs.f v))
+  have hw (v : FinPlace F) (hv : v ∉ E) : w v =
+      jacquet (P.loc v) A (μ v) (rtr (P.compF v x0) (Fs.f v)) := by
+    have hvS : v ∉ S.Sf := fun h => hv (hE (Fs.sub h))
+    simp only [w, dif_neg hvS]
+  have hsum := whit_jacquet_family_summable P G μ hs Fs x0 E hE hcomp w hw
+  let a (δ : Fˣ ⧸ G.Δ) (v : FinPlace F) : ℂ :=
+    G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (w v))
+  have hfin (δ : Fˣ ⧸ G.Δ) : (Function.mulSupport (a δ)).Finite := by
+    refine (S.Sf.finite_toSet.union
+      (whit_finite_mulSupport P G μ Fs x0 (Quotient.out δ))).subset ?_
+    intro v hv
+    by_cases hvS : v ∈ S.Sf
+    · exact Or.inl hvS
+    · refine Or.inr ?_
+      change G.lam v ((G.T v).σa (toLoc v (Quotient.out δ)) (w v)) ≠ 1 at hv
+      change G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x0) (Fs.f v)))) ≠ 1
+      simpa only [w, dif_neg hvS] using hv
+  have heq (δ : Fˣ ⧸ G.Δ) : (∏ᶠ v, a δ v) = whitTensorTerm P G μ Fs x0 z δ := by
+    have hsplit := finprod_mem_union' (f := a δ)
+      (show Disjoint (S.Sf : Set (FinPlace F)) (S.Sf : Set (FinPlace F))ᶜ
+        from disjoint_compl_right)
+      ((hfin δ).subset (fun _ hv => hv.2))
+      ((hfin δ).subset (fun _ hv => hv.2))
+    simp only [Set.union_compl_self, finprod_mem_univ] at hsplit
+    rw [← finprod_set_coe_eq_finprod_mem (S.Sf : Set (FinPlace F)),
+      ← finprod_set_coe_eq_finprod_mem (S.Sf : Set (FinPlace F))ᶜ] at hsplit
+    change (∏ᶠ v, a δ v) = (∏ᶠ v : S.Sf, a δ v.1) *
+      (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, a δ v.1) at hsplit
+    rw [finprod_eq_prod_of_fintype (fun v : S.Sf => a δ v.1)] at hsplit
+    have hS : (∏ v : S.Sf, a δ v.1) =
+        ∏ v : S.Sf, G.lam v.1 ((G.T v.1).σa (toLoc v.1 (Quotient.out δ)) (z v)) := by
+      apply Finset.prod_congr rfl
+      intro v _
+      simp only [a, w, dif_pos v.property]
+    have hExt : (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, a δ v.1) =
+        whitExteriorTerm P G μ Fs x0 δ := by
+      unfold whitExteriorTerm
+      apply finprod_congr
+      intro v
+      simp only [a, w, dif_neg v.property]
+    rw [hS, hExt] at hsplit
+    simpa only [whitTensorTerm, mul_comm] using hsplit
+  change Summable (fun δ : Fˣ ⧸ G.Δ => ‖∏ᶠ v, a δ v‖) at hsum
+  exact hsum.congr (fun δ => congrArg norm (heq δ))
+
+/-- The summable delta-series defines a multilinear form by tsum_add and tsum_smul. -/
+theorem whit_tensor_multilinear (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x0 : P.RP) :
+    ∃ Λ : MultilinearMap ℂ (fun v : S.Sf => (G.T v.1).V) ℂ,
+      ∀ z, Λ z = (κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0 z δ := by
+  let term (δ : Fˣ ⧸ G.Δ) :
+      MultilinearMap ℂ (fun v : S.Sf => (G.T v.1).V) ℂ :=
+    whitExteriorTerm P G μ Fs x0 δ •
+      (MultilinearMap.mkPiAlgebra ℂ S.Sf ℂ).compLinearMap
+        (fun v => (G.lam v.1).comp
+          ((G.T v.1).σa (toLoc v.1 (Quotient.out δ))))
+  have hterm (δ : Fˣ ⧸ G.Δ) (z : ∀ v : S.Sf, (G.T v.1).V) :
+      term δ z = whitTensorTerm P G μ Fs x0 z δ := by
+    rfl
+  have hsum (z : ∀ v : S.Sf, (G.T v.1).V) : Summable (fun δ => term δ z) := by
+    simpa only [hterm] using (whitTensorTerm_summable P G μ hs Fs x0 z).of_norm
+  let Λ0 : MultilinearMap ℂ (fun v : S.Sf => (G.T v.1).V) ℂ :=
+    { toFun := fun z => ∑' δ, term δ z
+      map_update_add' := by
+        intro _ z v x y
+        simp_rw [MultilinearMap.map_update_add]
+        exact (hsum (Function.update z v x)).tsum_add (hsum (Function.update z v y))
+      map_update_smul' := by
+        intro _ z v c x
+        simp_rw [MultilinearMap.map_update_smul]
+        exact (hsum (Function.update z v x)).tsum_const_smul c }
+  refine ⟨(κF F)⁻¹ • Λ0, ?_⟩
+  intro z
+  change (κF F)⁻¹ * (∑' δ, term δ z) =
+    (κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0 z δ
+  simp_rw [hterm]
+
+/-- Separate the finite S-product and the fixed exterior product at a common lift. -/
+theorem whit_tensor_formula (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x0 : P.RP) (Fs' : GlobalSection P G s) (x : P.RP)
+    (hext : ∀ v, v ∉ S.Sf → Fs'.f v = Fs.f v) (hC : Fs'.fC = Fs.fC)
+    (hx : ∀ v, v ∉ S.Sf → P.compF v x = P.compF v x0) :
+    whittakerE P G μ Fs' (P.q x) =
+      ((κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0
+        (fun v => jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) (Fs'.f v.1))) δ) *
+      ∏ w, jacquetC (rtr (P.compC w x) (Fs'.fC w)) := by
+  let z (v : S.Sf) : (G.T v.1).V :=
+    jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) (Fs'.f v.1))
+  let a (δ : Fˣ ⧸ G.Δ) (v : FinPlace F) : ℂ :=
+    G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+      (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs'.f v))))
+  let C := ∏ w, jacquetC (rtr (P.compC w x) (Fs'.fC w))
+  have hprod (δ : Fˣ ⧸ G.Δ) : (∏ᶠ v, a δ v) = whitTensorTerm P G μ Fs x0 z δ := by
+    have hfin : (Function.mulSupport (a δ)).Finite :=
+      whit_finite_mulSupport P G μ Fs' x (Quotient.out δ)
+    have hsplit := finprod_mem_union' (f := a δ)
+      (show Disjoint (S.Sf : Set (FinPlace F)) (S.Sf : Set (FinPlace F))ᶜ
+        from disjoint_compl_right)
+      (hfin.subset (fun _ hv => hv.2)) (hfin.subset (fun _ hv => hv.2))
+    simp only [Set.union_compl_self, finprod_mem_univ] at hsplit
+    rw [← finprod_set_coe_eq_finprod_mem (S.Sf : Set (FinPlace F)),
+      ← finprod_set_coe_eq_finprod_mem (S.Sf : Set (FinPlace F))ᶜ] at hsplit
+    change (∏ᶠ v, a δ v) = (∏ᶠ v : S.Sf, a δ v.1) *
+      (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, a δ v.1) at hsplit
+    rw [finprod_eq_prod_of_fintype (fun v : S.Sf => a δ v.1)] at hsplit
+    have hExt : (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, a δ v.1) =
+        whitExteriorTerm P G μ Fs x0 δ := by
+      unfold whitExteriorTerm
+      apply finprod_congr
+      intro v
+      dsimp only [a]
+      rw [hext v.1 v.property, hx v.1 v.property]
+    rw [hExt] at hsplit
+    simpa only [whitTensorTerm, a, z, mul_comm] using hsplit
+  rw [whit_atLift P G μ hs Fs' x]
+  change (κF F)⁻¹ * (∑' δ, (∏ᶠ v, a δ v) * C) =
+    ((κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0 z δ) * C
+  simp_rw [hprod]
+  rw [((whitTensorTerm_summable P G μ hs Fs x0 z).of_norm).tsum_mul_right C]
+  simp only [mul_assoc]
 
 /-- **eis:multilinear** (linearity at the places of `S_f`): with the exterior and complex data fixed,
 `W_E(g)` is a multilinear form in the local Jacquet vectors at `S_f`. The convergence half-plane
@@ -3518,7 +4100,11 @@ theorem whittakerE_multilinear (P : CoverPackage D S H A) (G : GlobalDatum P)
         whittakerE P G μ Fs' (P.q x) =
           Λ (fun v => jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) (Fs'.f v.1))) *
             ∏ w, jacquetC (rtr (P.compC w x) (Fs'.fC w)) := by
-  sorry
+  obtain ⟨Λ, hΛ⟩ := whit_tensor_multilinear P G μ hs Fs x0
+  refine ⟨Λ, ?_⟩
+  intro Fs' x hext hC hx
+  rw [hΛ]
+  exact whit_tensor_formula P G μ hs Fs x0 Fs' x hext hC hx
 
 end Eis
 
