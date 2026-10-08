@@ -1558,6 +1558,50 @@ private theorem specIdentify_seed_gradient_tsum
   rw [hderSum, fderiv_fun_sum (fun q _ => htermDiff q)]
   simp only [ContinuousLinearMap.sum_apply, Finset.mul_sum]
 
+private theorem specIdentify_eis_gradient_tsum
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ : SL(2,F)) (s : ℂ) (hs : 1 / 2 < s.re) (z : X F) :
+    Summable (fun q : CuspCosets F Γ σ =>
+      fullGradient F (fun x => eisTerm F Γ σ s x q) z) ∧
+    fullGradient F (eisSeries F Γ σ s) z =
+      ∑' q : CuspCosets F Γ σ,
+        fullGradient F (fun x => eisTerm F Γ σ s x q) z := by
+  let p : Coord F := coordsX F z
+  have hp : p ∈ posSet F := by
+    intro w
+    change 0 < height (z w)
+    rw [height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos (z w)
+  have hcoord (wj : InfinitePlace F × Fin 3) :
+      HasSum (fun q : CuspCosets F Γ σ =>
+        placeGradient F wj.1 (fun x => eisTerm F Γ σ s x q) z wj.2)
+        (placeGradient F wj.1 (eisSeries F Γ σ s) z wj.2) := by
+    obtain ⟨hSumm, hDeriv⟩ := specIdentify_eisSeries_fderiv_tsum Γ σ s hs p hp
+      (placeDirection F wj.1 wj.2)
+    change HasSum (fun q : CuspCosets F Γ σ =>
+      ((coordsX F z wj.1).2 : ℂ) *
+        fderiv ℝ (fun p' => eisTerm F Γ σ s (ptX F p') q) p
+          (placeDirection F wj.1 wj.2))
+      (((coordsX F z wj.1).2 : ℂ) *
+        fderiv ℝ (fun p' => eisSeries F Γ σ s (ptX F p')) p
+          (placeDirection F wj.1 wj.2))
+    rw [hDeriv]
+    exact hSumm.hasSum.mul_left _
+  have hPi : HasSum
+      (fun q : CuspCosets F Γ σ => fun wj : InfinitePlace F × Fin 3 =>
+        placeGradient F wj.1 (fun x => eisTerm F Γ σ s x q) z wj.2)
+      (fun wj : InfinitePlace F × Fin 3 =>
+        placeGradient F wj.1 (eisSeries F Γ σ s) z wj.2) :=
+    Pi.hasSum.mpr hcoord
+  let toGrad : (InfinitePlace F × Fin 3 → ℂ) →L[ℂ] GradientField F :=
+    ((PiLp.continuousLinearEquiv 2 ℂ (fun _ : InfinitePlace F × Fin 3 => ℂ)).symm).toContinuousLinearMap
+  have hGrad : HasSum
+      (fun q : CuspCosets F Γ σ =>
+        fullGradient F (fun x => eisTerm F Γ σ s x q) z)
+      (fullGradient F (eisSeries F Γ σ s) z) := by
+    exact hPi.map toGrad toGrad.continuous
+  exact ⟨hGrad.summable, hGrad.tsum_eq.symm⟩
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
