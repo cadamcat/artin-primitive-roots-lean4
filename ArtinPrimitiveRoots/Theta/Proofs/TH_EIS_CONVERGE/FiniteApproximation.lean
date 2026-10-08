@@ -2,6 +2,8 @@ import ArtinPrimitiveRoots.Theta.LocalInt
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Approximation
 import Mathlib.Data.DFinsupp.Defs
 import Mathlib.Analysis.Normed.Group.Tannery
+import Mathlib.MeasureTheory.Integral.Pi
+import Mathlib.MeasureTheory.Integral.Bochner.SumMeasure
 
 set_option autoImplicit false
 
@@ -586,5 +588,31 @@ theorem dfinsupp_tsum_cutoff
   calc
     _ = ∑' a : S, f (a : A) := hsub.symm
     _ = ∑' b : ∀ i : t, Q i, f (DFinsupp.mk t b) := (E.tsum_eq (fun a : S => f (a : A))).symm
+
+/-- A finite product of countable coordinate series factors into the local tsums. -/
+theorem tsum_finite_coordinate_product
+    {ι : Type} [Fintype ι] {Q : ι → Type} [∀ i, Countable (Q i)]
+    (H : ∀ i, Q i → ℂ) :
+    (∑' b : ∀ i, Q i, ∏ i, H i (b i)) =
+      ∏ i, ∑' x : Q i, H i x := by
+  classical
+  let _ (i : ι) : MeasurableSpace (Q i) := ⊤
+  let μ (i : ι) : Measure (Q i) := Measure.count
+  have hlocal (i : ι) : (∫ x, H i x ∂μ i) = ∑' x, H i x := by
+    rw [← Measure.sum_smul_dirac (μ i)]
+    rw [integral_sum_dirac (fun x => by simp [μ])]
+    simp only [μ, Measure.count_singleton, ENNReal.toReal_one, one_smul]
+  have hmass (b : ∀ i, Q i) : Measure.pi μ {b} = 1 := by
+    rw [Measure.pi_singleton]
+    simp [μ]
+  have hglobal : (∫ b : ∀ i, Q i, ∏ i, H i (b i) ∂Measure.pi μ) =
+      ∑' b : ∀ i, Q i, ∏ i, H i (b i) := by
+    rw [← Measure.sum_smul_dirac (Measure.pi μ)]
+    rw [integral_sum_dirac (fun b => by rw [hmass]; simp)]
+    simp only [hmass, ENNReal.toReal_one, one_smul]
+  calc
+    _ = ∫ b : ∀ i, Q i, ∏ i, H i (b i) ∂Measure.pi μ := hglobal.symm
+    _ = ∏ i, ∫ x, H i x ∂μ i := integral_fintype_prod_eq_prod H
+    _ = _ := by simp only [hlocal]
 
 end ArtinPrimitiveRoots.A1.Theta
