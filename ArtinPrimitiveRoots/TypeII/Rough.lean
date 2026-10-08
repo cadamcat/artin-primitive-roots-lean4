@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.TypeII.MarkedTransfer
 import ArtinPrimitiveRoots.TypeII.PD.Defs
 import ArtinPrimitiveRoots.TypeII.PP.Results
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.FamilyUniformization
+import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.IntervalEndpoints
 import OAI.NumberTheory.PrimeGaps.Main
 
 namespace ArtinPrimitiveRoots.TypeII.RoughProofs
