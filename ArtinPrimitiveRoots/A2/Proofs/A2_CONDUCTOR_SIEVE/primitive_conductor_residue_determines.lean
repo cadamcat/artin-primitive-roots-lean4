@@ -17,6 +17,24 @@ private theorem conductorPrimeIdealValue_eq_primeValue
     normalize_eq, Multiset.map_singleton, Multiset.prod_singleton]
   rw [dif_pos ⟨v.isPrime, v.ne_bot⟩]
 
+private theorem conductorUnramifiedAt_of_not_dvd
+    (ω : A1.HeckeChar F) (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+    (hcond : ω.ConductorDvd I) (v : A1.FinPlace F)
+    (hv : ¬ v.asIdeal ∣ I) :
+    ω.UnramifiedAt v := by
+  have hexp : A1.idealExp v I = 0 := by
+    unfold A1.idealExp
+    by_contra hne
+    have hI' : I ≠ 0 := by simpa [Ideal.zero_eq_bot] using hI
+    exact hv ((Associates.count_ne_zero_iff_dvd hI' v.irreducible).mp hne)
+  intro u hu huinv
+  apply hcond v u hu huinv
+  rw [hexp]
+  have hsub : (u : v.adicCompletion F) - 1 ∈ v.adicCompletionIntegers F :=
+    (v.adicCompletionIntegers F).sub_mem hu (v.adicCompletionIntegers F).one_mem
+  rw [IsDedekindDomain.HeightOneSpectrum.mem_adicCompletionIntegers] at hsub
+  simpa using hsub
+
 /-- A common finite/infinite component and residue realization determine the
 full idelic character. Guide: sol-thin-a2zf/PROOFS.md:680–693.
 Uses HK-DICT-RAY prime-value uniqueness off the finite conductor support.
