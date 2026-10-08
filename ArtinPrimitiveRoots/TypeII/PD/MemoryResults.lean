@@ -11122,6 +11122,81 @@ theorem lattice_clean (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_
       (mul_nonneg (Real.rpow_pos_of_pos hLpos _).le (Real.exp_pos _).le))) hsum
 
 
+/-- Retain outgoing indexed-promotion damping while bounding the remaining coefficient. -/
+private theorem pd4d_edgeChoiceCoeff_damped_norm_le {K : ℕ}
+    (F : PDFix K) (S : PDScale) (ρ : ℝ) (j : ℕ) (raw : Bool)
+    (s : MemPoint S.x K)
+    (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ)
+    (I : Finset (Fin K)) (iStar : Fin K) (C : ℝ)
+    (hρ0 : 0 ≤ ρ) (hρ1 : ρ ≤ 1) (hC : 0 ≤ C)
+    (hI : edgePromotedSet (s := s) c = I)
+    (hHits : ∀ i k, (c i).2 = Sum.inl k → particleHits ((s.2.2 i).get k) z')
+    (hweight : ∀ i, 0 ≤ pd4c_choicePrimeWeight F S s i (c i))
+    (hgeom : ‖edgeMultiplier F S (decide (j % 2 = 0)) raw s.2.1
+      (edgeTargetLists F S s c) s.1 z'‖ ≤ C) :
+    ‖pd4c_edgeChoiceCoeff F S ρ j raw s c z'‖ ≤
+      C * (∏ i : Fin K, pd4c_choicePrimeWeight F S s i (c i)) *
+        ∏ i : I.erase iStar, ρ ^ (hitCount (s.2.2 i.1) z' - 1) := by
+  let P := ∏ i : Fin K, pd4c_choicePrimeWeight F S s i (c i)
+  let hs := ∑ i : Fin K, hitCount (s.2.2 i) s.1
+  let ht := ∑ i : Fin K, hitCount (edgeNewMemory F S s c i) z'
+  let Q := ∏ i : I.erase iStar, ρ ^ (hitCount (s.2.2 i.1) z' - 1)
+  have hP : 0 ≤ P := Finset.prod_nonneg (fun i hi => hweight i)
+  have hQ : 0 ≤ Q := Finset.prod_nonneg (fun i hi => pow_nonneg hρ0 _)
+  have hρs : 0 ≤ ρ ^ hs := pow_nonneg hρ0 _
+  have hρt : 0 ≤ ρ ^ ht := pow_nonneg hρ0 _
+  have hρs1 : ρ ^ hs ≤ 1 := pow_le_one₀ hρ0 hρ1
+  have hpoint (i : Fin K) :
+      ρ ^ hitCount (edgeNewMemory F S s c i) z' ≤
+        if i ∈ I.erase iStar then ρ ^ (hitCount (s.2.2 i) z' - 1) else 1 := by
+    by_cases hi : i ∈ I.erase iStar
+    · rw [if_pos hi]
+      have hiI : i ∈ I := (Finset.mem_erase.mp hi).2
+      have hprom : (c i).2.isLeft = true := by
+        have hmem : i ∈ edgePromotedSet (s := s) c := hI.symm ▸ hiI
+        simpa only [edgePromotedSet, Finset.mem_filter, Finset.mem_univ, true_and] using hmem
+      cases hc : (c i).2 with
+      | inl k =>
+        have h := pd4c_promotion_target_damping ρ hρ0 hρ1 (s.2.2 i)
+          (if (c i).1 then [anchorAt (s.2.1 i (lastSlot S.x)) s.1] else [])
+          z' k (hHits i k hc)
+        simpa only [edgeNewMemory, hc] using h
+      | inr p => simp only [hc, Sum.isLeft_inr, Bool.false_eq_true] at hprom
+    · rw [if_neg hi]
+      exact pow_le_one₀ hρ0 hρ1
+  have hρtQ : ρ ^ ht ≤ Q := by
+    calc
+      _ = ∏ i : Fin K, ρ ^ hitCount (edgeNewMemory F S s c i) z' :=
+        (Finset.prod_pow_eq_pow_sum Finset.univ
+          (fun i : Fin K => hitCount (edgeNewMemory F S s c i) z') ρ).symm
+      _ ≤ ∏ i : Fin K,
+          if i ∈ I.erase iStar then ρ ^ (hitCount (s.2.2 i) z' - 1) else 1 := by
+        apply Finset.prod_le_prod₀
+        · intro i hi
+          exact pow_nonneg hρ0 _
+        · intro i hi
+          exact hpoint i
+      _ = Q := by
+        dsimp only [Q]
+        rw [Finset.prod_ite_mem_eq]
+        exact (Finset.prod_coe_sort (I.erase iStar)
+          (fun i : Fin K => ρ ^ (hitCount (s.2.2 i) z' - 1))).symm
+  have hnorm : ‖(((ρ ^ hs * P * ρ ^ ht : ℝ) : ℂ))‖ = ρ ^ hs * P * ρ ^ ht := by
+    rw [Complex.norm_real, Real.norm_eq_abs,
+      abs_of_nonneg (mul_nonneg (mul_nonneg hρs hP) hρt)]
+  change ‖(((ρ ^ hs * P * ρ ^ ht : ℝ) : ℂ)) *
+    edgeMultiplier F S (decide (j % 2 = 0)) raw s.2.1
+      (edgeTargetLists F S s c) s.1 z'‖ ≤ C * P * Q
+  rw [norm_mul, hnorm]
+  have hfactor : ρ ^ hs * P * ρ ^ ht ≤ P * Q := by
+    calc
+      _ ≤ 1 * P * Q := mul_le_mul (mul_le_mul_of_nonneg_right hρs1 hP)
+        hρtQ hρt (by simpa only [one_mul] using hP)
+      _ = _ := by ring
+  calc
+    _ ≤ (P * Q) * C := mul_le_mul hfactor hgeom (norm_nonneg _) (mul_nonneg hP hQ)
+    _ = _ := by ring
+
 /-- `t2:pd.dirty-raw` — PD 04:605-714.  REPLACES the frozen `dirty_raw`.  With
 `ε_K = C_K(B/M_J^K + B^K e^{-cL^{0.1}})`: every raw piece with `(St,Pr) ≠ (∅,∅)` has weighted row
 sum `≤ ε_K` if `Pr ≠ ∅` (one compatible omission tuple by test (ii), mass `M_J^{-K}`,
