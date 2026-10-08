@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Splitting.Algebraic
 import ArtinPrimitiveRoots.Hecke.Boundary
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_EULER.All
 
 /-!
 # §7 descent of the zero-free region
@@ -54,7 +55,22 @@ theorem sp_upstairs_factor (a : ℤ) (q : ℕ) [NeZero q] [NeZero (12 * q)]
           (∀ s : ℂ, 1 < s.re → Λ s = LSeriesRay (χ.comp Art) s) ∧
           (∀ s : ℂ, 1 - δ₀ < s.re → meromorphicOrderAt Λ s ≤ 0)) ∧
     HasNoZeroInHalfPlane (dedekindZetaSharp (compositumField a q)) δ₀ := by
-  sorry
+  classical
+  letI : IsAbelianGalois (heckeBaseField q) (compositumField a q) :=
+    compositum_native_abelian a q hq
+  obtain ⟨m, Art, hsurj, hFrob, hE, hEne, hEuler⟩ :=
+    upstairs_rhp_euler_identity (heckeBaseField q) (compositumField a q)
+  let X : Finset ((compositumField a q ≃ₐ[heckeBaseField q]
+    compositumField a q) →* ℂˣ) := Finset.univ
+  have hEulerX : ∀ s : ℂ, 1 < s.re →
+      NumberField.dedekindZeta (compositumField a q) s =
+        s7UpstairsCorrection (heckeBaseField q) (compositumField a q) m s *
+          ∏ χ ∈ X, LSeriesRay (χ.comp Art) s := by
+    simpa only [X] using hEuler
+  obtain ⟨hcont, hzero⟩ := upstairs_continuation_nonvanishing a q m Art
+    (s7UpstairsCorrection (heckeBaseField q) (compositumField a q) m) X hE hEne hEulerX
+  exact ⟨m, Art, s7UpstairsCorrection (heckeBaseField q) (compositumField a q) m,
+    X, hsurj, hFrob, hE, hEne, hEulerX, fun χ => Finset.mem_univ χ, hcont, hzero⟩
 
 /-- **`sp:quotient-factor`**, `07-splitting.tex:83-97`. For the abelian extension over `K_q`,
 the nontrivial characters are quadratic. H1 (`LSeriesRay_entire`) makes their Hecke factors
@@ -69,7 +85,7 @@ theorem sp_quotient_factor (a : ℤ) (q : ℕ) [NeZero q] [NeZero (12 * q)]
       (∀ s : ℂ, 1 - δ₀ < s.re →
         dedekindZetaSharp (compositumField a q) s =
           dedekindZetaSharp (kummerField a q) s * Q s) := by
-  sorry
+  exact quotient_factor_of_euler_identity (kummerField a q) (compositumField a q)
 
 /-- **`spl:kummer-zero-free`**, `07-splitting.tex:70-98`. Descend the zero-free region through
 the holomorphic quotient: a zero of `ζ_{K_q}^♮` would be a zero of the upstairs function. The
@@ -82,7 +98,8 @@ theorem spl_kummer_zero_free (a : ℤ) (q : ℕ) [NeZero q] [NeZero (12 * q)]
       dedekindZetaSharp (compositumField a q) s =
         dedekindZetaSharp (kummerField a q) s * Q s) :
     HasNoZeroInHalfPlane (dedekindZetaSharp (kummerField a q)) δ₀ := by
-  sorry
+  exact zero_free_of_holomorphic_factor (kummerField a q) (compositumField a q)
+    δ₀ hTop Q hQ hfactor
 
 end ArtinPrimitiveRoots.Splitting
 
