@@ -209,4 +209,57 @@ theorem local_projective_compact (v : FinPlace F) :
     QuotientGroup.continuous_mk.comp (hlower.mul continuous_const)
   exact (hcompact.image hfirst).union (hcompact.image hsecond)
 
+/-- Local integral matrix units, including their integral inverses, form a compact set. -/
+theorem local_integral_units_compact (v : FinPlace F) :
+    IsCompact {k : GL (Fin 2) (v.adicCompletion F) |
+      (∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+        v.adicCompletionIntegers F) ∧
+      ∀ i j, ((k⁻¹ : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+          v.adicCompletionIntegers F} := by
+  let K := v.adicCompletion F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
+  let _ : Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing (v.adicCompletionIntegers F)),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField (v.adicCompletionIntegers F)))⟩
+  have hcompact : IsCompact (v.adicCompletionIntegers F : Set K) := by
+    have hset : (v.adicCompletionIntegers F : Set K) = Metric.closedBall (0 : K) 1 := by
+      change (↑((Valued.v : Valuation K (WithZero (Multiplicative ℤ))).integer) : Set K) =
+        Metric.closedBall (0 : K) 1
+      exact Valued.toNormedField.setOfPred_mem_integer_eq_closedBall (L := K)
+    rw [hset]
+    exact hproper.isCompact_closedBall 0 1
+  let M : Submonoid (Matrix (Fin 2) (Fin 2) K) :=
+    { carrier := {m | ∀ i j, m i j ∈ v.adicCompletionIntegers F}
+      one_mem' := by
+        intro i j
+        change (1 : Matrix (Fin 2) (Fin 2) K) i j ∈ v.adicCompletionIntegers F
+        by_cases h : i = j
+        · simp [Matrix.one_apply, h]
+        · simp [h]
+      mul_mem' := by
+        intro m n hm hn i j
+        change (∑ t, m i t * n t j) ∈ v.adicCompletionIntegers F
+        exact (v.adicCompletionIntegers F).sum_mem
+          fun t _ => (v.adicCompletionIntegers F).mul_mem (m i t) (n t j) (hm i t) (hn t j) }
+  have hM : IsCompact (M : Set (Matrix (Fin 2) (Fin 2) K)) := by
+    have hset : (M : Set (Matrix (Fin 2) (Fin 2) K)) =
+        Set.pi Set.univ (fun _ : Fin 2 =>
+          Set.pi Set.univ (fun _ : Fin 2 => (v.adicCompletionIntegers F : Set K))) := by
+      ext m
+      change (∀ i j, m i j ∈ v.adicCompletionIntegers F) ↔
+        ∀ i : Fin 2, i ∈ Set.univ →
+          ∀ j : Fin 2, j ∈ Set.univ → m i j ∈ v.adicCompletionIntegers F
+      simp only [Set.mem_univ, forall_true_left]
+    rw [hset]
+    exact isCompact_univ_pi fun _ : Fin 2 =>
+      isCompact_univ_pi fun _ : Fin 2 => hcompact
+  change IsCompact (M.units : Set (Matrix (Fin 2) (Fin 2) K)ˣ)
+  exact Submonoid.units_isCompact hM
+
 end ArtinPrimitiveRoots.A1.Theta
