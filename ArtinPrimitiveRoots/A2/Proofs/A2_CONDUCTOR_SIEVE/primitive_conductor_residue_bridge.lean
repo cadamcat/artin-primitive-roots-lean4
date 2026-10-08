@@ -753,6 +753,54 @@ private theorem conductorResidueCharacter_exists
   simpa only [Λ, MonoidHom.inv_apply, hprodApply, Units.val_inv_eq_inv_val] using
     congrArg (fun u : ℂˣ => ((u⁻¹ : ℂˣ) : ℂ)) hprod
 
+private theorem conductorIntegralUnitCharacter_eq_prod
+    (S : A1.SData F CE condη) (ω : A1.HeckeChar F)
+    (f : Ideal (𝓞 F)) (hf : IsPrimitiveConductor ω f)
+    (u : ConductorLocalIntegralUnits (F := F)) :
+    conductorIntegralUnitCharacter (F := F) ω u =
+      ∏ v : {v : A1.FinPlace F // v ∈ S.Sf ∪ conductorPrimeSupport f hf.1},
+        ω.loc v.1 (u v.1).val := by
+  classical
+  let T := S.Sf ∪ conductorPrimeSupport f hf.1
+  let head : Finset (A1.FinPlace F) → ConductorLocalIntegralUnits (F := F) :=
+    fun A v => if v ∈ A then u v else 1
+  have hhead : ∀ A : Finset (A1.FinPlace F),
+      conductorIntegralUnitCharacter (F := F) ω (head A) =
+        ∏ v ∈ A, ω.loc v (u v).val := by
+    intro A
+    induction A using Finset.induction_on with
+    | empty =>
+      have heq : head ∅ = 1 := by
+        funext v
+        simp [head]
+      rw [heq, map_one, Finset.prod_empty]
+    | @insert v A hv ih =>
+      have heq : head (insert v A) = Pi.mulSingle v (u v) * head A := by
+        funext w
+        by_cases hw : w = v
+        · subst w
+          simp [head, hv]
+        · simp [head, Pi.mulSingle, hw]
+      rw [heq, map_mul, conductorIntegralUnitCharacter_mulSingle, ih,
+        Finset.prod_insert hv]
+  have hsplit : u = head T * conductorTailUnitMap (F := F) T u := by
+    funext v
+    by_cases hv : v ∈ T <;> simp [head, conductorTailUnitMap, hv]
+  have htail : conductorIntegralUnitCharacter (F := F) ω
+      (conductorTailUnitMap (F := F) T u) = 1 :=
+    conductorHeckeUnitTail_eq_one S ω f hf u
+  calc
+    conductorIntegralUnitCharacter (F := F) ω u =
+        conductorIntegralUnitCharacter (F := F) ω (head T) *
+          conductorIntegralUnitCharacter (F := F) ω
+            (conductorTailUnitMap (F := F) T u) := by
+              exact (congrArg (conductorIntegralUnitCharacter (F := F) ω) hsplit).trans
+                (map_mul _ _ _)
+    _ = conductorIntegralUnitCharacter (F := F) ω (head T) := by rw [htail, mul_one]
+    _ = ∏ v ∈ T, ω.loc v (u v).val := hhead T
+    _ = ∏ v : T, ω.loc v.1 (u v.1).val :=
+      (Finset.prod_coe_sort T (fun v => ω.loc v (u v).val)).symm
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
