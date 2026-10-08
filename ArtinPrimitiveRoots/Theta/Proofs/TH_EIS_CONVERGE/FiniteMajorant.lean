@@ -89,4 +89,39 @@ theorem section_norm_majorant_on_compact
   apply mul_le_mul_of_nonneg_left _ (Real.rpow_nonneg hpos.le _)
   exact (hop_bound y (f k)).trans (mul_le_mul_of_nonneg_left (hfbound k hk) hM)
 
+/-- Every finite-place section is bounded by its local matrix height. -/
+theorem section_norm_height_majorant
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (L : FinLocalCover D H v) (T : TorusRep D H v) {s : ℂ}
+    (f : L.L → T.V) (hf : IsSection L T s f) :
+    ∃ C : ℝ, 0 ≤ C ∧
+      ∀ (g : GL (Fin 2) (v.adicCompletion F)) (a : L.L),
+        L.pr a = QuotientGroup.mk g →
+        ‖f a‖ ≤ C *
+          (absFin v (g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det /
+            (max (absFin v ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0))
+              (absFin v ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1))) ^ 2) ^
+            ((1 : ℝ) / 2 + s.re) := by
+  let K : Set L.L := L.pr ⁻¹' localProjectiveCompact v
+  have hK : IsCompact K :=
+    local_cover_compact_preimage L _ (local_projective_compact v)
+  obtain ⟨C, hC, hbound⟩ := section_norm_majorant_on_compact L T f hf K hK
+  refine ⟨C, hC, ?_⟩
+  intro g a ha
+  obtain ⟨x, y, kproj, hkproj, hg, hheight⟩ := local_projective_iwasawa v g
+  let b : L.L := L.n (Multiplicative.ofAdd x) * L.a y
+  let k : L.L := b⁻¹ * a
+  have hb : L.pr b = QuotientGroup.mk (upperM _ x * diagM _ y) := by
+    simp only [b, map_mul, L.pr_n, L.pr_a, QuotientGroup.mk_mul]
+  have hk : k ∈ K := by
+    change L.pr k ∈ localProjectiveCompact v
+    have hpr : L.pr k = kproj := by
+      simp only [k, map_mul, map_inv, hb, ha, hg, inv_mul_cancel_left]
+    rw [hpr]
+    exact hkproj
+  have hfactor : L.n (Multiplicative.ofAdd x) * L.z (1 : rootsOfUnity 3 ℂ) *
+      L.a y * k = a := by
+    simp only [map_one, mul_one, k, b, mul_inv_cancel_left]
+  simpa only [hfactor, hheight] using hbound x 1 y k hk
+
 end ArtinPrimitiveRoots.A1.Theta
