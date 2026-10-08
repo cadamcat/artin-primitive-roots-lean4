@@ -4984,6 +4984,80 @@ theorem whit_bigCell_unfold_periods
             exact hperiod (Quotient.out η) α x
           _ = _ := (ht η).2.symm
 
+/-- Shifting a rational unipotent to finite coordinates records its Fourier character. -/
+theorem whit_finitePeriod_arch_integral
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (g : P.tc.G)
+    (γ : GL (Fin 2) F) (ξ : F) (ν : Fˣ)
+    (hint : Integrable (fun x : InfinitePlace F → ℂ => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (γ * upperGL ξ) * nInf P x * g) * psiInf (-(ν : F)) x)) :
+    Integrable (fun x : InfinitePlace F → ℂ => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat γ * nFin P ξ * nInf P x * g) * psiInf (-(ν : F)) x) ∧
+    (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (γ * upperGL ξ) * nInf P x * g) * psiInf (-(ν : F)) x) =
+      psiInf (ν : F) (infEmbA ξ) *
+        (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+          (P.tc.rat γ * nFin P ξ * nInf P x * g) * psiInf (-(ν : F)) x) := by
+  classical
+  have hni (y z : InfinitePlace F → ℂ) : nInf P (y + z) = nInf P y * nInf P z := by
+    dsimp only [nInf]
+    have hp : ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y + z) =
+        ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y) +
+          ((0 : ∀ v : S.Sf, v.1.adicCompletion F), z) := by simp
+    rw [hp, ofAdd_add, map_mul]
+  have hfactor (x : InfinitePlace F → ℂ) :
+      P.tc.rat γ * nFin P ξ * nInf P x * g =
+        P.tc.rat (γ * upperGL ξ) * nInf P (-infEmbA ξ + x) * g := by
+    dsimp only [nFin]
+    calc
+      _ = (P.tc.rat γ * P.tc.rat (upperGL ξ)) *
+          (nInf P (-infEmbA ξ) * nInf P x) * g := by group
+      _ = (P.tc.rat γ * P.tc.rat (upperGL ξ)) *
+          nInf P (-infEmbA ξ + x) * g := by rw [← hni]
+      _ = _ := by rw [map_mul]
+  obtain ⟨_, hχnorm, hχadd, _, _⟩ :=
+    whit_psiInf_character (-(ν : F)) (neg_ne_zero.mpr ν.ne_zero)
+  have hsign : psiInf (-(ν : F)) (-infEmbA ξ) = psiInf (ν : F) (infEmbA ξ) := by
+    simp only [psiInf, map_neg, Pi.neg_apply, neg_mul, mul_neg, neg_neg]
+  let c : ℂ := psiInf (ν : F) (infEmbA ξ)
+  have hcnorm : ‖c‖ = 1 := by
+    dsimp only [c]
+    rw [← hsign]
+    exact hχnorm (-infEmbA ξ)
+  have hc : c ≠ 0 := by
+    intro h
+    simpa only [h, norm_zero, zero_ne_one] using hcnorm
+  let rationalKernel (x : InfinitePlace F → ℂ) : ℂ :=
+    scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (γ * upperGL ξ) * nInf P x * g) * psiInf (-(ν : F)) x
+  let finiteKernel (x : InfinitePlace F → ℂ) : ℂ :=
+    scalarOf P G Fs.f Fs.fC
+      (P.tc.rat γ * nFin P ξ * nInf P x * g) * psiInf (-(ν : F)) x
+  have hshift (x : InfinitePlace F → ℂ) :
+      rationalKernel (-infEmbA ξ + x) = c * finiteKernel x := by
+    dsimp only [rationalKernel, finiteKernel, c]
+    rw [hfactor, hχadd, hsign]
+    ring
+  have hrightfun : finiteKernel =
+      fun x : InfinitePlace F → ℂ => c⁻¹ * rationalKernel (-infEmbA ξ + x) := by
+    funext x
+    rw [hshift, ← mul_assoc, inv_mul_cancel₀ hc, one_mul]
+  have hleft : Integrable rationalKernel := hint
+  have hright : Integrable finiteKernel := by
+    rw [hrightfun]
+    exact (hleft.comp_add_left (-infEmbA ξ)).const_mul c⁻¹
+  change Integrable finiteKernel ∧
+    (∫ x : InfinitePlace F → ℂ, rationalKernel x) =
+      c * ∫ x : InfinitePlace F → ℂ, finiteKernel x
+  refine ⟨hright, ?_⟩
+  calc
+    _ = ∫ x : InfinitePlace F → ℂ, rationalKernel (-infEmbA ξ + x) :=
+      (integral_add_left_eq_self rationalKernel (-infEmbA ξ)).symm
+    _ = ∫ x : InfinitePlace F → ℂ, c * finiteKernel x := by
+      apply integral_congr_ae
+      exact Filter.Eventually.of_forall hshift
+    _ = _ := integral_const_mul c finiteKernel
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
