@@ -1,16 +1,31 @@
 import ArtinPrimitiveRoots.Spec.EisensteinExtra
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_SMOOTHING.All
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.Equivariance
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.RadialTransform
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.EisensteinInterchange
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.SeedProperties
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.ContinuationBasics
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.SmoothingSeedAnalytic
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.Laurent
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.UnsmoothedIdentity
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CONTINUE.ResidueEigen
+import Mathlib.Analysis.Complex.CauchyIntegral
 
 /-! Smoothing and pointwise continuation nodes S1--S4. -/
 
 set_option autoImplicit false
 
 open NumberField Matrix MeasureTheory
+open Filter
 open scoped MatrixGroups ContDiff BoundedContinuousFunction
+open scoped Topology
 
 noncomputable section
 
 namespace ArtinPrimitiveRoots.A1.Spec
+
+open ArtinPrimitiveRoots.Proofs.spec_continue_p
+open ArtinPrimitiveRoots.Proofs.spec_cont_sol
 
 variable {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
 
@@ -83,7 +98,25 @@ theorem S2_smoothing_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (∀ s : ℂ, 1 / 2 < s.re → ∀ z : X F,
       smoothingOperator F k₀ (eisSeries F Γ σ s) z =
         radialTransform F k₀ (1 + 2 * s) * eisSeries F Γ σ s z) := by
-  sorry
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro g a z
+    calc
+      smoothingOperator F k₀
+          (fun w => ((normHeight F (actAtPlaces F g w) : ℝ) : ℂ) ^ a) z =
+          smoothingOperator F k₀
+            (fun w => ((normHeight F w : ℝ) : ℂ) ^ a) (actAtPlaces F g z) :=
+          smoothing_isometry_equivariant_of_Geometry k₀ g
+            (fun w => ((normHeight F w : ℝ) : ℂ) ^ a) z
+      _ = radialTransform F k₀ a *
+          ((normHeight F (actAtPlaces F g z) : ℝ) : ℂ) ^ a :=
+          smoothing_radial_power k₀ a _
+  · rw [Complex.analyticOnNhd_univ_iff_differentiable]
+    intro a
+    exact radialTransform₀_differentiableAt F k₀ hkSmooth hkSupport a
+  · intro s hs
+    exact radialTransform₀_realPart_pos F k₀ hkSmooth hkNonneg hkSupport hkNonzero s hs
+  · intro s hs z
+    exact smoothing_eisSeries_interchange Γ σ k₀ hkSmooth hkSupport s hs z
 
 /-- The unsmoothed equality on the original convergence ball, needed to identify the continuation
 with the Eisenstein series before applying the smoothing operator. -/
@@ -131,7 +164,76 @@ theorem S3_continuation (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
             (fun w => eisSeed F Γ σ τ s w + l2Lift F Γ D (u s) w) z =
             radialTransform F k₀ (1 + 2 * s) *
               (eisSeed F Γ σ τ s z + l2Lift F Γ D (u s) z) := by
-  sorry
+  let hseedData := specSeed_smooth_analytic Γ D hD σ A hA hsep τ hτ
+  have hseed (s : ℂ) : IsSmoothX F (eisSeed F Γ σ τ s) := (hseedData.1 s).1
+  have hseedInv (s : ℂ) : IsGammaInvariant F Γ (eisSeed F Γ σ τ s) := (hseedData.1 s).2
+  let E : ℂ → X F → ℂ := pointwiseEisContinuation F Γ σ D k₀ τ u
+  let r : X F → ℂ := fun z => (radialTransform F k₀ (1 + 2 * s₁))⁻¹ *
+    smoothingOperator F k₀ (l2Lift F Γ D θ) z
+  have hEseries := pointwiseEisContinuation_series σ D k₀ τ u ε s₁ hhat hseries
+  have hEinv := pointwiseEisContinuation_invariant D hD σ k₀ τ u hseedInv
+  have hEsmooth := pointwiseEisContinuation_smooth D hD σ k₀ τ hkSmooth hkSupport A hA
+    hsep hτ hseed u
+  have hresSmooth0 := smoothing_smooth_representative Γ D hD k₀ hkSmooth hkSupport θ
+  have hresSmooth : ContDiffOn ℝ ∞ (fun p => r (ptX F p)) (posSet F) := by
+    simpa [r, smul_eq_mul] using
+      hresSmooth0.const_smul ((radialTransform F k₀ (1 + 2 * s₁))⁻¹)
+  have hresInv : IsGammaInvariant F Γ r := by
+    intro γ hγ z
+    let gPlaces : InfinitePlace F → SL(2,ℂ) := toInf F (toSLF F γ)
+    have hact (x : X F) : actAtPlaces F gPlaces x = (γ : SL(2,𝓞 F)) • x := rfl
+    let f : X F → ℂ := l2Lift F Γ D θ
+    have hinv : (fun x => f (actAtPlaces F gPlaces x)) = f := by
+      funext x
+      rw [hact]
+      exact (T1_l2 Γ D hD).1 θ |>.2 γ hγ x
+    have hcov := smoothing_isometry_equivariant_of_Geometry k₀ gPlaces f z
+    have hsm : smoothingOperator F k₀ f ((γ : SL(2,𝓞 F)) • z) =
+        smoothingOperator F k₀ f z := by
+      rw [hinv, hact z] at hcov
+      exact hcov.symm
+    simpa [r] using congrArg
+      (fun x => (radialTransform F k₀ (1 + 2 * s₁))⁻¹ * x) hsm
+  have hidentity := s3_unsmoothed_identity Γ D hD σ τ A hA hsep hτ k₀ hkSmooth
+    hkSupport u s₁ ε hs₀ (lt_of_le_of_lt hs₁ (by norm_num)) hε.1 hu hbase hseries
+  have hresEq : r =ᵐ[volX F] l2Lift F Γ D θ :=
+    s3_residue_ae_lift Γ D hD σ τ A hA hsep hτ k₀ hkSmooth hkSupport u θ s₁ ε
+      hε.1 hhatCenter hres hidentity
+  refine ⟨{
+    ε := ε
+    ε_pos := hε.1
+    ε_le := hε.2
+    E := E
+    E_series := ?_
+    E_invariant := ?_
+    E_smooth := ?_
+    E_analytic := ?_
+    res := r
+    laurent := ?_
+    res_smooth := hresSmooth
+    res_invariant := hresInv
+    res_eigen := ?_
+    res_sq := ?_
+  }, rfl, rfl, rfl, ?_⟩
+  · exact hEseries
+  · intro s hs
+    exact hEinv s
+  · intro s hs
+    exact hEsmooth s
+  · intro K hK hKpos n v
+    exact pointwiseEisContinuation_derivative_analytic Γ D hD σ τ A hA hsep hτ
+      k₀ hkSmooth hkSupport K hK hKpos u (contDomain s₁ ε) hu hhat n v
+  · exact pointwiseEisContinuation_laurent Γ D hD σ τ A hA hsep hτ
+      k₀ hkSmooth hkSupport u θ s₁ ε hhat hhatCenter hres
+  · apply residue_eigen_of_derivative_families Γ σ s₁ ε hs₀
+      (lt_of_le_of_lt hs₁ (by norm_num)) hε.1 E r hEseries
+    · intro K hK hKpos n v
+      exact pointwiseEisContinuation_derivative_analytic Γ D hD σ τ A hA hsep hτ
+        k₀ hkSmooth hkSupport K hK hKpos u (contDomain s₁ ε) hu hhat n v
+    · exact pointwiseEisContinuation_laurent Γ D hD σ τ A hA hsep hτ
+        k₀ hkSmooth hkSupport u θ s₁ ε hhat hhatCenter hres
+  · exact residue_sq_of_ae_lift Γ D hD θ r hresInv hresEq
+  · exact hidentity
 
 /-- S4 `spec:res-props` — P-SPEC.md:247, 422–425. The residue is smooth, invariant, square
 integrable on every fundamental domain, and an eigenfunction of every partial Laplacian. -/

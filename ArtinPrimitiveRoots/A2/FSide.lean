@@ -1272,6 +1272,66 @@ private theorem z3HalfPlane_sdiff_finset_preconnected (a : ℝ) (P : Finset ℂ)
   rw [← himage]
   exact hpath.isConnected.isPreconnected
 
+theorem fEta_continuousOn_of_bounds (H L : ℂ → ℂ)
+    (hH : DifferentiableOn ℂ H {s : ℂ | 998 / 1000 < s.re})
+    (hL : DifferentiableOn ℂ L {s : ℂ | 1 < s.re})
+    (hL0 : ∀ s : ℂ, 1 < s.re → L s ≠ 0)
+    (hHb : ∃ B : ℝ, ∀ s : ℂ, 998 / 1000 < s.re → ‖H s‖ ≤ B)
+    (hLb : ∃ B : ℝ, ∀ s : ℂ, 2 ≤ s.re → ‖(L s)⁻¹‖ ≤ B) :
+    ContinuousOn (fEta H L) (Set.Ioi 0) := by
+  have hcont := z3MellinSignal_continuousOn H L (-(8 / 15 : ℝ))
+    hH hL hL0 hHb hLb
+  apply hcont.congr
+  intro x hx
+  exact (z3MellinSignal_eq_fEta H L hx).symm
+
+theorem mellinT_fEta_line_eq_amplitude_of_bounds (H L : ℂ → ℂ)
+    (hH : DifferentiableOn ℂ H {s : ℂ | 998 / 1000 < s.re})
+    (hL : DifferentiableOn ℂ L {s : ℂ | 1 < s.re})
+    (hL0 : ∀ s : ℂ, 1 < s.re → L s ≠ 0)
+    (hHb : ∃ B : ℝ, ∀ s : ℂ, 998 / 1000 < s.re → ‖H s‖ ≤ B)
+    (hLb : ∃ B : ℝ, ∀ s : ℂ, 2 ≤ s.re → ‖(L s)⁻¹‖ ≤ B)
+    (hlarge : ∃ C Z₀ : ℝ, 0 < C ∧ 1 ≤ Z₀ ∧ ∀ Z : ℝ, Z₀ ≤ Z →
+      ‖fEta H L Z‖ ≤ C * Real.rpow Z (7 / 15 - 1 / 20000)) (t : ℝ) :
+    mellinT (fEta H L) (2 + t * Complex.I) = amplitude H L (2 + t * Complex.I) := by
+  have hlargeOld : ∃ C Z₀ : ℝ, ∀ Z : ℝ, Z₀ ≤ Z →
+      ‖fEta H L Z‖ ≤ C * Z ^ ((7 : ℝ) / 15 - 1 / 20000) := by
+    rcases hlarge with ⟨C, Z₀, hC, hZ₀, hbound⟩
+    exact ⟨C, Z₀, fun Z hZ => hbound Z hZ⟩
+  let c : ℝ := -(8 / 15)
+  let f : ℝ → ℂ := z3MellinSignal H L c
+  have hsignal (x : ℝ) (hx : 0 < x) : fEta H L x = f x := by
+    exact (z3MellinSignal_eq_fEta H L hx).symm
+  have hmf (s : ℂ) : mellin (fEta H L) (-Cstar s) =
+      mellin f (-Cstar s) := by
+    unfold mellin
+    refine setIntegral_congr_fun measurableSet_Ioi ?_
+    intro x hx
+    change (x : ℂ) ^ (-Cstar s - 1) • fEta H L x = _
+    rw [hsignal x hx]
+  have harg (s : ℂ) : -Cstar s = -(s + (c : ℂ)) := by
+    dsimp [Cstar, c]
+    push_cast
+    ring
+  have hsignalMellin (s : ℂ) : mellinT (fEta H L) s =
+      OAI.SevenEighths.Continuation.signalMellin f c s := by
+    rw [mellinT, hmf, OAI.SevenEighths.Continuation.signalMellin, harg]
+  let τ : ℝ := -t / (2 * Real.pi)
+  have hτ : -2 * Real.pi * τ = t := by
+    dsimp [τ]
+    field_simp [Real.pi_ne_zero]
+  have hτC : (-2 * Real.pi * τ : ℂ) = (t : ℂ) := by exact_mod_cast hτ
+  have hfreq : (2 : ℂ) - 2 * Real.pi * τ * Complex.I =
+      (2 : ℂ) + t * Complex.I := by
+    calc
+      (2 : ℂ) - 2 * Real.pi * τ * Complex.I =
+          (2 : ℂ) + (-2 * Real.pi * τ) * Complex.I := by ring
+      _ = (2 : ℂ) + t * Complex.I := by rw [hτC]
+  have hline := z3MellinSignal_mellinLine H L hH hL hL0 hHb hLb hlargeOld τ
+  rw [hfreq] at hline
+  rw [hsignalMellin]
+  simpa only [c, f] using hline
+
 
 /-- **zf:mellin-identification** (06-zero-free.tex:709-752), Mathlib-only form. Its hypotheses
 include the small-`Z` half of `zf:f-bounds`. Corrected per rev-a2 to state both endpoint bounds.
