@@ -8115,6 +8115,16 @@ theorem po_H_eta_properties : EulerHypotheses R η →
     simpa [Heta, U.q_one] using h
 
 
+private theorem po_H_absolute_gamma_norm_one
+    (v : FinPlace F) (hv : v ∉ S.Sf) (e : ℤ) (he : e % 6 ≠ 0) :
+    ‖gamma D S A e v.asIdeal (primeGen R v : F)‖ = 1 := by
+  have hq : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hT := (po_C_local_T_values R v hv e (1 : S.R)).2.1 he
+  rw [euler_gamma_localT R v hv e, norm_mul,
+    Complex.norm_real, Real.norm_of_nonneg (Real.rpow_nonneg hq.le _)]
+  rw [hT, ← Real.rpow_add hq]
+  norm_num
+
 /-- po:H-local-bounds: C,Q0 chosen before the field, set S, phases, or frequency.
 This is the absolute-cutoff obligation used when choosing S in A1. -/
 theorem po_H_local_bounds_absolute :
