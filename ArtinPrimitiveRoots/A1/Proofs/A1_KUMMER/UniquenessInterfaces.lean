@@ -7,7 +7,7 @@ set_option autoImplicit false
 
 open NumberField IsDedekindDomain ArtinPrimitiveRoots.A1 Filter Topology
 open ArtinPrimitiveRoots.A1.KummerProofs
-open scoped Classical
+open scoped Classical WithZero
 
 noncomputable section
 
@@ -168,6 +168,33 @@ theorem char_eq_of_local_eq_away (κ κ' : KummerChar F) (T : Finset (FinPlace F
 theorem local_eq_of_prime_values (κ κ' : KummerChar F) (P : FinPlace F)
     (hκ : unramifiedAt κ P) (hκ' : unramifiedAt κ' P)
     (hv : primeValue κ P = primeValue κ' P) : localComponent κ P = localComponent κ' P := by
-  sorry
+  let π : (P.adicCompletion F)ˣ := toLoc P (uniformizerUnit P)
+  have hπ : Valued.v (π : P.adicCompletion F) = WithZero.exp (-1) := by
+    change Valued.v ((uniformizerUnit P : F) : P.adicCompletion F) = _
+    rw [P.valuedAdicCompletion_eq_valuation']
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F P).choose_spec
+  have hvπ : localComponent κ P π = localComponent κ' P π := by
+    apply Units.ext
+    simpa only [primeValue, ite_eq_left hκ, ite_eq_left hκ'] using hv
+  apply MonoidHom.ext
+  intro x
+  have hx0 : Valued.v (x : P.adicCompletion F) ≠ 0 :=
+    (Valued.v : Valuation (P.adicCompletion F) ℤᵐ⁰).ne_zero_iff.mpr x.ne_zero
+  let n : ℤ := WithZero.log (Valued.v (x : P.adicCompletion F))
+  let y : (P.adicCompletion F)ˣ := x * π ^ n
+  have hy : y ∈ (P.adicCompletionIntegers F).units := by
+    apply HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one.mpr
+    change Valued.v ((x * π ^ n : (P.adicCompletion F)ˣ) : P.adicCompletion F) = 1
+    rw [Units.val_mul, Units.val_zpow_eq_zpow_val]
+    rw [map_mul, map_zpow₀, hπ, ← WithZero.exp_zsmul]
+    simp only [zsmul_eq_mul, Int.cast_id, mul_neg_one, n, WithZero.exp_neg,
+      WithZero.exp_log hx0, mul_inv_cancel₀ hx0]
+  have hxy := hκ y hy.1 hy.2
+  have hxy' := hκ' y hy.1 hy.2
+  change localComponent κ P (x * π ^ n) = 1 at hxy
+  change localComponent κ' P (x * π ^ n) = 1 at hxy'
+  rw [map_mul, map_zpow, hvπ] at hxy
+  rw [map_mul, map_zpow] at hxy'
+  exact mul_right_cancel (hxy.trans hxy'.symm)
 
 end ArtinPrimitiveRoots.Proofs.a1_kummer_sol
