@@ -48,4 +48,25 @@ theorem toLoc_uniformizer_decomposition (v : FinPlace F) (δ : Fˣ) :
   · change toLoc v δ = unifLoc v ^ e * (unifLoc v ^ (-e) * toLoc v δ)
     rw [← mul_assoc, ← zpow_add, add_neg_cancel, zpow_zero, one_mul]
 
+/-- Tame evaluation on the spherical basis vector vanishes unless the
+principal fractional ideal exponent is divisible by three. -/
+theorem tame_coefficient_eq_zero_of_count_not_dvd
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (T : TorusRep D H v) (B : TameTorusBasis T)
+    (lam : T.V →ₗ[ℂ] ℂ)
+    (hlam : ∀ k : ZMod 3, lam (B.e k) = if k = 0 then 1 else 0)
+    (δ : Fˣ)
+    (hδ : ¬ (3 : ℤ) ∣ FractionalIdeal.count F v
+      (toPrincipalIdeal (𝓞 F) F δ : FractionalIdeal (𝓞 F)⁰ F)) :
+    lam (T.σa (toLoc v δ) (B.e 0)) = 0 := by
+  let e := FractionalIdeal.count F v
+    (toPrincipalIdeal (𝓞 F) F δ : FractionalIdeal (𝓞 F)⁰ F)
+  have he : (e : ZMod 3) ≠ 0 := by
+    intro h
+    exact hδ ((ZMod.intCast_zmod_eq_zero_iff_dvd e 3).mp h)
+  dsimp only [e] at he
+  obtain ⟨u, hu, hdecomp⟩ := toLoc_uniformizer_decomposition v δ
+  rw [hdecomp, B.act _ u hu 0, map_smul]
+  simp only [zero_add, hlam, ite_eq_right he, smul_zero]
+
 end ArtinPrimitiveRoots.A1.Theta
