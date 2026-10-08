@@ -2856,98 +2856,6 @@ def localEuler (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ) : ℂ
 
 def initialRegion (ξ w z : ℂ) : Prop := 3 / 2 < ξ.re ∧ 2 < w.re ∧ 1 / 6 < z.re
 
-/-- po:euler-local-factorization, 05:444–550. Product convergence uses HasProd, never finprod. -/
-theorem po_euler_local_factorization : ∀ u ξ w z, initialRegion ξ w z →
-  Summable (fun p => ‖calFTerm R η U u ξ w z p‖) ∧
-  (∀ v hv, Summable (fun i => ‖localEulerTerm R η U u v hv ξ w z i‖)) ∧
-  HasProd (fun v : {v : FinPlace F // v ∉ S.Sf} => localEuler R η U u v.1 v.2 ξ w z) (calF R η U u ξ w z) := by
-  sorry
-/-- Exact arithmetic input from A1 gauss-characters/vartheta-S, including finite order of η. -/
-def EulerHypotheses : Prop := IsOfFinOrder η ∧ (∀ v, v ∉ S.Sf → η.UnramifiedAt v) ∧
-  ∀ v, v ∉ S.Sf → gamma D S A 1 v.asIdeal (primeGen R v : F) *
-    gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v = -η.primeValue v
-
-def localV (v : FinPlace F) (z : ℂ) : ℂ := (qI v.asIdeal : ℂ) ^ (-6 * z)
-def localWvar (u : U.U) (v : FinPlace F) (w : ℂ) : ℂ := chi D v (U.repr u : F) * (qI v.asIdeal : ℂ) ^ (-w)
-def localDvar (u : U.U) (v : FinPlace F) (ξ : ℂ) : ℂ :=
-  η.primeValue v * star (chi D v (U.repr u : F)) * (qI v.asIdeal : ℂ) ^ (-ξ)
-def localEvar (v : FinPlace F) (ξ z : ℂ) : ℂ :=
-  ϑ.primeValue v ^ 6 * (qI v.asIdeal : ℂ) ^ (4 - 6 * ξ) * localV v z
-
-def normalizedLocal (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ) : ℂ :=
-  (1 - localV v z) * (1 - localWvar η U u v w) / (1 - localDvar η U u v ξ) *
-    localEuler R η U u v hv ξ w z
-
-/-- po:euler-good-closed, 05:596-659. The zero-valuation local series is the frozen closed factor. -/
-theorem po_euler_good_closed : EulerHypotheses R η → ∀ u v hv ξ w z, initialRegion ξ w z → frequencyValuation η U u v = 0 →
-  localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal) (localV v z)
-    (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z) := by
-  sorry
-abbrev Triple := Fin 3 → ℂ
-
-def eulerNeighborhood (p : Triple) : Prop :=
-  (998 / 1000 - 1 / 100000 < (p 0).re ∧ 3 / 1000 - 1 / 100000 < (p 1).re ∧
-    4 / 10 - 1 / 100000 < (p 2).re) ∨
-  (998 / 1000 - 1 / 100000 < (p 0).re ∧ 95 / 100 - 1 / 100000 < (p 1).re ∧
-    16 / 100 - 1 / 100000 < (p 2).re)
-
-/-- po:H-local-bounds, 05:660–729, for supplied numerical constants. The separate absolute
-uniformity obligation below places those constants before all arithmetic data. -/
-def HasPoHLocalBounds (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
-    (η : HeckeChar F) (U : FrequencyData S D η) (C Q0 : ℝ) : Prop :=
-  0 < C ∧ 1 < Q0 ∧ ∀ u v hv p,
-  Q0 < qI v.asIdeal → eulerNeighborhood p →
-  Summable (fun i => ‖localEulerTerm R η U u v hv (p 0) (p 1) (p 2) i‖) ∧
-  ‖normalizedLocal R η U u v hv (p 0) (p 1) (p 2) - 1‖ ≤
-    C * qI v.asIdeal ^ (if frequencyValuation η U u v = 0 then (-1 - 1 / 4000 : ℝ) else (-1 / 4000 : ℝ))
-
-/-- Corrected by `sol-gate-a2b`: the constants are outputs of the local estimate, not arbitrary
-inputs (`po:H-local-bounds`, 05:660–729). -/
-theorem po_H_local_bounds :
-  EulerHypotheses R η → ∃ C Q0 : ℝ, 0 < C ∧ 1 < Q0 ∧ HasPoHLocalBounds R η U C Q0 := by
-  sorry
-/-- H_u is a proposed limit object; its HasProd law is an explicit node conclusion below. -/
-structure EulerCorrection (η : HeckeChar F) (U : FrequencyData S D η) where
-  H : U.U → Triple → ℂ
-  H_eq : ∀ u p, H u p = ∏' v : {v : FinPlace F // v ∉ S.Sf},
-    normalizedLocal R η U u v.1 v.2 (p 0) (p 1) (p 2)
-
-variable (HC : EulerCorrection R η U)
-def Heta (s : ℂ) : ℂ := HC.H U.one ![s, 1, 1 / 6]
-
-/-- po:H-product, 05:731–755: normal convergence and holomorphy in three complex variables. -/
-def HasPoHProduct (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (η : HeckeChar F)
-    (U : FrequencyData S D η) (HC : EulerCorrection R η U) : Prop :=
-  (∀ u p, eulerNeighborhood p →
-    HasProd (fun v : {v : FinPlace F // v ∉ S.Sf} =>
-      normalizedLocal R η U u v.1 v.2 (p 0) (p 1) (p 2)) (HC.H u p)) ∧
-  (∀ u, DifferentiableOn ℂ (HC.H u) {p | eulerNeighborhood p}) ∧
-  (∀ u (K : Set Triple), IsCompact K → K ⊆ {p | eulerNeighborhood p} →
-    ∀ ε : ℝ, 0 < ε → ∃ V : Finset (FinPlace F), ∀ V' : Finset (FinPlace F), V ⊆ V' →
-      ∀ p ∈ K, ‖(∏ v ∈ V'.attach, if hv : v.1 ∉ S.Sf then
-        normalizedLocal R η U u v.1 hv (p 0) (p 1) (p 2) else 1) - HC.H u p‖ < ε) ∧
-  ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ u p, eulerNeighborhood p → ‖HC.H u p‖ ≤ C * U.q u ^ ε
-
-theorem po_H_product : EulerHypotheses R η → HasPoHProduct R η U HC := by
-  sorry
-variable (HA : HeckeAnalysis F)
-/-- prop:euler-product, 05:407–433: analytic continuations, masked exterior values retained. -/
-theorem prop_euler_product : EulerHypotheses R η →
-  HasPoHProduct R η U HC ∧ (∀ u ξ w z, initialRegion ξ w z →
-    calF R η U u ξ w z = HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ,w,z] /
-      HA.LS S (η * (U.kummer u)⁻¹) ξ) ∧
-  ((∀ v hv p, eulerNeighborhood p →
-    ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) →
-      ∀ p, eulerNeighborhood p → HC.H U.one p ≠ 0) := by
-  sorry
-/-- def:po-H-eta, 05:757–765: the larger open half-plane includes the closed .998 boundary. -/
-theorem po_H_eta_properties : EulerHypotheses R η →
-  (∀ v hv p, eulerNeighborhood p →
-    ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) →
-  DifferentiableOn ℂ (Heta R η U HC) {s | 998 / 1000 - 1 / 100000 < s.re} ∧
-  (∀ s, 998 / 1000 - 1 / 100000 < s.re → Heta R η U HC s ≠ 0) ∧
-  ∃ C : ℝ, 0 < C ∧ ∀ s, 998 / 1000 - 1 / 100000 < s.re → ‖Heta R η U HC s‖ ≤ C := by
-  sorry
 end Poisson
 
 
@@ -6668,94 +6576,375 @@ theorem cross_prime_exponent_cancel (e e' l l' : ℕ) :
   refine ⟨e * e' + e * l' + l * e' + 3 * l * l', ?_⟩
   ring
 
-/-- po:H-local-bounds: C,Q0 chosen before the field, set S, phases, or frequency.
-This is the absolute-cutoff obligation used when choosing S in A1. -/
-theorem po_H_local_bounds_absolute :
-  ∃ C Q0 : ℝ, 0 < C ∧ 1 < Q0 ∧
-  ∀ (F' : Type) [Field F'] [NumberField F'] (CE' : ℕ) (cond' : Ideal (𝓞 F'))
-    (D' : FieldData F') (S' : SData F' CE' cond') (H' : HilbertData F') (Bd' : BData S' H')
-    (A' : AddCharData F') (ϑ' : HeckeChar F') (bc' : BalancedChoices D' S' H' Bd')
-    (μ' : ∀ v : FinPlace F', Theta.LocHaar v) (v0' : InfinitePlace F')
-    (R' : ReflectionSetup D' S' H' Bd' A' ϑ' bc' μ' v0') (η' : HeckeChar F')
-    (U' : FrequencyData S' D' η'),
-      EulerHypotheses R' η' → HasPoHLocalBounds R' η' U' C Q0 := by
+/-- po:euler-local-factorization, 05:444–550. Product convergence uses HasProd, never finprod. -/
+/- The local gamma estimate is the triangle bound after the normalized Gauss-sum definition. -/
+private theorem euler_gamma_prime_norm_le (v : FinPlace F) (hv : v ∉ S.Sf) :
+    ‖gamma D S A 2 v.asIdeal (primeGen R v : F)‖ ≤ qI v.asIdeal ^ (1 / 2 : ℝ) := by
+  classical
+  let I := R.exterior.prime v hv
+  let a : Fˣ := primeGen R v
+  have hgen : S.IsGen (a : F) I.1 := by
+    have h := (bc.gen_spec I).1
+    simpa [a, I, primeGen, hv, R.exterior.prime_val] using h
+  have hIne : I.1 ≠ ⊥ := by
+    simpa only [Ideal.zero_eq_bot] using I.2.1
+  have hqNat : 0 < Ideal.absNorm I.1 :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr hIne⟩
+  let Q := 𝓞 F ⧸ I.1
+  letI : Finite Q := (Ideal.absNorm_ne_zero_iff I.1).mp hqNat.ne'
+  letI : Fintype Q := Fintype.ofFinite _
+  have hcard : Fintype.card Q = Ideal.absNorm I.1 := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  let g : Q → ℂ := fun x =>
+    chiIdealPow D I.1 (algebraMap (𝓞 F) F x.out) 2 *
+      S.e A (S.diag (algebraMap (𝓞 F) F x.out / (a : F)))
+  have hg (x : Q) : ‖g x‖ ≤ 1 := by
+    dsimp [g]
+    have hχ := po_chiIdealPow_norm_le_one D I.1
+      (algebraMap (𝓞 F) F x.out) 2
+    let xR : S.R := ⟨algebraMap (𝓞 F) F x.out, fun w hw => w.valuation_le_one x.out⟩
+    have he := po_e_residue_norm_one I a hgen xR R
+    have he' : ‖S.e A (S.diag (algebraMap (𝓞 F) F x.out / (a : F)))‖ = 1 := by
+      simpa [xR] using he
+    calc
+      _ ≤ ‖chiIdealPow D I.1 (algebraMap (𝓞 F) F x.out) 2‖ *
+          ‖S.e A (S.diag (algebraMap (𝓞 F) F x.out / (a : F)))‖ := norm_mul_le _ _
+      _ ≤ 1 := by rw [he']; simpa using hχ
+  have hsum : ‖∑ᶠ x : Q, g x‖ ≤ qI I.1 := by
+    calc
+      _ = ‖∑ x : Q, g x‖ := by rw [finsum_eq_sum_of_fintype]
+      _ ≤ ∑ x : Q, ‖g x‖ := norm_sum_le _ _
+      _ ≤ ∑ _x : Q, (1 : ℝ) := Finset.sum_le_sum fun x _ => hg x
+      _ = (Fintype.card Q : ℝ) := by simp
+      _ = qI I.1 := by rw [hcard]; simp [qI]
+  have hqpos : 0 < qI I.1 := by
+    dsimp [qI]
+    exact_mod_cast hqNat
+  have hqReal : 0 < (Ideal.absNorm I.1 : ℝ) := by exact_mod_cast hqNat
+  have hscale : 0 ≤ (Ideal.absNorm I.1 : ℝ) ^ (-(1 / 2 : ℝ)) :=
+    Real.rpow_nonneg (Nat.cast_nonneg _) _
+  have hsum' : ‖∑ᶠ x : Q, g x‖ ≤ (Ideal.absNorm I.1 : ℝ) := by
+    simpa [qI] using hsum
+  have hnormGamma' : ‖gamma D S A 2 I.1 (a : F)‖ ≤
+      (Ideal.absNorm I.1 : ℝ) ^ (1 / 2 : ℝ) := by
+    rw [gamma, norm_mul, Complex.norm_real, Real.norm_of_nonneg hscale]
+    calc
+      (Ideal.absNorm I.1 : ℝ) ^ (-(1 / 2 : ℝ)) *
+          ‖∑ᶠ x : 𝓞 F ⧸ I.1,
+            chiIdealPow D I.1 (algebraMap (𝓞 F) F x.out) 2 *
+              S.e A (S.diag (algebraMap (𝓞 F) F x.out / (a : F)))‖ ≤
+        (Ideal.absNorm I.1 : ℝ) ^ (-(1 / 2 : ℝ)) *
+            (Ideal.absNorm I.1 : ℝ) :=
+          mul_le_mul_of_nonneg_left hsum' (Real.rpow_nonneg hqReal.le _)
+      _ = (Ideal.absNorm I.1 : ℝ) ^ (1 / 2 : ℝ) := by
+        calc
+          _ = (Ideal.absNorm I.1 : ℝ) ^ (-(1 / 2 : ℝ)) *
+              (Ideal.absNorm I.1 : ℝ) ^ (1 : ℝ) := by rw [Real.rpow_one]
+          _ = (Ideal.absNorm I.1 : ℝ) ^ (-(1 / 2 : ℝ) + 1) :=
+            (Real.rpow_add hqReal _ _).symm
+          _ = _ := by congr 1 <;> ring
+  have hnormGamma : ‖gamma D S A 2 I.1 (a : F)‖ ≤ qI I.1 ^ (1 / 2 : ℝ) := by
+    simpa [qI] using hnormGamma'
+  simpa [I, a, primeGen, hv, R.exterior.prime_val] using hnormGamma
+
+private theorem euler_hecke_prime_norm_le
+    (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) :
+    ‖ϑ.primeValue v‖ ≤ 1 := by
+  classical
+  unfold HeckeChar.primeValue
+  split_ifs with h
+  · have hunit := ReflectionSetup.vartheta_unitary R0
+      (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v
+        (toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) )
+    exact le_of_eq (by simpa [HeckeChar.loc] using hunit)
+  · simp
+
+private theorem euler_chi_zpow_norm_le_one (v : FinPlace F) (x : F) (n : ℤ) :
+    ‖chi D v x ^ n‖ ≤ 1 := by
+  by_cases hx : residue v x = 0
+  · cases n with
+    | ofNat k => by_cases hk : k = 0 <;> simp [chi, hx, hk]
+    | negSucc k => simp [chi, hx]
+  · simpa [norm_zpow, po_chi_norm_one D v x hx]
+
+private theorem euler_localC_norm_le (v : FinPlace F) (hv : v ∉ S.Sf)
+    (t k J : ℕ) :
+    ‖localC R v hv t k J‖ ≤ qI v.asIdeal ^ ((t + k : ℕ) : ℝ) := by
+  have hq : 1 < qI v.asIdeal := qI_prime_gt_one v
+  by_cases ht : t = 0
+  · subst t
+    by_cases hk : k = 0
+    · subst k
+      rw [(po_C_local_values R v hv J).1]
+      simp
+    · have hkpos : 0 < k := Nat.pos_of_ne_zero hk
+      have hC := (po_C_local_values R v hv J).2.1 k hkpos
+      rw [hC]
+      by_cases hJ : J = 0
+      · have hpow : (1 : ℝ) ≤ qI v.asIdeal ^ k :=
+          one_le_pow₀ hq.le
+        simpa [hJ, Real.rpow_natCast] using hpow
+      · have hnonneg : 0 ≤ qI v.asIdeal ^ k :=
+          pow_nonneg (by positivity) k
+        simpa [hJ, Real.rpow_natCast] using hnonneg
+  · have htpos : 0 < t := Nat.pos_of_ne_zero ht
+    have hCT := (po_C_local_values R v hv J).2.2 t htpos
+    by_cases hk0 : k = 0
+    · subst k
+      simpa [Real.rpow_natCast] using hCT.2.2.2.1
+    · by_cases hk1 : k = 1
+      · subst k
+        have hexp : (t : ℝ) + 1 / 2 ≤ ((t + 1 : ℕ) : ℝ) := by
+          have htCast : ((t + 1 : ℕ) : ℝ) = (t : ℝ) + 1 := by norm_cast
+          rw [htCast]
+          linarith
+        have hpow := Real.rpow_le_rpow_of_exponent_le hq.le hexp
+        exact (hCT.2.2.2.2).trans (by simpa [Real.rpow_natCast] using hpow)
+      · have hkge : 2 ≤ k := by omega
+        rw [hCT.2.2.1 k hkge]
+        simp only [norm_zero]
+        exact Real.rpow_nonneg (by positivity) _
+
+private theorem euler_localEulerTerm_norm_le (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ξ w z : ℂ) (hreg : initialRegion ξ w z)
+    (i : Fin 2 × ℕ × ℕ × ℕ) :
+    ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+      qI v.asIdeal ^ (-((i.2.1 + i.2.2.1 + i.2.2.2 : ℕ) : ℝ)) := by
+  classical
+  let e : ℕ := i.1.1
+  let l : ℕ := i.2.1
+  let k : ℕ := i.2.2.1
+  let m : ℕ := i.2.2.2
+  let j : ℕ := frequencyValuation η U u v
+  let t : ℕ := e + 3 * l
+  let E : ℂ := -(e : ℂ) * (1 / 2 + ξ) - (l : ℂ) * (1 + 3 * ξ) -
+    (k : ℂ) * w - 6 * (m : ℂ) * z
+  change ‖gamma D S A 2 v.asIdeal (primeGen R v : F) ^ e *
+      ϑ.primeValue v ^ (e + 3 * l) *
+      chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^
+        ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ)) *
+      localC R v hv (e + 3 * l) k (j + 6 * m) *
+      (qI v.asIdeal : ℂ) ^ E‖ ≤
+    qI v.asIdeal ^ (-((l + k + m : ℕ) : ℝ))
+  rcases hreg with ⟨hξ, hw, hz⟩
+  have hq : 1 < qI v.asIdeal := qI_prime_gt_one v
+  have hqpos : 0 < qI v.asIdeal := lt_trans zero_lt_one hq
+  have helt : e < 2 := by dsimp [e]; exact i.1.2
+  have hgamma :
+      ‖gamma D S A 2 v.asIdeal (primeGen R v : F) ^ e‖ ≤
+        qI v.asIdeal ^ ((e : ℝ) / 2) := by
+    have hecases : e = 0 ∨ e = 1 := by omega
+    rcases hecases with he0 | he1
+    · simp [he0]
+    · simpa [he1] using euler_gamma_prime_norm_le R v hv
+  have htheta : ‖ϑ.primeValue v ^ (e + 3 * l)‖ ≤ 1 := by
+    rw [norm_pow]
+    exact pow_le_one₀ (norm_nonneg _) (euler_hecke_prime_norm_le R v)
+  have hchi := euler_chi_zpow_norm_le_one (D := D) v
+    ((U.repr u : F) / (primeGen R v : F) ^ j)
+    ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ))
+  have hC := euler_localC_norm_le R v hv (e + 3 * l) k (j + 6 * m)
+  have hpow : ‖(qI v.asIdeal : ℂ) ^ E‖ = qI v.asIdeal ^ E.re :=
+    Complex.norm_cpow_eq_rpow_re_of_pos hqpos E
+  have hEre : E.re =
+      -(e : ℝ) * (1 / 2 + ξ.re) - (l : ℝ) * (1 + 3 * ξ.re) -
+        (k : ℝ) * w.re - 6 * (m : ℝ) * z.re := by
+    simp [E, Complex.mul_re] <;> ring
+  have htotal :
+      (e : ℝ) / 2 + ((e + 3 * l + k : ℕ) : ℝ) + E.re =
+        (e : ℝ) * (1 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+          (k : ℝ) * (1 - w.re) - 6 * (m : ℝ) * z.re := by
+    rw [hEre]
+    push_cast
+    ring
+  have hsumCast : ((l + k + m : ℕ) : ℝ) = (l : ℝ) + (k : ℝ) + (m : ℝ) := by
+    norm_cast
+  have hePart : (e : ℝ) * (1 - ξ.re) ≤ 0 :=
+    mul_nonpos_of_nonneg_of_nonpos (Nat.cast_nonneg e) (by linarith)
+  have hlPart : (l : ℝ) * (2 - 3 * ξ.re) ≤ -(l : ℝ) := by
+    have hc : 2 - 3 * ξ.re ≤ -1 := by linarith
+    simpa using mul_le_mul_of_nonneg_left hc (Nat.cast_nonneg l)
+  have hkPart : (k : ℝ) * (1 - w.re) ≤ -(k : ℝ) := by
+    have hc : 1 - w.re ≤ -1 := by linarith
+    simpa using mul_le_mul_of_nonneg_left hc (Nat.cast_nonneg k)
+  have hmPart : -6 * (m : ℝ) * z.re ≤ -(m : ℝ) := by
+    have hc : -6 * z.re ≤ -1 := by linarith
+    calc
+      -6 * (m : ℝ) * z.re = (m : ℝ) * (-6 * z.re) := by ring
+      _ ≤ (m : ℝ) * (-1) := mul_le_mul_of_nonneg_left hc (Nat.cast_nonneg m)
+      _ = -(m : ℝ) := by ring
+  have htotalLe :
+      (e : ℝ) * (1 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+          (k : ℝ) * (1 - w.re) - 6 * (m : ℝ) * z.re ≤
+        -((l + k + m : ℕ) : ℝ) := by
+    rw [hsumCast]
+    linarith
+  calc
+    _ = ‖gamma D S A 2 v.asIdeal (primeGen R v : F) ^ e‖ *
+        ‖ϑ.primeValue v ^ (e + 3 * l)‖ *
+        ‖chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^
+          ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ))‖ *
+        ‖localC R v hv (e + 3 * l) k (j + 6 * m)‖ *
+        ‖(qI v.asIdeal : ℂ) ^ E‖ := by simp only [norm_mul]
+    _ ≤ qI v.asIdeal ^ ((e : ℝ) / 2) * 1 * 1 *
+        qI v.asIdeal ^ ((e + 3 * l + k : ℕ) : ℝ) *
+        qI v.asIdeal ^ E.re := by
+      rw [hpow]
+      gcongr
+    _ = qI v.asIdeal ^
+        ((e : ℝ) / 2 + ((e + 3 * l + k : ℕ) : ℝ) + E.re) := by
+      simp only [mul_one]
+      rw [← Real.rpow_add hqpos, ← Real.rpow_add hqpos]
+    _ = qI v.asIdeal ^
+        ((e : ℝ) * (1 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+          (k : ℝ) * (1 - w.re) - 6 * (m : ℝ) * z.re) := by rw [htotal]
+    _ ≤ qI v.asIdeal ^ (-((l + k + m : ℕ) : ℝ)) :=
+      Real.rpow_le_rpow_of_exponent_le hq.le htotalLe
+
+private theorem euler_localEuler_summable (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ξ w z : ℂ) (hreg : initialRegion ξ w z) :
+    Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      ‖localEulerTerm R η U u v hv ξ w z i‖) := by
+  classical
+  let q : ℝ := qI v.asIdeal
+  let g : ℕ → ℝ := fun n => q ^ (-(n : ℝ))
+  have hq : 1 < q := by dsimp [q]; exact qI_prime_gt_one v
+  have hqpos : 0 < q := lt_trans zero_lt_one hq
+  let r : ℝ := q⁻¹
+  have hrpos : 0 < r := by dsimp [r]; positivity
+  have hrlt : r < 1 := by
+    dsimp [r]
+    exact (inv_lt_one₀ hqpos).2 hq
+  have hgeom : Summable (fun n : ℕ => r ^ n) :=
+    summable_geometric_of_lt_one hrpos.le hrlt
+  have hg : Summable g := by
+    apply hgeom.congr
+    intro n
+    dsimp [g, r]
+    rw [Real.rpow_neg hqpos.le, Real.rpow_natCast, inv_pow]
+  have hg_nonneg (n : ℕ) : 0 ≤ g n := by
+    dsimp [g]
+    exact Real.rpow_nonneg hqpos.le _
+  have h2 : Summable (fun p : ℕ × ℕ => g p.1 * g p.2) :=
+    hg.mul_of_nonneg hg hg_nonneg hg_nonneg
+  have h3 : Summable (fun p : ℕ × (ℕ × ℕ) =>
+      g p.1 * (g p.2.1 * g p.2.2)) :=
+    hg.mul_of_nonneg h2 hg_nonneg (fun p =>
+      mul_nonneg (hg_nonneg p.1) (hg_nonneg p.2))
+  have hfin : Summable (fun _ : Fin 2 => (1 : ℝ)) := Summable.of_finite
+  have hmajor : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      1 * (g i.2.1 * (g i.2.2.1 * g i.2.2.2))) :=
+    hfin.mul_of_nonneg h3 (fun _ => by norm_num)
+      (fun p => mul_nonneg (hg_nonneg p.1) (mul_nonneg
+        (hg_nonneg p.2.1) (hg_nonneg p.2.2)))
+  have hgeomEq (l k m : ℕ) :
+      q ^ (-((l + k + m : ℕ) : ℝ)) = g l * (g k * g m) := by
+    dsimp [g]
+    calc
+      q ^ (-((l + k + m : ℕ) : ℝ)) = q ^ (-(l : ℝ) + (-(k : ℝ) + -(m : ℝ))) := by
+        congr 1
+        push_cast
+        ring
+      _ = q ^ (-(l : ℝ)) * (q ^ (-(k : ℝ)) * q ^ (-(m : ℝ))) := by
+        rw [Real.rpow_add hqpos, Real.rpow_add hqpos]
+  refine Summable.of_nonneg_of_le (fun i => norm_nonneg _) ?_ hmajor
+  intro i
+  let l : ℕ := i.2.1
+  let k : ℕ := i.2.2.1
+  let m : ℕ := i.2.2.2
+  calc
+    ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+        q ^ (-((l + k + m : ℕ) : ℝ)) := by
+          simpa [q, l, k, m] using
+            euler_localEulerTerm_norm_le R η U u v hv ξ w z hreg i
+    _ = g l * (g k * g m) := hgeomEq l k m
+    _ = 1 * (g l * (g k * g m)) := by ring
+
+theorem po_euler_local_factorization : ∀ u ξ w z, initialRegion ξ w z →
+  Summable (fun p => ‖calFTerm R η U u ξ w z p‖) ∧
+  (∀ v hv, Summable (fun i => ‖localEulerTerm R η U u v hv ξ w z i‖)) ∧
+  HasProd (fun v : {v : FinPlace F // v ∉ S.Sf} => localEuler R η U u v.1 v.2 ξ w z) (calF R η U u ξ w z) := by
   sorry
-/-- po:H-local-bounds, 05:660-729. The numerical Q1 cutoff is fixed independently of arithmetic data. -/
-theorem po_H_cutoff_from_constants (C Q0 : ℝ) : ∃ Q1 : ℕ,
-  Q0 < (Q1 : ℝ) ∧ ∀ Q : ℝ, (Q1 : ℝ) < Q → C * Q ^ (-(1 + 1 / 4000 : ℝ)) < 1 / 2 := by
-  let M : ℝ := max Q0 (max 1 (2 * C))
-  obtain ⟨Q1, hQ1⟩ := exists_nat_gt M
-  refine ⟨Q1, ?_, ?_⟩
-  · exact lt_of_le_of_lt (le_max_left _ _) hQ1
-  · intro Q hQ
-    have hMQ : M < Q := lt_trans hQ1 hQ
-    have hQone : 1 < Q := lt_of_le_of_lt
-      (le_trans (le_max_left 1 (2 * C)) (le_max_right Q0 (max 1 (2 * C)))) hMQ
-    have hQpos : 0 < Q := by linarith
-    by_cases hC : C ≤ 0
-    · have hp : 0 < Q ^ (-(1 + 1 / 4000 : ℝ)) := Real.rpow_pos_of_pos hQpos _
-      have hle : C * Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ 0 :=
-        mul_nonpos_of_nonpos_of_nonneg hC hp.le
-      linarith
-    · have hCpos : 0 < C := lt_of_not_ge hC
-      have hQ2C : 2 * C < Q := lt_of_le_of_lt
-        (le_trans (le_max_right 1 (2 * C)) (le_max_right Q0 (max 1 (2 * C)))) hMQ
-      have hpow : Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ Q ^ (-1 : ℝ) := by
-        apply Real.rpow_le_rpow_of_exponent_le hQone.le
-        norm_num
-      rw [Real.rpow_neg_one] at hpow
-      have hdiv : C / Q < 1 / 2 := (div_lt_iff₀ hQpos).2 (by nlinarith)
-      calc
-        C * Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ C * Q⁻¹ :=
-          mul_le_mul_of_nonneg_left hpow hCpos.le
-        _ < 1 / 2 := by simpa [div_eq_mul_inv] using hdiv
-/-- Named refutation gate: saturated subtraction changes the J=t-1 boundary in a naive translation. -/
-theorem localC_natural_subtraction_gate : (0 - 1 + 1 : ℕ) = 1 ∧ (0 + 1 - 1 : ℕ) = 0 := by decide
+/-- Exact arithmetic input from A1 gauss-characters/vartheta-S, including finite order of η. -/
+def EulerHypotheses : Prop := IsOfFinOrder η ∧ (∀ v, v ∉ S.Sf → η.UnramifiedAt v) ∧
+  ∀ v, v ∉ S.Sf → gamma D S A 1 v.asIdeal (primeGen R v : F) *
+    gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v = -η.primeValue v
 
-/-- Named refutation gate: ordinary zeroth powers cannot implement the masked nonunit value. -/
-theorem zeroth_power_mask_gate : (0 : ℂ) ^ (0 : ℕ) ≠ 0 := by norm_num
+def localV (v : FinPlace F) (z : ℂ) : ℂ := (qI v.asIdeal : ℂ) ^ (-6 * z)
+def localWvar (u : U.U) (v : FinPlace F) (w : ℂ) : ℂ := chi D v (U.repr u : F) * (qI v.asIdeal : ℂ) ^ (-w)
+def localDvar (u : U.U) (v : FinPlace F) (ξ : ℂ) : ℂ :=
+  η.primeValue v * star (chi D v (U.repr u : F)) * (qI v.asIdeal : ℂ) ^ (-ξ)
+def localEvar (v : FinPlace F) (ξ z : ℂ) : ℂ :=
+  ϑ.primeValue v ^ 6 * (qI v.asIdeal : ℂ) ^ (4 - 6 * ξ) * localV v z
 
-end PoissonSupplementary
+def normalizedLocal (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ) : ℂ :=
+  (1 - localV v z) * (1 - localWvar η U u v w) / (1 - localDvar η U u v ξ) *
+    localEuler R η U u v hv ξ w z
 
-section FinalPoissonClauses
-variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
-  {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
-  {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
-  {v0 : InfinitePlace F}
-variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (sd : S.SelfDualMeasure A)
-  (W : PoissonWeights (S := S)) (η : HeckeChar F) (U : FrequencyData S D η)
-  (HA : HeckeAnalysis F) (HC : EulerCorrection R η U)
-
-def continuedCalF (u : U.U) (ξ w z : ℂ) : ℂ :=
-  HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ,w,z] /
-    HA.LS S (η * (U.kummer u)⁻¹) ξ
-
-/-- po:H-product / prop:euler-product: continuation identity with coordinatewise meromorphy.
-The raw calF tsum is only compared in its convergence domain. -/
-theorem po_euler_meromorphic_identity : EulerHypotheses R η →
-  (∀ u ξ w z, initialRegion ξ w z → continuedCalF R η U HA HC u ξ w z = calF R η U u ξ w z) ∧
-  (∀ u w z, MeromorphicOn (fun ξ => continuedCalF R η U HA HC u ξ w z)
-    {ξ | eulerNeighborhood ![ξ,w,z]}) ∧
-  (∀ u ξ z, MeromorphicOn (fun w => continuedCalF R η U HA HC u ξ w z)
-    {w | eulerNeighborhood ![ξ,w,z]}) ∧
-  (∀ u ξ w, MeromorphicOn (fun z => continuedCalF R η U HA HC u ξ w z)
-    {z | eulerNeighborhood ![ξ,w,z]}) := by
+/-- po:euler-good-closed, 05:596-659. The zero-valuation local series is the frozen closed factor. -/
+theorem po_euler_good_closed : EulerHypotheses R η → ∀ u v hv ξ w z, initialRegion ξ w z → frequencyValuation η U u v = 0 →
+  localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal) (localV v z)
+    (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z) := by
   sorry
-end FinalPoissonClauses
-section CanonicalEulerObject
-variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
-  {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
-  {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
-  {v0 : InfinitePlace F}
-variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
-  (η : HeckeChar F) (U : FrequencyData S D η)
+abbrev Triple := Fin 3 → ℂ
 
-/-- Actual infinite-product definition; it assumes no convergence or nonvanishing result. -/
-def canonicalEulerCorrection : EulerCorrection R η U where
-  H u p := ∏' v : {v : FinPlace F // v ∉ S.Sf},
+def eulerNeighborhood (p : Triple) : Prop :=
+  (998 / 1000 - 1 / 100000 < (p 0).re ∧ 3 / 1000 - 1 / 100000 < (p 1).re ∧
+    4 / 10 - 1 / 100000 < (p 2).re) ∨
+  (998 / 1000 - 1 / 100000 < (p 0).re ∧ 95 / 100 - 1 / 100000 < (p 1).re ∧
+    16 / 100 - 1 / 100000 < (p 2).re)
+
+/-- po:H-local-bounds, 05:660–729, for supplied numerical constants. The separate absolute
+uniformity obligation below places those constants before all arithmetic data. -/
+def HasPoHLocalBounds (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (η : HeckeChar F) (U : FrequencyData S D η) (C Q0 : ℝ) : Prop :=
+  0 < C ∧ 1 < Q0 ∧ ∀ u v hv p,
+  Q0 < qI v.asIdeal → eulerNeighborhood p →
+  Summable (fun i => ‖localEulerTerm R η U u v hv (p 0) (p 1) (p 2) i‖) ∧
+  ‖normalizedLocal R η U u v hv (p 0) (p 1) (p 2) - 1‖ ≤
+    C * qI v.asIdeal ^ (if frequencyValuation η U u v = 0 then (-1 - 1 / 4000 : ℝ) else (-1 / 4000 : ℝ))
+
+/-- Corrected by `sol-gate-a2b`: the constants are outputs of the local estimate, not arbitrary
+inputs (`po:H-local-bounds`, 05:660–729). -/
+theorem po_H_local_bounds :
+  EulerHypotheses R η → ∃ C Q0 : ℝ, 0 < C ∧ 1 < Q0 ∧ HasPoHLocalBounds R η U C Q0 := by
+  sorry
+/-- H_u is a proposed limit object; its HasProd law is an explicit node conclusion below. -/
+structure EulerCorrection (η : HeckeChar F) (U : FrequencyData S D η) where
+  H : U.U → Triple → ℂ
+  H_eq : ∀ u p, H u p = ∏' v : {v : FinPlace F // v ∉ S.Sf},
     normalizedLocal R η U u v.1 v.2 (p 0) (p 1) (p 2)
-  H_eq _ _ := rfl
 
+variable (HC : EulerCorrection R η U)
+def Heta (s : ℂ) : ℂ := HC.H U.one ![s, 1, 1 / 6]
+
+/-- po:H-product, 05:731–755: normal convergence and holomorphy in three complex variables. -/
+def HasPoHProduct (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (η : HeckeChar F)
+    (U : FrequencyData S D η) (HC : EulerCorrection R η U) : Prop :=
+  (∀ u p, eulerNeighborhood p →
+    HasProd (fun v : {v : FinPlace F // v ∉ S.Sf} =>
+      normalizedLocal R η U u v.1 v.2 (p 0) (p 1) (p 2)) (HC.H u p)) ∧
+  (∀ u, DifferentiableOn ℂ (HC.H u) {p | eulerNeighborhood p}) ∧
+  (∀ u (K : Set Triple), IsCompact K → K ⊆ {p | eulerNeighborhood p} →
+    ∀ ε : ℝ, 0 < ε → ∃ V : Finset (FinPlace F), ∀ V' : Finset (FinPlace F), V ⊆ V' →
+      ∀ p ∈ K, ‖(∏ v ∈ V'.attach, if hv : v.1 ∉ S.Sf then
+        normalizedLocal R η U u v.1 hv (p 0) (p 1) (p 2) else 1) - HC.H u p‖ < ε) ∧
+  ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ u p, eulerNeighborhood p → ‖HC.H u p‖ ≤ C * U.q u ^ ε
+
+theorem po_H_product : EulerHypotheses R η → HasPoHProduct R η U HC := by
+  sorry
+variable (HA : HeckeAnalysis F)
+/-- prop:euler-product, 05:407–433: analytic continuations, masked exterior values retained. -/
+theorem prop_euler_product : EulerHypotheses R η →
+  HasPoHProduct R η U HC ∧ (∀ u ξ w z, initialRegion ξ w z →
+    calF R η U u ξ w z = HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ,w,z] /
+      HA.LS S (η * (U.kummer u)⁻¹) ξ) ∧
+  ((∀ v hv p, eulerNeighborhood p →
+    ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) →
+      ∀ p, eulerNeighborhood p → HC.H U.one p ≠ 0) := by
+  sorry
+/-- def:po-H-eta, 05:757–765: the larger open half-plane includes the closed .998 boundary. -/
 private lemma euler_frequency_valuation_one_eq_zero (v : FinPlace F) (hv : v ∉ S.Sf)
     (hcount : 0 ≤ FractionalIdeal.count F v
       (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (U.repr U.one : F))) :
@@ -6864,6 +7053,134 @@ private lemma euler_frequency_valuation_one_eq_zero (v : FinPlace F) (hv : v ∉
       exact (inv_lt_one₀ (pow_pos (by positivity) _)).2 hgt
     linarith
   simpa [frequencyValuation, x] using htoNat
+
+
+theorem po_H_eta_properties : EulerHypotheses R η →
+  (∀ v hv p, eulerNeighborhood p →
+    ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) →
+  DifferentiableOn ℂ (Heta R η U HC) {s | 998 / 1000 - 1 / 100000 < s.re} ∧
+  (∀ s, 998 / 1000 - 1 / 100000 < s.re → Heta R η U HC s ≠ 0) ∧
+  ∃ C : ℝ, 0 < C ∧ ∀ s, 998 / 1000 - 1 / 100000 < s.re → ‖Heta R η U HC s‖ ≤ C := by
+  intro hEuler hloc
+  have hProduct := po_H_product R η U HC hEuler
+  rcases hProduct with ⟨_, hDiff, _, hBound⟩
+  let HA0 : HeckeAnalysis F := Classical.choice (heckeAnalysis_exists F)
+  obtain ⟨_, _, hNonzero⟩ := prop_euler_product R η U HC HA0 hEuler
+  have hMaps : Set.MapsTo (fun s : ℂ => ![s, 1, 1 / 6])
+      {s | 998 / 1000 - 1 / 100000 < s.re}
+      {p | eulerNeighborhood p} := by
+    intro s hs
+    right
+    refine ⟨?_, by norm_num, by norm_num⟩
+    simpa using hs
+  have hφ : DifferentiableOn ℂ (fun s : ℂ => ![s, 1, 1 / 6])
+      {s | 998 / 1000 - 1 / 100000 < s.re} := by
+    rw [differentiableOn_pi]
+    intro i
+    fin_cases i <;> simp <;> fun_prop
+  have hDiffEta :
+      DifferentiableOn ℂ (Heta R η U HC)
+        {s | 998 / 1000 - 1 / 100000 < s.re} := by
+    change DifferentiableOn ℂ
+      (fun s : ℂ => HC.H U.one ![s, 1, 1 / 6])
+      {s | 998 / 1000 - 1 / 100000 < s.re}
+    exact (hDiff U.one).comp hφ hMaps
+  obtain ⟨C, hC, hB⟩ := hBound 1 (by norm_num)
+  refine ⟨hDiffEta, ?_, ⟨C, hC, ?_⟩⟩
+  · intro s hs
+    simpa [Heta] using hNonzero hloc (![s, 1, 1 / 6]) (hMaps hs)
+  · intro s hs
+    have h := hB U.one (![s, 1, 1 / 6]) (hMaps hs)
+    simpa [Heta, U.q_one] using h
+
+
+/-- po:H-local-bounds: C,Q0 chosen before the field, set S, phases, or frequency.
+This is the absolute-cutoff obligation used when choosing S in A1. -/
+theorem po_H_local_bounds_absolute :
+  ∃ C Q0 : ℝ, 0 < C ∧ 1 < Q0 ∧
+  ∀ (F' : Type) [Field F'] [NumberField F'] (CE' : ℕ) (cond' : Ideal (𝓞 F'))
+    (D' : FieldData F') (S' : SData F' CE' cond') (H' : HilbertData F') (Bd' : BData S' H')
+    (A' : AddCharData F') (ϑ' : HeckeChar F') (bc' : BalancedChoices D' S' H' Bd')
+    (μ' : ∀ v : FinPlace F', Theta.LocHaar v) (v0' : InfinitePlace F')
+    (R' : ReflectionSetup D' S' H' Bd' A' ϑ' bc' μ' v0') (η' : HeckeChar F')
+    (U' : FrequencyData S' D' η'),
+      EulerHypotheses R' η' → HasPoHLocalBounds R' η' U' C Q0 := by
+  sorry
+/-- po:H-local-bounds, 05:660-729. The numerical Q1 cutoff is fixed independently of arithmetic data. -/
+theorem po_H_cutoff_from_constants (C Q0 : ℝ) : ∃ Q1 : ℕ,
+  Q0 < (Q1 : ℝ) ∧ ∀ Q : ℝ, (Q1 : ℝ) < Q → C * Q ^ (-(1 + 1 / 4000 : ℝ)) < 1 / 2 := by
+  let M : ℝ := max Q0 (max 1 (2 * C))
+  obtain ⟨Q1, hQ1⟩ := exists_nat_gt M
+  refine ⟨Q1, ?_, ?_⟩
+  · exact lt_of_le_of_lt (le_max_left _ _) hQ1
+  · intro Q hQ
+    have hMQ : M < Q := lt_trans hQ1 hQ
+    have hQone : 1 < Q := lt_of_le_of_lt
+      (le_trans (le_max_left 1 (2 * C)) (le_max_right Q0 (max 1 (2 * C)))) hMQ
+    have hQpos : 0 < Q := by linarith
+    by_cases hC : C ≤ 0
+    · have hp : 0 < Q ^ (-(1 + 1 / 4000 : ℝ)) := Real.rpow_pos_of_pos hQpos _
+      have hle : C * Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ 0 :=
+        mul_nonpos_of_nonpos_of_nonneg hC hp.le
+      linarith
+    · have hCpos : 0 < C := lt_of_not_ge hC
+      have hQ2C : 2 * C < Q := lt_of_le_of_lt
+        (le_trans (le_max_right 1 (2 * C)) (le_max_right Q0 (max 1 (2 * C)))) hMQ
+      have hpow : Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ Q ^ (-1 : ℝ) := by
+        apply Real.rpow_le_rpow_of_exponent_le hQone.le
+        norm_num
+      rw [Real.rpow_neg_one] at hpow
+      have hdiv : C / Q < 1 / 2 := (div_lt_iff₀ hQpos).2 (by nlinarith)
+      calc
+        C * Q ^ (-(1 + 1 / 4000 : ℝ)) ≤ C * Q⁻¹ :=
+          mul_le_mul_of_nonneg_left hpow hCpos.le
+        _ < 1 / 2 := by simpa [div_eq_mul_inv] using hdiv
+/-- Named refutation gate: saturated subtraction changes the J=t-1 boundary in a naive translation. -/
+theorem localC_natural_subtraction_gate : (0 - 1 + 1 : ℕ) = 1 ∧ (0 + 1 - 1 : ℕ) = 0 := by decide
+
+/-- Named refutation gate: ordinary zeroth powers cannot implement the masked nonunit value. -/
+theorem zeroth_power_mask_gate : (0 : ℂ) ^ (0 : ℕ) ≠ 0 := by norm_num
+
+end PoissonSupplementary
+
+section FinalPoissonClauses
+variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
+  {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
+  {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
+  {v0 : InfinitePlace F}
+variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (sd : S.SelfDualMeasure A)
+  (W : PoissonWeights (S := S)) (η : HeckeChar F) (U : FrequencyData S D η)
+  (HA : HeckeAnalysis F) (HC : EulerCorrection R η U)
+
+def continuedCalF (u : U.U) (ξ w z : ℂ) : ℂ :=
+  HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ,w,z] /
+    HA.LS S (η * (U.kummer u)⁻¹) ξ
+
+/-- po:H-product / prop:euler-product: continuation identity with coordinatewise meromorphy.
+The raw calF tsum is only compared in its convergence domain. -/
+theorem po_euler_meromorphic_identity : EulerHypotheses R η →
+  (∀ u ξ w z, initialRegion ξ w z → continuedCalF R η U HA HC u ξ w z = calF R η U u ξ w z) ∧
+  (∀ u w z, MeromorphicOn (fun ξ => continuedCalF R η U HA HC u ξ w z)
+    {ξ | eulerNeighborhood ![ξ,w,z]}) ∧
+  (∀ u ξ z, MeromorphicOn (fun w => continuedCalF R η U HA HC u ξ w z)
+    {w | eulerNeighborhood ![ξ,w,z]}) ∧
+  (∀ u ξ w, MeromorphicOn (fun z => continuedCalF R η U HA HC u ξ w z)
+    {z | eulerNeighborhood ![ξ,w,z]}) := by
+  sorry
+end FinalPoissonClauses
+section CanonicalEulerObject
+variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
+  {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
+  {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
+  {v0 : InfinitePlace F}
+variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+  (η : HeckeChar F) (U : FrequencyData S D η)
+
+/-- Actual infinite-product definition; it assumes no convergence or nonvanishing result. -/
+def canonicalEulerCorrection : EulerCorrection R η U where
+  H u p := ∏' v : {v : FinPlace F // v ∉ S.Sf},
+    normalizedLocal R η U u v.1 v.2 (p 0) (p 1) (p 2)
+  H_eq _ _ := rfl
 
 /-- po:H-local-bounds: installing the numerical cutoff in the frozen CE parameter implies
 small principal factors on the entire enlarged neighborhoods. -/
