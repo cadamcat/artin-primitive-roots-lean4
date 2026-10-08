@@ -1,5 +1,4 @@
-import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.sectionSpace_family_spanning
-import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.analyticFamily_add_smul
+import ArtinPrimitiveRoots.Proofs.th_res_whit_b.LambdaCore
 
 set_option autoImplicit false
 
@@ -30,6 +29,12 @@ theorem theta_lambda_descent (Fam : AnalyticFamily P G μ) (v0 : FinPlace F)
       ∀ (Fam' : AnalyticFamily P G μ) (C' : ContinuedEis Fam'),
         ExteriorFamily Fam v0 Fam' →
           thetaWhit C' g = Λ (intertwine (P.loc v0) (μ v0) ((Fam'.sec (1 / 6)).f v0)) := by
-  sorry
+  obtain ⟨Λ, θ, hFactor, hFamily⟩ := theta_lambda_descent_core Fam v0 hv0 g laws
+  refine ⟨Λ, ?_⟩
+  intro Fam' C' hExt
+  calc
+    thetaWhit C' g = θ ⟨(Fam'.sec (1 / 6)).f v0, (Fam'.sec (1 / 6)).f_sec v0⟩ :=
+      hFamily Fam' C' hExt
+    _ = Λ (intertwine (P.loc v0) (μ v0) ((Fam'.sec (1 / 6)).f v0)) := (hFactor _).symm
 
 end ArtinPrimitiveRoots.A1.Theta

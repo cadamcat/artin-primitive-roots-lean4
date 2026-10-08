@@ -1,8 +1,58 @@
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadAddressBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.ComparisonFamilyBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadErrorDecay
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadPairTotals
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadMassExpansion
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadCoreSupport
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadGlobalBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadExpansion
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.ComparisonCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.DivisorSecondMoment
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadSignedError
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.RawCutoff
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PhysicalBadCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.GoodnessGrowth
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.GridScaling
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.GroupedCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.ScaleGeometry
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.VectorCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.NormalizerGrowth
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_truncation_tail_absorb
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_high_rank_tail
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_low_rank_iteration
 import ArtinPrimitiveRoots.TypeII.PD.Memory
 import ArtinPrimitiveRoots.TypeII.PD.Determinant
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.Symmetry
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadProbability
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadReindexing
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.TupleCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.LineMass
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PairingBound
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PhysicalCoordinates
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.TargetCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.CutoffBounds
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.AbsoluteSquares
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.DivisorProgressions
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.Damping
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.MajorKernelBound
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.EdgeCoordinates
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadDyads
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.CollisionCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.ShortDeterminant
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.GoodnessMeasurable
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.PadMass
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.RawCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.BoxBoundary
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.UnionLabels
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.GridPredicates
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.RootGrid
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.SourceModelMeasure
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.TargetModelMeasure
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.KernelEnvelope
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.EdgeSymmetry
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.LabelCounting
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.EdgePartition
+import ArtinPrimitiveRoots.TypeII.Proofs.pd6b.ErrorDecay
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Partition
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Ranks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd5.Atoms
@@ -7387,6 +7437,25 @@ private theorem physical_completionC_eq_rootC {x : ℝ} {K : ℕ} {a : Fin K →
     Int.emod_eq_of_lt (Int.natCast_nonneg _) hroot] at hmod
   exact hmod
 
+private theorem stateRoot_eq_rootC_div {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    {H' Hm Hn : ℝ} (P : PhysicalState x K a H' Hm Hn) (hfirst : 2 ≤ P.first) :
+    stateRoot P = (rootC P.first P.second : ℝ) / (P.first : ℝ) := by
+  unfold stateRoot
+  rw [physical_completionC_eq_rootC P hfirst]
+  congr 1
+
+private theorem physicalState_envValid {K : ℕ} (F : PDFix K) (S : PDScale)
+    (P : PState F S) : EnvValid F S (P.pos, P.labels) := by
+  unfold EnvValid
+  refine ⟨?_, ?_⟩
+  · change Int.gcd (P.first : ℤ) (P.second : ℤ) = 1
+    rw [Int.gcd_natCast_natCast]
+    exact P.primitive.gcd_eq_one
+  · constructor
+    · intro i j
+      exact ⟨P.label_prime i j, P.label_in_band i j⟩
+    · exact P.label_distinct
+
 /-- A prime dividing the first coordinate has the vertical projective kernel line. -/
 private theorem kernelLine_eq_last_of_dvd (p u c : ℕ) (hpu : p ∣ u) :
     kernelLine p u c = Fin.last p := by
@@ -7563,6 +7632,164 @@ private theorem detPairing_finiteDoubleSum {K : ℕ} (F : PDFix K) (S : PDScale)
     exact physRow_finite_sum F S _ R
   rw [hrow]
 
+private theorem detPairing_goodExpansion {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] :
+    detPairing F S family beta =
+      (physicalMeasure S.x K F.a : ℂ) *
+        ∑ P : PState F S,
+          (endpointF S.x K F.a family beta P *
+            (if IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P)
+              then (1 : ℂ) else 0)) *
+            ∑ Q : PState F S,
+              physRowKernel F S P Q *
+                physGood F S
+                  (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta) Q := by
+  classical
+  let gGood : PState F S → ℂ := fun Q =>
+    physGood F S (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta) Q
+  let row : PState F S → ℂ := fun P =>
+    ∑ Q : PState F S, physRowKernel F S P Q * gGood Q
+  let w : PState F S → ℂ := fun P =>
+    endpointF S.x K F.a family beta P *
+      (if IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P)
+        then (1 : ℂ) else 0)
+  have hGoodSym : physSym F S
+      (physGood F S (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta)) = gGood := by
+    funext Q
+    exact physSym_goodEndpointG F S family beta Q
+  have hw : ∀ (P : PState F S) (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))),
+      w (P.permute σ) = w P := by
+    intro P σ
+    simp [w, endpointF_permute, isGoodRatio_statePermute]
+  have houter :
+      (∑ P : PState F S,
+        endpointF S.x K F.a family beta P *
+          physGood F S (physSym F S row) P) =
+        ∑ P : PState F S, w P * row P := by
+    calc
+      _ = ∑ P : PState F S, w P * physSym F S row P := by
+        apply Finset.sum_congr rfl
+        intro P hP
+        by_cases hgood : IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P)
+        · simp [w, physGood, hgood]
+        · simp [w, physGood, hgood]
+      _ = _ := sum_mul_physSym_eq_of_permuteInvariant F S w row hw
+  rw [detPairing_finiteDoubleSum, hGoodSym]
+  change (physicalMeasure S.x K F.a : ℂ) *
+      (∑ P : PState F S,
+        endpointF S.x K F.a family beta P *
+          physGood F S (physSym F S row) P) = _
+  rw [houter]
+
+private theorem detPairing_noGoodExpansion {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] :
+    detPairingNoGood F S family beta =
+      (physicalMeasure S.x K F.a : ℂ) *
+        ∑ P : PState F S,
+          endpointF S.x K F.a family beta P *
+            ∑ Q : PState F S,
+              physRowKernel F S P Q * endpointG S.x K F.a family beta Q := by
+  classical
+  let row : PState F S → ℂ := fun P =>
+    ∑ Q : PState F S,
+      physRowKernel F S P Q * endpointG S.x K F.a family beta Q
+  have hGsym : physSym F S
+      (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta) =
+        endpointGVector S.x K F.a S.H S.Hm S.Hn family beta := by
+    funext Q
+    exact physSym_endpointG F S family beta Q
+  have hw : ∀ (P : PState F S) (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))),
+      endpointF S.x K F.a family beta (P.permute σ) =
+        endpointF S.x K F.a family beta P := by
+    intro P σ
+    exact endpointF_permute family beta P σ
+  have houter :
+      (∑ P : PState F S,
+        endpointF S.x K F.a family beta P * physSym F S row P) =
+        ∑ P : PState F S, endpointF S.x K F.a family beta P * row P :=
+    sum_mul_physSym_eq_of_permuteInvariant F S _ row hw
+  rw [detPairingNoGood_finiteDoubleSum, hGsym]
+  change (physicalMeasure S.x K F.a : ℂ) *
+      (∑ P : PState F S,
+        endpointF S.x K F.a family beta P * physSym F S row P) = _
+  rw [houter]
+
+private theorem detPairing_difference_expansion {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] :
+    detPairing F S family beta - detPairingNoGood F S family beta =
+      (physicalMeasure S.x K F.a : ℂ) *
+        ((∑ P : PState F S,
+          (endpointF S.x K F.a family beta P *
+            (if IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P)
+              then (1 : ℂ) else 0)) *
+            ∑ Q : PState F S,
+              physRowKernel F S P Q *
+                physGood F S
+                  (endpointGVector S.x K F.a S.H S.Hm S.Hn family beta) Q) -
+        ∑ P : PState F S,
+          endpointF S.x K F.a family beta P *
+            ∑ Q : PState F S,
+              physRowKernel F S P Q * endpointG S.x K F.a family beta Q) := by
+  rw [detPairing_goodExpansion, detPairing_noGoodExpansion]
+  ring
+
+/-- Endpoint suprema reduce goodness removal to an absolute bad-edge count. -/
+private theorem detPairing_difference_le_badEdges {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] (B : ℝ) (hB : 0 ≤ B)
+    (hμ : 0 ≤ physicalMeasure S.x K F.a)
+    (hf : ∀ P : PState F S, ‖endpointF S.x K F.a family beta P‖ ≤ B)
+    (hg : ∀ P : PState F S, ‖endpointG S.x K F.a family beta P‖ ≤ B) :
+    ‖detPairing F S family beta - detPairingNoGood F S family beta‖ ≤
+      physicalMeasure S.x K F.a * B ^ 2 *
+        ∑ P : PState F S, ∑ Q : PState F S,
+          if ¬ IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P) ∨
+             ¬ IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a Q.labels (stateRoot Q)
+          then ‖physRowKernel F S P Q‖ else 0 := by
+  rw [detPairing_goodExpansion, detPairing_noGoodExpansion]
+  simpa only [physGood, endpointGVector] using
+    maskedPairing_difference_le
+      (fun P : PState F S => endpointF S.x K F.a family beta P)
+      (fun Q : PState F S => endpointG S.x K F.a family beta Q)
+      (physRowKernel F S)
+      (fun P : PState F S => IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P))
+      (physicalMeasure S.x K F.a) B hμ hB hf hg
+
+/-- The one-edge grouping key introduces no multiplicity in the physical root count. -/
+private theorem physicalEdge_key_injective {K : ℕ} (F : PDFix K) (S : PDScale)
+    (P Q P' Q' : PState F S) (ht : IsSlotTransition P.labels Q.labels)
+    (ht' : IsSlotTransition P'.labels Q'.labels)
+    (hlabels : edgeUnionLabels P.labels Q.labels = edgeUnionLabels P'.labels Q'.labels)
+    (hfirst : P.first = P'.first) (hsecond : P.second = P'.second)
+    (hcoords : edgeCoordinates P Q = edgeCoordinates P' Q') : P = P' ∧ Q = Q' := by
+  obtain ⟨hp, hq⟩ := edgeUnionLabels_injective_on_transitions _ _ _ _ ht ht' hlabels
+  have hP : P = P' := physicalState_eq_of_coordinates P P' hfirst hsecond hp
+  subst P'
+  exact ⟨rfl, physicalTarget_eq_of_edgeCoordinates P Q Q' hcoords hq⟩
+
+private theorem detPairing_difference_le_sourceEnvelope {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    [Fintype (PState F S)] (B Rpsi Bpsi : ℝ) (hB : 0 ≤ B)
+    (hμ : 0 ≤ physicalMeasure S.x K F.a)
+    (hf : ∀ P : PState F S, ‖endpointF S.x K F.a family beta P‖ ≤ B)
+    (hg : ∀ P : PState F S, ‖endpointG S.x K F.a family beta P‖ ≤ B)
+    (hkernel : ∀ P Q : PState F S, ‖physRowKernel F S P Q‖ ≤ physicalEnvelope F S Rpsi Bpsi P Q)
+    (hsymm : ∀ P Q : PState F S, physicalEnvelope F S Rpsi Bpsi P Q = physicalEnvelope F S Rpsi Bpsi Q P) :
+    ‖detPairing F S family beta - detPairingNoGood F S family beta‖ ≤
+      2 * physicalMeasure S.x K F.a * B ^ 2 * ∑ P : PState F S, ∑ Q : PState F S,
+        if ¬ IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P)
+        then physicalEnvelope F S Rpsi Bpsi P Q else 0 := by
+  rw [detPairing_goodExpansion, detPairing_noGoodExpansion]
+  simpa only [physGood, endpointGVector] using maskedPairing_difference_le_sourceEnvelope
+    (fun P : PState F S => endpointF S.x K F.a family beta P)
+    (fun Q : PState F S => endpointG S.x K F.a family beta Q) (physRowKernel F S)
+    (fun P : PState F S => IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P))
+    (physicalEnvelope F S Rpsi Bpsi) (physicalMeasure S.x K F.a) B hμ hB hf hg hkernel hsymm
+
+set_option maxHeartbeats 1000000 in
 /-- `t2:pd.goodness-removal` (new node, part of `t2:pd.strip-goodness-pads`) — PD 04:970-1008.
 Removing both good-state projections from the pairing costs `O_A(UV L^{-A})`: majorize the bad
 parts absolutely with log-power endpoint suprema; single-edge root replacement (the general
@@ -7577,8 +7804,1847 @@ theorem goodness_removal (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc�
           ∀ beta : ℕ → ℂ, IsSecondCoefficient S C beta →
             ‖detPairing F S family beta - detPairingNoGood F S family beta‖ ≤
               C_A * S.U * S.V * Real.rpow S.L (-A) := by
-  sorry
+  intro K F hF A hA
+  by_cases hc₂ : 0 < c₂
+  · have hBands : ValidBands K F.a := hF.1
+    obtain ⟨Bpsi, Rpsi, hBpsi, hRpsi, hPsiBound, hPsiSupport⟩ :=
+      arcCutoff_bounds hF.2.2.2.2.2
+    have hε : 0 < Real.log 2 / 2 := by positivity
+    have hBandEvent : ∀ᶠ x : ℝ in atTop, ∀ i : Fin K,
+        Real.log 2 / 2 ≤ bandMass x (F.a i) ∧ 0 < bandMass x (F.a i) := by
+      rw [Filter.eventually_all]
+      intro i
+      have ha₀ : 0 < F.a i := lt_trans (by norm_num : (0 : ℝ) < 1 / 10)
+        (hBands.2.1 i).1
+      have ha₁ : F.a i < 1 := lt_trans (hBands.2.1 i).2
+        (by norm_num : (1 / 5 : ℝ) < 1)
+      obtain ⟨xBand, hxBand₂, hMass⟩ :=
+        band_mass (F.a i) ha₀ ha₁ (Real.log 2 / 2) hε
+      filter_upwards [Filter.eventually_ge_atTop xBand] with x hx
+      refine ⟨?_, (hMass x hx).2⟩
+      have habs := abs_le.mp (hMass x hx).1
+      linarith
+    obtain ⟨xBand, hBandEvent⟩ := Filter.eventually_atTop.mp hBandEvent
+    let CrootScale : ℝ := 8 * (K : ℝ) + 1
+    have hCrootScale : 0 < CrootScale := by positivity
+    obtain ⟨cδ, Croot, xRoot, hcδ, hCroot, hxRoot₂, rootLines⟩ :=
+      root_lines δ CrootScale hδ hCrootScale
+    have hcδpos : 0 < cδ := by rw [hcδ]; positivity
+    let εgrid : ℝ := min (min (δ / 10000) (cδ / 10)) (1 / 100)
+    have hεgrid : 0 < εgrid := by
+      dsimp [εgrid]
+      exact lt_min (lt_min (div_pos hδ (by norm_num)) (div_pos hcδpos (by norm_num))) (by norm_num)
+    have hεgrid_lt : εgrid < 1 := by
+      dsimp [εgrid]
+      exact lt_of_le_of_lt (min_le_right _ _) (by norm_num)
+    have hεgrid_residue : 0 < cδ - 3 * εgrid := by
+      have he : εgrid ≤ cδ / 10 := (min_le_left _ _).trans (min_le_right _ _)
+      linarith
+    obtain ⟨xBoundary, hxBoundary₂, rootBoundary⟩ :=
+      root_arch_boundary δ c₁ c₂ hδ hc₁ K F hF εgrid hεgrid hεgrid_lt
+    obtain ⟨xBox, hxBox₂, boxBoundary⟩ :=
+      rootBox_boundary_of_sourcePad δ c₁ c₂ hδ hc₁ K F hF εgrid hεgrid hεgrid_lt
+    obtain ⟨cGood, xGood, hcGood, hxGood₂, goodState⟩ := good_state K F.a hBands
+    obtain ⟨xDisjoint, hxDisjoint₂, bandsDisjoint⟩ :=
+      validBands_disjoint_eventually K F.a hBands
+    have hRpos : 0 < Rpsi := by linarith
+    let CTube : ℝ := 8 * ((K + 1 : ℕ) : ℝ) + |Real.log Rpsi| + 22
+    let CNormal : ℝ := |3 * (K : ℝ) * Real.log ((Real.log 2 / 2)⁻¹)|
+    have hCTube : 0 ≤ CTube := by dsimp [CTube]; positivity
+    obtain ⟨xTube, hxTube₂, tubeSmall⟩ := physicalTubeRadius_small_eventually K Rpsi hRpos
+    obtain ⟨CA, LDecay, hCA, hLDecay, decay⟩ :=
+      goodness_majorant_decay A C (3 * F.A₀) (6 / Real.pi ^ 2) Bpsi Rpsi Croot cGood
+        εgrid (cδ - 3 * εgrid) CNormal (9 * (K : ℝ)) (2 * CTube)
+        hC.le (by linarith [hF.2.2.2.1]) (by positivity) hBpsi.le hRpos.le hCroot
+        hcGood hεgrid hεgrid_residue (abs_nonneg _) (by positivity) (by positivity)
+    let xBase : ℝ :=
+      max (Real.exp 1) (max 2 (max xBand (max xRoot (max xBoundary (max xGood (max xDisjoint xBox))))))
+    let x₀ : ℝ := max xBase (max xTube (Real.exp LDecay))
+    have hx₀₂ : 2 ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Exp : Real.exp 1 ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Band : xBand ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Root : xRoot ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Boundary : xBoundary ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Good : xGood ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Disjoint : xDisjoint ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Box : xBox ≤ x₀ := by simp [x₀, xBase]
+    refine ⟨CA, x₀, hCA, hx₀₂, ?_⟩
+    intro S hS hx family hFamilyAt hFamilyMin beta hbeta
+    have hxBand : xBand ≤ S.x := le_trans hx₀Band hx
+    have hxRoot : xRoot ≤ S.x := le_trans hx₀Root hx
+    have hxBoundary : xBoundary ≤ S.x := le_trans hx₀Boundary hx
+    have hxGood : xGood ≤ S.x := le_trans hx₀Good hx
+    have hxDisjoint : xDisjoint ≤ S.x := le_trans hx₀Disjoint hx
+    have hxBox : xBox ≤ S.x := hx₀Box.trans hx
+    have hxTube : xTube ≤ S.x := (by simp [x₀] : xTube ≤ x₀).trans hx
+    have hLDecayAt : LDecay ≤ S.L := by
+      have he : Real.exp LDecay ≤ S.x := (by simp [x₀] : Real.exp LDecay ≤ x₀).trans hx
+      have hl := Real.log_le_log (Real.exp_pos _) he
+      simpa only [Real.log_exp, PDScale.L] using hl
+    have hBandsDisjoint := bandsDisjoint S.x hxDisjoint
+    have hxExp : Real.exp 1 ≤ S.x := le_trans hx₀Exp hx
+    have hlogone : 1 ≤ Real.log S.x := by
+      have h := Real.log_le_log (Real.exp_pos 1) hxExp
+      simpa using h
+    have hBandMass : ∀ i, Real.log 2 / 2 ≤ bandMass S.x (F.a i) := fun i =>
+      (hBandEvent S.x hxBand i).1
+    have hBandMassPos : ∀ i, 0 < bandMass S.x (F.a i) := fun i =>
+      (hBandEvent S.x hxBand i).2
+    have hOneEdgeLabelMass := unionLineWeight_sum_le_one F.a
+      (momentJ S.x + 2) hBandMassPos
+    have hSValid := hS
+    rcases hS with ⟨hx₂, hHmLo, hHnLo, hXLo, hXHi, hYmem, hDmem⟩
+    have hxpos : 0 < S.x := by linarith
+    have hpowPos : 0 < Real.rpow S.x δ := Real.rpow_pos_of_pos hxpos δ
+    have hHmPos : 0 < S.Hm := lt_of_lt_of_le hpowPos hHmLo
+    have hHnPos : 0 < S.Hn := lt_of_lt_of_le hpowPos hHnLo
+    have hYpos : 0 < S.Y := by
+      unfold dyadicScales at hYmem
+      rcases Finset.mem_filter.mp hYmem with ⟨hImage, _⟩
+      rcases Finset.mem_image.mp hImage with ⟨k, _, hYeq⟩
+      calc
+        0 < (2 : ℝ) ^ k := pow_pos (by norm_num) k
+        _ = S.Y := hYeq
+    have hYge1 : 1 ≤ S.Y := by
+      unfold dyadicScales at hYmem
+      rcases Finset.mem_filter.mp hYmem with ⟨hImage, _⟩
+      rcases Finset.mem_image.mp hImage with ⟨k, _, hYeq⟩
+      rw [← hYeq]
+      exact one_le_pow₀ (by norm_num : (1 : ℝ) ≤ 2)
+    have hDpos : 0 < (S.d₀ : ℝ) := by
+      unfold padScales at hDmem
+      rcases Finset.mem_image.mp hDmem with ⟨k, _, hDeq⟩
+      rw [← hDeq]
+      exact_mod_cast (pow_pos (by norm_num : 0 < (2 : ℕ)) k)
+    have hDge1 : 1 ≤ (S.d₀ : ℝ) := by
+      unfold padScales at hDmem
+      rcases Finset.mem_image.mp hDmem with ⟨k, _, hDeq⟩
+      rw [← hDeq]
+      exact_mod_cast (one_le_pow₀ (by norm_num : (1 : ℕ) ≤ 2))
+    have hHpos : 0 < S.H := by
+      simpa [PDScale.H] using mul_pos hDpos hYpos
+    have hHge1 : 1 ≤ S.H := by
+      change 1 ≤ (S.d₀ : ℝ) * S.Y
+      calc
+        1 = 1 * 1 := by norm_num
+        _ ≤ (S.d₀ : ℝ) * S.Y :=
+          mul_le_mul hDge1 hYge1 (by norm_num) (by positivity)
+    have hHmgt1 : 1 < S.Hm := by
+      have hxgt1 : 1 < S.x := by linarith [hx₂]
+      have hpowgt1 : 1 < Real.rpow S.x δ := Real.one_lt_rpow hxgt1 hδ
+      exact lt_of_lt_of_le hpowgt1 hHmLo
+    have hUlo : Real.rpow S.x δ ≤ S.U := by
+      calc
+        Real.rpow S.x δ ≤ S.Hm := hHmLo
+        _ ≤ S.H * S.Hm := by
+          calc
+            S.Hm = 1 * S.Hm := by ring
+            _ ≤ S.H * S.Hm := mul_le_mul_of_nonneg_right hHge1 hHmPos.le
+        _ = S.U := by simp [PDScale.U]
+    have hUpos : 0 < S.U := lt_of_lt_of_le hpowPos hUlo
+    letI : Finite (PState F S) :=
+      Finite.of_finite_univ (physicalState_finite hHpos hHmPos hHnPos)
+    letI : Fintype (PState F S) := Fintype.ofFinite _
+    have hStateFirst (P : PState F S) : 2 ≤ P.first := by
+      have hfirstReal : 1 < (P.first : ℝ) := by
+        have hproduct : 1 < S.H * S.Hm := by nlinarith
+        exact lt_of_lt_of_le hproduct P.first_lower
+      have hfirstNat : 1 < P.first := by exact_mod_cast hfirstReal
+      omega
+    have hStateRoot (P : PState F S) :
+        stateRoot P = (rootC P.first P.second : ℝ) / (P.first : ℝ) :=
+      stateRoot_eq_rootC_div P (hStateFirst P)
+    have hEnvValidAll (P : PState F S) :
+        EnvValid F S (P.pos, P.labels) := physicalState_envValid F S P
+    have hLabelsValid (P : PState F S) :
+        ValidPrimeLists S.x K F.a P.labels := by
+      exact ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+    have hSourceEnvValid (P : PState F S) : EnvValid F S ((1, 0), P.labels) := by
+      exact ⟨by norm_num, hLabelsValid P⟩
+    have hTargetEnvValid (P Q : PState F S) :
+        EnvValid F S (edgeCoordinates P Q, Q.labels) :=
+      ⟨edgeCoordinates_primitive P Q, hLabelsValid Q⟩
+    have hTargetKernelLine (P Q : PState F S) (q : ℕ) (hq : q.Prime) (hdiv : q ∣ Q.first) :
+        kernelLine q P.first (rootC P.first P.second) = projLine q (edgeCoordinates P Q) := by
+      change projLine q ((rootC P.first P.second : ℤ), -(P.first : ℤ)) = _
+      rw [← physical_completionC_eq_rootC P (hStateFirst P)]
+      exact physicalKernel_eq_target_projection P Q q hq hdiv
+    have hLabelsSquarefree (P : PState F S) : Squarefree (groupLabelProduct P) := by
+      simpa [groupLabelProduct] using
+        primeListProduct_squarefree P.labels (hLabelsValid P) hBandsDisjoint
+    have hLabelsRootRange (P : PState F S) :
+        (groupLabelProduct P : ℝ) ≤
+          Real.exp (4 * (K : ℝ) * Real.rpow S.L (21 / 100 : ℝ)) := by
+      simpa [groupLabelProduct, PDScale.L] using
+        primeListProduct_le_exp hBands P.labels (hLabelsValid P) hlogone
+    have hRootLabelLines (P : PState F S) :
+        ∀ q ∈ (groupLabelProduct P).primeFactors,
+          kernelLine q P.first (rootC P.first P.second) = Fin.last q := by
+      exact rootLines_last_of_list_divides P.labels (hLabelsValid P) P.first P.second
+        (fun i j => P.label_divides i j)
+    have hLabelModulusPos (P : PState F S) : 0 < groupLabelProduct P := by
+      have hnat : 0 < groupLabelProduct P := by
+        unfold groupLabelProduct
+        apply Finset.prod_pos
+        intro i hi
+        apply Finset.prod_pos
+        intro j hj
+        exact (P.label_prime i j).pos
+      exact hnat
+    have hLogPowerGap : Real.rpow S.L (21 / 100 : ℝ) ≤
+        Real.rpow S.L (98 / 100 : ℝ) :=
+      Real.rpow_le_rpow_of_exponent_le hlogone (by norm_num)
+    have hLabelModulusRootRange (P : PState F S) :
+        (groupLabelProduct P : ℝ) ≤
+          Real.exp (CrootScale * Real.rpow S.L (98 / 100 : ℝ)) := by
+      have hpower : 4 * (K : ℝ) * Real.rpow S.L (21 / 100 : ℝ) ≤
+          CrootScale * Real.rpow S.L (98 / 100 : ℝ) := by
+        dsimp [CrootScale]
+        calc
+          4 * (K : ℝ) * Real.rpow S.L (21 / 100 : ℝ) ≤
+              4 * (K : ℝ) * Real.rpow S.L (98 / 100 : ℝ) :=
+            mul_le_mul_of_nonneg_left hLogPowerGap (by positivity)
+          _ ≤ (8 * (K : ℝ) + 1) * Real.rpow S.L (98 / 100 : ℝ) := by
+            have hLnonneg : 0 ≤ S.L := by
+              unfold PDScale.L
+              linarith [hlogone]
+            have hnonneg : 0 ≤ Real.rpow S.L (98 / 100 : ℝ) :=
+              Real.rpow_nonneg hLnonneg _
+            nlinarith
+      exact (hLabelsRootRange P).trans (Real.exp_le_exp.mpr hpower)
+    have hRootLineCount (P : PState F S) :=
+      rootLines S.x hxRoot S.U S.Hn hUlo hHnLo (groupLabelProduct P)
+        (hLabelsSquarefree P) (hLabelModulusPos P) (hLabelModulusRootRange P)
+        (fun q => Fin.last q)
+    have hPRootCoordinates (P : PState F S) :
+        (1 ≤ (P.first : ℝ) / S.U ∧ (P.first : ℝ) / S.U ≤ 16) ∧
+        (1 ≤ (P.second : ℝ) / S.Hn ∧ (P.second : ℝ) / S.Hn ≤ 2) ∧
+        (0 ≤ (rootC P.first P.second : ℝ) / (P.first : ℝ) ∧
+          (rootC P.first P.second : ℝ) / (P.first : ℝ) ≤ 1) := by
+      have hfirstLo : S.U ≤ (P.first : ℝ) := by
+        simpa [PDScale.U] using P.first_lower
+      have hfirstHi : (P.first : ℝ) ≤ 16 * S.U := by
+        calc
+          (P.first : ℝ) ≤ 16 * S.H * S.Hm := P.first_upper
+          _ = 16 * S.U := by simp [PDScale.U]; ring
+      have hratioState : 0 ≤ stateRoot P ∧ stateRoot P ≤ 1 := by
+        unfold stateRoot
+        have hfirstPosNat : 0 < P.first :=
+          lt_of_lt_of_le (by norm_num : 0 < 2) (hStateFirst P)
+        have hfirstPos : 0 < (P.first : ℝ) := by exact_mod_cast hfirstPosNat
+        constructor
+        · exact div_nonneg (Int.cast_nonneg P.completion_range.1) hfirstPos.le
+        · apply (div_le_iff₀ hfirstPos).2
+          calc
+            (P.completionC : ℝ) ≤ (P.first : ℝ) := by
+              exact_mod_cast P.completion_range.2.le
+            _ = 1 * (P.first : ℝ) := by ring
+      have hratioRoot :
+          0 ≤ (rootC P.first P.second : ℝ) / (P.first : ℝ) ∧
+            (rootC P.first P.second : ℝ) / (P.first : ℝ) ≤ 1 := by
+        rw [← hStateRoot P]
+        exact hratioState
+      refine ⟨⟨(le_div_iff₀ hUpos).2 (by simpa using hfirstLo),
+          (div_le_iff₀ hUpos).2 hfirstHi⟩,
+        ⟨(le_div_iff₀ hHnPos).2 (by simpa using P.second_lower),
+          (div_le_iff₀ hHnPos).2 P.second_upper⟩,
+        hratioRoot⟩
+    have hPInRootLinesFullBox (P : PState F S) :
+        (P.first, P.second) ∈
+          {uv : ℕ × ℕ | Nat.Coprime uv.1 uv.2 ∧ 0 < uv.1 ∧
+            1 ≤ (uv.1 : ℝ) / S.U ∧ (uv.1 : ℝ) / S.U ≤ 16 ∧
+            1 ≤ (uv.2 : ℝ) / S.Hn ∧ (uv.2 : ℝ) / S.Hn ≤ 2 ∧
+            0 ≤ (rootC uv.1 uv.2 : ℝ) / uv.1 ∧
+            (rootC uv.1 uv.2 : ℝ) / uv.1 ≤ 1 ∧
+            ∀ q ∈ (groupLabelProduct P).primeFactors,
+              kernelLine q uv.1 (rootC uv.1 uv.2) = Fin.last q} := by
+      simp only [Set.mem_setOf_eq]
+      rcases hPRootCoordinates P with ⟨⟨h₁,h₂⟩,⟨h₃,h₄⟩,⟨h₅,h₆⟩⟩
+      have hPpos : 0 < P.first := lt_of_lt_of_le (by norm_num : 0 < 2) (hStateFirst P)
+      refine ⟨P.primitive, hPpos, h₁, h₂, h₃, h₄, h₅, h₆, ?_⟩
+      exact hRootLabelLines P
+    have hUnionSquarefree (P Q : PState F S) (htrans : IsSlotTransition P.labels Q.labels) :
+        Squarefree (∏ i : Fin K, ∏ j : Fin (slotCount S.x + 1), edgeUnionLabels P.labels Q.labels i j) :=
+      edgeUnionProduct_squarefree P.labels Q.labels (hLabelsValid P) (hLabelsValid Q) htrans hBandsDisjoint
+    have hUnionPrimeFactors (P Q : PState F S) :=
+      primeMatrixProduct_primeFactors (edgeUnionLabels P.labels Q.labels)
+        (fun i j => (edgeUnionLabels_in_bands P.labels Q.labels (hLabelsValid P) (hLabelsValid Q) i j).1)
+    have hUnionProductRange (P Q : PState F S) :
+        ((∏ i : Fin K, ∏ j : Fin (slotCount S.x + 1), edgeUnionLabels P.labels Q.labels i j : ℕ) : ℝ) ≤
+          Real.exp (6 * (K : ℝ) * Real.rpow S.L (21 / 100 : ℝ)) := by
+      have hJ : (momentJ S.x : ℝ) ≤ Real.rpow S.L (1 / 100 : ℝ) :=
+        Nat.floor_le (Real.rpow_nonneg (by simpa only [PDScale.L] using
+          (by linarith [hlogone] : 0 ≤ Real.log S.x)) _)
+      have hOne : 1 ≤ Real.rpow S.L (1 / 100 : ℝ) := Real.one_le_rpow hlogone (by norm_num)
+      have hN : ((slotCount S.x + 1 : ℕ) : ℝ) ≤ 3 * Real.rpow S.L (1 / 100 : ℝ) := by
+        simp only [slotCount, Nat.cast_add, Nat.cast_one]
+        linarith
+      exact primeMatrixProduct_le_exp hBands hlogone hN (edgeUnionLabels P.labels Q.labels)
+        (fun i j => (edgeUnionLabels_in_bands P.labels Q.labels (hLabelsValid P) (hLabelsValid Q) i j).2)
+    have hUnionKernelLines (P Q : PState F S) :
+        ∀ q ∈ (∏ i : Fin K, ∏ j : Fin (slotCount S.x + 1), edgeUnionLabels P.labels Q.labels i j).primeFactors,
+          kernelLine q P.first (rootC P.first P.second) =
+            (if q ∈ (groupLabelProduct P).primeFactors then Fin.last q else projLine q (edgeCoordinates P Q)) := by
+      intro q hq
+      by_cases hsource : q ∈ (groupLabelProduct P).primeFactors
+      · rw [if_pos hsource]
+        exact hRootLabelLines P q hsource
+      · rw [if_neg hsource]
+        have hprime := Nat.prime_of_mem_primeFactors hq
+        rw [hUnionPrimeFactors P Q] at hq
+        obtain ⟨ij, hij, hEq⟩ := Finset.mem_image.mp hq
+        have hTargetDiv : ∀ j : Fin (slotCount S.x + 1),
+            edgeUnionLabels P.labels Q.labels ij.1 j = q →
+              edgeUnionLabels P.labels Q.labels ij.1 j ∣ Q.first := by
+          intro j
+          refine Fin.lastCases ?_ ?_ j
+          · intro heq
+            simpa only [edgeUnionLabels, Fin.lastCases_last] using Q.label_divides ij.1 (lastSlot S.x)
+          · intro j heq
+            have hdivIn : P.labels ij.1 j ∣ ∏ j : Fin (slotCount S.x), P.labels ij.1 j :=
+              Finset.dvd_prod_of_mem _ (Finset.mem_univ j)
+            have hdivOut : (∏ j : Fin (slotCount S.x), P.labels ij.1 j) ∣ groupLabelProduct P :=
+              Finset.dvd_prod_of_mem _ (Finset.mem_univ ij.1)
+            have hmem : P.labels ij.1 j ∈ (groupLabelProduct P).primeFactors :=
+              Nat.mem_primeFactors.mpr ⟨P.label_prime ij.1 j, hdivIn.trans hdivOut, (hLabelModulusPos P).ne'⟩
+            have hEq' : P.labels ij.1 j = q := by
+              simpa only [edgeUnionLabels, Fin.lastCases_castSucc] using heq
+            exact (hsource (hEq' ▸ hmem)).elim
+        have hcase := hTargetDiv ij.2 hEq
+        exact hTargetKernelLine P Q q hprime (hEq ▸ hcase)
+    have hModelTargetCount (w : ArchRoot) (hw : w.InRegion S) (z₂ : ℤ)
+        (Z : Finset ℤ) (hZ : ∀ z₁ ∈ Z, envBox S w (z₁, z₂)) : Z.card ≤ 17 :=
+      envBox_fixed_second_card_le S w z₂ hUpos hw Z hZ
+    have hRawMultiplierBound (D aa bb : ℕ) (hD : 0 < D)
+        (hdyad : (S.d₀ : ℝ) ≤ (D : ℝ)) (t : ℤ) :
+        ‖rawMultiplier F S D aa bb t‖ ≤ 1 :=
+      rawMultiplier_norm_le_one F S hF hYpos D aa bb hD hdyad t
+    have hComparisonMultiplierBound (D aa bb : ℕ) (hD : 0 < D)
+        (hdyad : (S.d₀ : ℝ) ≤ (D : ℝ)) (t : ℤ) :
+        ‖comparisonMultiplier F S D aa bb t‖ ≤
+          32 * Bpsi * Real.rpow S.L (3 * F.A₀) / S.Y := by
+      exact (comparisonMultiplier_norm_le_kernel F S hF D aa bb hD hdyad t).trans
+        (majorKernel_norm_bound S.x S.Y F.A₀ (t : ℝ) aa bb F.psi Bpsi hBpsi.le
+          hPsiBound hYpos hlogone hF.2.2.2.1)
+    have hRootRegion (P : PState F S) := archRootOfState_inRegion P
+    have hEdgeBox (P Q : PState F S) := envBox_edgeCoordinates P Q
+    have hBadRatioMeasurable (P : PState F S) :=
+      measurableSet_isGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels
+    have hBadRatioIntegrable (P : PState F S) :=
+      badRatio_intervalIntegrable S.x S.Y (S.d₀ : ℝ) K F.a P.labels
+    have hBadRatioIntegral (P : PState F S) :
+        (∫ r in (0 : ℝ)..1,
+          if IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels r then (0 : ℝ) else 1) ≤
+          Real.exp (-cGood * Real.rpow S.L (1 / 10 : ℝ)) :=
+      goodState S.x hxGood S.d₀ hDmem S.Y hYmem P.labels (hLabelsValid P)
+    have hExpOne : 1 ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ)) := by
+      apply Real.one_le_exp_iff.mpr
+      exact Real.rpow_nonneg (by simpa only [PDScale.L] using (by linarith [hlogone] : 0 ≤ Real.log S.x)) _
+    have hSourceGoodBoundary (P : PState F S) :=
+      rootBoundary S hSValid hxBoundary ((1, 0), P.labels) (hSourceEnvValid P)
+        (by simpa only [Int.cast_one, abs_one] using hExpOne)
+        (by simp only [Int.cast_zero, abs_zero]; positivity)
+    have hBadGridBoundary (P : PState F S) (hpad : (S.d₀ : ℝ) ≤ (sharedProduct P.labels : ℝ))
+        (z : ℤ × ℤ) (hz : Int.gcd z.1 z.2 = 1)
+        (hz₁ : |(z.1 : ℝ)| ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ)))
+        (hz₂ : |(z.2 : ℝ)| ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ))) :
+        (((gridIndices (Real.rpow S.x (-εgrid))).filter fun k =>
+          IsNonconstantOn (fun y =>
+            envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (1, 0) ∧
+            ¬ envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ ((1, 0), P.labels) ∧
+            envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ z)
+            (gridCube (Real.rpow S.x (-εgrid)) k)).card : ℝ) ≤
+          3 * (Real.exp (Real.rpow S.L (9 / 10 : ℝ)) * Real.rpow S.x (2 * εgrid)) := by
+      have hSourceBox := boxBoundary S hSValid hxBox P.labels (hLabelsValid P) hpad (1, 0)
+        (by norm_num) (by simpa only [Int.cast_one, abs_one] using hExpOne)
+        (by simp only [Int.cast_zero, abs_zero]; positivity)
+      have hTargetBox := boxBoundary S hSValid hxBox P.labels (hLabelsValid P) hpad z hz hz₁ hz₂
+      have hUnion := badGrid_boundary_card_le (Real.rpow S.x (-εgrid))
+        (gridIndices (Real.rpow S.x (-εgrid)))
+        (fun y => envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (1, 0))
+        (fun y => envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ ((1, 0), P.labels))
+        (fun y => envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ z)
+      linarith [hSourceGoodBoundary P]
+    have hRootGridUpper (Sq : ℕ) (hSq : Squarefree Sq) (hSqPos : 0 < Sq)
+        (hSqRange : (Sq : ℝ) ≤ Real.exp (CrootScale * Real.rpow S.L (98 / 100 : ℝ)))
+        (lam : (q : ℕ) → Fin (q + 1)) (T : Finset (ℕ × ℕ))
+        (hT : ∀ uv ∈ T, uv ∈ rootWindowSet S.U S.V Sq lam (1, 1, 0) (16, 2, 1))
+        (Pbad : ℝ × ℝ × ℝ → Prop) (hPbad : MeasurableSet {y | Pbad y})
+        (hBadT : ∀ uv ∈ T, Pbad (normalizedRootCoord S.U S.V uv))
+        (hmesh : ℝ) (hmeshPos : 0 < hmesh) (hmeshOne : hmesh ≤ 1) :
+        (T.card : ℝ) ≤ S.U * S.V *
+          ((6 / Real.pi ^ 2) * ∏ q ∈ Sq.primeFactors, ((q : ℝ) + 1)⁻¹) *
+          (27 * volume.real (normalizedRootRegion ∩ {y | Pbad y}) +
+            ((boundaryRootCells hmesh Pbad).card : ℝ) * hmesh ^ 3) +
+          (475 / hmesh ^ 3) * (Croot * S.U * S.V * Real.rpow S.x (-cδ)) := by
+      have hρ : 0 ≤ (6 / Real.pi ^ 2 : ℝ) * ∏ q ∈ Sq.primeFactors, ((q : ℝ) + 1)⁻¹ := by
+        apply mul_nonneg (by positivity)
+        exact Finset.prod_nonneg (fun q hq => inv_nonneg.mpr (by positivity))
+      have hE : 0 ≤ Croot * S.U * S.V * Real.rpow S.x (-cδ) :=
+        mul_nonneg (mul_nonneg (mul_nonneg hCroot.le hUpos.le) hHnPos.le)
+          (Real.rpow_nonneg hxpos.le _)
+      apply root_grid_upper_from_windows S.U S.V hUpos hHnPos Sq lam T hT Pbad hPbad hBadT
+        hmesh hmeshPos hmeshOne _ _ hρ hE
+      intro lo hi hl₁ hlr₁ hr₁ hl₂ hlr₂ hr₂ hl₃ hlr₃ hr₃
+      have hc := rootLines S.x hxRoot S.U S.V hUlo hHnLo Sq hSq hSqPos hSqRange lam
+        lo.1 hi.1 lo.2.1 hi.2.1 lo.2.2 hi.2.2 hl₁ hlr₁ hr₁ hl₂ hlr₂ hr₂ hl₃ hlr₃ hr₃
+      simpa only [rootWindowSet, PDScale.L, mul_assoc] using hc
+    have hGroupedRootWindowData (P Q : PState F S)
+        (E : Finset (PState F S × PState F S))
+        (hET : ∀ e ∈ E, IsSlotTransition e.1.labels e.2.labels)
+        (hT : IsSlotTransition P.labels Q.labels)
+        (hKey : ∀ e ∈ E, physicalEdgeKey F S e = physicalEdgeKey F S (P, Q))
+        (hBad : ∀ e ∈ E, ¬ IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a e.1.labels (stateRoot e.1)) :
+        let Sq := ∏ i : Fin K, ∏ j : Fin (slotCount S.x + 1), edgeUnionLabels P.labels Q.labels i j
+        let lam := fun q : ℕ => if q ∈ (groupLabelProduct P).primeFactors then Fin.last q else projLine q (edgeCoordinates P Q)
+        let T := E.image (fun e => (e.1.first, e.1.second))
+        (∀ uv ∈ T, uv ∈ rootWindowSet S.U S.V Sq lam (1, 1, 0) (16, 2, 1)) ∧
+          (∀ uv ∈ T, badEdgePredicate F S P.labels (edgeCoordinates P Q) (normalizedRootCoord S.U S.V uv)) := by
+      constructor
+      · intro uv huv
+        obtain ⟨e, he, rfl⟩ := Finset.mem_image.mp huv
+        obtain ⟨hpEq, hqEq, hzEq⟩ := physicalEdgeKey_data F S e (P, Q) (hET e he) hT (hKey e he)
+        obtain ⟨⟨hl₁, hr₁⟩, ⟨hl₂, hr₂⟩, ⟨hl₃, hr₃⟩⟩ := hPRootCoordinates e.1
+        refine ⟨e.1.primitive, by have h := hStateFirst e.1; omega, hl₁, hr₁, hl₂, hr₂, hl₃, hr₃, ?_⟩
+        intro q hq
+        have hqE : q ∈ (∏ i : Fin K, ∏ j : Fin (slotCount S.x + 1), edgeUnionLabels e.1.labels e.2.labels i j).primeFactors := by
+          simpa only [hpEq, hqEq] using hq
+        have hline := hUnionKernelLines e.1 e.2 q hqE
+        have hGp : groupLabelProduct e.1 = groupLabelProduct P := by
+          unfold groupLabelProduct
+          rw [hpEq]
+        simpa only [hGp, hzEq] using hline
+      · intro uv huv
+        obtain ⟨e, he, rfl⟩ := Finset.mem_image.mp huv
+        obtain ⟨hpEq, hqEq, hzEq⟩ := physicalEdgeKey_data F S e (P, Q) (hET e he) hT (hKey e he)
+        have hcoord := normalizedRootCoord_state_eq F S hUpos hHnPos e.1
+          (physical_completionC_eq_rootC e.1 (hStateFirst e.1))
+        have hreg := archRootOfState_inRegion e.1
+        change envBox S (normalizedArchRoot S (normalizedRootCoord S.U S.V (e.1.first, e.1.second))) (1, 0) ∧
+          ¬ envGood F S (normalizedArchRoot S (normalizedRootCoord S.U S.V (e.1.first, e.1.second))) ((1, 0), P.labels) ∧
+          envBox S (normalizedArchRoot S (normalizedRootCoord S.U S.V (e.1.first, e.1.second))) (edgeCoordinates P Q)
+        rw [hcoord]
+        refine ⟨(envBox_e1 S _).mpr ⟨hreg.1, hreg.2.1, hreg.2.2.1, hreg.2.2.2.1⟩, ?_, ?_⟩
+        · rw [envGood_e1, ← hpEq]
+          exact hBad e he
+        · rw [← hzEq]
+          exact envBox_edgeCoordinates e.1 e.2
+    have hGroupedRootCount (P Q : PState F S) (hT : IsSlotTransition P.labels Q.labels)
+        (hpad : (S.d₀ : ℝ) ≤ (sharedProduct P.labels : ℝ))
+        (E : Finset (PState F S × PState F S))
+        (hET : ∀ e ∈ E, IsSlotTransition e.1.labels e.2.labels)
+        (hKey : ∀ e ∈ E, physicalEdgeKey F S e = physicalEdgeKey F S (P, Q))
+        (hBad : ∀ e ∈ E, ¬ IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a e.1.labels (stateRoot e.1))
+        (hz₁ : |((edgeCoordinates P Q).1 : ℝ)| ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ)))
+        (hz₂ : |((edgeCoordinates P Q).2 : ℝ)| ≤ Real.exp (Real.rpow S.L (1 / 2 : ℝ))) :
+        let Sq := ∏ i : Fin K, ∏ j : Fin (slotCount S.x + 1), edgeUnionLabels P.labels Q.labels i j
+        (E.card : ℝ) ≤ S.U * S.V *
+          ((6 / Real.pi ^ 2) * ∏ q ∈ Sq.primeFactors, ((q : ℝ) + 1)⁻¹) *
+          (27 * volume.real (normalizedRootRegion ∩ {y | badEdgePredicate F S P.labels (edgeCoordinates P Q) y}) +
+            (3 * (Real.exp (Real.rpow S.L (9 / 10 : ℝ)) * Real.rpow S.x (2 * εgrid))) *
+              (Real.rpow S.x (-εgrid)) ^ 3) +
+          (475 / (Real.rpow S.x (-εgrid)) ^ 3) * (Croot * S.U * S.V * Real.rpow S.x (-cδ)) := by
+      let Sq := ∏ i : Fin K, ∏ j : Fin (slotCount S.x + 1), edgeUnionLabels P.labels Q.labels i j
+      let lam := fun q : ℕ => if q ∈ (groupLabelProduct P).primeFactors then Fin.last q else projLine q (edgeCoordinates P Q)
+      let T := E.image (fun e => (e.1.first, e.1.second))
+      have hSqPos : 0 < Sq := by
+        exact Finset.prod_pos (fun i hi => Finset.prod_pos (fun j hj =>
+          (edgeUnionLabels_in_bands P.labels Q.labels (hLabelsValid P) (hLabelsValid Q) i j).1.pos))
+      have hLnonneg : 0 ≤ S.L := by simpa only [PDScale.L] using (by linarith [hlogone] : 0 ≤ Real.log S.x)
+      have hSqRange : (Sq : ℝ) ≤ Real.exp (CrootScale * Real.rpow S.L (98 / 100 : ℝ)) := by
+        apply (hUnionProductRange P Q).trans
+        apply Real.exp_le_exp.mpr
+        dsimp [CrootScale]
+        calc
+          _ ≤ 6 * (K : ℝ) * Real.rpow S.L (98 / 100 : ℝ) :=
+            mul_le_mul_of_nonneg_left hLogPowerGap (by positivity)
+          _ ≤ _ := mul_le_mul_of_nonneg_right (by nlinarith [Nat.cast_nonneg (α := ℝ) K])
+            (Real.rpow_nonneg hLnonneg _)
+      have hdata := hGroupedRootWindowData P Q E hET hT hKey hBad
+      have hmeshPos : 0 < Real.rpow S.x (-εgrid) := Real.rpow_pos_of_pos hxpos _
+      have hmeshOne : Real.rpow S.x (-εgrid) ≤ 1 :=
+        Real.rpow_le_one_of_one_le_of_nonpos (by linarith) (by linarith [hεgrid])
+      have hcount := hRootGridUpper Sq (hUnionSquarefree P Q hT) hSqPos hSqRange lam T hdata.1
+        (badEdgePredicate F S P.labels (edgeCoordinates P Q))
+        (badEdgePredicate_measurable F S P.labels (edgeCoordinates P Q)) hdata.2
+        (Real.rpow S.x (-εgrid)) hmeshPos hmeshOne
+      have hinj : (E : Set (PState F S × PState F S)).InjOn (fun e => (e.1.first, e.1.second)) := by
+        intro e he e' he' hroot
+        exact physicalEdgeKey_root_injective F S e e' (hET e he) (hET e' he')
+          ((hKey e he).trans (hKey e' he').symm) hroot
+      have hcard : T.card = E.card := Finset.card_image_of_injOn hinj
+      rw [hcard] at hcount
+      have hboundary := hBadGridBoundary P hpad (edgeCoordinates P Q) (edgeCoordinates_primitive P Q) hz₁ hz₂
+      have hbd : ((boundaryRootCells (Real.rpow S.x (-εgrid)) (badEdgePredicate F S P.labels (edgeCoordinates P Q))).card : ℝ) ≤
+          3 * (Real.exp (Real.rpow S.L (9 / 10 : ℝ)) * Real.rpow S.x (2 * εgrid)) := by
+        have hset : boundaryRootCells (Real.rpow S.x (-εgrid))
+            (badEdgePredicate F S P.labels (edgeCoordinates P Q)) =
+            ((gridIndices (Real.rpow S.x (-εgrid))).filter fun k =>
+              IsNonconstantOn (fun y =>
+                envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (1, 0) ∧
+                ¬ envGood F S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ ((1, 0), P.labels) ∧
+                envBox S ⟨S.U * y.1, S.V * y.2.1, y.2.2⟩ (edgeCoordinates P Q))
+                (gridCube (Real.rpow S.x (-εgrid)) k)) := by
+          ext k
+          simp only [boundaryRootCells, Finset.mem_filter]
+          unfold IsNonconstantOn badEdgePredicate normalizedArchRoot
+          rfl
+        rw [hset]
+        exact hboundary
+      have hρ : 0 ≤ S.U * S.V * ((6 / Real.pi ^ 2) * ∏ q ∈ Sq.primeFactors, ((q : ℝ) + 1)⁻¹) := by
+        apply mul_nonneg (mul_nonneg hUpos.le hHnPos.le)
+        apply mul_nonneg (by positivity)
+        exact Finset.prod_nonneg (fun q hq => inv_nonneg.mpr (by positivity))
+      apply hcount.trans
+      refine add_le_add ?_ le_rfl
+      apply mul_le_mul_of_nonneg_left _ hρ
+      apply add_le_add le_rfl
+      exact mul_le_mul_of_nonneg_right hbd (pow_nonneg hmeshPos.le _)
+    have hSourceBadVolume (P : PState F S) :
+        volume.real (normalizedRootRegion ∩
+          {y : ℝ × ℝ × ℝ | ¬ IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels y.2.2}) ≤
+          15 * Real.exp (-cGood * Real.rpow S.L (1 / 10 : ℝ)) := by
+      rw [rootRegion_badRatio_volume]
+      exact mul_le_mul_of_nonneg_left (hBadRatioIntegral P) (by norm_num)
+    have hGoodExpansion := detPairing_goodExpansion F S family beta
+    have hNoGoodExpansion := detPairing_noGoodExpansion F S family beta
+    have hDifferenceExpansion := detPairing_difference_expansion F S family beta
+    have hLpos : 0 < S.L := by
+      unfold PDScale.L
+      exact Real.log_pos (by linarith [hx₂])
+    have hAlphaBound : ∀ m, family.alpha S.x m ≠ 0 →
+        ‖family.alpha S.x m‖ ≤ Real.rpow S.L C := by
+      intro m hm
+      have hsupport := family.rough_support S.x hFamilyMin m hm
+      simpa [PDScale.L] using family.coefficient_bound S.x hFamilyMin m hsupport.1
+    have hBetaBound : ∀ n, beta n ≠ 0 → ‖beta n‖ ≤ Real.rpow S.L C := by
+      rcases hbeta with ⟨hSupport, hBound⟩
+      intro n hn
+      have hnDyad := (hSupport n hn).1
+      simpa [PDScale.L] using hBound n hnDyad
+    have hEndpointFBound (P : PState F S) :
+        ‖endpointF S.x K F.a family beta P‖ ≤ Real.rpow S.L (2 * C) := by
+      by_cases hsq : Squarefree (groupLabelProduct P)
+      · by_cases hα0 : family.alpha S.x (P.first / groupLabelProduct P) = 0
+        · simp [endpointF, hsq, hα0]
+          exact Real.rpow_nonneg hLpos.le _
+        · by_cases hβ0 : beta P.second = 0
+          · simp [endpointF, hsq, hβ0]
+            exact Real.rpow_nonneg hLpos.le _
+          · have hα := hAlphaBound _ hα0
+            have hβ := hBetaBound _ hβ0
+            have hpow : Real.rpow S.L C * Real.rpow S.L C =
+                Real.rpow S.L (2 * C) := by
+              calc
+                Real.rpow S.L C * Real.rpow S.L C = Real.rpow S.L (C + C) :=
+                  (Real.rpow_add hLpos C C).symm
+                _ = Real.rpow S.L (2 * C) := by congr 1 <;> ring
+            calc
+              ‖endpointF S.x K F.a family beta P‖ =
+                  ‖family.alpha S.x (P.first / groupLabelProduct P) *
+                    star (beta P.second)‖ := by simp [endpointF, hsq]
+              _ = ‖family.alpha S.x (P.first / groupLabelProduct P)‖ *
+                    ‖star (beta P.second)‖ := norm_mul _ _
+              _ = ‖family.alpha S.x (P.first / groupLabelProduct P)‖ *
+                    ‖beta P.second‖ := by simp
+              _ ≤ Real.rpow S.L C * Real.rpow S.L C :=
+                    mul_le_mul hα hβ (norm_nonneg _) (Real.rpow_nonneg hLpos.le C)
+              _ = Real.rpow S.L (2 * C) := hpow
+      · simp [endpointF, hsq]
+        exact Real.rpow_nonneg hLpos.le _
+    have hEndpointGBound (P : PState F S) :
+        ‖endpointG S.x K F.a family beta P‖ ≤ Real.rpow S.L (2 * C) := by
+      by_cases hsq : Squarefree (groupLabelProduct P)
+      · by_cases hα0 : family.alpha S.x (P.first / groupLabelProduct P) = 0
+        · simp [endpointG, hsq, hα0]
+          exact Real.rpow_nonneg hLpos.le _
+        · by_cases hβ0 : beta P.second = 0
+          · simp [endpointG, hsq, hβ0]
+            exact Real.rpow_nonneg hLpos.le _
+          · have hα := hAlphaBound _ hα0
+            have hβ := hBetaBound _ hβ0
+            have hpow : Real.rpow S.L C * Real.rpow S.L C =
+                Real.rpow S.L (2 * C) := by
+              calc
+                Real.rpow S.L C * Real.rpow S.L C = Real.rpow S.L (C + C) :=
+                  (Real.rpow_add hLpos C C).symm
+                _ = Real.rpow S.L (2 * C) := by congr 1 <;> ring
+            calc
+              ‖endpointG S.x K F.a family beta P‖ =
+                  ‖star (family.alpha S.x (P.first / groupLabelProduct P)) *
+                    beta P.second‖ := by simp [endpointG, hsq]
+              _ = ‖star (family.alpha S.x (P.first / groupLabelProduct P))‖ *
+                    ‖beta P.second‖ := norm_mul _ _
+              _ = ‖family.alpha S.x (P.first / groupLabelProduct P)‖ *
+                    ‖beta P.second‖ := by simp
+              _ ≤ Real.rpow S.L C * Real.rpow S.L C :=
+                    mul_le_mul hα hβ (norm_nonneg _) (Real.rpow_nonneg hLpos.le C)
+              _ = Real.rpow S.L (2 * C) := hpow
+      · simp [endpointG, hsq]
+        exact Real.rpow_nonneg hLpos.le _
+    have hMeasureNonneg : 0 ≤ physicalMeasure S.x K F.a := by
+      unfold physicalMeasure
+      exact Finset.prod_nonneg (fun i hi => Real.rpow_nonneg (hBandMassPos i).le _)
+    have hEndpointSquare : (Real.rpow S.L (2 * C)) ^ 2 = Real.rpow S.L (4 * C) := by
+      rw [pow_two]
+      calc
+        _ = Real.rpow S.L (2 * C + 2 * C) := (Real.rpow_add hLpos _ _).symm
+        _ = Real.rpow S.L (4 * C) := by congr 1 <;> ring
+    have hAbsoluteBadEdgeBound := detPairing_difference_le_badEdges F S family beta
+      (Real.rpow S.L (2 * C)) (Real.rpow_nonneg hLpos.le _)
+      hMeasureNonneg hEndpointFBound hEndpointGBound
+    rw [hEndpointSquare] at hAbsoluteBadEdgeBound
+    have hSourceEnvelopeBound := detPairing_difference_le_sourceEnvelope F S family beta
+      (Real.rpow S.L (2 * C)) Rpsi Bpsi (Real.rpow_nonneg hLpos.le _)
+      hMeasureNonneg hEndpointFBound hEndpointGBound
+      (physRowKernel_norm_le_envelope F S hF hBandMassPos hYpos hlogone Rpsi Bpsi hBpsi.le hPsiBound hPsiSupport)
+      (physicalEnvelope_symm F S hBandsDisjoint Rpsi Bpsi)
+    rw [hEndpointSquare] at hSourceEnvelopeBound
+    let tube := integerTube (physicalTubeRadius S.x K Rpsi)
+    have hTubeRadiusOne : 1 ≤ physicalTubeRadius S.x K Rpsi := by
+      dsimp [physicalTubeRadius]
+      have hp : 0 ≤ 2 * Real.exp (Real.log 2 * ((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log S.x) (21 / 100 : ℝ)) *
+          (2 * Real.exp (6 * (K : ℝ) * Real.rpow (Real.log S.x) (21 / 100 : ℝ)) +
+            Rpsi * Real.exp (((K + 1 : ℕ) : ℝ) * Real.rpow (Real.log S.x) (1 / 5 : ℝ))) := by positivity
+      exact (by norm_num : (1 : ℝ) ≤ 16).trans (le_add_of_nonneg_right hp)
+    have hTubeCoords (P Q : PState F S) (hp : 0 < physicalEnvelope F S Rpsi Bpsi P Q) :=
+      physicalEnvelope_coordinates_le_radius F S hF hSValid hUpos hlogone Rpsi Bpsi hRpos.le P Q hp
+    let bg := (3 * (Real.exp (Real.rpow S.L (9 / 10 : ℝ)) * Real.rpow S.x (2 * εgrid))) *
+      (Real.rpow S.x (-εgrid)) ^ 3
+    let eg := (475 / (Real.rpow S.x (-εgrid)) ^ 3) * (Croot * S.U * S.V * Real.rpow S.x (-cδ))
+    have hbg : 0 ≤ bg := by dsimp [bg]; positivity
+    have heg : 0 ≤ eg := by dsimp [eg]; positivity
+    have hRootOracle (P Q : PState F S) (hp : 0 < physicalEnvelope F S Rpsi Bpsi P Q)
+        (T : Finset (PState F S × PState F S))
+        (hTT : ∀ e ∈ T, IsSlotTransition e.1.labels e.2.labels)
+        (hKey : ∀ e ∈ T, physicalEdgeKey F S e = physicalEdgeKey F S (P, Q))
+        (hBad : ∀ e ∈ T, ¬ IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a e.1.labels (stateRoot e.1)) := by
+      have hcond : IsSlotTransition P.labels Q.labels ∧
+          IsPadAdmissible S.d₀ (sharedProduct P.labels) (det2 P.pos Q.pos) := by
+        by_contra hn
+        simp [physicalEnvelope, hn] at hp
+      have hsz := (tubeSmall S.x hxTube).2
+      have hz := hTubeCoords P Q hp
+      exact hGroupedRootCount P Q hcond.1 hcond.2.1 T hTT hKey hBad
+        (hz.1.trans hsz) (hz.2.trans hsz)
+    have hAggregate := physical_bad_envelope_sum_upper F S hUpos hHnPos hYpos hLpos.le
+      Rpsi Bpsi (Real.exp (-cGood * Real.rpow S.L (1 / 10 : ℝ))) bg eg hRpos.le hBpsi.le
+      (Real.exp_pos _).le hbg heg hBandMassPos hBandsDisjoint tube
+      (fun P Q hp => mem_integerTube _ _ (hTubeCoords P Q hp).1 (hTubeCoords P Q hp).2)
+      hBadRatioIntegral hRootOracle
+    have hYone := dyadicScale_one_le S.x K S.Y hYmem
+    have hN : ((slotCount S.x + 1 : ℕ) : ℝ) ≤ 3 * Real.rpow S.L (1 / 100 : ℝ) := by
+      have hfloor : (momentJ S.x : ℝ) ≤ Real.rpow S.L (1 / 100 : ℝ) :=
+        Nat.floor_le (Real.rpow_nonneg hLpos.le _)
+      have hone : 1 ≤ Real.rpow S.L (1 / 100 : ℝ) := Real.one_le_rpow hlogone (by norm_num)
+      simp only [slotCount, Nat.cast_add, Nat.cast_one]
+      linarith
+    have hLabelsCard := unionLineChoice_card_upper F.a hBands hlogone hN
+    have hNormalizer := bandNormalizer_growth F.a hlogone hBandMass hN
+    have hPowerGap : Real.rpow S.L (1 / 100 : ℝ) ≤ Real.rpow S.L (21 / 100 : ℝ) :=
+      Real.rpow_le_rpow_of_exponent_le hlogone (by norm_num)
+    have hNormalizer' : (∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ ^ (momentJ S.x + 2)) ≤
+        Real.exp (CNormal * Real.rpow S.L (21 / 100 : ℝ)) := by
+      apply hNormalizer.trans
+      apply Real.exp_le_exp.mpr
+      calc
+        _ ≤ CNormal * Real.rpow S.L (1 / 100 : ℝ) :=
+          mul_le_mul_of_nonneg_right (le_abs_self _) (Real.rpow_nonneg hLpos.le _)
+        _ ≤ _ := mul_le_mul_of_nonneg_left hPowerGap (abs_nonneg _)
+    have hTubeCard : (tube.card : ℝ) ≤ 25 * Real.exp ((2 * CTube) * Real.rpow S.L (21 / 100 : ℝ)) := by
+      apply (integerTube_card_le _ hTubeRadiusOne).trans
+      have hr := physicalTubeRadius_le_exp S.x K Rpsi hRpos hlogone
+      have hs := pow_le_pow_left₀ (by positivity : 0 ≤ physicalTubeRadius S.x K Rpsi) hr 2
+      have hpow : (Real.exp (CTube * Real.rpow S.L (21 / 100 : ℝ))) ^ 2 =
+          Real.exp ((2 * CTube) * Real.rpow S.L (21 / 100 : ℝ)) := by
+        rw [pow_two, ← Real.exp_add]
+        congr 1
+        ring
+      change (physicalTubeRadius S.x K Rpsi) ^ 2 ≤ (Real.exp (CTube * Real.rpow S.L (21 / 100 : ℝ))) ^ 2 at hs
+      rw [hpow] at hs
+      exact mul_le_mul_of_nonneg_left hs (by norm_num)
+    have hbgEq : bg = 3 * Real.exp (Real.rpow S.L (9 / 10 : ℝ) - εgrid * S.L) :=
+      gridBoundary_scale_exp S.x εgrid _ hxpos
+    have hegEq : eg = 475 * Croot * S.U * S.V * Real.exp (-(cδ - 3 * εgrid) * S.L) :=
+      gridResidue_scale_exp S.x εgrid cδ Croot S.U S.V hxpos
+    rw [hbgEq, hegEq] at hAggregate
+    have hDecayAt := decay S.L hLDecayAt S.U S.V S.Y
+      (∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ ^ (momentJ S.x + 2))
+      (Fintype.card (UnionLineChoice S.x F.a (slotCount S.x + 1))) (tube.card : ℝ)
+      (physicalMeasure S.x K F.a * ∑ P : PState F S, ∑ Q : PState F S,
+        if ¬ IsGoodRatio S.x S.Y (S.d₀ : ℝ) K F.a P.labels (stateRoot P)
+        then physicalEnvelope F S Rpsi Bpsi P Q else 0)
+      hUpos hHnPos hYone
+      (Finset.prod_nonneg (fun i hi => pow_nonneg (inv_nonneg.mpr (hBandMassPos i).le) _))
+      (Nat.cast_nonneg _) (Nat.cast_nonneg _) hNormalizer' hLabelsCard hTubeCard hAggregate
+    apply hSourceEnvelopeBound.trans
+    convert hDecayAt using 1 <;> ring
+  · have hc₂' : c₂ ≤ 0 := le_of_not_gt hc₂
+    refine ⟨1, 2, by norm_num, le_rfl, ?_⟩
+    intro S hS hx family hFamilyAt hFamilyMin beta hbeta
+    have hscale := family.scales family.xMin le_rfl
+    have hxMin : 0 < family.xMin := lt_of_lt_of_le (by norm_num) family.xMin_ge_two
+    have hleft : 0 < c₁ * family.xMin := mul_pos hc₁ hxMin
+    have hright : c₂ * family.xMin ≤ 0 :=
+      mul_nonpos_of_nonpos_of_nonneg hc₂' hxMin.le
+    have hprod : c₁ * family.xMin ≤ c₂ * family.xMin :=
+      le_trans hscale.2.2.1 hscale.2.2.2
+    exact False.elim ((not_le_of_gt hleft) (le_trans hprod hright))
 
+/-- Extract the ordered shared slots of a valid prime list as a harmonic pad choice. -/
+private def padChoiceFromLists {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (p : PrimeLists x K) (hp : ValidPrimeLists x K a p) : PadChoice x K a :=
+  fun q => ⟨p q.1 (Fin.castSucc q.2), (hp.1 q.1 (Fin.castSucc q.2)).2⟩
+
+/-- A slot transition has distinct pads that avoid both unshared endpoint labels. -/
+private theorem padChoiceGood_of_slotTransition {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (p q : PrimeLists x K) (hp : ValidPrimeLists x K a p)
+    (htrans : IsSlotTransition p q) :
+    PadChoiceGood (padChoiceFromLists p hp) (fun i => q i (lastSlot x))
+      (fun i => p i (lastSlot x)) := by
+  constructor
+  · intro addr
+    constructor
+    · intro heq
+      exact (htrans.2 addr.1 addr.1 (Fin.castSucc addr.2)) heq.symm
+    · intro heq
+      have hlast : Fin.castSucc addr.2 ≠ lastSlot x := by
+        intro h
+        have hv := congrArg Fin.val h
+        simp [lastSlot] at hv
+        omega
+      exact hp.2 addr.1 (Fin.castSucc addr.2) (lastSlot x) hlast heq
+  · intro addr addr' hgroup haddr heq
+    have hslot : Fin.castSucc addr.2 ≠ Fin.castSucc addr'.2 := by
+      intro h
+      have hval : addr.2.val = addr'.2.val := by simpa using congrArg Fin.val h
+      exact haddr (Prod.ext hgroup (Fin.ext hval))
+    apply hp.2 addr.1 (Fin.castSucc addr.2) (Fin.castSucc addr'.2) hslot
+    simpa [padChoiceFromLists, hgroup] using heq
+
+private theorem slot_eq_last_of_not_shared {x : ℝ}
+    (j : Fin (slotCount x)) (hj : ¬ j.val < momentJ x) : j = lastSlot x := by
+  apply Fin.ext
+  have hjlt : j.val < momentJ x + 1 := by
+    simpa [slotCount] using j.isLt
+  have hjval : j.val = momentJ x := by omega
+  simp [lastSlot, hjval]
+
+private def padJoinLists {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) : PrimeLists x K :=
+  fun i j => if h : j.val < momentJ x then (d (i, Fin.castLT j h)).val else t i
+
+private def padJoinFunction {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) : Fin K → Fin (momentJ x + 1) → ℕ :=
+  fun i j => if h : j.val < momentJ x then (d (i, Fin.castLT j h)).val else t i
+
+private theorem padJoinLists_eq_padJoinFunction {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) (i : Fin K) (j : Fin (slotCount x)) :
+    padJoinLists d t i j = padJoinFunction d t i j := rfl
+
+private theorem padJoinLists_valid {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ)
+    (ht : ∀ i, t i ∈ primeBand x (a i))
+    (hDistinct : ∀ i j j', j ≠ j' → (d (i, j)).val ≠ (d (i, j')).val)
+    (hAvoid : ∀ i j, (d (i, j)).val ≠ t i) :
+    ValidPrimeLists x K a (padJoinLists d t) := by
+  unfold ValidPrimeLists
+  constructor
+  · intro i j
+    by_cases hj : j.val < momentJ x
+    · have hmem := (d (i, Fin.castLT j hj)).property
+      have hprime := (Finset.mem_filter.mp hmem).2.1
+      have hval : padJoinLists d t i j = (d (i, Fin.castLT j hj)).val := by
+        simp [padJoinLists, hj]
+      rw [hval]
+      exact ⟨hprime, hmem⟩
+    · have hjlast := slot_eq_last_of_not_shared j hj
+      have hval : padJoinLists d t i j = t i := by
+        rw [hjlast]
+        simp [padJoinLists, lastSlot]
+      rw [hval]
+      exact ⟨(Finset.mem_filter.mp (ht i)).2.1, ht i⟩
+  · intro i j j' hne
+    by_cases hj : j.val < momentJ x
+    · by_cases hj' : j'.val < momentJ x
+      · have haddr : Fin.castLT j hj ≠ Fin.castLT j' hj' := by
+          intro heq
+          have hval : (Fin.castLT j hj).val = (Fin.castLT j' hj').val :=
+            congrArg Fin.val heq
+          have hval' : j.val = j'.val := by simpa using hval
+          exact hne (Fin.ext hval')
+        have hd := hDistinct i (Fin.castLT j hj) (Fin.castLT j' hj') haddr
+        simpa [padJoinLists, hj, hj'] using hd
+      · have hj'last := slot_eq_last_of_not_shared j' hj'
+        have hleft : padJoinLists d t i j = (d (i, Fin.castLT j hj)).val := by
+          simp [padJoinLists, hj]
+        have hright : padJoinLists d t i j' = t i := by
+          rw [hj'last]
+          simp [padJoinLists, lastSlot]
+        rw [hleft, hright]
+        exact hAvoid i (Fin.castLT j hj)
+    · have hjlast := slot_eq_last_of_not_shared j hj
+      by_cases hj' : j'.val < momentJ x
+      ·
+        have hleft : padJoinLists d t i j = t i := by
+          rw [hjlast]
+          simp [padJoinLists, lastSlot]
+        have hright : padJoinLists d t i j' = (d (i, Fin.castLT j' hj')).val := by
+          simp only [padJoinLists, dif_pos hj']
+        rw [hleft, hright]
+        exact (hAvoid i (Fin.castLT j' hj')).symm
+      · have hj'last := slot_eq_last_of_not_shared j' hj'
+        exact (hne (hjlast.trans hj'last.symm)).elim
+
+private theorem padJoinedLists_valid_of_good {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (ta tb : Fin K → ℕ)
+    (hta : ∀ i, ta i ∈ primeBand x (a i)) (htb : ∀ i, tb i ∈ primeBand x (a i))
+    (hgood : PadChoiceGood d ta tb) :
+    ValidPrimeLists x K a (padJoinLists d ta) ∧
+      ValidPrimeLists x K a (padJoinLists d tb) := by
+  have hDistinct : ∀ i j j', j ≠ j' → (d (i, j)).val ≠ (d (i, j')).val := by
+    intro i j j' hjj'
+    apply hgood.2 (i, j) (i, j') rfl
+    intro h
+    exact hjj' (congrArg Prod.snd h)
+  have hAvoidA : ∀ i j, (d (i, j)).val ≠ ta i := by
+    intro i j
+    exact (hgood.1 (i, j)).1
+  have hAvoidB : ∀ i j, (d (i, j)).val ≠ tb i := by
+    intro i j
+    exact (hgood.1 (i, j)).2
+  exact ⟨padJoinLists_valid d ta hta hDistinct hAvoidA,
+    padJoinLists_valid d tb htb hDistinct hAvoidB⟩
+
+private theorem padJoinedLists_slotTransition_of_good {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (ta tb : Fin K → ℕ)
+    (hta : ∀ i, ta i ∈ primeBand x (a i)) (htb : ∀ i, tb i ∈ primeBand x (a i))
+    (hgood : PadChoiceGood d ta tb)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand x (a i)) (primeBand x (a i')))
+    (hCop : Nat.Coprime (tupleProduct ta) (tupleProduct tb)) :
+    IsSlotTransition (padJoinLists d tb) (padJoinLists d ta) := by
+  have htaDvd (i : Fin K) : ta i ∣ tupleProduct ta := by
+    rw [tupleProduct]
+    exact Finset.dvd_prod_of_mem _ (Finset.mem_univ i)
+  have htbDvd (i : Fin K) : tb i ∣ tupleProduct tb := by
+    rw [tupleProduct]
+    exact Finset.dvd_prod_of_mem _ (Finset.mem_univ i)
+  have hnewDistinct (i : Fin K) : ta i ≠ tb i := by
+    intro heq
+    have htbDvdTa : ta i ∣ tupleProduct tb := by
+      rw [heq]
+      exact htbDvd i
+    have hcommon : ta i ∣ Nat.gcd (tupleProduct ta) (tupleProduct tb) :=
+      Nat.dvd_gcd (htaDvd i) htbDvdTa
+    rw [hCop.gcd_eq_one] at hcommon
+    exact (Finset.mem_filter.mp (hta i)).2.1.ne_one (Nat.dvd_one.mp hcommon)
+  constructor
+  · intro i j hj
+    simp [padJoinLists, hj]
+  · intro i i' j
+    by_cases hj : j.val < momentJ x
+    ·
+      have htarget : padJoinLists d ta i (lastSlot x) = ta i := by
+        simp [padJoinLists, lastSlot]
+      have hsource : padJoinLists d tb i' j = (d (i', Fin.castLT j hj)).val := by
+        simp [padJoinLists, hj]
+      rw [htarget, hsource]
+      by_cases hsame : i = i'
+      · subst i'
+        exact (hgood.1 (i, Fin.castLT j hj)).1.symm
+      · have hneq : i' ≠ i := by
+          intro heq
+          exact hsame heq.symm
+        have hnot : (d (i', Fin.castLT j hj)).val ∉ primeBand x (a i) :=
+          (Finset.disjoint_left.mp (hBands i' i hneq))
+            (d (i', Fin.castLT j hj)).property
+        intro heq
+        apply hnot
+        rw [← heq]
+        exact hta i
+    · have hjlast := slot_eq_last_of_not_shared j hj
+      have htarget : padJoinLists d ta i (lastSlot x) = ta i := by
+        simp [padJoinLists, lastSlot]
+      have hsource : padJoinLists d tb i' j = tb i' := by
+        rw [hjlast]
+        simp [padJoinLists, lastSlot]
+      rw [htarget, hsource]
+      by_cases hsame : i = i'
+      · subst i'
+        exact hnewDistinct i
+      · have hneq : i' ≠ i := by
+          intro heq
+          exact hsame heq.symm
+        have hnot : tb i' ∉ primeBand x (a i) :=
+          (Finset.disjoint_left.mp (hBands i' i hneq)) (htb i')
+        intro heq
+        apply hnot
+        rw [← heq]
+        exact hta i
+
+private theorem padJoinLists_lastProduct {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) :
+    lastProduct (padJoinLists d t) = tupleProduct t := by
+  classical
+  unfold lastProduct tupleProduct
+  apply Finset.prod_congr rfl
+  intro i hi
+  simp [padJoinLists, lastSlot]
+
+private theorem padJoinLists_sharedProduct_inner {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) (i : Fin K) :
+    (∏ j : Fin (momentJ x + 1),
+      if j.val < momentJ x then padJoinFunction d t i j else 1) =
+      ∏ j : Fin (momentJ x), (d (i, j)).val := by
+  rw [Fin.prod_univ_castSucc]
+  simp [padJoinFunction, lastSlot, Fin.castLT_castSucc]
+
+private theorem padJoinLists_sharedProduct {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) :
+    sharedProduct (padJoinLists d t) =
+      ∏ i : Fin K, ∏ j : Fin (momentJ x), (d (i, j)).val := by
+  classical
+  unfold sharedProduct
+  apply Finset.prod_congr rfl
+  intro i hi
+  change (∏ j : Fin (slotCount x),
+      if j.val < momentJ x then padJoinLists d t i j else 1) = _
+  simp_rw [padJoinLists_eq_padJoinFunction]
+  change (∏ j : Fin (momentJ x + 1),
+      if j.val < momentJ x then padJoinFunction d t i j else 1) = _
+  exact padJoinLists_sharedProduct_inner d t i 
+
+private theorem physicalMeasure_mul_freshNormalizer {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (hV : ∀ i : Fin K, 0 < bandMass x (a i)) :
+    physicalMeasure x K a * (∏ i : Fin K, (bandMass x (a i))⁻¹) =
+      ∏ i : Fin K, (bandMass x (a i))⁻¹ ^ (momentJ x + 2) := by
+  classical
+  unfold physicalMeasure
+  rw [← Finset.prod_mul_distrib]
+  apply Finset.prod_congr rfl
+  intro i hi
+  let V := bandMass x (a i)
+  have hVpos : 0 < V := hV i
+  have hslot : slotCount x = momentJ x + 1 := rfl
+  calc
+    Real.rpow V (-(slotCount x : ℝ)) * V⁻¹ =
+        V⁻¹ ^ slotCount x * V⁻¹ := by
+      have hp : Real.rpow V (-(slotCount x : ℝ)) = V⁻¹ ^ slotCount x := by
+        calc
+          _ = (Real.rpow V (slotCount x : ℝ))⁻¹ := Real.rpow_neg hVpos.le _
+          _ = (V ^ slotCount x)⁻¹ := congrArg Inv.inv (Real.rpow_natCast V _)
+          _ = V⁻¹ ^ slotCount x := by simp only [inv_pow]
+      rw [hp]
+    _ = V⁻¹ ^ (momentJ x + 2) := by
+      calc
+        V⁻¹ ^ slotCount x * V⁻¹ = V⁻¹ ^ (slotCount x + 1) :=
+          (pow_succ (V⁻¹) (slotCount x)).symm
+        _ = V⁻¹ ^ (momentJ x + 2) := by simp [hslot]
+
+/-- The joined pad list has the exact full product used in the endpoint quotient. -/
+private theorem padJoinLists_fullProduct {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) :
+    (∏ i : Fin K, ∏ j : Fin (slotCount x), padJoinLists d t i j) =
+      padChoicePrimeProduct x d * tupleProduct t := by
+  rw [listProduct_eq_shared_mul_last, padJoinLists_lastProduct, padJoinLists_sharedProduct]
+  simp only [padChoicePrimeProduct, Fintype.prod_prod_type]
+
+/-- Products in the three supported intervals satisfy the physical first-coordinate box. -/
+private theorem paddedFirst_bounds (d₀ D b m : ℕ) (Y Hm : ℝ)
+    (hY : 0 < Y) (hHm : 0 < Hm)
+    (hD : (d₀ : ℝ) ≤ (D : ℝ) ∧ (D : ℝ) < 2 * (d₀ : ℝ))
+    (hb : Y ≤ (b : ℝ) ∧ (b : ℝ) ≤ 4 * Y)
+    (hm : Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm) :
+    ((d₀ : ℝ) * Y) * Hm ≤ ((D * b * m : ℕ) : ℝ) ∧
+      ((D * b * m : ℕ) : ℝ) ≤ 16 * ((d₀ : ℝ) * Y) * Hm := by
+  have hDBlo : (d₀ : ℝ) * Y ≤ (D : ℝ) * (b : ℝ) :=
+    mul_le_mul hD.1 hb.1 hY.le (Nat.cast_nonneg D)
+  have hDBhi : (D : ℝ) * (b : ℝ) ≤ (2 * (d₀ : ℝ)) * (4 * Y) :=
+    mul_le_mul hD.2.le hb.2 (Nat.cast_nonneg b) (by positivity)
+  rw [Nat.cast_mul, Nat.cast_mul]
+  constructor
+  · exact mul_le_mul hDBlo hm.1 hHm.le (by positivity)
+  · calc
+      _ ≤ ((2 * (d₀ : ℝ)) * (4 * Y)) * (2 * Hm) :=
+        mul_le_mul hDBhi hm.2 (Nat.cast_nonneg m) (by positivity)
+      _ = _ := by ring
+
+/-- A selected label divides the first coordinate reconstructed from its joined product. -/
+private theorem padJoin_label_divides {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) (m : ℕ) (i : Fin K) (j : Fin (slotCount x)) :
+    padJoinLists d t i j ∣ padChoicePrimeProduct x d * tupleProduct t * m := by
+  have hin : padJoinLists d t i j ∣ ∏ j : Fin (slotCount x), padJoinLists d t i j :=
+    Finset.dvd_prod_of_mem _ (Finset.mem_univ j)
+  have hout : (∏ j : Fin (slotCount x), padJoinLists d t i j) ∣
+      ∏ i : Fin K, ∏ j : Fin (slotCount x), padJoinLists d t i j :=
+    Finset.dvd_prod_of_mem _ (Finset.mem_univ i)
+  have hfull : padJoinLists d t i j ∣ padChoicePrimeProduct x d * tupleProduct t := by
+    rw [← padJoinLists_fullProduct d t]
+    exact hin.trans hout
+  exact dvd_mul_of_dvd_left hfull m
+
+/-- Construct the unique physical state of one supported Cauchy endpoint. -/
+private def padPhysicalState {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {Y Hm Hn : ℝ}
+    (d₀ : ℕ) (d : PadChoice x K a) (t : Fin K → ℕ) (m v : ℕ)
+    (hY : 0 < Y) (hHm : 0 < Hm)
+    (hD : (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+      (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ))
+    (ht : Y ≤ (tupleProduct t : ℝ) ∧ (tupleProduct t : ℝ) ≤ 4 * Y)
+    (hm : Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm)
+    (hv : Hn ≤ (v : ℝ) ∧ (v : ℝ) ≤ 2 * Hn)
+    (hp : ValidPrimeLists x K a (padJoinLists d t))
+    (hfirst : 0 < padChoicePrimeProduct x d * tupleProduct t * m)
+    (hcop : Nat.Coprime (padChoicePrimeProduct x d * tupleProduct t * m) v) :
+    PhysicalState x K a ((d₀ : ℝ) * Y) Hm Hn :=
+  physicalStateFromCoordinates ⟨((padChoicePrimeProduct x d * tupleProduct t * m, v),
+    padJoinLists d t), ⟨hcop, hfirst,
+    (paddedFirst_bounds d₀ (padChoicePrimeProduct x d) (tupleProduct t) m Y Hm hY hHm hD ht hm).1,
+    (paddedFirst_bounds d₀ (padChoicePrimeProduct x d) (tupleProduct t) m Y Hm hY hHm hD ht hm).2,
+    hv.1, hv.2, hp, padJoin_label_divides d t m⟩⟩
+
+/-- The endpoint quotient of the constructed state recovers the original coefficient index. -/
+private theorem padPhysicalState_quotient {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {Y Hm Hn : ℝ}
+    (d₀ : ℕ) (d : PadChoice x K a) (t : Fin K → ℕ) (m v : ℕ)
+    (hY : 0 < Y) (hHm : 0 < Hm)
+    (hD : (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+      (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ))
+    (ht : Y ≤ (tupleProduct t : ℝ) ∧ (tupleProduct t : ℝ) ≤ 4 * Y)
+    (hm : Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm)
+    (hv : Hn ≤ (v : ℝ) ∧ (v : ℝ) ≤ 2 * Hn)
+    (hp : ValidPrimeLists x K a (padJoinLists d t))
+    (hfirst : 0 < padChoicePrimeProduct x d * tupleProduct t * m)
+    (hcop : Nat.Coprime (padChoicePrimeProduct x d * tupleProduct t * m) v) :
+    let P := padPhysicalState d₀ d t m v hY hHm hD ht hm hv hp hfirst hcop
+    P.first / groupLabelProduct P = m := by
+  have hprodPos : 0 < padChoicePrimeProduct x d * tupleProduct t := by
+    exact Nat.pos_of_mul_pos_right hfirst
+  dsimp only [padPhysicalState, physicalStateFromCoordinates, groupLabelProduct]
+  rw [padJoinLists_fullProduct]
+  exact Nat.mul_div_cancel_left m hprodPos
+
+/-- A reconstructed physical endpoint has exactly the original Cauchy coefficients. -/
+private theorem padPhysicalState_endpoints {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {Y Hm Hn : ℝ}
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    (d₀ : ℕ) (d : PadChoice x K a) (t : Fin K → ℕ) (m v : ℕ)
+    (hY : 0 < Y) (hHm : 0 < Hm)
+    (hD : (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+      (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ))
+    (ht : Y ≤ (tupleProduct t : ℝ) ∧ (tupleProduct t : ℝ) ≤ 4 * Y)
+    (hm : Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm)
+    (hv : Hn ≤ (v : ℝ) ∧ (v : ℝ) ≤ 2 * Hn)
+    (hp : ValidPrimeLists x K a (padJoinLists d t))
+    (hfirst : 0 < padChoicePrimeProduct x d * tupleProduct t * m)
+    (hcop : Nat.Coprime (padChoicePrimeProduct x d * tupleProduct t * m) v)
+    (hbands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (a i)) (primeBand x (a j))) :
+    let P := padPhysicalState d₀ d t m v hY hHm hD ht hm hv hp hfirst hcop
+    endpointF x K a family beta P = family.alpha x m * star (beta v) ∧
+      endpointG x K a family beta P = star (family.alpha x m) * beta v := by
+  let P := padPhysicalState d₀ d t m v hY hHm hD ht hm hv hp hfirst hcop
+  have hSq : Squarefree (groupLabelProduct P) := by
+    change Squarefree (∏ i : Fin K, ∏ j : Fin (slotCount x), padJoinLists d t i j)
+    exact primeListProduct_squarefree (padJoinLists d t) hp hbands
+  have hquot : P.first / groupLabelProduct P = m :=
+    padPhysicalState_quotient d₀ d t m v hY hHm hD ht hm hv hp hfirst hcop
+  have hsecond : P.second = v := rfl
+  change endpointF x K a family beta P = family.alpha x m * star (beta v) ∧
+    endpointG x K a family beta P = star (family.alpha x m) * beta v
+  constructor
+  · rw [endpointF, if_pos hSq, hquot, hsecond]
+  · rw [endpointG, if_pos hSq, hquot, hsecond]
+
+/-- Every prime in a joined product is one of its marked labels. -/
+private theorem prime_div_padJoinedProduct {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) (hp : ValidPrimeLists x K a (padJoinLists d t))
+    (q : ℕ) (hq : q.Prime) (hdiv : q ∣ padChoicePrimeProduct x d * tupleProduct t) :
+    ∃ i j, q = padJoinLists d t i j := by
+  rw [← padJoinLists_fullProduct d t] at hdiv
+  obtain ⟨i, hi, hinner⟩ := (hq.prime.dvd_finsetProd_iff _).mp hdiv
+  obtain ⟨j, hj, hlabel⟩ := (hq.prime.dvd_finsetProd_iff _).mp hinner
+  exact ⟨i, j, (Nat.prime_dvd_prime_iff_eq hq (hp.1 i j).1).mp hlabel⟩
+
+/-- Nonzero short Cauchy determinants force both reconstructed positions to be primitive. -/
+private theorem padPair_coprime {x W : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (hK : 0 < K) (d : PadChoice x K a) (ta tb : Fin K → ℕ)
+    (hta : IsMarkedPrimeTuple x K a ta) (htb : IsMarkedPrimeTuple x K a tb)
+    (hgood : PadChoiceGood d ta tb)
+    (hbands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (a i)) (primeBand x (a j)))
+    (hab : Nat.Coprime (tupleProduct ta) (tupleProduct tb))
+    (hsmall : ∀ i : Fin K, ∀ p ∈ primeBand x (a i), (p : ℝ) ≤ W)
+    (m n r s : ℕ) (hr : roughAbove r W) (hn : roughAbove n W) (hs : roughAbove s W)
+    (ht : |(((tupleProduct tb : ℤ) * m * n - (tupleProduct ta : ℤ) * r * s : ℤ) : ℝ)| ≤ W) :
+    Nat.Coprime (padChoicePrimeProduct x d * tupleProduct tb * m) s ∧
+      Nat.Coprime (padChoicePrimeProduct x d * tupleProduct ta * r) n := by
+  have hvalid := padJoinedLists_valid_of_good d ta tb hta htb hgood
+  have hDb : ∀ p : ℕ, p.Prime → p ∣ padChoicePrimeProduct x d * tupleProduct tb → (p : ℝ) ≤ W := by
+    intro p hp hdiv
+    obtain ⟨i, j, rfl⟩ := prime_div_padJoinedProduct d tb hvalid.2 p hp hdiv
+    exact hsmall i _ (hvalid.2.1 i j).2
+  have hDa : ∀ p : ℕ, p.Prime → p ∣ padChoicePrimeProduct x d * tupleProduct ta → (p : ℝ) ≤ W := by
+    intro p hp hdiv
+    obtain ⟨i, j, rfl⟩ := prime_div_padJoinedProduct d ta hvalid.1 p hp hdiv
+    exact hsmall i _ (hvalid.1.1 i j).2
+  have hbPos : 0 < tupleProduct tb := by
+    unfold tupleProduct
+    exact Finset.prod_pos (fun i hi => (Finset.mem_filter.mp (htb i)).2.1.pos)
+  let i₀ : Fin K := ⟨0, hK⟩
+  have hbPrime : (tb i₀).Prime := (Finset.mem_filter.mp (htb i₀)).2.1
+  have hbdiv : tb i₀ ∣ tupleProduct tb := Finset.dvd_prod_of_mem tb (Finset.mem_univ i₀)
+  have hbgt : 1 < tupleProduct tb := hbPrime.one_lt.trans_le (Nat.le_of_dvd hbPos hbdiv)
+  have hBsmall : ∀ p : ℕ, p.Prime → p ∣ tupleProduct tb → (p : ℝ) ≤ W := by
+    intro p hp hdiv
+    exact hDb p hp (dvd_mul_of_dvd_right hdiv _)
+  have hne := pad_determinant_ne_zero hbgt hab hBsmall hr hs (m := m) (n := n)
+  exact pad_positions_coprime hDb hDa hn hs hne ht
+
+/-- A joined list's shared product agrees with the independent pad product. -/
+private theorem padJoinLists_shared_eq_primeProduct {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) :
+    sharedProduct (padJoinLists d t) = padChoicePrimeProduct x d := by
+  rw [padJoinLists_sharedProduct]
+  simp only [padChoicePrimeProduct, Fintype.prod_prod_type]
+
+/-- The kernel of one reconstructed edge has the precise Cauchy determinant and normalization. -/
+private theorem pad_edge_kernel_value {K : ℕ} (F : PDFix K) (S : PDScale)
+    (P Q : PState F S) (d : PadChoice S.x K F.a) (ta tb : Fin K → ℕ) (m n r s : ℕ)
+    (hp : P.labels = padJoinLists d tb) (hq : Q.labels = padJoinLists d ta)
+    (huP : P.first = padChoicePrimeProduct S.x d * tupleProduct tb * m)
+    (huQ : Q.first = padChoicePrimeProduct S.x d * tupleProduct ta * r)
+    (hvP : P.second = s) (hvQ : Q.second = n)
+    (hslot : IsSlotTransition P.labels Q.labels)
+    (hdyad : (S.d₀ : ℝ) ≤ (padChoicePrimeProduct S.x d : ℝ) ∧
+      (padChoicePrimeProduct S.x d : ℝ) < 2 * (S.d₀ : ℝ))
+    (hdampP : dampingHalf F S P.first = 1) (hdampQ : dampingHalf F S Q.first = 1) :
+    physRowKernel F S P Q =
+      ((∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ : ℝ) : ℂ) *
+        geometricMultiplier F S (padChoicePrimeProduct S.x d) (tupleProduct ta) (tupleProduct tb)
+          ((tupleProduct tb : ℤ) * m * n - (tupleProduct ta : ℤ) * r * s) := by
+  have hDpos : 0 < padChoicePrimeProduct S.x d := by
+    unfold padChoicePrimeProduct
+    exact Finset.prod_pos (fun q hq => (Finset.mem_filter.mp (d q).property).2.1.pos)
+  have hdet : det2 P.pos Q.pos = (padChoicePrimeProduct S.x d : ℤ) *
+      ((tupleProduct tb : ℤ) * m * n - (tupleProduct ta : ℤ) * r * s) := by
+    simp only [PhysicalState.pos, huP, huQ, hvP, hvQ]
+    exact det2_pad_positions _ _ _ _ _ _ _
+  have hquot : det2 P.pos Q.pos / (padChoicePrimeProduct S.x d : ℤ) =
+      (tupleProduct tb : ℤ) * m * n - (tupleProduct ta : ℤ) * r * s := by
+    rw [hdet]
+    exact Int.mul_ediv_cancel_left _ (by exact_mod_cast hDpos.ne')
+  have hShared : sharedProduct P.labels = padChoicePrimeProduct S.x d := by
+    rw [hp, padJoinLists_shared_eq_primeProduct]
+  have hadm : IsPadAdmissible S.d₀ (sharedProduct P.labels) (det2 P.pos Q.pos) := by
+    rw [hShared]
+    exact ⟨hdyad.1, hdyad.2, ⟨_, hdet⟩⟩
+  rw [physRowKernel, slotKernel, if_pos ⟨hslot, hadm⟩, hdampP, hdampQ]
+  rw [hShared, hquot, hp, hq, padJoinLists_lastProduct, padJoinLists_lastProduct]
+  simp only [one_mul, mul_one, Complex.ofReal_one]
+
+/-- Rejoining the copied slots and the last slot recovers the exact original source list. -/
+private theorem padJoinLists_extract {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (p : PrimeLists x K) (hp : ValidPrimeLists x K a p) :
+    padJoinLists (padChoiceFromLists p hp) (fun i => p i (lastSlot x)) = p := by
+  apply lists_ext_shared_last
+  · intro i j
+    simp only [padJoinLists, Fin.val_castSucc, j.isLt, dif_pos, padChoiceFromLists]
+    apply congrArg (p i)
+    exact Fin.ext rfl
+  · intro i
+    simp [padJoinLists, lastSlot]
+
+/-- A slot transition is recovered by keeping the source pads and the fresh target last slots. -/
+private theorem padJoinLists_extract_target {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (p q : PrimeLists x K) (hp : ValidPrimeLists x K a p) (htrans : IsSlotTransition p q) :
+    padJoinLists (padChoiceFromLists p hp) (fun i => q i (lastSlot x)) = q := by
+  apply lists_ext_shared_last
+  · intro i j
+    have hcopy := htrans.1 i (Fin.castSucc j) j.isLt
+    simp only [padJoinLists, Fin.val_castSucc, j.isLt, dif_pos, padChoiceFromLists]
+    calc
+      _ = p i (Fin.castSucc j) := congrArg (p i) (Fin.ext rfl)
+      _ = _ := hcopy.symm
+  · intro i
+    simp [padJoinLists, lastSlot]
+
+/-- The fresh source and target tuple products are coprime under the cross-edge ban. -/
+private theorem slotTransition_lastProducts_coprime {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (p q : PrimeLists x K) (hp : ValidPrimeLists x K a p) (hq : ValidPrimeLists x K a q)
+    (htrans : IsSlotTransition p q) : Nat.Coprime (lastProduct q) (lastProduct p) := by
+  by_contra hnot
+  obtain ⟨r, hr, hqdiv, hpdiv⟩ := Nat.Prime.not_coprime_iff_dvd.mp hnot
+  obtain ⟨i, hi, hqi⟩ := (hr.prime.dvd_finsetProd_iff (fun i => q i (lastSlot x))).mp hqdiv
+  obtain ⟨j, hj, hpj⟩ := (hr.prime.dvd_finsetProd_iff (fun j => p j (lastSlot x))).mp hpdiv
+  have hqeq : r = q i (lastSlot x) := (Nat.prime_dvd_prime_iff_eq hr (hq.1 i (lastSlot x)).1).mp hqi
+  have hpeq : r = p j (lastSlot x) := (Nat.prime_dvd_prime_iff_eq hr (hp.1 j (lastSlot x)).1).mp hpj
+  exact htrans.2 i j (lastSlot x) (hqeq.symm.trans hpeq)
+
+/-- The pad-dyad inverse cancels the geometric scalar and leaves the independent pad measure. -/
+private theorem padScalar_complex_eq {x : ℝ} {K : ℕ} (a : Fin K → ℝ)
+    (hV : ∀ i : Fin K, 0 < bandMass x (a i)) (d : PadChoice x K a) (d₀ : ℕ) (hd₀ : 0 < d₀) :
+    (d₀ : ℂ)⁻¹ * (physicalMeasure x K a : ℂ) *
+        ((∏ i : Fin K, (bandMass x (a i))⁻¹ : ℝ) : ℂ) *
+        (((d₀ : ℝ) / (padChoicePrimeProduct x d : ℝ) : ℝ) : ℂ) =
+      (padChoiceWeight x a d : ℂ) * (((∏ i : Fin K, (bandMass x (a i))⁻¹ : ℝ) : ℂ)) ^ 2 := by
+  have hReal : (padChoicePrimeProduct x d : ℝ)⁻¹ *
+      (physicalMeasure x K a * ∏ i : Fin K, (bandMass x (a i))⁻¹) =
+      padChoiceWeight x a d * (∏ i : Fin K, (bandMass x (a i))⁻¹) ^ 2 := by
+    rw [physicalMeasure_mul_freshNormalizer hV]
+    exact (padChoiceWeight_group_two_normalizers a d).symm
+  have hCast : ((padChoicePrimeProduct x d : ℝ)⁻¹ : ℂ) *
+      ((physicalMeasure x K a : ℂ) * ((∏ i : Fin K, (bandMass x (a i))⁻¹ : ℝ) : ℂ)) =
+      (padChoiceWeight x a d : ℂ) * (((∏ i : Fin K, (bandMass x (a i))⁻¹ : ℝ) : ℂ)) ^ 2 := by
+    exact_mod_cast hReal
+  calc
+    _ = ((d₀ : ℂ)⁻¹ * (((d₀ : ℝ) / (padChoicePrimeProduct x d : ℝ) : ℝ) : ℂ)) *
+        ((physicalMeasure x K a : ℂ) * ((∏ i : Fin K, (bandMass x (a i))⁻¹ : ℝ) : ℂ)) := by ring
+    _ = (padChoicePrimeProduct x d : ℂ)⁻¹ *
+        ((physicalMeasure x K a : ℂ) * ((∏ i : Fin K, (bandMass x (a i))⁻¹ : ℝ) : ℂ)) := by
+      rw [padDyad_scalar_cancel d₀ (padChoicePrimeProduct x d) hd₀]
+    _ = _ := by simpa only [Complex.ofReal_inv, Complex.ofReal_natCast] using hCast
+
+private theorem geometricMultiplier_factor {K : ℕ} (F : PDFix K) (S : PDScale)
+    (D aa bb : ℕ) (t : ℤ) :
+    geometricMultiplier F S D aa bb t =
+      (((S.d₀ : ℝ) / (D : ℝ) : ℝ) : ℂ) * (F.eta ((bb : ℝ) / S.Y) : ℂ) *
+        (F.eta ((aa : ℝ) / S.Y) : ℂ) *
+        ((if t = (bb : ℤ) - aa then (F.psi ((t : ℝ) / S.Y) : ℂ) else 0) -
+          majorKernel S.x S.Y F.A₀ (t : ℝ) aa bb F.psi) := by
+  unfold geometricMultiplier rawMultiplier comparisonMultiplier
+  ring
+
+private theorem physicalLabelProduct_dvd_first {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {H Hm Hn : ℝ}
+    (P : PhysicalState x K a H Hm Hn) (hsq : Squarefree (groupLabelProduct P)) :
+    groupLabelProduct P ∣ P.first := by
+  have hGpos : 0 < groupLabelProduct P := by
+    unfold groupLabelProduct
+    exact Finset.prod_pos (fun i hi => Finset.prod_pos (fun j hj => (P.label_prime i j).pos))
+  have hfirst : P.first ≠ 0 := by
+    have h : (0 : ℤ) < P.first := lt_of_le_of_lt P.completion_range.1 P.completion_range.2
+    exact_mod_cast h.ne'
+  apply (Nat.factorization_le_iff_dvd hGpos.ne' hfirst).mp
+  intro q
+  by_cases hq : q.Prime
+  · by_cases hdiv : q ∣ groupLabelProduct P
+    · have hsrc : q ∣ P.first := by
+        obtain ⟨i, hi, hinner⟩ := (hq.prime.dvd_finsetProd_iff _).mp hdiv
+        obtain ⟨j, hj, hlabel⟩ := (hq.prime.dvd_finsetProd_iff _).mp hinner
+        have heq := (Nat.prime_dvd_prime_iff_eq hq (P.label_prime i j)).mp hlabel
+        rw [heq]
+        exact P.label_divides i j
+      rw [Nat.factorization_eq_one_of_squarefree hsq hq hdiv]
+      exact (hq.dvd_iff_one_le_factorization hfirst).mp hsrc
+    · rw [Nat.factorization_eq_zero_of_not_dvd hdiv]
+      exact Nat.zero_le _
+  · rw [Nat.factorization_eq_zero_of_not_prime _ hq]
+    exact Nat.zero_le _
+
+/-- A nonzero physical source endpoint recovers the supported coefficient indices exactly. -/
+private theorem endpointF_nonzero_data {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hMin : family.xMin ≤ S.x)
+    (beta : ℕ → ℂ) (hbeta : IsSecondCoefficient S C beta) (P : PState F S)
+    (hP : endpointF S.x K F.a family beta P ≠ 0) :
+    (P.first / groupLabelProduct P ∈ familyTerms family S.x) ∧
+      P.second ∈ dyadicIntegers S.Hn ∧
+      roughAbove (P.first / groupLabelProduct P) (roughCutoff S.x) ∧
+      roughAbove P.second (roughCutoff S.x) ∧
+      P.first = groupLabelProduct P * (P.first / groupLabelProduct P) := by
+  have hSq : Squarefree (groupLabelProduct P) := by
+    by_contra hnot
+    exact hP (by simp [endpointF, hnot])
+  have hProd : family.alpha S.x (P.first / groupLabelProduct P) * star (beta P.second) ≠ 0 := by
+    simpa only [endpointF, hSq, if_pos] using hP
+  have hAlpha : family.alpha S.x (P.first / groupLabelProduct P) ≠ 0 :=
+    (mul_ne_zero_iff.mp hProd).1
+  have hBeta : beta P.second ≠ 0 := by
+    intro hzero
+    exact hProd (by simp only [hzero, star_zero, mul_zero])
+  have hAlphaSupport := family.rough_support S.x hMin _ hAlpha
+  have hBetaSupport := hbeta.1 _ hBeta
+  have hmBounds := family.interval_bounds S.x hMin _ hAlphaSupport.1
+  have hHmNonneg : 0 ≤ family.Hm S.x := by
+    have hn0 : (0 : ℝ) ≤ ((P.first / groupLabelProduct P : ℕ) : ℝ) := Nat.cast_nonneg _
+    linarith
+  have hmDyad : P.first / groupLabelProduct P ∈ dyadicIntegers (family.Hm S.x) := by
+    apply Finset.mem_filter.mpr
+    refine ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le ?_), hmBounds⟩
+    exact (Nat.le_floor_iff (mul_nonneg (by norm_num : (0 : ℝ) ≤ 2) hHmNonneg)).mpr hmBounds.2
+  exact ⟨Finset.mem_filter.mpr ⟨hmDyad, hAlphaSupport.1⟩, hBetaSupport.1,
+    hAlphaSupport.2, hBetaSupport.2, (Nat.mul_div_cancel' (physicalLabelProduct_dvd_first P hSq)).symm⟩
+
+private theorem endpointG_eq_star_endpointF {x : ℝ} {K : ℕ} {a : Fin K → ℝ} {H Hm Hn : ℝ}
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (beta : ℕ → ℂ)
+    (P : PhysicalState x K a H Hm Hn) :
+    endpointG x K a family beta P = star (endpointF x K a family beta P) := by
+  by_cases hSq : Squarefree (groupLabelProduct P)
+  · simp [endpointG, endpointF, hSq]
+  · simp [endpointG, endpointF, hSq]
+
+private theorem endpointG_nonzero_data {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hMin : family.xMin ≤ S.x)
+    (beta : ℕ → ℂ) (hbeta : IsSecondCoefficient S C beta) (P : PState F S)
+    (hP : endpointG S.x K F.a family beta P ≠ 0) :
+    (P.first / groupLabelProduct P ∈ familyTerms family S.x) ∧
+      P.second ∈ dyadicIntegers S.Hn ∧
+      roughAbove (P.first / groupLabelProduct P) (roughCutoff S.x) ∧
+      roughAbove P.second (roughCutoff S.x) ∧
+      P.first = groupLabelProduct P * (P.first / groupLabelProduct P) := by
+  apply endpointF_nonzero_data F S family hMin beta hbeta P
+  intro hzero
+  rw [endpointG_eq_star_endpointF family beta P, hzero, star_zero] at hP
+  exact hP rfl
+
+private theorem physRowKernel_nonzero_conditions {K : ℕ} (F : PDFix K) (S : PDScale)
+    (P Q : PState F S) (h : physRowKernel F S P Q ≠ 0) :
+    IsSlotTransition P.labels Q.labels ∧ IsPadAdmissible S.d₀ (sharedProduct P.labels) (det2 P.pos Q.pos) := by
+  by_contra hnot
+  exact h (by simp [physRowKernel, slotKernel, hnot])
+
+/-- The ordered pad/last-slot/coefficient coordinates of a physical edge. -/
+private abbrev PadPairIndex (x : ℝ) (K : ℕ) (a : Fin K → ℝ) :=
+  PadChoice x K a × ((Fin K → ℕ) × (Fin K → ℕ)) × ((ℕ × ℕ) × (ℕ × ℕ))
+
+private def padPairIndex {K : ℕ} (F : PDFix K) (S : PDScale) (P Q : PState F S) :
+    PadPairIndex S.x K F.a :=
+  (padChoiceFromLists P.labels
+      ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩,
+    ((fun i => Q.labels i (lastSlot S.x)), (fun i => P.labels i (lastSlot S.x))),
+    ((P.first / groupLabelProduct P, Q.second), (Q.first / groupLabelProduct Q, P.second)))
+
+private theorem padPairIndex_recover_labels {K : ℕ} (F : PDFix K) (S : PDScale)
+    (P Q : PState F S) (hT : IsSlotTransition P.labels Q.labels) :
+    P.labels = padJoinLists (padPairIndex F S P Q).1 (padPairIndex F S P Q).2.1.2 ∧
+      Q.labels = padJoinLists (padPairIndex F S P Q).1 (padPairIndex F S P Q).2.1.1 := by
+  have hp : ValidPrimeLists S.x K F.a P.labels :=
+    ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+  exact ⟨(padJoinLists_extract P.labels hp).symm, (padJoinLists_extract_target P.labels Q.labels hp hT).symm⟩
+
+private theorem physical_first_eq_labelProduct_mul_quotient {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (P : PState F S) : P.first = groupLabelProduct P * (P.first / groupLabelProduct P) := by
+  have hp : ValidPrimeLists S.x K F.a P.labels :=
+    ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+  have hsq : Squarefree (groupLabelProduct P) := primeListProduct_squarefree P.labels hp hBands
+  exact (Nat.mul_div_cancel' (physicalLabelProduct_dvd_first P hsq)).symm
+
+/-- The extracted ordered coordinates have no physical-state multiplicity. -/
+private theorem padPairIndex_injective {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (P Q P' Q' : PState F S) (hT : IsSlotTransition P.labels Q.labels)
+    (hT' : IsSlotTransition P'.labels Q'.labels)
+    (heq : padPairIndex F S P Q = padPairIndex F S P' Q') : P = P' ∧ Q = Q' := by
+  have hd := congrArg (fun t => t.1) heq
+  have ha := congrArg (fun t => t.2.1.1) heq
+  have hb := congrArg (fun t => t.2.1.2) heq
+  have hm := congrArg (fun t => t.2.2.1.1) heq
+  have hn := congrArg (fun t => t.2.2.1.2) heq
+  have hr := congrArg (fun t => t.2.2.2.1) heq
+  have hs := congrArg (fun t => t.2.2.2.2) heq
+  have hp := padPairIndex_recover_labels F S P Q hT
+  have hp' := padPairIndex_recover_labels F S P' Q' hT'
+  have hPlabels : P.labels = P'.labels := by rw [hp.1, hp'.1, hd, hb]
+  have hQlabels : Q.labels = Q'.labels := by rw [hp.2, hp'.2, hd, ha]
+  have hPG : groupLabelProduct P = groupLabelProduct P' := by unfold groupLabelProduct; rw [hPlabels]
+  have hQG : groupLabelProduct Q = groupLabelProduct Q' := by unfold groupLabelProduct; rw [hQlabels]
+  have hPfirst : P.first = P'.first := by
+    calc
+      _ = groupLabelProduct P * (padPairIndex F S P Q).2.2.1.1 :=
+        physical_first_eq_labelProduct_mul_quotient F S hBands P
+      _ = groupLabelProduct P' * (padPairIndex F S P' Q').2.2.1.1 := congrArg₂ (· * ·) hPG hm
+      _ = _ := (physical_first_eq_labelProduct_mul_quotient F S hBands P').symm
+  have hQfirst : Q.first = Q'.first := by
+    calc
+      _ = groupLabelProduct Q * (padPairIndex F S P Q).2.2.2.1 :=
+        physical_first_eq_labelProduct_mul_quotient F S hBands Q
+      _ = groupLabelProduct Q' * (padPairIndex F S P' Q').2.2.2.1 := congrArg₂ (· * ·) hQG hr
+      _ = _ := (physical_first_eq_labelProduct_mul_quotient F S hBands Q').symm
+  exact ⟨physicalState_eq_of_coordinates P P' hPfirst hs hPlabels,
+    physicalState_eq_of_coordinates Q Q' hQfirst hn hQlabels⟩
+
+/-- Nonzero endpoint support becomes precisely finite coefficient-quad support. -/
+private theorem padPairIndex_mem {K : ℕ} (F : PDFix K) (S : PDScale)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hAt : FamilyAtScale family S)
+    (hMin : family.xMin ≤ S.x) (beta : ℕ → ℂ) (hbeta : IsSecondCoefficient S C beta)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (P Q : PState F S) (hP : endpointF S.x K F.a family beta P ≠ 0)
+    (hQ : endpointG S.x K F.a family beta Q ≠ 0) (hT : IsSlotTransition P.labels Q.labels) :
+    let I := padPairIndex F S P Q
+    IsMarkedPrimeTuple S.x K F.a I.2.1.1 ∧ IsMarkedPrimeTuple S.x K F.a I.2.1.2 ∧
+      PadChoiceGood I.1 I.2.1.1 I.2.1.2 ∧
+      Nat.Coprime (tupleProduct I.2.1.1) (tupleProduct I.2.1.2) ∧
+      I.2.2 ∈ coefficientQuadChoices family S.x := by
+  have hp : ValidPrimeLists S.x K F.a P.labels :=
+    ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+  have hq : ValidPrimeLists S.x K F.a Q.labels :=
+    ⟨fun i j => ⟨Q.label_prime i j, Q.label_in_band i j⟩, Q.label_distinct⟩
+  have hdP := endpointF_nonzero_data F S family hMin beta hbeta P hP
+  have hdQ := endpointG_nonzero_data F S family hMin beta hbeta Q hQ
+  refine ⟨(fun i => Q.label_in_band i (lastSlot S.x)), (fun i => P.label_in_band i (lastSlot S.x)),
+    padChoiceGood_of_slotTransition P.labels Q.labels hp hT, ?_, ?_⟩
+  · exact slotTransition_lastProducts_coprime P.labels Q.labels hp hq hT
+  · have hPn : P.second ∈ dyadicIntegers (family.Hn S.x) := by rw [hAt.2]; exact hdP.2.1
+    have hQn : Q.second ∈ dyadicIntegers (family.Hn S.x) := by rw [hAt.2]; exact hdQ.2.1
+    exact Finset.mem_product.mpr ⟨Finset.mem_product.mpr ⟨hdP.1, hQn⟩,
+      Finset.mem_product.mpr ⟨hdQ.1, hPn⟩⟩
+
+private theorem padPairIndex_positions {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (P Q : PState F S) (hT : IsSlotTransition P.labels Q.labels) :
+    let I := padPairIndex F S P Q
+    P.first = padChoicePrimeProduct S.x I.1 * tupleProduct I.2.1.2 * I.2.2.1.1 ∧
+      Q.first = padChoicePrimeProduct S.x I.1 * tupleProduct I.2.1.1 * I.2.2.2.1 ∧
+      sharedProduct P.labels = padChoicePrimeProduct S.x I.1 := by
+  let I := padPairIndex F S P Q
+  have hlabels := padPairIndex_recover_labels F S P Q hT
+  have hGP : groupLabelProduct P = padChoicePrimeProduct S.x I.1 * tupleProduct I.2.1.2 := by
+    unfold groupLabelProduct
+    rw [hlabels.1, padJoinLists_fullProduct]
+  have hGQ : groupLabelProduct Q = padChoicePrimeProduct S.x I.1 * tupleProduct I.2.1.1 := by
+    unfold groupLabelProduct
+    rw [hlabels.2, padJoinLists_fullProduct]
+  refine ⟨?_, ?_, ?_⟩
+  · calc
+      _ = groupLabelProduct P * I.2.2.1.1 := physical_first_eq_labelProduct_mul_quotient F S hBands P
+      _ = _ := congrArg (fun G => G * I.2.2.1.1) hGP
+  · calc
+      _ = groupLabelProduct Q * I.2.2.2.1 := physical_first_eq_labelProduct_mul_quotient F S hBands Q
+      _ = _ := congrArg (fun G => G * I.2.2.2.1) hGQ
+  · rw [hlabels.1, padJoinLists_shared_eq_primeProduct]
+
+set_option maxHeartbeats 1000000 in
+/-- Every nonzero physical edge has exactly its ordered harmonic pad summand. -/
+private theorem padPairIndex_term_eq {K : ℕ} (F : PDFix K) (hF : F.Valid) (S : PDScale)
+    (hY : 0 < S.Y) (hHn : 0 < S.Hn) (hd₀ : 0 < S.d₀)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hAt : FamilyAtScale family S)
+    (hMin : family.xMin ≤ S.x) (beta : ℕ → ℂ) (hbeta : IsSecondCoefficient S C beta)
+    (hV : ∀ i : Fin K, 0 < bandMass S.x (F.a i))
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j)))
+    (hSmall : ∀ i : Fin K, ∀ q ∈ primeBand S.x (F.a i), (q : ℝ) ≤ roughCutoff S.x)
+    (P Q : PState F S) (hP : endpointF S.x K F.a family beta P ≠ 0)
+    (hQ : endpointG S.x K F.a family beta Q ≠ 0)
+    (hT : IsSlotTransition P.labels Q.labels)
+    (hPad : IsPadAdmissible S.d₀ (sharedProduct P.labels) (det2 P.pos Q.pos)) :
+    let I := padPairIndex F S P Q
+    (S.d₀ : ℂ)⁻¹ * (physicalMeasure S.x K F.a : ℂ) *
+      (endpointF S.x K F.a family beta P * physRowKernel F S P Q * endpointG S.x K F.a family beta Q) =
+      (padChoiceWeight S.x F.a I.1 : ℂ) *
+        (((∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2 *
+          padQuadCore F S.x S.Y family beta I.2.1.1 I.2.1.2 I.2.2 := by
+  let I := padPairIndex F S P Q
+  have hp : ValidPrimeLists S.x K F.a P.labels :=
+    ⟨fun i j => ⟨P.label_prime i j, P.label_in_band i j⟩, P.label_distinct⟩
+  have hq : ValidPrimeLists S.x K F.a Q.labels :=
+    ⟨fun i j => ⟨Q.label_prime i j, Q.label_in_band i j⟩, Q.label_distinct⟩
+  have hcond := And.intro hT hPad
+  have hlabels := padPairIndex_recover_labels F S P Q hcond.1
+  have hpos := padPairIndex_positions F S hBands P Q hcond.1
+  have hindex := padPairIndex_mem F S family hAt hMin beta hbeta hBands P Q hP hQ hcond.1
+  have hdP := endpointF_nonzero_data F S family hMin beta hbeta P hP
+  have hdQ := endpointG_nonzero_data F S family hMin beta hbeta Q hQ
+  have hfirstP := physical_first_eq_labelProduct_mul_quotient F S hBands P
+  have hfirstQ := physical_first_eq_labelProduct_mul_quotient F S hBands Q
+  have hDampP : dampingHalf F S P.first = 1 := by
+    rw [hfirstP]
+    exact dampingHalf_listProduct_mul F S P.labels hp hBands hSmall _ hdP.2.2.1
+  have hDampQ : dampingHalf F S Q.first = 1 := by
+    rw [hfirstQ]
+    exact dampingHalf_listProduct_mul F S Q.labels hq hBands hSmall _ hdQ.2.2.1
+  have hdyad : (S.d₀ : ℝ) ≤ (padChoicePrimeProduct S.x I.1 : ℝ) ∧
+      (padChoicePrimeProduct S.x I.1 : ℝ) < 2 * (S.d₀ : ℝ) := by
+    rw [← hpos.2.2]
+    exact ⟨hcond.2.1, hcond.2.2.1⟩
+  have hker := pad_edge_kernel_value F S P Q I.1 I.2.1.1 I.2.1.2
+    I.2.2.1.1 I.2.2.1.2 I.2.2.2.1 I.2.2.2.2 hlabels.1 hlabels.2 hpos.1 hpos.2.1
+    rfl rfl hcond.1 hdyad hDampP hDampQ
+  have hSqP : Squarefree (groupLabelProduct P) := primeListProduct_squarefree P.labels hp hBands
+  have hSqQ : Squarefree (groupLabelProduct Q) := primeListProduct_squarefree Q.labels hq hBands
+  have hPm : 0 < I.2.2.1.1 := by
+    have hf : 0 < P.first := by
+      have hc := lt_of_le_of_lt P.completion_range.1 P.completion_range.2
+      exact_mod_cast hc
+    by_contra hn
+    have hz : I.2.2.1.1 = 0 := by omega
+    change P.first = groupLabelProduct P * I.2.2.1.1 at hfirstP
+    rw [hz, mul_zero] at hfirstP
+    omega
+  have hQr : 0 < I.2.2.2.1 := by
+    have hf : 0 < Q.first := by
+      have hc := lt_of_le_of_lt Q.completion_range.1 Q.completion_range.2
+      exact_mod_cast hc
+    by_contra hn
+    have hz : I.2.2.2.1 = 0 := by omega
+    change Q.first = groupLabelProduct Q * I.2.2.2.1 at hfirstQ
+    rw [hz, mul_zero] at hfirstQ
+    omega
+  have hQn : 0 < I.2.2.1.2 := by
+    have hn := hHn.trans_le Q.second_lower
+    exact_mod_cast hn
+  have hPs : 0 < I.2.2.2.2 := by
+    have hs := hHn.trans_le P.second_lower
+    exact_mod_cast hs
+  have ha : 0 < tupleProduct I.2.1.1 := Finset.prod_pos
+    (fun i hi => (Finset.mem_filter.mp (hindex.1 i)).2.1.pos)
+  have hraw := eta_raw_common_identity F hF S.Y hY (tupleProduct I.2.1.1) (tupleProduct I.2.1.2)
+    I.2.2.1.1 I.2.2.1.2 I.2.2.2.1 I.2.2.2.2 ha hindex.2.2.2.1
+    (Nat.succ_le_of_lt (Nat.mul_pos hPm hQn)) (Nat.succ_le_of_lt (Nat.mul_pos hQr hPs))
+  have htReal : (((tupleProduct I.2.1.2 : ℤ) * I.2.2.1.1 * I.2.2.1.2 -
+      (tupleProduct I.2.1.1 : ℤ) * I.2.2.2.1 * I.2.2.2.2 : ℤ) : ℝ) =
+      (tupleProduct I.2.1.2 : ℝ) * (I.2.2.1.1 * I.2.2.1.2 : ℕ) -
+        (tupleProduct I.2.1.1 : ℝ) * (I.2.2.2.1 * I.2.2.2.2 : ℕ) := by push_cast; ring
+  have hScalar := padScalar_complex_eq F.a hV I.1 S.d₀ hd₀
+  have hEndP : endpointF S.x K F.a family beta P =
+      family.alpha S.x I.2.2.1.1 * star (beta I.2.2.2.2) := by rw [endpointF, if_pos hSqP]; rfl
+  have hEndQ : endpointG S.x K F.a family beta Q =
+      star (family.alpha S.x I.2.2.2.1) * beta I.2.2.1.2 := by rw [endpointG, if_pos hSqQ]; rfl
+  let t : ℤ := (tupleProduct I.2.1.2 : ℤ) * I.2.2.1.1 * I.2.2.1.2 -
+    (tupleProduct I.2.1.1 : ℤ) * I.2.2.2.1 * I.2.2.2.2
+  let core : ℂ := (F.eta ((tupleProduct I.2.1.2 : ℝ) / S.Y) : ℂ) *
+    (F.eta ((tupleProduct I.2.1.1 : ℝ) / S.Y) : ℂ) *
+    ((if t = (tupleProduct I.2.1.2 : ℤ) - tupleProduct I.2.1.1 then
+      (F.psi ((t : ℝ) / S.Y) : ℂ) else 0) -
+      majorKernel S.x S.Y F.A₀ (t : ℝ) (tupleProduct I.2.1.1) (tupleProduct I.2.1.2) F.psi)
+  have hCore : core * coefficientQuadProduct family S.x beta I.2.2 =
+      padQuadCore F S.x S.Y family beta I.2.1.1 I.2.1.2 I.2.2 := by
+    dsimp only [core, t]
+    unfold padQuadCore
+    rw [mul_sub, hraw, htReal]
+    ring
+  calc
+    _ = ((S.d₀ : ℂ)⁻¹ * (physicalMeasure S.x K F.a : ℂ) *
+        ((∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ : ℝ) : ℂ) *
+        (((S.d₀ : ℝ) / (padChoicePrimeProduct S.x I.1 : ℝ) : ℝ) : ℂ)) *
+      core * coefficientQuadProduct family S.x beta I.2.2 := by
+      rw [hEndP, hEndQ, hker, geometricMultiplier_factor]
+      dsimp only [core, t, coefficientQuadProduct]
+      ring
+    _ = ((padChoiceWeight S.x F.a I.1 : ℂ) *
+        (((∏ i : Fin K, (bandMass S.x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2) *
+      core * coefficientQuadProduct family S.x beta I.2.2 := by rw [hScalar]
+    _ = _ := by rw [mul_assoc, hCore]
+
+private theorem padChoiceFromLists_join_eq {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) (hp : ValidPrimeLists x K a (padJoinLists d t)) :
+    padChoiceFromLists (padJoinLists d t) hp = d := by
+  funext addr
+  apply Subtype.ext
+  let j : Fin (momentJ x + 1) := addr.2.castSucc
+  have hj : j.val < momentJ x := addr.2.isLt
+  change padJoinFunction d t addr.1 j = (d addr).val
+  unfold padJoinFunction
+  simp only [dif_pos hj]
+  have hcast : j.castLT hj = addr.2 := Fin.ext rfl
+  rw [hcast]
+
+
+private theorem padJoinLists_lastTuple {x : ℝ} {K : ℕ} {a : Fin K → ℝ}
+    (d : PadChoice x K a) (t : Fin K → ℕ) :
+    (fun i => padJoinLists d t i (lastSlot x)) = t := by
+  funext i
+  rw [padJoinLists_eq_padJoinFunction]
+  simp [padJoinFunction, lastSlot]
+
+set_option maxHeartbeats 1500000 in
+/-- Every nonzero allowed signed coefficient core reconstructs one physical edge. -/
+private theorem padPairIndex_surjective_core {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    (x Y R : ℝ) (hY : 0 < Y) (hR : 4 ≤ R)
+    (hPsiSupport : ∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R) (hShort : R * Y ≤ roughCutoff x)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hMin : family.xMin ≤ x)
+    (beta : ℕ → ℂ) (hbeta : IsFamilySecondCoefficient family x beta)
+    (hV : ∀ i : Fin K, 0 < bandMass x (F.a i))
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (F.a i)) (primeBand x (F.a j)))
+    (hSmall : ∀ i : Fin K, ∀ p ∈ primeBand x (F.a i), (p : ℝ) ≤ roughCutoff x)
+    (d₀ : ℕ) (hd₀ : 0 < d₀) (d : PadChoice x K F.a) (ta tb : Fin K → ℕ)
+    (hta : IsMarkedPrimeTuple x K F.a ta) (htb : IsMarkedPrimeTuple x K F.a tb)
+    (hGood : PadChoiceGood d ta tb) (hCop : Nat.Coprime (tupleProduct ta) (tupleProduct tb))
+    (hDyad : (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+      (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ))
+    (q : (ℕ × ℕ) × (ℕ × ℕ)) (hCore : padQuadCore F x Y family beta ta tb q ≠ 0) :
+    ∃ P Q : PState F (familyScale family x Y d₀),
+      padPairIndex F (familyScale family x Y d₀) P Q = (d, (ta, tb), q) ∧
+      IsSlotTransition P.labels Q.labels ∧
+      IsPadAdmissible d₀ (sharedProduct P.labels) (det2 P.pos Q.pos) ∧
+      (d₀ : ℂ)⁻¹ * (physicalMeasure x K F.a : ℂ) *
+        (endpointF x K F.a family beta P * physRowKernel F (familyScale family x Y d₀) P Q *
+          endpointG x K F.a family beta Q) =
+        (padChoiceWeight x F.a d : ℂ) * (((∏ i : Fin K, (bandMass x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2 *
+          padQuadCore F x Y family beta ta tb q := by
+  have hdata := padQuadCore_nonzero_eta_coeff F x Y family beta ta tb q hCore
+  have hαm : family.alpha x q.1.1 ≠ 0 := by
+    intro hz
+    exact hdata.2.2 (by simp [coefficientQuadProduct, hz])
+  have hαr : family.alpha x q.2.1 ≠ 0 := by
+    intro hz
+    exact hdata.2.2 (by simp [coefficientQuadProduct, hz])
+  have hβn : beta q.1.2 ≠ 0 := by
+    intro hz
+    exact hdata.2.2 (by simp [coefficientQuadProduct, hz])
+  have hβs : beta q.2.2 ≠ 0 := by
+    intro hz
+    exact hdata.2.2 (by simp [coefficientQuadProduct, hz])
+  have hmSupp := family.rough_support x hMin q.1.1 hαm
+  have hrSupp := family.rough_support x hMin q.2.1 hαr
+  have hnSupp := hbeta.1 q.1.2 hβn
+  have hsSupp := hbeta.1 q.2.2 hβs
+  have hmBounds := family.interval_bounds x hMin q.1.1 hmSupp.1
+  have hrBounds := family.interval_bounds x hMin q.2.1 hrSupp.1
+  have hnBounds := (Finset.mem_filter.mp hnSupp.1).2
+  have hsBounds := (Finset.mem_filter.mp hsSupp.1).2
+  have hxpos : 0 < x := lt_of_lt_of_le (by norm_num) (family.xMin_ge_two.trans hMin)
+  have hScale := family.scales x hMin
+  have hHm : 0 < family.Hm x := (Real.rpow_pos_of_pos hxpos δ).trans_le hScale.1
+  have hHn : 0 < family.Hn x := (Real.rpow_pos_of_pos hxpos δ).trans_le hScale.2.1
+  have hmPos : 0 < q.1.1 := by exact_mod_cast hHm.trans_le hmBounds.1
+  have hrPos : 0 < q.2.1 := by exact_mod_cast hHm.trans_le hrBounds.1
+  have hnPos : 0 < q.1.2 := by exact_mod_cast hHn.trans_le hnBounds.1
+  have hsPos : 0 < q.2.2 := by exact_mod_cast hHn.trans_le hsBounds.1
+  have haPos : 0 < tupleProduct ta := Finset.prod_pos
+    (fun i hi => (Finset.mem_filter.mp (hta i)).2.1.pos)
+  have hbPos : 0 < tupleProduct tb := Finset.prod_pos
+    (fun i hi => (Finset.mem_filter.mp (htb i)).2.1.pos)
+  have hDpos : 0 < padChoicePrimeProduct x d := Finset.prod_pos
+    (fun addr haddr => (Finset.mem_filter.mp (d addr).property).2.1.pos)
+  have haBounds := hF.2.2.2.2.1.2.1 hdata.1
+  have hbBounds := hF.2.2.2.2.1.2.1 hdata.2.1
+  have haRange : Y ≤ (tupleProduct ta : ℝ) ∧ (tupleProduct ta : ℝ) ≤ 4 * Y :=
+    ⟨by simpa only [one_mul] using (le_div_iff₀ hY).mp haBounds.1, (div_le_iff₀ hY).mp haBounds.2⟩
+  have hbRange : Y ≤ (tupleProduct tb : ℝ) ∧ (tupleProduct tb : ℝ) ≤ 4 * Y :=
+    ⟨by simpa only [one_mul] using (le_div_iff₀ hY).mp hbBounds.1, (div_le_iff₀ hY).mp hbBounds.2⟩
+  have hTube := padQuadCore_nonzero_determinant_bound F hF x Y R hY hR hPsiSupport family beta ta tb q
+    haPos hCop (Nat.succ_le_of_lt (Nat.mul_pos hmPos hnPos)) (Nat.succ_le_of_lt (Nat.mul_pos hrPos hsPos)) hCore
+  have hPrimitive := padPair_coprime hF.1.1 d ta tb hta htb hGood hBands hCop hSmall
+    q.1.1 q.1.2 q.2.1 q.2.2 hrSupp.2 hnSupp.2 hsSupp.2 (hTube.trans hShort)
+  have hvalid := padJoinedLists_valid_of_good d ta tb hta htb hGood
+  have hFirstP : 0 < padChoicePrimeProduct x d * tupleProduct tb * q.1.1 := Nat.mul_pos (Nat.mul_pos hDpos hbPos) hmPos
+  have hFirstQ : 0 < padChoicePrimeProduct x d * tupleProduct ta * q.2.1 := Nat.mul_pos (Nat.mul_pos hDpos haPos) hrPos
+  let P := padPhysicalState d₀ d tb q.1.1 q.2.2 hY hHm hDyad hbRange hmBounds hsBounds hvalid.2 hFirstP hPrimitive.1
+  let Q := padPhysicalState d₀ d ta q.2.1 q.1.2 hY hHm hDyad haRange hrBounds hnBounds hvalid.1 hFirstQ hPrimitive.2
+  have hPe := padPhysicalState_endpoints family beta d₀ d tb q.1.1 q.2.2 hY hHm hDyad hbRange hmBounds hsBounds hvalid.2 hFirstP hPrimitive.1 hBands
+  have hQe := padPhysicalState_endpoints family beta d₀ d ta q.2.1 q.1.2 hY hHm hDyad haRange hrBounds hnBounds hvalid.1 hFirstQ hPrimitive.2 hBands
+  have hPnon : endpointF x K F.a family beta P ≠ 0 := by
+    rw [hPe.1]
+    exact mul_ne_zero hαm (by simpa only [star_ne_zero] using hβs)
+  have hQnon : endpointG x K F.a family beta Q ≠ 0 := by
+    rw [hQe.2]
+    exact mul_ne_zero (by simpa only [star_ne_zero] using hαr) hβn
+  have hSlot : IsSlotTransition P.labels Q.labels := padJoinedLists_slotTransition_of_good d ta tb hta htb hGood hBands hCop
+  have hDet : det2 P.pos Q.pos = (padChoicePrimeProduct x d : ℤ) *
+      ((tupleProduct tb : ℤ) * q.1.1 * q.1.2 - (tupleProduct ta : ℤ) * q.2.1 * q.2.2) := by
+    exact det2_pad_positions _ _ _ _ _ _ _
+  have hPad : IsPadAdmissible d₀ (sharedProduct P.labels) (det2 P.pos Q.pos) := by
+    change IsPadAdmissible d₀ (sharedProduct (padJoinLists d tb)) (det2 P.pos Q.pos)
+    rw [padJoinLists_shared_eq_primeProduct]
+    exact ⟨hDyad.1, hDyad.2, ⟨_, hDet⟩⟩
+  have hIdx : padPairIndex F (familyScale family x Y d₀) P Q = (d, (ta, tb), q) := by
+    apply Prod.ext
+    · exact padChoiceFromLists_join_eq d tb hvalid.2
+    · apply Prod.ext
+      · exact Prod.ext (padJoinLists_lastTuple d ta) (padJoinLists_lastTuple d tb)
+      · apply Prod.ext
+        · exact Prod.ext
+            (padPhysicalState_quotient d₀ d tb q.1.1 q.2.2 hY hHm hDyad hbRange hmBounds hsBounds hvalid.2 hFirstP hPrimitive.1) rfl
+        · exact Prod.ext
+            (padPhysicalState_quotient d₀ d ta q.2.1 q.1.2 hY hHm hDyad haRange hrBounds hnBounds hvalid.1 hFirstQ hPrimitive.2) rfl
+  refine ⟨P, Q, hIdx, hSlot, hPad, ?_⟩
+  have hAt : FamilyAtScale family (familyScale family x Y d₀) := ⟨rfl, rfl⟩
+  have hBetaAt : IsSecondCoefficient (familyScale family x Y d₀) C beta := hbeta
+  have hTerm := padPairIndex_term_eq F hF (familyScale family x Y d₀) hY hHn hd₀ family hAt hMin beta hBetaAt hV hBands hSmall P Q hPnon hQnon hSlot hPad
+  rw [hIdx] at hTerm
+  simpa only [familyScale] using hTerm
+
+private abbrev PadPhysicalEdges {K : ℕ} (F : PDFix K) {δ C c₁ c₂ : ℝ}
+    (family : CoefficientFamily δ C c₁ c₂) (x Y : ℝ) :=
+  (Σ d₀ : (padScales x K), PState F (familyScale family x Y d₀.val) ×
+    PState F (familyScale family x Y d₀.val))
+
+private def padPhysicalEdgeTerm {K : ℕ} (F : PDFix K) {δ C c₁ c₂ : ℝ}
+    (family : CoefficientFamily δ C c₁ c₂) (x Y : ℝ) (beta : ℕ → ℂ)
+    (e : PadPhysicalEdges F family x Y) : ℂ :=
+  (e.1.val : ℂ)⁻¹ * (physicalMeasure x K F.a : ℂ) *
+    (endpointF x K F.a family beta e.2.1 *
+      physRowKernel F (familyScale family x Y e.1.val) e.2.1 e.2.2 *
+        endpointG x K F.a family beta e.2.2)
+
+private theorem padPhysicalEdgeSum_eq {K : ℕ} (F : PDFix K) {δ C c₁ c₂ : ℝ}
+    (family : CoefficientFamily δ C c₁ c₂) (x Y : ℝ) (beta : ℕ → ℂ)
+    [∀ d₀ : (padScales x K), Fintype (PState F (familyScale family x Y d₀.val))] :
+    (∑ e : PadPhysicalEdges F family x Y, padPhysicalEdgeTerm F family x Y beta e) =
+      ∑ d₀ ∈ padScales x K, (d₀ : ℂ)⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta := by
+  calc
+    _ = ∑ d₀ : (padScales x K), (d₀.val : ℂ)⁻¹ *
+        detPairingNoGood F (familyScale family x Y d₀.val) family beta := by
+      rw [Fintype.sum_sigma]
+      apply Finset.sum_congr rfl
+      intro d₀ hd₀
+      rw [Fintype.sum_prod_type, detPairing_noGoodExpansion]
+      simp only [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro P hP
+      apply Finset.sum_congr rfl
+      intro Q hQ
+      dsimp only [padPhysicalEdgeTerm, familyScale]
+      ring
+    _ = _ := Finset.sum_coe_sort (padScales x K)
+      (fun d₀ : ℕ => (d₀ : ℂ)⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta)
+
+set_option maxHeartbeats 2500000 in
+/-- The finite physical edge sum is the ordered-pad/tuple/coefficient-quad sum. -/
+private theorem pad_physical_reindex_at_scale {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    (x Y R : ℝ) (hY : 0 < Y) (hR : 4 ≤ R)
+    (hPsiSupport : ∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R) (hShort : R * Y ≤ roughCutoff x)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hMin : family.xMin ≤ x)
+    (beta : ℕ → ℂ) (hbeta : IsFamilySecondCoefficient family x beta)
+    (hV : ∀ i : Fin K, 0 < bandMass x (F.a i))
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (F.a i)) (primeBand x (F.a j)))
+    (hSmall : ∀ i : Fin K, ∀ p ∈ primeBand x (F.a i), (p : ℝ) ≤ roughCutoff x)
+    (hCover : ∀ d : PadChoice x K F.a, ∃! d₀ : ℕ,
+      d₀ ∈ padScales x K ∧ (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+        (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ)) :
+    (∑ d₀ ∈ padScales x K, (d₀ : ℂ)⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta) =
+      ∑ d : PadChoice x K F.a,
+        ∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+          ∑ q ∈ coefficientQuadChoices family x,
+            if PadChoiceGood d ta tb ∧ Nat.Coprime (tupleProduct ta) (tupleProduct tb) then
+              (padChoiceWeight x F.a d : ℂ) * (((∏ i : Fin K, (bandMass x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2 *
+                padQuadCore F x Y family beta ta tb q else 0 := by
+  have hxpos : 0 < x := lt_of_lt_of_le (by norm_num) (family.xMin_ge_two.trans hMin)
+  have hScales := family.scales x hMin
+  have hHm : 0 < family.Hm x := (Real.rpow_pos_of_pos hxpos δ).trans_le hScales.1
+  have hHn : 0 < family.Hn x := (Real.rpow_pos_of_pos hxpos δ).trans_le hScales.2.1
+  have hdPos (d₀ : ℕ) (hd₀ : d₀ ∈ padScales x K) : 0 < d₀ := by
+    obtain ⟨k, hk, rfl⟩ := Finset.mem_image.mp hd₀
+    positivity
+  letI : ∀ d₀ : (padScales x K), Fintype (PState F (familyScale family x Y d₀.val)) := fun d₀ => by
+    letI : Finite (PState F (familyScale family x Y d₀.val)) := Finite.of_finite_univ
+      (physicalState_finite (mul_pos (Nat.cast_pos.mpr (hdPos _ d₀.property)) hY) hHm hHn)
+    exact Fintype.ofFinite _
+  let Src := PadPhysicalEdges F family x Y
+  let sf := padPhysicalEdgeTerm F family x Y beta
+  let key (e : Src) : PadPairIndex x K F.a := padPairIndex F (familyScale family x Y e.1.val) e.2.1 e.2.2
+  let Tgt : Finset (PadPairIndex x K F.a) := Finset.univ ×ˢ
+    (((markedTupleChoices x F.a) ×ˢ (markedTupleChoices x F.a)) ×ˢ coefficientQuadChoices family x)
+  let tf (I : PadPairIndex x K F.a) : ℂ :=
+    if PadChoiceGood I.1 I.2.1.1 I.2.1.2 ∧ Nat.Coprime (tupleProduct I.2.1.1) (tupleProduct I.2.1.2) then
+      (padChoiceWeight x F.a I.1 : ℂ) * (((∏ i : Fin K, (bandMass x (F.a i))⁻¹ : ℝ) : ℂ)) ^ 2 *
+        padQuadCore F x Y family beta I.2.1.1 I.2.1.2 I.2.2 else 0
+  have hInfo (e : Src) (he : sf e ≠ 0) :
+      endpointF x K F.a family beta e.2.1 ≠ 0 ∧ endpointG x K F.a family beta e.2.2 ≠ 0 ∧
+        IsSlotTransition e.2.1.labels e.2.2.labels ∧
+          IsPadAdmissible e.1.val (sharedProduct e.2.1.labels) (det2 e.2.1.pos e.2.2.pos) := by
+    have hP : endpointF x K F.a family beta e.2.1 ≠ 0 := by
+      intro hz
+      exact he (by simp [sf, padPhysicalEdgeTerm, hz])
+    have hQ : endpointG x K F.a family beta e.2.2 ≠ 0 := by
+      intro hz
+      exact he (by simp [sf, padPhysicalEdgeTerm, hz])
+    have hker : physRowKernel F (familyScale family x Y e.1.val) e.2.1 e.2.2 ≠ 0 := by
+      intro hz
+      exact he (by simp [sf, padPhysicalEdgeTerm, hz])
+    have hc := physRowKernel_nonzero_conditions F (familyScale family x Y e.1.val) e.2.1 e.2.2 hker
+    exact ⟨hP, hQ, hc.1, hc.2⟩
+  have hData (e : Src) (he : sf e ≠ 0) :=
+    padPairIndex_mem F (familyScale family x Y e.1.val) family ⟨rfl, rfl⟩ hMin beta hbeta hBands
+      e.2.1 e.2.2 (hInfo e he).1 (hInfo e he).2.1 (hInfo e he).2.2.1
+  have hMem (e : Src) (he : sf e ≠ 0) : key e ∈ Tgt := by
+    have hd := hData e he
+    exact Finset.mem_product.mpr ⟨Finset.mem_univ _, Finset.mem_product.mpr
+      ⟨Finset.mem_product.mpr ⟨mem_markedTupleChoices.mpr hd.1, mem_markedTupleChoices.mpr hd.2.1⟩, hd.2.2.2.2⟩⟩
+  have hValue (e : Src) (he : sf e ≠ 0) : sf e = tf (key e) := by
+    have hd := hData e he
+    have hi := hInfo e he
+    have ht := padPairIndex_term_eq F hF (familyScale family x Y e.1.val) hY hHn (hdPos _ e.1.property)
+      family ⟨rfl, rfl⟩ hMin beta hbeta hV hBands hSmall e.2.1 e.2.2 hi.1 hi.2.1 hi.2.2.1 hi.2.2.2
+    have hc : PadChoiceGood (key e).1 (key e).2.1.1 (key e).2.1.2 ∧
+        Nat.Coprime (tupleProduct (key e).2.1.1) (tupleProduct (key e).2.1.2) := ⟨hd.2.2.1, hd.2.2.2.1⟩
+    dsimp only [tf]
+    rw [if_pos hc]
+    exact ht
+  have hInjective (e e' : Src) (he : sf e ≠ 0) (he' : sf e' ≠ 0) (hk : key e = key e') : e = e' := by
+    have hi := hInfo e he
+    have hi' := hInfo e' he'
+    have hp := padPairIndex_positions F (familyScale family x Y e.1.val) hBands e.2.1 e.2.2 hi.2.2.1
+    have hp' := padPairIndex_positions F (familyScale family x Y e'.1.val) hBands e'.2.1 e'.2.2 hi'.2.2.1
+    have hd : (key e).1 = (key e').1 := congrArg Prod.fst hk
+    obtain ⟨d₀, hd₀, huniq⟩ := hCover (key e).1
+    have hSp : sharedProduct e.2.1.labels = padChoicePrimeProduct x (key e).1 := hp.2.2
+    have hSp' : sharedProduct e'.2.1.labels = padChoicePrimeProduct x (key e').1 := hp'.2.2
+    have hlo : (e.1.val : ℝ) ≤ (padChoicePrimeProduct x (key e).1 : ℝ) := by
+      rw [← hSp]
+      exact hi.2.2.2.1
+    have hhi : (padChoicePrimeProduct x (key e).1 : ℝ) < 2 * (e.1.val : ℝ) := by
+      rw [← hSp]
+      exact hi.2.2.2.2.1
+    have hlo' : (e'.1.val : ℝ) ≤ (padChoicePrimeProduct x (key e).1 : ℝ) := by
+      rw [hd, ← hSp']
+      exact hi'.2.2.2.1
+    have hhi' : (padChoicePrimeProduct x (key e).1 : ℝ) < 2 * (e'.1.val : ℝ) := by
+      rw [hd, ← hSp']
+      exact hi'.2.2.2.2.1
+    have hdyad : e.1.val = d₀ := huniq e.1.val ⟨e.1.property, hlo, hhi⟩
+    have hdyad' : e'.1.val = d₀ := huniq e'.1.val ⟨e'.1.property, hlo', hhi'⟩
+    have hdeq : e.1 = e'.1 := Subtype.ext (hdyad.trans hdyad'.symm)
+    rcases e with ⟨ed, ep⟩
+    rcases e' with ⟨ed', ep'⟩
+    dsimp only at hdeq
+    cases hdeq
+    have hpair := padPairIndex_injective F (familyScale family x Y ed.val) hBands ep.1 ep.2 ep'.1 ep'.2
+      hi.2.2.1 hi'.2.2.1 hk
+    exact congrArg (Sigma.mk ed) (Prod.ext hpair.1 hpair.2)
+  have hSurjective (I : PadPairIndex x K F.a) (hI : I ∈ Tgt) (hIneq : tf I ≠ 0) :
+      ∃ e : Src, sf e ≠ 0 ∧ key e = I := by
+    have hcond : PadChoiceGood I.1 I.2.1.1 I.2.1.2 ∧
+        Nat.Coprime (tupleProduct I.2.1.1) (tupleProduct I.2.1.2) := by
+      by_contra hn
+      exact hIneq (by simp [tf, hn])
+    have hCore : padQuadCore F x Y family beta I.2.1.1 I.2.1.2 I.2.2 ≠ 0 := by
+      intro hz
+      exact hIneq (by simp [tf, hz])
+    have hTuple := (Finset.mem_product.mp (Finset.mem_product.mp hI).2).1
+    obtain ⟨d₀, hd₀, huniq⟩ := hCover I.1
+    obtain ⟨P, Q, hIdx, hSlot, hPad, hTerm⟩ := padPairIndex_surjective_core F hF x Y R hY hR hPsiSupport hShort
+      family hMin beta hbeta hV hBands hSmall d₀ (hdPos _ hd₀.1) I.1 I.2.1.1 I.2.1.2
+      (mem_markedTupleChoices.mp (Finset.mem_product.mp hTuple).1)
+      (mem_markedTupleChoices.mp (Finset.mem_product.mp hTuple).2) hcond.1 hcond.2 hd₀.2 I.2.2 hCore
+    let e : Src := ⟨⟨d₀, hd₀.1⟩, (P, Q)⟩
+    have hkey : key e = I := by
+      change padPairIndex F (familyScale family x Y d₀) P Q = I
+      convert hIdx using 1 <;> rfl
+    have hterm : sf e = tf I := by
+      simpa only [sf, padPhysicalEdgeTerm, e, tf, if_pos hcond] using hTerm
+    exact ⟨e, by rw [hterm]; exact hIneq, hkey⟩
+  have hsum : (∑ e : Src, sf e) = ∑ I ∈ Tgt, tf I := by
+    apply Finset.sum_bij_ne_zero (fun e he₁ he₂ => key e)
+    · intro e he₁ he₂
+      exact hMem e he₂
+    · intro e he₁ he₂ e' he₁' he₂' hk
+      exact hInjective e e' he₂ he₂' hk
+    · intro I hI hIneq
+      obtain ⟨e, he, hk⟩ := hSurjective I hI hIneq
+      exact ⟨e, Finset.mem_univ _, he, hk⟩
+    · intro e he₁ he₂
+      exact hValue e he₂
+  rw [← padPhysicalEdgeSum_eq F family x Y beta]
+  change (∑ e : Src, sf e) = _
+  rw [hsum]
+  simp only [Tgt, tf, Finset.sum_product]
+
+private theorem pad_finite_reindex_at_scale {K : ℕ} (F : PDFix K) (hF : F.Valid)
+    (x Y R : ℝ) (hY : 0 < Y) (hR : 4 ≤ R)
+    (hPsiSupport : ∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R) (hShort : R * Y ≤ roughCutoff x)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) (hMin : family.xMin ≤ x)
+    (beta : ℕ → ℂ) (hbeta : IsFamilySecondCoefficient family x beta)
+    (hV : ∀ i : Fin K, 0 < bandMass x (F.a i))
+    (hBands : ∀ i j : Fin K, i ≠ j → Disjoint (primeBand x (F.a i)) (primeBand x (F.a j)))
+    (hSmall : ∀ i : Fin K, ∀ p ∈ primeBand x (F.a i), (p : ℝ) ≤ roughCutoff x)
+    (hCover : ∀ d : PadChoice x K F.a, ∃! d₀ : ℕ,
+      d₀ ∈ padScales x K ∧ (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+        (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ)) :
+    (∑ d₀ ∈ padScales x K, (d₀ : ℂ)⁻¹ * detPairingNoGood F (familyScale family x Y d₀) family beta) =
+      ∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+        if Nat.Coprime (tupleProduct ta) (tupleProduct tb) then
+          (padAllowedMass x F.a ta tb : ℂ) *
+            (rawPairSum F x Y family beta ta tb - comparisonPairSum F x Y family beta ta tb) else 0 := by
+  exact (pad_physical_reindex_at_scale F hF x Y R hY hR hPsiSupport hShort family hMin beta hbeta
+    hV hBands hSmall hCover).trans (padMass_sum_eq_pair_difference F x Y family beta)
+
+set_option maxHeartbeats 2500000 in
 /-- `t2:pd.pad-stripping` (new node, part of `t2:pd.strip-goodness-pads`) — PD 04:1010-1101.
 Summed over pad dyads with weight `1/d₀`, the pairing without goodness is the coprime Cauchy
 square minus the unrestricted major sum up to `O_A(XY L^{-A})`: pad measure identity
@@ -7596,7 +9662,534 @@ theorem pad_stripping (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (hc₁ 
                 ((coprimeCauchySquare x K F.a Y family beta F.eta : ℂ) -
                   majorArcSum x K F.a Y F.A₀ family beta F.eta F.psi)‖ ≤
               C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
-  sorry
+  intro K F hF A hA
+  by_cases hc₂ : 0 < c₂
+  · have hBands : ValidBands K F.a := hF.1
+    obtain ⟨Bpsi, Rpsi, hBpsi, hRpsi, hPsiBound, hPsiSupport⟩ :=
+      arcCutoff_bounds hF.2.2.2.2.2
+    have hRpsiPos : 0 < Rpsi := lt_of_lt_of_le (by norm_num) hRpsi
+    have hε : 0 < Real.log 2 / 2 := by positivity
+    have hBandEvent : ∀ᶠ x : ℝ in atTop, ∀ i : Fin K,
+        Real.log 2 / 2 ≤ bandMass x (F.a i) ∧ 0 < bandMass x (F.a i) ∧
+          bandMass x (F.a i) ≤ 2 * Real.log 2 := by
+      rw [Filter.eventually_all]
+      intro i
+      have ha₀ : 0 < F.a i := lt_trans (by norm_num : (0 : ℝ) < 1 / 10)
+        (hBands.2.1 i).1
+      have ha₁ : F.a i < 1 := lt_trans (hBands.2.1 i).2
+        (by norm_num : (1 / 5 : ℝ) < 1)
+      obtain ⟨xBand, hxBand₂, hMass⟩ :=
+        band_mass (F.a i) ha₀ ha₁ (Real.log 2 / 2) hε
+      filter_upwards [Filter.eventually_ge_atTop xBand] with x hx
+      have habs := abs_le.mp (hMass x hx).1
+      refine ⟨by linarith, (hMass x hx).2, ?_⟩
+      have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+      linarith
+    obtain ⟨xBand, hBandEvent⟩ := Filter.eventually_atTop.mp hBandEvent
+    obtain ⟨xDisjoint, hxDisjoint₂, bandsDisjoint⟩ :=
+      validBands_disjoint_eventually K F.a hBands
+    obtain ⟨Cdiv, xDiv, hCdiv, hxDiv₂, divisorBound⟩ :=
+      rawProgression_divisor_bound δ C c₁ c₂ hδ hC hc₁ hc₂ K F hF
+    obtain ⟨xRough, hxRough₂, allMarkedBelow⟩ :=
+      markedPrimes_below_rough_eventually F.a hBands
+    obtain ⟨xPrimeLog, hxPrimeLog₂, primeLogEvent⟩ := markedPrimeLogs_small_eventually F.a hBands
+    obtain ⟨xShort, hxShort₂, shortDyads⟩ := dyadic_shortness_eventually K Rpsi hRpsiPos
+    obtain ⟨κ, Cτ, xMom, hκ, hCτ, hxMom₂, tauMoment⟩ :=
+      tau_secondMoment_scale_bound c₁ c₂ hc₁ hc₂
+    let ν₀ : ℝ := (Real.log 2 / 2)⁻¹ ^ K
+    let Dpsi : ℝ := ((⌈2 * Rpsi⌉₊ + 2 : ℕ) : ℝ)
+    let CrPer : ℝ := ν₀ ^ 2 * Cdiv
+    let CmPer : ℝ := ν₀ ^ 2 * 32 * Bpsi * Dpsi * Cτ
+    let Cr : ℝ := 25 * CrPer
+    let Cm : ℝ := 25 * CmPer
+    let Cn : ℝ := 16 * (K : ℝ) * (2 * Real.log 2) * CmPer
+    let Epad : ℝ := 3 * (K : ℝ) * (Real.log 2 / 2)⁻¹
+    let Er : ℝ := 4 * C + 3
+    let Em : ℝ := 4 * C + κ + 3 * F.A₀
+    have hν₀ : 0 < ν₀ := pow_pos (inv_pos.mpr hε) _
+    have hDpsi : 0 < Dpsi := by dsimp [Dpsi]; positivity
+    have hCrPer : 0 < CrPer := by dsimp [CrPer]; positivity
+    have hCmPer : 0 < CmPer := by dsimp [CmPer]; positivity
+    have hCr : 0 < Cr := by dsimp [Cr]; positivity
+    have hCm : 0 < Cm := by dsimp [Cm]; positivity
+    have hCn : 0 ≤ Cn := by dsimp [Cn]; positivity
+    have hKreal : 0 < (K : ℝ) := Nat.cast_pos.mpr hBands.1
+    have hEpad : 0 < Epad := by dsimp [Epad]; positivity
+    obtain ⟨CA, LDecay, hCA, hLDecay, errorDecay⟩ :=
+      padError_logPowerDecay A Er Em Cr Cm Cn Epad hCr hCm hCn hEpad
+    let xBase : ℝ := max (Real.exp 1) (max 2 (max xBand
+      (max xDisjoint (max xDiv (max xRough (max xPrimeLog xShort))))))
+    let x₀ : ℝ := max xBase (max xMom (Real.exp LDecay))
+    have hx₀₂ : 2 ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Band : xBand ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Disjoint : xDisjoint ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Exp : Real.exp 1 ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Div : xDiv ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Rough : xRough ≤ x₀ := by simp [x₀, xBase]
+    have hx₀PrimeLog : xPrimeLog ≤ x₀ := by simp [x₀, xBase]
+    have hx₀Short : xShort ≤ x₀ := by simp [x₀, xBase]
+    refine ⟨CA, x₀, hCA, hx₀₂, ?_⟩
+    intro x hx family hfamilyMin beta hbeta Y hY
+    have hxMom : xMom ≤ x := (by simp [x₀] : xMom ≤ x₀).trans hx
+    have hLDecayAt : LDecay ≤ Real.log x := by
+      have he : Real.exp LDecay ≤ x := (by simp [x₀] : Real.exp LDecay ≤ x₀).trans hx
+      simpa only [Real.log_exp] using Real.log_le_log (Real.exp_pos _) he
+    have hxBand : xBand ≤ x := le_trans hx₀Band hx
+    have hxDisjoint : xDisjoint ≤ x := le_trans hx₀Disjoint hx
+    have hBandsDisjoint := bandsDisjoint x hxDisjoint
+    have hxDiv : xDiv ≤ x := hx₀Div.trans hx
+    have hMarkedBelow := allMarkedBelow x (hx₀Rough.trans hx)
+    have hBandMass : ∀ i, Real.log 2 / 2 ≤ bandMass x (F.a i) := fun i =>
+      (hBandEvent x hxBand i).1
+    have hBandMassPos : ∀ i, 0 < bandMass x (F.a i) := fun i =>
+      (hBandEvent x hxBand i).2.1
+    have hBandMassUpper : ∀ i, bandMass x (F.a i) ≤ 2 * Real.log 2 := fun i =>
+      (hBandEvent x hxBand i).2.2
+    have hPrimeLogsAt := primeLogEvent x (hx₀PrimeLog.trans hx)
+    have hPrimeLogs := hPrimeLogsAt.2
+    have hShortY : Rpsi * Y < roughCutoff x := shortDyads x (hx₀Short.trans hx) Y hY
+    have hPadDyadCover (d : PadChoice x K F.a) :
+        ∃! d₀ : ℕ, d₀ ∈ padScales x K ∧
+          (d₀ : ℝ) ≤ (padChoicePrimeProduct x d : ℝ) ∧
+          (padChoicePrimeProduct x d : ℝ) < 2 * (d₀ : ℝ) := by
+      have hDpos : 0 < padChoicePrimeProduct x d := by
+        unfold padChoicePrimeProduct
+        apply Finset.prod_pos
+        intro q hq
+        exact (Finset.mem_filter.mp (d q).property).2.1.pos
+      exact padDyad_exists_unique x K _ hDpos (by linarith [hPrimeLogsAt.1])
+        (padChoicePrimeProduct_log_bound hPrimeLogsAt.1 hPrimeLogs d)
+    have hDoubleY (t : Fin K → ℕ) (ht : IsMarkedPrimeTuple x K F.a t)
+        (heta : F.eta ((tupleProduct t : ℝ) / Y) ≠ 0) :
+        2 * Y ∈ dyadicScales x K :=
+      doubleDyad_mem_of_marked_eta_support F hF hPrimeLogsAt.1 hPrimeLogs hY t ht heta
+    have hPadMass := padChoiceWeight_sum_eq_one F.a hBandMassPos
+    have hPadChoiceTwoNormalizerFactor (d : PadChoice x K F.a) (t : Fin K → ℕ) :
+        padChoiceWeight x F.a d *
+            (∏ i : Fin K, (bandMass x (F.a i))⁻¹) ^ 2 =
+          ((sharedProduct (padJoinLists d t) : ℝ)⁻¹) *
+            ∏ i : Fin K, (bandMass x (F.a i))⁻¹ ^ (momentJ x + 2) := by
+      rw [padChoiceWeight_group_two_normalizers]
+      have hprod : padChoicePrimeProduct x d = sharedProduct (padJoinLists d t) := by
+        rw [padJoinLists_sharedProduct]
+        simp [padChoicePrimeProduct, Fintype.prod_prod_type]
+      rw [hprod]
+    have hPadMeasureIdentity (d : PadChoice x K F.a) (t : Fin K → ℕ) :
+        (sharedProduct (padJoinLists d t) : ℝ)⁻¹ *
+            (physicalMeasure x K F.a * ∏ i : Fin K, (bandMass x (F.a i))⁻¹) =
+          padChoiceWeight x F.a d * (∏ i : Fin K, (bandMass x (F.a i))⁻¹) ^ 2 := by
+      rw [physicalMeasure_mul_freshNormalizer hBandMassPos]
+      exact (hPadChoiceTwoNormalizerFactor d t).symm
+    have hJoinedListProduct (d : PadChoice x K F.a) (t : Fin K → ℕ) :
+        (∏ i : Fin K, ∏ j : Fin (slotCount x), padJoinLists d t i j) =
+          sharedProduct (padJoinLists d t) * tupleProduct t := by
+      rw [listProduct_eq_shared_mul_last, padJoinLists_lastProduct]
+    have hYge1 : 1 ≤ Y := by
+      unfold dyadicScales at hY
+      obtain ⟨hImage, _⟩ := Finset.mem_filter.mp hY
+      obtain ⟨k, hk, hpow⟩ := Finset.mem_image.mp hImage
+      rw [← hpow]
+      exact one_le_pow₀ (by norm_num : (1 : ℝ) ≤ 2)
+    have hUnsharedTupleCount := markedTupleChoices_card_le (x := x) (a := F.a)
+      hYge1 hBandsDisjoint
+    have hYpos : 0 < Y := lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1) hYge1
+    have hRawDivisorMixed (a b : ℕ) (ha₁ : Y ≤ (a : ℝ)) (ha₂ : (a : ℝ) ≤ 4 * Y)
+        (hb₁ : Y ≤ (b : ℝ)) (hb₂ : (b : ℝ) ≤ 4 * Y)
+        (hdouble : 2 * Y ∈ dyadicScales x K) :
+        (∑ h ∈ Finset.range (⌊4 * (family.Hm x * family.Hn x) / Y⌋₊ + 1),
+          (tau (1 + a * h) : ℝ) * (tau (1 + b * h) : ℝ)) ≤
+          Cdiv * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) 3 := by
+      exact sum_mul_le_of_square_bounds _ _ _ _
+        (divisorBound family x hxDiv hfamilyMin Y hYpos hdouble a ha₁ ha₂)
+        (divisorBound family x hxDiv hfamilyMin Y hYpos hdouble b hb₁ hb₂)
+    have hNonCoprimeTupleCount := supportedTuple_noncoprime_count_le (x := x) (a := F.a)
+      hYge1 hBandsDisjoint
+    have hMarkedPrimeLower (p : ℕ) (hp : p ∈ markedPrimes x K F.a) :
+        Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) ≤ (p : ℝ) := by
+      obtain ⟨i, hi, hpi⟩ := Finset.mem_biUnion.mp hp
+      have hPow : Real.rpow (Real.log x) (1 / 10 : ℝ) ≤ Real.rpow (Real.log x) (F.a i) :=
+        Real.rpow_le_rpow_of_exponent_le hPrimeLogsAt.1 (hBands.2.1 i).1.le
+      exact (Real.exp_le_exp.mpr hPow).trans (Finset.mem_filter.mp hpi).2.2.1
+    have hMarkedCollisionReciprocal := markedReciprocalSquares_le hBandsDisjoint
+      (Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ))) (2 * Real.log 2)
+      (Real.exp_pos _) hMarkedPrimeLower hBandMassUpper
+    have hx₂ : 2 ≤ x := hx₀₂.trans hx
+    have hxpos : 0 < x := by linarith
+    have hPowPos : 0 < Real.rpow x δ := Real.rpow_pos_of_pos hxpos δ
+    have hFamilyScales := family.scales x hfamilyMin
+    have hHmPos : 0 < family.Hm x := hPowPos.trans_le hFamilyScales.1
+    have hHnPos : 0 < family.Hn x := hPowPos.trans_le hFamilyScales.2.1
+    have hAlphaRanges (m : ℕ) (hm : m ∈ familyTerms family x) :
+        0 < m ∧ (m : ℝ) ≤ 2 * family.Hm x := by
+      have hi := (Finset.mem_filter.mp hm).2
+      have hbounds := family.interval_bounds x hfamilyMin m hi
+      have hmPos : 0 < (m : ℝ) := hHmPos.trans_le hbounds.1
+      exact ⟨by exact_mod_cast hmPos, hbounds.2⟩
+    have hBetaRanges (n : ℕ) (hn : n ∈ dyadicIntegers (family.Hn x)) :
+        0 < n ∧ (n : ℝ) ≤ 2 * family.Hn x := by
+      have hbounds := (Finset.mem_filter.mp hn).2
+      have hnPos : 0 < (n : ℝ) := hHnPos.trans_le hbounds.1
+      exact ⟨by exact_mod_cast hnPos, hbounds.2⟩
+    have hAlphaNorm (m : ℕ) (hm : m ∈ familyTerms family x) :
+        ‖family.alpha x m‖ ≤ Real.rpow (Real.log x) C :=
+      family.coefficient_bound x hfamilyMin m (Finset.mem_filter.mp hm).2
+    have hBetaNorm (n : ℕ) (hn : n ∈ dyadicIntegers (family.Hn x)) :
+        ‖beta n‖ ≤ Real.rpow (Real.log x) C := hbeta.2 n hn
+    have hEtaTupleRange (t : Fin K → ℕ) (heta : F.eta ((tupleProduct t : ℝ) / Y) ≠ 0) :
+        Y ≤ (tupleProduct t : ℝ) ∧ (tupleProduct t : ℝ) ≤ 4 * Y := by
+      have hsupport := hF.2.2.2.2.1.2.1 heta
+      exact ⟨by simpa only [one_mul] using (le_div_iff₀ hYpos).mp hsupport.1,
+        (div_le_iff₀ hYpos).mp hsupport.2⟩
+    have hRawAbsolutePair (ta tb : Fin K → ℕ)
+        (hta : IsMarkedPrimeTuple x K F.a ta) (htb : IsMarkedPrimeTuple x K F.a tb)
+        (heta : F.eta ((tupleProduct ta : ℝ) / Y) ≠ 0)
+        (hetb : F.eta ((tupleProduct tb : ℝ) / Y) ≠ 0) :
+        (∑ q ∈ rawCommonQuads (familyTerms family x) (dyadicIntegers (family.Hn x))
+          (tupleProduct ta) (tupleProduct tb),
+          ‖family.alpha x q.1.1 * star (family.alpha x q.2.1) * beta q.1.2 * star (beta q.2.2)‖) ≤
+          (Cdiv * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) 3) *
+            ((Real.rpow (Real.log x) C) ^ 2 * (Real.rpow (Real.log x) C) ^ 2) := by
+      have haRange := hEtaTupleRange ta heta
+      have hbRange := hEtaTupleRange tb hetb
+      exact rawCommon_norm_sum_bound _ _ _ _ _ _ _ _ _ _
+        hHmPos hHnPos hYpos haRange.1 hAlphaRanges hBetaRanges
+        (family.alpha x) beta (Real.rpow_nonneg (by linarith [hPrimeLogsAt.1]) _)
+        (Real.rpow_nonneg (by linarith [hPrimeLogsAt.1]) _) hAlphaNorm hBetaNorm
+        (hRawDivisorMixed _ _ haRange.1 haRange.2 hbRange.1 hbRange.2 (hDoubleY ta hta heta))
+    have hPhysicalCoordinates (d₀ : ℕ) :
+        PhysicalState x K F.a ((d₀ : ℝ) * Y) (family.Hm x) (family.Hn x) ≃
+          PhysicalCoordinates x K F.a ((d₀ : ℝ) * Y) (family.Hm x) (family.Hn x) :=
+      physicalStateCoordinatesEquiv x K F.a ((d₀ : ℝ) * Y) (family.Hm x) (family.Hn x)
+    have hDampingExact (d₀ : ℕ) (p : PrimeLists x K) (hp : ValidPrimeLists x K F.a p)
+        (m : ℕ) (hm : roughAbove m (roughCutoff x)) :
+        dampingHalf F (familyScale family x Y d₀)
+          ((∏ i : Fin K, ∏ j : Fin (slotCount x), p i j) * m) = 1 :=
+      dampingHalf_listProduct_mul F (familyScale family x Y d₀) p hp hBandsDisjoint hMarkedBelow m hm
+    have hxExp : Real.exp 1 ≤ x := le_trans hx₀Exp hx
+    have hlog : 1 ≤ Real.log x := by
+      have h := Real.log_le_log (Real.exp_pos 1) hxExp
+      simpa using h
+    have hVmin : 0 < Real.log 2 / 2 := by positivity
+    have hAtomBound (q : Fin K × Fin (momentJ x))
+        (p : {p : ℕ // p ∈ primeBand x (F.a q.1)}) :
+        padAtomWeight x F.a q p ≤
+          (Real.log 2 / 2)⁻¹ * Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      have hpLower : Real.exp (Real.rpow (Real.log x) (1 / 10 : ℝ)) ≤ (p.val : ℝ) := by
+        have haLow : (1 / 10 : ℝ) ≤ F.a q.1 := (hBands.2.1 q.1).1.le
+        have hpow : Real.rpow (Real.log x) (1 / 10 : ℝ) ≤
+            Real.rpow (Real.log x) (F.a q.1) :=
+          Real.rpow_le_rpow_of_exponent_le hlog haLow
+        exact le_trans (Real.exp_le_exp.mpr hpow)
+          (Finset.mem_filter.mp p.property).2.2.1
+      have hVinv : (bandMass x (F.a q.1))⁻¹ ≤ (Real.log 2 / 2)⁻¹ :=
+        (inv_le_inv₀ (hBandMassPos q.1) hVmin).2 (hBandMass q.1)
+      have hpPos : 0 < (p.val : ℝ) := lt_of_lt_of_le (Real.exp_pos _) hpLower
+      have hexpInv : (p.val : ℝ)⁻¹ ≤ Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+        rw [Real.exp_neg]
+        exact (inv_le_inv₀ hpPos (Real.exp_pos _)).2 hpLower
+      calc
+        padAtomWeight x F.a q p =
+            (bandMass x (F.a q.1))⁻¹ * (p.val : ℝ)⁻¹ := by
+              simp [padAtomWeight, div_eq_mul_inv, mul_comm]
+        _ ≤ (Real.log 2 / 2)⁻¹ *
+            Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) :=
+              mul_le_mul hVinv hexpInv (by positivity) (by positivity)
+    let εpad : ℝ := (Real.log 2 / 2)⁻¹ *
+      Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ))
+    have hεpad : 0 ≤ εpad := by positivity
+    have hPadPairCollision (q q' : Fin K × Fin (momentJ x)) (hqq' : q ≠ q') :
+        (∑ d : PadChoice x K F.a,
+          if (d q).val = (d q').val then padChoiceWeight x F.a d else 0) ≤ εpad := by
+      exact padChoiceWeight_collision_mass_le_typed
+        F.a hBandMassPos εpad hεpad hAtomBound q q' hqq'
+    have hFixedLabelCollision (q : Fin K × Fin (momentJ x)) (t : ℕ)
+        (ht : t ∈ primeBand x (F.a q.1)) :
+        (∑ d : PadChoice x K F.a,
+          if (d q).val = t then padChoiceWeight x F.a d else 0) ≤ εpad := by
+      let tp : {p : ℕ // p ∈ primeBand x (F.a q.1)} := ⟨t, ht⟩
+      have hconvert :
+          (∑ d : PadChoice x K F.a,
+            if (d q).val = t then padChoiceWeight x F.a d else 0) =
+          (∑ d : PadChoice x K F.a,
+            if d q = tp then padChoiceWeight x F.a d else 0) := by
+        apply Finset.sum_congr rfl
+        intro d hd
+        by_cases h : (d q).val = t
+        · have h' : d q = tp := Subtype.ext h
+          simp [h, h', tp]
+        · have h' : d q ≠ tp := by
+            intro htEq
+            exact h (congrArg Subtype.val htEq)
+          simp [h, h', tp]
+      calc
+        _ = ∑ d : PadChoice x K F.a, if d q = tp then padChoiceWeight x F.a d else 0 := hconvert
+        _ = padAtomWeight x F.a q tp := padChoiceWeight_coordinate_mass_typed F.a hBandMassPos q tp
+        _ ≤ εpad := hAtomBound q tp
+    have hForbiddenPadMass (ta tb : Fin K → ℕ)
+        (hta : ∀ i, ta i ∈ primeBand x (F.a i))
+        (htb : ∀ i, tb i ∈ primeBand x (F.a i)) :
+        (∑ d ∈ padChoiceSet x F.a,
+          if PadChoiceGood d ta tb then 0 else padChoiceWeight x F.a d) ≤
+          (((2 * Fintype.card (Fin K × Fin (momentJ x)) +
+            (padAddressPairs x K).card : ℕ) : ℝ) * εpad) := by
+      apply padChoiceWeight_forbiddenMass_le F.a ta tb εpad hεpad hBandMassPos
+      · intro q
+        exact hFixedLabelCollision q (ta q.1) (hta q.1)
+      · intro q
+        exact hFixedLabelCollision q (tb q.1) (htb q.1)
+      · intro q q' hgroup hne
+        exact hPadPairCollision q q' hne
+    have hAllowedPadLoss (ta tb : Fin K → ℕ)
+        (hta : IsMarkedPrimeTuple x K F.a ta) (htb : IsMarkedPrimeTuple x K F.a tb) :
+        ‖((padAllowedMass x F.a ta tb : ℝ) : ℂ) - 1‖ ≤
+          (((2 * Fintype.card (Fin K × Fin (momentJ x)) +
+            (padAddressPairs x K).card : ℕ) : ℝ) * εpad) := by
+      apply padAllowedMass_scalar_loss F.a hBandMassPos ta tb
+      have hset : padChoiceSet x F.a = (Finset.univ : Finset (PadChoice x K F.a)) := by
+        ext d
+        simp [padChoiceSet]
+      have hbad := hForbiddenPadMass ta tb hta htb
+      rw [hset] at hbad
+      exact hbad
+    have hJoinedValidAndTransition (d : PadChoice x K F.a) (ta tb : Fin K → ℕ)
+        (hta : ∀ i, ta i ∈ primeBand x (F.a i))
+        (htb : ∀ i, tb i ∈ primeBand x (F.a i))
+        (hgood : PadChoiceGood d ta tb)
+        (hcop : Nat.Coprime (tupleProduct ta) (tupleProduct tb)) :
+        ((ValidPrimeLists x K F.a (padJoinLists d ta) ∧
+          ValidPrimeLists x K F.a (padJoinLists d tb)) ∧
+          IsSlotTransition (padJoinLists d tb) (padJoinLists d ta)) ∧
+          sharedProduct (padJoinLists d tb) = sharedProduct (padJoinLists d ta) ∧
+          lastProduct (padJoinLists d tb) = tupleProduct tb ∧
+          lastProduct (padJoinLists d ta) = tupleProduct ta ∧
+          padChoiceWeight x F.a d *
+              (∏ i : Fin K, (bandMass x (F.a i))⁻¹) ^ 2 =
+            (sharedProduct (padJoinLists d ta) : ℝ)⁻¹ *
+              ∏ i : Fin K, (bandMass x (F.a i))⁻¹ ^ (momentJ x + 2) := by
+      refine ⟨⟨padJoinedLists_valid_of_good d ta tb hta htb hgood,
+        padJoinedLists_slotTransition_of_good d ta tb hta htb hgood hBandsDisjoint hcop⟩,
+        ?_, padJoinLists_lastProduct d tb, padJoinLists_lastProduct d ta,
+        hPadChoiceTwoNormalizerFactor d ta⟩
+      rw [padJoinLists_sharedProduct, padJoinLists_sharedProduct]
+    have hMomentAt := tauMoment x hxMom (family.Hm x * family.Hn x)
+      hFamilyScales.2.2.1 hFamilyScales.2.2.2
+    have hνBound : (∏ i : Fin K, (bandMass x (F.a i))⁻¹) ^ 2 ≤ ν₀ ^ 2 :=
+      tupleNormalizer_square_le F.a (Real.log 2 / 2) hVmin hBandMass
+    have hLpos : 0 < Real.log x := lt_of_lt_of_le (by norm_num) hlog
+    have hPowFour : (Real.rpow (Real.log x) C) ^ 2 * (Real.rpow (Real.log x) C) ^ 2 =
+        Real.rpow (Real.log x) (4 * C) := by
+      have htwo : (Real.rpow (Real.log x) C) ^ 2 = Real.rpow (Real.log x) (C + C) := by
+        calc
+          _ = Real.rpow (Real.log x) C * Real.rpow (Real.log x) C := pow_two _
+          _ = _ := (Real.rpow_add hLpos _ _).symm
+      calc
+        _ = Real.rpow (Real.log x) (C + C) * Real.rpow (Real.log x) (C + C) := congrArg₂ (· * ·) htwo htwo
+        _ = Real.rpow (Real.log x) ((C + C) + (C + C)) := (Real.rpow_add hLpos _ _).symm
+        _ = _ := by congr 1 <;> ring
+    have hPowRaw : Real.rpow (Real.log x) 3 * Real.rpow (Real.log x) (4 * C) =
+        Real.rpow (Real.log x) Er := by
+      calc
+        _ = Real.rpow (Real.log x) (3 + 4 * C) := (Real.rpow_add hLpos _ _).symm
+        _ = _ := by dsimp [Er]; congr 1 <;> ring
+    have hPowComp : Real.rpow (Real.log x) (3 * F.A₀) * Real.rpow (Real.log x) κ *
+        Real.rpow (Real.log x) (4 * C) = Real.rpow (Real.log x) Em := by
+      calc
+        _ = Real.rpow (Real.log x) (3 * F.A₀ + κ) * Real.rpow (Real.log x) (4 * C) :=
+          congrArg (fun t => t * Real.rpow (Real.log x) (4 * C)) (Real.rpow_add hLpos _ _).symm
+        _ = Real.rpow (Real.log x) ((3 * F.A₀ + κ) + 4 * C) := (Real.rpow_add hLpos _ _).symm
+        _ = _ := by dsimp [Em]; congr 1 <;> ring
+    have hRawPair (ta tb : Fin K → ℕ) (hta : IsMarkedPrimeTuple x K F.a ta)
+        (htb : IsMarkedPrimeTuple x K F.a tb)
+        (heta : F.eta ((tupleProduct ta : ℝ) / Y) ≠ 0) (hetb : F.eta ((tupleProduct tb : ℝ) / Y) ≠ 0) :
+        ‖rawPairSum F x Y family beta ta tb‖ ≤
+          CrPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Er := by
+      have hb := hRawAbsolutePair ta tb hta htb heta hetb
+      have hb' : (∑ q ∈ rawCommonQuads (familyTerms family x) (dyadicIntegers (family.Hn x))
+          (tupleProduct ta) (tupleProduct tb), ‖coefficientQuadProduct family x beta q‖) ≤
+          (Cdiv * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) 3) *
+            Real.rpow (Real.log x) (4 * C) := by
+        simpa only [coefficientQuadProduct, hPowFour] using hb
+      apply (rawPairSum_norm_le F hF x Y family beta ta tb hBandMassPos).trans
+      have hm := mul_le_mul hνBound hb' (Finset.sum_nonneg (fun q hq => norm_nonneg _)) (sq_nonneg ν₀)
+      apply hm.trans
+      apply le_of_eq
+      calc
+        _ = (ν₀ ^ 2 * Cdiv) * (family.Hm x * family.Hn x / Y) *
+            (Real.rpow (Real.log x) 3 * Real.rpow (Real.log x) (4 * C)) := by ring
+        _ = _ := by rw [hPowRaw]
+    have hCompPair (ta tb : Fin K → ℕ) (hta : IsMarkedPrimeTuple x K F.a ta)
+        (htb : IsMarkedPrimeTuple x K F.a tb)
+        (heta : F.eta ((tupleProduct ta : ℝ) / Y) ≠ 0) (hetb : F.eta ((tupleProduct tb : ℝ) / Y) ≠ 0) :
+        ‖comparisonPairSum F x Y family beta ta tb‖ ≤
+          CmPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Em := by
+      have hb := comparisonPairSum_norm_le_secondMoment F hF x Y Rpsi Bpsi hYpos hRpsiPos.le hlog hBpsi.le
+        hPsiBound hPsiSupport family hfamilyMin beta hBetaNorm hHmPos hHnPos hBandMassPos κ Cτ hMomentAt ta tb heta hetb
+      rw [hPowFour] at hb
+      have htail : 0 ≤ (32 * Bpsi * Real.rpow (Real.log x) (3 * F.A₀) / Y) *
+          (Dpsi * (Cτ * (family.Hm x * family.Hn x) * Real.rpow (Real.log x) κ) * Real.rpow (Real.log x) (4 * C)) := by
+        have hp₁ := Real.rpow_nonneg hLpos.le (3 * F.A₀)
+        have hp₂ := Real.rpow_nonneg hLpos.le κ
+        have hp₃ := Real.rpow_nonneg hLpos.le (4 * C)
+        positivity
+      have hm := mul_le_mul_of_nonneg_right hνBound htail
+      apply hb.trans
+      calc
+        _ = (∏ i : Fin K, (bandMass x (F.a i))⁻¹) ^ 2 *
+            ((32 * Bpsi * Real.rpow (Real.log x) (3 * F.A₀) / Y) *
+              (Dpsi * (Cτ * (family.Hm x * family.Hn x) * Real.rpow (Real.log x) κ) * Real.rpow (Real.log x) (4 * C))) := by ring
+        _ ≤ ν₀ ^ 2 * ((32 * Bpsi * Real.rpow (Real.log x) (3 * F.A₀) / Y) *
+              (Dpsi * (Cτ * (family.Hm x * family.Hn x) * Real.rpow (Real.log x) κ) * Real.rpow (Real.log x) (4 * C))) := hm
+        _ = (ν₀ ^ 2 * 32 * Bpsi * Dpsi * Cτ) * (family.Hm x * family.Hn x / Y) *
+            (Real.rpow (Real.log x) (3 * F.A₀) * Real.rpow (Real.log x) κ * Real.rpow (Real.log x) (4 * C)) := by ring
+        _ = _ := by rw [hPowComp]
+    have hRawZero := rawPairSum_eq_zero_of_eta_zero F x Y family beta
+    have hCompZero := comparisonPairSum_eq_zero_of_eta_zero F x Y family beta
+    have hRawPerNonneg : 0 ≤ CrPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Er := by
+      have hp := Real.rpow_nonneg hLpos.le Er
+      positivity
+    have hCompPerNonneg : 0 ≤ CmPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Em := by
+      have hp := Real.rpow_nonneg hLpos.le Em
+      positivity
+    have hRawTotal := etaPair_norm_total_le F hF x Y hYge1 hBandsDisjoint
+      (fun ta tb => Nat.Coprime (tupleProduct ta) (tupleProduct tb)) (rawPairSum F x Y family beta)
+      (CrPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Er)
+      hRawPerNonneg hRawZero hRawPair
+    have hCompTotal := etaPair_norm_total_le F hF x Y hYge1 hBandsDisjoint
+      (fun ta tb => True) (comparisonPairSum F x Y family beta)
+      (CmPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Em)
+      hCompPerNonneg hCompZero hCompPair
+    simp only [ite_true] at hCompTotal
+    have hCollisionTotal := etaPair_noncop_norm_total_le F hF x Y hYge1 hBandsDisjoint
+      (comparisonPairSum F x Y family beta)
+      (CmPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Em)
+      hCompPerNonneg hCompZero hCompPair
+    have hRawTotal' : (∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+        if Nat.Coprime (tupleProduct ta) (tupleProduct tb) then ‖rawPairSum F x Y family beta ta tb‖ else 0) ≤
+        Cr * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Er := by
+      have hh : (∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+          if Nat.Coprime (tupleProduct ta) (tupleProduct tb) then ‖rawPairSum F x Y family beta ta tb‖ else 0) ≤
+          25 * Y ^ 2 * (CrPer * (family.Hm x * family.Hn x / Y) * Real.rpow (Real.log x) Er) := by
+        convert hRawTotal using 1
+        apply Finset.sum_congr rfl
+        intro ta hta
+        apply Finset.sum_congr rfl
+        intro tb htb
+        by_cases hc : Nat.Coprime (tupleProduct ta) (tupleProduct tb) <;> simp [hc]
+      apply hh.trans
+      apply le_of_eq
+      dsimp only [Cr]
+      field_simp
+    have hCompTotal' : (∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+        ‖comparisonPairSum F x Y family beta ta tb‖) ≤
+        Cm * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em := by
+      apply hCompTotal.trans
+      apply le_of_eq
+      dsimp only [Cm]
+      field_simp
+    have hRecip' : (∑ p ∈ markedPrimes x K F.a, ((p : ℝ)⁻¹) ^ 2) ≤
+        (K : ℝ) * (2 * Real.log 2) * Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      have h := hMarkedCollisionReciprocal
+      rw [Real.exp_neg]
+      simpa only [div_eq_mul_inv] using h
+    have hCollisionTotal' : (∑ ta ∈ markedTupleChoices x F.a, ∑ tb ∈ markedTupleChoices x F.a,
+        if Nat.Coprime (tupleProduct ta) (tupleProduct tb) then 0 else ‖comparisonPairSum F x Y family beta ta tb‖) ≤
+        Cn * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em *
+          Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      apply hCollisionTotal.trans
+      have hm := mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_left hRecip' (by positivity : 0 ≤ 16 * Y ^ 2)) hCompPerNonneg
+      apply hm.trans
+      apply le_of_eq
+      dsimp only [Cn]
+      field_simp
+    have hReindex := pad_finite_reindex_at_scale F hF x Y Rpsi hYpos hRpsi hPsiSupport hShortY.le
+      family hfamilyMin beta hbeta hBandMassPos hBandsDisjoint hMarkedBelow hPadDyadCover
+    have hJ : (momentJ x : ℝ) ≤ Real.rpow (Real.log x) (1 / 100 : ℝ) :=
+      Nat.floor_le (Real.rpow_nonneg hLpos.le _)
+    have hJ2 : (momentJ x : ℝ) ^ 2 ≤ Real.rpow (Real.log x) (2 / 100 : ℝ) := by
+      have hp := pow_le_pow_left₀ (Nat.cast_nonneg (α := ℝ) (momentJ x)) hJ 2
+      have he : (Real.rpow (Real.log x) (1 / 100 : ℝ)) ^ 2 = Real.rpow (Real.log x) (2 / 100 : ℝ) := by
+        rw [pow_two]
+        calc
+          _ = Real.rpow (Real.log x) ((1 / 100 : ℝ) + (1 / 100 : ℝ)) := (Real.rpow_add hLpos _ _).symm
+          _ = _ := by norm_num
+      rwa [he] at hp
+    have hJsmall : (momentJ x : ℝ) ≤ Real.rpow (Real.log x) (2 / 100 : ℝ) :=
+      hJ.trans (Real.rpow_le_rpow_of_exponent_le hlog (by norm_num))
+    have hPairCard : ((padAddressPairs x K).card : ℝ) ≤ (K : ℝ) * (momentJ x : ℝ) ^ 2 := by
+      exact_mod_cast padAddressPairs_card_le x K
+    have hCount : ((2 * Fintype.card (Fin K × Fin (momentJ x)) + (padAddressPairs x K).card : ℕ) : ℝ) ≤
+        3 * (K : ℝ) * Real.rpow (Real.log x) (2 / 100 : ℝ) := by
+      simp only [Fintype.card_prod, Fintype.card_fin, Nat.cast_add, Nat.cast_mul, Nat.cast_ofNat]
+      have h₁ := mul_le_mul_of_nonneg_left hJ2 (Nat.cast_nonneg (α := ℝ) K)
+      have h₂ := mul_le_mul_of_nonneg_left hJsmall (by positivity : 0 ≤ 2 * (K : ℝ))
+      linarith
+    let eps := Epad * Real.rpow (Real.log x) (2 / 100 : ℝ) *
+      Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ))
+    have heps : 0 ≤ eps := by
+      have hp := Real.rpow_nonneg hLpos.le (2 / 100 : ℝ)
+      dsimp [eps]
+      positivity
+    let T := (markedTupleChoices x F.a) ×ˢ (markedTupleChoices x F.a)
+    let cop (tu : (Fin K → ℕ) × (Fin K → ℕ)) := Nat.Coprime (tupleProduct tu.1) (tupleProduct tu.2)
+    let theta (tu : (Fin K → ℕ) × (Fin K → ℕ)) := padAllowedMass x F.a tu.1 tu.2
+    let raw (tu : (Fin K → ℕ) × (Fin K → ℕ)) := rawPairSum F x Y family beta tu.1 tu.2
+    let comp (tu : (Fin K → ℕ) × (Fin K → ℕ)) := comparisonPairSum F x Y family beta tu.1 tu.2
+    have hTheta (tu : (Fin K → ℕ) × (Fin K → ℕ)) (htu : tu ∈ T) (hcop : cop tu) :
+        0 ≤ theta tu ∧ theta tu ≤ 1 ∧ 1 - theta tu ≤ eps := by
+      have hta := mem_markedTupleChoices.mp (Finset.mem_product.mp htu).1
+      have htb := mem_markedTupleChoices.mp (Finset.mem_product.mp htu).2
+      have hm := padAllowedMass_bounds F.a hBandMassPos tu.1 tu.2
+      have hl := hAllowedPadLoss tu.1 tu.2 hta htb
+      have hnorm : ‖(theta tu : ℂ) - 1‖ = 1 - theta tu := by
+        rw [← Complex.ofReal_one, ← Complex.ofReal_sub, Complex.norm_real, Real.norm_eq_abs,
+          abs_of_nonpos (sub_nonpos.mpr hm.2.1)]
+        ring
+      rw [hnorm] at hl
+      refine ⟨hm.1, hm.2.1, hl.trans ?_⟩
+      have he := mul_le_mul_of_nonneg_right hCount hεpad
+      apply he.trans
+      apply le_of_eq
+      dsimp only [eps, Epad, εpad]
+      ring
+    have hRawSum : (∑ tu ∈ T, if cop tu then ‖raw tu‖ else 0) ≤
+        Cr * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Er := by
+      simpa only [T, cop, raw, Finset.sum_product] using hRawTotal'
+    have hCompSum : (∑ tu ∈ T, if cop tu then ‖comp tu‖ else 0) ≤
+        Cm * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em := by
+      have hfull : (∑ tu ∈ T, ‖comp tu‖) ≤ Cm * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em := by
+        simpa only [T, comp, Finset.sum_product] using hCompTotal'
+      apply le_trans _ hfull
+      apply Finset.sum_le_sum
+      intro tu htu
+      split_ifs
+      · exact le_rfl
+      · exact norm_nonneg _
+    have hCollisionSum : (∑ tu ∈ T, if cop tu then 0 else ‖comp tu‖) ≤
+        Cn * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em *
+          Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ)) := by
+      simpa only [T, cop, comp, Finset.sum_product] using hCollisionTotal'
+    have hSigned := pad_signed_difference_uniform T cop theta raw comp eps
+      (Cr * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Er)
+      (Cm * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em)
+      (Cn * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) Em *
+        Real.exp (-Real.rpow (Real.log x) (1 / 10 : ℝ))) heps hTheta hRawSum hCompSum hCollisionSum
+    have hDecay := errorDecay (Real.log x) hLDecayAt (family.Hm x * family.Hn x) Y
+      (mul_pos hHmPos hHnPos) hYpos
+    have hBound := hSigned.trans hDecay
+    rw [hReindex, coprimeCauchySquare_cast_eq_finitePairSum F x Y family beta,
+      majorArcSum_eq_finitePairSum F x Y family beta]
+    simpa only [T, cop, theta, raw, comp, Finset.sum_product, eps] using hBound
+  · have hc₂' : c₂ ≤ 0 := le_of_not_gt hc₂
+    refine ⟨1, 2, by norm_num, le_rfl, ?_⟩
+    intro x hx family hfamilyMin beta hbeta Y hY
+    have hscale := family.scales family.xMin le_rfl
+    have hxMin : 0 < family.xMin := lt_of_lt_of_le (by norm_num) family.xMin_ge_two
+    have hleft : 0 < c₁ * family.xMin := mul_pos hc₁ hxMin
+    have hright : c₂ * family.xMin ≤ 0 :=
+      mul_nonpos_of_nonpos_of_nonneg hc₂' hxMin.le
+    have hprod : c₁ * family.xMin ≤ c₂ * family.xMin :=
+      le_trans hscale.2.2.1 hscale.2.2.2
+    exact False.elim ((not_le_of_gt hleft) (le_trans hprod hright))
 
 /-- `t2:pd.strip-goodness-pads` — PD 04:968-1117.  REPLACES the frozen `strip_goodness_pads`
 (which asserted the replacement for every `K` and `A₀` without the pairing hypothesis).  From
@@ -8008,7 +10601,17 @@ theorem strip_goodness_pads (δ C c₁ c₂ : ℝ) (hδ : 0 < δ) (hC : 0 < C) (
               Real.rpow (Real.log x) (-E₀ + Ce) +
             C_A * (family.Hm x * family.Hn x) * Y * Real.rpow (Real.log x) (-A) := by
               simpa [add_assoc] using add_le_add hGoodSum hErrSum
-  · sorry
+  · have hc₂' : c₂ ≤ 0 := le_of_not_gt hc₂
+    refine ⟨1, 2, by norm_num, le_rfl, ?_⟩
+    intro x hx₀ family hfamilyMin beta hbeta Y hY E₀ Ce Cp hPairs
+    have hscale := family.scales family.xMin le_rfl
+    have hxMin : 0 < family.xMin := lt_of_lt_of_le (by norm_num) family.xMin_ge_two
+    have hleft : 0 < c₁ * family.xMin := mul_pos hc₁ hxMin
+    have hright : c₂ * family.xMin ≤ 0 :=
+      mul_nonpos_of_nonpos_of_nonneg hc₂' hxMin.le
+    have hprod : c₁ * family.xMin ≤ c₂ * family.xMin :=
+      le_trans hscale.2.2.1 hscale.2.2.2
+    exact False.elim ((not_le_of_gt hleft) (le_trans hprod hright))
 
 set_option maxHeartbeats 1000000
 /-- `prop:minor-moment` (moment part) — PD 04:11-22, Proposition 4.1.  REPLACES the first
