@@ -2205,6 +2205,108 @@ private theorem exists_smallCocycle_trivial
     have hs := kpPairing_skew D H v (xU v (g * h) / xU v h) (xU v (g * h) / xU v g)
     simpa only [hStein, mul_one] using hs
 
+private theorem exists_smallSectionHom
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (C : FinLocalAlgebra D H v) :
+    ∃ m0 : ℕ, 1 ≤ m0 ∧ ∀ m : ℕ, m0 ≤ m →
+      ∃ U : Subgroup (GL (Fin 2) (v.adicCompletion F)),
+        (∀ g, g ∈ U ↔ ∀ i j,
+          ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+            (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m) ∧
+        ∃ s : U →* C.L,
+          (∀ g : U, s g = C.sec g) ∧ Set.InjOn C.pr (s.range : Set C.L) := by
+  classical
+  let K := v.adicCompletion F
+  obtain ⟨ms, hms, hsigma⟩ := exists_smallCocycle_trivial D H v hSt
+  obtain ⟨mp, _, hpowers⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  let m0 := max ms mp
+  refine ⟨m0, hms.trans (le_max_left _ _), ?_⟩
+  intro m hm
+  have hmσ : ms ≤ m := (le_max_left ms mp).trans hm
+  have hmp : mp ≤ m := (le_max_right ms mp).trans hm
+  have hm1 : 1 ≤ m := hms.trans hmσ
+  obtain ⟨U, hUval⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_congruenceSubgroup v m hm1
+  have hU : ∀ g, g ∈ U ↔ ∀ i j,
+      (((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m := fun g => hUval g
+  refine ⟨U, hU, ?_⟩
+  let s : U →* C.L := {
+    toFun := fun g => C.sec (g : GL (Fin 2) K)
+    map_one' := by simpa using C.sec_scalar (1 : Kˣ)
+    map_mul' := by
+      intro g h
+      change C.sec ((g : GL (Fin 2) K) * (h : GL (Fin 2) K)) =
+        C.sec (g : GL (Fin 2) K) * C.sec (h : GL (Fin 2) K)
+      have hσ := hsigma m hmσ (g : GL (Fin 2) K) (h : GL (Fin 2) K)
+        ((hU _).mp g.property) ((hU _).mp h.property)
+      have heq := C.sec_mul (g : GL (Fin 2) K) (h : GL (Fin 2) K)
+      rw [hσ, map_one, one_mul] at heq
+      exact heq.symm
+  }
+  refine ⟨s, fun _ => rfl, ?_⟩
+  rintro x ⟨g, rfl⟩ y ⟨h, rfl⟩ hpr
+  change C.sec (g : GL (Fin 2) K) = C.sec (h : GL (Fin 2) K)
+  change C.pr (C.sec (g : GL (Fin 2) K)) = C.pr (C.sec (h : GL (Fin 2) K)) at hpr
+  rw [C.sec_pr, C.sec_pr] at hpr
+  have hcent : (g : GL (Fin 2) K) / (h : GL (Fin 2) K) ∈
+      Subgroup.center (GL (Fin 2) K) := QuotientGroup.eq_iff_div_mem.mp hpr
+  rw [Matrix.GeneralLinearGroup.center_eq_range_scalar] at hcent
+  obtain ⟨c, hc⟩ := hcent
+  have hmat : (g : GL (Fin 2) K) =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) c * (h : GL (Fin 2) K) := by
+    rw [hc]
+    simp
+  have hentry : ((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 =
+      (c : K) * ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 := by
+    have heq := congrArg (fun k : GL (Fin 2) K => (k : Matrix (Fin 2) (Fin 2) K) 1 1) hmat
+    simpa [Matrix.mul_apply] using heq
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let r := WithZero.exp (-(m : ℤ))
+  have hr : r < 1 := by
+    dsimp [r]
+    rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+    omega
+  have hrr : r ≤ WithZero.exp (-(mp : ℤ)) := by
+    apply WithZero.exp_le_exp.mpr
+    omega
+  have hg := ((hU _).mp g.property) 1 1
+  have hh := ((hU _).mp h.property) 1 1
+  change V (((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ r at hg
+  change V (((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ r at hh
+  have hHval : V (((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1) = 1 := by
+    simpa using V.map_eq_of_sub_lt (x := 1)
+      (y := ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1) (by simpa using hh.trans_lt hr)
+  have hdiff : V (((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 -
+      ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1) ≤ r := by
+    have heq : ((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 =
+        (((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) -
+          (((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) := by ring
+    rw [heq]
+    exact V.map_sub_le hg hh
+  have hmult : ((c : K) - 1) * ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 =
+      ((g : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 - ((h : GL (Fin 2) K) : Matrix (Fin 2) (Fin 2) K) 1 1 := by
+    rw [hentry]
+    ring
+  have hval := congrArg V hmult
+  rw [map_mul, hHval, mul_one] at hval
+  have hcsmall : V ((c : K) - 1) ≤ r := hval.le.trans hdiff
+  have hcpow : ∃ u : Kˣ, c = u ^ 6 := hpowers c (hcsmall.trans hrr)
+  have hcleft (b : Kˣ) : kpPairing D H v c b = 1 := by
+    change muThree D (H.hilb v c b) = 1
+    rw [H.sixth_power v c b hcpow, muThree_one D]
+  have hcright (b : Kˣ) : kpPairing D H v b c = 1 := by
+    have heq := kpPairing_skew D H v b c
+    rw [hcleft b, mul_one] at heq
+    exact heq
+  have hscalar : kpCocycle D H v (Matrix.GeneralLinearGroup.scalar (Fin 2) c)
+      (h : GL (Fin 2) K) = 1 := by
+    rw [kpCocycle_scalar D H v hSt, kpCocycle_scalar_right_formula, hcright, hcright, one_mul]
+  have heq := C.sec_mul (Matrix.GeneralLinearGroup.scalar (Fin 2) c) (h : GL (Fin 2) K)
+  rw [C.sec_scalar, one_mul, hscalar, map_one, one_mul] at heq
+  rw [hmat]
+  exact heq.symm
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
