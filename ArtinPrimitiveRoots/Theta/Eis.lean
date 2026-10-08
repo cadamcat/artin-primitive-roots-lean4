@@ -10,6 +10,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.SphericalBound
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.QuotientCoordinates
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.ValuationGeometry
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.OrdinaryClasses
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_WHIT.IdealEncoding
 
 set_option autoImplicit false
 
