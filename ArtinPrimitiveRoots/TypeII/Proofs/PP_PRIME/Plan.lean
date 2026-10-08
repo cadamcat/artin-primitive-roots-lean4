@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.TypeII.Marked
 import Mathlib.Analysis.MellinTransform
 import Mathlib.Analysis.MellinInversion
 import Mathlib.Analysis.Fourier.FourierTransformDeriv
+import Mathlib.Analysis.SpecialFunctions.SmoothTransition
 
 set_option autoImplicit false
 noncomputable section
@@ -35,6 +36,136 @@ noncomputable def mellinKernel (g : ℝ → ℝ) (z : ℂ) : ℂ :=
 
 noncomputable def mellinLogWeight (g : ℝ → ℝ) (α u : ℝ) : ℂ :=
   (Real.exp (-α * u) : ℂ) * (g (Real.exp (-u)) : ℂ)
+
+/-- A smooth cutoff of a real interval, widened by `δ` at both ends. -/
+noncomputable def ppPrimeLogCutoff (a b δ : ℝ) (u : ℝ) : ℝ :=
+  Real.smoothTransition ((u - (a - δ)) / δ) *
+    Real.smoothTransition (((b + δ) - u) / δ)
+
+/-- Transfer a log-coordinate cutoff to positive real inputs and extend it by zero. -/
+noncomputable def ppPrimePositiveCutoff (a b δ : ℝ) (w : ℝ) : ℝ :=
+  if 0 < w then ppPrimeLogCutoff (Real.log a) (Real.log b) δ (Real.log w) else 0
+
+theorem ppPrimeLogCutoff_contDiff (a b δ : ℝ) :
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (ppPrimeLogCutoff a b δ) := by
+  unfold ppPrimeLogCutoff
+  fun_prop
+
+theorem ppPrimeLogCutoff_nonneg_le_one (a b δ u : ℝ) :
+    0 ≤ ppPrimeLogCutoff a b δ u ∧ ppPrimeLogCutoff a b δ u ≤ 1 := by
+  unfold ppPrimeLogCutoff
+  constructor
+  · exact mul_nonneg (Real.smoothTransition.nonneg _) (Real.smoothTransition.nonneg _)
+  · calc
+      _ ≤ 1 * Real.smoothTransition (((b + δ) - u) / δ) :=
+        mul_le_mul_of_nonneg_right (Real.smoothTransition.le_one _)
+          (Real.smoothTransition.nonneg _)
+      _ ≤ 1 * 1 := mul_le_mul_of_nonneg_left (Real.smoothTransition.le_one _) (by norm_num)
+      _ = 1 := by norm_num
+
+theorem ppPrimeLogCutoff_eq_one (a b δ u : ℝ) (hδ : 0 < δ)
+    (hau : a ≤ u) (hub : u ≤ b) : ppPrimeLogCutoff a b δ u = 1 := by
+  unfold ppPrimeLogCutoff
+  rw [Real.smoothTransition.one_of_one_le, Real.smoothTransition.one_of_one_le]
+  · norm_num
+  · apply (le_div_iff₀ hδ).2
+    linarith
+  · apply (le_div_iff₀ hδ).2
+    linarith
+
+theorem ppPrimeLogCutoff_support (a b δ : ℝ) (hδ : 0 < δ) :
+    Function.support (ppPrimeLogCutoff a b δ) ⊆ Set.Icc (a - δ) (b + δ) := by
+  intro u hu
+  have hne : ppPrimeLogCutoff a b δ u ≠ 0 := by
+    simpa only [Function.mem_support] using hu
+  by_contra hout
+  have hout' : u < a - δ ∨ b + δ < u := by
+    by_cases hleft : u < a - δ
+    · exact Or.inl hleft
+    · have hright : b + δ < u := by
+        by_contra h
+        exact hout ⟨le_of_not_gt hleft, le_of_not_gt h⟩
+      exact Or.inr hright
+  rcases hout' with hleft | hright
+  · have hzero : Real.smoothTransition ((u - (a - δ)) / δ) = 0 :=
+      Real.smoothTransition.zero_of_nonpos (div_nonpos_of_nonpos_of_nonneg
+        (by linarith) hδ.le)
+    apply hne
+    simp [ppPrimeLogCutoff, hzero]
+  · have hzero : Real.smoothTransition (((b + δ) - u) / δ) = 0 :=
+      Real.smoothTransition.zero_of_nonpos (div_nonpos_of_nonpos_of_nonneg
+        (by linarith) hδ.le)
+    apply hne
+    simp [ppPrimeLogCutoff, hzero]
+
+theorem ppPrimePositiveCutoff_nonneg_le_one (a b δ w : ℝ) :
+    0 ≤ ppPrimePositiveCutoff a b δ w ∧ ppPrimePositiveCutoff a b δ w ≤ 1 := by
+  by_cases hw : 0 < w
+  · simp only [ppPrimePositiveCutoff, if_pos hw]
+    exact ppPrimeLogCutoff_nonneg_le_one _ _ _ _
+  · simp [ppPrimePositiveCutoff, hw]
+
+theorem ppPrimePositiveCutoff_eq_one (a b δ w : ℝ) (ha : 0 < a)
+    (hδ : 0 < δ) (haw : a ≤ w) (hwb : w ≤ b) :
+    ppPrimePositiveCutoff a b δ w = 1 := by
+  have hw : 0 < w := lt_of_lt_of_le ha haw
+  rw [ppPrimePositiveCutoff, if_pos hw]
+  apply ppPrimeLogCutoff_eq_one
+  · exact hδ
+  · exact Real.log_le_log ha haw
+  · exact Real.log_le_log hw hwb
+
+theorem ppPrimePositiveCutoff_support (a b δ : ℝ) (ha : 0 < a) (hb : 0 < b)
+    (hδ : 0 < δ) :
+    Function.support (ppPrimePositiveCutoff a b δ) ⊆
+      Set.Icc (a * Real.exp (-δ)) (b * Real.exp δ) := by
+  intro w hw
+  have hne : ppPrimePositiveCutoff a b δ w ≠ 0 := by
+    simpa only [Function.mem_support] using hw
+  have hwpos : 0 < w := by
+    by_contra h
+    have hwle : w ≤ 0 := le_of_not_gt h
+    apply hne
+    simp [ppPrimePositiveCutoff, not_lt.mpr hwle]
+  have hlogne : ppPrimeLogCutoff (Real.log a) (Real.log b) δ (Real.log w) ≠ 0 := by
+    simpa [ppPrimePositiveCutoff, hwpos] using hne
+  have hmem : Real.log w ∈ Function.support
+      (ppPrimeLogCutoff (Real.log a) (Real.log b) δ) := by
+    simpa only [Function.mem_support] using hlogne
+  have hlogBounds := ppPrimeLogCutoff_support (Real.log a) (Real.log b) δ hδ hmem
+  have hlow : a * Real.exp (-δ) ≤ w := by
+    have := (Real.exp_le_exp).2 hlogBounds.1
+    rw [Real.exp_sub, Real.exp_log ha, Real.exp_log hwpos] at this
+    have heq : a / Real.exp δ = a * Real.exp (-δ) := by
+      rw [div_eq_mul_inv, ← Real.exp_neg]
+    rw [heq] at this
+    exact this
+  have hhigh : w ≤ b * Real.exp δ := by
+    have := (Real.exp_le_exp).2 hlogBounds.2
+    rw [Real.exp_add, Real.exp_log hb, Real.exp_log hwpos] at this
+    exact this
+  exact ⟨hlow, hhigh⟩
+
+theorem ppPrimePositiveCutoff_logWeight_contDiff (a b δ α : ℝ) :
+    ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (mellinLogWeight (ppPrimePositiveCutoff a b δ) α) := by
+  have hexpR : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun u : ℝ => Real.exp (-α * u)) := by fun_prop
+  have hexpC : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun u : ℝ => (Real.exp (-α * u) : ℂ)) := Complex.ofRealCLM.contDiff.comp hexpR
+  have hcut : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun u : ℝ => ppPrimeLogCutoff (Real.log a) (Real.log b) δ (-u)) :=
+    (ppPrimeLogCutoff_contDiff _ _ _).comp (by fun_prop)
+  have hcutC : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun u : ℝ => (ppPrimeLogCutoff (Real.log a) (Real.log b) δ (-u) : ℂ)) :=
+    Complex.ofRealCLM.contDiff.comp hcut
+  have heq : mellinLogWeight (ppPrimePositiveCutoff a b δ) α =
+      (fun u : ℝ => (Real.exp (-α * u) : ℂ) *
+        (ppPrimeLogCutoff (Real.log a) (Real.log b) δ (-u) : ℂ)) := by
+    funext u
+    simp [mellinLogWeight, ppPrimePositiveCutoff, Real.exp_pos]
+  rw [heq]
+  exact hexpC.mul hcutC
 
 /-- The kernel is Mathlib's Mellin transform, with the positive-base power
 rewritten only on the domain of integration. -/
@@ -267,7 +398,7 @@ theorem mellinKernel_uniform_decay (g : ℝ → ℝ) (L A : ℝ)
 
 /-- Mellin inversion on a compactly supported smooth positive-coordinate weight. -/
 theorem mellinKernel_inversion (g : ℝ → ℝ)
-    (hg : ContDiff ℝ ⊤ g)
+    (hlogSmooth : ∀ α, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (mellinLogWeight g α))
     (hsupport : Function.support g ⊆ Set.Icc (1 / 2 : ℝ) 3)
     (c w : ℝ) (hw : 0 < w) :
     (g w : ℂ) = (1 / (2 * Real.pi) : ℂ) *
@@ -275,23 +406,7 @@ theorem mellinKernel_inversion (g : ℝ → ℝ)
         Complex.exp (-((⟨c, v⟩ : ℂ) * Real.log w)) := by
   classical
   let f : ℝ → ℂ := mellinLogWeight g c
-  have hfsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f := by
-    have hA : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
-        (fun u : ℝ => Real.exp (-c * u)) := by fun_prop
-    have hBtop : ContDiff ℝ ⊤
-        (fun u : ℝ => g (Real.exp (-u))) := by
-      have harg : ContDiff ℝ ⊤
-          (fun u : ℝ => Real.exp (-u)) := by fun_prop
-      exact hg.comp harg
-    have hB : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
-        (fun u : ℝ => g (Real.exp (-u))) := hBtop.of_le le_top
-    have hAc : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
-        (fun u : ℝ => (Real.exp (-c * u) : ℂ)) := Complex.ofRealCLM.contDiff.comp hA
-    have hBc : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
-        (fun u : ℝ => (g (Real.exp (-u)) : ℂ)) := Complex.ofRealCLM.contDiff.comp hB
-    change ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
-      (fun u : ℝ => (Real.exp (-c * u) : ℂ) * (g (Real.exp (-u)) : ℂ))
-    exact hAc.mul hBc
+  have hfsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f := hlogSmooth c
   have hfsupport : Function.support f ⊆ Set.Icc (-Real.log 3) (-Real.log (1 / 2)) := by
     intro u hu
     have hfu : f u ≠ 0 := by
