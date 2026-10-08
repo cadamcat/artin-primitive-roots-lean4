@@ -393,7 +393,46 @@ theorem rf_active_support_norm
     (r : ReflectionRow S) (f : Ideal (𝓞 F))
     (hf : IsActiveFactor S r f) :
     (Ideal.absNorm f : ℝ) ^ 2 ≤ (Ideal.absNorm r.h.1 : ℝ) := by
-  sorry
+  classical
+  have hfne : f ≠ ⊥ := hf.1.1
+  have hne : r.h.1 ≠ ⊥ := r.h.2.1
+  have hf0 : f ≠ 0 := by simpa [Ideal.zero_eq_bot] using hfne
+  have hdiv : f ^ 2 ∣ r.h.1 := by
+    rw [UniqueFactorizationMonoid.dvd_iff_emultiplicity_le (pow_ne_zero 2 hf0)]
+    intro P hP
+    rw [emultiplicity_pow hP]
+    by_cases hPf : P ∣ f
+    · let v : ArtinPrimitiveRoots.A1.FinPlace F := HeightOneSpectrum.ofPrime hP
+      have hPh : P ∣ r.h.1 := by
+        simpa [v] using hf.2.2.1 v hPf
+      have hP2h : P ^ 2 ∣ r.h.1 := by
+        simpa [v] using r.h_powerful v hPh
+      have hmultH : (2 : ℕ∞) ≤ emultiplicity P r.h.1 :=
+        (pow_dvd_iff_le_emultiplicity).mp hP2h
+      have hmultF : emultiplicity P f ≤ 1 := by
+        have hsq := (squarefree_iff_emultiplicity_le_one f).mp hf.2.1 P
+        exact hsq.resolve_right hP.not_isUnit
+      calc
+        (2 : ℕ∞) * emultiplicity P f ≤ 2 * 1 := by gcongr
+        _ = 2 := by norm_num
+        _ ≤ emultiplicity P r.h.1 := hmultH
+    · have hmultF : emultiplicity P f = 0 := by
+        by_contra hne'
+        have hpos : 0 < emultiplicity P f := pos_iff_ne_zero.mpr hne'
+        exact hPf ((dvd_iff_emultiplicity_pos).mp hpos)
+      simp [hmultF]
+  have hNdiv : Ideal.absNorm (f ^ 2) ∣ Ideal.absNorm r.h.1 :=
+    Ideal.absNorm_dvd_absNorm_of_le (Ideal.dvd_iff_le.mp hdiv)
+  have hhPos : 0 < Ideal.absNorm r.h.1 :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨r.h.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by simpa [Ideal.zero_eq_bot] using hne)⟩
+  have hNle : Ideal.absNorm (f ^ 2) ≤ Ideal.absNorm r.h.1 :=
+    Nat.le_of_dvd hhPos hNdiv
+  have hNpow : Ideal.absNorm (f ^ 2) = Ideal.absNorm f ^ 2 := by simp
+  have hNle' : Ideal.absNorm f ^ 2 ≤ Ideal.absNorm r.h.1 := by
+    rw [← hNpow]
+    exact hNle
+  exact_mod_cast hNle'
 
 /-- **rf:powerful-count** (04-reflection.tex:1035-1044): powerful exterior ideals have count
 `O_F(P^{1/2})` below norm `2P`. -/
