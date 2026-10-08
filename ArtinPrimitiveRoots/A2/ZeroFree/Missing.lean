@@ -4684,6 +4684,271 @@ private theorem rows_sol_principal_w_residue (hEuler : EulerHypotheses R η)
     rw [rows_principalRegularizedLS_at_one]
   simpa only [K, Complex.ofReal_one, hNumone] using hshift
 
+private theorem rows_sol_principal_z_residue (hEuler : EulerHypotheses R η)
+    (Z : ℝ) (hZ : 2 ≤ Z) (ξ : ℂ)
+    (hξlo : 1 + δ1 ≤ ξ.re) (hξhi : ξ.re ≤ 4) :
+    vertical (1 / 6 + δ1) (fun z =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+        HA.LS S 1 (6 * z) * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ) =
+      vertical (16 / 100) (fun z =>
+        mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+          HA.LS S 1 (6 * z) * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ) +
+        mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 (1 / 6) *
+          (HA.RS S / 6) * HC.H U.one ![ξ, 1, 1 / 6] / HA.LS S η ξ := by
+  let strip : Set ℂ := {z | 16 / 100 ≤ z.re ∧ z.re ≤ 1 / 6 + δ1}
+  let GS : ℂ → ℂ := rows_principalRegularizedLS (HA := HA) (S := S)
+  let K : ℂ → ℂ := fun z => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+    HA.LS S 1 (6 * z) * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ
+  let Num : ℂ → ℂ := fun z => mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+    (GS (6 * z) / 6) * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ
+  have hZpos : 0 < Z := by linarith
+  obtain ⟨hMdiff, _, _, _, _⟩ := (po_weights_exist R sd).2 W
+  have hGSdiff : Differentiable ℂ GS := by
+    have hfactor : Differentiable ℂ (fun s : ℂ => ∏ v ∈ S.Sf,
+        (1 - (1 : HeckeChar F).primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) := by
+      refine Differentiable.fun_finsetProd ?_
+      intro v hv
+      have hn : (Ideal.absNorm v.asIdeal : ℂ) ≠ 0 := by
+        exact_mod_cast (Nat.ne_of_gt (Nat.zero_lt_of_lt
+          (NumberField.HeightOneSpectrum.one_lt_absNorm v)))
+      have hpow : Differentiable ℂ (fun s : ℂ => (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+        intro s
+        exact (differentiable_id.neg s).const_cpow (Or.inl hn)
+      exact (differentiable_const (1 : ℂ)).sub
+        ((differentiable_const ((1 : HeckeChar F).primeValue v)).mul hpow)
+    change Differentiable ℂ (HA.1.2 * fun s : ℂ => ∏ v ∈ S.Sf,
+      (1 - (1 : HeckeChar F).primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)))
+    exact HA.2.2.2.2.1.mul hfactor
+  have hMstrip : DifferentiableOn ℂ (weightM R sd W) strip := by
+    apply hMdiff.mono
+    intro z hz
+    exact lt_of_lt_of_le (by norm_num) hz.1
+  have hXbase : ((Z ^ a : ℝ) : ℂ) ≠ 0 :=
+    Complex.ofReal_ne_zero.mpr (Real.rpow_pos_of_pos hZpos a).ne'
+  have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZpos.ne'
+  have hXexp : Differentiable ℂ (fun z : ℂ => (1 / 2 : ℂ) - z) := by fun_prop
+  have hX : Differentiable ℂ (fun z : ℂ =>
+      ((Z ^ a : ℝ) : ℂ) ^ ((1 / 2 : ℂ) - z)) := by
+    intro z
+    exact (hXexp z).const_cpow (Or.inl hXbase)
+  have hZexp : Differentiable ℂ (fun z : ℂ => ξ + z - 1) := by fun_prop
+  have hZpow : Differentiable ℂ (fun z : ℂ => (Z : ℂ) ^ (ξ + z - 1)) := by
+    intro z
+    exact (hZexp z).const_cpow (Or.inl hZbase)
+  have hGauss : Differentiable ℂ (fun z : ℂ => Complex.exp ((ξ + z - 1) ^ 2)) := by fun_prop
+  have hMellin : DifferentiableOn ℂ (fun z =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z) strip := by
+    unfold mellinWeight
+    exact (((((hX.differentiableOn.mul hZpow.differentiableOn).mul
+      (differentiable_const _).differentiableOn).mul hGauss.differentiableOn).mul
+      hMstrip).mul (differentiable_const _).differentiableOn)
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℂ → Triple := fun z => ![ξ, 1, z]
+  have hpmap : Differentiable ℂ pmap := by
+    intro z
+    apply differentiableAt_pi.2
+    intro j
+    fin_cases j <;> simp [pmap] <;> fun_prop
+  have hregion (z : ℂ) (hz : z ∈ strip) : eulerNeighborhood ![ξ, 1, z] := by
+    right
+    change 998 / 1000 - 1 / 100000 < ξ.re ∧
+      95 / 100 - 1 / 100000 < (1 : ℂ).re ∧ 16 / 100 - 1 / 100000 < z.re
+    exact ⟨lt_of_lt_of_le (by norm_num [δ1]) hξlo, by norm_num,
+      lt_of_lt_of_le (by norm_num) hz.1⟩
+  have hHC : DifferentiableOn ℂ (fun z => HC.H U.one ![ξ, 1, z]) strip :=
+    (hHP.2.1 U.one).comp hpmap.differentiableOn (fun z hz => hregion z hz)
+  have hGSscale : Differentiable ℂ (fun z : ℂ => GS (6 * z) / 6) :=
+    (hGSdiff.comp (by fun_prop)).div_const 6
+  have hNumdiff : DifferentiableOn ℂ Num strip := by
+    dsimp only [Num]
+    simp only [div_eq_mul_inv]
+    exact ((hMellin.mul hGSscale.differentiableOn).mul hHC).mul
+      (differentiable_const _).differentiableOn
+  have hGSquot (z : ℂ) (hz : z ≠ 1 / 6) :
+      (GS (6 * z) / 6) / (z - 1 / 6) = HA.LS S 1 (6 * z) := by
+    have hsne : 6 * z ≠ 1 := by
+      intro h
+      apply hz
+      linear_combination (1 / 6 : ℂ) * h
+    apply (div_eq_iff (sub_ne_zero.mpr hz)).mpr
+    change rows_principalRegularizedLS (HA := HA) (S := S) (6 * z) / 6 = _
+    rw [rows_principalRegularizedLS_eq (HA := HA) (S := S) (6 * z) hsne]
+    ring
+  have hrep (z : ℂ) (_ : 16 / 100 ≤ z.re) (_ : z.re ≤ 1 / 6 + δ1)
+      (hz : z ≠ (1 / 6 : ℝ)) : K z = Num z / (z - (1 / 6 : ℝ)) := by
+    have hz' : z ≠ 1 / 6 := by simpa using hz
+    calc
+      K z = mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+          ((GS (6 * z) / 6) / (z - 1 / 6)) * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ := by
+        dsimp only [K]
+        rw [hGSquot z hz']
+      _ = _ := by
+        dsimp only [Num]
+        rw [show ((1 / 6 : ℝ) : ℂ) = (1 / 6 : ℂ) by norm_num]
+        simp only [div_eq_mul_inv]
+        ring
+  obtain ⟨AF, CG, hAF, hCG, hGrowth⟩ := rows_principalRegularizedLS_growth (HA := HA) (S := S)
+  obtain ⟨CM, hCM, hWeight⟩ := zf_height_decay R sd W
+    (1 + δ1) 4 1 1 (16 / 100) (1 / 6 + δ1) (AF + 2)
+    (by norm_num [δ1]) le_rfl (by norm_num) (by norm_num [δ1]) (by linarith)
+  obtain ⟨CH, hCH, hHbound⟩ := hHP.2.2.2 (1 : ℝ) (by norm_num)
+  let CI : ℝ := ‖(HA.LS S η ξ)⁻¹‖
+  let CL : ℝ := CG / δ1 * 6 ^ AF
+  let B0 : ℝ := Z ^ Estar ξ.re 1 (1 / 6 + δ1) * CM * CL * CH * CI
+  let C0 : ℝ := B0 * 2 ^ AF
+  let E : ℝ → ℝ := fun t => (1 + |t|) ^ (-2 : ℝ)
+  have hδ : 0 < δ1 := by norm_num [δ1]
+  have hCL : 0 ≤ CL := by dsimp [CL]; positivity
+  have hB0 : 0 ≤ B0 := by dsimp [B0, CI]; positivity
+  have hLS (z : ℂ) (hz : z ∈ strip) (hgap : δ1 ≤ ‖6 * z - 1‖) :
+      ‖HA.LS S 1 (6 * z)‖ ≤ CL * (2 + |z.im|) ^ AF := by
+    have hsne : 6 * z ≠ 1 := by
+      intro h
+      rw [h, sub_self, norm_zero] at hgap
+      linarith
+    have hquot : GS (6 * z) / (6 * z - 1) = HA.LS S 1 (6 * z) := by
+      apply (div_eq_iff (sub_ne_zero.mpr hsne)).mpr
+      change rows_principalRegularizedLS (HA := HA) (S := S) (6 * z) = _
+      rw [rows_principalRegularizedLS_eq (HA := HA) (S := S) (6 * z) hsne]
+      ring
+    have hslo : 3 / 1000 ≤ (6 * z).re := by simp; nlinarith [hz.1]
+    have hshi : (6 * z).re ≤ 4 := by simp; nlinarith [hz.2, (show δ1 < 1 / 6 by norm_num [δ1])]
+    have hgrow := hGrowth (6 * z) hslo hshi
+    have hscale : (2 + |(6 * z).im|) ^ AF ≤ 6 ^ AF * (2 + |z.im|) ^ AF := by
+      calc
+        _ ≤ (6 * (2 + |z.im|)) ^ AF := by
+          apply Real.rpow_le_rpow (by positivity) ?_ hAF
+          have him : (6 * z).im = 6 * z.im := by simp
+          rw [him, abs_mul, abs_of_nonneg (by norm_num : (0 : ℝ) ≤ 6)]
+          linarith
+        _ = _ := Real.mul_rpow (by norm_num) (by positivity)
+    rw [← hquot, norm_div]
+    calc
+      _ ≤ (CG * (2 + |(6 * z).im|) ^ AF) / ‖6 * z - 1‖ :=
+        div_le_div_of_nonneg_right hgrow (norm_nonneg _)
+      _ ≤ (CG * (2 + |(6 * z).im|) ^ AF) / δ1 :=
+        div_le_div_of_nonneg_left (by positivity) hδ hgap
+      _ ≤ (CG * (6 ^ AF * (2 + |z.im|) ^ AF)) / δ1 := by gcongr
+      _ = _ := by dsimp only [CL]; ring
+  have hGapEnd (x t : ℝ) (hx : x = 16 / 100 ∨ x = 1 / 6 + δ1) :
+      δ1 ≤ ‖6 * ((x : ℂ) + t * Complex.I) - 1‖ := by
+    calc
+      _ ≤ |6 * x - 1| := by rcases hx with rfl | rfl <;> norm_num [δ1]
+      _ ≤ _ := by simpa using Complex.abs_re_le_norm (6 * ((x : ℂ) + t * Complex.I) - 1)
+  have hGapHigh (x t : ℝ) (ht : 1 ≤ |t|) :
+      δ1 ≤ ‖6 * ((x : ℂ) + t * Complex.I) - 1‖ := by
+    calc
+      _ ≤ |6 * t| := by rw [abs_mul]; norm_num; linarith [show δ1 ≤ 1 by norm_num [δ1]]
+      _ ≤ _ := by simpa using Complex.abs_im_le_norm (6 * ((x : ℂ) + t * Complex.I) - 1)
+  have hpoint (x t : ℝ) (hx : x ∈ Icc (16 / 100 : ℝ) (1 / 6 + δ1))
+      (hgap : δ1 ≤ ‖6 * ((x : ℂ) + t * Complex.I) - 1‖) :
+      ‖K ((x : ℂ) + t * Complex.I)‖ ≤ C0 * E t := by
+    let z : ℂ := (x : ℂ) + t * Complex.I
+    have hzre : z.re = x := by simp [z]
+    have hzim : z.im = t := by simp [z]
+    have hz : z ∈ strip := by change 16 / 100 ≤ z.re ∧ z.re ≤ 1 / 6 + δ1; simpa [hzre] using hx
+    have hM : ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W 1‖ ≤
+        CM * (1 + |t|) ^ (-(AF + 2)) := by
+      have hw := hWeight ξ 1 z hξlo hξhi (by norm_num) (by norm_num) hz.1 hz.2
+      simp only [Complex.one_im, abs_zero, add_zero, Real.one_rpow, mul_one, hzim] at hw
+      calc
+        _ ≤ CM * Real.exp (-((ξ.im + t) ^ 2)) * (1 + |t|) ^ (-(AF + 2)) := hw
+        _ ≤ CM * 1 * (1 + |t|) ^ (-(AF + 2)) := by
+          gcongr
+          exact Real.exp_le_one_iff.mpr (neg_nonpos.mpr (sq_nonneg _))
+        _ = _ := by ring
+    have hHz : ‖HC.H U.one ![ξ, 1, z]‖ ≤ CH := by
+      simpa [U.q_one] using hHbound U.one ![ξ, 1, z] (hregion z hz)
+    have hLs := hLS z hz hgap
+    rw [hzim] at hLs
+    have hPow : Z ^ Estar ξ.re 1 z.re ≤ Z ^ Estar ξ.re 1 (1 / 6 + δ1) := by
+      apply Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z)
+      rw [hzre]
+      norm_num [Estar, a, b, h0]
+      nlinarith [hx.2]
+    calc
+      ‖K z‖ = Z ^ Estar ξ.re 1 z.re *
+          ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W 1‖ *
+          ‖HA.LS S 1 (6 * z)‖ * ‖HC.H U.one ![ξ, 1, z]‖ * CI := by
+        dsimp only [K, CI]
+        rw [div_eq_mul_inv]
+        simp only [norm_mul, rows_mellinWeight_norm R sd W Z hZpos, Complex.one_re]
+      _ ≤ Z ^ Estar ξ.re 1 (1 / 6 + δ1) * (CM * (1 + |t|) ^ (-(AF + 2))) *
+          (CL * (2 + |t|) ^ AF) * CH * CI := by gcongr
+      _ = B0 * ((1 + |t|) ^ (-(AF + 2)) * (2 + |t|) ^ AF) := by dsimp only [B0]; ring
+      _ ≤ B0 * (2 ^ AF * (1 + |t|) ^ (-2 : ℝ)) :=
+        mul_le_mul_of_nonneg_left (rows_principal_absorb_poly t AF 2 hAF) hB0
+      _ = C0 * E t := by dsimp only [C0, E]; ring
+  have hEint : Integrable E := rows_integrable_poly_decay (p := 2) (by norm_num)
+  have hEndpoint (x : ℝ) (hx : x ∈ Icc (16 / 100 : ℝ) (1 / 6 + δ1)) (hxe : x = 16 / 100 ∨ x = 1 / 6 + δ1) :
+      Integrable (fun t : ℝ => K ((x : ℂ) + t * Complex.I)) := by
+    have hNline : Continuous (fun t : ℝ => Num ((x : ℂ) + t * Complex.I)) := by
+      apply continuousOn_univ.mp
+      apply hNumdiff.continuousOn.comp
+        (by fun_prop : ContinuousOn (fun t : ℝ => (x : ℂ) + t * Complex.I) univ)
+      intro t ht
+      change 16 / 100 ≤ ((x : ℂ) + t * Complex.I).re ∧ ((x : ℂ) + t * Complex.I).re ≤ 1 / 6 + δ1
+      simpa using hx
+    have hden (t : ℝ) : ((x : ℂ) + t * Complex.I) - (1 / 6 : ℂ) ≠ 0 := by
+      intro h
+      have hs : 6 * ((x : ℂ) + t * Complex.I) - 1 = 0 := by
+        linear_combination (6 : ℂ) * h
+      have hg := hGapEnd x t hxe
+      rw [hs, norm_zero] at hg
+      norm_num [δ1] at hg
+    have hEq : (fun t : ℝ => K ((x : ℂ) + t * Complex.I)) =
+        fun t : ℝ => Num ((x : ℂ) + t * Complex.I) / (((x : ℂ) + t * Complex.I) - (1 / 6 : ℂ)) := by
+      funext t
+      simpa only [Complex.ofReal_div, Complex.ofReal_one, Complex.ofReal_ofNat] using
+        hrep _ (by simpa using hx.1) (by simpa using hx.2)
+          (by simpa using sub_ne_zero.mp (hden t))
+    have hCont : Continuous (fun t : ℝ => K ((x : ℂ) + t * Complex.I)) := by
+      rw [hEq]
+      exact hNline.div (by fun_prop) hden
+    apply (hEint.const_mul C0).mono' hCont.aestronglyMeasurable
+    filter_upwards [] with t
+    exact hpoint x t hx (hGapEnd x t hxe)
+  have hbase : Tendsto (fun t : ℝ => 1 + |t|) atTop atTop := by
+    have hineq (t : ℝ) : t ≤ 1 + |t| := by linarith [le_abs_self t]
+    exact tendsto_atTop_mono hineq tendsto_id
+  have hElim : Tendsto E atTop (𝓝 0) :=
+    (tendsto_rpow_neg_atTop (by norm_num : 0 < (2 : ℝ))).comp hbase
+  have hLim : Tendsto (fun T : ℝ => C0 * E T * |(1 / 6 + δ1) - (16 / 100 : ℝ)|) atTop (𝓝 0) := by
+    simpa using (hElim.const_mul C0).mul_const |(1 / 6 + δ1) - (16 / 100 : ℝ)|
+  have hBound (T : ℝ) (hT : 1 ≤ |T|) :
+      ‖∫ x : ℝ in (16 / 100)..(1 / 6 + δ1), K ((x : ℂ) + T * Complex.I)‖ ≤
+        C0 * E T * |(1 / 6 + δ1) - (16 / 100 : ℝ)| := by
+    apply intervalIntegral.norm_integral_le_of_norm_le_const
+    intro x hx
+    have hx' : x ∈ Icc (16 / 100 : ℝ) (1 / 6 + δ1) := by
+      have hxmem := uIoc_subset_uIcc hx
+      rw [uIcc_of_le (by norm_num [δ1] : (16 / 100 : ℝ) ≤ 1 / 6 + δ1)] at hxmem
+      exact hxmem
+    exact hpoint x T hx' (hGapHigh x T hT)
+  have htop : Tendsto (fun T : ℝ => ∫ x : ℝ in (16 / 100)..(1 / 6 + δ1),
+      K ((x : ℂ) + T * Complex.I)) atTop (𝓝 0) := by
+    apply tendsto_zero_iff_norm_tendsto_zero.mpr
+    apply squeeze_zero' (Eventually.of_forall fun _ => norm_nonneg _) ?_ hLim
+    filter_upwards [eventually_ge_atTop (1 : ℝ)] with T hT
+    exact hBound T (by rwa [abs_of_nonneg (by linarith)])
+  have hbot : Tendsto (fun T : ℝ => ∫ x : ℝ in (16 / 100)..(1 / 6 + δ1),
+      K ((x : ℂ) + (-T) * Complex.I)) atTop (𝓝 0) := by
+    apply tendsto_zero_iff_norm_tendsto_zero.mpr
+    apply squeeze_zero' (Eventually.of_forall fun _ => norm_nonneg _) ?_ hLim
+    filter_upwards [eventually_ge_atTop (1 : ℝ)] with T hT
+    have hb := hBound (-T) (by rw [abs_neg, abs_of_nonneg (by linarith)]; exact hT)
+    simpa only [Complex.ofReal_neg, E, abs_neg] using hb
+  have hshift := rows_sol_simple_pole_shift (16 / 100) (1 / 6 + δ1) (1 / 6) Num K
+    (by norm_num) (by norm_num [δ1]) hNumdiff hrep
+    (hEndpoint (16 / 100) ⟨le_rfl, by norm_num [δ1]⟩ (Or.inl rfl))
+    (hEndpoint (1 / 6 + δ1) ⟨by norm_num [δ1], le_rfl⟩ (Or.inr rfl)) hbot htop
+  have hNumpole : Num (1 / 6) = mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 (1 / 6) *
+      (HA.RS S / 6) * HC.H U.one ![ξ, 1, 1 / 6] / HA.LS S η ξ := by
+    dsimp only [Num, GS]
+    norm_num only [show (6 : ℂ) * (1 / 6) = 1 by norm_num]
+    rw [rows_principalRegularizedLS_at_one]
+  simpa only [K, Complex.ofReal_div, Complex.ofReal_one, Complex.ofReal_ofNat, hNumpole] using hshift
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
