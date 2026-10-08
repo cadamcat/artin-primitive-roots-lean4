@@ -11200,6 +11200,232 @@ private theorem pd4d_edgeChoiceCoeff_damped_norm_le {K : ℕ}
     _ ≤ (P * Q) * C := mul_le_mul hfactor hgeom (norm_nonneg _) (mul_nonneg hP hQ)
     _ = _ := by ring
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Apply grouped omission/damping to the actual coefficient row for a fixed
+separated fresh draw and distinguished promoted particle. -/
+private theorem pd4d_raw_good_fixed_anchor {K : ℕ}
+    (F : PDFix K) (S : PDScale) (s : MemPoint S.x K)
+    (hp : ValidPrimeLists S.x K F.a s.2.1) (hs : MemValid F S s)
+    (St I : Finset (Fin K)) (iStar : Fin K) (hstar : iStar ∈ I)
+    (kStar : Fin (s.2.2 iStar).length) (fresh : RawFreshLabels S.x F.a I)
+    (w : ArchRoot) (T : Finset (ℤ × ℤ)) (j : ℕ)
+    (ρ v C Cmass : ℝ) (hρ0 : 0 ≤ ρ) (hρ1 : ρ < 1) (hv : 1 ≤ v)
+    (hC : 0 ≤ C) (hCM : 1 ≤ Cmass)
+    (hV : ∀ i, 0 < bandMass S.x (F.a i))
+    (hVinv : ∀ i, (bandMass S.x (F.a i))⁻¹ ≤ Cmass)
+    (hν : ∀ i, ∀ p : primeBand S.x (F.a i),
+      0 ≤ memoryNu S.x K F.a F.q_d i p)
+    (hbands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (hU : 0 < S.U) (hw : w.InRegion S) (hbox : envBox S w s.1)
+    (hfin : {z' : ℤ × ℤ | envBox S w z'}.Finite)
+    (hban : ∀ i jj, ((s.2.2 iStar).get kStar).1 ≠ s.2.1 i jj)
+    (hsep : ∀ n₁ n₂,
+      IsGoodnessTrialValue F.a s.2.1 (S.d₀ : ℝ) I iStar
+        (rawFreshFunction S.x F.a I fresh) n₁ →
+      IsGoodnessTrialValue F.a s.2.1 (S.d₀ : ℝ) I iStar
+        (rawFreshFunction S.x F.a I fresh) n₂ → n₁ ≠ n₂ →
+      100 * Real.exp (-Real.rpow S.L (F.a iStar)) <
+        circleDistance (((n₁ : ℝ) - n₂) * transportedRatio w s.1))
+    (hgeom : ∀ (σ : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+      (c : (i : Fin K) → EdgeChoice S.x F.a (s.2.2 i) i) (z' : ℤ × ℤ),
+      EdgeAdmissible F S w (s.1, permuteLists σ s.2.1, s.2.2) c z' →
+      ‖edgeMultiplier F S (decide (j % 2 = 0)) true (permuteLists σ s.2.1)
+        (edgeTargetLists F S (s.1, permuteLists σ s.2.1, s.2.2) c) s.1 z'‖ ≤ C) :
+    let χ := fun κ : RawPromotionIndices I iStar s.2.2 =>
+      rawPatternChoice S.x F.a s.2.2 St I iStar kStar κ fresh
+    let source := fun σ : Fin K → Equiv.Perm (Fin (slotCount S.x)) =>
+      (s.1, permuteLists σ s.2.1, s.2.2)
+    (permCount S.x K : ℝ)⁻¹ *
+      (∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        ∑ z' ∈ T, ∑ κ : RawPromotionIndices I iStar s.2.2,
+          if EdgeAdmissible F S w (source σ) (χ κ) z' then
+            ‖pd4c_edgeChoiceCoeff F S ρ j true (source σ) (χ κ) z'‖ *
+              v ^ memSize (z', edgeTargetLists F S (source σ) (χ κ),
+                edgeNewMemory F S (source σ) (χ κ))
+          else 0) ≤
+      (34 * (C * Cmass ^ K *
+        (∏ i : Fin K, if i ∉ I then
+          memoryNu S.x K F.a F.q_d i (rawFreshFunction S.x F.a I fresh i) else 1) *
+        v ^ K * v ^ memSize s) * (1 / (1 - ρ) ^ 2) ^ K) /
+          (slotCount S.x : ℝ) ^ K := by
+  classical
+  dsimp only
+  let χ := fun κ : RawPromotionIndices I iStar s.2.2 =>
+    rawPatternChoice S.x F.a s.2.2 St I iStar kStar κ fresh
+  let source (σ : Fin K → Equiv.Perm (Fin (slotCount S.x))) : MemPoint S.x K :=
+    (s.1, permuteLists σ s.2.1, s.2.2)
+  let Q := ∏ i : Fin K, if i ∉ I then
+    memoryNu S.x K F.a F.q_d i (rawFreshFunction S.x F.a I fresh i) else 1
+  let CF := C * Cmass ^ K * Q * v ^ K * v ^ memSize s
+  let W (σ : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+      (κ : RawPromotionIndices I iStar s.2.2) (z' : ℤ × ℤ) : ℝ :=
+    if EdgeAdmissible F S w (source σ) (χ κ) z' then
+      ‖pd4c_edgeChoiceCoeff F S ρ j true (source σ) (χ κ) z'‖ *
+        v ^ memSize (z', edgeTargetLists F S (source σ) (χ κ),
+          edgeNewMemory F S (source σ) (χ κ)) else 0
+  have hv0 : 0 ≤ v := by linarith
+  have hCM0 : 0 ≤ Cmass := by linarith
+  have hfresh : IsFreshChoice S.x F.a I (rawFreshFunction S.x F.a I fresh) := by
+    constructor
+    · intro i hi
+      simp [rawFreshFunction, hi]
+    · intro i hi
+      simpa only [rawFreshFunction, dif_neg hi] using
+        (fresh ⟨i, Finset.mem_compl.mpr hi⟩).property
+  have hnu (i : Fin K) (hi : i ∉ I) :
+      0 ≤ memoryNu S.x K F.a F.q_d i (rawFreshFunction S.x F.a I fresh i) := by
+    simpa only [rawFreshFunction, dif_neg hi] using
+      hν i (fresh ⟨i, Finset.mem_compl.mpr hi⟩)
+  have hQ : 0 ≤ Q := by
+    apply Finset.prod_nonneg
+    intro i hi
+    by_cases hmem : i ∈ I
+    · simp [hmem]
+    · simpa only [if_pos hmem] using hnu i hmem
+  have hCF : 0 ≤ CF := by dsimp only [CF]; positivity
+  have hprime (σ : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+      (κ : RawPromotionIndices I iStar s.2.2) (i : Fin K) :
+      pd4c_choicePrimeWeight F S (source σ) i (χ κ i) =
+        if i ∈ I then (bandMass S.x (F.a i))⁻¹ else
+          memoryNu S.x K F.a F.q_d i (rawFreshFunction S.x F.a I fresh i) := by
+    by_cases hi : i ∈ I
+    · by_cases heq : i = iStar
+      · subst i
+        simp [χ, rawPatternChoice, hstar, pd4c_choicePrimeWeight]
+      · simp [χ, rawPatternChoice, hi, heq, pd4c_choicePrimeWeight]
+    · simp [χ, rawPatternChoice, hi, pd4c_choicePrimeWeight, rawFreshFunction]
+  have hweight (σ : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+      (κ : RawPromotionIndices I iStar s.2.2) (i : Fin K) :
+      0 ≤ pd4c_choicePrimeWeight F S (source σ) i (χ κ i) := by
+    rw [hprime]
+    split_ifs with hi
+    · exact inv_nonneg.mpr (hV i).le
+    · exact hnu i hi
+  have hP (σ : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+      (κ : RawPromotionIndices I iStar s.2.2) :
+      (∏ i : Fin K, pd4c_choicePrimeWeight F S (source σ) i (χ κ i)) ≤ Cmass ^ K * Q := by
+    calc
+      _ ≤ ∏ i : Fin K, Cmass *
+          (if i ∉ I then memoryNu S.x K F.a F.q_d i
+            (rawFreshFunction S.x F.a I fresh i) else 1) := by
+        apply Finset.prod_le_prod₀
+        · intro i hi
+          exact hweight σ κ i
+        · intro i hi
+          rw [hprime]
+          by_cases hmem : i ∈ I
+          · simpa [hmem] using hVinv i
+          · simp only [if_neg hmem, if_pos hmem]
+            exact le_mul_of_one_le_left (hnu i hmem) hCM
+      _ = Cmass ^ K * Q := by
+        rw [Finset.prod_mul_distrib]
+        simp only [Finset.prod_const, Finset.card_univ, Fintype.card_fin, Q]
+  have hI (σ : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+      (κ : RawPromotionIndices I iStar s.2.2) :
+      edgePromotedSet (s := source σ) (χ κ) = I := by
+    ext i
+    by_cases hi : i ∈ I
+    · by_cases heq : i = iStar
+      · subst i
+        simp [edgePromotedSet, χ, rawPatternChoice, hstar]
+      · simp [edgePromotedSet, χ, rawPatternChoice, hi, heq]
+    · simp [edgePromotedSet, χ, rawPatternChoice, hi]
+  have hW (σ : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+      (κ : RawPromotionIndices I iStar s.2.2) (z' : ℤ × ℤ) :
+      W σ κ z' ≤ CF * ∏ i : I.erase iStar,
+        if particleHits ((s.2.2 i.1).get (κ i)) z'
+        then ρ ^ (hitCount (s.2.2 i.1) z' - 1) else 0 := by
+    by_cases ha : EdgeAdmissible F S w (source σ) (χ κ) z'
+    · have hHits (i : I.erase iStar) : particleHits ((s.2.2 i.1).get (κ i)) z' := by
+        rcases i with ⟨i, hi⟩
+        obtain ⟨hne, hmem⟩ := Finset.mem_erase.mp hi
+        apply ha.1 i (κ ⟨i, hi⟩)
+        simp [χ, rawPatternChoice, hmem, hne]
+      have hind :
+          (∏ i : I.erase iStar, if particleHits ((s.2.2 i.1).get (κ i)) z'
+            then ρ ^ (hitCount (s.2.2 i.1) z' - 1) else 0) =
+          ∏ i : I.erase iStar, ρ ^ (hitCount (s.2.2 i.1) z' - 1) := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        rw [if_pos (hHits i)]
+      let D := ∏ i : I.erase iStar, ρ ^ (hitCount (s.2.2 i.1) z' - 1)
+      have hD : 0 ≤ D := Finset.prod_nonneg (fun i hi => pow_nonneg hρ0 _)
+      have hc := pd4d_edgeChoiceCoeff_damped_norm_le F S ρ j true
+        (source σ) (χ κ) z' I iStar C hρ0 hρ1.le hC (hI σ κ) ha.1
+        (hweight σ κ) (hgeom σ (χ κ) z' ha)
+      have hc' : ‖pd4c_edgeChoiceCoeff F S ρ j true (source σ) (χ κ) z'‖ ≤
+          C * (Cmass ^ K * Q) * D :=
+        hc.trans (mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left (hP σ κ) hC) hD)
+      have ht := pd4c_edge_target_weight_le F S (source σ) (χ κ) z' v hv
+      have hsize : memSize (source σ) = memSize s := rfl
+      rw [hsize] at ht
+      rw [hind]
+      dsimp only [W]
+      rw [if_pos ha]
+      calc
+        _ ≤ (C * (Cmass ^ K * Q) * D) * (v ^ K * v ^ memSize s) :=
+          mul_le_mul hc' ht (pow_nonneg hv0 _) (by positivity)
+        _ = CF * D := by dsimp only [CF]; ring
+    · dsimp only [W]
+      rw [if_neg ha]
+      apply mul_nonneg hCF
+      apply Finset.prod_nonneg
+      intro i hi
+      split_ifs <;> positivity
+  have hsupport (σ : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+      (κ : RawPromotionIndices I iStar s.2.2) (z' : ℤ × ℤ) (hne : W σ κ z' ≠ 0) :
+      RawAnchorEndpoint S F.a s.2.1 I iStar (rawFreshFunction S.x F.a I fresh) w
+        ((s.2.2 iStar).get kStar) s.1 (fun i => σ i (lastSlot S.x))
+        (rawPromotionLabels I iStar s.2.2 κ) z' := by
+    have ha : EdgeAdmissible F S w (source σ) (χ κ) z' := by
+      by_contra hnot
+      exact hne (by simp only [W, if_neg hnot])
+    have hcoef : pd4c_edgeChoiceCoeff F S ρ j true (source σ) (χ κ) z' ≠ 0 := by
+      intro hz
+      exact hne (by simp only [W, if_pos ha, hz, norm_zero, zero_mul])
+    have hraw : edgeMultiplier F S (decide (j % 2 = 0)) true (permuteLists σ s.2.1)
+        (edgeTargetLists F S (source σ) (χ κ)) s.1 z' ≠ 0 := by
+      intro hz
+      exact hcoef (by simp [pd4c_edgeChoiceCoeff, source, hz])
+    have hk : (χ κ iStar).2 = Sum.inl kStar := by
+      simp [χ, rawPatternChoice, hstar]
+    have hf (i : Fin K) (hi : i ∉ I) :
+        rawFreshFunction S.x F.a I fresh i = edgeNewLabel (χ κ i) := by
+      simp [rawFreshFunction, χ, rawPatternChoice, edgeNewLabel, hi]
+    have hr := raw_edge_endpoint F S s σ (χ κ) I iStar hstar kStar hk
+      (rawFreshFunction S.x F.a I fresh) hf w (decide (j % 2 = 0)) z' ha hraw
+    have hlab (i : Fin K) (hi : i ∈ I ∧ i ≠ iStar) :
+        edgeNewLabel (χ κ i) = rawPromotionLabels I iStar s.2.2 κ i := by
+      have hierase : i ∈ I.erase iStar := Finset.mem_erase.mpr ⟨hi.2, hi.1⟩
+      simp [χ, rawPatternChoice, hi.1, hi.2, edgeNewLabel, rawPromotionLabels, hierase]
+    have hprod :
+        (∏ i : Fin K, if i ∈ I ∧ i ≠ iStar then edgeNewLabel (χ κ i) else 1) =
+        ∏ i : Fin K, if i ∈ I ∧ i ≠ iStar
+          then rawPromotionLabels I iStar s.2.2 κ i else 1 := by
+      apply Finset.prod_congr rfl
+      intro i hi
+      by_cases hmem : i ∈ I ∧ i ≠ iStar
+      · simp only [if_pos hmem, hlab i hmem]
+      · simp only [if_neg hmem]
+    obtain ⟨hband, hcross, hpadlo, hpadhi, hbox', hhit, hdet⟩ := hr
+    refine ⟨?_, ?_, hpadlo, hpadhi, hbox', hhit, ?_⟩
+    · intro i hi
+      rw [← hlab i hi]
+      exact hband i hi
+    · intro i hi jj kk
+      rw [← hlab i hi]
+      exact hcross i hi jj kk
+    · rw [← hprod]
+      exact hdet
+  have hband := (hs.2.2 iStar ((s.2.2 iStar).get kStar) (List.get_mem _ _)).1
+  have he : ((s.2.2 iStar).get kStar).1.Prime := (Finset.mem_filter.mp hband).2.1
+  have h := raw_good_anchor_grouped_damping_average S F.a s.2.1 hp hbands I iStar
+    (rawFreshFunction S.x F.a I fresh) hfresh w ((s.2.2 iStar).get kStar) he hband hban
+    s.1 hs.1 hU hw hbox hfin hsep s.2.2 T ρ CF hρ0 hρ1 hCF W hW hsupport
+  simpa only [χ, source, Q, CF, W] using h
+
 /-- `t2:pd.dirty-raw` — PD 04:605-714.  REPLACES the frozen `dirty_raw`.  With
 `ε_K = C_K(B/M_J^K + B^K e^{-cL^{0.1}})`: every raw piece with `(St,Pr) ≠ (∅,∅)` has weighted row
 sum `≤ ε_K` if `Pr ≠ ∅` (one compatible omission tuple by test (ii), mass `M_J^{-K}`,
