@@ -2600,7 +2600,15 @@ theorem tameSplit_mul (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k₁ k₂ : GL (Fin 2) 
     (hd₁ : Valued.v ((k₁ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
     (hd₂ : Valued.v ((k₂ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1) :
     tameSplit D H v (k₁ * k₂) = tameSplit D H v k₁ * tameSplit D H v k₂ * kpCocycle D H v k₁ k₂ := by
-  sorry
+  apply ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_from_generators D H v ?_
+    k₁ k₂ ⟨hk₁, hd₁⟩ ⟨hk₂, hd₂⟩
+  intro k h hk hh
+  rcases hh with hh | hh | hh
+  · exact tameSplit_mul_triangular D H v hv k h hk.1 hh.2.1 hk.2 hh.2.2 hh.1
+  · obtain ⟨t, ht, rfl⟩ := hh
+    exact tameSplit_mul_lower D H v hv k hk.1 hk.2 t ht
+  · rcases hh with rfl
+    exact tameSplit_mul_weyl D H v hv k hk.1 hk.2
 
 end CocycleThm
 
