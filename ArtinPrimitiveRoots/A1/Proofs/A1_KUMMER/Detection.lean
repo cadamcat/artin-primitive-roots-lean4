@@ -83,6 +83,45 @@ theorem kummer_realization_eq_iff (D : FieldData F) (H : HilbertData F)
     (haloc : ∀ P : FinPlace F, localComponent κa P = kummerLocal D H P (toLoc P a))
     (hbloc : ∀ P : FinPlace F, localComponent κb P = kummerLocal D H P (toLoc P b)) :
     κa = κb ↔ ∃ t : Fˣ, a / b = t ^ 6 := by
-  sorry
+  classical
+  let pairLeft (P : FinPlace F) (x : (P.adicCompletion F)ˣ) :
+      (P.adicCompletion F)ˣ →* rootsOfUnity 6 F :=
+    MonoidHom.mk' (fun c => H.hilb P c x) (fun c d => H.mul_left P c d x)
+  have hdiv (P : FinPlace F) (x : (P.adicCompletion F)ˣ) :
+      H.hilb P (toLoc P (a / b)) x =
+        H.hilb P (toLoc P a) x / H.hilb P (toLoc P b) x := by
+    change pairLeft P x (toLoc P (a / b)) =
+      pairLeft P x (toLoc P a) / pairLeft P x (toLoc P b)
+    rw [map_div, map_div]
+  constructor
+  · intro heq
+    apply hilbert_global_sixth_detection D H (a / b)
+    intro P x
+    have hvalues : kummerLocal D H P (toLoc P a) x =
+        kummerLocal D H P (toLoc P b) x := by
+      rw [← haloc P, ← hbloc P, heq]
+    have hhilb : H.hilb P (toLoc P a) x = H.hilb P (toLoc P b) x := by
+      apply Subtype.ext
+      apply Units.ext
+      apply D.σ0.injective
+      exact congrArg (fun z : ℂˣ => (z : ℂ)) hvalues
+    rw [hdiv, hhilb, div_self']
+  · rintro ⟨t, ht⟩
+    have hlocals (P : FinPlace F) : localComponent κa P = localComponent κb P := by
+      rw [haloc P, hbloc P]
+      apply MonoidHom.ext
+      intro x
+      have hpower : H.hilb P (toLoc P (a / b)) x = 1 :=
+        H.sixth_power P _ x ⟨toLoc P t, by rw [ht, map_pow]⟩
+      rw [hdiv] at hpower
+      have hhilb := div_eq_one.mp hpower
+      change Units.map D.σ0.toMonoidHom (H.hilb P (toLoc P a) x : Fˣ) =
+        Units.map D.σ0.toMonoidHom (H.hilb P (toLoc P b) x : Fˣ)
+      rw [hhilb]
+    apply kummer_char_ext κa κb
+    · intro w x
+      rw [haInf, hbInf]
+    · intro P x
+      exact congrArg (fun f : (P.adicCompletion F)ˣ →* ℂˣ => f x) (hlocals P)
 
 end ArtinPrimitiveRoots.A1.KummerProofs
