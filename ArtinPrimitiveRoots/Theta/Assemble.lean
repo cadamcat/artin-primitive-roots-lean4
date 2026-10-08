@@ -80,7 +80,14 @@ theorem Rderiv_spec {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v :
     (∀ g, ∀ k ∈ P.tc.Kext, Rderiv P m C.theta (g * k) = Rderiv P m C.theta g) ∧
     (∀ g Pd ν, Bornology.IsBounded Pd → MeasurableSet Pd →
       torusCoeff P (Rderiv P m C.theta) g Pd ν = Rderiv P m (fun h => torusCoeff P C.theta h Pd ν) g) := by
-  sorry
+  intro _
+  obtain ⟨hAut, hGen, hRight⟩ :=
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.theta_residue_actions Fam C
+  obtain ⟨hAut', hGen', hRight'⟩ :=
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.rderiv_actions P m C.theta
+      C.jointRoots hAut hGen (hRight hT)
+  exact ⟨hAut', hGen', hRight',
+    ArtinPrimitiveRoots.Proofs.thsol_torusf.rderiv_torusCoeff P m C.theta C.jointRoots⟩
 
 /-- **asm:fourier**: Fourier expansion along `N(F_∞)` of a smooth function, periodic for
 `infEmb 𝔞`, over the dual lattice `{ν : ψ_∞(ν𝔞) = 1} ⊆ F`. C9 of `sol-gate-theta` uses C-infinity
