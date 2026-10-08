@@ -259,6 +259,7 @@ theorem ext_dedekind_zero_count :
       dedekindZeroWindowCount K T ≤ C *
         (Real.log (absoluteDiscriminant K) + Module.finrank ℚ K * Real.log (2 + |T|)) := by
   obtain ⟨C, hC, hbound⟩ := ArtinPrimitiveRoots.Proofs.s7sol_zeros.xi_window_count
+    (ext_digamma_strip (a := 1) (b := 10) (by norm_num))
   refine ⟨C, hC, fun K _ _ T => ?_⟩
   have heq : (fun z : ℂ => if z ∈ nontrivialZeros K ∧ T ≤ z.im ∧ z.im < T + 1 then
       (zeroMultiplicity K z : ℝ) else 0) =
