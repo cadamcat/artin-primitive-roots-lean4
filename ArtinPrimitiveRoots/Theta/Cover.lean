@@ -1655,6 +1655,380 @@ def tameSplit (k : GL (Fin 2) (v.adicCompletion F)) : rootsOfUnity 3 ℂ :=
       (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) h.1.1))
   else 1
 
+private theorem tame_localUnit_iff (u : (v.adicCompletion F)ˣ) :
+    ArtinPrimitiveRoots.Proofs.thsol_tame.LocalUnit v u ↔ Valued.v (u : v.adicCompletion F) = 1 := by
+  exact HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one
+
+private theorem tame_pair_units (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (a b : (v.adicCompletion F)ˣ)
+    (ha : Valued.v (a : v.adicCompletion F) = 1)
+    (hb : Valued.v (b : v.adicCompletion F) = 1) : kpPairing D H v a b = 1 := by
+  change muThree D (H.hilb v a b) = 1
+  rw [ArtinPrimitiveRoots.Proofs.thsol_tame.hilb_local_units H v hv a b
+    ((tame_localUnit_iff v a).mpr ha) ((tame_localUnit_iff v b).mpr hb), muThree_one]
+
+private theorem tame_row_right_unit (k : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hd : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (hc : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1) :
+    Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) = 1 := by
+  have hval (i j : Fin 2) := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk i j)
+  apply le_antisymm (hval 1 1)
+  apply le_of_not_gt
+  intro hsmall
+  have ha : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0 *
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) < 1 := by
+    rw [map_mul]
+    exact lt_of_le_of_lt (mul_le_mul' (hval 0 0) le_rfl) (by simpa using hsmall)
+  have hb : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 1 *
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by
+    rw [map_mul]
+    exact lt_of_le_of_lt (mul_le_mul' (hval 0 1) le_rfl) (by simpa using hc)
+  have hdet : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) < 1 := by
+    rw [Matrix.det_fin_two]
+    exact Valuation.map_sub_lt _ ha hb
+  rw [hd] at hdet
+  exact (lt_irrefl 1) hdet
+
+private theorem tame_ne_zero_of_valuation_one (a : v.adicCompletion F)
+    (ha : Valued.v a = 1) : a ≠ 0 := by
+  intro h
+  rw [h, map_zero] at ha
+  exact zero_ne_one ha
+
+private theorem tame_pair_principal (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (a b : (v.adicCompletion F)ˣ)
+    (hb : Valued.v ((b : v.adicCompletion F) - 1) < 1) : kpPairing D H v a b = 1 := by
+  let O := v.adicCompletionIntegers F
+  let m : Ideal O := IsLocalRing.maximalIdeal O
+  have hbmem : (b : v.adicCompletion F) ∈ O := by
+    apply (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mpr
+    have hsum := (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))).map_add_le
+      hb.le (show Valued.v (1 : v.adicCompletion F) ≤ 1 by simp)
+    simpa using hsum
+  let bO : O := ⟨(b : v.adicCompletion F), hbmem⟩
+  have hmax (z : O) : z ∈ m ↔ Valued.v (z : v.adicCompletion F) < 1 := by
+    exact Valuation.mem_maximalIdeal_iff
+      (v := (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))))
+  have hnear : bO - 1 ∈ m := (hmax _).mpr hb
+  have h6val : v.valuation F (6 : F) = 1 := by
+    apply le_antisymm (v.valuation_le_one (R := 𝓞 F) (K := F) (6 : 𝓞 F))
+    apply le_of_not_gt
+    intro hlt
+    exact hv ((v.valuation_lt_one_iff_mem (K := F) (6 : 𝓞 F)).mp hlt)
+  have h6map : (6 : O) = algebraMap (𝓞 F) O (6 : 𝓞 F) := by
+    exact (map_natCast (algebraMap (𝓞 F) O) 6).symm
+  have hmap6 : ((algebraMap (𝓞 F) O (6 : 𝓞 F) : O) : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (6 : F) :=
+    (v.algebraMap_adicCompletion_eq_algebraMap_adicCompletionIntegers (6 : 𝓞 F)).symm
+  have hval6O : Valued.v ((6 : O) : v.adicCompletion F) = 1 := by
+    rw [h6map, hmap6]
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using h6val
+  have h6not : (6 : O) ∉ m := by
+    intro h
+    have hlt := (hmax (6 : O)).1 h
+    rw [hval6O] at hlt
+    exact (lt_irrefl 1) hlt
+  have h6Unit : IsUnit (6 : O) := IsLocalRing.notMem_maximalIdeal.mp h6not
+  letI : HenselianRing O m := inferInstance
+  obtain ⟨cO, hcpow, _⟩ :=
+    TauCeti.HenselianRing.exists_pow_eq_and_sub_one_mem_of_sub_one_mem
+      (I := m) (J := m) le_rfl (n := 6) h6Unit hnear
+  have hcne : (cO : v.adicCompletion F) ≠ 0 := by
+    intro h
+    have hpow := congrArg (algebraMap O (v.adicCompletion F)) hcpow
+    change (cO : v.adicCompletion F) ^ 6 = (b : v.adicCompletion F) at hpow
+    rw [h, zero_pow (by decide : (6 : ℕ) ≠ 0)] at hpow
+    exact b.ne_zero hpow.symm
+  let c : (v.adicCompletion F)ˣ := Units.mk0 (cO : v.adicCompletion F) hcne
+  have hbpow : b = c ^ 6 := by
+    apply Units.ext
+    exact (congrArg (algebraMap O (v.adicCompletion F)) hcpow).symm
+  have hsymbol := H.skew v a b
+  rw [H.sixth_power v b a ⟨c, hbpow⟩, mul_one] at hsymbol
+  change muThree D (H.hilb v a b) = 1
+  rw [hsymbol, muThree_one]
+
+private theorem tame_lower_c (k : GL (Fin 2) (v.adicCompletion F)) (t : v.adicCompletion F) :
+    ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 =
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t := by
+  simp [lowerM, Matrix.mul_apply, Fin.sum_univ_two]
+
+private theorem tame_lower_d (k : GL (Fin 2) (v.adicCompletion F)) (t : v.adicCompletion F) :
+    ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 =
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 := by
+  simp [lowerM, Matrix.mul_apply, Fin.sum_univ_two]
+
+private theorem tame_lower_det (t : v.adicCompletion F) :
+    detU v (lowerM (v.adicCompletion F) t) = 1 := by
+  apply Units.ext
+  simp [detU, lowerM, Matrix.det_fin_two]
+
+private theorem tameSplit_lower (t : v.adicCompletion F) : tameSplit D H v (lowerM _ t) = 1 := by
+  unfold tameSplit
+  split_ifs with h
+  · rw [tame_lower_det]
+    have hu1 : Units.mk0 ((lowerM (v.adicCompletion F) t :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) h.2 = 1 := by
+      apply Units.ext
+      simp [lowerM]
+    simp only [hu1, div_one, hilb_one_left, muThree_one]
+  · rfl
+
+private theorem tame_lower_symbol_relation (c d t C δ : (v.adicCompletion F)ˣ)
+    (hC : (C : v.adicCompletion F) = c + d * t) :
+    kpPairing D H v (C / (t * δ)) (C / c) =
+      kpPairing D H v (d / δ) C / kpPairing D H v (d / δ) c := by
+  have hsecond : (1 : v.adicCompletion F) - (c / C : (v.adicCompletion F)ˣ) =
+      ((d * t / C : (v.adicCompletion F)ˣ) : v.adicCompletion F) := by
+    simp only [Units.val_div_eq_div_val, Units.val_mul]
+    field_simp
+    linear_combination hC
+  have hn : (1 : v.adicCompletion F) - (c / C : (v.adicCompletion F)ˣ) ≠ 0 := by
+    rw [hsecond]
+    exact Units.ne_zero _
+  have hunit : Units.mk0 ((1 : v.adicCompletion F) - (c / C : (v.adicCompletion F)ˣ)) hn =
+      d * t / C := by
+    apply Units.ext
+    exact hsecond
+  have hpair : kpPairing D H v (c / C) (d * t / C) = 1 := by
+    rw [← hunit]
+    exact kpPairing_st D H v (H.steinberg v) _ hn
+  apply eq_of_div_eq_one
+  calc
+    kpPairing D H v (C / (t * δ)) (C / c) /
+        (kpPairing D H v (d / δ) C / kpPairing D H v (d / δ) c) =
+        (kpPairing D H v (c / C) (d * t / C))⁻¹ := by
+      simp only [kpPairing_div_left, kpPairing_div_right, kpPairing_mul_left,
+        kpPairing_mul_right, kpPairing_self, inv_one, mul_one, one_mul]
+      rw [← kpPairing_inverse_swap D H v c C, ← kpPairing_inverse_swap D H v C t,
+        ← kpPairing_inverse_swap D H v c t, ← kpPairing_inverse_swap D H v C d,
+        ← kpPairing_inverse_swap D H v c d]
+      apply Additive.ofMul.injective
+      simp only [ofMul_mul, ofMul_inv, ofMul_div]
+      abel
+    _ = 1 := by rw [hpair]; simp
+
+private theorem tame_pair_inv_right (a b : (v.adicCompletion F)ˣ) :
+    kpPairing D H v a b⁻¹ = (kpPairing D H v a b)⁻¹ := map_inv (kpPairing D H v a) b
+
+private theorem tameSplit_of_small (k : GL (Fin 2) (v.adicCompletion F))
+    (hc : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0)
+    (hcs : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1)
+    (hd : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0) :
+    tameSplit D H v k = kpPairing D H v
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd / detU v k)
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hc) := by
+  unfold tameSplit
+  rw [dif_pos ⟨⟨hc, hcs⟩, hd⟩]
+  rfl
+
+private theorem tameSplit_lower_small (k : GL (Fin 2) (v.adicCompletion F)) (t : v.adicCompletion F)
+    (hC : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t ≠ 0)
+    (hCs : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t) < 1)
+    (hd : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0) :
+    tameSplit D H v (k * lowerM _ t) = kpPairing D H v
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd / detU v k)
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t) hC) := by
+  have hcn : ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0 := by simpa only [tame_lower_c] using hC
+  have hcv : Valued.v (((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by simpa only [tame_lower_c] using hCs
+  have hdn : ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0 := by simpa only [tame_lower_d] using hd
+  rw [tameSplit_of_small D H v _ hcn hcv hdn, detU_mul, tame_lower_det, mul_one]
+  have hcu : Units.mk0 (((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hcn =
+      Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t) hC := by
+    apply Units.ext
+    exact tame_lower_c v k t
+  have hdu : Units.mk0 (((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hdn =
+      Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd := by
+    apply Units.ext
+    exact tame_lower_d v k t
+  rw [hcu, hdu]
+
+private theorem tame_x_lower (t : v.adicCompletion F) (ht : t ≠ 0) :
+    xU v (lowerM _ t) = Units.mk0 t ht := by
+  apply Units.ext
+  simp [xU, xEntry, lowerM, ht]
+
+private theorem tame_x_lower_product (k : GL (Fin 2) (v.adicCompletion F)) (t : v.adicCompletion F)
+    (hC : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t ≠ 0) :
+    xU v (k * lowerM _ t) = Units.mk0
+      ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t) hC := by
+  apply Units.ext
+  simp [xU, xEntry, tame_lower_c, hC]
+
+private theorem tame_lower_sigma (k : GL (Fin 2) (v.adicCompletion F))
+    (t : v.adicCompletion F) (ht : t ≠ 0) :
+    kpCocycle D H v k (lowerM _ t) =
+      kpPairing D H v (xU v (k * lowerM _ t) / (Units.mk0 t ht * detU v k))
+        (xU v (k * lowerM _ t) / xU v k) := by
+  rw [kpCocycle_pairing, tame_x_lower v t ht, tame_lower_det, kpPairing_one_right, mul_one]
+
+/-- The tame section is multiplicative when the right factor is a small lower unipotent. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_mul_lower
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hd : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (t : v.adicCompletion F) (ht : Valued.v t < 1) :
+    tameSplit D H v (k * lowerM _ t) =
+      tameSplit D H v k * tameSplit D H v (lowerM _ t) * kpCocycle D H v k (lowerM _ t) := by
+  classical
+  by_cases ht0 : t = 0
+  · subst t
+    have hl0 : lowerM (v.adicCompletion F) (0 : v.adicCompletion F) = 1 := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;> simp [lowerM]
+    have hs1 : tameSplit D H v (1 : GL (Fin 2) (v.adicCompletion F)) = 1 := by
+      rw [← hl0]
+      exact tameSplit_lower D H v 0
+    have hσ1 : kpCocycle D H v k (1 : GL (Fin 2) (v.adicCompletion F)) = 1 := by
+      rw [kpCocycle_pairing]
+      simp [detU, kpPairing_one_right]
+    simp [hl0, hs1, hσ1]
+  rw [tameSplit_lower, mul_one]
+  let c0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0
+  let d0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
+  let C0 := c0 + d0 * t
+  let δ := detU v k
+  let tU : (v.adicCompletion F)ˣ := Units.mk0 t ht0
+  have hvδ : Valued.v (δ : v.adicCompletion F) = 1 := hd
+  have hdle : Valued.v d0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk 1 1)
+  have hdt : Valued.v (d0 * t) < 1 := by
+    rw [map_mul]
+    exact lt_of_le_of_lt (mul_le_mul' hdle le_rfl) (by simpa using ht)
+  have hσ := tame_lower_sigma D H v k t ht0
+  change kpCocycle D H v k (lowerM _ t) =
+    kpPairing D H v (xU v (k * lowerM _ t) / (tU * δ))
+      (xU v (k * lowerM _ t) / xU v k) at hσ
+  by_cases hcs : Valued.v c0 < 1
+  · have hvd : Valued.v d0 = 1 := tame_row_right_unit v k hk hd hcs
+    have hd0 : d0 ≠ 0 := tame_ne_zero_of_valuation_one v d0 hvd
+    let dU : (v.adicCompletion F)ˣ := Units.mk0 d0 hd0
+    have hvdU : Valued.v (dU : v.adicCompletion F) = 1 := hvd
+    have hvdδ : Valued.v ((dU / δ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvdU, hvδ]
+      simp
+    have hpdd : kpPairing D H v (dU / δ) dU = 1 :=
+      tame_pair_units D H v hv _ _ hvdδ hvdU
+    have hCs : Valued.v C0 < 1 := Valuation.map_add_lt _ hcs hdt
+    by_cases hc0 : c0 = 0
+    · have hCn : C0 ≠ 0 := by
+        dsimp [C0]
+        rw [hc0, zero_add]
+        exact mul_ne_zero hd0 ht0
+      let CU : (v.adicCompletion F)ˣ := Units.mk0 C0 hCn
+      have hCU : CU = dU * tU := by
+        apply Units.ext
+        simp [CU, C0, hc0, dU, tU]
+      have hxk : xU v k = dU := by
+        apply Units.ext
+        simp [xU, xEntry, c0, d0, dU, hc0]
+      have hxK : xU v (k * lowerM _ t) = CU := tame_x_lower_product v k t hCn
+      have hsk : tameSplit D H v k = 1 := by
+        have hz : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := hc0
+        simp [tameSplit, hz]
+      have hsK : tameSplit D H v (k * lowerM _ t) = kpPairing D H v (dU / δ) CU :=
+        tameSplit_lower_small D H v k t hCn hCs hd0
+      rw [hCU, kpPairing_mul_right, hpdd, one_mul] at hsK
+      rw [hxk, hxK, hCU] at hσ
+      have hq1 : (dU * tU) / (tU * δ) = dU / δ := by
+        simp [div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+      have hq2 : (dU * tU) / dU = tU := by simp [mul_comm]
+      rw [hq1, hq2] at hσ
+      rw [hsK, hsk, hσ, one_mul]
+    · let cU : (v.adicCompletion F)ˣ := Units.mk0 c0 hc0
+      have hxk : xU v k = cU := by
+        apply Units.ext
+        simp [xU, xEntry, cU, c0, hc0]
+      have hsk : tameSplit D H v k = kpPairing D H v (dU / δ) cU :=
+        tameSplit_of_small D H v k hc0 hcs hd0
+      by_cases hC0 : C0 = 0
+      · have hcu : cU = -(dU * tU) := by
+          apply Units.ext
+          change c0 = -(d0 * t)
+          dsimp [C0] at hC0
+          linear_combination hC0
+        have hxK : xU v (k * lowerM _ t) = dU := by
+          have hz : ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+              Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by
+            simpa only [tame_lower_c] using hC0
+          apply Units.ext
+          simp [xU, xEntry, hz, tame_lower_d, dU, d0]
+        have hsK : tameSplit D H v (k * lowerM _ t) = 1 := by
+          have hz : ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+              Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by
+            simpa only [tame_lower_c] using hC0
+          simp [tameSplit, hz]
+        rw [hcu, kpPairing_neg_mul_right, kpPairing_mul_right, hpdd, one_mul] at hsk
+        rw [hxk, hxK, hcu] at hσ
+        have hq : dU / (-(dU * tU)) = -tU⁻¹ := by
+          apply Units.ext
+          simp only [Units.val_div_eq_div_val, Units.val_neg, Units.val_mul, Units.val_inv_eq_inv_val]
+          field_simp
+        have ha : dU / (tU * δ) = (dU / δ) / tU := by
+          simp [div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+        rw [hq, kpPairing_neg_mul_right, tame_pair_inv_right, ha,
+          kpPairing_div_left, kpPairing_self, inv_one, mul_one] at hσ
+        rw [hsK, hsk, hσ]
+        simp
+      · let CU : (v.adicCompletion F)ˣ := Units.mk0 C0 hC0
+        have hxK : xU v (k * lowerM _ t) = CU := tame_x_lower_product v k t hC0
+        have hsK : tameSplit D H v (k * lowerM _ t) = kpPairing D H v (dU / δ) CU :=
+          tameSplit_lower_small D H v k t hC0 hCs hd0
+        have hC : (CU : v.adicCompletion F) = cU + dU * tU := by rfl
+        rw [hxk, hxK, tame_lower_symbol_relation D H v cU dU tU CU δ hC] at hσ
+        rw [hsK, hsk, hσ]
+        simp [mul_comm]
+  · have hvcle : Valued.v c0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk 1 0)
+    have hvc : Valued.v c0 = 1 := le_antisymm hvcle (le_of_not_gt hcs)
+    have hc0 : c0 ≠ 0 := tame_ne_zero_of_valuation_one v c0 hvc
+    have hvC : Valued.v C0 = 1 := by
+      have heq : Valued.v c0 ≠ Valued.v (d0 * t) := by rw [hvc]; exact ne_of_gt hdt
+      rw [show C0 = c0 + d0 * t by rfl, Valuation.map_add_of_distinct_val _ heq, hvc,
+        max_eq_left hdt.le]
+    have hC0 : C0 ≠ 0 := tame_ne_zero_of_valuation_one v C0 hvC
+    let cU : (v.adicCompletion F)ˣ := Units.mk0 c0 hc0
+    let CU : (v.adicCompletion F)ˣ := Units.mk0 C0 hC0
+    have hxk : xU v k = cU := by
+      apply Units.ext
+      simp [xU, xEntry, cU, c0, hc0]
+    have hxK : xU v (k * lowerM _ t) = CU := tame_x_lower_product v k t hC0
+    have hsk : tameSplit D H v k = 1 := by
+      have hn : ¬ Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := hcs
+      simp [tameSplit, hn]
+    have hsK : tameSplit D H v (k * lowerM _ t) = 1 := by
+      have hCnots : ¬ Valued.v C0 < 1 := by rw [hvC]; exact lt_irrefl _
+      have hn : ¬ Valued.v (((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by
+        simpa only [tame_lower_c] using hCnots
+      unfold tameSplit
+      rw [dif_neg (fun h => hn h.1.2)]
+    have hratio : ((CU / cU : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1 = d0 * t / c0 := by
+      simp only [Units.val_div_eq_div_val, Units.val_mk0]
+      change C0 / c0 - 1 = d0 * t / c0
+      field_simp
+      dsimp [C0]
+      ring
+    have hnear : Valued.v (((CU / cU : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1) < 1 := by
+      rw [hratio, map_div₀, hvc, div_one]
+      exact hdt
+    rw [hxk, hxK, tame_pair_principal D H v hv _ _ hnear] at hσ
+    rw [hsk, hsK, hσ]
+    simp
+
 theorem tameSplit_mul (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k₁ k₂ : GL (Fin 2) (v.adicCompletion F))
     (hk₁ : ∀ i j, (k₁ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
     (hk₂ : ∀ i j, (k₂ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
