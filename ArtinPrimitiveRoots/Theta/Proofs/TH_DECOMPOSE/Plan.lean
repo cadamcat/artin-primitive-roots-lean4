@@ -1,7 +1,7 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.QuotientGeometry
-import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.UnitaryScalar
+import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.ArchHeight
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
@@ -153,6 +153,8 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
     obtain ⟨r, hr, hf, hi⟩ := hk
     rw [← hr]
     exact scalarOf_right_unitary_lift P G (sec s) (hC s) g r hf hi
+  have hheight (s : ℂ) (γ : Matrix.SpecialLinearGroup (Fin 2) ℂ)
+      (x : ℂ) (y : ℝ) (hy : 0 < y) := sphC_sl2_height s γ x y hy
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/
