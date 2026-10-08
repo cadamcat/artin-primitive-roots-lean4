@@ -653,6 +653,110 @@ theorem scalar_cusp_height_majorant
         (Finset.single_le_sum (fun a _ => hAi a) (Finset.mem_univ i)) hCf)
       (hheight_nonneg i γ)
 
+/-- Every nonzero scalar summand has a cusp representative in one finite torus family. -/
+theorem finite_supported_cusp_representatives
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s)
+    (Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))
+    {ι : Type} [Fintype ι] (σ : ι → Matrix.SpecialLinearGroup (Fin 2) F)
+    (hσ : Function.Surjective
+      (fun p : (Σ i, ArtinPrimitiveRoots.A1.Spec.CuspCosets F Γ (σ i)) =>
+        Quotient.mk
+          (QuotientGroup.rightRel (ArtinPrimitiveRoots.A1.Spec.borelSL F))
+          ((σ p.1)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F
+            ((p.2.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))))
+    (r : P.RP) :
+    ∃ U : Set (Fˣ ⧸ G.Δ), U.Finite ∧
+      ∀ β : Quotient (QuotientGroup.rightRel (Bstar G)),
+        scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out β) * P.q r) ≠ 0 →
+        ∃ (i : ι) (q : ArtinPrimitiveRoots.A1.Spec.CuspCosets F Γ (σ i))
+          (δ : Fˣ ⧸ G.Δ), δ ∈ U ∧
+            β = Quotient.mk (QuotientGroup.rightRel (Bstar G))
+              (diagGL (Quotient.out δ) * Matrix.SpecialLinearGroup.toGL
+                ((σ i)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F
+                  ((q.out : Γ) : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F)))) := by
+  classical
+  obtain ⟨U, hU, hsupport⟩ := finite_integral_translate_torus_support P G Fs
+    (fun i => Matrix.SpecialLinearGroup.toGL ((σ i)⁻¹)) r
+  have hdiag_mul (a d : Fˣ) : diagGL (a * d) = diagGL a * diagGL d := by
+    apply Units.ext
+    ext j l
+    fin_cases j <;> fin_cases l <;>
+      simp [diagGL, Matrix.mul_apply, Fin.sum_univ_two]
+  have hdiag_mem (a : Fˣ) (ha : a ∈ G.Δ) : diagGL a ∈ Bstar G := by
+    change (diagGL a : Matrix (Fin 2) (Fin 2) F) 1 0 = 0 ∧
+      ∃ d ∈ G.Δ, (diagGL a : Matrix (Fin 2) (Fin 2) F) 0 0 =
+        (d : F) * (diagGL a : Matrix (Fin 2) (Fin 2) F) 1 1
+    exact ⟨by simp [diagGL], a, ha, by simp [diagGL]⟩
+  have hcomp (a : Fˣ) (x : P.RP) (v : FinPlace F) :
+      P.compF v (P.ratRP (diagGL a) * x) =
+        (P.loc v).a (toLoc v a) * P.compF v x := by
+    have hdiag : Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (diagGL a) = diagM (v.adicCompletion F) (toLoc v a) := by
+      apply Units.ext
+      ext j l
+      fin_cases j <;> fin_cases l <;>
+        simp [Matrix.GeneralLinearGroup.map, diagGL, diagM, toLoc]
+    rw [map_mul, P.compF_ratRP, hdiag, ← (P.loc v).sec_a]
+  refine ⟨U, hU, ?_⟩
+  intro β hβ
+  obtain ⟨i, q, a, b, hb, hfactor⟩ :=
+    rational_cusp_factorization P G Γ σ hσ (Quotient.out β)
+  let γ : Matrix.SpecialLinearGroup (Fin 2) (𝓞 F) := (q.out : Γ)
+  let k : GL (Fin 2) F := Matrix.SpecialLinearGroup.toGL
+    ((σ i)⁻¹ * ArtinPrimitiveRoots.A1.Spec.toSLF F γ)
+  let δ : Fˣ ⧸ G.Δ := QuotientGroup.mk a
+  let d : Fˣ := Quotient.out δ
+  let e : Fˣ := a * d⁻¹
+  have he : e ∈ G.Δ := by
+    have heq : (QuotientGroup.mk a : Fˣ ⧸ G.Δ) = QuotientGroup.mk d :=
+      (QuotientGroup.out_eq' δ).symm
+    simpa only [div_eq_mul_inv] using (QuotientGroup.eq_iff_div_mem.mp heq)
+  let b' : GL (Fin 2) F := b * diagGL e
+  have hb' : b' ∈ Bstar G := (Bstar G).mul_mem hb (hdiag_mem e he)
+  have had : a = e * d := by dsimp only [e]; group
+  have hfactor' : Quotient.out β = b' * (diagGL d * k) := by
+    change Quotient.out β = b * diagGL a * k at hfactor
+    rw [hfactor, had, hdiag_mul]
+    dsimp only [b']
+    group
+  have hscalar :
+      scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out β) * P.q r) =
+        scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL d * k) * P.q r) := by
+    rw [hfactor', map_mul, mul_assoc]
+    exact (scalarOf_invariance P G Fs).1 b' hb' _
+  let x : P.RP := P.ratRP k * r
+  let y : P.RP := P.ratRP (diagGL d) * x
+  have hq : P.q y = P.tc.rat (diagGL d * k) * P.q r := by
+    simp only [y, x, map_mul, P.q_ratRP, mul_assoc]
+  have hnonzero : scalarOf P G Fs.f Fs.fC (P.q y) ≠ 0 := by
+    rw [hq]
+    exact fun h => hβ (hscalar.trans h)
+  rw [(scalarOf_q P G Fs y).2] at hnonzero
+  have hfinite :
+      (∏ᶠ v, G.lam v (Fs.f v ((P.loc v).a (toLoc v d) * P.compF v x))) ≠ 0 := by
+    simpa only [y, hcomp] using (mul_ne_zero_iff.mp hnonzero).1
+  have hk : k = Matrix.SpecialLinearGroup.toGL ((σ i)⁻¹) *
+      Matrix.SpecialLinearGroup.toGL (ArtinPrimitiveRoots.A1.Spec.toSLF F γ) := by
+    dsimp only [k]
+    rw [map_mul]
+  have hδ : δ ∈ U := by
+    apply hsupport i γ
+    change (∏ᶠ v, G.lam v (Fs.f v ((P.loc v).a (toLoc v d) *
+      P.compF v (P.ratRP (Matrix.SpecialLinearGroup.toGL ((σ i)⁻¹) *
+        Matrix.SpecialLinearGroup.toGL (ArtinPrimitiveRoots.A1.Spec.toSLF F γ)) * r)))) ≠ 0
+    simpa only [x, hk] using hfinite
+  refine ⟨i, q, δ, hδ, ?_⟩
+  change β = Quotient.mk (QuotientGroup.rightRel (Bstar G)) (diagGL d * k)
+  calc
+    β = Quotient.mk (QuotientGroup.rightRel (Bstar G)) (Quotient.out β) :=
+      (Quotient.out_eq β).symm
+    _ = _ := by
+      apply Quotient.sound
+      apply QuotientGroup.rightRel_apply.mpr
+      rw [hfactor']
+      simpa only [mul_inv_rev, mul_assoc, mul_inv_cancel_left] using (Bstar G).inv_mem hb'
+
 /-- Finite cusp majorants after bounding the complex components by real spherical sections. -/
 theorem eisenstein_finite_majorants (P : CoverPackage D S H A) (G : GlobalDatum P) {s : ℂ}
     (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
