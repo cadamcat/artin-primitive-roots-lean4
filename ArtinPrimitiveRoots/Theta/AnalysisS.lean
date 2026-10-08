@@ -151,6 +151,144 @@ def thetaV (μ : ∀ v : FinPlace F, LocHaar v) (v0 : InfinitePlace F)
     ∏ w : InfinitePlace F, ((Complex.normSq (y.2 w) : ℝ) : ℂ) *
       (besselK (1 / 3) (cS w * ‖y.2 w‖) : ℂ)) u
 
+private def smoothBase (U : Set (∀ v : S.Sf, v.1.adicCompletion F))
+    (cS : InfinitePlace F → ℝ) (y : S.FS) : ℂ :=
+  (if y.1 ∈ U then (1 : ℂ) else 0) *
+    ∏ w : InfinitePlace F, (Complex.normSq (y.2 w) : ℂ) *
+      (besselK (1 / 3) (cS w * ‖y.2 w‖) : ℂ)
+
+private def smoothWeighted (U : Set (∀ v : S.Sf, v.1.adicCompletion F))
+    (cS : InfinitePlace F → ℝ) (s : ℂ) (y : S.FS) : ℂ :=
+  (if y.1 ∈ U then (1 : ℂ) else 0) *
+    ∏ w : InfinitePlace F, (Complex.normSq (y.2 w) : ℂ) ^ s *
+      (Complex.normSq (y.2 w) : ℂ) * (besselK (1 / 3) (cS w * ‖y.2 w‖) : ℂ)
+
+private theorem smoothWeightedFactor (U : Set (∀ v : S.Sf, v.1.adicCompletion F))
+    (cS : InfinitePlace F → ℝ) (s : ℂ) (y : S.FS) :
+    smoothWeighted S U cS s y =
+      ((∏ w : InfinitePlace F, Complex.normSq (y.2 w) : ℝ) : ℂ) ^ s *
+        smoothBase S U cS y := by
+  have hp : ((∏ w : InfinitePlace F, Complex.normSq (y.2 w) : ℝ) : ℂ) ^ s =
+      ∏ w : InfinitePlace F, (Complex.normSq (y.2 w) : ℂ) ^ s := by
+    induction (Finset.univ : Finset (InfinitePlace F)) using Finset.induction_on with
+    | empty => simp
+    | @insert w t hw ih =>
+      rw [Finset.prod_insert hw, Finset.prod_insert hw, Complex.ofReal_mul,
+        Complex.mul_cpow_ofReal_nonneg (Complex.normSq_nonneg _)
+          (Finset.prod_nonneg fun w _ => Complex.normSq_nonneg _) s, ih]
+  dsimp only [smoothWeighted, smoothBase]
+  rw [hp]
+  simp_rw [Finset.prod_mul_distrib]
+  ring
+
+private theorem smoothFiniteUnitProduct (U : Set (∀ v : S.Sf, v.1.adicCompletion F))
+    (hUunit : ∀ y ∈ U, ∀ v : S.Sf, Valued.v (y v) = 1)
+    (y : ∀ v : S.Sf, v.1.adicCompletion F) (hy : y ∈ U) :
+    ∏ v : S.Sf, absFin v.1 (y v) = 1 := by
+  apply Finset.prod_eq_one
+  intro v _
+  rw [absFin, dite_eq_left (HeightOneSpectrum.absNorm_ne_zero v.1), hUunit y hy v,
+    map_one, NNReal.coe_one]
+
+private theorem smoothSheetNormProduct (v0 : InfinitePlace F) (u : ℝ)
+    (p : (∀ v : S.Sf, v.1.adicCompletion F) × ({w : InfinitePlace F // w ≠ v0} → ℂ))
+    (θ : ℝ) (hfin : ∏ v : S.Sf, absFin v.1 (p.1 v) = 1) (hu : 0 < u)
+    (hp : 0 < ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w)) :
+    ∏ w : InfinitePlace F, Complex.normSq ((sheetPoint S v0 u p θ).2 w) = u := by
+  have he : Complex.normSq (Complex.exp (2 * Real.pi * Complex.I * θ)) = 1 := by
+    rw [Complex.normSq_eq_norm_sq, Complex.norm_exp]
+    simp
+  have hd : Complex.normSq ((sheetPoint S v0 u p θ).2 v0) =
+      u / ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w) := by
+    simp only [sheetPoint]
+    change Complex.normSq ((Real.sqrt (u / ((∏ v : S.Sf, absFin v.1 (p.1 v)) *
+      ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w))) : ℂ) *
+      Complex.exp (2 * Real.pi * Complex.I * θ)) = _
+    rw [Complex.normSq_mul, he, mul_one, Complex.normSq_ofReal, hfin, one_mul,
+      Real.mul_self_sqrt (div_nonneg hu.le hp.le)]
+  have hf : (∏ w : {w : InfinitePlace F // w ≠ v0},
+      Complex.normSq ((sheetPoint S v0 u p θ).2 w.1)) =
+      ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w) := by
+    apply Finset.prod_congr rfl
+    intro w _
+    simp [sheetPoint, w.2]
+  rw [Fintype.prod_eq_mul_prod_compl v0,
+    Finset.prod_subtype (p := fun w : InfinitePlace F => w ≠ v0) ({v0}ᶜ) (fun w => by simp)
+      (fun w => Complex.normSq ((sheetPoint S v0 u p θ).2 w)), hf, hd]
+  exact div_mul_cancel₀ u hp.ne'
+
+private theorem smoothPointWeight (v0 : InfinitePlace F)
+    (U : Set (∀ v : S.Sf, v.1.adicCompletion F))
+    (hUunit : ∀ y ∈ U, ∀ v : S.Sf, Valued.v (y v) = 1)
+    (cS : InfinitePlace F → ℝ) (s : ℂ) (u : ℝ) (hu : 0 < u)
+    (p : (∀ v : S.Sf, v.1.adicCompletion F) × ({w : InfinitePlace F // w ≠ v0} → ℂ))
+    (θ : ℝ) :
+    smoothWeighted S U cS s (sheetPoint S v0 u p θ) =
+      (u : ℂ) ^ s * smoothBase S U cS (sheetPoint S v0 u p θ) := by
+  rw [smoothWeightedFactor]
+  by_cases hy : p.1 ∈ U
+  · have hfin := smoothFiniteUnitProduct S U hUunit p.1 hy
+    by_cases hp : (∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w)) = 0
+    · have hd : (sheetPoint S v0 u p θ).2 v0 = 0 := by simp [sheetPoint, hp]
+      have hbase : smoothBase S U cS (sheetPoint S v0 u p θ) = 0 := by
+        unfold smoothBase
+        have hz : (∏ w : InfinitePlace F,
+            (Complex.normSq ((sheetPoint S v0 u p θ).2 w) : ℂ) *
+              (besselK (1 / 3) (cS w * ‖(sheetPoint S v0 u p θ).2 w‖) : ℂ)) = 0 :=
+          Finset.prod_eq_zero (Finset.mem_univ v0) (by rw [hd]; simp)
+        rw [hz, mul_zero]
+      rw [hbase, mul_zero, mul_zero]
+    · have hpos : 0 < ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w) :=
+        lt_of_le_of_ne (Finset.prod_nonneg fun w _ => Complex.normSq_nonneg _) (Ne.symm hp)
+      rw [smoothSheetNormProduct S v0 u p θ hfin hu hpos]
+  · have hbase : smoothBase S U cS (sheetPoint S v0 u p θ) = 0 := by
+      change (if p.1 ∈ U then (1 : ℂ) else 0) * _ = 0
+      rw [ite_eq_right hy, zero_mul]
+    rw [hbase, mul_zero, mul_zero]
+
+private theorem smoothSheetWeight (μ : ∀ v : FinPlace F, LocHaar v)
+    (v0 : InfinitePlace F) (U : Set (∀ v : S.Sf, v.1.adicCompletion F))
+    (hUunit : ∀ y ∈ U, ∀ v : S.Sf, Valued.v (y v) = 1)
+    (cS : InfinitePlace F → ℝ) (s : ℂ) (u : ℝ) (hu : 0 < u) :
+    sheetInt S μ v0 (smoothWeighted S U cS s) u =
+      (u : ℂ) ^ s * thetaV S μ v0 U cS u := by
+  unfold sheetInt thetaV
+  simp_rw [smoothPointWeight S v0 U hUunit cS s u hu, integral_const_mul]
+  rfl
+
+/-- The sheet Mellin transform equals the product of all local weighted Bessel integrals,
+with the disintegration factor pi retained explicitly. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_smooth.bessel_sheet_mellin
+    [IsTotallyComplex F] (μ : ∀ v : FinPlace F, LocHaar v)
+    (v0 : InfinitePlace F) (U : Set (∀ v : S.Sf, v.1.adicCompletion F))
+    (hUo : IsOpen U) (hUc : IsCompact U)
+    (hU1 : (1 : ∀ v : S.Sf, v.1.adicCompletion F) ∈ U)
+    (hUunit : ∀ y ∈ U, ∀ v : S.Sf, Valued.v (y v) = 1)
+    (cS : InfinitePlace F → ℝ) (hcS : ∀ w, 0 < cS w)
+    (s : ℂ) (hs : -(5 / 6 : ℝ) < s.re) :
+    (Real.pi : ℂ) * mellin (thetaV S μ v0 U cS) s =
+      ((Measure.pi (fun v : S.Sf => mulHaarFin (μ v.1)) U).toReal : ℂ) *
+        ∏ w : InfinitePlace F, (Real.pi : ℂ) *
+          ((2 : ℂ) ^ (2 * s + 1) * (cS w : ℂ) ^ (-2 * s - 2) *
+            Complex.Gamma (s + 5 / 6) * Complex.Gamma (s + 7 / 6)) := by
+  obtain ⟨hi, hv⟩ := ArtinPrimitiveRoots.Proofs.thsol_smooth.bessel_product_mellin
+    S μ U hUo hUc hU1 hUunit cS hcS s hs
+  have hi' : Integrable (smoothWeighted S U cS s) (mulHaarS S μ) := hi
+  have hd := sheet_disintegration S μ v0 (smoothWeighted S U cS s) hi'
+  have hr : (∫ u in Set.Ioi (0 : ℝ),
+      sheetInt S μ v0 (smoothWeighted S U cS s) u / u) =
+      mellin (thetaV S μ v0 U cS) s := by
+    unfold mellin
+    apply setIntegral_congr_fun measurableSet_Ioi
+    intro u hu
+    change sheetInt S μ v0 (smoothWeighted S U cS s) u / (u : ℂ) =
+      (u : ℂ) ^ (s - 1) * thetaV S μ v0 U cS u
+    rw [smoothSheetWeight S μ v0 U hUunit cS s u hu]
+    rw [Complex.cpow_sub s 1 (Complex.ofReal_ne_zero.mpr (ne_of_gt hu)), Complex.cpow_one]
+    exact mul_div_right_comm _ _ _
+  rw [hr] at hd
+  exact hd.symm.trans hv
+
 /-- **lem:gaussian-smoothing** (03:671–775), for `U` as in `U_spec` (open compact, local units)
 and `cS > 0`: (i) `V̂(s) = C₀A₀^s[Γ(s+5/6)Γ(s+7/6)]^r` for `Re s > -5/6`; (ii) a kernel `𝒦` with
 `|(T∂_T)^j 𝒦| ≤ C min(T^N, T^{-N})`, `∫𝒦(T)V(uT)dT/T = P_G(u)`, and `𝒦̂(-s) = e^{s²}/V̂(s)`. C9
