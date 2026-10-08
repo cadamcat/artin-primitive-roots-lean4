@@ -750,7 +750,45 @@ theorem detector_identity (U : ℝ) (hU : 1 ≤ U) (f : Ideal (𝓞 K) → ℂ)
           (-1 : ℤ) ^ T.card else 0) = (-1 : ℤ) ^ T.card
         exact if_pos (hTnorm T hT)
       _ = 0 := Finset.sum_powerset_neg_one_pow_card_of_nonempty hPne
-  · sorry
+  · intro I hI
+    classical
+    let S := detectorCutoffSet (K := K) U
+    let T := S.filter (fun D => D ∣ I)
+    have hcoeff : (detectorCoeff U I : ℂ) =
+        ∑ D ∈ S, if D ∣ I then (idealMoebius D : ℂ) else 0 := by
+      rw [detectorCoeff_divisor_sum U hU I hI]
+      norm_cast
+    rw [hcoeff]
+    have hsum : (∑ D ∈ S, if D ∣ I then (idealMoebius D : ℂ) else 0) =
+        ∑ D ∈ T, (idealMoebius D : ℂ) := by
+      dsimp [T]
+      rw [← Finset.sum_filter]
+    rw [hsum]
+    have hnormI : 0 < Ideal.absNorm I := by
+      apply Nat.pos_of_ne_zero
+      intro hzero
+      exact hI (Ideal.absNorm_eq_zero_iff.mp hzero)
+    have hdivFinite : {D : Ideal (𝓞 K) | D ∣ I}.Finite := by
+      refine (Ideal.finite_setOfPred_absNorm_le (S := 𝓞 K) (Ideal.absNorm I)).subset ?_
+      intro D hD
+      simp only [Set.mem_setOf_eq]
+      exact Nat.le_of_dvd hnormI (map_dvd Ideal.absNorm hD)
+    have hTsubset : (T : Set (Ideal (𝓞 K))) ⊆ {D | D ∣ I} := by
+      intro D hD
+      exact (Finset.mem_filter.mp (Finset.mem_coe.mp hD)).2
+    have hTcard : T.card ≤ idealDivisorCount I := by
+      dsimp [idealDivisorCount]
+      calc
+        T.card = Set.ncard (T : Set (Ideal (𝓞 K))) := by simp
+        _ ≤ Set.ncard {D : Ideal (𝓞 K) | D ∣ I} :=
+          Set.ncard_le_ncard hTsubset hdivFinite
+    calc
+      ‖∑ D ∈ T, (idealMoebius D : ℂ)‖ ≤
+          ∑ D ∈ T, ‖(idealMoebius D : ℂ)‖ := norm_sum_le _ _
+      _ ≤ ∑ _D ∈ T, (1 : ℝ) :=
+        Finset.sum_le_sum fun D _ => detectorIdealMoebius_norm_le_one D
+      _ = T.card := by simp
+      _ ≤ idealDivisorCount I := by exact_mod_cast hTcard
 
 /-! ## §3 The principal signal and its Mellin transform (06:458-476, 06:691-752) -/
 
