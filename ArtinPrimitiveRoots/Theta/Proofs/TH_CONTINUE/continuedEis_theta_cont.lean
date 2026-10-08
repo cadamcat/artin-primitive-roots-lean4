@@ -1,5 +1,5 @@
 import ArtinPrimitiveRoots.Theta.Proofs.TH_CONTINUE.Defs
-import ArtinPrimitiveRoots.Proofs.th_continue_b.ThetaMatrixSmooth
+import ArtinPrimitiveRoots.Proofs.th_continue_b.ThetaResidual
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
