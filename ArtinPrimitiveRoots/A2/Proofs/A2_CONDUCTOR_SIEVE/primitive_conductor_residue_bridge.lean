@@ -1836,6 +1836,53 @@ private theorem conductorResidueCharacter_local_transfer
   have hunit : (ω.loc v u.val)⁻¹ = 1 := Units.ext (by simpa using hcast)
   exact inv_eq_one.mp hunit
 
+private theorem conductorResidueCharacter_conductor_lower
+    (S : A1.SData F CE condη) (q : S.ExtIdeal)
+    (ω : A1.HeckeChar F) (f : Ideal (𝓞 F)) (hcond : ω.ConductorDvd f)
+    (J : Ideal (𝓞 F)) (hJ : ConductorSupportedAtS S J)
+    (hfactor : f = J * q.1)
+    (lambdaq : MulChar (ConductorResidueRing q) ℂ)
+    (hLambda : ∀ (b : 𝓞 F) (hb0 : b ≠ 0)
+      (hb : ∀ w : A1.FinPlace F, w.asIdeal ∣ q.1 → b ∉ w.asIdeal)
+      (y : (ConductorResidueRing q)ˣ),
+      Ideal.Quotient.mk q.1 b = (y : ConductorResidueRing q) →
+      lambdaq (y : ConductorResidueRing q) =
+        (((∏ w : conductorPrimeSupport q.1 q.2.1,
+          ω.loc w.1 (conductorLocalIntegerUnitOfOElement w.1 b hb0
+            (hb w.1 ((mem_conductorPrimeSupport q.1 q.2.1 w.1).mp w.2))).val)
+              : ℂˣ)⁻¹ : ℂ))
+    (K : Ideal (𝓞 F)) (hK : K ≠ ⊥) (hqK : q.1 ≤ K)
+    (hkill : ∀ y : (ConductorResidueRing q)ˣ,
+      (y : ConductorResidueRing q) - 1 ∈ Ideal.map (Ideal.Quotient.mk q.1) K →
+      lambdaq (y : ConductorResidueRing q) = 1) :
+    ω.ConductorDvd (J * K) := by
+  intro v u hu huinv hbound
+  by_cases hvq : v.asIdeal ∣ q.1
+  · have hvS : v ∉ S.Sf := by
+      intro hv
+      exact q.2.2 v hv (Ideal.dvd_iff_le.mp hvq)
+    have hnotJ : ¬ v.asIdeal ∣ J := fun h => hvS (hJ.2 v h)
+    have hJexp := conductor_idealExp_zero_of_not_dvd J hJ.1 v hnotJ
+    have hLowerExp : A1.idealExp v (J * K) = A1.idealExp v K := by
+      rw [conductor_idealExp_mul v J K hJ.1 hK, hJexp, zero_add]
+    let uI : (v.adicCompletionIntegers F).units :=
+      ⟨u, (Submonoid.mem_units_iff (v.adicCompletionIntegers F).toSubmonoid u).mpr
+        ⟨hu, huinv⟩⟩
+    apply conductorResidueCharacter_local_transfer S q ω f hcond
+      (conductorExteriorExp_eq_f S J q.1 f hJ q.2 hfactor)
+      lambdaq hLambda K hK hqK hkill v hvq uI
+    simpa only [hLowerExp] using hbound
+  · have hnotK : ¬ v.asIdeal ∣ K := by
+      intro hdiv
+      exact hvq (Ideal.dvd_iff_le.mpr (hqK.trans (Ideal.dvd_iff_le.mp hdiv)))
+    have hqexp := conductor_idealExp_zero_of_not_dvd q.1 q.2.1 v hvq
+    have hKexp := conductor_idealExp_zero_of_not_dvd K hK v hnotK
+    have hfExp : A1.idealExp v f = A1.idealExp v (J * K) := by
+      rw [hfactor, conductor_idealExp_mul v J q.1 hJ.1 q.2.1,
+        conductor_idealExp_mul v J K hJ.1 hK, hqexp, hKexp]
+    apply hcond v u hu huinv
+    simpa only [hfExp] using hbound
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
