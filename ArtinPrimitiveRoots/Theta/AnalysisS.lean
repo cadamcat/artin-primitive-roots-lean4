@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.Contour
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.LogKernel
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.Decay
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.PositiveKernel
+import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.MellinKernel
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.LocalMellin
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.FiniteHaar
 import ArtinPrimitiveRoots.Theta.Proofs.TH_SMOOTH.WeightedHaar
