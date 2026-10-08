@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».CubicQuotient
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».FiniteInduction
 
 set_option autoImplicit false
 
