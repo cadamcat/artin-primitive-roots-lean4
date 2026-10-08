@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
@@ -1368,6 +1369,34 @@ private theorem po_probe_low_log_family :
   exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_log_family D S R.sheets W.W0 W.W1
     W.W0_compact W.W0_units W.W1_compact W.W1_positive_support W.W1_smooth.continuous
     W.W1_nonzero (po_probe_low_log_regular R W)
+
+private theorem po_probe_low_fourier :
+    ∃ T : ℝ, 0 < T ∧ ∃ K : Set S.FSˣ, IsCompact K ∧
+      ∃ c : ℤ → S.FS → ℂ, ∃ bound : ℤ → ℝ,
+        (∀ j, 0 ≤ bound j) ∧ Summable bound ∧
+        (∀ j, Continuous (c j)) ∧
+        (∀ j x, ‖c j x‖ ≤ bound j) ∧
+        (∀ j x, x ∉ (Units.val : S.FSˣ → S.FS) '' K → c j x = 0) ∧
+        ∀ v ∈ tsupport W.W1, ∀ x : S.FS,
+          ((v ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * W.W1 v *
+              W.W0 (x * ((R.sheets.ellU v)⁻¹ : S.FSˣ).val) =
+            ∑' j : ℤ, c j x * Complex.exp
+              (((2 * Real.pi : ℝ) : ℂ) * Complex.I * (j : ℂ) *
+                (Real.log v : ℂ) / (T : ℂ)) := by
+  obtain ⟨lo, hi, C0, C2, hlohi, hC0, hC2, K, hK, hlog, hsmooth,
+    hcontinuous, hcontinuous2, hbound, hend, hzero⟩ := po_probe_low_log_family R W
+  obtain ⟨bound, hnonneg, hsum, hcoeffContinuous, hcoeffBound, hcoeffZero, hreconstruct⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.fourierCoeffOn_smooth_family lo hi hlohi
+      (po_probe_low_log_kernel R W) C0 C2 hC0.le hC2.le hsmooth hcontinuous hcontinuous2
+      hbound hend ((Units.val : S.FSˣ → S.FS) '' K) hzero
+  refine ⟨hi - lo, sub_pos.mpr hlohi, K, hK,
+    (fun j x => fourierCoeffOn hlohi (fun u => po_probe_low_log_kernel R W u x) j),
+    bound, hnonneg, hsum, hcoeffContinuous, hcoeffBound, hcoeffZero, ?_⟩
+  intro v hv x
+  have hvpos : 0 < v := W.W1_positive_support hv
+  have hlogv := hlog v hv
+  have hs := hreconstruct x (Real.log v) ⟨hlogv.1.le, hlogv.2.le⟩
+  simpa [po_probe_low_log_kernel, Real.exp_log hvpos] using hs.tsum_eq.symm
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
