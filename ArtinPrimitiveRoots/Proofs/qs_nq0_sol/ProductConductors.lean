@@ -62,4 +62,63 @@ theorem qs_nq0_generators_mul
         (FractionalIdeal.coeIdeal_ne_zero.mpr ha.1.1)
         (FractionalIdeal.coeIdeal_ne_zero.mpr hb.1.1)]
 
+/-!
+The quotient-character comparison uses these two representations:
+```
+theorem qs_nq0_quotient_character_local
+    (D : FieldData K) (H : HilbertData K) (a b : Kˣ)
+    (χa χb : HeckeChar K)
+    (hloca : ∀ v : FinPlace K,
+      χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : ∀ v : FinPlace K,
+      χb.loc v = qsNQQuadraticLocal D H v (toLoc v b)) :
+    (∀ v : FinPlace K, (χa * χb⁻¹).loc v =
+      qsNQQuadraticLocal D H v (toLoc v (a * b))) ∧
+    (∀ v : FinPlace K, (χa * χb⁻¹).loc v =
+      qsNQQuadraticLocal D H v (toLoc v (a / b)))
+```
+At S, the quotient representation will use the sixth root of the allowed
+ratio. Outside S, the product representation will use the product generator.
+-/
+
+/-- The quotient character has both the product and quotient generator as local parameters. -/
+theorem qs_nq0_quotient_character_local
+    (D : FieldData K) (H : HilbertData K) (a b : Kˣ)
+    (χa χb : HeckeChar K)
+    (hloca : ∀ v : FinPlace K,
+      χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : ∀ v : FinPlace K,
+      χb.loc v = qsNQQuadraticLocal D H v (toLoc v b)) :
+    (∀ v : FinPlace K, (χa * χb⁻¹).loc v =
+      qsNQQuadraticLocal D H v (toLoc v (a * b))) ∧
+    (∀ v : FinPlace K, (χa * χb⁻¹).loc v =
+      qsNQQuadraticLocal D H v (toLoc v (a / b))) := by
+  have hquot (v : FinPlace K) : (χa * χb⁻¹).loc v =
+      qsNQQuadraticLocal D H v (toLoc v a) /
+        qsNQQuadraticLocal D H v (toLoc v b) := by
+    apply MonoidHom.ext
+    intro u
+    change χa.loc v u * (χb.loc v u)⁻¹ =
+      qsNQQuadraticLocal D H v (toLoc v a) u /
+        qsNQQuadraticLocal D H v (toLoc v b) u
+    rw [hloca v, hlocb v, div_eq_mul_inv]
+  constructor
+  · intro v
+    rw [hquot, map_mul, (qs_nq0_quadratic_local_mul_div D H v _ _).1]
+    apply MonoidHom.ext
+    intro u
+    change qsNQQuadraticLocal D H v (toLoc v a) u /
+        qsNQQuadraticLocal D H v (toLoc v b) u =
+      qsNQQuadraticLocal D H v (toLoc v a) u *
+        qsNQQuadraticLocal D H v (toLoc v b) u
+    have hsquare := congrArg (fun f : (v.adicCompletion K)ˣ →* ℂˣ => f u)
+      (qs_nq0_quadratic_local_square D H v (toLoc v b))
+    change qsNQQuadraticLocal D H v (toLoc v b) u ^ 2 = 1 at hsquare
+    have hinv : (qsNQQuadraticLocal D H v (toLoc v b) u)⁻¹ =
+        qsNQQuadraticLocal D H v (toLoc v b) u :=
+      inv_eq_of_mul_eq_one_right (by simpa only [pow_two] using hsquare)
+    rw [div_eq_mul_inv, hinv]
+  · intro v
+    rw [hquot, map_div, (qs_nq0_quadratic_local_mul_div D H v _ _).2]
+
 end ArtinPrimitiveRoots.A2
