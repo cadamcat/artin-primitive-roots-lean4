@@ -44,6 +44,6 @@ theorem qs_primitive_smooth_poisson_P1 [IsTotallyComplex K]
           qsTransform K h (X * (Ideal.absNorm a.1 : ℝ) / (Ideal.absNorm f : ℝ)) := by
   constructor
   · exact qs_p1_dual_summable χ f hf hsq hne hinf h hh X hX
-  · sorry
+  · exact qs_p1_poisson_identity χ f hf hsq hne hinf h hh X hX
 
 end ArtinPrimitiveRoots.A2
