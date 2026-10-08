@@ -3306,6 +3306,171 @@ private theorem dyadic_filter_isNatInterval (H : ℝ) (I : Set ℕ)
     exact ⟨hkRange, hkLower, hkUpper⟩
   exact Finset.mem_filter.mpr ⟨hkD, hI hmI hnI hmk hkn⟩
 
+private theorem rough_family_long_cancellation
+    (γ wMin wMax δ C c₁ c₂ : ℝ)
+    (hγ : 0 < γ) (hγw : γ < wMin) (hw : wMin < wMax)
+    (hwMax : wMax < 1) (hδ : 0 < δ) (hC : 0 < C) (hc₂ : 0 < c₂)
+    (family : CoefficientFamily δ C c₁ c₂)
+    (hroughData : ∀ x : ℝ, family.xMin ≤ x →
+      family.interval x = ∅ ∨
+        ∃ v : ℝ, |v| ≤ Real.rpow (Real.log x) C ∧
+          Real.log (family.Hm x) / Real.log x ∈ Set.Icc wMin wMax ∧
+          Real.log (2 * family.Hm x) / Real.log x ∈ Set.Icc wMin wMax ∧
+          ∀ m ∈ family.interval x,
+            family.alpha x m = roughCoefficient x γ v m) :
+    HasLongCoefficientCancellation family := by
+  classical
+  intro A₀ B A hA₀ hB hA
+  let Cfreq := max C (A₀ + 1)
+  have hCfreq : 0 < Cfreq := by dsimp [Cfreq]; positivity
+  have hC_Cfreq : C ≤ Cfreq := le_max_left _ _
+  have hA₀_Cfreq : A₀ ≤ Cfreq := by
+    dsimp [Cfreq]
+    exact le_trans (le_of_lt (by linarith : A₀ < A₀ + 1)) (le_max_right _ _)
+  obtain ⟨B₂, CH, xH, hB₂, hCH, hxH, hHigh⟩ :=
+    high_frequency_upper_scale γ wMin wMax δ Cfreq A c₂
+      hγ hγw hw hwMax hδ hCfreq hA hc₂ B hB
+  obtain ⟨CL, xL, hCL, hxL, hLow⟩ :=
+    low_frequency γ wMin wMax Cfreq δ hγ hγw hw hδ hCfreq
+      A₀ A B₂ hA₀ hA hB₂
+  let Ctot := CH + CL
+  let xinner := max family.xMin (max xH xL)
+  let xlog := max (Real.exp 1) xinner
+  let x₀ := max 2 xlog
+  have hCtot : 0 < Ctot := by dsimp [Ctot]; positivity
+  have hx₀two : 2 ≤ x₀ := le_max_left _ _
+  have hx₀min : family.xMin ≤ x₀ := by
+    dsimp [x₀, xlog, xinner]
+    exact le_trans (le_trans (le_max_left family.xMin (max xH xL))
+      (le_max_right (Real.exp 1) (max family.xMin (max xH xL))))
+      (le_max_right 2 (max (Real.exp 1) (max family.xMin (max xH xL))))
+  have hx₀H : xH ≤ x₀ := by
+    dsimp [x₀, xlog, xinner]
+    exact le_trans (le_trans (le_trans (le_max_left xH xL)
+      (le_max_right family.xMin (max xH xL)))
+      (le_max_right (Real.exp 1) (max family.xMin (max xH xL))))
+      (le_max_right 2 (max (Real.exp 1) (max family.xMin (max xH xL))))
+  have hx₀L : xL ≤ x₀ := by
+    dsimp [x₀, xlog, xinner]
+    exact le_trans (le_trans (le_trans (le_max_right xH xL)
+      (le_max_right family.xMin (max xH xL)))
+      (le_max_right (Real.exp 1) (max family.xMin (max xH xL))))
+      (le_max_right 2 (max (Real.exp 1) (max family.xMin (max xH xL))))
+  have hx₀exp : Real.exp 1 ≤ x₀ := by
+    dsimp [x₀, xlog]
+    exact le_trans (le_max_left (Real.exp 1) xinner)
+      (le_max_right 2 (max (Real.exp 1) xinner))
+  refine ⟨Ctot, x₀, hCtot, hx₀two, hx₀min, ?_⟩
+  intro x hx k hk1 hkA₀ χ t ht
+  have hxMin : family.xMin ≤ x := hx₀min.trans hx
+  have hxH' : xH ≤ x := hx₀H.trans hx
+  have hxL' : xL ≤ x := hx₀L.trans hx
+  have hx₂ : 2 ≤ x := le_trans hx₀two hx
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < Real.log x := Real.log_pos (by linarith)
+  have hxexp : Real.exp 1 ≤ x := hx₀exp.trans hx
+  have hLone : 1 ≤ Real.log x := by
+    have hlog := Real.log_le_log (Real.exp_pos 1) hxexp
+    simpa using hlog
+  have hscale := family.scales x hxMin
+  rcases hscale with ⟨hHmδ, hHnδ, hprodLo, hprodHi⟩
+  have hHmpos : 0 < family.Hm x :=
+    lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ) hHmδ
+  have hHnpos : 0 < family.Hn x :=
+    lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ) hHnδ
+  have hXpos : 0 < family.Hm x * family.Hn x := mul_pos hHmpos hHnpos
+  have hXle : family.Hm x * family.Hn x ≤ c₂ * x := hprodHi
+  have hlogxpos : 0 < Real.log x := hLpos
+  have hfreqK : (k : ℝ) ≤ Real.rpow (Real.log x) Cfreq := by
+    exact le_trans hkA₀ (Real.rpow_le_rpow_of_exponent_le hLone hA₀_Cfreq)
+  let S := familyTerms family x
+  have hSinterval : IsNatInterval (S : Set ℕ) := by
+    simpa [S, familyTerms] using
+      dyadic_filter_isNatInterval (family.Hm x) (family.interval x)
+        (family.interval_property x)
+  by_cases hSempty : S = ∅
+  · have hsumzero : (∑ m ∈ S, family.alpha x m * χ (m : ZMod k) *
+        Complex.exp (Complex.I * t * Real.log (m : ℝ))) = 0 := by
+      simp [hSempty]
+    rw [hsumzero]
+    simp only [norm_zero, zero_div]
+    exact (mul_nonneg (le_of_lt hCtot) (Real.rpow_nonneg (le_of_lt hLpos) _))
+  · have hSne : S.Nonempty := Finset.nonempty_iff_ne_empty.mpr hSempty
+    obtain ⟨a, b, hab, hSends⟩ :=
+      ArtinPrimitiveRoots.Proofs.r_typeii_p.finite_nat_interval_endpoints
+        S hSinterval hSne
+    rcases hroughData x hxMin with hdata | ⟨v, hv, hlogHm, hlog2Hm, halpha⟩
+    · have hSempty' : S = ∅ := by simp [S, familyTerms, hdata]
+      exact (hSempty hSempty').elim
+    · have hHmLog : Real.log (family.Hm x) / Real.log x ∈ Set.Icc wMin wMax := hlogHm
+      have h2HmLog : Real.log (2 * family.Hm x) / Real.log x ∈ Set.Icc wMin wMax := hlog2Hm
+      have hvfreq : |v| ≤ Real.rpow (Real.log x) Cfreq :=
+        hv.trans (Real.rpow_le_rpow_of_exponent_le hLone hC_Cfreq)
+      have haMem : a ∈ S := by rw [hSends]; exact Finset.mem_Icc.mpr ⟨le_rfl, hab⟩
+      have hbMem : b ∈ S := by rw [hSends]; exact Finset.mem_Icc.mpr ⟨hab, le_rfl⟩
+      have haBounds := (family.interval_bounds x hxMin a
+        (Finset.mem_filter.mp haMem).2)
+      have hbBounds := (family.interval_bounds x hxMin b
+        (Finset.mem_filter.mp hbMem).2)
+      have hl : family.Hm x ≤ (a : ℝ) := haBounds.1
+      have hr : (b : ℝ) ≤ 2 * family.Hm x := hbBounds.2
+      have habReal : (a : ℝ) ≤ (b : ℝ) := by exact_mod_cast hab
+      have hT : (Finset.range (⌊(b : ℝ)⌋₊ + 1)).filter
+          (fun m : ℕ => (a : ℝ) ≤ (m : ℝ) ∧ (m : ℝ) ≤ (b : ℝ)) =
+            Finset.Icc a b := by
+        ext m
+        simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_Icc,
+          Nat.floor_natCast, Nat.cast_le]
+        omega
+      have hS_eq_T : S = (Finset.range (⌊(b : ℝ)⌋₊ + 1)).filter
+          (fun m : ℕ => (a : ℝ) ≤ (m : ℝ) ∧ (m : ℝ) ≤ (b : ℝ)) := by
+        rw [hSends, hT]
+      let Poly := ∑ m ∈ (Finset.range (⌊(b : ℝ)⌋₊ + 1)).filter
+          (fun m : ℕ => (a : ℝ) ≤ (m : ℝ) ∧ (m : ℝ) ≤ (b : ℝ)),
+          roughCoefficient x γ v m * χ (m : ZMod k) *
+            Complex.exp (Complex.I * t * Real.log (m : ℝ))
+      have hsumEq : (∑ m ∈ S, family.alpha x m * χ (m : ZMod k) *
+          Complex.exp (Complex.I * t * Real.log (m : ℝ))) = Poly := by
+        dsimp [Poly]
+        rw [← hS_eq_T]
+        apply Finset.sum_congr rfl
+        intro m hm
+        rw [halpha m (Finset.mem_filter.mp hm).2]
+      have hFreqBound :
+          ‖Poly / (family.Hm x : ℂ)‖ ≤ Ctot * Real.rpow (Real.log x) (-A) := by
+        by_cases htLow : |t| ≤ Real.rpow (Real.log x) B₂
+        · have h := hLow x hxL' (family.Hm x) hHmδ hHmLog
+            (a : ℝ) (b : ℝ) hl habReal hr v t hvfreq htLow k hk1 hkA₀ χ
+          have h' : ‖Poly / (family.Hm x : ℂ)‖ ≤ CL * Real.rpow (Real.log x) (-A) := by
+            simpa [Poly] using h
+          calc
+            _ ≤ CL * Real.rpow (Real.log x) (-A) := h'
+            _ ≤ Ctot * Real.rpow (Real.log x) (-A) := by
+              apply mul_le_mul_of_nonneg_right _ (Real.rpow_nonneg hLpos.le _)
+              dsimp [Ctot]
+              linarith [hCH]
+        · have htHigh : Real.rpow (Real.log x) B₂ ≤ |t| := le_of_not_ge htLow
+          obtain hscale' := family.scales x hxMin
+          rcases hscale' with ⟨hHmδ', hHnδ', hprodLo', hprodHi'⟩
+          have h := hHigh x hxH' (family.Hm x)
+            (family.Hm x * family.Hn x) hHmδ' hXpos hXle hHmLog h2HmLog
+            k hk1 hfreqK χ v t htHigh ht hvfreq (a : ℝ) (b : ℝ) hl habReal hr
+          have h' : ‖Poly / (family.Hm x : ℂ)‖ ≤ CH * Real.rpow (Real.log x) (-A) := by
+            simpa [Poly] using h
+          calc
+            _ ≤ CH * Real.rpow (Real.log x) (-A) := h'
+            _ ≤ Ctot * Real.rpow (Real.log x) (-A) := by
+              apply mul_le_mul_of_nonneg_right _ (Real.rpow_nonneg hLpos.le _)
+              dsimp [Ctot]
+              linarith [hCL]
+      have hnormDiv : ‖Poly / (family.Hm x : ℂ)‖ = ‖Poly‖ / family.Hm x := by
+        rw [norm_div, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hHmpos]
+      have hPolyNorm : ‖Poly‖ / family.Hm x ≤ Ctot * Real.rpow (Real.log x) (-A) := by
+        rw [← hnormDiv]
+        exact hFreqBound
+      rw [hsumEq]
+      exact hPolyNorm
+
 /-- `prop:rough-type-ii` — `08-type-ii.tex:321-536`. Fix the parameters in the
 paper. Uniformly over admissible dyads, intervals, real twists, rough second-variable coefficients,
 and marked-invariant multipliers, the coefficient `roughCoefficient` has the Type II saving once
