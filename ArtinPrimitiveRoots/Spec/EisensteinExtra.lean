@@ -112,7 +112,13 @@ theorem E5_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
                 deriv (fun t : ℝ => (τ t : ℂ))
                   (normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z))) ) *
             ((normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) : ℝ) : ℂ) ^ (1 + 2 * s)) := by
-  sorry
+  rcases ArtinPrimitiveRoots.Proofs.spec_seed_p.e5EasyClauses
+      Γ σ A₀ A hA₀ hA hsep τ hτ with
+    ⟨hfinite, hseed, hcompact, htail⟩
+  rcases ArtinPrimitiveRoots.Proofs.spec_seed_p.e5AnalyticClauses
+      Γ D hD σ A₀ A hA₀ hA hsep τ hτ with
+    ⟨hl2, hderivatives⟩
+  exact ⟨hfinite, hseed, hcompact, hl2, hderivatives, htail⟩
 
 theorem spec_cuspUnits_finiteIndex (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (σ : SL(2,F)) : (cuspUnits F Γ σ).FiniteIndex := by
