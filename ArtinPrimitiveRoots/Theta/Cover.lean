@@ -12,6 +12,9 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.CongruenceCompact
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.IntegralGL
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.LocalEffective
 import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RestrictedCentralQuotient
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.GlobalPivot
+import ArtinPrimitiveRoots.Theta.Proofs.TH_COVER.RationalIntegral
+import ArtinPrimitiveRoots.Theta.Proofs.TH_TAME_SPLIT.Units
 
 
 /-!
@@ -1665,13 +1668,960 @@ def tameSplit (k : GL (Fin 2) (v.adicCompletion F)) : rootsOfUnity 3 ℂ :=
       (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) h.1.1))
   else 1
 
+private theorem tame_localUnit_iff (u : (v.adicCompletion F)ˣ) :
+    ArtinPrimitiveRoots.Proofs.thsol_tame.LocalUnit v u ↔ Valued.v (u : v.adicCompletion F) = 1 := by
+  exact HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one
+
+private theorem tame_pair_units (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (a b : (v.adicCompletion F)ˣ)
+    (ha : Valued.v (a : v.adicCompletion F) = 1)
+    (hb : Valued.v (b : v.adicCompletion F) = 1) : kpPairing D H v a b = 1 := by
+  change muThree D (H.hilb v a b) = 1
+  rw [ArtinPrimitiveRoots.Proofs.thsol_tame.hilb_local_units H v hv a b
+    ((tame_localUnit_iff v a).mpr ha) ((tame_localUnit_iff v b).mpr hb), muThree_one]
+
+private theorem tame_row_right_unit (k : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hd : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (hc : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1) :
+    Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) = 1 := by
+  have hval (i j : Fin 2) := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk i j)
+  apply le_antisymm (hval 1 1)
+  apply le_of_not_gt
+  intro hsmall
+  have ha : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0 *
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) < 1 := by
+    rw [map_mul]
+    exact lt_of_le_of_lt (mul_le_mul' (hval 0 0) le_rfl) (by simpa using hsmall)
+  have hb : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 1 *
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by
+    rw [map_mul]
+    exact lt_of_le_of_lt (mul_le_mul' (hval 0 1) le_rfl) (by simpa using hc)
+  have hdet : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) < 1 := by
+    rw [Matrix.det_fin_two]
+    exact Valuation.map_sub_lt _ ha hb
+  rw [hd] at hdet
+  exact (lt_irrefl 1) hdet
+
+private theorem tame_ne_zero_of_valuation_one (a : v.adicCompletion F)
+    (ha : Valued.v a = 1) : a ≠ 0 := by
+  intro h
+  rw [h, map_zero] at ha
+  exact zero_ne_one ha
+
+private theorem tame_pair_principal (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (a b : (v.adicCompletion F)ˣ)
+    (hb : Valued.v ((b : v.adicCompletion F) - 1) < 1) : kpPairing D H v a b = 1 := by
+  let O := v.adicCompletionIntegers F
+  let m : Ideal O := IsLocalRing.maximalIdeal O
+  have hbmem : (b : v.adicCompletion F) ∈ O := by
+    apply (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mpr
+    have hsum := (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))).map_add_le
+      hb.le (show Valued.v (1 : v.adicCompletion F) ≤ 1 by simp)
+    simpa using hsum
+  let bO : O := ⟨(b : v.adicCompletion F), hbmem⟩
+  have hmax (z : O) : z ∈ m ↔ Valued.v (z : v.adicCompletion F) < 1 := by
+    exact Valuation.mem_maximalIdeal_iff
+      (v := (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))))
+  have hnear : bO - 1 ∈ m := (hmax _).mpr hb
+  have h6val : v.valuation F (6 : F) = 1 := by
+    apply le_antisymm (v.valuation_le_one (R := 𝓞 F) (K := F) (6 : 𝓞 F))
+    apply le_of_not_gt
+    intro hlt
+    exact hv ((v.valuation_lt_one_iff_mem (K := F) (6 : 𝓞 F)).mp hlt)
+  have h6map : (6 : O) = algebraMap (𝓞 F) O (6 : 𝓞 F) := by
+    exact (map_natCast (algebraMap (𝓞 F) O) 6).symm
+  have hmap6 : ((algebraMap (𝓞 F) O (6 : 𝓞 F) : O) : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (6 : F) :=
+    (v.algebraMap_adicCompletion_eq_algebraMap_adicCompletionIntegers (6 : 𝓞 F)).symm
+  have hval6O : Valued.v ((6 : O) : v.adicCompletion F) = 1 := by
+    rw [h6map, hmap6]
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using h6val
+  have h6not : (6 : O) ∉ m := by
+    intro h
+    have hlt := (hmax (6 : O)).1 h
+    rw [hval6O] at hlt
+    exact (lt_irrefl 1) hlt
+  have h6Unit : IsUnit (6 : O) := IsLocalRing.notMem_maximalIdeal.mp h6not
+  letI : HenselianRing O m := inferInstance
+  obtain ⟨cO, hcpow, _⟩ :=
+    TauCeti.HenselianRing.exists_pow_eq_and_sub_one_mem_of_sub_one_mem
+      (I := m) (J := m) le_rfl (n := 6) h6Unit hnear
+  have hcne : (cO : v.adicCompletion F) ≠ 0 := by
+    intro h
+    have hpow := congrArg (algebraMap O (v.adicCompletion F)) hcpow
+    change (cO : v.adicCompletion F) ^ 6 = (b : v.adicCompletion F) at hpow
+    rw [h, zero_pow (by decide : (6 : ℕ) ≠ 0)] at hpow
+    exact b.ne_zero hpow.symm
+  let c : (v.adicCompletion F)ˣ := Units.mk0 (cO : v.adicCompletion F) hcne
+  have hbpow : b = c ^ 6 := by
+    apply Units.ext
+    exact (congrArg (algebraMap O (v.adicCompletion F)) hcpow).symm
+  have hsymbol := H.skew v a b
+  rw [H.sixth_power v b a ⟨c, hbpow⟩, mul_one] at hsymbol
+  change muThree D (H.hilb v a b) = 1
+  rw [hsymbol, muThree_one]
+
+private theorem tame_lower_c (k : GL (Fin 2) (v.adicCompletion F)) (t : v.adicCompletion F) :
+    ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 =
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t := by
+  simp [lowerM, Matrix.mul_apply, Fin.sum_univ_two]
+
+private theorem tame_lower_d (k : GL (Fin 2) (v.adicCompletion F)) (t : v.adicCompletion F) :
+    ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 =
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 := by
+  simp [lowerM, Matrix.mul_apply, Fin.sum_univ_two]
+
+private theorem tame_lower_det (t : v.adicCompletion F) :
+    detU v (lowerM (v.adicCompletion F) t) = 1 := by
+  apply Units.ext
+  simp [detU, lowerM, Matrix.det_fin_two]
+
+private theorem tameSplit_lower (t : v.adicCompletion F) : tameSplit D H v (lowerM _ t) = 1 := by
+  unfold tameSplit
+  split_ifs with h
+  · rw [tame_lower_det]
+    have hu1 : Units.mk0 ((lowerM (v.adicCompletion F) t :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) h.2 = 1 := by
+      apply Units.ext
+      simp [lowerM]
+    simp only [hu1, div_one, hilb_one_left, muThree_one]
+  · rfl
+
+private theorem tame_lower_symbol_relation (c d t C δ : (v.adicCompletion F)ˣ)
+    (hC : (C : v.adicCompletion F) = c + d * t) :
+    kpPairing D H v (C / (t * δ)) (C / c) =
+      kpPairing D H v (d / δ) C / kpPairing D H v (d / δ) c := by
+  have hsecond : (1 : v.adicCompletion F) - (c / C : (v.adicCompletion F)ˣ) =
+      ((d * t / C : (v.adicCompletion F)ˣ) : v.adicCompletion F) := by
+    simp only [Units.val_div_eq_div_val, Units.val_mul]
+    field_simp
+    linear_combination hC
+  have hn : (1 : v.adicCompletion F) - (c / C : (v.adicCompletion F)ˣ) ≠ 0 := by
+    rw [hsecond]
+    exact Units.ne_zero _
+  have hunit : Units.mk0 ((1 : v.adicCompletion F) - (c / C : (v.adicCompletion F)ˣ)) hn =
+      d * t / C := by
+    apply Units.ext
+    exact hsecond
+  have hpair : kpPairing D H v (c / C) (d * t / C) = 1 := by
+    rw [← hunit]
+    exact kpPairing_st D H v (H.steinberg v) _ hn
+  apply eq_of_div_eq_one
+  calc
+    kpPairing D H v (C / (t * δ)) (C / c) /
+        (kpPairing D H v (d / δ) C / kpPairing D H v (d / δ) c) =
+        (kpPairing D H v (c / C) (d * t / C))⁻¹ := by
+      simp only [kpPairing_div_left, kpPairing_div_right, kpPairing_mul_left,
+        kpPairing_mul_right, kpPairing_self, inv_one, mul_one, one_mul]
+      rw [← kpPairing_inverse_swap D H v c C, ← kpPairing_inverse_swap D H v C t,
+        ← kpPairing_inverse_swap D H v c t, ← kpPairing_inverse_swap D H v C d,
+        ← kpPairing_inverse_swap D H v c d]
+      apply Additive.ofMul.injective
+      simp only [ofMul_mul, ofMul_inv, ofMul_div]
+      abel
+    _ = 1 := by rw [hpair]; simp
+
+private theorem tame_pair_inv_right (a b : (v.adicCompletion F)ˣ) :
+    kpPairing D H v a b⁻¹ = (kpPairing D H v a b)⁻¹ := map_inv (kpPairing D H v a) b
+
+private theorem tameSplit_of_small (k : GL (Fin 2) (v.adicCompletion F))
+    (hc : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0)
+    (hcs : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1)
+    (hd : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0) :
+    tameSplit D H v k = kpPairing D H v
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd / detU v k)
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hc) := by
+  unfold tameSplit
+  rw [dif_pos ⟨⟨hc, hcs⟩, hd⟩]
+  rfl
+
+private theorem tameSplit_lower_small (k : GL (Fin 2) (v.adicCompletion F)) (t : v.adicCompletion F)
+    (hC : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t ≠ 0)
+    (hCs : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t) < 1)
+    (hd : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0) :
+    tameSplit D H v (k * lowerM _ t) = kpPairing D H v
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd / detU v k)
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t) hC) := by
+  have hcn : ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0 := by simpa only [tame_lower_c] using hC
+  have hcv : Valued.v (((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by simpa only [tame_lower_c] using hCs
+  have hdn : ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0 := by simpa only [tame_lower_d] using hd
+  rw [tameSplit_of_small D H v _ hcn hcv hdn, detU_mul, tame_lower_det, mul_one]
+  have hcu : Units.mk0 (((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hcn =
+      Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t) hC := by
+    apply Units.ext
+    exact tame_lower_c v k t
+  have hdu : Units.mk0 (((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hdn =
+      Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd := by
+    apply Units.ext
+    exact tame_lower_d v k t
+  rw [hcu, hdu]
+
+private theorem tame_x_lower (t : v.adicCompletion F) (ht : t ≠ 0) :
+    xU v (lowerM _ t) = Units.mk0 t ht := by
+  apply Units.ext
+  simp [xU, xEntry, lowerM, ht]
+
+private theorem tame_x_lower_product (k : GL (Fin 2) (v.adicCompletion F)) (t : v.adicCompletion F)
+    (hC : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t ≠ 0) :
+    xU v (k * lowerM _ t) = Units.mk0
+      ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 +
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 * t) hC := by
+  apply Units.ext
+  simp [xU, xEntry, tame_lower_c, hC]
+
+private theorem tame_lower_sigma (k : GL (Fin 2) (v.adicCompletion F))
+    (t : v.adicCompletion F) (ht : t ≠ 0) :
+    kpCocycle D H v k (lowerM _ t) =
+      kpPairing D H v (xU v (k * lowerM _ t) / (Units.mk0 t ht * detU v k))
+        (xU v (k * lowerM _ t) / xU v k) := by
+  rw [kpCocycle_pairing, tame_x_lower v t ht, tame_lower_det, kpPairing_one_right, mul_one]
+
+/-- The tame section is multiplicative when the right factor is a small lower unipotent. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_mul_lower
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hd : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (t : v.adicCompletion F) (ht : Valued.v t < 1) :
+    tameSplit D H v (k * lowerM _ t) =
+      tameSplit D H v k * tameSplit D H v (lowerM _ t) * kpCocycle D H v k (lowerM _ t) := by
+  classical
+  by_cases ht0 : t = 0
+  · subst t
+    have hl0 : lowerM (v.adicCompletion F) (0 : v.adicCompletion F) = 1 := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;> simp [lowerM]
+    have hs1 : tameSplit D H v (1 : GL (Fin 2) (v.adicCompletion F)) = 1 := by
+      rw [← hl0]
+      exact tameSplit_lower D H v 0
+    have hσ1 : kpCocycle D H v k (1 : GL (Fin 2) (v.adicCompletion F)) = 1 := by
+      rw [kpCocycle_pairing]
+      simp [detU, kpPairing_one_right]
+    simp [hl0, hs1, hσ1]
+  rw [tameSplit_lower, mul_one]
+  let c0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0
+  let d0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
+  let C0 := c0 + d0 * t
+  let δ := detU v k
+  let tU : (v.adicCompletion F)ˣ := Units.mk0 t ht0
+  have hvδ : Valued.v (δ : v.adicCompletion F) = 1 := hd
+  have hdle : Valued.v d0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk 1 1)
+  have hdt : Valued.v (d0 * t) < 1 := by
+    rw [map_mul]
+    exact lt_of_le_of_lt (mul_le_mul' hdle le_rfl) (by simpa using ht)
+  have hσ := tame_lower_sigma D H v k t ht0
+  change kpCocycle D H v k (lowerM _ t) =
+    kpPairing D H v (xU v (k * lowerM _ t) / (tU * δ))
+      (xU v (k * lowerM _ t) / xU v k) at hσ
+  by_cases hcs : Valued.v c0 < 1
+  · have hvd : Valued.v d0 = 1 := tame_row_right_unit v k hk hd hcs
+    have hd0 : d0 ≠ 0 := tame_ne_zero_of_valuation_one v d0 hvd
+    let dU : (v.adicCompletion F)ˣ := Units.mk0 d0 hd0
+    have hvdU : Valued.v (dU : v.adicCompletion F) = 1 := hvd
+    have hvdδ : Valued.v ((dU / δ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvdU, hvδ]
+      simp
+    have hpdd : kpPairing D H v (dU / δ) dU = 1 :=
+      tame_pair_units D H v hv _ _ hvdδ hvdU
+    have hCs : Valued.v C0 < 1 := Valuation.map_add_lt _ hcs hdt
+    by_cases hc0 : c0 = 0
+    · have hCn : C0 ≠ 0 := by
+        dsimp [C0]
+        rw [hc0, zero_add]
+        exact mul_ne_zero hd0 ht0
+      let CU : (v.adicCompletion F)ˣ := Units.mk0 C0 hCn
+      have hCU : CU = dU * tU := by
+        apply Units.ext
+        simp [CU, C0, hc0, dU, tU]
+      have hxk : xU v k = dU := by
+        apply Units.ext
+        simp [xU, xEntry, c0, d0, dU, hc0]
+      have hxK : xU v (k * lowerM _ t) = CU := tame_x_lower_product v k t hCn
+      have hsk : tameSplit D H v k = 1 := by
+        have hz : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := hc0
+        simp [tameSplit, hz]
+      have hsK : tameSplit D H v (k * lowerM _ t) = kpPairing D H v (dU / δ) CU :=
+        tameSplit_lower_small D H v k t hCn hCs hd0
+      rw [hCU, kpPairing_mul_right, hpdd, one_mul] at hsK
+      rw [hxk, hxK, hCU] at hσ
+      have hq1 : (dU * tU) / (tU * δ) = dU / δ := by
+        simp [div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+      have hq2 : (dU * tU) / dU = tU := by simp [mul_comm]
+      rw [hq1, hq2] at hσ
+      rw [hsK, hsk, hσ, one_mul]
+    · let cU : (v.adicCompletion F)ˣ := Units.mk0 c0 hc0
+      have hxk : xU v k = cU := by
+        apply Units.ext
+        simp [xU, xEntry, cU, c0, hc0]
+      have hsk : tameSplit D H v k = kpPairing D H v (dU / δ) cU :=
+        tameSplit_of_small D H v k hc0 hcs hd0
+      by_cases hC0 : C0 = 0
+      · have hcu : cU = -(dU * tU) := by
+          apply Units.ext
+          change c0 = -(d0 * t)
+          dsimp [C0] at hC0
+          linear_combination hC0
+        have hxK : xU v (k * lowerM _ t) = dU := by
+          have hz : ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+              Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by
+            simpa only [tame_lower_c] using hC0
+          apply Units.ext
+          simp [xU, xEntry, hz, tame_lower_d, dU, d0]
+        have hsK : tameSplit D H v (k * lowerM _ t) = 1 := by
+          have hz : ((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+              Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by
+            simpa only [tame_lower_c] using hC0
+          simp [tameSplit, hz]
+        rw [hcu, kpPairing_neg_mul_right, kpPairing_mul_right, hpdd, one_mul] at hsk
+        rw [hxk, hxK, hcu] at hσ
+        have hq : dU / (-(dU * tU)) = -tU⁻¹ := by
+          apply Units.ext
+          simp only [Units.val_div_eq_div_val, Units.val_neg, Units.val_mul, Units.val_inv_eq_inv_val]
+          field_simp
+        have ha : dU / (tU * δ) = (dU / δ) / tU := by
+          simp [div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+        rw [hq, kpPairing_neg_mul_right, tame_pair_inv_right, ha,
+          kpPairing_div_left, kpPairing_self, inv_one, mul_one] at hσ
+        rw [hsK, hsk, hσ]
+        simp
+      · let CU : (v.adicCompletion F)ˣ := Units.mk0 C0 hC0
+        have hxK : xU v (k * lowerM _ t) = CU := tame_x_lower_product v k t hC0
+        have hsK : tameSplit D H v (k * lowerM _ t) = kpPairing D H v (dU / δ) CU :=
+          tameSplit_lower_small D H v k t hC0 hCs hd0
+        have hC : (CU : v.adicCompletion F) = cU + dU * tU := by rfl
+        rw [hxk, hxK, tame_lower_symbol_relation D H v cU dU tU CU δ hC] at hσ
+        rw [hsK, hsk, hσ]
+        simp [mul_comm]
+  · have hvcle : Valued.v c0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk 1 0)
+    have hvc : Valued.v c0 = 1 := le_antisymm hvcle (le_of_not_gt hcs)
+    have hc0 : c0 ≠ 0 := tame_ne_zero_of_valuation_one v c0 hvc
+    have hvC : Valued.v C0 = 1 := by
+      have heq : Valued.v c0 ≠ Valued.v (d0 * t) := by rw [hvc]; exact ne_of_gt hdt
+      rw [show C0 = c0 + d0 * t by rfl, Valuation.map_add_of_distinct_val _ heq, hvc,
+        max_eq_left hdt.le]
+    have hC0 : C0 ≠ 0 := tame_ne_zero_of_valuation_one v C0 hvC
+    let cU : (v.adicCompletion F)ˣ := Units.mk0 c0 hc0
+    let CU : (v.adicCompletion F)ˣ := Units.mk0 C0 hC0
+    have hxk : xU v k = cU := by
+      apply Units.ext
+      simp [xU, xEntry, cU, c0, hc0]
+    have hxK : xU v (k * lowerM _ t) = CU := tame_x_lower_product v k t hC0
+    have hsk : tameSplit D H v k = 1 := by
+      have hn : ¬ Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := hcs
+      simp [tameSplit, hn]
+    have hsK : tameSplit D H v (k * lowerM _ t) = 1 := by
+      have hCnots : ¬ Valued.v C0 < 1 := by rw [hvC]; exact lt_irrefl _
+      have hn : ¬ Valued.v (((k * lowerM _ t : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by
+        simpa only [tame_lower_c] using hCnots
+      unfold tameSplit
+      rw [dif_neg (fun h => hn h.1.2)]
+    have hratio : ((CU / cU : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1 = d0 * t / c0 := by
+      simp only [Units.val_div_eq_div_val, Units.val_mk0]
+      change C0 / c0 - 1 = d0 * t / c0
+      field_simp
+      dsimp [C0]
+      ring
+    have hnear : Valued.v (((CU / cU : (v.adicCompletion F)ˣ) : v.adicCompletion F) - 1) < 1 := by
+      rw [hratio, map_div₀, hvc, div_one]
+      exact hdt
+    rw [hxk, hxK, tame_pair_principal D H v hv _ _ hnear] at hσ
+    rw [hsk, hsK, hσ]
+    simp
+
+private theorem tameSplit_of_zero_left (k : GL (Fin 2) (v.adicCompletion F))
+    (hc : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0) : tameSplit D H v k = 1 := by
+  unfold tameSplit
+  rw [dif_neg (fun h => h.1.1 hc)]
+
+private theorem tameSplit_of_zero_right (k : GL (Fin 2) (v.adicCompletion F))
+    (hd : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 = 0) : tameSplit D H v k = 1 := by
+  unfold tameSplit
+  rw [dif_neg (fun h => h.2 hd)]
+
+private theorem tameSplit_of_unit_left (k : GL (Fin 2) (v.adicCompletion F))
+    (hc : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) = 1) :
+    tameSplit D H v k = 1 := by
+  have hn : ¬ Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by
+    rw [hc]
+    exact lt_irrefl _
+  unfold tameSplit
+  rw [dif_neg (fun h => hn h.1.2)]
+
+private theorem tame_weyl_c (k : GL (Fin 2) (v.adicCompletion F)) :
+    ((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 =
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 := by
+  simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+
+private theorem tame_weyl_d (k : GL (Fin 2) (v.adicCompletion F)) :
+    ((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 =
+      (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 := by
+  simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+
+private theorem tame_weyl_det (k : GL (Fin 2) (v.adicCompletion F)) :
+    detU v (k * weylM _) = -detU v k := by
+  rw [detU_mul, detU_weylM]
+  simp
+
+private theorem tame_weyl_integral (k : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F) :
+    ∀ i j, ((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F := by
+  intro i j
+  fin_cases j
+  · simpa [weylM, Matrix.mul_apply, Fin.sum_univ_two] using hk i 1
+  · simpa [weylM, Matrix.mul_apply, Fin.sum_univ_two] using hk i 0
+
+private theorem tame_weyl_detval (k : GL (Fin 2) (v.adicCompletion F))
+    (hd : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1) :
+    Valued.v (((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1 := by
+  change Valued.v (detU v (k * weylM _) : v.adicCompletion F) = 1
+  rw [tame_weyl_det, Units.val_neg, Valuation.map_neg]
+  exact hd
+
+private theorem tame_row_left_unit (k : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hd : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (hds : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) < 1) :
+    Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) = 1 := by
+  have hcs : Valued.v (((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by simpa only [tame_weyl_c] using hds
+  have h := tame_row_right_unit v (k * weylM _)
+    (tame_weyl_integral v k hk) (tame_weyl_detval v k hd) hcs
+  simpa only [tame_weyl_d] using h
+
+private theorem tame_x_weyl (k : GL (Fin 2) (v.adicCompletion F))
+    (hd : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0) :
+    xU v (k * weylM _) = Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd := by
+  apply Units.ext
+  simp [xU, xEntry, tame_weyl_c, hd]
+
+private theorem tameSplit_weyl : tameSplit D H v (weylM (v.adicCompletion F)) = 1 := by
+  simp [tameSplit, weylM]
+
+private theorem tame_weyl_sigma (k : GL (Fin 2) (v.adicCompletion F)) :
+    kpCocycle D H v k (weylM _) =
+      kpPairing D H v (xU v (k * weylM _) / detU v k) (xU v (k * weylM _) / xU v k) := by
+  rw [kpCocycle_pairing, xU_weylM, detU_weylM, kpPairing_neg_one_right, one_mul, mul_one]
+
+private theorem tameSplit_weyl_small (k : GL (Fin 2) (v.adicCompletion F))
+    (hc : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0)
+    (hd : (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0)
+    (hds : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) < 1) :
+    tameSplit D H v (k * weylM _) = kpPairing D H v
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hc / detU v k)
+      (Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd) := by
+  have hcn : ((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0 := by simpa only [tame_weyl_c] using hd
+  have hcs : Valued.v (((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by simpa only [tame_weyl_c] using hds
+  have hdn : ((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0 := by simpa only [tame_weyl_d] using hc
+  rw [tameSplit_of_small D H v _ hcn hcs hdn, tame_weyl_det]
+  have hcu : Units.mk0 (((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hdn =
+      Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hc := by
+    apply Units.ext
+    exact tame_weyl_d v k
+  have hdu : Units.mk0 (((k * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hcn =
+      Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hd := by
+    apply Units.ext
+    exact tame_weyl_c v k
+  rw [hcu, hdu]
+  have hneg : Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hc / (-detU v k) =
+      -(Units.mk0 ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hc / detU v k) := by
+    apply Units.ext
+    simp only [Units.val_div_eq_div_val, Units.val_neg]
+    simp only [div_neg]
+  rw [hneg, kpPairing_neg_mul_left]
+
+private theorem tame_weyl_symbol_swap (c d δ : (v.adicCompletion F)ˣ) :
+    kpPairing D H v (d / δ) (d / c) = kpPairing D H v (c / δ) d * kpPairing D H v δ c := by
+  simp only [kpPairing_div_left, kpPairing_div_right, kpPairing_self, inv_one,
+    one_mul, mul_one, mul_inv, inv_inv]
+  rw [kpPairing_inverse_swap D H v d c]
+  ac_rfl
+
+/-- The tame section is multiplicative when the right factor is the Weyl matrix. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_mul_weyl
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hd : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1) :
+    tameSplit D H v (k * weylM _) =
+      tameSplit D H v k * tameSplit D H v (weylM _) * kpCocycle D H v k (weylM _) := by
+  classical
+  rw [tameSplit_weyl, mul_one]
+  let c0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0
+  let d0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
+  let δ := detU v k
+  have hvδ : Valued.v (δ : v.adicCompletion F) = 1 := hd
+  have hσ := tame_weyl_sigma D H v k
+  change kpCocycle D H v k (weylM _) =
+    kpPairing D H v (xU v (k * weylM _) / δ) (xU v (k * weylM _) / xU v k) at hσ
+  by_cases hc0 : c0 = 0
+  · have hcs : Valued.v c0 < 1 := by rw [hc0, map_zero]; exact zero_lt_one
+    have hvd : Valued.v d0 = 1 := tame_row_right_unit v k hk hd hcs
+    have hd0 : d0 ≠ 0 := tame_ne_zero_of_valuation_one v d0 hvd
+    let dU : (v.adicCompletion F)ˣ := Units.mk0 d0 hd0
+    have hxk : xU v k = dU := by
+      apply Units.ext
+      simp [xU, xEntry, c0, d0, dU, hc0]
+    have hxK : xU v (k * weylM _) = dU := tame_x_weyl v k hd0
+    have hsk : tameSplit D H v k = 1 := tameSplit_of_zero_left D H v k hc0
+    have hsK : tameSplit D H v (k * weylM _) = 1 :=
+      tameSplit_of_unit_left D H v _ (by simpa only [tame_weyl_c, dU, d0, Units.val_mk0] using hvd)
+    rw [hsk, hsK, hσ, hxk, hxK]
+    simp [kpPairing_one_right]
+  let cU : (v.adicCompletion F)ˣ := Units.mk0 c0 hc0
+  have hxk : xU v k = cU := xU_eq_lowerLeft v k hc0
+  by_cases hd0 : d0 = 0
+  · have hxK : xU v (k * weylM _) = cU := by
+      apply Units.ext
+      simp [xU, xEntry, tame_weyl_c, tame_weyl_d, cU, c0, d0, hd0]
+    have hsk : tameSplit D H v k = 1 := tameSplit_of_zero_right D H v k hd0
+    have hsK : tameSplit D H v (k * weylM _) = 1 :=
+      tameSplit_of_zero_left D H v _ (by simpa only [tame_weyl_c] using hd0)
+    rw [hsk, hsK, hσ, hxk, hxK]
+    simp [kpPairing_one_right]
+  let dU : (v.adicCompletion F)ˣ := Units.mk0 d0 hd0
+  have hxK : xU v (k * weylM _) = dU := tame_x_weyl v k hd0
+  rw [hxk, hxK] at hσ
+  by_cases hcs : Valued.v c0 < 1
+  · have hvd : Valued.v (dU : v.adicCompletion F) = 1 := tame_row_right_unit v k hk hd hcs
+    have hvdδ : Valued.v ((dU / δ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvd, hvδ]
+      simp
+    have hpdd : kpPairing D H v (dU / δ) dU = 1 := tame_pair_units D H v hv _ _ hvdδ hvd
+    have hsk : tameSplit D H v k = kpPairing D H v (dU / δ) cU :=
+      tameSplit_of_small D H v k hc0 hcs hd0
+    have hsK : tameSplit D H v (k * weylM _) = 1 :=
+      tameSplit_of_unit_left D H v _ (by simpa only [tame_weyl_c, dU, d0, Units.val_mk0] using hvd)
+    rw [kpPairing_div_right, hpdd, one_mul] at hσ
+    rw [hsK, hsk, hσ]
+    simp
+  by_cases hds : Valued.v d0 < 1
+  · have hvc : Valued.v (cU : v.adicCompletion F) = 1 := tame_row_left_unit v k hk hd hds
+    have hsk : tameSplit D H v k = 1 := tameSplit_of_unit_left D H v k hvc
+    have hsK : tameSplit D H v (k * weylM _) = kpPairing D H v (cU / δ) dU :=
+      tameSplit_weyl_small D H v k hc0 hd0 hds
+    have hpδc : kpPairing D H v δ cU = 1 := tame_pair_units D H v hv _ _ hvδ hvc
+    rw [tame_weyl_symbol_swap, hpδc, mul_one] at hσ
+    rw [hsK, hsk, hσ]
+    simp
+  · have hvcle : Valued.v c0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk 1 0)
+    have hvdle : Valued.v d0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk 1 1)
+    have hvc : Valued.v (cU : v.adicCompletion F) = 1 := le_antisymm hvcle (le_of_not_gt hcs)
+    have hvd : Valued.v (dU : v.adicCompletion F) = 1 := le_antisymm hvdle (le_of_not_gt hds)
+    have hsk : tameSplit D H v k = 1 := tameSplit_of_unit_left D H v k hvc
+    have hsK : tameSplit D H v (k * weylM _) = 1 :=
+      tameSplit_of_unit_left D H v _ (by simpa only [tame_weyl_c, dU, d0, Units.val_mk0] using hvd)
+    have hvdδ : Valued.v ((dU / δ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvd, hvδ]
+      simp
+    have hvdc : Valued.v ((dU / cU : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvd, hvc]
+      simp
+    rw [hsk, hsK, hσ, tame_pair_units D H v hv _ _ hvdδ hvdc]
+    simp
+
+private theorem tame_pair_principal_left (hv : (6 : 𝓞 F) ∉ v.asIdeal)
+    (a b : (v.adicCompletion F)ˣ)
+    (ha : Valued.v ((a : v.adicCompletion F) - 1) < 1) : kpPairing D H v a b = 1 := by
+  rw [← kpPairing_inverse_swap D H v b a, tame_pair_principal D H v hv b a ha, inv_one]
+
+private theorem tame_triangular_left_unit (h : GL (Fin 2) (v.adicCompletion F))
+    (hh : ∀ i j, (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hd : Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (h10 : (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0) :
+    Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0) = 1 := by
+  have hright := tame_row_right_unit v h hh hd (by rw [h10, map_zero]; exact zero_lt_one)
+  have hdet : (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det =
+      (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0 *
+        (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 := by
+    simp [Matrix.det_fin_two, h10]
+  have hprod : Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0) *
+      Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) = 1 := by
+    rw [← map_mul, ← hdet]
+    exact hd
+  rw [hright, mul_one] at hprod
+  exact hprod
+
+private theorem tame_triangular_symbol (c d a δ : (v.adicCompletion F)ˣ)
+    (hunit : kpPairing D H v (d / δ) a = 1) :
+    kpPairing D H v (d / (δ * a)) (c * a) =
+      kpPairing D H v (d / δ) c * kpPairing D H v c a := by
+  have hratio : d / (δ * a) = (d / δ) / a := by
+    simp [div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+  rw [hratio]
+  simp only [kpPairing_div_left, kpPairing_mul_right, kpPairing_self, hunit,
+    mul_one, mul_inv, inv_one]
+  rw [kpPairing_inverse_swap D H v a c]
+
+/-- The tame section is multiplicative for an integral upper-triangular right factor. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_mul_triangular
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k h : GL (Fin 2) (v.adicCompletion F))
+    (hk : ∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hh : ∀ i j, (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
+    (hdk : Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (hdh : Valued.v ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
+    (h10 : (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0) :
+    tameSplit D H v (k * h) = tameSplit D H v k * tameSplit D H v h * kpCocycle D H v k h := by
+  classical
+  let a0 := (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 0
+  let b0 := (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 0 1
+  let q0 := (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
+  let c0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0
+  let d0 := (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1
+  let e0 := c0 * b0 + d0 * q0
+  let δ := detU v k
+  have hva0 : Valued.v a0 = 1 := tame_triangular_left_unit v h hh hdh h10
+  have hvq0 : Valued.v q0 = 1 :=
+    tame_row_right_unit v h hh hdh (by rw [h10, map_zero]; exact zero_lt_one)
+  have ha0 : a0 ≠ 0 := tame_ne_zero_of_valuation_one v a0 hva0
+  have hq0 : q0 ≠ 0 := tame_ne_zero_of_valuation_one v q0 hvq0
+  let aU : (v.adicCompletion F)ˣ := Units.mk0 a0 ha0
+  let qU : (v.adicCompletion F)ˣ := Units.mk0 q0 hq0
+  have hva : Valued.v (aU : v.adicCompletion F) = 1 := hva0
+  have hvq : Valued.v (qU : v.adicCompletion F) = 1 := hvq0
+  have hvδ : Valued.v (δ : v.adicCompletion F) = 1 := hdk
+  have hδh : detU v h = aU * qU := by
+    apply Units.ext
+    simp [detU, Matrix.det_fin_two, h10, aU, qU, a0, q0]
+  have hC : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = c0 * a0 := by
+    simpa only [c0, a0, h10, mul_zero, add_zero] using matrix_mul_21 v k h
+  have hE : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 = e0 := by
+    simpa only [e0, c0, d0, b0, q0] using matrix_mul_22 v k h
+  have hxH : xU v h = qU := by
+    apply Units.ext
+    simp [xU, xEntry, h10, qU, q0]
+  have hdetPair : kpPairing D H v (detU v k) (detU v h) = 1 :=
+    tame_pair_units D H v hv _ _ hdk hdh
+  have hσ : kpCocycle D H v k h =
+      kpPairing D H v (xU v (k * h) / (qU * δ)) (xU v (k * h) / xU v k) := by
+    rw [kpCocycle_pairing, hxH, hdetPair, mul_one]
+  rw [tameSplit_of_zero_left D H v h h10, mul_one]
+  by_cases hc0 : c0 = 0
+  · have hcs : Valued.v c0 < 1 := by rw [hc0, map_zero]; exact zero_lt_one
+    have hvd0 : Valued.v d0 = 1 := tame_row_right_unit v k hk hdk hcs
+    have hd0 : d0 ≠ 0 := tame_ne_zero_of_valuation_one v d0 hvd0
+    let dU : (v.adicCompletion F)ˣ := Units.mk0 d0 hd0
+    have hvd : Valued.v (dU : v.adicCompletion F) = 1 := hvd0
+    have hz : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by rw [hC, hc0, zero_mul]
+    have hxk : xU v k = dU := by
+      apply Units.ext
+      simp [xU, xEntry, c0, d0, dU, hc0]
+    have hxK : xU v (k * h) = dU * qU := by
+      apply Units.ext
+      change xEntry v (k * h) = d0 * q0
+      unfold xEntry
+      rw [if_neg (by simp [hz]), hE]
+      simp only [e0, hc0, zero_mul, zero_add]
+    have hsk : tameSplit D H v k = 1 := tameSplit_of_zero_left D H v k hc0
+    have hsK : tameSplit D H v (k * h) = 1 := tameSplit_of_zero_left D H v _ hz
+    rw [hxk, hxK] at hσ
+    have hr1 : (dU * qU) / (qU * δ) = dU / δ := by
+      simp [div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+    have hr2 : (dU * qU) / dU = qU := by simp [mul_comm]
+    have hvdδ : Valued.v ((dU / δ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvd, hvδ]
+      simp
+    rw [hr1, hr2, tame_pair_units D H v hv _ _ hvdδ hvq] at hσ
+    rw [hsk, hsK, hσ]
+    simp
+  let cU : (v.adicCompletion F)ˣ := Units.mk0 c0 hc0
+  have hcn : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+      Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 ≠ 0 := by
+    rw [hC]
+    exact mul_ne_zero hc0 ha0
+  have hxk : xU v k = cU := xU_eq_lowerLeft v k hc0
+  have hxK : xU v (k * h) = cU * aU := by
+    apply Units.ext
+    change xEntry v (k * h) = c0 * a0
+    unfold xEntry
+    rw [if_pos hcn, hC]
+  rw [hxk, hxK] at hσ
+  have hvRatio : Valued.v ((aU / (qU * δ) : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+    rw [Units.val_div_eq_div_val, map_div₀, Units.val_mul, map_mul, hva, hvq, hvδ]
+    simp
+  have hr1 : (cU * aU) / (qU * δ) = cU * (aU / (qU * δ)) := by
+    simp [div_eq_mul_inv, mul_assoc]
+  have hr2 : (cU * aU) / cU = aU := by simp [mul_comm]
+  rw [hr1, hr2, kpPairing_mul_left, tame_pair_units D H v hv _ _ hvRatio hva, mul_one] at hσ
+  by_cases hcs : Valued.v c0 < 1
+  · have hvd0 : Valued.v d0 = 1 := tame_row_right_unit v k hk hdk hcs
+    have hd0 : d0 ≠ 0 := tame_ne_zero_of_valuation_one v d0 hvd0
+    let dU : (v.adicCompletion F)ˣ := Units.mk0 d0 hd0
+    have hvd : Valued.v (dU : v.adicCompletion F) = 1 := hvd0
+    have hvb : Valued.v b0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hh 0 1)
+    have hcb : Valued.v (c0 * b0) < 1 := by
+      rw [map_mul]
+      exact lt_of_le_of_lt (mul_le_mul' le_rfl hvb) (by simpa using hcs)
+    have hdq : Valued.v (d0 * q0) = 1 := by rw [map_mul, hvd0, hvq0, one_mul]
+    have hve0 : Valued.v e0 = 1 := by
+      have hne : Valued.v (c0 * b0) ≠ Valued.v (d0 * q0) := by rw [hdq]; exact ne_of_lt hcb
+      change Valued.v (c0 * b0 + d0 * q0) = 1
+      rw [Valuation.map_add_of_distinct_val _ hne, hdq, max_eq_right hcb.le]
+    have he0 : e0 ≠ 0 := tame_ne_zero_of_valuation_one v e0 hve0
+    let eU : (v.adicCompletion F)ˣ := Units.mk0 e0 he0
+    let r : (v.adicCompletion F)ˣ := eU / (dU * qU)
+    have hrVal : (r : v.adicCompletion F) - 1 = c0 * b0 / (d0 * q0) := by
+      simp only [r, Units.val_div_eq_div_val, Units.val_mul]
+      change e0 / (d0 * q0) - 1 = c0 * b0 / (d0 * q0)
+      field_simp
+      dsimp [e0]
+      ring
+    have hnear : Valued.v ((r : v.adicCompletion F) - 1) < 1 := by
+      rw [hrVal, map_div₀, hdq, div_one]
+      exact hcb
+    have hCs : Valued.v (((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) < 1 := by
+      rw [hC, map_mul, hva0, mul_one]
+      exact hcs
+    have hEn : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 ≠ 0 := by rw [hE]; exact he0
+    have hsK := tameSplit_of_small D H v (k * h) hcn hCs hEn
+    have hcu : Units.mk0 (((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0) hcn = cU * aU := by
+      apply Units.ext
+      exact hC
+    have heu : Units.mk0 (((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1) hEn = eU := by
+      apply Units.ext
+      exact hE
+    rw [hcu, heu, detU_mul, hδh] at hsK
+    change tameSplit D H v (k * h) = kpPairing D H v (eU / (δ * (aU * qU))) (cU * aU) at hsK
+    have hfactor : eU / (δ * (aU * qU)) = r * (dU / (δ * aU)) := by
+      simp [r, div_eq_mul_inv, mul_inv, mul_assoc, mul_left_comm, mul_comm]
+    have hpr : kpPairing D H v r (cU * aU) = 1 := tame_pair_principal_left D H v hv _ _ hnear
+    rw [hfactor, kpPairing_mul_left, hpr, one_mul] at hsK
+    have hvdδ : Valued.v ((dU / δ : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+      rw [Units.val_div_eq_div_val, map_div₀, hvd, hvδ]
+      simp
+    have hpda : kpPairing D H v (dU / δ) aU = 1 := tame_pair_units D H v hv _ _ hvdδ hva
+    rw [tame_triangular_symbol D H v cU dU aU δ hpda] at hsK
+    have hsk : tameSplit D H v k = kpPairing D H v (dU / δ) cU :=
+      tameSplit_of_small D H v k hc0 hcs hd0
+    rw [hsK, hsk, hσ]
+  · have hvcle : Valued.v c0 ≤ 1 := (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk 1 0)
+    have hvc : Valued.v c0 = 1 := le_antisymm hvcle (le_of_not_gt hcs)
+    have hvcU : Valued.v (cU : v.adicCompletion F) = 1 := hvc
+    have hsk : tameSplit D H v k = 1 := tameSplit_of_unit_left D H v k hvc
+    have hsK : tameSplit D H v (k * h) = 1 :=
+      tameSplit_of_unit_left D H v _ (by rw [hC, map_mul, hvc, hva0, one_mul])
+    rw [hsK, hsk, hσ, tame_pair_units D H v hv _ _ hvcU hva]
+    simp
+
+
+/-- Integral invertible matrices with unit determinant. -/
+abbrev _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.Integral
+    (v : FinPlace F) (k : GL (Fin 2) (v.adicCompletion F)) : Prop :=
+  (∀ i j, (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈
+    v.adicCompletionIntegers F) ∧
+  Valued.v ((k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1
+
+/-- The elementary right factors used for the tame splitting. -/
+def _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.Generator
+    (v : FinPlace F) (h : GL (Fin 2) (v.adicCompletion F)) : Prop :=
+  ((h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 ∧
+    ArtinPrimitiveRoots.Proofs.thsol_tame.Integral v h) ∨
+  (∃ t : v.adicCompletion F, Valued.v t < 1 ∧ h = lowerM _ t) ∨
+  h = weylM _
+
+open ArtinPrimitiveRoots.Proofs.thsol_tame
+
+private theorem tame_integral_mul (k h : GL (Fin 2) (v.adicCompletion F))
+    (hk : Integral v k) (hh : Integral v h) : Integral v (k * h) := by
+  constructor
+  · intro i j
+    let O := v.adicCompletionIntegers F
+    simpa [Matrix.mul_apply, Fin.sum_univ_two] using
+      O.toSubring.add_mem (O.toSubring.mul_mem (hk.1 i 0) (hh.1 0 j))
+        (O.toSubring.mul_mem (hk.1 i 1) (hh.1 1 j))
+  · have hdet : ((k * h : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det =
+        (k : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det *
+          (h : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det := Matrix.det_mul _ _
+    rw [hdet, map_mul, hk.2, hh.2, one_mul]
+
+private theorem tame_integral_upper (t : v.adicCompletion F)
+    (ht : t ∈ v.adicCompletionIntegers F) : Integral v (upperM _ t) := by
+  constructor
+  · intro i j
+    fin_cases i <;> fin_cases j <;> simp [upperM, ht]
+  · simp [upperM, Matrix.det_fin_two]
+
+private theorem tame_integral_lower (t : v.adicCompletion F)
+    (ht : t ∈ v.adicCompletionIntegers F) : Integral v (lowerM _ t) := by
+  constructor
+  · intro i j
+    fin_cases i <;> fin_cases j <;> simp [lowerM, ht]
+  · simp [lowerM, Matrix.det_fin_two]
+
+private theorem tame_integral_weyl : Integral v (weylM (v.adicCompletion F)) := by
+  constructor
+  · intro i j
+    fin_cases i <;> fin_cases j <;> simp [weylM]
+  · simp [weylM, Matrix.det_fin_two, Valuation.map_neg]
+
+private def tameSplitGood (h : GL (Fin 2) (v.adicCompletion F)) : Prop :=
+  ∀ k : GL (Fin 2) (v.adicCompletion F), Integral v k →
+    tameSplit D H v (k * h) =
+      tameSplit D H v k * tameSplit D H v h * kpCocycle D H v k h
+
+private theorem tameSplit_good_mul (h₁ h₂ : GL (Fin 2) (v.adicCompletion F))
+    (hi₁ : Integral v h₁) (hg₁ : tameSplitGood D H v h₁)
+    (hg₂ : tameSplitGood D H v h₂) : tameSplitGood D H v (h₁ * h₂) := by
+  intro k hk
+  have hs := hg₂ h₁ hi₁
+  calc
+    tameSplit D H v (k * (h₁ * h₂)) =
+        tameSplit D H v (k * h₁) * tameSplit D H v h₂ *
+          kpCocycle D H v (k * h₁) h₂ := by
+      simpa only [mul_assoc] using hg₂ (k * h₁) (tame_integral_mul v k h₁ hk hi₁)
+    _ = (tameSplit D H v k * tameSplit D H v h₁ * kpCocycle D H v k h₁) *
+          tameSplit D H v h₂ * kpCocycle D H v (k * h₁) h₂ := by rw [hg₁ k hk]
+    _ = tameSplit D H v k * tameSplit D H v h₁ * tameSplit D H v h₂ *
+          (kpCocycle D H v k h₁ * kpCocycle D H v (k * h₁) h₂) := by ac_rfl
+    _ = tameSplit D H v k * tameSplit D H v h₁ * tameSplit D H v h₂ *
+          (kpCocycle D H v k (h₁ * h₂) * kpCocycle D H v h₁ h₂) := by
+      rw [kpCocycle_cocycle D H v (H.steinberg v)]
+    _ = tameSplit D H v k *
+          (tameSplit D H v h₁ * tameSplit D H v h₂ * kpCocycle D H v h₁ h₂) *
+            kpCocycle D H v k (h₁ * h₂) := by ac_rfl
+    _ = tameSplit D H v k * tameSplit D H v (h₁ * h₂) *
+          kpCocycle D H v k (h₁ * h₂) := by rw [← hs]
+
+private theorem tame_lower_cancel (k : GL (Fin 2) (v.adicCompletion F))
+    (t : v.adicCompletion F) : (k * lowerM _ (-t)) * lowerM _ t = k := by
+  apply Matrix.GeneralLinearGroup.ext
+  intro i j
+  fin_cases i <;> fin_cases j <;>
+    simp [lowerM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+
+private theorem tame_upper_weyl_cancel (k : GL (Fin 2) (v.adicCompletion F))
+    (t : v.adicCompletion F) :
+    (k * upperM _ (-t) * weylM _) * weylM _ * upperM _ t = k := by
+  apply Matrix.GeneralLinearGroup.ext
+  intro i j
+  fin_cases i <;> fin_cases j <;>
+    simp [upperM, weylM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+
+/-- Generator identities imply multiplicativity on all integral matrices. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_from_generators
+    (hgen : ∀ k h : GL (Fin 2) (v.adicCompletion F), Integral v k → Generator v h →
+      tameSplit D H v (k * h) =
+        tameSplit D H v k * tameSplit D H v h * kpCocycle D H v k h)
+    (k₁ k₂ : GL (Fin 2) (v.adicCompletion F))
+    (hk₁ : Integral v k₁) (hk₂ : Integral v k₂) :
+    tameSplit D H v (k₁ * k₂) =
+      tameSplit D H v k₁ * tameSplit D H v k₂ * kpCocycle D H v k₁ k₂ := by
+  have hgood (h : GL (Fin 2) (v.adicCompletion F)) (hh : Generator v h) :
+      tameSplitGood D H v h := fun k hk => hgen k h hk hh
+  let M : Matrix (Fin 2) (Fin 2) (v.adicCompletion F) := k₂
+  let c := M 1 0
+  let d := M 1 1
+  by_cases hcs : Valued.v c < 1
+  · have hvd : Valued.v d = 1 := tame_row_right_unit v k₂ hk₂.1 hk₂.2 hcs
+    have hdne : d ≠ 0 := tame_ne_zero_of_valuation_one v d hvd
+    let t := c / d
+    have ht : Valued.v t < 1 := by
+      dsimp [t]
+      rw [map_div₀, hvd, div_one]
+      exact hcs
+    have htm : t ∈ v.adicCompletionIntegers F :=
+      (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mpr (le_of_lt ht)
+    have hntm : -t ∈ v.adicCompletionIntegers F :=
+      (v.adicCompletionIntegers F).toSubring.neg_mem htm
+    let b : GL (Fin 2) (v.adicCompletion F) := k₂ * lowerM _ (-t)
+    have hib : Integral v b := tame_integral_mul v k₂ (lowerM _ (-t)) hk₂
+      (tame_integral_lower v (-t) hntm)
+    have hb10 : (b : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by
+      change ((k₂ * lowerM _ (-t) : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0
+      rw [tame_lower_c]
+      change c + d * (-t) = 0
+      dsimp [t]
+      field_simp [hdne]
+      ring
+    have hgb : tameSplitGood D H v b := hgood b (Or.inl ⟨hb10, hib⟩)
+    have hgl : tameSplitGood D H v (lowerM _ t) :=
+      hgood _ (Or.inr (Or.inl ⟨t, ht, rfl⟩))
+    have hgbL := tameSplit_good_mul D H v b (lowerM _ t) hib hgb hgl
+    have hfactor : b * lowerM _ t = k₂ := tame_lower_cancel v k₂ t
+    rw [hfactor] at hgbL
+    exact hgbL k₁ hk₁
+  · have hvcle : Valued.v c ≤ 1 :=
+      (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk₂.1 1 0)
+    have hvc : Valued.v c = 1 := le_antisymm hvcle (le_of_not_gt hcs)
+    have hcne : c ≠ 0 := tame_ne_zero_of_valuation_one v c hvc
+    let t := d / c
+    have htm : t ∈ v.adicCompletionIntegers F := by
+      apply (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mpr
+      dsimp [t]
+      rw [map_div₀, hvc, div_one]
+      exact (HeightOneSpectrum.mem_adicCompletionIntegers (𝓞 F) F v).mp (hk₂.1 1 1)
+    have hntm : -t ∈ v.adicCompletionIntegers F :=
+      (v.adicCompletionIntegers F).toSubring.neg_mem htm
+    let b : GL (Fin 2) (v.adicCompletion F) := k₂ * upperM _ (-t) * weylM _
+    have hiu : Integral v (upperM _ (-t)) := tame_integral_upper v (-t) hntm
+    have hib : Integral v b := tame_integral_mul v (k₂ * upperM _ (-t)) (weylM _)
+      (tame_integral_mul v k₂ _ hk₂ hiu) (tame_integral_weyl v)
+    have hb10 : (b : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0 := by
+      change ((k₂ * upperM _ (-t) * weylM _ : GL (Fin 2) (v.adicCompletion F)) :
+        Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 0 = 0
+      rw [tame_weyl_c]
+      have hentry : ((k₂ * upperM _ (-t) : GL (Fin 2) (v.adicCompletion F)) :
+          Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) 1 1 = c * (-t) + d := by
+        simp [upperM, Matrix.mul_apply, Fin.sum_univ_two, c, d, M]
+      rw [hentry]
+      dsimp [t]
+      field_simp [hcne]
+      ring
+    have hgb : tameSplitGood D H v b := hgood b (Or.inl ⟨hb10, hib⟩)
+    have hgw : tameSplitGood D H v (weylM _) := hgood _ (Or.inr (Or.inr rfl))
+    have hiut : Integral v (upperM _ t) := tame_integral_upper v t htm
+    have hgut : tameSplitGood D H v (upperM _ t) :=
+      hgood _ (Or.inl ⟨by simp [upperM], hiut⟩)
+    have hgbW := tameSplit_good_mul D H v b (weylM _) hib hgb hgw
+    have hgbWU := tameSplit_good_mul D H v (b * weylM _) (upperM _ t)
+      (tame_integral_mul v b _ hib (tame_integral_weyl v)) hgbW hgut
+    have hfactor : b * weylM _ * upperM _ t = k₂ := tame_upper_weyl_cancel v k₂ t
+    rw [hfactor] at hgbWU
+    exact hgbWU k₁ hk₁
+
 theorem tameSplit_mul (hv : (6 : 𝓞 F) ∉ v.asIdeal) (k₁ k₂ : GL (Fin 2) (v.adicCompletion F))
     (hk₁ : ∀ i j, (k₁ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
     (hk₂ : ∀ i j, (k₂ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j ∈ v.adicCompletionIntegers F)
     (hd₁ : Valued.v ((k₁ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1)
     (hd₂ : Valued.v ((k₂ : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)).det) = 1) :
     tameSplit D H v (k₁ * k₂) = tameSplit D H v k₁ * tameSplit D H v k₂ * kpCocycle D H v k₁ k₂ := by
-  sorry
+  apply ArtinPrimitiveRoots.Proofs.thsol_tame.tameSplit_from_generators D H v ?_
+    k₁ k₂ ⟨hk₁, hd₁⟩ ⟨hk₂, hd₂⟩
+  intro k h hk hh
+  rcases hh with hh | hh | hh
+  · exact tameSplit_mul_triangular D H v hv k h hk.1 hh.2.1 hk.2 hh.2.2 hh.1
+  · obtain ⟨t, ht, rfl⟩ := hh
+    exact tameSplit_mul_lower D H v hv k hk.1 hk.2 t ht
+  · rcases hh with rfl
+    exact tameSplit_mul_weyl D H v hv k hk.1 hk.2
 
 end CocycleThm
 
@@ -3665,12 +4615,1937 @@ private theorem exists_coverQuotientBase (D : FieldData F) (S : SData F CE cond�
       (fun v => (C.loc v).z_central)
   exact ⟨{ family := C, quotient := Q }⟩
 
+/-- Global reciprocity removes the central discrepancy of rational section tuples. -/
+private theorem global_kpCocycle_product (D : FieldData F) (H : HilbertData F)
+    (g h : GL (Fin 2) F) :
+    (Function.mulSupport fun v : FinPlace F => kpCocycle D H v
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)).Finite ∧
+    (∏ᶠ v : FinPlace F, kpCocycle D H v
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)) = 1 := by
+  classical
+  let X := ArtinPrimitiveRoots.Proofs.th_cover_sol.secondRowUnit (K := F)
+  have hx (v : FinPlace F) (k : GL (Fin 2) F) :
+      xU v (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) k) =
+        toLoc v (X k) := by
+    change ArtinPrimitiveRoots.Proofs.th_cover_sol.secondRowUnit
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) k) =
+        Units.map (algebraMap F (v.adicCompletion F)).toMonoidHom (X k)
+    exact (ArtinPrimitiveRoots.Proofs.th_cover_sol.map_secondRowUnit _ k).symm
+  have hd (v : FinPlace F) (k : GL (Fin 2) F) :
+      detU v (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) k) =
+        toLoc v (Matrix.GeneralLinearGroup.det k) := by
+    exact Matrix.GeneralLinearGroup.map_det _ k
+  let p : rootsOfUnity 6 F →* rootsOfUnity 3 ℂ := {
+    toFun := muThree D
+    map_one' := muThree_one D
+    map_mul' := muThree_mul D
+  }
+  let a : Fˣ := X (g * h) / (X h * Matrix.GeneralLinearGroup.det g)
+  let b : Fˣ := X (g * h) / X g
+  let r : FinPlace F → rootsOfUnity 6 F := fun v => H.hilb v (toLoc v a) (toLoc v b)
+  let s : FinPlace F → rootsOfUnity 6 F := fun v =>
+    H.hilb v (toLoc v (Matrix.GeneralLinearGroup.det g))
+      (toLoc v (Matrix.GeneralLinearGroup.det h))
+  obtain ⟨hr, hrprod⟩ := H.product_formula a b
+  obtain ⟨hs, hsprod⟩ := H.product_formula
+    (Matrix.GeneralLinearGroup.det g) (Matrix.GeneralLinearGroup.det h)
+  have hpr : Function.HasFiniteMulSupport (fun v => p (r v)) :=
+    Function.HasFiniteMulSupport.fun_comp hr p.map_one
+  have hps : Function.HasFiniteMulSupport (fun v => p (s v)) :=
+    Function.HasFiniteMulSupport.fun_comp hs p.map_one
+  have hformula :
+      (fun v : FinPlace F => kpCocycle D H v
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)) =
+      (fun v => p (r v) * p (s v)) := by
+    funext v
+    simp only [kpCocycle, ← Matrix.GeneralLinearGroup.map_mul, hx, hd]
+    dsimp [p, r, s, a, b]
+    simp only [map_div, map_mul]
+  rw [hformula]
+  refine ⟨Function.HasFiniteMulSupport.mul hpr hps, ?_⟩
+  calc
+    (∏ᶠ v, p (r v) * p (s v)) = (∏ᶠ v, p (r v)) * (∏ᶠ v, p (s v)) :=
+      finprod_mul_distrib hpr hps
+    _ = p (∏ᶠ v, r v) * p (∏ᶠ v, s v) := by
+      rw [p.map_finprod hr, p.map_finprod hs]
+    _ = 1 := by rw [hrprod, hsprod, p.map_one, mul_one]
+
+private theorem cover_global_factorization (k : GL (Fin 2) F) :
+    (∃ c : Fˣ, ∃ y : Fˣ, ∃ t : F,
+      k = Matrix.GeneralLinearGroup.scalar (Fin 2) c *
+        diagM F y * upperM F t) ∨
+    (∃ c : Fˣ, ∃ t : F, ∃ y : Fˣ,
+      ∃ u : F,
+      k = Matrix.GeneralLinearGroup.scalar (Fin 2) c * upperM F t *
+        diagM F y * weylM F *
+          upperM F u) := by
+  classical
+  let M : Matrix (Fin 2) (Fin 2) F := k
+  let a := M 0 0
+  let b := M 0 1
+  let c₀ := M 1 0
+  let d := M 1 1
+  by_cases hc : c₀ = 0
+  · have hdet : M.det ≠ 0 := by simpa [M] using k.det_ne_zero
+    have ha : a ≠ 0 := by
+      intro ha
+      apply hdet
+      rw [Matrix.det_fin_two]
+      simp [a, c₀, d, hc, ha, M]
+    have hd : d ≠ 0 := by
+      intro hd
+      apply hdet
+      rw [Matrix.det_fin_two]
+      simp [a, c₀, d, hc, hd, M]
+    let cU : Fˣ := Units.mk0 d hd
+    let y : Fˣ := Units.mk0 (a / d) (div_ne_zero ha hd)
+    let t : F := b / a
+    have heq : k = Matrix.GeneralLinearGroup.scalar (Fin 2) cU *
+        diagM F y * upperM F t := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [M, a, b, c₀, d, cU, y, t, hc,
+          Matrix.GeneralLinearGroup.scalar, diagM, upperM, Matrix.mul_apply,
+          Fin.sum_univ_two] <;>
+        field_simp [ha, hd, M, a, b, c₀, d] <;> ring
+    exact Or.inl ⟨cU, y, t, heq⟩
+  · have hcne : c₀ ≠ 0 := hc
+    have hdet : M.det ≠ 0 := by simpa [M] using k.det_ne_zero
+    let cU : Fˣ := Units.mk0 c₀ hcne
+    have hy : -M.det / c₀ ^ 2 ≠ 0 := by
+      apply div_ne_zero
+      · exact neg_ne_zero.mpr hdet
+      · exact pow_ne_zero 2 hcne
+    let y : Fˣ := Units.mk0 (-M.det / c₀ ^ 2) hy
+    let t : F := a / c₀
+    let u : F := d / c₀
+    have heq : k = Matrix.GeneralLinearGroup.scalar (Fin 2) cU *
+        upperM F t * diagM F y *
+          weylM F * upperM F u := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [M, a, b, c₀, d, cU, y, t, u, hcne,
+          Matrix.GeneralLinearGroup.scalar, upperM, diagM, weylM,
+          Matrix.mul_apply, Fin.sum_univ_two, Matrix.det_fin_two] <;>
+        field_simp [hcne, M, a, b, c₀, d] <;> ring
+    exact Or.inr ⟨cU, t, y, u, heq⟩
+
+/-- Rational section tuples lie in the tame reference subgroups almost everywhere. -/
+private theorem coverFamily_rational_restricted (C : CoverLocalFamily D S H)
+    (γ : GL (Fin 2) F) :
+    Set.Finite {v : FinPlace F | ∃ hv : v ∉ S.Sf,
+      (C.loc v).sec
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) γ) ∉
+      (C.tame v hv).Kmax} := by
+  classical
+  let good : GL (Fin 2) F → Prop := fun k =>
+    ∀ᶠ v : FinPlace F in cofinite, ∀ hv : v ∉ S.Sf,
+      (C.loc v).sec
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) k) ∈
+      (C.tame v hv).Kmax
+  have hmul (g h : GL (Fin 2) F) (hg : good g) (hh : good h) : good (g * h) := by
+    have hc : ∀ᶠ v : FinPlace F in cofinite, kpCocycle D H v
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h) = 1 :=
+      Filter.eventually_cofinite.mpr (global_kpCocycle_product D H g h).1
+    filter_upwards [hg, hh, hc] with v hgv hhv hcv
+    intro hv
+    have heq := (C.loc v).sec_mul
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)
+    rw [hcv, map_one, one_mul] at heq
+    rw [Matrix.GeneralLinearGroup.map_mul, ← heq]
+    exact (C.tame v hv).Kmax.mul_mem (hgv hv) (hhv hv)
+  have hscalar (c : Fˣ) : good (Matrix.GeneralLinearGroup.scalar (Fin 2) c) := by
+    apply Filter.Eventually.of_forall
+    intro v hv
+    rw [Matrix.GeneralLinearGroup.map_scalar, (C.loc v).sec_scalar]
+    exact (C.tame v hv).Kmax.one_mem
+  have hupper (t : F) : good (upperM F t) := by
+    filter_upwards
+      [ArtinPrimitiveRoots.Proofs.th_cover_sol.rational_eventually_integral (R := 𝓞 F) t]
+      with v ht
+    intro hv
+    have heq : Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (upperM F t) = upperM (v.adicCompletion F)
+          (algebraMap F (v.adicCompletion F) t) := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.map_apply, upperM]
+    rw [heq, ← (C.loc v).sec_n]
+    exact (C.tame v hv).n_mem _ ht
+  have hdiag (u : Fˣ) : good (diagM F u) := by
+    filter_upwards
+      [ArtinPrimitiveRoots.Proofs.th_cover_sol.rationalUnit_eventually_integral
+        (R := 𝓞 F) u] with v hu
+    intro hv
+    have heq : Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (diagM F u) = diagM (v.adicCompletion F) (toLoc v u) := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.map_apply, diagM, toLoc]
+    rw [heq, ← (C.loc v).sec_a]
+    exact (C.tame v hv).a_mem _ hu.1 hu.2
+  have hweyl : good (weylM F) := by
+    apply Filter.Eventually.of_forall
+    intro v hv
+    have heq : Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+        (weylM F) = weylM (v.adicCompletion F) := by
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;>
+        simp [Matrix.GeneralLinearGroup.map_apply, weylM]
+    rw [heq, ← (C.loc v).sec_w]
+    exact (C.tame v hv).w_mem
+  have hγ : good γ := by
+    rcases cover_global_factorization γ with ⟨c, y, t, hγ⟩ | ⟨c, t, y, u, hγ⟩
+    · rw [hγ]
+      exact hmul _ _ (hmul _ _ (hscalar c) (hdiag y)) (hupper t)
+    · rw [hγ]
+      exact hmul _ _
+        (hmul _ _ (hmul _ _ (hmul _ _ (hscalar c) (hupper t)) (hdiag y)) hweyl)
+        (hupper u)
+  simpa only [not_forall] using Filter.eventually_cofinite.mp hγ
+
+private abbrev CoverRP (C : CoverLocalFamily D S H) :=
+  ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.RP
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference C)
+
+/-- Rational section tuples and their actual homomorphic image in the central quotient. -/
+private structure CoverRationalBase (B : CoverQuotientBase D S H) where
+  ratRP : GL (Fin 2) F → CoverRP B.family
+  rat : GL (Fin 2) F →* B.quotient.Q
+  q_ratRP : ∀ γ, B.quotient.q (ratRP γ) = rat γ
+  compF : ∀ v γ, ratRP γ (.inl v) =
+    (B.family.loc v).sec
+      (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) γ)
+  compC : ∀ w γ, ratRP γ (.inr w) =
+    QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding γ)
+  rat_scalar : ∀ c : Fˣ, rat (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1
+
+private theorem exists_coverRationalBase (B : CoverQuotientBase D S H) :
+    Nonempty (CoverRationalBase B) := by
+  classical
+  let C := B.family
+  let t : GL (Fin 2) F → CoverRP C := fun γ =>
+    ⟨fun p => match p with
+      | .inl v => (C.loc v).sec
+          (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) γ)
+      | .inr w => QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding γ), by
+      apply Filter.eventually_cofinite.mpr
+      refine ((coverFamily_rational_restricted C γ).image
+        (Sum.inl : FinPlace F → Place F)).subset ?_
+      intro p hp
+      cases p with
+      | inl v =>
+        by_cases hv : v ∉ S.Sf
+        · refine ⟨v, ⟨hv, ?_⟩, rfl⟩
+          simpa only [Set.mem_ofPred_eq, SetLike.mem_coe,
+            ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference,
+            coverFamilyReference, dite_eq_left hv] using hp
+        · have hvS : v ∈ S.Sf := by simpa using hv
+          simp [ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference,
+            coverFamilyReference, hvS] at hp
+      | inr w =>
+        simp [ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference] at hp⟩
+  have ht_scalar (c : Fˣ) : t (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1 := by
+    apply RestrictedProduct.ext
+    intro p
+    cases p with
+    | inl v =>
+      change (C.loc v).sec
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F))
+          (Matrix.GeneralLinearGroup.scalar (Fin 2) c)) = 1
+      rw [Matrix.GeneralLinearGroup.map_scalar, (C.loc v).sec_scalar]
+    | inr w =>
+      change (QuotientGroup.mk
+        (Matrix.GeneralLinearGroup.map w.embedding
+          (Matrix.GeneralLinearGroup.scalar (Fin 2) c)) : PGL2 ℂ) = 1
+      rw [Matrix.GeneralLinearGroup.map_scalar]
+      apply (QuotientGroup.eq_one_iff _).mpr
+      rw [Matrix.GeneralLinearGroup.center_eq_range_scalar]
+      exact ⟨Units.map w.embedding c, rfl⟩
+  let r : GL (Fin 2) F →* B.quotient.Q := {
+    toFun := fun γ => B.quotient.q (t γ)
+    map_one' := by
+      have ht_one : t 1 = 1 := by simpa only [map_one] using ht_scalar 1
+      rw [ht_one, map_one]
+    map_mul' := by
+      intro g h
+      rw [← map_mul]
+      symm
+      apply (B.quotient.q_eq _ _).mpr
+      obtain ⟨hfinite, hprod⟩ := global_kpCocycle_product D H g h
+      refine ⟨fun v => kpCocycle D H v
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+        (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h),
+        hfinite, hprod, ?_, ?_⟩
+      · intro v
+        change (C.loc v).sec
+          (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g) *
+            (C.loc v).sec
+              (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h) =
+          (C.loc v).z (kpCocycle D H v
+            (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) g)
+            (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) h)) *
+              (C.loc v).sec
+                (Matrix.GeneralLinearGroup.map (algebraMap F (v.adicCompletion F)) (g * h))
+        rw [Matrix.GeneralLinearGroup.map_mul]
+        exact (C.loc v).sec_mul _ _
+      · intro w
+        change (QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding g) : PGL2 ℂ) *
+          QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding h) =
+            QuotientGroup.mk (Matrix.GeneralLinearGroup.map w.embedding (g * h))
+        rw [Matrix.GeneralLinearGroup.map_mul, QuotientGroup.mk_mul]
+  }
+  refine ⟨{
+    ratRP := t
+    rat := r
+    q_ratRP := fun _ => rfl
+    compF := fun _ _ => rfl
+    compC := fun _ _ => rfl
+    rat_scalar := ?_
+  }⟩
+  intro c
+  change B.quotient.q (t (Matrix.GeneralLinearGroup.scalar (Fin 2) c)) = 1
+  rw [ht_scalar, map_one]
+
+/-- Single local insertions and their common injective central phase in the quotient. -/
+private structure CoverEmbeddingBase (B : CoverQuotientBase D S H) where
+  incl : ∀ v : FinPlace F, (B.family.loc v).L →* CoverRP B.family
+  incl_compF : ∀ v g, incl v g (.inl v) = g
+  incl_compF_other : ∀ v v', v ≠ v' → ∀ g, incl v g (.inl v') = 1
+  incl_compC : ∀ v g w, incl v g (.inr w) = 1
+  emb : ∀ v : FinPlace F, (B.family.loc v).L →* B.quotient.Q
+  q_incl : ∀ v g, B.quotient.q (incl v g) = emb v g
+  emb_inj : ∀ v, Function.Injective (emb v)
+  emb_comm : ∀ v v', v ≠ v' → ∀ g h,
+    emb v g * emb v' h = emb v' h * emb v g
+  z : rootsOfUnity 3 ℂ →* B.quotient.Q
+  z_inj : Function.Injective z
+  z_central : ∀ ζ g, z ζ * g = g * z ζ
+  emb_z : ∀ v ζ, emb v ((B.family.loc v).z ζ) = z ζ
+
+private theorem exists_coverEmbeddingBase (B : CoverQuotientBase D S H) :
+    Nonempty (CoverEmbeddingBase B) := by
+  classical
+  let ref := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference B.family)
+  let incl (v : FinPlace F) : (B.family.loc v).L →* CoverRP B.family :=
+    RestrictedProduct.mulSingleMonoidHom ref (.inl v)
+  let emb (v : FinPlace F) := B.quotient.q.comp (incl v)
+  obtain ⟨p, hpNe, hpMax⟩ := Ring.exists_maximal_of_not_isField
+    (NumberField.RingOfIntegers.not_isField F)
+  let v0 : FinPlace F := ⟨p, hpMax.isPrime, hpNe⟩
+  let z := (emb v0).comp (B.family.loc v0).z
+  refine ⟨{
+    incl := incl
+    incl_compF := ?_
+    incl_compF_other := ?_
+    incl_compC := ?_
+    emb := emb
+    q_incl := fun _ _ => rfl
+    emb_inj := fun v => B.quotient.incl_inj v
+    emb_comm := ?_
+    z := z
+    z_inj := (B.quotient.incl_inj v0).comp (B.family.loc v0).z_inj
+    z_central := fun ζ g => B.quotient.phase_central v0 ζ g
+    emb_z := fun v ζ => B.quotient.incl_z v v0 ζ
+  }⟩
+  · intro v g
+    exact RestrictedProduct.mulSingle_eq_same ref (.inl v) g
+  · intro v v' hv g
+    exact RestrictedProduct.mulSingle_eq_of_ne' ref (i := .inl v) (j := .inl v') g (by
+      intro heq
+      exact hv (Sum.inl.inj heq))
+  · intro v g w
+    exact RestrictedProduct.mulSingle_eq_of_ne' ref (i := .inl v) (j := .inr w) g (by
+      intro heq
+      cases heq)
+  · intro v v' hv g h
+    exact B.quotient.incl_comm (.inl v) (.inl v') (by
+      intro heq
+      exact hv (Sum.inl.inj heq)) g h
+
+/-- The S-part and exterior compact are exact images of their supported tuple subgroups. -/
+private structure CoverSubgroupBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) where
+  GS : Subgroup B.quotient.Q
+  Kext : Subgroup B.quotient.Q
+  GS_components : ∀ g ∈ GS, ∃ x : CoverRP B.family,
+    B.quotient.q x = g ∧ ∀ v, v ∉ S.Sf → x (.inl v) = 1
+  GS_of_components : ∀ x : CoverRP B.family,
+    (∀ v, v ∉ S.Sf → x (.inl v) = 1) → B.quotient.q x ∈ GS
+  Kext_components : ∀ k ∈ Kext, ∃ x : CoverRP B.family,
+    B.quotient.q x = k ∧
+    (∀ v (hv : v ∉ S.Sf), x (.inl v) ∈ (B.family.tame v hv).Kmax) ∧
+    (∀ v, v ∈ S.Sf → x (.inl v) = 1) ∧ ∀ w, x (.inr w) = 1
+  Kext_of_components : ∀ x : CoverRP B.family,
+    (∀ v (hv : v ∉ S.Sf), x (.inl v) ∈ (B.family.tame v hv).Kmax) →
+    (∀ v, v ∈ S.Sf → x (.inl v) = 1) →
+    (∀ w, x (.inr w) = 1) → B.quotient.q x ∈ Kext
+  comm_S : ∀ v, v ∉ S.Sf → ∀ g ∈ (E.emb v).range, ∀ h ∈ GS,
+    g * h = h * g
+  Kext_comm_S : ∀ k ∈ Kext, ∀ h ∈ GS, k * h = h * k
+  emb_Kext_iff : ∀ v (hv : v ∉ S.Sf) g,
+    E.emb v g ∈ Kext ↔ g ∈ (B.family.tame v hv).Kmax
+
+private theorem exists_coverSubgroupBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) : Nonempty (CoverSubgroupBase B E) := by
+  classical
+  let U : Subgroup (CoverRP B.family) := {
+    carrier := {x | ∀ v, v ∉ S.Sf → x (.inl v) = 1}
+    one_mem' := by intro v hv; rfl
+    mul_mem' := by
+      intro x y hx hy v hv
+      change x (.inl v) * y (.inl v) = 1
+      rw [hx v hv, hy v hv, one_mul]
+    inv_mem' := by
+      intro x hx v hv
+      change (x (.inl v))⁻¹ = 1
+      rw [hx v hv, inv_one]
+  }
+  let K : Subgroup (CoverRP B.family) := {
+    carrier := {x |
+      (∀ v (hv : v ∉ S.Sf), x (.inl v) ∈ (B.family.tame v hv).Kmax) ∧
+      (∀ v, v ∈ S.Sf → x (.inl v) = 1) ∧ ∀ w, x (.inr w) = 1}
+    one_mem' := by
+      refine ⟨?_, ?_, ?_⟩
+      · intro v hv
+        exact (B.family.tame v hv).Kmax.one_mem
+      · intro v hv; rfl
+      · intro w; rfl
+    mul_mem' := by
+      rintro x y ⟨hx, hxS, hxC⟩ ⟨hy, hyS, hyC⟩
+      refine ⟨?_, ?_, ?_⟩
+      · intro v hv
+        exact (B.family.tame v hv).Kmax.mul_mem (hx v hv) (hy v hv)
+      · intro v hv
+        change x (.inl v) * y (.inl v) = 1
+        rw [hxS v hv, hyS v hv, one_mul]
+      · intro w
+        change x (.inr w) * y (.inr w) = 1
+        rw [hxC w, hyC w, one_mul]
+    inv_mem' := by
+      rintro x ⟨hx, hxS, hxC⟩
+      refine ⟨?_, ?_, ?_⟩
+      · intro v hv
+        exact (B.family.tame v hv).Kmax.inv_mem (hx v hv)
+      · intro v hv
+        change (x (.inl v))⁻¹ = 1
+        rw [hxS v hv, inv_one]
+      · intro w
+        change (x (.inr w))⁻¹ = 1
+        rw [hxC w, inv_one]
+  }
+  let GS := U.map B.quotient.q
+  let Kext := K.map B.quotient.q
+  have hprz (v : FinPlace F) (ζ : rootsOfUnity 3 ℂ) :
+      (B.family.loc v).pr ((B.family.loc v).z ζ) = 1 := by
+    have hk : (B.family.loc v).z ζ ∈ (B.family.loc v).pr.ker := by
+      rw [(B.family.loc v).pr_ker]
+      exact ⟨ζ, rfl⟩
+    exact hk
+  have hphase (v : FinPlace F) (hv : v ∉ S.Sf) (ζ : rootsOfUnity 3 ℂ)
+      (hζ : (B.family.loc v).z ζ ∈ (B.family.tame v hv).Kmax) : ζ = 1 := by
+    have heq : (B.family.loc v).z ζ = 1 :=
+      (B.family.tame v hv).inj hζ (B.family.tame v hv).Kmax.one_mem
+        (by rw [hprz, map_one])
+    exact (B.family.loc v).z_inj (by simpa only [map_one] using heq)
+  have hiff (v : FinPlace F) (hv : v ∉ S.Sf) (g : (B.family.loc v).L) :
+      E.emb v g ∈ Kext ↔ g ∈ (B.family.tame v hv).Kmax := by
+    constructor
+    · intro hg
+      obtain ⟨x, hx, hqx⟩ := hg
+      have hq : B.quotient.q (E.incl v g) = B.quotient.q x := by
+        rw [E.q_incl, hqx]
+      obtain ⟨ζ, hfinite, hprod, hF, hC⟩ := (B.quotient.q_eq _ _).mp hq
+      have hother (v' : FinPlace F) (hne : v' ≠ v) : ζ v' = 1 := by
+        have hcomp := hF v'
+        rw [E.incl_compF_other v v' hne.symm] at hcomp
+        have hz : (B.family.loc v').z (ζ v') = (x (.inl v'))⁻¹ := by
+          calc
+            (B.family.loc v').z (ζ v') =
+                ((B.family.loc v').z (ζ v') * x (.inl v')) * (x (.inl v'))⁻¹ := by
+              simp [mul_assoc]
+            _ = (x (.inl v'))⁻¹ := by rw [← hcomp, one_mul]
+        by_cases hv' : v' ∉ S.Sf
+        · apply hphase v' hv' (ζ v')
+          rw [hz]
+          exact (B.family.tame v' hv').Kmax.inv_mem (hx.1 v' hv')
+        · have hvS : v' ∈ S.Sf := by simpa using hv'
+          rw [hx.2.1 v' hvS, inv_one] at hz
+          exact (B.family.loc v').z_inj (by simpa only [map_one] using hz)
+      have hvphase : ζ v = 1 := (finprod_eq_single ζ v hother).symm.trans hprod
+      have hcomp := hF v
+      rw [E.incl_compF, hvphase, map_one, one_mul] at hcomp
+      rw [hcomp]
+      exact hx.1 v hv
+    · intro hg
+      refine ⟨E.incl v g, ?_, E.q_incl v g⟩
+      refine ⟨?_, ?_, E.incl_compC v g⟩
+      · intro v' hv'
+        by_cases heq : v = v'
+        · subst v'
+          rw [E.incl_compF]
+          exact hg
+        · rw [E.incl_compF_other v v' heq]
+          exact (B.family.tame v' hv').Kmax.one_mem
+      · intro v' hvS
+        have hne : v ≠ v' := by
+          intro heq
+          subst v'
+          exact hv hvS
+        exact E.incl_compF_other v v' hne g
+  refine ⟨{
+    GS := GS
+    Kext := Kext
+    GS_components := ?_
+    GS_of_components := ?_
+    Kext_components := ?_
+    Kext_of_components := ?_
+    comm_S := ?_
+    Kext_comm_S := ?_
+    emb_Kext_iff := hiff
+  }⟩
+  · intro g hg
+    obtain ⟨x, hx, hqx⟩ := hg
+    exact ⟨x, hqx, hx⟩
+  · intro x hx
+    exact ⟨x, hx, rfl⟩
+  · intro k hk
+    obtain ⟨x, hx, hqx⟩ := hk
+    exact ⟨x, hqx, hx⟩
+  · intro x hx hxS hxC
+    exact ⟨x, ⟨hx, hxS, hxC⟩, rfl⟩
+  · intro v hv g hg h hh
+    obtain ⟨g0, rfl⟩ := hg
+    obtain ⟨y, hy, rfl⟩ := hh
+    have heq : E.incl v g0 * y = y * E.incl v g0 := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v' =>
+        change E.incl v g0 (.inl v') * y (.inl v') =
+          y (.inl v') * E.incl v g0 (.inl v')
+        by_cases hvv : v = v'
+        · subst v'
+          rw [E.incl_compF, hy v hv]
+          simp
+        · rw [E.incl_compF_other v v' hvv]
+          simp
+      | inr w =>
+        change E.incl v g0 (.inr w) * y (.inr w) =
+          y (.inr w) * E.incl v g0 (.inr w)
+        rw [E.incl_compC]
+        simp
+    simpa only [map_mul, E.q_incl] using congrArg B.quotient.q heq
+  · intro k hk h hh
+    obtain ⟨x, hx, rfl⟩ := hk
+    obtain ⟨y, hy, rfl⟩ := hh
+    have heq : x * y = y * x := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        change x (.inl v) * y (.inl v) = y (.inl v) * x (.inl v)
+        by_cases hv : v ∉ S.Sf
+        · rw [hy v hv]
+          simp
+        · have hvS : v ∈ S.Sf := by simpa using hv
+          rw [hx.2.1 v hvS]
+          simp
+      | inr w =>
+        change x (.inr w) * y (.inr w) = y (.inr w) * x (.inr w)
+        rw [hx.2.2 w]
+        simp
+    simpa only [map_mul] using congrArg B.quotient.q heq
+
+/-- Valuation balls of positive radius are neighborhoods of zero. -/
+private theorem cover_ball_mem_nhds_zero (v : FinPlace F) (m : ℤ) :
+    ball v m ∈ nhds (0 : v.adicCompletion F) := by
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  obtain ⟨π, hπ⟩ := v.valuedAdicCompletion_surjective F (WithZero.exp (-m))
+  have hπv : V π ≠ 0 := by rw [hπ]; exact WithZero.exp_ne_zero
+  have hπne : π ≠ 0 := V.ne_zero_iff.mp hπv
+  have hγne : V.restrict π ≠ 0 := V.restrict.ne_zero_iff.mpr hπne
+  have hopen : IsOpen (ball v m) := by
+    have h := Valued.isOpen_closedBall K (Γ₀ := WithZero (Multiplicative ℤ))
+      (r := V.restrict π) hγne
+    convert h using 1
+    ext x
+    change V x ≤ WithZero.exp (-m) ↔ V.restrict x ≤ V.restrict π
+    rw [V.restrict_le_iff, hπ]
+  exact hopen.mem_nhds (by simp [ball])
+
+/-- The small splitting neighborhoods force continuity of the distinguished local maps. -/
+private theorem finLocalCover_maps_continuous {D : FieldData F} {H : HilbertData F}
+    (v : FinPlace F) (L : FinLocalCover D H v) :
+    Continuous L.n ∧ Continuous L.nbar ∧ Continuous L.a := by
+  let K := v.adicCompletion F
+  have root_cont (f : Multiplicative K →* L.L)
+      (hf : ∀ m, L.m0 ≤ m → ∀ x ∈ ball v m,
+        f (Multiplicative.ofAdd x) ∈ L.Kc m) : Continuous f := by
+    apply continuous_of_tendsto_nhds_one f
+    intro U hU
+    obtain ⟨m, hm, hsub⟩ := L.Kc_nhds U hU
+    change f ⁻¹' U ∈ nhds (1 : Multiplicative K)
+    have hsmall : ∀ᶠ x : Multiplicative K in nhds 1, x.toAdd ∈ ball v m :=
+      continuous_toAdd.continuousAt (cover_ball_mem_nhds_zero v m)
+    filter_upwards [hsmall] with x hx
+    exact hsub (hf m hm x.toAdd hx)
+  have hunitSubtract : Tendsto (fun u : Kˣ => (u : K) - 1)
+      (nhds 1) (nhds 0) := by
+    have hc : Continuous (fun u : Kˣ => (u : K) - 1) :=
+      Units.continuous_val.sub continuous_const
+    simpa only [Units.val_one, sub_self] using hc.tendsto (1 : Kˣ)
+  have ha1 : Tendsto L.a (nhds (1 : Kˣ)) (nhds (1 : L.L)) := by
+    intro U hU
+    obtain ⟨m, hm, hsub⟩ := L.Kc_nhds U hU
+    change L.a ⁻¹' U ∈ nhds (1 : Kˣ)
+    have hsmall := hunitSubtract.eventually (cover_ball_mem_nhds_zero v m)
+    filter_upwards [hsmall] with u hu
+    exact hsub (L.a_Kc m hm u hu)
+  refine ⟨root_cont L.n L.n_Kc, root_cont L.nbar L.nbar_Kc, ?_⟩
+  apply continuous_iff_continuousAt.2
+  intro u
+  change Tendsto L.a (nhds u) (nhds (L.a u))
+  let δ : Kˣ → Kˣ := fun x => u⁻¹ * x
+  have hδ : Tendsto δ (nhds u) (nhds 1) := by
+    have hc : Continuous δ := continuous_const.mul continuous_id
+    simpa [δ] using hc.tendsto u
+  obtain ⟨m0, _, hpowers⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  have hsmall : ∀ᶠ x in nhds u, ((δ x : K) - 1) ∈ ball v (m0 : ℤ) :=
+    (hunitSubtract.comp hδ).eventually (cover_ball_mem_nhds_zero v (m0 : ℤ))
+  have htranslate : (fun x => L.a u * L.a (δ x)) =ᶠ[nhds u] L.a := by
+    filter_upwards [hsmall] with x hx
+    have hhilb' : H.hilb v (δ x) u = 1 := H.sixth_power v (δ x) u (hpowers _ hx)
+    have hhilb : H.hilb v u (δ x) = 1 := by
+      have h := H.skew v u (δ x)
+      rwa [hhilb', mul_one] at h
+    rw [L.a_mul, hhilb, muThree_one D, map_one, one_mul]
+    simp [δ]
+  have hcont : Tendsto (fun x => L.a u * L.a (δ x)) (nhds u)
+      (nhds (L.a u * 1)) := tendsto_const_nhds.mul (ha1.comp hδ)
+  simpa only [mul_one] using hcont.congr' htranslate
+
+/-- A finite tuple of central phases becomes their product in the common center. -/
+private theorem coverEmbedding_phaseProduct (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (x : CoverRP B.family)
+    (ζ : FinPlace F → rootsOfUnity 3 ℂ)
+    (hζ : (Function.mulSupport ζ).Finite)
+    (hx : ∀ v, x (.inl v) = (B.family.loc v).z (ζ v))
+    (hxC : ∀ w, x (.inr w) = 1) :
+    B.quotient.q x = E.z (∏ᶠ v, ζ v) := by
+  classical
+  obtain ⟨p, hpNe, hpMax⟩ := Ring.exists_maximal_of_not_isField
+    (NumberField.RingOfIntegers.not_isField F)
+  let v0 : FinPlace F := ⟨p, hpMax.isPrime, hpNe⟩
+  let τ := ∏ᶠ v, ζ v
+  let ψ : FinPlace F → rootsOfUnity 3 ℂ := fun v => if v = v0 then τ else 1
+  have hψ : (Function.mulSupport ψ).Finite := by
+    apply (Set.finite_singleton v0).subset
+    intro v hv
+    change v = v0
+    by_contra hne
+    change ψ v ≠ 1 at hv
+    exact hv (by simp [ψ, hne])
+  have hprodψ : (∏ᶠ v, ψ v) = τ := by
+    have h := finprod_eq_single ψ v0 (fun v hv => by simp [ψ, hv])
+    simpa [ψ] using h
+  have hq : B.quotient.q x = B.quotient.q (E.incl v0 ((B.family.loc v0).z τ)) := by
+    apply (B.quotient.q_eq _ _).mpr
+    refine ⟨fun v => ζ v / ψ v, Function.HasFiniteMulSupport.div hζ hψ, ?_, ?_, ?_⟩
+    · rw [finprod_div_distrib hζ hψ, hprodψ]
+      simp [τ]
+    · intro v
+      rw [hx v]
+      by_cases hv : v = v0
+      · subst v
+        rw [E.incl_compF, ← map_mul]
+        simp [ψ]
+      · rw [E.incl_compF_other v0 v (Ne.symm hv)]
+        simp [ψ, hv]
+    · intro w
+      rw [hxC w, E.incl_compC]
+  calc
+    B.quotient.q x = B.quotient.q (E.incl v0 ((B.family.loc v0).z τ)) := hq
+    _ = E.z τ := (E.q_incl v0 _).trans (E.emb_z v0 τ)
+
+/-- The S-generators as native restricted tuples, with their actual continuity certificates. -/
+private structure CoverSTupleBase (B : CoverQuotientBase D S H) where
+  nRP : Multiplicative S.FS →* CoverRP B.family
+  nbarRP : Multiplicative S.FS →* CoverRP B.family
+  aRP : S.FSˣ → CoverRP B.family
+  wRP : CoverRP B.family
+  nF : ∀ u : S.FS, ∀ v : FinPlace F,
+    nRP (Multiplicative.ofAdd u) (.inl v) = if hv : v ∈ S.Sf then
+      (B.family.loc v).n (Multiplicative.ofAdd (u.1 ⟨v, hv⟩)) else 1
+  nC : ∀ u : S.FS, ∀ w,
+    nRP (Multiplicative.ofAdd u) (.inr w) = QuotientGroup.mk (upperM ℂ (u.2 w))
+  nbarF : ∀ u : S.FS, ∀ v : FinPlace F,
+    nbarRP (Multiplicative.ofAdd u) (.inl v) = if hv : v ∈ S.Sf then
+      (B.family.loc v).nbar (Multiplicative.ofAdd (u.1 ⟨v, hv⟩)) else 1
+  nbarC : ∀ u : S.FS, ∀ w,
+    nbarRP (Multiplicative.ofAdd u) (.inr w) = QuotientGroup.mk (lowerM ℂ (u.2 w))
+  aF : ∀ u : S.FSˣ, ∀ v : FinPlace F,
+    aRP u (.inl v) = if hv : v ∈ S.Sf then
+      (B.family.loc v).a (S.compU ⟨v, hv⟩ u) else 1
+  aC : ∀ u : S.FSˣ, ∀ w,
+    aRP u (.inr w) = QuotientGroup.mk (diagM ℂ (S.compC w u))
+  wF : ∀ v : FinPlace F, wRP (.inl v) = if v ∈ S.Sf then (B.family.loc v).w else 1
+  wC : ∀ w, wRP (.inr w) = QuotientGroup.mk (weylM ℂ)
+  n_cont : Continuous nRP
+  a_cont : Continuous aRP
+
+private theorem exists_coverSTupleBase (B : CoverQuotientBase D S H) :
+    Nonempty (CoverSTupleBase B) := by
+  classical
+  let C := B.family
+  let Comp := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.Component
+    (G := fun v : FinPlace F => (C.loc v).L) (H := fun _ : InfinitePlace F => PGL2 ℂ)
+  let ref := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference C)
+  let TopRP := RestrictedProduct Comp (fun p => (ref p : Set (Comp p)))
+    (⊤ : Filter (Place F))
+  let topTuple (lf : ∀ v : S.Sf, (C.loc v.1).L) (lc : InfinitePlace F → PGL2 ℂ) : TopRP :=
+    ⟨fun p => match p with
+      | .inl v => if hv : v ∈ S.Sf then lf ⟨v, hv⟩ else 1
+      | .inr w => lc w, Filter.Eventually.of_forall (by
+      intro p
+      cases p with
+      | inl v =>
+        change (if hv : v ∈ S.Sf then lf ⟨v, hv⟩ else 1) ∈ coverFamilyReference C v
+        by_cases hv : v ∈ S.Sf <;> simp [coverFamilyReference, hv]
+      | inr w =>
+        change lc w ∈ (⊤ : Subgroup (PGL2 ℂ))
+        simp)⟩
+  let tuple (lf : ∀ v : S.Sf, (C.loc v.1).L) (lc : InfinitePlace F → PGL2 ℂ) : CoverRP C :=
+    RestrictedProduct.inclusion Comp (fun p => (ref p : Set (Comp p)))
+      (show (cofinite : Filter (Place F)) ≤ ⊤ from le_top) (topTuple lf lc)
+  have tuple_F (lf : ∀ v : S.Sf, (C.loc v.1).L) (lc : InfinitePlace F → PGL2 ℂ)
+      (v : FinPlace F) : tuple lf lc (.inl v) =
+        if hv : v ∈ S.Sf then lf ⟨v, hv⟩ else 1 := rfl
+  have tuple_cont {X : Type} [TopologicalSpace X]
+      (lf : X → ∀ v : S.Sf, (C.loc v.1).L) (lc : X → InfinitePlace F → PGL2 ℂ)
+      (hf : ∀ v, Continuous (fun x => lf x v))
+      (hc : ∀ w, Continuous (fun x => lc x w)) :
+      Continuous (fun x => tuple (lf x) (lc x)) := by
+    have ht : Continuous (fun x => topTuple (lf x) (lc x)) := by
+      apply RestrictedProduct.continuous_rng_of_top.mpr
+      apply continuous_pi
+      intro p
+      cases p with
+      | inl v =>
+        change Continuous (fun x : X => if hv : v ∈ S.Sf then lf x ⟨v, hv⟩
+          else (1 : (C.loc v).L))
+        by_cases hv : v ∈ S.Sf
+        · simpa only [dif_pos hv] using hf ⟨v, hv⟩
+        · simpa only [dif_neg hv] using
+            (continuous_const : Continuous (fun _ : X => (1 : (C.loc v).L)))
+      | inr w =>
+        change Continuous (fun x => lc x w)
+        exact hc w
+    exact (RestrictedProduct.continuous_inclusion
+      (R := Comp) (A := fun p => (ref p : Set (Comp p)))
+      (show (cofinite : Filter (Place F)) ≤ ⊤ from le_top)).comp ht
+  let Mat := Matrix (Fin 2) (Fin 2) ℂ
+  letI : Monoid Mat := inferInstanceAs (Monoid (Matrix (Fin 2) (Fin 2) ℂ))
+  let qC : GL (Fin 2) ℂ →* PGL2 ℂ := QuotientGroup.mk' _
+  have hqC : Continuous qC := QuotientGroup.continuous_mk
+  have upper_zero : upperM ℂ 0 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [upperM]
+  have upper_add : ∀ x y : ℂ, upperM ℂ (x + y) = upperM ℂ x * upperM ℂ y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  have upper_inv : ∀ x : ℂ, (upperM ℂ x)⁻¹ = upperM ℂ (-x) := by
+    intro x
+    have h : upperM ℂ (-x) * upperM ℂ x = 1 := by
+      rw [← upper_add, neg_add_cancel, upper_zero]
+    exact (eq_inv_of_mul_eq_one_left h).symm
+  have lower_zero : lowerM ℂ 0 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [lowerM]
+  have lower_add : ∀ x y : ℂ, lowerM ℂ (x + y) = lowerM ℂ x * lowerM ℂ y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [lowerM, Matrix.mul_apply, Fin.sum_univ_two] <;> ring
+  have diag_one : diagM ℂ 1 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [diagM]
+  have diag_mul : ∀ x y : ℂˣ, diagM ℂ (x * y) = diagM ℂ x * diagM ℂ y := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [diagM, Matrix.mul_apply, Fin.sum_univ_two]
+  have diag_inv : ∀ y : ℂˣ, (diagM ℂ y)⁻¹ = diagM ℂ y⁻¹ := by
+    intro y
+    have h : diagM ℂ y⁻¹ * diagM ℂ y = 1 := by
+      rw [← diag_mul, inv_mul_cancel, diag_one]
+    exact (eq_inv_of_mul_eq_one_left h).symm
+  have upper_val : Continuous (fun x : ℂ => (upperM ℂ x : Mat)) := by
+    apply continuous_pi
+    intro i
+    apply continuous_pi
+    intro j
+    fin_cases i <;> fin_cases j <;> simp [upperM] <;> fun_prop
+  have upper_cont : Continuous (upperM ℂ) := by
+    apply Units.continuous_iff.mpr
+    refine ⟨upper_val, ?_⟩
+    change Continuous (fun x : ℂ => (((upperM ℂ x)⁻¹ : GL (Fin 2) ℂ) : Mat))
+    simp_rw [upper_inv]
+    exact upper_val.comp continuous_neg
+  have diag_val : Continuous (fun y : ℂˣ => (diagM ℂ y : Mat)) := by
+    apply continuous_pi
+    intro i
+    apply continuous_pi
+    intro j
+    fin_cases i <;> fin_cases j <;> simp [diagM] <;> fun_prop
+  have diag_cont : Continuous (diagM ℂ) := by
+    apply Units.continuous_iff.mpr
+    refine ⟨diag_val, ?_⟩
+    change Continuous (fun y : ℂˣ => (((diagM ℂ y)⁻¹ : GL (Fin 2) ℂ) : Mat))
+    simp_rw [diag_inv]
+    exact diag_val.comp continuous_inv
+  let n : Multiplicative S.FS →* CoverRP C := {
+    toFun := fun x => tuple
+      (fun v => (C.loc v.1).n (Multiplicative.ofAdd (x.toAdd.1 v)))
+      (fun w => qC (upperM ℂ (x.toAdd.2 w)))
+    map_one' := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        simp only [tuple_F, RestrictedProduct.one_apply]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          exact map_one _
+        · simp only [dif_neg hv]
+      | inr w =>
+        change qC (upperM ℂ 0) = 1
+        rw [upper_zero, map_one]
+    map_mul' := by
+      intro x y
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        simp only [RestrictedProduct.mul_apply, tuple_F]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          exact map_mul _ _ _
+        · simp only [dif_neg hv, one_mul]
+      | inr w =>
+        change qC (upperM ℂ (x.toAdd.2 w + y.toAdd.2 w)) =
+          qC (upperM ℂ (x.toAdd.2 w)) * qC (upperM ℂ (y.toAdd.2 w))
+        rw [upper_add, map_mul]
+  }
+  let nb : Multiplicative S.FS →* CoverRP C := {
+    toFun := fun x => tuple
+      (fun v => (C.loc v.1).nbar (Multiplicative.ofAdd (x.toAdd.1 v)))
+      (fun w => qC (lowerM ℂ (x.toAdd.2 w)))
+    map_one' := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        simp only [tuple_F, RestrictedProduct.one_apply]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          exact map_one _
+        · simp only [dif_neg hv]
+      | inr w =>
+        change qC (lowerM ℂ 0) = 1
+        rw [lower_zero, map_one]
+    map_mul' := by
+      intro x y
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        simp only [RestrictedProduct.mul_apply, tuple_F]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          exact map_mul _ _ _
+        · simp only [dif_neg hv, one_mul]
+      | inr w =>
+        change qC (lowerM ℂ (x.toAdd.2 w + y.toAdd.2 w)) =
+          qC (lowerM ℂ (x.toAdd.2 w)) * qC (lowerM ℂ (y.toAdd.2 w))
+        rw [lower_add, map_mul]
+  }
+  let a : S.FSˣ → CoverRP C := fun u => tuple
+    (fun v => (C.loc v.1).a (S.compU v u))
+    (fun w => qC (diagM ℂ (S.compC w u)))
+  let w : CoverRP C := tuple (fun v => (C.loc v.1).w) (fun _ => qC (weylM ℂ))
+  have hn : Continuous n := by
+    change Continuous (fun x : Multiplicative S.FS => tuple
+      (fun v => (C.loc v.1).n (Multiplicative.ofAdd (x.toAdd.1 v)))
+      (fun w => qC (upperM ℂ (x.toAdd.2 w))))
+    refine tuple_cont (X := Multiplicative S.FS)
+      (fun x v => (C.loc v.1).n (Multiplicative.ofAdd (x.toAdd.1 v)))
+      (fun x w => qC (upperM ℂ (x.toAdd.2 w))) ?_ ?_
+    · intro v
+      have hc : Continuous (fun x : Multiplicative S.FS =>
+          Multiplicative.ofAdd (x.toAdd.1 v)) :=
+        continuous_ofAdd.comp ((continuous_apply v).comp
+          (continuous_fst.comp continuous_toAdd))
+      exact (finLocalCover_maps_continuous v.1 (C.loc v.1)).1.comp hc
+    · intro w
+      exact hqC.comp (upper_cont.comp ((continuous_apply w).comp
+        (continuous_snd.comp continuous_toAdd)))
+  have ha : Continuous a := by
+    change Continuous (fun u : S.FSˣ => tuple
+      (fun v => (C.loc v.1).a (S.compU v u))
+      (fun w => qC (diagM ℂ (S.compC w u))))
+    refine tuple_cont (X := S.FSˣ)
+      (fun u v => (C.loc v.1).a (S.compU v u))
+      (fun u w => qC (diagM ℂ (S.compC w u))) ?_ ?_
+    · intro v
+      have hc : Continuous (S.compU v) := by
+        unfold SData.compU
+        apply Continuous.units_map
+        exact (continuous_apply v).comp continuous_fst
+      exact (finLocalCover_maps_continuous v.1 (C.loc v.1)).2.2.comp hc
+    · intro w
+      have hc : Continuous (S.compC w) := by
+        unfold SData.compC
+        apply Continuous.units_map
+        exact (continuous_apply w).comp continuous_snd
+      exact hqC.comp (diag_cont.comp hc)
+  exact ⟨{
+    nRP := n
+    nbarRP := nb
+    aRP := a
+    wRP := w
+    nF := fun _ _ => rfl
+    nC := fun _ _ => rfl
+    nbarF := fun _ _ => rfl
+    nbarC := fun _ _ => rfl
+    aF := fun _ _ => rfl
+    aC := fun _ _ => rfl
+    wF := fun _ => rfl
+    wC := fun _ => rfl
+    n_cont := hn
+    a_cont := ha
+  }⟩
+
+/-- Quotient torus and exact lift identities for the native S-generators. -/
+private structure CoverSLawBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (T : CoverSTupleBase B) where
+  a_mul : ∀ x y : S.FSˣ,
+    B.quotient.q (T.aRP x) * B.quotient.q (T.aRP y) =
+      E.z (muThree D (S.HS H x y)) * B.quotient.q (T.aRP (x * y))
+  lift_na : ∀ (x : S.FS) (y : S.FSˣ),
+    T.nRP (Multiplicative.ofAdd x) * T.aRP y =
+      T.aRP y * T.nRP (Multiplicative.ofAdd (x * ↑y⁻¹))
+  lift_wa : ∀ y : S.FSˣ, T.wRP * T.aRP y * T.wRP⁻¹ = T.aRP y⁻¹
+  lift_wn : ∀ u : S.FSˣ,
+    T.wRP * T.nRP (Multiplicative.ofAdd (u : S.FS)) =
+      T.nRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) *
+        T.aRP (-(u⁻¹ * u⁻¹)) *
+          T.nbarRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS))
+  emb_a : ∀ v : S.Sf, ∀ y : (v.1.adicCompletion F)ˣ, ∃ yS : S.FSˣ,
+    S.compU v yS = y ∧ (∀ v' : S.Sf, v' ≠ v → S.compU v' yS = 1) ∧
+    (∀ w, S.compC w yS = 1) ∧
+      B.quotient.q (T.aRP yS) = E.emb v.1 ((B.family.loc v.1).a y)
+
+private theorem exists_coverSLawBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (T : CoverSTupleBase B) :
+    Nonempty (CoverSLawBase B E T) := by
+  classical
+  have aMul (x y : S.FSˣ) :
+      B.quotient.q (T.aRP x) * B.quotient.q (T.aRP y) =
+        E.z (muThree D (S.HS H x y)) * B.quotient.q (T.aRP (x * y)) := by
+    let ζ : FinPlace F → rootsOfUnity 3 ℂ := fun v => if hv : v ∈ S.Sf then
+      muThree D (H.hilb v (S.compU ⟨v, hv⟩ x) (S.compU ⟨v, hv⟩ y)) else 1
+    have hs : Function.mulSupport ζ ⊆ (S.Sf : Set (FinPlace F)) := by
+      intro v hv
+      by_contra hn
+      change v ∉ S.Sf at hn
+      change ζ v ≠ 1 at hv
+      exact hv (by simp only [ζ, dif_neg hn])
+    have hfinite : (Function.mulSupport ζ).Finite := S.Sf.finite_toSet.subset hs
+    let p : rootsOfUnity 6 F →* rootsOfUnity 3 ℂ := {
+      toFun := muThree D
+      map_one' := muThree_one D
+      map_mul' := muThree_mul D
+    }
+    have hprod : (∏ᶠ v, ζ v) = muThree D (S.HS H x y) := by
+      rw [finprod_eq_prod_of_mulSupport_subset ζ hs, ← Finset.prod_coe_sort S.Sf ζ]
+      have hp : (∏ v : S.Sf, ζ v) =
+          ∏ v : S.Sf, p (H.hilb v.1 (S.compU v x) (S.compU v y)) := by
+        apply Finset.prod_congr rfl
+        intro v _
+        simp [ζ, p, v.2]
+      rw [hp]
+      change (∏ v : S.Sf, p (H.hilb v.1 (S.compU v x) (S.compU v y))) =
+        p (∏ v : S.Sf, H.hilb v.1 (S.compU v x) (S.compU v y))
+      exact (_root_.map_prod p
+        (fun v : S.Sf => H.hilb v.1 (S.compU v x) (S.compU v y)) Finset.univ).symm
+    have diag_mul : ∀ a b : ℂˣ, diagM ℂ (a * b) = diagM ℂ a * diagM ℂ b := by
+      intro a b
+      apply Matrix.GeneralLinearGroup.ext
+      intro i j
+      fin_cases i <;> fin_cases j <;> simp [diagM, Matrix.mul_apply, Fin.sum_univ_two]
+    have hq : B.quotient.q (T.aRP x * T.aRP y * (T.aRP (x * y))⁻¹) = E.z (∏ᶠ v, ζ v) := by
+      apply coverEmbedding_phaseProduct B E _ ζ hfinite
+      · intro v
+        change T.aRP x (.inl v) * T.aRP y (.inl v) * (T.aRP (x * y) (.inl v))⁻¹ =
+          (B.family.loc v).z (ζ v)
+        rw [T.aF, T.aF, T.aF]
+        by_cases hv : v ∈ S.Sf
+        · simp only [dif_pos hv]
+          rw [map_mul, (B.family.loc v).a_mul]
+          simp [ζ, hv]
+        · simp [ζ, hv]
+      · intro w
+        change T.aRP x (.inr w) * T.aRP y (.inr w) * (T.aRP (x * y) (.inr w))⁻¹ = 1
+        have h : T.aRP x (.inr w) * T.aRP y (.inr w) = T.aRP (x * y) (.inr w) := by
+          rw [T.aC, T.aC, T.aC, map_mul, ← QuotientGroup.mk_mul, ← diag_mul]
+        rw [h, mul_inv_cancel]
+    have hq' : B.quotient.q (T.aRP x) * B.quotient.q (T.aRP y) *
+        (B.quotient.q (T.aRP (x * y)))⁻¹ = E.z (muThree D (S.HS H x y)) := by
+      simpa only [map_mul, map_inv, hprod] using hq
+    have h := congrArg (fun g : B.quotient.Q => g * B.quotient.q (T.aRP (x * y))) hq'
+    simpa only [mul_assoc, inv_mul_cancel, mul_one] using h
+  let qC : GL (Fin 2) ℂ →* PGL2 ℂ := QuotientGroup.mk' _
+  have scalar_q (c : ℂˣ) : qC (Matrix.GeneralLinearGroup.scalar (Fin 2) c) = 1 := by
+    apply (QuotientGroup.eq_one_iff _).mpr
+    rw [Matrix.GeneralLinearGroup.center_eq_range_scalar]
+    exact ⟨c, rfl⟩
+  have diag_one : diagM ℂ 1 = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [diagM]
+  have weyl_sq : weylM ℂ * weylM ℂ = 1 := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, Matrix.mul_apply, Fin.sum_univ_two]
+  have weyl_inv : (weylM ℂ)⁻¹ = weylM ℂ :=
+    (eq_inv_of_mul_eq_one_left weyl_sq).symm
+  have upper_diag : ∀ (x : ℂ) (y : ℂˣ), upperM ℂ x * diagM ℂ y =
+      diagM ℂ y * upperM ℂ (x * (y⁻¹ : ℂˣ)) := by
+    intro x y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, diagM, Matrix.mul_apply, Fin.sum_univ_two]
+    all_goals
+      rw [mul_left_comm]
+      have hy : (y : ℂ) * (y : ℂ)⁻¹ = 1 := mul_inv_cancel₀ (a := (y : ℂ)) y.ne_zero
+      rw [hy, mul_one]
+  have weyl_diag : ∀ y : ℂˣ, weylM ℂ * diagM ℂ y * weylM ℂ =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) y * diagM ℂ y⁻¹ := by
+    intro y
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, diagM, Matrix.GeneralLinearGroup.scalar, Matrix.mul_apply, Fin.sum_univ_two]
+  have wn_factor : ∀ t : ℂˣ, weylM ℂ * upperM ℂ (t : ℂ) =
+      Matrix.GeneralLinearGroup.scalar (Fin 2) t *
+        (upperM ℂ ((t⁻¹ : ℂˣ) : ℂ) * diagM ℂ (-(t⁻¹ * t⁻¹)) *
+          lowerM ℂ ((t⁻¹ : ℂˣ) : ℂ)) := by
+    intro t
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [weylM, upperM, diagM, lowerM, Matrix.GeneralLinearGroup.scalar,
+        Matrix.mul_apply, Fin.sum_univ_two] <;> try field_simp <;> ring
+  have compU_neg (v : S.Sf) (u : S.FSˣ) : S.compU v (-u) = -S.compU v u := by
+    apply Units.ext
+    simp [SData.compU]
+  have compC_neg (w : InfinitePlace F) (u : S.FSˣ) : S.compC w (-u) = -S.compC w u := by
+    apply Units.ext
+    simp [SData.compC]
+  refine ⟨{
+    a_mul := aMul
+    lift_na := ?_
+    lift_wa := ?_
+    lift_wn := ?_
+    emb_a := ?_
+  }⟩
+  · intro x y
+    apply RestrictedProduct.ext
+    intro p
+    cases p with
+    | inl v =>
+      change T.nRP (Multiplicative.ofAdd x) (.inl v) * T.aRP y (.inl v) =
+        T.aRP y (.inl v) * T.nRP (Multiplicative.ofAdd (x * ↑y⁻¹)) (.inl v)
+      simp only [T.nF, T.aF]
+      by_cases hv : v ∈ S.Sf
+      · simp only [dif_pos hv]
+        simpa [SData.compU] using (B.family.loc v).lift_na (x.1 ⟨v, hv⟩) (S.compU ⟨v, hv⟩ y)
+      · simp [hv]
+    | inr w =>
+      change T.nRP (Multiplicative.ofAdd x) (.inr w) * T.aRP y (.inr w) =
+        T.aRP y (.inr w) * T.nRP (Multiplicative.ofAdd (x * ↑y⁻¹)) (.inr w)
+      simp only [T.nC, T.aC]
+      change qC (upperM ℂ (x.2 w)) * qC (diagM ℂ (S.compC w y)) =
+        qC (diagM ℂ (S.compC w y)) * qC (upperM ℂ ((x * ↑y⁻¹).2 w))
+      rw [← map_mul, ← map_mul, upper_diag]
+      congr 2
+  · intro y
+    apply RestrictedProduct.ext
+    intro p
+    cases p with
+    | inl v =>
+      change T.wRP (.inl v) * T.aRP y (.inl v) * (T.wRP (.inl v))⁻¹ = T.aRP y⁻¹ (.inl v)
+      simp only [T.wF, T.aF]
+      by_cases hv : v ∈ S.Sf
+      · simp only [if_pos hv, dif_pos hv, map_inv]
+        exact (B.family.loc v).lift_wa _
+      · simp [hv]
+    | inr w =>
+      change T.wRP (.inr w) * T.aRP y (.inr w) * (T.wRP (.inr w))⁻¹ = T.aRP y⁻¹ (.inr w)
+      simp only [T.wC, T.aC]
+      change qC (weylM ℂ) * qC (diagM ℂ (S.compC w y)) * (qC (weylM ℂ))⁻¹ =
+        qC (diagM ℂ (S.compC w y⁻¹))
+      rw [map_inv, ← map_inv qC, weyl_inv, ← map_mul, ← map_mul, weyl_diag,
+        map_mul, scalar_q, one_mul]
+  · intro u
+    apply RestrictedProduct.ext
+    intro p
+    cases p with
+    | inl v =>
+      change T.wRP (.inl v) * T.nRP (Multiplicative.ofAdd (u : S.FS)) (.inl v) =
+        T.nRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) (.inl v) *
+          T.aRP (-(u⁻¹ * u⁻¹)) (.inl v) *
+            T.nbarRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) (.inl v)
+      rw [T.wF, T.nF, T.nF, T.aF, T.nbarF]
+      by_cases hv : v ∈ S.Sf
+      · simp only [if_pos hv, dif_pos hv, compU_neg, map_mul, map_inv]
+        simpa [SData.compU] using (B.family.loc v).lift_wn (S.compU ⟨v, hv⟩ u)
+      · simp [hv]
+    | inr w =>
+      change T.wRP (.inr w) * T.nRP (Multiplicative.ofAdd (u : S.FS)) (.inr w) =
+        T.nRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) (.inr w) *
+          T.aRP (-(u⁻¹ * u⁻¹)) (.inr w) *
+            T.nbarRP (Multiplicative.ofAdd ((u⁻¹ : S.FSˣ) : S.FS)) (.inr w)
+      rw [T.wC, T.nC, T.nC, T.aC, T.nbarC]
+      simp only [compC_neg, map_mul, map_inv]
+      change qC (weylM ℂ) * qC (upperM ℂ ((S.compC w u : ℂˣ) : ℂ)) =
+        qC (upperM ℂ (((S.compC w u)⁻¹ : ℂˣ) : ℂ)) *
+          qC (diagM ℂ (-((S.compC w u)⁻¹ * (S.compC w u)⁻¹))) *
+            qC (lowerM ℂ (((S.compC w u)⁻¹ : ℂˣ) : ℂ))
+      rw [← map_mul, wn_factor, map_mul, scalar_q, one_mul, map_mul, map_mul]
+  · intro v y
+    let yS : S.FSˣ := {
+      val := (Function.update (fun v' : S.Sf => (1 : v'.1.adicCompletion F)) v
+        (y : v.1.adicCompletion F), fun _ : InfinitePlace F => (1 : ℂ))
+      inv := (Function.update (fun v' : S.Sf => (1 : v'.1.adicCompletion F)) v
+        ((y⁻¹ : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F),
+        fun _ : InfinitePlace F => (1 : ℂ))
+      val_inv := by
+        apply Prod.ext
+        · funext v'
+          by_cases hv : v' = v
+          · subst v'
+            simp
+          · simp [Function.update_of_ne hv]
+        · funext w
+          simp
+      inv_val := by
+        apply Prod.ext
+        · funext v'
+          by_cases hv : v' = v
+          · subst v'
+            simp
+          · simp [Function.update_of_ne hv]
+        · funext w
+          simp
+    }
+    have hself : S.compU v yS = y := by
+      apply Units.ext
+      change Function.update (fun v' : S.Sf => (1 : v'.1.adicCompletion F)) v
+        (y : v.1.adicCompletion F) v = (y : v.1.adicCompletion F)
+      simp
+    have hother : ∀ v' : S.Sf, v' ≠ v → S.compU v' yS = 1 := by
+      intro v' hv
+      apply Units.ext
+      change Function.update (fun v' : S.Sf => (1 : v'.1.adicCompletion F)) v
+        (y : v.1.adicCompletion F) v' = (1 : v'.1.adicCompletion F)
+      simp [Function.update_of_ne hv]
+    have hcomplex : ∀ w, S.compC w yS = 1 := by
+      intro w
+      apply Units.ext
+      rfl
+    have htuple : T.aRP yS = E.incl v.1 ((B.family.loc v.1).a y) := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v' =>
+        rw [T.aF]
+        by_cases hs : v' ∈ S.Sf
+        · rw [dif_pos hs]
+          by_cases hv : v' = v.1
+          · subst v'
+            change (B.family.loc v.1).a (S.compU v yS) =
+              E.incl v.1 ((B.family.loc v.1).a y) (.inl v.1)
+            rw [hself, E.incl_compF]
+          · have hne : (⟨v', hs⟩ : S.Sf) ≠ v := by
+              intro heq
+              exact hv (congrArg Subtype.val heq)
+            rw [hother _ hne, (B.family.loc v').a_one,
+              E.incl_compF_other v.1 v' (Ne.symm hv)]
+        · rw [dif_neg hs, E.incl_compF_other v.1 v' (by
+            intro heq
+            exact hs (heq ▸ v.2))]
+      | inr w =>
+        rw [T.aC, hcomplex w, diag_one, QuotientGroup.mk_one, E.incl_compC]
+    refine ⟨yS, hself, hother, hcomplex, ?_⟩
+    rw [htuple, E.q_incl]
+
+/-- Exterior generator tuples and their rational S/exterior decomposition. -/
+private structure CoverExteriorBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (U : CoverSubgroupBase B E)
+    (R : CoverRationalBase B) (T : CoverSTupleBase B) where
+  nRP : Multiplicative F →* CoverRP B.family
+  aRP : Fˣ → CoverRP B.family
+  wRP : CoverRP B.family
+  nF : ∀ x : F, ∀ v : FinPlace F,
+    nRP (Multiplicative.ofAdd x) (.inl v) = if v ∉ S.Sf then
+      (B.family.loc v).n (Multiplicative.ofAdd (algebraMap F _ x)) else 1
+  nC : ∀ x : F, ∀ w, nRP (Multiplicative.ofAdd x) (.inr w) = 1
+  aF : ∀ u : Fˣ, ∀ v : FinPlace F,
+    aRP u (.inl v) = if v ∉ S.Sf then (B.family.loc v).a (toLoc v u) else 1
+  aC : ∀ u : Fˣ, ∀ w, aRP u (.inr w) = 1
+  wF : ∀ v : FinPlace F, wRP (.inl v) = if v ∉ S.Sf then (B.family.loc v).w else 1
+  wC : ∀ w, wRP (.inr w) = 1
+  rat_upper : ∀ x : F, R.ratRP (upperGL x) =
+    T.nRP (Multiplicative.ofAdd (S.diag x)) * nRP (Multiplicative.ofAdd x)
+  rat_diag : ∀ u : Fˣ, R.ratRP (diagGL u) = T.aRP (S.diagU u) * aRP u
+  rat_weyl : R.ratRP weylGL = T.wRP * wRP
+  w_mem : B.quotient.q wRP ∈ U.Kext
+  a_unit : ∀ u ∈ S.US, B.quotient.q (aRP u) ∈ U.Kext
+
+private theorem exists_coverExteriorBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (U : CoverSubgroupBase B E)
+    (R : CoverRationalBase B) (T : CoverSTupleBase B) :
+    Nonempty (CoverExteriorBase B E U R T) := by
+  classical
+  let C := B.family
+  have hproj : ∃ p : CoverRP C →* CoverRP C,
+      (∀ x v, p x (.inl v) = if v ∉ S.Sf then x (.inl v) else 1) ∧
+      ∀ x w, p x (.inr w) = 1 := by
+    let f : CoverRP C → CoverRP C := fun x =>
+      ⟨fun p => match p with
+        | .inl v => if v ∉ S.Sf then x (.inl v) else 1
+        | .inr _ => 1, by
+        filter_upwards [x.2] with p hp
+        cases p with
+        | inl v =>
+          change (if v ∉ S.Sf then x (.inl v) else 1) ∈ coverFamilyReference C v
+          change x (.inl v) ∈ coverFamilyReference C v at hp
+          by_cases hv : v ∉ S.Sf
+          · simpa only [ite_eq_left hv] using hp
+          · simp only [ite_eq_right hv, OneMemClass.one_mem]
+        | inr w =>
+          simp [ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference]⟩
+    let p : CoverRP C →* CoverRP C := {
+      toFun := f
+      map_one' := by
+        apply RestrictedProduct.ext
+        intro i
+        cases i with
+        | inl v =>
+          change (if v ∉ S.Sf then (1 : (C.loc v).L) else 1) = 1
+          split_ifs <;> rfl
+        | inr w => rfl
+      map_mul' := by
+        intro x y
+        apply RestrictedProduct.ext
+        intro i
+        cases i with
+        | inl v =>
+          change (if v ∉ S.Sf then x (.inl v) * y (.inl v) else 1) =
+            (if v ∉ S.Sf then x (.inl v) else 1) *
+              (if v ∉ S.Sf then y (.inl v) else 1)
+          split_ifs <;> simp
+        | inr w =>
+          change (1 : PGL2 ℂ) = 1 * 1
+          rw [one_mul]
+    }
+    exact ⟨p, fun _ _ => rfl, fun _ _ => rfl⟩
+  obtain ⟨p, pF, pC⟩ := hproj
+  have upper_map {K : Type} [Field K] (f : F →+* K) (x : F) :
+      Matrix.GeneralLinearGroup.map f (upperGL x) = upperM K (f x) := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map_apply, upperGL, upperM]
+  have diag_map {K : Type} [Field K] (f : F →+* K) (u : Fˣ) :
+      Matrix.GeneralLinearGroup.map f (diagGL u) =
+        diagM K (Units.map f.toMonoidHom u) := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map_apply, diagGL, diagM]
+  have weyl_map {K : Type} [Field K] (f : F →+* K) :
+      Matrix.GeneralLinearGroup.map f weylGL = weylM K := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map_apply, weylGL, weylM]
+  have ratNF (x : F) (v : FinPlace F) : R.ratRP (upperGL x) (.inl v) =
+      (C.loc v).n (Multiplicative.ofAdd (algebraMap F _ x)) := by
+    rw [R.compF, upper_map, ← (C.loc v).sec_n]
+  have ratAF (u : Fˣ) (v : FinPlace F) : R.ratRP (diagGL u) (.inl v) =
+      (C.loc v).a (toLoc v u) := by
+    rw [R.compF, diag_map]
+    exact ((C.loc v).sec_a _).symm
+  have ratWF (v : FinPlace F) : R.ratRP weylGL (.inl v) = (C.loc v).w := by
+    rw [R.compF, weyl_map, ← (C.loc v).sec_w]
+  have ratNC (x : F) (w : InfinitePlace F) : R.ratRP (upperGL x) (.inr w) =
+      QuotientGroup.mk (upperM ℂ (w.embedding x)) := by rw [R.compC, upper_map]
+  have ratAC (u : Fˣ) (w : InfinitePlace F) : R.ratRP (diagGL u) (.inr w) =
+      QuotientGroup.mk (diagM ℂ (Units.map w.embedding.toMonoidHom u)) := by
+    rw [R.compC, diag_map]
+  have ratWC (w : InfinitePlace F) : R.ratRP weylGL (.inr w) =
+      QuotientGroup.mk (weylM ℂ) := by rw [R.compC, weyl_map]
+  let nraw (x : F) := p (R.ratRP (upperGL x))
+  let a (u : Fˣ) := p (R.ratRP (diagGL u))
+  let w := p (R.ratRP weylGL)
+  have nF (x : F) (v : FinPlace F) : nraw x (.inl v) = if v ∉ S.Sf then
+      (C.loc v).n (Multiplicative.ofAdd (algebraMap F _ x)) else 1 := by
+    rw [pF, ratNF]
+  have aF (u : Fˣ) (v : FinPlace F) : a u (.inl v) = if v ∉ S.Sf then
+      (C.loc v).a (toLoc v u) else 1 := by rw [pF, ratAF]
+  have wF (v : FinPlace F) : w (.inl v) = if v ∉ S.Sf then (C.loc v).w else 1 := by
+    rw [pF, ratWF]
+  let n : Multiplicative F →* CoverRP C := {
+    toFun := fun x => nraw x.toAdd
+    map_one' := by
+      apply RestrictedProduct.ext
+      intro i
+      cases i with
+      | inl v =>
+        change nraw 0 (.inl v) = 1
+        rw [nF]
+        simp
+      | inr w => exact pC _ _
+    map_mul' := by
+      intro x y
+      apply RestrictedProduct.ext
+      intro i
+      cases i with
+      | inl v =>
+        change nraw (x.toAdd + y.toAdd) (.inl v) =
+          nraw x.toAdd (.inl v) * nraw y.toAdd (.inl v)
+        rw [nF, nF, nF]
+        by_cases hv : v ∉ S.Sf <;>
+          simp [hv, map_add, ofAdd_add, map_mul]
+      | inr w =>
+        change p (R.ratRP (upperGL (x.toAdd + y.toAdd))) (.inr w) =
+          p (R.ratRP (upperGL x.toAdd)) (.inr w) *
+            p (R.ratRP (upperGL y.toAdd)) (.inr w)
+        rw [pC, pC, pC, one_mul]
+  }
+  have compU_diag (u : Fˣ) (v : S.Sf) : S.compU v (S.diagU u) = toLoc v.1 u := by
+    apply Units.ext
+    rfl
+  have compC_diag (u : Fˣ) (v : InfinitePlace F) :
+      S.compC v (S.diagU u) = Units.map v.embedding.toMonoidHom u := by
+    apply Units.ext
+    rfl
+  refine ⟨{
+    nRP := n
+    aRP := a
+    wRP := w
+    nF := nF
+    nC := fun _ _ => pC _ _
+    aF := aF
+    aC := fun _ _ => pC _ _
+    wF := wF
+    wC := fun _ => pC _ _
+    rat_upper := ?_
+    rat_diag := ?_
+    rat_weyl := ?_
+    w_mem := ?_
+    a_unit := ?_
+  }⟩
+  · intro x
+    apply RestrictedProduct.ext
+    intro i
+    cases i with
+    | inl v =>
+      change R.ratRP (upperGL x) (.inl v) =
+        T.nRP (Multiplicative.ofAdd (S.diag x)) (.inl v) * nraw x (.inl v)
+      rw [ratNF, T.nF, nF]
+      by_cases hv : v ∈ S.Sf <;> simp [hv, SData.diag, C]
+    | inr w =>
+      change R.ratRP (upperGL x) (.inr w) =
+        T.nRP (Multiplicative.ofAdd (S.diag x)) (.inr w) *
+          p (R.ratRP (upperGL x)) (.inr w)
+      rw [ratNC, T.nC, pC, mul_one]
+      rfl
+  · intro u
+    apply RestrictedProduct.ext
+    intro i
+    cases i with
+    | inl v =>
+      change R.ratRP (diagGL u) (.inl v) = T.aRP (S.diagU u) (.inl v) * a u (.inl v)
+      rw [ratAF, T.aF, aF]
+      by_cases hv : v ∈ S.Sf <;> simp [hv, compU_diag, C]
+    | inr w =>
+      change R.ratRP (diagGL u) (.inr w) =
+        T.aRP (S.diagU u) (.inr w) * p (R.ratRP (diagGL u)) (.inr w)
+      rw [ratAC, T.aC, pC, mul_one, compC_diag]
+  · apply RestrictedProduct.ext
+    intro i
+    cases i with
+    | inl v =>
+      change R.ratRP weylGL (.inl v) = T.wRP (.inl v) * w (.inl v)
+      rw [ratWF, T.wF, wF]
+      by_cases hv : v ∈ S.Sf <;> simp [hv, C]
+    | inr v =>
+      change R.ratRP weylGL (.inr v) = T.wRP (.inr v) * p (R.ratRP weylGL) (.inr v)
+      rw [ratWC, T.wC, pC, mul_one]
+  · apply U.Kext_of_components
+    · intro v hv
+      rw [wF, if_pos hv]
+      exact (C.tame v hv).w_mem
+    · intro v hv
+      rw [wF, if_neg (not_not.mpr hv)]
+    · intro v
+      exact pC _ _
+  · intro u hu
+    apply U.Kext_of_components
+    · intro v hv
+      rw [aF, if_pos hv]
+      apply (C.tame v hv).a_mem
+      · change Valued.v (algebraMap F (v.adicCompletion F) (u : F)) ≤ 1
+        have hval : v.valuation F (u : F) = 1 := hu v hv
+        simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+          Algebra.algebraMap_self, RingHom.id_apply,
+          v.valuedAdicCompletion_eq_valuation'] using hval.le
+      · rw [← map_inv]
+        change Valued.v (algebraMap F (v.adicCompletion F) ((u⁻¹ : Fˣ) : F)) ≤ 1
+        have hval : v.valuation F ((u⁻¹ : Fˣ) : F) = 1 := (S.US.inv_mem hu) v hv
+        simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+          Algebra.algebraMap_self, RingHom.id_apply,
+          v.valuedAdicCompletion_eq_valuation'] using hval.le
+    · intro v hv
+      rw [aF, if_neg (not_not.mpr hv)]
+    · intro v
+      exact pC _ _
+
+/-- Finite exterior factorizations with compact tails commuting with the selected places. -/
+private structure CoverTailBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (U : CoverSubgroupBase B E)
+    (R : CoverRationalBase B) (T : CoverSTupleBase B)
+    (X : CoverExteriorBase B E U R T) where
+  a_split : ∀ (u : Fˣ) (Tf : Finset (FinPlace F)), (∀ v ∈ Tf, v ∉ S.Sf) →
+    (∀ v : FinPlace F, v ∉ S.Sf → v ∉ Tf →
+      residue v (u : F) ≠ 0 ∧ residue v ((u⁻¹ : Fˣ) : F) ≠ 0) →
+    ∃ k ∈ U.Kext, (∀ v ∈ Tf, ∀ g ∈ (E.emb v).range, k * g = g * k) ∧
+      B.quotient.q (X.aRP u) =
+        (Tf.toList.map fun v => E.emb v ((B.family.loc v).a (toLoc v u))).prod * k
+  n_split : ∀ (x : F) (Tf : Finset (FinPlace F)), (∀ v ∈ Tf, v ∉ S.Sf) →
+    (∀ v : FinPlace F, v ∉ S.Sf → v ∉ Tf → v.valuation F x ≤ 1) →
+    ∃ k ∈ U.Kext, (∀ v ∈ Tf, ∀ g ∈ (E.emb v).range, k * g = g * k) ∧
+      B.quotient.q (X.nRP (Multiplicative.ofAdd x)) =
+        (Tf.toList.map fun v => E.emb v ((B.family.loc v).n
+          (Multiplicative.ofAdd (algebraMap F _ x)))).prod * k
+  w_split : ∀ (Tf : Finset (FinPlace F)), (∀ v ∈ Tf, v ∉ S.Sf) →
+    ∃ k ∈ U.Kext, (∀ v ∈ Tf, ∀ g ∈ (E.emb v).range, k * g = g * k) ∧
+      B.quotient.q X.wRP = (Tf.toList.map fun v => E.emb v (B.family.loc v).w).prod * k
+
+private theorem exists_coverTailBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (U : CoverSubgroupBase B E)
+    (R : CoverRationalBase B) (T : CoverSTupleBase B)
+    (X : CoverExteriorBase B E U R T) : Nonempty (CoverTailBase B E U R T X) := by
+  classical
+  let C := B.family
+  have split : ∀ (x : CoverRP C) (Tf : Finset (FinPlace F)),
+      (∀ v, v ∈ S.Sf → x (.inl v) = 1) → (∀ w, x (.inr w) = 1) →
+      (∀ v (hv : v ∉ S.Sf), v ∉ Tf → x (.inl v) ∈ (C.tame v hv).Kmax) →
+      ∃ k ∈ U.Kext, (∀ v ∈ Tf, ∀ g ∈ (E.emb v).range, k * g = g * k) ∧
+        B.quotient.q x = (Tf.toList.map fun v => E.emb v (x (.inl v))).prod * k := by
+    intro x Tf hS hC hcompact
+    let t : CoverRP C :=
+      ⟨fun p => match p with
+        | .inl v => if v ∈ Tf then 1 else x (.inl v)
+        | .inr w => x (.inr w), by
+        filter_upwards [x.2] with p hp
+        cases p with
+        | inl v =>
+          change (if v ∈ Tf then 1 else x (.inl v)) ∈ coverFamilyReference C v
+          change x (.inl v) ∈ coverFamilyReference C v at hp
+          by_cases hv : v ∈ Tf
+          · simp only [ite_eq_left hv, OneMemClass.one_mem]
+          · simpa only [ite_eq_right hv] using hp
+        | inr w => exact hp⟩
+    have tF (v : FinPlace F) : t (.inl v) = if v ∈ Tf then 1 else x (.inl v) := rfl
+    have tC (w : InfinitePlace F) : t (.inr w) = x (.inr w) := rfl
+    have hkt : B.quotient.q t ∈ U.Kext := by
+      apply U.Kext_of_components
+      · intro v hv
+        rw [tF]
+        by_cases hT : v ∈ Tf
+        · rw [ite_eq_left hT]
+          exact (C.tame v hv).Kmax.one_mem
+        · rw [ite_eq_right hT]
+          exact hcompact v hv hT
+      · intro v hv
+        rw [tF]
+        by_cases hT : v ∈ Tf <;> simp [hT, hS v hv]
+      · intro w
+        exact (tC w).trans (hC w)
+    have comm (v : FinPlace F) (hv : v ∈ Tf) (g : B.quotient.Q)
+        (hg : g ∈ (E.emb v).range) : B.quotient.q t * g = g * B.quotient.q t := by
+      obtain ⟨a, rfl⟩ := hg
+      have hcomm : t * E.incl v a = E.incl v a * t := by
+        apply RestrictedProduct.ext
+        intro p
+        cases p with
+        | inl v' =>
+          change t (.inl v') * E.incl v a (.inl v') =
+            E.incl v a (.inl v') * t (.inl v')
+          by_cases heq : v = v'
+          · subst v'
+            rw [tF, ite_eq_left hv, E.incl_compF]
+            simp
+          · rw [E.incl_compF_other v v' heq]
+            simp
+        | inr w =>
+          change t (.inr w) * E.incl v a (.inr w) = E.incl v a (.inr w) * t (.inr w)
+          rw [E.incl_compC]
+          simp
+      calc
+        B.quotient.q t * E.emb v a = B.quotient.q (t * E.incl v a) := by
+          rw [map_mul, E.q_incl]
+        _ = B.quotient.q (E.incl v a * t) := congrArg B.quotient.q hcomm
+        _ = E.emb v a * B.quotient.q t := by rw [map_mul, E.q_incl]
+    have prodF : ∀ l : List (FinPlace F), l.Nodup → ∀ v : FinPlace F,
+        ((l.map fun u => E.incl u (x (.inl u))).prod) (.inl v) =
+          if v ∈ l then x (.inl v) else 1 := by
+      intro l
+      induction l with
+      | nil =>
+        intro hl v
+        simp
+      | cons u l ih =>
+        intro hl v
+        obtain ⟨hu, hln⟩ := List.nodup_cons.mp hl
+        change E.incl u (x (.inl u)) (.inl v) *
+          ((l.map fun u => E.incl u (x (.inl u))).prod) (.inl v) =
+            if v ∈ u :: l then x (.inl v) else 1
+        rw [ih hln v]
+        by_cases heq : u = v
+        · subst u
+          rw [E.incl_compF]
+          simp [hu]
+        · rw [E.incl_compF_other u v heq]
+          simp [heq, Ne.symm heq]
+    have prodC : ∀ (l : List (FinPlace F)) (w : InfinitePlace F),
+        ((l.map fun u => E.incl u (x (.inl u))).prod) (.inr w) = 1 := by
+      intro l
+      induction l with
+      | nil => intro w; rfl
+      | cons u l ih =>
+        intro w
+        change E.incl u (x (.inl u)) (.inr w) *
+          ((l.map fun u => E.incl u (x (.inl u))).prod) (.inr w) = 1
+        rw [E.incl_compC, ih, one_mul]
+    have hfactor : x = (Tf.toList.map fun v => E.incl v (x (.inl v))).prod * t := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        change x (.inl v) =
+          ((Tf.toList.map fun u => E.incl u (x (.inl u))).prod) (.inl v) * t (.inl v)
+        rw [prodF _ Tf.nodup_toList v, tF]
+        simp only [Finset.mem_toList]
+        by_cases hv : v ∈ Tf <;> simp [hv]
+      | inr w =>
+        change x (.inr w) =
+          ((Tf.toList.map fun u => E.incl u (x (.inl u))).prod) (.inr w) * t (.inr w)
+        rw [prodC, tC, one_mul]
+    refine ⟨B.quotient.q t, hkt, comm, ?_⟩
+    calc
+      B.quotient.q x = B.quotient.q
+          ((Tf.toList.map fun v => E.incl v (x (.inl v))).prod * t) :=
+        congrArg B.quotient.q hfactor
+      _ = B.quotient.q ((Tf.toList.map fun v => E.incl v (x (.inl v))).prod) *
+          B.quotient.q t := map_mul _ _ _
+      _ = (Tf.toList.map fun v => E.emb v (x (.inl v))).prod * B.quotient.q t := by
+        congr 1
+        rw [map_list_prod]
+        simp only [List.map_map, Function.comp_def, E.q_incl]
+  have residue_le (v : FinPlace F) (x : F) (hx : residue v x ≠ 0) :
+      v.valuation F x ≤ 1 := by
+    have hfrac : ∃ ab : 𝓞 F × 𝓞 F, ab.2 ∉ v.asIdeal ∧
+        x * algebraMap (𝓞 F) F ab.2 = algebraMap (𝓞 F) F ab.1 := by
+      by_contra hn
+      exact hx (by simp [residue, hn])
+    obtain ⟨⟨a, b⟩, hb, hab⟩ := hfrac
+    have hden : v.valuation F (algebraMap (𝓞 F) F b) = 1 :=
+      (v.valuation_eq_one_iff_notMem).mpr hb
+    have hval := congrArg (v.valuation F) hab
+    rw [map_mul, hden, mul_one] at hval
+    rw [hval]
+    exact v.valuation_le_one a
+  have local_integral (v : FinPlace F) (x : F) (hx : v.valuation F x ≤ 1) :
+      algebraMap F (v.adicCompletion F) x ∈ v.adicCompletionIntegers F := by
+    change Valued.v (algebraMap F (v.adicCompletion F) x) ≤ 1
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply,
+      v.valuedAdicCompletion_eq_valuation'] using hx
+  refine ⟨{a_split := ?_, n_split := ?_, w_split := ?_}⟩
+  · intro u Tf hT hres
+    have hS (v : FinPlace F) (hv : v ∈ S.Sf) : X.aRP u (.inl v) = 1 := by
+      rw [X.aF, ite_eq_right (not_not.mpr hv)]
+    have hcomp (v : FinPlace F) (hv : v ∉ S.Sf) (hout : v ∉ Tf) :
+        X.aRP u (.inl v) ∈ (C.tame v hv).Kmax := by
+      rw [X.aF, ite_eq_left hv]
+      apply (C.tame v hv).a_mem
+      · exact local_integral v _ (residue_le v _ (hres v hv hout).1)
+      · rw [← map_inv]
+        exact local_integral v _ (residue_le v _ (hres v hv hout).2)
+    obtain ⟨k, hk, hcomm, heq⟩ := split (X.aRP u) Tf hS (X.aC u) hcomp
+    have hmap : (Tf.toList.map fun v => E.emb v (X.aRP u (.inl v))) =
+        (Tf.toList.map fun v => E.emb v ((B.family.loc v).a (toLoc v u))) := by
+      apply List.map_congr_left
+      intro v hv
+      rw [X.aF, ite_eq_left (hT v (Finset.mem_toList.mp hv))]
+    exact ⟨k, hk, hcomm, by simpa only [hmap] using heq⟩
+  · intro x Tf hT hval
+    have hS (v : FinPlace F) (hv : v ∈ S.Sf) :
+        X.nRP (Multiplicative.ofAdd x) (.inl v) = 1 := by
+      rw [X.nF, ite_eq_right (not_not.mpr hv)]
+    have hcomp (v : FinPlace F) (hv : v ∉ S.Sf) (hout : v ∉ Tf) :
+        X.nRP (Multiplicative.ofAdd x) (.inl v) ∈ (C.tame v hv).Kmax := by
+      rw [X.nF, ite_eq_left hv]
+      exact (C.tame v hv).n_mem _ (local_integral v x (hval v hv hout))
+    obtain ⟨k, hk, hcomm, heq⟩ := split (X.nRP (Multiplicative.ofAdd x)) Tf
+      hS (X.nC x) hcomp
+    have hmap : (Tf.toList.map fun v => E.emb v (X.nRP (Multiplicative.ofAdd x) (.inl v))) =
+        (Tf.toList.map fun v => E.emb v ((B.family.loc v).n
+          (Multiplicative.ofAdd (algebraMap F _ x)))) := by
+      apply List.map_congr_left
+      intro v hv
+      rw [X.nF, ite_eq_left (hT v (Finset.mem_toList.mp hv))]
+    exact ⟨k, hk, hcomm, by simpa only [hmap] using heq⟩
+  · intro Tf hT
+    have hS (v : FinPlace F) (hv : v ∈ S.Sf) : X.wRP (.inl v) = 1 := by
+      rw [X.wF, ite_eq_right (not_not.mpr hv)]
+    have hcomp (v : FinPlace F) (hv : v ∉ S.Sf) (hout : v ∉ Tf) :
+        X.wRP (.inl v) ∈ (C.tame v hv).Kmax := by
+      rw [X.wF, ite_eq_left hv]
+      exact (C.tame v hv).w_mem
+    obtain ⟨k, hk, hcomm, heq⟩ := split X.wRP Tf hS X.wC hcomp
+    have hmap : (Tf.toList.map fun v => E.emb v (X.wRP (.inl v))) =
+        (Tf.toList.map fun v => E.emb v (B.family.loc v).w) := by
+      apply List.map_congr_left
+      intro v hv
+      rw [X.wF, ite_eq_left (hT v (Finset.mem_toList.mp hv))]
+    exact ⟨k, hk, hcomm, by simpa only [hmap] using heq⟩
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
 theorem exists_coverPackage (D : FieldData F) {CE : ℕ} {condη : Ideal (𝓞 F)}
     (S : SData F CE condη) (H : HilbertData F) (A : AddCharData F)
     (hSt : ∀ v, SteinbergAt H v) : ∃ P : CoverPackage D S H A, HasRestrictedProductTopology P := by
-  sorry
+  classical
+  obtain ⟨B⟩ := exists_coverQuotientBase D S H hSt
+  obtain ⟨E⟩ := exists_coverEmbeddingBase B
+  obtain ⟨U⟩ := exists_coverSubgroupBase B E
+  obtain ⟨R⟩ := exists_coverRationalBase B
+  obtain ⟨T⟩ := exists_coverSTupleBase B
+  obtain ⟨L⟩ := exists_coverSLawBase B E T
+  obtain ⟨X⟩ := exists_coverExteriorBase B E U R T
+  obtain ⟨Y⟩ := exists_coverTailBase B E U R T X
+  let C := B.family
+  let q := B.quotient.q
+  let Comp := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.Component
+    (G := fun v : FinPlace F => (C.loc v).L) (H := fun _ : InfinitePlace F => PGL2 ℂ)
+  let ref := ArtinPrimitiveRoots.Proofs.th_cover_sol.RestrictedCentral.reference
+    (H := fun _ : InfinitePlace F => PGL2 ℂ) (coverFamilyReference C)
+  letI : Fact (∀ p : Place F, IsOpen (ref p : Set (Comp p))) := ⟨by
+    intro p
+    cases p with
+    | inl v => exact coverFamilyReference_open C v
+    | inr w => exact isOpen_univ⟩
+  let compF (v : FinPlace F) : CoverRP C →* (C.loc v).L :=
+    RestrictedProduct.evalMonoidHom Comp (.inl v)
+  let compC (w : InfinitePlace F) : CoverRP C →* PGL2 ℂ :=
+    RestrictedProduct.evalMonoidHom Comp (.inr w)
+  have scalar_eq (c : Fˣ) : scalarGL c = Matrix.GeneralLinearGroup.scalar (Fin 2) c := by
+    apply Matrix.GeneralLinearGroup.ext
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [scalarGL]
+  let tc : ThetaCover D S H A := {
+    G := B.quotient.Q
+    grp := inferInstance
+    topology := inferInstance
+    topGroup := inferInstance
+    z := E.z
+    z_inj := E.z_inj
+    z_central := E.z_central
+    GS := U.GS
+    nS := q.comp T.nRP
+    aS := fun y => q (T.aRP y)
+    wS := q T.wRP
+    nbarS := q.comp T.nbarRP
+    nS_mem := by
+      intro x
+      apply U.GS_of_components
+      intro v hv
+      simpa only [dite_eq_right hv, ofAdd_toAdd] using T.nF x.toAdd v
+    aS_mem := by
+      intro y
+      apply U.GS_of_components
+      intro v hv
+      simpa only [dite_eq_right hv] using T.aF y v
+    wS_mem := U.GS_of_components T.wRP (fun v hv => by
+      simpa only [ite_eq_right hv] using T.wF v)
+    nbarS_mem := by
+      intro x
+      apply U.GS_of_components
+      intro v hv
+      simpa only [dite_eq_right hv, ofAdd_toAdd] using T.nbarF x.toAdd v
+    aS_mul := L.a_mul
+    liftS_na := by
+      intro x y
+      simpa only [map_mul, MonoidHom.comp_apply] using congrArg q (L.lift_na x y)
+    liftS_wa := by
+      intro y
+      simpa only [map_mul, map_inv] using congrArg q (L.lift_wa y)
+    liftS_wn := by
+      intro y
+      simpa only [map_mul, MonoidHom.comp_apply] using congrArg q (L.lift_wn y)
+    Gloc := fun v => (E.emb v).range
+    n := fun v => (E.emb v).comp (C.loc v).n
+    a := fun v y => E.emb v ((C.loc v).a y)
+    w := fun v => E.emb v (C.loc v).w
+    nbar := fun v => (E.emb v).comp (C.loc v).nbar
+    n_mem := fun v x => ⟨(C.loc v).n x, rfl⟩
+    a_mem := fun v y => ⟨(C.loc v).a y, rfl⟩
+    w_mem := fun v => ⟨(C.loc v).w, rfl⟩
+    nbar_mem := fun v x => ⟨(C.loc v).nbar x, rfl⟩
+    comm_loc := by
+      intro v v' hv g hg h hh
+      obtain ⟨g0, rfl⟩ := hg
+      obtain ⟨h0, rfl⟩ := hh
+      exact E.emb_comm v v' hv g0 h0
+    comm_S := U.comm_S
+    a_mul := by
+      intro v hv x y
+      obtain ⟨ζ, hζ, heq⟩ := cover_local_effectiveLaw D H v (C.loc v)
+        (fun h6 => hv (S.over6 v h6)) x y
+      refine ⟨ζ, hζ, ?_⟩
+      simpa only [C, map_mul, E.emb_z] using congrArg (E.emb v) heq
+    lift_na := by
+      intro v x y
+      simpa only [map_mul, MonoidHom.comp_apply] using congrArg (E.emb v) ((C.loc v).lift_na x y)
+    lift_wa := by
+      intro v y
+      simpa only [map_mul, map_inv] using congrArg (E.emb v) ((C.loc v).lift_wa y)
+    lift_wn := by
+      intro v y
+      simpa only [map_mul, MonoidHom.comp_apply] using congrArg (E.emb v) ((C.loc v).lift_wn y)
+    Kext := U.Kext
+    Kext_comm_S := U.Kext_comm_S
+    n_Kext := fun v hv x hx =>
+      (U.emb_Kext_iff v hv _).mpr ((C.tame v hv).n_mem x hx)
+    a_Kext := fun v hv u hu hi =>
+      (U.emb_Kext_iff v hv _).mpr ((C.tame v hv).a_mem u hu hi)
+    w_Kext := fun v hv => (U.emb_Kext_iff v hv _).mpr (C.tame v hv).w_mem
+    nbar_Kext := fun v hv x hx =>
+      (U.emb_Kext_iff v hv _).mpr ((C.tame v hv).nbar_mem x hx)
+    rat := R.rat
+    rat_scalar := by
+      intro c
+      rw [scalar_eq]
+      exact R.rat_scalar c
+    aExt := fun u => q (X.aRP u)
+    nExt := q.comp X.nRP
+    wExt := q X.wRP
+    rat_diag := by
+      intro u
+      rw [← R.q_ratRP, X.rat_diag, map_mul]
+    rat_upper := by
+      intro x
+      rw [← R.q_ratRP, X.rat_upper, map_mul]
+      simp only [MonoidHom.comp_apply, q]
+    rat_weyl := by
+      rw [← R.q_ratRP, X.rat_weyl, map_mul]
+    wExt_Kext := X.w_mem
+    aExt_unit := X.a_unit
+    aExt_split := Y.a_split
+    nExt_split := Y.n_split
+    wExt_split := Y.w_split
+  }
+  let P : CoverPackage D S H A := {
+    loc := C.loc
+    tame := C.tame
+    tc := tc
+    emb := E.emb
+    emb_inj := E.emb_inj
+    emb_z := E.emb_z
+    emb_n := fun _ _ _ => rfl
+    emb_a := fun _ _ _ => rfl
+    emb_w := fun _ _ => rfl
+    emb_nbar := fun _ _ _ => rfl
+    emb_Kext := fun v hv g hg => (U.emb_Kext_iff v hv g).mpr hg
+    emb_comm := E.emb_comm
+    RP := CoverRP C
+    rpGrp := inferInstance
+    q := q
+    q_surj := B.quotient.q_surj
+    compF := compF
+    compC := compC
+    rpTopology := inferInstance
+    rpTopGroup := inferInstance
+    q_quotient := B.quotient.q_quotient
+    compF_cont := fun v => RestrictedProduct.continuous_eval
+      (R := Comp) (A := fun p => (ref p : Set (Comp p))) (𝓕 := cofinite) (.inl v)
+    nS_cont := B.quotient.q_quotient.continuous.comp T.n_cont
+    aS_cont := B.quotient.q_quotient.continuous.comp T.a_cont
+    comp_ext := by
+      intro x y hf hc
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v => exact hf v
+      | inr w => exact hc w
+    comp_restricted := by
+      intro x
+      have hb := Filter.eventually_cofinite.mp x.2
+      apply (hb.preimage Sum.inl_injective.injOn).subset
+      rintro v ⟨hv, hbad⟩
+      change x (.inl v) ∉ coverFamilyReference C v
+      rw [coverFamilyReference, dite_eq_left hv]
+      exact hbad
+    q_eq := B.quotient.q_eq
+    ratRP := R.ratRP
+    q_ratRP := R.q_ratRP
+    compF_ratRP := R.compF
+    compC_ratRP := R.compC
+    incl := E.incl
+    incl_compF := E.incl_compF
+    incl_compF_other := E.incl_compF_other
+    incl_compC := E.incl_compC
+    q_incl := E.q_incl
+    comp_surj := by
+      intro lf lc hfin
+      let x : CoverRP C := ⟨fun p => match p with
+        | .inl v => lf v
+        | .inr w => lc w, by
+        apply Filter.eventually_cofinite.mpr
+        apply (hfin.image Sum.inl).subset
+        intro p hp
+        cases p with
+        | inl v =>
+          change lf v ∉ coverFamilyReference C v at hp
+          by_cases hv : v ∉ S.Sf
+          · refine ⟨v, ⟨hv, ?_⟩, rfl⟩
+            simpa only [coverFamilyReference, dite_eq_left hv] using hp
+          · simp [coverFamilyReference, hv] at hp
+        | inr w =>
+          change lc w ∉ (⊤ : Subgroup (PGL2 ℂ)) at hp
+          exact False.elim (hp (Subgroup.mem_top _))⟩
+      exact ⟨x, fun _ => rfl, fun _ => rfl⟩
+    emb_Gloc := fun _ _ => rfl
+    emb_Kext_iff := U.emb_Kext_iff
+    emb_aS := L.emb_a
+    nS_components := fun u => ⟨T.nRP (Multiplicative.ofAdd u), rfl, T.nF u, T.nC u⟩
+    aS_components := fun u => ⟨T.aRP u, rfl, T.aF u, T.aC u⟩
+    wS_components := ⟨T.wRP, rfl, T.wF, T.wC⟩
+    Kext_components := U.Kext_components
+  }
+  refine ⟨P, ?_⟩
+  let e (p : Place F) : Comp p ≃ₜ LocalComponent P p := by
+    cases p with
+    | inl v => exact Homeomorph.refl (C.loc v).L
+    | inr w => exact Homeomorph.refl (PGL2 ℂ)
+  have hmap (p : Place F) : Set.MapsTo (e p) (ref p : Set (Comp p))
+      (referenceSubset P p) := by
+    cases p with
+    | inl v =>
+      intro x hx
+      change x ∈ (if hv : v ∉ S.Sf then
+        ((C.tame v hv).Kmax : Set (C.loc v).L) else Set.univ)
+      change x ∈ coverFamilyReference C v at hx
+      by_cases hv : v ∉ S.Sf <;> simpa [coverFamilyReference, hv] using hx
+    | inr w =>
+      intro x hx
+      exact Set.mem_univ _
+  have hmap_inv (p : Place F) : Set.MapsTo (e p).symm (referenceSubset P p)
+      (ref p : Set (Comp p)) := by
+    cases p with
+    | inl v =>
+      intro x hx
+      change x ∈ coverFamilyReference C v
+      change x ∈ (if hv : v ∉ S.Sf then
+        ((C.tame v hv).Kmax : Set (C.loc v).L) else Set.univ) at hx
+      by_cases hv : v ∉ S.Sf
+      · rw [coverFamilyReference, dite_eq_left hv]
+        rw [dite_eq_left hv] at hx
+        change x ∈ ((C.tame v hv).Kmax : Set (C.loc v).L)
+        exact hx
+      · rw [coverFamilyReference, dite_eq_right hv]
+        change True
+        exact True.intro
+    | inr w =>
+      intro x hx
+      exact Set.mem_univ _
+  let f : CoverRP C → CanonicalRP P := RestrictedProduct.mapAlong
+    Comp (LocalComponent P) id tendsto_id (fun p => e p) (Filter.Eventually.of_forall hmap)
+  let g : CanonicalRP P → CoverRP C := RestrictedProduct.mapAlong
+    (LocalComponent P) Comp id tendsto_id (fun p => (e p).symm)
+      (Filter.Eventually.of_forall hmap_inv)
+  let homeo : @Homeomorph P.RP (CanonicalRP P) P.rpTopology inferInstance := {
+    toEquiv := {
+      toFun := f
+      invFun := g
+      left_inv := by
+        intro x
+        apply RestrictedProduct.ext
+        intro p
+        change (e p).symm (e p (x p)) = x p
+        exact (e p).symm_apply_apply (x p)
+      right_inv := by
+        intro x
+        apply RestrictedProduct.ext
+        intro p
+        change e p ((e p).symm (x p)) = x p
+        exact (e p).apply_symm_apply (x p)
+    }
+    continuous_toFun := RestrictedProduct.mapAlong_continuous
+      Comp (LocalComponent P) id tendsto_id (fun p => e p)
+      (Filter.Eventually.of_forall hmap) (fun p => (e p).continuous_toFun)
+    continuous_invFun := RestrictedProduct.mapAlong_continuous
+      (LocalComponent P) Comp id tendsto_id (fun p => (e p).symm)
+      (Filter.Eventually.of_forall hmap_inv) (fun p => (e p).symm.continuous_toFun)
+  }
+  refine ⟨homeo, ?_, ?_⟩
+  · intro x v
+    change e (.inl v) (x (.inl v)) = x (.inl v)
+    rfl
+  · intro x w
+    change e (.inr w) (x (.inr w)) = x (.inr w)
+    rfl
 
 end ArtinPrimitiveRoots.A1.Theta

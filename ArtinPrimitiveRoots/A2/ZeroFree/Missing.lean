@@ -3419,11 +3419,504 @@ private theorem rowKernel_right_integrable_of_shell (hEuler : EulerHypotheses R 
   exact Filter.Eventually.of_forall (fun t => by simpa [ξLine] using (hdata t).2)
 
 
+include HA HC in
+private theorem rowContribution_eq_sum (hEuler : EulerHypotheses R η)
+    (T Z : ℝ) (hT : 2 ≤ T) (hZ : 2 ≤ Z) (rows : Finset U.U)
+    (hrows : ∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T) :
+    rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, rowContribution R sd W η U {u} Z := by
+  obtain ⟨ZD⟩ := zeroDensityData_nonempty (η := η) (U := U) (HA := HA)
+  let A1 : ℝ := 2 / ZD.ρ
+  have hA1 : 1 / ZD.ρ < A1 := by
+    dsimp [A1]
+    exact (div_lt_div_of_pos_right (by norm_num : (1 : ℝ) < 2) ZD.ρ_pos)
+  let κ : ℂ := (1 / (2 * Real.pi) : ℂ)
+  let rightLine : ℝ → ℂ := fun t => ((1 + δ1 : ℝ) : ℂ) + t * Complex.I
+  have hInts (u : U.U) (hu : u ∈ rows) :
+      (∀ ξ : ℂ, ξ.re = 1 + δ1 →
+        Integrable (rowKernelHeightFiber R sd W η U HA HC u Z ξ) (volume.prod volume)) ∧
+      Integrable (fun t : ℝ => rowKernelHeightPair R sd W η U HA HC u Z
+        ((1 + δ1 : ℝ) + t * Complex.I)) :=
+    rowKernel_right_integrable_of_shell (R := R) (sd := sd) (W := W) (η := η)
+      (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler 1 A1 (by norm_num) hA1
+      u (hrows u hu).1 T hT (hrows u hu).2 Z hZ
+  obtain ⟨Csmall, hCsmall, hsmall⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler 0 ((rows.card : ℝ) + 1) 1 (by norm_num) (by positivity) (by norm_num)
+  have hshift (C : Finset U.U) (hsub : C ⊆ rows) :
+      rowContribution R sd W η U C Z = tripleVertical (1 + δ1) (3 / 1000) (4 / 10)
+        (fun ξ w z => ∑ u ∈ C, rowKernel R sd W η U HA HC u Z ξ w z) := by
+    have hcard : (C.card : ℝ) ≤ ((rows.card : ℝ) + 1) * T ^ (0 : ℝ) := by
+      rw [Real.rpow_zero, mul_one]
+      have hle : (C.card : ℝ) ≤ rows.card := by exact_mod_cast Finset.card_le_card hsub
+      linarith
+    exact (hsmall T Z (by linarith) hZ C (fun u hu => hrows u (hsub hu)) hcard).1
+  have hPairSum (ξ : ℂ) (hξright : ξ.re = 1 + δ1) :
+      vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z)) =
+        ∑ u ∈ rows, rowKernelHeightPair R sd W η U HA HC u Z ξ := by
+    have hf : ∀ u ∈ rows, Integrable (fun v : ℝ × ℝ =>
+        rowKernel R sd W η U HA HC u Z ξ
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) := by
+      intro u hu
+      rw [Measure.volume_eq_prod ℝ ℝ]
+      exact (hInts u hu).1 ξ hξright
+    have hsum : Integrable (fun v : ℝ × ℝ =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) :=
+      integrable_finsetSum rows hf
+    calc
+      _ = κ ^ 2 * ∫ v : ℝ × ℝ, ∑ u ∈ rows,
+          rowKernel R sd W η U HA HC u Z ξ
+            (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+            (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) :=
+        vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+          (fun w z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) hsum
+      _ = ∑ u ∈ rows, κ ^ 2 * ∫ v : ℝ × ℝ,
+          rowKernel R sd W η U HA HC u Z ξ
+            (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+            (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) := by
+        rw [integral_finsetSum rows hf, Finset.mul_sum]
+      _ = _ := by
+        apply Finset.sum_congr rfl
+        intro u hu
+        exact (vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+          (fun w z => rowKernelAt R sd W η U HA HC u Z ξ w z) (hf u hu)).symm
+  have hRightInt : ∀ u ∈ rows, Integrable (fun t : ℝ =>
+      rowKernelHeightPair R sd W η U HA HC u Z (rightLine t)) := by
+    intro u hu
+    exact (hInts u hu).2
+  have hFull : rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) := by
+    rw [hshift rows (by intro u hu; exact hu)]
+    change κ * (∫ t : ℝ, vertical (3 / 1000) (fun w => vertical (4 / 10)
+      (fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (rightLine t) w z))) =
+        ∑ u ∈ rows, κ * ∫ t : ℝ,
+          rowKernelHeightPair R sd W η U HA HC u Z (rightLine t)
+    calc
+      _ = κ * ∫ t : ℝ, ∑ u ∈ rows,
+          rowKernelHeightPair R sd W η U HA HC u Z (rightLine t) := by
+        congr 1
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall fun t => hPairSum (rightLine t)
+          (by simp [rightLine])
+      _ = _ := by rw [integral_finsetSum rows hRightInt, Finset.mul_sum]
+  have hsingle (u : U.U) (hu : u ∈ rows) :
+      rowContribution R sd W η U {u} Z =
+        vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) := by
+    rw [hshift {u} (by
+      intro v hv
+      rcases Finset.mem_singleton.mp hv with rfl
+      exact hu)]
+    simp only [Finset.sum_singleton]
+    rfl
+  calc
+    _ = ∑ u ∈ rows, vertical (1 + δ1)
+        (rowKernelHeightPair R sd W η U HA HC u Z) := hFull
+    _ = _ := Finset.sum_congr rfl fun u hu => (hsingle u hu).symm
+
+private theorem dyadic_power_small_sum (p x : ℝ) (hp : 0 < p) (hx : 1 ≤ x) :
+    Summable (fun j : ℕ => if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0) ∧
+      (∑' j : ℕ, if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0) ≤
+        ((2 : ℝ) ^ p / ((2 : ℝ) ^ p - 1)) * x ^ p := by
+  classical
+  obtain ⟨N, hNlo, hNhi⟩ := exists_nat_pow_near hx (by norm_num : (1 : ℝ) < 2)
+  let r : ℝ := (2 : ℝ) ^ p
+  let g : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ x then ((2 : ℝ) ^ j) ^ p else 0
+  have hr : 1 < r := Real.one_lt_rpow (by norm_num) hp
+  have hpower (j : ℕ) : ((2 : ℝ) ^ j) ^ p = r ^ j :=
+    (Real.rpow_pow_comm (by norm_num : (0 : ℝ) ≤ 2) p j).symm
+  have hcut (j : ℕ) : (2 : ℝ) ^ j ≤ x ↔ j ∈ Finset.range (N + 1) := by
+    constructor
+    · intro hj
+      apply Finset.mem_range.mpr
+      by_contra hge
+      have hNj : N + 1 ≤ j := Nat.le_of_not_gt hge
+      have hle : (2 : ℝ) ^ (N + 1) ≤ (2 : ℝ) ^ j :=
+        pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hNj
+      linarith
+    · intro hj
+      have hJN : j ≤ N := Nat.lt_succ_iff.mp (Finset.mem_range.mp hj)
+      exact (pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hJN).trans hNlo
+  have hzero : ∀ j ∉ Finset.range (N + 1), g j = 0 := by
+    intro j hj
+    have hnot : ¬ (2 : ℝ) ^ j ≤ x := mt (hcut j).mp hj
+    simp [g, hnot]
+  have hsum : Summable g := summable_of_ne_finset_zero hzero
+  have hpartial : (∑' j, g j) = ∑ j ∈ Finset.range (N + 1), r ^ j := by
+    rw [tsum_eq_sum hzero]
+    apply Finset.sum_congr rfl
+    intro j hj
+    simp only [g, if_pos ((hcut j).mpr hj), hpower j]
+  have hpowLe : r ^ N ≤ x ^ p := by
+    rw [← hpower N]
+    exact Real.rpow_le_rpow (by positivity) hNlo hp.le
+  refine ⟨hsum, ?_⟩
+  change (∑' j, g j) ≤ (r / (r - 1)) * x ^ p
+  calc
+    _ = (r ^ (N + 1) - 1) / (r - 1) := by
+      rw [hpartial, geom_sum_eq (ne_of_gt hr)]
+    _ ≤ r ^ (N + 1) / (r - 1) :=
+      div_le_div_of_nonneg_right (by linarith) (by linarith)
+    _ = (r * r ^ N) / (r - 1) := by rw [pow_succ, mul_comm (r ^ N) r]
+    _ ≤ (r * x ^ p) / (r - 1) :=
+      div_le_div_of_nonneg_right
+        (mul_le_mul_of_nonneg_left hpowLe (by linarith)) (by linarith)
+    _ = _ := by ring
+
+private theorem dyadic_power_tail_sum (p x : ℝ) (hp : p < 0) (hx : 1 ≤ x) :
+    Summable (fun j : ℕ => if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0) ∧
+      (∑' j : ℕ, if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0) ≤
+        x ^ p / (1 - (2 : ℝ) ^ p) := by
+  classical
+  obtain ⟨N, hNlo, hNhi⟩ := exists_nat_pow_near hx (by norm_num : (1 : ℝ) < 2)
+  let J : ℕ := N + 1
+  let r : ℝ := (2 : ℝ) ^ p
+  let g : ℕ → ℝ := fun j => if x < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ p else 0
+  have hrpos : 0 < r := Real.rpow_pos_of_pos (by norm_num) _
+  have hr : r < 1 := Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) hp
+  have hpower (j : ℕ) : ((2 : ℝ) ^ j) ^ p = r ^ j :=
+    (Real.rpow_pow_comm (by norm_num : (0 : ℝ) ≤ 2) p j).symm
+  have hcut (j : ℕ) : x < (2 : ℝ) ^ j ↔ J ≤ j := by
+    constructor
+    · intro hj
+      by_contra hnot
+      have hjN : j ≤ N := by dsimp [J] at hnot; omega
+      have hle : (2 : ℝ) ^ j ≤ x :=
+        (pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hjN).trans hNlo
+      linarith
+    · intro hj
+      have hle : (2 : ℝ) ^ J ≤ (2 : ℝ) ^ j :=
+        pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hj
+      exact lt_of_lt_of_le hNhi hle
+  have hshift (n : ℕ) : g (n + J) = ((2 : ℝ) ^ J) ^ p * r ^ n := by
+    have hmem : x < (2 : ℝ) ^ (n + J) := (hcut (n + J)).mpr (by omega)
+    simp only [g, if_pos hmem]
+    rw [pow_add, Real.mul_rpow (by positivity) (by positivity), hpower n]
+    ring
+  have hsumShift : Summable (fun n : ℕ => g (n + J)) := by
+    exact ((summable_geometric_of_lt_one hrpos.le hr).mul_left (((2 : ℝ) ^ J) ^ p)).congr
+      fun n => (hshift n).symm
+  have hsum : Summable g := (summable_nat_add_iff J).mp hsumShift
+  have hprefix : ∑ j ∈ Finset.range J, g j = 0 := by
+    apply Finset.sum_eq_zero
+    intro j hj
+    have hnot : ¬ x < (2 : ℝ) ^ j := by
+      rw [hcut]
+      exact Nat.not_le.mpr (Finset.mem_range.mp hj)
+    simp [g, hnot]
+  have htsum : (∑' j, g j) = ∑' n, g (n + J) := by
+    have heq := hsum.sum_add_tsum_nat_add J
+    rw [hprefix, zero_add] at heq
+    exact heq.symm
+  have hpowLe : ((2 : ℝ) ^ J) ^ p ≤ x ^ p :=
+    Real.rpow_le_rpow_of_nonpos (by linarith) hNhi.le hp.le
+  refine ⟨hsum, ?_⟩
+  change (∑' j, g j) ≤ x ^ p / (1 - r)
+  calc
+    _ = ((2 : ℝ) ^ J) ^ p * (1 - r)⁻¹ := by
+      rw [htsum]
+      simp_rw [hshift]
+      rw [tsum_mul_left, tsum_geometric_of_lt_one hrpos.le hr]
+    _ ≤ x ^ p * (1 - r)⁻¹ :=
+      mul_le_mul_of_nonneg_right hpowLe (inv_nonneg.mpr (by linarith))
+    _ = _ := (div_eq_mul_inv _ _).symm
+
+include HA HC ZD in
+private theorem nonprincipalDyad_range_bounds (hEuler : EulerHypotheses R η) :
+    ∃ Cs Ce Cg Cf Z0 : ℝ, 0 < Cs ∧ 0 < Ce ∧ 0 < Cg ∧ 0 < Cf ∧ 2 ≤ Z0 ∧
+      ∀ Z T : ℝ, Z0 ≤ Z → 1 ≤ T →
+      (T ≤ Z ^ (9 / 100 : ℝ) →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Cs * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (11 / 10 + 1 / 100000 : ℝ)) ∧
+      (Z ^ (9 / 100 : ℝ) < T → T ≤ Z ^ (10001 / 100000 : ℝ) →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Ce * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (6 / 10 + 1 / 100000 : ℝ) +
+          Cg * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+            T ^ (11 / 10 + 1 / 100000 : ℝ) +
+          Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+            T ^ (-9 / 10 + 1 / 100000 : ℝ)) ∧
+      (Z ^ (10001 / 100000 : ℝ) < T →
+        ‖nonprincipalDyad R sd W η U DE T Z‖ ≤
+          Cf * Z ^ (3849 / 1000 + (1 / 10 : ℝ) * 350000) *
+            T ^ (1 - (350000 : ℝ) + 1 / 100000)) := by
+  classical
+  obtain ⟨Ccount, hCcount, hcount⟩ :=
+    (frequency_norm_count_from_data S D η U).2.2
+  obtain ⟨Cs, hCs, hsmall⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler 1 Ccount (1 / 100000) (by norm_num) hCcount (by norm_num)
+  obtain ⟨Ce, hCe, hexc⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler (1 / 2) ZD.Cexc (1 / 100000) (by norm_num) ZD.Cexc_pos (by norm_num)
+  let A1 : ℝ := 2 / ZD.ρ
+  have hA1 : 1 / ZD.ρ < A1 := by
+    dsimp [A1]
+    exact div_lt_div_of_pos_right (by norm_num : (1 : ℝ) < 2) ZD.ρ_pos
+  have hρA1 : ZD.ρ * A1 = 2 := by
+    dsimp [A1]
+    field_simp [ne_of_gt ZD.ρ_pos]
+  obtain ⟨Cg, Zg, hCg, hZg, hgood⟩ := zf_intermediate_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    (ZD := ZD) hEuler (1 / 100000) A1 (by norm_num) hA1
+  obtain ⟨Cf, hCf, hfar⟩ := zf_far_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U)
+    hEuler (1 / 100000) (by norm_num)
+  let Z0 : ℝ := max Zg (ZD.U0 ^ (100 / 9 : ℝ))
+  refine ⟨Cs, Ce, Cg, Cf, Z0, hCs, hCe, hCg, hCf,
+    hZg.trans (le_max_left _ _), ?_⟩
+  intro Z T hZ hT
+  have hZZg : Zg ≤ Z := (le_max_left _ _).trans hZ
+  have hZ2 : 2 ≤ Z := hZg.trans hZZg
+  have hZpos : 0 < Z := by linarith
+  have hTpos : 0 < T := by linarith
+  have hOnset : ZD.U0 ≤ Z ^ (9 / 100 : ℝ) := by
+    have hbase : ZD.U0 ^ (100 / 9 : ℝ) ≤ Z := (le_max_right _ _).trans hZ
+    calc
+      ZD.U0 = (ZD.U0 ^ (100 / 9 : ℝ)) ^ (9 / 100 : ℝ) := by
+        rw [← Real.rpow_mul (by linarith [ZD.U0_two])]
+        norm_num
+      _ ≤ Z ^ (9 / 100 : ℝ) := Real.rpow_le_rpow
+        (Real.rpow_nonneg (by linarith [ZD.U0_two]) _) hbase (by norm_num)
+  have hrows : ∀ u ∈ DE.rows T, u ≠ U.one ∧ u ∈ frequencyDyad η U T :=
+    fun u hu => (DE.mem_rows T hT u).1 hu
+  have hcard : ((DE.rows T).card : ℝ) ≤ Ccount * T ^ (1 : ℝ) := by
+    obtain ⟨hfin, hbound⟩ := hcount T hT
+    have hsub : DE.rows T ⊆ hfin.toFinset := by
+      intro u hu
+      exact hfin.mem_toFinset.mpr (hrows u hu).2
+    calc
+      _ ≤ (hfin.toFinset.card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+      _ ≤ Ccount * T := by
+        simpa only [Set.ncard_eq_toFinset_card _ hfin] using hbound
+      _ = _ := by rw [Real.rpow_one]
+  refine ⟨?_, ?_, ?_⟩
+  · intro hsmallRange
+    have hs := (hsmall T Z hT hZ2 (DE.rows T) hrows hcard).2
+    convert hs using 1 <;> congr 1 <;> ring
+  · intro hTlo hThi
+    have hU0 : ZD.U0 ≤ T := hOnset.trans hTlo.le
+    have hT2 : 2 ≤ T := ZD.U0_two.trans hU0
+    let bad : Finset U.U := (DE.rows T).filter (fun u => u ∈ ZD.E T)
+    let good : Finset U.U := (DE.rows T).filter (fun u => u ∉ ZD.E T)
+    have hbadSub : bad ⊆ DE.rows T := Finset.filter_subset _ _
+    have hgoodSub : good ⊆ DE.rows T := Finset.filter_subset _ _
+    have hbadRows : ∀ u ∈ bad, u ≠ U.one ∧ u ∈ frequencyDyad η U T :=
+      fun u hu => hrows u (hbadSub hu)
+    have hgoodRows : ∀ u ∈ good,
+        u ≠ U.one ∧ u ∈ frequencyDyad η U T ∧ u ∉ ZD.E T := by
+      intro u hu
+      exact ⟨(hrows u (hgoodSub hu)).1, (hrows u (hgoodSub hu)).2,
+        (Finset.mem_filter.mp hu).2⟩
+    have hbadCard : (bad.card : ℝ) ≤ ZD.Cexc * T ^ (1 / 2 : ℝ) := by
+      have hsub : bad ⊆ ZD.E T := by
+        intro u hu
+        exact (Finset.mem_filter.mp hu).2
+      calc
+        _ ≤ ((ZD.E T).card : ℝ) := by exact_mod_cast Finset.card_le_card hsub
+        _ ≤ _ := ZD.E_count T hU0
+    have hbadBound : ‖rowContribution R sd W η U bad Z‖ ≤
+        Ce * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (6 / 10 + 1 / 100000 : ℝ) := by
+      have hb := (hexc T Z hT hZ2 bad hbadRows hbadCard).2
+      convert hb using 1 <;> congr 1 <;> ring
+    have hg := hgood Z T hZZg hTlo hThi hU0 good hgoodRows
+    have hrem : ‖rowContribution R sd W η U good Z -
+        goodCentral R sd W η U HA HC ZD good T Z‖ ≤
+        Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (-9 / 10 + 1 / 100000 : ℝ) := by
+      have hr := hg.2
+      rw [hρA1] at hr
+      convert hr using 1 <;> congr 1 <;> ring
+    have hgoodBound : ‖rowContribution R sd W η U good Z‖ ≤
+        Cg * Z ^ Estar (998 / 1000) (3 / 1000) (4 / 10) *
+          T ^ (11 / 10 + 1 / 100000 : ℝ) +
+        Cg * Z ^ Estar (1 + δ1) (3 / 1000) (4 / 10) *
+          T ^ (-9 / 10 + 1 / 100000 : ℝ) := by
+      calc
+        _ ≤ ‖goodCentral R sd W η U HA HC ZD good T Z‖ +
+            ‖rowContribution R sd W η U good Z -
+              goodCentral R sd W η U HA HC ZD good T Z‖ := by
+          simpa only [norm_sub_rev] using
+            norm_le_insert (goodCentral R sd W η U HA HC ZD good T Z)
+              (rowContribution R sd W η U good Z)
+        _ ≤ _ := add_le_add hg.1 hrem
+    have hsplit : rowContribution R sd W η U (DE.rows T) Z =
+        rowContribution R sd W η U bad Z + rowContribution R sd W η U good Z := by
+      rw [rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+        (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 (DE.rows T) hrows,
+        rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+          (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 bad hbadRows,
+        rowContribution_eq_sum (R := R) (sd := sd) (W := W) (η := η)
+          (U := U) (HA := HA) (HC := HC) hEuler T Z hT2 hZ2 good
+            (fun u hu => hrows u (hgoodSub hu))]
+      exact (Finset.sum_filter_add_sum_filter_not (DE.rows T)
+        (fun u => u ∈ ZD.E T) (fun u => rowContribution R sd W η U {u} Z)).symm
+    change ‖rowContribution R sd W η U (DE.rows T) Z‖ ≤ _
+    rw [hsplit]
+    calc
+      _ ≤ ‖rowContribution R sd W η U bad Z‖ + ‖rowContribution R sd W η U good Z‖ :=
+        norm_add_le _ _
+      _ ≤ _ := by simpa only [add_assoc] using add_le_add hbadBound hgoodBound
+  · intro hfarRange
+    exact hfar Z T hZ2 hfarRange (DE.rows T) hrows
+
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
   ‖∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤ C * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) := by
-  sorry
+  intro hEuler
+  obtain ⟨HA⟩ := heckeAnalysis_exists F
+  let HC : EulerCorrection R η U := canonicalEulerCorrection R η U
+  obtain ⟨ZD⟩ := zeroDensityData_nonempty (η := η) (U := U) (HA := HA)
+  obtain ⟨Cs, Ce, Cg, Cf, Z0, hCs, hCe, hCg, hCf, hZ0, hRanges⟩ :=
+    nonprincipalDyad_range_bounds (R := R) (sd := sd) (W := W) (η := η)
+      (U := U) (HA := HA) (HC := HC) (ZD := ZD) (DE := DE) hEuler
+  let ps : ℝ := 11 / 10 + 1 / 100000
+  let pe : ℝ := 6 / 10 + 1 / 100000
+  let pr : ℝ := -9 / 10 + 1 / 100000
+  generalize hpf_eq : (1 - (350000 : ℝ) + 1 / 100000) = pf
+  let el : ℝ := Estar (1 + δ1) (3 / 1000) (4 / 10)
+  let eg : ℝ := Estar (998 / 1000) (3 / 1000) (4 / 10)
+  let ef : ℝ := 3849 / 1000 + (1 / 10 : ℝ) * 350000
+  let target : ℝ := 7 / 15 - 4 / 10000
+  let Ks : ℝ := (2 : ℝ) ^ ps / ((2 : ℝ) ^ ps - 1)
+  let Ke : ℝ := (2 : ℝ) ^ pe / ((2 : ℝ) ^ pe - 1)
+  let Kr : ℝ := (1 - (2 : ℝ) ^ pr)⁻¹
+  let Kf : ℝ := (1 - (2 : ℝ) ^ pf)⁻¹
+  have hps : 0 < ps := by norm_num [ps]
+  have hpe : 0 < pe := by norm_num [pe]
+  have hpr : pr < 0 := by norm_num [pr]
+  have hpf : pf < 0 := by rw [← hpf_eq]; norm_num
+  have hKs : 0 < Ks := div_pos (Real.rpow_pos_of_pos (by norm_num) _)
+    (sub_pos.mpr (Real.one_lt_rpow (by norm_num) hps))
+  have hKe : 0 < Ke := div_pos (Real.rpow_pos_of_pos (by norm_num) _)
+    (sub_pos.mpr (Real.one_lt_rpow (by norm_num) hpe))
+  have hKr : 0 < Kr := inv_pos.mpr (sub_pos.mpr
+    (Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) hpr))
+  have hKf : 0 < Kf := inv_pos.mpr (sub_pos.mpr
+    (Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) hpf))
+  let C : ℝ := Cs * Ks + Ce * Ke + Cg * Ks + Cg * Kr + Cf * Kf
+  have hC : 0 < C := by
+    dsimp only [C]
+    exact add_pos
+      (add_pos (add_pos (add_pos (mul_pos hCs hKs) (mul_pos hCe hKe))
+        (mul_pos hCg hKs)) (mul_pos hCg hKr)) (mul_pos hCf hKf)
+  refine ⟨C, Z0, hC, hZ0, ?_⟩
+  intro Z hZ
+  have hZ2 : 2 ≤ Z := hZ0.trans hZ
+  have hZ1 : 1 ≤ Z := by linarith
+  have hZpos : 0 < Z := by linarith
+  let xlo : ℝ := Z ^ (9 / 100 : ℝ)
+  let xhi : ℝ := Z ^ (10001 / 100000 : ℝ)
+  have hxlo : 1 ≤ xlo := Real.one_le_rpow hZ1 (by norm_num)
+  have hxhi : 1 ≤ xhi := Real.one_le_rpow hZ1 (by norm_num)
+  let s : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ xlo then ((2 : ℝ) ^ j) ^ ps else 0
+  let e : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ xhi then ((2 : ℝ) ^ j) ^ pe else 0
+  let g : ℕ → ℝ := fun j => if (2 : ℝ) ^ j ≤ xhi then ((2 : ℝ) ^ j) ^ ps else 0
+  let r : ℕ → ℝ := fun j => if xlo < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ pr else 0
+  let f : ℕ → ℝ := fun j => if xhi < (2 : ℝ) ^ j then ((2 : ℝ) ^ j) ^ pf else 0
+  obtain ⟨hss, hsbound⟩ := dyadic_power_small_sum ps xlo hps hxlo
+  obtain ⟨hes, hebound⟩ := dyadic_power_small_sum pe xhi hpe hxhi
+  obtain ⟨hgs, hgbound⟩ := dyadic_power_small_sum ps xhi hps hxhi
+  obtain ⟨hrs, hrbound⟩ := dyadic_power_tail_sum pr xlo hpr hxlo
+  obtain ⟨hfs, hfbound⟩ := dyadic_power_tail_sum pf xhi hpf hxhi
+  have hS : Summable (fun j => Cs * Z ^ el * s j) := hss.mul_left (Cs * Z ^ el)
+  have hE : Summable (fun j => Ce * Z ^ el * e j) := hes.mul_left (Ce * Z ^ el)
+  have hG : Summable (fun j => Cg * Z ^ eg * g j) := hgs.mul_left (Cg * Z ^ eg)
+  have hR : Summable (fun j => Cg * Z ^ el * r j) := hrs.mul_left (Cg * Z ^ el)
+  have hF : Summable (fun j => Cf * Z ^ ef * f j) := hfs.mul_left (Cf * Z ^ ef)
+  let M : ℕ → ℝ := fun j => Cs * Z ^ el * s j + Ce * Z ^ el * e j +
+    Cg * Z ^ eg * g j + Cg * Z ^ el * r j + Cf * Z ^ ef * f j
+  have hM : Summable M := (((hS.add hE).add hG).add hR).add hF
+  have hSpos (j : ℕ) : 0 ≤ Cs * Z ^ el * s j := by
+    dsimp [s]; split_ifs <;> positivity
+  have hEpos (j : ℕ) : 0 ≤ Ce * Z ^ el * e j := by
+    dsimp [e]; split_ifs <;> positivity
+  have hGpos (j : ℕ) : 0 ≤ Cg * Z ^ eg * g j := by
+    dsimp [g]; split_ifs <;> positivity
+  have hRpos (j : ℕ) : 0 ≤ Cg * Z ^ el * r j := by
+    dsimp [r]; split_ifs <;> positivity
+  have hFpos (j : ℕ) : 0 ≤ Cf * Z ^ ef * f j := by
+    dsimp [f]; split_ifs <;> positivity
+  have hmajor (j : ℕ) : ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤ M j := by
+    have hT1 : 1 ≤ (2 : ℝ) ^ j := one_le_pow₀ (by norm_num)
+    have hb := hRanges Z ((2 : ℝ) ^ j) hZ hT1
+    by_cases hsmall : (2 : ℝ) ^ j ≤ xlo
+    · have hs : ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤
+          Cs * Z ^ el * s j := by
+        simpa only [s, if_pos hsmall] using hb.1 hsmall
+      exact hs.trans (by dsimp [M]; linarith [hEpos j, hGpos j, hRpos j, hFpos j])
+    · have hTlo : xlo < (2 : ℝ) ^ j := lt_of_not_ge hsmall
+      by_cases hmid : (2 : ℝ) ^ j ≤ xhi
+      · have hm : ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤
+            Ce * Z ^ el * e j + Cg * Z ^ eg * g j + Cg * Z ^ el * r j := by
+          simpa only [e, g, r, if_pos hmid, if_pos hTlo] using hb.2.1 hTlo hmid
+        exact hm.trans (by dsimp [M]; linarith [hSpos j, hFpos j])
+      · have hThi : xhi < (2 : ℝ) ^ j := lt_of_not_ge hmid
+        have hf : ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤
+            Cf * Z ^ ef * f j := by
+          simpa only [f, if_pos hThi, ← hpf_eq] using hb.2.2 hThi
+        exact hf.trans (by dsimp [M]; linarith [hSpos j, hEpos j, hGpos j, hRpos j])
+  have hnorm : Summable (fun j : ℕ =>
+      ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) :=
+    Summable.of_nonneg_of_le (fun j => norm_nonneg _) hmajor hM
+  have hPower (v β p : ℝ) : Z ^ v * (Z ^ β) ^ p = Z ^ (v + β * p) := by
+    rw [← Real.rpow_mul hZpos.le, ← Real.rpow_add hZpos]
+  have hweight (C0 K v β p Bsum : ℝ) (hC0 : 0 ≤ C0) (hK : 0 ≤ K)
+      (hB : Bsum ≤ K * (Z ^ β) ^ p) (hm : v + β * p ≤ target) :
+      C0 * Z ^ v * Bsum ≤ C0 * K * Z ^ target := by
+    calc
+      _ ≤ C0 * Z ^ v * (K * (Z ^ β) ^ p) :=
+        mul_le_mul_of_nonneg_left hB (mul_nonneg hC0 (Real.rpow_nonneg hZpos.le _))
+      _ = C0 * K * (Z ^ v * (Z ^ β) ^ p) := by ring
+      _ = C0 * K * Z ^ (v + β * p) := by rw [hPower]
+      _ ≤ _ := mul_le_mul_of_nonneg_left
+        (Real.rpow_le_rpow_of_exponent_le hZ1 hm) (mul_nonneg hC0 hK)
+  have hsW : Cs * Z ^ el * (∑' j, s j) ≤ Cs * Ks * Z ^ target :=
+    hweight Cs Ks el (9 / 100) ps (∑' j, s j) hCs.le hKs.le hsbound
+      (by norm_num [el, ps, target, Estar, a, b, h0, δ1])
+  have heW : Ce * Z ^ el * (∑' j, e j) ≤ Ce * Ke * Z ^ target :=
+    hweight Ce Ke el (10001 / 100000) pe (∑' j, e j) hCe.le hKe.le hebound
+      (by norm_num [el, pe, target, Estar, a, b, h0, δ1])
+  have hgW : Cg * Z ^ eg * (∑' j, g j) ≤ Cg * Ks * Z ^ target :=
+    hweight Cg Ks eg (10001 / 100000) ps (∑' j, g j) hCg.le hKs.le hgbound
+      (by norm_num [eg, ps, target, Estar, a, b, h0, δ1])
+  have hrB : (∑' j, r j) ≤ Kr * (Z ^ (9 / 100 : ℝ)) ^ pr := by
+    simpa only [r, Kr, xlo, div_eq_mul_inv, mul_comm] using hrbound
+  have hrW : Cg * Z ^ el * (∑' j, r j) ≤ Cg * Kr * Z ^ target :=
+    hweight Cg Kr el (9 / 100) pr (∑' j, r j) hCg.le hKr.le hrB
+      (by norm_num [el, pr, target, Estar, a, b, h0, δ1])
+  have hfB : (∑' j, f j) ≤ Kf * (Z ^ (10001 / 100000 : ℝ)) ^ pf := by
+    simpa only [f, Kf, xhi, div_eq_mul_inv, mul_comm] using hfbound
+  have hfW : Cf * Z ^ ef * (∑' j, f j) ≤ Cf * Kf * Z ^ target :=
+    hweight Cf Kf ef (10001 / 100000) pf (∑' j, f j) hCf.le hKf.le hfB
+      (by norm_num [ef, target, ← hpf_eq])
+  have htotal : (∑' j, M j) ≤ C * Z ^ target := by
+    have hsplit : (∑' j, M j) =
+        Cs * Z ^ el * (∑' j, s j) + Ce * Z ^ el * (∑' j, e j) +
+        Cg * Z ^ eg * (∑' j, g j) + Cg * Z ^ el * (∑' j, r j) +
+        Cf * Z ^ ef * (∑' j, f j) := by
+      dsimp only [M]
+      rw [(((hS.add hE).add hG).add hR).tsum_add hF,
+        ((hS.add hE).add hG).tsum_add hR,
+        (hS.add hE).tsum_add hG, hS.tsum_add hE]
+      simp only [tsum_mul_left]
+    rw [hsplit]
+    calc
+      _ ≤ Cs * Ks * Z ^ target + Ce * Ke * Z ^ target + Cg * Ks * Z ^ target +
+          Cg * Kr * Z ^ target + Cf * Kf * Z ^ target := by linarith [hsW, heW, hgW, hrW, hfW]
+      _ = _ := by dsimp [C]; ring
+  refine ⟨hnorm, ?_⟩
+  calc
+    _ ≤ ∑' j, ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ :=
+      norm_tsum_le_tsum_norm hnorm
+    _ ≤ ∑' j, M j := hnorm.tsum_le_tsum hmajor hM
+    _ ≤ C * Z ^ target := htotal
 /-- `zf:probe-asymptotic`, 06:647–681, for the actual probe and exact principal scalar. The
 corrected probe-low route consumes the split Gauss data from `sol-gate-a2b`. -/
 theorem zf_probe_asymptotic
@@ -3684,11 +4177,726 @@ structure IncompleteDictionary where
   factors_nonzero : ∀ χ : HeckeChar F, IsOfFinOrder χ → ∀ s : ℂ,
     0 < s.re → omittedFactors (S := S) χ s ≠ 0
 
+section A2DeletionProofs
+open ClassFieldTheory
+open scoped nonZeroDivisors
+
+private theorem a2del_heckeCoprime_iff_isPrimeTo
+    (m : RayClassModulus F) (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) :
+    ArtinPrimitiveRoots.Hecke.IsCoprimeTo m I ↔
+      Ideal.IsPrimeTo I (m.finitePart.support : Set (FinPlace F)) := by
+  have hcount (v : FinPlace F) :
+      FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0 ↔
+        ¬ v.asIdeal ∣ I := by
+    have hcount' :
+        ((Associates.mk v.asIdeal).count (Associates.mk I).factors : ℤ) = 0 ↔
+          ¬ v.asIdeal ∣ I := by
+      simpa using not_congr (Associates.count_ne_zero_iff_dvd hI v.irreducible)
+    simpa [FractionalIdeal.count_coe F v hI] using hcount'
+  constructor
+  · rintro ⟨hI', hp⟩
+    have hp' : ∀ v, v ∈ m.finitePart.support →
+        FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0 := by
+      intro v hv
+      simpa [ArtinPrimitiveRoots.Hecke.idealUnit] using hp v hv
+    rw [Ideal.isPrimeTo_iff]
+    refine ⟨hI, ?_⟩
+    intro v hv hdiv
+    exact (hcount v).mp (hp' v hv) hdiv
+  · intro hp
+    refine ⟨hI, ?_⟩
+    change ∀ v, v ∈ m.finitePart.support →
+      FractionalIdeal.count F v
+        ((ArtinPrimitiveRoots.Hecke.idealUnit I hI : NumberFieldFractionalIdealGroup F) :
+          FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0
+    intro v hv
+    apply (hcount v).mpr
+    exact (Ideal.isPrimeTo_iff.mp hp).2 v hv
+
+private theorem a2del_unramified_of_conductorDvd
+    (χ : HeckeChar F) (f : Ideal (𝓞 F)) (hχ : χ.ConductorDvd f)
+    (v : FinPlace F) (hexp : A1.idealExp v f = 0) : χ.UnramifiedAt v := by
+  exact qsa_unramifiedAt_of_conductorDvd χ f hχ v hexp
+
+private theorem a2del_modulusSupport_divides
+    (m : RayClassModulus F) (v : FinPlace F)
+    (hv : v ∈ m.finitePart.support) :
+    v.asIdeal ∣ ArtinPrimitiveRoots.Dictionary.modulusIdeal m := by
+  have hpos : 0 < m.finitePart v :=
+    Nat.pos_of_ne_zero (Finsupp.mem_support_iff.mp hv)
+  have hpow : ArtinPrimitiveRoots.Dictionary.modulusIdeal m ≤
+      v.asIdeal ^ m.finitePart v := by
+    change (∏ w ∈ m.finitePart.support, w.asIdeal ^ m.finitePart w) ≤ _
+    exact (Ideal.prod_le_inf (s := m.finitePart.support)
+      (f := fun w => w.asIdeal ^ m.finitePart w)).trans (Finset.inf_le hv)
+  exact Ideal.dvd_iff_le.mpr
+    (hpow.trans (Ideal.pow_le_self (Nat.ne_of_gt hpos)))
+
+private noncomputable def a2del_modulusEnlarge
+    (S : SData F CE condη) (m : RayClassModulus F) : RayClassModulus F :=
+  let eS := Finsupp.onFinset S.Sf (fun v => if v ∈ S.Sf then 1 else 0)
+    (by
+      intro v hv
+      by_contra hnot
+      simp [hnot] at hv)
+  ⟨m.finitePart ⊔ eS, m.infinitePart⟩
+
+private theorem a2del_modulusEnlarge_support
+    (S : SData F CE condη) (m : RayClassModulus F) :
+    (a2del_modulusEnlarge S m).finitePart.support = m.finitePart.support ∪ S.Sf := by
+  classical
+  ext v
+  simp [a2del_modulusEnlarge, Finsupp.support_sup, Finsupp.mem_support_iff,
+    Finsupp.onFinset_apply]
+
+private def a2del_rayLocalIntegralValue
+    (v : FinPlace F) (y : (v.adicCompletionIntegers F).units) :
+    v.adicCompletionIntegers F :=
+  ((v.adicCompletionIntegers F).toSubmonoid.unitsEquivUnitsType y :
+    (v.adicCompletionIntegers F)ˣ).1
+
+private theorem a2del_rayLocalHigherUnitMap_eq_one_iff_local
+    (v : FinPlace F) (k : ℕ) (y : (v.adicCompletionIntegers F).units) :
+    ClassFieldTheory.rayLocalHigherUnitMap v k y = 1 ↔
+      a2del_rayLocalIntegralValue v y - 1 ∈
+        (IsLocalRing.maximalIdeal (v.adicCompletionIntegers F)) ^ k := by
+  let I := (IsLocalRing.maximalIdeal (v.adicCompletionIntegers F)) ^ k
+  change Units.map (Ideal.Quotient.mk I).toMonoidHom
+      ((v.adicCompletionIntegers F).toSubmonoid.unitsEquivUnitsType y) = 1 ↔ _
+  rw [Units.ext_iff]
+  change Ideal.Quotient.mk I (a2del_rayLocalIntegralValue v y) =
+      Ideal.Quotient.mk I 1 ↔ _
+  exact Ideal.Quotient.mk_eq_mk_iff_sub_mem _ _
+
+private theorem a2del_rayLocalHigherUnitGroup_antitone
+    (v : FinPlace F) {k l : ℕ} (hkl : k ≤ l) :
+    ClassFieldTheory.rayLocalHigherUnitGroup v l ≤
+      ClassFieldTheory.rayLocalHigherUnitGroup v k := by
+  intro x hx
+  change x ∈ Subgroup.map (v.adicCompletionIntegers F).units.subtype
+    (ClassFieldTheory.rayLocalHigherUnitMap v l).ker at hx
+  change x ∈ Subgroup.map (v.adicCompletionIntegers F).units.subtype
+    (ClassFieldTheory.rayLocalHigherUnitMap v k).ker
+  rw [Subgroup.mem_map] at hx ⊢
+  obtain ⟨y, hy, rfl⟩ := hx
+  refine ⟨y, ?_, rfl⟩
+  change ClassFieldTheory.rayLocalHigherUnitMap v l y = 1 at hy
+  change ClassFieldTheory.rayLocalHigherUnitMap v k y = 1
+  rw [a2del_rayLocalHigherUnitMap_eq_one_iff_local v l y] at hy
+  rw [a2del_rayLocalHigherUnitMap_eq_one_iff_local v k y]
+  exact Ideal.pow_le_pow_right hkl hy
+
+private theorem a2del_rayCongruent_le
+    {m n : RayClassModulus F} (hmn : m ≤ n) {x : Fˣ}
+    (hx : ClassFieldTheory.IsRayCongruent n x) : ClassFieldTheory.IsRayCongruent m x := by
+  constructor
+  · intro v hv
+    have hvn : v ∈ n.finitePart.support := by
+      apply Finsupp.mem_support_iff.mpr
+      have hpos : 0 < m.finitePart v :=
+        Nat.pos_of_ne_zero (Finsupp.mem_support_iff.mp hv)
+      exact Nat.ne_of_gt (lt_of_lt_of_le hpos (hmn.1 v))
+    exact a2del_rayLocalHigherUnitGroup_antitone v (hmn.1 v) (hx.1 v hvn)
+  · intro v hv
+    exact hx.2 v (hmn.2 hv)
+
+private theorem a2del_rayPrincipalIdeals_antitone
+    {m n : RayClassModulus F} (hmn : m ≤ n) :
+    ClassFieldTheory.rayPrincipalIdealSubgroup n ≤
+      ClassFieldTheory.rayPrincipalIdealSubgroup m := by
+  apply Subgroup.closure_mono
+  rintro I ⟨x, hx, hIx⟩
+  exact ⟨x, a2del_rayCongruent_le hmn hx, hIx⟩
+
+private noncomputable def a2del_rayClassProjection
+    {m n : RayClassModulus F} (hmn : m ≤ n) :
+    RayClassGroup n →* RayClassGroup m := by
+  let hI : ClassFieldTheory.rayClassPrimeToIdeals n ≤
+      ClassFieldTheory.rayClassPrimeToIdeals m := by
+    intro I hI v hv
+    exact hI v (Finsupp.support_mono hmn.1 hv)
+  letI : (ClassFieldTheory.rayPrincipalIdealSubgroupInPrimeTo m).Normal :=
+    Subgroup.normal_of_isMulCommutative _
+  refine QuotientGroup.map (ClassFieldTheory.rayPrincipalIdealSubgroupInPrimeTo n)
+    (ClassFieldTheory.rayPrincipalIdealSubgroupInPrimeTo m) (Subgroup.inclusion hI) ?_
+  intro I hI'
+  change (I : NumberFieldFractionalIdealGroup F) ∈
+    ClassFieldTheory.rayPrincipalIdealSubgroup n at hI'
+  change (I : NumberFieldFractionalIdealGroup F) ∈
+    ClassFieldTheory.rayPrincipalIdealSubgroup m
+  exact a2del_rayPrincipalIdeals_antitone hmn hI'
+
+private theorem a2del_primeCoprimeTo
+    (m : RayClassModulus F) (v : FinPlace F)
+    (hv : v ∉ m.finitePart.support) :
+    ArtinPrimitiveRoots.Hecke.IsCoprimeTo m v.asIdeal := by
+  refine ⟨v.ne_bot, ?_⟩
+  change ∀ w, w ∈ m.finitePart.support →
+    FractionalIdeal.count F w
+      ((ArtinPrimitiveRoots.Hecke.idealUnit v.asIdeal v.ne_bot :
+        NumberFieldFractionalIdealGroup F) :
+        FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0
+  intro w hw
+  have hwv : w ≠ v := by
+    intro h
+    exact hv (h ▸ hw)
+  simpa [ArtinPrimitiveRoots.Hecke.idealUnit] using
+    (FractionalIdeal.count_maximal_coprime F w (Ne.symm hwv))
+
+private theorem a2del_liftedChar_prime_eq
+    {m n : RayClassModulus F} (hmn : m ≤ n)
+    (ψ : RayClassGroup m →* ℂˣ) (v : FinPlace F)
+    (hv : v ∉ n.finitePart.support) :
+    ArtinPrimitiveRoots.Hecke.charValue
+        (ψ.comp (a2del_rayClassProjection hmn)) v.asIdeal =
+      ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal := by
+  classical
+  have hvM : v ∉ m.finitePart.support := by
+    intro h
+    exact hv (Finsupp.support_mono hmn.1 h)
+  have hcopM := a2del_primeCoprimeTo m v hvM
+  have hcopN := a2del_primeCoprimeTo n v hv
+  have hproj : a2del_rayClassProjection hmn
+      (ArtinPrimitiveRoots.Hecke.rayClass n v.asIdeal hcopN) =
+        ArtinPrimitiveRoots.Hecke.rayClass m v.asIdeal hcopM := by
+    simp [a2del_rayClassProjection, ArtinPrimitiveRoots.Hecke.rayClass, hcopN]
+    rfl
+  simp only [ArtinPrimitiveRoots.Hecke.charValue, dif_pos hcopN, dif_pos hcopM,
+    MonoidHom.comp_apply]
+  rw [hproj]
+
+private theorem a2del_idealValue_prime (χ : HeckeChar F) (v : FinPlace F) :
+    χ.idealValue v.asIdeal = χ.primeValue v := by
+  classical
+  have hirr : Irreducible v.asIdeal :=
+    (Ideal.prime_of_isPrime v.ne_bot v.isPrime).irreducible
+  unfold HeckeChar.idealValue
+  rw [UniqueFactorizationMonoid.normalizedFactors_irreducible hirr,
+    normalize_eq]
+  simp [v.isPrime, v.ne_bot]
+
+private theorem a2del_idealValue_eq_charValue
+    (χ : HeckeChar F) (f : Ideal (𝓞 F))
+    (hf : IsPrimitiveConductor χ f)
+    {m : RayClassModulus F} (ψ : RayClassGroup m →* ℂˣ)
+    (hmod : ArtinPrimitiveRoots.Dictionary.modulusIdeal m = f)
+    (hprime : ∀ v : FinPlace F, v ∉ m.finitePart.support →
+      ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal = χ.primeValue v) :
+    ∀ I : Ideal (𝓞 F), I ≠ ⊥ →
+      χ.idealValue I = ArtinPrimitiveRoots.Hecke.charValue ψ I := by
+  intro I hI
+  by_cases hc : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m I
+  · have hprimeFull : ∀ v : FinPlace F, v ∉ m.finitePart.support →
+        χ.UnramifiedAt v ∧ χ.primeValue v =
+          ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal := by
+      intro v hv
+      have hexp : A1.idealExp v f = 0 := by
+        rw [← hmod, ArtinPrimitiveRoots.Dictionary.idealExp_modulusIdeal]
+        exact Finsupp.notMem_support_iff.mp hv
+      exact ⟨a2del_unramified_of_conductorDvd χ f hf.2.1 v hexp,
+        (hprime v hv).symm⟩
+    exact ArtinPrimitiveRoots.Dictionary.idealValue_eq_charValue ψ χ hprimeFull I hc
+  · have hex : ∃ v ∈ m.finitePart.support, v.asIdeal ∣ I := by
+      by_contra hnot
+      push_neg at hnot
+      apply hc
+      refine ⟨hI, ?_⟩
+      intro v hv
+      change FractionalIdeal.count F v
+        (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0
+      rw [FractionalIdeal.count_coe F v hI]
+      have hcnt := (Associates.count_ne_zero_iff_dvd hI v.irreducible).not.mpr
+        (hnot v hv)
+      push_neg at hcnt
+      exact_mod_cast hcnt
+    obtain ⟨v, hv, hdiv⟩ := hex
+    have hdivf : v.asIdeal ∣ f := by
+      have hdivm := a2del_modulusSupport_divides m v hv
+      rw [hmod] at hdivm
+      exact hdivm
+    have hzero := qs_idealValue_eq_zero_of_conductor_M0 χ f hf
+      v.asIdeal I v.isPrime v.ne_bot hdivf hI hdiv
+    have hchar : ArtinPrimitiveRoots.Hecke.charValue ψ I = 0 := by
+      simp [ArtinPrimitiveRoots.Hecke.charValue, hc]
+    rw [hzero, hchar]
+
+private theorem a2del_norm_multiset_map_prod_le_one
+    {α : Type*} (s : Multiset α) (g : α → ℂ)
+    (hg : ∀ a ∈ s, ‖g a‖ ≤ 1) : ‖(s.map g).prod‖ ≤ 1 := by
+  induction s using Multiset.induction_on with
+  | empty => simp
+  | @cons a s ih =>
+      rw [Multiset.map_cons, Multiset.prod_cons, norm_mul]
+      exact mul_le_one₀ (hg a (by simp)) (norm_nonneg _)
+        (ih fun x hx => hg x (Multiset.mem_cons_of_mem hx))
+
+private theorem a2del_idealValue_norm_le_one
+    (χ : HeckeChar F) (hχ : IsOfFinOrder χ) (I : Ideal (𝓞 F)) :
+    ‖χ.idealValue I‖ ≤ 1 := by
+  unfold HeckeChar.idealValue
+  apply a2del_norm_multiset_map_prod_le_one
+  intro P hP
+  by_cases h : P.IsPrime ∧ P ≠ ⊥
+  · simpa [h] using primeValue_norm_le_one χ hχ ⟨P, h.1, h.2⟩
+  · simp [h]
+
+private noncomputable def a2del_heckeIdealWeight (χ : HeckeChar F) :
+    Hecke.EulerProduct.IdealArithmeticFunction F :=
+  fun I => χ.idealValue (I : Ideal (𝓞 F))
+
+private theorem a2del_heckeIdealWeight_summable
+    (χ : HeckeChar F) (hχ : IsOfFinOrder χ) {s : ℂ} (hs : 1 < s.re) :
+    Summable (Hecke.EulerProduct.idealTerm (a2del_heckeIdealWeight χ) s) := by
+  let f := a2del_heckeIdealWeight χ
+  have hbase : Summable (fun I : (Ideal (𝓞 F))⁰ =>
+      Hecke.idealNormRpowTerm s.re (I : Ideal (𝓞 F))) := by
+    have h := (Hecke.summable_idealNormRpow (K := F) hs).comp_injective
+      (i := fun I : (Ideal (𝓞 F))⁰ => (I : Ideal (𝓞 F))) Subtype.val_injective
+    convert h using 1
+    funext I
+    rfl
+  have hnorm : Summable (fun I : (Ideal (𝓞 F))⁰ =>
+      ‖Hecke.EulerProduct.idealTerm f s I‖) := by
+    refine Summable.of_nonneg_of_le (by intro I; positivity) ?_ hbase
+    intro I
+    rw [Hecke.EulerProduct.norm_idealTerm]
+    have hNpos : 0 < (Ideal.absNorm (I : Ideal (𝓞 F)) : ℝ) := by
+      exact_mod_cast Ideal.absNorm_pos_of_nonZeroDivisors I
+    have hNne : Ideal.absNorm (I : Ideal (𝓞 F)) ≠ 0 :=
+      (Ideal.absNorm_pos_of_nonZeroDivisors I).ne'
+    have hcoeff := a2del_idealValue_norm_le_one χ hχ (I : Ideal (𝓞 F))
+    calc
+      _ ≤ 1 / (Ideal.absNorm (I : Ideal (𝓞 F)) : ℝ) ^ s.re := by
+        exact div_le_div_of_nonneg_right hcoeff (by positivity)
+      _ = Hecke.idealNormRpowTerm s.re (I : Ideal (𝓞 F)) := by
+        simp [Hecke.idealNormRpowTerm, hNne, Real.rpow_neg (le_of_lt hNpos)]
+  exact Summable.of_norm hnorm
+
+private theorem a2del_incompleteRaySeries_eq_incompleteHeckeLSeries
+    (S : SData F CE condη) (χ : HeckeChar F) (hχ : IsOfFinOrder χ)
+    {m : RayClassModulus F} (ψ : RayClassGroup m →* ℂˣ)
+    (hvalue : ∀ I : (Ideal (𝓞 F))⁰,
+      Hecke.EulerProduct.IdealArithmeticFunction.supportedPart
+        (a2del_heckeIdealWeight χ) ((S.Sf : Set (FinPlace F))ᶜ) I =
+          ArtinPrimitiveRoots.Hecke.charValue ψ (I : Ideal (𝓞 F)))
+    {s : ℂ} (hs : 1 < s.re) :
+    ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s = incompleteHeckeLSeries S χ s := by
+  classical
+  let f := a2del_heckeIdealWeight χ
+  let Sset : Set (FinPlace F) := S.Sf
+  let fS := Hecke.EulerProduct.IdealArithmeticFunction.supportedPart f Ssetᶜ
+  have hvalue' : ∀ I : (Ideal (𝓞 F))⁰,
+      fS I = ArtinPrimitiveRoots.Hecke.charValue ψ (I : Ideal (𝓞 F)) := hvalue
+  have hχsum := a2del_heckeIdealWeight_summable χ hχ hs
+  have hχsumS := Hecke.EulerProduct.summable_idealTerm_supportedPart hχsum Ssetᶜ
+  have hcoeff (N : ℕ) :
+      Hecke.EulerProduct.normCoeff F fS N = ArtinPrimitiveRoots.Hecke.coeff ψ N := by
+    rw [Hecke.EulerProduct.normCoeff_eq_sum_normFiber]
+    by_cases hN : N = 0
+    · subst N
+      rw [Hecke.EulerProduct.normFiber_zero]
+      unfold ArtinPrimitiveRoots.Hecke.coeff
+      simp only [Finset.sum_empty]
+      symm
+      apply Finset.sum_eq_zero
+      intro I hI
+      have hnorm : Ideal.absNorm I = 0 := by
+        simpa only [Set.mem_setOf_eq] using
+          (Ideal.finite_setOfPred_absNorm_eq (S := 𝓞 F) 0).mem_toFinset.mp hI
+      have hbot : I = ⊥ := Ideal.absNorm_eq_zero_iff.mp hnorm
+      subst I
+      simp [ArtinPrimitiveRoots.Hecke.charValue, ArtinPrimitiveRoots.Hecke.IsCoprimeTo]
+    · let F0 := Ideal.finite_setOfPred_absNorm_eq (S := 𝓞 F) N
+      change (∑ I ∈ Hecke.EulerProduct.normFiber F N, fS I) =
+        ∑ I ∈ F0.toFinset, ArtinPrimitiveRoots.Hecke.charValue ψ I
+      refine Finset.sum_bij (fun I _ => (I : Ideal (𝓞 F))) ?_ ?_ ?_ ?_
+      · intro I hI
+        exact F0.mem_toFinset.mpr
+          ((Hecke.EulerProduct.mem_normFiber F).mp hI)
+      · intro I hI J hJ hEq
+        exact Subtype.ext hEq
+      · intro J hJ
+        have hnorm : Ideal.absNorm J = N := by
+          simpa only [Set.mem_setOf_eq] using F0.mem_toFinset.mp hJ
+        have hJ0 : J ≠ ⊥ := by
+          intro hJbot
+          subst J
+          simp at hnorm
+          exact hN hnorm.symm
+        refine ⟨⟨J, mem_nonZeroDivisors_of_ne_zero hJ0⟩,
+          (Hecke.EulerProduct.mem_normFiber F).mpr hnorm, rfl⟩
+      · intro I hI
+        exact hvalue' I
+  have hcoeffFun :
+      Hecke.EulerProduct.normCoeff F fS = ArtinPrimitiveRoots.Hecke.coeff ψ :=
+    funext hcoeff
+  have hLcoeff : ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s =
+      LSeries (Hecke.EulerProduct.normCoeff F fS) s := by
+    unfold ArtinPrimitiveRoots.Hecke.LSeriesRay
+    rw [← hcoeffFun]
+  have hSupport : Function.support
+      (fun I : (Ideal (𝓞 F))⁰ => Hecke.EulerProduct.idealTerm fS s I) ⊆
+        {I : (Ideal (𝓞 F))⁰ | Ideal.IsPrimeTo (I : Ideal (𝓞 F)) Sset} := by
+    intro I hI
+    have hval : fS I ≠ 0 := by
+      intro hzero
+      apply hI
+      simp [Hecke.EulerProduct.idealTerm, hzero]
+    simpa using
+      (Hecke.EulerProduct.IdealArithmeticFunction.isPrimeTo_compl_of_supportedPart_apply_ne_zero hval)
+  have hsubtype :
+      (∑' I : {I : (Ideal (𝓞 F))⁰ // Ideal.IsPrimeTo (I : Ideal (𝓞 F)) Sset},
+        Hecke.EulerProduct.idealTerm fS s I.1) =
+      ∑' I : (Ideal (𝓞 F))⁰, Hecke.EulerProduct.idealTerm fS s I :=
+    tsum_subtype_eq_of_support_subset hSupport
+  let T : Type := {I : Ideal (𝓞 F) //
+    I ≠ ⊥ ∧ ∀ v ∈ S.Sf, ¬ I ≤ v.asIdeal}
+  let e : {I : (Ideal (𝓞 F))⁰ // Ideal.IsPrimeTo (I : Ideal (𝓞 F)) Sset} ≃ T := {
+    toFun := fun I => ⟨(I.1 : Ideal (𝓞 F)),
+      ⟨nonZeroDivisors.coe_ne_zero I.1, fun v hv hdiv =>
+        (Ideal.isPrimeTo_iff.mp I.2).2 v hv (Ideal.dvd_iff_le.mpr hdiv)⟩⟩
+    invFun := fun I => ⟨⟨I.1, mem_nonZeroDivisors_of_ne_zero I.2.1⟩,
+      (Ideal.isPrimeTo_iff).2 ⟨I.2.1, fun v hv hdiv =>
+        I.2.2 v hv (Ideal.dvd_iff_le.mp hdiv)⟩⟩
+    left_inv := by intro I; cases I; rfl
+    right_inv := by intro I; cases I; rfl }
+  let g : T → ℂ := fun I => χ.idealValue I.1 *
+    ((Ideal.absNorm I.1 : ℕ) : ℂ) ^ (-s)
+  have hterm (I : {I : (Ideal (𝓞 F))⁰ // Ideal.IsPrimeTo (I : Ideal (𝓞 F)) Sset}) :
+      g (e I) = Hecke.EulerProduct.idealTerm fS s I.1 := by
+    have hcop : Ideal.IsPrimeTo (I.1 : Ideal (𝓞 F)) Sset := I.2
+    have hcop' : Ideal.IsPrimeTo (I.1 : Ideal (𝓞 F)) Ssetᶜᶜ := by
+      simpa using hcop
+    have hfSχ : fS I.1 = χ.idealValue (I.1 : Ideal (𝓞 F)) := by
+      change Hecke.EulerProduct.IdealArithmeticFunction.supportedPart f Ssetᶜ
+        I.1 = _
+      rw [Hecke.EulerProduct.IdealArithmeticFunction.supportedPart_apply_of_isPrimeTo_compl hcop']
+      rfl
+    change χ.idealValue (I.1 : Ideal (𝓞 F)) *
+        ((Ideal.absNorm (I.1 : Ideal (𝓞 F)) : ℕ) : ℂ) ^ (-s) =
+      Hecke.EulerProduct.idealTerm fS s I.1
+    rw [Hecke.EulerProduct.idealTerm_def, Complex.cpow_neg,
+      div_eq_mul_inv, ← hfSχ]
+  calc
+    ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s =
+        LSeries (Hecke.EulerProduct.normCoeff F fS) s := hLcoeff
+    _ = ∑' I : (Ideal (𝓞 F))⁰, Hecke.EulerProduct.idealTerm fS s I :=
+      Hecke.EulerProduct.LSeries_normCoeff hχsumS
+    _ = ∑' I : {I : (Ideal (𝓞 F))⁰ // Ideal.IsPrimeTo (I : Ideal (𝓞 F)) Sset},
+        Hecke.EulerProduct.idealTerm fS s I.1 := hsubtype.symm
+    _ = ∑' I : T, g I := by
+      calc
+        _ = ∑' I : {I : (Ideal (𝓞 F))⁰ // Ideal.IsPrimeTo (I : Ideal (𝓞 F)) Sset},
+            g (e I) := tsum_congr fun I => (hterm I).symm
+        _ = ∑' I : T, g I := Equiv.tsum_eq e g
+    _ = incompleteHeckeLSeries S χ s := by
+      simp [T, g, incompleteHeckeLSeries]
+
+private theorem a2del_LS_eq_incompleteHeckeLSeries
+    (S : SData F CE condη) (HA : HeckeAnalysis F) (χ : HeckeChar F)
+    (hχ : IsOfFinOrder χ) (f : Ideal (𝓞 F)) (hf : IsPrimitiveConductor χ f)
+    {s : ℂ} (hs : 1 < s.re) :
+    HA.LS S χ s = incompleteHeckeLSeries S χ s := by
+  classical
+  obtain ⟨m, ψ, hmod, _, hprime⟩ :=
+    ArtinPrimitiveRoots.Dictionary.exists_rayClass_of_heckeChar χ hχ f hf.1 hf.2.1
+  let mS := a2del_modulusEnlarge S m
+  have hsup : mS.finitePart.support = m.finitePart.support ∪ S.Sf :=
+    a2del_modulusEnlarge_support S m
+  have hmn : m ≤ mS := by
+    refine ⟨le_sup_left, ?_⟩
+    intro v hv
+    exact hv
+  let ψS : RayClassGroup mS →* ℂˣ := ψ.comp (a2del_rayClassProjection hmn)
+  have hprimeFull : ∀ v : FinPlace F, v ∉ m.finitePart.support →
+      χ.UnramifiedAt v ∧ χ.primeValue v =
+        ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal := by
+    intro v hv
+    have hexp : A1.idealExp v f = 0 := by
+      rw [← hmod, ArtinPrimitiveRoots.Dictionary.idealExp_modulusIdeal]
+      exact Finsupp.notMem_support_iff.mp hv
+    exact ⟨a2del_unramified_of_conductorDvd χ f hf.2.1 v hexp,
+      (hprime v hv).symm⟩
+  have hvalueFull := a2del_idealValue_eq_charValue χ f hf ψ hmod hprime
+  have hfull : heckeLSeries χ s = ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s :=
+    qsa_heckeLSeries_eq_LSeriesRay χ ψ hvalueFull hs
+  have hHA : HA.L χ s = ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s := by
+    calc
+      HA.L χ s = heckeLSeries χ s := HA.property.1 χ s hs
+      _ = ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s := hfull
+  have hcharLift : ∀ v : FinPlace F, v ∉ mS.finitePart.support →
+      ArtinPrimitiveRoots.Hecke.charValue ψS v.asIdeal =
+        ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal := by
+    intro v hv
+    simpa [ψS] using a2del_liftedChar_prime_eq hmn ψ v hv
+  have hchange := ArtinPrimitiveRoots.Hecke.LSeriesRay_change_modulus
+    (m := mS) (n := m) ψS ψ hcharLift hs
+  have hprimeZero : ∀ v : FinPlace F, v ∈ m.finitePart.support → χ.primeValue v = 0 := by
+    intro v hv
+    have hdivf := a2del_modulusSupport_divides m v hv
+    rw [hmod] at hdivf
+    have hzero := qs_idealValue_eq_zero_of_conductor_M0 χ f hf
+      v.asIdeal v.asIdeal v.isPrime v.ne_bot hdivf v.ne_bot dvd_rfl
+    rw [a2del_idealValue_prime] at hzero
+    exact hzero
+  let A := m.finitePart.support
+  let B := S.Sf \ A
+  have hdisj : Disjoint A B := by
+    rw [Finset.disjoint_left]
+    intro v hvA hvB
+    exact (Finset.mem_sdiff.mp hvB).2 hvA
+  have hunion : A ∪ B = mS.finitePart.support := by
+    have hAB : A ∪ B = A ∪ S.Sf := by
+      ext v
+      simp [B]
+    have hAS : A ∪ S.Sf = mS.finitePart.support := by
+      change m.finitePart.support ∪ S.Sf = mS.finitePart.support
+      exact hsup.symm
+    exact hAB.trans hAS
+  have hprodA :
+      (∏ v ∈ A, (1 - ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal *
+        (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) = 1 := by
+    apply Finset.prod_eq_one
+    intro v hv
+    rw [ArtinPrimitiveRoots.Dictionary.charValue_eq_zero_of_mem_support ψ hv]
+    simp
+  have hprodB :
+      (∏ v ∈ B, (1 - ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal *
+        (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) =
+      ∏ v ∈ B, (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    rw [hprime v (Finset.mem_sdiff.mp hv).2]
+  have hdisjS : Disjoint B (S.Sf ∩ A) := by
+    rw [Finset.disjoint_left]
+    intro v hvB hvI
+    exact (Finset.mem_sdiff.mp hvB).2 (Finset.mem_inter.mp hvI).2
+  have hunionS : B ∪ (S.Sf ∩ A) = S.Sf := by
+    ext v
+    constructor
+    · intro hv
+      rcases Finset.mem_union.mp hv with hB | hI
+      · exact (Finset.mem_sdiff.mp hB).1
+      · exact (Finset.mem_inter.mp hI).1
+    · intro hvS
+      by_cases hvA : v ∈ A
+      · exact Finset.mem_union_right _ (Finset.mem_inter.mpr ⟨hvS, hvA⟩)
+      · exact Finset.mem_union_left _ (Finset.mem_sdiff.mpr ⟨hvS, hvA⟩)
+  have hprodIntersect :
+      ∏ v ∈ S.Sf ∩ A, (1 - χ.primeValue v *
+        (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) = 1 := by
+    apply Finset.prod_eq_one
+    intro v hv
+    rw [hprimeZero v (Finset.mem_inter.mp hv).2]
+    simp
+  have hprodS :
+      (∏ v ∈ S.Sf, (1 - χ.primeValue v *
+        (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) =
+      ∏ v ∈ B, (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+    calc
+      _ = ∏ v ∈ B ∪ (S.Sf ∩ A),
+          (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+        rw [hunionS]
+      _ = (∏ v ∈ B, (1 - χ.primeValue v *
+            (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) *
+          ∏ v ∈ S.Sf ∩ A, (1 - χ.primeValue v *
+            (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+        rw [Finset.prod_union hdisjS]
+      _ = _ := by rw [hprodIntersect]; simp
+  have hfactor :
+      (∏ v ∈ mS.finitePart.support,
+        (1 - ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) = omittedFactors (S := S) χ s := by
+    unfold omittedFactors
+    calc
+      _ = ∏ v ∈ A ∪ B,
+          (1 - ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal *
+            (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by rw [← hunion]
+      _ = (∏ v ∈ A, (1 - ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal *
+            (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))) *
+          ∏ v ∈ B, (1 - ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal *
+            (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by rw [Finset.prod_union hdisj]
+      _ = ∏ v ∈ B, (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := by
+        rw [hprodA, hprodB]
+        simp
+      _ = ∏ v ∈ S.Sf, (1 - χ.primeValue v *
+          (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)) := hprodS.symm
+  have hchange' : ArtinPrimitiveRoots.Hecke.LSeriesRay ψS s =
+      ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s * omittedFactors (S := S) χ s := by
+    rw [hfactor] at hchange
+    exact hchange
+  have hLSray : HA.LS S χ s = ArtinPrimitiveRoots.Hecke.LSeriesRay ψS s := by
+    calc
+      HA.LS S χ s = HA.L χ s * omittedFactors (S := S) χ s := rfl
+      _ = ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s * omittedFactors (S := S) χ s := by
+        rw [hHA]
+      _ = ArtinPrimitiveRoots.Hecke.LSeriesRay ψS s := hchange'.symm
+  have hχS : ∀ v : FinPlace F, v ∉ mS.finitePart.support →
+      χ.UnramifiedAt v ∧ χ.primeValue v =
+        ArtinPrimitiveRoots.Hecke.charValue ψS v.asIdeal := by
+    intro v hv
+    have hvM : v ∉ m.finitePart.support := by
+      intro hvM
+      exact hv (by rw [hsup]; exact Finset.mem_union_left _ hvM)
+    refine ⟨(hprimeFull v hvM).1, ?_⟩
+    calc
+      χ.primeValue v = ArtinPrimitiveRoots.Hecke.charValue ψ v.asIdeal :=
+        (hprimeFull v hvM).2
+      _ = ArtinPrimitiveRoots.Hecke.charValue ψS v.asIdeal :=
+        (hcharLift v hv).symm
+  have hvalueS (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) :
+      Hecke.EulerProduct.IdealArithmeticFunction.supportedPart
+          (a2del_heckeIdealWeight χ) ((S.Sf : Set (FinPlace F))ᶜ)
+          ⟨I, mem_nonZeroDivisors_of_ne_zero hI⟩ =
+        ArtinPrimitiveRoots.Hecke.charValue ψS I := by
+    by_cases hcS : Ideal.IsPrimeTo I (S.Sf : Set (FinPlace F))
+    · have hcS' : Ideal.IsPrimeTo I ((S.Sf : Set (FinPlace F))ᶜᶜ) := by
+        simpa using hcS
+      rw [Hecke.EulerProduct.IdealArithmeticFunction.supportedPart_apply_of_isPrimeTo_compl hcS']
+      by_cases hcM : ArtinPrimitiveRoots.Hecke.IsCoprimeTo mS I
+      · exact ArtinPrimitiveRoots.Dictionary.idealValue_eq_charValue ψS χ hχS I hcM
+      · have hex : ∃ v ∈ mS.finitePart.support, v.asIdeal ∣ I := by
+          by_contra hnot
+          push_neg at hnot
+          apply hcM
+          refine ⟨hI, ?_⟩
+          intro v hv
+          change FractionalIdeal.count F v
+            (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0
+          rw [FractionalIdeal.count_coe F v hI]
+          have hcnt := (Associates.count_ne_zero_iff_dvd hI v.irreducible).not.mpr
+            (hnot v hv)
+          push_neg at hcnt
+          exact_mod_cast hcnt
+        obtain ⟨v, hv, hdiv⟩ := hex
+        have hvS : v ∉ S.Sf := by
+          intro hvS
+          exact (Ideal.isPrimeTo_iff.mp hcS).2 v hvS hdiv
+        have hvM : v ∈ m.finitePart.support := by
+          rw [hsup] at hv
+          exact (Finset.mem_union.mp hv).resolve_right hvS
+        have hdivf := a2del_modulusSupport_divides m v hvM
+        rw [hmod] at hdivf
+        have hzero := qs_idealValue_eq_zero_of_conductor_M0 χ f hf
+          v.asIdeal I v.isPrime v.ne_bot hdivf hI hdiv
+        have hchar : ArtinPrimitiveRoots.Hecke.charValue ψS I = 0 := by
+          simp [ArtinPrimitiveRoots.Hecke.charValue, hcM]
+        exact hzero.trans hchar.symm
+    · have hcM : ¬ ArtinPrimitiveRoots.Hecke.IsCoprimeTo mS I := by
+        intro hcM
+        have hprimeToM : Ideal.IsPrimeTo I (mS.finitePart.support : Set (FinPlace F)) :=
+          (a2del_heckeCoprime_iff_isPrimeTo mS I hI).mp hcM
+        apply hcS
+        apply (Ideal.isPrimeTo_iff).2
+        refine ⟨hI, ?_⟩
+        intro v hvS hdiv
+        have hvM : v ∈ mS.finitePart.support := by
+          rw [hsup]
+          exact Finset.mem_union_right _ hvS
+        exact (Ideal.isPrimeTo_iff.mp hprimeToM).2 v hvM hdiv
+      have hcS' : ¬ Ideal.IsPrimeTo I ((S.Sf : Set (FinPlace F))ᶜᶜ) := by
+        simpa using hcS
+      rw [Hecke.EulerProduct.IdealArithmeticFunction.supportedPart_apply_of_not_isPrimeTo_compl hcS']
+      simp [ArtinPrimitiveRoots.Hecke.charValue, hcM]
+  have hvalueS' : ∀ I : (Ideal (𝓞 F))⁰,
+      Hecke.EulerProduct.IdealArithmeticFunction.supportedPart
+        (a2del_heckeIdealWeight χ) ((S.Sf : Set (FinPlace F))ᶜ) I =
+          ArtinPrimitiveRoots.Hecke.charValue ψS (I : Ideal (𝓞 F)) := by
+    intro I
+    exact hvalueS (I : Ideal (𝓞 F)) (nonZeroDivisors.coe_ne_zero I)
+  have hinc := a2del_incompleteRaySeries_eq_incompleteHeckeLSeries
+    S χ hχ ψS hvalueS' hs
+  calc
+    HA.LS S χ s = ArtinPrimitiveRoots.Hecke.LSeriesRay ψS s := hLSray
+    _ = incompleteHeckeLSeries S χ s := hinc
+
+private theorem a2del_omittedFactors_nonzero
+    (S : SData F CE condη) (χ : HeckeChar F) (hχ : IsOfFinOrder χ)
+    {s : ℂ} (hs : 0 < s.re) : omittedFactors (S := S) χ s ≠ 0 := by
+  classical
+  unfold omittedFactors
+  apply Finset.prod_ne_zero_iff.mpr
+  intro v hv
+  apply sub_ne_zero.mpr
+  intro heq
+  have hterm : χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s) = 1 := heq.symm
+  have htermNorm :
+      ‖χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ = 1 := by
+    rw [hterm]
+    norm_num
+  have hq : (1 : ℝ) < (Ideal.absNorm v.asIdeal : ℝ) := by
+    exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+  have hpow : ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ =
+      (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) := by
+    exact Complex.norm_cpow_eq_rpow_re_of_pos (by positivity) _
+  have hsmall : ‖χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)‖ < 1 := by
+    rw [norm_mul, hpow]
+    calc
+      ‖χ.primeValue v‖ * (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) ≤
+          1 * (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) :=
+            mul_le_mul_of_nonneg_right (primeValue_norm_le_one χ hχ v) (by positivity)
+      _ < 1 := by
+        rw [one_mul]
+        exact Real.rpow_lt_one_of_one_lt_of_neg hq (neg_lt_zero.mpr hs)
+  exact (ne_of_lt hsmall) htermNorm
+
 /-- Analytic producer obligation for `IncompleteDictionary`; continuation and deletion uniqueness
 are not consequences of aggregate `HeckeAnalysis` fields alone (`prop:euler-product`, 05:407–433;
 `prop:zero-density`, 06:165–185). -/
 theorem incompleteDictionary_exists : Nonempty (IncompleteDictionary η fd HA) := by
-  sorry
+  classical
+  let inc : ∀ u : fd.U, fd.omega u ≠ 1 →
+      IncompleteHeckeLContinuation S (η * (fd.kummer u)⁻¹) := by
+    intro u h
+    let χ : HeckeChar F := rowTwist η fd u
+    have hω : fd.omega u = χ := by
+      dsimp [χ, rowTwist]
+      exact fd.omega_induces_twist u
+    have hχ : IsOfFinOrder χ := by
+      rw [← hω]
+      exact fd.omega_finiteOrder u
+    let C := completeFromAnalysis η fd HA u h
+    have hC : C.value = HA.L χ := by
+      calc
+        C.value = HA.L (fd.omega u) := completeFromAnalysis_eq η fd HA u h
+        _ = HA.L χ := by rw [hω]
+    have hLdiff : Differentiable ℂ (HA.L χ) := by
+      rw [← hC]
+      exact C.differentiable
+    have hFactorDiff : Differentiable ℂ (omittedFactors (S := S) χ) := by
+      change Differentiable ℂ (fun s =>
+        ∏ v ∈ S.Sf, (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s)))
+      exact omittedEulerFactors_differentiable (S := S) χ
+    have hLSdiff : Differentiable ℂ (HA.LS S χ) := by
+      have hmul : Differentiable ℂ
+          (fun s => HA.L χ s * omittedFactors (S := S) χ s) := hLdiff.mul hFactorDiff
+      have heq : HA.LS S χ =
+          (fun s => HA.L χ s * omittedFactors (S := S) χ s) := by
+        funext s
+        rfl
+      rw [heq]
+      exact hmul
+    let f : Ideal (𝓞 F) := Classical.choose (fd.omega_primitive u)
+    have hf : IsPrimitiveConductor (fd.omega u) f :=
+      Classical.choose_spec (fd.omega_primitive u)
+    have hfχ : IsPrimitiveConductor χ f := by
+      rw [← hω]
+      exact hf
+    refine ⟨HA.LS S χ, hLSdiff.differentiableOn, ?_⟩
+    intro s hs
+    exact a2del_LS_eq_incompleteHeckeLSeries S HA χ hχ f hfχ hs
+  refine ⟨{
+    complete := completeFromAnalysis η fd HA
+    complete_eq := completeFromAnalysis_eq η fd HA
+    incomplete := inc
+    incomplete_eq := ?_
+    factors_nonzero := ?_
+  }⟩
+  · intro u h s hs
+    simp [inc, rowTwist]
+  · intro χ hχ s hs
+    exact a2del_omittedFactors_nonzero S χ hχ hs
+end A2DeletionProofs
 
 /-- Exact output required to populate the unchanged `ZeroDensityData` record. Its single `E T`
 also covers the trivial row and the complete continuation zeros (06:165–185). -/
