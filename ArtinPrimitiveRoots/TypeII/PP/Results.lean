@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.TypeII.Marked
 import ArtinPrimitiveRoots.TypeII.Proofs.pp1.HalaszMeanValue
 import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.LogPhaseLow
 import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.PhaseReindex
+import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.Interfaces
 
 /-! Statements in the Prime Predecessors long-prime chain, PP
 `02-long-prime.tex:8-579`. -/
@@ -45,7 +46,9 @@ theorem log_phase :
                     ∀ N₁ N₂ : ℝ, N' ≤ N₁ → N₂ ≤ 2 * N' →
                       ‖residuePhaseSum N' q a v {n : ℕ | N₁ ≤ (n : ℝ) ∧ (n : ℝ) ≤ N₂}‖ ≤
                         C₀ * (N' / q) * Real.exp (-L / Real.rpow T C₃) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.pp_phase_p.phase_from_regimes mean_value
+    ArtinPrimitiveRoots.Proofs.pp_phase_p.phase_low_regime_bound
+    (fun hMV => ArtinPrimitiveRoots.Proofs.pp_phase_p.phase_high_regime_bound hMV)
 
 /-- `t2:pp.L-upper` — PP `02-long-prime.tex:312-368`, including the finite Dirichlet-series
 approximation and the logarithmic growth bound in the window around `Re(s)=1`. -/
