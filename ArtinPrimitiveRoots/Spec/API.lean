@@ -1,4 +1,6 @@
 import ArtinPrimitiveRoots.Spec.Smoothing
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_API.Existence
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_API.Uniqueness
 
 /-! Consumer API nodes C2--C3. -/
 
@@ -24,7 +26,12 @@ theorem C2_api (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     (∀ d : ContinuedEisenstein F Γ σ s₁, ∀ ε' : ℝ, 0 < ε' → ε' ≤ d.ε →
       ∃ d' : ContinuedEisenstein F Γ σ s₁,
         d'.ε = ε' ∧ d'.E = d.E ∧ d'.res = d.res) := by
-  sorry
+  refine ⟨exists_continuedEisenstein_core Γ hfree σ s₁ h₀ h₁, ?_⟩
+  constructor
+  · intro d d'
+    exact continuedEisenstein_E_eq d d' h₁
+  · intro d ε' hε hle
+    exact ContinuedEisenstein.exists_restrict F d ε' hε hle
 
 /-- C3 `spec:cuspidal` — P-SPEC.md:250, 435–440. A finite linear combination of continued
 Eisenstein residues with every cusp constant term zero vanishes identically. -/
