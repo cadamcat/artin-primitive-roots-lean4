@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Interface
 import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».All
 import ArtinPrimitiveRoots.Proofs.th_factor_b.Analytic
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteMass
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
