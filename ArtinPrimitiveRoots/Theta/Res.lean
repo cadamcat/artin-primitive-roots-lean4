@@ -12,6 +12,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.unitTorus_constant_of_nonzero
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.totallyComplexMixedEquiv_embedding
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.mem_span_idealArchBasis
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.archimedean_trace_sum
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_pairing
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
