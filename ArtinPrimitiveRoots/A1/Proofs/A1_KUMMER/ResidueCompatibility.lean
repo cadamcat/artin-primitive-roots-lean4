@@ -17,7 +17,21 @@ theorem residue_ne_zero_iff_ord_zero (P : FinPlace F) (x : F) :
     residue P x ≠ 0 ↔
       FractionalIdeal.count F P
         (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) x) = 0 ∧ x ≠ 0 := by
-  sorry
+  rw [A2.qs_nq0_residue_ne_zero_iff_valuation_one P x]
+  constructor
+  · intro hv
+    have hx : x ≠ 0 := (Valuation.ne_zero_iff _).mp (by rw [hv]; exact one_ne_zero)
+    refine ⟨?_, hx⟩
+    rw [A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation P x hx,
+      hv, WithZero.log_one, neg_zero]
+  · rintro ⟨hcount, hx⟩
+    have hc := A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation P x hx
+    rw [hcount] at hc
+    have hlog : WithZero.log (P.valuation F x) = 0 := neg_eq_zero.mp hc.symm
+    calc
+      P.valuation F x = WithZero.exp (WithZero.log (P.valuation F x)) :=
+        (WithZero.exp_log ((Valuation.ne_zero_iff _).mpr hx)).symm
+      _ = 1 := by rw [hlog, WithZero.exp_zero]
 
 theorem chiAlg_spec (D : FieldData F) (P : FinPlace F)
     (h6 : (6 : 𝓞 F) ∉ P.asIdeal) (x : F) (hx : residue P x ≠ 0) :
