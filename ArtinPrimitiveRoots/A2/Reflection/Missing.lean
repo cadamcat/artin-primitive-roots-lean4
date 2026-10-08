@@ -20,6 +20,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ExteriorGenerator
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.CubeIndex
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteFourier
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.OrbitSeries
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteFactor
 import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import Mathlib.Analysis.Asymptotics.Basic
 
