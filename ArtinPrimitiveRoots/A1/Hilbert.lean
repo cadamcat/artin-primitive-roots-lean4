@@ -10,6 +10,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.ArtinLocalization
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.GlobalRootComparison
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.Reciprocity
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameReduction
+import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameFrobenius
 import ArtinPrimitiveRoots.A1.Proofs.A1_GENERATORS.Generator
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.ResidueCompatibility
 
