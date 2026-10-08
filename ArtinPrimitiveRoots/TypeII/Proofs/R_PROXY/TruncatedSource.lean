@@ -138,4 +138,111 @@ theorem smallPrimeTruncation_weighted_sum_expand
           ∑ m ∈ I,
             (if (∏ p ∈ S, p) ∣ m then f m else 0) := by rfl
 
+/-- Expand the truncated source sum and reindex each divisibility class by
+writing `m = d*h`. -/
+theorem truncated_source_reindex
+    (x u : ℝ) (r k : ℕ) (χ : DirichletCharacter ℂ k)
+    (I : Finset ℕ) (hI : ∀ m ∈ I, 0 < m) :
+    (∑ m ∈ I,
+      (smallPrimeTruncation x r m : ℂ) *
+        ((χ (m : ZMod k) : ℂ) *
+          Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+            Real.log (m : ℝ))) =
+      ∑ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+          (fun S => S.card < r),
+        ((-1 : ℂ) ^ S.card) *
+          ((χ ((∏ p ∈ S, p : ℕ) : ZMod k) : ℂ) *
+            Complex.exp (Complex.I * u *
+              Real.log ((∏ p ∈ S, p : ℕ) : ℝ))) *
+          ∑ h ∈ divisorQuotients I (∏ p ∈ S, p),
+            (χ (h : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (h : ℝ)) /
+                Real.log (((∏ p ∈ S, p) * h : ℕ) : ℝ) := by
+  classical
+  let P := primesUpTo (roughCutoff x)
+  let Q := P.powerset.filter (fun S => S.card < r)
+  let F : ℕ → ℂ := fun m =>
+    (χ (m : ZMod k) : ℂ) *
+      Complex.exp (Complex.I * u * Real.log (m : ℝ)) / Real.log (m : ℝ)
+  calc
+    _ = ∑ S ∈ Q, ((-1 : ℂ) ^ S.card) *
+          ∑ m ∈ I,
+            (if (∏ p ∈ S, p) ∣ m then F m else 0) := by
+      simpa [F, P, Q] using
+        smallPrimeTruncation_weighted_sum_expand x r I F
+    _ = ∑ S ∈ Q, ((-1 : ℂ) ^ S.card) *
+          (((χ ((∏ p ∈ S, p : ℕ) : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u *
+                Real.log ((∏ p ∈ S, p : ℕ) : ℝ))) *
+            ∑ h ∈ divisorQuotients I (∏ p ∈ S, p),
+              (χ (h : ZMod k) : ℂ) *
+                Complex.exp (Complex.I * u * Real.log (h : ℝ)) /
+                  Real.log (((∏ p ∈ S, p) * h : ℕ) : ℝ)) := by
+      apply Finset.sum_congr rfl
+      intro S hS
+      let d : ℕ := ∏ p ∈ S, p
+      have hSP : S ⊆ P := Finset.mem_powerset.mp (Finset.mem_filter.mp hS).1
+      have hprime (p : ℕ) (hp : p ∈ S) : p.Prime := by
+        have hpP : p ∈ P := hSP hp
+        dsimp [P, primesUpTo] at hpP
+        exact (Finset.mem_filter.mp hpP).2
+      have hd : 0 < d := by
+        dsimp [d]
+        exact Finset.prod_pos (fun p hp => (hprime p hp).pos)
+      have hquotient_pos (h : ℕ) (hh : h ∈ divisorQuotients I d) : 0 < h := by
+        rcases Finset.mem_image.mp hh with ⟨m, hm, hEq⟩
+        rcases Finset.mem_filter.mp hm with ⟨hmI, hdvd⟩
+        rw [← hEq]
+        exact Nat.div_pos (Nat.le_of_dvd (hI m hmI) hdvd) hd
+      have hinner :
+          (∑ m ∈ I, (if d ∣ m then F m else 0)) =
+            ((χ (d : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (d : ℝ))) *
+              ∑ h ∈ divisorQuotients I d,
+                (χ (h : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (h : ℝ)) /
+                    Real.log ((d * h : ℕ) : ℝ) := by
+        calc
+          _ = ∑ h ∈ divisorQuotients I d, F (d * h) :=
+            sum_filter_dvd_reindex d I F
+          _ = ∑ h ∈ divisorQuotients I d,
+                ((χ (d : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (d : ℝ))) *
+                  ((χ (h : ZMod k) : ℂ) *
+                    Complex.exp (Complex.I * u * Real.log (h : ℝ)) /
+                      Real.log ((d * h : ℕ) : ℝ)) := by
+            apply Finset.sum_congr rfl
+            intro h hh
+            simpa only [F] using
+              source_term_factorization k χ u d h hd (hquotient_pos h hh)
+          _ = ((χ (d : ZMod k) : ℂ) *
+                Complex.exp (Complex.I * u * Real.log (d : ℝ))) *
+              ∑ h ∈ divisorQuotients I d,
+                (χ (h : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (h : ℝ)) /
+                    Real.log ((d * h : ℕ) : ℝ) := by
+            rw [Finset.mul_sum]
+      calc
+        _ = ((-1 : ℂ) ^ S.card) *
+            (((χ (d : ZMod k) : ℂ) *
+                Complex.exp (Complex.I * u * Real.log (d : ℝ))) *
+              ∑ h ∈ divisorQuotients I d,
+                (χ (h : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (h : ℝ)) /
+                    Real.log ((d * h : ℕ) : ℝ)) :=
+              congrArg (fun z : ℂ => ((-1 : ℂ) ^ S.card) * z) hinner
+        _ = ((-1 : ℂ) ^ S.card) *
+            ((χ (d : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (d : ℝ))) *
+              ∑ h ∈ divisorQuotients I d,
+                (χ (h : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (h : ℝ)) /
+                    Real.log ((d * h : ℕ) : ℝ) := by ring
+        _ = _ := by
+          simp [d]
+          ring
+    _ = _ := by
+      simp [P, Q]
+      ring
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
