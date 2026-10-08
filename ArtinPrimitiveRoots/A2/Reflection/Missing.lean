@@ -4137,10 +4137,252 @@ variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
 def rowElementInjectiveStatement : Prop :=
   Function.Injective (fun r : ReflectionRow S => (r.m : F))
 
+private theorem a2Setup_same_generator_ideal
+    (S : SData F CE condη) (x : F) (I J : Ideal (𝓞 F))
+    (hI : S.IsGen x I) (hJ : S.IsGen x J) : I = J := by
+  classical
+  have hI0 : I ≠ 0 := by simpa [Ideal.zero_eq_bot] using hI.1.1
+  have hJ0 : J ≠ 0 := by simpa [Ideal.zero_eq_bot] using hJ.1.1
+  have hcounts : ∀ v : FinPlace F,
+      FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+        FractionalIdeal.count F v (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    intro v
+    by_cases hv : v ∈ S.Sf
+    · have hnotI : ¬ v.asIdeal ∣ I := by
+        intro hdiv
+        exact hI.1.2 v hv (Ideal.dvd_iff_le.mp hdiv)
+      have hnotJ : ¬ v.asIdeal ∣ J := by
+        intro hdiv
+        exact hJ.1.2 v hv (Ideal.dvd_iff_le.mp hdiv)
+      have hcountI : (Associates.mk v.asIdeal).count (Associates.mk I).factors = 0 := by
+        by_contra hn
+        exact hnotI ((Associates.count_ne_zero_iff_dvd hI0 v.irreducible).mp hn)
+      have hcountJ : (Associates.mk v.asIdeal).count (Associates.mk J).factors = 0 := by
+        by_contra hn
+        exact hnotJ ((Associates.count_ne_zero_iff_dvd hJ0 v.irreducible).mp hn)
+      rw [FractionalIdeal.count_coe F v hI0, FractionalIdeal.count_coe F v hJ0,
+        hcountI, hcountJ]
+    · exact (hI.2.2 v hv).symm.trans (hJ.2.2 v hv)
+  let gI : ClassFieldTheory.NumberFieldFractionalIdealGroup F :=
+    Units.mk0 (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (FractionalIdeal.coeIdeal_ne_zero.mpr hI0)
+  let gJ : ClassFieldTheory.NumberFieldFractionalIdealGroup F :=
+    Units.mk0 (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (FractionalIdeal.coeIdeal_ne_zero.mpr hJ0)
+  have hg : gI = gJ := by
+    apply ClassFieldTheory.NumberFieldFractionalIdealGroup.ext_count
+    intro v
+    change FractionalIdeal.count F v
+        (gI : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      FractionalIdeal.count F v (gJ : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    simpa [gI, gJ] using hcounts v
+  have hfrac : (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
+      (J : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+    have hval := congrArg
+      (fun g : ClassFieldTheory.NumberFieldFractionalIdealGroup F =>
+        (g : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)) hg
+    simpa [gI, gJ] using hval
+  exact FractionalIdeal.coeIdeal_injective hfrac
+
+private theorem a2Setup_emultiplicity_eq_factorization (p I : Ideal (𝓞 F))
+    (hp : Prime p) (hI : I ≠ 0) :
+    emultiplicity p I = (factorization I p : ℕ∞) := by
+  rw [UniqueFactorizationMonoid.emultiplicity_eq_count_normalizedFactors hp.irreducible hI]
+  simp [factorization, normalize_eq]
+
+private theorem a2Setup_powerful_split_unique
+    (I h d h' d' : Ideal (𝓞 F))
+    (hI : I = h * d) (hI' : I = h' * d')
+    (hh : h ≠ ⊥) (hd : d ≠ ⊥) (hh' : h' ≠ ⊥) (hd' : d' ≠ ⊥)
+    (hpower : IsPowerful h) (hpower' : IsPowerful h')
+    (hsq : Squarefree d) (hsq' : Squarefree d')
+    (hcop : IsCoprime h d) (hcop' : IsCoprime h' d') : h = h' ∧ d = d' := by
+  have hh0 : h ≠ 0 := by simpa [Ideal.zero_eq_bot] using hh
+  have hd0 : d ≠ 0 := by simpa [Ideal.zero_eq_bot] using hd
+  have hh'0 : h' ≠ 0 := by simpa [Ideal.zero_eq_bot] using hh'
+  have hd'0 : d' ≠ 0 := by simpa [Ideal.zero_eq_bot] using hd'
+  have hfac : factorization I = factorization h + factorization d := by
+    rw [hI]
+    exact factorization_mul hh0 hd0
+  have hfac' : factorization I = factorization h' + factorization d' := by
+    rw [hI']
+    exact factorization_mul hh'0 hd'0
+  have hcountEq : ∀ p : Ideal (𝓞 F), factorization h p = factorization h' p := by
+    intro p
+    by_cases hp : Prime p
+    · let eI := factorization I p
+      let eh := factorization h p
+      let ed := factorization d p
+      let eh' := factorization h' p
+      let ed' := factorization d' p
+      have hsum : eI = eh + ed := congrArg (fun f : Ideal (𝓞 F) →₀ ℕ => f p) hfac
+      have hsum' : eI = eh' + ed' := congrArg (fun f : Ideal (𝓞 F) →₀ ℕ => f p) hfac'
+      have hdBound : ed ≤ 1 := by
+        have hsqE := (squarefree_iff_emultiplicity_le_one d).mp hsq p
+        have hle : emultiplicity p d ≤ 1 := hsqE.resolve_right hp.not_isUnit
+        rw [a2Setup_emultiplicity_eq_factorization p d hp hd0] at hle
+        exact_mod_cast hle
+      have hd'Bound : ed' ≤ 1 := by
+        have hsqE := (squarefree_iff_emultiplicity_le_one d').mp hsq' p
+        have hle : emultiplicity p d' ≤ 1 := hsqE.resolve_right hp.not_isUnit
+        rw [a2Setup_emultiplicity_eq_factorization p d' hp hd'0] at hle
+        exact_mod_cast hle
+      have hpowBound : 0 < eh → 2 ≤ eh := by
+        intro heh
+        have hem : 0 < emultiplicity p h := by
+          rw [a2Setup_emultiplicity_eq_factorization p h hp hh0]
+          exact_mod_cast heh
+        have hdiv : p ∣ h := (dvd_iff_emultiplicity_pos).mp hem
+        let v : FinPlace F := HeightOneSpectrum.ofPrime hp
+        have hp2 : p ^ 2 ∣ h := by simpa [v] using hpower v hdiv
+        have hle : (2 : ℕ∞) ≤ emultiplicity p h :=
+          (pow_dvd_iff_le_emultiplicity).mp hp2
+        rw [a2Setup_emultiplicity_eq_factorization p h hp hh0] at hle
+        exact_mod_cast hle
+      have hpowBound' : 0 < eh' → 2 ≤ eh' := by
+        intro heh
+        have hem : 0 < emultiplicity p h' := by
+          rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0]
+          exact_mod_cast heh
+        have hdiv : p ∣ h' := (dvd_iff_emultiplicity_pos).mp hem
+        let v : FinPlace F := HeightOneSpectrum.ofPrime hp
+        have hp2 : p ^ 2 ∣ h' := by simpa [v] using hpower' v hdiv
+        have hle : (2 : ℕ∞) ≤ emultiplicity p h' :=
+          (pow_dvd_iff_le_emultiplicity).mp hp2
+        rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0] at hle
+        exact_mod_cast hle
+      have hcopCounts : ¬ (0 < eh ∧ 0 < ed) := by
+        rintro ⟨heh, hed⟩
+        have hemH : 0 < emultiplicity p h := by
+          rw [a2Setup_emultiplicity_eq_factorization p h hp hh0]
+          exact_mod_cast heh
+        have hemD : 0 < emultiplicity p d := by
+          rw [a2Setup_emultiplicity_eq_factorization p d hp hd0]
+          exact_mod_cast hed
+        have hdivH : p ∣ h := (dvd_iff_emultiplicity_pos).mp hemH
+        have hdivD : p ∣ d := (dvd_iff_emultiplicity_pos).mp hemD
+        have hpne : p ≠ ⊤ := by
+          intro htop
+          apply hp.not_isUnit
+          rw [htop]
+          simpa [Ideal.one_eq_top] using (isUnit_one : IsUnit (1 : Ideal (𝓞 F)))
+        have htop : (⊤ : Ideal (𝓞 F)) ≤ p := by
+          rw [← hcop.sup_eq]
+          exact sup_le (Ideal.dvd_iff_le.mp hdivH) (Ideal.dvd_iff_le.mp hdivD)
+        exact hpne (top_unique htop)
+      have hcopCounts' : ¬ (0 < eh' ∧ 0 < ed') := by
+        rintro ⟨heh, hed⟩
+        have hemH : 0 < emultiplicity p h' := by
+          rw [a2Setup_emultiplicity_eq_factorization p h' hp hh'0]
+          exact_mod_cast heh
+        have hemD : 0 < emultiplicity p d' := by
+          rw [a2Setup_emultiplicity_eq_factorization p d' hp hd'0]
+          exact_mod_cast hed
+        have hdivH : p ∣ h' := (dvd_iff_emultiplicity_pos).mp hemH
+        have hdivD : p ∣ d' := (dvd_iff_emultiplicity_pos).mp hemD
+        have hpne : p ≠ ⊤ := by
+          intro htop
+          apply hp.not_isUnit
+          rw [htop]
+          simpa [Ideal.one_eq_top] using (isUnit_one : IsUnit (1 : Ideal (𝓞 F)))
+        have htop : (⊤ : Ideal (𝓞 F)) ≤ p := by
+          rw [← hcop'.sup_eq]
+          exact sup_le (Ideal.dvd_iff_le.mp hdivH) (Ideal.dvd_iff_le.mp hdivD)
+        exact hpne (top_unique htop)
+      have hcanonical : eh = if 2 ≤ eI then eI else 0 := by
+        by_cases heI : 2 ≤ eI
+        · have heh : 0 < eh := by
+            by_contra hnot
+            have heh0 : eh = 0 := Nat.eq_zero_of_not_pos hnot
+            have heq : eI = ed := by rw [hsum, heh0]; omega
+            have : eI ≤ 1 := by rw [heq]; exact hdBound
+            omega
+          have hed0 : ed = 0 := by
+            by_contra hne
+            exact hcopCounts ⟨heh, Nat.pos_of_ne_zero hne⟩
+          have heq : eI = eh := by rw [hsum, hed0]; omega
+          rw [if_pos heI]
+          exact heq.symm
+        · have heh0 : eh = 0 := by
+            by_contra hne
+            have hehpos := Nat.pos_of_ne_zero hne
+            have : 2 ≤ eI := by rw [hsum]; omega
+            exact heI this
+          rw [if_neg heI]
+          exact heh0
+      have hcanonical' : eh' = if 2 ≤ eI then eI else 0 := by
+        by_cases heI : 2 ≤ eI
+        · have heh : 0 < eh' := by
+            by_contra hnot
+            have heh0 : eh' = 0 := Nat.eq_zero_of_not_pos hnot
+            have heq : eI = ed' := by rw [hsum', heh0]; omega
+            have : eI ≤ 1 := by rw [heq]; exact hd'Bound
+            omega
+          have hed0 : ed' = 0 := by
+            by_contra hne
+            exact hcopCounts' ⟨heh, Nat.pos_of_ne_zero hne⟩
+          have heq : eI = eh' := by rw [hsum', hed0]; omega
+          rw [if_pos heI]
+          exact heq.symm
+        · have heh0 : eh' = 0 := by
+            by_contra hne
+            have hehpos := Nat.pos_of_ne_zero hne
+            have : 2 ≤ eI := by rw [hsum']; omega
+            exact heI this
+          rw [if_neg heI]
+          exact heh0
+      change eh = eh'
+      exact hcanonical.trans hcanonical'.symm
+    · have hnotNorm (J : Ideal (𝓞 F)) :
+          p ∉ UniqueFactorizationMonoid.normalizedFactors J := by
+        intro hpJ
+        exact hp (UniqueFactorizationMonoid.prime_of_normalized_factor p hpJ)
+      have hzero (J : Ideal (𝓞 F)) : factorization J p = 0 := by
+        apply Finsupp.notMem_support_iff.mp
+        intro hsupp
+        have hpfin : p ∈ (UniqueFactorizationMonoid.normalizedFactors J).toFinset := by
+          simpa [support_factorization] using hsupp
+        exact hnotNorm J (Multiset.mem_toFinset.mp hpfin)
+      rw [hzero h, hzero h']
+  have hfacEq : factorization h = factorization h' := by
+    ext p
+    exact hcountEq p
+  have hassoc : Associated h h' :=
+    associated_of_factorization_eq h h' hh0 hh'0 hfacEq
+  have hhEq : h = h' := associated_iff_eq.mp hassoc
+  constructor
+  · exact hhEq
+  · have hmul : h * d = h * d' := by
+      calc
+        h * d = I := hI.symm
+        _ = h' * d' := hI'
+        _ = h * d' := by rw [hhEq]
+    exact (mul_left_cancel₀ hh0) hmul
+
 /-- Row-factorization obligation for the finite/`tsum` bridge to `prop:reflection`
 (04:1198–1228). -/
 theorem reflection_row_element_injective : rowElementInjectiveStatement (S := S) := by
-  sorry
+  intro r s hrs
+  cases r with
+  | mk rm rI rh rd rgen rfac rhp rds rc =>
+    cases s with
+    | mk sm sI sh sd sgen sfac shp sds sc =>
+      have hm : rm = sm := Subtype.ext hrs
+      have hideal : rI.1 = sI.1 :=
+        a2Setup_same_generator_ideal S (rm : F) rI.1 sI.1 rgen
+          (by simpa [hm] using sgen)
+      have hsplit := a2Setup_powerful_split_unique rI.1 rh.1 rd.1 sh.1 sd.1
+        rfac (hideal.trans sfac)
+        rh.2.1 rd.2.1 sh.2.1 sd.2.1
+        rhp shp rds sds rc sc
+      have hI : rI = sI := Subtype.ext hideal
+      have hh : rh = sh := Subtype.ext hsplit.1
+      have hd : rd = sd := Subtype.ext hsplit.2
+      subst sm
+      subst sI
+      subst sh
+      subst sd
+      rfl
 
 /-- A uniform finite-set bound gives summability and the same bound for the subtype `tsum`.
 This is the proved finite/`tsum` adapter for `prop:reflection` (04:1027–1228). -/
