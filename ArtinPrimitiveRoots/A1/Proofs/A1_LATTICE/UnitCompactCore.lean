@@ -1037,6 +1037,74 @@ private theorem covol_arch_log_mean_bound_core (S : SData F CE condη)
           (2 * (Fintype.card (InfinitePlace F) : ℝ)) := by
         simp [q, r, div_eq_mul_inv, mul_assoc, mul_comm]
 
+private theorem covol_arch_balanced_log_core (D : FieldData F) (S : SData F CE condη)
+    (x : {x : S.FSˣ // S.absS (x : S.FS) = 1}) (M : ℕ)
+    (hfinite : ∀ v : S.Sf,
+      0 ≤ WithZero.log (Valued.v
+        ((S.compU v x.1 : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) ∧
+      WithZero.log (Valued.v
+        ((S.compU v x.1 : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) < (M : ℤ)) :
+    ∃ C : ℝ, 0 ≤ C ∧ ∃ ε : (𝓞 F)ˣ, ∀ w : InfinitePlace F,
+      |Real.log (‖w.embedding (algebraMap (𝓞 F) F ((ε : 𝓞 F) ^ 6))‖ *
+          ‖(S.compC w x.1 : ℂ)‖)| ≤ C := by
+  classical
+  let E : Subgroup (𝓞 F)ˣ := (powMonoidHom (α := (𝓞 F)ˣ) 6).range
+  have hfg : Monoid.FG (𝓞 F)ˣ := inferInstance
+  letI : Group.FG (𝓞 F)ˣ := Group.fg_iff_monoid_fg.mpr hfg
+  letI : E.FiniteIndex := by
+    dsimp [E]
+    exact Subgroup.finiteIndex_range_powMonoidHom_of_fg (𝓞 F)ˣ (by norm_num)
+  obtain ⟨B, hBnonneg, hbalance⟩ := covol_unit_balance_core D E
+  let t : InfinitePlace F → ℝ := fun w => ‖(S.compC w x.1 : ℂ)‖
+  have ht (w : InfinitePlace F) : 0 < t w := by
+    dsimp [t]
+    exact norm_pos_iff.mpr (Units.ne_zero (S.compC w x.1))
+  obtain ⟨εbal, hεE, hdev⟩ := hbalance t ht
+  have hεrange : εbal ∈ (powMonoidHom (α := (𝓞 F)ˣ) 6).range := by
+    simpa [E] using hεE
+  obtain ⟨ε, hε⟩ := MonoidHom.mem_range.mp hεrange
+  have hεpow : ε ^ 6 = εbal := by
+    simpa using hε
+  have hεcoe : (ε : 𝓞 F) ^ 6 = (εbal : 𝓞 F) := by
+    simpa only [Units.val_pow_eq_pow_val] using
+      congrArg (fun u : (𝓞 F)ˣ => (u : 𝓞 F)) hεpow
+  let Cmean : ℝ :=
+    (M : ℝ) * (∑ v : S.Sf, Real.log (Ideal.absNorm v.1.asIdeal : ℝ)) /
+      (2 * (Fintype.card (InfinitePlace F) : ℝ))
+  have hmean :
+      |(Fintype.card (InfinitePlace F) : ℝ)⁻¹ *
+        ∑ w : InfinitePlace F, Real.log (t w)| ≤ Cmean := by
+    simpa [Cmean, t] using covol_arch_log_mean_bound_core S x M hfinite
+  have hsumlog : 0 ≤ ∑ v : S.Sf,
+      Real.log (Ideal.absNorm v.1.asIdeal : ℝ) := by
+    apply Finset.sum_nonneg
+    intro v hv
+    apply le_of_lt
+    apply Real.log_pos
+    exact_mod_cast HeightOneSpectrum.one_lt_absNorm v.1
+  have hCmean : 0 ≤ Cmean := by
+    dsimp [Cmean]
+    apply div_nonneg
+    · exact mul_nonneg (Nat.cast_nonneg _) hsumlog
+    · positivity
+  refine ⟨B + Cmean, add_nonneg hBnonneg hCmean, ε, ?_⟩
+  intro w
+  have hdev' := hdev w
+  have hbound :
+      |Real.log (‖w.embedding (algebraMap (𝓞 F) F (εbal : 𝓞 F))‖ * t w)| ≤
+        B + Cmean := by
+    let mean : ℝ := (Fintype.card (InfinitePlace F) : ℝ)⁻¹ *
+      ∑ w' : InfinitePlace F, Real.log (t w')
+    calc
+      |Real.log (‖w.embedding (algebraMap (𝓞 F) F (εbal : 𝓞 F))‖ * t w)| =
+          |(Real.log (‖w.embedding (algebraMap (𝓞 F) F (εbal : 𝓞 F))‖ * t w) - mean) +
+            mean| := by congr 1 <;> ring
+      _ ≤ |Real.log (‖w.embedding (algebraMap (𝓞 F) F (εbal : 𝓞 F))‖ * t w) - mean| +
+            |mean| := abs_add_le _ _
+      _ ≤ B + Cmean := add_le_add hdev' (by
+        simpa [mean] using hmean)
+  simpa [t, hεcoe] using hbound
+
 
 /-- Compact norm-one representatives modulo sixth powers of S-units, stated using only `Field`.
 The norm-one condition on every point of `K` is needed by the balanced-generator target. -/
