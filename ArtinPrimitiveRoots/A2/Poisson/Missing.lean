@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogRegularity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
@@ -1332,6 +1333,18 @@ private theorem po_probe_low_row_window :
   refine ⟨K, hK, ?_⟩
   intro Z hZ t s hs m hm
   exact hwindow Z hZ t (qI s.1) hs (S.diag (m : F)) hm
+
+private def po_probe_low_log_kernel (u : ℝ) (x : S.FS) : ℂ :=
+  ((Real.exp u ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * W.W1 (Real.exp u) *
+    W.W0 (x * ((R.sheets.ellU (Real.exp u))⁻¹ : S.FSˣ).val)
+
+private theorem po_probe_low_log_regular :
+    (∀ x : S.FS, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun u : ℝ => po_probe_low_log_kernel R W u x)) ∧
+      ∀ n : ℕ, Continuous (fun p : ℝ × S.FS =>
+        iteratedDeriv n (fun u : ℝ => po_probe_low_log_kernel R W u p.2) p.1) := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_log_regular D S R.sheets
+    W.W0 W.W1 W.arch W.finite W.W1_smooth W.W0_tensor
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
