@@ -60,6 +60,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MinorApproximation
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Circle
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RationalSpacing
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.IntervalPacking
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CirclePacking
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
