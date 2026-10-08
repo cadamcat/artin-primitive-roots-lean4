@@ -130,4 +130,76 @@ theorem qs_nq0_quadratic_product_formula (D : FieldData K) (H : HilbertData K)
   · change (∏ᶠ v : FinPlace K, g (H.hilb v (toLoc v a) (toLoc v b))) = 1
     rw [← g.map_finprod hf, hp, g.map_one]
 
+/-!
+The next local-unit statement is:
+```
+theorem qs_nq0_quadratic_local_unit_trivial (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ) (ha : v.valuation K (a : K) = 1)
+    (u : (v.adicCompletion K)ˣ)
+    (hu : u ∈ (v.adicCompletionIntegers K).units) :
+    qsNQQuadraticLocal D H v (toLoc v a) u = 1
+```
+-/
+
+/-- Away from 6, a global valuation-one argument gives an unramified quadratic character. -/
+theorem qs_nq0_quadratic_local_unit_trivial (D : FieldData K) (H : HilbertData K)
+    (v : FinPlace K) (h6 : (6 : 𝓞 K) ∉ v.asIdeal)
+    (a : Kˣ) (ha : v.valuation K (a : K) = 1)
+    (u : (v.adicCompletion K)ˣ)
+    (hu : u ∈ (v.adicCompletionIntegers K).units) :
+    qsNQQuadraticLocal D H v (toLoc v a) u = 1 := by
+  classical
+  let L := v.adicCompletion K
+  let f : Lˣ →* ℂˣ := qsNQQuadraticLocal D H v (toLoc v a)
+  have hglobal (b : Kˣ) (hb : v.valuation K (b : K) = 1) :
+      f (toLoc v b) = 1 := by
+    have htame := H.tame v h6 a b
+      ((qs_nq0_residue_ne_zero_iff_valuation_one v (a : K)).mpr ha)
+    have hcount := qs_nq0_count_spanSingleton_eq_neg_log_valuation v (b : K) b.ne_zero
+    rw [hb, WithZero.log_one, neg_zero] at hcount
+    rw [hcount, zpow_zero] at htame
+    have hhilb : H.hilb v (toLoc v a) (toLoc v b) = 1 := by
+      apply Subtype.ext
+      apply Units.ext
+      exact htame
+    change Units.map D.σ0.toMonoidHom (H.hilb v (toLoc v a) (toLoc v b) : Kˣ) ^ 3 = 1
+    rw [hhilb]
+    simp
+  have hf : Continuous f := qs_nq0_quadratic_local_continuous D H v (toLoc v a)
+  have hO : IsOpen (v.adicCompletionIntegers K : Set L) :=
+    Valued.isOpen_valuationSubring L
+  have hOU : IsOpen {t : Lˣ | t ∈ (v.adicCompletionIntegers K).units} := by
+    change IsOpen (((fun t : Lˣ => (t : L)) ⁻¹' (v.adicCompletionIntegers K : Set L)) ∩
+      ((fun t : Lˣ => ((t⁻¹ : Lˣ) : L)) ⁻¹' (v.adicCompletionIntegers K : Set L)))
+    exact (hO.preimage Units.continuous_val).inter (hO.preimage Units.continuous_coe_inv)
+  have hneq : IsOpen {t : Lˣ | f t ≠ 1} :=
+    (isClosed_eq hf continuous_const).isOpen_compl
+  by_contra hnu
+  let U : Set Lˣ := {t | t ∈ (v.adicCompletionIntegers K).units ∧ f t ≠ 1}
+  have hU : IsOpen U := hOU.inter hneq
+  have himage : IsOpen (Units.val '' U) :=
+    IsOpenUnits.isOpenEmbedding_unitsVal.isOpenMap U hU
+  obtain ⟨b, hb⟩ := (v.denseRange_algebraMap K).exists_mem_open himage
+    ⟨(u : L), u, ⟨hu, hnu⟩, rfl⟩
+  obtain ⟨t, ht, htb⟩ := hb
+  have hb0 : b ≠ 0 := by
+    intro h
+    apply Units.ne_zero t
+    simpa only [h, map_zero] using htb
+  have htval : Valued.v (t : L) = 1 :=
+    IsDedekindDomain.HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one.mp ht.1
+  have hbval : v.valuation K b = 1 := by
+    calc
+      v.valuation K b = Valued.v (algebraMap K L b) :=
+        (v.valuedAdicCompletion_eq_valuation' b).symm
+      _ = Valued.v (t : L) := congrArg Valued.v htb.symm
+      _ = 1 := htval
+  have htloc : t = toLoc v (Units.mk0 b hb0) := by
+    apply Units.ext
+    exact htb
+  apply ht.2
+  rw [htloc]
+  exact hglobal (Units.mk0 b hb0) hbval
+
 end ArtinPrimitiveRoots.A2
