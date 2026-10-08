@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Defs
 import ArtinPrimitiveRoots.A2.QuadraticSieve
 import ArtinPrimitiveRoots.A1.AddChar
+import ArtinPrimitiveRoots.A1.SLattice
 import ArtinPrimitiveRoots.Hecke.Elementary
 import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_ARITH.LocalHecke
@@ -30,6 +31,840 @@ def reflectionRowFiber (D : ArtinPrimitiveRoots.A1.FieldData F)
     (I : ArtinPrimitiveRoots.A1.SData.ExtIdeal S) : Set (ReflectionRow S) :=
   {r | InReflectionBox D S K t Z hZ r ∧ r.ideal = I}
 
+private theorem rf_absFin_one (v : ArtinPrimitiveRoots.A1.FinPlace F) :
+    ArtinPrimitiveRoots.A1.absFin v 1 = 1 := by
+  have hv : (Ideal.absNorm v.asIdeal : NNReal) ≠ 0 :=
+    HeightOneSpectrum.absNorm_ne_zero v
+  simp [ArtinPrimitiveRoots.A1.absFin, hv]
+
+private theorem rf_absS_mul (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (x y : S.FS) : S.absS (x * y) = S.absS x * S.absS y := by
+  have hnorm (v : S.Sf) : Ideal.absNorm v.1.asIdeal ≠ 0 := by
+    have hv : (Ideal.absNorm v.1.asIdeal : NNReal) ≠ 0 :=
+      HeightOneSpectrum.absNorm_ne_zero v.1
+    exact_mod_cast hv
+  simp [ArtinPrimitiveRoots.A1.SData.absS, ArtinPrimitiveRoots.A1.absFin,
+    hnorm, Finset.prod_mul_distrib, Complex.normSq_mul]
+  ring
+
+private theorem rf_absFin_eq_norm (v : ArtinPrimitiveRoots.A1.FinPlace F)
+    (x : v.adicCompletion F) : ArtinPrimitiveRoots.A1.absFin v x = ‖x‖ := by
+  dsimp [ArtinPrimitiveRoots.A1.absFin]
+  rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v)]
+  exact (FinitePlace.norm_def v x).symm
+
+private theorem rf_absFin_continuous (v : ArtinPrimitiveRoots.A1.FinPlace F) :
+    Continuous (ArtinPrimitiveRoots.A1.absFin v) := by
+  have h : ArtinPrimitiveRoots.A1.absFin v = fun x => ‖x‖ := by
+    funext x
+    exact rf_absFin_eq_norm v x
+  rw [h]
+  exact continuous_norm
+
+private theorem rf_absFin_nonneg (v : ArtinPrimitiveRoots.A1.FinPlace F)
+    (x : v.adicCompletion F) : 0 ≤ ArtinPrimitiveRoots.A1.absFin v x := by
+  unfold ArtinPrimitiveRoots.A1.absFin
+  split_ifs <;> positivity
+
+private theorem rf_absS_continuous (S : ArtinPrimitiveRoots.A1.SData F CE condη) :
+    Continuous S.absS := by
+  unfold ArtinPrimitiveRoots.A1.SData.absS
+  refine (continuous_finsetProd _ ?_).mul (continuous_finsetProd _ ?_)
+  · intro v hv
+    exact (rf_absFin_continuous v.1).comp
+      ((continuous_apply v).comp continuous_fst)
+  · intro w hw
+    exact Complex.continuous_normSq.comp
+      ((continuous_apply w).comp continuous_snd)
+
+private theorem rf_absS_one (S : ArtinPrimitiveRoots.A1.SData F CE condη) :
+    S.absS (1 : S.FS) = 1 := by
+  simp [ArtinPrimitiveRoots.A1.SData.absS, rf_absFin_one]
+
+private theorem rf_absS_nonneg (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (x : S.FS) : 0 ≤ S.absS x := by
+  unfold ArtinPrimitiveRoots.A1.SData.absS
+  apply mul_nonneg
+  · apply Finset.prod_nonneg
+    intro v hv
+    exact rf_absFin_nonneg v.1 _
+  · apply Finset.prod_nonneg
+    intro w hw
+    exact Complex.normSq_nonneg _
+
+private theorem rf_absS_units_pos (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (u : S.FSˣ) : 0 < S.absS (u : S.FS) := by
+  have hprod : S.absS (u : S.FS) * S.absS ((u⁻¹ : S.FSˣ) : S.FS) = 1 := by
+    calc
+      _ = S.absS ((u : S.FS) * ((u⁻¹ : S.FSˣ) : S.FS)) :=
+        (rf_absS_mul S _ _).symm
+      _ = S.absS (1 : S.FS) := by
+        congr 1
+        exact congrArg Units.val (mul_inv_cancel u)
+      _ = 1 := rf_absS_one S
+  have hu : S.absS (u : S.FS) ≠ 0 := by
+    intro hzero
+    rw [hzero, zero_mul] at hprod
+    exact zero_ne_one hprod
+  exact lt_of_le_of_ne (rf_absS_nonneg S _) (Ne.symm hu)
+
+private theorem rf_absS_compact_bounds (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (K : Set S.FSˣ) (hK : IsCompact K) :
+    ∃ c₁ c₂ : ℝ, 0 < c₁ ∧ c₁ < c₂ ∧
+      ∀ y ∈ K, c₁ ≤ S.absS (y : S.FS) ∧ S.absS (y : S.FS) ≤ c₂ := by
+  let f : S.FSˣ → ℝ := fun y => S.absS (y : S.FS)
+  have hf : Continuous f := rf_absS_continuous S |>.comp Units.continuous_val
+  have hfpos (y : S.FSˣ) : 0 < f y := rf_absS_units_pos S y
+  obtain ⟨c₁, hc₁, hlow⟩ := hK.exists_forall_le' hf.continuousOn (a := 0) (by
+    intro y hy
+    exact hfpos y)
+  obtain ⟨B, hB⟩ := bddAbove_def.mp (hK.bddAbove_image hf.continuousOn)
+  let c₂ := max B c₁ + 1
+  refine ⟨c₁, c₂, hc₁, ?_, ?_⟩
+  · dsimp [c₂]
+    have hmax : c₁ ≤ max B c₁ := le_max_right _ _
+    linarith
+  · intro y hy
+    constructor
+    · exact hlow y hy
+    · have hu := hB (f y) ⟨y, hy, rfl⟩
+      dsimp [c₂]
+      linarith [le_max_left B c₁]
+
+private theorem rf_absS_mul_inv (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (u : S.FSˣ) :
+    S.absS (u : S.FS) * S.absS ((u⁻¹ : S.FSˣ) : S.FS) = 1 := by
+  calc
+    _ = S.absS ((u : S.FS) * ((u⁻¹ : S.FSˣ) : S.FS)) :=
+      (rf_absS_mul S _ _).symm
+    _ = S.absS (1 : S.FS) := by
+      congr 1
+      exact congrArg Units.val (mul_inv_cancel u)
+    _ = 1 := rf_absS_one S
+
+private theorem rf_absS_inv_of_one (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (u : S.FSˣ) (hu : S.absS (u : S.FS) = 1) :
+    S.absS ((u⁻¹ : S.FSˣ) : S.FS) = 1 := by
+  have h := rf_absS_mul_inv S u
+  rw [hu] at h
+  simpa using h
+
+private theorem rf_absS_ell (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) (x : ℝ) (hx : 0 < x) :
+  S.absS (S.ell D x hx) = x := by
+  simp only [ArtinPrimitiveRoots.A1.SData.absS,
+    ArtinPrimitiveRoots.A1.SData.ell]
+  simp_rw [rf_absFin_one]
+  simp only [Finset.prod_const_one, one_mul, Complex.normSq_ofReal, Finset.prod_const,
+    Finset.card_univ]
+  rw [show ArtinPrimitiveRoots.A1.numComplex F = Fintype.card (InfinitePlace F) by rfl]
+  have hc : (Fintype.card (InfinitePlace F) : ℝ) ≠ 0 := by
+    exact_mod_cast (Fintype.card_pos_iff.mpr (inferInstance : Nonempty (InfinitePlace F))).ne'
+  rw [← Real.rpow_add hx]
+  rw [← Real.rpow_natCast (x ^ (1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)) +
+    1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)))) (Fintype.card (InfinitePlace F))]
+  have hrpow := Real.rpow_mul (le_of_lt hx)
+    (1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)) +
+      1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)))
+    (Fintype.card (InfinitePlace F) : ℝ)
+  rw [hrpow.symm]
+  have he : (1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)) +
+      1 / (2 * (Fintype.card (InfinitePlace F) : ℝ))) *
+      (Fintype.card (InfinitePlace F) : ℝ) = 1 := by
+    field_simp [hc]
+    norm_num
+  rw [he, Real.rpow_one]
+
+private def rf_ellUnit (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) (x : ℝ) (hx : 0 < x) : S.FSˣ where
+  val := S.ell D x hx
+  inv := S.ell D x⁻¹ (inv_pos.mpr hx)
+  val_inv := by
+    ext v
+    · simp [ArtinPrimitiveRoots.A1.SData.ell]
+    · simp [ArtinPrimitiveRoots.A1.SData.ell, Real.inv_rpow (le_of_lt hx)]
+      field_simp [Complex.ofReal_ne_zero.mpr
+        (Real.rpow_pos_of_pos hx _).ne']
+  inv_val := by
+    ext v
+    · simp [ArtinPrimitiveRoots.A1.SData.ell]
+    · simp [ArtinPrimitiveRoots.A1.SData.ell, Real.inv_rpow (le_of_lt hx)]
+      field_simp [Complex.ofReal_ne_zero.mpr
+        (Real.rpow_pos_of_pos hx _).ne']
+
+private def rf_scaleUnit (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) (y : S.FSˣ) : S.FSˣ :=
+  rf_ellUnit D S (S.absS (y : S.FS))⁻¹
+    (inv_pos.mpr (rf_absS_units_pos S y))
+
+private theorem rf_scaleUnit_continuous (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) :
+    Continuous (rf_scaleUnit D S) := by
+  let f : S.FSˣ → ℝ := fun y => S.absS (y : S.FS)
+  have hf : Continuous f := rf_absS_continuous S |>.comp Units.continuous_val
+  have hfp (y : S.FSˣ) : 0 < f y := rf_absS_units_pos S y
+  have hfi : Continuous (fun y => (f y)⁻¹) :=
+    hf.inv₀ (fun y => (hfp y).ne')
+  let e : ℝ := 1 / (2 * (ArtinPrimitiveRoots.A1.numComplex F : ℝ))
+  have hpowInv : Continuous (fun y => (f y)⁻¹ ^ e) :=
+    hfi.rpow_const (fun y => Or.inl (inv_ne_zero (hfp y).ne'))
+  have hpow : Continuous (fun y => f y ^ e) :=
+    hf.rpow_const (fun y => Or.inl (hfp y).ne')
+  rw [Units.continuous_iff]
+  constructor
+  · change Continuous (fun y : S.FSˣ =>
+      ((fun _ : S.Sf => 1), fun _ : InfinitePlace F => (((f y)⁻¹ ^ e : ℝ) : ℂ)))
+    exact continuous_const.prodMk (continuous_pi fun _ => Complex.continuous_ofReal.comp hpowInv)
+  · have hfun : (fun y : S.FSˣ => ((rf_scaleUnit D S y : S.FS)⁻¹)) =
+        (fun y => ((fun _ : S.Sf => 1), fun _ : InfinitePlace F => (((f y) ^ e : ℝ) : ℂ))) := by
+      funext y
+      change (S.ell D (f y)⁻¹ (inv_pos.mpr (hfp y)) : S.FS)⁻¹ = _
+      have hbase : (f y)⁻¹ ^ e = (f y ^ e)⁻¹ :=
+        Real.inv_rpow (le_of_lt (hfp y)) e
+      apply Prod.ext
+      · funext v
+        simp [ArtinPrimitiveRoots.A1.SData.ell]
+      · funext w
+        simp only [ArtinPrimitiveRoots.A1.SData.ell]
+        change (((((f y)⁻¹ ^ e : ℝ) : ℂ)⁻¹) = (((f y) ^ e : ℝ) : ℂ))
+        have hcast : (((f y)⁻¹ ^ e : ℝ) : ℂ) ≠ 0 :=
+          Complex.ofReal_ne_zero.mpr
+            (Real.rpow_pos_of_pos (inv_pos.mpr (hfp y)) e).ne'
+        field_simp [hcast]
+        norm_cast
+        rw [one_div, Real.inv_rpow (le_of_lt (hfp y))]
+        exact (inv_mul_cancel₀ (Real.rpow_pos_of_pos (hfp y) e).ne').symm
+    have hcont : Continuous (fun y : S.FSˣ => ((rf_scaleUnit D S y : S.FS)⁻¹)) := by
+      rw [hfun]
+      exact continuous_const.prodMk (continuous_pi fun _ => Complex.continuous_ofReal.comp hpow)
+    exact hcont.congr fun y => (Units.val_inv_eq_inv_val (rf_scaleUnit D S y)).symm
+
+private theorem rf_ellUnit_mul (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) (x y : ℝ)
+    (hx : 0 < x) (hy : 0 < y) :
+    rf_ellUnit D S x hx * rf_ellUnit D S y hy = rf_ellUnit D S (x * y) (mul_pos hx hy) := by
+  apply Units.ext
+  change (rf_ellUnit D S x hx : S.FS) * (rf_ellUnit D S y hy : S.FS) =
+    (rf_ellUnit D S (x * y) (mul_pos hx hy) : S.FS)
+  ext v
+  · simp [rf_ellUnit, ArtinPrimitiveRoots.A1.SData.ell]
+  · simp [rf_ellUnit, ArtinPrimitiveRoots.A1.SData.ell,
+      Real.mul_rpow (le_of_lt hx) (le_of_lt hy)]
+
+private theorem rf_ellUnit_inv (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) (x : ℝ) (hx : 0 < x) :
+    (rf_ellUnit D S x hx)⁻¹ = rf_ellUnit D S x⁻¹ (inv_pos.mpr hx) := by
+  apply Units.ext
+  rw [Units.val_inv_eq_inv_val]
+  change ((rf_ellUnit D S x hx : S.FS))⁻¹ =
+    (rf_ellUnit D S x⁻¹ (inv_pos.mpr hx) : S.FS)
+  ext v
+  · simp [rf_ellUnit, ArtinPrimitiveRoots.A1.SData.ell]
+  · simp [rf_ellUnit, ArtinPrimitiveRoots.A1.SData.ell,
+      Real.inv_rpow (le_of_lt hx)]
+
+private theorem rf_normOne_coords (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (x : S.FS) (hx : S.absS x = 1) :
+    (∀ v : S.Sf, x.1 v ≠ 0) ∧ (∀ w : InfinitePlace F, x.2 w ≠ 0) := by
+  have hx' := hx
+  unfold ArtinPrimitiveRoots.A1.SData.absS at hx'
+  have hfin : (∏ v : S.Sf,
+      ArtinPrimitiveRoots.A1.absFin v.1 (x.1 v)) ≠ 0 := by
+    intro hzero
+    rw [hzero, zero_mul] at hx'
+    exact zero_ne_one hx'
+  have harch : (∏ w : InfinitePlace F, Complex.normSq (x.2 w)) ≠ 0 := by
+    intro hzero
+    rw [hzero, mul_zero] at hx'
+    exact zero_ne_one hx'
+  have hfinCoord (v : S.Sf) : x.1 v ≠ 0 := by
+    have hv := (Finset.prod_ne_zero_iff.mp hfin) v (Finset.mem_univ v)
+    intro hzero
+    apply hv
+    rw [hzero]
+    simp [ArtinPrimitiveRoots.A1.absFin]
+  have harchCoord (w : InfinitePlace F) : x.2 w ≠ 0 := by
+    have hw := (Finset.prod_ne_zero_iff.mp harch) w (Finset.mem_univ w)
+    intro hzero
+    apply hw
+    simp [hzero]
+  exact ⟨hfinCoord, harchCoord⟩
+
+private def rf_unitOfNormOne (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (x : S.FS) (hx : S.absS x = 1) : S.FSˣ where
+  val := x
+  inv := (fun v => (x.1 v)⁻¹, fun w => (x.2 w)⁻¹)
+  val_inv := by
+    have hc := rf_normOne_coords S x hx
+    ext v
+    · simp [hc.1 v]
+    · exact mul_inv_cancel₀ (hc.2 v)
+  inv_val := by
+    have hc := rf_normOne_coords S x hx
+    ext v
+    · simp [hc.1 v]
+    · exact inv_mul_cancel₀ (hc.2 v)
+
+private def rf_balancedUnitSet (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (H : ArtinPrimitiveRoots.A1.HilbertData F)
+    (Bd : ArtinPrimitiveRoots.A1.BData S H)
+    (bc : BalancedChoices D S H Bd) : Set S.FSˣ :=
+  {u | (u : S.FS) ∈ bc.Kbal}
+
+private theorem rf_balancedUnitOf_continuous
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (H : ArtinPrimitiveRoots.A1.HilbertData F)
+    (Bd : ArtinPrimitiveRoots.A1.BData S H)
+    (bc : BalancedChoices D S H Bd) :
+    Continuous (fun z : {x : S.FS // x ∈ bc.Kbal} =>
+      rf_unitOfNormOne S z.1 (bc.Kbal_normOne z.1 z.2)) := by
+  rw [Units.continuous_iff]
+  constructor
+  · exact continuous_subtype_val
+  · change Continuous (fun z : {x : S.FS // x ∈ bc.Kbal} =>
+      ((rf_unitOfNormOne S z.1 (bc.Kbal_normOne z.1 z.2))⁻¹ : S.FS))
+    have hf : Continuous (fun z : {x : S.FS // x ∈ bc.Kbal} => z.1) :=
+      continuous_subtype_val
+    have hfst : Continuous (fun z : {x : S.FS // x ∈ bc.Kbal} => z.1.1) :=
+      continuous_fst.comp hf
+    have hsnd : Continuous (fun z : {x : S.FS // x ∈ bc.Kbal} => z.1.2) :=
+      continuous_snd.comp hf
+    have hlocal : Continuous (fun z : {x : S.FS // x ∈ bc.Kbal} =>
+        fun v : S.Sf => (z.1.1 v)⁻¹) := by
+      refine continuous_pi fun v => ?_
+      apply ((continuous_apply v).comp hfst).inv₀
+      intro z
+      exact (rf_normOne_coords S z.1 (bc.Kbal_normOne z.1 z.2)).1 v
+    have harch : Continuous (fun z : {x : S.FS // x ∈ bc.Kbal} =>
+        fun w : InfinitePlace F => (z.1.2 w)⁻¹) := by
+      refine continuous_pi fun w => ?_
+      apply ((continuous_apply w).comp hsnd).inv₀
+      intro z
+      exact (rf_normOne_coords S z.1 (bc.Kbal_normOne z.1 z.2)).2 w
+    change Continuous (fun z : {x : S.FS // x ∈ bc.Kbal} =>
+      ((fun v : S.Sf => (z.1.1 v)⁻¹), (fun w : InfinitePlace F => (z.1.2 w)⁻¹)))
+    exact hlocal.prodMk harch
+
+private theorem rf_balancedUnitSet_compact
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (H : ArtinPrimitiveRoots.A1.HilbertData F)
+    (Bd : ArtinPrimitiveRoots.A1.BData S H)
+    (bc : BalancedChoices D S H Bd) : IsCompact (rf_balancedUnitSet D S H Bd bc) := by
+  let X := {x : S.FS // x ∈ bc.Kbal}
+  let f : X → S.FSˣ := fun z => rf_unitOfNormOne S z.1 (bc.Kbal_normOne z.1 z.2)
+  have hX : IsCompact (Set.univ : Set X) := by
+    apply (Subtype.isCompact_iff).2
+    simpa [X] using bc.Kbal_compact
+  have hf : Continuous f := rf_balancedUnitOf_continuous D S H Bd bc
+  have himage : f '' Set.univ = rf_balancedUnitSet D S H Bd bc := by
+    ext u
+    constructor
+    · rintro ⟨⟨x, hx⟩, -, rfl⟩
+      exact hx
+    · intro hu
+      refine ⟨⟨u, hu⟩, Set.mem_univ _, ?_⟩
+      apply Units.ext
+      rfl
+  have hcompact : IsCompact (f '' Set.univ) := hX.image hf
+  rwa [himage] at hcompact
+
+private def rf_movingUnitShape (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (y t b : S.FSˣ) : S.FSˣ :=
+  rf_scaleUnit D S y * t * y * b⁻¹
+
+private theorem rf_movingUnitShape_continuous (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) :
+    Continuous (fun p : S.FSˣ × (S.FSˣ × S.FSˣ) =>
+      rf_movingUnitShape D S p.1 p.2.1 p.2.2) := by
+  have hy : Continuous (fun p : S.FSˣ × (S.FSˣ × S.FSˣ) => p.1) := continuous_fst
+  have ht : Continuous (fun p : S.FSˣ × (S.FSˣ × S.FSˣ) => p.2.1) :=
+    continuous_fst.comp continuous_snd
+  have hb : Continuous (fun p : S.FSˣ × (S.FSˣ × S.FSˣ) => p.2.2) :=
+    continuous_snd.comp continuous_snd
+  exact (((rf_scaleUnit_continuous D S).comp hy).mul ht).mul (continuous_id.comp hy) |>.mul
+    ((continuous_inv.comp hb))
+
+private theorem rf_movingUnit_compact
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (H : ArtinPrimitiveRoots.A1.HilbertData F)
+    (Bd : ArtinPrimitiveRoots.A1.BData S H)
+    (bc : BalancedChoices D S H Bd)
+    (K T : Set S.FSˣ) (hK : IsCompact K) (hT : IsCompact T)
+    (hTnorm : ∀ t ∈ T, S.absS (t : S.FS) = 1) :
+    ∃ K' : Set S.FSˣ, IsCompact K' ∧
+      (∀ y ∈ K', S.absS (y : S.FS) = 1) ∧
+      (∀ u ∈ K', ∃ y ∈ K, ∃ t ∈ T, ∃ b ∈ rf_balancedUnitSet D S H Bd bc,
+        u = rf_movingUnitShape D S y t b) ∧
+      (∀ y ∈ K, ∀ t ∈ T, ∀ b ∈ rf_balancedUnitSet D S H Bd bc,
+        rf_movingUnitShape D S y t b ∈ K') := by
+  let B := rf_balancedUnitSet D S H Bd bc
+  let P : Set (S.FSˣ × (S.FSˣ × S.FSˣ)) := K ×ˢ (T ×ˢ B)
+  let shape : S.FSˣ × (S.FSˣ × S.FSˣ) → S.FSˣ := fun p =>
+    rf_movingUnitShape D S p.1 p.2.1 p.2.2
+  have hP : IsCompact P := hK.prod (hT.prod (rf_balancedUnitSet_compact D S H Bd bc))
+  have hshape : Continuous shape := rf_movingUnitShape_continuous D S
+  refine ⟨shape '' P, hP.image hshape, ?_, ?_, ?_⟩
+  · rintro u ⟨p, hp, rfl⟩
+    rcases hp with ⟨hy, ht⟩
+    rcases ht with ⟨ht, hb⟩
+    have hypos := rf_absS_units_pos S p.1
+    have hscale : S.absS (rf_scaleUnit D S p.1 : S.FS) =
+        (S.absS (p.1 : S.FS))⁻¹ := by
+      change S.absS (S.ell D (S.absS (p.1 : S.FS))⁻¹
+        (inv_pos.mpr hypos)) = _
+      exact rf_absS_ell D S _ (inv_pos.mpr hypos)
+    have htnorm := hTnorm p.2.1 ht
+    have hbnorm : S.absS (p.2.2 : S.FS) = 1 := bc.Kbal_normOne (p.2.2 : S.FS) hb
+    have hbinv := rf_absS_inv_of_one S p.2.2 hbnorm
+    calc
+      S.absS (shape p : S.FS) =
+          S.absS (rf_scaleUnit D S p.1 : S.FS) * S.absS (p.2.1 : S.FS) *
+            S.absS (p.1 : S.FS) * S.absS ((p.2.2⁻¹ : S.FSˣ) : S.FS) := by
+        dsimp [shape, rf_movingUnitShape]
+        simp only [Units.val_mul, Units.val_inv_eq_inv_val]
+        rw [rf_absS_mul, rf_absS_mul, rf_absS_mul]
+      _ = 1 := by rw [hscale, htnorm, hbinv]; field_simp [hypos.ne']
+  · intro u hu
+    rcases hu with ⟨p, hp, rfl⟩
+    rcases hp with ⟨hy, ht⟩
+    rcases ht with ⟨ht, hb⟩
+    exact ⟨p.1, hy, p.2.1, ht, p.2.2, hb, rfl⟩
+  · intro y hy t ht b hb
+    exact ⟨(y, (t, b)), ⟨hy, ht, hb⟩, rfl⟩
+
+private theorem rf_row_norm_of_box (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) (t y : S.FSˣ)
+    (Z : ℝ) (hZ : 0 < Z) (r : ReflectionRow S)
+    (hdiag : S.diag (r.m : F) =
+      S.ell D (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0) * ((t * y : S.FSˣ) : S.FS)) :
+    S.absS (t : S.FS) = 1 →
+      idealNorm r.ideal.1 = Real.rpow Z M0 * S.absS (y : S.FS) := by
+  intro htnorm
+  have hnorm : S.absS (S.diag (r.m : F)) = idealNorm r.ideal.1 := by
+    simpa [idealNorm] using
+      S.absS_diag_eq_norm_ofFieldData D (r.m : F) r.ideal.1 r.ideal.2 r.generates
+  calc
+    idealNorm r.ideal.1 = S.absS (S.diag (r.m : F)) := hnorm.symm
+    _ = S.absS (S.ell D (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0) *
+        ((t * y : S.FSˣ) : S.FS)) := by rw [hdiag]
+    _ = S.absS (S.ell D (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0)) *
+        S.absS ((t * y : S.FSˣ) : S.FS) := rf_absS_mul S _ _
+    _ = S.absS (S.ell D (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0)) *
+        (S.absS (t : S.FS) * S.absS (y : S.FS)) := by
+      rw [show ((t * y : S.FSˣ) : S.FS) = (t : S.FS) * (y : S.FS) by rfl,
+        rf_absS_mul]
+    _ = Real.rpow Z M0 * S.absS (y : S.FS) := by
+      have hEll : S.absS (S.ell D (Real.rpow Z M0)
+          (Real.rpow_pos_of_pos hZ M0)) = Real.rpow Z M0 :=
+        rf_absS_ell D S (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0)
+      rw [hEll, htnorm]
+      ring
+
+private theorem rf_rowEpsilon_movingShape
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (H : ArtinPrimitiveRoots.A1.HilbertData F)
+    (Bd : ArtinPrimitiveRoots.A1.BData S H)
+    (bc : BalancedChoices D S H Bd)
+    (K T : Set S.FSˣ) (hTnorm : ∀ t ∈ T, S.absS (t : S.FS) = 1)
+    (t : S.FSˣ) (ht : t ∈ T) (Z : ℝ) (hZ : 0 < Z)
+    (r : ReflectionRow S)
+    (hbox : InReflectionBox D S K t Z hZ r) :
+    ∃ y ∈ K, ∃ b ∈ rf_balancedUnitSet D S H Bd bc,
+      S.diagU (rowEpsilon S bc r) = rf_movingUnitShape D S y t b := by
+  rcases hbox with ⟨y, hy, hdiag⟩
+  let ε := rowEpsilon S bc r
+  let g := bc.gen r.ideal
+  let q := idealNorm r.ideal.1
+  have hqpos : 0 < q := by
+    dsimp [q, idealNorm]
+    have hn : 0 < Ideal.absNorm r.ideal.1 :=
+      Ideal.absNorm_pos_of_nonZeroDivisors
+        ⟨r.ideal.1, mem_nonZeroDivisors_iff_ne_zero.mpr
+          (by simpa [Ideal.zero_eq_bot] using r.ideal.2.1)⟩
+    exact_mod_cast hn
+  have hypos : 0 < S.absS (y : S.FS) := rf_absS_units_pos S y
+  have hnorm := rf_row_norm_of_box D S t y Z hZ r hdiag (hTnorm t ht)
+  have hr : q = Real.rpow Z M0 * S.absS (y : S.FS) := by simpa [q] using hnorm
+  let b : S.FSˣ := S.diagU g * rf_ellUnit D S q⁻¹ (inv_pos.mpr hqpos)
+  have hb : b ∈ rf_balancedUnitSet D S H Bd bc := by
+    change (b : S.FS) ∈ bc.Kbal
+    change S.diag (g : F) *
+      S.ell D (idealNorm r.ideal.1)⁻¹ (inv_pos.mpr (show 0 < idealNorm r.ideal.1 from hqpos)) ∈
+        bc.Kbal
+    exact bc.gen_balanced r.ideal
+  have hgen : rowElement S r = ε * g := by
+    change rowElement S r = rowEpsilon S bc r * bc.gen r.ideal
+    exact Classical.choose_spec (exists_rowUnit S bc r)
+  have hrowD : S.diagU (rowElement S r) =
+      rf_ellUnit D S (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0) * t * y := by
+    apply Units.ext
+    calc
+      S.diag (r.m : F) =
+          S.ell D (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0) *
+            ((t * y : S.FSˣ) : S.FS) := hdiag
+      _ = _ := by simp [rf_ellUnit, mul_assoc]
+  have hεD : S.diagU ε = S.diagU (rowElement S r) * (S.diagU g)⁻¹ := by
+    calc
+      S.diagU ε = (S.diagU ε * S.diagU g) * (S.diagU g)⁻¹ := by group
+      _ = S.diagU (rowElement S r) * (S.diagU g)⁻¹ := by
+        rw [← map_mul, hgen]
+  have hbInv : b⁻¹ = rf_ellUnit D S q (by positivity) * (S.diagU g)⁻¹ := by
+    dsimp [b]
+    rw [mul_inv_rev, rf_ellUnit_inv]
+    simp
+  have hratioq : (S.absS (y : S.FS))⁻¹ * q = Real.rpow Z M0 := by
+    rw [hr]
+    field_simp [hypos.ne']
+  have hEllMul :
+      rf_scaleUnit D S y * rf_ellUnit D S q (by positivity) =
+        rf_ellUnit D S (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0) := by
+    have hm := rf_ellUnit_mul D S (S.absS (y : S.FS))⁻¹ q
+      (inv_pos.mpr hypos) hqpos
+    have hs : rf_scaleUnit D S y =
+        rf_ellUnit D S (S.absS (y : S.FS))⁻¹ (inv_pos.mpr hypos) := rfl
+    calc
+      rf_scaleUnit D S y * rf_ellUnit D S q (by positivity) =
+          rf_ellUnit D S (S.absS (y : S.FS))⁻¹ (inv_pos.mpr hypos) *
+            rf_ellUnit D S q hqpos := by rw [hs]
+      _ = rf_ellUnit D S ((S.absS (y : S.FS))⁻¹ * q)
+            (mul_pos (inv_pos.mpr hypos) hqpos) := hm
+      _ = rf_ellUnit D S (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0) := by
+        congr 1
+  have hshape : rf_movingUnitShape D S y t b = S.diagU ε := by
+    calc
+      rf_movingUnitShape D S y t b =
+          rf_ellUnit D S (Real.rpow Z M0) (Real.rpow_pos_of_pos hZ M0) * t * y *
+            (S.diagU g)⁻¹ := by
+        dsimp [rf_movingUnitShape]
+        rw [hbInv]
+        calc
+          rf_scaleUnit D S y * t * y *
+                (rf_ellUnit D S q (by positivity) * (S.diagU g)⁻¹) =
+              (rf_scaleUnit D S y * rf_ellUnit D S q (by positivity)) * t * y *
+                (S.diagU g)⁻¹ := by ac_rfl
+          _ = _ := by rw [hEllMul]; rfl
+      _ = S.diagU (rowElement S r) * (S.diagU g)⁻¹ := by rw [hrowD]
+      _ = S.diagU ε := hεD.symm
+  exact ⟨y, hy, b, hb, hshape.symm⟩
+
+private theorem rf_emultiplicity_eq_factorization (p I : Ideal (𝓞 F))
+    (hp : Prime p) (hI : I ≠ 0) :
+    emultiplicity p I = (factorization I p : ℕ∞) := by
+  rw [UniqueFactorizationMonoid.emultiplicity_eq_count_normalizedFactors hp.irreducible hI]
+  simp [factorization, normalize_eq]
+
+private theorem rf_powerful_split_unique
+    (I h d h' d' : Ideal (𝓞 F))
+    (hI : I = h * d) (hI' : I = h' * d')
+    (hh : h ≠ ⊥) (hd : d ≠ ⊥) (hh' : h' ≠ ⊥) (hd' : d' ≠ ⊥)
+    (hpower : IsPowerful h) (hpower' : IsPowerful h')
+    (hsq : Squarefree d) (hsq' : Squarefree d')
+    (hcop : IsCoprime h d) (hcop' : IsCoprime h' d') : h = h' ∧ d = d' := by
+  have hh0 : h ≠ 0 := by simpa [Ideal.zero_eq_bot] using hh
+  have hd0 : d ≠ 0 := by simpa [Ideal.zero_eq_bot] using hd
+  have hh'0 : h' ≠ 0 := by simpa [Ideal.zero_eq_bot] using hh'
+  have hd'0 : d' ≠ 0 := by simpa [Ideal.zero_eq_bot] using hd'
+  have hfac : factorization I =
+      factorization h + factorization d := by
+    rw [hI]
+    exact factorization_mul hh0 hd0
+  have hfac' : factorization I =
+      factorization h' + factorization d' := by
+    rw [hI']
+    exact factorization_mul hh'0 hd'0
+  have hcountEq : ∀ p : Ideal (𝓞 F),
+      factorization h p =
+        factorization h' p := by
+    intro p
+    by_cases hp : Prime p
+    · let eI := factorization I p
+      let eh := factorization h p
+      let ed := factorization d p
+      let eh' := factorization h' p
+      let ed' := factorization d' p
+      have hsum : eI = eh + ed := congrArg (fun f : Ideal (𝓞 F) →₀ ℕ => f p) hfac
+      have hsum' : eI = eh' + ed' := congrArg (fun f : Ideal (𝓞 F) →₀ ℕ => f p) hfac'
+      have hdBound : ed ≤ 1 := by
+        have hsqE := (squarefree_iff_emultiplicity_le_one d).mp hsq p
+        have hle : emultiplicity p d ≤ 1 := hsqE.resolve_right hp.not_isUnit
+        rw [rf_emultiplicity_eq_factorization p d hp hd0] at hle
+        exact_mod_cast hle
+      have hd'Bound : ed' ≤ 1 := by
+        have hsqE := (squarefree_iff_emultiplicity_le_one d').mp hsq' p
+        have hle : emultiplicity p d' ≤ 1 := hsqE.resolve_right hp.not_isUnit
+        rw [rf_emultiplicity_eq_factorization p d' hp hd'0] at hle
+        exact_mod_cast hle
+      have hpowBound : 0 < eh → 2 ≤ eh := by
+        intro heh
+        have hem : 0 < emultiplicity p h := by
+          rw [rf_emultiplicity_eq_factorization p h hp hh0]
+          exact_mod_cast heh
+        have hdiv : p ∣ h := (dvd_iff_emultiplicity_pos).mp hem
+        let v : ArtinPrimitiveRoots.A1.FinPlace F := HeightOneSpectrum.ofPrime hp
+        have hp2 : p ^ 2 ∣ h := by simpa [v] using hpower v hdiv
+        have hle : (2 : ℕ∞) ≤ emultiplicity p h :=
+          (pow_dvd_iff_le_emultiplicity).mp hp2
+        rw [rf_emultiplicity_eq_factorization p h hp hh0] at hle
+        exact_mod_cast hle
+      have hpowBound' : 0 < eh' → 2 ≤ eh' := by
+        intro heh
+        have hem : 0 < emultiplicity p h' := by
+          rw [rf_emultiplicity_eq_factorization p h' hp hh'0]
+          exact_mod_cast heh
+        have hdiv : p ∣ h' := (dvd_iff_emultiplicity_pos).mp hem
+        let v : ArtinPrimitiveRoots.A1.FinPlace F := HeightOneSpectrum.ofPrime hp
+        have hp2 : p ^ 2 ∣ h' := by simpa [v] using hpower' v hdiv
+        have hle : (2 : ℕ∞) ≤ emultiplicity p h' :=
+          (pow_dvd_iff_le_emultiplicity).mp hp2
+        rw [rf_emultiplicity_eq_factorization p h' hp hh'0] at hle
+        exact_mod_cast hle
+      have hcopCounts : ¬ (0 < eh ∧ 0 < ed) := by
+        rintro ⟨heh, hed⟩
+        have hemH : 0 < emultiplicity p h := by
+          rw [rf_emultiplicity_eq_factorization p h hp hh0]
+          exact_mod_cast heh
+        have hemD : 0 < emultiplicity p d := by
+          rw [rf_emultiplicity_eq_factorization p d hp hd0]
+          exact_mod_cast hed
+        have hdivH : p ∣ h := (dvd_iff_emultiplicity_pos).mp hemH
+        have hdivD : p ∣ d := (dvd_iff_emultiplicity_pos).mp hemD
+        have hpne : p ≠ ⊤ := by
+          intro htop
+          apply hp.not_isUnit
+          rw [htop]
+          simpa [Ideal.one_eq_top] using
+            (isUnit_one : IsUnit (1 : Ideal (𝓞 F)))
+        have htop : (⊤ : Ideal (𝓞 F)) ≤ p := by
+          rw [← hcop.sup_eq]
+          exact sup_le (Ideal.dvd_iff_le.mp hdivH) (Ideal.dvd_iff_le.mp hdivD)
+        exact hpne (top_unique htop)
+      have hcopCounts' : ¬ (0 < eh' ∧ 0 < ed') := by
+        rintro ⟨heh, hed⟩
+        have hemH : 0 < emultiplicity p h' := by
+          rw [rf_emultiplicity_eq_factorization p h' hp hh'0]
+          exact_mod_cast heh
+        have hemD : 0 < emultiplicity p d' := by
+          rw [rf_emultiplicity_eq_factorization p d' hp hd'0]
+          exact_mod_cast hed
+        have hdivH : p ∣ h' := (dvd_iff_emultiplicity_pos).mp hemH
+        have hdivD : p ∣ d' := (dvd_iff_emultiplicity_pos).mp hemD
+        have hpne : p ≠ ⊤ := by
+          intro htop
+          apply hp.not_isUnit
+          rw [htop]
+          simpa [Ideal.one_eq_top] using
+            (isUnit_one : IsUnit (1 : Ideal (𝓞 F)))
+        have htop : (⊤ : Ideal (𝓞 F)) ≤ p := by
+          rw [← hcop'.sup_eq]
+          exact sup_le (Ideal.dvd_iff_le.mp hdivH) (Ideal.dvd_iff_le.mp hdivD)
+        exact hpne (top_unique htop)
+      have hcanonical : eh = if 2 ≤ eI then eI else 0 := by
+        by_cases heI : 2 ≤ eI
+        · have heh : 0 < eh := by
+            by_contra hnot
+            have heh0 : eh = 0 := Nat.eq_zero_of_not_pos hnot
+            have heq : eI = ed := by rw [hsum, heh0]; omega
+            have : eI ≤ 1 := by rw [heq]; exact hdBound
+            omega
+          have heh2 := hpowBound heh
+          have hed0 : ed = 0 := by
+            by_contra hne
+            exact hcopCounts ⟨heh, Nat.pos_of_ne_zero hne⟩
+          have heq : eI = eh := by rw [hsum, hed0]; omega
+          rw [if_pos heI]
+          exact heq.symm
+        · have heh0 : eh = 0 := by
+            by_contra hne
+            have hehpos := Nat.pos_of_ne_zero hne
+            have heh2 := hpowBound hehpos
+            have : 2 ≤ eI := by rw [hsum]; omega
+            exact heI this
+          rw [if_neg heI]
+          exact heh0
+      have hcanonical' : eh' = if 2 ≤ eI then eI else 0 := by
+        by_cases heI : 2 ≤ eI
+        · have heh : 0 < eh' := by
+            by_contra hnot
+            have heh0 : eh' = 0 := Nat.eq_zero_of_not_pos hnot
+            have heq : eI = ed' := by rw [hsum', heh0]; omega
+            have : eI ≤ 1 := by rw [heq]; exact hd'Bound
+            omega
+          have heh2 := hpowBound' heh
+          have hed0 : ed' = 0 := by
+            by_contra hne
+            exact hcopCounts' ⟨heh, Nat.pos_of_ne_zero hne⟩
+          have heq : eI = eh' := by rw [hsum', hed0]; omega
+          rw [if_pos heI]
+          exact heq.symm
+        · have heh0 : eh' = 0 := by
+            by_contra hne
+            have hehpos := Nat.pos_of_ne_zero hne
+            have heh2 := hpowBound' hehpos
+            have : 2 ≤ eI := by rw [hsum']; omega
+            exact heI this
+          rw [if_neg heI]
+          exact heh0
+      change eh = eh'
+      exact hcanonical.trans hcanonical'.symm
+    · have hnotNorm (J : Ideal (𝓞 F)) : p ∉ UniqueFactorizationMonoid.normalizedFactors J := by
+        intro hpJ
+        exact hp (UniqueFactorizationMonoid.prime_of_normalized_factor p hpJ)
+      have hzero (J : Ideal (𝓞 F)) : factorization J p = 0 := by
+        apply Finsupp.notMem_support_iff.mp
+        intro hsupp
+        have hpfin : p ∈ (UniqueFactorizationMonoid.normalizedFactors J).toFinset := by
+          simpa [support_factorization] using hsupp
+        exact hnotNorm J (Multiset.mem_toFinset.mp hpfin)
+      rw [hzero h, hzero h']
+  have hfacEq : factorization h =
+      factorization h' := by
+    ext p
+    exact hcountEq p
+  have hassoc : Associated h h' :=
+    associated_of_factorization_eq h h' hh0 hh'0 hfacEq
+  have hhEq : h = h' := associated_iff_eq.mp hassoc
+  constructor
+  · exact hhEq
+  · have hmul : h * d = h * d' := by
+      calc
+        h * d = I := hI.symm
+        _ = h' * d' := hI'
+        _ = h * d' := by rw [hhEq]
+    exact (mul_left_cancel₀ hh0) hmul
+
+private theorem rf_diagU_mem_diagR (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (e : S.US) : (S.diagU (e : Fˣ) : S.FS) ∈ S.diagR := by
+  have heVal : ∀ v : ArtinPrimitiveRoots.A1.FinPlace F, v ∉ S.Sf →
+      v.valuation F ((e : Fˣ) : F) = 1 := by
+    change ∀ v : ArtinPrimitiveRoots.A1.FinPlace F, v ∉ S.Sf →
+      v.valuation F ((e : Fˣ) : F) = 1
+    exact e.2
+  have hR : ((e : Fˣ) : F) ∈ S.R := by
+    change ∀ v : ArtinPrimitiveRoots.A1.FinPlace F, v ∉ S.Sf →
+      v.valuation F ((e : Fˣ) : F) ≤ 1
+    intro v hv
+    rw [heVal v hv]
+  refine ⟨⟨(e : Fˣ), hR⟩, ?_⟩
+  simp [ArtinPrimitiveRoots.A1.SData.diagR, ArtinPrimitiveRoots.A1.SData.diagU]
+
+private def rf_diagRAddSubgroup (S : ArtinPrimitiveRoots.A1.SData F CE condη) :
+    AddSubgroup S.FS where
+  carrier := S.diagR
+  zero_mem' := by
+    refine ⟨0, ?_⟩
+    simp [ArtinPrimitiveRoots.A1.SData.diagR, ArtinPrimitiveRoots.A1.SData.diag]
+  add_mem' := by
+    rintro x y ⟨a, rfl⟩ ⟨b, rfl⟩
+    refine ⟨a + b, ?_⟩
+    simp [ArtinPrimitiveRoots.A1.SData.diagR, ArtinPrimitiveRoots.A1.SData.diag]
+  neg_mem' := by
+    rintro x ⟨a, rfl⟩
+    refine ⟨-a, ?_⟩
+    simp [ArtinPrimitiveRoots.A1.SData.diagR, ArtinPrimitiveRoots.A1.SData.diag]
+
+private theorem rf_diagR_closed (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη) : IsClosed (S.diagR : Set S.FS) := by
+  let L := rf_diagRAddSubgroup S
+  have hdisc : IsDiscrete (L : Set S.FS) := by
+    change IsDiscrete (S.diagR : Set S.FS)
+    exact (S.diagR_discrete_cocompact D).1
+  haveI : DiscreteTopology L := SetLike.isDiscrete_iff_discreteTopology.mp hdisc
+  change IsClosed (L : Set S.FS)
+  exact L.isClosed_of_discreteTopology
+
+private theorem rf_diagU_injective (S : ArtinPrimitiveRoots.A1.SData F CE condη) :
+    Function.Injective S.diagU := by
+  intro a b hab
+  apply Units.ext
+  have hval : S.diag (a : F) = S.diag (b : F) := by
+    simpa [ArtinPrimitiveRoots.A1.SData.diagU] using congrArg Units.val hab
+  let w : InfinitePlace F := Classical.choice (inferInstance : Nonempty (InfinitePlace F))
+  have hw : w.embedding (a : F) = w.embedding (b : F) := by
+    have h := congrArg (fun z : S.FS => z.2 w) hval
+    simpa [ArtinPrimitiveRoots.A1.SData.diag] using h
+  exact w.embedding.injective hw
+
+private theorem rf_diagUS_compact_finite
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (K' : Set S.FSˣ) (hK' : IsCompact K') :
+    {e : S.US | S.diagU (e : Fˣ) ∈ K'}.Finite := by
+  let Kval : Set S.FS := (fun u : S.FSˣ => (u : S.FS)) '' K'
+  let L : Set S.FS := Kval ∩ S.diagR
+  have hKval : IsCompact Kval := hK'.image Units.continuous_val
+  have hLcompact : IsCompact L := hKval.inter_right (rf_diagR_closed D S)
+  have hLdiscrete : IsDiscrete L :=
+    (S.diagR_discrete_cocompact D).1.mono Set.inter_subset_right
+  have hLfinite : L.Finite := hLcompact.finite hLdiscrete
+  let valFS : S.FSˣ → S.FS := fun u => (u : S.FS)
+  let V : Set S.FSˣ := {u | valFS u ∈ L}
+  have hV : V.Finite := by
+    apply hLfinite.preimage
+    intro a ha b hb hab
+    exact Units.val_injective hab
+  let f : S.US → S.FSˣ := fun e => S.diagU (e : Fˣ)
+  have hf : Function.Injective f := by
+    intro a b hab
+    exact Subtype.ext (rf_diagU_injective S hab)
+  have hpre : (f ⁻¹' V).Finite := by
+    apply hV.preimage
+    intro a ha b hb hab
+    exact hf hab
+  apply hpre.subset
+  intro e he
+  change f e ∈ V
+  change valFS (f e) ∈ L
+  constructor
+  · change valFS (f e) ∈ Kval
+    exact ⟨f e, he, rfl⟩
+  · exact rf_diagU_mem_diagR S e
+
+private theorem rf_rows_eq_of_same_epsilon
+    (D : ArtinPrimitiveRoots.A1.FieldData F)
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (H : ArtinPrimitiveRoots.A1.HilbertData F)
+    (Bd : ArtinPrimitiveRoots.A1.BData S H)
+    (bc : BalancedChoices D S H Bd)
+    (K : Set S.FSˣ) (t : S.FSˣ) (Z : ℝ) (hZ : 0 < Z)
+    (I : ArtinPrimitiveRoots.A1.SData.ExtIdeal S)
+    (r s : ReflectionRow S)
+    (hr : InReflectionBox D S K t Z hZ r ∧ r.ideal = I)
+    (hs : InReflectionBox D S K t Z hZ s ∧ s.ideal = I)
+    (hε : rowEpsilon S bc r = rowEpsilon S bc s) : r = s := by
+  have hIdealVal : r.ideal.1 = s.ideal.1 := by
+    have hi : r.ideal = s.ideal := hr.2.trans hs.2.symm
+    exact congrArg Subtype.val hi
+  have hIdeal : r.ideal = s.ideal := Subtype.ext hIdealVal
+  have hSplit := rf_powerful_split_unique r.ideal.1 r.h.1 r.d.1 s.h.1 s.d.1
+    r.factorization (hIdealVal.trans s.factorization)
+    r.h.2.1 r.d.2.1 s.h.2.1 s.d.2.1
+    r.h_powerful s.h_powerful r.d_squarefree s.d_squarefree r.coprime s.coprime
+  have hrUnit : rowElement S r = rowEpsilon S bc r * bc.gen r.ideal :=
+    Classical.choose_spec (exists_rowUnit S bc r)
+  have hsUnit : rowElement S s = rowEpsilon S bc s * bc.gen s.ideal :=
+    Classical.choose_spec (exists_rowUnit S bc s)
+  have hgen : bc.gen r.ideal = bc.gen s.ideal := congrArg bc.gen hIdeal
+  have hrow : rowElement S r = rowElement S s := by
+    calc
+      rowElement S r = rowEpsilon S bc r * bc.gen r.ideal := hrUnit
+      _ = rowEpsilon S bc s * bc.gen s.ideal := by rw [hε, hgen]
+      _ = rowElement S s := hsUnit.symm
+  have hm : r.m = s.m := by
+    have hv := congrArg Units.val hrow
+    simpa [rowElement] using hv
+  cases r with
+  | mk rm rI rh rd rgen rfac rhp rds rc =>
+    cases s with
+    | mk sm sI sh sd sgen sfac shp sds sc =>
+      simp_all [hm, hIdeal, hSplit.1, hSplit.2]
+      exact ⟨Subtype.ext hSplit.1, Subtype.ext hSplit.2⟩
+
 /-- **rf:element-to-ideal** (04-reflection.tex:19-35, 1028-1029, 1225-1227).  On every fixed
 compact annulus (also after a norm-one translate from the fixed compact `T`), ideal norms are
 comparable to `Z^M₀`, row fibers have bounded cardinality, and the moving unit stays in a compact
@@ -47,10 +882,64 @@ theorem rf_element_to_ideal
         ∀ (Z : ℝ), (hZ : 2 ≤ Z) → ∀ t, t ∈ T → ∀ r : ReflectionRow S,
           InReflectionBox D S K t Z (by linarith) r →
             c₁ * Real.rpow Z M0 ≤ idealNorm r.ideal.1 ∧
-            idealNorm r.ideal.1 ≤ c₂ * Real.rpow Z M0 ∧
+          idealNorm r.ideal.1 ≤ c₂ * Real.rpow Z M0 ∧
             S.diagU (rowEpsilon S bc r) ∈ K' ∧
             Set.ncard (reflectionRowFiber D S K t Z (by linarith) r.ideal) ≤ ⌊C⌋₊ := by
-  sorry
+  classical
+  obtain ⟨c₁, c₂, hc₁, hc₁₂, hKbounds⟩ := rf_absS_compact_bounds S K hK
+  obtain ⟨K', hK', hK'norm, hK'mem, hK'shape⟩ :=
+    rf_movingUnit_compact D S H Bd bc K T hK hT hTnorm
+  let E : Set S.US := {e | S.diagU (e : Fˣ) ∈ K'}
+  have hEfinite : E.Finite := rf_diagUS_compact_finite D S K' hK'
+  let C : ℝ := (E.ncard : ℝ) + 1
+  have hCpos : 0 < C := by dsimp [C]; positivity
+  have hFloor : E.ncard ≤ ⌊C⌋₊ := by
+    apply (Nat.le_floor_iff (by linarith [hCpos])).2
+    dsimp [C]
+    linarith
+  refine ⟨c₁, c₂, C, hc₁, hc₁₂, hCpos, K', hK', hK'norm, ?_⟩
+  intro Z hZ t ht r hbox
+  rcases hbox with ⟨y, hy, hdiag⟩
+  have htnorm := hTnorm t ht
+  have hnorm := rf_row_norm_of_box D S t y Z (by linarith) r hdiag htnorm
+  have hzpos : 0 < Real.rpow Z M0 := Real.rpow_pos_of_pos (by linarith) M0
+  have hbounds := hKbounds y hy
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · rw [hnorm]
+    calc
+      c₁ * Real.rpow Z M0 ≤ S.absS (y : S.FS) * Real.rpow Z M0 :=
+        mul_le_mul_of_nonneg_right hbounds.1 (le_of_lt hzpos)
+      _ = Real.rpow Z M0 * S.absS (y : S.FS) := by ring
+  · rw [hnorm]
+    calc
+      Real.rpow Z M0 * S.absS (y : S.FS) ≤ Real.rpow Z M0 * c₂ :=
+        mul_le_mul_of_nonneg_left hbounds.2 hzpos.le
+      _ = c₂ * Real.rpow Z M0 := by ring
+  · obtain ⟨y', hy', b, hb, hshape⟩ :=
+      rf_rowEpsilon_movingShape D S H Bd bc K T hTnorm t ht Z (by linarith) r
+        ⟨y, hy, hdiag⟩
+    exact hshape.symm ▸ hK'shape y' hy' t ht b hb
+  · let fiber : Set (ReflectionRow S) :=
+      reflectionRowFiber D S K t Z (by linarith) r.ideal
+    have hmap : ∀ s ∈ fiber, rowEpsilon S bc s ∈ E := by
+      intro s hs
+      change InReflectionBox D S K t Z (by linarith) s ∧ s.ideal = r.ideal at hs
+      obtain ⟨hsbox, hsI⟩ := hs
+      obtain ⟨y', hy', b, hb, hshape⟩ :=
+        rf_rowEpsilon_movingShape D S H Bd bc K T hTnorm t ht Z (by linarith) s hsbox
+      change S.diagU (rowEpsilon S bc s) ∈ K'
+      exact hshape.symm ▸ hK'shape y' hy' t ht b hb
+    have hinj : Set.InjOn (fun s : ReflectionRow S => rowEpsilon S bc s) fiber := by
+      intro s hs s' hs' hε
+      change InReflectionBox D S K t Z (by linarith) s ∧ s.ideal = r.ideal at hs
+      change InReflectionBox D S K t Z (by linarith) s' ∧ s'.ideal = r.ideal at hs'
+      exact rf_rows_eq_of_same_epsilon D S H Bd bc K t Z (by linarith) r.ideal s s'
+        hs hs' hε
+    have hcard : fiber.ncard ≤ E.ncard :=
+      Set.ncard_le_ncard_of_injOn (fun s : ReflectionRow S => rowEpsilon S bc s)
+        hmap hinj hEfinite
+    change fiber.ncard ≤ ⌊C⌋₊
+    exact hcard.trans hFloor
 
 private theorem rf_chiPow_pow_nat
     (D : ArtinPrimitiveRoots.A1.FieldData F)
