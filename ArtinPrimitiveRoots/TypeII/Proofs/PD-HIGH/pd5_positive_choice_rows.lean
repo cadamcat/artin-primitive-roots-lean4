@@ -2,6 +2,8 @@ import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».BatchSupport
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».DeletionSupport
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_edge_position_mass_le
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_scale_facts
+import ArtinPrimitiveRoots.TypeII.Proofs.pcr_opus.GhostRow
+import ArtinPrimitiveRoots.TypeII.Proofs.pcr_opus.EdgeRow
 
 set_option maxHeartbeats 800000
 set_option backward.isDefEq.respectTransparency false
@@ -184,7 +186,94 @@ feeds pd5_fixed_system_abs_estimate and frozen history_rank_high. LEAD. -/
 theorem pd5_positive_choice_rows (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁)
     (K : ℕ) (F : PDFix K) (hF : F.Valid) (ρ : ℝ) (hρ : IsMemoryRho F.q_d ρ) :
     PD5PositiveRowsAvailable δ c₁ c₂ F ρ := by
-  sorry
+  obtain ⟨x₁, hx₁, hscale⟩ := pd5_scale_facts K F hF
+  obtain ⟨Cgeom, x₂, hCgeom, hx₂, hgeom⟩ := pd5_edge_position_mass_le δ c₁ c₂ hδ hc₁ K F hF
+  have hρ0 : 0 < ρ := hρ.1
+  have hρ1 : ρ < 1 := hρ.2.1
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  set v : ℝ := max 2 (2 / (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2))) with hvdef
+  have hv2 : 2 ≤ v := le_max_left _ _
+  have hvlarge : 2 / (ρ * (1 - Real.sqrt F.q_d / ρ ^ 2)) ≤ v := le_max_right _ _
+  have hv0 : 0 < v := by linarith
+  set aAtom : ℝ := 4 / Real.log 2 with haAtom
+  set Vinv : ℝ := 2 / Real.log 2 with hVinvdef
+  set cbar : ℝ := v * (2 * Real.log 2) / ρ with hcbar
+  set Cghost : ℝ := Real.exp (2 * (K : ℝ) * cbar) with hCghost
+  set Cedge : ℝ := Cgeom * ((1 + v) * (Vinv + 2)) ^ K with hCedge
+  have hVinv0 : 0 ≤ Vinv := (div_pos (by norm_num) hlog2).le
+  refine ⟨v, Cghost, Cedge, 1, aAtom, max x₁ x₂, by linarith, Real.exp_pos _, ?_, le_rfl,
+    div_pos (by norm_num) hlog2, le_trans hx₁ (le_max_left _ _), ?_⟩
+  · rw [hCedge]
+    apply mul_pos hCgeom
+    apply pow_pos
+    apply mul_pos (by linarith)
+    linarith
+  intro S hS hxS w hw B Δ s hs
+  obtain ⟨hL1, -, -, -, -, -, -, hband⟩ := hscale S (le_trans (le_max_left _ _) hxS)
+  have hsB : memSize s ≤ B := hs.2.1
+  have hV : ∀ i, 0 < bandMass S.x (F.a i) := fun i =>
+    lt_of_lt_of_le (by linarith) (hband i).1
+  have hVinv : ∀ i, (bandMass S.x (F.a i))⁻¹ ≤ Vinv := by
+    intro i
+    have hlow := (hband i).1
+    have hhalf : 0 < Real.log 2 / 2 := by linarith
+    calc
+      (bandMass S.x (F.a i))⁻¹ ≤ (Real.log 2 / 2)⁻¹ := (inv_le_inv₀ (hV i) hhalf).mpr hlow
+      _ = Vinv := by rw [hVinvdef, inv_div]
+  have hν : ∀ i p, p ∈ primeBand S.x (F.a i) → 0 ≤ memoryNu S.x K F.a F.q_d i p :=
+    fun i p hp => ((hband i).2.2.2 p hp).1
+  have hmass : ∀ i, (∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2 :=
+    fun i => (hband i).2.2.1
+  have hatom : ∀ i p, p ∈ primeBand S.x (F.a i) → memoryNu S.x K F.a F.q_d i p ≤ Δ :=
+    fun i p hp => ((hband i).2.2.2 p hp).2
+  have hΔ : 0 ≤ Δ := mul_nonneg (div_pos (by norm_num) hlog2).le (Real.exp_pos _).le
+  constructor
+  · intro j hj U R hRU hU pick pastLog
+    have hη := pd5_memoryEta_bounds (x := S.x) hF.2.1 hF.2.2.1 j
+    have hq : 0 ≤ memoryQ S.x F.q_d j := by
+      unfold memoryQ
+      split_ifs
+      · exact Real.sqrt_nonneg _
+      · exact hF.2.1.le
+    have hdel := pcr_ghost_delete_total_le_one F S hF ρ hρ v hv0 hvlarge j s
+    let c : Fin K → ℝ := fun i => v * memoryEta S.x F.q_d j * bandMass S.x (F.a i) / ρ
+    have hc : ∀ i, 0 ≤ c i := fun i =>
+      div_nonneg (mul_nonneg (mul_nonneg hv0.le hη.1) (hV i).le) hρ0.le
+    have hcb : ∀ i, c i ≤ cbar := by
+      intro i
+      have h1 : memoryEta S.x F.q_d j * bandMass S.x (F.a i) ≤ 2 * Real.log 2 := by
+        calc
+          memoryEta S.x F.q_d j * bandMass S.x (F.a i) ≤ 1 * bandMass S.x (F.a i) :=
+            mul_le_mul_of_nonneg_right hη.2 (hV i).le
+          _ ≤ 2 * Real.log 2 := by linarith [(hband i).2.1]
+      have h2 : v * memoryEta S.x F.q_d j * bandMass S.x (F.a i) ≤ v * (2 * Real.log 2) := by
+        rw [mul_assoc]
+        exact mul_le_mul_of_nonneg_left h1 hv0.le
+      exact div_le_div_of_nonneg_right h2 hρ0.le
+    have hcreate : (∑ l : Fin K → Fin (B + 1),
+        (∏ i, pcr_ghostCreateFactor F S ρ v j (fun i => (l i).val) i) *
+          (2 : ℝ) ^ (∑ i, (l i).val)) ≤ Cghost := by
+      refine le_trans (le_of_eq ?_) (pcr_ghost_create_total_le_exp K B c cbar hc hcb)
+      apply Finset.sum_congr rfl
+      intro l _
+      rw [← Finset.prod_pow_eq_pow_sum, ← Finset.prod_mul_distrib]
+      rfl
+    have h := pcr_ghost_prescribed_row F S ρ v hρ0 hv0 j B s hsB U R hRU pick pastLog Δ Cghost
+      hΔ (Real.exp_pos _).le hη.1 hq (fun i => (hV i).le) hν hmass hatom hdel hcreate
+    simpa only [one_mul] using h
+  · intro j hj U R hRU hU pick pastLog Z hZ
+    have hG : 0 ≤ Cgeom * Real.rpow S.L (3 * F.A₀) :=
+      mul_nonneg hCgeom.le (Real.rpow_nonneg (by linarith) _)
+    have h := pcr_edge_prescribed_row F S ρ w j B Z s hsB U R hRU hU pick pastLog v Δ Vinv
+      (Cgeom * Real.rpow S.L (3 * F.A₀)) hρ0 hρ1.le (by linarith) hΔ hVinv0 hG hV hVinv hν
+      hmass hatom
+      (fun p q hd hb forward => hgeom S hS (le_trans (le_max_right _ _) hxS) w hw s.1
+        hs.1.1 hb p q hd forward Z)
+    refine h.trans (le_of_eq ?_)
+    rw [hCedge]
+    push_cast
+    rw [mul_pow]
+    ring
 
 end
 end ArtinPrimitiveRoots.TypeII.PD
