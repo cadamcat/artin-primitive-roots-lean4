@@ -245,4 +245,65 @@ theorem truncated_source_reindex
       simp [P, Q]
       ring
 
+/-- Identify the quotient set of a dyadic interval with the corresponding
+rescaled dyadic interval. -/
+theorem divisorQuotients_dyadic_interval (l r : ℝ) (d : ℕ)
+    (hl : 0 < l) (hlr : l ≤ r) (hd : 0 < d) :
+    divisorQuotients
+        ((Finset.range (⌊r⌋₊ + 1)).filter
+          (fun (m : ℕ) => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r)) d =
+      (Finset.range (⌊r / (d : ℝ)⌋₊ + 1)).filter
+        (fun (h : ℕ) => l / (d : ℝ) ≤ (h : ℝ) ∧
+          (h : ℝ) ≤ r / (d : ℝ)) := by
+  classical
+  have hdR : 0 < (d : ℝ) := by exact_mod_cast hd
+  have hrNonneg : 0 ≤ r := le_trans hl.le hlr
+  ext h
+  simp only [divisorQuotients, Finset.mem_image]
+  constructor
+  · rintro ⟨m, hm, hquot⟩
+    rcases Finset.mem_filter.mp hm with ⟨hmI, hdiv⟩
+    rcases Finset.mem_filter.mp hmI with ⟨_, ⟨hmlo, hmhi⟩⟩
+    have hmul : m = d * h := by
+      calc
+        m = d * (m / d) := (Nat.mul_div_cancel' hdiv).symm
+        _ = d * h := congrArg (fun q : ℕ => d * q) hquot
+    have hmcast : (m : ℝ) = (d : ℝ) * (h : ℝ) := by
+      exact_mod_cast hmul
+    have hlo : l / (d : ℝ) ≤ (h : ℝ) :=
+      (div_le_iff₀ hdR).2 (by nlinarith [hmlo, hmcast])
+    have hhi : (h : ℝ) ≤ r / (d : ℝ) :=
+      (le_div_iff₀ hdR).2 (by nlinarith [hmhi, hmcast])
+    have hfloor : h ≤ ⌊r / (d : ℝ)⌋₊ :=
+      (Nat.le_floor_iff (div_nonneg hrNonneg hdR.le)).2 hhi
+    exact Finset.mem_filter.mpr ⟨
+      Finset.mem_range.mpr (Nat.lt_succ_iff.mpr hfloor), ⟨hlo, hhi⟩⟩
+  · intro hh
+    rcases Finset.mem_filter.mp hh with ⟨_, ⟨hlo, hhi⟩⟩
+    let m : ℕ := d * h
+    have hdiv : d ∣ m := ⟨h, rfl⟩
+    have hquot : m / d = h := by
+      dsimp [m]
+      exact Nat.mul_div_cancel_left h hd
+    have hmcast : (m : ℝ) = (d : ℝ) * (h : ℝ) := by
+      dsimp [m]
+      norm_cast
+    have hmlo : l ≤ (m : ℝ) := by
+      calc
+        l ≤ (h : ℝ) * (d : ℝ) := (div_le_iff₀ hdR).1 hlo
+        _ = (d : ℝ) * (h : ℝ) := by ring
+        _ = (m : ℝ) := hmcast.symm
+    have hmhi : (m : ℝ) ≤ r := by
+      calc
+        (m : ℝ) = (d : ℝ) * (h : ℝ) := hmcast
+        _ = (h : ℝ) * (d : ℝ) := by ring
+        _ ≤ r := (le_div_iff₀ hdR).1 hhi
+    have hmFloor : m ≤ ⌊r⌋₊ :=
+      (Nat.le_floor_iff hrNonneg).2 hmhi
+    have hmI : m ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun (m : ℕ) => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r) := by
+      exact Finset.mem_filter.mpr ⟨
+        Finset.mem_range.mpr (Nat.lt_succ_iff.mpr hmFloor), ⟨hmlo, hmhi⟩⟩
+    exact ⟨m, Finset.mem_filter.mpr ⟨hmI, hdiv⟩, hquot⟩
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
