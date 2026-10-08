@@ -656,4 +656,67 @@ theorem dfinsupp_finprod_hasProd
     Filter.atTop (nhds (∑' a : Π₀ i, Q i, f a))
   exact (Filter.tendsto_congr' heq).mp hlim
 
+/-- A family of local ideal elements can be approximated to any finite
+precision by a rational element in the same fractional ideal. -/
+theorem ideal_period_additive_approximation
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (x : ∀ v : FinPlace F, v.adicCompletion F)
+    (hx : ∀ v : FinPlace F, x v ∈ idealLocalPeriods 𝔞 v)
+    (e : FinPlace F → ℤ) (he : (Function.support e).Finite) :
+    ∃ ξ : F, ξ ∈ (𝔞 : Submodule (𝓞 F) F) ∧
+      ∀ v : FinPlace F,
+        absFin v (x v - algebraMap F (v.adicCompletion F) ξ) ≤ (qv v) ^ (-e v) := by
+  classical
+  let c (v : FinPlace F) : ℤ := FractionalIdeal.count F v 𝔞
+  have hc : (Function.support c).Finite :=
+    Filter.eventually_cofinite.mp (FractionalIdeal.finite_factors 𝔞)
+  have hxrestricted : {v : FinPlace F | 1 < absFin v (x v)}.Finite := by
+    apply hc.subset
+    intro v hv
+    change c v ≠ 0
+    intro hv0
+    have hb := hx v
+    change absFin v (x v) ≤ (qv v) ^ (-c v) at hb
+    rw [hv0, neg_zero, zpow_zero] at hb
+    exact (not_le_of_gt hv) hb
+  let precision (v : FinPlace F) : ℤ := max (e v) (c v)
+  have hp : (Function.support precision).Finite := by
+    apply (he.union hc).subset
+    intro v hv
+    by_contra hnot
+    have he0 : e v = 0 := by
+      by_contra h
+      exact hnot (Or.inl h)
+    have hc0 : c v = 0 := by
+      by_contra h
+      exact hnot (Or.inr h)
+    exact hv (by simp only [precision, he0, hc0, max_self])
+  obtain ⟨ξ, hξ⟩ := finite_adelic_additive_approximation x hxrestricted precision hp
+  have hbound (v : FinPlace F) :
+      absFin v (x v - algebraMap F (v.adicCompletion F) ξ) ≤ (qv v) ^ (-c v) :=
+    (hξ v).trans (zpow_le_zpow_right₀ (qv_gt_one v).le
+      (neg_le_neg (le_max_right (e v) (c v))))
+  refine ⟨ξ, (fractionalIdeal_mem_iff_local_bounds 𝔞 h𝔞 ξ).mpr ?_, ?_⟩
+  · intro v
+    have hxv := hx v
+    change absFin v (x v) ≤ (qv v) ^ (-c v) at hxv
+    have htri : absFin v (algebraMap F (v.adicCompletion F) ξ) ≤
+        max (absFin v (x v)) (absFin v (x v - algebraMap F (v.adicCompletion F) ξ)) := by
+      have hid : algebraMap F (v.adicCompletion F) ξ =
+          x v - (x v - algebraMap F (v.adicCompletion F) ξ) := by abel
+      calc
+        _ = ‖x v - (x v - algebraMap F (v.adicCompletion F) ξ)‖ := by
+          rw [absFin_eq_norm]
+          exact congrArg norm hid
+        _ ≤ max ‖x v‖ ‖x v - algebraMap F (v.adicCompletion F) ξ‖ :=
+          by
+            simpa only [sub_eq_add_neg, norm_neg] using
+              IsUltrametricDist.norm_add_le_max (x v)
+                (-(x v - algebraMap F (v.adicCompletion F) ξ))
+        _ = _ := by simp only [absFin_eq_norm]
+    exact htri.trans (max_le hxv (hbound v))
+  · intro v
+    exact (hξ v).trans (zpow_le_zpow_right₀ (qv_gt_one v).le
+      (neg_le_neg (le_max_left (e v) (c v))))
+
 end ArtinPrimitiveRoots.A1.Theta
