@@ -7156,6 +7156,129 @@ def continuedCalF (u : U.U) (ξ w z : ℂ) : ℂ :=
   HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ,w,z] /
     HA.LS S (η * (U.kummer u)⁻¹) ξ
 
+open Filter
+open scoped Topology
+
+private theorem euler_hecke_LS_meromorphic (χ : HeckeChar F) (hχ : IsOfFinOrder χ) :
+    MeromorphicOn (HA.LS S χ) Set.univ := by
+  have hA := HA.2
+  rcases hA with ⟨hSeries, hNontriv, hLdiff, hGdiff, hGrel, hGim, hGpos⟩
+  have hL : MeromorphicOn (HA.L χ) Set.univ := by
+    by_cases htriv : χ = 1
+    · subst χ
+      intro s hs
+      by_cases hs1 : s = 1
+      · subst s
+        have hGanalytic : AnalyticAt ℂ HA.1.2 1 := hGdiff.analyticAt 1
+        have hden : MeromorphicAt (fun z : ℂ => z - 1) 1 :=
+          (analyticAt_id.sub analyticAt_const).meromorphicAt
+        have hquot : MeromorphicAt (fun z : ℂ => HA.1.2 z / (z - 1)) 1 :=
+          hGanalytic.meromorphicAt.div hden
+        have hEq : (fun z : ℂ => HA.1.2 z / (z - 1)) =ᶠ[𝓝[≠] (1 : ℂ)] HA.L 1 := by
+          filter_upwards [self_mem_nhdsWithin] with z hz
+          have hz1 : z ≠ 1 := by simpa using hz
+          rw [hGrel z hz1]
+          field_simp [sub_ne_zero.mpr hz1]
+          rfl
+        exact hquot.congr hEq
+      · have hopen : IsOpen {z : ℂ | z ≠ 1} := isOpen_compl_singleton
+        have han : AnalyticOnNhd ℂ (HA.L 1) {z : ℂ | z ≠ 1} :=
+          hLdiff.analyticOnNhd hopen
+        exact (han s hs1).meromorphicAt
+    · obtain ⟨C, hC⟩ := hNontriv χ hχ htriv
+      have hC' : C.value = HA.L χ := by
+        simpa [HeckeAnalysis.L] using hC
+      have hDiff : Differentiable ℂ (HA.L χ) := by
+        rw [← hC']
+        exact C.differentiable
+      exact fun s hs => (hDiff.analyticAt s).meromorphicAt
+  have hFactorDiff : Differentiable ℂ (fun s : ℂ =>
+      ∏ v ∈ S.Sf, (1 - χ.primeValue v *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s))) := by
+    refine Differentiable.fun_finsetProd ?_
+    intro v hv
+    have hNnat : Ideal.absNorm v.asIdeal ≠ 0 := by
+      intro hN
+      exact v.ne_bot ((Ideal.absNorm_eq_zero_iff).mp hN)
+    have hN : ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ≠ 0 := by
+      exact_mod_cast hNnat
+    have hpow : Differentiable ℂ
+        (fun s : ℂ => ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)) := by
+      intro s
+      exact (differentiableAt_id.neg).const_cpow (Or.inl hN)
+    exact (differentiable_const (1 : ℂ)).sub
+      ((differentiable_const (χ.primeValue v)).mul hpow)
+  have hFactor : MeromorphicOn (fun s : ℂ =>
+      ∏ v ∈ S.Sf, (1 - χ.primeValue v *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s))) Set.univ := by
+    intro s hs
+    exact (hFactorDiff.analyticAt s).meromorphicAt
+  intro s hs
+  change MeromorphicAt (fun z : ℂ => HA.L χ z *
+    ∏ v ∈ S.Sf, (1 - χ.primeValue v *
+      ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-z))) s
+  exact (hL s (Set.mem_univ _)).mul (hFactor s (Set.mem_univ _))
+
+private theorem euler_kummer_finiteOrder (u : U.U) (hη : IsOfFinOrder η) :
+    IsOfFinOrder (U.kummer u) := by
+  obtain ⟨m, hm, hηpow⟩ := (isOfFinOrder_iff_pow_eq_one.mp hη)
+  obtain ⟨n, hn, hωpow⟩ :=
+    (isOfFinOrder_iff_pow_eq_one.mp (U.omega_finiteOrder u))
+  apply isOfFinOrder_iff_pow_eq_one.mpr
+  refine ⟨m * n, Nat.mul_pos hm hn, ?_⟩
+  ext x
+  have hηx : (η x) ^ m = 1 := by
+    simpa using congrArg (fun f : HeckeChar F => f x) hηpow
+  have hωx : (U.omega u x) ^ n = 1 := by
+    simpa using congrArg (fun f : HeckeChar F => f x) hωpow
+  have hrel : U.omega u x = η x * (U.kummer u x)⁻¹ :=
+    congrArg (fun f : HeckeChar F => f x) (U.omega_induces_twist u)
+  have hηxn : (η x) ^ (m * n) = 1 := by
+    rw [pow_mul, hηx, one_pow]
+  have hωxn : (U.omega u x) ^ (m * n) = 1 := by
+    rw [Nat.mul_comm m n, pow_mul, hωx, one_pow]
+  have hprod : (U.omega u x) ^ (m * n) =
+      (η x) ^ (m * n) * ((U.kummer u x) ^ (m * n))⁻¹ := by
+    rw [hrel, mul_pow, inv_pow]
+  have hκinv : ((U.kummer u x) ^ (m * n))⁻¹ = 1 := by
+    have h := hprod
+    rw [hωxn, hηxn] at h
+    simpa using h.symm
+  have hκpow : (U.kummer u x) ^ (m * n) = 1 := inv_eq_one.mp hκinv
+  change ((U.kummer u ^ (m * n)) x : ℂ) = 1
+  rw [ContinuousMonoidHom.pow_apply]
+  exact congrArg (fun y : ℂˣ => (y : ℂ)) hκpow
+
+private theorem euler_H_slice_meromorphic (hEuler : EulerHypotheses R η)
+    (u : U.U) (φ : ℂ → Triple) (hφ : Differentiable ℂ φ) :
+    MeromorphicOn (fun s : ℂ => HC.H u (φ s)) {s | eulerNeighborhood (φ s)} := by
+  have hNeighborhoodOpen : IsOpen {p : Triple | eulerNeighborhood p} := by
+    have h0 : Continuous (fun p : Triple => (p 0).re) := by fun_prop
+    have h1 : Continuous (fun p : Triple => (p 1).re) := by fun_prop
+    have h2 : Continuous (fun p : Triple => (p 2).re) := by fun_prop
+    change IsOpen
+      ({p : Triple | 998 / 1000 - 1 / 100000 < (p 0).re ∧
+        3 / 1000 - 1 / 100000 < (p 1).re ∧ 4 / 10 - 1 / 100000 < (p 2).re} ∪
+       {p : Triple | 998 / 1000 - 1 / 100000 < (p 0).re ∧
+        95 / 100 - 1 / 100000 < (p 1).re ∧ 16 / 100 - 1 / 100000 < (p 2).re})
+    apply IsOpen.union
+    · exact (isOpen_lt continuous_const h0).inter
+        ((isOpen_lt continuous_const h1).inter (isOpen_lt continuous_const h2))
+    · exact (isOpen_lt continuous_const h0).inter
+        ((isOpen_lt continuous_const h1).inter (isOpen_lt continuous_const h2))
+  let dom : Set ℂ := {s | eulerNeighborhood (φ s)}
+  have hdomOpen : IsOpen dom := hNeighborhoodOpen.preimage hφ.continuous
+  have hProduct := po_H_product R η U HC hEuler
+  rcases hProduct with ⟨_, hDiff, _, _⟩
+  have hMaps : Set.MapsTo φ dom {p | eulerNeighborhood p} := by
+    intro s hs
+    exact hs
+  have hDiffComp : DifferentiableOn ℂ (fun s : ℂ => HC.H u (φ s)) dom :=
+    (hDiff u).comp hφ.differentiableOn hMaps
+  have hAnalytic : AnalyticOnNhd ℂ (fun s : ℂ => HC.H u (φ s)) dom :=
+    hDiffComp.analyticOnNhd hdomOpen
+  simpa only [dom] using hAnalytic.meromorphicOn
+
 /-- po:H-product / prop:euler-product: continuation identity with coordinatewise meromorphy.
 The raw calF tsum is only compared in its convergence domain. -/
 theorem po_euler_meromorphic_identity : EulerHypotheses R η →
@@ -7166,7 +7289,157 @@ theorem po_euler_meromorphic_identity : EulerHypotheses R η →
     {w | eulerNeighborhood ![ξ,w,z]}) ∧
   (∀ u ξ w, MeromorphicOn (fun z => continuedCalF R η U HA HC u ξ w z)
     {z | eulerNeighborhood ![ξ,w,z]}) := by
-  sorry
+  intro hEuler
+  have hOne : IsOfFinOrder (1 : HeckeChar F) :=
+    (isOfFinOrder_iff_pow_eq_one).2 ⟨1, by norm_num, by simp⟩
+  have hKummer (u : U.U) : IsOfFinOrder (U.kummer u) :=
+    euler_kummer_finiteOrder η U u hEuler.1
+  have hTwist (u : U.U) : IsOfFinOrder (η * (U.kummer u)⁻¹) := by
+    rw [← U.omega_induces_twist u]
+    exact U.omega_finiteOrder u
+  have hLSOne := euler_hecke_LS_meromorphic (S := S) (HA := HA)
+    (1 : HeckeChar F) hOne
+  have hProduct := prop_euler_product R η U HC HA hEuler
+  rcases hProduct with ⟨_, hCalF, _⟩
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro u ξ w z hreg
+    simpa [continuedCalF] using (hCalF u ξ w z hreg).symm
+  · intro u w z
+    let φ : ℂ → Triple := fun ξ => ![ξ, w, z]
+    have hφ : Differentiable ℂ φ := by
+      rw [differentiable_pi]
+      intro i
+      fin_cases i <;> simp [φ]
+    have hH := euler_H_slice_meromorphic R η U HC hEuler u φ hφ
+    have hdom : {ξ : ℂ | eulerNeighborhood ![ξ, w, z]} =
+        {ξ : ℂ | eulerNeighborhood (φ ξ)} := rfl
+    have hLSK := euler_hecke_LS_meromorphic (S := S) (HA := HA)
+      (U.kummer u) (hKummer u)
+    have hLST := euler_hecke_LS_meromorphic (S := S) (HA := HA)
+      (η * (U.kummer u)⁻¹)
+      (hTwist u)
+    have hH' : MeromorphicOn (fun ξ : ℂ => HC.H u ![ξ, w, z])
+        {ξ | eulerNeighborhood ![ξ, w, z]} := by
+      simpa [φ] using hH
+    have hNum : MeromorphicOn (fun ξ : ℂ =>
+        HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z])
+        {ξ | eulerNeighborhood ![ξ, w, z]} := by
+      intro ξ hξ
+      change MeromorphicAt
+        ((fun _ : ℂ => HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w) *
+          (fun ξ : ℂ => HC.H u ![ξ, w, z])) ξ
+      exact (MeromorphicAt.const _ ξ).mul (hH' ξ hξ)
+    have hDen : MeromorphicOn (HA.LS S (η * (U.kummer u)⁻¹))
+        {ξ | eulerNeighborhood ![ξ, w, z]} := by
+      intro ξ hξ
+      exact hLST ξ (Set.mem_univ _)
+    have hquot : MeromorphicOn (fun ξ : ℂ =>
+        HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z] /
+          HA.LS S (η * (U.kummer u)⁻¹) ξ)
+        {ξ | eulerNeighborhood ![ξ, w, z]} := by
+      intro ξ hξ
+      change MeromorphicAt
+        ((fun ξ : ℂ => HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w *
+          HC.H u ![ξ, w, z]) /
+        (fun ξ : ℂ => HA.LS S (η * (U.kummer u)⁻¹) ξ)) ξ
+      exact (hNum ξ hξ).div (hDen ξ hξ)
+    simpa [continuedCalF, Pi.div_apply] using hquot
+  · intro u ξ z
+    let φ : ℂ → Triple := fun w => ![ξ, w, z]
+    have hφ : Differentiable ℂ φ := by
+      rw [differentiable_pi]
+      intro i
+      fin_cases i <;> simp [φ]
+    have hH := euler_H_slice_meromorphic R η U HC hEuler u φ hφ
+    have hLSK := euler_hecke_LS_meromorphic (S := S) (HA := HA)
+      (U.kummer u) (hKummer u)
+    have hLST := euler_hecke_LS_meromorphic (S := S) (HA := HA)
+      (η * (U.kummer u)⁻¹)
+      (hTwist u)
+    have hH' : MeromorphicOn (fun w : ℂ => HC.H u ![ξ, w, z])
+        {w | eulerNeighborhood ![ξ, w, z]} := by
+      simpa [φ] using hH
+    have hNum : MeromorphicOn (fun w : ℂ =>
+        HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z])
+        {w | eulerNeighborhood ![ξ, w, z]} := by
+      intro w hw
+      have hK : MeromorphicAt (HA.LS S (U.kummer u)) w := hLSK w (Set.mem_univ _)
+      change MeromorphicAt
+        ((fun _ : ℂ => HA.LS S 1 (6 * z)) * (HA.LS S (U.kummer u)) *
+          (fun w : ℂ => HC.H u ![ξ, w, z])) w
+      simpa only [mul_assoc] using
+        ((MeromorphicAt.const _ w).mul hK).mul (hH' w hw)
+    have hDen : MeromorphicOn (fun _ : ℂ => HA.LS S (η * (U.kummer u)⁻¹) ξ)
+        {w | eulerNeighborhood ![ξ, w, z]} := by
+      intro w hw
+      exact MeromorphicAt.const _ w
+    have hquot : MeromorphicOn (fun w : ℂ =>
+        HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z] /
+          HA.LS S (η * (U.kummer u)⁻¹) ξ)
+        {w | eulerNeighborhood ![ξ, w, z]} := by
+      intro w hw
+      change MeromorphicAt
+        ((fun w : ℂ => HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w *
+          HC.H u ![ξ, w, z]) /
+        (fun _ : ℂ => HA.LS S (η * (U.kummer u)⁻¹) ξ)) w
+      exact (hNum w hw).div (hDen w hw)
+    simpa [continuedCalF, Pi.div_apply] using hquot
+  · intro u ξ w
+    let φ : ℂ → Triple := fun z => ![ξ, w, z]
+    let ψ : ℂ → ℂ := fun z => 6 * z
+    have hφ : Differentiable ℂ φ := by
+      rw [differentiable_pi]
+      intro i
+      fin_cases i <;> simp [φ]
+    have hψ : AnalyticOnNhd ℂ ψ {z : ℂ | eulerNeighborhood ![ξ, w, z]} := by
+      fun_prop
+    have hMap : Set.MapsTo ψ {z : ℂ | eulerNeighborhood ![ξ, w, z]} Set.univ :=
+      fun _ _ => Set.mem_univ _
+    have hH := euler_H_slice_meromorphic R η U HC hEuler u φ hφ
+    have hH' : MeromorphicOn (fun z : ℂ => HC.H u ![ξ, w, z])
+        {z | eulerNeighborhood ![ξ, w, z]} := by
+      simpa [φ] using hH
+    have hLSK := euler_hecke_LS_meromorphic (S := S) (HA := HA)
+      (U.kummer u) (hKummer u)
+    have hLST := euler_hecke_LS_meromorphic (S := S) (HA := HA)
+      (η * (U.kummer u)⁻¹)
+      (hTwist u)
+    have hLSOneComp : MeromorphicOn (fun z : ℂ => HA.LS S 1 (6 * z))
+        {z | eulerNeighborhood ![ξ, w, z]} := by
+      intro z hz
+      have hψAt := hψ z hz
+      have hLAt := hLSOne (6 * z) (Set.mem_univ _)
+      change MeromorphicAt (fun z : ℂ => HA.LS S 1 (ψ z)) z
+      have hcomp := hLAt.comp_analyticAt hψAt
+      change MeromorphicAt (fun z : ℂ => HA.LS S 1 (ψ z)) z at hcomp
+      simpa [ψ] using hcomp
+    have hNum : MeromorphicOn (fun z : ℂ =>
+        HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z])
+        {z | eulerNeighborhood ![ξ, w, z]} := by
+      intro z hz
+      have hK : MeromorphicAt (fun _ : ℂ => HA.LS S (U.kummer u) w) z :=
+        MeromorphicAt.const _ z
+      change MeromorphicAt
+        ((fun z : ℂ => HA.LS S 1 (6 * z)) *
+          (fun _ : ℂ => HA.LS S (U.kummer u) w) *
+          (fun z : ℂ => HC.H u ![ξ, w, z])) z
+      simpa only [mul_assoc] using
+        (hLSOneComp z hz).mul (hK.mul (hH' z hz))
+    have hDen : MeromorphicOn (fun _ : ℂ => HA.LS S (η * (U.kummer u)⁻¹) ξ)
+        {z | eulerNeighborhood ![ξ, w, z]} := by
+      intro z hz
+      exact MeromorphicAt.const _ z
+    have hquot : MeromorphicOn (fun z : ℂ =>
+        HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w * HC.H u ![ξ, w, z] /
+          HA.LS S (η * (U.kummer u)⁻¹) ξ)
+        {z | eulerNeighborhood ![ξ, w, z]} := by
+      intro z hz
+      change MeromorphicAt
+        ((fun z : ℂ => HA.LS S 1 (6 * z) * HA.LS S (U.kummer u) w *
+          HC.H u ![ξ, w, z]) /
+        (fun _ : ℂ => HA.LS S (η * (U.kummer u)⁻¹) ξ)) z
+      exact (hNum z hz).div (hDen z hz)
+    simpa [continuedCalF, Pi.div_apply] using hquot
 end FinalPoissonClauses
 section CanonicalEulerObject
 variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
