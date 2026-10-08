@@ -2470,6 +2470,25 @@ private theorem qs_p1_mellin_vertical_polynomial_decay_uniform (h : ℝ → ℂ)
           mul_le_mul_of_nonneg_left hscalePow hC
         _ = (C * (2 * Real.pi) ^ N) * (1 + |w|) ^ N := by ring
 
+private theorem qs_p1_mellin_differentiableAt (h : ℝ → ℂ) (hh : IsQSWeight h)
+    {s : ℂ} (hs : 0 < s.re) : DifferentiableAt ℂ (mellin h) s := by
+  obtain ⟨B, hB⟩ := hh.2.1
+  have hlocal : LocallyIntegrableOn h (Set.Ioi (0 : ℝ)) :=
+    hh.1.continuous.continuousOn.locallyIntegrableOn measurableSet_Ioi
+  have htop : h =O[atTop] (fun x : ℝ => x ^ (-(s.re + 1) : ℝ)) := by
+    rw [Asymptotics.isBigO_iff_eventually]
+    filter_upwards [eventually_atTop.2 ⟨1, fun _ hx => hx⟩] with C hC
+    filter_upwards [eventually_atTop.2 ⟨max B 1, fun _ hx => hx⟩] with x hx
+    have hxB : B ≤ x := (le_max_left _ _).trans hx
+    simp [hB x hxB]
+    have hx1 : 1 ≤ x := (le_max_right _ _).trans hx
+    positivity
+  have hbot : h =O[nhdsWithin 0 (Set.Ioi (0 : ℝ))] (fun _ : ℝ => (1 : ℂ)) := by
+    simpa using
+      (hh.1.continuous.continuousAt.mono_left nhdsWithin_le_nhds).isBigO_one ℂ
+  exact mellin_differentiableAt_of_isBigO_rpow (a := s.re + 1) (b := 0) hlocal htop
+    (by linarith) (by simpa using hbot) hs
+
 private theorem qs_p1_vertical_integral_shift (F : ℂ → ℂ) (a b : ℝ) (hab : a < b)
     (hcont : ContinuousOn F {z : ℂ | a ≤ z.re ∧ z.re ≤ b})
     (hdiff : ∀ z : ℂ, a < z.re → z.re < b → DifferentiableAt ℂ F z)
@@ -2640,6 +2659,116 @@ private theorem qs_p1_vertical_integral_shift (F : ℂ → ℂ) (a b : ℝ) (hab
     exact tendsto_zero_iff_norm_tendsto_zero.mpr hnorm
   have hEq := tendsto_nhds_unique hdiffLimit hzero
   exact (sub_eq_zero.mp hEq).symm
+
+private theorem qs_p1_original_mellin_vertical_shift
+    (h : ℝ → ℂ) (hh : IsQSWeight h) (X : ℝ) (hX : 0 < X)
+    (Lc : ℂ → ℂ) (hLc : Differentiable ℂ Lc)
+    (hbound : ∃ C α : ℝ, 0 ≤ C ∧ 0 ≤ α ∧
+      ∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 →
+        ‖Lc s‖ ≤ C * (2 + |s.im|) ^ α) :
+    ∫ t : ℝ,
+      (X : ℂ) ^ ((2 : ℂ) + (t : ℂ) * Complex.I) *
+        Lc ((2 : ℂ) + (t : ℂ) * Complex.I) *
+        mellin h ((2 : ℂ) + (t : ℂ) * Complex.I) =
+    ∫ t : ℝ,
+      (X : ℂ) ^ ((1 / 2 : ℂ) + (t : ℂ) * Complex.I) *
+        Lc ((1 / 2 : ℂ) + (t : ℂ) * Complex.I) *
+        mellin h ((1 / 2 : ℂ) + (t : ℂ) * Complex.I) := by
+  classical
+  obtain ⟨Cₗ, α, hCₗ, hα, hLbound⟩ := hbound
+  letI : NeZero (X : ℂ) := ⟨Complex.ofReal_ne_zero.mpr hX.ne'⟩
+  let F : ℂ → ℂ := fun s => (X : ℂ) ^ s * Lc s * mellin h s
+  let S : Set ℂ := {s | 1 / 2 ≤ s.re ∧ s.re ≤ 2}
+  have hpowCont : Continuous (fun s : ℂ => (X : ℂ) ^ s) := by fun_prop
+  have hMellinCont : ContinuousOn (mellin h) S := by
+    intro s hs
+    change 1 / 2 ≤ s.re ∧ s.re ≤ 2 at hs
+    have hspos : 0 < s.re := by linarith
+    exact (qs_p1_mellin_differentiableAt h hh hspos).continuousAt.continuousWithinAt
+  have hFcont : ContinuousOn F S := by
+    change ContinuousOn (fun s : ℂ =>
+      ((X : ℂ) ^ s * Lc s) * mellin h s) S
+    exact (hpowCont.continuousOn.mul hLc.continuous.continuousOn).mul hMellinCont
+  have hFdiff : ∀ s : ℂ, 1 / 2 < s.re → s.re < 2 → DifferentiableAt ℂ F s := by
+    intro s hs₁ hs₂
+    have hspos : 0 < s.re := by linarith
+    change DifferentiableAt ℂ (fun z : ℂ =>
+      ((X : ℂ) ^ z * Lc z) * mellin h z) s
+    exact ((differentiableAt_id.const_cpow (Or.inl (by exact Complex.ofReal_ne_zero.mpr hX.ne'))).mul
+      (hLc s)).mul (qs_p1_mellin_differentiableAt h hh hspos)
+  let N : ℕ := ⌈α + 2⌉₊ + 1
+  have hαN : α ≤ (N : ℝ) := by
+    dsimp [N]
+    have hceil : α + 2 ≤ (⌈α + 2⌉₊ : ℝ) := Nat.le_ceil _
+    push_cast
+    linarith
+  obtain ⟨Cₘ, hCₘ, hMellin⟩ :=
+    qs_p1_mellin_vertical_polynomial_decay_uniform h hh (1 / 2) 2 (by norm_num) (by norm_num) (N + 2)
+  let D : ℝ := max (X ^ (2 : ℝ)) (X ^ ((1 / 2 : ℝ)))
+  have hD : 0 ≤ D := by
+    dsimp [D]
+    exact le_max_of_le_left (Real.rpow_nonneg hX.le _)
+  have hXbound : ∀ r ∈ Set.Icc (1 / 2 : ℝ) 2, X ^ r ≤ D := by
+    intro r hr
+    by_cases hXone : 1 ≤ X
+    · exact (Real.rpow_le_rpow_of_exponent_le hXone hr.2).trans (le_max_left _ _)
+    · have hXle : X ≤ 1 := le_of_not_ge hXone
+      exact (Real.rpow_le_rpow_of_exponent_ge hX hXle hr.1).trans (le_max_right _ _)
+  have hdecay : ∃ C : ℝ, 0 ≤ C ∧ ∀ s : ℂ, 1 / 2 ≤ s.re → s.re ≤ 2 →
+      ‖F s‖ ≤ C / (1 + |s.im|) ^ 2 := by
+    refine ⟨D * Cₗ * (2 : ℝ) ^ α * Cₘ, by positivity, ?_⟩
+    intro s hs₁ hs₂
+    let u : ℝ := 1 + |s.im|
+    have hu : 0 < u := by dsimp [u]; positivity
+    have hu1 : 1 ≤ u := by dsimp [u]; nlinarith [abs_nonneg s.im]
+    have hsline : s.re ∈ Set.Icc (1 / 2 : ℝ) 2 := ⟨hs₁, hs₂⟩
+    have hM := hMellin s.re hsline s.im
+    have hlineEq : (s.re : ℂ) + (s.im : ℂ) * Complex.I = s := by
+      apply Complex.ext <;> simp
+    rw [hlineEq] at hM
+    have hLc := hLbound s (by linarith [hs₁]) (by linarith [hs₂])
+    have hheight : (2 + |s.im|) ^ α ≤ (2 : ℝ) ^ α * u ^ N := by
+      have hfactor : 2 + |s.im| ≤ 2 * u := by
+        dsimp [u]
+        nlinarith [abs_nonneg s.im]
+      calc
+        (2 + |s.im|) ^ α ≤ (2 * u) ^ α :=
+          Real.rpow_le_rpow (by positivity) hfactor hα
+        _ = (2 : ℝ) ^ α * u ^ α := by
+          rw [Real.mul_rpow (by norm_num) (le_of_lt hu)]
+        _ ≤ (2 : ℝ) ^ α * u ^ (N : ℝ) := by
+          exact mul_le_mul_of_nonneg_left
+            (Real.rpow_le_rpow_of_exponent_le hu1 hαN) (Real.rpow_nonneg (by norm_num) _)
+        _ = (2 : ℝ) ^ α * u ^ N := by rw [Real.rpow_natCast]
+    have hXnorm : ‖(X : ℂ) ^ s‖ ≤ D := by
+      rw [Complex.norm_cpow_eq_rpow_re_of_pos hX]
+      exact hXbound s.re hsline
+    have hprod : ‖F s‖ ≤ D * (Cₗ * (2 + |s.im|) ^ α) *
+        (Cₘ / u ^ (N + 2)) := by
+      dsimp [F]
+      calc
+        _ = (‖(X : ℂ) ^ s‖ * ‖Lc s‖) * ‖mellin h s‖ := by simp [norm_mul]
+        _ ≤ D * (Cₗ * (2 + |s.im|) ^ α) * (Cₘ / u ^ (N + 2)) := by
+          exact mul_le_mul (mul_le_mul hXnorm hLc (norm_nonneg _) hD) hM
+            (norm_nonneg _) (by positivity)
+    have hfinal : D * (Cₗ * (2 + |s.im|) ^ α) *
+        (Cₘ / u ^ (N + 2)) ≤ (D * Cₗ * (2 : ℝ) ^ α * Cₘ) / u ^ 2 := by
+      have huPow : u ^ (N + 2) = u ^ N * u ^ 2 := by rw [pow_add]
+      calc
+        _ ≤ D * (Cₗ * ((2 : ℝ) ^ α * u ^ N)) * (Cₘ / u ^ (N + 2)) := by
+          apply mul_le_mul_of_nonneg_right _ (by positivity)
+          apply mul_le_mul_of_nonneg_left
+          · exact mul_le_mul_of_nonneg_left hheight hCₗ
+          · exact hD
+        _ = D * (Cₗ * ((2 : ℝ) ^ α * u ^ N)) * (Cₘ / (u ^ N * u ^ 2)) := by
+          rw [huPow]
+        _ = (D * Cₗ * (2 : ℝ) ^ α * Cₘ) / u ^ 2 := by
+          field_simp [ne_of_gt hu]
+    exact hprod.trans hfinal
+  have hshift := qs_p1_vertical_integral_shift F (1 / 2) 2 (by norm_num)
+    hFcont hFdiff hdecay
+  simpa [F] using hshift.symm
+
 
 /-- The Mellin transform of a QS weight decays faster than any fixed polynomial on every
 positive vertical line. -/
