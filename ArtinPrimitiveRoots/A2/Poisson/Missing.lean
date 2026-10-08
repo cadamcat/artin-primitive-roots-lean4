@@ -10,6 +10,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeFrequencySeparation
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogRegularity
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueAdditiveSieve
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueLift
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueMask
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
@@ -1459,6 +1460,22 @@ private theorem po_probe_low_labeled_sieve (K : Set S.FS) (hK : IsCompact K) :
             ‖∑ p : L, c p * additivePhase S A m.1 (α p)‖ ^ 2) ≤
             C * (N + V ^ 2) * ∑ p : L, ‖c p‖ ^ 2 := by
   exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.additive_sieve_labeled D S H A Bd bc K hK
+
+private theorem po_probe_low_residue_additive_sieve (K : Set S.FS) (hK : IsCompact K) :
+    ∃ B C : ℝ, 2 ≤ B ∧ 0 < C ∧ ∀ Y N : ℝ, 1 ≤ Y → (hN : 2 ≤ N) →
+      ∃ P : Finset S.ExtIdeal,
+        (∀ s : S.ExtIdeal, s ∈ P ↔ W.W1 (qI s.1 / Y) ≠ 0) ∧
+        ∀ ρ : ∀ s : S.ExtIdeal, ResidueRing R.exterior s → ℂ,
+          (∀ s d, ‖ρ s d‖ ≤ 1) →
+          (∀ s d, ¬ IsUnit d → ρ s d = 0) →
+          (∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+            ‖∑ s ∈ P, ∑ᶠ d : ResidueRing R.exterior s,
+              (Y : ℂ)⁻¹ * ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ρ s d *
+                S.e A (S.diag (-(m.1 : F) * (d.out : F) / (bc.gen s : F)))‖ ^ 2) ≤
+            C * (N + (B * Y) ^ 2) / Y := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_residue_additive_sieve
+    A R.exterior K hK W.W1 W.W1_compact W.W1_positive_support
+    W.W1_smooth.continuous W.W1_nonzero
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
