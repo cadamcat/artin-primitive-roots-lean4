@@ -424,7 +424,9 @@ theorem sheetGeometry_exists (D : FieldData F) (S : SData F CE condη)
       simpa [ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheetGammaAction] using hOmegaPartition
     omega_bounded := ⟨K, hKcompact, hOmegaK⟩
     sheet_translate := by
-      sorry
+      intro a T hT
+      simpa [sheet] using
+        ArtinPrimitiveRoots.Proofs.a2_prod_sol.sheetMeasure_translate S μ v0 a T hT
     sheet_inversion := by
       sorry
     unitSixFinite := by

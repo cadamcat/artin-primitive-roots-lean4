@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».NORM
 import ArtinPrimitiveRoots.A1.SLattice
 import ArtinPrimitiveRoots.Theta.LocalInt
 import ArtinPrimitiveRoots.Theta.AnalysisS
+import ArtinPrimitiveRoots.A2.Proofs.A2_PRODUCERS.Angles
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
 import Mathlib.Algebra.Group.Prod
 import Mathlib.LinearAlgebra.Countable
@@ -1558,6 +1559,107 @@ private theorem a2_prod_sol_sheetPoint_mul
           rw [Complex.norm_mul_exp_arg_mul_I]
         _ = _ := by ring
     · simp only [Prod.snd_mul, Pi.mul_apply, Theta.sheetPoint, dif_neg hw]
+
+theorem _root_.ArtinPrimitiveRoots.Proofs.a2_prod_sol.sheetMeasure_translate
+    (S : SData F CE condη) (μ : ∀ v : FinPlace F, Theta.LocHaar v)
+    (v0 : InfinitePlace F) (a : S.FSˣ) (T : ℝ) (hT : 0 < T) :
+    Measure.map (fun y : S.FS => (a : S.FS) * y) (sheetMeasure S μ v0 T) =
+      sheetMeasure S μ v0 (S.absS (a : S.FS) * T) := by
+  classical
+  let ν : Measure (SheetFree S v0) :=
+    (Measure.pi fun v : S.Sf => Theta.mulHaarFin (μ v.1)).prod
+      (Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => Theta.mulHaarC)
+  let νθ : Measure ℝ := volume.restrict (Set.Ioc (0 : ℝ) 1)
+  have hlocal := ArtinPrimitiveRoots.Proofs.thsol_sheets.local_measure_substrate μ
+  letI : ∀ v : S.Sf, SigmaFinite (Theta.mulHaarFin (μ v.1)) :=
+    fun v => (hlocal.1 v.1).2.2.2.2
+  letI : SigmaFinite Theta.mulHaarC := hlocal.2.2
+  letI : SFinite ν := by
+    dsimp [ν]
+    infer_instance
+  letI : SFinite νθ := by infer_instance
+  let R : ℝ := S.absS (a : S.FS) * T
+  let c : ℝ := Complex.arg ((a : S.FS).2 v0) / (2 * Real.pi)
+  let B : SheetFree S v0 → ℝ := fun p =>
+    (∏ v : S.Sf, A1.absFin v.1 (p.1 v)) *
+      ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w)
+  let g : SheetFree S v0 × ℂ → S.FS := fun q =>
+    (q.1.1, fun w => if h : w = v0 then
+      ((Real.sqrt (R / B q.1) : ℝ) : ℂ) * q.2 else q.1.2 ⟨w, h⟩)
+  let e : ℝ → ℂ := fun θ => Complex.exp (2 * Real.pi * Complex.I * (θ : ℂ))
+  let es : ℝ → ℂ := fun θ =>
+    Complex.exp (2 * Real.pi * Complex.I * ((θ + c : ℝ) : ℂ))
+  let tr : SheetFree S v0 → SheetFree S v0 := fun p =>
+    (fun v => (a : S.FS).1 v * p.1 v,
+     fun w => (a : S.FS).2 w.1 * p.2 w)
+  let g0 : SheetFree S v0 × ℝ → SheetFree S v0 × ℂ := Prod.map id e
+  let gs : SheetFree S v0 × ℝ → SheetFree S v0 × ℂ := Prod.map tr es
+  have hB : Measurable B := by
+    dsimp [B]
+    apply Measurable.mul
+    · apply Finset.measurable_fun_prod
+      intro v _
+      exact (hlocal.1 v.1).1.comp
+        ((measurable_pi_apply v).comp measurable_fst)
+    · apply Finset.measurable_fun_prod
+      intro w _
+      exact Complex.continuous_normSq.measurable.comp
+        ((measurable_pi_apply w).comp measurable_snd)
+  have hg : Measurable g := by
+    dsimp only [g]
+    apply Measurable.prodMk
+    · apply measurable_pi_iff.mpr
+      intro v
+      exact (measurable_pi_apply v).comp (measurable_fst.comp measurable_fst)
+    · apply measurable_pi_iff.mpr
+      intro w
+      by_cases hw : w = v0
+      · subst w
+        simp only [dite_eq_left rfl]
+        change Measurable (fun q : SheetFree S v0 × ℂ =>
+          ((Real.sqrt (R / B q.1) : ℝ) : ℂ) * q.2)
+        fun_prop
+      · simp only [dite_eq_right hw]
+        change Measurable (fun q : SheetFree S v0 × ℂ =>
+          q.1.2 (⟨w, hw⟩ : {w : InfinitePlace F // w ≠ v0}))
+        exact (measurable_pi_apply (⟨w, hw⟩ : {w : InfinitePlace F // w ≠ v0})).comp
+          (measurable_snd.comp measurable_fst)
+  have he : Measurable e := by fun_prop
+  have hes : Measurable es := by fun_prop
+  have htr : MeasurePreserving tr ν ν := by
+    exact a2_prod_sol_sheetFree_mul_preserving S μ v0 a
+  have hg0 : Measurable g0 := measurable_id.prodMap he
+  have hgs : Measurable gs := htr.measurable.prodMap hes
+  have hangle : Measure.map es νθ = Measure.map e νθ := by
+    simpa only [es, e, νθ, Complex.ofReal_add] using
+      ArtinPrimitiveRoots.Proofs.a2_prod_sol.angle_translate c
+  have hpush : Measure.map gs (ν.prod νθ) = Measure.map g0 (ν.prod νθ) := by
+    calc
+      _ = (Measure.map tr ν).prod (Measure.map es νθ) :=
+        (Measure.map_prod_map ν νθ htr.measurable hes).symm
+      _ = ν.prod (Measure.map e νθ) := by rw [htr.map_eq, hangle]
+      _ = _ := by
+        simpa only [g0, Measure.map_id] using
+          (Measure.map_prod_map (f := id) (g := e) ν νθ measurable_id he)
+  let m : S.FS → S.FS := fun y => (a : S.FS) * y
+  have hm : Measurable m := (continuous_const.mul continuous_id).measurable
+  have hpoint : (m ∘ sheetParameterMap S v0 T) =ᵐ[ν.prod νθ] (g ∘ gs) := by
+    filter_upwards [sheetParameter_nonzero_ae S μ v0] with q hq
+    change (a : S.FS) * Theta.sheetPoint S v0 T q.1 q.2 = g (gs q)
+    rw [a2_prod_sol_sheetPoint_mul S v0 a T hT q.1 q.2 hq.1 hq.2]
+    rfl
+  change Measure.map m
+      (Measure.map (sheetParameterMap S v0 T) (ν.prod νθ)) =
+    Measure.map (sheetParameterMap S v0 R) (ν.prod νθ)
+  calc
+    _ = Measure.map (m ∘ sheetParameterMap S v0 T) (ν.prod νθ) :=
+      Measure.map_map hm (sheetParameterMap_measurable S μ v0 T)
+    _ = Measure.map (g ∘ gs) (ν.prod νθ) := Measure.map_congr hpoint
+    _ = Measure.map g (Measure.map gs (ν.prod νθ)) :=
+      (Measure.map_map hg hgs).symm
+    _ = Measure.map g (Measure.map g0 (ν.prod νθ)) := by rw [hpush]
+    _ = Measure.map (g ∘ g0) (ν.prod νθ) := Measure.map_map hg hg0
+    _ = _ := rfl
 
 private theorem sheet_integral_Ioc_periodic_translate (g : ℝ → ℂ)
     (hg : Function.Periodic g 1) (c : ℝ) :
