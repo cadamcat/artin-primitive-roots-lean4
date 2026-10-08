@@ -523,13 +523,6 @@ def reflectionMass (retained : Bool) (υ : UnitSix S) (P D0 Z δ : ℝ) : ℝ :=
     D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
       ‖splitReflection R retained υ hd.1 hd.2 Z (reflectionColumnCutoff P D0 Z δ)‖ ^ 2 else 0
 
-/-- rf:tail-mass, 04:1046–1117, uniformly including R₀<1. -/
-theorem rf_tail_mass : ∀ δ δ₁ σ N : ℝ, 0 < δ → 0 < δ₁ → 1 / 2 < σ → σ < N →
-  ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z, 1 ≤ P → 1 ≤ D0 → 2 ≤ Z →
-    reflectionMass R false υ P D0 Z δ ≤ C * P ^ (1 / 2 + 2 * δ₁) * D0 *
-      reflectionColumnLength P D0 Z ^ (2 * σ) *
-        max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) := by
-  sorry
 /-- rf:retained-mass, 04:1119–1196. The constant can depend on fixed δ. -/
 theorem rf_retained_mass : ∀ δ δ₁ δ₂ : ℝ, 0 < δ → 0 < δ₁ → 0 < δ₂ →
   ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z, 1 ≤ P → 1 ≤ D0 → 2 ≤ Z →
@@ -832,12 +825,17 @@ private lemma rf_betaIdeal_nonneg (f a : S.ExtIdeal) : 0 ≤ betaIdeal R f a := 
   split_ifs <;> positivity
 
 set_option maxHeartbeats 4000000
-/-- rf:tail-mass: pointwise active/slice bound, before summing squares over powerful parts. -/
-theorem rf_tail_bound : ∀ δ σ N : ℝ, 0 < δ → 1 / 2 < σ → σ < N →
+/-- Absolute-summability form of the pointwise discarded-slice bound. -/
+private theorem rf_tail_bound_abs : ∀ δ σ N : ℝ, 0 < δ → 1 / 2 < σ → σ < N →
   ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z h d f u sd sc,
     1 ≤ P → 1 ≤ D0 → 2 ≤ Z → P ≤ qI h.1 → qI h.1 < 2 * P →
     D0 ≤ qI d.1 → qI d.1 < 2 * D0 → IsPowerful h.1 → activeFactor R h f →
-    ‖activePartial R false υ h d f u sd sc Z (reflectionColumnCutoff P D0 Z δ)‖ ≤
+    let R0 := reflectionColumnCutoff P D0 Z δ
+    let Src := {t : FrozenIndex R h // t.f = f ∧ t.u = u} × S.SqfExtIdeal
+    Summable (fun p : Src => ‖if (qI p.1.1.a.1 * qI p.2.1 * qI p.1.1.n.1 ^ 3 ≤ R0) = false then
+      reflectedTerm R υ h d Z (p.1.1, sd, sc, p.2) else 0‖) ∧
+    (∑' p : Src, ‖if (qI p.1.1.a.1 * qI p.2.1 * qI p.1.1.n.1 ^ 3 ≤ R0) = false then
+      reflectedTerm R υ h d Z (p.1.1, sd, sc, p.2) else 0‖) ≤
       C * reflectionColumnLength P D0 Z ^ σ *
         max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-(N - σ)) *
           sphericalMajorant (S := S) σ * Eideal R f σ := by
@@ -1146,8 +1144,6 @@ theorem rf_tail_bound : ∀ δ σ N : ℝ, 0 < δ → 1 / 2 < σ → σ < N →
   have hActSummable : Summable act :=
     Summable.of_norm_bounded hScaledNorm hpointNorm
   have hActNorm : Summable (fun p : Src => ‖act p‖) := hActSummable.norm
-  have hsumNorm : ‖∑' p : Src, act p‖ ≤ ∑' p : Src, ‖act p‖ :=
-    norm_tsum_le_tsum_norm hActNorm
   have hsumPoint :
       (∑' p : Src, ‖act p‖) ≤
         ∑' p : Src, Cfac * reflectedDirichletTerm R f σ (ψ p) :=
@@ -1160,30 +1156,565 @@ theorem rf_tail_bound : ∀ δ σ N : ℝ, 0 < δ → 1 / 2 < σ → σ < N →
       Cfac * ∑' p : Src, reflectedDirichletTerm R f σ (ψ p) ≤
         Cfac * (sphericalMajorant (S := S) σ * Eideal R f σ) :=
     mul_le_mul_of_nonneg_left hMappedBound (le_of_lt hCfac)
-  have hActPartial :
+  have hsumAct :
+      (∑' p : Src, ‖act p‖) ≤
+        Cprof * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ * Eideal R f σ := by
+    calc
+      (∑' p : Src, ‖act p‖) ≤ ∑' p : Src, Cfac * reflectedDirichletTerm R f σ (ψ p) := hsumPoint
+      _ = Cfac * ∑' p : Src, reflectedDirichletTerm R f σ (ψ p) := hsumScaled
+      _ ≤ Cfac * (sphericalMajorant (S := S) σ * Eideal R f σ) := hsumDir
+      _ = Cprof * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ * Eideal R f σ := by
+        simp [Cfac, mul_assoc]
+  refine ⟨?_, ?_⟩
+  · simpa [act, not_le] using hActNorm
+  · simpa [act, not_le] using hsumAct
+
+/-- rf:tail-mass: pointwise active/slice bound, before summing squares over powerful parts. -/
+theorem rf_tail_bound : ∀ δ σ N : ℝ, 0 < δ → 1 / 2 < σ → σ < N →
+  ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z h d f u sd sc,
+    1 ≤ P → 1 ≤ D0 → 2 ≤ Z → P ≤ qI h.1 → qI h.1 < 2 * P →
+    D0 ≤ qI d.1 → qI d.1 < 2 * D0 → IsPowerful h.1 → activeFactor R h f →
+    ‖activePartial R false υ h d f u sd sc Z (reflectionColumnCutoff P D0 Z δ)‖ ≤
+      C * reflectionColumnLength P D0 Z ^ σ *
+        max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-(N - σ)) *
+          sphericalMajorant (S := S) σ * Eideal R f σ := by
+  intro δ σ N hδ hσ hN
+  obtain ⟨C, hC, hbound⟩ := rf_tail_bound_abs R δ σ N hδ hσ hN
+  refine ⟨C, hC, ?_⟩
+  intro υ P D0 Z h d f u sd sc hP hD0 hZ hPh hPhigh hDd hDhigh hPower hActive
+  obtain ⟨hSummable, hNormBound⟩ :=
+    hbound υ P D0 Z h d f u sd sc hP hD0 hZ hPh hPhigh hDd hDhigh hPower hActive
+  let Src := {t : FrozenIndex R h // t.f = f ∧ t.u = u} × S.SqfExtIdeal
+  have hpartial :
       activePartial R false υ h d f u sd sc Z (reflectionColumnCutoff P D0 Z δ) =
-        ∑' p : Src, act p := by
-    unfold activePartial
-    apply tsum_congr
-    intro p
-    rcases p with ⟨⟨t, htu⟩, c⟩
-    change (if (qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0) = false then
-        reflectedTerm R υ h d Z (t, sd, sc, c) else 0) =
-      (if R0 < qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 then
-        reflectedTerm R υ h d Z (t, sd, sc, c) else 0)
-    by_cases hle : qI t.a.1 * qI c.1 * qI t.n.1 ^ 3 ≤ R0
-    · simp [hle, not_lt_of_ge hle]
-    · simp [hle, lt_of_not_ge hle]
-  rw [hActPartial]
-  change ‖∑' p : Src, act p‖ ≤
-    Cprof * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ * Eideal R f σ
-  calc
-    ‖∑' p : Src, act p‖ ≤ ∑' p : Src, ‖act p‖ := hsumNorm
-    _ ≤ ∑' p : Src, Cfac * reflectedDirichletTerm R f σ (ψ p) := hsumPoint
-    _ = Cfac * ∑' p : Src, reflectedDirichletTerm R f σ (ψ p) := hsumScaled
-    _ ≤ Cfac * (sphericalMajorant (S := S) σ * Eideal R f σ) := hsumDir
-    _ = Cprof * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ * Eideal R f σ := by
-      simp [Cfac, mul_assoc]
+        ∑' p : Src, if (qI p.1.1.a.1 * qI p.2.1 * qI p.1.1.n.1 ^ 3 ≤
+            reflectionColumnCutoff P D0 Z δ) = false then
+          reflectedTerm R υ h d Z (p.1.1, sd, sc, p.2) else 0 := by
+    rfl
+  rw [hpartial]
+  exact (norm_tsum_le_tsum_norm hSummable).trans hNormBound
+
+set_option maxHeartbeats 8000000 in
+private lemma rf_squarefree_support_finite (h : S.ExtIdeal) (hh : IsPowerful h.1) :
+    Finite {f : S.ExtIdeal // Squarefree f.1 ∧
+      ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h} := by
+  classical
+  let h6 : S.ExtIdeal := R.exterior.pow h 6
+  have h6power : IsPowerful h6.1 := by
+    intro v hv
+    have hvh : v.asIdeal ∣ h.1 := by
+      have hv' : v.asIdeal ∣ h.1 ^ 6 := by
+        simpa [h6, R.exterior.pow_val] using hv
+      exact v.prime.dvd_of_dvd_pow hv'
+    have hp2 : v.asIdeal ^ 2 ∣ h.1 := hh v hvh
+    have hh6 : h.1 ∣ h6.1 := by
+      dsimp [h6]
+      rw [R.exterior.pow_val]
+      exact dvd_pow_self h.1 (by norm_num : (6 : ℕ) ≠ 0)
+    exact dvd_trans hp2 hh6
+  have hexp (v : FinPlace F) : idealExp v h6.1 = 6 * idealExp v h.1 := by
+    dsimp [idealExp, h6]
+    rw [R.exterior.pow_val]
+    exact Associates.count_pow (Associates.mk_ne_zero.mpr h.2.1)
+      v.associates_irreducible 6
+  have hactive (f : {f : S.ExtIdeal // Squarefree f.1 ∧
+      ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h}) : activeFactor R h6 f.1 := by
+    refine ⟨f.2.1, ?_, ?_⟩
+    · intro v hv
+      apply (R.exterior.mem_support h6 v).2
+      rw [R.exterior.pow_val]
+      exact dvd_trans ((R.exterior.mem_support h v).1 (f.2.2 v hv))
+        (dvd_pow_self h.1 (by norm_num : (6 : ℕ) ≠ 0))
+    · intro v hv hn
+      have hzero : idealExp v h6.1 % 6 = 0 := by rw [hexp]; simp
+      exact (hn hzero).elim
+  have hqfsq (f : {f : S.ExtIdeal // Squarefree f.1 ∧
+      ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h}) :
+      qI f.1.1 ^ 2 ≤ qI h6.1 :=
+    (rf_active_support_bounds R).1 h6 f.1 h6power (hactive f)
+  have hqh6 : qI h6.1 = qI h.1 ^ 6 := by
+    simp [h6, qI, R.exterior.pow_val]
+  have hnormBound (f : {f : S.ExtIdeal // Squarefree f.1 ∧
+      ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h}) :
+      qI f.1.1 ≤ qI h.1 ^ 3 := by
+    have hqf : 0 ≤ qI f.1.1 := by
+      change 0 ≤ (Ideal.absNorm f.1.1 : ℝ)
+      exact Nat.cast_nonneg _
+    have hqh : 0 ≤ qI h.1 := by
+      change 0 ≤ (Ideal.absNorm h.1 : ℝ)
+      exact Nat.cast_nonneg _
+    have hsquare : qI f.1.1 ^ 2 ≤ qI h.1 ^ 6 := by
+      rw [← hqh6]
+      exact hqfsq f
+    calc
+      qI f.1.1 = Real.sqrt (qI f.1.1 ^ 2) := by
+        rw [Real.sqrt_sq_eq_abs, abs_of_nonneg hqf]
+      _ ≤ Real.sqrt (qI h.1 ^ 6) := Real.sqrt_le_sqrt hsquare
+      _ = qI h.1 ^ 3 := by
+        rw [show qI h.1 ^ 6 = (qI h.1 ^ 3) ^ 2 by ring,
+          Real.sqrt_sq_eq_abs, abs_of_nonneg (by positivity)]
+  let X : ℝ := qI h.1 ^ 3
+  have hX : 0 ≤ X := by
+    dsimp [X]
+    exact pow_nonneg (le_of_lt (rf_qI_pos_ge_one h.1 h.2.1).1) 3
+  have hnormFinite : {f : S.ExtIdeal | qI f.1 ≤ X}.Finite := by
+    have hfinite := (a2_bridge_COUNT_finite S X hX).1
+    simpa [X, qI, idealNorm] using hfinite
+  letI : Fintype {f : S.ExtIdeal // qI f.1 ≤ X} := hnormFinite.fintype
+  apply Finite.of_injective (fun f => (⟨f.1, by simpa [X] using hnormBound f⟩ :
+      {f : S.ExtIdeal // qI f.1 ≤ X}))
+  intro f g hfg
+  rcases f with ⟨f, hf⟩
+  rcases g with ⟨g, hg⟩
+  have hfg' : f = g := congrArg
+    (fun z : {f : S.ExtIdeal // qI f.1 ≤ X} => z.1) hfg
+  subst g
+  rfl
+
+private lemma rf_Eideal_nonneg (f : S.ExtIdeal) {σ : ℝ} (hσ : 0 ≤ σ) :
+    0 ≤ Eideal R f σ := by
+  unfold Eideal
+  apply Finset.prod_nonneg
+  intro v hv
+  have hvS : v ∉ S.Sf := R.exterior.support_exterior f v hv
+  obtain ⟨hsum, _, _⟩ := (rf_active_support_bounds R).2.2.1 v hvS σ hσ
+  have hq : 1 < qI v.asIdeal := qI_prime_gt_one v
+  have hqpos : 0 < qI v.asIdeal := lt_trans (by norm_num) hq
+  apply tsum_nonneg
+  intro e
+  have hbeta : 0 ≤ betaPrime (qI v.asIdeal) (qI_prime_gt_one v) e := by
+    unfold betaPrime
+    by_cases h0 : e = 0
+    · rw [if_pos h0]
+      norm_num
+    · by_cases h1 : e % 3 = 1
+      · rw [if_neg h0, if_pos h1]
+        exact Real.rpow_nonneg hqpos.le _
+      · by_cases h2 : e % 3 = 0
+        · rw [if_neg h0, if_neg h1, if_pos h2]
+          exact Real.rpow_nonneg hqpos.le _
+        · rw [if_neg h0, if_neg h1, if_neg h2]
+  exact mul_nonneg hbeta (Real.rpow_nonneg hqpos.le _)
+
+private lemma rf_sphericalMajorant_nonneg (σ : ℝ) :
+    0 ≤ sphericalMajorant (S := S) σ := by
+  unfold sphericalMajorant
+  apply tsum_nonneg
+  intro p
+  have hq1 : 0 ≤ qI p.1.1 := by
+    change 0 ≤ (Ideal.absNorm p.1.1 : ℝ)
+    exact Nat.cast_nonneg _
+  have hq2 : 0 ≤ qI p.2.1 := by
+    change 0 ≤ (Ideal.absNorm p.2.1 : ℝ)
+    exact Nat.cast_nonneg _
+  exact mul_nonneg (Real.rpow_nonneg hq1 _) (Real.rpow_nonneg hq2 _)
+
+set_option maxHeartbeats 4000000 in
+private lemma rf_tail_split_bound : ∀ δ δ₁ σ N : ℝ, 0 < δ → 0 < δ₁ →
+  1 / 2 < σ → σ < N → ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z h d,
+    1 ≤ P → 1 ≤ D0 → 2 ≤ Z → P ≤ qI h.1 → qI h.1 < 2 * P →
+    D0 ≤ qI d.1 → qI d.1 < 2 * D0 → IsPowerful h.1 →
+    ‖splitReflection R false υ h d Z (reflectionColumnCutoff P D0 Z δ)‖ ≤
+      C * P ^ δ₁ * reflectionColumnLength P D0 Z ^ σ *
+        max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-(N - σ)) := by
+  intro δ δ₁ σ N hδ hδ₁ hσ hN
+  obtain ⟨Ctail, hCtail, hTail⟩ := rf_tail_bound_abs R δ σ N hδ hσ hN
+  obtain ⟨Cact, hCact, hActBound⟩ := (rf_active_support_bounds R).2.2.2 δ₁ hδ₁
+  classical
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  letI : Fintype S.V := R.sheets.classFinite
+  letI : Fintype Bd.B := inferInstance
+  let Slice : Type := UnitSix S × Bd.B × Bd.B
+  let Cslice : ℝ := Fintype.card Slice
+  refine ⟨max 1 (Ctail * Cact * Cslice * 2 ^ δ₁ *
+    sphericalMajorant (S := S) σ), ?_, ?_⟩
+  · positivity
+  · intro υ P D0 Z h d hP hD0 hZ hPh hPhigh hDd hDhigh hPower
+    let R0 := reflectionColumnCutoff P D0 Z δ
+    let L := reflectionColumnLength P D0 Z
+    let J := max (Z ^ δ) L⁻¹
+    have hPpos : 0 < P := by linarith
+    have hDpos : 0 < D0 := by linarith
+    have hZpos : 0 < Z := by linarith
+    have hqHpos : 0 < qI h.1 := (rf_qI_pos_ge_one h.1 h.2.1).1
+    have hLpos : 0 < L := by dsimp [L, reflectionColumnLength]; positivity
+    have hJpos : 0 < J := by
+      apply lt_of_lt_of_le (Real.rpow_pos_of_pos hZpos δ)
+      exact le_max_left _ _
+    have hJpow : 0 < J ^ (-(N - σ)) := Real.rpow_pos_of_pos hJpos _
+    have hMaj : 0 ≤ sphericalMajorant (S := S) σ := rf_sphericalMajorant_nonneg σ
+    let F0 : Type := {f : S.ExtIdeal // Squarefree f.1 ∧
+      ∀ v ∈ R.exterior.support f, v ∈ R.exterior.support h}
+    letI : Finite F0 := rf_squarefree_support_finite R h hPower
+    letI : Fintype F0 := Fintype.ofFinite F0
+    let Active : Type := {f : F0 // activeFactor R h f.1}
+    letI : Fintype Active := Subtype.fintype (fun f : F0 => activeFactor R h f.1)
+    let Base : Type := Active × Slice
+    let Fiber (b : Base) : Type :=
+      {t : FrozenIndex R h // t.f = b.1.1.1 ∧ t.u = b.2.1} × S.SqfExtIdeal
+    let Source : Type := FrozenIndex R h × Bd.B × Bd.B × S.SqfExtIdeal
+    let mkActive (t : FrozenIndex R h) : Active :=
+      ⟨⟨t.f, ⟨t.active.1, t.active.2.1⟩⟩, t.active⟩
+    let baseOf (p : Source) : Base :=
+      (mkActive p.1, p.1.u, p.2.1, p.2.2.1)
+    let tailTerm (p : Source) : ℂ :=
+      if (qI p.1.a.1 * qI p.2.2.2.1 * qI p.1.n.1 ^ 3 ≤ R0) = false then
+        reflectedTerm R υ h d Z (p.1, p.2.1, p.2.2.1, p.2.2.2) else 0
+    let blockTerm (b : Base) (x : Fiber b) : ℂ :=
+      if (qI x.1.1.a.1 * qI x.2.1 * qI x.1.1.n.1 ^ 3 ≤ R0) = false then
+        reflectedTerm R υ h d Z (x.1.1, b.2.2.1, b.2.2.2, x.2) else 0
+    let e : Source ≃ Σ b : Base, Fiber b :=
+      { toFun := fun p => ⟨baseOf p,
+          (⟨p.1, ⟨rfl, rfl⟩⟩, p.2.2.2)⟩
+        invFun := fun z =>
+          (z.2.1.1, (z.1.2.2.1, (z.1.2.2.2, z.2.2)))
+        left_inv := by
+          intro p
+          rcases p with ⟨t, sd, sc, c⟩
+          rfl
+        right_inv := by
+          intro z
+          rcases z with ⟨b, x⟩
+          rcases b with ⟨a, u, sd, sc⟩
+          rcases a with ⟨f0, ha⟩
+          rcases f0 with ⟨f, hf⟩
+          rcases x with ⟨⟨t, htf, htu⟩, c⟩
+          have hf0 : (⟨t.f, ⟨t.active.1, t.active.2.1⟩⟩ : F0) = ⟨f, hf⟩ := by
+            apply Subtype.ext
+            exact htf
+          have ha' : mkActive t = ⟨⟨f, hf⟩, ha⟩ := by
+            apply Subtype.ext
+            exact hf0
+          have hb : (mkActive t, t.u, sd, sc) = (⟨⟨f, hf⟩, ha⟩, u, sd, sc) := by
+            apply Prod.ext ha'
+            apply Prod.ext htu
+            rfl
+          cases hb
+          rfl
+      }
+    have hterm : ∀ z : (Σ b : Base, Fiber b),
+        tailTerm (e.symm z) = blockTerm z.1 z.2 := by
+      intro z
+      rcases z with ⟨b, x⟩
+      rcases b with ⟨a, u, sd, sc⟩
+      rcases x with ⟨⟨t, ht⟩, c⟩
+      simp [tailTerm, blockTerm, e]
+    have hσ0 : 0 ≤ σ := by linarith
+    have hAllActive : (∑ f : F0, Eideal R f.1 σ) ≤ Cact * qI h.1 ^ δ₁ := by
+      have h := hActBound h σ hσ0
+      simpa [F0, finsum_eq_sum_of_fintype] using h
+    have hActiveSum : (∑ f : Active, Eideal R f.1.1 σ) ≤ Cact * qI h.1 ^ δ₁ := by
+      have hsplit := Fintype.sum_subtype_add_sum_subtype
+        (fun f : F0 => activeFactor R h f.1) (fun f : F0 => Eideal R f.1 σ)
+      have hdecomp :
+          (∑ f : Active, Eideal R f.1.1 σ) +
+            ∑ f : {f : F0 // ¬ activeFactor R h f.1}, Eideal R f.1.1 σ =
+              ∑ f : F0, Eideal R f.1 σ := by
+        simpa [Active] using hsplit
+      have hcompl : 0 ≤
+          ∑ f : {f : F0 // ¬ activeFactor R h f.1}, Eideal R f.1.1 σ := by
+        apply Finset.sum_nonneg
+        intro f hf
+        exact rf_Eideal_nonneg R f.1.1 hσ0
+      linarith
+    have hFiberNorm (b : Base) : Summable (fun x : Fiber b => ‖blockTerm b x‖) := by
+      obtain ⟨hs, _⟩ := hTail υ P D0 Z h d b.1.1.1 b.2.1 b.2.2.1 b.2.2.2
+        hP hD0 hZ hPh hPhigh hDd hDhigh hPower b.1.2
+      simpa [Fiber, blockTerm, R0] using hs
+    have hOuterNorm : Summable (fun b : Base => ∑' x : Fiber b, ‖blockTerm b x‖) := by
+      exact Summable.of_finite
+    have hSigmaNorm : Summable (fun z : (Σ b : Base, Fiber b) =>
+        ‖blockTerm z.1 z.2‖) := by
+      apply (summable_sigma_of_nonneg (fun z => norm_nonneg _)).2
+      exact ⟨hFiberNorm, by simpa using hOuterNorm⟩
+    have hSourceNorm : Summable (fun p : Source => ‖tailTerm p‖) := by
+      have hs := hSigmaNorm.comp_injective e.injective
+      apply hs.congr
+      intro p
+      exact congrArg (fun z : ℂ => ‖z‖) (hterm (e p)).symm
+    have hNormTsum :
+        (∑' p : Source, ‖tailTerm p‖) =
+          ∑ b : Base, ∑' x : Fiber b, ‖blockTerm b x‖ := by
+      calc
+        _ = ∑' p : Source, ‖tailTerm (e.symm (e p))‖ := by
+          apply tsum_congr
+          intro p
+          simp
+        _ = ∑' z : (Σ b : Base, Fiber b), ‖tailTerm (e.symm z)‖ :=
+          Equiv.tsum_eq e (fun z : (Σ b : Base, Fiber b) =>
+            ‖tailTerm (e.symm z)‖)
+        _ = ∑' z : (Σ b : Base, Fiber b), ‖blockTerm z.1 z.2‖ := by
+          apply tsum_congr
+          intro z
+          rw [hterm z]
+        _ = ∑' b : Base, ∑' x : Fiber b, ‖blockTerm b x‖ :=
+          Summable.tsum_sigma' hFiberNorm hSigmaNorm
+        _ = ∑ b : Base, ∑' x : Fiber b, ‖blockTerm b x‖ := by rw [tsum_fintype]
+    have hFiberBound (b : Base) :
+        (∑' x : Fiber b, ‖blockTerm b x‖) ≤
+          Ctail * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ *
+            Eideal R b.1.1.1 σ := by
+      obtain ⟨_, hb⟩ := hTail υ P D0 Z h d b.1.1.1 b.2.1 b.2.2.1 b.2.2.2
+        hP hD0 hZ hPh hPhigh hDd hDhigh hPower b.1.2
+      simpa [Fiber, blockTerm, R0, L, J, mul_assoc] using hb
+    have hsumFibers :
+        (∑ b : Base, ∑' x : Fiber b, ‖blockTerm b x‖) ≤
+          ∑ b : Base,
+            Ctail * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ *
+              Eideal R b.1.1.1 σ := by
+      apply Finset.sum_le_sum
+      intro b hb
+      exact hFiberBound b
+    let K : ℝ := Ctail * L ^ σ * J ^ (-(N - σ)) * sphericalMajorant (S := S) σ
+    have hfactor :
+        (∑ b : Base, K * Eideal R b.1.1.1 σ) =
+          Cslice * K * (∑ f : Active, Eideal R f.1.1 σ) := by
+      dsimp [Base]
+      rw [Fintype.sum_prod_type]
+      calc
+        _ = ∑ f : Active, ∑ s : Slice, K * Eideal R f.1.1 σ := rfl
+        _ = ∑ f : Active, Cslice * (K * Eideal R f.1.1 σ) := by
+          apply Finset.sum_congr rfl
+          intro f hf
+          simp [Cslice, Finset.sum_const, nsmul_eq_mul]
+        _ = Cslice * K * (∑ f : Active, Eideal R f.1.1 σ) := by
+          calc
+            _ = ∑ f : Active, (Cslice * K) * Eideal R f.1.1 σ := by
+              apply Finset.sum_congr rfl
+              intro f hf
+              ring
+            _ = (Cslice * K) * (∑ f : Active, Eideal R f.1.1 σ) := by
+              rw [Finset.mul_sum]
+            _ = _ := by ring
+    have hKnonneg : 0 ≤ K := by dsimp [K]; positivity
+    have hCslice : 0 ≤ Cslice := by positivity
+    have hsumUpper :
+        (∑ b : Base, ∑' x : Fiber b, ‖blockTerm b x‖) ≤
+          Cslice * K * (Cact * qI h.1 ^ δ₁) := by
+      calc
+        _ ≤ ∑ b : Base, K * Eideal R b.1.1.1 σ := by
+          apply Finset.sum_le_sum
+          intro b hb
+          simpa [K, mul_assoc] using hFiberBound b
+        _ = Cslice * K * (∑ f : Active, Eideal R f.1.1 σ) := hfactor
+        _ ≤ Cslice * K * (Cact * qI h.1 ^ δ₁) :=
+          mul_le_mul_of_nonneg_left hActiveSum (mul_nonneg hCslice hKnonneg)
+    have hqhpow : qI h.1 ^ δ₁ ≤ (2 * P) ^ δ₁ :=
+      Real.rpow_le_rpow (by positivity) hPhigh.le hδ₁.le
+    have hmulPow : (2 * P) ^ δ₁ = 2 ^ δ₁ * P ^ δ₁ := by
+      rw [Real.mul_rpow (by norm_num) (by positivity)]
+    have hcoef : Ctail * Cact * Cslice * 2 ^ δ₁ *
+        sphericalMajorant (S := S) σ ≤
+          max 1 (Ctail * Cact * Cslice * 2 ^ δ₁ *
+            sphericalMajorant (S := S) σ) := le_max_right _ _
+    have hboundNorm : ‖splitReflection R false υ h d Z R0‖ ≤
+        max 1 (Ctail * Cact * Cslice * 2 ^ δ₁ *
+          sphericalMajorant (S := S) σ) * P ^ δ₁ * L ^ σ * J ^ (-(N - σ)) := by
+      by_cases hdc : Squarefree d.1 ∧ IsCoprime d.1 h.1
+      · have hsplitEq : splitReflection R false υ h d Z R0 = ∑' p : Source, tailTerm p := by
+          unfold splitReflection
+          simp only [hdc, ↓reduceIte]
+          apply tsum_congr
+          intro p
+          rfl
+        rw [hsplitEq]
+        calc
+          ‖∑' p : Source, tailTerm p‖ ≤ ∑' p : Source, ‖tailTerm p‖ :=
+            norm_tsum_le_tsum_norm hSourceNorm
+          _ = ∑ b : Base, ∑' x : Fiber b, ‖blockTerm b x‖ := hNormTsum
+          _ ≤ Cslice * K * (Cact * qI h.1 ^ δ₁) := hsumUpper
+          _ ≤ Cslice * K * (Cact * ((2 * P) ^ δ₁)) :=
+            mul_le_mul_of_nonneg_left
+              (mul_le_mul_of_nonneg_left hqhpow hCact.le)
+              (mul_nonneg hCslice hKnonneg)
+          _ = (Ctail * Cact * Cslice * 2 ^ δ₁ *
+              sphericalMajorant (S := S) σ) * P ^ δ₁ * L ^ σ *
+                J ^ (-(N - σ)) := by rw [hmulPow]; dsimp [K]; ring
+          _ ≤ max 1 (Ctail * Cact * Cslice * 2 ^ δ₁ *
+              sphericalMajorant (S := S) σ) * P ^ δ₁ * L ^ σ *
+                J ^ (-(N - σ)) := by
+            calc
+              _ = (Ctail * Cact * Cslice * 2 ^ δ₁ *
+                    sphericalMajorant (S := S) σ) *
+                    (P ^ δ₁ * L ^ σ * J ^ (-(N - σ))) := by ring
+              _ ≤ max 1 (Ctail * Cact * Cslice * 2 ^ δ₁ *
+                    sphericalMajorant (S := S) σ) *
+                    (P ^ δ₁ * L ^ σ * J ^ (-(N - σ))) :=
+                mul_le_mul_of_nonneg_right hcoef (by positivity)
+              _ = _ := by ring
+      · simp [splitReflection, hdc]
+        positivity
+    change ‖splitReflection R false υ h d Z R0‖ ≤
+      max 1 (Ctail * Cact * Cslice * 2 ^ δ₁ * sphericalMajorant (S := S) σ) *
+        P ^ δ₁ * L ^ σ * J ^ (-(N - σ))
+    exact hboundNorm
+
+set_option maxHeartbeats 8000000 in
+/-- rf:tail-mass, 04:1046–1117, uniformly including R₀<1. -/
+theorem rf_tail_mass : ∀ δ δ₁ σ N : ℝ, 0 < δ → 0 < δ₁ → 1 / 2 < σ → σ < N →
+  ∃ C : ℝ, 0 < C ∧ ∀ υ P D0 Z, 1 ≤ P → 1 ≤ D0 → 2 ≤ Z →
+    reflectionMass R false υ P D0 Z δ ≤ C * P ^ (1 / 2 + 2 * δ₁) * D0 *
+      reflectionColumnLength P D0 Z ^ (2 * σ) *
+        max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) := by
+  intro δ δ₁ σ N hδ hδ₁ hσ hN
+  obtain ⟨Csplit, hCsplit, hsplit⟩ :=
+    rf_tail_split_bound R δ δ₁ σ N hδ hδ₁ hσ hN
+  obtain ⟨Cpow, hCpow, hpow⟩ := rf_powerful_count S
+  obtain ⟨Ccnt, hCcnt, hcount⟩ := a2_bridge_COUNT S
+  refine ⟨4 * Cpow * Ccnt * Csplit ^ 2, ?_, ?_⟩
+  · positivity
+  · intro υ P D0 Z hP hD0 hZ
+    have hPpos : 0 < P := by linarith
+    have hDpos : 0 < D0 := by linarith
+    have hZpos : 0 < Z := by linarith
+    let Hset : Finset S.ExtIdeal :=
+      (bridgeNormFinset S (2 * P)).filter (fun h => IsPowerful h.1)
+    let Dset : Finset S.ExtIdeal := bridgeNormFinset S (2 * D0)
+    let Kset : Finset (S.ExtIdeal × S.ExtIdeal) := Hset.product Dset
+    let massTerm (hd : S.ExtIdeal × S.ExtIdeal) : ℝ :=
+      if IsPowerful hd.1.1 ∧ P ≤ qI hd.1.1 ∧ qI hd.1.1 < 2 * P ∧
+          D0 ≤ qI hd.2.1 ∧ qI hd.2.1 < 2 * D0 then
+        ‖splitReflection R false υ hd.1 hd.2 Z (reflectionColumnCutoff P D0 Z δ)‖ ^ 2
+      else 0
+    have hFinP := a2_bridge_COUNT_finite S (2 * P) (by positivity)
+    have hFinD := a2_bridge_COUNT_finite S (2 * D0) (by positivity)
+    have hHnorm (h : S.ExtIdeal) (hh : h ∈ Hset) : idealNorm h.1 ≤ 2 * P := by
+      exact (hFinP.2 h).mp (Finset.mem_filter.mp hh).1
+    have hmemH (h : S.ExtIdeal) (hh : IsPowerful h.1) (hhi : qI h.1 < 2 * P) :
+        h ∈ Hset := by
+      apply Finset.mem_filter.mpr
+      constructor
+      · exact (hFinP.2 h).mpr (by simpa [idealNorm, qI] using hhi.le)
+      · exact hh
+    have hmemD (d : S.ExtIdeal) (dhi : qI d.1 < 2 * D0) : d ∈ Dset := by
+      exact (hFinD.2 d).mpr (by simpa [idealNorm, qI] using dhi.le)
+    have hImgSub : Hset.image (fun h : S.ExtIdeal => h.1) ⊆
+        powerfulExteriorIdeals S P := by
+      intro I hI
+      rcases Finset.mem_image.mp hI with ⟨h, hh, rfl⟩
+      have hnorm : idealNorm h.1 ≤ 2 * P := hHnorm h hh
+      have hpow' := (Finset.mem_filter.mp hh).2
+      change h.1 ∈ powerfulExteriorIdeals S P
+      unfold powerfulExteriorIdeals
+      simp only [Finset.mem_filter, Set.Finite.mem_toFinset, Set.mem_ofPred_eq]
+      constructor
+      · apply (Nat.le_floor_iff (by positivity : 0 ≤ 2 * P)).mpr
+        simpa [idealNorm] using hnorm
+      · exact ⟨h.2, hpow'⟩
+    have hImgCard : (Hset.image (fun h : S.ExtIdeal => h.1)).card = Hset.card := by
+      apply Finset.card_image_iff.mpr
+      intro h hh d hd heq
+      exact Subtype.ext heq
+    have hHcard : (Hset.card : ℝ) ≤ Cpow * P ^ (1 / 2 : ℝ) := by
+      calc
+        (Hset.card : ℝ) = ((Hset.image (fun h : S.ExtIdeal => h.1)).card : ℝ) := by
+          rw [hImgCard]
+        _ ≤ ((powerfulExteriorIdeals S P).card : ℝ) := by
+          exact_mod_cast Finset.card_le_card hImgSub
+        _ ≤ Cpow * P ^ (1 / 2 : ℝ) := by
+          exact_mod_cast hpow P hP
+    have hDfinsetEq : hFinD.1.toFinset = Dset := by
+      ext d
+      rw [Set.Finite.mem_toFinset]
+      exact (hFinD.2 d).symm
+    have hDcardNat : {d : S.ExtIdeal | idealNorm d.1 ≤ 2 * D0}.ncard = Dset.card := by
+      rw [Set.ncard_eq_toFinset_card _ hFinD.1, hDfinsetEq]
+    have hDcard : (Dset.card : ℝ) ≤ Ccnt * (2 * D0) := by
+      have hc := hcount (2 * D0) (by linarith)
+      rw [hDcardNat] at hc
+      exact hc
+    have hzero : ∀ hd : S.ExtIdeal × S.ExtIdeal, hd ∉ Kset → massTerm hd = 0 := by
+      rintro ⟨h, d⟩ hnot
+      by_cases hc : IsPowerful h.1 ∧ P ≤ qI h.1 ∧ qI h.1 < 2 * P ∧
+          D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0
+      · rcases hc with ⟨hh, _, hhi, _, dhi⟩
+        have hhm := hmemH h hh hhi
+        have hdm := hmemD d dhi
+        have hmem : (h, d) ∈ Kset := by simp [Kset, hhm, hdm]
+        exact (hnot hmem).elim
+      · simp [massTerm, hc]
+    have hmassEq : reflectionMass R false υ P D0 Z δ =
+        ∑ hd ∈ Kset, massTerm hd := by
+      calc
+        reflectionMass R false υ P D0 Z δ = ∑' hd : S.ExtIdeal × S.ExtIdeal, massTerm hd := by
+          unfold reflectionMass
+          rfl
+        _ = ∑ hd ∈ Kset, massTerm hd := tsum_eq_sum hzero
+    let L := reflectionColumnLength P D0 Z
+    let J := max (Z ^ δ) L⁻¹
+    let Ksplit := Csplit * P ^ δ₁ * L ^ σ * J ^ (-(N - σ))
+    let Bmass := Ksplit ^ 2
+    have hLpos : 0 < L := by dsimp [L, reflectionColumnLength]; positivity
+    have hJpos : 0 < J := by
+      apply lt_of_lt_of_le (Real.rpow_pos_of_pos hZpos δ)
+      exact le_max_left _ _
+    have hKsplit : 0 ≤ Ksplit := by dsimp [Ksplit]; positivity
+    have hBmass : 0 ≤ Bmass := sq_nonneg _
+    have hpoint : ∀ hd ∈ Kset, massTerm hd ≤ Bmass := by
+      intro hd hhd
+      rcases hd with ⟨h, d⟩
+      by_cases hc : IsPowerful h.1 ∧ P ≤ qI h.1 ∧ qI h.1 < 2 * P ∧
+          D0 ≤ qI d.1 ∧ qI d.1 < 2 * D0
+      · have hcond := hc
+        rcases hc with ⟨hh, hPl, hPh, hDl, hDh⟩
+        have hsplit' := hsplit υ P D0 Z h d hP hD0 hZ hPl hPh hDl hDh hh
+        have hmul :
+            0 ≤ (Ksplit - ‖splitReflection R false υ h d Z
+              (reflectionColumnCutoff P D0 Z δ)‖) *
+              (Ksplit + ‖splitReflection R false υ h d Z
+                (reflectionColumnCutoff P D0 Z δ)‖) :=
+          mul_nonneg (sub_nonneg.mpr (by simpa [Ksplit, L, J] using hsplit'))
+            (add_nonneg hKsplit (norm_nonneg _))
+        have hsq : ‖splitReflection R false υ h d Z
+            (reflectionColumnCutoff P D0 Z δ)‖ ^ 2 ≤ Bmass := by
+          dsimp [Bmass]
+          nlinarith [hmul]
+        simpa [massTerm, hcond] using hsq
+      · simp [massTerm, hc, Bmass]
+        positivity
+    have hsumBound : (∑ hd ∈ Kset, massTerm hd) ≤ (Kset.card : ℝ) * Bmass := by
+      calc
+        _ ≤ ∑ hd ∈ Kset, Bmass := Finset.sum_le_sum fun hd hhd => hpoint hd hhd
+        _ = (Kset.card : ℝ) * Bmass := by simp [Finset.sum_const, nsmul_eq_mul]
+    have hcardK : (Kset.card : ℝ) ≤
+        (Cpow * P ^ (1 / 2 : ℝ)) * (Ccnt * (2 * D0)) := by
+      calc
+        (Kset.card : ℝ) = (Hset.card : ℝ) * (Dset.card : ℝ) := by simp [Kset]
+        _ ≤ (Cpow * P ^ (1 / 2 : ℝ)) * (Ccnt * (2 * D0)) :=
+          mul_le_mul hHcard hDcard (by positivity) (by positivity)
+    have hcardK' : (Kset.card : ℝ) ≤ 4 * Cpow * Ccnt * P ^ (1 / 2 : ℝ) * D0 := by
+      calc
+        _ ≤ (Cpow * P ^ (1 / 2 : ℝ)) * (Ccnt * (2 * D0)) := hcardK
+        _ = 2 * Cpow * Ccnt * P ^ (1 / 2 : ℝ) * D0 := by ring
+        _ ≤ 4 * Cpow * Ccnt * P ^ (1 / 2 : ℝ) * D0 := by
+          have hbase : 0 ≤ Cpow * Ccnt * P ^ (1 / 2 : ℝ) * D0 := by positivity
+          nlinarith
+    have hrpowTwo (x a : ℝ) (hx : 0 ≤ x) : (x ^ a) ^ 2 = x ^ (2 * a) := by
+      rw [← Real.rpow_natCast, ← Real.rpow_mul hx]
+      congr 1 <;> ring
+    have hBmassEq : Bmass = Csplit ^ 2 * P ^ (2 * δ₁) * L ^ (2 * σ) *
+        J ^ (-2 * (N - σ)) := by
+      dsimp [Bmass, Ksplit]
+      rw [mul_pow, mul_pow, mul_pow, hrpowTwo P δ₁ (by positivity),
+        hrpowTwo L σ (by positivity), hrpowTwo J (-(N - σ)) (by positivity)]
+      congr 1 <;> ring
+    have hPadd : P ^ (1 / 2 : ℝ) * P ^ (2 * δ₁) = P ^ (1 / 2 + 2 * δ₁) := by
+      rw [← Real.rpow_add hPpos]
+    have hCpos : 0 < 4 * Cpow * Ccnt * Csplit ^ 2 := by positivity
+    calc
+      reflectionMass R false υ P D0 Z δ = ∑ hd ∈ Kset, massTerm hd := hmassEq
+      _ ≤ (Kset.card : ℝ) * Bmass := hsumBound
+      _ ≤ (4 * Cpow * Ccnt * P ^ (1 / 2 : ℝ) * D0) * Bmass :=
+        mul_le_mul_of_nonneg_right hcardK' hBmass
+      _ = (4 * Cpow * Ccnt * Csplit ^ 2) * P ^ (1 / 2 + 2 * δ₁) * D0 *
+          L ^ (2 * σ) * J ^ (-2 * (N - σ)) := by
+        rw [hBmassEq, ← hPadd]
+        ring
+      _ = (4 * Cpow * Ccnt * Csplit ^ 2) * P ^ (1 / 2 + 2 * δ₁) * D0 *
+          reflectionColumnLength P D0 Z ^ (2 * σ) *
+            max (Z ^ δ) (reflectionColumnLength P D0 Z)⁻¹ ^ (-2 * (N - σ)) := by
+        simp [L, J]
+
 set_option maxHeartbeats 800000
 /-- rf:tail-mass: the explicit large-N condition giving arbitrary negative powers of Z. -/
 theorem rf_tail_negligible : ∀ C0 δ δ₁ σ N A0 : ℝ, 0 < C0 → 0 < δ → 0 < δ₁ →
