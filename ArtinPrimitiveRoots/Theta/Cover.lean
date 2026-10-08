@@ -5101,6 +5101,218 @@ private theorem exists_coverExteriorBase (B : CoverQuotientBase D S H)
     · intro v
       exact pC _ _
 
+/-- Finite exterior factorizations with compact tails commuting with the selected places. -/
+private structure CoverTailBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (U : CoverSubgroupBase B E)
+    (R : CoverRationalBase B) (T : CoverSTupleBase B)
+    (X : CoverExteriorBase B E U R T) where
+  a_split : ∀ (u : Fˣ) (Tf : Finset (FinPlace F)), (∀ v ∈ Tf, v ∉ S.Sf) →
+    (∀ v : FinPlace F, v ∉ S.Sf → v ∉ Tf →
+      residue v (u : F) ≠ 0 ∧ residue v ((u⁻¹ : Fˣ) : F) ≠ 0) →
+    ∃ k ∈ U.Kext, (∀ v ∈ Tf, ∀ g ∈ (E.emb v).range, k * g = g * k) ∧
+      B.quotient.q (X.aRP u) =
+        (Tf.toList.map fun v => E.emb v ((B.family.loc v).a (toLoc v u))).prod * k
+  n_split : ∀ (x : F) (Tf : Finset (FinPlace F)), (∀ v ∈ Tf, v ∉ S.Sf) →
+    (∀ v : FinPlace F, v ∉ S.Sf → v ∉ Tf → v.valuation F x ≤ 1) →
+    ∃ k ∈ U.Kext, (∀ v ∈ Tf, ∀ g ∈ (E.emb v).range, k * g = g * k) ∧
+      B.quotient.q (X.nRP (Multiplicative.ofAdd x)) =
+        (Tf.toList.map fun v => E.emb v ((B.family.loc v).n
+          (Multiplicative.ofAdd (algebraMap F _ x)))).prod * k
+  w_split : ∀ (Tf : Finset (FinPlace F)), (∀ v ∈ Tf, v ∉ S.Sf) →
+    ∃ k ∈ U.Kext, (∀ v ∈ Tf, ∀ g ∈ (E.emb v).range, k * g = g * k) ∧
+      B.quotient.q X.wRP = (Tf.toList.map fun v => E.emb v (B.family.loc v).w).prod * k
+
+private theorem exists_coverTailBase (B : CoverQuotientBase D S H)
+    (E : CoverEmbeddingBase B) (U : CoverSubgroupBase B E)
+    (R : CoverRationalBase B) (T : CoverSTupleBase B)
+    (X : CoverExteriorBase B E U R T) : Nonempty (CoverTailBase B E U R T X) := by
+  classical
+  let C := B.family
+  have split : ∀ (x : CoverRP C) (Tf : Finset (FinPlace F)),
+      (∀ v, v ∈ S.Sf → x (.inl v) = 1) → (∀ w, x (.inr w) = 1) →
+      (∀ v (hv : v ∉ S.Sf), v ∉ Tf → x (.inl v) ∈ (C.tame v hv).Kmax) →
+      ∃ k ∈ U.Kext, (∀ v ∈ Tf, ∀ g ∈ (E.emb v).range, k * g = g * k) ∧
+        B.quotient.q x = (Tf.toList.map fun v => E.emb v (x (.inl v))).prod * k := by
+    intro x Tf hS hC hcompact
+    let t : CoverRP C :=
+      ⟨fun p => match p with
+        | .inl v => if v ∈ Tf then 1 else x (.inl v)
+        | .inr w => x (.inr w), by
+        filter_upwards [x.2] with p hp
+        cases p with
+        | inl v =>
+          change (if v ∈ Tf then 1 else x (.inl v)) ∈ coverFamilyReference C v
+          change x (.inl v) ∈ coverFamilyReference C v at hp
+          by_cases hv : v ∈ Tf
+          · simp only [ite_eq_left hv, OneMemClass.one_mem]
+          · simpa only [ite_eq_right hv] using hp
+        | inr w => exact hp⟩
+    have tF (v : FinPlace F) : t (.inl v) = if v ∈ Tf then 1 else x (.inl v) := rfl
+    have tC (w : InfinitePlace F) : t (.inr w) = x (.inr w) := rfl
+    have hkt : B.quotient.q t ∈ U.Kext := by
+      apply U.Kext_of_components
+      · intro v hv
+        rw [tF]
+        by_cases hT : v ∈ Tf
+        · rw [ite_eq_left hT]
+          exact (C.tame v hv).Kmax.one_mem
+        · rw [ite_eq_right hT]
+          exact hcompact v hv hT
+      · intro v hv
+        rw [tF]
+        by_cases hT : v ∈ Tf <;> simp [hT, hS v hv]
+      · intro w
+        exact (tC w).trans (hC w)
+    have comm (v : FinPlace F) (hv : v ∈ Tf) (g : B.quotient.Q)
+        (hg : g ∈ (E.emb v).range) : B.quotient.q t * g = g * B.quotient.q t := by
+      obtain ⟨a, rfl⟩ := hg
+      have hcomm : t * E.incl v a = E.incl v a * t := by
+        apply RestrictedProduct.ext
+        intro p
+        cases p with
+        | inl v' =>
+          change t (.inl v') * E.incl v a (.inl v') =
+            E.incl v a (.inl v') * t (.inl v')
+          by_cases heq : v = v'
+          · subst v'
+            rw [tF, ite_eq_left hv, E.incl_compF]
+            simp
+          · rw [E.incl_compF_other v v' heq]
+            simp
+        | inr w =>
+          change t (.inr w) * E.incl v a (.inr w) = E.incl v a (.inr w) * t (.inr w)
+          rw [E.incl_compC]
+          simp
+      calc
+        B.quotient.q t * E.emb v a = B.quotient.q (t * E.incl v a) := by
+          rw [map_mul, E.q_incl]
+        _ = B.quotient.q (E.incl v a * t) := congrArg B.quotient.q hcomm
+        _ = E.emb v a * B.quotient.q t := by rw [map_mul, E.q_incl]
+    have prodF : ∀ l : List (FinPlace F), l.Nodup → ∀ v : FinPlace F,
+        ((l.map fun u => E.incl u (x (.inl u))).prod) (.inl v) =
+          if v ∈ l then x (.inl v) else 1 := by
+      intro l
+      induction l with
+      | nil =>
+        intro hl v
+        simp
+      | cons u l ih =>
+        intro hl v
+        obtain ⟨hu, hln⟩ := List.nodup_cons.mp hl
+        change E.incl u (x (.inl u)) (.inl v) *
+          ((l.map fun u => E.incl u (x (.inl u))).prod) (.inl v) =
+            if v ∈ u :: l then x (.inl v) else 1
+        rw [ih hln v]
+        by_cases heq : u = v
+        · subst u
+          rw [E.incl_compF]
+          simp [hu]
+        · rw [E.incl_compF_other u v heq]
+          simp [heq, Ne.symm heq]
+    have prodC : ∀ (l : List (FinPlace F)) (w : InfinitePlace F),
+        ((l.map fun u => E.incl u (x (.inl u))).prod) (.inr w) = 1 := by
+      intro l
+      induction l with
+      | nil => intro w; rfl
+      | cons u l ih =>
+        intro w
+        change E.incl u (x (.inl u)) (.inr w) *
+          ((l.map fun u => E.incl u (x (.inl u))).prod) (.inr w) = 1
+        rw [E.incl_compC, ih, one_mul]
+    have hfactor : x = (Tf.toList.map fun v => E.incl v (x (.inl v))).prod * t := by
+      apply RestrictedProduct.ext
+      intro p
+      cases p with
+      | inl v =>
+        change x (.inl v) =
+          ((Tf.toList.map fun u => E.incl u (x (.inl u))).prod) (.inl v) * t (.inl v)
+        rw [prodF _ Tf.nodup_toList v, tF]
+        simp only [Finset.mem_toList]
+        by_cases hv : v ∈ Tf <;> simp [hv]
+      | inr w =>
+        change x (.inr w) =
+          ((Tf.toList.map fun u => E.incl u (x (.inl u))).prod) (.inr w) * t (.inr w)
+        rw [prodC, tC, one_mul]
+    refine ⟨B.quotient.q t, hkt, comm, ?_⟩
+    calc
+      B.quotient.q x = B.quotient.q
+          ((Tf.toList.map fun v => E.incl v (x (.inl v))).prod * t) :=
+        congrArg B.quotient.q hfactor
+      _ = B.quotient.q ((Tf.toList.map fun v => E.incl v (x (.inl v))).prod) *
+          B.quotient.q t := map_mul _ _ _
+      _ = (Tf.toList.map fun v => E.emb v (x (.inl v))).prod * B.quotient.q t := by
+        congr 1
+        rw [map_list_prod]
+        simp only [List.map_map, Function.comp_def, E.q_incl]
+  have residue_le (v : FinPlace F) (x : F) (hx : residue v x ≠ 0) :
+      v.valuation F x ≤ 1 := by
+    have hfrac : ∃ ab : 𝓞 F × 𝓞 F, ab.2 ∉ v.asIdeal ∧
+        x * algebraMap (𝓞 F) F ab.2 = algebraMap (𝓞 F) F ab.1 := by
+      by_contra hn
+      exact hx (by simp [residue, hn])
+    obtain ⟨⟨a, b⟩, hb, hab⟩ := hfrac
+    have hden : v.valuation F (algebraMap (𝓞 F) F b) = 1 :=
+      (v.valuation_eq_one_iff_notMem).mpr hb
+    have hval := congrArg (v.valuation F) hab
+    rw [map_mul, hden, mul_one] at hval
+    rw [hval]
+    exact v.valuation_le_one a
+  have local_integral (v : FinPlace F) (x : F) (hx : v.valuation F x ≤ 1) :
+      algebraMap F (v.adicCompletion F) x ∈ v.adicCompletionIntegers F := by
+    change Valued.v (algebraMap F (v.adicCompletion F) x) ≤ 1
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply,
+      v.valuedAdicCompletion_eq_valuation'] using hx
+  refine ⟨{a_split := ?_, n_split := ?_, w_split := ?_}⟩
+  · intro u Tf hT hres
+    have hS (v : FinPlace F) (hv : v ∈ S.Sf) : X.aRP u (.inl v) = 1 := by
+      rw [X.aF, ite_eq_right (not_not.mpr hv)]
+    have hcomp (v : FinPlace F) (hv : v ∉ S.Sf) (hout : v ∉ Tf) :
+        X.aRP u (.inl v) ∈ (C.tame v hv).Kmax := by
+      rw [X.aF, ite_eq_left hv]
+      apply (C.tame v hv).a_mem
+      · exact local_integral v _ (residue_le v _ (hres v hv hout).1)
+      · rw [← map_inv]
+        exact local_integral v _ (residue_le v _ (hres v hv hout).2)
+    obtain ⟨k, hk, hcomm, heq⟩ := split (X.aRP u) Tf hS (X.aC u) hcomp
+    have hmap : (Tf.toList.map fun v => E.emb v (X.aRP u (.inl v))) =
+        (Tf.toList.map fun v => E.emb v ((B.family.loc v).a (toLoc v u))) := by
+      apply List.map_congr_left
+      intro v hv
+      rw [X.aF, ite_eq_left (hT v (Finset.mem_toList.mp hv))]
+    exact ⟨k, hk, hcomm, by simpa only [hmap] using heq⟩
+  · intro x Tf hT hval
+    have hS (v : FinPlace F) (hv : v ∈ S.Sf) :
+        X.nRP (Multiplicative.ofAdd x) (.inl v) = 1 := by
+      rw [X.nF, ite_eq_right (not_not.mpr hv)]
+    have hcomp (v : FinPlace F) (hv : v ∉ S.Sf) (hout : v ∉ Tf) :
+        X.nRP (Multiplicative.ofAdd x) (.inl v) ∈ (C.tame v hv).Kmax := by
+      rw [X.nF, ite_eq_left hv]
+      exact (C.tame v hv).n_mem _ (local_integral v x (hval v hv hout))
+    obtain ⟨k, hk, hcomm, heq⟩ := split (X.nRP (Multiplicative.ofAdd x)) Tf
+      hS (X.nC x) hcomp
+    have hmap : (Tf.toList.map fun v => E.emb v (X.nRP (Multiplicative.ofAdd x) (.inl v))) =
+        (Tf.toList.map fun v => E.emb v ((B.family.loc v).n
+          (Multiplicative.ofAdd (algebraMap F _ x)))) := by
+      apply List.map_congr_left
+      intro v hv
+      rw [X.nF, ite_eq_left (hT v (Finset.mem_toList.mp hv))]
+    exact ⟨k, hk, hcomm, by simpa only [hmap] using heq⟩
+  · intro Tf hT
+    have hS (v : FinPlace F) (hv : v ∈ S.Sf) : X.wRP (.inl v) = 1 := by
+      rw [X.wF, ite_eq_right (not_not.mpr hv)]
+    have hcomp (v : FinPlace F) (hv : v ∉ S.Sf) (hout : v ∉ Tf) :
+        X.wRP (.inl v) ∈ (C.tame v hv).Kmax := by
+      rw [X.wF, ite_eq_left hv]
+      exact (C.tame v hv).w_mem
+    obtain ⟨k, hk, hcomm, heq⟩ := split X.wRP Tf hS X.wC hcomp
+    have hmap : (Tf.toList.map fun v => E.emb v (X.wRP (.inl v))) =
+        (Tf.toList.map fun v => E.emb v (B.family.loc v).w) := by
+      apply List.map_congr_left
+      intro v hv
+      rw [X.wF, ite_eq_left (hT v (Finset.mem_toList.mp hv))]
+    exact ⟨k, hk, hcomm, by simpa only [hmap] using heq⟩
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
