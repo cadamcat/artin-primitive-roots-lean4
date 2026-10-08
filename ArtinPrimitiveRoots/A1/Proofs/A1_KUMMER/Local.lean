@@ -128,6 +128,17 @@ theorem kummer_local_eventually_unit_trivial
       ∀ x : (P.adicCompletion F)ˣ,
         x ∈ (P.adicCompletionIntegers F).units →
           kummerLocal D H P (toLoc P a) x = 1 := by
-  sorry
+  have hgood (b : Fˣ) :
+      ∀ᶠ P : FinPlace F in Filter.cofinite, residue P (b : F) ≠ 0 := by
+    apply Filter.eventually_cofinite.mpr
+    simpa only [not_not] using residue_zero_finite b
+  let six : Fˣ := Units.mk0 (6 : F) (by norm_num)
+  filter_upwards [hgood a, hgood six] with P ha hP6
+  have hv6 : P.valuation F (6 : F) = 1 :=
+    (A2.qs_nq0_residue_ne_zero_iff_valuation_one P (6 : F)).mp hP6
+  have h6 : (6 : 𝓞 F) ∉ P.asIdeal :=
+    (P.valuation_eq_one_iff_notMem (K := F)).mp (by simpa only [map_ofNat] using hv6)
+  intro x hx
+  exact kummer_local_unit_trivial D H P h6 a ha x hx
 
 end ArtinPrimitiveRoots.A1.KummerProofs
