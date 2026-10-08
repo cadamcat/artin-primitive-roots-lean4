@@ -141,4 +141,68 @@ theorem finite_adelic_additive_approximation
   rw [neg_add, zpow_add₀ hq.ne'] at hfinal
   exact le_of_mul_le_mul_left hfinal (zpow_pos hq (-c v))
 
+/-- A rational element belongs to a nonzero fractional ideal exactly when it lies
+in the corresponding ideal ball at every finite place. -/
+theorem fractionalIdeal_mem_iff_local_bounds
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0) (ξ : F) :
+    ξ ∈ (𝔞 : Submodule (𝓞 F) F) ↔
+      ∀ v : FinPlace F, absFin v (algebraMap F (v.adicCompletion F) ξ) ≤
+        (qv v) ^ (-FractionalIdeal.count F v 𝔞) := by
+  classical
+  by_cases hξ : ξ = 0
+  · subst ξ
+    constructor
+    · intro _ v
+      rw [map_zero, absFin_eq_norm, norm_zero]
+      exact (zpow_pos (zero_lt_one.trans (qv_gt_one v)) _).le
+    · intro _
+      exact (𝔞 : Submodule (𝓞 F) F).zero_mem
+  let I := FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ξ
+  have hI : I ≠ 0 := FractionalIdeal.spanSingleton_ne_zero_iff.mpr hξ
+  have hnorm (v : FinPlace F) :
+      absFin v (algebraMap F (v.adicCompletion F) ξ) =
+        (qv v) ^ (-FractionalIdeal.count F v I) := by
+    rw [absFin_eq_norm]
+    change ‖FinitePlace.embedding v ξ‖ = _
+    exact norm_embedding_eq_absNorm_zpow v ξ hξ
+  constructor
+  · intro hmem v
+    have hle : I ≤ 𝔞 := FractionalIdeal.spanSingleton_le_iff_mem.mpr hmem
+    rw [hnorm]
+    exact zpow_le_zpow_right₀ (qv_gt_one v).le
+      (neg_le_neg (FractionalIdeal.count_mono F v hI hle))
+  · intro hlocal
+    have hcounts (v : FinPlace F) :
+        FractionalIdeal.count F v 𝔞 ≤ FractionalIdeal.count F v I := by
+      have hv := hlocal v
+      rw [hnorm, zpow_le_zpow_iff_right₀ (qv_gt_one v)] at hv
+      exact neg_le_neg_iff.mp hv
+    let J := I * 𝔞⁻¹
+    have hJ : J ≠ 0 := mul_ne_zero hI (inv_ne_zero h𝔞)
+    have hnonneg (v : FinPlace F) : 0 ≤ FractionalIdeal.count F v J := by
+      dsimp only [J]
+      rw [FractionalIdeal.count_mul F v hI (inv_ne_zero h𝔞), FractionalIdeal.count_inv]
+      have hv := hcounts v
+      omega
+    have hJle : J ≤ 1 := by
+      rw [← FractionalIdeal.finprod_heightOneSpectrum_factorization' F hJ]
+      apply finprod_induction (fun K : FractionalIdeal (nonZeroDivisors (𝓞 F)) F => K ≤ 1)
+        le_rfl
+      · intro K L hK hL
+        simpa using mul_le_mul' hK hL
+      · intro v
+        have hnat := Int.toNat_of_nonneg (hnonneg v)
+        rw [← hnat, zpow_natCast]
+        have hprime : (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) ≤ 1 :=
+          FractionalIdeal.coeIdeal_le_one
+        induction (FractionalIdeal.count F v J).toNat with
+        | zero => simp
+        | succ n ih => simpa [pow_succ] using mul_le_mul' ih hprime
+    have hIle : I ≤ 𝔞 := by
+      calc
+        I = J * 𝔞 := by dsimp only [J]; rw [mul_assoc, inv_mul_cancel₀ h𝔞, mul_one]
+        _ ≤ 1 * 𝔞 := by simpa only [mul_comm] using mul_le_mul_right hJle 𝔞
+        _ = 𝔞 := one_mul _
+    exact FractionalIdeal.spanSingleton_le_iff_mem.mp hIle
+
 end ArtinPrimitiveRoots.A1.Theta
