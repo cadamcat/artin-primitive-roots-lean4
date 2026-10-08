@@ -1602,6 +1602,61 @@ private theorem specIdentify_eis_gradient_tsum
     exact hPi.map toGrad toGrad.continuous
   exact ⟨hGrad.summable, hGrad.tsum_eq.symm⟩
 
+private theorem specIdentify_nontriangular_bound
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (d : SiegelData F Γ) (σ : SL(2,F)) (s : ℂ)
+    (hs : 2 < s.re ∧ s.re < 3) (i : d.ι) :
+    let Q := {q : CuspCosets F Γ σ //
+      σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∉ borelSL F}
+    ∃ C : ℝ, 0 ≤ C ∧ ∀ z ∈ SiegelData.setAt F d i,
+      Summable (fun q : Q => eisTerm F Γ σ s ((d.σ i) • z) q.1) ∧
+      Summable (fun q : Q =>
+        fullGradient F (fun x => eisTerm F Γ σ s x q.1) ((d.σ i) • z)) ∧
+      ‖∑' q : Q, eisTerm F Γ σ s ((d.σ i) • z) q.1‖ ≤ C ∧
+      ‖∑' q : Q,
+        fullGradient F (fun x => eisTerm F Γ σ s x q.1) ((d.σ i) • z)‖ ≤ C := by
+  classical
+  let Q := {q : CuspCosets F Γ σ //
+    σ⁻¹ * toSLF F ((q.out : Γ) : SL(2,𝓞 F)) * d.σ i ∉ borelSL F}
+  have hstrip : ({s} : Set ℂ) ⊆ {s' : ℂ | 2 < s'.re ∧ s'.re < 3} := by
+    intro s' hs'
+    rcases Set.mem_singleton_iff.mp hs' with rfl
+    exact hs
+  obtain ⟨C, hC, hbound⟩ :=
+    (E4_eis_siegel Γ d σ {s} isCompact_singleton hstrip i).2.1
+  refine ⟨C, hC, ?_⟩
+  intro z hz
+  obtain ⟨hm, hsum⟩ := hbound s (Set.mem_singleton s) z hz
+  let value : Q → ℂ := fun q => eisTerm F Γ σ s ((d.σ i) • z) q.1
+  let grad : Q → GradientField F := fun q =>
+    fullGradient F (fun x => eisTerm F Γ σ s x q.1) ((d.σ i) • z)
+  let m : Q → ℝ := fun q => ‖value q‖ +
+    ‖fullGradient F (fun x => eisTerm F Γ σ s ((d.σ i) • x) q.1) z‖
+  have hm' : Summable m := hm
+  have hsum' : (∑' q : Q, m q) ≤ C := hsum
+  have hgradNorm (q : Q) : ‖grad q‖ =
+      ‖fullGradient F (fun x => eisTerm F Γ σ s ((d.σ i) • x) q.1) z‖ := by
+    exact (specIdentify_gradient_norm_isometry (toInf F (d.σ i))
+      (fun x => eisTerm F Γ σ s x q.1) (specIdentify_eisTerm_smooth Γ σ s q.1) z).symm
+  have hvalueDom (q : Q) : ‖value q‖ ≤ m q :=
+    le_add_of_nonneg_right (norm_nonneg _)
+  have hgradDom (q : Q) : ‖grad q‖ ≤ m q := by
+    rw [hgradNorm]
+    exact le_add_of_nonneg_left (norm_nonneg _)
+  have hvalueNormSumm : Summable (fun q : Q => ‖value q‖) :=
+    Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hvalueDom hm'
+  have hgradNormSumm : Summable (fun q : Q => ‖grad q‖) :=
+    Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hgradDom hm'
+  have hvalueSumm : Summable value := Summable.of_norm_bounded hm' hvalueDom
+  have hgradSumm : Summable grad := Summable.of_norm_bounded hm' hgradDom
+  have hvalueBound : ‖∑' q : Q, value q‖ ≤ C :=
+    (norm_tsum_le_tsum_norm hvalueNormSumm).trans
+      ((hvalueNormSumm.tsum_le_tsum hvalueDom hm').trans hsum')
+  have hgradBound : ‖∑' q : Q, grad q‖ ≤ C :=
+    (norm_tsum_le_tsum_norm hgradNormSumm).trans
+      ((hgradNormSumm.tsum_le_tsum hgradDom hm').trans hsum')
+  exact ⟨hvalueSumm, hgradSumm, hvalueBound, hgradBound⟩
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
