@@ -750,7 +750,45 @@ theorem detector_identity (U : ℝ) (hU : 1 ≤ U) (f : Ideal (𝓞 K) → ℂ)
           (-1 : ℤ) ^ T.card else 0) = (-1 : ℤ) ^ T.card
         exact if_pos (hTnorm T hT)
       _ = 0 := Finset.sum_powerset_neg_one_pow_card_of_nonempty hPne
-  · sorry
+  · intro I hI
+    classical
+    let S := detectorCutoffSet (K := K) U
+    let T := S.filter (fun D => D ∣ I)
+    have hcoeff : (detectorCoeff U I : ℂ) =
+        ∑ D ∈ S, if D ∣ I then (idealMoebius D : ℂ) else 0 := by
+      rw [detectorCoeff_divisor_sum U hU I hI]
+      norm_cast
+    rw [hcoeff]
+    have hsum : (∑ D ∈ S, if D ∣ I then (idealMoebius D : ℂ) else 0) =
+        ∑ D ∈ T, (idealMoebius D : ℂ) := by
+      dsimp [T]
+      rw [← Finset.sum_filter]
+    rw [hsum]
+    have hnormI : 0 < Ideal.absNorm I := by
+      apply Nat.pos_of_ne_zero
+      intro hzero
+      exact hI (Ideal.absNorm_eq_zero_iff.mp hzero)
+    have hdivFinite : {D : Ideal (𝓞 K) | D ∣ I}.Finite := by
+      refine (Ideal.finite_setOfPred_absNorm_le (S := 𝓞 K) (Ideal.absNorm I)).subset ?_
+      intro D hD
+      simp only [Set.mem_setOf_eq]
+      exact Nat.le_of_dvd hnormI (map_dvd Ideal.absNorm hD)
+    have hTsubset : (T : Set (Ideal (𝓞 K))) ⊆ {D | D ∣ I} := by
+      intro D hD
+      exact (Finset.mem_filter.mp (Finset.mem_coe.mp hD)).2
+    have hTcard : T.card ≤ idealDivisorCount I := by
+      dsimp [idealDivisorCount]
+      calc
+        T.card = Set.ncard (T : Set (Ideal (𝓞 K))) := by simp
+        _ ≤ Set.ncard {D : Ideal (𝓞 K) | D ∣ I} :=
+          Set.ncard_le_ncard hTsubset hdivFinite
+    calc
+      ‖∑ D ∈ T, (idealMoebius D : ℂ)‖ ≤
+          ∑ D ∈ T, ‖(idealMoebius D : ℂ)‖ := norm_sum_le _ _
+      _ ≤ ∑ _D ∈ T, (1 : ℝ) :=
+        Finset.sum_le_sum fun D _ => detectorIdealMoebius_norm_le_one D
+      _ = T.card := by simp
+      _ ≤ idealDivisorCount I := by exact_mod_cast hTcard
 
 /-! ## §3 The principal signal and its Mellin transform (06:458-476, 06:691-752) -/
 
@@ -1533,3 +1571,58 @@ theorem Hlocal_E1_zero (Q V W D1 : ℂ) (hV : V ≠ 1) (hW : W ≠ 1) (hD : D1 �
   ring
 
 end ArtinPrimitiveRoots.A2
+
+namespace ArtinPrimitiveRoots.Proofs.A2FreqP
+
+open ArtinPrimitiveRoots.A2
+open Classical
+
+variable {F : Type} [Field F] [NumberField F]
+
+theorem detectorCoeff_divisor_sum (U : ℝ) (hU : 1 ≤ U)
+    (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) :
+    detectorCoeff U I =
+      ∑ D ∈ (Ideal.finite_setOfPred_absNorm_le (S := 𝓞 F) ⌊U ^ 2⌋₊).toFinset,
+        if D ∣ I then idealMoebius D else 0 := by
+  simpa [ArtinPrimitiveRoots.A2.detectorCutoffSet] using
+    (ArtinPrimitiveRoots.A2.detectorCoeff_divisor_sum (K := F) U hU I hI)
+
+theorem detector_divisor_weight_summable (f : Ideal (𝓞 F) → ℂ)
+    (hb : ∀ I, ‖f I‖ ≤ 1) {s : ℂ} (hs : 1 < s.re) (D : Ideal (𝓞 F)) :
+    Summable (fun J : {I : Ideal (𝓞 F) // I ≠ ⊥} =>
+      if D ∣ J.1 then (idealMoebius D : ℂ) * f J.1 *
+        ((Ideal.absNorm J.1 : ℕ) : ℂ) ^ (-s) else 0) := by
+  classical
+  have hmu : ‖(idealMoebius D : ℂ)‖ ≤ 1 :=
+    ArtinPrimitiveRoots.A2.detectorIdealMoebius_norm_le_one D
+  have hb' : ∀ I, ‖(idealMoebius D : ℂ) * f I‖ ≤ 1 := by
+    intro I
+    rw [norm_mul]
+    calc
+      ‖(idealMoebius D : ℂ)‖ * ‖f I‖ ≤ 1 * ‖f I‖ :=
+        mul_le_mul_of_nonneg_right hmu (norm_nonneg _)
+      _ ≤ 1 := by simpa using hb I
+  have hbase := ArtinPrimitiveRoots.A2.detector_series_summable
+    (fun I => (idealMoebius D : ℂ) * f I) hb' hs
+  apply Summable.of_norm_bounded hbase.norm
+  intro J
+  by_cases hdiv : D ∣ J.1
+  · simp [hdiv, norm_mul]
+  · change ‖if D ∣ J.1 then
+        (idealMoebius D : ℂ) * f J.1 * ((Ideal.absNorm J.1 : ℕ) : ℂ) ^ (-s)
+      else 0‖ ≤ ‖(idealMoebius D : ℂ) * f J.1 *
+        ((Ideal.absNorm J.1 : ℕ) : ℂ) ^ (-s)‖
+    rw [if_neg hdiv, norm_zero]
+    exact norm_nonneg _
+
+theorem detector_mulDiv_tsum_reindex (D : Ideal (𝓞 F)) (hD : D ≠ ⊥)
+    (g : {J : {I : Ideal (𝓞 F) // I ≠ ⊥} // D ∣ J.1} → ℂ) :
+    (∑' I : {I : Ideal (𝓞 F) // I ≠ ⊥},
+      g ⟨⟨D * I.1, mul_ne_zero hD I.2⟩, ⟨I.1, rfl⟩⟩) =
+      ∑' J : {J : {I : Ideal (𝓞 F) // I ≠ ⊥} // D ∣ J.1}, g J := by
+  classical
+  let D' : detectorNZIdeal (K := F) := ⟨D, hD⟩
+  let e := detectorMulDivEquiv D'
+  simpa [D', e, detectorMulDivEquiv, detectorNZIdeal, detectorDivisor] using e.tsum_eq g
+
+end ArtinPrimitiveRoots.Proofs.A2FreqP
