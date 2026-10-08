@@ -596,4 +596,45 @@ theorem factorial_tail_bound (s : ℝ) (r : ℕ) (hs : 0 ≤ s) (hr : 1 ≤ r)
     simpa [hrewrite] using hmul
   exact (div_le_iff₀ (by positivity : (0 : ℝ) < (r.factorial : ℝ))).2 hnum
 
+/-- The reciprocal-prime mass is bounded by minus the logarithm of the
+corresponding finite Mertens product. -/
+theorem reciprocal_prime_sum_le_neg_log_sieve_product (y : ℝ) :
+    (∑ p ∈ primesUpTo y, 1 / (p : ℝ)) ≤
+      -Real.log (roughSieveProduct y) := by
+  classical
+  let P := primesUpTo y
+  have hprime (p : ℕ) (hp : p ∈ P) : p.Prime := by
+    dsimp [P, primesUpTo] at hp
+    exact (Finset.mem_filter.mp hp).2
+  have hfactor (p : ℕ) (hp : p ∈ P) :
+      0 < 1 - 1 / (p : ℝ) := by
+    have hp2 : 2 ≤ (p : ℝ) := by exact_mod_cast (hprime p hp).two_le
+    have hrecip : 1 / (p : ℝ) ≤ (1 / 2 : ℝ) := by
+      exact one_div_le_one_div_of_le (by norm_num) hp2
+    linarith
+  have hterm (p : ℕ) (hp : p ∈ P) :
+      1 / (p : ℝ) ≤ -Real.log (1 - 1 / (p : ℝ)) := by
+    have hfactorPos := hfactor p hp
+    let a : ℝ := 1 / (p : ℝ)
+    have hexp : 1 - a ≤ Real.exp (-a) := by
+      have h := Real.add_one_le_exp (-a)
+      linarith
+    have hlog := Real.log_le_log (by simpa [a] using hfactorPos) hexp
+    rw [Real.log_exp] at hlog
+    dsimp [a] at hlog ⊢
+    linarith
+  have hnonzero (p : ℕ) (hp : p ∈ P) :
+      1 - 1 / (p : ℝ) ≠ 0 := (hfactor p hp).ne'
+  calc
+    _ ≤ ∑ p ∈ P, -Real.log (1 - 1 / (p : ℝ)) := by
+      apply Finset.sum_le_sum
+      intro p hp
+      exact hterm p hp
+    _ = -∑ p ∈ P, Real.log (1 - 1 / (p : ℝ)) := by
+      rw [Finset.sum_neg_distrib]
+    _ = -Real.log (∏ p ∈ P, (1 - 1 / (p : ℝ))) := by
+      rw [Real.log_prod hnonzero]
+    _ = -Real.log (roughSieveProduct y) := by
+      simp [P, roughSieveProduct]
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
