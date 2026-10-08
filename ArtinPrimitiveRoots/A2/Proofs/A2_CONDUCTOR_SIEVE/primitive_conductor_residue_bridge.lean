@@ -707,6 +707,52 @@ private theorem conductorResidueLocalCharacter_exists
       rw [hlocal, map_mul] }
   exact ⟨χ, hφ⟩
 
+private theorem conductorResidueCharacter_exists
+    (S : A1.SData F CE condη) (q : S.ExtIdeal)
+    (ω : A1.HeckeChar F) (f : Ideal (𝓞 F))
+    (hcond : ω.ConductorDvd f)
+    (hexp : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 →
+      A1.idealExp v f = A1.idealExp v q.1) :
+    ∃ lambdaq : MulChar (ConductorResidueRing q) ℂ,
+      ∀ (a : 𝓞 F) (ha0 : a ≠ 0)
+        (ha : ∀ v : A1.FinPlace F, v.asIdeal ∣ q.1 → a ∉ v.asIdeal)
+        (x : (ConductorResidueRing q)ˣ),
+        Ideal.Quotient.mk q.1 a = (x : ConductorResidueRing q) →
+        lambdaq (x : ConductorResidueRing q) =
+          (((∏ v : conductorPrimeSupport q.1 q.2.1,
+            ω.loc v.1 (conductorLocalIntegerUnitOfOElement v.1 a ha0
+              (ha v.1 ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2))).val)
+              : ℂˣ)⁻¹ : ℂ) := by
+  classical
+  let P := conductorPrimeSupport q.1 q.2.1
+  have hlocal : ∀ v : P, ∃ χ : (ConductorResidueRing q)ˣ →* ℂˣ,
+      ∀ (a : 𝓞 F) (ha0 : a ≠ 0) (ha : a ∉ v.1.asIdeal)
+        (x : (ConductorResidueRing q)ˣ),
+        Ideal.Quotient.mk q.1 a = (x : ConductorResidueRing q) →
+        χ x = ω.loc v.1
+          (conductorLocalIntegerUnitOfOElement v.1 a ha0 ha).val := by
+    intro v
+    have hv : v.1.asIdeal ∣ q.1 :=
+      (mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2
+    exact conductorResidueLocalCharacter_exists S q ω f hcond v.1 hv (hexp v.1 hv)
+  choose χ hχ using hlocal
+  let Λ : (ConductorResidueRing q)ˣ →* ℂˣ := (∏ v : P, χ v)⁻¹
+  refine ⟨MulChar.ofUnitHom Λ, ?_⟩
+  intro a ha0 ha x hx
+  rw [MulChar.ofUnitHom_coe]
+  have hprod : (∏ v : P, χ v x) =
+      ∏ v : P, ω.loc v.1
+        (conductorLocalIntegerUnitOfOElement v.1 a ha0
+          (ha v.1 ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2))).val := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    exact hχ v a ha0 (ha v.1
+      ((mem_conductorPrimeSupport q.1 q.2.1 v.1).mp v.2)) x hx
+  have hprodApply : (∏ v : P, χ v) x = ∏ v : P, χ v x :=
+    map_prod (MonoidHom.eval x) χ Finset.univ
+  simpa only [Λ, MonoidHom.inv_apply, hprodApply, Units.val_inv_eq_inv_val] using
+    congrArg (fun u : ℂˣ => ((u⁻¹ : ℂˣ) : ℂ)) hprod
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
