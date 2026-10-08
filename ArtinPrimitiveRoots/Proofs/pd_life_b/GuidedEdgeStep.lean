@@ -678,6 +678,134 @@ theorem guided_entry_eq {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x 
     exact (hfacts i p.1 p.2).1 ⟨(hactj1 _).mp hp1, fun h => hp0 ((hactj _).mpr h)⟩
   · intro h; exact absurd (Finset.mem_univ _) h
 
+/-- The edgeGeo test of a pair of slot permutations at edge `j`. -/
+def edgeTest {K : ℕ} (F : PDFix K) (S : PDScale) (w : ArchRoot) (γ : EnvPath S.x K)
+    (j : Fin (pathLength S.x)) (π π' : Fin K → Equiv.Perm (Fin (slotCount S.x))) : Prop :=
+  let P := permuteLists π (γ j.castSucc).2
+  let Q := permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2
+  let z := (γ j.castSucc).1
+  let z' := (γ j.succ).1
+  ValidPrimeLists S.x K F.a P ∧ ValidPrimeLists S.x K F.a Q ∧
+    IsSlotTransition P Q ∧ IsPadAdmissible S.d₀ (sharedProduct P) (det2 z z') ∧
+    Int.gcd z'.1 z'.2 = 1 ∧ envBox S w z ∧ envBox S w z' ∧
+    envGood F S w (z, P) ∧ envGood F S w (z', Q)
+
+/-- The literal charge of the forced edge choice. -/
+theorem guided_edge_charge {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x)) (τ : LogPoint S.x K)
+    (hτ : IsLifeStateAfter F S γ H j.castSucc τ)
+    (π π' : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+    (hST : IsSlotTransition (permuteLists π (γ j.castSucc).2)
+      (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2))
+    (q : (i : Fin K) → primeBand S.x (F.a i))
+    (hq : ∀ i, (q i).1 =
+      permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 i (lastSlot S.x)) :
+    edgeTraceCharge F S ρ w j.val (γ j.succ).1 τ (π, guidedEdgeChoice F S γ H j τ π q, π') =
+      ((permCount S.x K : ℂ)⁻¹) ^ 2 *
+        (if edgeTest F S w γ j π π' then
+          ((∏ i : Fin K, ∏ p : primeBand S.x (F.a i),
+              lifeEdgeLocal F S ρ γ i p.1 (H i p) j : ℝ) : ℂ) *
+            (edgeMultiplier F S (decide (j.val % 2 = 0)) true
+                (permuteLists π (γ j.castSucc).2)
+                (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2)
+                (γ j.castSucc).1 (γ j.succ).1 -
+              edgeMultiplier F S (decide (j.val % 2 = 0)) false
+                (permuteLists π (γ j.castSucc).2)
+                (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2)
+                (γ j.castSucc).1 (γ j.succ).1)
+        else 0) := by
+  have hτ0 := hτ
+  obtain ⟨hpos, hnd, hmem, -, -⟩ := hτ0
+  have hz : τ.1.1 = (γ j.castSucc).1 := congrArg Prod.fst hpos
+  have hl : τ.1.2.1 = (γ j.castSucc).2 := congrArg Prod.snd hpos
+  have hL := guided_target_eq F S γ H j τ hl π π' hST q hq
+  have hυ := guided_edge_output F S γ hγ hBands H j τ hτ π π' hST q hq
+  set c := guidedEdgeChoice F S γ H j τ π q with hcdef
+  have e1 : (permuteLogPoint π τ).1.2.1 = permuteLists π (γ j.castSucc).2 := by
+    show permuteLists π τ.1.2.1 = _
+    rw [hl]
+  have e2 : (permuteLogPoint π τ).1.1 = (γ j.castSucc).1 := hz
+  have hQv : ValidPrimeLists S.x K F.a (permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2) :=
+    guided_validPrimeLists_permute _ _ (hγ.1 j.succ).2
+  -- promoted particles hit the target
+  have hprom : ∀ i, ∀ k, (c i).2 = Sum.inl k →
+      particleHits (((permuteLogPoint π τ).1.2.2 i).get k) (γ j.succ).1 := by
+    intro i k hk
+    have hk' := guidedFill_inl F S τ i (q i) k hk
+    obtain ⟨hp, -, hanc⟩ := (hmem i _).mp (List.get_mem _ k)
+    have h1 : IsActiveAt γ (q i).1 j.succ :=
+      (active_iff_permute S γ (fun i => (π' i)⁻¹) j.succ _).mpr
+        ⟨i, lastSlot S.x, (hq i).symm⟩
+    have e : (⟨((τ.1.2.2 i).get k).1, hp⟩ : primeBand S.x (F.a i)) = q i := Subtype.ext hk'
+    show ((τ.1.2.2 i).get k).2 = (projLine ((τ.1.2.2 i).get k).1 (γ j.succ).1).val
+    rw [hanc]
+    have hline := lifeLine_of_active S γ _ (H i (q i)) j.succ h1
+    rw [← e] at hline
+    rw [hline]
+  have hAdm : EdgeAdmissible F S w (permuteLogPoint π τ).1 c (γ j.succ).1 ↔
+      edgeTest F S w γ j π π' := by
+    unfold EdgeAdmissible edgeTest
+    rw [hL, e1, e2]
+    exact ⟨fun h => h.2, fun h => ⟨hprom, h⟩⟩
+  unfold edgeTraceCharge
+  dsimp only
+  congr 1
+  by_cases ht : edgeTest F S w γ j π π'
+  · rw [if_pos (hAdm.mpr ht), if_pos ht, hL, e1, e2]
+    congr 1
+    congr 1
+    have hA : ρ ^ (∑ i, hitCount ((permuteLogPoint π τ).1.2.2 i) (γ j.castSucc).1) =
+        ∏ i : Fin K, ∏ p : primeBand S.x (F.a i),
+          (if pdLifePending S γ p.1 (H i p) true j.castSucc ∧
+              lifeHit S γ p.1 (H i p).1 j.castSucc then ρ else 1) := by
+      rw [← Finset.prod_pow_eq_pow_sum]
+      apply Finset.prod_congr rfl
+      intro i _
+      rw [hitCount_life F S γ H i true j.castSucc j.castSucc ((permuteLogPoint π τ).1.2.2 i)
+        (hτ.2.1 i) (hτ.2.2.1 i)]
+      exact (prod_ite_one_pow _ ρ).symm
+    have hY : (∏ i : Fin K, ∏ p : primeBand S.x (F.a i),
+          lifeEdgeLocal F S ρ γ i p.1 (H i p) j) =
+        (∏ i : Fin K, ∏ p : primeBand S.x (F.a i),
+          (if pdLifePending S γ p.1 (H i p) true j.castSucc ∧
+              lifeHit S γ p.1 (H i p).1 j.castSucc then ρ else 1)) *
+        (∏ i : Fin K, ∏ p : primeBand S.x (F.a i),
+          (if IsActiveAt γ p.1 j.succ ∧ ¬ IsActiveAt γ p.1 j.castSucc then
+            (if pdLifePending S γ p.1 (H i p) true j.castSucc then (bandMass S.x (F.a i))⁻¹
+              else memoryNu S.x K F.a F.q_d i p.1)
+          else 1)) *
+        (∏ i : Fin K, ∏ p : primeBand S.x (F.a i),
+          (if pdLifePending S γ p.1 (H i p) false j.succ ∧
+              lifeHit S γ p.1 (H i p).1 j.succ then ρ else 1)) := by
+      rw [← Finset.prod_mul_distrib, ← Finset.prod_mul_distrib]
+      apply Finset.prod_congr rfl
+      intro i _
+      rw [← Finset.prod_mul_distrib, ← Finset.prod_mul_distrib]
+      rfl
+    rw [hY, hA]
+    congr 1
+    · congr 1
+      apply Finset.prod_congr rfl
+      intro i _
+      rw [← guided_entry_eq F S γ hγ hBands H j τ hτ π π' hST q hq i]
+      split
+      · rename_i k heq
+        have hf : guidedFill F S τ i (q i) = Sum.inl k := heq
+        rw [if_pos ⟨k, guidedFill_inl F S τ i (q i) k hf⟩]
+      · rename_i p' heq
+        have hf : guidedFill F S τ i (q i) = Sum.inr p' := heq
+        obtain ⟨hp', hnone⟩ := guidedFill_inr F S τ i (q i) p' hf
+        rw [if_neg hnone, hp']
+    · rw [← Finset.prod_pow_eq_pow_sum]
+      apply Finset.prod_congr rfl
+      intro i _
+      erw [hitCount_life F S γ H i false j.succ j.succ _ (hυ.2.1 i) (hυ.2.2.1 i)]
+      exact (prod_ite_one_pow _ ρ).symm
+  · rw [if_neg (mt hAdm.mp ht), if_neg ht]
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
