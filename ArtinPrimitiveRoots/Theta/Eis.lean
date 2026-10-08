@@ -1766,6 +1766,66 @@ theorem eisenstein_majorant_on_compact
       exact hβ ⟨x, hx, hn⟩
     simp only [hzero, norm_zero, majorant, dite_eq_right hβ, le_refl]
 
+/-- Each rational scalar summand is continuous along the archimedean unipotent orbit. -/
+theorem scalarOf_unipotent_continuous
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (g : P.tc.G)
+    (γ : GL (Fin 2) F) :
+    Continuous (fun x : InfinitePlace F → ℂ =>
+      scalarOf P G Fs.f Fs.fC (P.tc.rat γ * nInf P x * g)) := by
+  classical
+  have hcancel (t : ℂ) : upperM ℂ t * upperM ℂ (-t) = 1 := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two]
+  have hinv (t : ℂ) : (upperM ℂ t)⁻¹ = upperM ℂ (-t) := by
+    calc
+      (upperM ℂ t)⁻¹ = (upperM ℂ t)⁻¹ * (upperM ℂ t * upperM ℂ (-t)) := by
+        rw [hcancel, mul_one]
+      _ = upperM ℂ (-t) := by group
+  have hval : Continuous (fun t : ℂ => (upperM ℂ t : Matrix (Fin 2) (Fin 2) ℂ)) := by
+    change Continuous (fun t : ℂ => (!![1, t; 0, 1] : Matrix (Fin 2) (Fin 2) ℂ))
+    apply continuous_matrix
+    intro i j
+    fin_cases i <;> fin_cases j
+    all_goals first | exact continuous_const | exact continuous_id
+  have hu : Continuous (upperM ℂ) := Units.continuous_iff.mpr ⟨hval, by
+    simpa only [hinv, Function.comp_def] using
+      hval.comp (continuous_neg : Continuous (fun t : ℂ => -t))⟩
+  have hn : Continuous (nC : ℂ → PGL2 ℂ) := QuotientGroup.continuous_mk.comp hu
+  obtain ⟨r, rfl⟩ := P.q_surj g
+  choose rn hqn hfn hcn using fun x : InfinitePlace F → ℂ =>
+    P.nS_components ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x)
+  have hfn1 (x : InfinitePlace F → ℂ) (v : FinPlace F) : P.compF v (rn x) = 1 := by
+    simpa using hfn x v
+  let R (x : InfinitePlace F → ℂ) : P.RP := P.ratRP γ * rn x * r
+  let cf : ℂ := ∏ᶠ v, G.lam v (Fs.f v (P.compF v (P.ratRP γ * r)))
+  have hq (x : InfinitePlace F → ℂ) :
+      P.q (R x) = P.tc.rat γ * nInf P x * P.q r := by
+    simp only [R, map_mul, P.q_ratRP, hqn, nInf]
+  have hcompF (x : InfinitePlace F → ℂ) (v : FinPlace F) :
+      P.compF v (R x) = P.compF v (P.ratRP γ * r) := by
+    simp only [R, map_mul, hfn1, mul_one]
+  have hcompC (x : InfinitePlace F → ℂ) (w : InfinitePlace F) :
+      P.compC w (R x) = P.compC w (P.ratRP γ) * nC (x w) * P.compC w r := by
+    simp only [R, map_mul, hcn, nC]
+  have hformula (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC (P.tc.rat γ * nInf P x * P.q r) =
+        cf * ∏ w, Fs.fC w (P.compC w (P.ratRP γ) * nC (x w) * P.compC w r) := by
+    rw [← hq, (scalarOf_q P G Fs (R x)).2]
+    simp only [cf, hcompF, hcompC]
+  have hprod : Continuous (fun x : InfinitePlace F → ℂ =>
+      ∏ w, Fs.fC w (P.compC w (P.ratRP γ) * nC (x w) * P.compC w r)) := by
+    apply continuous_finsetProd
+    intro w _
+    exact (Fs.fC_sec w).2.comp
+      ((continuous_const.mul (hn.comp (continuous_apply w))).mul continuous_const)
+  have hc : Continuous (fun x : InfinitePlace F → ℂ =>
+      cf * ∏ w, Fs.fC w (P.compC w (P.ratRP γ) * nC (x w) * P.compC w r)) :=
+    continuous_const.mul hprod
+  exact hc.congr fun x => (hformula x).symm
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
