@@ -5058,6 +5058,42 @@ theorem whit_finitePeriod_arch_integral
       exact Filter.Eventually.of_forall hshift
     _ = _ := integral_const_mul c finiteKernel
 
+/-- On rational arguments the archimedean character equals the finite negative-character product. -/
+theorem whit_rational_character_product (D : FieldData F) (A : AddCharData F)
+    (ν ξ : F) :
+    Function.HasFiniteMulSupport (fun v : FinPlace F =>
+      A.ψ v (-algebraMap F (v.adicCompletion F) (ν * ξ))) ∧
+    psiInf ν (infEmbA ξ) =
+      ∏ᶠ v : FinPlace F, A.ψ v (-algebraMap F (v.adicCompletion F) (ν * ξ)) := by
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have harch : psiInf ν (infEmbA ξ) =
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F (ν * ξ) : ℂ))) := by
+    simpa only [psiInf, infEmbA, RingHom.pi_apply, map_mul, psiC] using
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.arch_product_eq_trace (ν * ξ)
+  have htrace : (Algebra.trace ℚ F (-(ν * ξ)) : ℂ) =
+      -(Algebra.trace ℚ F (ν * ξ) : ℂ) := by
+    simp only [map_neg, Rat.cast_neg]
+  have hneg : Complex.exp
+      (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F (-(ν * ξ)) : ℂ))) =
+        (psiInf ν (infEmbA ξ))⁻¹ := by
+    rw [htrace, harch, ← Complex.exp_neg]
+    congr 1
+    ring
+  have hc : psiInf ν (infEmbA ξ) ≠ 0 := by
+    rw [harch]
+    exact Complex.exp_ne_zero _
+  obtain ⟨hfinite, hglobal⟩ := A.trivial_on_F (-(ν * ξ))
+  have hrelation : (∏ᶠ v : FinPlace F,
+      A.ψ v (-algebraMap F (v.adicCompletion F) (ν * ξ))) *
+        (psiInf ν (infEmbA ξ))⁻¹ = 1 := by
+    rw [hneg] at hglobal
+    simpa only [map_neg] using hglobal
+  refine ⟨?_, ?_⟩
+  · simpa only [Function.HasFiniteMulSupport, map_neg] using hfinite
+  · have h := congrArg (fun z : ℂ => z * psiInf ν (infEmbA ξ)) hrelation
+    simpa only [mul_assoc, inv_mul_cancel₀ hc, mul_one, one_mul] using h.symm
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
