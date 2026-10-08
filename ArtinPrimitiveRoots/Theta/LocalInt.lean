@@ -3,6 +3,10 @@ import ArtinPrimitiveRoots.Theta.TorusInd
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».CoshControl
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».PolynomialControl
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogDerivative
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogProfile
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogBounds
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogSmooth
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 import Mathlib.MeasureTheory.Measure.Haar.MulEquivHaarChar
 import Mathlib.Analysis.Calculus.InverseFunctionTheorem.Deriv
@@ -10649,7 +10653,9 @@ theorem derivVecC_isSection (m : ℤ) (s : ℂ) :
 theorem sheetHypC_bessel (m : ℤ) (hm : m = 1 ∨ m = -1) (c : ℂ) :
     SheetHypC (1 / 3) (fun y : ℂ => c * (Complex.normSq y : ℂ) * omegaAng m y *
       (besselK (1 / 3) (4 * Real.pi * ‖y‖) : ℂ)) := by
-  sorry
+  obtain ⟨hK, hctrl⟩ := ArtinPrimitiveRoots.Proofs.thsol_smooth.bessel_cubic_log_control
+  exact ⟨ArtinPrimitiveRoots.Proofs.thsol_smooth.th_c_sheet_log_smooth m hm c hK,
+    ArtinPrimitiveRoots.Proofs.thsol_smooth.th_c_sheet_log_bounds m hm c (hctrl 1).2⟩
 
 /-- **int:complex-spherical**: `M_ℂ(s) f°_s = (π/(2s)) f°_{-s}` for `Re s > 0`. -/
 theorem intertwineC_spherical (s : ℂ) (hs : 0 < s.re) :
