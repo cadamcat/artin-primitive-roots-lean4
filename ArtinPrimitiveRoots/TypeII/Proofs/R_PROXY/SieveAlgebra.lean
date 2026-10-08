@@ -490,4 +490,66 @@ theorem truncated_divisor_reciprocal_mass (P : Finset ℕ)
     _ = ∏ p ∈ P, (1 + (p : ℝ)⁻¹) := hEuler
     _ = ∏ p ∈ P, (1 + 1 / (p : ℝ)) := by simp [one_div]
 
+/-- Positive multiples of `d` up to `2M` inject into the positive integers at
+most `2M/d`, giving a count without an additive error. -/
+theorem positive_multiple_count_bound (M : ℝ) (d : ℕ)
+    (hM : 0 < M) (hd : 0 < d) (I : Finset ℕ)
+    (hI : ∀ m ∈ I, 0 < m ∧ (m : ℝ) ≤ 2 * M) :
+    ∑ m ∈ I, (if d ∣ m then (1 : ℝ) else 0) ≤ 2 * M / (d : ℝ) := by
+  classical
+  let J := I.filter (fun m => d ∣ m)
+  let H := (Finset.range (⌊2 * M / (d : ℝ)⌋₊ + 1)).erase 0
+  have hsum :
+      (∑ m ∈ I, (if d ∣ m then (1 : ℝ) else 0)) = (J.card : ℝ) := by
+    rw [← Finset.sum_filter]
+    simp [J]
+  have hqnonneg : 0 ≤ 2 * M / (d : ℝ) := by positivity
+  have hmaps : Set.MapsTo (fun m : ℕ => m / d) (J : Set ℕ) (H : Set ℕ) := by
+    intro m hm
+    have hmI : m ∈ I := (Finset.mem_filter.mp hm).1
+    have hdiv : d ∣ m := (Finset.mem_filter.mp hm).2
+    have hmpos : 0 < m := (hI m hmI).1
+    let q := m / d
+    have hcancel : d * (m / d) = m := Nat.mul_div_cancel' hdiv
+    have hqpos : 0 < q := by
+      by_contra hq
+      have hq0 : q = 0 := Nat.eq_zero_of_not_pos hq
+      have hmzero : m = 0 := by simpa [q, hq0] using hcancel.symm
+      exact (Nat.ne_of_gt hmpos) hmzero
+    have hcancel' : (m / d) * d = m := by
+      rw [Nat.mul_comm]
+      exact hcancel
+    have hcancelReal : (q : ℝ) * (d : ℝ) = (m : ℝ) := by
+      change ((m / d : ℕ) : ℝ) * (d : ℝ) = (m : ℝ)
+      exact_mod_cast hcancel'
+    have hqbound : (q : ℝ) ≤ 2 * M / (d : ℝ) := by
+      apply (le_div_iff₀ (Nat.cast_pos.mpr hd)).2
+      rw [hcancelReal]
+      exact (hI m hmI).2
+    have hqfloor : q ≤ ⌊2 * M / (d : ℝ)⌋₊ :=
+      (Nat.le_floor_iff hqnonneg).2 (by exact_mod_cast hqbound)
+    have hqmem : q ∈ H := by
+      dsimp [H]
+      exact Finset.mem_erase.mpr
+        ⟨Nat.ne_of_gt hqpos, Finset.mem_range.mpr (Nat.lt_succ_of_le hqfloor)⟩
+    simpa [q] using hqmem
+  have hinj : Set.InjOn (fun m : ℕ => m / d) (J : Set ℕ) := by
+    intro m hm n hn hmn
+    have hdm : d ∣ m := (Finset.mem_filter.mp hm).2
+    have hdn : d ∣ n := (Finset.mem_filter.mp hn).2
+    have hcancelm := Nat.mul_div_cancel' hdm
+    have hcanceln := Nat.mul_div_cancel' hdn
+    calc
+      m = d * (m / d) := hcancelm.symm
+      _ = d * (n / d) := congrArg (fun q : ℕ => d * q) hmn
+      _ = n := hcanceln
+  have hcard : J.card ≤ H.card := Finset.card_le_card_of_injOn
+    (fun m : ℕ => m / d) hmaps hinj
+  have hHcard : H.card = ⌊2 * M / (d : ℝ)⌋₊ := by
+    simp [H]
+  calc
+    (∑ m ∈ I, (if d ∣ m then (1 : ℝ) else 0)) = (J.card : ℝ) := hsum
+    _ ≤ (⌊2 * M / (d : ℝ)⌋₊ : ℝ) := by exact_mod_cast (hcard.trans_eq hHcard)
+    _ ≤ 2 * M / (d : ℝ) := Nat.floor_le hqnonneg
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
