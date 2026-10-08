@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.AddChar
+import TauCeti.RingTheory.DedekindDomain.FiniteAdeleRing.Basic
 
 /-! Core interfaces for the additive annihilator proof. -/
 
@@ -8,6 +9,7 @@ open NumberField NumberField.InfinitePlace IsDedekindDomain Module
 open scoped Classical
 open scoped ComplexConjugate
 open scoped nonZeroDivisors
+open scoped Topology
 
 noncomputable section
 
@@ -65,7 +67,78 @@ theorem e_diag_product_eq_one [IsTotallyComplex F]
 theorem finite_projection_dense (S : A1.SData F CE condη) :
     Dense (Set.range fun r : S.R =>
       (fun v : S.Sf => algebraMap F (v.1.adicCompletion F) (r : F))) := by
-  sorry
+  classical
+  rw [dense_iff_inter_open]
+  intro U hU hUne
+  obtain ⟨x, hxU⟩ := hUne
+  obtain ⟨V, hV, hVU⟩ := (isOpen_pi_iff'.mp hU) x hxU
+  let a : IsDedekindDomain.FiniteAdeleRing (𝓞 F) F :=
+    ⟨(fun v => if hv : v ∈ S.Sf then x ⟨v, hv⟩ else 0), by
+      have houtside : ∀ᶠ v : A1.FinPlace F in Filter.cofinite, v ∉ S.Sf := by
+        apply Filter.eventually_cofinite.mpr
+        simpa using S.Sf.finite_toSet
+      filter_upwards [houtside] with v hv
+      simp [hv]⟩
+  have ha_apply (v : A1.FinPlace F) :
+      a v = (if hv : v ∈ S.Sf then x ⟨v, hv⟩ else 0) := rfl
+  have hT (v : S.Sf) :
+      (fun z : v.1.adicCompletionIntegers F => x v + z) ⁻¹' V v ∈ 𝓝 0 := by
+    have h0 : (fun z : v.1.adicCompletionIntegers F => x v + z) 0 ∈ V v := by
+      simpa using (hV v).2
+    exact (continuous_const.add continuous_subtype_val).continuousAt.preimage_mem_nhds
+      ((hV v).1.mem_nhds h0)
+  let nLoc : S.Sf → ℕ := fun v =>
+    (v.1.exists_maximalIdeal_pow_subset_of_mem_nhds (K := F) (hT v)).choose
+  have hnLoc (v : S.Sf) :
+      ((IsLocalRing.maximalIdeal (v.1.adicCompletionIntegers F) ^ nLoc v :
+        Ideal (v.1.adicCompletionIntegers F)) : Set (v.1.adicCompletionIntegers F)) ⊆
+          (fun z : v.1.adicCompletionIntegers F => x v + z) ⁻¹' V v :=
+    (v.1.exists_maximalIdeal_pow_subset_of_mem_nhds (K := F) (hT v)).choose_spec
+  let nA : A1.FinPlace F → ℕ := fun v => if hv : v ∈ S.Sf then nLoc ⟨v, hv⟩ else 0
+  obtain ⟨r, hnear, houter⟩ :=
+    IsDedekindDomain.FiniteAdeleRing.exists_forall_valued_sub_le_and_forall_valued_sub_le_one
+      a S.Sf nA
+  have hrR : r ∈ S.R := by
+    change ∀ v : A1.FinPlace F, v ∉ S.Sf → v.valuation F r ≤ 1
+    intro v hv
+    have hav : a v = 0 := by
+      rw [ha_apply]
+      simp [hv]
+    have h := houter v
+    rw [hav, sub_zero] at h
+    change Valued.v (r : v.adicCompletion F) ≤ 1 at h
+    rw [v.valuedAdicCompletion_eq_valuation'] at h
+    exact h
+  have hcoords : ∀ v : S.Sf,
+      algebraMap F (v.1.adicCompletion F) r ∈ V v := by
+    intro v
+    have hclose : Valued.v
+        (algebraMap F (v.1.adicCompletion F) r - x v) ≤
+          WithZero.exp (-(nLoc v : ℤ)) := by
+      have h := hnear v.1 v.2
+      have ha : a v.1 = x v := by
+        rw [ha_apply]
+        simp [v.2]
+      have hnAeq : nA v.1 = nLoc v := by simp [nA, v.2]
+      rw [ha, hnAeq] at h
+      exact h
+    let d : v.1.adicCompletionIntegers F :=
+      ⟨algebraMap F (v.1.adicCompletion F) r - x v, by
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        exact hclose.trans (WithZero.exp_le_one_iff.mpr (by omega))⟩
+    have hdPow : d ∈ IsLocalRing.maximalIdeal (v.1.adicCompletionIntegers F) ^ nLoc v := by
+      rw [v.1.mem_maximalIdeal_pow_iff (K := F)]
+      simpa [d] using hclose
+    have hdV := hnLoc v hdPow
+    change x v + (d : v.1.adicCompletion F) ∈ V v at hdV
+    simpa [d] using hdV
+  have hrU : (fun v : S.Sf => algebraMap F (v.1.adicCompletion F) r) ∈ U := by
+    apply hVU
+    intro v hv
+    exact hcoords v
+  let rR : S.R := ⟨r, hrR⟩
+  refine ⟨(fun v : S.Sf => algebraMap F (v.1.adicCompletion F) (rR : F)), ?_⟩
+  exact ⟨by simpa [rR] using hrU, ⟨rR, rfl⟩⟩
 
 /-- Approximate any finite S-coordinate tuple by an S-integer modulo the integral rings. -/
 theorem s_integer_finite_approx (S : A1.SData F CE condη)
