@@ -1694,6 +1694,19 @@ private theorem conductorIdeal_mem_of_local_bounds
   · simp only [conductor_idealExp_zero_of_not_dvd I hI v hv,
       pow_zero, Ideal.one_eq_top, Submodule.mem_top]
 
+private theorem conductorIdealExp_le_of_le
+    (I K : Ideal (𝓞 F)) (hI : I ≠ ⊥) (hK : K ≠ ⊥)
+    (hIK : I ≤ K) (v : A1.FinPlace F) :
+    A1.idealExp v K ≤ A1.idealExp v I := by
+  obtain ⟨D, hD⟩ := Ideal.dvd_iff_le.mpr hIK
+  have hD0 : D ≠ ⊥ := by
+    intro hzero
+    apply hI
+    rw [hD, hzero]
+    simp
+  rw [hD, conductor_idealExp_mul v K D hK hD0]
+  exact Nat.le_add_right _ _
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
