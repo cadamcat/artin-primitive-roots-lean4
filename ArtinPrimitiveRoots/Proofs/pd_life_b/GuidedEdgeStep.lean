@@ -517,6 +517,84 @@ theorem guided_edge_output {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S
         rw [hf]
         simp [ha, hq i]
 
+/-- A visited edge output has target lists `Q`. -/
+theorem visit_target {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (j : Fin (pathLength S.x)) (τ : LogPoint S.x K)
+    (π π' : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+    (c : (i : Fin K) → EdgeChoice S.x F.a (τ.1.2.2 i) i)
+    (hv : ((edgeTraceOutput F S j.val (γ j.succ).1 τ (π, c, π')).1.1,
+      (edgeTraceOutput F S j.val (γ j.succ).1 τ (π, c, π')).1.2.1) = γ j.succ) :
+    edgeTargetLists F S (permuteLogPoint π τ).1 c =
+      permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 := by
+  have h2 : permuteLists π' (edgeTargetLists F S (permuteLogPoint π τ).1 c) =
+      (γ j.succ).2 := congrArg Prod.snd hv
+  funext i jj
+  have := congrFun (congrFun h2 i) ((π' i)⁻¹ jj)
+  simpa [permuteLists] using this
+
+/-- Every guided edge choice other than the forced one has a vanishing continuation. -/
+theorem guided_edge_other_zero {K : ℕ} (F : PDFix K) (S : PDScale) (γ : EnvPath S.x K)
+    (H : PDLifeAssignment F S γ) (j : Fin (pathLength S.x)) (τ : LogPoint S.x K)
+    (hτ : IsLifeStateAfter F S γ H j.castSucc τ)
+    (π π' : Fin K → Equiv.Perm (Fin (slotCount S.x)))
+    (q : (i : Fin K) → primeBand S.x (F.a i))
+    (hq : ∀ i, (q i).1 =
+      permuteLists (fun i => (π' i)⁻¹) (γ j.succ).2 i (lastSlot S.x))
+    (G : LogPoint S.x K → ℂ)
+    (hGv : ∀ υ, G υ ≠ 0 → (υ.1.1, υ.1.2.1) = γ j.succ)
+    (hGn : ∀ υ, G υ ≠ 0 → (υ.2.map Prod.snd).Nodup)
+    (c : (i : Fin K) → EdgeChoice S.x F.a (τ.1.2.2 i) i)
+    (hc : ∀ i, (c i).1 = (guidedEdgeChoice F S γ H j τ π q i).1)
+    (hne : c ≠ guidedEdgeChoice F S γ H j τ π q) :
+    G (edgeTraceOutput F S j.val (γ j.succ).1 τ (π, c, π')) = 0 := by
+  obtain ⟨-, hnd, hmem, -, hlmem⟩ := hτ
+  by_contra hG0
+  have hL := visit_target F S γ j τ π π' c (hGv _ hG0)
+  have hlogNd := hGn _ hG0
+  apply hne
+  funext i
+  have hlab : edgeNewLabel (c i) = (q i).1 := by
+    have := congrFun (congrFun hL i) (lastSlot S.x)
+    simp only [edgeTargetLists, lastSlot, lt_irrefl, ↓reduceIte] at this
+    rw [hq i]
+    exact this
+  refine Prod.ext (hc i) ?_
+  show (c i).2 = guidedFill F S τ i (q i)
+  rcases hci : (c i).2 with k | p
+  · have hk : ((τ.1.2.2 i).get k).1 = (q i).1 := by
+      rw [← hlab]; unfold edgeNewLabel; rw [hci]
+    have hex : ∃ r : Fin (τ.1.2.2 i).length, ((τ.1.2.2 i).get r).1 = (q i).1 := ⟨k, hk⟩
+    unfold guidedFill
+    rw [dif_pos hex]
+    congr 1
+    apply index_inj_of_nodup _ (hnd i)
+    rw [hk, Classical.choose_spec hex]
+  · have hp : p = q i := by
+      apply Subtype.ext
+      rw [← hlab]; unfold edgeNewLabel; rw [hci]
+    subst hp
+    unfold guidedFill
+    split_ifs with hex
+    · exfalso
+      obtain ⟨r, hr⟩ := hex
+      obtain ⟨hpr, hpend, -⟩ := (hmem i _).mp (List.get_mem _ r)
+      have hlog : lifeBornBefore F S γ H ((τ.1.2.2 i).get r).1 j.castSucc ∨
+          ∃ i', lifeBornAt F S γ H i' ((τ.1.2.2 i).get r).1 j.castSucc :=
+        logged_of_pending_true F S γ H i ⟨_, hpr⟩ j.castSucc hpend
+      rw [hr] at hlog
+      have h1 : ((q i : ℕ)) ∈ τ.2.map Prod.snd := (hlmem _).mpr hlog
+      have h2 : ((q i : ℕ)) ∈ (edgeBirths F S j.val (permuteLogPoint π τ).1 c).map Prod.snd := by
+        refine List.mem_map.mpr ⟨(BirthAddress.edge j.val i, (q i : ℕ)), ?_, rfl⟩
+        unfold edgeBirths
+        refine List.mem_flatMap.mpr ⟨i, List.mem_finRange i, ?_⟩
+        simp only [hci]
+        simp
+      have hnd' : (τ.2.map Prod.snd ++
+          (edgeBirths F S j.val (permuteLogPoint π τ).1 c).map Prod.snd).Nodup := by
+        rw [← List.map_append]; exact hlogNd
+      exact List.disjoint_of_nodup_append hnd' h1 h2
+    · rfl
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
