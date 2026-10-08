@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeAdditiveMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogRegularity
@@ -1397,6 +1398,18 @@ private theorem po_probe_low_fourier :
   have hlogv := hlog v hv
   have hs := hreconstruct x (Real.log v) ⟨hlogv.1.le, hlogv.2.le⟩
   simpa [po_probe_low_log_kernel, Real.exp_log hvpos] using hs.tsum_eq.symm
+
+private theorem po_probe_low_additive_mass :
+    ∃ C : ℝ, 0 < C ∧ ∀ Y : ℝ, 1 ≤ Y →
+      ∃ P : Finset S.ExtIdeal,
+        (∀ s : S.ExtIdeal, s ∈ P ↔ W.W1 (qI s.1 / Y) ≠ 0) ∧
+        ∀ ρ : ∀ s : S.ExtIdeal, ResidueRing R.exterior s → ℂ,
+          (∀ s d, ‖ρ s d‖ ≤ 1) →
+          (∑ s ∈ P, ∑ᶠ d : ResidueRing R.exterior s,
+            ‖(Y : ℂ)⁻¹ * ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ρ s d‖ ^ 2)
+            ≤ C / Y := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_additive_mass R.exterior W.W1
+    W.W1_compact W.W1_positive_support W.W1_smooth.continuous W.W1_nonzero
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
