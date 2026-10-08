@@ -747,6 +747,167 @@ theorem psi_local_nondegenerate [IsTotallyComplex F]
     (v : S.Sf) (y : v.1.adicCompletion F)
     (h : ∀ x : v.1.adicCompletion F, A.ψ v.1 (x * y) = 1) :
     y = 0 := by
-  sorry
+  classical
+  by_contra hy
+  have hy0 : y ≠ 0 := by
+    intro hy0
+    exact hy hy0
+  have hψ : ∀ z : v.1.adicCompletion F, A.ψ v.1 z = 1 := by
+    intro z
+    rw [← div_mul_cancel₀ z hy0]
+    exact h (z / y)
+  let codifferent : FractionalIdeal (𝓞 F)⁰ F :=
+    FractionalIdeal.dual ℤ ℚ (1 : FractionalIdeal (𝓞 F)⁰ F)
+  let c : ℤ := FractionalIdeal.count F v.1 codifferent
+  obtain ⟨N, hN⟩ := exists_nat_gt (max (-c) 0)
+  have hNcod : -c < (N : ℤ) :=
+    lt_of_le_of_lt (le_max_left (-c) 0) hN
+  have hNpos : (0 : ℤ) < (N : ℤ) :=
+    lt_of_le_of_lt (le_max_right (-c) 0) hN
+  obtain ⟨π, hπ⟩ := HeightOneSpectrum.valuation_exists_uniformizer F v.1
+  let t : F := π⁻¹ ^ N
+  have htVal : v.1.valuation F t = WithZero.exp (N : ℤ) := by
+    simp [t, hπ]
+  let tV : v.1.adicCompletion F := algebraMap F _ t
+  have htVVal : Valued.v tV = WithZero.exp (N : ℤ) := by
+    dsimp [tV]
+    exact (v.1.valuedAdicCompletion_eq_valuation' t).trans htVal
+  have htLarge : 1 < Valued.v tV := by
+    rw [htVVal, ← WithZero.exp_zero]
+    exact WithZero.exp_lt_exp.mpr hNpos
+  let aCoord : ∀ u : A1.FinPlace F, u.adicCompletion F :=
+    Pi.single (M := fun u : A1.FinPlace F => u.adicCompletion F) v.1 tV
+  let a : IsDedekindDomain.FiniteAdeleRing (𝓞 F) F :=
+    ⟨aCoord, by
+      have houtside : ∀ᶠ u : A1.FinPlace F in Filter.cofinite, u ≠ v.1 := by
+        apply Filter.eventually_cofinite.mpr
+        simpa using (Set.finite_singleton v.1)
+      filter_upwards [houtside] with u hu
+      simp [aCoord, hu]⟩
+  let nA : A1.FinPlace F → ℕ := fun _ => 0
+  obtain ⟨r, hnear, houter⟩ :=
+    IsDedekindDomain.FiniteAdeleRing.exists_forall_valued_sub_le_and_forall_valued_sub_le_one
+      a ({v.1} : Finset (A1.FinPlace F)) nA
+  have hav : a v.1 = tV := by
+    change Pi.single (M := fun u : A1.FinPlace F => u.adicCompletion F) v.1 tV v.1 = tV
+    simp
+  have hclose :
+      Valued.v (algebraMap F (v.1.adicCompletion F) r - tV) ≤ 1 := by
+    have h := hnear v.1 (Finset.mem_singleton_self _)
+    rw [hav] at h
+    simpa [nA] using h
+  have hrInt : ∀ u : A1.FinPlace F, u ≠ v.1 → u.valuation F r ≤ 1 := by
+    intro u huv
+    have h := houter u
+    have hau : a u = 0 := by
+      change Pi.single (M := fun u : A1.FinPlace F => u.adicCompletion F) v.1 tV u = 0
+      simp [huv]
+    rw [hau, sub_zero] at h
+    change Valued.v (r : u.adicCompletion F) ≤ 1 at h
+    rw [u.valuedAdicCompletion_eq_valuation'] at h
+    exact h
+  have hclose' :
+      Valued.v (algebraMap F (v.1.adicCompletion F) r - tV) < Valued.v tV :=
+    lt_of_le_of_lt hclose htLarge
+  have hsum : tV + (algebraMap F (v.1.adicCompletion F) r - tV) =
+      algebraMap F (v.1.adicCompletion F) r := by
+    abel
+  have hrVal : v.1.valuation F r = WithZero.exp (N : ℤ) := by
+    calc
+      v.1.valuation F r =
+          Valued.v (algebraMap F (v.1.adicCompletion F) r) :=
+        (v.1.valuedAdicCompletion_eq_valuation' r).symm
+      _ = Valued.v tV := by
+        rw [← hsum]
+        exact Valued.v.map_add_eq_of_lt_left hclose'
+      _ = WithZero.exp (N : ℤ) := htVVal
+  have hr0 : r ≠ 0 := by
+    intro hr0
+    have hzero : WithZero.exp (N : ℤ) = 0 := by
+      simpa [hr0] using hrVal.symm
+    have hne : WithZero.exp (N : ℤ) ≠ 0 := WithZero.exp_ne_zero
+    exact hne hzero
+  have harch_one (q : F)
+      (hq : ∀ u : A1.FinPlace F, u ≠ v.1 → u.valuation F q ≤ 1) :
+      (∏ w : InfinitePlace F, A1.psiC (w.embedding q)) = 1 := by
+    have h1 : ∀ u : A1.FinPlace F, u ∉ S.Sf →
+        u.valuation F (0 - q) ≤ 1 := by
+      intro u hu
+      have huv : u ≠ v.1 := by
+        intro huv
+        subst u
+        exact hu v.2
+      rw [zero_sub, Valuation.map_neg]
+      exact hq u huv
+    have h2 : ∀ u : A1.FinPlace F, u ∈ S.Sf →
+        u.valuation F (0 : F) ≤ 1 := by
+      intro u hu
+      simp
+    have he : S.e A (S.diag q) = 1 := by
+      rw [S.e_diag_eq A q 0 h1 h2]
+      simp
+    have hlocal (u : S.Sf) :
+        A.ψ u.1 (algebraMap F (u.1.adicCompletion F) q) = 1 := by
+      by_cases huv : u.1 = v.1
+      · have huv' : u = v := Subtype.ext huv
+        subst u
+        exact hψ (algebraMap F (v.1.adicCompletion F) q)
+      · apply A.integral
+        change ((q : F) : u.1.adicCompletion F) ∈ u.1.adicCompletionIntegers F
+        rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+          HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+        exact hq u.1 huv
+    have hprod :
+        (∏ u : S.Sf, A.ψ u.1 (algebraMap F (u.1.adicCompletion F) q)) = 1 :=
+      Finset.prod_eq_one fun u _ => hlocal u
+    change (∏ u : S.Sf, A.ψ u.1 (algebraMap F (u.1.adicCompletion F) q)) *
+      ∏ w : InfinitePlace F, A1.psiC (w.embedding q) = 1 at he
+    rw [hprod, one_mul] at he
+    exact he
+  let x : InfinitePlace F → ℂ := fun w => w.embedding r
+  have harch : ∀ n : 𝓞 F,
+      (∏ w : InfinitePlace F,
+        A1.psiC (w.embedding (n : F) * x w)) = 1 := by
+    intro n
+    have hnq : ∀ u : A1.FinPlace F, u ≠ v.1 →
+        u.valuation F ((n : F) * r) ≤ 1 := by
+      intro u huv
+      rw [map_mul]
+      exact mul_le_one₀ (u.valuation_le_one n) (bot_le) (hrInt u huv)
+    simpa only [map_mul] using harch_one ((n : F) * r) hnq
+  obtain ⟨tArch, htArch, htrace⟩ := arch_trace_dual_element D x harch
+  let w₀ : InfinitePlace F := InfinitePlace.mk D.σ0
+  have htEq : tArch = r := by
+    apply w₀.embedding.injective
+    simpa [x] using htArch w₀
+  have htraceR : ∀ n : 𝓞 F, ∃ m : ℤ,
+      Algebra.trace ℚ F ((n : F) * r) = m := by
+    intro n
+    obtain ⟨m, hm⟩ := htrace n
+    exact ⟨m, by simpa [htEq] using hm⟩
+  have hdual : r ∈ Submodule.traceDual ℤ ℚ (1 : Submodule (𝓞 F) F) := by
+    rw [Submodule.mem_traceDual]
+    intro b hb
+    obtain ⟨n, hn⟩ := Submodule.mem_one.mp hb
+    obtain ⟨m, hm⟩ := htraceR n
+    have htr : Algebra.trace ℚ F (r * b) = (m : ℚ) := by
+      rw [← hn, mul_comm]
+      exact hm
+    refine ⟨m, ?_⟩
+    exact_mod_cast htr.symm
+  have hcod : r ∈ (codifferent : Submodule (𝓞 F) F) := by
+    simpa [codifferent, FractionalIdeal.coe_dual_one] using hdual
+  have hspanle :
+      FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) r ≤ codifferent :=
+    FractionalIdeal.spanSingleton_le_iff_mem.mpr hcod
+  have hcountle := FractionalIdeal.count_mono F v.1
+    (FractionalIdeal.spanSingleton_ne_zero_iff.mpr hr0) hspanle
+  have hcountR : FractionalIdeal.count F v.1
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) r) = -(N : ℤ) := by
+    rw [a1_spanSingleton_count v.1 r hr0, hrVal]
+    simp
+  rw [hcountR] at hcountle
+  change c ≤ -(N : ℤ) at hcountle
+  omega
 
 end ArtinPrimitiveRoots.Proofs.a1_dual_p
