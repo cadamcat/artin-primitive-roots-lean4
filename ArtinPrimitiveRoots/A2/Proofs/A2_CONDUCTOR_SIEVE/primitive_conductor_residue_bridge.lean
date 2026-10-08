@@ -1566,6 +1566,61 @@ private theorem conductorLocalInteger_approximation
             ring
     _ < delta := V.map_add_lt hbval hy
 
+private theorem conductorLocalIntegers_simultaneous_approximation
+    (S : A1.SData F CE condη) (q : S.ExtIdeal)
+    (x : ∀ v : conductorPrimeSupport q.1 q.2.1,
+      v.1.adicCompletionIntegers F) :
+    ∃ b : 𝓞 F, ∀ v : conductorPrimeSupport q.1 q.2.1,
+      Valued.v (algebraMap F (v.1.adicCompletion F) (b : F) -
+        (x v : v.1.adicCompletion F)) <
+          WithZero.exp (-(A1.idealExp v.1 q.1 : ℤ)) := by
+  classical
+  let P := conductorPrimeSupport q.1 q.2.1
+  let n : P → ℕ := fun v => A1.idealExp v.1 q.1
+  have happrox : ∀ v : P, ∃ a : 𝓞 F,
+      Valued.v (algebraMap F (v.1.adicCompletion F) (a : F) -
+        (x v : v.1.adicCompletion F)) < WithZero.exp (-((n v + 1 : ℕ) : ℤ)) := by
+    intro v
+    exact conductorLocalInteger_approximation v.1 (x v) (n v + 1)
+  choose a ha using happrox
+  let I : P → Ideal (𝓞 F) := fun v => v.1.asIdeal ^ (n v + 1)
+  have hI : Pairwise (fun v w => IsCoprime (I v) (I w)) := by
+    intro v w hvw
+    exact v.1.isCoprime_pow_of_ne w.1
+      (fun heq => hvw (Subtype.ext heq)) (n v + 1) (n w + 1)
+  obtain ⟨b, hb⟩ := Ideal.exists_forall_sub_mem_ideal hI a
+  refine ⟨b, ?_⟩
+  intro v
+  have hdiff :
+      Valued.v (algebraMap F (v.1.adicCompletion F) (b : F) -
+        algebraMap F (v.1.adicCompletion F) (a v : F)) ≤
+          WithZero.exp (-((n v + 1 : ℕ) : ℤ)) := by
+    rw [← map_sub]
+    calc
+      _ = v.1.valuation F ((b : F) - (a v : F)) :=
+        v.1.valuedAdicCompletion_eq_valuation' _
+      _ = v.1.intValuation (b - a v) := by
+        change v.1.valuation F (algebraMap (𝓞 F) F b -
+          algebraMap (𝓞 F) F (a v)) = _
+        rw [← map_sub, v.1.valuation_of_algebraMap]
+      _ ≤ WithZero.exp (-((n v + 1 : ℕ) : ℤ)) :=
+        (v.1.intValuation_le_pow_iff_mem (b - a v) (n v + 1)).mpr (hb v)
+  have hradius : WithZero.exp (-((n v + 1 : ℕ) : ℤ)) <
+      WithZero.exp (-(n v : ℤ)) := by
+    rw [WithZero.exp_lt_exp]
+    omega
+  calc
+    Valued.v (algebraMap F (v.1.adicCompletion F) (b : F) -
+        (x v : v.1.adicCompletion F)) =
+      Valued.v ((algebraMap F (v.1.adicCompletion F) (b : F) -
+        algebraMap F (v.1.adicCompletion F) (a v : F)) +
+        (algebraMap F (v.1.adicCompletion F) (a v : F) -
+          (x v : v.1.adicCompletion F))) := by
+            congr 1
+            ring
+    _ < WithZero.exp (-(n v : ℤ)) :=
+      Valued.v.map_add_lt (hdiff.trans_lt hradius) ((ha v).trans hradius)
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
