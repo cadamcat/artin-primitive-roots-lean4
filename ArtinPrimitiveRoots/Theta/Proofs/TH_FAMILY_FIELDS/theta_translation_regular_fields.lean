@@ -10,7 +10,7 @@ variable {F : Type} [Field F] [NumberField F]
 variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE condη}
   {H : HilbertData F} {A : AddCharData F}
 
-private def thetaRootStep {P : CoverPackage D S H A} (w : InfinitePlace F) (m : ℤ)
+def thetaRootStep {P : CoverPackage D S H A} (w : InfinitePlace F) (m : ℤ)
     (Ψ : P.tc.G → ℂ) : P.tc.G → ℂ := fun g =>
   fderiv ℝ (fun z : ℂ => Ψ (g * P.tc.nS
       (Multiplicative.ofAdd ((0 : ∀ v : S.Sf, v.1.adicCompletion F), Pi.single w z)))) 0 1 -
@@ -28,7 +28,7 @@ private theorem nInf_add {P : CoverPackage D S H A} (x y : InfinitePlace F → �
       P.tc.nS (Multiplicative.ofAdd ((0, y) : S.FS))
   rw [hp, ofAdd_add, map_mul]
 
-private theorem thetaRootStep_jointRootSmooth {P : CoverPackage D S H A}
+theorem thetaRootStep_jointRootSmooth {P : CoverPackage D S H A}
     (w : InfinitePlace F) (m : ℤ) (Ψ : P.tc.G → ℂ)
     (hΨ : JointRootSmooth P Ψ) : JointRootSmooth P (thetaRootStep w m Ψ) := by
   classical
