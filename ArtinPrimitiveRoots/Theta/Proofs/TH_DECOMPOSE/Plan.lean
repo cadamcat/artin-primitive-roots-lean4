@@ -1,7 +1,7 @@
 import ArtinPrimitiveRoots.Spec.Main
 import ArtinPrimitiveRoots.Theta.Eis
 import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.QuotientGeometry
-import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.TorusSupport
+import ArtinPrimitiveRoots.Theta.Proofs.TH_DECOMPOSE.ScalarSupport
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
@@ -142,6 +142,7 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
   have hclasses (T : Finset (FinPlace F)) := finite_exterior_lagrangian_classes P G T
   have htame (v : FinPlace F) (hv : v ∉ S.Sf) (x : (v.adicCompletion F)ˣ)
       (hx : x ∉ G.Alag v) := tame_lam_sigma_eq_zero P G v hv x hx
+  have hsupport (g : P.tc.G) := finite_diagonal_scalar_support P G sec T0 hT0 g
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/
