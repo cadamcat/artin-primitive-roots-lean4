@@ -126,6 +126,80 @@ theorem guidedTraceSum_nodup {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w
     | succ k => exact hall.1
   · rfl
 
+/-- One step of the guided sum: the ghost is forced, the edge sum remains. -/
+theorem guidedTraceSum_succ {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (B : Option ℕ) (γ : EnvPath S.x K) (H : PDLifeAssignment F S γ) (k : ℕ)
+    (hk : k + 1 ≤ pathLength S.x) (σ : LogPoint S.x K) :
+    guidedTraceSum F S ρ w B γ H (k + 1) σ =
+      historyCutoffFactor B σ *
+        (historyVisitFactor γ (pathLength S.x - (k + 1)) σ *
+          (ghostTraceCharge F S ρ (pathLength S.x - (k + 1)) σ
+              (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ) *
+            (historyCutoffFactor B (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+                (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)) *
+              ∑ e : EdgeTraceChoice F S (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+                  (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)),
+                if EdgeGuided F S γ H ⟨pathLength S.x - (k + 1), by omega⟩
+                    (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+                      (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)) e then
+                  edgeTraceCharge F S ρ w (pathLength S.x - (k + 1))
+                      (γ ⟨pathLength S.x - k, by omega⟩).1
+                      (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+                        (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)) e *
+                    (historyCutoffFactor B (edgeTraceOutput F S (pathLength S.x - (k + 1))
+                        (γ ⟨pathLength S.x - k, by omega⟩).1
+                        (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+                          (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)) e) *
+                      guidedTraceSum F S ρ w B γ H k (edgeTraceOutput F S (pathLength S.x - (k + 1))
+                        (γ ⟨pathLength S.x - k, by omega⟩).1
+                        (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+                          (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)) e))
+                else 0))) := by
+  have hjN : pathLength S.x - (k + 1) < pathLength S.x := by omega
+  unfold guidedTraceSum
+  simp only [Fintype.sum_sigma, TraceGuided, finiteHistoryTraceWeight]
+  rw [Finset.sum_eq_single (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)]
+  · have hGG : GhostGuided F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ
+        (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ) :=
+      (ghostGuided_iff F S γ H _ σ _).mpr rfl
+    simp only [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro e _
+    by_cases hE : EdgeGuided F S γ H ⟨pathLength S.x - (k + 1), hjN⟩
+        (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+          (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)) e
+    · have hE' : ∀ hj : pathLength S.x - (k + 1) < pathLength S.x,
+          EdgeGuided F S γ H ⟨pathLength S.x - (k + 1), hj⟩
+            (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+              (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)) e :=
+        fun _ => hE
+      rw [if_pos hE]
+      simp only [Finset.mul_sum, mul_ite, mul_zero]
+      apply Finset.sum_congr rfl
+      intro t _
+      by_cases hT : TraceGuided F S γ H k _ t
+      · simp only [hGG, hE', hT, true_and, implies_true, if_true, ite_true]
+      · simp only [hT, and_false, if_false, ite_false]
+    · rw [if_neg hE]
+      simp only [mul_zero]
+      apply Finset.sum_eq_zero
+      intro t _
+      have hE'' : ¬ ∀ hj : pathLength S.x - (k + 1) < pathLength S.x,
+          EdgeGuided F S γ H ⟨pathLength S.x - (k + 1), hj⟩
+            (ghostTraceOutput F S (pathLength S.x - (k + 1)) σ
+              (guidedGhostChoice F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ)) e :=
+        fun h => hE (h hjN)
+      simp only [hE'', false_and, and_false, if_false, ite_false]
+  · intro g _ hg
+    apply Finset.sum_eq_zero
+    intro e _
+    apply Finset.sum_eq_zero
+    intro t _
+    have hg' : ¬ GhostGuided F S γ H ⟨pathLength S.x - (k + 1), by omega⟩ σ g :=
+      fun h => hg ((ghostGuided_iff F S γ H _ σ g).mp h)
+    simp only [hg', false_and, if_false, ite_false]
+  · intro h; exact absurd (Finset.mem_univ _) h
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
