@@ -15,7 +15,13 @@ theorem pd5_rank_support_mass {K : ℕ} (A : Finset (BirthAddress K)) :
       constraintRank C ≤ A.card) ∧
     ∀ r : ℕ, (∑ C ∈ (constraintSystems A).filter (fun C => constraintRank C = r),
       |(constraintCoeff C : ℝ)|) ≤ (max 1 A.card : ℝ) ^ (3 * r) := by
-  sorry
+  classical
+  refine ⟨?_, ?_⟩
+  · intro C hC
+    exact ⟨pd5_constraint_support_card_le_twice_rank hC,
+      pd5_constraint_rank_le_address_card hC⟩
+  · intro r
+    exact pd5_constraint_coeff_mass_le A r
 
 end
 end ArtinPrimitiveRoots.TypeII.PD
