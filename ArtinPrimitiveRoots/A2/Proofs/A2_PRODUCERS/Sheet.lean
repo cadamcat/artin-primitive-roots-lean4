@@ -1397,6 +1397,58 @@ private theorem sheet_mulHaarC_mul (a : ℂˣ) :
     _ = volume.withDensity d := hmulDensity
     _ = Theta.mulHaarC := rfl
 
+private theorem a2_prod_sol_sheetFree_mul_preserving
+    (S : SData F CE condη) (μ : ∀ v : FinPlace F, Theta.LocHaar v)
+    (v0 : InfinitePlace F) (a : S.FSˣ) :
+    MeasurePreserving
+      (fun p : SheetFree S v0 =>
+        (fun v => (a : S.FS).1 v * p.1 v,
+         fun w => (a : S.FS).2 w.1 * p.2 w))
+      ((Measure.pi fun v : S.Sf => Theta.mulHaarFin (μ v.1)).prod
+        (Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => Theta.mulHaarC))
+      ((Measure.pi fun v : S.Sf => Theta.mulHaarFin (μ v.1)).prod
+        (Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => Theta.mulHaarC)) := by
+  classical
+  have hlocal := ArtinPrimitiveRoots.Proofs.thsol_sheets.local_measure_substrate μ
+  letI : ∀ v : S.Sf, SigmaFinite (Theta.mulHaarFin (μ v.1)) :=
+    fun v => (hlocal.1 v.1).2.2.2.2
+  letI : SigmaFinite Theta.mulHaarC := hlocal.2.2
+  have hf : MeasurePreserving
+      (fun p : ∀ v : S.Sf, v.1.adicCompletion F => fun v => (a : S.FS).1 v * p v)
+      (Measure.pi fun v : S.Sf => Theta.mulHaarFin (μ v.1))
+      (Measure.pi fun v : S.Sf => Theta.mulHaarFin (μ v.1)) := by
+    apply measurePreserving_pi
+    intro v
+    let av : (v.1.adicCompletion F)ˣ := {
+      val := (a : S.FS).1 v
+      inv := a.inv.1 v
+      val_inv := by
+        simpa only [Prod.fst_mul, Pi.mul_apply, Prod.fst_one, Pi.one_apply] using
+          congrArg (fun z : S.FS => z.1 v) a.val_inv
+      inv_val := by
+        simpa only [Prod.fst_mul, Pi.mul_apply, Prod.fst_one, Pi.one_apply] using
+          congrArg (fun z : S.FS => z.1 v) a.inv_val }
+    exact ⟨(continuous_const.mul continuous_id).measurable,
+      sheet_mulHaarFin_mul (μ v.1) av⟩
+  have hc : MeasurePreserving
+      (fun p : {w : InfinitePlace F // w ≠ v0} → ℂ =>
+        fun w => (a : S.FS).2 w.1 * p w)
+      (Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => Theta.mulHaarC)
+      (Measure.pi fun _ : {w : InfinitePlace F // w ≠ v0} => Theta.mulHaarC) := by
+    apply measurePreserving_pi
+    intro w
+    let aw : ℂˣ := {
+      val := (a : S.FS).2 w.1
+      inv := a.inv.2 w.1
+      val_inv := by
+        simpa only [Prod.snd_mul, Pi.mul_apply, Prod.snd_one, Pi.one_apply] using
+          congrArg (fun z : S.FS => z.2 w.1) a.val_inv
+      inv_val := by
+        simpa only [Prod.snd_mul, Pi.mul_apply, Prod.snd_one, Pi.one_apply] using
+          congrArg (fun z : S.FS => z.2 w.1) a.inv_val }
+    exact ⟨(continuous_const.mul continuous_id).measurable, sheet_mulHaarC_mul aw⟩
+  simpa only [Prod.map_def] using hf.prod hc
+
 private theorem sheet_integral_Ioc_periodic_translate (g : ℝ → ℂ)
     (hg : Function.Periodic g 1) (c : ℝ) :
     ∫ θ in Set.Ioc (0 : ℝ) 1, g (θ + c) ∂volume =
