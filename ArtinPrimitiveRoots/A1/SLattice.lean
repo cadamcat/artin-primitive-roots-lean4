@@ -652,6 +652,46 @@ private theorem covol_local_addchar_conductor (D : FieldData F) (S : SData F CE 
     omega
   exact ⟨c, hc_nonneg, hc, x, hx, hψ⟩
 
+private theorem covol_addchar_eq_trace_exp (S : SData F CE condη)
+    (A : AddCharData F) (v : S.Sf) (r : S.R)
+    (hrq : ∀ q : S.Sf, q ≠ v →
+      algebraMap F (q.1.adicCompletion F) (r : F) ∈ q.1.adicCompletionIntegers F) :
+    A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F)) =
+      Complex.exp (2 * Real.pi * Complex.I * (Algebra.trace ℚ F (r : F) : ℂ)) := by
+  classical
+  let f : FinPlace F → ℂ := fun w =>
+    A.ψ w (algebraMap F (w.adicCompletion F) (r : F))
+  have houtside (w : FinPlace F) (hw : w ∉ S.Sf) : f w = 1 := by
+    apply A.integral w
+    change ((r : F) : w.adicCompletion F) ∈ w.adicCompletionIntegers F
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact r.property w hw
+  have hinside (q : S.Sf) (hq : q ≠ v) : f q.1 = 1 := by
+    apply A.integral q.1
+    exact hrq q hq
+  have hother (w : FinPlace F) (hw : w ≠ v.1) : f w = 1 := by
+    by_cases hwS : w ∈ S.Sf
+    · let q : S.Sf := ⟨w, hwS⟩
+      have hq : q ≠ v := by
+        intro h
+        exact hw (congrArg Subtype.val h)
+      simpa [f, q] using hinside q hq
+    · exact houtside w hwS
+  have hfin : (∏ᶠ w : FinPlace F, f w) = f v.1 :=
+    finprod_eq_single f v.1 (fun w hw => hother w hw)
+  have hglobal := (A.trivial_on_F (r : F)).2
+  change (∏ᶠ w : FinPlace F, f w) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F (r : F) : ℂ))) = 1
+    at hglobal
+  rw [hfin] at hglobal
+  have hψ : f v.1 =
+      Complex.exp (2 * Real.pi * Complex.I * (Algebra.trace ℚ F (r : F) : ℂ)) := by
+    have h := eq_inv_of_mul_eq_one_right hglobal
+    rw [Complex.exp_neg] at h
+    exact ((inv_inj).mp h).symm
+  simpa [f] using hψ
+
 private theorem covol_unifLoc_valuation (v : FinPlace F) :
     Valued.v (unifLoc v : v.adicCompletion F) = WithZero.exp (-1 : ℤ) := by
   have hπcoerce : (unifLoc v : v.adicCompletion F) =
