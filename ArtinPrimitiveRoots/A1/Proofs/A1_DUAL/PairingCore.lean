@@ -1,0 +1,383 @@
+import ArtinPrimitiveRoots.A1.Hilbert
+
+/-!
+Core interface for the local perfect-pairing proof. This file takes the finite local characters
+and their global compatibility fields as arguments so `AddChar.lean` can import it without a cycle
+through `AddCharData`.
+-/
+
+set_option autoImplicit false
+
+open NumberField IsDedekindDomain ArtinPrimitiveRoots.A1
+open scoped Classical
+
+noncomputable section
+
+namespace ArtinPrimitiveRoots.Proofs.a1_dual_p
+
+variable {F : Type} [Field F] [NumberField F]
+variable {CE : ℕ} {condη : Ideal (𝓞 F)}
+
+/-- The fixed additive character on `F_S`, with the finite characters passed explicitly. -/
+def eOnFS (S : SData F CE condη)
+    (ψ : (v : FinPlace F) → AddChar (v.adicCompletion F) ℂ) (x : S.FS) : ℂ :=
+  (∏ v : S.Sf, ψ v.1 (x.1 v)) *
+    ∏ w : InfinitePlace F,
+      Complex.exp (-(4 * Real.pi * Complex.I * (x.2 w).re))
+
+private theorem p_trace_eq_pair_sum_re {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] (z : F) :
+    (Algebra.trace ℚ F z : ℂ) =
+      ∑ w : InfinitePlace F, (w.embedding z + ComplexEmbedding.conjugate w.embedding z) := by
+  classical
+  have htrace := trace_eq_sum_embeddings (K := ℚ) (L := F) (E := ℂ) (x := z)
+  have hring :
+      (∑ φ : F →+* ℂ, φ z) =
+        ∑ σ : F →ₐ[ℚ] ℂ, σ z := by
+    exact Fintype.sum_equiv (RingHom.equivRatAlgHom F ℂ) _ _ (fun _ => rfl)
+  have hall : (Algebra.trace ℚ F z : ℂ) = ∑ φ : F →+* ℂ, φ z := by
+    rw [hring.symm] at htrace
+    exact htrace
+  rw [hall]
+  rw [← Finset.sum_fiberwise (s := Finset.univ)
+    (g := fun φ : F →+* ℂ => InfinitePlace.mk φ) (f := fun φ => φ z)]
+  apply Finset.sum_congr rfl
+  intro w hw
+  have hmk (φ : F →+* ℂ) : InfinitePlace.mk φ = w ↔
+      φ = w.embedding ∨ φ = ComplexEmbedding.conjugate w.embedding := by
+    constructor
+    · intro h
+      rw [← InfinitePlace.mk_embedding w] at h
+      have h' := InfinitePlace.mk_eq_iff.mp h
+      rcases h' with h' | h'
+      · exact Or.inl (by simpa using h')
+      · right
+        have hc := congrArg ComplexEmbedding.conjugate h'
+        simpa using hc
+    · intro h
+      rw [← InfinitePlace.mk_embedding w]
+      apply InfinitePlace.mk_eq_iff.mpr
+      rcases h with h | h
+      · exact Or.inl (by simpa using h)
+      · right
+        have hc := congrArg ComplexEmbedding.conjugate h
+        simpa using hc
+  have hneq : w.embedding ≠ ComplexEmbedding.conjugate w.embedding := by
+    intro h
+    apply (IsTotallyComplex.complexEmbedding_not_isReal w.embedding)
+    rw [ComplexEmbedding.isReal_iff]
+    exact h.symm
+  have hset : Finset.univ.filter (fun φ : F →+* ℂ => InfinitePlace.mk φ = w) =
+      ({w.embedding, ComplexEmbedding.conjugate w.embedding} : Finset (F →+* ℂ)) := by
+    ext φ
+    simp [hmk]
+  change (∑ φ ∈ Finset.univ.filter
+    (fun φ : F →+* ℂ => InfinitePlace.mk φ = w), φ z) = _
+  rw [hset, Finset.sum_pair hneq]
+
+private theorem p_trace_eq_two_real_sum {F : Type} [Field F] [NumberField F]
+    [IsTotallyComplex F] (z : F) :
+    (Algebra.trace ℚ F z : ℂ) =
+      (2 : ℂ) * ∑ w : InfinitePlace F, ((w.embedding z).re : ℂ) := by
+  rw [p_trace_eq_pair_sum_re]
+  simp only [ComplexEmbedding.conjugate_coe_eq, Complex.add_conj]
+  simp only [Complex.ofReal_mul, Complex.ofReal_ofNat]
+  rw [Finset.mul_sum]
+
+/-- The archimedean character is the trace character on a totally complex field. -/
+theorem arch_product_eq_trace [IsTotallyComplex F] (z : F) :
+    (∏ w : InfinitePlace F,
+      Complex.exp (-(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)))) =
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) := by
+  rw [← Complex.exp_sum]
+  apply congrArg Complex.exp
+  calc
+    ∑ w : InfinitePlace F,
+        -(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)) =
+        -(4 * Real.pi * Complex.I *
+          ∑ w : InfinitePlace F, ((w.embedding z).re : ℂ)) := by
+            rw [Finset.sum_neg_distrib, Finset.mul_sum]
+    _ = -(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)) := by
+      rw [p_trace_eq_two_real_sum]
+      ring
+
+/-- On a diagonal argument, the S-character times one omitted finite-place factor is one when
+all other omitted factors are trivial. -/
+theorem eOnFS_diag_mul_one_exceptional [IsTotallyComplex F]
+    (S : SData F CE condη)
+    (ψ : (v : FinPlace F) → AddChar (v.adicCompletion F) ℂ)
+    (hglobal : ∀ z : F,
+      (Function.mulSupport fun v => ψ v (algebraMap F _ z)).Finite ∧
+        (∏ᶠ v, ψ v (algebraMap F _ z)) *
+          Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = 1)
+    (z : F) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (hother : ∀ u : FinPlace F, u ∉ S.Sf → u ≠ v → ψ u (algebraMap F _ z) = 1) :
+    eOnFS S ψ (S.diag z) * ψ v (algebraMap F _ z) = 1 := by
+  classical
+  let f : FinPlace F → ℂ := fun u => ψ u (algebraMap F _ z)
+  have hsupport : Function.mulSupport f ⊆ (S.Sf ∪ {v} : Finset (FinPlace F)) := by
+    intro u hu
+    by_cases huS : u ∈ S.Sf
+    · exact Finset.mem_union_left _ huS
+    · by_cases huv : u = v
+      · subst u
+        exact Finset.mem_union_right _ (Finset.mem_singleton_self _)
+      · exact False.elim (hu (by simpa [f] using hother u huS huv))
+  have hfinprod : (∏ᶠ u, f u) = (∏ u : S.Sf, f u) * f v := by
+    rw [finprod_eq_prod_of_mulSupport_subset f hsupport, Finset.prod_union]
+    · simp only [Finset.prod_singleton, Finset.prod_coe_sort]
+    · exact Finset.disjoint_singleton_right.mpr hv
+  rcases hglobal z with ⟨hfinite, hcompat⟩
+  have harch := arch_product_eq_trace z
+  have hcompat' : (∏ᶠ u, f u) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = 1 := by
+    simpa [f] using hcompat
+  rw [← harch, hfinprod] at hcompat'
+  calc
+    eOnFS S ψ (S.diag z) * ψ v (algebraMap F _ z) =
+        ((∏ u : S.Sf, f u) *
+          (∏ w : InfinitePlace F,
+            Complex.exp (-(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)))))*f v := by
+          simp [eOnFS, SData.diag, f]
+    _ = ((∏ u : S.Sf, f u) * f v) *
+          (∏ w : InfinitePlace F,
+            Complex.exp (-(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)))) := by ring
+    _ = 1 := hcompat'
+
+private theorem exists_denominator_clearer (z : F) (hz : z ≠ 0)
+    (v : FinPlace F) (hvz : 1 < v.valuation F z) :
+    ∃ a : 𝓞 F, a ∉ v.asIdeal ∧
+      ∀ q : FinPlace F, q ≠ v → 1 < q.valuation F z →
+        q.valuation F (a : F) ≤ (q.valuation F z)⁻¹ := by
+  classical
+  obtain ⟨num, den, hden, hzdiv⟩ := IsFractionRing.div_surjective (𝓞 F) z
+  have hden0 : den ≠ 0 := nonZeroDivisors.ne_zero hden
+  have hspan : (Ideal.span {den} : Ideal (𝓞 F)) ≠ ⊥ := by
+    simpa [ne_eq, Ideal.zero_eq_bot, Ideal.span_singleton_eq_bot] using hden0
+  have hbadFinite : {q : FinPlace F | 1 < q.valuation F z}.Finite := by
+    apply (Ideal.finite_factors hspan).subset
+    intro q hq
+    by_contra hqden
+    have hdenNot : den ∉ q.asIdeal := by
+      intro hmem
+      exact hqden ((Ideal.dvd_span_singleton).2 hmem)
+    have hvalden : q.valuation F (den : F) = 1 :=
+      (q.valuation_eq_one_iff_notMem).2 hdenNot
+    have hvalz : q.valuation F z ≤ 1 := by
+      rw [← hzdiv, map_div₀, hvalden, div_one]
+      exact q.valuation_le_one num
+    exact not_lt_of_ge hvalz hq
+  let B := hbadFinite.toFinset
+  have hvB : v ∈ B := hbadFinite.mem_toFinset.mpr hvz
+  let k : FinPlace F → ℕ := fun q => (WithZero.log (q.valuation F z)).toNat
+  have hlog_pos (q : FinPlace F) (hq : 1 < q.valuation F z) :
+      0 < WithZero.log (q.valuation F z) := by
+    have hq0 : q.valuation F z ≠ 0 := (q.valuation F).ne_zero_iff.mpr hz
+    have hh := (WithZero.log_lt_log (by simp) hq0).2 hq
+    simpa using hh
+  have hk_nat (q : FinPlace F) (hq : 1 < q.valuation F z) :
+      ((k q : ℕ) : ℤ) = WithZero.log (q.valuation F z) := by
+    dsimp [k]
+    exact Int.toNat_of_nonneg (le_of_lt (hlog_pos q hq))
+  let J : Ideal (𝓞 F) := ∏ q ∈ B.erase v, q.asIdeal ^ k q
+  have hJnot : ¬ J ≤ v.asIdeal := by
+    intro hle
+    obtain ⟨q, hqmem, hqle⟩ := v.isPrime.prod_le.mp (by simpa [J] using hle)
+    rcases Finset.mem_erase.mp hqmem with ⟨hqne, hqB⟩
+    have hqbad : 1 < q.valuation F z := hbadFinite.mem_toFinset.mp hqB
+    have hqk : 0 < k q := by
+      have : 0 < (k q : ℤ) := by rw [hk_nat q hqbad]; exact hlog_pos q hqbad
+      exact_mod_cast this
+    have hqleP : q.asIdeal ≤ v.asIdeal :=
+      (v.isPrime.pow_le_iff (Nat.ne_of_gt hqk)).mp hqle
+    have heq : q.asIdeal = v.asIdeal := q.isMaximal.eq_of_le v.isPrime.ne_top hqleP
+    exact hqne (HeightOneSpectrum.ext heq)
+  have hJnotSet : ¬ (J : Set (𝓞 F)) ⊆ v.asIdeal := by
+    simpa using hJnot
+  obtain ⟨a, haJ, haV⟩ := Set.not_subset.mp hJnotSet
+  refine ⟨a, haV, ?_⟩
+  intro q hqv hqbad
+  have hqB : q ∈ B := hbadFinite.mem_toFinset.mpr hqbad
+  have hqErase : q ∈ B.erase v := Finset.mem_erase.mpr ⟨hqv, hqB⟩
+  have hJle : J ≤ q.asIdeal ^ k q := by
+    dsimp [J]
+    exact (Ideal.prod_le_inf (s := B.erase v) (f := fun p => p.asIdeal ^ k p)).trans
+      (Finset.inf_le hqErase)
+  have haPow : a ∈ q.asIdeal ^ k q := hJle haJ
+  have hvalA : q.valuation F (a : F) ≤ WithZero.exp (-(k q : ℤ)) := by
+    rw [q.valuation_of_algebraMap]
+    exact (q.intValuation_le_pow_iff_mem a (k q)).2 haPow
+  have hq0 : q.valuation F z ≠ 0 := (q.valuation F).ne_zero_iff.mpr hz
+  have hvalz : q.valuation F z = WithZero.exp (k q : ℤ) := by
+    rw [← WithZero.exp_log hq0, hk_nat q hqbad]
+  calc
+    q.valuation F (a : F) ≤ WithZero.exp (-(k q : ℤ)) := hvalA
+    _ = (q.valuation F z)⁻¹ := by rw [hvalz, WithZero.exp_neg]
+
+/-- A nonintegral diagonal argument can be detected by pairing against an ordinary integer.
+The exact conductor condition outside `S` is supplied by `unramified`; global compatibility
+fixes the archimedean component. -/
+theorem external_character_detector [IsTotallyComplex F]
+    (S : SData F CE condη)
+    (ψ : (v : FinPlace F) → AddChar (v.adicCompletion F) ℂ)
+    (hglobal : ∀ z : F,
+      (Function.mulSupport fun v => ψ v (algebraMap F _ z)).Finite ∧
+        (∏ᶠ v, ψ v (algebraMap F _ z)) *
+          Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = 1)
+    (hintegral : ∀ (v : FinPlace F) (x : v.adicCompletion F),
+      x ∈ v.adicCompletionIntegers F → ψ v x = 1)
+    (hunramified : ∀ v : FinPlace F,
+      ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal →
+        (∀ x : v.adicCompletion F, x ∈ v.adicCompletionIntegers F → ψ v x = 1) ∧
+        ∀ π : F, HeightOneSpectrum.valuation F v π = WithZero.exp (-1) →
+          ∃ x : 𝓞 F, ψ v (algebraMap F _ ((x : F) / π)) ≠ 1)
+    (z : F) (hz : z ∉ S.R) :
+    ∃ d : 𝓞 F, eOnFS S ψ (S.diag (z * (d : F))) ≠ 1 := by
+  classical
+  have hzNotAll : ¬ ∀ q : FinPlace F, q ∉ S.Sf → q.valuation F z ≤ 1 := by
+    intro hval
+    apply hz
+    change z ∈ ((S.Sf : Set (FinPlace F)).integer F)
+    exact hval
+  have hbad : ∃ v : FinPlace F, v ∉ S.Sf ∧ 1 < v.valuation F z := by
+    by_contra h
+    apply hzNotAll
+    intro q hq
+    by_contra hqval
+    exact h ⟨q, hq, lt_of_not_ge hqval⟩
+  obtain ⟨v, hv, hvz⟩ := hbad
+  have hz0 : z ≠ 0 := by
+    intro hz0
+    rw [hz0, map_zero] at hvz
+    norm_num at hvz
+  have hnotDiff : ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal := by
+    intro hle
+    exact hv (S.different_mem v hle)
+  obtain ⟨_, hram⟩ := hunramified v hnotDiff
+  obtain ⟨π, hπ⟩ := HeightOneSpectrum.valuation_exists_uniformizer F v
+  obtain ⟨x, hxψ⟩ := hram π hπ
+  obtain ⟨a, haV, haOther⟩ := exists_denominator_clearer z hz0 v hvz
+  have haVal : v.valuation F (a : F) = 1 :=
+    (v.valuation_eq_one_iff_notMem (K := F)).2 haV
+  have haNeF : (a : F) ≠ 0 := by
+    intro ha0
+    rw [ha0, map_zero] at haVal
+    norm_num at haVal
+  let za : F := z * (a : F)
+  have hzaVal : v.valuation F za = v.valuation F z := by
+    simp [za, map_mul, haVal]
+  have hzaLarge : 1 < v.valuation F za := by rw [hzaVal]; exact hvz
+  have hzaValNe : v.valuation F za ≠ 0 := ne_of_gt (lt_trans (by simp) hzaLarge)
+  have hzaNe : za ≠ 0 := (v.valuation F).ne_zero_iff.mp hzaValNe
+  have hπValNe : v.valuation F π ≠ 0 := by rw [hπ]; exact WithZero.exp_ne_zero
+  have hπNe : π ≠ 0 := (v.valuation F).ne_zero_iff.mp hπValNe
+  have hzValNe : v.valuation F z ≠ 0 := (v.valuation F).ne_zero_iff.mpr hz0
+  have hlogz : 0 < WithZero.log (v.valuation F z) := by
+    have hh := (WithZero.log_lt_log (by simp) hzValNe).2 hvz
+    simpa using hh
+  have hlogz_ge : (1 : ℤ) ≤ WithZero.log (v.valuation F z) := by omega
+  have hden : 1 ≤ WithZero.exp (-1 : ℤ) * v.valuation F z := by
+    calc
+      1 = WithZero.exp (0 : ℤ) := by simp
+      _ ≤ WithZero.exp (-1 + WithZero.log (v.valuation F z)) :=
+        WithZero.exp_le_exp.mpr (by omega)
+      _ = WithZero.exp (-1 : ℤ) * v.valuation F z := by
+        rw [WithZero.exp_add, WithZero.exp_log hzValNe]
+  have hdenPos : 0 < WithZero.exp (-1 : ℤ) * v.valuation F z :=
+    mul_pos (WithZero.exp_pos : 0 < WithZero.exp (-1 : ℤ))
+      (lt_trans (by simp) hvz)
+  let y : F := (x : F) / (π * za)
+  have hyInt : v.valuation F y ≤ 1 := by
+    dsimp [y]
+    rw [map_div₀, map_mul, hπ, hzaVal]
+    exact (div_le_one₀ hdenPos).2 ((v.valuation_le_one x).trans hden)
+  let γ : (WithZero (Multiplicative ℤ))ˣ :=
+    Units.mk0 ((v.valuation F za)⁻¹) (inv_ne_zero hzaValNe)
+  obtain ⟨b, hb⟩ := v.exists_valuation_sub_lt_of_integer hyInt γ
+  have hb' : v.valuation F ((b : F) - y) < (v.valuation F za)⁻¹ := by
+    simpa [γ] using hb
+  have hbClose : v.valuation F (za * ((b : F) - y)) < 1 := by
+    rw [map_mul]
+    calc
+      v.valuation F za * v.valuation F ((b : F) - y) <
+          v.valuation F za * (v.valuation F za)⁻¹ :=
+        mul_lt_mul_of_pos_left hb' (lt_trans (by simp) hzaLarge)
+      _ = 1 := mul_inv_cancel₀ hzaValNe
+  let d : 𝓞 F := a * b
+  have hdiffEq : z * (d : F) - (x : F) / π = za * ((b : F) - y) := by
+    dsimp [d, y]
+    push_cast
+    field_simp [hπNe, hzaNe, haNeF]
+    dsimp [za]
+    ring_nf
+  have hdiffVal : v.valuation F (z * (d : F) - (x : F) / π) < 1 := by
+    rw [hdiffEq]
+    exact hbClose
+  have hdiffInt : ((z * (d : F) - (x : F) / π : F) : v.adicCompletion F) ∈
+      v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hdiffVal.le
+  have hsum :
+      algebraMap F (v.adicCompletion F) (z * (d : F) - (x : F) / π) +
+          algebraMap F (v.adicCompletion F) ((x : F) / π) =
+        algebraMap F (v.adicCompletion F) (z * (d : F)) := by
+    rw [← map_add]
+    congr 1
+    ring
+  have hchar := (ψ v).map_add_eq_mul
+    (algebraMap F (v.adicCompletion F) (z * (d : F) - (x : F) / π))
+    (algebraMap F (v.adicCompletion F) ((x : F) / π))
+  have hψdiff : ψ v (algebraMap F (v.adicCompletion F)
+      (z * (d : F) - (x : F) / π)) = 1 := hintegral v _ hdiffInt
+  rw [hsum, hψdiff, one_mul] at hchar
+  have hlocal : ψ v (algebraMap F (v.adicCompletion F) (z * (d : F))) ≠ 1 := by
+    intro heq
+    exact hxψ (hchar.symm.trans heq)
+  have hzaInt (q : FinPlace F) (hqv : q ≠ v) : q.valuation F za ≤ 1 := by
+    by_cases hqz : 1 < q.valuation F z
+    · have hqa := haOther q hqv hqz
+      change q.valuation F (z * (a : F)) ≤ 1
+      rw [map_mul]
+      calc
+        q.valuation F z * q.valuation F (a : F) ≤
+            q.valuation F z * (q.valuation F z)⁻¹ :=
+          mul_le_mul_of_nonneg_left hqa bot_le
+        _ = 1 := mul_inv_cancel₀ ((q.valuation F).ne_zero_iff.mpr hz0)
+    · have hqz' : q.valuation F z ≤ 1 := le_of_not_gt hqz
+      change q.valuation F (z * (a : F)) ≤ 1
+      rw [map_mul]
+      calc
+        q.valuation F z * q.valuation F (a : F) ≤ q.valuation F z * 1 :=
+          mul_le_mul_of_nonneg_left (q.valuation_le_one a) bot_le
+        _ ≤ 1 := by simpa using hqz'
+  have hprodInt (q : FinPlace F) (hqv : q ≠ v) :
+      q.valuation F (z * (d : F)) ≤ 1 := by
+    have hzaD : z * (d : F) = za * (b : F) := by
+      dsimp [d, za]
+      push_cast
+      ring
+    rw [hzaD, map_mul]
+    calc
+      q.valuation F za * q.valuation F (b : F) ≤ q.valuation F za * 1 :=
+        mul_le_mul_of_nonneg_left (q.valuation_le_one b) bot_le
+      _ ≤ 1 := by simpa using hzaInt q hqv
+  have hother : ∀ q : FinPlace F, q ∉ S.Sf → q ≠ v →
+      ψ q (algebraMap F _ (z * (d : F))) = 1 := by
+    intro q hqS hqv
+    have hmem : ((z * (d : F) : F) : q.adicCompletion F) ∈
+        q.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+        HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+      exact hprodInt q hqv
+    exact hintegral q _ hmem
+  have hglobalFactor := eOnFS_diag_mul_one_exceptional S ψ hglobal
+    (z * (d : F)) v hv hother
+  refine ⟨d, ?_⟩
+  intro htriv
+  apply hlocal
+  have hmul := hglobalFactor
+  rw [htriv, one_mul] at hmul
+  exact hmul
+
+end ArtinPrimitiveRoots.Proofs.a1_dual_p
