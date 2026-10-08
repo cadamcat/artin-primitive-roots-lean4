@@ -155,6 +155,20 @@ theorem sectionC_norm_majorant (s : ℂ) (f : PGL2 ℂ → ℂ)
     (hf : IsSectionC s f) (hc : Continuous f) :
     ∃ C : ℝ, 0 ≤ C ∧ ∀ g : PGL2 ℂ,
       ‖f g‖ ≤ C * ‖sphC (s.re : ℂ) g‖ := by
-  sorry
+  obtain ⟨C, hC⟩ := complex_unitary_control.1.exists_bound_of_continuousOn hc.continuousOn
+  refine ⟨max C 0, le_max_right _ _, ?_⟩
+  intro g
+  obtain ⟨x, y, k, hk, rfl⟩ := complex_iwasawa g
+  simp only [nC, aC]
+  rw [hf x y k, (sphC_isSection (s.re : ℂ)).1 x y k,
+    complex_unitary_control.2 (s.re : ℂ) k hk, mul_one, norm_mul]
+  have hpos : 0 < Complex.normSq (y : ℂ) :=
+    Complex.normSq_pos.mpr (Units.ne_zero y)
+  have hnorm : ‖(Complex.normSq (y : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + s)‖ =
+      ‖(Complex.normSq (y : ℂ) : ℂ) ^ ((1 : ℂ) / 2 + (s.re : ℂ))‖ := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hpos, Complex.norm_cpow_eq_rpow_re_of_pos hpos]
+    simp
+  rw [hnorm, mul_comm _ ‖f k‖]
+  exact mul_le_mul_of_nonneg_right ((hC k hk).trans (le_max_left _ _)) (norm_nonneg _)
 
 end ArtinPrimitiveRoots.A1.Theta
