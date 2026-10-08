@@ -595,4 +595,44 @@ theorem qs_nq0_quadratic_reciprocity
 ```
 -/
 
+/-- Ideal values of a quadratic Hecke character are zero or have square one. -/
+theorem qs_nq0_quadratic_ideal_values
+    (χ : HeckeChar K) (hχ : χ ^ 2 = 1) (I : Ideal (𝓞 K)) :
+    χ.idealValue I = 0 ∨ χ.idealValue I ^ 2 = 1 := by
+  classical
+  have hprime (v : FinPlace K) : χ.primeValue v = 0 ∨ χ.primeValue v ^ 2 = 1 := by
+    unfold HeckeChar.primeValue
+    split_ifs with hv
+    · right
+      have hlocal := congrArg (fun ψ : HeckeChar K =>
+        ψ.loc v (toLoc v (Units.mk0 (unif v) (unif_ne_zero v)))) hχ
+      simp only [HeckeChar.loc, MonoidHom.comp_apply, ContinuousMonoidHom.coe_coe,
+        ContinuousMonoidHom.pow_apply, ContinuousMonoidHom.one_toFun] at hlocal
+      exact congrArg (fun z : ℂˣ => (z : ℂ)) hlocal
+    · exact Or.inl rfl
+  have hprod (s : Multiset ℂ) :
+      (∀ z ∈ s, z = 0 ∨ z ^ 2 = 1) → s.prod = 0 ∨ s.prod ^ 2 = 1 := by
+    induction s using Multiset.induction_on with
+    | empty =>
+      intro _
+      right
+      simp
+    | @cons z s ih =>
+      intro hs
+      obtain hz0 | hz2 := hs z (by simp)
+      · left
+        simp [Multiset.prod_cons, hz0]
+      · obtain hp0 | hp2 := ih (fun y hy => hs y (by simp [hy]))
+        · left
+          simp [Multiset.prod_cons, hp0]
+        · right
+          rw [Multiset.prod_cons, mul_pow, hz2, hp2, one_mul]
+  unfold HeckeChar.idealValue
+  apply hprod
+  intro z hz
+  obtain ⟨P, _, rfl⟩ := Multiset.mem_map.mp hz
+  split_ifs with hp
+  · exact hprime ⟨P, hp.1, hp.2⟩
+  · exact Or.inr (one_pow 2)
+
 end ArtinPrimitiveRoots.A2
