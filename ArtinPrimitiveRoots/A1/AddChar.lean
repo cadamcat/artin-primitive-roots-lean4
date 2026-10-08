@@ -470,6 +470,26 @@ theorem SData.absS_diag_eq_norm [IsTotallyComplex F] (S : SData F CE condη) (x 
     _ = 1 * (Ideal.absNorm I : ℝ) := by rw [h_prod_absS]
     _ = (Ideal.absNorm I : ℝ) := by rw [one_mul]
 
+private theorem e_diag_R_eq_one (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (r : S.R) :
+    S.e A (S.diag (r : F)) = 1 := by
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have hrmem : (r : F) ∈ (S.Sf : Set (FinPlace F)).integer F := r.property
+  have hr : ∀ v : FinPlace F, v ∉ S.Sf → v.valuation F (r : F) ≤ 1 := by
+    intro v hv
+    change ∀ v ∉ S.Sf, v.valuation F (r : F) ≤ 1 at hrmem
+    exact hrmem v hv
+  have h1 : ∀ v : FinPlace F, v ∉ S.Sf →
+      v.valuation F (0 - (r : F)) ≤ 1 := by
+    intro v hv
+    rw [zero_sub, Valuation.map_neg]
+    exact hr v hv
+  have h2 : ∀ v : FinPlace F, v ∈ S.Sf → v.valuation F (0 : F) ≤ 1 := by
+    intro v hv
+    simp
+  rw [S.e_diag_eq A (r : F) 0 h1 h2]
+  simp
+
 /-- lem:s-lattice, the self-duality consequence used at 02:397 and 06:76: for an exterior ideal `I`
 with generator `c`, `(n, d) ↦ e(nd/c)` is a perfect pairing on `O_F/I`. Package P-ARITH-BASE.
 Corrected per rev-theta to state both annihilator directions under fixed field data. -/
