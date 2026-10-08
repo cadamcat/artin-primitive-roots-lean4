@@ -3,6 +3,8 @@ import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_positive_choice_rows
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-HIGH».pd5_chronological_model
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.«PD-LOW».pd5_edgeBirthTwist_preserves_sym
+import ArtinPrimitiveRoots.Proofs.pd5_low_b.EdgeColumn
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.BandGeometry
 
 set_option autoImplicit false
 set_option linter.unusedVariables false
@@ -2331,6 +2333,561 @@ private theorem pd5_edge_twisted_row_point_bound {K : ℕ}
     exact mul_nonneg (Real.rpow_nonneg hLpos.le _)
       (pow_nonneg (by linarith [hv]) _)
 
+/-! ### Column branch: comparison with the reverse row -/
+
+private theorem pd5_sum3_swap {α β γ : Type*} (A : Finset α) (B : Finset β) (T : Finset γ)
+    (k : ℝ) (f : α → β → ℝ) (g : γ → α → β → ℝ) :
+    (∑ a ∈ A, ∑ b ∈ B, f a b * (k * ∑ t ∈ T, g t a b)) =
+      k * ∑ t ∈ T, ∑ a ∈ A, ∑ b ∈ B, f a b * g t a b := by
+  calc (∑ a ∈ A, ∑ b ∈ B, f a b * (k * ∑ t ∈ T, g t a b)) =
+        ∑ a ∈ A, ∑ t ∈ T, ∑ b ∈ B, k * (f a b * g t a b) := by
+        apply Finset.sum_congr rfl
+        intro a _
+        have hb : ∀ b, f a b * (k * ∑ t ∈ T, g t a b) = ∑ t ∈ T, k * (f a b * g t a b) := by
+          intro b
+          rw [Finset.mul_sum, Finset.mul_sum]
+          apply Finset.sum_congr rfl
+          intro t _
+          ring
+        rw [Finset.sum_congr rfl (fun b _ => hb b)]
+        exact Finset.sum_comm
+    _ = ∑ t ∈ T, ∑ a ∈ A, ∑ b ∈ B, k * (f a b * g t a b) := Finset.sum_comm
+    _ = k * ∑ t ∈ T, ∑ a ∈ A, ∑ b ∈ B, f a b * g t a b := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro t _
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro a _
+        rw [Finset.mul_sum]
+
+private theorem pd5_edgeAbsChoice_delta_eq {K : ℕ} (F : PDFix K) (S : PDScale)
+    (ρ : ℝ) (w : ArchRoot) (j B : ℕ) (Z : Finset (ℤ × ℤ)) (u s : MemPoint S.x K) :
+    pd5_edgeAbsChoice F S ρ w j B Z (fun _ => 1) (fun t => if t = u then 1 else 0) s =
+      if memSize s ≤ B then pd5_activeAverage S (fun r =>
+        ∑ c : (i : Fin K) → EdgeChoice S.x F.a (r.2.2 i) i, ∑ z' ∈ Z,
+          pd5c_edgeBase F S ρ w j B r c z' *
+            pd5_activeAverage S (fun t => if t = u then (1 : ℝ) else 0)
+              (z', edgeTargetLists F S r c, edgeNewMemory F S r c)) s else 0 := by
+  classical
+  by_cases hs : memSize s ≤ B
+  · rw [pd5_edgeAbsChoice, if_pos hs, if_pos hs]
+    congr 1
+    funext r
+    apply Finset.sum_congr rfl
+    intro c _
+    apply Finset.sum_congr rfl
+    intro z' _
+    unfold pd5c_edgeBase
+    dsimp only
+    split_ifs <;> ring
+  · rw [pd5_edgeAbsChoice, if_neg hs, if_neg hs]
+
+private theorem pd5_activeAverage_delta_eq {K : ℕ} (S : PDScale) (u x : MemPoint S.x K) :
+    pd5_activeAverage S (fun t => if t = u then (1 : ℝ) else 0) x =
+      (permCount S.x K : ℝ)⁻¹ * ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        if x = (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2) then (1 : ℝ) else 0 := by
+  unfold pd5_activeAverage
+  congr 1
+  apply Finset.sum_congr rfl
+  intro τ _
+  have hiff : (x.1, permuteLists τ x.2.1, x.2.2) = u ↔
+      x = (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2) := by
+    obtain ⟨u1, u2, u3⟩ := u
+    obtain ⟨x1, x2, x3⟩ := x
+    simp only [Prod.mk.injEq, pd5c_permuteLists_eq_iff]
+  dsimp only
+  by_cases h : (x.1, permuteLists τ x.2.1, x.2.2) = u
+  · rw [if_pos h, if_pos (hiff.mp h)]
+  · rw [if_neg h, if_neg (fun h' => h (hiff.mpr h'))]
+
+private def pd5_colE {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (j B : ℕ) (Z : Finset (ℤ × ℤ)) (u : MemPoint S.x K)
+    (τ : Fin K → Equiv.Perm (Fin (slotCount S.x))) (r : MemPoint S.x K) : ℝ :=
+  ∑ c : (i : Fin K) → EdgeChoice S.x F.a (r.2.2 i) i, ∑ z' ∈ Z,
+    pd5c_edgeBase F S ρ w j B r c z' *
+      (if (z', edgeTargetLists F S r c, edgeNewMemory F S r c) =
+        (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2) then (1 : ℝ) else 0)
+
+private def pd5_colR {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (j B : ℕ) (Z : Finset (ℤ × ℤ)) (v : ℝ) (u : MemPoint S.x K) : ℝ :=
+  ∑ rc : (i : Fin K) → EdgeChoice S.x F.a (u.2.2 i) i, ∑ z ∈ Z,
+    pd5c_edgeBase F S ρ w j B u rc z *
+      v ^ memSize (z, edgeTargetLists F S u rc, edgeNewMemory F S u rc)
+
+private theorem pd5_colD_eq {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (j B : ℕ) (Z : Finset (ℤ × ℤ)) (u r : MemPoint S.x K) :
+    (∑ c : (i : Fin K) → EdgeChoice S.x F.a (r.2.2 i) i, ∑ z' ∈ Z,
+      pd5c_edgeBase F S ρ w j B r c z' *
+        pd5_activeAverage S (fun t => if t = u then (1 : ℝ) else 0)
+          (z', edgeTargetLists F S r c, edgeNewMemory F S r c)) =
+      (permCount S.x K : ℝ)⁻¹ *
+        ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)), pd5_colE F S ρ w j B Z u τ r := by
+  have hL : (∑ c : (i : Fin K) → EdgeChoice S.x F.a (r.2.2 i) i, ∑ z' ∈ Z,
+      pd5c_edgeBase F S ρ w j B r c z' *
+        pd5_activeAverage S (fun t => if t = u then (1 : ℝ) else 0)
+          (z', edgeTargetLists F S r c, edgeNewMemory F S r c)) =
+      ∑ c : (i : Fin K) → EdgeChoice S.x F.a (r.2.2 i) i, ∑ z' ∈ Z,
+        pd5c_edgeBase F S ρ w j B r c z' *
+          ((permCount S.x K : ℝ)⁻¹ * ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+            if (z', edgeTargetLists F S r c, edgeNewMemory F S r c) =
+              (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2) then (1 : ℝ) else 0) := by
+    apply Finset.sum_congr rfl
+    intro c _
+    apply Finset.sum_congr rfl
+    intro z' _
+    rw [pd5_activeAverage_delta_eq S u]
+  rw [hL]
+  unfold pd5_colE
+  rw [pd5_sum3_swap]
+
+private theorem pd5_colR_eq {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (j B : ℕ) (Z : Finset (ℤ × ℤ)) (v : ℝ) (u : MemPoint S.x K) :
+    pd5_edgePositiveRowInner F S ρ w j B Z v u = pd5_colR F S ρ w j B Z v u := rfl
+
+private theorem pd5_edge_column_point {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ)
+    (w : ArchRoot) (j j' B : ℕ) (hpar : decide (j' % 2 = 0) = !decide (j % 2 = 0))
+    (hdisj : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (hν : ∀ i, ∀ p ∈ primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p)
+    (hV : ∀ i, Real.log 2 / 2 ≤ bandMass S.x (F.a i) ∧
+      bandMass S.x (F.a i) ≤ 2 * Real.log 2)
+    (v : ℝ) (hv : 0 ≤ v) (Z : Finset (ℤ × ℤ)) (hZ : ∀ z, envBox S w z → z ∈ Z)
+    (T : Finset (MemPoint S.x K)) (hT : ∀ s ∈ T, memSize s ≤ B)
+    (u : MemPoint S.x K) (hu : memSize u ≤ B) :
+    (∑ s ∈ T, memMeasure F S s *
+        pd5_edgeAbsChoice F S ρ w j B Z (fun _ => 1) (fun t => if t = u then 1 else 0) s *
+        v ^ memSize s) ≤
+      ((1 + 2 / Real.log 2 + 2 * Real.log 2) * ((B : ℝ) + 1)) ^ K * ((B : ℝ) + 1) ^ K *
+        memMeasure F S u *
+        pd5_edgeAbsChoice F S ρ w j' B Z (fun _ => 1) (fun t => v ^ memSize t) u := by
+  have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hC0 : 0 ≤ 1 + 2 / Real.log 2 + 2 * Real.log 2 := by
+    have h1 : 0 < 2 / Real.log 2 := div_pos (by norm_num) hlog
+    linarith
+  have hPpos : (0 : ℝ) < (permCount S.x K : ℝ) := by
+    have : 0 < permCount S.x K := by dsimp [permCount]; exact Fintype.card_pos
+    exact_mod_cast this
+  have hPne : (permCount S.x K : ℝ) ≠ 0 := ne_of_gt hPpos
+  have hpoint : ∀ s ∈ T, memMeasure F S s *
+      pd5_edgeAbsChoice F S ρ w j B Z (fun _ => 1) (fun t => if t = u then 1 else 0) s *
+        v ^ memSize s =
+      (permCount S.x K : ℝ)⁻¹ * (permCount S.x K : ℝ)⁻¹ *
+        ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+            memMeasure F S (s.1, permuteLists σ s.2.1, s.2.2) *
+              pd5_colE F S ρ w j B Z u τ (s.1, permuteLists σ s.2.1, s.2.2) *
+                v ^ memSize (s.1, permuteLists σ s.2.1, s.2.2) := by
+    intro s hs
+    rw [pd5_edgeAbsChoice_delta_eq F S ρ w j B Z u s, if_pos (hT s hs)]
+    simp only [pd5_colD_eq F S ρ w j B Z u]
+    unfold pd5_activeAverage
+    simp only [Finset.mul_sum, Finset.sum_mul]
+    apply Finset.sum_congr rfl
+    intro σ _
+    apply Finset.sum_congr rfl
+    intro τ _
+    rw [pd5c_memMeasure_activePermute F S s σ, pd5_memSize_activePermute]
+    ring
+  have hsum : (∑ s ∈ T, memMeasure F S s *
+      pd5_edgeAbsChoice F S ρ w j B Z (fun _ => 1) (fun t => if t = u then 1 else 0) s *
+        v ^ memSize s) =
+      (permCount S.x K : ℝ)⁻¹ * (permCount S.x K : ℝ)⁻¹ *
+        ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+            ∑ s ∈ T, memMeasure F S (s.1, permuteLists σ s.2.1, s.2.2) *
+              pd5_colE F S ρ w j B Z u τ (s.1, permuteLists σ s.2.1, s.2.2) *
+                v ^ memSize (s.1, permuteLists σ s.2.1, s.2.2) := by
+    rw [Finset.sum_congr rfl hpoint, ← Finset.mul_sum]
+    congr 1
+    rw [Finset.sum_comm]
+    apply Finset.sum_congr rfl
+    intro σ _
+    rw [Finset.sum_comm]
+  have hcore : ∀ σ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+      (∑ s ∈ T, memMeasure F S (s.1, permuteLists σ s.2.1, s.2.2) *
+          pd5_colE F S ρ w j B Z u τ (s.1, permuteLists σ s.2.1, s.2.2) *
+            v ^ memSize (s.1, permuteLists σ s.2.1, s.2.2)) ≤
+        ((1 + 2 / Real.log 2 + 2 * Real.log 2) * ((B : ℝ) + 1)) ^ K * ((B : ℝ) + 1) ^ K *
+          memMeasure F S u *
+          pd5_colR F S ρ w j' B Z v (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2) := by
+    intro σ τ
+    have hinj : Set.InjOn (fun s : MemPoint S.x K => (s.1, permuteLists σ s.2.1, s.2.2))
+        (T : Set (MemPoint S.x K)) := by
+      intro s₁ _ s₂ _ h
+      simp only [Prod.mk.injEq] at h
+      obtain ⟨h1, h2, h3⟩ := h
+      have h2' : s₁.2.1 = s₂.2.1 := by
+        have := (pd5c_permuteLists_eq_iff σ s₁.2.1 _).mp h2
+        rw [this]
+        funext i k
+        simp [permuteLists]
+      exact Prod.ext h1 (Prod.ext h2' h3)
+    have himg : (∑ r ∈ T.image (fun s : MemPoint S.x K => (s.1, permuteLists σ s.2.1, s.2.2)),
+        memMeasure F S r * pd5_colE F S ρ w j B Z u τ r * v ^ memSize r) =
+        ∑ s ∈ T, memMeasure F S (s.1, permuteLists σ s.2.1, s.2.2) *
+          pd5_colE F S ρ w j B Z u τ (s.1, permuteLists σ s.2.1, s.2.2) *
+            v ^ memSize (s.1, permuteLists σ s.2.1, s.2.2) := Finset.sum_image hinj
+    rw [← himg]
+    have hT' : ∀ r ∈ T.image (fun s : MemPoint S.x K => (s.1, permuteLists σ s.2.1, s.2.2)),
+        memSize r ≤ B := by
+      intro r hr
+      obtain ⟨s, hs, rfl⟩ := Finset.mem_image.mp hr
+      exact hT s hs
+    have hc := pd5c_column_core F S ρ w j j' B hpar hdisj hν hV v hv Z hZ
+      (T.image (fun s : MemPoint S.x K => (s.1, permuteLists σ s.2.1, s.2.2))) hT'
+      (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2)
+    have hμ : memMeasure F S (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2) =
+        memMeasure F S u := pd5c_memMeasure_activePermute F S u (fun i => (τ i).symm)
+    rw [hμ] at hc
+    unfold pd5_colE pd5_colR
+    exact hc
+  have hR : pd5_edgeAbsChoice F S ρ w j' B Z (fun _ => 1) (fun t => v ^ memSize t) u =
+      (permCount S.x K : ℝ)⁻¹ * ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+        pd5_colR F S ρ w j' B Z v (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2) := by
+    rw [pd5_edgeAbsChoice_pow_eq F S ρ w j' B Z v u, if_pos hu]
+    unfold pd5_activeAverage
+    congr 1
+    have hbij : Function.Bijective
+        (fun τ : Fin K → Equiv.Perm (Fin (slotCount S.x)) => fun i => (τ i).symm) := by
+      apply Function.Involutive.bijective
+      intro τ
+      funext i
+      exact Equiv.symm_symm (τ i)
+    apply Fintype.sum_bijective _ hbij
+    intro τ
+    simp only [Equiv.symm_symm]
+    exact pd5_colR_eq F S ρ w j' B Z v _
+  rw [hsum, hR]
+  have hcard : (Fintype.card (Fin K → Equiv.Perm (Fin (slotCount S.x))) : ℝ) =
+      (permCount S.x K : ℝ) := rfl
+  calc (permCount S.x K : ℝ)⁻¹ * (permCount S.x K : ℝ)⁻¹ *
+        ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+            ∑ s ∈ T, memMeasure F S (s.1, permuteLists σ s.2.1, s.2.2) *
+              pd5_colE F S ρ w j B Z u τ (s.1, permuteLists σ s.2.1, s.2.2) *
+                v ^ memSize (s.1, permuteLists σ s.2.1, s.2.2) ≤
+      (permCount S.x K : ℝ)⁻¹ * (permCount S.x K : ℝ)⁻¹ *
+        ∑ σ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+          ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+            (((1 + 2 / Real.log 2 + 2 * Real.log 2) * ((B : ℝ) + 1)) ^ K * ((B : ℝ) + 1) ^ K *
+              memMeasure F S u) *
+              pd5_colR F S ρ w j' B Z v (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2) := by
+        apply mul_le_mul_of_nonneg_left _ (by positivity)
+        apply Finset.sum_le_sum
+        intro σ _
+        apply Finset.sum_le_sum
+        intro τ _
+        exact hcore σ τ
+    _ = (permCount S.x K : ℝ)⁻¹ * (permCount S.x K : ℝ)⁻¹ * ((permCount S.x K : ℝ) *
+          ((((1 + 2 / Real.log 2 + 2 * Real.log 2) * ((B : ℝ) + 1)) ^ K * ((B : ℝ) + 1) ^ K *
+            memMeasure F S u) * ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+              pd5_colR F S ρ w j' B Z v
+                (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2))) := by
+        rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, hcard, ← Finset.mul_sum]
+    _ = ((permCount S.x K : ℝ)⁻¹ * (permCount S.x K : ℝ)) *
+          (((1 + 2 / Real.log 2 + 2 * Real.log 2) * ((B : ℝ) + 1)) ^ K * ((B : ℝ) + 1) ^ K *
+            memMeasure F S u * ((permCount S.x K : ℝ)⁻¹ *
+              ∑ τ : Fin K → Equiv.Perm (Fin (slotCount S.x)),
+                pd5_colR F S ρ w j' B Z v
+                  (u.1, permuteLists (fun i => (τ i).symm) u.2.1, u.2.2))) := by ring
+    _ = _ := by rw [inv_mul_cancel₀ hPne, one_mul]
+
+private theorem pd5_orbit_weighted_le {K : ℕ} (F : PDFix K) (S : PDScale)
+    (hν : ∀ i, ∀ p ∈ primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p)
+    (U : Finset (MemPoint S.x K)) (t : MemPoint S.x K) (v : ℝ) (hv : 0 ≤ v) :
+    (∑ u ∈ U, ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ *
+      (memMeasure F S u * v ^ memSize u)) ≤ memMeasure F S t * v ^ memSize t := by
+  classical
+  have hterm : ∀ u, ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ *
+      (memMeasure F S u * v ^ memSize u) =
+      ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ *
+        (memMeasure F S t * v ^ memSize t) := by
+    intro u
+    by_cases h0 : memorySym (fun g => if g = t then (1 : ℂ) else 0) u = 0
+    · rw [h0, norm_zero, zero_mul, zero_mul]
+    · have hex : ∃ σ : MemoryPermutation u, memoryPermute u σ = t := by
+        by_contra hne
+        push_neg at hne
+        apply h0
+        unfold memorySym
+        have hz : (∑ σ : MemoryPermutation u,
+            (fun g => if g = t then (1 : ℂ) else 0) (memoryPermute u σ)) = 0 := by
+          apply Finset.sum_eq_zero
+          intro σ _
+          simp [hne σ]
+        rw [hz, mul_zero]
+      obtain ⟨σ, hσ⟩ := hex
+      rw [← hσ, pd5c_memMeasure_memoryPermute, pd5c_memSize_memoryPermute']
+  rw [Finset.sum_congr rfl (fun u _ => hterm u), ← Finset.sum_mul]
+  have hsum : (∑ u ∈ U, ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖) ≤ 1 := by
+    rw [Finset.sum_congr rfl (fun u _ => by rw [pd5c_memorySym_delta_symm u t])]
+    exact pd5_memorySym_delta_norm_sum_le U t
+  have hnn : 0 ≤ memMeasure F S t * v ^ memSize t :=
+    mul_nonneg (pd5c_memMeasure_nonneg F S hν t) (pow_nonneg hv _)
+  calc (∑ u ∈ U, ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖) *
+        (memMeasure F S t * v ^ memSize t) ≤ 1 * (memMeasure F S t * v ^ memSize t) :=
+        mul_le_mul_of_nonneg_right hsum hnn
+    _ = _ := one_mul _
+
+set_option maxHeartbeats 4000000 in
+private theorem pd5_edge_reverse_row_bound {K : ℕ}
+    (δ c₁ c₂ : ℝ) (F : PDFix K) (S : PDScale) (hS : S.Valid K δ c₁ c₂)
+    (ρ : ℝ) (w : ArchRoot) (hw : w.InRegion S) (j : ℕ) (hj : j < S.N)
+    (v v₀ Cghost Cedge cmax aAtom xPos : ℝ) (hv : 1 < v) (hv₀ : 1 < v₀)
+    (hCedge : 0 < Cedge) (hLone : 1 ≤ S.L)
+    (hRows : PD5PositiveRows δ c₁ c₂ F ρ v₀ Cghost Cedge cmax aAtom xPos)
+    (hxPosS : xPos ≤ S.x)
+    (hBpow : ((memoryCutoff S + 1 : ℕ) : ℝ) ^ K ≤ 3 ^ K * S.L ^ (2 * K))
+    (hbox : {z : ℤ × ℤ | envBox S w z}.Finite)
+    (u : MemPoint S.x K) (hstate : pd5_stateRegion F S w (memoryCutoff S) u) :
+    pd5_edgeAbsChoice F S ρ w j (memoryCutoff S) hbox.toFinset
+        (fun _ => 1) (fun t => v ^ memSize t) u ≤
+      ((1 + v / v₀ + (v / v₀)⁻¹) ^ K * Cedge * (3 : ℝ) ^ K) * S.L ^ (2 * K) *
+        Real.rpow S.L (3 * F.A₀) * v ^ memSize u := by
+  classical
+  let rowConst : ℝ :=
+    (1 + v / v₀ + (v / v₀)⁻¹) ^ K * Cedge * (3 : ℝ) ^ K
+  have hLpos : 0 < S.L := by linarith [hLone]
+  have hsize : memSize u ≤ memoryCutoff S := hstate.2.1
+  have hchoiceState := hRows S hS hxPosS w hw u hstate
+  have hchoiceRaw := hchoiceState.2 j hj
+    (∅ : Finset (BirthAddress K)) (∅ : Finset (BirthAddress K))
+    (by simp) (by simp) (fun _ _ => 0) [] hbox.toFinset
+    (by intro z hz; exact hbox.mem_toFinset.mpr hz)
+  have hchoice :
+      pd5_edgeAbsChoice F S ρ w j (memoryCutoff S) hbox.toFinset
+        (fun _ => 1) (fun t => v₀ ^ memSize t) u ≤
+        Cedge * ((memoryCutoff S + 1 : ℕ) : ℝ) ^ K *
+          Real.rpow S.L (3 * F.A₀) * v₀ ^ memSize u := by
+    have hprescribed :
+        pd5_prescribedWeight S (memoryCutoff S) (∅ : Finset (BirthAddress K))
+          ∅ (fun _ _ => 0) [] = fun _ => (1 : ℝ) := by
+      funext log
+      simp [pd5_prescribedWeight]
+    rw [hprescribed] at hchoiceRaw
+    simpa using hchoiceRaw
+  have hchange := pd5_edgeAbsChoice_weight_change F S ρ w j
+    (memoryCutoff S) hbox.toFinset u hsize v v₀
+    (by linarith [hv]) (by linarith [hv₀])
+  have hRatioBase : (v / v₀) ^ memSize u * v₀ ^ memSize u = v ^ memSize u := by
+    calc
+      _ = ((v / v₀) * v₀) ^ memSize u := by rw [← mul_pow]
+      _ = v ^ memSize u := by
+        rw [div_mul_cancel₀ v (ne_of_gt (by linarith [hv₀]))]
+  have hmassStep :
+      Cedge * ((memoryCutoff S + 1 : ℕ) : ℝ) ^ K *
+          Real.rpow S.L (3 * F.A₀) * v₀ ^ memSize u ≤
+        Cedge * (3 ^ K * S.L ^ (2 * K)) *
+          Real.rpow S.L (3 * F.A₀) * v₀ ^ memSize u := by
+    have hv₀nonneg : 0 ≤ v₀ := by linarith [hv₀]
+    have hfac : 0 ≤ Cedge * Real.rpow S.L (3 * F.A₀) * v₀ ^ memSize u :=
+      mul_nonneg (mul_nonneg hCedge.le (Real.rpow_nonneg hLpos.le _))
+        (pow_nonneg hv₀nonneg _)
+    calc
+      _ = (Cedge * Real.rpow S.L (3 * F.A₀) * v₀ ^ memSize u) *
+            ((memoryCutoff S + 1 : ℕ) : ℝ) ^ K := by ring
+      _ ≤ (Cedge * Real.rpow S.L (3 * F.A₀) * v₀ ^ memSize u) *
+            (3 ^ K * S.L ^ (2 * K)) := mul_le_mul_of_nonneg_left hBpow hfac
+      _ = _ := by ac_rfl
+  calc
+    _ ≤ (1 + v / v₀ + (v / v₀)⁻¹) ^ K *
+          (v / v₀) ^ memSize u *
+          pd5_edgeAbsChoice F S ρ w j (memoryCutoff S) hbox.toFinset
+            (fun _ => 1) (fun t => v₀ ^ memSize t) u := hchange
+    _ ≤ (1 + v / v₀ + (v / v₀)⁻¹) ^ K *
+          (v / v₀) ^ memSize u *
+          (Cedge * ((memoryCutoff S + 1 : ℕ) : ℝ) ^ K *
+            Real.rpow S.L (3 * F.A₀) * v₀ ^ memSize u) := by
+          apply mul_le_mul_of_nonneg_left hchoice
+          positivity
+    _ ≤ (1 + v / v₀ + (v / v₀)⁻¹) ^ K *
+          (v / v₀) ^ memSize u *
+          (Cedge * (3 ^ K * S.L ^ (2 * K)) *
+            Real.rpow S.L (3 * F.A₀) * v₀ ^ memSize u) :=
+          mul_le_mul_of_nonneg_left hmassStep (by positivity)
+    _ = rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀) *
+          v ^ memSize u := by
+          calc
+            _ = (rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀)) *
+                ((v / v₀) ^ memSize u * v₀ ^ memSize u) := by
+                  dsimp [rowConst]
+                  ac_rfl
+            _ = _ := by rw [hRatioBase]
+
+private theorem pd5_edge_twisted_col_point_bound {K : ℕ}
+    (δ c₁ c₂ : ℝ) (F : PDFix K) (S : PDScale) (hS : S.Valid K δ c₁ c₂)
+    (ρ : ℝ) (w : ArchRoot) (hw : w.InRegion S) (j j' : ℕ) (hj : j < S.N)
+    (hpar : decide (j' % 2 = 0) = !decide (j % 2 = 0))
+    (hdisj : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (hν : ∀ i, ∀ p ∈ primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p)
+    (hV : ∀ i, Real.log 2 / 2 ≤ bandMass S.x (F.a i) ∧
+      bandMass S.x (F.a i) ≤ 2 * Real.log 2)
+    (v Rb : ℝ) (hv : 1 < v) (hRb : 0 ≤ Rb)
+    (hbox : {z : ℤ × ℤ | envBox S w z}.Finite)
+    (hrev : ∀ u, pd5_stateRegion F S w (memoryCutoff S) u →
+      pd5_edgeAbsChoice F S ρ w j' (memoryCutoff S) hbox.toFinset (fun _ => 1)
+        (fun t => v ^ memSize t) u ≤ Rb * v ^ memSize u)
+    (W : BirthLog K → ℂ) (hW : ∀ log, ‖W log‖ ≤ 1)
+    (t : MemPoint S.x K) (ht : MemValid F S t) (htB : memSize t ≤ memoryCutoff S)
+    (T : Finset (MemPoint S.x K)) (hT : ∀ s ∈ T, memSize s ≤ memoryCutoff S) :
+    (∑ s ∈ T, memMeasure F S s *
+      ‖memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W (memorySym f)) s t‖ *
+        v ^ memSize s) ≤
+      ((1 + 2 / Real.log 2 + 2 * Real.log 2) * (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K *
+          (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K * Rb * memMeasure F S t * v ^ memSize t := by
+  classical
+  obtain ⟨T0, hT0, hT0mem, hModel⟩ :=
+    pd5_chronological_model δ c₁ c₂ K F S hS ρ w hw (memoryCutoff S)
+  have hZ : ∀ z, envBox S w z → z ∈ hbox.toFinset := fun z hz => hbox.mem_toFinset.mpr hz
+  have hT0size : ∀ u ∈ T0, memSize u ≤ memoryCutoff S := fun u hu => ((hT0 u).1 hu).2.1
+  have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hC0 : 0 ≤ 1 + 2 / Real.log 2 + 2 * Real.log 2 := by
+    have h1 : 0 < 2 / Real.log 2 := div_pos (by norm_num) hlog
+    linarith
+  have hCn : 0 ≤ ((1 + 2 / Real.log 2 + 2 * Real.log 2) *
+      (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K * (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K := by
+    positivity
+  have hvn : 0 ≤ v := by linarith
+  have hEACnn : ∀ s, memSize s ≤ memoryCutoff S → ∀ u, memSize u ≤ memoryCutoff S →
+      0 ≤ pd5_edgeAbsChoice F S ρ w j (memoryCutoff S) hbox.toFinset (fun _ => 1)
+        (fun g => if g = u then 1 else 0) s := fun s hs u hu =>
+    (norm_nonneg _).trans (pd5_edgeKernel_delta_bound F S ρ w j (memoryCutoff S) hbox W hW
+      s u hs hu)
+  have hpt : ∀ s ∈ T, memMeasure F S s *
+      ‖memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W (memorySym f)) s t‖ ≤
+      memMeasure F S s * ∑ u ∈ T0,
+        pd5_edgeAbsChoice F S ρ w j (memoryCutoff S) hbox.toFinset (fun _ => 1)
+          (fun g => if g = u then 1 else 0) s *
+          ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ := by
+    intro s hs
+    have hμ := pd5c_memMeasure_nonneg F S hν s
+    have hRHS : 0 ≤ ∑ u ∈ T0,
+        pd5_edgeAbsChoice F S ρ w j (memoryCutoff S) hbox.toFinset (fun _ => 1)
+          (fun g => if g = u then 1 else 0) s *
+          ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ :=
+      Finset.sum_nonneg fun u hu =>
+        mul_nonneg (hEACnn s (hT s hs) u (hT0size u hu)) (norm_nonneg _)
+    by_cases hreg : s ∈ T0
+    · apply mul_le_mul_of_nonneg_left _ hμ
+      have hdecomp :
+          memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W (memorySym f)) s t =
+            ∑ u ∈ T0,
+              memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W f) s u *
+                memorySym (fun g => if g = t then (1 : ℂ) else 0) u := by
+        let δt : MemPoint S.x K → ℂ := fun g => if g = t then 1 else 0
+        have hExpansion := (hModel W (memorySym δt) s hreg).2 j hj
+        rw [pd5_plainTrunc_memSym_delta_eq (memoryCutoff S) t htB] at hExpansion
+        have hkernel (u : MemPoint S.x K) (hu : u ∈ T0) :
+            memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W
+              (pd5_plainTrunc (memoryCutoff S) f)) s u =
+            memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W f) s u := by
+          change pd5_edgeBirthTwist F S ρ w j W
+              (pd5_plainTrunc (memoryCutoff S) (fun g => if g = u then (1 : ℂ) else 0)) s =
+            pd5_edgeBirthTwist F S ρ w j W (fun g => if g = u then (1 : ℂ) else 0) s
+          rw [pd5_plainTrunc_delta_eq (memoryCutoff S) u (hT0size u hu)]
+        change pd5_edgeBirthTwist F S ρ w j W (memorySym δt) s = _
+        calc
+          _ = ∑ u ∈ T0,
+                memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W
+                  (pd5_plainTrunc (memoryCutoff S) f)) s u * memorySym δt u := hExpansion
+          _ = _ := by
+                apply Finset.sum_congr rfl
+                intro u hu
+                rw [hkernel u hu]
+      rw [hdecomp]
+      calc ‖∑ u ∈ T0, memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W f) s u *
+              memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ ≤
+            ∑ u ∈ T0, ‖memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W f) s u *
+              memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ := norm_sum_le _ _
+        _ = ∑ u ∈ T0, ‖memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W f) s u‖ *
+              ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ := by
+            apply Finset.sum_congr rfl
+            intro u _
+            exact norm_mul _ _
+        _ ≤ _ := by
+            apply Finset.sum_le_sum
+            intro u hu
+            exact mul_le_mul_of_nonneg_right
+              (pd5_edgeKernel_delta_bound F S ρ w j (memoryCutoff S) hbox W hW s u
+                (hT s hs) (hT0size u hu)) (norm_nonneg _)
+    · have hnot : ¬ pd5_stateRegion F S w (memoryCutoff S) s := fun h => hreg ((hT0 s).2 h)
+      by_cases hval : MemValid F S s
+      · have hnotbox : ¬ envBox S w s.1 := fun hb => hnot ⟨hval, hT s hs, Or.inr hb⟩
+        have hzero :
+            memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W (memorySym f)) s t = 0 := by
+          simpa only [memKernel] using
+            (pd5_edgeBirthTwist_zero_of_source_not_box F S ρ w j hbox W
+              (fun g => if g = t then (1 : ℂ) else 0) s hnotbox)
+        rw [hzero, norm_zero, mul_zero]
+        exact mul_nonneg hμ hRHS
+      · have hm : memMeasure F S s = 0 := by simp [memMeasure, hval]
+        rw [hm, zero_mul, zero_mul]
+  calc (∑ s ∈ T, memMeasure F S s *
+        ‖memKernel (fun f => pd5_edgeBirthTwist F S ρ w j W (memorySym f)) s t‖ *
+          v ^ memSize s) ≤
+      ∑ s ∈ T, (memMeasure F S s * ∑ u ∈ T0,
+        pd5_edgeAbsChoice F S ρ w j (memoryCutoff S) hbox.toFinset (fun _ => 1)
+          (fun g => if g = u then 1 else 0) s *
+          ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖) * v ^ memSize s := by
+        apply Finset.sum_le_sum
+        intro s hs
+        exact mul_le_mul_of_nonneg_right (hpt s hs) (pow_nonneg hvn _)
+    _ = ∑ u ∈ T0, ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ *
+          (∑ s ∈ T, memMeasure F S s *
+            pd5_edgeAbsChoice F S ρ w j (memoryCutoff S) hbox.toFinset (fun _ => 1)
+              (fun g => if g = u then 1 else 0) s * v ^ memSize s) := by
+        simp only [Finset.mul_sum, Finset.sum_mul]
+        rw [Finset.sum_comm]
+        apply Finset.sum_congr rfl
+        intro u _
+        apply Finset.sum_congr rfl
+        intro s _
+        ring
+    _ ≤ ∑ u ∈ T0, ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ *
+          (((1 + 2 / Real.log 2 + 2 * Real.log 2) * (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K *
+            (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K * memMeasure F S u *
+            (Rb * v ^ memSize u)) := by
+        apply Finset.sum_le_sum
+        intro u hu
+        apply mul_le_mul_of_nonneg_left _ (norm_nonneg _)
+        have hcp := pd5_edge_column_point F S ρ w j j' (memoryCutoff S) hpar hdisj hν hV v hvn
+          hbox.toFinset hZ T hT u (hT0size u hu)
+        refine hcp.trans ?_
+        apply mul_le_mul_of_nonneg_left (hrev u ((hT0 u).1 hu))
+        exact mul_nonneg hCn (pd5c_memMeasure_nonneg F S hν u)
+    _ = ((1 + 2 / Real.log 2 + 2 * Real.log 2) * (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K *
+          (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K * Rb *
+          ∑ u ∈ T0, ‖memorySym (fun g => if g = t then (1 : ℂ) else 0) u‖ *
+            (memMeasure F S u * v ^ memSize u) := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro u _
+        ring
+    _ ≤ ((1 + 2 / Real.log 2 + 2 * Real.log 2) * (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K *
+          (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K * Rb * (memMeasure F S t * v ^ memSize t) :=
+        mul_le_mul_of_nonneg_left (pd5_orbit_weighted_le F S hν T0 t v hvn)
+          (mul_nonneg hCn hRb)
+    _ = _ := by ring
+
+private theorem pd5_absorb_general (L C a b : ℝ) (hL : 1 ≤ L) (hC0 : 0 ≤ C)
+    (hC : C ≤ L ^ 3) :
+    C * Real.rpow L a * Real.rpow L b ≤ Real.rpow L (a + b + 3) := by
+  have hLpos : 0 < L := by linarith
+  have hFactor : 0 ≤ Real.rpow L a * Real.rpow L b :=
+    mul_nonneg (Real.rpow_nonneg hLpos.le _) (Real.rpow_nonneg hLpos.le _)
+  calc C * Real.rpow L a * Real.rpow L b = C * (Real.rpow L a * Real.rpow L b) := by ring
+    _ ≤ L ^ 3 * (Real.rpow L a * Real.rpow L b) := mul_le_mul_of_nonneg_right hC hFactor
+    _ = Real.rpow L 3 * (Real.rpow L a * Real.rpow L b) :=
+        congrArg (fun x : ℝ => x * (Real.rpow L a * Real.rpow L b))
+          (Real.rpow_natCast L (3 : ℕ)).symm
+    _ = (Real.rpow L 3 * Real.rpow L a) * Real.rpow L b := by ring
+    _ = Real.rpow L (3 + a) * Real.rpow L b :=
+        congrArg (fun x : ℝ => x * Real.rpow L b) (Real.rpow_add hLpos 3 a).symm
+    _ = Real.rpow L (3 + a + b) := (Real.rpow_add hLpos (3 + a) b).symm
+    _ = Real.rpow L (a + b + 3) := by congr 1; ring
+
 set_option maxHeartbeats 4000000
 
 /-- Polynomial Schur bounds for every bounded birth twist at a supplied fixed weight v.
@@ -2353,12 +2910,15 @@ theorem pd5_twisted_edge_schur (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < 
       hv₀, hCghost, hCedge, hcmax, haAtom, hxPos, hRows⟩ :=
     pd5_positive_choice_rows δ c₁ c₂ hδ hc₁ K F hF ρ hρ
   obtain ⟨xScale, hxScale, hScale⟩ := pd5_scale_facts K F hF
-  let Ccr : ℝ := 4 * (K : ℝ) + 3 * F.A₀ + 3
+  obtain ⟨xDisj, hxDisj, hDisj⟩ := pd1c_eventual_bands_separated K F.a hF.1
+  let Ccr : ℝ := 6 * (K : ℝ) + 3 * F.A₀ + 3
   let rowConst : ℝ :=
     (1 + v / v₀ + (v / v₀)⁻¹) ^ K * Cedge * (3 : ℝ) ^ K
-  let L₀ : ℝ := max 1 rowConst
+  let C0 : ℝ := 1 + 2 / Real.log 2 + 2 * Real.log 2
+  let colConst : ℝ := (9 * C0) ^ K * rowConst
+  let L₀ : ℝ := max 1 (max rowConst colConst)
   let xAbs : ℝ := max 2 (Real.exp L₀)
-  let x₀ : ℝ := max xPos (max xScale xAbs)
+  let x₀ : ℝ := max xPos (max xScale (max xAbs xDisj))
   refine ⟨Ccr, x₀, ?_, ?_, ?_⟩
   · dsimp [Ccr]
     positivity [hF.2.2.2.1]
@@ -2368,17 +2928,13 @@ theorem pd5_twisted_edge_schur (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < 
       exact le_max_left _ _
     exact hxp.trans hxle
   · intro S hS hxS w hw j hj W hW
-    have hxPosS : xPos ≤ S.x := by
-      have h₁ : xPos ≤ max xPos (max xScale xAbs) := le_max_left _ _
-      exact h₁.trans hxS
-    have hxScaleS : xScale ≤ S.x := by
-      have h₁ : xScale ≤ max xScale xAbs := le_max_left _ _
-      have h₂ : max xScale xAbs ≤ max xPos (max xScale xAbs) := le_max_right _ _
-      exact (h₁.trans h₂).trans hxS
-    have hxAbsS : xAbs ≤ S.x := by
-      have h₁ : xAbs ≤ max xScale xAbs := le_max_right _ _
-      have h₂ : max xScale xAbs ≤ max xPos (max xScale xAbs) := le_max_right _ _
-      exact (h₁.trans h₂).trans hxS
+    have hxPosS : xPos ≤ S.x := (le_max_left _ _).trans hxS
+    have hxScaleS : xScale ≤ S.x :=
+      ((le_max_left _ _).trans (le_max_right _ _)).trans hxS
+    have hxAbsS : xAbs ≤ S.x :=
+      (((le_max_left _ _).trans (le_max_right _ _)).trans (le_max_right _ _)).trans hxS
+    have hxDisjS : xDisj ≤ S.x :=
+      (((le_max_right _ _).trans (le_max_right _ _)).trans (le_max_right _ _)).trans hxS
     have hExpL₀ : Real.exp L₀ ≤ S.x := by
       have hle : Real.exp L₀ ≤ xAbs := by
         dsimp [xAbs]
@@ -2392,18 +2948,22 @@ theorem pd5_twisted_edge_schur (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < 
       simpa [PDScale.L] using hLog
     have hLpos : 0 < S.L := by linarith [hLone]
     have hA₀ : 0 < F.A₀ := hF.2.2.2.1
+    have hLcube : S.L ≤ S.L ^ 3 := by
+      have hLsq : 1 ≤ S.L ^ 2 := by nlinarith [sq_nonneg (S.L - 1)]
+      calc
+        S.L = S.L * 1 := by ring
+        _ ≤ S.L * S.L ^ 2 := mul_le_mul_of_nonneg_left hLsq hLpos.le
+        _ = S.L ^ 3 := by ring
     have hRowConst : rowConst ≤ S.L ^ 3 := by
       have hC : rowConst ≤ L₀ := by
         dsimp [L₀]
-        exact le_max_right _ _
-      have hL₀leL : L₀ ≤ S.L := hL₀
-      have hLcube : S.L ≤ S.L ^ 3 := by
-        have hLsq : 1 ≤ S.L ^ 2 := by nlinarith [sq_nonneg (S.L - 1)]
-        calc
-          S.L = S.L * 1 := by ring
-          _ ≤ S.L * S.L ^ 2 := mul_le_mul_of_nonneg_left hLsq hLpos.le
-          _ = S.L ^ 3 := by ring
-      exact hC.trans (hL₀leL.trans hLcube)
+        exact (le_max_left _ _).trans (le_max_right _ _)
+      exact hC.trans (hL₀.trans hLcube)
+    have hColConst : colConst ≤ S.L ^ 3 := by
+      have hC : colConst ≤ L₀ := by
+        dsimp [L₀]
+        exact (le_max_right _ _).trans (le_max_right _ _)
+      exact hC.trans (hL₀.trans hLcube)
     have hBplus : ((memoryCutoff S + 1 : ℕ) : ℝ) ≤ 3 * S.L ^ 2 := by
       have hLsq : 1 ≤ S.L ^ 2 := by nlinarith [sq_nonneg (S.L - 1)]
       push_cast
@@ -2422,18 +2982,131 @@ theorem pd5_twisted_edge_schur (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < 
           (Real.rpow_natCast S.L (2 * K)).symm
         _ = Real.rpow S.L (2 * (K : ℝ)) := by congr 1; push_cast; ring
     have hAbsorbNat : rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀) ≤
-        Real.rpow S.L Ccr := by
+        Real.rpow S.L (4 * (K : ℝ) + 3 * F.A₀ + 3) := by
       rw [hLpow]
       exact hAbsorb
+    have hRowCcr : Real.rpow S.L (4 * (K : ℝ) + 3 * F.A₀ + 3) ≤ Real.rpow S.L Ccr := by
+      apply Real.rpow_le_rpow_of_exponent_le hLone
+      have hK : (0 : ℝ) ≤ (K : ℝ) := Nat.cast_nonneg K
+      dsimp [Ccr]
+      linarith
+    -- column data
+    have hdisj : ∀ i i' : Fin K, i ≠ i' →
+        Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')) :=
+      (hDisj S.x hxDisjS).1
+    have hν : ∀ i, ∀ p ∈ primeBand S.x (F.a i), 0 ≤ memoryNu S.x K F.a F.q_d i p :=
+      fun i p hp => ((hMass i).2.2.2 p hp).1
+    have hV : ∀ i, Real.log 2 / 2 ≤ bandMass S.x (F.a i) ∧
+        bandMass S.x (F.a i) ≤ 2 * Real.log 2 :=
+      fun i => ⟨(hMass i).1, (hMass i).2.1⟩
+    have hj'ex : ∃ j' : ℕ, j' < S.N ∧ decide (j' % 2 = 0) = !decide (j % 2 = 0) := by
+      by_cases hlt : j + 1 < S.N
+      · refine ⟨j + 1, hlt, ?_⟩
+        by_cases h : j % 2 = 0
+        · have h' : ¬ (j + 1) % 2 = 0 := by omega
+          simp [h, h']
+        · have h' : (j + 1) % 2 = 0 := by omega
+          simp [h, h']
+      · refine ⟨j - 1, by omega, ?_⟩
+        by_cases h : j % 2 = 0
+        · have h' : ¬ (j - 1) % 2 = 0 := by omega
+          simp [h, h']
+        · have h' : (j - 1) % 2 = 0 := by omega
+          simp [h, h']
+    obtain ⟨j', hj', hpar⟩ := hj'ex
+    have hbox := pd5_envBox_finite_of_valid hS hw
+    have hRb : 0 ≤ rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀) := by
+      have h1 : 0 ≤ rowConst := by dsimp [rowConst]; positivity
+      exact mul_nonneg (mul_nonneg h1 (pow_nonneg hLpos.le _)) (Real.rpow_nonneg hLpos.le _)
+    have hrev : ∀ u, pd5_stateRegion F S w (memoryCutoff S) u →
+        pd5_edgeAbsChoice F S ρ w j' (memoryCutoff S) hbox.toFinset (fun _ => 1)
+          (fun t => v ^ memSize t) u ≤
+          (rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀)) * v ^ memSize u :=
+      fun u hu => pd5_edge_reverse_row_bound δ c₁ c₂ F S hS ρ w hw j' hj'
+        v v₀ Cghost Cedge cmax aAtom xPos hv hv₀ hCedge hLone hRows hxPosS hBpow hbox u hu
+    have hC0 : 0 ≤ C0 := by
+      have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+      have h1 : 0 < 2 / Real.log 2 := div_pos (by norm_num) hlog
+      dsimp [C0]
+      linarith
+    have hCol : ((1 + 2 / Real.log 2 + 2 * Real.log 2) *
+          (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K * (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K *
+          (rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀)) ≤ Real.rpow S.L Ccr := by
+      have hB1 : (((memoryCutoff S : ℕ) : ℝ) + 1) ≤ 3 * S.L ^ 2 := by
+        have := hBplus
+        push_cast at this
+        exact this
+      have hB0 : 0 ≤ (((memoryCutoff S : ℕ) : ℝ) + 1) := by positivity
+      have hCle : ((1 + 2 / Real.log 2 + 2 * Real.log 2) *
+            (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K * (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K ≤
+          (9 * C0) ^ K * S.L ^ (4 * K) := by
+        calc ((1 + 2 / Real.log 2 + 2 * Real.log 2) *
+              (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K * (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K
+            = (C0 * (((memoryCutoff S : ℕ) : ℝ) + 1) *
+                (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K := by
+              rw [mul_pow (C0 * (((memoryCutoff S : ℕ) : ℝ) + 1))]
+          _ ≤ (C0 * (3 * S.L ^ 2) * (3 * S.L ^ 2)) ^ K := by
+              apply pow_le_pow_left₀ (by positivity)
+              have h1 : C0 * (((memoryCutoff S : ℕ) : ℝ) + 1) ≤ C0 * (3 * S.L ^ 2) :=
+                mul_le_mul_of_nonneg_left hB1 hC0
+              calc C0 * (((memoryCutoff S : ℕ) : ℝ) + 1) * (((memoryCutoff S : ℕ) : ℝ) + 1)
+                  ≤ C0 * (3 * S.L ^ 2) * (((memoryCutoff S : ℕ) : ℝ) + 1) :=
+                    mul_le_mul_of_nonneg_right h1 hB0
+                _ ≤ C0 * (3 * S.L ^ 2) * (3 * S.L ^ 2) :=
+                    mul_le_mul_of_nonneg_left hB1 (by positivity)
+          _ = (9 * C0) ^ K * S.L ^ (4 * K) := by
+              rw [show C0 * (3 * S.L ^ 2) * (3 * S.L ^ 2) = (9 * C0) * S.L ^ 4 by ring,
+                mul_pow, pow_mul]
+      have hRow0 : 0 ≤ rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀) := hRb
+      have hL6 : S.L ^ (6 * K) = Real.rpow S.L (6 * (K : ℝ)) := by
+        calc
+          _ = Real.rpow S.L ((6 * K : ℕ) : ℝ) :=
+            (Real.rpow_natCast S.L (6 * K)).symm
+          _ = Real.rpow S.L (6 * (K : ℝ)) := by congr 1; push_cast; ring
+      have hAbs := pd5_absorb_general S.L colConst (6 * (K : ℝ)) (3 * F.A₀) hLone
+        (by dsimp [colConst, rowConst]; positivity) hColConst
+      calc ((1 + 2 / Real.log 2 + 2 * Real.log 2) *
+            (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K * (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K *
+            (rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀))
+          ≤ (9 * C0) ^ K * S.L ^ (4 * K) *
+              (rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀)) :=
+            mul_le_mul_of_nonneg_right hCle hRow0
+        _ = colConst * S.L ^ (6 * K) * Real.rpow S.L (3 * F.A₀) := by
+            have h6 : S.L ^ (6 * K) = S.L ^ (4 * K) * S.L ^ (2 * K) := by
+              rw [← pow_add]; congr 1; ring
+            rw [h6]
+            dsimp [colConst]
+            ring
+        _ = colConst * Real.rpow S.L (6 * (K : ℝ)) * Real.rpow S.L (3 * F.A₀) := by
+            rw [hL6]
+        _ ≤ Real.rpow S.L (6 * (K : ℝ) + 3 * F.A₀ + 3) := hAbs
+        _ = Real.rpow S.L Ccr := rfl
     change MemRowSchurLE F S (memoryCutoff S)
       (fun f => pd5_edgeBirthTwist F S ρ w j W (memorySym f)) v
-      (Real.rpow S.L Ccr) ∧ _
+      (Real.rpow S.L Ccr) ∧
+      MemColSchurLE F S (memoryCutoff S)
+      (fun f => pd5_edgeBirthTwist F S ρ w j W (memorySym f)) v
+      (Real.rpow S.L Ccr)
     constructor
     · intro s hs hsize T hT
-      exact pd5_edge_twisted_row_point_bound δ c₁ c₂ F S hS ρ w hw j hj
+      have hrow := pd5_edge_twisted_row_point_bound δ c₁ c₂ F S hS ρ w hw j hj
         v v₀ Cghost Cedge cmax aAtom xPos hv hv₀ hCedge hLone hRows hxPosS
         hBpow hAbsorbNat W hW s hs hsize T hT
-    · sorry
+      exact hrow.trans (mul_le_mul_of_nonneg_right hRowCcr (pow_nonneg (by linarith) _))
+    · intro t ht htsize T hT
+      have hcol := pd5_edge_twisted_col_point_bound δ c₁ c₂ F S hS ρ w hw j j' hj hpar
+        hdisj hν hV v (rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀)) hv hRb hbox hrev
+        W hW t ht htsize T hT
+      refine hcol.trans ?_
+      have hμt := pd5c_memMeasure_nonneg F S hν t
+      have hvt : 0 ≤ v ^ memSize t := pow_nonneg (by linarith) _
+      calc ((1 + 2 / Real.log 2 + 2 * Real.log 2) *
+            (((memoryCutoff S : ℕ) : ℝ) + 1)) ^ K * (((memoryCutoff S : ℕ) : ℝ) + 1) ^ K *
+            (rowConst * S.L ^ (2 * K) * Real.rpow S.L (3 * F.A₀)) * memMeasure F S t *
+              v ^ memSize t ≤ Real.rpow S.L Ccr * memMeasure F S t * v ^ memSize t := by
+            apply mul_le_mul_of_nonneg_right _ hvt
+            exact mul_le_mul_of_nonneg_right hCol hμt
+        _ = _ := rfl
 
 set_option maxHeartbeats 800000
 
