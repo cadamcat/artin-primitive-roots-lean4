@@ -1621,6 +1621,58 @@ private theorem conductorLocalIntegers_simultaneous_approximation
     _ < WithZero.exp (-(n v : ℤ)) :=
       Valued.v.map_add_lt (hdiff.trans_lt hradius) ((ha v).trans hradius)
 
+private theorem conductorLocalCharacter_eq_of_approximation
+    (ω : A1.HeckeChar F) (f : Ideal (𝓞 F)) (hcond : ω.ConductorDvd f)
+    (v : A1.FinPlace F) (u : (v.adicCompletionIntegers F).units)
+    (b : 𝓞 F)
+    (happrox : Valued.v (algebraMap F (v.adicCompletion F) (b : F) -
+      (u.val : v.adicCompletion F)) <
+        WithZero.exp (-(A1.idealExp v f : ℤ))) :
+    ∃ (hb0 : b ≠ 0) (hb : b ∉ v.asIdeal),
+      ω.loc v (conductorLocalIntegerUnitOfOElement v b hb0 hb).val =
+        ω.loc v u.val := by
+  have huval : Valued.v (u.val : v.adicCompletion F) = 1 :=
+    HeightOneSpectrum.adicCompletionIntegers.mem_units_iff_valued_eq_one.mp u.property
+  have hradius : WithZero.exp (-(A1.idealExp v f : ℤ)) ≤ 1 := by
+    rw [← WithZero.exp_zero, WithZero.exp_le_exp]
+    omega
+  have hbval : Valued.v (algebraMap F (v.adicCompletion F) (b : F)) = 1 := by
+    have h := Valued.v.map_add_eq_of_lt_right
+      ((happrox.trans_le hradius).trans_eq huval.symm)
+    simpa only [sub_add_cancel, huval] using h
+  have hbvalF : v.valuation F (b : F) = 1 :=
+    (v.valuedAdicCompletion_eq_valuation' (b : F)).symm.trans hbval
+  have hb : b ∉ v.asIdeal := (v.valuation_eq_one_iff_notMem).mp hbvalF
+  have hb0 : b ≠ 0 := by
+    intro hzero
+    exact hb (by simpa [hzero] using v.asIdeal.zero_mem)
+  refine ⟨hb0, hb, ?_⟩
+  let ub := conductorLocalIntegerUnitOfOElement v b hb0 hb
+  let w := ub / u
+  have hratio : (w.val : v.adicCompletion F) =
+      algebraMap F (v.adicCompletion F) (b : F) /
+        (u.val : v.adicCompletion F) := by
+    simp [w, ub, conductorLocalIntegerUnitOfOElement, A1.toLoc]
+  have hdelta : (w.val : v.adicCompletion F) - 1 =
+      (algebraMap F (v.adicCompletion F) (b : F) -
+        (u.val : v.adicCompletion F)) / (u.val : v.adicCompletion F) := by
+    rw [hratio]
+    exact div_sub_one u.val.ne_zero
+  have hbound : Valued.v ((w.val : v.adicCompletion F) - 1) ≤
+      WithZero.exp (-(A1.idealExp v f : ℤ)) := by
+    rw [hdelta, map_div₀, huval, div_one]
+    exact happrox.le
+  have hwInt := (Submonoid.mem_units_iff
+    (v.adicCompletionIntegers F).toSubmonoid w.val).mp w.property
+  have hram : ω.loc v w.val = 1 := hcond v w.val hwInt.1 hwInt.2 hbound
+  have hquot : ω.loc v ub.val / ω.loc v u.val = 1 := by
+    simpa [w, map_div] using hram
+  have hmul : (ω.loc v ub.val / ω.loc v u.val) * ω.loc v u.val =
+      ω.loc v ub.val := by rw [div_mul_cancel]
+  calc
+    ω.loc v ub.val = (ω.loc v ub.val / ω.loc v u.val) * ω.loc v u.val := hmul.symm
+    _ = ω.loc v u.val := by rw [hquot]; simp
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
