@@ -8205,6 +8205,115 @@ private theorem po_H_absolute_positive_term_norm_le
       rw [← Real.rpow_add hqpos]
     _ = _ := by rw [htotal]
 
+private theorem po_H_absolute_local_summable
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hξ : 2 / 3 < ξ.re) (hw : 0 < w.re) (hz : 0 < z.re) :
+    Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      ‖localEulerTerm R η U u v hv ξ w z i‖) := by
+  let q : ℝ := qI v.asIdeal
+  have hq : 1 < q := qI_prime_gt_one v
+  have hqpos : 0 < q := lt_trans zero_lt_one hq
+  have hgeom (a : ℝ) (ha : a < 0) :
+      Summable (fun n : ℕ => q ^ ((n : ℝ) * a)) := by
+    have h := summable_geometric_of_lt_one (Real.rpow_nonneg hqpos.le a)
+      (Real.rpow_lt_one_of_one_lt_of_neg hq ha)
+    apply h.congr
+    intro n
+    calc
+      (q ^ a) ^ n = q ^ (a * (n : ℝ)) :=
+        (Real.rpow_mul_natCast hqpos.le a n).symm
+      _ = _ := by congr 1; ring
+  let gL : ℕ → ℝ := fun l => q ^ ((l : ℝ) * (2 - 3 * ξ.re))
+  let gK : ℕ → ℝ := fun k => q ^ ((k : ℝ) * (-w.re))
+  let gM : ℕ → ℝ := fun m => q ^ ((m : ℝ) * (-6 * z.re))
+  have hL : Summable gL := hgeom _ (by linarith)
+  have hK : Summable gK := hgeom _ (by linarith)
+  have hM : Summable gM := hgeom _ (by linarith)
+  have hLn (l : ℕ) : 0 ≤ gL l := Real.rpow_nonneg hqpos.le _
+  have hKn (k : ℕ) : 0 ≤ gK k := Real.rpow_nonneg hqpos.le _
+  have hMn (m : ℕ) : 0 ≤ gM m := Real.rpow_nonneg hqpos.le _
+  have hKM : Summable (fun km : ℕ × ℕ => gK km.1 * gM km.2) :=
+    hK.mul_of_nonneg hM hKn hMn
+  have hLKM : Summable (fun lkm : ℕ × ℕ × ℕ =>
+      gL lkm.1 * (gK lkm.2.1 * gM lkm.2.2)) :=
+    hL.mul_of_nonneg hKM hLn (fun km => mul_nonneg (hKn km.1) (hMn km.2))
+  have hfin : Summable (fun _ : Fin 2 => q ^ (1 / 2 : ℝ)) := Summable.of_finite
+  have hmajor : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      q ^ (1 / 2 : ℝ) * (gL i.2.1 * (gK i.2.2.1 * gM i.2.2.2))) :=
+    hfin.mul_of_nonneg hLKM (fun _ => Real.rpow_nonneg hqpos.le _)
+      (fun lkm => mul_nonneg (hLn lkm.1)
+        (mul_nonneg (hKn lkm.2.1) (hMn lkm.2.2)))
+  have hterm (i : Fin 2 × ℕ × ℕ × ℕ) :
+      ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+        q ^ (1 / 2 + (i.2.1 : ℝ) * (2 - 3 * ξ.re) -
+          (i.2.2.1 : ℝ) * w.re - 6 * (i.2.2.2 : ℝ) * z.re) := by
+    let e : ℕ := i.1.1
+    let l : ℕ := i.2.1
+    let k : ℕ := i.2.2.1
+    let m : ℕ := i.2.2.2
+    let j : ℕ := frequencyValuation η U u v
+    change ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+      q ^ (1 / 2 + (l : ℝ) * (2 - 3 * ξ.re) - (k : ℝ) * w.re -
+        6 * (m : ℝ) * z.re)
+    by_cases ht : e + 3 * l = 0
+    · have he : e = 0 := by omega
+      have hl : l = 0 := by omega
+      have hC : ‖localC R v hv 0 k (j + 6 * m)‖ ≤ 1 := by
+        by_cases hk : k = 0
+        · simp [hk, (po_C_local_values R v hv (j + 6 * m)).1]
+        · rw [(po_C_local_values R v hv (j + 6 * m)).2.1 k
+            (Nat.pos_of_ne_zero hk)]
+          split_ifs <;> simp
+      have hchi := euler_chi_zpow_norm_le_one (D := D) v
+        ((U.repr u : F) / (primeGen R v : F) ^ j) (k : ℤ)
+      let E : ℂ := -(k : ℂ) * w - 6 * (m : ℂ) * z
+      have hpow : ‖(q : ℂ) ^ E‖ = q ^ E.re :=
+        Complex.norm_cpow_eq_rpow_re_of_pos hqpos E
+      have hEre : E.re = -(k : ℝ) * w.re - 6 * (m : ℝ) * z.re := by
+        simp [E, Complex.mul_re] <;> ring
+      have hn :
+          ‖chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^ (k : ℤ) *
+            localC R v hv 0 k (j + 6 * m) * (q : ℂ) ^ E‖ ≤ q ^ E.re := by
+        rw [norm_mul, norm_mul, hpow]
+        calc
+          _ ≤ 1 * 1 * q ^ E.re := by gcongr
+          _ = _ := by ring
+      rw [hEre] at hn
+      have he' : i.1.1 = 0 := he
+      have hl' : i.2.1 = 0 := hl
+      have hn' : ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+          q ^ (-(k : ℝ) * w.re - 6 * (m : ℝ) * z.re) := by
+        simpa [localEulerTerm, he', hl', q, j, k, m, E] using hn
+      refine hn'.trans (Real.rpow_le_rpow_of_exponent_le hq.le ?_)
+      rw [hl]
+      simp
+    · have htpos : 0 < e + 3 * l := Nat.pos_of_ne_zero ht
+      by_cases hk : k ≤ 1
+      · have hs := po_H_absolute_positive_term_norm_le R η U u v hv ξ w z i htpos hk
+        have hepart : (e : ℝ) * (1 / 2 - ξ.re) ≤ 0 :=
+          mul_nonpos_of_nonneg_of_nonpos (Nat.cast_nonneg e) (by linarith)
+        have hkcast : (k : ℝ) ≤ 1 := by exact_mod_cast hk
+        have hexp : (e : ℝ) * (1 / 2 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+            (k : ℝ) * (1 / 2 - w.re) - 6 * (m : ℝ) * z.re ≤
+            1 / 2 + (l : ℝ) * (2 - 3 * ξ.re) - (k : ℝ) * w.re -
+              6 * (m : ℝ) * z.re := by
+          nlinarith only [hepart, hkcast]
+        exact hs.trans (Real.rpow_le_rpow_of_exponent_le hq.le hexp)
+      · have hkge : 2 ≤ k := by omega
+        have hCzero := ((po_C_local_values R v hv (j + 6 * m)).2.2
+          (e + 3 * l) htpos).2.2.1 k hkge
+        have hzero : localEulerTerm R η U u v hv ξ w z i = 0 := by
+          simp [localEulerTerm, hCzero, e, l, k, m, j]
+        rw [hzero, norm_zero]
+        exact Real.rpow_nonneg hqpos.le _
+  refine Summable.of_nonneg_of_le (fun i => norm_nonneg _) ?_ hmajor
+  intro i
+  refine (hterm i).trans_eq ?_
+  dsimp [gL, gK, gM]
+  rw [← Real.rpow_add hqpos, ← Real.rpow_add hqpos, ← Real.rpow_add hqpos]
+  congr 1
+  ring
+
 /-- po:H-local-bounds: C,Q0 chosen before the field, set S, phases, or frequency.
 This is the absolute-cutoff obligation used when choosing S in A1. -/
 theorem po_H_local_bounds_absolute :
