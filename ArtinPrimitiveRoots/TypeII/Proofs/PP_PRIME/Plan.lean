@@ -169,7 +169,7 @@ theorem mellinKernel_uniform_decay (g : ℝ → ℝ) (L A : ℝ)
     have hfun : (fun u : ℝ =>
         Real.exp (-((⟨α, v⟩ : ℂ).re) * u) • (g (Real.exp (-u)) : ℂ)) = f := by
       funext u
-      simp [f, mellinLogWeight, smul_eq_mul, Complex.ofReal_exp]
+      simp [f, mellinLogWeight, Complex.ofReal_exp]
     rw [hfun]
   have hA0 : ∫ u : ℝ, ‖f u‖ ≤ K 0 := by
     have h := hbound α hα 0
@@ -273,7 +273,171 @@ theorem mellinKernel_inversion (g : ℝ → ℝ)
     (g w : ℂ) = (1 / (2 * Real.pi) : ℂ) *
       ∫ v : ℝ, mellinKernel g (⟨c, v⟩ : ℂ) *
         Complex.exp (-((⟨c, v⟩ : ℂ) * Real.log w)) := by
-  sorry
+  classical
+  let f : ℝ → ℂ := mellinLogWeight g c
+  have hfsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f := by
+    have hA : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun u : ℝ => Real.exp (-c * u)) := by fun_prop
+    have hBtop : ContDiff ℝ ⊤
+        (fun u : ℝ => g (Real.exp (-u))) := by
+      have harg : ContDiff ℝ ⊤
+          (fun u : ℝ => Real.exp (-u)) := by fun_prop
+      exact hg.comp harg
+    have hB : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun u : ℝ => g (Real.exp (-u))) := hBtop.of_le le_top
+    have hAc : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun u : ℝ => (Real.exp (-c * u) : ℂ)) := Complex.ofRealCLM.contDiff.comp hA
+    have hBc : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+        (fun u : ℝ => (g (Real.exp (-u)) : ℂ)) := Complex.ofRealCLM.contDiff.comp hB
+    change ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun u : ℝ => (Real.exp (-c * u) : ℂ) * (g (Real.exp (-u)) : ℂ))
+    exact hAc.mul hBc
+  have hfsupport : Function.support f ⊆ Set.Icc (-Real.log 3) (-Real.log (1 / 2)) := by
+    intro u hu
+    have hfu : f u ≠ 0 := by
+      simpa only [Function.mem_support] using hu
+    have hgu : g (Real.exp (-u)) ≠ 0 := by
+      intro hz
+      apply hfu
+      simp [f, mellinLogWeight, hz]
+    have hmem : Real.exp (-u) ∈ Function.support g := by
+      simpa only [Function.mem_support] using hgu
+    rcases hsupport hmem with ⟨hlo, hhi⟩
+    constructor
+    · have hlog := Real.log_le_log (Real.exp_pos (-u)) hhi
+      have hlog' : -u ≤ Real.log 3 := by simpa only [Real.log_exp] using hlog
+      linarith
+    · have hlog := Real.log_le_log (by norm_num : (0 : ℝ) < 1 / 2) hlo
+      have hlog' : Real.log (1 / 2) ≤ -u := by simpa only [Real.log_exp] using hlog
+      linarith
+  have hfcompact : HasCompactSupport f :=
+    HasCompactSupport.of_support_subset_isCompact isCompact_Icc hfsupport
+  let F : SchwartzMap ℝ ℂ := hfcompact.toSchwartzMap hfsmooth
+  have hFcoe : (F : ℝ → ℂ) = f := rfl
+  have hline (v : ℝ) :
+      mellinKernel g (⟨c, v⟩ : ℂ) = 𝓕 f (v / (2 * Real.pi)) := by
+    rw [mellinKernel_eq_mellin, mellin_eq_fourier]
+    have hfun : (fun u : ℝ =>
+        Real.exp (-((⟨c, v⟩ : ℂ).re) * u) • (g (Real.exp (-u)) : ℂ)) = f := by
+      funext u
+      simp [f, mellinLogWeight, Complex.ofReal_exp]
+    rw [hfun]
+  have hFt : 𝓕 f = ((𝓕 F : SchwartzMap ℝ ℂ) : ℝ → ℂ) := by
+    rw [SchwartzMap.fourier_coe]
+    rfl
+  let x : ℝ := -Real.log w
+  have hInv : 𝓕⁻ (𝓕 f) x = f x := by
+    exact congrFun (F.continuous.fourierInv_fourier_eq F.integrable
+      (𝓕 F).integrable) x
+  have hInvIntegral : 𝓕⁻ (𝓕 f) x =
+      ∫ y : ℝ, Complex.exp ((↑(2 * Real.pi * (y * x) : ℝ) : ℂ) * Complex.I) * 𝓕 f y := by
+    rw [Real.fourierInv_eq']
+    simp only [Real.inner_apply, smul_eq_mul]
+  let H : ℝ → ℂ := fun v => mellinKernel g (⟨c, v⟩ : ℂ) *
+    Complex.exp (Complex.I * (v : ℂ) * (x : ℂ))
+  have hπ : 0 < 2 * Real.pi := by positivity
+  have hchange : (∫ v : ℝ, H v) = (2 * Real.pi : ℝ) •
+      ∫ y : ℝ, H ((2 * Real.pi) * y) := by
+    have h := Measure.integral_comp_mul_left H (2 * Real.pi)
+    rw [abs_of_pos (inv_pos.mpr hπ)] at h
+    calc
+      (∫ v : ℝ, H v) = (2 * Real.pi : ℝ) •
+          ((2 * Real.pi : ℝ)⁻¹ • ∫ v : ℝ, H v) := by
+            rw [smul_smul, mul_inv_cancel₀ hπ.ne', one_smul]
+      _ = (2 * Real.pi : ℝ) • ∫ y : ℝ, H ((2 * Real.pi) * y) := by rw [h.symm]
+  have hscaled (y : ℝ) :
+      H ((2 * Real.pi) * y) =
+        Complex.exp ((↑(2 * Real.pi * (y * x) : ℝ) : ℂ) * Complex.I) * 𝓕 f y := by
+    dsimp [H]
+    rw [hline]
+    have hfreq : (2 * Real.pi * y) / (2 * Real.pi) = y := by
+      field_simp [Real.pi_ne_zero]
+    rw [hfreq]
+    have hexp : Complex.I * (↑(2 * Real.pi * y : ℝ) : ℂ) * (x : ℂ) =
+        (↑(2 * Real.pi * (y * x) : ℝ) : ℂ) * Complex.I := by
+      push_cast
+      ring
+    rw [congrArg Complex.exp hexp]
+    ring
+  have hscaledIntegral : (1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ, H v =
+      ∫ y : ℝ, Complex.exp ((↑(2 * Real.pi * (y * x) : ℝ) : ℂ) * Complex.I) * 𝓕 f y := by
+    rw [hchange]
+    have hchange' : (2 * Real.pi : ℝ) • (∫ y : ℝ, H ((2 * Real.pi) * y)) =
+        ((2 * Real.pi : ℝ) : ℂ) * ∫ y : ℝ, H ((2 * Real.pi) * y) := by
+      rfl
+    have hcoef : (1 / (2 * Real.pi) : ℂ) * ((2 * Real.pi : ℝ) : ℂ) = 1 := by
+      norm_cast
+      field_simp [Real.pi_ne_zero]
+    calc
+      (1 / (2 * Real.pi) : ℂ) *
+          ((2 * Real.pi : ℝ) • ∫ y : ℝ, H ((2 * Real.pi) * y)) =
+          (1 / (2 * Real.pi) : ℂ) *
+            (((2 * Real.pi : ℝ) : ℂ) * ∫ y : ℝ, H ((2 * Real.pi) * y)) := by rw [hchange']
+      _ = ((1 / (2 * Real.pi) : ℂ) * ((2 * Real.pi : ℝ) : ℂ)) *
+          ∫ y : ℝ, H ((2 * Real.pi) * y) := by rw [mul_assoc]
+      _ = ∫ y : ℝ, H ((2 * Real.pi) * y) := by rw [hcoef, one_mul]
+      _ = ∫ y : ℝ, Complex.exp ((↑(2 * Real.pi * (y * x) : ℝ) : ℂ) * Complex.I) *
+          𝓕 f y := by
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall hscaled
+  have hfAt : f x =
+      (Real.exp (-c * x) : ℂ) * (g (Real.exp (-x)) : ℂ) := by
+    rfl
+  have htarget : (1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ, H v = f x := by
+    rw [hscaledIntegral, ← hInvIntegral, hInv]
+  have hlogw : Real.exp (-x) = w := by
+    simp [x, Real.exp_log hw]
+  have hfinal : f x * (Real.exp (-c * x) : ℂ)⁻¹ = (g w : ℂ) := by
+    rw [hfAt, hlogw]
+    have he : (Real.exp (-c * x) : ℂ) ≠ 0 :=
+      Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.exp_pos _))
+    field_simp
+  calc
+    (g w : ℂ) = f x * (Real.exp (-c * x) : ℂ)⁻¹ := hfinal.symm
+    _ = ((1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ, H v) *
+        (Real.exp (-c * x) : ℂ)⁻¹ := by rw [htarget]
+    _ = (1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ,
+        mellinKernel g (⟨c, v⟩ : ℂ) *
+          Complex.exp (-((⟨c, v⟩ : ℂ) * Real.log w)) := by
+      have hE : (Real.exp (-c * x) : ℂ)⁻¹ =
+        Complex.exp ((c : ℂ) * (x : ℂ)) := by
+        rw [Complex.ofReal_exp]
+        rw [← Complex.exp_neg]
+        congr 1
+        push_cast
+        ring
+      have hphase (v : ℝ) :
+          Complex.exp (Complex.I * (v : ℂ) * (x : ℂ)) *
+              Complex.exp ((c : ℂ) * (x : ℂ)) =
+            Complex.exp (-((⟨c, v⟩ : ℂ) * (Real.log w : ℂ))) := by
+        rw [← Complex.exp_add]
+        congr 1
+        have hx : (x : ℂ) = -(Real.log w : ℂ) := by
+          simp [x]
+        rw [hx]
+        apply Complex.ext <;> simp [Complex.mul_re, Complex.mul_im]
+      calc
+        _ = (1 / (2 * Real.pi) : ℂ) *
+            ((∫ v : ℝ, H v) * (Real.exp (-c * x) : ℂ)⁻¹) := by ring
+        _ = (1 / (2 * Real.pi) : ℂ) *
+            ∫ v : ℝ, H v * (Real.exp (-c * x) : ℂ)⁻¹ := by rw [integral_mul_const]
+        _ = (1 / (2 * Real.pi) : ℂ) *
+            ∫ v : ℝ, mellinKernel g (⟨c, v⟩ : ℂ) *
+              Complex.exp (-((⟨c, v⟩ : ℂ) * (Real.log w : ℂ))) := by
+          congr 1
+          apply integral_congr_ae
+          exact Filter.Eventually.of_forall fun v => by
+            dsimp [H]
+            rw [hE]
+            calc
+              mellinKernel g (⟨c, v⟩ : ℂ) *
+                  Complex.exp (Complex.I * (v : ℂ) * (x : ℂ)) *
+                    Complex.exp ((c : ℂ) * (x : ℂ)) =
+                  mellinKernel g (⟨c, v⟩ : ℂ) *
+                    (Complex.exp (Complex.I * (v : ℂ) * (x : ℂ)) *
+                      Complex.exp ((c : ℂ) * (x : ℂ))) := by ring
+              _ = mellinKernel g (⟨c, v⟩ : ℂ) *
+                  Complex.exp (-((⟨c, v⟩ : ℂ) * (Real.log w : ℂ))) := by rw [hphase]
 
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound :
