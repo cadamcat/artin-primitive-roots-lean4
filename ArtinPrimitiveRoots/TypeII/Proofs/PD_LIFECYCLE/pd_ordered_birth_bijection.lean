@@ -41,6 +41,7 @@ import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostDeletedAbsent
 import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostAbsentPreservation
 import ArtinPrimitiveRoots.Proofs.pd_life_b.EdgeAbsentPreservation
 import ArtinPrimitiveRoots.Proofs.pd_life_b.AllTraceAbsent
+import ArtinPrimitiveRoots.Proofs.pd_life_b.GhostDeletionUnique
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_lifecycle_parameters
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_ordered_distinct_batch_sum
