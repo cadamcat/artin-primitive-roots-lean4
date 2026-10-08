@@ -32,6 +32,7 @@ import ArtinPrimitiveRoots.Proofs.pd_life_b.ValidHistorySum
 import ArtinPrimitiveRoots.Proofs.pd_life_b.TraceTerminal
 import ArtinPrimitiveRoots.Proofs.pd_life_b.TerminalTests
 import ArtinPrimitiveRoots.Proofs.pd_life_b.AllTraceLog
+import ArtinPrimitiveRoots.Proofs.pd_life_b.AllTraceLive
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_lifecycle_parameters
 import ArtinPrimitiveRoots.TypeII.Proofs.PD_LIFECYCLE.pd_ordered_distinct_batch_sum
