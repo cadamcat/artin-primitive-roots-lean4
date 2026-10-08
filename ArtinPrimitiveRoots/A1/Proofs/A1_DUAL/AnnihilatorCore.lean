@@ -76,7 +76,35 @@ theorem s_integer_finite_approx (S : A1.SData F CE condη)
 /-- The fixed character is additive on the product group. -/
 theorem e_add (S : A1.SData F CE condη) (A : A1.AddCharData F) (x y : S.FS) :
     S.e A (x + y) = S.e A x * S.e A y := by
-  sorry
+  unfold A1.SData.e
+  have hfin : (∏ v : S.Sf, A.ψ v.1 ((x + y).1 v)) =
+      (∏ v : S.Sf, A.ψ v.1 (x.1 v)) * ∏ v : S.Sf, A.ψ v.1 (y.1 v) := by
+    calc
+      (∏ v : S.Sf, A.ψ v.1 ((x + y).1 v)) =
+          ∏ v : S.Sf, (A.ψ v.1 (x.1 v) * A.ψ v.1 (y.1 v)) := by
+        apply Finset.prod_congr rfl
+        intro v hv
+        simpa using (A.ψ v.1).map_add_eq_mul (x.1 v) (y.1 v)
+      _ = (∏ v : S.Sf, A.ψ v.1 (x.1 v)) *
+          ∏ v : S.Sf, A.ψ v.1 (y.1 v) := by rw [Finset.prod_mul_distrib]
+  have harch : (∏ w : InfinitePlace F, A1.psiC ((x + y).2 w)) =
+      (∏ w : InfinitePlace F, A1.psiC (x.2 w)) *
+        ∏ w : InfinitePlace F, A1.psiC (y.2 w) := by
+    calc
+      (∏ w : InfinitePlace F, A1.psiC ((x + y).2 w)) =
+          ∏ w : InfinitePlace F, (A1.psiC (x.2 w) * A1.psiC (y.2 w)) := by
+        apply Finset.prod_congr rfl
+        intro w hw
+        change A1.psiC (x.2 w + y.2 w) = _
+        simp only [A1.psiC, Complex.add_re]
+        rw [← Complex.exp_add]
+        congr 1
+        push_cast
+        ring
+      _ = (∏ w : InfinitePlace F, A1.psiC (x.2 w)) *
+          ∏ w : InfinitePlace F, A1.psiC (y.2 w) := by rw [Finset.prod_mul_distrib]
+  rw [hfin, harch]
+  ring
 
 /-- The fixed character sends a negation to the inverse value. -/
 theorem e_neg (S : A1.SData F CE condη) (A : A1.AddCharData F) (x : S.FS) :
