@@ -9,6 +9,7 @@ namespace ArtinPrimitiveRoots.Construction.ProofsC2
 open ArtinPrimitiveRoots.Construction
 open ArtinPrimitiveRoots.TypeII
 open Filter
+open MeasureTheory
 open scoped Topology
 
 lemma markedPart_eq_self_of_groupInteger (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
@@ -202,6 +203,17 @@ lemma conWeight_c_r_Q_plus_one
   unfold conWeight
   rw [if_pos hcond, hfactor, hweight]
   simp
+
+end ArtinPrimitiveRoots.Construction.ProofsC2
+
+namespace ArtinPrimitiveRoots.Proofs.C_BV
+
+open ArtinPrimitiveRoots.Construction
+open ArtinPrimitiveRoots.Construction.ProofsC2
+open ArtinPrimitiveRoots.TypeII
+open MeasureTheory
+open Filter
+open scoped Topology
 
 noncomputable section
 
@@ -480,6 +492,298 @@ lemma conTotalMass_eq_groupProgressionSum
         simp [hzero]
   exact hMassPairs.trans hProgressionPairs.symm
 
+lemma smoothedMainTerm_integral_bounds
+    (x : ℝ) (c r : ℕ) (Ψ : ℝ → ℝ)
+    (hc24 : c = 2 ∨ c = 4)
+    (hx2 : 2 ≤ x) (hcr : 0 < ((c * r : ℕ) : ℝ))
+    (hcut : Real.rpow x (9 / 10 : ℝ) ≤ (x - 1) / ((c * r : ℕ) : ℝ))
+    (hΨsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ)
+    (hΨnonneg : ∀ y, 0 ≤ Ψ y)
+    (hΨint : 0 < ∫ y in (1 : ℝ)..2, Ψ y) :
+    (x / ((c * r : ℕ) : ℝ)) *
+        ((∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) ≤
+      smoothedMainTerm x c r Ψ ∧
+      smoothedMainTerm x c r Ψ ≤
+        (x / ((c * r : ℕ) : ℝ)) *
+          (2 * (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) := by
+  have hxpos : 0 < x := by linarith
+  have hlogx : 0 < Real.log x := Real.log_pos (by linarith)
+  let cr : ℝ := ((c * r : ℕ) : ℝ)
+  let q : ℝ → ℝ := fun y => (x * y - 1) / cr
+  have hcrpos : 0 < cr := by simpa [cr] using hcr
+  have hcrcont : Continuous q := by
+    dsimp [q]
+    fun_prop
+  have hqLower (y : ℝ) (hy : y ∈ Set.Icc (1 : ℝ) 2) :
+      Real.rpow x (9 / 10 : ℝ) ≤ q y := by
+    have hy1 : 1 ≤ y := hy.1
+    have hxy : x - 1 ≤ x * y - 1 := by
+      have := mul_le_mul_of_nonneg_left hy1 hxpos.le
+      linarith
+    have hdiv := div_le_div_of_nonneg_right hxy hcrpos.le
+    exact le_trans (by simpa [q, cr] using hcut) (by simpa [q, cr] using hdiv)
+  have hqUpper (y : ℝ) (hy : y ∈ Set.Icc (1 : ℝ) 2) : q y ≤ x := by
+    have hy2 : y ≤ 2 := hy.2
+    have hxy : x * y ≤ 2 * x := by
+      calc
+        x * y ≤ x * 2 := mul_le_mul_of_nonneg_left hy2 hxpos.le
+        _ = 2 * x := by ring
+    have hcr2 : 2 ≤ cr := by
+      have hc2 : 2 ≤ c := by rcases hc24 with h | h <;> omega
+      have hr1 : 1 ≤ r := by
+        by_contra hr
+        have hr0 : r = 0 := by omega
+        subst r
+        norm_num at hcr
+      have hcCast : (2 : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc2
+      have hrCast : (1 : ℝ) ≤ (r : ℝ) := by exact_mod_cast hr1
+      dsimp [cr]
+      rw [Nat.cast_mul]
+      nlinarith [mul_le_mul_of_nonneg_right hcCast (show 0 ≤ (r : ℝ) by positivity)]
+    have hmul : 2 * x ≤ cr * x := by nlinarith [hcr2, hxpos]
+    apply (div_le_iff₀ hcrpos).2
+    change x * y - 1 ≤ x * cr
+    nlinarith
+  have hlogLower (y : ℝ) (hy : y ∈ Set.Icc (1 : ℝ) 2) :
+      (9 / 10 : ℝ) * Real.log x ≤ Real.log (q y) := by
+    have h := Real.log_le_log (Real.rpow_pos_of_pos hxpos _) (hqLower y hy)
+    rw [Real.log_rpow hxpos] at h
+    exact h
+  have hlogUpper (y : ℝ) (hy : y ∈ Set.Icc (1 : ℝ) 2) :
+      Real.log (q y) ≤ Real.log x :=
+    Real.log_le_log (lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos _) (hqLower y hy))
+      (hqUpper y hy)
+  have hlogqpos (y : ℝ) (hy : y ∈ Set.Icc (1 : ℝ) 2) : 0 < Real.log (q y) := by
+    have h := hlogLower y hy
+    nlinarith
+  have hΨcont : Continuous Ψ := hΨsmooth.continuous
+  have hlogcont : ContinuousOn (fun y => Real.log (q y)) (Set.Icc (1 : ℝ) 2) := by
+    apply Real.continuousOn_log.comp' hcrcont.continuousOn
+    intro y hy
+    change q y ≠ 0
+    exact ne_of_gt (lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos _) (hqLower y hy))
+  have hquotCont : ContinuousOn (fun y => Ψ y / Real.log (q y))
+      (Set.Icc (1 : ℝ) 2) := by
+    apply hΨcont.continuousOn.div hlogcont
+    intro y hy
+    exact ne_of_gt (hlogqpos y hy)
+  have hquotInt : IntervalIntegrable (fun y => Ψ y / Real.log (q y))
+      volume 1 2 :=
+    ContinuousOn.intervalIntegrable_of_Icc (by norm_num) hquotCont
+  have hΨoverLCont : ContinuousOn (fun y => Ψ y / Real.log x)
+      (Set.Icc (1 : ℝ) 2) := by
+    exact hΨcont.continuousOn.div continuousOn_const (fun _ _ => hlogx.ne')
+  have hΨoverLInt : IntervalIntegrable (fun y => Ψ y / Real.log x)
+      volume 1 2 :=
+    ContinuousOn.intervalIntegrable_of_Icc (by norm_num) hΨoverLCont
+  have hTwoΨoverLCont : ContinuousOn (fun y => 2 * Ψ y / Real.log x)
+      (Set.Icc (1 : ℝ) 2) := by
+    exact (continuousOn_const.mul hΨcont.continuousOn).div continuousOn_const
+      (fun _ _ => hlogx.ne')
+  have hTwoΨoverLInt : IntervalIntegrable (fun y => 2 * Ψ y / Real.log x)
+      volume 1 2 :=
+    ContinuousOn.intervalIntegrable_of_Icc (by norm_num) hTwoΨoverLCont
+  have hLowerInt : (∫ y in (1 : ℝ)..2, Ψ y / Real.log x) ≤
+      ∫ y in (1 : ℝ)..2, Ψ y / Real.log (q y) := by
+    apply intervalIntegral.integral_mono_on (by norm_num) hΨoverLInt hquotInt
+    intro y hy
+    have hden := hlogUpper y hy
+    rw [div_le_div_iff₀ hlogx (hlogqpos y hy)]
+    exact mul_le_mul_of_nonneg_left hden (hΨnonneg y)
+  have hUpperInt : (∫ y in (1 : ℝ)..2, Ψ y / Real.log (q y)) ≤
+      ∫ y in (1 : ℝ)..2, 2 * Ψ y / Real.log x := by
+    apply intervalIntegral.integral_mono_on (by norm_num) hquotInt hTwoΨoverLInt
+    intro y hy
+    have hden := hlogLower y hy
+    have hLle : Real.log x ≤ 2 * Real.log (q y) := by nlinarith [hden]
+    rw [div_le_div_iff₀ (hlogqpos y hy) hlogx]
+    have hmul := mul_le_mul_of_nonneg_left hLle (hΨnonneg y)
+    nlinarith
+  have hLowerConst : (∫ y in (1 : ℝ)..2, Ψ y / Real.log x) =
+      (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x := by
+    rw [show (fun y => Ψ y / Real.log x) =
+        fun y => (Real.log x)⁻¹ * Ψ y by
+          funext y
+          simp [div_eq_mul_inv, mul_comm]]
+    rw [intervalIntegral.integral_const_mul]
+    ring
+  have hUpperConst : (∫ y in (1 : ℝ)..2, 2 * Ψ y / Real.log x) =
+      2 * (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x := by
+    rw [show (fun y => 2 * Ψ y / Real.log x) =
+        fun y => (2 / Real.log x) * Ψ y by
+          funext y
+          ring]
+    rw [intervalIntegral.integral_const_mul]
+    ring
+  have hpref : 0 ≤ x / cr := div_nonneg hxpos.le hcrpos.le
+  constructor
+  · calc
+      (x / cr) * ((∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) ≤
+          (x / cr) * (∫ y in (1 : ℝ)..2, Ψ y / Real.log (q y)) :=
+        mul_le_mul_of_nonneg_left (by rw [← hLowerConst]; exact hLowerInt) hpref
+      _ = smoothedMainTerm x c r Ψ := by
+        simp [smoothedMainTerm, cr, q]
+  · calc
+      smoothedMainTerm x c r Ψ =
+          (x / cr) * (∫ y in (1 : ℝ)..2, Ψ y / Real.log (q y)) := by
+            simp [smoothedMainTerm, cr, q]
+      _ ≤ (x / cr) * (∫ y in (1 : ℝ)..2, 2 * Ψ y / Real.log x) :=
+        mul_le_mul_of_nonneg_left hUpperInt hpref
+      _ = (x / cr) * (2 * (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) := by
+        rw [hUpperConst]
+
+lemma smoothedMainTerm_totient_bounds
+    (x : ℝ) (M c r : ℕ) (Ψ : ℝ → ℝ)
+    (hM : 0 < M) (hc24 : c = 2 ∨ c = 4) (hcM : c ∣ M)
+    (hx2 : 2 ≤ x) (hr : 0 < r)
+    (hcut : Real.rpow x (9 / 10 : ℝ) ≤ (x - 1) / ((c * r : ℕ) : ℝ))
+    (hΨsmooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Ψ)
+    (hΨnonneg : ∀ y, 0 ≤ Ψ y)
+    (hΨint : 0 < ∫ y in (1 : ℝ)..2, Ψ y) :
+    (∫ y in (1 : ℝ)..2, Ψ y) / (8 * (M : ℝ)) *
+        (x / ((r : ℝ) * Real.log x)) ≤
+          smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ) ∧
+      smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ) ≤
+        2 * (∫ y in (1 : ℝ)..2, Ψ y) *
+          (x / ((r : ℝ) * Real.log x)) := by
+  have hcpos : 0 < c := by rcases hc24 with h | h <;> omega
+  have hcrpos : 0 < ((c * r : ℕ) : ℝ) := by exact_mod_cast Nat.mul_pos hcpos hr
+  have hbasic := smoothedMainTerm_integral_bounds x c r Ψ hc24 hx2 hcrpos hcut
+    hΨsmooth hΨnonneg hΨint
+  have hNpos : 0 < M / c := Nat.div_pos (Nat.le_of_dvd hM hcM) hcpos
+  have hφposNat : 0 < Nat.totient (M / c) := Nat.totient_pos.mpr hNpos
+  have hφpos : 0 < (Nat.totient (M / c) : ℝ) := by exact_mod_cast hφposNat
+  have hφone : 1 ≤ (Nat.totient (M / c) : ℝ) := by exact_mod_cast hφposNat
+  have hMreal : 0 < (M : ℝ) := by exact_mod_cast hM
+  have hφleM : (Nat.totient (M / c) : ℝ) ≤ (M : ℝ) := by
+    have hφle : Nat.totient (M / c) ≤ M := (Nat.totient_le (M / c)).trans
+      (Nat.div_le_self M c)
+    exact_mod_cast hφle
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < Real.log x := Real.log_pos (by linarith)
+  have hrreal : 0 < (r : ℝ) := by exact_mod_cast hr
+  have hIpos : 0 < ∫ y in (1 : ℝ)..2, Ψ y := hΨint
+  have hIxn : 0 < (∫ y in (1 : ℝ)..2, Ψ y) * x := mul_pos hIpos hxpos
+  have hcrCast : ((c * r : ℕ) : ℝ) = (c : ℝ) * (r : ℝ) := by simp
+  have hcLower : (2 : ℝ) ≤ (c : ℝ) := by
+    rcases hc24 with h | h <;> norm_num [h]
+  have hcUpper : (c : ℝ) ≤ 4 := by
+    rcases hc24 with h | h <;> norm_num [h]
+  have hdenRpos : 0 < (4 : ℝ) * (r : ℝ) := by positivity
+  have hdenCrPos : 0 < ((c * r : ℕ) : ℝ) := hcrpos
+  have hcrLe4r : ((c * r : ℕ) : ℝ) ≤ 4 * (r : ℝ) := by
+    rw [hcrCast]
+    exact mul_le_mul_of_nonneg_right hcUpper (Nat.cast_nonneg _)
+  have hfactorLower : x / (4 * (r : ℝ)) ≤ x / ((c * r : ℕ) : ℝ) := by
+    rw [div_le_div_iff₀ hdenRpos hdenCrPos]
+    exact mul_le_mul_of_nonneg_left hcrLe4r hxpos.le
+  have hILogPos : 0 ≤ (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x :=
+    div_nonneg hΨint.le hLpos.le
+  have hrawLower :
+      (∫ y in (1 : ℝ)..2, Ψ y) * x /
+        (8 * (r : ℝ) * Real.log x) ≤ smoothedMainTerm x c r Ψ := by
+    have hfac := mul_le_mul_of_nonneg_right hfactorLower hILogPos
+    have hfacEq : (x / (4 * (r : ℝ))) *
+        ((∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) =
+          (∫ y in (1 : ℝ)..2, Ψ y) * x /
+            (4 * (r : ℝ) * Real.log x) := by
+      field_simp [ne_of_gt hrreal, ne_of_gt hLpos]
+    have hHalf : (∫ y in (1 : ℝ)..2, Ψ y) * x /
+        (8 * (r : ℝ) * Real.log x) ≤
+      (∫ y in (1 : ℝ)..2, Ψ y) * x /
+            (4 * (r : ℝ) * Real.log x) := by
+      apply div_le_div_of_nonneg_left hIxn.le (by positivity)
+      nlinarith [hrreal, hLpos]
+    calc
+      _ ≤ (x / (4 * (r : ℝ))) *
+          ((∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) := by rw [hfacEq]; exact hHalf
+      _ ≤ (x / ((c * r : ℕ) : ℝ)) *
+          ((∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) := hfac
+      _ ≤ smoothedMainTerm x c r Ψ := hbasic.1
+  have htargetLowerEq :
+      (∫ y in (1 : ℝ)..2, Ψ y) / (8 * (M : ℝ)) *
+        (x / ((r : ℝ) * Real.log x)) =
+          ((∫ y in (1 : ℝ)..2, Ψ y) * x) /
+            (8 * (M : ℝ) * (r : ℝ) * Real.log x) := by
+    field_simp [ne_of_gt hMreal, ne_of_gt hrreal, ne_of_gt hLpos]
+  have hrawDivEq :
+      ((∫ y in (1 : ℝ)..2, Ψ y) * x /
+        (8 * (r : ℝ) * Real.log x)) / (Nat.totient (M / c) : ℝ) =
+          ((∫ y in (1 : ℝ)..2, Ψ y) * x) /
+            (8 * (r : ℝ) * Real.log x * (Nat.totient (M / c) : ℝ)) := by
+    field_simp [ne_of_gt hrreal, ne_of_gt hLpos, hφpos.ne']
+  have hdenCmp : 8 * (r : ℝ) * Real.log x * (Nat.totient (M / c) : ℝ) ≤
+      8 * (r : ℝ) * Real.log x * (M : ℝ) := by
+    exact mul_le_mul_of_nonneg_left hφleM (by positivity)
+  have hdenLeftPos : 0 < 8 * (r : ℝ) * Real.log x *
+      (Nat.totient (M / c) : ℝ) := by positivity
+  have htargetRawDiv :
+      ((∫ y in (1 : ℝ)..2, Ψ y) * x) /
+        (8 * (M : ℝ) * (r : ℝ) * Real.log x) ≤
+      ((∫ y in (1 : ℝ)..2, Ψ y) * x /
+        (8 * (r : ℝ) * Real.log x)) / (Nat.totient (M / c) : ℝ) := by
+    rw [hrawDivEq]
+    have hdenMPos : 0 < 8 * (r : ℝ) * Real.log x * (M : ℝ) := by positivity
+    calc
+      _ = ((∫ y in (1 : ℝ)..2, Ψ y) * x) /
+          (8 * (r : ℝ) * Real.log x * (M : ℝ)) := by congr 1 <;> ring
+      _ ≤ _ := div_le_div_of_nonneg_left hIxn.le hdenLeftPos hdenCmp
+  have hsmoothedNonneg : 0 ≤ smoothedMainTerm x c r Ψ :=
+    le_trans (by positivity : 0 ≤ (∫ y in (1 : ℝ)..2, Ψ y) * x /
+      (8 * (r : ℝ) * Real.log x)) hrawLower
+  have hmassLower :
+      (∫ y in (1 : ℝ)..2, Ψ y) / (8 * (M : ℝ)) *
+        (x / ((r : ℝ) * Real.log x)) ≤
+          smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ) := by
+    rw [htargetLowerEq]
+    calc
+      _ ≤ ((∫ y in (1 : ℝ)..2, Ψ y) * x /
+          (8 * (r : ℝ) * Real.log x)) / (Nat.totient (M / c) : ℝ) := htargetRawDiv
+      _ ≤ smoothedMainTerm x c r Ψ / (Nat.totient (M / c) : ℝ) :=
+        div_le_div_of_nonneg_right hrawLower hφpos.le
+  have hcrGe2r : 2 * (r : ℝ) ≤ ((c * r : ℕ) : ℝ) := by
+    rw [hcrCast]
+    exact mul_le_mul_of_nonneg_right hcLower (Nat.cast_nonneg _)
+  have hden2rpos : 0 < 2 * (r : ℝ) := by positivity
+  have hfactorUpper : x / ((c * r : ℕ) : ℝ) ≤ x / (2 * (r : ℝ)) :=
+    div_le_div_of_nonneg_left hxpos.le hden2rpos hcrGe2r
+  have hILogTwoPos : 0 ≤ 2 * (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x := by positivity
+  have hrawUpper : smoothedMainTerm x c r Ψ ≤
+      2 * (∫ y in (1 : ℝ)..2, Ψ y) * (x / ((r : ℝ) * Real.log x)) := by
+    have hfac := mul_le_mul_of_nonneg_right hfactorUpper hILogTwoPos
+    have hfacEq : (x / (2 * (r : ℝ))) *
+        (2 * (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) =
+          (∫ y in (1 : ℝ)..2, Ψ y) * x /
+            ((r : ℝ) * Real.log x) := by
+      field_simp [ne_of_gt hrreal, ne_of_gt hLpos]
+    calc
+      _ ≤ (x / (2 * (r : ℝ))) *
+          (2 * (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) := by
+            calc
+              _ ≤ (x / ((c * r : ℕ) : ℝ)) *
+                  (2 * (∫ y in (1 : ℝ)..2, Ψ y) / Real.log x) := hbasic.2
+              _ ≤ _ := hfac
+      _ = (∫ y in (1 : ℝ)..2, Ψ y) * x /
+          ((r : ℝ) * Real.log x) := hfacEq
+      _ ≤ 2 * (∫ y in (1 : ℝ)..2, Ψ y) *
+          (x / ((r : ℝ) * Real.log x)) := by
+            have hEq : (∫ y in (1 : ℝ)..2, Ψ y) * x /
+                ((r : ℝ) * Real.log x) =
+                  (∫ y in (1 : ℝ)..2, Ψ y) *
+                    (x / ((r : ℝ) * Real.log x)) := by ring
+            rw [hEq]
+            have hnonneg : 0 ≤ (∫ y in (1 : ℝ)..2, Ψ y) *
+                (x / ((r : ℝ) * Real.log x)) := by positivity
+            nlinarith
+  have hdivle : smoothedMainTerm x c r Ψ /
+      (Nat.totient (M / c) : ℝ) ≤ smoothedMainTerm x c r Ψ := by
+    rw [div_le_iff₀ hφpos]
+    have hmul := mul_le_mul_of_nonneg_left hφone hsmoothedNonneg
+    nlinarith
+  constructor
+  · exact hmassLower
+  · exact hdivle.trans hrawUpper
+
 end
 
-end ArtinPrimitiveRoots.Construction.ProofsC2
+end ArtinPrimitiveRoots.Proofs.C_BV
