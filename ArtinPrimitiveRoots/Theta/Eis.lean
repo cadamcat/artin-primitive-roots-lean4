@@ -2185,6 +2185,171 @@ theorem ideal_domain_integral_tiling
       (e.toEquiv.tsum_eq _).symm
     _ = _ := by simp only [heval, H]
 
+/-- Rational big-cell periods unfold to globally integrable archimedean summands. -/
+theorem eisenstein_bigCell_unfold_periods
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s) (g : P.tc.G)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (hfix : ∀ α ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P α * g)) = scalarOf P G Fs.f Fs.fC h)
+    (K : Set (InfinitePlace F → ℂ)) (hK : IsCompact K)
+    (B : Set (InfinitePlace F → ℂ)) (hB : MeasurableSet B) (hBK : B ⊆ K)
+    (hBd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) B volume)
+    (δ : Fˣ ⧸ G.Δ) :
+    (∀ η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+      Integrable (fun x : InfinitePlace F → ℂ => scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL (Quotient.out η)) *
+          nInf P x * g))) ∧
+    Summable (fun η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup =>
+      ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL (Quotient.out η)) *
+          nInf P x * g)‖) ∧
+    (∑' ξ : F, ∫ x in B, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL ξ) * nInf P x * g)) =
+      ∑' η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+        ∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+          (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL (Quotient.out η)) *
+            nInf P x * g) := by
+  classical
+  let : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let J := (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  let Q := F ⧸ J
+  let f (ξ : F) (x : InfinitePlace F → ℂ) : ℂ := scalarOf P G Fs.f Fs.fC
+    (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL ξ) * nInf P x * g)
+  obtain ⟨e, _, hbig⟩ := rational_bruhat_coset_equiv P G
+  obtain ⟨_, habs, _⟩ := eisenstein_integral_tsum_on_compact P G hs Fs g K hK B hB hBK
+  have hrep (ξ : F) (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (Quotient.out (e (Sum.inr (δ, ξ)))) * nInf P x * g) = f ξ x := by
+    let γ := diagGL (Quotient.out δ) * weylGL * upperGL ξ
+    have hb : γ * (Quotient.out (e (Sum.inr (δ, ξ))))⁻¹ ∈ Bstar G :=
+      QuotientGroup.rightRel_apply.mp
+        (Quotient.exact ((Quotient.out_eq (e (Sum.inr (δ, ξ)))).trans (hbig δ ξ)))
+    dsimp only [f]
+    simpa only [γ, map_mul, map_inv, mul_assoc, inv_mul_cancel_left] using
+      ((scalarOf_invariance P G Fs).1 (γ * (Quotient.out (e (Sum.inr (δ, ξ))))⁻¹) hb
+        (P.tc.rat (Quotient.out (e (Sum.inr (δ, ξ)))) * (nInf P x * g))).symm
+  have hrepNorm (ξ : F) :
+      (∫ x in B, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (Quotient.out (e (Sum.inr (δ, ξ)))) * nInf P x * g)‖) =
+        ∫ x in B, ‖f ξ x‖ := by
+    apply integral_congr_ae
+    filter_upwards [] with x
+    exact congrArg norm (hrep ξ x)
+  have hinj : Function.Injective (fun ξ : F => e (Sum.inr (δ, ξ))) :=
+    e.injective.comp (Sum.inr_injective.comp (Prod.mk_right_injective δ))
+  have hnormSeries : Summable (fun ξ : F => ∫ x in B, ‖f ξ x‖) :=
+    (habs.comp_injective hinj).congr hrepNorm
+  have hcomplexSeries : Summable (fun ξ : F => ∫ x in B, f ξ x) :=
+    hnormSeries.of_norm_bounded fun ξ => norm_integral_le_integral_norm _
+  have hcont (ξ : F) : Continuous (f ξ) :=
+    scalarOf_unipotent_continuous P G Fs g
+      (diagGL (Quotient.out δ) * weylGL * upperGL ξ)
+  have hupper (u v : F) : upperGL (u + v) = upperGL u * upperGL v := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperGL, Matrix.mul_apply, Fin.sum_univ_two, add_comm]
+  have hperiod (ξ : F) (α : J) (x : InfinitePlace F → ℂ) :
+      f (ξ + (α : F)) x = f ξ (infEmbA (α : F) + x) := by
+    dsimp only [f]
+    have hm : diagGL (Quotient.out δ) * weylGL * upperGL (ξ + (α : F)) =
+        (diagGL (Quotient.out δ) * weylGL * upperGL ξ) * upperGL (α : F) := by
+      simp only [hupper, mul_assoc]
+    rw [hm]
+    exact scalarOf_rational_period_translate P G Fs g
+      (diagGL (Quotient.out δ) * weylGL * upperGL ξ) (α : F) x
+      (hfix (α : F) α.property)
+  let r (p : Q × J) : F := Quotient.out p.1 + (p.2 : F)
+  have hrclass (p : Q × J) : (QuotientAddGroup.mk (r p) : Q) = p.1 := by
+    calc
+      _ = QuotientAddGroup.mk (Quotient.out p.1) := by
+        apply QuotientAddGroup.eq_iff_sub_mem.mpr
+        have hd : r p - Quotient.out p.1 = (p.2 : F) := by dsimp only [r]; abel
+        simpa only [hd] using p.2.property
+      _ = p.1 := QuotientAddGroup.out_eq' p.1
+  have hrbij : Function.Bijective r := by
+    constructor
+    · intro p q hpq
+      have hq : p.1 = q.1 := by
+        calc
+          p.1 = (QuotientAddGroup.mk (r p) : Q) := (hrclass p).symm
+          _ = QuotientAddGroup.mk (r q) := congrArg (fun z : F => (QuotientAddGroup.mk z : Q)) hpq
+          _ = q.1 := hrclass q
+      have ha : p.2 = q.2 := by
+        apply Subtype.ext
+        dsimp only [r] at hpq
+        rw [hq] at hpq
+        exact add_left_cancel hpq
+      exact Prod.ext hq ha
+    · intro ξ
+      let η : Q := QuotientAddGroup.mk ξ
+      have ha : ξ - Quotient.out η ∈ J :=
+        QuotientAddGroup.eq_iff_sub_mem.mp ((QuotientAddGroup.out_eq' η).symm)
+      refine ⟨(η, ⟨ξ - Quotient.out η, ha⟩), ?_⟩
+      change Quotient.out η + (ξ - Quotient.out η) = ξ
+      abel
+  let ep : F ≃ Q × J := (Equiv.ofBijective r hrbij).symm
+  have hep (p : Q × J) : ep.symm p = Quotient.out p.1 + (p.2 : F) := rfl
+  have hpairNorm : Summable (fun p : Q × J =>
+      ∫ x in B, ‖f (Quotient.out p.1 + (p.2 : F)) x‖) := by
+    simpa only [Function.comp_def, hep] using hnormSeries.comp_injective ep.symm.injective
+  have hshiftNorm (p : Q × J) :
+      (∫ x in B, ‖f (Quotient.out p.1 + (p.2 : F)) x‖) =
+        ∫ x in B, ‖f (Quotient.out p.1) (infEmbA (p.2 : F) + x)‖ := by
+    apply integral_congr_ae
+    filter_upwards [] with x
+    exact congrArg norm (hperiod (Quotient.out p.1) p.2 x)
+  have htranslatedNorm : Summable (fun p : Q × J =>
+      ∫ x in B, ‖f (Quotient.out p.1) (infEmbA (p.2 : F) + x)‖) :=
+    hpairNorm.congr hshiftNorm
+  have ht (η : Q) : Integrable (f (Quotient.out η)) ∧
+      (∫ x : InfinitePlace F → ℂ, f (Quotient.out η) x) =
+        ∑' α : J, ∫ x in B, f (Quotient.out η) (infEmbA (α : F) + x) :=
+    ideal_domain_integral_tiling 𝔞 K hK B hB hBK hBd
+      (f (Quotient.out η)) (hcont (Quotient.out η)) (htranslatedNorm.prod_factor η)
+  let L := J.map (infEmbA (F := F)).toAddMonoidHom
+  let ea : J ≃+ L := J.equivMapOfInjective (infEmbA (F := F)).toAddMonoidHom
+    (infEmbA (F := F)).injective
+  let : Countable L := ea.symm.injective.countable
+  have heval (α : J) : (ea α : InfinitePlace F → ℂ) = infEmbA (α : F) := rfl
+  have hnormTiling (η : Q) :
+      (∫ x : InfinitePlace F → ℂ, ‖f (Quotient.out η) x‖) =
+        ∑' α : J, ∫ x in B, ‖f (Quotient.out η) (infEmbA (α : F) + x)‖ := by
+    calc
+      _ = ∑' t : L, ∫ x in B, ‖f (Quotient.out η) ((t : InfinitePlace F → ℂ) + x)‖ :=
+        hBd.integral_eq_tsum'' (fun x => ‖f (Quotient.out η) x‖) (ht η).1.norm
+      _ = ∑' α : J, ∫ x in B, ‖f (Quotient.out η) ((ea α : InfinitePlace F → ℂ) + x)‖ :=
+        (ea.toEquiv.tsum_eq _).symm
+      _ = _ := by simp only [heval]
+  have hglobalNorm : Summable (fun η : Q =>
+      ∫ x : InfinitePlace F → ℂ, ‖f (Quotient.out η) x‖) :=
+    htranslatedNorm.prod.congr (fun η => (hnormTiling η).symm)
+  have hpairComplex : Summable (fun p : Q × J => ∫ x in B, f (ep.symm p) x) :=
+    hcomplexSeries.comp_injective ep.symm.injective
+  refine ⟨?_, ?_, ?_⟩
+  · intro η
+    exact (ht η).1
+  · simpa only [f, Q, J] using hglobalNorm
+  · change (∑' ξ : F, ∫ x in B, f ξ x) =
+      ∑' η : Q, ∫ x : InfinitePlace F → ℂ, f (Quotient.out η) x
+    calc
+      _ = ∑' p : Q × J, ∫ x in B, f (ep.symm p) x := (ep.symm.tsum_eq _).symm
+      _ = ∑' η : Q, ∑' α : J, ∫ x in B, f (ep.symm (η, α)) x := hpairComplex.tsum_prod
+      _ = _ := by
+        apply tsum_congr
+        intro η
+        calc
+          _ = ∑' α : J, ∫ x in B, f (Quotient.out η) (infEmbA (α : F) + x) := by
+            apply tsum_congr
+            intro α
+            rw [hep]
+            apply integral_congr_ae
+            filter_upwards [] with x
+            exact hperiod (Quotient.out η) α x
+          _ = _ := (ht η).2.symm
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
