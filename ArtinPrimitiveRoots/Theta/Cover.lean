@@ -2307,6 +2307,105 @@ private theorem exists_smallSectionHom
   rw [hmat]
   exact heq.symm
 
+/-- The small splitting subgroups and their algebraic membership properties. -/
+private structure FinLocalSmallAlgebra
+    {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
+    (C : FinLocalAlgebra D H v) where
+  m0 : ℕ
+  one_le_m0 : 1 ≤ m0
+  Kc : ℕ → Subgroup C.L
+  Kc_eq : ∀ m, m0 ≤ m → (Kc m : Set C.L) =
+    C.sec '' {g : GL (Fin 2) (v.adicCompletion F) | ∀ i j,
+      ((g : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j -
+        (1 : Matrix (Fin 2) (Fin 2) (v.adicCompletion F)) i j) ∈ ball v m}
+  Kc_anti : ∀ m m', m0 ≤ m → m ≤ m' → Kc m' ≤ Kc m
+  Kc_inj : ∀ m, m0 ≤ m → Set.InjOn C.pr (Kc m : Set C.L)
+  n_Kc : ∀ m, m0 ≤ m → ∀ x ∈ ball v m, C.n (Multiplicative.ofAdd x) ∈ Kc m
+  nbar_Kc : ∀ m, m0 ≤ m → ∀ x ∈ ball v m, C.nbar (Multiplicative.ofAdd x) ∈ Kc m
+  a_Kc : ∀ m, m0 ≤ m → ∀ u : (v.adicCompletion F)ˣ,
+    ((u : v.adicCompletion F) - 1) ∈ ball v m → C.a u ∈ Kc m
+
+private theorem exists_finLocalSmallAlgebra
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (C : FinLocalAlgebra D H v) :
+    Nonempty (FinLocalSmallAlgebra C) := by
+  classical
+  let K := v.adicCompletion F
+  obtain ⟨m0, hm0, hfamily⟩ := exists_smallSectionHom D H v hSt C
+  let U (m : ℕ) (hm : m0 ≤ m) : Subgroup (GL (Fin 2) K) := (hfamily m hm).choose
+  have hU (m : ℕ) (hm : m0 ≤ m) : ∀ g, g ∈ U m hm ↔ ∀ i j,
+      ((g : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m :=
+    (hfamily m hm).choose_spec.1
+  let s (m : ℕ) (hm : m0 ≤ m) : U m hm →* C.L :=
+    (hfamily m hm).choose_spec.2.choose
+  have hs (m : ℕ) (hm : m0 ≤ m) : ∀ g : U m hm, s m hm g = C.sec g :=
+    (hfamily m hm).choose_spec.2.choose_spec.1
+  have hsinj (m : ℕ) (hm : m0 ≤ m) : Set.InjOn C.pr ((s m hm).range : Set C.L) :=
+    (hfamily m hm).choose_spec.2.choose_spec.2
+  let Kc (m : ℕ) : Subgroup C.L := if hm : m0 ≤ m then (s m hm).range else ⊥
+  have hKc (m : ℕ) (hm : m0 ≤ m) : Kc m = (s m hm).range := dif_pos hm
+  have himage (m : ℕ) (hm : m0 ≤ m) : (Kc m : Set C.L) =
+      C.sec '' {g : GL (Fin 2) K | ∀ i j,
+        ((g : Matrix (Fin 2) (Fin 2) K) i j -
+          (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m} := by
+    rw [hKc m hm]
+    ext x
+    constructor
+    · rintro ⟨g, rfl⟩
+      exact ⟨(g : GL (Fin 2) K), (hU m hm _).mp g.property, (hs m hm g).symm⟩
+    · rintro ⟨g, hg, rfl⟩
+      exact ⟨⟨g, (hU m hm g).mpr hg⟩, hs m hm ⟨g, (hU m hm g).mpr hg⟩⟩
+  have hzero (m : ℕ) : (0 : K) ∈ ball v m := by
+    change Valued.v (0 : K) ≤ WithZero.exp (-(m : ℤ))
+    rw [map_zero]
+    exact zero_le
+  refine ⟨{
+    m0 := m0
+    one_le_m0 := hm0
+    Kc := Kc
+    Kc_eq := himage
+    Kc_anti := ?_
+    Kc_inj := ?_
+    n_Kc := ?_
+    nbar_Kc := ?_
+    a_Kc := ?_
+  }⟩
+  · intro m m' hm hmm' x hx
+    have hm' : m0 ≤ m' := hm.trans hmm'
+    change x ∈ (Kc m' : Set C.L) at hx
+    change x ∈ (Kc m : Set C.L)
+    rw [himage m' hm'] at hx
+    rw [himage m hm]
+    obtain ⟨g, hg, rfl⟩ := hx
+    refine ⟨g, ?_, rfl⟩
+    intro i j
+    exact (hg i j).trans (WithZero.exp_le_exp.mpr (by omega))
+  · intro m hm
+    rw [hKc m hm]
+    exact hsinj m hm
+  · intro m hm x hx
+    rw [C.sec_n]
+    change C.sec (upperM K x) ∈ (Kc m : Set C.L)
+    rw [himage m hm]
+    refine ⟨upperM K x, ?_, rfl⟩
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [upperM] <;> first | exact hx | exact hzero m
+  · intro m hm x hx
+    rw [C.sec_nbar]
+    change C.sec (lowerM K x) ∈ (Kc m : Set C.L)
+    rw [himage m hm]
+    refine ⟨lowerM K x, ?_, rfl⟩
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [lowerM] <;> first | exact hx | exact hzero m
+  · intro m hm u hu
+    rw [C.sec_a]
+    change C.sec (diagM K u) ∈ (Kc m : Set C.L)
+    rw [himage m hm]
+    refine ⟨diagM K u, ?_, rfl⟩
+    intro i j
+    fin_cases i <;> fin_cases j <;> simp [diagM] <;> first | exact hu | exact hzero m
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
