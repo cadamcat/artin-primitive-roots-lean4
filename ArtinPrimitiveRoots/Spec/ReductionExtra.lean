@@ -3,9 +3,8 @@ import Mathlib.LinearAlgebra.Countable
 import Mathlib.Topology.Bases
 import Mathlib.Data.Set.Finite.Lemmas
 import Mathlib.Analysis.SpecificLimits.Basic
-
--- Preserve the frozen quotient topology used in Geometry.
-attribute [-instance] OAI.CubicEisenstein.complexSLTopology
+import Mathlib.MeasureTheory.Integral.Prod
+import Mathlib.MeasureTheory.Integral.Bochner.ContinuousLinearMap
 
 /-! Remaining reduction-theory nodes R8--R10 and R12--R14. -/
 
@@ -1164,6 +1163,1034 @@ theorem R13_compact_part (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
     refine ⟨γ⁻¹, (γ : SL(2,𝓞 F)) • z, hbox, ?_⟩
     simp
 
+private theorem countable_Gamma (Γ : Subgroup SL(2,𝓞 F)) : Countable Γ := by
+  letI : Countable (𝓞 F) := Finsupp.Countable.of_moduleFinite (R := ℤ) (M := 𝓞 F)
+  have hrow : (Set.univ : Set (Fin 2 → 𝓞 F)).Countable := by
+    simpa using (Set.countable_univ_pi (π := fun _ : Fin 2 => 𝓞 F)
+      (s := fun _ => Set.univ) (fun _ => Set.countable_univ))
+  have hmatrix : (Set.univ : Set (Fin 2 → Fin 2 → 𝓞 F)).Countable := by
+    simpa using (Set.countable_univ_pi (π := fun _ : Fin 2 => Fin 2 → 𝓞 F)
+      (s := fun _ => Set.univ) (fun _ => hrow))
+  letI : Countable (Matrix (Fin 2) (Fin 2) (𝓞 F)) := Set.countable_univ_iff.mp hmatrix
+  have hSL : {A : Matrix (Fin 2) (Fin 2) (𝓞 F) | A.det = 1}.Countable :=
+    Set.Countable.mono (Set.subset_univ _) Set.countable_univ
+  letI : Countable (SL(2,𝓞 F)) := hSL.to_subtype
+  exact (Set.Countable.mono (Set.subset_univ (Γ : Set SL(2,𝓞 F)))
+    Set.countable_univ).to_subtype
+
+private theorem normHeight_measurable : Measurable (normHeight F) := by
+  change Measurable (fun z : X F => ∏ w : InfinitePlace F, (coordsX F z w).2)
+  exact Finset.measurable_fun_prod Finset.univ (fun w hw =>
+    measurable_snd.comp ((measurable_pi_apply w).comp (coordsX_measurable (F := F))))
+
+private theorem cuspTail_measurable (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) (A : ℝ) :
+    MeasurableSet (cuspTail F Γ σ A) := by
+  letI : Countable Γ := countable_Gamma Γ
+  letI : BorelSpace (X F) := borelSpace_X (F := F)
+  have hrepr : cuspTail F Γ σ A = ⋃ γ : Γ,
+      (fun z : X F => (σ⁻¹ * toSLF F (γ : SL(2,𝓞 F))) • z) ⁻¹'
+        {z | A < normHeight F z} := by
+    ext z
+    simp only [cuspTail, Set.mem_setOf_eq, Set.mem_iUnion, Set.mem_preimage, mul_smul]
+    rfl
+  rw [hrepr]
+  apply MeasurableSet.iUnion
+  intro γ
+  exact (measurableSet_Ioi.preimage (normHeight_measurable (F := F))).preimage
+    ((continuousSL2FAction (F := F) _).measurable)
+
+private theorem cuspTail_smul_iff (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (A : ℝ) (γ : Γ) (z : X F) :
+    ((γ : SL(2,𝓞 F)) • z ∈ cuspTail F Γ σ A) ↔ z ∈ cuspTail F Γ σ A := by
+  constructor
+  · rintro ⟨η, hη⟩
+    refine ⟨η * γ, ?_⟩
+    simpa [mul_smul] using hη
+  · rintro ⟨η, hη⟩
+    refine ⟨η * γ⁻¹, ?_⟩
+    simpa [mul_smul] using hη
+
+private def cuspCoordRegion (P : Set (InfinitePlace F → ℂ))
+    (Y : Set (InfinitePlace F → ℝ)) (A : ℝ) : Set (Coord F) :=
+  {p | (fun w => (p w).1) ∈ P ∧ (fun w => (p w).2) ∈ Y ∧
+    A < ∏ w : InfinitePlace F, (p w).2}
+
+private def cuspStrip (σ : SL(2,F)) (P : Set (InfinitePlace F → ℂ))
+    (Y : Set (InfinitePlace F → ℝ)) (A : ℝ) : Set (X F) :=
+  (fun z : X F => coordsX F (σ⁻¹ • z)) ⁻¹' cuspCoordRegion P Y A
+
+private theorem cuspCoordRegion_measurable (P : Set (InfinitePlace F → ℂ))
+    (hP : MeasurableSet P) (Y : Set (InfinitePlace F → ℝ))
+    (hY : MeasurableSet Y) (A : ℝ) : MeasurableSet (cuspCoordRegion P Y A) := by
+  have hx : Measurable (fun p : Coord F => fun w => (p w).1) :=
+    measurable_pi_iff.mpr fun w => measurable_fst.comp (measurable_pi_apply w)
+  have hy : Measurable (fun p : Coord F => fun w => (p w).2) :=
+    measurable_pi_iff.mpr fun w => measurable_snd.comp (measurable_pi_apply w)
+  have hp : Measurable (fun p : Coord F => ∏ w : InfinitePlace F, (p w).2) :=
+    Finset.measurable_fun_prod Finset.univ
+      (fun w hw => measurable_snd.comp (measurable_pi_apply w))
+  exact (hP.preimage hx).inter ((hY.preimage hy).inter (measurableSet_Ioi.preimage hp))
+
+private theorem cuspStrip_measurable (σ : SL(2,F)) (P : Set (InfinitePlace F → ℂ))
+    (hP : MeasurableSet P) (Y : Set (InfinitePlace F → ℝ))
+    (hY : MeasurableSet Y) (A : ℝ) : MeasurableSet (cuspStrip σ P Y A) := by
+  letI : BorelSpace (X F) := borelSpace_X (F := F)
+  exact (cuspCoordRegion_measurable P hP Y hY A).preimage
+    ((coordsX_measurable (F := F)).comp
+      ((continuousSL2FAction (F := F) σ⁻¹).measurable))
+
+private theorem cuspStrip_eq_image (σ : SL(2,F)) (P : Set (InfinitePlace F → ℂ))
+    (Y : Set (InfinitePlace F → ℝ)) (hYpos : ∀ y ∈ Y, ∀ w, 0 < y w) (A : ℝ) :
+    cuspStrip σ P Y A = (fun p : Coord F => σ • ptX F p) '' cuspCoordRegion P Y A := by
+  ext z
+  constructor
+  · intro hz
+    refine ⟨coordsX F (σ⁻¹ • z), hz, ?_⟩
+    change σ • ptX F (coordsX F (σ⁻¹ • z)) = z
+    rw [ptX_coordsX]
+    simp
+  · rintro ⟨p, hp, rfl⟩
+    have hpos : p ∈ posSet F := hYpos _ hp.2.1
+    change coordsX F (σ⁻¹ • (σ • ptX F p)) ∈ cuspCoordRegion P Y A
+    simpa [coordsX_ptX p hpos] using hp
+
+private theorem cuspStrip_subset_tail (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (Y : Set (InfinitePlace F → ℝ)) (A : ℝ) :
+    cuspStrip σ P Y A ⊆ cuspTail F Γ σ A := by
+  intro z hz
+  refine ⟨1, ?_⟩
+  simpa [normHeight, coordsX] using hz.2.2
+
+private theorem cuspUnitMatrix_mul_eq (ε δ : (𝓞 F)ˣ) (μ ν : F) :
+    cuspUnitMatrix F ε μ * cuspUnitMatrix F δ ν =
+      cuspUnitMatrix F (ε * δ)
+        (algebraMap (𝓞 F) F (ε : 𝓞 F) * ν +
+          μ * (algebraMap (𝓞 F) F (δ : 𝓞 F))⁻¹) := by
+  apply Subtype.ext
+  rw [Matrix.SpecialLinearGroup.coe_mul]
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [cuspUnitMatrix, Matrix.mul_apply, Fin.sum_univ_two, mul_inv]
+  exact mul_comm _ _
+
+private theorem cuspUnitMatrix_inv_eq (ε : (𝓞 F)ˣ) (μ : F) :
+    (cuspUnitMatrix F ε μ)⁻¹ = cuspUnitMatrix F ε⁻¹ (-μ) := by
+  apply Subtype.ext
+  rw [Matrix.SpecialLinearGroup.SL2_inv_expl]
+  ext i j
+  fin_cases i <;> fin_cases j <;>
+    simp [cuspUnitMatrix, map_units_inv]
+
+private theorem cuspUnit_realized (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (ε : (𝓞 F)ˣ) (hε : ε ∈ cuspUnits F Γ σ) :
+    ε ∈ cuspUnitSet F Γ σ := by
+  change ε ∈ Subgroup.closure (cuspUnitSet F Γ σ) at hε
+  induction hε using Subgroup.closure_induction with
+  | mem ε hε => exact hε
+  | one =>
+    refine ⟨0, 1, ?_⟩
+    simp only [Subgroup.coe_one, map_one, mul_one, inv_mul_cancel]
+    apply Subtype.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;> simp [cuspUnitMatrix]
+  | mul ε δ hε hδ ihε ihδ =>
+    rcases ihε with ⟨μ, γ, hγ⟩
+    rcases ihδ with ⟨ν, η, hη⟩
+    refine ⟨algebraMap (𝓞 F) F (ε : 𝓞 F) * ν +
+      μ * (algebraMap (𝓞 F) F (δ : 𝓞 F))⁻¹, γ * η, ?_⟩
+    calc
+      _ = (σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ) *
+          (σ⁻¹ * toSLF F (η : SL(2,𝓞 F)) * σ) := by
+        simp only [Subgroup.coe_mul, map_mul]
+        group
+      _ = _ := by rw [hγ, hη, cuspUnitMatrix_mul_eq]
+  | inv ε hε ihε =>
+    rcases ihε with ⟨μ, γ, hγ⟩
+    refine ⟨-μ, γ⁻¹, ?_⟩
+    calc
+      _ = (σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ)⁻¹ := by
+        simp only [Subgroup.coe_inv, map_inv]
+        group
+      _ = _ := by rw [hγ, cuspUnitMatrix_inv_eq]
+
+private theorem height_pos_all (z : H3) : 0 < height z := by
+  rw [height_eq_hyperbolicHeight]
+  exact OAI.CubicEisenstein.hyperbolicHeight_pos z
+
+include F in
+private theorem horiz_smul_borel (g : SL(2,ℂ)) (hg : g 1 0 = 0) (z : H3) :
+    horiz (g • z) = (g 0 0) ^ 2 * horiz z + g 0 0 * g 0 1 := by
+  have hdet : g 0 0 * g 1 1 = 1 := by
+    have h := g.property
+    rw [Matrix.det_fin_two, hg] at h
+    simpa using h
+  have ha : g 0 0 ≠ 0 := by
+    intro h
+    simp [h] at hdet
+  have hd : g 1 1 = (g 0 0)⁻¹ := eq_inv_of_mul_eq_one_right hdet
+  have hz11 : herm z 1 1 ≠ 0 := by
+    intro h
+    have hpos := height_pos_all z
+    simp [height, h] at hpos
+  have hstar : star ((g 0 0)⁻¹) ≠ 0 := star_ne_zero.mpr (inv_ne_zero ha)
+  have hherm := (G1_h3_basics (F := F)).2.2.2.1 g z
+  have h01 := congrArg (fun H : Matrix (Fin 2) (Fin 2) ℂ => H 0 1) hherm
+  have h11 := congrArg (fun H : Matrix (Fin 2) (Fin 2) ℂ => H 1 1) hherm
+  simp [Matrix.mul_apply, Fin.sum_univ_two, Matrix.star_apply, hg] at h01 h11
+  unfold horiz
+  rw [h01, h11, hd]
+  field_simp [ha, hz11, hstar]
+  <;> ring
+
+include F in
+private theorem height_smul_borel (g : SL(2,ℂ)) (hg : g 1 0 = 0) (z : H3) :
+    height (g • z) = Complex.normSq (g 0 0) * height z := by
+  have hdet : g 0 0 * g 1 1 = 1 := by
+    have h := g.property
+    rw [Matrix.det_fin_two, hg] at h
+    simpa using h
+  have hd : g 1 1 = (g 0 0)⁻¹ := eq_inv_of_mul_eq_one_right hdet
+  have h := (G1_h3_basics (F := F)).2.2.1 g (horiz z) (height z) (height_pos_all z)
+  rw [(G1_h3_basics (F := F)).2.2.2.2.2.1 z] at h
+  simpa [hg, hd, Complex.normSq_inv, div_eq_mul_inv, mul_comm] using h
+
+private theorem cuspUnitMatrix_action (ε : (𝓞 F)ˣ) (μ : F)
+    (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :
+    cuspUnitMatrix F ε μ • ptX' F x y =
+      ptX' F (fun w => (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) ^ 2 * x w +
+        w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) * w.embedding μ)
+        (unitHeightAction F ε y) := by
+  funext w
+  let g : SL(2,ℂ) := Matrix.SpecialLinearGroup.map w.embedding (cuspUnitMatrix F ε μ)
+  change g • pt (x w) (y w) = _
+  have hcoeg : (g : Matrix (Fin 2) (Fin 2) ℂ) =
+      (cuspUnitMatrix F ε μ : Matrix (Fin 2) (Fin 2) F).map w.embedding :=
+    Matrix.SpecialLinearGroup.map_apply_coe w.embedding (cuspUnitMatrix F ε μ)
+  have hg : g 1 0 = 0 := by
+    change (g : Matrix (Fin 2) (Fin 2) ℂ) 1 0 = 0
+    rw [hcoeg]
+    simp [Matrix.map_apply, cuspUnitMatrix]
+  calc
+    _ = pt (horiz (g • pt (x w) (y w))) (height (g • pt (x w) (y w))) :=
+      ((G1_h3_basics (F := F)).2.2.2.2.2.1 _).symm
+    _ = _ := by
+      rw [horiz_smul_borel (F := F) g hg, height_smul_borel (F := F) g hg,
+        (G1_h3_basics (F := F)).1 _ _ (hy w),
+        (G1_h3_basics (F := F)).2.1 _ _ (hy w)]
+      simp [hcoeg, Matrix.map_apply, cuspUnitMatrix, unitHeightAction, ptX']
+
+private theorem weightedCoordVolume_pos_ae :
+    ∀ᵐ p ∂(weightedCoordVolume (F := F)), p ∈ posSet F := by
+  rw [ae_iff]
+  have hbase : (volume.restrict (posSet F)) (posSet F)ᶜ = 0 := by
+    rw [Measure.restrict_apply (measurableSet_posSet (F := F)).compl]
+    simp
+  exact (withDensity_absolutelyContinuous (volume.restrict (posSet F))
+    (fun p : Coord F => ENNReal.ofReal (∏ w, ((p w).2 ^ 3)⁻¹))) hbase
+
+private theorem weightedCoordVolume_absolutelyContinuous :
+    weightedCoordVolume (F := F) ≪ (volume : Measure (Coord F)) := by
+  exact (withDensity_absolutelyContinuous (volume.restrict (posSet F))
+    (fun p : Coord F => ENNReal.ofReal (∏ w, ((p w).2 ^ 3)⁻¹))).trans
+      (Measure.absolutelyContinuous_of_le Measure.restrict_le_self)
+
+private theorem volX_coords_preimage_eq (E : Set (Coord F)) (hE : MeasurableSet E) :
+    volX F ((coordsX F) ⁻¹' E) = weightedCoordVolume (F := F) E := by
+  rw [volX, Measure.map_apply_of_aemeasurable (ptX_aemeasurable_weighted (F := F))
+    (hE.preimage (coordsX_measurable (F := F)))]
+  apply measure_congr
+  filter_upwards [weightedCoordVolume_pos_ae (F := F)] with p hp
+  simp only [Set.mem_preimage, coordsX_ptX p hp]
+
+private theorem coord_horizontal_null (B : Set (InfinitePlace F → ℂ))
+    (hB : MeasurableSet B) (hBzero : volume B = 0) :
+    volume ((fun p : Coord F => fun w => (p w).1) ⁻¹' B) = 0 := by
+  let e := MeasurableEquiv.arrowProdEquivProdArrow ℂ ℝ (InfinitePlace F)
+  have hMP : MeasurePreserving e (volume : Measure (Coord F))
+      (volume : Measure ((InfinitePlace F → ℂ) × (InfinitePlace F → ℝ))) :=
+    volume_measurePreserving_arrowProdEquivProdArrow ℂ ℝ (InfinitePlace F)
+  have heq : (fun p : Coord F => fun w => (p w).1) ⁻¹' B =
+      e ⁻¹' (B ×ˢ Set.univ) := by
+    ext p
+    simp [e, MeasurableEquiv.arrowProdEquivProdArrow]
+  rw [heq]
+  calc
+    _ = Measure.map e (volume : Measure (Coord F)) (B ×ˢ Set.univ) :=
+      (Measure.map_apply hMP.measurable (hB.prod MeasurableSet.univ)).symm
+    _ = 0 := by
+      rw [hMP.map_eq, Measure.volume_eq_prod, Measure.prod_prod]
+      simp [hBzero]
+
+private theorem volX_horizontal_null (σ : SL(2,F)) (B : Set (InfinitePlace F → ℂ))
+    (hB : MeasurableSet B) (hBzero : volume B = 0) :
+    volX F {z | (fun w => (coordsX F (σ⁻¹ • z) w).1) ∈ B} = 0 := by
+  let E : Set (Coord F) := (fun p : Coord F => fun w => (p w).1) ⁻¹' B
+  have hE : MeasurableSet E := hB.preimage
+    (measurable_pi_iff.mpr fun w => measurable_fst.comp (measurable_pi_apply w))
+  have hzero : weightedCoordVolume (F := F) E = 0 :=
+    weightedCoordVolume_absolutelyContinuous (coord_horizontal_null B hB hBzero)
+  change volX F ((fun z : X F => σ⁻¹ • z) ⁻¹' ((coordsX F) ⁻¹' E)) = 0
+  rw [volX_smul_preimage_eq σ⁻¹ _ (hE.preimage (coordsX_measurable (F := F))),
+    volX_coords_preimage_eq E hE]
+  exact hzero
+
+private theorem gamma_measurable (Γ : Subgroup SL(2,𝓞 F)) :
+    MeasurableConstSMul Γ (X F) := by
+  letI : BorelSpace (X F) := borelSpace_X (F := F)
+  exact ⟨fun γ => (continuousSL2FAction (F := F) (toSLF F (γ : SL(2,𝓞 F)))).measurable⟩
+
+private theorem gamma_volInvariant (Γ : Subgroup SL(2,𝓞 F)) :
+    SMulInvariantMeasure Γ (X F) (volX F) :=
+  ⟨fun γ S hS => volX_smul_preimage_eq (toSLF F (γ : SL(2,𝓞 F))) S hS⟩
+
+private theorem gamma_tailInvariant (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) (A : ℝ) :
+    SMulInvariantMeasure Γ (X F) ((volX F).restrict (cuspTail F Γ σ A)) := by
+  letI : MeasurableConstSMul Γ (X F) := gamma_measurable Γ
+  have hT := cuspTail_measurable Γ σ A
+  refine ⟨fun γ S hS => ?_⟩
+  have heq : ((fun z : X F => γ • z) ⁻¹' S) ∩ cuspTail F Γ σ A =
+      (fun z : X F => γ • z) ⁻¹' (S ∩ cuspTail F Γ σ A) := by
+    ext z
+    simp only [Set.mem_inter_iff, Set.mem_preimage]
+    change ((γ : SL(2,𝓞 F)) • z ∈ S ∧ z ∈ cuspTail F Γ σ A) ↔
+      ((γ : SL(2,𝓞 F)) • z ∈ S ∧ (γ : SL(2,𝓞 F)) • z ∈ cuspTail F Γ σ A)
+    rw [cuspTail_smul_iff Γ σ A γ z]
+  rw [Measure.restrict_apply (hS.preimage (measurable_const_smul γ)),
+    Measure.restrict_apply hS, heq]
+  exact volX_smul_preimage_eq (toSLF F (γ : SL(2,𝓞 F))) (S ∩ cuspTail F Γ σ A)
+    (hS.inter hT)
+
+private theorem cuspStab_unitMatrix (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (γ : Γ) (hγ : γ ∈ cuspStab F Γ σ) :
+    ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧ ∃ μ : F,
+      σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ = cuspUnitMatrix F ε μ := by
+  let b : SL(2,F) := σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ
+  have htri : b ∈ borelSL F := by
+    simpa [b, cuspStab, MulAut.conj_apply] using hγ
+  obtain ⟨ε, hε, hnorm⟩ :=
+    ((G2_x_action (F := F)).2.2.1 (γ : SL(2,𝓞 F)) σ htri).1
+  have ha : algebraMap (𝓞 F) F (ε : 𝓞 F) = b 0 0 := hε
+  have hb10 : b 1 0 = 0 := htri
+  have hdet : b 0 0 * b 1 1 = 1 := by
+    have h := b.property
+    rw [Matrix.det_fin_two, hb10] at h
+    simpa using h
+  have hb11 : b 1 1 = (b 0 0)⁻¹ := eq_inv_of_mul_eq_one_right hdet
+  have hshape : b = cuspUnitMatrix F ε (b 0 1) := by
+    apply Subtype.ext
+    ext i j
+    fin_cases i <;> fin_cases j
+    · exact ha.symm
+    · rfl
+    · exact hb10
+    · simpa [cuspUnitMatrix, ha] using hb11
+  exact ⟨ε, Subgroup.subset_closure ⟨b 0 1, γ, hshape⟩, b 0 1, hshape⟩
+
+private theorem cusp_conjugate_action (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (γ : Γ) (b : SL(2,F)) (hb : σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ = b)
+    (z : X F) : (γ : SL(2,𝓞 F)) • (σ • z) = σ • (b • z) := by
+  have hmul : toSLF F (γ : SL(2,𝓞 F)) * σ = σ * b := by
+    have h := congrArg (fun g : SL(2,F) => σ * g) hb
+    simpa only [← mul_assoc, mul_inv_cancel, one_mul] using h
+  change toSLF F (γ : SL(2,𝓞 F)) • (σ • z) = σ • (b • z)
+  rw [← mul_smul, hmul, mul_smul]
+
+private theorem unitHeightAction_product (ε : (𝓞 F)ˣ) (y : InfinitePlace F → ℝ) :
+    (∏ w : InfinitePlace F, unitHeightAction F ε y w) = ∏ w : InfinitePlace F, y w := by
+  have hnorm : absUnitNorm F ε = 1 := by
+    simpa [absUnitNorm, absFieldNorm_eq_abs_norm] using (NumberField.Units.norm F ε)
+  unfold unitHeightAction
+  rw [Finset.prod_mul_distrib]
+  have hp : (∏ w : InfinitePlace F,
+      Complex.normSq (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)))) = 1 := by
+    simpa [absUnitNorm, absFieldNorm, Complex.normSq_eq_norm_sq] using hnorm
+  rw [hp, one_mul]
+
+private theorem unitHeightAction_unique_sign (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (Y : Set (InfinitePlace F → ℝ))
+    (hYpos : ∀ y ∈ Y, ∀ w, 0 < y w)
+    (hYfd : ∀ y, (∀ w, 0 < y w) →
+      ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧ unitHeightAction F ε y ∈ Y ∧
+        ∀ ε' : (𝓞 F)ˣ, ε' ∈ cuspUnits F Γ σ → unitHeightAction F ε' y ∈ Y →
+          ε' = ε ∨ ε' = -ε)
+    (y : InfinitePlace F → ℝ) (hy : y ∈ Y) (ε : (𝓞 F)ˣ)
+    (hε : ε ∈ cuspUnits F Γ σ) (hεY : unitHeightAction F ε y ∈ Y) :
+    ε = 1 ∨ ε = -1 := by
+  obtain ⟨δ, hδ, hδY, huniq⟩ := hYfd y (hYpos y hy)
+  have hone : unitHeightAction F 1 y = y := by
+    funext w
+    simp [unitHeightAction]
+  have h1 : unitHeightAction F 1 y ∈ Y := by rw [hone]; exact hy
+  have hδsign : δ = 1 ∨ δ = -1 := by
+    rcases huniq 1 (Subgroup.one_mem _) h1 with h | h
+    · exact Or.inl h.symm
+    · right
+      have hn := congrArg (fun u : (𝓞 F)ˣ => -u) h
+      simpa using hn.symm
+  rcases huniq ε hε hεY with h | h <;> rcases hδsign with hδ1 | hδ1
+  · exact Or.inl (h.trans hδ1)
+  · exact Or.inr (h.trans hδ1)
+  · right; simpa [hδ1] using h
+  · left; simpa [hδ1] using h
+
+private theorem signedMatrix_action (ε : (𝓞 F)ˣ) (μ : F)
+    (hε : (algebraMap (𝓞 F) F (ε : 𝓞 F)) ^ 2 = 1)
+    (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ) (hy : ∀ w, 0 < y w) :
+    signedCuspTranslationMatrix F ε μ hε • ptX' F x y =
+      ptX' F (fun w => x w + w.embedding μ) y := by
+  have hinv : (algebraMap (𝓞 F) F (ε : 𝓞 F))⁻¹ =
+      algebraMap (𝓞 F) F (ε : 𝓞 F) :=
+    (eq_inv_of_mul_eq_one_left (by simpa [pow_two] using hε)).symm
+  have hmatrix : signedCuspTranslationMatrix F ε μ hε =
+      cuspUnitMatrix F ε (algebraMap (𝓞 F) F (ε : 𝓞 F) * μ) := by
+    apply Subtype.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;> simp [signedCuspTranslationMatrix, cuspUnitMatrix, hinv]
+  rw [hmatrix, cuspUnitMatrix_action ε _ x y hy]
+  funext w
+  have hw : (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) ^ 2 = 1 := by
+    rw [← map_pow, hε, map_one]
+  have hn : Complex.normSq (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) = 1 := by
+    have hs := congrArg (fun z : ℂ => ‖z‖) hw
+    simpa only [norm_pow, norm_one, Complex.normSq_eq_norm_sq] using hs
+  have hx : (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) ^ 2 * x w +
+      w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) *
+        w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F) * μ) = x w + w.embedding μ := by
+    rw [map_mul]
+    calc
+      _ = (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) ^ 2 *
+          (x w + w.embedding μ) := by ring
+      _ = _ := by rw [hw]; simp
+  change pt _ _ = pt _ _
+  dsimp only
+  rw [hx]
+  simp [unitHeightAction, hn]
+
+private theorem cuspTranslation_realized (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ : SL(2,F)) (t : cuspTranslationExtensionComplex F Γ σ) :
+    ∃ γ : Γ, ∀ (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ),
+      (∀ w, 0 < y w) →
+      (γ : SL(2,𝓞 F)) • (σ • ptX' F x y) = σ • ptX' F (x + (t : _)) y := by
+  rcases AddSubgroup.mem_map.mp t.property with ⟨μ, hμ, ht⟩
+  rcases ((R1_cusp_lattice Γ σ).2.2.1 μ).mp hμ with ⟨ε, hε, γ, hγ⟩
+  refine ⟨γ, ?_⟩
+  intro x y hy
+  rw [cusp_conjugate_action Γ σ γ _ hγ, signedMatrix_action ε μ hε x y hy]
+  have ht' : (fun w : InfinitePlace F => w.embedding μ) = (t : InfinitePlace F → ℂ) := ht
+  rw [← ht']
+  rfl
+
+private theorem gamma_kernel_eq_one (Γ : Subgroup SL(2,𝓞 F)) (D : Set (X F))
+    (hD : IsFundamentalDomain Γ D (volX F)) (γ : Γ)
+    (hfix : ∀ z : X F, (γ : SL(2,𝓞 F)) • z = z) : γ = 1 := by
+  letI : Countable Γ := countable_Gamma Γ
+  letI : SMulInvariantMeasure Γ (X F) (volX F) := gamma_volInvariant Γ
+  have hμ : volX F ≠ 0 := by
+    intro h
+    have hn := (G3_volume (F := F)).2.2.2.1 Set.univ isOpen_univ Set.univ_nonempty
+    simp [h] at hn
+  have hDzero := hD.measure_ne_zero hμ
+  by_contra hγ
+  have hdis := hD.aedisjoint hγ
+  have himage : (fun z : X F => γ • z) '' D = D := by
+    have hf : (fun z : X F => γ • z) = id := by funext z; exact hfix z
+    rw [hf, Set.image_id]
+  have honeimage : (fun z : X F => (1 : Γ) • z) '' D = D := by
+    have hf : (fun z : X F => (1 : Γ) • z) = id := by funext z; exact one_smul _ _
+    rw [hf, Set.image_id]
+  have hn : volX F D = 0 := by
+    change volX F (((fun z : X F => γ • z) '' D) ∩
+      ((fun z : X F => (1 : Γ) • z) '' D)) = 0 at hdis
+    rw [himage, honeimage, Set.inter_self] at hdis
+    exact hdis
+  exact hDzero hn
+
+private theorem countable_cuspTranslations (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) :
+    Countable (cuspTranslationExtensionComplex F Γ σ) := by
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ) (M := F)
+  have hcount : (Set.range (infEmb F)).Countable := Set.countable_range _
+  have hsub : (cuspTranslationExtensionComplex F Γ σ : Set (InfinitePlace F → ℂ)) ⊆
+      Set.range (infEmb F) := by
+    intro x hx
+    rcases AddSubgroup.mem_map.mp hx with ⟨μ, hμ, rfl⟩
+    exact ⟨μ, rfl⟩
+  exact (hcount.mono hsub).to_subtype
+
+private def horizontalBad (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) : Set (InfinitePlace F → ℂ) :=
+  {x | ∀ t : cuspTranslationExtensionComplex F Γ σ, x + (t : _) ∉ P}
+
+private def cuspHorizontal (σ : SL(2,F)) (z : X F) : InfinitePlace F → ℂ :=
+  fun w => (coordsX F (σ⁻¹ • z) w).1
+
+private def cuspBadOrbit (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) : Set (X F) :=
+  ⋃ γ : Γ, (fun z : X F => cuspHorizontal σ ((γ : SL(2,𝓞 F)) • z)) ⁻¹'
+    horizontalBad Γ σ P
+
+private theorem cuspHorizontal_measurable (σ : SL(2,F)) : Measurable (cuspHorizontal σ) := by
+  letI : BorelSpace (X F) := borelSpace_X (F := F)
+  have hpair := (coordsX_measurable (F := F)).comp
+    ((continuousSL2FAction (F := F) σ⁻¹).measurable)
+  exact measurable_pi_iff.mpr fun w =>
+    measurable_fst.comp ((measurable_pi_apply w).comp hpair)
+
+private theorem horizontalBad_measurable (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (hP : MeasurableSet P) :
+    MeasurableSet (horizontalBad Γ σ P) := by
+  letI : Countable (cuspTranslationExtensionComplex F Γ σ) := countable_cuspTranslations Γ σ
+  unfold horizontalBad
+  rw [Set.ofPred_forall]
+  exact MeasurableSet.iInter fun t =>
+    (hP.preimage (measurable_id.add measurable_const)).compl
+
+private theorem horizontalBad_null (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ))
+    (hP : IsAddFundamentalDomain (cuspTranslationExtensionComplex F Γ σ) P) :
+    volume (horizontalBad Γ σ P) = 0 := by
+  have hae : ∀ᵐ x : InfinitePlace F → ℂ ∂volume, x ∉ horizontalBad Γ σ P := by
+    filter_upwards [hP.ae_covers] with x hx
+    intro hbad
+    rcases hx with ⟨t, ht⟩
+    change (t : InfinitePlace F → ℂ) + x ∈ P at ht
+    exact hbad t (by simpa [add_comm] using ht)
+  simpa only [not_not, Set.setOf_mem_eq] using (ae_iff.mp hae)
+
+private theorem cuspBadOrbit_null (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (hPmeas : MeasurableSet P)
+    (hP : IsAddFundamentalDomain (cuspTranslationExtensionComplex F Γ σ) P) :
+    volX F (cuspBadOrbit Γ σ P) = 0 := by
+  letI : Countable Γ := countable_Gamma Γ
+  have hB := horizontalBad_measurable Γ σ P hPmeas
+  have hBzero := horizontalBad_null Γ σ P hP
+  have hzero : volX F ((cuspHorizontal σ) ⁻¹' horizontalBad Γ σ P) = 0 :=
+    volX_horizontal_null σ _ hB hBzero
+  unfold cuspBadOrbit
+  apply measure_iUnion_null
+  intro γ
+  change volX F ((fun z : X F => toSLF F (γ : SL(2,𝓞 F)) • z) ⁻¹'
+    ((cuspHorizontal σ) ⁻¹' horizontalBad Γ σ P)) = 0
+  rw [volX_smul_preimage_eq _ _ (hB.preimage (cuspHorizontal_measurable σ))]
+  exact hzero
+
+private theorem coordsX_pos (z : X F) : coordsX F z ∈ posSet F := by
+  rcases (G1_h3_basics (F := F)) with
+    ⟨_, _, _, _, _, _, _, _, _, _, _, ⟨e, _, he⟩⟩
+  rw [← he z]
+  exact (e.symm z).property
+
+private theorem cuspStrip_cover_good (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ : SL(2,F)) (P : Set (InfinitePlace F → ℂ)) (Y : Set (InfinitePlace F → ℝ))
+    (hYpos : ∀ y ∈ Y, ∀ w, 0 < y w)
+    (hYfd : ∀ y, (∀ w, 0 < y w) →
+      ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧ unitHeightAction F ε y ∈ Y ∧
+        ∀ ε' : (𝓞 F)ˣ, ε' ∈ cuspUnits F Γ σ → unitHeightAction F ε' y ∈ Y →
+          ε' = ε ∨ ε' = -ε)
+    (A : ℝ) (z : X F) (hz : z ∈ cuspTail F Γ σ A)
+    (hgood : z ∉ cuspBadOrbit Γ σ P) :
+    ∃ γ : Γ, (γ : SL(2,𝓞 F)) • z ∈ cuspStrip σ P Y A := by
+  classical
+  rcases hz with ⟨δ, hδ⟩
+  let u := σ⁻¹ • ((δ : SL(2,𝓞 F)) • z)
+  let x : InfinitePlace F → ℂ := fun w => (coordsX F u w).1
+  let y : InfinitePlace F → ℝ := fun w => (coordsX F u w).2
+  have hy : ∀ w, 0 < y w := coordsX_pos u
+  have hrec : u = ptX' F x y := (ptX_coordsX u).symm
+  have hδpoint : (δ : SL(2,𝓞 F)) • z = σ • ptX' F x y := by
+    rw [← hrec]
+    simp [u]
+  have hhigh : A < ∏ w : InfinitePlace F, y w := by
+    simpa [← normHeight_ptX'_eq x y hy, ← hrec, u] using hδ
+  obtain ⟨ε, hε, hεY, hεuniq⟩ := hYfd y hy
+  rcases cuspUnit_realized Γ σ ε hε with ⟨μ, η, hη⟩
+  let x₁ : InfinitePlace F → ℂ := fun w =>
+    (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) ^ 2 * x w +
+      w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) * w.embedding μ
+  let y₁ := unitHeightAction F ε y
+  have hy₁ : ∀ w, 0 < y₁ w := hYpos y₁ hεY
+  have hmove : ((η * δ : Γ) : SL(2,𝓞 F)) • z = σ • ptX' F x₁ y₁ := by
+    simp only [Subgroup.coe_mul, mul_smul, hδpoint]
+    rw [cusp_conjugate_action Γ σ η _ hη, cuspUnitMatrix_action ε μ x y hy]
+  have hhor : cuspHorizontal σ (((η * δ : Γ) : SL(2,𝓞 F)) • z) = x₁ := by
+    rw [hmove]
+    have hc := coordsX_ptX'_eq x₁ y₁ hy₁
+    funext w
+    simpa [cuspHorizontal, hc] using congrArg (fun p : Coord F => (p w).1) hc
+  have hnotbad : x₁ ∉ horizontalBad Γ σ P := by
+    intro hbad
+    apply hgood
+    refine Set.mem_iUnion.mpr ⟨η * δ, ?_⟩
+    change cuspHorizontal σ (((η * δ : Γ) : SL(2,𝓞 F)) • z) ∈ horizontalBad Γ σ P
+    rw [hhor]
+    exact hbad
+  have htrans : ∃ t : cuspTranslationExtensionComplex F Γ σ, x₁ + (t : _) ∈ P := by
+    by_contra h
+    apply hnotbad
+    intro t ht
+    exact h ⟨t, ht⟩
+  rcases htrans with ⟨t, ht⟩
+  obtain ⟨κ, hκ⟩ := cuspTranslation_realized Γ σ t
+  refine ⟨κ * (η * δ), ?_⟩
+  have hfinal : ((κ * (η * δ) : Γ) : SL(2,𝓞 F)) • z =
+      σ • ptX' F (x₁ + (t : _)) y₁ := by
+    rw [Subgroup.coe_mul, mul_smul, hmove]
+    exact hκ x₁ y₁ hy₁
+  rw [hfinal, cuspStrip_eq_image σ P Y hYpos A]
+  refine ⟨fun w => (x₁ w + (t : InfinitePlace F → ℂ) w, y₁ w), ?_, rfl⟩
+  refine ⟨ht, hεY, ?_⟩
+  simpa [y₁, unitHeightAction_product ε y] using hhigh
+
+private theorem unitHeightAction_pos (ε : (𝓞 F)ˣ) (y : InfinitePlace F → ℝ)
+    (hy : ∀ w, 0 < y w) : ∀ w, 0 < unitHeightAction F ε y w := by
+  intro w
+  have ha : algebraMap (𝓞 F) F (ε : 𝓞 F) ≠ 0 :=
+    (ε.isUnit.map (algebraMap (𝓞 F) F)).ne_zero
+  have haw : w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) ≠ 0 := by
+    intro h
+    apply ha
+    apply w.embedding.injective
+    simpa using h
+  unfold unitHeightAction
+  rw [Complex.normSq_eq_norm_sq]
+  exact mul_pos (pow_pos (norm_pos_iff.mpr haw) 2) (hy w)
+
+private theorem cuspUnit_coords (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) (γ : Γ)
+    (ε : (𝓞 F)ˣ) (μ : F)
+    (hγ : σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ = cuspUnitMatrix F ε μ) (z : X F) :
+    coordsX F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) = fun w =>
+      ((w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) ^ 2 *
+          (coordsX F (σ⁻¹ • z) w).1 +
+        w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) * w.embedding μ,
+       unitHeightAction F ε (fun w => (coordsX F (σ⁻¹ • z) w).2) w) := by
+  let x : InfinitePlace F → ℂ := fun w => (coordsX F (σ⁻¹ • z) w).1
+  let y : InfinitePlace F → ℝ := fun w => (coordsX F (σ⁻¹ • z) w).2
+  have hy : ∀ w, 0 < y w := coordsX_pos _
+  have hrec : z = σ • ptX' F x y := by
+    change z = σ • ptX F (coordsX F (σ⁻¹ • z))
+    rw [ptX_coordsX]
+    simp
+  have hmove : (γ : SL(2,𝓞 F)) • z = σ • ptX' F
+      (fun w => (w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))) ^ 2 * x w +
+        w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F)) * w.embedding μ)
+      (unitHeightAction F ε y) := by
+    rw [hrec, cusp_conjugate_action Γ σ γ _ hγ, cuspUnitMatrix_action ε μ x y hy]
+  rw [hmove]
+  simp only [inv_smul_smul]
+  exact coordsX_ptX'_eq _ _ (unitHeightAction_pos ε y hy)
+
+private theorem cuspUnit_signed_translation (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (γ : Γ) (ε : (𝓞 F)ˣ) (μ : F)
+    (hγ : σ⁻¹ * toSLF F (γ : SL(2,𝓞 F)) * σ = cuspUnitMatrix F ε μ)
+    (hsign : ε = 1 ∨ ε = -1) :
+    ∃ t : cuspTranslationExtensionComplex F Γ σ,
+      ∀ (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ), (∀ w, 0 < y w) →
+        (γ : SL(2,𝓞 F)) • (σ • ptX' F x y) = σ • ptX' F (x + (t : _)) y := by
+  let ν := algebraMap (𝓞 F) F (ε : 𝓞 F) * μ
+  have hs : (algebraMap (𝓞 F) F (ε : 𝓞 F)) ^ 2 = 1 := by
+    rcases hsign with rfl | rfl <;> simp
+  have hmatrix : cuspUnitMatrix F ε μ = signedCuspTranslationMatrix F ε ν hs := by
+    rcases hsign with rfl | rfl <;> apply Subtype.ext <;> ext i j <;>
+      fin_cases i <;> fin_cases j <;> simp [cuspUnitMatrix, signedCuspTranslationMatrix, ν]
+  have hν : ν ∈ cuspTranslationExtension F Γ σ :=
+    AddSubgroup.subset_closure ⟨ε, hs, γ, hγ.trans hmatrix⟩
+  let t : cuspTranslationExtensionComplex F Γ σ :=
+    ⟨infEmb F ν, AddSubgroup.mem_map.mpr ⟨ν, hν, rfl⟩⟩
+  refine ⟨t, ?_⟩
+  intro x y hy
+  rw [cusp_conjugate_action Γ σ γ _ (hγ.trans hmatrix), signedMatrix_action ε ν hs x y hy]
+  rfl
+
+private theorem cuspHorizontal_shift (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) (γ : Γ)
+    (t : cuspTranslationExtensionComplex F Γ σ)
+    (hshift : ∀ (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ), (∀ w, 0 < y w) →
+      (γ : SL(2,𝓞 F)) • (σ • ptX' F x y) = σ • ptX' F (x + (t : _)) y)
+    (z : X F) : cuspHorizontal σ ((γ : SL(2,𝓞 F)) • z) =
+      cuspHorizontal σ z + (t : _) := by
+  let x : InfinitePlace F → ℂ := fun w => (coordsX F (σ⁻¹ • z) w).1
+  let y : InfinitePlace F → ℝ := fun w => (coordsX F (σ⁻¹ • z) w).2
+  have hy : ∀ w, 0 < y w := coordsX_pos _
+  have hrec : z = σ • ptX' F x y := by
+    change z = σ • ptX F (coordsX F (σ⁻¹ • z))
+    rw [ptX_coordsX]
+    simp
+  calc
+    _ = x + (t : _) := by
+      rw [hrec, hshift x y hy]
+      have hc := coordsX_ptX'_eq (x + (t : InfinitePlace F → ℂ)) y hy
+      funext w
+      simpa [cuspHorizontal, hc] using congrArg (fun p : Coord F => (p w).1) hc
+    _ = _ := rfl
+
+private theorem cuspTranslation_nonzero (Γ : Subgroup SL(2,𝓞 F)) (D : Set (X F))
+    (hD : IsFundamentalDomain Γ D (volX F)) (σ : SL(2,F)) (γ : Γ) (hγ : γ ≠ 1)
+    (t : cuspTranslationExtensionComplex F Γ σ)
+    (hshift : ∀ (x : InfinitePlace F → ℂ) (y : InfinitePlace F → ℝ), (∀ w, 0 < y w) →
+      (γ : SL(2,𝓞 F)) • (σ • ptX' F x y) = σ • ptX' F (x + (t : _)) y) : t ≠ 0 := by
+  intro ht
+  apply hγ
+  apply gamma_kernel_eq_one Γ D hD γ
+  intro z
+  let x : InfinitePlace F → ℂ := fun w => (coordsX F (σ⁻¹ • z) w).1
+  let y : InfinitePlace F → ℝ := fun w => (coordsX F (σ⁻¹ • z) w).2
+  have hy : ∀ w, 0 < y w := coordsX_pos _
+  have hrec : z = σ • ptX' F x y := by
+    change z = σ • ptX F (coordsX F (σ⁻¹ • z))
+    rw [ptX_coordsX]
+    simp
+  calc
+    _ = σ • ptX' F (x + (t : _)) y := by rw [hrec]; exact hshift x y hy
+    _ = z := by simpa [ht] using hrec.symm
+
+private theorem horizontal_overlap_null (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (hPmeas : MeasurableSet P)
+    (hP : IsAddFundamentalDomain (cuspTranslationExtensionComplex F Γ σ) P)
+    (t : cuspTranslationExtensionComplex F Γ σ) (ht : t ≠ 0) :
+    volume (P ∩ (fun x : InfinitePlace F → ℂ => x - (t : _)) ⁻¹' P) = 0 := by
+  have hdis := hP.aedisjoint ht
+  change volume (((fun x : InfinitePlace F → ℂ => (t : _) + x) '' P) ∩
+    ((fun x : InfinitePlace F → ℂ => ((0 : cuspTranslationExtensionComplex F Γ σ) : _) + x) '' P)) = 0 at hdis
+  have hzero : (fun x : InfinitePlace F → ℂ => ((0 : cuspTranslationExtensionComplex F Γ σ) : _) + x) '' P = P := by
+    have hf : (fun x : InfinitePlace F → ℂ => ((0 : cuspTranslationExtensionComplex F Γ σ) : _) + x) = id := by
+      funext x
+      simp
+    rw [hf, Set.image_id]
+  have himage : (fun x : InfinitePlace F → ℂ => (t : _) + x) '' P =
+      (fun x : InfinitePlace F → ℂ => x - (t : _)) ⁻¹' P := by
+    ext x
+    constructor
+    · rintro ⟨u, hu, rfl⟩
+      change (t : _) + u - (t : _) ∈ P
+      simpa using hu
+    · intro hx
+      refine ⟨x - (t : _), hx, ?_⟩
+      change (t : _) + (x - (t : _)) = x
+      abel
+  rw [himage, hzero] at hdis
+  simpa [Set.inter_comm] using hdis
+
+private theorem cuspStrip_overlap_stabilizer (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (Y : Set (InfinitePlace F → ℝ)) (A₀ A : ℝ)
+    (hA : A₀ ≤ A)
+    (hsep : ∀ γ γ' : Γ, ∀ z : X F,
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+        γ' * γ⁻¹ ∈ cuspStab F Γ σ)
+    (γ : Γ) (z : X F) (hz : z ∈ cuspStrip σ P Y A)
+    (hγz : (γ : SL(2,𝓞 F)) • z ∈ cuspStrip σ P Y A) : γ ∈ cuspStab F Γ σ := by
+  have h1 : A₀ ≤ normHeight F (σ⁻¹ • z) := hA.trans hz.2.2.le
+  have h2 : A₀ ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) := hA.trans hγz.2.2.le
+  simpa using hsep 1 γ z (by simpa using h1) h2
+
+private theorem cuspStrip_aedisjoint (Γ : Subgroup SL(2,𝓞 F)) (D : Set (X F))
+    (hD : IsFundamentalDomain Γ D (volX F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (hPmeas : MeasurableSet P)
+    (hP : IsAddFundamentalDomain (cuspTranslationExtensionComplex F Γ σ) P)
+    (Y : Set (InfinitePlace F → ℝ)) (hYpos : ∀ y ∈ Y, ∀ w, 0 < y w)
+    (hYfd : ∀ y, (∀ w, 0 < y w) →
+      ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧ unitHeightAction F ε y ∈ Y ∧
+        ∀ ε' : (𝓞 F)ˣ, ε' ∈ cuspUnits F Γ σ → unitHeightAction F ε' y ∈ Y →
+          ε' = ε ∨ ε' = -ε)
+    (A₀ A : ℝ) (hA : A₀ ≤ A)
+    (hsep : ∀ γ γ' : Γ, ∀ z : X F,
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+        γ' * γ⁻¹ ∈ cuspStab F Γ σ)
+    (γ : Γ) (hγ : γ ≠ 1) :
+    AEDisjoint (volX F) ((fun z : X F => (γ : SL(2,𝓞 F)) • z) '' cuspStrip σ P Y A)
+      (cuspStrip σ P Y A) := by
+  classical
+  by_cases hstab : γ ∈ cuspStab F Γ σ
+  · obtain ⟨ε, hε, μ, hmatrix⟩ := cuspStab_unitMatrix Γ σ γ hstab
+    by_cases hsign : ε = 1 ∨ ε = -1
+    · obtain ⟨t, hshift⟩ := cuspUnit_signed_translation Γ σ γ ε μ hmatrix hsign
+      have ht := cuspTranslation_nonzero Γ D hD σ γ hγ t hshift
+      let B := P ∩ (fun x : InfinitePlace F → ℂ => x - (t : _)) ⁻¹' P
+      have hB : MeasurableSet B := hPmeas.inter
+        (hPmeas.preimage (measurable_id.sub measurable_const))
+      have hBzero : volume B = 0 := horizontal_overlap_null Γ σ P hPmeas hP t ht
+      apply measure_mono_null ?_ (volX_horizontal_null σ B hB hBzero)
+      rintro z ⟨⟨u, hu, rfl⟩, hgu⟩
+      change cuspHorizontal σ ((γ : SL(2,𝓞 F)) • u) ∈ B
+      refine ⟨hgu.1, ?_⟩
+      rw [cuspHorizontal_shift Γ σ γ t hshift u]
+      change (cuspHorizontal σ u + (t : InfinitePlace F → ℂ)) - (t : _) ∈ P
+      rw [add_sub_cancel_right]
+      change (fun w => (coordsX F (σ⁻¹ • u) w).1) ∈ P
+      exact hu.1
+    · have hempty : ((fun z : X F => (γ : SL(2,𝓞 F)) • z) '' cuspStrip σ P Y A) ∩
+          cuspStrip σ P Y A = ∅ := by
+        ext z
+        constructor
+        · rintro ⟨⟨u, hu, rfl⟩, hgu⟩
+          have hc := cuspUnit_coords Γ σ γ ε μ hmatrix u
+          have hh : (fun w => (coordsX F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • u)) w).2) =
+              unitHeightAction F ε (fun w => (coordsX F (σ⁻¹ • u) w).2) := by
+            funext w
+            exact congrArg (fun p : Coord F => (p w).2) hc
+          have hεY : unitHeightAction F ε (fun w => (coordsX F (σ⁻¹ • u) w).2) ∈ Y := by
+            rw [← hh]
+            exact hgu.2.1
+          exact (hsign (unitHeightAction_unique_sign Γ σ Y hYpos hYfd _ hu.2.1 ε hε hεY)).elim
+        · simp
+      change volX F _ = 0
+      rw [hempty]
+      simp
+  · have hempty : ((fun z : X F => (γ : SL(2,𝓞 F)) • z) '' cuspStrip σ P Y A) ∩
+        cuspStrip σ P Y A = ∅ := by
+      ext z
+      constructor
+      · rintro ⟨⟨u, hu, rfl⟩, hgu⟩
+        exact (hstab (cuspStrip_overlap_stabilizer Γ σ P Y A₀ A hA hsep γ u hu hgu)).elim
+      · simp
+    change volX F _ = 0
+    rw [hempty]
+    simp
+
+private theorem cuspStrip_fundamentalDomain (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (hPmeas : MeasurableSet P)
+    (hP : IsAddFundamentalDomain (cuspTranslationExtensionComplex F Γ σ) P)
+    (Y : Set (InfinitePlace F → ℝ)) (hYmeas : MeasurableSet Y)
+    (hYpos : ∀ y ∈ Y, ∀ w, 0 < y w)
+    (hYfd : ∀ y, (∀ w, 0 < y w) →
+      ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ σ ∧ unitHeightAction F ε y ∈ Y ∧
+        ∀ ε' : (𝓞 F)ˣ, ε' ∈ cuspUnits F Γ σ → unitHeightAction F ε' y ∈ Y →
+          ε' = ε ∨ ε' = -ε)
+    (A₀ A : ℝ) (hA : A₀ ≤ A)
+    (hsep : ∀ γ γ' : Γ, ∀ z : X F,
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A₀ ≤ normHeight F (σ⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+        γ' * γ⁻¹ ∈ cuspStab F Γ σ) :
+    IsFundamentalDomain Γ (cuspStrip σ P Y A) ((volX F).restrict (cuspTail F Γ σ A)) := by
+  letI : Countable Γ := countable_Gamma Γ
+  letI : MeasurableConstSMul Γ (X F) := gamma_measurable Γ
+  letI : SMulInvariantMeasure Γ (X F) ((volX F).restrict (cuspTail F Γ σ A)) :=
+    gamma_tailInvariant Γ σ A
+  have hbad : ((volX F).restrict (cuspTail F Γ σ A)) (cuspBadOrbit Γ σ P) = 0 :=
+    (Measure.absolutelyContinuous_of_le Measure.restrict_le_self)
+      (cuspBadOrbit_null Γ σ P hPmeas hP)
+  have hgood : ∀ᵐ z ∂((volX F).restrict (cuspTail F Γ σ A)), z ∉ cuspBadOrbit Γ σ P := by
+    rw [ae_iff]
+    simpa only [not_not, Set.setOf_mem_eq] using hbad
+  refine IsFundamentalDomain.mk'' (cuspStrip_measurable σ P hPmeas Y hYmeas A).nullMeasurableSet
+    ?_ ?_ (fun γ => (measurePreserving_smul γ _).quasiMeasurePreserving)
+  · filter_upwards [hgood, ae_restrict_mem (cuspTail_measurable Γ σ A)] with z hzGood hzTail
+    exact cuspStrip_cover_good Γ σ P Y hYpos hYfd A z hzTail hzGood
+  · intro γ hγ
+    have hbase := cuspStrip_aedisjoint Γ D hD σ P hPmeas hP Y hYpos hYfd A₀ A hA hsep γ hγ
+    exact (Measure.absolutelyContinuous_of_le Measure.restrict_le_self) hbase
+
+private theorem cuspStrip_integral_transfer (Γ : Subgroup SL(2,𝓞 F))
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F)) (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (Y : Set (InfinitePlace F → ℝ)) (A : ℝ)
+    (hR : IsFundamentalDomain Γ (cuspStrip σ P Y A)
+      ((volX F).restrict (cuspTail F Γ σ A)))
+    (G : X F → ℂ) (hGinv : IsGammaInvariant F Γ G)
+    (hGint : IntegrableOn G (D ∩ cuspTail F Γ σ A) (volX F)) :
+    IntegrableOn G (cuspStrip σ P Y A) (volX F) ∧
+      (∫ z in D ∩ cuspTail F Γ σ A, G z ∂(volX F)) =
+        ∫ z in cuspStrip σ P Y A, G z ∂(volX F) := by
+  letI : Countable Γ := countable_Gamma Γ
+  letI : MeasurableConstSMul Γ (X F) := gamma_measurable Γ
+  letI : SMulInvariantMeasure Γ (X F) ((volX F).restrict (cuspTail F Γ σ A)) :=
+    gamma_tailInvariant Γ σ A
+  have hT := cuspTail_measurable Γ σ A
+  have hDr : IsFundamentalDomain Γ D ((volX F).restrict (cuspTail F Γ σ A)) :=
+    hD.mono (Measure.absolutelyContinuous_of_le Measure.restrict_le_self)
+  have hf : ∀ γ : Γ, ∀ z : X F, G (γ • z) = G z :=
+    fun γ z => hGinv (γ : SL(2,𝓞 F)) γ.property z
+  have hDint : IntegrableOn G D ((volX F).restrict (cuspTail F Γ σ A)) := by
+    simpa only [IntegrableOn, Measure.restrict_restrict' hT] using hGint
+  have hRint := (hDr.integrableOn_iff hR hf).mp hDint
+  have hrestrict : ((volX F).restrict (cuspTail F Γ σ A)).restrict (cuspStrip σ P Y A) =
+      (volX F).restrict (cuspStrip σ P Y A) :=
+    Measure.restrict_restrict_of_subset (cuspStrip_subset_tail Γ σ P Y A)
+  refine ⟨?_, ?_⟩
+  · simpa only [IntegrableOn, hrestrict] using hRint
+  · have hinter : cuspStrip σ P Y A ∩ cuspTail F Γ σ A = cuspStrip σ P Y A :=
+      Set.inter_eq_left.mpr (cuspStrip_subset_tail Γ σ P Y A)
+    simpa only [Measure.restrict_restrict' hT, hinter] using hDr.setIntegral_eq hR hf
+
+private def cuspChart (σ : SL(2,F)) (p : Coord F) : X F := σ • ptX F p
+
+private theorem cuspChart_aemeasurable (σ : SL(2,F)) :
+    AEMeasurable (cuspChart σ) (weightedCoordVolume (F := F)) := by
+  letI : BorelSpace (X F) := borelSpace_X (F := F)
+  exact ((continuousSL2FAction (F := F) σ).measurable).comp_aemeasurable
+    (ptX_aemeasurable_weighted (F := F))
+
+private theorem cuspChart_map (σ : SL(2,F)) :
+    Measure.map (cuspChart σ) (weightedCoordVolume (F := F)) = volX F := by
+  letI : BorelSpace (X F) := borelSpace_X (F := F)
+  have hs : Measurable (fun z : X F => σ • z) := (continuousSL2FAction (F := F) σ).measurable
+  calc
+    _ = Measure.map (fun z : X F => σ • z)
+        (Measure.map (ptX F) (weightedCoordVolume (F := F))) :=
+      (AEMeasurable.map_map_of_aemeasurable hs.aemeasurable
+        (ptX_aemeasurable_weighted (F := F))).symm
+    _ = volX F := (G3_volume (F := F)).1 (toInf F σ)
+
+private theorem cuspChart_preimage_strip (σ : SL(2,F))
+    (P : Set (InfinitePlace F → ℂ)) (Y : Set (InfinitePlace F → ℝ)) (A : ℝ) :
+    (cuspChart σ) ⁻¹' cuspStrip σ P Y A =ᵐ[weightedCoordVolume (F := F)]
+      cuspCoordRegion P Y A := by
+  filter_upwards [weightedCoordVolume_pos_ae (F := F)] with p hp
+  change (coordsX F (σ⁻¹ • (σ • ptX F p)) ∈ cuspCoordRegion P Y A) =
+    (p ∈ cuspCoordRegion P Y A)
+  rw [inv_smul_smul, coordsX_ptX p hp]
+
+private theorem cuspChart_map_restrict (σ : SL(2,F)) (P : Set (InfinitePlace F → ℂ))
+    (hP : MeasurableSet P) (Y : Set (InfinitePlace F → ℝ))
+    (hY : MeasurableSet Y) (A : ℝ) :
+    Measure.map (cuspChart σ) ((weightedCoordVolume (F := F)).restrict (cuspCoordRegion P Y A)) =
+      (volX F).restrict (cuspStrip σ P Y A) := by
+  have hE := cuspCoordRegion_measurable P hP Y hY A
+  have hR := cuspStrip_measurable σ P hP Y hY A
+  have hφ := cuspChart_aemeasurable σ
+  have hφr : AEMeasurable (cuspChart σ)
+      ((weightedCoordVolume (F := F)).restrict (cuspCoordRegion P Y A)) :=
+    hφ.mono_ac (Measure.absolutelyContinuous_of_le Measure.restrict_le_self)
+  have heq := cuspChart_preimage_strip σ P Y A
+  ext S hS
+  rw [Measure.map_apply_of_aemeasurable hφr hS, Measure.restrict_apply' hE,
+    Measure.restrict_apply hS, ← cuspChart_map σ,
+    Measure.map_apply_of_aemeasurable hφ (hS.inter hR), Set.preimage_inter]
+  apply measure_congr
+  filter_upwards [heq] with p hp
+  simp only [Set.mem_inter_iff, Set.mem_preimage] at hp ⊢
+  rw [hp]
+
+private theorem cuspStrip_pullback (σ : SL(2,F)) (P : Set (InfinitePlace F → ℂ))
+    (hP : MeasurableSet P) (Y : Set (InfinitePlace F → ℝ))
+    (hY : MeasurableSet Y) (A : ℝ) (G : X F → ℂ)
+    (hG : IntegrableOn G (cuspStrip σ P Y A) (volX F)) :
+    Integrable (fun p : Coord F => G (cuspChart σ p))
+      ((weightedCoordVolume (F := F)).restrict (cuspCoordRegion P Y A)) ∧
+    (∫ z in cuspStrip σ P Y A, G z ∂(volX F)) =
+      ∫ p in cuspCoordRegion P Y A, G (cuspChart σ p) ∂(weightedCoordVolume (F := F)) := by
+  have hφ : AEMeasurable (cuspChart σ)
+      ((weightedCoordVolume (F := F)).restrict (cuspCoordRegion P Y A)) :=
+    (cuspChart_aemeasurable σ).mono_ac
+      (Measure.absolutelyContinuous_of_le Measure.restrict_le_self)
+  have hmap := cuspChart_map_restrict σ P hP Y hY A
+  have hGmap : Integrable G (Measure.map (cuspChart σ)
+      ((weightedCoordVolume (F := F)).restrict (cuspCoordRegion P Y A))) := by
+    rw [hmap]
+    exact hG
+  refine ⟨hGmap.comp_aemeasurable hφ, ?_⟩
+  rw [← hmap]
+  exact integral_map hφ hGmap.aestronglyMeasurable
+
+private def coordinateDensity (p : Coord F) : ENNReal :=
+  ENNReal.ofReal (∏ w : InfinitePlace F, ((p w).2 ^ 3)⁻¹)
+
+private theorem coordinateDensity_measurable : Measurable (coordinateDensity (F := F)) := by
+  have hm : Measurable (fun p : Coord F => ∏ w : InfinitePlace F, ((p w).2 ^ 3)⁻¹) :=
+    Finset.measurable_fun_prod Finset.univ (fun w hw =>
+      ((measurable_snd.comp (measurable_pi_apply w)).pow_const 3).inv)
+  exact hm.ennreal_ofReal
+
+private theorem coordinateDensity_mul (p : Coord F) (hp : p ∈ posSet F) (g : ℂ) :
+    (coordinateDensity p).toReal • g = g * (∏ w : InfinitePlace F, ((p w).2 ^ 3)⁻¹) := by
+  have hd : 0 ≤ ∏ w : InfinitePlace F, ((p w).2 ^ 3)⁻¹ := by
+    apply Finset.prod_nonneg
+    intro w hw
+    exact inv_nonneg.mpr (pow_nonneg (hp w).le _)
+  rw [coordinateDensity, ENNReal.toReal_ofReal hd, Complex.real_smul, mul_comm]
+
+private theorem cuspStrip_weighted_pullback (σ : SL(2,F)) (P : Set (InfinitePlace F → ℂ))
+    (hP : MeasurableSet P) (Y : Set (InfinitePlace F → ℝ))
+    (hY : MeasurableSet Y) (hYpos : ∀ y ∈ Y, ∀ w, 0 < y w)
+    (A : ℝ) (G : X F → ℂ) (hG : IntegrableOn G (cuspStrip σ P Y A) (volX F)) :
+    IntegrableOn (fun p : Coord F => G (cuspChart σ p) *
+      (∏ w : InfinitePlace F, ((p w).2 ^ 3)⁻¹)) (cuspCoordRegion P Y A) volume ∧
+    (∫ z in cuspStrip σ P Y A, G z ∂(volX F)) =
+      ∫ p in cuspCoordRegion P Y A, G (cuspChart σ p) *
+        (∏ w : InfinitePlace F, ((p w).2 ^ 3)⁻¹) ∂volume := by
+  have hE := cuspCoordRegion_measurable P hP Y hY A
+  have hEpos : cuspCoordRegion P Y A ⊆ posSet F := fun p hp => hYpos _ hp.2.1
+  have hμ : (weightedCoordVolume (F := F)).restrict (cuspCoordRegion P Y A) =
+      (volume.restrict (cuspCoordRegion P Y A)).withDensity (coordinateDensity (F := F)) := by
+    rw [weightedCoordVolume, restrict_withDensity hE,
+      Measure.restrict_restrict_of_subset hEpos]
+    rfl
+  obtain ⟨hPull, hInt⟩ := cuspStrip_pullback σ P hP Y hY A G hG
+  rw [hμ] at hPull hInt
+  have hρ := coordinateDensity_measurable (F := F)
+  have hfinite : ∀ᵐ p ∂(volume.restrict (cuspCoordRegion P Y A)), coordinateDensity p < ⊤ :=
+    Filter.Eventually.of_forall fun p => ENNReal.ofReal_lt_top
+  have hweight := (integrable_withDensity_iff_integrable_smul' hρ hfinite).mp hPull
+  have hae : (fun p : Coord F => (coordinateDensity p).toReal • G (cuspChart σ p)) =ᵐ[
+      volume.restrict (cuspCoordRegion P Y A)]
+      (fun p : Coord F => G (cuspChart σ p) * (∏ w, ((p w).2 ^ 3)⁻¹)) := by
+    filter_upwards [ae_restrict_mem hE] with p hp
+    exact coordinateDensity_mul p (hEpos hp) _
+  refine ⟨hweight.congr hae, ?_⟩
+  calc
+    _ = ∫ p, G (cuspChart σ p)
+        ∂(volume.restrict (cuspCoordRegion P Y A)).withDensity (coordinateDensity (F := F)) := hInt
+    _ = ∫ p in cuspCoordRegion P Y A, (coordinateDensity p).toReal •
+        G (cuspChart σ p) ∂volume := integral_withDensity_eq_integral_toReal_smul hρ hfinite _
+    _ = _ := integral_congr_ae hae
+
+private theorem cuspHeightRegion_measurable (Y : Set (InfinitePlace F → ℝ))
+    (hY : MeasurableSet Y) (A : ℝ) :
+    MeasurableSet {y ∈ Y | A < ∏ w : InfinitePlace F, y w} := by
+  have hprod : Measurable (fun y : InfinitePlace F → ℝ => ∏ w, y w) :=
+    Finset.measurable_fun_prod Finset.univ (fun w hw => measurable_pi_apply w)
+  exact hY.inter (measurableSet_Ioi.preimage hprod)
+
+private theorem cuspRegion_product_measure (P : Set (InfinitePlace F → ℂ))
+    (hP : MeasurableSet P) (Y : Set (InfinitePlace F → ℝ))
+    (hY : MeasurableSet Y) (A : ℝ) :
+    MeasurePreserving (MeasurableEquiv.arrowProdEquivProdArrow ℂ ℝ (InfinitePlace F))
+      (volume.restrict (cuspCoordRegion P Y A))
+      ((volume.restrict P).prod
+        (volume.restrict {y ∈ Y | A < ∏ w : InfinitePlace F, y w})) := by
+  let e := MeasurableEquiv.arrowProdEquivProdArrow ℂ ℝ (InfinitePlace F)
+  let H := {y ∈ Y | A < ∏ w : InfinitePlace F, y w}
+  have hH : MeasurableSet H := cuspHeightRegion_measurable Y hY A
+  have hMP := volume_measurePreserving_arrowProdEquivProdArrow ℂ ℝ (InfinitePlace F)
+  have hpre : e ⁻¹' (P ×ˢ H) = cuspCoordRegion P Y A := by
+    ext p
+    simp [e, H, cuspCoordRegion, MeasurableEquiv.arrowProdEquivProdArrow]
+  have h := hMP.restrict_preimage (hP.prod hH)
+  rw [hpre] at h
+  simpa only [Measure.volume_eq_prod, ← Measure.prod_restrict] using h
+
+private theorem integral_cuspStrip (σ : SL(2,F)) (P : Set (InfinitePlace F → ℂ))
+    (hP : MeasurableSet P) (Y : Set (InfinitePlace F → ℝ))
+    (hY : MeasurableSet Y) (hYpos : ∀ y ∈ Y, ∀ w, 0 < y w)
+    (A : ℝ) (G : X F → ℂ) (hG : IntegrableOn G (cuspStrip σ P Y A) (volX F)) :
+    (∫ z in cuspStrip σ P Y A, G z ∂(volX F)) =
+      ∫ y in {y ∈ Y | A < ∏ w : InfinitePlace F, y w},
+        (∫ x in P, G (σ • ptX' F x y) ∂volume) *
+          (∏ w : InfinitePlace F, (y w ^ 3)⁻¹) ∂volume := by
+  let e := MeasurableEquiv.arrowProdEquivProdArrow ℂ ℝ (InfinitePlace F)
+  let H := {y ∈ Y | A < ∏ w : InfinitePlace F, y w}
+  let f : (InfinitePlace F → ℂ) × (InfinitePlace F → ℝ) → ℂ := fun p =>
+    G (σ • ptX' F p.1 p.2) * (∏ w : InfinitePlace F, (p.2 w ^ 3)⁻¹)
+  obtain ⟨hweighted, hcoordinate⟩ := cuspStrip_weighted_pullback σ P hP Y hY hYpos A G hG
+  have hMP := cuspRegion_product_measure P hP Y hY A
+  have hcomp : (fun p : Coord F => G (cuspChart σ p) *
+      (∏ w : InfinitePlace F, ((p w).2 ^ 3)⁻¹)) = f ∘ e := rfl
+  have hf : Integrable f ((volume.restrict P).prod (volume.restrict H)) := by
+    apply (hMP.integrable_comp_emb e.measurableEmbedding).mp
+    rw [← hcomp]
+    exact hweighted
+  calc
+    _ = ∫ p in cuspCoordRegion P Y A, G (cuspChart σ p) *
+        (∏ w : InfinitePlace F, ((p w).2 ^ 3)⁻¹) ∂volume := hcoordinate
+    _ = ∫ p, f p ∂(volume.restrict P).prod (volume.restrict H) := by
+      rw [hcomp]
+      exact hMP.integral_comp' f
+    _ = ∫ y in H, ∫ x in P, f (x, y) ∂volume ∂volume := integral_prod_symm f hf
+    _ = _ := by
+      apply integral_congr_ae
+      exact Filter.Eventually.of_forall fun y =>
+        integral_mul_const ((∏ w : InfinitePlace F, (y w ^ 3)⁻¹ : ℝ) : ℂ)
+          (fun x => G (σ • ptX' F x y))
+
 /-- R14 `spec:cusp-fubini` — P-SPEC.md:227, 344–347. The invariant integral over a high cusp
 tail is the integral over a unit-height domain and a signed-translation domain. Correction from
 `sol-gate-spec`: assume integrability on the quotient tail used by the change of fundamental domain. -/
@@ -1190,6 +2217,10 @@ theorem R14_cusp_fubini (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
       ∫ y in {y ∈ Y | A < ∏ w : InfinitePlace F, y w},
         (∫ x in P', G (σ • ptX' F x y) ∂volume) *
           (∏ w : InfinitePlace F, (y w ^ 3)⁻¹) ∂volume := by
-  sorry
+  have hR := cuspStrip_fundamentalDomain Γ D hD σ P' hP'meas hP' Y hYmeas hYpos hYfd
+    A₀ A hA hsep
+  obtain ⟨hGstrip, htransport⟩ :=
+    cuspStrip_integral_transfer Γ D hD σ P' Y A hR G hGinv hGint
+  exact htransport.trans (integral_cuspStrip σ P' hP'meas Y hYmeas hYpos A G hGstrip)
 
 end ArtinPrimitiveRoots.A1.Spec
