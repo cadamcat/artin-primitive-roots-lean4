@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
 import ArtinPrimitiveRoots.A2.FSide
+import ArtinPrimitiveRoots.A2.Proofs.«A2-ZERO-SHIFT».ReciprocalBridge
 import ArtinPrimitiveRoots.A2.Proofs.A2_ZERO_DETECT.Detect
 import ArtinPrimitiveRoots.A2.Proofs.«A2-FE-GLUE».CharacterBridge
 import ArtinPrimitiveRoots.A2.Proofs.«A2-FE-GLUE».GammaRatio
@@ -2453,6 +2454,193 @@ def reciprocalExponent : ℝ :=
   Real.log ((1002 / 1000 : ℝ) / (999 / 1000)) /
     Real.log ((1003 / 1000 : ℝ) / (999 / 1000))
 
+open scoped ComplexOrder
+
+private theorem reciprocal_dedekindZeta_re_eq_tsum (σ : ℝ) (hσ : 1 < σ) :
+    (NumberField.dedekindZeta F (σ : ℂ)).re =
+      ∑' n : ℕ, ‖LSeries.term
+        (fun n => (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n} : ℂ))
+        (σ : ℂ) n‖ := by
+  let count : ℕ → ℕ := fun n => Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n}
+  have hs : LSeriesSummable (fun n => (count n : ℂ)) (σ : ℂ) := by
+    exact_mod_cast DedekindResidue.count_LSeriesSummable F (by simpa using hσ)
+  have hnonneg (n : ℕ) :
+      0 ≤ LSeries.term (fun n => (count n : ℂ)) (σ : ℂ) n := by
+    simpa using LSeries.term_nonneg (by positivity) σ
+  calc
+    (NumberField.dedekindZeta F (σ : ℂ)).re =
+        (∑' n, LSeries.term (fun n => (count n : ℂ)) (σ : ℂ) n).re := rfl
+    _ = ∑' n, (LSeries.term (fun n => (count n : ℂ)) (σ : ℂ) n).re :=
+      Complex.re_tsum hs
+    _ = ∑' n, ‖LSeries.term (fun n => (count n : ℂ)) (σ : ℂ) n‖ := by
+      apply tsum_congr
+      intro n
+      exact congrArg Complex.re (Complex.eq_coe_norm_of_nonneg (hnonneg n))
+
+private theorem reciprocal_dedekindZeta_re_antitone {σ₀ σ : ℝ}
+    (hσ₀ : 1 < σ₀) (hle : σ₀ ≤ σ) :
+    (NumberField.dedekindZeta F (σ : ℂ)).re ≤
+      (NumberField.dedekindZeta F (σ₀ : ℂ)).re := by
+  have hσ : 1 < σ := lt_of_lt_of_le hσ₀ hle
+  rw [reciprocal_dedekindZeta_re_eq_tsum σ hσ,
+    reciprocal_dedekindZeta_re_eq_tsum σ₀ hσ₀]
+  have hσsum : LSeriesSummable
+      (fun n => (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n} : ℂ)) (σ : ℂ) := by
+    exact_mod_cast DedekindResidue.count_LSeriesSummable F (by simpa using hσ)
+  have hterm (n : ℕ) :
+      ‖LSeries.term
+          (fun n => (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n} : ℂ))
+          (σ : ℂ) n‖ ≤
+        ‖LSeries.term
+          (fun n => (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n} : ℂ))
+          (σ₀ : ℂ) n‖ := by
+    rw [LSeries.norm_term_eq, LSeries.norm_term_eq]
+    split_ifs with hn
+    · rfl
+    · have hnreal : 1 ≤ (n : ℝ) := by exact_mod_cast (Nat.one_le_iff_ne_zero.mpr hn)
+      have hpow : (n : ℝ) ^ σ₀ ≤ (n : ℝ) ^ σ :=
+        Real.rpow_le_rpow_of_exponent_le hnreal hle
+      have hnum : 0 ≤ ‖(Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n} : ℂ)‖ :=
+        norm_nonneg _
+      exact div_le_div_of_nonneg_left hnum (by positivity) hpow
+  have hσ₀sum : LSeriesSummable
+      (fun n => (Nat.card {I : Ideal (𝓞 F) // Ideal.absNorm I = n} : ℂ)) (σ₀ : ℂ) := by
+    exact_mod_cast DedekindResidue.count_LSeriesSummable F (by simpa using hσ₀)
+  exact (hσsum.norm.tsum_le_tsum hterm
+    hσ₀sum.norm)
+
+private theorem reciprocal_complex_log_norm_bound {z : ℂ} {B : ℝ}
+    (hB : 1 ≤ B) (hz : z ≠ 0) (hup : ‖z‖ ≤ B) (hinv : ‖z⁻¹‖ ≤ B) :
+    ‖Complex.log z‖ ≤ Real.log B + Real.pi := by
+  have hzp : 0 < ‖z‖ := norm_pos_iff.mpr hz
+  have hBp : 0 < B := by linarith
+  have hinvp : 0 < ‖z‖⁻¹ := inv_pos.mpr hzp
+  have hlogUpper : Real.log ‖z‖ ≤ Real.log B := Real.log_le_log hzp hup
+  have hinvNorm : ‖z‖⁻¹ ≤ B := by simpa [norm_inv] using hinv
+  have hlogInv : Real.log (‖z‖⁻¹) ≤ Real.log B :=
+    Real.log_le_log hinvp hinvNorm
+  have hlogLower : -Real.log B ≤ Real.log ‖z‖ := by
+    rw [Real.log_inv] at hlogInv
+    linarith
+  have hlogB : 0 ≤ Real.log B := Real.log_nonneg hB
+  have hre : |(Complex.log z).re| ≤ Real.log B := by
+    rw [Complex.log_re]
+    exact abs_le.mpr ⟨hlogLower, hlogUpper⟩
+  have him : |(Complex.log z).im| ≤ Real.pi := by
+    rw [Complex.log_im]
+    exact Complex.abs_arg_le_pi z
+  have hdecomp : Complex.log z = (Complex.log z).re + (Complex.log z).im * Complex.I := by
+    apply Complex.ext
+    · simp
+    · simp
+  calc
+    ‖Complex.log z‖ = ‖(Complex.log z).re + (Complex.log z).im * Complex.I‖ :=
+      congrArg norm hdecomp
+    _ ≤ ‖((Complex.log z).re : ℂ)‖ + ‖((Complex.log z).im : ℂ) * Complex.I‖ := norm_add_le _ _
+    _ = |(Complex.log z).re| + |(Complex.log z).im| := by simp
+    _ ≤ Real.log B + Real.pi := add_le_add hre him
+
+private theorem reciprocal_omitted_factor_bound
+    (χ : ArtinPrimitiveRoots.A1.HeckeChar F) (hχ : IsOfFinOrder χ)
+    (ξ : ℂ) (hξ : 998 / 1000 ≤ ξ.re) (v : ArtinPrimitiveRoots.A1.FinPlace F) :
+    (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ)) ≠ 0 ∧
+      ‖(1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ))⁻¹‖ ≤
+        (1 - (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)))⁻¹ := by
+  have hN : 1 < Ideal.absNorm v.asIdeal :=
+    NumberField.HeightOneSpectrum.one_lt_absNorm v
+  have hNr : 1 < (Ideal.absNorm v.asIdeal : ℝ) := by exact_mod_cast hN
+  have hNpos : 0 < Ideal.absNorm v.asIdeal := by omega
+  have hpowNorm : ‖(Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ)‖ =
+      (Ideal.absNorm v.asIdeal : ℝ) ^ (-ξ.re) := by
+    rw [Complex.norm_natCast_cpow_of_pos hNpos]
+    rfl
+  have hpow : (Ideal.absNorm v.asIdeal : ℝ) ^ (-ξ.re) ≤
+      (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)) :=
+    Real.rpow_le_rpow_of_exponent_le hNr.le (by linarith [hξ])
+  have hr : (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)) < 1 :=
+    Real.rpow_lt_one_of_one_lt_of_neg hNr (by norm_num)
+  have hz : ‖χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ)‖ ≤
+      (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)) := by
+    rw [norm_mul, hpowNorm]
+    calc
+      _ ≤ 1 * (Ideal.absNorm v.asIdeal : ℝ) ^ (-ξ.re) :=
+        mul_le_mul_of_nonneg_right
+          (ArtinPrimitiveRoots.Proofs.A2FreqP.reciprocal_primeValue_norm_le_one χ hχ v)
+          (by positivity)
+      _ ≤ 1 * (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)) := by gcongr
+      _ = _ := by ring
+  have hden : 0 < ‖1 - χ.primeValue v *
+      (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ)‖ := by
+    have htriangle := norm_sub_norm_le (1 : ℂ)
+      (χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ))
+    have hlow : 0 < 1 - (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)) :=
+      sub_pos.mpr hr
+    rw [norm_one] at htriangle
+    nlinarith
+  constructor
+  · exact norm_pos_iff.mp hden
+  · rw [norm_inv]
+    have hlowpos : 0 < 1 - (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)) :=
+      sub_pos.mpr hr
+    have htriangle := norm_sub_norm_le (1 : ℂ)
+      (χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ))
+    rw [norm_one] at htriangle
+    have hlow : 1 - (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)) ≤
+        ‖1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ)‖ := by
+      nlinarith
+    exact (inv_le_inv₀ hden hlowpos).2 hlow
+
+private def reciprocalOmissionBound (S : ArtinPrimitiveRoots.A1.SData F CE condη) : ℝ :=
+  ∏ v ∈ S.Sf, (1 - (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)))⁻¹
+
+private theorem reciprocal_omitted_product_inverse_bound
+    (S : ArtinPrimitiveRoots.A1.SData F CE condη)
+    (χ : ArtinPrimitiveRoots.A1.HeckeChar F) (hχ : IsOfFinOrder χ)
+    (ξ : ℂ) (hξ : 998 / 1000 ≤ ξ.re) :
+    let P := ∏ v ∈ S.Sf,
+      (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ))
+    P ≠ 0 ∧ ‖P⁻¹‖ ≤ reciprocalOmissionBound S := by
+  classical
+  dsimp only
+  let P := ∏ v ∈ S.Sf,
+    (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ))
+  let Q := ∏ v ∈ S.Sf,
+    (1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ))⁻¹
+  have hcancel : P * Q = 1 := by
+    dsimp [P, Q]
+    rw [← Finset.prod_mul_distrib]
+    apply Finset.prod_eq_one
+    intro v hv
+    exact mul_inv_cancel₀
+      (reciprocal_omitted_factor_bound χ hχ ξ hξ v).1
+  have hP : P ≠ 0 := by
+    intro hzero
+    rw [hzero, zero_mul] at hcancel
+    norm_num at hcancel
+  have hPinv : P⁻¹ = Q := by
+    calc
+      P⁻¹ = P⁻¹ * 1 := by simp
+      _ = P⁻¹ * (P * Q) := by rw [hcancel]
+      _ = Q := by rw [← mul_assoc, inv_mul_cancel₀ hP, one_mul]
+  have hQnorm : ‖Q‖ ≤ reciprocalOmissionBound S := by
+    dsimp [Q, reciprocalOmissionBound]
+    calc
+      _ ≤ ∏ v ∈ S.Sf,
+          ‖(1 - χ.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-ξ))⁻¹‖ :=
+        Finset.norm_prod_le _ _
+      _ ≤ ∏ v ∈ S.Sf,
+          (1 - (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)))⁻¹ := by
+        apply Finset.prod_le_prod₀
+        · intro v hv
+          positivity
+        · intro v hv
+          exact (reciprocal_omitted_factor_bound χ hχ ξ hξ v).2
+  exact ⟨hP, by rw [hPinv]; exact hQnorm⟩
+
+open Metric Set Complex
+open scoped Topology
+set_option maxHeartbeats 1000000
+
 /-- **zf:reciprocal-bound** (06-zero-free.tex:335-366): zero-free control for the primitive twist
 implies a `U^ε` bound for the reciprocal incomplete L-function on the smaller rectangle. Corrected
 per rev-a2 to use incomplete analytic continuations and a constant uniform in dyadic `U`. -/
@@ -2474,7 +2662,510 @@ theorem zf_reciprocal_bound
           ∀ ξ : ℂ, 998 / 1000 ≤ ξ.re →
             |ξ.im| ≤ 2 * Real.rpow U ρ →
             ‖((Linc u hnon).value ξ)⁻¹‖ ≤ Cε * Real.rpow U ε := by
-  sorry
+  classical
+  let a : ℝ := 996 / 1000
+  let e : ℝ := 1 / 4000
+  let R : ℝ := 2 - a - 2 * e
+  let Rinc : ℝ := 2 - 997 / 1000
+  let Rpoly : ℝ := 2 - a - 3 * e
+  let Rinner : ℝ := 2 - a - 6 * e
+  have hRpos : 0 < R := by norm_num [R, a, e]
+  have hRbig : R < 2 := by norm_num [R, a, e]
+  have hRincpos : 0 < Rinc := by norm_num [Rinc]
+  have hRinc_le_R : Rinc < R := by norm_num [Rinc, R, a, e]
+  have hRpoly_le_R : Rpoly < R := by norm_num [Rpoly, R, a, e]
+  have hRinner_target : (2 - 998 / 1000 : ℝ) < Rinner := by
+    norm_num [Rinner, a, e]
+  let U₀ : ℝ := max (Real.exp 1) (Real.rpow R (ρ⁻¹))
+  have hU₀two : 2 ≤ U₀ := by
+    dsimp [U₀]
+    exact (Real.exp_one_gt_two.le.trans (le_max_left _ _))
+  have hrootpow : Real.rpow (Real.rpow R (ρ⁻¹)) ρ = R :=
+    Real.rpow_inv_rpow hRpos.le hρ.ne'
+  have hTge (U : ℝ) (hU₀ : U₀ ≤ U) : R ≤ Real.rpow U ρ := by
+    have hroot : Real.rpow R (ρ⁻¹) ≤ U := (le_max_right _ _).trans hU₀
+    have hrootpos : 0 < Real.rpow R (ρ⁻¹) := Real.rpow_pos_of_pos hRpos _
+    have hmono := Real.rpow_le_rpow hrootpos.le hroot hρ.le
+    rw [← hrootpow]
+    exact hmono
+  obtain ⟨A_F, hA_F, hconvAll⟩ := zf_convexity (F := F)
+  obtain ⟨Ccv, hCcv, hconv⟩ := hconvAll 1 (by norm_num)
+  obtain ⟨Cfd, hCfd, hconductor⟩ := fd.conductor_bound
+  let H : ℝ := max 1 (2 * Cfd)
+  let p : ℝ := 3 / 2 + A_F * ρ
+  let K₀ : ℝ := Ccv * Real.rpow H (3 / 2) * Real.rpow 6 A_F
+  let K : ℝ := max (Real.exp 1) K₀
+  let B : ℝ := |(NumberField.dedekindZeta F ((3 / 2 : ℝ) : ℂ)).re| + 1
+  let A : ℝ := 100 + 197 * Real.log B + 99 * Real.pi
+  have hH : 1 ≤ H := le_max_left _ _
+  have hH₂ : 2 * Cfd ≤ H := le_max_right _ _
+  have hK : Real.exp 1 ≤ K := le_max_left _ _
+  have hK₀ : K₀ ≤ K := le_max_right _ _
+  have hKpos : 0 < K := (Real.exp_pos 1).trans_le hK
+  have hB : 1 ≤ B := by
+    have h := abs_nonneg (NumberField.dedekindZeta F ((3 / 2 : ℝ) : ℂ)).re
+    dsimp [B]
+    linarith
+  have hBz : (NumberField.dedekindZeta F ((3 / 2 : ℝ) : ℂ)).re ≤ B := by
+    dsimp [B]
+    linarith [le_abs_self (NumberField.dedekindZeta F ((3 / 2 : ℝ) : ℂ)).re]
+  have hlogB : 0 ≤ Real.log B := Real.log_nonneg hB
+  have hA : 1 ≤ A := by
+    have hterm₁ : 0 ≤ 197 * Real.log B := mul_nonneg (by norm_num) hlogB
+    have hterm₂ : 0 ≤ 99 * Real.pi := by positivity
+    dsimp [A]
+    linarith
+  have hp : 1 ≤ p := by
+    dsimp [p]
+    nlinarith [mul_pos hA_F hρ]
+  have hZbound (σ : ℝ) (hσ : 3 / 2 ≤ σ) :
+      (NumberField.dedekindZeta F (σ : ℂ)).re ≤ B := by
+    calc
+      _ ≤ (NumberField.dedekindZeta F ((3 / 2 : ℝ) : ℂ)).re :=
+        reciprocal_dedekindZeta_re_antitone (by norm_num) hσ
+      _ ≤ B := hBz
+  have hCcvnonneg : 0 ≤ Ccv := hCcv.le
+  have hK₀nonneg : 0 ≤ K₀ := by
+    dsimp [K₀]
+    positivity
+  refine ⟨U₀, hU₀two, ?_⟩
+  intro ε hε
+  obtain ⟨Drec, hDrec, hlogControl⟩ :=
+    OAI.SevenEighths.LogarithmicControl.logarithmic_control
+      (e := e) (A := A) (M := p) (ε := ε)
+      (by norm_num [e]) (by norm_num [e]) hA hp hε
+  have hOmissionPos : 0 < reciprocalOmissionBound S := by
+    unfold reciprocalOmissionBound
+    apply Finset.prod_pos
+    intro v hv
+    have hvN : 1 < (Ideal.absNorm v.asIdeal : ℝ) := by
+      exact_mod_cast NumberField.HeightOneSpectrum.one_lt_absNorm v
+    have hpow : (Ideal.absNorm v.asIdeal : ℝ) ^ (-(998 / 1000 : ℝ)) < 1 :=
+      Real.rpow_lt_one_of_one_lt_of_neg hvN (by norm_num)
+    exact inv_pos.mpr (sub_pos.mpr hpow)
+  let Cε : ℝ := reciprocalOmissionBound S * (Drec * Real.rpow K ε + B)
+  have hCε : 0 < Cε := by
+    dsimp [Cε]
+    positivity
+  refine ⟨Cε, hCε, ?_⟩
+  intro U hU₀ u hqlo hqhi hnon hzero ξ hξ hξim
+  have hUpos : 0 < U := by linarith [hU₀two.trans hU₀]
+  have hUone : 1 ≤ U := by linarith
+  let T : ℝ := Real.rpow U ρ
+  have hTpos : 0 < T := Real.rpow_pos_of_pos hUpos _
+  have hTR : R ≤ T := by simpa [T] using hTge U hU₀
+  obtain ⟨f, hprim, hnormf⟩ := hconductor u
+  have hnormf' : (Ideal.absNorm f : ℝ) ≤ H * U := by
+    calc
+      (Ideal.absNorm f : ℝ) ≤ Cfd * fd.q u := hnormf
+      _ ≤ Cfd * (2 * U) := mul_le_mul_of_nonneg_left (le_of_lt hqhi) hCfd.le
+      _ = (2 * Cfd) * U := by ring
+      _ ≤ H * U := mul_le_mul_of_nonneg_right hH₂ hUpos.le
+  have hfNormPos : 0 < (Ideal.absNorm f : ℝ) := by
+    have hf0 : f ≠ ⊥ := hprim.1
+    have hfN : 0 < Ideal.absNorm f :=
+      Ideal.absNorm_pos_of_nonZeroDivisors
+        ⟨f, mem_nonZeroDivisors_of_ne_zero hf0⟩
+    exact_mod_cast hfN
+  let ω : ArtinPrimitiveRoots.A1.HeckeChar F := fd.omega u
+  let L : HeckeLContinuation ω := Lomega u hnon
+  let χ : ArtinPrimitiveRoots.A1.HeckeChar F := η * (fd.kummer u)⁻¹
+  let inc : IncompleteHeckeLContinuation S χ := Linc u hnon
+  have hωfinite : IsOfFinOrder ω := fd.omega_finiteOrder u
+  obtain ⟨m, ψ, hseries⟩ := frequency_heckeLSeries_eq_ray ω hωfinite f hprim
+  have hLray (s : ℂ) (hs : 1 < s.re) :
+      L.value s = ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s := by
+    calc
+      L.value s = heckeLSeries ω s := L.agrees s hs
+      _ = ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s := hseries s hs
+  have hRayBounds (s : ℂ) (hs : 3 / 2 ≤ s.re) :
+      ‖L.value s‖ ≤ B ∧ L.value s ≠ 0 ∧ ‖(L.value s)⁻¹‖ ≤ B := by
+    have hs' : 1 < s.re := by linarith
+    have hRay := ArtinPrimitiveRoots.Hecke.norm_LSeriesRay_le ψ hs'
+    have hZ := hZbound s.re hs
+    have heq := hLray s hs'
+    refine ⟨?_, ?_, ?_⟩
+    · calc
+        ‖L.value s‖ = ‖ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s‖ := by rw [heq]
+        _ ≤ (NumberField.dedekindZeta F s.re).re := hRay.1
+        _ ≤ B := hZ
+    · intro hzero
+      apply hRay.2.1
+      rw [← heq]
+      exact hzero
+    · calc
+        ‖(L.value s)⁻¹‖ = ‖(ArtinPrimitiveRoots.Hecke.LSeriesRay ψ s)⁻¹‖ := by rw [heq]
+        _ ≤ (NumberField.dedekindZeta F s.re).re := hRay.2.2
+        _ ≤ B := hZ
+  have hGrowthData := hconv ω hωfinite hnon f hprim L.value
+    ⟨L.differentiable, L.agrees⟩
+  let Cline : ℝ := K * U
+  have hCline : Real.exp 1 ≤ Cline := by
+    dsimp [Cline]
+    calc
+      Real.exp 1 ≤ K := hK
+      _ ≤ K * U := by
+        simpa only [mul_one] using mul_le_mul_of_nonneg_left hUone hKpos.le
+  have hzeroBall {s : ℂ} (c : ℂ) (t : ℝ) (hc : c = 2 + (t : ℂ) * Complex.I)
+      (ht : |t| ≤ 2 * T) (hs : s ∈ Metric.ball c R) :
+      996 / 1000 ≤ s.re ∧ |s.im| ≤ 4 * T := by
+    have hdist : ‖s - c‖ < R := by
+      simpa [Metric.mem_ball, dist_eq_norm] using hs
+    have hcRe : c.re = 2 := by rw [hc]; simp
+    have hcIm : c.im = t := by rw [hc]; simp
+    have hReNorm : |s.re - 2| ≤ ‖s - c‖ := by
+      calc
+        |s.re - 2| = |(s - c).re| := by simp [Complex.sub_re, hcRe]
+        _ ≤ ‖s - c‖ := Complex.abs_re_le_norm _
+    have himNorm : |s.im - t| ≤ ‖s - c‖ := by
+      calc
+        |s.im - t| = |(s - c).im| := by simp [Complex.sub_im, hcIm]
+        _ ≤ ‖s - c‖ := Complex.abs_im_le_norm _
+    have hReLo : 996 / 1000 ≤ s.re := by
+      have h := (abs_lt.mp (hReNorm.trans_lt hdist)).1
+      dsimp [R, a, e] at h
+      linarith
+    have hIm : |s.im| ≤ |t| + |s.im - t| := by
+      have hsum : s.im = t + (s.im - t) := by ring
+      calc
+        |s.im| = |t + (s.im - t)| := congrArg abs hsum
+        _ ≤ |t| + |s.im - t| := abs_add_le _ _
+    have hTbig : R ≤ 2 * T := by linarith [hTR]
+    refine ⟨hReLo, ?_⟩
+    calc
+      |s.im| ≤ |t| + |s.im - t| := hIm
+      _ ≤ 2 * T + R := by linarith [ht, himNorm.trans hdist.le]
+      _ ≤ 4 * T := by linarith
+  let c : ℂ := 2 + (ξ.im : ℂ) * Complex.I
+  have hcRe : c.re = 2 := by simp [c]
+  have hcIm : c.im = ξ.im := by simp [c]
+  let P : ℂ → ℂ := fun s => ∏ v ∈ S.Sf,
+    (1 - ω.primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))
+  have hPdiff : Differentiable ℂ P := by
+    dsimp [P]
+    exact ArtinPrimitiveRoots.Proofs.A2FreqP.reciprocal_omittedEulerFactors_differentiable S ω
+  have hPInv := reciprocal_omitted_product_inverse_bound S ω hωfinite ξ hξ
+  have hincFactor (s : ℂ) (hs : 1 < s.re) :
+      inc.value s = L.value s * P s := by
+    have hfactor := ArtinPrimitiveRoots.Proofs.A2FreqP.reciprocal_incompleteHeckeLSeries_eq_complete_factors
+      (S := S) ω hωfinite s hs
+    calc
+      inc.value s = incompleteHeckeLSeries S χ s := inc.agrees s hs
+      _ = incompleteHeckeLSeries S ω s := by
+        dsimp [χ, ω]
+        rw [fd.omega_induces_twist u]
+      _ = heckeLSeries ω s * P s := by simpa [P] using hfactor
+      _ = L.value s * P s := by rw [← L.agrees s hs]
+  have hRincBall (s : ℂ) (hs : s ∈ Metric.ball c Rinc) :
+      997 / 1000 < s.re := by
+    have hdist : ‖s - c‖ < Rinc := by simpa [Metric.mem_ball, dist_eq_norm] using hs
+    have hReNorm : |s.re - 2| ≤ ‖s - c‖ := by
+      have hh := Complex.abs_re_le_norm (s - c)
+      have hReEq : (s - c).re = s.re - 2 := by rw [Complex.sub_re, hcRe]
+      rw [hReEq] at hh
+      exact hh
+    have h := (abs_lt.mp (hReNorm.trans_lt hdist)).1
+    dsimp [Rinc] at h
+    linarith
+  have hincDiff : DifferentiableOn ℂ inc.value (Metric.ball c Rinc) :=
+    inc.differentiableOn.mono (by
+      intro s hs
+      exact hRincBall s hs)
+  have hprodDiff : DifferentiableOn ℂ (fun s => L.value s * P s)
+      (Metric.ball c Rinc) :=
+    (L.differentiable.differentiableOn.mul hPdiff.differentiableOn)
+  have hincAnalytic : AnalyticOnNhd ℂ inc.value (Metric.ball c Rinc) :=
+    hincDiff.analyticOnNhd isOpen_ball
+  have hprodAnalytic : AnalyticOnNhd ℂ (fun s => L.value s * P s)
+      (Metric.ball c Rinc) := hprodDiff.analyticOnNhd isOpen_ball
+  have hcRePos : 1 < c.re := by simp [c]
+  have hEqEvent : inc.value =ᶠ[𝓝 c] (fun s => L.value s * P s) := by
+    have hopen : {s : ℂ | 1 < s.re} ∈ 𝓝 c :=
+      (isOpen_lt continuous_const continuous_re).mem_nhds hcRePos
+    filter_upwards [hopen] with s hs
+    exact hincFactor s hs
+  have hEqOn : EqOn inc.value (fun s => L.value s * P s) (Metric.ball c Rinc) :=
+    hincAnalytic.eqOn_of_preconnected_of_eventuallyEq hprodAnalytic
+      (convex_ball c Rinc).isPreconnected (Metric.mem_ball_self hRincpos) hEqEvent
+  by_cases hξle2 : ξ.re ≤ 2
+  · have hdistEq : ξ - c = ((ξ.re - 2 : ℝ) : ℂ) := by
+      apply Complex.ext <;> simp [c]
+    have hdist : dist ξ c ≤ Rinner := by
+      rw [dist_eq_norm, hdistEq, Complex.norm_real, Real.norm_eq_abs,
+        abs_of_nonpos (by linarith : ξ.re - 2 ≤ 0)]
+      dsimp [Rinner, a, e]
+      linarith [hξ]
+    have hξBall : ξ ∈ Metric.closedBall c Rinner := by
+      simpa [Metric.mem_closedBall] using hdist
+    have hξBallInc : ξ ∈ Metric.ball c Rinc := by
+      rw [Metric.mem_ball]
+      exact hdist.trans_lt (by norm_num [Rinner, Rinc, a, e])
+    have hLzero : L.value ξ ≠ 0 := hzero ξ (by linarith [hξ]) (by linarith [hξim])
+    have hLdiffOuter : DifferentiableOn ℂ L.value (Metric.ball c R) :=
+      L.differentiable.differentiableOn
+    have hLzeroOuter : ∀ s ∈ Metric.ball c R, L.value s ≠ 0 := by
+      intro s hs
+      obtain ⟨hre, him⟩ := hzeroBall c ξ.im rfl hξim hs
+      exact hzero s hre him
+    have hLcBounds := hRayBounds c (by simp [c]; norm_num)
+    obtain ⟨g, hg, hge, hgc⟩ :=
+      OAI.SevenEighths.LogarithmicControl.exists_holomorphic_log_normalized
+        hRpos hLdiffOuter hLzeroOuter (Complex.exp_log hLcBounds.2.1)
+    have hReBound : ∀ w ∈ Metric.closedBall c (1 / 2),
+        (g w).re ≤ Real.log B := by
+      intro w hw
+      have hwOuter : w ∈ Metric.ball c R :=
+        Metric.closedBall_subset_ball (by norm_num [R, a, e]) hw
+      have hExpw := hge hwOuter
+      have hRew : 3 / 2 ≤ w.re := by
+        have hdist : ‖w - c‖ ≤ 1 / 2 := by
+          simpa [Metric.mem_closedBall, dist_eq_norm] using hw
+        have habs : |w.re - 2| ≤ ‖w - c‖ := by
+          have hh := Complex.abs_re_le_norm (w - c)
+          have hReEq : (w - c).re = w.re - 2 := by rw [Complex.sub_re, hcRe]
+          rw [hReEq] at hh
+          exact hh
+        have hlow := (abs_le.mp (habs.trans hdist)).1
+        linarith
+      have hLw := hRayBounds w hRew
+      have hExpw : Complex.exp (g w) = L.value w := by
+        simpa only [Function.comp_apply] using hge hwOuter
+      have hnormEq : Real.exp (g w).re = ‖L.value w‖ := by
+        calc
+          Real.exp (g w).re = ‖Complex.exp (g w)‖ := by rw [Complex.norm_exp]
+          _ = ‖L.value w‖ := by rw [hExpw]
+      have hlogEq : (g w).re = Real.log ‖L.value w‖ := by
+        calc
+          (g w).re = Real.log (Real.exp (g w).re) := by rw [Real.log_exp]
+          _ = Real.log ‖L.value w‖ := by rw [hnormEq]
+      rw [hlogEq]
+      exact Real.log_le_log (norm_pos_iff.mpr hLw.2.1) hLw.1
+    have hlogCenter := reciprocal_complex_log_norm_bound hB hLcBounds.2.1
+      hLcBounds.1 hLcBounds.2.2
+    have hgcNorm : ‖g c‖ ≤ Real.log B + Real.pi := by
+      rw [hgc]
+      exact hlogCenter
+    have hReBoundBall : ∀ w ∈ Metric.ball c (1 / 2),
+        (g w).re ≤ Real.log B + 1 := by
+      intro w hw
+      exact (hReBound w (Metric.ball_subset_closedBall hw)).trans (by linarith)
+    have hgBall : DifferentiableOn ℂ g (Metric.ball c (1 / 2)) :=
+      hg.mono (Metric.ball_subset_ball (by norm_num [R, a, e]))
+    have hbc (s : ℂ) (hs : s ∈ Metric.closedBall c (49 / 100)) :
+        ‖g s‖ ≤ 2 * (Real.log B + 1) * (49 / 100) / (1 / 2 - 49 / 100) +
+          (Real.log B + Real.pi) * (1 / 2 + 49 / 100) / (1 / 2 - 49 / 100) :=
+      OAI.SevenEighths.LogarithmicControl.borel_caratheodory_closedBall
+        (by norm_num) (by norm_num) (by linarith [hlogB]) (by positivity)
+        hgBall hReBoundBall hgcNorm hs
+    have hEbound : ∀ s ∈ Metric.closedBall c (49 / 100), ‖g s‖ ≤ A := by
+      intro s hs
+      have hbc' := hbc s hs
+      have hbound : ‖g s‖ ≤ 197 * Real.log B + 98 + 99 * Real.pi := by
+        calc
+          ‖g s‖ ≤ 2 * (Real.log B + 1) * (49 / 100) / (1 / 2 - 49 / 100) +
+              (Real.log B + Real.pi) * (1 / 2 + 49 / 100) / (1 / 2 - 49 / 100) := hbc'
+          _ = 197 * Real.log B + 98 + 99 * Real.pi := by norm_num <;> ring
+      dsimp [A]
+      linarith
+    have hEdiff : DifferentiableOn ℂ g (Metric.ball c (1 / 2)) :=
+      hg.mono (Metric.ball_subset_ball (by norm_num [R, a, e]))
+    have hEeq : Set.EqOn (Complex.exp ∘ g) L.value (Metric.ball c (1 / 2)) := by
+      intro s hs
+      exact hge (Metric.ball_subset_ball (by norm_num [R, a, e]) hs)
+    have hpoly : ∀ s ∈ Metric.ball c Rpoly, ‖L.value s‖ ≤ Real.rpow Cline p := by
+      intro s hs
+      have hsOuter : s ∈ Metric.ball c R :=
+        Metric.ball_subset_ball (by norm_num [Rpoly, R, a, e]) hs
+      obtain ⟨hre, him⟩ := hzeroBall c ξ.im rfl hξim hsOuter
+      have hre' : 3 / 1000 ≤ s.re := by linarith
+      have hre4 : s.re ≤ 4 := by
+        have hdist : ‖s - c‖ < R := by
+          simpa [Metric.mem_ball, dist_eq_norm] using hsOuter
+        have hReNorm : |s.re - 2| ≤ ‖s - c‖ := by
+          have hh := Complex.abs_re_le_norm (s - c)
+          have hReEq : (s - c).re = s.re - 2 := by rw [Complex.sub_re, hcRe]
+          rw [hReEq] at hh
+          exact hh
+        have habs : |s.re - 2| < R := hReNorm.trans_lt hdist
+        have hupper := (abs_lt.mp habs).2
+        dsimp [R, a, e] at hupper
+        linarith
+      have hGrowth := hGrowthData.1 s hre' hre4
+      have hcf' : Real.rpow (Ideal.absNorm f : ℝ) (3 / 2) ≤
+          Real.rpow (H * U) (3 / 2) :=
+        Real.rpow_le_rpow hfNormPos.le hnormf' (by norm_num)
+      have hcf : Real.rpow (Ideal.absNorm f : ℝ) (1 / 2 + 1) ≤
+          Real.rpow (H * U) (3 / 2) := by
+        have hexp : (1 / 2 + 1 : ℝ) = 3 / 2 := by norm_num
+        rw [hexp]
+        exact hcf'
+      have hheight : 2 + |s.im| ≤ 6 * T := by
+        have hdist : ‖s - c‖ < R := by
+          simpa [Metric.mem_ball, dist_eq_norm] using hsOuter
+        have hImNorm : |s.im - ξ.im| ≤ ‖s - c‖ := by
+          have hh := Complex.abs_im_le_norm (s - c)
+          have hImEq : (s - c).im = s.im - ξ.im := by rw [Complex.sub_im, hcIm]
+          rw [hImEq] at hh
+          exact hh
+        have hsum : s.im = ξ.im + (s.im - ξ.im) := by ring
+        have hxiL := neg_abs_le ξ.im
+        have hxiU := le_abs_self ξ.im
+        have hdiffL := neg_abs_le (s.im - ξ.im)
+        have hdiffU := le_abs_self (s.im - ξ.im)
+        have him4 : |s.im| ≤ 4 * T := by
+          apply abs_le.mpr
+          constructor
+          · rw [hsum]
+            nlinarith [hxiL, hdiffL, hξim, hImNorm.trans hdist.le, hTR]
+          · rw [hsum]
+            nlinarith [hxiU, hdiffU, hξim, hImNorm.trans hdist.le, hTR]
+        have hTone : 1 ≤ T := by
+          have hRone : 1 ≤ R := by norm_num [R, a, e]
+          linarith [hTR]
+        nlinarith [him4, hTone]
+      have hht : Real.rpow (2 + |s.im|) A_F ≤ Real.rpow (6 * T) A_F :=
+        Real.rpow_le_rpow (by positivity) hheight hA_F.le
+      have hmul : Ccv * Real.rpow (Ideal.absNorm f : ℝ) (1 / 2 + 1) *
+          Real.rpow (2 + |s.im|) A_F ≤
+          Ccv * Real.rpow (H * U) (3 / 2) * Real.rpow (6 * T) A_F := by
+        calc
+          _ = (Ccv * Real.rpow (Ideal.absNorm f : ℝ) (1 / 2 + 1)) *
+                Real.rpow (2 + |s.im|) A_F := by ring
+          _ ≤ (Ccv * Real.rpow (H * U) (3 / 2)) *
+                Real.rpow (2 + |s.im|) A_F :=
+            mul_le_mul_of_nonneg_right
+              (mul_le_mul_of_nonneg_left hcf hCcv.le)
+              (Real.rpow_nonneg (by positivity) _)
+          _ ≤ (Ccv * Real.rpow (H * U) (3 / 2)) *
+                Real.rpow (6 * T) A_F :=
+            mul_le_mul_of_nonneg_left hht
+              (mul_nonneg hCcv.le (Real.rpow_nonneg (by positivity) _))
+      have hsplitH : Real.rpow (H * U) (3 / 2) =
+          Real.rpow H (3 / 2) * Real.rpow U (3 / 2) :=
+        Real.mul_rpow (by positivity) hUpos.le
+      have hsplit6 : Real.rpow (6 * T) A_F =
+          Real.rpow 6 A_F * Real.rpow T A_F :=
+        Real.mul_rpow (by norm_num) hTpos.le
+      have hTpow : Real.rpow T A_F = Real.rpow U (ρ * A_F) := by
+        dsimp [T]
+        exact (Real.rpow_mul hUpos.le ρ A_F).symm
+      have hcombine : Real.rpow U (3 / 2) * Real.rpow U (ρ * A_F) =
+          Real.rpow U p := by
+        calc
+          _ = Real.rpow U ((3 / 2) + (ρ * A_F)) :=
+            (Real.rpow_add hUpos _ _).symm
+          _ = Real.rpow U p := by congr 1; dsimp [p]; ring
+      have hgrowth' : ‖L.value s‖ ≤ K₀ * Real.rpow U p := by
+        calc
+          ‖L.value s‖ ≤ Ccv * Real.rpow (Ideal.absNorm f : ℝ) (1 / 2 + 1) *
+              Real.rpow (2 + |s.im|) A_F := hGrowth
+          _ ≤ Ccv * Real.rpow (H * U) (3 / 2) * Real.rpow (6 * T) A_F := hmul
+          _ = K₀ * Real.rpow U p := by
+            calc
+              _ = Ccv * (Real.rpow H (3 / 2) * Real.rpow U (3 / 2)) *
+                    (Real.rpow 6 A_F * Real.rpow T A_F) := by
+                rw [hsplitH, hsplit6]
+              _ = Ccv * (Real.rpow H (3 / 2) * Real.rpow 6 A_F) *
+                    (Real.rpow U (3 / 2) * Real.rpow U (ρ * A_F)) := by
+                rw [hTpow]
+                ring
+              _ = K₀ * Real.rpow U p := by
+                calc
+                  _ = Ccv * (Real.rpow H (3 / 2) * Real.rpow 6 A_F) *
+                        Real.rpow U p :=
+                    congrArg (fun x : ℝ =>
+                      Ccv * (Real.rpow H (3 / 2) * Real.rpow 6 A_F) * x) hcombine
+                  _ = K₀ * Real.rpow U p := by dsimp [K₀]; ring
+      have hKone : 1 ≤ K := by
+        exact (Real.one_le_exp (by norm_num : 0 ≤ (1 : ℝ))).trans hK
+      have hKpower : K ≤ Real.rpow K p := by
+        calc
+          K = Real.rpow K 1 := (Real.rpow_one K).symm
+          _ ≤ Real.rpow K p := Real.rpow_le_rpow_of_exponent_le hKone hp
+      calc
+        ‖L.value s‖ ≤ K₀ * Real.rpow U p := hgrowth'
+        _ ≤ K * Real.rpow U p :=
+          mul_le_mul_of_nonneg_right hK₀ (Real.rpow_nonneg hUpos.le _)
+        _ ≤ Real.rpow (K * U) p := by
+          have hmulKU : Real.rpow (K * U) p = Real.rpow K p * Real.rpow U p :=
+            Real.mul_rpow hKpos.le hUpos.le
+          calc
+            K * Real.rpow U p ≤ Real.rpow K p * Real.rpow U p :=
+              mul_le_mul_of_nonneg_right hKpower (Real.rpow_nonneg hUpos.le _)
+            _ = Real.rpow (K * U) p := hmulKU.symm
+    have hcontrol := hlogControl a Cline L.value g c
+      (by norm_num [a]) (by norm_num [a]) hCline
+      hLdiffOuter hLzeroOuter hpoly hEdiff hEeq hEbound
+    have hctrl' : ‖(L.value ξ)⁻¹‖ ≤ Drec * Real.rpow Cline ε := by
+      have hsum := hcontrol.1 ξ hξBall
+      exact (le_add_of_nonneg_left (norm_nonneg (L.value ξ))).trans hsum
+    have hLincEq := hEqOn hξBallInc
+    have hprodne : P ξ ≠ 0 := hPInv.1
+    have hlinvProduct : ‖(inc.value ξ)⁻¹‖ =
+        ‖(L.value ξ)⁻¹‖ * ‖(P ξ)⁻¹‖ := by
+      rw [hLincEq, mul_inv, norm_mul]
+    have hCpow : Real.rpow Cline ε = Real.rpow K ε * Real.rpow U ε := by
+      dsimp [Cline]
+      exact Real.mul_rpow hKpos.le hUpos.le
+    have hDline : 0 ≤ Drec * Real.rpow Cline ε :=
+      mul_nonneg hDrec.le (Real.rpow_nonneg (by positivity) _)
+    have hbase : ‖(inc.value ξ)⁻¹‖ ≤
+        Drec * Real.rpow K ε * Real.rpow U ε * reciprocalOmissionBound S := by
+      calc
+        ‖(inc.value ξ)⁻¹‖ = ‖(L.value ξ)⁻¹‖ * ‖(P ξ)⁻¹‖ := hlinvProduct
+        _ ≤ (Drec * Real.rpow Cline ε) * ‖(P ξ)⁻¹‖ :=
+          mul_le_mul_of_nonneg_right hctrl' (norm_nonneg _)
+        _ ≤ (Drec * Real.rpow Cline ε) * reciprocalOmissionBound S :=
+          mul_le_mul_of_nonneg_left hPInv.2 hDline
+        _ = Drec * Real.rpow K ε * Real.rpow U ε * reciprocalOmissionBound S := by
+          rw [hCpow]
+          ring
+    have hfinal : ‖(inc.value ξ)⁻¹‖ ≤ Cε * Real.rpow U ε := by
+      dsimp [Cε]
+      have hcoefBase : Drec * Real.rpow K ε ≤ Drec * Real.rpow K ε + B :=
+        le_add_of_nonneg_right (by linarith [hB])
+      have hcoeff : Drec * Real.rpow K ε * reciprocalOmissionBound S ≤
+          (Drec * Real.rpow K ε + B) * reciprocalOmissionBound S :=
+        mul_le_mul_of_nonneg_right hcoefBase hOmissionPos.le
+      calc
+        _ ≤ (Drec * Real.rpow K ε * reciprocalOmissionBound S) *
+              Real.rpow U ε := by nlinarith [hbase]
+        _ ≤ ((Drec * Real.rpow K ε + B) * reciprocalOmissionBound S) *
+              Real.rpow U ε :=
+          mul_le_mul_of_nonneg_right hcoeff (Real.rpow_nonneg hUpos.le _)
+        _ = Cε * Real.rpow U ε := by dsimp [Cε]; ring
+    exact hfinal
+  · have hξgt2 : 2 < ξ.re := lt_of_not_ge hξle2
+    have hLinv : ‖(L.value ξ)⁻¹‖ ≤ B :=
+      (hRayBounds ξ (by linarith)).2.2
+    have hEqAt : inc.value ξ = L.value ξ * P ξ := hincFactor ξ (by linarith)
+    have hbound : ‖(inc.value ξ)⁻¹‖ ≤ B * reciprocalOmissionBound S := by
+      calc
+        ‖(inc.value ξ)⁻¹‖ = ‖(L.value ξ)⁻¹‖ * ‖(P ξ)⁻¹‖ := by
+          rw [hEqAt, mul_inv, norm_mul]
+        _ ≤ B * ‖(P ξ)⁻¹‖ := mul_le_mul_of_nonneg_right hLinv (norm_nonneg _)
+        _ ≤ B * reciprocalOmissionBound S :=
+          mul_le_mul_of_nonneg_left hPInv.2 (by linarith [hB])
+    have hUε : 1 ≤ Real.rpow U ε := Real.one_le_rpow hUone hε.le
+    have hfinal : ‖(inc.value ξ)⁻¹‖ ≤ Cε * Real.rpow U ε := by
+      dsimp [Cε]
+      have hDK : 0 ≤ Drec * Real.rpow K ε :=
+        mul_nonneg hDrec.le (Real.rpow_nonneg hKpos.le _)
+      have hcoefBase : B ≤ Drec * Real.rpow K ε + B :=
+        le_add_of_nonneg_left hDK
+      have hcoeff : B * reciprocalOmissionBound S ≤
+          (Drec * Real.rpow K ε + B) * reciprocalOmissionBound S :=
+        mul_le_mul_of_nonneg_right hcoefBase hOmissionPos.le
+      calc
+        _ ≤ B * reciprocalOmissionBound S := hbound
+        _ ≤ (Drec * Real.rpow K ε + B) * reciprocalOmissionBound S := hcoeff
+        _ ≤ ((Drec * Real.rpow K ε + B) * reciprocalOmissionBound S) *
+              Real.rpow U ε :=
+          (by
+            simpa only [mul_one] using mul_le_mul_of_nonneg_left hUε
+              (by positivity : 0 ≤ (Drec * Real.rpow K ε + B) * reciprocalOmissionBound S))
+        _ = Cε * Real.rpow U ε := by dsimp [Cε]; ring
+    exact hfinal
 
 namespace Proofs.A2Z1
 open Metric Set Complex
