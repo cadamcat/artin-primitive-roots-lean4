@@ -635,4 +635,102 @@ theorem qs_nq0_quadratic_ideal_values
   · exact hprime ⟨P, hp.1, hp.2⟩
   · exact Or.inr (one_pow 2)
 
+
+/-- Allowed coprime exterior generators satisfy quadratic reciprocity. -/
+theorem qs_nq0_quadratic_reciprocity
+    {CE : ℕ} {condη : Ideal (𝓞 K)}
+    (D : FieldData K) (Sd : SData K CE condη) (H : HilbertData K)
+    (Bd : BData Sd H) (I J : Ideal (𝓞 K)) (a b : Kˣ)
+    (ha : Sd.IsGen (a : K) I ∧ Bd.Allowed a)
+    (hb : Sd.IsGen (b : K) J ∧ Bd.Allowed b)
+    (hcoprime : IsCoprime I J)
+    (χa χb : HeckeChar K) (hχa : χa ^ 2 = 1)
+    (hloca : ∀ v : FinPlace K, χa.loc v = qsNQQuadraticLocal D H v (toLoc v a))
+    (hlocb : ∀ v : FinPlace K, χb.loc v = qsNQQuadraticLocal D H v (toLoc v b)) :
+    χa.idealValue J = χb.idealValue I := by
+  classical
+  let gC : ℂˣ →* ℂ :=
+    { toFun := Units.val, map_one' := rfl, map_mul' := fun _ _ => rfl }
+  let g : rootsOfUnity 6 K →* ℂˣ :=
+    (powMonoidHom 3 : ℂˣ →* ℂˣ).comp
+      ((Units.map D.σ0.toMonoidHom).comp (rootsOfUnity 6 K).subtype)
+  let L : FinPlace K → ℂ := fun v =>
+    (qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b) : ℂ)
+  obtain ⟨hfinite, hprod⟩ := qs_nq0_quadratic_product_formula D H a b
+  have hfiniteL : Function.HasFiniteMulSupport L :=
+    Function.HasFiniteMulSupport.fun_comp hfinite gC.map_one
+  have hprodL : ∏ᶠ v : FinPlace K, L v = 1 := by
+    change (∏ᶠ v : FinPlace K,
+      gC (qsNQQuadraticLocal D H v (toLoc v a) (toLoc v b))) = 1
+    rw [← gC.map_finprod hfinite, hprod, map_one]
+  have hcomp (v : Sd.Sf) (u : Kˣ) :
+      Sd.compU v (Sd.diagU u) = toLoc v.1 u := by
+    apply Units.ext
+    rfl
+  have hprodS : ∏ v ∈ Sd.Sf, L v = 1 := by
+    have h := congrArg (fun z : rootsOfUnity 6 K => gC (g z))
+      (Bd.isotropic (Sd.diagU a) (Sd.diagU b) ha.2 hb.2)
+    simp only [SData.HS, map_prod, hcomp, map_one] at h
+    rw [← Finset.prod_coe_sort]
+    exact h
+  have houtside : ∏ᶠ v ∈ Set.univ \ (Sd.Sf : Set (FinPlace K)), L v = 1 := by
+    have hsplit := finprod_mem_mul_sdiff'
+      (f := L) (s := (Sd.Sf : Set (FinPlace K))) (t := Set.univ)
+      (Set.subset_univ _) (by simpa only [Set.univ_inter, Function.HasFiniteMulSupport] using hfiniteL)
+    rw [finprod_mem_coe_finset, hprodS, one_mul, finprod_mem_univ, hprodL] at hsplit
+    exact hsplit
+  let f : FinPlace K → ℂ := fun v => χa.primeValue v ^ idealExp v J
+  let g' : FinPlace K → ℂ := fun v => χb.primeValue v ^ idealExp v I
+  have hsupport (A : Ideal (𝓞 K)) (hA : A ≠ ⊥) (ψ : HeckeChar K) :
+      Function.HasFiniteMulSupport (fun v : FinPlace K => ψ.primeValue v ^ idealExp v A) := by
+    have he := Associates.finite_factors hA
+    rw [Filter.eventually_cofinite] at he
+    have he' : {v : FinPlace K | idealExp v A ≠ 0}.Finite := by
+      simpa only [Int.natCast_eq_zero, idealExp] using he
+    apply he'.subset
+    intro v hv
+    change ψ.primeValue v ^ idealExp v A ≠ 1 at hv
+    intro hz
+    exact hv (by rw [hz, pow_zero])
+  have hf : Function.HasFiniteMulSupport f := hsupport J hb.1.1.1 χa
+  have hg : Function.HasFiniteMulSupport g' := hsupport I ha.1.1.1 χb
+  have hzero (A : Ideal (𝓞 K)) (hA : Sd.IsExterior A)
+      (v : FinPlace K) (hv : v ∈ Sd.Sf) : idealExp v A = 0 := by
+    by_contra hne
+    have hd : v.asIdeal ∣ A :=
+      (Associates.count_ne_zero_iff_dvd hA.1 v.irreducible).mp hne
+    exact hA.2 v hv (Ideal.dvd_iff_le.mp hd)
+  have hfgS : ∏ v ∈ Sd.Sf, f v * g' v = 1 := by
+    apply Finset.prod_eq_one
+    intro v hv
+    simp only [f, g', hzero J hb.1.1 v hv, hzero I ha.1.1 v hv, pow_zero, one_mul]
+  have hfgOutside : (∏ᶠ v ∈ Set.univ \ (Sd.Sf : Set (FinPlace K)), f v * g' v) = 1 := by
+    rw [← houtside]
+    apply finprod_congr
+    intro v
+    apply finprod_congr
+    intro hv
+    exact (qs_nq0_quadratic_local_generator_pair D Sd H I J a b ha.1 hb.1
+      hcoprime χa χb v hv.2 (hloca v) (hlocb v)).symm
+  have hfg : (∏ᶠ v : FinPlace K, f v * g' v) = 1 := by
+    have hsplit := finprod_mem_mul_sdiff'
+      (f := fun v => f v * g' v) (s := (Sd.Sf : Set (FinPlace K))) (t := Set.univ)
+      (Set.subset_univ _)
+      (by simpa only [Set.univ_inter, Function.HasFiniteMulSupport,
+        Function.mulSupport, Pi.mul_apply] using hf.mul hg)
+    rw [finprod_mem_coe_finset, hfgS, hfgOutside, one_mul, finprod_mem_univ] at hsplit
+    exact hsplit.symm
+  have hvalues : χa.idealValue J * χb.idealValue I = 1 := by
+    rw [qs_nq0_ideal_value_finprod χa J hb.1.1.1,
+      qs_nq0_ideal_value_finprod χb I ha.1.1.1]
+    exact (finprod_mul_distrib hf hg).symm.trans hfg
+  obtain hz | hsquare := qs_nq0_quadratic_ideal_values χa hχa J
+  · rw [hz, zero_mul] at hvalues
+    exact (zero_ne_one hvalues).elim
+  · calc
+      χa.idealValue J = χa.idealValue J * 1 := (mul_one _).symm
+      _ = χa.idealValue J * (χa.idealValue J * χb.idealValue I) := by rw [hvalues]
+      _ = χa.idealValue J ^ 2 * χb.idealValue I := by rw [pow_two, mul_assoc]
+      _ = χb.idealValue I := by rw [hsquare, one_mul]
+
 end ArtinPrimitiveRoots.A2
