@@ -2623,7 +2623,60 @@ theorem dirichlet_L (q : ℕ) [NeZero q] (χ : DirichletCharacter ℂ q) :
       DirichletCharacter.LFunction χ s = LSeries (χ ·) s) ∧
     (∀ s : ℂ, MeromorphicAt (DirichletCharacter.LFunction χ) s) ∧
     (χ ≠ 1 → Differentiable ℂ (DirichletCharacter.LFunction χ)) := by
-  sorry
+  refine ⟨?_, ?_, ?_⟩
+  · intro s hs
+    exact DirichletCharacter.LFunction_eq_LSeries χ hs
+  · intro s
+    by_cases hχ : χ = 1
+    · subst χ
+      by_cases hs : s = 1
+      · subst s
+        have hdiff : Differentiable ℂ (DirichletCharacter.LFunctionTrivChar₁ q) :=
+          DirichletCharacter.differentiable_LFunctionTrivChar₁ q
+        have hupd : MeromorphicAt (DirichletCharacter.LFunctionTrivChar₁ q) (1 : ℂ) :=
+          (hdiff.analyticAt (1 : ℂ)).meromorphicAt
+        have hEq :
+            Filter.EventuallyEq (nhdsWithin (1 : ℂ) {z : ℂ | z ≠ 1})
+              (DirichletCharacter.LFunctionTrivChar₁ q)
+              (fun z : ℂ => (z - 1) *
+                DirichletCharacter.LFunction (1 : DirichletCharacter ℂ q) z) := by
+          filter_upwards [self_mem_nhdsWithin] with z hz
+          have hz1 : z ≠ 1 := by simpa using hz
+          simp [DirichletCharacter.LFunctionTrivChar₁,
+            DirichletCharacter.LFunctionTrivChar, hz1]
+        have hnum : MeromorphicAt
+            (fun z : ℂ => (z - 1) *
+              DirichletCharacter.LFunction (1 : DirichletCharacter ℂ q) z) (1 : ℂ) :=
+          hupd.congr hEq
+        have hden : MeromorphicAt (fun z : ℂ => z - 1) (1 : ℂ) :=
+          (analyticAt_id.sub analyticAt_const).meromorphicAt
+        have hquot : MeromorphicAt
+            (fun z : ℂ => ((z - 1) *
+              DirichletCharacter.LFunction (1 : DirichletCharacter ℂ q) z) / (z - 1))
+            (1 : ℂ) := hnum.div hden
+        have hL :
+            Filter.EventuallyEq (nhdsWithin (1 : ℂ) {z : ℂ | z ≠ 1})
+              (fun z : ℂ => ((z - 1) *
+                DirichletCharacter.LFunction (1 : DirichletCharacter ℂ q) z) / (z - 1))
+              (DirichletCharacter.LFunction (1 : DirichletCharacter ℂ q)) := by
+          filter_upwards [self_mem_nhdsWithin] with z hz
+          have hz1 : z ≠ 1 := by simpa using hz
+          field_simp [sub_ne_zero.mpr hz1]
+        exact hquot.congr hL
+      · have hdiff :
+            DifferentiableOn ℂ
+              (DirichletCharacter.LFunction (1 : DirichletCharacter ℂ q)) ({1}ᶜ : Set ℂ) := by
+          intro z hz
+          have hz1 : z ≠ 1 := by simpa using hz
+          exact (DirichletCharacter.differentiableAt_LFunction
+            (1 : DirichletCharacter ℂ q) z (Or.inl hz1)).differentiableWithinAt
+        have han : AnalyticOnNhd ℂ
+            (DirichletCharacter.LFunction (1 : DirichletCharacter ℂ q)) ({1}ᶜ : Set ℂ) :=
+          hdiff.analyticOnNhd isOpen_compl_singleton
+        exact (han s (by simpa using hs)).meromorphicAt
+    · exact ((DirichletCharacter.differentiable_LFunction hχ).analyticAt s).meromorphicAt
+  · intro hχ
+    exact DirichletCharacter.differentiable_LFunction hχ
 
 private theorem ncard_zero_le_divisor (g : ℂ → ℂ) (c : ℂ) (r R : ℝ)
     (hr : 0 < r) (hR : r < R)
