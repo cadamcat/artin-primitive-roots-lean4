@@ -1,6 +1,7 @@
 import /- Reciprocity is prebuilt on the Mac. -/ ClassFieldTheory.Theorems.GlobalClassFieldTheory.FiniteAbelianGlobalReciprocity
 import ArtinPrimitiveRoots.Hecke.Defs
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-EXT-ARTIN».LocalUnits
+import ArtinPrimitiveRoots.Splitting.Proofs.«S7-EXT-ARTIN».FractionalIdeals
 
 set_option autoImplicit false
 open scoped NumberField
