@@ -4220,6 +4220,76 @@ private theorem exists_coverSubgroupBase (B : CoverQuotientBase D S H)
         simp
     simpa only [map_mul] using congrArg B.quotient.q heq
 
+/-- Valuation balls of positive radius are neighborhoods of zero. -/
+private theorem cover_ball_mem_nhds_zero (v : FinPlace F) (m : ℤ) :
+    ball v m ∈ nhds (0 : v.adicCompletion F) := by
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  obtain ⟨π, hπ⟩ := v.valuedAdicCompletion_surjective F (WithZero.exp (-m))
+  have hπv : V π ≠ 0 := by rw [hπ]; exact WithZero.exp_ne_zero
+  have hπne : π ≠ 0 := V.ne_zero_iff.mp hπv
+  have hγne : V.restrict π ≠ 0 := V.restrict.ne_zero_iff.mpr hπne
+  have hopen : IsOpen (ball v m) := by
+    have h := Valued.isOpen_closedBall K (Γ₀ := WithZero (Multiplicative ℤ))
+      (r := V.restrict π) hγne
+    convert h using 1
+    ext x
+    change V x ≤ WithZero.exp (-m) ↔ V.restrict x ≤ V.restrict π
+    rw [V.restrict_le_iff, hπ]
+  exact hopen.mem_nhds (by simp [ball])
+
+/-- The small splitting neighborhoods force continuity of the distinguished local maps. -/
+private theorem finLocalCover_maps_continuous {D : FieldData F} {H : HilbertData F}
+    (v : FinPlace F) (L : FinLocalCover D H v) :
+    Continuous L.n ∧ Continuous L.nbar ∧ Continuous L.a := by
+  let K := v.adicCompletion F
+  have root_cont (f : Multiplicative K →* L.L)
+      (hf : ∀ m, L.m0 ≤ m → ∀ x ∈ ball v m,
+        f (Multiplicative.ofAdd x) ∈ L.Kc m) : Continuous f := by
+    apply continuous_of_tendsto_nhds_one f
+    intro U hU
+    obtain ⟨m, hm, hsub⟩ := L.Kc_nhds U hU
+    change f ⁻¹' U ∈ nhds (1 : Multiplicative K)
+    have hsmall : ∀ᶠ x : Multiplicative K in nhds 1, x.toAdd ∈ ball v m :=
+      continuous_toAdd.continuousAt (cover_ball_mem_nhds_zero v m)
+    filter_upwards [hsmall] with x hx
+    exact hsub (hf m hm x.toAdd hx)
+  have hunitSubtract : Tendsto (fun u : Kˣ => (u : K) - 1)
+      (nhds 1) (nhds 0) := by
+    have hc : Continuous (fun u : Kˣ => (u : K) - 1) :=
+      Units.continuous_val.sub continuous_const
+    simpa only [Units.val_one, sub_self] using hc.tendsto (1 : Kˣ)
+  have ha1 : Tendsto L.a (nhds (1 : Kˣ)) (nhds (1 : L.L)) := by
+    intro U hU
+    obtain ⟨m, hm, hsub⟩ := L.Kc_nhds U hU
+    change L.a ⁻¹' U ∈ nhds (1 : Kˣ)
+    have hsmall := hunitSubtract.eventually (cover_ball_mem_nhds_zero v m)
+    filter_upwards [hsmall] with u hu
+    exact hsub (L.a_Kc m hm u hu)
+  refine ⟨root_cont L.n L.n_Kc, root_cont L.nbar L.nbar_Kc, ?_⟩
+  apply continuous_iff_continuousAt.2
+  intro u
+  change Tendsto L.a (nhds u) (nhds (L.a u))
+  let δ : Kˣ → Kˣ := fun x => u⁻¹ * x
+  have hδ : Tendsto δ (nhds u) (nhds 1) := by
+    have hc : Continuous δ := continuous_const.mul continuous_id
+    simpa [δ] using hc.tendsto u
+  obtain ⟨m0, _, hpowers⟩ :=
+    ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  have hsmall : ∀ᶠ x in nhds u, ((δ x : K) - 1) ∈ ball v (m0 : ℤ) :=
+    (hunitSubtract.comp hδ).eventually (cover_ball_mem_nhds_zero v (m0 : ℤ))
+  have htranslate : (fun x => L.a u * L.a (δ x)) =ᶠ[nhds u] L.a := by
+    filter_upwards [hsmall] with x hx
+    have hhilb' : H.hilb v (δ x) u = 1 := H.sixth_power v (δ x) u (hpowers _ hx)
+    have hhilb : H.hilb v u (δ x) = 1 := by
+      have h := H.skew v u (δ x)
+      rwa [hhilb', mul_one] at h
+    rw [L.a_mul, hhilb, muThree_one D, map_one, one_mul]
+    simp [δ]
+  have hcont : Tendsto (fun x => L.a u * L.a (δ x)) (nhds u)
+      (nhds (L.a u * 1)) := tendsto_const_nhds.mul (ha1.comp hδ)
+  simpa only [mul_one] using hcont.congr' htranslate
+
 /-- **P-COVER main theorem.** Under the Steinberg relation at every finite place, the adelic
 cover exists with the component compatibility identities of C2 in `sol-gate-theta`. The
 `sol-gate-theta2` correction also certifies its canonical restricted-product topology. -/
