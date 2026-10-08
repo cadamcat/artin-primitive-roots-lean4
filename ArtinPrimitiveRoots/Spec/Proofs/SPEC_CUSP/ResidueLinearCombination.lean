@@ -15,7 +15,7 @@ open scoped MatrixGroups ContDiff BoundedContinuousFunction Topology Pointwise
 
 noncomputable section
 
-namespace ArtinPrimitiveRoots.Proofs.SpecDomcuspP
+namespace ArtinPrimitiveRoots.Proofs.spec_domcusp_sol
 
 private theorem secondCountableX_C3 {F : Type} [Field F] [NumberField F]
     [IsTotallyComplex F] : SecondCountableTopology (X F) := by
@@ -643,7 +643,7 @@ theorem c3_spectral_setup {F : Type} [Field F] [NumberField F] [IsTotallyComplex
     κ := κ
     hκ := hκ }⟩
 
-set_option maxHeartbeats 1000000 in
+set_option maxHeartbeats 2000000 in
 theorem c3_projected_continuation
     {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
     {Γ : Subgroup SL(2,𝓞 F)} [Γ.FiniteIndex]
@@ -672,7 +672,10 @@ theorem c3_projected_continuation
         d.res = (fun z => (radialTransform F k₀ (1 + 2 * s₁))⁻¹ *
           smoothingOperator F k₀ (l2Lift F Γ setup.D
             (-setup.κ • (setup.E.M.comp (setup.P.comp setup.E.M.adjoint))
-              (G (s₁ : ℂ)))) z) := by
+              (G (s₁ : ℂ)))) z) ∧
+        d.res =ᵐ[volX F] l2Lift F Γ setup.D
+          (-setup.κ • (setup.E.M.comp (setup.P.comp setup.E.M.adjoint))
+            (G (s₁ : ℂ))) := by
   classical
   let D := setup.D
   let E := setup.E
@@ -810,11 +813,17 @@ theorem c3_projected_continuation
       (eisSeries F Γ σ s) hlocal z
     rw [hsmoothEq]
     exact hS2.2.2.2 s hsre z
-  obtain ⟨d, _, _, hres_d, _⟩ :=
+  obtain ⟨d, _, _, hres_d, hidentity⟩ :=
     S3_continuation Γ hfree σ s₁ h₀ h₁ D setup.hD k₀ τ hkSmooth hkSupport
       A hA hsep hτ u θ ε ⟨hεpos, hεle⟩ hu hhat hhatCenter hres hbase hseries
-  refine ⟨ε, hεpos, hεle, d, ?_⟩
-  simpa [u, θ, D, E, P, κ] using hres_d
+  have hraw := ArtinPrimitiveRoots.Proofs.spec_cont_sol.s3_residue_ae_lift
+    Γ D setup.hD σ τ A hA hsep hτ k₀ hkSmooth hkSupport u θ s₁ ε
+      hεpos hhatCenter hres hidentity
+  refine ⟨ε, hεpos, hεle, d, ?_, ?_⟩
+  · exact hres_d
+  · change d.res =ᵐ[volX F] l2Lift F Γ D θ
+    rw [hres_d]
+    exact hraw
 
 def C3TailFormula {F : Type} [Field F] [NumberField F]
     {Γ : Subgroup SL(2,𝓞 F)} {σ : SL(2,F)} {A₀ : ℝ} (τ : ℝ → ℝ) : Prop :=
@@ -1001,6 +1010,9 @@ structure C3CuspData {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
         (l2Lift F Γ setup.D
           (-setup.κ • (setup.E.M.comp (setup.P.comp setup.E.M.adjoint))
             (G (s₁ : ℂ)))) z)
+  d_res_ae : d.res =ᵐ[volX F] l2Lift F Γ setup.D
+    (-setup.κ • (setup.E.M.comp (setup.P.comp setup.E.M.adjoint))
+      (G (s₁ : ℂ)))
 
 private theorem c3_defect_supported_in_cuspTail
     {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
@@ -1065,7 +1077,7 @@ theorem c3_cusp_data {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
     hsepσ Aσ le_rfl
   rcases E5_seed Γ setup.D setup.hD σ Aσ A hAσ hAσA hsep₀ τ hτ with
     ⟨_, hseed, _, ⟨G, hG, hsource⟩, hseedAnalytic, htail⟩
-  obtain ⟨ε, hεpos, hεle, d, hres⟩ :=
+  obtain ⟨ε, hεpos, hεle, d, hres, hresAE⟩ :=
     c3_projected_continuation s₁ setup hfree σ h₀ h₁
       Aσ A hAσ hAσA hsep₀ k₀ τ hkSmooth hkNonneg hkSupport hkNonzero hτ
       G hG hsource hseed
@@ -1090,7 +1102,8 @@ theorem c3_cusp_data {F : Type} [Field F] [NumberField F] [IsTotallyComplex F]
     ε_pos := hεpos
     ε_le := hεle
     d := d
-    d_res := hres }⟩
+    d_res := hres
+    d_res_ae := hresAE }⟩
 
 private def cuspExtensionZ {F : Type} [Field F] [NumberField F]
     [IsTotallyComplex F] (Γ : Subgroup SL(2,𝓞 F)) (σ : SL(2,F)) :
@@ -2615,6 +2628,24 @@ private theorem c3_l2Lift_eq_on_D
     (hD : IsFundamentalDomain Γ D (volX F)) (u : L2Space F D) :
     ∀ᵐ z ∂(volX F), z ∈ D → l2Lift F Γ D u z = u z := by
   classical
+  have hRow : Countable (Fin 2 → 𝓞 F) := by
+    have hset : (Set.univ : Set (Fin 2 → 𝓞 F)).Countable := by
+      have h := Set.countable_univ_pi (π := fun _ : Fin 2 => 𝓞 F)
+        (s := fun _ => Set.univ) (by intro i; exact Set.countable_univ)
+      simpa using h
+    letI : Countable (↥(Set.univ : Set (Fin 2 → 𝓞 F))) := hset.to_subtype
+    exact Countable.of_equiv _ (Equiv.Set.univ _)
+  have hMatrix : Countable (Matrix (Fin 2) (Fin 2) (𝓞 F)) := by
+    letI : Countable (Fin 2 → 𝓞 F) := hRow
+    have hset : (Set.univ : Set (Matrix (Fin 2) (Fin 2) (𝓞 F))).Countable := by
+      have h := Set.countable_univ_pi (π := fun _ : Fin 2 => (Fin 2 → 𝓞 F))
+        (s := fun _ => Set.univ) (by intro i; exact Set.countable_univ)
+      simpa [Matrix] using h
+    letI : Countable (↥(Set.univ : Set (Matrix (Fin 2) (Fin 2) (𝓞 F)))) :=
+      hset.to_subtype
+    exact Countable.of_equiv _ (Equiv.Set.univ _)
+  letI : Countable (Matrix (Fin 2) (Fin 2) (𝓞 F)) := hMatrix
+  letI : Countable (SL(2,𝓞 F)) := Subtype.val_injective.countable
   letI : Countable Γ := Subtype.val_injective.countable
   have hUnique : ∀ᵐ z ∂(volX F).restrict D, ∀ γ : Γ,
       (γ : SL(2,𝓞 F)) • z ∈ D → γ = 1 := by
@@ -3103,6 +3134,6 @@ private theorem c3_source_pairing_zero
     simp [Gfun, source, θ, hzsource, hztheta, mul_comm]
   rw [hInnerEq, hIntegralD]
 
-end ArtinPrimitiveRoots.Proofs.SpecDomcuspP
+end ArtinPrimitiveRoots.Proofs.spec_domcusp_sol
 
 end

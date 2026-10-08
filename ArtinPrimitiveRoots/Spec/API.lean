@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.Spec.Smoothing
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_API.Existence
 import ArtinPrimitiveRoots.Spec.Proofs.SPEC_API.Uniqueness
+import ArtinPrimitiveRoots.Spec.Proofs.SPEC_CUSP.ResidueLinearCombination
 
 /-! Consumer API nodes C2--C3. -/
 
