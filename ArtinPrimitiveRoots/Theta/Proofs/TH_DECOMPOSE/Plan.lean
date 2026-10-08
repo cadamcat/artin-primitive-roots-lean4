@@ -147,6 +147,12 @@ theorem th_decompose_part2 [IsTotallyComplex F] (P : CoverPackage D S H A)
   have hunitary (s : ℂ) (g : PGL2 ℂ) (k : GL (Fin 2) ℂ)
       (hk : (k : Matrix (Fin 2) (Fin 2) ℂ) ∈ Matrix.unitaryGroup (Fin 2) ℂ) :=
     sphC_right_unitary s g k hk
+  have hcompact (s : ℂ) (g k : P.tc.G) (hk : k ∈ redCompact P) :
+      scalarOf P G (sec s).f (sec s).fC (g * k) =
+        scalarOf P G (sec s).f (sec s).fC g := by
+    obtain ⟨r, hr, hf, hi⟩ := hk
+    rw [← hr]
+    exact scalarOf_right_unitary_lift P G (sec s) (hC s) g r hf hi
   sorry
 
 /-- Absolute convergence and finite-sum reindexing once the terms have been separated. -/

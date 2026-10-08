@@ -57,4 +57,32 @@ theorem sphC_right_unitary (s : ℂ) (g : PGL2 ℂ) (k : GL (Fin 2) ℂ)
     _ = sphericalC s a := hscalar
     _ = sphC s g := by rw [← ha, sphC_mk]
 
+variable {F : Type} [Field F] [NumberField F]
+variable {D : FieldData F} {CE : ℕ} {condη : Ideal (𝓞 F)} {S : SData F CE condη}
+  {H : HilbertData F} {A : AddCharData F}
+
+/-- A purely archimedean unitary lift fixes a scalar section with spherical complex factors. -/
+theorem scalarOf_right_unitary_lift (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (hC : ∀ w, Fs.fC w = sphC s)
+    (g : P.tc.G) (k : P.RP) (hF : ∀ v, P.compF v k = 1)
+    (hInf : ∀ w, ∃ u : GL (Fin 2) ℂ,
+      (u : Matrix (Fin 2) (Fin 2) ℂ) ∈ Matrix.unitaryGroup (Fin 2) ℂ ∧
+        P.compC w k = QuotientGroup.mk u) :
+    scalarOf P G Fs.f Fs.fC (g * P.q k) = scalarOf P G Fs.f Fs.fC g := by
+  obtain ⟨x, rfl⟩ := P.q_surj g
+  have hfin : (∏ᶠ v, G.lam v (Fs.f v (P.compF v (x * k)))) =
+      ∏ᶠ v, G.lam v (Fs.f v (P.compF v x)) := by
+    apply finprod_congr
+    intro v
+    rw [map_mul, hF v, mul_one]
+  have harch : (∏ w, Fs.fC w (P.compC w (x * k))) =
+      ∏ w, Fs.fC w (P.compC w x) := by
+    apply Finset.prod_congr rfl
+    intro w _
+    obtain ⟨u, hu, huk⟩ := hInf w
+    rw [map_mul, hC w, huk]
+    exact sphC_right_unitary s (P.compC w x) u hu
+  rw [← map_mul, (scalarOf_q P G Fs (x * k)).2,
+    (scalarOf_q P G Fs x).2, hfin, harch]
+
 end ArtinPrimitiveRoots.A1.Theta
