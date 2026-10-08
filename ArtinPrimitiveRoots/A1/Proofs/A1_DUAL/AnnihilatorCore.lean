@@ -134,7 +134,29 @@ theorem arch_condition_of_integral_finite_annihilator
     (hann : ∀ r : S.R, S.e A (S.diag (r : F) * y) = 1) :
     ∀ n : 𝓞 F,
       (∏ w : InfinitePlace F, A1.psiC (w.embedding (n : F) * y.2 w)) = 1 := by
-  sorry
+  intro n
+  let r : S.R := algebraMap (𝓞 F) S.R n
+  have hr : (r : F) = (n : F) := rfl
+  have hlocal (v : S.Sf) :
+      A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y.1 v) = 1 := by
+    apply A.integral
+    apply mul_mem
+    · rw [hr]
+      change ((n : F) : v.1.adicCompletion F) ∈ v.1.adicCompletionIntegers F
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+        HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+      exact v.1.valuation_le_one n
+    · exact hfin v
+  have h := hann r
+  change (∏ v : S.Sf,
+      A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y.1 v)) *
+    ∏ w : InfinitePlace F, A1.psiC (w.embedding (r : F) * y.2 w) = 1 at h
+  have hprod :
+      (∏ v : S.Sf,
+        A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y.1 v)) = 1 := by
+    exact Finset.prod_eq_one fun v _ => hlocal v
+  rw [hprod, one_mul, hr] at h
+  exact h
 
 /-- If the archimedean component vanishes, an annihilator point gives a trivial finite character on
 the projected S-integers. -/
