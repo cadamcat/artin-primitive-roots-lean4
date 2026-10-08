@@ -1449,6 +1449,116 @@ private theorem a2_prod_sol_sheetFree_mul_preserving
     exact ⟨(continuous_const.mul continuous_id).measurable, sheet_mulHaarC_mul aw⟩
   simpa only [Prod.map_def] using hf.prod hc
 
+private theorem a2_prod_sol_sheetPoint_mul
+    (S : SData F CE condη) (v0 : InfinitePlace F)
+    (a : S.FSˣ) (T : ℝ) (hT : 0 < T)
+    (p : SheetFree S v0) (θ : ℝ)
+    (hf : ∀ v, p.1 v ≠ 0) (hc : ∀ w, p.2 w ≠ 0) :
+    (a : S.FS) * Theta.sheetPoint S v0 T p θ =
+    Theta.sheetPoint S v0 (S.absS (a : S.FS) * T)
+      (fun v => (a : S.FS).1 v * p.1 v,
+       fun w => (a : S.FS).2 w.1 * p.2 w)
+      (θ + Complex.arg ((a : S.FS).2 v0) / (2 * Real.pi)) := by
+  classical
+  let A : ℝ := (∏ v : S.Sf, A1.absFin v.1 ((a : S.FS).1 v)) *
+    ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq ((a : S.FS).2 w.1)
+  let B : ℝ := (∏ v : S.Sf, A1.absFin v.1 (p.1 v)) *
+    ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w)
+  let c : ℂ := (a : S.FS).2 v0
+  have ha : (∀ v : S.Sf, IsUnit ((a : S.FS).1 v)) ∧
+      ∀ w : InfinitePlace F, IsUnit ((a : S.FS).2 w) := by
+    simpa only [Prod.isUnit_iff, Pi.isUnit_iff] using a.isUnit
+  have hA : 0 < A := by
+    dsimp [A]
+    apply mul_pos
+    · apply Finset.prod_pos
+      intro v _
+      rw [A1.Theta.absFin_eq_norm]
+      exact norm_pos_iff.mpr (ha.1 v).ne_zero
+    · apply Finset.prod_pos
+      intro w _
+      rw [Complex.normSq_eq_norm_sq]
+      exact sq_pos_of_pos (norm_pos_iff.mpr (ha.2 w.1).ne_zero)
+  have hB : 0 < B := by
+    dsimp [B]
+    apply mul_pos
+    · apply Finset.prod_pos
+      intro v _
+      rw [A1.Theta.absFin_eq_norm]
+      exact norm_pos_iff.mpr (hf v)
+    · apply Finset.prod_pos
+      intro w _
+      rw [Complex.normSq_eq_norm_sq]
+      exact sq_pos_of_pos (norm_pos_iff.mpr (hc w))
+  have hAbs : S.absS (a : S.FS) = A * Complex.normSq c := by
+    rw [SData.absS, Fintype.prod_eq_mul_prod_subtype_ne
+      (fun w : InfinitePlace F => Complex.normSq ((a : S.FS).2 w)) v0]
+    dsimp [A, c]
+    ring
+  have hfree :
+      (∏ v : S.Sf, A1.absFin v.1 ((a : S.FS).1 v * p.1 v)) *
+        ∏ w : {w : InfinitePlace F // w ≠ v0},
+          Complex.normSq ((a : S.FS).2 w.1 * p.2 w) = A * B := by
+    simp_rw [A1.Theta.absFin_eq_norm, norm_mul, Complex.normSq_mul,
+      Finset.prod_mul_distrib]
+    dsimp [A, B]
+    simp_rw [A1.Theta.absFin_eq_norm]
+    ring
+  have hratio : (S.absS (a : S.FS) * T) / (A * B) =
+      Complex.normSq c * (T / B) := by
+    rw [hAbs]
+    field_simp [hA.ne', hB.ne']
+    <;> ring
+  have hradius : Real.sqrt ((S.absS (a : S.FS) * T) / (A * B)) =
+      ‖c‖ * Real.sqrt (T / B) := by
+    rw [hratio, Complex.normSq_eq_norm_sq, Real.sqrt_mul (sq_nonneg _),
+      Real.sqrt_sq (norm_nonneg _)]
+  have hangle : (2 * Real.pi : ℝ) *
+      (θ + Complex.arg c / (2 * Real.pi)) =
+      2 * Real.pi * θ + Complex.arg c := by
+    field_simp [Real.pi_ne_zero]
+  have hexp :
+      Complex.exp (2 * Real.pi * Complex.I *
+        ((θ + Complex.arg c / (2 * Real.pi) : ℝ) : ℂ)) =
+      Complex.exp ((Complex.arg c : ℂ) * Complex.I) *
+        Complex.exp (2 * Real.pi * Complex.I * (θ : ℂ)) := by
+    have he : 2 * Real.pi * Complex.I *
+        ((θ + Complex.arg c / (2 * Real.pi) : ℝ) : ℂ) =
+        (Complex.arg c : ℂ) * Complex.I +
+          2 * Real.pi * Complex.I * (θ : ℂ) := by
+      calc
+        _ = (((2 * Real.pi : ℝ) *
+            (θ + Complex.arg c / (2 * Real.pi)) : ℝ) : ℂ) * Complex.I := by
+          push_cast
+          ring
+        _ = _ := by
+          rw [hangle]
+          push_cast
+          ring
+    rw [he, Complex.exp_add]
+  apply Prod.ext
+  · rfl
+  · funext w
+    by_cases hw : w = v0
+    · subst w
+      simp only [Prod.snd_mul, Pi.mul_apply, Theta.sheetPoint, dif_pos rfl]
+      change c * (((Real.sqrt (T / B) : ℝ) : ℂ) *
+          Complex.exp (2 * Real.pi * Complex.I * (θ : ℂ))) =
+        ((Real.sqrt ((S.absS (a : S.FS) * T) /
+          ((∏ v : S.Sf, A1.absFin v.1 ((a : S.FS).1 v * p.1 v)) *
+            ∏ w : {w : InfinitePlace F // w ≠ v0},
+              Complex.normSq ((a : S.FS).2 w.1 * p.2 w))) : ℝ) : ℂ) *
+          Complex.exp (2 * Real.pi * Complex.I *
+            ((θ + Complex.arg c / (2 * Real.pi) : ℝ) : ℂ))
+      rw [hfree, hradius, hexp, Complex.ofReal_mul]
+      calc
+        _ = (((‖c‖ : ℝ) : ℂ) * Complex.exp ((Complex.arg c : ℂ) * Complex.I)) *
+            (((Real.sqrt (T / B) : ℝ) : ℂ) *
+              Complex.exp (2 * Real.pi * Complex.I * (θ : ℂ))) := by
+          rw [Complex.norm_mul_exp_arg_mul_I]
+        _ = _ := by ring
+    · simp only [Prod.snd_mul, Pi.mul_apply, Theta.sheetPoint, dif_neg hw]
+
 private theorem sheet_integral_Ioc_periodic_translate (g : ℝ → ℂ)
     (hg : Function.Periodic g 1) (c : ℝ) :
     ∫ θ in Set.Ioc (0 : ℝ) 1, g (θ + c) ∂volume =
