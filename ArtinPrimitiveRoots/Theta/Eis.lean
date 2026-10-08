@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A1.ThetaInterface
 import ArtinPrimitiveRoots.Spec.Interface
 import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalWhit
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-GLOBAL-DATUM».LocalModel
 
 set_option autoImplicit false
 
@@ -52,11 +53,33 @@ structure GlobalDatum (P : CoverPackage D S H A) where
 def GlobalDatum.Δ {P : CoverPackage D S H A} (G : GlobalDatum P) : Subgroup Fˣ :=
   ⨅ v : FinPlace F, (G.Alag v).comap (toLoc v)
 
+/-- Choose the exceptional or tame local model at each finite place. -/
+theorem globalLocal_models (hSt : ∀ v, SteinbergAt H v) :
+    ∀ v : FinPlace F, Nonempty (GlobalLocalModel D H v (v ∉ S.Sf)) := by
+  sorry
+
 /-- **eis:global-datum** (existence). The strengthened datum is required by C6 of
 `sol-gate-theta`. -/
 theorem exists_globalDatum (P : CoverPackage D S H A) (hSt : ∀ v, SteinbergAt H v) :
     Nonempty (GlobalDatum P) := by
-  sorry
+  classical
+  let M : ∀ v, GlobalLocalModel D H v (v ∉ S.Sf) :=
+    fun v => Classical.choice (globalLocal_models hSt v)
+  exact ⟨{
+    T := fun v => (M v).T
+    B := fun v hv => (M v).B hv
+    Alag := fun v => (M v).Alag
+    alag_cubes := fun v => (M v).cubes
+    alag_lagrangian := fun v => (M v).lagrangian
+    lam := fun v => (M v).lam
+    ω := fun _ _ => 1
+    lam_equiv := by intro v y hy x; simpa using (M v).lam_fixed y hy x
+    lam_ne := fun v => (M v).lam_ne
+    alag_tame := fun v hv => (M v).alag_tame hv
+    ω_tame := by intros; rfl
+    lam_tame := fun v hv => (M v).lam_tame hv
+    ω_rational := by intros; simp
+  }⟩
 
 /-- **def:global-section**: a factorizable section of `I(σ_𝔸, s)`, spherical outside `T0 ⊇ S_f`.
 Corrected per rev-theta to include archimedean smoothness along the root subgroups; C11 of
@@ -206,6 +229,44 @@ theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
         scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out δ)) * g)) := by
   sorry
 
+/-- The unfolded summand evaluated at a specified restricted-product lift. -/
+def whitLiftTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x : P.RP) (δ : Fˣ ⧸ G.Δ) : ℂ :=
+  (∏ᶠ v, G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+    (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v))))) *
+    ∏ w, jacquetC (rtr (P.compC w x) (Fs.fC w))
+
+/-- Absolute convergence of the unfolded series at any lift. -/
+theorem whitLiftTerm_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x : P.RP) :
+    Summable (fun δ : Fˣ ⧸ G.Δ => ‖whitLiftTerm P G μ Fs x δ‖) := by
+  sorry
+
+/-- Central phases of a lift cancel in the local Jacquet product. -/
+theorem whit_atLift (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x : P.RP) :
+    whittakerE P G μ Fs (P.q x) = (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
+  sorry
+
+/-- The small cell vanishes and the big cell tiles the archimedean integral. -/
+theorem whit_unfold_integral (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (g : P.tc.G)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) = scalarOf P G Fs.f Fs.fC h)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume)
+    (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (ν : F) (infEmbA ξ) = 1)
+    (x : P.RP) (hx : P.q x = P.tc.rat (diagGL ν) * g) :
+    torusCoeff P (eisenstein P G Fs) g Pd (ν : F) =
+      (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
+  sorry
+
 /-- **eis:whittaker** (unfolding): the `ν`-th torus coefficient is `W_E(a(ν) g)`, for `ν` in the dual
 lattice. -/
 theorem eisenstein_whittaker (P : CoverPackage D S H A) (G : GlobalDatum P)
@@ -219,6 +280,37 @@ theorem eisenstein_whittaker (P : CoverPackage D S H A) (G : GlobalDatum P)
     (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf (ν : F) (infEmbA ξ) = 1) :
     torusCoeff P (eisenstein P G Fs) g Pd (ν : F) =
       whittakerE P G μ Fs (P.tc.rat (diagGL ν) * g) := by
+  obtain ⟨x, hx⟩ := P.q_surj (P.tc.rat (diagGL ν) * g)
+  rw [← hx, whit_atLift P G μ hs Fs x]
+  exact whit_unfold_integral P G μ hs Fs g 𝔞 h𝔞 hfix Pd hPd ν hν x hx
+
+/-- Genuineness follows by inserting the center into one local component. -/
+theorem whit_center (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (ζ : rootsOfUnity 3 ℂ) (g : P.tc.G) :
+    whittakerE P G μ Fs (P.tc.z ζ * g) = ((ζ : ℂˣ) : ℂ) * whittakerE P G μ Fs g := by
+  sorry
+
+theorem whit_unipotentS (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (u : S.FS) (g : P.tc.G) :
+    whittakerE P G μ Fs (P.tc.nS (Multiplicative.ofAdd u) * g) =
+      S.e A u * whittakerE P G μ Fs g := by
+  sorry
+
+theorem whit_unipotentExterior (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (u : v.adicCompletion F) (g : P.tc.G) :
+    whittakerE P G μ Fs (P.tc.n v (Multiplicative.ofAdd u) * g) =
+      A.ψ v u * whittakerE P G μ Fs g := by
+  sorry
+
+theorem whit_rightInvariant (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (k : P.tc.G)
+    (hk : ∀ h, scalarOf P G Fs.f Fs.fC (h * k) = scalarOf P G Fs.f Fs.fC h)
+    (g : P.tc.G) : whittakerE P G μ Fs (g * k) = whittakerE P G μ Fs g := by
   sorry
 
 /-- **eis:whittaker-equiv**: `W_E` is genuine, `(N(F_S), e)`- and `(N(K_v), ψ_v)`-equivariant,
@@ -232,6 +324,48 @@ theorem whittakerE_equiv (P : CoverPackage D S H A) (G : GlobalDatum P)
       A.ψ v x * whittakerE P G μ Fs g) ∧
     (∀ k : P.tc.G, (∀ h, scalarOf P G Fs.f Fs.fC (h * k) = scalarOf P G Fs.f Fs.fC h) →
       ∀ g, whittakerE P G μ Fs (g * k) = whittakerE P G μ Fs g) := by
+  exact ⟨whit_center P G μ hs Fs, whit_unipotentS P G μ hs Fs,
+    whit_unipotentExterior P G μ hs Fs, whit_rightInvariant P G μ hs Fs⟩
+
+/-- The exterior Jacquet product, which stays fixed as the S-part varies. -/
+def whitExteriorTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x0 : P.RP) (δ : Fˣ ⧸ G.Δ) : ℂ :=
+  ∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, G.lam v.1 ((G.T v.1).σa
+    (toLoc v.1 (Quotient.out δ))
+    (jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x0) (Fs.f v.1))))
+
+def whitTensorTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (Fs : GlobalSection P G s)
+    (x0 : P.RP) (z : ∀ v : S.Sf, (G.T v.1).V) (δ : Fˣ ⧸ G.Δ) : ℂ :=
+  whitExteriorTerm P G μ Fs x0 δ *
+    ∏ v : S.Sf, G.lam v.1 ((G.T v.1).σa (toLoc v.1 (Quotient.out δ)) (z v))
+
+/-- Summability on basis tensors extends to every tensor in the finite dimensional S-part. -/
+theorem whitTensorTerm_summable (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x0 : P.RP) (z : ∀ v : S.Sf, (G.T v.1).V) :
+    Summable (fun δ : Fˣ ⧸ G.Δ => ‖whitTensorTerm P G μ Fs x0 z δ‖) := by
+  sorry
+
+/-- The summable delta-series defines a multilinear form by tsum_add and tsum_smul. -/
+theorem whit_tensor_multilinear (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x0 : P.RP) :
+    ∃ Λ : MultilinearMap ℂ (fun v : S.Sf => (G.T v.1).V) ℂ,
+      ∀ z, Λ z = (κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0 z δ := by
+  sorry
+
+/-- Separate the finite S-product and the fixed exterior product at a common lift. -/
+theorem whit_tensor_formula (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (x0 : P.RP) (Fs' : GlobalSection P G s) (x : P.RP)
+    (hext : ∀ v, v ∉ S.Sf → Fs'.f v = Fs.f v) (hC : Fs'.fC = Fs.fC)
+    (hx : ∀ v, v ∉ S.Sf → P.compF v x = P.compF v x0) :
+    whittakerE P G μ Fs' (P.q x) =
+      ((κF F)⁻¹ * ∑' δ, whitTensorTerm P G μ Fs x0
+        (fun v => jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) (Fs'.f v.1))) δ) *
+      ∏ w, jacquetC (rtr (P.compC w x) (Fs'.fC w)) := by
   sorry
 
 /-- **eis:multilinear** (linearity at the places of `S_f`): with the exterior and complex data fixed,
@@ -246,7 +380,11 @@ theorem whittakerE_multilinear (P : CoverPackage D S H A) (G : GlobalDatum P)
         whittakerE P G μ Fs' (P.q x) =
           Λ (fun v => jacquet (P.loc v.1) A (μ v.1) (rtr (P.compF v.1 x) (Fs'.f v.1))) *
             ∏ w, jacquetC (rtr (P.compC w x) (Fs'.fC w)) := by
-  sorry
+  obtain ⟨Λ, hΛ⟩ := whit_tensor_multilinear P G μ hs Fs x0
+  refine ⟨Λ, ?_⟩
+  intro Fs' x hext hC hx
+  rw [hΛ]
+  exact whit_tensor_formula P G μ hs Fs x0 Fs' x hext hC hx
 
 end Eis
 
