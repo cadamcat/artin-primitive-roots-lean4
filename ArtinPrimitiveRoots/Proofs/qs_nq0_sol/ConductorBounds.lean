@@ -184,4 +184,48 @@ theorem qs_nq0_conductorDvd_sup (χ : HeckeChar K)
   · rw [min_eq_right hle] at hubound
     exact hχJ v u hu hui hubound
 
+/-!
+Primitive-conductor divisibility has this exact signature:
+```
+theorem qs_nq0_primitive_conductor_dvd (χ : HeckeChar K)
+    (f q : Ideal (𝓞 K)) (hf : IsPrimitiveConductor χ f)
+    (hq : q ≠ ⊥) (hbound : χ.ConductorDvd q) :
+    f ∣ q
+```
+-/
+
+/-- A primitive conductor divides every nonzero conductor bound. -/
+theorem qs_nq0_primitive_conductor_dvd (χ : HeckeChar K)
+    (f q : Ideal (𝓞 K)) (hf : IsPrimitiveConductor χ f)
+    (hq : q ≠ ⊥) (hbound : χ.ConductorDvd q) :
+    f ∣ q := by
+  classical
+  have hsup : f ⊔ q ≠ ⊥ := ne_bot_of_le_ne_bot hf.1 le_sup_left
+  have hc := qs_nq0_conductorDvd_sup χ f q hf.1 hq hf.2.1 hbound
+  have hmin := hf.2.2 (f ⊔ q) hsup hc
+  have hfpos : 0 < Ideal.absNorm f := Nat.pos_of_ne_zero (by
+    intro h
+    exact hf.1 (Ideal.absNorm_eq_zero_iff.mp h))
+  have hnormeq : Ideal.absNorm f = Ideal.absNorm (f ⊔ q) :=
+    le_antisymm hmin (Nat.le_of_dvd hfpos
+      (Ideal.absNorm_dvd_absNorm_of_le (le_sup_left : f ≤ f ⊔ q)))
+  obtain ⟨r, hr⟩ := Ideal.dvd_iff_le.mpr (le_sup_left : f ≤ f ⊔ q)
+  have hnormsup : Ideal.absNorm (f ⊔ q) ≠ 0 := by
+    rw [← hnormeq]
+    exact ne_of_gt hfpos
+  have hprod : Ideal.absNorm (f ⊔ q) * Ideal.absNorm r = Ideal.absNorm (f ⊔ q) := by
+    have hnormprod := congrArg Ideal.absNorm hr
+    rw [map_mul] at hnormprod
+    exact hnormprod.symm.trans hnormeq
+  have hrnorm : Ideal.absNorm r = 1 := by
+    apply mul_left_cancel₀ hnormsup
+    simpa only [mul_one] using hprod
+  have hrtop : r = ⊤ := Ideal.absNorm_eq_one_iff.mp hrnorm
+  have hfeq : f = f ⊔ q := by
+    rw [hrtop, ← Ideal.one_eq_top, mul_one] at hr
+    exact hr
+  apply Ideal.dvd_iff_le.mpr
+  rw [hfeq]
+  exact le_sup_right
+
 end ArtinPrimitiveRoots.A2
