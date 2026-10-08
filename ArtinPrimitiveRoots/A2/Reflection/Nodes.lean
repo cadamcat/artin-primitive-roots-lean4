@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.Hecke.Elementary
 import ArtinPrimitiveRoots.A2.ZeroFree.Nodes
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_ARITH.LocalHecke
 import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».SYMBOL
+import ArtinPrimitiveRoots.A2.Proofs.«A2-BRIDGES».FINITE_CHAR
 
 /-!
 # Section 4: row replacement, moving twists, S-characters, and the finite mask
@@ -904,7 +905,327 @@ theorem rf_mask_identity
     ∀ (j : Fin 6) (t : 𝓞 F ⧸ P.asIdeal),
       ∑ᶠ x : 𝓞 F ⧸ P.asIdeal, maskAlpha D A P p j x * maskPhase A P p t x =
         ArtinPrimitiveRoots.A1.chiPow D P (algebraMap (𝓞 F) F t.out) (j.1 : ℤ) := by
-  sorry
+  classical
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueField P
+  letI := ArtinPrimitiveRoots.A2.bridgeResidueFintype P
+  obtain ⟨_, ⟨χ, hχord, hχval⟩, ⟨ψ, hψprim, hψval⟩⟩ :=
+    ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR D S A P hP p hp.1
+  let SB := ArtinPrimitiveRoots.A2.a2_bridge_SYMBOL D S
+  have hres (x : 𝓞 F ⧸ P.asIdeal) :
+      ArtinPrimitiveRoots.A1.residue P (algebraMap (𝓞 F) F x.out) = x :=
+    by simpa using SB.residue_algebraMap P x.out
+  have hphase (t x : 𝓞 F ⧸ P.asIdeal) :
+      maskPhase A P p t x = ψ (t * x) := (hψval t x).symm
+  have hcharPower (e : ℤ) (x : 𝓞 F ⧸ P.asIdeal) :
+      (χ ^ e) x = ArtinPrimitiveRoots.A1.chiPow D P
+        (algebraMap (𝓞 F) F x.out) e := by
+    by_cases hx : x = 0
+    · subst x
+      have hz : ArtinPrimitiveRoots.A1.residue P
+          (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ P.asIdeal).out) = 0 := by
+        rw [hres]
+      rw [MulChar.map_nonunit _ (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ P.asIdeal)),
+        SB.chiPow_zero P _ e hz]
+    · let u : (𝓞 F ⧸ P.asIdeal)ˣ := Units.mk0 x hx
+      have hχu : χ (u : 𝓞 F ⧸ P.asIdeal) = ArtinPrimitiveRoots.A1.chiPow D P
+          (algebraMap (𝓞 F) F x.out) 1 := by
+        change χ x = _
+        exact hχval x
+      have hresne : ArtinPrimitiveRoots.A1.residue P
+          (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+        rw [hres]
+        exact hx
+      have hEval : (χ ^ e) (u : 𝓞 F ⧸ P.asIdeal) = (χ u) ^ e := by
+        calc
+          (χ ^ e) (u : 𝓞 F ⧸ P.asIdeal) = χ (u ^ e : (𝓞 F ⧸ P.asIdeal)ˣ) :=
+            MulChar.zpow_apply_coe χ e u
+          _ = (χ u) ^ e := by
+            change ((χ.toUnitHom (u ^ e) : ℂˣ) : ℂ) =
+              ((χ.toUnitHom u : ℂˣ) : ℂ) ^ e
+            rw [map_zpow, Units.val_zpow_eq_zpow_val]
+      have hEvalX : (χ ^ e) x = (χ x) ^ e := by
+        change (χ ^ e) (u : 𝓞 F ⧸ P.asIdeal) = (χ u) ^ e
+        exact hEval
+      calc
+        (χ ^ e) x = (χ x) ^ e := hEvalX
+        _ = (ArtinPrimitiveRoots.A1.chiPow D P
+            (algebraMap (𝓞 F) F x.out) 1) ^ e := by rw [hχval x]
+        _ = ArtinPrimitiveRoots.A1.chiPow D P
+            (algebraMap (𝓞 F) F x.out) e := by
+          rw [SB.chiPow_nonzero P _ 1 hresne, SB.chiPow_nonzero P _ e hresne]
+          simp
+  have htau (j : Fin 6) :
+      maskTau D A P p j = gaussSum (χ ^ (-(j.1 : ℤ))) ψ := by
+    unfold maskTau
+    rw [ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum P
+      (fun x : 𝓞 F ⧸ P.asIdeal => if x = 0 then 0 else
+        ArtinPrimitiveRoots.A1.chi D P (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) *
+          maskPhase A P p 1 x)]
+    rw [gaussSum]
+    apply Finset.sum_congr rfl
+    intro x _
+    by_cases hx : x = 0
+    · subst x
+      have hχzero : ((χ ^ (j.1 : ℤ))⁻¹) (0 : 𝓞 F ⧸ P.asIdeal) = 0 :=
+        MulChar.map_nonunit _ (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ P.asIdeal))
+      simpa [zpow_neg] using hχzero.symm
+    · have hresne : ArtinPrimitiveRoots.A1.residue P
+          (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+        rw [hres]
+        exact hx
+      have hcoeff : ArtinPrimitiveRoots.A1.chi D P
+          (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) =
+          (χ ^ (-(j.1 : ℤ))) x := by
+        calc
+          _ = ArtinPrimitiveRoots.A1.chiPow D P
+              (algebraMap (𝓞 F) F x.out) (-(j.1 : ℤ)) :=
+                (SB.chiPow_nonzero P _ _ hresne).symm
+          _ = (χ ^ (-(j.1 : ℤ))) x := (hcharPower _ x).symm
+      simp only [if_neg hx]
+      rw [hcoeff, hphase]
+      simp
+  have hcharNotOne (j : Fin 6) (hj : j ≠ 0) :
+      χ ^ (-(j.1 : ℤ)) ≠ (1 : MulChar (𝓞 F ⧸ P.asIdeal) ℂ) := by
+    intro h
+    have hd : (orderOf χ : ℤ) ∣ -(j.1 : ℤ) :=
+      (orderOf_dvd_iff_zpow_eq_one).2 h
+    rw [hχord] at hd
+    have hd' : (6 : ℤ) ∣ (j.1 : ℤ) := by
+      simpa using (dvd_neg.mp hd)
+    have hdNat : 6 ∣ j.1 := Int.natCast_dvd_natCast.mp hd'
+    have hjval : j.1 ≠ 0 := by
+      intro hv
+      apply hj
+      exact Fin.ext hv
+    have hjpos : 0 < j.1 := Nat.pos_of_ne_zero hjval
+    have hjle : 6 ≤ j.1 := Nat.le_of_dvd hjpos hdNat
+    omega
+  have hcardPos : 0 < Fintype.card (𝓞 F ⧸ P.asIdeal) := Fintype.card_pos
+  have hcardNe : (Fintype.card (𝓞 F ⧸ P.asIdeal) : ℂ) ≠ 0 := by
+    exact_mod_cast (Nat.ne_of_gt hcardPos)
+  have hnormCard :
+      Fintype.card (𝓞 F ⧸ P.asIdeal) = Ideal.absNorm P.asIdeal := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  have hcardNorm : (Fintype.card (𝓞 F ⧸ P.asIdeal) : ℂ) =
+      (Ideal.absNorm P.asIdeal : ℂ) := by exact_mod_cast hnormCard
+  have hqNe : (Ideal.absNorm P.asIdeal : ℂ) ≠ 0 := by
+    rw [← hcardNorm]
+    exact hcardNe
+  have horth (t : 𝓞 F ⧸ P.asIdeal) :
+      (∑ x : 𝓞 F ⧸ P.asIdeal, ψ (t * x)) =
+        if t = 0 then (Ideal.absNorm P.asIdeal : ℂ) else 0 :=
+    ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_orthogonality P ψ hψprim t
+  have hfinsum (f : (𝓞 F ⧸ P.asIdeal) → ℂ) :
+      (∑ᶠ x : 𝓞 F ⧸ P.asIdeal, f x) = ∑ x, f x :=
+    ArtinPrimitiveRoots.A2.a2_bridge_FINITE_CHAR_finsum P f
+  intro j t
+  by_cases hj : j = 0
+  · subst j
+    have htarget : ArtinPrimitiveRoots.A1.chiPow D P
+        (algebraMap (𝓞 F) F t.out) 0 = if t = 0 then 0 else 1 := by
+      by_cases ht : t = 0 <;> simp [ArtinPrimitiveRoots.A1.chiPow, hres, ht]
+    calc
+      (∑ᶠ x : 𝓞 F ⧸ P.asIdeal,
+          maskAlpha D A P p 0 x * maskPhase A P p t x) =
+          ∑ x : 𝓞 F ⧸ P.asIdeal,
+            maskAlpha D A P p 0 x * maskPhase A P p t x := hfinsum _
+      _ = 1 - (Ideal.absNorm P.asIdeal : ℂ)⁻¹ *
+          ∑ x : 𝓞 F ⧸ P.asIdeal, ψ (t * x) := by
+        calc
+          _ = ∑ x : 𝓞 F ⧸ P.asIdeal,
+              ((if x = 0 then (1 : ℂ) else 0) -
+                (Ideal.absNorm P.asIdeal : ℂ)⁻¹) * ψ (t * x) := by
+            apply Finset.sum_congr rfl
+            intro x _
+            by_cases hx : x = 0 <;> simp [maskAlpha, hx, hphase]
+          _ = (∑ x : 𝓞 F ⧸ P.asIdeal,
+                (if x = 0 then (1 : ℂ) else 0) * ψ (t * x)) -
+              ∑ x : 𝓞 F ⧸ P.asIdeal,
+                (Ideal.absNorm P.asIdeal : ℂ)⁻¹ * ψ (t * x) := by
+            rw [← Finset.sum_sub_distrib]
+            congr 1
+            ext x
+            ring
+          _ = 1 - (Ideal.absNorm P.asIdeal : ℂ)⁻¹ *
+              ∑ x : 𝓞 F ⧸ P.asIdeal, ψ (t * x) := by
+            have hdelta : (∑ x : 𝓞 F ⧸ P.asIdeal,
+                (if x = 0 then (1 : ℂ) else 0) * ψ (t * x)) = 1 := by
+              simp
+            rw [hdelta, Finset.mul_sum]
+      _ = if t = 0 then 0 else 1 := by
+        rw [horth]
+        by_cases ht : t = 0 <;> simp [ht, hqNe]
+      _ = ArtinPrimitiveRoots.A1.chiPow D P
+          (algebraMap (𝓞 F) F t.out) 0 := htarget.symm
+  · let χj : MulChar (𝓞 F ⧸ P.asIdeal) ℂ := χ ^ (-(j.1 : ℤ))
+    have hχjNe : χj ≠ 1 := by
+      simpa [χj] using hcharNotOne j hj
+    have htauNe : maskTau D A P p j ≠ 0 := by
+      rw [htau]
+      exact gaussSum_ne_zero_of_nontrivial hcardNe hχjNe hψprim
+    have hcoeff (x : 𝓞 F ⧸ P.asIdeal) :
+        ArtinPrimitiveRoots.A1.chi D P (algebraMap (𝓞 F) F x.out) ^ (-(j.1 : ℤ)) =
+          χj x := by
+      by_cases hx : x = 0
+      · subst x
+        have hz : ArtinPrimitiveRoots.A1.residue P
+            (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ P.asIdeal).out) = 0 := by
+          rw [hres]
+        have hχzero : ArtinPrimitiveRoots.A1.chi D P
+            (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ P.asIdeal).out) = 0 := by
+          simp [ArtinPrimitiveRoots.A1.chi, hz]
+        have hχjzero : χj (0 : 𝓞 F ⧸ P.asIdeal) = 0 :=
+          MulChar.map_zero χj
+        have hjval : j.1 ≠ 0 := by
+          intro h
+          apply hj
+          exact Fin.ext h
+        have hexp : (-(j.1 : ℤ)) ≠ 0 := by
+          apply neg_ne_zero.mpr
+          exact_mod_cast hjval
+        rw [hχzero, hχjzero]
+        exact zero_zpow _ hexp
+      · have hresne : ArtinPrimitiveRoots.A1.residue P
+            (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+          rw [hres]
+          exact hx
+        calc
+          _ = ArtinPrimitiveRoots.A1.chiPow D P
+              (algebraMap (𝓞 F) F x.out) (-(j.1 : ℤ)) :=
+                (SB.chiPow_nonzero P _ _ hresne).symm
+          _ = χj x := (hcharPower _ x).symm
+    have halpha (x : 𝓞 F ⧸ P.asIdeal) :
+        maskAlpha D A P p j x = (maskTau D A P p j)⁻¹ * χj x := by
+      by_cases hx : x = 0
+      · subst x
+        have hχjzero : χj (0 : 𝓞 F ⧸ P.asIdeal) = 0 :=
+          MulChar.map_nonunit χj (by simp : ¬ IsUnit (0 : 𝓞 F ⧸ P.asIdeal))
+        simp [maskAlpha, hj, hχjzero]
+      · simp [maskAlpha, hj, hx, hcoeff]
+    calc
+      (∑ᶠ x : 𝓞 F ⧸ P.asIdeal,
+          maskAlpha D A P p j x * maskPhase A P p t x) =
+          ∑ x : 𝓞 F ⧸ P.asIdeal,
+            maskAlpha D A P p j x * maskPhase A P p t x := hfinsum _
+      _ = ArtinPrimitiveRoots.A1.chiPow D P
+          (algebraMap (𝓞 F) F t.out) (j.1 : ℤ) := by
+        by_cases ht : t = 0
+        · subst t
+          have hz : ArtinPrimitiveRoots.A1.residue P
+              (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ P.asIdeal).out) = 0 := by
+            rw [hres]
+          have htarget0 : ArtinPrimitiveRoots.A1.chiPow D P
+              (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ P.asIdeal).out) (j.1 : ℤ) = 0 :=
+            SB.chiPow_zero P _ _ hz
+          calc
+            _ = (maskTau D A P p j)⁻¹ *
+                ∑ x : 𝓞 F ⧸ P.asIdeal, χj x := by
+              calc
+                _ = ∑ x : 𝓞 F ⧸ P.asIdeal,
+                    ((maskTau D A P p j)⁻¹ * χj x) * ψ (0 * x) := by
+                  apply Finset.sum_congr rfl
+                  intro x _
+                  rw [halpha, hphase]
+                _ = (maskTau D A P p j)⁻¹ *
+                    ∑ x : 𝓞 F ⧸ P.asIdeal, χj x := by
+                  simp only [zero_mul, ψ.map_zero_eq_one, mul_one]
+                  rw [Finset.mul_sum]
+            _ = 0 := by
+              calc
+                _ = (maskTau D A P p j)⁻¹ * 0 := by
+                  rw [MulChar.sum_eq_zero_of_ne_one hχjNe]
+                _ = 0 := by simp
+            _ = ArtinPrimitiveRoots.A1.chiPow D P
+                (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ P.asIdeal).out) (j.1 : ℤ) := htarget0.symm
+        · have hsumChange :
+              (∑ x : 𝓞 F ⧸ P.asIdeal, χj x * ψ (t * x)) =
+                χj (t⁻¹) * gaussSum χj ψ := by
+            calc
+              _ = ∑ y : 𝓞 F ⧸ P.asIdeal,
+                  χj (t⁻¹ * y) * ψ (t * (t⁻¹ * y)) := by
+                rw [Fintype.sum_bijective (fun x : 𝓞 F ⧸ P.asIdeal => t * x)
+                  (mulLeft_bijective₀ t ht)
+                  (fun x => χj x * ψ (t * x))
+                  (fun y => χj (t⁻¹ * y) * ψ (t * (t⁻¹ * y))) (by
+                    intro x
+                    rw [show t⁻¹ * (t * x) = x by
+                      calc
+                        t⁻¹ * (t * x) = (t⁻¹ * t) * x := by ac_rfl
+                        _ = x := by
+                          calc
+                            _ = 1 * x := congrArg (fun z : 𝓞 F ⧸ P.asIdeal => z * x)
+                              (inv_mul_cancel₀ ht)
+                            _ = x := one_mul x])]
+              _ = ∑ y : 𝓞 F ⧸ P.asIdeal, χj (t⁻¹) * (χj y * ψ y) := by
+                apply Finset.sum_congr rfl
+                intro y _
+                rw [map_mul]
+                have hy : t * (t⁻¹ * y) = y := by
+                  calc
+                    t * (t⁻¹ * y) = (t * t⁻¹) * y := by ac_rfl
+                    _ = y := by
+                      calc
+                        _ = 1 * y := congrArg (fun z : 𝓞 F ⧸ P.asIdeal => z * y)
+                          (mul_inv_cancel₀ ht)
+                        _ = y := one_mul y
+                rw [hy]
+                ring
+              _ = χj (t⁻¹) * ∑ y : 𝓞 F ⧸ P.asIdeal, χj y * ψ y := by
+                rw [Finset.mul_sum]
+              _ = χj (t⁻¹) * gaussSum χj ψ := by rw [gaussSum]
+          have htarget : χj (t⁻¹) = ArtinPrimitiveRoots.A1.chiPow D P
+              (algebraMap (𝓞 F) F t.out) (j.1 : ℤ) := by
+            let u : (𝓞 F ⧸ P.asIdeal)ˣ := Units.mk0 t ht
+            have hEval : (χ ^ (-(j.1 : ℤ))) (u⁻¹ : 𝓞 F ⧸ P.asIdeal) =
+                (χ ^ (j.1 : ℤ)) (u : 𝓞 F ⧸ P.asIdeal) := by
+              calc
+                (χ ^ (-(j.1 : ℤ))) (u⁻¹ : 𝓞 F ⧸ P.asIdeal) =
+                    χ ((u⁻¹) ^ (-(j.1 : ℤ)) : (𝓞 F ⧸ P.asIdeal)ˣ) :=
+                      MulChar.zpow_apply_coe χ _ u⁻¹
+                _ = χ (u ^ (j.1 : ℤ) : (𝓞 F ⧸ P.asIdeal)ˣ) := by
+                  congr 1
+                  simp
+                _ = (χ ^ (j.1 : ℤ)) (u : 𝓞 F ⧸ P.asIdeal) :=
+                  (MulChar.zpow_apply_coe χ _ u).symm
+            calc
+              χj (t⁻¹) = (χ ^ (-(j.1 : ℤ))) (u⁻¹ : 𝓞 F ⧸ P.asIdeal) := by
+                change (χ ^ (-(j.1 : ℤ))) (t⁻¹ : 𝓞 F ⧸ P.asIdeal) = _
+                congr 1
+              _ = (χ ^ (j.1 : ℤ)) (u : 𝓞 F ⧸ P.asIdeal) := hEval
+              _ = ArtinPrimitiveRoots.A1.chiPow D P
+                  (algebraMap (𝓞 F) F t.out) (j.1 : ℤ) := by
+                change (χ ^ (j.1 : ℤ)) t = _
+                exact hcharPower (j.1 : ℤ) t
+          calc
+            _ = (maskTau D A P p j)⁻¹ *
+                ∑ x : 𝓞 F ⧸ P.asIdeal, χj x * ψ (t * x) := by
+              calc
+                _ = ∑ x : 𝓞 F ⧸ P.asIdeal,
+                    ((maskTau D A P p j)⁻¹ * χj x) * ψ (t * x) := by
+                  apply Finset.sum_congr rfl
+                  intro x _
+                  rw [halpha, hphase]
+                _ = (maskTau D A P p j)⁻¹ *
+                    ∑ x : 𝓞 F ⧸ P.asIdeal, χj x * ψ (t * x) := by
+                  rw [Finset.mul_sum]
+                  apply Finset.sum_congr rfl
+                  intro x _
+                  ring
+            _ = (maskTau D A P p j)⁻¹ *
+                (χj (t⁻¹) * gaussSum χj ψ) := by rw [hsumChange]
+            _ = χj (t⁻¹) := by
+              rw [htau j]
+              have hGaussNe : gaussSum (χ ^ (-(j.1 : ℤ))) ψ ≠ 0 := by
+                rw [← htau j]
+                exact htauNe
+              calc
+                _ = χj (t⁻¹) *
+                    ((gaussSum (χ ^ (-(j.1 : ℤ))) ψ)⁻¹ *
+                      gaussSum (χ ^ (-(j.1 : ℤ))) ψ) := by ring
+                _ = χj (t⁻¹) := by
+                  rw [inv_mul_cancel₀ hGaussNe, mul_one]
+            _ = ArtinPrimitiveRoots.A1.chiPow D P
+                (algebraMap (𝓞 F) F t.out) (j.1 : ℤ) := htarget
 
 /-- **lem:reflection-quadratic-sieve** (04-reflection.tex:941-1025): the narrow quadratic sieve
 in the consumer form.  Rows and columns are squarefree exterior ideals, columns carry allowed
