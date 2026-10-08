@@ -1,6 +1,6 @@
 import ArtinPrimitiveRoots.A1.AddChar
 import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.Core
-import ArtinPrimitiveRoots.Arith.SUnit
+import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.UnitCompactCore
 import ArtinPrimitiveRoots.Theta.LocalInt
 import ArtinPrimitiveRoots.A2.Proofs.A2_ZF_TOP.ArchFourier
 import Mathlib.MeasureTheory.Group.Measure
@@ -2920,193 +2920,13 @@ def SData.fsOneSetoid (S : SData F CE condη) : Setoid S.FSOne where
           group
   }
 
-private theorem S_units_finite_mod_six (S : SData F CE condη) :
-    Finite (S.US ⧸ (powMonoidHom 6 : S.US →* S.US).range) := by
-  have hfg : Monoid.FG S.US := by
-    change Monoid.FG ((S.Sf : Set (HeightOneSpectrum (𝓞 F))).unit F)
-    exact ArtinPrimitiveRoots.Arith.sUnit_fg F S.Sf
-  letI : Group.FG S.US := Group.fg_iff_monoid_fg.mpr hfg
-  have hindex : (powMonoidHom (α := S.US) 6).range.FiniteIndex :=
-    Subgroup.finiteIndex_range_powMonoidHom_of_fg S.US (by norm_num)
-  exact Subgroup.finiteIndex_iff_finite_quotient.mp hindex
-
-open Module NumberField.Units NumberField.Units.dirichletUnitTheorem
-
-private theorem covol_unit_balance (D : FieldData F)
-    (E : Subgroup (𝓞 F)ˣ) [E.FiniteIndex] :
-    ∃ B : ℝ, 0 ≤ B ∧ ∀ t : InfinitePlace F → ℝ, (∀ w, 0 < t w) →
-      ∃ ε : (𝓞 F)ˣ, ε ∈ E ∧ ∀ w,
-        |Real.log (‖w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))‖ * t w) -
-          (Fintype.card (InfinitePlace F) : ℝ)⁻¹ *
-            ∑ w' : InfinitePlace F, Real.log (t w')| ≤ B := by
-  classical
-  letI : IsTotallyComplex F := D.isTotallyComplex
-  let w₀ : InfinitePlace F := dirichletUnitTheorem.w₀
-  let b : Basis (Fin (Units.rank F)) ℝ (dirichletUnitTheorem.logSpace F) :=
-    (Units.basisUnitLattice F).ofZLatticeBasis ℝ (Units.unitLattice F)
-  let C : ℝ := ∑ i, ‖b i‖
-  let n : ℕ := E.index
-  let r : ℝ := Fintype.card (InfinitePlace F)
-  have hr : 0 < r := by
-    dsimp [r]
-    exact_mod_cast (Fintype.card_pos : 0 < Fintype.card (InfinitePlace F))
-  have hn0 : n ≠ 0 := by
-    dsimp [n]
-    exact Subgroup.FiniteIndex.index_ne_zero
-  have hn : 0 < n := Nat.pos_of_ne_zero hn0
-  have hC : 0 ≤ C := by
-    dsimp [C]
-    positivity
-  refine ⟨r * n * C, mul_nonneg (mul_nonneg hr.le (Nat.cast_nonneg _)) hC, ?_⟩
-  intro t ht
-  let m : ℝ := r⁻¹ * ∑ w : InfinitePlace F, Real.log (t w)
-  let x : dirichletUnitTheorem.logSpace F := fun w => -2 * (Real.log (t w.val) - m)
-  let q : dirichletUnitTheorem.logSpace F := (n : ℝ)⁻¹ • x
-  let l : dirichletUnitTheorem.logSpace F := (ZSpan.floor b q : dirichletUnitTheorem.logSpace F)
-  let p : dirichletUnitTheorem.logSpace F := ZSpan.fract b q
-  have hp : ‖p‖ ≤ C := by
-    dsimp [p, C]
-    exact ZSpan.norm_fract_le b q
-  have hcoord (w : {w : InfinitePlace F // w ≠ w₀}) : |p w| ≤ C := by
-    have hc : ‖p w‖ ≤ ‖p‖ := by
-      rw [Pi.norm_def]
-      have hs : ‖p w‖₊ ≤ Finset.univ.sup
-          (fun b : {w : InfinitePlace F // w ≠ w₀} => ‖p b‖₊) :=
-        Finset.le_sup (f := fun b : {w : InfinitePlace F // w ≠ w₀} => ‖p b‖₊)
-          (Finset.mem_univ w)
-      exact NNReal.coe_le_coe.mpr hs
-    rw [← Real.norm_eq_abs]
-    exact hc.trans hp
-  have hlattice : (l : dirichletUnitTheorem.logSpace F) ∈ Units.unitLattice F := by
-    have hspan : l ∈ Submodule.span ℤ (Set.range b) := by
-      dsimp [l]
-      exact (ZSpan.floor b q).property
-    have heq : Submodule.span ℤ (Set.range b) = Units.unitLattice F :=
-      Module.Basis.ofZLatticeBasis_span ℝ (Units.unitLattice F)
-        (Units.basisUnitLattice F)
-    exact heq ▸ hspan
-  change l ∈ Submodule.map (logEmbedding F).toIntLinearMap ⊤ at hlattice
-  obtain ⟨z, hz, hzl⟩ := Submodule.mem_map.mp hlattice
-  let η : (𝓞 F)ˣ := z.toMul
-  have hη : logEmbedding F (Additive.ofMul η) = l := by
-    simpa [η] using hzl
-  let ε : (𝓞 F)ˣ := η ^ n
-  have hεE : ε ∈ E := by
-    dsimp [ε, η]
-    exact E.pow_index_mem z.toMul
-  have hεlog : logEmbedding F (Additive.ofMul ε) = n • l := by
-    rw [show ε = η ^ n by rfl, ofMul_pow, map_nsmul, hη]
-  have hcenter : ∑ w : InfinitePlace F, (Real.log (t w) - m) = 0 := by
-    dsimp [m, r]
-    simp only [Finset.sum_sub_distrib, Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
-    field_simp [Nat.cast_ne_zero.mpr (Fintype.card_pos.ne' :
-      Fintype.card (InfinitePlace F) ≠ 0)]
-    ring
-  have hunit : ∑ w : InfinitePlace F,
-      Real.log ‖w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))‖ = 0 := by
-    have hu := Units.sum_mult_mul_log ε
-    have hu' : ∑ w : InfinitePlace F,
-        2 * Real.log ‖w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))‖ = 0 := by
-      simpa [IsTotallyComplex.mult_eq, ← InfinitePlace.norm_embedding_eq] using hu
-    have hsum := hu'
-    rw [← Finset.mul_sum] at hsum
-    nlinarith
-  let d : InfinitePlace F → ℝ := fun w =>
-      Real.log ‖w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))‖ + Real.log (t w) - m
-  have hdsum : ∑ w : InfinitePlace F, d w = 0 := by
-    dsimp [d]
-    rw [Finset.sum_sub_distrib, Finset.sum_add_distrib, hunit]
-    have hc : (∑ w : InfinitePlace F, Real.log (t w)) -
-        (∑ w : InfinitePlace F, m) = 0 := by
-      simpa only [Finset.sum_sub_distrib] using hcenter
-    linarith [hc]
-  have hretained (w : {w : InfinitePlace F // w ≠ w₀}) : |d w.val| ≤ (n : ℝ) * C := by
-    have hlog : 2 * Real.log
-        ‖w.val.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))‖ =
-          (n : ℝ) * (ZSpan.floor b q : dirichletUnitTheorem.logSpace F) w := by
-      simpa [logEmbedding_component, IsTotallyComplex.mult_eq,
-        InfinitePlace.norm_embedding_eq, Pi.smul_apply, smul_eq_mul, l]
-        using congrFun hεlog w
-    have hqcoord : q w = (n : ℝ)⁻¹ * x w := by simp [q, Pi.smul_apply]
-    have hfract : p w = q w - (ZSpan.floor b q : dirichletUnitTheorem.logSpace F) w := by
-      simp [p, ZSpan.fract_apply]
-    have hxmul : (n : ℝ) * q w = x w := by
-      rw [hqcoord]
-      field_simp [hn.ne']
-    have hldiff :
-        (n : ℝ) * (ZSpan.floor b q : dirichletUnitTheorem.logSpace F) w - x w =
-          -(n : ℝ) * p w := by
-      rw [← hxmul, hfract]
-      ring
-    have hvalue : d w.val =
-        ((n : ℝ) * (ZSpan.floor b q : dirichletUnitTheorem.logSpace F) w - x w) / 2 := by
-      dsimp [d, x]
-      rw [← hlog]
-      ring
-    calc
-      |d w.val| = |-(n : ℝ) * p w / 2| := by rw [hvalue, hldiff]
-      _ = (n : ℝ) * |p w| / 2 := by
-        rw [abs_div, abs_mul, abs_neg, abs_of_nonneg (Nat.cast_nonneg n)]
-        norm_num
-      _ ≤ (n : ℝ) * C / 2 := by gcongr; exact hcoord w
-      _ ≤ (n : ℝ) * C := by nlinarith [mul_nonneg (Nat.cast_nonneg n) hC]
-  have hsplit := Fintype.sum_eq_add_sum_subtype_ne d w₀
-  have hw₀ : d w₀ = -∑ w : {w : InfinitePlace F // w ≠ w₀}, d w.val := by
-    have h := hdsum
-    rw [hsplit] at h
-    linarith
-  have hdrop : |d w₀| ≤ r * (n : ℝ) * C := by
-    rw [hw₀, abs_neg]
-    calc
-      |∑ w : {w : InfinitePlace F // w ≠ w₀}, d w.val| ≤
-          ∑ w : {w : InfinitePlace F // w ≠ w₀}, |d w.val| := Finset.abs_sum_le_sum_abs _ _
-      _ ≤ ∑ w : {w : InfinitePlace F // w ≠ w₀}, (n : ℝ) * C :=
-          Finset.sum_le_sum fun w hw => hretained w
-      _ = (Fintype.card {w : InfinitePlace F // w ≠ w₀} : ℝ) * ((n : ℝ) * C) := by simp
-      _ ≤ r * (n : ℝ) * C := by
-          have hcard : Fintype.card {w : InfinitePlace F // w ≠ w₀} ≤
-              Fintype.card (InfinitePlace F) := Fintype.card_subtype_le _
-          have hreal : (Fintype.card {w : InfinitePlace F // w ≠ w₀} : ℝ) ≤ r := by
-            dsimp [r]
-            exact_mod_cast hcard
-          calc
-            (Fintype.card {w : InfinitePlace F // w ≠ w₀} : ℝ) * ((n : ℝ) * C) ≤
-                r * ((n : ℝ) * C) := mul_le_mul_of_nonneg_right hreal
-                  (mul_nonneg (Nat.cast_nonneg n) hC)
-            _ = r * (n : ℝ) * C := by ring
-  have hr1 : 1 ≤ r := by
-    dsimp [r]
-    have hc : 0 < Fintype.card (InfinitePlace F) := Fintype.card_pos
-    exact_mod_cast (show 1 ≤ Fintype.card (InfinitePlace F) by omega)
-  have hnormpos (w : InfinitePlace F) :
-      0 < ‖w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))‖ := by
-    apply norm_pos_iff.mpr
-    have hO : (ε : 𝓞 F) ≠ 0 := Units.ne_zero ε
-    have hF : algebraMap (𝓞 F) F (ε : 𝓞 F) ≠ 0 :=
-      (map_ne_zero_iff (algebraMap (𝓞 F) F)
-        (FaithfulSMul.algebraMap_injective (𝓞 F) F)).mpr hO
-    exact (map_ne_zero_iff w.embedding w.embedding.injective).mpr hF
-  have htarget (w : InfinitePlace F) :
-      Real.log (‖w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))‖ * t w) -
-        r⁻¹ * ∑ w' : InfinitePlace F, Real.log (t w') = d w := by
-    rw [Real.log_mul (hnormpos w).ne' (ht w).ne']
-  refine ⟨ε, hεE, ?_⟩
-  intro w
-  by_cases hw : w = w₀
-  · subst w
-    rw [htarget]
-    exact hdrop
-  · have hd := hretained ⟨w, hw⟩
-    have hbound : (n : ℝ) * C ≤ r * (n : ℝ) * C := by
-      have hnc : 0 ≤ (n : ℝ) * C := mul_nonneg (Nat.cast_nonneg n) hC
-      nlinarith [mul_nonneg (sub_nonneg.mpr hr1) hnc]
-    rw [htarget]
-    exact hd.trans hbound
-
 private theorem fsOne_compact_representatives (S : SData F CE condη) (D : FieldData F) :
     ∃ K : Set S.FS, IsCompact K ∧
       ∀ x : S.FSOne, ∃ y : S.FSOne, (y.1 : S.FS) ∈ K ∧ S.fsOneRel x y := by
-  sorry
+  obtain ⟨K, hK, _hnorm, hrep⟩ :=
+    ArtinPrimitiveRoots.Proofs.A1_LATTICE.fsOne_compact_representatives_core S D
+  refine ⟨K, hK, ?_⟩
+  simpa [SData.FSOne, SData.fsOneRel] using hrep
 
 /-- Compactness of `F_S^1/U_S^6`, stated as a compact set of representatives for its quotient. -/
 theorem SData.FSOne_quotient_compact (S : SData F CE condη) (D : FieldData F) :
