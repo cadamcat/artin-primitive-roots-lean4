@@ -2494,6 +2494,274 @@ private theorem finLocalSmallAlgebra_decomposition
     rfl
   exact ⟨α, β, u, hα, hβ, hu, B.Kc_inj m hm hxK hp hpr⟩
 
+/-- Every conjugation sends a sufficiently small splitting subgroup into a given one. -/
+private theorem finLocalSmallAlgebra_conjugation
+    (D : FieldData F) (H : HilbertData F) (v : FinPlace F)
+    (hSt : SteinbergAt H v) (C : FinLocalAlgebra D H v)
+    (B : FinLocalSmallAlgebra C) :
+    ∀ g : C.L, ∀ m : ℕ, B.m0 ≤ m →
+      ∃ m' : ℕ, B.m0 ≤ m' ∧
+        ∀ x ∈ B.Kc m', g * x * g⁻¹ ∈ B.Kc m := by
+  classical
+  let K := v.adicCompletion F
+  let V : Valuation K (WithZero (Multiplicative ℤ)) := Valued.v
+  let conj (g : C.L) : C.L →* C.L := (MulAut.conj g).toMonoidHom
+  let Good (g : C.L) : Prop := ∀ m : ℕ, B.m0 ≤ m →
+    ∃ n : ℕ, B.m0 ≤ n ∧ ∀ x ∈ B.Kc n, conj g x ∈ B.Kc m
+  change ∀ g, Good g
+  have monoBall (p q : ℕ) (hpq : p ≤ q) : ball v q ⊆ ball v p := by
+    intro x hx
+    change V x ≤ WithZero.exp (-(p : ℤ))
+    change V x ≤ WithZero.exp (-(q : ℤ)) at hx
+    exact hx.trans (WithZero.exp_le_exp.mpr (by omega))
+  have scaledBall (a : K) (m : ℕ) :
+      ∃ n : ℕ, m ≤ n ∧ ∀ x ∈ ball v n, a * x ∈ ball v m := by
+    let c := (WithZero.log (V a)).toNat
+    have ha : V a ≤ WithZero.exp (c : ℤ) :=
+      WithZero.le_exp_log.trans (WithZero.exp_le_exp.mpr (Int.self_le_toNat _))
+    refine ⟨m + c, by omega, ?_⟩
+    intro x hx
+    change V (a * x) ≤ WithZero.exp (-(m : ℤ))
+    change V x ≤ WithZero.exp (-((m + c : ℕ) : ℤ)) at hx
+    rw [map_mul]
+    calc
+      V a * V x ≤ WithZero.exp (c : ℤ) * WithZero.exp (-((m + c : ℕ) : ℤ)) :=
+        mul_le_mul' ha hx
+      _ = WithZero.exp (-(m : ℤ)) := by
+        rw [← WithZero.exp_add]
+        congr 1
+        omega
+  have mulGood {g h : C.L} (hg : Good g) (hh : Good h) : Good (g * h) := by
+    intro m hm
+    obtain ⟨n, hn, hgn⟩ := hg m hm
+    obtain ⟨n', hn', hhn⟩ := hh n hn
+    refine ⟨n', hn', ?_⟩
+    intro x hx
+    have hk := hgn _ (hhn x hx)
+    change g * (h * x * h⁻¹) * g⁻¹ ∈ B.Kc m at hk
+    change (g * h) * x * (g * h)⁻¹ ∈ B.Kc m
+    simpa only [mul_inv_rev, mul_assoc] using hk
+  have centralGood (ζ : rootsOfUnity 3 ℂ) : Good (C.z ζ) := by
+    intro m hm
+    refine ⟨m, hm, ?_⟩
+    intro x hx
+    change C.z ζ * x * (C.z ζ)⁻¹ ∈ B.Kc m
+    rw [C.z_central, mul_assoc, mul_inv_cancel, mul_one]
+    exact hx
+  have nInv (t : K) : (C.n (Multiplicative.ofAdd t))⁻¹ =
+      C.n (Multiplicative.ofAdd (-t)) := (map_inv C.n (Multiplicative.ofAdd t)).symm
+  have upperLeftX (t : K) (g : GL (Fin 2) K) :
+      xU v (upperM K t * g) = xU v g := by
+    apply Units.ext
+    simp [xU, xEntry, upperM, Matrix.mul_apply, Fin.sum_univ_two]
+  have upperLeftSigma (t : K) (g : GL (Fin 2) K) :
+      kpCocycle D H v (upperM K t) g = 1 := by
+    rw [kpCocycle_pairing, upperLeftX, xU_upperM, detU_upperM]
+    simp [kpPairing_one_left]
+  have nGood (t : K) : Good (C.n (Multiplicative.ofAdd t)) := by
+    intro m hm
+    obtain ⟨nt, hmt, hscale⟩ := scaledBall t m
+    obtain ⟨ntt, hmtt, hscale2⟩ := scaledBall (t * t) m
+    let n := max B.m0 (max nt ntt)
+    have hn : B.m0 ≤ n := le_max_left _ _
+    have hnt : nt ≤ n := (le_max_left nt ntt).trans (le_max_right _ _)
+    have hntt : ntt ≤ n := (le_max_right nt ntt).trans (le_max_right _ _)
+    have hmn : m ≤ n := hmt.trans hnt
+    refine ⟨n, hn, ?_⟩
+    intro x hx
+    change x ∈ (B.Kc n : Set C.L) at hx
+    rw [B.Kc_eq n hn] at hx
+    obtain ⟨g, hg, rfl⟩ := hx
+    let M : Matrix (Fin 2) (Fin 2) K := g
+    have ha : M 0 0 - 1 ∈ ball v n := by simpa using hg 0 0
+    have hd : M 1 1 - 1 ∈ ball v n := by simpa using hg 1 1
+    have hb : M 0 1 ∈ ball v n := by simpa using hg 0 1
+    have hc : M 1 0 ∈ ball v n := by simpa using hg 1 0
+    let k : GL (Fin 2) K := upperM K t * g * upperM K (-t)
+    have h00 : ((k : Matrix (Fin 2) (Fin 2) K) 0 0 - 1) =
+        (M 0 0 - 1) + t * M 1 0 := by
+      simp [k, M, upperM, Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two] <;> ring
+    have h01 : (k : Matrix (Fin 2) (Fin 2) K) 0 1 =
+        M 0 1 + t * (M 1 1 - 1) - t * (M 0 0 - 1) - (t * t) * M 1 0 := by
+      simp [k, M, upperM, Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two] <;> ring
+    have h10 : (k : Matrix (Fin 2) (Fin 2) K) 1 0 = M 1 0 := by
+      simp [k, M, upperM, Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two] <;> ring
+    have h11 : ((k : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) =
+        (M 1 1 - 1) - t * M 1 0 := by
+      simp [k, M, upperM, Matrix.mul_apply, Matrix.vecMul, dotProduct, Fin.sum_univ_two] <;> ring
+    have hkg : ∀ i j, ((k : Matrix (Fin 2) (Fin 2) K) i j -
+        (1 : Matrix (Fin 2) (Fin 2) K) i j) ∈ ball v m := by
+      have hc1 := hscale _ (monoBall nt n hnt hc)
+      have hd1 := hscale _ (monoBall nt n hnt hd)
+      have ha1 := hscale _ (monoBall nt n hnt ha)
+      have hc2 := hscale2 _ (monoBall ntt n hntt hc)
+      intro i j
+      fin_cases i <;> fin_cases j
+      · change V ((k : Matrix (Fin 2) (Fin 2) K) 0 0 - 1) ≤ WithZero.exp (-(m : ℤ))
+        rw [h00]
+        exact V.map_add_le (monoBall m n hmn ha) hc1
+      · have hbound : V ((k : Matrix (Fin 2) (Fin 2) K) 0 1) ≤ WithZero.exp (-(m : ℤ)) := by
+          rw [h01]
+          exact V.map_sub_le (V.map_sub_le (V.map_add_le (monoBall m n hmn hb) hd1) ha1) hc2
+        change V ((k : Matrix (Fin 2) (Fin 2) K) 0 1 - 0) ≤ WithZero.exp (-(m : ℤ))
+        simpa only [sub_zero] using hbound
+      · simpa [h10] using monoBall m n hmn hc
+      · change V ((k : Matrix (Fin 2) (Fin 2) K) 1 1 - 1) ≤ WithZero.exp (-(m : ℤ))
+        rw [h11]
+        exact V.map_sub_le (monoBall m n hmn hd) hc1
+    have heq : conj (C.n (Multiplicative.ofAdd t)) (C.sec g) = C.sec k := by
+      change C.n (Multiplicative.ofAdd t) * C.sec g *
+        (C.n (Multiplicative.ofAdd t))⁻¹ = C.sec k
+      rw [nInv, C.sec_n, C.sec_n, C.sec_mul, upperLeftSigma, map_one, one_mul,
+        C.sec_mul, kpCocycle_upperM, map_one, one_mul]
+    change conj (C.n (Multiplicative.ofAdd t)) (C.sec g) ∈ (B.Kc m : Set C.L)
+    rw [B.Kc_eq m hm]
+    exact ⟨k, hkg, heq.symm⟩
+  have wInv : C.w⁻¹ = C.w := inv_eq_of_mul_eq_one_right C.w_sq
+  have wN (α : K) : conj C.w (C.n (Multiplicative.ofAdd α)) =
+      C.nbar (Multiplicative.ofAdd α) := by
+    change C.w * C.n (Multiplicative.ofAdd α) * C.w⁻¹ = _
+    rw [wInv]
+    exact C.w_n_w α
+  have wNbar (β : K) : conj C.w (C.nbar (Multiplicative.ofAdd β)) =
+      C.n (Multiplicative.ofAdd β) := by
+    change C.w * C.nbar (Multiplicative.ofAdd β) * C.w⁻¹ = _
+    rw [wInv, ← C.w_n_w β]
+    calc
+      _ = (C.w * C.w) * C.n (Multiplicative.ofAdd β) * (C.w * C.w) := by group
+      _ = _ := by simp only [C.w_sq, one_mul, mul_one]
+  have inverseSmall (m : ℕ) (hm : B.m0 ≤ m) (u : Kˣ)
+      (hu : ((u : K) - 1) ∈ ball v m) :
+      (((u⁻¹ : Kˣ) : K) - 1) ∈ ball v m := by
+    have hr : WithZero.exp (-(m : ℤ)) < 1 := by
+      rw [← WithZero.exp_zero, WithZero.exp_lt_exp]
+      have hm1 := B.one_le_m0.trans hm
+      omega
+    have huval : V (u : K) = 1 := by
+      simpa using V.map_eq_of_sub_lt (x := 1) (y := (u : K)) (by simpa using hu.trans_lt hr)
+    have hinvval : V ((u⁻¹ : Kˣ) : K) = 1 := by
+      rw [Units.val_inv_eq_inv_val, map_inv₀, huval, inv_one]
+    have hform : ((u⁻¹ : Kˣ) : K) - 1 = ((u⁻¹ : Kˣ) : K) * (1 - (u : K)) := by
+      simp [Units.val_inv_eq_inv_val, mul_sub, u.ne_zero]
+    change V (((u⁻¹ : Kˣ) : K) - 1) ≤ WithZero.exp (-(m : ℤ))
+    rw [hform, map_mul, hinvval, one_mul]
+    have hneg : (1 : K) - u = -((u : K) - 1) := by ring
+    rw [hneg, V.map_neg]
+    exact hu
+  have wGood : Good C.w := by
+    intro m hm
+    refine ⟨m, hm, ?_⟩
+    intro x hx
+    obtain ⟨α, β, u, hα, hβ, hu, heq⟩ := finLocalSmallAlgebra_decomposition C B m hm x hx
+    rw [heq, map_mul, map_mul, wN, wNbar]
+    have hwa : conj C.w (C.a u) = C.a u⁻¹ := C.lift_wa u
+    rw [hwa]
+    exact (B.Kc m).mul_mem
+      ((B.Kc m).mul_mem (B.nbar_Kc m hm α hα) (B.a_Kc m hm u⁻¹ (inverseSmall m hm u hu)))
+      (B.n_Kc m hm β hβ)
+  have aInv (y : Kˣ) : (C.a y)⁻¹ = C.a y⁻¹ := by
+    have hp : kpPairing D H v y y⁻¹ = 1 := by
+      rw [map_inv, kpPairing_self, inv_one]
+    change muThree D (H.hilb v y y⁻¹) = 1 at hp
+    have hh := C.a_mul y y⁻¹
+    rw [hp, map_one, one_mul, mul_inv_cancel, C.a_one] at hh
+    exact inv_eq_of_mul_eq_one_right hh
+  have aN (y : Kˣ) (α : K) : conj (C.a y) (C.n (Multiplicative.ofAdd α)) =
+      C.n (Multiplicative.ofAdd (α * (y : K))) := by
+    have hh := C.lift_na (α * (y : K)) y
+    have hparam : α * (y : K) * ((y⁻¹ : Kˣ) : K) = α := by
+      rw [mul_assoc, ← Units.val_mul, mul_inv_cancel, Units.val_one, mul_one]
+    rw [hparam] at hh
+    change C.a y * C.n (Multiplicative.ofAdd α) * (C.a y)⁻¹ = _
+    rw [← hh, mul_assoc, mul_inv_cancel, mul_one]
+  have aW (y : Kˣ) : C.a y * C.w = C.w * C.a y⁻¹ := by
+    have hh := congrArg (fun x : C.L => x * C.w) (C.lift_wa y⁻¹)
+    simpa only [inv_inv, mul_assoc, inv_mul_cancel, mul_one] using hh.symm
+  have aNbar (y : Kˣ) (β : K) : conj (C.a y) (C.nbar (Multiplicative.ofAdd β)) =
+      C.nbar (Multiplicative.ofAdd (β * ((y⁻¹ : Kˣ) : K))) := by
+    have hh := aN y⁻¹ β
+    change C.a y⁻¹ * C.n (Multiplicative.ofAdd β) * (C.a y⁻¹)⁻¹ = _ at hh
+    rw [aInv, inv_inv] at hh
+    change C.a y * C.nbar (Multiplicative.ofAdd β) * (C.a y)⁻¹ = _
+    rw [aInv, ← C.w_n_w β]
+    calc
+      _ = (C.a y * C.w) * C.n (Multiplicative.ofAdd β) * (C.w * C.a y⁻¹) := by group
+      _ = (C.w * C.a y⁻¹) * C.n (Multiplicative.ofAdd β) * (C.a y * C.w) :=
+        congrArg₂ (fun p q : C.L => p * C.n (Multiplicative.ofAdd β) * q) (aW y) (aW y).symm
+      _ = C.w * (C.a y⁻¹ * C.n (Multiplicative.ofAdd β) * C.a y) * C.w := by group
+      _ = C.w * C.n (Multiplicative.ofAdd (β * ((y⁻¹ : Kˣ) : K))) * C.w := by rw [hh]
+      _ = _ := C.w_n_w _
+  obtain ⟨mp, _, hpowers⟩ := ArtinPrimitiveRoots.Proofs.th_cover_sol.exists_sixthPowerNeighborhood v
+  have aGood (y : Kˣ) : Good (C.a y) := by
+    intro m hm
+    obtain ⟨ny, hmy, hscale⟩ := scaledBall (y : K) m
+    obtain ⟨nyi, hmyi, hscalei⟩ := scaledBall ((y⁻¹ : Kˣ) : K) m
+    let n := max B.m0 (max mp (max ny nyi))
+    have hn : B.m0 ≤ n := le_max_left _ _
+    have hmp : mp ≤ n := (le_max_left mp _).trans (le_max_right _ _)
+    have hny : ny ≤ n := ((le_max_left ny nyi).trans (le_max_right mp _)).trans (le_max_right _ _)
+    have hnyi : nyi ≤ n := ((le_max_right ny nyi).trans (le_max_right mp _)).trans (le_max_right _ _)
+    have hmn : m ≤ n := hmy.trans hny
+    refine ⟨n, hn, ?_⟩
+    intro x hx
+    obtain ⟨α, β, u, hα, hβ, hu, heq⟩ := finLocalSmallAlgebra_decomposition C B n hn x hx
+    have hp : kpPairing D H v u y = 1 := by
+      change muThree D (H.hilb v u y) = 1
+      rw [H.sixth_power v u y (hpowers u (monoBall mp n hmp hu)), muThree_one D]
+    have hq := kpPairing_skew D H v y u
+    rw [hp, mul_one] at hq
+    change muThree D (H.hilb v u y) = 1 at hp
+    change muThree D (H.hilb v y u) = 1 at hq
+    have hcomm : C.a y * C.a u = C.a u * C.a y := by
+      rw [C.a_mul, C.a_mul, hp, hq, map_one, one_mul, mul_comm y u]
+      simp only [one_mul]
+    have hau : conj (C.a y) (C.a u) = C.a u := by
+      change C.a y * C.a u * (C.a y)⁻¹ = _
+      rw [hcomm, mul_assoc, mul_inv_cancel, mul_one]
+    rw [heq, map_mul, map_mul, aN, aNbar, hau]
+    exact (B.Kc m).mul_mem
+      ((B.Kc m).mul_mem
+        (B.n_Kc m hm _ (by simpa only [mul_comm] using hscale α (monoBall ny n hny hα)))
+        (B.a_Kc m hm u (monoBall m n hmn hu)))
+      (B.nbar_Kc m hm _ (by simpa only [mul_comm] using hscalei β (monoBall nyi n hnyi hβ)))
+  have scalarPr (c : Kˣ) :
+      (QuotientGroup.mk (Matrix.GeneralLinearGroup.scalar (Fin 2) c) : PGL2 K) = 1 := by
+    rw [← C.sec_pr, C.sec_scalar, map_one]
+  have samePrGood (g p : C.L) (hp : Good p) (hpr : C.pr g = C.pr p) : Good g := by
+    have hk : g / p ∈ C.pr.ker := by
+      change C.pr (g / p) = 1
+      rw [map_div, hpr]
+      simp
+    rw [C.pr_ker] at hk
+    obtain ⟨ζ, hζ⟩ := hk
+    have hg : g = C.z ζ * p := by
+      rw [hζ]
+      simp
+    rw [hg]
+    exact mulGood (centralGood ζ) hp
+  intro g
+  obtain ⟨k, hk⟩ := QuotientGroup.mk_surjective (C.pr g)
+  rcases gl2_factorization v k with ⟨c, y, t, hmat⟩ | ⟨c, t, y, u, hmat⟩
+  · have hpr : C.pr (C.a y * C.n (Multiplicative.ofAdd t)) = C.pr g := by
+      calc
+        _ = QuotientGroup.mk (diagM K y * upperM K t) := by
+          simp only [map_mul, C.pr_a, C.pr_n, QuotientGroup.mk_mul] <;> rfl
+        _ = QuotientGroup.mk k := by
+          rw [hmat]
+          simp only [QuotientGroup.mk_mul, scalarPr, one_mul] <;> rfl
+        _ = _ := hk
+    exact samePrGood g _ (mulGood (aGood y) (nGood t)) hpr.symm
+  · have hpr : C.pr (C.n (Multiplicative.ofAdd t) * C.a y * C.w *
+        C.n (Multiplicative.ofAdd u)) = C.pr g := by
+      calc
+        _ = QuotientGroup.mk (upperM K t * diagM K y * weylM K * upperM K u) := by
+          simp only [map_mul, C.pr_n, C.pr_a, C.pr_w, QuotientGroup.mk_mul] <;> rfl
+        _ = QuotientGroup.mk k := by
+          rw [hmat]
+          simp only [QuotientGroup.mk_mul, scalarPr, one_mul] <;> rfl
+        _ = _ := hk
+    exact samePrGood g _ (mulGood (mulGood (mulGood (nGood t) (aGood y)) wGood) (nGood u)) hpr.symm
+
 /-- **cov:local-cover** (top, local): at every finite place there is a local cover built from
 `kpCocycle` (as `GL₂ × μ3` modulo the scalar section) with the interface `FinLocalCover`, and at
 every `v ∤ 6` a tame splitting. -/
