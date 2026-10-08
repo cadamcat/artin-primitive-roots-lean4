@@ -318,43 +318,6 @@ private theorem roughCoefficient_phase_split
                 ((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0 : ℝ) : ℂ)) := by
       rw [he]
 
-/-- `prop:rough-type-ii` — `08-type-ii.tex:321-536`. Fix the parameters in the
-paper. Uniformly over admissible dyads, intervals, real twists, rough second-variable coefficients,
-and marked-invariant multipliers, the coefficient `roughCoefficient` has the Type II saving once
-`K` is sufficiently large. Correction 6 from review lane `rev-b` imposes the interval and ordered
-scale hypotheses. -/
-theorem rough_type_ii
-    (γ wMin wMax δ C Dstar q_d c₁ c₂ : ℝ)
-    (hγ : 0 < γ) (hγwMin : γ < wMin) (hwMinMax : wMin < wMax)
-    (hwMax : wMax < 1)
-    (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
-    (hqd₀ : 0 < q_d) (hqd₁ : q_d < 1) (hc₁ : 0 < c₁) (hc₂ : 0 < c₂)
-    (hc₁₂ : c₁ ≤ c₂) :
-    ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K →
-      ∀ a : Fin K → ℝ, ValidBands K a →
-        ∃ C' x₀ : ℝ, 0 < C' ∧ 2 ≤ x₀ ∧
-          ∀ x : ℝ, x₀ ≤ x →
-            ∀ Hm Hn : ℝ,
-              Real.rpow x δ ≤ Hm → Real.rpow x δ ≤ Hn →
-              c₁ * x ≤ Hm * Hn → Hm * Hn ≤ c₂ * x →
-              Real.log Hm / Real.log x ∈ Set.Icc wMin wMax →
-              Real.log (2 * Hm) / Real.log x ∈ Set.Icc wMin wMax →
-              ∀ I : Set ℕ, IsNatInterval I →
-                I ⊆ {m : ℕ | Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm} →
-                ∀ v : ℝ, |v| ≤ Real.rpow (Real.log x) C →
-                  ∀ beta : ℕ → ℂ,
-                    (∀ n, beta n ≠ 0 → n ∈ dyadicIntegers Hn ∧
-                      roughAbove n (roughCutoff x)) →
-                    (∀ n ∈ dyadicIntegers Hn,
-                      ‖beta n‖ ≤ Real.rpow (Real.log x) C) →
-                    ∀ F : ℕ → ℂ, IsMarkedInvariant x K a F →
-                      ‖∑ m ∈ (dyadicIntegers Hm).filter (fun m => m ∈ I),
-                        ∑ n ∈ dyadicIntegers Hn,
-                          roughCoefficient x γ v m * beta n * F (m * n - 1) *
-                            (markedWeight x K a q_d (m * n - 1) : ℂ)‖ ≤
-                        C' * (Hm * Hn) * Real.rpow (Real.log x) (-Dstar) := by
-  sorry
-
 theorem rough_factor_count_le (x γ wMax : ℝ) (m : ℕ)
     (hx : 1 < x) (hγ : 0 < γ) (hm : 2 ≤ m)
     (hrough : roughAbove m (Real.rpow x γ))
@@ -3303,5 +3266,82 @@ theorem high_frequency
                           Complex.exp (Complex.I * t * Real.log (m : ℝ))) / Hm‖ ≤
                       C₀ * Real.rpow (Real.log x) (-A) := by
   sorry
+
+private theorem dyadic_filter_isNatInterval (H : ℝ) (I : Set ℕ)
+    (hI : IsNatInterval I) :
+    IsNatInterval (((dyadicIntegers H).filter (fun m => m ∈ I)) : Set ℕ) := by
+  classical
+  intro m n k hm hn hmk hkn
+  have hm' : m ∈ (dyadicIntegers H).filter (fun m => m ∈ I) := by simpa using hm
+  have hn' : n ∈ (dyadicIntegers H).filter (fun m => m ∈ I) := by simpa using hn
+  rcases Finset.mem_filter.mp hm' with ⟨hmD, hmI⟩
+  rcases Finset.mem_filter.mp hn' with ⟨hnD, hnI⟩
+  have hmDyadic : m ∈ Finset.range (⌊2 * H⌋₊ + 1) ∧
+      H ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * H := by
+    simpa only [dyadicIntegers, Finset.mem_filter, Finset.mem_range] using hmD
+  have hnDyadic : n ∈ Finset.range (⌊2 * H⌋₊ + 1) ∧
+      H ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * H := by
+    simpa only [dyadicIntegers, Finset.mem_filter, Finset.mem_range] using hnD
+  have hkRange : k < ⌊2 * H⌋₊ + 1 := by
+    have hmRange : m < ⌊2 * H⌋₊ + 1 := Finset.mem_range.mp hmDyadic.1
+    have hnRange : n < ⌊2 * H⌋₊ + 1 := Finset.mem_range.mp hnDyadic.1
+    have hmax : max m n < ⌊2 * H⌋₊ + 1 := max_lt_iff.mpr ⟨hmRange, hnRange⟩
+    exact lt_of_le_of_lt hkn hmax
+  have hkLower : H ≤ (k : ℝ) := by
+    rcases le_total m n with hmn | hnm
+    · have hmk' : m ≤ k := by simpa [min_eq_left hmn] using hmk
+      exact hmDyadic.2.1.trans (by exact_mod_cast hmk')
+    · have hnk' : n ≤ k := by simpa [min_eq_right hnm] using hmk
+      exact hnDyadic.2.1.trans (by exact_mod_cast hnk')
+  have hkUpper : (k : ℝ) ≤ 2 * H := by
+    rcases le_total m n with hmn | hnm
+    · have hkn' : k ≤ n := by simpa [max_eq_right hmn] using hkn
+      have hknCast : (k : ℝ) ≤ (n : ℝ) := by exact_mod_cast hkn'
+      exact hknCast.trans hnDyadic.2.2
+    · have hkm' : k ≤ m := by simpa [max_eq_left hnm] using hkn
+      have hkmCast : (k : ℝ) ≤ (m : ℝ) := by exact_mod_cast hkm'
+      exact hkmCast.trans hmDyadic.2.2
+  have hkD : k ∈ dyadicIntegers H := by
+    simp only [dyadicIntegers, Finset.mem_filter, Finset.mem_range]
+    exact ⟨hkRange, hkLower, hkUpper⟩
+  exact Finset.mem_filter.mpr ⟨hkD, hI hmI hnI hmk hkn⟩
+
+/-- `prop:rough-type-ii` — `08-type-ii.tex:321-536`. Fix the parameters in the
+paper. Uniformly over admissible dyads, intervals, real twists, rough second-variable coefficients,
+and marked-invariant multipliers, the coefficient `roughCoefficient` has the Type II saving once
+`K` is sufficiently large. Correction 6 from review lane `rev-b` imposes the interval and ordered
+scale hypotheses. -/
+theorem rough_type_ii
+    (γ wMin wMax δ C Dstar q_d c₁ c₂ : ℝ)
+    (hγ : 0 < γ) (hγwMin : γ < wMin) (hwMinMax : wMin < wMax)
+    (hwMax : wMax < 1)
+    (hδ : 0 < δ) (hC : 0 < C) (hD : 0 < Dstar)
+    (hqd₀ : 0 < q_d) (hqd₁ : q_d < 1) (hc₁ : 0 < c₁) (hc₂ : 0 < c₂)
+    (hc₁₂ : c₁ ≤ c₂) :
+    ∃ K₀ : ℕ, ∀ K : ℕ, K₀ ≤ K →
+      ∀ a : Fin K → ℝ, ValidBands K a →
+        ∃ C' x₀ : ℝ, 0 < C' ∧ 2 ≤ x₀ ∧
+          ∀ x : ℝ, x₀ ≤ x →
+            ∀ Hm Hn : ℝ,
+              Real.rpow x δ ≤ Hm → Real.rpow x δ ≤ Hn →
+              c₁ * x ≤ Hm * Hn → Hm * Hn ≤ c₂ * x →
+              Real.log Hm / Real.log x ∈ Set.Icc wMin wMax →
+              Real.log (2 * Hm) / Real.log x ∈ Set.Icc wMin wMax →
+              ∀ I : Set ℕ, IsNatInterval I →
+                I ⊆ {m : ℕ | Hm ≤ (m : ℝ) ∧ (m : ℝ) ≤ 2 * Hm} →
+                ∀ v : ℝ, |v| ≤ Real.rpow (Real.log x) C →
+                  ∀ beta : ℕ → ℂ,
+                    (∀ n, beta n ≠ 0 → n ∈ dyadicIntegers Hn ∧
+                      roughAbove n (roughCutoff x)) →
+                    (∀ n ∈ dyadicIntegers Hn,
+                      ‖beta n‖ ≤ Real.rpow (Real.log x) C) →
+                    ∀ F : ℕ → ℂ, IsMarkedInvariant x K a F →
+                      ‖∑ m ∈ (dyadicIntegers Hm).filter (fun m => m ∈ I),
+                        ∑ n ∈ dyadicIntegers Hn,
+                          roughCoefficient x γ v m * beta n * F (m * n - 1) *
+                            (markedWeight x K a q_d (m * n - 1) : ℂ)‖ ≤
+                        C' * (Hm * Hn) * Real.rpow (Real.log x) (-Dstar) := by
+  sorry
+
 
 end ArtinPrimitiveRoots.TypeII.Rough
