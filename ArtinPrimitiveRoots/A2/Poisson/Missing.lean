@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeAdditiveCandidates
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeAdditiveMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeFrequencySeparation
@@ -1432,6 +1433,20 @@ private theorem po_probe_low_nonzero_residue_symbol_isUnit :
     ∀ s : S.ExtIdeal, ∀ d : ResidueRing R.exterior s,
       chiIdealPow D s.1 (d.out : F) 1 ≠ 0 → IsUnit d := by
   exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_nonzero_residue_symbol_isUnit R.exterior
+
+private theorem po_probe_low_additive_candidates (P : Finset S.ExtIdeal) (V : ℝ)
+    (hcutoff : ∀ s ∈ P, idealNorm s.1 ≤ V) :
+    let L := Σ s : {s : S.ExtIdeal // s ∈ P},
+      {d : ResidueRing R.exterior s.1 // IsUnit d}
+    ∃ α : L → S.FS, Function.Injective α ∧
+      (∀ p, α p ∈ AdditiveCandidates D S bc V) ∧
+      (∀ p, SameModuloSIntegers S (α p)
+        (S.diag ((p.2.1.out : F) / (bc.gen p.1.1 : F)))) ∧
+      ∃ Q : Finset S.FS,
+        (∀ x, x ∈ Q ↔ ∃ p, α p = x) ∧
+        ∀ x ∈ Q, ∀ y ∈ Q, x ≠ y → ¬ SameModuloSIntegers S x y := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_additive_candidates
+    R.exterior P V hcutoff
 
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
