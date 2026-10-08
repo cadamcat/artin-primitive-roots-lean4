@@ -11,6 +11,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ThetaMeasurable
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.IdealMass
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ThetaSeries
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.CharacterValue
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.IntegralSeries
 import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import Mathlib.Analysis.Asymptotics.Basic
 
