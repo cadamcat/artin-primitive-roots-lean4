@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE_ASYM.FiniteContour
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE_ASYM.SignalEndpoints
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M0
 import ArtinPrimitiveRoots.A2.Proofs.A2_ROWS.HeightConvolution
+import ArtinPrimitiveRoots.A2.Proofs.A2_ROWS.SimplePole
 import ArtinPrimitiveRoots.A1.Coeff.IdealSummable
 import ArtinPrimitiveRoots.A2.Proofs.QS_ANALYTIC.RNDict
 import ArtinPrimitiveRoots.Hecke.Convexity
