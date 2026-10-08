@@ -1259,6 +1259,34 @@ private theorem covol_unifLoc_valuation (v : FinPlace F) :
   rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
   simpa [unif] using (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
 
+private theorem covol_absFin_unifLoc_zpow (v : FinPlace F) (n : ℤ) :
+    absFin v ((unifLoc v ^ n : (v.adicCompletion F)ˣ) : v.adicCompletion F) =
+      (qv v) ^ (-n) := by
+  let K := v.adicCompletion F
+  let q : NNReal := (Ideal.absNorm v.asIdeal : NNReal)
+  have hπnorm : ‖(unifLoc v : K)‖₊ = q⁻¹ := by
+    apply NNReal.coe_injective
+    rw [coe_nnnorm, ← absFin_eq_norm]
+    unfold absFin
+    rw [dif_pos (HeightOneSpectrum.absNorm_ne_zero v), covol_unifLoc_valuation v]
+    have hqexp : WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+        (WithZero.exp (-1 : ℤ)) = q⁻¹ := by
+      rw [WithZeroMulInt.toNNReal_neg_apply (HeightOneSpectrum.absNorm_ne_zero v) (by simp)]
+      rw [WithZero.toAdd_unzero_eq_log (by simp)]
+      simp [q]
+    rw [hqexp]
+  have hπabs : absFin v (unifLoc v : K) = (qv v)⁻¹ := by
+    calc
+      absFin v (unifLoc v : K) = ‖(unifLoc v : K)‖ := absFin_eq_norm v _
+      _ = ((‖(unifLoc v : K)‖₊ : NNReal) : ℝ) := by simp
+      _ = ((q⁻¹ : NNReal) : ℝ) := by rw [hπnorm]
+      _ = (qv v)⁻¹ := by simp [q, qv]
+  have hpow : absFin v ((unifLoc v ^ n : Kˣ) : K) =
+      absFin v (unifLoc v : K) ^ n := by
+    rw [absFin_eq_norm, absFin_eq_norm]
+    simp [norm_zpow]
+  rw [hpow, hπabs, inv_zpow']
+
 private theorem covol_local_ball_image (v : FinPlace F) (n : ℤ) :
     ball v n = (fun x : v.adicCompletion F =>
       ((unifLoc v ^ n : (v.adicCompletion F)ˣ) : v.adicCompletion F) * x) ''
