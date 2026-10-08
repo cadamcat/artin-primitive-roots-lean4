@@ -77,4 +77,65 @@ theorem source_term_factorization (k : ℕ) (χ : DirichletCharacter ℂ k)
   rw [hchar, hphase]
   ring
 
+/-- Expand the truncated inclusion-exclusion sum against an arbitrary complex
+weight and interchange its two finite sums. -/
+theorem smallPrimeTruncation_weighted_sum_expand
+    (x : ℝ) (r : ℕ) (I : Finset ℕ) (f : ℕ → ℂ) :
+    (∑ m ∈ I, (smallPrimeTruncation x r m : ℂ) * f m) =
+      ∑ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+          (fun S => S.card < r),
+        ((-1 : ℂ) ^ S.card) *
+          ∑ m ∈ I,
+            (if (∏ p ∈ S, p) ∣ m then f m else 0) := by
+  classical
+  let Q := (primesUpTo (roughCutoff x)).powerset.filter (fun S => S.card < r)
+  have hcast (m : ℕ) :
+      (smallPrimeTruncation x r m : ℂ) =
+        ∑ S ∈ Q, ((-1 : ℂ) ^ S.card) *
+          (if (∏ p ∈ S, p) ∣ m then (1 : ℂ) else 0) := by
+    unfold smallPrimeTruncation
+    rw [Complex.ofReal_sum]
+    apply Finset.sum_congr rfl
+    intro S hS
+    by_cases hdiv : (∏ p ∈ S, p) ∣ m <;>
+      simp [Q, hdiv, Complex.ofReal_mul, Complex.ofReal_pow]
+  calc
+    _ = ∑ m ∈ I,
+        (∑ S ∈ Q, ((-1 : ℂ) ^ S.card) *
+          (if (∏ p ∈ S, p) ∣ m then (1 : ℂ) else 0)) * f m := by
+      apply Finset.sum_congr rfl
+      intro m hm
+      rw [hcast]
+    _ = ∑ m ∈ I, ∑ S ∈ Q,
+        (((-1 : ℂ) ^ S.card) *
+          (if (∏ p ∈ S, p) ∣ m then (1 : ℂ) else 0)) * f m := by
+      apply Finset.sum_congr rfl
+      intro m hm
+      rw [Finset.sum_mul]
+    _ = ∑ S ∈ Q, ∑ m ∈ I,
+        (((-1 : ℂ) ^ S.card) *
+          (if (∏ p ∈ S, p) ∣ m then (1 : ℂ) else 0)) * f m := by
+      rw [Finset.sum_comm]
+    _ = ∑ S ∈ Q, ((-1 : ℂ) ^ S.card) *
+        ∑ m ∈ I, (if (∏ p ∈ S, p) ∣ m then f m else 0) := by
+      apply Finset.sum_congr rfl
+      intro S hS
+      calc
+        ∑ m ∈ I,
+            (((-1 : ℂ) ^ S.card) *
+              (if (∏ p ∈ S, p) ∣ m then (1 : ℂ) else 0)) * f m =
+          ∑ m ∈ I, ((-1 : ℂ) ^ S.card) *
+            (if (∏ p ∈ S, p) ∣ m then f m else 0) := by
+              apply Finset.sum_congr rfl
+              intro m hm
+              by_cases hdiv : (∏ p ∈ S, p) ∣ m <;> simp [hdiv, mul_assoc]
+        _ = ((-1 : ℂ) ^ S.card) *
+            ∑ m ∈ I, (if (∏ p ∈ S, p) ∣ m then f m else 0) := by
+              rw [Finset.mul_sum]
+    _ = ∑ S ∈ (primesUpTo (roughCutoff x)).powerset.filter
+          (fun S => S.card < r),
+        ((-1 : ℂ) ^ S.card) *
+          ∑ m ∈ I,
+            (if (∏ p ∈ S, p) ∣ m then f m else 0) := by rfl
+
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
