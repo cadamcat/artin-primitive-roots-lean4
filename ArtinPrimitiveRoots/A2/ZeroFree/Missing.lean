@@ -50,7 +50,78 @@ theorem zf_height_decay : ∀ lξ rξ lw rw lz rz A0 : ℝ,
     ∀ ξ w z : ℂ, lξ ≤ ξ.re → ξ.re ≤ rξ → lw ≤ w.re → w.re ≤ rw → lz ≤ z.re → z.re ≤ rz →
       ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ ≤
         C * Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0) := by
-  sorry
+  intro lξ rξ lw rw lz rz A0 hlξrξ hlwrw hlz hlzrz hA0
+  obtain ⟨_, _, hM, hW, _⟩ := (po_weights_exist R sd).2 W
+  obtain ⟨CM, hCM, hM⟩ := hM lz rz A0 hlz hlzrz hA0
+  obtain ⟨CW, hCW, hW⟩ := hW lw rw A0 hlwrw hA0
+  let B : ℝ := max |lξ| |rξ| + max |lz| |rz| + 1
+  have hB : 0 ≤ B := by positivity
+  have hξabs (ξ : ℂ) (hξl : lξ ≤ ξ.re) (hξr : ξ.re ≤ rξ) :
+      |ξ.re| ≤ max |lξ| |rξ| := by
+    by_cases hξ0 : 0 ≤ ξ.re
+    · rw [abs_of_nonneg hξ0]
+      exact (hξr.trans (le_trans (le_abs_self rξ) (le_max_right |lξ| |rξ|)))
+    · have hξn : ξ.re ≤ 0 := le_of_not_ge hξ0
+      rw [abs_of_nonpos hξn]
+      have hlow : -|lξ| ≤ ξ.re := (neg_abs_le lξ).trans hξl
+      nlinarith [le_abs_self lξ, le_max_left |lξ| |rξ|]
+  have hzabs (z : ℂ) (hzl : lz ≤ z.re) (hzr : z.re ≤ rz) :
+      |z.re| ≤ max |lz| |rz| := by
+    by_cases hz0 : 0 ≤ z.re
+    · rw [abs_of_nonneg hz0]
+      exact (hzr.trans (le_trans (le_abs_self rz) (le_max_right |lz| |rz|)))
+    · have hzn : z.re ≤ 0 := le_of_not_ge hz0
+      rw [abs_of_nonpos hzn]
+      have hlow : -|lz| ≤ z.re := (neg_abs_le lz).trans hzl
+      nlinarith [le_abs_self lz, le_max_left |lz| |rz|]
+  refine ⟨Real.exp (B ^ 2) * CM * CW, by positivity, ?_⟩
+  intro ξ w z hξl hξr hwl hwr hzl hzr
+  have hheight : |ξ.re + z.re - 1| ≤ B := by
+    calc
+      |ξ.re + z.re - 1| ≤ |ξ.re| + |z.re| + 1 := by
+        calc
+          |ξ.re + z.re - 1| = |(ξ.re + z.re) + (-1)| := by congr 1 <;> ring
+          _ ≤ |ξ.re + z.re| + |-1| := abs_add_le _ _
+          _ ≤ |ξ.re| + |z.re| + 1 := by
+            have habs : |ξ.re + z.re| ≤ |ξ.re| + |z.re| := abs_add_le _ _
+            rw [abs_neg, abs_one]
+            linarith
+      _ ≤ B := by dsimp [B]; gcongr <;> first | exact hξabs ξ hξl hξr | exact hzabs z hzl hzr
+  have hsq : ((ξ + z - 1) ^ 2).re = (ξ.re + z.re - 1) ^ 2 - (ξ.im + z.im) ^ 2 := by
+    have hsq' (q : ℂ) : (q ^ 2).re = q.re ^ 2 - q.im ^ 2 := by
+      rw [pow_two, Complex.mul_re]
+      ring
+    calc
+      ((ξ + z - 1) ^ 2).re = (ξ + z - 1).re ^ 2 - (ξ + z - 1).im ^ 2 := hsq' _
+      _ = (ξ.re + z.re - 1) ^ 2 - (ξ.im + z.im) ^ 2 := by simp <;> ring
+  have hexp_eq : ‖Complex.exp ((ξ + z - 1) ^ 2)‖ =
+      Real.exp ((ξ.re + z.re - 1) ^ 2) * Real.exp (-((ξ.im + z.im) ^ 2)) := by
+    rw [Complex.norm_exp, hsq, Real.exp_sub, Real.exp_neg, div_eq_mul_inv]
+  have hsqle : (ξ.re + z.re - 1) ^ 2 ≤ B ^ 2 := by
+    have hnonneg : 0 ≤ B - |ξ.re + z.re - 1| := sub_nonneg.mpr hheight
+    have hplus : 0 ≤ B + |ξ.re + z.re - 1| := by positivity
+    nlinarith [mul_nonneg hnonneg hplus, sq_abs (ξ.re + z.re - 1)]
+  have hexp : ‖Complex.exp ((ξ + z - 1) ^ 2)‖ ≤
+      Real.exp (B ^ 2) * Real.exp (-((ξ.im + z.im) ^ 2)) := by
+    rw [hexp_eq]
+    exact mul_le_mul_of_nonneg_right (Real.exp_le_exp.mpr hsqle) (Real.exp_pos _).le
+  have hMbound : ‖weightM R sd W z‖ ≤ CM * (1 + |z.im|) ^ (-A0) := by
+    have h := hM z.re z.im hzl hzr
+    simpa only [Complex.re_add_im] using h
+  have hWbound : ‖weightW1hat W w‖ ≤ CW * (1 + |w.im|) ^ (-A0) := by
+    have h := hW w.re w.im hwl hwr
+    simpa only [Complex.re_add_im] using h
+  have hPz : 0 ≤ (1 + |z.im|) ^ (-A0) := by positivity
+  have hPw : 0 ≤ (1 + |w.im|) ^ (-A0) := by positivity
+  calc
+    ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ =
+        ‖Complex.exp ((ξ + z - 1) ^ 2)‖ * ‖weightM R sd W z‖ * ‖weightW1hat W w‖ := by
+          simp [norm_mul, mul_assoc]
+    _ ≤ (Real.exp (B ^ 2) * Real.exp (-((ξ.im + z.im) ^ 2))) *
+          (CM * (1 + |z.im|) ^ (-A0)) * (CW * (1 + |w.im|) ^ (-A0)) := by
+          gcongr
+    _ = (Real.exp (B ^ 2) * CM * CW) * Real.exp (-((ξ.im + z.im) ^ 2)) *
+          (1 + |z.im|) ^ (-A0) * (1 + |w.im|) ^ (-A0) := by ring
 /-- zf:height-decay, 06:389-411. Gaussian convolution preserves arbitrary polynomial decay. -/
 theorem zf_height_convolution : ∀ A1 : ℝ, 0 < A1 → ∃ A0 C : ℝ, 1 < A0 ∧ 0 < C ∧ ∀ T : ℝ,
   (∫ v : ℝ, Real.exp (-((T + v) ^ 2)) * (1 + |v|) ^ (-A0)) ≤ C * (1 + |T|) ^ (-A1) := by
