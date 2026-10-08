@@ -9272,6 +9272,156 @@ private theorem rf_pairing_digit_active_partition
         sPart * (dProd * ((∏ v ∈ R.exterior.support r.h, hLocal v) * tail)) := by ring
     _ = _ := by rw [hpartition, hsum]
 
+private theorem rf_pairing_active_coefficient_gamma
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (γ : Gamma S) (ν : Fˣ) :
+    rf_pairing_active_coefficient R r f ((γ.1 : Fˣ) * ν) =
+      rf_pairing_active_coefficient R r f ν := by
+  classical
+  have localVal (v : FinPlace F) (hv : v ∉ S.Sf) :
+      Valued.v (toLoc v (γ.1 : Fˣ) : v.adicCompletion F) = 1 := by
+    have hglobal : HeightOneSpectrum.valuation F v ((γ.1 : Fˣ) : F) = 1 :=
+      Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) γ.1 hv
+    change Valued.v (algebraMap F (v.adicCompletion F) ((γ.1 : Fˣ) : F)) = 1
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using hglobal
+  have localOrd (v : FinPlace F) (hv : v ∉ S.Sf) :
+      ordv v (toLoc v (γ.1 : Fˣ)) = 0 := by
+    rw [rf_ordv_local_log, localVal v hv]
+    simp
+  have ordMul (v : FinPlace F) (hv : v ∉ S.Sf) (ξ : Fˣ) :
+      ordv v (toLoc v ((γ.1 : Fˣ) * ξ)) = ordv v (toLoc v ξ) := by
+    rw [map_mul, rf_ordv_mul, localOrd v hv, zero_add]
+  have hlocal (v : FinPlace F) (hv : v ∉ S.Sf) :
+      R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) =
+        R.T.Wv v (R.C.a v (toLoc v ν)) ∧
+      ∀ (j : Fin 6) (e : ℤ),
+        localR R v j e
+          (toLoc v ((γ.1 : Fˣ) * ν) * toLoc v (primeGen R v) ^ (2 - e)) =
+        localR R v j e (toLoc v ν * toLoc v (primeGen R v) ^ (2 - e)) := by
+    let g : (v.adicCompletion F)ˣ := toLoc v (γ.1 : Fˣ)
+    have hgval : Valued.v (g : v.adicCompletion F) = 1 := localVal v hv
+    have hgord : ordv v g = 0 := localOrd v hv
+    have hgchi : localChi D v g = 1 := by
+      have hglobal : HeightOneSpectrum.valuation F v ((γ.1 : Fˣ) : F) = 1 :=
+        Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) γ.1 hv
+      rw [show g = toLoc v (γ.1 : Fˣ) by rfl,
+        rf_localChi_toLoc v hv (γ.1 : Fˣ) hglobal, rf_gamma_chi_one D γ v hv]
+    have isUnitLoc (x : (v.adicCompletion F)ˣ)
+        (hx : Valued.v (x : v.adicCompletion F) = 1) :
+        ArtinPrimitiveRoots.A1.Theta.IsLocUnit v x := by
+      constructor
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hx]
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        simp only [Units.val_inv_eq_inv_val, map_inv₀, hx, inv_one, le_refl]
+    have hgunit := isUnitLoc g hgval
+    have hunitPart : unitPart v g = g := by simp [unitPart, hgord]
+    have hcright (x : (v.adicCompletion F)ˣ) : extCocycle D v x g = 1 := by
+      simp [extCocycle, hunitPart, hgchi, hgord]
+    have har (x : (v.adicCompletion F)ˣ) :
+        R.C.a v x * R.C.a v g = R.C.a v (x * g) := by
+      obtain ⟨ζ, hζval, hmul⟩ := R.C.a_mul v hv x g
+      have hζ : ζ = 1 := by
+        apply Subtype.ext
+        apply Units.ext
+        exact hζval.trans (hcright x)
+      simpa [hζ] using hmul
+    constructor
+    · have hK : R.C.a v g ∈ R.C.Kext :=
+        R.C.a_Kext v hv g hgunit.1 hgunit.2
+      calc
+        R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) =
+            R.T.Wv v (R.C.a v (toLoc v ν) * R.C.a v g) := by
+              rw [map_mul, mul_comm g (toLoc v ν)]
+              exact congrArg (R.T.Wv v) (har (toLoc v ν)).symm
+        _ = R.T.Wv v (R.C.a v (toLoc v ν)) :=
+          R.T.Wv_right v hv (R.C.a v (toLoc v ν)) (R.C.a v g) hK (R.C.a_mem v g)
+    · intro j e
+      have hnormal (ξ : Fˣ) (k : ℤ) :
+          localR R v j k (toLoc v ξ * toLoc v (primeGen R v) ^ (2 - k)) =
+            localR R v j (ordv v (toLoc v ξ) + 2)
+              (toLoc v ξ * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ξ))) := by
+        have ha := rf_pairing_local_mask_split R v hv j ξ k
+        have hb := rf_pairing_local_mask_split R v hv j ξ (ordv v (toLoc v ξ) + 2)
+        have he : 2 - (ordv v (toLoc v ξ) + 2) = -ordv v (toLoc v ξ) := by ring
+        rw [he] at hb
+        exact add_right_cancel (ha.symm.trans hb)
+      have hpgen : S.IsGen (primeGen R v : F) (R.exterior.prime v hv).1 := by
+        simpa [primeGen, hv] using (bc.gen_spec (R.exterior.prime v hv)).1
+      have hpsq : Squarefree (R.exterior.prime v hv).1 := by
+        rw [R.exterior.prime_val]
+        exact v.prime.squarefree
+      have hpmem : v ∈ R.exterior.support (R.exterior.prime v hv) := by
+        apply (R.exterior.mem_support (R.exterior.prime v hv) v).mpr
+        simpa only [R.exterior.prime_val] using (dvd_refl v.asIdeal)
+      have hpord : ordv v (toLoc v (primeGen R v)) = 1 :=
+        (rf_ordv_toLoc_ofGen v hv (R.exterior.prime v hv) (primeGen R v) hpgen).trans
+          (congrArg (fun n : ℕ => (n : ℤ))
+            (rf_idealExp_eq_one_of_squarefree_support R v (R.exterior.prime v hv) hpsq hpmem))
+      let x : (v.adicCompletion F)ˣ :=
+        toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))
+      have hxord : ordv v x = 0 := by
+        dsimp only [x]
+        rw [rf_ordv_mul, rf_ordv_zpow, hpord]
+        ring
+      have hxval := rf_localVal_one_of_ordv_zero v x hxord
+      have hgxval : Valued.v ((g * x : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+        simp only [Units.val_mul, map_mul, hgval, hxval, one_mul]
+      have hxunit := isUnitLoc x hxval
+      have hgxunit := isUnitLoc (g * x) hgxval
+      have hv6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+      have hχgx : localChi D v (g * x) = localChi D v x := by
+        rw [(ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) hv6).2.2.1
+          g x hgunit hxunit, hgchi, one_mul]
+      have harg : toLoc v ((γ.1 : Fˣ) * ν) *
+          toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)) = g * x := by
+        simp only [map_mul, g, x, mul_assoc]
+      rw [hnormal ((γ.1 : Fˣ) * ν) e, hnormal ν e, ordMul v hv ν, harg]
+      change localR R v j (ordv v (toLoc v ν) + 2) (g * x) =
+        localR R v j (ordv v (toLoc v ν) + 2) x
+      obtain ⟨hnegx, _, _, _, _, _, _, hscalex, _, _⟩ :=
+        lem_reflection_local_Weyl R v hv j (ordv v (toLoc v ν) + 2) x hxunit.1 hxunit.2
+      obtain ⟨hneggx, _, _, _, _, _, _, hscalegx, _, _⟩ :=
+        lem_reflection_local_Weyl R v hv j (ordv v (toLoc v ν) + 2) (g * x)
+          hgxunit.1 hgxunit.2
+      by_cases hn : ordv v (toLoc v ν) + 2 < 0
+      · rw [hnegx hn, hneggx hn]
+      · have he : 0 ≤ ordv v (toLoc v ν) + 2 := by omega
+        rw [hscalex he, hscalegx he, hχgx]
+  have hD : (∏ v ∈ R.exterior.support r.d,
+      localR R v 1 0 (toLoc v ((γ.1 : Fˣ) * ν) * toLoc v (primeGen R v) ^ 2)) =
+      ∏ v ∈ R.exterior.support r.d,
+        localR R v 1 0 (toLoc v ν * toLoc v (primeGen R v) ^ 2) := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    simpa using (hlocal v (R.exterior.support_exterior r.d v hv)).2 1 0
+  have hF : (∏ v ∈ R.exterior.support f,
+      localR R v (digitExponent r v) (ordv v (toLoc v ((γ.1 : Fˣ) * ν)) + 2)
+        (toLoc v ((γ.1 : Fˣ) * ν) *
+          toLoc v (primeGen R v) ^ (-ordv v (toLoc v ((γ.1 : Fˣ) * ν))))) =
+      ∏ v ∈ R.exterior.support f,
+        localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+          (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))) := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    have hvS := R.exterior.support_exterior f v hv
+    rw [ordMul v hvS ν]
+    have he : 2 - (ordv v (toLoc v ν) + 2) = -ordv v (toLoc v ν) := by ring
+    simpa only [he] using (hlocal v hvS).2 (digitExponent r v) (ordv v (toLoc v ν) + 2)
+  have hTail : (∏ᶠ v : FinPlace F,
+      if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f then
+        R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) else 1) =
+      ∏ᶠ v : FinPlace F,
+        if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f then
+          R.T.Wv v (R.C.a v (toLoc v ν)) else 1 := by
+    apply finprod_congr
+    intro v
+    by_cases hv : v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f
+    · simp only [if_pos hv, (hlocal v hv.1).1]
+    · simp only [if_neg hv]
+  unfold rf_pairing_active_coefficient
+  rw [hD, hF, hTail]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
