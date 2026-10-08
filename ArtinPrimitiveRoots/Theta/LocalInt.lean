@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».PolynomialControl
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogDerivative
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogProfile
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogBounds
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-C-SHEET».LogSmooth
 import TauCeti.RingTheory.DedekindDomain.AdicValuation.Completion
 import Mathlib.MeasureTheory.Measure.Haar.MulEquivHaarChar
 import Mathlib.Analysis.Calculus.InverseFunctionTheorem.Deriv
