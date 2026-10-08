@@ -3807,7 +3807,113 @@ theorem whit_weighted_bruhat (P : CoverPackage D S H A) (G : GlobalDatum P)
           scalarOf P G Fs.f Fs.fC
             (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P u * g) *
               psiInf (-(ν : F)) u := by
-  sorry
+  classical
+  let : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let : Countable (Matrix (Fin 2) (Fin 2) F) := by
+    change Countable (Fin 2 → Fin 2 → F)
+    infer_instance
+  let : Countable (GL (Fin 2) F) :=
+    (Units.val_injective : Function.Injective
+      (fun a : GL (Fin 2) F => (a : Matrix (Fin 2) (Fin 2) F))).countable
+  let L := (𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom
+  have hLcount : Countable L := by
+    have hsub : (L : Set (InfinitePlace F → ℂ)) ⊆ Set.range (infEmbA (F := F)) := by
+      rintro u ⟨ξ, _, rfl⟩
+      exact ⟨ξ, rfl⟩
+    exact ((Set.countable_range (infEmbA (F := F))).mono hsub).to_subtype
+  obtain ⟨hcont, hnorm, hadd, _, hzero⟩ :=
+    whit_psiInf_character (-(ν : F)) (neg_ne_zero.mpr ν.ne_zero)
+  have hνneg (ξ : F) (hξ : ξ ∈ (𝔞 : Submodule (𝓞 F) F)) :
+      psiInf (-(ν : F)) (infEmbA ξ) = 1 := by
+    simpa only [psiInf, infEmbA, RingHom.pi_apply, map_neg, neg_mul, mul_neg] using
+      hν (-ξ) ((𝔞 : Submodule (𝓞 F) F).neg_mem hξ)
+  have hperiod (u : InfinitePlace F → ℂ) (hu : u ∈ L) :
+      psiInf (-(ν : F)) u = 1 := by
+    rcases hu with ⟨ξ, hξ, rfl⟩
+    exact hνneg ξ hξ
+  obtain ⟨B, hB, hBc, hBd, hvol, _, hcompare⟩ :=
+    ideal_periodic_domain_comparison D 𝔞 h𝔞 Pd hPd
+  have hperiodic : ∀ u ∈ L, ∀ x : InfinitePlace F → ℂ,
+      eisenstein P G Fs (nInf P (u + x) * g) * psiInf (-(ν : F)) (u + x) =
+        eisenstein P G Fs (nInf P x * g) * psiInf (-(ν : F)) x := by
+    intro u hu x
+    rw [hadd, hperiod u hu, one_mul]
+    rcases hu with ⟨ξ, hξ, rfl⟩
+    change eisenstein P G Fs (nInf P (infEmbA ξ + x) * g) * psiInf (-(ν : F)) x =
+      eisenstein P G Fs (nInf P x * g) * psiInf (-(ν : F)) x
+    rw [eisenstein_ideal_periodic P G hs Fs g 𝔞 hfix ξ hξ x]
+  have hdom := hcompare
+    (fun x => eisenstein P G Fs (nInf P x * g) * psiInf (-(ν : F)) x) hperiodic
+  have hcharZero : (∫ x in B, psiInf (-(ν : F)) x) = 0 :=
+    hzero L hLcount B hBd hperiod
+  obtain ⟨hint₀, habs₀, _⟩ :=
+    eisenstein_integral_tsum_on_compact P G hs Fs g (closure B) hBc B hB subset_closure
+  let Q := Quotient (QuotientGroup.rightRel (Bstar G))
+  let f (β : Q) (x : InfinitePlace F → ℂ) : ℂ :=
+    scalarOf P G Fs.f Fs.fC (P.tc.rat (Quotient.out β) * nInf P x * g) *
+      psiInf (-(ν : F)) x
+  have hint (β : Q) : IntegrableOn (f β) B := by
+    apply Integrable.mono (hint₀ β)
+      ((hint₀ β).aestronglyMeasurable.mul hcont.aestronglyMeasurable)
+    filter_upwards [] with x
+    simp only [Pi.mul_apply, f, norm_mul, hnorm, mul_one, le_refl]
+  have habs : Summable (fun β : Q => ∫ x in B, ‖f β x‖) := by
+    simpa only [f, norm_mul, hnorm, mul_one] using habs₀
+  have hseries (x : InfinitePlace F → ℂ) :
+      eisenstein P G Fs (nInf P x * g) * psiInf (-(ν : F)) x = ∑' β : Q, f β x := by
+    simp only [eisenstein, f, Q, mul_assoc, tsum_mul_right]
+  let I (β : Q) : ℂ := ∫ x in B, f β x
+  have heq : (∫ x in B, eisenstein P G Fs (nInf P x * g) * psiInf (-(ν : F)) x) =
+      ∑' β : Q, I β := by
+    calc
+      _ = ∫ x in B, ∑' β : Q, f β x := by
+        apply integral_congr_ae
+        filter_upwards [] with x
+        exact hseries x
+      _ = ∑' β : Q, I β := (integral_tsum_of_summable_integral_norm hint habs).symm
+  have hsum : Summable I := habs.of_norm_bounded fun β =>
+    norm_integral_le_integral_norm _
+  obtain ⟨e, hsmall, hbig⟩ := rational_bruhat_coset_equiv P G
+  let R : ((Fˣ ⧸ G.Δ) ⊕ ((Fˣ ⧸ G.Δ) × F)) → GL (Fin 2) F :=
+    Sum.elim (fun δ => diagGL (Quotient.out δ))
+      (fun p => diagGL (Quotient.out p.1) * weylGL * upperGL p.2)
+  have he (u) : e u = Quotient.mk (QuotientGroup.rightRel (Bstar G)) (R u) := by
+    cases u with
+    | inl δ => exact hsmall δ
+    | inr p => exact hbig p.1 p.2
+  have hrep (u) : I (e u) = ∫ x in B,
+      scalarOf P G Fs.f Fs.fC (P.tc.rat (R u) * nInf P x * g) *
+        psiInf (-(ν : F)) x := by
+    have hb : R u * (Quotient.out (e u))⁻¹ ∈ Bstar G :=
+      QuotientGroup.rightRel_apply.mp (Quotient.exact ((Quotient.out_eq (e u)).trans (he u)))
+    dsimp only [I, f]
+    apply integral_congr_ae
+    filter_upwards [] with x
+    apply congrArg (fun z : ℂ => z * psiInf (-(ν : F)) x)
+    simpa only [map_mul, map_inv, mul_assoc, inv_mul_cancel_left] using
+      ((scalarOf_invariance P G Fs).1 (R u * (Quotient.out (e u))⁻¹) hb
+        (P.tc.rat (Quotient.out (e u)) * (nInf P x * g))).symm
+  have hsmallI (δ : Fˣ ⧸ G.Δ) : I (e (Sum.inl δ)) = 0 := by
+    rw [hrep (Sum.inl δ)]
+    simp only [R, Sum.elim_inl]
+    simp_rw [scalarOf_diag_unipotent P G Fs]
+    rw [integral_const_mul, hcharZero, mul_zero]
+  have hbigI (p : (Fˣ ⧸ G.Δ) × F) : I (e (Sum.inr p)) = ∫ x in B,
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P x * g) *
+          psiInf (-(ν : F)) x := by
+    simpa only [R, Sum.elim_inr] using hrep (Sum.inr p)
+  have hsum' : Summable (fun u => I (e u)) := hsum.comp_injective e.injective
+  refine ⟨B, hB, hBc, hBd, ?_⟩
+  simp only [torusCoeff, hvol, hdom]
+  apply congrArg (fun z : ℂ => ((volume B).toReal)⁻¹ * z)
+  calc
+    _ = ∑' β : Q, I β := heq
+    _ = ∑' u, I (e u) := (e.tsum_eq I).symm
+    _ = (∑' δ, I (e (Sum.inl δ))) + ∑' p, I (e (Sum.inr p)) :=
+      (hsum'.comp_injective Sum.inl_injective).tsum_sum
+        (hsum'.comp_injective Sum.inr_injective)
+    _ = _ := by simp only [hsmallI, hbigI, tsum_zero, zero_add]
 
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
