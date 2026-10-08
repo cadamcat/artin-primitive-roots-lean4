@@ -392,7 +392,7 @@ theorem qs_residual_form_S0 (F : QSFamily m qS) (hrf : ∀ g h, F.rayFactor g h 
       _ = qsResidualBlock F W M κ (qsBadRad m qS * g) cols'
             (fun c' => z (g * c')) := hright.symm
 
-private theorem qsMu_sum_divisors (I : Ideal (𝓞 K)) (hI : I ≠ ⊥)
+theorem qsMu_sum_divisors (I : Ideal (𝓞 K)) (hI : I ≠ ⊥)
     [Fintype {e : Ideal (𝓞 K) // e ∣ I}] :
     (∑ e : {e : Ideal (𝓞 K) // e ∣ I}, (qsMu e.1 : ℤ)) =
       if I = ⊤ then 1 else 0 := by
@@ -872,7 +872,7 @@ private theorem qsN_le_of_dvd (a b : Ideal (𝓞 K)) (hb : b ≠ ⊥)
     (hab : a ∣ b) : qsN a ≤ qsN b := by
   exact_mod_cast qs_absNorm_le_of_dvd a b hb hab
 
-private theorem qs_dvd_mem_qsDivisors (a b : Ideal (𝓞 K)) (hb : b ≠ ⊥)
+theorem qs_dvd_mem_qsDivisors (a b : Ideal (𝓞 K)) (hb : b ≠ ⊥)
     (hab : a ∣ b) : a ∈ qsDivisors b := by
   classical
   have hfloor : ⌊qsN b⌋₊ = Ideal.absNorm b := by simp [qsN]
