@@ -2,6 +2,9 @@ import ArtinPrimitiveRoots.TypeII.PD.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Circle
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyArithmetic
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchySquare
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyFinite
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyPrimes
+import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyMain
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.CauchyDivisor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.RootArithmetic
 import ArtinPrimitiveRoots.TypeII.Proofs.pd1c.Goodness
@@ -72,7 +75,7 @@ theorem cauchy_decomposition
                     (∀ Y ∈ dyadicScales x K,
                       (1 / 20 : ℝ) * Real.rpow (Real.log x) (1 / 10 : ℝ) ≤
                         Real.log Y ∧ Real.log Y ≤ Cscale * Real.rpow (Real.log x) (1 / 5 : ℝ)) := by
-  sorry
+  exact pd1c_cauchy_decomposition δ C Dstar q_d c₁ c₂ K a hδ hC hD hqd₀ hqd₁ hc₁ hc₂ ha
 
 /-- `det:good-state` — PD `03-determinant.tex:269-293`. For fixed valid marked lists, the
 Lebesgue measure of ratios failing either physical-position test is exponentially small. -/

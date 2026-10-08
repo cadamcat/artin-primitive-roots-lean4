@@ -112,25 +112,46 @@ lemma pd1c_cauchySquare_finite_sum (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : 
     simp [ha]
 
 
-lemma pd1c_cauchySquare_nonneg (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ)
+abbrev pd1c_CauchyEntry (K : ℕ) := (Fin K → ℕ) × (ℕ × ℕ)
+
+noncomputable def pd1c_cauchyEntrySet (x : ℝ) (K : ℕ) (a : Fin K → ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂) : Finset (pd1c_CauchyEntry K) :=
+  (pd1c_markedTupleSet x K a).product ((familyTerms family x).product (dyadicIntegers (family.Hn x)))
+
+noncomputable def pd1c_cauchyQuotient {K : ℕ} (i : pd1c_CauchyEntry K) : ℕ :=
+  (i.2.1 * i.2.2 - 1) / tupleProduct i.1
+
+noncomputable def pd1c_cauchyEntryWeight (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂)
+    (beta : ℕ → ℂ) (eta : ℝ → ℝ) (i : pd1c_CauchyEntry K) : ℂ :=
+  ((∏ j : Fin K, (bandMass x (a j))⁻¹ : ℝ) : ℂ) * (eta ((tupleProduct i.1 : ℕ) / Y) : ℂ) *
+    if tupleProduct i.1 ∣ i.2.1 * i.2.2 - 1 then family.alpha x i.2.1 * beta i.2.2 else 0
+
+noncomputable def pd1c_cauchyFiber (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂)
+    (beta : ℕ → ℂ) (eta : ℝ → ℝ) (h : ℕ) : ℂ :=
+  ∑ i ∈ pd1c_cauchyEntrySet x K a family,
+    if pd1c_cauchyQuotient i = h then pd1c_cauchyEntryWeight x K a Y family beta eta i else 0
+
+lemma pd1c_cauchySquare_entry_gram (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ)
     {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂)
     (beta : ℕ → ℂ) (eta : ℝ → ℝ) :
-    0 ≤ cauchySquare x K a Y family beta eta := by
+    cauchySquare x K a Y family beta eta =
+      ∑ i ∈ pd1c_cauchyEntrySet x K a family, ∑ j ∈ pd1c_cauchyEntrySet x K a family,
+        if pd1c_cauchyQuotient i = pd1c_cauchyQuotient j then
+          (pd1c_cauchyEntryWeight x K a Y family beta eta i *
+            star (pd1c_cauchyEntryWeight x K a Y family beta eta j)).re else 0 := by
   let T := pd1c_markedTupleSet x K a
   let M := familyTerms family x
   let N := dyadicIntegers (family.Hn x)
   let W : ℝ := ∏ i : Fin K, (bandMass x (a i))⁻¹
   let s := T.product (M.product N)
-  let k (i : (Fin K → ℕ) × (ℕ × ℕ)) := (i.2.1 * i.2.2 - 1) / tupleProduct i.1
-  let z (i : (Fin K → ℕ) × (ℕ × ℕ)) : ℂ :=
+  let k (i : pd1c_CauchyEntry K) := (i.2.1 * i.2.2 - 1) / tupleProduct i.1
+  let z (i : pd1c_CauchyEntry K) : ℂ :=
     (W : ℂ) * (eta ((tupleProduct i.1 : ℕ) / Y) : ℂ) *
-      if tupleProduct i.1 ∣ i.2.1 * i.2.2 - 1 then
-        family.alpha x i.2.1 * beta i.2.2 else 0
-  have hpos := pd1c_finite_gram_nonneg s k z
-  suffices heq : cauchySquare x K a Y family beta eta =
-      ∑ i ∈ s, ∑ j ∈ s, if k i = k j then (z i * star (z j)).re else 0 by
-    rw [heq]
-    exact hpos
+      if tupleProduct i.1 ∣ i.2.1 * i.2.2 - 1 then family.alpha x i.2.1 * beta i.2.2 else 0
+  change cauchySquare x K a Y family beta eta =
+    ∑ i ∈ s, ∑ j ∈ s, if k i = k j then (z i * star (z j)).re else 0
   rw [pd1c_cauchySquare_finite_sum]
   simp only [Finset.mul_sum]
   dsimp only [s, k, z]
@@ -169,6 +190,24 @@ lemma pd1c_cauchySquare_nonneg (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ)
       · simp [hA, hB, hEq]
     · simp [hB]
   · simp [hA]
+
+
+lemma pd1c_cauchySquare_nonneg (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂)
+    (beta : ℕ → ℂ) (eta : ℝ → ℝ) : 0 ≤ cauchySquare x K a Y family beta eta := by
+  rw [pd1c_cauchySquare_entry_gram]
+  exact pd1c_finite_gram_nonneg _ _ _
+
+lemma pd1c_cauchySquare_fiber_gram (x : ℝ) (K : ℕ) (a : Fin K → ℝ) (Y : ℝ)
+    {δ C c₁ c₂ : ℝ} (family : CoefficientFamily δ C c₁ c₂)
+    (beta : ℕ → ℂ) (eta : ℝ → ℝ) :
+    cauchySquare x K a Y family beta eta =
+      ∑ h ∈ (pd1c_cauchyEntrySet x K a family).image pd1c_cauchyQuotient,
+        ‖pd1c_cauchyFiber x K a Y family beta eta h‖ ^ 2 := by
+  rw [pd1c_cauchySquare_entry_gram]
+  simpa only [pd1c_cauchyFiber] using pd1c_finite_gram_identity
+    (pd1c_cauchyEntrySet x K a family) pd1c_cauchyQuotient
+    (pd1c_cauchyEntryWeight x K a Y family beta eta)
 
 
 lemma pd1c_finite_weighted_cauchy {ι : Type*} (s : Finset ι) (b z : ι → ℂ)
