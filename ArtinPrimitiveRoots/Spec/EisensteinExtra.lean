@@ -104,6 +104,1307 @@ theorem E5_seed (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
             ((normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • z)) : ℝ) : ℂ) ^ (1 + 2 * s)) := by
   sorry
 
+theorem spec_cuspUnits_finiteIndex (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ : SL(2,F)) : (cuspUnits F Γ σ).FiniteIndex := by
+  classical
+  obtain ⟨N, hN, hfreeN⟩ := R11_free_level (F := F)
+  let Γf : Subgroup SL(2,𝓞 F) := Γ ⊓ congrSubgroup F N
+  have hfiniteCong : (congrSubgroup F N).FiniteIndex := by
+    letI : Finite (𝓞 F ⧸ N) := Ring.HasFiniteQuotients.finiteQuotient hN
+    letI : Finite (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F ⧸ N)) := inferInstance
+    unfold congrSubgroup
+    exact Subgroup.finiteIndex_ker _
+  have hfiniteΓf : Γf.FiniteIndex := by
+    letI : Γ.FiniteIndex := inferInstance
+    letI : (congrSubgroup F N).FiniteIndex := hfiniteCong
+    infer_instance
+  have hfreeΓf : FreeAction F Γf := by
+    intro γ hγ z hfix
+    exact hfreeN γ hγ.2 z hfix
+  have hR2 := R2_cusp_units (F := F) Γf hfreeΓf σ
+  have hle : cuspUnits F Γf σ ≤ cuspUnits F Γ σ := by
+    apply Subgroup.closure_mono
+    intro ε hε
+    rcases hε with ⟨μ, γ, hEq⟩
+    refine ⟨μ, ⟨γ.1, γ.2.1⟩, ?_⟩
+    exact hEq
+  letI : (cuspUnits F Γf σ).FiniteIndex := hR2.1
+  exact Subgroup.finiteIndex_of_le hle
+
+theorem spec_exists_siegelData (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex] :
+    Nonempty (SiegelData F Γ) := by
+  classical
+  obtain ⟨ι, hι, σ, hbij⟩ := (R3_cusps_finite (F := F) Γ).1
+  letI : Fintype ι := hι
+  obtain ⟨C_M, hC_M, hmink⟩ := R7_minkowski (F := F)
+  have hfull (i : ι) : IsFullZLattice (cuspTranslationsZ F Γ (σ i)) :=
+    (R1_cusp_lattice (F := F) Γ (σ i)).2.2.2.1.1
+  have hbalance (i : ι) : ∃ B : ℝ, 0 ≤ B ∧
+      ∀ t : InfinitePlace F → ℝ, (∀ w, 0 < t w) →
+        ∃ ε : (𝓞 F)ˣ, ε ∈ cuspUnits F Γ (σ i) ∧ ∀ w,
+          |Real.log (‖w.embedding (algebraMap (𝓞 F) F (ε : 𝓞 F))‖ * t w) -
+            (placeCount F)⁻¹ * ∑ w' : InfinitePlace F, Real.log (t w')| ≤ B := by
+    letI : (cuspUnits F Γ (σ i)).FiniteIndex := spec_cuspUnits_finiteIndex Γ (σ i)
+    exact R4_unit_balance (cuspUnits F Γ (σ i))
+  let P : ι → Set (InfinitePlace F → ℂ) := fun i => by
+    let L := cuspTranslationsZ F Γ (σ i)
+    let hLi := hfull i
+    letI : DiscreteTopology L := Classical.choose hLi
+    letI : IsZLattice ℝ L := Classical.choose_spec hLi
+    letI : Module.Finite ℤ L := ZLattice.module_finite ℝ L
+    letI : Module.Free ℤ L := ZLattice.module_free ℝ L
+    let b₀ := Module.Free.chooseBasis ℤ L
+    letI : Fintype (Module.Free.ChooseBasisIndex ℤ L) := Fintype.ofFinite _
+    exact ZSpan.fundamentalDomain (b₀.ofZLatticeBasis ℝ)
+  let B : ι → ℝ := fun i => Classical.choose (hbalance i)
+  refine ⟨{ ι := ι
+            fintype := hι
+            σ := σ
+            P := P
+            B := B
+            C_M := C_M
+            C_M_pos := hC_M
+            minkowski := hmink
+            P_fundamental := ?_
+            P_covers := ?_
+            P_bounded := ?_
+            P_measurable := ?_
+            balanced := ?_
+            reps_bijective := hbij }⟩
+  · intro i
+    let L := cuspTranslationsZ F Γ (σ i)
+    let hLi := hfull i
+    letI : DiscreteTopology L := Classical.choose hLi
+    letI : IsZLattice ℝ L := Classical.choose_spec hLi
+    letI : Module.Finite ℤ L := ZLattice.module_finite ℝ L
+    letI : Module.Free ℤ L := ZLattice.module_free ℝ L
+    let b₀ := Module.Free.chooseBasis ℤ L
+    letI : Fintype (Module.Free.ChooseBasisIndex ℤ L) := Fintype.ofFinite _
+    let b := b₀.ofZLatticeBasis ℝ
+    have hspan : (Submodule.span ℤ (Set.range b)).toAddSubgroup =
+        cuspTranslations F Γ (σ i) := by
+      calc
+        _ = L.toAddSubgroup := by rw [b₀.ofZLatticeBasis_span ℝ]
+        _ = cuspTranslations F Γ (σ i) := by
+          change (cuspTranslationsZ F Γ (σ i)).toAddSubgroup = _
+          exact Submodule.span_int_eq (cuspTranslations F Γ (σ i))
+    have hfd := ZSpan.isAddFundamentalDomain' b (volume : Measure (InfinitePlace F → ℂ))
+    rw [hspan] at hfd
+    simpa [P] using hfd
+  · intro i x
+    let L := cuspTranslationsZ F Γ (σ i)
+    let hLi := hfull i
+    letI : DiscreteTopology L := Classical.choose hLi
+    letI : IsZLattice ℝ L := Classical.choose_spec hLi
+    letI : Module.Finite ℤ L := ZLattice.module_finite ℝ L
+    letI : Module.Free ℤ L := ZLattice.module_free ℝ L
+    let b₀ := Module.Free.chooseBasis ℤ L
+    letI : Fintype (Module.Free.ChooseBasisIndex ℤ L) := Fintype.ofFinite _
+    let b := b₀.ofZLatticeBasis ℝ
+    have hspan : (Submodule.span ℤ (Set.range b)).toAddSubgroup =
+        cuspTranslations F Γ (σ i) := by
+      calc
+        _ = L.toAddSubgroup := by rw [b₀.ofZLatticeBasis_span ℝ]
+        _ = cuspTranslations F Γ (σ i) := by
+          change (cuspTranslationsZ F Γ (σ i)).toAddSubgroup = _
+          exact Submodule.span_int_eq (cuspTranslations F Γ (σ i))
+    obtain ⟨μ, hμ⟩ := (ZSpan.exist_unique_vadd_mem_fundamentalDomain b x).exists
+    have hmem : (μ : InfinitePlace F → ℂ) ∈
+        (Submodule.span ℤ (Set.range b)).toAddSubgroup := μ.property
+    rw [hspan] at hmem
+    refine ⟨(μ : InfinitePlace F → ℂ), hmem, ?_⟩
+    change (μ +ᵥ x) ∈ ZSpan.fundamentalDomain b
+    exact hμ
+  · intro i
+    let L := cuspTranslationsZ F Γ (σ i)
+    let hLi := hfull i
+    letI : DiscreteTopology L := Classical.choose hLi
+    letI : IsZLattice ℝ L := Classical.choose_spec hLi
+    letI : Module.Finite ℤ L := ZLattice.module_finite ℝ L
+    letI : Module.Free ℤ L := ZLattice.module_free ℝ L
+    let b := (Module.Free.chooseBasis ℤ L).ofZLatticeBasis ℝ
+    simpa [P] using ZSpan.fundamentalDomain_isBounded b
+  · intro i
+    let L := cuspTranslationsZ F Γ (σ i)
+    let hLi := hfull i
+    letI : DiscreteTopology L := Classical.choose hLi
+    letI : IsZLattice ℝ L := Classical.choose_spec hLi
+    letI : Module.Finite ℤ L := ZLattice.module_finite ℝ L
+    letI : Module.Free ℤ L := ZLattice.module_free ℝ L
+    let b := (Module.Free.chooseBasis ℤ L).ofZLatticeBasis ℝ
+    simpa [P] using ZSpan.fundamentalDomain_measurableSet b
+  · intro i
+    exact (Classical.choose_spec (hbalance i)).2
+
+set_option maxHeartbeats 1000000 in
+theorem spec_finiteVolume_any_fd (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F)) :
+    volX F D < ⊤ := by
+  classical
+  obtain ⟨N, hN, hfreeN⟩ := R11_free_level (F := F)
+  let Γf : Subgroup SL(2,𝓞 F) := Γ ⊓ congrSubgroup F N
+  have hfiniteCong : (congrSubgroup F N).FiniteIndex := by
+    letI : Finite (𝓞 F ⧸ N) := Ring.HasFiniteQuotients.finiteQuotient hN
+    letI : Finite (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F ⧸ N)) := inferInstance
+    unfold congrSubgroup
+    exact Subgroup.finiteIndex_ker _
+  have hfiniteΓf : Γf.FiniteIndex := by
+    letI : Γ.FiniteIndex := inferInstance
+    letI : (congrSubgroup F N).FiniteIndex := hfiniteCong
+    infer_instance
+  have hfreeΓf : FreeAction F Γf := by
+    intro γ hγ z hfix
+    exact hfreeN γ hγ.2 z hfix
+  letI : Γf.FiniteIndex := hfiniteΓf
+  let d0 : SiegelData F Γf := Classical.choice (spec_exists_siegelData Γf)
+  let D0 := fundamentalDomainCandidate F Γf (SiegelData.unionSet F d0)
+  have hR12 := R12_fund_domain (F := F) Γf hfreeΓf d0
+  have hD0 : IsFundamentalDomain Γf D0 (volX F) := by
+    simpa [D0] using hR12.2.1
+  have hD0fin : volX F D0 < ⊤ := by
+    simpa [D0] using hR12.2.2
+  have hΓfΓ : Γf ≤ Γ := inf_le_left
+  let H : Subgroup Γ := Γf.subgroupOf Γ
+  letI : H.FiniteIndex := inferInstance
+  let e : H ≃* Γf := Subgroup.subgroupOfEquivOfLe hΓfΓ
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ) (M := F)
+  letI : Countable (𝓞 F) := (RingOfIntegers.coe_injective (K := F)).countable
+  letI : Countable (Fin 2 → 𝓞 F) := inferInstance
+  letI : Countable (Matrix (Fin 2) (Fin 2) (𝓞 F)) := by
+    change Countable (Fin 2 → Fin 2 → 𝓞 F)
+    infer_instance
+  letI : Countable (SL(2,𝓞 F)) :=
+    (Subtype.val_injective : Function.Injective
+      (fun g : SL(2,𝓞 F) => (g : Matrix (Fin 2) (Fin 2) (𝓞 F)))).countable
+  letI : Countable Γ :=
+    (Subtype.val_injective : Function.Injective (fun g : Γ => (g : SL(2,𝓞 F)))).countable
+  letI : Countable H := inferInstance
+  have hsmulMeas (γ : SL(2,𝓞 F)) : Measurable (fun z : X F => γ • z) := by
+    let g := toInf F (toSLF F γ)
+    change Measurable (actAtPlaces F g)
+    apply measurable_pi_iff.2
+    intro w
+    exact (OAI.CubicEisenstein.continuous_hyperbolic_action (g w)).measurable.comp
+      (measurable_pi_apply w)
+  letI : MeasurableConstSMul Γ (X F) := ⟨fun γ => hsmulMeas (γ : SL(2,𝓞 F))⟩
+  letI : MeasurableConstSMul H (X F) := inferInstance
+  letI : SMulInvariantMeasure Γ (X F) (volX F) := ⟨fun γ s hs => by
+    have hmap : Measure.map (fun z : X F => γ • z) (volX F) = volX F := by
+      change Measure.map (actAtPlaces F (toInf F (toSLF F γ))) (volX F) = volX F
+      exact (G3_volume (F := F)).1 (toInf F (toSLF F γ))
+    exact Measure.measure_preimage_of_map_eq_self hmap
+      (hsmulMeas (γ : SL(2,𝓞 F))).aemeasurable hs.nullMeasurableSet⟩
+  let Q := Quotient (QuotientGroup.rightRel H)
+  let q0 : Q := Quotient.mk _ (1 : Γ)
+  let rep : Q → Γ := fun q => if q = q0 then 1 else Quotient.out q
+  have hrep (q : Q) : Quotient.mk (QuotientGroup.rightRel H) (rep q) = q := by
+    by_cases hq : q = q0
+    · subst q
+      simp [rep, q0]
+    · simp [rep, hq, Quotient.out_eq']
+  letI : Finite (Γ ⧸ H) := inferInstance
+  letI : Fintype (Γ ⧸ H) := Fintype.ofFinite _
+  letI : Fintype Q := QuotientGroup.fintypeQuotientRightRel
+  let U : Set (X F) := ⋃ q : Q, (rep q : Γ) • D
+  have hUmeas : NullMeasurableSet U (volX F) := by
+    change NullMeasurableSet (⋃ q : Q, (rep q : Γ) • D) (volX F)
+    refine .iUnion fun q => ?_
+    rw [← inv_inv (rep q : Γ), ← Set.preimage_smul]
+    exact hD.nullMeasurableSet.preimage
+      (measurePreserving_smul ((rep q : Γ)⁻¹) (volX F)).quasiMeasurePreserving
+  have hcover : ∀ᵐ x ∂(volX F), ∃ a : H, a • x ∈ U := by
+    filter_upwards [hD.ae_covers] with x hx
+    rcases hx with ⟨g, hg⟩
+    let δ : Γ := g⁻¹
+    let q : Q := Quotient.mk _ δ
+    have hrel : QuotientGroup.rightRel H (rep q) δ := by
+      apply Quotient.exact'
+      simpa [q] using hrep q
+    have hmem : δ * (rep q)⁻¹ ∈ H := QuotientGroup.rightRel_apply.mp hrel
+    let k : H := ⟨δ * (rep q)⁻¹, hmem⟩
+    have hδ : δ = k * rep q := by
+      dsimp [k, δ]
+      group
+    have hprod : (k : Γ) * rep q = g⁻¹ := by
+      simpa [δ] using hδ.symm
+    have hsolve : (rep q)⁻¹ * (k⁻¹ : Γ) = g := by
+      calc
+        (rep q)⁻¹ * (k⁻¹ : Γ) = ((k : Γ) * rep q)⁻¹ := by group
+        _ = (g⁻¹)⁻¹ := congrArg Inv.inv hprod
+        _ = g := by simp
+    refine ⟨k⁻¹, Set.mem_iUnion.mpr ⟨q, ?_⟩⟩
+    change (k⁻¹ : H) • x ∈ (rep q : Γ) • D
+    rw [Set.mem_smul_set_iff_inv_smul_mem]
+    change (rep q : Γ)⁻¹ • (((k⁻¹ : H) : Γ) • x) ∈ D
+    have hval : (rep q : Γ)⁻¹ • (((k⁻¹ : H) : Γ) • x) = g • x := by
+      calc
+        (rep q : Γ)⁻¹ • (((k⁻¹ : H) : Γ) • x) =
+            ((rep q : Γ)⁻¹ * ((k⁻¹ : H) : Γ)) • x := smul_smul _ _ _
+        _ = g • x := by simpa using congrArg (fun z : Γ => z • x) hsolve
+    rw [hval]
+    exact hg
+  have hUfd : IsFundamentalDomain H U (volX F) := by
+    apply IsFundamentalDomain.mk'' hUmeas hcover
+    · intro a ha
+      simp only [U, Set.smul_set_iUnion]
+      rw [AEDisjoint.iUnion_left_iff]
+      intro q
+      rw [AEDisjoint.iUnion_right_iff]
+      intro q'
+      have hset : a • (rep q : Γ) • D = ((a : Γ) * rep q) • D := by
+        change (a : Γ) • ((rep q : Γ) • D) = _
+        rw [smul_smul]
+      have hneq : (a : Γ) * rep q ≠ rep q' := by
+        intro heq
+        have hmem' : rep q' * (rep q)⁻¹ ∈ H := by
+          rw [← heq]
+          have hmul : ((a : Γ) * rep q) * (rep q)⁻¹ = (a : Γ) := by group
+          rw [hmul]
+          exact a.property
+        have hclass : q = q' := by
+          calc
+            q = Quotient.mk _ (rep q) := (hrep q).symm
+            _ = Quotient.mk _ (rep q') := Quotient.sound
+              (QuotientGroup.rightRel_apply.mpr hmem')
+            _ = q' := hrep q'
+        subst q'
+        apply ha
+        apply Subtype.ext
+        have hmul := congrArg (fun z : Γ => z * (rep q)⁻¹) heq
+        simpa using hmul
+      have hpair := hD.aedisjoint (i := (a : Γ) * rep q) (j := rep q') hneq
+      simpa only [hset] using hpair
+    · intro a
+      exact (measurePreserving_smul a (volX F)).quasiMeasurePreserving
+  have hD0H : IsFundamentalDomain H D0 (volX F) := by
+    refine ⟨hD0.nullMeasurableSet, ?_, ?_⟩
+    · filter_upwards [hD0.ae_covers] with x hx
+      rcases hx with ⟨g, hg⟩
+      refine ⟨e.symm g, ?_⟩
+      change e (e.symm g) • x ∈ D0
+      rw [e.apply_symm_apply]
+      exact hg
+    · intro a b hab
+      have hne : e a ≠ e b := by
+        intro heq
+        exact hab (e.injective heq)
+      have hdis := hD0.aedisjoint (i := e a) (j := e b) hne
+      have hsetA : (e a) • D0 = a • D0 := by
+        ext x
+        simp only [Set.mem_smul_set_iff_inv_smul_mem]
+        rfl
+      have hsetB : (e b) • D0 = b • D0 := by
+        ext x
+        simp only [Set.mem_smul_set_iff_inv_smul_mem]
+        rfl
+      change AEDisjoint (volX F) ((e a) • D0) ((e b) • D0) at hdis
+      rw [hsetA, hsetB] at hdis
+      exact hdis
+  have hmeasure : volX F U = volX F D0 := hUfd.measure_eq hD0H
+  have hDsub : D ⊆ U := by
+    intro x hx
+    refine Set.mem_iUnion.mpr ⟨q0, ?_⟩
+    change x ∈ (rep q0 : Γ) • D
+    simpa [rep, q0] using hx
+  calc
+    volX F D ≤ volX F U := measure_mono hDsub
+    _ = volX F D0 := hmeasure
+    _ < ⊤ := hD0fin
+
+def specIdentifyRadialProfile (τ : ℝ → ℝ) (a : ℂ) (u : ℝ) : ℂ :=
+  (τ (Real.exp u) : ℂ) * Complex.exp (a * (u : ℂ))
+
+theorem specIdentifyRadialProfile_log (τ : ℝ → ℝ) (a : ℂ) {h : ℝ} (hh : 0 < h) :
+    specIdentifyRadialProfile τ a (Real.log h) = (τ h : ℂ) * (h : ℂ) ^ a := by
+  have hne : (h : ℂ) ≠ 0 := by exact_mod_cast hh.ne'
+  rw [specIdentifyRadialProfile, Real.exp_log hh, Complex.cpow_def_of_ne_zero hne,
+    Complex.ofReal_log hh.le]
+  congr 1
+  rw [mul_comm a (Complex.log (h : ℂ))]
+
+private theorem specIdentifyRadialProfile_contDiff (τ : ℝ → ℝ) (a : ℂ)
+    (hτ : ContDiff ℝ ∞ τ) :
+    ContDiff ℝ ∞ (specIdentifyRadialProfile τ a) := by
+  have hτ' : ContDiff ℝ ∞ (fun u : ℝ => τ (Real.exp u)) := hτ.comp Real.contDiff_exp
+  have hreal : ContDiff ℝ ∞ (fun u : ℝ => (τ (Real.exp u) : ℂ)) :=
+    Complex.ofRealCLM.contDiff.comp hτ'
+  have harg : ContDiff ℝ ∞ (fun u : ℝ => a * (u : ℂ)) := by
+    have h := (Complex.ofRealCLM.smulRight a).contDiff (n := ∞)
+    convert h using 1 <;> ext u <;> simp [Complex.ofRealCLM_apply,
+      ContinuousLinearMap.smulRight_apply, smul_eq_mul, mul_comm]
+  have hexp : ContDiff ℝ ∞ (fun u : ℝ => Complex.exp (a * (u : ℂ))) :=
+    Complex.contDiff_exp.comp harg
+  change ContDiff ℝ ∞ (fun u : ℝ => (τ (Real.exp u) : ℂ) * Complex.exp (a * (u : ℂ)))
+  exact hreal.mul hexp
+
+theorem specIdentify_posSet_open : IsOpen (posSet F) := by
+  rw [posSet, Set.ofPred_forall]
+  exact isOpen_iInter_of_finite fun w => by
+    have hcont : Continuous (fun p : Coord F => (p w).2) :=
+      continuous_snd.comp (continuous_apply w)
+    exact isOpen_lt continuous_const hcont
+
+private theorem specIdentify_heightAction_smooth (b : SL(2,F)) :
+    ContDiffOn ℝ ∞ (fun p : Coord F => normHeight F (b • ptX F p)) (posSet F) := by
+  classical
+  let denom (p : Coord F) (w : InfinitePlace F) : ℝ :=
+    Complex.normSq (w.embedding (b 1 0) * (p w).1 + w.embedding (b 1 1)) +
+      Complex.normSq (w.embedding (b 1 0)) * (p w).2 ^ 2
+  let H (p : Coord F) : ℝ := ∏ w : InfinitePlace F, (p w).2 / denom p w
+  have hbrow : b 1 0 ≠ 0 ∨ b 1 1 ≠ 0 := by
+    by_contra h
+    push_neg at h
+    have hdet := b.property
+    rw [Matrix.det_fin_two] at hdet
+    rw [h.1, h.2] at hdet
+    norm_num at hdet
+  have hden (p : Coord F) (hp : p ∈ posSet F) (w : InfinitePlace F) : 0 < denom p w := by
+    by_cases hc : b 1 0 = 0
+    · have hd : b 1 1 ≠ 0 := by
+        intro hd0
+        exact hbrow.elim (fun h => h hc) (fun h => h hd0)
+      have hwd : w.embedding (b 1 1) ≠ 0 := (map_ne_zero (w.embedding)).2 hd
+      have hnorm : 0 < Complex.normSq (w.embedding (b 1 1)) := by
+        rw [Complex.normSq_eq_norm_sq]
+        exact sq_pos_of_pos (norm_pos_iff.mpr hwd)
+      simpa [denom, hc] using hnorm
+    · have hwc : w.embedding (b 1 0) ≠ 0 := (map_ne_zero (w.embedding)).2 hc
+      have hnorm : 0 < Complex.normSq (w.embedding (b 1 0)) := by
+        rw [Complex.normSq_eq_norm_sq]
+        exact sq_pos_of_pos (norm_pos_iff.mpr hwc)
+      have hy : 0 < (p w).2 ^ 2 := pow_pos (hp w) 2
+      unfold denom
+      exact add_pos_of_nonneg_of_pos (Complex.normSq_nonneg _) (mul_pos hnorm hy)
+  have hHpos (p : Coord F) (hp : p ∈ posSet F) : 0 < H p := by
+    apply Finset.prod_pos
+    intro w hw
+    exact div_pos (hp w) (hden p hp w)
+  have hformula (p : Coord F) (hp : p ∈ posSet F) :
+      normHeight F (b • ptX F p) = H p := by
+    have hG := (G2_x_action (F := F)).1 b (fun w => (p w).1) (fun w => (p w).2) hp
+    change normHeight F (b • ptX' F (fun w => (p w).1) (fun w => (p w).2)) = H p
+    change normHeight F (b • ptX' F (fun w => (p w).1) (fun w => (p w).2)) = H p at hG
+    exact hG
+  have hdenomCont (w : InfinitePlace F) :
+      ContDiff ℝ ∞ (fun p : Coord F => denom p w) := by
+    let l : Coord F → ℂ := fun p =>
+      w.embedding (b 1 0) * (p w).1 + w.embedding (b 1 1)
+    have hleft : ContDiff ℝ ∞ l := by fun_prop
+    have hleftRe : ContDiff ℝ ∞ (fun p => (l p).re) := Complex.reCLM.contDiff.comp hleft
+    have hleftIm : ContDiff ℝ ∞ (fun p => (l p).im) := Complex.imCLM.contDiff.comp hleft
+    have hleftSq : ContDiff ℝ ∞ (fun p : Coord F => Complex.normSq (l p)) := by
+      have hsum : ContDiff ℝ ∞ (fun p : Coord F =>
+          (l p).re * (l p).re + (l p).im * (l p).im) :=
+        (hleftRe.mul hleftRe).add (hleftIm.mul hleftIm)
+      simpa only [Complex.normSq_apply] using hsum
+    have hrightSq : ContDiff ℝ ∞
+        (fun p : Coord F => Complex.normSq (w.embedding (b 1 0)) * (p w).2 ^ 2) := by
+      fun_prop
+    change ContDiff ℝ ∞ (fun p => Complex.normSq (l p) +
+      Complex.normSq (w.embedding (b 1 0)) * (p w).2 ^ 2)
+    exact hleftSq.add hrightSq
+  have hfracCont (w : InfinitePlace F) :
+      ContDiffOn ℝ ∞ (fun p : Coord F => (p w).2 / denom p w) (posSet F) := by
+    have hnum : ContDiff ℝ ∞ (fun p : Coord F => (p w).2) := by fun_prop
+    exact hnum.contDiffOn.div (hdenomCont w).contDiffOn fun p hp => (hden p hp w).ne'
+  have hHdiff : ContDiffOn ℝ ∞ H (posSet F) := by
+    unfold H
+    exact contDiffOn_prod (fun w _ => hfracCont w)
+  unfold H at hHdiff
+  exact hHdiff.congr fun p hp => hformula p hp
+
+private theorem specIdentify_seedTerm_smooth_action
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ σ' : SL(2,F)) (τ : ℝ → ℝ) (hτ : ContDiff ℝ ∞ τ)
+    (s : ℂ) (q : CuspCosets F Γ σ) :
+    IsSmoothX F (fun x => seedTerm F Γ σ τ s (σ' • x) q) := by
+  classical
+  let a : ℂ := 1 + 2 * s
+  let γ : SL(2,𝓞 F) := (q.out : Γ)
+  let b : SL(2,F) := σ⁻¹ * toSLF F γ * σ'
+  let H : Coord F → ℝ := fun p => normHeight F (b • ptX F p)
+  have hHdiff : ContDiffOn ℝ ∞ H (posSet F) := by
+    simpa [H] using specIdentify_heightAction_smooth b
+  have hHpos (p : Coord F) (hp : p ∈ posSet F) : 0 < H p := by
+    unfold H normHeight
+    apply Finset.prod_pos
+    intro w hw
+    rw [height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos ((b • ptX F p) w)
+  have hlogH : ContDiffOn ℝ ∞ (fun p => Real.log (H p)) (posSet F) :=
+    hHdiff.log fun p hp => (hHpos p hp).ne'
+  have hprofile : ContDiffOn ℝ ∞
+    (fun p => specIdentifyRadialProfile τ a (Real.log (H p))) (posSet F) :=
+    (specIdentifyRadialProfile_contDiff τ a hτ).comp_contDiffOn hlogH
+  have hEq (p : Coord F) (hp : p ∈ posSet F) :
+      seedTerm F Γ σ τ s (σ' • ptX F p) q =
+        specIdentifyRadialProfile τ a (Real.log (H p)) := by
+    have hact : σ⁻¹ • ((γ : SL(2,𝓞 F)) • (σ' • ptX F p)) = b • ptX F p := by
+      change σ⁻¹ • ((toSLF F γ) • (σ' • ptX F p)) = _
+      rw [← mul_smul, ← mul_smul]
+    unfold seedTerm
+    change (τ (normHeight F (σ⁻¹ •
+      ((γ : SL(2,𝓞 F)) • (σ' • ptX F p))) : ℝ) : ℂ) *
+        ((normHeight F (σ⁻¹ • ((γ : SL(2,𝓞 F)) • (σ' • ptX F p))) : ℝ) : ℂ) ^ a = _
+    rw [hact]
+    change (τ (H p) : ℂ) * (H p : ℂ) ^ a = _
+    exact (specIdentifyRadialProfile_log τ a (hHpos p hp)).symm
+  unfold IsSmoothX
+  change ContDiffOn ℝ ∞
+    (fun p => seedTerm F Γ σ τ s (σ' • ptX F p) q) (posSet F)
+  exact hprofile.congr fun p hp => hEq p hp
+
+private theorem specIdentify_seedHighCosets_finite
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ σ' : SL(2,F)) (τ : ℝ → ℝ) (A : ℝ) (hA : 0 < A)
+    (hτ : IsCuspCutoff A τ) (s : ℂ) (y : X F) :
+    ∃ Q : Set (CuspCosets F Γ σ), Q.Finite ∧
+      ∃ U : Set (X F), IsOpen U ∧ y ∈ U ∧
+        ∀ x ∈ U, ∀ q ∉ Q, seedTerm F Γ σ τ s (σ' • x) q = 0 := by
+  classical
+  rcases G1_h3_basics (F := F) with
+    ⟨_, _, _, _, _, _, _, hptCoord, _, _, _, hex⟩
+  obtain ⟨e, he, hesym⟩ := hex
+  have hcoord : Continuous (coordsX F) := by
+    have heq : coordsX F = fun z => (e.symm z).1 := by
+      funext z
+      exact (hesym z).symm
+    rw [heq]
+    exact continuous_subtype_val.comp e.symm.continuous
+  let p : Coord F := coordsX F y
+  have hp : p ∈ posSet F := by
+    intro w
+    change 0 < height (y w)
+    rw [height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos (y w)
+  obtain ⟨ε, hε, hεball⟩ := (Metric.isOpen_iff.mp
+    (specIdentify_posSet_open (F := F)) p hp)
+  let r : ℝ := ε / 2
+  let Kcoord : Set (Coord F) := Metric.closedBall p r
+  have hKcoord : IsCompact Kcoord := isCompact_closedBall p r
+  have hKcoordPos : Kcoord ⊆ posSet F := by
+    intro p' hp'
+    apply hεball
+    have hclosed : dist p' p ≤ r := by simpa [Kcoord] using hp'
+    have hrε : r < ε := by dsimp [r]; linarith
+    exact Metric.mem_ball.mpr (lt_of_le_of_lt hclosed hrε)
+  let fPos : Kcoord → {p : Coord F // p ∈ posSet F} := fun p' =>
+    ⟨p'.1, hKcoordPos p'.2⟩
+  have hfPos : Continuous fPos :=
+    Continuous.subtype_mk continuous_subtype_val (fun p' => hKcoordPos p'.2)
+  have hmap : Continuous (fun p' : Kcoord => σ' • ptX F p'.1) := by
+    obtain ⟨eAct, hAct, _⟩ := (G2_x_action (F := F)).2.2.2.1 (toInf F σ')
+    have hActCont : Continuous (fun z : X F => σ' • z) := by
+      have heq : (fun z : X F => σ' • z) = eAct := by
+        funext z
+        calc
+          σ' • z = actAtPlaces F (toInf F σ') z := by rfl
+          _ = eAct z := (hAct z).symm
+      rw [heq]
+      exact eAct.continuous
+    exact hActCont.comp ((e.continuous.comp hfPos).congr fun p' => by
+      simpa [fPos] using he (fPos p'))
+  let Kact : Set (X F) := Set.range (fun p' : Kcoord => σ' • ptX F p'.1)
+  have hKact : IsCompact Kact := by
+    change IsCompact (Set.range (fun p' : Kcoord => σ' • ptX F p'.1))
+    exact isCompact_range hmap
+  let Q : Set (CuspCosets F Γ σ) :=
+    {q | ∃ z ∈ Kact, A ≤ normHeight F
+      (σ⁻¹ • (((q.out : Γ) : SL(2,𝓞 F)) • z))}
+  have hQ : Q.Finite :=
+    (R10_cusp_separation (F := F) Γ).2.2 σ Kact hKact A hA
+  let U : Set (X F) := coordsX F ⁻¹' Metric.ball p r
+  have hUopen : IsOpen U := Metric.isOpen_ball.preimage hcoord
+  have hyU : y ∈ U := by
+    change coordsX F y ∈ Metric.ball p r
+    dsimp [p, r]
+    rw [Metric.mem_ball, dist_self]
+    linarith [hε]
+  refine ⟨Q, hQ, U, hUopen, hyU, ?_⟩
+  intro x hx q hq
+  have hp' : coordsX F x ∈ Kcoord := by
+    change coordsX F x ∈ Metric.closedBall p r
+    exact Metric.mem_closedBall.mpr (le_of_lt (Metric.mem_ball.mp hx))
+  have hz : σ' • x ∈ Kact := by
+    refine ⟨⟨coordsX F x, hp'⟩, ?_⟩
+    change σ' • ptX F (coordsX F x) = σ' • x
+    rw [hptCoord x]
+  have hnotHigh : ¬ A ≤ normHeight F
+      (σ⁻¹ • (((q.out : Γ) : SL(2,𝓞 F)) • (σ' • x))) := by
+    intro hhigh
+    exact hq ⟨σ' • x, hz, hhigh⟩
+  have hheight : normHeight F
+      (σ⁻¹ • (((q.out : Γ) : SL(2,𝓞 F)) • (σ' • x))) ≤ A := le_of_not_ge hnotHigh
+  unfold seedTerm
+  simp [hτ.2.2.1 _ hheight]
+
+private theorem specIdentify_normHeight_ptX (p : Coord F) (hp : p ∈ posSet F) :
+    normHeight F (ptX F p) = ∏ w : InfinitePlace F, (p w).2 := by
+  unfold normHeight
+  apply Finset.prod_congr rfl
+  intro w _
+  change height (pt (p w).1 (p w).2) = _
+  exact (G1_h3_basics (F := F)).1 (p w).1 (p w).2 (hp w)
+
+private theorem specIdentify_radial_smooth (τ : ℝ → ℝ) (a : ℂ)
+    (hτ : ContDiff ℝ ∞ τ) :
+    IsSmoothX F (fun z => (τ (normHeight F z) : ℂ) * (normHeight F z : ℂ) ^ a) := by
+  unfold IsSmoothX
+  let Ncoord : Coord F → ℝ := fun p => ∏ w : InfinitePlace F, (p w).2
+  have hN : ContDiff ℝ ∞ Ncoord := by
+    dsimp [Ncoord]
+    fun_prop
+  have hNOn : ContDiffOn ℝ ∞ Ncoord (posSet F) := hN.contDiffOn
+  have hNpos (p : Coord F) (hp : p ∈ posSet F) : 0 < Ncoord p := by
+    apply Finset.prod_pos
+    intro w hw
+    exact hp w
+  have hlogN : ContDiffOn ℝ ∞ (fun p => Real.log (Ncoord p)) (posSet F) :=
+    hNOn.log fun p hp => (hNpos p hp).ne'
+  have hprofile : ContDiffOn ℝ ∞
+      (fun p => specIdentifyRadialProfile τ a (Real.log (Ncoord p))) (posSet F) :=
+    (specIdentifyRadialProfile_contDiff τ a hτ).comp_contDiffOn hlogN
+  apply hprofile.congr
+  intro p hp
+  change (τ (normHeight F (ptX F p)) : ℂ) *
+    (normHeight F (ptX F p) : ℂ) ^ a = _
+  rw [specIdentify_normHeight_ptX p hp]
+  exact (specIdentifyRadialProfile_log τ a (hNpos p hp)).symm
+
+private theorem specIdentify_fullGradient_radial (τ : ℝ → ℝ) (a : ℂ)
+    (hτ : ContDiff ℝ ∞ τ) (z : X F) :
+    fullGradient F
+        (fun z => (τ (normHeight F z) : ℂ) * (normHeight F z : ℂ) ^ a) z =
+      (deriv (specIdentifyRadialProfile τ a) (Real.log (normHeight F z))) •
+        fullGradient F (logNormHeight F) z := by
+  classical
+  let p : Coord F := coordsX F z
+  have hp : p ∈ posSet F := by
+    intro w
+    change 0 < height (z w)
+    rw [height_eq_hyperbolicHeight]
+    exact OAI.CubicEisenstein.hyperbolicHeight_pos (z w)
+  let Ncoord : Coord F → ℝ := fun p => normHeight F (ptX F p)
+  let Lcoord : Coord F → ℝ := fun p => Real.log (Ncoord p)
+  let ψ : ℝ → ℂ := specIdentifyRadialProfile τ a
+  let radial : X F → ℂ := fun z => (τ (normHeight F z) : ℂ) * (normHeight F z : ℂ) ^ a
+  have hN_eq (p' : Coord F) (hp' : p' ∈ posSet F) :
+      Ncoord p' = ∏ w : InfinitePlace F, (p' w).2 := by
+    exact specIdentify_normHeight_ptX p' hp'
+  have hNpos (p' : Coord F) (hp' : p' ∈ posSet F) : 0 < Ncoord p' := by
+    rw [hN_eq p' hp']
+    exact Finset.prod_pos fun w _ => hp' w
+  have hNprod : DifferentiableAt ℝ (fun p' : Coord F => ∏ w : InfinitePlace F, (p' w).2) p := by
+    fun_prop
+  have hNevent : Ncoord =ᶠ[𝓝 p] fun p' : Coord F => ∏ w : InfinitePlace F, (p' w).2 := by
+    filter_upwards [(specIdentify_posSet_open (F := F)).mem_nhds hp] with p' hp'
+    exact hN_eq p' hp'
+  have hNhas : HasFDerivAt Ncoord (fderiv ℝ (fun p' : Coord F => ∏ w, (p' w).2) p) p :=
+    hNprod.hasFDerivAt.congr_of_eventuallyEq hNevent
+  have hLhas : HasFDerivAt Lcoord (fderiv ℝ Lcoord p) p := by
+    change HasFDerivAt (fun p' : Coord F => Real.log (Ncoord p')) _ p
+    have hLcomp := (Real.hasDerivAt_log (ne_of_gt (hNpos p hp))).hasFDerivAt.comp p hNhas
+    change HasFDerivAt (Real.log ∘ Ncoord) (fderiv ℝ (Real.log ∘ Ncoord) p) p
+    rw [hLcomp.fderiv]
+    exact hLcomp
+  have hψsmooth : ContDiff ℝ ∞ ψ := specIdentifyRadialProfile_contDiff τ a hτ
+  have hψhas : HasDerivAt ψ (deriv ψ (Lcoord p)) (Lcoord p) :=
+    (hψsmooth.contDiffAt (x := Lcoord p)).differentiableAt (by simp) |>.hasDerivAt
+  have hcomp := hψhas.hasFDerivAt.comp p hLhas
+  have hprofEq (p' : Coord F) (hp' : p' ∈ posSet F) : radial (ptX F p') = ψ (Lcoord p') := by
+    change (τ (normHeight F (ptX F p')) : ℂ) *
+        (normHeight F (ptX F p') : ℂ) ^ a = specIdentifyRadialProfile τ a
+          (Real.log (normHeight F (ptX F p')))
+    exact (specIdentifyRadialProfile_log τ a (hNpos p' hp')).symm
+  have hprofEvent : (fun p' : Coord F => radial (ptX F p')) =ᶠ[𝓝 p]
+      fun p' => ψ (Lcoord p') := by
+    filter_upwards [specIdentify_posSet_open (F := F).mem_nhds hp] with p' hp'
+    exact hprofEq p' hp'
+  have hradHas := hcomp.congr_of_eventuallyEq hprofEvent
+  have hradDeriv : fderiv ℝ (fun p' : Coord F => radial (ptX F p')) p =
+      (ContinuousLinearMap.toSpanSingleton ℝ (deriv ψ (Lcoord p))).comp
+        (fderiv ℝ Lcoord p) := hradHas.fderiv
+  have hlogHas : HasFDerivAt (fun p' : Coord F => logNormHeight F (ptX F p'))
+      (Complex.ofRealCLM.comp (fderiv ℝ Lcoord p)) p := by
+    change HasFDerivAt (fun p' : Coord F => (Lcoord p' : ℂ)) _ p
+    exact Complex.ofRealCLM.hasFDerivAt.comp p hLhas
+  have hlogDeriv : fderiv ℝ (fun p' : Coord F => logNormHeight F (ptX F p')) p =
+      Complex.ofRealCLM.comp (fderiv ℝ Lcoord p) := hlogHas.fderiv
+  have hdir (v : Coord F) :
+      fderiv ℝ (fun p' : Coord F => radial (ptX F p')) p v =
+        deriv ψ (Lcoord p) * fderiv ℝ (fun p' : Coord F => logNormHeight F (ptX F p')) p v := by
+    rw [hradDeriv, hlogDeriv]
+    simp [ContinuousLinearMap.comp_apply, ContinuousLinearMap.toSpanSingleton_apply,
+      Complex.ofRealCLM_apply]
+    <;> ring
+  have hplace (w : InfinitePlace F) (j : Fin 3) :
+      placeGradient F w radial z j =
+        deriv ψ (Lcoord p) * placeGradient F w (logNormHeight F) z j := by
+    unfold placeGradient
+    rw [show coordsX F z = p by rfl]
+    have h := hdir (placeDirection F w j)
+    have h' :
+        fderiv ℝ (radial ∘ ptX F) p (placeDirection F w j) =
+          deriv ψ (Lcoord p) *
+            fderiv ℝ (logNormHeight F ∘ ptX F) p (placeDirection F w j) := by
+      change fderiv ℝ (fun p' => radial (ptX F p')) p (placeDirection F w j) =
+        deriv ψ (Lcoord p) *
+          fderiv ℝ (fun p' => logNormHeight F (ptX F p')) p (placeDirection F w j)
+      exact h
+    rw [h']
+    ring
+  have hvec : fullGradient F radial z =
+      (deriv ψ (Lcoord p)) • fullGradient F (logNormHeight F) z := by
+    apply PiLp.ext
+    intro ij
+    rcases ij with ⟨w, j⟩
+    simp [fullGradient, hplace]
+  have hpoint : ptX F p = z := (G1_h3_basics (F := F)).2.2.2.2.2.2.2.1 z
+  have hNpoint : Ncoord p = normHeight F z := by
+    dsimp [Ncoord, p]
+    rw [hpoint]
+  simpa [ψ, Lcoord, hNpoint] using hvec
+
+private theorem specIdentify_fullGradient_norm_sq (f : X F → ℂ) (z : X F) :
+    ‖fullGradient F f z‖ ^ 2 = totalGradNormSq F f z := by
+  rw [EuclideanSpace.norm_sq_eq]
+  simp only [fullGradient, PiLp.toLp_apply]
+  change (∑ ij : InfinitePlace F × Fin 3, ‖placeGradient F ij.1 f z ij.2‖ ^ 2) = _
+  rw [Fintype.sum_prod_type]
+  simp [totalGradNormSq, placeGradNormSq, Complex.normSq_eq_norm_sq]
+
+private theorem specIdentify_radial_gradient_norm (τ : ℝ → ℝ) (a : ℂ)
+    (hτ : ContDiff ℝ ∞ τ) (z : X F) :
+    ‖fullGradient F
+        (fun z => (τ (normHeight F z) : ℂ) * (normHeight F z : ℂ) ^ a) z‖ =
+      ‖deriv (specIdentifyRadialProfile τ a) (Real.log (normHeight F z))‖ *
+        Real.sqrt (placeCount F) := by
+  have hlogSmooth : IsSmoothX F (logNormHeight F) := by
+    unfold IsSmoothX
+    have hprod : ContDiff ℝ ∞ (fun p : Coord F => ∏ w : InfinitePlace F, (p w).2) := by
+      fun_prop
+    have hprodOn : ContDiffOn ℝ ∞
+        (fun p : Coord F => ∏ w : InfinitePlace F, (p w).2) (posSet F) := hprod.contDiffOn
+    have hlog : ContDiffOn ℝ ∞
+        (fun p : Coord F => Real.log (∏ w : InfinitePlace F, (p w).2)) (posSet F) := by
+      apply hprodOn.log
+      intro p hp
+      exact (Finset.prod_pos fun w _ => hp w).ne'
+    have hcast := Complex.ofRealCLM.contDiff.comp_contDiffOn hlog
+    apply hcast.congr
+    intro p hp
+    simp [logNormHeight, specIdentify_normHeight_ptX p hp]
+  have hG4 := G4_energy (F := F) (fun _ => (1 : SL(2,ℂ)))
+    (logNormHeight F) (logNormHeight F) hlogSmooth hlogSmooth
+  have hr : 0 < placeCount F := by
+    unfold placeCount
+    exact_mod_cast (Fintype.card_pos_iff.mpr
+      (inferInstance : Nonempty (InfinitePlace F)))
+  have hnormsq : ‖fullGradient F (logNormHeight F) z‖ ^ 2 = placeCount F := by
+    rw [specIdentify_fullGradient_norm_sq]
+    exact hG4.2.2 z
+  have hnorm : ‖fullGradient F (logNormHeight F) z‖ = Real.sqrt (placeCount F) := by
+    rw [← hnormsq, Real.sqrt_sq_eq_abs, abs_of_nonneg (norm_nonneg _)]
+  rw [specIdentify_fullGradient_radial τ a hτ z, norm_smul, hnorm]
+
+private theorem specIdentify_gradient_norm_isometry
+    (g : InfinitePlace F → SL(2,ℂ)) (f : X F → ℂ)
+    (hf : IsSmoothX F f) (z : X F) :
+    ‖fullGradient F (fun x => f (actAtPlaces F g x)) z‖ =
+      ‖fullGradient F f (actAtPlaces F g z)‖ := by
+  have hG4 := G4_energy (F := F) g f f hf hf
+  have hsq :
+      ‖fullGradient F (fun x => f (actAtPlaces F g x)) z‖ ^ 2 =
+        ‖fullGradient F f (actAtPlaces F g z)‖ ^ 2 := by
+    rw [specIdentify_fullGradient_norm_sq, specIdentify_fullGradient_norm_sq]
+    exact hG4.2.1 z
+  have h₀ : 0 ≤ ‖fullGradient F (fun x => f (actAtPlaces F g x)) z‖ := norm_nonneg _
+  have h₁ : 0 ≤ ‖fullGradient F f (actAtPlaces F g z)‖ := norm_nonneg _
+  nlinarith [hsq]
+
+private theorem specIdentify_radial_action_gradient_norm
+    (g : InfinitePlace F → SL(2,ℂ)) (τ : ℝ → ℝ) (a : ℂ)
+    (hτ : ContDiff ℝ ∞ τ) (z : X F) :
+    ‖fullGradient F
+        (fun x => (τ (normHeight F (actAtPlaces F g x)) : ℂ) *
+          (normHeight F (actAtPlaces F g x) : ℂ) ^ a) z‖ =
+      ‖deriv (specIdentifyRadialProfile τ a)
+          (Real.log (normHeight F (actAtPlaces F g z)))‖ *
+        Real.sqrt (placeCount F) := by
+  let radial : X F → ℂ := fun x =>
+    (τ (normHeight F x) : ℂ) * (normHeight F x : ℂ) ^ a
+  have hradial : IsSmoothX F radial := by
+    simpa [radial] using specIdentify_radial_smooth τ a hτ
+  have h := specIdentify_gradient_norm_isometry g radial hradial z
+  rw [specIdentify_radial_gradient_norm τ a hτ (actAtPlaces F g z)] at h
+  simpa [radial] using h
+
+
+theorem specIdentify_profile_interval_bound (τ : ℝ → ℝ) (a : ℂ)
+    (hτ : ContDiff ℝ ∞ τ) (lo hi : ℝ) (hlohi : lo ≤ hi) :
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ u ∈ Set.Icc lo hi,
+      ‖specIdentifyRadialProfile τ a u‖ ≤ B ∧
+      ‖deriv (specIdentifyRadialProfile τ a) u‖ ≤ B := by
+  let ψ := specIdentifyRadialProfile τ a
+  have hψ : ContDiff ℝ ∞ ψ := specIdentifyRadialProfile_contDiff τ a hτ
+  have hvalCont : Continuous (fun u : ℝ => ‖ψ u‖) := hψ.continuous.norm
+  have hderivCont : Continuous (fun u : ℝ => ‖deriv ψ u‖) :=
+    (hψ.continuous_deriv (by norm_num : (1 : ℕ∞) ≤ ∞)).norm
+  have hvalBdd : BddAbove ((fun u : ℝ => ‖ψ u‖) '' Set.Icc lo hi) :=
+    isCompact_Icc.bddAbove_image hvalCont.continuousOn
+  have hderivBdd : BddAbove ((fun u : ℝ => ‖deriv ψ u‖) '' Set.Icc lo hi) :=
+    isCompact_Icc.bddAbove_image hderivCont.continuousOn
+  obtain ⟨B₀, hB₀⟩ := hvalBdd
+  obtain ⟨B₁, hB₁⟩ := hderivBdd
+  refine ⟨max B₀ (max B₁ 0),
+    le_trans (le_max_right B₁ 0) (le_max_right B₀ (max B₁ 0)), ?_⟩
+  intro u hu
+  have h₀ : ‖ψ u‖ ≤ B₀ := hB₀ ⟨u, hu, rfl⟩
+  have h₁ : ‖deriv ψ u‖ ≤ B₁ := hB₁ ⟨u, hu, rfl⟩
+  exact ⟨h₀.trans (le_max_left _ _), h₁.trans (le_trans (le_max_left _ _) (le_max_right _ _))⟩
+
+private theorem specIdentify_radialProfile_one_deriv (a : ℂ) (u : ℝ) :
+    deriv (specIdentifyRadialProfile (fun _ : ℝ => 1) a) u =
+      a * Complex.exp (a * (u : ℂ)) := by
+  have hcast : HasDerivAt (fun x : ℝ => (x : ℂ)) 1 u := Complex.ofRealCLM.hasDerivAt
+  have hmul' := hcast.const_mul a
+  have hmul : HasDerivAt (fun x : ℝ => a * (x : ℂ)) a u := by
+    simpa using hmul'
+  have hexp := (Complex.hasDerivAt_exp (a * (u : ℂ))).comp u hmul
+  have hprofile : specIdentifyRadialProfile (fun _ : ℝ => 1) a =
+      fun x : ℝ => Complex.exp (a * (x : ℂ)) := by
+    funext x
+    simp [specIdentifyRadialProfile]
+  have hderiv : deriv (fun x : ℝ => Complex.exp (a * (x : ℂ))) u =
+      Complex.exp (a * (u : ℂ)) * a := by
+    simpa only [Function.comp_def] using hexp.deriv
+  rw [hprofile, hderiv]
+  ring
+
+theorem specIdentify_cpow_norm (t : ℝ) (a : ℂ) (ht : 0 < t) :
+    ‖(t : ℂ) ^ a‖ = t ^ a.re :=
+  Complex.norm_cpow_eq_rpow_re_of_pos ht a
+
+private theorem specIdentify_cutoffResidual_deriv_bound
+    (τ : ℝ → ℝ) (A : ℝ) (hA : 1 ≤ A) (a : ℂ)
+    (haRe : 0 ≤ a.re) (ha : ‖a‖ ≤ 7)
+    (hτ : IsCuspCutoff A τ) :
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ t : ℝ, 0 < t →
+      ‖deriv (specIdentifyRadialProfile (fun x => 1 - τ x) a) (Real.log t)‖ ≤ B := by
+  classical
+  let χ : ℝ → ℝ := fun x => 1 - τ x
+  have hχ : ContDiff ℝ ∞ χ := by
+    dsimp [χ]
+    exact contDiff_const.sub hτ.1
+  have hApos : 0 < A := lt_of_lt_of_le zero_lt_one hA
+  have hA2pos : 0 < A / 2 := by positivity
+  have h2Aone : 1 ≤ 2 * A := by nlinarith
+  let M₀ : ℝ := max 1 ((2 * A) ^ 7)
+  have hM₀ : 0 ≤ M₀ := by dsimp [M₀]; positivity
+  have hpow (t : ℝ) (ht : 0 < t) (ht₂ : t ≤ 2 * A) : t ^ a.re ≤ M₀ := by
+    by_cases ht₁ : t ≤ 1
+    · exact (Real.rpow_le_one ht.le ht₁ haRe).trans (le_max_left _ _)
+    · have ht₁' : 1 ≤ t := le_of_not_ge ht₁
+      have hre7 : a.re ≤ 7 := by
+        calc
+          a.re ≤ |a.re| := le_abs_self _
+          _ ≤ ‖a‖ := Complex.abs_re_le_norm a
+          _ ≤ 7 := ha
+      calc
+        t ^ a.re ≤ (2 * A) ^ a.re := Real.rpow_le_rpow ht.le ht₂ haRe
+        _ ≤ (2 * A) ^ 7 := Real.rpow_le_rpow_of_exponent_le h2Aone hre7
+        _ ≤ M₀ := by simpa [M₀] using (le_max_right 1 ((2 * A) ^ 7))
+  let lo : ℝ := Real.log (A / 2)
+  let hi : ℝ := Real.log (2 * A)
+  have hlohi : lo ≤ hi := by
+    dsimp [lo, hi]
+    apply Real.log_le_log hA2pos
+    nlinarith [hA]
+  obtain ⟨M₁, hM₁, hprof⟩ :=
+    specIdentify_profile_interval_bound χ a hχ lo hi hlohi
+  let B : ℝ := max (7 * M₀) M₁
+  have hB : 0 ≤ B := by dsimp [B]; positivity
+  refine ⟨B, hB, ?_⟩
+  intro t ht
+  by_cases hlow : t ≤ A / 2
+  · let u : ℝ := Real.log t
+    have hu : u < Real.log A := by
+      dsimp [u]
+      apply Real.log_lt_log ht
+      have hstrict : A / 2 < A := by nlinarith [hA]
+      exact lt_of_le_of_lt hlow hstrict
+    have heq : specIdentifyRadialProfile χ a =ᶠ[𝓝 u]
+        specIdentifyRadialProfile (fun _ : ℝ => 1) a := by
+      filter_upwards [isOpen_Iio.mem_nhds hu] with v hv
+      have hexp : Real.exp v ≤ A := by
+        rw [← Real.exp_log hApos]
+        exact Real.exp_le_exp.mpr hv.le
+      have hτ0 := hτ.2.2.1 (Real.exp v) hexp
+      simp [specIdentifyRadialProfile, χ, hτ0]
+    have hExp : Complex.exp (a * (Real.log t : ℂ)) = (t : ℂ) ^ a := by
+      have h := specIdentifyRadialProfile_log (fun _ : ℝ => 1) a ht
+      simpa [specIdentifyRadialProfile] using h
+    have hpow' : t ^ a.re ≤ M₀ := hpow t ht (by nlinarith [hlow, hA])
+    rw [heq.deriv_eq, specIdentify_radialProfile_one_deriv, norm_mul, hExp,
+      specIdentify_cpow_norm t a ht]
+    have hpowNonneg : 0 ≤ t ^ a.re := (Real.rpow_pos_of_pos ht _).le
+    calc
+      ‖a‖ * t ^ a.re ≤ 7 * t ^ a.re := mul_le_mul_of_nonneg_right ha hpowNonneg
+      _ ≤ 7 * M₀ := by nlinarith [hpow']
+      _ ≤ B := le_max_left _ _
+  · by_cases hhigh : 2 * A < t
+    · let u : ℝ := Real.log t
+      have hu : Real.log (2 * A) < u := Real.log_lt_log (by positivity) hhigh
+      have heq : specIdentifyRadialProfile χ a =ᶠ[𝓝 u] (fun _ : ℝ => 0) := by
+        filter_upwards [isOpen_Ioi.mem_nhds hu] with v hv
+        have hexp : 2 * A ≤ Real.exp v := by
+          rw [← Real.exp_log (by positivity : 0 < 2 * A)]
+          exact Real.exp_le_exp.mpr hv.le
+        have hτ1 := hτ.2.2.2 (Real.exp v) hexp
+        simp [specIdentifyRadialProfile, χ, hτ1]
+      rw [heq.deriv_eq]
+      simpa [B] using hB
+    · have hlow' : A / 2 ≤ t := le_of_not_ge hlow
+      have hhigh' : t ≤ 2 * A := le_of_not_gt hhigh
+      have hlog : Real.log t ∈ Set.Icc lo hi := by
+        rw [Set.mem_Icc]
+        exact ⟨Real.log_le_log hA2pos hlow', Real.log_le_log (by positivity) hhigh'⟩
+      have h := (hprof (Real.log t) hlog).2
+      exact h.trans (le_max_right _ _)
+
+private theorem specIdentify_seedProfile_deriv_bound
+    (τ : ℝ → ℝ) (A : ℝ) (hA : 1 ≤ A) (hτ : IsCuspCutoff A τ)
+    (a : ℂ) (H : ℝ) (hH : 2 * A ≤ H) :
+    ∃ B : ℝ, 0 ≤ B ∧ ∀ t : ℝ, 0 < t → t ≤ H →
+      ‖deriv (specIdentifyRadialProfile τ a) (Real.log t)‖ ≤ B := by
+  have hApos : 0 < A := lt_of_lt_of_le zero_lt_one hA
+  have hlo : 0 < A / 2 := by positivity
+  have hlohi : Real.log (A / 2) ≤ Real.log H := by
+    apply Real.log_le_log hlo
+    nlinarith [hA, hH]
+  obtain ⟨B, hB, hprofile⟩ :=
+    specIdentify_profile_interval_bound τ a hτ.1 (Real.log (A / 2)) (Real.log H) hlohi
+  refine ⟨B, hB, ?_⟩
+  intro t ht htH
+  by_cases hlow : t ≤ A / 2
+  · let u : ℝ := Real.log t
+    have hu : u < Real.log A := by
+      dsimp [u]
+      apply Real.log_lt_log ht
+      have hstrict : A / 2 < A := by nlinarith [hA]
+      exact lt_of_le_of_lt hlow hstrict
+    have heq : specIdentifyRadialProfile τ a =ᶠ[𝓝 u] (fun _ : ℝ => 0) := by
+      filter_upwards [isOpen_Iio.mem_nhds hu] with v hv
+      have hexp : Real.exp v ≤ A := by
+        rw [← Real.exp_log hApos]
+        exact Real.exp_le_exp.mpr hv.le
+      have hτ0 := hτ.2.2.1 (Real.exp v) hexp
+      simp [specIdentifyRadialProfile, hτ0]
+    rw [heq.deriv_eq]
+    simpa using hB
+  · have hlow' : A / 2 ≤ t := le_of_not_ge hlow
+    have hlog : Real.log t ∈ Set.Icc (Real.log (A / 2)) (Real.log H) := by
+      rw [Set.mem_Icc]
+      exact ⟨Real.log_le_log hlo hlow', Real.log_le_log ht htH⟩
+    exact (hprofile (Real.log t) hlog).2
+
+theorem specIdentify_normHeight_pos (z : X F) : 0 < normHeight F z := by
+  unfold normHeight
+  apply Finset.prod_pos
+  intro w hw
+  rw [height_eq_hyperbolicHeight]
+  exact OAI.CubicEisenstein.hyperbolicHeight_pos (z w)
+
+
+theorem specIdentify_radialProfile_norm (τ : ℝ → ℝ) (a : ℂ) (t : ℝ)
+    (ht : 0 < t) :
+    ‖specIdentifyRadialProfile τ a (Real.log t)‖ = |τ t| * t ^ a.re := by
+  rw [specIdentifyRadialProfile_log τ a ht, norm_mul,
+    Complex.norm_real, Real.norm_eq_abs, specIdentify_cpow_norm t a ht]
+
+
+set_option maxHeartbeats 1000000 in
+theorem specIdentify_eisTerm_smooth (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ : SL(2,F)) (s : ℂ) (q : CuspCosets F Γ σ) :
+    IsSmoothX F (fun z => eisTerm F Γ σ s z q) := by
+  classical
+  let a : ℂ := 1 + 2 * s
+  let γ : SL(2,𝓞 F) := (q.out : Γ)
+  let b : SL(2,F) := σ⁻¹ * toSLF F γ
+  let denom (p : Coord F) (w : InfinitePlace F) : ℝ :=
+    Complex.normSq (w.embedding (b 1 0) * (p w).1 + w.embedding (b 1 1)) +
+      Complex.normSq (w.embedding (b 1 0)) * (p w).2 ^ 2
+  let H (p : Coord F) : ℝ := ∏ w : InfinitePlace F, (p w).2 / denom p w
+  have hbrow : b 1 0 ≠ 0 ∨ b 1 1 ≠ 0 := by
+    by_contra h
+    push_neg at h
+    have hdet := b.property
+    rw [Matrix.det_fin_two] at hdet
+    rw [h.1, h.2] at hdet
+    norm_num at hdet
+  have hden (p : Coord F) (hp : p ∈ posSet F) (w : InfinitePlace F) : 0 < denom p w := by
+    by_cases hc : b 1 0 = 0
+    · have hd : b 1 1 ≠ 0 := by
+        intro hd0
+        exact hbrow.elim (fun h => h hc) (fun h => h hd0)
+      have hwd : w.embedding (b 1 1) ≠ 0 := (map_ne_zero (w.embedding)).2 hd
+      have hnorm : 0 < Complex.normSq (w.embedding (b 1 1)) := by
+        rw [Complex.normSq_eq_norm_sq]
+        exact sq_pos_of_pos (norm_pos_iff.mpr hwd)
+      simpa [denom, hc] using hnorm
+    · have hwc : w.embedding (b 1 0) ≠ 0 := (map_ne_zero (w.embedding)).2 hc
+      have hnorm : 0 < Complex.normSq (w.embedding (b 1 0)) := by
+        rw [Complex.normSq_eq_norm_sq]
+        exact sq_pos_of_pos (norm_pos_iff.mpr hwc)
+      have hy : 0 < (p w).2 ^ 2 := pow_pos (hp w) 2
+      unfold denom
+      exact add_pos_of_nonneg_of_pos (Complex.normSq_nonneg _) (mul_pos hnorm hy)
+  have hHpos (p : Coord F) (hp : p ∈ posSet F) : 0 < H p := by
+    apply Finset.prod_pos
+    intro w hw
+    exact div_pos (hp w) (hden p hp w)
+  have hformula (p : Coord F) (hp : p ∈ posSet F) :
+      normHeight F (σ⁻¹ • (γ • ptX F p)) = H p := by
+    have hG := (G2_x_action (F := F)).1 b (fun w => (p w).1) (fun w => (p w).2) hp
+    have hact : σ⁻¹ • (γ • ptX F p) = b • ptX F p := by
+      change σ⁻¹ • ((toSLF F γ) • ptX F p) = _
+      rw [← mul_smul]
+    rw [hact]
+    change normHeight F (b • ptX' F (fun w => (p w).1) (fun w => (p w).2)) = H p
+    change normHeight F (b • ptX' F (fun w => (p w).1) (fun w => (p w).2)) = H p at hG
+    exact hG
+  have hdenomCont (w : InfinitePlace F) :
+      ContDiff ℝ ∞ (fun p : Coord F => denom p w) := by
+    let l : Coord F → ℂ := fun p =>
+      w.embedding (b 1 0) * (p w).1 + w.embedding (b 1 1)
+    have hleft : ContDiff ℝ ∞ l := by fun_prop
+    have hleftRe : ContDiff ℝ ∞ (fun p => (l p).re) := Complex.reCLM.contDiff.comp hleft
+    have hleftIm : ContDiff ℝ ∞ (fun p => (l p).im) := Complex.imCLM.contDiff.comp hleft
+    have hleftSq : ContDiff ℝ ∞ (fun p : Coord F => Complex.normSq (l p)) := by
+      have hsum : ContDiff ℝ ∞ (fun p : Coord F =>
+          (l p).re * (l p).re + (l p).im * (l p).im) :=
+        (hleftRe.mul hleftRe).add (hleftIm.mul hleftIm)
+      simpa only [Complex.normSq_apply] using hsum
+    have hrightSq : ContDiff ℝ ∞
+        (fun p : Coord F => Complex.normSq (w.embedding (b 1 0)) * (p w).2 ^ 2) := by
+      fun_prop
+    change ContDiff ℝ ∞ (fun p => Complex.normSq (l p) +
+      Complex.normSq (w.embedding (b 1 0)) * (p w).2 ^ 2)
+    exact hleftSq.add hrightSq
+  have hfracCont (w : InfinitePlace F) :
+      ContDiffOn ℝ ∞ (fun p : Coord F => (p w).2 / denom p w) (posSet F) := by
+    have hnum : ContDiff ℝ ∞ (fun p : Coord F => (p w).2) := by fun_prop
+    exact hnum.contDiffOn.div (hdenomCont w).contDiffOn fun p hp => (hden p hp w).ne'
+  have hHdiff : ContDiffOn ℝ ∞ H (posSet F) := by
+    unfold H
+    exact contDiffOn_prod (fun w _ => hfracCont w)
+  have hlogH : ContDiffOn ℝ ∞ (fun p => Real.log (H p)) (posSet F) :=
+    hHdiff.log fun p hp => (hHpos p hp).ne'
+  let one : ℝ → ℝ := fun _ => 1
+  have hone : ContDiff ℝ ∞ one := by fun_prop [one]
+  have hprofile : ContDiffOn ℝ ∞
+      (fun p => specIdentifyRadialProfile one a (Real.log (H p))) (posSet F) :=
+    (specIdentifyRadialProfile_contDiff one a hone).comp_contDiffOn hlogH
+  have hEq (p : Coord F) (hp : p ∈ posSet F) :
+      eisTerm F Γ σ s (ptX F p) q = specIdentifyRadialProfile one a (Real.log (H p)) := by
+    change ((normHeight F (σ⁻¹ • (γ • ptX F p)) : ℝ) : ℂ) ^ (1 + 2 * s) = _
+    rw [hformula p hp]
+    simpa [one, a] using (specIdentifyRadialProfile_log one a (hHpos p hp)).symm
+  unfold IsSmoothX
+  change ContDiffOn ℝ ∞ (fun p => eisTerm F Γ σ s (ptX F p) q) (posSet F)
+  exact hprofile.congr fun p hp => hEq p hp
+
+set_option maxHeartbeats 1000000 in
+theorem specIdentify_eisSeries_fderiv_tsum (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (σ : SL(2,F)) (s : ℂ) (hs : 1 / 2 < s.re)
+    (p : Coord F) (hp : p ∈ posSet F) (v : Coord F) :
+    Summable (fun q : CuspCosets F Γ σ =>
+      fderiv ℝ (fun p' => eisTerm F Γ σ s (ptX F p') q) p v) ∧
+    fderiv ℝ (fun p' => eisSeries F Γ σ s (ptX F p')) p v =
+      ∑' q : CuspCosets F Γ σ,
+        fderiv ℝ (fun p' => eisTerm F Γ σ s (ptX F p') q) p v := by
+  classical
+  let line : ℝ → Coord F := fun t => p + t • v
+  let g : CuspCosets F Γ σ → ℝ → ℂ := fun q t =>
+    eisTerm F Γ σ s (ptX F (line t)) q
+  let g' : CuspCosets F Γ σ → ℝ → ℂ := fun q t =>
+    fderiv ℝ (fun p' => eisTerm F Γ σ s (ptX F p') q) (line t) v
+  obtain ⟨ε, hε, hεball⟩ := (Metric.isOpen_iff.mp (specIdentify_posSet_open (F := F)) p hp)
+  let δ : ℝ := ε / (4 * (‖v‖ + 1))
+  have hδ : 0 < δ := by
+    dsimp [δ]
+    positivity
+  let K : Set (Coord F) := Metric.closedBall p (ε / 2)
+  have hK : IsCompact K := isCompact_closedBall p (ε / 2)
+  have hlineK (t : ℝ) (ht : t ∈ Set.Ioo (-δ) δ) : line t ∈ K := by
+    have hAbs : |t| < δ := abs_lt.mpr ⟨ht.1, ht.2⟩
+    have hratio : δ * ‖v‖ ≤ ε / 4 := by
+      dsimp [δ]
+      rw [div_mul_eq_mul_div]
+      apply (div_le_iff₀ (by positivity : 0 < 4 * (‖v‖ + 1))).2
+      have hv : 0 ≤ ‖v‖ := norm_nonneg v
+      have he : 0 < ε := hε
+      nlinarith [mul_nonneg he.le hv]
+    have hnorm : ‖line t - p‖ = |t| * ‖v‖ := by
+      dsimp [line]
+      rw [add_sub_cancel_left, norm_smul, Real.norm_eq_abs]
+    rw [Metric.mem_closedBall, dist_eq_norm, hnorm]
+    have hprodle : |t| * ‖v‖ ≤ δ * ‖v‖ := by gcongr
+    calc
+      |t| * ‖v‖ ≤ δ * ‖v‖ := hprodle
+      _ ≤ ε / 4 := hratio
+      _ ≤ ε / 2 := by linarith
+  have hKpos : K ⊆ posSet F := by
+    intro p' hp'
+    apply hεball
+    have hpclosed : dist p' p ≤ ε / 2 := by simpa [K] using hp'
+    exact Metric.mem_ball.mpr (lt_of_le_of_lt hpclosed (by linarith))
+  have hE3 := E3_eis_smooth (F := F) Γ σ s hs
+  let V : Fin 1 → Coord F := fun _ => v
+  obtain ⟨m, hm, hmBound⟩ := hE3.2.2 K hK hKpos 1 V
+  have hlineDeriv (t : ℝ) : HasDerivAt line v t := by
+    have hsum := (hasDerivAt_const t p).add ((hasDerivAt_id t).smul_const v)
+    have hlineEq : line = (fun _ : ℝ => p) + (fun u : ℝ => u • v) := by
+      funext u
+      rfl
+    rw [hlineEq]
+    simpa using hsum
+  have htermCont (q : CuspCosets F Γ σ) :
+      ContDiffOn ℝ ∞ (fun p' => eisTerm F Γ σ s (ptX F p') q) (posSet F) :=
+    specIdentify_eisTerm_smooth Γ σ s q
+  have hg (q : CuspCosets F Γ σ) (t : ℝ) (ht : t ∈ Set.Ioo (-δ) δ) :
+      HasDerivAt (g q) (g' q t) t := by
+    have hp' : line t ∈ posSet F := hKpos (hlineK t ht)
+    have htermAt :=
+      (htermCont q).contDiffAt ((specIdentify_posSet_open (F := F)).mem_nhds hp')
+    have htermFDeriv := (htermAt.differentiableAt (by simp)).hasFDerivAt
+    have hcomp := htermFDeriv.comp_hasDerivAt t (hlineDeriv t)
+    change HasDerivAt
+      ((fun p' => eisTerm F Γ σ s (ptX F p') q) ∘ line)
+      (fderiv ℝ (fun p' => eisTerm F Γ σ s (ptX F p') q) (line t) v) t
+    simpa [g, g', Function.comp_def] using hcomp
+  have hgBound (q : CuspCosets F Γ σ) (t : ℝ) (ht : t ∈ Set.Ioo (-δ) δ) :
+      ‖g' q t‖ ≤ m q := by
+    have h := hmBound q (line t) (hlineK t ht)
+    simpa [g', V, iteratedFDeriv_one_apply] using h
+  let σ₀ : ℝ := (1 / 2 + s.re) / 2
+  have hσ₀ : 1 / 2 < σ₀ := by dsimp [σ₀]; linarith
+  have hσ₀le : σ₀ ≤ s.re := by dsimp [σ₀]; linarith
+  obtain ⟨m₀, hm₀, hm₀bound⟩ :=
+    (E2_eis_converge (F := F) Γ σ).1 {ptX F p} isCompact_singleton σ₀ s.re hσ₀
+  have hg0 : Summable (fun q => g q 0) := by
+    apply Summable.of_norm_bounded hm₀
+    intro q
+    have h := hm₀bound (ptX F p) (Set.mem_singleton _) s hσ₀le le_rfl q
+    simpa [g, line] using h
+  have hzero : (0 : ℝ) ∈ Set.Ioo (-δ) δ := by
+    rw [Set.mem_Ioo]
+    constructor <;> linarith [hδ]
+  have hsumDeriv := hasDerivAt_tsum_of_isPreconnected
+    (g := g) (g' := g') (t := Set.Ioo (-δ) δ)
+    hm isOpen_Ioo (convex_Ioo _ _).isPreconnected hg hgBound
+    hzero hg0 hzero
+  have hseriesCont : ContDiffOn ℝ ∞
+      (fun p' => eisSeries F Γ σ s (ptX F p')) (posSet F) := hE3.1
+  have hseriesAt := (hseriesCont.contDiffAt ((specIdentify_posSet_open (F := F)).mem_nhds hp))
+    |>.differentiableAt (by simp) |>.hasFDerivAt
+  have hline0 : line 0 = p := by simp [line]
+  have hseriesAt' : HasFDerivAt (fun p' => eisSeries F Γ σ s (ptX F p'))
+      (fderiv ℝ (fun p' => eisSeries F Γ σ s (ptX F p')) p) (line 0) := by
+    rw [hline0]
+    exact hseriesAt
+  have hseriesComp := hseriesAt'.comp_hasDerivAt 0 (hlineDeriv 0)
+  have hseriesDeriv : HasDerivAt
+      (fun t => eisSeries F Γ σ s (ptX F (line t)))
+      (fderiv ℝ (fun p' => eisSeries F Γ σ s (ptX F p')) p v) 0 := by
+    change HasDerivAt
+      ((fun p' => eisSeries F Γ σ s (ptX F p')) ∘ line)
+      (fderiv ℝ (fun p' => eisSeries F Γ σ s (ptX F p')) p v) 0
+    exact hseriesComp
+  have hfun : (fun t => ∑' q, g q t) =
+      (fun t => eisSeries F Γ σ s (ptX F (line t))) := by
+    funext t
+    rfl
+  have hsumDeriv' := hsumDeriv.congr_of_eventuallyEq
+    (Filter.Eventually.of_forall fun t => congrFun hfun t)
+  have hfinal := hsumDeriv'.unique hseriesDeriv
+  have hsumDerivative : Summable (fun q : CuspCosets F Γ σ =>
+      fderiv ℝ (fun p' => eisTerm F Γ σ s (ptX F p') q) p v) := by
+    apply Summable.of_norm_bounded hm
+    intro q
+    have hpK : p ∈ K := by
+      change dist p p ≤ ε / 2
+      rw [dist_self]
+      positivity
+    have h := hmBound q p hpK
+    simpa [V, iteratedFDeriv_one_apply] using h
+  refine ⟨hsumDerivative, ?_⟩
+  simpa [g', line] using hfinal.symm
+
+private theorem specIdentify_smooth_meas
+    (D : Set (X F)) (f : X F → ℂ) (hf : IsSmoothX F f) :
+    AEStronglyMeasurable f ((volX F).restrict D) ∧
+    AEStronglyMeasurable (fullGradient F f) ((volX F).restrict D) := by
+  classical
+  letI : Countable (InfinitePlace F) := by infer_instance
+  rcases G1_h3_basics (F := F) with
+    ⟨_, _, _, _, _, _, _, hptCoord, _, _, _, hex⟩
+  obtain ⟨e, he, hesym⟩ := hex
+  letI : SecondCountableTopology (X F) := e.symm.secondCountableTopology
+  let w₀ : InfinitePlace F := Classical.choice (inferInstance : Nonempty (InfinitePlace F))
+  have hproj : IsOpenQuotientMap (fun z : X F => z w₀) :=
+    ⟨(fun z => ⟨fun _ => z, rfl⟩), continuous_apply w₀, isOpenMap_eval w₀⟩
+  letI : SecondCountableTopology H3 := Topology.IsOpenQuotientMap.secondCountableTopology hproj
+  letI : MeasurableSpace H3 := borel H3
+  letI : BorelSpace H3 := ⟨rfl⟩
+  have hXBorel : BorelSpace (InfinitePlace F → H3) := Pi.borelSpace
+  letI : BorelSpace (X F) := hXBorel
+  letI : OpensMeasurableSpace (X F) := BorelSpace.opensMeasurable
+  have hcoord : Continuous (coordsX F) := by
+    have heq : coordsX F = fun z => (e.symm z).1 := by
+      funext z
+      exact (hesym z).symm
+    rw [heq]
+    exact continuous_subtype_val.comp e.symm.continuous
+  let g : Coord F → ℂ := fun p => f (ptX F p)
+  have hgCont : Continuous (fun p : {p : Coord F // p ∈ posSet F} => g p.1) :=
+    hf.continuousOn.domRestrict
+  have hfeq : f = fun z => g ((e.symm z).1) := by
+    funext z
+    dsimp [g]
+    rw [hesym z]
+    exact congrArg f (hptCoord z).symm
+  have hfCont : Continuous f := by
+    rw [hfeq]
+    exact hgCont.comp e.symm.continuous
+  have hWmeas : AEStronglyMeasurable f ((volX F).restrict D) :=
+    hfCont.aestronglyMeasurable
+  have hDeriv : ContDiffOn ℝ ∞ (fderiv ℝ g) (posSet F) :=
+    hf.fderiv_of_isOpen (specIdentify_posSet_open (F := F)) (by simp)
+  have hGradCoord : ∀ ij : InfinitePlace F × Fin 3,
+      Continuous (fun z => placeGradient F ij.1 f z ij.2) := by
+    intro ij
+    rcases ij with ⟨w, j⟩
+    let v := placeDirection F w j
+    let ev : (Coord F →L[ℝ] ℂ) →L[ℝ] ℂ := ContinuousLinearMap.apply ℝ ℂ v
+    have hEvalOn : ContinuousOn (fun p : Coord F => (fderiv ℝ g p) v) (posSet F) := by
+      have hev : ContinuousOn ev (Set.univ : Set (Coord F →L[ℝ] ℂ)) :=
+        ev.continuous.continuousOn
+      exact (ContinuousOn.comp hev hDeriv.continuousOn
+        (fun p hp => Set.mem_univ (fderiv ℝ g p)))
+    have hPos : ∀ z : X F, coordsX F z ∈ posSet F := by
+      intro z
+      have hp := (e.symm z).2
+      simpa [hesym z] using hp
+    have hcoordOn : ContinuousOn (coordsX F) (Set.univ : Set (X F)) := hcoord.continuousOn
+    have hPosMaps : Set.MapsTo (coordsX F) Set.univ (posSet F) := fun z hz => hPos z
+    have hEval : Continuous fun z : X F => (fderiv ℝ g (coordsX F z)) v :=
+      continuousOn_univ.mp (hEvalOn.comp hcoordOn hPosMaps)
+    have hheight : Continuous fun z : X F => (coordsX F z w).2 :=
+      ((continuous_apply w).comp hcoord).snd
+    have hcomp : Continuous fun z : X F =>
+        ((coordsX F z w).2 : ℂ) * (fderiv ℝ g (coordsX F z)) v := by
+      exact (Complex.ofRealCLM.continuous.comp hheight).mul hEval
+    simpa [v, placeGradient, g, Function.comp_def] using hcomp
+  have hGradCont : Continuous (fun z => fullGradient F f z) := by
+    change Continuous (fun z => WithLp.toLp 2
+      (fun ij : InfinitePlace F × Fin 3 => placeGradient F ij.1 f z ij.2))
+    exact (PiLp.continuousLinearEquiv 2 ℂ
+      (fun _ : InfinitePlace F × Fin 3 => ℂ)).symm.continuous.comp
+      (continuous_pi hGradCoord)
+  exact ⟨hWmeas, hGradCont.aestronglyMeasurable⟩
+
+private theorem specIdentify_bounded_smooth_energy_repr
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
+    (e : EnergyContext F Γ D E)
+    (w : X F → ℂ) (B : ℝ) (hB : 0 ≤ B)
+    (hInv : IsGammaInvariant F Γ w) (hSmooth : IsSmoothX F w)
+    (hBound : ∀ z, ‖w z‖ ≤ B)
+    (hGradBound : ∀ z, ‖fullGradient F w z‖ ≤ B)
+    (hWmeas : AEStronglyMeasurable w ((volX F).restrict D))
+    (hGradMeas : AEStronglyMeasurable (fullGradient F w) ((volX F).restrict D)) :
+    ∃ x : E.V,
+      (∀ᵐ z ∂(volX F), z ∈ D → E.M x z = w z) ∧
+      (∀ᵐ z ∂(volX F), z ∈ D → E.Gr x z = fullGradient F w z) := by
+  classical
+  let μ := (volX F).restrict D
+  have hμfinite : μ Set.univ < ⊤ := by
+    simpa [μ, Measure.restrict_apply_univ] using spec_finiteVolume_any_fd Γ D hD
+  letI : IsFiniteMeasure μ := ⟨hμfinite⟩
+  let hwLp : MemLp w 2 μ := MemLp.of_bound hWmeas B
+    (Filter.Eventually.of_forall fun z => hBound z)
+  let hgradLp : MemLp (fullGradient F w) 2 μ := MemLp.of_bound hGradMeas B
+    (Filter.Eventually.of_forall fun z => hGradBound z)
+  let wL2 : L2Space F D := hwLp.toLp w
+  let gradL2 : GradientL2Space F D := hgradLp.toLp (fullGradient F w)
+  have hwAE : ∀ᵐ z ∂(volX F), z ∈ D → wL2 z = w z := by
+    exact (ae_restrict_iff'₀ hD.nullMeasurableSet).1 hwLp.coeFn_toLp
+  have hgradAE : ∀ᵐ z ∂(volX F), z ∈ D → gradL2 z = fullGradient F w z := by
+    exact (ae_restrict_iff'₀ hD.nullMeasurableSet).1 hgradLp.coeFn_toLp
+  obtain ⟨x, hMx, hGrx⟩ := T5_cutoff Γ D hD E e w B hB hInv hSmooth
+    hBound hGradBound wL2 gradL2 hwAE hgradAE
+  refine ⟨x, ?_, ?_⟩
+  · filter_upwards [hwAE] with z hz
+    intro hzD
+    rw [hMx]
+    exact hz hzD
+  · filter_upwards [hgradAE] with z hz
+    intro hzD
+    rw [hGrx]
+    exact hz hzD
+
+private theorem specIdentify_T7_estimate
+    (Γ : Subgroup SL(2,𝓞 F)) [Γ.FiniteIndex]
+    (D : Set (X F)) (hD : IsFundamentalDomain Γ D (volX F))
+    (E : FAEnergySpace (L2Space F D) (GradientL2Space F D))
+    (e : EnergyContext F Γ D E) :
+    ∃ R : E.V →L[ℂ] L2Space F D, IsCompactOperator R ∧
+      ∃ c C : ℝ, 0 < c ∧ 0 ≤ C ∧
+        ∀ x : E.V, ‖E.M x‖ ^ 2 ≤ c * ‖E.Gr x‖ ^ 2 + C * ‖R x‖ ^ 2 := by
+  classical
+  let d : SiegelData F Γ := Classical.choice (spec_exists_siegelData Γ)
+  obtain ⟨A₀, hA₀, hsep⟩ := (R10_cusp_separation (F := F) Γ).2.1 d
+  let A : d.ι → ℝ := fun _ => A₀
+  have hApos : ∀ i, 0 < A i := fun _ => lt_of_lt_of_le zero_lt_one hA₀
+  have hAsep : ∀ i j : d.ι, ∀ γ γ' : Γ, ∀ z : X F,
+      A i ≤ normHeight F ((d.σ i)⁻¹ • ((γ : SL(2,𝓞 F)) • z)) →
+      A j ≤ normHeight F ((d.σ j)⁻¹ • ((γ' : SL(2,𝓞 F)) • z)) →
+      i = j ∧ γ' * γ⁻¹ ∈ cuspStab F Γ (d.σ i) := by
+    intro i j γ γ' z hi hj
+    exact hsep A₀ le_rfl i j γ γ' z hi hj
+  obtain ⟨K, hK, C₀, hC₀, R, hR, hT7, _⟩ :=
+    T7_ground_state Γ D hD d A hApos hAsep E e A₀ (fun _ => le_rfl)
+  let k : ℝ := placeCount F * (1 - 1 / (2 * A₀))
+  have hr : 0 < placeCount F := by
+    unfold placeCount
+    exact_mod_cast (Fintype.card_pos_iff.mpr (inferInstance : Nonempty (InfinitePlace F)))
+  have hk : 0 < k := by
+    dsimp [k]
+    have hA₀pos : 0 < A₀ := lt_of_lt_of_le zero_lt_one hA₀
+    have hfactor : 0 < 1 - 1 / (2 * A₀) := by
+      have hden : 1 / (2 * A₀) ≤ 1 / 2 := by
+        apply (div_le_iff₀ (by positivity : 0 < 2 * A₀)).2
+        nlinarith [hA₀]
+      linarith
+    exact mul_pos hr hfactor
+  let c : ℝ := k⁻¹
+  let C : ℝ := C₀ * k⁻¹
+  have hc : 0 < c := by dsimp [c]; positivity
+  have hC : 0 ≤ C := by dsimp [C]; positivity
+  refine ⟨R, hR, c, C, hc, hC, ?_⟩
+  intro x
+  have hmul := mul_le_mul_of_nonneg_right (hT7 x) (inv_nonneg.mpr hk.le)
+  have hleft : (k * ‖E.M x‖ ^ 2) * k⁻¹ = ‖E.M x‖ ^ 2 := by
+    field_simp [hk.ne']
+  rw [hleft] at hmul
+  calc
+    ‖E.M x‖ ^ 2 ≤ (‖E.Gr x‖ ^ 2 + C₀ * ‖R x‖ ^ 2) * k⁻¹ := hmul
+    _ = c * ‖E.Gr x‖ ^ 2 + C * ‖R x‖ ^ 2 := by
+      dsimp [c, C]
+      ring
+
 /-- E6 `spec:identify` — P-SPEC.md:242, 397–400. On the convergence ball, the series minus its
 cutoff seed is bounded with bounded gradient, lies in the energy graph, and solves the weak
 resolvent equation with source equal to the negative seed defect. Correction from `sol-gate-spec`:
