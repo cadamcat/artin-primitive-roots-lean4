@@ -8,6 +8,11 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MATRIX».M0
 import ArtinPrimitiveRoots.A2.Proofs.A2_ROWS.HeightConvolution
 import ArtinPrimitiveRoots.A1.Coeff.IdealSummable
 import ArtinPrimitiveRoots.A2.Proofs.QS_ANALYTIC.RNDict
+import ArtinPrimitiveRoots.Hecke.Convexity
+import Mathlib.Analysis.Complex.CauchyIntegral
+import Mathlib.Analysis.SpecialFunctions.Gaussian.FourierTransform
+import Mathlib.Analysis.SpecialFunctions.Gaussian.GaussianIntegral
+import Mathlib.Analysis.SpecialFunctions.ImproperIntegrals
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
@@ -2842,6 +2847,1587 @@ private theorem rows_small_shift_xi (hEuler : EulerHypotheses R η)
     _ = vertical (1 + δ1) G := by
       unfold vertical
       rw [htranslate (1 + δ1)]
+
+private theorem rows_heckeLSeries_one_eq_dedekindZeta (s : ℂ) (hs : 1 < s.re) :
+    heckeLSeries (1 : HeckeChar F) s = NumberField.dedekindZeta F s := by
+  classical
+  let Ideals := {I : Ideal (𝓞 F) // I ≠ ⊥}
+  let norm : Ideals → ℕ := fun I => Ideal.absNorm I.1
+  let fiber : ℕ → Type := fun n => {I : Ideals // norm I = n}
+  have hfiberFinite (n : ℕ) : Finite (fiber n) := by
+    let full : Type := {I : Ideal (𝓞 F) // Ideal.absNorm I = n}
+    letI : Finite full := (Ideal.finite_setOfPred_absNorm_eq (S := 𝓞 F) n).to_subtype
+    apply Finite.of_injective (fun I : fiber n => (⟨I.1.1, I.2⟩ : full))
+    intro I J h
+    apply Subtype.ext
+    apply Subtype.ext
+    exact congrArg (fun X : full => X.1) h
+  letI (n : ℕ) : Fintype (fiber n) := by
+    classical
+    by_cases hn : n = 0
+    · subst n
+      letI : IsEmpty (fiber 0) := ⟨fun I => by
+        have hnorm : Ideal.absNorm I.1.1 = 0 := by simpa [norm] using I.2
+        exact I.1.2 (Ideal.absNorm_eq_zero_iff.mp hnorm)⟩
+      exact Fintype.ofIsEmpty
+    · let full : Type := {I : Ideal (𝓞 F) // Ideal.absNorm I = n}
+      letI : Fintype full := (Ideal.finite_setOfPred_absNorm_eq (S := 𝓞 F) n).fintype
+      have hnot (I : Ideal (𝓞 F)) (hI : Ideal.absNorm I = n) : I ≠ ⊥ := by
+        intro hbot
+        apply hn
+        exact (by simpa [hbot] using hI.symm)
+      let e : fiber n ≃ full := {
+        toFun := fun I => ⟨I.1.1, I.2⟩
+        invFun := fun I => ⟨⟨I.1, hnot I.1 I.2⟩, by simpa [norm] using I.2⟩
+        left_inv := by
+          intro I
+          cases I with
+          | mk I hI => cases I with | mk I hI' => rfl
+        right_inv := by intro I; cases I; rfl
+      }
+      exact Fintype.ofEquiv full e.symm
+  have hFiberCard (n : ℕ) (hn : n ≠ 0) : Fintype.card (fiber n) =
+      rows_small_idealCount (F := F) n := by
+    let full : Type := {I : Ideal (𝓞 F) // Ideal.absNorm I = n}
+    have hnot (I : Ideal (𝓞 F)) (hI : Ideal.absNorm I = n) : I ≠ ⊥ := by
+      intro hbot
+      apply hn
+      exact (by simpa [hbot] using hI.symm)
+    let e : fiber n ≃ full := {
+      toFun := fun I => ⟨I.1.1, I.2⟩
+      invFun := fun I => ⟨⟨I.1, hnot I.1 I.2⟩, by simpa [norm] using I.2⟩
+      left_inv := by
+        intro I
+        cases I with
+        | mk I hI => cases I with | mk I hI' => rfl
+      right_inv := by intro I; cases I; rfl
+    }
+    simpa [rows_small_idealCount, full] using (Nat.card_congr e)
+  have hzero : s ≠ 0 := by
+    intro hz
+    have hRe := congrArg Complex.re hz
+    simp at hRe
+    linarith
+  have hFiberSumNorm (n : ℕ) :
+      (∑' I : fiber n, ‖(n : ℂ) ^ (-s)‖) =
+        ‖LSeries.term (fun k => (rows_small_idealCount (F := F) k : ℂ)) s n‖ := by
+    by_cases hn : n = 0
+    · subst n
+      letI : IsEmpty (fiber 0) := ⟨fun I => by
+        have hnorm : Ideal.absNorm I.1.1 = 0 := by simpa [norm] using I.2
+        exact I.1.2 (Ideal.absNorm_eq_zero_iff.mp hnorm)⟩
+      simp [LSeries.term]
+    · have hnpos : 0 < n := Nat.pos_of_ne_zero hn
+      have hpow : ‖(n : ℂ) ^ (-s)‖ = (n : ℝ) ^ (-s.re) := by
+        rw [Complex.norm_natCast_cpow_of_pos (by exact_mod_cast hnpos)]
+        rfl
+      have hrpow : (n : ℝ) ^ (-s.re) = ((n : ℝ) ^ s.re)⁻¹ :=
+        Real.rpow_neg (by positivity : 0 ≤ (n : ℝ)) s.re
+      rw [tsum_fintype]
+      calc
+        _ = (Fintype.card (fiber n) : ℝ) * ‖(n : ℂ) ^ (-s)‖ := by simp
+        _ = ‖LSeries.term (fun k => (rows_small_idealCount (F := F) k : ℂ)) s n‖ := by
+          rw [hFiberCard n hn, hpow, hrpow, LSeries.norm_term_eq]
+          simp only [hn, ↓reduceIte, Complex.norm_natCast]
+          rw [div_eq_mul_inv]
+  have houter : Summable (fun n : ℕ => ∑' I : fiber n, ‖(n : ℂ) ^ (-s)‖) := by
+    have hcoeff := (rows_small_idealCount_summable (F := F) (s := s) hs).norm
+    exact hcoeff.congr fun n => (hFiberSumNorm n).symm
+  have hSigmaNorm : Summable (fun p : Σ n : ℕ, fiber n =>
+      ‖(p.1 : ℂ) ^ (-s)‖) := by
+    apply (summable_sigma_of_nonneg (fun p => norm_nonneg _)).2
+    constructor
+    · intro n
+      exact Summable.of_finite
+    · exact houter
+  have hSigma : Summable (fun p : Σ n : ℕ, fiber n => (p.1 : ℂ) ^ (-s)) :=
+    Summable.of_norm hSigmaNorm
+  have hFiberSum (n : ℕ) :
+      (∑' I : fiber n, (n : ℂ) ^ (-s)) =
+        (rows_small_idealCount (F := F) n : ℂ) * (n : ℂ) ^ (-s) := by
+    by_cases hn : n = 0
+    · subst n
+      letI : IsEmpty (fiber 0) := ⟨fun I => by
+        have hnorm : Ideal.absNorm I.1.1 = 0 := by simpa [norm] using I.2
+        exact I.1.2 (Ideal.absNorm_eq_zero_iff.mp hnorm)⟩
+      simp [hzero]
+    · rw [tsum_fintype]
+      have hcard : (Fintype.card (fiber n) : ℂ) =
+          (rows_small_idealCount (F := F) n : ℂ) := by
+        exact_mod_cast hFiberCard n hn
+      rw [Finset.sum_const, nsmul_eq_mul, Finset.card_univ, hcard]
+  have hSigmaTsum :
+      (∑' p : Σ n : ℕ, fiber n, (p.1 : ℂ) ^ (-s)) =
+        ∑' n : ℕ, (rows_small_idealCount (F := F) n : ℂ) * (n : ℂ) ^ (-s) := by
+    calc
+      _ = ∑' n : ℕ, ∑' I : fiber n, (n : ℂ) ^ (-s) := hSigma.tsum_sigma
+      _ = _ := by
+        apply tsum_congr
+        intro n
+        exact hFiberSum n
+  have hReindex :
+      (∑' p : Σ n : ℕ, fiber n, (p.1 : ℂ) ^ (-s)) =
+        ∑' I : Ideals, (norm I : ℂ) ^ (-s) := by
+    let e : (Σ n : ℕ, fiber n) ≃ Ideals := Equiv.sigmaFiberEquiv norm
+    have h := e.tsum_eq (fun I : Ideals => (norm I : ℂ) ^ (-s))
+    calc
+      _ = ∑' p : Σ n : ℕ, fiber n, (norm (e p) : ℂ) ^ (-s) := by
+        apply tsum_congr
+        intro p
+        have hn : norm (e p) = p.1 := by
+          change Ideal.absNorm (p.2.1.1) = p.1
+          exact p.2.2
+        rw [hn]
+      _ = _ := h
+  have hZeta : NumberField.dedekindZeta F s =
+      ∑' n : ℕ, (rows_small_idealCount (F := F) n : ℂ) * (n : ℂ) ^ (-s) := by
+    unfold NumberField.dedekindZeta
+    apply tsum_congr
+    intro n
+    by_cases hn : n = 0
+    · subst n
+      simp [LSeries.term, hzero]
+    · rw [LSeries.term_of_ne_zero hn]
+      rw [div_eq_mul_inv, ← Complex.cpow_neg]
+      simp [rows_small_idealCount]
+  have hHecke : heckeLSeries (1 : HeckeChar F) s =
+      ∑' I : Ideals, (norm I : ℂ) ^ (-s) := by
+    unfold heckeLSeries
+    apply tsum_congr
+    intro I
+    simp [Ideals, norm, HeckeChar.idealValue, HeckeChar.primeValue,
+      HeckeChar.UnramifiedAt, HeckeChar.loc]
+  calc
+    heckeLSeries (1 : HeckeChar F) s = ∑' I : Ideals, (norm I : ℂ) ^ (-s) := hHecke
+    _ = ∑' p : Σ n : ℕ, fiber n, (p.1 : ℂ) ^ (-s) := hReindex.symm
+    _ = ∑' n : ℕ, (rows_small_idealCount (F := F) n : ℂ) * (n : ℂ) ^ (-s) := hSigmaTsum
+    _ = NumberField.dedekindZeta F s := hZeta.symm
+
+private def rows_principalRegularizedLS (s : ℂ) : ℂ :=
+  HA.1.2 s * ∏ v ∈ S.Sf,
+    (1 - (1 : HeckeChar F).primeValue v * (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))
+
+private theorem rows_principalRegularizedLS_eq (s : ℂ) (hs : s ≠ 1) :
+    rows_principalRegularizedLS (HA := HA) (S := S) s =
+      (s - 1) * HA.LS S 1 s := by
+  rcases HA.2 with ⟨hAgreement, hrest⟩
+  rcases hrest with ⟨hContinuation, hrest⟩
+  rcases hrest with ⟨hPrincipalDiff, hrest⟩
+  rcases hrest with ⟨hRegDiff, hrest⟩
+  rcases hrest with ⟨hRegularization, hrest⟩
+  unfold rows_principalRegularizedLS HeckeAnalysis.LS HeckeAnalysis.L
+  rw [hRegularization s hs]
+  ring
+
+private theorem rows_principalRegularizedLS_at_one :
+    rows_principalRegularizedLS (HA := HA) (S := S) 1 = HA.RS S := by
+  simp [rows_principalRegularizedLS, HeckeAnalysis.RS, HeckeChar.primeValue,
+    HeckeChar.UnramifiedAt, HeckeChar.loc, Complex.cpow_neg_one]
+
+private theorem rows_principal_omittedFactors_norm_le (s : ℂ) (hs : 0 < s.re) :
+    ‖∏ v ∈ S.Sf, (1 - (1 : HeckeChar F).primeValue v *
+      ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s))‖ ≤ 2 ^ S.Sf.card := by
+  have hOne : IsOfFinOrder (1 : HeckeChar F) := by simp
+  have hfactor (v : FinPlace F) :
+      ‖1 - (1 : HeckeChar F).primeValue v *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)‖ ≤ 2 := by
+    have hn : 0 < Ideal.absNorm v.asIdeal :=
+      Nat.zero_lt_of_lt (NumberField.HeightOneSpectrum.one_lt_absNorm v)
+    have hnreal : 1 ≤ (Ideal.absNorm v.asIdeal : ℝ) := by
+      exact_mod_cast (Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hn))
+    have hpow : ‖((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)‖ =
+        (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) := by
+      rw [Complex.norm_natCast_cpow_of_pos (by exact_mod_cast hn)]
+      rfl
+    have hpowle : (Ideal.absNorm v.asIdeal : ℝ) ^ (-s.re) ≤ 1 :=
+      Real.rpow_le_one_of_one_le_of_nonpos hnreal (by linarith)
+    calc
+      _ ≤ ‖(1 : ℂ)‖ + ‖(1 : HeckeChar F).primeValue v *
+          ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)‖ := norm_sub_le _ _
+      _ = 1 + ‖(1 : HeckeChar F).primeValue v‖ *
+          ‖((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)‖ := by simp [norm_mul]
+      _ ≤ 1 + 1 * 1 := by
+        have hpv := rows_primeValue_norm_le_one (1 : HeckeChar F) hOne v
+        have hpow' : ‖((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-s)‖ ≤ 1 := by
+          rw [hpow]
+          exact hpowle
+        nlinarith [norm_nonneg ((1 : HeckeChar F).primeValue v)]
+      _ = 2 := by norm_num
+  rw [norm_prod]
+  calc
+    _ ≤ ∏ _v ∈ S.Sf, (2 : ℝ) := by
+      apply Finset.prod_le_prod₀
+      · intro v hv
+        positivity
+      · intro v hv
+        exact hfactor v
+    _ = 2 ^ S.Sf.card := by simp
+
+private theorem rows_principalRegularizedLS_growth :
+    ∃ AF C : ℝ, 0 ≤ AF ∧ 0 < C ∧
+      ∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 →
+        ‖rows_principalRegularizedLS (HA := HA) (S := S) s‖ ≤
+          C * (2 + |s.im|) ^ AF := by
+  rcases HA.2 with ⟨hAgreement, hrest⟩
+  rcases hrest with ⟨hContinuation, hrest⟩
+  rcases hrest with ⟨hPrincipalDiff, hrest⟩
+  rcases hrest with ⟨hRegDiff, hrest⟩
+  rcases hrest with ⟨hRegularization, hrest⟩
+  let m0 : ClassFieldTheory.RayClassModulus F := ⟨0, ∅⟩
+  let ψ0 : ClassFieldTheory.RayClassGroup m0 →* ℂˣ := 1
+  obtain ⟨AF, hAF, hGrowth⟩ := Hecke.LSeriesRay_trivial_growth (K := F)
+  have hAgreementRay : ∀ s : ℂ, 1 < s.re →
+      HA.1.2 s = (s - 1) * Hecke.LSeriesRay ψ0 s := by
+    intro s hs
+    have hsne : s ≠ 1 := by
+      intro h
+      rw [h] at hs
+      norm_num at hs
+    have hHecke : HA.1.1 1 s = heckeLSeries (1 : HeckeChar F) s :=
+      hAgreement 1 s hs
+    have hZeta := rows_heckeLSeries_one_eq_dedekindZeta (F := F) s hs
+    have hRay : heckeLSeries (1 : HeckeChar F) s = Hecke.LSeriesRay ψ0 s := by
+      calc
+        _ = NumberField.dedekindZeta F s := hZeta
+        _ = Hecke.LSeriesRay ψ0 s :=
+          (Hecke.LSeriesRay_trivial_eq_dedekindZeta (K := F) s).symm
+    calc
+      HA.1.2 s = (s - 1) * HA.1.1 1 s := hRegularization s hsne
+      _ = (s - 1) * heckeLSeries (1 : HeckeChar F) s := by rw [hHecke]
+      _ = (s - 1) * Hecke.LSeriesRay ψ0 s := by rw [hRay]
+  obtain ⟨CG, hCG, hGrowthBound⟩ := hGrowth 1 (by norm_num) (3 / 1000) (by norm_num)
+  have hG := hGrowthBound m0 (fun s => HA.1.2 s) hRegDiff (by simpa [ψ0] using hAgreementRay)
+  let C : ℝ := CG * 2 ^ S.Sf.card
+  have hC : 0 < C := by dsimp [C]; positivity
+  refine ⟨AF, C, hAF, hC, ?_⟩
+  intro s hslo hshi
+  have hGbound : ‖HA.1.2 s‖ ≤ CG * (2 + |s.im|) ^ AF := by
+    have h := hG s hslo hshi
+    simpa [m0, Hecke.modulusNorm] using h
+  have hFactor := rows_principal_omittedFactors_norm_le (S := S) s
+    (by linarith [hslo])
+  calc
+    ‖rows_principalRegularizedLS (HA := HA) (S := S) s‖ =
+        ‖HA.1.2 s‖ *
+          ‖∏ v ∈ S.Sf,
+            (1 - (1 : HeckeChar F).primeValue v *
+              (Ideal.absNorm v.asIdeal : ℂ) ^ (-s))‖ := by
+          simp [rows_principalRegularizedLS, norm_mul]
+    _ ≤ (CG * (2 + |s.im|) ^ AF) * 2 ^ S.Sf.card :=
+      mul_le_mul hGbound hFactor (norm_nonneg _) (by positivity)
+    _ = C * (2 + |s.im|) ^ AF := by dsimp [C]; ring
+
+private theorem rows_principalLS_growth_off_one :
+    ∃ AF C : ℝ, 0 ≤ AF ∧ 0 < C ∧
+      ∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 → s.re ≠ 1 →
+        ‖HA.LS S 1 s‖ ≤ C * (2 + |s.im|) ^ AF / |s.re - 1| := by
+  obtain ⟨AF, C, hAF, hC, hGrowth⟩ := rows_principalRegularizedLS_growth (HA := HA) (S := S)
+  refine ⟨AF, C, hAF, hC, ?_⟩
+  intro s hslo hshi hsne
+  have hsne' : s ≠ (1 : ℂ) := by
+    intro h
+    apply hsne
+    simpa using congrArg Complex.re h
+  have hLS : HA.LS S 1 s =
+      rows_principalRegularizedLS (HA := HA) (S := S) s / (s - 1) := by
+    rw [rows_principalRegularizedLS_eq (HA := HA) (S := S) s hsne']
+    field_simp [sub_ne_zero.mpr hsne']
+  have hGbound := hGrowth s hslo hshi
+  have hgap : 0 < |s.re - 1| := abs_pos.mpr (sub_ne_zero.mpr hsne)
+  have hgapLE : |s.re - 1| ≤ ‖s - 1‖ := by
+    calc
+      |s.re - 1| = |(s - 1).re| := by simp
+      _ ≤ ‖s - 1‖ := Complex.abs_re_le_norm _
+  have hnum : 0 ≤ C * (2 + |s.im|) ^ AF := by positivity
+  calc
+    ‖HA.LS S 1 s‖ =
+        ‖rows_principalRegularizedLS (HA := HA) (S := S) s‖ / ‖s - 1‖ := by
+      rw [hLS, norm_div]
+    _ ≤ C * (2 + |s.im|) ^ AF / ‖s - 1‖ :=
+      div_le_div_of_nonneg_right hGbound (norm_nonneg _)
+    _ ≤ C * (2 + |s.im|) ^ AF / |s.re - 1| :=
+      div_le_div_of_nonneg_left hnum hgap hgapLE
+
+private theorem rows_principalLS_growth_high_height :
+    ∃ AF C : ℝ, 0 ≤ AF ∧ 0 < C ∧
+      ∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 → 1 ≤ |s.im| →
+        ‖HA.LS S 1 s‖ ≤ C * (2 + |s.im|) ^ AF := by
+  obtain ⟨AF, C, hAF, hC, hGrowth⟩ := rows_principalRegularizedLS_growth (HA := HA) (S := S)
+  refine ⟨AF, C, hAF, hC, ?_⟩
+  intro s hslo hshi him
+  have hsne : s ≠ (1 : ℂ) := by
+    intro h
+    have himEq := congrArg Complex.im h
+    simp at himEq
+    have hpos : 0 < |s.im| := lt_of_lt_of_le (by norm_num) him
+    rw [himEq] at hpos
+    norm_num at hpos
+  have hLS : HA.LS S 1 s =
+      rows_principalRegularizedLS (HA := HA) (S := S) s / (s - 1) := by
+    rw [rows_principalRegularizedLS_eq (HA := HA) (S := S) s hsne]
+    field_simp [sub_ne_zero.mpr hsne]
+  have hden : 1 ≤ ‖s - 1‖ := by
+    calc
+      1 ≤ |s.im| := him
+      _ = |(s - 1).im| := by simp
+      _ ≤ ‖s - 1‖ := Complex.abs_im_le_norm _
+  have hGbound := hGrowth s hslo hshi
+  calc
+    ‖HA.LS S 1 s‖ =
+        ‖rows_principalRegularizedLS (HA := HA) (S := S) s‖ / ‖s - 1‖ := by
+      rw [hLS, norm_div]
+    _ ≤ ‖rows_principalRegularizedLS (HA := HA) (S := S) s‖ / 1 :=
+      div_le_div_of_nonneg_left (norm_nonneg _) (by norm_num) hden
+    _ = ‖rows_principalRegularizedLS (HA := HA) (S := S) s‖ := by simp
+    _ ≤ C * (2 + |s.im|) ^ AF := hGbound
+
+private theorem rows_laplace_reciprocal (x : ℝ) (hx : 0 < x) (t : ℝ) :
+    (∫ v : ℝ in Set.Ioi 0, Complex.exp (-((x : ℂ) + t * Complex.I) * v)) =
+      ((x : ℂ) + t * Complex.I)⁻¹ := by
+  have hs : (x : ℂ) + t * Complex.I ≠ 0 := by
+    intro h
+    have hRe := congrArg Complex.re h
+    simp at hRe
+    linarith
+  have hneg : (-((x : ℂ) + t * Complex.I)).re < 0 := by simp; linarith
+  rw [integral_exp_mul_complex_Ioi (a := -((x : ℂ) + t * Complex.I)) hneg (0 : ℝ)]
+  field_simp [hs] <;> simp
+
+set_option maxHeartbeats 3000000 in
+private theorem rows_vertical_gaussian_pole_pos (x : ℝ) (hx : 0 < x) :
+    vertical x (fun z : ℂ => Complex.exp (z ^ 2) / z) = (1 / 2 : ℂ) := by
+  let line : ℝ → ℂ := fun t => (x : ℂ) + t * Complex.I
+  let F : ℝ × ℝ → ℂ := fun p => Complex.exp (line p.1 ^ 2 - line p.1 * p.2)
+  let g : ℝ × ℝ → ℝ := fun p =>
+    Real.exp (-p.1 ^ 2) * Real.exp (-x * p.2)
+  have hT : Integrable (fun t : ℝ => Real.exp (-t ^ 2)) := by
+    simpa using (integrable_exp_neg_mul_sq (b := 1) (by norm_num : 0 < (1 : ℝ)))
+  have hV : Integrable (fun v : ℝ => Real.exp (-x * v))
+      (volume.restrict (Set.Ioi 0)) :=
+    integrableOn_exp_mul_Ioi (by linarith) 0
+  have hg : Integrable g (volume.prod (volume.restrict (Set.Ioi 0))) := by
+    simpa [g, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using hT.mul_prod hV
+  have line_re (t : ℝ) : (line t).re = x := by simp [line]
+  have line_im (t : ℝ) : (line t).im = t := by simp [line]
+  have hReal (p : ℝ × ℝ) :
+      (line p.1 ^ 2 - line p.1 * p.2).re = x ^ 2 - p.1 ^ 2 - x * p.2 := by
+    calc
+      _ = (line p.1).re ^ 2 - (line p.1).im ^ 2 - (line p.1).re * p.2 := by
+        simp [Complex.sub_re, Complex.mul_re, Complex.ofReal_re,
+          Complex.ofReal_im, pow_two]
+      _ = _ := by rw [line_re, line_im] <;> ring
+  have hFnorm (p : ℝ × ℝ) :
+      ‖F p‖ = Real.exp (x ^ 2) *
+        (Real.exp (-p.1 ^ 2) * Real.exp (-x * p.2)) := by
+    dsimp [F]
+    rw [Complex.norm_exp, hReal]
+    calc
+      Real.exp (x ^ 2 - p.1 ^ 2 - x * p.2) =
+          Real.exp ((x ^ 2 + -(p.1 ^ 2)) + -(x * p.2)) := by
+        congr 1 <;> ring
+      _ = Real.exp (x ^ 2) *
+          (Real.exp (-p.1 ^ 2) * Real.exp (-x * p.2)) := by
+        rw [Real.exp_add, Real.exp_add]
+        ring
+  have hFcont : Continuous F := by fun_prop
+  have hFdom : Integrable
+      (fun p : ℝ × ℝ => Real.exp (x ^ 2) * g p)
+      (volume.prod (volume.restrict (Set.Ioi 0))) := by
+    simpa [g, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using
+      hg.const_mul (Real.exp (x ^ 2))
+  have hFint : Integrable F (volume.prod (volume.restrict (Set.Ioi 0))) := by
+    apply hFdom.mono' hFcont.aestronglyMeasurable
+    filter_upwards [] with p
+    rw [hFnorm p]
+  have hPoint (t : ℝ) :
+      Complex.exp (line t ^ 2) / line t = ∫ v : ℝ in Set.Ioi 0, F (t, v) := by
+    calc
+      _ = Complex.exp (line t ^ 2) *
+          ∫ v : ℝ in Set.Ioi 0, Complex.exp (-line t * v) := by
+            rw [rows_laplace_reciprocal x hx t]
+            ring
+      _ = ∫ v : ℝ in Set.Ioi 0,
+          Complex.exp (line t ^ 2) * Complex.exp (-line t * v) := by
+            rw [← integral_const_mul]
+      _ = ∫ v : ℝ in Set.Ioi 0, F (t, v) := by
+            apply integral_congr_ae
+            filter_upwards [] with v
+            dsimp [F]
+            calc
+              _ = Complex.exp (line t ^ 2 + (-line t) * v) := by
+                rw [← Complex.exp_add]
+              _ = Complex.exp (line t ^ 2 - line t * v) := by
+                congr 1
+                ring_nf
+  let c (v : ℝ) : ℂ := Complex.I * ((2 * x - v : ℝ) : ℂ)
+  let d (v : ℝ) : ℂ := ((x ^ 2 - x * v : ℝ) : ℂ)
+  have hLeftRe (t v : ℝ) :
+      (line t ^ 2 - line t * v).re = x ^ 2 - t ^ 2 - x * v := by
+    calc
+      _ = (line t).re ^ 2 - (line t).im ^ 2 - (line t).re * v := by
+        simp [Complex.sub_re, Complex.mul_re, Complex.ofReal_re,
+          Complex.ofReal_im, pow_two]
+      _ = _ := by rw [line_re, line_im] <;> ring
+  have hLeftIm (t v : ℝ) :
+      (line t ^ 2 - line t * v).im = (2 * x - v) * t := by
+    calc
+      _ = ((line t).re * (line t).im + (line t).im * (line t).re) -
+          (line t).im * v := by
+        simp [Complex.sub_im, Complex.mul_im, Complex.ofReal_re,
+          Complex.ofReal_im, pow_two]
+      _ = _ := by rw [line_re, line_im] <;> ring
+  have hcRe (v : ℝ) : (c v).re = 0 := by simp [c, Complex.mul_re]
+  have hcIm (v : ℝ) : (c v).im = 2 * x - v := by simp [c, Complex.mul_im]
+  have hdRe (v : ℝ) : (d v).re = x ^ 2 - x * v := by
+    dsimp [d]
+  have hdIm (v : ℝ) : (d v).im = 0 := by
+    dsimp [d]
+  have hpowRe (t : ℝ) : ((t : ℂ) ^ 2).re = t ^ 2 := by
+    rw [pow_two, Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im]
+    ring
+  have hpowIm (t : ℝ) : ((t : ℂ) ^ 2).im = 0 := by
+    rw [pow_two, Complex.mul_im, Complex.ofReal_re, Complex.ofReal_im]
+    ring
+  have hRightRe (t v : ℝ) :
+      ((-1 : ℂ) * (t : ℂ) ^ 2 + c v * (t : ℂ) + d v).re =
+        -t ^ 2 + (x ^ 2 - x * v) := by
+    simp [Complex.add_re, Complex.mul_re, Complex.ofReal_re,
+      Complex.ofReal_im, hcRe, hcIm, hdRe, hdIm, hpowRe]
+  have hRightIm (t v : ℝ) :
+      ((-1 : ℂ) * (t : ℂ) ^ 2 + c v * (t : ℂ) + d v).im =
+        (2 * x - v) * t := by
+    simp [Complex.add_im, Complex.mul_im, Complex.ofReal_re,
+      Complex.ofReal_im, hcRe, hcIm, hdRe, hdIm, hpowIm]
+  have hArg (t v : ℝ) :
+      line t ^ 2 - line t * v =
+        (-1 : ℂ) * (t : ℂ) ^ 2 + c v * (t : ℂ) + d v := by
+    apply Complex.ext
+    · rw [hLeftRe, hRightRe]
+      ring
+    · rw [hLeftIm, hRightIm]
+  have hc (v : ℝ) : c v = ((2 * x - v : ℝ) : ℂ) * Complex.I := by
+    dsimp [c]
+    ring
+  have hcSq (v : ℝ) : c v ^ 2 = (-((2 * x - v) ^ 2 : ℝ) : ℂ) := by
+    rw [hc v, mul_pow, Complex.I_sq]
+    simp [Complex.ofReal_pow]
+  have hRoot : (Real.pi : ℂ) ^ (1 / 2 : ℂ) = (Real.sqrt Real.pi : ℂ) := by
+    have hhalf : ((1 / 2 : ℝ) : ℂ) = (1 / 2 : ℂ) := by norm_num
+    calc
+      (Real.pi : ℂ) ^ (1 / 2 : ℂ) =
+          (Real.pi : ℂ) ^ ((1 / 2 : ℝ) : ℂ) := by rw [hhalf]
+      _ = ((Real.pi ^ (1 / 2 : ℝ) : ℝ) : ℂ) :=
+        (Complex.ofReal_cpow Real.pi_pos.le (1 / 2 : ℝ)).symm
+      _ = (Real.sqrt Real.pi : ℂ) := by rw [Real.sqrt_eq_rpow]
+  have hInner (v : ℝ) :
+      (∫ t : ℝ, F (t, v)) =
+        (Real.sqrt Real.pi : ℂ) * Real.exp (-(v ^ 2) / 4) := by
+    have hfun : (fun t : ℝ => F (t, v)) = fun t : ℝ =>
+        Complex.exp ((-1 : ℂ) * (t : ℂ) ^ 2 + c v * (t : ℂ) + d v) := by
+      funext t
+      dsimp [F]
+      rw [hArg]
+    rw [hfun]
+    have hquad := integral_cexp_quadratic (b := (-1 : ℂ)) (by norm_num) (c v) (d v)
+    calc
+      _ = ((Real.pi : ℂ) / -(-1 : ℂ)) ^ (1 / 2 : ℂ) *
+          Complex.exp (d v - (c v) ^ 2 / (4 * (-1 : ℂ))) := hquad
+      _ = (Real.sqrt Real.pi : ℂ) * Real.exp (-(v ^ 2) / 4) := by
+        have hroot' : (Real.pi : ℂ) / -(-1 : ℂ) = (Real.pi : ℂ) := by norm_num
+        have harg : d v - (c v) ^ 2 / (4 * (-1 : ℂ)) =
+            ((-(v ^ 2) / 4 : ℝ) : ℂ) := by
+          rw [hcSq v]
+          have hden : (4 : ℂ) * (-1) = ((-4 : ℝ) : ℂ) := by norm_num
+          rw [hden]
+          change ((x ^ 2 - x * v : ℝ) : ℂ) -
+            ((-((2 * x - v) ^ 2 : ℝ) : ℂ) / ((-4 : ℝ) : ℂ)) =
+              ((-(v ^ 2) / 4 : ℝ) : ℂ)
+          rw [← Complex.ofReal_neg]
+          rw [← Complex.ofReal_div, ← Complex.ofReal_sub]
+          apply congrArg Complex.ofReal
+          field_simp <;> ring
+        rw [hroot', hRoot, harg, Complex.ofReal_exp]
+  have hGauss :
+      (∫ v : ℝ in Set.Ioi 0, Real.exp (-(1 / 4 : ℝ) * v ^ 2)) = Real.sqrt Real.pi := by
+    calc
+      _ = Real.sqrt (Real.pi / (1 / 4 : ℝ)) / 2 := integral_gaussian_Ioi (1 / 4 : ℝ)
+      _ = Real.sqrt (4 * Real.pi) / 2 := by
+        have harg : Real.pi / (1 / 4 : ℝ) = 4 * Real.pi := by field_simp <;> ring
+        rw [harg]
+      _ = Real.sqrt 4 * Real.sqrt Real.pi / 2 := by
+        rw [Real.sqrt_mul (by norm_num : 0 ≤ (4 : ℝ))]
+      _ = Real.sqrt Real.pi := by
+        have hsqrt : Real.sqrt 4 = 2 := by norm_num
+        rw [hsqrt]
+        ring
+  have hGauss' :
+      (∫ v : ℝ in Set.Ioi 0, Real.exp (-(v ^ 2) / 4)) = Real.sqrt Real.pi := by
+    calc
+      _ = ∫ v : ℝ in Set.Ioi 0, Real.exp (-(1 / 4 : ℝ) * v ^ 2) := by
+        apply integral_congr_ae
+        filter_upwards [] with v
+        congr 1
+        ring
+      _ = Real.sqrt Real.pi := hGauss
+  have hIntegral :
+      (∫ t : ℝ, Complex.exp (line t ^ 2) / line t) = (Real.pi : ℂ) := by
+    calc
+      _ = ∫ t : ℝ, ∫ v : ℝ in Set.Ioi 0, F (t, v) := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        exact hPoint t
+      _ = ∫ v : ℝ in Set.Ioi 0, ∫ t : ℝ, F (t, v) := integral_integral_swap hFint
+      _ = ∫ v : ℝ in Set.Ioi 0,
+          (Real.sqrt Real.pi : ℂ) * Real.exp (-(v ^ 2) / 4) := by
+        apply integral_congr_ae
+        filter_upwards [] with v
+        exact hInner v
+      _ = (Real.sqrt Real.pi : ℂ) *
+          ∫ v : ℝ in Set.Ioi 0, Real.exp (-(v ^ 2) / 4) := by
+        rw [integral_const_mul, integral_complex_ofReal]
+      _ = (Real.sqrt Real.pi : ℂ) * (Real.sqrt Real.pi : ℂ) := by rw [hGauss']
+      _ = (Real.pi : ℂ) := by
+        rw [← Complex.ofReal_mul]
+        congr 1
+        calc
+          Real.sqrt Real.pi * Real.sqrt Real.pi = Real.sqrt Real.pi ^ 2 := by ring
+          _ = Real.pi := Real.sq_sqrt Real.pi_pos.le
+  unfold vertical
+  rw [hIntegral]
+  field_simp [Real.pi_ne_zero] <;> ring
+
+private theorem rows_vertical_gaussian_pole_neg (x : ℝ) (hx : x < 0) :
+    vertical x (fun z : ℂ => Complex.exp (z ^ 2) / z) = (-1 / 2 : ℂ) := by
+  let y : ℝ := -x
+  have hy : 0 < y := by dsimp [y]; linarith
+  let f : ℝ → ℂ := fun t =>
+    Complex.exp (((y : ℂ) + t * Complex.I) ^ 2) / ((y : ℂ) + t * Complex.I)
+  have hreflect : (∫ t : ℝ, f (-t)) = ∫ t : ℝ, f t := by
+    have h := (Measure.measurePreserving_neg (volume : Measure ℝ)).integral_comp
+      (Homeomorph.neg ℝ).measurableEmbedding f
+    simpa [Function.comp_def] using h
+  have hpoint (t : ℝ) :
+      Complex.exp (((x : ℂ) + t * Complex.I) ^ 2) / ((x : ℂ) + t * Complex.I) =
+        -f (-t) := by
+    have hline : (x : ℂ) + t * Complex.I = -((y : ℂ) + (-t) * Complex.I) := by
+      apply Complex.ext <;> simp [y] <;> ring
+    calc
+      _ = Complex.exp ((-((y : ℂ) + (-t) * Complex.I)) ^ 2) /
+          -((y : ℂ) + (-t) * Complex.I) := by rw [hline]
+      _ = - (Complex.exp (((y : ℂ) + (-t) * Complex.I) ^ 2) /
+          ((y : ℂ) + (-t) * Complex.I)) := by
+            rw [neg_sq, div_neg]
+      _ = -f (-t) := by simp [f, Complex.ofReal_neg]
+  have hIntegral :
+      (∫ t : ℝ, Complex.exp (((x : ℂ) + t * Complex.I) ^ 2) /
+        ((x : ℂ) + t * Complex.I)) =
+          -(∫ t : ℝ, Complex.exp (((y : ℂ) + t * Complex.I) ^ 2) /
+            ((y : ℂ) + t * Complex.I)) := by
+    calc
+      _ = ∫ t : ℝ, -f (-t) := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        exact hpoint t
+      _ = -(∫ t : ℝ, f (-t)) := by rw [integral_neg]
+      _ = -(∫ t : ℝ, f t) := by rw [hreflect]
+      _ = _ := by rfl
+  have hpos := rows_vertical_gaussian_pole_pos y hy
+  have hpos' :
+      (1 / (2 * Real.pi) : ℂ) *
+        ∫ t : ℝ, Complex.exp (((y : ℂ) + t * Complex.I) ^ 2) /
+          ((y : ℂ) + t * Complex.I) = (1 / 2 : ℂ) := by
+    simpa [vertical] using hpos
+  unfold vertical
+  rw [hIntegral]
+  calc
+    (1 / (2 * Real.pi) : ℂ) *
+        -(∫ t : ℝ, Complex.exp (((y : ℂ) + t * Complex.I) ^ 2) /
+          ((y : ℂ) + t * Complex.I)) =
+        -((1 / (2 * Real.pi) : ℂ) *
+          ∫ t : ℝ, Complex.exp (((y : ℂ) + t * Complex.I) ^ 2) /
+            ((y : ℂ) + t * Complex.I)) := by ring
+    _ = (-1 / 2 : ℂ) := by rw [hpos']; norm_num
+
+private theorem rows_gaussian_pole_line_integrable (x : ℝ) (hx : x ≠ 0) :
+    Integrable (fun t : ℝ => Complex.exp (((x : ℂ) + t * Complex.I) ^ 2) /
+      ((x : ℂ) + t * Complex.I)) := by
+  let line : ℝ → ℂ := fun t => (x : ℂ) + t * Complex.I
+  have hLineRe (t : ℝ) : (line t).re = x := by simp [line]
+  have hLineIm (t : ℝ) : (line t).im = t := by simp [line]
+  have hLineNe (t : ℝ) : line t ≠ 0 := by
+    intro h
+    have hRe := congrArg Complex.re h
+    rw [hLineRe t] at hRe
+    exact hx (by simpa using hRe)
+  have hLineCont : Continuous line := by fun_prop
+  have hExpCont : Continuous (fun t : ℝ => Complex.exp ((line t) ^ 2)) := by fun_prop
+  have hcont : Continuous (fun t : ℝ => Complex.exp ((line t) ^ 2) / line t) := by
+    have hInv : Continuous (fun t : ℝ => (line t)⁻¹) := hLineCont.inv₀ hLineNe
+    change Continuous ((fun t : ℝ => Complex.exp ((line t) ^ 2)) *
+      (fun t : ℝ => (line t)⁻¹))
+    exact hExpCont.mul hInv
+  have hsq (t : ℝ) : ((line t) ^ 2).re = x ^ 2 - t ^ 2 := by
+    rw [pow_two, Complex.mul_re, hLineRe, hLineIm]
+    ring
+  have hnorm (t : ℝ) :
+      ‖Complex.exp ((line t) ^ 2) / line t‖ =
+        Real.exp (x ^ 2) * Real.exp (-t ^ 2) / ‖line t‖ := by
+    rw [norm_div, Complex.norm_exp, hsq, Real.exp_sub, Real.exp_neg]
+    simp [div_eq_mul_inv]
+  have hden (t : ℝ) : |x| ≤ ‖line t‖ := by
+    simpa only [hLineRe] using (Complex.abs_re_le_norm (line t))
+  have hmajorant (t : ℝ) :
+      ‖Complex.exp ((line t) ^ 2) / line t‖ ≤
+        (Real.exp (x ^ 2) / |x|) * Real.exp (-t ^ 2) := by
+    rw [hnorm]
+    have hxabs : 0 < |x| := abs_pos.mpr hx
+    calc
+      _ ≤ Real.exp (x ^ 2) * Real.exp (-t ^ 2) / |x| :=
+        div_le_div_of_nonneg_left (by positivity) hxabs (hden t)
+      _ = _ := by ring
+  have hgauss : Integrable (fun t : ℝ => Real.exp (-t ^ 2)) := by
+    simpa using (integrable_exp_neg_mul_sq (b := 1) (by norm_num : 0 < (1 : ℝ)))
+  have hbound : Integrable
+      (fun t : ℝ => (Real.exp (x ^ 2) / |x|) * Real.exp (-t ^ 2)) :=
+    hgauss.const_mul (Real.exp (x ^ 2) / |x|)
+  apply hbound.mono' hcont.aestronglyMeasurable
+  filter_upwards [] with t
+  exact hmajorant t
+
+private theorem rows_vertical_simple_pole_decomp (a b : ℝ) (res : ℂ)
+    (F G K : ℂ → ℂ)
+    (hab : a ≤ b)
+    (hGdiff : DifferentiableOn ℂ G {z : ℂ | a ≤ z.re ∧ z.re ≤ b})
+    (hGA : Integrable (fun t : ℝ => G ((a : ℂ) + t * Complex.I)))
+    (hGB : Integrable (fun t : ℝ => G ((b : ℂ) + t * Complex.I)))
+    (hKA : Integrable (fun t : ℝ => K ((a : ℂ) + t * Complex.I)))
+    (hKB : Integrable (fun t : ℝ => K ((b : ℂ) + t * Complex.I)))
+    (hbot : Tendsto (fun T : ℝ =>
+      ∫ x : ℝ in a..b, G ((x : ℂ) + (-T) * Complex.I)) atTop (𝓝 0))
+    (htop : Tendsto (fun T : ℝ =>
+      ∫ x : ℝ in a..b, G ((x : ℂ) + T * Complex.I)) atTop (𝓝 0))
+    (hFA : ∀ t : ℝ, F ((a : ℂ) + t * Complex.I) =
+      G ((a : ℂ) + t * Complex.I) + res * K ((a : ℂ) + t * Complex.I))
+    (hFB : ∀ t : ℝ, F ((b : ℂ) + t * Complex.I) =
+      G ((b : ℂ) + t * Complex.I) + res * K ((b : ℂ) + t * Complex.I))
+    (hKvalueA : vertical a K = (-1 / 2 : ℂ))
+    (hKvalueB : vertical b K = (1 / 2 : ℂ)) :
+    vertical b F = vertical a F + res := by
+  have hshift := OAI.SevenEighths.Continuation.vertical_integral_eq_of_horizontal_vanish
+    G hab hGdiff hGA hGB hbot htop
+  have hGvertical : vertical b G = vertical a G := by
+    unfold vertical
+    rw [hshift.symm]
+  have hlineA :
+      (∫ t : ℝ, F ((a : ℂ) + t * Complex.I)) =
+        (∫ t : ℝ, G ((a : ℂ) + t * Complex.I)) +
+          res * ∫ t : ℝ, K ((a : ℂ) + t * Complex.I) := by
+    calc
+      _ = ∫ t : ℝ,
+          G ((a : ℂ) + t * Complex.I) + res * K ((a : ℂ) + t * Complex.I) := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        exact hFA t
+      _ = _ := by
+        rw [integral_add hGA (hKA.const_mul res), integral_const_mul]
+  have hlineB :
+      (∫ t : ℝ, F ((b : ℂ) + t * Complex.I)) =
+        (∫ t : ℝ, G ((b : ℂ) + t * Complex.I)) +
+          res * ∫ t : ℝ, K ((b : ℂ) + t * Complex.I) := by
+    calc
+      _ = ∫ t : ℝ,
+          G ((b : ℂ) + t * Complex.I) + res * K ((b : ℂ) + t * Complex.I) := by
+        apply integral_congr_ae
+        filter_upwards [] with t
+        exact hFB t
+      _ = _ := by
+        rw [integral_add hGB (hKB.const_mul res), integral_const_mul]
+  have hVdecompA : vertical a F = vertical a G + res * vertical a K := by
+    unfold vertical
+    rw [hlineA]
+    ring
+  have hVdecompB : vertical b F = vertical b G + res * vertical b K := by
+    unfold vertical
+    rw [hlineB]
+    ring
+  calc
+    vertical b F = vertical b G + res * vertical b K := hVdecompB
+    _ = vertical a G + res * vertical a K + res := by
+      rw [hGvertical, hKvalueB, hKvalueA]
+      norm_num
+      ring
+    _ = vertical a F + res := by rw [← hVdecompA]
+
+private theorem rows_regularize_simple_pole (a b p : ℝ) (A F : ℂ → ℂ)
+    (hap : a < p) (hpb : p < b)
+    (hA : DifferentiableOn ℂ A {z : ℂ | a ≤ z.re ∧ z.re ≤ b})
+    (hF : ∀ z : ℂ, a ≤ z.re → z.re ≤ b → z ≠ p → F z = A z / (z - p)) :
+    ∃ G : ℂ → ℂ,
+      DifferentiableOn ℂ G {z : ℂ | a ≤ z.re ∧ z.re ≤ b} ∧
+      ∀ z : ℂ, a ≤ z.re → z.re ≤ b → z ≠ p →
+        F z = G z + A p * Complex.exp ((z - p) ^ 2) / (z - p) := by
+  let strip : Set ℂ := {z : ℂ | a ≤ z.re ∧ z.re ≤ b}
+  let E : ℂ → ℂ := fun z => Complex.exp ((z - p) ^ 2)
+  let N : ℂ → ℂ := fun z => A z - A p * E z
+  let G : ℂ → ℂ := dslope N p
+  have hEdiff : Differentiable ℂ E := by fun_prop
+  have hNdiff : DifferentiableOn ℂ N strip := by
+    change DifferentiableOn ℂ (fun z => A z - A p * E z) strip
+    exact hA.sub (hEdiff.differentiableOn.const_mul (A p))
+  have hstripN : strip ∈ 𝓝 (p : ℂ) := by
+    apply Filter.mem_of_superset
+      (((isOpen_lt continuous_const Complex.continuous_re).inter
+        (isOpen_lt Complex.continuous_re continuous_const)).mem_nhds
+          (show a < (p : ℂ).re ∧ (p : ℂ).re < b by simpa using ⟨hap, hpb⟩))
+    intro z hz
+    exact ⟨hz.1.le, hz.2.le⟩
+  have hGdiff : DifferentiableOn ℂ G strip := by
+    exact (Complex.differentiableOn_dslope hstripN).2 hNdiff
+  have hNp : N p = 0 := by simp [N, E]
+  have hGform (z : ℂ) (hz : z ≠ p) : G z = (N z - N p) / (z - p) := by
+    dsimp [G]
+    rw [dslope_of_ne N hz, slope_def_field]
+  refine ⟨G, ?_, ?_⟩
+  · simpa [strip] using hGdiff
+  · intro z hzl hzr hzp
+    rw [hF z hzl hzr hzp, hGform z hzp, hNp]
+    dsimp [N, E]
+    field_simp [sub_ne_zero.mpr hzp]
+    ring
+
+private theorem rows_weightW1hat_one_ne_zero : weightW1hat W 1 ≠ 0 := by
+  classical
+  obtain ⟨t, ht⟩ := W.W1_nonzero
+  have him := (W.W1_nonnegative t).1
+  have htsupport : t ∈ tsupport W.W1 := subset_tsupport W.W1 ht
+  have htpos : 0 < t := W.W1_positive_support htsupport
+  let f : ℝ → ℝ := fun x => (W.W1 x).re
+  have hfcont : Continuous f := by
+    exact Complex.continuous_re.comp W.W1_smooth.continuous
+  have hfcompact : HasCompactSupport f := by
+    change HasCompactSupport (fun x => Complex.re (W.W1 x))
+    exact W.W1_compact.comp_left (by simp)
+  have hfnonneg : ∀ x, 0 ≤ f x := fun x => (W.W1_nonnegative x).2
+  have hfne : f t ≠ 0 := by
+    intro hzero
+    apply ht
+    apply Complex.ext
+    · simpa [f] using hzero
+    · exact him
+  have hfint : Integrable f := hfcont.integrable_of_hasCompactSupport hfcompact
+  have hIntegralPos : 0 < (∫ x : ℝ, f x) :=
+    hfcont.integral_pos_of_hasCompactSupport_nonneg_nonzero hfcompact hfnonneg hfne
+  have hfzero (x : ℝ) (hx : x ≤ 0) : f x = 0 := by
+    by_contra hzero
+    have hW : W.W1 x ≠ 0 := by
+      intro hW
+      apply hzero
+      simp [f, hW]
+    have hxSupport : x ∈ tsupport W.W1 := subset_tsupport W.W1 hW
+    have hxpos := Set.mem_Ioi.mp (W.W1_positive_support hxSupport)
+    exact (not_lt_of_ge hx) hxpos
+  have hComplement : (∫ x : ℝ in (Set.Ioi 0)ᶜ, f x) = 0 := by
+    calc
+      _ = ∫ x : ℝ in (Set.Ioi 0)ᶜ, (0 : ℝ) := by
+        apply setIntegral_congr_ae (measurableSet_Ioi.compl)
+        exact Eventually.of_forall fun x hx => hfzero x (by simpa using hx)
+      _ = 0 := by simp
+  have hIoiEq :
+      (∫ x : ℝ in Set.Ioi 0, f x) = (∫ x : ℝ, f x) := by
+    have h := integral_add_compl (μ := volume) (s := Set.Ioi (0 : ℝ))
+      measurableSet_Ioi hfint
+    rw [hComplement, add_zero] at h
+    exact h
+  have hIntegralIoiPos : 0 < (∫ x : ℝ in Set.Ioi 0, f x) := by
+    rw [hIoiEq]
+    exact hIntegralPos
+  have hpoint (x : ℝ) (hx : x ∈ Set.Ioi 0) :
+      W.W1 x * (x : ℂ) ^ (1 : ℂ) / (x : ℂ) = (f x : ℂ) := by
+    have hW : W.W1 x = (f x : ℂ) := by
+      apply Complex.ext
+      · simp [f]
+      · exact (W.W1_nonnegative x).1
+    have hxne : (x : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr (Set.mem_Ioi.mp hx).ne'
+    rw [hW]
+    simp only [Complex.cpow_one]
+    field_simp [hxne]
+  have hWeight : weightW1hat W 1 = ∫ x : ℝ in Set.Ioi 0, (f x : ℂ) := by
+    unfold weightW1hat
+    apply integral_congr_ae
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with x hx
+    exact hpoint x hx
+  rw [hWeight]
+  rw [integral_complex_ofReal]
+  exact Complex.ofReal_ne_zero.mpr hIntegralIoiPos.ne'
+
+private theorem rows_principalRS_ne_zero : HA.RS S ≠ 0 := by
+  classical
+  rcases HA.2 with ⟨_, hrest⟩
+  rcases hrest with ⟨_, hrest⟩
+  rcases hrest with ⟨_, hrest⟩
+  rcases hrest with ⟨_, hrest⟩
+  rcases hrest with ⟨_, hrest⟩
+  rcases hrest with ⟨_, hpositive⟩
+  have hRegular : HA.1.2 1 ≠ 0 := by
+    intro h
+    have hRe := congrArg Complex.re h
+    simp at hRe
+    linarith
+  have hFactor (v : FinPlace F) :
+      1 - (Ideal.absNorm v.asIdeal : ℂ)⁻¹ ≠ 0 := by
+    intro h
+    have hinv : (Ideal.absNorm v.asIdeal : ℂ)⁻¹ = 1 :=
+      (sub_eq_zero.mp h).symm
+    have hcast : (Ideal.absNorm v.asIdeal : ℂ) = 1 := inv_eq_one.mp hinv
+    have hNat : Ideal.absNorm v.asIdeal = 1 := by exact_mod_cast hcast
+    have hlarge := NumberField.HeightOneSpectrum.one_lt_absNorm v
+    omega
+  unfold HeckeAnalysis.RS
+  exact mul_ne_zero hRegular (Finset.prod_ne_zero_iff.mpr fun v hv => hFactor v)
+
+private theorem rows_principalConstant_ne_zero (hWeight : WeightSpec R sd W) :
+    principalConstant R sd W HA ≠ 0 := by
+  rcases hWeight with ⟨_, hM⟩
+  have hRS := rows_principalRS_ne_zero (S := S) (HA := HA)
+  have hW := rows_weightW1hat_one_ne_zero (W := W)
+  unfold principalConstant
+  exact mul_ne_zero
+    (mul_ne_zero (div_ne_zero (pow_ne_zero 2 hRS) (by norm_num)) hM) hW
+
+private theorem rows_principalKernel_eq (Z : ℝ) (ξ w z : ℂ) :
+    rowKernel R sd W η U HA HC U.one Z ξ w z =
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ w z *
+        HA.LS S 1 (6 * z) * HA.LS S 1 w * HC.H U.one ![ξ, w, z] /
+          HA.LS S η ξ := by
+  have honeInv : (1 : HeckeChar F)⁻¹ = 1 := by
+    ext x
+    change (((1 : ℂˣ)⁻¹ : ℂˣ) : ℂ) = (1 : ℂ)
+    simp
+  have hk : U.kummer U.one = 1 := FrequencyData.kummer_one U
+  have hmulOne : η * (1 : HeckeChar F) = η := by
+    ext x
+    change (((η x : ℂˣ) * (1 : ℂˣ) : ℂˣ) : ℂ) = ((η x : ℂˣ) : ℂ)
+    simp
+  simp [rowKernel, rowTwist, U.q_one, hk, honeInv, hmulOne]
+  <;> ring
+
+private theorem rows_principalKernel_norm_bound_of_factors (Z : ℝ) (hZ : 0 < Z)
+    (ξ w z : ℂ) (CM CZ CW CH CI : ℝ)
+    (hCM : 0 ≤ CM) (hCZ : 0 ≤ CZ) (hCW : 0 ≤ CW) (hCH : 0 ≤ CH) (hCI : 0 ≤ CI)
+    (hM : ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ ≤ CM)
+    (hZeta : ‖HA.LS S 1 (6 * z)‖ ≤ CZ)
+    (hW : ‖HA.LS S 1 w‖ ≤ CW)
+    (hH : ‖HC.H U.one ![ξ, w, z]‖ ≤ CH)
+    (hInv : ‖(HA.LS S η ξ)⁻¹‖ ≤ CI) :
+    ‖rowKernel R sd W η U HA HC U.one Z ξ w z‖ ≤
+      Z ^ Estar ξ.re w.re z.re * CM * CZ * CW * CH * CI := by
+  have hk : U.kummer U.one = 1 := FrequencyData.kummer_one U
+  have honeInv : (1 : HeckeChar F)⁻¹ = 1 := by
+    ext x
+    change (((1 : ℂˣ)⁻¹ : ℂˣ) : ℂ) = (1 : ℂ)
+    simp
+  have hmulOne : η * (1 : HeckeChar F) = η := by
+    ext x
+    change (((η x : ℂˣ) * (1 : ℂˣ) : ℂˣ) : ℂ) = ((η x : ℂˣ) : ℂ)
+    simp
+  have htw : rowTwist η U U.one = η := by
+    simp [rowTwist, hk, honeInv, hmulOne]
+  rw [rows_rowKernel_norm_eq R sd W η U HA HC Z hZ U.one ξ w z]
+  rw [U.q_one, hk, htw]
+  simp only [Real.one_rpow, one_mul, mul_one]
+  have hprod :
+      ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ *
+        ‖HA.LS S 1 (6 * z)‖ * ‖HA.LS S 1 w‖ *
+        ‖HC.H U.one ![ξ, w, z]‖ * ‖(HA.LS S η ξ)⁻¹‖ ≤
+          CM * CZ * CW * CH * CI := by
+    gcongr
+  calc
+    _ = Z ^ Estar ξ.re w.re z.re *
+        (‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ *
+          ‖HA.LS S 1 (6 * z)‖ * ‖HA.LS S 1 w‖ *
+          ‖HC.H U.one ![ξ, w, z]‖ * ‖(HA.LS S η ξ)⁻¹‖) := by ring
+    _ ≤ Z ^ Estar ξ.re w.re z.re * (CM * CZ * CW * CH * CI) :=
+      mul_le_mul_of_nonneg_left hprod (Real.rpow_nonneg hZ.le _)
+    _ = Z ^ Estar ξ.re w.re z.re * CM * CZ * CW * CH * CI := by ring
+
+private theorem rows_principal_kernel_bound_of_height_bounds
+    (Z : ℝ) (hZ : 0 < Z) (ξ w z : ℂ) (AF pZ pW : ℝ)
+    (CM CZ CW CH CI : ℝ)
+    (hCM : 0 ≤ CM) (hCZ : 0 ≤ CZ) (hCW : 0 ≤ CW) (hCH : 0 ≤ CH) (hCI : 0 ≤ CI)
+    (hM : ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w‖ ≤
+      CM * Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-pZ) *
+        (1 + |w.im|) ^ (-pW))
+    (hZeta : ‖HA.LS S 1 (6 * z)‖ ≤ CZ * (2 + |z.im|) ^ AF)
+    (hW : ‖HA.LS S 1 w‖ ≤ CW * (2 + |w.im|) ^ AF)
+    (hH : ‖HC.H U.one ![ξ, w, z]‖ ≤ CH)
+    (hInv : ‖(HA.LS S η ξ)⁻¹‖ ≤ CI) :
+    ‖rowKernel R sd W η U HA HC U.one Z ξ w z‖ ≤
+      Z ^ Estar ξ.re w.re z.re * CM * CZ * CW * CH * CI *
+        Real.exp (-((ξ.im + z.im) ^ 2)) *
+          (1 + |z.im|) ^ (-pZ) * (1 + |w.im|) ^ (-pW) *
+            (2 + |z.im|) ^ AF * (2 + |w.im|) ^ AF := by
+  have hMnonneg : 0 ≤ CM * Real.exp (-((ξ.im + z.im) ^ 2)) *
+      (1 + |z.im|) ^ (-pZ) * (1 + |w.im|) ^ (-pW) := by positivity
+  let CZ' : ℝ := CZ * (2 + |z.im|) ^ AF
+  let CW' : ℝ := CW * (2 + |w.im|) ^ AF
+  have hCZ' : 0 ≤ CZ' := by dsimp [CZ']; positivity
+  have hCW' : 0 ≤ CW' := by dsimp [CW']; positivity
+  have hfactor := rows_principalKernel_norm_bound_of_factors R sd W η U HA HC Z hZ ξ w z
+    (CM * Real.exp (-((ξ.im + z.im) ^ 2)) *
+      (1 + |z.im|) ^ (-pZ) * (1 + |w.im|) ^ (-pW)) CZ' CW' CH CI
+    hMnonneg hCZ' hCW' hCH hCI hM hZeta hW hH hInv
+  calc
+    _ ≤ Z ^ Estar ξ.re w.re z.re *
+        (CM * Real.exp (-((ξ.im + z.im) ^ 2)) * (1 + |z.im|) ^ (-pZ) *
+          (1 + |w.im|) ^ (-pW)) * CZ' * CW' * CH * CI := hfactor
+    _ = Z ^ Estar ξ.re w.re z.re * CM * CZ * CW * CH * CI *
+        Real.exp (-((ξ.im + z.im) ^ 2)) *
+          (1 + |z.im|) ^ (-pZ) * (1 + |w.im|) ^ (-pW) *
+            (2 + |z.im|) ^ AF * (2 + |w.im|) ^ AF := by
+      dsimp [CZ', CW']
+      ring
+
+private theorem rows_principal_absorb_poly (t AF A : ℝ)
+    (hAF : 0 ≤ AF) :
+    (1 + |t|) ^ (-(AF + A)) * (2 + |t|) ^ AF ≤
+      2 ^ AF * (1 + |t|) ^ (-A) := by
+  have hx : 1 ≤ 1 + |t| := by nlinarith [abs_nonneg t]
+  have hxpos : 0 < 1 + |t| := by positivity
+  have hbase : 2 + |t| ≤ 2 * (1 + |t|) := by nlinarith [abs_nonneg t]
+  have hpow : (2 + |t|) ^ AF ≤ (2 * (1 + |t|)) ^ AF :=
+    Real.rpow_le_rpow (by positivity) hbase hAF
+  have hmul : (2 * (1 + |t|)) ^ AF = 2 ^ AF * (1 + |t|) ^ AF := by
+    rw [Real.mul_rpow (by norm_num) hxpos.le]
+  calc
+    _ ≤ (1 + |t|) ^ (-(AF + A)) * (2 * (1 + |t|)) ^ AF :=
+      mul_le_mul_of_nonneg_left hpow (Real.rpow_nonneg (by positivity) _)
+    _ = 2 ^ AF * (1 + |t|) ^ (-A) := by
+      rw [hmul]
+      calc
+        _ = 2 ^ AF *
+            ((1 + |t|) ^ (-(AF + A)) * (1 + |t|) ^ AF) := by ring
+        _ = 2 ^ AF * (1 + |t|) ^ (-A) := by
+          rw [← Real.rpow_add hxpos]
+          congr 1
+          congr 1
+          ring
+    _ = _ := rfl
+
+private theorem rows_principalRw_exponent_bound :
+    Estar (1 + δ1) (95 / 100) (1 / 6 + δ1) ≤ 7 / 15 - 5 / 10000 := by
+  norm_num [Estar, a, b, h0, δ1]
+
+private theorem rows_principalRz_exponent_bound :
+    Estar (1 + δ1) 1 (16 / 100) ≤ 7 / 15 - 5 / 10000 := by
+  norm_num [Estar, a, b, h0, δ1]
+
+private theorem rows_principal_initial_rowContribution_eq (hEuler : EulerHypotheses R η)
+    (Z : ℝ) :
+    rowContribution R sd W η U {U.one} Z =
+      tripleVertical 4 4 2 (fun ξ w z => rowKernel R sd W η U HA HC U.one Z ξ w z) := by
+  have h := rows_initial_rowContribution_eq R sd W η U HA HC hEuler Z {U.one}
+  simpa using h
+
+private theorem rows_principal_kernel_control (hEuler : EulerHypotheses R η) :
+    ∃ AF Aconv C0 Cconv : ℝ, 0 ≤ AF ∧ 1 < Aconv ∧ 0 < C0 ∧ 0 < Cconv ∧
+      (∀ T : ℝ, ∫ v : ℝ, Real.exp (-((T + v) ^ 2)) *
+        (1 + |v|) ^ (-Aconv) ≤ Cconv * (1 + |T|) ^ (-2 : ℝ)) ∧
+      ∀ Z : ℝ, 2 ≤ Z → ∀ ξ w z : ℂ,
+        1 + δ1 ≤ ξ.re → ξ.re ≤ 4 → w.re = 95 / 100 →
+        z.re = 1 / 6 + δ1 →
+        ‖rowKernel R sd W η U HA HC U.one Z ξ w z‖ ≤
+          C0 * Z ^ Estar ξ.re w.re z.re *
+            Real.exp (-((ξ.im + z.im) ^ 2)) *
+              (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) := by
+  obtain ⟨Aconv, Cconv, hAconv, hCconv, hconv⟩ :=
+    zf_height_convolution (2 : ℝ) (by norm_num)
+  obtain ⟨AF, CG, hAF, hCG, hGrowth⟩ :=
+    rows_principalLS_growth_off_one (HA := HA) (S := S)
+  let Aheight : ℝ := Aconv + AF + 2
+  obtain ⟨Cht, hCht, hheight⟩ := zf_height_decay R sd W
+    (1 + δ1) 4 (95 / 100) (95 / 100) (1 / 6 + δ1) (1 / 6 + δ1) Aheight
+    (by norm_num [δ1]) (by norm_num) (by norm_num [δ1]) (by norm_num [δ1])
+    (by dsimp [Aheight]; linarith [hAconv, hAF])
+  obtain ⟨CH, hCH, hHbound⟩ := (po_H_product R η U HC hEuler).2.2.2
+    (1 : ℝ) (by norm_num)
+  obtain ⟨fη, hfη⟩ := rows_eta_primitive_conductor R η U hEuler
+  let Cinv : ℝ := (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re * 2 ^ S.Sf.card
+  have hCinv : 0 ≤ Cinv := by
+    have hζ := rows_small_dedekindZeta_real_nonneg (F := F) (1 + δ1)
+      (by norm_num [δ1])
+    have hζ' : 0 ≤ (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re := by
+      simpa only [Complex.ofReal_add, Complex.ofReal_one] using hζ
+    dsimp [Cinv]
+    exact mul_nonneg hζ' (by positivity)
+  let Cz : ℝ := CG * 6 ^ AF / (6 * δ1)
+  let Cw : ℝ := CG / (1 / 20 : ℝ)
+  have hCz : 0 < Cz := by
+    dsimp [Cz]
+    have hδ : 0 < δ1 := by norm_num [δ1]
+    exact div_pos (mul_pos hCG
+      (Real.rpow_pos_of_pos (by norm_num : 0 < (6 : ℝ)) AF)) (mul_pos (by norm_num) hδ)
+  have hCw : 0 < Cw := by dsimp [Cw]; positivity
+  let Cbase : ℝ := Cht * Cz * Cw * CH * Cinv * 2 ^ (2 * AF)
+  let C0 : ℝ := Cbase + 1
+  have hCbase : 0 ≤ Cbase := by dsimp [Cbase]; positivity
+  have hC0 : 0 < C0 := by dsimp [C0]; linarith
+  have hAheight : Aheight = AF + (Aconv + 2) := by dsimp [Aheight]; ring
+  refine ⟨AF, Aconv, C0, Cconv, hAF, hAconv, hC0, hCconv, hconv, ?_⟩
+  intro Z hZ ξ w z hξlo hξhi hwre hzre
+  have hZpos : 0 < Z := by linarith
+  have hLSz : ‖HA.LS S 1 (6 * z)‖ ≤ Cz * (2 + |z.im|) ^ AF := by
+    have h := hGrowth (6 * z) (by rw [show (6 * z).re = 6 * z.re by simp, hzre]; norm_num [δ1])
+      (by rw [show (6 * z).re = 6 * z.re by simp, hzre]; norm_num [δ1])
+      (by rw [show (6 * z).re = 6 * z.re by simp, hzre]; norm_num [δ1])
+    have him : |(6 * z).im| = 6 * |z.im| := by simp [abs_mul]
+    rw [him, show (6 * z).re = 6 * z.re by simp, hzre] at h
+    have hgap : |6 * (1 / 6 + δ1) - 1| = 6 * δ1 := by norm_num [δ1]
+    rw [hgap] at h
+    have hbase : 2 + 6 * |z.im| ≤ 6 * (2 + |z.im|) := by nlinarith [abs_nonneg z.im]
+    have hpow : (2 + 6 * |z.im|) ^ AF ≤
+        (6 : ℝ) ^ AF * (2 + |z.im|) ^ AF := by
+      calc
+        _ ≤ (6 * (2 + |z.im|)) ^ AF :=
+          Real.rpow_le_rpow (by positivity) hbase hAF
+        _ = (6 : ℝ) ^ AF * (2 + |z.im|) ^ AF := by
+          rw [Real.mul_rpow (by norm_num) (by positivity)]
+    calc
+      _ ≤ CG * (2 + 6 * |z.im|) ^ AF / (6 * δ1) := by
+        simpa [Cz] using h
+      _ ≤ CG * ((6 : ℝ) ^ AF * (2 + |z.im|) ^ AF) / (6 * δ1) := by
+        apply div_le_div_of_nonneg_right
+          (mul_le_mul_of_nonneg_left hpow hCG.le)
+          (by nlinarith [show 0 < δ1 by norm_num [δ1]])
+      _ = Cz * (2 + |z.im|) ^ AF := by dsimp [Cz]; ring
+  have hLSw : ‖HA.LS S 1 w‖ ≤ Cw * (2 + |w.im|) ^ AF := by
+    have h := hGrowth w (by rw [hwre] <;> norm_num) (by rw [hwre] <;> norm_num)
+      (by rw [hwre] <;> norm_num)
+    rw [hwre] at h
+    rw [show |(95 / 100 : ℝ) - 1| = (1 / 20 : ℝ) by norm_num] at h
+    calc
+      _ ≤ CG * (2 + |w.im|) ^ AF / (1 / 20 : ℝ) := h
+      _ = Cw * (2 + |w.im|) ^ AF := by dsimp [Cw]; ring
+  have hH : ‖HC.H U.one ![ξ, w, z]‖ ≤ CH := by
+    have hregion : eulerNeighborhood ![ξ, w, z] := by
+      right
+      change (998 / 1000 - 1 / 100000 < ξ.re ∧
+        95 / 100 - 1 / 100000 < w.re ∧ 16 / 100 - 1 / 100000 < z.re)
+      refine ⟨?_, ?_, ?_⟩
+      · have hδ : 0 < δ1 := by norm_num [δ1]
+        linarith [hξlo]
+      · rw [hwre]
+        norm_num
+      · rw [hzre]
+        norm_num [δ1]
+    have h := hHbound U.one ![ξ, w, z] hregion
+    simpa [U.q_one] using h
+  have hInv : ‖(HA.LS S η ξ)⁻¹‖ ≤ Cinv := by
+    have hξone : 1 < ξ.re := by
+      have hδ : 0 < δ1 := by norm_num [δ1]
+      linarith [hξlo]
+    obtain ⟨_, hrecip⟩ := rows_LS_inverse_bound HA S η hEuler.1 fη hfη hξone
+    have hζmono : (NumberField.dedekindZeta F ξ.re).re ≤
+        (NumberField.dedekindZeta F ((1 + δ1 : ℝ) : ℂ)).re :=
+      rows_small_dedekindZeta_real_antitone (F := F) (by norm_num [δ1]) hξlo
+    have hζmono' : (NumberField.dedekindZeta F ξ.re).re ≤
+        (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re := by
+      simpa only [Complex.ofReal_add, Complex.ofReal_one] using hζmono
+    dsimp [Cinv]
+    exact hrecip.trans (mul_le_mul_of_nonneg_right hζmono' (by positivity))
+  have hM := hheight ξ w z hξlo hξhi (by rw [hwre] <;> norm_num)
+    (by rw [hwre] <;> norm_num) (by rw [hzre] <;> norm_num) (by rw [hzre] <;> norm_num)
+  have hPoint := rows_principal_kernel_bound_of_height_bounds R sd W η U HA HC
+    Z hZpos ξ w z AF Aheight Aheight Cht Cz Cw CH Cinv
+    hCht.le hCz.le hCw.le hCH.le hCinv hM hLSz hLSw hH hInv
+  have hpolyZ := rows_principal_absorb_poly z.im AF (Aconv + 2) hAF
+  have hpolyW := rows_principal_absorb_poly w.im AF (Aconv + 2) hAF
+  have hbaseZ : 1 ≤ 1 + |z.im| := by nlinarith [abs_nonneg z.im]
+  have hbaseW : 1 ≤ 1 + |w.im| := by nlinarith [abs_nonneg w.im]
+  have hweakZ : (1 + |z.im|) ^ (-(Aconv + 2)) ≤ (1 + |z.im|) ^ (-Aconv) :=
+    Real.rpow_le_rpow_of_exponent_le hbaseZ (by linarith [hAconv])
+  have hweakW : (1 + |w.im|) ^ (-(Aconv + 2)) ≤ (1 + |w.im|) ^ (-2 : ℝ) :=
+    Real.rpow_le_rpow_of_exponent_le hbaseW (by linarith [hAconv])
+  have hpolyZ' : (1 + |z.im|) ^ (-Aheight) * (2 + |z.im|) ^ AF ≤
+      2 ^ AF * (1 + |z.im|) ^ (-Aconv) := by
+    rw [hAheight]
+    calc
+      _ ≤ 2 ^ AF * (1 + |z.im|) ^ (-(Aconv + 2)) := hpolyZ
+      _ ≤ 2 ^ AF * (1 + |z.im|) ^ (-Aconv) := by
+        exact mul_le_mul_of_nonneg_left hweakZ (Real.rpow_nonneg (by norm_num : 0 ≤ (2 : ℝ)) _)
+  have hpolyW' : (1 + |w.im|) ^ (-Aheight) * (2 + |w.im|) ^ AF ≤
+      2 ^ AF * (1 + |w.im|) ^ (-2 : ℝ) := by
+    rw [hAheight]
+    calc
+      _ ≤ 2 ^ AF * (1 + |w.im|) ^ (-(Aconv + 2)) := hpolyW
+      _ ≤ 2 ^ AF * (1 + |w.im|) ^ (-2 : ℝ) := by
+        exact mul_le_mul_of_nonneg_left hweakW (Real.rpow_nonneg (by norm_num : 0 ≤ (2 : ℝ)) _)
+  let B0 : ℝ := Z ^ Estar ξ.re w.re z.re * Cht * Cz * Cw * CH * Cinv *
+    Real.exp (-((ξ.im + z.im) ^ 2))
+  have hB0 : 0 ≤ B0 := by dsimp [B0]; positivity
+  have hpolyBoth :
+      (1 + |z.im|) ^ (-Aheight) * (1 + |w.im|) ^ (-Aheight) *
+        (2 + |z.im|) ^ AF * (2 + |w.im|) ^ AF ≤
+      (2 ^ AF * (1 + |z.im|) ^ (-Aconv)) *
+        (2 ^ AF * (1 + |w.im|) ^ (-2 : ℝ)) := by
+    calc
+      _ = ((1 + |z.im|) ^ (-Aheight) * (2 + |z.im|) ^ AF) *
+          ((1 + |w.im|) ^ (-Aheight) * (2 + |w.im|) ^ AF) := by ring
+      _ ≤ _ := mul_le_mul hpolyZ' hpolyW'
+        (by positivity) (by positivity)
+  have hscaled :
+      ‖rowKernel R sd W η U HA HC U.one Z ξ w z‖ ≤
+        B0 * ((1 + |z.im|) ^ (-Aheight) * (1 + |w.im|) ^ (-Aheight) *
+          (2 + |z.im|) ^ AF * (2 + |w.im|) ^ AF) := by
+    calc
+      _ ≤ Z ^ Estar ξ.re w.re z.re * Cht * Cz * Cw * CH * Cinv *
+          Real.exp (-((ξ.im + z.im) ^ 2)) *
+          (1 + |z.im|) ^ (-Aheight) * (1 + |w.im|) ^ (-Aheight) *
+            (2 + |z.im|) ^ AF * (2 + |w.im|) ^ AF := hPoint
+      _ = _ := by dsimp [B0]; ring
+  have htargetNonneg : 0 ≤
+      Z ^ Estar ξ.re w.re z.re * Real.exp (-((ξ.im + z.im) ^ 2)) *
+        (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ) := by positivity
+  have hCbasele : Cbase ≤ C0 := by dsimp [C0]; linarith
+  calc
+    ‖rowKernel R sd W η U HA HC U.one Z ξ w z‖ ≤
+        B0 * ((1 + |z.im|) ^ (-Aheight) * (1 + |w.im|) ^ (-Aheight) *
+          (2 + |z.im|) ^ AF * (2 + |w.im|) ^ AF) := hscaled
+    _ ≤ B0 * ((2 ^ AF * (1 + |z.im|) ^ (-Aconv)) *
+        (2 ^ AF * (1 + |w.im|) ^ (-2 : ℝ))) :=
+          mul_le_mul_of_nonneg_left hpolyBoth hB0
+    _ = Cbase * (Z ^ Estar ξ.re w.re z.re * Real.exp (-((ξ.im + z.im) ^ 2)) *
+        (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) := by
+          have htwo : (2 : ℝ) ^ AF * (2 : ℝ) ^ AF = (2 : ℝ) ^ (2 * AF) := by
+            rw [← Real.rpow_add (by norm_num : 0 < (2 : ℝ))]
+            congr 1
+            ring
+          calc
+            _ = Cht * Cz * Cw * CH * Cinv *
+                (2 ^ AF * 2 ^ AF) *
+                (Z ^ Estar ξ.re w.re z.re * Real.exp (-((ξ.im + z.im) ^ 2)) *
+                  (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) := by
+                    dsimp [B0]
+                    ring
+            _ = Cht * Cz * Cw * CH * Cinv * (2 : ℝ) ^ (2 * AF) *
+                (Z ^ Estar ξ.re w.re z.re * Real.exp (-((ξ.im + z.im) ^ 2)) *
+                  (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) := by
+                    rw [htwo]
+            _ = _ := by dsimp [Cbase] <;> ring
+    _ ≤ C0 * (Z ^ Estar ξ.re w.re z.re * Real.exp (-((ξ.im + z.im) ^ 2)) *
+        (1 + |z.im|) ^ (-Aconv) * (1 + |w.im|) ^ (-2 : ℝ)) :=
+          mul_le_mul_of_nonneg_right hCbasele htargetNonneg
+    _ = _ := by ring
+
+private theorem rows_principalRw_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
+    (hZ : 2 ≤ Z) :
+    ∃ C : ℝ, 0 < C ∧
+      ‖principalRw R sd W η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
+  obtain ⟨AF, Aconv, C0, Cconv, hAF, hAconv, hC0, hCconv, hconv, hcontrol⟩ :=
+    rows_principal_kernel_control R sd W η U HA HC hEuler
+  let I : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-2 : ℝ)
+  have hIint : Integrable (fun t : ℝ => (1 + |t|) ^ (-2 : ℝ)) :=
+    rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
+  have hI0 : 0 ≤ I := by dsimp [I]; exact integral_nonneg fun t => by positivity
+  have hZpos : 0 < Z := by linarith
+  let M : ℝ := C0 * Z ^ Estar (1 + δ1) (95 / 100) (1 / 6 + δ1)
+  have hM : 0 ≤ M := by dsimp [M]; positivity
+  let K : ℂ → ℂ → ℂ → ℂ := rowKernel R sd W η U HA HC U.one Z
+  have hline (tξ tw tz : ℝ) :
+      ‖K ((1 + δ1 : ℝ) + tξ * Complex.I)
+          ((95 / 100 : ℝ) + tw * Complex.I)
+          ((1 / 6 + δ1 : ℝ) + tz * Complex.I)‖ ≤
+        M * Real.exp (-((tξ + tz) ^ 2)) *
+          (1 + |tz|) ^ (-Aconv) * (1 + |tw|) ^ (-2 : ℝ) := by
+    let ξ : ℂ := (1 + δ1 : ℝ) + tξ * Complex.I
+    let w : ℂ := (95 / 100 : ℝ) + tw * Complex.I
+    let z : ℂ := (1 / 6 + δ1 : ℝ) + tz * Complex.I
+    have hξre : ξ.re = 1 + δ1 := by simp [ξ]
+    have hwre : w.re = 95 / 100 := by simp [w]
+    have hzre : z.re = 1 / 6 + δ1 := by simp [z]
+    have hξim : ξ.im = tξ := by simp [ξ]
+    have hwim : w.im = tw := by simp [w]
+    have hzim : z.im = tz := by simp [z]
+    have h := hcontrol Z hZ ξ w z
+      (by simpa [hξre]) (by norm_num [hξre, δ1])
+      (by simpa [hwre]) (by simpa [hzre])
+    simpa [K, ξ, w, z, M, hξre, hwre, hzre, hξim, hwim, hzim,
+      mul_assoc, mul_left_comm, mul_comm] using h
+  have hinnerZ (tξ tw : ℝ) :
+      ‖vertical (1 / 6 + δ1) (fun z => K
+        ((1 + δ1 : ℝ) + tξ * Complex.I) ((95 / 100 : ℝ) + tw * Complex.I) z)‖ ≤
+        M * Cconv * (1 + |tξ|) ^ (-2 : ℝ) * (1 + |tw|) ^ (-2 : ℝ) := by
+    let gZ : ℝ → ℝ := fun tz =>
+      (M * (1 + |tw|) ^ (-2 : ℝ)) *
+        (Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv))
+    have hgZ : Integrable gZ := by
+      simpa [gZ, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using
+        (rows_integrable_shifted_gaussian_poly Aconv tξ hAconv).const_mul
+          (M * (1 + |tw|) ^ (-2 : ℝ))
+    have hgZ0 : ∀ tz, 0 ≤ gZ tz := by intro tz; dsimp [gZ]; positivity
+    have hboundZ : ∀ tz : ℝ,
+        ‖(fun z => K ((1 + δ1 : ℝ) + tξ * Complex.I)
+          ((95 / 100 : ℝ) + tw * Complex.I) z)
+            ((1 / 6 + δ1 : ℝ) + tz * Complex.I)‖ ≤ gZ tz := by
+      intro tz
+      have h := hline tξ tw tz
+      simpa [gZ, mul_assoc, mul_left_comm, mul_comm] using h
+    have hv := rows_vertical_norm_le_integral (1 / 6 + δ1)
+      (fun z => K ((1 + δ1 : ℝ) + tξ * Complex.I)
+        ((95 / 100 : ℝ) + tw * Complex.I) z) gZ hgZ hgZ0 hboundZ
+    calc
+      _ ≤ ∫ tz : ℝ, gZ tz := hv
+      _ = (M * (1 + |tw|) ^ (-2 : ℝ)) *
+          ∫ tz : ℝ, Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv) := by
+            dsimp [gZ]
+            rw [integral_const_mul]
+      _ ≤ (M * (1 + |tw|) ^ (-2 : ℝ)) *
+          (Cconv * (1 + |tξ|) ^ (-2 : ℝ)) :=
+            mul_le_mul_of_nonneg_left (hconv tξ) (by positivity)
+      _ = M * Cconv * (1 + |tξ|) ^ (-2 : ℝ) * (1 + |tw|) ^ (-2 : ℝ) := by ring
+  have hinnerW (tξ : ℝ) :
+      ‖vertical (95 / 100) (fun w => vertical (1 / 6 + δ1) (fun z =>
+        K ((1 + δ1 : ℝ) + tξ * Complex.I) w z))‖ ≤
+          M * Cconv * I * (1 + |tξ|) ^ (-2 : ℝ) := by
+    let fW : ℂ → ℂ := fun w => vertical (1 / 6 + δ1) (fun z =>
+      K ((1 + δ1 : ℝ) + tξ * Complex.I) w z)
+    let gW : ℝ → ℝ := fun tw =>
+      (M * Cconv * (1 + |tξ|) ^ (-2 : ℝ)) * (1 + |tw|) ^ (-2 : ℝ)
+    have hgW : Integrable gW := by
+      simpa [gW, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using
+        hIint.const_mul (M * Cconv * (1 + |tξ|) ^ (-2 : ℝ))
+    have hgW0 : ∀ tw, 0 ≤ gW tw := by intro tw; dsimp [gW]; positivity
+    have hboundW : ∀ tw : ℝ,
+        ‖fW ((95 / 100 : ℝ) + tw * Complex.I)‖ ≤ gW tw := by
+      intro tw
+      have h := hinnerZ tξ tw
+      simpa [fW, gW, mul_assoc, mul_left_comm, mul_comm] using h
+    have hv := rows_vertical_norm_le_integral (95 / 100) fW gW hgW hgW0 hboundW
+    calc
+      _ ≤ ∫ tw : ℝ, gW tw := hv
+      _ = (M * Cconv * (1 + |tξ|) ^ (-2 : ℝ)) * I := by
+        dsimp [gW, I]
+        rw [integral_const_mul]
+      _ = M * Cconv * I * (1 + |tξ|) ^ (-2 : ℝ) := by ring
+  have htriple :
+      ‖tripleVertical (1 + δ1) (95 / 100) (1 / 6 + δ1) K‖ ≤ M * Cconv * I * I := by
+    let fξ : ℂ → ℂ := fun ξ => vertical (95 / 100) (fun w =>
+      vertical (1 / 6 + δ1) (fun z => K ξ w z))
+    let gξ : ℝ → ℝ := fun tξ => (M * Cconv * I) * (1 + |tξ|) ^ (-2 : ℝ)
+    have hgξ : Integrable gξ := by
+      simpa [gξ, mul_assoc, mul_left_comm, mul_comm, smul_eq_mul] using
+        hIint.const_mul (M * Cconv * I)
+    have hgξ0 : ∀ tξ, 0 ≤ gξ tξ := by intro tξ; dsimp [gξ]; positivity
+    have hboundξ : ∀ tξ : ℝ,
+        ‖fξ ((1 + δ1 : ℝ) + tξ * Complex.I)‖ ≤ gξ tξ := by
+      intro tξ
+      have h := hinnerW tξ
+      simpa [fξ, gξ, mul_assoc, mul_left_comm, mul_comm] using h
+    have hv := rows_vertical_norm_le_integral (1 + δ1) fξ gξ hgξ hgξ0 hboundξ
+    calc
+      _ ≤ ∫ tξ : ℝ, gξ tξ := hv
+      _ = (M * Cconv * I) * I := by
+        dsimp [gξ, I]
+        rw [integral_const_mul]
+      _ = M * Cconv * I * I := by ring
+  let Cpre : ℝ := C0 * Cconv * I * I
+  let C : ℝ := Cpre + 1
+  have hCpre : 0 ≤ Cpre := by dsimp [Cpre]; positivity
+  have hC : 0 < C := by dsimp [C]; linarith
+  have hscale : M * Cconv * I * I =
+      Cpre * Z ^ Estar (1 + δ1) (95 / 100) (1 / 6 + δ1) := by
+    dsimp [M, Cpre]
+    ring
+  have htarget : 0 ≤ Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
+    Real.rpow_nonneg (by linarith : 0 ≤ Z) _
+  have hCprele : Cpre ≤ C := by dsimp [C]; linarith
+  refine ⟨C, hC, ?_⟩
+  unfold principalRw
+  change ‖tripleVertical (1 + δ1) (95 / 100) (1 / 6 + δ1) K‖ ≤
+    C * Z ^ (7 / 15 - 5 / 10000 : ℝ)
+  calc
+    _ ≤ M * Cconv * I * I := htriple
+    _ = Cpre * Z ^ Estar (1 + δ1) (95 / 100) (1 / 6 + δ1) := hscale
+    _ ≤ Cpre * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
+      apply mul_le_mul_of_nonneg_left ?_ hCpre
+      apply Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z)
+        rows_principalRw_exponent_bound
+    _ ≤ C * Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
+      mul_le_mul_of_nonneg_right hCprele htarget
+
+private theorem rows_vertical_const_mul (σ : ℝ) (c : ℂ) (f : ℂ → ℂ) :
+    vertical σ (fun z => c * f z) = c * vertical σ f := by
+  unfold vertical
+  rw [integral_const_mul]
+  ring
+
+private theorem rows_doubleVertical_const_mul (σξ σz : ℝ) (c : ℂ)
+    (f : ℂ → ℂ → ℂ) :
+    vertical σξ (fun ξ => vertical σz (fun z => c * f ξ z)) =
+      c * vertical σξ (fun ξ => vertical σz (fun z => f ξ z)) := by
+  have hfun : (fun ξ => vertical σz (fun z => c * f ξ z)) =
+      fun ξ => c * vertical σz (fun z => f ξ z) := by
+    funext ξ
+    exact rows_vertical_const_mul σz c (f ξ)
+  rw [hfun]
+  exact rows_vertical_const_mul σξ c (fun ξ => vertical σz (fun z => f ξ z))
+
+private theorem rows_principalRz_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
+    (hZ : 2 ≤ Z) :
+    ∃ C : ℝ, 0 < C ∧
+      ‖principalRz R sd W η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
+  have hZpos : 0 < Z := by linarith
+  obtain ⟨AF, CG, hAF, hCG, hGrowth⟩ := rows_principalLS_growth_off_one (HA := HA) (S := S)
+  obtain ⟨Aconv, Cconv, hAconv, hCconv, hconv⟩ := zf_height_convolution
+    (2 : ℝ) (by norm_num)
+  let Aheight : ℝ := Aconv + AF + 2
+  obtain ⟨Cht, hCht, hheight⟩ := zf_height_decay R sd W
+    (1 + δ1) (1 + δ1) 1 1 (16 / 100) (16 / 100) Aheight
+    (by norm_num [δ1]) (by norm_num) (by norm_num [δ1]) (by rfl)
+    (by dsimp [Aheight]; linarith [hAF, hAconv])
+  obtain ⟨CH, hCH, hHbound⟩ := (po_H_product R η U HC hEuler).2.2.2
+    (1 : ℝ) (by norm_num)
+  obtain ⟨fη, hfη⟩ := rows_eta_primitive_conductor R η U hEuler
+  let Cinv : ℝ := (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re * 2 ^ S.Sf.card
+  have hCinv : 0 ≤ Cinv := by
+    have hζ := rows_small_dedekindZeta_real_nonneg (F := F) (1 + δ1) (by norm_num [δ1])
+    have hζ' : 0 ≤ (NumberField.dedekindZeta F (1 + (δ1 : ℂ))).re := by
+      simpa only [Complex.ofReal_add, Complex.ofReal_one] using hζ
+    dsimp [Cinv]
+    exact mul_nonneg hζ' (by positivity)
+  let Cz : ℝ := CG * 6 ^ AF / (1 / 25 : ℝ)
+  have hCz : 0 < Cz := by
+    dsimp [Cz]
+    exact div_pos (mul_pos hCG (Real.rpow_pos_of_pos (by norm_num : 0 < (6 : ℝ)) AF))
+      (by norm_num)
+  let B : ℝ := Cht * Cz * CH * Cinv * 2 ^ AF
+  have hB : 0 ≤ B := by dsimp [B]; positivity
+  let I : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-2 : ℝ)
+  have hIint : Integrable (fun t : ℝ => (1 + |t|) ^ (-2 : ℝ)) :=
+    rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
+  have hI0 : 0 ≤ I := by dsimp [I]; exact integral_nonneg fun t => by positivity
+  have hxi (t : ℝ) : ((1 + δ1 : ℝ) + t * Complex.I).re = 1 + δ1 := by simp
+  have hz (t : ℝ) : ((16 / 100 : ℝ) + t * Complex.I).re = 16 / 100 := by simp
+  have hLSz (t : ℝ) :
+      ‖HA.LS S 1 (6 * ((16 / 100 : ℝ) + t * Complex.I))‖ ≤
+        Cz * (2 + |t|) ^ AF := by
+    let z : ℂ := (16 / 100 : ℝ) + t * Complex.I
+    have hzr : z.re = 16 / 100 := by simp [z]
+    have h := hGrowth (6 * z) (by norm_num [hzr]) (by norm_num [hzr]) (by norm_num [hzr])
+    have hre : (6 * z).re = 6 * z.re := by simp
+    have him : |(6 * z).im| = 6 * |t| := by simp [z, abs_mul]
+    rw [hre, hzr, him] at h
+    have hgap : |6 * (16 / 100 : ℝ) - 1| = 1 / 25 := by norm_num
+    rw [hgap] at h
+    have hbase : 2 + 6 * |t| ≤ 6 * (2 + |t|) := by nlinarith [abs_nonneg t]
+    have hpow : (2 + 6 * |t|) ^ AF ≤ (6 : ℝ) ^ AF * (2 + |t|) ^ AF := by
+      calc
+        _ ≤ (6 * (2 + |t|)) ^ AF := Real.rpow_le_rpow (by positivity) hbase hAF
+        _ = (6 : ℝ) ^ AF * (2 + |t|) ^ AF := by
+          rw [Real.mul_rpow (by norm_num) (by positivity)]
+    calc
+      _ ≤ CG * (2 + 6 * |t|) ^ AF / (1 / 25 : ℝ) := by simpa [z] using h
+      _ ≤ CG * ((6 : ℝ) ^ AF * (2 + |t|) ^ AF) / (1 / 25 : ℝ) :=
+        div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left hpow hCG.le) (by norm_num)
+      _ = Cz * (2 + |t|) ^ AF := by dsimp [Cz]; ring
+  have hH (tξ tz : ℝ) :
+      ‖HC.H U.one ![(1 + δ1 : ℝ) + tξ * Complex.I, 1,
+        (16 / 100 : ℝ) + tz * Complex.I]‖ ≤ CH := by
+    have hregion : eulerNeighborhood ![(1 + δ1 : ℝ) + tξ * Complex.I, 1,
+        (16 / 100 : ℝ) + tz * Complex.I] := by
+      right
+      change (998 / 1000 - 1 / 100000 < ((1 + δ1 : ℝ) + tξ * Complex.I).re ∧
+        95 / 100 - 1 / 100000 < (1 : ℂ).re ∧
+        16 / 100 - 1 / 100000 < ((16 / 100 : ℝ) + tz * Complex.I).re)
+      constructor
+      · have hδ : 0 < δ1 := by norm_num [δ1]
+        rw [hxi tξ]
+        linarith
+      · constructor
+        · norm_num
+        · rw [hz tz]
+          norm_num [δ1]
+    have h := hHbound U.one ![(1 + δ1 : ℝ) + tξ * Complex.I, 1,
+      (16 / 100 : ℝ) + tz * Complex.I] hregion
+    simpa [U.q_one] using h
+  have hInv (tξ : ℝ) :
+      ‖(HA.LS S η ((1 + δ1 : ℝ) + tξ * Complex.I))⁻¹‖ ≤ Cinv := by
+    have hs : 1 < ((1 + δ1 : ℝ) + tξ * Complex.I).re := by rw [hxi tξ]; norm_num [δ1]
+    obtain ⟨_, hrecip⟩ := rows_LS_inverse_bound HA S η hEuler.1 fη hfη hs
+    have hre : ((1 + δ1 : ℝ) + tξ * Complex.I).re = 1 + δ1 := hxi tξ
+    rw [hre] at hrecip
+    simpa [Cinv] using hrecip
+  let F0 : ℂ → ℂ → ℂ := fun ξ z =>
+    (Z : ℂ) ^ ((a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * z) *
+      Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z *
+        HA.LS S 1 (6 * z) * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ
+  let K : ℂ → ℂ → ℂ := fun ξ z => weightW1hat W 1 * F0 ξ z
+  have hPow (ξ z : ℂ) :
+      ‖(Z : ℂ) ^ ((a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * z)‖ =
+        Z ^ (a / 2 + ξ.re - 1 + h0 * z.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hZpos]
+    have hre : (((a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * z).re) =
+        a / 2 + ξ.re - 1 + h0 * z.re := by
+      simp <;> ring
+    rw [hre]
+  have hEstar (ξ z : ℂ) :
+      a / 2 + ξ.re - 1 + h0 * z.re = Estar ξ.re 1 z.re := by
+    simp [Estar] <;> ring
+  have hKnorm (ξ z : ℂ) :
+      ‖K ξ z‖ = Z ^ Estar ξ.re 1 z.re *
+        ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W 1‖ *
+        ‖HA.LS S 1 (6 * z)‖ * ‖HC.H U.one ![ξ, 1, z]‖ *
+        ‖(HA.LS S η ξ)⁻¹‖ := by
+    dsimp [K, F0]
+    rw [div_eq_mul_inv]
+    simp only [norm_mul, norm_inv]
+    rw [hPow, hEstar]
+    ring
+  have hKline (tξ tz : ℝ) :
+      ‖K ((1 + δ1 : ℝ) + tξ * Complex.I)
+          ((16 / 100 : ℝ) + tz * Complex.I)‖ ≤
+        B * Z ^ Estar (1 + δ1) 1 (16 / 100) *
+          Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv) := by
+    let ξ : ℂ := (1 + δ1 : ℝ) + tξ * Complex.I
+    let z : ℂ := (16 / 100 : ℝ) + tz * Complex.I
+    have hξr : ξ.re = 1 + δ1 := by simp [ξ]
+    have hzr : z.re = 16 / 100 := by simp [z]
+    have hξim : ξ.im = tξ := by simp [ξ]
+    have hzim : z.im = tz := by simp [z]
+    have hh : ‖Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W 1‖ ≤
+        Cht * Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aheight) := by
+      have h := hheight ξ (1 : ℂ) z (by rw [hξr]) (by rw [hξr])
+        (by norm_num) (by norm_num) (by rw [hzr] <;> norm_num)
+        (by rw [hzr] <;> norm_num)
+      simpa [hξr, hzr, hξim, hzim] using h
+    have hZeta := hLSz tz
+    have hH' := hH tξ tz
+    have hInv' := hInv tξ
+    have hAeq : Aheight = AF + (Aconv + 2) := by dsimp [Aheight]; ring
+    have hpoly := rows_principal_absorb_poly tz AF (Aconv + 2) hAF
+    have hpoly' : (1 + |tz|) ^ (-Aheight) * (2 + |tz|) ^ AF ≤
+        2 ^ AF * (1 + |tz|) ^ (-Aconv) := by
+      rw [hAeq]
+      calc
+        _ ≤ 2 ^ AF * (1 + |tz|) ^ (-(Aconv + 2)) := hpoly
+        _ ≤ 2 ^ AF * (1 + |tz|) ^ (-Aconv) := by
+          exact mul_le_mul_of_nonneg_left
+            (Real.rpow_le_rpow_of_exponent_le (by nlinarith [abs_nonneg tz]) (by linarith [hAconv]))
+            (Real.rpow_nonneg (by norm_num : 0 ≤ (2 : ℝ)) _)
+    have hbound : ‖K ξ z‖ ≤
+        Z ^ Estar ξ.re 1 z.re *
+          (Cht * Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aheight)) *
+          (Cz * (2 + |tz|) ^ AF) * CH * Cinv := by
+      rw [hKnorm]
+      rw [hξr, hzr]
+      gcongr
+    have htargetPow : Z ^ Estar ξ.re 1 z.re =
+        Z ^ Estar (1 + δ1) 1 (16 / 100) := by
+      rw [hξr, hzr]
+    rw [htargetPow] at hbound
+    have hB : B = Cht * Cz * CH * Cinv * 2 ^ AF := by rfl
+    calc
+      _ ≤ Z ^ Estar (1 + δ1) 1 (16 / 100) *
+          (Cht * Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aheight)) *
+          (Cz * (2 + |tz|) ^ AF) * CH * Cinv := hbound
+      _ = B * Z ^ Estar (1 + δ1) 1 (16 / 100) *
+          Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv) := by
+        rw [hB]
+        have hpoint : (1 + |tz|) ^ (-Aheight) * (2 + |tz|) ^ AF ≤
+            2 ^ AF * (1 + |tz|) ^ (-Aconv) := hpoly'
+        have hrest : 0 ≤ Z ^ Estar (1 + δ1) 1 (16 / 100) *
+            Real.exp (-((tξ + tz) ^ 2)) * (Cht * Cz * CH * Cinv) := by positivity
+        calc
+          _ = (Z ^ Estar (1 + δ1) 1 (16 / 100) *
+              Real.exp (-((tξ + tz) ^ 2)) * (Cht * Cz * CH * Cinv)) *
+                ((1 + |tz|) ^ (-Aheight) * (2 + |tz|) ^ AF) := by ring
+          _ ≤ (Z ^ Estar (1 + δ1) 1 (16 / 100) *
+                Real.exp (-((tξ + tz) ^ 2)) * (Cht * Cz * CH * Cinv)) *
+              (2 ^ AF * (1 + |tz|) ^ (-Aconv)) :=
+                mul_le_mul_of_nonneg_left hpoint hrest
+          _ = B * Z ^ Estar (1 + δ1) 1 (16 / 100) *
+              Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv) := by rw [hB]; ring
+  let M : ℝ := B * Z ^ Estar (1 + δ1) 1 (16 / 100)
+  have hM : 0 ≤ M := by dsimp [M]; positivity
+  have hinnerZ (tξ : ℝ) :
+      ‖vertical (16 / 100) (fun z => K ((1 + δ1 : ℝ) + tξ * Complex.I) z)‖ ≤
+        M * Cconv * (1 + |tξ|) ^ (-2 : ℝ) := by
+    let gZ : ℝ → ℝ := fun tz => M * (Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv))
+    have hgZ : Integrable gZ := by
+      simpa [gZ, mul_assoc, mul_left_comm, mul_comm] using
+        (rows_integrable_shifted_gaussian_poly Aconv tξ hAconv).const_mul M
+    have hgZ0 : ∀ tz, 0 ≤ gZ tz := by intro tz; dsimp [gZ]; positivity
+    have hboundZ : ∀ tz : ℝ, ‖(fun z => K ((1 + δ1 : ℝ) + tξ * Complex.I) z)
+        ((16 / 100 : ℝ) + tz * Complex.I)‖ ≤ gZ tz := by
+      intro tz
+      simpa [gZ, M, mul_assoc, mul_left_comm, mul_comm] using hKline tξ tz
+    have hv := rows_vertical_norm_le_integral (16 / 100)
+      (fun z => K ((1 + δ1 : ℝ) + tξ * Complex.I) z) gZ hgZ hgZ0 hboundZ
+    calc
+      _ ≤ ∫ tz : ℝ, gZ tz := hv
+      _ = M * ∫ tz : ℝ, Real.exp (-((tξ + tz) ^ 2)) * (1 + |tz|) ^ (-Aconv) := by
+        dsimp [gZ]
+        rw [integral_const_mul]
+      _ ≤ M * (Cconv * (1 + |tξ|) ^ (-2 : ℝ)) :=
+        mul_le_mul_of_nonneg_left (hconv tξ) (by positivity)
+      _ = M * Cconv * (1 + |tξ|) ^ (-2 : ℝ) := by ring
+  let I : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-2 : ℝ)
+  have hIint : Integrable (fun t : ℝ => (1 + |t|) ^ (-2 : ℝ)) :=
+    rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
+  have hI0 : 0 ≤ I := by dsimp [I]; exact integral_nonneg fun t => by positivity
+  have hDoubleNorm :
+      ‖vertical (1 + δ1) (fun ξ => vertical (16 / 100) (fun z => K ξ z))‖ ≤
+        M * Cconv * I := by
+    let fξ : ℂ → ℂ := fun ξ => vertical (16 / 100) (fun z => K ξ z)
+    let gξ : ℝ → ℝ := fun tξ => M * Cconv * (1 + |tξ|) ^ (-2 : ℝ)
+    have hgξ : Integrable gξ := by
+      simpa [gξ, mul_assoc, mul_left_comm, mul_comm] using hIint.const_mul (M * Cconv)
+    have hgξ0 : ∀ tξ, 0 ≤ gξ tξ := by intro tξ; dsimp [gξ]; positivity
+    have hboundξ : ∀ tξ : ℝ, ‖fξ ((1 + δ1 : ℝ) + tξ * Complex.I)‖ ≤ gξ tξ := by
+      intro tξ
+      simpa [fξ, gξ, mul_assoc, mul_left_comm, mul_comm] using hinnerZ tξ
+    have hv := rows_vertical_norm_le_integral (1 + δ1) fξ gξ hgξ hgξ0 hboundξ
+    calc
+      _ ≤ ∫ tξ : ℝ, gξ tξ := hv
+      _ = M * Cconv * I := by dsimp [gξ, I]; rw [integral_const_mul]
+  have hRzEq :
+      principalRz R sd W η U HA HC Z =
+        HA.RS S * vertical (1 + δ1) (fun ξ => vertical (16 / 100) (fun z => K ξ z)) := by
+    have hD := rows_doubleVertical_const_mul (1 + δ1) (16 / 100)
+      (weightW1hat W 1) F0
+    unfold principalRz
+    calc
+      _ = HA.RS S * (weightW1hat W 1 *
+          vertical (1 + δ1) (fun ξ => vertical (16 / 100) (fun z => F0 ξ z))) := by ring
+      _ = _ := by rw [← hD]
+  have hnormRz :
+      ‖principalRz R sd W η U HA HC Z‖ ≤ ‖HA.RS S‖ * M * Cconv * I := by
+    calc
+      _ = ‖HA.RS S‖ *
+          ‖vertical (1 + δ1) (fun ξ => vertical (16 / 100) (fun z => K ξ z))‖ := by
+            rw [hRzEq, norm_mul]
+      _ ≤ ‖HA.RS S‖ * (M * Cconv * I) :=
+        mul_le_mul_of_nonneg_left hDoubleNorm (norm_nonneg _)
+      _ = ‖HA.RS S‖ * M * Cconv * I := by ring
+  let Cpre : ℝ := ‖HA.RS S‖ * B * Cconv * I
+  let C : ℝ := Cpre + 1
+  have hCpre : 0 ≤ Cpre := by dsimp [Cpre]; positivity
+  have hC : 0 < C := by dsimp [C]; linarith
+  have hscale : ‖HA.RS S‖ * M * Cconv * I =
+      Cpre * Z ^ Estar (1 + δ1) 1 (16 / 100) := by
+    dsimp [Cpre, M]
+    ring
+  have htarget : 0 ≤ Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
+    Real.rpow_nonneg (by linarith : 0 ≤ Z) _
+  have hCprele : Cpre ≤ C := by dsimp [C]; linarith
+  refine ⟨C, hC, ?_⟩
+  calc
+    _ ≤ Cpre * Z ^ Estar (1 + δ1) 1 (16 / 100) := by rw [← hscale]; exact hnormRz
+    _ ≤ Cpre * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
+      apply mul_le_mul_of_nonneg_left ?_ hCpre
+      apply Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z)
+      exact rows_principalRz_exponent_bound
+    _ ≤ C * Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
+      mul_le_mul_of_nonneg_right hCprele htarget
 
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
