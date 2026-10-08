@@ -1383,6 +1383,23 @@ private theorem conductorGeneratorResidue_isUnit_iff
       conductor_idealExp_zero_of_not_dvd I.1 I.2.1 v hnotI]
     simp
 
+private theorem conductorIdealValue_zero_of_ramified_factor
+    (ω : A1.HeckeChar F) (I : Ideal (𝓞 F)) (hI : I ≠ ⊥)
+    (v : A1.FinPlace F) (hvI : v.asIdeal ∣ I)
+    (hv : ¬ ω.UnramifiedAt v) :
+    ω.idealValue I = 0 := by
+  classical
+  rw [conductorIdealValue_eq_prod_primeValue ω I hI]
+  let w : conductorPrimeSupport I hI :=
+    ⟨v, (mem_conductorPrimeSupport I hI v).mpr hvI⟩
+  apply Finset.prod_eq_zero (Finset.mem_univ w)
+  change ω.primeValue v ^ A1.idealExp v I = 0
+  have hI0 : I ≠ 0 := by simpa [Ideal.zero_eq_bot] using hI
+  have hcount : A1.idealExp v I ≠ 0 := by
+    unfold A1.idealExp
+    exact (Associates.count_ne_zero_iff_dvd hI0 v.irreducible).mpr hvI
+  simp [A1.HeckeChar.primeValue, hv, hcount]
+
 /-- Minimal finite conductor gives an ideal-primitive residue character on its
 exact exterior part. The inverse local factor has the rational-idele orientation,
 and equality includes nonunits. Infinite components retain real-place signs.
