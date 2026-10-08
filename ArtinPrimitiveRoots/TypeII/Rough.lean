@@ -2866,6 +2866,163 @@ theorem proxy_high :
   sorry
 
 /-- `t2:high-frequency` — 08-type-ii.tex:513-527. -/
+private theorem exists_log_rpow_le_const_mul_x_rpow
+    (a b K : ℝ) (hb : 0 < b) (hK : 0 < K) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
+      Real.rpow (Real.log x) a ≤ K * Real.rpow x b := by
+  have hlim : Filter.Tendsto
+      (fun x : ℝ => Real.rpow (Real.log x) a / Real.rpow x b)
+      Filter.atTop (𝓝 0) := by
+    exact (isLittleO_log_rpow_rpow_atTop a hb).tendsto_div_nhds_zero
+  have hev : ∀ᶠ x : ℝ in Filter.atTop,
+      ‖Real.rpow (Real.log x) a / Real.rpow x b‖ < K := by
+    have hball := hlim.eventually
+      (Metric.ball_mem_nhds (0 : ℝ) hK)
+    filter_upwards [hball] with x hx
+    simpa [Metric.mem_ball, Real.dist_eq] using hx
+  obtain ⟨x₁, hx₁⟩ := Filter.eventually_atTop.mp hev
+  refine ⟨max x₁ 2, le_max_right _ _, ?_⟩
+  intro x hx
+  have hx₁' : x₁ ≤ x := le_trans (le_max_left _ _) hx
+  have hx2 : 2 ≤ x := (le_max_right x₁ 2).trans hx
+  have hxpos : 0 < x := by linarith
+  have hlog : 0 ≤ Real.log x := Real.log_nonneg (by linarith)
+  have hden : 0 < Real.rpow x b := Real.rpow_pos_of_pos hxpos _
+  have hquot := hx₁ x hx₁'
+  have hqnonneg : 0 ≤ Real.rpow (Real.log x) a / Real.rpow x b :=
+    div_nonneg (Real.rpow_nonneg hlog _) hden.le
+  have hquot' : Real.rpow (Real.log x) a / Real.rpow x b < K := by
+    have hquotAbs : |Real.rpow (Real.log x) a / Real.rpow x b| < K := by
+      simpa only [Real.norm_eq_abs] using hquot
+    have hquotAbsDiv : |Real.rpow (Real.log x) a| / |Real.rpow x b| < K := by
+      simpa only [abs_div] using hquotAbs
+    have hnum : 0 ≤ Real.rpow (Real.log x) a := Real.rpow_nonneg hlog _
+    simpa only [abs_of_nonneg hnum, abs_of_pos hden] using hquotAbsDiv
+  exact le_of_lt ((div_lt_iff₀ hden).mp hquot')
+
+private theorem exists_log_rpow_mul_exp_phase_small
+    (r a : ℝ) (hr : 0 < r) :
+    ∃ L₀ : ℝ, 2 ≤ L₀ ∧ ∀ L : ℝ, L₀ ≤ L →
+      Real.rpow L a * Real.exp (-L / Real.rpow (Real.log L) r) ≤ 1 := by
+  obtain ⟨L₁, hL₁, hlogPow⟩ :=
+    exists_log_rpow_le_const_mul_x_rpow (r + 1) (1 / 2) 1
+      (by norm_num) (by norm_num)
+  have hsqrtLim : Filter.Tendsto (fun L : ℝ => Real.rpow L (1 / 2))
+      Filter.atTop Filter.atTop := tendsto_rpow_atTop (by norm_num)
+  have hsqrtLarge := Filter.eventually_atTop.mp
+    (hsqrtLim.eventually_ge_atTop (a + 1))
+  obtain ⟨L₂, hL₂⟩ := hsqrtLarge
+  let L₀ := max 2 (max L₁ L₂)
+  refine ⟨L₀, le_max_left _ _, ?_⟩
+  intro L hL
+  have hLge2 : 2 ≤ L := (le_max_left 2 (max L₁ L₂)).trans hL
+  have hLbase : max L₁ L₂ ≤ L := (le_max_right 2 (max L₁ L₂)).trans hL
+  have hLgeL₁ : L₁ ≤ L := (le_max_left L₁ L₂).trans hLbase
+  have hLgeL₂ : L₂ ≤ L := (le_max_right L₁ L₂).trans hLbase
+  have hLpos : 0 < L := by linarith
+  have hlogPos : 0 < Real.log L := Real.log_pos (by linarith)
+  have hlogNonneg : 0 ≤ Real.log L := le_of_lt hlogPos
+  have hsqrt : a + 1 ≤ Real.rpow L (1 / 2) := hL₂ L hLgeL₂
+  have hsqrtNonneg : 0 ≤ Real.rpow L (1 / 2) := Real.rpow_nonneg (by linarith) _
+  have hsqrtSq : Real.rpow L (1 / 2) * Real.rpow L (1 / 2) = L := by
+    change L ^ ((1 : ℝ) / 2) * L ^ ((1 : ℝ) / 2) = L
+    rw [← Real.rpow_add (by linarith : 0 < L) (1 / 2) (1 / 2)]
+    norm_num
+  have hlogPow' : Real.rpow (Real.log L) r * Real.log L ≤ Real.rpow L (1 / 2) := by
+    have heq : Real.rpow (Real.log L) (r + 1) =
+        Real.rpow (Real.log L) r * Real.log L := by
+      change (Real.log L) ^ (r + 1) = (Real.log L) ^ r * Real.log L
+      rw [Real.rpow_add_one hlogPos.ne' r]
+    rw [← heq]
+    simpa using hlogPow L hLgeL₁
+  have hfactorNonneg : 0 ≤ Real.rpow (Real.log L) r * Real.log L :=
+    mul_nonneg (Real.rpow_nonneg hlogNonneg _) hlogNonneg
+  have hprod : (a + 1) * Real.log L * Real.rpow (Real.log L) r ≤ L := by
+    calc
+      (a + 1) * Real.log L * Real.rpow (Real.log L) r =
+          (a + 1) * (Real.rpow (Real.log L) r * Real.log L) := by ring
+      _ ≤ Real.rpow L (1 / 2) *
+          (Real.rpow (Real.log L) r * Real.log L) :=
+        mul_le_mul_of_nonneg_right hsqrt hfactorNonneg
+      _ ≤ Real.rpow L (1 / 2) * Real.rpow L (1 / 2) :=
+        mul_le_mul_of_nonneg_left hlogPow' hsqrtNonneg
+      _ = L := hsqrtSq
+  have hden : 0 < Real.rpow (Real.log L) r := Real.rpow_pos_of_pos hlogPos _
+  have harg : (a + 1) * Real.log L ≤ L / Real.rpow (Real.log L) r :=
+    (le_div_iff₀ hden).2 (by simpa [mul_assoc] using hprod)
+  have hexp : Real.exp (-L / Real.rpow (Real.log L) r) ≤
+      Real.rpow L (-(a + 1)) := by
+    calc
+      Real.exp (-L / Real.rpow (Real.log L) r) ≤
+          Real.exp (-((a + 1) * Real.log L)) :=
+        Real.exp_le_exp.mpr (by simpa [neg_div] using neg_le_neg harg)
+      _ = Real.rpow L (-(a + 1)) := by
+        change Real.exp (-((a + 1) * Real.log L)) = L ^ (-(a + 1))
+        rw [Real.rpow_def_of_pos hLpos (-(a + 1))]
+        congr 1
+        ring
+  have hmul := mul_le_mul_of_nonneg_left hexp
+    (Real.rpow_nonneg (by linarith : 0 ≤ L) a)
+  calc
+    Real.rpow L a * Real.exp (-L / Real.rpow (Real.log L) r) ≤
+        Real.rpow L a * Real.rpow L (-(a + 1)) := hmul
+    _ = Real.rpow L (-1) := by
+      change L ^ a * L ^ (-(a + 1) : ℝ) = L ^ (-1 : ℝ)
+      rw [← Real.rpow_add hLpos a (-(a + 1))]
+      congr 1
+      ring
+    _ ≤ 1 := by
+      have h := Real.rpow_le_rpow_of_exponent_le
+        (by linarith : 1 ≤ L) (by norm_num : (-1 : ℝ) ≤ 0)
+      simpa using h
+
+private theorem exists_loglog_ge (R : ℝ) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧ ∀ x : ℝ, x₀ ≤ x → R ≤ Real.log (Real.log x) := by
+  have hlim : Filter.Tendsto (fun x : ℝ => Real.log (Real.log x))
+      Filter.atTop Filter.atTop := Real.tendsto_log_atTop.comp Real.tendsto_log_atTop
+  obtain ⟨x₁, hx₁⟩ := Filter.eventually_atTop.mp (hlim.eventually_ge_atTop R)
+  refine ⟨max 2 x₁, le_max_left _ _, ?_⟩
+  intro x hx
+  exact hx₁ x ((le_max_right 2 x₁).trans hx)
+
+set_option maxHeartbeats 1000000 in
+private theorem roughCoefficient_phase_split
+    (x γ v t : ℝ) (m : ℕ) (z : ℂ) :
+    roughCoefficient x γ v m * z * Complex.exp (Complex.I * t * Real.log (m : ℝ)) =
+      (roughIndicator x γ m : ℂ) * z *
+          Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) -
+        z * Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) *
+          (roughProxy x γ m : ℂ) := by
+  simp only [roughCoefficient, roughIndicator, roughProxy, Complex.ofReal_sub,
+    Complex.ofReal_div, Complex.ofReal_mul]
+  have he : Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+      Complex.exp (Complex.I * t * Real.log (m : ℝ)) =
+        Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) := by
+    rw [← Complex.exp_add]
+    congr 1
+    ring
+  calc
+    _ = ((if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0 : ℝ) : ℂ) * z *
+        (Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+          Complex.exp (Complex.I * t * Real.log (m : ℝ))) -
+        z * (Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
+          Complex.exp (Complex.I * t * Real.log (m : ℝ))) *
+          (((roughDensity γ (Real.log (m : ℝ) / Real.log x) : ℝ) : ℂ) /
+            (((Real.log x : ℝ) : ℂ) *
+              ((roughSieveProduct (roughCutoff x) : ℝ) : ℂ)) *
+                ((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0 : ℝ) : ℂ)) := by
+      ring
+    _ = ((if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0 : ℝ) : ℂ) * z *
+        Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) -
+        z * Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) *
+          (((roughDensity γ (Real.log (m : ℝ) / Real.log x) : ℝ) : ℂ) /
+            (((Real.log x : ℝ) : ℂ) *
+              ((roughSieveProduct (roughCutoff x) : ℝ) : ℂ)) *
+                ((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0 : ℝ) : ℂ)) := by
+      rw [he]
+
+
+set_option maxHeartbeats 5000000 in
 theorem high_frequency
     (γ wMin wMax δ C A : ℝ) (hγ : 0 < γ) (hγw : γ < wMin)
     (hw : wMin < wMax) (hwMax : wMax < 1) (hδ : 0 < δ)
@@ -2888,6 +3045,416 @@ theorem high_frequency
                         roughCoefficient x γ v m * χ (m : ZMod k) *
                           Complex.exp (Complex.I * t * Real.log (m : ℝ))) / Hm‖ ≤
                       C₀ * Real.rpow (Real.log x) (-A) := by
-  sorry
+  intro B hB
+  classical
+  let τ := min γ δ / 2
+  let θ := (wMax + 1) / 2
+  have hmin : 0 < min γ δ := lt_min_iff.mpr ⟨hγ, hδ⟩
+  have hτ : 0 < τ := by dsimp [τ]; positivity
+  have hτγ : τ < γ := by
+    dsimp [τ]
+    have hlt : min γ δ / 2 < min γ δ := by linarith
+    exact hlt.trans_le (min_le_left _ _)
+  have hτδ : τ < δ := by
+    dsimp [τ]
+    have hlt : min γ δ / 2 < min γ δ := by linarith
+    exact hlt.trans_le (min_le_right _ _)
+  have hwθ : wMax < θ := by dsimp [θ]; linarith
+  have hθ1 : θ < 1 := by dsimp [θ]; linarith
+  obtain ⟨Bp, Cp, xp, hBp, hCp, hxp, hprime⟩ :=
+    prime_high γ wMax hγ hwMax τ θ C (A + 1)
+      hτ hτγ hwθ hθ1 hC (by linarith)
+  obtain ⟨C₃, hC₃, hproxy⟩ := proxy_high
+  obtain ⟨Cq, cq, hCq, hcq, hproxy₁⟩ :=
+    hproxy δ γ wMin wMax hδ hγ hγw hw hwMax C hC
+  obtain ⟨xq, hxq, hproxyA⟩ := hproxy₁ (A + 1) (by linarith)
+  obtain ⟨xB, hxB, hlogB⟩ :=
+    exists_log_rpow_le_const_mul_x_rpow B (1 / 2) (1 / 8)
+      (by norm_num) (by norm_num)
+  obtain ⟨xC, hxC, hlogC⟩ :=
+    exists_log_rpow_le_const_mul_x_rpow C (1 / 2) (1 / 8)
+      (by norm_num) (by norm_num)
+  obtain ⟨Ldec, hLdec, hdecay⟩ :=
+    exists_log_rpow_mul_exp_phase_small C₃ (A + 1 + Cq) hC₃
+  obtain ⟨xtt, hxtt, hloglog⟩ := exists_loglog_ge (1 + 1 / cq)
+  let xReq := max xB (max xC (max (Real.exp Ldec) xtt))
+  let x₀ := max xp (max xq xReq)
+  let B₂ := C + Bp + A + Cq + 4
+  let C₀ := Cp + 1 + 2 * Cq
+  have hB₂ : 0 < B₂ := by dsimp [B₂]; positivity
+  have hB₂C : C + 1 ≤ B₂ := by dsimp [B₂]; linarith
+  have hB₂p : Bp + 1 ≤ B₂ := by dsimp [B₂]; linarith
+  have hB₂proxy : A + Cq + 1 ≤ B₂ := by dsimp [B₂]; linarith
+  have hC₀ : 0 < C₀ := by dsimp [C₀]; positivity
+  have hx₀ : 2 ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans hxp (le_max_left xp (max xq xReq))
+  refine ⟨B₂, C₀, x₀, hB₂, hC₀, hx₀, ?_⟩
+  intro x hx Hm Hn hHm hHn hprod₀ hprod₁ hHmLog h2HmLog
+    k hk hmod χ v t htlo hthi hv l r hl hlr hr
+  let L := Real.log x
+  let u := t + v
+  have hx2 : 2 ≤ x := le_trans hx₀ hx
+  have hxpos : 0 < x := by linarith
+  have hxone : 1 ≤ x := by linarith
+  have hLpos : 0 < L := Real.log_pos (by linarith)
+  have hxp' : xp ≤ x := (le_max_left xp (max xq xReq)).trans hx
+  have hxq' : xq ≤ x :=
+    (le_max_left xq xReq).trans ((le_max_right xp (max xq xReq)).trans hx)
+  have hxinner : max xq xReq ≤ x :=
+    (le_max_right xp (max xq xReq)).trans hx
+  have hxReq : xReq ≤ x := (le_max_right xq xReq).trans hxinner
+  have hxReqInner : max xC (max (Real.exp Ldec) xtt) ≤ x := by
+    exact (le_max_right xB (max xC (max (Real.exp Ldec) xtt))).trans hxReq
+  have hxB' : xB ≤ x := by
+    exact le_trans (le_max_left xB (max xC (max (Real.exp Ldec) xtt))) hxReq
+  have hxC' : xC ≤ x := by
+    exact (le_max_left xC (max (Real.exp Ldec) xtt)).trans hxReqInner
+  have hxdec' : Real.exp Ldec ≤ x := by
+    exact (le_max_left (Real.exp Ldec) xtt).trans
+      ((le_max_right xC (max (Real.exp Ldec) xtt)).trans hxReqInner)
+  have hxtt' : xtt ≤ x := by
+    exact (le_max_right (Real.exp Ldec) xtt).trans
+      ((le_max_right xC (max (Real.exp Ldec) xtt)).trans hxReqInner)
+  have hLdec' : Ldec ≤ L := by
+    have hh := Real.log_le_log (Real.exp_pos Ldec) hxdec'
+    simpa [L] using hh
+  have hLtwo : 2 ≤ L := hLdec.trans hLdec'
+  have hLone : 1 ≤ L := by linarith [hLdec, hLdec']
+  have hLpowB : Real.rpow L B ≤ (1 / 8 : ℝ) * Real.rpow x (1 / 2) :=
+    hlogB x hxB'
+  have hLpowC : Real.rpow L C ≤ (1 / 8 : ℝ) * Real.rpow x (1 / 2) :=
+    hlogC x hxC'
+  have hdecayx : Real.rpow L (A + 1 + Cq) *
+      Real.exp (-L / Real.rpow (Real.log L) C₃) ≤ 1 := hdecay L hLdec'
+  have hT : 1 + 1 / cq ≤ Real.log L := by
+    have hh := hloglog x hxtt'
+    simpa [L] using hh
+  have hTpos : 0 < Real.log L := by
+    have : 0 < 1 + 1 / cq := by positivity
+    linarith
+  have hcqne : cq ≠ 0 := ne_of_gt hcq
+  have hInvPos : 0 < 1 / cq := one_div_pos.mpr hcq
+  have hTge1 : 1 ≤ Real.log L := by linarith
+  have hcqT : 1 ≤ cq * Real.log L := by
+    have hinv : cq * cq⁻¹ = 1 := mul_inv_cancel₀ hcqne
+    have hbase : 1 ≤ cq * (1 + cq⁻¹) := by nlinarith [hcq, hinv]
+    have hT' : 1 + cq⁻¹ ≤ Real.log L := by simpa [one_div] using hT
+    exact hbase.trans (mul_le_mul_of_nonneg_left hT' hcq.le)
+  have hcqTsq : 1 ≤ cq * (Real.log L) ^ 2 := by
+    have hctpos : 0 < cq * Real.log L := mul_pos hcq hTpos
+    calc
+      1 ≤ cq * Real.log L := hcqT
+      _ ≤ (cq * Real.log L) * Real.log L :=
+        by simpa using mul_le_mul_of_nonneg_left hTge1 hctpos.le
+      _ = cq * (Real.log L) ^ 2 := by ring
+  have hdenT : 0 < (Real.log L) ^ 2 := sq_pos_of_pos hTpos
+  have hfracT : 1 / (Real.log L) ^ 2 ≤ cq := (div_le_iff₀ hdenT).2 hcqTsq
+  have hargT : L / (Real.log L) ^ 2 ≤ cq * L := by
+    calc
+      L / (Real.log L) ^ 2 = (1 / (Real.log L) ^ 2) * L := by ring
+      _ ≤ cq * L := mul_le_mul_of_nonneg_right hfracT hLpos.le
+  have hTstar : Real.exp (L / (Real.log L) ^ 2) ≤ Real.rpow x cq := by
+    calc
+      Real.exp (L / (Real.log L) ^ 2) ≤ Real.exp (cq * L) := Real.exp_le_exp.mpr hargT
+      _ = Real.rpow x cq := by
+        change Real.exp (cq * L) = x ^ cq
+        rw [Real.rpow_def_of_pos hxpos cq]
+        congr 1
+        dsimp [L]
+        ring
+  have hHmpos : 0 < Hm := lt_of_lt_of_le (Real.rpow_pos_of_pos hxpos δ) hHm
+  have hHmLogUp : Real.log Hm / L ≤ wMax := hHmLog.2
+  have hlogHm : Real.log Hm ≤ wMax * L := (div_le_iff₀ hLpos).mp hHmLogUp
+  have hHmExp : Hm ≤ Real.rpow x wMax := by
+    calc
+      Hm = Real.exp (Real.log Hm) := by rw [Real.exp_log hHmpos]
+      _ ≤ Real.exp (wMax * L) := Real.exp_le_exp.mpr hlogHm
+      _ = Real.rpow x wMax := by
+        change Real.exp (wMax * L) = x ^ wMax
+        rw [Real.rpow_def_of_pos hxpos wMax]
+        congr 1
+        dsimp [L]
+        ring
+  have hHmUp : Hm ≤ Real.rpow x θ :=
+    hHmExp.trans (Real.rpow_le_rpow_of_exponent_le hxone (by dsimp [θ]; linarith))
+  have hτpow : Real.rpow x τ ≤ Real.rpow x δ :=
+    Real.rpow_le_rpow_of_exponent_le hxone hτδ.le
+  have hHmLow : Real.rpow x τ / 2 ≤ Hm := by
+    have hpowNonneg : 0 ≤ Real.rpow x τ := Real.rpow_nonneg (by linarith) _
+    calc
+      Real.rpow x τ / 2 ≤ Real.rpow x τ := by nlinarith
+      _ ≤ Real.rpow x δ := hτpow
+      _ ≤ Hm := hHm
+  have hBpow : 2 * Real.rpow L C ≤ Real.rpow L B₂ := by
+    have hm := Real.rpow_le_rpow_of_exponent_le hLone hB₂C
+    have heq : Real.rpow L (C + 1) = Real.rpow L C * L := by
+      change L ^ (C + 1) = L ^ C * L
+      exact Real.rpow_add_one hLpos.ne' C
+    have hpowNonneg : 0 ≤ Real.rpow L C := Real.rpow_nonneg (by linarith) _
+    calc
+      2 * Real.rpow L C ≤ L * Real.rpow L C :=
+        mul_le_mul_of_nonneg_right hLtwo hpowNonneg
+      _ = Real.rpow L (C + 1) := by rw [heq]; ring
+      _ ≤ Real.rpow L B₂ := hm
+  have hBppow : 2 * Real.rpow L Bp ≤ Real.rpow L B₂ := by
+    have hm := Real.rpow_le_rpow_of_exponent_le hLone hB₂p
+    have heq : Real.rpow L (Bp + 1) = Real.rpow L Bp * L := by
+      change L ^ (Bp + 1) = L ^ Bp * L
+      exact Real.rpow_add_one hLpos.ne' Bp
+    have hpowNonneg : 0 ≤ Real.rpow L Bp := Real.rpow_nonneg (by linarith) _
+    calc
+      2 * Real.rpow L Bp ≤ L * Real.rpow L Bp :=
+        mul_le_mul_of_nonneg_right hLtwo hpowNonneg
+      _ = Real.rpow L (Bp + 1) := by rw [heq]; ring
+      _ ≤ Real.rpow L B₂ := hm
+  have hvBound : |v| ≤ Real.rpow L C := by simpa [L] using hv
+  have htBound : Real.rpow L B₂ ≤ |t| := by simpa [L] using htlo
+  have huTriangle : |t| ≤ |u| + |v| := by
+    dsimp [u]
+    calc
+      |t| = |(t + v) - v| := by congr 1; ring
+      _ ≤ |t + v| + |v| := by simpa using abs_sub_le (t + v) 0 v
+  have huStrong : Real.rpow L B₂ / 2 ≤ |u| := by
+    have hvHalf : |v| ≤ Real.rpow L B₂ / 2 := by
+      calc
+        |v| ≤ Real.rpow L C := hvBound
+        _ ≤ Real.rpow L B₂ / 2 := by nlinarith [hBpow]
+    linarith [huTriangle, htBound, hvHalf]
+  have huPrime : Real.rpow L Bp ≤ |u| := by
+    have hhalf : Real.rpow L Bp ≤ Real.rpow L B₂ / 2 := by linarith [hBppow]
+    exact hhalf.trans huStrong
+  have huOne : 1 ≤ |u| := by
+    have hone : (1 : ℝ) ≤ Real.rpow L Bp := by
+      have h := Real.rpow_le_rpow_of_exponent_le hLone (by positivity : 0 ≤ Bp)
+      simpa using h
+    exact hone.trans huPrime
+  have huX_and_lt : |u| ≤ Real.rpow x 2 ∧ |u| < Real.rpow x 2 := by
+    have hsqrt : Real.rpow x (1 / 2) ≤ x := by
+      have hh := Real.rpow_le_rpow_of_exponent_le hxone
+        (by norm_num : (1 / 2 : ℝ) ≤ 1)
+      simpa using hh
+    have hsqrt2 : Real.rpow x (1 / 2) ≤ Real.rpow x 2 :=
+      Real.rpow_le_rpow_of_exponent_le hxone (by norm_num : (1 / 2 : ℝ) ≤ 2)
+    have htmax : |t| ≤ 4 * x * Real.rpow L B := by
+      calc
+        |t| ≤ 2 * (Hm * Hn) * Real.rpow L B := by simpa [L] using hthi
+        _ ≤ 4 * x * Real.rpow L B := by
+          have hprod' := mul_le_mul_of_nonneg_right hprod₁
+            (Real.rpow_nonneg (by linarith : 0 ≤ L) B)
+          nlinarith [hprod']
+    have hBsmall : 4 * x * Real.rpow L B ≤ (1 / 2 : ℝ) * x ^ 2 := by
+      have h₁ := mul_le_mul_of_nonneg_left hLpowB (by positivity : 0 ≤ 4 * x)
+      have h₂ := mul_le_mul_of_nonneg_left hsqrt (by positivity : 0 ≤ x)
+      nlinarith [h₁, h₂]
+    have hCsmallR : Real.rpow L C ≤ (1 / 8 : ℝ) * Real.rpow x 2 := by
+      exact le_trans hLpowC
+        (mul_le_mul_of_nonneg_left hsqrt2 (by norm_num : 0 ≤ (1 / 8 : ℝ)))
+    have hpow2Nat : Real.rpow x (2 : ℝ) = x ^ 2 := by
+      change x ^ (2 : ℝ) = x ^ 2
+      exact Real.rpow_natCast x 2
+    have hCsmall : Real.rpow L C ≤ (1 / 8 : ℝ) * x ^ 2 := by
+      calc
+        Real.rpow L C ≤ (1 / 8 : ℝ) * Real.rpow x 2 := hCsmallR
+        _ = (1 / 8 : ℝ) * x ^ 2 := by rw [hpow2Nat]
+    have hVsmall : |v| ≤ (1 / 8 : ℝ) * x ^ 2 := by
+      calc
+        |v| ≤ Real.rpow L C := hvBound
+        _ ≤ (1 / 8 : ℝ) * x ^ 2 := hCsmall
+    have htotal : |u| ≤ (5 / 8 : ℝ) * x ^ 2 := by
+      calc
+        |u| = |t + v| := by rfl
+        _ ≤ |t| + |v| := by simpa [u] using abs_add_le t v
+        _ ≤ 4 * x * Real.rpow L B + (1 / 8 : ℝ) * x ^ 2 :=
+          add_le_add htmax hVsmall
+        _ ≤ (1 / 2 : ℝ) * x ^ 2 + (1 / 8 : ℝ) * x ^ 2 :=
+          add_le_add hBsmall le_rfl
+        _ = (5 / 8 : ℝ) * x ^ 2 := by ring
+    have hpow2 : x ^ 2 = Real.rpow x 2 := hpow2Nat.symm
+    have hxpow : 0 < x ^ 2 := pow_pos hxpos 2
+    constructor
+    · calc
+        |u| ≤ (5 / 8 : ℝ) * x ^ 2 := htotal
+        _ ≤ x ^ 2 := by nlinarith
+        _ = Real.rpow x 2 := hpow2
+    · calc
+        |u| ≤ (5 / 8 : ℝ) * x ^ 2 := htotal
+        _ < x ^ 2 := by nlinarith
+        _ = Real.rpow x 2 := hpow2
+  rcases huX_and_lt with ⟨huX, huXlt⟩
+  let S := (Finset.range (⌊r⌋₊ + 1)).filter (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r)
+  have hPrimeRaw := hprime x hxp' Hm hHmLow hHmUp k hk hmod χ u huPrime huX l r hl hlr hr
+  let P : ℂ := ∑ m ∈ S, (roughIndicator x γ m : ℂ) * χ (m : ZMod k) *
+    Complex.exp (Complex.I * u * Real.log (m : ℝ))
+  have hPrimeBound : ‖P‖ ≤ Cp * Hm * Real.rpow L (-(A + 1)) := by
+    simpa [P, S, L] using hPrimeRaw
+  have hHm2Log : Real.log (2 * Hm) / L ∈ Set.Icc wMin wMax := h2HmLog
+  have hProxyRaw := hproxyA x hxq' Hm hHm hHmLog hHm2Log k hk hmod χ l r u
+    hl hlr hr huOne huXlt
+  let Qr : ℂ := ∑ m ∈ S.filter (fun m => roughAbove m (roughCutoff x)),
+    (χ (m : ZMod k) : ℂ) * Complex.exp (Complex.I * u * Real.log (m : ℝ)) *
+      (roughProxy x γ m : ℂ)
+  have hProxyBound : ‖Qr‖ / Hm ≤
+      Real.rpow L (-1 + -A) + Cq *
+        (if |u| ≤ Real.exp (L / Real.log L ^ 2) then
+          Real.rpow L Cq * (|u|⁻¹ + Real.rpow x (-cq))
+        else Real.rpow L Cq * Real.exp (-L / Real.rpow (Real.log L) C₃)) := by
+    simpa [Qr, S, L, Finset.filter_filter, and_assoc, and_left_comm, and_comm,
+      abs_of_pos hHmpos] using hProxyRaw.2
+  have hA4 : Real.rpow L (-(A + 1)) ≤ Real.rpow L (-A) :=
+    Real.rpow_le_rpow_of_exponent_le hLone (by linarith)
+  have hA4proxy : Real.rpow L (-1 + -A) ≤ Real.rpow L (-A) :=
+    Real.rpow_le_rpow_of_exponent_le hLone (by linarith)
+  have hAplusCpow : Real.rpow L (A + Cq) ≤ |u| := by
+    have hm := Real.rpow_le_rpow_of_exponent_le hLone hB₂proxy
+    have heq : Real.rpow L (A + Cq + 1) = Real.rpow L (A + Cq) * L := by
+      change L ^ (A + Cq + 1) = L ^ (A + Cq) * L
+      exact Real.rpow_add_one hLpos.ne' (A + Cq)
+    have hpowNonneg : 0 ≤ Real.rpow L (A + Cq) := Real.rpow_nonneg (by linarith) _
+    have hlarge : 2 * Real.rpow L (A + Cq) ≤ Real.rpow L B₂ := by
+      calc
+        2 * Real.rpow L (A + Cq) ≤ L * Real.rpow L (A + Cq) :=
+          mul_le_mul_of_nonneg_right hLtwo hpowNonneg
+        _ = Real.rpow L (A + Cq + 1) := by rw [heq]; ring
+        _ ≤ Real.rpow L B₂ := hm
+    exact le_trans (by nlinarith [huStrong, hlarge]) huStrong
+  have hlogCoef : Real.rpow L Cq / |u| ≤ Real.rpow L (-A) := by
+    have huPos : 0 < |u| := lt_of_lt_of_le zero_lt_one huOne
+    have hApowPos : 0 < Real.rpow L A := Real.rpow_pos_of_pos hLpos A
+    have hmulEq : Real.rpow L Cq * Real.rpow L A = Real.rpow L (A + Cq) := by
+      simpa [add_comm] using (Real.rpow_add hLpos Cq A).symm
+    have hnegA : Real.rpow L (-A) = (Real.rpow L A)⁻¹ := by
+      change L ^ (-A) = (L ^ A)⁻¹
+      exact Real.rpow_neg hLpos.le A
+    rw [hnegA]
+    have hcross : Real.rpow L Cq * Real.rpow L A ≤ |u| := by
+      calc
+        Real.rpow L Cq * Real.rpow L A = Real.rpow L (A + Cq) := hmulEq
+        _ ≤ |u| := hAplusCpow
+    have hdiv : Real.rpow L Cq / |u| ≤ 1 / Real.rpow L A := by
+      exact (div_le_div_iff₀ huPos hApowPos).2 (by simpa using hcross)
+    simpa [one_div] using hdiv
+  have hxPowPos : 0 < Real.rpow x cq := Real.rpow_pos_of_pos hxpos cq
+  have huPos : 0 < |u| := lt_of_lt_of_le zero_lt_one huOne
+  have hRoughExpBound : Real.rpow L Cq *
+      Real.exp (-L / Real.rpow (Real.log L) C₃) ≤ Real.rpow L (-1 + -A) := by
+    have hpowEq : Real.rpow L (A + 1 + Cq) =
+        Real.rpow L (A + 1) * Real.rpow L Cq := by
+      simpa [add_assoc] using Real.rpow_add hLpos (A + 1) Cq
+    have hdenPos : 0 < Real.rpow L (A + 1) := Real.rpow_pos_of_pos hLpos _
+    have hprod : (Real.rpow L Cq * Real.exp (-L / Real.rpow (Real.log L) C₃)) *
+        Real.rpow L (A + 1) ≤ 1 := by
+      calc
+        (Real.rpow L Cq * Real.exp (-L / Real.rpow (Real.log L) C₃)) *
+            Real.rpow L (A + 1) = Real.rpow L (A + 1 + Cq) *
+              Real.exp (-L / Real.rpow (Real.log L) C₃) := by rw [hpowEq]; ring
+        _ ≤ 1 := hdecayx
+    have hdiv : Real.rpow L Cq * Real.exp (-L / Real.rpow (Real.log L) C₃) ≤
+        1 / Real.rpow L (A + 1) := (le_div_iff₀ hdenPos).2 hprod
+    have hneg : Real.rpow L (-(A + 1)) = (Real.rpow L (A + 1))⁻¹ := by
+      change L ^ (-(A + 1)) = (L ^ (A + 1))⁻¹
+      exact Real.rpow_neg hLpos.le (A + 1)
+    have hdiv' : Real.rpow L Cq * Real.exp (-L / Real.rpow (Real.log L) C₃) ≤
+        Real.rpow L (-(A + 1)) := by
+      rw [hneg]
+      simpa [one_div] using hdiv
+    have hexp : -(A + 1) = -1 + -A := by ring
+    simpa [hexp] using hdiv'
+  have hProxySaving : ‖Qr‖ / Hm ≤ (1 + 2 * Cq) * Real.rpow L (-A) := by
+    by_cases hmoderate : |u| ≤ Real.exp (L / Real.log L ^ 2)
+    · have hbound := hProxyBound
+      simp [hmoderate] at hbound
+      have hUleX : |u| ≤ Real.rpow x cq := hmoderate.trans hTstar
+      have hnegC : Real.rpow x (-cq) = (Real.rpow x cq)⁻¹ := by
+        change x ^ (-cq) = (x ^ cq)⁻¹
+        exact Real.rpow_neg hxpos.le cq
+      have hXinv : Real.rpow x (-cq) ≤ |u|⁻¹ := by
+        rw [hnegC]
+        have hdiv : (1 : ℝ) / Real.rpow x cq ≤ 1 / |u| := by
+          apply (div_le_div_iff₀ hxPowPos huPos).2
+          simpa using hUleX
+        simpa [one_div] using hdiv
+      have hterms : |u|⁻¹ + Real.rpow x (-cq) ≤ 2 * |u|⁻¹ := by nlinarith [hXinv]
+      have hmul : Cq * (Real.rpow L Cq * (|u|⁻¹ + Real.rpow x (-cq))) ≤
+          2 * Cq * Real.rpow L (-A) := by
+        calc
+          Cq * (Real.rpow L Cq * (|u|⁻¹ + Real.rpow x (-cq))) ≤
+              Cq * (Real.rpow L Cq * (2 * |u|⁻¹)) :=
+            mul_le_mul_of_nonneg_left
+              (mul_le_mul_of_nonneg_left hterms (Real.rpow_nonneg (by linarith) _)) hCq.le
+          _ = 2 * Cq * (Real.rpow L Cq / |u|) := by ring
+          _ ≤ 2 * Cq * Real.rpow L (-A) :=
+            mul_le_mul_of_nonneg_left hlogCoef (by positivity)
+      calc
+        ‖Qr‖ / Hm ≤ Real.rpow L (-1 + -A) +
+            Cq * (Real.rpow L Cq * (|u|⁻¹ + Real.rpow x (-cq))) := hbound
+        _ ≤ Real.rpow L (-A) + 2 * Cq * Real.rpow L (-A) :=
+          add_le_add hA4proxy hmul
+        _ = (1 + 2 * Cq) * Real.rpow L (-A) := by ring
+    · have hbound := hProxyBound
+      simp [hmoderate] at hbound
+      calc
+        ‖Qr‖ / Hm ≤ Real.rpow L (-1 + -A) +
+            Cq * (Real.rpow L Cq * Real.exp (-L / Real.rpow (Real.log L) C₃)) := hbound
+        _ ≤ Real.rpow L (-A) + Cq * Real.rpow L (-1 + -A) :=
+          add_le_add hA4proxy (mul_le_mul_of_nonneg_left hRoughExpBound hCq.le)
+        _ ≤ Real.rpow L (-A) + Cq * Real.rpow L (-A) :=
+          add_le_add le_rfl (mul_le_mul_of_nonneg_left hA4proxy hCq.le)
+        _ ≤ (1 + 2 * Cq) * Real.rpow L (-A) := by
+          have hnonneg : 0 ≤ Real.rpow L (-A) := Real.rpow_nonneg (by linarith) _
+          nlinarith [hCq, hnonneg]
+  have hProxyDiv : ‖Qr / Hm‖ ≤ (1 + 2 * Cq) * Real.rpow L (-A) := by
+    simpa [norm_div, Real.norm_eq_abs, abs_of_pos hHmpos] using hProxySaving
+  let Q : ℂ := ∑ m ∈ S,
+    (χ (m : ZMod k) : ℂ) * Complex.exp (Complex.I * u * Real.log (m : ℝ)) *
+      (roughProxy x γ m : ℂ)
+  have hQeq : Q = Qr := by
+    dsimp [Q, Qr, S]
+    simp only [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro m hm
+    by_cases hi : l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r
+    · by_cases hrough : roughAbove m (roughCutoff x)
+      · simp [hi, hrough]
+      · simp [hi, roughProxy, hrough]
+    · simp [hi]
+  have hdecomp :
+      (∑ m ∈ S, roughCoefficient x γ v m * χ (m : ZMod k) *
+        Complex.exp (Complex.I * t * Real.log (m : ℝ))) = P - Q := by
+    dsimp [P, Q]
+    rw [← Finset.sum_sub_distrib]
+    apply Finset.sum_congr rfl
+    intro m hm
+    simpa [u] using roughCoefficient_phase_split x γ v t m (χ (m : ZMod k))
+  have hPrimeDiv : ‖P / Hm‖ ≤ Cp * Real.rpow L (-A) := by
+    have hdiv : ‖P‖ / Hm ≤ Cp * Real.rpow L (-(A + 1)) := by
+      apply (div_le_iff₀ hHmpos).2
+      nlinarith [hPrimeBound]
+    have hnorm : ‖P / Hm‖ = ‖P‖ / Hm := by
+      simp [norm_div, Real.norm_eq_abs, abs_of_pos hHmpos]
+    rw [hnorm]
+    calc
+      ‖P‖ / Hm ≤ Cp * Real.rpow L (-(A + 1)) := hdiv
+      _ ≤ Cp * Real.rpow L (-A) :=
+        mul_le_mul_of_nonneg_left hA4 hCp.le
+  have hsum : ‖(∑ m ∈ S, roughCoefficient x γ v m * χ (m : ZMod k) *
+        Complex.exp (Complex.I * t * Real.log (m : ℝ))) / Hm‖ ≤
+      ‖P / Hm‖ + ‖Qr / Hm‖ := by
+    have heq :
+        (∑ m ∈ S, roughCoefficient x γ v m * χ (m : ZMod k) *
+          Complex.exp (Complex.I * t * Real.log (m : ℝ))) / Hm = P / Hm - Qr / Hm := by
+      rw [hdecomp, hQeq]
+      ring
+    rw [heq]
+    exact norm_sub_le _ _
+  have htotal : ‖(∑ m ∈ S, roughCoefficient x γ v m * χ (m : ZMod k) *
+        Complex.exp (Complex.I * t * Real.log (m : ℝ))) / Hm‖ ≤
+      C₀ * Real.rpow L (-A) := by
+    calc
+      _ ≤ ‖P / Hm‖ + ‖Qr / Hm‖ := hsum
+      _ ≤ Cp * Real.rpow L (-A) + (1 + 2 * Cq) * Real.rpow L (-A) :=
+        add_le_add hPrimeDiv hProxyDiv
+      _ = C₀ * Real.rpow L (-A) := by simp [C₀]; ring
+  simpa [S, L] using htotal
 
 end ArtinPrimitiveRoots.TypeII.Rough
