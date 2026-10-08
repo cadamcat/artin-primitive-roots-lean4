@@ -594,6 +594,141 @@ theorem covol_unit_balance_core (D : FieldData F)
     rw [htarget]
     exact hd.trans hbound
 
+private def covol_localLog (S : SData F CE condη) (v : S.Sf)
+    (z : (v.1.adicCompletion F)ˣ) : ℤ :=
+  WithZero.log (Valued.v (z : v.1.adicCompletion F))
+
+private lemma covol_localLog_mul (S : SData F CE condη) (v : S.Sf)
+    (z z' : (v.1.adicCompletion F)ˣ) :
+    covol_localLog S v (z * z') = covol_localLog S v z + covol_localLog S v z' := by
+  change WithZero.log (Valued.v ((z * z' : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) = _
+  rw [Units.val_mul, Valuation.map_mul]
+  exact WithZero.log_mul ((Valued.v).ne_zero_iff.mpr z.ne_zero)
+    ((Valued.v).ne_zero_iff.mpr z'.ne_zero)
+
+private lemma covol_localLog_zpow (S : SData F CE condη) (v : S.Sf)
+    (z : (v.1.adicCompletion F)ˣ) (n : ℤ) :
+    covol_localLog S v (z ^ n) = n * covol_localLog S v z := by
+  change WithZero.log (Valued.v ((z ^ n : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) = _
+  rw [Units.val_zpow_eq_zpow_val, map_zpow₀, WithZero.log_zpow]
+  simp [covol_localLog]
+
+private lemma covol_localLog_prod (S : SData F CE condη) (v : S.Sf) (s : Finset S.Sf)
+    (f : S.Sf → (v.1.adicCompletion F)ˣ) :
+    covol_localLog S v (s.prod f) = s.sum (fun w => covol_localLog S v (f w)) := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp [covol_localLog]
+  | @insert w s hw ih =>
+      rw [Finset.prod_insert hw, Finset.sum_insert hw, covol_localLog_mul, ih]
+
+private lemma covol_localLog_diagU_of_valued (S : SData F CE condη) (v : S.Sf)
+    (t : S.US) (n : ℤ)
+    (h : Valued.v (algebraMap F (v.1.adicCompletion F) ((t : Fˣ) : F)) =
+      WithZero.exp n) :
+    covol_localLog S v (S.compU v (S.diagU (t : Fˣ))) = n := by
+  change WithZero.log (Valued.v
+    (algebraMap F (v.1.adicCompletion F) ((t : Fˣ) : F))) = n
+  rw [h, WithZero.log_exp]
+
+private lemma covol_localLog_pow (S : SData F CE condη) (v : S.Sf)
+    (z : (v.1.adicCompletion F)ˣ) (n : ℕ) :
+    covol_localLog S v (z ^ n) = (n : ℤ) * covol_localLog S v z := by
+  change WithZero.log (Valued.v ((z ^ n : (v.1.adicCompletion F)ˣ) : v.1.adicCompletion F)) = _
+  rw [Units.val_pow_eq_pow_val, Valuation.map_pow, WithZero.log_pow]
+  simp [covol_localLog, zsmul_eq_mul]
+
+private theorem covol_sunit_finite_reduction_core (S : SData F CE condη)
+    (x : {x : S.FSˣ // S.absS (x : S.FS) = 1}) :
+    ∃ a : S.US, ∀ v : S.Sf,
+      0 ≤ WithZero.log (Valued.v
+        ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) : (v.1.adicCompletion F)ˣ) :
+          v.1.adicCompletion F)) ∧
+      WithZero.log (Valued.v
+        ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) : (v.1.adicCompletion F)ˣ) :
+          v.1.adicCompletion F)) <
+        (6 * Fintype.card (ClassGroup (𝓞 F)) : ℤ) := by
+  classical
+  let N : ℤ := Fintype.card (ClassGroup (𝓞 F))
+  let c : ℤ := 6 * N
+  have hN : 0 < N := by
+    dsimp [N]
+    exact_mod_cast (Fintype.card_pos : 0 < Fintype.card (ClassGroup (𝓞 F)))
+  have hc : 0 < c := by dsimp [c]; positivity
+  let t : ∀ w : S.Sf, S.US := fun w => Classical.choose (covol_sunit_prime_power_core S w)
+  have ht (w : S.Sf) (v : S.Sf) :
+      Valued.v (algebraMap F (v.1.adicCompletion F) ((t w : Fˣ) : F)) =
+        if v.1 = w.1 then WithZero.exp N else 1 := by
+    exact Classical.choose_spec (covol_sunit_prime_power_core S w) v
+  let m : S.Sf → ℤ := fun v => covol_localLog S v (S.compU v x.1)
+  let q : S.Sf → ℤ := fun v => -(m v / c)
+  let a : S.US := ∏ w : S.Sf, (t w) ^ q w
+  have hdiag (v : S.Sf) :
+      covol_localLog S v (S.compU v (S.diagU (a : Fˣ))) = q v * N := by
+    have hprod : S.compU v (S.diagU (a : Fˣ)) =
+        ∏ w : S.Sf, (S.compU v (S.diagU ((t w : S.US) : Fˣ))) ^ q w := by
+      simp [a, map_prod, map_zpow]
+    have hterm (w : S.Sf) :
+        covol_localLog S v (S.compU v (S.diagU ((t w : S.US) : Fˣ))) =
+          if v.1 = w.1 then N else 0 := by
+      by_cases hvw : v.1 = w.1
+      · have hval := ht w v
+        rw [if_pos hvw] at hval
+        simpa [hvw] using covol_localLog_diagU_of_valued S v (t w) N hval
+      · have hval := ht w v
+        rw [if_neg hvw] at hval
+        have hlog := covol_localLog_diagU_of_valued S v (t w) 0 (by simpa using hval)
+        simpa [hvw] using hlog
+    calc
+      covol_localLog S v (S.compU v (S.diagU (a : Fˣ))) =
+          ∑ w : S.Sf, covol_localLog S v
+            (S.compU v (S.diagU ((t w : S.US) : Fˣ)) ^ q w) := by
+              rw [hprod, covol_localLog_prod]
+      _ = ∑ w : S.Sf, q w * (if v.1 = w.1 then N else 0) := by
+            apply Finset.sum_congr rfl
+            intro w hw
+            rw [covol_localLog_zpow, hterm]
+      _ = q v * N := by
+            rw [Finset.sum_eq_single v]
+            · simp
+            · intro w hw hwv
+              have hne : v.1 ≠ w.1 := by
+                intro h
+                exact hwv (Subtype.ext h.symm)
+              simp [hne]
+            · simp
+  refine ⟨a, ?_⟩
+  intro v
+  have htotal :
+      covol_localLog S v (S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1)) =
+        m v + c * q v := by
+    calc
+      _ = covol_localLog S v
+          (S.compU v (S.diagU (a : Fˣ)) ^ 6 * S.compU v x.1) := by
+            rw [map_mul, map_pow]
+      _ = covol_localLog S v (S.compU v (S.diagU (a : Fˣ)) ^ 6) + m v := by
+            rw [covol_localLog_mul]
+      _ = 6 * (q v * N) + m v := by
+            rw [covol_localLog_pow, hdiag]
+            push_cast
+            ring
+      _ = m v + c * q v := by dsimp [c]; ring
+  have hmod (v : S.Sf) : m v + c * q v = m v % c := by
+    dsimp [q]
+    have hdiv := Int.emod_add_mul_ediv (m v) c
+    have hsub : m v - c * (m v / c) = m v % c := by omega
+    calc
+      m v + c * -(m v / c) = m v - c * (m v / c) := by ring
+      _ = m v % c := hsub
+  rw [show WithZero.log (Valued.v
+      ((S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1) : (v.1.adicCompletion F)ˣ) :
+        v.1.adicCompletion F)) =
+      covol_localLog S v (S.compU v ((S.diagU (a : Fˣ)) ^ 6 * x.1)) by rfl]
+  rw [htotal, hmod]
+  constructor
+  · exact Int.emod_nonneg _ hc.ne'
+  · simpa [c, N] using Int.emod_lt_of_pos (m v) hc
+
 
 /-- Compact norm-one representatives modulo sixth powers of S-units, stated using only `Field`.
 The norm-one condition on every point of `K` is needed by the balanced-generator target. -/
