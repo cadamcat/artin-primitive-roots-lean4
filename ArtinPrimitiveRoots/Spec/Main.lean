@@ -88,8 +88,8 @@ theorem isPreconnected_contDomain (s₁ ε : ℝ) (h₀ : 0 < s₁) (h₁ : s₁
 /-- **Main theorem of P-SPEC** (`spec:api`). -/
 theorem exists_continuedEisenstein (Γ : Subgroup SL(2, 𝓞 F)) [Γ.FiniteIndex]
     (hfree : FreeAction F Γ) (σ : SL(2,F)) (s₁ : ℝ) (h₀ : 0 < s₁) (h₁ : s₁ ≤ 1 / 2) :
-    Nonempty (ContinuedEisenstein F Γ σ s₁) := by
-  sorry
+    Nonempty (ContinuedEisenstein F Γ σ s₁) :=
+  (C2_api Γ hfree σ s₁ h₀ h₁).1
 
 /-- `spec:api` (uniqueness): two continuations agree on the common domain. -/
 theorem ContinuedEisenstein.E_eq {Γ : Subgroup SL(2, 𝓞 F)} {σ : SL(2,F)} {s₁ : ℝ}
