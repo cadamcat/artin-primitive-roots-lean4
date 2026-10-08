@@ -23,6 +23,10 @@ open MeasureTheory
 
 variable {D : FieldData F} {H : HilbertData F} {v : FinPlace F}
 
+local instance localCoeff_residue_maximal (v : FinPlace F) : v.asIdeal.IsMaximal := v.isMaximal
+local instance localCoeff_residue_field (v : FinPlace F) : Field (𝓞 F ⧸ v.asIdeal) :=
+  Ideal.Quotient.field v.asIdeal
+
 /-- The space of sections of `I(T, s)` (def:ind as a subspace). -/
 def sectionSpace (L : FinLocalCover D H v) (T : TorusRep D H v) (s : ℂ) :
     Submodule ℂ (L.L → T.V) where
@@ -274,6 +278,316 @@ theorem local_coefficient (L : FinLocalCover D H v) (T : TorusRep D H v) (A : Ad
 def tauDiag (v : FinPlace F) (s : ℂ) (k : ZMod 3) : ℂ :=
   (1 - (qv v : ℂ)⁻¹) * (qv v : ℂ) ^ (-2 * (((-k).val : ℕ) : ℂ) * s) / (1 - (qv v : ℂ) ^ (-6 * s))
 
+private theorem tauDiag_sixth_zero (v : FinPlace F) :
+    tauDiag v (1 / 6 : ℂ) 0 = 1 := by
+  have hq0 : (qv v : ℂ) ≠ 0 := by
+    exact_mod_cast (ne_of_gt (lt_trans zero_lt_one (qv_gt_one v)))
+  have hq : (qv v : ℂ) ≠ 1 := by
+    intro h
+    have h' : qv v = 1 := by exact_mod_cast h
+    linarith [qv_gt_one v]
+  have hden : 1 - (qv v : ℂ)⁻¹ ≠ 0 := by
+    apply sub_ne_zero.mpr
+    intro h
+    have heq : (qv v : ℂ) = 1 := by
+      have h' := congrArg (fun z : ℂ => z⁻¹) h
+      simpa [hq0] using h'.symm
+    exact hq heq
+  unfold tauDiag
+  rw [show -6 * (1 / 6 : ℂ) = (-1 : ℂ) by norm_num, Complex.cpow_neg_one]
+  rw [show -2 * (((-0 : ZMod 3).val : ℕ) : ℂ) * (1 / 6 : ℂ) = 0 by norm_num]
+  simp only [Complex.cpow_zero, one_mul]
+  field_simp [hden]
+
+private theorem tauDiag_sixth_one (v : FinPlace F) :
+    tauDiag v (1 / 6 : ℂ) 1 = (qv v : ℂ) ^ (-(2 / 3 : ℂ)) := by
+  have hq0 : (qv v : ℂ) ≠ 0 := by
+    exact_mod_cast (ne_of_gt (lt_trans zero_lt_one (qv_gt_one v)))
+  have hq : (qv v : ℂ) ≠ 1 := by
+    intro h
+    have h' : qv v = 1 := by exact_mod_cast h
+    linarith [qv_gt_one v]
+  have hden : 1 - (qv v : ℂ)⁻¹ ≠ 0 := by
+    apply sub_ne_zero.mpr
+    intro h
+    have heq : (qv v : ℂ) = 1 := by
+      have h' := congrArg (fun z : ℂ => z⁻¹) h
+      simpa [hq0] using h'.symm
+    exact hq heq
+  unfold tauDiag
+  rw [show -6 * (1 / 6 : ℂ) = (-1 : ℂ) by norm_num, Complex.cpow_neg_one]
+  have hval : (-1 : ZMod 3).val = 2 := by decide
+  rw [show -2 * (((-1 : ZMod 3).val : ℕ) : ℂ) * (1 / 6 : ℂ) = -(2 / 3 : ℂ) by rw [hval]; norm_num]
+  field_simp [hden]
+
+private theorem tauDiag_sixth_two (v : FinPlace F) :
+    tauDiag v (1 / 6 : ℂ) 2 = (qv v : ℂ) ^ (-(1 / 3 : ℂ)) := by
+  have hq0 : (qv v : ℂ) ≠ 0 := by
+    exact_mod_cast (ne_of_gt (lt_trans zero_lt_one (qv_gt_one v)))
+  have hq : (qv v : ℂ) ≠ 1 := by
+    intro h
+    have h' : qv v = 1 := by exact_mod_cast h
+    linarith [qv_gt_one v]
+  have hden : 1 - (qv v : ℂ)⁻¹ ≠ 0 := by
+    apply sub_ne_zero.mpr
+    intro h
+    have heq : (qv v : ℂ) = 1 := by
+      have h' := congrArg (fun z : ℂ => z⁻¹) h
+      simpa [hq0] using h'.symm
+    exact hq heq
+  unfold tauDiag
+  rw [show -6 * (1 / 6 : ℂ) = (-1 : ℂ) by norm_num, Complex.cpow_neg_one]
+  have hval : (-2 : ZMod 3).val = 1 := by decide
+  rw [show -2 * (((-2 : ZMod 3).val : ℕ) : ℂ) * (1 / 6 : ℂ) = -(1 / 3 : ℂ) by rw [hval]; norm_num]
+  field_simp [hden]
+
+private theorem localCoeff_residue_rep (v : FinPlace F) (x : F) (a b : 𝓞 F)
+    (hb : b ∉ v.asIdeal)
+    (hab : x * algebraMap (𝓞 F) F b = algebraMap (𝓞 F) F a) :
+    residue v x = Ideal.Quotient.mk v.asIdeal a / Ideal.Quotient.mk v.asIdeal b := by
+  letI : v.asIdeal.IsMaximal := v.isMaximal
+  letI : Field (𝓞 F ⧸ v.asIdeal) := Ideal.Quotient.field v.asIdeal
+  have hex : ∃ ab : 𝓞 F × 𝓞 F, ab.2 ∉ v.asIdeal ∧
+      x * algebraMap (𝓞 F) F ab.2 = algebraMap (𝓞 F) F ab.1 := ⟨(a, b), hb, hab⟩
+  have hcross : hex.choose.1 * b = a * hex.choose.2 := by
+    apply IsFractionRing.injective (𝓞 F) F
+    simp only [map_mul]
+    rw [← hex.choose_spec.2, ← hab]
+    ring
+  have hqcross := congrArg (Ideal.Quotient.mk v.asIdeal) hcross
+  have hbq : Ideal.Quotient.mk v.asIdeal b ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hb
+  have hdq : Ideal.Quotient.mk v.asIdeal hex.choose.2 ≠ 0 := by
+    simpa only [ne_eq, Ideal.Quotient.eq_zero_iff_mem] using hex.choose_spec.1
+  unfold residue
+  rw [dif_pos hex]
+  rw [← div_eq_mul_inv, div_eq_div_iff hdq hbq]
+  simpa only [map_mul] using hqcross
+
+private theorem localCoeff_residue_int (v : FinPlace F) (a : 𝓞 F) :
+    residue v (a : F) = Ideal.Quotient.mk v.asIdeal a := by
+  have h := localCoeff_residue_rep v (a : F) a 1
+    (Ideal.IsPrime.one_notMem v.isPrime) (by simp)
+  simpa using h
+
+private theorem localCoeff_psi_div_ideal (A : AddCharData F) (v : FinPlace F)
+    (a : 𝓞 F) (ha : a ∈ v.asIdeal) :
+    A.ψ v (algebraMap F (v.adicCompletion F) ((a : F) / unif v)) = 1 := by
+  let K := v.adicCompletion F
+  let π : F := unif v
+  have hπ : v.valuation F π = WithZero.exp (-1 : ℤ) := by
+    dsimp [π, unif]
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  have hvala : v.valuation F (a : F) ≤ WithZero.exp (-1 : ℤ) := by
+    have hlt : v.valuation F (a : F) < 1 :=
+      (v.valuation_lt_one_iff_mem (K := F) a).2 ha
+    by_cases ha0 : (a : F) = 0
+    · simp [ha0]
+    · have hne : v.valuation F (a : F) ≠ 0 :=
+        (Valuation.ne_zero_iff _).mpr ha0
+      lift v.valuation F (a : F) to ℤ using hne with n hn
+      rw [← WithZero.exp_zero, WithZero.exp_lt_exp] at hlt
+      have hnlt : n < 0 := hlt
+      exact WithZero.exp_le_exp.mpr (by omega)
+  have hquot : v.valuation F ((a : F) / π) ≤ 1 := by
+    rw [map_div₀, hπ]
+    by_cases ha0 : (a : F) = 0
+    · simp [ha0]
+    · have hne : v.valuation F (a : F) ≠ 0 :=
+        (Valuation.ne_zero_iff _).mpr ha0
+      lift v.valuation F (a : F) to ℤ using hne with n hn
+      have hlt : v.valuation F (a : F) < 1 :=
+        (v.valuation_lt_one_iff_mem (K := F) a).2 ha
+      rw [← hn] at hlt
+      simp only [← WithZero.exp_zero, WithZero.exp_lt_exp] at hlt
+      have hnlt : n < 0 := hlt
+      have hnle : n ≤ -1 := by omega
+      calc
+        WithZero.exp n / WithZero.exp (-1) = WithZero.exp n * WithZero.exp 1 := by
+          rw [div_eq_mul_inv]
+          simp
+        _ = WithZero.exp (n + 1) := by rw [← WithZero.exp_add]
+        _ ≤ WithZero.exp 0 := by
+          rw [WithZero.exp_le_exp]
+          omega
+  have hmem : algebraMap F K ((a : F) / π) ∈ v.adicCompletionIntegers F := by
+    change Valued.v ((((a : F) / π : F) : K)) ≤ 1
+    rw [HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+    exact hquot
+  exact A.integral v _ hmem
+
+private theorem localCoeff_psi_rep_eq (A : AddCharData F) (v : FinPlace F)
+    (a b : 𝓞 F) (h : Ideal.Quotient.mk v.asIdeal a = Ideal.Quotient.mk v.asIdeal b) :
+    A.ψ v (algebraMap F (v.adicCompletion F) ((a : F) / unif v)) =
+      A.ψ v (algebraMap F (v.adicCompletion F) ((b : F) / unif v)) := by
+  have hab : a - b ∈ v.asIdeal := by
+    apply Ideal.Quotient.eq_zero_iff_mem.mp
+    calc
+      Ideal.Quotient.mk v.asIdeal (a - b) =
+          Ideal.Quotient.mk v.asIdeal a - Ideal.Quotient.mk v.asIdeal b := by simp
+      _ = 0 := sub_eq_zero.mpr h
+  have harg : (a : F) / unif v = (b : F) / unif v + ((a - b : 𝓞 F) : F) / unif v := by
+    push_cast
+    ring
+  rw [harg, map_add, AddChar.map_add_eq_mul,
+    localCoeff_psi_div_ideal A v (a - b) hab, mul_one]
+
+private theorem gaussLoc_zero (D : FieldData F) (A : AddCharData F) (v : FinPlace F)
+    (hv : (6 : 𝓞 F) ∉ v.asIdeal) (hd : ¬ differentIdeal ℤ (𝓞 F) ≤ v.asIdeal) :
+    gaussLoc D A v 0 = -(((qv v : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) := by
+  classical
+  let Q := 𝓞 F ⧸ v.asIdeal
+  have hqpos : 0 < Ideal.absNorm v.asIdeal := by
+    have hq := NumberField.HeightOneSpectrum.one_lt_absNorm v
+    omega
+  letI : Finite Q := (Ideal.absNorm_ne_zero_iff v.asIdeal).mp hqpos.ne'
+  letI : Fintype Q := Fintype.ofFinite _
+  let π : F := unif v
+  have hπ : v.valuation F π = WithZero.exp (-1 : ℤ) := by
+    dsimp [π, unif]
+    exact (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
+  obtain ⟨_, hnontriv⟩ := A.unramified v hd
+  obtain ⟨a, haψ⟩ := hnontriv π hπ
+  let X : Q := Ideal.Quotient.mk v.asIdeal a
+  have he (x : Q) : residue v (algebraMap (𝓞 F) F x.out) = x := by
+    rw [localCoeff_residue_int]
+    simp
+  let ψbar : Q → ℂ := fun x => A.ψ v
+    (algebraMap F (v.adicCompletion F) (((x.out : 𝓞 F) : F) / π))
+  have hψrep (b c : 𝓞 F)
+      (hbc : Ideal.Quotient.mk v.asIdeal b = Ideal.Quotient.mk v.asIdeal c) :
+      A.ψ v (algebraMap F (v.adicCompletion F) ((b : F) / π)) =
+        A.ψ v (algebraMap F (v.adicCompletion F) ((c : F) / π)) := by
+    exact localCoeff_psi_rep_eq A v b c hbc
+  have hψadd (x y : Q) : ψbar (x + y) = ψbar x * ψbar y := by
+    dsimp [ψbar]
+    have hclass : Ideal.Quotient.mk v.asIdeal (x + y).out =
+        Ideal.Quotient.mk v.asIdeal (x.out + y.out) := by simp
+    rw [localCoeff_psi_rep_eq A v (x + y).out (x.out + y.out) hclass]
+    have hargK : algebraMap F (v.adicCompletion F)
+        ((((x.out + y.out : 𝓞 F) : F) / π)) =
+      algebraMap F (v.adicCompletion F) (((x.out : 𝓞 F) : F) / π) +
+        algebraMap F (v.adicCompletion F) (((y.out : 𝓞 F) : F) / π) := by
+      simp only [map_div₀, map_add]
+      ring
+    rw [hargK, AddChar.map_add_eq_mul]
+  have hψzero : ψbar 0 = 1 := by
+    have hmk0 : Ideal.Quotient.mk v.asIdeal (0 : Q).out = 0 := by simp
+    have h0mem : (0 : Q).out ∈ v.asIdeal := Ideal.Quotient.eq_zero_iff_mem.mp hmk0
+    simpa [ψbar, π] using localCoeff_psi_div_ideal A v (0 : Q).out h0mem
+  have hXψ : ψbar X ≠ 1 := by
+    have hclass : Ideal.Quotient.mk v.asIdeal a = Ideal.Quotient.mk v.asIdeal X.out := by
+      calc
+        Ideal.Quotient.mk v.asIdeal a = X := rfl
+        _ = Ideal.Quotient.mk v.asIdeal X.out := by simp
+    have hrep := hψrep X.out a hclass.symm
+    have hrep' : ψbar X = A.ψ v
+        (algebraMap F (v.adicCompletion F) ((a : F) / π)) := by
+      simpa [ψbar] using hrep
+    rw [hrep']
+    exact haψ
+  have hsumzero : (∑ x : Q, ψbar x) = 0 := by
+    have hshift : (∑ x : Q, ψbar (X + x)) = ∑ x : Q, ψbar x := by
+      exact Fintype.sum_equiv (Equiv.addLeft X) (fun x : Q => ψbar (X + x)) ψbar
+        (by intro x; rfl)
+    have hfactor : (∑ x : Q, ψbar (X + x)) = ψbar X * ∑ x : Q, ψbar x := by
+      rw [show (∑ x : Q, ψbar (X + x)) = ∑ x : Q, ψbar X * ψbar x by
+        apply Finset.sum_congr rfl
+        intro x hx
+        rw [hψadd]]
+      rw [Finset.mul_sum]
+    have hmul : (ψbar X - 1) * ∑ x : Q, ψbar x = 0 := by
+      calc
+        (ψbar X - 1) * ∑ x : Q, ψbar x =
+            ψbar X * ∑ x : Q, ψbar x - ∑ x : Q, ψbar x := by ring
+        _ = 0 := by rw [← hfactor, hshift]; ring
+    rcases mul_eq_zero.mp hmul with h | h
+    · exact (hXψ (sub_eq_zero.mp h)).elim
+    · exact h
+  have hsumchi : (∑ x : Q, chiPow D v (algebraMap (𝓞 F) F x.out) 0 * ψbar x) = -1 := by
+    have hterm (x : Q) : chiPow D v (algebraMap (𝓞 F) F x.out) 0 =
+        if x = 0 then 0 else 1 := by
+      rw [chiPow]
+      rw [he x]
+      by_cases hx : x = 0 <;> simp [hx]
+    have hsplit : (∑ x : Q, (if x = 0 then 0 else ψbar x)) =
+        (∑ x : Q, ψbar x) - ψbar 0 := by
+      calc
+        _ = ∑ x ∈ Finset.univ.erase (0 : Q), ψbar x := by
+          have hsub : Finset.univ.erase (0 : Q) ⊆ Finset.univ := Finset.erase_subset _ _
+          have hzero : ∀ x ∈ Finset.univ, x ∉ Finset.univ.erase (0 : Q) →
+              (if x = 0 then 0 else ψbar x) = 0 := by
+            intro x hx hnot
+            have hx0 : x = 0 := by
+              by_contra hne
+              exact hnot (Finset.mem_erase.mpr ⟨hne, Finset.mem_univ x⟩)
+            simp [hx0]
+          have hsumE := Finset.sum_subset hsub hzero
+          calc
+            _ = ∑ x ∈ Finset.univ, (if x = 0 then 0 else ψbar x) := by rfl
+            _ = ∑ x ∈ Finset.univ.erase (0 : Q), (if x = 0 then 0 else ψbar x) := hsumE.symm
+            _ = _ := by
+              apply Finset.sum_congr rfl
+              intro x hx
+              have hne : x ≠ 0 := (Finset.mem_erase.mp hx).1
+              simp [hne]
+        _ = (∑ x : Q, ψbar x) - ψbar 0 := by
+          have hfull : (∑ x : Q, ψbar x) =
+              (∑ x ∈ Finset.univ.erase (0 : Q), ψbar x) + ψbar 0 := by
+            simpa using Finset.sum_erase_add Finset.univ ψbar (Finset.mem_univ (0 : Q))
+          rw [hfull]
+          ring
+    simp_rw [hterm, ite_mul, zero_mul, one_mul]
+    rw [hsplit, hsumzero, hψzero]
+    ring
+  have htsum : (∑ᶠ x : Q, chiPow D v (algebraMap (𝓞 F) F x.out) 0 * ψbar x) = -1 := by
+    rw [finsum_eq_finsetSum_of_support_subset
+      (fun x : Q => chiPow D v (algebraMap (𝓞 F) F x.out) 0 * ψbar x)
+      (s := Finset.univ) (by intro x hx; simp)]
+    exact hsumchi
+  unfold gaussLoc
+  change ((Ideal.absNorm v.asIdeal : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) *
+      (∑ᶠ x : Q, chiPow D v (algebraMap (𝓞 F) F x.out) 0 * ψbar x) = _
+  rw [htsum]
+  simp [qv]
+
+private theorem localCoeff_jacquet_surjective (L : FinLocalCover D H v) (T : TorusRep D H v)
+    (A : AddCharData F) (μ : LocHaar v) (s : ℂ) (z : T.V) :
+    ∃ f, IsSection L T s f ∧ jacquet L A μ f = z := by
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let _ : (Valued.v : Valuation K (WithZero (Multiplicative ℤ))).RankOne := inferInstance
+  let _ : NormedField K := inferInstance
+  let _ : Finite (IsLocalRing.ResidueField O) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  have hproper : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing O),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField O))⟩
+  have hset : (O : Set K) = Metric.closedBall (0 : K) 1 := by
+    change (↑((Valued.v : Valuation K (WithZero (Multiplicative ℤ))).integer) : Set K) = _
+    exact Valued.toNormedField.setOfPred_mem_integer_eq_closedBall (L := K)
+  have hcompact : IsCompact (O : Set K) := by
+    rw [hset]
+    exact hproper.isCompact_closedBall 0 1
+  have hopen : IsOpen (O : Set K) := Valued.isOpen_valuationSubring K
+  obtain ⟨φ, hφ, hφc, hhat⟩ := exists_fourier_indicator A μ O hcompact hopen z
+  have h1O : (1 : K) ∈ O := by
+    simp [O]
+  refine ⟨bigCell L T s φ, bigCell_isSection L T s φ hφ hφc, ?_⟩
+  have hJ := jacquet_bigCell L T A μ s φ hφ hφc (1 : Kˣ)
+  rw [L.a_one] at hJ
+  have hFourier : ∫ t, A.ψ v (-t) • φ t ∂μ.μ = z := by
+    simpa [h1O] using hhat (1 : K)
+  simp only [Units.val_one, one_mul] at hJ
+  rw [hFourier] at hJ
+  have htr : rtr (1 : L.L) (bigCell L T s φ) = bigCell L T s φ := by
+    funext g
+    simp [rtr]
+  rw [htr] at hJ
+  simpa [absFin_eq_norm, T.σa_one] using hJ
+
 /-- **wh:tau-tame**: `τ(s) e_k = A_k(s) e_{-k} + q^{2s-1} G(ρ^{k-1}) e_{k+1}` with
 `G(ρ^j) = q^{1/2} g_{2j}`. -/
 theorem local_coefficient_tame (L : FinLocalCover D H v) (T : TorusRep D H v)
@@ -293,7 +607,121 @@ theorem local_coefficient_rank_one (L : FinLocalCover D H v) (T : TorusRep D H v
     (hτ : ∀ f ∈ sectionSpace L T (1 / 6),
       jacquet L A μ (intertwine L μ f) = τ (jacquet L A μ f)) :
     LinearMap.range τ = Submodule.span ℂ {shellVec D A B.weyl} := by
-  sorry
+  classical
+  have hAdd : T.weyl.nacg.toAddCommMonoid = T.nacg.toAddCommMonoid := rfl
+  have hModule : T.weyl.nsp.toModule = T.nsp.toModule := rfl
+  cases hAdd
+  cases hModule
+  have hs : (0 : ℝ) < (1 / 6 : ℂ).re := by norm_num
+  have hmatrix (k : ZMod 3) :=
+    local_coefficient_tame L T B A μ hv hd (1 / 6 : ℂ) hs τ hτ k
+  let q : ℂ := qv v
+  let a : ℂ := q ^ (-(1 / 6 : ℂ)) * gaussLoc D A v (-2)
+  let b : ℂ := q ^ (-(1 / 6 : ℂ)) * gaussLoc D A v 2
+  let u : T.V := shellVec D A (T := T.weyl) B.weyl
+  have hq0 : q ≠ 0 := by
+    dsimp [q]
+    exact_mod_cast (ne_of_gt (lt_trans zero_lt_one (qv_gt_one v)))
+  have hpow : q ^ (2 * (1 / 6 : ℂ) - 1) * q ^ ((1 : ℂ) / 2) =
+      q ^ (-(1 / 6 : ℂ)) := by
+    rw [← Complex.cpow_add _ _ hq0]
+    congr 1
+    ring
+  have hpowHalf : (((qv v : ℝ) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) =
+      (qv v : ℂ) ^ (-(1 / 2 : ℂ)) := by
+    simpa using Complex.ofReal_cpow
+      (le_of_lt (lt_trans zero_lt_one (qv_gt_one v))) (-(1 / 2 : ℝ))
+  have hgauss0 : gaussLoc D A v 0 = -q ^ (-(1 / 2 : ℂ)) := by
+    rw [gaussLoc_zero D A v hv hd, hpowHalf]
+  have hu : u = B.e 0 + a • B.e 1 := by
+    have hidx : (-2 : ZMod 3) = 1 := by decide
+    simp [u, a, q, shellVec, TameTorusBasis.weyl, hidx]
+    rfl
+  have hcol0 : τ (B.e 0) = u := by
+    calc
+      τ (B.e 0) = B.e 0 + a • B.e 1 := by
+        rw [hmatrix 0, tauDiag_sixth_zero]
+        have hidx : 2 * (((0 : ZMod 3).val : ℤ) - 1) = -2 := by norm_num
+        rw [hidx, ← mul_assoc, show (qv v : ℂ) = q by rfl, hpow]
+        simp [a, q]
+      _ = u := hu.symm
+  have hscalarCancel : q ^ (-(2 / 3 : ℂ)) +
+      q ^ (-(1 / 6 : ℂ)) * (-q ^ (-(1 / 2 : ℂ))) = 0 := by
+    calc
+      q ^ (-(2 / 3 : ℂ)) + q ^ (-(1 / 6 : ℂ)) * (-q ^ (-(1 / 2 : ℂ))) =
+          q ^ (-(2 / 3 : ℂ)) - q ^ (-(1 / 6 : ℂ)) * q ^ (-(1 / 2 : ℂ)) := by ring
+      _ = q ^ (-(2 / 3 : ℂ)) - q ^ (-(1 / 6 : ℂ) + -(1 / 2 : ℂ)) := by
+        rw [← Complex.cpow_add _ _ hq0]
+      _ = 0 := by congr 1 <;> norm_num
+  have hcol1 : τ (B.e 1) = 0 := by
+    rw [hmatrix 1, tauDiag_sixth_one]
+    have hv1 : (1 : ZMod 3).val = 1 := by decide
+    have hidx : 2 * (((1 : ZMod 3).val : ℤ) - 1) = 0 := by rw [hv1]; norm_num
+    rw [hidx, hgauss0]
+    rw [show (-1 : ZMod 3) = 2 by decide, show (1 : ZMod 3) + 1 = 2 by decide]
+    rw [← mul_assoc, show (qv v : ℂ) = q by rfl, hpow]
+    rw [← add_smul, hscalarCancel, zero_smul]
+  have hgaussprod : gaussLoc D A v 2 * gaussLoc D A v (-2) = 1 :=
+    gaussLoc_mul_neg D A v hv hd 2 (by norm_num)
+  have hscalarB : b * a = q ^ (-(1 / 3 : ℂ)) := by
+    dsimp [a, b]
+    calc
+      (q ^ (-(1 / 6 : ℂ)) * gaussLoc D A v 2) *
+          (q ^ (-(1 / 6 : ℂ)) * gaussLoc D A v (-2)) =
+          (q ^ (-(1 / 6 : ℂ)) * q ^ (-(1 / 6 : ℂ))) *
+            (gaussLoc D A v 2 * gaussLoc D A v (-2)) := by ring
+      _ = q ^ (-(1 / 3 : ℂ)) := by
+        rw [← Complex.cpow_add _ _ hq0, hgaussprod]
+        congr 1
+        ring
+  have hcol2 : τ (B.e 2) = b • u := by
+    rw [hmatrix 2, tauDiag_sixth_two]
+    have hv2 : (2 : ZMod 3).val = 2 := by decide
+    have hidx : 2 * (((2 : ZMod 3).val : ℤ) - 1) = 2 := by rw [hv2]; norm_num
+    rw [hidx]
+    rw [show (-2 : ZMod 3) = 1 by decide, show (2 : ZMod 3) + 1 = 0 by decide]
+    rw [← mul_assoc, show (qv v : ℂ) = q by rfl, hpow]
+    rw [hu, smul_add, smul_smul, hscalarB, add_comm]
+  have hcol (k : ZMod 3) : τ (B.e k) ∈ Submodule.span ℂ {u} := by
+    have hkcases : k.val = 0 ∨ k.val = 1 ∨ k.val = 2 := by have := k.val_lt; omega
+    rcases hkcases with hk0 | hk1 | hk2
+    · have hk : k = 0 := ZMod.val_injective 3 (by simpa using hk0)
+      rw [hk, hcol0]
+      exact Submodule.subset_span (Set.mem_singleton u)
+    · have hk : k = 1 := ZMod.val_injective 3 (by
+        rw [show (1 : ZMod 3).val = 1 by decide]
+        exact hk1)
+      rw [hk, hcol1]
+      exact Submodule.zero_mem _
+    · have hk : k = 2 := ZMod.val_injective 3 (by rw [show (2 : ZMod 3).val = 2 by decide]; exact hk2)
+      rw [hk, hcol2]
+      exact Submodule.smul_mem _ _ (Submodule.subset_span (Set.mem_singleton u))
+  have himage (x : T.V) : τ x ∈ Submodule.span ℂ {u} := by
+    have hx : x ∈ Submodule.span ℂ (Set.range B.e) := by
+      rw [B.spans]
+      exact Submodule.mem_top
+    refine Submodule.span_induction
+      (p := fun y _ => τ y ∈ Submodule.span ℂ {u}) ?_ ?_ ?_ ?_ hx
+    · rintro y ⟨k, rfl⟩
+      exact hcol k
+    · simpa using (Submodule.zero_mem (Submodule.span ℂ {u}))
+    · intro x y hx hy hpx hpy
+      rw [map_add]
+      exact Submodule.add_mem _ hpx hpy
+    · intro c x hx hpx
+      rw [map_smul]
+      exact Submodule.smul_mem _ c hpx
+  have hrange : LinearMap.range τ ≤ Submodule.span ℂ {u} := by
+    intro y hy
+    rcases hy with ⟨x, rfl⟩
+    exact himage x
+  have huRange : u ∈ LinearMap.range τ := ⟨B.e 0, hcol0⟩
+  have hspanRange : Submodule.span ℂ {u} ≤ LinearMap.range τ :=
+    Submodule.span_le.mpr fun x hx => by
+      rcases Set.mem_singleton_iff.mp hx with rfl
+      exact huRange
+  change LinearMap.range τ = Submodule.span ℂ {u}
+  exact le_antisymm hrange hspanRange
 
 /-- The local theta space `Θ_v = M(1/6) I(T, 1/6) ⊆ I(T.weyl, -1/6)`. -/
 def thetaSpace (L : FinLocalCover D H v) (T : TorusRep D H v) (μ : LocHaar v) :
