@@ -11,10 +11,12 @@ noncomputable section
 namespace ArtinPrimitiveRoots.Proofs.PP_PRIME
 
 open Classical
+open Filter
 open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.TypeII.PP
 open MeasureTheory
 open scoped FourierTransform
+open scoped Topology
 
 noncomputable def mangoldtIntervalPolynomial (N : ℝ) (q : ℕ)
     (χ : DirichletCharacter ℂ q) (t : ℝ) (I : Set ℕ) : ℂ :=
@@ -1916,8 +1918,73 @@ private theorem ppPrimeSmoothed_mellin_identity
           filter_upwards [] with v
           rw [hz v]
 
+private theorem ppPrimeMellinKernel_differentiableAt
+    {g : ℝ → ℝ}
+    (hfc : LocallyIntegrableOn (fun w : ℝ => (g w : ℂ)) (Set.Ioi 0))
+    (hgsupport : Function.support g ⊆ Set.Icc (1 / 2 : ℝ) 3)
+    {z : ℂ} (hz : |z.re| < 1) :
+    DifferentiableAt ℂ (mellinKernel g) z := by
+  let f : ℝ → ℂ := fun w => (g w : ℂ)
+  have hzeroTop : f =ᶠ[atTop] (fun _ : ℝ => 0) := by
+    filter_upwards [eventually_gt_atTop (3 : ℝ)] with w hw
+    have hgw : g w = 0 := by
+      by_contra hgw
+      have hmem : w ∈ Function.support g := by
+        simpa only [Function.mem_support] using hgw
+      linarith [(hgsupport hmem).2]
+    simp [f, hgw]
+  have hzeroBot : f =ᶠ[𝓝[>] (0 : ℝ)] (fun _ : ℝ => 0) := by
+    filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1 / 2)] with w hw
+    have hgw : g w = 0 := by
+      by_contra hgw
+      have hmem : w ∈ Function.support g := by
+        simpa only [Function.mem_support] using hgw
+      linarith [(hgsupport hmem).1, hw.2]
+    simp [f, hgw]
+  have hf_top : f =O[atTop] (fun w : ℝ => Real.rpow w (-1)) := by
+    apply Asymptotics.IsBigO.of_norm_eventuallyLE
+    filter_upwards [hzeroTop, eventually_gt_atTop (3 : ℝ)] with w hwzero hwpos
+    rw [hwzero]
+    simpa using Real.rpow_nonneg (show 0 ≤ w by linarith) (-1)
+  have hf_bot : f =O[𝓝[>] (0 : ℝ)]
+      (fun w : ℝ => Real.rpow w (-(-1 : ℝ))) := by
+    apply Asymptotics.IsBigO.of_norm_eventuallyLE
+    filter_upwards [hzeroBot,
+      Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1 / 2)] with w hwzero hwpos
+    rw [hwzero]
+    simpa using Real.rpow_nonneg hwpos.1.le (-(-1 : ℝ))
+  have hf_top' : (fun w : ℝ => (g w : ℂ)) =O[atTop]
+      (fun w : ℝ => Real.rpow w (-1)) := by simpa [f] using hf_top
+  have hf_bot' : (fun w : ℝ => (g w : ℂ)) =O[𝓝[>] (0 : ℝ)]
+      (fun w : ℝ => Real.rpow w (-(-1 : ℝ))) := by simpa [f] using hf_bot
+  have hz' := abs_lt.mp hz
+  have hEq : mellinKernel g = mellin (fun w : ℝ => (g w : ℂ)) := by
+    funext s
+    exact mellinKernel_eq_mellin g s
+  rw [hEq]
+  exact mellin_differentiableAt_of_isBigO_rpow (a := 1) (b := -1)
+    hfc hf_top' hz'.2 hf_bot' hz'.1
+
+/- Zero-free input passed from `PP.Results`, which imports this plan module. -/
+def ppPrimeZeroFree (C : ℝ) : Prop :=
+    0 < C →
+      ∃ c C₀ x₀ : ℝ, 0 < c ∧ 0 < C₀ ∧ 2 < x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          let L := Real.log x
+          let T := Real.log L
+          let width := c * T ^ 2 / L
+          ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
+            ∀ hq : 0 < q, ∀ χ : DirichletCharacter ℂ q,
+              (∀ s : ℂ, 1 - width ≤ s.re →
+                1 ≤ |s.im| → |s.im| ≤ Real.rpow x 3 →
+                  dirichletLValue q hq χ s ≠ 0) ∧
+              (∀ s : ℂ, 1 - width / 2 ≤ s.re → s.re ≤ 1 + 1 / L →
+                2 ≤ |s.im| → |s.im| ≤ Real.rpow x 3 / 2 →
+                  ‖deriv (dirichletLValue q hq χ) s /
+                    dirichletLValue q hq χ s‖ ≤ C₀ * L)
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
-theorem prime_mangoldt_interval_bound :
+theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C) :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
       ∃ B₀ K x₀ : ℝ, 0 < B₀ ∧ 0 < K ∧ 2 < x₀ ∧
         ∀ x : ℝ, x₀ ≤ x →
@@ -1945,7 +2012,7 @@ theorem prime_power_removal {N : ℝ} (hN : 4 ≤ N) (q : ℕ)
   sorry
 
 /-- Final interval Abel transfer and logarithm removal, to be assembled from the preceding bounds. -/
-theorem prime_polynomial_core :
+theorem prime_polynomial_core (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C) :
     ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
       ∃ B₀ C₀ x₀ : ℝ, 0 < B₀ ∧ 0 < C₀ ∧ 2 < x₀ ∧
         ∀ x : ℝ, x₀ ≤ x →

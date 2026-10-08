@@ -1630,5 +1630,6 @@ theorem prime_polynomial :
                     ‖primeDirichletPolynomial N q χ t I‖ ≤
                       C₀ * Real.rpow L (-A) := by
   exact ArtinPrimitiveRoots.Proofs.PP_PRIME.prime_polynomial_core
+    (by intro C; exact zero_free C)
 
 end ArtinPrimitiveRoots.TypeII.PP
