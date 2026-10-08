@@ -1312,6 +1312,86 @@ theorem ideal_domain_covolume (D : FieldData F)
       simp only [κF, hn, zpow_neg, zpow_natCast, inv_pow]
       ring
 
+/-- Finite translation fixation and rational automorphy imply ideal periodicity at infinity. -/
+theorem eisenstein_ideal_periodic
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (hs : 1 / 2 < s.re) (Fs : GlobalSection P G s)
+    (g : P.tc.G) (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) = scalarOf P G Fs.f Fs.fC h) :
+    ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ x : InfinitePlace F → ℂ,
+      eisenstein P G Fs (nInf P (infEmbA ξ + x) * g) =
+        eisenstein P G Fs (nInf P x * g) := by
+  classical
+  have hupper (a b : ℂ) : upperM ℂ a * upperM ℂ b = upperM ℂ b * upperM ℂ a := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [upperM, Matrix.mul_apply, Fin.sum_univ_two, add_comm]
+  have hcomm (ξ : F) (x : InfinitePlace F → ℂ) :
+      P.tc.rat (upperGL ξ) * nInf P x = nInf P x * P.tc.rat (upperGL ξ) := by
+    obtain ⟨r, hq, hf, hc⟩ := P.nS_components
+      ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x)
+    have hf1 (v : FinPlace F) : P.compF v r = 1 := by
+      simpa using hf v
+    have hRP : P.ratRP (upperGL ξ) * r = r * P.ratRP (upperGL ξ) := by
+      apply P.comp_ext
+      · intro v
+        simp only [map_mul, hf1, mul_one, one_mul]
+      · intro w
+        have hu : Matrix.GeneralLinearGroup.map w.embedding (upperGL ξ) =
+            upperM ℂ (w.embedding ξ) := by
+          apply Units.ext
+          ext i j
+          fin_cases i <;> fin_cases j <;>
+            simp [Matrix.GeneralLinearGroup.map, upperGL, upperM]
+        rw [map_mul, map_mul, P.compC_ratRP, hc, hu]
+        rw [← QuotientGroup.mk_mul, ← QuotientGroup.mk_mul]
+        exact congrArg (fun a : GL (Fin 2) ℂ => (QuotientGroup.mk a : PGL2 ℂ))
+          (hupper (w.embedding ξ) (x w))
+    have h := congrArg P.q hRP
+    simpa only [map_mul, P.q_ratRP, hq, nInf] using h
+  have hni (x y : InfinitePlace F → ℂ) : nInf P (x + y) = nInf P x * nInf P y := by
+    dsimp only [nInf]
+    have hp : ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x + y) =
+        ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x) +
+          ((0 : ∀ v : S.Sf, v.1.adicCompletion F), y) := by simp
+    rw [hp, ofAdd_add, map_mul]
+  have hrat (ξ : F) : P.tc.rat (upperGL ξ) * P.tc.rat (upperGL (-ξ)) = 1 := by
+    have hu : upperGL ξ * upperGL (-ξ) = 1 := by
+      apply Units.ext
+      ext i j
+      fin_cases i <;> fin_cases j <;>
+        simp [upperGL, Matrix.mul_apply, Fin.sum_univ_two]
+    rw [← map_mul, hu, map_one]
+  intro ξ hξ x
+  have hk : ∀ h, scalarOf P G Fs.f Fs.fC
+      (h * (g⁻¹ * nFin P (-ξ) * g)) = scalarOf P G Fs.f Fs.fC h :=
+    hfix (-ξ) ((𝔞 : Submodule (𝓞 F) F).neg_mem hξ)
+  have hfactor : P.tc.rat (upperGL ξ) *
+      (nInf P x * g * (g⁻¹ * nFin P (-ξ) * g)) =
+        nInf P (infEmbA ξ + x) * g := by
+    simp only [nFin, map_neg, neg_neg]
+    calc
+      P.tc.rat (upperGL ξ) * (nInf P x * g *
+          (g⁻¹ * (P.tc.rat (upperGL (-ξ)) * nInf P (infEmbA ξ)) * g)) =
+          P.tc.rat (upperGL ξ) * nInf P x * P.tc.rat (upperGL (-ξ)) *
+            nInf P (infEmbA ξ) * g := by group
+      _ = nInf P x * (P.tc.rat (upperGL ξ) * P.tc.rat (upperGL (-ξ))) *
+          nInf P (infEmbA ξ) * g := by
+        rw [hcomm]
+        group
+      _ = nInf P x * nInf P (infEmbA ξ) * g := by rw [hrat, mul_one]
+      _ = nInf P (infEmbA ξ + x) * g := by rw [← hni, add_comm]
+  calc
+    eisenstein P G Fs (nInf P (infEmbA ξ + x) * g) =
+        eisenstein P G Fs (P.tc.rat (upperGL ξ) *
+          (nInf P x * g * (g⁻¹ * nFin P (-ξ) * g))) := by rw [hfactor]
+    _ = eisenstein P G Fs (nInf P x * g * (g⁻¹ * nFin P (-ξ) * g)) :=
+      (eisenstein_automorphic P G hs Fs).1 _ _
+    _ = eisenstein P G Fs (nInf P x * g) :=
+      (eisenstein_automorphic P G hs Fs).2.2 _ hk _
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
