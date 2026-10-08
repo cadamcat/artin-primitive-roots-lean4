@@ -3419,6 +3419,104 @@ private theorem rowKernel_right_integrable_of_shell (hEuler : EulerHypotheses R 
   exact Filter.Eventually.of_forall (fun t => by simpa [ξLine] using (hdata t).2)
 
 
+include HA HC in
+private theorem rowContribution_eq_sum (hEuler : EulerHypotheses R η)
+    (T Z : ℝ) (hT : 2 ≤ T) (hZ : 2 ≤ Z) (rows : Finset U.U)
+    (hrows : ∀ u ∈ rows, u ≠ U.one ∧ u ∈ frequencyDyad η U T) :
+    rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, rowContribution R sd W η U {u} Z := by
+  obtain ⟨ZD⟩ := zeroDensityData_nonempty (η := η) (U := U) (HA := HA)
+  let A1 : ℝ := 2 / ZD.ρ
+  have hA1 : 1 / ZD.ρ < A1 := by
+    dsimp [A1]
+    exact (div_lt_div_of_pos_right (by norm_num : (1 : ℝ) < 2) ZD.ρ_pos)
+  let κ : ℂ := (1 / (2 * Real.pi) : ℂ)
+  let rightLine : ℝ → ℂ := fun t => ((1 + δ1 : ℝ) : ℂ) + t * Complex.I
+  have hInts (u : U.U) (hu : u ∈ rows) :
+      (∀ ξ : ℂ, ξ.re = 1 + δ1 →
+        Integrable (rowKernelHeightFiber R sd W η U HA HC u Z ξ) (volume.prod volume)) ∧
+      Integrable (fun t : ℝ => rowKernelHeightPair R sd W η U HA HC u Z
+        ((1 + δ1 : ℝ) + t * Complex.I)) :=
+    rowKernel_right_integrable_of_shell (R := R) (sd := sd) (W := W) (η := η)
+      (U := U) (HA := HA) (HC := HC) (ZD := ZD) hEuler 1 A1 (by norm_num) hA1
+      u (hrows u hu).1 T hT (hrows u hu).2 Z hZ
+  obtain ⟨Csmall, hCsmall, hsmall⟩ := zf_small_rows
+    (R := R) (sd := sd) (W := W) (η := η) (U := U) (HA := HA) (HC := HC)
+    hEuler 0 ((rows.card : ℝ) + 1) 1 (by norm_num) (by positivity) (by norm_num)
+  have hshift (C : Finset U.U) (hsub : C ⊆ rows) :
+      rowContribution R sd W η U C Z = tripleVertical (1 + δ1) (3 / 1000) (4 / 10)
+        (fun ξ w z => ∑ u ∈ C, rowKernel R sd W η U HA HC u Z ξ w z) := by
+    have hcard : (C.card : ℝ) ≤ ((rows.card : ℝ) + 1) * T ^ (0 : ℝ) := by
+      rw [Real.rpow_zero, mul_one]
+      have hle : (C.card : ℝ) ≤ rows.card := by exact_mod_cast Finset.card_le_card hsub
+      linarith
+    exact (hsmall T Z (by linarith) hZ C (fun u hu => hrows u (hsub hu)) hcard).1
+  have hPairSum (ξ : ℂ) (hξright : ξ.re = 1 + δ1) :
+      vertical (3 / 1000) (fun w => vertical (4 / 10) (fun z =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z)) =
+        ∑ u ∈ rows, rowKernelHeightPair R sd W η U HA HC u Z ξ := by
+    have hf : ∀ u ∈ rows, Integrable (fun v : ℝ × ℝ =>
+        rowKernel R sd W η U HA HC u Z ξ
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) := by
+      intro u hu
+      rw [Measure.volume_eq_prod ℝ ℝ]
+      exact (hInts u hu).1 ξ hξright
+    have hsum : Integrable (fun v : ℝ × ℝ =>
+        ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ
+          (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+          (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I)) :=
+      integrable_finsetSum rows hf
+    calc
+      _ = κ ^ 2 * ∫ v : ℝ × ℝ, ∑ u ∈ rows,
+          rowKernel R sd W η U HA HC u Z ξ
+            (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+            (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) :=
+        vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+          (fun w z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z ξ w z) hsum
+      _ = ∑ u ∈ rows, κ ^ 2 * ∫ v : ℝ × ℝ,
+          rowKernel R sd W η U HA HC u Z ξ
+            (((3 / 1000 : ℝ) : ℂ) + v.1 * Complex.I)
+            (((4 / 10 : ℝ) : ℂ) + v.2 * Complex.I) := by
+        rw [integral_finsetSum rows hf, Finset.mul_sum]
+      _ = _ := by
+        apply Finset.sum_congr rfl
+        intro u hu
+        exact (vertical_pair_eq_integral_prod (σw := 3 / 1000) (σz := 4 / 10)
+          (fun w z => rowKernelAt R sd W η U HA HC u Z ξ w z) (hf u hu)).symm
+  have hRightInt : ∀ u ∈ rows, Integrable (fun t : ℝ =>
+      rowKernelHeightPair R sd W η U HA HC u Z (rightLine t)) := by
+    intro u hu
+    exact (hInts u hu).2
+  have hFull : rowContribution R sd W η U rows Z =
+      ∑ u ∈ rows, vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) := by
+    rw [hshift rows (by intro u hu; exact hu)]
+    change κ * (∫ t : ℝ, vertical (3 / 1000) (fun w => vertical (4 / 10)
+      (fun z => ∑ u ∈ rows, rowKernel R sd W η U HA HC u Z (rightLine t) w z))) =
+        ∑ u ∈ rows, κ * ∫ t : ℝ,
+          rowKernelHeightPair R sd W η U HA HC u Z (rightLine t)
+    calc
+      _ = κ * ∫ t : ℝ, ∑ u ∈ rows,
+          rowKernelHeightPair R sd W η U HA HC u Z (rightLine t) := by
+        congr 1
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall fun t => hPairSum (rightLine t)
+          (by simp [rightLine])
+      _ = _ := by rw [integral_finsetSum rows hRightInt, Finset.mul_sum]
+  have hsingle (u : U.U) (hu : u ∈ rows) :
+      rowContribution R sd W η U {u} Z =
+        vertical (1 + δ1) (rowKernelHeightPair R sd W η U HA HC u Z) := by
+    rw [hshift {u} (by
+      intro v hv
+      rcases Finset.mem_singleton.mp hv with rfl
+      exact hu)]
+    simp only [Finset.sum_singleton]
+    rfl
+  calc
+    _ = ∑ u ∈ rows, vertical (1 + δ1)
+        (rowKernelHeightPair R sd W η U HA HC u Z) := hFull
+    _ = _ := Finset.sum_congr rfl fun u hu => (hsingle u hu).symm
+
 /-- zf:row-sum, 06:632–645: complex sum bound plus absolute convergence of the dyadic series. -/
 theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0 ∧ ∀ Z, Z0 ≤ Z →
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
