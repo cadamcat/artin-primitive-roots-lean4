@@ -107,4 +107,87 @@ theorem padic_fraction_congr_exp (m n : ℕ) (a b : ℤ)
   have hcommon := hsame k A B (by simpa only [hqA, hqB] using h)
   simpa only [mul_div_assoc, hcA, hcB] using hcommon
 
+/-- The standard Tate character on the p-adic numbers, with exact integral kernel. -/
+theorem tateQpChar_exists :
+    ∃ ψ : AddChar ℚ_[p] ℂ,
+      (∀ x : ℚ_[p], ψ x = 1 ↔ ‖x‖ ≤ 1) ∧
+      (∀ (a : ℤ) (n : ℕ), ψ ((a : ℚ_[p]) / (p : ℚ_[p]) ^ n) =
+        Complex.exp (2 * Real.pi * Complex.I * (a : ℂ) / (p : ℂ) ^ n)) := by
+  classical
+  have hp : p.Prime := Fact.out
+  let rN : ℚ_[p] → ℕ := fun x => (padic_fraction_representative x).choose
+  let rA : ℚ_[p] → ℤ := fun x => (padic_fraction_representative x).choose_spec.choose
+  have rSpec (x : ℚ_[p]) :
+      ‖x - (rA x : ℚ_[p]) / (p : ℚ_[p]) ^ rN x‖ ≤ 1 :=
+    (padic_fraction_representative x).choose_spec.choose_spec
+  let f : ℚ_[p] → ℂ := fun x =>
+    Complex.exp (2 * Real.pi * Complex.I * (rA x : ℂ) / (p : ℂ) ^ rN x)
+  have hform (x : ℚ_[p]) (n : ℕ) (a : ℤ)
+      (h : ‖x - (a : ℚ_[p]) / (p : ℚ_[p]) ^ n‖ ≤ 1) :
+      f x = Complex.exp (2 * Real.pi * Complex.I * (a : ℂ) / (p : ℂ) ^ n) := by
+    apply padic_fraction_congr_exp (rN x) n (rA x) a
+    rw [show (rA x : ℚ_[p]) / (p : ℚ_[p]) ^ rN x -
+        (a : ℚ_[p]) / (p : ℚ_[p]) ^ n =
+        -(x - (rA x : ℚ_[p]) / (p : ℚ_[p]) ^ rN x) +
+          (x - (a : ℚ_[p]) / (p : ℚ_[p]) ^ n) by ring]
+    exact (Padic.nonarchimedean _ _).trans (by simpa only [norm_neg] using max_le (rSpec x) h)
+  have hsum : ∀ (K : Type) [Field K] [CharZero K] (m n : ℕ) (a b : ℤ),
+      (((a * (p : ℤ) ^ n + b * (p : ℤ) ^ m : ℤ) : K) / (p : K) ^ (m + n)) =
+        (a : K) / (p : K) ^ m + (b : K) / (p : K) ^ n := by
+    intro K _ _ m n a b
+    have hpK : (p : K) ≠ 0 := Nat.cast_ne_zero.mpr hp.ne_zero
+    push_cast
+    rw [pow_add]
+    field_simp [hpK]
+  have hzero : f 0 = 1 := by
+    simpa using hform 0 0 0 (by simp)
+  have hadd (x y : ℚ_[p]) : f (x + y) = f x * f y := by
+    let k : ℕ := rN x + rN y
+    let a : ℤ := rA x * (p : ℤ) ^ rN y + rA y * (p : ℤ) ^ rN x
+    have hQ : (a : ℚ_[p]) / (p : ℚ_[p]) ^ k =
+        (rA x : ℚ_[p]) / (p : ℚ_[p]) ^ rN x +
+          (rA y : ℚ_[p]) / (p : ℚ_[p]) ^ rN y :=
+      hsum ℚ_[p] (rN x) (rN y) (rA x) (rA y)
+    have hC : (a : ℂ) / (p : ℂ) ^ k =
+        (rA x : ℂ) / (p : ℂ) ^ rN x +
+          (rA y : ℂ) / (p : ℂ) ^ rN y :=
+      hsum ℂ (rN x) (rN y) (rA x) (rA y)
+    have happ : ‖x + y - (a : ℚ_[p]) / (p : ℚ_[p]) ^ k‖ ≤ 1 := by
+      rw [hQ, show x + y -
+          ((rA x : ℚ_[p]) / (p : ℚ_[p]) ^ rN x +
+            (rA y : ℚ_[p]) / (p : ℚ_[p]) ^ rN y) =
+          (x - (rA x : ℚ_[p]) / (p : ℚ_[p]) ^ rN x) +
+            (y - (rA y : ℚ_[p]) / (p : ℚ_[p]) ^ rN y) by ring]
+      exact (Padic.nonarchimedean _ _).trans (max_le (rSpec x) (rSpec y))
+    rw [hform (x + y) k a happ, mul_div_assoc, hC, mul_add, Complex.exp_add]
+    simp only [f, mul_div_assoc]
+  let ψ : AddChar ℚ_[p] ℂ :=
+    { toFun := f, map_zero_eq_one' := hzero, map_add_eq_mul' := hadd }
+  refine ⟨ψ, ?_, ?_⟩
+  · intro x
+    change f x = 1 ↔ ‖x‖ ≤ 1
+    constructor
+    · intro hx
+      let n : ℕ := rN x
+      let a : ℤ := rA x
+      let : NeZero (p ^ n) := ⟨pow_ne_zero n hp.ne_zero⟩
+      have hchar : ZMod.stdAddChar (a : ZMod (p ^ n)) =
+          ZMod.stdAddChar (0 : ZMod (p ^ n)) := by
+        simpa only [ZMod.stdAddChar_coe, Nat.cast_pow, AddChar.map_zero_eq_one] using hx
+      have hmod : (a : ZMod (p ^ n)) = 0 := ZMod.injective_stdAddChar hchar
+      have hdvd : ((p ^ n : ℕ) : ℤ) ∣ a :=
+        (ZMod.intCast_zmod_eq_zero_iff_dvd a (p ^ n)).mp hmod
+      have hnum : ‖(a : ℚ_[p])‖ ≤ (p : ℝ) ^ (-(n : ℤ)) :=
+        (Padic.norm_int_le_pow_iff_dvd a n).mpr (by simpa only [Nat.cast_pow] using hdvd)
+      have hfrac : ‖(a : ℚ_[p]) / (p : ℚ_[p]) ^ n‖ ≤ 1 := by
+        rw [norm_div, Padic.norm_p_pow]
+        exact (div_le_one (zpow_pos (Nat.cast_pos.mpr hp.pos) _)).mpr hnum
+      rw [show x = (x - (a : ℚ_[p]) / (p : ℚ_[p]) ^ n) +
+          (a : ℚ_[p]) / (p : ℚ_[p]) ^ n by ring]
+      exact (Padic.nonarchimedean _ _).trans (max_le (rSpec x) hfrac)
+    · intro hx
+      simpa using hform x 0 0 (by simpa using hx)
+  · intro a n
+    exact hform _ n a (by simp)
+
 end ArtinPrimitiveRoots.Proofs.a1_bdata_sol
