@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueAdditive
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.Gamma
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.NormTransport
 import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.LambdaData
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.SignCharacter
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.Equality
 import ArtinPrimitiveRoots.Hecke.Dict.IdeleCoordinates
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
@@ -2234,6 +2235,21 @@ theorem lambda_data (D : FieldData F) (S : SData F CE condη) (A : AddCharData F
 
 end a1_lambda_sol
 
+namespace a1_weil_sol
+
+/-- The quadratic sign-character glue is below the Gauss theorem and uses no Plan import.
+Guide: PROOFS.md:487–489. The Weil lead owns this glue; the Lambda lead owns its own interface. -/
+theorem quadratic_sign_character_data (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (H : HilbertData F) (Bd : BData S H) :
+    ∃ θB : Bd.B →* ℂˣ, ∀ v : FinPlace F, v ∉ S.Sf →
+      ∀ p : Fˣ, ∀ (hpgen : S.IsGen (p : F) v.asIdeal),
+        ∀ (hpAllowed : Bd.Allowed p),
+        gamma D S A 3 v.asIdeal (p : F) =
+          ((θB ⟨(QuotientGroup.mk (S.diagU p) : S.V), hpAllowed⟩ : ℂˣ) : ℂ) := by
+  exact ArtinPrimitiveRoots.Proofs.a1_weil_sol.quadratic_sign_character_data D S A H Bd
+
+end a1_weil_sol
+
 /-- lem:gauss-characters (02:411–436): `Λ` unitary, `G` finite order, both unramified at `v ∉ S`,
 with `γ_2(𝔭)³ = -Λ(𝔭)`, `G(𝔭) = conj(χ_𝔭(4))γ_3(𝔭)`, `γ_1(𝔭)γ_2(𝔭) = -Λ(𝔭)G(𝔭)` for every exterior
 prime and allowed generator. Package P-ARITH-GAUSS (Λ: P-ARITH-LAMBDA, G: P-WEIL).
@@ -2256,7 +2272,21 @@ theorem gauss_characters (D : FieldData F) (S : SData F CE condη) (A : AddCharD
           G.primeValue v = (starRingEnd ℂ) (chi D v 4) * gamma D S A 3 v.asIdeal (p : F) ∧
           gamma D S A 1 v.asIdeal (p : F) * gamma D S A 2 v.asIdeal (p : F) =
             -(Λ.primeValue v * G.primeValue v) := by
-  sorry
+  obtain ⟨Λ, hunit, hang, hΛ⟩ := a1_lambda_sol.lambda_data D S A H Bd
+  obtain ⟨θB, hθ⟩ := a1_weil_sol.quadratic_sign_character_data D S A H Bd
+  obtain ⟨G, hfin, hG⟩ := a1_gauss_sol.gauss_correction_data D S A H Bd θB hθ
+  refine ⟨Λ, G, hfin, hunit, hang, ⟨θB, fun v hv p hp ha =>
+    ⟨ArtinPrimitiveRoots.Proofs.a1_gauss_sol.gamma_three_sign D S A v hv (p : F) hp,
+      hθ v hv p hp ha⟩⟩, ?_⟩
+  intro v hv
+  refine ⟨(hΛ v hv).1, (hG v hv).1, ?_⟩
+  intro p hp ha
+  have hcubic := (hΛ v hv).2 p hp ha
+  have hcorr := (hG v hv).2 p hp ha
+  refine ⟨hcubic, hcorr, ?_⟩
+  rw [ArtinPrimitiveRoots.Proofs.a1_gauss_sol.gamma_duplication D S A v hv (p : F) hp,
+    ← hcorr, hcubic]
+  ring
 
 /-- `ϑ = Λ̄ Ḡ η = Λ⁻¹ G⁻¹ η` (unitary) (02:606–608). -/
 def vartheta (Λ G η : HeckeChar F) : HeckeChar F := Λ⁻¹ * G⁻¹ * η
