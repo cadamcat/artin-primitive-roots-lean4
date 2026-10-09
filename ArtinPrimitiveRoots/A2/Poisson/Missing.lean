@@ -26,6 +26,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.HaarDilation
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LabeledAdditiveSieve
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.Lead.MellinIdentity
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.Lead.OrbitExpansion
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.MellinInversions
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LocalRadialIntegral
@@ -11804,7 +11805,22 @@ theorem po_mellin_triple : WeightSpec R sd W → ∀ X Y Z, 0 < X → 0 < Y → 
       exact po_calFTerm_abs_summable R η U u ξ w z hξ hw hz
     · exact (po_calF_frequency_summable R η U ξ w z hξ hw hz).1
   · exact po_mellin_triple_integrable R sd W η U hdecay X Y Z hX hY hZ
-  · sorry
+  · let W' := po_probeWeights W
+    have hdecay' : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadWeightDecay R sd W' := hdecay
+    have hOrbit := po_poisson_orbits R sd W η U hSpec
+    have hExpansion : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadExpansionContract R sd W' η U :=
+      hOrbit.2.2.2
+    have hV0 : ∀ T : ℝ, 0 < T →
+        ArtinPrimitiveRoots.Proofs.a2_probe_sol.leadV0 R sd W' T =
+          ArtinPrimitiveRoots.Proofs.a2_probe_sol.leadVertical 2 (fun z =>
+            ArtinPrimitiveRoots.Proofs.a2_probe_sol.leadM R sd W' z * (T : ℂ) ^ (-z)) :=
+      fun T hT => hOrbit.2.2.1 2 T (by norm_num) hT
+    have hInversions : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadInversionsContract R sd W' :=
+      ArtinPrimitiveRoots.Proofs.a2_probe_sol.mellin_inversions_of_v0 R sd W' hV0 hdecay'
+    have hCoeff : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadCoeffBoundContract R η U :=
+      fun ξ w z hξ hw hz u p => po_calFTerm_norm_bound R η U u ξ w z hξ hw hz p
+    exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.mellin_identity
+      R sd W' η U hExpansion hInversions hdecay' hCoeff X Y Z hX hY hZ
 
 /-- po:H-local-bounds: C,Q0 chosen before the field, set S, phases, or frequency.
 This is the absolute-cutoff obligation used when choosing S in A1. -/
