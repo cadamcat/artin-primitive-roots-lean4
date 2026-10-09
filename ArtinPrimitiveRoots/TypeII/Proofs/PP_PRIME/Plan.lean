@@ -2355,6 +2355,67 @@ private theorem ppPrime_mellinKernel_integrable_of_rpow_two
   filter_upwards with v
   simpa [Real.norm_eq_abs] using hbound v
 
+private theorem ppPrimePositiveCutoff_mellinKernel_analyticOnNhd
+    (a b δ : ℝ) (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ 2)
+    (hδ : 0 < δ) (hδsmall : δ ≤ 1 / 4) :
+    AnalyticOnNhd ℂ (mellinKernel (ppPrimePositiveCutoff a b δ)) Set.univ := by
+  have haPos : 0 < a := by linarith
+  have hbPos : 0 < b := lt_of_lt_of_le haPos hab
+  have hexpLower : (3 / 4 : ℝ) ≤ Real.exp (-δ) := by
+    have h := Real.add_one_le_exp (-δ)
+    linarith
+  have hexpUpper : Real.exp δ ≤ 9 / 7 := by
+    have h := Real.exp_le_two_add_div_two_sub hδ.le (by linarith : δ < 2)
+    have hden : 0 < 2 - δ := by linarith
+    have hfrac : (2 + δ) / (2 - δ) ≤ 9 / 7 := by
+      apply (div_le_iff₀ hden).2
+      nlinarith
+    exact h.trans hfrac
+  have hlow : (1 / 2 : ℝ) ≤ a * Real.exp (-δ) := by
+    calc
+      1 / 2 ≤ 3 / 4 := by norm_num
+      _ ≤ Real.exp (-δ) := hexpLower
+      _ = 1 * Real.exp (-δ) := by ring
+      _ ≤ a * Real.exp (-δ) :=
+        mul_le_mul_of_nonneg_right ha (Real.exp_nonneg _)
+  have hhigh : b * Real.exp δ ≤ 3 := by
+    calc
+      b * Real.exp δ ≤ 2 * (9 / 7) :=
+        mul_le_mul hb hexpUpper (Real.exp_nonneg _) (by norm_num)
+      _ ≤ 3 := by norm_num
+  have hsupport : Function.support (ppPrimePositiveCutoff a b δ) ⊆
+      Set.Icc (1 / 2 : ℝ) 3 := by
+    intro w hw
+    have h := ppPrimePositiveCutoff_support a b δ haPos hbPos hδ hw
+    exact ⟨hlow.trans h.1, h.2.trans hhigh⟩
+  have hlog : ContinuousOn Real.log (Set.Ioi (0 : ℝ)) :=
+    Real.continuousOn_log.mono (by intro w hw; exact ne_of_gt hw)
+  have hcut : Continuous (ppPrimeLogCutoff (Real.log a) (Real.log b) δ) :=
+    (ppPrimeLogCutoff_contDiff _ _ _).continuous
+  have hcutU : ContinuousOn
+      (ppPrimeLogCutoff (Real.log a) (Real.log b) δ) Set.univ := hcut.continuousOn
+  have hcomp : ContinuousOn
+      (fun w : ℝ => ppPrimeLogCutoff (Real.log a) (Real.log b) δ (Real.log w))
+      (Set.Ioi 0) := by
+    exact hcutU.comp hlog (by intro w hw; simp)
+  have hrealCLM : Continuous (fun r : ℝ => (r : ℂ)) := Complex.ofRealCLM.continuous
+  have hrealU : ContinuousOn (fun r : ℝ => (r : ℂ)) Set.univ := by
+    exact continuousOn_univ.mpr hrealCLM
+  have hcompC : ContinuousOn
+      (fun w : ℝ => (ppPrimeLogCutoff (Real.log a) (Real.log b) δ
+        (Real.log w) : ℂ)) (Set.Ioi 0) := by
+    exact hrealU.comp hcomp (by intro w hw; exact Set.mem_univ _)
+  have hcutC : ContinuousOn
+      (fun w : ℝ => (ppPrimePositiveCutoff a b δ w : ℂ)) (Set.Ioi 0) := by
+    apply hcompC.congr
+    intro w hw
+    have hwpos : 0 < w := hw
+    simp [ppPrimePositiveCutoff, hwpos]
+  have hfc : LocallyIntegrableOn
+      (fun w : ℝ => (ppPrimePositiveCutoff a b δ w : ℂ)) (Set.Ioi 0) :=
+    hcutC.locallyIntegrableOn measurableSet_Ioi
+  exact ppPrimeMellinKernel_analyticOnNhd hfc hsupport
+
 private theorem ppPrimeSmoothing_error_log_bound
     {x N τ A : ℝ} (hx : 2 < x)
     (hNlo : Real.rpow x τ / 2 ≤ N) (hN4 : 4 ≤ N)
