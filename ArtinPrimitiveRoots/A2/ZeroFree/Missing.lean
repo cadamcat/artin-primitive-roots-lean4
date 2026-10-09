@@ -6179,6 +6179,31 @@ private theorem rows_sol_principal_signal_xi_shift
     _ = principalSignal R η U HA HC Z := by
       simp only [vertical, principalSignal, fEta, G, Complex.ofReal_ofNat]
 
+private theorem rows_sol_principal_identity (hEuler : EulerHypotheses R η)
+    (Z : ℝ) (hZ : 2 ≤ Z) :
+    rowContribution R sd W η U {U.one} Z =
+      principalConstant R sd W HA * principalSignal R η U HA HC Z +
+        principalRw R sd W η U HA HC Z + principalRz R sd W η U HA HC Z := by
+  have hZpos : 0 < Z := by linarith
+  have hResidue :
+      vertical (1 + δ1) (fun ξ =>
+        mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 (1 / 6) *
+          (HA.RS S ^ 2 / 6) * HC.H U.one ![ξ, 1, 1 / 6] / HA.LS S η ξ) =
+        principalConstant R sd W HA * principalSignal R η U HA HC Z := by
+    calc
+      _ = vertical (1 + δ1) (fun ξ => principalConstant R sd W HA *
+          ((Z : ℂ) ^ Cstar ξ * amplitude (Heta R η U HC) (HA.LS S η) ξ)) := by
+        congr 1
+        funext ξ
+        exact rows_sol_principal_double_residue_eq R sd W η U HA HC Z hZpos ξ
+      _ = principalConstant R sd W HA * vertical (1 + δ1) (fun ξ =>
+          (Z : ℂ) ^ Cstar ξ * amplitude (Heta R η U HC) (HA.LS S η) ξ) :=
+        rows_vertical_const_mul (1 + δ1) (principalConstant R sd W HA) _
+      _ = _ := by
+        rw [rows_sol_principal_signal_xi_shift R η U HA HC hEuler Z hZ]
+  rw [rows_sol_principal_z_integrated R sd W η U HA HC hEuler Z hZ, hResidue]
+  ring
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
