@@ -193,7 +193,83 @@ theorem mellin_prime_identity (f : ℝ → ℝ)
     (primeIdealTheta K f x : ℂ) = verticalLineIntegral
       (fun s : ℂ => dedekindZetaLogDerivative K s *
         Complex.cpow (x : ℂ) s * mellinTransform f s) 2 := by
-  sorry
+  let P : HeightOneSpectrum (𝓞 K) × ℕ → ℝ := fun w =>
+    Real.log (Ideal.absNorm w.1.asIdeal : ℝ) *
+      f (((Ideal.absNorm w.1.asIdeal ^ (w.2 + 1) : ℕ) : ℝ) / x)
+  let T : HeightOneSpectrum (𝓞 K) × ℕ → ℂ := fun w =>
+    verticalLineIntegral (fun s : ℂ =>
+      (Real.log (Ideal.absNorm w.1.asIdeal : ℝ) : ℂ) *
+        (Ideal.absNorm w.1.asIdeal : ℂ) ^ (-((w.2 + 1 : ℕ) : ℂ) * s) *
+        Complex.cpow (x : ℂ) s * mellinTransform f s) 2
+  have hEx := mellin_euler_exchange (mellinTransform f) hentire hdecay K
+    (euler_log_norm_summable K (σ := 2) (by norm_num)) x hx
+  have hterm (w : HeightOneSpectrum (𝓞 K) × ℕ) : T w = (P w : ℂ) := by
+    let N : ℕ := Ideal.absNorm w.1.asIdeal
+    let j : ℕ := w.2 + 1
+    let y : ℝ := ((N ^ j : ℕ) : ℝ) / x
+    have hN : 0 < N :=
+      lt_trans Nat.zero_lt_one (NumberField.HeightOneSpectrum.one_lt_absNorm w.1)
+    have hy : 0 < y := div_pos (Nat.cast_pos.mpr (pow_pos hN j)) hx
+    have hpower (s : ℂ) : (N : ℂ) ^ (-(j : ℂ) * s) * Complex.cpow (x : ℂ) s =
+        Complex.cpow (y : ℂ) (-s) := by
+      rw [show -(j : ℂ) * s = (j : ℂ) * (-s) by ring,
+        Complex.natCast_cpow_natCast_mul]
+      simp only [Complex.cpow_eq_pow, y, Complex.ofReal_div]
+      rw [Complex.div_cpow_ofReal_nonneg (Nat.cast_nonneg (N ^ j)) hx.le,
+        Complex.ofReal_natCast, Nat.cast_pow]
+      simp only [Complex.cpow_neg, div_eq_mul_inv, inv_inv]
+    have hfun : (fun s : ℂ =>
+        (Real.log (N : ℝ) : ℂ) * (N : ℂ) ^ (-(j : ℂ) * s) *
+          Complex.cpow (x : ℂ) s * mellinTransform f s) =
+        (fun s : ℂ => (Real.log (N : ℝ) : ℂ) *
+          (Complex.cpow (y : ℂ) (-s) * mellinTransform f s)) := by
+      funext s
+      calc
+        _ = (Real.log (N : ℝ) : ℂ) *
+            (((N : ℂ) ^ (-(j : ℂ) * s) * Complex.cpow (x : ℂ) s) *
+              mellinTransform f s) := by ring
+        _ = _ := by rw [hpower]
+    calc
+      T w = verticalLineIntegral (fun s : ℂ => (Real.log (N : ℝ) : ℂ) *
+          (Complex.cpow (y : ℂ) (-s) * mellinTransform f s)) 2 := by
+        change verticalLineIntegral (fun s : ℂ =>
+          (Real.log (N : ℝ) : ℂ) * (N : ℂ) ^ (-(j : ℂ) * s) *
+            Complex.cpow (x : ℂ) s * mellinTransform f s) 2 = _
+        rw [hfun]
+      _ = (Real.log (N : ℝ) : ℂ) * verticalLineIntegral
+          (fun s : ℂ => Complex.cpow (y : ℂ) (-s) * mellinTransform f s) 2 := by
+        unfold verticalLineIntegral
+        rw [MeasureTheory.integral_const_mul]
+        ring
+      _ = (Real.log (N : ℝ) : ℂ) * (f y : ℂ) := by
+        rw [vertical_mellin_inverse f hf hentire hdecay y hy]
+      _ = (P w : ℂ) := by simp only [P, N, j, y, Complex.ofReal_mul]
+  have hTsum : Summable T := hEx.1
+  have hPsum : Summable P := Complex.summable_ofReal.mp (hTsum.congr hterm)
+  let H : HeightOneSpectrum (𝓞 K) → ℕ → ℝ := fun v j =>
+    if 0 < j then Real.log (Ideal.absNorm v.asIdeal : ℝ) *
+      f (((Ideal.absNorm v.asIdeal ^ j : ℕ) : ℝ) / x) else 0
+  have hshift (v : HeightOneSpectrum (𝓞 K)) (j : ℕ) : H v (j + 1) = P (v, j) := by
+    simp [H, P]
+  have hinner (v : HeightOneSpectrum (𝓞 K)) : Summable (H v) := by
+    have ht : Summable (fun j : ℕ => H v (j + 1)) :=
+      (hPsum.prod_factor v).congr fun j => (hshift v j).symm
+    exact (summable_nat_add_iff 1).mp ht
+  have hTheta : primeIdealTheta K f x =
+      ∑' v : HeightOneSpectrum (𝓞 K), ∑' j : ℕ, P (v, j) := by
+    change (∑' v, ∑' j, H v j) = _
+    apply tsum_congr
+    intro v
+    rw [(hinner v).tsum_eq_zero_add]
+    have hzero : H v 0 = 0 := by simp [H]
+    rw [hzero, zero_add]
+    exact tsum_congr (hshift v)
+  calc
+    (primeIdealTheta K f x : ℂ) = ((∑' w, P w : ℝ) : ℂ) := by
+      rw [hTheta, ← hPsum.tsum_prod]
+    _ = ∑' w, (P w : ℂ) := Complex.ofReal_tsum P
+    _ = ∑' w, T w := tsum_congr fun w => (hterm w).symm
+    _ = _ := hEx.2.symm
 
 theorem euler_right_line_bound :
     ∃ B : ℝ, 0 < B ∧ ∀ (K : Type u) [Field K] [NumberField K] (t : ℝ),
