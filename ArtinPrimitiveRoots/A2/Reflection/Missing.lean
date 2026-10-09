@@ -16065,6 +16065,40 @@ private theorem rf_pairing_grouped_kernel_integral
   dsimp only [z, u, ν]
   split_ifs <;> ring
 
+private theorem rf_pairing_grouped_kernel_norm_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (q : FrozenIndex R r.h × S.SqfExtIdeal)
+    (Z : ℝ) (hZ : 0 < Z) (T : ℝ) (hT : 0 < T) :
+    ‖rf_pairing_grouped_kernel_term R r q Z T‖ ≤
+      ‖R.K T‖ *
+        ((betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1) *
+          profileAbs R (rowClass R r)
+            (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / (T / Z))) / T := by
+  classical
+  let m := (R.sheets.sheet (T / Z)).restrict (omegaAt R (T / Z))
+  let f : Gamma S → S.FS → ℂ := fun γ =>
+    onUnits (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ))
+  let v : Gamma S → ℂ := fun γ => ∫ y, f γ y ∂m
+  let N : Gamma S → ℝ := fun γ => ∫ y, ‖f γ y‖ ∂m
+  let weight := betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1
+  let profile := profileAbs R (rowClass R r)
+    (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / (T / Z))
+  have hBase := rf_pairing_grouped_orbit_integrals R r q.1 q.2 (T / Z) (div_pos hT hZ)
+  change (∀ γ, Integrable (f γ) m) ∧ Summable N ∧
+    (∑' γ, N γ) ≤ weight * profile at hBase
+  have hLe (γ : Gamma S) : ‖v γ‖ ≤ N γ := norm_integral_le_integral_norm _
+  have hsNorm : Summable (fun γ => ‖v γ‖) :=
+    Summable.of_nonneg_of_le (fun γ => norm_nonneg (v γ)) hLe hBase.2.1
+  have hSeries : ‖∑' γ, v γ‖ ≤ weight * profile := by
+    calc
+      _ ≤ ∑' γ, ‖v γ‖ := norm_tsum_le_tsum_norm hsNorm
+      _ ≤ ∑' γ, N γ := hsNorm.tsum_le_tsum hLe hBase.2.1
+      _ ≤ weight * profile := hBase.2.2
+  change ‖R.K T * (∑' γ, v γ) / (T : ℂ)‖ ≤ ‖R.K T‖ * (weight * profile) / T
+  rw [norm_div, norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hT]
+  exact div_le_div_of_nonneg_right
+    (mul_le_mul_of_nonneg_left hSeries (norm_nonneg _)) hT.le
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
