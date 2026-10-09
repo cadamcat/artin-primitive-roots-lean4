@@ -4785,6 +4785,103 @@ private theorem rf_forward_frequency_injective :
     simpa only [hPair] using hpq
   exact Prod.ext hPair hGamma
 
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_term_factor (r : ReflectionRow S) (ν : Fˣ)
+    (y : S.FSˣ) (hνR : (ν : F) ∈ S.R)
+    (hFinite : (Function.mulSupport fun v : {v : FinPlace F // v ∉ S.Sf} =>
+      R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν))).Finite) :
+    forwardTerm R r ν y =
+      (∏ v ∈ R.exterior.support r.ideal,
+        chiPow D v (ν : F) (digitExponent r v).1) *
+      (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf},
+        R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν))) *
+      (bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y)) := by
+  classical
+  let T0 := R.exterior.support r.ideal
+  let V := {v : FinPlace F // v ∈ T0}
+  letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let w : FinPlace F → ℂ := fun v => R.T.Wv v (R.C.a v (toLoc v ν))
+  let s : Set (FinPlace F) := {v | v ∉ S.Sf}
+  have hFin : (s ∩ Function.mulSupport w).Finite := by
+    apply (hFinite.image (fun v : {v : FinPlace F // v ∉ S.Sf} => v.1)).subset
+    intro v hv
+    exact ⟨⟨v, hv.1⟩, hv.2, rfl⟩
+  have hT0 : (T0 : Set (FinPlace F)) ⊆ s :=
+    fun v hv => R.exterior.support_exterior r.ideal v hv
+  have hSplit :
+      (∏ v ∈ T0, w v) * (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0), w v) =
+        ∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, w v.1 := by
+    have h := finprod_mem_mul_sdiff' (f := w) hT0 hFin
+    rw [finprod_mem_coe_finset] at h
+    simpa only [s, Set.mem_setOf_eq, Set.mem_sdiff, Finset.mem_coe,
+      ← finprod_subtype_eq_finprod_cond] using h
+  let phase : Digits R r → ℂ := fun d =>
+    ∏ v : V, A.ψ v.1 (algebraMap F _
+      ((ν : F) * algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))
+  let WS := R.T.WS (R.chars.L (rowClass R r))
+    (R.C.aS (S.diagU ν) * R.C.aS y)
+  let head := ∏ v ∈ T0, w v
+  let tail := ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0), w v
+  have hFactor (d : Digits R r) :
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * digitPoint R r y d) = WS * phase d * head * tail := by
+    let x : (v : V) → v.1.adicCompletion F := fun v => algebraMap F _
+      (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F))
+    have hPhase : (∏ v : V, A.ψ v.1 (x v * (toLoc v.1 ν : v.1.adicCompletion F))) =
+        phase d := by
+      apply Finset.prod_congr rfl
+      intro v hv
+      congr 1
+      change algebraMap F (v.1.adicCompletion F)
+        (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)) *
+        algebraMap F (v.1.adicCompletion F) (ν : F) =
+        algebraMap F (v.1.adicCompletion F)
+          ((ν : F) * algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F))
+      rw [← map_mul]
+      congr 1
+      ring
+    have h := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.finite_digit_factorization
+      R.T (R.chars.L (rowClass R r)) (R.mem_family (rowClass R r)) T0
+      (fun v hv => R.exterior.support_exterior r.ideal v hv) ν y x
+    rw [hPhase] at h
+    exact h
+  have hSum :
+      (∑ᶠ d : Digits R r, digitAlpha R r d * R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * digitPoint R r y d)) =
+        WS * (∑ᶠ d : Digits R r, digitAlpha R r d * phase d) * head * tail := by
+    simp only [finsum_eq_sum_of_fintype, Finset.mul_sum, Finset.sum_mul]
+    apply Finset.sum_congr rfl
+    intro d hd
+    rw [hFactor]
+    ring
+  have hDigit : (∑ᶠ d : Digits R r, digitAlpha R r d * phase d) =
+      ∏ v ∈ T0, chiPow D v (ν : F) (digitExponent r v).1 :=
+    (rf_forward_frequencies R).2.1 r ν hνR
+  have hWS : WS = sCocycle (D := D) (H := H) (S.diagU ν) y *
+      unrotated R (rowClass R r) (S.diagU ν * y) := by
+    dsimp only [WS]
+    rw [R.C.aS_mul, R.T.WS_genuine (R.chars.L (rowClass R r))
+      (R.mem_family (rowClass R r))]
+    simp [sCocycle, unrotated, muThree, map_pow]
+  have hWeighted : bCut (Bd := Bd) y * WS =
+      bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y) := by
+    rw [hWS]
+    by_cases hz : bCut (Bd := Bd) y *
+        unrotated R (rowClass R r) (S.diagU ν * y) = 0
+    · rw [mul_left_comm, hz, mul_zero]
+    · rw [(rf_forward_frequencies R).2.2 (rowClass R r) ν y hz, one_mul]
+  unfold forwardTerm
+  rw [hSum, hDigit]
+  calc
+    _ = (∏ v ∈ T0, chiPow D v (ν : F) (digitExponent r v).1) *
+        (head * tail) * (bCut (Bd := Bd) y * WS) := by ring
+    _ = _ := by
+      rw [hWeighted]
+      exact congrArg
+        (fun a : ℂ => (∏ v ∈ T0, chiPow D v (ν : F) (digitExponent r v).1) * a *
+          (bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y))) hSplit
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
