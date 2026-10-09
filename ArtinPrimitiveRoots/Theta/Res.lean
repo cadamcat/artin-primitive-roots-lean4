@@ -607,6 +607,24 @@ theorem theta_constantCoeff_eq_of_M {P : CoverPackage D S H A} {G : GlobalDatum 
   rw [theta_constantTerm Fam C g 𝔞 h𝔞 hfix Pd hPd hb,
     theta_constantTerm Fam' C' g 𝔞 h𝔞 hfix' Pd hPd hb, hT, hMf]
 
+/-- Families with common support admit a common uniform level at each supported place. -/
+theorem family_pair_common_local_level {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (hT : Fam.T0 = Fam'.T0) :
+    ∀ v ∈ Fam.T0, ∃ m, (P.loc v).m0 ≤ m ∧
+      (∀ s g, ∀ k ∈ (P.loc v).Kc m, (Fam.sec s).f v (g * k) = (Fam.sec s).f v g) ∧
+      (∀ s g, ∀ k ∈ (P.loc v).Kc m, (Fam'.sec s).f v (g * k) = (Fam'.sec s).f v g) := by
+  intro v hv
+  obtain ⟨m₁, hm₁, hlevel₁⟩ := Fam.level v hv
+  obtain ⟨m₂, hm₂, hlevel₂⟩ := Fam'.level v (hT ▸ hv)
+  refine ⟨max m₁ m₂, hm₁.trans (Nat.le_max_left _ _), ?_, ?_⟩
+  · intro s g k hk
+    exact hlevel₁ s g k
+      ((P.loc v).Kc_anti m₁ (max m₁ m₂) hm₁ (Nat.le_max_left _ _) hk)
+  · intro s g k hk
+    exact hlevel₂ s g k
+      ((P.loc v).Kc_anti m₂ (max m₁ m₂) hm₂ (Nat.le_max_right _ _) hk)
+
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
 theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
