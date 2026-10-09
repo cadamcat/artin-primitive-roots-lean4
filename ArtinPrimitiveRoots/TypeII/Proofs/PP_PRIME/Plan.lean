@@ -4,6 +4,7 @@ import Mathlib.Analysis.MellinTransform
 import Mathlib.Analysis.MellinInversion
 import Mathlib.Analysis.Fourier.FourierTransformDeriv
 import Mathlib.Analysis.SpecialFunctions.SmoothTransition
+import Mathlib.Analysis.SpecialFunctions.Gaussian.PoissonSummation
 
 set_option autoImplicit false
 noncomputable section
@@ -2294,6 +2295,35 @@ private theorem ppPrime_log_rpow_le_rpow_eventually {r s : ℝ} (hs : 0 < s) :
   have hlt : (Real.log x) ^ r < Real.rpow x s := by
     simpa using (div_lt_iff₀ hden).mp hratio'
   exact hlt.le
+
+private theorem ppPrime_gaussian_exp_le_exp_neg_linear_eventually
+    {a b c : ℝ} (ha : 0 < a) :
+    ∀ᶠ T : ℝ in atTop,
+      Real.exp (-a * T ^ 2 + b * T) ≤ Real.exp (-c * T) := by
+  have hLittle :
+      (fun T : ℝ => Real.exp (-a * T ^ 2 + (b + c) * T)) =o[atTop]
+        (fun _ : ℝ => (1 : ℝ)) := by
+    simpa using
+      (rexp_neg_quadratic_isLittleO_rpow_atTop
+        (neg_lt_zero.mpr ha) (b + c) 0)
+  have hlim :
+      Tendsto (fun T : ℝ => Real.exp (-a * T ^ 2 + (b + c) * T))
+        atTop (𝓝 0) := by
+    simpa using hLittle.tendsto_div_nhds_zero
+  filter_upwards [hlim.eventually (Iio_mem_nhds (by norm_num : (0 : ℝ) < 1))]
+    with T hT
+  have hratio :
+      Real.exp (-a * T ^ 2 + b * T) / Real.exp (-c * T) =
+        Real.exp (-a * T ^ 2 + (b + c) * T) := by
+    rw [← Real.exp_sub]
+    congr 1
+    ring
+  have hratio' :
+      Real.exp (-a * T ^ 2 + b * T) / Real.exp (-c * T) < 1 := by
+    rw [hratio]
+    exact hT
+  have hlt := (div_lt_iff₀ (Real.exp_pos _)).mp hratio'
+  simpa using hlt.le
 
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
