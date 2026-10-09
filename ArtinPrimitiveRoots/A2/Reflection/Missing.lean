@@ -4882,6 +4882,120 @@ private theorem rf_forward_term_factor (r : ReflectionRow S) (ν : Fˣ)
         (fun a : ℂ => (∏ v ∈ T0, chiPow D v (ν : F) (digitExponent r v).1) * a *
           (bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y))) hSplit
 
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_indexed_term (r : ReflectionRow S)
+    (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) (y : S.FSˣ) :
+    forwardTerm R r ((γ.1 : Fˣ) * Agen R p.1 p.2) y =
+      (forwardCoeff R r p *
+        (Lvalue R (rowClass R r) (S.diagU (Agen R p.1 p.2)))⁻¹) *
+      (bCut (Bd := Bd) y * unrotated R (rowClass R r)
+        (S.diagU ((γ.1 : Fˣ) * Agen R p.1 p.2) * y)) := by
+  classical
+  let a := Agen R p.1 p.2
+  let ν := (γ.1 : Fˣ) * a
+  let I := Aideal R p.1 p.2
+  let SB := a2_bridge_SYMBOL D S
+  have hA : S.IsGen (a : F) I.1 ∧ Bd.Allowed a :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_generator
+      D S H Bd bc R.exterior p.1 p.2
+  have hGen : S.IsGen (ν : F) I.1 :=
+    ArtinPrimitiveRoots.Proofs.A1Generators.isGen_mul_sUnit S γ.1 a hA.1
+  have hMem {b : Fˣ} {J : S.ExtIdeal} (hJ : S.IsGen (b : F) J.1) :
+      (b : F) ∈ S.R := by
+    intro v hv
+    have hJ0 : J.1 ≠ 0 := by simpa only [Ideal.zero_eq_bot] using J.property.1
+    have hNonneg : 0 ≤ FractionalIdeal.count F v
+        (J.1 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+      rw [FractionalIdeal.count_coe F v hJ0]
+      positivity
+    have hCount := hJ.2.2 v hv
+    rw [rf_count_spanSingleton_eq_neg_log_valuation v (b : F) b.ne_zero] at hCount
+    have hLog : WithZero.log (HeightOneSpectrum.valuation F v (b : F)) ≤ 0 := by
+      linarith
+    by_contra hnot
+    have hvalne : HeightOneSpectrum.valuation F v (b : F) ≠ 0 :=
+      (v.valuation F).ne_zero_iff.mpr b.ne_zero
+    have hgt := (WithZero.log_lt_log (x := (1 : WithZero (Multiplicative ℤ)))
+      one_ne_zero hvalne).2 (lt_of_not_ge hnot)
+    have hpos : 0 < WithZero.log (HeightOneSpectrum.valuation F v (b : F)) := by
+      simpa only [WithZero.log_one] using hgt
+    linarith
+  have hνR : (ν : F) ∈ S.R := hMem hGen
+  have haR : (a : F) ∈ S.R := hMem hA.1
+  have hAllowed : Bd.Allowed ν := by
+    obtain ⟨ε, hε⟩ := MonoidHom.mem_range.mp γ.2
+    have hpow : S.diagU (γ.1 : Fˣ) = S.diagU (ε : Fˣ) ^ 6 := by
+      change ε ^ 6 = γ.1 at hε
+      have hε' : (γ.1 : Fˣ) = ((ε ^ 6 : S.US) : Fˣ) :=
+        congrArg (fun z : S.US => (z : Fˣ)) hε.symm
+      rw [hε']
+      exact map_pow S.diagU (ε : Fˣ) 6
+    have hdiag : cls (S.diagU (γ.1 : Fˣ)) = 1 := by
+      change (QuotientGroup.mk (S.diagU (γ.1 : Fˣ)) : S.V) = 1
+      rw [QuotientGroup.eq_one_iff]
+      exact MonoidHom.mem_range.mpr ⟨S.diagU (ε : Fˣ), hpow.symm⟩
+    change cls (S.diagU ν) ∈ Bd.B
+    dsimp only [ν]
+    rw [map_mul]
+    change cls (S.diagU (γ.1 : Fˣ)) * cls (S.diagU a) ∈ Bd.B
+    rw [hdiag]
+    exact Bd.B.mul_mem Bd.B.one_mem hA.2
+  have hTable := ArtinPrimitiveRoots.A1.Theta.theta_exterior_coefficient
+    R.T Bd I.1 I.property ν ⟨hGen, hAllowed⟩
+  have hI : I.1 = p.1.1 * p.2.1 ^ (3 : ℕ) := by
+    simp only [I, Aideal, R.exterior.mul_val, R.exterior.ofSqf_val, R.exterior.pow_val]
+  have hC : S.IsGen (bc.gen (R.exterior.ofSqf p.1) : F) p.1.1 ∧
+      Bd.Allowed (bc.gen (R.exterior.ofSqf p.1)) := by
+    simpa only [R.exterior.ofSqf_val] using bc.gen_spec (R.exterior.ofSqf p.1)
+  have hExterior := hTable.2.1 p.1.1 p.2.1 (bc.gen (R.exterior.ofSqf p.1))
+    p.1.property.2 hI hC
+  let k : ℂ := gamma D S A 2 p.1.1 (cgen R p.1) *
+    (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 : ℝ)
+  have hExt : (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf},
+      R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν))) = k := by
+    rw [hExterior]
+    simp only [k, cgen, qI, div_eq_mul_inv, Complex.ofReal_mul, Complex.ofReal_inv]
+    ring
+  have hMask : (∏ v ∈ R.exterior.support r.ideal,
+      chiPow D v (ν : F) (digitExponent r v).1) =
+      ∏ v ∈ R.exterior.support r.ideal, chiPow D v (a : F) (digitExponent r v).1 := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    have hvS := R.exterior.support_exterior r.ideal v hv
+    have hγval : HeightOneSpectrum.valuation F v ((γ.1 : Fˣ) : F) = 1 :=
+      Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) γ.1 hvS
+    have hγres : residue v ((γ.1 : Fˣ) : F) ≠ 0 :=
+      (SB.residue_ne_zero v _ hγval.le).2 hγval
+    have hres : residue v (ν : F) = residue v ((γ.1 : Fˣ) : F) * residue v (a : F) := by
+      exact SB.residue_mul v _ _ hγval.le (haR v hvS)
+    have hzero : residue v (ν : F) = 0 ↔ residue v (a : F) = 0 := by
+      rw [hres]
+      exact mul_eq_zero_iff_left hγres
+    have hchi : chi D v (ν : F) = chi D v (a : F) := by
+      rw [show (ν : F) = ((γ.1 : Fˣ) : F) * (a : F) from rfl,
+        SB.chi_mul v hvS _ _ hγval.le (haR v hvS), rf_gamma_chi_one D γ v hvS, one_mul]
+    by_cases hz : residue v (a : F) = 0
+    · simp only [chiPow, hz, hzero.mpr hz, if_true]
+    · have hn : residue v (ν : F) ≠ 0 := mt hzero.mp hz
+      simp only [chiPow, hz, hn, if_false, hchi]
+  have hL : Lvalue R (rowClass R r) (S.diagU a) ≠ 0 :=
+    Units.ne_zero ((R.chars.L (rowClass R r)).L (S.diagU a))
+  have hCoeff : forwardCoeff R r p * (Lvalue R (rowClass R r) (S.diagU a))⁻¹ =
+      k * ∏ v ∈ R.exterior.support r.ideal, chiPow D v (a : F) (digitExponent r v).1 := by
+    calc
+      _ = (k * ∏ v ∈ R.exterior.support r.ideal,
+          chiPow D v (a : F) (digitExponent r v).1) *
+          (Lvalue R (rowClass R r) (S.diagU a) *
+            (Lvalue R (rowClass R r) (S.diagU a))⁻¹) := by
+        dsimp only [forwardCoeff, k, a]
+        ring
+      _ = _ := by rw [mul_inv_cancel₀ hL, mul_one]
+  change forwardTerm R r ν y =
+    (forwardCoeff R r p * (Lvalue R (rowClass R r) (S.diagU a))⁻¹) *
+      (bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y))
+  rw [rf_forward_term_factor R r ν y hνR hTable.1, hMask, hExt, hCoeff]
+  ring
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
