@@ -15846,6 +15846,47 @@ private theorem rf_pairing_constant_integrable
       _ ≤ M := hBound hyu.unit hyU
   exact hInt
 
+private theorem rf_pairing_thetaAverage_series
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    thetaAverage R r l =
+      ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+        omegaInt R l (rf_pairing_grouped_fourier_term R r p) := by
+  classical
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let full : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r true false y
+  let c : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r true true y
+  let s : S.FSˣ → ℂ := fun y => ∑' p : P, rf_pairing_grouped_fourier_term R r p y
+  have hSheet := rf_pairing_grouped_sheet_exchange R r l hl
+  change Integrable (onUnits s) m ∧
+    (∫ y, onUnits s y ∂m) =
+      ∑' p : P, ∫ y, onUnits (rf_pairing_grouped_fourier_term R r p) y ∂m at hSheet
+  have hConst : Integrable (onUnits c) m := rf_pairing_constant_integrable R r l hl
+  have hEq : onUnits full = onUnits c + onUnits s := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [Pi.add_apply, onUnits, dif_pos hy]
+      exact (rf_pairing_grouped_pointwise R r hy.unit).2
+    · simp only [Pi.add_apply, onUnits, dif_neg hy, zero_add]
+  have hIntegral : (∫ y, onUnits full y ∂m) =
+      (∫ y, onUnits c y ∂m) +
+        ∑' p : P, ∫ y, onUnits (rf_pairing_grouped_fourier_term R r p) y ∂m := by
+    rw [hEq]
+    simp only [Pi.add_apply]
+    rw [integral_add hConst hSheet.1, hSheet.2]
+  change omegaInt R l full = omegaInt R l c +
+    ∑' p : P, omegaInt R l (rf_pairing_grouped_fourier_term R r p) at hIntegral
+  have hAngular := rf_angular_cancellation R r l hl
+  have hZero : omegaInt R l c = 0 := hAngular.1 true
+  calc
+    thetaAverage R r l = omegaInt R l full := hAngular.2
+    _ = omegaInt R l c +
+        ∑' p : P, omegaInt R l (rf_pairing_grouped_fourier_term R r p) := hIntegral
+    _ = _ := by rw [hZero, zero_add]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
