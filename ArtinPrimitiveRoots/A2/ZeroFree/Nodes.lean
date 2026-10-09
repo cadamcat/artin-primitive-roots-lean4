@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A2.Proofs.«A2-ZERO-SHIFT».ReciprocalBridge
 import ArtinPrimitiveRoots.A2.Proofs.A2_ZERO_DETECT.Detect
 import ArtinPrimitiveRoots.A2.Proofs.«A2-FE-GLUE».CharacterBridge
 import ArtinPrimitiveRoots.A2.Proofs.«A2-FE-GLUE».GammaRatio
+import ArtinPrimitiveRoots.A2.Proofs.«A2-FE-GLUE».ConvexityPartial
 import ArtinPrimitiveRoots.Hecke.Dedekind
 import ArtinPrimitiveRoots.Hecke.Convexity
 import ArtinPrimitiveRoots.Hecke.Proofs.«HK-FE».hk_fe_export_to_ext_hecke_continuation
@@ -47,7 +48,9 @@ theorem zf_convexity :
               (∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 →
                 ‖(s - 1) * NumberField.dedekindZeta F s‖ ≤
                   C * Real.rpow (2 + |s.im|) A_F) := by
-  sorry
+  by_cases hTC : IsTotallyComplex F
+  · exact ArtinPrimitiveRoots.Proofs.A2FreqP.zf_convexity_totallyComplex hTC
+  · sorry
 
 /-- Convert zf:convexity (06:139-163) to the exact growth hypothesis used in the corrected
 detector statements; the chosen height exponent remains the same. -/
