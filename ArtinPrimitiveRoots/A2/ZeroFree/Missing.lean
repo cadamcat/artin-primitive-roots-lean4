@@ -5690,6 +5690,106 @@ private theorem rows_sol_integrable_w_projection (f : ℝ → ℝ → ℝ → �
     hperm.integrable_comp_of_integrable hf
   exact hRearranged.integral_prod_left
 
+private theorem rows_sol_principal_w_integrated
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 2 ≤ Z) :
+    rowContribution R sd W η U {U.one} Z =
+      principalRw R sd W η U HA HC Z +
+        vertical (1 + δ1) (fun ξ => vertical (1 / 6 + δ1) (fun z =>
+          mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+            HA.LS S 1 (6 * z) * HA.RS S * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ)) := by
+  let σξ : ℝ := 1 + δ1
+  let σz : ℝ := 1 / 6 + δ1
+  let c : ℂ := 1 / (2 * Real.pi)
+  let K : ℂ → ℂ → ℂ → ℂ := rowKernel R sd W η U HA HC U.one Z
+  let Q : ℂ → ℂ → ℂ := fun ξ z =>
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+      HA.LS S 1 (6 * z) * HA.RS S * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ
+  let J : ℝ → (ℝ × ℝ) → ℂ := fun σw p =>
+    vertical σw (fun w => K (σξ + p.1 * Complex.I) w (σz + p.2 * Complex.I))
+  have hJInt (σw : ℝ)
+      (hInt : Integrable (fun p : ℝ × (ℝ × ℝ) =>
+        K (σξ + p.1 * Complex.I) (σw + p.2.1 * Complex.I)
+          (σz + p.2.2 * Complex.I)) (volume.prod (volume.prod volume))) :
+      Integrable (J σw) (volume.prod volume) := by
+    have hraw := rows_sol_integrable_w_projection (fun tξ tw tz =>
+      K (σξ + tξ * Complex.I) (σw + tw * Complex.I) (σz + tz * Complex.I)) hInt
+    simpa only [J, vertical, c] using hraw.const_mul c
+  have hInt4 : Integrable (fun p : ℝ × (ℝ × ℝ) =>
+      K (σξ + p.1 * Complex.I) (4 + p.2.1 * Complex.I)
+        (σz + p.2.2 * Complex.I)) (volume.prod (volume.prod volume)) := by
+    exact rows_sol_principal_right_integrable R sd W η U HA HC hEuler Z hZ
+      σξ σz le_rfl (by norm_num [σξ, δ1]) le_rfl (by norm_num [σz, δ1])
+  have hInt95 : Integrable (fun p : ℝ × (ℝ × ℝ) =>
+      K (σξ + p.1 * Complex.I) ((95 / 100 : ℝ) + p.2.1 * Complex.I)
+        (σz + p.2.2 * Complex.I)) (volume.prod (volume.prod volume)) := by
+    exact rows_sol_principalRw_integrable R sd W η U HA HC hEuler Z hZ
+      σξ le_rfl (by norm_num [σξ, δ1])
+  have hJ4 := hJInt 4 hInt4
+  have hJ95 := hJInt (95 / 100) hInt95
+  have hResidue (p : ℝ × ℝ) :
+      J 4 p = J (95 / 100) p + Q (σξ + p.1 * Complex.I) (σz + p.2 * Complex.I) := by
+    exact rows_sol_principal_w_residue R sd W η U HA HC hEuler Z hZ
+      (σξ + p.1 * Complex.I) (σz + p.2 * Complex.I)
+      (by simp [σξ]) (by norm_num [σξ, δ1]) (by simp [σz])
+  have hQInt : Integrable (fun p : ℝ × ℝ =>
+      Q (σξ + p.1 * Complex.I) (σz + p.2 * Complex.I)) (volume.prod volume) := by
+    apply (hJ4.sub hJ95).congr
+    exact ae_of_all _ fun p => by
+      change J 4 p - J (95 / 100) p = Q (σξ + p.1 * Complex.I) (σz + p.2 * Complex.I)
+      rw [hResidue]
+      ring
+  have hTriple (σw : ℝ)
+      (hInt : Integrable (fun p : ℝ × (ℝ × ℝ) =>
+        K (σξ + p.1 * Complex.I) (σw + p.2.1 * Complex.I)
+          (σz + p.2.2 * Complex.I)) (volume.prod (volume.prod volume))) :
+      tripleVertical σξ σw σz K =
+        c * c * MeasureTheory.integral (volume.prod volume) (J σw) := by
+    let f : ℝ → ℝ → ℝ → ℂ := fun tξ tw tz =>
+      K (σξ + tξ * Complex.I) (σw + tw * Complex.I) (σz + tz * Complex.I)
+    have hf : Integrable (fun p : ℝ × (ℝ × ℝ) => f p.1 p.2.1 p.2.2)
+        (volume.prod (volume.prod volume)) := hInt
+    have hleft : tripleVertical σξ σw σz K =
+        c * (c * (c * (∫ tξ : ℝ, ∫ tw : ℝ, ∫ tz : ℝ, f tξ tw tz))) := by
+      simp only [tripleVertical, vertical, integral_const_mul]
+      rfl
+    have hright : c * c * MeasureTheory.integral (volume.prod volume) (J σw) =
+        c * (c * (c * (∫ tξ : ℝ, ∫ tz : ℝ, ∫ tw : ℝ, f tξ tw tz))) := by
+      change c * c * (∫ p : ℝ × ℝ, c * (∫ tw : ℝ, f p.1 tw p.2)
+        ∂(volume.prod volume)) = _
+      rw [integral_const_mul,
+        integral_prod _ (rows_sol_integrable_w_projection f hf)]
+      ring
+    calc
+      tripleVertical σξ σw σz K =
+          c * (c * (c * (∫ tξ : ℝ, ∫ tw : ℝ, ∫ tz : ℝ, f tξ tw tz))) := hleft
+      _ = c * (c * (c * (∫ tξ : ℝ, ∫ tz : ℝ, ∫ tw : ℝ, f tξ tw tz))) :=
+        congrArg (fun q : ℂ => c * (c * (c * q))) (rows_small_raw_swap_wz_outer f hf)
+      _ = c * c * MeasureTheory.integral (volume.prod volume) (J σw) := hright.symm
+  have hDoubleQ :
+      vertical σξ (fun ξ => vertical σz (fun z => Q ξ z)) =
+        c * c * MeasureTheory.integral (volume.prod volume)
+          (fun p : ℝ × ℝ => Q (σξ + p.1 * Complex.I) (σz + p.2 * Complex.I)) := by
+    simp only [vertical, integral_const_mul]
+    rw [integral_prod _ hQInt]
+    change c * (c * _) = c * c * _
+    ring
+  have hAdd : MeasureTheory.integral (volume.prod volume) (J 4) =
+      MeasureTheory.integral (volume.prod volume) (J (95 / 100)) +
+        MeasureTheory.integral (volume.prod volume)
+          (fun p : ℝ × ℝ => Q (σξ + p.1 * Complex.I) (σz + p.2 * Complex.I)) := by
+    calc
+      _ = MeasureTheory.integral (volume.prod volume)
+          (fun p : ℝ × ℝ => J (95 / 100) p +
+            Q (σξ + p.1 * Complex.I) (σz + p.2 * Complex.I)) :=
+        integral_congr_ae (ae_of_all _ hResidue)
+      _ = _ := integral_add hJ95 hQInt
+  have hAssemble : tripleVertical σξ 4 σz K =
+      tripleVertical σξ (95 / 100) σz K +
+        vertical σξ (fun ξ => vertical σz (fun z => Q ξ z)) := by
+    rw [hTriple 4 hInt4, hTriple (95 / 100) hInt95, hDoubleQ, hAdd, mul_add]
+  simpa only [σξ, σz, K, Q, principalRw] using
+    (rows_sol_principal_initial_shift R sd W η U HA HC hEuler Z hZ).trans hAssemble
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
