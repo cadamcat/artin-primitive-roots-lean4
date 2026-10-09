@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.TypeII.PD.Defs
 import ArtinPrimitiveRoots.TypeII.PP.Results
 import ArtinPrimitiveRoots.TypeII.Proofs.«R-PRIME».PrimeAdapters
 import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.SWAdapters
+import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.LowFrequency
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.FamilyUniformization
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.FrequencyGrowth
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.IntervalEndpoints
@@ -3341,6 +3342,69 @@ theorem density_regularity :
         (fun w => (id w) * ArtinPrimitiveRoots.Sieve.roughDensity γ w) (Set.Icc w₀ w₁)
       exact hProduct'
     simpa [Set.uIcc_of_le hw₀w₁] using hProduct
+
+/-- Clipped SW slot: a sub-sum missing at most two prime endpoints costs `+2`
+over the frozen closed-interval `sw_slot` estimate. Used for half-open dyad
+slots in the `low_count` box decomposition. -/
+private theorem sw_slot_clipped (γ : ℝ) (hγ : 0 < γ) (A₀ A₂ : ℝ) (hA₀ : 0 < A₀)
+    (hA₂ : 0 < A₂) :
+    ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        ∀ P : ℝ, Real.rpow x γ / 2 ≤ P → P ≤ 2 * x →
+          ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
+            ∀ χ : DirichletCharacter ℂ k, ∀ a b : ℝ,
+              P ≤ a → a ≤ b → b ≤ 2 * P →
+                ∀ t : Finset ℕ, t ⊆ primesInInterval a b →
+                  ((primesInInterval a b \ t).card ≤ 2) →
+                    ‖∑ p ∈ t, (χ (p : ZMod k) : ℂ) -
+                      (if χ = 1 then (1 : ℂ) else 0) *
+                        (∫ y in a..b, (1 / Real.log y : ℝ) : ℂ)‖ ≤
+                        C * P * Real.rpow (Real.log x) (-A₂) + 2 := by
+  obtain ⟨C, x₀, hC, hx₀, hbd⟩ := sw_slot γ hγ A₀ A₂ hA₀ hA₂
+  refine ⟨C, x₀, hC, hx₀, ?_⟩
+  intro x hx P hPlo hPup k hk hklog χ a b hPa hab hbP t hts hcard
+  have hclosed : ‖∑ p ∈ primesInInterval a b, (χ (p : ZMod k) : ℂ) -
+      (if χ = 1 then (1 : ℂ) else 0) *
+        (∫ y in a..b, (1 / Real.log y : ℝ) : ℂ)‖ ≤
+      C * P * Real.rpow (Real.log x) (-A₂) :=
+    hbd x hx P hPlo hPup k hk hklog χ a b hPa hab hbP
+  have hf : ∀ n ∈ primesInInterval a b \ t, ‖(χ (n : ZMod k) : ℂ)‖ ≤ 1 :=
+    fun n _ => DirichletCharacter.norm_le_one χ (n : ZMod k)
+  have hbase := ArtinPrimitiveRoots.Proofs.r_impl_muse.sum_subset_diff_bound
+    (primesInInterval a b) t (fun p : ℕ => (χ (p : ZMod k) : ℂ)) 1
+    zero_le_one hts hf hcard
+  rw [mul_one] at hbase
+  have hdiff : ‖∑ p ∈ t, (χ (p : ZMod k) : ℂ) -
+      ∑ p ∈ primesInInterval a b, (χ (p : ZMod k) : ℂ)‖ ≤ 2 := by
+    rw [norm_sub_rev]
+    exact hbase
+  have hsplit : (∑ p ∈ t, (χ (p : ZMod k) : ℂ)) -
+      (if χ = 1 then (1 : ℂ) else 0) *
+        (∫ y in a..b, (1 / Real.log y : ℝ) : ℂ) =
+      ((∑ p ∈ t, (χ (p : ZMod k) : ℂ)) -
+        ∑ p ∈ primesInInterval a b, (χ (p : ZMod k) : ℂ)) +
+      ((∑ p ∈ primesInInterval a b, (χ (p : ZMod k) : ℂ)) -
+        (if χ = 1 then (1 : ℂ) else 0) *
+          (∫ y in a..b, (1 / Real.log y : ℝ) : ℂ)) := by
+    abel
+  calc ‖∑ p ∈ t, (χ (p : ZMod k) : ℂ) -
+        (if χ = 1 then (1 : ℂ) else 0) *
+          (∫ y in a..b, (1 / Real.log y : ℝ) : ℂ)‖
+      = ‖((∑ p ∈ t, (χ (p : ZMod k) : ℂ)) -
+          ∑ p ∈ primesInInterval a b, (χ (p : ZMod k) : ℂ)) +
+        ((∑ p ∈ primesInInterval a b, (χ (p : ZMod k) : ℂ)) -
+          (if χ = 1 then (1 : ℂ) else 0) *
+            (∫ y in a..b, (1 / Real.log y : ℝ) : ℂ))‖ := by
+        rw [hsplit]
+    _ ≤ ‖(∑ p ∈ t, (χ (p : ZMod k) : ℂ)) -
+          ∑ p ∈ primesInInterval a b, (χ (p : ZMod k) : ℂ)‖ +
+        ‖(∑ p ∈ primesInInterval a b, (χ (p : ZMod k) : ℂ)) -
+          (if χ = 1 then (1 : ℂ) else 0) *
+            (∫ y in a..b, (1 / Real.log y : ℝ) : ℂ)‖ :=
+        norm_add_le _ _
+    _ ≤ 2 + C * P * Real.rpow (Real.log x) (-A₂) :=
+        add_le_add hdiff hclosed
+    _ = C * P * Real.rpow (Real.log x) (-A₂) + 2 := add_comm _ _
 
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
