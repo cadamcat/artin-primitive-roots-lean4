@@ -8199,6 +8199,60 @@ private theorem euler_good_even_e1_k1_term (hE : EulerHypotheses R η)
     rw [hzero]
     simp [eulerGoodTermModel, hm]
 
+private theorem euler_good_term_model (hE : EulerHypotheses R η)
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (i : Fin 2 × ℕ × ℕ × ℕ) :
+    localEulerTerm R η U u v hv ξ w z i =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        i.1.1 i.2.1 i.2.2.1 i.2.2.2 := by
+  classical
+  rcases i with ⟨e, l, k, m⟩
+  change localEulerTerm R η U u v hv ξ w z (e, l, k, m) =
+    eulerGoodTermModel (qI v.asIdeal) (localV v z)
+      (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+      e.1 l k m
+  by_cases hl : l % 2 = 0
+  · obtain ⟨d, rfl⟩ : ∃ d : ℕ, l = 2 * d := by
+      have hdecomp := Nat.mod_add_div l 2
+      exact ⟨l / 2, by omega⟩
+    fin_cases e
+    · by_cases hd : d = 0
+      · subst d
+        simpa [eulerGoodTermModel] using euler_good_t_zero_term R η U u v hv ξ w z hfreq k m
+      · have hdpos : 0 < d := Nat.pos_of_ne_zero hd
+        by_cases hk0 : k = 0
+        · subst k
+          by_cases hdm : d ≤ m
+          · exact euler_good_even_e0_k0_term R η U hE u v hv ξ w z hfreq d hdpos m hdm
+          · have hCzero : localC R v hv (6 * d) 0 (6 * m) = 0 := by
+              simpa [hdm] using euler_good_localC_e0_even_k0 R v hv d hdpos m
+            have htNat : 3 * (2 * d) = 6 * d := by omega
+            simp [localEulerTerm, hfreq, htNat, hCzero, eulerGoodTermModel, hd, hdm]
+        · by_cases hk1 : k = 1
+          · subst k
+            exact euler_good_even_e0_k1_term R η U u v hv ξ w z hfreq d hdpos m
+          · have hk2 : 2 ≤ k := by omega
+            have hzero := euler_good_k_ge_two_term_zero R η U u v hv ξ w z hfreq
+              (0 : Fin 2) (2 * d) k m (by change 0 < 0 + 3 * (2 * d); omega) hk2
+            simpa [eulerGoodTermModel, hd, hk0, hk1] using hzero
+    · by_cases hk0 : k = 0
+      · subst k
+        exact euler_good_even_e1_k0_term R η U hE u v hv ξ w z hfreq d m
+      · by_cases hk1 : k = 1
+        · subst k
+          exact euler_good_even_e1_k1_term R η U hE u v hv ξ w z hfreq d m
+        · have hk2 : 2 ≤ k := by omega
+          have hzero := euler_good_k_ge_two_term_zero R η U u v hv ξ w z hfreq
+            (1 : Fin 2) (2 * d) k m (by change 0 < 1 + 3 * (2 * d); omega) hk2
+          simpa [eulerGoodTermModel, hk0, hk1] using hzero
+  · have hlodd : l % 2 = 1 := by omega
+    have hlne : l ≠ 0 := by omega
+    have hzero := euler_good_odd_l_term_zero R η U u v hv ξ w z hfreq e l k m hlodd
+    rw [hzero]
+    simp [eulerGoodTermModel, hlne, hl]
+
 /-- po:euler-good-closed, 05:596-659. The zero-valuation local series is the frozen closed factor. -/
 theorem po_euler_good_closed : EulerHypotheses R η → ∀ u v hv ξ w z, initialRegion ξ w z → frequencyValuation η U u v = 0 →
   localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal) (localV v z)
