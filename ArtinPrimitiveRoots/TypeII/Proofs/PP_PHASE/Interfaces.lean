@@ -2580,6 +2580,404 @@ theorem phase_low_regime_bound :
         phaseWindowBound (fun H v => |v| < Real.rpow H (4 / 5)) C C₀ x₀ := by
   sorry
 
+private theorem phase_boxExponent_eq_half (k : ℕ) :
+    (phaseBoxExponent k : ℝ) = (k : ℝ) * ((k : ℝ) + 1) / 2 := by
+  sorry
+
+private theorem phase_high_box_cover {H y θ : ℝ} {k M : ℕ}
+    (B : Finset ℕ) (hM : 0 < M) :
+    ∀ b ∈ B, ∃ r : PhaseBoxIndex k M,
+      b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r := by
+  sorry
+
+private theorem phase_high_box_value_le_sup {k M : ℕ}
+    (r : PhaseBoxIndex k M) (a : Fin k → ℝ) (hM : 0 < M)
+    (ha : a ∈ phaseClosedBox r) :
+    ‖phaseWeylSum k M a‖ ≤
+      sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+        z = ‖phaseWeylSum k M a‖} := by
+  sorry
+
+private theorem phase_high_translate_box_sup {H y θ V : ℝ} {k M : ℕ}
+    (r : PhaseBoxIndex k M) (b : ℕ) (hM : 0 < M)
+    (hV : V = Real.rpow H y)
+    (hb : phaseInBox r (phaseAlphaVector H y θ b k)) :
+    ‖phasePolynomialSum V θ b k M‖ ≤
+      sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+        z = ‖phaseWeylSum k M a‖} := by
+  sorry
+
+private theorem phase_high_polynomial_interval_bound
+    {H y θ V : ℝ} {l u k M s : ℕ} {C₁ C₂ : ℝ}
+    (hH : 16 ≤ H) (hy : 4 / 5 ≤ y) (hV : V = Real.rpow H y)
+    (hklo : 4 * y + 8 ≤ k) (hkhi : (k : ℝ) ≤ 4 * y + 9)
+    (hM : 0 < M)
+    (hMlo : Real.rpow H (3 / 4) / 2 ≤ (M : ℝ))
+    (hMhi : (M : ℝ) ≤ Real.rpow H (3 / 4))
+    (hcard : ((Finset.Icc l u).card : ℝ) ≤ 2 * H)
+    (hinterval : ∀ b ∈ Finset.Icc l u,
+      H ≤ (b : ℝ) + θ ∧ (b : ℝ) + θ ≤ 2 * H)
+    (hks : k ≤ s)
+    (hcount : (vinogradovCount s k M : ℝ) ≤
+      Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
+        Real.rpow (M : ℝ)
+          (2 * (s : ℝ) - (phaseBoxExponent k : ℝ) + 1 / 100 : ℝ)) :
+    (1 / (M : ℝ)) *
+      ∑ b ∈ Finset.Icc l u, ‖phasePolynomialSum V θ b k M‖ ≤
+      2 * H * Real.exp
+        ((10 * (k : ℝ) + 2 * (s : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+          C₁ * Real.rpow (k : ℝ) C₂ - (1 / 5) * Real.log H +
+          (1 / 100) * Real.log (M : ℝ)) / (2 * (s : ℝ))) := by
+  classical
+  let B : Finset ℕ := Finset.Icc l u
+  let p : ℕ := 2 * s
+  let pR : ℝ := (p : ℝ)
+  let K : ℝ := (phaseBoxExponent k : ℝ)
+  let occ : ℝ := Real.exp (10 * (k : ℝ)) * Real.rpow H (4 / 5 : ℝ)
+  let boxSup (r : PhaseBoxIndex k M) : ℝ :=
+    sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+      z = ‖phaseWeylSum k M a‖}
+  have hHpos : 0 < H := by linarith
+  have hMpos : 0 < (M : ℝ) := by exact_mod_cast hM
+  have hk2 : 2 ≤ k := by
+    have hkR : (2 : ℝ) ≤ (k : ℝ) := by nlinarith [hklo, hy]
+    exact_mod_cast hkR
+  have hp1 : 1 ≤ p := by dsimp [p]; omega
+  have hpR : pR = 2 * (s : ℝ) := by dsimp [pR, p]; norm_cast
+  have hK : K = (k : ℝ) * ((k : ℝ) + 1) / 2 := by
+    simpa [K] using phase_boxExponent_eq_half k
+  have hboxPowNonneg (r : PhaseBoxIndex k M) : 0 ≤ boxSup r ^ p := by
+    have hpEven : p = s * 2 := by dsimp [p]; omega
+    rw [hpEven, pow_mul]
+    exact sq_nonneg (boxSup r ^ s)
+  have hcoverMoment :
+      ∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖ ^ p ≤
+        occ * ∑ r : PhaseBoxIndex k M, boxSup r ^ p := by
+    calc
+      _ ≤ ∑ b ∈ B, ∑ r : PhaseBoxIndex k M,
+            if b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r then
+              boxSup r ^ p else 0 := by
+        apply Finset.sum_le_sum
+        intro b hb
+        obtain ⟨r, hr⟩ := phase_high_box_cover B hM b hb
+        have hrMem : phaseInBox r (phaseAlphaVector H y θ b k) := by
+          change b ∈ B.filter (fun n => phaseInBox r (phaseAlphaVector H y θ n k)) at hr
+          exact (Finset.mem_filter.mp hr).2
+        have htranslate := phase_high_translate_box_sup r b hM hV hrMem
+        have hsingle : boxSup r ^ p ≤
+            ∑ r' : PhaseBoxIndex k M,
+              if b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r' then
+                boxSup r' ^ p else 0 := by
+          calc
+            _ = if b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r then
+                  boxSup r ^ p else 0 := by simp [hr]
+            _ ≤ _ := Finset.single_le_sum
+              (f := fun r' : PhaseBoxIndex k M =>
+                if b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r' then
+                  boxSup r' ^ p else 0)
+              (fun r' _ => by
+                by_cases hmem : b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r'
+                · simp [hmem, hboxPowNonneg]
+                · simp [hmem])
+              (Finset.mem_univ r)
+        have hpow := pow_le_pow_left₀ (norm_nonneg _) htranslate p
+        exact hpow.trans (by simpa [hr] using hsingle)
+      _ = ∑ r : PhaseBoxIndex k M,
+            ∑ b ∈ B,
+              if b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r then
+                boxSup r ^ p else 0 := by rw [Finset.sum_comm]
+      _ = ∑ r : PhaseBoxIndex k M,
+            ((phaseBoxMembers (H := H) (y := y) (θ := θ) B r).card : ℝ) *
+              boxSup r ^ p := by
+        apply Finset.sum_congr rfl
+        intro r hr
+        have hsub : phaseBoxMembers (H := H) (y := y) (θ := θ) B r ⊆ B := by
+          intro b hb
+          change b ∈ B.filter (fun n => phaseInBox r (phaseAlphaVector H y θ n k)) at hb
+          exact (Finset.mem_filter.mp hb).1
+        have hfilter : B.filter
+            (fun b => b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r) =
+              phaseBoxMembers (H := H) (y := y) (θ := θ) B r := by
+          ext b
+          constructor
+          · intro hb
+            exact (Finset.mem_filter.mp hb).2
+          · intro hb
+            exact Finset.mem_filter.mpr ⟨hsub hb, hb⟩
+        rw [← Finset.sum_filter, hfilter]
+        simp
+      _ ≤ ∑ r : PhaseBoxIndex k M, occ * boxSup r ^ p := by
+        apply Finset.sum_le_sum
+        intro r hr
+        have hocc := phase_box_occupancy B hH hy hklo hkhi hM hMlo hMhi
+          (fun b hb => hinterval b (by simpa [B] using hb)) r
+        exact mul_le_mul_of_nonneg_right hocc (hboxPowNonneg r)
+      _ = occ * ∑ r : PhaseBoxIndex k M, boxSup r ^ p := by
+        rw [← Finset.mul_sum]
+  have hsupMoment :
+      ∑ r : PhaseBoxIndex k M, boxSup r ^ p ≤
+        (4 * Real.pi : ℝ) ^ (2 * s * k) *
+          (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ) := by
+    simpa [boxSup, p] using phase_box_suprema s k M hM
+  have hsumPow :
+      (∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖) ^ p ≤
+        (B.card : ℝ) ^ (p - 1) *
+          ∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖ ^ p := by
+    have h := pow_sum_le_card_mul_sum_pow
+      (s := B) (f := fun b => ‖phasePolynomialSum V θ b k M‖)
+      (fun b hb => norm_nonneg _) (p - 1)
+    have hpSub : (p - 1) + 1 = p := by omega
+    rw [hpSub] at h
+    exact h
+  have hcardPow : (B.card : ℝ) ^ (p - 1) ≤ (2 * H) ^ (p - 1) :=
+    pow_le_pow_left₀ (Nat.cast_nonneg _) (by simpa [B] using hcard) _
+  have hsumNonneg :
+      0 ≤ ∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖ ^ p :=
+    Finset.sum_nonneg fun b hb => pow_nonneg (norm_nonneg _) _
+  have hbaseMoment :
+      (∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖) ^ p ≤
+        (2 * H) ^ (p - 1) *
+          (occ * ((4 * Real.pi : ℝ) ^ (2 * s * k) *
+            (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ))) := by
+    calc
+      _ ≤ (B.card : ℝ) ^ (p - 1) *
+          ∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖ ^ p := hsumPow
+      _ ≤ (2 * H) ^ (p - 1) *
+          (occ * ∑ r : PhaseBoxIndex k M, boxSup r ^ p) := by
+        exact mul_le_mul hcardPow hcoverMoment hsumNonneg (by positivity)
+      _ ≤ (2 * H) ^ (p - 1) *
+          (occ * ((4 * Real.pi : ℝ) ^ (2 * s * k) *
+            (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ))) :=
+        mul_le_mul_of_nonneg_left
+          (mul_le_mul_of_nonneg_left hsupMoment (by dsimp [occ]; positivity))
+          (by positivity)
+  have hscaledMoment :
+      ((1 / (M : ℝ)) *
+        ∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖) ^ p ≤
+          (1 / (M : ℝ)) ^ p *
+            ((2 * H) ^ (p - 1) *
+              (occ * ((4 * Real.pi : ℝ) ^ (2 * s * k) *
+                (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ)))) := by
+    rw [mul_pow]
+    exact mul_le_mul_of_nonneg_left hbaseMoment (by positivity)
+  have hcountScaled :
+      ((1 / (M : ℝ)) *
+        ∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖) ^ p ≤
+          (1 / (M : ℝ)) ^ p *
+            ((2 * H) ^ (p - 1) *
+              (occ * ((4 * Real.pi : ℝ) ^ (2 * s * k) *
+                (M : ℝ) ^ phaseBoxExponent k *
+                (Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
+                  Real.rpow (M : ℝ)
+                    (2 * (s : ℝ) - (phaseBoxExponent k : ℝ) + 1 / 100))))) := by
+    calc
+      _ ≤ (1 / (M : ℝ)) ^ p *
+          ((2 * H) ^ (p - 1) *
+            (occ * ((4 * Real.pi : ℝ) ^ (2 * s * k) *
+              (M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ)))) :=
+        hscaledMoment
+      _ = ((1 / (M : ℝ)) ^ p * (2 * H) ^ (p - 1) * occ *
+          (4 * Real.pi : ℝ) ^ (2 * s * k)) *
+          ((M : ℝ) ^ phaseBoxExponent k * (vinogradovCount s k M : ℝ)) := by ring
+      _ ≤ ((1 / (M : ℝ)) ^ p * (2 * H) ^ (p - 1) * occ *
+          (4 * Real.pi : ℝ) ^ (2 * s * k)) *
+          ((M : ℝ) ^ phaseBoxExponent k *
+            (Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
+              Real.rpow (M : ℝ)
+                (2 * (s : ℝ) - (phaseBoxExponent k : ℝ) + 1 / 100))) :=
+        mul_le_mul_of_nonneg_left
+          (mul_le_mul_of_nonneg_left hcount (by positivity))
+          (by dsimp [occ]; positivity)
+      _ = _ := by ring
+  have hMprod :
+      (1 / (M : ℝ)) ^ p * (M : ℝ) ^ phaseBoxExponent k *
+        Real.rpow (M : ℝ)
+          (2 * (s : ℝ) - (phaseBoxExponent k : ℝ) + 1 / 100) =
+        Real.rpow (M : ℝ) (1 / 100 : ℝ) := by
+    have hInvPow : (1 / (M : ℝ)) ^ p =
+        Real.exp (-(pR) * Real.log (M : ℝ)) := by
+      rw [← Real.rpow_natCast (1 / (M : ℝ)) p,
+        Real.rpow_def_of_pos (by positivity) pR,
+        Real.log_div (by norm_num) hMpos.ne']
+      simp only [Real.log_one, zero_sub]
+      congr 1
+      ring
+    have hKpow : (M : ℝ) ^ phaseBoxExponent k =
+        Real.exp (K * Real.log (M : ℝ)) := by
+      rw [← Real.rpow_natCast (M : ℝ) (phaseBoxExponent k),
+        Real.rpow_def_of_pos hMpos (phaseBoxExponent k : ℝ)]
+      congr 1
+      dsimp [K]
+      ring
+    have hTail : Real.rpow (M : ℝ)
+          (2 * (s : ℝ) - (phaseBoxExponent k : ℝ) + 1 / 100) =
+        Real.exp ((pR - K + 1 / 100) * Real.log (M : ℝ)) := by
+      calc
+        _ = Real.exp (Real.log (M : ℝ) *
+            (2 * (s : ℝ) - (phaseBoxExponent k : ℝ) + 1 / 100)) :=
+          Real.rpow_def_of_pos hMpos _
+        _ = _ := by
+          congr 1
+          rw [hpR]
+          dsimp [K]
+          ring
+    have hHundred : Real.rpow (M : ℝ) (1 / 100 : ℝ) =
+        Real.exp ((1 / 100 : ℝ) * Real.log (M : ℝ)) := by
+      calc
+        _ = Real.exp (Real.log (M : ℝ) * (1 / 100 : ℝ)) :=
+          Real.rpow_def_of_pos hMpos _
+        _ = _ := by congr 1 <;> ring
+    rw [hInvPow, hKpow, hTail, hHundred]
+    rw [← Real.exp_add, ← Real.exp_add]
+    congr 1
+    dsimp [K]
+    ring
+  have hPcast : (p : ℝ) = 2 * (s : ℝ) := by dsimp [p]; norm_cast
+  have hPiExp : (4 * Real.pi : ℝ) ^ (2 * s * k) =
+      Real.exp ((p : ℝ) * (k : ℝ) * Real.log (4 * Real.pi)) := by
+    rw [← Real.rpow_natCast (4 * Real.pi : ℝ) (2 * s * k),
+      Real.rpow_def_of_pos (by positivity) ((2 * s * k : ℕ) : ℝ)]
+    congr 1
+    push_cast
+    rw [hPcast]
+    ring
+  have hMfrac : Real.rpow (M : ℝ) (1 / 100 : ℝ) =
+      Real.exp ((1 / 100 : ℝ) * Real.log (M : ℝ)) := by
+    calc
+      _ = Real.exp (Real.log (M : ℝ) * (1 / 100 : ℝ)) :=
+        Real.rpow_def_of_pos hMpos _
+      _ = _ := by congr 1 <;> ring
+  have hCoreExp :
+      Real.exp (10 * (k : ℝ)) *
+        (4 * Real.pi : ℝ) ^ (2 * s * k) *
+        Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
+        Real.rpow (M : ℝ) (1 / 100 : ℝ) =
+      Real.exp (10 * (k : ℝ) + (p : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+        C₁ * Real.rpow (k : ℝ) C₂ + (1 / 100) * Real.log (M : ℝ)) := by
+    rw [hPiExp, hMfrac]
+    rw [← Real.exp_add, ← Real.exp_add, ← Real.exp_add]
+  have hHratio :
+      Real.rpow H (4 / 5 : ℝ) ≤
+        2 * H * Real.exp (-(1 / 5) * Real.log H) := by
+    have hExpSub : Real.exp (Real.log H) *
+        Real.exp (-(1 / 5) * Real.log H) =
+        Real.exp ((4 / 5 : ℝ) * Real.log H) := by
+      calc
+        _ = Real.exp (Real.log H + (-(1 / 5) * Real.log H)) := by
+          exact (Real.exp_add _ _).symm
+        _ = _ := by congr 1 <;> ring
+    calc
+      Real.rpow H (4 / 5 : ℝ) =
+          Real.exp (Real.log H * (4 / 5 : ℝ)) :=
+        Real.rpow_def_of_pos hHpos _
+      _ = Real.exp ((4 / 5 : ℝ) * Real.log H) := by congr 1 <;> ring
+      _ ≤ 2 * Real.exp ((4 / 5 : ℝ) * Real.log H) := by
+        nlinarith [Real.exp_pos ((4 / 5 : ℝ) * Real.log H)]
+      _ = 2 * Real.exp (Real.log H) *
+          Real.exp (-(1 / 5) * Real.log H) := by
+        calc
+          _ = 2 * (Real.exp (Real.log H) *
+              Real.exp (-(1 / 5) * Real.log H)) :=
+            congrArg (fun z : ℝ => 2 * z) hExpSub.symm
+          _ = _ := by ring
+      _ = 2 * H * Real.exp (-(1 / 5) * Real.log H) := by
+        rw [Real.exp_log hHpos]
+  have hHfactor :
+      (2 * H) ^ (p - 1) * Real.rpow H (4 / 5 : ℝ) ≤
+        (2 * H) ^ p * Real.exp (-(1 / 5) * Real.log H) := by
+    have hpSub : p = (p - 1) + 1 := by omega
+    rw [hpSub, pow_succ]
+    calc
+      (2 * H) ^ (p - 1) * Real.rpow H (4 / 5 : ℝ) ≤
+          (2 * H) ^ (p - 1) *
+            (2 * H * Real.exp (-(1 / 5) * Real.log H)) :=
+        mul_le_mul_of_nonneg_left hHratio (by positivity)
+      _ = (2 * H) ^ (p - 1) * (2 * H) *
+          Real.exp (-(1 / 5) * Real.log H) := by ring
+  have hcore :
+      ((1 / (M : ℝ)) *
+        ∑ b ∈ B, ‖phasePolynomialSum V θ b k M‖) ^ p ≤
+        (2 * H) ^ p * Real.exp
+          (10 * (k : ℝ) + (p : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+            C₁ * Real.rpow (k : ℝ) C₂ - (1 / 5) * Real.log H +
+            (1 / 100) * Real.log (M : ℝ)) := by
+    calc
+      _ ≤ (1 / (M : ℝ)) ^ p *
+          ((2 * H) ^ (p - 1) *
+            (occ * ((4 * Real.pi : ℝ) ^ (2 * s * k) *
+              (M : ℝ) ^ phaseBoxExponent k *
+              (Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
+                Real.rpow (M : ℝ)
+                  (2 * (s : ℝ) - (phaseBoxExponent k : ℝ) + 1 / 100))))) :=
+        hcountScaled
+      _ = ((2 * H) ^ (p - 1) * Real.rpow H (4 / 5 : ℝ)) *
+          (Real.exp (10 * (k : ℝ)) *
+            (4 * Real.pi : ℝ) ^ (2 * s * k) *
+            Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
+            ((1 / (M : ℝ)) ^ p * (M : ℝ) ^ phaseBoxExponent k *
+              Real.rpow (M : ℝ)
+                (2 * (s : ℝ) - (phaseBoxExponent k : ℝ) + 1 / 100))) := by
+          dsimp [occ]
+          ring
+      _ = ((2 * H) ^ (p - 1) * Real.rpow H (4 / 5 : ℝ)) *
+          (Real.exp (10 * (k : ℝ)) *
+            (4 * Real.pi : ℝ) ^ (2 * s * k) *
+            Real.exp (C₁ * Real.rpow (k : ℝ) C₂) *
+            Real.rpow (M : ℝ) (1 / 100 : ℝ)) := by rw [hMprod]
+      _ = ((2 * H) ^ (p - 1) * Real.rpow H (4 / 5 : ℝ)) *
+          Real.exp (10 * (k : ℝ) + (p : ℝ) * (k : ℝ) *
+            Real.log (4 * Real.pi) + C₁ * Real.rpow (k : ℝ) C₂ +
+            (1 / 100) * Real.log (M : ℝ)) := by rw [hCoreExp]
+      _ ≤ ((2 * H) ^ p * Real.exp (-(1 / 5) * Real.log H)) *
+          Real.exp (10 * (k : ℝ) + (p : ℝ) * (k : ℝ) *
+            Real.log (4 * Real.pi) + C₁ * Real.rpow (k : ℝ) C₂ +
+            (1 / 100) * Real.log (M : ℝ)) :=
+        mul_le_mul_of_nonneg_right hHfactor (Real.exp_pos _).le
+      _ = (2 * H) ^ p *
+          Real.exp (-(1 / 5) * Real.log H +
+            (10 * (k : ℝ) + (p : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+              C₁ * Real.rpow (k : ℝ) C₂ +
+              (1 / 100) * Real.log (M : ℝ))) := by
+        calc
+          _ = (2 * H) ^ p *
+              (Real.exp (-(1 / 5) * Real.log H) *
+                Real.exp (10 * (k : ℝ) + (p : ℝ) * (k : ℝ) *
+                  Real.log (4 * Real.pi) + C₁ * Real.rpow (k : ℝ) C₂ +
+                  (1 / 100) * Real.log (M : ℝ))) := by ring
+          _ = _ := congrArg (fun z : ℝ => (2 * H) ^ p * z)
+            (Real.exp_add (-(1 / 5) * Real.log H)
+              (10 * (k : ℝ) + (p : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+                C₁ * Real.rpow (k : ℝ) C₂ + (1 / 100) * Real.log (M : ℝ))).symm
+      _ = _ := by congr 1 <;> ring
+  have hBnonneg :
+      0 ≤ 2 * H * Real.exp
+        ((10 * (k : ℝ) + 2 * (s : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+          C₁ * Real.rpow (k : ℝ) C₂ - (1 / 5) * Real.log H +
+          (1 / 100) * Real.log (M : ℝ)) / (2 * (s : ℝ))) := by
+    positivity
+  have hBpow :
+      (2 * H * Real.exp
+        ((10 * (k : ℝ) + 2 * (s : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+          C₁ * Real.rpow (k : ℝ) C₂ - (1 / 5) * Real.log H +
+          (1 / 100) * Real.log (M : ℝ)) / (2 * (s : ℝ)))) ^ p =
+        (2 * H) ^ p * Real.exp
+          (10 * (k : ℝ) + (p : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+            C₁ * Real.rpow (k : ℝ) C₂ - (1 / 5) * Real.log H +
+            (1 / 100) * Real.log (M : ℝ)) := by
+    rw [mul_pow, ← Real.rpow_natCast (Real.exp
+      ((10 * (k : ℝ) + 2 * (s : ℝ) * (k : ℝ) * Real.log (4 * Real.pi) +
+        C₁ * Real.rpow (k : ℝ) C₂ - (1 / 5) * Real.log H +
+        (1 / 100) * Real.log (M : ℝ)) / (2 * (s : ℝ)))) p,
+      Real.rpow_def_of_pos (Real.exp_pos _) (p : ℝ)]
+    rw [Real.log_exp]
+    congr 1
+    rw [hPcast]
+    have hspos : 0 < s := by omega
+    field_simp [ne_of_gt (show 0 < (s : ℝ) by exact_mod_cast hspos)]
+  have hppos : 0 < p := lt_of_lt_of_le (by norm_num) hp1
+  exact le_of_pow_le_pow_left₀ (Nat.ne_of_gt hppos) hBnonneg
+    (hcore.trans_eq hBpow.symm)
+
 /-- High frequencies use the Taylor polynomial and Vinogradov mean value. -/
 theorem phase_high_regime_bound (hMV : phaseMeanValueInput) :
     ∀ C : ℝ, 0 < C →
