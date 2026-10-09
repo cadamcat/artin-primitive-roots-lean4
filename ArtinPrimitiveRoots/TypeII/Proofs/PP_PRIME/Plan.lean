@@ -2463,10 +2463,13 @@ private theorem ppPrime_mellinKernel_integrable_of_rpow_two
   filter_upwards with v
   simpa [Real.norm_eq_abs] using hbound v
 
-private theorem ppPrimePositiveCutoff_mellinKernel_analyticOnNhd
+private theorem ppPrimePositiveCutoff_mellinKernel_data
     (a b δ : ℝ) (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ 2)
     (hδ : 0 < δ) (hδsmall : δ ≤ 1 / 4) :
-    AnalyticOnNhd ℂ (mellinKernel (ppPrimePositiveCutoff a b δ)) Set.univ := by
+    LocallyIntegrableOn (fun w : ℝ => (ppPrimePositiveCutoff a b δ w : ℂ))
+        (Set.Ioi 0) ∧
+      Function.support (ppPrimePositiveCutoff a b δ) ⊆ Set.Icc (1 / 2 : ℝ) 3 ∧
+      AnalyticOnNhd ℂ (mellinKernel (ppPrimePositiveCutoff a b δ)) Set.univ := by
   have haPos : 0 < a := by linarith
   have hbPos : 0 < b := lt_of_lt_of_le haPos hab
   have hexpLower : (3 / 4 : ℝ) ≤ Real.exp (-δ) := by
@@ -2522,7 +2525,7 @@ private theorem ppPrimePositiveCutoff_mellinKernel_analyticOnNhd
   have hfc : LocallyIntegrableOn
       (fun w : ℝ => (ppPrimePositiveCutoff a b δ w : ℂ)) (Set.Ioi 0) :=
     hcutC.locallyIntegrableOn measurableSet_Ioi
-  exact ppPrimeMellinKernel_analyticOnNhd hfc hsupport
+  exact ⟨hfc, hsupport, ppPrimeMellinKernel_analyticOnNhd hfc hsupport⟩
 
 private theorem ppPrimeSmoothing_error_log_bound
     {x N τ A : ℝ} (hx : 2 < x)
