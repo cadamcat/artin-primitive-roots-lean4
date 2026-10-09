@@ -18,19 +18,19 @@ theorem relative_norm_descent (D : FieldData F) (ι : E →ₐ[ℚ] F)
       ∀ x : IdeleGroup (𝓞 F) F,
         C (QuotientGroup.mk x) = QuotientGroup.mk (N.norm x) := by
   letI : Algebra E F := ι.toRingHom.toAlgebra
-  have hsub : IdeleGroup.principalSubgroup (𝓞 F) F ≤
-      Subgroup.comap N.norm (IdeleGroup.principalSubgroup OE E) := by
+  let NF := NumberField.IdeleGroup.principalSubgroup (𝓞 F) F
+  let NE := NumberField.IdeleGroup.principalSubgroup OE E
+  have hsub : NF ≤ Subgroup.comap N.norm NE := by
     intro x hx
     obtain ⟨a, rfl⟩ := hx
-    change N.norm (IdeleGroup.unitEmbedding (𝓞 F) F a) ∈ IdeleGroup.principalSubgroup OE E
+    change N.norm (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) ∈ NE
     rw [N.principal_norm a]
     exact ⟨Units.map (Algebra.norm E) a, rfl⟩
   let φ : IdeleClassGroup (𝓞 F) F →* IdeleClassGroup OE E :=
-    QuotientGroup.map (IdeleGroup.principalSubgroup (𝓞 F) F)
-      (IdeleGroup.principalSubgroup OE E) N.norm hsub
+    QuotientGroup.map NF NE N.norm hsub
   have hcont : Continuous φ := by
-    apply (QuotientGroup.isQuotientMap_mk (IdeleGroup.principalSubgroup (𝓞 F) F)).continuous_iff.mpr
-    exact (QuotientGroup.isQuotientMap_mk (IdeleGroup.principalSubgroup OE E)).continuous.comp N.continuous_norm
+    apply (QuotientGroup.isQuotientMap_mk NF).continuous_iff.mpr
+    exact (QuotientGroup.isQuotientMap_mk NE).continuous.comp N.continuous_norm
   exact ⟨⟨φ, hcont⟩, fun x => rfl⟩
 
 end ArtinPrimitiveRoots.Proofs.a1_lambda_sol
