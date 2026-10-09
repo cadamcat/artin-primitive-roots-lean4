@@ -1187,7 +1187,21 @@ theorem theta_linear_translate {P : CoverPackage D S H A} {G : GlobalDatum P}
     (∀ h : (P.loc v0).L, (∀ s, ∀ v, v ≠ v0 → (Fam'.sec s).f v = (Fam.sec s).f v) →
       (∀ s, (Fam'.sec s).f v0 = rtr h ((Fam.sec s).f v0)) →
         ∀ g, C'.theta g = C.theta (g * P.emb v0 h)) := by
-  sorry
+  constructor
+  · intro hext c hlocal
+    exact residue_affine Fam Fam' Fam'' C C' C'' c
+      ((family_series_linear_translate v0 Fam Fam' Fam'').1 hext c hlocal)
+  · intro h hext hlocal g
+    have hseries : Set.EqOn (fun s => C'.E s g)
+        (fun s => C.E s (g * P.emb v0 h)) (Metric.ball (5 / 2 : ℂ) (1 / 2)) := by
+      intro s hs
+      change C'.E s g = C.E s (g * P.emb v0 h)
+      rw [C'.E_series s hs, C.E_series s hs]
+      exact (family_series_linear_translate v0 Fam Fam' Fam'').2 h hext hlocal s hs g
+    exact (continuedEis_component_unique C'.ε C.ε C'.ε_pos C.ε_pos
+      (fun s => C'.E s g) (fun s => C.E s (g * P.emb v0 h))
+      (C'.theta g) (C.theta (g * P.emb v0 h))
+      (C'.E_analytic g) (C.E_analytic _) hseries (C'.laurent g) (C.laurent _)).2
 
 /-- Supply the package proof modules with the frozen residue interfaces. -/
 private def thetaResidueLaws {P : CoverPackage D S H A} {G : GlobalDatum P}
