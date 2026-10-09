@@ -1282,6 +1282,32 @@ private theorem sheet_mulHaarFin_mul {v : FinPlace F} (μ : Theta.LocHaar v)
     _ = μ.μ.withDensity d := hmulDensity
     _ = Theta.mulHaarFin μ := rfl
 
+private theorem a2_prod_sol_mulHaarFin_inv {v : FinPlace F} (μ : Theta.LocHaar v) :
+    Measure.map (fun x : v.adicCompletion F => x⁻¹) (Theta.mulHaarFin μ) =
+      Theta.mulHaarFin μ := by
+  classical
+  let K := v.adicCompletion F
+  let O := v.adicCompletionIntegers F
+  let _ : Finite (IsLocalRing.ResidueField O) :=
+    Finite.of_equiv _ (v.residueFieldEquivAdicCompletionIntegers (K := F)).toEquiv
+  let _ : ProperSpace K :=
+    (Valued.integer.properSpace_iff_completeSpace_and_isDiscreteValuationRing_integer_and_finite_residueField
+      (K := K) (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+      ⟨inferInstance, inferInstanceAs (IsDiscreteValuationRing O),
+        inferInstanceAs (Finite (IsLocalRing.ResidueField O))⟩
+  let _ : NontriviallyNormedField K :=
+    Valued.toNontriviallyNormedField K (WithZero (Multiplicative ℤ))
+  have : SigmaFinite μ.μ := inferInstance
+  have : NullSingletonClass μ.μ := inferInstance
+  have : SigmaFinite (Theta.mulHaarFin μ) := by
+    dsimp [Theta.mulHaarFin]
+    infer_instance
+  have : NullSingletonClass (Theta.mulHaarFin μ) := by
+    dsimp [Theta.mulHaarFin]
+    infer_instance
+  exact ArtinPrimitiveRoots.Proofs.a2_prod_sol.inv_of_sigmaFinite_mulInvariant
+    (Theta.mulHaarFin μ) (measure_singleton 0) (sheet_mulHaarFin_mul μ)
+
 private theorem sheet_complexVolume_map_mul (a : ℂˣ) :
     Measure.map (fun z : ℂ => (a : ℂ) * z) volume =
       ENNReal.ofReal (Complex.normSq (a : ℂ))⁻¹ • volume := by
