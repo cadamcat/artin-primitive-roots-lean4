@@ -3921,6 +3921,177 @@ private theorem principal_prime_slot_count (γ : ℝ) (hγ : 0 < γ)
     one_mul, intervalIntegral.integral_ofReal, ← Complex.ofReal_sub,
     Complex.norm_real, Real.norm_eq_abs] using hSW
 
+set_option maxHeartbeats 1000000 in
+private theorem principal_prime_slice_count (γ : ℝ) (hγ : 0 < γ)
+    (A₂ : ℝ) (hA₂ : 0 < A₂) :
+    ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        ∀ M : ℝ, 0 < M → 2 * M ≤ x →
+          ∀ Q : ℝ, 1 ≤ Q → ∀ l r : ℝ,
+            M ≤ l → l ≤ r → r ≤ 2 * M →
+              |(((primesInInterval (l / Q) (r / Q)).filter
+                  (fun p : ℕ => Real.rpow x γ < (p : ℝ))).card : ℝ) -
+                ∫ y in Set.Icc (max (Real.rpow x γ) (l / Q)) (r / Q),
+                  (1 / Real.log y : ℝ)| ≤
+                C * (M / Q) * Real.rpow (Real.log x) (-A₂) := by
+  -- A nonempty clipped slice lies in one dyad. An empty cutoff has both sides zero;
+  -- do not replace that set integral by a reversed interval integral.
+  obtain ⟨Cslot, xSlot, hCslot, hxSlot, hslot⟩ :=
+    principal_prime_slot_count γ hγ A₂ hA₂
+  obtain ⟨xPow, hPow⟩ := Filter.eventually_atTop.mp
+    (eventually_log_rpow_le_rpow A₂ γ hγ)
+  let C : ℝ := Cslot + 4
+  let x₀ : ℝ := max xSlot xPow
+  have hC : 0 < C := by dsimp [C]; linarith
+  have hx₀ : 2 ≤ x₀ := hxSlot.trans (le_max_left _ _)
+  refine ⟨C, x₀, hC, hx₀, ?_⟩
+  intro x hx M hM hMx Q hQ l r hl hlr hr
+  have hxSlot' : xSlot ≤ x := (le_max_left xSlot xPow).trans hx
+  have hxPow' : xPow ≤ x := (le_max_right xSlot xPow).trans hx
+  have hx2 : (2 : ℝ) ≤ x := hx₀.trans hx
+  have hxpos : 0 < x := lt_of_lt_of_le (by norm_num) hx2
+  have hQpos : 0 < Q := lt_of_lt_of_le zero_lt_one hQ
+  have hscale (z : ℝ) : 2 * (z / Q) * Q = 2 * z := by
+    rw [div_eq_mul_inv]
+    calc
+      2 * (z * Q⁻¹) * Q = 2 * z * (Q⁻¹ * Q) := by ring
+      _ = 2 * z * 1 := by rw [inv_mul_cancel₀ (ne_of_gt hQpos)]
+      _ = 2 * z := by ring
+  let Y : ℝ := Real.rpow x γ
+  let L : ℝ := Real.log x
+  let D : ℝ := Real.rpow L (-A₂)
+  let a : ℝ := max Y (l / Q)
+  let b : ℝ := r / Q
+  let P : ℝ := b / 2
+  let t : Finset ℕ :=
+    (primesInInterval (l / Q) (r / Q)).filter (fun p : ℕ => Y < (p : ℝ))
+  have hLpos : 0 < L := Real.log_pos (by linarith : (1 : ℝ) < x)
+  have hYpos : 0 < Y := Real.rpow_pos_of_pos hxpos γ
+  have hDpos : 0 < D := by
+    dsimp [D]
+    exact Real.rpow_pos_of_pos hLpos (-A₂)
+  have hDnonneg : 0 ≤ D := hDpos.le
+  by_cases hab : a ≤ b
+  · have hYb : Y ≤ b := (le_max_left Y (l / Q)).trans hab
+    have hPlo : Y / 2 ≤ P := by
+      dsimp [P]
+      exact div_le_div_of_nonneg_right hYb (by norm_num)
+    have hr2l : r ≤ 2 * l := by
+      calc
+        r ≤ 2 * M := hr
+        _ ≤ 2 * l := mul_le_mul_of_nonneg_left hl (by norm_num)
+    have hPa : P ≤ a := by
+      have hhalf : b / 2 ≤ l / Q := by
+        apply (div_le_iff₀ (by norm_num : (0 : ℝ) < 2)).2
+        have hcomm : (l / Q) * 2 = 2 * (l / Q) := by ring
+        rw [hcomm]
+        apply (div_le_iff₀ hQpos).2
+        rw [hscale l]
+        exact hr2l
+      exact hhalf.trans (le_max_right Y (l / Q))
+    have hPle : P ≤ M / Q := by
+      dsimp [P]
+      apply (div_le_iff₀ (by norm_num : (0 : ℝ) < 2)).2
+      have hcomm : (M / Q) * 2 = 2 * (M / Q) := by ring
+      rw [hcomm]
+      apply (div_le_iff₀ hQpos).2
+      rw [hscale M]
+      exact hr
+    have hbP : b = 2 * P := by
+      dsimp [P]
+      ring
+    have hPup : P ≤ 2 * x := by
+      dsimp [P]
+      apply (div_le_iff₀ (by norm_num : (0 : ℝ) < 2)).2
+      apply (div_le_iff₀ hQpos).2
+      have hrle : r ≤ x := hr.trans hMx
+      have hxle : x ≤ x * Q := by
+        calc
+          x = x * 1 := (mul_one x).symm
+          _ ≤ x * Q := mul_le_mul_of_nonneg_left hQ hxpos.le
+      have hxQ : x * Q ≤ (2 * x) * 2 * Q := by
+        nlinarith [hxpos.le, hQpos.le]
+      exact hrle.trans (hxle.trans hxQ)
+    have hsubset : t ⊆ primesInInterval a b := by
+      intro p hp
+      rcases Finset.mem_filter.mp hp with ⟨hpI, hpY⟩
+      rcases Finset.mem_filter.mp hpI with ⟨hpR, hpPrime, hlo, hhi⟩
+      exact Finset.mem_filter.mpr ⟨hpR, hpPrime, max_le (le_of_lt hpY) hlo, hhi⟩
+    have hcast (u : ℕ) (hu : u ∈ primesInInterval a b \ t) : (u : ℝ) = Y := by
+      rcases Finset.mem_sdiff.mp hu with ⟨huA, huNot⟩
+      rcases Finset.mem_filter.mp huA with ⟨huR, huPrime, hua, hub⟩
+      have huNotY : ¬ Y < (u : ℝ) := by
+        intro huYlt
+        have hlo : l / Q ≤ (u : ℝ) := (le_max_right Y (l / Q)).trans hua
+        have huI : u ∈ primesInInterval (l / Q) b :=
+          Finset.mem_filter.mpr ⟨huR, huPrime, hlo, hub⟩
+        exact huNot (Finset.mem_filter.mpr ⟨huI, huYlt⟩)
+      exact le_antisymm (le_of_not_gt huNotY) ((le_max_left Y (l / Q)).trans hua)
+    have hmiss : (primesInInterval a b \ t).card ≤ 1 := by
+      apply Finset.card_le_one.mpr
+      intro p hp q hq
+      apply Nat.cast_injective (R := ℝ)
+      exact (hcast p hp).trans (hcast q hq).symm
+    have hmiss2 : (primesInInterval a b \ t).card ≤ 2 :=
+      le_trans hmiss (Nat.le_succ 1)
+    have hslotBound :=
+      hslot x hxSlot' P hPlo hPup a b hPa hab hbP.le t hsubset hmiss2
+    have hint :
+        (∫ y in Set.Icc a b, (1 / Real.log y : ℝ)) =
+          ∫ y in a..b, (1 / Real.log y : ℝ) := by
+      rw [integral_Icc_eq_integral_Ioc, ← intervalIntegral.integral_of_le hab]
+    rw [← hint] at hslotBound
+    have hDdef : Real.rpow (Real.log x) (-A₂) = D := by
+      dsimp [D, L]
+    rw [hDdef] at hslotBound
+    have hpow : Real.rpow L A₂ ≤ Y := hPow x hxPow'
+    have hYD : (1 : ℝ) ≤ Y * D := by
+      have hneg : Real.rpow L (-A₂) = (Real.rpow L A₂)⁻¹ :=
+        Real.rpow_neg hLpos.le A₂
+      have hinv : Y⁻¹ ≤ (Real.rpow L A₂)⁻¹ :=
+        (inv_le_inv₀ hYpos (Real.rpow_pos_of_pos hLpos A₂)).2 hpow
+      calc
+        (1 : ℝ) = Y * Y⁻¹ := (mul_inv_cancel₀ (ne_of_gt hYpos)).symm
+        _ ≤ Y * (Real.rpow L A₂)⁻¹ := mul_le_mul_of_nonneg_left hinv hYpos.le
+        _ = Y * D := by rw [← hneg]
+    have hhalfMass : (1 : ℝ) / 2 ≤ (M / Q) * D := by
+      have hYhalf : Y / 2 ≤ M / Q := hPlo.trans hPle
+      have hleft : (1 : ℝ) / 2 ≤ (Y / 2) * D := by
+        have hrew : (Y / 2) * D = (Y * D) / 2 := by ring
+        rw [hrew]
+        exact (le_div_iff₀ (by norm_num : (0 : ℝ) < 2)).2 (by linarith [hYD])
+      exact hleft.trans (mul_le_mul_of_nonneg_right hYhalf hDnonneg)
+    have htwo : (2 : ℝ) ≤ 4 * (M / Q) * D := by
+      nlinarith [hhalfMass]
+    have hPmass : Cslot * P * D ≤ Cslot * (M / Q) * D := by
+      apply mul_le_mul_of_nonneg_right _ hDnonneg
+      exact mul_le_mul_of_nonneg_left hPle hCslot.le
+    calc
+      |((t.card : ℝ) - ∫ y in Set.Icc a b, (1 / Real.log y : ℝ))| ≤
+          Cslot * P * D + 2 := hslotBound
+      _ ≤ Cslot * (M / Q) * D + 4 * (M / Q) * D := add_le_add hPmass htwo
+      _ = C * (M / Q) * D := by
+        dsimp [C]
+        ring
+  · have hba : b < a := lt_of_not_ge hab
+    have hemptyT : t = ∅ := by
+      apply Finset.eq_empty_iff_forall_notMem.mpr
+      intro p hp
+      rcases Finset.mem_filter.mp hp with ⟨hpI, hpY⟩
+      rcases Finset.mem_filter.mp hpI with ⟨_, _, hlo, hhi⟩
+      have hge : a ≤ (p : ℝ) := max_le (le_of_lt hpY) hlo
+      exact (not_lt_of_ge hge) (lt_of_le_of_lt hhi hba)
+    have hint0 : ∫ y in Set.Icc a b, (1 / Real.log y : ℝ) = 0 := by
+      rw [Set.Icc_eq_empty_of_lt hba, setIntegral_empty]
+    have hRHS : 0 ≤ C * (M / Q) * D := by
+      have hCnonneg : 0 ≤ C := hC.le
+      have hMQnonneg : 0 ≤ M / Q := div_nonneg hM.le hQpos.le
+      exact mul_nonneg (mul_nonneg hCnonneg hMQnonneg) hDnonneg
+    calc
+      |((t.card : ℝ) - ∫ y in Set.Icc a b, (1 / Real.log y : ℝ))| = 0 := by
+        rw [hemptyT, hint0, Finset.card_empty, Nat.cast_zero, sub_zero, abs_zero]
+      _ ≤ C * (M / Q) * D := hRHS
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
