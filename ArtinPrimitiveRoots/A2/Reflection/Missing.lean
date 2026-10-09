@@ -16248,6 +16248,61 @@ private theorem rf_pairing_Bm_grouped_kernel_integrals
       integral_congr_ae hEq
     _ = _ := (rf_pairing_grouped_kernel_exchange R r Z hZ).2
 
+private theorem rf_pairing_chiIdealPow_zero
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (d : S.ExtIdeal) (c : S.SqfExtIdeal)
+    (h : ¬ IsCoprime d.1 c.1) :
+    chiIdealPow D d.1 (cgen R c) 3 = 0 := by
+  classical
+  have hsup : d.1 ⊔ c.1 ≠ ⊤ := fun ht => h (Ideal.isCoprime_iff_sup_eq.mpr ht)
+  obtain ⟨M, hM, hle⟩ := Ideal.exists_le_maximal _ hsup
+  have hdM : d.1 ≤ M := le_trans le_sup_left hle
+  have hcM : c.1 ≤ M := le_trans le_sup_right hle
+  have hM0 : M ≠ ⊥ := by
+    intro hbot
+    exact d.property.1 (bot_unique (hbot ▸ hdM))
+  let v : FinPlace F := ⟨M, hM.isPrime, hM0⟩
+  have hvC : v ∈ R.exterior.support (R.exterior.ofSqf c) := by
+    rw [R.exterior.mem_support, R.exterior.ofSqf_val]
+    exact Ideal.dvd_iff_le.mpr hcM
+  have hvS : v ∉ S.Sf := R.exterior.support_exterior _ v hvC
+  have he : idealExp v c.1 = 1 := by
+    simpa only [R.exterior.ofSqf_val] using
+      rf_idealExp_eq_one_of_squarefree_support R v
+        (R.exterior.ofSqf c) (by simpa only [R.exterior.ofSqf_val] using c.property.2) hvC
+  have hgen : S.IsGen (cgen R c) c.1 := by
+    simpa only [cgen, R.exterior.ofSqf_val] using (bc.gen_spec (R.exterior.ofSqf c)).1
+  have hcount : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (cgen R c)) = 1 := by
+    rw [hgen.2.2 v hvS, ← rf_idealExp_eq_count v c.1 c.property.1.1, he]
+    norm_num
+  have hlog := rfpair_sol_count_spanSingleton_eq_neg_log_valuation
+    v (cgen R c) hgen.2.1
+  have hlog' : WithZero.log (HeightOneSpectrum.valuation F v (cgen R c)) = -1 := by
+    rw [hcount] at hlog
+    omega
+  have hvalne : HeightOneSpectrum.valuation F v (cgen R c) ≠ 0 :=
+    (v.valuation F).ne_zero_iff.mpr hgen.2.1
+  have hval : HeightOneSpectrum.valuation F v (cgen R c) = WithZero.exp (-1 : ℤ) := by
+    rw [← WithZero.exp_log hvalne, hlog']
+  have hvalLt : HeightOneSpectrum.valuation F v (cgen R c) < 1 := by
+    rw [hval, WithZero.exp_lt_one_iff]
+    norm_num
+  have hres : residue v (cgen R c) = 0 := by
+    by_contra hres
+    exact hvalLt.ne ((a2_bridge_SYMBOL D S).residue_ne_zero v _ hvalLt.le |>.mp hres)
+  have hmem : M ∈ UniqueFactorizationMonoid.normalizedFactors d.1 :=
+    (Ideal.mem_normalizedFactors_iff d.property.1).mpr ⟨hM.isPrime, hdM⟩
+  have hprime : M.IsPrime ∧ M ≠ ⊥ := ⟨hM.isPrime, hM0⟩
+  have hfactor : (if h' : M.IsPrime ∧ M ≠ ⊥ then
+      chiPow D ⟨M, h'.1, h'.2⟩ (cgen R c) 3 else 1) = 0 := by
+    rw [dif_pos hprime]
+    change chiPow D v (cgen R c) 3 = 0
+    simp [chiPow, hres]
+  unfold chiIdealPow
+  apply Multiset.prod_eq_zero
+  exact Multiset.mem_map.mpr ⟨M, hmem, hfactor⟩
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
