@@ -16001,6 +16001,70 @@ private theorem rf_pairing_frequency_weight_summable
   have hs : Summable (fun q : J => M (e q)) := hM.comp_injective he
   exact hs.congr (fun q => (hEq q).symm)
 
+private def rf_pairing_grouped_kernel_term
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (q : FrozenIndex R r.h × S.SqfExtIdeal) (Z T : ℝ) : ℂ :=
+  R.K T * (∑' γ : Gamma S, omegaInt R (T / Z)
+    (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ))) / (T : ℂ)
+
+private theorem rf_pairing_grouped_kernel_integral
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (q : FrozenIndex R r.h × S.SqfExtIdeal)
+    (Z : ℝ) (hZ : 0 < Z) :
+    IntegrableOn (rf_pairing_grouped_kernel_term R r q Z) (Set.Ioi 0) ∧
+      (∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T) =
+        if IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) then
+          groupedExterior R q.1 r.d (frozenFrequency R q.1 r.d q.2) *
+            (Lvalue R (rowClass R r)
+              (S.diagU (frozenFrequency R q.1 r.d q.2)))⁻¹ *
+            profilePhi R (rowClass R r)
+              (cls (S.diagU (frozenFrequency R q.1 r.d q.2)))
+              (Z * S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS))
+        else 0 := by
+  classical
+  let u := rowClass R r
+  let ν := frozenFrequency R q.1 r.d q.2
+  let z : ℂ := if IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) then
+    groupedExterior R q.1 r.d ν else 0
+  let orbit (γ : Gamma S) (y : S.FSˣ) : ℂ :=
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+      sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+        rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y)
+  let g (T : ℝ) : ℂ := R.K T *
+    (∑' γ : Gamma S, omegaInt R (T / Z) (orbit γ)) / (T : ℂ)
+  have hPoint (γ : Gamma S) (y : S.FSˣ) :
+      rf_pairing_grouped_fourier_term R r (q.1, q.2, γ) y = z * orbit γ y := by
+    dsimp only [rf_pairing_grouped_fourier_term, z, orbit, u, ν]
+    split_ifs <;> simp
+  have hOnUnits (γ : Gamma S) :
+      onUnits (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ)) =
+        fun y => z * onUnits (orbit γ) y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, hPoint]
+    · simp only [onUnits, dif_neg hy, mul_zero]
+  have hOmega (γ : Gamma S) (l : ℝ) :
+      omegaInt R l (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ)) =
+        z * omegaInt R l (orbit γ) := by
+    unfold omegaInt
+    rw [hOnUnits γ, integral_const_mul]
+  have hCurve : rf_pairing_grouped_kernel_term R r q Z = fun T => z * g T := by
+    funext T
+    dsimp only [rf_pairing_grouped_kernel_term, g]
+    simp_rw [hOmega]
+    rw [tsum_mul_left]
+    ring
+  have hAvg := rf_pairing_S_averaged R u ν Z hZ
+  change IntegrableOn g (Set.Ioi 0) ∧
+    (∫ T in Set.Ioi (0 : ℝ), g T) =
+      (Lvalue R u (S.diagU ν))⁻¹ *
+        profilePhi R u (cls (S.diagU ν)) (Z * S.absS (S.diagU ν : S.FS)) at hAvg
+  rw [hCurve]
+  refine ⟨hAvg.1.const_mul z, ?_⟩
+  rw [integral_const_mul, hAvg.2]
+  dsimp only [z, u, ν]
+  split_ifs <;> ring
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
