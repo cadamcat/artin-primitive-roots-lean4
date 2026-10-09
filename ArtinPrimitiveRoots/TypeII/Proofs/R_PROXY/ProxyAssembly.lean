@@ -707,10 +707,11 @@ theorem truncated_source_interval_phase_bound
 /-- The truncated-source phase estimate with its analytic constants supplied
 in advance, so the later choice of sieve order cannot move them. -/
 theorem truncated_source_interval_phase_bound_fixed
-    (δ A₀ lam C_m c_m C_p C₃p xPhase : ℝ)
+    (δ A₀ lam C_m c_m C_p C₃p xPhase s₀ vMin xMertens : ℝ)
     (hδ : 0 < δ) (hA₀ : 0 < A₀) (hlam : 0 < lam)
     (hCm : 0 < C_m) (hcm : 0 < c_m) (hCp : 0 < C_p) (hC₃p : 0 < C₃p)
-    (hxPhase : 2 ≤ xPhase)
+    (hs₀ : 0 < s₀) (hvMin : 0 < vMin)
+    (hxPhase : 2 ≤ xPhase) (hxMertens : 2 ≤ xMertens)
     (hPhase : ∀ x : ℝ, xPhase ≤ x →
       let L := Real.log x
       let Tstar := Real.exp (L / Real.log L ^ 2)
@@ -726,8 +727,12 @@ theorem truncated_source_interval_phase_bound_fixed
                       (|u|⁻¹ + Real.rpow x (-c_m))
                   else
                     4 * C_p * (N / (q : ℝ)) / Real.log M *
-                      Real.exp (-L / Real.rpow (Real.log L) C₃p)) :
-    ∃ vMin x₀ : ℝ, 0 < vMin ∧ 2 ≤ x₀ ∧
+                      Real.exp (-L / Real.rpow (Real.log L) C₃p))
+    (hMertens : ∀ x : ℝ, xMertens ≤ x →
+      let L := Real.log x
+      (∑ p ∈ primesUpTo (roughCutoff x), 1 / (p : ℝ) ≤ s₀ * Real.log L) ∧
+      vMin * Real.rpow L (-(24 / 100 : ℝ)) ≤ roughSieveProduct (roughCutoff x)) :
+    ∃ x₀ : ℝ, 2 ≤ x₀ ∧
       ∀ x : ℝ, x₀ ≤ x →
         let L := Real.log x
         let Tstar := Real.exp (L / Real.log L ^ 2)
@@ -755,13 +760,11 @@ theorem truncated_source_interval_phase_bound_fixed
   obtain ⟨xRet, hxRet, hRet⟩ :=
     retained_subset_residue_phase_bound_fixed δ A₀ lam C_m c_m C_p C₃p
       xPhase hδ hlam hCm hcm hCp hC₃p hxPhase hPhase
-  obtain ⟨_s₀, vMin, xMertens, _hs₀, hvMin, hxMertens, hMertens⟩ :=
-    rough_mertens_bounds
   let x₀ := max xRet xMertens
   have hx₀two : 2 ≤ x₀ := by
     dsimp [x₀]
     exact le_trans hxRet (le_max_left _ _)
-  refine ⟨vMin, x₀, hvMin, hx₀two, ?_⟩
+  refine ⟨x₀, hx₀two, ?_⟩
   intro x hx
   dsimp
   have hxRet' : xRet ≤ x := le_trans (le_max_left _ _) hx
@@ -1013,7 +1016,305 @@ theorem proxy_high_source_bound
                             |u|⁻¹ + Real.rpow x (-c_m)
                           else
                             Real.exp (-L / Real.rpow (Real.log L) C₃p)) := by
-  sorry
+  obtain ⟨C_m, c_m, C_p, C₃p, xPhase, hCm, hcm, hCp, hC₃p,
+      hxPhase, hPhase⟩ := reciprocal_log_phase_regime_bound δ A₀ hδ hA₀
+  obtain ⟨s₀, vMin, xMertens, hs₀, hvMin, hxMertens, hMertens⟩ :=
+    rough_mertens_bounds
+  let K : ℝ := 4 * max C_m C_p / (vMin ^ 2 * wMin)
+  have hK : 0 < K := by
+    dsimp [K]
+    positivity
+  refine ⟨c_m, C₃p, K, hcm, hC₃p, hK, ?_⟩
+  intro A_s hA_s
+  let H : ℝ := A_s + 3
+  have hH : 0 < H := by dsimp [H]; linarith
+  obtain ⟨lam, xFact, hlam, hxFact, hFactorial⟩ :=
+    factorial_decay_choice s₀ H hs₀ hH
+  obtain ⟨xTrunc, hxTrunc, hTruncated⟩ :=
+    truncated_source_interval_phase_bound_fixed δ A₀ lam C_m c_m C_p C₃p
+      xPhase s₀ vMin xMertens hδ hA₀ hlam hCm hcm hCp hC₃p hs₀ hvMin
+      hxPhase hxMertens hPhase hMertens
+  have hExp : 0 < H - A_s - 24 / 100 := by
+    dsimp [H]
+    norm_num
+  have hRpow : Tendsto
+      (fun y : ℝ => Real.rpow (Real.log y) (H - A_s - 24 / 100)) atTop atTop :=
+    (tendsto_rpow_atTop hExp).comp Real.tendsto_log_atTop
+  have hScaled : Tendsto
+      (fun y : ℝ => vMin * Real.rpow (Real.log y) (H - A_s - 24 / 100))
+      atTop atTop := hRpow.const_mul_atTop hvMin
+  obtain ⟨xLarge, hLarge⟩ :=
+    Filter.eventually_atTop.mp (hScaled.eventually_ge_atTop 2)
+  have hLogTarget : Tendsto (fun y : ℝ => Real.log y) atTop atTop :=
+    Real.tendsto_log_atTop
+  obtain ⟨xLog, hLog⟩ :=
+    Filter.eventually_atTop.mp
+      (hLogTarget.eventually_ge_atTop (max 1 (1 / wMin)))
+  let x₀ := max xMertens (max xTrunc (max xFact (max xLarge xLog)))
+  have hx₀two : 2 ≤ x₀ := by
+    dsimp [x₀]
+    exact le_trans hxTrunc
+      (le_trans (le_max_left _ _) (le_max_right _ _))
+  refine ⟨x₀, hx₀two, ?_⟩
+  intro x hx
+  dsimp [x₀] at hx
+  rcases max_le_iff.mp hx with ⟨hxMertens', hxRest⟩
+  rcases max_le_iff.mp hxRest with ⟨hxTrunc', hxRest⟩
+  rcases max_le_iff.mp hxRest with ⟨hxFact', hxRest⟩
+  rcases max_le_iff.mp hxRest with ⟨hxLarge', hxLog'⟩
+  dsimp
+  intro M hMx hlogMlower hMupper k hk hkBound χ u huLower huUpper l rr hl hlr hrr
+  let L : ℝ := Real.log x
+  let Tstar : ℝ := Real.exp (L / Real.log L ^ 2)
+  let r : ℕ := ⌈lam * Real.log L⌉₊
+  let V : ℝ := roughSieveProduct (roughCutoff x)
+  let I : Finset ℕ := (Finset.range (⌊rr⌋₊ + 1)).filter
+    (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ rr)
+  have hx₂ : 2 ≤ x := le_trans hx₀two hx
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < L := by
+    dsimp [L]
+    exact Real.log_pos (by linarith)
+  have hLogX : max 1 (1 / wMin) ≤ L := by
+    simpa [L] using hLog x hxLog'
+  have hLone : 1 ≤ L := le_trans (le_max_left _ _) hLogX
+  have hOneOver : 1 / wMin ≤ L := le_trans (le_max_right _ _) hLogX
+  have hwLone : 1 ≤ wMin * L := by
+    have hm := mul_le_mul_of_nonneg_left hOneOver hwMin.le
+    have hcancel : wMin * (1 / wMin) = 1 := by
+      field_simp [ne_of_gt hwMin]
+    nlinarith
+  have hlogM : 1 ≤ Real.log M := by
+    have hlogM' : wMin * L ≤ Real.log M := by simpa [L] using hlogMlower
+    linarith
+  have hlogMpos : 0 < Real.log M := lt_of_lt_of_le (by norm_num) hlogM
+  have hRpowPos : 0 < Real.rpow x δ := Real.rpow_pos_of_pos hxpos δ
+  have hMpos : 0 < M := lt_of_lt_of_le hRpowPos hMx
+  have hMgt : 1 < M := (Real.log_pos_iff hMpos.le).mp hlogMpos
+  have hVlower : vMin * Real.rpow L (-(24 / 100 : ℝ)) ≤ V := by
+    have h := (hMertens x hxMertens').2
+    simpa [L, V] using h
+  have hVpos : 0 < V := by
+    have hbase : 0 < vMin * Real.rpow L (-(24 / 100 : ℝ)) :=
+      mul_pos hvMin (Real.rpow_pos_of_pos hLpos _)
+    exact lt_of_lt_of_le hbase hVlower
+  have hMertensMass :
+      (∑ p ∈ primesUpTo (roughCutoff x), 1 / (p : ℝ)) ≤
+        s₀ * Real.log (Real.log x) := by
+    simpa using (hMertens x hxMertens').1
+  have hFactX :
+      1 ≤ r ∧ ∀ s : ℝ, 0 ≤ s → s ≤ s₀ * Real.log L →
+        s ^ r / (r.factorial : ℝ) ≤ Real.rpow L (-H) := by
+    simpa [L, r] using hFactorial x hxFact'
+  rcases hFactX with ⟨hr, hDecay⟩
+  have hVlarge :
+      2 ≤ vMin * Real.rpow L (H - A_s - 24 / 100) := by
+    simpa [L] using hLarge x hxLarge'
+  have hI : ∀ m ∈ I, 0 < m ∧ (m : ℝ) ≤ 2 * M := by
+    intro m hm
+    rcases Finset.mem_filter.mp hm with ⟨_, hmBounds⟩
+    rcases hmBounds with ⟨hmLower, hmUpper⟩
+    constructor
+    · have hmPos : 0 < (m : ℝ) :=
+        lt_of_lt_of_le hMpos (le_trans hl hmLower)
+      exact_mod_cast hmPos
+    · exact hmUpper.trans hrr
+  have hRemainder := normalized_sieve_remainder_bound x M A_s H s₀ vMin r I
+    hx₂ hMpos hr hvMin hI hMertensMass hDecay hVlower hVlarge
+  have hTruncData := hTruncated x hxTrunc'
+  rcases hTruncData with ⟨_, hTruncAll⟩
+  have hTruncatedNorm := hTruncAll M hMx hMgt hMupper hlogM k hk
+    (by simpa [L] using hkBound) χ u huLower huUpper l rr hl hlr hrr
+  let phase : ℝ := if |u| ≤ Tstar then
+      |u|⁻¹ + Real.rpow x (-c_m)
+    else Real.exp (-L / Real.rpow (Real.log L) C₃p)
+  let truncBound : ℝ := if |u| ≤ Tstar then
+      4 * C_m / Real.log M * (|u|⁻¹ + Real.rpow x (-c_m))
+    else
+      4 * C_p / Real.log M * Real.exp (-L / Real.rpow (Real.log L) C₃p)
+  have hphaseNonneg : 0 ≤ phase := by
+    dsimp [phase]
+    split_ifs <;> positivity
+  have htruncBoundNonneg : 0 ≤ truncBound := by
+    dsimp [truncBound]
+    split_ifs <;> positivity
+  have hTruncatedNorm' :
+      ‖(∑ m ∈ I,
+          (smallPrimeTruncation x r m : ℂ) *
+            ((χ (m : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                Real.log (m : ℝ)))‖ ≤ truncBound * M / V := by
+    simpa [I, r, Tstar, L, truncBound] using hTruncatedNorm
+  have hDenom : 0 < M * V := mul_pos hMpos hVpos
+  have hTruncatedNormDiv :
+      ‖(∑ m ∈ I,
+          (smallPrimeTruncation x r m : ℂ) *
+            ((χ (m : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                Real.log (m : ℝ))) /
+          ((M * V : ℝ) : ℂ)‖ ≤ truncBound / V ^ 2 := by
+    calc
+      _ = ‖(∑ m ∈ I,
+            (smallPrimeTruncation x r m : ℂ) *
+              ((χ (m : ZMod k) : ℂ) *
+                Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                  Real.log (m : ℝ)))‖ / (M * V) := by
+        rw [norm_div, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hDenom]
+      _ ≤ (truncBound * M / V) / (M * V) :=
+        div_le_div_of_nonneg_right hTruncatedNorm' hDenom.le
+      _ = truncBound / V ^ 2 := by
+        field_simp [ne_of_gt hMpos, ne_of_gt hVpos]
+        <;> ring
+  have hVhalf : vMin * Real.rpow L (-(1 / 2 : ℝ)) ≤ V := by
+    have hpow : Real.rpow L (-(1 / 2 : ℝ)) ≤
+        Real.rpow L (-(24 / 100 : ℝ)) :=
+      Real.rpow_le_rpow_of_exponent_le hLone (by norm_num)
+    calc
+      _ ≤ vMin * Real.rpow L (-(24 / 100 : ℝ)) :=
+        mul_le_mul_of_nonneg_left hpow hvMin.le
+      _ ≤ V := hVlower
+  have hRpowSquare :
+      (Real.rpow L (-(1 / 2 : ℝ))) ^ 2 = Real.rpow L (-1) := by
+    calc
+      _ = Real.rpow L (-(1 / 2 : ℝ)) * Real.rpow L (-(1 / 2 : ℝ)) := by ring
+      _ = Real.rpow L (-(1 / 2 : ℝ) + -(1 / 2 : ℝ)) :=
+        (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow L (-1) := by congr 1 <;> norm_num
+  have hInvRpow : L * Real.rpow L (-1) = 1 := by
+    have hNeg : Real.rpow L (-1) = L⁻¹ := Real.rpow_neg_one L
+    calc
+      _ = L * L⁻¹ := congrArg (fun z : ℝ => L * z) hNeg
+      _ = 1 := by field_simp [ne_of_gt hLpos]
+  have hVhalfSq :
+      (vMin * Real.rpow L (-(1 / 2 : ℝ))) ^ 2 ≤ V ^ 2 :=
+    by
+      have hApos : 0 ≤ vMin * Real.rpow L (-(1 / 2 : ℝ)) :=
+        mul_nonneg hvMin.le (Real.rpow_nonneg hLpos.le _)
+      exact (sq_le_sq₀ hApos hVpos.le).2 hVhalf
+  have hVtermSq :
+      (vMin * Real.rpow L (-(1 / 2 : ℝ))) ^ 2 =
+        vMin ^ 2 * Real.rpow L (-1) := by
+    rw [mul_pow, hRpowSquare]
+  have hDenLower : wMin * vMin ^ 2 ≤ Real.log M * V ^ 2 := by
+    have hDenEq :
+        (wMin * L) * (vMin ^ 2 * Real.rpow L (-1)) = wMin * vMin ^ 2 := by
+      calc
+        _ = wMin * vMin ^ 2 * (L * Real.rpow L (-1)) := by ring
+        _ = wMin * vMin ^ 2 := by rw [hInvRpow, mul_one]
+    calc
+      _ = (wMin * L) * (vMin ^ 2 * Real.rpow L (-1)) := hDenEq.symm
+      _ = (wMin * L) *
+          (vMin * Real.rpow L (-(1 / 2 : ℝ))) ^ 2 := by rw [hVtermSq]
+      _ ≤ Real.log M * V ^ 2 :=
+        mul_le_mul (by simpa [L] using hlogMlower) hVhalfSq (by positivity)
+          (by positivity)
+  have hDenLowerPos : 0 < wMin * vMin ^ 2 := by positivity
+  have hInvDen : 1 / (Real.log M * V ^ 2) ≤ 1 / (wMin * vMin ^ 2) :=
+    one_div_le_one_div_of_le hDenLowerPos hDenLower
+  have hCoeffM : 4 * C_m / (Real.log M * V ^ 2) ≤ K := by
+    have hNumerator : 4 * C_m ≤ 4 * max C_m C_p :=
+      mul_le_mul_of_nonneg_left (le_max_left C_m C_p) (by norm_num)
+    calc
+      _ = (4 * C_m) * (1 / (Real.log M * V ^ 2)) := by ring
+      _ ≤ (4 * max C_m C_p) * (1 / (wMin * vMin ^ 2)) :=
+        mul_le_mul hNumerator hInvDen (by positivity) (by positivity)
+      _ = K := by dsimp [K]; ring
+  have hCoeffP : 4 * C_p / (Real.log M * V ^ 2) ≤ K := by
+    have hNumerator : 4 * C_p ≤ 4 * max C_m C_p :=
+      mul_le_mul_of_nonneg_left (le_max_right C_m C_p) (by norm_num)
+    calc
+      _ = (4 * C_p) * (1 / (Real.log M * V ^ 2)) := by ring
+      _ ≤ (4 * max C_m C_p) * (1 / (wMin * vMin ^ 2)) :=
+        mul_le_mul hNumerator hInvDen (by positivity) (by positivity)
+      _ = K := by dsimp [K]; ring
+  have hLowPhaseNonneg : 0 ≤ |u|⁻¹ + Real.rpow x (-c_m) := by
+    have huAbsPos : 0 < |u| := lt_of_lt_of_le (by norm_num) huLower
+    exact add_nonneg (inv_nonneg.mpr huAbsPos.le) (Real.rpow_nonneg hxpos.le _)
+  have hHighPhaseNonneg :
+      0 ≤ Real.exp (-L / Real.rpow (Real.log L) C₃p) := (Real.exp_pos _).le
+  have hTruncatedPhase :
+      ‖(∑ m ∈ I,
+          (smallPrimeTruncation x r m : ℂ) *
+            ((χ (m : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                Real.log (m : ℝ))) /
+          ((M * V : ℝ) : ℂ)‖ ≤ K * phase := by
+    by_cases hu : |u| ≤ Tstar
+    · calc
+        _ ≤ truncBound / V ^ 2 := hTruncatedNormDiv
+        _ = (4 * C_m / (Real.log M * V ^ 2)) *
+              (|u|⁻¹ + Real.rpow x (-c_m)) := by
+          simp [truncBound, hu]
+          field_simp [ne_of_gt hlogMpos, ne_of_gt hVpos]
+          <;> ring
+        _ ≤ K * (|u|⁻¹ + Real.rpow x (-c_m)) :=
+          mul_le_mul_of_nonneg_right hCoeffM hLowPhaseNonneg
+        _ = K * phase := by simp [phase, hu]
+    · calc
+        _ ≤ truncBound / V ^ 2 := hTruncatedNormDiv
+        _ = (4 * C_p / (Real.log M * V ^ 2)) *
+              Real.exp (-L / Real.rpow (Real.log L) C₃p) := by
+          simp [truncBound, hu]
+          field_simp [ne_of_gt hlogMpos, ne_of_gt hVpos]
+          <;> ring
+        _ ≤ K * Real.exp (-L / Real.rpow (Real.log L) C₃p) :=
+          mul_le_mul_of_nonneg_right hCoeffP hHighPhaseNonneg
+        _ = K * phase := by simp [phase, hu]
+  letI : NeZero k := ⟨by omega⟩
+  let E : ℝ := Real.rpow L (-A_s)
+  have hRemainder' :
+      (∑ m ∈ I,
+        |(if roughAbove m (roughCutoff x) then (1 : ℝ) else 0) -
+          smallPrimeTruncation x r m|) / (M * V) ≤ E := by
+    simpa [E] using hRemainder
+  have hDiff := rough_source_truncation_error x u M V E r k χ l rr
+    hMpos hVpos hlogM hl hlr hRemainder'
+  have hDiff' :
+      ‖roughSourceIntervalSum x k χ u l rr /
+          ((M * V : ℝ) : ℂ) -
+        (∑ m ∈ I,
+          (smallPrimeTruncation x r m : ℂ) *
+            ((χ (m : ZMod k) : ℂ) *
+              Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                Real.log (m : ℝ))) /
+          ((M * V : ℝ) : ℂ)‖ ≤ E := by
+    simpa [roughSourceIntervalSum, I, E] using hDiff
+  have hSourceBound :
+      ‖roughSourceIntervalSum x k χ u l rr /
+          ((M * V : ℝ) : ℂ)‖ ≤ E + K * phase := by
+    calc
+      _ = ‖(roughSourceIntervalSum x k χ u l rr /
+              ((M * V : ℝ) : ℂ) -
+            (∑ m ∈ I,
+              (smallPrimeTruncation x r m : ℂ) *
+                ((χ (m : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                    Real.log (m : ℝ))) /
+              ((M * V : ℝ) : ℂ)) +
+            (∑ m ∈ I,
+              (smallPrimeTruncation x r m : ℂ) *
+                ((χ (m : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                    Real.log (m : ℝ))) /
+              ((M * V : ℝ) : ℂ)‖ := by
+        congr 1
+        ring
+      _ ≤ ‖roughSourceIntervalSum x k χ u l rr /
+              ((M * V : ℝ) : ℂ) -
+            (∑ m ∈ I,
+              (smallPrimeTruncation x r m : ℂ) *
+                ((χ (m : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                    Real.log (m : ℝ))) /
+              ((M * V : ℝ) : ℂ)‖ +
+          ‖(∑ m ∈ I,
+              (smallPrimeTruncation x r m : ℂ) *
+                ((χ (m : ZMod k) : ℂ) *
+                  Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+                    Real.log (m : ℝ))) /
+              ((M * V : ℝ) : ℂ)‖ := norm_add_le _ _
+      _ ≤ E + K * phase := add_le_add hDiff' hTruncatedPhase
+  simpa [L, Tstar, phase, E] using hSourceBound
 
 /-- A discrete Abel estimate for a Lipschitz multiplier of the smooth rough
 source. -/
