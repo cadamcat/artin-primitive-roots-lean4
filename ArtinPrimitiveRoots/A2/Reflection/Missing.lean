@@ -15714,6 +15714,138 @@ private theorem rf_pairing_units_compact_lift
       simp [graph, Units.embedProduct]
   rwa [hEq] at hCompact
 
+private theorem rf_pairing_constant_integrable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    IntegrableOn (onUnits (fun y =>
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r true true y))
+      (omegaAt R l) (R.sheets.sheet l) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let V := {v : FinPlace F // v ∈ R.exterior.support r.ideal}
+  letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let u := rowClass R r
+  let c : S.FSˣ → ℂ := digitSum R r true true
+  let tail (d : Digits R r) : R.C.G :=
+    ((R.exterior.support r.ideal).attach.toList.map (fun v =>
+      R.C.n v.1 (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))))).prod
+  have hDigit (d : Digits R r) : Continuous (fun y : S.FSˣ =>
+      R.T.θN (R.chars.L u) (R.C.rat weylGL * digitPoint R r y d)) := by
+    simpa only [u, tail, digitPoint, mul_assoc] using
+      R.T.cont_N (R.chars.L u) (R.mem_family u) (R.C.rat weylGL) (tail d)
+  have hc : Continuous c := by
+    have hsum : Continuous (fun y : S.FSˣ =>
+        ∑ d : Digits R r, digitAlpha R r d *
+          R.T.θN (R.chars.L u) (R.C.rat weylGL * digitPoint R r y d)) :=
+      continuous_finsetSum Finset.univ (fun d _ => continuous_const.mul (hDigit d))
+    change Continuous (fun y : S.FSˣ => digitSum R r true true y)
+    simpa [u, digitSum, finsum_eq_sum_of_fintype] using hsum
+  have hAbs : Continuous S.absS := by
+    unfold SData.absS
+    apply Continuous.mul
+    · apply continuous_finsetProd Finset.univ
+      intro v hv
+      have ha : Continuous (absFin v.1) := by
+        convert (continuous_norm : Continuous fun x : v.1.adicCompletion F => ‖x‖) using 1
+        ext x
+        exact A1.Theta.absFin_eq_norm v.1 x
+      exact ha.comp ((continuous_apply v).comp continuous_fst)
+    · apply continuous_finsetProd Finset.univ
+      intro w hw
+      exact Complex.continuous_normSq.comp ((continuous_apply w).comp continuous_snd)
+  have hUnit1 (y : S.FS) (hy : S.absS y = 1) : IsUnit y := by
+    have hfin (v : S.Sf) : absFin v.1 (y.1 v) ≠ 0 := by
+      intro hv
+      have hp : (∏ v' : S.Sf, absFin v'.1 (y.1 v')) = 0 :=
+        Finset.prod_eq_zero (Finset.mem_univ v) hv
+      have hz : S.absS y = 0 := by
+        unfold SData.absS
+        rw [hp]
+        simp
+      rw [hy] at hz
+      exact one_ne_zero hz
+    have harch (w : InfinitePlace F) : Complex.normSq (y.2 w) ≠ 0 := by
+      intro hw
+      have hp : (∏ w' : InfinitePlace F, Complex.normSq (y.2 w')) = 0 :=
+        Finset.prod_eq_zero (Finset.mem_univ w) hw
+      have hz : S.absS y = 0 := by
+        unfold SData.absS
+        rw [hp]
+        simp
+      rw [hy] at hz
+      exact one_ne_zero hz
+    rw [Prod.isUnit_iff, Pi.isUnit_iff, Pi.isUnit_iff]
+    constructor
+    · intro v
+      apply isUnit_iff_ne_zero.mpr
+      intro hv
+      apply hfin v
+      rw [hv, A1.Theta.absFin_eq_norm]
+      simp
+    · intro w
+      apply isUnit_iff_ne_zero.mpr
+      intro hw
+      apply harch w
+      simp [hw]
+  obtain ⟨K, hK, hOmegaK⟩ := R.sheets.omega_bounded
+  let K1 := K ∩ {y : S.FS | S.absS y = 1}
+  have hK1 : IsCompact K1 :=
+    hK.inter_right (isClosed_singleton.preimage hAbs)
+  let Kl := (fun y : S.FS => (R.sheets.ellU l : S.FS) * y) '' K1
+  have hKl : IsCompact Kl := hK1.image (continuous_const.mul continuous_id)
+  have hUnitL : ∀ y ∈ Kl, IsUnit y := by
+    rintro y ⟨x, hx, rfl⟩
+    exact (R.sheets.ellU l).isUnit.mul (hUnit1 x hx.2)
+  have hOmegaL : omegaAt R l ⊆ Kl := by
+    rintro y ⟨x, hx, rfl⟩
+    exact ⟨x, ⟨hOmegaK hx, (R.sheets.omega_norm x hx).2⟩, rfl⟩
+  let U := (Units.val : S.FSˣ → S.FS) ⁻¹' Kl
+  have hU : IsCompact U := rf_pairing_units_compact_lift Kl hKl hUnitL
+  obtain ⟨M, hM⟩ := (hU.image hc.norm).bddAbove
+  have hBound (y : S.FSˣ) (hy : y ∈ U) : ‖c y‖ ≤ M := hM ⟨y, hy, rfl⟩
+  let weighted : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * c y
+  have hInvMeas : Measurable (fun y : S.FSˣ => (Lvalue R u y)⁻¹) := by
+    have hcont : Continuous (fun y : S.FSˣ => Lvalue R u y) := by
+      simpa only [Lvalue] using (R.chars.L u).cont
+    exact measurable_inv.comp hcont.measurable
+  have hWeightedMeas : Measurable weighted :=
+    ((rf_bCut_measurable R).mul hInvMeas).mul hc.measurable
+  have hBridge := a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl
+  have hOmegaMeas : MeasurableSet (omegaAt R l) := hBridge.1.1
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  letI : IsFiniteMeasure m := ⟨by
+    simpa only [m, Measure.restrict_apply_univ, bridgeOmegaAt, omegaAt] using hBridge.2.1⟩
+  have hConst : Integrable (fun _ : S.FS => M) m := integrable_const M
+  have hInt : Integrable (onUnits weighted) m := by
+    apply hConst.mono' (rf_onUnits_measurable weighted hWeightedMeas).aestronglyMeasurable
+    filter_upwards [ae_restrict_mem hOmegaMeas] with y hy
+    have hyu : IsUnit y := hUnitL y (hOmegaL hy)
+    have hyU : hyu.unit ∈ U := by
+      change (hyu.unit : S.FS) ∈ Kl
+      rw [hyu.unit_spec]
+      exact hOmegaL hy
+    have hB : ‖bCut (Bd := Bd) hyu.unit‖ ≤ 1 := by
+      unfold bCut
+      split_ifs <;> simp
+    have hInv : ‖(Lvalue R u hyu.unit)⁻¹‖ = 1 := by
+      rw [norm_inv]
+      have hL : ‖Lvalue R u hyu.unit‖ = 1 := by
+        simpa only [Lvalue] using (R.chars.L u).unitary hyu.unit
+      rw [hL, inv_one]
+    rw [onUnits, dif_pos hyu]
+    dsimp only [weighted]
+    calc
+      _ = ‖bCut (Bd := Bd) hyu.unit‖ * ‖c hyu.unit‖ := by
+        simp only [norm_mul, hInv, mul_one]
+      _ ≤ 1 * ‖c hyu.unit‖ := mul_le_mul_of_nonneg_right hB (norm_nonneg _)
+      _ = ‖c hyu.unit‖ := one_mul _
+      _ ≤ M := hBound hyu.unit hyU
+  exact hInt
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
