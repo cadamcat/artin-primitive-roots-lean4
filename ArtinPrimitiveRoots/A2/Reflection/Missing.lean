@@ -4996,6 +4996,47 @@ private theorem rf_forward_indexed_term (r : ReflectionRow S)
   rw [rf_forward_term_factor R r ν y hνR hTable.1, hMask, hExt, hCoeff]
   ring
 
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_support (r : ReflectionRow S) (ν : Fˣ)
+    (y : S.FSˣ) (hTerm : forwardTerm R r ν y ≠ 0) :
+    ∃ p : S.SqfExtIdeal × S.ExtIdeal, ∃ γ : Gamma S,
+      ν = (γ.1 : Fˣ) * Agen R p.1 p.2 := by
+  classical
+  rcases (rf_forward_frequencies R).1 r ν y hTerm with
+    ⟨hνR, hAllowed, I, hGen, γ0, hγ0⟩
+  have hTable := ArtinPrimitiveRoots.A1.Theta.theta_exterior_coefficient
+    R.T Bd I.1 I.property ν ⟨hGen, hAllowed⟩
+  have hExt : (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf},
+      R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν))) ≠ 0 := by
+    intro hz
+    apply hTerm
+    rw [rf_forward_term_factor R r ν y hνR hTable.1, hz, mul_zero, zero_mul]
+  have hExists : ∃ c n : Ideal (𝓞 F), Squarefree c ∧ I.1 = c * n ^ (3 : ℕ) := by
+    by_contra hn
+    push_neg at hn
+    exact hExt (hTable.2.2 hn)
+  obtain ⟨c, n, hc, hI⟩ := hExists
+  have hCN := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_factors
+    S I.1 c n I.property hI
+  let C : S.SqfExtIdeal := ⟨c, hCN.1, hc⟩
+  let N : S.ExtIdeal := ⟨n, hCN.2⟩
+  have hAI : Aideal R C N = I := by
+    apply Subtype.ext
+    dsimp only [Aideal]
+    rw [R.exterior.mul_val, R.exterior.ofSqf_val, R.exterior.pow_val]
+    exact hI.symm
+  have hA : S.IsGen (Agen R C N : F) I.1 ∧ Bd.Allowed (Agen R C N) := by
+    have h := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_generator
+      D S H Bd bc R.exterior C N
+    change S.IsGen (Agen R C N : F) (Aideal R C N).1 ∧ Bd.Allowed (Agen R C N) at h
+    rw [hAI] at h
+    exact h
+  obtain ⟨ε, hε, hEq⟩ := Bd.allowed_unique I.1 ν (Agen R C N) ⟨hGen, hAllowed⟩ hA
+  let εu : S.US := ⟨ε, hε⟩
+  let δ : Gamma S := ⟨εu ^ 6, MonoidHom.mem_range.mpr ⟨εu, rfl⟩⟩
+  refine ⟨(C, N), δ, ?_⟩
+  simpa only [δ, εu, Subgroup.coe_pow] using hEq
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
