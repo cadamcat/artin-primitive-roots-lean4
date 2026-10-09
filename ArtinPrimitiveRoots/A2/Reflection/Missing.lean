@@ -13548,6 +13548,146 @@ private theorem rf_pairing_grouped_orbit_integrals
     _ ≤ weight * profileAbs R u (S.absS (S.diagU ν : S.FS) / l) :=
       mul_le_mul_of_nonneg_right hCoeff hProfile
 
+private def rf_pairing_grouped_fourier_term
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S) (y : S.FSˣ) : ℂ :=
+  let ν := frozenFrequency R p.1 r.d p.2.1
+  if IsCoprime (p.2.1.1 * p.1.n.1) (r.d.1 * p.1.f.1) then
+    groupedExterior R p.1 r.d ν *
+      (bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ((p.2.2.1 : Fˣ) * ν)) y⁻¹ *
+          rotated R (rowClass R r) (S.diagU ((p.2.2.1 : Fˣ) * ν) / y))
+  else 0
+
+private theorem rf_pairing_grouped_integral_norm_summable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    (∀ p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+      IntegrableOn (onUnits (rf_pairing_grouped_fourier_term R r p))
+        (omegaAt R l) (R.sheets.sheet l)) ∧
+      Summable (fun p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S =>
+        ∫ y in omegaAt R l, ‖onUnits (rf_pairing_grouped_fourier_term R r p) y‖
+          ∂(R.sheets.sheet l)) := by
+  classical
+  let u := rowClass R r
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let N : J × Gamma S → ℝ := fun p =>
+    ∫ y, ‖onUnits (rf_pairing_grouped_fourier_term R r (p.1.1, p.1.2, p.2)) y‖ ∂m
+  let weight : J → ℝ := fun q =>
+    betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1
+  let profile : J → ℝ := fun q => profileAbs R u
+    (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / l)
+  let Q : J → ℝ := fun q => qI q.1.a.1 * qI q.2.1 * qI q.1.n.1 ^ 3
+  let den : J → ℝ := fun q => qI r.d.1 ^ 2 * qI q.1.f.1 ^ 2
+  have hEach (q : J) :
+      (∀ γ, Integrable (onUnits (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ))) m) ∧
+      Summable (fun γ => N (q, γ)) ∧
+      (∑' γ, N (q, γ)) ≤ weight q * profile q := by
+    dsimp only [N, weight, profile, u, m, rf_pairing_grouped_fourier_term]
+    exact rf_pairing_grouped_orbit_integrals R r q.1 q.2 l hl
+  have hNnonneg (p : J × Gamma S) : 0 ≤ N p := integral_nonneg (fun y => norm_nonneg _)
+  constructor
+  · intro p
+    exact (hEach (p.1, p.2.1)).1 p.2.2
+  · obtain ⟨C, hC, hProfile⟩ := (rf_profile_bound R).2.2 1 (by norm_num)
+    have hq (I : Ideal (𝓞 F)) : 0 ≤ qI I := by
+      unfold qI
+      exact Nat.cast_nonneg _
+    have hWeight (q : J) : 0 ≤ weight q := div_nonneg
+      (mul_nonneg (rf_betaIdeal_nonneg R q.1.f q.1.a)
+        (Real.rpow_nonneg (hq q.2.1) _)) (hq q.1.n.1)
+    have hMassBound (q : J) : (∑' γ, N (q, γ)) ≤
+        C * (den q * l) *
+          reflectedDirichletTerm R q.1.f 1 (⟨q.1.a, q.1.numerator⟩, q.2, q.1.n) := by
+      let sd : Bd.B := ⟨cls (S.diagU (bc.gen r.d)), (bc.gen_spec r.d).2⟩
+      let sc : Bd.B := ⟨cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))),
+        (bc.gen_spec (R.exterior.ofSqf q.2)).2⟩
+      have hNorm : S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) =
+          Q q / den q :=
+        (rf_pairing_frequency_norm_class R r.h q.1 r.d q.2 sd sc rfl rfl).1
+      have hArg : 0 < S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / l :=
+        div_pos ((a2_bridge_NORM D S).2.2.1
+          (S.diagU (frozenFrequency R q.1 r.d q.2))) hl
+      have hPower : (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / l) ^
+          (-1 : ℝ) = (den q * l) * (Q q) ^ (-1 : ℝ) := by
+        rw [hNorm]
+        simp only [Real.rpow_neg_one, div_eq_mul_inv, mul_inv_rev, inv_inv]
+        ring
+      calc
+        _ ≤ weight q * profile q := (hEach q).2.2
+        _ ≤ weight q * (C *
+            (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / l) ^ (-1 : ℝ)) :=
+          mul_le_mul_of_nonneg_left (hProfile u _ hArg) (hWeight q)
+        _ = _ := by
+          rw [hPower]
+          dsimp only [weight, Q, den, reflectedDirichletTerm]
+          ring
+    letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+    let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+    letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+    let I := Σ f : AF, UnitSix S ×
+      ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal)
+    let e : J → I := fun q =>
+      ⟨⟨q.1.f, q.1.active⟩, (q.1.u, (⟨q.1.a, q.1.numerator⟩, q.2, q.1.n))⟩
+    let M : I → ℝ := fun p =>
+      C * (qI r.d.1 ^ 2 * qI p.1.1.1 ^ 2 * l) *
+        reflectedDirichletTerm R p.1.1 1 p.2.2
+    have he : Function.Injective e := by
+      intro p q hpq
+      have hf : p.1.f = q.1.f := congrArg (fun z : I => z.1.1) hpq
+      have ha : p.1.a = q.1.a := congrArg (fun z : I => z.2.2.1.1) hpq
+      have hn : p.1.n = q.1.n := congrArg (fun z : I => z.2.2.2.2) hpq
+      have hu : p.1.u = q.1.u := congrArg (fun z : I => z.2.1) hpq
+      have hc : p.2 = q.2 := congrArg (fun z : I => z.2.2.2.1) hpq
+      rcases p with ⟨⟨pf, pa, pn, pu, pactive, pnum, pcop⟩, pc⟩
+      rcases q with ⟨⟨qf, qa, qn, qu, qactive, qnum, qcop⟩, qc⟩
+      dsimp only at hf ha hn hu hc
+      cases hf
+      cases ha
+      cases hn
+      cases hu
+      cases hc
+      rfl
+    have hDirNonneg (f : S.ExtIdeal)
+        (p : {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal) :
+        0 ≤ reflectedDirichletTerm R f 1 p := by
+      unfold reflectedDirichletTerm
+      exact mul_nonneg
+        (div_nonneg
+          (mul_nonneg (rf_betaIdeal_nonneg R f p.1) (Real.rpow_nonneg (hq p.2.1.1) _))
+          (hq p.2.2.1))
+        (Real.rpow_nonneg
+          (mul_nonneg (mul_nonneg (hq p.1.1.1) (hq p.2.1.1))
+            (pow_nonneg (hq p.2.2.1) 3)) _)
+    have hMnonneg (p : I) : 0 ≤ M p :=
+      mul_nonneg
+        (mul_nonneg hC.le
+          (mul_nonneg (mul_nonneg (sq_nonneg _) (sq_nonneg _)) hl.le))
+        (hDirNonneg p.1.1 p.2.2)
+    have hfiber (f : AF) : Summable (fun q : UnitSix S ×
+        ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal) => M ⟨f, q⟩) := by
+      apply (summable_prod_of_nonneg (fun q => hMnonneg ⟨f, q⟩)).2
+      refine ⟨?_, Summable.of_finite⟩
+      intro k
+      exact (rf_reflected_dirichlet_mass R f.1 1 (by norm_num)).1.mul_left
+        (C * (qI r.d.1 ^ 2 * qI f.1.1 ^ 2 * l))
+    have hM : Summable M :=
+      (summable_sigma_of_nonneg hMnonneg).2 ⟨hfiber, Summable.of_finite⟩
+    have hsMass : Summable (fun q : J => ∑' γ, N (q, γ)) := by
+      apply Summable.of_nonneg_of_le (fun q => tsum_nonneg (fun γ => hNnonneg (q, γ)))
+        ?_ (hM.comp_injective he)
+      intro q
+      exact hMassBound q
+    have hsJG : Summable N :=
+      (summable_prod_of_nonneg hNnonneg).2 ⟨fun q => (hEach q).2.1, hsMass⟩
+    let eP : J × Gamma S ≃ P :=
+      Equiv.prodAssoc (FrozenIndex R r.h) S.SqfExtIdeal (Gamma S)
+    have hsComp : Summable ((fun p : P =>
+        ∫ y, ‖onUnits (rf_pairing_grouped_fourier_term R r p) y‖ ∂m) ∘ eP) := hsJG
+    exact (eP.summable_iff).1 hsComp
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
