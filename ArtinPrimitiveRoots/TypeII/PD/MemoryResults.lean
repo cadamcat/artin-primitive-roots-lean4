@@ -13081,7 +13081,79 @@ theorem lattice_clean (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_
           MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.clean j)
             (C * (Real.rpow S.L ((1 / 5 : ℝ) - A₀) +
               Real.rpow S.L P * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ)))) := by
-    sorry
+    classical
+    obtain ⟨Ccore, Cbox, xcore, Y₀, hCcore, hCbox, hxcore, hY₀, hcore⟩ :=
+      ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_core_quantitative_bound F hF
+    obtain ⟨Cminor, xminor, hCminor, hxminor, hminor⟩ :=
+      ArtinPrimitiveRoots.Proofs.pd4d_sol.scaled_smoothed_minor_rectangle_bound
+        K δ c₁ c₂ F.A₀ Cbox hF.2.2.2.1 hCbox.le F.psi
+        hF.2.2.2.2.2.1 hF.2.2.2.2.2.2.1
+    obtain ⟨xμ, hxμ, hμ⟩ := pd4c_memMeasure_nonneg_eventually F hF
+    obtain ⟨Ly, hLy⟩ := Filter.eventually_atTop.1
+      ((tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 10)).eventually_ge_atTop
+        (20 * Real.log Y₀))
+    let L₀ := max 1 Ly
+    let x₁ := max xcore (max xminor (max xμ (Real.exp L₀)))
+    let C := Ccore*(Cminor+2)
+    let P := max (1/5 : ℝ) (3*F.A₀)
+    let c : ℝ := 1/200
+    have hC : 0 < C := by dsimp only [C]; positivity
+    refine ⟨C, P, c, x₁, hC, by norm_num [c], hxcore.trans (le_max_left _ _), ?_⟩
+    intro S hS hx w hw j hj
+    have hxcore' : xcore ≤ S.x := (le_max_left _ _).trans hx
+    have hxminor' : xminor ≤ S.x :=
+      ((le_max_left _ _).trans (le_max_right _ _)).trans hx
+    have hxμ' : xμ ≤ S.x :=
+      ((le_max_left _ _).trans ((le_max_right _ _).trans (le_max_right _ _))).trans hx
+    have hxL : Real.exp L₀ ≤ S.x :=
+      ((le_max_right _ _).trans ((le_max_right _ _).trans (le_max_right _ _))).trans hx
+    have hL₀ : L₀ ≤ S.L := by
+      have h := Real.log_le_log (Real.exp_pos L₀) hxL
+      simpa only [Real.log_exp, PDScale.L] using h
+    have hL : 1 ≤ S.L := (le_max_left _ _).trans hL₀
+    have hLpos : 0 < S.L := lt_of_lt_of_le (by norm_num) hL
+    obtain ⟨hYpos, _⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+    have hY₀pos : 0 < Y₀ := lt_of_lt_of_le (by norm_num) hY₀
+    have hY : Y₀ ≤ S.Y := by
+      have hlarge := hLy S.L ((le_max_right _ _).trans hL₀)
+      change 20*Real.log Y₀ ≤ Real.rpow S.L (1/10 : ℝ) at hlarge
+      have hlogY := (Finset.mem_filter.mp hS.2.2.2.2.2.1).2.1
+      change (1/20 : ℝ)*Real.rpow S.L (1/10 : ℝ) ≤ Real.log S.Y at hlogY
+      have hlog : Real.log Y₀ ≤ Real.log S.Y := by linarith
+      exact (Real.log_le_log_iff hY₀pos hYpos).mp hlog
+    have hm := hμ S hxμ'
+    let r := Cminor*(Real.rpow S.L ((1/5 : ℝ)-F.A₀)+
+      Real.rpow S.L (1/5 : ℝ)*
+        Real.exp (-(1/200 : ℝ)*Real.rpow S.L (1/10 : ℝ)))
+    have hr : 0 ≤ r := by
+      dsimp only [r]
+      exact mul_nonneg hCminor.le
+        (add_nonneg (Real.rpow_pos_of_pos hLpos _).le
+          (mul_nonneg (Real.rpow_pos_of_pos hLpos _).le (Real.exp_pos _).le))
+    have hrectangle := hminor S hS hxminor'
+    have hcoreBound := hcore δ c₁ c₂ S hS hxcore' hY hL w hw r hr hrectangle
+      ρ hρ (memoryCutoff S) j
+    have hprojected :=
+      ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_projected_edge_norm_of_core_norm
+        F S ρ w j (memoryCutoff S)
+        (Ccore*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))))
+        hm hcoreBound
+    have hrate := ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_minor_collision_rate_le
+      S.L F.A₀ Cminor hL hCminor.le
+    have hcoeff :
+        Ccore*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))) ≤
+        C*(Real.rpow S.L ((1/5 : ℝ)-A₀)+
+          Real.rpow S.L P*Real.exp (-c*Real.rpow S.L (1/10 : ℝ))) := by
+      simpa only [r, C, P, c, hHas.2.1, mul_assoc] using
+        (mul_le_mul_of_nonneg_left hrate hCcore.le)
+    have hnonneg :
+        0 ≤ Ccore*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))) := by
+      exact mul_nonneg hCcore.le (add_nonneg hr
+        (mul_nonneg (add_nonneg zero_le_one
+          (pow_nonneg (Real.rpow_pos_of_pos hLpos F.A₀).le 3)) (Real.exp_pos _).le))
+    exact pd4c_memOpNormLE_mono F S (memoryCutoff S)
+      (fun f => memEdge F S ρ w EdgeKind.clean j (memorySym f)) _ _ hm hprojected
+      hnonneg hcoeff
   obtain ⟨C, P, c, x₁, hC, hc, hx₁, hquant⟩ := hquant
   obtain ⟨L₁, hL₁, hdecay⟩ := pd4c_logPower_expDecay_const (G + 1) P c C hc
   obtain ⟨xμ, hxμ, hμ⟩ := pd4c_memMeasure_nonneg_eventually F hF
