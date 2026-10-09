@@ -20,6 +20,7 @@ local instance borelLocalHaar (v : FinPlace F) : BorelSpace (v.adicCompletion F)
 /-- Choose a nonzero additive Haar measure on a finite completion.
 Guide: PROOFS.md:464–466. Uses: built CFT Idele.LocallyCompact; Mathlib Haar existence. -/
 theorem local_haar_exists (v : FinPlace F) : ∃ μ : Measure (v.adicCompletion F), Measure.IsAddHaarMeasure μ := by
-  sorry
+  have : LocallyCompactSpace (v.adicCompletion F) := inferInstance
+  exact ⟨Measure.addHaar, inferInstance⟩
 
 end ArtinPrimitiveRoots.Proofs.a1_weil_sol

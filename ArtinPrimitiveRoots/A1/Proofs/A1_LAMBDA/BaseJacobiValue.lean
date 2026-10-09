@@ -5,6 +5,9 @@ set_option autoImplicit false
 open NumberField IsDedekindDomain
 open scoped Classical Topology
 noncomputable section
+
+-- Preserve the cyclotomic instance used by the frozen Eisenstein interfaces.
+attribute [local instance 2000] CyclotomicField.instNumberField
 namespace ArtinPrimitiveRoots.Proofs.a1_lambda_sol
 open ArtinPrimitiveRoots.A1
 variable {F : Type} [Field F] [NumberField F]

@@ -1458,6 +1458,7 @@ private theorem rows_small_kummer_LS_bound (hEuler : EulerHypotheses R η)
       ∀ u, u ≠ U.one → ∀ w : ℂ, 3 / 1000 ≤ w.re → w.re ≤ 4 →
         ‖HA.LS S (U.kummer u) w‖ ≤
           C * (U.q u) ^ (1 / 2 + ε) * (1 + |w.im|) ^ AF := by
+  haveI : IsTotallyComplex F := D.isTotallyComplex
   obtain ⟨AF, hAF, hconvex⟩ := zf_convexity (F := F)
   have hδ : 0 < ε / 4 := by positivity
   obtain ⟨CK, hCK, hconvex⟩ := hconvex (ε / 4) hδ
@@ -6891,6 +6892,7 @@ private theorem kummer_incomplete_convexity_bound (hEuler : EulerHypotheses R η
         3 / 1000 ≤ w.re → w.re ≤ 4 →
           ‖HA.LS S (U.kummer u) w‖ ≤ C * (U.q u) ^ (1 / 2 + ε) *
             (2 + |w.im|) ^ A_F := by
+  haveI : IsTotallyComplex F := D.isTotallyComplex
   obtain ⟨A_F, hAF, hconv⟩ := zf_convexity (F := F)
   refine ⟨A_F, hAF, ?_⟩
   intro ε hε
@@ -9261,6 +9263,7 @@ theorem zf_far_rows : EulerHypotheses R η → ∀ ε : ℝ, 0 < ε → ∃ C : 
     ‖rowContribution R sd W η U rows Z‖ ≤ C * Z ^ (3849 / 1000 + (1 / 10 : ℝ) * 350000) *
       T ^ (1 - (350000 : ℝ) + ε) := by
   intro hEuler ε hε
+  haveI : IsTotallyComplex F := D.isTotallyComplex
   let HA0 : HeckeAnalysis F := Classical.choice (heckeAnalysis_exists F)
   let HC0 : EulerCorrection R η U := {
     H := fun u p => ∏' v : {v : FinPlace F // v ∉ S.Sf},
@@ -9883,6 +9886,7 @@ private theorem zeroDensityData_nonempty : Nonempty (ZeroDensityData η U HA) :=
     have heq := congrArg norm (sub_eq_zero.mp hz)
     simp only [norm_one] at heq
     linarith
+  haveI : IsTotallyComplex F := D.isTotallyComplex
   obtain ⟨AF, hAF, hGrowth⟩ := zf_convexity_growth_bound (F := F)
   obtain ⟨ρ, U0, Cexc, E, hρ, hρupper, hU0, hCexc, hmain, hrec⟩ :=
     Proofs.A2ZeroDetect.zero_density_core S D η hη U L Linc AF hAF AF hAF hGrowth
@@ -10513,6 +10517,7 @@ theorem zf_row_sum : EulerHypotheses R η → ∃ C Z0 : ℝ, 0 < C ∧ 2 ≤ Z0
   Summable (fun j : ℕ => ‖nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖) ∧
   ‖∑' j : ℕ, nonprincipalDyad R sd W η U DE ((2 : ℝ) ^ j) Z‖ ≤ C * Z ^ ((7 / 15 - 4 / 10000 : ℝ)) := by
   intro hEuler
+  haveI : IsTotallyComplex F := D.isTotallyComplex
   obtain ⟨HA⟩ := heckeAnalysis_exists F
   let HC : EulerCorrection R η U := canonicalEulerCorrection R η U
   obtain ⟨ZD⟩ := zeroDensityData_nonempty (η := η) (U := U) (HA := HA)
