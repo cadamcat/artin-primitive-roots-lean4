@@ -33,6 +33,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.SUnitCardinality
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.SUnitInjection
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.Symplectic
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.PrimeComplement
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.ExponentSix
 
 /-!
 # A1 interface, §3: Hilbert symbols, H_S, B, allowed generators
