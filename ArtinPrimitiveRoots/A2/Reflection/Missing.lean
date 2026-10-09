@@ -15920,6 +15920,87 @@ private theorem rf_pairing_thetaAverage_grouped_series
     _ = ∑' p : J × Gamma S, (f ∘ e) p := (e.tsum_eq f).symm
     _ = _ := hsReindex.tsum_prod
 
+private theorem rf_pairing_frequency_weight_summable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) :
+    Summable (fun q : FrozenIndex R r.h × S.SqfExtIdeal =>
+      (betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1) *
+        S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) ^ (-1 : ℝ)) := by
+  classical
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let weight : J → ℝ := fun q =>
+    betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1
+  let Q : J → ℝ := fun q => qI q.1.a.1 * qI q.2.1 * qI q.1.n.1 ^ 3
+  let den : J → ℝ := fun q => qI r.d.1 ^ 2 * qI q.1.f.1 ^ 2
+  have hq (I : Ideal (𝓞 F)) : 0 ≤ qI I := by
+    unfold qI
+    exact Nat.cast_nonneg _
+  have hEq (q : J) : weight q *
+      S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) ^ (-1 : ℝ) =
+        den q * reflectedDirichletTerm R q.1.f 1
+          (⟨q.1.a, q.1.numerator⟩, q.2, q.1.n) := by
+    let sd : Bd.B := ⟨cls (S.diagU (bc.gen r.d)), (bc.gen_spec r.d).2⟩
+    let sc : Bd.B := ⟨cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))),
+      (bc.gen_spec (R.exterior.ofSqf q.2)).2⟩
+    have hNorm : S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) =
+        Q q / den q :=
+      (rf_pairing_frequency_norm_class R r.h q.1 r.d q.2 sd sc rfl rfl).1
+    rw [hNorm]
+    dsimp only [weight, Q, den, reflectedDirichletTerm]
+    simp only [Real.rpow_neg_one, div_eq_mul_inv, mul_inv_rev, inv_inv]
+    ring
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let I := Σ f : AF, UnitSix S ×
+    ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal)
+  let e : J → I := fun q =>
+    ⟨⟨q.1.f, q.1.active⟩, (q.1.u, (⟨q.1.a, q.1.numerator⟩, q.2, q.1.n))⟩
+  let M : I → ℝ := fun p =>
+    (qI r.d.1 ^ 2 * qI p.1.1.1 ^ 2) *
+      reflectedDirichletTerm R p.1.1 1 p.2.2
+  have he : Function.Injective e := by
+    intro p q hpq
+    have hf : p.1.f = q.1.f := congrArg (fun z : I => z.1.1) hpq
+    have ha : p.1.a = q.1.a := congrArg (fun z : I => z.2.2.1.1) hpq
+    have hn : p.1.n = q.1.n := congrArg (fun z : I => z.2.2.2.2) hpq
+    have hu : p.1.u = q.1.u := congrArg (fun z : I => z.2.1) hpq
+    have hc : p.2 = q.2 := congrArg (fun z : I => z.2.2.2.1) hpq
+    rcases p with ⟨⟨pf, pa, pn, pu, pactive, pnum, pcop⟩, pc⟩
+    rcases q with ⟨⟨qf, qa, qn, qu, qactive, qnum, qcop⟩, qc⟩
+    dsimp only at hf ha hn hu hc
+    cases hf
+    cases ha
+    cases hn
+    cases hu
+    cases hc
+    rfl
+  have hDirNonneg (f : S.ExtIdeal)
+      (p : {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal) :
+      0 ≤ reflectedDirichletTerm R f 1 p := by
+    unfold reflectedDirichletTerm
+    exact mul_nonneg
+      (div_nonneg
+        (mul_nonneg (rf_betaIdeal_nonneg R f p.1) (Real.rpow_nonneg (hq p.2.1.1) _))
+        (hq p.2.2.1))
+      (Real.rpow_nonneg
+        (mul_nonneg (mul_nonneg (hq p.1.1.1) (hq p.2.1.1))
+          (pow_nonneg (hq p.2.2.1) 3)) _)
+  have hMnonneg (p : I) : 0 ≤ M p :=
+    mul_nonneg (mul_nonneg (sq_nonneg _) (sq_nonneg _))
+      (hDirNonneg p.1.1 p.2.2)
+  have hfiber (f : AF) : Summable (fun q : UnitSix S ×
+      ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal) => M ⟨f, q⟩) := by
+    apply (summable_prod_of_nonneg (fun q => hMnonneg ⟨f, q⟩)).2
+    refine ⟨?_, Summable.of_finite⟩
+    intro k
+    exact (rf_reflected_dirichlet_mass R f.1 1 (by norm_num)).1.mul_left
+      (qI r.d.1 ^ 2 * qI f.1.1 ^ 2)
+  have hM : Summable M :=
+    (summable_sigma_of_nonneg hMnonneg).2 ⟨hfiber, Summable.of_finite⟩
+  have hs : Summable (fun q : J => M (e q)) := hM.comp_injective he
+  exact hs.congr (fun q => (hEq q).symm)
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
