@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianSign
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianSquare
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianOne
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.NormCoset
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.NormIndex
 
 set_option autoImplicit false
 
