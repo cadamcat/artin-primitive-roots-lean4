@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.Definitions
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.AngularNormTransport
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
@@ -13,6 +13,13 @@ variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 Guide: sol-thin-a1/PROOFS.md:428-439. Uses: Definitions. -/
 theorem relative_norm_data_exists (D : FieldData F) (ι : E →ₐ[ℚ] F) :
     Nonempty (RelativeNormData D ι) := by
-  sorry
+  exact ⟨{
+    norm := relativeIdeleNorm ι
+    continuous_norm := relativeIdeleNorm_continuous ι
+    principal_norm := relativeIdeleNorm_principal ι
+    unit_norm := relativeIdeleNorm_unit_norm ι
+    uniformizer_norm := relativeIdeleNorm_uniformizer_norm ι
+    angular_norm := relativeIdeleNorm_angular_norm D ι
+  }⟩
 
 end ArtinPrimitiveRoots.Proofs.a1_lambda_sol
