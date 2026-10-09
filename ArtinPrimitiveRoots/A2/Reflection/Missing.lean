@@ -4742,6 +4742,19 @@ private theorem rf_forward_constant_integrable (r : ReflectionRow S) (l : ℝ)
       _ ≤ C := by simpa only [one_mul] using hD
   exact IntegrableOn.of_bound hMass hAES C hBound
 
+private theorem rf_forward_generator_shift (p : S.SqfExtIdeal × S.ExtIdeal) :
+    ∃ γ : Gamma S, Agen R p.1 p.2 =
+      (γ.1 : Fˣ) * bc.gen (Aideal R p.1 p.2) := by
+  have hA := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_generator
+    D S H Bd bc R.exterior p.1 p.2
+  obtain ⟨ε, hε, hEq⟩ := Bd.allowed_unique (Aideal R p.1 p.2).1
+    (Agen R p.1 p.2) (bc.gen (Aideal R p.1 p.2))
+    hA (bc.gen_spec (Aideal R p.1 p.2))
+  let εu : S.US := ⟨ε, hε⟩
+  let γ : Gamma S := ⟨εu ^ 6, MonoidHom.mem_range.mpr ⟨εu, rfl⟩⟩
+  refine ⟨γ, ?_⟩
+  simpa only [γ, εu, Subgroup.coe_pow] using hEq
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
