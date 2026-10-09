@@ -82,6 +82,8 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SignedMultiplier
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedPrimeKernel
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.PadCoordinates
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.TupleMinor
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ProjectivePad
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SlopeCells
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
@@ -11059,6 +11061,91 @@ private theorem pd4c_raw_no_promotion_row {K : ℕ} (δ c₁ c₂ : ℝ)
       field_simp [hdcard]
       <;> dsimp [C]
       <;> ring
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- One projective-line tuple and a bounded pair of slope cells have a common lattice box. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.common_projective_cell_lattice_box
+    (C : ℝ) (hC : 0 ≤ C) :
+    ∃ Cbox Y₀ : ℝ, 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y → ∀ w : ArchRoot, w.InRegion S → 0 < S.U →
+      ∀ z : ℤ × ℤ, envBox S w z → Int.gcd z.1 z.2 = 1 →
+      ∀ D : ℕ, Squarefree D → 0 < S.d₀ → (S.d₀ : ℝ) ≤ (D : ℝ) →
+      (∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow S.Y (1/5 : ℝ) →
+        Real.rpow S.Y (-(7/10 : ℝ)) <
+          circleDistance ((l : ℝ)*(D : ℝ)*transportedRatio w z)) →
+      ∀ T : Finset (ℤ × ℤ),
+      (∀ u ∈ T, envBox S w u ∧
+        (∀ p : ℕ, p.Prime → p ∣ D → projLine p z = projLine p u) ∧
+        |((⌊((u.2 : ℝ)/w.tau u)/((S.d₀ : ℝ)*S.Y)⌋-
+          ⌊((z.2 : ℝ)/w.tau z)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ C) →
+      ∃ (a b c d : ℤ) (A B : ℝ),
+        a*d-b*c = 1 ∧ A*B ≤ Cbox*S.Y ∧
+        Real.rpow S.Y (1/10 : ℝ) ≤ A ∧ A ≤ Real.rpow S.Y (9/10 : ℝ) ∧
+        Real.rpow S.Y (1/10 : ℝ) ≤ B ∧ B ≤ Real.rpow S.Y (9/10 : ℝ) ∧
+        (let Φ : (ℤ × ℤ) → (ℤ × ℤ) := fun u =>
+          (d*det2 u (complementVec z)-b*(det2 z u/(D : ℤ)),
+            a*(det2 z u/(D : ℤ))-c*det2 u (complementVec z))
+        Set.InjOn Φ (T : Set (ℤ × ℤ)) ∧
+          (∀ u ∈ T, |((Φ u).1 : ℝ)| ≤ A ∧ |((Φ u).2 : ℝ)| ≤ B) ∧
+          ∀ u ∈ T, ∀ v ∈ T, det2 u v/(D : ℤ) = det2 (Φ u) (Φ v)) := by
+  let C₁ : ℝ := max 16 (256*(C+1))
+  have hC₁ : 1 ≤ C₁ := (by norm_num : (1 : ℝ) ≤ 16).trans (le_max_left _ _)
+  obtain ⟨Cbox, Y₀, hCbox, hY₀, hshape⟩ := lattice_shape C₁ hC₁
+  refine ⟨Cbox, Y₀, hCbox, hY₀, ?_⟩
+  intro S hY w hw hU z hz hzprim D hDsq hd₀ hD hgood T hT
+  have hYpos : 0 < S.Y := zero_lt_one.trans_le (hY₀.trans hY)
+  have hDpos : 0 < D := by
+    have hd₀r : 0 < (S.d₀ : ℝ) := by exact_mod_cast hd₀
+    exact_mod_cast hd₀r.trans_le hD
+  have hD0 : (D : ℤ) ≠ 0 := by exact_mod_cast hDpos.ne'
+  let α : ℝ := (D : ℝ)*transportedRatio w z
+  have hbad : ∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow S.Y (1/5 : ℝ) →
+      Real.rpow S.Y (-(7/10 : ℝ)) < circleDistance ((l : ℝ)*α) := by
+    intro l hl hly
+    simpa only [α, mul_assoc] using hgood l hl hly
+  obtain ⟨a, b, c, d, A, B, hmat, hAB, hAl, hAu, hBl, hBu, hbox⟩ :=
+    hshape S.Y hY α hbad
+  refine ⟨a, b, c, d, A, B, hmat, hAB, hAl, hAu, hBl, hBu, ?_⟩
+  let Φ : (ℤ × ℤ) → (ℤ × ℤ) := fun u =>
+    (d*det2 u (complementVec z)-b*(det2 z u/(D : ℤ)),
+      a*(det2 z u/(D : ℤ))-c*det2 u (complementVec z))
+  change Set.InjOn Φ (T : Set (ℤ × ℤ)) ∧
+    (∀ u ∈ T, |((Φ u).1 : ℝ)| ≤ A ∧ |((Φ u).2 : ℝ)| ≤ B) ∧
+    ∀ u ∈ T, ∀ v ∈ T, det2 u v/(D : ℤ) = det2 (Φ u) (Φ v)
+  have hdiv (u : ℤ × ℤ) (hu : u ∈ T) : (D : ℤ) ∣ det2 z u :=
+    projective_line_pad_dvd D hDsq z u (hT u hu).2.1
+  have hcomp : det2 z (complementVec z) = 1 := by
+    have hBez := Int.gcd_eq_gcd_ab z.1 z.2
+    rw [hzprim] at hBez
+    simpa [det2, complementVec, sub_neg_eq_add] using hBez.symm
+  have hcoord (u : ℤ × ℤ) (hu : u ∈ T) :
+      |((Φ u).1 : ℝ)| ≤ A ∧ |((Φ u).2 : ℝ)| ≤ B := by
+    have hlbound := env_cell_pad_quotient_bound S w z u D hU hw hz (hT u hu).1
+      hYpos hd₀ hD (hdiv u hu) C hC (hT u hu).2.2
+    obtain ⟨h, l, hrepr, hl, hstrip⟩ := pd4c_env_target_strip_coordinates S w z u D
+      (256*(C+1)) hU hw hzprim hz (hT u hu).1 (hdiv u hu) hlbound
+    have hh : det2 u (complementVec z) = h := by
+      calc
+        _ = det2 (h*z.1+(D : ℤ)*l*(complementVec z).1,
+            h*z.2+(D : ℤ)*l*(complementVec z).2) (complementVec z) :=
+          congrArg (fun v => det2 v (complementVec z)) hrepr
+        _ = h*det2 z (complementVec z) := by dsimp only [det2]; ring
+        _ = h := by rw [hcomp, mul_one]
+    have hdl : det2 z u = (D : ℤ)*l := by
+      calc
+        _ = det2 z (h*z.1+(D : ℤ)*l*(complementVec z).1,
+            h*z.2+(D : ℤ)*l*(complementVec z).2) := congrArg (det2 z) hrepr
+        _ = (D : ℤ)*l*det2 z (complementVec z) := by dsimp only [det2]; ring
+        _ = _ := by rw [hcomp, mul_one]
+    have hl' : det2 z u/(D : ℤ) = l := by
+      rw [hdl]
+      exact Int.mul_ediv_cancel_left _ hD0
+    have hbounds := hbox h l
+      (hl.trans (mul_le_mul_of_nonneg_right (le_max_right _ _) hYpos.le))
+      (hstrip.trans (le_max_left _ _))
+    simpa only [Φ, hh, hl'] using hbounds
+  have hpad := pad_lattice_coordinate_embedding z D hDpos hzprim a b c d hmat T hdiv
+  exact ⟨hpad.1, hcoord, hpad.2⟩
 
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
