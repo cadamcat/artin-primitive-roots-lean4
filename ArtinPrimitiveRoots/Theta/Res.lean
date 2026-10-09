@@ -23,6 +23,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».ideal_periodic_normali
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_fourierCoeff_eq
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_constant_of_nonzero_fourier_zero
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_right_of_scalar_invariant
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».residue_right_infCompact
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_automorphic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_ideal_period
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».automorphic_ideal_period
