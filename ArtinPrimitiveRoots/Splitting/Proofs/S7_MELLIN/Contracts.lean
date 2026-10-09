@@ -63,7 +63,34 @@ theorem euler_log_norm_summable (K : Type u) [Field K] [NumberField K]
     Summable (fun w : HeightOneSpectrum (𝓞 K) × ℕ =>
       Real.log (Ideal.absNorm w.1.asIdeal : ℝ) *
         Real.rpow (Ideal.absNorm w.1.asIdeal : ℝ) (-((w.2 + 1 : ℕ) : ℝ) * σ)) := by
-  sorry
+  have hEuler := ArtinPrimitiveRoots.Ext.SplittingInputs.ext_dedekind_euler_logderiv K
+    (s := (σ : ℂ)) (by simpa using hσ)
+  let F : HeightOneSpectrum (𝓞 K) × ℕ → ℝ := fun w =>
+    Real.log (Ideal.absNorm w.1.asIdeal : ℝ) *
+      Real.rpow (Ideal.absNorm w.1.asIdeal : ℝ) (-((w.2 + 1 : ℕ) : ℝ) * σ)
+  let G : HeightOneSpectrum (𝓞 K) → ℕ → ℂ := fun v j =>
+    (Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) *
+      (Ideal.absNorm v.asIdeal : ℂ) ^ (-((j + 1 : ℕ) : ℂ) * (σ : ℂ))
+  have hterm (v : HeightOneSpectrum (𝓞 K)) (j : ℕ) : (F (v, j) : ℂ) = G v j := by
+    dsimp only [F, G]
+    rw [Real.rpow_eq_pow]
+    rw [Complex.ofReal_mul,
+      Complex.ofReal_cpow (show 0 ≤ (Ideal.absNorm v.asIdeal : ℝ) from Nat.cast_nonneg _)]
+    push_cast <;> rfl
+  have hinner (v : HeightOneSpectrum (𝓞 K)) : Summable (fun j : ℕ => F (v, j)) := by
+    apply Complex.summable_ofReal.mp
+    exact (hEuler.1 v).congr fun j => (hterm v j).symm
+  have houter : Summable (fun v : HeightOneSpectrum (𝓞 K) => ∑' j : ℕ, F (v, j)) := by
+    apply Complex.summable_ofReal.mp
+    refine hEuler.2.1.congr fun v => ?_
+    rw [Complex.ofReal_tsum]
+    exact tsum_congr fun j => (hterm v j).symm
+  have hnonneg : 0 ≤ F := by
+    intro w
+    have hN : 1 ≤ (Ideal.absNorm w.1.asIdeal : ℝ) := by
+      exact_mod_cast (NumberField.HeightOneSpectrum.one_lt_absNorm w.1).le
+    exact mul_nonneg (Real.log_nonneg hN) (Real.rpow_nonneg (Nat.cast_nonneg _) _)
+  exact (summable_prod_of_nonneg hnonneg).2 ⟨hinner, houter⟩
 
 theorem mellin_prime_identity (f : ℝ → ℝ)
     (hf : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f ∧ HasCompactSupport f ∧
