@@ -4325,6 +4325,117 @@ private theorem principal_tuple_count_one (γ : ℝ) (hγ : 0 < γ)
     rw [Nat.factorial_one, Nat.cast_one, div_one, one_mul]
   simpa [tuples, primes, B, hfac] using hslice1
 
+/-- Filtered ordered tuples split at the last coordinate. -/
+private theorem principal_tuple_card_fiber (n B : ℕ) (Y l r : ℝ) :
+    (((boundedTuples (n + 1) B).filter (fun t =>
+        (∀ i, (t i).Prime ∧ Y < (t i : ℝ)) ∧
+          l ≤ ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ∧
+          ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ≤ r)).card : ℝ) =
+      ∑ p ∈ (Finset.range (B + 1)).filter (fun p : ℕ => p.Prime ∧ Y < (p : ℝ)),
+        (((boundedTuples n B).filter (fun s =>
+            (∀ i, (s i).Prime ∧ Y < (s i : ℝ)) ∧
+              l ≤ (p : ℝ) * ((∏ i : Fin n, s i : ℕ) : ℝ) ∧
+              (p : ℝ) * ((∏ i : Fin n, s i : ℕ) : ℝ) ≤ r)).card : ℝ) := by
+  classical
+  let tuples := (boundedTuples (n + 1) B).filter (fun t =>
+    (∀ i, (t i).Prime ∧ Y < (t i : ℝ)) ∧
+      l ≤ ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ∧
+      ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ≤ r)
+  let primes := (Finset.range (B + 1)).filter (fun p : ℕ => p.Prime ∧ Y < (p : ℝ))
+  let fiber (p : ℕ) := (boundedTuples n B).filter (fun s =>
+    (∀ i, (s i).Prime ∧ Y < (s i : ℝ)) ∧
+      l ≤ (p : ℝ) * ((∏ i : Fin n, s i : ℕ) : ℝ) ∧
+      (p : ℝ) * ((∏ i : Fin n, s i : ℕ) : ℝ) ≤ r)
+  let lastCoord : (Fin (n + 1) → ℕ) → ℕ := fun t => t (Fin.last n)
+  have hcoord {m : ℕ} {u : Fin m → ℕ} (hu : u ∈ boundedTuples m B) (i : Fin m) : u i ≤ B := by
+    unfold boundedTuples at hu
+    rcases Finset.mem_image.mp hu with ⟨v, _, rfl⟩
+    exact Nat.le_of_lt_succ (v i).isLt
+  have hmaps : Set.MapsTo lastCoord (tuples : Set (Fin (n + 1) → ℕ)) ↑primes := by
+    intro t ht
+    rcases Finset.mem_filter.mp ht with ⟨hB, hall, _, _⟩
+    have hlast := hall (Fin.last n)
+    refine Finset.mem_filter.mpr ⟨?_, hlast⟩
+    rw [Finset.mem_range]
+    exact Nat.lt_succ_of_le (hcoord hB (Fin.last n))
+  have hcard_fiber (p : ℕ) (hp : p ∈ primes) :
+      (tuples.filter fun t => lastCoord t = p).card = (fiber p).card := by
+    rcases Finset.mem_filter.mp hp with ⟨hpI, hpPrime⟩
+    have hple : p ≤ B := by
+      rw [Finset.mem_range] at hpI
+      exact Nat.le_of_lt_succ hpI
+    apply Finset.card_nbij' (fun t => Fin.init t) (fun s => Fin.snoc s p)
+    · intro t ht
+      rcases Finset.mem_filter.mp ht with ⟨htT, hlast⟩
+      rcases Finset.mem_filter.mp htT with ⟨hB, hall, hlo, hhi⟩
+      have hlast' : t (Fin.last n) = p := by simpa [lastCoord] using hlast
+      have hprodNat : ∏ i, t i = (∏ i : Fin n, Fin.init t i) * p := by
+        rw [Fin.prod_univ_castSucc, hlast']
+        simp [Fin.init]
+      have hprod : ((∏ i, t i : ℕ) : ℝ) =
+          (p : ℝ) * ((∏ i : Fin n, Fin.init t i : ℕ) : ℝ) := by
+        rw [hprodNat, Nat.cast_mul, mul_comm]
+      refine Finset.mem_filter.mpr ⟨?_, ?_, ?_, ?_⟩
+      · exact ArtinPrimitiveRoots.TypeII.RoughProofs.mem_boundedTuples_of_forall_le
+          (Fin.init t) (fun i => hcoord hB i.castSucc)
+      · intro i
+        exact hall i.castSucc
+      · rw [hprod] at hlo
+        exact hlo
+      · rw [hprod] at hhi
+        exact hhi
+    · intro s hs
+      rcases Finset.mem_filter.mp hs with ⟨hB, hall, hlo, hhi⟩
+      have hprodNat :
+          ∏ i, (Fin.snoc s p : Fin (n + 1) → ℕ) i = (∏ i, s i) * p :=
+        Fin.prod_snoc p s
+      have hprod : ((∏ i, (Fin.snoc s p : Fin (n + 1) → ℕ) i : ℕ) : ℝ) =
+          (p : ℝ) * ((∏ i, s i : ℕ) : ℝ) := by
+        rw [hprodNat, Nat.cast_mul, mul_comm]
+      refine Finset.mem_filter.mpr ⟨?_, ?_⟩
+      · refine Finset.mem_filter.mpr ⟨?_, ?_, ?_, ?_⟩
+        · exact ArtinPrimitiveRoots.TypeII.RoughProofs.mem_boundedTuples_of_forall_le
+            (Fin.snoc s p) (fun i => by
+              cases i using Fin.lastCases with
+              | last =>
+                rw [Fin.snoc_last]
+                exact hple
+              | cast j =>
+                rw [Fin.snoc_castSucc]
+                exact hcoord hB j)
+        · intro i
+          cases i using Fin.lastCases with
+          | last =>
+            dsimp
+            rw [Fin.snoc_last]
+            exact hpPrime
+          | cast j =>
+            dsimp
+            rw [Fin.snoc_castSucc]
+            exact hall j
+        · dsimp
+          rw [hprod]
+          exact hlo
+        · dsimp
+          rw [hprod]
+          exact hhi
+      · dsimp [lastCoord]
+        rw [Fin.snoc_last]
+    · intro t ht
+      rcases Finset.mem_filter.mp ht with ⟨_, hlast⟩
+      have hlast' : t (Fin.last n) = p := by simpa [lastCoord] using hlast
+      rw [← hlast']
+      exact Fin.snoc_init_self t
+    · intro s _
+      simp [Fin.init_snoc]
+  have hnat : tuples.card = ∑ p ∈ primes, (fiber p).card := by
+    rw [Finset.card_eq_sum_card_fiberwise hmaps]
+    refine Finset.sum_congr rfl fun p hp => ?_
+    exact hcard_fiber p hp
+  have hreal : (tuples.card : ℝ) = ∑ p ∈ primes, ((fiber p).card : ℝ) := by
+    rw [hnat, Nat.cast_sum]
+  simpa [tuples, primes, fiber] using hreal
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
