@@ -5,6 +5,8 @@ import ArtinPrimitiveRoots.Theta.Shared
 import ArtinPrimitiveRoots.Theta.LocalWhit
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.Cosets
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexMajorant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.ComplexIntegral
+import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.FiniteProduct
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.CubeClasses
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.LocalValuation
 import ArtinPrimitiveRoots.Theta.Proofs.TH_EIS_CONVERGE.FiniteMajorant
@@ -3504,6 +3506,1007 @@ theorem scalarOf_zero_has_zero_factor
     exact mul_ne_zero hlocalNe harchNe
   exact hne (hzero (P.q r))
 
+set_option backward.isDefEq.respectTransparency false in
+/-- The intertwined scalar has finite local support and the same formula at any RP lift. -/
+theorem scalarM_q
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP) :
+    let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+      if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+      else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+    (Function.mulSupport fun v => G.lam v (fM v (P.compF v r))).Finite ∧
+    scalarM P G μ Fs (P.q r) =
+      (κF F)⁻¹ * cprod Fs.T0 s *
+        ((∏ᶠ v, G.lam v (fM v (P.compF v r))) *
+          ∏ w, intertwineC (Fs.fC w) (P.compC w r)) := by
+  classical
+  let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+    if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+    else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+  change (Function.mulSupport fun v => G.lam v (fM v (P.compF v r))).Finite ∧
+    scalarM P G μ Fs (P.q r) =
+      (κF F)⁻¹ * cprod Fs.T0 s *
+        ((∏ᶠ v, G.lam v (fM v (P.compF v r))) *
+          ∏ w, intertwineC (Fs.fC w) (P.compC w r))
+  have hgen (v : FinPlace F) (ζ : rootsOfUnity 3 ℂ) (a : (P.loc v).L) :
+      fM v ((P.loc v).z ζ * a) = ((ζ : ℂˣ) : ℂ) • fM v a := by
+    dsimp only [fM]
+    by_cases hv : v ∈ Fs.T0
+    · simp only [dite_eq_left hv]
+      simpa only [TorusRep.weyl] using
+        (intertwine_isSection (P.loc v) (G.T v) (μ v) s hs (Fs.f v)
+          (Fs.f_sec v)).2.2.1 ζ a
+    · simp only [dite_eq_right hv]
+      simpa only [sphWeyl, TorusRep.weyl] using
+        ((spherical_section (P.loc v) (P.tame v (fun h => hv (Fs.sub h)))
+          (G.T v).weyl (G.B v (fun h => hv (Fs.sub h))).weyl
+          (fun h => hv (Fs.sub (S.over6 v h))) (-s)).choose_spec.1).2.1 ζ a
+  have hfinite (a : P.RP) :
+      (Function.mulSupport fun v => G.lam v (fM v (P.compF v a))).Finite := by
+    apply Set.Finite.subset (Fs.T0.finite_toSet.union (P.comp_restricted a))
+    intro v hv
+    by_contra hvout
+    have hvT : v ∉ Fs.T0 := fun h => hvout (Or.inl h)
+    have hvS : v ∉ S.Sf := fun h => hvT (Fs.sub h)
+    have hK : P.compF v a ∈ (P.tame v hvS).Kmax := by
+      by_contra hK
+      exact hvout (Or.inr ⟨hvS, hK⟩)
+    have hf0 := (spherical_section (P.loc v) (P.tame v hvS) (G.T v).weyl
+      (G.B v hvS).weyl (fun h => hvS (S.over6 v h)) (-s)).choose_spec
+    have hf : fM v (P.compF v a) = (G.B v hvS).e 0 := by
+      dsimp only [fM]
+      rw [dite_eq_right hvT]
+      calc
+        sphWeyl P G v hvS s (P.compF v a) =
+            sphWeyl P G v hvS s (1 * P.compF v a) := by rw [one_mul]
+        _ = sphWeyl P G v hvS s 1 := hf0.2.2.1 1 (P.compF v a) hK
+        _ = (G.B v hvS).e 0 := by
+          simpa only [sphWeyl, TorusRep.weyl, TameTorusBasis.weyl, neg_zero] using hf0.2.1
+    have hlam : G.lam v (fM v (P.compF v a)) = 1 := by
+      rw [hf]
+      simpa using G.lam_tame v hvS 0
+    exact hv hlam
+  let y : P.RP := Function.surjInv P.q_surj (P.q r)
+  have hq : P.q r = P.q y :=
+    (Function.rightInverse_surjInv P.q_surj (P.q r)).symm
+  obtain ⟨ζ, hζfin, hζprod, hcomp, hcompC⟩ := (P.q_eq r y).mp hq
+  let α : FinPlace F → ℂ := fun v => G.lam v (fM v (P.compF v r))
+  let β : FinPlace F → ℂ := fun v => G.lam v (fM v (P.compF v y))
+  have hrel : α = fun v => ((ζ v : ℂˣ) : ℂ) * β v := by
+    funext v
+    dsimp only [α, β]
+    rw [hcomp v, hgen v]
+    simp
+  let eval : rootsOfUnity 3 ℂ →* ℂ :=
+    { toFun := fun z => ((z : ℂˣ) : ℂ)
+      map_one' := rfl
+      map_mul' := by intros; rfl }
+  have hζscalarfin : (Function.mulSupport fun v => ((ζ v : ℂˣ) : ℂ)).Finite := by
+    apply hζfin.subset
+    intro v hv
+    change ζ v ≠ 1
+    intro h1
+    exact hv (by change ((ζ v : ℂˣ) : ℂ) = 1; rw [h1]; rfl)
+  have hζscalarprod : (∏ᶠ v, ((ζ v : ℂˣ) : ℂ)) = 1 := by
+    calc
+      _ = eval (∏ᶠ v, ζ v) := (eval.map_finprod hζfin).symm
+      _ = 1 := by rw [hζprod, map_one]
+  have hαprod : (∏ᶠ v, α v) = ∏ᶠ v, β v := by
+    rw [hrel, finprod_mul_distrib hζscalarfin (hfinite y), hζscalarprod, one_mul]
+  refine ⟨hfinite r, ?_⟩
+  change (κF F)⁻¹ * cprod Fs.T0 s *
+      ((∏ᶠ v, β v) * ∏ w, intertwineC (Fs.fC w) (P.compC w y)) =
+    (κF F)⁻¹ * cprod Fs.T0 s *
+      ((∏ᶠ v, α v) * ∏ w, intertwineC (Fs.fC w) (P.compC w r))
+  rw [hαprod]
+  congr 2
+  apply Finset.prod_congr rfl
+  intro w hw
+  exact (congrArg (intertwineC (Fs.fC w)) (hcompC w)).symm
+
+/-- Intertwining preserves an identically zero global scalar section. -/
+theorem scalarM_eq_zero_of_scalarOf_eq_zero
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s)
+    (hzero : ∀ g : P.tc.G, scalarOf P G Fs.f Fs.fC g = 0)
+    (g : P.tc.G) : scalarM P G μ Fs g = 0 := by
+  classical
+  obtain ⟨r, hr⟩ := P.q_surj g
+  let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+    if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+    else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+  have hfinite : (Function.mulSupport fun v => G.lam v (fM v (P.compF v r))).Finite :=
+    (scalarM_q P G μ hs Fs r).1
+  rw [← hr, (scalarM_q P G μ hs Fs r).2]
+  change (κF F)⁻¹ * cprod Fs.T0 s *
+    ((∏ᶠ v, G.lam v (fM v (P.compF v r))) *
+      ∏ w, intertwineC (Fs.fC w) (P.compC w r)) = 0
+  rcases scalarOf_zero_has_zero_factor P G Fs hzero with ⟨v, hv, hlocal⟩ | ⟨w, harch⟩
+  · have hM : G.lam v (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) = 0 := by
+      let lam : (G.T v).V →L[ℂ] ℂ := LinearMap.toContinuousLinearMap (G.lam v)
+      have hint := (intertwine_isSection (P.loc v) (G.T v) (μ v) s hs
+        (Fs.f v) (Fs.f_sec v)).1 (P.compF v r)
+      have hfun : (fun x : v.adicCompletion F =>
+          lam (Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))) =
+          fun _ => (0 : ℂ) := by
+        funext x
+        exact hlocal _
+      calc
+        G.lam v (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) =
+            lam (∫ x, Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) *
+              P.compF v r) ∂(μ v).μ) := rfl
+        _ = ∫ x, lam (Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) *
+              P.compF v r)) ∂(μ v).μ :=
+          (ContinuousLinearMap.integral_comp_comm lam hint).symm
+        _ = 0 := by rw [hfun, integral_zero]
+    have hfactor : G.lam v (fM v (P.compF v r)) = 0 := by
+      simpa only [fM, dite_eq_left hv] using hM
+    rw [finprod_eq_zero _ v hfactor hfinite, zero_mul, mul_zero]
+  · have hM : intertwineC (Fs.fC w) (P.compC w r) = 0 := by
+      have hfun : (fun x : ℂ => Fs.fC w (wC * nC x * P.compC w r)) =
+          fun _ => (0 : ℂ) := by
+        funext x
+        exact harch _
+      rw [intertwineC, hfun, integral_zero]
+    have hprod : (∏ w, intertwineC (Fs.fC w) (P.compC w r)) = 0 :=
+      Finset.prod_eq_zero (Finset.mem_univ w) hM
+    rw [hprod, mul_zero, mul_zero]
+
+/-- The constant-term formula when the original scalar section vanishes everywhere. -/
+theorem eisenstein_constantTerm_of_zero
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s)
+    (hzero : ∀ g : P.tc.G, scalarOf P G Fs.f Fs.fC g = 0)
+    (g : P.tc.G) (Pd : Set (InfinitePlace F → ℂ)) :
+    torusCoeff P (eisenstein P G Fs) g Pd 0 =
+      ∑' δ : Fˣ ⧸ G.Δ, (scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL (Quotient.out δ)) * g) +
+        scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out δ)) * g)) := by
+  have hE (h : P.tc.G) : eisenstein P G Fs h = 0 := by
+    simp only [eisenstein, hzero, tsum_zero]
+  have hM (h : P.tc.G) : scalarM P G μ Fs h = 0 :=
+    scalarM_eq_zero_of_scalarOf_eq_zero P G μ hs Fs hzero h
+  simp only [torusCoeff, hE, zero_mul, integral_zero, mul_zero, hzero, hM, add_zero,
+    tsum_zero]
+
+set_option backward.isDefEq.respectTransparency false in
+/-- Local Bruhat ideal-coset sums give the intertwine at the inverted torus element. -/
+theorem local_bruhat_coset_hasSum
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0)
+    (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
+    let H : v.adicCompletion F → ℂ := fun x =>
+      G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        ((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) • H (Quotient.out η))
+      ((absFin v u : ℂ) * G.lam v
+        (intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r))) ∧
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        (qv v) ^ (-FractionalIdeal.count F v 𝔞) * ‖H (Quotient.out η)‖)
+      (∫ x, ‖H x‖ ∂(μ v).μ) := by
+  classical
+  let Hfn : v.adicCompletion F → ℂ := fun x =>
+    G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+      (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+  change HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        ((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) • Hfn (Quotient.out η))
+      ((absFin v u : ℂ) * G.lam v
+        (intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r))) ∧
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        (qv v) ^ (-FractionalIdeal.count F v 𝔞) * ‖Hfn (Quotient.out η)‖)
+      (∫ x, ‖Hfn x‖ ∂(μ v).μ)
+  let F0 : v.adicCompletion F → (G.T v).V := fun x =>
+    Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r)
+  let lamU : (G.T v).V →L[ℂ] ℂ :=
+    LinearMap.toContinuousLinearMap ((G.lam v).comp ((G.T v).σa u))
+  let c : ℂ := (absFin v u : ℂ) ^ ((1 : ℂ) / 2 + s)
+  have hF0 : Integrable F0 (μ v).μ :=
+    (intertwine_isSection (P.loc v) (G.T v) (μ v) s hs (Fs.f v) (Fs.f_sec v)).1
+      (P.compF v r)
+  have hpoint (x : v.adicCompletion F) : Hfn x = c * lamU (F0 x) := by
+    have hvec := (Fs.f_sec v).1 0 u
+      ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r)
+    have hscalar := congrArg (G.lam v) hvec
+    simpa [Hfn, F0, c, lamU, mul_assoc] using hscalar
+  have hH : Hfn = fun x => c * lamU (F0 x) := funext hpoint
+  have hint : Integrable Hfn (μ v).μ := by
+    rw [hH]
+    exact (lamU.integrable_comp hF0).const_mul c
+  have hperiod (x y : v.adicCompletion F) (hy : y ∈ idealLocalPeriods 𝔞 v) :
+      Hfn (x + y) = Hfn x := by
+    have hn : (P.loc v).n (Multiplicative.ofAdd (x + y)) =
+        (P.loc v).n (Multiplicative.ofAdd x) * (P.loc v).n (Multiplicative.ofAdd y) := by
+      rw [ofAdd_add, map_mul]
+    have hp := local_scalar_ideal_periods_of_nonzero P G Fs r 𝔞 h𝔞 hfix hΦ v
+      ((P.loc v).a u * (P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x)) y hy
+    dsimp only [Hfn]
+    rw [hn]
+    simpa only [mul_assoc] using hp
+  obtain ⟨hsum, hnorm⟩ := idealLocalPeriods_integral_cosets 𝔞 v (μ v) Hfn hint hperiod
+  have hIntegral : (∫ x, Hfn x ∂(μ v).μ) =
+      c * lamU (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) := by
+    rw [hH, integral_const_mul]
+    congr 1
+    simpa only [F0, intertwine] using ContinuousLinearMap.integral_comp_comm lamU hF0
+  let ci : ℂ := (absFin v (u⁻¹ : (v.adicCompletion F)ˣ) : ℂ) ^ ((1 : ℂ) / 2 - s)
+  have hM : intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r) =
+      ci • (G.T v).σa u (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) := by
+    have hm := (intertwine_isSection (P.loc v) (G.T v) (μ v) s hs
+      (Fs.f v) (Fs.f_sec v)).2.1 0 u⁻¹ (P.compF v r)
+    simpa [ci, TorusRep.weyl, sub_eq_add_neg] using hm
+  have heval : G.lam v
+        (intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r)) =
+      ci * lamU (intertwine (P.loc v) (μ v) (Fs.f v) (P.compF v r)) := by
+    rw [hM]
+    simp [lamU]
+  have hqpos : 0 < absFin v u := absFin_pos u.ne_zero
+  have hqC : (absFin v u : ℂ) ≠ 0 := by exact_mod_cast hqpos.ne'
+  have hinv : absFin v (u⁻¹ : (v.adicCompletion F)ˣ) = (absFin v u)⁻¹ := by
+    simp only [absFin_eq_norm, Units.val_inv_eq_inv_val, norm_inv]
+  have hbase : (absFin v (u⁻¹ : (v.adicCompletion F)ˣ) : ℂ) = (absFin v u : ℂ)⁻¹ := by
+    rw [hinv, Complex.ofReal_inv]
+  have hci : ci = (absFin v u : ℂ) ^ (-((1 : ℂ) / 2 - s)) := by
+    dsimp only [ci]
+    rw [hbase, Complex.inv_cpow_ofReal_nonneg hqpos.le ((1 : ℂ) / 2 - s),
+      ← Complex.cpow_neg]
+  have hcoef : (absFin v u : ℂ) * ci = c := by
+    calc
+      (absFin v u : ℂ) * ci =
+          (absFin v u : ℂ) ^ (1 : ℂ) * (absFin v u : ℂ) ^ (-((1 : ℂ) / 2 - s)) := by
+        rw [Complex.cpow_one, hci]
+      _ = (absFin v u : ℂ) ^ (1 + -((1 : ℂ) / 2 - s)) :=
+        (Complex.cpow_add _ _ hqC).symm
+      _ = c := by dsimp only [c]; congr 1; ring
+  have hfinal : (∫ x, Hfn x ∂(μ v).μ) =
+      (absFin v u : ℂ) * G.lam v
+        (intertwine (P.loc v) (μ v) (Fs.f v) ((P.loc v).a u⁻¹ * P.compF v r)) := by
+    rw [hIntegral, heval, ← hcoef, mul_assoc]
+  rw [hfinal] at hsum
+  exact ⟨hsum, hnorm⟩
+
+/-- Integration between two restricted-product lifts separates the complex coordinates. -/
+theorem scalarOf_arch_integral_product_lifts
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (t r : P.RP) :
+    (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r)) =
+      (∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))) *
+        ∏ w, ∫ z : ℂ, Fs.fC w
+          (P.compC w t * nC z * P.compC w r) ∧
+    (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r)‖) =
+      ‖∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))‖ *
+        ∏ w, ∫ z : ℂ, ‖Fs.fC w
+          (P.compC w t * nC z * P.compC w r)‖ := by
+  classical
+  choose rn hqn hfn hcn using fun x : InfinitePlace F → ℂ =>
+    P.nS_components ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x)
+  have hfn1 (x : InfinitePlace F → ℂ) (v : FinPlace F) : P.compF v (rn x) = 1 := by
+    simpa using hfn x v
+  let R (x : InfinitePlace F → ℂ) : P.RP := t * rn x * r
+  let cf : ℂ := ∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))
+  let fc (w : InfinitePlace F) (z : ℂ) : ℂ :=
+    Fs.fC w (P.compC w (t) * nC z * P.compC w r)
+  have hq (x : InfinitePlace F → ℂ) :
+      P.q (R x) = P.q t * nInf P x * P.q r := by
+    simp only [R, map_mul, hqn, nInf]
+  have hcompF (x : InfinitePlace F → ℂ) (v : FinPlace F) :
+      P.compF v (R x) = P.compF v (t * r) := by
+    simp only [R, map_mul, hfn1, mul_one]
+  have hcompC (x : InfinitePlace F → ℂ) (w : InfinitePlace F) :
+      P.compC w (R x) = P.compC w (t) * nC (x w) * P.compC w r := by
+    simp only [R, map_mul, hcn, nC]
+  have hformula (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC (P.q t * nInf P x * P.q r) =
+        cf * ∏ w, fc w (x w) := by
+    rw [← hq, (scalarOf_q P G Fs (R x)).2]
+    simp only [cf, fc, hcompF, hcompC]
+  constructor
+  · change (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r)) = cf * ∏ w, ∫ z : ℂ, fc w z
+    calc
+      _ = ∫ x : InfinitePlace F → ℂ, cf * ∏ w, fc w (x w) := by
+        apply integral_congr_ae
+        filter_upwards [] with x
+        exact hformula x
+      _ = cf * ∫ x : InfinitePlace F → ℂ, ∏ w, fc w (x w) := integral_const_mul _ _
+      _ = _ := by rw [integral_fintype_prod_volume_eq_prod]
+  · change (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r)‖) = ‖cf‖ * ∏ w, ∫ z : ℂ, ‖fc w z‖
+    calc
+      _ = ∫ x : InfinitePlace F → ℂ, ‖cf‖ * ∏ w, ‖fc w (x w)‖ := by
+        apply integral_congr_ae
+        filter_upwards [] with x
+        rw [hformula, norm_mul, norm_prod]
+      _ = ‖cf‖ * ∫ x : InfinitePlace F → ℂ, ∏ w, ‖fc w (x w)‖ := integral_const_mul _ _
+      _ = _ := by
+        rw [integral_fintype_prod_volume_eq_prod (fun w (z : ℂ) => ‖fc w z‖)]
+
+/-- The Bruhat integral has explicit local finite factors and a fixed complex factor. -/
+theorem scalarOf_bruhat_arch_integral
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP) (δ : Fˣ) (ξ : F) :
+    let H : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v x =>
+      G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+    let C : InfinitePlace F → ℂ → ℂ := fun w z => Fs.fC w
+      (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)
+    (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r)) =
+      (∏ᶠ v, H v (algebraMap F (v.adicCompletion F) ξ)) *
+        ∏ w, ∫ z : ℂ, C w z ∧
+    (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r)‖) =
+      ‖∏ᶠ v, H v (algebraMap F (v.adicCompletion F) ξ)‖ *
+        ∏ w, ∫ z : ℂ, ‖C w z‖ := by
+  classical
+  dsimp only
+  obtain ⟨u, hqu, hFu, hCu⟩ := nFin_components P ξ
+  let t : P.RP := P.ratRP (diagGL δ) * P.ratRP weylGL * u
+  have hq : P.q t = P.tc.rat (diagGL δ * weylGL) * nFin P ξ := by
+    simp only [t, map_mul, P.q_ratRP, hqu]
+  have hweyl {K : Type} [Field K] (φ : F →+* K) :
+      Matrix.GeneralLinearGroup.map φ (weylGL (F := F)) = weylM K := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map, weylGL, weylM]
+  have haF (v : FinPlace F) : P.compF v (P.ratRP (diagGL δ)) =
+      (P.loc v).a (toLoc v δ) := by
+    rw [P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    rfl
+  have hwF (v : FinPlace F) : P.compF v (P.ratRP weylGL) = (P.loc v).w := by
+    rw [P.compF_ratRP, hweyl, ← (P.loc v).sec_w]
+  have haC (w : InfinitePlace F) : P.compC w (P.ratRP (diagGL δ)) =
+      aC (Units.map w.embedding.toMonoidHom δ) := by
+    rw [P.compC_ratRP, scalar_glMap_diagGL]
+    rfl
+  have hwC (w : InfinitePlace F) : P.compC w (P.ratRP weylGL) = wC := by
+    rw [P.compC_ratRP, hweyl]
+    rfl
+  have hcompF (v : FinPlace F) : P.compF v (t * r) =
+      (P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ)) *
+          P.compF v r := by
+    simp only [t, map_mul, haF, hwF, hFu]
+  have hcompC (w : InfinitePlace F) : P.compC w t =
+      aC (Units.map w.embedding.toMonoidHom δ) * wC := by
+    simp only [t, map_mul, haC, hwC, hCu, mul_one]
+  simpa only [hq, hcompF, hcompC] using
+    scalarOf_arch_integral_product_lifts P G Fs t r
+
+/-- Local Bruhat period quotients normalize and reindex the rational ideal quotient. -/
+theorem bruhat_ideal_quotient_reindex
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0) (δ : Fˣ) :
+    let H : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v x =>
+      G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+    let Q := fun v : FinPlace F => (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v
+    let L : ∀ v : FinPlace F, Q v → ℂ := fun v η => H v (Quotient.out η)
+    (∃ T : Finset (FinPlace F), ∀ v ∉ T, L v 0 = 1) ∧
+    (∑' η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+      ∏ᶠ v, H v (algebraMap F (v.adicCompletion F) (Quotient.out η))) =
+      (∑' a : Π₀ v : FinPlace F, Q v, ∏ᶠ v, L v (a v)) ∧
+    (Summable (fun η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup =>
+      ‖∏ᶠ v, H v (algebraMap F (v.adicCompletion F) (Quotient.out η))‖) ↔
+      Summable (fun a : Π₀ v : FinPlace F, Q v => ‖∏ᶠ v, L v (a v)‖)) := by
+  classical
+  let Hfn : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v x =>
+    G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+      (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+  let Q := fun v : FinPlace F => (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v
+  let Lfn : ∀ v : FinPlace F, Q v → ℂ := fun v η => Hfn v (Quotient.out η)
+  let J := F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  let M := Π₀ v : FinPlace F, Q v
+  let f (η : J) : ℂ := ∏ᶠ v, Hfn v (algebraMap F (v.adicCompletion F) (Quotient.out η))
+  let k (a : M) : ℂ := ∏ᶠ v, Lfn v (a v)
+  change (∃ T : Finset (FinPlace F), ∀ v ∉ T, Lfn v 0 = 1) ∧
+    (∑' η : J, f η) = (∑' a : M, k a) ∧
+    (Summable (fun η : J => ‖f η‖) ↔ Summable (fun a : M => ‖k a‖))
+  have hperiod (v : FinPlace F) (x y : v.adicCompletion F)
+      (hy : y ∈ idealLocalPeriods 𝔞 v) : Hfn v (x + y) = Hfn v x := by
+    dsimp only [Hfn]
+    simpa only [ofAdd_add, map_mul, mul_assoc] using
+      local_scalar_ideal_periods_of_nonzero P G Fs r 𝔞 h𝔞 hfix hΦ v
+        ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+          (P.loc v).n (Multiplicative.ofAdd x)) y hy
+  have hout0 (v : FinPlace F) :
+      Quotient.out (0 : Q v) ∈ idealLocalPeriods 𝔞 v := by
+    have hc : (QuotientAddGroup.mk (Quotient.out (0 : Q v)) : Q v) =
+        QuotientAddGroup.mk (0 : v.adicCompletion F) :=
+      (QuotientAddGroup.out_eq' (0 : Q v)).trans (by simp)
+    simpa only [sub_zero] using QuotientAddGroup.eq_iff_sub_mem.mp hc
+  have hzero (v : FinPlace F) : Lfn v 0 = Hfn v 0 := by
+    simpa only [Lfn, zero_add] using
+      hperiod v 0 (Quotient.out (0 : Q v)) (hout0 v)
+  let R : P.RP := P.ratRP (diagGL δ) * P.ratRP weylGL * r
+  have hweyl {K : Type} [Field K] (φ : F →+* K) :
+      Matrix.GeneralLinearGroup.map φ (weylGL (F := F)) = weylM K := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map, weylGL, weylM]
+  have haF (v : FinPlace F) : P.compF v (P.ratRP (diagGL δ)) =
+      (P.loc v).a (toLoc v δ) := by
+    rw [P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    rfl
+  have hwF (v : FinPlace F) : P.compF v (P.ratRP weylGL) = (P.loc v).w := by
+    rw [P.compF_ratRP, hweyl, ← (P.loc v).sec_w]
+  have hcompF (v : FinPlace F) : P.compF v R =
+      (P.loc v).a (toLoc v δ) * (P.loc v).w * P.compF v r := by
+    simp only [R, map_mul, haF, hwF]
+  have hraw0 (v : FinPlace F) : Hfn v 0 = G.lam v (Fs.f v (P.compF v R)) := by
+    rw [hcompF]
+    simp only [Hfn, ofAdd_zero, map_one, mul_one]
+  have hfinite : (Function.mulSupport (fun v => Hfn v 0)).Finite := by
+    simpa only [hraw0] using (scalarOf_q P G Fs R).1
+  obtain ⟨E, hE⟩ := ideal_additive_quotient_equiv 𝔞 h𝔞
+  have hclass (η : J) (v : FinPlace F) :
+      (QuotientAddGroup.mk (algebraMap F (v.adicCompletion F) (Quotient.out η)) : Q v) =
+        E η v := by
+    calc
+      _ = E (QuotientAddGroup.mk (Quotient.out η)) v := (hE (Quotient.out η) v).symm
+      _ = E η v := by rw [QuotientAddGroup.out_eq']
+  have hterm (η : J) (v : FinPlace F) :
+      Hfn v (algebraMap F (v.adicCompletion F) (Quotient.out η)) = Lfn v (E η v) := by
+    let x := algebraMap F (v.adicCompletion F) (Quotient.out η)
+    let y := Quotient.out (E η v)
+    have hm : x - y ∈ idealLocalPeriods 𝔞 v :=
+      QuotientAddGroup.eq_iff_sub_mem.mp
+        ((hclass η v).trans (QuotientAddGroup.out_eq' (E η v)).symm)
+    change Hfn v x = Hfn v y
+    have hxy : x = y + (x - y) := by abel
+    rw [hxy]
+    exact hperiod v y (x - y) hm
+  have hprod (η : J) : f η = k (E η) := by
+    dsimp only [f, k]
+    exact finprod_congr (hterm η)
+  refine ⟨?_, ?_, ?_⟩
+  · refine ⟨hfinite.toFinset, ?_⟩
+    intro v hv
+    rw [hzero]
+    have hvnot : ¬Hfn v 0 ≠ 1 := by
+      simpa only [hfinite.mem_toFinset, Function.mem_mulSupport] using hv
+    exact not_not.mp hvnot
+  · calc
+      (∑' η : J, f η) = ∑' η : J, k (E η) := tsum_congr hprod
+      _ = ∑' a : M, k a := E.toEquiv.tsum_eq k
+  · constructor
+    · intro hf
+      have hh := hf.comp_injective E.symm.injective
+      exact hh.congr fun a => by
+        change ‖f (E.symm a)‖ = ‖k a‖
+        rw [hprod, E.apply_symm_apply]
+    · intro hk
+      have hh := hk.comp_injective E.injective
+      exact hh.congr fun η => by
+        change ‖k (E η)‖ = ‖f η‖
+        rw [hprod]
+
+/-- An absolutely summable Bruhat ideal quotient is the product of normalized local intertwines. -/
+theorem bruhat_local_quotient_hasProd
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0) (δ : Fˣ)
+    (habs : Summable (fun η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup =>
+      ‖∏ᶠ v, G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd
+          (algebraMap F (v.adicCompletion F) (Quotient.out η))) * P.compF v r))‖)) :
+    HasProd
+      (fun v : FinPlace F =>
+        ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+          ((absFin v (toLoc v δ) : ℂ) * G.lam v
+            (intertwine (P.loc v) (μ v) (Fs.f v)
+              ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))))
+      (∑' η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+        ∏ᶠ v, G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+          (P.loc v).n (Multiplicative.ofAdd
+            (algebraMap F (v.adicCompletion F) (Quotient.out η))) * P.compF v r))) := by
+  classical
+  let Hfn : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v x =>
+    G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+      (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r))
+  let Q := fun v : FinPlace F => (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v
+  let Lfn : ∀ v : FinPlace F, Q v → ℂ := fun v η => Hfn v (Quotient.out η)
+  let _ : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let _ : Countable (F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup) :=
+    (show Function.Surjective (fun ξ : F =>
+      (QuotientAddGroup.mk ξ : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup)) from
+      fun η => ⟨Quotient.out η, QuotientAddGroup.out_eq' η⟩).countable
+  obtain ⟨E, _⟩ := ideal_additive_quotient_equiv 𝔞 h𝔞
+  let _ : Countable (Π₀ v : FinPlace F, Q v) :=
+    E.symm.injective.countable
+  let _ : ∀ v : FinPlace F, Countable (Q v) := fun v =>
+    (DFinsupp.single_injective (β := Q) (i := v)).countable
+  obtain ⟨⟨T, hzero⟩, hseries, habstransfer⟩ :=
+    bruhat_ideal_quotient_reindex P G Fs r 𝔞 h𝔞 hfix hΦ δ
+  have hdirect : Summable (fun a : Π₀ v : FinPlace F, Q v => ‖∏ᶠ v, Lfn v (a v)‖) :=
+    habstransfer.mp habs
+  have hp := dfinsupp_finprod_hasProd Lfn T hzero hdirect
+  have hlocal (v : FinPlace F) :
+      (∑' η : Q v, Lfn v η) =
+        ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+          ((absFin v (toLoc v δ) : ℂ) * G.lam v
+            (intertwine (P.loc v) (μ v) (Fs.f v)
+              ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))) := by
+    let mass : ℂ := (((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)
+    let I : ℂ := (absFin v (toLoc v δ) : ℂ) * G.lam v
+      (intertwine (P.loc v) (μ v) (Fs.f v)
+        ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))
+    have hmass : mass ≠ 0 := by
+      dsimp only [mass]
+      exact_mod_cast (zpow_pos (zero_lt_one.trans (qv_gt_one v))
+        (-FractionalIdeal.count F v 𝔞)).ne'
+    have hc := (local_bruhat_coset_hasSum P G μ hs Fs r 𝔞 h𝔞 hfix hΦ v (toLoc v δ)).1
+    change HasSum (fun η : Q v => mass * Lfn v η) I at hc
+    have hd := hc.mul_left mass⁻¹
+    have hsL : HasSum (Lfn v) (mass⁻¹ * I) := by
+      simpa only [← mul_assoc, inv_mul_cancel₀ hmass, one_mul] using hd
+    exact hsL.tsum_eq
+  simp only [hlocal] at hp
+  rw [← hseries] at hp
+  exact hp
+
+set_option backward.isDefEq.respectTransparency false in
+/-- Extract ideal and spherical corrections from the normalized local Bruhat product. -/
+theorem bruhat_intertwine_product_normalization
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (δ : Fˣ) {z : ℂ}
+    (hz : HasProd (fun v : FinPlace F =>
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+        ((absFin v (toLoc v δ) : ℂ) * G.lam v
+          (intertwine (P.loc v) (μ v) (Fs.f v)
+            ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r)))) z) :
+    let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+      if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+      else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+    z = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) *
+      (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) * cprod Fs.T0 s *
+        (∏ᶠ v : FinPlace F, G.lam v
+          (fM v ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))) := by
+  classical
+  let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+    if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+    else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+  let β : FinPlace F → ℂ := fun v => G.lam v
+    (fM v ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))
+  let m : FinPlace F → ℂ := fun v =>
+    (((qv v) ^ (FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)
+  let d : FinPlace F → ℂ := fun v => (absFin v (toLoc v δ) : ℂ)
+  let b : FinPlace F → ℂ := fun v => if v ∈ Fs.T0 then 1 else cv v s
+  let a : FinPlace F → ℂ := fun v => m v * (d v * β v)
+  change z = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) *
+    (∏ᶠ v, d v) * cprod Fs.T0 s * (∏ᶠ v, β v)
+  let R : P.RP := P.ratRP (diagGL δ⁻¹) * r
+  have hcompF (v : FinPlace F) : P.compF v R =
+      (P.loc v).a (toLoc v δ)⁻¹ * P.compF v r := by
+    dsimp only [R]
+    rw [map_mul, P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    simp only [toLoc, map_inv]
+  have hβ : Function.HasFiniteMulSupport β := by
+    have hh := (scalarM_q P G μ hs Fs R).1
+    simpa only [Function.HasFiniteMulSupport, β, fM, hcompF] using hh
+  have hlocal (v : FinPlace F) :
+      G.lam v (intertwine (P.loc v) (μ v) (Fs.f v)
+        ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r)) = b v * β v := by
+    by_cases hv : v ∈ Fs.T0
+    · simp only [b, ite_eq_left hv, β, fM, dite_eq_left hv, one_mul]
+    · have hvS : v ∉ S.Sf := fun h => hv (Fs.sub h)
+      have hsph := (spherical_section (P.loc v) (P.tame v hvS) (G.T v).weyl
+        (G.B v hvS).weyl (fun h => hvS (S.over6 v h)) (-s)).choose_spec
+      have hM : intertwine (P.loc v) (μ v) (Fs.f v) =
+          cv v s • sphWeyl P G v hvS s :=
+        intertwine_spherical (P.loc v) (P.tame v hvS) (G.T v) (G.B v hvS)
+          (μ v) (fun h => hvS (S.over6 v h)) s hs
+          (Fs.f v) (Fs.f_sec v) (Fs.f_sph v hv).1 (Fs.f_sph v hv).2
+          (sphWeyl P G v hvS s) hsph.1 hsph.2.1 hsph.2.2.1
+      have heval := congrArg (fun f : (P.loc v).L → (G.T v).V =>
+        G.lam v (f ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r))) hM
+      simpa only [b, ite_eq_right hv, β, fM, dite_eq_right hv, Pi.smul_apply,
+        map_smul, smul_eq_mul] using heval
+  have hm (v : FinPlace F) :
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) = m v := by
+    simp only [m, zpow_neg, Complex.ofReal_inv, inv_inv]
+  have hcounts : (Function.support (fun v : FinPlace F =>
+      FractionalIdeal.count F v 𝔞)).Finite :=
+    Filter.eventually_cofinite.mp (FractionalIdeal.finite_factors 𝔞)
+  have hmfinite : Function.HasFiniteMulSupport m := by
+    apply hcounts.subset
+    intro v hv
+    change FractionalIdeal.count F v 𝔞 ≠ 0
+    intro hc
+    exact hv (by simp only [m, hc, zpow_zero, Complex.ofReal_one])
+  have hreal : Function.HasFiniteMulSupport
+      (fun v : FinPlace F => absFin v (toLoc v δ)) := by
+    have hn : Function.HasFiniteMulSupport
+        (fun v : FinPlace F => ‖FinitePlace.embedding v (δ : F)‖) := by
+      simpa using finitePlace_mk_hasFiniteMulSupport (Units.ne_zero δ)
+    have heq (v : FinPlace F) :
+        absFin v (toLoc v δ) = ‖FinitePlace.embedding v (δ : F)‖ := by
+      simpa [toLoc] using absFin_algebraMap v (δ : F)
+    simpa only [heq] using hn
+  have hd : Function.HasFiniteMulSupport d := by
+    apply hreal.subset
+    intro v hv
+    change absFin v (toLoc v δ) ≠ 1
+    intro heq
+    exact hv (by simp only [d, heq, Complex.ofReal_one])
+  have hafinite : Function.HasFiniteMulSupport a := hmfinite.mul (hd.mul hβ)
+  have hz' : HasProd (fun v => a v * b v) z := by
+    convert hz using 1
+    funext v
+    rw [hm, hlocal]
+    dsimp only [a, d]
+    ac_rfl
+  have hb : (∏' v, b v) = cprod Fs.T0 s := by
+    have hsub := tprod_subtype ({v : FinPlace F | v ∉ Fs.T0})
+      (fun v : FinPlace F => cv v s)
+    calc
+      (∏' v, b v) = ∏' v, ({v : FinPlace F | v ∉ Fs.T0}).mulIndicator
+          (fun v => cv v s) v := by
+        apply tprod_congr
+        intro v
+        by_cases hv : v ∈ Fs.T0 <;> simp [b, hv, Set.mulIndicator]
+      _ = cprod Fs.T0 s := hsub.symm
+  have hmprod : (∏ᶠ v, m v) = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) := by
+    have hfinite : Function.HasFiniteMulSupport (fun v : FinPlace F =>
+        ((qv v) ^ (FractionalIdeal.count F v 𝔞) : ℝ)) := by
+      apply hcounts.subset
+      intro v hv
+      change FractionalIdeal.count F v 𝔞 ≠ 0
+      intro hc
+      exact hv (by simp only [hc, zpow_zero])
+    calc
+      (∏ᶠ v, m v) = Complex.ofRealHom.toMonoidHom
+          (∏ᶠ v : FinPlace F, (qv v) ^ (FractionalIdeal.count F v 𝔞)) :=
+        (Complex.ofRealHom.toMonoidHom.map_finprod hfinite).symm
+      _ = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) := by
+        rw [← fractionalIdeal_absNorm_finprod 𝔞 h𝔞]
+        rfl
+  have haprod : (∏ᶠ v, a v) =
+      ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) * ((∏ᶠ v, d v) * ∏ᶠ v, β v) := by
+    dsimp only [a]
+    rw [finprod_mul_distrib (f := m) (g := fun v => d v * β v)
+      hmfinite (hd.mul hβ), finprod_mul_distrib (f := d) (g := β) hd hβ, hmprod]
+  calc
+    z = (∏ᶠ v, a v) * ∏' v, b v := hasProd_finite_factor_tprod a b hafinite hz'
+    _ = _ := by rw [haprod, hb]; ac_rfl
+
+/-- Cancel complex Bruhat dilation factors by the global product formula. -/
+theorem bruhat_arch_intertwine_product
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP) (δ : Fˣ) :
+    (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) *
+      (∏ w : InfinitePlace F, ∫ z : ℂ, Fs.fC w
+        (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)) =
+      ∏ w : InfinitePlace F, intertwineC (Fs.fC w)
+        (aC (Units.map w.embedding.toMonoidHom δ)⁻¹ * P.compC w r) := by
+  classical
+  let C : InfinitePlace F → ℂ := fun w =>
+    ((‖w.embedding (δ : F)‖ ^ 2 : ℝ) : ℂ)
+  let M : InfinitePlace F → ℂ := fun w => intertwineC (Fs.fC w)
+    (aC (Units.map w.embedding.toMonoidHom δ)⁻¹ * P.compC w r)
+  have hlocal (w : InfinitePlace F) :
+      (∫ z : ℂ, Fs.fC w
+        (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)) =
+        C w * M w := by
+    rw [(complex_bruhat_integral (Fs.fC w) (Units.map w.embedding.toMonoidHom δ)
+      (P.compC w r)).1]
+    simp only [C, M, Units.coe_map, RingHom.toMonoidHom_eq_coe,
+      MonoidHom.coe_coe, RCLike.real_smul_eq_coe_mul]
+    rfl
+  have hformula :
+      (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) *
+        (∏ w : InfinitePlace F, C w) = 1 := by
+    simpa only [C, Complex.cpow_one, Complex.normSq_eq_norm_sq] using
+      scalar_abs_cpow_product D δ (1 : ℂ)
+  calc
+    _ = (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) *
+        (∏ w : InfinitePlace F, C w * M w) := by simp_rw [hlocal]
+    _ = ((∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) *
+        (∏ w : InfinitePlace F, C w)) * (∏ w : InfinitePlace F, M w) := by
+      rw [Finset.prod_mul_distrib]
+      ac_rfl
+    _ = _ := by rw [hformula, one_mul]
+
+set_option backward.isDefEq.respectTransparency false in
+/-- Normalize the Bruhat product by the ideal-domain covolume to the intertwined scalar. -/
+theorem bruhat_scalarM_product_normalization
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (δ : Fˣ) {z : ℂ}
+    (hz : HasProd (fun v : FinPlace F =>
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+        ((absFin v (toLoc v δ) : ℂ) * G.lam v
+          (intertwine (P.loc v) (μ v) (Fs.f v)
+            ((P.loc v).a (toLoc v δ)⁻¹ * P.compF v r)))) z)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume) :
+    ((volume Pd).toReal)⁻¹ •
+      (z * ∏ w : InfinitePlace F, ∫ x : ℂ, Fs.fC w
+        (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC x * P.compC w r)) =
+      scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r) := by
+  classical
+  let fM : ∀ v : FinPlace F, (P.loc v).L → (G.T v).V := fun v =>
+    if hv : v ∈ Fs.T0 then intertwine (P.loc v) (μ v) (Fs.f v)
+    else sphWeyl P G v (fun h => hv (Fs.sub h)) s
+  let R : P.RP := P.ratRP (diagGL δ⁻¹) * r
+  let N : ℂ := ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ)
+  let d : ℂ := ∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)
+  let β : FinPlace F → ℂ := fun v => G.lam v (fM v (P.compF v R))
+  let B : ℂ := ∏ᶠ v : FinPlace F, β v
+  let C : ℂ := ∏ w : InfinitePlace F, ∫ x : ℂ, Fs.fC w
+    (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC x * P.compC w r)
+  let M : ℂ := ∏ w : InfinitePlace F, intertwineC (Fs.fC w) (P.compC w R)
+  change ((volume Pd).toReal)⁻¹ • (z * C) =
+    scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r)
+  have hq : P.q R = P.tc.rat (diagGL δ⁻¹) * P.q r := by
+    simp only [R, map_mul, P.q_ratRP]
+  have hcompF (v : FinPlace F) : P.compF v R =
+      (P.loc v).a (toLoc v δ)⁻¹ * P.compF v r := by
+    dsimp only [R]
+    rw [map_mul, P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    simp only [toLoc, map_inv]
+  have hcompC (w : InfinitePlace F) : P.compC w R =
+      aC (Units.map w.embedding.toMonoidHom δ)⁻¹ * P.compC w r := by
+    dsimp only [R]
+    rw [map_mul, P.compC_ratRP, scalar_glMap_diagGL]
+    change (QuotientGroup.mk (diagM ℂ (Units.map w.embedding.toMonoidHom δ⁻¹)) :
+      PGL2 ℂ) * P.compC w r = _
+    simp only [aC, map_inv]
+  have hnorm : z = N * d * cprod Fs.T0 s * B := by
+    simpa only [N, d, B, β, fM, hcompF] using
+      bruhat_intertwine_product_normalization P G μ hs Fs r 𝔞 h𝔞 δ hz
+  have harch : d * C = M := by
+    simpa only [d, C, M, hcompC] using bruhat_arch_intertwine_product P G Fs r δ
+  have hscalar : scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r) =
+      (κF F : ℂ)⁻¹ * cprod Fs.T0 s * (B * M) := by
+    have hh := (scalarM_q P G μ hs Fs R).2
+    change scalarM P G μ Fs (P.q R) =
+      (κF F)⁻¹ * cprod Fs.T0 s * (B * M) at hh
+    rw [hq] at hh
+    simpa only [Complex.ofReal_inv] using hh
+  have hN : N ≠ 0 := by
+    have hn : FractionalIdeal.absNorm 𝔞 ≠ 0 :=
+      FractionalIdeal.absNorm_eq_zero_iff.not.mpr h𝔞
+    dsimp only [N]
+    exact_mod_cast hn
+  have hvol : ((volume Pd).toReal : ℂ) = (κF F : ℂ) * N := by
+    rw [ideal_domain_covolume D 𝔞 h𝔞 Pd hPd, Complex.ofReal_mul]
+  calc
+    ((volume Pd).toReal)⁻¹ • (z * C) =
+        (κF F : ℂ)⁻¹ * (N⁻¹ * N) * cprod Fs.T0 s * (B * (d * C)) := by
+      rw [RCLike.real_smul_eq_coe_mul]
+      simp only [RCLike.ofReal_inv]
+      change ((volume Pd).toReal : ℂ)⁻¹ * (z * C) = _
+      rw [hvol, hnorm, mul_inv_rev]
+      ac_rfl
+    _ = (κF F : ℂ)⁻¹ * cprod Fs.T0 s * (B * M) := by
+      rw [inv_mul_cancel₀ hN, mul_one, harch]
+    _ = _ := hscalar.symm
+
+set_option backward.isDefEq.respectTransparency false in
+/-- Apply local Bruhat product normalization to an absolutely integrable ideal quotient. -/
+theorem bruhat_ideal_quotient_integral_eq_scalarM
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0) (δ : Fˣ)
+    (habs : Summable (fun η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup =>
+      ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)‖))
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume) :
+    ((volume Pd).toReal)⁻¹ •
+      (∑' η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+        ∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+          (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)) =
+      scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r) := by
+  classical
+  let Q := F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  let raw : Q → ℂ := fun η => ∏ᶠ v : FinPlace F, G.lam v
+    (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+      (P.loc v).n (Multiplicative.ofAdd
+        (algebraMap F (v.adicCompletion F) (Quotient.out η))) * P.compF v r))
+  let fc : InfinitePlace F → ℂ → ℂ := fun w x => Fs.fC w
+    (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC x * P.compC w r)
+  let C : ℂ := ∏ w : InfinitePlace F, ∫ x : ℂ, fc w x
+  let Aabs : ℝ := ∏ w : InfinitePlace F, ∫ x : ℂ, ‖fc w x‖
+  let I : Q → ℂ := fun η => ∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+    (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)
+  have hI (η : Q) : I η = raw η * C := by
+    simpa only [I, raw, C, fc] using
+      (scalarOf_bruhat_arch_integral P G Fs r δ (Quotient.out η)).1
+  have hNorm (η : Q) :
+      (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)‖) =
+      ‖raw η‖ * Aabs := by
+    simpa only [raw, Aabs, fc] using
+      (scalarOf_bruhat_arch_integral P G Fs r δ (Quotient.out η)).2
+  have hscaled : Summable (fun η : Q => ‖raw η‖ * Aabs) := habs.congr hNorm
+  change ((volume Pd).toReal)⁻¹ • (∑' η : Q, I η) =
+    scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r)
+  by_cases hA : Aabs = 0
+  · have hbound : ‖C‖ ≤ Aabs := by
+      dsimp only [C, Aabs]
+      rw [norm_prod]
+      exact Finset.prod_le_prod₀ (fun w _ => norm_nonneg _)
+        (fun w _ => norm_integral_le_integral_norm _)
+    have hC : C = 0 := by
+      rw [hA] at hbound
+      exact norm_eq_zero.mp (le_antisymm hbound (norm_nonneg C))
+    have hIz (η : Q) : I η = 0 := by rw [hI, hC, mul_zero]
+    let R : P.RP := P.ratRP (diagGL δ⁻¹) * r
+    have hq : P.q R = P.tc.rat (diagGL δ⁻¹) * P.q r := by
+      simp only [R, map_mul, P.q_ratRP]
+    have hcompC (w : InfinitePlace F) : P.compC w R =
+        aC (Units.map w.embedding.toMonoidHom δ)⁻¹ * P.compC w r := by
+      dsimp only [R]
+      rw [map_mul, P.compC_ratRP, scalar_glMap_diagGL]
+      change (QuotientGroup.mk (diagM ℂ (Units.map w.embedding.toMonoidHom δ⁻¹)) :
+        PGL2 ℂ) * P.compC w r = _
+      simp only [aC, map_inv]
+    have hM : (∏ w : InfinitePlace F, intertwineC (Fs.fC w) (P.compC w R)) = 0 := by
+      have hh := bruhat_arch_intertwine_product P G Fs r δ
+      change (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ)) * C =
+        (∏ w : InfinitePlace F, intertwineC (Fs.fC w)
+          (aC (Units.map w.embedding.toMonoidHom δ)⁻¹ * P.compC w r)) at hh
+      rw [hC, mul_zero] at hh
+      simpa only [hcompC] using hh.symm
+    have hscalar : scalarM P G μ Fs (P.tc.rat (diagGL δ⁻¹) * P.q r) = 0 := by
+      have hh := (scalarM_q P G μ hs Fs R).2
+      simp only [hM, mul_zero, hq] at hh
+      exact hh
+    simp only [hIz, tsum_zero, smul_zero, hscalar]
+  · have hrawNorm : Summable (fun η : Q => ‖raw η‖) :=
+      (summable_mul_right_iff hA).mp hscaled
+    have hp := bruhat_local_quotient_hasProd P G μ hs Fs r 𝔞 h𝔞 hfix hΦ δ hrawNorm
+    have hsum : (∑' η : Q, I η) = (∑' η : Q, raw η) * C := by
+      calc
+        _ = ∑' η : Q, raw η * C := tsum_congr hI
+        _ = _ := hrawNorm.of_norm.tsum_mul_right C
+    rw [hsum]
+    simpa only [C, fc] using
+      bruhat_scalarM_product_normalization P G μ hs Fs r 𝔞 h𝔞 δ hp Pd hPd
+
+set_option backward.isDefEq.respectTransparency false in
+/-- The unfolded big cell equals the intertwined scalar at the inverse quotient class. -/
+theorem eisenstein_bigCell_eq_scalarM_on_compact
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s) (g : P.tc.G)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * (g⁻¹ * nFin P ξ * g)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ h : P.tc.G, scalarOf P G Fs.f Fs.fC h ≠ 0)
+    (K : Set (InfinitePlace F → ℂ)) (hK : IsCompact K)
+    (B : Set (InfinitePlace F → ℂ)) (hB : MeasurableSet B) (hBK : B ⊆ K)
+    (hBd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) B volume)
+    (δ : Fˣ ⧸ G.Δ) :
+    letI : G.Δ.Normal := Subgroup.normal_of_isMulCommutative G.Δ
+    letI : CommGroup (Fˣ ⧸ G.Δ) := QuotientGroup.Quotient.commGroup G.Δ
+    ((volume B).toReal)⁻¹ •
+      (∑' ξ : F, ∫ x in B, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL ξ) * nInf P x * g)) =
+      scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out (δ⁻¹))) * g) := by
+  classical
+  letI : G.Δ.Normal := Subgroup.normal_of_isMulCommutative G.Δ
+  letI : CommGroup (Fˣ ⧸ G.Δ) := QuotientGroup.Quotient.commGroup G.Δ
+  have hs0 : 0 < s.re := (by norm_num : (0 : ℝ) < 1 / 2).trans hs
+  obtain ⟨r, hr⟩ := P.q_surj g
+  let J := F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  let a : Fˣ := (Quotient.out (δ⁻¹))⁻¹
+  have ha : (QuotientGroup.mk a : Fˣ ⧸ G.Δ) = δ := by
+    simp only [a, QuotientGroup.mk_inv, QuotientGroup.out_eq', inv_inv]
+  let ε : Fˣ := (Quotient.out δ) * a⁻¹
+  have hε : ε ∈ G.Δ := by
+    have heq : (QuotientGroup.mk (Quotient.out δ) : Fˣ ⧸ G.Δ) =
+        QuotientGroup.mk a := (QuotientGroup.out_eq' δ).trans ha.symm
+    simpa only [ε, div_eq_mul_inv] using QuotientGroup.eq_iff_div_mem.mp heq
+  have hdiag (u t : Fˣ) : diagGL (u * t) = diagGL u * diagGL t := by
+    apply Units.ext
+    ext j l
+    fin_cases j <;> fin_cases l <;>
+      simp [diagGL, Matrix.mul_apply, Fin.sum_univ_two]
+  have hBstar : diagGL ε ∈ Bstar G := by
+    change (diagGL ε : Matrix (Fin 2) (Fin 2) F) 1 0 = 0 ∧
+      ∃ d ∈ G.Δ, (diagGL ε : Matrix (Fin 2) (Fin 2) F) 0 0 =
+        (d : F) * (diagGL ε : Matrix (Fin 2) (Fin 2) F) 1 1
+    exact ⟨by simp [diagGL], ε, hε, by simp [diagGL]⟩
+  have hmat : diagGL (Quotient.out δ) * weylGL =
+      diagGL ε * (diagGL a * weylGL) := by
+    have hd : Quotient.out δ = ε * a := by dsimp only [ε]; group
+    rw [hd, hdiag, mul_assoc]
+  have hrep (h : P.tc.G) :
+      scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL (Quotient.out δ) * weylGL) * h) =
+      scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL a * weylGL) * h) := by
+    rw [hmat, map_mul, mul_assoc]
+    exact (scalarOf_invariance P G Fs).1 (diagGL ε) hBstar _
+  have hfinite (ξ : F) (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL) * nFin P ξ * nInf P x * g) =
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P ξ * nInf P x * g) := by
+    simpa only [mul_assoc] using hrep (nFin P ξ * nInf P x * g)
+  obtain ⟨hint, habs0, hunfold⟩ :=
+    eisenstein_bigCell_unfold_periods P G hs Fs g 𝔞 hfix K hK B hB hBK hBd δ
+  have hshift (η : J) := scalarOf_finitePeriod_arch_integral P G Fs g
+    (diagGL (Quotient.out δ) * weylGL) (Quotient.out η) (hint η)
+  have hnorm (η : J) :
+      (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL (Quotient.out η)) *
+          nInf P x * g)‖) =
+      ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)‖ := by
+    rw [(hshift η).2.2, hr]
+    apply integral_congr_ae
+    filter_upwards [] with x
+    exact congrArg norm (hfinite (Quotient.out η) x)
+  have habs : Summable (fun η : J =>
+      ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)‖) :=
+    habs0.congr hnorm
+  have hcomplex (η : J) :
+      (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL (Quotient.out η)) *
+          nInf P x * g)) =
+      ∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r) := by
+    rw [(hshift η).2.1, hr]
+    apply integral_congr_ae
+    filter_upwards [] with x
+    exact hfinite (Quotient.out η) x
+  have hsum :
+      (∑' ξ : F, ∫ x in B, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out δ) * weylGL * upperGL ξ) * nInf P x * g)) =
+      ∑' η : J, ∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL a * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r) :=
+    hunfold.trans (tsum_congr hcomplex)
+  have hfixR : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) =
+        scalarOf P G Fs.f Fs.fC h := by
+    simpa only [hr] using hfix
+  have hp := bruhat_ideal_quotient_integral_eq_scalarM P G μ hs0 Fs r
+    𝔞 h𝔞 hfixR hΦ a habs B hBd
+  rw [hsum]
+  simpa only [a, inv_inv, hr] using hp
+
 /-- **eis:constant-term** (KP Prop. II.1.2 replaced): for `Re s > 1/2`, over a period lattice
 `𝔞 ⊆ F` (a nonzero fractional ideal) whose finite translations fix all sections at `g`. -/
 theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
@@ -3517,7 +4520,59 @@ theorem eisenstein_constantTerm (P : CoverPackage D S H A) (G : GlobalDatum P)
     torusCoeff P (eisenstein P G Fs) g Pd 0 =
       ∑' δ : Fˣ ⧸ G.Δ, (scalarOf P G Fs.f Fs.fC (P.tc.rat (diagGL (Quotient.out δ)) * g) +
         scalarM P G μ Fs (P.tc.rat (diagGL (Quotient.out δ)) * g)) := by
-  sorry
+  classical
+  letI : G.Δ.Normal := Subgroup.normal_of_isMulCommutative G.Δ
+  letI : CommGroup (Fˣ ⧸ G.Δ) := QuotientGroup.Quotient.commGroup G.Δ
+  have hs0 : 0 < s.re := (by norm_num : (0 : ℝ) < 1 / 2).trans hs
+  by_cases hΦ : ∃ h : P.tc.G, scalarOf P G Fs.f Fs.fC h ≠ 0
+  · obtain ⟨B, hB, hK, hBd, _, hvol, hcoef⟩ :=
+      eisenstein_zeroCoeff_bounded_domain P G hs Fs g 𝔞 h𝔞 hfix Pd hPd
+    obtain ⟨hsmall, hpair, hcoeff⟩ :=
+      eisenstein_zeroCoeff_bruhat_on_compact P G hs Fs g
+        (closure B) hK B hB subset_closure hvol
+    let Q := Fˣ ⧸ G.Δ
+    let small : Q → ℂ := fun δ => scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out δ)) * g)
+    let I : Q × F → ℂ := fun p => ∫ x in B, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P x * g)
+    let M : Q → ℂ := fun δ => scalarM P G μ Fs
+      (P.tc.rat (diagGL (Quotient.out δ)) * g)
+    let c : ℂ := ((volume B).toReal : ℂ)⁻¹
+    let e : Q ≃ Q :=
+      { toFun := fun δ => δ⁻¹
+        invFun := fun δ => δ⁻¹
+        left_inv := fun δ => inv_inv δ
+        right_inv := fun δ => inv_inv δ }
+    have hsmallS : Summable small := hsmall
+    have hpairI : Summable I := hpair
+    have houter : Summable (fun δ : Q => ∑' ξ : F, I (δ, ξ)) := hpairI.prod
+    have hbig (δ : Q) : c * (∑' ξ : F, I (δ, ξ)) = M (δ⁻¹) := by
+      have hh := eisenstein_bigCell_eq_scalarM_on_compact P G μ hs Fs g
+        𝔞 h𝔞 hfix hΦ (closure B) hK B hB subset_closure hBd δ
+      rw [RCLike.real_smul_eq_coe_mul] at hh
+      simp only [RCLike.ofReal_inv] at hh
+      change c * (∑' ξ : F, I (δ, ξ)) = M (δ⁻¹) at hh
+      exact hh
+    have hMI : Summable (fun δ : Q => M (δ⁻¹)) := (houter.mul_left c).congr hbig
+    have hM : Summable M := by
+      refine (hMI.comp_injective e.injective).congr ?_
+      intro δ
+      change M ((δ⁻¹)⁻¹) = M δ
+      rw [inv_inv]
+    have hbigSum : c * (∑' p : Q × F, I p) = ∑' δ : Q, M δ := by
+      rw [hpairI.tsum_prod]
+      calc
+        _ = ∑' δ : Q, c * (∑' ξ : F, I (δ, ξ)) := (houter.tsum_mul_left c).symm
+        _ = ∑' δ : Q, M (δ⁻¹) := tsum_congr hbig
+        _ = _ := e.tsum_eq M
+    calc
+      torusCoeff P (eisenstein P G Fs) g Pd 0 =
+          torusCoeff P (eisenstein P G Fs) g B 0 := hcoef
+      _ = (∑' δ : Q, small δ) + c * (∑' p : Q × F, I p) := hcoeff
+      _ = (∑' δ : Q, small δ) + (∑' δ : Q, M δ) := by rw [hbigSum]
+      _ = _ := (hsmallS.tsum_add hM).symm
+  · push_neg at hΦ
+    exact eisenstein_constantTerm_of_zero P G μ hs0 Fs hΦ g Pd
 
 /-- The local Whittaker factor is one outside the exceptional support. -/
 theorem whit_good_factor (P : CoverPackage D S H A) (G : GlobalDatum P)
