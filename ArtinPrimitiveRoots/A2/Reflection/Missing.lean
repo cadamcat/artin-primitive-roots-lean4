@@ -5132,6 +5132,67 @@ private theorem rf_forward_Agen_unfolding :
       _ = _ := by rw [hL]
   exact ⟨hIntegral, hNorm, hNormSum, hData.2.2.2.1, hSign, hSignSum⟩
 
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_indexed_fourier (r : ReflectionRow S) (y : S.FSˣ) :
+    let f := fun q : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S =>
+      (Lvalue R (rowClass R r) y)⁻¹ *
+        forwardTerm R r ((q.2.1 : Fˣ) * Agen R q.1.1 q.1.2) y
+    Summable (fun q => ‖f q‖) ∧
+    bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r false false y =
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r false true y + ∑' q, f q := by
+  classical
+  dsimp only
+  let V := {v : FinPlace F // v ∈ R.exterior.support r.ideal}
+  letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let g : Fˣ → ℂ := fun ν =>
+    (Lvalue R (rowClass R r) y)⁻¹ * forwardTerm R r ν y
+  let idx : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → Fˣ :=
+    fun q => (q.2.1 : Fˣ) * Agen R q.1.1 q.1.2
+  have hFourier := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.finite_weighted_fourier
+    R.T (R.chars.L (rowClass R r)) (R.mem_family (rowClass R r))
+    (digitAlpha R r) (digitPoint R r y)
+    (bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹)
+  have hEq (ν : Fˣ) :
+      (bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹) *
+        ∑ d : Digits R r, digitAlpha R r d *
+          R.T.W (R.chars.L (rowClass R r))
+            (R.C.rat (diagGL ν) * digitPoint R r y d) = g ν := by
+    simp only [g, forwardTerm, finsum_eq_sum_of_fintype]
+    ring
+  have hSummable : Summable g := hFourier.1.congr hEq
+  have hSupport : Function.support g ⊆ Set.range idx := by
+    intro ν hν
+    have hTerm : forwardTerm R r ν y ≠ 0 := by
+      intro hz
+      exact hν (by simp only [g, hz, mul_zero])
+    obtain ⟨p, γ, hνEq⟩ := rf_forward_support R r ν y hTerm
+    exact ⟨(p, γ), hνEq.symm⟩
+  have hInjective : Function.Injective idx := rf_forward_frequency_injective R
+  have hIndexed : Summable (g ∘ idx) :=
+    (hInjective.summable_iff (f := g) (fun ν hν => by
+      by_contra hn
+      exact hν (hSupport hn))).2 hSummable
+  have hTsum : (∑' q, g (idx q)) = ∑' ν, g ν := hInjective.tsum_eq (f := g) hSupport
+  have hExpansion :
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+          digitSum R r false false y =
+        bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+          digitSum R r false true y + ∑' ν, g ν := by
+    have h := hFourier.2
+    simp only [hEq] at h
+    simpa [digitSum, finsum_eq_sum_of_fintype] using h
+  constructor
+  · simpa only [g, idx, Function.comp_def] using hIndexed.norm
+  · calc
+      _ = bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+          digitSum R r false true y + ∑' ν, g ν := hExpansion
+      _ = _ := congrArg
+        (fun z : ℂ => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+          digitSum R r false true y + z) hTsum.symm
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
