@@ -468,4 +468,85 @@ theorem finite_gaussian_fourier_test (A : AddCharData F) (v : FinPlace F)
       simp only [measureReal_def, Complex.real_smul, mul_one]
     _ = _ := rfl
 
+/-- The annihilator of the actual integer-radius frequency ball. -/
+def localBallAnnihilator (A : AddCharData F) (v : FinPlace F) (M : ℤ) :
+    Set (v.adicCompletion F) :=
+  {z | ∀ t ∈ localBallInt v M, A.ψ v (t * z) = 1}
+
+/-- Enlarging the frequency ball makes its character annihilator arbitrarily small.
+Integrality retains the opposite-radius ball inside the annihilator. A witness
+to nontriviality excludes every z whose norm is at least r by testing at y/z.
+Guide: PROOFS.md:468–475; this geometry needs neither continuity nor Haar measure. -/
+theorem local_ball_annihilator_small (A : AddCharData F) (v : FinPlace F)
+    (hψ : A.ψ v ≠ 1) (r : ℝ) (hr : 0 < r) :
+    ∃ M : ℤ, localBallInt v (-M) ⊆ localBallAnnihilator A v M ∧
+      localBallAnnihilator A v M ⊆ Metric.ball (0 : v.adicCompletion F) r := by
+  have hex : ∃ y : v.adicCompletion F, A.ψ v y ≠ 1 := by
+    by_contra h
+    push Not at h
+    apply hψ
+    ext y
+    simpa only [AddChar.one_apply] using h y
+  obtain ⟨y, hy⟩ := hex
+  have hy0 : y ≠ 0 := by
+    intro h
+    apply hy
+    simp only [h, AddChar.map_zero_eq_one]
+  have hynorm : 0 < ‖y‖ := norm_pos_iff.mpr hy0
+  obtain ⟨c₀, hc₀⟩ :=
+    HeightOneSpectrum.valuedAdicCompletion_surjective F v (WithZero.exp (-1))
+  have hc₀0 : c₀ ≠ 0 := by
+    intro h
+    apply WithZero.exp_ne_zero (a := (-1 : ℤ))
+    exact hc₀.symm.trans (by simp only [h, map_zero])
+  let c := Units.mk0 c₀ hc₀0
+  have hc : ‖(c : v.adicCompletion F)‖ < 1 := by
+    apply (Valued.toNormedField.norm_lt_one_iff (L := v.adicCompletion F)
+      (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+    change Valued.v c₀ < 1
+    rw [hc₀, ← WithZero.exp_zero]
+    exact WithZero.exp_lt_exp.mpr (by norm_num)
+  obtain ⟨n, hn⟩ := exists_pow_lt_of_lt_one (div_pos hr hynorm) hc
+  let b : (v.adicCompletion F)ˣ := (c ^ n)⁻¹
+  let M := WithZero.log
+    ((Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))) (b : _))
+  have hb : Valued.v (b : v.adicCompletion F) = WithZero.exp M := by
+    exact (WithZero.exp_log ((map_ne_zero
+      (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ)))).mpr
+      b.ne_zero)).symm
+  have hbnorm : 0 < ‖(b : v.adicCompletion F)‖ := norm_pos_iff.mpr b.ne_zero
+  have hratio : ‖y‖ / ‖(b : v.adicCompletion F)‖ < r := by
+    have hb_norm : ‖(b : v.adicCompletion F)‖ =
+        (‖(c : v.adicCompletion F)‖ ^ n)⁻¹ := by simp [b]
+    rw [hb_norm, div_inv_eq_mul]
+    simpa only [mul_comm] using (lt_div_iff₀ hynorm).mp hn
+  refine ⟨M, ?_, ?_⟩
+  · intro z hz t ht
+    apply A.integral v
+    change Valued.v (t * z) ≤ 1
+    change Valued.v t ≤ WithZero.exp M at ht
+    change Valued.v z ≤ WithZero.exp (-M) at hz
+    calc
+      Valued.v (t * z) = Valued.v t * Valued.v z := map_mul _ _ _
+      _ ≤ WithZero.exp M * WithZero.exp (-M) := mul_le_mul' ht hz
+      _ = 1 := by rw [← WithZero.exp_add]; simp only [add_neg_cancel, WithZero.exp_zero]
+  · intro z hz
+    by_contra h
+    have hzr : r ≤ ‖z‖ := by
+      simpa only [Metric.mem_ball, dist_zero_right, not_lt] using h
+    have hz0 : z ≠ 0 := norm_pos_iff.mp (hr.trans_le hzr)
+    have htest : ‖y / z‖ ≤ ‖(b : v.adicCompletion F)‖ := by
+      rw [norm_div]
+      apply le_trans (div_le_div_of_nonneg_left (norm_nonneg y) hr hzr)
+      apply le_of_lt
+      apply (div_lt_iff₀ hr).mpr
+      simpa only [mul_comm] using (div_lt_iff₀ hbnorm).mp hratio
+    have ht : y / z ∈ localBallInt v M := by
+      change Valued.v (y / z) ≤ WithZero.exp M
+      rw [← hb]
+      exact (Valued.toNormedField.norm_le_iff (L := v.adicCompletion F)
+        (Γ₀ := WithZero (Multiplicative ℤ))).mp htest
+    apply hy
+    simpa only [div_mul_cancel₀ _ hz0] using hz (y / z) ht
+
 end ArtinPrimitiveRoots.Proofs.a1_weil_sol
