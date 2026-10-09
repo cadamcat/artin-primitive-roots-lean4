@@ -6034,6 +6034,19 @@ private theorem rows_sol_principal_z_integrated
   rw [hSplit, hRzEq] at hW
   simpa only [P, σξ, add_assoc] using hW
 
+private theorem rows_sol_principal_double_residue_eq
+    (Z : ℝ) (hZ : 0 < Z) (ξ : ℂ) :
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 (1 / 6) *
+      (HA.RS S ^ 2 / 6) * HC.H U.one ![ξ, 1, 1 / 6] / HA.LS S η ξ =
+        principalConstant R sd W HA *
+          ((Z : ℂ) ^ Cstar ξ * amplitude (Heta R η U HC) (HA.LS S η) ξ) := by
+  have hExp : (a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * (1 / 6) = Cstar ξ := by
+    norm_num [a, h0, Cstar] <;> ring
+  have hG : ξ + (1 / 6 : ℂ) - 1 = ξ - 5 / 6 := by ring
+  rw [rows_sol_mellin_w_one R sd W Z hZ ξ (1 / 6), hExp, hG]
+  unfold principalConstant amplitude Heta
+  ring
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
