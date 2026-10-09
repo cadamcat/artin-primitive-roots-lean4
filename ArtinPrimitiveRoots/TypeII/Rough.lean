@@ -5735,7 +5735,38 @@ theorem low_count (γ : ℝ) (hγ : 0 < γ) :
                             ∫ y in l..r, ArtinPrimitiveRoots.Sieve.roughDensity γ
                               (Real.log y / Real.log x) : ℝ) else 0 : ℂ)‖ ≤
                         C * M * Real.rpow (Real.log x) (-A₁) := by
-  sorry
+  classical
+  intro wMin wMax hγwMin hww hw A₀ A₁ hA₀ hA₁
+  obtain ⟨Cp, xp, hCp, hxp, hPrincipal⟩ :=
+    principal_low_count γ hγ wMin wMax hγwMin hww hw A₀ A₁ hA₀ hA₁
+  obtain ⟨Cn, xn, hCn, hxn, hNonprincipal⟩ :=
+    nonprincipal_low_count γ hγ wMin wMax hγwMin hww hw A₀ A₁ hA₀ hA₁
+  refine ⟨max Cp Cn, max xp xn, hCp.trans_le (le_max_left _ _),
+    hxp.trans (le_max_left _ _), ?_⟩
+  intro x hx M hMlower hMwindow h2Mwindow k hk hmod χ l r hl hlr hr
+  have hxxp : xp ≤ x := (le_max_left _ _).trans hx
+  have hxxn : xn ≤ x := (le_max_right _ _).trans hx
+  have hx2 : 2 ≤ x := hxp.trans hxxp
+  have hxpos : 0 < x := by linarith
+  have hM0 : 0 ≤ M :=
+    (Real.rpow_pos_of_pos hxpos γ).le.trans hMlower
+  have hD0 : 0 ≤ Real.rpow (Real.log x) (-A₁) :=
+    (Real.rpow_pos_of_pos (Real.log_pos (by linarith : 1 < x)) (-A₁)).le
+  have hpBound : Cp * M * Real.rpow (Real.log x) (-A₁) ≤
+      max Cp Cn * M * Real.rpow (Real.log x) (-A₁) :=
+    mul_le_mul_of_nonneg_right
+      (mul_le_mul_of_nonneg_right (le_max_left _ _) hM0) hD0
+  have hnBound : Cn * M * Real.rpow (Real.log x) (-A₁) ≤
+      max Cp Cn * M * Real.rpow (Real.log x) (-A₁) :=
+    mul_le_mul_of_nonneg_right
+      (mul_le_mul_of_nonneg_right (le_max_right _ _) hM0) hD0
+  by_cases hχ : χ = 1
+  · simpa only [hχ, ↓reduceIte] using
+      (hPrincipal x hxxp M hMlower hMwindow h2Mwindow k hk hmod χ hχ
+        l r hl hlr hr).trans hpBound
+  · simpa only [hχ, ↓reduceIte, sub_zero] using
+      (hNonprincipal x hxxn M hMlower hMwindow h2Mwindow k hk hmod χ hχ
+        l r hl hlr hr).trans hnBound
 
 /-- Uniform rough counts on a bounded exponent window, without an upper bound of one. -/
 private theorem low_count_bounded_window (γ vMin vMax : ℝ)
