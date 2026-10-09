@@ -27,6 +27,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.CanonicalTopology
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.ResidueComparison
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.DegreeComparison
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.DegreeSum
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.LocalCardinality
 
 /-!
 # A1 interface, §3: Hilbert symbols, H_S, B, allowed generators
