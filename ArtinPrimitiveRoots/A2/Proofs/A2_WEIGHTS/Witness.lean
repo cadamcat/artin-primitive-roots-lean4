@@ -1,3 +1,4 @@
+import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.FiniteWitness
 import Mathlib.Analysis.Calculus.BumpFunction.FiniteDimension
 import Mathlib.Analysis.Complex.Basic
 import Mathlib.Analysis.Distribution.SchwartzSpace.Basic
