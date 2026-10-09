@@ -20,6 +20,20 @@ theorem relative_norm_angular_pullback (D : FieldData F) (ι : E →ₐ[ℚ] F)
     (hC : ∀ x : NumberField.IdeleGroup (𝓞 F) F,
       C (QuotientGroup.mk x) = QuotientGroup.mk (N.norm x))
     (χ : LambdaChar E) (hχ : simpleAngularType χ) : angularType D (χ.comp C) := by
-  sorry
+  intro w
+  obtain ⟨m, hm, hz⟩ := N.angular_norm χ hχ w
+  refine ⟨m, hm, fun z => ?_⟩
+  have := hz z
+  have hmk : IdeleClassGroup.ofCompletion (𝓞 F) F w
+    (Units.map (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+      (D.isTotallyComplex.isComplex w)).symm.toMonoidHom z) =
+    QuotientGroup.mk (IdeleGroup.ofCompletion (𝓞 F) F w
+      (Units.map (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+        (D.isTotallyComplex.isComplex w)).symm.toMonoidHom z)) := rfl
+  change ((χ (C (IdeleClassGroup.ofCompletion (𝓞 F) F w
+    (Units.map (InfinitePlace.Completion.ringEquivComplexOfIsComplex
+      (D.isTotallyComplex.isComplex w)).symm.toMonoidHom z))) : ℂˣ) : ℂ) = _
+  rw [hmk, hC]
+  exact this
 
 end ArtinPrimitiveRoots.Proofs.a1_lambda_sol
