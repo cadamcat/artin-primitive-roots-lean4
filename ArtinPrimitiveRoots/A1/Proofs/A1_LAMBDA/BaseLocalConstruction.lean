@@ -1,4 +1,5 @@
-import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.Definitions
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.BaseCorrectedFinite
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.BaseInfiniteCharacter
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
@@ -18,6 +19,26 @@ theorem base_local_data_exists (σ : E →+* ℂ)
     (a : ContinuousMonoidHom ℂˣ ℂˣ)
     (ha : ∀ z : ℂˣ, ((a z : ℂˣ) : ℂ) = (z : ℂ) / ‖(z : ℂ)‖) :
     Nonempty (BaseLocalData σ) := by
-  sorry
+  obtain ⟨κ, hκunit, hκprincipal⟩ := base_local_correction_exists σ φ hφ a ha
+  refine ⟨{
+    finite := correctedFinite σ κ
+    infinite := baseInfiniteCharacter σ a
+    eventually_unit_trivial := correctedFinite_eventually_unit_trivial σ κ
+    finite_unitary := correctedFinite_unitary σ κ hκunit
+    infinite_unitary := baseInfiniteCharacter_unitary σ a ha
+    principal_product := ?_
+    exterior_units := ?_
+    prime_formula := ?_
+    angular := baseInfiniteCharacter_angular σ a ha }⟩
+  · intro t
+    rw [baseInfiniteCharacter_product σ a ha t,
+      correctedFinite_principal σ a κ hκprincipal t]
+    exact inv_mul_cancel _
+  · intro v hv u hu
+    rw [correctedFinite_exterior σ κ v hv]
+    exact baseFiniteCharacter_localUnit σ v u hu
+  · intro v hv
+    rw [correctedFinite_exterior σ κ v hv]
+    exact baseFiniteCharacter_prime_formula σ v hv
 
 end ArtinPrimitiveRoots.Proofs.a1_lambda_sol
