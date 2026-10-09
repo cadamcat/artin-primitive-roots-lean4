@@ -1178,4 +1178,35 @@ theorem density_phase_weight_lipschitz (D : ℝ → ℝ) (B_D K_D w₀ w₁ L V 
         add_le_add hpiece1 (mul_le_mul hA2c hP12 (norm_nonneg _) (by positivity))
     _ = ((K_D / (L * M) + B_D * |u| / M) / (L * V)) * |y₁ - y₂| := by ring
 
+/-- Membership in a truncated real interval finset splits into bounds plus a floor bound. -/
+theorem intervalTerms_mem_iff (l r : ℝ) (m : ℕ) :
+    m ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+      (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ r) ↔
+      l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r ∧ m ≤ ⌊r⌋₊ := by
+  rw [Finset.mem_filter, Finset.mem_range, Nat.lt_succ_iff]
+  tauto
+
+/-- Dyadic-box product bound from PROOFS.md §5: a box meeting `[l,r] ⊆ [M,2M]`
+has `M/2^j ≤ ∏ P_i ≤ 2M`. -/
+theorem box_product_bound {j : ℕ} (P y : Fin j → ℝ) (M : ℝ) (hM : 0 < M)
+    (hP : ∀ i, 0 < P i) (hy : ∀ i, P i ≤ y i ∧ y i < 2 * P i)
+    (hlo : M ≤ ∏ i, y i) (hhi : ∏ i, y i ≤ 2 * M) :
+    M / (2 ^ j) ≤ ∏ i, P i ∧ ∏ i, P i ≤ 2 * M := by
+  have hPnn : ∀ i ∈ Finset.univ, 0 ≤ P i := fun i _ => (hP i).le
+  have hyP : ∀ i ∈ Finset.univ, P i ≤ y i := fun i _ => (hy i).1
+  have hypos : ∀ i, 0 < y i := fun i => lt_of_lt_of_le (hP i) (hy i).1
+  have hyn : ∀ i ∈ Finset.univ, 0 ≤ y i := fun i _ => (hypos i).le
+  have hy2 : ∀ i ∈ Finset.univ, y i ≤ 2 * P i := fun i _ => (hy i).2.le
+  have hProd_le : ∏ i, P i ≤ ∏ i, y i := Finset.prod_le_prod₀ hPnn hyP
+  have hProd_le2 : ∏ i, y i ≤ ∏ i, (2 * P i) := Finset.prod_le_prod₀ hyn hy2
+  have h2prod : (∏ i, (2 * P i)) = (2 ^ j) * ∏ i, P i := by
+    rw [Finset.prod_mul_distrib]
+    congr 1
+    rw [Finset.prod_const, Finset.card_univ, Fintype.card_fin]
+  have h2pos : (0 : ℝ) < 2 ^ j := pow_pos (by norm_num) j
+  have hMle : M ≤ (2 ^ j) * ∏ i, P i := h2prod ▸ le_trans hlo hProd_le2
+  refine ⟨?_, le_trans hProd_le hhi⟩
+  rw [div_le_iff₀ h2pos, mul_comm]
+  exact hMle
+
 end ArtinPrimitiveRoots.Proofs.r_impl_muse
