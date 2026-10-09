@@ -5947,6 +5947,93 @@ private theorem rows_sol_principal_z_residue_integrable
   have hdom : Integrable (fun t : ℝ => B * Real.exp (-t ^ 2)) := hGauss.const_mul B
   exact hdom.mono' hfcont.aestronglyMeasurable (ae_of_all _ hpoint)
 
+private theorem rows_sol_principal_z_integrated
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 2 ≤ Z) :
+    rowContribution R sd W η U {U.one} Z =
+      principalRw R sd W η U HA HC Z + principalRz R sd W η U HA HC Z +
+        vertical (1 + δ1) (fun ξ =>
+          mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 (1 / 6) *
+            (HA.RS S ^ 2 / 6) * HC.H U.one ![ξ, 1, 1 / 6] / HA.LS S η ξ) := by
+  let σξ : ℝ := 1 + δ1
+  let σhi : ℝ := 1 / 6 + δ1
+  let σlo : ℝ := 16 / 100
+  let c : ℂ := 1 / (2 * Real.pi)
+  let Q : ℂ → ℂ → ℂ := fun ξ z =>
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+      HA.LS S 1 (6 * z) * HA.RS S * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ
+  let Q0 : ℂ → ℂ → ℂ := fun ξ z =>
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 z *
+      HA.LS S 1 (6 * z) * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ
+  let P : ℂ → ℂ := fun ξ =>
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 (1 / 6) *
+      (HA.RS S ^ 2 / 6) * HC.H U.one ![ξ, 1, 1 / 6] / HA.LS S η ξ
+  let J : ℝ → ℝ → ℂ := fun σz t =>
+    vertical σz (fun z => Q (σξ + t * Complex.I) z)
+  have hIntQ : Integrable (fun p : ℝ × ℝ =>
+      Q (σξ + p.1 * Complex.I) (σhi + p.2 * Complex.I)) (volume.prod volume) := by
+    exact rows_sol_principal_w_residue_integrable R sd W η U HA HC hEuler Z hZ
+      σξ le_rfl (by norm_num [σξ, δ1])
+  have hJhi : Integrable (J σhi) := by
+    simpa only [J, vertical, c] using hIntQ.integral_prod_left.const_mul c
+  have hP : Integrable (fun t : ℝ => P (σξ + t * Complex.I)) := by
+    exact rows_sol_principal_z_residue_integrable R sd W η U HA HC hEuler Z hZ
+      σξ le_rfl (by norm_num [σξ, δ1])
+  have hShift (t : ℝ) : J σhi t = J σlo t + P (σξ + t * Complex.I) := by
+    let ξ : ℂ := σξ + t * Complex.I
+    have hQFactor : Q ξ = fun z => HA.RS S * Q0 ξ z := by
+      funext z
+      dsimp [Q, Q0]
+      ring
+    have hResidue := rows_sol_principal_z_residue R sd W η U HA HC hEuler Z hZ ξ
+      (by simp [ξ, σξ]) (by norm_num [ξ, σξ, δ1])
+    change vertical σhi (Q0 ξ) = vertical σlo (Q0 ξ) +
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z ξ 1 (1 / 6) *
+        (HA.RS S / 6) * HC.H U.one ![ξ, 1, 1 / 6] / HA.LS S η ξ at hResidue
+    change vertical σhi (Q ξ) = vertical σlo (Q ξ) + P ξ
+    rw [hQFactor, rows_vertical_const_mul, rows_vertical_const_mul, hResidue, mul_add]
+    congr 1
+    dsimp [P]
+    ring
+  have hJlo : Integrable (J σlo) := by
+    apply (hJhi.sub hP).congr
+    exact ae_of_all _ fun t => by
+      change J σhi t - P (σξ + t * Complex.I) = J σlo t
+      rw [hShift]
+      ring
+  have hSplit :
+      vertical σξ (fun ξ => vertical σhi (fun z => Q ξ z)) =
+        vertical σξ (fun ξ => vertical σlo (fun z => Q ξ z)) + vertical σξ P := by
+    have hAdd : (∫ t : ℝ, J σhi t) =
+        (∫ t : ℝ, J σlo t) + ∫ t : ℝ, P (σξ + t * Complex.I) := by
+      calc
+        _ = ∫ t : ℝ, J σlo t + P (σξ + t * Complex.I) :=
+          integral_congr_ae (ae_of_all _ hShift)
+        _ = _ := integral_add hJlo hP
+    change c * (∫ t : ℝ, J σhi t) =
+      c * (∫ t : ℝ, J σlo t) + c * ∫ t : ℝ, P (σξ + t * Complex.I)
+    rw [hAdd, mul_add]
+  let F0 : ℂ → ℂ → ℂ := fun ξ z =>
+    (Z : ℂ) ^ ((a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * z) *
+      Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z *
+        HA.LS S 1 (6 * z) * HC.H U.one ![ξ, 1, z] / HA.LS S η ξ
+  have hQEq : Q = fun ξ z => (HA.RS S * weightW1hat W 1) * F0 ξ z := by
+    funext ξ z
+    dsimp [Q]
+    rw [rows_sol_mellin_w_one R sd W Z (by linarith : 0 < Z)]
+    dsimp [F0]
+    ring
+  have hRzEq :
+      vertical σξ (fun ξ => vertical σlo (fun z => Q ξ z)) =
+        principalRz R sd W η U HA HC Z := by
+    rw [hQEq, rows_doubleVertical_const_mul]
+    rfl
+  have hW := rows_sol_principal_w_integrated R sd W η U HA HC hEuler Z hZ
+  change rowContribution R sd W η U {U.one} Z =
+    principalRw R sd W η U HA HC Z +
+      vertical σξ (fun ξ => vertical σhi (fun z => Q ξ z)) at hW
+  rw [hSplit, hRzEq] at hW
+  simpa only [P, σξ, add_assoc] using hW
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
