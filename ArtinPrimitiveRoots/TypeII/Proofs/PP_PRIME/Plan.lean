@@ -2044,6 +2044,38 @@ private noncomputable def ppPrimeMellinContourIntegrand
     (deriv (dirichletLValue q hq χ) (1 - Complex.I * (t : ℂ) + z) /
       dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z)))
 
+private theorem ppPrimeMellinContourIntegrand_norm_bound
+    (N : ℝ) (q : ℕ) (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    (t : ℝ) (g : ℝ → ℝ) (z : ℂ) (K E D : ℝ)
+    (hK0 : 0 ≤ K) (hE0 : 0 ≤ E)
+    (hKernel : ‖mellinKernel g z‖ ≤ K)
+    (hExp : ‖Complex.exp (z * (Real.log N : ℂ))‖ ≤ E)
+    (hLogDeriv : ‖deriv (dirichletLValue q hq χ)
+      (1 - Complex.I * (t : ℂ) + z) /
+      dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z)‖ ≤ D) :
+    ‖ppPrimeMellinContourIntegrand N q hq χ t g z‖ ≤ K * E * D := by
+  calc
+    ‖ppPrimeMellinContourIntegrand N q hq χ t g z‖ =
+        ‖mellinKernel g z‖ * ‖Complex.exp (z * (Real.log N : ℂ))‖ *
+          ‖deriv (dirichletLValue q hq χ)
+            (1 - Complex.I * (t : ℂ) + z) /
+            dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z)‖ := by
+          simp [ppPrimeMellinContourIntegrand, norm_mul, mul_assoc]
+    _ ≤ K * ‖Complex.exp (z * (Real.log N : ℂ))‖ *
+          ‖deriv (dirichletLValue q hq χ)
+            (1 - Complex.I * (t : ℂ) + z) /
+            dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z)‖ :=
+        mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_right hKernel (norm_nonneg _)) (norm_nonneg _)
+    _ ≤ (K * E) *
+          ‖deriv (dirichletLValue q hq χ)
+            (1 - Complex.I * (t : ℂ) + z) /
+            dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z)‖ :=
+        mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left hExp hK0) (norm_nonneg _)
+    _ ≤ (K * E) * D := mul_le_mul_of_nonneg_left hLogDeriv (mul_nonneg hK0 hE0)
+    _ = K * E * D := by ring
+
 private theorem ppPrimeMellinContourIntegrand_analyticOnNhd
     (N : ℝ) (q : ℕ) (hq : 0 < q) (χ : DirichletCharacter ℂ q)
     (t : ℝ) (g : ℝ → ℝ)
