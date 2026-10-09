@@ -2856,6 +2856,71 @@ private theorem ppPrimeContourGrowth
     hxSquare, hxroot, hxgauss⟩
 
 /-- Uniform contour estimate for the endpoint cutoff, before removing smoothing. -/
+private theorem ppPrimeMellinContour_zeroFree_rectangle
+    {x L width H t a b : ℝ} (q : ℕ) (hq : 0 < q)
+    (χ : DirichletCharacter ℂ q) (C₀ : ℝ)
+    (hzeroFree₀ : ∀ s : ℂ, 1 - width ≤ s.re → 1 ≤ |s.im| →
+      |s.im| ≤ Real.rpow x 3 → dirichletLValue q hq χ s ≠ 0)
+    (hzeroFree₁ : ∀ s : ℂ, 1 - width / 2 ≤ s.re → s.re ≤ 1 + 1 / L →
+      2 ≤ |s.im| → |s.im| ≤ Real.rpow x 3 / 2 →
+        ‖deriv (dirichletLValue q hq χ) s / dirichletLValue q hq χ s‖ ≤ C₀ * L)
+    (ha : a = -width / 2) (hb : b = 1 / L) (hwidth : 0 ≤ width)
+    (hx : 2 ≤ x)
+    (hheight : ∀ v ∈ Set.Icc (-H) H,
+      2 ≤ |v - t| ∧ |v - t| ≤ Real.rpow x 3 / 2) :
+    ∀ z ∈ Set.Icc a b ×ℂ Set.Icc (-H) H,
+      1 - Complex.I * (t : ℂ) + z ≠ 1 ∧
+      dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z) ≠ 0 ∧
+      ‖deriv (dirichletLValue q hq χ) (1 - Complex.I * (t : ℂ) + z) /
+        dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + z)‖ ≤ C₀ * L := by
+  intro z hz
+  rcases Complex.mem_reProdIm.mp hz with ⟨hzRe, hzIm⟩
+  let s : ℂ := 1 - Complex.I * (t : ℂ) + z
+  have hsRe : s.re = 1 + z.re := by simp [s]
+  have hsIm : s.im = z.im - t := by simp [s]; ring
+  have him := hheight z.im hzIm
+  have hAbsLower : 1 ≤ |s.im| := by
+    rw [hsIm]
+    exact le_trans (by norm_num) him.1
+  have hAbsLowerTwo : 2 ≤ |s.im| := by
+    rw [hsIm]
+    exact him.1
+  have hxnonneg : 0 ≤ x := by linarith
+  have hrpowNonneg : 0 ≤ Real.rpow x 3 := Real.rpow_nonneg hxnonneg _
+  have hrpowHalf : Real.rpow x 3 / 2 ≤ Real.rpow x 3 := by
+    nlinarith
+  have hAbsUpperHalf : |s.im| ≤ Real.rpow x 3 / 2 := by
+    rw [hsIm]
+    exact him.2
+  have hAbsUpper : |s.im| ≤ Real.rpow x 3 := hAbsUpperHalf.trans hrpowHalf
+  have hsReLow : 1 - width / 2 ≤ s.re := by
+    calc
+      1 - width / 2 = 1 + a := by rw [ha]; ring
+      _ ≤ 1 + z.re := by linarith [hzRe.1]
+      _ = s.re := hsRe.symm
+  have hsReUpper : s.re ≤ 1 + 1 / L := by
+    rw [hsRe]
+    calc
+      1 + z.re ≤ 1 + b := by linarith [hzRe.2]
+      _ = 1 + 1 / L := by rw [hb]
+  have hsZeroRe : 1 - width ≤ s.re := by
+    calc
+      1 - width ≤ 1 - width / 2 := by linarith [hwidth]
+      _ ≤ s.re := hsReLow
+  have hsPole : s ≠ 1 := by
+    intro hs
+    have hImZero : s.im = 0 := by
+      have h := congrArg Complex.im hs
+      simpa using h
+    have hImAbsZero : |s.im| = 0 := by simp [hImZero]
+    linarith
+  have hnonzero := hzeroFree₀ s hsZeroRe hAbsLower hAbsUpper
+  have hlogderiv := hzeroFree₁ s hsReLow hsReUpper hAbsLowerTwo hAbsUpperHalf
+  refine ⟨?_, ?_, ?_⟩
+  · simpa [s] using hsPole
+  · simpa [s] using hnonzero
+  · simpa [s] using hlogderiv
+
 private theorem ppPrimeSmoothedCutoff_uniform_bound
     (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
     (hzeta : ppPrimeZetaLogDerivBound) :
