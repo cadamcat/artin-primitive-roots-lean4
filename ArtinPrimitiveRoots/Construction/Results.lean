@@ -4539,7 +4539,35 @@ theorem con_bin_mass (M c : ℕ) (u : ℤ) (K : ℕ) (a : Fin K → ℝ)
                 roughSieveProduct (roughCutoff x) * Real.log (γ' / γ))| ≤
               η * singularProduct M * conTotalMass x M c u K a Ψ *
                 roughSieveProduct (roughCutoff x) := by
-  sorry
+  intro γ γ' hγlo hγγ' hγhi
+  obtain ⟨c₀, C₀, hc₀, hC₀, hDistribution⟩ := con_distribution M Ψ hM hΨ
+  obtain ⟨xDist, hxDist, hError, hMassBounds⟩ :=
+    hDistribution c hc hcM u hu hcu hcu' K a ha ε κ hε hεκ hκsmall
+  obtain ⟨C_A, x_A, hCA, hxDistA, hBV⟩ := hError 4 (by norm_num)
+  have hεsmall : ε < (11 / 100 : ℝ) := by linarith only [hεκ, hκsmall]
+  obtain ⟨Ctail, xTail, hCtail, hxTail, hTail⟩ :=
+    conTotalMass_smallR_approx M c u K a Ψ ε hM hc hε hεsmall ha hΨ
+  have hcpos : 0 < c := by rcases hc with h | h <;> omega
+  obtain ⟨CH, xH, hCH, hxH, hHarmonic⟩ :=
+    con_harmonic M c u Ψ K a hM hcpos ha hΨ
+  obtain ⟨Bsupport, xSupport, hBsupport, hxSupport, hSupportAll⟩ :=
+    support M c u K a Ψ hM hc ha hΨ.2.2.1 hΨ.2.2.2.1 hΨ.2.1
+  have hKpos : 0 < K := ha.1
+  let iLast : Fin K := ⟨K - 1, by omega⟩
+  let δtail : ℝ := 1 - a iLast
+  have hLast : a iLast < 1 / 5 := (ha.2.1 iLast).2
+  have hδtail : 0 < δtail := by dsimp [δtail]; linarith only [hLast]
+  apply ArtinPrimitiveRoots.Proofs.c_bins_sol.bin_mass_of_estimates
+    M c u K a Ψ b κ ε γ γ' δtail hM hc ha hΨ hb hκ hκsmall hε hεκ
+      hγlo hγγ' hγhi hδtail c₀ C_A Ctail xDist x_A xTail xH xSupport hc₀ hCA hCtail
+  · intro x hx
+    exact (hMassBounds x hx).1
+  · exact hBV
+  · simpa only [δtail, iLast] using hTail
+  · intro x hx
+    exact (hHarmonic x hx).2.1
+  · intro x hx
+    exact (hSupportAll x hx).2.1
 
 /-- `co:bin-cost`, 12-construction.tex:505-561. Correction 8 from review lane `rev-b` requires
 the fixed progression assumptions from §12. -/
