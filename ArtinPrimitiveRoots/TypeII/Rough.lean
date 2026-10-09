@@ -4237,6 +4237,94 @@ private theorem roughTupleIntegral_one_support (x γ l r : ℝ)
     _ = ∫ y in T, g y :=
       integral_indicator measurableSet_Icc
 
+/-- One-factor rough tuples are the primes in the same interval, up to the logarithmic integral. -/
+private theorem principal_tuple_count_one (γ : ℝ) (hγ : 0 < γ)
+    (A : ℝ) (hA : 0 < A) :
+    ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        ∀ M : ℝ, 0 < M → 2 * M ≤ x →
+          ∀ l r : ℝ, M ≤ l → l ≤ r → r ≤ 2 * M →
+            |((1 / ((1 : ℕ).factorial : ℝ)) *
+                (((boundedTuples 1 (⌊2 * M⌋₊ + 1)).filter (fun t =>
+                  (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+                    l ≤ ((∏ i : Fin 1, t i : ℕ) : ℝ) ∧
+                    ((∏ i : Fin 1, t i : ℕ) : ℝ) ≤ r)).card : ℝ)) -
+              roughTupleIntegral x γ l r 1| ≤
+              C * M * Real.rpow (Real.log x) (-A) := by
+  obtain ⟨C, x₀, hC, hx₀, hslice⟩ := principal_prime_slice_count γ hγ A hA
+  refine ⟨C, x₀, hC, hx₀, ?_⟩
+  intro x hx M hM hMx l r hl hlr hr
+  classical
+  have hx2 : 2 ≤ x := hx₀.trans hx
+  let B : ℕ := ⌊2 * M⌋₊ + 1
+  let f : ℕ → Fin 1 → ℕ := fun p _ => p
+  have hf_inj : Function.Injective f := by
+    intro p q h
+    exact congr_fun h 0
+  have hprod (t : Fin 1 → ℕ) : ∏ i : Fin 1, t i = t 0 := by
+    rw [Finset.univ_unique, Finset.prod_singleton, Fin.eq_zero (default : Fin 1)]
+  have hforall (t : Fin 1 → ℕ) :
+      (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ↔
+        (t 0).Prime ∧ Real.rpow x γ < (t 0 : ℝ) := by
+    constructor
+    · intro h
+      exact h 0
+    · intro h i
+      rw [Fin.eq_zero i]
+      exact h
+  have hfloor : ⌊r⌋₊ ≤ ⌊2 * M⌋₊ := Nat.floor_mono hr
+  have hleB {p : ℕ} (hp : (p : ℝ) ≤ r) : p ≤ B :=
+    le_trans (le_trans (Nat.le_floor hp) hfloor) (Nat.le_succ (⌊2 * M⌋₊))
+  have hrange {p : ℕ} (hp : (p : ℝ) ≤ r) : p ∈ Finset.range (⌊r⌋₊ + 1) := by
+    rw [Finset.mem_range]
+    exact Nat.lt_succ_of_le (Nat.le_floor hp)
+  let primes := (primesInInterval l r).filter (fun p : ℕ => Real.rpow x γ < (p : ℝ))
+  let tuples := (boundedTuples 1 B).filter (fun t : Fin 1 → ℕ =>
+    (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+      l ≤ ((∏ i : Fin 1, t i : ℕ) : ℝ) ∧
+      ((∏ i : Fin 1, t i : ℕ) : ℝ) ≤ r)
+  have himage : tuples = primes.image f := by
+    ext t
+    constructor
+    · intro ht
+      rcases Finset.mem_filter.mp ht with ⟨_, hprop⟩
+      rcases hprop with ⟨hall, hlo, hhi⟩
+      rw [hforall t] at hall
+      rw [hprod t] at hlo hhi
+      refine Finset.mem_image.mpr ⟨t 0, ?_, ?_⟩
+      · refine Finset.mem_filter.mpr ⟨?_, hall.2⟩
+        rw [primesInInterval]
+        exact Finset.mem_filter.mpr ⟨hrange hhi, hall.1, hlo, hhi⟩
+      · funext i
+        rw [Fin.eq_zero i]
+    · intro ht
+      rcases Finset.mem_image.mp ht with ⟨p, hp, rfl⟩
+      rcases Finset.mem_filter.mp hp with ⟨hpI, hcut⟩
+      rw [primesInInterval] at hpI
+      rcases Finset.mem_filter.mp hpI with ⟨_, hprime, hlo, hhi⟩
+      refine Finset.mem_filter.mpr ⟨?_, ?_, ?_, ?_⟩
+      · exact ArtinPrimitiveRoots.TypeII.RoughProofs.mem_boundedTuples_of_forall_le (f p) (fun _ => by
+          simp only [f]
+          exact hleB hhi)
+      · rw [hforall (f p)]
+        exact ⟨by simpa [f] using hprime, by simpa [f] using hcut⟩
+      · rw [hprod (f p)]
+        simpa [f] using hlo
+      · rw [hprod (f p)]
+        simpa [f] using hhi
+  have hcard : tuples.card = primes.card := by
+    rw [himage]
+    exact Finset.card_image_of_injective _ hf_inj
+  have hslice1 := hslice x hx M hM hMx (1 : ℝ) le_rfl l r hl hlr hr
+  have hdiv (z : ℝ) : z / (1 : ℝ) = z := div_one z
+  rw [hdiv l, hdiv r, hdiv M] at hslice1
+  have hsupport := roughTupleIntegral_one_support x γ l r hx2 hγ
+  rw [← hcard, ← hsupport] at hslice1
+  have hfac :
+      (1 / ((1 : ℕ).factorial : ℝ)) * (tuples.card : ℝ) = (tuples.card : ℝ) := by
+    rw [Nat.factorial_one, Nat.cast_one, div_one, one_mul]
+  simpa [tuples, primes, B, hfac] using hslice1
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
