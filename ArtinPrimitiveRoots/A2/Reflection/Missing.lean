@@ -13245,6 +13245,75 @@ private theorem rf_pairing_masked_integrable
     rw [hWeightedEq]
     exact hSignedInt.const_mul cext
 
+private theorem rf_pairing_masked_norm_integral_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (d : Digits R r) (ν : Fˣ)
+    (l : ℝ) (hl : 0 < l) :
+    let W : S.FSˣ → ℂ := fun y =>
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+    (∫ y in omegaAt R l,
+      ‖onUnits (fun x => digitAlpha R r d * bCut (Bd := Bd) x *
+        (Lvalue R (rowClass R r) x)⁻¹ * W x) y‖ ∂(R.sheets.sheet l)) ≤
+      ‖digitAlpha R r d‖ *
+        (omegaInt R l (fun y => (‖W y‖ : ℂ))).re := by
+  classical
+  let u := rowClass R r
+  let W : S.FSˣ → ℂ := fun y => R.T.W (R.chars.L u)
+    (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+  let w : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * W y
+  let g : S.FSˣ → ℂ := fun y =>
+    digitAlpha R r d * bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * W y
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  change (∫ y, ‖onUnits g y‖ ∂m) ≤
+    ‖digitAlpha R r d‖ * (omegaInt R l (fun y => (‖W y‖ : ℂ))).re
+  have hData := rf_pairing_masked_integrable R r d ν l hl
+  change Integrable (fun y : S.FS => ‖onUnits W y‖) (R.sheets.sheet l) ∧
+    Integrable (onUnits w) (R.sheets.sheet l) at hData
+  have hConst : onUnits g = fun y : S.FS => digitAlpha R r d * onUnits w y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, g, w, mul_assoc]
+    · simp [onUnits, hy]
+  have hG : Integrable (onUnits g) m := by
+    rw [hConst]
+    exact (hData.2.const_mul (digitAlpha R r d)).restrict
+  have hNorm : Integrable (fun y : S.FS => ‖onUnits W y‖) m := hData.1.restrict
+  have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+    unfold bCut
+    split_ifs <;> simp
+  have hLinvNorm (y : S.FSˣ) : ‖(Lvalue R u y)⁻¹‖ = 1 := by
+    rw [norm_inv]
+    have hLnorm : ‖Lvalue R u y‖ = 1 := by
+      simpa only [Lvalue] using (R.chars.L u).unitary y
+    rw [hLnorm, inv_one]
+  have hDom (y : S.FS) : ‖onUnits g y‖ ≤
+      ‖digitAlpha R r d‖ * ‖onUnits W y‖ := by
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, g, norm_mul, hLinvNorm, mul_one]
+      calc
+        ‖digitAlpha R r d‖ * ‖bCut (Bd := Bd) hy.unit‖ * ‖W hy.unit‖ =
+            ‖digitAlpha R r d‖ * (‖bCut (Bd := Bd) hy.unit‖ * ‖W hy.unit‖) :=
+          mul_assoc _ _ _
+        _ ≤ ‖digitAlpha R r d‖ * ‖W hy.unit‖ :=
+          mul_le_mul_of_nonneg_left
+            (by simpa only [one_mul] using
+              mul_le_mul_of_nonneg_right (hBnorm hy.unit) (norm_nonneg (W hy.unit)))
+            (norm_nonneg _)
+    · simp [onUnits, hy]
+  have hLift : onUnits (fun y => (‖W y‖ : ℂ)) =
+      fun y : S.FS => (‖onUnits W y‖ : ℂ) := by
+    funext y
+    by_cases hy : IsUnit y <;> simp [onUnits, hy]
+  have hRe : (omegaInt R l (fun y => (‖W y‖ : ℂ))).re =
+      ∫ y, ‖onUnits W y‖ ∂m := by
+    change (∫ y, onUnits (fun x => (‖W x‖ : ℂ)) y ∂m).re = _
+    rw [hLift, integral_complex_ofReal, Complex.ofReal_re]
+  rw [hRe, ← integral_const_mul]
+  exact integral_mono_ae hG.norm (hNorm.const_mul ‖digitAlpha R r d‖)
+    (Filter.Eventually.of_forall hDom)
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
