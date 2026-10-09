@@ -5828,6 +5828,125 @@ private theorem rows_sol_principal_w_residue_integrable
     rw [hResidue]
     ring
 
+private theorem rows_sol_principal_z_residue_integrable
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 2 ≤ Z)
+    (σξ : ℝ) (hξlo : 1 + δ1 ≤ σξ) (hξhi : σξ ≤ 4) :
+    Integrable (fun t : ℝ =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z (σξ + t * Complex.I) 1 (1 / 6) *
+        (HA.RS S ^ 2 / 6) * HC.H U.one ![σξ + t * Complex.I, 1, 1 / 6] /
+          HA.LS S η (σξ + t * Complex.I)) := by
+  have hZpos : 0 < Z := by linarith
+  have hσ : 1 < σξ := by
+    have hδ : 0 < δ1 := by norm_num [δ1]
+    linarith
+  let ξline : ℝ → ℂ := fun t => (σξ : ℂ) + t * Complex.I
+  let Ares : ℂ := HA.RS S ^ 2 / 6
+  let f : ℝ → ℂ := fun t =>
+    mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξline t) 1 (1 / 6) *
+      Ares * HC.H U.one ![ξline t, 1, 1 / 6] / HA.LS S η (ξline t)
+  have hξre (t : ℝ) : (ξline t).re = σξ := by simp [ξline]
+  have hξcont : Continuous ξline := by fun_prop
+  have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZpos.ne'
+  have hMellinCont : Continuous (fun t : ℝ =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξline t) 1 (1 / 6)) := by
+    have hEq : (fun t : ℝ =>
+        mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξline t) 1 (1 / 6)) =
+        fun t => (Z : ℂ) ^ ((a : ℂ) / 2 + ξline t - 1 + (h0 : ℂ) * (1 / 6)) *
+          Complex.exp ((ξline t + 1 / 6 - 1) ^ 2) *
+            weightM R sd W (1 / 6) * weightW1hat W 1 := by
+      funext t
+      exact rows_sol_mellin_w_one R sd W Z hZpos (ξline t) (1 / 6)
+    rw [hEq]
+    have hExp : Continuous (fun t : ℝ =>
+        (a : ℂ) / 2 + ξline t - 1 + (h0 : ℂ) * (1 / 6)) := by fun_prop
+    have hPow : Continuous (fun t : ℝ =>
+        (Z : ℂ) ^ ((a : ℂ) / 2 + ξline t - 1 + (h0 : ℂ) * (1 / 6))) :=
+      hExp.const_cpow (Or.inl hZbase)
+    have hG : Continuous (fun t : ℝ => Complex.exp ((ξline t + 1 / 6 - 1) ^ 2)) := by
+      fun_prop
+    exact ((hPow.mul hG).mul continuous_const).mul continuous_const
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℝ → Triple := fun t => ![ξline t, 1, 1 / 6]
+  have hpmap : Continuous pmap := by fun_prop
+  have hMaps : MapsTo pmap Set.univ {p | eulerNeighborhood p} := by
+    intro t ht
+    right
+    change 998 / 1000 - 1 / 100000 < (ξline t).re ∧
+      95 / 100 - 1 / 100000 < (1 : ℂ).re ∧
+      16 / 100 - 1 / 100000 < (1 / 6 : ℂ).re
+    refine ⟨?_, by norm_num, by norm_num⟩
+    rw [hξre]
+    linarith
+  have hHOn : ContinuousOn (fun t : ℝ => HC.H U.one (pmap t)) Set.univ :=
+    (hHP.2.1 U.one).continuousOn.comp hpmap.continuousOn hMaps
+  have hHCont : Continuous (fun t : ℝ => HC.H U.one ![ξline t, 1, 1 / 6]) := by
+    simpa only [pmap] using continuousOn_univ.mp hHOn
+  obtain ⟨fη, hfη⟩ := rows_eta_primitive_conductor R η U hEuler
+  have hInvDiff : DifferentiableOn ℂ (HA.LS S η) {s | 1 < s.re} :=
+    rows_small_LS_differentiableOn (HA := HA) (S := S) η hEuler.1
+  have hInvOn : DifferentiableOn ℂ (fun s => (HA.LS S η s)⁻¹) {s | 1 < s.re} := by
+    apply hInvDiff.inv
+    intro s hs
+    exact (rows_LS_inverse_bound HA S η hEuler.1 fη hfη hs).1
+  have hξMaps : MapsTo ξline Set.univ {s | 1 < s.re} := by
+    intro t ht
+    change 1 < (ξline t).re
+    rw [hξre]
+    exact hσ
+  have hInvOnLine : ContinuousOn (fun t : ℝ => (HA.LS S η (ξline t))⁻¹) Set.univ :=
+    hInvOn.continuousOn.comp hξcont.continuousOn hξMaps
+  have hInvCont : Continuous (fun t : ℝ => (HA.LS S η (ξline t))⁻¹) :=
+    continuousOn_univ.mp hInvOnLine
+  have hfcont : Continuous f := by
+    change Continuous (fun t : ℝ =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξline t) 1 (1 / 6) *
+        Ares * HC.H U.one ![ξline t, 1, 1 / 6] / HA.LS S η (ξline t))
+    simp only [div_eq_mul_inv]
+    exact (((hMellinCont.mul continuous_const).mul hHCont).mul hInvCont)
+  obtain ⟨Cht, hCht, hheight⟩ := zf_height_decay R sd W
+    σξ σξ 1 1 (1 / 6) (1 / 6) 1 le_rfl le_rfl (by norm_num) le_rfl (by norm_num)
+  obtain ⟨CH, hCH, hHbound⟩ := hHP.2.2.2 (1 : ℝ) (by norm_num)
+  let Cinv : ℝ := (NumberField.dedekindZeta F (σξ : ℂ)).re * 2 ^ S.Sf.card
+  have hCinv : 0 ≤ Cinv := by
+    dsimp [Cinv]
+    exact mul_nonneg (rows_small_dedekindZeta_real_nonneg (F := F) σξ hσ) (by positivity)
+  have hMellinBound (t : ℝ) :
+      ‖mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξline t) 1 (1 / 6)‖ ≤
+        (Z ^ Estar σξ 1 (1 / 6) * Cht) * Real.exp (-t ^ 2) := by
+    rw [rows_mellinWeight_norm R sd W Z hZpos]
+    have hh := hheight (ξline t) (1 : ℂ) (1 / 6 : ℂ)
+      (by simp [ξline]) (by simp [ξline]) (by norm_num) (by norm_num)
+      (by norm_num) (by norm_num)
+    have hh' : ‖Complex.exp ((ξline t + 1 / 6 - 1) ^ 2) *
+        weightM R sd W (1 / 6) * weightW1hat W 1‖ ≤ Cht * Real.exp (-t ^ 2) := by
+      simpa [ξline] using hh
+    simpa [ξline, mul_assoc] using mul_le_mul_of_nonneg_left hh'
+      (Real.rpow_nonneg hZpos.le (Estar σξ 1 (1 / 6)))
+  have hHline (t : ℝ) : ‖HC.H U.one ![ξline t, 1, 1 / 6]‖ ≤ CH := by
+    have hp : eulerNeighborhood (pmap t) := hMaps (mem_univ t)
+    simpa [pmap, U.q_one] using hHbound U.one (pmap t) hp
+  have hInvline (t : ℝ) : ‖(HA.LS S η (ξline t))⁻¹‖ ≤ Cinv := by
+    have hs : 1 < (ξline t).re := by rw [hξre]; exact hσ
+    obtain ⟨_, hrecip⟩ := rows_LS_inverse_bound HA S η hEuler.1 fη hfη hs
+    rw [hξre] at hrecip
+    simpa only [Cinv] using hrecip
+  let B : ℝ := Z ^ Estar σξ 1 (1 / 6) * Cht * ‖Ares‖ * CH * Cinv
+  have hpoint (t : ℝ) : ‖f t‖ ≤ B * Real.exp (-t ^ 2) := by
+    have hm := hMellinBound t
+    have hH := hHline t
+    have hi := hInvline t
+    calc
+      ‖f t‖ = ‖mellinWeight R sd W (Z ^ a) (Z ^ b) Z (ξline t) 1 (1 / 6)‖ *
+          ‖Ares‖ * ‖HC.H U.one ![ξline t, 1, 1 / 6]‖ * ‖(HA.LS S η (ξline t))⁻¹‖ := by
+        simp only [f, div_eq_mul_inv, norm_mul]
+      _ ≤ ((Z ^ Estar σξ 1 (1 / 6) * Cht) * Real.exp (-t ^ 2)) * ‖Ares‖ * CH * Cinv := by
+        gcongr
+      _ = B * Real.exp (-t ^ 2) := by dsimp [B]; ring
+  have hGauss : Integrable (fun t : ℝ => Real.exp (-t ^ 2)) := by
+    simpa using (integrable_exp_neg_mul_sq (b := 1) (by norm_num : 0 < (1 : ℝ)))
+  have hdom : Integrable (fun t : ℝ => B * Real.exp (-t ^ 2)) := hGauss.const_mul B
+  exact hdom.mono' hfcont.aestronglyMeasurable (ae_of_all _ hpoint)
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
