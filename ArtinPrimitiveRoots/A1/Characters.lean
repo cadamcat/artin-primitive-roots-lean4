@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueAdditive
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.Gamma
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.NormTransport
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.SignCharacter
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.LambdaData
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.Equality
 import ArtinPrimitiveRoots.Hecke.Dict.IdeleCoordinates
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
@@ -2229,6 +2230,25 @@ theorem quadratic_sign_character_data (D : FieldData F) (S : SData F CE condη)
   exact ArtinPrimitiveRoots.Proofs.a1_weil_sol.quadratic_sign_character_data D S A H Bd
 
 end a1_weil_sol
+
+namespace a1_lambda_sol
+
+/-- The A1-LAMBDA endpoint, integrated below the frozen Gauss-character theorem.
+The lower-level proof files unfold the Hecke and angular interfaces to avoid an import cycle. -/
+theorem lambda_data (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (H : HilbertData F) (Bd : BData S H) :
+    ∃ Λ : HeckeChar F, (∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1) ∧
+      HeckeChar.HasAngularType D Λ ∧
+      ∀ v : FinPlace F, v ∉ S.Sf → Λ.UnramifiedAt v ∧
+        ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+          gamma D S A 2 v.asIdeal (p : F) ^ 3 = -Λ.primeValue v := by
+  obtain ⟨Λ, hu, ha, hΛ⟩ :=
+    ArtinPrimitiveRoots.Proofs.a1_lambda_sol.lambda_data_below D S A
+  refine ⟨Λ, hu, ha, ?_⟩
+  intro v hv
+  exact ⟨(hΛ v hv).1, fun p hp _ => (hΛ v hv).2 (p : F) hp⟩
+
+end a1_lambda_sol
 
 /-- lem:gauss-characters (02:411–436): `Λ` unitary, `G` finite order, both unramified at `v ∉ S`,
 with `γ_2(𝔭)³ = -Λ(𝔭)`, `G(𝔭) = conj(χ_𝔭(4))γ_3(𝔭)`, `γ_1(𝔭)γ_2(𝔭) = -Λ(𝔭)G(𝔭)` for every exterior
