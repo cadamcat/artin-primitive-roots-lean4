@@ -3885,6 +3885,42 @@ private theorem nonprincipal_low_count (γ : ℝ) (hγ : 0 < γ) :
       _ = C₀ * M * Real.rpow L (-A₁) := by dsimp [C₀]; ring
   simpa only [S, z, L] using htotal
 
+private theorem principal_prime_slot_count (γ : ℝ) (hγ : 0 < γ)
+    (A₂ : ℝ) (hA₂ : 0 < A₂) :
+    ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        ∀ P : ℝ, Real.rpow x γ / 2 ≤ P → P ≤ 2 * x →
+          ∀ a b : ℝ, P ≤ a → a ≤ b → b ≤ 2 * P →
+            ∀ t : Finset ℕ, t ⊆ primesInInterval a b →
+              (primesInInterval a b \ t).card ≤ 2 →
+                |(t.card : ℝ) - ∫ y in a..b, (1 / Real.log y : ℝ)| ≤
+                  C * P * Real.rpow (Real.log x) (-A₂) + 2 := by
+  obtain ⟨C, xSW, hC, hxSW, hbd⟩ :=
+    sw_slot_clipped γ hγ 1 A₂ (by norm_num) hA₂
+  refine ⟨C, max xSW (Real.exp 1), hC, hxSW.trans (le_max_left _ _), ?_⟩
+  intro x hx P hPlo hPup a b hPa hab hbP t hsub hmiss
+  have hxSW' : xSW ≤ x := (le_max_left xSW (Real.exp 1)).trans hx
+  have hxExp : Real.exp 1 ≤ x := (le_max_right xSW (Real.exp 1)).trans hx
+  have hLog : 1 ≤ Real.log x := by
+    have h := Real.log_le_log (Real.exp_pos 1) hxExp
+    simpa only [Real.log_exp] using h
+  have hMod : ((1 : ℕ) : ℝ) ≤ Real.rpow (Real.log x) (1 : ℝ) := by
+    simpa only [Nat.cast_one, Real.rpow_eq_pow, Real.rpow_one] using hLog
+  have hSW := hbd x hxSW' P hPlo hPup 1 (by norm_num) hMod
+    (1 : DirichletCharacter ℂ 1) a b hPa hab hbP t hsub hmiss
+  have hSum : (∑ p ∈ t, (1 : DirichletCharacter ℂ 1) (p : ZMod 1)) =
+      ((t.card : ℝ) : ℂ) := by
+    calc
+      _ = ∑ _p ∈ t, (1 : ℂ) := by
+        apply Finset.sum_congr rfl
+        intro p hp
+        have hpOne : (p : ZMod 1) = 1 := Subsingleton.elim _ _
+        rw [hpOne, map_one]
+      _ = ((t.card : ℝ) : ℂ) := by simp
+  simpa only [hSum, if_pos (rfl : (1 : DirichletCharacter ℂ 1) = 1), ite_true,
+    one_mul, intervalIntegral.integral_ofReal, ← Complex.ofReal_sub,
+    Complex.norm_real, Real.norm_eq_abs] using hSW
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
