@@ -5469,7 +5469,29 @@ theorem lem_reflection_theta_representation :
     IntegrableOn (fun t => R.K t * thetaAverage R r (t / Z) / (t : ℂ)) (Set.Ioi 0) ∧
     Bm D S A ϑ (cgen R) (r.m : F) Z =
       ∫ t in Set.Ioi (0 : ℝ), R.K t * thetaAverage R r (t / Z) / (t : ℂ) := by
-  sorry
+  intro r l Z hl hZ
+  dsimp only
+  have hKernel := rf_forward_kernel_integral R r Z hZ
+  have hEq : (fun t : ℝ => R.K t * thetaAverage R r (t / Z) / (t : ℂ))
+      =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
+      (fun t : ℝ => R.K t *
+        (∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+          Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)) /
+            (t : ℂ)) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+    rw [rf_forward_average_series R r (t / Z) (div_pos ht hZ)]
+    simp only [mul_div_assoc]
+  refine ⟨rf_forward_series_summable R r l hl, rf_forward_average_series R r l hl,
+    hKernel.1.congr hEq.symm, ?_⟩
+  calc
+    _ = ∑' p : S.SqfExtIdeal × S.ExtIdeal,
+        forwardCoeff R r p * (PG (qI (Aideal R p.1 p.2).1 / Z) : ℂ) :=
+      rf_forward_Bm_series R r Z hZ
+    _ = ∫ t in Set.Ioi (0 : ℝ), R.K t *
+        (∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+          Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)) /
+            (t : ℂ) := hKernel.2.symm
+    _ = _ := integral_congr_ae hEq.symm
 /-- lem:reflection-local-Weyl, 04:339–431. Use actual local units, not arbitrary elements. -/
 def localR (v : FinPlace F) (j : Fin 6) (e : ℤ) (t : (v.adicCompletion F)ˣ) : ℂ :=
   ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
