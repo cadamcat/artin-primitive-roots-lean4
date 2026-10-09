@@ -68,6 +68,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SeparatedGeometric
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.FiniteGram
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.RationalRange
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.BilinearRange
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.FiniteTensor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
