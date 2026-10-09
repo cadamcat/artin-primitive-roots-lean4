@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
 import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.conductor_residues_exists
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
+import ArtinPrimitiveRoots.A2.Proofs.A2_FREQUENCY.ZfConvOpus.HeckeAnalysisTC
 
 /-!
 Producer interfaces consumed by A2 §§4–6. New records name their producing package and TeX
@@ -686,8 +687,9 @@ end HeckeAnalysis
 
 /-- Hecke producer obligation for the existing per-character continuations and principal
 regularization (06:37-73, 139-153, 413-477). -/
-theorem heckeAnalysis_exists (F : Type) [Field F] [NumberField F] :
-    Nonempty (HeckeAnalysis F) := by
-  sorry
+theorem heckeAnalysis_exists (F : Type) [Field F] [NumberField F] [IsTotallyComplex F] :
+    Nonempty (HeckeAnalysis F) :=
+  let ⟨A, hA⟩ := ArtinPrimitiveRoots.Proofs.zf_conv_opus.heckeAnalysis_totallyComplex F
+  ⟨⟨A, hA⟩⟩
 
 end ArtinPrimitiveRoots.A2
