@@ -568,6 +568,15 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_sixth_injective_of
     (a1_bdata_sol_local_sixth_everywhere_of_hilbert S H u hu hlocal)
   exact ⟨ε, ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_of_sixth S u ε hu heq, heq⟩
 
+/-- The image of the S-units in the sixth-power quotient has order
+`6 ^ (#S_f + #infinite places)`. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_image_cardinality_of_hilbert
+    (D : FieldData F) (S : SData F CE condη) (H : HilbertData F) :
+    Nat.card (S.US.map (((QuotientGroup.mk' _) : S.FSˣ →* S.V).comp S.diagU)) =
+      6 ^ (S.Sf.card + numComplex F) :=
+  ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_image_cardinality D S
+    (ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_sixth_injective_of_hilbert S H)
+
 theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
     (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
