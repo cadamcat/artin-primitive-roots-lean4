@@ -35,7 +35,7 @@ variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 /-- **zf:convexity** (06-zero-free.tex:139-163): the conductor-uniform Hecke convexity bound,
 with the number-field-dependent height exponent chosen before `ε`. Uses the corrected nonzero
 primitive-conductor predicate from rev-a2. -/
-theorem zf_convexity :
+theorem zf_convexity [IsTotallyComplex F] :
     ∃ A_F : ℝ, 0 < A_F ∧
       ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
         ∀ (ω : ArtinPrimitiveRoots.A1.HeckeChar F), IsOfFinOrder ω → ω ≠ 1 →
@@ -49,13 +49,11 @@ theorem zf_convexity :
               (∀ s : ℂ, 3 / 1000 ≤ s.re → s.re ≤ 4 →
                 ‖(s - 1) * NumberField.dedekindZeta F s‖ ≤
                   C * Real.rpow (2 + |s.im|) A_F) := by
-  by_cases hTC : IsTotallyComplex F
-  · exact ArtinPrimitiveRoots.Proofs.A2FreqP.zf_convexity_totallyComplex hTC
-  · sorry
+  exact ArtinPrimitiveRoots.Proofs.A2FreqP.zf_convexity_totallyComplex inferInstance
 
 /-- Convert zf:convexity (06:139-163) to the exact growth hypothesis used in the corrected
 detector statements; the chosen height exponent remains the same. -/
-theorem zf_convexity_growth_bound :
+theorem zf_convexity_growth_bound [IsTotallyComplex F] :
     ∃ A_F : ℝ, 0 < A_F ∧ ConductorHeightBound (F := F) A_F := by
   obtain ⟨A_F, hAF, hconv⟩ := zf_convexity (F := F)
   refine ⟨A_F, hAF, ?_⟩
@@ -2692,6 +2690,7 @@ theorem zf_reciprocal_bound
     have hmono := Real.rpow_le_rpow hrootpos.le hroot hρ.le
     rw [← hrootpow]
     exact hmono
+  haveI : IsTotallyComplex F := D.isTotallyComplex
   obtain ⟨A_F, hA_F, hconvAll⟩ := zf_convexity (F := F)
   obtain ⟨Ccv, hCcv, hconv⟩ := hconvAll 1 (by norm_num)
   obtain ⟨Cfd, hCfd, hconductor⟩ := fd.conductor_bound
