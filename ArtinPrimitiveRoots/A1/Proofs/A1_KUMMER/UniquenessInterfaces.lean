@@ -43,7 +43,7 @@ theorem char_eq_of_local_eq_away (κ κ' : KummerChar F) (T : Finset (FinPlace F
       exact (η.continuous.comp
         (IdeleClassGroup.continuous_ofCompletion (𝓞 F) F w.1)).comp
           ((continuous_apply w).comp continuous_snd)
-  let ρ : IdeleGroup (𝓞 F) F → U := fun x =>
+  let ρ : NumberField.IdeleGroup (𝓞 F) F → U := fun x =>
     (fun P => Dictionary.ideleFiniteCoord P.1 x,
       fun w => Dictionary.ideleInfiniteCoordUnit w.1 x)
   have hρ : Continuous ρ := by
@@ -60,17 +60,17 @@ theorem char_eq_of_local_eq_away (κ κ' : KummerChar F) (T : Finset (FinPlace F
       apply Units.continuous_iff.mpr
       exact ⟨((continuous_apply w.1).comp continuous_fst).comp Units.continuous_val,
         ((continuous_apply w.1).comp continuous_fst).comp Units.continuous_coe_inv⟩
-  let g : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+  let g : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ :=
     ⟨MonoidHom.mk' (fun x => φ (ρ x)) (fun x y => by
       simp only [φ, ρ, map_mul, Finset.prod_mul_distrib]
       ac_rfl), hφ.comp hρ⟩
-  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' _
-  let f : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+  let q : NumberField.IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' _
+  let f : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ :=
     ⟨η.toMonoidHom.comp q, η.continuous.comp QuotientGroup.continuous_mk⟩
   have hfg : f = g := by
     apply idele_hom_ext
     · intro w x
-      change infiniteComponent η w x = φ (ρ (IdeleGroup.ofCompletion (𝓞 F) F w x))
+      change infiniteComponent η w x = φ (ρ (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w x))
       dsimp only [φ, ρ]
       simp only [Dictionary.ideleFiniteCoord_ofCompletion, map_one, Finset.prod_const_one,
         one_mul]
@@ -82,7 +82,7 @@ theorem char_eq_of_local_eq_away (κ κ' : KummerChar F) (T : Finset (FinPlace F
         rw [Dictionary.ideleInfiniteCoordUnit_ofCompletion_of_ne v.1 w hvw, map_one]
       · simp
     · intro P x
-      change localComponent η P x = φ (ρ (IdeleGroup.ofAdicCompletion (𝓞 F) F P x))
+      change localComponent η P x = φ (ρ (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P x))
       dsimp only [φ, ρ]
       simp only [Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion, map_one,
         Finset.prod_const_one, mul_one]
@@ -138,7 +138,7 @@ theorem char_eq_of_local_eq_away (κ κ' : KummerChar F) (T : Finset (FinPlace F
         exact (congrArg (fun t : R => t.2 w) hza).symm
     exact ⟨du au, heq ▸ hzV, au, rfl⟩
   have hprincipal (a : Fˣ) : φ (du a) = 1 := by
-    have hr : ρ (IdeleGroup.unitEmbedding (𝓞 F) F a) = du a := by
+    have hr : ρ (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = du a := by
       apply Prod.ext
       · funext P
         apply Units.ext
@@ -147,10 +147,10 @@ theorem char_eq_of_local_eq_away (κ κ' : KummerChar F) (T : Finset (FinPlace F
         apply Units.ext
         rfl
     rw [← hr]
-    change g (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
+    change g (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
     rw [← hfg]
-    change η (q (IdeleGroup.unitEmbedding (𝓞 F) F a)) = 1
-    have hq : q (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 :=
+    change η (q (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)) = 1
+    have hq : q (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 :=
       (QuotientGroup.eq_one_iff _).mpr ⟨a, rfl⟩
     rw [hq, map_one]
   have hφone : φ = fun _ => (1 : ℂˣ) :=

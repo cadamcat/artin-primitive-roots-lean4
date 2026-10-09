@@ -17,40 +17,40 @@ variable {K : Type*} [Field K] [NumberField K]
 
 /-- The finite completion coordinate of an idele as a unit-valued monoid homomorphism. -/
 def ideleFiniteCoord (v : HeightOneSpectrum (𝓞 K)) :
-    IdeleGroup (𝓞 K) K →* (v.adicCompletion K)ˣ :=
+    NumberField.IdeleGroup (𝓞 K) K →* (v.adicCompletion K)ˣ :=
   Units.map <| (RestrictedProduct.evalMonoidHom _ v).comp
     (MonoidHom.snd (InfiniteAdeleRing K) (FiniteAdeleRing (𝓞 K) K))
 
 @[simp]
 theorem ideleFiniteCoord_apply (v : HeightOneSpectrum (𝓞 K))
-    (x : IdeleGroup (𝓞 K) K) :
+    (x : NumberField.IdeleGroup (𝓞 K) K) :
     ((ideleFiniteCoord v x : (v.adicCompletion K)ˣ) : v.adicCompletion K) =
       ((x : AdeleRing (𝓞 K) K).2 v) := rfl
 
 /-- The infinite completion coordinate of an idele. -/
-def ideleInfiniteCoord (w : InfinitePlace K) (x : IdeleGroup (𝓞 K) K) : w.Completion :=
+def ideleInfiniteCoord (w : InfinitePlace K) (x : NumberField.IdeleGroup (𝓞 K) K) : w.Completion :=
   ((x : AdeleRing (𝓞 K) K).1 w)
 
 /-- The infinite completion coordinate of an idele, as a unit-valued homomorphism. -/
 def ideleInfiniteCoordUnit (w : InfinitePlace K) :
-    IdeleGroup (𝓞 K) K →* w.Completionˣ :=
+    NumberField.IdeleGroup (𝓞 K) K →* w.Completionˣ :=
   Units.map <| (Pi.evalMonoidHom (fun w : InfinitePlace K => w.Completion) w).comp
     (MonoidHom.fst (InfiniteAdeleRing K) (FiniteAdeleRing (𝓞 K) K))
 
 @[simp]
 theorem ideleInfiniteCoordUnit_apply (w : InfinitePlace K)
-    (x : IdeleGroup (𝓞 K) K) :
+    (x : NumberField.IdeleGroup (𝓞 K) K) :
     ((ideleInfiniteCoordUnit w x : w.Completionˣ) : w.Completion) =
       ideleInfiniteCoord w x := rfl
 
 @[simp]
-theorem ideleInfiniteCoord_mul (w : InfinitePlace K) (x y : IdeleGroup (𝓞 K) K) :
+theorem ideleInfiniteCoord_mul (w : InfinitePlace K) (x y : NumberField.IdeleGroup (𝓞 K) K) :
     ideleInfiniteCoord w (x * y) = ideleInfiniteCoord w x * ideleInfiniteCoord w y := rfl
 
 @[simp]
 theorem ideleFiniteCoord_ofAdicCompletion (v : HeightOneSpectrum (𝓞 K))
     (u : (v.adicCompletion K)ˣ) :
-    ideleFiniteCoord v (IdeleGroup.ofAdicCompletion (𝓞 K) K v u) = u := by
+    ideleFiniteCoord v (NumberField.IdeleGroup.ofAdicCompletion (𝓞 K) K v u) = u := by
   classical
   apply Units.ext
   exact (FiniteAdeleRing.ofAdicCompletion_apply_coe K v u v).trans
@@ -59,7 +59,7 @@ theorem ideleFiniteCoord_ofAdicCompletion (v : HeightOneSpectrum (𝓞 K))
 @[simp]
 theorem ideleFiniteCoord_ofAdicCompletion_of_ne (v' v : HeightOneSpectrum (𝓞 K))
     (h : v' ≠ v) (u : (v.adicCompletion K)ˣ) :
-    ideleFiniteCoord v' (IdeleGroup.ofAdicCompletion (𝓞 K) K v u) = 1 := by
+    ideleFiniteCoord v' (NumberField.IdeleGroup.ofAdicCompletion (𝓞 K) K v u) = 1 := by
   classical
   apply Units.ext
   exact (FiniteAdeleRing.ofAdicCompletion_apply_coe K v u v').trans
@@ -68,21 +68,21 @@ theorem ideleFiniteCoord_ofAdicCompletion_of_ne (v' v : HeightOneSpectrum (𝓞 
 @[simp]
 theorem ideleFiniteCoord_ofCompletion (v : HeightOneSpectrum (𝓞 K))
     (w : InfinitePlace K) (u : w.Completionˣ) :
-    ideleFiniteCoord v (IdeleGroup.ofCompletion (𝓞 K) K w u) = 1 := by
+    ideleFiniteCoord v (NumberField.IdeleGroup.ofCompletion (𝓞 K) K w u) = 1 := by
   apply Units.ext
   rfl
 
 @[simp]
 theorem ideleInfiniteCoordUnit_ofAdicCompletion (w : InfinitePlace K)
     (v : HeightOneSpectrum (𝓞 K)) (u : (v.adicCompletion K)ˣ) :
-    ideleInfiniteCoordUnit w (IdeleGroup.ofAdicCompletion (𝓞 K) K v u) = 1 := by
+    ideleInfiniteCoordUnit w (NumberField.IdeleGroup.ofAdicCompletion (𝓞 K) K v u) = 1 := by
   apply Units.ext
   rfl
 
 @[simp]
 theorem ideleInfiniteCoordUnit_ofCompletion_self (w : InfinitePlace K)
     (u : w.Completionˣ) :
-    ideleInfiniteCoordUnit w (IdeleGroup.ofCompletion (𝓞 K) K w u) = u := by
+    ideleInfiniteCoordUnit w (NumberField.IdeleGroup.ofCompletion (𝓞 K) K w u) = u := by
   classical
   apply Units.ext
   exact (InfiniteAdeleRing.ofCompletion_apply w u w).trans
@@ -91,7 +91,7 @@ theorem ideleInfiniteCoordUnit_ofCompletion_self (w : InfinitePlace K)
 @[simp]
 theorem ideleInfiniteCoordUnit_ofCompletion_of_ne (w' w : InfinitePlace K)
     (h : w' ≠ w) (u : w.Completionˣ) :
-    ideleInfiniteCoordUnit w' (IdeleGroup.ofCompletion (𝓞 K) K w u) = 1 := by
+    ideleInfiniteCoordUnit w' (NumberField.IdeleGroup.ofCompletion (𝓞 K) K w u) = 1 := by
   classical
   apply Units.ext
   exact (InfiniteAdeleRing.ofCompletion_apply w u w').trans
@@ -101,7 +101,7 @@ theorem ideleInfiniteCoordUnit_ofCompletion_of_ne (w' w : InfinitePlace K)
 theorem ideleFiniteCoord_finsetProduct (v' : HeightOneSpectrum (𝓞 K))
     (S : Finset (HeightOneSpectrum (𝓞 K)))
     (u : ∀ v : HeightOneSpectrum (𝓞 K), (v.adicCompletion K)ˣ) :
-    ideleFiniteCoord v' (∏ v ∈ S, IdeleGroup.ofAdicCompletion (𝓞 K) K v (u v)) =
+    ideleFiniteCoord v' (∏ v ∈ S, NumberField.IdeleGroup.ofAdicCompletion (𝓞 K) K v (u v)) =
       if v' ∈ S then u v' else 1 := by
   classical
   rw [map_prod]
@@ -118,7 +118,7 @@ theorem ideleFiniteCoord_finsetProduct (v' : HeightOneSpectrum (𝓞 K))
 /-- Infinite coordinates of the finite-support idele product at a finite set of places. -/
 theorem ideleInfiniteCoordUnit_finsetProduct (w' : InfinitePlace K)
     (S : Finset (InfinitePlace K)) (u : ∀ w : InfinitePlace K, w.Completionˣ) :
-    ideleInfiniteCoordUnit w' (∏ w ∈ S, IdeleGroup.ofCompletion (𝓞 K) K w (u w)) =
+    ideleInfiniteCoordUnit w' (∏ w ∈ S, NumberField.IdeleGroup.ofCompletion (𝓞 K) K w (u w)) =
       if w' ∈ S then u w' else 1 := by
   classical
   rw [map_prod]
@@ -134,6 +134,6 @@ theorem ideleInfiniteCoordUnit_finsetProduct (w' : InfinitePlace K)
 
 @[simp]
 theorem ideleInfiniteCoord_unitEmbedding (w : InfinitePlace K) (a : Kˣ) :
-    ideleInfiniteCoord w (IdeleGroup.unitEmbedding (𝓞 K) K a) = (a : K) := rfl
+    ideleInfiniteCoord w (NumberField.IdeleGroup.unitEmbedding (𝓞 K) K a) = (a : K) := rfl
 
 end ArtinPrimitiveRoots.Dictionary

@@ -35,19 +35,19 @@ theorem qs_nq0_quadratic_character_exists (D : FieldData K) (H : HilbertData K)
       (∀ v : FinPlace K, χ.loc v = qsNQQuadraticLocal D H v (toLoc v a)) := by
   classical
   obtain ⟨Ξ, hΞsq, hΞprod⟩ := qs_nq0_finite_idelic_character_exists D H a
-  let p : IdeleGroup (𝓞 K) K →* (FiniteAdeleRing (𝓞 K) K)ˣ :=
+  let p : NumberField.IdeleGroup (𝓞 K) K →* (FiniteAdeleRing (𝓞 K) K)ˣ :=
     Units.map (MonoidHom.snd (InfiniteAdeleRing K) (FiniteAdeleRing (𝓞 K) K))
   have hp : Continuous p := by
     apply Units.continuous_iff.mpr
     exact ⟨continuous_snd.comp Units.continuous_val,
       continuous_snd.comp Units.continuous_coe_inv⟩
-  let F : IdeleGroup (𝓞 K) K →* ℂˣ := Ξ.toMonoidHom.comp p
+  let F : NumberField.IdeleGroup (𝓞 K) K →* ℂˣ := Ξ.toMonoidHom.comp p
   have hF : Continuous F := Ξ.continuous.comp hp
-  let N := IdeleGroup.principalSubgroup (𝓞 K) K
+  let N := NumberField.IdeleGroup.principalSubgroup (𝓞 K) K
   have hN : N ≤ F.ker := by
     intro x hx
     obtain ⟨b, rfl⟩ := hx
-    change Ξ (p (IdeleGroup.unitEmbedding (𝓞 K) K b)) = 1
+    change Ξ (p (NumberField.IdeleGroup.unitEmbedding (𝓞 K) K b)) = 1
     rw [hΞprod]
     exact (qs_nq0_quadratic_product_formula D H a b).2
   let C : IdeleClassGroup (𝓞 K) K →* ℂˣ := QuotientGroup.lift N F hN
@@ -65,19 +65,19 @@ theorem qs_nq0_quadratic_character_exists (D : FieldData K) (H : HilbertData K)
       congrArg (fun g : ContinuousMonoidHom (FiniteAdeleRing (𝓞 K) K)ˣ ℂˣ =>
         g (p x)) hΞsq
   · intro w u
-    change Ξ (p (IdeleGroup.ofCompletion (𝓞 K) K w u)) = 1
-    have hproj : p (IdeleGroup.ofCompletion (𝓞 K) K w u) = 1 := by
+    change Ξ (p (NumberField.IdeleGroup.ofCompletion (𝓞 K) K w u)) = 1
+    have hproj : p (NumberField.IdeleGroup.ofCompletion (𝓞 K) K w u) = 1 := by
       apply Units.ext
       rfl
     rw [hproj, map_one]
   · intro v
     apply MonoidHom.ext
     intro u
-    change Ξ (p (IdeleGroup.ofAdicCompletion (𝓞 K) K v u)) =
+    change Ξ (p (NumberField.IdeleGroup.ofAdicCompletion (𝓞 K) K v u)) =
       qsNQQuadraticLocal D H v (toLoc v a) u
     rw [hΞprod]
     have hout (w : FinPlace K) (hw : w ≠ v) :
-        RestrictedProduct.coeUnits (p (IdeleGroup.ofAdicCompletion (𝓞 K) K v u)) w = 1 := by
+        RestrictedProduct.coeUnits (p (NumberField.IdeleGroup.ofAdicCompletion (𝓞 K) K v u)) w = 1 := by
       apply Units.ext
       change FiniteAdeleRing.ofAdicCompletion K v (u : v.adicCompletion K) w = 1
       exact RestrictedProduct.mulSingle_eq_of_ne _ _ hw
