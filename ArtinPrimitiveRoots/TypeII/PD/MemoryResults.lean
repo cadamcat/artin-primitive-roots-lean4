@@ -90,6 +90,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ShiftBlocks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelSum
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.LastSlotMeasure
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedInjection
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.FibreBlocks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
@@ -11826,6 +11827,164 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_common_memory_fibre_bou
     exact hbound
   · have hempty : T = ∅ := Finset.not_nonempty_iff_eq_empty.mp hTne
     simp only [hempty, Finset.sum_empty, mul_zero, le_refl]
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- All copied-slot/memory fibres share the same finite clean kernel bound. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_memory_blocks_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        S.Y ≤ (lastProduct s.2.1 : ℝ) ∧
+        (S.d₀ : ℝ) ≤ (sharedProduct s.2.1 : ℝ) ∧
+        (sharedProduct s.2.1 : ℝ) < 2*(S.d₀ : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ d e : MemPoint S.x K → ℂ,
+      (∀ s ∈ T, ‖d s‖ ≤ 1) → (∀ s ∈ T, ‖e s‖ ≤ 1) →
+      ∀ f : MemPoint S.x K → ℂ,
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let k := fun s t : MemPoint S.x K =>
+        if s.2.2 = t.2.2 ∧
+          (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+            j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+          (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1 then
+          geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+            (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+      (∑ s ∈ T, memMeasure F S s*‖d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t)‖^2) ≤
+        (C*r)^2*(∑ t ∈ T, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨C, Cbox, Y₀, hC, hCbox, hY₀, hfibreBound⟩ := clean_common_memory_fibre_bound F hF
+  refine ⟨C, Cbox, Y₀, hC, hCbox, hY₀, ?_⟩
+  intro S hY hbands hV hb w hw hU hd₀ T hT r hr hfibre d e hd he f
+  let copied : MemPoint S.x K → Fin K → Fin (momentJ S.x) → ℕ :=
+    fun s i j => s.2.1 i ⟨j.val, Nat.lt_succ_of_lt j.isLt⟩
+  let cls : MemPoint S.x K → (Fin K → List Particle) × (Fin K → Fin (momentJ S.x) → ℕ) :=
+    fun s => (s.2.2, copied s)
+  have hclass (s t : MemPoint S.x K) : cls s = cls t ↔ s.2.2 = t.2.2 ∧
+      ∀ (i : Fin K) (j : Fin (slotCount S.x)), j.val < momentJ S.x → s.2.1 i j = t.2.1 i j := by
+    constructor
+    · intro hcls
+      have hmem : s.2.2 = t.2.2 :=
+        congrArg (fun b : (Fin K → List Particle) × (Fin K → Fin (momentJ S.x) → ℕ) => b.1) hcls
+      have hprefix : copied s = copied t :=
+        congrArg (fun b : (Fin K → List Particle) × (Fin K → Fin (momentJ S.x) → ℕ) => b.2) hcls
+      refine ⟨hmem, ?_⟩
+      intro i j hj
+      exact congrFun (congrFun hprefix i) (⟨j.val, hj⟩ : Fin (momentJ S.x))
+    · rintro ⟨hmem, hcopy⟩
+      apply Prod.ext hmem
+      funext i j
+      exact hcopy i ⟨j.val, Nat.lt_succ_of_lt j.isLt⟩ j.isLt
+  have hshared (s t : MemPoint S.x K) (hcls : cls s = cls t) :
+      sharedProduct s.2.1 = sharedProduct t.2.1 := by
+    have hcopy := ((hclass s t).mp hcls).2
+    dsimp only [sharedProduct]
+    apply Finset.prod_congr rfl
+    intro i hi
+    apply Finset.prod_congr rfl
+    intro j hj
+    by_cases hjval : j.val < momentJ S.x
+    · rw [if_pos hjval, if_pos hjval, hcopy i j hjval]
+    · simp only [if_neg hjval]
+  let μ := fun s : MemPoint S.x K =>
+    ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+  let k := fun s t : MemPoint S.x K =>
+    if s.2.2 = t.2.2 ∧
+      (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+        j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+      (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1 then
+      geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+        (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+  let a := fun s t : MemPoint S.x K => d s*k s t*(μ t : ℂ)*e t
+  have hsupport (s : MemPoint S.x K) (hs : s ∈ T) (t : MemPoint S.x K) (ht : t ∈ T)
+      (hne : cls s ≠ cls t) : a s t = 0 := by
+    have hkzero : k s t = 0 := by
+      dsimp only [k]
+      split_ifs with h
+      · exact (hne ((hclass s t).mpr ⟨h.1, h.2.1⟩)).elim
+      · rfl
+    simp only [a, hkzero, mul_zero, zero_mul]
+  have hblocks (b : (Fin K → List Particle) × (Fin K → Fin (momentJ S.x) → ℕ))
+      (hbcls : b ∈ T.image cls) :
+      (∑ s ∈ T.filter (fun s => cls s = b),
+        memMeasure F S s*‖∑ t ∈ T.filter (fun t => cls t = b), a s t*f t‖^2) ≤
+      (C*r)^2*(∑ t ∈ T.filter (fun t => cls t = b), memMeasure F S t*‖f t‖^2) := by
+    obtain ⟨z, hz, hzb⟩ := Finset.mem_image.mp hbcls
+    let U := T.filter (fun s => cls s = b)
+    let D := sharedProduct z.2.1
+    have hUT : U ⊆ T := Finset.filter_subset _ _
+    have hUz : z ∈ U := Finset.mem_filter.mpr ⟨hz, hzb⟩
+    have hcommon (s : MemPoint S.x K) (hs : s ∈ U) (t : MemPoint S.x K) (ht : t ∈ U) :
+        s.2.2 = t.2.2 ∧ ∀ (i : Fin K) (j : Fin (slotCount S.x)),
+          j.val < momentJ S.x → s.2.1 i j = t.2.1 i j :=
+      (hclass s t).mp ((Finset.mem_filter.mp hs).2.trans (Finset.mem_filter.mp ht).2.symm)
+    have hD (s : MemPoint S.x K) (hs : s ∈ U) : sharedProduct s.2.1 = D :=
+      hshared s z ((Finset.mem_filter.mp hs).2.trans hzb.symm)
+    have hUsource (s : MemPoint S.x K) (hs : s ∈ U) :
+        MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        sharedProduct s.2.1 = D ∧ S.Y ≤ (lastProduct s.2.1 : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1) := by
+      have h := hT s (hUT hs)
+      exact ⟨h.1, h.2.1, hD s hs, h.2.2.1, h.2.2.2.2.2.1, h.2.2.2.2.2.2⟩
+    let kd := fun s t : MemPoint S.x K =>
+      if (D : ℤ) ∣ det2 s.1 t.1 then
+        geometricMultiplier F S D (lastProduct t.2.1) (lastProduct s.2.1)
+          (det2 s.1 t.1/(D : ℤ)) else 0
+    have hkernel (s : MemPoint S.x K) (hs : s ∈ U) (t : MemPoint S.x K) (ht : t ∈ U) :
+        k s t = kd s t := by
+      obtain ⟨hmem, hcopy⟩ := hcommon s hs t ht
+      dsimp only [k, kd]
+      rw [hD s hs]
+      have hcond :
+          (s.2.2 = t.2.2 ∧
+            (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+              j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+            (D : ℤ) ∣ det2 s.1 t.1) ↔ (D : ℤ) ∣ det2 s.1 t.1 :=
+        ⟨fun h => h.2.2, fun h => ⟨hmem, hcopy, h⟩⟩
+      simp only [hcond]
+    have hbound := hfibreBound S hY hbands hV hb w hw hU hd₀ D
+      (hT z hz).2.2.2.1 (hT z hz).2.2.2.2.1 U hUsource hcommon r hr hfibre
+      d e (fun s hs => hd s (hUT hs)) (fun t ht => he t (hUT ht)) f
+    change (∑ s ∈ U, memMeasure F S s*‖d s*(∑ t ∈ U, kd s t*(μ t : ℂ)*e t*f t)‖^2) ≤
+      (C*r)^2*(∑ t ∈ U, memMeasure F S t*‖f t‖^2) at hbound
+    have hrow (s : MemPoint S.x K) (hs : s ∈ U) :
+        (∑ t ∈ U, a s t*f t) = d s*(∑ t ∈ U, kd s t*(μ t : ℂ)*e t*f t) := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      dsimp only [a]
+      rw [hkernel s hs t ht]
+      ring
+    have hout :
+        (∑ s ∈ U, memMeasure F S s*‖∑ t ∈ U, a s t*f t‖^2) =
+          (∑ s ∈ U, memMeasure F S s*‖d s*(∑ t ∈ U, kd s t*(μ t : ℂ)*e t*f t)‖^2) :=
+      Finset.sum_congr rfl (fun s hs => by rw [hrow s hs])
+    change (∑ s ∈ U, memMeasure F S s*‖∑ t ∈ U, a s t*f t‖^2) ≤ _
+    rw [hout]
+    exact hbound
+  have hwhole := finite_fibre_kernel_bound T (memMeasure F S) cls a (C*r) f hsupport hblocks
+  have hrow (s : MemPoint S.x K) : (∑ t ∈ T, a s t*f t) =
+      d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t) := by
+    rw [Finset.mul_sum]
+    exact Finset.sum_congr rfl (fun t ht => by dsimp only [a]; ring)
+  simp_rw [hrow] at hwhole
+  exact hwhole
 
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
