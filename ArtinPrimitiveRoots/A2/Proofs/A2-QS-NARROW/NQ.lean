@@ -13,9 +13,9 @@ Route decision (lead): the narrow theorem is glued directly from the core
 (`qs_core_large_sieve_B2`) through the canonical narrow family (NQ0, trivial ray factor,
 `qS ≠ ⊥`, totally complex by `μ₁₂`), not through the general `ext_goldmakher_louvel`.  The
 general family theorem needs, beyond the core, the qS/profile reduction (G0), the ray-factor
-generalisation of `qs_family_mul_S0`/C2 (G1) and the real-place gamma factors (G2); these are
-stated as two deferred SOL-LEAD units off the narrow critical path.  `ext_heath_brown_quadratic`
-(over `ℚ`, totally real, nontrivial ray factor) goes through the general theorem.
+generalisation of `qs_family_mul_S0`/C2 (G1) and the real-place gamma factors (G2); it is off
+the narrow critical path and not formalised here, nor is `ext_heath_brown_quadratic` (over `ℚ`,
+totally real, nontrivial ray factor), which would go through the general theorem.
 -/
 
 set_option autoImplicit false
@@ -865,34 +865,6 @@ theorem qs_integralize_generators_NQ2 {CE : ℕ} {condη : Ideal (𝓞 K)}
     (HeightOneSpectrum.valuation_eq_one_iff_notMem v).mp hbval
   exact qs_residue_ne_zero_of_not_mem_NQ2 v hbnot
 
-/-! ### General family route (off the narrow critical path) -/
-
-/-- G0+G1 (SOL-LEAD, deferred): the general family theorem over a totally complex field
-(found:606-616): arbitrary ray factor (class-dependent unitary row twists in
-`qs_family_mul_S0`/C2 and in the duality, constant `h⁴`), arbitrary `qS` including `⊥`
-(fixed ramification profiles, uniform conductor bound), rows and columns not coprime to `qS`.
-Whole-theorem-sized: it re-runs the core with twisted multiplicativity. -/
-theorem qs_general_totally_complex_G01 [IsTotallyComplex K]
-    (m : ClassFieldTheory.RayClassModulus K) (qS : Ideal (𝓞 K)) (F : QSFamily m qS) :
-    QSFamilyBound F := by
-  sorry
-
-/-- G2 (SOL-LEAD, deferred): the general family theorem over a field with a real place
-(found:616-617): needs the primitive FE and root number `+1` with `Γ_ℝ(s)^{r₁}Γ_ℂ(s)^{r₂}`
-(the Hecke layer is totally complex only) and the P0-P2 bounds for that gamma factor. -/
-theorem qs_general_real_places_G2 (hK : ¬ IsTotallyComplex K)
-    (m : ClassFieldTheory.RayClassModulus K) (qS : Ideal (𝓞 K)) (F : QSFamily m qS) :
-    QSFamilyBound F := by
-  sorry
-
-/-- The general family theorem for the mirrored record (glue, proved here). -/
-theorem qs_goldmakher_louvel (m : ClassFieldTheory.RayClassModulus K) (qS : Ideal (𝓞 K))
-    (F : QSFamily m qS) : QSFamilyBound F := by
-  by_cases hK : IsTotallyComplex K
-  · haveI := hK
-    exact qs_general_totally_complex_G01 m qS F
-  · exact qs_general_real_places_G2 hK m qS F
-
 /-! ### Rational specialisation (Heath-Brown) -/
 
 open Classical in
@@ -912,50 +884,5 @@ open Classical in
 /-- Copy of the frozen `oddSquarefreeUpTo`. -/
 def qsOddSquarefreeUpTo (N : ℕ) : Finset ℕ :=
   (Finset.range (N + 1)).filter (fun n => n % 2 = 1 ∧ Squarefree n)
-
-/-- HB0 (SOL-LEAD, deferred; a2rp guide 384-388): the primitive quadratic Jacobi family over
-`ℚ` with modulus `4` (characters of `ℚ(√n)`, conductor `n` or `4n`, reciprocity factor the
-mod-4 sign) as a mirrored family whose values are the Jacobi symbols. -/
-theorem qs_rational_jacobi_family_HB :
-    ∃ (m : ClassFieldTheory.RayClassModulus ℚ) (qS : Ideal (𝓞 ℚ)) (F : QSFamily m qS),
-      (∀ n : ℕ, n % 2 = 1 → Squarefree n →
-        Squarefree (Ideal.span {(n : 𝓞 ℚ)}) ∧
-          ArtinPrimitiveRoots.Hecke.IsCoprimeTo m (Ideal.span {(n : 𝓞 ℚ)})) ∧
-      (∀ n k : ℕ, n % 2 = 1 → Squarefree n → k % 2 = 1 → Squarefree k →
-        (F.character (Ideal.span {(n : 𝓞 ℚ)})).idealValue (Ideal.span {(k : 𝓞 ℚ)}) =
-          (qsRationalJacobiSymbol n k : ℂ)) := by
-  sorry
-
-/-- HB1 (IMPL): the family theorem for the rational Jacobi family gives Heath-Brown's bound
-(identify odd squarefree integers with their ideals; `absNorm (span {n}) = n`). -/
-theorem qs_heath_brown_of_family_HB (m : ClassFieldTheory.RayClassModulus ℚ)
-    (qS : Ideal (𝓞 ℚ)) (F : QSFamily m qS)
-    (hadm : ∀ n : ℕ, n % 2 = 1 → Squarefree n →
-      Squarefree (Ideal.span {(n : 𝓞 ℚ)}) ∧
-        ArtinPrimitiveRoots.Hecke.IsCoprimeTo m (Ideal.span {(n : 𝓞 ℚ)}))
-    (hval : ∀ n k : ℕ, n % 2 = 1 → Squarefree n → k % 2 = 1 → Squarefree k →
-      (F.character (Ideal.span {(n : 𝓞 ℚ)})).idealValue (Ideal.span {(k : 𝓞 ℚ)}) =
-        (qsRationalJacobiSymbol n k : ℂ))
-    (hF : QSFamilyBound F) :
-    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
-      ∀ M N : ℕ, 1 ≤ M → 1 ≤ N → ∀ a : ℕ → ℂ,
-        (∑ m ∈ qsOddSquarefreeUpTo M,
-          ‖∑ n ∈ qsOddSquarefreeUpTo N,
-            a n * (qsRationalJacobiSymbol n m : ℂ)‖ ^ 2) ≤
-          C * Real.rpow ((M : ℝ) * N) ε * (M + N) *
-            ∑ n ∈ qsOddSquarefreeUpTo N, ‖a n‖ ^ 2 := by
-  sorry
-
-/-- Heath-Brown in the mirrored vocabulary (glue, proved here). -/
-theorem qs_heath_brown :
-    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
-      ∀ M N : ℕ, 1 ≤ M → 1 ≤ N → ∀ a : ℕ → ℂ,
-        (∑ m ∈ qsOddSquarefreeUpTo M,
-          ‖∑ n ∈ qsOddSquarefreeUpTo N,
-            a n * (qsRationalJacobiSymbol n m : ℂ)‖ ^ 2) ≤
-          C * Real.rpow ((M : ℝ) * N) ε * (M + N) *
-            ∑ n ∈ qsOddSquarefreeUpTo N, ‖a n‖ ^ 2 := by
-  obtain ⟨m, qS, F, hadm, hval⟩ := qs_rational_jacobi_family_HB
-  exact qs_heath_brown_of_family_HB m qS F hadm hval (qs_goldmakher_louvel m qS F)
 
 end ArtinPrimitiveRoots.A2
