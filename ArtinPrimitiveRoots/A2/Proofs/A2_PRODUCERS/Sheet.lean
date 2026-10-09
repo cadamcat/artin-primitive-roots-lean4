@@ -1425,6 +1425,17 @@ private theorem sheet_mulHaarC_mul (a : ℂˣ) :
     _ = volume.withDensity d := hmulDensity
     _ = Theta.mulHaarC := rfl
 
+private theorem a2_prod_sol_mulHaarC_inv :
+    Measure.map (fun z : ℂ => z⁻¹) Theta.mulHaarC = Theta.mulHaarC := by
+  have : SigmaFinite Theta.mulHaarC := by
+    dsimp [Theta.mulHaarC]
+    infer_instance
+  have : NullSingletonClass Theta.mulHaarC := by
+    dsimp [Theta.mulHaarC]
+    infer_instance
+  exact ArtinPrimitiveRoots.Proofs.a2_prod_sol.inv_of_sigmaFinite_mulInvariant
+    Theta.mulHaarC (measure_singleton 0) sheet_mulHaarC_mul
+
 private theorem a2_prod_sol_sheetFree_mul_preserving
     (S : SData F CE condη) (μ : ∀ v : FinPlace F, Theta.LocHaar v)
     (v0 : InfinitePlace F) (a : S.FSˣ) :
