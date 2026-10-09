@@ -37,6 +37,10 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.spherical_section_param_analy
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.zero_seed_analyticFamily
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.replace_at_S_bigCell
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.intertwined_scalar_q
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.lam_torus_nonzero_iff_mem_alag
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.rat_intertwined_scalar_nonzero_iff_mem_delta
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.normalized_intertwined_torus_sum_ne_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.normalized_bigCell_family
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
@@ -658,6 +662,41 @@ theorem thetaWhit_ne_zero {P : CoverPackage D S H A} {G : GlobalDatum P}
     (fun t g => hn (Multiplicative.toAdd t) g)
     (fun t g => hnbar (Multiplicative.toAdd t) g) g)
 
+/-- Normalized exceptional sections give a nonzero constant torus coefficient. -/
+theorem normalized_family_constantCoeff_ne_zero {P : CoverPackage D S H A}
+    {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
+    (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
+    (hT : Fam.T0 = S.Sf)
+    (h1 : ∀ v ∈ S.Sf,
+      G.lam v (intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) 1) = 1)
+    (hzero : ∀ v ∈ S.Sf, ∀ y : (v.adicCompletion F)ˣ, y ∉ G.Alag v →
+      G.lam v ((G.T v).σa y
+        (intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) 1)) = 0) :
+    ∃ Pd : Set (InfinitePlace F → ℂ), torusCoeff P C.theta 1 Pd 0 ≠ 0 := by
+  obtain ⟨𝔞, Pd, hdom, _⟩ := theta_adapted_domain_exists Fam.fourierHyp 1
+  refine ⟨Pd, ?_⟩
+  rw [theta_constantTerm Fam C 1 𝔞 hdom.1 hdom.2.1 Pd hdom.2.2.1 hdom.2.2.2.1]
+  have hM : fourierRawM μ Fam.sec (1 / 6) =
+      scalarOf P G (famM Fam) (fun _ => intertwineC (sphC (1 / 6))) := by
+    funext h
+    unfold fourierRawM
+    congr 1
+    · funext v
+      unfold famM
+      simp only [Fam.T0_eq]
+    · funext w
+      rw [Fam.fC_sph]
+  have hsum := normalized_intertwined_torus_sum_ne_zero G μ Fam hT h1 hzero
+  have hd : (NumberField.discr F : ℝ) ≠ 0 := by
+    exact_mod_cast NumberField.discr_ne_zero F
+  have hkpos : 0 < κF F := by
+    exact mul_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)
+      (Real.sqrt_pos.2 (abs_pos.2 hd))
+  have hk : (((κF F)⁻¹ : ℝ) : ℂ) ≠ 0 := by
+    exact_mod_cast inv_ne_zero (ne_of_gt hkpos)
+  apply mul_ne_zero (mul_ne_zero hk (resCprod_ne_zero Fam.T0))
+  simpa only [hM, mul_one] using hsum
+
 /-- **res:theta-exists**: big-cell sections at `S_f` and spherical sections elsewhere give `θ ≠ 0`.
 C6 of `sol-gate-theta` requires the cube-containing Lagrangian global datum. -/
 theorem exists_theta_ne_zero (P : CoverPackage D S H A) (G : GlobalDatum P)
@@ -665,7 +704,15 @@ theorem exists_theta_ne_zero (P : CoverPackage D S H A) (G : GlobalDatum P)
     ∃ (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam), Fam.T0 = S.Sf ∧
       (∀ v ∈ S.Sf, ∃ φ : v.adicCompletion F → (G.T v).V, IsLocallyConstant φ ∧ HasCompactSupport φ ∧
         ∀ s, (Fam.sec s).f v = bigCell (P.loc v) (G.T v) s φ) ∧ ∃ g, C.theta g ≠ 0 := by
-  sorry
+  obtain ⟨Fam, hT, hcell, h1, hzero⟩ := normalized_bigCell_family P G μ
+  obtain ⟨C⟩ := exists_continuedEis Fam
+  obtain ⟨Pd, hcoeff⟩ := normalized_family_constantCoeff_ne_zero Fam C hT h1 hzero
+  have htheta : ∃ g, C.theta g ≠ 0 := by
+    by_contra h
+    have hz : ∀ g, C.theta g = 0 := by simpa only [not_exists, not_not] using h
+    apply hcoeff
+    simp [torusCoeff, hz]
+  exact ⟨Fam, C, hT, hcell, htheta⟩
 
 /-- **res:theta-multilinear**: with the data outside `S_f` fixed, `W_θ(g)` is a multilinear form in
 the local Jacquet vectors at `S_f` at `s0`, times the complex spherical Jacquet values. -/
