@@ -2355,6 +2355,73 @@ private theorem ppPrime_mellinKernel_integrable_of_rpow_two
   filter_upwards with v
   simpa [Real.norm_eq_abs] using hbound v
 
+private theorem ppPrimeSmoothing_error_log_bound
+    {x N τ A : ℝ} (hx : 2 < x)
+    (hNlo : Real.rpow x τ / 2 ≤ N) (hN4 : 4 ≤ N)
+    (hL : 1 ≤ Real.log x)
+    (hLpow : Real.rpow (Real.log x) (A + 3) ≤ Real.rpow x τ)
+    (hlog : Real.log (3 * N) ≤ 2 * Real.log x)
+    (hδsmall : Real.rpow (Real.log x) (-A - 4) ≤ 1 / 4)
+    (q : ℕ) (χ : DirichletCharacter ℂ q) (t : ℝ) (m u : ℕ)
+    (hm : N ≤ (m : ℝ)) (hmu : (m : ℝ) ≤ (u : ℝ))
+    (hu : (u : ℝ) ≤ 2 * N) :
+    ‖mangoldtIntervalPolynomial N q χ t (Set.Icc m u) -
+      smoothedMangoldtPolynomial N q χ t
+        (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N)
+          (Real.rpow (Real.log x) (-A - 4)))‖ ≤
+      120 * Real.rpow (Real.log x) (-A - 2) := by
+  let L : ℝ := Real.log x
+  have hLpos : 0 < L := by dsimp [L]; linarith
+  have hxpos : 0 < x := by linarith
+  have hNpos : 0 < N := by linarith
+  have hδpos : 0 < Real.rpow L (-A - 4) := Real.rpow_pos_of_pos hLpos _
+  have hxp : 0 < Real.rpow x τ := Real.rpow_pos_of_pos hxpos _
+  have hLp : 0 < Real.rpow L (A + 3) := Real.rpow_pos_of_pos hLpos _
+  have hNinv : 1 / N ≤ 2 * Real.rpow L (-A - 3) := by
+    calc
+      1 / N ≤ 1 / (Real.rpow x τ / 2) :=
+        one_div_le_one_div_of_le (by positivity) hNlo
+      _ = 2 * (Real.rpow x τ)⁻¹ := by field_simp
+      _ ≤ 2 * (Real.rpow L (A + 3))⁻¹ := by
+        simpa only [one_div] using mul_le_mul_of_nonneg_left
+          (one_div_le_one_div_of_le hLp hLpow) (by norm_num)
+      _ = 2 * Real.rpow L (-A - 3) := by
+        calc
+          _ = 2 * Real.rpow L (-(A + 3)) :=
+            congrArg (fun y : ℝ => 2 * y) (Real.rpow_neg hLpos.le (A + 3)).symm
+          _ = _ := congrArg (fun e : ℝ => 2 * Real.rpow L e) (by ring)
+  have hErr := ppPrimePositiveCutoff_mangoldt_smoothing_error
+    hN4 q χ t m u hm hmu hu (Real.rpow L (-A - 4)) hδpos hδsmall
+  have hδmul : Real.rpow L (-A - 4) * L = Real.rpow L (-A - 3) := by
+    calc
+      _ = Real.rpow L (-A - 4) * Real.rpow L 1 := by simp
+      _ = Real.rpow L ((-A - 4) + 1) :=
+        (Real.rpow_add hLpos (-A - 4) 1).symm
+      _ = _ := by congr 1 <;> ring
+  have hLmul : Real.rpow L (-A - 3) * L = Real.rpow L (-A - 2) := by
+    calc
+      _ = Real.rpow L (-A - 3) * Real.rpow L 1 := by simp
+      _ = Real.rpow L ((-A - 3) + 1) :=
+        (Real.rpow_add hLpos (-A - 3) 1).symm
+      _ = _ := by congr 1 <;> ring
+  have hpowmono : Real.rpow L (-A - 3) ≤ Real.rpow L (-A - 2) :=
+    Real.rpow_le_rpow_of_exponent_le hL (by linarith)
+  calc
+    _ ≤ 20 * (Real.rpow L (-A - 4) + 1 / N) * Real.log (3 * N) := hErr
+    _ ≤ 20 * (Real.rpow L (-A - 4) + 1 / N) * (2 * L) := by
+      gcongr
+    _ = 40 * (Real.rpow L (-A - 4) * L + (1 / N) * L) := by ring
+    _ ≤ 40 * (Real.rpow L (-A - 4) * L +
+        2 * Real.rpow L (-A - 3) * L) := by
+      gcongr
+    _ = 40 * Real.rpow L (-A - 3) + 80 * Real.rpow L (-A - 2) := by
+      rw [hδmul]
+      calc
+        40 * (Real.rpow L (-A - 3) + 2 * Real.rpow L (-A - 3) * L) =
+            40 * Real.rpow L (-A - 3) + 80 * (Real.rpow L (-A - 3) * L) := by ring
+        _ = 40 * Real.rpow L (-A - 3) + 80 * Real.rpow L (-A - 2) := by rw [hLmul]
+    _ ≤ 120 * Real.rpow L (-A - 2) := by nlinarith
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
     (hzeta : ppPrimeZetaLogDerivBound) :
