@@ -4176,6 +4176,67 @@ private theorem principal_tuple_kernel_integrable {n : ℕ} {A l r : ℝ}
   exact hf.integrableOn_of_subset_isCompact hK
     (measurableSet_roughTupleSource A l r) hsubset hsfinite
 
+/-- The one-factor tuple integral is the logarithmic integral on the closed cutoff. -/
+private theorem roughTupleIntegral_one_support (x γ l r : ℝ)
+    (hx : 2 ≤ x) (hγ : 0 < γ) :
+    roughTupleIntegral x γ l r 1 =
+      ∫ y in Set.Icc (max (Real.rpow x γ) l) r, (1 / Real.log y : ℝ) := by
+  have hx1 : 1 < x := by linarith
+  have hA1 : 1 < Real.rpow x γ := Real.one_lt_rpow hx1 hγ
+  let e : (Fin 1 → ℝ) ≃ᵐ ℝ := MeasurableEquiv.piUnique (fun _ : Fin 1 => ℝ)
+  have hcoord (y : ℝ) (i : Fin 1) : e.symm y i = y := by
+    simp [e, MeasurableEquiv.piUnique_symm_apply]
+  have hprod (y : ℝ) : ∏ i : Fin 1, e.symm y i = y := by
+    rw [Finset.univ_unique, Finset.prod_singleton, hcoord y default]
+  have hmem (y : ℝ) :
+      e.symm y ∈ roughTupleSource (n := 0) (Real.rpow x γ) l r ↔
+        y ∈ Set.Icc (max (Real.rpow x γ) l) r := by
+    rw [roughTupleSource, Set.mem_ofPred_eq, Set.mem_Icc]
+    constructor
+    · rintro ⟨hall, hlo, hhi⟩
+      have hAy : Real.rpow x γ ≤ y := by simpa [hcoord y] using hall 0
+      rw [hprod y] at hlo hhi
+      exact ⟨max_le hAy hlo, hhi⟩
+    · rintro ⟨hmax, hhi⟩
+      refine ⟨fun i => ?_, ?_, ?_⟩
+      · rw [hcoord y]
+        exact le_trans (le_max_left _ _) hmax
+      · rw [hprod y]
+        exact le_trans (le_max_right _ _) hmax
+      · rw [hprod y]
+        exact hhi
+  have hf (y : ℝ) :
+      (∏ i : Fin 1, 1 / Real.log ((e.symm y) i)) = 1 / Real.log y := by
+    rw [Finset.univ_unique, Finset.prod_singleton, hcoord y default]
+  rw [roughTupleIntegral_eq_source x γ l r (n := 0) hx]
+  have hcoef : (1 / ((0 + 1).factorial : ℝ)) = 1 := by
+    rw [Nat.zero_add, Nat.factorial_one, Nat.cast_one, div_one]
+  rw [hcoef, one_mul]
+  let S := roughTupleSource (n := 0) (Real.rpow x γ) l r
+  let f : (Fin 1 → ℝ) → ℝ := fun t => ∏ i : Fin 1, 1 / Real.log (t i)
+  let T := Set.Icc (max (Real.rpow x γ) l) r
+  let g : ℝ → ℝ := fun y => 1 / Real.log y
+  calc
+    ∫ t in S, f t =
+        ∫ t : Fin 1 → ℝ, Set.indicator S f t := by
+      exact (integral_indicator (measurableSet_roughTupleSource _ _ _)).symm
+    _ = ∫ y : ℝ, Set.indicator S f (e.symm y) := by
+      exact ((volume_preserving_piUnique (fun _ : Fin 1 => ℝ)).symm.integral_comp'
+        (Set.indicator S f)).symm
+    _ = ∫ y : ℝ, Set.indicator T g y := by
+      refine integral_congr_ae (ae_of_all _ fun y => ?_)
+      simp only [Set.indicator]
+      -- `split_ifs` names only the first copy of the second condition.
+      split_ifs with hS hT
+      · have := hA1
+        exact hf y
+      · exact absurd ((hmem y).1 hS) hT
+      · rename_i hT
+        exact absurd ((hmem y).2 hT) hS
+      · rfl
+    _ = ∫ y in T, g y :=
+      integral_indicator measurableSet_Icc
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
