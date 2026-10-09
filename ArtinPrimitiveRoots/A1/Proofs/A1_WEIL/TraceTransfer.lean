@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianNorm
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.RationalOddGauss
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.RationalDyadicGauss
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.CharacterUniqueness
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceCharacter
 
 set_option autoImplicit false
 
