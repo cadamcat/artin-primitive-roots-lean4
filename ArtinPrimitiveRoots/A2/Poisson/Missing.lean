@@ -7980,6 +7980,105 @@ private theorem euler_good_even_e0_k1_term
     rw [hzero]
     simp [eulerGoodTermModel, hm, hd.ne']
 
+private theorem euler_good_even_e1_k0_term (hE : EulerHypotheses R η)
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0) (d m : ℕ) :
+    localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 0, m) =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        1 (2 * d) 0 m := by
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  let V : ℂ := localV v z
+  let E1 : ℂ := localEvar (ϑ := ϑ) v ξ z
+  let c : ℂ := chi D v (U.repr u : F)
+  let G : ℂ := gamma D S A 2 v.asIdeal (primeGen R v : F)
+  have hqreal : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hQ : Q ≠ 0 := by dsimp [Q]; exact_mod_cast hqreal.ne'
+  have htNat : 1 + 3 * (2 * d) = 6 * d + 1 := by omega
+  have hC := euler_good_localC_e1_even_k0 R v hv d m
+  by_cases hm : m = d
+  · subst m
+    have hCval : localC R v hv (6 * d + 1) 0 (6 * d) =
+        Q ^ (6 * d) * localT R v 1 1 := by
+      simpa [Q] using hC
+    have hχ := euler_good_chi_norm_facts η U u v hv hfreq
+    have hχ6z : c ^ (6 : ℤ) = 1 := by simpa [c] using hχ.1
+    have hχpow6d : c ^ (6 * (d : ℤ)) = 1 := by
+      rw [zpow_mul, hχ6z]
+      simp
+    have hχpos : c ^ (1 + 3 * (2 * (d : ℤ))) = c := by
+      have hexp : 1 + 3 * (2 * (d : ℤ)) = 1 + 6 * (d : ℤ) := by ring
+      rw [hexp, zpow_add₀ hχ.2.1, zpow_one, hχpow6d, mul_one]
+    have hχstar : c⁻¹ = star c := hχ.2.2.symm
+    have hχterm : c ^ (-1 - 3 * (2 * (d : ℤ))) = star c := by
+      have hexp : -1 - 3 * (2 * (d : ℤ)) = -(1 + 3 * (2 * (d : ℤ))) := by ring
+      rw [hexp, zpow_neg, hχpos, hχstar]
+    have hscale : (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) =
+        Q ^ (-(1 / 2 : ℂ)) := by
+      simpa [Q] using Complex.ofReal_cpow hqreal.le (-(1 / 2 : ℝ))
+    have hγ : G * ϑ.primeValue v * Q ^ (-(1 / 2 : ℂ)) * localT R v 1 1 =
+        -η.primeValue v := by
+      dsimp only [G]
+      rw [← hscale]
+      exact euler_good_gammaTheta_localT R η hE v hv
+    let E : ℂ := -(1 / 2 + ξ) - (2 * (d : ℂ)) * (1 + 3 * ξ) - 6 * (d : ℂ) * z
+    let B : ℂ := (4 - 6 * ξ) * (d : ℂ) - 6 * z * (d : ℂ)
+    have hterm : localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 0, d) =
+        G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+          Q ^ (6 * d) * localT R v 1 1 * Q ^ E := by
+      simp [localEulerTerm, hfreq, hCval, G, Q, c, htNat, hχpos, hχterm, hχstar,
+        E, pow_add] <;> ring_nf <;> simp
+    have hqexp : Q ^ (6 * d) * Q ^ E =
+        Q ^ (-(1 / 2 : ℂ)) * Q ^ B * Q ^ (-ξ) := by
+      rw [← Complex.cpow_natCast, ← Complex.cpow_add _ _ hQ,
+        ← Complex.cpow_add _ _ hQ, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [E, B]
+      push_cast
+      ring
+    have hEpow : E1 ^ d =
+        ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d := by
+      simpa [E1, V, Q] using euler_good_E1_pow v ξ z d
+    have hVpow : V ^ d = Q ^ (-6 * z * (d : ℂ)) := by
+      dsimp [V, localV, Q]
+      exact (Complex.cpow_mul_nat (qI v.asIdeal : ℂ) (-6 * z) d).symm
+    have hQrest : Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d = Q ^ B := by
+      rw [hVpow, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [B]
+      ring
+    have hEpowB : E1 ^ d = ϑ.primeValue v ^ (6 * d) * Q ^ B := by
+      rw [hEpow, mul_assoc, hQrest]
+    have hmonomial : G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+        Q ^ (6 * d) * localT R v 1 1 * Q ^ E =
+        -localDvar η U u v ξ * E1 ^ d := by
+      calc
+        _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+            localT R v 1 1 * (Q ^ (6 * d) * Q ^ E) := by ring
+        _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+            localT R v 1 1 * (Q ^ (-(1 / 2 : ℂ)) * Q ^ B * Q ^ (-ξ)) := by rw [hqexp]
+        _ = (G * ϑ.primeValue v * Q ^ (-(1 / 2 : ℂ)) * localT R v 1 1) *
+            ϑ.primeValue v ^ (6 * d) * star c * Q ^ B * Q ^ (-ξ) := by ring
+        _ = (-η.primeValue v) * ϑ.primeValue v ^ (6 * d) * star c * Q ^ B *
+            Q ^ (-ξ) := by rw [hγ]
+        _ = -localDvar η U u v ξ * E1 ^ d := by
+          rw [hEpowB]
+          change (-η.primeValue v) * ϑ.primeValue v ^ (6 * d) * star c * Q ^ B *
+              Q ^ (-ξ) = -(η.primeValue v * star c * Q ^ (-ξ)) *
+                (ϑ.primeValue v ^ (6 * d) * Q ^ B)
+          ring
+    calc
+      _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+          Q ^ (6 * d) * localT R v 1 1 * Q ^ E := hterm
+      _ = -localDvar η U u v ξ * E1 ^ d := hmonomial
+      _ = _ := by simp [eulerGoodTermModel, E1]
+  · have hCzero : localC R v hv (6 * d + 1) 0 (6 * m) = 0 := by
+      simpa [hm] using hC
+    have hzero : localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 0, m) = 0 := by
+      simp [localEulerTerm, hfreq, htNat, hCzero]
+    rw [hzero]
+    simp [eulerGoodTermModel, hm]
+
 /-- po:euler-good-closed, 05:596-659. The zero-valuation local series is the frozen closed factor. -/
 theorem po_euler_good_closed : EulerHypotheses R η → ∀ u v hv ξ w z, initialRegion ξ w z → frequencyValuation η U u v = 0 →
   localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal) (localV v z)
