@@ -17,6 +17,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameGlobalUnit
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameValuation
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.TameRootData
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.Tame
+import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.UnitCompactCore
 import ArtinPrimitiveRoots.A1.Proofs.A1_GENERATORS.Generator
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.ResidueCompatibility
 import ArtinPrimitiveRoots.A1.Proofs.«A1-UNIQUE».Global
@@ -587,7 +588,141 @@ theorem BData.exists_balanced (D : FieldData F) {S : SData F CE condη} {H : Hil
                   ⟨I, mem_nonZeroDivisors_iff_ne_zero.mpr
                     (by simpa [Ideal.zero_eq_bot] using hI.1)⟩
               exact inv_pos.mpr (Nat.cast_pos.mpr hnorm)) ∈ K := by
-  sorry
+  classical
+  have hAbsFinOne (v : FinPlace F) : absFin v 1 = 1 := by
+    have hv : (Ideal.absNorm v.asIdeal : NNReal) ≠ 0 :=
+      HeightOneSpectrum.absNorm_ne_zero v
+    simp [absFin, hv]
+  have hAbsSMul (S : SData F CE condη) (x y : S.FS) :
+      S.absS (x * y) = S.absS x * S.absS y := by
+    have hnorm (v : S.Sf) : Ideal.absNorm v.1.asIdeal ≠ 0 := by
+      have hv : (Ideal.absNorm v.1.asIdeal : NNReal) ≠ 0 :=
+        HeightOneSpectrum.absNorm_ne_zero v.1
+      exact_mod_cast hv
+    simp [SData.absS, absFin, hnorm, Finset.prod_mul_distrib, Complex.normSq_mul]
+    ring
+  have hAbsEll (S : SData F CE condη) (T : ℝ) (hT : 0 < T) :
+      S.absS (S.ell D T hT) = T := by
+    simp only [SData.absS, SData.ell]
+    simp_rw [hAbsFinOne]
+    simp only [Finset.prod_const_one, one_mul, Complex.normSq_ofReal,
+      Finset.prod_const, Finset.card_univ]
+    rw [show numComplex F = Fintype.card (InfinitePlace F) by rfl]
+    have hc : (Fintype.card (InfinitePlace F) : ℝ) ≠ 0 := by
+      exact_mod_cast (Fintype.card_pos_iff.mpr
+        (inferInstance : Nonempty (InfinitePlace F))).ne'
+    rw [← Real.rpow_add hT]
+    rw [← Real.rpow_natCast (T ^ (1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)) +
+      1 / (2 * (Fintype.card (InfinitePlace F) : ℝ))))
+        (Fintype.card (InfinitePlace F))]
+    have hrpow := Real.rpow_mul (le_of_lt hT)
+      (1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)) +
+        1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)))
+      (Fintype.card (InfinitePlace F) : ℝ)
+    rw [hrpow.symm]
+    have he : (1 / (2 * (Fintype.card (InfinitePlace F) : ℝ)) +
+        1 / (2 * (Fintype.card (InfinitePlace F) : ℝ))) *
+        (Fintype.card (InfinitePlace F) : ℝ) = 1 := by
+      field_simp [hc]
+      norm_num
+    rw [he, Real.rpow_one]
+  let ellUnit (S : SData F CE condη) (T : ℝ) (hT : 0 < T) : S.FSˣ := {
+    val := S.ell D T hT
+    inv := S.ell D T⁻¹ (inv_pos.mpr hT)
+    val_inv := by
+      ext v
+      · simp [SData.ell]
+      · simp [SData.ell, Real.inv_rpow (le_of_lt hT)]
+        field_simp [Complex.ofReal_ne_zero.mpr (Real.rpow_pos_of_pos hT _).ne']
+    inv_val := by
+      ext v
+      · simp [SData.ell]
+      · simp [SData.ell, Real.inv_rpow (le_of_lt hT)]
+        field_simp [Complex.ofReal_ne_zero.mpr (Real.rpow_pos_of_pos hT _).ne']
+  }
+  obtain ⟨K, hK, hKnorm, hrep⟩ :=
+    ArtinPrimitiveRoots.Proofs.A1_LATTICE.fsOne_compact_representatives_core S D
+  refine ⟨K, hK, hKnorm, ?_⟩
+  intro I hI
+  obtain ⟨a, haGen, haAllowed⟩ := Bd.exists_allowed I hI
+  have hnormI : 0 < Ideal.absNorm I :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨I, mem_nonZeroDivisors_iff_ne_zero.mpr
+        (by simpa [Ideal.zero_eq_bot] using hI.1)⟩
+  let T : ℝ := (Ideal.absNorm I : ℝ)⁻¹
+  have hT : 0 < T := by
+    dsimp [T]
+    exact inv_pos.mpr (Nat.cast_pos.mpr hnormI)
+  let x : S.FSˣ := S.diagU a * ellUnit S T hT
+  have hdiagNorm : S.absS ((S.diagU a : S.FSˣ) : S.FS) = Ideal.absNorm I := by
+    simpa [SData.diagU] using
+      ArtinPrimitiveRoots.Proofs.A1_LATTICE.absS_diag_eq_norm_core
+        D S (a : F) I hI haGen
+  have hellNorm : S.absS (ellUnit S T hT : S.FS) = T := by
+    change S.absS (S.ell D T hT) = T
+    exact hAbsEll S T hT
+  have hxNorm : S.absS (x : S.FS) = 1 := by
+    change S.absS (((S.diagU a : S.FSˣ) : S.FS) *
+      (ellUnit S T hT : S.FS)) = 1
+    rw [hAbsSMul, hdiagNorm, hellNorm]
+    dsimp [T]
+    exact mul_inv_cancel₀ (Nat.cast_ne_zero.mpr hnormI.ne')
+  obtain ⟨y, hyK, u, hxu⟩ := hrep ⟨x, hxNorm⟩
+  let uInv : S.US := u⁻¹
+  let a' : Fˣ := ((uInv ^ 6 : S.US) : Fˣ) * a
+  have ha'Gen : S.IsGen (a' : F) I := by
+    change S.IsGen ((((uInv ^ 6 : S.US) : Fˣ) * a : Fˣ) : F) I
+    exact ArtinPrimitiveRoots.Proofs.A1Generators.isGen_mul_sUnit
+      S (uInv ^ 6) a haGen
+  have hdiagA' : S.diagU a' =
+      (S.diagU (uInv : Fˣ)) ^ 6 * S.diagU a := by
+    simp [a', map_mul, map_pow]
+  have hclass : (QuotientGroup.mk (S.diagU a') : S.V) =
+      (QuotientGroup.mk (S.diagU a) : S.V) := by
+    apply (QuotientGroup.eq_iff_div_mem).2
+    change S.diagU a' / S.diagU a ∈
+      (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range
+    rw [hdiagA']
+    have hpow : (S.diagU (uInv : Fˣ)) ^ 6 ∈
+        (powMonoidHom 6 : S.FSˣ →* S.FSˣ).range :=
+      ⟨S.diagU (uInv : Fˣ), rfl⟩
+    simpa using hpow
+  have ha'Allowed : Bd.Allowed a' := by
+    change (QuotientGroup.mk (S.diagU a') : S.V) ∈ Bd.B
+    rw [hclass]
+    exact haAllowed
+  have hInvDiag : S.diagU (uInv : Fˣ) = (S.diagU (u : Fˣ))⁻¹ := by
+    rw [show (uInv : Fˣ) = (u : Fˣ)⁻¹ by rfl, map_inv]
+  have hdiagA'val : S.diag (a' : F) =
+      (((S.diagU (uInv : Fˣ)) ^ 6 : S.FSˣ) : S.FS) * S.diag (a : F) := by
+    simpa [SData.diagU] using
+      congrArg (fun z : S.FSˣ => (z : S.FS)) hdiagA'
+  have hxuVal : (x : S.FS) =
+      (((S.diagU (u : Fˣ)) ^ 6 : S.FSˣ) : S.FS) * (y.1 : S.FS) :=
+    congrArg (fun z : S.FSˣ => (z : S.FS)) hxu
+  have hyEq : S.diag (a' : F) * S.ell D T hT = (y.1 : S.FS) := by
+    calc
+      S.diag (a' : F) * S.ell D T hT =
+          (((S.diagU (uInv : Fˣ)) ^ 6 : S.FSˣ) : S.FS) *
+            (S.diag (a : F) * S.ell D T hT) := by
+              rw [hdiagA'val]
+              ac_rfl
+      _ = (((S.diagU (uInv : Fˣ)) ^ 6 : S.FSˣ) : S.FS) * (x : S.FS) := by
+        rfl
+      _ = (((S.diagU (uInv : Fˣ)) ^ 6 : S.FSˣ) : S.FS) *
+            ((((S.diagU (u : Fˣ)) ^ 6 : S.FSˣ) : S.FS) * (y.1 : S.FS)) := by
+              rw [hxuVal]
+      _ = y.1 := by
+        rw [hInvDiag]
+        simp [inv_pow]
+  have htargetEq :
+      S.diag (a' : F) *
+        S.ell D ((Ideal.absNorm I : ℝ)⁻¹) (by
+          exact inv_pos.mpr (Nat.cast_pos.mpr hnormI)) = (y.1 : S.FS) := by
+    simpa [T] using hyEq
+  refine ⟨a', ha'Gen, ha'Allowed, ?_⟩
+  rw [htargetEq]
+  exact hyK
 
 /-- eq:sextic-reciprocity (02:257–266): `χ_P(p') = χ_{P'}(p)` for allowed generators of distinct
 exterior primes. Package P-ARITH-RECIP. -/
