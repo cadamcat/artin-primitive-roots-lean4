@@ -30,6 +30,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.FixedCutoff
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.LargePrime
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedAggregation
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.BinReindex
+import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.DivisorCount
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
