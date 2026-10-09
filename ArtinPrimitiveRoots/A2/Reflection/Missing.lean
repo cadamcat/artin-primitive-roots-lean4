@@ -5361,6 +5361,105 @@ private theorem rf_forward_indexed_absolute (r : ReflectionRow S) (l : ℝ)
   have hJ : Summable J := (summable_prod_of_nonneg hJpos).2 ⟨hFiber, hOuter⟩
   exact ⟨hInt, hJ⟩
 
+set_option maxHeartbeats 1500000 in
+private theorem rf_forward_average_series (r : ReflectionRow S) (l : ℝ)
+    (hl : 0 < l) :
+    thetaAverage R r l =
+      ∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * l) := by
+  classical
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable Fˣ :=
+    (show Function.Injective (fun x : Fˣ => (x : F)) from Units.val_injective).countable
+  letI : Countable ((S.SqfExtIdeal × S.ExtIdeal) × Gamma S) :=
+    (rf_forward_frequency_injective R).countable
+  let ν : Measure S.FS := (R.sheets.sheet l).restrict (omegaAt R l)
+  let u := rowClass R r
+  let f : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → S.FSˣ → ℂ := fun z y =>
+    (Lvalue R u y)⁻¹ * forwardTerm R r ((z.2.1 : Fˣ) * Agen R z.1.1 z.1.2) y
+  let c : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y *
+    (Lvalue R u y)⁻¹ * digitSum R r false true y
+  let a : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y *
+    (Lvalue R u y)⁻¹ * digitSum R r false false y
+  have hAbs := rf_forward_indexed_absolute R r l hl
+  have hInt (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) :
+      Integrable (onUnits (f z)) ν := hAbs.1 z
+  have hPoint : ∀ x : S.FS, Summable (fun z => ‖onUnits (f z) x‖) := by
+    intro x
+    by_cases hx : IsUnit x
+    · simpa only [onUnits, dif_pos hx, f, u] using
+        (rf_forward_indexed_fourier R r hx.unit).1
+    · simp only [onUnits, dif_neg hx, norm_zero]
+      exact summable_zero
+  have hExpansion : onUnits a = fun x => onUnits c x + ∑' z, onUnits (f z) x := by
+    funext x
+    by_cases hx : IsUnit x
+    · simpa only [onUnits, dif_pos hx, a, c, f, u] using
+        (rf_forward_indexed_fourier R r hx.unit).2
+    · simp [onUnits, hx]
+  have hNorm : Integrable (fun x => ∑' z, ‖onUnits (f z) x‖) ν :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.norm_series_integrable_of_integral_norm
+      ν (fun z => onUnits (f z)) hInt (Eventually.of_forall hPoint) hAbs.2
+  have hExchange := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_tsum_of_norm_sum
+    ν (fun z => onUnits (f z)) (fun z => (hInt z).1)
+    (Eventually.of_forall hPoint) hNorm
+  have hConstInt : Integrable (onUnits c) ν := rf_forward_constant_integrable R r l hl
+  have hConstZero : (∫ x, onUnits c x ∂ν) = 0 :=
+    (rf_angular_cancellation R r l hl).1 false
+  let J : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → ℂ := fun z =>
+    ∫ x, onUnits (f z) x ∂ν
+  have hISum : Summable J := Summable.of_norm_bounded hAbs.2
+    (fun z => norm_integral_le_integral_norm (onUnits (f z)))
+  have hAverage : thetaAverage R r l = ∑' z, J z := by
+    change (∫ x, onUnits a x ∂ν) = ∑' z, J z
+    rw [hExpansion, integral_add hConstInt hExchange.1, hConstZero, zero_add]
+    exact hExchange.2
+  obtain ⟨C, hC, hUnfold⟩ := rf_forward_Agen_unfolding R 1 (by norm_num)
+  let g : (S.SqfExtIdeal × S.ExtIdeal) → Gamma S → S.FSˣ → ℂ := fun p γ y =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2) * y)
+  let k : (S.SqfExtIdeal × S.ExtIdeal) → ℂ := fun p =>
+    forwardCoeff R r p * (Lvalue R u (S.diagU (Agen R p.1 p.2)))⁻¹
+  let b : (S.SqfExtIdeal × S.ExtIdeal) → Gamma S → S.FSˣ → ℂ := fun p γ y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * g p γ y
+  have hF (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) (y : S.FSˣ) :
+      f (p, γ) y = k p * b p γ y := by
+    dsimp only [f, k, b, g, u]
+    rw [rf_forward_indexed_term R r p γ y, map_mul]
+    ring
+  have hJ (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) :
+      J (p, γ) = k p * omegaInt R l (b p γ) := by
+    have heq : onUnits (f (p, γ)) = fun x => k p * onUnits (b p γ) x := by
+      funext x
+      by_cases hx : IsUnit x
+      · simpa only [onUnits, dif_pos hx] using hF p γ hx.unit
+      · simp [onUnits, hx]
+    change (∫ x, onUnits (f (p, γ)) x ∂ν) = k p * omegaInt R l (b p γ)
+    rw [heq, integral_const_mul]
+    rfl
+  have hFiber (p : S.SqfExtIdeal × S.ExtIdeal) : Summable (fun γ => J (p, γ)) :=
+    ((hUnfold u p l hl).2.2.2.2.1.mul_left (k p)).congr
+      (fun γ => (hJ p γ).symm)
+  have hFiberEq (p : S.SqfExtIdeal × S.ExtIdeal) :
+      (∑' γ, J (p, γ)) = forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * l) := by
+    have hLne : Lvalue R u (S.diagU (Agen R p.1 p.2)) ≠ 0 :=
+      ((R.chars.L u).L (S.diagU (Agen R p.1 p.2))).ne_zero
+    calc
+      _ = ∑' γ, k p * omegaInt R l (b p γ) := tsum_congr (hJ p)
+      _ = k p * ∑' γ, omegaInt R l (b p γ) := tsum_mul_left
+      _ = k p * (Lvalue R u (S.diagU (Agen R p.1 p.2)) *
+          Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * l)) :=
+        congrArg (fun z : ℂ => k p * z) (hUnfold u p l hl).2.2.2.2.2
+      _ = _ := by
+        dsimp only [k]
+        rw [mul_assoc, ← mul_assoc
+          (Lvalue R u (S.diagU (Agen R p.1 p.2)))⁻¹,
+          inv_mul_cancel₀ hLne, one_mul]
+  calc
+    _ = ∑' z, J z := hAverage
+    _ = ∑' p, ∑' γ, J (p, γ) := hISum.tsum_prod' hFiber
+    _ = _ := tsum_congr hFiberEq
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
