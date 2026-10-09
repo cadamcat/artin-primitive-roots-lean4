@@ -2995,6 +2995,7 @@ private theorem ppPrimeMellinContour_zeroFree_rectangle
   · simpa [s] using hnonzero
   · simpa [s] using hlogderiv
 
+set_option maxHeartbeats 1200000 in
 private theorem ppPrimeSmoothedCutoff_uniform_bound
     (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
     (hzeta : ppPrimeZetaLogDerivBound) :
@@ -3012,7 +3013,795 @@ private theorem ppPrimeSmoothedCutoff_uniform_bound
                         (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N)
                           (Real.rpow L (-A - 4)))‖ ≤
                         K * Real.rpow L (-A - 2) := by
-  sorry
+  classical
+  intro τ η C A hτ hτη hη hC hA
+  obtain ⟨c, C₀, xZ, hc, hC₀, hxZ, hzero⟩ := hzeroFree C hC
+  obtain ⟨L₀, hL₀, hRightLine⟩ := ppPrimeRightLineLogDeriv_bound hzeta
+  obtain ⟨x₀, hx₀, hxZ₀, hGrowth⟩ :=
+    ppPrimeContourGrowth τ η A c L₀ xZ hτ hτη hη hA hc hL₀
+  let B₀ : ℝ := A + 10
+  let J : ℕ := ⌈2 * A + 12⌉₊
+  let M₀ : ℝ := ppPrimeMellinDecayConstant
+    ppPrimePositiveCutoffLogWeightConstant 0
+  let Mⱼ : ℝ := ppPrimeMellinDecayConstant
+    ppPrimePositiveCutoffLogWeightConstant J
+  let I₂ : ℝ := ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ)
+  let K : ℝ := 1 + 4 * Real.exp 1 * Mⱼ * I₂ +
+    2 * Real.exp 1 * C₀ * Mⱼ + 2 * C₀ * M₀
+  have htransition (j : ℕ) : 0 < ppPrimeSmoothTransitionConstant j :=
+    (Classical.choose_spec (ppPrimeSmoothTransition_deriv_bound j)).1
+  have hlogCutoffNonneg (j : ℕ) : 0 ≤ ppPrimeLogCutoffDerivativeConstant j := by
+    dsimp [ppPrimeLogCutoffDerivativeConstant]
+    apply Finset.sum_nonneg
+    intro i hi
+    exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) (htransition i).le)
+      (htransition (j - i)).le
+  have hweightNonneg (j : ℕ) :
+      0 ≤ ppPrimePositiveCutoffLogWeightConstant j := by
+    dsimp [ppPrimePositiveCutoffLogWeightConstant]
+    have hsum : 0 ≤ ∑ i ∈ Finset.range (j + 1),
+        (j.choose i : ℝ) * Real.exp 2 *
+          ppPrimeLogCutoffDerivativeConstant (j - i) := by
+      apply Finset.sum_nonneg
+      intro i hi
+      exact mul_nonneg (mul_nonneg (Nat.cast_nonneg _) (Real.exp_nonneg _))
+        (hlogCutoffNonneg (j - i))
+    positivity
+  have hMellinPositive (j : ℕ) :
+      0 < ppPrimeMellinDecayConstant ppPrimePositiveCutoffLogWeightConstant j := by
+    dsimp [ppPrimeMellinDecayConstant]
+    have hK₀ := hweightNonneg 0
+    have hKⱼ := hweightNonneg j
+    positivity
+  have hM₀ : 0 < M₀ := by dsimp [M₀]; exact hMellinPositive 0
+  have hMⱼ : 0 < Mⱼ := by dsimp [Mⱼ]; exact hMellinPositive J
+  have hI₂ : 0 ≤ I₂ := by
+    dsimp [I₂]
+    exact integral_nonneg (fun v => Real.rpow_nonneg (by positivity) _)
+  have hK : 0 < K := by
+    dsimp [K]
+    positivity
+  have hJceil : 2 * A + 12 ≤ (J : ℝ) := by
+    dsimp [J]
+    exact Nat.le_ceil _
+  have hTailExponent :
+      1 + (((J + 1 : ℕ) : ℝ) * (A + 5)) +
+          (A + 7) * (2 - (J : ℝ)) ≤ -A - 2 := by
+    have hEq : 1 + (((J + 1 : ℕ) : ℝ) * (A + 5)) +
+        (A + 7) * (2 - (J : ℝ)) = 3 * A + 20 - 2 * (J : ℝ) := by
+      push_cast
+      ring
+    rw [hEq]
+    nlinarith [hJceil]
+  have hHorizontalExponent :
+      (((J + 1 : ℕ) : ℝ) * (A + 5)) + 1 -
+          (A + 7) * (J : ℝ) ≤ -A - 2 := by
+    have hEq : (((J + 1 : ℕ) : ℝ) * (A + 5)) + 1 -
+        (A + 7) * (J : ℝ) = A + 6 - 2 * (J : ℝ) := by
+      push_cast
+      ring
+    rw [hEq]
+    nlinarith [hJceil, hA]
+  refine ⟨B₀, K, x₀, ?_, hK, hx₀, ?_⟩
+  · dsimp [B₀]
+    linarith
+  · intro x hx
+    dsimp only
+    intro N hNlo hNhi q hq hqsize χ t htlo hthi m u hm hmu hu
+    let L : ℝ := Real.log x
+    let T : ℝ := Real.log L
+    let H : ℝ := Real.rpow L (A + 7)
+    let width : ℝ := c * T ^ 2 / L
+    let a : ℝ := -width / 2
+    let b : ℝ := 1 / L
+    let δ : ℝ := Real.rpow L (-A - 4)
+    let g : ℝ → ℝ := ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N) δ
+    rcases hGrowth x hx with
+      ⟨hxZx, hL₀x, hL4x, hxτ8, hLog2, hLogPower, hHeightPower,
+        hLogSquare, hcRoot, hGaussian⟩
+    have hx2 : 2 < x := lt_of_lt_of_le hx₀ hx
+    have hxpos : 0 < x := by linarith
+    have hL4 : 4 ≤ L := by simpa [L] using hL4x
+    have hLone : 1 ≤ L := by linarith [hL4]
+    have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) hLone
+    have hTpos : 0 < T := Real.log_pos (by dsimp [T, L]; linarith)
+    have hTSquare : T ^ 2 ≤ Real.rpow L (1 / 2 : ℝ) := by
+      simpa [T, L] using hLogSquare
+    have hcRoot' : c ≤ Real.rpow L (1 / 2 : ℝ) := by
+      simpa [L] using hcRoot
+    have hRootMul : Real.rpow L (1 / 2 : ℝ) * Real.rpow L (1 / 2 : ℝ) = L := by
+      calc
+        _ = Real.rpow L ((1 / 2 : ℝ) + 1 / 2) :=
+          (Real.rpow_add hLpos (1 / 2 : ℝ) (1 / 2 : ℝ)).symm
+        _ = Real.rpow L 1 := by congr 1 <;> ring
+        _ = L := by simp
+    have hprod : c * T ^ 2 ≤ L := by
+      calc
+        c * T ^ 2 ≤ Real.rpow L (1 / 2 : ℝ) * T ^ 2 :=
+          mul_le_mul_of_nonneg_right hcRoot' (sq_nonneg T)
+        _ ≤ Real.rpow L (1 / 2 : ℝ) * Real.rpow L (1 / 2 : ℝ) :=
+          mul_le_mul_of_nonneg_left hTSquare
+            (Real.rpow_nonneg hLpos.le _)
+        _ = L := hRootMul
+    have hwidth : 0 ≤ width := by
+      dsimp [width]
+      positivity
+    have hwidthLe : width ≤ 1 := by
+      dsimp [width]
+      exact (div_le_one hLpos).2 hprod
+    have haLower : -1 / 2 ≤ a := by
+      dsimp [a]
+      linarith
+    have haNonpos : a ≤ 0 := by dsimp [a]; linarith
+    have hbpos : 0 < b := by dsimp [b]; positivity
+    have hbLe : b ≤ 1 / 4 := by
+      dsimp [b]
+      exact one_div_le_one_div_of_le (by norm_num : (0 : ℝ) < 4) hL4
+    have hab : a ≤ b := le_trans haNonpos hbpos.le
+    have hAlphaA : |a| ≤ 1 := by
+      apply (abs_le).2
+      constructor <;> linarith
+    have hHpos : 0 < H := by dsimp [H]; positivity
+    have hHone : 1 ≤ H := by
+      dsimp [H]
+      exact Real.one_le_rpow hLone (by linarith [hA])
+    have hExponentOne : 1 ≤ 3 * A + 15 := by linarith [hA]
+    have hLleHeightPow : L ≤ Real.rpow L (3 * A + 15) := by
+      calc
+        L = Real.rpow L 1 := by simp
+        _ ≤ Real.rpow L (3 * A + 15) :=
+          Real.rpow_le_rpow_of_exponent_le hLone hExponentOne
+    have hLHeight : Real.rpow L (A + 7) ≤ Real.rpow L (3 * A + 15) :=
+      Real.rpow_le_rpow_of_exponent_le hLone (by linarith [hA])
+    have hHleX : H ≤ x := by
+      dsimp [H]
+      exact hLHeight.trans hHeightPower
+    have hx4 : 4 ≤ x := hL4.trans (hLleHeightPow.trans hHeightPower)
+    have hL3 : 64 ≤ Real.rpow L 3 := by
+      have hbase : Real.rpow 4 3 ≤ Real.rpow L 3 :=
+        Real.rpow_le_rpow (by norm_num) hL4 (by norm_num)
+      have hbase' : 64 ≤ Real.rpow 4 3 := by norm_num
+      exact hbase'.trans hbase
+    have hHplus : H + 2 ≤ 64 * H := by
+      nlinarith only [hHone]
+    have hHoneLt : H + 2 ≤ H * Real.rpow L 3 := by
+      have hHnonneg : 0 ≤ H := le_trans (by norm_num) hHone
+      have hmul : H * 64 ≤ H * Real.rpow L 3 :=
+        mul_le_mul_of_nonneg_left hL3 hHnonneg
+      have hmul' : 64 * H ≤ H * Real.rpow L 3 := by
+        calc
+          64 * H = H * 64 := by ring
+          _ ≤ H * Real.rpow L 3 := hmul
+      exact hHplus.trans hmul'
+    have hHpow : Real.rpow L (A + 10) = H * Real.rpow L 3 := by
+      calc
+        Real.rpow L (A + 10) = Real.rpow L ((A + 7) + 3) := by congr 1 <;> ring
+        _ = Real.rpow L (A + 7) * Real.rpow L 3 := Real.rpow_add hLpos _ _
+        _ = H * Real.rpow L 3 := by simp [H]
+    have htloL : Real.rpow L (A + 10) ≤ |t| := by
+      simpa [L, B₀] using htlo
+    have htLower : H + 2 ≤ |t| := by
+      calc
+        H + 2 ≤ H * Real.rpow L 3 := hHoneLt
+        _ = Real.rpow L (A + 10) := hHpow.symm
+        _ ≤ |t| := htloL
+    have hτ4 : 4 ≤ Real.rpow x τ / 2 := by nlinarith only [hxτ8]
+    have hN4 : 4 ≤ N := hτ4.trans hNlo
+    have hNpos : 0 < N := by linarith
+    have hqpos : 0 < q := by omega
+    have hqsizeL : (q : ℝ) ≤ Real.rpow L C := by simpa [L] using hqsize
+    have hpowXpos : 0 < Real.rpow x τ := Real.rpow_pos_of_pos hxpos τ
+    have hNlogCmp := Real.log_le_log (by positivity : 0 < Real.rpow x τ / 2)
+      hNlo
+    rw [Real.log_div (ne_of_gt hpowXpos) (by norm_num : (2 : ℝ) ≠ 0)] at hNlogCmp
+    have hlogRpow : Real.log (Real.rpow x τ) = τ * Real.log x :=
+      Real.log_rpow hxpos τ
+    rw [hlogRpow] at hNlogCmp
+    have hLog2L : Real.log 2 ≤ τ * L / 2 := by simpa [L] using hLog2
+    have hNlogLow : τ * L / 2 ≤ Real.log N := by
+      dsimp [L] at hNlogCmp hLog2L
+      linarith
+    have hNlogCmpHi := Real.log_le_log hNpos hNhi
+    have hlogRpowEta : Real.log (Real.rpow x η) = η * Real.log x :=
+      Real.log_rpow hxpos η
+    rw [hlogRpowEta] at hNlogCmpHi
+    have hEtaL : η * L ≤ L := by
+      calc
+        η * L ≤ 1 * L := mul_le_mul_of_nonneg_right hη.le hLpos.le
+        _ = L := by ring
+    have hNlogHigh : Real.log N ≤ L := by
+      dsimp [L] at hNlogCmpHi hEtaL
+      linarith
+    have hNlogNonneg : 0 ≤ Real.log N := by
+      have : 0 < τ * L / 2 := by positivity
+      linarith [hNlogLow]
+    have hdelta : 0 < δ := by dsimp [δ]; exact Real.rpow_pos_of_pos hLpos _
+    have hdeltaSmall : δ ≤ 1 / 4 := by
+      dsimp [δ]
+      calc
+        Real.rpow L (-A - 4) ≤ Real.rpow L (-1 : ℝ) :=
+          Real.rpow_le_rpow_of_exponent_le hLone (by linarith [hA])
+        _ = 1 / L := by
+          calc
+            Real.rpow L (-1 : ℝ) = Real.exp (Real.log L * (-1)) :=
+              Real.rpow_def_of_pos hLpos (-1)
+            _ = Real.exp (-(Real.log L)) := by congr 1 <;> ring
+            _ = (Real.exp (Real.log L))⁻¹ := by rw [Real.exp_neg]
+            _ = L⁻¹ := by rw [Real.exp_log hLpos]
+            _ = 1 / L := by simp [one_div]
+        _ ≤ 1 / 4 := one_div_le_one_div_of_le (by norm_num : (0 : ℝ) < 4) hL4
+    let aCut : ℝ := (m : ℝ) / N
+    let bCut : ℝ := (u : ℝ) / N
+    have haCut : 1 ≤ aCut := by
+      dsimp [aCut]
+      exact (le_div_iff₀ hNpos).2 (by simpa using hm)
+    have hmuR : (m : ℝ) ≤ (u : ℝ) := by exact_mod_cast hmu
+    have habCut : aCut ≤ bCut := by
+      dsimp [aCut, bCut]
+      exact div_le_div_of_nonneg_right hmuR hNpos.le
+    have hbCut : bCut ≤ 2 := by
+      dsimp [bCut]
+      exact (div_le_iff₀ hNpos).2 hu
+    obtain ⟨hfc, hgsupport, hKernelAnalytic⟩ :=
+      ppPrimePositiveCutoff_mellinKernel_data aCut bCut δ
+        haCut habCut hbCut hdelta hdeltaSmall
+    let M₂ : ℝ := ppPrimeMellinDecayConstant
+      ppPrimePositiveCutoffLogWeightConstant 2
+    have hAlphaB : |b| ≤ 1 := by
+      rw [abs_of_pos hbpos]
+      exact hbLe.trans (by norm_num)
+    have hKernelBound : ∀ v : ℝ,
+        ‖mellinKernel g (⟨b, v⟩ : ℂ)‖ ≤
+          M₂ * Real.rpow L (3 * (A + 5)) *
+            Real.rpow (1 + |v|) (-2 : ℝ) := by
+      intro v
+      have h := ppPrimePositiveCutoff_mellinKernel_uniform_decay
+        aCut bCut L A haCut habCut hbCut hLone hA hdeltaSmall 2 b v hAlphaB
+      simpa [M₂, g, aCut, bCut, δ, b] using h
+    have hKernelInt : Integrable
+        (fun v : ℝ => mellinKernel g (⟨b, v⟩ : ℂ)) :=
+      ppPrime_mellinKernel_integrable_of_rpow_two hKernelAnalytic hKernelBound
+    have hlogSmooth : ∀ α,
+        ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+          (mellinLogWeight g α) := by
+      intro α
+      exact ppPrimePositiveCutoff_logWeight_contDiff aCut bCut δ α
+    have hginv : ∀ w : ℝ, 0 < w →
+        (g w : ℂ) = (1 / (2 * Real.pi) : ℂ) *
+          ∫ v : ℝ, mellinKernel g (⟨b, v⟩ : ℂ) *
+            Complex.exp (-((⟨b, v⟩ : ℂ) * Real.log w)) := by
+      intro w hw
+      exact mellinKernel_inversion g hlogSmooth hgsupport b w hw
+    have hzeroX := hzero x hxZx
+    dsimp only at hzeroX
+    have hzeroQ := hzeroX q hq hqsizeL hqpos χ
+    have hheight : ∀ v ∈ Set.Icc (-H) H,
+        2 ≤ |v - t| ∧ |v - t| ≤ Real.rpow x 3 / 2 := by
+      intro v hv
+      have hvAbs : |v| ≤ H := (abs_le).2 ⟨by linarith [hv.1], hv.2⟩
+      have htriLower : |t| ≤ |v - t| + |v| := by
+        calc
+          |t| = |(t - v) + v| := by congr 1 <;> ring
+          _ ≤ |t - v| + |v| := abs_add_le _ _
+          _ = |v - t| + |v| := by rw [abs_sub_comm]
+      have hlow : 2 ≤ |v - t| := by linarith [htriLower, hvAbs, htLower]
+      have hthi' : |t| ≤ x ^ 2 := by
+        rw [← Real.rpow_two x]
+        exact hthi
+      have htriUpper : |v - t| ≤ |v| + |t| := by
+        calc
+          |v - t| = |v + (-t)| := by congr 1 <;> ring
+          _ ≤ |v| + |-t| := abs_add_le _ _
+          _ = |v| + |t| := by rw [abs_neg]
+      have hxleSq : x ≤ x ^ 2 := by nlinarith only [hx4]
+      have hprodSq : 4 * x ^ 2 ≤ x ^ 3 := by
+        have h := mul_nonneg (sq_nonneg x) (sub_nonneg.mpr hx4)
+        nlinarith only [h]
+      have hxCube : x ^ 2 + x ≤ x ^ 3 / 2 := by
+        nlinarith only [hxleSq, hprodSq]
+      have hxRpow3 : Real.rpow x (3 : ℝ) = x ^ 3 := Real.rpow_natCast x 3
+      constructor
+      · exact hlow
+      · calc
+          |v - t| ≤ |v| + |t| := htriUpper
+          _ ≤ H + x ^ 2 := add_le_add hvAbs hthi'
+          _ ≤ x + x ^ 2 := add_le_add hHleX (le_refl _)
+          _ = x ^ 2 + x := by ring
+          _ ≤ x ^ 3 / 2 := hxCube
+          _ = Real.rpow x 3 / 2 := by rw [← hxRpow3]
+    have hZeroFree₀ : ∀ s : ℂ, 1 - width ≤ s.re → 1 ≤ |s.im| →
+        |s.im| ≤ Real.rpow x 3 → dirichletLValue q hqpos χ s ≠ 0 := by
+      intro s hs1 hs2 hs3
+      simpa [width, T, L] using hzeroQ.1 s hs1 hs2 hs3
+    have hZeroFree₁ : ∀ s : ℂ, 1 - width / 2 ≤ s.re → s.re ≤ 1 + 1 / L →
+        2 ≤ |s.im| → |s.im| ≤ Real.rpow x 3 / 2 →
+          ‖deriv (dirichletLValue q hqpos χ) s /
+            dirichletLValue q hqpos χ s‖ ≤ C₀ * L := by
+      intro s hs1 hs2 hs3 hs4
+      simpa [width, T, L] using hzeroQ.2 s hs1 hs2 hs3 hs4
+    have hRectZero := ppPrimeMellinContour_zeroFree_rectangle
+      q hqpos χ C₀ hZeroFree₀ hZeroFree₁ (by rfl) (by rfl) hwidth
+      (by linarith [hx2]) hheight
+    have hExpHoriz : ∀ u : ℝ, u ∈ Set.Icc a b → ∀ v : ℝ,
+        ‖Complex.exp ((⟨u, v⟩ : ℂ) * (Real.log N : ℂ))‖ ≤ Real.exp 1 := by
+      intro u hu v
+      have hnorm : ‖Complex.exp ((⟨u, v⟩ : ℂ) * (Real.log N : ℂ))‖ =
+          Real.exp (u * Real.log N) := by
+        rw [Complex.norm_exp]
+        simp
+      have huUpper : u ≤ 1 / L := by simpa [b] using hu.2
+      have hlogArg : u * Real.log N ≤ 1 := by
+        calc
+          u * Real.log N ≤ (1 / L) * Real.log N :=
+            mul_le_mul_of_nonneg_right huUpper hNlogNonneg
+          _ ≤ 1 := by
+            have hDiv : Real.log N / L ≤ 1 := by
+              apply (div_le_iff₀ hLpos).2
+              simpa using hNlogHigh
+            simpa [div_eq_mul_inv, mul_comm] using hDiv
+      rw [hnorm]
+      exact Real.exp_le_exp.mpr hlogArg
+    have hRightFactorBound : ∀ v : ℝ,
+        ‖Complex.exp ((⟨b, v⟩ : ℂ) * (Real.log N : ℂ)) *
+          (deriv (dirichletLValue q hqpos χ)
+              (1 - Complex.I * (t : ℂ) + (⟨b, v⟩ : ℂ)) /
+            dirichletLValue q hqpos χ
+              (1 - Complex.I * (t : ℂ) + (⟨b, v⟩ : ℂ)))‖ ≤
+          Real.exp 1 * (2 * L) := by
+      intro v
+      have hExp := hExpHoriz b ⟨hab, le_rfl⟩ v
+      have hLogDeriv := hRightLine L (by simpa [L] using hL₀x)
+        q hqpos χ t v
+      have hLogDeriv' :
+          ‖deriv (dirichletLValue q hqpos χ)
+              (1 - Complex.I * (t : ℂ) + (⟨b, v⟩ : ℂ)) /
+            dirichletLValue q hqpos χ
+              (1 - Complex.I * (t : ℂ) + (⟨b, v⟩ : ℂ))‖ ≤ 2 * L := by
+        simpa [b] using hLogDeriv
+      calc
+        _ = ‖Complex.exp ((⟨b, v⟩ : ℂ) * (Real.log N : ℂ))‖ *
+            ‖deriv (dirichletLValue q hqpos χ)
+                (1 - Complex.I * (t : ℂ) + (⟨b, v⟩ : ℂ)) /
+              dirichletLValue q hqpos χ
+                (1 - Complex.I * (t : ℂ) + (⟨b, v⟩ : ℂ))‖ := by rw [norm_mul]
+        _ ≤ Real.exp 1 * (2 * L) :=
+          mul_le_mul hExp hLogDeriv' (norm_nonneg _) (Real.exp_nonneg _)
+    let F : ℂ → ℂ := ppPrimeMellinContourIntegrand N q hqpos χ t g
+    let Fright : ℝ → ℂ := fun v => F (⟨b, v⟩ : ℂ)
+    have hFrightInt : Integrable Fright := by
+      simpa [Fright, F] using
+        ppPrimeMellinContour_rightLine_integrable hNpos q hqpos χ t b hbpos g
+          hKernelInt ⟨Real.exp 1 * (2 * L), by positivity, hRightFactorBound⟩
+    have hLogSquareL : (Real.log L) ^ 2 ≤ Real.rpow L (1 / 2 : ℝ) := by
+      simpa [L] using hLogSquare
+    have hcRootL : c ≤ Real.rpow L (1 / 2 : ℝ) := by simpa [L] using hcRoot
+    have hGaussianL : Real.exp (-(c * τ / 4) * (Real.log L) ^ 2 +
+          ((3 * A + 15) + (A + 6)) * Real.log L) ≤
+        Real.exp (-(A + 3) * Real.log L) := by simpa [L] using hGaussian
+    have hExpLeft : ∀ v : ℝ,
+        ‖Complex.exp ((⟨a, v⟩ : ℂ) * (Real.log N : ℂ))‖ ≤
+          Real.exp (-(c * τ / 4) * T ^ 2) := by
+      intro v
+      have hnorm : ‖Complex.exp ((⟨a, v⟩ : ℂ) * (Real.log N : ℂ))‖ =
+          Real.exp (a * Real.log N) := by
+        rw [Complex.norm_exp]
+        simp
+      have harg : a * Real.log N ≤ -(c * τ / 4) * T ^ 2 := by
+        have hmul := mul_le_mul_of_nonpos_left hNlogLow haNonpos
+        calc
+          a * Real.log N ≤ a * (τ * L / 2) := hmul
+          _ = -(c * τ / 4) * T ^ 2 := by
+            dsimp [a, width]
+            field_simp [ne_of_gt hLpos]
+            ring
+      rw [hnorm]
+      exact Real.exp_le_exp.mpr harg
+    let Mdecay : ℕ → ℝ := fun j =>
+      ppPrimeMellinDecayConstant ppPrimePositiveCutoffLogWeightConstant j
+    have hMellinBound : ∀ j : ℕ, ∀ α v : ℝ, |α| ≤ 1 →
+        ‖mellinKernel g (⟨α, v⟩ : ℂ)‖ ≤
+          Mdecay j * Real.rpow L (((j + 1 : ℕ) : ℝ) * (A + 5)) *
+            Real.rpow (1 + |v|) (-(j : ℝ)) := by
+      intro j α v hα
+      have h := ppPrimePositiveCutoff_mellinKernel_uniform_decay
+        aCut bCut L A haCut habCut hbCut hLone hA hdeltaSmall j α v hα
+      simpa [Mdecay, g, aCut, bCut, δ] using h
+    have hAlphaU : ∀ u : ℝ, u ∈ Set.Icc a b → |u| ≤ 1 := by
+      intro u hu
+      apply (abs_le).2
+      constructor <;> linarith [haLower, hbLe, hu.1, hu.2]
+    have hKernelLeft : ∀ v : ℝ,
+        ‖mellinKernel g (⟨a, v⟩ : ℂ)‖ ≤ M₀ * Real.rpow L (A + 5) := by
+      intro v
+      have h := hMellinBound 0 a v hAlphaA
+      simpa [M₀, Mdecay, Real.rpow_zero] using h
+    have hJreal : 2 ≤ (J : ℝ) := by
+      have hbase : 2 ≤ 2 * A + 12 := by linarith [hA]
+      linarith [hJceil]
+    let E : ℝ := ((J + 1 : ℕ) : ℝ) * (A + 5)
+    let Khor : ℝ := Mⱼ * Real.rpow L (A + 5 - 2 * (J : ℝ))
+    have hHpowJ : Real.rpow H (-(J : ℝ)) =
+        Real.rpow L ((A + 7) * (-(J : ℝ))) := by
+      dsimp [H]
+      exact (Real.rpow_mul hLpos.le (A + 7) (-(J : ℝ))).symm
+    have hHorizExponent : E + (A + 7) * (-(J : ℝ)) =
+        A + 5 - 2 * (J : ℝ) := by
+      dsimp [E]
+      push_cast
+      ring
+    have hKhor : 0 ≤ Khor := by
+      dsimp [Khor]
+      positivity
+    have hKernelAtHeight : ∀ u v : ℝ, u ∈ Set.Icc a b → |v| = H →
+        ‖mellinKernel g (⟨u, v⟩ : ℂ)‖ ≤ Khor := by
+      intro u v hu hvabs
+      have h := hMellinBound J u v (hAlphaU u hu)
+      have hdecay : Real.rpow (1 + H) (-(J : ℝ)) ≤
+          Real.rpow H (-(J : ℝ)) :=
+        Real.rpow_le_rpow_of_nonpos hHpos (by linarith) (by linarith [hJreal])
+      calc
+        ‖mellinKernel g (⟨u, v⟩ : ℂ)‖ ≤
+            Mⱼ * Real.rpow L E * Real.rpow (1 + H) (-(J : ℝ)) := by
+              simpa [Mdecay, E, hvabs] using h
+        _ ≤ Mⱼ * Real.rpow L E * Real.rpow H (-(J : ℝ)) :=
+          mul_le_mul_of_nonneg_left hdecay
+            (mul_nonneg hMⱼ.le (Real.rpow_nonneg hLpos.le _))
+        _ = Mⱼ * Real.rpow L (E + (A + 7) * (-(J : ℝ))) := by
+          rw [hHpowJ]
+          calc
+            Mⱼ * Real.rpow L E * Real.rpow L ((A + 7) * (-(J : ℝ))) =
+                Mⱼ * (Real.rpow L E *
+                  Real.rpow L ((A + 7) * (-(J : ℝ)))) := by ring
+            _ = Mⱼ * Real.rpow L (E + (A + 7) * (-(J : ℝ))) := by
+              congr 1
+              exact (Real.rpow_add hLpos E ((A + 7) * (-(J : ℝ)))).symm
+        _ = Khor := by rw [hHorizExponent]
+    let Kleft : ℝ := M₀ * Real.rpow L (A + 5)
+    let Eleft : ℝ := Real.exp (-(c * τ / 4) * T ^ 2)
+    let Dbound : ℝ := C₀ * L
+    let Mleft : ℝ := Kleft * Eleft * Dbound
+    let Mhor : ℝ := Khor * Real.exp 1 * Dbound
+    have hKleft : 0 ≤ Kleft := by dsimp [Kleft]; positivity
+    have hEleft : 0 ≤ Eleft := by dsimp [Eleft]; positivity
+    have hDbound : 0 ≤ Dbound := by dsimp [Dbound]; positivity
+    have hMleft : 0 ≤ Mleft := by dsimp [Mleft]; positivity
+    have hMhor : 0 ≤ Mhor := by dsimp [Mhor]; positivity
+    have hFanalytic : AnalyticOnNhd ℂ F (Set.Icc a b ×ℂ Set.Icc (-H) H) := by
+      have h := ppPrimeMellinContourIntegrand_analyticOnNhd N q hqpos χ t g
+        hKernelAnalytic
+        (S := Set.Icc a b ×ℂ Set.Icc (-H) H)
+        (by intro z hz; exact (hRectZero z hz).1)
+        (by intro z hz; exact (hRectZero z hz).2.1)
+      simpa [F] using h
+    have hpair (u v : ℝ) : (⟨u, v⟩ : ℂ) = (u : ℂ) + (v : ℂ) * Complex.I := by
+      apply Complex.ext <;> simp
+    have hleft : ∀ v ∈ Set.Icc (-H) H,
+        ‖F (a + v * Complex.I)‖ ≤ Mleft := by
+      intro v hv
+      let z : ℂ := ⟨a, v⟩
+      have hz : z ∈ Set.Icc a b ×ℂ Set.Icc (-H) H := by
+        apply Complex.mem_reProdIm.mpr
+        exact ⟨⟨by simp [z], by simpa [z] using hab⟩, hv⟩
+      have hpoint := ppPrimeMellinContourIntegrand_norm_bound
+        N q hqpos χ t g z Kleft Eleft Dbound hKleft hEleft
+        (by simpa [z, Kleft] using hKernelLeft v)
+        (by simpa [z, Eleft] using hExpLeft v)
+        (hRectZero z hz).2.2
+      have hzEq : (a : ℂ) + (v : ℂ) * Complex.I = z := by
+        dsimp [z]
+        exact (hpair a v).symm
+      calc
+        ‖F (a + v * Complex.I)‖ = ‖F z‖ := by rw [hzEq]
+        _ ≤ Kleft * Eleft * Dbound := hpoint
+        _ = Mleft := rfl
+    have hbottom : ∀ u ∈ Set.Icc a b,
+        ‖F ((u : ℂ) + ((-H : ℝ) : ℂ) * Complex.I)‖ ≤ Mhor := by
+      intro u hu
+      let z : ℂ := ⟨u, -H⟩
+      have hz : z ∈ Set.Icc a b ×ℂ Set.Icc (-H) H := by
+        apply Complex.mem_reProdIm.mpr
+        exact ⟨hu, by simp [z, hHpos.le]⟩
+      have hzabs : |(-H : ℝ)| = H := by rw [abs_of_nonpos (by linarith [hHpos])]; ring
+      have hpoint := ppPrimeMellinContourIntegrand_norm_bound
+        N q hqpos χ t g z Khor (Real.exp 1) Dbound hKhor
+        (Real.exp_nonneg _) (hKernelAtHeight u (-H) hu hzabs)
+        (by simpa [z] using hExpHoriz u hu (-H)) (hRectZero z hz).2.2
+      have hzEq : (u : ℂ) + ((-H : ℝ) : ℂ) * Complex.I = z := by
+        dsimp [z]
+        simpa using (hpair u (-H)).symm
+      calc
+        ‖F ((u : ℂ) + ((-H : ℝ) : ℂ) * Complex.I)‖ = ‖F z‖ := by rw [hzEq]
+        _ ≤ Khor * Real.exp 1 * Dbound := hpoint
+        _ = Mhor := rfl
+    have htop : ∀ u ∈ Set.Icc a b,
+        ‖F (u + H * Complex.I)‖ ≤ Mhor := by
+      intro u hu
+      let z : ℂ := ⟨u, H⟩
+      have hz : z ∈ Set.Icc a b ×ℂ Set.Icc (-H) H := by
+        apply Complex.mem_reProdIm.mpr
+        exact ⟨hu, by simp [z, hHpos.le]⟩
+      have hzabs : |(H : ℝ)| = H := abs_of_nonneg hHpos.le
+      have hpoint := ppPrimeMellinContourIntegrand_norm_bound
+        N q hqpos χ t g z Khor (Real.exp 1) Dbound hKhor
+        (Real.exp_nonneg _) (hKernelAtHeight u H hu hzabs)
+        (by simpa [z] using hExpHoriz u hu H) (hRectZero z hz).2.2
+      have hzEq : (u : ℂ) + (H : ℂ) * Complex.I = z := by
+        dsimp [z]
+        exact (hpair u H).symm
+      calc
+        ‖F (u + H * Complex.I)‖ = ‖F z‖ := by rw [hzEq]
+        _ ≤ Khor * Real.exp 1 * Dbound := hpoint
+        _ = Mhor := rfl
+    have hSegNorm := ppPrimeMellinContourRectangle_norm_bound hab
+      (by linarith [hHpos]) hFanalytic hleft hbottom htop
+    have hba : b - a ≤ 1 := by
+      dsimp [a, b]
+      linarith [hbLe, hwidthLe]
+    have hRectEdgeBound :
+        ‖∫ v : ℝ in (-H)..H, F (b + v * Complex.I)‖ ≤
+          2 * H * Mleft + 2 * Mhor := by
+      have hheightWidth : H - (-H) = 2 * H := by ring
+      calc
+        _ ≤ Mleft * (H - (-H)) + (Mhor + Mhor) * (b - a) := hSegNorm
+        _ = Mleft * (2 * H) + (Mhor + Mhor) * (b - a) := by rw [hheightWidth]
+        _ ≤ Mleft * (2 * H) + (Mhor + Mhor) * 1 :=
+          add_le_add le_rfl
+            (mul_le_mul_of_nonneg_left hba (add_nonneg hMhor hMhor))
+        _ = 2 * H * Mleft + 2 * Mhor := by ring
+    let Mtail : ℝ := 2 * Real.exp 1 * Mⱼ * Real.rpow L (E + 1)
+    have hMtail : 0 ≤ Mtail := by dsimp [Mtail]; positivity
+    have hLpowAdd (r : ℝ) :
+        Real.rpow L r * L = Real.rpow L (r + 1) := by
+      calc
+        Real.rpow L r * L = Real.rpow L r * Real.rpow L 1 :=
+          congrArg (fun y : ℝ => Real.rpow L r * y) (Real.rpow_one L).symm
+        _ = Real.rpow L (r + 1) := (Real.rpow_add hLpos r 1).symm
+    have hFrightDecay : ∀ v : ℝ,
+        ‖Fright v‖ ≤ Mtail * Real.rpow (1 + |v|) (-(J : ℝ)) := by
+      intro v
+      have hKernelRight :
+          ‖mellinKernel g (⟨b, v⟩ : ℂ)‖ ≤
+            Mⱼ * Real.rpow L E * Real.rpow (1 + |v|) (-(J : ℝ)) := by
+        simpa [Mⱼ, Mdecay, E] using hMellinBound J b v hAlphaB
+      calc
+        ‖Fright v‖ =
+            ‖mellinKernel g (⟨b, v⟩ : ℂ)‖ *
+              ‖Complex.exp ((⟨b, v⟩ : ℂ) * (Real.log N : ℂ)) *
+                (deriv (dirichletLValue q hqpos χ)
+                    (1 - Complex.I * (t : ℂ) + (⟨b, v⟩ : ℂ)) /
+                  dirichletLValue q hqpos χ
+                    (1 - Complex.I * (t : ℂ) + (⟨b, v⟩ : ℂ)))‖ := by
+          simp [Fright, F, ppPrimeMellinContourIntegrand, norm_mul, mul_assoc]
+        _ ≤ (Mⱼ * Real.rpow L E *
+              Real.rpow (1 + |v|) (-(J : ℝ))) *
+              (Real.exp 1 * (2 * L)) :=
+          mul_le_mul hKernelRight (hRightFactorBound v)
+            (norm_nonneg _)
+            (mul_nonneg (mul_nonneg hMⱼ.le (Real.rpow_nonneg hLpos.le _))
+              (Real.rpow_nonneg (by positivity) _))
+        _ = Mtail * Real.rpow (1 + |v|) (-(J : ℝ)) := by
+          dsimp [Mtail]
+          calc
+            (Mⱼ * Real.rpow L E * Real.rpow (1 + |v|) (-(J : ℝ))) *
+                (Real.exp 1 * (2 * L)) =
+                (2 * Real.exp 1 * Mⱼ) *
+                  (Real.rpow L E * L) * Real.rpow (1 + |v|) (-(J : ℝ)) := by ring
+            _ = Mtail * Real.rpow (1 + |v|) (-(J : ℝ)) := by
+              dsimp [Mtail]
+              exact congrArg (fun y : ℝ =>
+                (2 * Real.exp 1 * Mⱼ) * y * Real.rpow (1 + |v|) (-(J : ℝ)))
+                  (hLpowAdd E)
+    have hTail := ppPrimeIntegral_truncate_rpow_bound hMtail hHone hJreal
+      hFrightInt hFrightDecay
+    have hTailPower : Real.rpow H (2 - (J : ℝ)) =
+        Real.rpow L ((A + 7) * (2 - (J : ℝ))) := by
+      dsimp [H]
+      exact (Real.rpow_mul hLpos.le (A + 7) (2 - (J : ℝ))).symm
+    have hTailExponent' : E + 1 + (A + 7) * (2 - (J : ℝ)) ≤ -A - 2 := by
+      dsimp [E]
+      linarith [hTailExponent]
+    have hTailPowerProduct :
+        Real.rpow L (E + 1) *
+          Real.rpow L ((A + 7) * (2 - (J : ℝ))) ≤
+            Real.rpow L (-A - 2) := by
+      calc
+        Real.rpow L (E + 1) *
+            Real.rpow L ((A + 7) * (2 - (J : ℝ))) =
+            Real.rpow L (E + 1 + (A + 7) * (2 - (J : ℝ))) :=
+          (Real.rpow_add hLpos (E + 1) ((A + 7) * (2 - (J : ℝ)))).symm
+        _ ≤ Real.rpow L (-A - 2) :=
+          Real.rpow_le_rpow_of_exponent_le hLone hTailExponent'
+    have hTailBound :
+        ‖(∫ v : ℝ, Fright v) - ∫ v : ℝ in (-H)..H, Fright v‖ ≤
+          (4 * Real.exp 1 * Mⱼ * I₂) * Real.rpow L (-A - 2) := by
+      calc
+        _ ≤ 2 * (Mtail * Real.rpow H (2 - (J : ℝ))) * I₂ := hTail
+        _ = (4 * Real.exp 1 * Mⱼ * I₂) *
+              (Real.rpow L (E + 1) *
+                Real.rpow L ((A + 7) * (2 - (J : ℝ)))) := by
+          rw [hTailPower]
+          dsimp [Mtail]
+          ring
+        _ ≤ (4 * Real.exp 1 * Mⱼ * I₂) * Real.rpow L (-A - 2) :=
+          mul_le_mul_of_nonneg_left hTailPowerProduct (by positivity)
+    have hrightSegment :
+        (∫ v : ℝ in (-H)..H, Fright v) =
+          ∫ v : ℝ in (-H)..H, F (b + v * Complex.I) := by
+      apply intervalIntegral.integral_congr
+      intro v hv
+      dsimp [Fright]
+      exact congrArg F (hpair b v)
+    have hfiniteRight :
+        ‖∫ v : ℝ in (-H)..H, Fright v‖ ≤ 2 * H * Mleft + 2 * Mhor := by
+      rw [hrightSegment]
+      exact hRectEdgeBound
+    have hfullDecomp :
+        (∫ v : ℝ, Fright v) =
+          ((∫ v : ℝ, Fright v) - ∫ v : ℝ in (-H)..H, Fright v) +
+            ∫ v : ℝ in (-H)..H, Fright v := by ring
+    let pGauss : ℝ := (3 * A + 15) + (A + 6)
+    let pLeft : ℝ := (A + 7) + (A + 5) + 1
+    have hGaussianPower :
+        Eleft * Real.rpow L pGauss ≤ Real.rpow L (-A - 3) := by
+      calc
+        Eleft * Real.rpow L pGauss =
+            Real.exp (-(c * τ / 4) * T ^ 2 + pGauss * Real.log L) := by
+          dsimp [Eleft]
+          rw [Real.rpow_def_of_pos hLpos pGauss, ← Real.exp_add]
+          congr 1 <;> simp [T] <;> ring
+        _ ≤ Real.exp (-(A + 3) * Real.log L) := by
+          simpa [T, pGauss] using hGaussianL
+        _ = Real.rpow L (-A - 3) := by
+          calc
+            Real.exp (-(A + 3) * Real.log L) =
+                Real.exp (Real.log L * (-A - 3)) := by congr 1 <;> ring
+            _ = Real.rpow L (-A - 3) :=
+              (Real.rpow_def_of_pos hLpos (-A - 3)).symm
+    have hpLeftLe : pLeft ≤ pGauss := by
+      dsimp [pLeft, pGauss]
+      linarith [hA]
+    have hLeftPower :
+        Eleft * Real.rpow L pLeft ≤ Real.rpow L (-A - 2) := by
+      have hCompare := Real.rpow_le_rpow_of_exponent_le hLone hpLeftLe
+      have hEleft0 : 0 ≤ Eleft := by dsimp [Eleft]; positivity
+      have hWeak : Real.rpow L (-A - 3) ≤ Real.rpow L (-A - 2) :=
+        Real.rpow_le_rpow_of_exponent_le hLone (by linarith)
+      calc
+        Eleft * Real.rpow L pLeft ≤ Eleft * Real.rpow L pGauss :=
+          mul_le_mul_of_nonneg_left hCompare hEleft0
+        _ ≤ Real.rpow L (-A - 3) := hGaussianPower
+        _ ≤ Real.rpow L (-A - 2) := hWeak
+    have hLpowA5 : Real.rpow L (A + 5) * L = Real.rpow L (A + 6) := by
+      calc
+        _ = Real.rpow L ((A + 5) + 1) := hLpowAdd (A + 5)
+        _ = _ := by congr 1 <;> ring
+    have hLpowLeft :
+        Real.rpow L (A + 7) * (Real.rpow L (A + 5) * L) =
+          Real.rpow L pLeft := by
+      rw [hLpowA5]
+      calc
+        _ = Real.rpow L ((A + 7) + (A + 6)) :=
+          (Real.rpow_add hLpos (A + 7) (A + 6)).symm
+        _ = _ := by congr 1 <;> dsimp [pLeft] <;> ring
+    have hLeftExact : 2 * H * Mleft =
+        (2 * C₀ * M₀) * (Eleft * Real.rpow L pLeft) := by
+      calc
+        2 * H * Mleft =
+            2 * Real.rpow L (A + 7) *
+              (M₀ * Real.rpow L (A + 5) * Eleft * (C₀ * L)) := by
+          dsimp [H, Mleft, Kleft, Dbound]
+        _ = (2 * C₀ * M₀) *
+              (Eleft * (Real.rpow L (A + 7) *
+                (Real.rpow L (A + 5) * L))) := by ring
+        _ = (2 * C₀ * M₀) * (Eleft * Real.rpow L pLeft) := by rw [hLpowLeft]
+    have hLeftBound :
+        2 * H * Mleft ≤ (2 * C₀ * M₀) * Real.rpow L (-A - 2) := by
+      rw [hLeftExact]
+      exact mul_le_mul_of_nonneg_left hLeftPower (by positivity)
+    have hHorExponentEq : E + 1 - (A + 7) * (J : ℝ) =
+        A + 6 - 2 * (J : ℝ) := by
+      dsimp [E]
+      push_cast
+      ring
+    have hHorPower :
+        Real.rpow L (A + 5 - 2 * (J : ℝ)) * L =
+          Real.rpow L (A + 6 - 2 * (J : ℝ)) := by
+      calc
+        _ = Real.rpow L ((A + 5 - 2 * (J : ℝ)) + 1) :=
+          hLpowAdd (A + 5 - 2 * (J : ℝ))
+        _ = _ := by congr 1 <;> ring
+    have hMhorExact : Mhor =
+        (Real.exp 1 * C₀ * Mⱼ) *
+          Real.rpow L (E + 1 - (A + 7) * (J : ℝ)) := by
+      calc
+        Mhor = (Mⱼ * Real.rpow L (A + 5 - 2 * (J : ℝ))) *
+            Real.exp 1 * (C₀ * L) := by dsimp [Mhor, Khor, Dbound]
+        _ = (Real.exp 1 * C₀ * Mⱼ) *
+              (Real.rpow L (A + 5 - 2 * (J : ℝ)) * L) := by ring
+        _ = (Real.exp 1 * C₀ * Mⱼ) *
+              Real.rpow L (A + 6 - 2 * (J : ℝ)) := by rw [hHorPower]
+        _ = _ := by rw [← hHorExponentEq]
+    have hHorPowerLe :
+        Real.rpow L (E + 1 - (A + 7) * (J : ℝ)) ≤
+          Real.rpow L (-A - 2) :=
+      Real.rpow_le_rpow_of_exponent_le hLone hHorizontalExponent
+    have hHorBound :
+        2 * Mhor ≤ (2 * Real.exp 1 * C₀ * Mⱼ) * Real.rpow L (-A - 2) := by
+      rw [hMhorExact]
+      calc
+        2 * (Real.exp 1 * C₀ * Mⱼ *
+            Real.rpow L (E + 1 - (A + 7) * (J : ℝ))) =
+            (2 * Real.exp 1 * C₀ * Mⱼ) *
+              Real.rpow L (E + 1 - (A + 7) * (J : ℝ)) := by ring
+        _ ≤ (2 * Real.exp 1 * C₀ * Mⱼ) * Real.rpow L (-A - 2) :=
+          mul_le_mul_of_nonneg_left hHorPowerLe
+            (show 0 ≤ 2 * Real.exp 1 * C₀ * Mⱼ by positivity)
+    have hContourBound : ‖∫ v : ℝ, Fright v‖ ≤ K * Real.rpow L (-A - 2) := by
+      calc
+        _ = ‖((∫ v : ℝ, Fright v) -
+                ∫ v : ℝ in (-H)..H, Fright v) +
+              ∫ v : ℝ in (-H)..H, Fright v‖ := congrArg norm hfullDecomp
+        _ ≤ ‖(∫ v : ℝ, Fright v) -
+                ∫ v : ℝ in (-H)..H, Fright v‖ +
+              ‖∫ v : ℝ in (-H)..H, Fright v‖ := norm_add_le _ _
+        _ ≤ (4 * Real.exp 1 * Mⱼ * I₂) * Real.rpow L (-A - 2) +
+              (2 * H * Mleft + 2 * Mhor) :=
+          add_le_add hTailBound hfiniteRight
+        _ ≤ (4 * Real.exp 1 * Mⱼ * I₂) * Real.rpow L (-A - 2) +
+              ((2 * C₀ * M₀) * Real.rpow L (-A - 2) +
+                (2 * Real.exp 1 * C₀ * Mⱼ) * Real.rpow L (-A - 2)) := by
+          exact add_le_add le_rfl (add_le_add hLeftBound hHorBound)
+        _ ≤ K * Real.rpow L (-A - 2) := by
+          dsimp [K]
+          have hpow : 0 ≤ Real.rpow L (-A - 2) := Real.rpow_nonneg hLpos.le _
+          calc
+            (4 * Real.exp 1 * Mⱼ * I₂) * Real.rpow L (-A - 2) +
+                ((2 * C₀ * M₀) * Real.rpow L (-A - 2) +
+                  (2 * Real.exp 1 * C₀ * Mⱼ) * Real.rpow L (-A - 2)) ≤
+                Real.rpow L (-A - 2) +
+                  ((4 * Real.exp 1 * Mⱼ * I₂) * Real.rpow L (-A - 2) +
+                    ((2 * C₀ * M₀) * Real.rpow L (-A - 2) +
+                      (2 * Real.exp 1 * C₀ * Mⱼ) * Real.rpow L (-A - 2))) :=
+              le_add_of_nonneg_left hpow
+            _ = (1 + 4 * Real.exp 1 * Mⱼ * I₂ +
+                  2 * Real.exp 1 * C₀ * Mⱼ + 2 * C₀ * M₀) *
+                Real.rpow L (-A - 2) := by ring
+    have hsmoothedIdentity := ppPrimeSmoothed_mellin_identity hNpos q hqpos χ t b
+      hbpos g hgsupport hginv hKernelInt
+    have hIdentityLine :
+        smoothedMangoldtPolynomial N q χ t g =
+          (1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ, Fright v := by
+      rw [hsmoothedIdentity]
+      have hIntEq :
+          (∫ v : ℝ, mellinKernel g (⟨b, v⟩ : ℂ) *
+            Complex.exp ((⟨b, v⟩ : ℂ) * (Real.log N : ℂ)) *
+              (-deriv (dirichletLValue q hqpos χ)
+                  (1 - Complex.I * t + (⟨b, v⟩ : ℂ)) /
+                dirichletLValue q hqpos χ
+                  (1 - Complex.I * t + (⟨b, v⟩ : ℂ)))) =
+          ∫ v : ℝ, Fright v := by
+        apply integral_congr_ae
+        filter_upwards [] with v
+        simp only [Fright, F, ppPrimeMellinContourIntegrand]
+        simp only [neg_div, mul_neg]
+      rw [hIntEq]
+    have hpiCoeff : 0 ≤ (1 / (2 * Real.pi) : ℝ) ∧
+        (1 / (2 * Real.pi) : ℝ) ≤ 1 := by
+      constructor
+      · positivity
+      · apply (div_le_iff₀ (by positivity : (0 : ℝ) < 2 * Real.pi)).2
+        linarith only [Real.pi_gt_three]
+    have hcomplexCoeff : ‖(1 / (2 * Real.pi) : ℂ)‖ ≤ 1 := by
+      rw [norm_div, norm_one, norm_mul, Complex.norm_real]
+      simpa [Real.norm_eq_abs, abs_of_pos (by norm_num : (0 : ℝ) < 2),
+        abs_of_pos Real.pi_pos] using hpiCoeff.2
+    rw [hIdentityLine]
+    calc
+      ‖(1 / (2 * Real.pi) : ℂ) * ∫ v : ℝ, Fright v‖ =
+          ‖(1 / (2 * Real.pi) : ℂ)‖ * ‖∫ v : ℝ, Fright v‖ := norm_mul _ _
+      _ ≤ 1 * (K * Real.rpow L (-A - 2)) :=
+        mul_le_mul hcomplexCoeff hContourBound (norm_nonneg _) (by norm_num)
+      _ = K * Real.rpow L (-A - 2) := by ring
 
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
