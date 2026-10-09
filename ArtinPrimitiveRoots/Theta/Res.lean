@@ -692,6 +692,290 @@ theorem family_pair_common_level_set {P : CoverPackage D S H A} {G : GlobalDatum
     hlevel Fam rfl (fun v hv s g k hk => (hboth v hv s g k hk).1),
     hlevel Fam' hT.symm (fun v hv s g k hk => (hboth v hv s g k hk).2)⟩
 
+/-- Both theta residues admit expansions in one finite classical residue basis. -/
+theorem family_pair_common_classical_residues [IsTotallyComplex F]
+    {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (C : ContinuedEis Fam) (C' : ContinuedEis Fam') (hT : Fam.T0 = Fam'.T0)
+    (hsub : S.Sf ⊆ Fam.T0) (m : FinPlace F → ℕ)
+    (hm : ∀ v ∈ Fam.T0, (P.loc v).m0 ≤ m v)
+    (hlevel : ∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+      scalarOf P G (Fam.sec s).f (Fam.sec s).fC (g * k) =
+        scalarOf P G (Fam.sec s).f (Fam.sec s).fC g)
+    (hlevel' : ∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+      scalarOf P G (Fam'.sec s).f (Fam'.sec s).fC (g * k) =
+        scalarOf P G (Fam'.sec s).f (Fam'.sec s).fC g)
+    (gj : P.tc.G) (hgj : ∃ x : P.RP, P.q x = gj ∧ ∀ w, P.compC w x = 1) :
+    ∃ (Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))) (n : ℕ)
+      (σ : Fin n → Matrix.SpecialLinearGroup (Fin 2) F)
+      (d : ∀ i, Spec.ContinuedEisenstein F Γ (σ i) (1 / 6)),
+      Γ.FiniteIndex ∧ Spec.FreeAction F Γ ∧ ∃ c c' : Fin n → ℂ,
+        (∀ z, classicalOf P C.theta gj z = ∑ i, c i * (d i).res z) ∧
+        (∀ z, classicalOf P C'.theta gj z = ∑ i, c' i * (d i).res z) := by
+  classical
+  have hgood := exists_good_subgroup P Fam.T0 hsub m hm gj hgj
+  obtain ⟨geom⟩ := red_decompose_part1 P G (aInf P) rfl Fam.T0 hsub m hm gj hgj
+    (by simpa only [redLevel, levelSet, redCompact, infCompact] using hgood)
+  letI := geom.fintype
+  letI := geom.hfinite
+  have hcoeff (R : AnalyticFamily P G μ) (hRT : R.T0 = Fam.T0)
+      (hRL : ∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+        scalarOf P G (R.sec s).f (R.sec s).fC (g * k) =
+          scalarOf P G (R.sec s).f (R.sec s).fC g) :
+      ∃ b : geom.ι → ℂ → ℂ, (∀ i, AnalyticOnNhd ℂ (b i) {s | 0 < s.re}) ∧
+        ∀ s : ℂ, 1 / 2 < s.re → ∀ z : Spec.X F,
+          classicalOf P (eisenstein P G (R.sec s)) gj z =
+            ∑ i, b i s * Spec.eisSeries F geom.Γ (geom.σ i) s z := by
+    obtain ⟨Ds, b, hb, hzero, hterm⟩ := th_decompose_part2 P G R.sec Fam.T0
+      (fun s => (R.T0_eq s).trans hRT) hsub R.fC_sph m hm
+      (by simpa only [redLevel, levelSet] using hRL) R.f_analytic
+      (aInf P) rfl gj hgj geom
+    refine ⟨fun i s => ∑ δ ∈ Ds i, b i δ s, ?_, ?_⟩
+    · intro i
+      exact Finset.analyticOnNhd_fun_sum (Ds i) (fun δ _ => hb i δ)
+    · intro s hs z
+      let x : InfinitePlace F → ℂ := fun w => Spec.horiz (z w)
+      let y : InfinitePlace F → ℝ := fun w => Spec.height (z w)
+      have hy : ∀ w, 0 < y w := by
+        intro w
+        change 0 < Spec.height (z w)
+        rw [Spec.height_eq_hyperbolicHeight]
+        exact OAI.CubicEisenstein.hyperbolicHeight_pos (z w)
+      have hpt : Spec.ptX' F x y = z := by
+        funext w
+        exact Spec.pt_horiz_height (z w)
+      have hsum := th_decompose_part3 geom.Γ geom.σ geom.e Ds (fun i δ => b i δ s)
+        (fun q => scalarOf P G (R.sec s).f (R.sec s).fC
+          (P.tc.rat (Quotient.out q) * (nInf P x * aInf P y * gj)))
+        s hs (Spec.ptX' F x y) (fun i δ hδ => hzero i δ hδ s)
+        (hterm s hs x y hy)
+      simpa only [classicalOf, eisenstein, x, y, hpt] using hsum.2
+  obtain ⟨b, hb, hseries⟩ := hcoeff Fam rfl hlevel
+  obtain ⟨b', hb', hseries'⟩ := hcoeff Fam' hT.symm hlevel'
+  let n := Fintype.card geom.ι
+  let e : geom.ι ≃ Fin n := Fintype.equivFin geom.ι
+  let σ : Fin n → Matrix.SpecialLinearGroup (Fin 2) F := geom.σ ∘ e.symm
+  have hfinseries (R : AnalyticFamily P G μ) (b₀ : geom.ι → ℂ → ℂ)
+      (hs₀ : ∀ s : ℂ, 1 / 2 < s.re → ∀ z : Spec.X F,
+        classicalOf P (eisenstein P G (R.sec s)) gj z =
+          ∑ i, b₀ i s * Spec.eisSeries F geom.Γ (geom.σ i) s z) :
+      ∀ s : ℂ, 1 / 2 < s.re → ∀ z : Spec.X F,
+        classicalOf P (eisenstein P G (R.sec s)) gj z =
+          ∑ i : Fin n, b₀ (e.symm i) s * Spec.eisSeries F geom.Γ (σ i) s z := by
+    intro s hs z
+    refine (hs₀ s hs z).trans ?_
+    simpa [σ, Function.comp_apply] using
+      Equiv.sum_comp e (fun i : Fin n =>
+        b₀ (e.symm i) s * Spec.eisSeries F geom.Γ (σ i) s z)
+  let d₀ : ∀ i : Fin n, Spec.ContinuedEisenstein F geom.Γ (σ i) (1 / 6 : ℝ) :=
+    fun i => Classical.choice (Spec.exists_continuedEisenstein F geom.Γ geom.hfree
+      (σ i) (1 / 6 : ℝ) (by norm_num) (by norm_num))
+  let epsFn : Option (Fin n) → ℝ := fun q =>
+    match q with
+    | none => (1 / 12 : ℝ)
+    | some i => (d₀ i).ε
+  have hidx : (Finset.univ : Finset (Option (Fin n))).Nonempty :=
+    ⟨none, Finset.mem_univ _⟩
+  let ε : ℝ := Finset.univ.inf' hidx epsFn
+  have hεpos : 0 < ε := by
+    dsimp [ε]
+    rw [Finset.lt_inf'_iff]
+    intro q hq
+    cases q with
+    | none => norm_num [epsFn]
+    | some i => exact (d₀ i).ε_pos
+  have hεle (i : Fin n) : ε ≤ (d₀ i).ε := by
+    change Finset.univ.inf' hidx epsFn ≤ epsFn (some i)
+    exact Finset.inf'_le epsFn (Finset.mem_univ (some i))
+  have hεle12 : ε ≤ (1 / 12 : ℝ) := by
+    change Finset.univ.inf' hidx epsFn ≤ epsFn none
+    exact Finset.inf'_le epsFn (Finset.mem_univ (none : Option (Fin n)))
+  let restrictSpec (i : Fin n) := Spec.ContinuedEisenstein.exists_restrict (F := F)
+    (d₀ i) ε hεpos (hεle i)
+  let d : ∀ i : Fin n, Spec.ContinuedEisenstein F geom.Γ (σ i) (1 / 6 : ℝ) :=
+    fun i => Classical.choose (restrictSpec i)
+  have hd_radius (i : Fin n) : (d i).ε = ε :=
+    (Classical.choose_spec (restrictSpec i)).1
+
+  have hdom_pos (ε : ℝ) (hε : ε ≤ (1 / 12 : ℝ)) :
+      ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) ε ⊆ {s : ℂ | 0 < s.re} := by
+    intro s hs
+    simp only [ArtinPrimitiveRoots.A1.Spec.contDomain, Set.mem_union] at hs
+    rcases hs with (hs | hs) | hs
+    · exact hs.1
+    · have hb := Metric.mem_ball.mp hs
+      have habs : |s.re - (5 / 2 : ℝ)| < (1 / 2 : ℝ) := by
+        have hle := Complex.abs_re_le_norm (s - (5 / 2 : ℂ))
+        rw [dist_eq_norm] at hb
+        simpa [Complex.sub_re] using lt_of_le_of_lt hle hb
+      have hlow := (abs_lt.mp habs).1
+      change 0 < s.re
+      nlinarith [hlow]
+    · have hb := Metric.mem_ball.mp hs.1
+      have habs : |s.re - (1 / 6 : ℝ)| < (1 / 12 : ℝ) := by
+        have hle := Complex.abs_re_le_norm (s - (1 / 6 : ℂ))
+        rw [dist_eq_norm] at hb
+        exact lt_of_le_of_lt (by simpa [Complex.sub_re] using hle)
+          (lt_of_lt_of_le hb hε)
+      have hlow := (abs_lt.mp habs).1
+      change 0 < s.re
+      nlinarith [hlow]
+
+  have hball_pos (ε : ℝ) (hε : ε ≤ (1 / 12 : ℝ)) :
+      Metric.ball (1 / 6 : ℂ) ε ⊆ {s : ℂ | 0 < s.re} := by
+    intro s hs
+    have hb := Metric.mem_ball.mp hs
+    have habs : |s.re - (1 / 6 : ℝ)| < (1 / 12 : ℝ) := by
+      have hle := Complex.abs_re_le_norm (s - (1 / 6 : ℂ))
+      rw [dist_eq_norm] at hb
+      exact lt_of_le_of_lt (by simpa [Complex.sub_re] using hle) (lt_of_lt_of_le hb hε)
+    have hlow := (abs_lt.mp habs).1
+    change 0 < s.re
+    nlinarith [hlow]
+
+  have hpoint_data
+      {Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))}
+      {σ : Matrix.SpecialLinearGroup (Fin 2) F}
+      (d : ArtinPrimitiveRoots.A1.Spec.ContinuedEisenstein F Γ σ (1 / 6 : ℝ))
+      (z : ArtinPrimitiveRoots.A1.Spec.X F) :
+      AnalyticOnNhd ℂ (fun s => d.E s z)
+          (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) d.ε) ∧
+        ∃ Ψ : ℂ → ℂ,
+          AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) d.ε) ∧
+          Ψ (1 / 6) = d.res z ∧
+          ∀ s ∈ Metric.ball (1 / 6 : ℂ) d.ε, s ≠ 1 / 6 →
+            Ψ s = (s - 1 / 6) * d.E s z := by
+    classical
+    let K : Set (ArtinPrimitiveRoots.A1.Spec.Coord F) :=
+      {ArtinPrimitiveRoots.A1.Spec.coordsX F z}
+    have hK : IsCompact K := isCompact_singleton
+    have hpos : ArtinPrimitiveRoots.A1.Spec.coordsX F z ∈
+        ArtinPrimitiveRoots.A1.Spec.posSet F := by
+      intro w
+      change 0 < ArtinPrimitiveRoots.A1.Spec.height (z w)
+      rw [ArtinPrimitiveRoots.A1.Spec.height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos (z w)
+    have hKP : K ⊆ ArtinPrimitiveRoots.A1.Spec.posSet F := by
+      intro p hp
+      have : p = ArtinPrimitiveRoots.A1.Spec.coordsX F z := by simpa [K] using hp
+      rw [this]
+      exact hpos
+    let p : K := ⟨ArtinPrimitiveRoots.A1.Spec.coordsX F z, by simp [K]⟩
+    have hpt : ArtinPrimitiveRoots.A1.Spec.ptX F (ArtinPrimitiveRoots.A1.Spec.coordsX F z) = z := by
+      funext w
+      exact ArtinPrimitiveRoots.A1.Spec.pt_horiz_height (z w)
+    obtain ⟨Φ, hΦ, hΦvalue⟩ := d.E_analytic K hK hKP 0 Fin.elim0
+    have hEval : AnalyticOnNhd ℂ (fun s => BoundedContinuousFunction.evalCLM ℂ p (Φ s))
+        (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) d.ε) := by
+      change AnalyticOnNhd ℂ ((BoundedContinuousFunction.evalCLM ℂ p) ∘ Φ)
+        (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) d.ε)
+      exact (BoundedContinuousFunction.evalCLM ℂ p).comp_analyticOnNhd hΦ
+    have hEq : (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) d.ε).EqOn
+        (fun s => BoundedContinuousFunction.evalCLM ℂ p (Φ s)) (fun s => d.E s z) := by
+      intro s hs
+      have h := hΦvalue s hs p
+      simpa [p, hpt] using h
+    have hEanalytic := hEval.congr
+      (ArtinPrimitiveRoots.A1.Spec.isOpen_contDomain (1 / 6) d.ε) hEq
+    obtain ⟨Ψ, hΨ, hcenter, hpunct⟩ := d.laurent K hK hKP 0 Fin.elim0
+    let ψ : ℂ → ℂ := fun s => BoundedContinuousFunction.evalCLM ℂ p (Ψ s)
+    have hψanalytic : AnalyticOnNhd ℂ ψ (Metric.ball (1 / 6 : ℂ) d.ε) := by
+      convert (BoundedContinuousFunction.evalCLM ℂ p).comp_analyticOnNhd hΨ using 1 <;>
+        norm_num <;> rfl
+    have hψcenter : ψ (1 / 6) = d.res z := by
+      have h := hcenter p
+      simpa [ψ, p, hpt] using h
+    refine ⟨hEanalytic, ⟨ψ, hψanalytic, hψcenter, ?_⟩⟩
+    intro s hs hne
+    have hne' : s ≠ ((1 / 6 : ℝ) : ℂ) := by simpa using hne
+    have h := hpunct s (by simpa using hs) hne' p
+    simpa [ψ, p, hpt] using h
+  have hmatch (R : AnalyticFamily P G μ) (CR : ContinuedEis R) (a : Fin n → ℂ → ℂ)
+      (ha : ∀ i, AnalyticOnNhd ℂ (a i) {s | 0 < s.re})
+      (hsR : ∀ s : ℂ, 1 / 2 < s.re → ∀ z : Spec.X F,
+        classicalOf P (eisenstein P G (R.sec s)) gj z =
+          ∑ i, a i s * Spec.eisSeries F geom.Γ (σ i) s z) :
+      ∀ z, classicalOf P CR.theta gj z = ∑ i, a i (1 / 6) * (d i).res z := by
+    intro z
+    let u := nInf P (fun w => Spec.horiz (z w)) *
+      aInf P (fun w => Spec.height (z w)) * gj
+    have hEpoint (i : Fin n) : AnalyticOnNhd ℂ (fun s => (d i).E s z)
+        (Spec.contDomain (1 / 6) ε) := by
+      simpa only [hd_radius i] using (hpoint_data (d i) z).1
+    have hpsiExist (i : Fin n) : ∃ ψ : ℂ → ℂ,
+        AnalyticOnNhd ℂ ψ (Metric.ball (1 / 6 : ℂ) ε) ∧
+        ψ (1 / 6) = (d i).res z ∧
+        ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 →
+          ψ s = (s - 1 / 6) * (d i).E s z := by
+      obtain ⟨ψ, hψ, hcenter, hpunct⟩ := (hpoint_data (d i) z).2
+      refine ⟨ψ, ?_, hcenter, ?_⟩
+      · simpa only [hd_radius i] using hψ
+      · intro s hs hne
+        exact hpunct s (by simpa only [hd_radius i] using hs) hne
+    let ψ : Fin n → ℂ → ℂ := fun i => Classical.choose (hpsiExist i)
+    have hψspec (i : Fin n) := Classical.choose_spec (hpsiExist i)
+    have hEanalytic : AnalyticOnNhd ℂ (fun s => ∑ i, a i s * (d i).E s z)
+        (Spec.contDomain (1 / 6) ε) := by
+      apply Finset.analyticOnNhd_fun_sum
+      intro i hi
+      exact (ha i).mono (hdom_pos ε hεle12) |>.mul (hEpoint i)
+    let Ψ : ℂ → ℂ := fun s => ∑ i, a i s * ψ i s
+    have hΨanalytic : AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) ε) := by
+      apply Finset.analyticOnNhd_fun_sum
+      intro i hi
+      exact (ha i).mono (hball_pos ε hεle12) |>.mul (hψspec i).1
+    have hΨcenter : Ψ (1 / 6) = ∑ i, a i (1 / 6) * (d i).res z := by
+      change (∑ i, a i (1 / 6) * ψ i (1 / 6)) = _
+      apply Finset.sum_congr rfl
+      intro i hi
+      change a i (1 / 6) * Classical.choose (hpsiExist i) (1 / 6) = _
+      rw [(hψspec i).2.1]
+    have hΨpunct : ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 →
+        Ψ s = (s - 1 / 6) * ∑ i, a i s * (d i).E s z := by
+      intro s hs hne
+      change (∑ i, a i s * ψ i s) = _
+      calc
+        (∑ i, a i s * ψ i s) =
+            ∑ i, (s - 1 / 6) * (a i s * (d i).E s z) := by
+              apply Finset.sum_congr rfl
+              intro i hi
+              change a i s * Classical.choose (hpsiExist i) s = _
+              rw [(hψspec i).2.2 s hs hne]
+              ring
+        _ = _ := by rw [Finset.mul_sum]
+    have hser : Set.EqOn (fun s => CR.E s u) (fun s => ∑ i, a i s * (d i).E s z)
+        (Metric.ball (5 / 2 : ℂ) (1 / 2)) := by
+      intro s hs
+      have hb := Metric.mem_ball.mp hs
+      have habs : |s.re - (5 / 2 : ℝ)| < (1 / 2 : ℝ) := by
+        have hle := Complex.abs_re_le_norm (s - (5 / 2 : ℂ))
+        rw [dist_eq_norm] at hb
+        simpa [Complex.sub_re] using lt_of_le_of_lt hle hb
+      have hsre : 1 / 2 < s.re := by
+        have hlow := (abs_lt.mp habs).1
+        linarith
+      change CR.E s u = ∑ i, a i s * (d i).E s z
+      rw [CR.E_series s hs u]
+      calc
+        eisenstein P G (R.sec s) u =
+            ∑ i, a i s * Spec.eisSeries F geom.Γ (σ i) s z := hsR s hsre z
+        _ = _ := by
+          apply Finset.sum_congr rfl
+          intro i hi
+          rw [(d i).E_series s hs z]
+    have hres := (continuedEis_component_unique CR.ε ε CR.ε_pos hεpos
+      (fun s => CR.E s u) (fun s => ∑ i, a i s * (d i).E s z)
+      (CR.theta u) (∑ i, a i (1 / 6) * (d i).res z)
+      (CR.E_analytic u) hEanalytic hser (CR.laurent u)
+      ⟨Ψ, hΨanalytic, hΨcenter, hΨpunct⟩).2
+    simpa only [classicalOf, u] using hres
+  refine ⟨geom.Γ, n, σ, d, geom.hfinite, geom.hfree,
+    (fun i => b (e.symm i) (1 / 6)), (fun i => b' (e.symm i) (1 / 6)), ?_, ?_⟩
+  · exact hmatch Fam C (fun i => b (e.symm i)) (fun i => hb (e.symm i))
+      (hfinseries Fam b hseries)
+  · exact hmatch Fam' C' (fun i => b' (e.symm i)) (fun i => hb' (e.symm i))
+      (hfinseries Fam' b' hseries')
+
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
 theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
