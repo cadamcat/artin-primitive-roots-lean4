@@ -5381,6 +5381,72 @@ private theorem principal_tuple_count_comparison (γ : ℝ) (hγ : 0 < γ) :
         simp only [div_one] at h
         exact h.trans (hEnlarge Cn (le_max_right _ _))
 
+/-- On the original supported window, tuple integrals sum to the rough-density main term. -/
+private theorem principal_tuple_density_sum (x γ l r W : ℝ)
+    (hx : 2 ≤ x) (hγ : 0 < γ) (hγW : γ < W)
+    (hl : Real.rpow x γ < l) (hlr : l ≤ r)
+    (hrW : Real.log r / Real.log x ≤ W) :
+    (∑ j ∈ Finset.Icc 1 ⌊W / γ⌋₊, roughTupleIntegral x γ l r j) =
+      (1 / Real.log x) * ∫ y in l..r,
+        ArtinPrimitiveRoots.Sieve.roughDensity γ (Real.log y / Real.log x) := by
+  classical
+  let L := Real.log x
+  let J : ℕ := ⌊W / γ⌋₊
+  let S := Finset.Icc 1 J
+  let f (j : ℕ) (y : ℝ) :=
+    ArtinPrimitiveRoots.Sieve.roughDensityTerm γ (Real.log y / L) j
+  have hxpos : 0 < x := by linarith
+  have hLpos : 0 < L := Real.log_pos (by linarith)
+  have hYpos : 0 < Real.rpow x γ := Real.rpow_pos_of_pos hxpos _
+  have hlogY : Real.log (Real.rpow x γ) = γ * L := by
+    simpa only [L, Real.rpow_eq_pow] using Real.log_rpow hxpos γ
+  have hypos (y : ℝ) (hy : y ∈ Set.Icc l r) : 0 < y :=
+    hYpos.trans (hl.trans_le hy.1)
+  have hγy (y : ℝ) (hy : y ∈ Set.Icc l r) : γ < Real.log y / L := by
+    have h := Real.log_lt_log hYpos (hl.trans_le hy.1)
+    rw [hlogY] at h
+    exact (lt_div_iff₀ hLpos).2 h
+  have hyW (y : ℝ) (hy : y ∈ Set.Icc l r) : Real.log y / L ≤ W :=
+    (div_le_div_of_nonneg_right (Real.log_le_log (hypos y hy) hy.2) hLpos.le).trans hrW
+  have hlogCont : ContinuousOn (fun y : ℝ => Real.log y / L) (Set.Icc l r) :=
+    (continuousOn_id.log (fun y hy => ne_of_gt (hypos y hy))).div_const L
+  have hparamCont : ContinuousOn (fun y : ℝ => (γ, Real.log y / L)) (Set.Icc l r) :=
+    continuousOn_const.prodMk hlogCont
+  have hparamMaps : Set.MapsTo (fun y : ℝ => (γ, Real.log y / L)) (Set.Icc l r)
+      {p : ℝ × ℝ | 0 < p.1 ∧ p.1 < p.2} :=
+    fun y hy => ⟨hγ, hγy y hy⟩
+  have hfCont (j : ℕ) : ContinuousOn (f j) (Set.Icc l r) :=
+    (continuousOn_roughDensityTerm j).comp hparamCont hparamMaps
+  have hfInt (j : ℕ) (_hj : j ∈ S) : IntervalIntegrable (f j) volume l r :=
+    (hfCont j).intervalIntegrable_of_Icc hlr
+  have hRange : Finset.range (J + 1) = insert 0 S := by
+    ext j
+    simp only [S, Finset.mem_range, Finset.mem_insert, Finset.mem_Icc]
+    omega
+  have hzero : (0 : ℕ) ∉ S := by simp [S]
+  have hfzero (y : ℝ) : f 0 y = 0 := by
+    simp [f, ArtinPrimitiveRoots.Sieve.roughDensityTerm]
+  have hDensity (y : ℝ) (hy : y ∈ Set.Icc l r) :
+      ArtinPrimitiveRoots.Sieve.roughDensity γ (Real.log y / L) = ∑ j ∈ S, f j y := by
+    rw [roughDensity_eq_sum_bounded γ (Real.log y / L) W hγ hγW (hyW y hy)]
+    change (∑ j ∈ Finset.range (J + 1), f j y) = _
+    rw [hRange, Finset.sum_insert hzero, hfzero, zero_add]
+  change (∑ j ∈ S, roughTupleIntegral x γ l r j) =
+    (1 / L) * ∫ y in l..r, ArtinPrimitiveRoots.Sieve.roughDensity γ (Real.log y / L)
+  calc
+    _ = ∑ j ∈ S, (1 / L) * ∫ y in l..r, f j y := by
+      apply Finset.sum_congr rfl
+      intro j hj
+      exact density_pushforward γ hγ x hx j (Finset.mem_Icc.mp hj).1 l r hl hlr
+    _ = (1 / L) * ∑ j ∈ S, ∫ y in l..r, f j y := by rw [Finset.mul_sum]
+    _ = (1 / L) * ∫ y in l..r, ∑ j ∈ S, f j y := by
+      rw [intervalIntegral.integral_finsetSum hfInt]
+    _ = _ := by
+      congr 1
+      apply intervalIntegral.integral_congr
+      intro y hy
+      exact (hDensity y (by simpa only [Set.uIcc_of_le hlr] using hy)).symm
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
