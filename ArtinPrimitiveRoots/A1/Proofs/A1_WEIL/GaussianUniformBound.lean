@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianFiniteScale
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.AdditiveOrthogonality
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.Core
 import ValuedFieldTheory.LocalField.NonarchimedeanLocalField.PowerClassFiniteness
 import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
@@ -7,6 +8,7 @@ import Mathlib.Analysis.SpecificLimits.Normed
 set_option autoImplicit false
 
 open NumberField IsDedekindDomain MeasureTheory
+open scoped Classical
 
 noncomputable section
 
@@ -345,5 +347,44 @@ theorem inverse_sqrt_norm_integrableOn_localBallInt (A : AddCharData F)
   obtain ⟨R, hR, hsub⟩ := (integer_radius_ball_compact v M).isBounded.subset_closedBall_lt
     0 (0 : v.adicCompletion F)
   exact (inverse_sqrt_norm_integrableOn_closedBall v (W.measure v) hscale c hc R hR).mono_set hsub
+
+/-- An integer-radius valuation ball is an additive subgroup of the completion. -/
+def localBallAddSubgroup (v : FinPlace F) (M : ℤ) : AddSubgroup (v.adicCompletion F) where
+  carrier := localBallInt v M
+  zero_mem' := by
+    change Valued.v (0 : v.adicCompletion F) ≤ WithZero.exp M
+    rw [map_zero]
+    exact bot_le
+  add_mem' := by
+    intro x y hx hy
+    change Valued.v x ≤ WithZero.exp M at hx
+    change Valued.v y ≤ WithZero.exp M at hy
+    change Valued.v (x + y) ≤ WithZero.exp M
+    exact (map_add_le_max
+      (Valued.v : Valuation (v.adicCompletion F) (WithZero (Multiplicative ℤ))) x y).trans
+      (max_le hx hy)
+  neg_mem' := by
+    intro x hx
+    change Valued.v x ≤ WithZero.exp M at hx
+    change Valued.v (-x) ≤ WithZero.exp M
+    simpa only [Valuation.map_neg] using hx
+
+/-- Orthogonality of the frozen additive character on each actual local ball.
+The value is its Haar mass when t↦ψ(t*z) is trivial on the ball, and zero otherwise.
+Guide: PROOFS.md:466–475; compactness and the native valuation supply the measurable
+additive subgroup needed by the generic orthogonality theorem. -/
+theorem local_ball_character_orthogonality (A : AddCharData F)
+    (v : FinPlace F) (μ : Measure (v.adicCompletion F))
+    (hμ : Measure.IsAddHaarMeasure μ) (M : ℤ) (z : v.adicCompletion F) :
+    (∫ t in localBallInt v M, A.ψ v (t * z) ∂μ) =
+      if ∀ t ∈ localBallInt v M, A.ψ v (t * z) = 1
+      then ((μ (localBallInt v M)).toReal : ℂ) else 0 := by
+  have : Measure.IsAddHaarMeasure μ := hμ
+  let χ : AddChar (v.adicCompletion F) ℂ :=
+    { toFun := fun t => A.ψ v (t * z)
+      map_zero_eq_one' := by simp only [zero_mul, AddChar.map_zero_eq_one]
+      map_add_eq_mul' := fun t u => by rw [add_mul, AddChar.map_add_eq_mul] }
+  exact integral_addChar_addSubgroup μ (localBallAddSubgroup v M)
+    (integer_radius_ball_compact v M).measurableSet χ
 
 end ArtinPrimitiveRoots.Proofs.a1_weil_sol
