@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.Lead.Contracts
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.Lead.pr_b.PeriodicPoissonProof
 set_option autoImplicit false
 open NumberField IsDedekindDomain MeasureTheory
 open ArtinPrimitiveRoots A1 A2
@@ -35,6 +36,7 @@ theorem periodic_poisson
         ∑' h : S.R, leadFiniteFactor R s I a (h : F) *
           leadFourier sd W ((k : S.FS) *
             S.diag ((h : F) / ((bc.gen s : F) * (a : F)))) := by
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.pr_b.periodicPoisson
+    R sd W hcoset hfinite s I a ha hallowed k
 
 end ArtinPrimitiveRoots.Proofs.a2_probe_sol
