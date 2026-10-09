@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.CharacterUniqueness
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceCharacter
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.LatticeGaussian
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceTransfer.PadicGaussian
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceTransfer.Coordinates
 
 set_option autoImplicit false
 
