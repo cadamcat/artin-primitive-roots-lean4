@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.Definitions
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.CompletionNorm
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
