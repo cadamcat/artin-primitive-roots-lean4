@@ -48,4 +48,42 @@ theorem phase_exp_lipschitz (u M : ℝ) (hM : 0 < M) (y₁ y₂ : ℝ)
   have h := Convex.norm_image_sub_le_of_norm_deriv_le hderiv hbound hconv hmem1 hmem2
   simpa [Real.norm_eq_abs, norm_sub_rev, abs_sub_comm] using h
 
+/-- Finite chains telescope: the sum over the last set is the sum over the first
+plus the successive differences. The induction step normalizes its beta-redex
+by `rfl` before the linear combination. -/
+theorem sum_chain_decomp (F : ℕ → Finset ℕ) (f : ℕ → ℂ) (N : ℕ)
+    (hsub : ∀ i, i < N → F i ⊆ F (i + 1)) :
+    ∑ n ∈ F N, f n = ∑ n ∈ F 0, f n +
+      ∑ i ∈ Finset.range N, (∑ n ∈ F (i + 1), f n - ∑ n ∈ F i, f n) := by
+  revert hsub
+  induction N with
+  | zero =>
+    intro hsub
+    simp
+  | succ k ih =>
+    intro hsub
+    have ih' := ih (fun i hi => hsub i (lt_of_lt_of_le hi (Nat.le_succ k)))
+    rw [Finset.sum_range_succ]
+    linear_combination ih'
+
+/-- Summation by parts on `range (N+1)` with an explicit boundary term. -/
+theorem summation_by_parts (G D : ℕ → ℂ) (N : ℕ) :
+    G 1 * D 0 + ∑ i ∈ Finset.range (N + 1), G (i + 1) * (D (i + 1) - D i) =
+      G (N + 1) * D (N + 1) - ∑ i ∈ Finset.Ioo 0 (N + 1), D i * (G (i + 1) - G i) := by
+  induction N with
+  | zero =>
+    rw [show (0 : ℕ) + 1 = 1 from rfl, Finset.sum_range_one]
+    simp only [zero_add]
+    have hIoo : Finset.Ioo (0 : ℕ) 1 = ∅ := by decide
+    rw [hIoo, Finset.sum_empty]
+    ring
+  | succ k ih =>
+    rw [Finset.sum_range_succ]
+    have hIoo : Finset.Ioo 0 (k + 1 + 1) = insert (k + 1) (Finset.Ioo 0 (k + 1)) := by
+      ext x
+      simp only [Finset.mem_Ioo, Finset.mem_insert]
+      omega
+    rw [hIoo, Finset.sum_insert (by simp)]
+    linear_combination ih
+
 end ArtinPrimitiveRoots.Proofs.r_impl_muse
