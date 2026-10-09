@@ -8272,6 +8272,34 @@ theorem po_H_eta_properties : EulerHypotheses R η →
     simpa [Heta, U.q_one] using h
 
 
+private theorem po_weightFourier_sheet_integrable :
+    ∀ T : ℝ, 0 < T → Integrable (weightFourier sd W) (R.sheets.sheet T) := by
+  let ff : ∀ v : S.Sf, v.1.adicCompletion F → ℂ := fun v =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier v.1 A (μ v.1) (W.finite v).1
+  let fc : InfinitePlace F → SchwartzMap ℂ ℂ := fun w =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz (W.arch w)
+  have hffcont (v : S.Sf) : Continuous (ff v) :=
+    (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_isLocallyConstant
+      v.1 A (μ v.1) (W.finite v).1 (W.finite v).2.2.1).continuous
+  have hffcompact (v : S.Sf) : HasCompactSupport (ff v) := by
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.a2_weights.finiteTest_exists_period_ball
+      v.1 (W.finite v).1 (W.finite v).2.2.2 (W.finite v).2.2.1
+    exact ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_hasCompactSupport_of_period
+      v.1 A (μ v.1) (W.finite v).1 k hk
+  obtain ⟨c, hFourier⟩ := ArtinPrimitiveRoots.Proofs.a2_probe_sol.schwartz_tensor_fourier
+    S A sd μ W.finite W.arch
+  have hW0 : W.W0 = fun y : S.FS =>
+      (∏ v : S.Sf, (W.finite v).1 (y.1 v)) *
+        ∏ w : InfinitePlace F, W.arch w (y.2 w) := funext W.W0_tensor
+  have hEq : weightFourier sd W = fun y : S.FS =>
+      c * ((∏ v : S.Sf, ff v (y.1 v)) * ∏ w : InfinitePlace F, fc w (y.2 w)) := by
+    funext y
+    simpa only [weightFourier, hW0, ff, fc] using hFourier y
+  intro T hT
+  rw [hEq]
+  exact (ArtinPrimitiveRoots.Proofs.a2_probe_sol.tensor_sheet_integrable
+    D S μ v0 R.sheets ff fc hffcont hffcompact T hT).const_mul c
+
 /-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
 theorem po_poisson_orbits : WeightSpec R sd W →
   (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
