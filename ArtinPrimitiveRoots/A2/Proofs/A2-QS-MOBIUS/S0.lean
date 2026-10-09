@@ -1282,27 +1282,6 @@ private theorem qs_high_energy_pair_sum_local
           intro d hd
           rw [hpairFin c d]
 
-/-- S0 (IMPL): class and dyad slicing (Cauchy–Schwarz over the finite ray class group and over
-the `⌈log₂ N⌉₊ + 1` column dyads `N/2^{j+1} < N c ≤ N/2^j`): the up-to columns split into at
-most `h_m (⌈log₂ N⌉₊ + 1)` pairwise disjoint parts, each inside one ray class and one dyad
-`(n, 2n]`, `n = N/2^{j+1}`, and the high-core energy is at most the number of parts times the
-sum of the part energies. -/
-theorem qs_class_dyad_slice_S0 (F : QSFamily m qS) (W : ℝ → ℝ) (hW : IsCapWeight W)
-    (M N κ : ℝ) (hN : 1 ≤ N) (z : Ideal (𝓞 K) → ℂ) :
-    ∃ parts : Finset (Finset (Ideal (𝓞 K))),
-      ((parts.card : ℕ) : ℝ) ≤
-          (Nat.card (ClassFieldTheory.RayClassGroup m) : ℝ) *
-            ((Nat.ceil (Real.logb 2 N) + 1 : ℕ) : ℝ) ∧
-      (∀ P ∈ parts, P ⊆ qsUpTo m qS N) ∧
-      (∀ P ∈ parts, ∀ Q ∈ parts, P ≠ Q → Disjoint P Q) ∧
-      (∀ P ∈ parts, ∃ j : ℕ, ∀ c ∈ P, N / 2 ^ (j + 1) < qsN c ∧ qsN c ≤ N / 2 ^ j) ∧
-      (∀ P ∈ parts, ∀ c ∈ P, ∀ d ∈ P, ∃ (hc : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m c)
-        (hd : ArtinPrimitiveRoots.Hecke.IsCoprimeTo m d),
-        ArtinPrimitiveRoots.Hecke.rayClass m c hc = ArtinPrimitiveRoots.Hecke.rayClass m d hd) ∧
-      qsHighEnergy F W M κ (qsUpTo m qS N) z ≤
-        ((parts.card : ℕ) : ℝ) * ∑ P ∈ parts, qsHighEnergy F W M κ P z := by
-  sorry
-
 open Classical in
 /-- S0 (IMPL): exact gcd expansion of the energy of an admissible column set
 (`|Σ_c z_c χ_c(a)|² = Σ_{c,d} z_c conj(z_d) χ_c(a) conj(χ_d(a))`, grouped by `g = c ⊔ d`). -/

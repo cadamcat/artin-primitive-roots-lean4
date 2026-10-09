@@ -3011,16 +3011,6 @@ theorem SData.absS_diag_eq_norm_ofFieldData (S : SData F CE condη) (D : FieldDa
   have : IsTotallyComplex F := D.isTotallyComplex
   exact S.absS_diag_eq_norm x I hI hx
 
-/-- Scaling Poisson summation from `R` to the exterior fractional ideal `aR`. -/
-theorem SData.poisson_scaled (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
-    (μ : S.SelfDualMeasure A) (f : S.BruhatSchwartz) (a : Fˣ) (I : Ideal (𝓞 F))
-    (hI : S.IsExterior I) (ha : S.IsGen (a : F) I) :
-    ∑' m : S.R, (f : S.FS → ℂ) (S.diag ((a : F) * (m : F))) =
-      ((Ideal.absNorm I : ℝ) : ℂ)⁻¹ *
-        ∑' ν : S.R, S.fourier A μ.measure (f : S.FS → ℂ)
-          (S.diag ((a : F)⁻¹ * (ν : F))) := by
-  sorry
-
 /-- Every nonzero S-integer has S-norm at least one. -/
 theorem SData.absS_diag_ge_one (S : SData F CE condη) (D : FieldData F)
     (x : S.R) (hx : (x : F) ≠ 0) :

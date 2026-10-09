@@ -136,30 +136,6 @@ structure QuadraticHeckeFamily (m : ClassFieldTheory.RayClassModulus K)
       ArtinPrimitiveRoots.Hecke.rayClass m d hdm →
       IsPrimitiveConductor (character c * (character d)⁻¹) (c * d)
 
-/-- **ext:goldmakher-louvel** (Goldmakher--Louvel 2013, Theorem 1.1; 04-reflection.tex:958-1024).
-Uniform quadratic-family large sieve. Corrected per rev-a2 to use the strengthened family and
-squarefree, coprime row and column conditions. -/
-theorem ext_goldmakher_louvel (m : ClassFieldTheory.RayClassModulus K)
-    (qS : Ideal (𝓞 K)) (fam : QuadraticHeckeFamily m qS) :
-    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
-      ∀ Cmax Dmax : ℝ, 1 ≤ Cmax → 1 ≤ Dmax →
-        ∀ (rows cols : Finset (Ideal (𝓞 K))),
-          (∀ I ∈ rows, Squarefree I ∧
-            ArtinPrimitiveRoots.Hecke.IsCoprimeTo m I ∧
-            (Ideal.absNorm I : ℝ) ≤ Dmax) →
-          (∀ I ∈ cols, Squarefree I ∧
-            ArtinPrimitiveRoots.Hecke.IsCoprimeTo m I ∧
-            (Ideal.absNorm I : ℝ) ≤ Cmax) →
-          ∀ z : Ideal (𝓞 K) → ℂ,
-            ∑ d ∈ rows,
-              ‖∑ c ∈ cols, z c * (fam.character c).idealValue d‖ ^ 2 ≤
-                C * (Cmax + Dmax) * Real.rpow (Cmax * Dmax) ε *
-                  ∑ c ∈ cols, ‖z c‖ ^ 2 :=
-  qs_goldmakher_louvel m qS ⟨fam.character, fam.conductor, fam.rayFactor,
-    fam.rayFactor_quadratic, fam.trivial_infinite_type, fam.indexCondition,
-    fam.character_order_two, fam.quadraticValues, fam.reciprocity,
-    fam.equalClass_product_conductor⟩
-
 open Classical in
 /-- Rational quadratic residue symbol at an odd prime, with value zero when the numerator is
 divisible by the prime. -/
@@ -178,17 +154,5 @@ open Classical in
 /-- Odd squarefree integers at most `N`. -/
 def oddSquarefreeUpTo (N : ℕ) : Finset ℕ :=
   (Finset.range (N + 1)).filter (fun n => n % 2 = 1 ∧ Squarefree n)
-
-/-- **ext:heath-brown-quadratic** (Heath-Brown 1995, Theorem 1; 04-reflection.tex:941-957):
-the rational quadratic large sieve for odd squarefree Jacobi symbols. -/
-theorem ext_heath_brown_quadratic :
-    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
-      ∀ M N : ℕ, 1 ≤ M → 1 ≤ N → ∀ a : ℕ → ℂ,
-        (∑ m ∈ oddSquarefreeUpTo M,
-          ‖∑ n ∈ oddSquarefreeUpTo N,
-            a n * (rationalJacobiSymbol n m : ℂ)‖ ^ 2) ≤
-          C * Real.rpow ((M : ℝ) * N) ε * (M + N) *
-            ∑ n ∈ oddSquarefreeUpTo N, ‖a n‖ ^ 2 :=
-  qs_heath_brown
 
 end ArtinPrimitiveRoots.A2

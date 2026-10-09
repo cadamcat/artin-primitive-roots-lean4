@@ -2607,14 +2607,6 @@ theorem derivative_test (f : ℕ → ℝ) (N : ℕ) (β : ℝ) (hβ : 0 < β)
   rw [← hsum]
   exact DerivativeTestProof.first_derivative_sum_bound_core g N β hβ hlo' hhi' hmono'
 
-/-- `ext:pnt` — PD Lemma 2.1 and 11-sieve.tex:223-226; matching PNT+ `pi_asymp`
-(`Consequences.lean:786`). -/
-theorem pnt :
-    ∀ ε : ℝ, 0 < ε → ∃ y₀ : ℝ, 2 ≤ y₀ ∧
-      ∀ y : ℝ, y₀ ≤ y →
-        |primeIntervalCount y (2 * y) - y / Real.log y| ≤ ε * y / Real.log y := by
-  sorry
-
 /-- `ext:dirichlet-L` — PP `02-long-prime.tex:312-323`; matching Mathlib
 `DirichletCharacter.LFunction` and `differentiable_LFunction` (`DirichletContinuation.lean:98`).
 Correction 9 from review lane `rev-b` records meromorphic continuation for all characters. -/
