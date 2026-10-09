@@ -25,6 +25,9 @@ theorem mellin_identity
     leadProbe R W X Y Z = leadTripleVertical 4 4 2 (fun ξ w z =>
       leadMellinWeight R sd W X Y Z ξ w z *
         ∑' u : U.U, (U.q u : ℂ) ^ (-z) * leadCalF R η U u ξ w z) := by
-  sorry
+  rw [(mellin_sum_interchange R sd W η U hdecay hcoeff X Y Z hX hY hZ).2.2,
+    (horbit X Y Z hX hY hZ).2, ← tsum_mul_left]
+  exact tsum_congr fun p =>
+    mellin_term_inversion R sd W η U hinv hdecay X Y Z hX hY hZ p
 
 end ArtinPrimitiveRoots.Proofs.a2_probe_sol
