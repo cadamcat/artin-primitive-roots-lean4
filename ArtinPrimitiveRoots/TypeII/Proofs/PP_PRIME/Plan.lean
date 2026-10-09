@@ -3942,10 +3942,315 @@ theorem prime_power_removal {N : ℝ} (hN : 4 ≤ N) (q : ℕ)
     ‖mangoldtIntervalPolynomial N q χ t I -
       ∑ p ∈ (Finset.range (⌊2 * N⌋₊ + 1)).filter
         (fun p : ℕ => p.Prime ∧ N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N ∧ p ∈ I),
-        (Real.log (p : ℝ) : ℂ) * χ (p : ZMod q) *
+      (Real.log (p : ℝ) : ℂ) * χ (p : ZMod q) *
           Complex.exp ((-1 + Complex.I * t) * Real.log (p : ℝ))‖ ≤
       100 * Real.rpow N (-1 / 2) * (Real.log (3 * N)) ^ 2 := by
-  sorry
+  classical
+  have hNpos : 0 < N := by linarith [hN]
+  let S : Finset ℕ := (Finset.range (⌊2 * N⌋₊ + 1)).filter
+    (fun n : ℕ => 1 ≤ n ∧ N ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N ∧ n ∈ I)
+  let primeSet : Finset ℕ := (Finset.range (⌊2 * N⌋₊ + 1)).filter
+    (fun p : ℕ => p.Prime ∧ N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N ∧ p ∈ I)
+  let nonPrimeSet : Finset ℕ := S.filter (fun n : ℕ => ¬ n.Prime)
+  let badSet : Finset ℕ := nonPrimeSet.filter (fun n : ℕ => IsPrimePow n)
+  let w : ℕ → ℂ := fun n => (ArithmeticFunction.vonMangoldt n : ℂ) *
+    χ (n : ZMod q) * Complex.exp ((-1 + Complex.I * t) * Real.log (n : ℝ))
+  let primePart : ℂ := ∑ p ∈ primeSet,
+    (Real.log (p : ℝ) : ℂ) * χ (p : ZMod q) *
+      Complex.exp ((-1 + Complex.I * t) * Real.log (p : ℝ))
+  let remainder : ℂ := ∑ n ∈ badSet, w n
+  have hPrimeSet : primeSet = S.filter (fun n : ℕ => n.Prime) := by
+    ext p
+    simp only [primeSet, S, Finset.mem_filter, Finset.mem_range]
+    constructor
+    · rintro ⟨hrange, hp, hNlo, hNhi, hpI⟩
+      exact ⟨⟨hrange, ⟨hp.one_le, hNlo, hNhi, hpI⟩⟩, hp⟩
+    · rintro ⟨⟨hrange, hpone, hNlo, hNhi, hpI⟩, hp⟩
+      exact ⟨hrange, hp, hNlo, hNhi, hpI⟩
+  have hPrimeSum : primePart = ∑ n ∈ S.filter (fun n : ℕ => n.Prime), w n := by
+    dsimp [primePart]
+    rw [hPrimeSet]
+    apply Finset.sum_congr rfl
+    intro p hp
+    have hp' : p.Prime := (Finset.mem_filter.mp hp).2
+    simp [w, ArithmeticFunction.vonMangoldt_apply_prime hp']
+  have hBadSum : (∑ n ∈ nonPrimeSet, w n) = remainder := by
+    dsimp [remainder, badSet, nonPrimeSet]
+    apply (Finset.sum_subset (Finset.filter_subset _ _) ?_).symm
+    intro n hn hnnot
+    have hnpp : ¬ IsPrimePow n := by
+      intro hnpp
+      exact hnnot (Finset.mem_filter.mpr ⟨hn, hnpp⟩)
+    have hΛzero : ArithmeticFunction.vonMangoldt n = 0 :=
+      (ArithmeticFunction.vonMangoldt_eq_zero_iff).2 hnpp
+    simp [w, hΛzero]
+  have hSplit : (∑ n ∈ S, w n) = primePart + remainder := by
+    have h := (Finset.sum_filter_add_sum_filter_not S
+      (fun n : ℕ => n.Prime) w).symm
+    rw [← hPrimeSum, hBadSum] at h
+    exact h
+  have hDecomp : mangoldtIntervalPolynomial N q χ t I = primePart + remainder := by
+    simpa [mangoldtIntervalPolynomial, S, w] using hSplit
+  have hSub :
+      mangoldtIntervalPolynomial N q χ t I - primePart = remainder := by
+    rw [hDecomp]
+    ring
+
+  have hlog2pos : 0 < Real.log 2 := Real.log_pos (by norm_num : (1 : ℝ) < 2)
+  have hlog2lower : (1 / 2 : ℝ) ≤ Real.log 2 := by
+    have h := Real.log_two_gt_d9
+    linarith
+  have h3Npos : 0 < 3 * N := by positivity
+  have hlog3Npos : 0 < Real.log (3 * N) := by
+    apply Real.log_pos
+    nlinarith [hN]
+  have hlog3None : 1 ≤ Real.log (3 * N) := by
+    have hlog4 : 1 ≤ Real.log 4 := by
+      rw [show (4 : ℝ) = 2 * 2 by norm_num,
+        Real.log_mul (by norm_num : (2 : ℝ) ≠ 0) (by norm_num : (2 : ℝ) ≠ 0)]
+      linarith [hlog2lower]
+    have h4le3N : (4 : ℝ) ≤ 3 * N := by nlinarith [hN]
+    exact hlog4.trans (Real.log_le_log (by norm_num) h4le3N)
+
+  let pMax : ℕ := ⌊Real.sqrt (3 * N)⌋₊
+  let kBound : ℝ := Real.log (3 * N) / Real.log 2
+  let kMax : ℕ := ⌊kBound⌋₊
+  let pSet : Finset ℕ := Finset.range (pMax + 1)
+  let kSet : Finset ℕ := Finset.range (kMax + 1)
+  let pairSet : Finset (ℕ × ℕ) := pSet ×ˢ kSet
+  let pairOf : ℕ → ℕ × ℕ := fun n => (n.minFac, n.factorization n.minFac)
+  have hMaps : ∀ n ∈ badSet, pairOf n ∈ pairSet := by
+    intro n hn
+    rcases Finset.mem_filter.mp hn with ⟨hnnonprime, hnpp⟩
+    rcases Finset.mem_filter.mp hnnonprime with ⟨hnS, hnnotprime⟩
+    rcases Finset.mem_filter.mp hnS with ⟨_, hncond⟩
+    rcases hncond with ⟨_, hnN, hn2N, _⟩
+    have hn4 : 4 ≤ n := by
+      exact_mod_cast hN.trans hnN
+    have hnNe1 : n ≠ 1 := by omega
+    obtain ⟨k, hklog, hkpos, hnpow⟩ :=
+      (isPrimePow_nat_iff_bounded_log_minFac n).mp hnpp
+    have hp : n.minFac.Prime := Nat.minFac_prime hnNe1
+    have hkNe1 : k ≠ 1 := by
+      intro hk
+      have hnEq : n = n.minFac := by simpa [hk] using hnpow
+      have hnprime : n.Prime := hnEq.symm ▸ hp
+      exact hnnotprime hnprime
+    have hk2 : 2 ≤ k := by omega
+    have hpowle : n.minFac ^ 2 ≤ n := by
+      calc
+        n.minFac ^ 2 ≤ n.minFac ^ k := Nat.pow_le_pow_right hp.one_lt.le hk2
+        _ = n := hnpow.symm
+    have hnUpper3 : (n : ℝ) ≤ 3 * N := by nlinarith [hn2N, hN]
+    have hpSq : (n.minFac : ℝ) ^ 2 ≤ 3 * N := by
+      exact (show (n.minFac : ℝ) ^ 2 ≤ (n : ℝ) by exact_mod_cast hpowle).trans hnUpper3
+    have hpSqrt : (n.minFac : ℝ) ≤ Real.sqrt (3 * N) :=
+      Real.le_sqrt_of_sq_le hpSq
+    have hpFloor : n.minFac ≤ pMax := by
+      dsimp [pMax]
+      exact Nat.le_floor hpSqrt
+    have hnpowCast : (n : ℝ) = (n.minFac : ℝ) ^ k := by
+      simpa using (show (n : ℝ) = ((n.minFac ^ k : ℕ) : ℝ) by exact_mod_cast hnpow)
+    have hlogPow : Real.log (n : ℝ) = (k : ℝ) * Real.log (n.minFac : ℝ) := by
+      rw [hnpowCast, Real.log_pow]
+    have hpLower : (2 : ℝ) ≤ (n.minFac : ℝ) := by exact_mod_cast hp.two_le
+    have hlogp : Real.log 2 ≤ Real.log (n.minFac : ℝ) :=
+      Real.log_le_log (by norm_num) hpLower
+    have hnRealPos : 0 < (n : ℝ) := by positivity
+    have hlogN : Real.log (n : ℝ) ≤ Real.log (3 * N) :=
+      Real.log_le_log hnRealPos hnUpper3
+    have hkLog : (k : ℝ) * Real.log 2 ≤ Real.log (3 * N) := by
+      calc
+        (k : ℝ) * Real.log 2 ≤ (k : ℝ) * Real.log (n.minFac : ℝ) :=
+          mul_le_mul_of_nonneg_left hlogp (Nat.cast_nonneg k)
+        _ = Real.log (n : ℝ) := hlogPow.symm
+        _ ≤ Real.log (3 * N) := hlogN
+    have hkReal : (k : ℝ) ≤ kBound := (le_div_iff₀ hlog2pos).2 hkLog
+    have hkFloor : k ≤ kMax := by
+      dsimp [kMax, kBound]
+      exact Nat.le_floor hkReal
+    have hkFac : n.factorization n.minFac = k := by
+      exact (congrArg (fun z : ℕ => z.factorization n.minFac) hnpow).trans
+        (Nat.factorization_pow_self hp)
+    change pairOf n ∈ pSet ×ˢ kSet
+    simp only [pairOf, Finset.mem_product]
+    constructor
+    · simpa [pSet] using (Nat.lt_succ_iff.mpr hpFloor)
+    · dsimp only [kSet]
+      rw [Finset.mem_range, hkFac]
+      exact Nat.lt_succ_iff.mpr hkFloor
+  have hInj : (badSet : Set ℕ).InjOn pairOf := by
+    intro n hn m hm hpair
+    have hnpp : IsPrimePow n := (Finset.mem_filter.mp hn).2
+    have hmpp : IsPrimePow m := (Finset.mem_filter.mp hm).2
+    have hbase : n.minFac = m.minFac := congrArg Prod.fst hpair
+    have hexp : n.factorization n.minFac = m.factorization m.minFac :=
+      congrArg Prod.snd hpair
+    have hbasepow : n.minFac ^ n.factorization n.minFac =
+        m.minFac ^ n.factorization n.minFac :=
+      congrArg (fun p : ℕ => p ^ n.factorization n.minFac) hbase
+    have hexppow : m.minFac ^ n.factorization n.minFac =
+        m.minFac ^ m.factorization m.minFac :=
+      congrArg (fun k : ℕ => m.minFac ^ k) hexp
+    calc
+      n = n.minFac ^ n.factorization n.minFac :=
+        (hnpp.minFac_pow_factorization_eq).symm
+      _ = m.minFac ^ m.factorization m.minFac := hbasepow.trans hexppow
+      _ = m := hmpp.minFac_pow_factorization_eq
+  have hPairCard : badSet.card ≤ pairSet.card :=
+    Finset.card_le_card_of_injOn pairOf hMaps hInj
+  have hCardReal : (badSet.card : ℝ) ≤
+      ((pMax : ℝ) + 1) * ((kMax : ℝ) + 1) := by
+    have hcard' : (badSet.card : ℝ) ≤ (pairSet.card : ℝ) := by exact_mod_cast hPairCard
+    calc
+      (badSet.card : ℝ) ≤ (pairSet.card : ℝ) := hcard'
+      _ = ((pMax : ℝ) + 1) * ((kMax : ℝ) + 1) := by simp [pairSet, pSet, kSet]
+  have hpMaxLe : (pMax : ℝ) ≤ Real.sqrt (3 * N) := by
+    dsimp [pMax]
+    exact Nat.floor_le (Real.sqrt_nonneg _)
+  have hkMaxLe : (kMax : ℝ) ≤ kBound := by
+    dsimp [kMax]
+    exact Nat.floor_le (div_nonneg hlog3Npos.le hlog2pos.le)
+  have hPFactor : (pMax : ℝ) + 1 ≤ 3 * Real.sqrt N := by
+    have h4N : 3 * N ≤ 4 * N := by nlinarith [hN]
+    have hsqrtCmp := Real.sqrt_le_sqrt h4N
+    have hsqrt4 : Real.sqrt (4 * N) = 2 * Real.sqrt N := by
+      rw [Real.sqrt_mul (by norm_num : (0 : ℝ) ≤ 4)]
+      norm_num
+    have hsqrtN : 1 ≤ Real.sqrt N := by
+      have h1N : (1 : ℝ) ≤ N := by linarith [hN]
+      simpa using Real.sqrt_le_sqrt h1N
+    calc
+      (pMax : ℝ) + 1 ≤ Real.sqrt (3 * N) + 1 := by linarith [hpMaxLe]
+      _ ≤ Real.sqrt (4 * N) + 1 := by linarith [hsqrtCmp]
+      _ = 2 * Real.sqrt N + 1 := by rw [hsqrt4]
+      _ ≤ 3 * Real.sqrt N := by nlinarith [hsqrtN]
+  have hKFactor : kBound + 1 ≤ 3 * Real.log (3 * N) := by
+    have hdivMul : Real.log (3 * N) ≤
+        (2 * Real.log (3 * N)) * Real.log 2 := by
+      calc
+        Real.log (3 * N) = (2 * Real.log (3 * N)) * (1 / 2) := by ring
+        _ ≤ (2 * Real.log (3 * N)) * Real.log 2 :=
+          mul_le_mul_of_nonneg_left hlog2lower (mul_nonneg (by norm_num) hlog3Npos.le)
+    have hR : kBound ≤ 2 * Real.log (3 * N) := by
+      dsimp [kBound]
+      exact (div_le_iff₀ hlog2pos).2 (by simpa [mul_assoc] using hdivMul)
+    calc
+      kBound + 1 ≤ 2 * Real.log (3 * N) + 1 := by linarith [hR]
+      _ ≤ 3 * Real.log (3 * N) := by nlinarith [hlog3None]
+  have hCount : (badSet.card : ℝ) ≤
+      9 * Real.sqrt N * Real.log (3 * N) := by
+    calc
+      (badSet.card : ℝ) ≤ ((pMax : ℝ) + 1) * ((kMax : ℝ) + 1) := hCardReal
+      _ ≤ (3 * Real.sqrt N) * (3 * Real.log (3 * N)) := by
+        calc
+          ((pMax : ℝ) + 1) * ((kMax : ℝ) + 1) ≤
+              (3 * Real.sqrt N) * ((kMax : ℝ) + 1) :=
+            mul_le_mul_of_nonneg_right hPFactor (by positivity)
+          _ ≤ (3 * Real.sqrt N) * (kBound + 1) :=
+            mul_le_mul_of_nonneg_left (by linarith [hkMaxLe]) (by positivity)
+          _ ≤ (3 * Real.sqrt N) * (3 * Real.log (3 * N)) :=
+            mul_le_mul_of_nonneg_left hKFactor (by positivity)
+      _ = 9 * Real.sqrt N * Real.log (3 * N) := by ring
+  have hRemBound : ‖remainder‖ ≤
+      100 * Real.rpow N (-1 / 2) * (Real.log (3 * N)) ^ 2 := by
+    have htermBound : ∀ n ∈ badSet, ‖w n‖ ≤ Real.log (3 * N) / N := by
+      intro n hn
+      rcases Finset.mem_filter.mp hn with ⟨hnnonprime, hnpp⟩
+      rcases Finset.mem_filter.mp hnnonprime with ⟨hnS, _⟩
+      rcases Finset.mem_filter.mp hnS with ⟨_, hncond⟩
+      rcases hncond with ⟨_, hnN, hn2N, _⟩
+      have hnPos : 0 < n := by
+        have hn4 : 4 ≤ n := by exact_mod_cast hN.trans hnN
+        omega
+      have hnRealPos : 0 < (n : ℝ) := by exact_mod_cast hnPos
+      have hnUpper3 : (n : ℝ) ≤ 3 * N := by nlinarith [hn2N, hN]
+      have hΛnonneg : 0 ≤ ArithmeticFunction.vonMangoldt n :=
+        ArithmeticFunction.vonMangoldt_nonneg
+      have hΛle : ArithmeticFunction.vonMangoldt n ≤ Real.log (3 * N) :=
+        (ArithmeticFunction.vonMangoldt_le_log).trans
+          (Real.log_le_log hnRealPos hnUpper3)
+      have hInv : 1 / (n : ℝ) ≤ 1 / N :=
+        one_div_le_one_div_of_le hNpos (by exact_mod_cast hnN)
+      have hExpNorm :
+          ‖Complex.exp ((-1 + Complex.I * (t : ℂ)) * (Real.log (n : ℝ) : ℂ))‖ =
+            1 / (n : ℝ) := by
+        rw [Complex.norm_exp]
+        have hre :
+            ((-1 + Complex.I * (t : ℂ)) * (Real.log (n : ℝ) : ℂ)).re =
+              -Real.log (n : ℝ) := by
+          simp only [Complex.mul_re, Complex.add_re, Complex.ofReal_re,
+            Complex.ofReal_im, Complex.I_re, Complex.I_im, Complex.neg_re,
+            Complex.one_re, zero_mul, mul_zero, add_zero, sub_zero]
+          ring
+        rw [hre, Real.exp_neg, Real.exp_log hnRealPos]
+        simp [one_div]
+      have hNormEq :
+          ‖w n‖ = ArithmeticFunction.vonMangoldt n *
+            ‖χ (n : ZMod q)‖ * (1 / (n : ℝ)) := by
+        calc
+          ‖w n‖ = ‖(ArithmeticFunction.vonMangoldt n : ℂ)‖ *
+              ‖χ (n : ZMod q)‖ *
+              ‖Complex.exp ((-1 + Complex.I * (t : ℂ)) *
+                (Real.log (n : ℝ) : ℂ))‖ := by
+            simp only [w, norm_mul]
+          _ = _ := by
+            rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hΛnonneg, hExpNorm]
+      calc
+        ‖w n‖ = ArithmeticFunction.vonMangoldt n *
+            ‖χ (n : ZMod q)‖ * (1 / (n : ℝ)) := hNormEq
+        _ ≤ ArithmeticFunction.vonMangoldt n * (1 / (n : ℝ)) := by
+          calc
+            _ ≤ (ArithmeticFunction.vonMangoldt n * 1) * (1 / (n : ℝ)) :=
+              mul_le_mul_of_nonneg_right
+                (mul_le_mul_of_nonneg_left (χ.norm_le_one _) hΛnonneg) (by positivity)
+            _ = _ := by ring
+        _ ≤ Real.log (3 * N) * (1 / (n : ℝ)) :=
+          mul_le_mul_of_nonneg_right hΛle (by positivity)
+        _ ≤ Real.log (3 * N) * (1 / N) :=
+          mul_le_mul_of_nonneg_left hInv hlog3Npos.le
+        _ = Real.log (3 * N) / N := by ring
+    have hsumBound : ‖remainder‖ ≤
+        (badSet.card : ℝ) * (Real.log (3 * N) / N) := by
+      calc
+        ‖remainder‖ = ‖∑ n ∈ badSet, w n‖ := rfl
+        _ ≤ ∑ n ∈ badSet, ‖w n‖ := norm_sum_le _ _
+        _ ≤ ∑ n ∈ badSet, Real.log (3 * N) / N :=
+          Finset.sum_le_sum (fun n hn => htermBound n hn)
+        _ = _ := by simp
+    have hsqrtPos : 0 < Real.sqrt N := Real.sqrt_pos.2 hNpos
+    have hrootRatio : Real.sqrt N / N = Real.rpow N (-1 / 2) := by
+      have hratio : Real.sqrt N / N = (Real.sqrt N)⁻¹ := by
+        field_simp [ne_of_gt hNpos, ne_of_gt hsqrtPos]
+        nlinarith [Real.sq_sqrt hNpos.le]
+      calc
+        Real.sqrt N / N = (Real.sqrt N)⁻¹ := hratio
+        _ = (Real.rpow N (1 / 2 : ℝ))⁻¹ :=
+          congrArg Inv.inv (Real.sqrt_eq_rpow N)
+        _ = Real.rpow N (-(1 / 2 : ℝ)) :=
+          (Real.rpow_neg hNpos.le (1 / 2 : ℝ)).symm
+        _ = Real.rpow N (-1 / 2) := by congr 1 <;> ring
+    calc
+      ‖remainder‖ ≤ (badSet.card : ℝ) * (Real.log (3 * N) / N) := hsumBound
+      _ ≤ (9 * Real.sqrt N * Real.log (3 * N)) *
+          (Real.log (3 * N) / N) :=
+        mul_le_mul_of_nonneg_right hCount (by positivity)
+      _ = 9 * Real.rpow N (-1 / 2) * (Real.log (3 * N)) ^ 2 := by
+        calc
+          _ = 9 * (Real.sqrt N / N) *
+              (Real.log (3 * N) * Real.log (3 * N)) := by ring
+          _ = _ := by rw [hrootRatio]; ring
+      _ ≤ 100 * Real.rpow N (-1 / 2) * (Real.log (3 * N)) ^ 2 := by
+        have hcoeff : (9 : ℝ) ≤ 100 := by norm_num
+        have hnonneg : 0 ≤ Real.rpow N (-1 / 2) * (Real.log (3 * N)) ^ 2 :=
+          mul_nonneg (Real.rpow_nonneg hNpos.le _) (sq_nonneg _)
+        have h := mul_le_mul_of_nonneg_right hcoeff hnonneg
+        simpa [mul_assoc] using h
+  have hFinal : ‖mangoldtIntervalPolynomial N q χ t I - primePart‖ ≤
+      100 * Real.rpow N (-1 / 2) * (Real.log (3 * N)) ^ 2 := by
+    rw [hSub]
+    exact hRemBound
+  simpa [primePart, primeSet] using hFinal
 
 /-- Final interval Abel transfer and logarithm removal, to be assembled from the preceding bounds. -/
 theorem prime_polynomial_core (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
