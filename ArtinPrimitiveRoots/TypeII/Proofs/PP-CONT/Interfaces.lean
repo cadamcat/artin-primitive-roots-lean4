@@ -214,7 +214,14 @@ theorem cont_tail_integrable {q : ℕ} (hq : 0 < q)
 theorem contDiscrepancy_aestronglyMeasurable (q : ℕ)
     (χ : DirichletCharacter ℂ q) :
     AEStronglyMeasurable (contDiscrepancy q χ) volume := by
-  sorry
+  let p : ℕ → ℂ := fun m =>
+    ∑ n ∈ (Finset.range (m + 1)).filter (fun n : ℕ => 1 ≤ n),
+      χ (n : ZMod q)
+  have hprefix : Measurable (contPrefix q χ) := by
+    change Measurable (fun u : ℝ => p (⌊u⌋₊))
+    exact (measurable_of_countable p).comp Nat.measurable_floor
+  unfold contDiscrepancy
+  exact (hprefix.sub (measurable_const.mul Complex.measurable_ofReal)).aestronglyMeasurable
 
 theorem contTail_differentiableAt {q : ℕ} (hq : 0 < q)
     (χ : DirichletCharacter ℂ q) {Y : ℝ} (hY : 1 ≤ Y) {s : ℂ}
