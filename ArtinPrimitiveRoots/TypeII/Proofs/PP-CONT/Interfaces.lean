@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.TypeII.PP.Defs
 import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.Interfaces
+import Mathlib.NumberTheory.Harmonic.Bounds
 
 /-! Exact interfaces for the PP Dirichlet-series continuation estimates. -/
 
@@ -1224,7 +1225,108 @@ theorem cont_partial_sum_bound (q : ℕ) (χ : DirichletCharacter ℂ q)
     {Y σ v : ℝ} (hY : 1 ≤ Y) :
     ‖dirichletPartialSum q χ Y (⟨σ, v⟩ : ℂ)‖ ≤
       (1 + Real.log Y) * max 1 (Real.rpow Y (1 - σ)) := by
-  sorry
+  classical
+  let z : ℂ := ⟨σ, v⟩
+  have hzre : z.re = σ := rfl
+  have hnormExp {n : ℕ} (hn : 0 < n) :
+      ‖Complex.exp (-z * (Real.log (n : ℝ) : ℂ))‖ =
+        Real.rpow (n : ℝ) (-z.re) := by
+    have hnR : 0 < (n : ℝ) := by exact_mod_cast hn
+    rw [Complex.norm_exp, Complex.mul_re, Complex.neg_re]
+    simp only [Complex.ofReal_re, Complex.ofReal_im, mul_zero, sub_zero]
+    change Real.exp (-z.re * Real.log (n : ℝ)) = (n : ℝ) ^ (-z.re)
+    rw [Real.rpow_def_of_pos hnR]
+    congr 1
+    ring
+  have hnormSum :
+      ‖dirichletPartialSum q χ Y z‖ ≤
+        ∑ n ∈ (Finset.range (⌊Y⌋₊ + 1)).filter (fun n => 1 ≤ n),
+          Real.rpow (n : ℝ) (-σ) := by
+    unfold dirichletPartialSum
+    calc
+      _ ≤ ∑ n ∈ (Finset.range (⌊Y⌋₊ + 1)).filter (fun n => 1 ≤ n),
+          ‖χ (n : ZMod q) * Complex.exp (-z * (Real.log (n : ℝ) : ℂ))‖ :=
+        norm_sum_le _ _
+      _ ≤ ∑ n ∈ (Finset.range (⌊Y⌋₊ + 1)).filter (fun n => 1 ≤ n),
+          Real.rpow (n : ℝ) (-σ) := by
+        apply Finset.sum_le_sum
+        intro n hn
+        have hn1 : 1 ≤ n := (Finset.mem_filter.mp hn).2
+        have hnpos : 0 < n := by omega
+        calc
+          ‖χ (n : ZMod q) * Complex.exp (-z * (Real.log (n : ℝ) : ℂ))‖ =
+              ‖χ (n : ZMod q)‖ * Real.rpow (n : ℝ) (-σ) := by
+                rw [norm_mul, hnormExp hnpos, hzre]
+          _ ≤ 1 * Real.rpow (n : ℝ) (-σ) :=
+            mul_le_mul_of_nonneg_right (χ.norm_le_one _) (Real.rpow_nonneg (by positivity) _)
+          _ = _ := one_mul _
+  have hfilter :
+      (Finset.range (⌊Y⌋₊ + 1)).filter (fun n : ℕ => 1 ≤ n) =
+        Finset.Icc 1 ⌊Y⌋₊ := by
+    ext n
+    simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_Icc]
+    omega
+  have hsumInv :
+      (∑ n ∈ (Finset.range (⌊Y⌋₊ + 1)).filter (fun n : ℕ => 1 ≤ n),
+        (n : ℝ)⁻¹) = harmonic ⌊Y⌋₊ := by
+    rw [hfilter]
+    simp [harmonic_eq_sum_Icc, Rat.cast_sum, Rat.cast_inv, Rat.cast_natCast]
+  have hsumBound :
+      (∑ n ∈ (Finset.range (⌊Y⌋₊ + 1)).filter (fun n : ℕ => 1 ≤ n),
+        Real.rpow (n : ℝ) (-σ)) ≤
+        (1 + Real.log Y) * max 1 (Real.rpow Y (1 - σ)) := by
+    calc
+      _ ≤ ∑ n ∈ (Finset.range (⌊Y⌋₊ + 1)).filter (fun n : ℕ => 1 ≤ n),
+          max 1 (Real.rpow Y (1 - σ)) * (n : ℝ)⁻¹ := by
+        apply Finset.sum_le_sum
+        intro n hn
+        have hn1 : 1 ≤ n := (Finset.mem_filter.mp hn).2
+        have hnR1 : (1 : ℝ) ≤ (n : ℝ) := by exact_mod_cast hn1
+        have hnpos : 0 < (n : ℝ) := by positivity
+        have hnYnat : n ≤ ⌊Y⌋₊ := by
+          have hnrange := (Finset.mem_filter.mp hn).1
+          have := Finset.mem_range.mp hnrange
+          omega
+        have hnY : (n : ℝ) ≤ Y := by
+          calc
+            (n : ℝ) ≤ ⌊Y⌋₊ := by exact_mod_cast hnYnat
+            _ ≤ Y := Nat.floor_le (by linarith : 0 ≤ Y)
+        have hpowEq : Real.rpow (n : ℝ) (-σ) =
+            (n : ℝ)⁻¹ * Real.rpow (n : ℝ) (1 - σ) := by
+          change (n : ℝ) ^ (-σ) = (n : ℝ)⁻¹ * (n : ℝ) ^ (1 - σ)
+          rw [Real.rpow_def_of_pos hnpos, Real.rpow_def_of_pos hnpos]
+          calc
+            Real.exp (Real.log (n : ℝ) * (-σ)) =
+                Real.exp (-Real.log (n : ℝ) + Real.log (n : ℝ) * (1 - σ)) := by
+                  congr 1 <;> ring
+            _ = Real.exp (-Real.log (n : ℝ)) *
+                Real.exp (Real.log (n : ℝ) * (1 - σ)) := by rw [Real.exp_add]
+            _ = (n : ℝ)⁻¹ * Real.exp (Real.log (n : ℝ) * (1 - σ)) := by
+                  rw [Real.exp_neg, Real.exp_log hnpos]
+        have hpowBound : Real.rpow (n : ℝ) (1 - σ) ≤
+            max 1 (Real.rpow Y (1 - σ)) := by
+          by_cases hexp : 0 ≤ 1 - σ
+          · exact (Real.rpow_le_rpow (by positivity) hnY hexp).trans
+              (le_max_right _ _)
+          · exact (Real.rpow_le_one_of_one_le_of_nonpos hnR1
+                (not_le.mp hexp).le).trans (le_max_left _ _)
+        rw [hpowEq]
+        calc
+          (n : ℝ)⁻¹ * Real.rpow (n : ℝ) (1 - σ) ≤
+              (n : ℝ)⁻¹ * max 1 (Real.rpow Y (1 - σ)) :=
+            mul_le_mul_of_nonneg_left hpowBound (inv_nonneg.mpr hnpos.le)
+          _ = max 1 (Real.rpow Y (1 - σ)) * (n : ℝ)⁻¹ := by ring
+      _ = max 1 (Real.rpow Y (1 - σ)) * harmonic ⌊Y⌋₊ := by
+        rw [← Finset.mul_sum, hsumInv]
+      _ ≤ max 1 (Real.rpow Y (1 - σ)) * (1 + Real.log Y) :=
+        mul_le_mul_of_nonneg_left (harmonic_floor_le_one_add_log Y hY) (by positivity)
+      _ = (1 + Real.log Y) * max 1 (Real.rpow Y (1 - σ)) := by ring
+  calc
+    ‖dirichletPartialSum q χ Y (⟨σ, v⟩ : ℂ)‖ =
+        ‖dirichletPartialSum q χ Y z‖ := by rfl
+    _ ≤ ∑ n ∈ (Finset.range (⌊Y⌋₊ + 1)).filter (fun n => 1 ≤ n),
+          Real.rpow (n : ℝ) (-σ) := hnormSum
+    _ ≤ (1 + Real.log Y) * max 1 (Real.rpow Y (1 - σ)) := hsumBound
 
 theorem cont_growth_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
