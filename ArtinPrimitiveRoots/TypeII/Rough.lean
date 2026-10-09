@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.TypeII.PP.Results
 import ArtinPrimitiveRoots.TypeII.Proofs.«R-PRIME».PrimeAdapters
 import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.SWAdapters
 import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.LowFrequency
+import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.WiderWindow
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.FamilyUniformization
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.FrequencyGrowth
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.IntervalEndpoints
