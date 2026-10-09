@@ -35,6 +35,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.GroupTail
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.BinMassCore
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.UniformTypeII
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.TwoCofactorBoxes
+import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.DivisorConvolution
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
