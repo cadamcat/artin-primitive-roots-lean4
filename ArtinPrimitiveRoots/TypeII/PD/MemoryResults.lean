@@ -86,6 +86,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ProjectivePad
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SlopeCells
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanPadFacts
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SupportCells
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ShiftBlocks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
@@ -11310,6 +11311,117 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_pad_kernel_projective_c
   intro q hqprime hqD
   have hqDz : (q : ℤ) ∣ (D : ℤ) := by exact_mod_cast hqD
   exact projLine_eq_of_det_dvd q hqprime z z' hzprim hz'prim (hqDz.trans hpad.2.2)
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The physical prime-tuple clean kernel for one fixed cell shift has the common-block bound. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_fixed_shift_bound (C : ℝ) (hC : 0 ≤ C) :
+    ∃ Cbox Y₀ : ℝ, 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale), Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ D : ℕ, (S.d₀ : ℝ) ≤ (D : ℝ) → (D : ℝ) < 2*(S.d₀ : ℝ) →
+      ∀ T : Finset ((ℤ × ℤ) × (Fin K → ℕ)),
+      (∀ u ∈ T, IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+        envBox S w u.1 ∧ Int.gcd u.1.1 u.1.2 = 1) →
+      ∀ P : ((ℤ × ℤ) × (Fin K → ℕ)) → PrimeLists S.x K,
+      (∀ u ∈ T, ValidPrimeLists S.x K F.a (P u) ∧ sharedProduct (P u) = D ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) (P u) (transportedRatio w u.1)) →
+      ∀ m : ℤ, |(m : ℝ)| ≤ C →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ Ceta : ℝ, 0 ≤ Ceta →
+      ∀ d e : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      (∀ u ∈ T, ‖d u‖ ≤ Ceta) → (∀ u ∈ T, ‖e u‖ ≤ Ceta) →
+      ∀ f : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+      let cell := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋
+      let t := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ((det2 u.1 v.1/(D : ℤ) : ℤ) : ℝ)
+      let k := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        if (∀ q : ℕ, q.Prime → q ∣ D → projLine q u.1 = projLine q v.1) ∧
+            cell v-cell u = m then
+          (F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1,
+            if ¬ majorArc S.x S.Y F.A₀ θ then
+              additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ)))
+                else 0)
+        else 0
+      (∑ u ∈ T, μ u*‖d u*(∑ v ∈ T, k u v*(μ v : ℂ)*e v*f v)‖^2) ≤
+        (Ceta^2*(4/Real.log 2)^K*r)^2*(∑ v ∈ T, μ v*‖f v‖^2) := by
+  classical
+  obtain ⟨Cbox, Y₀, hCbox, hY₀, hblock⟩ := clean_prime_tuple_block_bound C hC
+  refine ⟨Cbox, Y₀, hCbox, hY₀, ?_⟩
+  intro K F S hY hbands hV hb w hw hU hd₀ D hDlow hDhi T hT P hP m hm r hr hfibre
+  intro Ceta hCeta d e hd he f
+  have hYpos : 0 < S.Y := zero_lt_one.trans_le (hY₀.trans hY)
+  have hDpos : 0 < D := by
+    have hd₀r : 0 < (S.d₀ : ℝ) := by exact_mod_cast hd₀
+    exact_mod_cast hd₀r.trans_le hDlow
+  let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+    ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+  let cell := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+    ⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋
+  let t := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+    ((det2 u.1 v.1/(D : ℤ) : ℤ) : ℝ)
+  let base := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+    (F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1,
+      if ¬ majorArc S.x S.Y F.A₀ θ then
+        additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ))) else 0)
+  let line : ((ℤ × ℤ) × (Fin K → ℕ)) → ((q : D.primeFactors) → Fin (q.1+1)) :=
+    fun u q => projLine q.1 u.1
+  have hline_iff (u v : (ℤ × ℤ) × (Fin K → ℕ)) :
+      line u = line v ↔ ∀ q : ℕ, q.Prime → q ∣ D → projLine q u.1 = projLine q v.1 := by
+    constructor
+    · intro hlines q hqprime hqD
+      have hqmem : q ∈ D.primeFactors := Nat.mem_primeFactors.mpr ⟨hqprime, hqD, hDpos.ne'⟩
+      exact congrFun hlines ⟨q, hqmem⟩
+    · intro hlines
+      funext q
+      obtain ⟨hqprime, hqD, _⟩ := Nat.mem_primeFactors.mp q.2
+      exact hlines q.1 hqprime hqD
+  have hmass (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : 0 ≤ μ u :=
+    (clean_product_mass_le S.x F.a F.q_d S.Y hYpos hV hb u.2
+      (hT u hu).1 (hT u hu).2.1).1
+  have hcommon (z : (ℤ × ℤ) × (Fin K → ℕ)) (hz : z ∈ T)
+      (U : Finset ((ℤ × ℤ) × (Fin K → ℕ))) (hUT : U ⊆ T)
+      (hgeom : ∀ u ∈ U, line z = line u ∧ |((cell u-cell z : ℤ) : ℝ)| ≤ C)
+      (g : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ) :
+      (∑ u ∈ U, μ u*‖d u*(∑ v ∈ U, base u v*(μ v : ℂ)*e v*g v)‖^2) ≤
+        (Ceta^2*(4/Real.log 2)^K*r)^2*(∑ v ∈ U, μ v*‖g v‖^2) := by
+    obtain ⟨hp, hshared, hgood⟩ := hP z hz
+    have hpad : (S.d₀ : ℝ) ≤ (sharedProduct (P z) : ℝ) ∧
+        (sharedProduct (P z) : ℝ) < 2*(S.d₀ : ℝ) := by
+      rw [hshared]
+      exact ⟨hDlow, hDhi⟩
+    have hUgeom (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) :
+        IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+          envBox S w u.1 ∧
+          (∀ q : ℕ, q.Prime → q ∣ sharedProduct (P z) → projLine q z.1 = projLine q u.1) ∧
+          |((⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋-
+            ⌊((z.1.2 : ℝ)/w.tau z.1)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ C := by
+      have huT := hT u (hUT hu)
+      refine ⟨huT.1, huT.2.1, huT.2.2.1, ?_, (hgeom u hu).2⟩
+      intro q hqprime hqD
+      exact (hline_iff z u).mp (hgeom u hu).1 q hqprime (by simpa only [hshared] using hqD)
+    have hbound := hblock K F S hY hbands hV hb w hw hU hd₀ z.1
+      (hT z hz).2.2.1 (hT z hz).2.2.2 (P z) hp hgood hpad U hUgeom r hr hfibre
+      Ceta hCeta d e (fun u hu => hd u (hUT hu)) (fun u hu => he u (hUT hu)) g
+    simpa only [μ, t, base, hshared] using hbound
+  have hfixed := finite_weighted_fixed_shift_kernel_bound T μ hmass line cell m C hC hm
+    base d e (Ceta^2*(4/Real.log 2)^K*r) hcommon f
+  simpa only [μ, cell, t, base, hline_iff] using hfixed
 
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
