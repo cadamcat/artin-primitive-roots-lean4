@@ -5673,6 +5673,23 @@ private theorem rows_sol_principalRw_integrable
     simpa only [smul_eq_mul] using hmajor.const_mul M
   exact hdom.mono' hfcont.aestronglyMeasurable (ae_of_all _ hpoint)
 
+private theorem rows_sol_integrable_w_projection (f : ℝ → ℝ → ℝ → ℂ)
+    (hf : Integrable (fun p : ℝ × (ℝ × ℝ) => f p.1 p.2.1 p.2.2)
+      (volume.prod (volume.prod volume))) :
+    Integrable (fun p : ℝ × ℝ => ∫ tw : ℝ, f p.1 tw p.2) (volume.prod volume) := by
+  have hId : MeasurePreserving (id : ℝ → ℝ) (volume : Measure ℝ) volume :=
+    ⟨measurable_id, by simp⟩
+  have hperm : MeasurePreserving
+      (fun p : (ℝ × ℝ) × ℝ => (p.1.1, (p.2, p.1.2)))
+      ((volume.prod volume).prod volume) (volume.prod (volume.prod volume)) := by
+    exact (hId.prod (Measure.measurePreserving_swap
+      (μ := (volume : Measure ℝ)) (ν := (volume : Measure ℝ)))).comp
+      (measurePreserving_prodAssoc (volume : Measure ℝ) volume volume)
+  have hRearranged : Integrable (fun p : (ℝ × ℝ) × ℝ => f p.1.1 p.2 p.1.2)
+      ((volume.prod volume).prod volume) :=
+    hperm.integrable_comp_of_integrable hf
+  exact hRearranged.integral_prod_left
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
