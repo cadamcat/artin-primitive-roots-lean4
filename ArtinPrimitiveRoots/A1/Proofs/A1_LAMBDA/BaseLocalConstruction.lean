@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.BaseNearOne
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.BaseLocalCorrection
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
