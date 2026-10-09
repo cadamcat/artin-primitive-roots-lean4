@@ -81,15 +81,15 @@ theorem kummer_character_exists (D : FieldData F) (H : HilbertData F) (a : Fˣ) 
     have hroot : (H.hilb P (toLoc P a) (c P x) : Fˣ) ^ 6 = 1 :=
       (mem_rootsOfUnity 6 _).mp (H.hilb P (toLoc P a) (c P x)).property
     rw [← map_pow, hroot, map_one]
-  let p : IdeleGroup (𝓞 F) F →* Aˣ :=
+  let p : NumberField.IdeleGroup (𝓞 F) F →* Aˣ :=
     Units.map (MonoidHom.snd (InfiniteAdeleRing F) A)
   have hp : Continuous p := by
     apply Units.continuous_iff.mpr
     exact ⟨continuous_snd.comp Units.continuous_val,
       continuous_snd.comp Units.continuous_coe_inv⟩
-  let G : IdeleGroup (𝓞 F) F →* ℂˣ := g.comp p
+  let G : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ := g.comp p
   have hG : Continuous G := hg.comp hp
-  let N := IdeleGroup.principalSubgroup (𝓞 F) F
+  let N := NumberField.IdeleGroup.principalSubgroup (𝓞 F) F
   have hN : N ≤ G.ker := by
     intro x hx
     obtain ⟨b, rfl⟩ := hx
@@ -112,8 +112,8 @@ theorem kummer_character_exists (D : FieldData F) (H : HilbertData F) (a : Fˣ) 
     change g (p x) ^ 6 = 1
     exact hpow (p x)
   · intro w u
-    change g (p (IdeleGroup.ofCompletion (𝓞 F) F w u)) = 1
-    have hproj : p (IdeleGroup.ofCompletion (𝓞 F) F w u) = 1 := by
+    change g (p (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w u)) = 1
+    have hproj : p (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w u) = 1 := by
       apply Units.ext
       rfl
     rw [hproj, map_one]
@@ -121,9 +121,9 @@ theorem kummer_character_exists (D : FieldData F) (H : HilbertData F) (a : Fˣ) 
     apply MonoidHom.ext
     intro u
     change (∏ᶠ Q : FinPlace F,
-      f Q (c Q (p (IdeleGroup.ofAdicCompletion (𝓞 F) F P u)))) = f P u
+      f Q (c Q (p (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P u)))) = f P u
     have hout (Q : FinPlace F) (hQ : Q ≠ P) :
-        c Q (p (IdeleGroup.ofAdicCompletion (𝓞 F) F P u)) = 1 := by
+        c Q (p (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P u)) = 1 := by
       apply Units.ext
       change FiniteAdeleRing.ofAdicCompletion F P (u : P.adicCompletion F) Q = 1
       exact RestrictedProduct.mulSingle_eq_of_ne _ _ hQ
