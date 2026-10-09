@@ -436,6 +436,148 @@ theorem case_unborn (hR : ExistRec F S γ j.castSucc σ)
             exact absurd (lt_trans ha hac) (lt_irrefl _)
       · intro h; exact absurd h hnodeath
 
+/-- The surviving particle of `p` after the ghost of visit `j`: either promoted at the edge or
+kept in memory. -/
+theorem survivor_alive (E : StepEnv F S γ j σ g τ π π' c H') (i : Fin K)
+    (p : primeBand S.x (F.a i)) (q : Particle) (hq : q ∈ τ.1.2.2 i) (hq1 : q.1 = p.1) :
+    (IsActiveAt γ p.1 j.succ ∧ q.2 = (projLine p.1 (γ j.succ).1).val) ∨
+      q ∈ (edgeTraceOutput F S j.val (γ j.succ).1 τ (π, c, π')).1.2.2 i := by
+  obtain ⟨r, hr⟩ := List.mem_iff_get.mp hq
+  by_cases hprom : (c i).2 = Sum.inl r
+  · left
+    refine ⟨(E.hactj1 _).mpr ⟨i, lastSlot S.x, ?_⟩, ?_⟩
+    · rw [E.hLy, if_neg (by simp [lastSlot])]
+      unfold edgeNewLabel; rw [hprom]; exact (congrArg Prod.fst hr).trans hq1
+    · have := E.hprom i r hprom
+      rw [hr] at this; rw [this, hq1]
+  · right
+    exact (E.hυmem i q).mpr (Or.inl ⟨r, hprom, hr⟩)
+
+/-- Ghost-born-type construction for a surviving particle anchored at a visit `a ≤ j`. -/
+theorem alive_ghost (E : StepEnv F S γ j σ g τ π π' c H') (i : Fin K)
+    (p : primeBand S.x (F.a i)) (q : Particle) (hq : q ∈ τ.1.2.2 i) (hq1 : q.1 = p.1)
+    (a : Fin (pathLength S.x + 1)) (ha : a ≤ j.castSucc)
+    (hla : (projLine p.1 (γ a).1).val = q.2)
+    (hno : ∀ m, m ≤ j.castSucc → ¬ IsActiveAt γ p.1 m) :
+    ∃ e : PrimeLife S γ p.1, e.1 = (some a, (H' i p).1.2) ∧
+      (pdLifePending S γ p.1 e false j.castSucc ↔ a < j.castSucc) ∧
+      (lifeLine S γ p.1 e.1).val = q.2 ∧ e.1.2 ≠ some j.castSucc ∧
+      FutPrime S γ j.succ p.1 e (H' i p) := by
+  obtain ⟨hpendυ, hanchυ, -⟩ := prime_next_facts F S γ j σ g τ π π' c H' E i p
+  have hlt : ∀ m : Fin (pathLength S.x + 1), j.succ ≤ m → j.castSucc < m :=
+    fun m hm => lt_of_lt_of_le Fin.castSucc_lt_succ hm
+  have hlate : ∀ m, IsActiveAt γ p.1 m → j.castSucc < m := by
+    intro m hm; by_contra h; exact hno m (not_lt.mp h) hm
+  have hsurv := survivor_alive F S γ j σ g τ π π' c H' E i p q hq hq1
+  have halive' : pdLifePending S γ p.1 (H' i p) false j.succ ∨ IsActiveAt γ p.1 j.succ := by
+    rcases hsurv with ⟨h, -⟩ | h
+    · exact Or.inr h
+    · exact Or.inl (hpendυ.mpr ⟨q, h, hq1⟩)
+  have alive := alive_at S γ p.1 (H' i p) j.succ halive'
+  by_cases hA : (pdLifeActive S γ p.1).Nonempty
+  · have hαact : IsActiveAt γ p.1 ((pdLifeActive S γ p.1).min' hA) :=
+      (Finset.mem_filter.mp (Finset.min'_mem _ hA)).2
+    have hωact : IsActiveAt γ p.1 ((pdLifeActive S γ p.1).max' hA) :=
+      (Finset.mem_filter.mp (Finset.max'_mem _ hA)).2
+    have hlines := active_lines_of_life S γ p.1 (H' i p)
+    -- the anchor is the active line
+    have hlineα : (projLine p.1 (γ ((pdLifeActive S γ p.1).min' hA)).1).val = q.2 := by
+      rcases hsurv with ⟨h1, h2⟩ | h
+      · rw [h2, hlines _ _ hαact h1]
+      · rw [hanchυ q h hq1, lifeLine_active S γ p.1 _ hA]
+    have hvalid := mkLife_active S γ p.1 hA hlines (some a) (H' i p).1.2
+      (fun a' h => by
+        cases h
+        exact ⟨fun m hm => lt_of_le_of_lt ha (hlate m hm), _, hαact,
+          Fin.ext (by rw [hla, hlineα])⟩)
+      (death_ok S γ p.1 (H' i p) hA)
+    have hjω : j.castSucc < (pdLifeActive S γ p.1).max' hA := hlate _ hωact
+    refine ⟨⟨_, hvalid⟩, rfl, ?_, ?_, ?_, ?_⟩
+    · rw [pend_active_iff S γ p.1 _ hA]
+      constructor
+      · rintro ⟨-, hb, -⟩
+        rcases hb with ⟨a', ha', h'⟩ | hα
+        · simp only [Option.some.injEq] at ha'; rw [ha']; exact h'
+        · exact absurd (hlate _ hαact) (not_lt.mpr (le_of_lt hα))
+      · intro h
+        exact ⟨hno _ le_rfl, Or.inl ⟨a, rfl, h⟩, Or.inr hjω⟩
+    · show (lifeLine S γ p.1 (some a, (H' i p).1.2)).val = q.2
+      rw [lifeLine_active S γ p.1 _ hA]; exact hlineα
+    · intro h
+      exact absurd (alive.2 _ h) (not_le.mpr Fin.castSucc_lt_succ)
+    · intro m hm
+      refine ⟨⟨fun h => ?_, fun h => absurd (alive.1 m h) (not_lt.mpr hm)⟩, Iff.rfl, ?_⟩
+      · simp only [Option.some.injEq] at h
+        rw [← h] at hm
+        exact absurd (lt_of_le_of_lt ha (hlt _ hm)) (lt_irrefl _)
+      · rw [pend_active_iff S γ p.1 _ hA, pend_active_iff S γ p.1 _ hA]
+        have hborn' : ¬ IsActiveAt γ p.1 m →
+            (∃ x, (H' i p).1.1 = some x ∧ x < m) ∨ (pdLifeActive S γ p.1).min' hA < m := by
+          intro hnm
+          cases hb : (H' i p).1.1 with
+          | some x => exact Or.inl ⟨x, rfl, lt_of_lt_of_le (alive.1 x hb) hm⟩
+          | none =>
+            right
+            rcases halive' with hp | hact
+            · rw [pend_active_iff S γ p.1 _ hA] at hp
+              rcases hp.2.1 with ⟨x, hx, -⟩ | hα
+              · rw [hb] at hx; simp at hx
+              · exact lt_of_lt_of_le hα hm
+            · exact lt_of_le_of_lt (Finset.min'_le _ _ ((mem_active_iff S γ p.1 _).mpr hact))
+                (lt_of_le_of_ne hm (fun h => hnm (h ▸ hact)))
+        constructor
+        · rintro ⟨h1, -, h3⟩; exact ⟨h1, hborn' h1, h3⟩
+        · rintro ⟨h1, -, h3⟩
+          exact ⟨h1, Or.inl ⟨a, rfl, lt_of_le_of_lt ha (hlt m hm)⟩, h3⟩
+  · -- no active visit: the particle stays in memory and is deleted later
+    have hkept : q ∈ (edgeTraceOutput F S j.val (γ j.succ).1 τ (π, c, π')).1.2.2 i := by
+      rcases hsurv with ⟨h1, -⟩ | h
+      · exact absurd ⟨_, (mem_active_iff S γ p.1 _).mpr h1⟩ hA
+      · exact h
+    have hpS := hpendυ.mpr ⟨q, hkept, hq1⟩
+    rw [pend_inactive_iff S γ p.1 _ hA] at hpS
+    obtain ⟨a', c', he', ha', hc'⟩ := hpS
+    have hanc := hanchυ q hkept hq1
+    rw [he', lifeLine_inactive S γ p.1 a' _ hA] at hanc
+    have hlc : projLine p.1 (γ c').1 = projLine p.1 (γ a').1 := by
+      rcases life_inactive_facts S γ p.1 (H' i p) hA with h | ⟨a'', c'', h, -, hl⟩
+      · rw [h] at he'; simp at he'
+      · rw [h] at he'
+        simp only [Prod.mk.injEq, Option.some.injEq] at he'
+        rw [← he'.1, ← he'.2]; exact hl
+    have hac : a < c' := lt_of_le_of_lt ha (lt_of_lt_of_le Fin.castSucc_lt_succ hc')
+    have hvalid := mkLife_inactive_some S γ p.1 hA a c' hac
+      (Fin.ext (by rw [hlc, ← hanc]; exact hla.symm))
+    have he2 : (H' i p).1.2 = some c' := by rw [he']
+    refine ⟨⟨_, hvalid⟩, by rw [he2], ?_, ?_, ?_, ?_⟩
+    · rw [pend_inactive_iff S γ p.1 _ hA]
+      constructor
+      · rintro ⟨x, y, h, hx, -⟩
+        simp only [Prod.mk.injEq, Option.some.injEq] at h
+        rw [h.1]; exact hx
+      · intro h
+        exact ⟨a, c', rfl, h, le_of_lt (lt_of_lt_of_le Fin.castSucc_lt_succ hc')⟩
+    · show (lifeLine S γ p.1 (some a, some c')).val = q.2
+      rw [lifeLine_inactive S γ p.1 a _ hA, hla]
+    · intro h
+      simp only [Option.some.injEq] at h
+      rw [h] at hc'
+      exact absurd hc' (not_le.mpr Fin.castSucc_lt_succ)
+    · intro m hm
+      refine ⟨⟨fun h => ?_, fun h => absurd (alive.1 m h) (not_lt.mpr hm)⟩, ?_, ?_⟩
+      · simp only [Option.some.injEq] at h
+        rw [← h] at hm
+        exact absurd (lt_of_le_of_lt ha (hlt _ hm)) (lt_irrefl _)
+      · rw [he2]
+      · rw [pend_inactive_iff S γ p.1 _ hA, pend_inactive_iff S γ p.1 _ hA, he']
+        constructor
+        · rintro ⟨x, y, h, -, h2⟩
+          simp only [Prod.mk.injEq, Option.some.injEq] at h
+          exact ⟨a', c', rfl, lt_of_lt_of_le ha' hm, h.2 ▸ h2⟩
+        · rintro ⟨x, y, h, -, h2⟩
+          simp only [Prod.mk.injEq, Option.some.injEq] at h
+          exact ⟨a, c', rfl, lt_of_le_of_lt ha (hlt m hm), h.2 ▸ h2⟩
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
