@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.Splitting.FieldBounds
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.Contracts
 
 /-!
 # §7 smoothed prime-ideal estimate
@@ -38,7 +39,11 @@ theorem spl_mellin_integral (f : ℝ → ℝ) (hf : IsSmoothPositiveTestFunction
           verticalLineIntegral
             (fun s : ℂ => dedekindZetaLogDerivative K s *
               Complex.cpow (x : ℂ) s * mellinTransform f s) 2) := by
-  sorry
+  exact ⟨ArtinPrimitiveRoots.Proofs.s7sol_mellin.mellin_entire f hf,
+    ArtinPrimitiveRoots.Proofs.s7sol_mellin.mellin_decay f hf,
+    fun K _ _ x hx => ArtinPrimitiveRoots.Proofs.s7sol_mellin.mellin_prime_identity f hf
+      (ArtinPrimitiveRoots.Proofs.s7sol_mellin.mellin_entire f hf)
+      (ArtinPrimitiveRoots.Proofs.s7sol_mellin.mellin_decay f hf) K x hx⟩
 
 /-- **`spl:left-line`**, `07-splitting.tex:147-170`. The functional equation and D3's Euler
 bound at `1-s`, with the digamma strip estimate for the gamma factors, give an absolute constant
@@ -48,7 +53,53 @@ theorem spl_left_line :
       ‖dedekindZetaLogDerivative K ((-1 / 2 : ℝ) + t * Complex.I)‖ ≤
         C * (Real.log (absoluteDiscriminant K) +
           Module.finrank ℚ K * Real.log (2 + |t|)) := by
-  sorry
+  obtain ⟨B, hB, hright⟩ := ArtinPrimitiveRoots.Proofs.s7sol_mellin.euler_right_line_bound
+  obtain ⟨A, hA, hreflect⟩ := ArtinPrimitiveRoots.Proofs.s7sol_mellin.reflected_line_bound
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  refine ⟨1 + B / Real.log 2 + A, by positivity, ?_⟩
+  intro K _ _ t
+  have hD : 1 ≤ absoluteDiscriminant K := by
+    have hNat : 1 ≤ (NumberField.discr K).natAbs :=
+      Nat.one_le_iff_ne_zero.mpr (Int.natAbs_ne_zero.mpr (NumberField.discr_ne_zero K))
+    simpa [absoluteDiscriminant, Nat.cast_natAbs] using
+      (show (1 : ℝ) ≤ ((NumberField.discr K).natAbs : ℝ) by exact_mod_cast hNat)
+  have hlogD : 0 ≤ Real.log (absoluteDiscriminant K) := Real.log_nonneg hD
+  have hn : 0 ≤ (Module.finrank ℚ K : ℝ) := by positivity
+  have hlogt : Real.log 2 ≤ Real.log (2 + |t|) :=
+    Real.log_le_log (by norm_num) (by linarith [abs_nonneg t])
+  have hBN : B * (Module.finrank ℚ K : ℝ) ≤
+      B / Real.log 2 * (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|) := by
+    have hc : 0 ≤ B / Real.log 2 * (Module.finrank ℚ K : ℝ) := by positivity
+    have h := mul_le_mul_of_nonneg_left hlogt hc
+    have heq : B / Real.log 2 * (Module.finrank ℚ K : ℝ) * Real.log 2 =
+        B * (Module.finrank ℚ K : ℝ) := by field_simp [hlog2.ne']
+    rwa [heq] at h
+  calc
+    _ ≤ B * (Module.finrank ℚ K : ℝ) + Real.log (absoluteDiscriminant K) +
+        A * (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|) :=
+      (hreflect K t).trans (by
+        gcongr
+        simpa only [Complex.ofReal_neg] using hright K (-t))
+    _ ≤ (1 + B / Real.log 2 + A) *
+        (Real.log (absoluteDiscriminant K) +
+          (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|)) := by
+      have hBD : 0 ≤ B / Real.log 2 * Real.log (absoluteDiscriminant K) := by positivity
+      have hAD : 0 ≤ A * Real.log (absoluteDiscriminant K) := by positivity
+      have hnt : 0 ≤ (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|) := by
+        exact mul_nonneg hn (hlog2.le.trans hlogt)
+      calc
+        _ ≤ B / Real.log 2 * (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|) +
+            Real.log (absoluteDiscriminant K) +
+            A * (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|) := by
+          gcongr
+        _ ≤ B / Real.log 2 * (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|) +
+            Real.log (absoluteDiscriminant K) +
+            A * (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|) +
+            (B / Real.log 2 * Real.log (absoluteDiscriminant K) +
+              A * Real.log (absoluteDiscriminant K) +
+              (Module.finrank ℚ K : ℝ) * Real.log (2 + |t|)) :=
+          le_add_of_nonneg_right (add_nonneg (add_nonneg hBD hAD) hnt)
+        _ = _ := by ring
 
 /-- **`spl:explicit-formula`**, `07-splitting.tex:172-210`. The contour shift crosses the pole at
 `1`, the nontrivial zeros with analytic multiplicity, and the trivial zero at `0`; the remaining
@@ -68,7 +119,17 @@ theorem spl_explicit_formula (f : ℝ → ℝ) (hf : IsSmoothPositiveTestFunctio
             mellinTransform f 0 + R ∧
       ‖R‖ ≤ C * Real.rpow x (-1 / 2 : ℝ) *
         (Real.log (absoluteDiscriminant K) + Module.finrank ℚ K) := by
-  sorry
+  obtain ⟨C, hC, hR⟩ := ArtinPrimitiveRoots.Proofs.s7sol_mellin.left_integral_bound f
+    (spl_mellin_integral.{0} f hf).1 (spl_mellin_integral.{0} f hf).2.1 spl_left_line
+  refine ⟨C, hC, ?_⟩
+  intro K _ _ x hx
+  refine ⟨verticalLineIntegral (fun s : ℂ => dedekindZetaLogDerivative K s *
+      Complex.cpow (x : ℂ) s * mellinTransform f s) (-1 / 2),
+    ArtinPrimitiveRoots.Proofs.s7sol_mellin.zero_family_summable f
+      (spl_mellin_integral.{0} f hf).2.1 K x hx, ?_, hR K x hx⟩
+  rw [(spl_mellin_integral f hf).2.2 K x (by linarith)]
+  exact ArtinPrimitiveRoots.Proofs.s7sol_mellin.contour_shift f hf
+    (spl_mellin_integral.{0} f hf).1 (spl_mellin_integral.{0} f hf).2.1 spl_left_line K x hx
 
 set_option maxHeartbeats 1000000
 /-- **`spl:zero-sum`**, `07-splitting.tex:212-224`. Zero counting in unit-height intervals and

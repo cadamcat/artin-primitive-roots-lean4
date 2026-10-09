@@ -17,13 +17,13 @@ namespace ArtinPrimitiveRoots.Proofs.a1_kummer_sol
 variable {F : Type} [Field F] [NumberField F]
 
 theorem idele_hom_ext
-    (f g : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ)
+    (f g : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ)
     (hinf : ∀ (w : InfinitePlace F) (x : w.Completionˣ),
-      f (IdeleGroup.ofCompletion (𝓞 F) F w x) =
-        g (IdeleGroup.ofCompletion (𝓞 F) F w x))
+      f (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w x) =
+        g (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w x))
     (hfin : ∀ (P : FinPlace F) (x : (P.adicCompletion F)ˣ),
-      f (IdeleGroup.ofAdicCompletion (𝓞 F) F P x) =
-        g (IdeleGroup.ofAdicCompletion (𝓞 F) F P x)) : f = g := by
+      f (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P x) =
+        g (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P x)) : f = g := by
   classical
   let finiteTrunc (z : FiniteAdeleRing (𝓞 F) F) (T : Finset (FinPlace F)) :
       FiniteAdeleRing (𝓞 F) F :=
@@ -73,11 +73,11 @@ theorem idele_hom_ext
       |>.comp hprincipal
     -- Keep the specified restricted-product topology during this conversion.
     exact hinc
-  let trunc (x : IdeleGroup (𝓞 F) F) (T : Finset (FinPlace F)) : IdeleGroup (𝓞 F) F :=
+  let trunc (x : NumberField.IdeleGroup (𝓞 F) F) (T : Finset (FinPlace F)) : NumberField.IdeleGroup (𝓞 F) F :=
     (∏ w ∈ Finset.univ,
-        IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w x)) *
-      ∏ P ∈ T, IdeleGroup.ofAdicCompletion (𝓞 F) F P (Dictionary.ideleFiniteCoord P x)
-  have hcoe (x : IdeleGroup (𝓞 F) F) (T : Finset (FinPlace F)) :
+        NumberField.IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w x)) *
+      ∏ P ∈ T, NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P (Dictionary.ideleFiniteCoord P x)
+  have hcoe (x : NumberField.IdeleGroup (𝓞 F) F) (T : Finset (FinPlace F)) :
       (trunc x T : AdeleRing (𝓞 F) F) =
         ((x : AdeleRing (𝓞 F) F).1, finiteTrunc (x : AdeleRing (𝓞 F) F).2 T) := by
     apply Prod.ext
@@ -107,7 +107,7 @@ theorem idele_hom_ext
       · rw [ite_eq_right hPT] at hP
         rw [ite_eq_right hPT]
         exact congrArg (fun u : (P.adicCompletion F)ˣ => (u : P.adicCompletion F)) hP
-  have hval (x : IdeleGroup (𝓞 F) F) :
+  have hval (x : NumberField.IdeleGroup (𝓞 F) F) :
       Tendsto (fun T : Finset (FinPlace F) => (trunc x T : AdeleRing (𝓞 F) F))
         atTop (𝓝 (x : AdeleRing (𝓞 F) F)) := by
     have hprod : Tendsto (fun T : Finset (FinPlace F) =>
@@ -115,40 +115,40 @@ theorem idele_hom_ext
         (𝓝 ((x : AdeleRing (𝓞 F) F).1, (x : AdeleRing (𝓞 F) F).2)) :=
       (Prod.tendsto_iff _ _).2 ⟨tendsto_const_nhds, hfiniteTrunc _⟩
     exact hprod.congr' (Eventually.of_forall (fun T => (hcoe x T).symm))
-  have hinv (x : IdeleGroup (𝓞 F) F) (T : Finset (FinPlace F)) :
+  have hinv (x : NumberField.IdeleGroup (𝓞 F) F) (T : Finset (FinPlace F)) :
       (trunc x T)⁻¹ = trunc x⁻¹ T := by
     simp [trunc, map_inv, Finset.prod_inv_distrib]
     ac_rfl
-  have htrunc (x : IdeleGroup (𝓞 F) F) : Tendsto (trunc x) atTop (𝓝 x) := by
+  have htrunc (x : NumberField.IdeleGroup (𝓞 F) F) : Tendsto (trunc x) atTop (𝓝 x) := by
     have hvalInv : Tendsto (fun T : Finset (FinPlace F) =>
-        (((trunc x T)⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) atTop
-        (𝓝 ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) :=
+        (((trunc x T)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) atTop
+        (𝓝 ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) :=
       (hval x⁻¹).congr' (Eventually.of_forall (fun T =>
-        congrArg (fun y : IdeleGroup (𝓞 F) F => (y : AdeleRing (𝓞 F) F)) (hinv x T).symm))
+        congrArg (fun y : NumberField.IdeleGroup (𝓞 F) F => (y : AdeleRing (𝓞 F) F)) (hinv x T).symm))
     have hvalOp : Tendsto (fun T : Finset (FinPlace F) =>
-        MulOpposite.op (((trunc x T)⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) atTop
-        (𝓝 (MulOpposite.op ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F))) :=
+        MulOpposite.op (((trunc x T)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) atTop
+        (𝓝 (MulOpposite.op ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F))) :=
       (MulOpposite.opHomeomorph.continuous.tendsto
-        ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)).comp hvalInv
+        ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)).comp hvalInv
     have hEmbed : Tendsto (fun T : Finset (FinPlace F) =>
         Units.embedProduct (AdeleRing (𝓞 F) F) (trunc x T)) atTop
         (𝓝 (Units.embedProduct (AdeleRing (𝓞 F) F) x)) := by
       exact (Prod.tendsto_iff _ _).2 ⟨hval x, hvalOp⟩
     exact Units.isEmbedding_embedProduct.tendsto_nhds_iff.mpr hEmbed
-  let fa : IdeleGroup (𝓞 F) F →* ℂˣ := f.toMonoidHom
-  let fb : IdeleGroup (𝓞 F) F →* ℂˣ := g.toMonoidHom
+  let fa : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ := f.toMonoidHom
+  let fb : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ := g.toMonoidHom
   have hfa : Continuous fa := f.continuous
   have hfb : Continuous fb := g.continuous
   have hfinite (P : FinPlace F) (x : (P.adicCompletion F)ˣ) :
-      fa (IdeleGroup.ofAdicCompletion (𝓞 F) F P x) =
-        fb (IdeleGroup.ofAdicCompletion (𝓞 F) F P x) := hfin P x
+      fa (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P x) =
+        fb (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P x) := hfin P x
   have hinfinite (w : InfinitePlace F) (x : w.Completionˣ) :
-      fa (IdeleGroup.ofCompletion (𝓞 F) F w x) =
-        fb (IdeleGroup.ofCompletion (𝓞 F) F w x) := hinf w x
-  have htruncEq (x : IdeleGroup (𝓞 F) F) (T : Finset (FinPlace F)) :
+      fa (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w x) =
+        fb (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w x) := hinf w x
+  have htruncEq (x : NumberField.IdeleGroup (𝓞 F) F) (T : Finset (FinPlace F)) :
       fa (trunc x T) = fb (trunc x T) := by
     simp only [trunc, map_mul, map_prod, hfinite, hinfinite]
-  have hglobal (x : IdeleGroup (𝓞 F) F) : fa x = fb x :=
+  have hglobal (x : NumberField.IdeleGroup (𝓞 F) F) : fa x = fb x :=
     (isClosed_eq hfa hfb).mem_of_tendsto (htrunc x) (Eventually.of_forall (htruncEq x))
   exact ContinuousMonoidHom.ext hglobal
 
@@ -163,15 +163,15 @@ theorem kummer_char_ext (κ κ' : KummerChar F)
       infiniteComponent κ w x = infiniteComponent κ' w x)
     (hfin : ∀ (P : FinPlace F) (x : (P.adicCompletion F)ˣ),
       localComponent κ P x = localComponent κ' P x) : κ = κ' := by
-  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' _
-  let fa : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+  let q : NumberField.IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' _
+  let fa : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ :=
     ⟨κ.toMonoidHom.comp q, κ.continuous.comp QuotientGroup.continuous_mk⟩
-  let fb : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+  let fb : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ :=
     ⟨κ'.toMonoidHom.comp q, κ'.continuous.comp QuotientGroup.continuous_mk⟩
   have hfg : fa = fb := ArtinPrimitiveRoots.Proofs.a1_kummer_sol.idele_hom_ext fa fb hinf hfin
   apply ContinuousMonoidHom.ext
   intro y
   exact QuotientGroup.induction_on y (fun x =>
-    congrArg (fun f : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ => f x) hfg)
+    congrArg (fun f : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ => f x) hfg)
 
 end ArtinPrimitiveRoots.A1.KummerProofs
