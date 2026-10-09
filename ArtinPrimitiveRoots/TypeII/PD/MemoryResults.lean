@@ -80,6 +80,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SignedMinor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCore
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SignedMultiplier
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedPrimeKernel
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.PadCoordinates
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
