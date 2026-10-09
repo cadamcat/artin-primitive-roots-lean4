@@ -1780,6 +1780,91 @@ private theorem cont_sum_Icc_dyadic_prefix {α : Type*}
         have hprev' : min (N * 2 ^ m - 1) X = X := by simpa [S] using hprev
         simpa [hprev'] using ih
 
+private theorem cont_high_growth_threshold (C Cφ C₃ : ℝ)
+    (hC : 0 < C) (hCφ : 0 < Cφ) :
+    ∃ x₀ : ℝ, 2 < x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
+      let L := Real.log x
+      let T := Real.log L
+      1 ≤ T ∧
+      (150 + C) * T ^ 4 ≤ L ∧
+      100 * T ^ 6 ≤ L ∧
+      (63 + 2 * Cφ) * T ^ (⌈C₃⌉₊ + 15) ≤ L := by
+  let A₄ : ℝ := 150 + C
+  let A₁₅ : ℝ := 63 + 2 * Cφ
+  let d : ℕ := ⌈C₃⌉₊
+  let m : ℕ := d + 15
+  have hA₄ : 0 < A₄ := by dsimp [A₄]; linarith
+  have hA₁₅ : 0 < A₁₅ := by dsimp [A₁₅]; positivity
+  have hTlim : Tendsto (fun x : ℝ => Real.log (Real.log x)) atTop atTop :=
+    Real.tendsto_log_atTop.comp Real.tendsto_log_atTop
+  have hlogpow (m : ℕ) :
+      Tendsto (fun x : ℝ => Real.log (Real.log x) ^ m / Real.log x)
+        atTop (𝓝 0) := by
+    change Tendsto ((fun z : ℝ => Real.log z ^ m / z) ∘ Real.log)
+      atTop (𝓝 0)
+    simpa [one_mul, add_zero] using
+      (Real.tendsto_pow_log_div_mul_add_atTop 1 0 m one_ne_zero).comp
+        Real.tendsto_log_atTop
+  have hsmall₄ : ∀ᶠ x : ℝ in atTop,
+      Real.log (Real.log x) ^ 4 / Real.log x < 1 / A₄ :=
+    (hlogpow 4).eventually (gt_mem_nhds (by positivity))
+  have hsmall₆ : ∀ᶠ x : ℝ in atTop,
+      Real.log (Real.log x) ^ 6 / Real.log x < 1 / 100 :=
+    (hlogpow 6).eventually (gt_mem_nhds (by norm_num))
+  have hsmallm : ∀ᶠ x : ℝ in atTop,
+      Real.log (Real.log x) ^ m / Real.log x < 1 / A₁₅ :=
+    (hlogpow m).eventually (gt_mem_nhds (by positivity))
+  have hEventually : ∀ᶠ x : ℝ in atTop,
+      1 ≤ Real.log x ∧ 1 ≤ Real.log (Real.log x) ∧
+        Real.log (Real.log x) ^ 4 / Real.log x < 1 / A₄ ∧
+        Real.log (Real.log x) ^ 6 / Real.log x < 1 / 100 ∧
+        Real.log (Real.log x) ^ m / Real.log x < 1 / A₁₅ := by
+    filter_upwards [Real.tendsto_log_atTop.eventually_ge_atTop 1,
+      hTlim.eventually_ge_atTop 1, hsmall₄, hsmall₆, hsmallm]
+      with x hL hT h₄ h₆ hm
+    exact ⟨hL, hT, h₄, h₆, hm⟩
+  obtain ⟨X, hX⟩ := eventually_atTop.1 hEventually
+  refine ⟨max 3 X, lt_of_lt_of_le (by norm_num) (le_max_left _ _), ?_⟩
+  intro x hx
+  have hxX : X ≤ x := (le_max_right _ _).trans hx
+  rcases hX x hxX with ⟨hLone, hTone, h₄, h₆, hm⟩
+  let L : ℝ := Real.log x
+  let T : ℝ := Real.log L
+  have hLpos : 0 < L := by dsimp [L]; linarith
+  have hTpos : 0 < T := by dsimp [T]; linarith
+  have h₄' : T ^ 4 / L < 1 / A₄ := by simpa [L, T] using h₄
+  have h₆' : T ^ 6 / L < 1 / 100 := by simpa [L, T] using h₆
+  have hm' : T ^ m / L < 1 / A₁₅ := by simpa [L, T] using hm
+  have hbound₄lt : A₄ * T ^ 4 < L := by
+    calc
+      A₄ * T ^ 4 = (T ^ 4 / L) * (L * A₄) := by
+        field_simp [ne_of_gt hLpos]
+      _ < (1 / A₄) * (L * A₄) :=
+        mul_lt_mul_of_pos_right h₄' (mul_pos hLpos hA₄)
+      _ = L := by field_simp [ne_of_gt hA₄]
+  have hbound₄ : A₄ * T ^ 4 ≤ L := hbound₄lt.le
+  have hbound₆lt : 100 * T ^ 6 < L := by
+    calc
+      100 * T ^ 6 = (T ^ 6 / L) * (L * 100) := by
+        field_simp [ne_of_gt hLpos]
+      _ < (1 / 100) * (L * 100) :=
+        mul_lt_mul_of_pos_right h₆' (mul_pos hLpos (by norm_num))
+      _ = L := by ring
+  have hbound₆ : 100 * T ^ 6 ≤ L := hbound₆lt.le
+  have hbound₁₅lt : A₁₅ * T ^ m < L := by
+    calc
+      A₁₅ * T ^ m = (T ^ m / L) * (L * A₁₅) := by
+        field_simp [ne_of_gt hLpos]
+      _ < (1 / A₁₅) * (L * A₁₅) :=
+        mul_lt_mul_of_pos_right hm' (mul_pos hLpos hA₁₅)
+      _ = L := by field_simp [ne_of_gt hA₁₅]
+  have hbound₁₅ : A₁₅ * T ^ m ≤ L := hbound₁₅lt.le
+  dsimp only
+  exact ⟨hTone, by simpa [A₄] using hbound₄, hbound₆,
+    by simpa [A₁₅, m, d] using hbound₁₅⟩
+
+
+set_option maxHeartbeats 1000000 in
 private theorem cont_growth_low_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
@@ -1793,9 +1878,379 @@ private theorem cont_growth_low_height_bound
               ∀ σ v : ℝ, |σ - 1| ≤ 10 * rstar →
                 1 / 2 ≤ |v| → |v| ≤ 3 * Real.rpow x 3 →
                 |v| ≤ Real.exp (L / (2 * T ^ 2)) →
-                  ‖dirichletLValue q hq χ (⟨σ, v⟩ : ℂ)‖ ≤
-                    Real.exp (C₀ * T ^ 2) := by
-  sorry
+                    ‖dirichletLValue q hq χ (⟨σ, v⟩ : ℂ)‖ ≤
+                      Real.exp (C₀ * T ^ 2) := by
+  classical
+  rcases hLog with ⟨C₃, hC₃, hLogC⟩
+  intro C hC
+  obtain ⟨Cφ, xφ, hCφ, hxφ, hLogX⟩ := hLogC C hC
+  obtain ⟨xGrowth, hxGrowth, hGrowth⟩ :=
+    cont_high_growth_threshold C Cφ C₃ hC hCφ
+  let xFloor : ℝ := Real.exp (Real.exp 2)
+  have hExp2ge3 : (3 : ℝ) ≤ Real.exp 2 := by
+    have h := Real.add_one_le_exp (2 : ℝ)
+    linarith only [h]
+  have hExp3ge4 : (4 : ℝ) ≤ Real.exp 3 := by
+    have h := Real.add_one_le_exp (3 : ℝ)
+    linarith only [h]
+  have hxFloor2 : 2 < xFloor := by
+    dsimp [xFloor]
+    exact lt_of_lt_of_le (by norm_num : (2 : ℝ) < 4)
+      (hExp3ge4.trans (Real.exp_le_exp.mpr hExp2ge3))
+  refine ⟨30, max xφ (max xGrowth xFloor), by norm_num, ?_, ?_⟩
+  · exact lt_of_lt_of_le hxφ (le_max_left _ _)
+  · intro x hx
+    dsimp only
+    intro q hq hqC hqpos χ σ v hσ hvlo hvhi hvLow
+    let L : ℝ := Real.log x
+    let T : ℝ := Real.log L
+    let Y : ℝ := Real.exp (2 * L / T ^ 2)
+    let s : ℂ := ⟨σ, v⟩
+    let A : ℝ := L / (2 * T ^ 2)
+    let B : ℝ := -2 * L / T ^ 2 + 20 * T ^ 2
+    let E : ℝ := C * T + A + B
+    have hxφ' : xφ ≤ x := (le_max_left _ _).trans hx
+    have hxGrowth' : xGrowth ≤ x :=
+      ((le_max_left _ _).trans (le_max_right _ _)).trans hx
+    have hxFloor' : xFloor ≤ x :=
+      ((le_max_right _ _).trans (le_max_right _ _)).trans hx
+    have hxgt2 : 2 < x := lt_of_lt_of_le hxFloor2 hxFloor'
+    have hxpos : 0 < x := by linarith
+    have hLpos : 0 < L := by dsimp [L]; exact Real.log_pos (by linarith)
+    have hLlower : Real.exp 2 ≤ L := by
+      calc
+        Real.exp 2 = Real.log xFloor := by simp [xFloor]
+        _ ≤ Real.log x := Real.log_le_log (Real.exp_pos _) hxFloor'
+        _ = L := by rfl
+    have hTtwo : 2 ≤ T := by
+      calc
+        2 = Real.log (Real.exp 2) := by rw [Real.log_exp]
+        _ ≤ Real.log L := Real.log_le_log (Real.exp_pos _) hLlower
+        _ = T := by rfl
+    have hTpos : 0 < T := lt_of_lt_of_le (by norm_num) hTtwo
+    have hT2 : 1 ≤ T ^ 2 := by nlinarith [sq_nonneg (T - 2)]
+    have hT4lower : 4 ≤ T ^ 2 := by nlinarith [sq_nonneg (T - 2)]
+    have hLone : 1 ≤ L := by
+      exact (by norm_num : (1 : ℝ) ≤ 3).trans
+        (hExp2ge3.trans hLlower)
+    have hLexp : Real.exp T = L := by
+      dsimp [T]
+      exact Real.exp_log hLpos
+    have hGrowthAtX := hGrowth x hxGrowth'
+    dsimp only at hGrowthAtX
+    rcases hGrowthAtX with ⟨hTone, hL4, hL6, hLdyn⟩
+    have hσR : |σ - 1| ≤ 10 * (T ^ 4 / L) := by
+      simpa [L, T] using hσ
+    have hCfour : 0 ≤ C * T ^ 4 := mul_nonneg hC.le (by positivity)
+    have h150 : (150 : ℝ) * T ^ 4 ≤ L := by
+      linarith only [hL4, hCfour]
+    have hσratio : T ^ 4 / L ≤ 1 / 150 := by
+      apply (div_le_iff₀ hLpos).2
+      nlinarith only [h150]
+    have hσsmall : 10 * (T ^ 4 / L) ≤ 1 / 15 := by
+      calc
+        10 * (T ^ 4 / L) ≤ 10 * (1 / 150) :=
+          mul_le_mul_of_nonneg_left hσratio (by norm_num)
+        _ = 1 / 15 := by norm_num
+    have hσbounds := abs_le.mp (hσR.trans hσsmall)
+    have hσlo : (1 / 2 : ℝ) ≤ σ := by linarith
+    have hσhi : σ ≤ 2 := by linarith
+    have hYpos : 0 < Y := Real.exp_pos _
+    have hYone : 1 ≤ Y := by
+      apply Real.one_le_exp
+      positivity
+    have hYlog : Real.log Y = 2 * L / T ^ 2 := by
+      dsimp [Y]
+      exact Real.log_exp _
+    have hYlogpos : 0 ≤ Real.log Y := by rw [hYlog]; positivity
+    have hT2ge2 : 2 ≤ T ^ 2 := le_trans (by norm_num) hT4lower
+    have hlogYleL : 2 * L / T ^ 2 ≤ L := by
+      apply (div_le_iff₀ (by positivity : 0 < T ^ 2)).2
+      calc
+        2 * L = L * 2 := by ring
+        _ ≤ L * T ^ 2 := mul_le_mul_of_nonneg_left hT2ge2 hLpos.le
+    have hlogfactor : 1 + Real.log Y ≤ Real.exp (2 * T ^ 2) := by
+      rw [hYlog]
+      calc
+        1 + 2 * L / T ^ 2 ≤ 1 + L := by linarith only [hlogYleL]
+        _ ≤ 2 * L := by nlinarith only [hLone]
+        _ = 2 * Real.exp T := by rw [← hLexp]
+        _ ≤ Real.exp (T + 1) := by
+          rw [Real.exp_add]
+          calc
+            2 * Real.exp T = Real.exp T * 2 := by ring
+            _ ≤ Real.exp T * Real.exp 1 :=
+              mul_le_mul_of_nonneg_left Real.exp_one_gt_two.le (Real.exp_nonneg _)
+        _ ≤ Real.exp (2 * T ^ 2) :=
+          Real.exp_le_exp.mpr (by nlinarith only [hTtwo])
+    have hδ : |1 - σ| ≤ 10 * (T ^ 4 / L) := by
+      simpa [abs_sub_comm] using hσR
+    have hpowY : Real.rpow Y (1 - σ) ≤ Real.exp (20 * T ^ 2) := by
+      have hpowDef : Real.rpow Y (1 - σ) =
+          Real.exp (Real.log Y * (1 - σ)) := Real.rpow_def_of_pos hYpos _
+      rw [hpowDef, hYlog]
+      apply Real.exp_le_exp.mpr
+      calc
+        (2 * L / T ^ 2) * (1 - σ) ≤
+            (2 * L / T ^ 2) * |1 - σ| :=
+          mul_le_mul_of_nonneg_left (le_abs_self _) (by positivity)
+        _ ≤ (2 * L / T ^ 2) * (10 * (T ^ 4 / L)) :=
+          mul_le_mul_of_nonneg_left hδ (by positivity)
+        _ = 20 * T ^ 2 := by
+          field_simp [ne_of_gt hLpos, ne_of_gt hTpos]
+          ring
+    have hpowYmax : max 1 (Real.rpow Y (1 - σ)) ≤ Real.exp (20 * T ^ 2) := by
+      apply max_le_iff.mpr
+      exact ⟨Real.one_le_exp (by positivity), hpowY⟩
+    have hPartialRaw := cont_partial_sum_bound q χ (Y := Y) (σ := σ) (v := v) hYone
+    have hPartial : ‖dirichletPartialSum q χ Y s‖ ≤
+        Real.exp (22 * T ^ 2) := by
+      calc
+        _ ≤ (1 + Real.log Y) * max 1 (Real.rpow Y (1 - σ)) := hPartialRaw
+        _ ≤ Real.exp (2 * T ^ 2) * Real.exp (20 * T ^ 2) :=
+          mul_le_mul hlogfactor hpowYmax (by positivity) (by positivity)
+        _ = Real.exp (22 * T ^ 2) := by
+          rw [← Real.exp_add]
+          congr 1
+          ring
+    have hsNorm : ‖s‖ ≤ |σ| + |v| := by
+      have hsrep : s = (σ : ℂ) + Complex.I * (v : ℂ) := by
+        apply Complex.ext <;> simp [s]
+      calc
+        ‖s‖ = ‖(σ : ℂ) + Complex.I * (v : ℂ)‖ := by rw [hsrep]
+        _ ≤ ‖(σ : ℂ)‖ + ‖Complex.I * (v : ℂ)‖ := norm_add_le _ _
+        _ = |σ| + |v| := by simp
+    have hσabs : |σ| ≤ 2 := by rw [abs_le]; constructor <;> linarith [hσlo, hσhi]
+    have hApos : 0 ≤ A := by dsimp [A]; positivity
+    have hAone : 1 ≤ Real.exp A := Real.one_le_exp hApos
+    have hsFactor : 1 + ‖s‖ ≤ 4 * Real.exp A := by
+      calc
+        1 + ‖s‖ ≤ 1 + (|σ| + |v|) := by linarith only [hsNorm]
+        _ ≤ 1 + (2 + Real.exp A) := by linarith only [hσabs, hvLow]
+        _ = 3 + Real.exp A := by ring
+        _ ≤ 4 * Real.exp A := by nlinarith only [hAone]
+    have hσlower : 1 - 10 * (T ^ 4 / L) ≤ σ := by
+      have hlo := (abs_le.mp hσR).1
+      linarith only [hlo]
+    have hpowYneg : Real.rpow Y (-σ) ≤ Real.exp B := by
+      have hpowDef : Real.rpow Y (-σ) =
+          Real.exp (Real.log Y * (-σ)) := Real.rpow_def_of_pos hYpos _
+      rw [hpowDef, hYlog]
+      apply Real.exp_le_exp.mpr
+      have hcoef : -(2 * L / T ^ 2) ≤ 0 :=
+        neg_nonpos.mpr (by positivity)
+      calc
+        (2 * L / T ^ 2) * (-σ) = (-(2 * L / T ^ 2)) * σ := by ring
+        _ ≤ (-(2 * L / T ^ 2)) * (1 - 10 * (T ^ 4 / L)) :=
+          mul_le_mul_of_nonpos_left hσlower hcoef
+        _ = B := by
+          dsimp [B]
+          field_simp [ne_of_gt hLpos, ne_of_gt hTpos]
+          ring
+    have hqexp : (q : ℝ) ≤ Real.exp (C * T) := by
+      have h : (q : ℝ) ≤ Real.rpow L C := by simpa [L] using hqC
+      have hpowC : Real.rpow L C = Real.exp (Real.log L * C) :=
+        Real.rpow_def_of_pos hLpos C
+      calc
+        (q : ℝ) ≤ Real.rpow L C := h
+        _ = Real.exp (Real.log L * C) := hpowC
+        _ = Real.exp (C * T) := by congr 1 <;> dsimp [T] <;> ring
+    have hExpProduct : Real.exp (C * T) * Real.exp A * Real.exp B =
+        Real.exp (C * T + A + B) := by
+      calc
+        Real.exp (C * T) * Real.exp A * Real.exp B =
+            Real.exp (C * T + A) * Real.exp B := by rw [← Real.exp_add]
+        _ = Real.exp ((C * T + A) + B) := by rw [← Real.exp_add]
+    have hrem : 4 * (q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-σ) ≤
+        16 * Real.exp E := by
+      have hq4 : 4 * (q : ℝ) ≤ 4 * Real.exp (C * T) :=
+        mul_le_mul_of_nonneg_left hqexp (by norm_num)
+      have hsFactorNonneg : 0 ≤ 1 + ‖s‖ := by positivity
+      have hrpowNonneg : 0 ≤ Real.rpow Y (-σ) := Real.rpow_nonneg hYpos.le _
+      have hweightNonneg : 0 ≤ (1 + ‖s‖) * Real.rpow Y (-σ) :=
+        mul_nonneg hsFactorNonneg hrpowNonneg
+      calc
+        _ = (4 * (q : ℝ)) * ((1 + ‖s‖) * Real.rpow Y (-σ)) := by ring
+        _ ≤ (4 * Real.exp (C * T)) * ((1 + ‖s‖) * Real.rpow Y (-σ)) :=
+          mul_le_mul_of_nonneg_right hq4 hweightNonneg
+        _ = (4 * Real.exp (C * T)) * (1 + ‖s‖) * Real.rpow Y (-σ) := by ring
+        _ ≤ (4 * Real.exp (C * T)) * (4 * Real.exp A) * Real.rpow Y (-σ) := by
+          calc
+            _ = (4 * Real.exp (C * T)) *
+                  ((1 + ‖s‖) * Real.rpow Y (-σ)) := by ring
+            _ ≤ (4 * Real.exp (C * T)) *
+                  ((4 * Real.exp A) * Real.rpow Y (-σ)) :=
+              mul_le_mul_of_nonneg_left
+                (mul_le_mul_of_nonneg_right hsFactor hrpowNonneg) (by positivity)
+            _ = (4 * Real.exp (C * T)) * (4 * Real.exp A) *
+                  Real.rpow Y (-σ) := by ring
+        _ ≤ (4 * Real.exp (C * T)) * (4 * Real.exp A) * Real.exp B :=
+          mul_le_mul_of_nonneg_left hpowYneg (by positivity)
+        _ = 16 * Real.exp E := by
+          calc
+            _ = 16 * (Real.exp (C * T) * Real.exp A * Real.exp B) := by ring
+            _ = 16 * Real.exp (C * T + A + B) := by rw [hExpProduct]
+            _ = 16 * Real.exp E := by rfl
+    have hfrac : ((150 + C) / 2) * T ^ 2 ≤ A := by
+      change ((150 + C) / 2) * T ^ 2 ≤ L / (2 * T ^ 2)
+      apply (le_div_iff₀ (by positivity : 0 < 2 * T ^ 2)).2
+      calc
+        ((150 + C) / 2) * T ^ 2 * (2 * T ^ 2) =
+            (150 + C) * T ^ 4 := by ring
+        _ ≤ L := hL4
+    have hnegFrac : -3 * A ≤ -3 * (((150 + C) / 2) * T ^ 2) :=
+      mul_le_mul_of_nonpos_left hfrac (by norm_num)
+    have hTpT2 : T ≤ T ^ 2 := by nlinarith [sq_nonneg (T - 1)]
+    have hCT : C * T ≤ C * T ^ 2 := mul_le_mul_of_nonneg_left hTpT2 hC.le
+    have hCoeff : -3 * ((150 + C) / 2) + 20 + C ≤ -205 := by
+      nlinarith only [hC]
+    have hEbound : E ≤ -205 := by
+      calc
+        E = -3 * A + 20 * T ^ 2 + C * T := by
+          dsimp [E, A, B]
+          field_simp [ne_of_gt hTpos]
+          ring
+        _ ≤ -3 * (((150 + C) / 2) * T ^ 2) + 20 * T ^ 2 + C * T ^ 2 :=
+          by nlinarith only [hnegFrac, hCT]
+        _ = (-3 * ((150 + C) / 2) + 20 + C) * T ^ 2 := by ring
+        _ ≤ -205 * T ^ 2 :=
+          mul_le_mul_of_nonneg_right hCoeff (sq_nonneg T)
+        _ ≤ -205 := by nlinarith only [hT2]
+    have hexp205 : (16 : ℝ) ≤ Real.exp 205 := by
+      have h := Real.add_one_le_exp (205 : ℝ)
+      linarith only [h]
+    have h16exp : 16 * Real.exp (-205) ≤ 1 := by
+      rw [Real.exp_neg, ← div_eq_mul_inv]
+      apply (div_le_iff₀ (Real.exp_pos _)).2
+      simpa using hexp205
+    have hRemainderSmall : 4 * (q : ℝ) * (1 + ‖s‖) *
+        Real.rpow Y (-σ) ≤ 1 := by
+      calc
+        _ ≤ 16 * Real.exp E := hrem
+        _ ≤ 16 * Real.exp (-205) :=
+          mul_le_mul_of_nonneg_left (Real.exp_le_exp.mpr hEbound) (by norm_num)
+        _ ≤ 1 := h16exp
+    have hApproxY := cont_approximation hqpos χ s hσlo hσhi hvlo hYone
+    have hApproxRemainder : ‖dirichletLValue q hqpos χ s -
+        dirichletPartialSum q χ Y s -
+          characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+            (s - 1)‖ ≤ 1 := by
+      calc
+        _ ≤ 4 * (q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-s.re) := by
+          simpa [s] using hApproxY
+        _ = 4 * (q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-σ) := by simp [s]
+        _ ≤ 1 := hRemainderSmall
+    have hden : (1 / 2 : ℝ) ≤ ‖s - 1‖ := by
+      calc
+        1 / 2 ≤ |v| := hvlo
+        _ = |(s - 1).im| := by simp [s]
+        _ ≤ ‖s - 1‖ := Complex.abs_im_le_norm _
+    have hdenpos : 0 < ‖s - 1‖ := lt_of_lt_of_le (by norm_num) hden
+    have hdeninv : (‖s - 1‖)⁻¹ ≤ 2 := by
+      have h := (inv_le_inv₀ hdenpos (by norm_num : (0 : ℝ) < 1 / 2)).mpr hden
+      simpa using h
+    have hExpNormEq : ‖Complex.exp ((1 - s) * (Real.log Y : ℂ))‖ =
+        Real.rpow Y (1 - σ) := by
+      have hpowDef : Real.rpow Y (1 - σ) =
+          Real.exp (Real.log Y * (1 - σ)) := Real.rpow_def_of_pos hYpos _
+      have hRe : ((1 - s) * (Real.log Y : ℂ)).re =
+          (1 - σ) * Real.log Y := by
+        simp [Complex.mul_re, Complex.sub_re, Complex.sub_im, s]
+      calc
+        ‖Complex.exp ((1 - s) * (Real.log Y : ℂ))‖ =
+            Real.exp ((1 - σ) * Real.log Y) := by rw [Complex.norm_exp, hRe]
+        _ = Real.exp (Real.log Y * (1 - σ)) :=
+          congrArg Real.exp (mul_comm _ _)
+        _ = Real.rpow Y (1 - σ) := hpowDef.symm
+    have hExpNorm : ‖Complex.exp ((1 - s) * (Real.log Y : ℂ))‖ ≤
+        Real.exp (20 * T ^ 2) := by simpa [hExpNormEq] using hpowY
+    have hmean := cont_characterMean_norm_le_one hqpos χ
+    have hnum : ‖characterMean q χ‖ *
+        ‖Complex.exp ((1 - s) * (Real.log Y : ℂ))‖ ≤
+        Real.exp (20 * T ^ 2) := by
+      calc
+        _ ≤ 1 * ‖Complex.exp ((1 - s) * (Real.log Y : ℂ))‖ :=
+          mul_le_mul_of_nonneg_right hmean (norm_nonneg _)
+        _ ≤ Real.exp (20 * T ^ 2) := by simpa using hExpNorm
+    have hPole : ‖characterMean q χ *
+        Complex.exp ((1 - s) * (Real.log Y : ℂ)) / (s - 1)‖ ≤
+        Real.exp (22 * T ^ 2) := by
+      have hTwoExp : 2 ≤ Real.exp (2 * T ^ 2) := by
+        calc
+          2 ≤ 2 * T ^ 2 + 1 := by nlinarith only [hT2]
+          _ ≤ Real.exp (2 * T ^ 2) := Real.add_one_le_exp _
+      calc
+        _ = (‖characterMean q χ‖ *
+              ‖Complex.exp ((1 - s) * (Real.log Y : ℂ))‖) *
+                (‖s - 1‖)⁻¹ := by
+                  rw [norm_div, norm_mul]
+                  simp [div_eq_mul_inv, mul_assoc]
+        _ ≤ Real.exp (20 * T ^ 2) * 2 :=
+          mul_le_mul hnum hdeninv (by positivity) (by positivity)
+        _ = 2 * Real.exp (20 * T ^ 2) := by ring
+        _ ≤ Real.exp (2 * T ^ 2) * Real.exp (20 * T ^ 2) :=
+          mul_le_mul_of_nonneg_right hTwoExp (Real.exp_nonneg _)
+        _ = Real.exp (22 * T ^ 2) := by
+          rw [← Real.exp_add]
+          congr 1
+          ring
+    have hLdecomp : dirichletLValue q hqpos χ s =
+        (dirichletLValue q hqpos χ s - dirichletPartialSum q χ Y s -
+          characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+            (s - 1)) + dirichletPartialSum q χ Y s +
+              characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+                (s - 1) := by ring
+    have htotal : ‖dirichletLValue q hqpos χ s‖ ≤
+        1 + (Real.exp (22 * T ^ 2) + Real.exp (22 * T ^ 2)) := by
+      rw [hLdecomp]
+      have hRpart : ‖dirichletLValue q hqpos χ s - dirichletPartialSum q χ Y s -
+            characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+              (s - 1) + dirichletPartialSum q χ Y s‖ ≤
+          ‖dirichletLValue q hqpos χ s - dirichletPartialSum q χ Y s -
+              characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+                (s - 1)‖ + ‖dirichletPartialSum q χ Y s‖ := norm_add_le _ _
+      calc
+        _ ≤ ‖dirichletLValue q hqpos χ s - dirichletPartialSum q χ Y s -
+              characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+                (s - 1) + dirichletPartialSum q χ Y s‖ +
+              ‖characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+                (s - 1)‖ := norm_add_le _ _
+        _ ≤ (‖dirichletLValue q hqpos χ s - dirichletPartialSum q χ Y s -
+              characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+                (s - 1)‖ + ‖dirichletPartialSum q χ Y s‖) +
+              ‖characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+                (s - 1)‖ := by
+            exact add_le_add_left hRpart _
+        _ = ‖dirichletLValue q hqpos χ s - dirichletPartialSum q χ Y s -
+              characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+                (s - 1)‖ +
+              (‖dirichletPartialSum q χ Y s‖ +
+                ‖characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) /
+                  (s - 1)‖) := by ring_nf
+        _ ≤ 1 + (Real.exp (22 * T ^ 2) + Real.exp (22 * T ^ 2)) :=
+          add_le_add hApproxRemainder (add_le_add hPartial hPole)
+    have hExp22one : 1 ≤ Real.exp (22 * T ^ 2) :=
+      Real.one_le_exp (by positivity)
+    have hThreeExp : 3 ≤ Real.exp (2 * T ^ 2) := by
+      calc
+        3 ≤ 2 * T ^ 2 + 1 := by nlinarith only [hT2]
+        _ ≤ Real.exp (2 * T ^ 2) := Real.add_one_le_exp _
+    have hsum : 1 + (Real.exp (22 * T ^ 2) + Real.exp (22 * T ^ 2)) ≤
+        Real.exp (24 * T ^ 2) := by
+      calc
+        _ ≤ 3 * Real.exp (22 * T ^ 2) := by nlinarith only [hExp22one]
+        _ ≤ Real.exp (2 * T ^ 2) * Real.exp (22 * T ^ 2) :=
+          mul_le_mul_of_nonneg_right hThreeExp (Real.exp_nonneg _)
+        _ = Real.exp (24 * T ^ 2) := by
+          rw [← Real.exp_add]
+          congr 1
+          ring
+    calc
+      ‖dirichletLValue q hqpos χ s‖ ≤
+          1 + (Real.exp (22 * T ^ 2) + Real.exp (22 * T ^ 2)) := htotal
+      _ ≤ Real.exp (24 * T ^ 2) := hsum
+      _ ≤ Real.exp (30 * T ^ 2) :=
+        Real.exp_le_exp.mpr (by nlinarith only [hT2])
 
 private theorem cont_weighted_dyad_Icc_bound
     {q : ℕ} [NeZero q] (hq : 0 < q) (χ : DirichletCharacter ℂ q)
@@ -2044,89 +2499,6 @@ private theorem cont_partial_sum_split {q : ℕ} (χ : DirichletCharacter ℂ q)
   rw [show ⌊Y₀⌋₊ = F₀ by rfl, show ⌊Y⌋₊ = F by rfl,
     hY0_filter, hY_filter]
   rw [hsplit, Finset.sum_union hdisj]
-
-private theorem cont_high_growth_threshold (C Cφ C₃ : ℝ)
-    (hC : 0 < C) (hCφ : 0 < Cφ) :
-    ∃ x₀ : ℝ, 2 < x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
-      let L := Real.log x
-      let T := Real.log L
-      1 ≤ T ∧
-      (150 + C) * T ^ 4 ≤ L ∧
-      100 * T ^ 6 ≤ L ∧
-      (63 + 2 * Cφ) * T ^ (⌈C₃⌉₊ + 15) ≤ L := by
-  let A₄ : ℝ := 150 + C
-  let A₁₅ : ℝ := 63 + 2 * Cφ
-  let d : ℕ := ⌈C₃⌉₊
-  let m : ℕ := d + 15
-  have hA₄ : 0 < A₄ := by dsimp [A₄]; linarith
-  have hA₁₅ : 0 < A₁₅ := by dsimp [A₁₅]; positivity
-  have hTlim : Tendsto (fun x : ℝ => Real.log (Real.log x)) atTop atTop :=
-    Real.tendsto_log_atTop.comp Real.tendsto_log_atTop
-  have hlogpow (m : ℕ) :
-      Tendsto (fun x : ℝ => Real.log (Real.log x) ^ m / Real.log x)
-        atTop (𝓝 0) := by
-    change Tendsto ((fun z : ℝ => Real.log z ^ m / z) ∘ Real.log)
-      atTop (𝓝 0)
-    simpa [one_mul, add_zero] using
-      (Real.tendsto_pow_log_div_mul_add_atTop 1 0 m one_ne_zero).comp
-        Real.tendsto_log_atTop
-  have hsmall₄ : ∀ᶠ x : ℝ in atTop,
-      Real.log (Real.log x) ^ 4 / Real.log x < 1 / A₄ :=
-    (hlogpow 4).eventually (gt_mem_nhds (by positivity))
-  have hsmall₆ : ∀ᶠ x : ℝ in atTop,
-      Real.log (Real.log x) ^ 6 / Real.log x < 1 / 100 :=
-    (hlogpow 6).eventually (gt_mem_nhds (by norm_num))
-  have hsmallm : ∀ᶠ x : ℝ in atTop,
-      Real.log (Real.log x) ^ m / Real.log x < 1 / A₁₅ :=
-    (hlogpow m).eventually (gt_mem_nhds (by positivity))
-  have hEventually : ∀ᶠ x : ℝ in atTop,
-      1 ≤ Real.log x ∧ 1 ≤ Real.log (Real.log x) ∧
-        Real.log (Real.log x) ^ 4 / Real.log x < 1 / A₄ ∧
-        Real.log (Real.log x) ^ 6 / Real.log x < 1 / 100 ∧
-        Real.log (Real.log x) ^ m / Real.log x < 1 / A₁₅ := by
-    filter_upwards [Real.tendsto_log_atTop.eventually_ge_atTop 1,
-      hTlim.eventually_ge_atTop 1, hsmall₄, hsmall₆, hsmallm]
-      with x hL hT h₄ h₆ hm
-    exact ⟨hL, hT, h₄, h₆, hm⟩
-  obtain ⟨X, hX⟩ := eventually_atTop.1 hEventually
-  refine ⟨max 3 X, lt_of_lt_of_le (by norm_num) (le_max_left _ _), ?_⟩
-  intro x hx
-  have hxX : X ≤ x := (le_max_right _ _).trans hx
-  rcases hX x hxX with ⟨hLone, hTone, h₄, h₆, hm⟩
-  let L : ℝ := Real.log x
-  let T : ℝ := Real.log L
-  have hLpos : 0 < L := by dsimp [L]; linarith
-  have hTpos : 0 < T := by dsimp [T]; linarith
-  have h₄' : T ^ 4 / L < 1 / A₄ := by simpa [L, T] using h₄
-  have h₆' : T ^ 6 / L < 1 / 100 := by simpa [L, T] using h₆
-  have hm' : T ^ m / L < 1 / A₁₅ := by simpa [L, T] using hm
-  have hbound₄lt : A₄ * T ^ 4 < L := by
-    calc
-      A₄ * T ^ 4 = (T ^ 4 / L) * (L * A₄) := by
-        field_simp [ne_of_gt hLpos]
-      _ < (1 / A₄) * (L * A₄) :=
-        mul_lt_mul_of_pos_right h₄' (mul_pos hLpos hA₄)
-      _ = L := by field_simp [ne_of_gt hA₄]
-  have hbound₄ : A₄ * T ^ 4 ≤ L := hbound₄lt.le
-  have hbound₆lt : 100 * T ^ 6 < L := by
-    calc
-      100 * T ^ 6 = (T ^ 6 / L) * (L * 100) := by
-        field_simp [ne_of_gt hLpos]
-      _ < (1 / 100) * (L * 100) :=
-        mul_lt_mul_of_pos_right h₆' (mul_pos hLpos (by norm_num))
-      _ = L := by ring
-  have hbound₆ : 100 * T ^ 6 ≤ L := hbound₆lt.le
-  have hbound₁₅lt : A₁₅ * T ^ m < L := by
-    calc
-      A₁₅ * T ^ m = (T ^ m / L) * (L * A₁₅) := by
-        field_simp [ne_of_gt hLpos]
-      _ < (1 / A₁₅) * (L * A₁₅) :=
-        mul_lt_mul_of_pos_right hm' (mul_pos hLpos hA₁₅)
-      _ = L := by field_simp [ne_of_gt hA₁₅]
-  have hbound₁₅ : A₁₅ * T ^ m ≤ L := hbound₁₅lt.le
-  dsimp only
-  exact ⟨hTone, by simpa [A₄] using hbound₄, hbound₆,
-    by simpa [A₁₅, m, d] using hbound₁₅⟩
 
 set_option maxHeartbeats 1000000 in
 private theorem cont_growth_high_height_bound
