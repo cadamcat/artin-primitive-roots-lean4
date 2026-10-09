@@ -5,6 +5,10 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_LATTICE.UnitCompactCore
 import ArtinPrimitiveRoots.Theta.LocalInt
 import ArtinPrimitiveRoots.A2.Proofs.A2_ZF_TOP.ArchFourier
 import Mathlib.MeasureTheory.Group.Measure
+import ArtinPrimitiveRoots.A1.Proofs.A1_POISSON.PoissonAbstract
+import ArtinPrimitiveRoots.A1.Proofs.A1_FOURIER.TensorMajorant
+import ArtinPrimitiveRoots.A1.Proofs.A1_FOURIER.TensorIntegrable
+import ArtinPrimitiveRoots.A1.Proofs.A1_FOURIER.LocalFourierTest
 
 /-!
 # A1 arithmetic base: the S-integer lattice
@@ -2816,6 +2820,29 @@ theorem SData.diagR_covolume_one (S : SData F CE condη) (D : FieldData F)
   exact measurable_fundamental_domain_measure_one S D A μ
     (covol_standard_fundamental_domain S D) ⟨hmeas, hfund⟩
 
+/-- A1-POISSON part (LEAD): every Bruhat--Schwartz function is a finite sum of tensors with
+locally constant compactly supported finite components and an archimedean Schwartz component.
+Proof: `Submodule.span_induction` over `S.BruhatSchwartz`; a generator `S.tensorFunction arch fin`
+is one tensor (`φ v = (fin v).1`, `Φ = arch`); zero is the empty sum; sums concatenate
+(`Fin.append`/`finSumFinEquiv`); scalars are absorbed into `Φ`.
+Used by: `SData.poisson`. -/
+theorem SData.bruhatSchwartz_isFSTensorSum (S : SData F CE condη) (f : S.BruhatSchwartz) :
+    S.IsFSTensorSum (f : S.FS → ℂ) := by
+  sorry
+
+/-- A1-POISSON part (LEAD): the self-dual Fourier transform of a tensor sum is a tensor sum.
+Proof: rewrite `μ.measure` by the private `covol_selfdual_measure_candidate_eq`; split the
+Fourier integral over the finite sum (each tensor is integrable: `a1_fourier_tensor_integrable`);
+apply the private `covol_fourier_product_formula` to each tensor, then
+`a2_zf_top.complexPiFourier_eq_schwartz` for the archimedean factor and
+`a1_fourier_local_fourier_test` for the finite factors (`covol_local_fourier` is
+`a1LocalFourier`).
+Uses: `a1_fourier_tensor_integrable`, `a1_fourier_local_fourier_test`. Used by: `SData.poisson`. -/
+theorem SData.fourier_isFSTensorSum (S : SData F CE condη) (D : FieldData F)
+    (A : AddCharData F) (μ : S.SelfDualMeasure A) (g : S.FS → ℂ) (hg : S.IsFSTensorSum g) :
+    S.IsFSTensorSum (S.fourier A μ.measure g) := by
+  sorry
+
 /-- Poisson summation on `R` for Bruhat--Schwartz functions on `F_S`, including absolute
 convergence of both lattice sums. -/
 theorem SData.poisson (S : SData F CE condη) (D : FieldData F) (A : AddCharData F)
@@ -2824,7 +2851,40 @@ theorem SData.poisson (S : SData F CE condη) (D : FieldData F) (A : AddCharData
       Summable (fun ν : S.R => ‖S.fourier A μ.measure (f : S.FS → ℂ) (S.diag (ν : F))‖) ∧
       ∑' m : S.R, (f : S.FS → ℂ) (S.diag (m : F)) =
         ∑' ν : S.R, S.fourier A μ.measure (f : S.FS → ℂ) (S.diag (ν : F)) := by
-  sorry
+  classical
+  obtain ⟨K, hKm, hK, hKμ⟩ := S.diagR_covolume_one D A μ
+  have hset := S.diagR_eq_annihilator D A
+  have hself : ∀ r s : S.R, S.e A (S.diag (r : F) * S.diag (s : F)) = 1 := by
+    intro r s
+    have hs : S.diag (s : F) ∈ S.annihilator A S.diagR := by
+      rw [← hset]
+      exact ⟨s, rfl⟩
+    exact hs (S.diag (r : F)) ⟨r, rfl⟩
+  have hann : ∀ y : S.FS, (∀ r : S.R, S.e A (S.diag (r : F) * y) = 1) →
+      ∃ r : S.R, y = S.diag (r : F) := by
+    intro y hy
+    have hmem : y ∈ S.annihilator A S.diagR := by
+      rintro x ⟨r, rfl⟩
+      exact hy r
+    rw [← hset] at hmem
+    obtain ⟨r, hr⟩ := hmem
+    exact ⟨r, hr.symm⟩
+  haveI : Measure.IsAddHaarMeasure μ.measure := μ.isHaar
+  have hT := S.bruhatSchwartz_isFSTensorSum f
+  have hTF := S.fourier_isFSTensorSum D A μ _ hT
+  obtain ⟨hcont, hint⟩ := a1_fourier_tensor_integrable (mS := instMeasurableFS S) S _ hT
+    μ.measure
+  have hsum0 : ∀ g : S.FS → ℂ, S.IsFSTensorSum g →
+      Summable (fun m : S.R => ‖g (S.diag (m : F))‖) := by
+    intro g hg
+    obtain ⟨b, hb, hbd⟩ := a1_fourier_tensor_majorant S D g hg {0} isCompact_singleton
+    refine Summable.of_nonneg_of_le (fun _ => norm_nonneg _) (fun m => ?_) hb
+    simpa using hbd m 0 rfl
+  have hdual := hsum0 _ hTF
+  refine ⟨hsum0 _ hT, hdual, ?_⟩
+  unfold SData.fourier at hdual ⊢
+  exact a1_fourier_poisson_abstract (mS := instMeasurableFS S) S D A μ.measure K hKm hK hKμ
+    hself hann _ hcont hint (fun C hC => a1_fourier_tensor_majorant S D _ hT C hC) hdual
 
 /-! ## Scaling and the norm identity -/
 
