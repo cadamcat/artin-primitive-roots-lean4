@@ -281,7 +281,89 @@ theorem cont_tail_bound {q : ℕ} (hq : 0 < q)
     (hs : 0 < s.re) :
     ‖contTail q χ Y s‖ ≤
       2 * (q : ℝ) * (1 + ‖s‖ / s.re) * Real.rpow Y (-s.re) := by
-  sorry
+  have hYpos : 0 < Y := by linarith
+  have hnormExp (z : ℂ) (u : ℝ) (hu : 0 < u) :
+      ‖Complex.exp (-z * (Real.log u : ℂ))‖ = Real.rpow u (-z.re) := by
+    rw [Complex.norm_exp, Complex.mul_re, Complex.neg_re]
+    simp only [Complex.ofReal_re, Complex.ofReal_im, mul_zero, sub_zero]
+    calc
+      Real.exp (-z.re * Real.log u) =
+          Real.exp (Real.log u * (-z.re)) := by congr 1 <;> ring
+      _ = Real.rpow u (-z.re) := (Real.rpow_def_of_pos hu _).symm
+  have hnormEnd := hnormExp s Y hYpos
+  have hnormTail (u : ℝ) (hu : 0 < u) :
+      ‖Complex.exp (-(s + 1) * (Real.log u : ℂ))‖ =
+        Real.rpow u (-(s.re + 1)) := by
+    simpa only [Complex.add_re, Complex.one_re, add_zero] using
+      hnormExp (s + 1) u hu
+  have hmajor : Integrable
+      (fun u : ℝ => (2 * (q : ℝ)) * Real.rpow u (-(s.re + 1)))
+      (volume.restrict (Set.Ioi Y)) := by
+    exact (integrableOn_Ioi_rpow_of_lt
+      (a := -(s.re + 1)) (c := Y) (by linarith) hYpos).const_mul
+        (2 * (q : ℝ))
+  have hnormInt : IntegrableOn
+      (fun u : ℝ => ‖contDiscrepancy q χ u *
+        Complex.exp (-(s + 1) * (Real.log u : ℂ))‖) (Set.Ioi Y) :=
+    (cont_tail_integrable hq χ hY s hs).norm
+  have hbound : ∀ᵐ u ∂(volume.restrict (Set.Ioi Y)),
+      ‖contDiscrepancy q χ u *
+        Complex.exp (-(s + 1) * (Real.log u : ℂ))‖ ≤
+          (2 * (q : ℝ)) * Real.rpow u (-(s.re + 1)) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with u hu
+    have hu0 : 0 < u := by
+      have huY : Y < u := Set.mem_Ioi.mp hu
+      linarith
+    have hdisc := cont_discrepancy_bound hq χ (le_of_lt hu0)
+    rw [norm_mul, hnormTail u hu0]
+    exact mul_le_mul_of_nonneg_right hdisc (Real.rpow_nonneg hu0.le _)
+  have hpowInt : ∫ u : ℝ in Set.Ioi Y, Real.rpow u (-(s.re + 1)) =
+      Real.rpow Y (-s.re) / s.re := by
+    have h := integral_Ioi_rpow_of_lt
+      (a := -(s.re + 1)) (c := Y) (by linarith) hYpos
+    rw [show -(s.re + 1) + 1 = -s.re by ring] at h
+    calc
+      _ = -Real.rpow Y (-s.re) / (-s.re) := by simpa using h
+      _ = _ := by ring
+  have hIntBound :
+      ‖∫ u : ℝ in Set.Ioi Y,
+          contDiscrepancy q χ u *
+            Complex.exp (-(s + 1) * (Real.log u : ℂ))‖ ≤
+        (2 * (q : ℝ)) * (Real.rpow Y (-s.re) / s.re) := by
+    calc
+      _ ≤ ∫ u : ℝ in Set.Ioi Y,
+          ‖contDiscrepancy q χ u *
+            Complex.exp (-(s + 1) * (Real.log u : ℂ))‖ :=
+          norm_integral_le_integral_norm _
+      _ ≤ ∫ u : ℝ in Set.Ioi Y,
+          (2 * (q : ℝ)) * Real.rpow u (-(s.re + 1)) :=
+          integral_mono_ae hnormInt hmajor hbound
+      _ = (2 * (q : ℝ)) * (Real.rpow Y (-s.re) / s.re) := by
+          rw [integral_const_mul, hpowInt]
+  have hEnd : ‖-contDiscrepancy q χ Y *
+        Complex.exp (-s * (Real.log Y : ℂ))‖ ≤
+      (2 * (q : ℝ)) * Real.rpow Y (-s.re) := by
+    rw [norm_mul, norm_neg, hnormEnd]
+    exact mul_le_mul_of_nonneg_right
+      (cont_discrepancy_bound hq χ (by linarith))
+      (Real.rpow_nonneg (by linarith : 0 ≤ Y) _)
+  unfold contTail
+  calc
+    _ ≤ ‖-contDiscrepancy q χ Y *
+          Complex.exp (-s * (Real.log Y : ℂ))‖ +
+        ‖s * ∫ u : ℝ in Set.Ioi Y,
+          contDiscrepancy q χ u *
+            Complex.exp (-(s + 1) * (Real.log u : ℂ))‖ := norm_add_le _ _
+    _ = ‖-contDiscrepancy q χ Y *
+          Complex.exp (-s * (Real.log Y : ℂ))‖ +
+        ‖s‖ * ‖∫ u : ℝ in Set.Ioi Y,
+          contDiscrepancy q χ u *
+            Complex.exp (-(s + 1) * (Real.log u : ℂ))‖ := by
+              simp only [norm_mul]
+    _ ≤ (2 * (q : ℝ)) * Real.rpow Y (-s.re) +
+        ‖s‖ * ((2 * (q : ℝ)) * (Real.rpow Y (-s.re) / s.re)) :=
+          add_le_add hEnd (mul_le_mul_of_nonneg_left hIntBound (norm_nonneg s))
+    _ = 2 * (q : ℝ) * (1 + ‖s‖ / s.re) * Real.rpow Y (-s.re) := by ring
 
 theorem cont_abel_identity {q : ℕ} (hq : 0 < q)
     (χ : DirichletCharacter ℂ q) {Y : ℝ} (hY : 1 ≤ Y) (s : ℂ)
