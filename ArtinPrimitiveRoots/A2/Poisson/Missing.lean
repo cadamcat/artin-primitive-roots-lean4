@@ -26,6 +26,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierFamily
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.HaarDilation
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LabeledAdditiveSieve
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.Lead.OrbitExpansion
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LocalRadialIntegral
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
@@ -10916,6 +10917,22 @@ private theorem po_frequency_orbit_classification (x : S.R) (hx : (x : F) ≠ 0)
     rw [hxγ, hγval]
     ring
 
+private def po_probeWeights (W : PoissonWeights (S := S)) :
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.ProbeWeights (S := S) where
+  W1 := W.W1
+  W1_smooth := W.W1_smooth
+  W1_compact := W.W1_compact
+  W1_positive_support := W.W1_positive_support
+  W1_nonnegative := W.W1_nonnegative
+  W1_nonzero := W.W1_nonzero
+  arch := W.arch
+  finite := W.finite
+  W0 := W.W0
+  W0_tensor := W.W0_tensor
+  W0_Bruhat := W.W0_Bruhat
+  W0_compact := W.W0_compact
+  W0_units := W.W0_units
+
 /-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
 theorem po_poisson_orbits : WeightSpec R sd W →
   (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
@@ -10942,7 +10959,22 @@ theorem po_poisson_orbits : WeightSpec R sd W →
       hSmooth.continuousOn.continuousAt (isOpen_Ioi.mem_nhds hT)
     exact po_weightV0_inversion (R := R) (sd := sd) (W := W)
       σ T hσ hT hdecay hconv hVert hcont
-  · sorry
+  · let W' := po_probeWeights W
+    have hspec' : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadWeightSpec R sd W' := hSpec
+    have hcoset : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadCosetContract sd W' :=
+      fun I a ha b k => po_weight_coset_poisson R sd W I a ha b k
+    have hfinite : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadFiniteContract R :=
+      ⟨fun s I a ha hallowed h => po_finite_poisson_transform R s I a ha hallowed h,
+        fun s m => po_finiteGaussAt_norm_le R s (bc.gen s) (bc.gen_spec s).1 m⟩
+    have hsheets : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadSheetsContract R sd W' :=
+      ⟨po_weightFourier_sheet_integrable R sd W,
+        po_weightFourier_sheet_norm_decay_two R sd W⟩
+    have hclass : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadClassContract (bc := bc) η U :=
+      fun x hx => po_frequency_orbit_classification (η := η) (U := U) x hx
+    have hratio : ArtinPrimitiveRoots.Proofs.a2_probe_sol.LeadRatioContract (S := S) :=
+      euler_generators_unit_ratio
+    exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.orbit_expansion
+      R sd W' η U hspec' hcoset hfinite hsheets hclass hratio
 
 private theorem po_gamma_norm_le_sqrt (c : S.SqfExtIdeal) :
     ‖gamma D S A 2 c.1 (cgen R c)‖ ≤ qI c.1 ^ ((1 : ℝ) / 2) := by
