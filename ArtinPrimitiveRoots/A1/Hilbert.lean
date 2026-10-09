@@ -25,6 +25,15 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.LocalIndex
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.NativeLocalIndex
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.CanonicalTopology
 import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.ResidueComparison
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.DegreeComparison
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.DegreeSum
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.LocalCardinality
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.GlobalCardinality
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.SUnitCardinality
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.SUnitInjection
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.Symplectic
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.PrimeComplement
+import ArtinPrimitiveRoots.A1.Proofs.A1_BDATA.ExponentSix
 
 /-!
 # A1 interface, §3: Hilbert symbols, H_S, B, allowed generators
@@ -254,88 +263,65 @@ private theorem a1_bdata_sol_HSQuot_exists (D : FieldData F) (S : SData F CE con
       · exact congrArg Units.val (hc v).symm
       · exact congrArg Units.val (hd v).symm
 
-/-- lem:balanced-generators (a)–(c). Package P-ARITH-B. -/
-theorem BData.nonempty (D : FieldData F) (S : SData F CE condη) (H : HilbertData F) :
-    Nonempty (BData S H) := by
-  sorry
-
-/-- Allowed generator: class of `a` in `𝒱` lies in `B` (02:229). -/
-def BData.Allowed {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H) (a : Fˣ) : Prop :=
-  (QuotientGroup.mk (S.diagU a) : S.V) ∈ Bd.B
-
-/-- lem:balanced-generators (d): allowed generators exist, unique up to `U_S^6`. -/
-theorem BData.exists_allowed {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
-    (I : Ideal (𝓞 F)) (hI : S.IsExterior I) :
-    ∃ a : Fˣ, S.IsGen (a : F) I ∧ Bd.Allowed a := by
+/-- The S-unit image is isotropic: two S-units pair to 1 at every place outside `S`
+by the tame formula, so reciprocity makes the product over `S` trivial. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.a1_bdata_sol.E_isotropic
+    (S : SData F CE condη) (H : HilbertData F)
+    (β : S.V →* (S.V →* rootsOfUnity 6 F))
+    (hβ : ∀ x y : S.FSˣ,
+      β (QuotientGroup.mk x) (QuotientGroup.mk y) = S.HS H x y) :
+    ∀ q ∈ S.E, ∀ r ∈ S.E, β q r = 1 := by
   classical
-  letI : CommGroup S.V := QuotientGroup.Quotient.commGroup _
-  obtain ⟨a₀, ha₀⟩ :=
-    ArtinPrimitiveRoots.Proofs.A1Generators.exists_generator_of_pid S I hI
-  let q₀ : S.V := (QuotientGroup.mk (S.diagU a₀) : S.V)
-  have hsup : q₀ ∈ S.E ⊔ Bd.B := by
-    rw [Bd.compl.sup_eq_top]
-    exact Subgroup.mem_top q₀
-  obtain ⟨e, he, b, hb, hmul⟩ :=
-    (Subgroup.mem_sup (s := S.E) (t := Bd.B) (x := q₀)).mp hsup
-  change e ∈ S.E at he
-  obtain ⟨ε, hε, hεmap⟩ := Subgroup.mem_map.mp he
-  let εu : S.US := ⟨ε, hε⟩
-  have hεmap' : (QuotientGroup.mk (S.diagU (εu : Fˣ)) : S.V) = e := by
-    simpa using hεmap
-  let a : Fˣ := ((εu⁻¹ : S.US) : Fˣ) * a₀
-  have hgen : S.IsGen (a : F) I := by
-    exact ArtinPrimitiveRoots.Proofs.A1Generators.isGen_mul_sUnit S εu⁻¹ a₀ ha₀
-  have hqa : (QuotientGroup.mk (S.diagU a) : S.V) = b := by
-    change (QuotientGroup.mk
-      (S.diagU (((εu⁻¹ : S.US) : Fˣ) * a₀)) : S.V) = b
-    calc
-      QuotientGroup.mk
-          (S.diagU (((εu⁻¹ : S.US) : Fˣ) * a₀)) =
-        QuotientGroup.mk (S.diagU ((εu⁻¹ : S.US) : Fˣ)) * q₀ := by simp [q₀]
-      _ = (QuotientGroup.mk (S.diagU (εu : Fˣ)))⁻¹ * q₀ := by simp
-      _ = e⁻¹ * q₀ := by rw [hεmap']
-      _ = b := by rw [← hmul]; group
-  refine ⟨a, hgen, ?_⟩
-  change (QuotientGroup.mk (S.diagU a) : S.V) ∈ Bd.B
-  rw [hqa]
-  exact hb
-
-private theorem a1_bdata_sol_allowed_ratio_local_sixth
-    {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
-    (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
-    (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
-    a / b ∈ S.US ∧ ∃ x : S.FSˣ, S.diagU (a / b) = x ^ 6 := by
-  classical
-  letI : CommGroup S.V := QuotientGroup.Quotient.commGroup _
-  have hu : a / b ∈ S.US := by
+  intro q hq r hr
+  obtain ⟨u, hu, huq⟩ := Subgroup.mem_map.mp hq
+  obtain ⟨ε, hε, hεr⟩ := Subgroup.mem_map.mp hr
+  have hqmk : q = QuotientGroup.mk (S.diagU (u : Fˣ)) := by
+    simpa using huq.symm
+  have hrmk : r = QuotientGroup.mk (S.diagU (ε : Fˣ)) := by
+    simpa using hεr.symm
+  have hpair := hβ (S.diagU (u : Fˣ)) (S.diagU (ε : Fˣ))
+  rw [← hqmk, ← hrmk] at hpair
+  have hcount (a : Fˣ) (ha : a ∈ S.US) (v : FinPlace F) (hv : v ∉ S.Sf) :
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) = 0 := by
+    have hval : v.valuation F (a : F) = 1 := ha v hv
+    rw [ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+      v (a : F) a.ne_zero, hval]
+    simp
+  have hres (a : Fˣ) (ha : a ∈ S.US) (v : FinPlace F) (hv : v ∉ S.Sf) :
+      residue v (a : F) ≠ 0 :=
+    (ArtinPrimitiveRoots.A2.qs_nq0_residue_ne_zero_iff_valuation_one v (a : F)).mpr
+      (ha v hv)
+  have h6 (v : FinPlace F) (hv : v ∉ S.Sf) : (6 : 𝓞 F) ∉ v.asIdeal :=
+    fun h => hv (S.over6 v h)
+  let f : FinPlace F → rootsOfUnity 6 F := fun v => H.hilb v (toLoc v u) (toLoc v ε)
+  have houtside (v : FinPlace F) (hv : v ∉ S.Sf) : f v = 1 := by
+    have htame := H.tame v (h6 v hv) u ε (hres u hu v hv)
+    rw [hcount ε hε v hv, zpow_zero] at htame
+    apply Subtype.ext
+    apply Units.ext
+    simpa using htame
+  have hsupport : Function.mulSupport f ⊆ S.Sf := by
     intro v hv
-    have hcount : FractionalIdeal.count F v
-        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ((a / b : Fˣ) : F)) = 0 := by
-      rw [Units.val_div_eq_div_val]
-      rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
-        FractionalIdeal.count_mul F v
-          (FractionalIdeal.spanSingleton_ne_zero_iff.mpr a.ne_zero)
-          (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr b.ne_zero)),
-        FractionalIdeal.count_inv, ha.1.2.2 v hv, hb.1.2.2 v hv, add_neg_cancel]
-    have hc := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
-      v ((a / b : Fˣ) : F) (a / b).ne_zero
-    rw [hcount] at hc
-    have hlog : WithZero.log (v.valuation F ((a / b : Fˣ) : F)) = 0 :=
-      neg_eq_zero.mp hc.symm
-    calc
-      v.valuation F ((a / b : Fˣ) : F) =
-          WithZero.exp (WithZero.log (v.valuation F ((a / b : Fˣ) : F))) :=
-        (WithZero.exp_log ((v.valuation F).ne_zero_iff.mpr (a / b).ne_zero)).symm
-      _ = 1 := by rw [hlog, WithZero.exp_zero]
-  have hE : (QuotientGroup.mk (S.diagU (a / b)) : S.V) ∈ S.E := by
-    exact Subgroup.mem_map.mpr ⟨a / b, hu, rfl⟩
-  have hB : (QuotientGroup.mk (S.diagU (a / b)) : S.V) ∈ Bd.B := by
-    have hdiv := Bd.B.div_mem ha.2 hb.2
-    simpa only [map_div, QuotientGroup.mk_div] using hdiv
-  have hclass : (QuotientGroup.mk (S.diagU (a / b)) : S.V) = 1 :=
-    Subgroup.disjoint_def.mp Bd.compl.disjoint hE hB
-  obtain ⟨x, hx⟩ := (QuotientGroup.eq_one_iff _).mp hclass
-  exact ⟨hu, x, hx.symm⟩
+    by_contra hnot
+    exact hv (houtside v hnot)
+  have hfin : (∏ᶠ v, f v) = ∏ v ∈ S.Sf, f v :=
+    finprod_eq_prod_of_mulSupport_subset f hsupport
+  have hglobal : (∏ᶠ v, f v) = 1 := (H.product_formula (u : Fˣ) (ε : Fˣ)).2
+  have hsf : (∏ v ∈ S.Sf, f v) =
+      S.HS H (S.diagU (u : Fˣ)) (S.diagU (ε : Fˣ)) := by
+    rw [← Finset.prod_attach S.Sf (fun v => f v)]
+    unfold SData.HS
+    refine Finset.prod_congr rfl ?_
+    intro v _
+    have hcu : S.compU v (S.diagU (u : Fˣ)) = toLoc v.1 u := by
+      apply Units.ext
+      rfl
+    have hcε : S.compU v (S.diagU (ε : Fˣ)) = toLoc v.1 ε := by
+      apply Units.ext
+      rfl
+    simp [f, hcu, hcε]
+  exact hpair.trans (hsf.symm.trans (hfin.symm.trans hglobal))
 
 private theorem a1_bdata_sol_exterior_symbol_trivial (S : SData F CE condη)
     (H : HilbertData F) (u : Fˣ) (hu : u ∈ S.US)
@@ -551,6 +537,136 @@ private theorem a1_bdata_sol_local_sixth_everywhere_of_hilbert (S : SData F CE c
     have heq := congrArg row hc
     rw [map_div, hright6, hglobal, div_one] at heq
     exact heq
+
+/-- A local sixth power of an S-unit is a global sixth power of an S-unit. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_sixth_injective_of_hilbert
+    (S : SData F CE condη) (H : HilbertData F) (u : Fˣ) (hu : u ∈ S.US)
+    (hlocal : ∃ x : S.FSˣ, S.diagU u = x ^ 6) :
+    ∃ ε ∈ S.US, u = ε ^ 6 := by
+  obtain ⟨ε, heq⟩ := ArtinPrimitiveRoots.Proofs.a1_bdata_sol.global_sixth_of_local
+    (a1_bdata_sol_mu6_of_hilbertData H) u
+    (a1_bdata_sol_local_sixth_everywhere_of_hilbert S H u hu hlocal)
+  exact ⟨ε, ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_of_sixth S u ε hu heq, heq⟩
+
+/-- The image of the S-units in the sixth-power quotient has order
+`6 ^ (#S_f + #infinite places)`. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_image_cardinality_of_hilbert
+    (D : FieldData F) (S : SData F CE condη) (H : HilbertData F) :
+    Nat.card (S.US.map (((QuotientGroup.mk' _) : S.FSˣ →* S.V).comp S.diagU)) =
+      6 ^ (S.Sf.card + numComplex F) :=
+  ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_image_cardinality D S
+    (ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_sixth_injective_of_hilbert S H)
+
+/-- lem:balanced-generators (a)–(c). Package P-ARITH-B. -/
+theorem BData.nonempty (D : FieldData F) (S : SData F CE condη) (H : HilbertData F) :
+    Nonempty (BData S H) := by
+  classical
+  letI : CommGroup S.V := QuotientGroup.Quotient.commGroup _
+  obtain ⟨β, hβ, ha, hn⟩ := a1_bdata_sol_HSQuot_exists D S H
+  have hcard : Nat.card S.V = 6 ^ (2 * (S.Sf.card + numComplex F)) := by
+    rw [ArtinPrimitiveRoots.Proofs.a1_bdata_sol.native_V_class_count_product D S,
+      ArtinPrimitiveRoots.Proofs.a1_bdata_sol.residue_degree_product D S,
+      show (36 : ℕ) = 6 ^ 2 by norm_num, ← pow_mul, ← pow_add]
+    congr 1
+    omega
+  have hEcard : Nat.card S.E = 6 ^ (S.Sf.card + numComplex F) :=
+    ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_image_cardinality_of_hilbert D S H
+  letI : Finite S.V := Nat.finite_of_card_ne_zero (by rw [hcard]; positivity)
+  have hexp : ∀ q : S.V, q ^ 6 = 1 := by
+    intro q
+    refine QuotientGroup.induction_on q ?_
+    intro x
+    change (QuotientGroup.mk x : S.V) ^ 6 = 1
+    rw [← QuotientGroup.mk_pow]
+    exact (QuotientGroup.eq_one_iff (x ^ 6)).mpr ⟨x, rfl⟩
+  have hroot : IsPrimitiveRoot (D.ζ12 ^ 2) 6 := by
+    simpa using D.hζ12.pow_of_dvd
+      (by norm_num : (2 : ℕ) ≠ 0) (by norm_num : 2 ∣ 12)
+  obtain ⟨B, hi, hc⟩ := ArtinPrimitiveRoots.Proofs.a1_bdata_sol.exponent_six_complement
+    ⟨D.ζ12 ^ 2, hroot⟩ hexp β ha hn S.E _ hcard hEcard
+    (ArtinPrimitiveRoots.Proofs.a1_bdata_sol.E_isotropic S H β hβ)
+  refine ⟨⟨B, ?_, hc⟩⟩
+  intro x y hx hy
+  rw [← hβ]
+  exact hi _ hx _ hy
+
+/-- Allowed generator: class of `a` in `𝒱` lies in `B` (02:229). -/
+def BData.Allowed {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H) (a : Fˣ) : Prop :=
+  (QuotientGroup.mk (S.diagU a) : S.V) ∈ Bd.B
+
+/-- lem:balanced-generators (d): allowed generators exist, unique up to `U_S^6`. -/
+theorem BData.exists_allowed {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
+    (I : Ideal (𝓞 F)) (hI : S.IsExterior I) :
+    ∃ a : Fˣ, S.IsGen (a : F) I ∧ Bd.Allowed a := by
+  classical
+  letI : CommGroup S.V := QuotientGroup.Quotient.commGroup _
+  obtain ⟨a₀, ha₀⟩ :=
+    ArtinPrimitiveRoots.Proofs.A1Generators.exists_generator_of_pid S I hI
+  let q₀ : S.V := (QuotientGroup.mk (S.diagU a₀) : S.V)
+  have hsup : q₀ ∈ S.E ⊔ Bd.B := by
+    rw [Bd.compl.sup_eq_top]
+    exact Subgroup.mem_top q₀
+  obtain ⟨e, he, b, hb, hmul⟩ :=
+    (Subgroup.mem_sup (s := S.E) (t := Bd.B) (x := q₀)).mp hsup
+  change e ∈ S.E at he
+  obtain ⟨ε, hε, hεmap⟩ := Subgroup.mem_map.mp he
+  let εu : S.US := ⟨ε, hε⟩
+  have hεmap' : (QuotientGroup.mk (S.diagU (εu : Fˣ)) : S.V) = e := by
+    simpa using hεmap
+  let a : Fˣ := ((εu⁻¹ : S.US) : Fˣ) * a₀
+  have hgen : S.IsGen (a : F) I := by
+    exact ArtinPrimitiveRoots.Proofs.A1Generators.isGen_mul_sUnit S εu⁻¹ a₀ ha₀
+  have hqa : (QuotientGroup.mk (S.diagU a) : S.V) = b := by
+    change (QuotientGroup.mk
+      (S.diagU (((εu⁻¹ : S.US) : Fˣ) * a₀)) : S.V) = b
+    calc
+      QuotientGroup.mk
+          (S.diagU (((εu⁻¹ : S.US) : Fˣ) * a₀)) =
+        QuotientGroup.mk (S.diagU ((εu⁻¹ : S.US) : Fˣ)) * q₀ := by simp [q₀]
+      _ = (QuotientGroup.mk (S.diagU (εu : Fˣ)))⁻¹ * q₀ := by simp
+      _ = e⁻¹ * q₀ := by rw [hεmap']
+      _ = b := by rw [← hmul]; group
+  refine ⟨a, hgen, ?_⟩
+  change (QuotientGroup.mk (S.diagU a) : S.V) ∈ Bd.B
+  rw [hqa]
+  exact hb
+
+private theorem a1_bdata_sol_allowed_ratio_local_sixth
+    {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
+    (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
+    (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
+    a / b ∈ S.US ∧ ∃ x : S.FSˣ, S.diagU (a / b) = x ^ 6 := by
+  classical
+  letI : CommGroup S.V := QuotientGroup.Quotient.commGroup _
+  have hu : a / b ∈ S.US := by
+    intro v hv
+    have hcount : FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) ((a / b : Fˣ) : F)) = 0 := by
+      rw [Units.val_div_eq_div_val]
+      rw [← FractionalIdeal.spanSingleton_div_spanSingleton, div_eq_mul_inv,
+        FractionalIdeal.count_mul F v
+          (FractionalIdeal.spanSingleton_ne_zero_iff.mpr a.ne_zero)
+          (inv_ne_zero (FractionalIdeal.spanSingleton_ne_zero_iff.mpr b.ne_zero)),
+        FractionalIdeal.count_inv, ha.1.2.2 v hv, hb.1.2.2 v hv, add_neg_cancel]
+    have hc := ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+      v ((a / b : Fˣ) : F) (a / b).ne_zero
+    rw [hcount] at hc
+    have hlog : WithZero.log (v.valuation F ((a / b : Fˣ) : F)) = 0 :=
+      neg_eq_zero.mp hc.symm
+    calc
+      v.valuation F ((a / b : Fˣ) : F) =
+          WithZero.exp (WithZero.log (v.valuation F ((a / b : Fˣ) : F))) :=
+        (WithZero.exp_log ((v.valuation F).ne_zero_iff.mpr (a / b).ne_zero)).symm
+      _ = 1 := by rw [hlog, WithZero.exp_zero]
+  have hE : (QuotientGroup.mk (S.diagU (a / b)) : S.V) ∈ S.E := by
+    exact Subgroup.mem_map.mpr ⟨a / b, hu, rfl⟩
+  have hB : (QuotientGroup.mk (S.diagU (a / b)) : S.V) ∈ Bd.B := by
+    have hdiv := Bd.B.div_mem ha.2 hb.2
+    simpa only [map_div, QuotientGroup.mk_div] using hdiv
+  have hclass : (QuotientGroup.mk (S.diagU (a / b)) : S.V) = 1 :=
+    Subgroup.disjoint_def.mp Bd.compl.disjoint hE hB
+  obtain ⟨x, hx⟩ := (QuotientGroup.eq_one_iff _).mp hclass
+  exact ⟨hu, x, hx.symm⟩
 
 theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
