@@ -17,6 +17,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueLift
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueMask
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ReflectionRowLift
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.SchwartzRadial
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Finite
