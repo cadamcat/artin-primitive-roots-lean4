@@ -5756,6 +5756,148 @@ theorem whit_bruhat_local_quotient_hasProd
   rw [← hseries] at hp
   exact hp
 
+/-- Extract the ideal norm and cancel the rational Hilbert phase in the Jacquet product. -/
+theorem whit_bruhat_product_normalization
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ}
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (ν δ : Fˣ) {z : ℂ}
+    (hz : HasProd (fun v : FinPlace F =>
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+        (((absFin v (toLoc v δ) : ℂ) ^ ((1 : ℂ) / 2 + s)) *
+          ((absFin v (toLoc v ν) : ℂ) ^ (s - (1 : ℂ) / 2)) *
+            G.lam v ((G.T v).σa (toLoc v δ) ((G.T v).σa (toLoc v ν)
+              (jacquet (P.loc v) A (μ v)
+                (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))))) z) :
+    z = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) *
+      (∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ) ^ ((1 : ℂ) / 2 + s)) *
+      (∏ᶠ v : FinPlace F, (absFin v (toLoc v ν) : ℂ) ^ (s - (1 : ℂ) / 2)) *
+      (∏ᶠ v : FinPlace F, G.lam v ((G.T v).σa (toLoc v (δ * ν))
+        (jacquet (P.loc v) A (μ v)
+          (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))) := by
+  classical
+  let β : FinPlace F → ℂ := fun v => G.lam v
+    ((G.T v).σa (toLoc v (δ * ν))
+      (jacquet (P.loc v) A (μ v)
+        (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))
+  let φ : FinPlace F → ℂ := fun v =>
+    ((muThree D (H.hilb v (toLoc v δ) (toLoc v ν)) : ℂˣ) : ℂ)
+  let m : FinPlace F → ℂ := fun v =>
+    (((qv v) ^ (FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)
+  let p : FinPlace F → ℂ := fun v =>
+    (absFin v (toLoc v δ) : ℂ) ^ ((1 : ℂ) / 2 + s)
+  let q : FinPlace F → ℂ := fun v =>
+    (absFin v (toLoc v ν) : ℂ) ^ (s - (1 : ℂ) / 2)
+  let a : FinPlace F → ℂ := fun v => m v * (p v * q v * (φ v * β v))
+  change z = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) *
+    (∏ᶠ v, p v) * (∏ᶠ v, q v) * (∏ᶠ v, β v)
+  let R : P.RP := P.ratRP (diagGL ν) * r
+  have hcompF (v : FinPlace F) : P.compF v R =
+      (P.loc v).a (toLoc v ν) * P.compF v r := by
+    dsimp only [R]
+    rw [map_mul, P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    rfl
+  have hβ : Function.HasFiniteMulSupport β := by
+    have hh := whit_finite_mulSupport P G μ Fs R (δ * ν)
+    simpa only [Function.HasFiniteMulSupport, β, hcompF] using hh
+  have hlocal (v : FinPlace F) :
+      G.lam v ((G.T v).σa (toLoc v δ) ((G.T v).σa (toLoc v ν)
+        (jacquet (P.loc v) A (μ v)
+          (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))) =
+        φ v * β v := by
+    let J := jacquet (P.loc v) A (μ v)
+      (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))
+    have h := congrArg (fun f : (G.T v).V →ₗ[ℂ] (G.T v).V => G.lam v (f J))
+      ((G.T v).σa_mul (toLoc v δ) (toLoc v ν))
+    simpa only [LinearMap.comp_apply, LinearMap.smul_apply, map_smul,
+      smul_eq_mul, map_mul, φ, β, J] using h
+  let ev : rootsOfUnity 6 F →* ℂ :=
+    { toFun := fun ζ => ((muThree D ζ : ℂˣ) : ℂ)
+      map_one' := by simp [muThree]
+      map_mul' := by intros; simp [muThree, map_mul, mul_pow] }
+  obtain ⟨hHilb, hHilbprod⟩ := H.product_formula δ ν
+  have hφ : Function.HasFiniteMulSupport φ := by
+    apply hHilb.subset
+    intro v hv
+    change H.hilb v (toLoc v δ) (toLoc v ν) ≠ 1
+    intro hone
+    exact hv (by change ev (H.hilb v (toLoc v δ) (toLoc v ν)) = 1; rw [hone, ev.map_one])
+  have hφprod : (∏ᶠ v, φ v) = 1 := by
+    calc
+      _ = ev (∏ᶠ v, H.hilb v (toLoc v δ) (toLoc v ν)) :=
+        (ev.map_finprod hHilb).symm
+      _ = 1 := by rw [hHilbprod, ev.map_one]
+  have hm (v : FinPlace F) :
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) = m v := by
+    simp only [m, zpow_neg, Complex.ofReal_inv, inv_inv]
+  have hcounts : (Function.support (fun v : FinPlace F =>
+      FractionalIdeal.count F v 𝔞)).Finite :=
+    Filter.eventually_cofinite.mp (FractionalIdeal.finite_factors 𝔞)
+  have hmfinite : Function.HasFiniteMulSupport m := by
+    apply hcounts.subset
+    intro v hv
+    change FractionalIdeal.count F v 𝔞 ≠ 0
+    intro hc
+    exact hv (by simp only [m, hc, zpow_zero, Complex.ofReal_one])
+  have hreal (d : Fˣ) : Function.HasFiniteMulSupport
+      (fun v : FinPlace F => absFin v (toLoc v d)) := by
+    have hn : Function.HasFiniteMulSupport
+        (fun v : FinPlace F => ‖FinitePlace.embedding v (d : F)‖) := by
+      simpa using finitePlace_mk_hasFiniteMulSupport (Units.ne_zero d)
+    have heq (v : FinPlace F) :
+        absFin v (toLoc v d) = ‖FinitePlace.embedding v (d : F)‖ := by
+      simpa [toLoc] using absFin_algebraMap v (d : F)
+    simpa only [heq] using hn
+  have hpow (d : Fˣ) (t : ℂ) : Function.HasFiniteMulSupport
+      (fun v : FinPlace F => (absFin v (toLoc v d) : ℂ) ^ t) := by
+    apply (hreal d).subset
+    intro v hv
+    change absFin v (toLoc v d) ≠ 1
+    intro hone
+    exact hv (by
+      change (absFin v (toLoc v d) : ℂ) ^ t = 1
+      rw [hone, Complex.ofReal_one, Complex.one_cpow])
+  have hp : Function.HasFiniteMulSupport p := hpow δ _
+  have hq : Function.HasFiniteMulSupport q := hpow ν _
+  have hafinite : Function.HasFiniteMulSupport a :=
+    hmfinite.mul ((hp.mul hq).mul (hφ.mul hβ))
+  have hz' : HasProd (fun v => a v * (1 : ℂ)) z := by
+    convert hz using 1
+    funext v
+    rw [hm, hlocal]
+    dsimp only [a, p, q]
+    rw [mul_one]
+  have hmprod : (∏ᶠ v, m v) = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) := by
+    have hfinite : Function.HasFiniteMulSupport (fun v : FinPlace F =>
+        ((qv v) ^ (FractionalIdeal.count F v 𝔞) : ℝ)) := by
+      apply hcounts.subset
+      intro v hv
+      change FractionalIdeal.count F v 𝔞 ≠ 0
+      intro hc
+      exact hv (by simp only [hc, zpow_zero])
+    calc
+      (∏ᶠ v, m v) = Complex.ofRealHom.toMonoidHom
+          (∏ᶠ v : FinPlace F, (qv v) ^ (FractionalIdeal.count F v 𝔞)) :=
+        (Complex.ofRealHom.toMonoidHom.map_finprod hfinite).symm
+      _ = ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) := by
+        rw [← fractionalIdeal_absNorm_finprod 𝔞 h𝔞]
+        rfl
+  have haprod : (∏ᶠ v, a v) =
+      ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ) *
+        ((∏ᶠ v, p v) * (∏ᶠ v, q v) * (∏ᶠ v, β v)) := by
+    dsimp only [a]
+    rw [finprod_mul_distrib (f := m) (g := fun v => p v * q v * (φ v * β v))
+        hmfinite ((hp.mul hq).mul (hφ.mul hβ)),
+      finprod_mul_distrib (f := fun v => p v * q v) (g := fun v => φ v * β v)
+        (hp.mul hq) (hφ.mul hβ),
+      finprod_mul_distrib hp hq, finprod_mul_distrib hφ hβ,
+      hmprod, hφprod, one_mul]
+  calc
+    z = (∏ᶠ v, a v) * ∏' _ : FinPlace F, (1 : ℂ) :=
+      hasProd_finite_factor_tprod a (fun _ => 1) hafinite hz'
+    _ = _ := by rw [tprod_one, mul_one, haprod]; ac_rfl
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
