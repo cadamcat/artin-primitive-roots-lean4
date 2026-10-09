@@ -36,6 +36,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.sphC_right_root_smooth
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.spherical_section_param_analytic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.zero_seed_analyticFamily
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.replace_at_S_bigCell
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.intertwined_scalar_q
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
