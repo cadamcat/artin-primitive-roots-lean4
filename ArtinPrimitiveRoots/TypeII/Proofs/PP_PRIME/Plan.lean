@@ -3818,7 +3818,122 @@ theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree 
                     I ⊆ {n : ℕ | N ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N} →
                       ‖mangoldtIntervalPolynomial N q χ t I‖ ≤
                         K * Real.rpow L (-A - 2) := by
-  sorry
+  classical
+  intro τ η C A hτ hτη hη hC hA
+  obtain ⟨c, C₀, xZ, hc, hC₀, hxZ, _hzero⟩ := hzeroFree C hC
+  obtain ⟨L₀, hL₀, _hRightLine⟩ := ppPrimeRightLineLogDeriv_bound hzeta
+  obtain ⟨xG, hxG, _hxZG, hGrowth⟩ :=
+    ppPrimeContourGrowth τ η A c L₀ xZ hτ hτη hη hA hc hL₀
+  obtain ⟨B₀, Ksm, xS, hB₀, hKsm, hxS, hSmoothed⟩ :=
+    ppPrimeSmoothedCutoff_uniform_bound hzeroFree hzeta τ η C A
+      hτ hτη hη hC hA
+  let K : ℝ := Ksm + 120
+  let x₀ : ℝ := max xS xG
+  have hK : 0 < K := by dsimp [K]; positivity
+  have hx₀ : 2 < x₀ := by
+    dsimp [x₀]
+    exact lt_of_lt_of_le hxS (le_max_left xS xG)
+  refine ⟨B₀, K, x₀, hB₀, hK, hx₀, ?_⟩
+  intro x hx
+  have hxSx : xS ≤ x := by
+    have hx' : max xS xG ≤ x := by simpa [x₀] using hx
+    exact le_trans (le_max_left xS xG) hx'
+  have hxGx : xG ≤ x := by
+    have hx' : max xS xG ≤ x := by simpa [x₀] using hx
+    exact le_trans (le_max_right xS xG) hx'
+  dsimp only
+  intro N hNlo hNhi q hq hqsize χ t htlo hthi I hI hIbound
+  let L : ℝ := Real.log x
+  have hx2 : 2 < x := lt_of_lt_of_le hx₀ hx
+  have hxpos : 0 < x := by linarith
+  have hL4 : 4 ≤ L := by
+    rcases hGrowth x hxGx with ⟨_, _, hL4, _, _, _, _, _, _, _⟩
+    simpa [L] using hL4
+  have hLone : 1 ≤ L := by linarith [hL4]
+  have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) hLone
+  rcases hGrowth x hxGx with ⟨_, _, _, hxτ8, _, hLogPower, _, _, _, _⟩
+  have hN4 : 4 ≤ N := by
+    calc
+      4 ≤ Real.rpow x τ / 2 := by nlinarith [hxτ8]
+      _ ≤ N := hNlo
+  have hNpos : 0 < N := by linarith
+  have hlogN : Real.log N ≤ L := by
+    have hlogN' := Real.log_le_log hNpos hNhi
+    have hlogRpowEta : Real.log (Real.rpow x η) = η * Real.log x :=
+      Real.log_rpow hxpos η
+    rw [hlogRpowEta] at hlogN'
+    have hEtaL : η * L ≤ L := by
+      calc
+        η * L ≤ 1 * L := mul_le_mul_of_nonneg_right hη.le hLpos.le
+        _ = L := by ring
+    simpa [L] using hlogN'.trans hEtaL
+  have hlog3 : Real.log 3 ≤ 2 := by
+    have h := Real.log_le_sub_one_of_pos (by norm_num : (0 : ℝ) < 3)
+    nlinarith
+  have hlog3N : Real.log (3 * N) ≤ 2 * L := by
+    have hmul : Real.log (3 * N) = Real.log 3 + Real.log N :=
+      Real.log_mul (by norm_num : (3 : ℝ) ≠ 0) hNpos.ne'
+    rw [hmul]
+    calc
+      Real.log 3 + Real.log N ≤ 2 + L := add_le_add hlog3 hlogN
+      _ ≤ 2 * L := by nlinarith [hL4]
+  have hdeltaSmall : Real.rpow L (-A - 4) ≤ 1 / 4 := by
+    calc
+      Real.rpow L (-A - 4) ≤ Real.rpow L (-1 : ℝ) :=
+        Real.rpow_le_rpow_of_exponent_le hLone (by linarith [hA])
+      _ = 1 / L := by
+        calc
+          Real.rpow L (-1 : ℝ) = Real.exp (Real.log L * (-1)) :=
+            Real.rpow_def_of_pos hLpos (-1)
+          _ = Real.exp (-(Real.log L)) := by congr 1 <;> ring
+          _ = (Real.exp (Real.log L))⁻¹ := by rw [Real.exp_neg]
+          _ = L⁻¹ := by rw [Real.exp_log hLpos]
+          _ = 1 / L := by simp [one_div]
+      _ ≤ 1 / 4 := one_div_le_one_div_of_le (by norm_num : (0 : ℝ) < 4) hL4
+  by_cases hIne : I.Nonempty
+  · obtain ⟨m, u, hm, hu, hIeq, hmN, hu2N⟩ :=
+      ppPrimeNatInterval_representation hI hIbound hIne
+    have hmuNat : m ≤ u := by
+      have hmIcc : m ∈ Set.Icc m u := by simpa [hIeq] using hm
+      exact hmIcc.2
+    have hmR : N ≤ (m : ℝ) := hmN
+    have hmuR : (m : ℝ) ≤ (u : ℝ) := by exact_mod_cast hmuNat
+    have huR : (u : ℝ) ≤ 2 * N := hu2N
+    have hErr := ppPrimeSmoothing_error_log_bound hx2 hNlo hN4 hLone
+      hLogPower hlog3N hdeltaSmall q χ t m u hmR hmuR huR
+    have hSmoothedBound :
+        ‖smoothedMangoldtPolynomial N q χ t
+          (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N)
+            (Real.rpow L (-A - 4)))‖ ≤ Ksm * Real.rpow L (-A - 2) := by
+      simpa [L] using
+        hSmoothed x hxSx N hNlo hNhi q hq hqsize χ t htlo hthi m u hmR hmuR huR
+    rw [hIeq]
+    calc
+      ‖mangoldtIntervalPolynomial N q χ t (Set.Icc m u)‖ =
+          ‖(mangoldtIntervalPolynomial N q χ t (Set.Icc m u) -
+              smoothedMangoldtPolynomial N q χ t
+                (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N)
+                  (Real.rpow L (-A - 4)))) +
+            smoothedMangoldtPolynomial N q χ t
+              (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N)
+                (Real.rpow L (-A - 4)))‖ := by congr 1 <;> ring
+      _ ≤ ‖mangoldtIntervalPolynomial N q χ t (Set.Icc m u) -
+            smoothedMangoldtPolynomial N q χ t
+              (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N)
+                (Real.rpow L (-A - 4)))‖ +
+          ‖smoothedMangoldtPolynomial N q χ t
+            (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N)
+              (Real.rpow L (-A - 4)))‖ := norm_add_le _ _
+      _ ≤ 120 * Real.rpow L (-A - 2) +
+            Ksm * Real.rpow L (-A - 2) := add_le_add hErr hSmoothedBound
+      _ = K * Real.rpow L (-A - 2) := by dsimp [K]; ring
+  · have hIempty : I = ∅ := Set.not_nonempty_iff_eq_empty.mp hIne
+    have hzero : mangoldtIntervalPolynomial N q χ t I = 0 := by
+      simp [mangoldtIntervalPolynomial, hIempty]
+    calc
+      ‖mangoldtIntervalPolynomial N q χ t I‖ = 0 := by rw [hzero]; simp
+      _ ≤ K * Real.rpow L (-A - 2) :=
+        mul_nonneg hK.le (Real.rpow_nonneg hLpos.le _)
 
 /-- The prime-power terms are a uniform lower-order error in a dyadic interval. -/
 theorem prime_power_removal {N : ℝ} (hN : 4 ≤ N) (q : ℕ)
