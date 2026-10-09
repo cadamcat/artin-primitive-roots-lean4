@@ -2038,7 +2038,39 @@ theorem prop_probe_low (η : HeckeChar F)
     (hSplit : GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η) :
   ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
     ‖probe R W (Z ^ a) (Z ^ b) Z‖ ≤ C * Z ^ (933 / 2000 + ε) := by
-  sorry
+  intro ε hε
+  obtain ⟨Cp, hCp, hpoint⟩ := po_probe_low_pointwise R W ε hε
+  have hMass : R.sheets.sheet 1 (omegaAt R 1) < ⊤ := by
+    simpa only [omegaAt, bridgeOmegaAt] using (a2_bridge_SHEET R.sheets 1 one_pos).2.1
+  let V : ℝ := (R.sheets.sheet 1).real (omegaAt R 1)
+  have hV : 0 ≤ V := ENNReal.toReal_nonneg
+  refine ⟨Cp * (V + 1), mul_pos hCp (by linarith), ?_⟩
+  intro Z hZ
+  have hZpos : 0 < Z := by linarith
+  have hOnUnits : ∀ y ∈ omegaAt R 1,
+      ‖onUnits (probeIntegrand R W (Z ^ a) (Z ^ b) Z) y‖ ≤
+        Cp * Z ^ (933 / 2000 + ε) := by
+    intro y hy
+    by_cases hu : IsUnit y
+    · have hmem : (hu.unit : S.FS) ∈ omegaAt R 1 := by
+        rw [hu.unit_spec]
+        exact hy
+      simpa only [onUnits, dite_eq_left hu] using hpoint Z hZ hu.unit hmem
+    · simp only [onUnits, dite_eq_right hu, norm_zero]
+      exact mul_nonneg hCp.le (Real.rpow_nonneg hZpos.le _)
+  have hIntegral :
+      ‖∫ y in omegaAt R 1, onUnits (probeIntegrand R W (Z ^ a) (Z ^ b) Z) y
+          ∂(R.sheets.sheet 1)‖ ≤ (Cp * Z ^ (933 / 2000 + ε)) * V :=
+    norm_setIntegral_le_of_norm_le_const hMass hOnUnits
+  calc
+    ‖probe R W (Z ^ a) (Z ^ b) Z‖ =
+        ‖∫ y in omegaAt R 1, onUnits (probeIntegrand R W (Z ^ a) (Z ^ b) Z) y
+          ∂(R.sheets.sheet 1)‖ := rfl
+    _ ≤ (Cp * Z ^ (933 / 2000 + ε)) * V := hIntegral
+    _ = (Cp * V) * Z ^ (933 / 2000 + ε) := by ring
+    _ ≤ (Cp * (V + 1)) * Z ^ (933 / 2000 + ε) :=
+      mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_left (by linarith) hCp.le) (Real.rpow_nonneg hZpos.le _)
 
 set_option maxHeartbeats 10000000 in
 private theorem po_e_residue_norm_one (I : S.ExtIdeal) (a : Fˣ)
