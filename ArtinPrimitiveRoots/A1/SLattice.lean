@@ -2828,7 +2828,32 @@ is one tensor (`φ v = (fin v).1`, `Φ = arch`); zero is the empty sum; sums con
 Used by: `SData.poisson`. -/
 theorem SData.bruhatSchwartz_isFSTensorSum (S : SData F CE condη) (f : S.BruhatSchwartz) :
     S.IsFSTensorSum (f : S.FS → ℂ) := by
-  sorry
+  obtain ⟨f, hf⟩ := f
+  change S.IsFSTensorSum f
+  induction hf using Submodule.span_induction with
+  | mem g hg =>
+    obtain ⟨⟨arch, fin⟩, rfl⟩ := hg
+    refine ⟨1, fun _ v => (fin v).1, fun _ => arch, fun _ v => (fin v).2, fun x => ?_⟩
+    simp [SData.tensorFunction, mul_comm]
+  | zero => exact ⟨0, Fin.elim0, Fin.elim0, fun i => Fin.elim0 i, fun x => by simp⟩
+  | add g h _ _ hg hh =>
+    obtain ⟨n, φ, Φ, hφ, hg⟩ := hg
+    obtain ⟨m, ψ, Ψ, hψ, hh⟩ := hh
+    refine ⟨n + m, Fin.append φ ψ, Fin.append Φ Ψ, ?_, fun x => ?_⟩
+    · intro i v
+      induction i using Fin.addCases with
+      | left i => simpa using hφ i v
+      | right i => simpa using hψ i v
+    · rw [Pi.add_apply, hg, hh, Fin.sum_univ_add]
+      simp [Fin.append_left, Fin.append_right]
+  | smul c g _ hg =>
+    obtain ⟨n, φ, Φ, hφ, hg⟩ := hg
+    refine ⟨n, φ, fun i => c • Φ i, hφ, fun x => ?_⟩
+    rw [Pi.smul_apply, hg, smul_eq_mul, Finset.mul_sum]
+    refine Finset.sum_congr rfl fun i _ => ?_
+    simp only [SchwartzMap.smul_apply, smul_eq_mul]
+    ring
+
 
 /-- A1-POISSON part (LEAD): the self-dual Fourier transform of a tensor sum is a tensor sum.
 Proof: rewrite `μ.measure` by the private `covol_selfdual_measure_candidate_eq`; split the
@@ -2841,7 +2866,40 @@ Uses: `a1_fourier_tensor_integrable`, `a1_fourier_local_fourier_test`. Used by: 
 theorem SData.fourier_isFSTensorSum (S : SData F CE condη) (D : FieldData F)
     (A : AddCharData F) (μ : S.SelfDualMeasure A) (g : S.FS → ℂ) (hg : S.IsFSTensorSum g) :
     S.IsFSTensorSum (S.fourier A μ.measure g) := by
-  sorry
+  classical
+  obtain ⟨n, φ, Φ, hφ, hg⟩ := hg
+  haveI : Measure.IsAddHaarMeasure μ.measure := μ.isHaar
+  obtain ⟨he_cont, he_norm, -, -⟩ := a1_fourier_e_basic S A
+  refine ⟨n, fun i v => a1LocalFourier v.1 A (covol_local_selfdual_at D S A v) (φ i v),
+    fun i => ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourierSchwartz (Φ i), ?_, ?_⟩
+  · intro i v
+    haveI := covol_local_selfdual_at_isHaar D S A v
+    exact a1_fourier_local_fourier_test v.1 A _ (φ i v) (hφ i v).1 (hφ i v).2.1 (hφ i v).2.2
+  · intro y
+    have hterm (i : Fin n) : S.IsFSTensorSum
+        (fun x : S.FS => (∏ v : S.Sf, φ i v (x.1 v)) * Φ i x.2) :=
+      ⟨1, fun _ => φ i, fun _ => Φ i, fun _ => hφ i, fun x => by simp⟩
+    have hint (i : Fin n) : Integrable
+        (fun x : S.FS => (∏ v : S.Sf, φ i v (x.1 v)) * Φ i x.2 * S.e A (-(x * y)))
+        μ.measure := by
+      refine ((a1_fourier_tensor_integrable (mS := instMeasurableFS S) S _ (hterm i)
+        μ.measure).2).mul_bdd (c := 1)
+        (he_cont.comp (continuous_id.mul continuous_const).neg).aestronglyMeasurable
+        (Filter.Eventually.of_forall fun x => (he_norm _).le)
+    have hsplit : S.fourier A μ.measure g y =
+        ∑ i, S.fourier A μ.measure
+          (fun x : S.FS => (∏ v : S.Sf, φ i v (x.1 v)) * Φ i x.2) y := by
+      unfold SData.fourier
+      rw [← integral_finset_sum _ fun i _ => hint i]
+      congr 1
+      funext x
+      rw [hg x, Finset.sum_mul]
+    rw [hsplit]
+    refine Finset.sum_congr rfl fun i _ => ?_
+    rw [covol_selfdual_measure_candidate_eq D S A μ,
+      covol_fourier_product_formula D S A (φ i) (fun z => Φ i z) y,
+      ArtinPrimitiveRoots.Proofs.a2_zf_top.complexPiFourier_eq_schwartz]
+    rfl
 
 /-- Poisson summation on `R` for Bruhat--Schwartz functions on `F_S`, including absolute
 convergence of both lattice sums. -/
