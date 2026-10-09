@@ -73,6 +73,37 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.DeterminantRange
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.PacketBound
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.TranslatedPacket
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MinorPacket
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MinorDeterminant
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ScaledRectangle
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.LabelMatrix
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SignedMinor
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCore
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCoreFinite
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanEndpoints
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCoreNorm
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanPermutationClosure
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanActiveContraction
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanProjection
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanRates
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanBan
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCollisionMass
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCollisionStates
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SignedMultiplier
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedPrimeKernel
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.PadCoordinates
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.TupleMinor
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ProjectivePad
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SlopeCells
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanPadFacts
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SupportCells
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ShiftBlocks
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelSum
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.LastSlotMeasure
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedInjection
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.FibreBlocks
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.WeightedAdjoint
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MemoryBalance
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MemoryMasks
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
@@ -11051,6 +11082,1979 @@ private theorem pd4c_raw_no_promotion_row {K : ℕ} (δ c₁ c₂ : ℝ)
       <;> dsimp [C]
       <;> ring
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- One projective-line tuple and a bounded pair of slope cells have a common lattice box. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.common_projective_cell_lattice_box
+    (C : ℝ) (hC : 0 ≤ C) :
+    ∃ Cbox Y₀ : ℝ, 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y → ∀ w : ArchRoot, w.InRegion S → 0 < S.U →
+      ∀ z : ℤ × ℤ, envBox S w z → Int.gcd z.1 z.2 = 1 →
+      ∀ D : ℕ, Squarefree D → 0 < S.d₀ → (S.d₀ : ℝ) ≤ (D : ℝ) →
+      (∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow S.Y (1/5 : ℝ) →
+        Real.rpow S.Y (-(7/10 : ℝ)) <
+          circleDistance ((l : ℝ)*(D : ℝ)*transportedRatio w z)) →
+      ∀ T : Finset (ℤ × ℤ),
+      (∀ u ∈ T, envBox S w u ∧
+        (∀ p : ℕ, p.Prime → p ∣ D → projLine p z = projLine p u) ∧
+        |((⌊((u.2 : ℝ)/w.tau u)/((S.d₀ : ℝ)*S.Y)⌋-
+          ⌊((z.2 : ℝ)/w.tau z)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ C) →
+      ∃ (a b c d : ℤ) (A B : ℝ),
+        a*d-b*c = 1 ∧ A*B ≤ Cbox*S.Y ∧
+        Real.rpow S.Y (1/10 : ℝ) ≤ A ∧ A ≤ Real.rpow S.Y (9/10 : ℝ) ∧
+        Real.rpow S.Y (1/10 : ℝ) ≤ B ∧ B ≤ Real.rpow S.Y (9/10 : ℝ) ∧
+        (let Φ : (ℤ × ℤ) → (ℤ × ℤ) := fun u =>
+          (d*det2 u (complementVec z)-b*(det2 z u/(D : ℤ)),
+            a*(det2 z u/(D : ℤ))-c*det2 u (complementVec z))
+        Set.InjOn Φ (T : Set (ℤ × ℤ)) ∧
+          (∀ u ∈ T, |((Φ u).1 : ℝ)| ≤ A ∧ |((Φ u).2 : ℝ)| ≤ B) ∧
+          ∀ u ∈ T, ∀ v ∈ T, det2 u v/(D : ℤ) = det2 (Φ u) (Φ v)) := by
+  let C₁ : ℝ := max 16 (256*(C+1))
+  have hC₁ : 1 ≤ C₁ := (by norm_num : (1 : ℝ) ≤ 16).trans (le_max_left _ _)
+  obtain ⟨Cbox, Y₀, hCbox, hY₀, hshape⟩ := lattice_shape C₁ hC₁
+  refine ⟨Cbox, Y₀, hCbox, hY₀, ?_⟩
+  intro S hY w hw hU z hz hzprim D hDsq hd₀ hD hgood T hT
+  have hYpos : 0 < S.Y := zero_lt_one.trans_le (hY₀.trans hY)
+  have hDpos : 0 < D := by
+    have hd₀r : 0 < (S.d₀ : ℝ) := by exact_mod_cast hd₀
+    exact_mod_cast hd₀r.trans_le hD
+  have hD0 : (D : ℤ) ≠ 0 := by exact_mod_cast hDpos.ne'
+  let α : ℝ := (D : ℝ)*transportedRatio w z
+  have hbad : ∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow S.Y (1/5 : ℝ) →
+      Real.rpow S.Y (-(7/10 : ℝ)) < circleDistance ((l : ℝ)*α) := by
+    intro l hl hly
+    simpa only [α, mul_assoc] using hgood l hl hly
+  obtain ⟨a, b, c, d, A, B, hmat, hAB, hAl, hAu, hBl, hBu, hbox⟩ :=
+    hshape S.Y hY α hbad
+  refine ⟨a, b, c, d, A, B, hmat, hAB, hAl, hAu, hBl, hBu, ?_⟩
+  let Φ : (ℤ × ℤ) → (ℤ × ℤ) := fun u =>
+    (d*det2 u (complementVec z)-b*(det2 z u/(D : ℤ)),
+      a*(det2 z u/(D : ℤ))-c*det2 u (complementVec z))
+  change Set.InjOn Φ (T : Set (ℤ × ℤ)) ∧
+    (∀ u ∈ T, |((Φ u).1 : ℝ)| ≤ A ∧ |((Φ u).2 : ℝ)| ≤ B) ∧
+    ∀ u ∈ T, ∀ v ∈ T, det2 u v/(D : ℤ) = det2 (Φ u) (Φ v)
+  have hdiv (u : ℤ × ℤ) (hu : u ∈ T) : (D : ℤ) ∣ det2 z u :=
+    projective_line_pad_dvd D hDsq z u (hT u hu).2.1
+  have hcomp : det2 z (complementVec z) = 1 := by
+    have hBez := Int.gcd_eq_gcd_ab z.1 z.2
+    rw [hzprim] at hBez
+    simpa [det2, complementVec, sub_neg_eq_add] using hBez.symm
+  have hcoord (u : ℤ × ℤ) (hu : u ∈ T) :
+      |((Φ u).1 : ℝ)| ≤ A ∧ |((Φ u).2 : ℝ)| ≤ B := by
+    have hlbound := env_cell_pad_quotient_bound S w z u D hU hw hz (hT u hu).1
+      hYpos hd₀ hD (hdiv u hu) C hC (hT u hu).2.2
+    obtain ⟨h, l, hrepr, hl, hstrip⟩ := pd4c_env_target_strip_coordinates S w z u D
+      (256*(C+1)) hU hw hzprim hz (hT u hu).1 (hdiv u hu) hlbound
+    have hh : det2 u (complementVec z) = h := by
+      calc
+        _ = det2 (h*z.1+(D : ℤ)*l*(complementVec z).1,
+            h*z.2+(D : ℤ)*l*(complementVec z).2) (complementVec z) :=
+          congrArg (fun v => det2 v (complementVec z)) hrepr
+        _ = h*det2 z (complementVec z) := by dsimp only [det2]; ring
+        _ = h := by rw [hcomp, mul_one]
+    have hdl : det2 z u = (D : ℤ)*l := by
+      calc
+        _ = det2 z (h*z.1+(D : ℤ)*l*(complementVec z).1,
+            h*z.2+(D : ℤ)*l*(complementVec z).2) := congrArg (det2 z) hrepr
+        _ = (D : ℤ)*l*det2 z (complementVec z) := by dsimp only [det2]; ring
+        _ = _ := by rw [hcomp, mul_one]
+    have hl' : det2 z u/(D : ℤ) = l := by
+      rw [hdl]
+      exact Int.mul_ediv_cancel_left _ hD0
+    have hbounds := hbox h l
+      (hl.trans (mul_le_mul_of_nonneg_right (le_max_right _ _) hYpos.le))
+      (hstrip.trans (le_max_left _ _))
+    simpa only [Φ, hh, hl'] using hbounds
+  have hpad := pad_lattice_coordinate_embedding z D hDpos hzprim a b c d hmat T hdiv
+  exact ⟨hpad.1, hcoord, hpad.2⟩
+
+private theorem pd4d_minor_arc_set_measurable (x Y A₀ : ℝ) :
+    MeasurableSet {θ : ℝ | ¬ majorArc x Y A₀ θ} := by
+  have hmajor : MeasurableSet {θ : ℝ | majorArc x Y A₀ θ} := by
+    unfold majorArc
+    measurability
+  exact hmajor.compl
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Common projective-cell blocks satisfy the weighted physical clean-kernel bound. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_block_bound (C : ℝ) (hC : 0 ≤ C) :
+    ∃ Cbox Y₀ : ℝ, 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale), Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ z : ℤ × ℤ, envBox S w z → Int.gcd z.1 z.2 = 1 →
+      ∀ p : PrimeLists S.x K, ValidPrimeLists S.x K F.a p →
+      goodTestOne S.x S.Y (S.d₀ : ℝ) p (transportedRatio w z) →
+      ((S.d₀ : ℝ) ≤ (sharedProduct p : ℝ) ∧ (sharedProduct p : ℝ) < 2*(S.d₀ : ℝ)) →
+      ∀ T : Finset ((ℤ × ℤ) × (Fin K → ℕ)),
+      (∀ u ∈ T, IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+        envBox S w u.1 ∧
+        (∀ q : ℕ, q.Prime → q ∣ sharedProduct p → projLine q z = projLine q u.1) ∧
+        |((⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋-
+          ⌊((z.2 : ℝ)/w.tau z)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ C) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ Ceta : ℝ, 0 ≤ Ceta →
+      ∀ d e : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      (∀ u ∈ T, ‖d u‖ ≤ Ceta) → (∀ u ∈ T, ‖e u‖ ≤ Ceta) →
+      ∀ f : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+      let t := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ((det2 u.1 v.1/(sharedProduct p : ℤ) : ℤ) : ℝ)
+      (∑ u ∈ T, μ u*‖d u*(∑ v ∈ T,
+        ((F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1, if ¬ majorArc S.x S.Y F.A₀ θ then
+          additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ)))
+            else 0))*(μ v : ℂ)*e v*f v)‖^2) ≤
+        (Ceta^2*(4/Real.log 2)^K*r)^2*(∑ v ∈ T, μ v*‖f v‖^2) := by
+  obtain ⟨Cgeom, Y₀, hCgeom, hY₀, hgeom⟩ := common_projective_cell_lattice_box C hC
+  let Cbox : ℝ := max (9*Cgeom) 6
+  have hCbox : 0 < Cbox := (by norm_num : (0 : ℝ) < 6).trans_le (le_max_right _ _)
+  refine ⟨Cbox, Y₀, hCbox, hY₀, ?_⟩
+  intro K F S hY hbands hV hb w hw hU hd₀ z hz hzprim p hp hgood hpad T hT r hr hfibre
+  intro Ceta hCeta d e hd he f
+  have hYone : 1 ≤ S.Y := hY₀.trans hY
+  have hYpos : 0 < S.Y := zero_lt_one.trans_le hYone
+  have hsource := clean_shared_pad_facts S.x S.Y (S.d₀ : ℝ)
+    (transportedRatio w z) F.a p hp hbands hgood hpad
+  let Tpos : Finset (ℤ × ℤ) := T.image Prod.fst
+  have hTpos (u : ℤ × ℤ) (hu : u ∈ Tpos) :
+      envBox S w u ∧
+        (∀ q : ℕ, q.Prime → q ∣ sharedProduct p → projLine q z = projLine q u) ∧
+        |((⌊((u.2 : ℝ)/w.tau u)/((S.d₀ : ℝ)*S.Y)⌋-
+          ⌊((z.2 : ℝ)/w.tau z)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ C := by
+    obtain ⟨v, hv, rfl⟩ := Finset.mem_image.mp hu
+    exact (hT v hv).2.2
+  obtain ⟨a, b, c, d₀, A, B, hmat, hAB, hAl, hAu, hBl, hBu, hΦ, hbox, hdet⟩ :=
+    hgeom S hY w hw hU z hz hzprim (sharedProduct p) hsource.1 hd₀ hpad.1
+      hsource.2 Tpos hTpos
+  let Φ : (ℤ × ℤ) → (ℤ × ℤ) := fun u =>
+    (d₀*det2 u (complementVec z)-b*(det2 z u/(sharedProduct p : ℤ)),
+      a*(det2 z u/(sharedProduct p : ℤ))-c*det2 u (complementVec z))
+  change Set.InjOn Φ (Tpos : Set (ℤ × ℤ)) at hΦ
+  change ∀ u ∈ Tpos, |((Φ u).1 : ℝ)| ≤ A ∧ |((Φ u).2 : ℝ)| ≤ B at hbox
+  change ∀ u ∈ Tpos, ∀ v ∈ Tpos,
+    det2 u v/(sharedProduct p : ℤ) = det2 (Φ u) (Φ v) at hdet
+  have hA : 1 ≤ A := (Real.one_le_rpow hYone (by norm_num : (0 : ℝ) ≤ 1/10)).trans hAl
+  have hB : 1 ≤ B := (Real.one_le_rpow hYone (by norm_num : (0 : ℝ) ≤ 1/10)).trans hBl
+  have hmem (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : u.1 ∈ Tpos :=
+    Finset.mem_image.mpr ⟨u, hu, rfl⟩
+  have hphysicalbox (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) :
+      |((Φ u.1).1 : ℝ)| ≤ A ∧ |((Φ u.1).2 : ℝ)| ≤ B := hbox u.1 (hmem u hu)
+  have hphysicaldet (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T)
+      (v : (ℤ × ℤ) × (Fin K → ℕ)) (hv : v ∈ T) :
+      ((det2 u.1 v.1/(sharedProduct p : ℤ) : ℤ) : ℝ) =
+        (det2 (Φ u.1) (Φ v.1) : ℝ) :=
+    congrArg (fun n : ℤ => (n : ℝ)) (hdet u.1 (hmem u hu) v.1 (hmem v hv))
+  let M := (2*⌊A⌋+1).toNat
+  let N := (2*⌊B⌋+1).toNat
+  have hemb := position_prime_tuple_box_embedding S.x F.a hbands T
+    (fun u hu => (hT u hu).1) Φ hΦ A B hA hB hphysicalbox
+  have hM : (M : ℝ) ≤ 3*A := hemb.1
+  have hN : (N : ℝ) ≤ 3*B := hemb.2.1
+  have harea : (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y := by
+    calc
+      _ ≤ (3*A)*(3*B) := mul_le_mul hM hN (Nat.cast_nonneg _) (by linarith only [hA])
+      _ = 9*(A*B) := by ring
+      _ ≤ 9*(Cgeom*S.Y) := mul_le_mul_of_nonneg_left hAB (by norm_num)
+      _ = (9*Cgeom)*S.Y := by ring
+      _ ≤ Cbox*S.Y := mul_le_mul_of_nonneg_right (le_max_left _ _) hYpos.le
+  have haspect : (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) := by
+    calc
+      _ ≤ 3*A+3*B := add_le_add hM hN
+      _ ≤ 3*Real.rpow S.Y (9/10 : ℝ)+3*Real.rpow S.Y (9/10 : ℝ) :=
+        add_le_add (mul_le_mul_of_nonneg_left hAu (by norm_num))
+          (mul_le_mul_of_nonneg_left hBu (by norm_num))
+      _ = 6*Real.rpow S.Y (9/10 : ℝ) := by ring
+      _ ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) :=
+        mul_le_mul_of_nonneg_right (le_max_right _ _) (Real.rpow_nonneg hYpos.le _)
+  let P : Set ℝ := {θ | ¬ majorArc S.x S.Y F.A₀ θ}
+  have hP : MeasurableSet P := pd4d_minor_arc_set_measurable S.x S.Y F.A₀
+  have hfib (θ : ℝ) (hθ : θ ∈ Set.Icc (0 : ℝ) 1 ∩ P) (g : ℕ × ℕ → ℂ) :
+      let I := (Finset.range M).product (Finset.range N)
+      let Δ := fun i j : ℕ × ℕ =>
+        (-(⌊A⌋ : ℝ)+(i.1 : ℝ))*(-(⌊B⌋ : ℝ)+(j.2 : ℝ))-
+          (-(⌊B⌋ : ℝ)+(i.2 : ℝ))*(-(⌊A⌋ : ℝ)+(j.1 : ℝ))
+      (∑ i ∈ I, ‖∑ j ∈ I,
+        (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2) :=
+    hfibre θ hθ.2 M N harea haspect (-(⌊A⌋ : ℝ)) (-(⌊B⌋ : ℝ))
+      (-(⌊A⌋ : ℝ)) (-(⌊B⌋ : ℝ)) g
+  let t := fun u v : (ℤ × ℤ) × (Fin K → ℕ) =>
+    ((det2 u.1 v.1/(sharedProduct p : ℤ) : ℤ) : ℝ)
+  let k := fun u v : (ℤ × ℤ) × (Fin K → ℕ) =>
+    (F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1, if θ ∈ P then
+      additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ))) else 0)
+  have hk (g : (ℤ × ℤ) × (Fin K → ℕ) → ℂ) :
+      (∑ u ∈ T, ‖∑ v ∈ T, k u v*g v‖^2) ≤ (S.Y*r)^2*(∑ v ∈ T, ‖g v‖^2) := by
+    simpa only [k, t] using
+      prime_tuple_minor_counting_bound S.x F.a hbands T (fun u hu => (hT u hu).1)
+        Φ hΦ A B hA hB hphysicalbox (sharedProduct p) hphysicaldet F.psi S.Y (S.Y*r)
+        (mul_nonneg hYpos.le hr) P hP hfib g
+  have hbound := prime_tuple_weighted_kernel_bound S.x F.a F.q_d S.Y Ceta (S.Y*r)
+    hYpos hCeta hV hb T (fun u hu => ⟨(hT u hu).1, (hT u hu).2.1⟩) k d e hd he hk f
+  have hconst : (Ceta^2*(4/Real.log 2)^K/S.Y)*(S.Y*r) = Ceta^2*(4/Real.log 2)^K*r := by
+    field_simp [hYpos.ne']
+  rw [hconst] at hbound
+  exact hbound
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Supported primitive clean pad edges preserve projective lines and have bounded cell shifts. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_pad_kernel_projective_cell_support {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ Ccell : ℝ, 0 ≤ Ccell ∧
+      ∀ (S : PDScale) (w : ArchRoot) (z z' : ℤ × ℤ) (D aa bb : ℕ),
+      0 < S.U → w.InRegion S → envBox S w z → envBox S w z' →
+      0 < S.Y → 0 < S.d₀ →
+      Int.gcd z.1 z.2 = 1 → Int.gcd z'.1 z'.2 = 1 →
+      IsPadAdmissible S.d₀ D (det2 z z') →
+      geometricMultiplier F S D aa bb (det2 z z'/(D : ℤ)) ≠ 0 →
+      (∀ q : ℕ, q.Prime → q ∣ D → projLine q z = projLine q z') ∧
+        |((⌊((z'.2 : ℝ)/w.tau z')/((S.d₀ : ℝ)*S.Y)⌋-
+            ⌊((z.2 : ℝ)/w.tau z)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ Ccell := by
+  obtain ⟨Ccell, hCcell, hcell⟩ := geometric_multiplier_cell_distance_bound F hF
+  refine ⟨Ccell, hCcell, ?_⟩
+  intro S w z z' D aa bb hU hw hz hz' hY hd₀ hzprim hz'prim hpad hne
+  refine ⟨?_, hcell S w z z' D aa bb hU hw hz hz' hY hd₀ hpad hne⟩
+  intro q hqprime hqD
+  have hqDz : (q : ℤ) ∣ (D : ℤ) := by exact_mod_cast hqD
+  exact projLine_eq_of_det_dvd q hqprime z z' hzprim hz'prim (hqDz.trans hpad.2.2)
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The physical prime-tuple clean kernel for one fixed cell shift has the common-block bound. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_fixed_shift_bound (C : ℝ) (hC : 0 ≤ C) :
+    ∃ Cbox Y₀ : ℝ, 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale), Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ D : ℕ, (S.d₀ : ℝ) ≤ (D : ℝ) → (D : ℝ) < 2*(S.d₀ : ℝ) →
+      ∀ T : Finset ((ℤ × ℤ) × (Fin K → ℕ)),
+      (∀ u ∈ T, IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+        envBox S w u.1 ∧ Int.gcd u.1.1 u.1.2 = 1) →
+      ∀ P : ((ℤ × ℤ) × (Fin K → ℕ)) → PrimeLists S.x K,
+      (∀ u ∈ T, ValidPrimeLists S.x K F.a (P u) ∧ sharedProduct (P u) = D ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) (P u) (transportedRatio w u.1)) →
+      ∀ m : ℤ, |(m : ℝ)| ≤ C →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ Ceta : ℝ, 0 ≤ Ceta →
+      ∀ d e : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      (∀ u ∈ T, ‖d u‖ ≤ Ceta) → (∀ u ∈ T, ‖e u‖ ≤ Ceta) →
+      ∀ f : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+      let cell := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋
+      let t := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ((det2 u.1 v.1/(D : ℤ) : ℤ) : ℝ)
+      let k := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        if (∀ q : ℕ, q.Prime → q ∣ D → projLine q u.1 = projLine q v.1) ∧
+            cell v-cell u = m then
+          (F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1,
+            if ¬ majorArc S.x S.Y F.A₀ θ then
+              additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ)))
+                else 0)
+        else 0
+      (∑ u ∈ T, μ u*‖d u*(∑ v ∈ T, k u v*(μ v : ℂ)*e v*f v)‖^2) ≤
+        (Ceta^2*(4/Real.log 2)^K*r)^2*(∑ v ∈ T, μ v*‖f v‖^2) := by
+  classical
+  obtain ⟨Cbox, Y₀, hCbox, hY₀, hblock⟩ := clean_prime_tuple_block_bound C hC
+  refine ⟨Cbox, Y₀, hCbox, hY₀, ?_⟩
+  intro K F S hY hbands hV hb w hw hU hd₀ D hDlow hDhi T hT P hP m hm r hr hfibre
+  intro Ceta hCeta d e hd he f
+  have hYpos : 0 < S.Y := zero_lt_one.trans_le (hY₀.trans hY)
+  have hDpos : 0 < D := by
+    have hd₀r : 0 < (S.d₀ : ℝ) := by exact_mod_cast hd₀
+    exact_mod_cast hd₀r.trans_le hDlow
+  let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+    ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+  let cell := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+    ⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋
+  let t := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+    ((det2 u.1 v.1/(D : ℤ) : ℤ) : ℝ)
+  let base := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+    (F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1,
+      if ¬ majorArc S.x S.Y F.A₀ θ then
+        additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ))) else 0)
+  let line : ((ℤ × ℤ) × (Fin K → ℕ)) → ((q : D.primeFactors) → Fin (q.1+1)) :=
+    fun u q => projLine q.1 u.1
+  have hline_iff (u v : (ℤ × ℤ) × (Fin K → ℕ)) :
+      line u = line v ↔ ∀ q : ℕ, q.Prime → q ∣ D → projLine q u.1 = projLine q v.1 := by
+    constructor
+    · intro hlines q hqprime hqD
+      have hqmem : q ∈ D.primeFactors := Nat.mem_primeFactors.mpr ⟨hqprime, hqD, hDpos.ne'⟩
+      exact congrFun hlines ⟨q, hqmem⟩
+    · intro hlines
+      funext q
+      obtain ⟨hqprime, hqD, _⟩ := Nat.mem_primeFactors.mp q.2
+      exact hlines q.1 hqprime hqD
+  have hmass (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : 0 ≤ μ u :=
+    (clean_product_mass_le S.x F.a F.q_d S.Y hYpos hV hb u.2
+      (hT u hu).1 (hT u hu).2.1).1
+  have hcommon (z : (ℤ × ℤ) × (Fin K → ℕ)) (hz : z ∈ T)
+      (U : Finset ((ℤ × ℤ) × (Fin K → ℕ))) (hUT : U ⊆ T)
+      (hgeom : ∀ u ∈ U, line z = line u ∧ |((cell u-cell z : ℤ) : ℝ)| ≤ C)
+      (g : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ) :
+      (∑ u ∈ U, μ u*‖d u*(∑ v ∈ U, base u v*(μ v : ℂ)*e v*g v)‖^2) ≤
+        (Ceta^2*(4/Real.log 2)^K*r)^2*(∑ v ∈ U, μ v*‖g v‖^2) := by
+    obtain ⟨hp, hshared, hgood⟩ := hP z hz
+    have hpad : (S.d₀ : ℝ) ≤ (sharedProduct (P z) : ℝ) ∧
+        (sharedProduct (P z) : ℝ) < 2*(S.d₀ : ℝ) := by
+      rw [hshared]
+      exact ⟨hDlow, hDhi⟩
+    have hUgeom (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) :
+        IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+          envBox S w u.1 ∧
+          (∀ q : ℕ, q.Prime → q ∣ sharedProduct (P z) → projLine q z.1 = projLine q u.1) ∧
+          |((⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋-
+            ⌊((z.1.2 : ℝ)/w.tau z.1)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ C := by
+      have huT := hT u (hUT hu)
+      refine ⟨huT.1, huT.2.1, huT.2.2.1, ?_, (hgeom u hu).2⟩
+      intro q hqprime hqD
+      exact (hline_iff z u).mp (hgeom u hu).1 q hqprime (by simpa only [hshared] using hqD)
+    have hbound := hblock K F S hY hbands hV hb w hw hU hd₀ z.1
+      (hT z hz).2.2.1 (hT z hz).2.2.2 (P z) hp hgood hpad U hUgeom r hr hfibre
+      Ceta hCeta d e (fun u hu => hd u (hUT hu)) (fun u hu => he u (hUT hu)) g
+    simpa only [μ, t, base, hshared] using hbound
+  have hfixed := finite_weighted_fixed_shift_kernel_bound T μ hmass line cell m C hC hm
+    base d e (Ceta^2*(4/Real.log 2)^K*r) hcommon f
+  simpa only [μ, cell, t, base, hline_iff] using hfixed
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The finite physical clean pad kernel has a uniform weighted bound after summing cell shifts. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_pad_kernel_bound {K : ℕ}
+    (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ D : ℕ, (S.d₀ : ℝ) ≤ (D : ℝ) → (D : ℝ) < 2*(S.d₀ : ℝ) →
+      ∀ T : Finset ((ℤ × ℤ) × (Fin K → ℕ)),
+      (∀ u ∈ T, IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+        envBox S w u.1 ∧ Int.gcd u.1.1 u.1.2 = 1) →
+      ∀ P : ((ℤ × ℤ) × (Fin K → ℕ)) → PrimeLists S.x K,
+      (∀ u ∈ T, ValidPrimeLists S.x K F.a (P u) ∧ sharedProduct (P u) = D ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) (P u) (transportedRatio w u.1)) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ d e : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      (∀ u ∈ T, ‖d u‖ ≤ 1) → (∀ u ∈ T, ‖e u‖ ≤ 1) →
+      ∀ f : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+      let k := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        if (D : ℤ) ∣ det2 u.1 v.1 then
+          geometricMultiplier F S D (tupleProduct v.2) (tupleProduct u.2) (det2 u.1 v.1/(D : ℤ))
+        else 0
+      (∑ u ∈ T, μ u*‖d u*(∑ v ∈ T, k u v*(μ v : ℂ)*e v*f v)‖^2) ≤
+        (C*r)^2*(∑ v ∈ T, μ v*‖f v‖^2) := by
+  classical
+  obtain ⟨Ccell, hCcell, hsupport⟩ := clean_pad_kernel_projective_cell_support F hF
+  let M : ℤ := ⌈Ccell⌉
+  have hCM : Ccell ≤ (M : ℝ) := Int.le_ceil Ccell
+  have hM0 : 0 ≤ (M : ℝ) := hCcell.trans hCM
+  let E : Finset ℤ := Finset.Icc (-M) M
+  obtain ⟨Cbox, Y₀, hCbox, hY₀, hshift⟩ :=
+    clean_prime_tuple_fixed_shift_bound (M : ℝ) hM0
+  obtain ⟨Ceta, hCeta, hEta⟩ := exists_eta_norm_bound F hF
+  let A : ℝ := Ceta^2*(4/Real.log 2)^K
+  let C : ℝ := (E.card : ℝ)*A+1
+  have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hA : 0 ≤ A := mul_nonneg (sq_nonneg _)
+    (pow_nonneg (div_nonneg (by norm_num) hlog.le) _)
+  have hC : 0 < C := by dsimp only [C]; positivity
+  refine ⟨C, Cbox, Y₀, hC, hCbox, hY₀, ?_⟩
+  intro S hY hbands hV hb w hw hU hd₀ D hDlow hDhi T hT P hP r hr hfibre d e hd he f
+  have hYpos : 0 < S.Y := zero_lt_one.trans_le (hY₀.trans hY)
+  have hd₀r : 0 < (S.d₀ : ℝ) := by exact_mod_cast hd₀
+  have hDr : 0 < (D : ℝ) := hd₀r.trans_le hDlow
+  have hratio0 : 0 ≤ (S.d₀ : ℝ)/(D : ℝ) := div_nonneg hd₀r.le hDr.le
+  have hratio1 : (S.d₀ : ℝ)/(D : ℝ) ≤ 1 := (div_le_one hDr).mpr hDlow
+  by_cases hTne : T.Nonempty
+  · obtain ⟨z, hz⟩ := hTne
+    obtain ⟨hpz, hshared, hgood⟩ := hP z hz
+    have hpadz : (S.d₀ : ℝ) ≤ (sharedProduct (P z) : ℝ) ∧
+        (sharedProduct (P z) : ℝ) < 2*(S.d₀ : ℝ) := by
+      rw [hshared]
+      exact ⟨hDlow, hDhi⟩
+    have hDsq : Squarefree D := by
+      rw [← hshared]
+      exact (clean_shared_pad_facts S.x S.Y (S.d₀ : ℝ) (transportedRatio w z.1)
+        F.a (P z) hpz hbands hgood hpadz).1
+    let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+    let cell := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋
+    let lines := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ∀ q : ℕ, q.Prime → q ∣ D → projLine q u.1 = projLine q v.1
+    let t := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ((det2 u.1 v.1/(D : ℤ) : ℤ) : ℝ)
+    let base := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      (F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1,
+        if ¬ majorArc S.x S.Y F.A₀ θ then
+          additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ))) else 0)
+    let geo := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      geometricMultiplier F S D (tupleProduct v.2) (tupleProduct u.2) (det2 u.1 v.1/(D : ℤ))
+    let pad := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      if (D : ℤ) ∣ det2 u.1 v.1 then geo u v else 0
+    let d' := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      (((S.d₀ : ℝ)/(D : ℝ) : ℝ) : ℂ)*(F.eta ((tupleProduct u.2 : ℝ)/S.Y) : ℂ)*d u
+    let e' := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      (F.eta ((tupleProduct u.2 : ℝ)/S.Y) : ℂ)*e u
+    let ks := fun m : ℤ => fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      if lines u v ∧ cell v-cell u = m then base u v else 0
+    let k := fun m : ℤ => fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      d' u*ks m u v*e' v
+    have hmass (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : 0 ≤ μ u :=
+      (clean_product_mass_le S.x F.a F.q_d S.Y hYpos hV hb u.2
+        (hT u hu).1 (hT u hu).2.1).1
+    have hd' (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : ‖d' u‖ ≤ Ceta := by
+      change ‖(_ : ℂ)*(_ : ℂ)*d u‖ ≤ Ceta
+      rw [norm_mul, norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hratio0]
+      calc
+        _ ≤ 1*Ceta*1 := mul_le_mul
+          (mul_le_mul hratio1 (hEta _) (norm_nonneg _) (by norm_num))
+          (hd u hu) (norm_nonneg _) (by simpa only [one_mul] using hCeta)
+        _ = _ := by ring
+    have he' (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : ‖e' u‖ ≤ Ceta := by
+      change ‖(_ : ℂ)*e u‖ ≤ Ceta
+      rw [norm_mul]
+      exact (mul_le_mul (hEta _) (he u hu) (norm_nonneg _) hCeta).trans_eq (mul_one _)
+    have hm (m : ℤ) (hm : m ∈ E) : |(m : ℝ)| ≤ (M : ℝ) := by
+      obtain ⟨hlo, hhi⟩ := Finset.mem_Icc.mp hm
+      apply abs_le.mpr
+      constructor
+      · exact_mod_cast hlo
+      · exact_mod_cast hhi
+    have hk (m : ℤ) (hmE : m ∈ E) (g : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ) :
+        (∑ u ∈ T, μ u*‖∑ v ∈ T, k m u v*(μ v : ℂ)*g v‖^2) ≤
+          (A*r)^2*(∑ v ∈ T, μ v*‖g v‖^2) := by
+      have hbound := hshift K F S hY hbands hV hb w hw hU hd₀ D hDlow hDhi
+        T hT P hP m (hm m hmE) r hr hfibre Ceta hCeta d' e' hd' he' g
+      change (∑ u ∈ T, μ u*‖d' u*(∑ v ∈ T, ks m u v*(μ v : ℂ)*e' v*g v)‖^2) ≤
+        (A*r)^2*(∑ v ∈ T, μ v*‖g v‖^2) at hbound
+      have hrow (u : (ℤ × ℤ) × (Fin K → ℕ)) :
+          (∑ v ∈ T, k m u v*(μ v : ℂ)*g v) =
+            d' u*(∑ v ∈ T, ks m u v*(μ v : ℂ)*e' v*g v) := by
+        rw [Finset.mul_sum]
+        exact Finset.sum_congr rfl (fun v hv => by dsimp only [k]; ring)
+      simp_rw [hrow]
+      exact hbound
+    have hmult (u v : (ℤ × ℤ) × (Fin K → ℕ)) :
+        d u*geo u v*e v = d' u*base u v*e' v := by
+      dsimp only [geo, d', e', base, t]
+      rw [geometric_multiplier_minor_formula]
+      ring
+    have hcombined (m : ℤ) (u v : (ℤ × ℤ) × (Fin K → ℕ)) :
+        k m u v = if lines u v ∧ cell v-cell u = m then d u*geo u v*e v else 0 := by
+      dsimp only [k, ks]
+      by_cases h : lines u v ∧ cell v-cell u = m
+      · simp only [if_pos h]
+        exact (hmult u v).symm
+      · simp only [if_neg h, mul_zero, zero_mul]
+    have hkernel (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T)
+        (v : (ℤ × ℤ) × (Fin K → ℕ)) (hv : v ∈ T) :
+        (∑ m ∈ E, k m u v) = d u*pad u v*e v := by
+      rw [Finset.sum_congr rfl (fun m hm => hcombined m u v)]
+      have hsup (hdiv : (D : ℤ) ∣ det2 u.1 v.1) (hg : geo u v ≠ 0) :
+          lines u v ∧ |((cell v-cell u : ℤ) : ℝ)| ≤ Ccell :=
+        hsupport S w u.1 v.1 D (tupleProduct v.2) (tupleProduct u.2) hU hw
+          (hT u hu).2.2.1 (hT v hv).2.2.1 hYpos hd₀ (hT u hu).2.2.2 (hT v hv).2.2.2
+          ⟨hDlow, hDhi, hdiv⟩ hg
+      by_cases hline : lines u v
+      · have hdiv := projective_line_pad_dvd D hDsq u.1 v.1 hline
+        dsimp only [pad]
+        rw [if_pos hdiv]
+        by_cases hg : geo u v = 0
+        · simp only [hg, mul_zero, zero_mul, ite_self, Finset.sum_const_zero]
+        · have hcell := (hsup hdiv hg).2.trans hCM
+          have hmem : cell v-cell u ∈ E := by
+            apply Finset.mem_Icc.mpr
+            obtain ⟨hlo, hhi⟩ := abs_le.mp hcell
+            constructor
+            · exact_mod_cast hlo
+            · exact_mod_cast hhi
+          simp [hline, hmem, eq_comm]
+      · have hzero : d u*pad u v*e v = 0 := by
+          dsimp only [pad]
+          by_cases hdiv : (D : ℤ) ∣ det2 u.1 v.1
+          · rw [if_pos hdiv]
+            have hg : geo u v = 0 := by
+              by_contra hne
+              exact hline (hsup hdiv hne).1
+            rw [hg, mul_zero, zero_mul]
+          · rw [if_neg hdiv, mul_zero, zero_mul]
+        simp only [hline, false_and, if_false, Finset.sum_const_zero, hzero]
+    have hsum := finite_weighted_kernel_sum_bound T E μ hmass k (A*r) hk f
+    have hout :
+        (∑ u ∈ T, μ u*‖∑ v ∈ T, (∑ m ∈ E, k m u v)*(μ v : ℂ)*f v‖^2) =
+          (∑ u ∈ T, μ u*‖d u*(∑ v ∈ T, pad u v*(μ v : ℂ)*e v*f v)‖^2) := by
+      apply Finset.sum_congr rfl
+      intro u hu
+      apply congrArg (fun a : ℂ => μ u*‖a‖^2)
+      rw [Finset.mul_sum]
+      exact Finset.sum_congr rfl (fun v hv => by rw [hkernel u hu v hv]; ring)
+    rw [hout] at hsum
+    have hconst : (E.card : ℝ)*(A*r) ≤ C*r := by
+      have hCA : (E.card : ℝ)*A ≤ C := by dsimp only [C]; linarith only
+      simpa only [mul_assoc] using mul_le_mul_of_nonneg_right hCA hr
+    have hsquare : ((E.card : ℝ)*(A*r))^2 ≤ (C*r)^2 := by
+      simpa only [pow_two] using mul_le_mul hconst hconst (by positivity)
+        (mul_nonneg hC.le hr)
+    exact hsum.trans (mul_le_mul_of_nonneg_right hsquare
+      (Finset.sum_nonneg (fun v hv => mul_nonneg (hmass v hv) (sq_nonneg _))))
+  · have hempty : T = ∅ := Finset.not_nonempty_iff_eq_empty.mp hTne
+    simp only [hempty, Finset.sum_empty, mul_zero, le_refl]
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Fixed copied slots and memory preserve the finite clean pad-kernel bound under the actual state measure. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_common_memory_fibre_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ D : ℕ, (S.d₀ : ℝ) ≤ (D : ℝ) → (D : ℝ) < 2*(S.d₀ : ℝ) →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        sharedProduct s.2.1 = D ∧ S.Y ≤ (lastProduct s.2.1 : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      (∀ s ∈ T, ∀ t ∈ T, s.2.2 = t.2.2 ∧
+        ∀ (i : Fin K) (j : Fin (slotCount S.x)), j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ d e : MemPoint S.x K → ℂ,
+      (∀ s ∈ T, ‖d s‖ ≤ 1) → (∀ s ∈ T, ‖e s‖ ≤ 1) →
+      ∀ f : MemPoint S.x K → ℂ,
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let k := fun s t : MemPoint S.x K =>
+        if (D : ℤ) ∣ det2 s.1 t.1 then
+          geometricMultiplier F S D (lastProduct t.2.1) (lastProduct s.2.1)
+            (det2 s.1 t.1/(D : ℤ)) else 0
+      (∑ s ∈ T, memMeasure F S s*‖d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t)‖^2) ≤
+        (C*r)^2*(∑ t ∈ T, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨C, Cbox, Y₀, hC, hCbox, hY₀, hpad⟩ := clean_prime_tuple_pad_kernel_bound F hF
+  refine ⟨C, Cbox, Y₀, hC, hCbox, hY₀, ?_⟩
+  intro S hY hbands hV hb w hw hU hd₀ D hDlow hDhi T hT hcommon r hr hfibre d e hd he f
+  by_cases hTne : T.Nonempty
+  · obtain ⟨z, hz⟩ := hTne
+    let Φ : MemPoint S.x K → ((ℤ × ℤ) × (Fin K → ℕ)) :=
+      fun s => (s.1, fun i => s.2.1 i (lastSlot S.x))
+    have hΦ : Set.InjOn Φ (T : Set (MemPoint S.x K)) := by
+      intro s hs t ht heq
+      have hpos : s.1 = t.1 :=
+        congrArg (fun u : ((ℤ × ℤ) × (Fin K → ℕ)) => u.1) heq
+      have hlast : (fun i => s.2.1 i (lastSlot S.x)) =
+          (fun i => t.2.1 i (lastSlot S.x)) := congrArg Prod.snd heq
+      refine Prod.ext hpos (Prod.ext ?_ (hcommon s hs t ht).1)
+      funext i j
+      by_cases hj : j.val < momentJ S.x
+      · exact (hcommon s hs t ht).2 i j hj
+      · have hjlast : j = lastSlot S.x := by
+          apply Fin.ext
+          have hlt := j.isLt
+          dsimp only [slotCount] at hlt
+          dsimp only [lastSlot]
+          omega
+        subst j
+        exact congrFun hlast i
+    let U : Finset ((ℤ × ℤ) × (Fin K → ℕ)) := T.image Φ
+    let pre : ((ℤ × ℤ) × (Fin K → ℕ)) → MemPoint S.x K :=
+      fun u => if hu : u ∈ U then Classical.choose (Finset.mem_image.mp hu) else z
+    have hpre (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) :
+        pre u ∈ T ∧ Φ (pre u) = u := by
+      dsimp only [pre]
+      rw [dif_pos hu]
+      exact Classical.choose_spec (Finset.mem_image.mp hu)
+    have hpreΦ (s : MemPoint S.x K) (hs : s ∈ T) : pre (Φ s) = s := by
+      have hmem : Φ s ∈ U := Finset.mem_image.mpr ⟨s, hs, rfl⟩
+      exact hΦ (hpre (Φ s) hmem).1 hs (hpre (Φ s) hmem).2
+    have hUt (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) :
+        IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+          envBox S w u.1 ∧ Int.gcd u.1.1 u.1.2 = 1 := by
+      obtain ⟨s, hs, rfl⟩ := Finset.mem_image.mp hu
+      have ht := hT s hs
+      exact ⟨(fun i => ht.1.2.1 i (lastSlot S.x)), ht.2.2.2.1, ht.2.2.2.2.1, ht.1.1⟩
+    let P : ((ℤ × ℤ) × (Fin K → ℕ)) → PrimeLists S.x K := fun u => (pre u).2.1
+    have hP (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) :
+        ValidPrimeLists S.x K F.a (P u) ∧ sharedProduct (P u) = D ∧
+          goodTestOne S.x S.Y (S.d₀ : ℝ) (P u) (transportedRatio w u.1) := by
+      have ht := hT (pre u) (hpre u hu).1
+      have hpos : (pre u).1 = u.1 := congrArg Prod.fst (hpre u hu).2
+      refine ⟨ht.2.1, ht.2.2.1, ?_⟩
+      simpa only [hpos] using ht.2.2.2.2.2
+    let ν := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+    let μ := fun s : MemPoint S.x K =>
+      ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+    let pad := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      if (D : ℤ) ∣ det2 u.1 v.1 then
+        geometricMultiplier F S D (tupleProduct v.2) (tupleProduct u.2)
+          (det2 u.1 v.1/(D : ℤ)) else 0
+    let k := fun s t : MemPoint S.x K =>
+      if (D : ℤ) ∣ det2 s.1 t.1 then
+        geometricMultiplier F S D (lastProduct t.2.1) (lastProduct s.2.1)
+          (det2 s.1 t.1/(D : ℤ)) else 0
+    let dβ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) => d (pre u)
+    let eβ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) => e (pre u)
+    let kβ := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) => dβ u*pad u v*eβ v
+    have hdβ (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) : ‖dβ u‖ ≤ 1 :=
+      hd (pre u) (hpre u hu).1
+    have heβ (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ U) : ‖eβ u‖ ≤ 1 :=
+      he (pre u) (hpre u hu).1
+    have hkβ (g : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ) :
+        (∑ u ∈ U, ν u*‖∑ v ∈ U, kβ u v*(ν v : ℂ)*g v‖^2) ≤
+          (C*r)^2*(∑ v ∈ U, ν v*‖g v‖^2) := by
+      have hbound := hpad S hY hbands hV hb w hw hU hd₀ D hDlow hDhi U hUt P hP
+        r hr hfibre dβ eβ hdβ heβ g
+      change (∑ u ∈ U, ν u*‖dβ u*(∑ v ∈ U, pad u v*(ν v : ℂ)*eβ v*g v)‖^2) ≤
+        (C*r)^2*(∑ v ∈ U, ν v*‖g v‖^2) at hbound
+      have hrow (u : (ℤ × ℤ) × (Fin K → ℕ)) :
+          (∑ v ∈ U, kβ u v*(ν v : ℂ)*g v) =
+            dβ u*(∑ v ∈ U, pad u v*(ν v : ℂ)*eβ v*g v) := by
+        rw [Finset.mul_sum]
+        exact Finset.sum_congr rfl (fun v hv => by dsimp only [kβ]; ring)
+      simp_rw [hrow]
+      exact hbound
+    let γ := fun s : MemPoint S.x K =>
+      (∏ i : Fin K, ∏ j : Fin (slotCount S.x),
+        if j.val < momentJ S.x then memoryNu S.x K F.a F.q_d i (s.2.1 i j) else 1)*
+      ∏ i : Fin K, (((s.2.2 i).map fun e => memoryNu S.x K F.a F.q_d i e.1).prod /
+        ((s.2.2 i).length.factorial : ℝ))
+    let W : ℝ := γ z
+    have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+    have hν0 (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+        0 ≤ memoryNu S.x K F.a F.q_d i p :=
+      (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp hp).2.1.pos
+        ((div_pos hlog (by norm_num : (0 : ℝ) < 2)).trans_le (hV i)) (hb i p hp)).1
+    have hW : 0 ≤ W := by
+      dsimp only [W, γ]
+      apply mul_nonneg
+      · apply Finset.prod_nonneg
+        intro i hi
+        apply Finset.prod_nonneg
+        intro j hj
+        by_cases hjval : j.val < momentJ S.x
+        · rw [if_pos hjval]
+          exact hν0 i _ ((hT z hz).1.2.1 i j)
+        · rw [if_neg hjval]
+          norm_num
+      · apply Finset.prod_nonneg
+        intro i hi
+        apply div_nonneg
+        · apply List.prod_nonneg
+          intro a ha
+          obtain ⟨particle, hparticle, hEq⟩ := List.mem_map.mp ha
+          rw [← hEq]
+          exact hν0 i particle.1 ((hT z hz).1.2.2 i particle hparticle).1
+        · exact Nat.cast_nonneg _
+    have hγ (s : MemPoint S.x K) (hs : s ∈ T) : γ s = γ z := by
+      obtain ⟨hmem, hprefix⟩ := hcommon s hs z hz
+      have hcopy :
+          (∏ i : Fin K, ∏ j : Fin (slotCount S.x),
+            if j.val < momentJ S.x then memoryNu S.x K F.a F.q_d i (s.2.1 i j) else 1) =
+          (∏ i : Fin K, ∏ j : Fin (slotCount S.x),
+            if j.val < momentJ S.x then memoryNu S.x K F.a F.q_d i (z.2.1 i j) else 1) := by
+        apply Finset.prod_congr rfl
+        intro i hi
+        apply Finset.prod_congr rfl
+        intro j hj
+        by_cases hjval : j.val < momentJ S.x
+        · rw [if_pos hjval, if_pos hjval, hprefix i j hjval]
+        · simp only [if_neg hjval]
+      dsimp only [γ]
+      rw [hcopy, hmem]
+    have hmeasure (s : MemPoint S.x K) (hs : s ∈ T) :
+        memMeasure F S s = W*ν (Φ s) := by
+      rw [clean_shared_memory_measure_factorization F S s (hT s hs).1]
+      change γ s*ν (Φ s) = W*ν (Φ s)
+      rw [hγ s hs]
+    have hphysical (s : MemPoint S.x K) (hs : s ∈ T) (t : MemPoint S.x K) (ht : t ∈ T) :
+        kβ (Φ s) (Φ t) = d s*k s t*e t := by
+      dsimp only [kβ, dβ, eβ]
+      rw [hpreΦ s hs, hpreΦ t ht]
+      rfl
+    have hrow (s : MemPoint S.x K) (hs : s ∈ T) :
+        (∑ t ∈ T, kβ (Φ s) (Φ t)*(ν (Φ t) : ℂ)*f t) =
+          d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t) := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      rw [hphysical s hs t ht]
+      change d s*k s t*e t*(μ t : ℂ)*f t = d s*(k s t*(μ t : ℂ)*e t*f t)
+      ring
+    have hout :
+        (∑ s ∈ T, (W*ν (Φ s))*‖∑ t ∈ T, kβ (Φ s) (Φ t)*(ν (Φ t) : ℂ)*f t‖^2) =
+          (∑ s ∈ T, memMeasure F S s*‖d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t)‖^2) := by
+      apply Finset.sum_congr rfl
+      intro s hs
+      rw [← hmeasure s hs, hrow s hs]
+    have henergy : (∑ t ∈ T, (W*ν (Φ t))*‖f t‖^2) =
+        ∑ t ∈ T, memMeasure F S t*‖f t‖^2 :=
+      Finset.sum_congr rfl (fun t ht => by rw [← hmeasure t ht])
+    have hbound := finite_weighted_injective_kernel_transfer T Φ hΦ ν kβ (C*r) W hW hkβ f
+    rw [hout, henergy] at hbound
+    exact hbound
+  · have hempty : T = ∅ := Finset.not_nonempty_iff_eq_empty.mp hTne
+    simp only [hempty, Finset.sum_empty, mul_zero, le_refl]
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- All copied-slot/memory fibres share the same finite clean kernel bound. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_memory_blocks_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        S.Y ≤ (lastProduct s.2.1 : ℝ) ∧
+        (S.d₀ : ℝ) ≤ (sharedProduct s.2.1 : ℝ) ∧
+        (sharedProduct s.2.1 : ℝ) < 2*(S.d₀ : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ d e : MemPoint S.x K → ℂ,
+      (∀ s ∈ T, ‖d s‖ ≤ 1) → (∀ s ∈ T, ‖e s‖ ≤ 1) →
+      ∀ f : MemPoint S.x K → ℂ,
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let k := fun s t : MemPoint S.x K =>
+        if s.2.2 = t.2.2 ∧
+          (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+            j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+          (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1 then
+          geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+            (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+      (∑ s ∈ T, memMeasure F S s*‖d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t)‖^2) ≤
+        (C*r)^2*(∑ t ∈ T, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨C, Cbox, Y₀, hC, hCbox, hY₀, hfibreBound⟩ := clean_common_memory_fibre_bound F hF
+  refine ⟨C, Cbox, Y₀, hC, hCbox, hY₀, ?_⟩
+  intro S hY hbands hV hb w hw hU hd₀ T hT r hr hfibre d e hd he f
+  let copied : MemPoint S.x K → Fin K → Fin (momentJ S.x) → ℕ :=
+    fun s i j => s.2.1 i ⟨j.val, Nat.lt_succ_of_lt j.isLt⟩
+  let cls : MemPoint S.x K → (Fin K → List Particle) × (Fin K → Fin (momentJ S.x) → ℕ) :=
+    fun s => (s.2.2, copied s)
+  have hclass (s t : MemPoint S.x K) : cls s = cls t ↔ s.2.2 = t.2.2 ∧
+      ∀ (i : Fin K) (j : Fin (slotCount S.x)), j.val < momentJ S.x → s.2.1 i j = t.2.1 i j := by
+    constructor
+    · intro hcls
+      have hmem : s.2.2 = t.2.2 :=
+        congrArg (fun b : (Fin K → List Particle) × (Fin K → Fin (momentJ S.x) → ℕ) => b.1) hcls
+      have hprefix : copied s = copied t :=
+        congrArg (fun b : (Fin K → List Particle) × (Fin K → Fin (momentJ S.x) → ℕ) => b.2) hcls
+      refine ⟨hmem, ?_⟩
+      intro i j hj
+      exact congrFun (congrFun hprefix i) (⟨j.val, hj⟩ : Fin (momentJ S.x))
+    · rintro ⟨hmem, hcopy⟩
+      apply Prod.ext hmem
+      funext i j
+      exact hcopy i ⟨j.val, Nat.lt_succ_of_lt j.isLt⟩ j.isLt
+  have hshared (s t : MemPoint S.x K) (hcls : cls s = cls t) :
+      sharedProduct s.2.1 = sharedProduct t.2.1 := by
+    have hcopy := ((hclass s t).mp hcls).2
+    dsimp only [sharedProduct]
+    apply Finset.prod_congr rfl
+    intro i hi
+    apply Finset.prod_congr rfl
+    intro j hj
+    by_cases hjval : j.val < momentJ S.x
+    · rw [if_pos hjval, if_pos hjval, hcopy i j hjval]
+    · simp only [if_neg hjval]
+  let μ := fun s : MemPoint S.x K =>
+    ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+  let k := fun s t : MemPoint S.x K =>
+    if s.2.2 = t.2.2 ∧
+      (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+        j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+      (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1 then
+      geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+        (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+  let a := fun s t : MemPoint S.x K => d s*k s t*(μ t : ℂ)*e t
+  have hsupport (s : MemPoint S.x K) (hs : s ∈ T) (t : MemPoint S.x K) (ht : t ∈ T)
+      (hne : cls s ≠ cls t) : a s t = 0 := by
+    have hkzero : k s t = 0 := by
+      dsimp only [k]
+      split_ifs with h
+      · exact (hne ((hclass s t).mpr ⟨h.1, h.2.1⟩)).elim
+      · rfl
+    simp only [a, hkzero, mul_zero, zero_mul]
+  have hblocks (b : (Fin K → List Particle) × (Fin K → Fin (momentJ S.x) → ℕ))
+      (hbcls : b ∈ T.image cls) :
+      (∑ s ∈ T.filter (fun s => cls s = b),
+        memMeasure F S s*‖∑ t ∈ T.filter (fun t => cls t = b), a s t*f t‖^2) ≤
+      (C*r)^2*(∑ t ∈ T.filter (fun t => cls t = b), memMeasure F S t*‖f t‖^2) := by
+    obtain ⟨z, hz, hzb⟩ := Finset.mem_image.mp hbcls
+    let U := T.filter (fun s => cls s = b)
+    let D := sharedProduct z.2.1
+    have hUT : U ⊆ T := Finset.filter_subset _ _
+    have hUz : z ∈ U := Finset.mem_filter.mpr ⟨hz, hzb⟩
+    have hcommon (s : MemPoint S.x K) (hs : s ∈ U) (t : MemPoint S.x K) (ht : t ∈ U) :
+        s.2.2 = t.2.2 ∧ ∀ (i : Fin K) (j : Fin (slotCount S.x)),
+          j.val < momentJ S.x → s.2.1 i j = t.2.1 i j :=
+      (hclass s t).mp ((Finset.mem_filter.mp hs).2.trans (Finset.mem_filter.mp ht).2.symm)
+    have hD (s : MemPoint S.x K) (hs : s ∈ U) : sharedProduct s.2.1 = D :=
+      hshared s z ((Finset.mem_filter.mp hs).2.trans hzb.symm)
+    have hUsource (s : MemPoint S.x K) (hs : s ∈ U) :
+        MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        sharedProduct s.2.1 = D ∧ S.Y ≤ (lastProduct s.2.1 : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1) := by
+      have h := hT s (hUT hs)
+      exact ⟨h.1, h.2.1, hD s hs, h.2.2.1, h.2.2.2.2.2.1, h.2.2.2.2.2.2⟩
+    let kd := fun s t : MemPoint S.x K =>
+      if (D : ℤ) ∣ det2 s.1 t.1 then
+        geometricMultiplier F S D (lastProduct t.2.1) (lastProduct s.2.1)
+          (det2 s.1 t.1/(D : ℤ)) else 0
+    have hkernel (s : MemPoint S.x K) (hs : s ∈ U) (t : MemPoint S.x K) (ht : t ∈ U) :
+        k s t = kd s t := by
+      obtain ⟨hmem, hcopy⟩ := hcommon s hs t ht
+      dsimp only [k, kd]
+      rw [hD s hs]
+      have hcond :
+          (s.2.2 = t.2.2 ∧
+            (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+              j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+            (D : ℤ) ∣ det2 s.1 t.1) ↔ (D : ℤ) ∣ det2 s.1 t.1 :=
+        ⟨fun h => h.2.2, fun h => ⟨hmem, hcopy, h⟩⟩
+      simp only [hcond]
+    have hbound := hfibreBound S hY hbands hV hb w hw hU hd₀ D
+      (hT z hz).2.2.2.1 (hT z hz).2.2.2.2.1 U hUsource hcommon r hr hfibre
+      d e (fun s hs => hd s (hUT hs)) (fun t ht => he t (hUT ht)) f
+    change (∑ s ∈ U, memMeasure F S s*‖d s*(∑ t ∈ U, kd s t*(μ t : ℂ)*e t*f t)‖^2) ≤
+      (C*r)^2*(∑ t ∈ U, memMeasure F S t*‖f t‖^2) at hbound
+    have hrow (s : MemPoint S.x K) (hs : s ∈ U) :
+        (∑ t ∈ U, a s t*f t) = d s*(∑ t ∈ U, kd s t*(μ t : ℂ)*e t*f t) := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      dsimp only [a]
+      rw [hkernel s hs t ht]
+      ring
+    have hout :
+        (∑ s ∈ U, memMeasure F S s*‖∑ t ∈ U, a s t*f t‖^2) =
+          (∑ s ∈ U, memMeasure F S s*‖d s*(∑ t ∈ U, kd s t*(μ t : ℂ)*e t*f t)‖^2) :=
+      Finset.sum_congr rfl (fun s hs => by rw [hrow s hs])
+    change (∑ s ∈ U, memMeasure F S s*‖∑ t ∈ U, a s t*f t‖^2) ≤ _
+    rw [hout]
+    exact hbound
+  have hwhole := finite_fibre_kernel_bound T (memMeasure F S) cls a (C*r) f hsupport hblocks
+  have hrow (s : MemPoint S.x K) : (∑ t ∈ T, a s t*f t) =
+      d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t) := by
+    rw [Finset.mul_sum]
+    exact Finset.sum_congr rfl (fun t ht => by dsimp only [a]; ring)
+  simp_rw [hrow] at hwhole
+  exact hwhole
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The forward finite memory-block bound also controls the exact weighted adjoint. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_memory_blocks_or_adjoint_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        S.Y ≤ (lastProduct s.2.1 : ℝ) ∧
+        (S.d₀ : ℝ) ≤ (sharedProduct s.2.1 : ℝ) ∧
+        (sharedProduct s.2.1 : ℝ) < 2*(S.d₀ : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ forward : Bool, ∀ d e : MemPoint S.x K → ℂ,
+      (∀ s ∈ T, ‖d s‖ ≤ 1) → (∀ s ∈ T, ‖e s‖ ≤ 1) →
+      ∀ f : MemPoint S.x K → ℂ,
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let raw := fun s t : MemPoint S.x K =>
+        if s.2.2 = t.2.2 ∧
+          (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+            j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+          (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1 then
+          geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+            (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+      let k := fun s t : MemPoint S.x K => if forward then raw s t else star (raw t s)
+      (∑ s ∈ T, memMeasure F S s*‖d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*f t)‖^2) ≤
+        (C*r)^2*(∑ t ∈ T, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨C, Cbox, Y₀, hC, hCbox, hY₀, hblocks⟩ := clean_memory_blocks_bound F hF
+  refine ⟨C, Cbox, Y₀, hC, hCbox, hY₀, ?_⟩
+  intro S hY hbands hV hb w hw hU hd₀ T hT r hr hfibre forward d e hd he f
+  cases forward with
+  | true =>
+      exact hblocks S hY hbands hV hb w hw hU hd₀ T hT r hr hfibre d e hd he f
+  | false =>
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let raw := fun s t : MemPoint S.x K =>
+        if s.2.2 = t.2.2 ∧
+          (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+            j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+          (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1 then
+          geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+            (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+      let a := fun s t : MemPoint S.x K => star (e s)*raw s t*(μ t : ℂ)*star (d t)
+      let b := fun s t : MemPoint S.x K => d s*star (raw t s)*(μ t : ℂ)*e t
+      have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+      have hν0 (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+          0 ≤ memoryNu S.x K F.a F.q_d i p :=
+        (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp hp).2.1.pos
+          ((div_pos hlog (by norm_num : (0 : ℝ) < 2)).trans_le (hV i)) (hb i p hp)).1
+      have hmeasure : ∀ s : MemPoint S.x K, 0 ≤ memMeasure F S s :=
+        pd4c_memMeasure_nonneg_of_nu F S hν0
+      have hstarμ (s : MemPoint S.x K) : star (μ s : ℂ) = (μ s : ℂ) := by simp
+      have hbalance (s : MemPoint S.x K) (hs : s ∈ T) (t : MemPoint S.x K) (ht : t ∈ T) :
+          (memMeasure F S s : ℂ)*b s t = (memMeasure F S t : ℂ)*star (a t s) := by
+        by_cases hcond : t.2.2 = s.2.2 ∧
+          (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+            j.val < momentJ S.x → t.2.1 i j = s.2.1 i j) ∧
+          (sharedProduct t.2.1 : ℤ) ∣ det2 t.1 s.1
+        · have hreal := clean_common_memory_measure_balance F S s t (hT s hs).1 (hT t ht).1
+            hcond.1.symm (fun i j hj => (hcond.2.1 i j hj).symm)
+          change memMeasure F S s*μ t = memMeasure F S t*μ s at hreal
+          have hcomplex : (memMeasure F S s : ℂ)*(μ t : ℂ) =
+              (memMeasure F S t : ℂ)*(μ s : ℂ) := by exact_mod_cast hreal
+          dsimp only [a, b]
+          simp only [star_mul, star_star, hstarμ]
+          calc
+            _ = ((memMeasure F S s : ℂ)*(μ t : ℂ))*d s*star (raw t s)*e t := by ring
+            _ = ((memMeasure F S t : ℂ)*(μ s : ℂ))*d s*star (raw t s)*e t := by rw [hcomplex]
+            _ = _ := by ring
+        · have hraw : raw t s = 0 := by
+            dsimp only [raw]
+            rw [if_neg hcond]
+          simp only [a, b, hraw, mul_zero, zero_mul, star_zero]
+      have hforward (g : MemPoint S.x K → ℂ) :
+          (∑ s ∈ T, memMeasure F S s*‖∑ t ∈ T, a s t*g t‖^2) ≤
+            (C*r)^2*(∑ t ∈ T, memMeasure F S t*‖g t‖^2) := by
+        have hbound := hblocks S hY hbands hV hb w hw hU hd₀ T hT r hr hfibre
+          (fun s => star (e s)) (fun t => star (d t))
+          (fun s hs => by simpa only [norm_star] using he s hs)
+          (fun t ht => by simpa only [norm_star] using hd t ht) g
+        change (∑ s ∈ T, memMeasure F S s*‖star (e s)*
+          (∑ t ∈ T, raw s t*(μ t : ℂ)*star (d t)*g t)‖^2) ≤
+            (C*r)^2*(∑ t ∈ T, memMeasure F S t*‖g t‖^2) at hbound
+        have hrow (s : MemPoint S.x K) :
+            (∑ t ∈ T, a s t*g t) =
+              star (e s)*(∑ t ∈ T, raw s t*(μ t : ℂ)*star (d t)*g t) := by
+          rw [Finset.mul_sum]
+          exact Finset.sum_congr rfl (fun t ht => by dsimp only [a]; ring)
+        simp_rw [hrow]
+        exact hbound
+      have hbound := finite_weighted_adjoint_kernel_bound T (memMeasure F S)
+        (fun s hs => hmeasure s) a b (C*r) hbalance hforward f
+      have hrow (s : MemPoint S.x K) : (∑ t ∈ T, b s t*f t) =
+          d s*(∑ t ∈ T, star (raw t s)*(μ t : ℂ)*e t*f t) := by
+        rw [Finset.mul_sum]
+        exact Finset.sum_congr rfl (fun t ht => by dsimp only [b]; ring)
+      simp_rw [hrow] at hbound
+      exact hbound
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Endpoint hit damping and finite input/output masks preserve the actual clean memory bound. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_memory_masks_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        S.Y ≤ (lastProduct s.2.1 : ℝ) ∧
+        (S.d₀ : ℝ) ≤ (sharedProduct s.2.1 : ℝ) ∧
+        (sharedProduct s.2.1 : ℝ) < 2*(S.d₀ : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
+      ∀ I O : Finset (MemPoint S.x K), I ⊆ T → O ⊆ T →
+      ∀ forward : Bool,
+      ∀ f : MemPoint S.x K → ℂ,
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let raw := fun s t : MemPoint S.x K =>
+        if s.2.2 = t.2.2 ∧
+          (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+            j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+          (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1 then
+          geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+            (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+      let k := fun s t : MemPoint S.x K => if forward then raw s t else star (raw t s)
+      (∑ s ∈ O, memMeasure F S s*‖(ρ^(∑ i : Fin K, hitCount (s.2.2 i) s.1) : ℂ)*
+        (∑ t ∈ I, k s t*(μ t : ℂ)*
+          (ρ^(∑ i : Fin K, hitCount (t.2.2 i) t.1) : ℂ)*f t)‖^2) ≤
+        (C*r)^2*(∑ t ∈ I, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨C, Cbox, Y₀, hC, hCbox, hY₀, hblocks⟩ := clean_memory_blocks_or_adjoint_bound F hF
+  refine ⟨C, Cbox, Y₀, hC, hCbox, hY₀, ?_⟩
+  intro S hY hbands hV hb w hw hU hd₀ T hT r hr hfibre ρ hρ I O hI hO forward f
+  let μ := fun s : MemPoint S.x K =>
+    ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+  let raw := fun s t : MemPoint S.x K =>
+    if s.2.2 = t.2.2 ∧
+      (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+        j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+      (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1 then
+      geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+        (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+  let k := fun s t : MemPoint S.x K => if forward then raw s t else star (raw t s)
+  have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hν0 (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p :=
+    (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp hp).2.1.pos
+      ((div_pos hlog (by norm_num : (0 : ℝ) < 2)).trans_le (hV i)) (hb i p hp)).1
+  have hmeasure : ∀ s : MemPoint S.x K, 0 ≤ memMeasure F S s :=
+    pd4c_memMeasure_nonneg_of_nu F S hν0
+  have hk (d e : MemPoint S.x K → ℂ) (hd : ∀ s ∈ T, ‖d s‖ ≤ 1)
+      (he : ∀ s ∈ T, ‖e s‖ ≤ 1) (g : MemPoint S.x K → ℂ) :
+      (∑ s ∈ T, memMeasure F S s*‖d s*(∑ t ∈ T, k s t*(μ t : ℂ)*e t*g t)‖^2) ≤
+        (C*r)^2*(∑ t ∈ T, memMeasure F S t*‖g t‖^2) :=
+    hblocks S hY hbands hV hb w hw hU hd₀ T hT r hr hfibre forward d e hd he g
+  exact finite_weighted_damped_rectangular_bound T I O hI hO (memMeasure F S) μ
+    (fun s hs => hmeasure s) k ρ (C*r) hρ.1.le hρ.2.1.le
+    (fun s => ∑ i : Fin K, hitCount (s.2.2 i) s.1) hk f
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Actual fresh-label collisions have an exponentially small mass, uniformly in fixed labels. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_fresh_collision_mass_eventually {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+      ∀ S : PDScale, x₀ ≤ S.x → ∀ b : Fin K → ℕ,
+      (∑ p : (i : Fin K) → primeBand S.x (F.a i),
+        if ∃ i : Fin K, (p i : ℕ) = b i then
+          ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (p i) else 0) ≤
+        C*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by
+  classical
+  obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+  have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hhalf : 0 < Real.log 2/2 := div_pos hlog (by norm_num)
+  let cν : ℝ := 4/Real.log 2
+  have hcν : 0 < cν := div_pos (by norm_num) hlog
+  let C := ((K : ℝ)+1)*cν*(2 : ℝ)^K
+  let x₀ := max 2 (max xV (max xB (Real.exp 1)))
+  have hC : 0 < C := by dsimp only [C]; positivity
+  refine ⟨C, x₀, hC, le_max_left _ _, ?_⟩
+  intro S hx b
+  have hxV' : xV ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxB' : xB ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxexp : Real.exp 1 ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hL : 1 ≤ S.L := by
+    have hh := Real.log_le_log (Real.exp_pos 1) hxexp
+    rw [Real.log_exp] at hh
+    exact hh
+  let T := Real.rpow S.L (1/10 : ℝ)
+  let ε := cν*Real.exp (-T)
+  have hε : 0 ≤ ε := (mul_pos hcν (Real.exp_pos _)).le
+  have hV (i : Fin K) : Real.log 2/2 ≤ bandMass S.x (F.a i) :=
+    (hVbounds S.x hxV' i).1
+  have hVpos (i : Fin K) : 0 < bandMass S.x (F.a i) := hhalf.trans_le (hV i)
+  have hcoef (i : Fin K) : 2/bandMass S.x (F.a i) ≤ cν := by
+    calc
+      _ ≤ 2/(Real.log 2/2) :=
+        div_le_div_of_nonneg_left (by norm_num) hhalf (hV i)
+      _ = cν := by dsimp only [cν]; field_simp [hlog.ne']; ring
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p ∧
+        memoryNu S.x K F.a F.q_d i p ≤ ε := by
+    have hpmark : p ∈ markedPrimes S.x K F.a :=
+      Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩
+    have hbound := pd4c_memoryNu_le_twice_mu F.q_d i p
+      (Finset.mem_filter.mp hp).2.1.pos (hVpos i) (hBbounds S.x hxB' p hpmark)
+    refine ⟨hbound.1, hbound.2.trans ?_⟩
+    have hppos : 0 < (p : ℝ) := by
+      exact_mod_cast (Finset.mem_filter.mp hp).2.1.pos
+    calc
+      _ = (2/bandMass S.x (F.a i))*(1/(p : ℝ)) := by
+        field_simp [(hVpos i).ne', hppos.ne']
+        <;> ring
+      _ ≤ cν*Real.exp (-Real.rpow S.L (1/10 : ℝ)) :=
+        mul_le_mul (hcoef i) (pd4c_band_prime_inverse_le F S hF hL i p hp)
+          (one_div_pos.mpr hppos).le hcν.le
+      _ = ε := rfl
+  have hmass (i : Fin K) :
+      (∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2 :=
+    memoryNu_band_mass_le_two F i (hVpos i) (hBbounds S.x hxB')
+  have hcollision := finite_fresh_collision_mass_le K
+    (fun i => primeBand S.x (F.a i))
+    (fun i p => memoryNu S.x K F.a F.q_d i p) b ε hε
+    (fun i p hp => (hν i p hp).1) hmass (fun i p hp => (hν i p hp).2)
+  calc
+    _ ≤ (K : ℝ)*ε*(2 : ℝ)^K := hcollision
+    _ ≤ ((K : ℝ)+1)*ε*(2 : ℝ)^K :=
+      mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_right (by linarith) hε) (pow_nonneg (by norm_num) K)
+    _ = C*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by dsimp only [C, ε, T]; ring
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The unbanned raw kernel has a uniform finite-position row envelope. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_unbanned_raw_position_sum_le
+    {K : ℕ} (δ c₁ c₂ : ℝ) (F : PDFix K) (S : PDScale)
+    (hS : S.Valid K δ c₁ c₂) (w : ArchRoot) (hw : w.InRegion S)
+    (forward : Bool) (p q : PrimeLists S.x K) (z : ℤ × ℤ)
+    (hz : Int.gcd z.1 z.2 = 1) (hbox : envBox S w z)
+    (Ceta Cpsi : ℝ) (hCeta : 0 ≤ Ceta) (hCpsi : 0 ≤ Cpsi)
+    (hEta : ∀ u, ‖(F.eta u : ℂ)‖ ≤ Ceta)
+    (hPsi : ∀ u, ‖(F.psi u : ℂ)‖ ≤ Cpsi)
+    (Z : Finset (ℤ × ℤ)) :
+    (∑ z' ∈ Z, if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+      then ‖edgeMultiplier F S forward true p q z z'‖ else 0) ≤
+      34*Ceta^2*Cpsi := by
+  classical
+  obtain ⟨hU, _⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+  obtain ⟨_, hd₀⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  let A := Z.filter fun z' =>
+    (IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z') ∧
+      edgeMultiplier F S forward true p q z z' ≠ 0
+  let d := (sharedProduct p : ℤ)*((lastProduct p : ℤ)-lastProduct q)
+  let E : Set (ℤ × ℤ) := {z' | envBox S w z' ∧ det2 z z' = d}
+  have hEfinite : E.Finite :=
+    (envBox_finite δ c₁ c₂ S w hS hw).subset (fun z' hz' => hz'.1)
+  have hsub : (A : Set (ℤ × ℤ)) ⊆ E := by
+    intro z' hz'
+    obtain ⟨_, ⟨hpad, hbox'⟩, hraw⟩ :=
+      Finset.mem_filter.mp (Finset.mem_coe.mp hz')
+    exact ⟨hbox', pd4c_raw_edge_det F S forward p q z z' hpad.2.2 hraw⟩
+  have hcard : (A.card : ℝ) ≤ 34 := by
+    have hc : A.card ≤ E.ncard := by
+      simpa using Set.ncard_le_ncard hsub hEfinite
+    have hc' : (A.card : ℝ) ≤ (E.ncard : ℝ) := by exact_mod_cast hc
+    exact hc'.trans (pd4c_env_fixed_det_count S w z d hU hw hz hbox)
+  have hsum :
+      (∑ z' ∈ Z, if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+        then ‖edgeMultiplier F S forward true p q z z'‖ else 0) =
+      ∑ z' ∈ A, ‖edgeMultiplier F S forward true p q z z'‖ := by
+    dsimp only [A]
+    rw [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro z' hz'
+    by_cases hgood : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+    · by_cases hzero : edgeMultiplier F S forward true p q z z' = 0
+      · simp only [hgood, true_and, hzero, ne_eq, not_true_eq_false, if_true, if_false, norm_zero]
+      · simp only [hgood, true_and, hzero, ne_eq, not_false_eq_true, if_true]
+    · simp only [hgood, false_and, if_false]
+  have hgeom (z' : ℤ × ℤ) (hz' : z' ∈ A) :
+      ‖edgeMultiplier F S forward true p q z z'‖ ≤ Ceta^2*Cpsi := by
+    have hpad : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') :=
+      (Finset.mem_filter.mp hz').2.1.1
+    cases forward with
+    | true =>
+        change ‖rawMultiplier F S (sharedProduct p) (lastProduct q) (lastProduct p)
+          (det2 z z'/(sharedProduct p : ℤ))‖ ≤ _
+        exact pd4c_rawMultiplier_bound F S _ _ _ _ (det2 z z') Ceta Cpsi
+          hpad hd₀ hCeta hCpsi hEta hPsi
+    | false =>
+        change ‖star (rawMultiplier F S (sharedProduct p) (lastProduct p) (lastProduct q)
+          (det2 z' z/(sharedProduct p : ℤ)))‖ ≤ _
+        rw [norm_star]
+        exact pd4c_rawMultiplier_bound F S _ _ _ _ (det2 z z') Ceta Cpsi
+          hpad hd₀ hCeta hCpsi hEta hPsi
+  calc
+    _ = ∑ z' ∈ A, ‖edgeMultiplier F S forward true p q z z'‖ := hsum
+    _ ≤ ∑ z' ∈ A, Ceta^2*Cpsi := Finset.sum_le_sum (fun z' hz' => hgeom z' hz')
+    _ = (A.card : ℝ)*(Ceta^2*Cpsi) := by
+      simp only [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ 34*(Ceta^2*Cpsi) :=
+      mul_le_mul_of_nonneg_right hcard (mul_nonneg (sq_nonneg _) hCpsi)
+    _ = _ := by ring
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The unbanned comparison kernel has a polynomial finite-position row envelope. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_unbanned_comparison_position_sum_le
+    (R : ℝ) (hR : 16 ≤ R) :
+    ∃ C Y₀ : ℝ, 0 < C ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (δ c₁ c₂ : ℝ) (F : PDFix K) (S : PDScale),
+      S.Valid K δ c₁ c₂ → ∀ w : ArchRoot, w.InRegion S →
+      Y₀ ≤ S.Y → 1 ≤ S.L → 0 ≤ F.A₀ →
+      (∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R) →
+      ∀ (forward : Bool) (p q : PrimeLists S.x K) (z : ℤ × ℤ),
+      Int.gcd z.1 z.2 = 1 → envBox S w z →
+      goodTestOne S.x S.Y (S.d₀ : ℝ) p (transportedRatio w z) →
+      ∀ Ceta Cpsi : ℝ, 0 ≤ Ceta → 0 ≤ Cpsi →
+      (∀ u, ‖(F.eta u : ℂ)‖ ≤ Ceta) →
+      (∀ u, ‖(F.psi u : ℂ)‖ ≤ Cpsi) →
+      ∀ Z : Finset (ℤ × ℤ),
+      (∑ z' ∈ Z, if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+        then ‖edgeMultiplier F S forward false p q z z'‖ else 0) ≤
+        C*Ceta^2*Cpsi*Real.rpow S.L F.A₀^3 := by
+  classical
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hStrip⟩ := pd4c_strip_box_count R (by linarith)
+  refine ⟨288*C₂, Y₀, mul_pos (by norm_num) hC₂, hY₀, ?_⟩
+  intro K δ c₁ c₂ F S hS w hw hY hL hA hRadius forward p q z hz hbox
+    hgood Ceta Cpsi hCeta hCpsi hEta hPsi Z
+  obtain ⟨hU, _⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+  obtain ⟨hYpos, hd₀⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  have hLpos : 0 < S.L := by linarith
+  let Cgeo := Ceta^2*Cpsi*(32*Real.rpow S.L F.A₀^3/S.Y)
+  have hCgeo : 0 ≤ Cgeo := by
+    exact mul_nonneg (mul_nonneg (sq_nonneg _) hCpsi)
+      (div_nonneg (mul_nonneg (by norm_num)
+        (pow_nonneg (Real.rpow_pos_of_pos hLpos _).le _)) hYpos.le)
+  let A := Z.filter fun z' =>
+    (IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z') ∧
+      edgeMultiplier F S forward false p q z z' ≠ 0
+  have hcard : (A.card : ℝ) ≤ 9*C₂*S.Y := by
+    by_cases hnonempty : A.Nonempty
+    · obtain ⟨z₀, hz₀⟩ := hnonempty
+      have hpad₀ : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z₀) :=
+        (Finset.mem_filter.mp hz₀).2.1.1
+      let D := sharedProduct p
+      let α := (D : ℝ)*transportedRatio w z
+      have hα : ∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow S.Y (1/5 : ℝ) →
+          Real.rpow S.Y (-(7/10 : ℝ)) < circleDistance ((l : ℝ)*α) := by
+        intro l hl hly
+        have h := hgood (fun _ => lastSlot S.x)
+          (by simpa [pd4c_last_omission_eq_shared] using hpad₀.1)
+          (by simpa [pd4c_last_omission_eq_shared] using hpad₀.2.1) l hl hly
+        simpa only [pd4c_last_omission_eq_shared, α, D, mul_assoc] using h
+      let T : Set (ℤ × ℤ) :=
+        {v | |(v.2 : ℝ)| ≤ R*S.Y ∧ |(v.1 : ℝ)+(v.2 : ℝ)*α| ≤ R}
+      obtain ⟨hTfin, hTcount⟩ := hStrip S.Y hY α hα
+      let φ : ℤ × ℤ → ℤ × ℤ := fun v =>
+        (v.1*z.1+(D : ℤ)*v.2*(complementVec z).1,
+          v.1*z.2+(D : ℤ)*v.2*(complementVec z).2)
+      have hsub : (A : Set (ℤ × ℤ)) ⊆ φ '' T := by
+        intro z' hz'
+        obtain ⟨_, ⟨hpad, hbox'⟩, hgeom⟩ :=
+          Finset.mem_filter.mp (Finset.mem_coe.mp hz')
+        have hsupport := pd4c_comparison_edge_support F S forward p q z z' R
+          hYpos hpad.2.2 hRadius hgeom
+        obtain ⟨a, l, hrepr, hl, ht⟩ := pd4c_env_target_strip_coordinates S w z z' D R
+          hU hw hz hbox hbox' hpad.2.2 hsupport
+        exact ⟨(a, l), ⟨hl, ht.trans hR⟩, hrepr.symm⟩
+      have hc : A.card ≤ (φ '' T).ncard := by
+        simpa using Set.ncard_le_ncard hsub (hTfin.image φ)
+      calc
+        (A.card : ℝ) ≤ ((φ '' T).ncard : ℝ) := by exact_mod_cast hc
+        _ ≤ (T.ncard : ℝ) := by
+          have himage : (φ '' T).ncard ≤ T.ncard := Set.ncard_image_le (f := φ) hTfin
+          exact_mod_cast himage
+        _ ≤ _ := hTcount
+    · have hEmpty : A = ∅ := Finset.not_nonempty_iff_eq_empty.mp hnonempty
+      simpa only [hEmpty, Finset.card_empty, Nat.cast_zero] using
+        mul_nonneg (mul_nonneg (by norm_num : (0 : ℝ) ≤ 9) hC₂.le) hYpos.le
+  have hsum :
+      (∑ z' ∈ Z, if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+        then ‖edgeMultiplier F S forward false p q z z'‖ else 0) =
+      ∑ z' ∈ A, ‖edgeMultiplier F S forward false p q z z'‖ := by
+    dsimp only [A]
+    rw [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro z' hz'
+    by_cases hvalid : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+    · by_cases hzero : edgeMultiplier F S forward false p q z z' = 0
+      · simp only [hvalid, true_and, hzero, ne_eq, not_true_eq_false,
+          if_true, if_false, norm_zero]
+      · simp only [hvalid, true_and, hzero, ne_eq, not_false_eq_true, if_true]
+    · simp only [hvalid, false_and, if_false]
+  have hgeom (z' : ℤ × ℤ) (hz' : z' ∈ A) :
+      ‖edgeMultiplier F S forward false p q z z'‖ ≤ Cgeo :=
+    pd4c_edge_comparison_norm_le F S forward p q z z' Ceta Cpsi hL hA hYpos hd₀
+      (Finset.mem_filter.mp hz').2.1.1 hEta hPsi hCeta hCpsi
+  calc
+    _ = ∑ z' ∈ A, ‖edgeMultiplier F S forward false p q z z'‖ := hsum
+    _ ≤ ∑ z' ∈ A, Cgeo := Finset.sum_le_sum (fun z' hz' => hgeom z' hz')
+    _ = (A.card : ℝ)*Cgeo := by simp only [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ (9*C₂*S.Y)*Cgeo := mul_le_mul_of_nonneg_right hcard hCgeo
+    _ = (288*C₂)*Ceta^2*Cpsi*Real.rpow S.L F.A₀^3 := by
+      dsimp only [Cgeo]
+      field_simp [hYpos.ne']
+      <;> ring
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Fresh-label collisions have an exponentially small weighted raw or comparison row. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_fresh_collision_row_eventually
+    {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C x₀ Y₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧ 1 ≤ Y₀ ∧
+      ∀ (δ c₁ c₂ : ℝ) (S : PDScale), S.Valid K δ c₁ c₂ →
+      x₀ ≤ S.x → Y₀ ≤ S.Y → 1 ≤ S.L →
+      ∀ w : ArchRoot, w.InRegion S →
+      ∀ (forward raw : Bool) (p : PrimeLists S.x K) (z : ℤ × ℤ),
+      Int.gcd z.1 z.2 = 1 → envBox S w z →
+      goodTestOne S.x S.Y (S.d₀ : ℝ) p (transportedRatio w z) →
+      ∀ (b : Fin K → ℕ)
+        (q : ((i : Fin K) → primeBand S.x (F.a i)) → PrimeLists S.x K)
+        (Z : Finset (ℤ × ℤ)),
+      (∑ a : (i : Fin K) → primeBand S.x (F.a i),
+        if ∃ i : Fin K, (a i : ℕ) = b i then
+          (∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i))*
+            (∑ z' ∈ Z,
+              if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+              then ‖edgeMultiplier F S forward raw p (q a) z z'‖ else 0)
+        else 0) ≤
+        C*(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by
+  classical
+  obtain ⟨Ceta, hCeta, hEta⟩ := exists_eta_norm_bound F hF
+  obtain ⟨Cpsi, hCpsi, hPsi⟩ := exists_psi_norm_bound F hF
+  obtain ⟨R, hR, hRadius⟩ := pd4c_exists_psi_radius F hF
+  obtain ⟨Ccmp, Y₀, hCcmp, hY₀, hcmp⟩ := clean_unbanned_comparison_position_sum_le R hR
+  obtain ⟨Cmass, xmass, hCmass, hxmass, hmass⟩ := clean_fresh_collision_mass_eventually F hF
+  obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+  let E := Ceta^2*Cpsi
+  have hE : 0 ≤ E := mul_nonneg (sq_nonneg _) hCpsi
+  let C := (34+Ccmp)*(E+1)*Cmass
+  have hC : 0 < C := by dsimp only [C]; positivity
+  let x₀ := max 2 (max xmass (max xV xB))
+  refine ⟨C, x₀, Y₀, hC, le_max_left _ _, hY₀, ?_⟩
+  intro δ c₁ c₂ S hS hx hY hL w hw forward raw p z hz hbox hgood b q Z
+  have hxmass' : xmass ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxV' : xV ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxB' : xB ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hν (i : Fin K) (a : primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i a := by
+    have hVlower := (hVbounds S.x hxV' i).1
+    have hVpos : 0 < bandMass S.x (F.a i) :=
+      lt_of_lt_of_le (div_pos (Real.log_pos (by norm_num)) (by norm_num)) hVlower
+    have hpmark : (a : ℕ) ∈ markedPrimes S.x K F.a :=
+      Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, a.property⟩
+    exact (pd4c_memoryNu_le_twice_mu F.q_d i a
+      (Finset.mem_filter.mp a.property).2.1.pos hVpos
+      (hBbounds S.x hxB' a hpmark)).1
+  let X := (i : Fin K) → primeBand S.x (F.a i)
+  let T := Real.rpow S.L F.A₀^3
+  have hT : 0 ≤ T := pow_nonneg (Real.rpow_pos_of_pos (by linarith : 0 < S.L) _).le _
+  let Rpos := (34+Ccmp)*E*(1+T)
+  have hRpos : 0 ≤ Rpos :=
+    mul_nonneg (mul_nonneg (by linarith) hE) (by linarith)
+  have hpos (a : X) :
+      (∑ z' ∈ Z,
+        if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+        then ‖edgeMultiplier F S forward raw p (q a) z z'‖ else 0) ≤ Rpos := by
+    cases raw with
+    | true =>
+        calc
+          _ ≤ 34*E := by
+            simpa only [E, mul_assoc] using clean_unbanned_raw_position_sum_le
+              δ c₁ c₂ F S hS w hw forward p (q a) z hz hbox
+              Ceta Cpsi hCeta hCpsi hEta hPsi Z
+          _ ≤ (34+Ccmp)*E := mul_le_mul_of_nonneg_right (by linarith) hE
+          _ ≤ Rpos := le_mul_of_one_le_right (mul_nonneg (by linarith) hE) (by linarith)
+    | false =>
+        calc
+          _ ≤ Ccmp*E*T := by
+            simpa only [E, T, mul_assoc] using hcmp K δ c₁ c₂ F S hS w hw hY hL
+              hF.2.2.2.1.le hRadius forward p (q a) z hz hbox hgood
+              Ceta Cpsi hCeta hCpsi hEta hPsi Z
+          _ ≤ Rpos := mul_le_mul
+            (mul_le_mul_of_nonneg_right (by linarith : Ccmp ≤ 34+Ccmp) hE)
+            (by linarith : T ≤ 1+T) hT (mul_nonneg (by linarith) hE)
+  have hweight (a : X) : 0 ≤ ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i) :=
+    Finset.prod_nonneg (fun i hi => hν i (a i))
+  have hrow :
+      (∑ a : X, if ∃ i : Fin K, (a i : ℕ) = b i then
+        (∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i))*
+          (∑ z' ∈ Z,
+            if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+            then ‖edgeMultiplier F S forward raw p (q a) z z'‖ else 0)
+        else 0) ≤
+      (∑ a : X, if ∃ i : Fin K, (a i : ℕ) = b i then
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i) else 0)*Rpos := by
+    rw [Finset.sum_mul]
+    apply Finset.sum_le_sum
+    intro a ha
+    by_cases hcoll : ∃ i : Fin K, (a i : ℕ) = b i
+    · simp only [if_pos hcoll]
+      exact mul_le_mul_of_nonneg_left (hpos a) (hweight a)
+    · simp only [if_neg hcoll, zero_mul, le_refl]
+  have hcoef : (34+Ccmp)*E*Cmass ≤ C :=
+    mul_le_mul_of_nonneg_right
+      (mul_le_mul_of_nonneg_left (by linarith : E ≤ E+1) (by linarith)) hCmass.le
+  calc
+    _ ≤ (∑ a : X, if ∃ i : Fin K, (a i : ℕ) = b i then
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i) else 0)*Rpos := hrow
+    _ ≤ (Cmass*Real.exp (-Real.rpow S.L (1/10 : ℝ)))*Rpos :=
+      mul_le_mul_of_nonneg_right (hmass S hxmass' b) hRpos
+    _ = ((34+Ccmp)*E*Cmass)*(1+T)*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by
+      dsimp only [Rpos]
+      ring
+    _ ≤ C*(1+T)*Real.exp (-Real.rpow S.L (1/10 : ℝ)) :=
+      mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_right hcoef (by linarith)) (Real.exp_pos _).le
+    _ = _ := rfl
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Finite collision errors retain the exponential rate with endpoint masks and hit damping. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_collision_masks_bound
+    {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C x₀ Y₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧ 1 ≤ Y₀ ∧
+      ∀ (δ c₁ c₂ : ℝ) (S : PDScale), S.Valid K δ c₁ c₂ →
+      x₀ ≤ S.x → Y₀ ≤ S.Y → 1 ≤ S.L →
+      ∀ w : ArchRoot, w.InRegion S →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      ∀ ρ : ℝ, 0 ≤ ρ → ρ ≤ 1 →
+      ∀ I O : Finset (MemPoint S.x K), I ⊆ T → O ⊆ T →
+      ∀ (forward raw : Bool) (f : MemPoint S.x K → ℂ),
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let adm := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+        (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+          j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+        (∃ i : Fin K, t.2.1 i (lastSlot S.x) = s.2.1 i (lastSlot S.x)) ∧
+        IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1)
+      (∑ s ∈ O, memMeasure F S s*‖(ρ^(∑ i : Fin K, hitCount (s.2.2 i) s.1) : ℂ)*
+        (∑ t ∈ I, if adm s t then
+          edgeMultiplier F S forward raw s.2.1 t.2.1 s.1 t.1*(μ t : ℂ)*
+            (ρ^(∑ i : Fin K, hitCount (t.2.2 i) t.1) : ℂ)*f t
+        else 0)‖^2) ≤
+        (C*(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)))^2*
+          (∑ t ∈ I, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨C, xrow, Y₀, hC, hxrow, hY₀, hrows⟩ := clean_fresh_collision_row_eventually F hF
+  obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+  let x₀ := max 2 (max xrow (max xV xB))
+  refine ⟨C, x₀, Y₀, hC, le_max_left _ _, hY₀, ?_⟩
+  intro δ c₁ c₂ S hS hx hY hL w hw T hT ρ hρ0 hρ1 I O hI hO forward raw f
+  have hxrow' : xrow ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxV' : xV ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxB' : xB ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p := by
+    have hVpos : 0 < bandMass S.x (F.a i) :=
+      lt_of_lt_of_le (div_pos (Real.log_pos (by norm_num)) (by norm_num))
+        (hVbounds S.x hxV' i).1
+    have hpmark : p ∈ markedPrimes S.x K F.a :=
+      Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩
+    exact (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp hp).2.1.pos
+      hVpos (hBbounds S.x hxB' p hpmark)).1
+  have hm : ∀ s : MemPoint S.x K, 0 ≤ memMeasure F S s :=
+    pd4c_memMeasure_nonneg_of_nu F S hν
+  let μ := fun s : MemPoint S.x K =>
+    ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+  let base := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+    (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+      j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+    (∃ i : Fin K, t.2.1 i (lastSlot S.x) = s.2.1 i (lastSlot S.x))
+  let adm := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+    (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+      j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+    (∃ i : Fin K, t.2.1 i (lastSlot S.x) = s.2.1 i (lastSlot S.x)) ∧
+    IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1)
+  let k := fun (forward raw : Bool) (s t : MemPoint S.x K) =>
+    if adm s t then edgeMultiplier F S forward raw s.2.1 t.2.1 s.1 t.1 else 0
+  let R := C*(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))
+  have hLpos : 0 < S.L := by linarith
+  have hR : 0 ≤ R := by
+    dsimp only [R]
+    exact mul_nonneg
+      (mul_nonneg hC.le (add_nonneg (by norm_num)
+        (pow_nonneg (Real.rpow_pos_of_pos hLpos _).le _))) (Real.exp_pos _).le
+  have hμ (s : MemPoint S.x K) (hs : s ∈ T) : 0 ≤ μ s :=
+    Finset.prod_nonneg (fun i hi => hν i _ ((hT s hs).1.2.1 i (lastSlot S.x)))
+  have hrow (forward raw : Bool) (s : MemPoint S.x K) (hs : s ∈ T) :
+      (∑ t ∈ T, ‖k forward raw s t‖*μ t) ≤ R := by
+    let g := fun (p : PrimeLists S.x K) (z : ℤ × ℤ) =>
+      if IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 z) ∧ envBox S w z then
+        ‖edgeMultiplier F S forward raw s.2.1 p s.1 z‖ else 0
+    have hg : ∀ p z, 0 ≤ g p z := by
+      intro p z
+      dsimp only [g]
+      split_ifs
+      · exact norm_nonneg _
+      · exact le_rfl
+    let q : ((i : Fin K) → primeBand S.x (F.a i)) → PrimeLists S.x K :=
+      fun a i j => if j.val < momentJ S.x then s.2.1 i j else (a i : ℕ)
+    have hrowfresh :
+        (∑ a : (i : Fin K) → primeBand S.x (F.a i),
+          if ∃ i : Fin K, (a i : ℕ) = s.2.1 i (lastSlot S.x) then
+            (∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i))*
+              (∑ z ∈ T.image (fun t => t.1), g (q a) z) else 0) ≤ R := by
+      have hphysical := hrows δ c₁ c₂ S hS hxrow' hY hL w hw forward raw s.2.1 s.1
+        (hT s hs).1.1 (hT s hs).2.1 (hT s hs).2.2
+        (fun i => s.2.1 i (lastSlot S.x)) q (T.image (fun t => t.1))
+      simpa only [g, R] using hphysical
+    have htransfer := clean_finite_collision_state_row_le F S s T
+      (fun t ht => (hT t ht).1) hν g hg R hrowfresh
+    change (∑ t ∈ T, if base s t then μ t*g t.2.1 t.1 else 0) ≤ R at htransfer
+    calc
+      _ = ∑ t ∈ T, if base s t then μ t*g t.2.1 t.1 else 0 := by
+        apply Finset.sum_congr rfl
+        intro t ht
+        by_cases ha : adm s t
+        · have hb : base s t := ⟨ha.1, ha.2.1, ha.2.2.1⟩
+          have hp : IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1) := ha.2.2.2
+          have hgeom : IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1) ∧
+              envBox S w t.1 := ⟨hp, (hT t ht).2.1⟩
+          simp only [k, if_pos ha, if_pos hb, g, if_pos hgeom]
+          ring
+        · by_cases hb : base s t
+          · have hn : ¬ (IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1) ∧
+                envBox S w t.1) := fun h => ha ⟨hb.1, hb.2.1, hb.2.2, h.1⟩
+            simp only [k, if_neg ha, norm_zero, zero_mul, if_pos hb, g, if_neg hn, mul_zero]
+          · simp only [k, if_neg ha, norm_zero, zero_mul, if_neg hb]
+      _ ≤ R := htransfer
+  have hD (s t : MemPoint S.x K)
+      (hcopy : ∀ (i : Fin K) (j : Fin (slotCount S.x)),
+        j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) :
+      sharedProduct s.2.1 = sharedProduct t.2.1 := by
+    unfold sharedProduct
+    apply Finset.prod_congr rfl
+    intro i hi
+    apply Finset.prod_congr rfl
+    intro j hj
+    by_cases hshared : j.val < momentJ S.x
+    · simp only [if_pos hshared, hcopy i j hshared]
+    · simp only [if_neg hshared]
+  have hreverse (s t : MemPoint S.x K) (ha : adm s t) : adm t s := by
+    have hD' := hD s t ha.2.1
+    have hdet : det2 t.1 s.1 = -det2 s.1 t.1 := by dsimp only [det2]; ring
+    have hp : IsPadAdmissible S.d₀ (sharedProduct t.2.1) (det2 t.1 s.1) := by
+      rw [← hD', hdet]
+      exact ⟨ha.2.2.2.1, ha.2.2.2.2.1, dvd_neg.mpr ha.2.2.2.2.2⟩
+    obtain ⟨i, hi⟩ := ha.2.2.1
+    exact ⟨ha.1.symm, fun i j hj => (ha.2.1 i j hj).symm, ⟨i, hi.symm⟩, hp⟩
+  have hbalance (forward raw : Bool) (s t : MemPoint S.x K) (hs : s ∈ T) (ht : t ∈ T) :
+      memMeasure F S s*‖k forward raw s t‖*μ t =
+        memMeasure F S t*‖k (Bool.not forward) raw t s‖*μ s := by
+    by_cases ha : adm s t
+    · have hb := hreverse s t ha
+      have hD' := hD s t ha.2.1
+      have hn : ‖edgeMultiplier F S forward raw s.2.1 t.2.1 s.1 t.1‖ =
+          ‖edgeMultiplier F S (Bool.not forward) raw t.2.1 s.2.1 t.1 s.1‖ := by
+        cases forward <;> cases raw <;> simp only [edgeMultiplier, hD', Bool.not_false,
+          Bool.not_true, Bool.false_eq_true, if_false, if_true, norm_star]
+      have hmμ : memMeasure F S s*μ t = memMeasure F S t*μ s :=
+        clean_common_memory_measure_balance F S s t (hT s hs).1 (hT t ht).1 ha.1 ha.2.1
+      simp only [k, if_pos ha, if_pos hb]
+      calc
+        _ = (memMeasure F S s*μ t)*
+            ‖edgeMultiplier F S forward raw s.2.1 t.2.1 s.1 t.1‖ := by ring
+        _ = (memMeasure F S t*μ s)*
+            ‖edgeMultiplier F S (Bool.not forward) raw t.2.1 s.2.1 t.1 s.1‖ := by rw [hmμ, hn]
+        _ = _ := by ring
+    · have hb : ¬ adm t s := fun h => ha (hreverse t s h)
+      simp only [k, if_neg ha, if_neg hb, norm_zero, mul_zero, zero_mul]
+  have hk (d e : MemPoint S.x K → ℂ) (hd : ∀ s ∈ T, ‖d s‖ ≤ 1)
+      (he : ∀ s ∈ T, ‖e s‖ ≤ 1) (g : MemPoint S.x K → ℂ) :
+      (∑ s ∈ T, memMeasure F S s*‖d s*
+        (∑ t ∈ T, k forward raw s t*(μ t : ℂ)*e t*g t)‖^2) ≤
+        R^2*(∑ t ∈ T, memMeasure F S t*‖g t‖^2) := by
+    let a := fun s t : MemPoint S.x K => d s*k forward raw s t*(μ t : ℂ)*e t
+    have hnorm (s t : MemPoint S.x K) (hs : s ∈ T) (ht : t ∈ T) :
+        ‖a s t‖ ≤ ‖k forward raw s t‖*μ t := by
+      have hμt := hμ t ht
+      calc
+        _ = ‖d s‖*‖k forward raw s t‖*μ t*‖e t‖ := by
+          simp only [a, norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hμt]
+        _ ≤ 1*‖k forward raw s t‖*μ t*1 := by
+          gcongr
+          · exact hd s hs
+          · exact he t ht
+        _ = _ := by ring
+    have hrowa (s : MemPoint S.x K) (hs : s ∈ T) :
+        (∑ t ∈ T, ‖a s t‖*1) ≤ R*1 := by
+      simp only [mul_one]
+      exact (Finset.sum_le_sum (fun t ht => hnorm s t hs ht)).trans (hrow forward raw s hs)
+    have hcola (t : MemPoint S.x K) (ht : t ∈ T) :
+        (∑ s ∈ T, memMeasure F S s*‖a s t‖*1) ≤ R*memMeasure F S t*1 := by
+      simp only [mul_one]
+      calc
+        _ ≤ ∑ s ∈ T, memMeasure F S s*(‖k forward raw s t‖*μ t) :=
+          Finset.sum_le_sum (fun s hs => mul_le_mul_of_nonneg_left (hnorm s t hs ht) (hm s))
+        _ = memMeasure F S t*(∑ s ∈ T, ‖k (Bool.not forward) raw t s‖*μ s) := by
+          rw [Finset.mul_sum]
+          apply Finset.sum_congr rfl
+          intro s hs
+          simpa only [mul_assoc] using hbalance forward raw s t hs ht
+        _ ≤ memMeasure F S t*R :=
+          mul_le_mul_of_nonneg_left (hrow (Bool.not forward) raw t ht) (hm t)
+        _ = R*memMeasure F S t := mul_comm _ _
+    have hSchur := pd4c_finite_weighted_schur_norm (memMeasure F S)
+      (fun _ => (1 : ℝ)) a g T T R R hm (fun _ => by norm_num) hR hR hrowa hcola
+    have hrep (s : MemPoint S.x K) :
+        (∑ t ∈ T, a s t*g t) = d s*(∑ t ∈ T, k forward raw s t*(μ t : ℂ)*e t*g t) := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      dsimp only [a]
+      ring
+    simp_rw [hrep] at hSchur
+    simpa only [pow_two] using hSchur
+  have hbound := finite_weighted_damped_rectangular_bound T I O hI hO
+    (memMeasure F S) μ (fun s hs => hm s) (k forward raw) ρ R hρ0 hρ1
+    (fun s => ∑ i : Fin K, hitCount (s.2.2 i) s.1) hk f
+  simpa only [k, ite_mul, zero_mul] using hbound
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Ban removal combines the signed clean bound with the two exponentially small collision errors. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_banned_memory_masks_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox x₀ Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 2 ≤ x₀ ∧ 1 ≤ Y₀ ∧
+      ∀ (δ c₁ c₂ : ℝ) (S : PDScale), S.Valid K δ c₁ c₂ →
+      x₀ ≤ S.x → Y₀ ≤ S.Y → 1 ≤ S.L →
+      ∀ w : ArchRoot, w.InRegion S →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ ValidPrimeLists S.x K F.a s.2.1 ∧
+        S.Y ≤ (lastProduct s.2.1 : ℝ) ∧
+        (S.d₀ : ℝ) ≤ (sharedProduct s.2.1 : ℝ) ∧
+        (sharedProduct s.2.1 : ℝ) < 2*(S.d₀ : ℝ) ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let J := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ J, ‖∑ j ∈ J,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ J, ‖g j‖^2)) →
+      ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
+      ∀ I O : Finset (MemPoint S.x K), I ⊆ T → O ⊆ T →
+      ∀ (forward : Bool) (f : MemPoint S.x K → ℂ),
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let adm := fun s t : MemPoint S.x K =>
+        s.2.2 = t.2.2 ∧ IsSlotTransition s.2.1 t.2.1 ∧
+          IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1)
+      (∑ s ∈ O, memMeasure F S s*‖(ρ^(∑ i : Fin K, hitCount (s.2.2 i) s.1) : ℂ)*
+        (∑ t ∈ I, if adm s t then
+          (edgeMultiplier F S forward true s.2.1 t.2.1 s.1 t.1-
+            edgeMultiplier F S forward false s.2.1 t.2.1 s.1 t.1)*(μ t : ℂ)*
+            (ρ^(∑ i : Fin K, hitCount (t.2.2 i) t.1) : ℂ)*f t
+        else 0)‖^2) ≤
+        (C*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))))^2*
+          (∑ t ∈ I, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨Cu, Cbox, Yu, hCu, hCbox, hYu, hunbanned⟩ := clean_memory_masks_bound F hF
+  obtain ⟨Ce, xe, Ye, hCe, hxe, hYe, hcollision⟩ := clean_collision_masks_bound F hF
+  obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+  obtain ⟨xd, hxd, hbands⟩ := pd4c_validBands_disjoint_eventually K F.a hF.1
+  let x₀ := max 2 (max xe (max xV (max xB xd)))
+  let Y₀ := max Yu Ye
+  let C := 3*(Cu+Ce)
+  have hC : 0 < C := by dsimp only [C]; positivity
+  refine ⟨C, Cbox, x₀, Y₀, hC, hCbox, le_max_left _ _,
+    hYu.trans (le_max_left _ _), ?_⟩
+  intro δ c₁ c₂ S hS hx hY hL w hw T hT r hr hfibre ρ hρ I O hI hO forward f
+  have hxe' : xe ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxV' : xV ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxB' : xB ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _)))) hx
+  have hxd' : xd ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _)
+      (le_trans (le_max_right _ _) (le_max_right _ _)))) hx
+  have hbds := hbands S.x hxd'
+  have hV : ∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i) :=
+    fun i => (hVbounds S.x hxV' i).1
+  have hb : ∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i),
+      (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p := by
+    intro i p hp
+    exact hBbounds S.x hxB' p (Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩)
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p :=
+    (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp hp).2.1.pos
+      ((div_pos (Real.log_pos (by norm_num)) (by norm_num : (0 : ℝ) < 2)).trans_le (hV i))
+      (hb i p hp)).1
+  have hm : ∀ s : MemPoint S.x K, 0 ≤ memMeasure F S s :=
+    pd4c_memMeasure_nonneg_of_nu F S hν
+  obtain ⟨hU, _⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+  obtain ⟨_, hd₀r⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  have hd₀ : 0 < S.d₀ := by exact_mod_cast hd₀r
+  let μ := fun s : MemPoint S.x K =>
+    ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+  let H := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+    (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+      j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+    (sharedProduct s.2.1 : ℤ) ∣ det2 s.1 t.1
+  let eqLast := fun s t : MemPoint S.x K =>
+    ∃ i : Fin K, t.2.1 i (lastSlot S.x) = s.2.1 i (lastSlot S.x)
+  let admB := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+    IsSlotTransition s.2.1 t.2.1 ∧
+    IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1)
+  let admC := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+    (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+      j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+    eqLast s t ∧ IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1)
+  let raw := fun s t : MemPoint S.x K => if H s t then
+    geometricMultiplier F S (sharedProduct s.2.1) (lastProduct t.2.1)
+      (lastProduct s.2.1) (det2 s.1 t.1/(sharedProduct s.2.1 : ℤ)) else 0
+  let KU := fun s t : MemPoint S.x K => if forward then raw s t else star (raw t s)
+  let KB := fun s t : MemPoint S.x K => if admB s t then
+    edgeMultiplier F S forward true s.2.1 t.2.1 s.1 t.1-
+      edgeMultiplier F S forward false s.2.1 t.2.1 s.1 t.1 else 0
+  let KC := fun (part : Bool) (s t : MemPoint S.x K) => if admC s t then
+    edgeMultiplier F S forward part s.2.1 t.2.1 s.1 t.1 else 0
+  have hD (s t : MemPoint S.x K)
+      (hcopy : ∀ (i : Fin K) (j : Fin (slotCount S.x)),
+        j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) :
+      sharedProduct s.2.1 = sharedProduct t.2.1 := by
+    unfold sharedProduct
+    apply Finset.prod_congr rfl
+    intro i hi
+    apply Finset.prod_congr rfl
+    intro j hj
+    by_cases hshared : j.val < momentJ S.x
+    · simp only [if_pos hshared, hcopy i j hshared]
+    · simp only [if_neg hshared]
+  have hreverse (s t : MemPoint S.x K) (hh : H s t) : H t s := by
+    have hD' := hD s t hh.2.1
+    have hdet : det2 t.1 s.1 = -det2 s.1 t.1 := by dsimp only [det2]; ring
+    refine ⟨hh.1.symm, fun i j hj => (hh.2.1 i j hj).symm, ?_⟩
+    rw [← hD', hdet]
+    exact dvd_neg.mpr hh.2.2
+  have hban (s t : MemPoint S.x K) (hs : s ∈ T) (ht : t ∈ T) :
+      admB s t ↔ H s t ∧ ¬ eqLast s t := by
+    constructor
+    · intro ha
+      have hc : ∀ (i : Fin K) (j : Fin (slotCount S.x)),
+          j.val < momentJ S.x → s.2.1 i j = t.2.1 i j :=
+        fun i j hj => (ha.2.1.1 i j hj).symm
+      refine ⟨⟨ha.1, hc, ha.2.2.2.2⟩, ?_⟩
+      rintro ⟨i, hi⟩
+      exact ha.2.1.2 i i (lastSlot S.x) hi
+    · rintro ⟨hh, hn⟩
+      have hslot := (clean_slot_transition_iff_last_neq F S hbds s.2.1 t.2.1
+        (hT s hs).2.1 (hT t ht).2.1 (fun i j hj => (hh.2.1 i j hj).symm)).mpr
+        (fun i hi => hn ⟨i, hi⟩)
+      exact ⟨hh.1, hslot, (hT s hs).2.2.2.1, (hT s hs).2.2.2.2.1, hh.2.2⟩
+  have hcol (s t : MemPoint S.x K) (hs : s ∈ T) :
+      admC s t ↔ H s t ∧ eqLast s t := by
+    constructor
+    · intro ha
+      exact ⟨⟨ha.1, ha.2.1, ha.2.2.2.2.2⟩, ha.2.2.1⟩
+    · rintro ⟨hh, heq⟩
+      exact ⟨hh.1, hh.2.1, heq, (hT s hs).2.2.2.1,
+        (hT s hs).2.2.2.2.1, hh.2.2⟩
+  have hUeq (s t : MemPoint S.x K) : KU s t = if H s t then
+      edgeMultiplier F S forward true s.2.1 t.2.1 s.1 t.1-
+        edgeMultiplier F S forward false s.2.1 t.2.1 s.1 t.1 else 0 := by
+    by_cases hh : H s t
+    · have hrev := hreverse s t hh
+      have hD' := hD s t hh.2.1
+      cases forward <;> simp only [KU, raw, if_pos hh, if_pos hrev, Bool.false_eq_true,
+        if_false, if_true, edgeMultiplier, geometricMultiplier, hD', star_sub]
+    · have hrev : ¬ H t s := fun h => hh (hreverse t s h)
+      cases forward <;> simp only [KU, raw, if_neg hh, if_neg hrev,
+        Bool.false_eq_true, if_false, if_true, star_zero]
+  have hentry (s t : MemPoint S.x K) (hs : s ∈ T) (ht : t ∈ T) :
+      KB s t = KU s t-KC true s t+KC false s t := by
+    rw [hUeq]
+    by_cases hh : H s t <;> by_cases heq : eqLast s t <;>
+      simp only [KB, KC, hban s t hs ht, hcol s t hs, hh, heq,
+        not_true_eq_false, not_false_eq_true, and_true, and_false, if_true, if_false] <;> ring
+  let damp := fun s : MemPoint S.x K =>
+    (ρ^(∑ i : Fin K, hitCount (s.2.2 i) s.1) : ℂ)
+  let act := fun (k : MemPoint S.x K → MemPoint S.x K → ℂ) (s : MemPoint S.x K) =>
+    damp s*(∑ t ∈ I, k s t*(μ t : ℂ)*damp t*f t)
+  let energy := fun (k : MemPoint S.x K → MemPoint S.x K → ℂ) =>
+    ∑ s ∈ O, memMeasure F S s*‖act k s‖^2
+  let E := ∑ t ∈ I, memMeasure F S t*‖f t‖^2
+  let e := (1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))
+  have hE : 0 ≤ E := Finset.sum_nonneg (fun t ht => mul_nonneg (hm t) (sq_nonneg _))
+  have he : 0 ≤ e := by
+    dsimp only [e]
+    exact mul_nonneg (add_nonneg (by norm_num)
+      (pow_nonneg (Real.rpow_nonneg (by linarith : 0 ≤ S.L) _) _)) (Real.exp_pos _).le
+  have hUn : energy KU ≤ (Cu*r)^2*E := by
+    have hbound := hunbanned S ((le_max_left _ _).trans hY) hbds hV hb w hw hU hd₀
+      T hT r hr hfibre ρ hρ I O hI hO forward f
+    exact hbound
+  have hErr (part : Bool) : energy (KC part) ≤ (Ce*e)^2*E := by
+    have hbound := hcollision δ c₁ c₂ S hS hxe' ((le_max_right _ _).trans hY) hL w hw T
+      (fun s hs => ⟨(hT s hs).1, (hT s hs).2.2.2.2.2.1, (hT s hs).2.2.2.2.2.2⟩)
+      ρ hρ.1.le hρ.2.1.le I O hI hO forward part f
+    have hcoeff : Ce*(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)) = Ce*e :=
+      by dsimp only [e]; ring
+    rw [hcoeff] at hbound
+    simpa only [energy, act, damp, KC, admC, eqLast, μ, E, ite_mul, zero_mul] using hbound
+  have hact (s : MemPoint S.x K) (hs : s ∈ O) :
+      act KB s = act KU s-act (KC true) s+act (KC false) s := by
+    change damp s*(∑ t ∈ I, KB s t*(μ t : ℂ)*damp t*f t) = _
+    calc
+      _ = damp s*(∑ t ∈ I,
+          (KU s t*(μ t : ℂ)*damp t*f t-KC true s t*(μ t : ℂ)*damp t*f t+
+            KC false s t*(μ t : ℂ)*damp t*f t)) := by
+        congr 1
+        apply Finset.sum_congr rfl
+        intro t ht
+        rw [hentry s t (hO hs) (hI ht)]
+        ring
+      _ = _ := by
+        rw [Finset.sum_add_distrib, Finset.sum_sub_distrib]
+        dsimp only [act]
+        ring
+  have hpoint (s : MemPoint S.x K) (hs : s ∈ O) :
+      ‖act KB s‖^2 ≤ 3*(‖act KU s‖^2+‖act (KC true) s‖^2+‖act (KC false) s‖^2) := by
+    rw [hact s hs]
+    have htri : ‖act KU s-act (KC true) s+act (KC false) s‖ ≤
+        ‖act KU s‖+‖act (KC true) s‖+‖act (KC false) s‖ :=
+      (norm_add_le _ _).trans (add_le_add (norm_sub_le _ _) (le_refl _))
+    have htri2 : ‖act KU s-act (KC true) s+act (KC false) s‖^2 ≤
+        (‖act KU s‖+‖act (KC true) s‖+‖act (KC false) s‖)^2 := by
+      nlinarith only [htri, norm_nonneg (act KU s-act (KC true) s+act (KC false) s)]
+    nlinarith only [htri2, sq_nonneg (‖act KU s‖-‖act (KC true) s‖),
+      sq_nonneg (‖act KU s‖-‖act (KC false) s‖),
+      sq_nonneg (‖act (KC true) s‖-‖act (KC false) s‖)]
+  have htotal : energy KB ≤ 3*(energy KU+energy (KC true)+energy (KC false)) := by
+    calc
+      _ ≤ ∑ s ∈ O, memMeasure F S s*
+          (3*(‖act KU s‖^2+‖act (KC true) s‖^2+‖act (KC false) s‖^2)) :=
+        Finset.sum_le_sum (fun s hs => mul_le_mul_of_nonneg_left (hpoint s hs) (hm s))
+      _ = ∑ s ∈ O, 3*(memMeasure F S s*‖act KU s‖^2+
+          memMeasure F S s*‖act (KC true) s‖^2+
+          memMeasure F S s*‖act (KC false) s‖^2) := by
+        apply Finset.sum_congr rfl
+        intro s hs
+        ring
+      _ = _ := by
+        simp only [energy, mul_add, Finset.mul_sum, Finset.sum_add_distrib]
+  let R := (Cu+Ce)*(r+e)
+  have hR : 0 ≤ R := mul_nonneg (add_nonneg hCu.le hCe.le) (add_nonneg hr he)
+  have hR1 : Cu*r ≤ R := by
+    dsimp only [R]
+    nlinarith only [mul_nonneg hCu.le he, mul_nonneg hCe.le hr, mul_nonneg hCe.le he]
+  have hR2 : Ce*e ≤ R := by
+    dsimp only [R]
+    nlinarith only [mul_nonneg hCu.le hr, mul_nonneg hCu.le he, mul_nonneg hCe.le hr]
+  have hUn' : energy KU ≤ R^2*E := hUn.trans
+    (mul_le_mul_of_nonneg_right (by nlinarith only [hR1, mul_nonneg hCu.le hr, hR]) hE)
+  have hErr' (part : Bool) : energy (KC part) ≤ R^2*E := (hErr part).trans
+    (mul_le_mul_of_nonneg_right (by nlinarith only [hR2, mul_nonneg hCe.le he, hR]) hE)
+  have hfinal : energy KB ≤ (C*(r+e))^2*E := by
+    have hraw := hErr' true
+    have hcmp := hErr' false
+    have hconst : (C*(r+e))^2*E = 9*(R^2*E) := by dsimp only [C, R]; ring
+    rw [hconst]
+    linarith only [htotal, hUn', hraw, hcmp]
+  simpa only [energy, act, damp, KB, admB, μ, E, e, ite_mul, zero_mul] using hfinal
+
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The physical clean core retains the minor-rectangle and collision rates on all finite supports. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_core_quantitative_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox x₀ Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 2 ≤ x₀ ∧ 1 ≤ Y₀ ∧
+      ∀ (δ c₁ c₂ : ℝ) (S : PDScale), S.Valid K δ c₁ c₂ →
+      x₀ ≤ S.x → Y₀ ≤ S.Y → 1 ≤ S.L →
+      ∀ w : ArchRoot, w.InRegion S →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let J := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ J, ‖∑ j ∈ J,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ J, ‖g j‖^2)) →
+      ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
+      ∀ B j : ℕ,
+      MemOpNormLE F S B
+        (fun f s => plainOp (logEdgePiece F S ρ w j true ∅ ∅) f s-
+          plainOp (logEdgePiece F S ρ w j false ∅ ∅) f s)
+        (C*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)))) := by
+  classical
+  obtain ⟨C, Cbox, xclean, Y₀, hC, hCbox, hxclean, hY₀, hban⟩ :=
+    clean_banned_memory_masks_bound F hF
+  obtain ⟨xμ, hxμ, hμ⟩ := pd4c_memMeasure_nonneg_eventually F hF
+  let x₀ := max xclean xμ
+  refine ⟨C, Cbox, x₀, Y₀, hC, hCbox, hxclean.trans (le_max_left _ _), hY₀, ?_⟩
+  intro δ c₁ c₂ S hS hx hY hL w hw r hr hfibre ρ hρ B j
+  have hxclean' : xclean ≤ S.x := (le_max_left _ _).trans hx
+  have hxμ' : xμ ≤ S.x := (le_max_right _ _).trans hx
+  obtain ⟨hYpos, _⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  let R := C*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)))
+  have htransfer := clean_core_norm_of_physical_masks F hF S hYpos ρ w j B R (hμ S hxμ')
+  apply htransfer
+  intro T hT I O hI hO f
+  have hfinite := hban δ c₁ c₂ S hS hxclean' hY hL w hw T
+    (fun s hs => ⟨(hT s hs).1, (hT s hs).2.1, (hT s hs).2.2.1,
+      (hT s hs).2.2.2.1, (hT s hs).2.2.2.2.1, (hT s hs).2.2.2.2.2.1,
+      (hT s hs).2.2.2.2.2.2.1⟩)
+    r hr hfibre ρ hρ I O hI hO (decide (j % 2 = 0)) f
+  simpa only [R, ite_mul, zero_mul] using hfinite
+
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
@@ -11077,7 +13081,79 @@ theorem lattice_clean (δ c₁ c₂ : ℝ) (hδ : 0 < δ) (hc₁ : 0 < c₁) (q_
           MemOpNormLE_sym F S (memoryCutoff S) (memEdge F S ρ w EdgeKind.clean j)
             (C * (Real.rpow S.L ((1 / 5 : ℝ) - A₀) +
               Real.rpow S.L P * Real.exp (-c * Real.rpow S.L (1 / 10 : ℝ)))) := by
-    sorry
+    classical
+    obtain ⟨Ccore, Cbox, xcore, Y₀, hCcore, hCbox, hxcore, hY₀, hcore⟩ :=
+      ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_core_quantitative_bound F hF
+    obtain ⟨Cminor, xminor, hCminor, hxminor, hminor⟩ :=
+      ArtinPrimitiveRoots.Proofs.pd4d_sol.scaled_smoothed_minor_rectangle_bound
+        K δ c₁ c₂ F.A₀ Cbox hF.2.2.2.1 hCbox.le F.psi
+        hF.2.2.2.2.2.1 hF.2.2.2.2.2.2.1
+    obtain ⟨xμ, hxμ, hμ⟩ := pd4c_memMeasure_nonneg_eventually F hF
+    obtain ⟨Ly, hLy⟩ := Filter.eventually_atTop.1
+      ((tendsto_rpow_atTop (by norm_num : (0 : ℝ) < 1 / 10)).eventually_ge_atTop
+        (20 * Real.log Y₀))
+    let L₀ := max 1 Ly
+    let x₁ := max xcore (max xminor (max xμ (Real.exp L₀)))
+    let C := Ccore*(Cminor+2)
+    let P := max (1/5 : ℝ) (3*F.A₀)
+    let c : ℝ := 1/200
+    have hC : 0 < C := by dsimp only [C]; positivity
+    refine ⟨C, P, c, x₁, hC, by norm_num [c], hxcore.trans (le_max_left _ _), ?_⟩
+    intro S hS hx w hw j hj
+    have hxcore' : xcore ≤ S.x := (le_max_left _ _).trans hx
+    have hxminor' : xminor ≤ S.x :=
+      ((le_max_left _ _).trans (le_max_right _ _)).trans hx
+    have hxμ' : xμ ≤ S.x :=
+      ((le_max_left _ _).trans ((le_max_right _ _).trans (le_max_right _ _))).trans hx
+    have hxL : Real.exp L₀ ≤ S.x :=
+      ((le_max_right _ _).trans ((le_max_right _ _).trans (le_max_right _ _))).trans hx
+    have hL₀ : L₀ ≤ S.L := by
+      have h := Real.log_le_log (Real.exp_pos L₀) hxL
+      simpa only [Real.log_exp, PDScale.L] using h
+    have hL : 1 ≤ S.L := (le_max_left _ _).trans hL₀
+    have hLpos : 0 < S.L := lt_of_lt_of_le (by norm_num) hL
+    obtain ⟨hYpos, _⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+    have hY₀pos : 0 < Y₀ := lt_of_lt_of_le (by norm_num) hY₀
+    have hY : Y₀ ≤ S.Y := by
+      have hlarge := hLy S.L ((le_max_right _ _).trans hL₀)
+      change 20*Real.log Y₀ ≤ Real.rpow S.L (1/10 : ℝ) at hlarge
+      have hlogY := (Finset.mem_filter.mp hS.2.2.2.2.2.1).2.1
+      change (1/20 : ℝ)*Real.rpow S.L (1/10 : ℝ) ≤ Real.log S.Y at hlogY
+      have hlog : Real.log Y₀ ≤ Real.log S.Y := by linarith
+      exact (Real.log_le_log_iff hY₀pos hYpos).mp hlog
+    have hm := hμ S hxμ'
+    let r := Cminor*(Real.rpow S.L ((1/5 : ℝ)-F.A₀)+
+      Real.rpow S.L (1/5 : ℝ)*
+        Real.exp (-(1/200 : ℝ)*Real.rpow S.L (1/10 : ℝ)))
+    have hr : 0 ≤ r := by
+      dsimp only [r]
+      exact mul_nonneg hCminor.le
+        (add_nonneg (Real.rpow_pos_of_pos hLpos _).le
+          (mul_nonneg (Real.rpow_pos_of_pos hLpos _).le (Real.exp_pos _).le))
+    have hrectangle := hminor S hS hxminor'
+    have hcoreBound := hcore δ c₁ c₂ S hS hxcore' hY hL w hw r hr hrectangle
+      ρ hρ (memoryCutoff S) j
+    have hprojected :=
+      ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_projected_edge_norm_of_core_norm
+        F S ρ w j (memoryCutoff S)
+        (Ccore*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))))
+        hm hcoreBound
+    have hrate := ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_minor_collision_rate_le
+      S.L F.A₀ Cminor hL hCminor.le
+    have hcoeff :
+        Ccore*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))) ≤
+        C*(Real.rpow S.L ((1/5 : ℝ)-A₀)+
+          Real.rpow S.L P*Real.exp (-c*Real.rpow S.L (1/10 : ℝ))) := by
+      simpa only [r, C, P, c, hHas.2.1, mul_assoc] using
+        (mul_le_mul_of_nonneg_left hrate hCcore.le)
+    have hnonneg :
+        0 ≤ Ccore*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))) := by
+      exact mul_nonneg hCcore.le (add_nonneg hr
+        (mul_nonneg (add_nonneg zero_le_one
+          (pow_nonneg (Real.rpow_pos_of_pos hLpos F.A₀).le 3)) (Real.exp_pos _).le))
+    exact pd4c_memOpNormLE_mono F S (memoryCutoff S)
+      (fun f => memEdge F S ρ w EdgeKind.clean j (memorySym f)) _ _ hm hprojected
+      hnonneg hcoeff
   obtain ⟨C, P, c, x₁, hC, hc, hx₁, hquant⟩ := hquant
   obtain ⟨L₁, hL₁, hdecay⟩ := pd4c_logPower_expDecay_const (G + 1) P c C hc
   obtain ⟨xμ, hxμ, hμ⟩ := pd4c_memMeasure_nonneg_eventually F hF
