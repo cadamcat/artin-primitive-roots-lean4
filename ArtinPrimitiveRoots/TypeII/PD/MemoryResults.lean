@@ -80,6 +80,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SignedMinor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCore
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCoreFinite
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanEndpoints
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCoreNorm
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanBan
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCollisionMass
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCollisionStates
