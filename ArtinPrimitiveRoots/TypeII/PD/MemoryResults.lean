@@ -13005,6 +13005,52 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_banned_memory_masks_bou
   simpa only [energy, act, damp, KB, admB, μ, E, e, ite_mul, zero_mul] using hfinal
 
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The physical clean core retains the minor-rectangle and collision rates on all finite supports. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_core_quantitative_bound {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox x₀ Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 2 ≤ x₀ ∧ 1 ≤ Y₀ ∧
+      ∀ (δ c₁ c₂ : ℝ) (S : PDScale), S.Valid K δ c₁ c₂ →
+      x₀ ≤ S.x → Y₀ ≤ S.Y → 1 ≤ S.L →
+      ∀ w : ArchRoot, w.InRegion S →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let J := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ J, ‖∑ j ∈ J,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ J, ‖g j‖^2)) →
+      ∀ ρ : ℝ, IsMemoryRho F.q_d ρ →
+      ∀ B j : ℕ,
+      MemOpNormLE F S B
+        (fun f s => plainOp (logEdgePiece F S ρ w j true ∅ ∅) f s-
+          plainOp (logEdgePiece F S ρ w j false ∅ ∅) f s)
+        (C*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)))) := by
+  classical
+  obtain ⟨C, Cbox, xclean, Y₀, hC, hCbox, hxclean, hY₀, hban⟩ :=
+    clean_banned_memory_masks_bound F hF
+  obtain ⟨xμ, hxμ, hμ⟩ := pd4c_memMeasure_nonneg_eventually F hF
+  let x₀ := max xclean xμ
+  refine ⟨C, Cbox, x₀, Y₀, hC, hCbox, hxclean.trans (le_max_left _ _), hY₀, ?_⟩
+  intro δ c₁ c₂ S hS hx hY hL w hw r hr hfibre ρ hρ B j
+  have hxclean' : xclean ≤ S.x := (le_max_left _ _).trans hx
+  have hxμ' : xμ ≤ S.x := (le_max_right _ _).trans hx
+  obtain ⟨hYpos, _⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  let R := C*(r+(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)))
+  have htransfer := clean_core_norm_of_physical_masks F hF S hYpos ρ w j B R (hμ S hxμ')
+  apply htransfer
+  intro T hT I O hI hO f
+  have hfinite := hban δ c₁ c₂ S hS hxclean' hY hL w hw T
+    (fun s hs => ⟨(hT s hs).1, (hT s hs).2.1, (hT s hs).2.2.1,
+      (hT s hs).2.2.2.1, (hT s hs).2.2.2.2.1, (hT s hs).2.2.2.2.2.1,
+      (hT s hs).2.2.2.2.2.2.1⟩)
+    r hr hfibre ρ hρ I O hI hO (decide (j % 2 = 0)) f
+  simpa only [R, ite_mul, zero_mul] using hfinite
+
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
