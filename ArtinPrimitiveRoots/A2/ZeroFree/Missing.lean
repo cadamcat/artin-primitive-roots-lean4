@@ -6208,7 +6208,28 @@ theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborho
       principalRw R sd W η U HA HC Z + principalRz R sd W η U HA HC Z ∧
     ‖principalRw R sd W η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) ∧
     ‖principalRz R sd W η U HA HC Z‖ ≤ C * Z ^ ((7 / 15 - 5 / 10000 : ℝ)) := by
-  sorry
+  intro hEuler _hLocal hWeight
+  refine ⟨rows_principalConstant_ne_zero R sd W HA hWeight, ?_⟩
+  obtain ⟨Cw, hCw, hWbound⟩ := rows_sol_principalRw_uniform R sd W η U HA HC hEuler
+  obtain ⟨Cz, hCz, hZbound⟩ := rows_sol_principalRz_uniform R sd W η U HA HC hEuler
+  have hC : 0 < Cw + Cz := add_pos hCw hCz
+  have hScale (Z : ℝ) (hZ : 2 ≤ Z) : 0 ≤ Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
+    Real.rpow_nonneg (by linarith : 0 ≤ Z) _
+  have hRw (Z : ℝ) (hZ : 2 ≤ Z) :
+      ‖principalRw R sd W η U HA HC Z‖ ≤ (Cw + Cz) * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
+    calc
+      _ ≤ Cw * Z ^ (7 / 15 - 5 / 10000 : ℝ) := hWbound Z hZ
+      _ ≤ (Cw + Cz) * Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
+        mul_le_mul_of_nonneg_right (by linarith) (hScale Z hZ)
+  have hRz (Z : ℝ) (hZ : 2 ≤ Z) :
+      ‖principalRz R sd W η U HA HC Z‖ ≤ (Cw + Cz) * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
+    calc
+      _ ≤ Cz * Z ^ (7 / 15 - 5 / 10000 : ℝ) := hZbound Z hZ
+      _ ≤ (Cw + Cz) * Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
+        mul_le_mul_of_nonneg_right (by linarith) (hScale Z hZ)
+  refine ⟨Cw + Cz, 2, hC, le_rfl, ?_⟩
+  intro Z hZ
+  exact ⟨rows_sol_principal_identity R sd W η U HA HC hEuler Z hZ, hRw Z hZ, hRz Z hZ⟩
 /-- zf:small-rows, 06:479–551: any subset of a nonprincipal dyad, with explicit cardinal cost. -/
 theorem zf_small_rows : EulerHypotheses R η → ∀ α B ε : ℝ, 0 ≤ α → 0 < B → 0 < ε → ∃ C : ℝ, 0 < C ∧
   ∀ T Z : ℝ, 1 ≤ T → 2 ≤ Z → ∀ rows : Finset U.U,
