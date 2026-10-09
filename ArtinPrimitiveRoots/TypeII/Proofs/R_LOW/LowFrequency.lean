@@ -1227,4 +1227,112 @@ theorem sum_subset_diff_bound (s t : Finset ℕ) (f : ℕ → ℂ) (B : ℝ) (hB
     _ ≤ (s \ t).card * B := hsum
     _ ≤ 2 * B := mul_le_mul_of_nonneg_right hcardR hB
 
+/-- The two weighted counting errors have the same integral main term. -/
+theorem low_frequency_weighted_difference
+    (M l r L V u E₁ E₂ B_D K_D w₀ w₁ : ℝ)
+    (a b : ℕ → ℂ) (D : ℝ → ℝ) (e : ℂ)
+    (hM : 0 < M) (hL : 0 < L) (hV : 0 < V)
+    (hl : M ≤ l) (hlr : l ≤ r) (hr : r ≤ 2 * M)
+    (hE₁ : 0 ≤ E₁) (hE₂ : 0 ≤ E₂) (hB : 0 ≤ B_D) (hK : 0 ≤ K_D)
+    (hDcont : ContinuousOn (fun y => D (Real.log y / L)) (Set.Icc l r))
+    (hDbound : ∀ w ∈ Set.Icc w₀ w₁, |D w| ≤ B_D)
+    (hDlip : ∀ s ∈ Set.Icc w₀ w₁, ∀ t ∈ Set.Icc w₀ w₁,
+      |D s - D t| ≤ K_D * |s - t|)
+    (hmem : ∀ y ∈ Set.Icc M (2 * M), Real.log y / L ∈ Set.Icc w₀ w₁)
+    (hcount₁ : ∀ s ∈ Set.Icc l r,
+      ‖(∑ n ∈ (Finset.range (⌊s⌋₊ + 1)).filter
+          (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ s), a n) -
+        ∫ y in l..s, e * ((D (Real.log y / L) / L : ℝ) : ℂ)‖ ≤ E₁)
+    (hcount₂ : ∀ s ∈ Set.Icc l r,
+      ‖(∑ n ∈ (Finset.range (⌊s⌋₊ + 1)).filter
+          (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ s), b n) -
+        ∫ y in l..s, e * (V : ℂ)‖ ≤ E₂) :
+    ‖∑ n ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ r),
+      (a n * Complex.exp (Complex.I * u * Real.log (n : ℝ)) -
+        b n * ((D (Real.log (n : ℝ) / L) / (L * V) : ℝ) : ℂ) *
+          Complex.exp (Complex.I * u * Real.log (n : ℝ)))‖ ≤
+      2 * E₁ * (1 + |u|) +
+        2 * E₂ * ((B_D + K_D / L + B_D * |u|) / (L * V)) := by
+  let p : ℝ → ℂ := fun y => Complex.exp (Complex.I * u * Real.log y)
+  let g : ℝ → ℂ := fun y => ((D (Real.log y / L) / (L * V) : ℝ) : ℂ) * p y
+  let q₁ : ℝ → ℂ := fun y => e * ((D (Real.log y / L) / L : ℝ) : ℂ)
+  let q₂ : ℝ → ℂ := fun _y => e * (V : ℂ)
+  let K₂ : ℝ := (K_D / (L * M) + B_D * |u| / M) / (L * V)
+  have hsub : Set.Icc l r ⊆ Set.Icc M (2 * M) := by
+    intro y hy
+    exact ⟨hl.trans hy.1, hy.2.trans hr⟩
+  have hq₁ : ContinuousOn q₁ (Set.Icc l r) := by
+    exact ((Complex.continuous_ofReal.comp_continuousOn
+      (hDcont.div_const L)).const_mul e)
+  have hq₂ : ContinuousOn q₂ (Set.Icc l r) := continuousOn_const
+  have hpLip : ∀ s ∈ Set.Icc l r, ∀ t ∈ Set.Icc l r,
+      ‖p s - p t‖ ≤ (|u| / M) * |s - t| := by
+    intro s hs t ht
+    exact phase_exp_lipschitz u M hM s t
+      (hsub hs).1 (hsub hs).2 (hsub ht).1 (hsub ht).2
+  have hpBound : ∀ s ∈ Set.Icc l r, ‖p s‖ ≤ 1 := by
+    intro s _hs
+    exact le_of_eq (phase_exp_norm u s)
+  have hgLip : ∀ s ∈ Set.Icc l r, ∀ t ∈ Set.Icc l r,
+      ‖g s - g t‖ ≤ K₂ * |s - t| := by
+    intro s hs t ht
+    exact density_phase_weight_lipschitz D B_D K_D w₀ w₁ L V M u
+      hL hM hV hB hK hDbound hDlip hmem s t
+      (hsub hs).1 (hsub hs).2 (hsub ht).1 (hsub ht).2
+  have hgBound : ∀ s ∈ Set.Icc l r, ‖g s‖ ≤ B_D / (L * V) := by
+    intro s hs
+    exact density_phase_weight_bound D B_D w₀ w₁ L V M u
+      hL hM hV hB hDbound hmem s (hsub hs).1 (hsub hs).2
+  have hK₂ : 0 ≤ K₂ := by dsimp [K₂]; positivity
+  have hfirst := weighted_interval_error M l r E₁ 1 (|u| / M) a q₁ p
+    hM hl hlr hr hE₁ zero_le_one (by positivity) hq₁ hpLip hpBound hcount₁
+  have hsecond := weighted_interval_error M l r E₂ (B_D / (L * V)) K₂ b q₂ g
+    hM hl hlr hr hE₂ (by positivity) hK₂ hq₂ hgLip hgBound hcount₂
+  have hlen : r - l ≤ M := by linarith
+  have hvar₁ : (|u| / M) * (r - l) ≤ |u| := by
+    calc
+      (|u| / M) * (r - l) ≤ (|u| / M) * M :=
+        mul_le_mul_of_nonneg_left hlen (by positivity)
+      _ = |u| := div_mul_cancel₀ _ hM.ne'
+  have hvar₂ : B_D / (L * V) + K₂ * (r - l) ≤
+      (B_D + K_D / L + B_D * |u|) / (L * V) := by
+    calc
+      B_D / (L * V) + K₂ * (r - l) ≤ B_D / (L * V) + K₂ * M :=
+        add_le_add (le_refl _) (mul_le_mul_of_nonneg_left hlen hK₂)
+      _ = (B_D + K_D / L + B_D * |u|) / (L * V) := by
+        dsimp [K₂]
+        field_simp
+        <;> ring
+  have hfirst' : ‖(∑ n ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ r), a n * p n) -
+      ∫ y in l..r, q₁ y * p y‖ ≤ 2 * E₁ * (1 + |u|) :=
+    hfirst.trans (mul_le_mul_of_nonneg_left (add_le_add (le_refl 1) hvar₁) (by positivity))
+  have hsecond' : ‖(∑ n ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ r), b n * g n) -
+      ∫ y in l..r, q₂ y * g y‖ ≤
+      2 * E₂ * ((B_D + K_D / L + B_D * |u|) / (L * V)) :=
+    hsecond.trans (mul_le_mul_of_nonneg_left hvar₂ (by positivity))
+  have hmain : (∫ y in l..r, q₁ y * p y) = ∫ y in l..r, q₂ y * g y := by
+    apply intervalIntegral.integral_congr
+    intro y _hy
+    dsimp [q₁, q₂, g]
+    have hLc : (L : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hL.ne'
+    have hVc : (V : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hV.ne'
+    push_cast
+    field_simp
+  have hsplit : (∑ n ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ r), (a n * p n - b n * g n)) =
+      ((∑ n ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ r), a n * p n) -
+          ∫ y in l..r, q₁ y * p y) -
+      ((∑ n ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun n : ℕ => l ≤ (n : ℝ) ∧ (n : ℝ) ≤ r), b n * g n) -
+          ∫ y in l..r, q₂ y * g y) := by
+    rw [Finset.sum_sub_distrib, hmain]
+    abel
+  have hnorm := (norm_sub_le _ _).trans (add_le_add hfirst' hsecond')
+  rw [← hsplit] at hnorm
+  simpa only [g, p, mul_assoc] using hnorm
+
 end ArtinPrimitiveRoots.Proofs.r_impl_muse
