@@ -343,6 +343,30 @@ theorem local_index_hilbert_defect (D : FieldData F) (A : AddCharData F) (H : Hi
     (v : FinPlace F) (a b : (v.adicCompletion F)ˣ) :
     W.index v a * W.index v b =
       complexRoot D (H.hilb v a b) ^ 3 * W.index v (a * b) := by
-  sorry
+  classical
+  let : MeasurableSpace (v.adicCompletion F) := borel _
+  let : BorelSpace (v.adicCompletion F) := ⟨rfl⟩
+  have hnorm : ∀ x : v.adicCompletion F, absFin v x = ‖x‖ := by
+    intro x
+    rw [absFin, dite_eq_left (NumberField.HeightOneSpectrum.absNorm_ne_zero v),
+      NumberField.FinitePlace.norm_def]
+  have hscale : ∀ c : (v.adicCompletion F)ˣ,
+      Measure.map (fun x : v.adicCompletion F => (c : v.adicCompletion F) * x) (W.measure v) =
+        (ENNReal.ofReal ‖(c : v.adicCompletion F)‖)⁻¹ • W.measure v := by
+    intro c
+    simpa only [hnorm] using local_haar_scale v (W.measure v) (W.isHaar v) c
+  have hsign : ∀ c : (v.adicCompletion F)ˣ, W.index v c ^ 2 = 1 := by
+    intro c
+    apply Units.ext
+    simp only [Units.val_pow_eq_pow_val, Units.val_one]
+    rcases local_index_sign D A W v c with hc | hc
+    · rw [hc]
+      norm_num
+    · rw [hc]
+      norm_num
+  exact quadratic_defect_eq_hilbert_of_nondegenerate D H v (W.index v)
+    (local_index_one A W v) (local_index_square D A W v) hsign
+    (local_index_binary D A W v) a b
+    (local_index_defect_nondegenerate A W v (local_character_regular D A v) hscale a)
 
 end ArtinPrimitiveRoots.Proofs.a1_weil_sol
