@@ -209,7 +209,55 @@ theorem cont_tail_integrable {q : ℕ} (hq : 0 < q)
     IntegrableOn
       (fun u : ℝ => contDiscrepancy q χ u *
         Complex.exp (-(s + 1) * (Real.log u : ℂ))) (Set.Ioi Y) := by
-  sorry
+  let f : ℝ → ℂ := fun u => contDiscrepancy q χ u *
+    Complex.exp (-(s + 1) * (Real.log u : ℂ))
+  let p : ℕ → ℂ := fun m =>
+    ∑ n ∈ (Finset.range (m + 1)).filter (fun n : ℕ => 1 ≤ n),
+      χ (n : ZMod q)
+  have hprefix : Measurable (contPrefix q χ) := by
+    change Measurable (fun u : ℝ => p (⌊u⌋₊))
+    exact (measurable_of_countable p).comp Nat.measurable_floor
+  have hEm : AEStronglyMeasurable (contDiscrepancy q χ) volume := by
+    unfold contDiscrepancy
+    exact (hprefix.sub (measurable_const.mul Complex.measurable_ofReal)).aestronglyMeasurable
+  have hE : AEStronglyMeasurable (contDiscrepancy q χ)
+      (volume.restrict (Set.Ioi Y)) :=
+    hEm.restrict
+  have hlog : Measurable (fun u : ℝ => (Real.log u : ℂ)) :=
+    Complex.measurable_ofReal.comp Real.measurable_log
+  have hexp : Measurable (fun u : ℝ =>
+      Complex.exp (-(s + 1) * (Real.log u : ℂ))) := by
+    exact Complex.measurable_exp.comp (measurable_const.mul hlog)
+  have hf : AEStronglyMeasurable f (volume.restrict (Set.Ioi Y)) := by
+    dsimp [f]
+    exact hE.mul (hexp.aestronglyMeasurable.restrict)
+  have hmajor : Integrable (fun u : ℝ =>
+      (2 * (q : ℝ)) * Real.rpow u (-(s.re + 1)))
+      (volume.restrict (Set.Ioi Y)) := by
+    have hexpInt := integrableOn_Ioi_rpow_of_lt
+      (a := -(s.re + 1)) (c := Y) (by linarith) (by linarith)
+    exact hexpInt.const_mul (2 * (q : ℝ))
+  have hnormExp (u : ℝ) (hu : 0 < u) :
+      ‖Complex.exp (-(s + 1) * (Real.log u : ℂ))‖ =
+        Real.rpow u (-(s.re + 1)) := by
+    rw [Complex.norm_exp, Complex.mul_re, Complex.neg_re]
+    simp only [Complex.ofReal_re, Complex.ofReal_im, mul_zero, sub_zero,
+      Complex.add_re, Complex.one_re, add_zero]
+    calc
+      Real.exp (-(s.re + 1) * Real.log u) =
+          Real.exp (Real.log u * (-(s.re + 1))) := by congr 1 <;> ring
+      _ = Real.rpow u (-(s.re + 1)) := (Real.rpow_def_of_pos hu _).symm
+  have hbound : ∀ᵐ u ∂(volume.restrict (Set.Ioi Y)),
+      ‖f u‖ ≤ (2 * (q : ℝ)) * Real.rpow u (-(s.re + 1)) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with u hu
+    have hu0 : 0 < u := by
+      have huY : Y < u := Set.mem_Ioi.mp hu
+      linarith
+    have hdisc := cont_discrepancy_bound hq χ (le_of_lt hu0)
+    dsimp [f]
+    rw [norm_mul, hnormExp u hu0]
+    exact mul_le_mul_of_nonneg_right hdisc (Real.rpow_nonneg hu0.le _)
+  exact hmajor.mono' hf hbound
 
 theorem contDiscrepancy_aestronglyMeasurable (q : ℕ)
     (χ : DirichletCharacter ℂ q) :
