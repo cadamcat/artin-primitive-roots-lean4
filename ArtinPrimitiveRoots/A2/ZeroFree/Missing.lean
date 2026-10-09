@@ -5570,6 +5570,76 @@ private theorem rows_sol_principal_initial_z (hEuler : EulerHypotheses R η)
       unfold vertical
       rw [htranslate (1 / 6 + δ1)]
 
+private theorem rows_sol_principal_initial_shift (hEuler : EulerHypotheses R η)
+    (Z : ℝ) (hZ : 2 ≤ Z) :
+    rowContribution R sd W η U {U.one} Z =
+      tripleVertical (1 + δ1) 4 (1 / 6 + δ1)
+        (rowKernel R sd W η U HA HC U.one Z) := by
+  let K : ℂ → ℂ → ℂ → ℂ := rowKernel R sd W η U HA HC U.one Z
+  have hSwapOuter (σξ σw σz : ℝ)
+      (hInt : Integrable (fun q : ℝ × (ℝ × ℝ) =>
+        K (σξ + q.1 * Complex.I) (σw + q.2.1 * Complex.I)
+          (σz + q.2.2 * Complex.I)) (volume.prod (volume.prod volume))) :
+      tripleVertical σξ σw σz K =
+        vertical σw (fun w => vertical σz (fun z => vertical σξ (fun ξ => K ξ w z))) := by
+    let f : ℝ → ℝ → ℝ → ℂ := fun tξ tw tz =>
+      K (σξ + tξ * Complex.I) (σw + tw * Complex.I) (σz + tz * Complex.I)
+    have hleft : tripleVertical σξ σw σz K =
+        tripleVertical σξ σw σz (fun ξ w z => f ξ.im w.im z.im) := by
+      apply rows_tripleVertical_congr_lines
+      intro tξ tw tz
+      simp [f]
+    have hf : Integrable (fun q : ℝ × (ℝ × ℝ) => f q.1 q.2.1 q.2.2)
+        (volume.prod (volume.prod volume)) := by
+      simpa [f] using hInt
+    have hmid := rows_small_triple_swap_outer σξ σw σz f hf
+    have hright :
+        vertical σw (fun w => vertical σz (fun z => vertical σξ (fun ξ => f ξ.im w.im z.im))) =
+          vertical σw (fun w => vertical σz (fun z => vertical σξ (fun ξ => K ξ w z))) := by
+      apply rows_vertical_congr σw
+      intro tw
+      apply rows_vertical_congr σz
+      intro tz
+      apply rows_vertical_congr σξ
+      intro tξ
+      simp [f]
+    exact hleft.trans (hmid.trans hright)
+  have hIntStart := rows_sol_principal_right_integrable R sd W η U HA HC hEuler Z hZ
+    4 2 (by norm_num [δ1]) le_rfl (by norm_num [δ1]) le_rfl
+  have hIntEnd := rows_sol_principal_right_integrable R sd W η U HA HC hEuler Z hZ
+    (1 + δ1) 2 le_rfl (by norm_num [δ1]) (by norm_num [δ1]) le_rfl
+  have hSwapStart := hSwapOuter 4 4 2 hIntStart
+  have hSwapEnd := hSwapOuter (1 + δ1) 4 2 hIntEnd
+  have hShiftXiNested :
+      vertical 4 (fun w => vertical 2 (fun z => vertical 4 (fun ξ => K ξ w z))) =
+        vertical 4 (fun w => vertical 2 (fun z => vertical (1 + δ1) (fun ξ => K ξ w z))) := by
+    apply rows_vertical_congr 4
+    intro tw
+    let w : ℂ := 4 + tw * Complex.I
+    apply rows_vertical_congr 2
+    intro tz
+    let z : ℂ := 2 + tz * Complex.I
+    simpa [K, w, z] using
+      (rows_sol_principal_initial_xi R sd W η U HA HC hEuler Z hZ w z
+        (by simp [w]) (by simp [z]))
+  have hShiftXi : tripleVertical 4 4 2 K = tripleVertical (1 + δ1) 4 2 K :=
+    hSwapStart.trans (hShiftXiNested.trans hSwapEnd.symm)
+  have hShiftZ : tripleVertical (1 + δ1) 4 2 K =
+      tripleVertical (1 + δ1) 4 (1 / 6 + δ1) K := by
+    unfold tripleVertical
+    apply rows_vertical_congr (1 + δ1)
+    intro tξ
+    let ξ : ℂ := (1 + δ1 : ℝ) + tξ * Complex.I
+    apply rows_vertical_congr 4
+    intro tw
+    let w : ℂ := 4 + tw * Complex.I
+    simpa [K, ξ, w] using
+      (rows_sol_principal_initial_z R sd W η U HA HC hEuler Z hZ ξ w
+        (by simp [ξ]) (by norm_num [ξ, δ1]) (by simp [w]))
+  simpa only [K] using
+    (rows_principal_initial_rowContribution_eq R sd W η U HA HC hEuler Z).trans
+      (hShiftXi.trans hShiftZ)
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
