@@ -2679,7 +2679,77 @@ private theorem phase_high_translate_box_sup {H y θ V : ℝ} {k M : ℕ}
     ‖phasePolynomialSum V θ b k M‖ ≤
       sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
         z = ‖phaseWeylSum k M a‖} := by
-  sorry
+  classical
+  let α : Fin k → ℝ := phaseAlphaVector H y θ b k
+  let a : Fin k → ℝ := fun j => Int.fract (α j)
+  have ha : a ∈ phaseClosedBox r := by
+    intro j
+    have hj := hb j
+    have hj' :
+        ((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1) ≤ Int.fract (α j) ∧
+          Int.fract (α j) < ((r j).val + 1 : ℝ) / (M : ℝ) ^ (j.val + 1) := by
+      simpa [α] using hj
+    constructor
+    · simpa [a] using hj'.1
+    · simpa [a] using hj'.2.le
+  have hcoef (j : Fin k) : phaseCoefficient V θ b j.val = α j := by
+    change phaseCoefficient V θ b j.val =
+      phaseCoefficient (Real.rpow H y) θ b j.val
+    rw [hV]
+  have hcharInt (n : ℤ) : additiveCharacter (n : ℝ) = 1 := by
+    unfold additiveCharacter
+    have harg : Complex.I * (2 * Real.pi * (n : ℝ)) =
+        (n : ℂ) * (2 * Real.pi * Complex.I) := by
+      push_cast
+      ring
+    rw [harg]
+    exact Complex.exp_int_mul_two_pi_mul_I n
+  have hphase (h : ℕ) :
+      additiveCharacter
+        (∑ j : Fin k, phaseCoefficient V θ b j.val *
+          (h : ℝ) ^ (j.val + 1)) =
+      additiveCharacter (∑ j : Fin k, a j * (h : ℝ) ^ (j.val + 1)) := by
+    let n : ℤ := ∑ j : Fin k, Int.floor (α j) *
+      ((h : ℤ) ^ (j.val + 1))
+    have hncast : (n : ℝ) = ∑ j : Fin k,
+        (Int.floor (α j) : ℝ) * (h : ℝ) ^ (j.val + 1) := by
+      simp [n]
+    have hangle :
+        (∑ j : Fin k, phaseCoefficient V θ b j.val *
+          (h : ℝ) ^ (j.val + 1)) =
+        (∑ j : Fin k, a j * (h : ℝ) ^ (j.val + 1)) + (n : ℝ) := by
+      calc
+        _ = ∑ j : Fin k, α j * (h : ℝ) ^ (j.val + 1) := by
+          apply Finset.sum_congr rfl
+          intro j hj
+          rw [hcoef]
+        _ = ∑ j : Fin k,
+            (Int.fract (α j) + (Int.floor (α j) : ℝ)) *
+              (h : ℝ) ^ (j.val + 1) := by
+          apply Finset.sum_congr rfl
+          intro j hj
+          exact congrArg (fun x : ℝ => x * (h : ℝ) ^ (j.val + 1))
+            (Int.fract_add_floor (α j)).symm
+        _ = (∑ j : Fin k, Int.fract (α j) * (h : ℝ) ^ (j.val + 1)) +
+            ∑ j : Fin k, (Int.floor (α j) : ℝ) * (h : ℝ) ^ (j.val + 1) := by
+          calc
+            _ = ∑ j : Fin k,
+                (Int.fract (α j) * (h : ℝ) ^ (j.val + 1) +
+                  (Int.floor (α j) : ℝ) * (h : ℝ) ^ (j.val + 1)) := by
+              apply Finset.sum_congr rfl
+              intro j hj
+              ring
+            _ = _ := Finset.sum_add_distrib
+        _ = (∑ j : Fin k, a j * (h : ℝ) ^ (j.val + 1)) + (n : ℝ) := by
+          rw [hncast]
+    rw [hangle, additiveCharacter_add, hcharInt, mul_one]
+  have hsum : phasePolynomialSum V θ b k M = phaseWeylSum k M a := by
+    simp only [phasePolynomialSum, phaseWeylSum]
+    apply Finset.sum_congr rfl
+    intro h hh
+    exact hphase h
+  rw [hsum]
+  exact phase_high_box_value_le_sup r a hM ha
 
 private theorem phase_high_polynomial_interval_bound
     {H y θ V : ℝ} {l u k M s : ℕ} {C₁ C₂ : ℝ}
