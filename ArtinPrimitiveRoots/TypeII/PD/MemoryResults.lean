@@ -12327,6 +12327,109 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_unbanned_raw_position_s
       mul_le_mul_of_nonneg_right hcard (mul_nonneg (sq_nonneg _) hCpsi)
     _ = _ := by ring
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The unbanned comparison kernel has a polynomial finite-position row envelope. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_unbanned_comparison_position_sum_le
+    (R : ℝ) (hR : 16 ≤ R) :
+    ∃ C Y₀ : ℝ, 0 < C ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (δ c₁ c₂ : ℝ) (F : PDFix K) (S : PDScale),
+      S.Valid K δ c₁ c₂ → ∀ w : ArchRoot, w.InRegion S →
+      Y₀ ≤ S.Y → 1 ≤ S.L → 0 ≤ F.A₀ →
+      (∀ t : ℝ, F.psi t ≠ 0 → |t| ≤ R) →
+      ∀ (forward : Bool) (p q : PrimeLists S.x K) (z : ℤ × ℤ),
+      Int.gcd z.1 z.2 = 1 → envBox S w z →
+      goodTestOne S.x S.Y (S.d₀ : ℝ) p (transportedRatio w z) →
+      ∀ Ceta Cpsi : ℝ, 0 ≤ Ceta → 0 ≤ Cpsi →
+      (∀ u, ‖(F.eta u : ℂ)‖ ≤ Ceta) →
+      (∀ u, ‖(F.psi u : ℂ)‖ ≤ Cpsi) →
+      ∀ Z : Finset (ℤ × ℤ),
+      (∑ z' ∈ Z, if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+        then ‖edgeMultiplier F S forward false p q z z'‖ else 0) ≤
+        C*Ceta^2*Cpsi*Real.rpow S.L F.A₀^3 := by
+  classical
+  obtain ⟨C₂, Y₀, hC₂, hY₀, hStrip⟩ := pd4c_strip_box_count R (by linarith)
+  refine ⟨288*C₂, Y₀, mul_pos (by norm_num) hC₂, hY₀, ?_⟩
+  intro K δ c₁ c₂ F S hS w hw hY hL hA hRadius forward p q z hz hbox
+    hgood Ceta Cpsi hCeta hCpsi hEta hPsi Z
+  obtain ⟨hU, _⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+  obtain ⟨hYpos, hd₀⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  have hLpos : 0 < S.L := by linarith
+  let Cgeo := Ceta^2*Cpsi*(32*Real.rpow S.L F.A₀^3/S.Y)
+  have hCgeo : 0 ≤ Cgeo := by
+    exact mul_nonneg (mul_nonneg (sq_nonneg _) hCpsi)
+      (div_nonneg (mul_nonneg (by norm_num)
+        (pow_nonneg (Real.rpow_pos_of_pos hLpos _).le _)) hYpos.le)
+  let A := Z.filter fun z' =>
+    (IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z') ∧
+      edgeMultiplier F S forward false p q z z' ≠ 0
+  have hcard : (A.card : ℝ) ≤ 9*C₂*S.Y := by
+    by_cases hnonempty : A.Nonempty
+    · obtain ⟨z₀, hz₀⟩ := hnonempty
+      have hpad₀ : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z₀) :=
+        (Finset.mem_filter.mp hz₀).2.1.1
+      let D := sharedProduct p
+      let α := (D : ℝ)*transportedRatio w z
+      have hα : ∀ l : ℕ, 1 ≤ l → (l : ℝ) ≤ Real.rpow S.Y (1/5 : ℝ) →
+          Real.rpow S.Y (-(7/10 : ℝ)) < circleDistance ((l : ℝ)*α) := by
+        intro l hl hly
+        have h := hgood (fun _ => lastSlot S.x)
+          (by simpa [pd4c_last_omission_eq_shared] using hpad₀.1)
+          (by simpa [pd4c_last_omission_eq_shared] using hpad₀.2.1) l hl hly
+        simpa only [pd4c_last_omission_eq_shared, α, D, mul_assoc] using h
+      let T : Set (ℤ × ℤ) :=
+        {v | |(v.2 : ℝ)| ≤ R*S.Y ∧ |(v.1 : ℝ)+(v.2 : ℝ)*α| ≤ R}
+      obtain ⟨hTfin, hTcount⟩ := hStrip S.Y hY α hα
+      let φ : ℤ × ℤ → ℤ × ℤ := fun v =>
+        (v.1*z.1+(D : ℤ)*v.2*(complementVec z).1,
+          v.1*z.2+(D : ℤ)*v.2*(complementVec z).2)
+      have hsub : (A : Set (ℤ × ℤ)) ⊆ φ '' T := by
+        intro z' hz'
+        obtain ⟨_, ⟨hpad, hbox'⟩, hgeom⟩ :=
+          Finset.mem_filter.mp (Finset.mem_coe.mp hz')
+        have hsupport := pd4c_comparison_edge_support F S forward p q z z' R
+          hYpos hpad.2.2 hRadius hgeom
+        obtain ⟨a, l, hrepr, hl, ht⟩ := pd4c_env_target_strip_coordinates S w z z' D R
+          hU hw hz hbox hbox' hpad.2.2 hsupport
+        exact ⟨(a, l), ⟨hl, ht.trans hR⟩, hrepr.symm⟩
+      have hc : A.card ≤ (φ '' T).ncard := by
+        simpa using Set.ncard_le_ncard hsub (hTfin.image φ)
+      calc
+        (A.card : ℝ) ≤ ((φ '' T).ncard : ℝ) := by exact_mod_cast hc
+        _ ≤ (T.ncard : ℝ) := by
+          have himage : (φ '' T).ncard ≤ T.ncard := Set.ncard_image_le (f := φ) hTfin
+          exact_mod_cast himage
+        _ ≤ _ := hTcount
+    · have hEmpty : A = ∅ := Finset.not_nonempty_iff_eq_empty.mp hnonempty
+      simpa only [hEmpty, Finset.card_empty, Nat.cast_zero] using
+        mul_nonneg (mul_nonneg (by norm_num : (0 : ℝ) ≤ 9) hC₂.le) hYpos.le
+  have hsum :
+      (∑ z' ∈ Z, if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+        then ‖edgeMultiplier F S forward false p q z z'‖ else 0) =
+      ∑ z' ∈ A, ‖edgeMultiplier F S forward false p q z z'‖ := by
+    dsimp only [A]
+    rw [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro z' hz'
+    by_cases hvalid : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+    · by_cases hzero : edgeMultiplier F S forward false p q z z' = 0
+      · simp only [hvalid, true_and, hzero, ne_eq, not_true_eq_false,
+          if_true, if_false, norm_zero]
+      · simp only [hvalid, true_and, hzero, ne_eq, not_false_eq_true, if_true]
+    · simp only [hvalid, false_and, if_false]
+  have hgeom (z' : ℤ × ℤ) (hz' : z' ∈ A) :
+      ‖edgeMultiplier F S forward false p q z z'‖ ≤ Cgeo :=
+    pd4c_edge_comparison_norm_le F S forward p q z z' Ceta Cpsi hL hA hYpos hd₀
+      (Finset.mem_filter.mp hz').2.1.1 hEta hPsi hCeta hCpsi
+  calc
+    _ = ∑ z' ∈ A, ‖edgeMultiplier F S forward false p q z z'‖ := hsum
+    _ ≤ ∑ z' ∈ A, Cgeo := Finset.sum_le_sum (fun z' hz' => hgeom z' hz')
+    _ = (A.card : ℝ)*Cgeo := by simp only [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ (9*C₂*S.Y)*Cgeo := mul_le_mul_of_nonneg_right hcard hCgeo
+    _ = (288*C₂)*Ceta^2*Cpsi*Real.rpow S.L F.A₀^3 := by
+      dsimp only [Cgeo]
+      field_simp [hYpos.ne']
+      <;> ring
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
