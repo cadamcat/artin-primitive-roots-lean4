@@ -3431,7 +3431,202 @@ theorem phase_low_regime_bound :
     ∀ C : ℝ, 0 < C →
       ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 < x₀ ∧
         phaseWindowBound (fun H v => |v| < Real.rpow H (4 / 5)) C C₀ x₀ := by
-  sorry
+  intro C hC
+  obtain ⟨xT, hxT, hThreshold⟩ :=
+    phase_high_growth_threshold C 1 1 hC (by norm_num) (by norm_num)
+  refine ⟨1000, xT, by norm_num, hxT, ?_⟩
+  unfold phaseWindowBound
+  intro x hx
+  dsimp only
+  intro N' hNlo hNhi q hq hqC a v hvlo hvhi hfreq N₁ N₂ hN₁ hN₂
+  letI : NeZero q := ⟨by omega⟩
+  have hthr := hThreshold x hx
+  rcases hthr with ⟨hTtwo, hCT, hlog16, _, _⟩
+  let L : ℝ := Real.log x
+  let T : ℝ := Real.log L
+  have hxpos : 0 < x := by linarith [hxT]
+  have hLpos : 0 < L := by
+    dsimp [L]
+    exact Real.log_pos (by linarith [hxT])
+  have hTtwo' : 2 ≤ T := by simpa [L, T] using hTtwo
+  have hTpos : 0 < T := by linarith
+  have hCT' : C * T ≤ L / (2 * T ^ 2) := by simpa [L, T] using hCT
+  have hlog16' : Real.log 16 ≤ L / (2 * T ^ 2) := by
+    simpa [L, T] using hlog16
+  have hqRpos : 0 < (q : ℝ) := by exact_mod_cast (show 0 < q by omega)
+  have hqRone : 1 ≤ (q : ℝ) := by exact_mod_cast hq
+  have hNpos : 0 < N' := lt_of_lt_of_le (Real.exp_pos _) hNlo
+  have hNlo' : Real.exp (L / T ^ 2) ≤ N' := by simpa [L, T] using hNlo
+  have hqC' : (q : ℝ) ≤ Real.rpow L C := by simpa [L] using hqC
+  have hqUpper : (q : ℝ) ≤ Real.exp (L / (2 * T ^ 2)) := by
+    calc
+      (q : ℝ) ≤ Real.rpow L C := hqC'
+      _ = Real.exp (C * T) := by
+        calc
+          Real.rpow L C = Real.exp (Real.log L * C) :=
+            Real.rpow_def_of_pos hLpos C
+          _ = Real.exp (C * T) := by dsimp [T]; congr 1 <;> ring
+      _ ≤ Real.exp (L / (2 * T ^ 2)) := Real.exp_le_exp.mpr hCT'
+  let H : ℝ := N' / (q : ℝ)
+  let θ : ℝ := (a.val : ℝ) / (q : ℝ)
+  let δ : ℝ := L / (2 * T ^ 2)
+  have hprod : Real.exp δ * (q : ℝ) ≤ N' := by
+    calc
+      Real.exp δ * (q : ℝ) ≤ Real.exp δ * Real.exp δ :=
+        mul_le_mul_of_nonneg_left (by simpa [δ] using hqUpper)
+          (Real.exp_pos δ).le
+      _ = Real.exp (L / T ^ 2) := by
+        rw [← Real.exp_add]
+        congr 1
+        dsimp [δ]
+        field_simp [ne_of_gt hTpos]
+        <;> ring
+      _ ≤ N' := hNlo'
+  have hHlower : Real.exp δ ≤ H := by
+    dsimp [H]
+    apply (le_div_iff₀ hqRpos).2
+    simpa [mul_comm] using hprod
+  have hH16 : 16 ≤ H := by
+    calc
+      16 = Real.exp (Real.log 16) := by
+        symm
+        exact Real.exp_log (by norm_num)
+      _ ≤ Real.exp δ := Real.exp_le_exp.mpr (by simpa [δ] using hlog16')
+      _ ≤ H := hHlower
+  have hHone : 1 ≤ H := by linarith
+  have hHpos : 0 < H := by linarith
+  have hqH : (q : ℝ) * H = N' := by
+    dsimp [H]
+    field_simp [ne_of_gt hqRpos]
+  have hqN : (q : ℝ) ≤ N' := by
+    calc
+      (q : ℝ) = (q : ℝ) * 1 := by ring
+      _ ≤ (q : ℝ) * H := mul_le_mul_of_nonneg_left hHone hqRpos.le
+      _ = N' := hqH
+  let l : ℕ := ⌈(N₁ - (a.val : ℝ)) / (q : ℝ)⌉₊
+  let u : ℕ := ⌊(N₂ - (a.val : ℝ)) / (q : ℝ)⌋₊
+  have hfilter := phase_reindex_filter_eq_Icc a hq hqN hN₁ hN₂
+  have hfilter' :
+      (Finset.range (⌊2 * N' / (q : ℝ)⌋₊ + 1)).filter
+        (fun b : ℕ => N' ≤ (q : ℝ) * b + a.val ∧
+          (q : ℝ) * b + a.val ≤ 2 * N' ∧
+          N₁ ≤ (q : ℝ) * b + a.val ∧ (q : ℝ) * b + a.val ≤ N₂) =
+        Finset.Icc l u := by
+    simpa [l, u] using hfilter
+  have hReindex0 := phase_reindex_identity N' q hq a v N₁ N₂ hNpos
+  have hReindex :
+      residuePhaseSum N' q a v {n : ℕ | N₁ ≤ (n : ℝ) ∧ (n : ℝ) ≤ N₂} =
+        Complex.exp (Complex.I * v * Real.log (q : ℝ)) *
+          ∑ b ∈ Finset.Icc l u,
+            Complex.exp (Complex.I * v * Real.log ((b : ℝ) + θ)) := by
+    rw [hfilter'] at hReindex0
+    simpa [θ] using hReindex0
+  have hinterval (b : ℕ) (hb : b ∈ Finset.Icc l u) :
+      H ≤ (b : ℝ) + θ ∧ (b : ℝ) + θ ≤ 2 * H := by
+    have hbFilter : b ∈ (Finset.range (⌊2 * N' / (q : ℝ)⌋₊ + 1)).filter
+        (fun b : ℕ => N' ≤ (q : ℝ) * b + a.val ∧
+          (q : ℝ) * b + a.val ≤ 2 * N' ∧
+          N₁ ≤ (q : ℝ) * b + a.val ∧ (q : ℝ) * b + a.val ≤ N₂) := by
+      rw [hfilter']
+      exact hb
+    rcases (Finset.mem_filter.mp hbFilter).2 with ⟨hbelow, habove, _, _⟩
+    have hphase : (q : ℝ) * ((b : ℝ) + θ) = (q : ℝ) * b + a.val := by
+      dsimp [θ]
+      field_simp [ne_of_gt hqRpos]
+      <;> ring
+    constructor
+    · apply le_of_mul_le_mul_of_pos_left ?_ hqRpos
+      rw [hqH, hphase]
+      exact hbelow
+    · have hq2H : (q : ℝ) * (2 * H) = 2 * N' := by
+        calc
+          (q : ℝ) * (2 * H) = 2 * ((q : ℝ) * H) := by ring
+          _ = 2 * N' := by rw [hqH]
+      apply le_of_mul_le_mul_of_pos_left ?_ hqRpos
+      rw [hphase, hq2H]
+      exact habove
+  have hVpos : 0 < |v| := lt_of_lt_of_le (Real.exp_pos _) hvlo
+  have hVleH : |v| ≤ H := by
+    have hpow := Real.rpow_le_rpow_of_exponent_le hHone
+      (by norm_num : (4 / 5 : ℝ) ≤ 1)
+    have hpow' : Real.rpow H (4 / 5 : ℝ) ≤ H := by
+      simpa using hpow
+    exact (le_of_lt hfreq).trans hpow'
+  have hfirst := phase_low_first_derivative_abs hHone hVpos hVleH hinterval
+  let E : ℝ := L / T ^ 11
+  have hT9 : (2 : ℝ) ≤ T ^ 9 := by
+    have h := pow_le_pow_left₀ (by norm_num : (0 : ℝ) ≤ 2) hTtwo' 9
+    nlinarith
+  have hT11 : 2 * T ^ 2 ≤ T ^ 11 := by
+    calc
+      2 * T ^ 2 ≤ T ^ 9 * T ^ 2 :=
+        mul_le_mul_of_nonneg_right hT9 (sq_nonneg T)
+      _ = T ^ 11 := by rw [← pow_add]
+  have hEδ : E ≤ δ := by
+    dsimp [E, δ]
+    apply (div_le_div_iff₀ (pow_pos hTpos 11)
+      (mul_pos (by norm_num) (pow_pos hTpos 2))).2
+    exact mul_le_mul_of_nonneg_left hT11 hLpos.le
+  have hVdelta : Real.exp δ ≤ |v| := by simpa [δ, L, T] using hvlo
+  have hinv : 1 / |v| ≤ Real.exp (-δ) := by
+    calc
+      1 / |v| ≤ 1 / Real.exp δ :=
+        one_div_le_one_div_of_le (Real.exp_pos δ) hVdelta
+      _ = Real.exp (-δ) := by rw [Real.exp_neg, one_div]
+  have hExpOrder : Real.exp (-δ) ≤ Real.exp (-E) :=
+    Real.exp_le_exp.mpr (by linarith [hEδ])
+  have hconst : 32 * Real.pi ≤ 1000 := by nlinarith [Real.pi_lt_four]
+  have hbound : 32 * Real.pi * H / |v| ≤ 1000 * H * Real.exp (-E) := by
+    have hHnonneg : 0 ≤ H := by linarith
+    have hcoeff : 32 * Real.pi * H ≤ 1000 * H :=
+      mul_le_mul_of_nonneg_right hconst hHnonneg
+    calc
+      32 * Real.pi * H / |v| = (32 * Real.pi * H) * (1 / |v|) := by ring
+      _ ≤ (32 * Real.pi * H) * Real.exp (-δ) :=
+        mul_le_mul_of_nonneg_left hinv (by positivity)
+      _ ≤ (1000 * H) * Real.exp (-δ) :=
+        mul_le_mul_of_nonneg_right hcoeff (Real.exp_pos _).le
+      _ ≤ (1000 * H) * Real.exp (-E) :=
+        mul_le_mul_of_nonneg_left hExpOrder (by positivity)
+      _ = 1000 * H * Real.exp (-E) := by ring
+  have hpref : ‖Complex.exp (Complex.I * v * Real.log (q : ℝ))‖ = 1 := by
+    have hfactor : Complex.I * (v : ℂ) * (Real.log (q : ℝ) : ℂ) =
+        Complex.I * ((v * Real.log (q : ℝ) : ℝ) : ℂ) := by
+      push_cast
+      ring
+    have hreal :
+        (Complex.I * ((v * Real.log (q : ℝ) : ℝ) : ℂ)).re = 0 := by
+      rw [Complex.mul_re]
+      simp only [Complex.I_re, Complex.I_im, Complex.ofReal_re, Complex.ofReal_im]
+      norm_num
+    rw [hfactor, Complex.norm_exp, hreal, Real.exp_zero]
+  have hresNorm :
+      ‖residuePhaseSum N' q a v {n : ℕ | N₁ ≤ (n : ℝ) ∧ (n : ℝ) ≤ N₂}‖ =
+        ‖∑ b ∈ Finset.Icc l u,
+          Complex.exp (Complex.I * v * Real.log ((b : ℝ) + θ))‖ := by
+    rw [hReindex, norm_mul, hpref, one_mul]
+  have hfinal :
+      ‖residuePhaseSum N' q a v {n : ℕ | N₁ ≤ (n : ℝ) ∧ (n : ℝ) ≤ N₂}‖ ≤
+        1000 * H * Real.exp (-E) := by
+    calc
+      _ = ‖∑ b ∈ Finset.Icc l u,
+            Complex.exp (Complex.I * v * Real.log ((b : ℝ) + θ))‖ := hresNorm
+      _ ≤ 32 * Real.pi * H / |v| := hfirst
+      _ ≤ 1000 * H * Real.exp (-E) := hbound
+  have hTpow11 : Real.rpow T (11 : ℝ) = T ^ 11 := Real.rpow_natCast T 11
+  have hExpArg : -E = -L / Real.rpow T 11 := by
+    dsimp [E]
+    calc
+      -(L / T ^ 11) = (-L) / T ^ 11 := by ring
+      _ = (-L) / Real.rpow T 11 :=
+        congrArg (fun z : ℝ => (-L) / z) hTpow11.symm
+  have hfinalExp : Real.exp (-E) = Real.exp (-L / Real.rpow T 11) :=
+    congrArg Real.exp hExpArg
+  have hfinal' :
+      ‖residuePhaseSum N' q a v {n : ℕ | N₁ ≤ (n : ℝ) ∧ (n : ℝ) ≤ N₂}‖ ≤
+        1000 * H * Real.exp (-L / Real.rpow T 11) := by
+    simpa only [hfinalExp] using hfinal
+  simpa [H, L, T] using hfinal'
 
 set_option maxHeartbeats 400000 in
 /-- High frequencies use the Taylor polynomial and Vinogradov mean value. -/
