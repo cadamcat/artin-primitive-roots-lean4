@@ -583,6 +583,30 @@ theorem thetaWhit_equiv {P : CoverPackage D S H A} {G : GlobalDatum P}
         A.ψ v x * fourierFirstCoeff C.fourierData g)
   exact thetaWhit_equiv_assembly Fam.fourierHyp C.fourierData
 
+/-- Equal local intertwiner data gives equal adapted constant torus coefficients. -/
+theorem theta_constantCoeff_eq_of_M {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (C : ContinuedEis Fam) (C' : ContinuedEis Fam') (hT : Fam.T0 = Fam'.T0)
+    (hM : ∀ v ∈ Fam.T0, intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) =
+      intertwine (P.loc v) (μ v) ((Fam'.sec (1 / 6)).f v))
+    (g : P.tc.G) (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (h𝔞 : 𝔞 ≠ 0) (hfix : FourierIdealFix Fam.sec g 𝔞)
+    (hfix' : FourierIdealFix Fam'.sec g 𝔞)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume)
+    (hb : Bornology.IsBounded Pd) :
+    torusCoeff P C.theta g Pd 0 = torusCoeff P C'.theta g Pd 0 := by
+  have hMf : famM Fam = famM Fam' := by
+    funext v
+    by_cases hv : v ∈ Fam.T0
+    · have hv' : v ∈ Fam'.T0 := hT ▸ hv
+      simpa only [famM, dite_eq_left hv, dite_eq_left hv'] using hM v hv
+    · have hv' : v ∉ Fam'.T0 := hT ▸ hv
+      simp only [famM, dite_eq_right hv, dite_eq_right hv']
+  rw [theta_constantTerm Fam C g 𝔞 h𝔞 hfix Pd hPd hb,
+    theta_constantTerm Fam' C' g 𝔞 h𝔞 hfix' Pd hPd hb, hT, hMf]
+
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
 theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
