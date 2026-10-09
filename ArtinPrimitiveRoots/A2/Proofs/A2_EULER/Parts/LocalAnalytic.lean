@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Definitions
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.e_d.LocalAnalytic
 
 set_option autoImplicit false
 set_option maxHeartbeats 800000
@@ -22,6 +23,8 @@ theorem local_analytic (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
       ‖localEulerTerm R η U u v hv (p 0) (p 1) (p 2) i‖)) :
     DifferentiableOn ℂ (fun p : Triple =>
       normalizedLocal R η U u v hv (p 0) (p 1) (p 2)) {p | eulerNeighborhood p} := by
-  sorry
+  intro p hp
+  exact (ArtinPrimitiveRoots.Proofs.a2_euler_sol.e_d.normalizedLocal_differentiableAt
+    R η U u v hv hE hs p hp).differentiableWithinAt
 
 end ArtinPrimitiveRoots.Proofs.a2_euler_sol

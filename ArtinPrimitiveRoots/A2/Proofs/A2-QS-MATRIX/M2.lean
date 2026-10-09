@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P1
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».S0
+import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-MOBIUS».S0Slice
 
 /-!
 # A2-QS-MATRIX, part M2: the initial exponent `HasExponent 2`
@@ -2254,7 +2255,7 @@ theorem qs_hasExponent_two_M2 [IsTotallyComplex K] (F : QSFamily m qS)
           ∑ c ∈ qsUpTo m qS N, ‖z c‖ ^ 2 := by
     obtain ⟨parts, hpartsCount, hpartsSub, _hpartsDisj, _hpartsDyad, hpartsClass,
       hpartsEnergy⟩ :=
-        qs_class_dyad_slice_S0 F W hW M N 0 hN z
+        qs_class_dyad_slice_pos_S0 F W hW M N 0 hMpos hN z
     have hpartsBound : (parts.card : ℝ) ≤ Hclass * Clog * N ^ θ := by
       calc
         _ ≤ (Nat.card (ClassFieldTheory.RayClassGroup m) : ℝ) *
