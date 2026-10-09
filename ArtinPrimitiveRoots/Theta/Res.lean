@@ -977,6 +977,47 @@ theorem family_pair_common_classical_residues [IsTotallyComplex F]
   · exact hmatch Fam' C' (fun i => b' (e.symm i)) (fun i => hb' (e.symm i))
       (hfinseries Fam' b' hseries')
 
+/-- Two section families admit the same bounded measurable adapted domain at every point. -/
+theorem family_pair_common_adapted_domain {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (g : P.tc.G) :
+    ∃ (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (Pd : Set (InfinitePlace F → ℂ)),
+      FourierAdaptedDomain Fam.sec g 𝔞 Pd 1 ∧
+      FourierAdaptedDomain Fam'.sec g 𝔞 Pd 1 ∧ MeasurableSet Pd := by
+  obtain ⟨𝔞₁, _, hdom₁, _⟩ := theta_adapted_domain_exists Fam.fourierHyp g
+  obtain ⟨𝔞₂, _, hdom₂, _⟩ := theta_adapted_domain_exists Fam'.fourierHyp g
+  have hnum₁ : 𝔞₁.num ≠ ⊥ := fun h =>
+    hdom₁.1 (FractionalIdeal.zero_of_num_eq_bot (by simp) h)
+  have hnum₂ : 𝔞₂.num ≠ ⊥ := fun h =>
+    hdom₂.1 (FractionalIdeal.zero_of_num_eq_bot (by simp) h)
+  let J : Ideal (𝓞 F) := 𝔞₁.num * 𝔞₂.num
+  have hJ : J ≠ ⊥ := by
+    intro h
+    exact (Ideal.mul_eq_bot.mp h).elim hnum₁ hnum₂
+  let 𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F := J
+  have h𝔞 : 𝔞 ≠ 0 :=
+    (FractionalIdeal.coeIdeal_ne_zero' (le_refl (nonZeroDivisors (𝓞 F)))).mpr hJ
+  have hle₁ : 𝔞 ≤ 𝔞₁ := by
+    exact ((FractionalIdeal.coeIdeal_le_coeIdeal F).mpr
+      (show J ≤ 𝔞₁.num from Ideal.mul_le_left)).trans (FractionalIdeal.num_le 𝔞₁)
+  have hle₂ : 𝔞 ≤ 𝔞₂ := by
+    exact ((FractionalIdeal.coeIdeal_le_coeIdeal F).mpr
+      (show J ≤ 𝔞₂.num from Ideal.mul_le_right)).trans (FractionalIdeal.num_le 𝔞₂)
+  let I := Units.mk0 𝔞 h𝔞
+  obtain ⟨Pd, hPd, hb, hm⟩ := bounded_measurable_ideal_domain D I
+  have hfix : FourierIdealFix Fam.sec g 𝔞 := by
+    intro s ξ hξ h
+    exact hdom₁.2.1 s ξ (hle₁ hξ) h
+  have hfix' : FourierIdealFix Fam'.sec g 𝔞 := by
+    intro s ξ hξ h
+    exact hdom₂.2.1 s ξ (hle₂ hξ) h
+  have hdual : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf 1 (infEmbA ξ) = 1 := by
+    intro ξ hξ
+    exact hdom₁.2.2.2.2 ξ (hle₁ hξ)
+  exact ⟨𝔞, Pd, ⟨h𝔞, hfix, hPd, hb, hdual⟩,
+    ⟨h𝔞, hfix', hPd, hb, hdual⟩, hm⟩
+
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
 theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
