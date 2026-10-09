@@ -22,6 +22,11 @@ private theorem int_le_intRadiusCutoff (k : ℤ) : k ≤ intRadiusCutoff k := by
   rw [hcast]
   exact le_max_right 0 k
 
+def linearBallAnnihilator (A : AddCharData F) (v : FinPlace F) (N : ℕ) :
+    Set (v.adicCompletion F) :=
+  ⋂ x : {x : v.adicCompletion F // x ∈ localBall v N},
+    {s | A.ψ v (-2 * x.1 * s) = 1}
+
 theorem quadraticBallAnnihilator_eventually_trivial
     (A : AddCharData F) (v : FinPlace F) (hψ : LocalCharacterRegular A v)
     (a : (v.adicCompletion F)ˣ) :
@@ -118,5 +123,141 @@ theorem quadraticBallAnnihilator_eventually_trivial
     dsimp [x]
     field_simp [htwo, ha, htne] <;> ring
   exact hz₀ (by rw [← hvalchar, hDprop.2 x hxB])
+
+theorem linearBallAnnihilator_eventually_scalar_invariant
+    (A : AddCharData F) (v : FinPlace F) (hψ : LocalCharacterRegular A v)
+    (a : (v.adicCompletion F)ˣ) :
+    ∃ N₀, ∀ N, N₀ ≤ N → ∀ s ∈ linearBallAnnihilator A v N,
+      s ∈ localBall v N ∧ (a : v.adicCompletion F)⁻¹ * s ∈ localBall v N := by
+  classical
+  have hnontriv : ∃ z : v.adicCompletion F, A.ψ v z ≠ 1 := by
+    by_contra hn
+    apply hψ.2.1
+    ext z
+    by_contra h
+    exact hn ⟨z, h⟩
+  obtain ⟨z₀, hz₀⟩ := hnontriv
+  have hz₀ne : z₀ ≠ 0 := by
+    intro hz
+    subst z₀
+    simpa using hz₀
+  have htwo : (2 : v.adicCompletion F) ≠ 0 := by norm_num
+  have ha : (a : v.adicCompletion F) ≠ 0 := a.ne_zero
+  have hvz₀ : Valued.v z₀ ≠ 0 := (Valued.v.ne_zero_iff).2 hz₀ne
+  have hvtwo : Valued.v (2 : v.adicCompletion F) ≠ 0 :=
+    (Valued.v.ne_zero_iff).2 htwo
+  have hva : Valued.v (a : v.adicCompletion F) ≠ 0 :=
+    (Valued.v.ne_zero_iff).2 ha
+  let γ : ℤ := WithZero.log (Valued.v z₀) - WithZero.log (Valued.v (2 : v.adicCompletion F))
+  let α : ℤ := WithZero.log (Valued.v (a : v.adicCompletion F))
+  let N₁ := intRadiusCutoff γ
+  let N₂ := intRadiusCutoff (γ - α)
+  let N₀ := max N₁ N₂
+  have hγN₀ : γ ≤ N₀ := by
+    exact (int_le_intRadiusCutoff γ).trans (by exact_mod_cast le_max_left N₁ N₂)
+  have hγαN₀ : γ - α ≤ N₀ := by
+    exact (int_le_intRadiusCutoff (γ - α)).trans (by exact_mod_cast le_max_right N₁ N₂)
+  refine ⟨N₀, ?_⟩
+  intro N hN s hs
+  have hDprop : ∀ x ∈ localBall v N,
+      A.ψ v (-2 * x * s) = 1 := by
+    simpa [linearBallAnnihilator, Set.mem_iInter, Set.mem_ofPred_eq] using hs
+  have hγN : γ ≤ (N : ℤ) := hγN₀.trans (by exact_mod_cast hN)
+  have hγαN : γ - α ≤ (N : ℤ) := hγαN₀.trans (by exact_mod_cast hN)
+  have sB : s ∈ localBall v N := by
+    by_cases hs0 : s = 0
+    · simp [hs0, localBall]
+    · have hvsne : Valued.v s ≠ 0 := (Valued.v.ne_zero_iff).2 hs0
+      by_contra hnotB
+      change ¬ Valued.v s ≤ WithZero.exp (N : ℤ) at hnotB
+      have hvsGt : WithZero.exp (N : ℤ) < Valued.v s := lt_of_not_ge hnotB
+      have hlogGt : (N : ℤ) < WithZero.log (Valued.v s) :=
+        (WithZero.lt_log_iff_exp_lt hvsne).mpr hvsGt
+      let x : v.adicCompletion F := z₀ / (-2 * s)
+      have hxne : x ≠ 0 := by
+        dsimp [x]
+        exact div_ne_zero hz₀ne (mul_ne_zero (neg_ne_zero.mpr htwo) hs0)
+      have hvx : Valued.v x = Valued.v z₀ / (Valued.v (2 : v.adicCompletion F) * Valued.v s) := by
+        dsimp [x]
+        simp [Valuation.map_neg, Valuation.map_mul]
+      have hvxne : Valued.v x ≠ 0 := (Valued.v.ne_zero_iff).2 hxne
+      have hlogx : WithZero.log (Valued.v x) = γ - WithZero.log (Valued.v s) := by
+        rw [hvx, WithZero.log_div hvz₀ (mul_ne_zero hvtwo hvsne),
+          WithZero.log_mul hvtwo hvsne]
+        dsimp [γ]
+        ring
+      have hlogxLe : WithZero.log (Valued.v x) ≤ (N : ℤ) := by
+        rw [hlogx]
+        have : γ - WithZero.log (Valued.v s) < 0 := by omega
+        omega
+      have hxB : x ∈ localBall v N := by
+        change Valued.v x ≤ WithZero.exp (N : ℤ)
+        exact (WithZero.log_le_iff_le_exp hvxne).mp hlogxLe
+      have harg : -2 * x * s = z₀ := by
+        dsimp [x]
+        field_simp [htwo, hs0] <;> ring
+      have hchar := hDprop x hxB
+      rw [harg] at hchar
+      exact hz₀ hchar
+  have ainvB : (a : v.adicCompletion F)⁻¹ * s ∈ localBall v N := by
+    let s' : v.adicCompletion F := (a : v.adicCompletion F)⁻¹ * s
+    by_cases hs'0 : s' = 0
+    · have hs0 : s = 0 := by
+        have hfactor : (a : v.adicCompletion F) * s' = s := by
+          dsimp [s']
+          simp [mul_assoc]
+        rw [← hfactor, hs'0]
+        simp
+      simp [hs0, localBall]
+    · have hvs'ne : Valued.v s' ≠ 0 := (Valued.v.ne_zero_iff).2 hs'0
+      by_contra hnotB
+      change ¬ Valued.v s' ≤ WithZero.exp (N : ℤ) at hnotB
+      have hvs'gt : WithZero.exp (N : ℤ) < Valued.v s' := lt_of_not_ge hnotB
+      have hloggt : (N : ℤ) < WithZero.log (Valued.v s') :=
+        (WithZero.lt_log_iff_exp_lt hvs'ne).mpr hvs'gt
+      have hsne : s ≠ 0 := by
+        intro hs0
+        apply hs'0
+        simp [s', hs0]
+      have hvsne : Valued.v s ≠ 0 := (Valued.v.ne_zero_iff).2 hsne
+      have hfactor : (a : v.adicCompletion F) * s' = s := by
+        dsimp [s']
+        simp [mul_assoc]
+      have hlogs : WithZero.log (Valued.v s) = α + WithZero.log (Valued.v s') := by
+        calc
+          WithZero.log (Valued.v s) = WithZero.log (Valued.v ((a : v.adicCompletion F) * s')) := by
+            rw [hfactor]
+          _ = WithZero.log (Valued.v (a : v.adicCompletion F)) +
+              WithZero.log (Valued.v s') := by
+            rw [Valuation.map_mul, WithZero.log_mul hva hvs'ne]
+          _ = _ := rfl
+      let x : v.adicCompletion F := z₀ / (-2 * s)
+      have hxne : x ≠ 0 := by
+        dsimp [x]
+        exact div_ne_zero hz₀ne (mul_ne_zero (neg_ne_zero.mpr htwo) hsne)
+      have hvx : Valued.v x = Valued.v z₀ / (Valued.v (2 : v.adicCompletion F) * Valued.v s) := by
+        dsimp [x]
+        simp [Valuation.map_neg, Valuation.map_mul]
+      have hvxne : Valued.v x ≠ 0 := (Valued.v.ne_zero_iff).2 hxne
+      have hlogx : WithZero.log (Valued.v x) = γ - WithZero.log (Valued.v s) := by
+        rw [hvx, WithZero.log_div hvz₀ (mul_ne_zero hvtwo hvsne),
+          WithZero.log_mul hvtwo hvsne]
+        dsimp [γ]
+        ring
+      have hlogxlt : WithZero.log (Valued.v x) < 0 := by
+        rw [hlogx, hlogs]
+        dsimp [γ, α]
+        omega
+      have hxB : x ∈ localBall v N := by
+        change Valued.v x ≤ WithZero.exp (N : ℤ)
+        apply (WithZero.log_le_iff_le_exp hvxne).mp
+        omega
+      have harg : -2 * x * s = z₀ := by
+        dsimp [x]
+        field_simp [htwo, hsne] <;> ring
+      have hchar := hDprop x hxB
+      rw [harg] at hchar
+      exact hz₀ hchar
+  exact ⟨sB, ainvB⟩
 
 end ArtinPrimitiveRoots.Proofs.a1_weil_sol_w_c
