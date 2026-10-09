@@ -704,7 +704,15 @@ theorem exists_theta_ne_zero (P : CoverPackage D S H A) (G : GlobalDatum P)
     ∃ (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam), Fam.T0 = S.Sf ∧
       (∀ v ∈ S.Sf, ∃ φ : v.adicCompletion F → (G.T v).V, IsLocallyConstant φ ∧ HasCompactSupport φ ∧
         ∀ s, (Fam.sec s).f v = bigCell (P.loc v) (G.T v) s φ) ∧ ∃ g, C.theta g ≠ 0 := by
-  sorry
+  obtain ⟨Fam, hT, hcell, h1, hzero⟩ := normalized_bigCell_family P G μ
+  obtain ⟨C⟩ := exists_continuedEis Fam
+  obtain ⟨Pd, hcoeff⟩ := normalized_family_constantCoeff_ne_zero Fam C hT h1 hzero
+  have htheta : ∃ g, C.theta g ≠ 0 := by
+    by_contra h
+    have hz : ∀ g, C.theta g = 0 := by simpa only [not_exists, not_not] using h
+    apply hcoeff
+    simp [torusCoeff, hz]
+  exact ⟨Fam, C, hT, hcell, htheta⟩
 
 /-- **res:theta-multilinear**: with the data outside `S_f` fixed, `W_θ(g)` is a multilinear form in
 the local Jacquet vectors at `S_f` at `s0`, times the complex spherical Jacquet values. -/
