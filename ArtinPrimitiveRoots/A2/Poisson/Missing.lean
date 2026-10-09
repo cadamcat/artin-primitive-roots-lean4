@@ -1533,6 +1533,246 @@ private theorem po_probe_low_gauss_sieve (K : Set S.FS) (hK : IsCompact K) :
       rw [hrow]
     _ ≤ _ := hbound ρ hρ hmask
 
+private theorem po_probe_low_additive_row_bound :
+    ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z → ∀ t : S.FSˣ,
+      (t : S.FS) ∈ omegaAt R 1 →
+      (∑' m : S.R,
+        ‖((Z ^ b : ℝ) : ℂ)⁻¹ * ∑' s : S.ExtIdeal,
+          W.W1 (qI s.1 / (Z ^ b)) *
+            ((qI s.1 * (Z ^ a)) ^ (-(1 / 2 : ℝ)) : ℝ) *
+            (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+            W.W0 (S.diag (m : F) *
+              ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val)‖ ^ 2) ≤
+        C / (Z ^ b) := by
+  obtain ⟨T, hT, K, hK, c, bound, hb, hsum, _, hc, hczero, hrec⟩ :=
+    po_probe_low_fourier R W
+  obtain ⟨KO, hKO, hOmega⟩ := R.sheets.omega_bounded
+  let KT : Set S.FS := (fun x : S.FS => (R.sheets.ellU 1 : S.FS) * x) '' KO
+  have hKT : IsCompact KT := hKO.image (continuous_const.mul continuous_id)
+  have hKval : IsCompact ((Units.val : S.FSˣ → S.FS) '' K) :=
+    hK.image Units.continuous_val
+  let Kall : Set S.FS := (fun p : S.FS × S.FS => p.1 * p.2) ''
+    (KT ×ˢ ((Units.val : S.FSˣ → S.FS) '' K))
+  have hKall : IsCompact Kall :=
+    (hKT.prod hKval).image (continuous_fst.mul continuous_snd)
+  obtain ⟨B, Cs, hB, hCs, hsieve⟩ := po_probe_low_gauss_sieve R W Kall hKall
+  let C0 : ℝ := (∑' j : ℤ, bound j) ^ 2 * Cs * (1 + B ^ 2)
+  have hC0 : 0 ≤ C0 := by dsimp only [C0]; positivity
+  refine ⟨C0 + 1, by linarith, ?_⟩
+  intro Z hZ t ht
+  have hZpos : 0 < Z := by linarith
+  have hZ1 : 1 ≤ Z := by linarith
+  let Y : ℝ := Z ^ b
+  let N : ℝ := Z ^ M0
+  have hYpos : 0 < Y := Real.rpow_pos_of_pos hZpos _
+  have hNpos : 0 < N := Real.rpow_pos_of_pos hZpos _
+  have hY1 : 1 ≤ Y := Real.one_le_rpow hZ1 (by norm_num [b])
+  have hN2 : 2 ≤ N := by
+    calc
+      2 ≤ Z := hZ
+      _ = Z ^ (1 : ℝ) := (Real.rpow_one _).symm
+      _ ≤ N := Real.rpow_le_rpow_of_exponent_le hZ1 (by norm_num [M0, a, b])
+  have hYsquare : Y ^ 2 ≤ N := by
+    calc
+      _ = Z ^ (b * 2) := by rw [Real.rpow_mul hZpos.le, Real.rpow_two]
+      _ ≤ N := Real.rpow_le_rpow_of_exponent_le hZ1 (by norm_num [M0, a, b])
+  have htKT : (t : S.FS) ∈ KT := by
+    obtain ⟨x, hx, htx⟩ := ht
+    exact ⟨x, hOmega hx, htx.symm⟩
+  let Row := {m : S.R // InAdditiveWindow D S Kall N hNpos m}
+  let Kscaled : Set S.FS := (fun x : S.FS => S.ell D N hNpos * x) '' Kall
+  have hKscaled : IsCompact Kscaled := hKall.image (continuous_const.mul continuous_id)
+  have hfinite := po_finite_diagR_inter_compact (S := S) D Kscaled hKscaled
+  have hrows : {m : S.R | InAdditiveWindow D S Kall N hNpos m}.Finite := by
+    apply Set.Finite.of_injOn (f := fun m : S.R => S.diag (m : F))
+      (t := Kscaled ∩ S.diagR) ?_ ?_ hfinite
+    · intro m hm
+      obtain ⟨x, hx, hm⟩ := hm
+      exact ⟨⟨x, hx, hm.symm⟩, ⟨m, rfl⟩⟩
+    · intro m hm n hn hmn
+      exact Subtype.ext (S.diag.injective hmn)
+  let : Fintype Row := hrows.fintype
+  obtain ⟨P, hP, hgauss⟩ := hsieve Y N hY1 hN2
+  let ψ (j : ℤ) (s : S.ExtIdeal) : ℂ := Complex.exp
+    (((2 * Real.pi : ℝ) : ℂ) * Complex.I * (j : ℂ) *
+      (Real.log (qI s.1 / Y) : ℂ) / (T : ℂ))
+  have hψ (j : ℤ) (s : S.ExtIdeal) : ‖ψ j s‖ = 1 := by
+    dsimp only [ψ]
+    rw [Complex.norm_exp]
+    norm_num [Complex.mul_re, Complex.mul_im, Complex.div_re]
+  let y (m : S.R) : S.FS := S.diag (m : F) * ((t * R.sheets.ellU N)⁻¹ : S.FSˣ).val
+  let rN : ℂ := ((N ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ)
+  have hrNsquare : ‖rN‖ ^ 2 = N⁻¹ := by
+    dsimp only [rN]
+    rw [Complex.norm_real, Real.norm_eq_abs,
+      abs_of_pos (Real.rpow_pos_of_pos hNpos _)]
+    calc
+      _ = N ^ ((-(1 / 2 : ℝ)) * 2) := by rw [Real.rpow_mul hNpos.le, Real.rpow_two]
+      _ = _ := by norm_num [Real.rpow_neg_one]
+  let grow (j : ℤ) (m : S.R) : ℂ := (Y : ℂ)⁻¹ * ∑ s ∈ P,
+    ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ψ j s * finiteGauss R s (-(m : F))
+  let g (j : ℤ) (m : S.R) : ℂ := rN * c j (y m) * grow j m
+  let V : ℝ := Cs * (N + (B * Y) ^ 2) / Y
+  let R0 : ℝ := Cs * (1 + B ^ 2) / Y
+  have hR0 : 0 ≤ R0 := by dsimp only [R0]; positivity
+  have hnormalized : ‖rN‖ ^ 2 * V ≤ R0 := by
+    have hratio : (N + (B * Y) ^ 2) / N ≤ 1 + B ^ 2 := by
+      apply (div_le_iff₀ hNpos).mpr
+      nlinarith [mul_le_mul_of_nonneg_left hYsquare (sq_nonneg B)]
+    rw [hrNsquare]
+    calc
+      _ = (Cs / Y) * ((N + (B * Y) ^ 2) / N) := by dsimp only [V]; ring
+      _ ≤ (Cs / Y) * (1 + B ^ 2) :=
+        mul_le_mul_of_nonneg_left hratio (by positivity)
+      _ = R0 := by dsimp only [R0]; ring
+  have hmode (j : ℤ) : (∑ m : Row, ‖g j m.1‖ ^ 2) ≤ (bound j) ^ 2 * R0 := by
+    have hGauss : (∑ m : Row, ‖grow j m.1‖ ^ 2) ≤ V := by
+      simpa only [tsum_fintype, grow, V] using hgauss (ψ j) (fun s => (hψ j s).le)
+    calc
+      _ ≤ ∑ m : Row, ‖rN‖ ^ 2 * (bound j) ^ 2 * ‖grow j m.1‖ ^ 2 := by
+        apply Finset.sum_le_sum
+        intro m hm
+        dsimp only [g]
+        rw [norm_mul, norm_mul, mul_pow, mul_pow]
+        have hcoeff : ‖c j (y m.1)‖ ^ 2 ≤ (bound j) ^ 2 :=
+          (sq_le_sq₀ (norm_nonneg _) (hb j)).mpr (hc j (y m.1))
+        exact mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left hcoeff (sq_nonneg _)) (sq_nonneg _)
+      _ = ‖rN‖ ^ 2 * (bound j) ^ 2 * ∑ m : Row, ‖grow j m.1‖ ^ 2 := by
+        rw [Finset.mul_sum]
+      _ ≤ ‖rN‖ ^ 2 * (bound j) ^ 2 * V :=
+        mul_le_mul_of_nonneg_left hGauss (by positivity)
+      _ = (bound j) ^ 2 * (‖rN‖ ^ 2 * V) := by ring
+      _ ≤ (bound j) ^ 2 * R0 :=
+        mul_le_mul_of_nonneg_left hnormalized (sq_nonneg _)
+  obtain ⟨hmodeSum, hmodeMass⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.finite_row_tsum_l2
+      (fun j (m : Row) => g j m.1) bound R0 hR0 hb hsum hmode
+  let f (m : S.R) : ℂ := (Y : ℂ)⁻¹ * ∑ s ∈ P,
+    W.W1 (qI s.1 / Y) * (((qI s.1 * (Z ^ a)) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) *
+      ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * finiteGauss R s (-(m : F)) *
+        W.W0 (S.diag (m : F) *
+          ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val)
+  have hreconstruct (m : S.R) : f m = ∑' j : ℤ, g j m := by
+    let ascale (s : S.ExtIdeal) : ℂ := (Y : ℂ)⁻¹ * rN *
+      ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * finiteGauss R s (-(m : F))
+    have hbase (s : S.ExtIdeal) : Summable (fun j : ℤ => c j (y m) * ψ j s) := by
+      apply hsum.of_norm_bounded
+      intro j
+      rw [norm_mul, hψ, mul_one]
+      exact hc j (y m)
+    have hterms (s : S.ExtIdeal) :
+        Summable (fun j : ℤ => ascale s * (c j (y m) * ψ j s)) :=
+      (hbase s).mul_left _
+    have hexpand (j : ℤ) : g j m = ∑ s ∈ P, ascale s * (c j (y m) * ψ j s) := by
+      dsimp only [g, grow]
+      simp only [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro s hs
+      dsimp only [ascale]
+      ring
+    calc
+      f m = ∑ s ∈ P, ascale s * (∑' j : ℤ, c j (y m) * ψ j s) := by
+        dsimp only [f]
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro s hs
+        have hvSupport : qI s.1 / Y ∈ tsupport W.W1 :=
+          subset_closure (Function.mem_support.mpr ((hP s).mp hs))
+        have hv : 0 < qI s.1 / Y := W.W1_positive_support hvSupport
+        have hscale : qI s.1 * (Z ^ a) = N * (qI s.1 / Y) := by
+          dsimp only [N, Y]
+          rw [M0, Real.rpow_add hZpos]
+          field_simp
+        have hqScale : 0 < qI s.1 * (Z ^ a) := by
+          rw [hscale]
+          exact mul_pos hNpos hv
+        have hellScale : R.sheets.ellU (qI s.1 * (Z ^ a)) =
+            R.sheets.ellU N * R.sheets.ellU (qI s.1 / Y) := by
+          apply Units.ext
+          rw [Units.val_mul, R.sheets.ellU_val _ hqScale,
+            R.sheets.ellU_val _ hNpos, R.sheets.ellU_val _ hv]
+          simp only [SData.ell, hscale, Real.mul_rpow hNpos.le hv.le]
+          ext k <;> simp
+        have harg : y m * ((R.sheets.ellU (qI s.1 / Y))⁻¹ : S.FSˣ).val =
+            S.diag (m : F) *
+              ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val := by
+          rw [hellScale]
+          dsimp only [y]
+          simp only [mul_inv_rev, Units.val_mul]
+          ac_rfl
+        have hrpow : ((qI s.1 * (Z ^ a)) ^ (-(1 / 2 : ℝ)) : ℝ) =
+            N ^ (-(1 / 2 : ℝ)) * (qI s.1 / Y) ^ (-(1 / 2 : ℝ)) := by
+          rw [hscale, Real.mul_rpow hNpos.le hv.le]
+        have hFourier := hrec (qI s.1 / Y) hvSupport (y m)
+        change ((qI s.1 / Y) ^ (-(1 / 2 : ℝ)) : ℝ) * W.W1 (qI s.1 / Y) *
+          W.W0 (y m * ((R.sheets.ellU (qI s.1 / Y))⁻¹ : S.FSˣ).val) =
+            ∑' j : ℤ, c j (y m) * ψ j s at hFourier
+        rw [← hFourier, harg, hrpow, Complex.ofReal_mul]
+        dsimp only [ascale, rN]
+        ring
+      _ = ∑ s ∈ P, ∑' j : ℤ, ascale s * (c j (y m) * ψ j s) := by
+        apply Finset.sum_congr rfl
+        intro s hs
+        rw [tsum_mul_left]
+      _ = ∑' j : ℤ, ∑ s ∈ P, ascale s * (c j (y m) * ψ j s) :=
+        (Summable.tsum_finsetSum (fun s hs => hterms s)).symm
+      _ = _ := tsum_congr (fun j => (hexpand j).symm)
+  have hzero (j : ℤ) (m : S.R) (hm : ¬ InAdditiveWindow D S Kall N hNpos m) : g j m = 0 := by
+    have hcy : c j (y m) = 0 := by
+      apply hczero
+      intro hy
+      obtain ⟨u, hu, hyu⟩ := hy
+      have htu : ((t * u : S.FSˣ) : S.FS) ∈ Kall := by
+        refine ⟨⟨(t : S.FS), (u : S.FS)⟩, ⟨htKT, ⟨u, hu, rfl⟩⟩, ?_⟩
+        exact (Units.val_mul _ _).symm
+      apply hm
+      refine ⟨((t * u : S.FSˣ) : S.FS), htu, ?_⟩
+      calc
+        S.diag (m : F) = y m * ((t * R.sheets.ellU N : S.FSˣ) : S.FS) := by
+          simp [y, mul_assoc, ← Units.val_mul]
+        _ = S.ell D N hNpos * ((t * u : S.FSˣ) : S.FS) := by
+          rw [← hyu, Units.val_mul, Units.val_mul, R.sheets.ellU_val _ hNpos]
+          ac_rfl
+    simp only [g, hcy, mul_zero, zero_mul]
+  have hsupport : Function.support (fun m : S.R => ‖f m‖ ^ 2) ⊆
+      {m : S.R | InAdditiveWindow D S Kall N hNpos m} := by
+    intro m hm
+    by_contra hnot
+    have hfzero : f m = 0 := by
+      rw [hreconstruct]
+      calc
+        _ = ∑' j : ℤ, (0 : ℂ) := tsum_congr (fun j => hzero j m hnot)
+        _ = 0 := tsum_zero
+    apply hm
+    simp only [hfzero, norm_zero, zero_pow (by decide : 2 ≠ 0)]
+  have hfull (m : S.R) :
+      ((Z ^ b : ℝ) : ℂ)⁻¹ * (∑' s : S.ExtIdeal,
+        W.W1 (qI s.1 / (Z ^ b)) * ((qI s.1 * (Z ^ a)) ^ (-(1 / 2 : ℝ)) : ℝ) *
+          (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+            W.W0 (S.diag (m : F) *
+              ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val)) = f m := by
+    dsimp only [f, Y]
+    congr 1
+    apply tsum_eq_sum
+    intro s hs
+    have hz : W.W1 (qI s.1 / Y) = 0 := by
+      by_contra hne
+      exact hs ((hP s).mpr hne)
+    simp only [← show Y = Z ^ b from rfl, hz, zero_mul]
+  calc
+    _ = ∑' m : S.R, ‖f m‖ ^ 2 := tsum_congr (fun m => by rw [hfull])
+    _ = ∑ m : Row, ‖∑' j : ℤ, g j m.1‖ ^ 2 := by
+      rw [← tsum_subtype_eq_of_support_subset hsupport]
+      change (∑' m : Row, ‖f m.1‖ ^ 2) = _
+      rw [tsum_fintype]
+      exact Finset.sum_congr rfl fun m hm => by rw [hreconstruct]
+    _ ≤ (∑' j : ℤ, bound j) ^ 2 * R0 := hmodeMass
+    _ = C0 / Y := by dsimp only [R0, C0]; ring
+    _ ≤ (C0 + 1) / (Z ^ b) := by
+      change C0 / Y ≤ (C0 + 1) / Y
+      exact div_le_div_of_nonneg_right (by linarith) hYpos.le
+
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
     (hSplit : GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η) :
