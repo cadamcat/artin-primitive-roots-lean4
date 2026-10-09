@@ -6158,6 +6158,110 @@ theorem whit_bruhat_arch_integral
     rw [hprod, norm_mul, hcnorm, one_mul]
     exact hNorm
 
+/-- An absolutely summable weighted ideal quotient is the normalized Jacquet product. -/
+theorem whit_ideal_quotient_integral
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0)
+    (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F),
+      psiInf (ν : F) (infEmbA ξ) = 1) (δ : Fˣ)
+    (habs : Summable (fun η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup =>
+      ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)‖))
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume) :
+    ((volume Pd).toReal)⁻¹ *
+      (∑' η : F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup,
+        psiInf (ν : F) (infEmbA (Quotient.out η)) *
+          (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+            (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r) *
+              psiInf (-(ν : F)) x)) =
+      (κF F)⁻¹ *
+        ((∏ᶠ v : FinPlace F, G.lam v ((G.T v).σa (toLoc v (δ * ν))
+          (jacquet (P.loc v) A (μ v)
+            (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))) *
+          ∏ w : InfinitePlace F,
+            jacquetC (rtr (aC (Units.map w.embedding.toMonoidHom ν) * P.compC w r) (Fs.fC w))) := by
+  classical
+  let Q := F ⧸ (𝔞 : Submodule (𝓞 F) F).toAddSubgroup
+  let raw : Q → ℂ := fun η => ∏ᶠ v : FinPlace F,
+    A.ψ v (-((toLoc v ν : v.adicCompletion F) *
+      algebraMap F (v.adicCompletion F) (Quotient.out η))) *
+      G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd
+          (algebraMap F (v.adicCompletion F) (Quotient.out η))) * P.compF v r))
+  let fc : InfinitePlace F → ℂ → ℂ := fun w z =>
+    psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+      (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)
+  let C : ℂ := ∏ w : InfinitePlace F, ∫ z : ℂ, fc w z
+  let Aabs : ℝ := ∏ w : InfinitePlace F, ∫ z : ℂ, ‖fc w z‖
+  let I : Q → ℂ := fun η => psiInf (ν : F) (infEmbA (Quotient.out η)) *
+    (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r) *
+        psiInf (-(ν : F)) x)
+  let B : ℂ := ∏ᶠ v : FinPlace F, G.lam v ((G.T v).σa (toLoc v (δ * ν))
+    (jacquet (P.loc v) A (μ v)
+      (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))
+  let J : ℂ := ∏ w : InfinitePlace F,
+    jacquetC (rtr (aC (Units.map w.embedding.toMonoidHom ν) * P.compC w r) (Fs.fC w))
+  have hI (η : Q) : I η = raw η * C := by
+    simpa only [I, raw, C, fc] using
+      (whit_bruhat_arch_integral P G Fs r ν δ (Quotient.out η)).1
+  have hχnorm : ∀ x : InfinitePlace F → ℂ, ‖psiInf (-(ν : F)) x‖ = 1 :=
+    (whit_psiInf_character (-(ν : F)) (neg_ne_zero.mpr ν.ne_zero)).2.1
+  have hNorm (η : Q) :
+      (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r)‖) =
+        ‖raw η‖ * Aabs := by
+    calc
+      _ = ∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+          (P.tc.rat (diagGL δ * weylGL) * nFin P (Quotient.out η) * nInf P x * P.q r) *
+            psiInf (-(ν : F)) x‖ := by
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall (fun x => by
+          simp only [norm_mul, hχnorm, mul_one])
+      _ = _ := by
+        simpa only [raw, Aabs, fc] using
+          (whit_bruhat_arch_integral P G Fs r ν δ (Quotient.out η)).2
+  have hscaled : Summable (fun η : Q => ‖raw η‖ * Aabs) := habs.congr hNorm
+  change ((volume Pd).toReal)⁻¹ * (∑' η : Q, I η) = (κF F)⁻¹ * (B * J)
+  by_cases hA : Aabs = 0
+  · have hbound : ‖C‖ ≤ Aabs := by
+      dsimp only [C, Aabs]
+      rw [norm_prod]
+      exact Finset.prod_le_prod₀ (fun w _ => norm_nonneg _)
+        (fun w _ => norm_integral_le_integral_norm _)
+    have hC : C = 0 := by
+      rw [hA] at hbound
+      exact norm_eq_zero.mp (le_antisymm hbound (norm_nonneg C))
+    have hIz (η : Q) : I η = 0 := by rw [hI, hC, mul_zero]
+    have hJ : J = 0 := by
+      have hh := whit_arch_jacquet_product P G Fs r ν δ
+      change (∏ᶠ v : FinPlace F,
+          (absFin v (toLoc v δ) : ℂ) ^ ((1 : ℂ) / 2 + s)) *
+        (∏ᶠ v : FinPlace F,
+          (absFin v (toLoc v ν) : ℂ) ^ (s - (1 : ℂ) / 2)) * C = J at hh
+      rw [hC, mul_zero] at hh
+      exact hh.symm
+    simp only [hIz, tsum_zero, mul_zero, hJ]
+  · have hrawNorm : Summable (fun η : Q => ‖raw η‖) :=
+      (summable_mul_right_iff hA).mp hscaled
+    have hp := whit_bruhat_local_quotient_hasProd P G μ hs Fs r
+      𝔞 h𝔞 hfix hΦ ν hν δ hrawNorm
+    have hsum : (∑' η : Q, I η) = (∑' η : Q, raw η) * C := by
+      calc
+        _ = ∑' η : Q, raw η * C := tsum_congr hI
+        _ = _ := hrawNorm.of_norm.tsum_mul_right C
+    rw [hsum]
+    simpa only [C, fc, B, J] using
+      whit_jacquet_product_normalization P G μ Fs r 𝔞 h𝔞 ν δ hp Pd hPd
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
