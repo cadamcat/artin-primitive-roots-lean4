@@ -28,6 +28,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedErrors
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedSieve
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.FixedCutoff
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.LargePrime
+import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedAggregation
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
