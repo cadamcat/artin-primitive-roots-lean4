@@ -428,7 +428,9 @@ theorem sheetGeometry_exists (D : FieldData F) (S : SData F CE condη)
       simpa [sheet] using
         ArtinPrimitiveRoots.Proofs.a2_prod_sol.sheetMeasure_translate S μ v0 a T hT
     sheet_inversion := by
-      sorry
+      intro T hT
+      simpa [sheet] using
+        ArtinPrimitiveRoots.Proofs.a2_prod_sol.sheetMeasure_inversion S μ v0 T hT
     unitSixFinite := by
       letI : Finite (UnitSix S) :=
         ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.unitSixFinite D S
