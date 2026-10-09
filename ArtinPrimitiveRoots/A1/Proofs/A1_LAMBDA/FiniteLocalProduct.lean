@@ -15,9 +15,9 @@ theorem finite_local_product_exists
     (f : ∀ v : FinPlace F, ContinuousMonoidHom (v.adicCompletion F)ˣ ℂˣ)
     (hgood : ∀ᶠ v : FinPlace F in Filter.cofinite,
       ∀ u : (v.adicCompletion F)ˣ, localUnit v u → f v u = 1) :
-    ∃ g : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ,
+    ∃ g : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ,
       (∀ x, g x = ∏ᶠ v : FinPlace F, f v (Dictionary.ideleFiniteCoord v x)) ∧
-      ∀ x : IdeleGroup (𝓞 F) F,
+      ∀ x : NumberField.IdeleGroup (𝓞 F) F,
         Function.HasFiniteMulSupport (fun v : FinPlace F =>
           f v (Dictionary.ideleFiniteCoord v x)) := by
   sorry
