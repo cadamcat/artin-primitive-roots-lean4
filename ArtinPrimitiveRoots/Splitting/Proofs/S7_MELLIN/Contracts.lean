@@ -87,7 +87,64 @@ theorem mellin_decay (f : ℝ → ℝ)
     ∀ (A : ℕ) (a b : ℝ), a ≤ b →
       ∃ C : ℝ, 0 < C ∧ ∀ s : ℂ, a ≤ s.re → s.re ≤ b →
         ‖mellinTransform f s‖ ≤ C * Real.rpow (1 + |s.im|) (-(A : ℝ)) := by
-  sorry
+  let E : (ℝ → ℝ) → ℝ → ℝ := fun g t => t * deriv g t
+  have htest (n : ℕ) :
+      ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (E^[n] f) ∧ HasCompactSupport (E^[n] f) ∧
+        Function.support (E^[n] f) ⊆ Set.Ioi 0 := by
+    induction n with
+    | zero => simpa only [Function.iterate_zero, id_eq] using hf
+    | succ n hn =>
+      simpa only [Function.iterate_succ_apply', E] using
+        (mellin_euler_step (E^[n] f) hn).1
+  have hPhi (n : ℕ) (s : ℂ) :
+      mellinTransform (E^[n] f) s = (-s) ^ n * mellinTransform f s := by
+    induction n with
+    | zero => simp
+    | succ n hn =>
+      rw [Function.iterate_succ_apply']
+      change mellinTransform (fun t : ℝ => t * deriv (E^[n] f) t) s = _
+      rw [(mellin_euler_step (E^[n] f) (htest n)).2 s, hn, pow_succ]
+      ring
+  intro A a b hab
+  obtain ⟨C0, hC0, h0⟩ := mellin_strip_bound f hf a b hab
+  obtain ⟨C1, hC1, h1⟩ := mellin_strip_bound (E^[A] f) (htest A) a b hab
+  refine ⟨(2 : ℝ) ^ A * (C0 + C1),
+    mul_pos (pow_pos (by norm_num) A) (add_pos hC0 hC1), ?_⟩
+  intro s ha hb
+  have hprod : ‖s‖ ^ A * ‖mellinTransform f s‖ ≤ C1 := by
+    have h := h1 s ha hb
+    rw [hPhi A s, norm_mul, norm_pow, norm_neg] at h
+    exact h
+  have hTpos : 0 < 1 + |s.im| := by positivity
+  have hTotal : (1 + |s.im|) ^ A * ‖mellinTransform f s‖ ≤
+      (2 : ℝ) ^ A * (C0 + C1) := by
+    rcases le_or_gt |s.im| 1 with hsmall | hlarge
+    · have hPow : (1 + |s.im|) ^ A ≤ (2 : ℝ) ^ A :=
+        pow_le_pow_left₀ hTpos.le (by linarith) A
+      calc
+        _ ≤ (2 : ℝ) ^ A * C0 := mul_le_mul hPow (h0 s ha hb)
+          (norm_nonneg _) (pow_nonneg (by norm_num) A)
+        _ ≤ (2 : ℝ) ^ A * (C0 + C1) :=
+          mul_le_mul_of_nonneg_left (le_add_of_nonneg_right hC1.le)
+            (pow_nonneg (by norm_num) A)
+    · have hbase : 1 + |s.im| ≤ 2 * ‖s‖ := by
+        have him := Complex.abs_im_le_norm s
+        linarith
+      have hPow : (1 + |s.im|) ^ A ≤ (2 * ‖s‖) ^ A :=
+        pow_le_pow_left₀ hTpos.le hbase A
+      calc
+        _ ≤ (2 * ‖s‖) ^ A * ‖mellinTransform f s‖ :=
+          mul_le_mul_of_nonneg_right hPow (norm_nonneg _)
+        _ = (2 : ℝ) ^ A * (‖s‖ ^ A * ‖mellinTransform f s‖) := by
+          rw [mul_pow]
+          ring
+        _ ≤ (2 : ℝ) ^ A * C1 :=
+          mul_le_mul_of_nonneg_left hprod (pow_nonneg (by norm_num) A)
+        _ ≤ (2 : ℝ) ^ A * (C0 + C1) :=
+          mul_le_mul_of_nonneg_left (le_add_of_nonneg_left hC0.le)
+            (pow_nonneg (by norm_num) A)
+  rw [Real.rpow_eq_pow, Real.rpow_neg hTpos.le, Real.rpow_natCast, ← div_eq_mul_inv]
+  exact (le_div_iff₀ (pow_pos hTpos A)).mpr (by simpa only [mul_comm] using hTotal)
 
 theorem euler_log_norm_summable (K : Type u) [Field K] [NumberField K]
     {σ : ℝ} (hσ : 1 < σ) :
