@@ -6,6 +6,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.PrimeNormSum
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.Flatness
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.EulerStep
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.StripBound
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.MellinInverse
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.ZeroSum
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».Boundary
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroEndpoint
