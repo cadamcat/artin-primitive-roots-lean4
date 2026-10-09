@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.Proofs.pd_life_b.GuidedUnique
+import ArtinPrimitiveRoots.Proofs.pd_life_b.GuidedExistMain
 
 set_option autoImplicit false
 
@@ -35,8 +35,8 @@ theorem decomposition_of_unique {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ)
       rw [if_neg (fun h => hne (huniq H' h))]
     · intro h; exact absurd (Finset.mem_univ _) h
 
-/-- **R4–R5 (open).** A non-vanishing trace from the initial state is guided by some lifespan
-assignment. See NOTES.md for the planned proof. -/
+/-- **R4–R5.** A non-vanishing trace from the initial state is guided by some lifespan
+assignment (suffix induction `exist_aux` over the past-record invariant `ExistRec`). -/
 theorem guided_trace_exists {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
     (B : Option ℕ) (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
     (hBands : ∀ i i' : Fin K, i ≠ i' →
@@ -49,7 +49,14 @@ theorem guided_trace_exists {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w 
           MemPoint S.x K)))
     (hw : finiteHistoryTraceWeight F S ρ w B γ (pathLength S.x) _ t ≠ 0) :
     ∃ H : PDLifeAssignment F S γ, TraceGuided F S γ H (pathLength S.x) _ t := by
-  sorry
+  have ht : FiniteHistoryTraceValid F S w γ (pathLength S.x) _ t := by
+    by_contra h
+    exact hw (finiteHistoryTraceWeight_zero_of_not_valid F S ρ w B γ _ _ t h)
+  have e0 : (⟨0, by omega⟩ : Fin (pathLength S.x + 1)) =
+      ⟨pathLength S.x - pathLength S.x, by omega⟩ := Fin.ext (Nat.sub_self _).symm
+  obtain ⟨H, -, hH⟩ := exist_aux F S w γ hγ hBands (pathLength S.x) le_rfl _
+    (existRec_index F S γ _ _ e0 _ (existRec_initial F S γ hγ hnd)) t ht
+  exact ⟨H, hH⟩
 
 /-- **R4–R6.** A non-vanishing trace from the initial state is guided by exactly one lifespan
 assignment. -/
