@@ -558,6 +558,16 @@ private theorem a1_bdata_sol_local_sixth_everywhere_of_hilbert (S : SData F CE c
     rw [map_div, hright6, hglobal, div_one] at heq
     exact heq
 
+/-- A local sixth power of an S-unit is a global sixth power of an S-unit. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_sixth_injective_of_hilbert
+    (S : SData F CE condη) (H : HilbertData F) (u : Fˣ) (hu : u ∈ S.US)
+    (hlocal : ∃ x : S.FSˣ, S.diagU u = x ^ 6) :
+    ∃ ε ∈ S.US, u = ε ^ 6 := by
+  obtain ⟨ε, heq⟩ := ArtinPrimitiveRoots.Proofs.a1_bdata_sol.global_sixth_of_local
+    (a1_bdata_sol_mu6_of_hilbertData H) u
+    (a1_bdata_sol_local_sixth_everywhere_of_hilbert S H u hu hlocal)
+  exact ⟨ε, ArtinPrimitiveRoots.Proofs.a1_bdata_sol.s_unit_of_sixth S u ε hu heq, heq⟩
+
 theorem BData.allowed_unique {S : SData F CE condη} {H : HilbertData F} (Bd : BData S H)
     (I : Ideal (𝓞 F)) (a b : Fˣ) (ha : S.IsGen (a : F) I ∧ Bd.Allowed a)
     (hb : S.IsGen (b : F) I ∧ Bd.Allowed b) :
