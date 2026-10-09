@@ -1,6 +1,8 @@
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianFiniteScale
 import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.Core
 import ValuedFieldTheory.LocalField.NonarchimedeanLocalField.PowerClassFiniteness
+import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
+import Mathlib.Analysis.SpecificLimits.Normed
 
 set_option autoImplicit false
 
@@ -182,5 +184,166 @@ theorem uniform_quadratic_integral_norm_bound (A : AddCharData F) (W : LocalGaus
     _ ≤ C * ‖((r * c ^ 2 : (v.adicCompletion F)ˣ) : v.adicCompletion F)‖ ^
         (-(1 / 2 : ℝ)) :=
       mul_le_mul_of_nonneg_right hcoef (Real.rpow_nonneg (norm_nonneg _) _)
+
+private theorem scaled_closed_ball_measure_real (v : FinPlace F)
+    (μ : Measure (v.adicCompletion F))
+    (hscale : ∀ c : (v.adicCompletion F)ˣ,
+      Measure.map (fun x : v.adicCompletion F => (c : v.adicCompletion F) * x) μ =
+        (ENNReal.ofReal ‖(c : v.adicCompletion F)‖)⁻¹ • μ)
+    (u : (v.adicCompletion F)ˣ) (R : ℝ) :
+    (μ (Metric.closedBall 0 (R * ‖(u : v.adicCompletion F)‖))).toReal =
+      ‖(u : v.adicCompletion F)‖ * (μ (Metric.closedBall 0 R)).toReal := by
+  have hu : 0 < ‖(u : v.adicCompletion F)‖ := norm_pos_iff.mpr u.ne_zero
+  have hpre : (fun x : v.adicCompletion F => ((u⁻¹ : (v.adicCompletion F)ˣ) :
+      v.adicCompletion F) * x) ⁻¹' Metric.closedBall 0 R =
+      Metric.closedBall 0 (R * ‖(u : v.adicCompletion F)‖) := by
+    ext x
+    simp only [Set.mem_preimage, Metric.mem_closedBall, dist_zero_right,
+      Units.val_inv_eq_inv_val, norm_mul, norm_inv]
+    rw [inv_mul_eq_div, div_le_iff₀ hu]
+  have h := congrArg (fun m : Measure (v.adicCompletion F) =>
+    (m (Metric.closedBall 0 R)).toReal) (hscale u⁻¹)
+  have hm : Measurable (fun x : v.adicCompletion F =>
+      ((u⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F) * x) :=
+    (continuous_const.mul continuous_id).measurable
+  rw [Measure.map_apply hm measurableSet_closedBall, hpre, Measure.smul_apply, smul_eq_mul,
+    ENNReal.toReal_mul, ENNReal.toReal_inv] at h
+  simpa only [Units.val_inv_eq_inv_val, norm_inv,
+    ENNReal.toReal_ofReal (inv_nonneg.mpr hu.le), inv_inv] using h
+
+private theorem geometric_annulus_factor (R ρ : ℝ) (hR : 0 < R) (hρ : 0 < ρ)
+    (n : ℕ) :
+    (R * ρ ^ (n + 1)) ^ (-(1 / 2 : ℝ)) * ρ ^ n =
+      R ^ (-(1 / 2 : ℝ)) * ρ ^ (-(1 / 2 : ℝ)) * (ρ ^ (1 / 2 : ℝ)) ^ n := by
+  rw [Real.mul_rpow hR.le (pow_nonneg hρ.le _)]
+  have hp : (ρ ^ (n + 1)) ^ (-(1 / 2 : ℝ)) * ρ ^ n =
+      ρ ^ (-(1 / 2 : ℝ)) * (ρ ^ (1 / 2 : ℝ)) ^ n := by
+    simp only [← Real.rpow_natCast, ← Real.rpow_mul hρ.le,
+      ← Real.rpow_add hρ, Nat.cast_add, Nat.cast_one]
+    congr 1
+    ring
+  rw [mul_assoc, hp, ← mul_assoc]
+
+private theorem inverse_sqrt_norm_integrableOn_closedBall (v : FinPlace F)
+    (μ : Measure (v.adicCompletion F)) [Measure.IsAddHaarMeasure μ]
+    (hscale : ∀ c : (v.adicCompletion F)ˣ,
+      Measure.map (fun x : v.adicCompletion F => (c : v.adicCompletion F) * x) μ =
+        (ENNReal.ofReal ‖(c : v.adicCompletion F)‖)⁻¹ • μ)
+    (c : (v.adicCompletion F)ˣ) (hc : ‖(c : v.adicCompletion F)‖ < 1)
+    (R : ℝ) (hR : 0 < R) :
+    IntegrableOn (fun x : v.adicCompletion F => ‖x‖ ^ (-(1 / 2 : ℝ)))
+      (Metric.closedBall 0 R) μ := by
+  let ρ := ‖(c : v.adicCompletion F)‖
+  have hρ : 0 < ρ := norm_pos_iff.mpr c.ne_zero
+  let f := fun x : v.adicCompletion F => ‖x‖ ^ (-(1 / 2 : ℝ))
+  let B := fun n : ℕ => Metric.closedBall (0 : v.adicCompletion F) (R * ρ ^ n)
+  let S := fun n : ℕ => B n \ B (n + 1)
+  let K := fun n : ℕ => (R * ρ ^ (n + 1)) ^ (-(1 / 2 : ℝ))
+  have hmeas : AEStronglyMeasurable f μ := by
+    apply Measurable.aestronglyMeasurable
+    dsimp [f]
+    fun_prop
+  have hSmeas : ∀ n, MeasurableSet (S n) := fun n =>
+    measurableSet_closedBall.diff measurableSet_closedBall
+  have hBfinite : ∀ n, μ (B n) < ⊤ := fun n => (isCompact_closedBall _ _).measure_lt_top
+  have hSfinite : ∀ n, μ (S n) < ⊤ := fun n =>
+    (measure_mono Set.sdiff_subset).trans_lt (hBfinite n)
+  have hbound : ∀ n x, x ∈ S n → ‖f x‖ ≤ K n := by
+    intro n x hx
+    have hxnorm : R * ρ ^ (n + 1) < ‖x‖ := by
+      simpa only [B, Metric.mem_closedBall, dist_zero_right, not_le] using hx.2
+    rw [Real.norm_of_nonneg (Real.rpow_nonneg (norm_nonneg x) _)]
+    exact Real.rpow_le_rpow_of_nonpos (mul_pos hR (pow_pos hρ _)) hxnorm.le (by norm_num)
+  have hint : ∀ n, IntegrableOn f (S n) μ := by
+    intro n
+    apply Measure.integrableOn_of_bounded (hSfinite n).ne hmeas
+    filter_upwards [ae_restrict_mem (hSmeas n)] with x hx
+    exact hbound n x hx
+  have hmass : ∀ n, (μ (B n)).toReal = ρ ^ n * (μ (B 0)).toReal := by
+    intro n
+    simpa only [B, pow_zero, mul_one, ρ, Units.val_pow_eq_pow_val, norm_pow] using
+      scaled_closed_ball_measure_real v μ hscale (c ^ n) R
+  have hintegral : ∀ n, (∫ x in S n, ‖f x‖ ∂μ) ≤
+      (R ^ (-(1 / 2 : ℝ)) * ρ ^ (-(1 / 2 : ℝ)) * (μ (B 0)).toReal) *
+        (ρ ^ (1 / 2 : ℝ)) ^ n := by
+    intro n
+    have hnorm : (∫ x in S n, ‖f x‖ ∂μ) ≤ K n * (μ (S n)).toReal := by
+      simpa only [Real.norm_of_nonneg (integral_nonneg fun x => norm_nonneg (f x)),
+        norm_norm, measureReal_def] using
+        norm_setIntegral_le_of_norm_le_const (μ := μ) (f := fun x => ‖f x‖)
+          (hSfinite n) (fun x hx => by simpa only [norm_norm] using hbound n x hx)
+    have hmassle : (μ (S n)).toReal ≤ (μ (B n)).toReal :=
+      ENNReal.toReal_mono (hBfinite n).ne (measure_mono Set.sdiff_subset)
+    calc
+      (∫ x in S n, ‖f x‖ ∂μ) ≤ K n * (μ (S n)).toReal := hnorm
+      _ ≤ K n * (μ (B n)).toReal :=
+        mul_le_mul_of_nonneg_left hmassle
+          (Real.rpow_nonneg (mul_nonneg hR.le (pow_nonneg hρ.le _)) _)
+      _ = _ := by
+        rw [hmass, ← mul_assoc, geometric_annulus_factor R ρ hR hρ]
+        ring
+  have hsum : Summable fun n : ℕ => ∫ x in S n, ‖f x‖ ∂μ := by
+    exact Summable.of_nonneg_of_le (fun n => integral_nonneg fun x => norm_nonneg (f x))
+      hintegral ((summable_geometric_of_lt_one
+        (Real.rpow_nonneg hρ.le (1 / 2 : ℝ))
+        (Real.rpow_lt_one hρ.le hc (by norm_num : (0 : ℝ) < 1 / 2))).mul_left _)
+  have hcover : Metric.closedBall (0 : v.adicCompletion F) R ⊆
+      {0} ∪ ⋃ n : ℕ, S n := by
+    intro x hx
+    by_cases hx0 : x = 0
+    · exact Or.inl hx0
+    · have hxnorm : 0 < ‖x‖ := norm_pos_iff.mpr hx0
+      obtain ⟨m, hm⟩ := exists_pow_lt_of_lt_one (div_pos hxnorm hR) hc
+      have hex : ∃ m : ℕ, R * ρ ^ m < ‖x‖ := by
+        refine ⟨m, ?_⟩
+        have := (lt_div_iff₀ hR).mp hm
+        simpa only [mul_comm] using this
+      have hm0 : Nat.find hex ≠ 0 := by
+        intro hmzero
+        have h := Nat.find_spec hex
+        rw [hmzero, pow_zero, mul_one] at h
+        exact (Metric.mem_closedBall.mp hx).not_gt (by simpa only [dist_zero_right] using h)
+      obtain ⟨n, hn⟩ := Nat.exists_eq_succ_of_ne_zero hm0
+      apply Or.inr
+      apply Set.mem_iUnion.mpr
+      refine ⟨n, ?_, ?_⟩
+      · have hnot := Nat.find_min hex (show n < Nat.find hex by omega)
+        simpa only [B, Metric.mem_closedBall, dist_zero_right] using le_of_not_gt hnot
+      · have hlt := Nat.find_spec hex
+        simpa only [B, Metric.mem_closedBall, dist_zero_right, hn, Nat.succ_eq_add_one,
+          not_le] using hlt
+  have hz : IntegrableOn f {0} μ :=
+    integrableOn_singleton (hx := (isCompact_singleton (x := (0 : v.adicCompletion F))).measure_lt_top)
+  exact ((integrableOn_union.mpr
+    ⟨hz, integrableOn_iUnion_of_summable_integral_norm hint hsum⟩)).mono_set hcover
+
+/-- The inverse-square-root Gaussian bound is integrable on each integer-radius ball.
+The scalar Haar Jacobian remains explicit. Geometric metric annuli prove the local
+integrability needed for dominated convergence of the actual finite Gaussian integrals.
+Guide: PROOFS.md:468–475. -/
+theorem inverse_sqrt_norm_integrableOn_localBallInt (A : AddCharData F)
+    (W : LocalGaussianData A) (v : FinPlace F)
+    (hscale : ∀ c : (v.adicCompletion F)ˣ,
+      Measure.map (fun x : v.adicCompletion F => (c : v.adicCompletion F) * x) (W.measure v) =
+        (ENNReal.ofReal ‖(c : v.adicCompletion F)‖)⁻¹ • W.measure v)
+    (M : ℤ) :
+    IntegrableOn (fun x : v.adicCompletion F => ‖x‖ ^ (-(1 / 2 : ℝ)))
+      (localBallInt v M) (W.measure v) := by
+  have : Measure.IsAddHaarMeasure (W.measure v) := W.isHaar v
+  obtain ⟨b, hb⟩ := HeightOneSpectrum.valuedAdicCompletion_surjective F v (WithZero.exp (-1))
+  have hb0 : b ≠ 0 := by
+    intro h
+    apply WithZero.exp_ne_zero (a := (-1 : ℤ))
+    exact hb.symm.trans (by simp only [h, map_zero])
+  let c := Units.mk0 b hb0
+  have hc : ‖(c : v.adicCompletion F)‖ < 1 := by
+    apply (Valued.toNormedField.norm_lt_one_iff (L := v.adicCompletion F)
+      (Γ₀ := WithZero (Multiplicative ℤ))).mpr
+    change Valued.v b < 1
+    rw [hb, ← WithZero.exp_zero]
+    exact WithZero.exp_lt_exp.mpr (by norm_num)
+  obtain ⟨R, hR, hsub⟩ := (integer_radius_ball_compact v M).isBounded.subset_closedBall_lt
+    0 (0 : v.adicCompletion F)
+  exact (inverse_sqrt_norm_integrableOn_closedBall v (W.measure v) hscale c hc R hR).mono_set hsub
 
 end ArtinPrimitiveRoots.Proofs.a1_weil_sol
