@@ -78,13 +78,13 @@ theorem finite_local_product_exists
       exact hv (houtside v hvT (c v x) (hx v))
     apply (Filter.tendsto_congr' heq).mpr
     simpa only [hEone] using hE.tendsto (1 : Aˣ)
-  let p : IdeleGroup (𝓞 F) F →* Aˣ :=
+  let p : NumberField.IdeleGroup (𝓞 F) F →* Aˣ :=
     Units.map (MonoidHom.snd (InfiniteAdeleRing F) A)
   have hp : Continuous p := by
     apply Units.continuous_iff.mpr
     exact ⟨continuous_snd.comp Units.continuous_val,
       continuous_snd.comp Units.continuous_coe_inv⟩
-  let G : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+  let G : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ :=
     ⟨g.comp p, hg.comp hp⟩
   refine ⟨G, ?_, ?_⟩
   · intro x

@@ -20,34 +20,34 @@ theorem local_character_descent (L : LocalCharacterData F) :
   classical
   obtain ⟨g, hg, hfinite⟩ :=
     finite_local_product_exists L.finite L.eventually_unit_trivial
-  let infProd (x : IdeleGroup (𝓞 F) F) : ℂˣ :=
+  let infProd (x : NumberField.IdeleGroup (𝓞 F) F) : ℂˣ :=
     ∏ w : InfinitePlace F, L.infinite w (Dictionary.ideleInfiniteCoordUnit w x)
-  let H : IdeleGroup (𝓞 F) F →* ℂˣ := MonoidHom.mk'
+  let H : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ := MonoidHom.mk'
     (fun x => infProd x * g x) (by
       intro x y
       simp only [infProd, map_mul, Finset.prod_mul_distrib]
       ac_rfl)
   have hinfCoord (w : InfinitePlace F) :
       Continuous (Dictionary.ideleInfiniteCoordUnit w :
-        IdeleGroup (𝓞 F) F →* w.Completionˣ) := by
+        NumberField.IdeleGroup (𝓞 F) F →* w.Completionˣ) := by
     apply Units.continuous_iff.mpr
     exact ⟨((continuous_apply w).comp continuous_fst).comp Units.continuous_val,
       ((continuous_apply w).comp continuous_fst).comp Units.continuous_coe_inv⟩
   have hinfFactor (w : InfinitePlace F) :
-      Continuous (fun x : IdeleGroup (𝓞 F) F =>
+      Continuous (fun x : NumberField.IdeleGroup (𝓞 F) F =>
         L.infinite w (Dictionary.ideleInfiniteCoordUnit w x)) :=
     (L.infinite w).continuous.comp (hinfCoord w)
   have hinfProd : Continuous infProd := by
     exact continuous_finsetProd Finset.univ (fun w _ => hinfFactor w)
   have hH : Continuous H := by
-    change Continuous (fun x : IdeleGroup (𝓞 F) F => infProd x * g x)
+    change Continuous (fun x : NumberField.IdeleGroup (𝓞 F) F => infProd x * g x)
     exact hinfProd.mul g.continuous
   have hprincipalFinite (a : Fˣ) :
-      g (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+      g (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
         ∏ᶠ v : FinPlace F, L.finite v (toLoc v a) := by
     rw [hg]
     have hcoord (v : FinPlace F) :
-        Dictionary.ideleFiniteCoord v (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+        Dictionary.ideleFiniteCoord v (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
           toLoc v a := by
       apply Units.ext
       rfl
@@ -55,19 +55,19 @@ theorem local_character_descent (L : LocalCharacterData F) :
     intro v
     exact congrArg (L.finite v) (hcoord v)
   have hprincipal (a : Fˣ) :
-      H (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
+      H (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
     change (∏ w : InfinitePlace F,
         L.infinite w (Dictionary.ideleInfiniteCoordUnit w
-          (IdeleGroup.unitEmbedding (𝓞 F) F a))) *
-      g (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
+          (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a))) *
+      g (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
     rw [hprincipalFinite]
     exact L.principal_product a
-  let N := IdeleGroup.principalSubgroup (𝓞 F) F
+  let N := NumberField.IdeleGroup.principalSubgroup (𝓞 F) F
   have hN : N ≤ H.ker := by
     intro x hx
     obtain ⟨a, rfl⟩ := hx
     exact hprincipal a
-  let C : IdeleClassGroup (𝓞 F) F →* ℂˣ := QuotientGroup.lift N H hN
+  let C : NumberField.IdeleClassGroup (𝓞 F) F →* ℂˣ := QuotientGroup.lift N H hN
   have hC : Continuous C := by
     apply (QuotientGroup.isQuotientMap_mk N).continuous_iff.mpr
     exact hH
@@ -83,7 +83,7 @@ theorem local_character_descent (L : LocalCharacterData F) :
       simpa using ih (by
         intro b hb
         exact hf b (by simp [hb]))
-  have hfiniteUnitary (x : IdeleGroup (𝓞 F) F) :
+  have hfiniteUnitary (x : NumberField.IdeleGroup (𝓞 F) F) :
       ‖((g x : ℂˣ) : ℂ)‖ = 1 := by
     have hsupp : (Function.mulSupport fun v : FinPlace F =>
         L.finite v (Dictionary.ideleFiniteCoord v x)).Finite := hfinite x
@@ -92,24 +92,24 @@ theorem local_character_descent (L : LocalCharacterData F) :
     apply hprodNorm
     intro v hv
     exact L.finite_unitary v (Dictionary.ideleFiniteCoord v x)
-  have hinfiniteUnitary (x : IdeleGroup (𝓞 F) F) :
+  have hinfiniteUnitary (x : NumberField.IdeleGroup (𝓞 F) F) :
       ‖((infProd x : ℂˣ) : ℂ)‖ = 1 := by
     change ‖((∏ w : InfinitePlace F,
       L.infinite w (Dictionary.ideleInfiniteCoordUnit w x) : ℂˣ) : ℂ)‖ = 1
     apply hprodNorm
     intro w hw
     exact L.infinite_unitary w (Dictionary.ideleInfiniteCoordUnit w x)
-  have hHunitary (x : IdeleGroup (𝓞 F) F) :
+  have hHunitary (x : NumberField.IdeleGroup (𝓞 F) F) :
       ‖((H x : ℂˣ) : ℂ)‖ = 1 := by
     change ‖((infProd x : ℂˣ) : ℂ) * ((g x : ℂˣ) : ℂ)‖ = 1
     rw [norm_mul, hinfiniteUnitary x, hfiniteUnitary x]
     norm_num
   have hfiniteComponent (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
-      H (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = L.finite v u := by
+      H (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = L.finite v u := by
     change (∏ w : InfinitePlace F,
         L.infinite w (Dictionary.ideleInfiniteCoordUnit w
-          (IdeleGroup.ofAdicCompletion (𝓞 F) F v u))) *
-      g (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = L.finite v u
+          (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u))) *
+      g (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = L.finite v u
     simp only [Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion, map_one,
       Finset.prod_const_one, one_mul]
     rw [hg]
@@ -118,19 +118,19 @@ theorem local_character_descent (L : LocalCharacterData F) :
       simp)]
     simp [Dictionary.ideleFiniteCoord_ofAdicCompletion]
   have hinfiniteComponent (w : InfinitePlace F) (u : w.Completionˣ) :
-      H (IdeleGroup.ofCompletion (𝓞 F) F w u) = L.infinite w u := by
+      H (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w u) = L.infinite w u := by
     change (∏ w' : InfinitePlace F,
         L.infinite w' (Dictionary.ideleInfiniteCoordUnit w'
-          (IdeleGroup.ofCompletion (𝓞 F) F w u))) *
-      g (IdeleGroup.ofCompletion (𝓞 F) F w u) = L.infinite w u
+          (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w u))) *
+      g (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w u) = L.infinite w u
     have hInf : (∏ w' : InfinitePlace F,
         L.infinite w' (Dictionary.ideleInfiniteCoordUnit w'
-          (IdeleGroup.ofCompletion (𝓞 F) F w u))) = L.infinite w u := by
+          (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w u))) = L.infinite w u := by
       rw [Finset.prod_eq_single_of_mem w (Finset.mem_univ w)]
       · rw [Dictionary.ideleInfiniteCoordUnit_ofCompletion_self]
       · intro w' _ hne
         rw [Dictionary.ideleInfiniteCoordUnit_ofCompletion_of_ne w' w hne, map_one]
-    have hFin : g (IdeleGroup.ofCompletion (𝓞 F) F w u) = 1 := by
+    have hFin : g (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w u) = 1 := by
       rw [hg]
       apply finprod_eq_one_of_forall_eq_one
       intro v
@@ -146,13 +146,13 @@ theorem local_character_descent (L : LocalCharacterData F) :
     exact hHunitary x
   · intro v u
     change QuotientGroup.lift N H hN
-      (QuotientGroup.mk (IdeleGroup.ofAdicCompletion (𝓞 F) F v u)) =
+      (QuotientGroup.mk (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u)) =
       L.finite v u
     rw [QuotientGroup.lift_mk N hN]
     exact hfiniteComponent v u
   · intro w u
     change QuotientGroup.lift N H hN
-      (QuotientGroup.mk (IdeleGroup.ofCompletion (𝓞 F) F w u)) =
+      (QuotientGroup.mk (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w u)) =
       L.infinite w u
     rw [QuotientGroup.lift_mk N hN]
     exact hinfiniteComponent w u
