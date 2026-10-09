@@ -2100,6 +2100,81 @@ private theorem ppPrimeMellinContourIntegrand_analyticOnNhd
         dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + w)))) z
   exact hProduct
 
+private theorem ppPrimeMellinContour_rightLine_integrable
+    {N : ℝ} (hN : 0 < N) (q : ℕ) (hq : 0 < q)
+    (χ : DirichletCharacter ℂ q) (t c : ℝ) (hc : 0 < c) (g : ℝ → ℝ)
+    (hKernel : Integrable (fun v : ℝ => mellinKernel g (⟨c, v⟩ : ℂ)))
+    (hfactorBound : ∃ M : ℝ, 0 ≤ M ∧ ∀ v : ℝ,
+      ‖Complex.exp ((⟨c, v⟩ : ℂ) * (Real.log N : ℂ)) *
+        (deriv (dirichletLValue q hq χ)
+            (1 - Complex.I * (t : ℂ) + (⟨c, v⟩ : ℂ)) /
+          dirichletLValue q hq χ
+            (1 - Complex.I * (t : ℂ) + (⟨c, v⟩ : ℂ)))‖ ≤ M) :
+    Integrable (fun v : ℝ =>
+      ppPrimeMellinContourIntegrand N q hq χ t g (⟨c, v⟩ : ℂ)) := by
+  classical
+  letI : NeZero q := ⟨Nat.ne_of_gt hq⟩
+  obtain ⟨M, hM, hMbound⟩ := hfactorBound
+  let S : Set ℂ := {s : ℂ | 1 < s.re}
+  have hS : S ⊆ ({1} : Set ℂ)ᶜ := by
+    intro s hs hsone
+    have hsone' : s = 1 := by simpa using hsone
+    subst s
+    change 1 < (1 : ℂ).re at hs
+    simp at hs
+  have hzero : ∀ s ∈ S, dirichletLValue q hq χ s ≠ 0 := by
+    intro s hs
+    have hsne : s ≠ 1 := by
+      intro heq
+      subst s
+      change 1 < (1 : ℂ).re at hs
+      simp at hs
+    have h := χ.LFunction_ne_zero_of_one_le_re (Or.inr hsne) hs.le
+    simpa [dirichletLValue] using h
+  have hlogAnalytic := ppPrimeDirichletLogDeriv_analyticOnNhd hq χ hS hzero
+  let zline : ℝ → ℂ := fun v => (c : ℂ) + (v : ℂ) * Complex.I
+  have hzpair (v : ℝ) : (⟨c, v⟩ : ℂ) = zline v := by
+    apply Complex.ext <;> simp [zline]
+  let line : ℝ → ℂ := fun v =>
+    1 - Complex.I * (t : ℂ) + zline v
+  have hlineRe (v : ℝ) : (line v).re = 1 + c := by
+    simp [line, zline]
+  have hlineS (v : ℝ) : line v ∈ S := by
+    change 1 < (line v).re
+    rw [hlineRe]
+    linarith
+  have hlineCont : Continuous line := by fun_prop
+  let factor : ℝ → ℂ := fun v =>
+    Complex.exp (zline v * (Real.log N : ℂ)) *
+      (deriv (dirichletLValue q hq χ) (line v) /
+        dirichletLValue q hq χ (line v))
+  have hfactorBound' : ∀ v : ℝ, ‖factor v‖ ≤ M := by
+    intro v
+    simpa [factor, line, hzpair v] using hMbound v
+  have hfactorContinuous : Continuous factor := by
+    have hlogContinuous : Continuous
+        (fun v : ℝ => deriv (dirichletLValue q hq χ) (line v) /
+          dirichletLValue q hq χ (line v)) := by
+      apply continuous_iff_continuousAt.mpr
+      intro v
+      exact (hlogAnalytic (line v) (hlineS v)).continuousAt.comp
+        (hlineCont.continuousAt)
+    have hexpContinuous : Continuous (fun v : ℝ =>
+        Complex.exp (zline v * (Real.log N : ℂ))) := by fun_prop
+    exact hexpContinuous.mul hlogContinuous
+  have hmul : Integrable (fun v : ℝ =>
+      mellinKernel g (⟨c, v⟩ : ℂ) * factor v) :=
+    hKernel.mul_bdd hfactorContinuous.aestronglyMeasurable
+      (ae_of_all _ hfactorBound')
+  have hEq : (fun v : ℝ =>
+      ppPrimeMellinContourIntegrand N q hq χ t g (⟨c, v⟩ : ℂ)) =
+      (fun v : ℝ => -(mellinKernel g (⟨c, v⟩ : ℂ) * factor v)) := by
+    funext v
+    simp [ppPrimeMellinContourIntegrand, factor, line, hzpair v]
+    ring
+  rw [hEq]
+  exact hmul.neg
+
 private theorem ppPrimeMellinContourRectangle_shift
     {F : ℂ → ℂ} {a b c d : ℝ}
     (hab : a ≤ b) (hcd : c ≤ d)
