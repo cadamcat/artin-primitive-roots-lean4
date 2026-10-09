@@ -1,9 +1,10 @@
 import Mathlib
+import ArtinPrimitiveRoots.Sieve.RoughDensity
 
 namespace ArtinPrimitiveRoots.Proofs.r_impl_muse
 
 open Classical MeasureTheory
-open scoped BigOperators
+open scoped BigOperators Pointwise
 
 /-- The phase `exp (I * u * log y)` has norm one. -/
 theorem phase_exp_norm (u y : ℝ) :
@@ -768,5 +769,273 @@ theorem weighted_interval_error (M l r E B K : ℝ) (a : ℕ → ℂ) (q g : ℝ
     have hdone : (E * B + E * K * (r - l)) + K * d * (T₁ + T₂) ≤ c := by
       linarith [hC0C, hmesh_le, hεdef]
     exact hFinal.trans hdone
+
+/-- Scaled parameter simplex as a smul-image (`c > 0`). -/
+theorem rescale_simplex_image (γ w c : ℝ) (hc : 0 < c) (n : ℕ) :
+    c • {t : Fin n → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c} =
+      {u : Fin n → ℝ | (∀ i, γ ≤ u i) ∧ ∑ i, u i ≤ w - γ} := by
+  have hcne : c ≠ 0 := ne_of_gt hc
+  ext u
+  rw [Set.mem_smul_set]
+  constructor
+  · rintro ⟨t, ht, rfl⟩
+    simp only [Set.mem_setOf_eq] at ht ⊢
+    obtain ⟨ht1, ht2⟩ := ht
+    constructor
+    · intro i
+      have h := ht1 i
+      calc γ ≤ t i * c := (div_le_iff₀ hc).mp h
+        _ = c * t i := by ring
+        _ = (c • t) i := by simp [Pi.smul_apply, smul_eq_mul]
+    · have hsum : (∑ i, (c • t) i) = c * ∑ i, t i := by
+        simp only [Pi.smul_apply, smul_eq_mul, ← Finset.mul_sum]
+      rw [hsum]
+      have hwc : c * (w / c - γ / c) = w - γ := by
+        rw [mul_sub, mul_comm c (w / c), mul_comm c (γ / c),
+          div_mul_cancel₀ _ hcne, div_mul_cancel₀ _ hcne]
+      calc c * ∑ i, t i ≤ c * (w / c - γ / c) :=
+            mul_le_mul_of_nonneg_left ht2 hc.le
+        _ = w - γ := hwc
+  · intro hu
+    simp only [Set.mem_setOf_eq] at hu
+    obtain ⟨hu1, hu2⟩ := hu
+    refine ⟨c⁻¹ • u, ?_, ?_⟩
+    · simp only [Set.mem_setOf_eq]
+      constructor
+      · intro i
+        have h := hu1 i
+        have e : (c⁻¹ • u) i = c⁻¹ * u i := by simp [Pi.smul_apply, smul_eq_mul]
+        rw [e]
+        have e2 : γ / c = c⁻¹ * γ := by
+          rw [div_eq_mul_inv]
+          ring
+        rw [e2]
+        exact mul_le_mul_of_nonneg_left h (inv_nonneg.mpr hc.le)
+      · have hsum : (∑ i, (c⁻¹ • u) i) = c⁻¹ * ∑ i, u i := by
+          simp only [Pi.smul_apply, smul_eq_mul, ← Finset.mul_sum]
+        rw [hsum]
+        have e : c⁻¹ * (w - γ) = w / c - γ / c := by
+          simp only [div_eq_mul_inv]
+          ring
+        calc c⁻¹ * ∑ i, u i ≤ c⁻¹ * (w - γ) :=
+              mul_le_mul_of_nonneg_left hu2 (inv_nonneg.mpr hc.le)
+          _ = w / c - γ / c := e
+    · funext i
+      simp only [Pi.smul_apply, smul_eq_mul]
+      calc c * (c⁻¹ * u i) = (c * c⁻¹) * u i := by ring
+        _ = (c / c) * u i := by rw [← div_eq_mul_inv]
+        _ = 1 * u i := by rw [div_self hcne]
+        _ = u i := by rw [one_mul]
+
+/-- Density terms rescale homogeneously. -/
+theorem densityTerm_rescale (γ w c : ℝ) (hc : 0 < c) (j : ℕ) :
+    ArtinPrimitiveRoots.Sieve.roughDensityTerm (γ / c) (w / c) j =
+      c * ArtinPrimitiveRoots.Sieve.roughDensityTerm γ w j := by
+  have hcne : c ≠ 0 := ne_of_gt hc
+  by_cases hj0 : j = 0
+  · subst hj0
+    simp [ArtinPrimitiveRoots.Sieve.roughDensityTerm]
+  · by_cases hj1 : j = 1
+    · subst hj1
+      have e1 : ArtinPrimitiveRoots.Sieve.roughDensityTerm (γ / c) (w / c) 1 =
+          ((w / c)⁻¹ : ℝ) := by
+        have h : ArtinPrimitiveRoots.Sieve.roughDensityTerm (γ / c) (w / c) 1 =
+            1 / (w / c) := by
+          rw [ArtinPrimitiveRoots.Sieve.roughDensityTerm, if_neg (by norm_num),
+            if_pos rfl]
+        rw [h, one_div]
+      have e2 : ArtinPrimitiveRoots.Sieve.roughDensityTerm γ w 1 = ((w : ℝ))⁻¹ := by
+        have h : ArtinPrimitiveRoots.Sieve.roughDensityTerm γ w 1 = 1 / w := by
+          rw [ArtinPrimitiveRoots.Sieve.roughDensityTerm, if_neg (by norm_num),
+            if_pos rfl]
+        rw [h, one_div]
+      rw [e1, e2, inv_div, div_eq_mul_inv]
+    · have hj2 : 2 ≤ j := by omega
+      have hj0' : j ≠ 0 := by omega
+      have hj1' : j ≠ 1 := by omega
+      have eL : ArtinPrimitiveRoots.Sieve.roughDensityTerm (γ / c) (w / c) j =
+          (1 / (j.factorial : ℝ)) *
+            ∫ t : Fin (j - 1) → ℝ,
+              Set.indicator {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c}
+                (fun t => (1 / (w / c - ∑ i, t i)) * ∏ i, (1 / t i)) t := by
+        rw [ArtinPrimitiveRoots.Sieve.roughDensityTerm, if_neg hj0', if_neg hj1']
+      have eR : ArtinPrimitiveRoots.Sieve.roughDensityTerm γ w j =
+          (1 / (j.factorial : ℝ)) *
+            ∫ t : Fin (j - 1) → ℝ,
+              Set.indicator {t : Fin (j - 1) → ℝ | (∀ i, γ ≤ t i) ∧ ∑ i, t i ≤ w - γ}
+                (fun t => (1 / (w - ∑ i, t i)) * ∏ i, (1 / t i)) t := by
+        rw [ArtinPrimitiveRoots.Sieve.roughDensityTerm, if_neg hj0', if_neg hj1']
+      have hS'meas : MeasurableSet {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c} := by
+        have h₁ : MeasurableSet {t : Fin (j - 1) → ℝ | ∀ i, γ / c ≤ t i} := by
+          simpa only [Set.iInter_ofPred] using
+            (MeasurableSet.iInter fun i => measurableSet_le measurable_const (measurable_pi_apply i))
+        have h₂ : MeasurableSet {t : Fin (j - 1) → ℝ | ∑ i, t i ≤ w / c - γ / c} :=
+          measurableSet_le (by fun_prop) measurable_const
+        simpa only [Set.setOf_and] using h₁.inter h₂
+      have hSmeas : MeasurableSet {t : Fin (j - 1) → ℝ | (∀ i, γ ≤ t i) ∧ ∑ i, t i ≤ w - γ} := by
+        have h₁ : MeasurableSet {t : Fin (j - 1) → ℝ | ∀ i, γ ≤ t i} := by
+          simpa only [Set.iInter_ofPred] using
+            (MeasurableSet.iInter fun i => measurableSet_le measurable_const (measurable_pi_apply i))
+        have h₂ : MeasurableSet {t : Fin (j - 1) → ℝ | ∑ i, t i ≤ w - γ} :=
+          measurableSet_le (by fun_prop) measurable_const
+        simpa only [Set.setOf_and] using h₁.inter h₂
+      rw [eL, eR]
+      have hK1 : (∫ t : Fin (j - 1) → ℝ,
+            Set.indicator {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c}
+              (fun t => (1 / (w / c - ∑ i, t i)) * ∏ i, (1 / t i)) t) =
+          (∫ t : Fin (j - 1) → ℝ,
+            Set.indicator {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c}
+              (fun t => ((w / c - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹) t) := by
+        apply integral_congr_ae
+        filter_upwards with t
+        by_cases ht : t ∈ {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c}
+        · rw [Set.indicator_of_mem ht, Set.indicator_of_mem ht]
+          simp only [one_div]
+        · rw [Set.indicator_of_notMem ht, Set.indicator_of_notMem ht]
+      have hK2 : (∫ t : Fin (j - 1) → ℝ,
+            Set.indicator {t : Fin (j - 1) → ℝ | (∀ i, γ ≤ t i) ∧ ∑ i, t i ≤ w - γ}
+              (fun t => (1 / (w - ∑ i, t i)) * ∏ i, (1 / t i)) t) =
+          (∫ t : Fin (j - 1) → ℝ,
+            Set.indicator {t : Fin (j - 1) → ℝ | (∀ i, γ ≤ t i) ∧ ∑ i, t i ≤ w - γ}
+              (fun t => ((w - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹) t) := by
+        apply integral_congr_ae
+        filter_upwards with t
+        by_cases ht : t ∈ {t : Fin (j - 1) → ℝ | (∀ i, γ ≤ t i) ∧ ∑ i, t i ≤ w - γ}
+        · rw [Set.indicator_of_mem ht, Set.indicator_of_mem ht]
+          simp only [one_div]
+        · rw [Set.indicator_of_notMem ht, Set.indicator_of_notMem ht]
+      -- Scalar identity, hoisted for reuse in the final assembly.
+      have hscale : (c : ℝ) ^ j * (((c : ℝ) ^ (j - 1))⁻¹) = c := by
+        have hcn : (c : ℝ) ^ (j - 1) ≠ 0 := ne_of_gt (pow_pos hc _)
+        have e1 : (c : ℝ) ^ j = (c : ℝ) ^ (j - 1) * c := by
+          have hj1 : j - 1 + 1 = j := by omega
+          calc (c : ℝ) ^ j = (c : ℝ) ^ ((j - 1) + 1) := by rw [hj1]
+            _ = (c : ℝ) ^ (j - 1) * c := by rw [pow_succ]
+        calc (c : ℝ) ^ j * (((c : ℝ) ^ (j - 1))⁻¹)
+            = ((c : ℝ) ^ (j - 1) * c) * (((c : ℝ) ^ (j - 1))⁻¹) := by
+              rw [e1]
+          _ = c * ((((c : ℝ) ^ (j - 1))⁻¹) * ((c : ℝ) ^ (j - 1))) := by ring
+          _ = c * 1 := by rw [inv_mul_cancel₀ hcn]
+          _ = c := by rw [mul_one]
+      have hK : ∀ t : Fin (j - 1) → ℝ,
+          ((w / c - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹ =
+            (c : ℝ) ^ j * (((w - ∑ i, (c • t) i)⁻¹) * ∏ i, ((c • t) i)⁻¹) := by
+        intro t
+        have hsum : (∑ i, (c • t) i) = c * ∑ i, t i := by
+          simp only [Pi.smul_apply, smul_eq_mul, ← Finset.mul_sum]
+        have hprod : (∏ i, ((c • t) i)⁻¹) = (((c : ℝ) ^ (j - 1))⁻¹) * ∏ i, (t i)⁻¹ := by
+          have e1 : ∀ i : Fin (j - 1), ((c • t) i)⁻¹ = (c : ℝ)⁻¹ * (t i)⁻¹ := by
+            intro i
+            simp only [Pi.smul_apply, smul_eq_mul, mul_inv_rev]
+            ring
+          calc (∏ i, ((c • t) i)⁻¹) = ∏ i, ((c : ℝ)⁻¹ * (t i)⁻¹) :=
+                Finset.prod_congr rfl fun i _ => e1 i
+            _ = (((c : ℝ) ^ (j - 1))⁻¹) * ∏ i, (t i)⁻¹ := by
+                have e2 : (∏ i : Fin (j - 1), (c : ℝ)⁻¹ * (t i)⁻¹) =
+                    (((c : ℝ) ^ (j - 1))⁻¹) * ∏ i : Fin (j - 1), (t i)⁻¹ := by
+                  have e3 : (∏ i : Fin (j - 1), (c : ℝ)⁻¹ * (t i)⁻¹) =
+                      (∏ _i : Fin (j - 1), (c : ℝ)⁻¹) * ∏ i : Fin (j - 1), (t i)⁻¹ :=
+                    Finset.prod_mul_distrib
+                  rw [e3]
+                  congr 1
+                  · rw [Finset.prod_const, Finset.card_univ, Fintype.card_fin,
+                      inv_pow]
+                exact e2
+        have hden : ((w / c - ∑ i, t i)⁻¹) = c * ((w - c * ∑ i, t i)⁻¹) := by
+          have e : w / c - ∑ i, t i = (w - c * ∑ i, t i) / c := div_sub' hcne
+          rw [e, inv_div, div_eq_mul_inv]
+        have hscale : (c : ℝ) ^ j * (((c : ℝ) ^ (j - 1))⁻¹) = c := by
+          have hcn : (c : ℝ) ^ (j - 1) ≠ 0 := ne_of_gt (pow_pos hc _)
+          have e1 : (c : ℝ) ^ j = (c : ℝ) ^ (j - 1) * c := by
+            have hj1 : j - 1 + 1 = j := by omega
+            calc (c : ℝ) ^ j = (c : ℝ) ^ ((j - 1) + 1) := by rw [hj1]
+              _ = (c : ℝ) ^ (j - 1) * c := by rw [pow_succ]
+          calc (c : ℝ) ^ j * (((c : ℝ) ^ (j - 1))⁻¹)
+              = ((c : ℝ) ^ (j - 1) * c) * (((c : ℝ) ^ (j - 1))⁻¹) := by
+                rw [e1]
+            _ = c * ((((c : ℝ) ^ (j - 1))⁻¹) * ((c : ℝ) ^ (j - 1))) := by ring
+            _ = c * 1 := by rw [inv_mul_cancel₀ hcn]
+            _ = c := by rw [mul_one]
+        have eR : (c : ℝ) ^ j * (((w - c * ∑ i, t i)⁻¹) * ((((c : ℝ) ^ (j - 1))⁻¹) * ∏ i, (t i)⁻¹)) =
+            ((c : ℝ) ^ j * (((c : ℝ) ^ (j - 1))⁻¹)) *
+              (((w - c * ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹) := by
+          ring
+        rw [hsum, hprod, hden, eR, hscale]
+        exact mul_assoc _ _ _
+      -- Pull the constant out and apply the scaling lemma (all in set form).
+      have hpull : (∫ t in {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+            ((w / c - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹) =
+          (c : ℝ) ^ j • (∫ t in {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+            ((w - ∑ i, (c • t) i)⁻¹) * ∏ i, ((c • t) i)⁻¹) := by
+        have hEqOn : Set.EqOn
+            (fun t : Fin (j - 1) → ℝ => ((w / c - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹)
+            (fun t : Fin (j - 1) → ℝ => (c : ℝ) ^ j • (((w - ∑ i, (c • t) i)⁻¹) * ∏ i, ((c • t) i)⁻¹))
+            {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c} := by
+          intro t ht
+          show ((w / c - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹ =
+            (c : ℝ) ^ j • (((w - ∑ i, (c • t) i)⁻¹) * ∏ i, ((c • t) i)⁻¹)
+          rw [smul_eq_mul]
+          exact hK t
+        have h1 : (∫ t in {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+              ((w / c - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹) =
+            ∫ t in {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+              (c : ℝ) ^ j • (((w - ∑ i, (c • t) i)⁻¹) * ∏ i, ((c • t) i)⁻¹) :=
+          MeasureTheory.setIntegral_congr_fun hS'meas hEqOn
+        rw [h1]
+        exact MeasureTheory.integral_smul _ _
+      have hfin : Module.finrank ℝ (Fin (j - 1) → ℝ) = j - 1 := by simp
+      have hscale_eq : (∫ t in {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+            ((w - ∑ i, (c • t) i)⁻¹) * ∏ i, ((c • t) i)⁻¹) =
+          (((c : ℝ) ^ (j - 1))⁻¹) • (∫ u in c • {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+            ((w - ∑ i, u i)⁻¹) * ∏ i, (u i)⁻¹) := by
+        have h := Measure.setIntegral_comp_smul_of_pos volume
+          (fun u : Fin (j - 1) → ℝ => ((w - ∑ i, u i)⁻¹) * ∏ i, (u i)⁻¹)
+          {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c} hc
+        rw [hfin] at h
+        exact h
+      have hfinComb : ∀ X : ℝ, (c : ℝ) ^ j • ((((c : ℝ) ^ (j - 1))⁻¹) • X) = c • X := by
+        intro X
+        have hsc : (c : ℝ) ^ j * (((c : ℝ) ^ (j - 1))⁻¹) = c := hscale
+        have eR2 : (c : ℝ) ^ j * ((((c : ℝ) ^ (j - 1))⁻¹) * X) =
+            ((c : ℝ) ^ j * (((c : ℝ) ^ (j - 1))⁻¹)) * X := by ring
+        calc (c : ℝ) ^ j • ((((c : ℝ) ^ (j - 1))⁻¹) • X)
+            = (c : ℝ) ^ j * ((((c : ℝ) ^ (j - 1))⁻¹) * X) := by
+              rw [smul_eq_mul, smul_eq_mul]
+          _ = ((c : ℝ) ^ j * (((c : ℝ) ^ (j - 1))⁻¹)) * X := by rw [eR2]
+          _ = c * X := by rw [hsc]
+          _ = c • X := by rw [smul_eq_mul]
+      have hcore' : (∫ t in {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+            ((w / c - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹) =
+          c * (∫ u in {u : Fin (j - 1) → ℝ | (∀ i, γ ≤ u i) ∧ ∑ i, u i ≤ w - γ},
+            ((w - ∑ i, u i)⁻¹) * ∏ i, (u i)⁻¹) := by
+        calc (∫ t in {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+                ((w / c - ∑ i, t i)⁻¹) * ∏ i, (t i)⁻¹)
+            = (c : ℝ) ^ j • (∫ t in {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+                ((w - ∑ i, (c • t) i)⁻¹) * ∏ i, ((c • t) i)⁻¹) := hpull
+          _ = (c : ℝ) ^ j • ((((c : ℝ) ^ (j - 1))⁻¹) • (∫ u in c • {t : Fin (j - 1) → ℝ | (∀ i, γ / c ≤ t i) ∧ ∑ i, t i ≤ w / c - γ / c},
+                ((w - ∑ i, u i)⁻¹) * ∏ i, (u i)⁻¹)) := by
+              rw [hscale_eq]
+          _ = (c : ℝ) ^ j • ((((c : ℝ) ^ (j - 1))⁻¹) • (∫ u in {u : Fin (j - 1) → ℝ | (∀ i, γ ≤ u i) ∧ ∑ i, u i ≤ w - γ},
+                ((w - ∑ i, u i)⁻¹) * ∏ i, (u i)⁻¹)) := by
+              rw [rescale_simplex_image γ w c hc (j - 1)]
+          _ = c • (∫ u in {u : Fin (j - 1) → ℝ | (∀ i, γ ≤ u i) ∧ ∑ i, u i ≤ w - γ},
+                ((w - ∑ i, u i)⁻¹) * ∏ i, (u i)⁻¹) :=
+              hfinComb _
+          _ = c * (∫ u in {u : Fin (j - 1) → ℝ | (∀ i, γ ≤ u i) ∧ ∑ i, u i ≤ w - γ},
+                ((w - ∑ i, u i)⁻¹) * ∏ i, (u i)⁻¹) := by
+              rw [smul_eq_mul]
+      rw [hK1, hK2]
+      -- Goal is now ⁻¹-indicator form; convert to set integrals and apply hcore'.
+      rw [MeasureTheory.integral_indicator hS'meas, MeasureTheory.integral_indicator hSmeas,
+        hcore']
+      ring
+
+/-- Density series rescale homogeneously (follows termwise). -/
+theorem density_rescale (γ w c : ℝ) (hc : 0 < c) :
+    ArtinPrimitiveRoots.Sieve.roughDensity (γ / c) (w / c) =
+      c * ArtinPrimitiveRoots.Sieve.roughDensity γ w := by
+  unfold ArtinPrimitiveRoots.Sieve.roughDensity
+  simp_rw [densityTerm_rescale γ w c hc]
+  rw [tsum_mul_left]
 
 end ArtinPrimitiveRoots.Proofs.r_impl_muse
