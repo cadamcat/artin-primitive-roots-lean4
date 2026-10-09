@@ -75,6 +75,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.TranslatedPacket
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MinorPacket
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.MinorDeterminant
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ScaledRectangle
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.LabelMatrix
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
