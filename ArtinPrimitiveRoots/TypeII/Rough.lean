@@ -4436,6 +4436,140 @@ private theorem principal_tuple_card_fiber (n B : ℕ) (Y l r : ℝ) :
     rw [hnat, Nat.cast_sum]
   simpa [tuples, primes, fiber] using hreal
 
+set_option maxHeartbeats 1000000 in
+/-- The supported tuple integral splits at its last coordinate. -/
+private theorem principal_tuple_integral_fiber (x γ l r : ℝ) (n : ℕ)
+    (hx : 2 ≤ x) (hγ : 0 < γ) :
+    roughTupleIntegral x γ l r (n + 2) =
+      (1 / ((n + 2 : ℕ) : ℝ)) *
+        ∫ p in Set.Ioi (Real.rpow x γ),
+          (1 / Real.log p) *
+            roughTupleIntegral x γ (l / p) (r / p) (n + 1) := by
+  classical
+  let A := Real.rpow x γ
+  let S := roughTupleSource (n := n + 1) A l r
+  let K : (Fin (n + 2) → ℝ) → ℝ := fun t => ∏ i, 1 / Real.log (t i)
+  let T (p : ℝ) := roughTupleSource (n := n) A (l / p) (r / p)
+  let H : (Fin (n + 1) → ℝ) → ℝ := fun s => ∏ i, 1 / Real.log (s i)
+  let e : (Fin (n + 2) → ℝ) ≃ᵐ ℝ × (Fin (n + 1) → ℝ) :=
+    MeasurableEquiv.piFinSuccAbove (fun _ : Fin (n + 2) => ℝ) (Fin.last (n + 1))
+  let F : (Fin (n + 2) → ℝ) → ℝ := S.indicator K
+  let G : ℝ × (Fin (n + 1) → ℝ) → ℝ := fun q => F (e.symm q)
+  have hx1 : 1 < x := by linarith
+  have hA1 : 1 < A := Real.one_lt_rpow hx1 hγ
+  have hA0 : 0 < A := lt_trans zero_lt_one hA1
+  have hSmeas : MeasurableSet S := measurableSet_roughTupleSource A l r
+  have hTmeas (p : ℝ) : MeasurableSet (T p) :=
+    measurableSet_roughTupleSource A (l / p) (r / p)
+  have hK : IntegrableOn K S volume := principal_tuple_kernel_integrable hA1
+  have hF : Integrable F volume := hK.integrable_indicator hSmeas
+  have hMP0 : MeasurePreserving e volume volume := by
+    simpa [e] using
+      volume_preserving_piFinSuccAbove (fun _ : Fin (n + 2) => ℝ) (Fin.last (n + 1))
+  have hMP : MeasurePreserving e volume (volume.prod volume) := by
+    simpa only [← Measure.volume_eq_prod ℝ (Fin (n + 1) → ℝ)] using hMP0
+  have hG : Integrable G (volume.prod volume) :=
+    hMP.symm.integrable_comp_of_integrable hF
+  have heSnoc (p : ℝ) (s : Fin (n + 1) → ℝ) :
+      e.symm (p, s) = Fin.snoc s p := by
+    apply e.injective
+    rw [e.apply_symm_apply]
+    apply Prod.ext
+    · simp [e]
+    · funext i
+      simp [e]
+  have hcoords (p : ℝ) (s : Fin (n + 1) → ℝ) :
+      (∀ i, A ≤ (Fin.snoc s p : Fin (n + 2) → ℝ) i) ↔
+        A ≤ p ∧ ∀ i, A ≤ s i := by
+    constructor
+    · intro hs
+      exact ⟨by simpa using hs (Fin.last (n + 1)),
+        fun i => by simpa using hs i.castSucc⟩
+    · rintro ⟨hp, hs⟩ i
+      cases i using Fin.lastCases with
+      | last => simpa using hp
+      | cast j => simpa using hs j
+  have hmem (p : ℝ) (s : Fin (n + 1) → ℝ) :
+      e.symm (p, s) ∈ S ↔ A ≤ p ∧ s ∈ T p := by
+    rw [heSnoc]
+    change ((∀ i, A ≤ (Fin.snoc s p : Fin (n + 2) → ℝ) i) ∧
+      l ≤ ∏ i, Fin.snoc s p i ∧ (∏ i, Fin.snoc s p i) ≤ r) ↔
+        A ≤ p ∧ (∀ i, A ≤ s i) ∧ l / p ≤ ∏ i, s i ∧ (∏ i, s i) ≤ r / p
+    rw [hcoords, Fin.prod_snoc]
+    by_cases hp : A ≤ p
+    · have hp0 : 0 < p := lt_of_lt_of_le hA0 hp
+      rw [div_le_iff₀ hp0, le_div_iff₀ hp0]
+      simp only [hp, true_and]
+    · simp only [hp, false_and]
+  have hkernel (p : ℝ) (s : Fin (n + 1) → ℝ) :
+      K (e.symm (p, s)) = (1 / Real.log p) * H s := by
+    rw [heSnoc]
+    dsimp [K, H]
+    rw [Fin.prod_univ_castSucc]
+    simp only [Fin.snoc_castSucc, Fin.snoc_last, mul_comm]
+  have hinner (p : ℝ) :
+      ∫ s, G (p, s) =
+        if A ≤ p then (1 / Real.log p) * ∫ s in T p, H s else 0 := by
+    by_cases hp : A ≤ p
+    · have hfun : (fun s => G (p, s)) =
+          (fun s => (1 / Real.log p) * (T p).indicator H s) := by
+        funext s
+        change S.indicator K (e.symm (p, s)) = _
+        simp only [Set.indicator, hmem, hp, true_and]
+        by_cases hs : s ∈ T p
+        · simp only [hs, ite_true, hkernel]
+        · simp only [hs, ite_false, mul_zero]
+      rw [hfun, integral_const_mul, integral_indicator (hTmeas p)]
+      simp only [hp, ite_true]
+    · have hfun : (fun s => G (p, s)) = fun _ => 0 := by
+        funext s
+        change S.indicator K (e.symm (p, s)) = 0
+        simp only [Set.indicator, hmem, hp, false_and, ite_false]
+      rw [hfun]
+      simp only [integral_zero, hp, ite_false]
+  have hPair : ∫ q, G q ∂(volume.prod volume) =
+      ∫ p in Set.Ioi A, (1 / Real.log p) * ∫ s in T p, H s := by
+    calc
+      _ = ∫ p, ∫ s, G (p, s) := integral_prod G hG
+      _ = ∫ p, if A ≤ p then (1 / Real.log p) * ∫ s in T p, H s else 0 := by
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall hinner
+      _ = ∫ p in Set.Ici A, (1 / Real.log p) * ∫ s in T p, H s := by
+        have hfun : (fun p : ℝ =>
+            if A ≤ p then (1 / Real.log p) * ∫ s in T p, H s else 0) =
+            (Set.Ici A).indicator (fun p => (1 / Real.log p) * ∫ s in T p, H s) := by
+          funext p
+          simp only [Set.indicator, Set.mem_Ici]
+        rw [hfun, integral_indicator measurableSet_Ici]
+      _ = ∫ p in Set.Ioi A, (1 / Real.log p) * ∫ s in T p, H s :=
+        integral_Ici_eq_integral_Ioi
+  have hSource : ∫ t in S, K t = ∫ q, G q ∂(volume.prod volume) := by
+    rw [← integral_indicator hSmeas]
+    exact (hMP.symm.integral_comp' F).symm
+  have hNormalize :
+      (∫ p in Set.Ioi A, (1 / Real.log p) *
+          roughTupleIntegral x γ (l / p) (r / p) (n + 1)) =
+        (1 / ((n + 1).factorial : ℝ)) *
+          ∫ p in Set.Ioi A, (1 / Real.log p) * ∫ s in T p, H s := by
+    rw [← integral_const_mul]
+    apply integral_congr_ae
+    exact Filter.Eventually.of_forall fun p => by
+      dsimp only
+      rw [roughTupleIntegral_eq_source x γ (l / p) (r / p) (n := n) hx]
+      change (1 / Real.log p) *
+        ((1 / ((n + 1).factorial : ℝ)) * ∫ s in T p, H s) = _
+      ring
+  have hfac : (n + 2).factorial = (n + 2) * (n + 1).factorial :=
+    Nat.factorial_succ (n + 1)
+  have hcoef : (1 / ((n + 2).factorial : ℝ)) =
+      (1 / ((n + 2 : ℕ) : ℝ)) * (1 / ((n + 1).factorial : ℝ)) := by
+    rw [hfac, Nat.cast_mul]
+    simp only [one_div, mul_inv_rev, mul_comm]
+  rw [roughTupleIntegral_eq_source x γ l r (n := n + 1) hx]
+  change (1 / ((n + 2).factorial : ℝ)) * (∫ t in S, K t) = _
+  rw [hSource, hPair, hcoef, hNormalize]
+  ring
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
