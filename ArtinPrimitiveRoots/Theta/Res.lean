@@ -1019,6 +1019,84 @@ theorem family_pair_common_adapted_domain {P : CoverPackage D S H A} {G : Global
   exact ⟨𝔞, Pd, ⟨h𝔞, hfix, hPd, hb, hdual⟩,
     ⟨h𝔞, hfix', hPd, hb, hdual⟩, hm⟩
 
+/-- Equal intertwiner data gives zero constant coefficients over every bounded
+ideal period domain of the residue difference. -/
+theorem residue_difference_constantCoeff_eq_zero
+    {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
+    (Fam Fam' : AnalyticFamily P G μ) (C : ContinuedEis Fam) (C' : ContinuedEis Fam')
+    (hT : Fam.T0 = Fam'.T0)
+    (hM : ∀ v ∈ Fam.T0, intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) =
+      intertwine (P.loc v) (μ v) ((Fam'.sec (1 / 6)).f v))
+    (g : P.tc.G) (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (Pd : Set (InfinitePlace F → ℂ)) (_h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      C.theta (h * (g⁻¹ * nFin P ξ * g)) - C'.theta (h * (g⁻¹ * nFin P ξ * g)) =
+        C.theta h - C'.theta h)
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume)
+    (hb : Bornology.IsBounded Pd) :
+    torusCoeff P (fun h => C.theta h - C'.theta h) g Pd 0 = 0 := by
+  let : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let Ψ : P.tc.G → ℂ := fun h => C.theta h - C'.theta h
+  let f : (InfinitePlace F → ℂ) → ℂ := fun x => Ψ (nInf P x * g)
+  have hnzero : nInf P 0 = 1 := by
+    change P.tc.nS 1 = 1
+    exact P.tc.nS.map_one
+  have hcont {Fr : AnalyticFamily P G μ} (CR : ContinuedEis Fr) :
+      Continuous (fun x : InfinitePlace F → ℂ => CR.theta (nInf P x * g)) := by
+    have h := (CR.jointRoots g).continuous.comp
+      (continuous_id.prodMk (continuous_const (y := (0 : InfinitePlace F → ℂ))))
+    simpa only [Function.comp_def, id_eq, hnzero, mul_one] using h
+  have hf : Continuous f := (hcont C).sub (hcont C')
+  have hAut : ∀ γ h, Ψ (P.tc.rat γ * h) = Ψ h := by
+    intro γ h
+    dsimp [Ψ]
+    rw [residue_automorphic Fam C γ h, residue_automorphic Fam' C' γ h]
+  have hperP : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ x, f (x + infEmbA ξ) = f x :=
+    automorphic_ideal_period P Ψ g 𝔞 hAut hfix
+  obtain ⟨𝔟, Rd, hdom, hdom', _⟩ := family_pair_common_adapted_domain Fam Fam' g
+  have hperR : ∀ ξ ∈ (𝔟 : Submodule (𝓞 F) F), ∀ x, f (x + infEmbA ξ) = f x := by
+    intro ξ hξ x
+    dsimp [f, Ψ]
+    rw [residue_ideal_period Fam C g 𝔟 hdom.2.1 ξ hξ x,
+      residue_ideal_period Fam' C' g 𝔟 hdom'.2.1 ξ hξ x]
+  have hint : IntegrableOn (fun x => C.theta (nInf P x * g)) Rd volume :=
+    ((hcont C).continuousOn.integrableOn_compact
+      hdom.2.2.2.1.isCompact_closure).mono_set subset_closure
+  have hint' : IntegrableOn (fun x => C'.theta (nInf P x * g)) Rd volume :=
+    ((hcont C').continuousOn.integrableOn_compact
+      hdom.2.2.2.1.isCompact_closure).mono_set subset_closure
+  have hcmp : ((volume Rd).toReal : ℂ)⁻¹ * (∫ x in Rd, C.theta (nInf P x * g)) =
+      ((volume Rd).toReal : ℂ)⁻¹ * (∫ x in Rd, C'.theta (nInf P x * g)) := by
+    simpa [torusCoeff, psiInf, psiC] using
+      theta_constantCoeff_eq_of_M Fam Fam' C C' hT hM g 𝔟 hdom.1
+        hdom.2.1 hdom'.2.1 Rd hdom.2.2.1 hdom.2.2.2.1
+  have hzero : ((volume Rd).toReal : ℂ)⁻¹ * (∫ x in Rd, f x) = 0 := by
+    change ((volume Rd).toReal : ℂ)⁻¹ *
+      (∫ x in Rd, C.theta (nInf P x * g) - C'.theta (nInf P x * g)) = 0
+    rw [integral_sub hint hint', mul_sub]
+    exact sub_eq_zero.mpr hcmp
+  have hvol (𝔠 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (Qd : Set (InfinitePlace F → ℂ))
+      (hQd : IsAddFundamentalDomain
+        ((𝔠 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Qd volume)
+      (hbQ : Bornology.IsBounded Qd) : (volume Qd).toReal ≠ 0 := by
+    let L := (𝔠 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom
+    have hcount : (L : Set (InfinitePlace F → ℂ)).Countable := by
+      change (↑((𝔠 : Submodule (𝓞 F) F).toAddSubgroup.map
+        infEmbA.toAddMonoidHom) : Set (InfinitePlace F → ℂ)).Countable
+      rw [AddSubgroup.coe_map]
+      exact (Set.to_countable _).image _
+    let : Countable L := hcount.to_subtype
+    have hv : volume Qd ≠ 0 :=
+      hQd.measure_ne_zero (NeZero.ne (volume : Measure (InfinitePlace F → ℂ)))
+    exact ENNReal.toReal_ne_zero.mpr ⟨hv, (hbQ.measure_lt_top (μ := volume)).ne⟩
+  have havg := ideal_periodic_normalized_integrals_eq f hf 𝔞 𝔟 Pd Rd hPd hdom.2.2.1
+    hb hdom.2.2.2.1 (hvol 𝔞 Pd hPd hb) (hvol 𝔟 Rd hdom.2.2.1 hdom.2.2.2.1)
+    hperP hperR
+  rw [hzero] at havg
+  simpa [torusCoeff, psiInf, psiC, f, Ψ] using havg
+
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
 theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
