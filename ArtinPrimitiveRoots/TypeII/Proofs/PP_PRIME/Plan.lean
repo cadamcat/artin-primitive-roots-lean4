@@ -792,6 +792,9 @@ private theorem ppPrime_fourier_polynomial_decay (f : ℝ → ℂ)
       _ ≤ max (A₀ * 2 ^ j) Aⱼ := le_max_right _ _
 
 /-- Compact support and derivative control give a uniform vertical Mellin bound. -/
+private noncomputable def ppPrimeMellinDecayConstant (K : ℕ → ℝ) (j : ℕ) : ℝ :=
+  (2 * Real.pi) ^ j * (K 0 * 2 ^ j + K j) + 1
+
 theorem mellinKernel_uniform_decay (g : ℝ → ℝ) (L A : ℝ)
     (hL : 1 ≤ L) (hA : 0 < A) (K : ℕ → ℝ) (hK : ∀ j, 0 ≤ K j)
     (hsmooth : ∀ α, |α| ≤ 1 →
@@ -801,10 +804,10 @@ theorem mellinKernel_uniform_decay (g : ℝ → ℝ) (L A : ℝ)
     (hbound : ∀ α, |α| ≤ 1 → ∀ j,
       ∫ u : ℝ, ‖iteratedDeriv j (mellinLogWeight g α) u‖ ≤
         K j * Real.rpow L ((j : ℝ) * (A + 4))) :
-    ∀ j : ℕ, ∃ Mj : ℝ, 0 < Mj ∧
-      ∀ α v : ℝ, |α| ≤ 1 →
-        ‖mellinKernel g (⟨α, v⟩ : ℂ)‖ ≤
-          Mj * Real.rpow L (((j + 1 : ℕ) : ℝ) * (A + 5)) *
+    ∀ j : ℕ, ∀ α v : ℝ, |α| ≤ 1 →
+      ‖mellinKernel g (⟨α, v⟩ : ℂ)‖ ≤
+        ppPrimeMellinDecayConstant K j *
+          Real.rpow L (((j + 1 : ℕ) : ℝ) * (A + 5)) *
             Real.rpow (1 + |v|) (-(j : ℝ)) := by
   classical
   intro j
@@ -823,7 +826,6 @@ theorem mellinKernel_uniform_decay (g : ℝ → ℝ) (L A : ℝ)
   have hKj : 0 ≤ K j := hK j
   have hL0 : 0 ≤ L := le_trans (by norm_num : (0 : ℝ) ≤ 1) hL
   have hMj : 0 < Mj := by dsimp [Mj]; positivity
-  refine ⟨Mj, hMj, ?_⟩
   intro α v hα
   let f : ℝ → ℂ := mellinLogWeight g α
   have hline : mellinKernel g (⟨α, v⟩ : ℂ) = 𝓕 f (v / (2 * Real.pi)) := by
@@ -925,18 +927,18 @@ theorem mellinKernel_uniform_decay (g : ℝ → ℝ) (L A : ℝ)
         congrArg Inv.inv (Real.rpow_natCast (1 + |v|) j)
       _ = 1 / (1 + |v|) ^ j := by simp [one_div]
   rw [hRpow]
-  simpa [E, div_eq_mul_inv, mul_assoc] using hFinal
+  simpa [E, Mj, ppPrimeMellinDecayConstant, div_eq_mul_inv, mul_assoc] using hFinal
 
 /-- The endpoint cutoff supplies the log-weight hypotheses for uniform Mellin decay. -/
 theorem ppPrimePositiveCutoff_mellinKernel_uniform_decay
     (a b L A : ℝ) (ha : 1 ≤ a) (hab : a ≤ b) (hb : b ≤ 2)
     (hL : 1 ≤ L) (hA : 0 < A)
     (hδsmall : Real.rpow L (-A - 4) ≤ 1 / 4) :
-    ∀ j : ℕ, ∃ Mj : ℝ, 0 < Mj ∧
-      ∀ α v : ℝ, |α| ≤ 1 →
-        ‖mellinKernel (ppPrimePositiveCutoff a b (Real.rpow L (-A - 4)))
-            (⟨α, v⟩ : ℂ)‖ ≤
-          Mj * Real.rpow L (((j + 1 : ℕ) : ℝ) * (A + 5)) *
+    ∀ j : ℕ, ∀ α v : ℝ, |α| ≤ 1 →
+      ‖mellinKernel (ppPrimePositiveCutoff a b (Real.rpow L (-A - 4)))
+          (⟨α, v⟩ : ℂ)‖ ≤
+        ppPrimeMellinDecayConstant ppPrimePositiveCutoffLogWeightConstant j *
+          Real.rpow L (((j + 1 : ℕ) : ℝ) * (A + 5)) *
             Real.rpow (1 + |v|) (-(j : ℝ)) := by
   let δ : ℝ := Real.rpow L (-A - 4)
   let K : ℕ → ℝ := ppPrimePositiveCutoffLogWeightConstant
