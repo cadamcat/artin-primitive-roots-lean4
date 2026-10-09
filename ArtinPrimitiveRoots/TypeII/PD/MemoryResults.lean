@@ -12181,6 +12181,80 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_memory_masks_bound {K :
     (fun s hs => hmeasure s) k ρ (C*r) hρ.1.le hρ.2.1.le
     (fun s => ∑ i : Fin K, hitCount (s.2.2 i) s.1) hk f
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Actual fresh-label collisions have an exponentially small mass, uniformly in fixed labels. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_fresh_collision_mass_eventually {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+      ∀ S : PDScale, x₀ ≤ S.x → ∀ b : Fin K → ℕ,
+      (∑ p : (i : Fin K) → primeBand S.x (F.a i),
+        if ∃ i : Fin K, (p i : ℕ) = b i then
+          ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (p i) else 0) ≤
+        C*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by
+  classical
+  obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+  have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hhalf : 0 < Real.log 2/2 := div_pos hlog (by norm_num)
+  let cν : ℝ := 4/Real.log 2
+  have hcν : 0 < cν := div_pos (by norm_num) hlog
+  let C := ((K : ℝ)+1)*cν*(2 : ℝ)^K
+  let x₀ := max 2 (max xV (max xB (Real.exp 1)))
+  have hC : 0 < C := by dsimp only [C]; positivity
+  refine ⟨C, x₀, hC, le_max_left _ _, ?_⟩
+  intro S hx b
+  have hxV' : xV ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxB' : xB ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxexp : Real.exp 1 ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hL : 1 ≤ S.L := by
+    have hh := Real.log_le_log (Real.exp_pos 1) hxexp
+    rw [Real.log_exp] at hh
+    exact hh
+  let T := Real.rpow S.L (1/10 : ℝ)
+  let ε := cν*Real.exp (-T)
+  have hε : 0 ≤ ε := (mul_pos hcν (Real.exp_pos _)).le
+  have hV (i : Fin K) : Real.log 2/2 ≤ bandMass S.x (F.a i) :=
+    (hVbounds S.x hxV' i).1
+  have hVpos (i : Fin K) : 0 < bandMass S.x (F.a i) := hhalf.trans_le (hV i)
+  have hcoef (i : Fin K) : 2/bandMass S.x (F.a i) ≤ cν := by
+    calc
+      _ ≤ 2/(Real.log 2/2) :=
+        div_le_div_of_nonneg_left (by norm_num) hhalf (hV i)
+      _ = cν := by dsimp only [cν]; field_simp [hlog.ne']; ring
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p ∧
+        memoryNu S.x K F.a F.q_d i p ≤ ε := by
+    have hpmark : p ∈ markedPrimes S.x K F.a :=
+      Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩
+    have hbound := pd4c_memoryNu_le_twice_mu F.q_d i p
+      (Finset.mem_filter.mp hp).2.1.pos (hVpos i) (hBbounds S.x hxB' p hpmark)
+    refine ⟨hbound.1, hbound.2.trans ?_⟩
+    have hppos : 0 < (p : ℝ) := by
+      exact_mod_cast (Finset.mem_filter.mp hp).2.1.pos
+    calc
+      _ = (2/bandMass S.x (F.a i))*(1/(p : ℝ)) := by
+        field_simp [(hVpos i).ne', hppos.ne']
+        <;> ring
+      _ ≤ cν*Real.exp (-Real.rpow S.L (1/10 : ℝ)) :=
+        mul_le_mul (hcoef i) (pd4c_band_prime_inverse_le F S hF hL i p hp)
+          (one_div_pos.mpr hppos).le hcν.le
+      _ = ε := rfl
+  have hmass (i : Fin K) :
+      (∑ p ∈ primeBand S.x (F.a i), memoryNu S.x K F.a F.q_d i p) ≤ 2 :=
+    memoryNu_band_mass_le_two F i (hVpos i) (hBbounds S.x hxB')
+  have hcollision := finite_fresh_collision_mass_le K
+    (fun i => primeBand S.x (F.a i))
+    (fun i p => memoryNu S.x K F.a F.q_d i p) b ε hε
+    (fun i p hp => (hν i p hp).1) hmass (fun i p hp => (hν i p hp).2)
+  calc
+    _ ≤ (K : ℝ)*ε*(2 : ℝ)^K := hcollision
+    _ ≤ ((K : ℝ)+1)*ε*(2 : ℝ)^K :=
+      mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_right (by linarith) hε) (pow_nonneg (by norm_num) K)
+    _ = C*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by dsimp only [C, ε, T]; ring
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
