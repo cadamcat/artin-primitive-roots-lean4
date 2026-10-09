@@ -32,6 +32,7 @@ import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.ConditionedAggregation
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.BinReindex
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.DivisorCount
 import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.GroupTail
+import ArtinPrimitiveRoots.Construction.Proofs.C_BINS.BinMassCore
 
 /-! Statements for the prime construction in `12-construction.tex`. -/
 
