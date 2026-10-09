@@ -9399,6 +9399,174 @@ private theorem euler_good_term_model (hE : EulerHypotheses R η)
     rw [hzero]
     simp [eulerGoodTermModel, hlne, hl]
 
+private theorem euler_good_model_tsum (Q V W D1 E1 : ℂ)
+    (hV : ‖V‖ < 1) (hW : ‖W‖ < 1) (hE1 : ‖E1‖ < 1)
+    (hs : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      eulerGoodTermModel Q V W D1 E1 i.1.1 i.2.1 i.2.2.1 i.2.2.2)) :
+    (∑' i : Fin 2 × ℕ × ℕ × ℕ,
+      eulerGoodTermModel Q V W D1 E1 i.1.1 i.2.1 i.2.2.1 i.2.2.2) =
+      eulerGoodClosed Q V W D1 E1 := by
+  classical
+  let M : ℕ → ℕ → ℕ → ℕ → ℂ := eulerGoodTermModel Q V W D1 E1
+  let F : ℕ → ℕ → ℂ := fun e l => ∑' k, ∑' m, M e l k m
+  let A0 : ℂ := (1 - Q⁻¹) * (1 - V)⁻¹ + W
+  let A1 : ℂ := 1 + (Q - 1) * W * V * (1 - V)⁻¹
+  have hsm : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      M i.1.1 i.2.1 i.2.2.1 i.2.2.2) := hs
+  have hVG : (∑' n : ℕ, V ^ n) = (1 - V)⁻¹ := tsum_geometric_of_norm_lt_one hV
+  have hWG : (∑' n : ℕ, W ^ n) = (1 - W)⁻¹ := tsum_geometric_of_norm_lt_one hW
+  have hEG : (∑' n : ℕ, E1 ^ n) = (1 - E1)⁻¹ := tsum_geometric_of_norm_lt_one hE1
+  have htail (A : ℂ) (d : ℕ) :
+      (∑' m : ℕ, if d ≤ m then A * V ^ (m - d) else 0) = A * (1 - V)⁻¹ := by
+    let f : ℕ → ℂ := fun m => if d ≤ m then A * V ^ (m - d) else 0
+    have hg : Function.Injective (fun n : ℕ => n + d) := by
+      intro x y h
+      change x + d = y + d at h
+      omega
+    have hsupport : Function.support f ⊆ Set.range (fun n : ℕ => n + d) := by
+      intro m hm
+      change f m ≠ 0 at hm
+      have hdm : d ≤ m := by
+        by_contra h
+        exact hm (by simp [f, h])
+      exact ⟨m - d, by change (m - d) + d = m; omega⟩
+    calc
+      _ = ∑' n : ℕ, f (n + d) := (hg.tsum_eq hsupport).symm
+      _ = ∑' n : ℕ, A * V ^ n := by
+        apply tsum_congr
+        intro n
+        simp [f]
+      _ = A * (1 - V)⁻¹ := by rw [tsum_mul_left, hVG]
+  have htailStrict (A : ℂ) (d : ℕ) :
+      (∑' m : ℕ, if d < m then A * V ^ (m - d) else 0) =
+        A * V * (1 - V)⁻¹ := by
+    calc
+      _ = ∑' m : ℕ, if d + 1 ≤ m then (A * V) * V ^ (m - (d + 1)) else 0 := by
+        apply tsum_congr
+        intro m
+        by_cases hdm : d < m
+        · have hdm' : d + 1 ≤ m := by omega
+          have hexp : m - d = (m - (d + 1)) + 1 := by omega
+          simp only [if_pos hdm, if_pos hdm', hexp, pow_succ]
+          ring
+        · have hdm' : ¬ d + 1 ≤ m := by omega
+          simp [hdm, hdm']
+      _ = _ := htail (A * V) (d + 1)
+  have htwo (e l : ℕ) (ht : e ≠ 0 ∨ l ≠ 0) :
+      F e l = (∑' m, M e l 0 m) + (∑' m, M e l 1 m) := by
+    have hzero (k : ℕ) (hk : k ∉ ({0, 1} : Finset ℕ)) :
+        (∑' m, M e l k m) = 0 := by
+      have hk0 : k ≠ 0 := by simpa using (fun h : k = 0 => hk (by simp [h]))
+      have hk1 : k ≠ 1 := by simpa using (fun h : k = 1 => hk (by simp [h]))
+      rcases ht with he | hl
+      · simp [M, eulerGoodTermModel, he, hk0, hk1]
+      · by_cases he : e = 0
+        · simp [M, eulerGoodTermModel, he, hl, hk0, hk1]
+        · simp [M, eulerGoodTermModel, he, hk0, hk1]
+    change (∑' k, ∑' m, M e l k m) = _
+    rw [tsum_eq_sum (s := {0, 1}) hzero]
+    simp
+  have hcolumn (e : Fin 2) :
+      (∑' lkm : ℕ × ℕ × ℕ, M e.1 lkm.1 lkm.2.1 lkm.2.2) = ∑' l, F e.1 l := by
+    rw [(hsm.prod_factor e).tsum_prod]
+    apply tsum_congr
+    intro l
+    exact ((hsm.prod_factor e).prod_factor l).tsum_prod
+  have hsF (e : Fin 2) : Summable (F e.1) := by
+    apply ((hsm.prod_factor e).prod).congr
+    intro l
+    exact ((hsm.prod_factor e).prod_factor l).tsum_prod
+  have hbaseK (k : ℕ) :
+      (∑' m, M 0 0 k m) = if k = 0 then (1 - V)⁻¹ else W ^ k := by
+    by_cases hk : k = 0
+    · subst k
+      simpa [M, eulerGoodTermModel] using hVG
+    · simp [M, eulerGoodTermModel, hk, tsum_ite_eq]
+  have hbase : F 0 0 = (1 - V)⁻¹ + W * (1 - W)⁻¹ := by
+    have hsk : Summable (fun k : ℕ => if k = 0 then (1 - V)⁻¹ else W ^ k) := by
+      apply (((hsm.prod_factor (0 : Fin 2)).prod_factor 0).prod).congr
+      intro k
+      exact hbaseK k
+    calc
+      F 0 0 = ∑' k : ℕ, if k = 0 then (1 - V)⁻¹ else W ^ k :=
+        tsum_congr hbaseK
+      _ = (1 - V)⁻¹ + ∑' k : ℕ, W ^ (k + 1) := by
+        simpa using hsk.tsum_eq_zero_add
+      _ = (1 - V)⁻¹ + W * (1 - W)⁻¹ := by
+        simp_rw [pow_succ]
+        rw [tsum_mul_right, hWG]
+        ring
+  have heven0 (d : ℕ) (hd : 0 < d) : F 0 (2 * d) = E1 ^ d * A0 := by
+    have hzero : (∑' m, M 0 (2 * d) 0 m) =
+        E1 ^ d * (1 - Q⁻¹) * (1 - V)⁻¹ := by
+      simpa [M, eulerGoodTermModel, hd.ne'] using htail (E1 ^ d * (1 - Q⁻¹)) d
+    have hone : (∑' m, M 0 (2 * d) 1 m) = E1 ^ d * W := by
+      simp [M, eulerGoodTermModel, hd.ne', tsum_ite_eq]
+    rw [htwo 0 (2 * d) (Or.inr (by omega)), hzero, hone]
+    dsimp [A0]
+    ring
+  have heven1 (d : ℕ) : F 1 (2 * d) = -D1 * E1 ^ d * A1 := by
+    have hzero : (∑' m, M 1 (2 * d) 0 m) = -D1 * E1 ^ d := by
+      simp [M, eulerGoodTermModel, tsum_ite_eq]
+    have hone : (∑' m, M 1 (2 * d) 1 m) =
+        (-(Q - 1) * D1 * E1 ^ d * W) * V * (1 - V)⁻¹ := by
+      simpa [M, eulerGoodTermModel] using htailStrict (-(Q - 1) * D1 * E1 ^ d * W) d
+    rw [htwo 1 (2 * d) (Or.inl (by norm_num)), hzero, hone]
+    dsimp [A1]
+    ring
+  have hodd (e l : ℕ) (hl : l % 2 ≠ 0) : F e l = 0 := by
+    have hlne : l ≠ 0 := by omega
+    simp [F, M, eulerGoodTermModel, hl, hlne]
+  have hg : Function.Injective (fun d : ℕ => 2 * d) := by
+    intro x y h
+    change 2 * x = 2 * y at h
+    omega
+  have hevenSum (e : ℕ) : (∑' l, F e l) = ∑' d, F e (2 * d) := by
+    have hsupport : Function.support (F e) ⊆ Set.range (fun d : ℕ => 2 * d) := by
+      intro l hl
+      change F e l ≠ 0 at hl
+      have hmod : l % 2 = 0 := by
+        by_contra h
+        exact hl (hodd e l h)
+      have hdecomp := Nat.mod_add_div l 2
+      exact ⟨l / 2, by change 2 * (l / 2) = l; omega⟩
+    exact (hg.tsum_eq hsupport).symm
+  have hsum0 : (∑' l, F 0 l) =
+      (1 - V)⁻¹ + W * (1 - W)⁻¹ + E1 * (1 - E1)⁻¹ * A0 := by
+    have hse : Summable (fun d : ℕ => F 0 (2 * d)) :=
+      (hsF (0 : Fin 2)).comp_injective hg
+    calc
+      _ = ∑' d, F 0 (2 * d) := hevenSum 0
+      _ = F 0 0 + ∑' d, F 0 (2 * (d + 1)) := by
+        simpa using hse.tsum_eq_zero_add
+      _ = (1 - V)⁻¹ + W * (1 - W)⁻¹ + ∑' d, E1 ^ (d + 1) * A0 := by
+        rw [hbase]
+        congr 1
+        apply tsum_congr
+        intro d
+        exact heven0 (d + 1) (by omega)
+      _ = (1 - V)⁻¹ + W * (1 - W)⁻¹ + E1 * (1 - E1)⁻¹ * A0 := by
+        simp_rw [pow_succ]
+        rw [tsum_mul_right, tsum_mul_right, hEG]
+        ring
+  have hsum1 : (∑' l, F 1 l) = -D1 * (1 - E1)⁻¹ * A1 := by
+    calc
+      _ = ∑' d, F 1 (2 * d) := hevenSum 1
+      _ = ∑' d, -D1 * E1 ^ d * A1 := tsum_congr heven1
+      _ = _ := by rw [tsum_mul_right, tsum_mul_left, hEG]
+  have hmain : (∑' i : Fin 2 × ℕ × ℕ × ℕ, M i.1.1 i.2.1 i.2.2.1 i.2.2.2) =
+      (∑' l, F 0 l) + (∑' l, F 1 l) := by
+    calc
+      _ = ∑' e : Fin 2, ∑' lkm : ℕ × ℕ × ℕ, M e.1 lkm.1 lkm.2.1 lkm.2.2 :=
+        hsm.tsum_prod
+      _ = ∑' e : Fin 2, ∑' l, F e.1 l := tsum_congr hcolumn
+      _ = _ := by simp [tsum_fintype, Fin.sum_univ_two]
+  change (∑' i : Fin 2 × ℕ × ℕ × ℕ, M i.1.1 i.2.1 i.2.2.1 i.2.2.2) = _
+  rw [hmain, hsum0, hsum1]
+  dsimp only [A0, A1]
+  simp only [eulerGoodClosed, div_eq_mul_inv]
+  ring
+
 /-- po:euler-good-closed, 05:596-659. The zero-valuation local series is the frozen closed factor. -/
 theorem po_euler_good_closed : EulerHypotheses R η → ∀ u v hv ξ w z, initialRegion ξ w z → frequencyValuation η U u v = 0 →
   localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal) (localV v z)
