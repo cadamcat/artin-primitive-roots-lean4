@@ -10,6 +10,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.QuadraticSupport
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianFiniteScale
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianUniformBound
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianFrequency
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.AdditiveOrthogonality
 
 set_option autoImplicit false
 
