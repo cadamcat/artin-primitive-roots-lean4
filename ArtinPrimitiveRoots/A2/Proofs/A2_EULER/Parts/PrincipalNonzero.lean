@@ -22,6 +22,33 @@ theorem principal_nonzero (HC : EulerCorrection R η U)
     (hsmall : ∀ v hv p, eulerNeighborhood p →
       ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) :
     ∀ p, eulerNeighborhood p → HC.H U.one p ≠ 0 := by
-  sorry
+  intro p hp
+  have hprod : (∏' v : {v : FinPlace F // v ∉ S.Sf},
+      normalizedLocal R η U U.one v.1 v.2 (p 0) (p 1) (p 2)) ≠ 0 := by
+    have hne : ∀ v : {v : FinPlace F // v ∉ S.Sf},
+        1 + (normalizedLocal R η U U.one v.1 v.2 (p 0) (p 1) (p 2) - 1) ≠ 0 := by
+      intro v hz
+      have hvsmall := hsmall v.1 v.2 p hp
+      have hval : normalizedLocal R η U U.one v.1 v.2 (p 0) (p 1) (p 2) = 0 := by
+        calc
+          _ = 1 + (normalizedLocal R η U U.one v.1 v.2 (p 0) (p 1) (p 2) - 1) := by ring
+          _ = 0 := hz
+      have hnorm : ‖normalizedLocal R η U U.one v.1 v.2 (p 0) (p 1) (p 2) - 1‖ = 1 := by
+        rw [hval]
+        norm_num
+      linarith
+    have hprod' := tprod_one_add_ne_zero_of_summable
+      (f := fun v : {v : FinPlace F // v ∉ S.Sf} =>
+        normalizedLocal R η U U.one v.1 v.2 (p 0) (p 1) (p 2) - 1)
+      hne (hs p hp)
+    have hfun : (fun v : {v : FinPlace F // v ∉ S.Sf} =>
+        1 + (normalizedLocal R η U U.one v.1 v.2 (p 0) (p 1) (p 2) - 1)) =
+        fun v => normalizedLocal R η U U.one v.1 v.2 (p 0) (p 1) (p 2) := by
+      funext v
+      ring
+    rw [hfun] at hprod'
+    exact hprod'
+  rw [HC.H_eq]
+  exact hprod
 
 end ArtinPrimitiveRoots.Proofs.a2_euler_sol
