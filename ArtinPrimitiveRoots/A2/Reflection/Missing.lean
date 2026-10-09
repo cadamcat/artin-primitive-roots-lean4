@@ -15887,6 +15887,39 @@ private theorem rf_pairing_thetaAverage_series
         ∑' p : P, omegaInt R l (rf_pairing_grouped_fourier_term R r p) := hIntegral
     _ = _ := by rw [hZero, zero_add]
 
+private theorem rf_pairing_thetaAverage_grouped_series
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    Summable (fun q : FrozenIndex R r.h × S.SqfExtIdeal =>
+      ∑' γ : Gamma S, omegaInt R l
+        (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ))) ∧
+      thetaAverage R r l =
+        ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+          ∑' γ : Gamma S, omegaInt R l
+            (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ)) := by
+  classical
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let f : P → ℂ := fun p => omegaInt R l (rf_pairing_grouped_fourier_term R r p)
+  let N : P → ℝ := fun p =>
+    ∫ y, ‖onUnits (rf_pairing_grouped_fourier_term R r p) y‖ ∂m
+  have hBase := rf_pairing_grouped_integral_norm_summable R r l hl
+  change (∀ p : P, Integrable (onUnits (rf_pairing_grouped_fourier_term R r p)) m) ∧
+    Summable N at hBase
+  have hsNorm : Summable (fun p : P => ‖f p‖) :=
+    Summable.of_nonneg_of_le (fun p => norm_nonneg (f p))
+      (fun p => norm_integral_le_integral_norm _) hBase.2
+  have hs : Summable f := Summable.of_norm hsNorm
+  let e : J × Gamma S ≃ P :=
+    Equiv.prodAssoc (FrozenIndex R r.h) S.SqfExtIdeal (Gamma S)
+  have hsReindex : Summable (f ∘ e) := (e.summable_iff).2 hs
+  refine ⟨hsReindex.prod, ?_⟩
+  calc
+    thetaAverage R r l = ∑' p : P, f p := rf_pairing_thetaAverage_series R r l hl
+    _ = ∑' p : J × Gamma S, (f ∘ e) p := (e.tsum_eq f).symm
+    _ = _ := hsReindex.tsum_prod
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
