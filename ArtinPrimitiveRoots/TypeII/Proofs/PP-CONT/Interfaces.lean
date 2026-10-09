@@ -1664,6 +1664,23 @@ private theorem cont_weighted_dyad_bound
       nlinarith [mul_nonneg hB ha0]
     _ = 2 * B * Real.rpow (N : ℝ) (-σ) := by simp [a]
 
+private theorem cont_weighted_dyad_phase_bound
+    {q : ℕ} [NeZero q] (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    {N j : ℕ} (hN : 0 < N) (hj : j ≤ N)
+    {σ v L T Cφ C₃ : ℝ} (hσ : 0 ≤ σ)
+    (hPhase : ∀ m ≤ j, ∀ a : ZMod q,
+      ‖residuePhaseSum (N : ℝ) q a (-v)
+        (Finset.Icc N (N + m) : Set ℕ)‖ ≤
+          Cφ * ((N : ℝ) / q) * Real.exp (-L / Real.rpow T C₃)) :
+    ‖∑ k ∈ Finset.range (j + 1),
+      χ ((N + k : ℕ) : ZMod q) *
+        Complex.exp (-⟨σ, v⟩ * Real.log ((N + k : ℕ) : ℝ))‖ ≤
+      2 * Cφ * N * Real.exp (-L / Real.rpow T C₃) *
+        Real.rpow (N : ℝ) (-σ) := by
+  have hprefix := cont_character_dyad_prefixes_bound hq χ hN hj hPhase
+  have hweighted := cont_weighted_dyad_bound χ hN hσ hprefix
+  simpa [mul_assoc, mul_left_comm, mul_comm] using hweighted
+
 private theorem cont_sum_Icc_dyadic_prefix {α : Type*}
     [AddCommMonoid α] (f : ℕ → α) (N X m : ℕ) (hN : 0 < N) :
     (∑ n ∈ Finset.Icc N (min (N * 2 ^ m - 1) X), f n) =
