@@ -2234,6 +2234,7 @@ theorem lambda_data (D : FieldData F) (S : SData F CE condη) (A : AddCharData F
   exact ⟨(hΛ v hv).1, fun p hp _ => (hΛ v hv).2 (p : F) hp⟩
 
 end a1_lambda_sol
+
 namespace a1_weil_sol
 
 /-- The quadratic sign-character glue is below the Gauss theorem and uses no Plan import.
@@ -2271,7 +2272,21 @@ theorem gauss_characters (D : FieldData F) (S : SData F CE condη) (A : AddCharD
           G.primeValue v = (starRingEnd ℂ) (chi D v 4) * gamma D S A 3 v.asIdeal (p : F) ∧
           gamma D S A 1 v.asIdeal (p : F) * gamma D S A 2 v.asIdeal (p : F) =
             -(Λ.primeValue v * G.primeValue v) := by
-  sorry
+  obtain ⟨Λ, hunit, hang, hΛ⟩ := a1_lambda_sol.lambda_data D S A H Bd
+  obtain ⟨θB, hθ⟩ := a1_weil_sol.quadratic_sign_character_data D S A H Bd
+  obtain ⟨G, hfin, hG⟩ := a1_gauss_sol.gauss_correction_data D S A H Bd θB hθ
+  refine ⟨Λ, G, hfin, hunit, hang, ⟨θB, fun v hv p hp ha =>
+    ⟨ArtinPrimitiveRoots.Proofs.a1_gauss_sol.gamma_three_sign D S A v hv (p : F) hp,
+      hθ v hv p hp ha⟩⟩, ?_⟩
+  intro v hv
+  refine ⟨(hΛ v hv).1, (hG v hv).1, ?_⟩
+  intro p hp ha
+  have hcubic := (hΛ v hv).2 p hp ha
+  have hcorr := (hG v hv).2 p hp ha
+  refine ⟨hcubic, hcorr, ?_⟩
+  rw [ArtinPrimitiveRoots.Proofs.a1_gauss_sol.gamma_duplication D S A v hv (p : F) hp,
+    ← hcorr, hcubic]
+  ring
 
 /-- `ϑ = Λ̄ Ḡ η = Λ⁻¹ G⁻¹ η` (unitary) (02:606–608). -/
 def vartheta (Λ G η : HeckeChar F) : HeckeChar F := Λ⁻¹ * G⁻¹ * η
