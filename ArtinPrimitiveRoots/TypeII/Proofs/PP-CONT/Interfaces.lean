@@ -1043,6 +1043,77 @@ private theorem cont_abel_identity_right {q : ℕ} (hq : 0 < q)
           rw [hmeanCalc]
     _ = _ := by simpa [contTail, add_assoc]
 
+private theorem cont_abel_identity_upper {q : ℕ} (hq : 0 < q)
+    (χ : DirichletCharacter ℂ q) {Y : ℝ} (hY : 1 ≤ Y) (s : ℂ)
+    (hs : 0 < s.re) (him : 0 < s.im) :
+    dirichletLValue q hq χ s = dirichletPartialSum q χ Y s +
+      characterMean q χ *
+        Complex.exp ((1 - s) * (Real.log Y : ℂ)) / (s - 1) +
+      contTail q χ Y s := by
+  let U : Set ℂ := {z | 0 < z.re ∧ 0 < z.im}
+  let F : ℂ → ℂ := fun z => dirichletLValue q hq χ z
+  let G : ℂ → ℂ := fun z => dirichletPartialSum q χ Y z +
+    characterMean q χ *
+      Complex.exp ((1 - z) * (Real.log Y : ℂ)) / (z - 1) +
+    contTail q χ Y z
+  have hUopen : IsOpen U := by
+    change IsOpen ({z : ℂ | 0 < z.re} ∩ {z : ℂ | 0 < z.im})
+    exact (isOpen_lt continuous_const Complex.continuous_re).inter
+      (isOpen_lt continuous_const Complex.continuous_im)
+  have hUconvex : Convex ℝ U := by
+    change Convex ℝ ({z : ℂ | 0 < z.re} ∩ {z : ℂ | 0 < z.im})
+    exact (convex_halfSpace_re_gt 0).inter (convex_halfSpace_im_gt 0)
+  have hF : AnalyticOnNhd ℂ F U := by
+    refine DifferentiableOn.analyticOnNhd (fun z hz => ?_) hUopen
+    letI : NeZero q := ⟨Nat.ne_of_gt hq⟩
+    have hz1 : z ≠ 1 := by
+      intro h
+      have him0 := congrArg Complex.im h
+      simp at him0
+      linarith [hz.2]
+    simpa [F, dirichletLValue] using
+      (DirichletCharacter.differentiableAt_LFunction χ z (.inl hz1)).differentiableWithinAt
+  have hG : AnalyticOnNhd ℂ G U := by
+    refine DifferentiableOn.analyticOnNhd (fun z hz => ?_) hUopen
+    have hpart : DifferentiableAt ℂ (fun w => dirichletPartialSum q χ Y w) z := by
+      fun_prop [dirichletPartialSum]
+    have hz1 : z - 1 ≠ 0 := by
+      intro h
+      have him0 := congrArg Complex.im h
+      simp at him0
+      linarith [hz.2]
+    have hpole : DifferentiableAt ℂ
+        (fun w => characterMean q χ *
+          Complex.exp ((1 - w) * (Real.log Y : ℂ)) / (w - 1)) z := by
+      fun_prop
+    have htail := contTail_differentiableAt hq χ hY hz.1
+    change DifferentiableWithinAt ℂ
+      ((fun w => dirichletPartialSum q χ Y w) +
+        (fun w => characterMean q χ *
+          Complex.exp ((1 - w) * (Real.log Y : ℂ)) / (w - 1)) +
+        (fun w => contTail q χ Y w)) U z
+    exact ((hpart.add hpole).add htail).differentiableWithinAt
+  have hbase : (2 + Complex.I : ℂ) ∈ U := by
+    simp [U]
+  have hlocal : F =ᶠ[nhds (2 + Complex.I)] G := by
+    have hRe : {z : ℂ | 1 < z.re} ∈ nhds (2 + Complex.I) := by
+      exact (isOpen_lt continuous_const Complex.continuous_re).mem_nhds (by norm_num)
+    filter_upwards [hRe] with z hz
+    simpa [F, G] using cont_abel_identity_right hq χ hY z hz
+  have hsU : s ∈ U := ⟨hs, him⟩
+  have hEq := hF.eqOn_of_preconnected_of_eventuallyEq hG hUconvex.isPreconnected
+    hbase hlocal hsU
+  simpa [F, G] using hEq
+
+private theorem cont_abel_identity_lower {q : ℕ} (hq : 0 < q)
+    (χ : DirichletCharacter ℂ q) {Y : ℝ} (hY : 1 ≤ Y) (s : ℂ)
+    (hs : 0 < s.re) (him : s.im < 0) :
+    dirichletLValue q hq χ s = dirichletPartialSum q χ Y s +
+      characterMean q χ *
+        Complex.exp ((1 - s) * (Real.log Y : ℂ)) / (s - 1) +
+      contTail q χ Y s := by
+  sorry
+
 theorem cont_abel_identity {q : ℕ} (hq : 0 < q)
     (χ : DirichletCharacter ℂ q) {Y : ℝ} (hY : 1 ≤ Y) (s : ℂ)
     (hs : 0 < s.re) (him : s.im ≠ 0) :
@@ -1050,7 +1121,9 @@ theorem cont_abel_identity {q : ℕ} (hq : 0 < q)
       characterMean q χ *
         Complex.exp ((1 - s) * (Real.log Y : ℂ)) / (s - 1) +
       contTail q χ Y s := by
-  sorry
+  rcases lt_or_gt_of_ne him with him | him
+  · exact cont_abel_identity_lower hq χ hY s hs him
+  · exact cont_abel_identity_upper hq χ hY s hs him
 
 theorem cont_approximation {q : ℕ} (hq : 0 < q)
     (χ : DirichletCharacter ℂ q) (s : ℂ)
