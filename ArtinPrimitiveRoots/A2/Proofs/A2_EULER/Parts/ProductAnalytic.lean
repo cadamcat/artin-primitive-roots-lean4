@@ -34,11 +34,15 @@ private lemma e_e_partialProduct_differentiableOn
     DifferentiableOn ℂ (e_e_partialProduct R η U u V) {p | eulerNeighborhood p} := by
   classical
   unfold e_e_partialProduct
-  apply DifferentiableOn.fun_finsetProd
-  intro v hv
-  by_cases h : v.1 ∉ S.Sf
-  · simpa [h] using hlocal u v.1 h
-  · simp [h]
+  generalize V.attach = W
+  induction W using Finset.induction_on with
+  | empty => simpa using (differentiableOn_const (c := (1 : ℂ)))
+  | @insert v W hv ih =>
+    simp only [Finset.prod_insert hv]
+    apply DifferentiableOn.mul ?_ ih
+    by_cases h : v.1 ∉ S.Sf
+    · simpa [h] using hlocal u v.1 h
+    · simpa [h] using (differentiableOn_const (c := (1 : ℂ)))
 
 private lemma e_e_eulerNeighborhood_isOpen :
     IsOpen {p : Triple | eulerNeighborhood p} := by
@@ -84,7 +88,8 @@ private lemma e_e_partialProduct_deriv_cauchy_at
     intro z hz
     have hz' : dist x z ≤ R₀ / 2 := by
       simpa [K, dist_comm] using hz
-    exact hball (lt_of_le_of_lt hz' (by linarith))
+    apply hball
+    exact Metric.mem_ball.mpr (by rw [dist_comm]; linarith)
   refine ⟨R₀ / 4, by positivity, ?_, ?_⟩
   · intro y hy
     apply hball
@@ -93,7 +98,7 @@ private lemma e_e_partialProduct_deriv_cauchy_at
     exact Metric.mem_ball.mpr (by simpa [dist_comm] using lt_trans hy' (by linarith))
   rw [Metric.uniformCauchySeqOn_iff]
   intro ε hε
-  let δ : ℝ := ε * (R₀ / 8) / 4
+  let δ : ℝ := ε * (R₀ / 8) / 8
   have hδ : 0 < δ := by dsimp [δ]; positivity
   obtain ⟨W, hW⟩ := hcompact u K hKcompact hKsub δ hδ
   refine ⟨W, ?_⟩
@@ -105,6 +110,7 @@ private lemma e_e_partialProduct_deriv_cauchy_at
     change dist z x ≤ R₀ / 2
     have hz' : dist y z < R₀ / 8 := by
       simpa [dist_comm] using Metric.mem_ball.mp hz
+    apply le_of_lt
     calc
       dist z x = dist x z := dist_comm _ _
       _ ≤ dist x y + dist y z := dist_triangle _ _ _
@@ -114,46 +120,49 @@ private lemma e_e_partialProduct_deriv_cauchy_at
     hballSubK.trans hKsub
   have hV : W ⊆ V := by simpa [Finset.le_iff_subset] using hWV
   have hV' : W ⊆ V' := by simpa [Finset.le_iff_subset] using hWV'
-  have hmap : MapsTo
-      (fun z : Triple => e_e_partialProduct R η U u V z -
-        e_e_partialProduct R η U u V' z)
-      (Metric.ball y (R₀ / 8)) (Metric.closedBall 0 (2 * δ)) := by
-    intro z hz
-    have hzK : z ∈ K := hballSubK hz
+  let g : Triple → ℂ := fun z => e_e_partialProduct R η U u V z -
+    e_e_partialProduct R η U u V' z
+  have hgsmall : ∀ z ∈ K, ‖g z‖ < 2 * δ := by
+    intro z hzK
     have hA := hW V hV z hzK
     have hB := hW V' hV' z hzK
-    have hdiff : ‖e_e_partialProduct R η U u V z -
-        e_e_partialProduct R η U u V' z‖ < 2 * δ := by
-      calc
-        _ = ‖(e_e_partialProduct R η U u V z - HC.H u z) -
-            (e_e_partialProduct R η U u V' z - HC.H u z)‖ := by congr 1 <;> ring
-        _ ≤ ‖e_e_partialProduct R η U u V z - HC.H u z‖ +
-            ‖e_e_partialProduct R η U u V' z - HC.H u z‖ := norm_sub_le _ _
-        _ < δ + δ := add_lt_add hA hB
-        _ = 2 * δ := by ring
-    simpa [Metric.mem_closedBall, dist_eq_norm] using le_of_lt hdiff
-  have hdiffD : DifferentiableOn ℂ
-      (fun z : Triple => e_e_partialProduct R η U u V z -
-        e_e_partialProduct R η U u V' z) (Metric.ball y (R₀ / 8)) :=
+    calc
+      ‖g z‖ = ‖(e_e_partialProduct R η U u V z - HC.H u z) -
+          (e_e_partialProduct R η U u V' z - HC.H u z)‖ := by
+        simp only [g]; congr 1; ring
+      _ ≤ ‖e_e_partialProduct R η U u V z - HC.H u z‖ +
+          ‖e_e_partialProduct R η U u V' z - HC.H u z‖ := norm_sub_le _ _
+      _ < δ + δ := add_lt_add hA hB
+      _ = 2 * δ := by ring
+  have hyK : y ∈ K := hballSubK (Metric.mem_ball_self (by positivity))
+  have hmap : Set.MapsTo g (Metric.ball y (R₀ / 8)) (Metric.closedBall (g y) (4 * δ)) := by
+    intro z hz
+    rw [Metric.mem_closedBall, dist_eq_norm]
+    have h1 := hgsmall z (hballSubK hz)
+    have h2 := hgsmall y hyK
+    calc
+      ‖g z - g y‖ ≤ ‖g z‖ + ‖g y‖ := norm_sub_le _ _
+      _ ≤ 4 * δ := by linarith
+  have hdiffD : DifferentiableOn ℂ g (Metric.ball y (R₀ / 8)) :=
     (hfinite V).sub (hfinite V') |>.mono hballSub
-  have hschwarz := norm_fderiv_le_div_of_mapsTo_ball hdiffD hmap (by positivity)
-  have hyΩ : eulerNeighborhood y := hball
-    (Metric.mem_ball.mpr (by simpa [dist_comm] using hy'))
+  have hschwarz : ‖fderiv ℂ g y‖ ≤ (4 * δ) / (R₀ / 8) :=
+    Complex.norm_fderiv_le_div_of_mapsTo_ball hdiffD hmap (by positivity)
+  have hyΩ : eulerNeighborhood y := hballSub (Metric.mem_ball_self (by positivity))
   have hVy : DifferentiableAt ℂ (e_e_partialProduct R η U u V) y :=
     (hfinite V y hyΩ).differentiableAt
       (e_e_eulerNeighborhood_isOpen.mem_nhds hyΩ)
   have hV'y : DifferentiableAt ℂ (e_e_partialProduct R η U u V') y :=
     (hfinite V' y hyΩ).differentiableAt
       (e_e_eulerNeighborhood_isOpen.mem_nhds hyΩ)
-  have hbound : ‖fderiv ℂ (e_e_partialProduct R η U u V) y -
-      fderiv ℂ (e_e_partialProduct R η U u V') y‖ ≤ (2 * δ) / (R₀ / 8) := by
-    simpa [fderiv_sub hVy hV'y] using hschwarz
-  have hratio : (2 * δ) / (R₀ / 8) < ε := by
-    dsimp [δ]
+  have hbound : dist (fderiv ℂ (e_e_partialProduct R η U u V) y)
+      (fderiv ℂ (e_e_partialProduct R η U u V') y) ≤ (4 * δ) / (R₀ / 8) := by
+    rw [dist_eq_norm, ← fderiv_fun_sub hVy hV'y]
+    exact hschwarz
+  have hratio : (4 * δ) / (R₀ / 8) < ε := by
     have hpos : 0 < R₀ / 8 := by positivity
-    field_simp [ne_of_gt hpos]
-    ring_nf
-    linarith
+    have : (4 * δ) / (R₀ / 8) = ε / 2 := by
+      dsimp [δ]; field_simp; ring
+    rw [this]; linarith
   exact lt_of_le_of_lt hbound hratio
 
 theorem product_analytic (HC : EulerCorrection R η U)
@@ -205,7 +214,8 @@ theorem product_analytic (HC : EulerCorrection R η U)
     intro x hx
     obtain ⟨r, hr, _, hC⟩ := hderiv_cauchy x hx
     have hCx := hC.cauchy_map (Metric.mem_ball_self hr)
-    simpa [dfLim, df] using hCx.le_nhds_lim
+    change Filter.map (fun V => df V x) atTop ≤ 𝓝 (dfLim x)
+    exact hCx.le_nhds_lim
   have hderiv_uniform : ∀ x, eulerNeighborhood x →
       TendstoUniformlyOnFilter df dfLim atTop (𝓝 x) := by
     intro x hx
@@ -225,7 +235,7 @@ theorem product_analytic (HC : EulerCorrection R η U)
     intro x hx
     exact hasFDerivAt_of_tendstoLocallyUniformlyOn hΩopen hderiv_local
       (fun V z hz => ((hfinite V z hz).differentiableAt (hΩopen.mem_nhds hz)).hasFDerivAt)
-      (fun z hz => hconv.tendsto_at hz) x hx
+      (fun z hz => hconv.tendsto_at hz) hx
   intro x hx
   exact (hfd x hx).differentiableAt.differentiableWithinAt
 
