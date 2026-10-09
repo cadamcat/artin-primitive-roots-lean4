@@ -6411,7 +6411,73 @@ theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
       (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
   classical
   by_cases hΦ : ∃ h : P.tc.G, scalarOf P G Fs.f Fs.fC h ≠ 0
-  · sorry
+  · letI : G.Δ.Normal := Subgroup.normal_of_isMulCommutative G.Δ
+    letI : CommGroup (Fˣ ⧸ G.Δ) := QuotientGroup.Quotient.commGroup G.Δ
+    obtain ⟨r, hr⟩ := P.q_surj g
+    let Q := Fˣ ⧸ G.Δ
+    let Rν : P.RP := P.ratRP (diagGL ν) * r
+    let kernel (p : Q × F) (u : InfinitePlace F → ℂ) : ℂ :=
+      scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P u * g) *
+          psiInf (-(ν : F)) u
+    let I (p : Q × F) : ℂ := ∫ u in B, kernel p u
+    let c : ℂ := (((volume B).toReal)⁻¹ : ℝ)
+    have hχnorm : ∀ u : InfinitePlace F → ℂ, ‖psiInf (-(ν : F)) u‖ = 1 :=
+      (whit_psiInf_character (-(ν : F)) (neg_ne_zero.mpr ν.ne_zero)).2.1
+    obtain ⟨_, habs0, _⟩ := eisenstein_integral_tsum_on_compact P G hs Fs g
+      (closure B) hBc B hB subset_closure
+    obtain ⟨e, _, hbig⟩ := rational_bruhat_coset_equiv P G
+    have hrep (p : Q × F) (u : InfinitePlace F → ℂ) :
+        scalarOf P G Fs.f Fs.fC
+          (P.tc.rat (Quotient.out (e (Sum.inr p))) * nInf P u * g) =
+        scalarOf P G Fs.f Fs.fC
+          (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P u * g) := by
+      let γ := diagGL (Quotient.out p.1) * weylGL * upperGL p.2
+      have hb : γ * (Quotient.out (e (Sum.inr p)))⁻¹ ∈ Bstar G :=
+        QuotientGroup.rightRel_apply.mp
+          (Quotient.exact ((Quotient.out_eq (e (Sum.inr p))).trans (hbig p.1 p.2)))
+      simpa only [γ, map_mul, map_inv, mul_assoc, inv_mul_cancel_left] using
+        ((scalarOf_invariance P G Fs).1 (γ * (Quotient.out (e (Sum.inr p)))⁻¹) hb
+          (P.tc.rat (Quotient.out (e (Sum.inr p))) * (nInf P u * g))).symm
+    have habs : Summable (fun p : Q × F => ∫ u in B, ‖kernel p u‖) := by
+      refine (habs0.comp_injective (e.injective.comp Sum.inr_injective)).congr ?_
+      intro p
+      apply integral_congr_ae
+      filter_upwards [] with u
+      simp only [kernel, norm_mul, hχnorm, mul_one]
+      exact congrArg norm (hrep p u)
+    have hpairI : Summable I := habs.of_norm_bounded fun p =>
+      norm_integral_le_integral_norm _
+    have houter : Summable (fun δ : Q => ∑' ξ : F, I (δ, ξ)) := hpairI.prod
+    have hfixR : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+        scalarOf P G Fs.f Fs.fC (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) =
+          scalarOf P G Fs.f Fs.fC h := by
+      simpa only [hr] using hfix
+    have hquot (δ : Q) : c * (∑' ξ : F, I (δ, ξ)) =
+        (κF F)⁻¹ * whitLiftTerm P G μ Fs Rν (δ * QuotientGroup.mk ν) := by
+      simpa only [c, I, kernel, Rν, hr] using
+        whit_bigCell_quotient P G μ hs Fs r 𝔞 h𝔞 hfixR hΦ B hB hBc hBd ν hν δ
+    let m : Q ≃ Q :=
+      { toFun := fun δ => δ * QuotientGroup.mk ν
+        invFun := fun δ => δ * (QuotientGroup.mk ν)⁻¹
+        left_inv := by intro δ; group
+        right_inv := by intro δ; group }
+    have hqR : P.q Rν = P.q x := by
+      simp only [Rν, map_mul, P.q_ratRP, hr, hx]
+    change c * (∑' p : Q × F, I p) = (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ
+    rw [hpairI.tsum_prod]
+    calc
+      _ = ∑' δ : Q, c * (∑' ξ : F, I (δ, ξ)) := (houter.tsum_mul_left c).symm
+      _ = ∑' δ : Q, (κF F)⁻¹ * whitLiftTerm P G μ Fs Rν (δ * QuotientGroup.mk ν) :=
+        tsum_congr hquot
+      _ = (κF F)⁻¹ * ∑' δ : Q, whitLiftTerm P G μ Fs Rν (δ * QuotientGroup.mk ν) :=
+        tsum_mul_left
+      _ = (κF F)⁻¹ * ∑' δ : Q, whitLiftTerm P G μ Fs Rν δ := by
+        apply congrArg (fun z : ℂ => (κF F)⁻¹ * z)
+        exact m.tsum_eq (whitLiftTerm P G μ Fs Rν)
+      _ = whittakerE P G μ Fs (P.q Rν) := (whit_atLift P G μ hs Fs Rν).symm
+      _ = whittakerE P G μ Fs (P.q x) := by rw [hqR]
+      _ = _ := whit_atLift P G μ hs Fs x
   · have hzero : ∀ h : P.tc.G, scalarOf P G Fs.f Fs.fC h = 0 := by
       push_neg at hΦ
       exact hΦ
