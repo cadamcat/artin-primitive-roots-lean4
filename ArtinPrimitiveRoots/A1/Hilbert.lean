@@ -260,6 +260,66 @@ private theorem a1_bdata_sol_HSQuot_exists (D : FieldData F) (S : SData F CE con
       · exact congrArg Units.val (hc v).symm
       · exact congrArg Units.val (hd v).symm
 
+/-- The S-unit image is isotropic: two S-units pair to 1 at every place outside `S`
+by the tame formula, so reciprocity makes the product over `S` trivial. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.a1_bdata_sol.E_isotropic
+    (S : SData F CE condη) (H : HilbertData F)
+    (β : S.V →* (S.V →* rootsOfUnity 6 F))
+    (hβ : ∀ x y : S.FSˣ,
+      β (QuotientGroup.mk x) (QuotientGroup.mk y) = S.HS H x y) :
+    ∀ q ∈ S.E, ∀ r ∈ S.E, β q r = 1 := by
+  classical
+  intro q hq r hr
+  obtain ⟨u, hu, huq⟩ := Subgroup.mem_map.mp hq
+  obtain ⟨ε, hε, hεr⟩ := Subgroup.mem_map.mp hr
+  have hqmk : q = QuotientGroup.mk (S.diagU (u : Fˣ)) := by
+    simpa using huq.symm
+  have hrmk : r = QuotientGroup.mk (S.diagU (ε : Fˣ)) := by
+    simpa using hεr.symm
+  have hpair := hβ (S.diagU (u : Fˣ)) (S.diagU (ε : Fˣ))
+  rw [← hqmk, ← hrmk] at hpair
+  have hcount (a : Fˣ) (ha : a ∈ S.US) (v : FinPlace F) (hv : v ∉ S.Sf) :
+      FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (a : F)) = 0 := by
+    have hval : v.valuation F (a : F) = 1 := ha v hv
+    rw [ArtinPrimitiveRoots.A2.qs_nq0_count_spanSingleton_eq_neg_log_valuation
+      v (a : F) a.ne_zero, hval]
+    simp
+  have hres (a : Fˣ) (ha : a ∈ S.US) (v : FinPlace F) (hv : v ∉ S.Sf) :
+      residue v (a : F) ≠ 0 :=
+    (ArtinPrimitiveRoots.A2.qs_nq0_residue_ne_zero_iff_valuation_one v (a : F)).mpr
+      (ha v hv)
+  have h6 (v : FinPlace F) (hv : v ∉ S.Sf) : (6 : 𝓞 F) ∉ v.asIdeal :=
+    fun h => hv (S.over6 v h)
+  let f : FinPlace F → rootsOfUnity 6 F := fun v => H.hilb v (toLoc v u) (toLoc v ε)
+  have houtside (v : FinPlace F) (hv : v ∉ S.Sf) : f v = 1 := by
+    have htame := H.tame v (h6 v hv) u ε (hres u hu v hv)
+    rw [hcount ε hε v hv, zpow_zero] at htame
+    apply Subtype.ext
+    apply Units.ext
+    simpa using htame
+  have hsupport : Function.mulSupport f ⊆ S.Sf := by
+    intro v hv
+    by_contra hnot
+    exact hv (houtside v hnot)
+  have hfin : (∏ᶠ v, f v) = ∏ v ∈ S.Sf, f v :=
+    finprod_eq_prod_of_mulSupport_subset f hsupport
+  have hglobal : (∏ᶠ v, f v) = 1 := (H.product_formula (u : Fˣ) (ε : Fˣ)).2
+  have hsf : (∏ v ∈ S.Sf, f v) =
+      S.HS H (S.diagU (u : Fˣ)) (S.diagU (ε : Fˣ)) := by
+    rw [← Finset.prod_attach S.Sf (fun v => f v)]
+    unfold SData.HS
+    refine Finset.prod_congr rfl ?_
+    intro v _
+    have hcu : S.compU v (S.diagU (u : Fˣ)) = toLoc v.1 u := by
+      apply Units.ext
+      rfl
+    have hcε : S.compU v (S.diagU (ε : Fˣ)) = toLoc v.1 ε := by
+      apply Units.ext
+      rfl
+    simp [f, hcu, hcε]
+  exact hpair.trans (hsf.symm.trans (hfin.symm.trans hglobal))
+
 /-- lem:balanced-generators (a)–(c). Package P-ARITH-B. -/
 theorem BData.nonempty (D : FieldData F) (S : SData F CE condη) (H : HilbertData F) :
     Nonempty (BData S H) := by
