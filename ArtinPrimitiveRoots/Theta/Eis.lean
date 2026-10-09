@@ -6040,6 +6040,124 @@ theorem whit_jacquet_product_normalization
       rw [inv_mul_cancel₀ hN, mul_one, harch]
     _ = _ := by simp only [Complex.ofReal_inv]
 
+/-- The rational character phase turns weighted Bruhat integrals into local products. -/
+theorem whit_bruhat_arch_integral
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP) (ν δ : Fˣ) (ξ : F) :
+    let Hfn : ∀ v : FinPlace F, v.adicCompletion F → ℂ := fun v y =>
+      A.ψ v (-((toLoc v ν : v.adicCompletion F) * y)) *
+        G.lam v (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+          (P.loc v).n (Multiplicative.ofAdd y) * P.compF v r))
+    let Cfn : InfinitePlace F → ℂ → ℂ := fun w z =>
+      psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+        (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)
+    psiInf (ν : F) (infEmbA ξ) *
+      (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r) *
+          psiInf (-(ν : F)) x) =
+      (∏ᶠ v, Hfn v (algebraMap F (v.adicCompletion F) ξ)) *
+        ∏ w, ∫ z : ℂ, Cfn w z ∧
+    (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r) *
+        psiInf (-(ν : F)) x‖) =
+      ‖∏ᶠ v, Hfn v (algebraMap F (v.adicCompletion F) ξ)‖ *
+        ∏ w, ∫ z : ℂ, ‖Cfn w z‖ := by
+  classical
+  dsimp only
+  obtain ⟨u, hqu, hFu, hCu⟩ := nFin_components P ξ
+  let t : P.RP := P.ratRP (diagGL δ) * P.ratRP weylGL * u
+  have hq : P.q t = P.tc.rat (diagGL δ * weylGL) * nFin P ξ := by
+    simp only [t, map_mul, P.q_ratRP, hqu]
+  have hweyl {K : Type} [Field K] (φ : F →+* K) :
+      Matrix.GeneralLinearGroup.map φ (weylGL (F := F)) = weylM K := by
+    apply Units.ext
+    ext i j
+    fin_cases i <;> fin_cases j <;>
+      simp [Matrix.GeneralLinearGroup.map, weylGL, weylM]
+  have haF (v : FinPlace F) : P.compF v (P.ratRP (diagGL δ)) =
+      (P.loc v).a (toLoc v δ) := by
+    rw [P.compF_ratRP, scalar_glMap_diagGL, (P.loc v).sec_a]
+    rfl
+  have hwF (v : FinPlace F) : P.compF v (P.ratRP weylGL) = (P.loc v).w := by
+    rw [P.compF_ratRP, hweyl, ← (P.loc v).sec_w]
+  have haC (w : InfinitePlace F) : P.compC w (P.ratRP (diagGL δ)) =
+      aC (Units.map w.embedding.toMonoidHom δ) := by
+    rw [P.compC_ratRP, scalar_glMap_diagGL]
+    rfl
+  have hwC (w : InfinitePlace F) : P.compC w (P.ratRP weylGL) = wC := by
+    rw [P.compC_ratRP, hweyl]
+    rfl
+  have hcompF (v : FinPlace F) : P.compF v (t * r) =
+      (P.loc v).a (toLoc v δ) * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ)) *
+          P.compF v r := by
+    simp only [t, map_mul, haF, hwF, hFu]
+  have hcompC (w : InfinitePlace F) : P.compC w t =
+      aC (Units.map w.embedding.toMonoidHom δ) * wC := by
+    simp only [t, map_mul, haC, hwC, hCu, mul_one]
+  let α : FinPlace F → ℂ := fun v => G.lam v
+    (Fs.f v ((P.loc v).a (toLoc v δ) * (P.loc v).w *
+      (P.loc v).n (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F) ξ)) *
+        P.compF v r))
+  let χ : FinPlace F → ℂ := fun v =>
+    A.ψ v (-((toLoc v ν : v.adicCompletion F) * algebraMap F (v.adicCompletion F) ξ))
+  let β : FinPlace F → ℂ := fun v => χ v * α v
+  let c : ℂ := psiInf (ν : F) (infEmbA ξ)
+  let fc : InfinitePlace F → ℂ → ℂ := fun w z =>
+    psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+      (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)
+  have hα : Function.HasFiniteMulSupport α := by
+    simpa only [Function.HasFiniteMulSupport, α, hcompF] using
+      (scalarOf_q P G Fs (t * r)).1
+  have hχeq (v : FinPlace F) :
+      χ v = A.ψ v (-algebraMap F (v.adicCompletion F) ((ν : F) * ξ)) := by
+    dsimp only [χ]
+    change A.ψ v (-(algebraMap F (v.adicCompletion F) (ν : F) *
+      algebraMap F (v.adicCompletion F) ξ)) = _
+    rw [map_mul]
+  obtain ⟨hχ0, hc0⟩ := whit_rational_character_product D A (ν : F) ξ
+  have hχ : Function.HasFiniteMulSupport χ := by
+    simpa only [Function.HasFiniteMulSupport,
+      show χ = (fun v : FinPlace F => A.ψ v
+        (-algebraMap F (v.adicCompletion F) ((ν : F) * ξ))) from funext hχeq] using hχ0
+  have hc : c = ∏ᶠ v, χ v := by
+    calc
+      _ = ∏ᶠ v : FinPlace F, A.ψ v
+          (-algebraMap F (v.adicCompletion F) ((ν : F) * ξ)) := hc0
+      _ = _ := (finprod_congr hχeq).symm
+  have hprod : (∏ᶠ v, β v) = c * ∏ᶠ v, α v := by
+    dsimp only [β]
+    rw [finprod_mul_distrib hχ hα, ← hc]
+  have hcnorm : ‖c‖ = 1 :=
+    (whit_psiInf_character (ν : F) ν.ne_zero).2.1 (infEmbA ξ)
+  obtain ⟨hbase, hnorm⟩ := whit_arch_integral_product_lifts P G Fs t r (ν : F)
+  have hI :
+      (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r) *
+          psiInf (-(ν : F)) x) =
+        (∏ᶠ v, α v) * ∏ w, ∫ z : ℂ, fc w z := by
+    simpa only [hq, hcompF, hcompC, α, fc] using hbase
+  have hNorm :
+      (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r) *
+          psiInf (-(ν : F)) x‖) =
+        ‖∏ᶠ v, α v‖ * ∏ w, ∫ z : ℂ, ‖fc w z‖ := by
+    simpa only [hq, hcompF, hcompC, α, fc] using hnorm
+  constructor
+  · change c *
+      (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r) *
+          psiInf (-(ν : F)) x) =
+        (∏ᶠ v, β v) * ∏ w, ∫ z : ℂ, fc w z
+    rw [hI, hprod, mul_assoc]
+  · change
+      (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+        (P.tc.rat (diagGL δ * weylGL) * nFin P ξ * nInf P x * P.q r) *
+          psiInf (-(ν : F)) x‖) =
+        ‖∏ᶠ v, β v‖ * ∏ w, ∫ z : ℂ, ‖fc w z‖
+    rw [hprod, norm_mul, hcnorm, one_mul]
+    exact hNorm
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
