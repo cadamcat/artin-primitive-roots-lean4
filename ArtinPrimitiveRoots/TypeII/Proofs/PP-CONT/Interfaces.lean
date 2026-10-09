@@ -1185,7 +1185,40 @@ theorem cont_approximation {q : ℕ} (hq : 0 < q)
     ‖dirichletLValue q hq χ s - dirichletPartialSum q χ Y s -
       characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) / (s - 1)‖ ≤
       4 * (q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-s.re) := by
-  sorry
+  have hs : 0 < s.re := by linarith
+  have himne : s.im ≠ 0 := by
+    intro hzero
+    rw [hzero, abs_zero] at him
+    norm_num at him
+  have habel := cont_abel_identity hq χ hY s hs himne
+  have hsub : dirichletLValue q hq χ s - dirichletPartialSum q χ Y s -
+      characterMean q χ * Complex.exp ((1 - s) * (Real.log Y : ℂ)) / (s - 1) =
+      contTail q χ Y s := by
+    rw [habel]
+    ring
+  rw [hsub]
+  have hdiv : ‖s‖ / s.re ≤ 2 * ‖s‖ := by
+    apply (div_le_iff₀ hs).2
+    nlinarith [mul_nonneg (norm_nonneg s)
+      (sub_nonneg.mpr (by linarith : (1 / 2 : ℝ) ≤ s.re))]
+  have hfactor : 1 + ‖s‖ / s.re ≤ 2 * (1 + ‖s‖) := by
+    calc
+      1 + ‖s‖ / s.re ≤ 1 + 2 * ‖s‖ := by linarith [hdiv]
+      _ ≤ 2 * (1 + ‖s‖) := by nlinarith
+  have hcoeff : 2 * (q : ℝ) * (1 + ‖s‖ / s.re) ≤
+      4 * (q : ℝ) * (1 + ‖s‖) := by
+    calc
+      2 * (q : ℝ) * (1 + ‖s‖ / s.re) ≤
+          2 * (q : ℝ) * (2 * (1 + ‖s‖)) :=
+        mul_le_mul_of_nonneg_left hfactor (by positivity)
+      _ = 4 * (q : ℝ) * (1 + ‖s‖) := by ring
+  have hY0 : 0 ≤ Y := by linarith
+  calc
+    ‖contTail q χ Y s‖ ≤
+        2 * (q : ℝ) * (1 + ‖s‖ / s.re) * Real.rpow Y (-s.re) :=
+      cont_tail_bound hq χ hY s hs
+    _ ≤ 4 * (q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-s.re) :=
+      mul_le_mul_of_nonneg_right hcoeff (Real.rpow_nonneg hY0 _)
 
 theorem cont_partial_sum_bound (q : ℕ) (χ : DirichletCharacter ℂ q)
     {Y σ v : ℝ} (hY : 1 ≤ Y) :
