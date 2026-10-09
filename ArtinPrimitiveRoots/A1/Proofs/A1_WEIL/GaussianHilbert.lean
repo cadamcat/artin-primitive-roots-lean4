@@ -210,6 +210,125 @@ theorem quadratic_hilbert_binary_norm_eq_one (D : FieldData F) (H : HilbertData 
       rw [hnu, map_mul, quadratic_hilbert_right_square, one_mul]
       exact hstein
 
+private theorem index_two_functions_eq {G T : Type*} [Group G] [One T]
+    (N : Subgroup G) (hindex : N.index = 2) (c : T) (f g : G → T)
+    (hf1 : f 1 = 1) (hg1 : g 1 = 1)
+    (hfvalues : ∀ x, f x = 1 ∨ f x = c) (hgvalues : ∀ x, g x = 1 ∨ g x = c)
+    (hfinvariant : ∀ x n, n ∈ N → f (x * n) = f x)
+    (hginvariant : ∀ x n, n ∈ N → g (x * n) = g x)
+    (hfnontrivial : ¬ ∀ x, f x = 1) (hgnontrivial : ¬ ∀ x, g x = 1)
+    (x : G) : f x = g x := by
+  classical
+  have value (k : G → T) (hk1 : k 1 = 1)
+      (hkvalues : ∀ y, k y = 1 ∨ k y = c)
+      (hkinvariant : ∀ y n, n ∈ N → k (y * n) = k y)
+      (hknontrivial : ¬ ∀ y, k y = 1) (hx : x ∉ N) : k x = c := by
+    obtain ⟨t, ht⟩ := not_forall.mp hknontrivial
+    have htN : t ∉ N := by
+      intro htN
+      apply ht
+      simpa only [one_mul, hk1] using hkinvariant 1 t htN
+    have hn : t⁻¹ * x ∈ N := by
+      rw [N.mul_mem_iff_of_index_two hindex]
+      simp only [N.inv_mem_iff, htN, hx]
+    have hxt : k x = k t := by
+      simpa only [mul_inv_cancel_left] using hkinvariant t (t⁻¹ * x) hn
+    exact hxt.trans ((hkvalues t).resolve_left ht)
+  by_cases hx : x ∈ N
+  · have hf : f x = 1 := by
+      simpa only [one_mul, hf1] using hfinvariant 1 x hx
+    have hg : g x = 1 := by
+      simpa only [one_mul, hg1] using hginvariant 1 x hx
+    exact hf.trans hg.symm
+  · exact (value f hf1 hfvalues hfinvariant hfnontrivial hx).trans
+      (value g hg1 hgvalues hginvariant hgnontrivial hx).symm
+
+private theorem quadratic_hilbert_sign (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (a b : (v.adicCompletion F)ˣ) :
+    quadraticHilbertRight D H v a b = 1 ∨ quadraticHilbertRight D H v a b = -1 := by
+  have hroot : H.hilb v a b ^ 6 = 1 := by
+    apply Subtype.ext
+    exact (mem_rootsOfUnity 6 _).mp (H.hilb v a b).property
+  have hsquare : quadraticHilbertRight D H v a b ^ 2 = 1 := by
+    change (complexRoot D (H.hilb v a b) ^ 3) ^ 2 = 1
+    rw [← pow_mul, show 3 * 2 = 6 by rfl, ← map_pow, hroot, map_one]
+  exact Units.eq_or_eq_neg_of_sq_eq_sq _ 1 (by simpa only [one_pow] using hsquare)
+
+/-- The quadratic Hilbert comparison follows from the Gaussian identities and
+nondegeneracy of the actual Gaussian defect. All Gaussian inputs are explicit hypotheses,
+so this theorem isolates the analytic step rather than assuming a new index law.
+Guide: PROOFS.md:474–475; uses binary norm constancy and the index-two norm subgroup. -/
+theorem quadratic_defect_eq_hilbert_of_nondegenerate (D : FieldData F) (H : HilbertData F)
+    (v : FinPlace F) (w : (v.adicCompletion F)ˣ → ℂˣ)
+    (hone : w 1 = 1)
+    (hsquare : ∀ a c, w (a * c ^ 2) = w a)
+    (hsign : ∀ a, w a ^ 2 = 1)
+    (hbinary : ∀ (a b : (v.adicCompletion F)ˣ)
+      (h : (a : v.adicCompletion F) + (b : v.adicCompletion F) ≠ 0),
+      w a * w b = w (Units.mk0 _ h) * w (a * b / Units.mk0 _ h))
+    (a b : (v.adicCompletion F)ˣ)
+    (hnondegenerate : (∀ t, w a * w t = w (a * t)) →
+      ∃ c : (v.adicCompletion F)ˣ, a = c ^ 2) :
+    w a * w b = complexRoot D (H.hilb v a b) ^ 3 * w (a * b) := by
+  classical
+  by_cases ha : ∃ c : (v.adicCompletion F)ˣ, a = c ^ 2
+  · obtain ⟨c, rfl⟩ := ha
+    have hwc : w (c ^ 2) = 1 := by
+      simpa only [one_mul, hone] using hsquare 1 c
+    rw [hwc, quadratic_hilbert_square, one_mul, one_mul,
+      show c ^ 2 * b = b * c ^ 2 by ac_rfl, hsquare]
+  · have haK : ¬ IsSquare (a : v.adicCompletion F) := by
+      rintro ⟨c, hc⟩
+      have hc0 : c ≠ 0 := by
+        intro hc0
+        apply a.ne_zero
+        simpa only [hc0, mul_zero] using hc
+      apply ha
+      refine ⟨Units.mk0 c hc0, ?_⟩
+      apply Units.ext
+      simpa only [Units.val_pow_eq_pow_val, pow_two, Units.val_mul, Units.val_mk0] using hc
+    let _ : ValuativeRel (v.adicCompletion F) :=
+      a1_hilbert_sol.completionValuativeRel v
+    have : IsNonarchimedeanLocalField (v.adicCompletion F) :=
+      a1_hilbert_sol.completionIsLocalField v
+    obtain ⟨N, hN, hindex⟩ :=
+      quadratic_binary_norm_subgroup_index_two (v.adicCompletion F) (a : _) haK
+    obtain ⟨i, hi⟩ := completion_square_neg_one D v
+    let f (t : (v.adicCompletion F)ˣ) := w a * w t / w (a * t)
+    let g : (v.adicCompletion F)ˣ → ℂˣ := quadraticHilbertRight D H v a
+    have hf1 : f 1 = 1 := by simp only [f, hone, mul_one, div_self']
+    have hg1 : g 1 = 1 := (quadraticHilbertRight D H v a).map_one
+    have hfvalues : ∀ t, f t = 1 ∨ f t = -1 := by
+      intro t
+      have hf2 : f t ^ 2 = 1 := by
+        simp only [f, div_pow, mul_pow, hsign, one_mul, div_self']
+      exact Units.eq_or_eq_neg_of_sq_eq_sq _ 1 (by simpa only [one_pow] using hf2)
+    have hgvalues : ∀ t, g t = 1 ∨ g t = -1 :=
+      quadratic_hilbert_sign D H v a
+    have hfinvariant : ∀ t n, n ∈ N → f (t * n) = f t := by
+      intro t n hn
+      obtain ⟨x, y, hxy⟩ := (hN n).mp hn
+      exact quadratic_defect_binary_norm_invariant w i hi hsquare hsign hbinary a t n x y hxy
+    have hginvariant : ∀ t n, n ∈ N → g (t * n) = g t := by
+      intro t n hn
+      obtain ⟨x, y, hxy⟩ := (hN n).mp hn
+      have hgn : quadraticHilbertRight D H v a n = 1 :=
+        quadratic_hilbert_binary_norm_eq_one D H v a n x y hxy
+      change quadraticHilbertRight D H v a (t * n) = quadraticHilbertRight D H v a t
+      rw [map_mul, hgn, mul_one]
+    have hfnontrivial : ¬ ∀ t, f t = 1 := by
+      intro ht
+      apply ha
+      apply hnondegenerate
+      intro t
+      exact div_eq_one.mp (ht t)
+    have hgnontrivial : ¬ ∀ t, g t = 1 := by
+      intro ht
+      exact ha ((quadratic_hilbert_trivial_iff_square D H v a).mp ht)
+    have heq := index_two_functions_eq N hindex (-1 : ℂˣ) f g hf1 hg1 hfvalues hgvalues
+      hfinvariant hginvariant hfnontrivial hgnontrivial b
+    exact div_eq_iff_eq_mul.mp heq
+
 /-- Identify the Gaussian multiplicative defect with the quadratic Hilbert symbol.
 Guide: PROOFS.md:474–475. Uses: local_index_binary; local_index_sign; local_index_square; H.steinberg; H.nondeg; H.tame; H.product_formula. -/
 theorem local_index_hilbert_defect (D : FieldData F) (A : AddCharData F) (H : HilbertData F) (W : LocalGaussianData A)
