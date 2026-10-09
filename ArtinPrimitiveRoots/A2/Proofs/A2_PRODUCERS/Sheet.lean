@@ -1598,6 +1598,75 @@ private theorem a2_prod_sol_sheetPoint_mul
         _ = _ := by ring
     · simp only [Prod.snd_mul, Pi.mul_apply, Theta.sheetPoint, dif_neg hw]
 
+private theorem a2_prod_sol_sheetPoint_inv
+    (S : SData F CE condη) (v0 : InfinitePlace F)
+    (T : ℝ) (hT : 0 < T) (p : SheetFree S v0) (θ : ℝ)
+    (hf : ∀ v, p.1 v ≠ 0) (hc : ∀ w, p.2 w ≠ 0) :
+    Ring.inverse (Theta.sheetPoint S v0 T p θ) =
+    Theta.sheetPoint S v0 T⁻¹
+      (fun v => (p.1 v)⁻¹, fun w => (p.2 w)⁻¹) (-θ) := by
+  classical
+  let B : ℝ := (∏ v : S.Sf, A1.absFin v.1 (p.1 v)) *
+    ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq (p.2 w)
+  have hB : 0 < B := by
+    dsimp [B]
+    apply mul_pos
+    · apply Finset.prod_pos
+      intro v _
+      rw [A1.Theta.absFin_eq_norm]
+      exact norm_pos_iff.mpr (hf v)
+    · apply Finset.prod_pos
+      intro w _
+      rw [Complex.normSq_eq_norm_sq]
+      exact sq_pos_of_pos (norm_pos_iff.mpr (hc w))
+  have hfree :
+      (∏ v : S.Sf, A1.absFin v.1 ((p.1 v)⁻¹)) *
+        ∏ w : {w : InfinitePlace F // w ≠ v0}, Complex.normSq ((p.2 w)⁻¹) = B⁻¹ := by
+    dsimp [B]
+    simp_rw [A1.Theta.absFin_eq_norm, Complex.normSq_eq_norm_sq,
+      norm_inv, inv_pow, Finset.prod_inv_distrib]
+    rw [mul_inv_rev, mul_comm]
+  have hratio : T⁻¹ / B⁻¹ = (T / B)⁻¹ := by
+    simp [div_eq_mul_inv, mul_inv_rev, mul_comm]
+  have hradius : Real.sqrt (T⁻¹ / B⁻¹) = (Real.sqrt (T / B))⁻¹ := by
+    rw [hratio, Real.sqrt_inv]
+  have hr : (Real.sqrt (T / B) : ℂ) ≠ 0 :=
+    Complex.ofReal_ne_zero.mpr (ne_of_gt (Real.sqrt_pos.mpr (div_pos hT hB)))
+  have hexp : Complex.exp (2 * Real.pi * Complex.I * ((-θ : ℝ) : ℂ)) =
+      (Complex.exp (2 * Real.pi * Complex.I * (θ : ℂ)))⁻¹ := by
+    rw [Complex.ofReal_neg, mul_neg, Complex.exp_neg]
+  let q : S.FS := Theta.sheetPoint S v0 T⁻¹
+    (fun v => (p.1 v)⁻¹, fun w => (p.2 w)⁻¹) (-θ)
+  have hmul : Theta.sheetPoint S v0 T p θ * q = 1 := by
+    apply Prod.ext
+    · funext v
+      change p.1 v * (p.1 v)⁻¹ = 1
+      exact mul_inv_cancel₀ (hf v)
+    · funext w
+      by_cases hw : w = v0
+      · subst w
+        simp only [q, Prod.snd_mul, Pi.mul_apply, Theta.sheetPoint,
+          dif_pos rfl, Prod.snd_one, Pi.one_apply]
+        change ((Real.sqrt (T / B) : ℂ) *
+            Complex.exp (2 * Real.pi * Complex.I * (θ : ℂ))) *
+          ((Real.sqrt (T⁻¹ /
+            ((∏ v : S.Sf, A1.absFin v.1 ((p.1 v)⁻¹)) *
+              ∏ w : {w : InfinitePlace F // w ≠ v0},
+                Complex.normSq ((p.2 w)⁻¹))) : ℂ) *
+            Complex.exp (2 * Real.pi * Complex.I * ((-θ : ℝ) : ℂ))) = 1
+        rw [hfree, hradius, Complex.ofReal_inv, hexp, mul_mul_mul_comm,
+          mul_inv_cancel₀ hr, mul_inv_cancel₀ (Complex.exp_ne_zero _), mul_one]
+      · simp only [q, Prod.snd_mul, Pi.mul_apply, Theta.sheetPoint,
+          dif_neg hw, Prod.snd_one, Pi.one_apply]
+        exact mul_inv_cancel₀ (hc ⟨w, hw⟩)
+  let u : S.FSˣ := {
+    val := Theta.sheetPoint S v0 T p θ
+    inv := q
+    val_inv := hmul
+    inv_val := by simpa only [mul_comm] using hmul }
+  change Ring.inverse (u : S.FS) = ((u⁻¹ : S.FSˣ) : S.FS)
+  exact Ring.inverse_unit u
+
 theorem _root_.ArtinPrimitiveRoots.Proofs.a2_prod_sol.sheetMeasure_translate
     (S : SData F CE condη) (μ : ∀ v : FinPlace F, Theta.LocHaar v)
     (v0 : InfinitePlace F) (a : S.FSˣ) (T : ℝ) (hT : 0 < T) :
