@@ -4078,7 +4078,7 @@ theorem prime_power_removal {N : ℝ} (hN : 4 ≤ N) (q : ℕ)
     · simpa [pSet] using (Nat.lt_succ_iff.mpr hpFloor)
     · dsimp only [kSet]
       rw [Finset.mem_range, hkFac]
-      exact Nat.lt_succ_iff.mpr hkFloor
+      omega
   have hInj : (badSet : Set ℕ).InjOn pairOf := by
     intro n hn m hm hpair
     have hnpp : IsPrimePow n := (Finset.mem_filter.mp hn).2
@@ -4252,6 +4252,7 @@ theorem prime_power_removal {N : ℝ} (hN : 4 ≤ N) (q : ℕ)
     exact hRemBound
   simpa [primePart, primeSet] using hFinal
 
+set_option maxHeartbeats 500000
 /-- Final interval Abel transfer and logarithm removal, to be assembled from the preceding bounds. -/
 theorem prime_polynomial_core (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
     (hzeta : ppPrimeZetaLogDerivBound) :
@@ -4267,6 +4268,420 @@ theorem prime_polynomial_core (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
                     I ⊆ {p : ℕ | N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N} →
                       ‖primeDirichletPolynomial N q χ t I‖ ≤
                         C₀ * Real.rpow L (-A) := by
-  sorry
+  classical
+  intro τ η C A hτ hτη hη hC hA
+  obtain ⟨c, Czf, xZ, hc, hCzf, hxZ, _hZero⟩ := hzeroFree C hC
+  obtain ⟨L₀, hL₀, _hRightLine⟩ := ppPrimeRightLineLogDeriv_bound hzeta
+  obtain ⟨xG, hxG, _hxZG, hGrowth⟩ :=
+    ppPrimeContourGrowth τ η A c L₀ xZ hτ hτη hη hA hc hL₀
+  obtain ⟨B₀, Kₘ, xM, hB₀, hKₘ, hxM, hMangoldt⟩ :=
+    prime_mangoldt_interval_bound hzeroFree hzeta τ η C A
+      hτ hτη hη hC hA
+  have hPowerEvent := ppPrime_log_rpow_le_rpow_eventually
+    (r := A + 10) (s := τ / 2) (by positivity)
+  obtain ⟨xPow, hxPow⟩ := Filter.eventually_atTop.1 hPowerEvent
+  let C₀ : ℝ := max 1 (4 * (Kₘ + 1) / τ)
+  let x₀ : ℝ := max xM (max xG xPow)
+  have hC₀ : 0 < C₀ := by dsimp [C₀]; positivity
+  have hx₀ : 2 < x₀ := by
+    dsimp [x₀]
+    exact lt_of_lt_of_le hxM (le_max_left xM (max xG xPow))
+  refine ⟨B₀, C₀, x₀, hB₀, hC₀, hx₀, ?_⟩
+  intro x hx
+  have hxMax : max xM (max xG xPow) ≤ x := by simpa [x₀] using hx
+  have hxM' : xM ≤ x := le_trans (le_max_left xM (max xG xPow)) hxMax
+  have hxGX : max xG xPow ≤ x := le_trans (le_max_right xM (max xG xPow)) hxMax
+  have hxG' : xG ≤ x := le_trans (le_max_left xG xPow) hxGX
+  have hxPow' : xPow ≤ x := le_trans (le_max_right xG xPow) hxGX
+  dsimp only
+  intro N hNlo hNhi q hq hqsize χ t htlo hthi I hI hIbound
+  let L : ℝ := Real.log x
+  let P : ℝ := Real.rpow L (-A - 2)
+  let B : ℝ := (Kₘ + 1) * P
+  let R : ℕ := ⌊2 * N⌋₊ + 1
+  let pPred : ℕ → Prop := fun n =>
+    n.Prime ∧ N ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N ∧ n ∈ I
+  let primeTerm : ℕ → ℂ := fun n => (Real.log (n : ℝ) : ℂ) *
+    χ (n : ZMod q) * Complex.exp ((-1 + Complex.I * t) * Real.log (n : ℝ))
+  let a : ℕ → ℂ := fun n => if pPred n then primeTerm n else 0
+  let weight : ℕ → ℝ := fun n => 1 / Real.log (max (n : ℝ) N)
+  have hL4 : 4 ≤ L := by
+    rcases hGrowth x hxG' with ⟨_, _, hL4, _, _, _, _, _, _, _⟩
+    simpa [L] using hL4
+  have hLone : 1 ≤ L := by linarith [hL4]
+  have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) hLone
+  have hx2 : 2 < x := lt_of_lt_of_le hx₀ hx
+  have hxpos : 0 < x := by linarith
+  rcases hGrowth x hxG' with ⟨_, _, _, hxτ8, hLog2, _, _, _, _, _⟩
+  have hN4 : 4 ≤ N := by nlinarith [hxτ8, hNlo]
+  have hNpos : 0 < N := by linarith
+  have hNlog : Real.log N ≤ L := by
+    have hNlog' := Real.log_le_log hNpos hNhi
+    have hlogRpow : Real.log (Real.rpow x η) = η * Real.log x :=
+      Real.log_rpow hxpos η
+    rw [hlogRpow] at hNlog'
+    have hEtaL : η * L ≤ L := by
+      calc
+        η * L ≤ 1 * L := mul_le_mul_of_nonneg_right hη.le hLpos.le
+        _ = L := by ring
+    simpa [L] using hNlog'.trans hEtaL
+  have hlog3N : Real.log (3 * N) ≤ 2 * L := by
+    have hlog3 : Real.log 3 ≤ 2 := by
+      have h := Real.log_le_sub_one_of_pos (by norm_num : (0 : ℝ) < 3)
+      nlinarith
+    have hlogMul : Real.log (3 * N) = Real.log 3 + Real.log N :=
+      Real.log_mul (by norm_num : (3 : ℝ) ≠ 0) hNpos.ne'
+    rw [hlogMul]
+    calc
+      Real.log 3 + Real.log N ≤ 2 + L := add_le_add hlog3 hNlog
+      _ ≤ 2 * L := by nlinarith [hL4]
+  have hlog3Npos : 0 < Real.log (3 * N) := by
+    apply Real.log_pos
+    nlinarith [hN4]
+  have hLogStrong : Real.rpow L (A + 10) ≤ Real.rpow x (τ / 2) := by
+    simpa [L] using hxPow x hxPow'
+  have hxτpos : 0 < Real.rpow x τ := Real.rpow_pos_of_pos hxpos τ
+  have hBasePos : 0 < Real.rpow x τ / 2 := by positivity
+  have hNumeratorPow : Real.rpow (Real.rpow x τ) (-1 / 2) =
+      Real.rpow x (-τ / 2) := by
+    calc
+      Real.rpow (Real.rpow x τ) (-1 / 2) =
+          Real.rpow x (τ * (-1 / 2)) :=
+        (Real.rpow_mul hxpos.le τ (-1 / 2)).symm
+      _ = Real.rpow x (-τ / 2) := by congr 1 <;> ring
+  have hDenominatorPow : Real.rpow 2 (-1 / 2) = (Real.sqrt 2)⁻¹ := by
+    calc
+      Real.rpow 2 (-1 / 2) = Real.rpow 2 (-(1 / 2 : ℝ)) := by congr 1 <;> ring
+      _ = (Real.rpow 2 (1 / 2))⁻¹ := Real.rpow_neg (by norm_num) (1 / 2)
+      _ = (Real.sqrt 2)⁻¹ := congrArg Inv.inv (Real.sqrt_eq_rpow 2).symm
+  have hBasePow : Real.rpow (Real.rpow x τ / 2) (-1 / 2) =
+      Real.sqrt 2 * Real.rpow x (-τ / 2) := by
+    calc
+      Real.rpow (Real.rpow x τ / 2) (-1 / 2) =
+          Real.rpow (Real.rpow x τ) (-1 / 2) / Real.rpow 2 (-1 / 2) :=
+        Real.div_rpow (Real.rpow_nonneg hxpos.le τ) (by norm_num) _
+      _ = Real.rpow x (-τ / 2) / (Real.sqrt 2)⁻¹ := by
+        rw [hNumeratorPow, hDenominatorPow]
+      _ = Real.sqrt 2 * Real.rpow x (-τ / 2) := by
+        field_simp [ne_of_gt (Real.sqrt_pos.2 (by norm_num : (0 : ℝ) < 2))]
+  have hInvN : Real.rpow N (-1 / 2) ≤
+      Real.sqrt 2 * Real.rpow x (-τ / 2) := by
+    calc
+      Real.rpow N (-1 / 2) ≤ Real.rpow (Real.rpow x τ / 2) (-1 / 2) :=
+        Real.rpow_le_rpow_of_nonpos hBasePos hNlo (by norm_num)
+      _ = Real.sqrt 2 * Real.rpow x (-τ / 2) := hBasePow
+  have hInvPower : Real.rpow x (-τ / 2) ≤ Real.rpow L (-A - 10) := by
+    have hLpowerPos : 0 < Real.rpow L (A + 10) := Real.rpow_pos_of_pos hLpos _
+    calc
+      Real.rpow x (-τ / 2) = 1 / Real.rpow x (τ / 2) := by
+        calc
+          Real.rpow x (-τ / 2) = Real.rpow x (-(τ / 2)) := by congr 1 <;> ring
+          _ = (Real.rpow x (τ / 2))⁻¹ := Real.rpow_neg hxpos.le (τ / 2)
+          _ = 1 / Real.rpow x (τ / 2) := by rw [one_div]
+      _ ≤ 1 / Real.rpow L (A + 10) :=
+        one_div_le_one_div_of_le hLpowerPos hLogStrong
+      _ = Real.rpow L (-A - 10) := by
+        calc
+          _ = (Real.rpow L (A + 10))⁻¹ := by rw [one_div]
+          _ = Real.rpow L (-(A + 10)) := (Real.rpow_neg hLpos.le (A + 10)).symm
+          _ = Real.rpow L (-A - 10) := by congr 1 <;> ring
+  have hsqrt2 : Real.sqrt 2 ≤ 2 := by
+    have h := Real.sqrt_le_sqrt (by norm_num : (2 : ℝ) ≤ 4)
+    simpa using h
+  have hL6 : (4096 : ℝ) ≤ Real.rpow L (6 : ℝ) := by
+    calc
+      4096 = (4 : ℝ) ^ 6 := by norm_num
+      _ ≤ L ^ 6 := by gcongr
+      _ = Real.rpow L (6 : ℝ) := by simp
+  have hAbsorb : 400 * Real.sqrt 2 ≤ Real.rpow L (6 : ℝ) := by
+    calc
+      400 * Real.sqrt 2 ≤ 400 * 2 := mul_le_mul_of_nonneg_left hsqrt2 (by norm_num)
+      _ = 800 := by norm_num
+      _ ≤ 4096 := by norm_num
+      _ ≤ Real.rpow L (6 : ℝ) := hL6
+  have hLpowSmall : Real.rpow L (-A - 10) * L ^ 2 = Real.rpow L (-A - 8) := by
+    calc
+      Real.rpow L (-A - 10) * L ^ 2 =
+          Real.rpow L (-A - 10) * Real.rpow L (2 : ℝ) := by simp
+      _ = Real.rpow L ((-A - 10) + 2) :=
+        (Real.rpow_add hLpos (-A - 10) 2).symm
+      _ = Real.rpow L (-A - 8) := congrArg (Real.rpow L) (by ring)
+  have hLpowFinal : Real.rpow L (6 : ℝ) * Real.rpow L (-A - 8) =
+      Real.rpow L (-A - 2) := by
+    calc
+      Real.rpow L (6 : ℝ) * Real.rpow L (-A - 8) =
+          Real.rpow L ((6 : ℝ) + (-A - 8)) :=
+        (Real.rpow_add hLpos 6 (-A - 8)).symm
+      _ = Real.rpow L (-A - 2) := congrArg (Real.rpow L) (by ring)
+  have hPowPrimeErr :
+      100 * Real.rpow N (-1 / 2) * (Real.log (3 * N)) ^ 2 ≤ P := by
+    have hlogSq : (Real.log (3 * N)) ^ 2 ≤ (2 * L) ^ 2 := by
+      nlinarith [hlog3N, hlog3Npos]
+    calc
+      100 * Real.rpow N (-1 / 2) * (Real.log (3 * N)) ^ 2 ≤
+          100 * Real.rpow N (-1 / 2) * (2 * L) ^ 2 :=
+        mul_le_mul_of_nonneg_left hlogSq
+          (mul_nonneg (by norm_num) (Real.rpow_nonneg hNpos.le _))
+      _ ≤ 100 * (Real.sqrt 2 * Real.rpow x (-τ / 2)) * (2 * L) ^ 2 := by
+        have h := mul_le_mul_of_nonneg_left hInvN (by norm_num : (0 : ℝ) ≤ 100)
+        exact mul_le_mul_of_nonneg_right h (sq_nonneg (2 * L))
+      _ = 400 * Real.sqrt 2 * Real.rpow x (-τ / 2) * L ^ 2 := by ring
+      _ ≤ 400 * Real.sqrt 2 * Real.rpow L (-A - 10) * L ^ 2 := by
+        exact mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left hInvPower (by positivity)) (sq_nonneg L)
+      _ = 400 * Real.sqrt 2 * Real.rpow L (-A - 8) := by
+        calc
+          _ = (400 * Real.sqrt 2) *
+              (Real.rpow L (-A - 10) * L ^ 2) := by ring
+          _ = _ := by rw [hLpowSmall]
+      _ ≤ Real.rpow L (6 : ℝ) * Real.rpow L (-A - 8) :=
+        mul_le_mul_of_nonneg_right hAbsorb (Real.rpow_nonneg hLpos.le _)
+      _ = P := by simpa [P] using hLpowFinal
 
+  have hNlogLow : τ * L / 2 ≤ Real.log N := by
+    have hpowX : 0 < Real.rpow x τ := Real.rpow_pos_of_pos hxpos τ
+    have hlogCmp := Real.log_le_log (by positivity : 0 < Real.rpow x τ / 2) hNlo
+    rw [Real.log_div hpowX.ne' (by norm_num : (2 : ℝ) ≠ 0)] at hlogCmp
+    have hlogRpow : Real.log (Real.rpow x τ) = τ * Real.log x :=
+      Real.log_rpow hxpos τ
+    rw [hlogRpow] at hlogCmp
+    have hLog2L : Real.log 2 ≤ τ * L / 2 := by simpa [L] using hLog2
+    dsimp [L] at hlogCmp hLog2L
+    linarith
+
+  let Jmax : ℕ := R
+  have hJmax : 1 ≤ Jmax := by
+    dsimp [Jmax, R]
+    omega
+  let c₀ : ℝ := 4 * (Kₘ + 1) / τ
+  have hc₀ : 0 < c₀ := by dsimp [c₀]; positivity
+  have hPrimePolyBound :
+      ‖primeDirichletPolynomial N q χ t I‖ ≤
+        c₀ * Real.rpow L (-A - 3) := by
+    let a : ℕ → ℂ := fun n => if pPred n then primeTerm n else 0
+    let w : ℕ → ℝ := fun n => 1 / Real.log (max (n : ℝ) N)
+    let B : ℝ := (Kₘ + 1) * P
+    have hB : 0 ≤ B := by dsimp [B, P]; positivity
+    have hJbound : ∀ k ≤ Jmax,
+        ‖∑ n ∈ Finset.range k, a n‖ ≤ B := by
+      intro k hk
+      let J : Set ℕ := I ∩ Set.Iio k
+      have hJinterval : IsNatInterval J := by
+        intro m n j hm hn hjlo hjhi
+        change m ∈ I ∧ m < k at hm
+        change n ∈ I ∧ n < k at hn
+        have hjI : j ∈ I := hI hm.1 hn.1 hjlo hjhi
+        have hmaxlt : max m n < k := max_lt_iff.mpr ⟨hm.2, hn.2⟩
+        exact ⟨hjI, lt_of_le_of_lt hjhi hmaxlt⟩
+      have hJbound : J ⊆ {n : ℕ | N ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N} := by
+        intro n hn
+        exact hIbound hn.1
+      have hMangJ : ‖mangoldtIntervalPolynomial N q χ t J‖ ≤ Kₘ * P := by
+        simpa [L, P] using
+          hMangoldt x hxM' N hNlo hNhi q hq hqsize χ t htlo hthi J hJinterval hJbound
+      have hRemovalJ := prime_power_removal hN4 q χ t J hJbound
+      have hPrefixSet :
+          (Finset.range k).filter pPred =
+            (Finset.range Jmax).filter
+              (fun p : ℕ => p.Prime ∧ N ≤ (p : ℝ) ∧
+                (p : ℝ) ≤ 2 * N ∧ p ∈ J) := by
+        ext n
+        simp only [Finset.mem_filter, Finset.mem_range, pPred, J,
+          Set.mem_inter_iff, Set.mem_Iio]
+        constructor
+        · rintro ⟨hnk, hp, hnN, hn2N, hnI⟩
+          exact ⟨lt_of_lt_of_le hnk hk, hp, hnN, hn2N, ⟨hnI, hnk⟩⟩
+        · rintro ⟨hnR, hp, hnN, hn2N, ⟨hnI, hnk⟩⟩
+          exact ⟨hnk, hp, hnN, hn2N, hnI⟩
+      have hPrefixEq :
+          (∑ n ∈ Finset.range k, a n) =
+            ∑ p ∈ (Finset.range Jmax).filter
+              (fun p : ℕ => p.Prime ∧ N ≤ (p : ℝ) ∧
+                (p : ℝ) ≤ 2 * N ∧ p ∈ J), primeTerm p := by
+        calc
+          _ = ∑ n ∈ (Finset.range k).filter pPred, primeTerm n := by
+            dsimp [a]
+            rw [← Finset.sum_filter]
+          _ = _ := by rw [hPrefixSet]
+      let primeJ : ℂ :=
+        ∑ p ∈ (Finset.range (⌊2 * N⌋₊ + 1)).filter
+          (fun p : ℕ => p.Prime ∧ N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N ∧ p ∈ J),
+          (Real.log (p : ℝ) : ℂ) * χ (p : ZMod q) *
+            Complex.exp ((-1 + Complex.I * t) * Real.log (p : ℝ))
+      have hErrJ' := hRemovalJ.trans hPowPrimeErr
+      have hErrJ : ‖mangoldtIntervalPolynomial N q χ t J - primeJ‖ ≤ P := by
+        convert hErrJ' using 1
+        all_goals
+          congr 1
+          all_goals
+            congr 1
+            all_goals
+              apply Finset.sum_congr
+              · ext p
+                simp [Finset.mem_filter, Finset.mem_range]
+              · intro p hp
+                rfl
+      have hPrimeJ : ‖primeJ‖ ≤ B := by
+        calc
+          ‖primeJ‖ =
+              ‖mangoldtIntervalPolynomial N q χ t J -
+                (mangoldtIntervalPolynomial N q χ t J - primeJ)‖ := by
+            congr 1
+            ring
+          _ ≤ ‖mangoldtIntervalPolynomial N q χ t J‖ +
+                ‖mangoldtIntervalPolynomial N q χ t J - primeJ‖ := norm_sub_le _ _
+          _ ≤ Kₘ * P + P := by
+            exact add_le_add hMangJ hErrJ
+          _ = B := by dsimp [B]; ring
+      rw [hPrefixEq]
+      simpa [primeJ, primeTerm, Jmax, R] using hPrimeJ
+    have hwNonneg : ∀ i : ℕ, 0 ≤ w i := by
+      intro i
+      dsimp [w]
+      have hbase : 1 < max (i : ℝ) N :=
+        lt_of_lt_of_le (by linarith [hN4]) (le_max_right _ _)
+      exact (one_div_pos.mpr (Real.log_pos hbase)).le
+    have hwAntitone : AntitoneOn w (Set.Iio Jmax) := by
+      intro i hi j hj hij
+      dsimp [w]
+      have hmax : max (i : ℝ) N ≤ max (j : ℝ) N :=
+        max_le_max (by exact_mod_cast hij) le_rfl
+      have hbase : 1 < max (i : ℝ) N :=
+        lt_of_lt_of_le (by linarith [hN4]) (le_max_right _ _)
+      have hlogi : 0 < Real.log (max (i : ℝ) N) := Real.log_pos hbase
+      exact one_div_le_one_div_of_le hlogi (Real.log_le_log (by positivity) hmax)
+    have hwZero : w 0 = 1 / Real.log N := by
+      dsimp [w]
+      simp [max_eq_right (by positivity : (0 : ℝ) ≤ N)]
+    have hRePrefix : ∀ k ≤ Jmax,
+        |∑ i ∈ Finset.range k, (a i).re| ≤ B := by
+      intro k hk
+      have hsum : ∑ i ∈ Finset.range k, (a i).re =
+          (∑ i ∈ Finset.range k, a i).re := by simp only [Complex.re_sum]
+      rw [hsum]
+      exact (Complex.abs_re_le_norm _).trans (hJbound k hk)
+    have hImPrefix : ∀ k ≤ Jmax,
+        |∑ i ∈ Finset.range k, (a i).im| ≤ B := by
+      intro k hk
+      have hsum : ∑ i ∈ Finset.range k, (a i).im =
+          (∑ i ∈ Finset.range k, a i).im := by simp only [Complex.im_sum]
+      rw [hsum]
+      exact (Complex.abs_im_le_norm _).trans (hJbound k hk)
+    have hReAbel := Finset.abs_sum_mul_le_mul_of_abs_sum_range_le
+      (f := fun i => (a i).re) (g := w) (n := Jmax)
+      hRePrefix hwNonneg hwAntitone
+    have hImAbel := Finset.abs_sum_mul_le_mul_of_abs_sum_range_le
+      (f := fun i => (a i).im) (g := w) (n := Jmax)
+      hImPrefix hwNonneg hwAntitone
+    have hReEq : (∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i).re =
+        ∑ i ∈ Finset.range Jmax, (a i).re * w i := by
+      rw [Complex.re_sum]
+      apply Finset.sum_congr rfl
+      intro i hi
+      simp [Complex.mul_re]
+      ring
+    have hImEq : (∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i).im =
+        ∑ i ∈ Finset.range Jmax, (a i).im * w i := by
+      rw [Complex.im_sum]
+      apply Finset.sum_congr rfl
+      intro i hi
+      simp [Complex.mul_im]
+      ring
+    have hRe : |(∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i).re| ≤ B * w 0 := by
+      rw [hReEq]
+      exact hReAbel
+    have hIm : |(∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i).im| ≤ B * w 0 := by
+      rw [hImEq]
+      exact hImAbel
+    have hAbel : ‖∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i‖ ≤
+        2 * B * w 0 := by
+      calc
+        ‖∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i‖ ≤
+            |(∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i).re| +
+              |(∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i).im| :=
+          Complex.norm_le_abs_re_add_abs_im _
+        _ ≤ B * w 0 + B * w 0 := add_le_add hRe hIm
+        _ = 2 * B * w 0 := by ring
+    have hPrimeFilter : (Finset.range Jmax).filter pPred =
+        (Finset.range (⌊2 * N⌋₊ + 1)).filter (fun p : ℕ =>
+          p.Prime ∧ N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N ∧ p ∈ I) := by
+      rfl
+    have hWeightedPrime :
+        (∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i) =
+          primeDirichletPolynomial N q χ t I := by
+      calc
+        _ = ∑ i ∈ (Finset.range Jmax).filter pPred,
+              (w i : ℂ) * primeTerm i := by
+          dsimp [a]
+          simp only [mul_ite, mul_zero]
+          rw [← Finset.sum_filter]
+        _ = primeDirichletPolynomial N q χ t I := by
+          unfold primeDirichletPolynomial
+          rw [hPrimeFilter]
+          apply Finset.sum_congr rfl
+          intro p hp
+          rcases (Finset.mem_filter.mp hp).2 with ⟨hpPrime, hpN, _, _⟩
+          have hlogpPos : 0 < Real.log (p : ℝ) :=
+            Real.log_pos (by have hpN4 : (4 : ℝ) ≤ (p : ℝ) := le_trans hN4 hpN; linarith)
+          have hwP : w p = 1 / Real.log (p : ℝ) := by
+            dsimp [w]
+            rw [max_eq_left hpN]
+          rw [hwP]
+          dsimp [primeTerm]
+          push_cast
+          have hlogC : Complex.log (p : ℂ) ≠ 0 := by
+            rw [← Complex.natCast_log]
+            exact_mod_cast hlogpPos.ne'
+          field_simp [hlogC]
+    have hprimeBound : ‖primeDirichletPolynomial N q χ t I‖ ≤ 2 * B * w 0 := by
+      calc
+        ‖primeDirichletPolynomial N q χ t I‖ =
+            ‖∑ i ∈ Finset.range Jmax, (w i : ℂ) * a i‖ := by rw [← hWeightedPrime]
+        _ ≤ 2 * B * w 0 := hAbel
+    have hNlogLow : τ * L / 2 ≤ Real.log N := by
+      have hxτpos : 0 < Real.rpow x τ := Real.rpow_pos_of_pos hxpos τ
+      have hlogCmp := Real.log_le_log (by positivity : 0 < Real.rpow x τ / 2) hNlo
+      rw [Real.log_div hxτpos.ne' (by norm_num : (2 : ℝ) ≠ 0)] at hlogCmp
+      have hlogRpow : Real.log (Real.rpow x τ) = τ * Real.log x := Real.log_rpow hxpos τ
+      rw [hlogRpow] at hlogCmp
+      have hLog2L : Real.log 2 ≤ τ * L / 2 := by simpa [L] using hLog2
+      dsimp [L] at hlogCmp hLog2L
+      linarith
+    have hwZeroBound : w 0 ≤ 2 / (τ * L) := by
+      rw [hwZero]
+      have hden : 0 < τ * L / 2 := by positivity
+      calc
+        1 / Real.log N ≤ 1 / (τ * L / 2) := one_div_le_one_div_of_le hden hNlogLow
+        _ = 2 / (τ * L) := by field_simp [ne_of_gt hτ, ne_of_gt hLpos]
+    have hPowerShift : Real.rpow L (-A - 2) / L = Real.rpow L (-A - 3) := by
+      calc
+        Real.rpow L (-A - 2) / L =
+            Real.rpow L (-A - 2) / Real.rpow L 1 :=
+              congrArg (fun y : ℝ => Real.rpow L (-A - 2) / y) (Real.rpow_one L).symm
+        _ = Real.rpow L ((-A - 2) - 1) := (Real.rpow_sub hLpos _ _).symm
+        _ = Real.rpow L (-A - 3) := by congr 1 <;> ring
+    have hPolyBound :
+        ‖primeDirichletPolynomial N q χ t I‖ ≤ c₀ * Real.rpow L (-A - 3) := by
+      calc
+        ‖primeDirichletPolynomial N q χ t I‖ ≤ 2 * B * w 0 := hprimeBound
+        _ ≤ 2 * B * (2 / (τ * L)) :=
+          mul_le_mul_of_nonneg_left hwZeroBound (by positivity)
+        _ = c₀ * Real.rpow L (-A - 3) := by
+          dsimp [B, P, c₀]
+          calc
+            2 * ((Kₘ + 1) * Real.rpow L (-A - 2)) * (2 / (τ * L)) =
+                (4 * (Kₘ + 1) / τ) * (Real.rpow L (-A - 2) / L) := by
+                  field_simp [ne_of_gt hτ, ne_of_gt hLpos]
+                  ring
+            _ = (4 * (Kₘ + 1) / τ) * Real.rpow L (-A - 3) := by rw [hPowerShift]
+    exact hPolyBound
+  have hExponent : Real.rpow L (-A - 3) ≤ Real.rpow L (-A) :=
+    Real.rpow_le_rpow_of_exponent_le hLone (by linarith)
+  have hCoef : c₀ ≤ C₀ := le_max_right _ _
+  calc
+    ‖primeDirichletPolynomial N q χ t I‖ ≤ c₀ * Real.rpow L (-A - 3) := hPrimePolyBound
+    _ ≤ c₀ * Real.rpow L (-A) :=
+      mul_le_mul_of_nonneg_left hExponent (by positivity)
+    _ ≤ C₀ * Real.rpow L (-A) :=
+      mul_le_mul_of_nonneg_right hCoef (Real.rpow_nonneg hLpos.le _)
 end ArtinPrimitiveRoots.Proofs.PP_PRIME
