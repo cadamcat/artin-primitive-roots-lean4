@@ -8486,6 +8486,31 @@ private theorem po_weight_coset_poisson (I : S.ExtIdeal)
       simp_rw [hfourier, mul_assoc]
       rw [tsum_mul_left]
 
+private theorem po_frequency_orbit_classification (x : S.R) (hx : (x : F) ≠ 0) :
+    ∃! ur : U.U × S.ExtIdeal, ∃ γ : Gamma S,
+      (x : F) = ((γ.1 : Fˣ) : F) * (U.repr ur.1 : F) * (bc.gen ur.2 : F) ^ 6 := by
+  obtain ⟨ur, ⟨ε, a, ha, hxa⟩, huniq⟩ := U.decomposition x hx
+  obtain ⟨τ, hτ⟩ := euler_generators_unit_ratio ur.2.1 (a : F) (bc.gen ur.2 : F)
+    ha (bc.gen_spec ur.2).1
+  let γ : Gamma S := ⟨(ε * τ) ^ 6, ⟨ε * τ, rfl⟩⟩
+  refine ⟨ur, ⟨γ, ?_⟩, ?_⟩
+  · rw [hxa, hτ]
+    simp only [γ, Subgroup.coe_pow, Subgroup.coe_mul, Units.val_pow_eq_pow_val,
+      Units.val_mul]
+    ring
+  · intro ur' hrep
+    obtain ⟨γ', hxγ⟩ := hrep
+    obtain ⟨ε', hε'⟩ := γ'.property
+    have hε6 : ε' ^ 6 = γ'.1 := by
+      simpa [sixthPowerOnUS] using hε'
+    have hγval : ((γ'.1 : Fˣ) : F) = ((ε' : Fˣ) : F) ^ 6 := by
+      rw [← hε6]
+      simp only [Subgroup.coe_pow, Units.val_pow_eq_pow_val]
+    apply huniq ur'
+    refine ⟨ε', bc.gen ur'.2, (bc.gen_spec ur'.2).1, ?_⟩
+    rw [hxγ, hγval]
+    ring
+
 /-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
 theorem po_poisson_orbits : WeightSpec R sd W →
   (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
