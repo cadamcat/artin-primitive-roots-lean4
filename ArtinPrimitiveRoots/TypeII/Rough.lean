@@ -3430,6 +3430,50 @@ theorem low_count (γ : ℝ) (hγ : 0 < γ) :
                         C * M * Real.rpow (Real.log x) (-A₁) := by
   sorry
 
+/-- Uniform rough counts on a bounded exponent window, without an upper bound of one. -/
+private theorem low_count_bounded_window (γ vMin vMax : ℝ)
+    (hγ : 0 < γ) (hγv : γ < vMin) (hvv : vMin < vMax) :
+    ∀ A₀ A₁ : ℝ, 0 < A₀ → 0 < A₁ →
+      ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          ∀ M : ℝ, Real.rpow x γ ≤ M →
+            Real.log M / Real.log x ∈ Set.Icc vMin vMax →
+            Real.log (2 * M) / Real.log x ∈ Set.Icc vMin vMax →
+            ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
+              ∀ χ : DirichletCharacter ℂ k, ∀ l r : ℝ,
+                M ≤ l → l ≤ r → r ≤ 2 * M →
+                  ‖(∑ m ∈ (Finset.range (⌊r⌋₊ + 1)).filter (fun m : ℕ =>
+                        l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r),
+                      (roughIndicator x γ m : ℂ) * χ (m : ZMod k)) -
+                    (if χ = 1 then
+                      ((1 / Real.log x) * ∫ y in l..r,
+                        ArtinPrimitiveRoots.Sieve.roughDensity γ
+                          (Real.log y / Real.log x) : ℝ) else 0 : ℂ)‖ ≤
+                    C * M * Real.rpow (Real.log x) (-A₁) := by
+  intro A₀ A₁ hA₀ hA₁
+  let c : ℝ := vMax + 1
+  have hc : 1 < c := by dsimp [c]; linarith
+  have hcpos : 0 < c := lt_trans zero_lt_one hc
+  have hγ' : 0 < γ / c := div_pos hγ hcpos
+  have hγv' : γ / c < vMin / c := div_lt_div_of_pos_right hγv hcpos
+  have hvv' : vMin / c < vMax / c := div_lt_div_of_pos_right hvv hcpos
+  have hvMax' : vMax / c < 1 := by
+    apply (div_lt_iff₀ hcpos).2
+    dsimp [c]
+    linarith
+  obtain ⟨C, X₀, hC, _, hbase⟩ :=
+    low_count (γ / c) hγ' (vMin / c) (vMax / c) hγv' hvv' hvMax' A₀ A₁ hA₀ hA₁
+  have hbase' : ArtinPrimitiveRoots.Proofs.r_impl_muse.roughCountBound
+      (γ / c) (vMin / c) (vMax / c) A₀ A₁ C X₀ := by
+    simpa only [ArtinPrimitiveRoots.Proofs.r_impl_muse.roughCountBound,
+      roughIndicator] using hbase
+  refine ⟨C, max 2 X₀, hC, le_max_left _ _, ?_⟩
+  simpa only [ArtinPrimitiveRoots.Proofs.r_impl_muse.roughCountBound,
+    roughIndicator] using
+    (ArtinPrimitiveRoots.Proofs.r_impl_muse.rough_count_rescale
+      γ vMin vMax A₀ A₁ C X₀ c (le_of_lt hc) (le_of_lt hA₀)
+      (le_of_lt hA₁) (le_of_lt hC) hbase')
+
 /-- `t2:low-frequency` — 08-type-ii.tex:439-453. -/
 theorem low_frequency (γ wMin wMax C δ : ℝ)
     (hγ : 0 < γ) (hγw : γ < wMin) (hw : wMin < wMax) (hδ : 0 < δ)
