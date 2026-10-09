@@ -1880,6 +1880,159 @@ private theorem po_probe_low_reflection_rows (K : Set S.FSˣ) (hK : IsCompact K)
   rw [← hsum]
   exact hmoment Z hZ t (hOmegaT t ht) rows hinj hbox
 
+private theorem po_probe_low_pointwise :
+    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ Z : ℝ, 2 ≤ Z → ∀ t : S.FSˣ,
+        (t : S.FS) ∈ omegaAt R 1 →
+        ‖probeIntegrand R W (Z ^ a) (Z ^ b) Z t‖ ≤
+          C * Z ^ (933 / 2000 + ε) := by
+  obtain ⟨K, hK, hwindow⟩ := po_probe_low_row_window R W
+  obtain ⟨CA, hCA, hAdditive⟩ := po_probe_low_additive_row_bound R W
+  obtain ⟨L, B, CD, hL, hB, hCD, hinterval, hden⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_denominator_control
+      S W.W1 W.W1_compact W.W1_positive_support W.W1_smooth.continuous W.W1_nonzero
+  intro ε hε
+  obtain ⟨CB, hCB, hReflection⟩ := po_probe_low_reflection_rows R K hK (2 * ε) (by positivity)
+  refine ⟨Real.sqrt (CA * CB), Real.sqrt_pos.mpr (mul_pos hCA hCB), ?_⟩
+  intro Z hZ t ht
+  have hZpos : 0 < Z := by linarith
+  let X : ℝ := Z ^ a
+  let Y : ℝ := Z ^ b
+  let N : ℝ := Z ^ M0
+  have hYpos : 0 < Y := Real.rpow_pos_of_pos hZpos _
+  have hY1 : 1 ≤ Y := Real.one_le_rpow (by linarith) (by norm_num [b])
+  have hNpos : 0 < N := Real.rpow_pos_of_pos hZpos _
+  obtain ⟨Q, hQ0, hQcard, hQmass⟩ := hden Y hY1
+  have hQ (s : S.ExtIdeal) : s ∈ Q ↔ W.W1 (qI s.1 / Y) ≠ 0 := by
+    simpa only [idealNorm, qI] using hQ0 s
+  have hW1zero (s : S.ExtIdeal) (hs : s ∉ Q) : W.W1 (qI s.1 / Y) = 0 := by
+    by_contra hne
+    exact hs ((hQ s).mpr hne)
+  let Kscaled : Set S.FS :=
+    (fun y : S.FSˣ => S.ell D N hNpos * ((t * y : S.FSˣ) : S.FS)) '' K
+  have hKscaled : IsCompact Kscaled :=
+    hK.image (continuous_const.mul (Units.continuous_val.comp
+      (continuous_const.mul continuous_id)))
+  let rowSet : Set S.R := {m | ∃ y ∈ K, S.diag (m : F) =
+    S.ell D N hNpos * ((t * y : S.FSˣ) : S.FS)}
+  have hrowFinite : rowSet.Finite := by
+    apply Set.Finite.of_injOn (f := fun m : S.R => S.diag (m : F))
+      (t := Kscaled ∩ S.diagR) ?_ ?_
+      (po_finite_diagR_inter_compact (S := S) D Kscaled hKscaled)
+    · intro m hm
+      obtain ⟨y, hy, hmy⟩ := hm
+      exact ⟨⟨y, hy, hmy.symm⟩, ⟨m, rfl⟩⟩
+    · intro m hm n hn hmn
+      exact Subtype.ext (S.diag.injective hmn)
+  let P : Finset S.R := hrowFinite.toFinset
+  have hP (m : S.R) : m ∈ P ↔ ∃ y ∈ K, S.diag (m : F) =
+      S.ell D N hNpos * ((t * y : S.FSˣ) : S.FS) := hrowFinite.mem_toFinset
+  have hW0zero (s : S.ExtIdeal) (hs : s ∈ Q) (m : S.R) (hm : m ∉ P) :
+      W.W0 (S.diag (m : F) *
+        ((t * R.sheets.ellU (qI s.1 * X))⁻¹ : S.FSˣ).val) = 0 := by
+    by_contra hne
+    apply hm
+    apply (hP m).mpr
+    exact hwindow Z hZ t s ((hQ s).mp hs) m hne
+  let outer (s : S.ExtIdeal) : ℂ :=
+    W.W1 (qI s.1 / Y) * ((qI s.1 * X) ^ (-(1 / 2 : ℝ)) : ℝ)
+  let inner (s : S.ExtIdeal) (m : S.R) : ℂ :=
+    (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+      W.W0 (S.diag (m : F) *
+        ((t * R.sheets.ellU (qI s.1 * X))⁻¹ : S.FSˣ).val)
+  let c (s : S.ExtIdeal) (m : S.R) : ℂ :=
+    W.W1 (qI s.1 / Y) * ((qI s.1 * X) ^ (-(1 / 2 : ℝ)) : ℝ) *
+      (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+        W.W0 (S.diag (m : F) *
+          ((t * R.sheets.ellU (qI s.1 * X))⁻¹ : S.FSˣ).val)
+  let add (m : S.R) : ℂ := (Y : ℂ)⁻¹ * ∑ s ∈ Q, c s m
+  let bm (m : S.R) : ℂ := Bm D S A ϑ (cgen R) (m : F) Z
+  have hcOuterZero (s : S.ExtIdeal) (hs : s ∉ Q) (m : S.R) : c s m = 0 := by
+    simp only [c, hW1zero s hs, zero_mul]
+  have hcRowZero (s : S.ExtIdeal) (hs : s ∈ Q) (m : S.R) (hm : m ∉ P) :
+      c s m = 0 := by
+    simp only [c, hW0zero s hs m hm, mul_zero]
+  have haddzero (m : S.R) (hm : m ∉ P) : add m = 0 := by
+    dsimp only [add]
+    rw [Finset.sum_eq_zero (fun s hs => hcRowZero s hs m hm), mul_zero]
+  have haddFull (m : S.R) : (Y : ℂ)⁻¹ * (∑' s : S.ExtIdeal, c s m) = add m := by
+    dsimp only [add]
+    congr 1
+    exact tsum_eq_sum (fun s hs => hcOuterZero s hs m)
+  have hAmass : (∑ m ∈ P, ‖add m‖ ^ 2) ≤ CA / Y := by
+    calc
+      _ = ∑' m : S.R, ‖add m‖ ^ 2 :=
+        (tsum_eq_sum (fun m hm => by simp only [haddzero m hm, norm_zero, zero_pow
+          (by decide : 2 ≠ 0)])).symm
+      _ = ∑' m : S.R, ‖(Y : ℂ)⁻¹ * (∑' s : S.ExtIdeal, c s m)‖ ^ 2 :=
+        tsum_congr (fun m => by rw [haddFull])
+      _ ≤ CA / Y := by simpa only [Y, X, c] using hAdditive Z hZ t ht
+  have hBmass : (∑ m ∈ P, ‖bm m‖ ^ 2) ≤ CB * Z ^ (2 * M0 - 1 + 2 * ε) := by
+    apply hReflection Z hZ t ht P
+    intro m hm
+    exact (hP m).mp hm
+  have hProbe : probeIntegrand R W X Y Z t = ∑ m ∈ P, add m * bm m := by
+    change (Y : ℂ)⁻¹ * (∑' s : S.ExtIdeal, outer s *
+      ∑' m : S.R, inner s m * bm m) = _
+    have hOuterFinite :
+        (∑' s : S.ExtIdeal, outer s * ∑' m : S.R, inner s m * bm m) =
+          ∑ s ∈ Q, outer s * ∑' m : S.R, inner s m * bm m := by
+      apply tsum_eq_sum
+      intro s hs
+      simp only [outer, hW1zero s hs, zero_mul]
+    rw [hOuterFinite]
+    calc
+      _ = (Y : ℂ)⁻¹ * ∑ s ∈ Q, ∑ m ∈ P, c s m * bm m := by
+        congr 1
+        apply Finset.sum_congr rfl
+        intro s hs
+        have hInnerFinite : (∑' m : S.R, inner s m * bm m) =
+            ∑ m ∈ P, inner s m * bm m := by
+          apply tsum_eq_sum
+          intro m hm
+          simp only [inner, hW0zero s hs m hm, mul_zero, zero_mul]
+        rw [hInnerFinite, Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro m hm
+        dsimp only [c, outer, inner]
+        ring
+      _ = (Y : ℂ)⁻¹ * ∑ m ∈ P, ∑ s ∈ Q, c s m * bm m := by
+        rw [Finset.sum_comm]
+      _ = ∑ m ∈ P, add m * bm m := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro m hm
+        rw [← Finset.sum_mul]
+        dsimp only [add]
+        ring
+  have hNorm : ‖probeIntegrand R W X Y Z t‖ ≤ ∑ m ∈ P, ‖add m‖ * ‖bm m‖ := by
+    rw [hProbe]
+    calc
+      _ ≤ ∑ m ∈ P, ‖add m * bm m‖ := norm_sum_le _ _
+      _ = _ := Finset.sum_congr rfl fun m hm => norm_mul _ _
+  have hSq : ‖probeIntegrand R W X Y Z t‖ ^ 2 ≤
+      (CA * CB) * (Z ^ (2 * M0 - 1 + 2 * ε) / Y) := by
+    calc
+      _ ≤ (∑ m ∈ P, ‖add m‖ * ‖bm m‖) ^ 2 :=
+        (sq_le_sq₀ (norm_nonneg _) (Finset.sum_nonneg
+          (fun m hm => mul_nonneg (norm_nonneg _) (norm_nonneg _)))).mpr hNorm
+      _ ≤ (∑ m ∈ P, ‖add m‖ ^ 2) * ∑ m ∈ P, ‖bm m‖ ^ 2 :=
+        Finset.sum_mul_sq_le_sq_mul_sq P (fun m => ‖add m‖) (fun m => ‖bm m‖)
+      _ ≤ (CA / Y) * (CB * Z ^ (2 * M0 - 1 + 2 * ε)) :=
+        mul_le_mul hAmass hBmass (Finset.sum_nonneg (fun m hm => sq_nonneg _))
+          (div_nonneg hCA.le hYpos.le)
+      _ = _ := by ring
+  have hExponent : 2 * M0 - 1 + 2 * ε - b = (933 / 2000 + ε) * 2 := by
+    linarith [probe_exponent.1]
+  have hScale : Z ^ (2 * M0 - 1 + 2 * ε) / Y = (Z ^ (933 / 2000 + ε)) ^ 2 := by
+    dsimp only [Y]
+    rw [← Real.rpow_sub hZpos, hExponent, Real.rpow_mul hZpos.le, Real.rpow_two]
+  have hFinalSq : ‖probeIntegrand R W X Y Z t‖ ^ 2 ≤
+      (Real.sqrt (CA * CB) * Z ^ (933 / 2000 + ε)) ^ 2 := by
+    rw [mul_pow, Real.sq_sqrt (mul_nonneg hCA.le hCB.le)]
+    exact hSq.trans_eq (by rw [hScale])
+  exact (sq_le_sq₀ (norm_nonneg _) (by positivity)).mp hFinalSq
+
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
     (hSplit : GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η) :
