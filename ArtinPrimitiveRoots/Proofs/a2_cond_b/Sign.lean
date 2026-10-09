@@ -40,7 +40,7 @@ private theorem continuous_ideleClass_ofCompletion (w : InfinitePlace F) :
         funext x
         exact Pi.mulSingle_eq_of_ne hw x
       exact hfun ▸ continuous_const
-  have hIdele : Continuous (IdeleGroup.ofCompletion (𝓞 F) F w) := by
+  have hIdele : Continuous (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w) := by
     change Continuous (Units.map (AdeleRing.ofCompletion (𝓞 F) F w))
     exact Units.continuous_map hAdele
   unfold IdeleClassGroup.ofCompletion
