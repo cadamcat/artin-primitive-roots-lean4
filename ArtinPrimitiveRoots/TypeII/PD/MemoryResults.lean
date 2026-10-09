@@ -83,6 +83,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanEndpoints
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCoreNorm
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanPermutationClosure
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanActiveContraction
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanProjection
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanBan
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCollisionMass
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanCollisionStates
