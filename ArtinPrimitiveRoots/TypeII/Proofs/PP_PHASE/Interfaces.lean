@@ -3122,6 +3122,82 @@ private theorem phase_high_polynomial_interval_bound
   exact le_of_pow_le_pow_left₀ (Nat.ne_of_gt hppos) hBnonneg
     (hcore.trans_eq hBpow.symm)
 
+private theorem phase_reindex_filter_eq_Icc
+    {N' N₁ N₂ : ℝ} {q : ℕ} (a : ZMod q)
+    (hq : 1 ≤ q) (hqN' : (q : ℝ) ≤ N')
+    (hN₁ : N' ≤ N₁) (hN₂ : N₂ ≤ 2 * N') :
+    (Finset.range (⌊2 * N' / (q : ℝ)⌋₊ + 1)).filter
+      (fun b : ℕ => N' ≤ (q : ℝ) * b + a.val ∧
+        (q : ℝ) * b + a.val ≤ 2 * N' ∧
+        N₁ ≤ (q : ℝ) * b + a.val ∧
+        (q : ℝ) * b + a.val ≤ N₂) =
+      Finset.Icc (⌈(N₁ - (a.val : ℝ)) / (q : ℝ)⌉₊)
+        (⌊(N₂ - (a.val : ℝ)) / (q : ℝ)⌋₊) := by
+  classical
+  letI : NeZero q := ⟨by omega⟩
+  have hqpos : 0 < (q : ℝ) := by
+    exact_mod_cast (show 0 < q by omega)
+  have haq : a.val < q := a.val_lt
+  have haqR : (a.val : ℝ) < (q : ℝ) := by exact_mod_cast haq
+  have ha0 : 0 ≤ (a.val : ℝ) := Nat.cast_nonneg _
+  let lo : ℕ := ⌈(N₁ - (a.val : ℝ)) / (q : ℝ)⌉₊
+  let hi : ℕ := ⌊(N₂ - (a.val : ℝ)) / (q : ℝ)⌋₊
+  have hloPos : 1 ≤ lo := by
+    dsimp [lo]
+    apply Nat.ceil_pos.mpr
+    exact div_pos (by linarith [hN₁, hqN', haqR]) hqpos
+  ext b
+  constructor
+  · intro hb
+    rcases Finset.mem_filter.mp hb with ⟨_, ⟨_, _, hlow, hhigh⟩⟩
+    have hlowDiv : (N₁ - (a.val : ℝ)) / (q : ℝ) ≤ (b : ℝ) := by
+      apply (div_le_iff₀ hqpos).2
+      nlinarith [hlow]
+    have hhighDiv : (b : ℝ) ≤ (N₂ - (a.val : ℝ)) / (q : ℝ) := by
+      apply (le_div_iff₀ hqpos).2
+      nlinarith [hhigh]
+    have hlo : lo ≤ b := by
+      dsimp [lo]
+      exact Nat.ceil_le.mpr hlowDiv
+    have hhi : b ≤ hi := by
+      dsimp [hi]
+      exact Nat.le_floor hhighDiv
+    exact Finset.mem_Icc.mpr ⟨hlo, hhi⟩
+  · intro hb
+    rcases Finset.mem_Icc.mp hb with ⟨hlo, hhi⟩
+    have hlowDiv : (N₁ - (a.val : ℝ)) / (q : ℝ) ≤ (b : ℝ) := by
+      have hceil : lo ≤ b := by simpa [lo] using hlo
+      exact Nat.ceil_le.mp hceil
+    have hhiOne : 1 ≤ hi := le_trans hloPos (le_trans hlo hhi)
+    have hhiFloorOne : 1 ≤ ⌊(N₂ - (a.val : ℝ)) / (q : ℝ)⌋₊ := by
+      simpa [hi] using hhiOne
+    have hhiArgOne : 1 ≤ (N₂ - (a.val : ℝ)) / (q : ℝ) :=
+      (Nat.one_le_floor_iff _).mp hhiFloorOne
+    have hhi0 : 0 ≤ (N₂ - (a.val : ℝ)) / (q : ℝ) := by linarith
+    have hhiCast : (hi : ℝ) ≤ (N₂ - (a.val : ℝ)) / (q : ℝ) := by
+      dsimp [hi]
+      exact Nat.floor_le hhi0
+    have hhighDiv : (b : ℝ) ≤ (N₂ - (a.val : ℝ)) / (q : ℝ) := by
+      have hhiCastNat : (b : ℝ) ≤ (hi : ℝ) := by exact_mod_cast hhi
+      exact hhiCastNat.trans hhiCast
+    have hlow : N₁ ≤ (q : ℝ) * b + (a.val : ℝ) := by
+      have := (div_le_iff₀ hqpos).mp hlowDiv
+      nlinarith
+    have hhigh : (q : ℝ) * b + (a.val : ℝ) ≤ N₂ := by
+      have := (le_div_iff₀ hqpos).mp hhighDiv
+      nlinarith
+    have hrangeDiv : (b : ℝ) ≤ 2 * N' / (q : ℝ) := by
+      apply (le_div_iff₀ hqpos).2
+      nlinarith [hhigh, hN₂, ha0]
+    have hrange : b < ⌊2 * N' / (q : ℝ)⌋₊ + 1 := by
+      exact Nat.lt_succ_of_le (Nat.le_floor hrangeDiv)
+    refine Finset.mem_filter.mpr ⟨Finset.mem_range.mpr hrange, ?_⟩
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · linarith [hlow, hN₁]
+    · linarith [hhigh, hN₂]
+    · exact hlow
+    · exact hhigh
+
 /-- High frequencies use the Taylor polynomial and Vinogradov mean value. -/
 theorem phase_high_regime_bound (hMV : phaseMeanValueInput) :
     ∀ C : ℝ, 0 < C →
