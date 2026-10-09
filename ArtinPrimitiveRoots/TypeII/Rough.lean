@@ -5335,6 +5335,52 @@ private theorem principal_tuple_count_scaled (γ : ℝ) (hγ : 0 < γ) :
           mul_le_mul_of_nonneg_left (add_le_add hDiscrete hContinuous) hd.le
         _ = C * (M / Q) * Real.rpow L (-A) := by dsimp [C, d]; ring
 
+/-- Tuple counts have uniform error constants over a finite range of lengths. -/
+private theorem principal_tuple_count_comparison (γ : ℝ) (hγ : 0 < γ) :
+    ∀ A : ℝ, 0 < A → ∀ J : ℕ,
+      ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          ∀ M : ℝ, 0 < M → 2 * M ≤ x →
+            ∀ j : ℕ, 1 ≤ j → j ≤ J →
+              ∀ l r : ℝ, M ≤ l → l ≤ r → r ≤ 2 * M →
+                |(1 / (j.factorial : ℝ)) *
+                    (((boundedTuples j (⌊2 * M⌋₊ + 1)).filter (fun t =>
+                      (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+                      l ≤ ((∏ i : Fin j, t i : ℕ) : ℝ) ∧
+                      ((∏ i : Fin j, t i : ℕ) : ℝ) ≤ r)).card : ℝ) -
+                    roughTupleIntegral x γ l r j| ≤
+                  C * M * Real.rpow (Real.log x) (-A) := by
+  intro A hA J
+  induction J with
+  | zero =>
+      refine ⟨1, 2, by norm_num, le_rfl, ?_⟩
+      intro x hx M hM hMx j hj1 hj0
+      omega
+  | succ J ih =>
+      obtain ⟨Cp, xp, hCp, hxp, hOld⟩ := ih
+      obtain ⟨Cn, xn, hCn, hxn, hNew⟩ := principal_tuple_count_scaled γ hγ J A hA
+      refine ⟨max Cp Cn, max xp xn, lt_of_lt_of_le hCp (le_max_left _ _),
+        hxp.trans (le_max_left _ _), ?_⟩
+      intro x hx M hM hMx j hj1 hjJ l r hl hlr hr
+      have hxp' : xp ≤ x := (le_max_left _ _).trans hx
+      have hxn' : xn ≤ x := (le_max_right _ _).trans hx
+      have hx2 : 2 ≤ x := hxp.trans hxp'
+      have hlogx : 0 < Real.log x := Real.log_pos (by linarith)
+      have hSaving : 0 ≤ Real.rpow (Real.log x) (-A) :=
+        (Real.rpow_pos_of_pos hlogx _).le
+      have hEnlarge (C₀ : ℝ) (hC₀ : C₀ ≤ max Cp Cn) :
+          C₀ * M * Real.rpow (Real.log x) (-A) ≤
+            max Cp Cn * M * Real.rpow (Real.log x) (-A) :=
+        mul_le_mul_of_nonneg_right (mul_le_mul_of_nonneg_right hC₀ hM.le) hSaving
+      by_cases hj : j ≤ J
+      · exact (hOld x hxp' M hM hMx j hj1 hj l r hl hlr hr).trans
+          (hEnlarge Cp (le_max_left _ _))
+      · have hjEq : j = J + 1 := by omega
+        subst j
+        have h := hNew x hxn' M hM hMx 1 le_rfl l r hl hlr hr
+        simp only [div_one] at h
+        exact h.trans (hEnlarge Cn (le_max_right _ _))
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
