@@ -2588,7 +2588,47 @@ private theorem phase_high_box_cover {H y θ : ℝ} {k M : ℕ}
     (B : Finset ℕ) (hM : 0 < M) :
     ∀ b ∈ B, ∃ r : PhaseBoxIndex k M,
       b ∈ phaseBoxMembers (H := H) (y := y) (θ := θ) B r := by
-  sorry
+  classical
+  intro b hb
+  let r : PhaseBoxIndex k M := fun j =>
+    ⟨Nat.floor ((M : ℝ) ^ (j.val + 1) *
+        Int.fract (phaseAlphaVector H y θ b k j)), by
+      have hMpos : 0 < (M : ℝ) := by exact_mod_cast hM
+      have ht : 0 < (M : ℝ) ^ (j.val + 1) := by positivity
+      have hfrac0 : 0 ≤ Int.fract (phaseAlphaVector H y θ b k j) :=
+        Int.fract_nonneg _
+      have hfrac1 : Int.fract (phaseAlphaVector H y θ b k j) < 1 :=
+        Int.fract_lt_one _
+      have hx0 : 0 ≤ (M : ℝ) ^ (j.val + 1) *
+          Int.fract (phaseAlphaVector H y θ b k j) :=
+        mul_nonneg (le_of_lt ht) hfrac0
+      have hxlt : (M : ℝ) ^ (j.val + 1) *
+          Int.fract (phaseAlphaVector H y θ b k j) <
+          (M : ℝ) ^ (j.val + 1) := by
+        calc
+          _ < (M : ℝ) ^ (j.val + 1) * 1 := mul_lt_mul_of_pos_left hfrac1 ht
+          _ = _ := by ring
+      have hfloor := Nat.floor_le hx0
+      exact_mod_cast lt_of_le_of_lt hfloor hxlt⟩
+  refine ⟨r, ?_⟩
+  change b ∈ B.filter (fun n => phaseInBox r (phaseAlphaVector H y θ n k))
+  rw [Finset.mem_filter]
+  refine ⟨hb, ?_⟩
+  intro j
+  dsimp [r]
+  let t : ℝ := (M : ℝ) ^ (j.val + 1)
+  let x : ℝ := t * Int.fract (phaseAlphaVector H y θ b k j)
+  have ht : 0 < t := by dsimp [t]; positivity
+  have hx0 : 0 ≤ x := by
+    dsimp [x]
+    exact mul_nonneg (le_of_lt ht) (Int.fract_nonneg _)
+  have hfloor : (Nat.floor x : ℝ) ≤ x := Nat.floor_le hx0
+  have hceil : x < (Nat.floor x : ℝ) + 1 := Nat.lt_floor_add_one x
+  constructor
+  · apply (div_le_iff₀ ht).2
+    simpa [x, t, mul_comm] using hfloor
+  · apply (lt_div_iff₀ ht).2
+    simpa [x, t, mul_comm] using hceil
 
 private theorem phase_high_box_value_le_sup {k M : ℕ}
     (r : PhaseBoxIndex k M) (a : Fin k → ℝ) (hM : 0 < M)
