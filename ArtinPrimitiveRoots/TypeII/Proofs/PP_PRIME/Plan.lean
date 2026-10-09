@@ -2649,6 +2649,76 @@ private theorem ppPrimeMellinContourRectangle_norm_bound
         simpa [norm_smul, Complex.norm_I, one_mul, add_mul, add_assoc] using
           add_le_add (add_le_add hleftNorm hbottomNorm) htopNorm
 
+private theorem ppPrimeContourGrowth
+    (τ η A c L₀ xZ : ℝ)
+    (hτ : 0 < τ) (hτη : τ < η) (hη : η < 1) (hA : 0 < A)
+    (hc : 0 < c) (hL₀ : 1 ≤ L₀) :
+    ∃ x₀ : ℝ, 2 < x₀ ∧ xZ ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        xZ ≤ x ∧ L₀ ≤ Real.log x ∧ 4 ≤ Real.log x ∧
+        8 ≤ Real.rpow x τ ∧ Real.log 2 ≤ τ * Real.log x / 2 ∧
+        Real.rpow (Real.log x) (A + 3) ≤ Real.rpow x τ ∧
+        Real.rpow (Real.log x) (3 * A + 15) ≤ x ∧
+        (Real.log (Real.log x)) ^ 2 ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) ∧
+        c ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) ∧
+        Real.exp (-(c * τ / 4) * (Real.log (Real.log x)) ^ 2 +
+            ((3 * A + 15) + (A + 6)) * Real.log (Real.log x)) ≤
+          Real.exp (-(A + 3) * Real.log (Real.log x)) := by
+  have hlogAtTop : Tendsto Real.log atTop atTop := Real.tendsto_log_atTop
+  have hdoubleLogAtTop :
+      Tendsto (fun x : ℝ => Real.log (Real.log x)) atTop atTop := by
+    convert hlogAtTop.comp hlogAtTop using 1 <;> rfl
+  have hlogPow := ppPrime_log_rpow_le_rpow_eventually
+    (r := A + 3) (s := τ) hτ
+  have hheightPow := ppPrime_log_rpow_le_rpow_eventually
+    (r := 3 * A + 15) (s := 1) (by norm_num)
+  have hlogSquare : ∀ᶠ y : ℝ in atTop,
+      (Real.log y) ^ 2 ≤ Real.rpow y (1 / 2 : ℝ) := by
+    filter_upwards [ppPrime_log_rpow_le_rpow_eventually
+      (r := 2) (s := 1 / 2) (by norm_num)] with y hy
+    rw [← Real.rpow_natCast (Real.log y) 2]
+    exact hy
+  have hlogSquareX := hlogAtTop.eventually hlogSquare
+  have hrootAtTop := tendsto_rpow_atTop (by norm_num : 0 < (1 / 2 : ℝ))
+  have hroot : ∀ᶠ y : ℝ in atTop, c ≤ Real.rpow y (1 / 2 : ℝ) :=
+    hrootAtTop.eventually (eventually_ge_atTop c)
+  have hrootX := hlogAtTop.eventually hroot
+  have hgaussian := ppPrime_gaussian_exp_le_exp_neg_linear_eventually
+    (a := c * τ / 4) (b := (3 * A + 15) + (A + 6)) (c := A + 3)
+    (by positivity)
+  have hgaussianX := hdoubleLogAtTop.eventually hgaussian
+  have hlarge : ∀ᶠ x : ℝ in atTop,
+      2 < x ∧ xZ ≤ x ∧ L₀ ≤ Real.log x ∧ 4 ≤ Real.log x ∧
+        8 ≤ Real.rpow x τ ∧ Real.log 2 ≤ τ * Real.log x / 2 ∧
+        Real.rpow (Real.log x) (A + 3) ≤ Real.rpow x τ ∧
+        Real.rpow (Real.log x) (3 * A + 15) ≤ x ∧
+        (Real.log (Real.log x)) ^ 2 ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) ∧
+        c ≤ Real.rpow (Real.log x) (1 / 2 : ℝ) ∧
+        Real.exp (-(c * τ / 4) * (Real.log (Real.log x)) ^ 2 +
+            ((3 * A + 15) + (A + 6)) * Real.log (Real.log x)) ≤
+          Real.exp (-(A + 3) * Real.log (Real.log x)) := by
+    filter_upwards [eventually_gt_atTop (2 : ℝ), eventually_ge_atTop xZ,
+      hlogAtTop.eventually (eventually_ge_atTop L₀),
+      hlogAtTop.eventually (eventually_ge_atTop (4 : ℝ)),
+      (tendsto_rpow_atTop hτ).eventually (eventually_ge_atTop (8 : ℝ)),
+      hlogAtTop.eventually (eventually_ge_atTop (2 * Real.log 2 / τ)),
+      hlogPow, hheightPow, hlogSquareX, hrootX, hgaussianX] with
+      x hx2 hxZ hxL₀ hx4 hx8 hxlogLow hxlogPow hxheight hxSquare hxroot hxgauss
+    have hlogLow : Real.log 2 ≤ τ * Real.log x / 2 := by
+      have hmul := (div_le_iff₀ hτ).1 hxlogLow
+      nlinarith
+    have hxheight' : Real.rpow (Real.log x) (3 * A + 15) ≤ x := by
+      simpa [Real.rpow_one] using hxheight
+    exact ⟨hx2, hxZ, hxL₀, hx4, hx8, hlogLow, hxlogPow,
+      hxheight', hxSquare, hxroot, hxgauss⟩
+  obtain ⟨x₀, hx₀⟩ := Filter.eventually_atTop.1 hlarge
+  refine ⟨x₀, (hx₀ x₀ le_rfl).1, (hx₀ x₀ le_rfl).2.1, ?_⟩
+  intro x hx
+  rcases hx₀ x hx with ⟨_, hxZ, hxL₀, hx4, hx8, hxlogLow, hxlogPow,
+    hxheight, hxSquare, hxroot, hxgauss⟩
+  exact ⟨hxZ, hxL₀, hx4, hx8, hxlogLow, hxlogPow, hxheight,
+    hxSquare, hxroot, hxgauss⟩
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
     (hzeta : ppPrimeZetaLogDerivBound) :
