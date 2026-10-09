@@ -6,6 +6,37 @@ import ArtinPrimitiveRoots.Theta.Reduction
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.square_pairing_nontrivial
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_square_lift
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_square_commutator
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_invariant_genuine_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_genuine
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.unitTorus_constant_of_nonzero_fourier_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.totallyComplexMixedEquiv_embedding
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.mem_span_idealArchBasis
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.archimedean_trace_sum
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_pairing
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_ne_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_coordinate_sum
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_fourier_character
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_period
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.unitTorus_lift_of_int_periodic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_normalized_integral
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_fourierCoeff_eq
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_constant_of_nonzero_fourier_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_right_of_scalar_invariant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_automorphic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_ideal_period
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_arch_invariant_of_nonzero_coeff_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_exterior_upper_invariant_of_arch_invariant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_exterior_lower_invariant_of_upper_invariant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.exists_exterior_finPlace
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.lagrangian_vector_selector
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.bigCell_normalized_intertwine
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.tame_lagrangian_vector_selector
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.sphWeyl_lam_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.sphC_right_root_smooth
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.spherical_section_param_analytic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.zero_seed_analyticFamily
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.replace_at_S_bigCell
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.intertwined_scalar_q
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
@@ -607,7 +638,25 @@ theorem center_mem_root_closure {D : FieldData F} {H : HilbertData F} {v : FinPl
 theorem thetaWhit_ne_zero {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
     (hθ : ∃ g, C.theta g ≠ 0) : ∃ g, thetaWhit C g ≠ 0 := by
-  sorry
+  classical
+  by_contra h
+  have hW : ∀ g, thetaWhit C g = 0 := by simpa only [not_exists, not_not] using h
+  have hcoeff : ∀ (g : P.tc.G)
+      (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (Pd : Set (InfinitePlace F → ℂ)) (ν : Fˣ),
+      FourierAdaptedDomain Fam.sec g 𝔞 Pd (ν : F) →
+        torusCoeff P C.theta g Pd (ν : F) = 0 := by
+    intro g 𝔞 Pd ν hdom
+    exact (theta_fourierCoeff Fam C g 𝔞 hdom.1 hdom.2.1 Pd hdom.2.2.1
+      hdom.2.2.2.1 ν hdom.2.2.2.2).trans (hW _)
+  have harch := residue_arch_invariant_of_nonzero_coeff_zero Fam C Fam.fourierHyp hcoeff
+  obtain ⟨v, hv⟩ := exists_exterior_finPlace S
+  have hn := residue_exterior_upper_invariant_of_arch_invariant Fam C harch v hv
+  have hnbar := residue_exterior_lower_invariant_of_upper_invariant Fam C v hv hn
+  obtain ⟨g, hg⟩ := hθ
+  exact hg (root_invariant_genuine_zero (P := P) v hv C.theta (residue_genuine Fam C)
+    (fun t g => hn (Multiplicative.toAdd t) g)
+    (fun t g => hnbar (Multiplicative.toAdd t) g) g)
 
 /-- **res:theta-exists**: big-cell sections at `S_f` and spherical sections elsewhere give `θ ≠ 0`.
 C6 of `sol-gate-theta` requires the cube-containing Lagrangian global datum. -/
