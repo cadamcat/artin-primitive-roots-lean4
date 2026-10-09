@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.IndexValue
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianScale
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianNorm
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.w_e.GaussianBinaryHelpers
 
 set_option autoImplicit false
 
@@ -21,7 +22,8 @@ theorem local_index_binary (D : FieldData F) (A : AddCharData F) (W : LocalGauss
     (v : FinPlace F) (a b : (v.adicCompletion F)ˣ)
     (h : (a : v.adicCompletion F) + (b : v.adicCompletion F) ≠ 0) :
     W.index v a * W.index v b =
-      W.index v (Units.mk0 _ h) * W.index v (a * b / Units.mk0 _ h) := by
-  sorry
+    W.index v (Units.mk0 _ h) * W.index v (a * b / Units.mk0 _ h) := by
+  exact ArtinPrimitiveRoots.Proofs.a1_weil_sol_w_e.local_index_binary_actual
+    D A W v a b h
 
 end ArtinPrimitiveRoots.Proofs.a1_weil_sol
