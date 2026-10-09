@@ -1,4 +1,5 @@
 import ArtinPrimitiveRoots.A1.AddChar
+import ArtinPrimitiveRoots.A1.Proofs.A1_DUAL.AnnihilatorCore
 import Mathlib.MeasureTheory.Group.Measure
 
 /-!
@@ -88,7 +89,82 @@ theorem SData.diagR_discrete_cocompact (S : SData F CE condη) (D : FieldData F)
 theorem SData.diagR_eq_annihilator (S : SData F CE condη) (D : FieldData F)
     (A : AddCharData F) :
     S.diagR = S.annihilator A S.diagR := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  change Set.range (fun r : S.R => S.diag (r : F)) =
+    {y : S.FS | ∀ x : S.FS,
+      x ∈ Set.range (fun r : S.R => S.diag (r : F)) → S.e A (x * y) = 1}
+  ext y
+  constructor
+  · rintro ⟨r, rfl⟩
+    intro x hx
+    rcases hx with ⟨s, rfl⟩
+    calc
+      S.e A (S.diag (s : F) * S.diag (r : F)) =
+          S.e A (S.diag ((s : F) * (r : F))) := by rw [← map_mul]
+      _ = 1 := ArtinPrimitiveRoots.Proofs.a1_dual_p.e_diag_product_eq_one S A s r
+  · intro hy
+    change ∀ x : S.FS,
+      x ∈ Set.range (fun r : S.R => S.diag (r : F)) → S.e A (x * y) = 1 at hy
+    obtain ⟨r₀, happrox⟩ :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.s_integer_finite_approx S y.1
+    let y₁ : S.FS := y - S.diag (r₀ : F)
+    have hyann : ∀ r : S.R, S.e A (S.diag (r : F) * y) = 1 := by
+      intro r
+      exact hy (S.diag (r : F)) ⟨r, rfl⟩
+    have hyann₁ : ∀ r : S.R, S.e A (S.diag (r : F) * y₁) = 1 := by
+      simpa [y₁] using
+        (ArtinPrimitiveRoots.Proofs.a1_dual_p.sub_diag_preserves_annihilator
+          D S A y hyann r₀)
+    have hfinite₁ : ∀ v : S.Sf, y₁.1 v ∈ v.1.adicCompletionIntegers F := by
+      intro v
+      simpa [y₁, SData.diag] using happrox v
+    have harch₁ :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.arch_condition_of_integral_finite_annihilator
+        S A y₁ hfinite₁ hyann₁
+    obtain ⟨t, htArch, htR⟩ :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.arch_trace_dual_lattice D S y₁.2 harch₁
+    let tR : S.R := ⟨t, htR⟩
+    let y₂ : S.FS := y₁ - S.diag (tR : F)
+    have hyann₂ : ∀ r : S.R, S.e A (S.diag (r : F) * y₂) = 1 := by
+      simpa [y₂] using
+        (ArtinPrimitiveRoots.Proofs.a1_dual_p.sub_diag_preserves_annihilator
+          D S A y₁ hyann₁ tR)
+    have harch₂ : ∀ w : InfinitePlace F, y₂.2 w = 0 := by
+      intro w
+      change y₁.2 w - w.embedding t = 0
+      rw [← htArch w]
+      exact sub_self _
+    have hfiniteR : ∀ r : S.R,
+        (∏ v : S.Sf,
+          A.ψ v.1 (algebraMap F (v.1.adicCompletion F) (r : F) * y₂.1 v)) = 1 :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.finite_character_condition_of_zero_arch
+        S A y₂ hyann₂ harch₂
+    have hfiniteAll :=
+      ArtinPrimitiveRoots.Proofs.a1_dual_p.finite_character_trivial_of_s_integer
+        S A y₂.1 hfiniteR
+    have hcoords : ∀ v : S.Sf, y₂.1 v = 0 := by
+      intro v
+      apply ArtinPrimitiveRoots.Proofs.a1_dual_p.psi_local_nondegenerate D S A v
+      intro x
+      exact ArtinPrimitiveRoots.Proofs.a1_dual_p.finite_component_from_trivial
+        S A y₂.1 hfiniteAll v x
+    have hy₂zero : y₂ = 0 := by
+      apply Prod.ext
+      · exact funext hcoords
+      · exact funext harch₂
+    have hy₁eq : y - S.diag (r₀ : F) = S.diag (tR : F) := by
+      change (y - S.diag (r₀ : F)) - S.diag (tR : F) = 0 at hy₂zero
+      exact sub_eq_zero.mp hy₂zero
+    have hyadd : y = S.diag (r₀ : F) + S.diag (tR : F) := by
+      calc
+        y = (y - S.diag (r₀ : F)) + S.diag (r₀ : F) := by abel
+        _ = S.diag (tR : F) + S.diag (r₀ : F) := by rw [hy₁eq]
+        _ = S.diag (r₀ : F) + S.diag (tR : F) := by abel
+    refine ⟨r₀ + tR, ?_⟩
+    calc
+      S.diag ((r₀ + tR : F)) = S.diag (r₀ : F) + S.diag (tR : F) := map_add _ _ _
+      _ = y := hyadd.symm
 
 /-- The diagonal copy of `R` has covolume one for the self-dual Haar measure. -/
 theorem SData.diagR_covolume_one (S : SData F CE condη) (D : FieldData F)
@@ -115,7 +191,55 @@ theorem SData.annihilator_diag_mul (S : SData F CE condη) (D : FieldData F)
     (a : Fˣ) :
     S.annihilator A (Set.range fun x : S.R => S.diag ((a : F) * (x : F))) =
       Set.range fun x : S.R => S.diag ((a : F)⁻¹ * (x : F)) := by
-  sorry
+  classical
+  have hself := S.diagR_eq_annihilator D A
+  have ha0 : (a : F) ≠ 0 := Units.ne_zero a
+  ext y
+  constructor
+  · intro hy
+    have hmul_ann : S.diag (a : F) * y ∈ S.annihilator A S.diagR := by
+      intro x hx
+      rcases hx with ⟨r, rfl⟩
+      have h := hy (S.diag ((a : F) * (r : F))) ⟨r, rfl⟩
+      simpa [map_mul, mul_assoc, mul_comm, mul_left_comm] using h
+    have hmul_mem : S.diag (a : F) * y ∈ S.diagR := hself.symm ▸ hmul_ann
+    rcases hmul_mem with ⟨r, hr⟩
+    change S.diag (r : F) = S.diag (a : F) * y at hr
+    refine ⟨r, ?_⟩
+    calc
+      S.diag ((a : F)⁻¹ * (r : F)) =
+          S.diag ((a : F)⁻¹) * S.diag (r : F) := by rw [map_mul]
+      _ = S.diag ((a : F)⁻¹) * (S.diag (a : F) * y) := by rw [hr]
+      _ = y := by
+        calc
+          S.diag ((a : F)⁻¹) * (S.diag (a : F) * y) =
+              (S.diag ((a : F)⁻¹) * S.diag (a : F)) * y := by rw [mul_assoc]
+          _ = S.diag (1 : F) * y := by rw [← map_mul, inv_mul_cancel₀ ha0]
+          _ = y := by simp
+  · intro hy
+    rcases hy with ⟨r, hr⟩
+    subst y
+    intro x hx
+    rcases hx with ⟨s, rfl⟩
+    have hr_diag : S.diag (r : F) ∈ S.diagR := ⟨r, rfl⟩
+    have hr_ann : S.diag (r : F) ∈ S.annihilator A S.diagR :=
+      hself ▸ hr_diag
+    have h := hr_ann (S.diag (s : F)) ⟨s, rfl⟩
+    have hpair :
+        S.diag ((a : F) * (s : F)) * S.diag ((a : F)⁻¹ * (r : F)) =
+          S.diag (s : F) * S.diag (r : F) := by
+      calc
+        S.diag ((a : F) * (s : F)) * S.diag ((a : F)⁻¹ * (r : F)) =
+            S.diag (((a : F) * (s : F)) * ((a : F)⁻¹ * (r : F))) := by
+              simp only [map_mul]
+        _ = S.diag ((s : F) * (r : F)) := by
+          congr 1
+          field_simp [ha0]
+        _ = S.diag (s : F) * S.diag (r : F) := by simp only [map_mul]
+    change S.e A
+      (S.diag ((a : F) * (s : F)) * S.diag ((a : F)⁻¹ * (r : F))) = 1
+    rw [hpair]
+    exact h
 
 /-- The norm identity in `lem:s-lattice` with the total-complexity hypothesis made explicit.
 This is the corrected version of the frozen `SData.absS_diag_eq_norm`, whose interface omits
