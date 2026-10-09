@@ -21,8 +21,10 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.LocalParameterNorms
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Definitions
 import ArtinPrimitiveRoots.A2.Reflection.Missing
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FiniteRowL2
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierAffine
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierFamily
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.HaarDilation
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LabeledAdditiveSieve
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LocalRadialIntegral
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
@@ -39,7 +41,11 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueMask
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeSheetProfile
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ReflectionRowLift
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.SchwartzAffine
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.SchwartzRadial
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.TensorFourier
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.TensorSheetDecay
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.TensorSheetIntegrable
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Finite
@@ -9967,6 +9973,241 @@ theorem po_H_eta_properties : EulerHypotheses R η →
     simpa [Heta, U.q_one] using h
 
 
+private theorem po_weightFourier_sheet_integrable :
+    ∀ T : ℝ, 0 < T → Integrable (weightFourier sd W) (R.sheets.sheet T) := by
+  let ff : ∀ v : S.Sf, v.1.adicCompletion F → ℂ := fun v =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier v.1 A (μ v.1) (W.finite v).1
+  let fc : InfinitePlace F → SchwartzMap ℂ ℂ := fun w =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz (W.arch w)
+  have hffcont (v : S.Sf) : Continuous (ff v) :=
+    (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_isLocallyConstant
+      v.1 A (μ v.1) (W.finite v).1 (W.finite v).2.2.1).continuous
+  have hffcompact (v : S.Sf) : HasCompactSupport (ff v) := by
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.a2_weights.finiteTest_exists_period_ball
+      v.1 (W.finite v).1 (W.finite v).2.2.2 (W.finite v).2.2.1
+    exact ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_hasCompactSupport_of_period
+      v.1 A (μ v.1) (W.finite v).1 k hk
+  obtain ⟨c, hFourier⟩ := ArtinPrimitiveRoots.Proofs.a2_probe_sol.schwartz_tensor_fourier
+    S A sd μ W.finite W.arch
+  have hW0 : W.W0 = fun y : S.FS =>
+      (∏ v : S.Sf, (W.finite v).1 (y.1 v)) *
+        ∏ w : InfinitePlace F, W.arch w (y.2 w) := funext W.W0_tensor
+  have hEq : weightFourier sd W = fun y : S.FS =>
+      c * ((∏ v : S.Sf, ff v (y.1 v)) * ∏ w : InfinitePlace F, fc w (y.2 w)) := by
+    funext y
+    simpa only [weightFourier, hW0, ff, fc] using hFourier y
+  intro T hT
+  rw [hEq]
+  exact (ArtinPrimitiveRoots.Proofs.a2_probe_sol.tensor_sheet_integrable
+    D S μ v0 R.sheets ff fc hffcont hffcompact T hT).const_mul c
+
+private theorem po_weightV0_smooth (hSpec : WeightSpec R sd W) :
+    ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0) := by
+  let ff : ∀ v : S.Sf, v.1.adicCompletion F → ℂ := fun v =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier v.1 A (μ v.1) (W.finite v).1
+  let fc : InfinitePlace F → SchwartzMap ℂ ℂ := fun w =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz (W.arch w)
+  have hffcont (v : S.Sf) : Continuous (ff v) :=
+    (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_isLocallyConstant
+      v.1 A (μ v.1) (W.finite v).1 (W.finite v).2.2.1).continuous
+  have hffcompact (v : S.Sf) : HasCompactSupport (ff v) := by
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.a2_weights.finiteTest_exists_period_ball
+      v.1 (W.finite v).1 (W.finite v).2.2.2 (W.finite v).2.2.1
+    exact ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_hasCompactSupport_of_period
+      v.1 A (μ v.1) (W.finite v).1 k hk
+  let g : S.FS → ℂ := fun y =>
+    (∏ v : S.Sf, ff v (y.1 v)) * ∏ w : InfinitePlace F, fc w (y.2 w)
+  obtain ⟨c, hFourier⟩ := ArtinPrimitiveRoots.Proofs.a2_probe_sol.schwartz_tensor_fourier
+    S A sd μ W.finite W.arch
+  have hW0 : W.W0 = fun y : S.FS =>
+      (∏ v : S.Sf, (W.finite v).1 (y.1 v)) *
+        ∏ w : InfinitePlace F, W.arch w (y.2 w) := funext W.W0_tensor
+  have hEq : weightFourier sd W = fun y : S.FS => c * g y := by
+    funext y
+    simpa only [weightFourier, hW0, g, ff, fc] using hFourier y
+  have hprofile : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (Theta.sheetInt S μ v0 g) (Set.Ioi 0) :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_sheet_profile_smooth
+      D S μ v0 ff fc hffcont hffcompact
+  have hScaled : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun T : ℝ => c * Theta.sheetInt S μ v0 g T) (Set.Ioi 0) :=
+    contDiffOn_const.mul hprofile
+  apply hScaled.congr
+  intro T hT
+  calc
+    weightV0 R sd W T = Theta.sheetInt S μ v0 (weightFourier sd W) T :=
+      R.sheets.sheetInt_eq T hT (weightFourier sd W)
+        (po_weightFourier_sheet_integrable R sd W T hT)
+    _ = c * Theta.sheetInt S μ v0 g T := by
+      rw [hEq]
+      simp only [Theta.sheetInt, integral_const_mul]
+
+private theorem po_weightFourier_sheet_norm_decay_two :
+    ∃ C : ℝ, 0 < C ∧ ∀ T : ℝ, 0 < T →
+      (∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T)) ≤ C / T ^ 2 := by
+  let ff : ∀ v : S.Sf, v.1.adicCompletion F → ℂ := fun v =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier v.1 A (μ v.1) (W.finite v).1
+  let fc : InfinitePlace F → SchwartzMap ℂ ℂ := fun w =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz (W.arch w)
+  have hffcont (v : S.Sf) : Continuous (ff v) :=
+    (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_isLocallyConstant
+      v.1 A (μ v.1) (W.finite v).1 (W.finite v).2.2.1).continuous
+  have hffcompact (v : S.Sf) : HasCompactSupport (ff v) := by
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.a2_weights.finiteTest_exists_period_ball
+      v.1 (W.finite v).1 (W.finite v).2.2.2 (W.finite v).2.2.1
+    exact ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_hasCompactSupport_of_period
+      v.1 A (μ v.1) (W.finite v).1 k hk
+  let g : S.FS → ℂ := fun y =>
+    (∏ v : S.Sf, ff v (y.1 v)) * ∏ w : InfinitePlace F, fc w (y.2 w)
+  obtain ⟨c, hFourier⟩ := ArtinPrimitiveRoots.Proofs.a2_probe_sol.schwartz_tensor_fourier
+    S A sd μ W.finite W.arch
+  have hW0 : W.W0 = fun y : S.FS =>
+      (∏ v : S.Sf, (W.finite v).1 (y.1 v)) *
+        ∏ w : InfinitePlace F, W.arch w (y.2 w) := funext W.W0_tensor
+  have hEq : weightFourier sd W = fun y : S.FS => c * g y := by
+    funext y
+    simpa only [weightFourier, hW0, g, ff, fc] using hFourier y
+  obtain ⟨C0, hC0, hBound⟩ := ArtinPrimitiveRoots.Proofs.a2_probe_sol.tensor_sheet_norm_decay_two
+    D S μ v0 R.sheets ff fc hffcont hffcompact
+  refine ⟨‖c‖ * C0 + 1, by positivity, ?_⟩
+  intro T hT
+  rw [hEq]
+  simp only [norm_mul]
+  rw [integral_const_mul]
+  calc
+    _ ≤ ‖c‖ * (C0 / T ^ 2) :=
+      mul_le_mul_of_nonneg_left (hBound T hT) (norm_nonneg c)
+    _ = (‖c‖ * C0) / T ^ 2 := by ring
+    _ ≤ (‖c‖ * C0 + 1) / T ^ 2 :=
+      div_le_div_of_nonneg_right (by linarith) (sq_nonneg T)
+
+include R in
+private theorem po_weight_coset_poisson (I : S.ExtIdeal)
+    (a : Fˣ) (ha : S.IsGen (a : F) I.1) (b : S.R) (k : S.FSˣ) :
+    Summable (fun m : S.R =>
+      ‖W.W0 (S.diag ((b : F) + (a : F) * (m : F)) * (k⁻¹ : S.FSˣ).val)‖) ∧
+    Summable (fun h : S.R =>
+      ‖weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F)))‖) ∧
+    (∑' m : S.R,
+      W.W0 (S.diag ((b : F) + (a : F) * (m : F)) * (k⁻¹ : S.FSˣ).val)) =
+      ((S.absS (k : S.FS) / qI I.1 : ℝ) : ℂ) *
+        ∑' h : S.R, S.e A (S.diag ((b : F) * (h : F) / (a : F))) *
+          weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F))) := by
+  let f : S.BruhatSchwartz := ⟨W.W0, W.W0_Bruhat⟩
+  let bp : S.FS := S.diag ((b : F) / (a : F))
+  let kp : S.FSˣ := k / S.diagU a
+  let g : S.BruhatSchwartz :=
+    ⟨fun x => (f : S.FS → ℂ) ((bp + x) * (kp⁻¹ : S.FSˣ).val),
+      ArtinPrimitiveRoots.Proofs.a2_probe_sol.bruhatSchwartz_affine S f bp kp⟩
+  have hnorm : S.absS (S.diagU a : S.FS) = qI I.1 := by
+    change S.absS (S.diag (a : F)) = _
+    simpa only [qI] using
+      S.absS_diag_eq_norm_ofFieldData D (a : F) I.1 I.property ha
+  have hcoef : S.absS (kp : S.FS) = S.absS (k : S.FS) / qI I.1 := by
+    have hdiv := (a2_bridge_NORM D S).2.2.2.2.1 k (S.diagU a)
+    rw [hnorm] at hdiv
+    exact hdiv
+  have hcoefpos : 0 < S.absS (k : S.FS) / qI I.1 := by
+    rw [← hcoef]
+    exact (a2_bridge_NORM D S).2.2.1 kp
+  have hkinv : (kp⁻¹ : S.FSˣ).val = S.diag (a : F) * (k⁻¹ : S.FSˣ).val := by
+    simp [kp, div_eq_mul_inv, SData.diagU]
+  have hkval : (kp : S.FS) = (k : S.FS) * S.diag ((a : F)⁻¹) := by
+    dsimp only [kp]
+    rw [div_eq_mul_inv, Units.val_mul, ← map_inv S.diagU a]
+    change (k : S.FS) * S.diag ((a⁻¹ : Fˣ).val) = _
+    rw [Units.val_inv_eq_inv_val]
+  have hvalue (m : S.R) : (g : S.FS → ℂ) (S.diag (m : F)) =
+      W.W0 (S.diag ((b : F) + (a : F) * (m : F)) * (k⁻¹ : S.FSˣ).val) := by
+    change W.W0 ((bp + S.diag (m : F)) * (kp⁻¹ : S.FSˣ).val) = _
+    rw [hkinv]
+    congr 1
+    change (S.diag ((b : F) / (a : F)) + S.diag (m : F)) *
+        (S.diag (a : F) * (k⁻¹ : S.FSˣ).val) = _
+    calc
+      _ = S.diag (((b : F) / (a : F) + (m : F)) * (a : F)) *
+          (k⁻¹ : S.FSˣ).val := by
+        rw [map_mul, map_add]
+        ring
+      _ = _ := by
+        congr 2
+        field_simp [a.ne_zero]
+  have hfreq (h : S.R) : (kp : S.FS) * S.diag (h : F) =
+      (k : S.FS) * S.diag ((h : F) / (a : F)) := by
+    rw [hkval, mul_assoc, ← map_mul]
+    congr 2
+    rw [div_eq_mul_inv]
+    ring
+  have hpair (h : S.R) : bp * S.diag (h : F) =
+      S.diag ((b : F) * (h : F) / (a : F)) := by
+    change S.diag ((b : F) / (a : F)) * S.diag (h : F) = _
+    rw [← map_mul]
+    congr 1
+    ring
+  have hfourier (h : S.R) : S.fourier A sd.measure (g : S.FS → ℂ) (S.diag (h : F)) =
+      ((S.absS (k : S.FS) / qI I.1 : ℝ) : ℂ) *
+        S.e A (S.diag ((b : F) * (h : F) / (a : F))) *
+          weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F))) := by
+    change S.fourier A sd.measure
+      (fun x : S.FS => (f : S.FS → ℂ) ((bp + x) * (kp⁻¹ : S.FSˣ).val))
+        (S.diag (h : F)) = _
+    simpa only [hcoef, hpair, hfreq, weightFourier, f] using
+      ArtinPrimitiveRoots.Proofs.a2_probe_sol.bruhat_fourier_affine S A sd μ f bp kp
+        (S.diag (h : F))
+  have hphase (h : S.R) : ‖S.e A (S.diag ((b : F) * (h : F) / (a : F)))‖ = 1 := by
+    simpa using po_e_residue_norm_one I a ha (b * h) R
+  have hfouriernorm (h : S.R) :
+      ‖S.fourier A sd.measure (g : S.FS → ℂ) (S.diag (h : F))‖ =
+        (S.absS (k : S.FS) / qI I.1) *
+          ‖weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F)))‖ := by
+    rw [hfourier, norm_mul, norm_mul, hphase, mul_one, Complex.norm_real,
+      Real.norm_eq_abs, abs_of_pos hcoefpos]
+  have hpoisson := S.poisson D A sd g
+  have hprimal : Summable (fun m : S.R =>
+      ‖W.W0 (S.diag ((b : F) + (a : F) * (m : F)) * (k⁻¹ : S.FSˣ).val)‖) :=
+    hpoisson.1.congr fun m => congrArg norm (hvalue m)
+  have hdual : Summable (fun h : S.R =>
+      ‖weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F)))‖) := by
+    have hs := hpoisson.2.1.mul_left (S.absS (k : S.FS) / qI I.1)⁻¹
+    apply hs.congr
+    intro h
+    rw [hfouriernorm]
+    rw [← mul_assoc, inv_mul_cancel₀ hcoefpos.ne', one_mul]
+  refine ⟨hprimal, hdual, ?_⟩
+  calc
+    _ = ∑' m : S.R, (g : S.FS → ℂ) (S.diag (m : F)) :=
+      tsum_congr fun m => (hvalue m).symm
+    _ = ∑' h : S.R, S.fourier A sd.measure (g : S.FS → ℂ) (S.diag (h : F)) :=
+      hpoisson.2.2
+    _ = _ := by
+      simp_rw [hfourier, mul_assoc]
+      rw [tsum_mul_left]
+
+private theorem po_frequency_orbit_classification (x : S.R) (hx : (x : F) ≠ 0) :
+    ∃! ur : U.U × S.ExtIdeal, ∃ γ : Gamma S,
+      (x : F) = ((γ.1 : Fˣ) : F) * (U.repr ur.1 : F) * (bc.gen ur.2 : F) ^ 6 := by
+  obtain ⟨ur, ⟨ε, a, ha, hxa⟩, huniq⟩ := U.decomposition x hx
+  obtain ⟨τ, hτ⟩ := euler_generators_unit_ratio ur.2.1 (a : F) (bc.gen ur.2 : F)
+    ha (bc.gen_spec ur.2).1
+  let γ : Gamma S := ⟨(ε * τ) ^ 6, ⟨ε * τ, rfl⟩⟩
+  refine ⟨ur, ⟨γ, ?_⟩, ?_⟩
+  · rw [hxa, hτ]
+    simp only [γ, Subgroup.coe_pow, Subgroup.coe_mul, Units.val_pow_eq_pow_val,
+      Units.val_mul]
+    ring
+  · intro ur' hrep
+    obtain ⟨γ', hxγ⟩ := hrep
+    obtain ⟨ε', hε'⟩ := γ'.property
+    have hε6 : ε' ^ 6 = γ'.1 := by
+      simpa [sixthPowerOnUS] using hε'
+    have hγval : ((γ'.1 : Fˣ) : F) = ((ε' : Fˣ) : F) ^ 6 := by
+      rw [← hε6]
+      simp only [Subgroup.coe_pow, Units.val_pow_eq_pow_val]
+    apply huniq ur'
+    refine ⟨ε', bc.gen ur'.2, (bc.gen_spec ur'.2).1, ?_⟩
+    rw [hxγ, hγval]
+    ring
+
 /-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
 theorem po_poisson_orbits : WeightSpec R sd W →
   (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
@@ -9980,7 +10221,7 @@ theorem po_poisson_orbits : WeightSpec R sd W →
   have hdecay : WeightDecay R sd W := (po_weights_exist R sd).2 W
   have hSmooth : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
       (weightV0 R sd W) (Set.Ioi 0) := by
-    sorry
+    exact po_weightV0_smooth R sd W hSpec
   refine ⟨hSmooth, ?_, ?_, ?_⟩
   · intro z hz
     exact (po_weightM_eq_mellin (R := R) (sd := sd) (W := W) z hz hdecay).symm
