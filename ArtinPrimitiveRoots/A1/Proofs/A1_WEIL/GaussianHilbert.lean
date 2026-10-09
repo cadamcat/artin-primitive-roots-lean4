@@ -13,6 +13,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianFrequency
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.AdditiveOrthogonality
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianSupport
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianFourierSeparation
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianNondegenerate
 
 set_option autoImplicit false
 
