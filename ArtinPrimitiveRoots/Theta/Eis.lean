@@ -5180,6 +5180,76 @@ theorem whit_local_ideal_character (D : FieldData F) (A : AddCharData F)
     (by intro u hu; simp [x, hu])
   simpa only [x, Pi.single_eq_same] using hsingle.symm.trans hprod
 
+/-- Fourier-weighted integration separates the complex coordinates of two lifts. -/
+theorem whit_arch_integral_product_lifts
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (t r : P.RP) (ν : F) :
+    (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r) * psiInf (-ν) x) =
+      (∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))) *
+        ∏ w, ∫ z : ℂ, psiC (-(w.embedding ν * z)) * Fs.fC w
+          (P.compC w t * nC z * P.compC w r) ∧
+    (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r) * psiInf (-ν) x‖) =
+      ‖∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))‖ *
+        ∏ w, ∫ z : ℂ, ‖psiC (-(w.embedding ν * z)) * Fs.fC w
+          (P.compC w t * nC z * P.compC w r)‖ := by
+  classical
+  choose rn hqn hfn hcn using fun x : InfinitePlace F → ℂ =>
+    P.nS_components ((0 : ∀ v : S.Sf, v.1.adicCompletion F), x)
+  have hfn1 (x : InfinitePlace F → ℂ) (v : FinPlace F) : P.compF v (rn x) = 1 := by
+    simpa using hfn x v
+  let R (x : InfinitePlace F → ℂ) : P.RP := t * rn x * r
+  let cf : ℂ := ∏ᶠ v, G.lam v (Fs.f v (P.compF v (t * r)))
+  let fc (w : InfinitePlace F) (z : ℂ) : ℂ :=
+    psiC (-(w.embedding ν * z)) * Fs.fC w
+      (P.compC w t * nC z * P.compC w r)
+  have hq (x : InfinitePlace F → ℂ) :
+      P.q (R x) = P.q t * nInf P x * P.q r := by
+    simp only [R, map_mul, hqn, nInf]
+  have hcompF (x : InfinitePlace F → ℂ) (v : FinPlace F) :
+      P.compF v (R x) = P.compF v (t * r) := by
+    simp only [R, map_mul, hfn1, mul_one]
+  have hcompC (x : InfinitePlace F → ℂ) (w : InfinitePlace F) :
+      P.compC w (R x) = P.compC w t * nC (x w) * P.compC w r := by
+    simp only [R, map_mul, hcn, nC]
+  have hscalar (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC (P.q t * nInf P x * P.q r) =
+        cf * ∏ w, Fs.fC w (P.compC w t * nC (x w) * P.compC w r) := by
+    rw [← hq, (scalarOf_q P G Fs (R x)).2]
+    simp only [cf, hcompF, hcompC]
+  have hpsi (x : InfinitePlace F → ℂ) :
+      psiInf (-ν) x = ∏ w, psiC (-(w.embedding ν * x w)) := by
+    simp only [psiInf, map_neg, neg_mul]
+  have hformula (x : InfinitePlace F → ℂ) :
+      scalarOf P G Fs.f Fs.fC (P.q t * nInf P x * P.q r) * psiInf (-ν) x =
+        cf * ∏ w, fc w (x w) := by
+    rw [hscalar, hpsi, mul_assoc, ← Finset.prod_mul_distrib]
+    congr 1
+    apply Finset.prod_congr rfl
+    intro w hw
+    exact mul_comm _ _
+  constructor
+  · change (∫ x : InfinitePlace F → ℂ, scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r) * psiInf (-ν) x) = cf * ∏ w, ∫ z : ℂ, fc w z
+    calc
+      _ = ∫ x : InfinitePlace F → ℂ, cf * ∏ w, fc w (x w) := by
+        apply integral_congr_ae
+        filter_upwards [] with x
+        exact hformula x
+      _ = cf * ∫ x : InfinitePlace F → ℂ, ∏ w, fc w (x w) := integral_const_mul _ _
+      _ = _ := by rw [integral_fintype_prod_volume_eq_prod]
+  · change (∫ x : InfinitePlace F → ℂ, ‖scalarOf P G Fs.f Fs.fC
+      (P.q t * nInf P x * P.q r) * psiInf (-ν) x‖) = ‖cf‖ * ∏ w, ∫ z : ℂ, ‖fc w z‖
+    calc
+      _ = ∫ x : InfinitePlace F → ℂ, ‖cf‖ * ∏ w, ‖fc w (x w)‖ := by
+        apply integral_congr_ae
+        filter_upwards [] with x
+        rw [hformula, norm_mul, norm_prod]
+      _ = ‖cf‖ * ∫ x : InfinitePlace F → ℂ, ∏ w, ‖fc w (x w)‖ := integral_const_mul _ _
+      _ = _ := by
+        rw [integral_fintype_prod_volume_eq_prod (fun w (z : ℂ) => ‖fc w z‖)]
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
