@@ -26,7 +26,21 @@ noncomputable def contTail (q : ℕ) (χ : DirichletCharacter ℂ q)
 
 theorem cont_characterMean_norm_le_one {q : ℕ} (hq : 0 < q)
     (χ : DirichletCharacter ℂ q) : ‖characterMean q χ‖ ≤ 1 := by
-  sorry
+  rw [characterMean, norm_mul, norm_inv, Complex.norm_natCast]
+  have hsum : ‖∑ a ∈ Finset.range q, χ (a : ZMod q)‖ ≤ q := by
+    calc
+      _ ≤ ∑ a ∈ Finset.range q, ‖χ (a : ZMod q)‖ := norm_sum_le _ _
+      _ ≤ ∑ _a ∈ Finset.range q, (1 : ℝ) := by
+        apply Finset.sum_le_sum
+        intro a ha
+        exact χ.norm_le_one _
+      _ = q := by simp
+  have hqR : (0 : ℝ) < q := by exact_mod_cast hq
+  calc
+    (q : ℝ)⁻¹ * ‖∑ a ∈ Finset.range q, χ (a : ZMod q)‖
+        ≤ (q : ℝ)⁻¹ * q :=
+          mul_le_mul_of_nonneg_left hsum (by positivity)
+    _ = 1 := by field_simp
 
 theorem cont_discrepancy_bound {q : ℕ} (hq : 0 < q)
     (χ : DirichletCharacter ℂ q) {u : ℝ} (hu : 0 ≤ u) :
