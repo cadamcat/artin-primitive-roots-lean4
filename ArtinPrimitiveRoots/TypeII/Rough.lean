@@ -3494,7 +3494,52 @@ theorem low_frequency (γ wMin wMax C δ : ℝ)
                           roughCoefficient x γ v m * χ (m : ZMod k) *
                             Complex.exp (Complex.I * t * Real.log (m : ℝ))) / M‖ ≤
                         C₀ * Real.rpow (Real.log x) (-A) := by
-  sorry
+  have hwide : wMin < wMax + 1 := by linarith
+  have hcounts : ∀ A₀ A₁ : ℝ, 0 < A₀ → 0 < A₁ →
+      ∃ Cc xc : ℝ, 0 < Cc ∧ 2 ≤ xc ∧
+        ArtinPrimitiveRoots.Proofs.r_impl_muse.roughCountBound
+          γ wMin (wMax + 1) A₀ A₁ Cc xc := by
+    intro A₀ A₁ hA₀ hA₁
+    obtain ⟨Cc, xc, hCc, hxc, hbase⟩ :=
+      low_count_bounded_window γ wMin (wMax + 1) hγ hγw hwide A₀ A₁ hA₀ hA₁
+    refine ⟨Cc, xc, hCc, hxc, ?_⟩
+    simpa only [ArtinPrimitiveRoots.Proofs.r_impl_muse.roughCountBound,
+      roughIndicator] using hbase
+  have hdensity : ∃ K : ℝ, 0 < K ∧
+      ∀ s ∈ Set.Icc wMin (wMax + 1), ∀ t ∈ Set.Icc wMin (wMax + 1),
+        |ArtinPrimitiveRoots.Sieve.roughDensity γ s -
+          ArtinPrimitiveRoots.Sieve.roughDensity γ t| ≤ K * |s - t| := by
+    obtain ⟨K, hK, hLip⟩ := density_regularity.2.1 γ wMin (wMax + 1) hγ hγw hwide.le
+    exact ⟨K, hK, fun s hs t ht => hLip s t hs.1 hs.2 ht.1 ht.2⟩
+  intro A₀ A B₂ hA₀ hA hB₂
+  obtain ⟨C₀, x₀, hC₀, hx₀, hbound⟩ :=
+    ArtinPrimitiveRoots.Proofs.r_impl_muse.low_frequency_from_counts
+      γ wMin wMax C δ hγ hγw hw hδ hC hcounts hdensity A₀ A B₂ hA₀ hA hB₂
+  refine ⟨C₀, x₀, hC₀, hx₀, ?_⟩
+  intro x hx M hMx hwM l r hl hlr hr v t hv ht k hk hklog χ
+  have hsum :
+      (∑ m ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r),
+        roughCoefficient x γ v m * χ (m : ZMod k) *
+          Complex.exp (Complex.I * t * Real.log (m : ℝ))) =
+      ∑ m ∈ (Finset.range (⌊r⌋₊ + 1)).filter
+        (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r),
+        (((if roughAbove m (Real.rpow x γ) then 1 else 0 : ℝ) : ℂ) *
+          χ (m : ZMod k) * Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) -
+          (if roughAbove m (roughCutoff x) then χ (m : ZMod k) else 0) *
+            ((ArtinPrimitiveRoots.Sieve.roughDensity γ (Real.log (m : ℝ) / Real.log x) /
+              (Real.log x * roughSieveProduct (roughCutoff x)) : ℝ) : ℂ) *
+            Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ))) := by
+    apply Finset.sum_congr rfl
+    intro m _hm
+    rw [roughCoefficient_phase_split]
+    simp only [roughIndicator, roughProxy, roughDensity]
+    by_cases hW : roughAbove m (roughCutoff x)
+    · simp only [hW, ite_true, mul_one]
+      ring
+    · simp only [hW, ite_false, mul_zero, zero_mul, Complex.ofReal_zero, sub_zero]
+  rw [hsum]
+  exact hbound x hx M hMx hwM l r hl hlr hr v t hv ht k hk hklog χ
 
 private theorem isNatInterval_of_real_bounds (a y b : ℝ) :
     IsNatInterval {p : ℕ | a ≤ (p : ℝ) ∧ y < (p : ℝ) ∧ (p : ℝ) ≤ b} := by
