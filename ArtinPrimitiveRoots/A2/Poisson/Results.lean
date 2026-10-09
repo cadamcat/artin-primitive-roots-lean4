@@ -1,6 +1,7 @@
 import ArtinPrimitiveRoots.A2.Defs
 import ArtinPrimitiveRoots.A2.Dictionary
 import ArtinPrimitiveRoots.A1.AddChar
+import ArtinPrimitiveRoots.A2.Proofs.A2_ADDSIEVE_OPUS.Assembly
 
 /-!
 # Section 5: additive large sieve and analytic probe
@@ -71,6 +72,13 @@ theorem lem_additive_sieve
                   C * (N + V ^ 2) *
                     ∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
                       ‖c m.1‖ ^ 2) := by
-  sorry
+  obtain ⟨C, hC, hmain⟩ := ArtinPrimitiveRoots.Proofs.addsieve_opus.sieve_main D S A K hK
+  refine ⟨C, hC, ?_⟩
+  intro N V hN hV P hP b
+  exact hmain N V hN hV (fun m => InAdditiveWindow D S K N (by linarith [hN]) m)
+    (fun m hm => hm) P
+    (fun α hα => ArtinPrimitiveRoots.Proofs.addsieve_opus.candidate_data D S bc A
+      (by linarith) (hP.1 α hα))
+    (fun α hα β hβ hne => hP.2 α hα β hβ hne) b
 
 end ArtinPrimitiveRoots.A2
