@@ -13429,6 +13429,125 @@ private theorem rf_pairing_orbit_norm_integrals
     _ ≤ ∑' γ, (∫ y, onUnits (major γ) y ∂m).re := hs.tsum_le_tsum hLe hAbs.2.1
     _ = _ := hAbs.2.2.1
 
+private theorem rf_pairing_grouped_orbit_integrals
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (t : FrozenIndex R r.h) (c : S.SqfExtIdeal)
+    (l : ℝ) (hl : 0 < l) :
+    let ν := frozenFrequency R t r.d c
+    let w : Gamma S → S.FSˣ → ℂ := fun γ y =>
+      if IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1) then
+        groupedExterior R t r.d ν *
+          (bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+            sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+              rotated R (rowClass R r) (S.diagU ((γ.1 : Fˣ) * ν) / y))
+      else 0
+    (∀ γ, IntegrableOn (onUnits (w γ)) (omegaAt R l) (R.sheets.sheet l)) ∧
+      Summable (fun γ => ∫ y in omegaAt R l, ‖onUnits (w γ) y‖
+        ∂(R.sheets.sheet l)) ∧
+      (∑' γ, ∫ y in omegaAt R l, ‖onUnits (w γ) y‖ ∂(R.sheets.sheet l)) ≤
+        (betaIdeal R t.f t.a * qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1) *
+          profileAbs R (rowClass R r) (S.absS (S.diagU ν : S.FS) / l) := by
+  classical
+  let u := rowClass R r
+  let ν := frozenFrequency R t r.d c
+  let z : ℂ := if IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1) then
+    groupedExterior R t r.d ν else 0
+  let orbit : Gamma S → S.FSˣ → ℂ := fun γ y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+      sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+        rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y)
+  let w : Gamma S → S.FSˣ → ℂ := fun γ y =>
+    if IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1) then
+      groupedExterior R t r.d ν * orbit γ y else 0
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let weight : ℝ := betaIdeal R t.f t.a * qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1
+  change (∀ γ, Integrable (onUnits (w γ)) m) ∧
+    Summable (fun γ => ∫ y, ‖onUnits (w γ) y‖ ∂m) ∧
+    (∑' γ, ∫ y, ‖onUnits (w γ) y‖ ∂m) ≤
+      weight * profileAbs R u (S.absS (S.diagU ν : S.FS) / l)
+  have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+    unfold qI
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hc := hpos c.1 c.property.1.1
+  have hn := hpos t.n.1 t.n.property.1
+  have hβ : 0 ≤ betaIdeal R t.f t.a := rf_betaIdeal_nonneg R t.f t.a
+  have hWeight : 0 ≤ weight := div_nonneg
+    (mul_nonneg hβ (Real.rpow_nonneg hc.le _)) hn.le
+  have hCoeff : ‖z‖ ≤ weight := by
+    by_cases hcp : IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1)
+    · let sd : Bd.B := ⟨cls (S.diagU (bc.gen r.d)), (bc.gen_spec r.d).2⟩
+      let sc : Bd.B := ⟨cls (S.diagU (bc.gen (R.exterior.ofSqf c))),
+        (bc.gen_spec (R.exterior.ofSqf c)).2⟩
+      have hdn : IsCoprime r.d.1 t.n.1 :=
+        hcp.of_mul_left_right.of_mul_right_left.symm
+      have hcf : IsCoprime c.1 t.f.1 := hcp.of_mul_left_left.of_mul_right_right
+      have hdc : IsCoprime r.d.1 c.1 :=
+        hcp.of_mul_left_left.of_mul_right_left.symm
+      have hfactor := (rf_exterior_factorization R).2 u r.h t sd sc r.d c
+        r.d_squarefree (r.coprime.symm.mul_right hdn) hcf hdc rfl rfl
+      have hLinv : ‖(Lvalue R u (S.diagU ν))⁻¹‖ = 1 := by
+        rw [norm_inv]
+        have hL : ‖Lvalue R u (S.diagU ν)‖ = 1 := by
+          simpa only [Lvalue] using (R.chars.L u).unitary (S.diagU ν)
+        rw [hL, inv_one]
+      let w0 : ℝ := qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1
+      have hw0 : 0 ≤ w0 := div_nonneg (Real.rpow_nonneg hc.le _) hn.le
+      have hnorm : ‖groupedExterior R t r.d ν‖ =
+          ‖frozenOmega R u t * frozenRho R u t sd r.d * frozenLambda R u t sc c *
+            (w0 : ℂ) * chiIdealPow D r.d.1 (cgen R c) 3‖ := by
+        calc
+          _ = ‖groupedExterior R t r.d ν * (Lvalue R u (S.diagU ν))⁻¹‖ := by
+            rw [norm_mul, hLinv, mul_one]
+          _ = _ := congrArg norm hfactor
+      have hb := (rf_exterior_factorization R).1 u r.h t
+      have hχ := (a2_bridge_SYMBOL D S).ideal_norm_le r.d.1 (cgen R c) 3
+      simp only [z, if_pos hcp]
+      rw [hnorm]
+      simp only [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hw0]
+      calc
+        ‖frozenOmega R u t‖ * ‖frozenRho R u t sd r.d‖ * ‖frozenLambda R u t sc c‖ *
+            w0 * ‖chiIdealPow D r.d.1 (cgen R c) 3‖ ≤
+            betaIdeal R t.f t.a * 1 * 1 * w0 * 1 := by
+          gcongr
+          · exact hb.1
+          · exact hb.2.1 sd r.d
+          · exact hb.2.2 sc c
+        _ = weight := by dsimp only [weight, w0]; ring
+    · simpa only [z, if_neg hcp, norm_zero] using hWeight
+  have hOrbit := rf_pairing_orbit_norm_integrals R u ν l hl
+  change (∀ γ, Integrable (onUnits (orbit γ)) m) ∧
+    Summable (fun γ => ∫ y, ‖onUnits (orbit γ) y‖ ∂m) ∧
+    (∑' γ, ∫ y, ‖onUnits (orbit γ) y‖ ∂m) ≤
+      profileAbs R u (S.absS (S.diagU ν : S.FS) / l) at hOrbit
+  have hOn (γ : Gamma S) : onUnits (w γ) =
+      fun y : S.FS => z * onUnits (orbit γ) y := by
+    funext y
+    by_cases hy : IsUnit y
+    · by_cases hcp : IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1) <;>
+        simp [onUnits, hy, w, z, hcp]
+    · simp [onUnits, hy]
+  have hInt (γ : Gamma S) : Integrable (onUnits (w γ)) m := by
+    rw [hOn γ]
+    exact (hOrbit.1 γ).const_mul z
+  have hNorm (γ : Gamma S) : (∫ y, ‖onUnits (w γ) y‖ ∂m) =
+      ‖z‖ * ∫ y, ‖onUnits (orbit γ) y‖ ∂m := by
+    rw [hOn γ]
+    simp_rw [norm_mul]
+    exact integral_const_mul _ _
+  have hs : Summable (fun γ => ∫ y, ‖onUnits (w γ) y‖ ∂m) :=
+    (hOrbit.2.1.mul_left ‖z‖).congr (fun γ => (hNorm γ).symm)
+  have hProfile : 0 ≤ profileAbs R u (S.absS (S.diagU ν : S.FS) / l) :=
+    (rf_profile_abs_analysis R u).1 _
+      (div_pos ((a2_bridge_NORM D S).2.2.1 (S.diagU ν)) hl)
+  refine ⟨hInt, hs, ?_⟩
+  calc
+    _ = ∑' γ, ‖z‖ * ∫ y, ‖onUnits (orbit γ) y‖ ∂m := tsum_congr hNorm
+    _ = ‖z‖ * ∑' γ, ∫ y, ‖onUnits (orbit γ) y‖ ∂m := hOrbit.2.1.tsum_mul_left _
+    _ ≤ ‖z‖ * profileAbs R u (S.absS (S.diagU ν : S.FS) / l) :=
+      mul_le_mul_of_nonneg_left hOrbit.2.2 (norm_nonneg _)
+    _ ≤ weight * profileAbs R u (S.absS (S.diagU ν : S.FS) / l) :=
+      mul_le_mul_of_nonneg_right hCoeff hProfile
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
