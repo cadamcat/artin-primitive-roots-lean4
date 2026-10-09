@@ -1341,6 +1341,293 @@ theorem weighted_rough_source_interval_bound
             Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
               Real.log (m : ℝ))) /
       (M * V)‖ ≤ 2 * (BQ + KQ) * B := by
-  sorry
+  classical
+  let nLo : ℕ := ⌈l⌉₊
+  let nHi : ℕ := ⌊rr⌋₊
+  let n : ℕ := nHi + 1
+  let I : Finset ℕ := (Finset.range n).filter (fun m : ℕ =>
+    l ≤ (m : ℝ) ∧ (m : ℝ) ≤ rr ∧ roughAbove m (roughCutoff x))
+  let J : Finset ℕ := (Finset.range n).filter (fun m : ℕ =>
+    nLo ≤ m ∧ roughAbove m (roughCutoff x))
+  let den : ℂ := (M : ℂ) * (V : ℂ)
+  let f : ℕ → ℂ := fun m =>
+    (χ (m : ZMod k) : ℂ) *
+      Complex.exp (Complex.I * u * Real.log (m : ℝ)) /
+        Real.log (m : ℝ)
+  let a : ℕ → ℂ := fun i =>
+    (if nLo ≤ i ∧ roughAbove i (roughCutoff x) then f i else 0) / den
+  let w : ℕ → ℝ := fun i =>
+    Q (Real.log ((max nLo i : ℕ) : ℝ) / L)
+  have hMpos : 0 < M := by linarith
+  have hLpos : 0 < L := lt_of_lt_of_le (by norm_num) hL
+  have hrrNonneg : 0 ≤ rr := by
+    linarith [hl, hlr, hrr]
+  have hnLoCast : l ≤ (nLo : ℝ) := by
+    dsimp [nLo]
+    exact Nat.le_ceil l
+  have hnHiCast : (nHi : ℝ) ≤ rr := by
+    dsimp [nHi]
+    exact Nat.floor_le hrrNonneg
+  have hnLoLower : M ≤ (nLo : ℝ) := le_trans hl hnLoCast
+  have hLowerEquiv (m : ℕ) : l ≤ (m : ℝ) ↔ nLo ≤ m := by
+    constructor
+    · intro hm
+      dsimp [nLo]
+      exact Nat.ceil_le.mpr hm
+    · intro hm
+      exact le_trans hnLoCast (Nat.cast_le.mpr hm)
+  have hUpperEquiv (m : ℕ) : (m : ℝ) ≤ rr ↔ m ≤ nHi := by
+    constructor
+    · intro hm
+      dsimp [nHi]
+      exact (Nat.le_floor_iff hrrNonneg).2 hm
+    · intro hm
+      exact (Nat.cast_le.mpr hm).trans hnHiCast
+  have hTargetFilter : I = J := by
+    ext m
+    simp only [I, J, Finset.mem_filter, Finset.mem_range]
+    constructor
+    · rintro ⟨hmn, hlm, hmr, hrough⟩
+      exact ⟨hmn, (hLowerEquiv m).mp hlm, hrough⟩
+    · rintro ⟨hmn, hnlo, hrough⟩
+      exact ⟨hmn, (hLowerEquiv m).mpr hnlo,
+        (hUpperEquiv m).mpr (by dsimp [n] at hmn; omega), hrough⟩
+  have hB : 0 ≤ B := by
+    have hSourceNorm := hSource l l hl le_rfl (le_trans hlr hrr)
+    exact le_trans (norm_nonneg _) hSourceNorm
+  have hQargBounds (m : ℕ) (hmLo : nLo ≤ m) (hmHi : m ≤ nHi) :
+      wMin ≤ Real.log (m : ℝ) / L ∧ Real.log (m : ℝ) / L ≤ wMax := by
+    have hmLower : M ≤ (m : ℝ) :=
+      le_trans hl (le_trans hnLoCast (Nat.cast_le.mpr hmLo))
+    have hmUpper : (m : ℝ) ≤ 2 * M :=
+      le_trans (Nat.cast_le.mpr hmHi) (le_trans hnHiCast hrr)
+    have hlogLower : Real.log M ≤ Real.log (m : ℝ) :=
+      Real.log_le_log hMpos hmLower
+    have hlogUpper : Real.log (m : ℝ) ≤ Real.log (2 * M) :=
+      Real.log_le_log (lt_of_lt_of_le hMpos hmLower) hmUpper
+    constructor
+    · apply (le_div_iff₀ hLpos).2
+      exact hlogM.trans hlogLower
+    · apply (div_le_iff₀ hLpos).2
+      exact hlogUpper.trans hlog2M
+  change ‖(∑ m ∈ I,
+      (Q (Real.log (m : ℝ) / L) : ℂ) * f m) / den‖ ≤
+    2 * (BQ + KQ) * B
+  by_cases hNonempty : nLo ≤ nHi
+  · have hLogStep (i : ℕ) (hiLo : nLo ≤ i) :
+        |Real.log ((i + 1 : ℕ) : ℝ) / L - Real.log (i : ℝ) / L| ≤
+          1 / (L * M) := by
+      have hiLower : M ≤ (i : ℝ) :=
+        le_trans hl (le_trans hnLoCast (Nat.cast_le.mpr hiLo))
+      let y : ℝ := (i : ℝ)
+      have hypos : 0 < y := lt_of_lt_of_le hMpos hiLower
+      have hyOne : 0 < y + 1 := by linarith
+      have hlogDiv : Real.log ((y + 1) / y) =
+          Real.log (y + 1) - Real.log y :=
+        Real.log_div (ne_of_gt hyOne) (ne_of_gt hypos)
+      have hratioPos : 0 < (y + 1) / y := div_pos (by linarith) hypos
+      have hlogStep : Real.log (y + 1) - Real.log y ≤ 1 / y := by
+        calc
+          _ = Real.log ((y + 1) / y) := hlogDiv.symm
+          _ ≤ (y + 1) / y - 1 := Real.log_le_sub_one_of_pos hratioPos
+          _ = 1 / y := by field_simp [ne_of_gt hypos]; ring
+      have hlogMono : Real.log y ≤ Real.log (y + 1) :=
+        Real.log_le_log hypos (by linarith)
+      have hInv : 1 / y ≤ 1 / M := one_div_le_one_div_of_le hMpos hiLower
+      have hCastSucc : ((i + 1 : ℕ) : ℝ) = y + 1 := by simp [y]
+      have hCastSelf : (i : ℝ) = y := by rfl
+      calc
+        _ = |(Real.log (y + 1) - Real.log y) / L| := by
+          rw [hCastSucc, hCastSelf]
+          congr 1 <;> ring
+        _ = (Real.log (y + 1) - Real.log y) / L :=
+          abs_of_nonneg (div_nonneg (sub_nonneg.mpr hlogMono) hLpos.le)
+        _ ≤ (1 / y) / L := div_le_div_of_nonneg_right hlogStep hLpos.le
+        _ = 1 / (L * y) := by field_simp [ne_of_gt hLpos, ne_of_gt hypos]
+        _ ≤ 1 / (L * M) := by
+          apply one_div_le_one_div_of_le (mul_pos hLpos hMpos)
+          exact mul_le_mul_of_nonneg_left hiLower hLpos.le
+    have hQargBoundsMax (i : ℕ) (hi : i < n) :
+        wMin ≤ Real.log ((max nLo i : ℕ) : ℝ) / L ∧
+          Real.log ((max nLo i : ℕ) : ℝ) / L ≤ wMax := by
+      have hiUpper : i ≤ nHi := by
+        dsimp [n] at hi
+        omega
+      have hmaxUpper : max nLo i ≤ nHi := (Nat.max_le).2 ⟨hNonempty, hiUpper⟩
+      exact hQargBounds (max nLo i) (Nat.le_max_left _ _) hmaxUpper
+    have hLastBound : |w (n - 1)| ≤ BQ := by
+      have hnSub : n - 1 = nHi := by simp [n]
+      have hargs := hQargBounds nHi hNonempty le_rfl
+      rw [hnSub]
+      change |Q (Real.log ((max nLo nHi : ℕ) : ℝ) / L)| ≤ BQ
+      rw [Nat.max_eq_right hNonempty]
+      exact hQbound _ hargs.1 hargs.2
+    have hDelta : ∀ i ∈ Finset.range (n - 1),
+        |w (i + 1) - w i| ≤ KQ / (L * M) := by
+      intro i hi
+      have hiNat : i < nHi := by
+        have hi' := Finset.mem_range.mp hi
+        dsimp [n] at hi'
+        omega
+      by_cases hiLo : nLo ≤ i
+      · have hiNext : i + 1 ≤ nHi := by omega
+        have hargs0 := hQargBounds i hiLo (Nat.le_of_lt hiNat)
+        have hargs1 := hQargBounds (i + 1) (le_trans hiLo (Nat.le_succ i)) hiNext
+        let z₀ : ℝ := Real.log (i : ℝ) / L
+        let z₁ : ℝ := Real.log ((i + 1 : ℕ) : ℝ) / L
+        have hwEq : w (i + 1) - w i = Q z₁ - Q z₀ := by
+          change Q (Real.log ((max nLo (i + 1) : ℕ) : ℝ) / L) -
+              Q (Real.log ((max nLo i : ℕ) : ℝ) / L) = Q z₁ - Q z₀
+          rw [Nat.max_eq_right (le_trans hiLo (Nat.le_succ i)),
+            Nat.max_eq_right hiLo]
+        calc
+          _ = |Q z₁ - Q z₀| := by rw [hwEq]
+          _ ≤ KQ * |z₁ - z₀| :=
+            hQlip z₁ z₀ hargs1.1 hargs1.2 hargs0.1 hargs0.2
+          _ ≤ KQ / (L * M) := by
+            calc
+              _ ≤ KQ * (1 / (L * M)) :=
+                mul_le_mul_of_nonneg_left (by simpa [z₀, z₁] using hLogStep i hiLo) hKQ
+              _ = KQ / (L * M) := by ring
+      · have hiNext : i + 1 ≤ nLo := by omega
+        have hiCur : i ≤ nLo := le_trans (Nat.le_succ i) hiNext
+        have hwEq : w (i + 1) - w i = 0 := by
+          change Q (Real.log ((max nLo (i + 1) : ℕ) : ℝ) / L) -
+              Q (Real.log ((max nLo i : ℕ) : ℝ) / L) = 0
+          rw [Nat.max_eq_left hiNext, Nat.max_eq_left hiCur]
+          ring
+        rw [hwEq]
+        simpa using (div_nonneg hKQ (by positivity : 0 ≤ L * M))
+    have hVariationSum :
+        (∑ i ∈ Finset.range (n - 1), |w (i + 1) - w i|) ≤
+          ((n - 1 : ℕ) : ℝ) * (KQ / (L * M)) := by
+      calc
+        _ ≤ ∑ i ∈ Finset.range (n - 1), KQ / (L * M) := by
+          apply Finset.sum_le_sum
+          intro i hi
+          exact hDelta i hi
+        _ = ((n - 1 : ℕ) : ℝ) * (KQ / (L * M)) := by simp
+    have hnCount : ((n - 1 : ℕ) : ℝ) ≤ 2 * M := by
+      have hcast : ((nHi : ℕ) : ℝ) ≤ 2 * M := le_trans hnHiCast hrr
+      simpa [n] using hcast
+    have hVariationCore :
+        ((n - 1 : ℕ) : ℝ) * (KQ / (L * M)) ≤ 2 * KQ := by
+      calc
+        _ ≤ (2 * M) * (KQ / (L * M)) :=
+          mul_le_mul_of_nonneg_right hnCount (by positivity)
+        _ = (2 * KQ) / L := by
+          field_simp [ne_of_gt hLpos, ne_of_gt hMpos]
+          <;> ring
+        _ ≤ 2 * KQ := div_le_self (by positivity) hL
+    have hVariation : |w (n - 1)| +
+        ∑ i ∈ Finset.range (n - 1), |w (i + 1) - w i| ≤
+          2 * (BQ + KQ) := by
+      calc
+        _ ≤ BQ + 2 * KQ := add_le_add hLastBound
+          (hVariationSum.trans hVariationCore)
+        _ ≤ 2 * (BQ + KQ) := by nlinarith [hBQ]
+    have hprefix : ∀ k ≤ n, ‖∑ i ∈ Finset.range k, a i‖ ≤ B := by
+      intro j hj
+      by_cases hjLo : j ≤ nLo
+      · have hzero : (∑ i ∈ Finset.range j, a i) = 0 := by
+          apply Finset.sum_eq_zero
+          intro i hi
+          have hik := Finset.mem_range.mp hi
+          have hnot : ¬ nLo ≤ i := by omega
+          simp [a, hnot]
+        rw [hzero]
+        simpa using hB
+      · have hnLo : nLo < j := Nat.lt_of_not_ge hjLo
+        let l' : ℝ := (nLo : ℕ)
+        let rr' : ℝ := ((j - 1 : ℕ) : ℝ)
+        have hjpos : 1 ≤ j := by omega
+        have hlower : M ≤ l' := by
+          dsimp [l']
+          exact hnLoLower
+        have hlowerUpper : l' ≤ rr' := by
+          have hnat : nLo ≤ j - 1 := by omega
+          dsimp [l', rr']
+          exact_mod_cast hnat
+        have hjUpper : j - 1 ≤ nHi := by
+          dsimp [n] at hj
+          omega
+        have hupper : rr' ≤ 2 * M := by
+          have hcast : ((j - 1 : ℕ) : ℝ) ≤ (nHi : ℝ) := Nat.cast_le.mpr hjUpper
+          exact le_trans hcast (le_trans hnHiCast hrr)
+        have hRange : ⌊rr'⌋₊ + 1 = j := by
+          dsimp [rr']
+          simp [Nat.floor_natCast, Nat.sub_add_cancel hjpos]
+        have hActFilter :
+            (Finset.range j).filter (fun i : ℕ =>
+                nLo ≤ i ∧ roughAbove i (roughCutoff x)) =
+              (Finset.range (⌊rr'⌋₊ + 1)).filter (fun i : ℕ =>
+                l' ≤ (i : ℝ) ∧ (i : ℝ) ≤ rr' ∧ roughAbove i (roughCutoff x)) := by
+          rw [hRange]
+          ext i
+          simp only [Finset.mem_filter, Finset.mem_range]
+          constructor
+          · rintro ⟨hik, hlo, hrough⟩
+            have hiupper : i ≤ j - 1 := by omega
+            have hlo' : l' ≤ (i : ℝ) := by
+              dsimp [l']
+              exact_mod_cast hlo
+            have hiupper' : (i : ℝ) ≤ rr' := by
+              dsimp [rr']
+              exact_mod_cast hiupper
+            exact ⟨hik, hlo', hiupper', hrough⟩
+          · rintro ⟨hik, hlo, _, hrough⟩
+            have hlo' : nLo ≤ i := by
+              dsimp [l'] at hlo
+              exact_mod_cast hlo
+            exact ⟨hik, hlo', hrough⟩
+        have hActSum :
+            (∑ i ∈ Finset.range j,
+              if nLo ≤ i ∧ roughAbove i (roughCutoff x) then f i else 0) =
+              roughSourceIntervalSum x k χ u l' rr' := by
+          change (∑ i ∈ Finset.range j,
+              if nLo ≤ i ∧ roughAbove i (roughCutoff x) then f i else 0) =
+            ∑ i ∈ (Finset.range (⌊rr'⌋₊ + 1)).filter (fun i : ℕ =>
+              l' ≤ (i : ℝ) ∧ (i : ℝ) ≤ rr' ∧ roughAbove i (roughCutoff x)), f i
+          rw [← hActFilter, Finset.sum_filter]
+        have hPrefixEq :
+            (∑ i ∈ Finset.range j, a i) =
+              roughSourceIntervalSum x k χ u l' rr' / den := by
+          calc
+            _ = (∑ i ∈ Finset.range j,
+                  if nLo ≤ i ∧ roughAbove i (roughCutoff x) then f i else 0) / den := by
+              dsimp [a]
+              rw [← Finset.sum_div]
+            _ = _ := by rw [hActSum]
+        have hSourcePrefix := hSource l' rr' hlower hlowerUpper hupper
+        rw [hPrefixEq]
+        simpa [den, Complex.ofReal_mul] using hSourcePrefix
+    have hAbel := norm_sum_range_weighted_le_of_variation
+      a w n B (2 * (BQ + KQ)) hB hprefix hVariation
+    have hWeightedEq :
+        (∑ m ∈ I, (Q (Real.log (m : ℝ) / L) : ℂ) * f m) / den =
+          ∑ i ∈ Finset.range n, (w i : ℂ) * a i := by
+      rw [Finset.sum_div, hTargetFilter, Finset.sum_filter]
+      apply Finset.sum_congr rfl
+      intro i hi
+      by_cases hAct : nLo ≤ i ∧ roughAbove i (roughCutoff x)
+      · have hmax : max nLo i = i := Nat.max_eq_right hAct.1
+        simp [a, w, f, hAct, hmax]
+        ring
+      · simp [a, hAct]
+    calc
+      _ = ‖∑ i ∈ Finset.range n, (w i : ℂ) * a i‖ := by rw [hWeightedEq]
+      _ ≤ B * (2 * (BQ + KQ)) := hAbel
+      _ = 2 * (BQ + KQ) * B := by ring
+  · have hJempty : J = ∅ := by
+      apply Finset.eq_empty_iff_forall_notMem.mpr
+      intro m hm
+      rcases Finset.mem_filter.mp hm with ⟨hmRange, hmActive⟩
+      rcases hmActive with ⟨hmLo, _⟩
+      have hmRange' : m < nHi + 1 := by simpa [n] using hmRange
+      have hmHi : m ≤ nHi := Nat.le_of_lt_succ hmRange'
+      exact hNonempty (le_trans hmLo hmHi)
+    rw [hTargetFilter, hJempty]
+    simp
+    positivity
 
 end ArtinPrimitiveRoots.TypeII.Proofs.R_PROXY
