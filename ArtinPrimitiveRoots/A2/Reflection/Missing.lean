@@ -16099,6 +16099,131 @@ private theorem rf_pairing_grouped_kernel_norm_bound
   exact div_le_div_of_nonneg_right
     (mul_le_mul_of_nonneg_left hSeries (norm_nonneg _)) hT.le
 
+private theorem rf_pairing_grouped_kernel_exchange
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (Z : ℝ) (hZ : 0 < Z) :
+    IntegrableOn (fun T =>
+      ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+        rf_pairing_grouped_kernel_term R r q Z T) (Set.Ioi 0) ∧
+      (∫ T in Set.Ioi (0 : ℝ),
+        ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+          rf_pairing_grouped_kernel_term R r q Z T) =
+        ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+          ∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T := by
+  classical
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable (𝓞 F) := inferInstance
+  have hspan : Function.Surjective
+      (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+    intro I
+    exact Ideal.fg_of_isNoetherianRing I
+  letI : Countable (Ideal (𝓞 F)) := hspan.countable
+  letI : Countable S.ExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+  letI : Countable S.SqfExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  let i : FrozenIndex R r.h → S.ExtIdeal × S.ExtIdeal × S.ExtIdeal × UnitSix S :=
+    fun t => (t.f, t.a, t.n, t.u)
+  have hi : Function.Injective i := by
+    intro t s h
+    have hf : t.f = s.f := congrArg (fun p => p.1) h
+    have ha : t.a = s.a := congrArg (fun p => p.2.1) h
+    have hn : t.n = s.n := congrArg (fun p => p.2.2.1) h
+    have hu : t.u = s.u := congrArg (fun p => p.2.2.2) h
+    rcases t with ⟨tf, ta, tn, tu, tactive, tnum, tcop⟩
+    rcases s with ⟨sf, sa, sn, su, sactive, snum, scop⟩
+    dsimp only at hf ha hn hu
+    cases hf
+    cases ha
+    cases hn
+    cases hu
+    rfl
+  letI : Countable (FrozenIndex R r.h) := hi.countable
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let m := volume.restrict (Set.Ioi (0 : ℝ))
+  let f : J → ℝ → ℂ := fun q => rf_pairing_grouped_kernel_term R r q Z
+  let qval : J → ℝ := fun q =>
+    S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS)
+  let a : J → ℝ := fun q =>
+    betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1
+  let u := rowClass R r
+  let t := 1 / Z
+  have ht : 0 < t := div_pos zero_lt_one hZ
+  have hArg (T : ℝ) : t * T = T / Z := by
+    dsimp only [t]
+    simp only [one_div, div_eq_mul_inv]
+    ac_rfl
+  have hq (q : J) : 0 < qval q :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU (frozenFrequency R q.1 r.d q.2))
+  have hqI (I : Ideal (𝓞 F)) : 0 ≤ qI I := by
+    unfold qI
+    exact Nat.cast_nonneg _
+  have ha (q : J) : 0 ≤ a q := div_nonneg
+    (mul_nonneg (rf_betaIdeal_nonneg R q.1.f q.1.a)
+      (Real.rpow_nonneg (hqI q.2.1) _)) (hqI q.1.n.1)
+  have hsWeight : Summable (fun q : J => a q * qval q ^ (-1 : ℝ)) :=
+    rf_pairing_frequency_weight_summable R r
+  have hEach (q : J) : Integrable (f q) m :=
+    (rf_pairing_grouped_kernel_integral R r q Z hZ).1
+  let major : ℝ → ℝ := fun T => ‖R.K T‖ *
+    (∑' q : J, a q * profileAbs R u (qval q / (t * T))) / T
+  obtain ⟨C0, hC0, hMajor⟩ := rf_profile_absolute_series R 1 (by norm_num)
+  have hMajorInt : Integrable major m :=
+    (hMajor J qval a hq ha hsWeight u t ht).1
+  obtain ⟨C, hC, hProfile⟩ := (rf_profile_bound R).2.2 1 (by norm_num)
+  have hDom (q : J) (T : ℝ) (hT : 0 < T) :
+      ‖f q T‖ ≤ (‖R.K T‖ / T) *
+        (a q * profileAbs R u (qval q / (t * T))) := by
+    have h := rf_pairing_grouped_kernel_norm_bound R r q Z hZ T hT
+    change ‖f q T‖ ≤ ‖R.K T‖ *
+      (a q * profileAbs R u (qval q / (T / Z))) / T at h
+    rw [← hArg T] at h
+    convert h using 1 <;> ring
+  have hControl (T : ℝ) (hT : 0 < T) :
+      Summable (fun q : J => ‖f q T‖) ∧
+        ‖∑' q : J, ‖f q T‖‖ ≤ major T := by
+    let b : J → ℝ := fun q => (C * (t * T)) * (a q * qval q ^ (-1 : ℝ))
+    have hb : Summable b := hsWeight.mul_left (C * (t * T))
+    have hpos (q : J) : 0 < qval q / (t * T) := div_pos (hq q) (mul_pos ht hT)
+    have hProfileNonneg (q : J) : 0 ≤ a q * profileAbs R u (qval q / (t * T)) :=
+      mul_nonneg (ha q) ((rf_profile_abs_analysis R u).1 _ (hpos q))
+    have hProfileLe (q : J) : a q * profileAbs R u (qval q / (t * T)) ≤ b q := by
+      calc
+        _ ≤ a q * (C * (qval q / (t * T)) ^ (-1 : ℝ)) :=
+          mul_le_mul_of_nonneg_left (hProfile u _ (hpos q)) (ha q)
+        _ = b q := by
+          dsimp only [b]
+          simp only [Real.rpow_neg_one, div_eq_mul_inv, mul_inv_rev, inv_inv]
+          ring
+    have hsProfile : Summable (fun q : J => a q * profileAbs R u (qval q / (t * T))) :=
+      Summable.of_nonneg_of_le hProfileNonneg hProfileLe hb
+    let scaled : J → ℝ := fun q => (‖R.K T‖ / T) *
+      (a q * profileAbs R u (qval q / (t * T)))
+    have hsScaled : Summable scaled := hsProfile.mul_left (‖R.K T‖ / T)
+    have hsNorm : Summable (fun q : J => ‖f q T‖) :=
+      Summable.of_nonneg_of_le (fun q => norm_nonneg _) (fun q => hDom q T hT) hsScaled
+    refine ⟨hsNorm, ?_⟩
+    calc
+      _ = ∑' q : J, ‖f q T‖ :=
+        Real.norm_of_nonneg (tsum_nonneg (fun q => norm_nonneg _))
+      _ ≤ ∑' q : J, scaled q :=
+        hsNorm.tsum_le_tsum (fun q => hDom q T hT) hsScaled
+      _ = major T := by
+        dsimp only [scaled, major]
+        rw [tsum_mul_left]
+        ring
+  have hPoint : ∀ᵐ T ∂m, Summable (fun q : J => ‖f q T‖) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    exact (hControl T hT).1
+  have hNorm : Integrable (fun T => ∑' q : J, ‖f q T‖) m := by
+    apply hMajorInt.mono'
+      (AEStronglyMeasurable.tsum (fun q => (hEach q).norm.aestronglyMeasurable))
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    exact (hControl T hT).2
+  exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_tsum_of_norm_sum
+    m f (fun q => (hEach q).aestronglyMeasurable) hPoint hNorm
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
