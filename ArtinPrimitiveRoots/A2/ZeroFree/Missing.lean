@@ -5790,6 +5790,44 @@ private theorem rows_sol_principal_w_integrated
   simpa only [σξ, σz, K, Q, principalRw] using
     (rows_sol_principal_initial_shift R sd W η U HA HC hEuler Z hZ).trans hAssemble
 
+private theorem rows_sol_principal_w_residue_integrable
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 2 ≤ Z)
+    (σξ : ℝ) (hξlo : 1 + δ1 ≤ σξ) (hξhi : σξ ≤ 4) :
+    Integrable (fun p : ℝ × ℝ =>
+      mellinWeight R sd W (Z ^ a) (Z ^ b) Z
+        (σξ + p.1 * Complex.I) 1 ((1 / 6 + δ1 : ℝ) + p.2 * Complex.I) *
+      HA.LS S 1 (6 * ((1 / 6 + δ1 : ℝ) + p.2 * Complex.I)) * HA.RS S *
+      HC.H U.one ![σξ + p.1 * Complex.I, 1,
+        (1 / 6 + δ1 : ℝ) + p.2 * Complex.I] /
+      HA.LS S η (σξ + p.1 * Complex.I)) (volume.prod volume) := by
+  let σz : ℝ := 1 / 6 + δ1
+  let c : ℂ := 1 / (2 * Real.pi)
+  let K : ℂ → ℂ → ℂ → ℂ := rowKernel R sd W η U HA HC U.one Z
+  let J : ℝ → (ℝ × ℝ) → ℂ := fun σw p =>
+    vertical σw (fun w => K (σξ + p.1 * Complex.I) w (σz + p.2 * Complex.I))
+  have hInt4 := rows_sol_principal_right_integrable R sd W η U HA HC hEuler Z hZ
+    σξ σz hξlo hξhi le_rfl (by norm_num [σz, δ1])
+  have hInt95 := rows_sol_principalRw_integrable R sd W η U HA HC hEuler Z hZ
+    σξ hξlo hξhi
+  have hJ4 : Integrable (J 4) (volume.prod volume) := by
+    have hraw := rows_sol_integrable_w_projection (fun tξ tw tz =>
+      K (σξ + tξ * Complex.I) (4 + tw * Complex.I) (σz + tz * Complex.I)) hInt4
+    simpa only [J, vertical, c, Complex.ofReal_ofNat] using hraw.const_mul c
+  have hJ95 : Integrable (J (95 / 100)) (volume.prod volume) := by
+    have hraw := rows_sol_integrable_w_projection (fun tξ tw tz =>
+      K (σξ + tξ * Complex.I) ((95 / 100 : ℝ) + tw * Complex.I)
+        (σz + tz * Complex.I)) hInt95
+    simpa only [J, vertical, c] using hraw.const_mul c
+  apply (hJ4.sub hJ95).congr
+  exact ae_of_all _ fun p => by
+    change J 4 p - J (95 / 100) p = _
+    have hResidue := rows_sol_principal_w_residue R sd W η U HA HC hEuler Z hZ
+      (σξ + p.1 * Complex.I) (σz + p.2 * Complex.I)
+      (by simpa using hξlo) (by simpa using hξhi) (by simp [σz])
+    change J 4 p = J (95 / 100) p + _ at hResidue
+    rw [hResidue]
+    ring
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
