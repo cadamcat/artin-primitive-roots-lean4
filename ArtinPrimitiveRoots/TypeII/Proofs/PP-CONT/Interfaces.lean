@@ -1550,6 +1550,26 @@ private theorem cont_character_dyad_prefix_bound
             rw [hsum]
     _ ≤ Cφ * N * Real.exp (-L / Real.rpow T C₃) := hB'
 
+private theorem cont_character_dyad_prefixes_bound
+    {q : ℕ} [NeZero q] (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    {N j : ℕ} (hN : 0 < N) (hj : j ≤ N)
+    {v L T Cφ C₃ : ℝ}
+    (hPhase : ∀ m ≤ j, ∀ a : ZMod q,
+      ‖residuePhaseSum (N : ℝ) q a (-v)
+        (Finset.Icc N (N + m) : Set ℕ)‖ ≤
+          Cφ * ((N : ℝ) / q) * Real.exp (-L / Real.rpow T C₃)) :
+    ∀ m ≤ j,
+      ‖contPrefixSum
+        (fun k => χ ((N + k : ℕ) : ZMod q) *
+          Complex.exp (Complex.I * (-v) *
+            Real.log ((N + k : ℕ) : ℝ))) m‖ ≤
+        Cφ * N * Real.exp (-L / Real.rpow T C₃) := by
+  intro m hm
+  have hbound := cont_character_dyad_prefix_bound
+    (q := q) (χ := χ) (N := N) (j := m)
+    hq hN (hm.trans hj) (hPhase m hm)
+  simpa [contPrefixSum] using hbound
+
 private theorem cont_weighted_dyad_bound
     {q : ℕ} (χ : DirichletCharacter ℂ q) {N j : ℕ} (hN : 0 < N)
     {σ v B : ℝ} (hσ : 0 ≤ σ)
