@@ -4636,6 +4636,109 @@ private theorem principal_tuple_count_one_scaled (γ : ℝ) (hγ : 0 < γ)
   rw [← hFilters] at h
   exact h
 
+set_option maxHeartbeats 1000000 in
+/-- A finite prime sum can be taken inside the supported tail integral. -/
+private theorem principal_tuple_prime_sum_integral (n : ℕ) (x γ a b B : ℝ)
+    (P : Finset ℕ) (hx : 2 ≤ x) (hγ : 0 < γ)
+    (hb : 0 ≤ b) (hbB : b ≤ B)
+    (hP : ∀ p ∈ P, Real.rpow x γ < (p : ℝ)) :
+    (∑ p ∈ P, roughTupleIntegral x γ (a / (p : ℝ))
+        (b / (p : ℝ)) (n + 1)) =
+      (1 / ((n + 1).factorial : ℝ)) *
+        ∫ t in Set.univ.pi (fun _ : Fin (n + 1) =>
+            Set.Icc (Real.rpow x γ) B),
+          (∏ i : Fin (n + 1), 1 / Real.log (t i)) *
+            (((P.filter (fun p : ℕ =>
+              a ≤ (p : ℝ) * ∏ i : Fin (n + 1), t i ∧
+                (p : ℝ) * (∏ i : Fin (n + 1), t i) ≤ b)).card) : ℝ) := by
+  classical
+  let Y := Real.rpow x γ
+  let W : Set (Fin (n + 1) → ℝ) := Set.univ.pi fun _ => Set.Icc Y B
+  let K : (Fin (n + 1) → ℝ) → ℝ := fun t => ∏ i, 1 / Real.log (t i)
+  let S (p : ℕ) := roughTupleSource (n := n) Y (a / (p : ℝ)) (b / (p : ℝ))
+  have hY1 : 1 < Y := Real.one_lt_rpow (by linarith : 1 < x) hγ
+  have hWcompact : IsCompact W := isCompact_univ_pi fun _ => isCompact_Icc
+  have hWmeas : MeasurableSet W := hWcompact.isClosed.measurableSet
+  have hSmeas (p : ℕ) : MeasurableSet (S p) := measurableSet_roughTupleSource _ _ _
+  have hp1 (p : ℕ) (hp : p ∈ P) : 1 ≤ (p : ℝ) :=
+    hY1.le.trans (hP p hp).le
+  have hp0 (p : ℕ) (hp : p ∈ P) : 0 < (p : ℝ) :=
+    lt_of_lt_of_le zero_lt_one (hp1 p hp)
+  have hSubset (p : ℕ) (hp : p ∈ P) : S p ⊆ W := by
+    intro t ht
+    change (∀ i, Y ≤ t i) ∧ a / (p : ℝ) ≤ ∏ i, t i ∧
+      (∏ i, t i) ≤ b / (p : ℝ) at ht
+    simp only [W, Set.mem_pi, Set.mem_univ, true_implies]
+    intro i
+    refine ⟨ht.1 i, ?_⟩
+    have hrest : 1 ≤ ∏ j ∈ Finset.univ.erase i, t j := by
+      calc
+        1 = ∏ j ∈ Finset.univ.erase i, (1 : ℝ) := by simp
+        _ ≤ ∏ j ∈ Finset.univ.erase i, t j :=
+          Finset.prod_le_prod₀ (fun _ _ => zero_le_one)
+            (fun j _ => hY1.le.trans (ht.1 j))
+    have hi : t i ≤ ∏ j : Fin (n + 1), t j := by
+      calc
+        t i = t i * 1 := by ring
+        _ ≤ t i * ∏ j ∈ Finset.univ.erase i, t j :=
+          mul_le_mul_of_nonneg_left hrest (zero_le_one.trans (hY1.le.trans (ht.1 i)))
+        _ = ∏ j : Fin (n + 1), t j :=
+          Finset.mul_prod_erase Finset.univ t (Finset.mem_univ i)
+    exact hi.trans (ht.2.2.trans ((div_le_self hb (hp1 p hp)).trans hbB))
+  have hInt (p : ℕ) (_hp : p ∈ P) :
+      Integrable (fun t => (S p).indicator K t) (volume.restrict W) := by
+    have h : IntegrableOn K (S p) volume := principal_tuple_kernel_integrable hY1
+    exact (h.integrable_indicator (hSmeas p)).mono_measure Measure.restrict_le_self
+  have hSetIntegral (p : ℕ) (hp : p ∈ P) :
+      (∫ t in W, (S p).indicator K t) = ∫ t in S p, K t := by
+    rw [setIntegral_indicator (hSmeas p), Set.inter_eq_right.mpr (hSubset p hp)]
+  have hPointwise (t : Fin (n + 1) → ℝ) (ht : t ∈ W) :
+      (∑ p ∈ P, (S p).indicator K t) =
+        K t * (((P.filter (fun p : ℕ =>
+          a ≤ (p : ℝ) * ∏ i, t i ∧ (p : ℝ) * (∏ i, t i) ≤ b)).card) : ℝ) := by
+    have hcoords : ∀ i, Y ≤ t i := by
+      have ht' : ∀ i, t i ∈ Set.Icc Y B := by
+        simpa only [W, Set.mem_pi, Set.mem_univ, true_implies] using ht
+      exact fun i => (ht' i).1
+    have hmem (p : ℕ) (hp : p ∈ P) :
+        t ∈ S p ↔ a ≤ (p : ℝ) * ∏ i, t i ∧ (p : ℝ) * (∏ i, t i) ≤ b := by
+      change ((∀ i, Y ≤ t i) ∧ a / (p : ℝ) ≤ ∏ i, t i ∧
+        (∏ i, t i) ≤ b / (p : ℝ)) ↔ _
+      rw [div_le_iff₀ (hp0 p hp), le_div_iff₀ (hp0 p hp)]
+      simp only [hcoords, forall_const, true_and, mul_comm]
+    calc
+      _ = ∑ p ∈ P, if a ≤ (p : ℝ) * ∏ i, t i ∧
+          (p : ℝ) * (∏ i, t i) ≤ b then K t else 0 := by
+        apply Finset.sum_congr rfl
+        intro p hp
+        simp only [Set.indicator, hmem p hp]
+      _ = ∑ p ∈ P.filter (fun p : ℕ =>
+          a ≤ (p : ℝ) * ∏ i, t i ∧ (p : ℝ) * (∏ i, t i) ≤ b), K t := by
+        simp only [Finset.sum_filter]
+      _ = (((P.filter (fun p : ℕ =>
+          a ≤ (p : ℝ) * ∏ i, t i ∧ (p : ℝ) * (∏ i, t i) ≤ b)).card) : ℝ) * K t := by
+        simp only [Finset.sum_const, nsmul_eq_mul]
+      _ = _ := mul_comm _ _
+  calc
+    _ = ∑ p ∈ P, (1 / ((n + 1).factorial : ℝ)) * ∫ t in S p, K t := by
+      apply Finset.sum_congr rfl
+      intro p hp
+      exact roughTupleIntegral_eq_source x γ (a / (p : ℝ)) (b / (p : ℝ)) hx
+    _ = (1 / ((n + 1).factorial : ℝ)) *
+        ∑ p ∈ P, ∫ t in W, (S p).indicator K t := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro p hp
+      rw [hSetIntegral p hp]
+    _ = (1 / ((n + 1).factorial : ℝ)) *
+        ∫ t in W, ∑ p ∈ P, (S p).indicator K t := by
+      rw [integral_finsetSum P hInt]
+    _ = _ := by
+      congr 1
+      apply integral_congr_ae
+      filter_upwards [ae_restrict_mem hWmeas] with t ht
+      exact hPointwise t ht
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
