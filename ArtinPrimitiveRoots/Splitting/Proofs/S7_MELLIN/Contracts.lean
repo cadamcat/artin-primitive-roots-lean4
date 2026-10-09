@@ -110,7 +110,82 @@ theorem euler_right_line_bound :
     ∃ B : ℝ, 0 < B ∧ ∀ (K : Type u) [Field K] [NumberField K] (t : ℝ),
       ‖dedekindZetaLogDerivative K ((3 / 2 : ℝ) + t * Complex.I)‖ ≤
         B * Module.finrank ℚ K := by
-  sorry
+  let Z : ℝ := ∑' m : ℕ, Real.rpow (m : ℝ) (-(5 / 4 : ℝ))
+  have hZ : 0 ≤ Z := tsum_nonneg fun m => Real.rpow_nonneg (Nat.cast_nonneg _) _
+  refine ⟨8 * Z + 1, by linarith, ?_⟩
+  intro K _ _ t
+  obtain ⟨hprimeSum, hprimeBound⟩ := prime_norm_power_sum_bound K
+    (σ := (5 / 4 : ℝ)) (by norm_num)
+  let s : ℂ := (3 / 2 : ℝ) + t * Complex.I
+  have hs : 1 < s.re := by simp [s]; norm_num
+  let F : HeightOneSpectrum (𝓞 K) → ℂ := fun v =>
+    (Real.log (Ideal.absNorm v.asIdeal : ℝ) : ℂ) /
+      ((Ideal.absNorm v.asIdeal : ℂ) ^ s - 1)
+  have hF (v : HeightOneSpectrum (𝓞 K)) :
+      ‖F v‖ ≤ 8 * Real.rpow (Ideal.absNorm v.asIdeal : ℝ) (-(5 / 4 : ℝ)) := by
+    let N : ℝ := Ideal.absNorm v.asIdeal
+    have hNtwo : 2 ≤ N := by
+      dsimp only [N]
+      exact_mod_cast (show 2 ≤ Ideal.absNorm v.asIdeal from
+        NumberField.HeightOneSpectrum.one_lt_absNorm v)
+    have hN : 0 < N := by linarith
+    have hP : 2 ≤ Real.rpow N (3 / 2 : ℝ) := by
+      calc
+        2 ≤ N := hNtwo
+        _ = Real.rpow N 1 := (Real.rpow_one _).symm
+        _ ≤ Real.rpow N (3 / 2 : ℝ) :=
+          Real.rpow_le_rpow_of_exponent_le (by linarith) (by norm_num)
+    have hnorm : ‖(Ideal.absNorm v.asIdeal : ℂ) ^ s‖ = Real.rpow N (3 / 2 : ℝ) := by
+      rw [Complex.norm_natCast_cpow_of_pos (by
+        have := NumberField.HeightOneSpectrum.one_lt_absNorm v
+        omega)]
+      simp [s, N]
+    have hden : Real.rpow N (3 / 2 : ℝ) / 2 ≤
+        ‖(Ideal.absNorm v.asIdeal : ℂ) ^ s - 1‖ := by
+      have h := norm_sub_norm_le ((Ideal.absNorm v.asIdeal : ℂ) ^ s) (1 : ℂ)
+      rw [hnorm, norm_one] at h
+      linarith
+    have hlog : 0 ≤ Real.log N := Real.log_nonneg (by linarith)
+    have hlogBound : Real.log N ≤ 4 * Real.rpow N (1 / 4 : ℝ) := by
+      have h := Real.log_le_rpow_div (x := N) (ε := (1 / 4 : ℝ)) hN.le (by norm_num)
+      rw [← Real.rpow_eq_pow] at h
+      linarith
+    calc
+      ‖F v‖ = Real.log N / ‖(Ideal.absNorm v.asIdeal : ℂ) ^ s - 1‖ := by
+        dsimp only [F]
+        rw [norm_div, Complex.norm_real, Real.norm_eq_abs]
+        change |Real.log N| / _ = _
+        rw [abs_of_nonneg hlog]
+      _ ≤ Real.log N / (Real.rpow N (3 / 2 : ℝ) / 2) :=
+        div_le_div_of_nonneg_left hlog (by positivity) hden
+      _ = 2 * Real.log N * Real.rpow N (-(3 / 2 : ℝ)) := by
+        simp only [Real.rpow_eq_pow]
+        rw [Real.rpow_neg hN.le]
+        field_simp [(Real.rpow_pos_of_pos hN (3 / 2 : ℝ)).ne'] <;> ring
+      _ ≤ 8 * Real.rpow N (1 / 4 : ℝ) * Real.rpow N (-(3 / 2 : ℝ)) := by
+        exact mul_le_mul_of_nonneg_right (by linarith) (Real.rpow_nonneg hN.le _)
+      _ = 8 * Real.rpow N (-(5 / 4 : ℝ)) := by
+        simp only [Real.rpow_eq_pow]
+        rw [mul_assoc, ← Real.rpow_add hN]
+        norm_num
+  have heq : dedekindZetaLogDerivative K s = ∑' v : HeightOneSpectrum (𝓞 K), F v := by
+    rw [(ArtinPrimitiveRoots.Ext.SplittingInputs.ext_dedekind_euler_logderiv K hs).2.2]
+    exact tsum_congr fun v =>
+      (ArtinPrimitiveRoots.Splitting.S7ExtEuler.prime_power_hasSum v hs).tsum_eq
+  calc
+    ‖dedekindZetaLogDerivative K s‖ ≤
+        ∑' v : HeightOneSpectrum (𝓞 K), 8 * Real.rpow (Ideal.absNorm v.asIdeal : ℝ) (-(5 / 4 : ℝ)) := by
+      rw [heq]
+      exact tsum_of_norm_bounded (hprimeSum.mul_left 8).hasSum hF
+    _ = 8 * ∑' v : HeightOneSpectrum (𝓞 K),
+        Real.rpow (Ideal.absNorm v.asIdeal : ℝ) (-(5 / 4 : ℝ)) := tsum_mul_left
+    _ ≤ 8 * ((Module.finrank ℚ K : ℝ) * Z) := mul_le_mul_of_nonneg_left hprimeBound (by norm_num)
+    _ ≤ (8 * Z + 1) * (Module.finrank ℚ K : ℝ) := by
+      calc
+        _ = 8 * Z * (Module.finrank ℚ K : ℝ) := by ring
+        _ ≤ 8 * Z * (Module.finrank ℚ K : ℝ) + (Module.finrank ℚ K : ℝ) :=
+          le_add_of_nonneg_right (Nat.cast_nonneg _)
+        _ = _ := by ring
 
 theorem reflected_line_bound :
     ∃ A : ℝ, 0 < A ∧ ∀ (K : Type u) [Field K] [NumberField K] (t : ℝ),
