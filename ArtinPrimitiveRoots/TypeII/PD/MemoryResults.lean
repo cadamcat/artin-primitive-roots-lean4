@@ -87,6 +87,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SlopeCells
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanPadFacts
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SupportCells
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ShiftBlocks
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.KernelSum
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
@@ -11422,6 +11423,203 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_fixed_shift
   have hfixed := finite_weighted_fixed_shift_kernel_bound T μ hmass line cell m C hC hm
     base d e (Ceta^2*(4/Real.log 2)^K*r) hcommon f
   simpa only [μ, cell, t, base, hline_iff] using hfixed
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The finite physical clean pad kernel has a uniform weighted bound after summing cell shifts. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_pad_kernel_bound {K : ℕ}
+    (F : PDFix K) (hF : F.Valid) :
+    ∃ C Cbox Y₀ : ℝ, 0 < C ∧ 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ S : PDScale, Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ D : ℕ, (S.d₀ : ℝ) ≤ (D : ℝ) → (D : ℝ) < 2*(S.d₀ : ℝ) →
+      ∀ T : Finset ((ℤ × ℤ) × (Fin K → ℕ)),
+      (∀ u ∈ T, IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+        envBox S w u.1 ∧ Int.gcd u.1.1 u.1.2 = 1) →
+      ∀ P : ((ℤ × ℤ) × (Fin K → ℕ)) → PrimeLists S.x K,
+      (∀ u ∈ T, ValidPrimeLists S.x K F.a (P u) ∧ sharedProduct (P u) = D ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) (P u) (transportedRatio w u.1)) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ d e : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      (∀ u ∈ T, ‖d u‖ ≤ 1) → (∀ u ∈ T, ‖e u‖ ≤ 1) →
+      ∀ f : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+      let k := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        if (D : ℤ) ∣ det2 u.1 v.1 then
+          geometricMultiplier F S D (tupleProduct v.2) (tupleProduct u.2) (det2 u.1 v.1/(D : ℤ))
+        else 0
+      (∑ u ∈ T, μ u*‖d u*(∑ v ∈ T, k u v*(μ v : ℂ)*e v*f v)‖^2) ≤
+        (C*r)^2*(∑ v ∈ T, μ v*‖f v‖^2) := by
+  classical
+  obtain ⟨Ccell, hCcell, hsupport⟩ := clean_pad_kernel_projective_cell_support F hF
+  let M : ℤ := ⌈Ccell⌉
+  have hCM : Ccell ≤ (M : ℝ) := Int.le_ceil Ccell
+  have hM0 : 0 ≤ (M : ℝ) := hCcell.trans hCM
+  let E : Finset ℤ := Finset.Icc (-M) M
+  obtain ⟨Cbox, Y₀, hCbox, hY₀, hshift⟩ :=
+    clean_prime_tuple_fixed_shift_bound (M : ℝ) hM0
+  obtain ⟨Ceta, hCeta, hEta⟩ := exists_eta_norm_bound F hF
+  let A : ℝ := Ceta^2*(4/Real.log 2)^K
+  let C : ℝ := (E.card : ℝ)*A+1
+  have hlog : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hA : 0 ≤ A := mul_nonneg (sq_nonneg _)
+    (pow_nonneg (div_nonneg (by norm_num) hlog.le) _)
+  have hC : 0 < C := by dsimp only [C]; positivity
+  refine ⟨C, Cbox, Y₀, hC, hCbox, hY₀, ?_⟩
+  intro S hY hbands hV hb w hw hU hd₀ D hDlow hDhi T hT P hP r hr hfibre d e hd he f
+  have hYpos : 0 < S.Y := zero_lt_one.trans_le (hY₀.trans hY)
+  have hd₀r : 0 < (S.d₀ : ℝ) := by exact_mod_cast hd₀
+  have hDr : 0 < (D : ℝ) := hd₀r.trans_le hDlow
+  have hratio0 : 0 ≤ (S.d₀ : ℝ)/(D : ℝ) := div_nonneg hd₀r.le hDr.le
+  have hratio1 : (S.d₀ : ℝ)/(D : ℝ) ≤ 1 := (div_le_one hDr).mpr hDlow
+  by_cases hTne : T.Nonempty
+  · obtain ⟨z, hz⟩ := hTne
+    obtain ⟨hpz, hshared, hgood⟩ := hP z hz
+    have hpadz : (S.d₀ : ℝ) ≤ (sharedProduct (P z) : ℝ) ∧
+        (sharedProduct (P z) : ℝ) < 2*(S.d₀ : ℝ) := by
+      rw [hshared]
+      exact ⟨hDlow, hDhi⟩
+    have hDsq : Squarefree D := by
+      rw [← hshared]
+      exact (clean_shared_pad_facts S.x S.Y (S.d₀ : ℝ) (transportedRatio w z.1)
+        F.a (P z) hpz hbands hgood hpadz).1
+    let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+    let cell := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋
+    let lines := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ∀ q : ℕ, q.Prime → q ∣ D → projLine q u.1 = projLine q v.1
+    let t := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      ((det2 u.1 v.1/(D : ℤ) : ℤ) : ℝ)
+    let base := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      (F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1,
+        if ¬ majorArc S.x S.Y F.A₀ θ then
+          additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ))) else 0)
+    let geo := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      geometricMultiplier F S D (tupleProduct v.2) (tupleProduct u.2) (det2 u.1 v.1/(D : ℤ))
+    let pad := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      if (D : ℤ) ∣ det2 u.1 v.1 then geo u v else 0
+    let d' := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      (((S.d₀ : ℝ)/(D : ℝ) : ℝ) : ℂ)*(F.eta ((tupleProduct u.2 : ℝ)/S.Y) : ℂ)*d u
+    let e' := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      (F.eta ((tupleProduct u.2 : ℝ)/S.Y) : ℂ)*e u
+    let ks := fun m : ℤ => fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      if lines u v ∧ cell v-cell u = m then base u v else 0
+    let k := fun m : ℤ => fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+      d' u*ks m u v*e' v
+    have hmass (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : 0 ≤ μ u :=
+      (clean_product_mass_le S.x F.a F.q_d S.Y hYpos hV hb u.2
+        (hT u hu).1 (hT u hu).2.1).1
+    have hd' (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : ‖d' u‖ ≤ Ceta := by
+      change ‖(_ : ℂ)*(_ : ℂ)*d u‖ ≤ Ceta
+      rw [norm_mul, norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hratio0]
+      calc
+        _ ≤ 1*Ceta*1 := mul_le_mul
+          (mul_le_mul hratio1 (hEta _) (norm_nonneg _) (by norm_num))
+          (hd u hu) (norm_nonneg _) (by simpa only [one_mul] using hCeta)
+        _ = _ := by ring
+    have he' (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : ‖e' u‖ ≤ Ceta := by
+      change ‖(_ : ℂ)*e u‖ ≤ Ceta
+      rw [norm_mul]
+      exact (mul_le_mul (hEta _) (he u hu) (norm_nonneg _) hCeta).trans_eq (mul_one _)
+    have hm (m : ℤ) (hm : m ∈ E) : |(m : ℝ)| ≤ (M : ℝ) := by
+      obtain ⟨hlo, hhi⟩ := Finset.mem_Icc.mp hm
+      apply abs_le.mpr
+      constructor
+      · exact_mod_cast hlo
+      · exact_mod_cast hhi
+    have hk (m : ℤ) (hmE : m ∈ E) (g : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ) :
+        (∑ u ∈ T, μ u*‖∑ v ∈ T, k m u v*(μ v : ℂ)*g v‖^2) ≤
+          (A*r)^2*(∑ v ∈ T, μ v*‖g v‖^2) := by
+      have hbound := hshift K F S hY hbands hV hb w hw hU hd₀ D hDlow hDhi
+        T hT P hP m (hm m hmE) r hr hfibre Ceta hCeta d' e' hd' he' g
+      change (∑ u ∈ T, μ u*‖d' u*(∑ v ∈ T, ks m u v*(μ v : ℂ)*e' v*g v)‖^2) ≤
+        (A*r)^2*(∑ v ∈ T, μ v*‖g v‖^2) at hbound
+      have hrow (u : (ℤ × ℤ) × (Fin K → ℕ)) :
+          (∑ v ∈ T, k m u v*(μ v : ℂ)*g v) =
+            d' u*(∑ v ∈ T, ks m u v*(μ v : ℂ)*e' v*g v) := by
+        rw [Finset.mul_sum]
+        exact Finset.sum_congr rfl (fun v hv => by dsimp only [k]; ring)
+      simp_rw [hrow]
+      exact hbound
+    have hmult (u v : (ℤ × ℤ) × (Fin K → ℕ)) :
+        d u*geo u v*e v = d' u*base u v*e' v := by
+      dsimp only [geo, d', e', base, t]
+      rw [geometric_multiplier_minor_formula]
+      ring
+    have hcombined (m : ℤ) (u v : (ℤ × ℤ) × (Fin K → ℕ)) :
+        k m u v = if lines u v ∧ cell v-cell u = m then d u*geo u v*e v else 0 := by
+      dsimp only [k, ks]
+      by_cases h : lines u v ∧ cell v-cell u = m
+      · simp only [if_pos h]
+        exact (hmult u v).symm
+      · simp only [if_neg h, mul_zero, zero_mul]
+    have hkernel (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T)
+        (v : (ℤ × ℤ) × (Fin K → ℕ)) (hv : v ∈ T) :
+        (∑ m ∈ E, k m u v) = d u*pad u v*e v := by
+      rw [Finset.sum_congr rfl (fun m hm => hcombined m u v)]
+      have hsup (hdiv : (D : ℤ) ∣ det2 u.1 v.1) (hg : geo u v ≠ 0) :
+          lines u v ∧ |((cell v-cell u : ℤ) : ℝ)| ≤ Ccell :=
+        hsupport S w u.1 v.1 D (tupleProduct v.2) (tupleProduct u.2) hU hw
+          (hT u hu).2.2.1 (hT v hv).2.2.1 hYpos hd₀ (hT u hu).2.2.2 (hT v hv).2.2.2
+          ⟨hDlow, hDhi, hdiv⟩ hg
+      by_cases hline : lines u v
+      · have hdiv := projective_line_pad_dvd D hDsq u.1 v.1 hline
+        dsimp only [pad]
+        rw [if_pos hdiv]
+        by_cases hg : geo u v = 0
+        · simp only [hg, mul_zero, zero_mul, ite_self, Finset.sum_const_zero]
+        · have hcell := (hsup hdiv hg).2.trans hCM
+          have hmem : cell v-cell u ∈ E := by
+            apply Finset.mem_Icc.mpr
+            obtain ⟨hlo, hhi⟩ := abs_le.mp hcell
+            constructor
+            · exact_mod_cast hlo
+            · exact_mod_cast hhi
+          simp [hline, hmem, eq_comm]
+      · have hzero : d u*pad u v*e v = 0 := by
+          dsimp only [pad]
+          by_cases hdiv : (D : ℤ) ∣ det2 u.1 v.1
+          · rw [if_pos hdiv]
+            have hg : geo u v = 0 := by
+              by_contra hne
+              exact hline (hsup hdiv hne).1
+            rw [hg, mul_zero, zero_mul]
+          · rw [if_neg hdiv, mul_zero, zero_mul]
+        simp only [hline, false_and, if_false, Finset.sum_const_zero, hzero]
+    have hsum := finite_weighted_kernel_sum_bound T E μ hmass k (A*r) hk f
+    have hout :
+        (∑ u ∈ T, μ u*‖∑ v ∈ T, (∑ m ∈ E, k m u v)*(μ v : ℂ)*f v‖^2) =
+          (∑ u ∈ T, μ u*‖d u*(∑ v ∈ T, pad u v*(μ v : ℂ)*e v*f v)‖^2) := by
+      apply Finset.sum_congr rfl
+      intro u hu
+      apply congrArg (fun a : ℂ => μ u*‖a‖^2)
+      rw [Finset.mul_sum]
+      exact Finset.sum_congr rfl (fun v hv => by rw [hkernel u hu v hv]; ring)
+    rw [hout] at hsum
+    have hconst : (E.card : ℝ)*(A*r) ≤ C*r := by
+      have hCA : (E.card : ℝ)*A ≤ C := by dsimp only [C]; linarith only
+      simpa only [mul_assoc] using mul_le_mul_of_nonneg_right hCA hr
+    have hsquare : ((E.card : ℝ)*(A*r))^2 ≤ (C*r)^2 := by
+      simpa only [pow_two] using mul_le_mul hconst hconst (by positivity)
+        (mul_nonneg hC.le hr)
+    exact hsum.trans (mul_le_mul_of_nonneg_right hsquare
+      (Finset.sum_nonneg (fun v hv => mul_nonneg (hmass v hv) (sq_nonneg _))))
+  · have hempty : T = ∅ := Finset.not_nonempty_iff_eq_empty.mp hTne
+    simp only [hempty, Finset.sum_empty, mul_zero, le_refl]
 
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
