@@ -13688,6 +13688,109 @@ private theorem rf_pairing_grouped_integral_norm_summable
         ∫ y, ‖onUnits (rf_pairing_grouped_fourier_term R r p) y‖ ∂m) ∘ eP) := hsJG
     exact (eP.summable_iff).1 hsComp
 
+private theorem rf_pairing_grouped_pointwise
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (y : S.FSˣ) :
+    Summable (fun p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S =>
+      rf_pairing_grouped_fourier_term R r p y) ∧
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r true false y =
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r true true y +
+          ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+            rf_pairing_grouped_fourier_term R r p y := by
+  classical
+  let u := rowClass R r
+  let α : ℂ := bCut (Bd := Bd) y * (Lvalue R u y)⁻¹
+  let g : Fˣ → ℂ := fun ν => α *
+    sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ * rotated R u (S.diagU ν / y)
+  let Fterm : Fˣ → ℂ := fun ν =>
+    ∑ᶠ d : Digits R r, digitAlpha R r d *
+      R.T.W (R.chars.L u)
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let src : Fˣ → ℂ := fun ν =>
+    (∑ᶠ f : AF, rf_pairing_active_coefficient R r f.1 ν) * g ν
+  let component : AF → Fˣ → ℂ := fun f ν =>
+    rf_pairing_active_coefficient R r f.1 ν * g ν
+  let K : AF → Type := fun f =>
+    {t : FrozenIndex R r.h // t.f = f.1} × S.SqfExtIdeal × Gamma S
+  let fiberTerm (f : AF) (p : K f) : ℂ :=
+    rf_pairing_grouped_fourier_term R r (p.1.1, p.2.1, p.2.2) y
+  let reindexTerm (f : AF) (p : K f) : ℂ :=
+    if IsCoprime (p.2.1.1 * p.1.1.n.1) (r.d.1 * f.1.1) then
+      groupedExterior R p.1.1 r.d (frozenFrequency R p.1.1 r.d p.2.1) *
+        g ((p.2.2.1 : Fˣ) * frozenFrequency R p.1.1 r.d p.2.1) else 0
+  have hFourier := rf_pairing_minus_fourier R r y
+  change Summable Fterm ∧
+    digitSum R r true false y = digitSum R r true true y + ∑' ν, Fterm ν at hFourier
+  have hSourcePoint (ν : Fˣ) : α * Fterm ν = src ν := by
+    dsimp only [Fterm, src, u]
+    rw [rf_pairing_digit_active_partition R r ν y]
+    dsimp only [g, u]
+    ring
+  have hSource : Summable src := (hFourier.1.mul_left α).congr hSourcePoint
+  have hComponent (f : AF) : Summable (component f) :=
+    rf_pairing_active_component_summable R r f.1 f.property g hSource
+  have hTermEq (f : AF) (p : K f) : reindexTerm f p = fiberTerm f p := by
+    dsimp only [reindexTerm, fiberTerm, rf_pairing_grouped_fourier_term, g, α, u]
+    rw [p.1.property]
+  have hReindex (f : AF) : Summable (fiberTerm f) ∧
+      (∑' ν, component f ν) = ∑' p : K f, fiberTerm f p := by
+    have h := rf_pairing_frequency_reindex R r f.1 f.property g (hComponent f)
+    change Summable (reindexTerm f) ∧
+      (∑' ν, component f ν) = ∑' p : K f, reindexTerm f p at h
+    exact ⟨h.1.congr (hTermEq f), h.2.trans (tsum_congr (hTermEq f))⟩
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let I := Σ f : AF, K f
+  let termI (p : I) : ℂ := fiberTerm p.1 p.2
+  let e : P ≃ I := {
+    toFun := fun p =>
+      ⟨⟨p.1.f, p.1.active⟩, (⟨p.1, rfl⟩, p.2.1, p.2.2)⟩
+    invFun := fun p => (p.2.1.1, p.2.2.1, p.2.2.2)
+    left_inv := by
+      intro p
+      rcases p with ⟨t, c, γ⟩
+      rfl
+    right_inv := by
+      intro p
+      rcases p with ⟨⟨f, hf⟩, ⟨⟨t, ht⟩, c, γ⟩⟩
+      cases ht
+      rfl }
+  have hsINorm : Summable (fun p : I => ‖termI p‖) :=
+    (summable_sigma_of_nonneg (fun p : I => norm_nonneg (termI p))).2
+      ⟨fun f => (hReindex f).1.norm, Summable.of_finite⟩
+  have hsI : Summable termI := Summable.of_norm hsINorm
+  have hsP : Summable (fun p : P => rf_pairing_grouped_fourier_term R r p y) :=
+    (e.summable_iff).2 hsI
+  have hFullSum : (∑' p : P, rf_pairing_grouped_fourier_term R r p y) =
+      ∑ f : AF, ∑' p : K f, fiberTerm f p := by
+    calc
+      _ = ∑' p : I, termI p := e.tsum_eq termI
+      _ = ∑' f : AF, ∑' p : K f, fiberTerm f p := hsI.tsum_sigma
+      _ = _ := tsum_fintype _
+  have hSourceAt (ν : Fˣ) : src ν = ∑ f : AF, component f ν := by
+    dsimp only [src, component]
+    rw [finsum_eq_sum_of_fintype, Finset.sum_mul]
+  have hSourceSum : (∑' ν, src ν) = ∑ f : AF, ∑' ν, component f ν := by
+    calc
+      _ = ∑' ν, ∑ f : AF, component f ν := tsum_congr hSourceAt
+      _ = _ := Summable.tsum_finsetSum (fun f _ => hComponent f)
+  have hSums : (∑' ν, src ν) = ∑' p : P, rf_pairing_grouped_fourier_term R r p y := by
+    rw [hSourceSum, hFullSum]
+    apply Finset.sum_congr rfl
+    intro f hf
+    exact (hReindex f).2
+  have hWeighted : α * (∑' ν, Fterm ν) = ∑' ν, src ν := by
+    rw [← hFourier.1.tsum_mul_left α]
+    exact tsum_congr hSourcePoint
+  change Summable (fun p : P => rf_pairing_grouped_fourier_term R r p y) ∧
+    α * digitSum R r true false y =
+      α * digitSum R r true true y + ∑' p : P, rf_pairing_grouped_fourier_term R r p y
+  refine ⟨hsP, ?_⟩
+  rw [hFourier.2, mul_add, hWeighted, hSums]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
