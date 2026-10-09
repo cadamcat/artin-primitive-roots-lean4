@@ -1038,4 +1038,144 @@ theorem density_rescale (γ w c : ℝ) (hc : 0 < c) :
   simp_rw [densityTerm_rescale γ w c hc]
   rw [tsum_mul_left]
 
+/-- `log · / L` is Lipschitz on `[M, 2M]` with constant `1 / (L * M)`. -/
+theorem log_div_log_lipschitz (L M : ℝ) (hL : 0 < L) (hM : 0 < M) (y₁ y₂ : ℝ)
+    (h1 : M ≤ y₁) (h2 : y₁ ≤ 2 * M) (h3 : M ≤ y₂) (h4 : y₂ ≤ 2 * M) :
+    |Real.log y₁ / L - Real.log y₂ / L| ≤ (1 / (L * M)) * |y₁ - y₂| := by
+  have hLne : L ≠ 0 := ne_of_gt hL
+  have hderiv : ∀ x ∈ Set.Icc M (2 * M),
+      DifferentiableAt ℝ (fun z : ℝ => Real.log z / L) x := by
+    intro x hx
+    have hxpos : 0 < x := lt_of_lt_of_le hM (Set.mem_Icc.mp hx).1
+    exact ((Real.hasDerivAt_log hxpos.ne').div_const L).differentiableAt
+  have hbound : ∀ x ∈ Set.Icc M (2 * M),
+      ‖deriv (fun z : ℝ => Real.log z / L) x‖ ≤ 1 / (L * M) := by
+    intro x hx
+    have hxpos : 0 < x := lt_of_lt_of_le hM (Set.mem_Icc.mp hx).1
+    have hxM : M ≤ x := (Set.mem_Icc.mp hx).1
+    have hxne : x ≠ 0 := ne_of_gt hxpos
+    rw [((Real.hasDerivAt_log hxne).div_const L).deriv]
+    have heq : x⁻¹ / L = 1 / (L * x) := by
+      rw [div_eq_mul_inv, one_div, mul_inv]
+      exact mul_comm _ _
+    rw [Real.norm_eq_abs, heq]
+    have hLM : 0 < L * M := mul_pos hL hM
+    have hLx : L * M ≤ L * x := mul_le_mul_of_nonneg_left hxM hL.le
+    calc |1 / (L * x)| = 1 / (L * x) := abs_of_nonneg (by positivity)
+      _ ≤ 1 / (L * M) := div_le_div_of_nonneg_left zero_le_one hLM hLx
+  have hconv : Convex ℝ (Set.Icc M (2 * M)) := convex_Icc M (2 * M)
+  have hmem1 : y₁ ∈ Set.Icc M (2 * M) := Set.mem_Icc.mpr ⟨h1, h2⟩
+  have hmem2 : y₂ ∈ Set.Icc M (2 * M) := Set.mem_Icc.mpr ⟨h3, h4⟩
+  have h := Convex.norm_image_sub_le_of_norm_deriv_le hderiv hbound hconv hmem1 hmem2
+  simpa [Real.norm_eq_abs, norm_sub_rev, abs_sub_comm] using h
+
+/-- Postcomposing `log · / L` with a Lipschitz density keeps an explicit constant. -/
+theorem density_log_lipschitz (D : ℝ → ℝ) (K_D w₀ w₁ L M : ℝ)
+    (hK : 0 ≤ K_D) (hL : 0 < L) (hM : 0 < M)
+    (hDlip : ∀ s ∈ Set.Icc w₀ w₁, ∀ t ∈ Set.Icc w₀ w₁,
+      |D s - D t| ≤ K_D * |s - t|)
+    (hmem : ∀ y ∈ Set.Icc M (2 * M), Real.log y / L ∈ Set.Icc w₀ w₁)
+    (y₁ y₂ : ℝ) (h1 : M ≤ y₁) (h2 : y₁ ≤ 2 * M) (h3 : M ≤ y₂) (h4 : y₂ ≤ 2 * M) :
+    |D (Real.log y₁ / L) - D (Real.log y₂ / L)| ≤ (K_D / (L * M)) * |y₁ - y₂| := by
+  have hm1 : Real.log y₁ / L ∈ Set.Icc w₀ w₁ :=
+    hmem y₁ (Set.mem_Icc.mpr ⟨h1, h2⟩)
+  have hm2 : Real.log y₂ / L ∈ Set.Icc w₀ w₁ :=
+    hmem y₂ (Set.mem_Icc.mpr ⟨h3, h4⟩)
+  have hD := hDlip _ hm1 _ hm2
+  have hlog := log_div_log_lipschitz L M hL hM y₁ y₂ h1 h2 h3 h4
+  calc |D (Real.log y₁ / L) - D (Real.log y₂ / L)|
+        ≤ K_D * |Real.log y₁ / L - Real.log y₂ / L| := hD
+    _ ≤ K_D * ((1 / (L * M)) * |y₁ - y₂|) :=
+        mul_le_mul_of_nonneg_left hlog hK
+    _ = (K_D / (L * M)) * |y₁ - y₂| := by ring
+
+/-- Norm bound for the density–phase weight `D(log y/L)/(L*V) * phase`. -/
+theorem density_phase_weight_bound (D : ℝ → ℝ) (B_D w₀ w₁ L V M u : ℝ)
+    (hL : 0 < L) (hM : 0 < M) (hV : 0 < V) (hB : 0 ≤ B_D)
+    (hDbound : ∀ w ∈ Set.Icc w₀ w₁, |D w| ≤ B_D)
+    (hmem : ∀ y ∈ Set.Icc M (2 * M), Real.log y / L ∈ Set.Icc w₀ w₁)
+    (y : ℝ) (hy1 : M ≤ y) (hy2 : y ≤ 2 * M) :
+    ‖((D (Real.log y / L) / (L * V) : ℝ) : ℂ) *
+      Complex.exp (Complex.I * u * Real.log y)‖ ≤ B_D / (L * V) := by
+  have hmem' : Real.log y / L ∈ Set.Icc w₀ w₁ :=
+    hmem y (Set.mem_Icc.mpr ⟨hy1, hy2⟩)
+  have hD := hDbound _ hmem'
+  have hLV : 0 < L * V := mul_pos hL hV
+  have hdiv : |D (Real.log y / L) / (L * V)| ≤ B_D / (L * V) := by
+    rw [abs_div, abs_of_pos hLV]
+    exact (div_le_div_iff_of_pos_right hLV).mpr hD
+  calc ‖((D (Real.log y / L) / (L * V) : ℝ) : ℂ) *
+        Complex.exp (Complex.I * u * Real.log y)‖
+      = ‖((D (Real.log y / L) / (L * V) : ℝ) : ℂ)‖ *
+        ‖Complex.exp (Complex.I * u * Real.log y)‖ := norm_mul _ _
+    _ = |D (Real.log y / L) / (L * V)| * 1 := by
+        rw [Complex.norm_real, Real.norm_eq_abs, phase_exp_norm]
+    _ = |D (Real.log y / L) / (L * V)| := mul_one _
+    _ ≤ B_D / (L * V) := hdiv
+
+/-- Lipschitz bound for the density–phase weight, with the guide's constant
+`(K_D/(L*M) + B_D*|u|/M)/(L*V)`. -/
+theorem density_phase_weight_lipschitz (D : ℝ → ℝ) (B_D K_D w₀ w₁ L V M u : ℝ)
+    (hL : 0 < L) (hM : 0 < M) (hV : 0 < V) (hB : 0 ≤ B_D) (hK : 0 ≤ K_D)
+    (hDbound : ∀ w ∈ Set.Icc w₀ w₁, |D w| ≤ B_D)
+    (hDlip : ∀ s ∈ Set.Icc w₀ w₁, ∀ t ∈ Set.Icc w₀ w₁,
+      |D s - D t| ≤ K_D * |s - t|)
+    (hmem : ∀ y ∈ Set.Icc M (2 * M), Real.log y / L ∈ Set.Icc w₀ w₁)
+    (y₁ y₂ : ℝ) (h1 : M ≤ y₁) (h2 : y₁ ≤ 2 * M) (h3 : M ≤ y₂) (h4 : y₂ ≤ 2 * M) :
+    ‖((D (Real.log y₁ / L) / (L * V) : ℝ) : ℂ) *
+        Complex.exp (Complex.I * u * Real.log y₁) -
+      ((D (Real.log y₂ / L) / (L * V) : ℝ) : ℂ) *
+        Complex.exp (Complex.I * u * Real.log y₂)‖ ≤
+      ((K_D / (L * M) + B_D * |u| / M) / (L * V)) * |y₁ - y₂| := by
+  have hLV : 0 < L * V := mul_pos hL hV
+  have hm1 : Real.log y₁ / L ∈ Set.Icc w₀ w₁ :=
+    hmem y₁ (Set.mem_Icc.mpr ⟨h1, h2⟩)
+  have hm2 : Real.log y₂ / L ∈ Set.Icc w₀ w₁ :=
+    hmem y₂ (Set.mem_Icc.mpr ⟨h3, h4⟩)
+  have hD12 : |D (Real.log y₁ / L) - D (Real.log y₂ / L)| ≤
+      (K_D / (L * M)) * |y₁ - y₂| :=
+    density_log_lipschitz D K_D w₀ w₁ L M hK hL hM hDlip hmem y₁ y₂ h1 h2 h3 h4
+  have hP12 : ‖Complex.exp (Complex.I * u * Real.log y₁) -
+      Complex.exp (Complex.I * u * Real.log y₂)‖ ≤ (|u| / M) * |y₁ - y₂| :=
+    phase_exp_lipschitz u M hM y₁ y₂ h1 h2 h3 h4
+  have hB2 : |D (Real.log y₂ / L)| ≤ B_D := hDbound _ hm2
+  have hA12 : |D (Real.log y₁ / L) / (L * V) - D (Real.log y₂ / L) / (L * V)| ≤
+      ((K_D / (L * M)) / (L * V)) * |y₁ - y₂| := by
+    have e : D (Real.log y₁ / L) / (L * V) - D (Real.log y₂ / L) / (L * V) =
+        (D (Real.log y₁ / L) - D (Real.log y₂ / L)) / (L * V) := by ring
+    rw [e, abs_div, abs_of_pos hLV]
+    calc |D (Real.log y₁ / L) - D (Real.log y₂ / L)| / (L * V)
+          ≤ ((K_D / (L * M)) * |y₁ - y₂|) / (L * V) :=
+          (div_le_div_iff_of_pos_right hLV).mpr hD12
+      _ = ((K_D / (L * M)) / (L * V)) * |y₁ - y₂| := by ring
+  have hA2 : |D (Real.log y₂ / L) / (L * V)| ≤ B_D / (L * V) := by
+    rw [abs_div, abs_of_pos hLV]
+    exact (div_le_div_iff_of_pos_right hLV).mpr hB2
+  -- Split the product difference and bound each piece.
+  set a₁ : ℂ := ((D (Real.log y₁ / L) / (L * V) : ℝ) : ℂ) with ha₁
+  set a₂ : ℂ := ((D (Real.log y₂ / L) / (L * V) : ℝ) : ℂ) with ha₂
+  set p₁ : ℂ := Complex.exp (Complex.I * u * Real.log y₁) with hp₁
+  set p₂ : ℂ := Complex.exp (Complex.I * u * Real.log y₂) with hp₂
+  have hsplit : a₁ * p₁ - a₂ * p₂ = (a₁ - a₂) * p₁ + a₂ * (p₁ - p₂) := by ring
+  have hna12 : ‖a₁ - a₂‖ = |D (Real.log y₁ / L) / (L * V) -
+      D (Real.log y₂ / L) / (L * V)| := by
+    rw [ha₁, ha₂, ← Complex.ofReal_sub, Complex.norm_real, Real.norm_eq_abs]
+  have hna2 : ‖a₂‖ = |D (Real.log y₂ / L) / (L * V)| := by
+    rw [ha₂, Complex.norm_real, Real.norm_eq_abs]
+  have hp1 : ‖p₁‖ = 1 := phase_exp_norm u y₁
+  have hA2c : ‖a₂‖ ≤ B_D / (L * V) := by rw [hna2]; exact hA2
+  have hpiece1 : ‖a₁ - a₂‖ * ‖p₁‖ ≤
+      (((K_D / (L * M)) / (L * V)) * |y₁ - y₂|) := by
+    rw [hp1, mul_one, hna12]
+    exact hA12
+  calc ‖a₁ * p₁ - a₂ * p₂‖
+      = ‖(a₁ - a₂) * p₁ + a₂ * (p₁ - p₂)‖ := by rw [hsplit]
+    _ ≤ ‖(a₁ - a₂) * p₁‖ + ‖a₂ * (p₁ - p₂)‖ := norm_add_le _ _
+    _ = ‖a₁ - a₂‖ * ‖p₁‖ + ‖a₂‖ * ‖p₁ - p₂‖ := by
+        rw [norm_mul, norm_mul]
+    _ ≤ ((((K_D / (L * M)) / (L * V)) * |y₁ - y₂|)) +
+        (B_D / (L * V)) * ((|u| / M) * |y₁ - y₂|) :=
+        add_le_add hpiece1 (mul_le_mul hA2c hP12 (norm_nonneg _) (by positivity))
+    _ = ((K_D / (L * M) + B_D * |u| / M) / (L * V)) * |y₁ - y₂| := by ring
+
 end ArtinPrimitiveRoots.Proofs.r_impl_muse
