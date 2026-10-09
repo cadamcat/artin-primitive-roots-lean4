@@ -9429,7 +9429,120 @@ theorem rf_reflected_absolute :
         profileAbs R u (S.absS (S.diagU ν : S.FS) / l) ∧
     profileAbs R u (S.absS (S.diagU ν : S.FS) / l) ≤
       C * (S.absS (S.diagU ν : S.FS) / l) ^ (-σ) := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  intro σ hσ
+  obtain ⟨C, hC, hProfile⟩ := (rf_profile_bound R).2.2 σ hσ
+  refine ⟨C, hC, ?_⟩
+  intro u ν l hl
+  let base : S.FSˣ → ℂ := fun y => (rotatedAbs R u y : ℂ)
+  let a : S.FSˣ := S.diagU ν
+  let pull : S.FSˣ → ℂ := fun y => base (a / y)
+  have hnormν : 0 < S.absS (S.diagU ν : S.FS) :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU ν)
+  have hx : 0 < S.absS (S.diagU ν : S.FS) / l := div_pos hnormν hl
+  have hbaseInt : Integrable (onUnits base)
+      (R.sheets.sheet (S.absS (S.diagU ν : S.FS) / l)) := by
+    exact a2_bridge_ANALYSIS (G := R.sheets) R.T.δ R.T.δ_pos
+      (R.rotated u).J (R.rotated u).ff (R.rotated u).fc
+      (R.rotated u).finite_bound (R.rotated u).complex_bound
+      (S.absS (S.diagU ν : S.FS) / l) hx
+  have hbaseScale : S.absS (a : S.FS) * l⁻¹ =
+      S.absS (S.diagU ν : S.FS) / l := by
+    rw [div_eq_mul_inv]
+  have hbaseInt' : Integrable (onUnits base)
+      (R.sheets.sheet (S.absS (a : S.FS) * l⁻¹)) := by
+    rw [hbaseScale]
+    exact hbaseInt
+  let scaled : S.FSˣ → ℂ := fun y => base (a * y)
+  have htransport := a2_bridge_SHEET_transport (G := R.sheets) l⁻¹
+    (inv_pos.mpr hl) a base hbaseInt'
+  have hinvert := a2_bridge_SHEET_inversion (G := R.sheets) l hl scaled htransport.1
+  have hpullEq : pull = fun y => scaled y⁻¹ := by
+    funext y
+    simp [pull, scaled, a, div_eq_mul_inv]
+  have hpullInt : Integrable (onUnits pull) (R.sheets.sheet l) := by
+    rw [hpullEq]
+    exact hinvert.1
+  have hUnfold := a2_bridge_SHEET_unfold (G := R.sheets) l hl pull hpullInt
+  have hpullIntegral : bridgeSheetIntegral R.sheets l pull =
+      bridgeSheetIntegral R.sheets (S.absS (a : S.FS) * l⁻¹) base := by
+    calc
+      bridgeSheetIntegral R.sheets l pull =
+          bridgeSheetIntegral R.sheets l (fun y => scaled y⁻¹) := by
+        rw [hpullEq]
+      _ = bridgeSheetIntegral R.sheets l⁻¹ scaled := hinvert.2
+      _ = bridgeSheetIntegral R.sheets (S.absS (a : S.FS) * l⁻¹) base :=
+        htransport.2
+  let orbit : Gamma S → ℂ := fun γ =>
+    bridgeOmegaInt R.sheets l
+      (fun y => pull (S.diagU (γ.1 : Fˣ) * y))
+  have hOrbitArg (γ : Gamma S) (y : S.FSˣ) :
+      S.diagU ν / (S.diagU ((γ⁻¹).1 : Fˣ) * y) =
+        S.diagU ((γ.1 : Fˣ) * ν) / y := by
+    have hco : ((γ⁻¹).1 : Fˣ) = (γ.1 : Fˣ)⁻¹ := rfl
+    rw [hco, map_inv, map_mul]
+    simp only [div_eq_mul_inv, mul_inv_rev, inv_inv]
+    ac_rfl
+  have hOrbitFun (γ : Gamma S) :
+      (fun y : S.FSˣ =>
+        (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ)) =
+        fun y => pull (S.diagU ((γ⁻¹).1 : Fˣ) * y) := by
+    funext y
+    change (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ) =
+      (rotatedAbs R u (S.diagU ν /
+        (S.diagU ((γ⁻¹).1 : Fˣ) * y)) : ℂ)
+    rw [hOrbitArg γ y]
+  have hOrbitInt : ∀ γ : Gamma S, IntegrableOn
+      (onUnits (fun y =>
+        (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ)))
+      (omegaAt R l) (R.sheets.sheet l) := by
+    intro γ
+    simpa only [omegaAt, bridgeOmegaAt, ← hOrbitFun γ] using hUnfold.1 (γ⁻¹)
+  have hOrbitInvSummable : Summable (fun γ : Gamma S => orbit γ⁻¹) := by
+    simpa only [Function.comp_def, Equiv.inv_apply] using
+      ((Equiv.inv (Gamma S)).summable_iff).2 hUnfold.2.1
+  have hOrbitTerm (γ : Gamma S) :
+      omegaInt R l (fun y =>
+        (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ)) = orbit γ⁻¹ := by
+    have hco : ((γ⁻¹).1 : Fˣ) = (γ.1 : Fˣ)⁻¹ := rfl
+    dsimp [orbit]
+    simp only [omegaInt, bridgeOmegaInt, omegaAt, bridgeOmegaAt]
+    rw [hOrbitFun γ]
+    rw [hco]
+  have hRealSummable : Summable (fun γ : Gamma S =>
+      (omegaInt R l (fun y =>
+        (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ))).re) := by
+    exact (Complex.reCLM.summable hOrbitInvSummable).congr fun γ =>
+      congrArg Complex.re (hOrbitTerm γ).symm
+  have hIntegralToProfile :
+      (bridgeSheetIntegral R.sheets l pull).re =
+        profileAbs R u (S.absS (S.diagU ν : S.FS) / l) := by
+    calc
+      (bridgeSheetIntegral R.sheets l pull).re =
+          (bridgeSheetIntegral R.sheets (S.absS (a : S.FS) * l⁻¹) base).re :=
+        congrArg Complex.re hpullIntegral
+      _ = profileAbs R u (S.absS (S.diagU ν : S.FS) / l) := by
+        unfold profileAbs sheetIntegral bridgeSheetIntegral
+        rw [hbaseScale]
+  refine ⟨hOrbitInt, hRealSummable, ?_, ?_⟩
+  · calc
+      (∑' γ : Gamma S, (omegaInt R l (fun y =>
+          (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ))).re) =
+          ∑' γ : Gamma S, (orbit γ⁻¹).re := by
+            apply tsum_congr
+            intro γ
+            exact congrArg Complex.re (hOrbitTerm γ)
+      _ = (∑' γ : Gamma S, orbit γ⁻¹).re :=
+        (Complex.re_tsum hOrbitInvSummable).symm
+      _ = (∑' γ : Gamma S, orbit γ).re := by
+        exact congrArg Complex.re ((Equiv.inv (Gamma S)).tsum_eq orbit)
+      _ = (bridgeSheetIntegral R.sheets l pull).re :=
+        congrArg Complex.re hUnfold.2.2
+      _ = profileAbs R u (S.absS (S.diagU ν : S.FS) / l) := hIntegralToProfile
+  · exact hProfile u (S.absS (S.diagU ν : S.FS) / l) hx
 /-- rf:exterior-factorization, 04:708–802: independently computed local product equals separation. -/
 private theorem rf_trace_eq_pair_sum_re [IsTotallyComplex F] (z : F) :
     (Algebra.trace ℚ F z : ℂ) =
