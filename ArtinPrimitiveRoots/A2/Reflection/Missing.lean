@@ -13791,6 +13791,83 @@ private theorem rf_pairing_grouped_pointwise
   refine ⟨hsP, ?_⟩
   rw [hFourier.2, mul_add, hWeighted, hSums]
 
+private theorem rf_pairing_grouped_sheet_exchange
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    IntegrableOn (onUnits (fun y =>
+      ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+        rf_pairing_grouped_fourier_term R r p y))
+      (omegaAt R l) (R.sheets.sheet l) ∧
+      (∫ y in omegaAt R l, onUnits (fun y =>
+        ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+          rf_pairing_grouped_fourier_term R r p y) y ∂(R.sheets.sheet l)) =
+        ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+          ∫ y in omegaAt R l,
+            onUnits (rf_pairing_grouped_fourier_term R r p) y ∂(R.sheets.sheet l) := by
+  classical
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable (𝓞 F) := inferInstance
+  have hspan : Function.Surjective
+      (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+    intro I
+    exact Ideal.fg_of_isNoetherianRing I
+  letI : Countable (Ideal (𝓞 F)) := hspan.countable
+  letI : Countable S.ExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+  letI : Countable S.SqfExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  let i : FrozenIndex R r.h → S.ExtIdeal × S.ExtIdeal × S.ExtIdeal × UnitSix S :=
+    fun t => (t.f, t.a, t.n, t.u)
+  have hi : Function.Injective i := by
+    intro t s h
+    have hf : t.f = s.f := congrArg (fun p => p.1) h
+    have ha : t.a = s.a := congrArg (fun p => p.2.1) h
+    have hn : t.n = s.n := congrArg (fun p => p.2.2.1) h
+    have hu : t.u = s.u := congrArg (fun p => p.2.2.2) h
+    rcases t with ⟨tf, ta, tn, tu, tactive, tnum, tcop⟩
+    rcases s with ⟨sf, sa, sn, su, sactive, snum, scop⟩
+    dsimp only at hf ha hn hu
+    cases hf
+    cases ha
+    cases hn
+    cases hu
+    rfl
+  letI : Countable (FrozenIndex R r.h) := hi.countable
+  letI : Countable (Gamma S) :=
+    (a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl).2.2
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let term (p : P) : S.FS → ℂ := onUnits (rf_pairing_grouped_fourier_term R r p)
+  have hBase := rf_pairing_grouped_integral_norm_summable R r l hl
+  change (∀ p : P, Integrable (term p) m) ∧
+    Summable (fun p : P => ∫ y, ‖term p y‖ ∂m) at hBase
+  have hPoint : ∀ᵐ y ∂m, Summable (fun p : P => ‖term p y‖) := by
+    apply Filter.Eventually.of_forall
+    intro y
+    by_cases hy : IsUnit y
+    · simpa only [term, onUnits, dif_pos hy] using
+        (rf_pairing_grouped_pointwise R r hy.unit).1.norm
+    · simp only [term, onUnits, dif_neg hy, norm_zero]
+      exact summable_zero
+  have hNorm := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.norm_series_integrable_of_integral_norm
+    m term hBase.1 hPoint hBase.2
+  have hExchange := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_tsum_of_norm_sum
+    m term (fun p => (hBase.1 p).1) hPoint hNorm
+  have hEq : onUnits (fun y => ∑' p : P, rf_pairing_grouped_fourier_term R r p y) =
+      fun y => ∑' p : P, term p y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, term]
+    · simp [onUnits, hy, term]
+  change Integrable (onUnits (fun y =>
+    ∑' p : P, rf_pairing_grouped_fourier_term R r p y)) m ∧
+      (∫ y, onUnits (fun y =>
+        ∑' p : P, rf_pairing_grouped_fourier_term R r p y) y ∂m) =
+          ∑' p : P, ∫ y, term p y ∂m
+  rw [hEq]
+  exact hExchange
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
