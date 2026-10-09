@@ -64,6 +64,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CirclePacking
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CircleShell
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CircleInverseSum
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CircleHarmonic
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SeparatedGeometric
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
