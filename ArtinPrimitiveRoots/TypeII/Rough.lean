@@ -8,6 +8,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.LowFrequency
 import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.WiderWindow
 import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.LowFrequencyAssembly
 import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.CountAdapters
+import ArtinPrimitiveRoots.TypeII.Proofs.R_LOW.ReciprocalMass
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.FamilyUniformization
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.FrequencyGrowth
 import ArtinPrimitiveRoots.TypeII.Proofs.R_TYPEII.IntervalEndpoints
