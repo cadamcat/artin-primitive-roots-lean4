@@ -1774,6 +1774,112 @@ private theorem po_probe_low_additive_row_bound :
       change C0 / Y ≤ (C0 + 1) / Y
       exact div_le_div_of_nonneg_right (by linarith) hYpos.le
 
+private theorem po_probe_low_reflection_rows (K : Set S.FSˣ) (hK : IsCompact K) :
+    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ t : S.FSˣ,
+        (t : S.FS) ∈ omegaAt R 1 → ∀ P : Finset S.R,
+        (∀ m ∈ P, ∃ y ∈ K, S.diag (m : F) =
+          S.ell D (Z ^ M0) (Real.rpow_pos_of_pos (by linarith) M0) *
+            ((t * y : S.FSˣ) : S.FS)) →
+        (∑ m ∈ P, ‖Bm D S A ϑ (cgen R) (m : F) Z‖ ^ 2) ≤
+          C * Z ^ (2 * M0 - 1 + ε) := by
+  have hTproducer : ∃ T : Set S.FSˣ, IsCompact T ∧
+      (∀ t ∈ T, S.absS (t : S.FS) = 1) ∧
+      (∀ t : S.FSˣ, (t : S.FS) ∈ omegaAt R 1 → t ∈ T) := by
+    obtain ⟨KO, hKO, hOmega⟩ := R.sheets.omega_bounded
+    let K1 : Set S.FS := KO ∩ {y | S.absS y = 1}
+    have hK1 : IsCompact K1 :=
+      hKO.inter_right (isClosed_singleton.preimage (po_absS_continuous S))
+    have hK1unit (x : S.FS) (hx : x ∈ K1) : IsUnit x :=
+      po_absS_one_isUnit S x hx.2
+    let X := {x : S.FS // x ∈ K1}
+    let lift : X → S.FSˣ := fun x => (hK1unit x.1 x.2).unit
+    have hval (x : X) : (lift x : S.FS) = x.1 := (hK1unit x.1 x.2).unit_spec
+    have hvalCont : Continuous (fun x : X => (lift x : S.FS)) :=
+      continuous_subtype_val.congr fun x => (hval x).symm
+    have hlift : Continuous lift := by
+      apply Units.continuous_iff.mpr
+      refine ⟨hvalCont, ?_⟩
+      have hfin (v : S.Sf) :
+          Continuous (fun x : X => (Ring.inverse (lift x : S.FS)).1 v) := by
+        have hcoord := (continuous_apply v).comp (continuous_fst.comp hvalCont)
+        have hnz (x : X) : (lift x : S.FS).1 v ≠ 0 :=
+          (Pi.isUnit_iff.mp (Prod.isUnit_iff.mp (lift x).isUnit).1 v).ne_zero
+        apply (hcoord.inv₀ hnz).congr
+        intro x
+        simp [Ring.inverse, (lift x).isUnit]
+      have harch (w : InfinitePlace F) :
+          Continuous (fun x : X => (Ring.inverse (lift x : S.FS)).2 w) := by
+        have hcoord := (continuous_apply w).comp (continuous_snd.comp hvalCont)
+        have hnz (x : X) : (lift x : S.FS).2 w ≠ 0 :=
+          (Pi.isUnit_iff.mp (Prod.isUnit_iff.mp (lift x).isUnit).2 w).ne_zero
+        apply (hcoord.inv₀ hnz).congr
+        intro x
+        simp [Ring.inverse, (lift x).isUnit]
+      have hi : Continuous (fun x : X => Ring.inverse (lift x : S.FS)) :=
+        (continuous_pi hfin).prodMk (continuous_pi harch)
+      exact hi.congr fun x => Ring.inverse_unit (lift x)
+    let T : Set S.FSˣ := (fun x : X => R.sheets.ellU 1 * lift x) '' Set.univ
+    have hT : IsCompact T :=
+      (isCompact_iff_isCompact_univ.mp hK1).image (continuous_const.mul hlift)
+    refine ⟨T, hT, ?_, ?_⟩
+    · rintro t ⟨x, hx, rfl⟩
+      rw [Units.val_mul, (a2_bridge_NORM D S).2.1,
+        R.sheets.ellU_norm 1 one_pos, hval x, x.property.2, one_mul]
+    · intro t ht
+      obtain ⟨x, hx, htx⟩ := ht
+      have hxK1 : x ∈ K1 := ⟨hOmega hx, (R.sheets.omega_norm x hx).2⟩
+      refine ⟨⟨x, hxK1⟩, Set.mem_univ _, ?_⟩
+      apply Units.ext
+      rw [Units.val_mul, hval]
+      exact htx.symm
+  obtain ⟨T, hT, hTnorm, hOmegaT⟩ := hTproducer
+  intro ε hε
+  obtain ⟨C, hC, hmoment⟩ := rf_reflection_assembly R K T hK hT hTnorm ε hε
+  refine ⟨C, hC, ?_⟩
+  intro Z hZ t ht P hP
+  have hmne (m : S.R) (hm : m ∈ P) : m ≠ 0 := by
+    obtain ⟨y, hy, hshape⟩ := hP m hm
+    have hN : 0 < Z ^ M0 := Real.rpow_pos_of_pos (by linarith) _
+    have hunit : IsUnit (S.diag (m : F)) := by
+      rw [hshape, ← R.sheets.ellU_val _ hN]
+      exact (R.sheets.ellU _).isUnit.mul (t * y).isUnit
+    intro hz
+    have hbad : IsUnit (0 : S.FS) := by simpa [hz] using hunit
+    exact not_isUnit_zero hbad
+  let row : {m : S.R // m ∈ P} → ReflectionRow S := fun m =>
+    Classical.choose (ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_reflection_row_lift
+      S m.1 (hmne m.1 m.2))
+  have hrow (m : {m : S.R // m ∈ P}) : (row m).m = m.1 :=
+    Classical.choose_spec (ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_reflection_row_lift
+      S m.1 (hmne m.1 m.2))
+  have hrowInj : Function.Injective row := by
+    intro m n hmn
+    apply Subtype.ext
+    simpa only [hrow] using congrArg ReflectionRow.m hmn
+  let rows : Finset (ReflectionRow S) := P.attach.image row
+  have hinj : Set.InjOn (fun r : ReflectionRow S => (r.m : F))
+      (↑rows : Set (ReflectionRow S)) := by
+    intro r hr s hs hrs
+    obtain ⟨m, hm, rfl⟩ := Finset.mem_image.mp hr
+    obtain ⟨n, hn, rfl⟩ := Finset.mem_image.mp hs
+    apply congrArg row
+    apply Subtype.ext
+    apply Subtype.ext
+    simpa only [hrow] using hrs
+  have hbox : ∀ r ∈ rows, InReflectionBox D S K t Z (by linarith) r := by
+    intro r hr
+    obtain ⟨m, hm, rfl⟩ := Finset.mem_image.mp hr
+    simpa only [InReflectionBox, hrow, Real.rpow_eq_pow] using hP m.1 m.2
+  have hsum : (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) =
+      ∑ m ∈ P, ‖Bm D S A ϑ (cgen R) (m : F) Z‖ ^ 2 := by
+    dsimp only [rows]
+    rw [Finset.sum_image (fun m hm n hn hmn => hrowInj hmn)]
+    simp only [hrow]
+    exact Finset.sum_attach P (fun m : S.R => ‖Bm D S A ϑ (cgen R) (m : F) Z‖ ^ 2)
+  rw [← hsum]
+  exact hmoment Z hZ t (hOmegaT t ht) rows hinj hbox
+
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
     (hSplit : GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η) :
