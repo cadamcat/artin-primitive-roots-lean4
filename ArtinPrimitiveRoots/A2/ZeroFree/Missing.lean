@@ -5640,6 +5640,39 @@ private theorem rows_sol_principal_initial_shift (hEuler : EulerHypotheses R η)
     (rows_principal_initial_rowContribution_eq R sd W η U HA HC hEuler Z).trans
       (hShiftXi.trans hShiftZ)
 
+private theorem rows_sol_principalRw_integrable
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 2 ≤ Z)
+    (σξ : ℝ) (hξlo : 1 + δ1 ≤ σξ) (hξhi : σξ ≤ 4) :
+    Integrable (fun p : ℝ × (ℝ × ℝ) =>
+      rowKernel R sd W η U HA HC U.one Z
+        (σξ + p.1 * Complex.I) ((95 / 100 : ℝ) + p.2.1 * Complex.I)
+          ((1 / 6 + δ1 : ℝ) + p.2.2 * Complex.I))
+      (volume.prod (volume.prod volume)) := by
+  obtain ⟨AF, Aconv, C0, Cconv, hAF, hAconv, hC0, hCconv, hconv, hbound⟩ :=
+    rows_principal_kernel_control R sd W η U HA HC hEuler
+  have hmajor := rows_small_real_majorant_integrable Aconv Cconv hAconv hCconv hconv
+  let M : ℝ := C0 * Z ^ Estar σξ (95 / 100) (1 / 6 + δ1)
+  let f : ℝ × (ℝ × ℝ) → ℂ := fun p =>
+    rowKernel R sd W η U HA HC U.one Z
+      (σξ + p.1 * Complex.I) ((95 / 100 : ℝ) + p.2.1 * Complex.I)
+        ((1 / 6 + δ1 : ℝ) + p.2.2 * Complex.I)
+  have hfcont : Continuous f := rows_sol_principal_line_continuous
+    R sd W η U HA HC hEuler Z (by linarith) σξ (95 / 100) (1 / 6 + δ1) hξlo
+      le_rfl (by norm_num [δ1]) (by norm_num) (by norm_num [δ1])
+  have hpoint (p : ℝ × (ℝ × ℝ)) : ‖f p‖ ≤ M *
+      (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+        (1 + |p.2.1|) ^ (-2 : ℝ)) := by
+    have hkernel := hbound Z hZ (σξ + p.1 * Complex.I)
+      ((95 / 100 : ℝ) + p.2.1 * Complex.I)
+        ((1 / 6 + δ1 : ℝ) + p.2.2 * Complex.I)
+      (by simpa using hξlo) (by simpa using hξhi) (by simp) (by simp)
+    simpa [f, M, mul_assoc] using hkernel
+  have hdom : Integrable (fun p : ℝ × (ℝ × ℝ) => M *
+      (Real.exp (-((p.1 + p.2.2) ^ 2)) * (1 + |p.2.2|) ^ (-Aconv) *
+        (1 + |p.2.1|) ^ (-2 : ℝ))) (volume.prod (volume.prod volume)) := by
+    simpa only [smul_eq_mul] using hmajor.const_mul M
+  exact hdom.mono' hfcont.aestronglyMeasurable (ae_of_all _ hpoint)
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
