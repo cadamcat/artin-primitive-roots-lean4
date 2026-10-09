@@ -662,6 +662,41 @@ theorem thetaWhit_ne_zero {P : CoverPackage D S H A} {G : GlobalDatum P}
     (fun t g => hn (Multiplicative.toAdd t) g)
     (fun t g => hnbar (Multiplicative.toAdd t) g) g)
 
+/-- Normalized exceptional sections give a nonzero constant torus coefficient. -/
+theorem normalized_family_constantCoeff_ne_zero {P : CoverPackage D S H A}
+    {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
+    (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
+    (hT : Fam.T0 = S.Sf)
+    (h1 : ∀ v ∈ S.Sf,
+      G.lam v (intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) 1) = 1)
+    (hzero : ∀ v ∈ S.Sf, ∀ y : (v.adicCompletion F)ˣ, y ∉ G.Alag v →
+      G.lam v ((G.T v).σa y
+        (intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) 1)) = 0) :
+    ∃ Pd : Set (InfinitePlace F → ℂ), torusCoeff P C.theta 1 Pd 0 ≠ 0 := by
+  obtain ⟨𝔞, Pd, hdom, _⟩ := theta_adapted_domain_exists Fam.fourierHyp 1
+  refine ⟨Pd, ?_⟩
+  rw [theta_constantTerm Fam C 1 𝔞 hdom.1 hdom.2.1 Pd hdom.2.2.1 hdom.2.2.2.1]
+  have hM : fourierRawM μ Fam.sec (1 / 6) =
+      scalarOf P G (famM Fam) (fun _ => intertwineC (sphC (1 / 6))) := by
+    funext h
+    unfold fourierRawM
+    congr 1
+    · funext v
+      unfold famM
+      simp only [Fam.T0_eq]
+    · funext w
+      rw [Fam.fC_sph]
+  have hsum := normalized_intertwined_torus_sum_ne_zero G μ Fam hT h1 hzero
+  have hd : (NumberField.discr F : ℝ) ≠ 0 := by
+    exact_mod_cast NumberField.discr_ne_zero F
+  have hkpos : 0 < κF F := by
+    exact mul_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)
+      (Real.sqrt_pos.2 (abs_pos.2 hd))
+  have hk : (((κF F)⁻¹ : ℝ) : ℂ) ≠ 0 := by
+    exact_mod_cast inv_ne_zero (ne_of_gt hkpos)
+  apply mul_ne_zero (mul_ne_zero hk (resCprod_ne_zero Fam.T0))
+  simpa only [hM, mul_one] using hsum
+
 /-- **res:theta-exists**: big-cell sections at `S_f` and spherical sections elsewhere give `θ ≠ 0`.
 C6 of `sol-gate-theta` requires the cube-containing Lagrangian global datum. -/
 theorem exists_theta_ne_zero (P : CoverPackage D S H A) (G : GlobalDatum P)
