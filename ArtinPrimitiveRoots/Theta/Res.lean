@@ -625,6 +625,73 @@ theorem family_pair_common_local_level {P : CoverPackage D S H A} {G : GlobalDat
     exact hlevel₂ s g k
       ((P.loc v).Kc_anti m₂ (max m₁ m₂) hm₂ (Nat.le_max_right _ _) hk)
 
+/-- Common local levels give uniform scalar invariance under one finite adelic level. -/
+theorem family_pair_common_level_set {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (hT : Fam.T0 = Fam'.T0) (hsub : S.Sf ⊆ Fam.T0) :
+    ∃ m : FinPlace F → ℕ, (∀ v ∈ Fam.T0, (P.loc v).m0 ≤ m v) ∧
+      (∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+        scalarOf P G (Fam.sec s).f (Fam.sec s).fC (g * k) =
+          scalarOf P G (Fam.sec s).f (Fam.sec s).fC g) ∧
+      (∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+        scalarOf P G (Fam'.sec s).f (Fam'.sec s).fC (g * k) =
+          scalarOf P G (Fam'.sec s).f (Fam'.sec s).fC g) := by
+  classical
+  have hpair := family_pair_common_local_level Fam Fam' hT
+  let m : FinPlace F → ℕ := fun v =>
+    if hv : v ∈ Fam.T0 then Classical.choose (hpair v hv) else (P.loc v).m0
+  have hm : ∀ v ∈ Fam.T0, (P.loc v).m0 ≤ m v := by
+    intro v hv
+    simpa only [m, dite_eq_left hv] using (Classical.choose_spec (hpair v hv)).1
+  have hboth (v : FinPlace F) (hv : v ∈ Fam.T0) (s : ℂ) (g k : (P.loc v).L)
+      (hk : k ∈ (P.loc v).Kc (m v)) :
+      (Fam.sec s).f v (g * k) = (Fam.sec s).f v g ∧
+        (Fam'.sec s).f v (g * k) = (Fam'.sec s).f v g := by
+    have hk' : k ∈ (P.loc v).Kc (Classical.choose (hpair v hv)) := by
+      simpa only [m, dite_eq_left hv] using hk
+    exact ⟨(Classical.choose_spec (hpair v hv)).2.1 s g k hk',
+      (Classical.choose_spec (hpair v hv)).2.2 s g k hk'⟩
+  have hlevel (R : AnalyticFamily P G μ) (hRT : R.T0 = Fam.T0)
+      (hRlocal : ∀ v ∈ Fam.T0, ∀ s g, ∀ k ∈ (P.loc v).Kc (m v),
+        (R.sec s).f v (g * k) = (R.sec s).f v g) :
+      ∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+        scalarOf P G (R.sec s).f (R.sec s).fC (g * k) =
+          scalarOf P G (R.sec s).f (R.sec s).fC g := by
+    intro s g k hk
+    rcases hk with ⟨xk, hqk, hc, hf, ho⟩
+    obtain ⟨xg, hqg⟩ := P.q_surj g
+    have hlocal : ∀ v,
+        G.lam v ((R.sec s).f v (P.compF v (xg * xk))) =
+          G.lam v ((R.sec s).f v (P.compF v xg)) := by
+      intro v
+      rw [(P.compF v).map_mul]
+      by_cases hv : v ∈ Fam.T0
+      · exact congrArg (G.lam v)
+          (hRlocal v hv s (P.compF v xg) (P.compF v xk) (hf v hv))
+      · apply congrArg (G.lam v)
+        have hv' : v ∉ (R.sec s).T0 := by rw [R.T0_eq s, hRT]; exact hv
+        exact ((R.sec s).f_sph v hv').2 (P.compF v xg) (P.compF v xk) (ho v hv)
+    calc
+      scalarOf P G (R.sec s).f (R.sec s).fC (g * k) =
+          scalarOf P G (R.sec s).f (R.sec s).fC (P.q (xg * xk)) := by
+            rw [P.q.map_mul, hqg, hqk]
+      _ = (∏ᶠ v, G.lam v ((R.sec s).f v (P.compF v (xg * xk)))) *
+            ∏ w, (R.sec s).fC w (P.compC w (xg * xk)) :=
+          (scalarOf_q P G (R.sec s) (xg * xk)).2
+      _ = (∏ᶠ v, G.lam v ((R.sec s).f v (P.compF v xg))) *
+            ∏ w, (R.sec s).fC w (P.compC w xg) := by
+          congr 1
+          · exact finprod_congr hlocal
+          · apply Finset.prod_congr rfl
+            intro w hw
+            rw [(P.compC w).map_mul, hc w, mul_one]
+      _ = scalarOf P G (R.sec s).f (R.sec s).fC (P.q xg) :=
+          ((scalarOf_q P G (R.sec s) xg).2).symm
+      _ = scalarOf P G (R.sec s).f (R.sec s).fC g := by rw [hqg]
+  exact ⟨m, hm,
+    hlevel Fam rfl (fun v hv s g k hk => (hboth v hv s g k hk).1),
+    hlevel Fam' hT.symm (fun v hv s g k hk => (hboth v hv s g k hk).2)⟩
+
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
 theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
