@@ -2079,8 +2079,7 @@ private theorem ppPrimeMellinContourIntegrand_norm_bound
 private theorem ppPrimeMellinContourIntegrand_analyticOnNhd
     (N : ℝ) (q : ℕ) (hq : 0 < q) (χ : DirichletCharacter ℂ q)
     (t : ℝ) (g : ℝ → ℝ)
-    (hfc : LocallyIntegrableOn (fun w : ℝ => (g w : ℂ)) (Set.Ioi 0))
-    (hgsupport : Function.support g ⊆ Set.Icc (1 / 2 : ℝ) 3)
+    (hKernel : AnalyticOnNhd ℂ (mellinKernel g) Set.univ)
     {S : Set ℂ}
     (hPole : ∀ z ∈ S, 1 - Complex.I * (t : ℂ) + z ≠ 1)
     (hzero : ∀ z ∈ S,
@@ -2116,8 +2115,8 @@ private theorem ppPrimeMellinContourIntegrand_analyticOnNhd
           (1 - Complex.I * (t : ℂ) + w) /
         dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + w)) z := by
     simpa [φ, Function.comp_def] using hLdAt.comp_of_eq hφ hpoint
-  have hKernel : AnalyticAt ℂ (mellinKernel g) z := by
-    exact (ppPrimeMellinKernel_analyticOnNhd hfc hgsupport) z (Set.mem_univ z)
+  have hKernelAt : AnalyticAt ℂ (mellinKernel g) z :=
+    hKernel z (Set.mem_univ z)
   have hExp : AnalyticAt ℂ
       (fun w : ℂ => Complex.exp (w * (Real.log N : ℂ))) z := by
     fun_prop
@@ -2125,7 +2124,7 @@ private theorem ppPrimeMellinContourIntegrand_analyticOnNhd
       (fun w : ℂ => -(mellinKernel g w * Complex.exp (w * (Real.log N : ℂ)) *
         (deriv (dirichletLValue q hq χ) (1 - Complex.I * (t : ℂ) + w) /
           dirichletLValue q hq χ (1 - Complex.I * (t : ℂ) + w)))) z := by
-    exact ((hKernel.mul hExp).mul hLdComp).neg
+    exact ((hKernelAt.mul hExp).mul hLdComp).neg
   change AnalyticAt ℂ
     (fun w : ℂ => -(mellinKernel g w * Complex.exp (w * (Real.log N : ℂ)) *
       (deriv (dirichletLValue q hq χ) (1 - Complex.I * (t : ℂ) + w) /
