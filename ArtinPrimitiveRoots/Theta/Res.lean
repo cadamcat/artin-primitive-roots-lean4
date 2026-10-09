@@ -1106,7 +1106,71 @@ theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
     (hM : ∀ v ∈ Fam.T0, intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) =
       intertwine (P.loc v) (μ v) ((Fam'.sec (1 / 6)).f v)) :
     C.theta = C'.theta := by
-  sorry
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have hInf : ∀ g, ∀ k ∈ infCompact P,
+      C.theta (g * k) - C'.theta (g * k) = C.theta g - C'.theta g := by
+    intro g k hk
+    rw [residue_right_infCompact Fam C g k hk,
+      residue_right_infCompact Fam' C' g k hk]
+  have hsub : S.Sf ⊆ Fam.T0 := by
+    simpa only [Fam.T0_eq (1 / 6)] using (Fam.sec (1 / 6)).sub
+  obtain ⟨m, hm, hL, hL'⟩ := family_pair_common_level_set Fam Fam' hT hsub
+  let Ψ : P.tc.G → ℂ := fun g => C.theta g - C'.theta g
+  have hAut : ∀ γ g, Ψ (P.tc.rat γ * g) = Ψ g := by
+    intro γ g
+    dsimp [Ψ]
+    rw [residue_automorphic Fam C γ g, residue_automorphic Fam' C' γ g]
+  have hLevel : ∀ g, ∀ k ∈ levelSet P Fam.T0 hsub m, Ψ (g * k) = Ψ g := by
+    intro g k hk
+    dsimp [Ψ]
+    rw [residue_right_of_scalar_invariant Fam C k (fun s h => hL s h k hk) g,
+      residue_right_of_scalar_invariant Fam' C' k (fun s h => hL' s h k hk) g]
+  have hperiod : ∀ g : P.tc.G, ∃ 𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F,
+      𝔞 ≠ 0 ∧ ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+        Ψ (h * (g⁻¹ * nFin P ξ * g)) = Ψ h := by
+    intro g
+    obtain ⟨𝔞, Pd, hdom, hdom', _⟩ := family_pair_common_adapted_domain Fam Fam' g
+    refine ⟨𝔞, hdom.1, ?_⟩
+    intro ξ hξ h
+    dsimp [Ψ]
+    rw [residue_right_of_scalar_invariant Fam C (g⁻¹ * nFin P ξ * g)
+        (fun s y => hdom.2.1 s ξ hξ y) h,
+      residue_right_of_scalar_invariant Fam' C' (g⁻¹ * nFin P ξ * g)
+        (fun s y => hdom'.2.1 s ξ hξ y) h]
+  obtain ⟨J, hJ, hdetect⟩ := exists_classical_components P Fam.T0 hsub m hm
+  have hzero : ∀ gj ∈ J, ∀ z, classicalOf P Ψ gj z = 0 := by
+    intro gj hgj
+    obtain ⟨Γ, n, σ, d, hfinite, hfree, c, c', hθ, hθ'⟩ :=
+      family_pair_common_classical_residues Fam Fam' C C' hT hsub m hm hL hL'
+        gj (hJ gj hgj)
+    letI := hfinite
+    have hclass : ∀ z, classicalOf P Ψ gj z = ∑ i, (c i - c' i) * (d i).res z := by
+      intro z
+      change classicalOf P C.theta gj z - classicalOf P C'.theta gj z = _
+      rw [hθ z, hθ' z, ← Finset.sum_sub_distrib]
+      apply Finset.sum_congr rfl
+      intro i hi
+      ring
+    have hΓ : ∀ γ ∈ Γ, ∀ z, classicalOf P Ψ gj (γ • z) = classicalOf P Ψ gj z := by
+      intro γ hγ z
+      rw [hclass, hclass]
+      apply Finset.sum_congr rfl
+      intro i hi
+      rw [(d i).res_invariant γ hγ z]
+    have hct := classical_constTerm_eq_zero P Ψ gj (hJ gj hgj) hAut hInf Γ hfinite
+      hperiod hΓ (fun g 𝔞 Pd h𝔞 hfix hPd hb =>
+        residue_difference_constantCoeff_eq_zero Fam Fam' C C' hT hM
+          g 𝔞 Pd h𝔞 hfix hPd hb)
+    have hz := Spec.res_lincomb_eq_zero F Γ hfree (1 / 6) (by norm_num) (by norm_num)
+      σ d (fun i => c i - c' i) (by
+        intro τ y hy
+        obtain ⟨Pd, hPd, hi⟩ := hct τ y hy
+        refine ⟨Pd, hPd, ?_⟩
+        simpa only [hclass] using hi)
+    intro z
+    exact (hclass z).trans (hz z)
+  funext g
+  exact sub_eq_zero.mp (hdetect Ψ hAut hLevel hInf hzero g)
 
 /-- **res:linear-translate**: `θ` is linear in the section at one place and right translation of
 that section translates `θ`. -/
