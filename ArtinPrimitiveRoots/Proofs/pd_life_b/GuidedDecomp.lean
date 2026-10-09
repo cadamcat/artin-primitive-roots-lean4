@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.Proofs.pd_life_b.GuidedAssembly
+import ArtinPrimitiveRoots.Proofs.pd_life_b.GuidedUnique
 
 set_option autoImplicit false
 
@@ -35,8 +35,24 @@ theorem decomposition_of_unique {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ)
       rw [if_neg (fun h => hne (huniq H' h))]
     · intro h; exact absurd (Finset.mem_univ _) h
 
+/-- **R4–R5 (open).** A non-vanishing trace from the initial state is guided by some lifespan
+assignment. See NOTES.md for the planned proof. -/
+theorem guided_trace_exists {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
+    (B : Option ℕ) (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
+    (hBands : ∀ i i' : Fin K, i ≠ i' →
+      Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a i')))
+    (hnd : ((initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+      MemPoint S.x K)).map Prod.snd).Nodup)
+    (t : FiniteHistoryTrace F S γ (pathLength S.x)
+      ((((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) : MemPoint S.x K),
+        initialLog (((γ ⟨0, by omega⟩).1, (γ ⟨0, by omega⟩).2, fun _ => []) :
+          MemPoint S.x K)))
+    (hw : finiteHistoryTraceWeight F S ρ w B γ (pathLength S.x) _ t ≠ 0) :
+    ∃ H : PDLifeAssignment F S γ, TraceGuided F S γ H (pathLength S.x) _ t := by
+  sorry
+
 /-- **R4–R6.** A non-vanishing trace from the initial state is guided by exactly one lifespan
-assignment. (Open: existence; see NOTES.md.) -/
+assignment. -/
 theorem guided_trace_exists_unique {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : ℝ) (w : ArchRoot)
     (B : Option ℕ) (γ : EnvPath S.x K) (hγ : IsEnvPathAdmissible F S γ)
     (hBands : ∀ i i' : Fin K, i ≠ i' →
@@ -49,7 +65,9 @@ theorem guided_trace_exists_unique {K : ℕ} (F : PDFix K) (S : PDScale) (ρ : �
           MemPoint S.x K)))
     (hw : finiteHistoryTraceWeight F S ρ w B γ (pathLength S.x) _ t ≠ 0) :
     ∃! H : PDLifeAssignment F S γ, TraceGuided F S γ H (pathLength S.x) _ t := by
-  sorry
+  obtain ⟨H, hH⟩ := guided_trace_exists F S ρ w B γ hγ hBands hnd t hw
+  exact ⟨H, hH, fun H' hH' =>
+    (guided_unique_initial F S ρ w B γ hγ hBands hnd t hw H H' hH hH').symm⟩
 
 end
 
