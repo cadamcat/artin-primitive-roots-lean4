@@ -4616,43 +4616,6 @@ private theorem exists_loglog_ge (R : ℝ) :
   intro x hx
   exact hx₁ x ((le_max_right 2 x₁).trans hx)
 
-set_option maxHeartbeats 1000000 in
-private theorem roughCoefficient_phase_split
-    (x γ v t : ℝ) (m : ℕ) (z : ℂ) :
-    roughCoefficient x γ v m * z * Complex.exp (Complex.I * t * Real.log (m : ℝ)) =
-      (roughIndicator x γ m : ℂ) * z *
-          Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) -
-        z * Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) *
-          (roughProxy x γ m : ℂ) := by
-  simp only [roughCoefficient, roughIndicator, roughProxy, Complex.ofReal_sub,
-    Complex.ofReal_div, Complex.ofReal_mul]
-  have he : Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
-      Complex.exp (Complex.I * t * Real.log (m : ℝ)) =
-        Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) := by
-    rw [← Complex.exp_add]
-    congr 1
-    ring
-  calc
-    _ = ((if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0 : ℝ) : ℂ) * z *
-        (Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
-          Complex.exp (Complex.I * t * Real.log (m : ℝ))) -
-        z * (Complex.exp (Complex.I * v * Real.log (m : ℝ)) *
-          Complex.exp (Complex.I * t * Real.log (m : ℝ))) *
-          (((roughDensity γ (Real.log (m : ℝ) / Real.log x) : ℝ) : ℂ) /
-            (((Real.log x : ℝ) : ℂ) *
-              ((roughSieveProduct (roughCutoff x) : ℝ) : ℂ)) *
-                ((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0 : ℝ) : ℂ)) := by
-      ring
-    _ = ((if roughAbove m (Real.rpow x γ) then (1 : ℝ) else 0 : ℝ) : ℂ) * z *
-        Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) -
-        z * Complex.exp (Complex.I * (t + v) * Real.log (m : ℝ)) *
-          (((roughDensity γ (Real.log (m : ℝ) / Real.log x) : ℝ) : ℂ) /
-            (((Real.log x : ℝ) : ℂ) *
-              ((roughSieveProduct (roughCutoff x) : ℝ) : ℂ)) *
-                ((if roughAbove m (roughCutoff x) then (1 : ℝ) else 0 : ℝ) : ℂ)) := by
-      rw [he]
-
-
 set_option maxHeartbeats 5000000 in
 theorem high_frequency
     (γ wMin wMax δ C A : ℝ) (hγ : 0 < γ) (hγw : γ < wMin)
