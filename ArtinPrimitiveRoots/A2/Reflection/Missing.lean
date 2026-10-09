@@ -8595,13 +8595,752 @@ def rotatedAbs (u : UnitSix S) (y : S.FSˣ) : ℝ :=
 def profileAbs (u : UnitSix S) (x : ℝ) : ℝ :=
   (sheetIntegral R x (fun y => (rotatedAbs R u y : ℂ))).re
 
+private def rf_profileMultiplier (u : UnitSix S) (κ : S.V) (y : S.FSˣ) : ℂ :=
+  (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+    R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y
+
+private theorem rf_profileMultiplier_sheet (u : UnitSix S) (κ : S.V) :
+    Theta.SheetMultiplier S (onUnits (rf_profileMultiplier R u κ)) := by
+  let b : S.V → ℂ := fun x =>
+    (if κ * x⁻¹ ∈ Bd.B then 1 else 0) * R.pairing.pair κ x ^ 2
+  have hb : ∀ x, ‖b x‖ ≤ 1 := by
+    intro x
+    by_cases hx : κ * x⁻¹ ∈ Bd.B <;>
+      simp [b, hx, R.pairing.unitary κ x]
+  refine ⟨R.chars.L u, 1, b, ⟨1, hb⟩, ?_⟩
+  intro y
+  have hy : IsUnit (y : S.FS) := Units.isUnit y
+  have hyEq : hy.unit = y := by
+    apply Units.ext
+    exact hy.unit_spec
+  change (if h : IsUnit (y : S.FS) then rf_profileMultiplier R u κ h.unit else 0) =
+    (((R.chars.L u).L y : ℂˣ) : ℂ) ^ (1 : ℤ) * b (cls y)
+  rw [dif_pos hy, hyEq]
+  by_cases hcut : κ * (cls y)⁻¹ ∈ Bd.B
+  · simp [rf_profileMultiplier, b, Lvalue, hcut, mul_comm, mul_left_comm]
+  · simp [rf_profileMultiplier, b, Lvalue, hcut]
+
+private theorem rf_profile_total_eq (u : UnitSix S) (κ : S.V) (x : ℝ) (hx : 0 < x) :
+    Theta.sheetInt S μ v0
+        (fun y => onUnits (rf_profileMultiplier R u κ) y *
+          Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y) x =
+      ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ x := by
+  classical
+  let m : S.FSˣ → ℂ := rf_profileMultiplier R u κ
+  let tensor (ℓ : Fin (R.rotated u).J) : S.FSˣ → ℂ := fun y =>
+    m y * (∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+      ∏ w : InfinitePlace F, (R.rotated u).fc ℓ w ((y : S.FS).2 w)
+  have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ ((R.rotated u).ff ℓ v) :=
+    (R.rotated u).finite_bound
+  have hfc : ∀ ℓ w, SheetHypC R.T.δ ((R.rotated u).fc ℓ w) :=
+    (R.rotated u).complex_bound
+  have hm : Theta.SheetMultiplier S (onUnits m) := by
+    simpa [m] using rf_profileMultiplier_sheet R u κ
+  have hTensor (ℓ : Fin (R.rotated u).J) :
+      Integrable (onUnits (tensor ℓ)) (R.sheets.sheet x) := by
+    exact a2_bridge_ANALYSIS_tensor (G := R.sheets) R.T.δ R.T.δ_pos
+      (R.rotated u).J (R.rotated u).ff (R.rotated u).fc hff hfc m hm ℓ x hx
+  have hsum : onUnits (fun y => m y * rotated R u y) =
+      fun y => ∑ ℓ : Fin (R.rotated u).J, onUnits (tensor ℓ) y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, tensor]
+      rw [show rotated R u hy.unit =
+        Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc
+          (hy.unit : S.FS) from R.rotated_eq u hy.unit]
+      simp only [Theta.sumProd, Finset.mul_sum, mul_assoc]
+    · simp [onUnits, hy]
+  have hProdInt : Integrable (onUnits (fun y => m y * rotated R u y))
+      (R.sheets.sheet x) := by
+    rw [hsum]
+    exact integrable_finsetSum Finset.univ (fun ℓ _ => hTensor ℓ)
+  have hRawEq : (fun y : S.FS => onUnits m y *
+        Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y) =
+      onUnits (fun y => m y * rotated R u y) := by
+    funext y
+    by_cases hy : IsUnit y
+    · have hval : (hy.unit : S.FS) = y := hy.unit_spec
+      calc
+        onUnits m y * Theta.sumProd S (R.rotated u).J
+            (R.rotated u).ff (R.rotated u).fc y =
+          m hy.unit * Theta.sumProd S (R.rotated u).J
+            (R.rotated u).ff (R.rotated u).fc (hy.unit : S.FS) := by
+              simp [onUnits, hy, hval]
+        _ = m hy.unit * rotated R u hy.unit := by
+          exact congrArg (fun z : ℂ => m hy.unit * z)
+            (R.rotated_eq u hy.unit).symm
+        _ = onUnits (fun z => m z * rotated R u z) y := by simp [onUnits, hy]
+    · simp [onUnits, hy]
+  have hRawInt : Integrable
+      (fun y : S.FS => onUnits m y *
+        Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y)
+      (R.sheets.sheet x) :=
+    hProdInt.congr (Filter.Eventually.of_forall fun y => (congrFun hRawEq y).symm)
+  have hSheetInt := R.sheets.sheetInt_eq x hx
+    (fun y : S.FS => onUnits m y *
+      Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y) hRawInt
+  calc
+    _ = ∫ y, onUnits m y *
+          Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y
+          ∂(R.sheets.sheet x) := hSheetInt.symm
+    _ = ∫ y, onUnits (fun y => m y * rotated R u y) y ∂(R.sheets.sheet x) :=
+      integral_congr_ae (Filter.Eventually.of_forall fun y => congrFun hRawEq y)
+    _ = ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ x := by
+      rw [hsum, integral_finsetSum Finset.univ (fun ℓ _ => hTensor ℓ)]
+      rfl
+
+private theorem rf_profile_phi_eq_convolution (u : UnitSix S) (κ : S.V)
+    (x : ℝ) (hx : 0 < x) :
+    profilePhi R u κ x =
+      ∫ T in Set.Ioi (0 : ℝ), R.K T *
+        Theta.sheetInt S μ v0
+          (fun y => onUnits (rf_profileMultiplier R u κ) y *
+            Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y)
+          (x / T) / (T : ℂ) := by
+  classical
+  let m : S.FSˣ → ℂ := rf_profileMultiplier R u κ
+  have hm : Theta.SheetMultiplier S (onUnits m) := by
+    simpa [m] using rf_profileMultiplier_sheet R u κ
+  have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ ((R.rotated u).ff ℓ v) :=
+    (R.rotated u).finite_bound
+  have hfc : ∀ ℓ w, SheetHypC R.T.δ ((R.rotated u).fc ℓ w) :=
+    (R.rotated u).complex_bound
+  have hconv := a2_bridge_ANALYSIS_convolution (G := R.sheets) R.T.δ R.T.δ_pos
+    (R.rotated u).J (R.rotated u).ff (R.rotated u).fc hff hfc R.K
+    (R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi)
+    R.K_moments m hm
+  have hprofile (ℓ : Fin (R.rotated u).J) (z : ℝ) :
+      profileH R u κ ℓ z =
+        bridgeProfileH R.sheets m (R.rotated u).J
+          (R.rotated u).ff (R.rotated u).fc ℓ z := by
+    rfl
+  have hTensorInt (ℓ : Fin (R.rotated u).J) :
+      IntegrableOn (fun T : ℝ => R.K T * profileH R u κ ℓ (x / T) / (T : ℂ))
+        (Set.Ioi 0) := by
+    simpa only [hprofile] using (hconv x hx).2.2 ℓ
+  have hsum (T : ℝ) (hT : 0 < T) :
+      (∑ ℓ : Fin (R.rotated u).J,
+        R.K T * profileH R u κ ℓ (x / T) / (T : ℂ)) =
+      R.K T * Theta.sheetInt S μ v0
+        (fun y => onUnits m y *
+          Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y)
+        (x / T) / (T : ℂ) := by
+    calc
+      (∑ ℓ : Fin (R.rotated u).J,
+          R.K T * profileH R u κ ℓ (x / T) / (T : ℂ)) =
+        ∑ ℓ : Fin (R.rotated u).J,
+          (R.K T / (T : ℂ)) * profileH R u κ ℓ (x / T) := by
+          apply Finset.sum_congr rfl
+          intro ℓ hℓ
+          ring
+      _ = (R.K T / (T : ℂ)) *
+          ∑ ℓ : Fin (R.rotated u).J, profileH R u κ ℓ (x / T) := by
+            rw [Finset.mul_sum]
+      _ = (R.K T / (T : ℂ)) *
+          Theta.sheetInt S μ v0
+            (fun y => onUnits m y *
+              Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y)
+            (x / T) := by
+              rw [← rf_profile_total_eq R u κ (x / T) (div_pos hx hT)]
+      _ = R.K T * Theta.sheetInt S μ v0
+            (fun y => onUnits m y *
+              Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y)
+            (x / T) / (T : ℂ) := by ring
+  unfold profilePhi profilePhiTerm
+  calc
+    (∑ ℓ : Fin (R.rotated u).J,
+        ∫ T in Set.Ioi (0 : ℝ),
+          R.K T * profileH R u κ ℓ (x / T) / (T : ℂ)) =
+      ∫ T in Set.Ioi (0 : ℝ),
+        ∑ ℓ : Fin (R.rotated u).J,
+          R.K T * profileH R u κ ℓ (x / T) / (T : ℂ) := by
+      symm
+      rw [integral_finsetSum]
+      intro ℓ hℓ
+      exact hTensorInt ℓ
+    _ = ∫ T in Set.Ioi (0 : ℝ),
+        R.K T * Theta.sheetInt S μ v0
+          (fun y => onUnits m y *
+            Theta.sumProd S (R.rotated u).J (R.rotated u).ff (R.rotated u).fc y)
+          (x / T) / (T : ℂ) := by
+      apply integral_congr_ae
+      filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+      exact hsum T hT
+
+private theorem rf_profile_abs_eq_theta_absProfile
+    (u : UnitSix S) (x : ℝ) (hx : 0 < x) :
+    profileAbs R u x =
+      ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 (R.rotated u).J
+        (R.rotated u).ff (R.rotated u).fc 0 x := by
+  classical
+  letI : MeasurableSpace (∀ v : S.Sf, v.1.adicCompletion F) := inferInstance
+  letI : MeasurableSpace (InfinitePlace F → ℂ) := inferInstance
+  letI : MeasurableSpace S.FS := inferInstance
+  let J := (R.rotated u).J
+  let ff := (R.rotated u).ff
+  let fc := (R.rotated u).fc
+  let term : Fin J → S.FS → ℝ := fun ℓ y =>
+    (∏ v : S.Sf, ‖ff ℓ v (y.1 v)‖) *
+      ∏ w : InfinitePlace F, ‖fc ℓ w (y.2 w)‖
+  let raw : S.FS → ℂ := fun y => (∑ ℓ : Fin J, term ℓ y : ℂ)
+  have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ (ff ℓ v) := by simpa [ff] using (R.rotated u).finite_bound
+  have hfc : ∀ ℓ w, SheetHypC R.T.δ (fc ℓ w) := by simpa [fc] using (R.rotated u).complex_bound
+  have hAN := a2_bridge_ANALYSIS (G := R.sheets) R.T.δ R.T.δ_pos J ff fc hff hfc x hx
+  have hAE : onUnits (fun y => (rotatedAbs R u y : ℂ)) =ᵐ[R.sheets.sheet x] raw := by
+    have hunit : ∀ᵐ y ∂(R.sheets.sheet x), IsUnit y :=
+      (R.sheets.sheet_support x hx).mono fun _ hy => hy.1
+    filter_upwards [hunit] with y hy
+    simp [onUnits, rotatedAbs, bridgeRotatedAbs, raw, term, ff, fc, hy]
+    rfl
+  have hRawInt : Integrable raw (R.sheets.sheet x) := by
+    have hAN' : Integrable (onUnits (fun y => (rotatedAbs R u y : ℂ)))
+        (R.sheets.sheet x) := by
+      simpa [rotatedAbs, bridgeRotatedAbs, ff, fc, J] using hAN
+    exact hAN'.congr hAE
+  have hBridge : profileAbs R u x = (∫ y, raw y ∂(R.sheets.sheet x)).re := by
+    unfold profileAbs sheetIntegral
+    rw [integral_congr_ae hAE]
+  have htermInt (ℓ : Fin J) : Integrable (fun y => (term ℓ y : ℂ))
+      (R.sheets.sheet x) := by
+    have hsum (y : S.FS) : term ℓ y ≤ ∑ i : Fin J, term i y := by
+      exact Finset.single_le_sum (s := Finset.univ) (f := fun i => term i y)
+        (by intro i hi; dsimp [term]; positivity) (Finset.mem_univ ℓ)
+    have hdom (y : S.FS) : ‖(term ℓ y : ℂ)‖ ≤ ‖raw y‖ := by
+      have hn : 0 ≤ term ℓ y := by positivity
+      have hs : 0 ≤ ∑ i : Fin J, term i y :=
+        Finset.sum_nonneg fun i hi => by dsimp [term]; positivity
+      have hcast : (∑ i : Fin J, (term i y : ℂ)) =
+          (∑ i : Fin J, term i y : ℝ) := by push_cast; rfl
+      calc
+        ‖(term ℓ y : ℂ)‖ = term ℓ y := by
+          rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hn]
+        _ ≤ ∑ i : Fin J, term i y := hsum y
+        _ = ‖raw y‖ := by
+          rw [show raw y = ∑ i : Fin J, (term i y : ℂ) by rfl, hcast]
+          rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hs]
+    have hmeas : AEStronglyMeasurable (fun y => (term ℓ y : ℂ)) (R.sheets.sheet x) := by
+      dsimp [term, ff, fc]
+      apply (Complex.continuous_ofReal.measurable.comp ?_).aestronglyMeasurable
+      apply Measurable.mul
+      · apply Finset.univ.measurable_fun_prod
+        intro v hv
+        exact (continuous_norm.measurable.comp
+          ((bridgeSheetHypFin_measurable v.1 R.T.δ (ff ℓ v) (hff ℓ v)).comp
+            ((measurable_pi_apply v).comp measurable_fst)))
+      · apply Finset.univ.measurable_fun_prod
+        intro w hw
+        exact (continuous_norm.measurable.comp
+          ((bridgeSheetHypC_measurable R.T.δ (fc ℓ w) (hfc ℓ w)).comp
+            ((measurable_pi_apply w).comp measurable_snd)))
+    exact hRawInt.norm.mono' hmeas (Filter.Eventually.of_forall hdom)
+  have hsumInt :
+      (∫ y, raw y ∂(R.sheets.sheet x)) =
+        ∑ ℓ : Fin J, ∫ y, (term ℓ y : ℂ) ∂(R.sheets.sheet x) := by
+    dsimp [raw]
+    exact integral_finsetSum Finset.univ (by intro ℓ hℓ; exact htermInt ℓ)
+  have htermSheet (ℓ : Fin J) :
+      (∫ y, (term ℓ y : ℂ) ∂(R.sheets.sheet x)) =
+        ArtinPrimitiveRoots.A1.Theta.sheetInt S μ v0 (fun y => (term ℓ y : ℂ)) x :=
+    R.sheets.sheetInt_eq x hx (fun y => (term ℓ y : ℂ)) (htermInt ℓ)
+  have hTermEq (ℓ : Fin J) (y : S.FS) :
+      term ℓ y =
+        (‖ArtinPrimitiveRoots.A1.normDeriv 0 (fc ℓ v0) (y.2 v0)‖ *
+          ∏ w ∈ Finset.univ.erase v0, ‖fc ℓ w (y.2 w)‖) *
+            ∏ v : S.Sf, ‖ff ℓ v (y.1 v)‖ := by
+    dsimp [term]
+    have hprod : ‖fc ℓ v0 (y.2 v0)‖ *
+        ∏ w ∈ Finset.univ.erase v0, ‖fc ℓ w (y.2 w)‖ =
+          ∏ w : InfinitePlace F, ‖fc ℓ w (y.2 w)‖ :=
+      Finset.mul_prod_erase Finset.univ
+        (fun w => ‖fc ℓ w (y.2 w)‖) (Finset.mem_univ v0)
+    rw [← hprod]
+    simp [ArtinPrimitiveRoots.A1.normDeriv]
+    ring
+  calc
+    profileAbs R u x = (∫ y, raw y ∂(R.sheets.sheet x)).re := hBridge
+    _ = ∑ ℓ : Fin J,
+          (ArtinPrimitiveRoots.A1.Theta.sheetInt S μ v0
+            (fun y => (term ℓ y : ℂ)) x).re := by
+      rw [hsumInt, Complex.re_sum]
+      simp_rw [htermSheet]
+    _ = ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 J ff fc 0 x := by
+      simp [ArtinPrimitiveRoots.A1.Theta.absProfile, hTermEq, ff, fc,
+        Complex.ofReal_re]
+
+private theorem rf_theta_absProfile_nonneg
+    (J : ℕ) (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
+    (fc : Fin J → InfinitePlace F → ℂ → ℂ) (j : ℕ) (x : ℝ) :
+    0 ≤ ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 J ff fc j x := by
+  unfold ArtinPrimitiveRoots.A1.Theta.absProfile
+  apply Finset.sum_nonneg
+  intro ℓ hℓ
+  unfold ArtinPrimitiveRoots.A1.Theta.sheetInt
+  simp only [integral_complex_ofReal, RCLike.ofReal_re]
+  apply integral_nonneg_of_ae
+  filter_upwards with p
+  apply integral_nonneg_of_ae
+  exact Filter.Eventually.of_forall fun θ => by
+    positivity
+
+private theorem rf_profile_convolution_contDiff
+    [IsTotallyComplex F]
+    (δ : ℝ) (hδ : 0 < δ) (J : ℕ)
+    (ff : Fin J → (v : S.Sf) → v.1.adicCompletion F → ℂ)
+    (fc : Fin J → InfinitePlace F → ℂ → ℂ)
+    (hff : ∀ ℓ v, SheetHypFin v.1 δ (ff ℓ v))
+    (hfc : ∀ ℓ w, SheetHypC δ (fc ℓ w))
+    (m : S.FSˣ → ℂ) (hm : Theta.SheetMultiplier S (onUnits m))
+    (K : ℝ → ℂ)
+    (hKmeas : AEStronglyMeasurable K (volume.restrict (Set.Ioi (0 : ℝ))))
+    (hK : ∀ β : ℝ, IntegrableOn (fun T : ℝ => ‖K T‖ * T ^ β / T) (Set.Ioi 0)) :
+      ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun x : ℝ => ∫ T in Set.Ioi (0 : ℝ), K T *
+        (ArtinPrimitiveRoots.A1.Theta.sheetInt S μ v0
+          (fun y => onUnits m y * Theta.sumProd S J ff fc y) (x / T)) / (T : ℂ))
+      (Set.Ioi 0) := by
+  classical
+  let Hf : ℝ → ℂ := fun x =>
+      ArtinPrimitiveRoots.A1.Theta.sheetInt S μ v0
+        (fun y => onUnits m y * Theta.sumProd S J ff fc y) x
+  obtain ⟨hHs, ⟨Cm, hCm, hWeighted⟩, hTwo⟩ :=
+    ArtinPrimitiveRoots.A1.Theta.sheet_profile S μ v0 δ hδ J ff fc hff hfc
+      (onUnits m) hm
+  have hHf : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Hf (Set.Ioi 0) := by
+    simpa [Hf] using hHs
+  let α : ℝ := δ / 2
+  let A : ℝ := 1
+  have hα : 0 < α := by dsimp [α]; linarith
+  have hαδ : α < δ := by dsimp [α]; linarith
+  have hA : 0 < A := by dsimp [A]; norm_num
+  have hDspec (n : ℕ) :
+      ∃ Cn : ℝ, 0 ≤ Cn ∧ ∀ v : ℝ, 0 < v →
+        ‖ArtinPrimitiveRoots.A1.Theta.normDerivR n Hf v‖ ≤
+          Cn * min (v ^ α) (v ^ (-A)) := by
+    obtain ⟨Cn, hCn⟩ := hTwo n α A hα hαδ hA
+    have hAt := hCn 1 one_pos
+    have hAbs : 0 ≤ ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 J ff fc n 1 :=
+      rf_theta_absProfile_nonneg J ff fc n 1
+    have hAt' : ‖ArtinPrimitiveRoots.A1.Theta.normDerivR n Hf 1‖ +
+        ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 J ff fc n 1 ≤ Cn := by
+      simpa [α, A] using hAt
+    have hNormNonneg : 0 ≤ ‖ArtinPrimitiveRoots.A1.Theta.normDerivR n Hf 1‖ :=
+      norm_nonneg _
+    have hCnNonneg : 0 ≤ Cn := by linarith
+    refine ⟨Cn, hCnNonneg, ?_⟩
+    intro v hv
+    have hAbs' : 0 ≤ ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0 J ff fc n v :=
+      rf_theta_absProfile_nonneg J ff fc n v
+    exact (le_add_of_nonneg_right hAbs').trans (hCn v hv)
+  let Dconst : ℕ → ℝ := fun n => Classical.choose (hDspec n)
+  have hDcert (n : ℕ) : 0 ≤ Dconst n ∧ ∀ v : ℝ, 0 < v →
+      ‖ArtinPrimitiveRoots.A1.Theta.normDerivR n Hf v‖ ≤
+        Dconst n * min (v ^ α) (v ^ (-A)) := Classical.choose_spec (hDspec n)
+  let τ : ℤ := -1
+  let θ : ℝ := (τ : ℝ)
+  let ψ : ℝ → ℂ := fun t => Hf (Real.exp t)
+  have hψ : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) ψ := by
+    simpa [ψ, Function.comp_def] using hHf.comp_contDiff
+      (by fun_prop : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (fun t : ℝ => Real.exp t))
+      (fun t => Real.exp_pos t)
+  have hExpPowT (T q : ℝ) (hT : 0 < T) : Real.exp (q * Real.log T) = T ^ q := by
+    rw [Real.rpow_def_of_pos hT]
+    congr 1
+    ring
+  have hDpoint (n : ℕ) (x T : ℝ) (hT : 0 < T) :
+      ‖iteratedDeriv n ψ (x + θ * Real.log T)‖ ≤
+        Dconst n * (Real.exp (α * x) * T ^ (θ * α) +
+          Real.exp (-A * x) * T ^ (-A * θ)) := by
+    let y : ℝ := x + θ * Real.log T
+    have hArg : ArtinPrimitiveRoots.A1.Theta.normDerivR n Hf (Real.exp y) =
+        iteratedDeriv n ψ y := by
+      simp [ArtinPrimitiveRoots.A1.Theta.normDerivR, ψ, Real.log_exp]
+    have hbase : ‖iteratedDeriv n ψ y‖ ≤
+        Dconst n * min ((Real.exp y) ^ α) ((Real.exp y) ^ (-A)) := by
+      rw [← hArg]
+      exact (hDcert n).2 (Real.exp y) (Real.exp_pos y)
+    have hmin : min ((Real.exp y) ^ α) ((Real.exp y) ^ (-A)) ≤
+        (Real.exp y) ^ α + (Real.exp y) ^ (-A) := by
+      calc
+        min ((Real.exp y) ^ α) ((Real.exp y) ^ (-A)) ≤ (Real.exp y) ^ α := min_le_left _ _
+        _ ≤ (Real.exp y) ^ α + (Real.exp y) ^ (-A) :=
+          le_add_of_nonneg_right (Real.rpow_nonneg (Real.exp_pos y).le _)
+    have hpowα : (Real.exp y) ^ α = Real.exp (α * x) * T ^ (θ * α) := by
+      calc
+        (Real.exp y) ^ α = Real.exp (α * y) := by
+          rw [Real.rpow_def_of_pos (Real.exp_pos y)]
+          simp [Real.log_exp, mul_comm]
+        _ = Real.exp (α * x) * Real.exp ((θ * α) * Real.log T) := by
+          rw [show α * y = α * x + (θ * α) * Real.log T by dsimp [y]; ring,
+            Real.exp_add]
+        _ = Real.exp (α * x) * T ^ (θ * α) := by
+          rw [hExpPowT T (θ * α) hT]
+    have hpowA : (Real.exp y) ^ (-A) = Real.exp (-A * x) * T ^ (-A * θ) := by
+      calc
+        (Real.exp y) ^ (-A) = Real.exp ((-A) * y) := by
+          rw [Real.rpow_def_of_pos (Real.exp_pos y)]
+          simp [Real.log_exp, mul_comm]
+        _ = Real.exp ((-A) * x) * Real.exp ((-A * θ) * Real.log T) := by
+          rw [show (-A) * y = (-A) * x + (-A * θ) * Real.log T by dsimp [y]; ring,
+            Real.exp_add]
+        _ = Real.exp (-A * x) * T ^ (-A * θ) := by
+          rw [hExpPowT T (-A * θ) hT]
+    calc
+      ‖iteratedDeriv n ψ y‖ ≤
+          Dconst n * min ((Real.exp y) ^ α) ((Real.exp y) ^ (-A)) := hbase
+      _ ≤ Dconst n * ((Real.exp y) ^ α + (Real.exp y) ^ (-A)) :=
+        mul_le_mul_of_nonneg_left hmin (hDcert n).1
+      _ = Dconst n * (Real.exp (α * x) * T ^ (θ * α) +
+          Real.exp (-A * x) * T ^ (-A * θ)) := by rw [hpowα, hpowA]
+  let momentFun : ℝ → ℝ → ℝ := fun β T => ‖K T‖ * T ^ β / T
+  have hMomInt (β : ℝ) : Integrable (momentFun β) (volume.restrict (Set.Ioi 0)) := by
+    exact hK β
+  let F : ℕ → ℝ → ℝ → ℂ := fun n x T =>
+    (K T * (T : ℂ)⁻¹) * iteratedDeriv n ψ (x + θ * Real.log T)
+  let G : ℕ → ℝ → ℂ := fun n x =>
+    ∫ T, F n x T ∂(volume.restrict (Set.Ioi (0 : ℝ)))
+  let boundAt : ℕ → ℝ → ℝ → ℝ := fun n x T =>
+    Dconst n * (Real.exp (α * x) * momentFun (θ * α) T +
+      Real.exp (-A * x) * momentFun (-A * θ) T)
+  have hBoundAtInt (n : ℕ) (x : ℝ) :
+      Integrable (boundAt n x) (volume.restrict (Set.Ioi 0)) := by
+    have h1 := (hMomInt (θ * α)).const_mul (Dconst n * Real.exp (α * x))
+    have h2 := (hMomInt (-A * θ)).const_mul (Dconst n * Real.exp (-A * x))
+    convert h1.add h2 using 1 <;> ext T <;> dsimp [boundAt, momentFun] <;> ring
+  have hFmeas (n : ℕ) (x : ℝ) :
+      AEStronglyMeasurable (F n x) (volume.restrict (Set.Ioi 0)) := by
+    have hInvCont : ContinuousOn (fun T : ℝ => (T : ℂ)⁻¹) (Set.Ioi 0) := by
+      exact Complex.continuous_ofReal.continuousOn.inv₀
+        (fun T hT => Complex.ofReal_ne_zero.mpr hT.ne')
+    have hInvMeas : AEStronglyMeasurable (fun T : ℝ => (T : ℂ)⁻¹)
+        (volume.restrict (Set.Ioi 0)) :=
+      hInvCont.aestronglyMeasurable (μ := volume) measurableSet_Ioi
+    have hlogCont : ContinuousOn (fun T : ℝ => x + θ * Real.log T) (Set.Ioi 0) := by
+      exact continuousOn_const.add (continuousOn_const.mul
+        (Real.continuousOn_log.mono fun T hT => ne_of_gt hT))
+    have hfacCont : ContinuousOn (fun T : ℝ => iteratedDeriv n ψ (x + θ * Real.log T))
+        (Set.Ioi 0) :=
+      (hψ.continuous_iteratedDeriv n (by simp)).comp_continuousOn hlogCont
+    have hfacMeas : AEStronglyMeasurable
+        (fun T : ℝ => iteratedDeriv n ψ (x + θ * Real.log T))
+        (volume.restrict (Set.Ioi 0)) :=
+      hfacCont.aestronglyMeasurable (μ := volume) measurableSet_Ioi
+    change AEStronglyMeasurable
+      ((K * (fun T : ℝ => (T : ℂ)⁻¹)) *
+        (fun T : ℝ => iteratedDeriv n ψ (x + θ * Real.log T)))
+      (volume.restrict (Set.Ioi 0))
+    exact (hKmeas.mul hInvMeas).mul hfacMeas
+  have hFnormBound (n : ℕ) (x T : ℝ) (hT : 0 < T) :
+      ‖F n x T‖ ≤ boundAt n x T := by
+    have hD := hDpoint n x T hT
+    have hcoeff : ‖K T * (T : ℂ)⁻¹‖ = ‖K T‖ / T := by
+      simp [norm_mul, norm_inv, Real.norm_eq_abs, abs_of_pos hT]
+      ring
+    calc
+      ‖F n x T‖ = (‖K T‖ / T) *
+          ‖iteratedDeriv n ψ (x + θ * Real.log T)‖ := by
+        calc
+          ‖F n x T‖ = ‖K T * (T : ℂ)⁻¹‖ *
+              ‖iteratedDeriv n ψ (x + θ * Real.log T)‖ := by
+                simp [F, norm_mul]
+          _ = _ := by rw [hcoeff]
+      _ ≤ (‖K T‖ / T) *
+          (Dconst n * (Real.exp (α * x) * T ^ (θ * α) +
+            Real.exp (-A * x) * T ^ (-A * θ))) :=
+        mul_le_mul_of_nonneg_left hD (by positivity)
+      _ = boundAt n x T := by dsimp [boundAt, momentFun]; ring
+  have hGint (n : ℕ) (x : ℝ) : Integrable (F n x) (volume.restrict (Set.Ioi 0)) := by
+    apply (hBoundAtInt n x).mono' (hFmeas n x)
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    exact hFnormBound n x T hT
+  have hFderiv (n : ℕ) (x T : ℝ) :
+      HasDerivAt (fun z => F n z T) (F (n + 1) x T) x := by
+    have hDdiff : Differentiable ℝ (iteratedDeriv n ψ) :=
+      hψ.differentiable_iteratedDeriv n
+        (WithTop.coe_lt_coe.mpr (ENat.natCast_lt_top n))
+    have hAt : DifferentiableAt ℝ (iteratedDeriv n ψ) (x + θ * Real.log T) :=
+      hDdiff.differentiableAt
+    have hShift := hAt.hasDerivAt.comp_add_const x (θ * Real.log T)
+    have hShift' : HasDerivAt (fun z => iteratedDeriv n ψ (z + θ * Real.log T))
+        (iteratedDeriv (n + 1) ψ (x + θ * Real.log T)) x := by
+      simpa [iteratedDeriv_succ] using hShift
+    simpa [F] using hShift'.const_mul (K T * (T : ℂ)⁻¹)
+  have hGdiff (n : ℕ) (x : ℝ) : HasDerivAt (G n) (G (n + 1) x) x := by
+    let localBound : ℝ → ℝ := fun T =>
+      Dconst (n + 1) * (Real.exp (α * x + α) * momentFun (θ * α) T +
+        Real.exp (-A * x + A) * momentFun (-A * θ) T)
+    have hLocalBoundInt : Integrable localBound (volume.restrict (Set.Ioi 0)) := by
+      have h1 := (hMomInt (θ * α)).const_mul
+        (Dconst (n + 1) * Real.exp (α * x + α))
+      have h2 := (hMomInt (-A * θ)).const_mul
+        (Dconst (n + 1) * Real.exp (-A * x + A))
+      convert h1.add h2 using 1 <;> ext T <;> dsimp [localBound, momentFun] <;> ring
+    have hMeas : ∀ᶠ z in nhds x, AEStronglyMeasurable (F n z)
+        (volume.restrict (Set.Ioi 0)) := Filter.Eventually.of_forall fun z => hFmeas n z
+    have hBound : ∀ᵐ T ∂(volume.restrict (Set.Ioi 0)),
+        ∀ z ∈ Metric.ball x 1, ‖F (n + 1) z T‖ ≤ localBound T := by
+      filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+      intro z hz
+      have habs : |z - x| < 1 := by
+        simpa [Metric.mem_ball, Real.dist_eq, abs_sub_comm] using hz
+      have hzupper : z ≤ x + 1 := by linarith [(abs_lt.mp habs).2]
+      have hzlower : x - 1 ≤ z := by linarith [(abs_lt.mp habs).1]
+      have hExpα : Real.exp (α * z) ≤ Real.exp (α * x + α) := by
+        apply Real.exp_le_exp.mpr
+        calc
+          α * z ≤ α * (x + 1) := mul_le_mul_of_nonneg_left hzupper hα.le
+          _ = α * x + α := by ring
+      have hExpA : Real.exp (-A * z) ≤ Real.exp (-A * x + A) := by
+        apply Real.exp_le_exp.mpr
+        calc (-A) * z ≤ (-A) * (x - 1) :=
+            mul_le_mul_of_nonpos_left hzlower (by linarith [hA])
+          _ = -A * x + A := by ring
+      have hD := hDpoint (n + 1) z T hT
+      have hMomNonneg (β : ℝ) : 0 ≤ momentFun β T := by
+        dsimp [momentFun]
+        exact div_nonneg (mul_nonneg (norm_nonneg _) (Real.rpow_nonneg hT.le _)) hT.le
+      have hsum :
+          Real.exp (α * z) * momentFun (θ * α) T +
+              Real.exp (-A * z) * momentFun (-A * θ) T ≤
+            Real.exp (α * x + α) * momentFun (θ * α) T +
+              Real.exp (-A * x + A) * momentFun (-A * θ) T :=
+        add_le_add
+          (mul_le_mul_of_nonneg_right hExpα (hMomNonneg (θ * α)))
+          (mul_le_mul_of_nonneg_right hExpA (hMomNonneg (-A * θ)))
+      calc
+        ‖F (n + 1) z T‖ ≤ boundAt (n + 1) z T := hFnormBound (n + 1) z T hT
+        _ ≤ localBound T := by
+          dsimp [boundAt, localBound]
+          exact mul_le_mul_of_nonneg_left hsum (hDcert (n + 1)).1
+    have hFprimeMeas := hFmeas (n + 1) x
+    have hDiff : ∀ᵐ T ∂(volume.restrict (Set.Ioi 0)),
+        ∀ z ∈ Metric.ball x 1, HasDerivAt (F n · T) (F (n + 1) z T) z := by
+      filter_upwards [] with T
+      intro z hz
+      exact hFderiv n z T
+    have hmain := hasDerivAt_integral_of_dominated_loc_of_deriv_le
+      (Metric.ball_mem_nhds x one_pos) hMeas (hGint n x) hFprimeMeas hBound
+      hLocalBoundInt hDiff
+    simpa [G] using hmain.2
+  have hGderiv (n : ℕ) (x : ℝ) : deriv (G n) x = G (n + 1) x := by
+    have h := (hGdiff n x).deriv
+    simpa [G] using h
+  have hGiter (n : ℕ) : iteratedDeriv n (G 0) = G n := by
+    induction n with
+    | zero => exact iteratedDeriv_zero
+    | succ n ih =>
+      funext x
+      rw [iteratedDeriv_succ, ih]
+      exact hGderiv n x
+  let Conv : ℝ → ℂ := fun v =>
+    ∫ T in Set.Ioi (0 : ℝ), K T * Hf (v / T) / (T : ℂ)
+  have hG0conv (x : ℝ) : G 0 x = Conv (Real.exp x) := by
+    change (∫ T, F 0 x T ∂(volume.restrict (Set.Ioi (0 : ℝ)))) =
+      ∫ T in Set.Ioi (0 : ℝ), K T * Hf (Real.exp x / T) / (T : ℂ)
+    apply integral_congr_ae
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    have hExpMul : Real.exp (x + θ * Real.log T) = Real.exp x / T := by
+      have hlog : Real.log (Real.exp x / T) = x - Real.log T := by
+        rw [Real.log_div (ne_of_gt (Real.exp_pos x)) (ne_of_gt hT), Real.log_exp]
+      have heq : x + θ * Real.log T = Real.log (Real.exp x / T) := by
+        simp [θ]
+        rw [hlog]
+        ring
+      rw [heq, Real.exp_log (div_pos (Real.exp_pos x) hT)]
+    have hF0 : F 0 x T = (K T * (T : ℂ)⁻¹) * Hf (Real.exp x / T) := by
+      simp [F, ψ, iteratedDeriv_zero, hExpMul]
+    rw [hF0]
+    ring
+  have hGcont : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (G 0) := by
+    apply contDiff_of_differentiable_iteratedDeriv
+    intro n hn z
+    rw [hGiter n]
+    exact (hGdiff n z).differentiableAt
+  have hlog : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) Real.log (Set.Ioi 0) := by
+    apply Real.contDiffOn_log.mono
+    intro z hz
+    exact Set.mem_compl_singleton_iff.mpr (ne_of_gt hz)
+  have hcomp : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun z : ℝ => G 0 (Real.log z)) (Set.Ioi 0) := hGcont.comp_contDiffOn hlog
+  have hEq (z : ℝ) (hz : 0 < z) : Conv z = G 0 (Real.log z) := by
+    calc
+      Conv z = Conv (Real.exp (Real.log z)) := by rw [Real.exp_log hz]
+      _ = G 0 (Real.log z) := (hG0conv (Real.log z)).symm
+  exact hcomp.congr fun z hz => hEq z hz
+
 /-- rf:profile-bound, 04:535–548, including smoothness needed by Fourier separation. -/
 theorem rf_profile_bound :
   (∀ u κ, ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (profilePhi R u κ) (Set.Ioi 0)) ∧
   (∃ α : ℝ, 0 < α ∧ ∀ N : ℝ, 0 < N → ∀ j : ℕ, ∃ C : ℝ, 0 < C ∧
     ∀ u κ x, 0 < x → ‖Theta.normDerivR j (profilePhi R u κ) x‖ ≤ C * min (x ^ α) (x ^ (-N))) ∧
   ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧ ∀ u x, 0 < x → profileAbs R u x ≤ C * x ^ (-σ) := by
-  sorry
+  classical
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  letI : Fintype S.V := R.sheets.classFinite
+  refine ⟨?_, ?_⟩
+  · intro u κ
+    let m : S.FSˣ → ℂ := rf_profileMultiplier R u κ
+    have hm : Theta.SheetMultiplier S (onUnits m) := by
+      simpa [m] using rf_profileMultiplier_sheet R u κ
+    have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ ((R.rotated u).ff ℓ v) :=
+      (R.rotated u).finite_bound
+    have hfc : ∀ ℓ w, SheetHypC R.T.δ ((R.rotated u).fc ℓ w) :=
+      (R.rotated u).complex_bound
+    have hSmooth := rf_profile_convolution_contDiff (μ := μ) (v0 := v0)
+      R.T.δ R.T.δ_pos
+      (R.rotated u).J (R.rotated u).ff (R.rotated u).fc hff hfc m hm R.K
+      (R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi)
+      R.K_moments
+    refine hSmooth.congr ?_
+    intro x hx
+    exact rf_profile_phi_eq_convolution R u κ x hx
+  · refine ⟨?_, ?_⟩
+    · let α : ℝ := R.T.δ / 2
+      have hα : 0 < α := by dsimp [α]; linarith [R.T.δ_pos]
+      have hαδ : α < R.T.δ := by dsimp [α]; linarith [R.T.δ_pos]
+      let Param : Type := UnitSix S × S.V
+      let conv : Param → ℝ → ℂ := fun p x =>
+        ∫ T in Set.Ioi (0 : ℝ), R.K T *
+          Theta.sheetInt S μ v0
+            (fun y => onUnits (rf_profileMultiplier R p.1 p.2) y *
+              Theta.sumProd S (R.rotated p.1).J (R.rotated p.1).ff (R.rotated p.1).fc y)
+            (x / T) / (T : ℂ)
+      have hRawBound (p : Param) (N : ℝ) (hN : 0 < N) (j : ℕ) :
+          ∃ C : ℝ, ∀ x, 0 < x →
+            ‖Theta.normDerivR j (conv p) x‖ +
+              ∫ T in Set.Ioi (0 : ℝ), ‖R.K T‖ *
+                Theta.absProfile S μ v0 (R.rotated p.1).J
+                  (R.rotated p.1).ff (R.rotated p.1).fc j (x * T ^ (-1 : ℤ)) / T ≤
+            C * min (x ^ α) (x ^ (-N)) := by
+        let m : S.FSˣ → ℂ := rf_profileMultiplier R p.1 p.2
+        have hm : Theta.SheetMultiplier S (onUnits m) := by
+          simpa [m] using rf_profileMultiplier_sheet R p.1 p.2
+        have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ ((R.rotated p.1).ff ℓ v) :=
+          (R.rotated p.1).finite_bound
+        have hfc : ∀ ℓ w, SheetHypC R.T.δ ((R.rotated p.1).fc ℓ w) :=
+          (R.rotated p.1).complex_bound
+        have hConv := ArtinPrimitiveRoots.A1.Theta.sheet_profile_convolution
+          S μ v0 R.T.δ R.T.δ_pos (R.rotated p.1).J (R.rotated p.1).ff
+          (R.rotated p.1).fc hff hfc (onUnits m) hm R.K
+          (R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi)
+          R.K_moments
+        obtain ⟨C, hC⟩ := hConv.1 (-1) (by norm_num) j α N hα hαδ hN
+        refine ⟨C, ?_⟩
+        intro x hx
+        simpa [conv, m, div_eq_mul_inv, zpow_neg] using hC x hx
+      letI : Fintype Param := inferInstance
+      refine ⟨α, hα, ?_⟩
+      intro N hN j
+      let chosenC : Param → ℝ := fun p => Classical.choose (hRawBound p N hN j)
+      let localC : Param → ℝ := fun p => |chosenC p| + 1
+      let Cglobal : ℝ := ∑ p : Param, localC p
+      have hLocalPos (p : Param) : 0 < localC p := by
+        dsimp [localC]
+        positivity
+      have hGlobalAt (p : Param) : localC p ≤ Cglobal := by
+        dsimp [Cglobal]
+        exact Finset.single_le_sum
+          (fun q hq => (hLocalPos q).le) (Finset.mem_univ p)
+      have hParamNonempty : Nonempty Param := ⟨(1, 1)⟩
+      have hCglobal : 0 < Cglobal := by
+        obtain ⟨p⟩ := hParamNonempty
+        exact lt_of_lt_of_le (hLocalPos p) (hGlobalAt p)
+      refine ⟨Cglobal, hCglobal, ?_⟩
+      intro u κ x hx
+      let p : Param := (u, κ)
+      have hProfileEq :
+          (fun z : ℝ => profilePhi R u κ (Real.exp z)) =
+            (fun z => conv p (Real.exp z)) := by
+        funext z
+        exact rf_profile_phi_eq_convolution R u κ (Real.exp z) (Real.exp_pos z)
+      have hNormEq :
+          Theta.normDerivR j (profilePhi R u κ) x =
+            Theta.normDerivR j (conv p) x := by
+        unfold Theta.normDerivR
+        rw [hProfileEq]
+      have hIntNonneg : 0 ≤
+          ∫ T in Set.Ioi (0 : ℝ), ‖R.K T‖ *
+            Theta.absProfile S μ v0 (R.rotated u).J
+              (R.rotated u).ff (R.rotated u).fc j (x * T ^ (-1 : ℤ)) / T := by
+        change 0 ≤ ∫ T,
+          ‖R.K T‖ *
+            Theta.absProfile S μ v0 (R.rotated u).J
+              (R.rotated u).ff (R.rotated u).fc j (x * T ^ (-1 : ℤ)) / T
+          ∂(volume.restrict (Set.Ioi (0 : ℝ)))
+        apply integral_nonneg_of_ae
+        filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+        apply div_nonneg
+        · exact mul_nonneg (norm_nonneg _) (rf_theta_absProfile_nonneg
+            (R.rotated u).J (R.rotated u).ff (R.rotated u).fc j
+            (x * T ^ (-1 : ℤ)))
+        · exact hT.le
+      have hRaw := Classical.choose_spec (hRawBound p N hN j) x hx
+      have hConvNorm : ‖Theta.normDerivR j (conv p) x‖ ≤
+          chosenC p * min (x ^ α) (x ^ (-N)) := by
+        exact (le_add_of_nonneg_right hIntNonneg).trans hRaw
+      have hminNonneg : 0 ≤ min (x ^ α) (x ^ (-N)) :=
+        le_min (Real.rpow_nonneg hx.le _) (Real.rpow_nonneg hx.le _)
+      calc
+        ‖Theta.normDerivR j (profilePhi R u κ) x‖ ≤
+            chosenC p * min (x ^ α) (x ^ (-N)) := by
+          rw [hNormEq]
+          exact hConvNorm
+        _ ≤ localC p * min (x ^ α) (x ^ (-N)) := by
+          apply mul_le_mul_of_nonneg_right ?_ hminNonneg
+          dsimp [localC]
+          linarith [le_abs_self (chosenC p)]
+        _ ≤ Cglobal * min (x ^ α) (x ^ (-N)) :=
+          mul_le_mul_of_nonneg_right (hGlobalAt p) hminNonneg
+    · intro σ hσ
+      have hThirdBound (u : UnitSix S) :
+          ∃ C : ℝ, 0 < C ∧ ∀ x, 0 < x → profileAbs R u x ≤ C * x ^ (-σ) := by
+          let m : S.FSˣ → ℂ := fun _ => 1
+          have hm : Theta.SheetMultiplier S (onUnits m) := by
+            refine ⟨R.chars.L u, 0, (fun _ => 1), ⟨1, ?_⟩, ?_⟩
+            · intro κ
+              simp
+            · intro y
+              have hy : IsUnit (y : S.FS) := Units.isUnit y
+              simp [m, onUnits, hy]
+          obtain ⟨_, ⟨_, _, hWeighted⟩, _⟩ :=
+            ArtinPrimitiveRoots.A1.Theta.sheet_profile S μ v0 R.T.δ R.T.δ_pos
+              (R.rotated u).J (R.rotated u).ff (R.rotated u).fc
+              (R.rotated u).finite_bound (R.rotated u).complex_bound (onUnits m) hm
+          have hσδ : -R.T.δ < σ := by linarith [R.T.δ_pos]
+          obtain ⟨C, hC⟩ := hWeighted 0 σ hσδ
+          refine ⟨|C| + 1, ?_, ?_⟩
+          · positivity
+          · intro x hx
+            rw [rf_profile_abs_eq_theta_absProfile R u x hx]
+            calc
+              ArtinPrimitiveRoots.A1.Theta.absProfile S μ v0
+                  (R.rotated u).J (R.rotated u).ff (R.rotated u).fc 0 x ≤
+                    C * x ^ (-σ) := (hC x hx).2
+              _ ≤ (|C| + 1) * x ^ (-σ) := by
+                apply mul_le_mul_of_nonneg_right ?_ (Real.rpow_nonneg hx.le _)
+                linarith [le_abs_self C]
+      let profileC : UnitSix S → ℝ := fun u => Classical.choose (hThirdBound u)
+      have hProfileC (u : UnitSix S) : 0 < profileC u ∧
+          ∀ x, 0 < x → profileAbs R u x ≤ profileC u * x ^ (-σ) :=
+        Classical.choose_spec (hThirdBound u)
+      let Cglobal : ℝ := ∑ u : UnitSix S, profileC u
+      have hCpositive : 0 < Cglobal := by
+        have hu : 0 < profileC (1 : UnitSix S) := (hProfileC 1).1
+        have hle : profileC (1 : UnitSix S) ≤ Cglobal := by
+          dsimp [Cglobal]
+          exact Finset.single_le_sum
+            (fun u hu => (hProfileC u).1.le) (Finset.mem_univ (1 : UnitSix S))
+        exact lt_of_lt_of_le hu hle
+      refine ⟨Cglobal, hCpositive, ?_⟩
+      intro u x hx
+      have hle : profileC u ≤ Cglobal := by
+        dsimp [Cglobal]
+        exact Finset.single_le_sum
+          (fun v hv => (hProfileC v).1.le) (Finset.mem_univ u)
+      calc
+        profileAbs R u x ≤ profileC u * x ^ (-σ) := (hProfileC u).2 x hx
+        _ ≤ Cglobal * x ^ (-σ) :=
+          mul_le_mul_of_nonneg_right hle (Real.rpow_nonneg hx.le _)
 /-- def:rf-frozen-factors, 04:550–623. Frequency unit and row unit are distinct indices. -/
 structure FrozenIndex (h : S.ExtIdeal) where
   f : S.ExtIdeal
