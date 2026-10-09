@@ -13160,6 +13160,91 @@ private theorem rf_pairing_masked_whittaker_factorization
     sPart * (∏ v : V, localWeyl v.1 (d v)) * tail
   exact hFactor d
 
+private theorem rf_pairing_masked_integrable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (d : Digits R r) (ν : Fˣ)
+    (l : ℝ) (hl : 0 < l) :
+    let W : S.FSˣ → ℂ := fun y =>
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+    Integrable (fun y : S.FS => ‖onUnits W y‖) (R.sheets.sheet l) ∧
+      Integrable (onUnits (fun y => bCut (Bd := Bd) y *
+        (Lvalue R (rowClass R r) y)⁻¹ * W y)) (R.sheets.sheet l) := by
+  classical
+  let u := rowClass R r
+  let W : S.FSˣ → ℂ := fun y => R.T.W (R.chars.L u)
+    (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+  let rot : S.FSˣ → ℂ := fun y => rotated R u (S.diagU ν / y)
+  let cext : ℂ :=
+    (∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+      R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν) * R.C.w v.1 *
+        R.C.n v.1 (Multiplicative.ofAdd (algebraMap F _
+          (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))))) *
+    (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+      R.T.Wv v (R.C.a v (toLoc v ν)))
+  change Integrable (fun y : S.FS => ‖onUnits W y‖) (R.sheets.sheet l) ∧
+    Integrable (onUnits (fun y => bCut (Bd := Bd) y *
+      (Lvalue R u y)⁻¹ * W y)) (R.sheets.sheet l)
+  have hW (y : S.FSˣ) : W y =
+      sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ * rot y * cext := by
+    dsimp only [W, u, rot, cext]
+    rw [rf_pairing_masked_whittaker_factorization R r ν y d]
+    ac_rfl
+  have hCocNorm (y : S.FSˣ) :
+      ‖sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹‖ = 1 := by
+    unfold sCocycle
+    rw [← R.pairing.pair_eq, norm_pow, R.pairing.unitary]
+    norm_num
+  have hNormEq : (fun y : S.FS => ‖onUnits W y‖) =
+      fun y => ‖cext‖ * ‖onUnits rot y‖ := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, hW, norm_mul, hCocNorm, one_mul]
+      ac_rfl
+    · simp [onUnits, hy]
+  have hRot := rf_pairing_rotated_pullback_integrable R u ν l hl
+  change Integrable (onUnits rot) (R.sheets.sheet l) at hRot
+  constructor
+  · rw [hNormEq]
+    exact hRot.norm.const_mul ‖cext‖
+  · let κ : S.V := cls (S.diagU ν)
+    let g : S.FSˣ → ℂ := fun y =>
+      (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+        R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y * rotated R u y
+    let z : ℂ := (Lvalue R u (S.diagU ν))⁻¹
+    let signed : S.FSˣ → ℂ := fun y =>
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ * rot y
+    have hSigned (y : S.FSˣ) : signed y = z * g (S.diagU ν / y) := by
+      have hm := rf_S_orbit_multiplier R u (1 : Gamma S) ν y
+      have hOne : ((1 : Gamma S).1 : Fˣ) = 1 := rfl
+      rw [hOne, one_mul] at hm
+      dsimp only [signed, rot, g, z, κ]
+      rw [hm]
+      ring
+    have hProfile := (rf_S_profile_pullback R u ν l hl).1
+    change Integrable (onUnits (fun y => g (S.diagU ν / y)))
+      (R.sheets.sheet l) at hProfile
+    have hSignedEq : onUnits signed =
+        fun y : S.FS => z * onUnits (fun x => g (S.diagU ν / x)) y := by
+      funext y
+      by_cases hy : IsUnit y
+      · simp only [onUnits, dif_pos hy, hSigned]
+      · simp [onUnits, hy]
+    have hSignedInt : Integrable (onUnits signed) (R.sheets.sheet l) := by
+      rw [hSignedEq]
+      exact hProfile.const_mul z
+    have hWeightedEq : onUnits (fun y => bCut (Bd := Bd) y *
+        (Lvalue R u y)⁻¹ * W y) =
+        fun y : S.FS => cext * onUnits signed y := by
+      funext y
+      by_cases hy : IsUnit y
+      · simp only [onUnits, dif_pos hy, hW, signed]
+        ring
+      · simp [onUnits, hy]
+    rw [hWeightedEq]
+    exact hSignedInt.const_mul cext
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
