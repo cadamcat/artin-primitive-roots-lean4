@@ -81,7 +81,7 @@ theorem tendsto_restrictedProduct_truncate (hA : ∀ i, (1 : G i) ∈ A i)
 
 variable {K : Type*} [Field K] [NumberField K]
 
-private def d2FiniteSupportTrunc (x : IdeleGroup (𝓞 K) K)
+private def d2FiniteSupportTrunc (x : NumberField.IdeleGroup (𝓞 K) K)
     (S : Finset (HeightOneSpectrum (𝓞 K))) : FiniteAdeleRing (𝓞 K) K :=
   ⟨fun v => if v ∈ S then Dictionary.ideleFiniteCoord v x else 1,
     by
@@ -89,13 +89,13 @@ private def d2FiniteSupportTrunc (x : IdeleGroup (𝓞 K) K)
       have hv' : v ∉ S := by simpa using hv
       simp [hv']⟩
 
-def d2IdeleSupportTrunc (x : IdeleGroup (𝓞 K) K)
-    (S : Finset (HeightOneSpectrum (𝓞 K))) : IdeleGroup (𝓞 K) K :=
+def d2IdeleSupportTrunc (x : NumberField.IdeleGroup (𝓞 K) K)
+    (S : Finset (HeightOneSpectrum (𝓞 K))) : NumberField.IdeleGroup (𝓞 K) K :=
   (∏ w ∈ Finset.univ,
-      IdeleGroup.ofCompletion (𝓞 K) K w (Dictionary.ideleInfiniteCoordUnit w x)) *
-    ∏ v ∈ S, IdeleGroup.ofAdicCompletion (𝓞 K) K v (Dictionary.ideleFiniteCoord v x)
+      NumberField.IdeleGroup.ofCompletion (𝓞 K) K w (Dictionary.ideleInfiniteCoordUnit w x)) *
+    ∏ v ∈ S, NumberField.IdeleGroup.ofAdicCompletion (𝓞 K) K v (Dictionary.ideleFiniteCoord v x)
 
-private theorem d2FiniteSupportTrunc_tendsto (x : IdeleGroup (𝓞 K) K) :
+private theorem d2FiniteSupportTrunc_tendsto (x : NumberField.IdeleGroup (𝓞 K) K) :
     Tendsto (fun S : Finset (HeightOneSpectrum (𝓞 K)) => d2FiniteSupportTrunc x S)
       atTop (𝓝 ((x : AdeleRing (𝓞 K) K).2)) := by
   have h := tendsto_restrictedProduct_truncate (hA := fun v => by simp)
@@ -112,7 +112,7 @@ private theorem d2FiniteSupportTrunc_tendsto (x : IdeleGroup (𝓞 K) K) :
   rw [hfun]
   exact h
 
-private theorem d2IdeleSupportTrunc_infiniteCoord (x : IdeleGroup (𝓞 K) K)
+private theorem d2IdeleSupportTrunc_infiniteCoord (x : NumberField.IdeleGroup (𝓞 K) K)
     (S : Finset (HeightOneSpectrum (𝓞 K))) (w : InfinitePlace K) :
     Dictionary.ideleInfiniteCoord w (d2IdeleSupportTrunc x S) =
       Dictionary.ideleInfiniteCoord w x := by
@@ -121,22 +121,22 @@ private theorem d2IdeleSupportTrunc_infiniteCoord (x : IdeleGroup (𝓞 K) K)
   rw [d2IdeleSupportTrunc, map_mul, Dictionary.ideleInfiniteCoordUnit_finsetProduct]
   simp [Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion]
 
-private theorem d2IdeleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 K) K)
+private theorem d2IdeleSupportTrunc_finiteCoord (x : NumberField.IdeleGroup (𝓞 K) K)
     (S : Finset (HeightOneSpectrum (𝓞 K))) (v : HeightOneSpectrum (𝓞 K)) :
-    (((d2IdeleSupportTrunc x S : IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K).2 v) =
+    (((d2IdeleSupportTrunc x S : NumberField.IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K).2 v) =
       d2FiniteSupportTrunc x S v := by
   classical
   have hcoord : Dictionary.ideleFiniteCoord v (d2IdeleSupportTrunc x S) =
       if v ∈ S then Dictionary.ideleFiniteCoord v x else 1 := by
     change Dictionary.ideleFiniteCoord v
       ((∏ w ∈ Finset.univ,
-          IdeleGroup.ofCompletion (𝓞 K) K w (Dictionary.ideleInfiniteCoordUnit w x)) *
-        ∏ v' ∈ S, IdeleGroup.ofAdicCompletion (𝓞 K) K v'
+          NumberField.IdeleGroup.ofCompletion (𝓞 K) K w (Dictionary.ideleInfiniteCoordUnit w x)) *
+        ∏ v' ∈ S, NumberField.IdeleGroup.ofAdicCompletion (𝓞 K) K v'
           (Dictionary.ideleFiniteCoord v' x)) = _
     rw [map_mul]
     have harch : Dictionary.ideleFiniteCoord v
         (∏ w ∈ Finset.univ,
-          IdeleGroup.ofCompletion (𝓞 K) K w (Dictionary.ideleInfiniteCoordUnit w x)) = 1 := by
+          NumberField.IdeleGroup.ofCompletion (𝓞 K) K w (Dictionary.ideleInfiniteCoordUnit w x)) = 1 := by
       rw [map_prod]
       simp [Dictionary.ideleFiniteCoord_ofCompletion]
     have hfin := Dictionary.ideleFiniteCoord_finsetProduct v S
@@ -144,7 +144,7 @@ private theorem d2IdeleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 K) K)
     rw [harch, hfin]
     simp
   calc
-    ((d2IdeleSupportTrunc x S : IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K).2 v =
+    ((d2IdeleSupportTrunc x S : NumberField.IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K).2 v =
         ((Dictionary.ideleFiniteCoord v (d2IdeleSupportTrunc x S) : (v.adicCompletion K)ˣ) :
           v.adicCompletion K) :=
       (Dictionary.ideleFiniteCoord_apply v (d2IdeleSupportTrunc x S)).symm
@@ -155,7 +155,7 @@ private theorem d2IdeleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 K) K)
           split_ifs <;> simp
     _ = d2FiniteSupportTrunc x S v := rfl
 
-private theorem d2IdeleSupportTrunc_coe (x : IdeleGroup (𝓞 K) K)
+private theorem d2IdeleSupportTrunc_coe (x : NumberField.IdeleGroup (𝓞 K) K)
     (S : Finset (HeightOneSpectrum (𝓞 K))) :
     (d2IdeleSupportTrunc x S : AdeleRing (𝓞 K) K) =
       ((x : AdeleRing (𝓞 K) K).1, d2FiniteSupportTrunc x S) := by
@@ -166,14 +166,14 @@ private theorem d2IdeleSupportTrunc_coe (x : IdeleGroup (𝓞 K) K)
     exact congrArg (fun z : v.adicCompletion K => z.toCompletion)
       (d2IdeleSupportTrunc_finiteCoord x S v)
 
-private theorem d2IdeleSupportTrunc_inv (x : IdeleGroup (𝓞 K) K)
+private theorem d2IdeleSupportTrunc_inv (x : NumberField.IdeleGroup (𝓞 K) K)
     (S : Finset (HeightOneSpectrum (𝓞 K))) :
     (d2IdeleSupportTrunc x S)⁻¹ = d2IdeleSupportTrunc x⁻¹ S := by
   classical
   simp [d2IdeleSupportTrunc, map_inv, Finset.prod_inv_distrib]
   ac_rfl
 
-private theorem d2IdeleSupportTrunc_coe_tendsto (x : IdeleGroup (𝓞 K) K) :
+private theorem d2IdeleSupportTrunc_coe_tendsto (x : NumberField.IdeleGroup (𝓞 K) K) :
     Tendsto (fun S : Finset (HeightOneSpectrum (𝓞 K)) =>
       (d2IdeleSupportTrunc x S : AdeleRing (𝓞 K) K)) atTop
       (𝓝 ((x : AdeleRing (𝓞 K) K))) := by
@@ -188,30 +188,30 @@ private theorem d2IdeleSupportTrunc_coe_tendsto (x : IdeleGroup (𝓞 K) K) :
   rw [hfun]
   exact hprod
 
-theorem tendsto_d2IdeleSupportTrunc (x : IdeleGroup (𝓞 K) K) :
+theorem tendsto_d2IdeleSupportTrunc (x : NumberField.IdeleGroup (𝓞 K) K) :
     Tendsto (fun S : Finset (HeightOneSpectrum (𝓞 K)) => d2IdeleSupportTrunc x S)
       atTop (𝓝 x) := by
   classical
   have hval := d2IdeleSupportTrunc_coe_tendsto x
   have hvalInv : Tendsto (fun S : Finset (HeightOneSpectrum (𝓞 K)) =>
-      (((d2IdeleSupportTrunc x S)⁻¹ : IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K)) atTop
-      (𝓝 ((x⁻¹ : IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K)) := by
+      (((d2IdeleSupportTrunc x S)⁻¹ : NumberField.IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K)) atTop
+      (𝓝 ((x⁻¹ : NumberField.IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K)) := by
     simpa only [d2IdeleSupportTrunc_inv] using d2IdeleSupportTrunc_coe_tendsto (x⁻¹)
   have hvalInvOp : Tendsto (fun S : Finset (HeightOneSpectrum (𝓞 K)) =>
-      MulOpposite.op (((d2IdeleSupportTrunc x S)⁻¹ : IdeleGroup (𝓞 K) K) :
+      MulOpposite.op (((d2IdeleSupportTrunc x S)⁻¹ : NumberField.IdeleGroup (𝓞 K) K) :
         AdeleRing (𝓞 K) K)) atTop
-      (𝓝 (MulOpposite.op ((x⁻¹ : IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K))) :=
+      (𝓝 (MulOpposite.op ((x⁻¹ : NumberField.IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K))) :=
     (MulOpposite.opHomeomorph.continuous.tendsto
-      ((x⁻¹ : IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K)).comp hvalInv
+      ((x⁻¹ : NumberField.IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K)).comp hvalInv
   have hEmbed : Tendsto (fun S : Finset (HeightOneSpectrum (𝓞 K)) =>
       Units.embedProduct (AdeleRing (𝓞 K) K) (d2IdeleSupportTrunc x S)) atTop
       (𝓝 (Units.embedProduct (AdeleRing (𝓞 K) K) x)) := by
     change Tendsto (fun S : Finset (HeightOneSpectrum (𝓞 K)) =>
       ((d2IdeleSupportTrunc x S : AdeleRing (𝓞 K) K),
-        MulOpposite.op (((d2IdeleSupportTrunc x S)⁻¹ : IdeleGroup (𝓞 K) K) :
+        MulOpposite.op (((d2IdeleSupportTrunc x S)⁻¹ : NumberField.IdeleGroup (𝓞 K) K) :
           AdeleRing (𝓞 K) K))) atTop
       (𝓝 ((x : AdeleRing (𝓞 K) K),
-        MulOpposite.op ((x⁻¹ : IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K)))
+        MulOpposite.op ((x⁻¹ : NumberField.IdeleGroup (𝓞 K) K) : AdeleRing (𝓞 K) K)))
     rw [Prod.tendsto_iff]
     exact ⟨hval, hvalInvOp⟩
   exact (Units.isEmbedding_embedProduct (M := AdeleRing (𝓞 K) K)).tendsto_nhds_iff.mpr hEmbed
