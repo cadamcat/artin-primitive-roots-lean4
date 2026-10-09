@@ -9936,6 +9936,7 @@ theorem po_H_eta_properties : EulerHypotheses R η →
   intro hEuler hloc
   have hProduct := po_H_product R η U HC hEuler
   rcases hProduct with ⟨_, hDiff, _, hBound⟩
+  haveI : IsTotallyComplex F := D.isTotallyComplex
   let HA0 : HeckeAnalysis F := Classical.choice (heckeAnalysis_exists F)
   obtain ⟨_, _, hNonzero⟩ := prop_euler_product R η U HC HA0 hEuler
   have hMaps : Set.MapsTo (fun s : ℂ => ![s, 1, 1 / 6])
