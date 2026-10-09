@@ -4173,11 +4173,9 @@ private theorem rows_doubleVertical_const_mul (σξ σz : ℝ) (c : ℂ)
   rw [hfun]
   exact rows_vertical_const_mul σξ c (fun ξ => vertical σz (fun z => f ξ z))
 
-private theorem rows_principalRz_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
-    (hZ : 2 ≤ Z) :
-    ∃ C : ℝ, 0 < C ∧
+private theorem rows_sol_principalRz_uniform (hEuler : EulerHypotheses R η) :
+    ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
       ‖principalRz R sd W η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
-  have hZpos : 0 < Z := by linarith
   obtain ⟨AF, CG, hAF, hCG, hGrowth⟩ := rows_principalLS_growth_off_one (HA := HA) (S := S)
   obtain ⟨Aconv, Cconv, hAconv, hCconv, hconv⟩ := zf_height_convolution
     (2 : ℝ) (by norm_num)
@@ -4258,6 +4256,13 @@ private theorem rows_principalRz_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
     have hre : ((1 + δ1 : ℝ) + tξ * Complex.I).re = 1 + δ1 := hxi tξ
     rw [hre] at hrecip
     simpa [Cinv] using hrecip
+  let Cpre : ℝ := ‖HA.RS S‖ * B * Cconv * I
+  let C : ℝ := Cpre + 1
+  have hCpre : 0 ≤ Cpre := by dsimp [Cpre]; positivity
+  have hC : 0 < C := by dsimp [C]; linarith
+  refine ⟨C, hC, ?_⟩
+  intro Z hZ
+  have hZpos : 0 < Z := by linarith
   let F0 : ℂ → ℂ → ℂ := fun ξ z =>
     (Z : ℂ) ^ ((a : ℂ) / 2 + ξ - 1 + (h0 : ℂ) * z) *
       Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z *
@@ -4372,10 +4377,6 @@ private theorem rows_principalRz_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
       _ ≤ M * (Cconv * (1 + |tξ|) ^ (-2 : ℝ)) :=
         mul_le_mul_of_nonneg_left (hconv tξ) (by positivity)
       _ = M * Cconv * (1 + |tξ|) ^ (-2 : ℝ) := by ring
-  let I : ℝ := ∫ t : ℝ, (1 + |t|) ^ (-2 : ℝ)
-  have hIint : Integrable (fun t : ℝ => (1 + |t|) ^ (-2 : ℝ)) :=
-    rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
-  have hI0 : 0 ≤ I := by dsimp [I]; exact integral_nonneg fun t => by positivity
   have hDoubleNorm :
       ‖vertical (1 + δ1) (fun ξ => vertical (16 / 100) (fun z => K ξ z))‖ ≤
         M * Cconv * I := by
@@ -4410,10 +4411,6 @@ private theorem rows_principalRz_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
       _ ≤ ‖HA.RS S‖ * (M * Cconv * I) :=
         mul_le_mul_of_nonneg_left hDoubleNorm (norm_nonneg _)
       _ = ‖HA.RS S‖ * M * Cconv * I := by ring
-  let Cpre : ℝ := ‖HA.RS S‖ * B * Cconv * I
-  let C : ℝ := Cpre + 1
-  have hCpre : 0 ≤ Cpre := by dsimp [Cpre]; positivity
-  have hC : 0 < C := by dsimp [C]; linarith
   have hscale : ‖HA.RS S‖ * M * Cconv * I =
       Cpre * Z ^ Estar (1 + δ1) 1 (16 / 100) := by
     dsimp [Cpre, M]
@@ -4421,7 +4418,6 @@ private theorem rows_principalRz_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
   have htarget : 0 ≤ Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
     Real.rpow_nonneg (by linarith : 0 ≤ Z) _
   have hCprele : Cpre ≤ C := by dsimp [C]; linarith
-  refine ⟨C, hC, ?_⟩
   calc
     _ ≤ Cpre * Z ^ Estar (1 + δ1) 1 (16 / 100) := by rw [← hscale]; exact hnormRz
     _ ≤ Cpre * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
