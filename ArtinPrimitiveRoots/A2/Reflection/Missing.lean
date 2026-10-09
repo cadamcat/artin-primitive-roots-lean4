@@ -4755,6 +4755,36 @@ private theorem rf_forward_generator_shift (p : S.SqfExtIdeal × S.ExtIdeal) :
   refine ⟨γ, ?_⟩
   simpa only [γ, εu, Subgroup.coe_pow] using hEq
 
+private theorem rf_forward_frequency_injective :
+    Function.Injective (fun q : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S =>
+      (q.2.1 : Fˣ) * Agen R q.1.1 q.1.2) := by
+  intro p q hpq
+  obtain ⟨δp, hp⟩ := rf_forward_generator_shift R p.1
+  obtain ⟨δq, hq⟩ := rf_forward_generator_shift R q.1
+  have hCanonical :
+      ((p.2 * δp).1 : Fˣ) * bc.gen (Aideal R p.1.1 p.1.2) =
+        ((q.2 * δq).1 : Fˣ) * bc.gen (Aideal R q.1.1 q.1.2) := by
+    simpa only [Subgroup.coe_mul, mul_assoc, ← hp, ← hq] using hpq
+  have hIndex := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.generator_orbit_injective
+    D S H Bd bc
+    (show (fun a : S.ExtIdeal × Gamma S => (a.2.1 : Fˣ) * bc.gen a.1)
+      (Aideal R p.1.1 p.1.2, p.2 * δp) =
+      (fun a : S.ExtIdeal × Gamma S => (a.2.1 : Fˣ) * bc.gen a.1)
+      (Aideal R q.1.1 q.1.2, q.2 * δq) from hCanonical)
+  have hCube : p.1.1.1 * p.1.2.1 ^ (3 : ℕ) =
+      q.1.1.1 * q.1.2.1 ^ (3 : ℕ) := by
+    have hIdeal := congrArg (fun a : S.ExtIdeal × Gamma S => a.1.1) hIndex
+    simpa only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+      R.exterior.pow_val] using hIdeal
+  have hPair : p.1 = q.1 :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.squarefree_cube_injective S hCube
+  have hGamma : p.2 = q.2 := by
+    apply Subtype.ext
+    apply Subtype.ext
+    apply mul_right_cancel (b := Agen R q.1.1 q.1.2)
+    simpa only [hPair] using hpq
+  exact Prod.ext hPair hGamma
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
