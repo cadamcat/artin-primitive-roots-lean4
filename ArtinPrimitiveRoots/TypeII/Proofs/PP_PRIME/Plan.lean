@@ -5,6 +5,7 @@ import Mathlib.Analysis.MellinInversion
 import Mathlib.Analysis.Fourier.FourierTransformDeriv
 import Mathlib.Analysis.SpecialFunctions.SmoothTransition
 import Mathlib.Analysis.SpecialFunctions.Gaussian.PoissonSummation
+import Mathlib.Analysis.SpecialFunctions.JapaneseBracket
 
 set_option autoImplicit false
 noncomputable section
@@ -2324,6 +2325,35 @@ private theorem ppPrime_gaussian_exp_le_exp_neg_linear_eventually
     exact hT
   have hlt := (div_lt_iff₀ (Real.exp_pos _)).mp hratio'
   simpa using hlt.le
+
+private theorem ppPrime_mellinKernel_integrable_of_rpow_two
+    {g : ℝ → ℝ} {c M : ℝ}
+    (hanalytic : AnalyticOnNhd ℂ (mellinKernel g) Set.univ)
+    (hbound : ∀ v : ℝ,
+      ‖mellinKernel g (⟨c, v⟩ : ℂ)‖ ≤ M * Real.rpow (1 + |v|) (-2)) :
+    Integrable (fun v : ℝ => mellinKernel g (⟨c, v⟩ : ℂ)) := by
+  have hbase : Integrable (fun v : ℝ => Real.rpow (1 + ‖v‖) (-2)) := by
+    exact integrable_one_add_norm (E := ℝ) (by norm_num)
+  have hmajor : Integrable (fun v : ℝ => M * Real.rpow (1 + ‖v‖) (-2)) :=
+    hbase.const_mul M
+  have hcont : Continuous (fun v : ℝ => mellinKernel g (⟨c, v⟩ : ℂ)) := by
+    apply continuous_iff_continuousAt.mpr
+    intro v
+    have hline : ContinuousAt (fun u : ℝ => (⟨c, u⟩ : ℂ)) v := by
+      have hline' : ContinuousAt
+          (fun u : ℝ => (c : ℂ) + (u : ℂ) * Complex.I) v := by fun_prop
+      have heq : (fun u : ℝ => (⟨c, u⟩ : ℂ)) =
+          (fun u : ℝ => (c : ℂ) + (u : ℂ) * Complex.I) := by
+        funext u
+        apply Complex.ext
+        · simp
+        · simp
+      rw [heq]
+      exact hline'
+    exact (hanalytic (⟨c, v⟩ : ℂ) (Set.mem_univ _)).continuousAt.comp hline
+  refine hmajor.mono' hcont.aestronglyMeasurable ?_
+  filter_upwards with v
+  simpa [Real.norm_eq_abs] using hbound v
 
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
