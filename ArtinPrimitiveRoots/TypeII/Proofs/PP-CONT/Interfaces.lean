@@ -1550,6 +1550,100 @@ private theorem cont_character_dyad_prefix_bound
             rw [hsum]
     _ ≤ Cφ * N * Real.exp (-L / Real.rpow T C₃) := hB'
 
+private theorem cont_weighted_dyad_bound
+    {q : ℕ} (χ : DirichletCharacter ℂ q) {N j : ℕ} (hN : 0 < N)
+    {σ v B : ℝ} (hσ : 0 ≤ σ)
+    (hprefix : ∀ m ≤ j,
+      ‖contPrefixSum
+        (fun k => χ ((N + k : ℕ) : ZMod q) *
+          Complex.exp (Complex.I * (-v) *
+            Real.log ((N + k : ℕ) : ℝ))) m‖ ≤ B) :
+    ‖∑ k ∈ Finset.range (j + 1),
+      χ ((N + k : ℕ) : ZMod q) *
+        Complex.exp (-⟨σ, v⟩ * Real.log ((N + k : ℕ) : ℝ))‖ ≤
+      2 * B * Real.rpow (N : ℝ) (-σ) := by
+  classical
+  let f : ℕ → ℂ := fun k => χ ((N + k : ℕ) : ZMod q) *
+    Complex.exp (Complex.I * (-v) * Real.log ((N + k : ℕ) : ℝ))
+  let g : ℕ → ℂ := fun k => Complex.exp
+    ((-σ * Real.log ((N + k : ℕ) : ℝ) : ℝ) : ℂ)
+  let a : ℕ → ℝ := fun k => Real.rpow ((N + k : ℕ) : ℝ) (-σ)
+  have hB : 0 ≤ B := le_trans (norm_nonneg _) (hprefix 0 (Nat.zero_le _))
+  have hNpos : 0 < (N : ℝ) := by exact_mod_cast hN
+  have hg_eq (k : ℕ) : g k = (a k : ℂ) := by
+    dsimp [g, a]
+    have hn : 0 < ((N + k : ℕ) : ℝ) := by positivity
+    rw [← Complex.ofReal_exp, Real.rpow_def_of_pos hn]
+    congr 1
+    ring
+  have ha_mono (k : ℕ) : a (k + 1) ≤ a k := by
+    apply Real.rpow_le_rpow_of_nonpos (by positivity :
+      0 < ((N + k : ℕ) : ℝ))
+      (by exact_mod_cast (show N + k ≤ N + (k + 1) by omega))
+      (neg_nonpos.mpr hσ)
+  have htel (n : ℕ) :
+      (∑ k ∈ Finset.range n, (a k - a (k + 1))) = a 0 - a n := by
+    induction n with
+    | zero => simp
+    | succ n ih =>
+        rw [Finset.sum_range_succ, ih]
+        ring
+  have hvariation :
+      (∑ k ∈ Finset.range j, ‖g k - g (k + 1)‖) = a 0 - a j := by
+    calc
+      (∑ k ∈ Finset.range j, ‖g k - g (k + 1)‖) =
+          ∑ k ∈ Finset.range j, (a k - a (k + 1)) := by
+            apply Finset.sum_congr rfl
+            intro k hk
+            rw [hg_eq k, hg_eq (k + 1), ← Complex.ofReal_sub,
+              Complex.norm_real, Real.norm_eq_abs,
+              abs_of_nonneg (sub_nonneg.mpr (ha_mono k))]
+      _ = a 0 - a j := htel j
+  have hnormG : ‖g j‖ = a j := by
+    have haj : 0 ≤ a j := by
+      simpa [a] using Real.rpow_nonneg (show 0 ≤ ((N + j : ℕ) : ℝ) by positivity) (-σ)
+    rw [hg_eq, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg haj]
+  have hprefix' : ∀ n ≤ j, ‖contPrefixSum f n‖ ≤ B := by
+    intro n hn
+    simpa [f] using hprefix n hn
+  have habel := cont_norm_sum_mul_le_of_prefix_bound (f := f) (g := g)
+    (N := j) (B := B) hprefix'
+  have hsumEq :
+      (∑ k ∈ Finset.range (j + 1),
+        χ ((N + k : ℕ) : ZMod q) *
+          Complex.exp (-⟨σ, v⟩ * Real.log ((N + k : ℕ) : ℝ))) =
+        ∑ k ∈ Finset.range (j + 1), f k * g k := by
+    apply Finset.sum_congr rfl
+    intro k hk
+    dsimp [f, g]
+    have hsplit :
+        -⟨σ, v⟩ * (Real.log ((N + k : ℕ) : ℝ) : ℂ) =
+          Complex.I * (-v) * (Real.log ((N + k : ℕ) : ℝ) : ℂ) +
+            ((-σ * Real.log ((N + k : ℕ) : ℝ)) : ℂ) := by
+      apply Complex.ext
+      · simp [Complex.mul_re] <;> ring
+      · simp [Complex.mul_im] <;> ring
+    rw [hsplit, Complex.exp_add]
+    have hweight : Complex.exp
+        ((-σ * Real.log ((N + k : ℕ) : ℝ) : ℝ) : ℂ) =
+          Complex.exp ((-σ : ℂ) * (Real.log ((N + k : ℕ) : ℝ) : ℂ) : ℂ) := by
+      congr 1
+      push_cast
+      ring
+    rw [hweight]
+    simp only [mul_assoc]
+  rw [hsumEq]
+  calc
+    ‖∑ k ∈ Finset.range (j + 1), f k * g k‖ ≤
+        B * (‖g j‖ +
+          ∑ k ∈ Finset.range j, ‖g k - g (k + 1)‖) := habel
+    _ = B * (a j + (a 0 - a j)) := by rw [hnormG, hvariation]
+    _ = B * a 0 := by congr 1; ring
+    _ ≤ 2 * B * a 0 := by
+      have ha0 : 0 ≤ a 0 := Real.rpow_nonneg hNpos.le _
+      nlinarith [mul_nonneg hB ha0]
+    _ = 2 * B * Real.rpow (N : ℝ) (-σ) := by simp [a]
+
 private theorem cont_growth_low_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
