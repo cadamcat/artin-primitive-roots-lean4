@@ -1,0 +1,147 @@
+# formalization.yaml (v0.4)
+version: "v0.4"
+
+project:
+  name: "A Lean 4 formalization of the infinitude assertion of Artin's primitive root conjecture"
+  description: >-
+    A complete Lean 4 formalization of the infinitude assertion of Artin's
+    primitive root conjecture, proved by OpenAI: every integer other than -1
+    that is not a perfect square is a primitive root modulo infinitely many
+    primes. The formal proof follows OpenAI's paper. It proves the paper's
+    lower bound c x/(log x)^2 for the number of such primes in (x, 2x), from
+    a construction of primes p with p - 1 = c r Q and controlled factors, a
+    complete-splitting bound in the Kummer fields Q(mu_q, a^(1/q)) uniform in
+    q, and a zero-free region of width 10^-6 for Hecke L-functions of
+    cyclotomic fields containing the 12th roots of unity. The final theorem
+    depends only on the axioms propext, Classical.choice and Quot.sound.
+  authors:
+    - "Yao Xu"
+  responsible_maintainers:
+    - "Yao Xu"
+  license: "Apache-2.0"
+
+sources:
+  - title: "Primitive roots for every admissible integer base"
+    authors: ["OpenAI"]
+    id: "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Primitive-roots-for-every-admissible-integer-base-October-4-2026/primitive-roots-all-integer-bases.pdf"
+    type: "paper"
+    location: "October 4, 2026; Theorem 1.1 (thm:primitive-root), with Propositions prop:controlled and prop:splitting and Theorem thm:hecke-zero-free"
+    relationship: "formalizes"
+    author_endorsement: "not-contacted"
+  - title: "The Poisson-Dirichlet law for prime predecessors"
+    authors: ["OpenAI"]
+    id: "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/The-Poisson-Dirichlet-Law-for-Prime-Predecessors-September-24-2026/paper.pdf"
+    type: "paper"
+    location: "Theorem 3.1 (marked prime estimate)"
+    relationship: "formalizes"
+    author_endorsement: "not-contacted"
+
+related_formalizations:
+  - id: "https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean"
+    relationship: "builds-on"
+    note: >-
+      The project imports modules of OpenAI's Lean library (Dirichlet and
+      Hecke L-function continuation, Gauss sums, the quadratic large sieve,
+      Eisenstein series, sieve estimates) and adapts some of its files;
+      THIRD_PARTY.md lists them.
+
+classification:
+  arxiv: ["math.NT", "cs.LO"]
+  msc2020: ["11A07", "11N36", "11R42", "11F27", "68V20"]
+
+status:
+  scope: >-
+    Complete formalization of the infinitude assertion in the form stated in
+    Challenge.lean. The density form of Artin's conjecture is not
+    formalized.
+  sorry_count: 0
+  sorry_in_definitions: 0
+  axioms: ["propext", "Classical.choice", "Quot.sound"]
+  main_results:
+    - declaration: "ArtinPrimitiveRootsConjecture.artin_primitive_roots_infinite"
+      file: "ArtinPrimitiveRoots/Target.lean"
+      sorry_count: 0
+      axioms: ["propext", "Classical.choice", "Quot.sound"]
+      comparator_config: "comparator.json"
+      literature_dependencies: []
+
+automation:
+  methods:
+    - method: "agent"
+      models: ["Claude Opus 5.5", "GPT-6 Luna", "GPT-6.1 Sol", "Gemini 3.8 Flash", "Muse Spark 1.3", "Grok 4.7"]
+      framework: "Claude Code, Codex CLI, Antigravity, OpenCode and Grok CLI"
+      tool_setup: >-
+        AI coding agents wrote the Lean code under acceptance criteria set by
+        the author. The target statement was written first and reviewed
+        against the conjecture and the paper. Each intermediate statement was
+        frozen with a hash of its elaborated type before any proof of it was
+        attempted, and statements were attacked for counterexamples; the ones
+        found false were repaired and frozen again. A proof was accepted only
+        if its statement kept the frozen type and its axioms stayed within the
+        three standard axioms, up to frozen statements still open.
+      cost:
+        spend_usd: "subscription-based usage"
+        hardware: "API-only models; local builds on an Apple Silicon Mac and remote build servers"
+  spend_usd: "subscription-based usage"
+  notes: >-
+    The author is responsible for the content. Model agreement was not
+    treated as verification; acceptance rests on the Lean kernel checks
+    described under review.
+
+fidelity:
+  divergences: >-
+    The paper's Theorem 1.1 is a lower bound for primitive-root primes in
+    dyadic intervals; the target statement is its consequence that the set
+    S a is infinite. S a uses Mathlib's multiplicative order in ZMod p and
+    contains no prime dividing a. For odd a it contains p = 2, since the
+    order of 1 is 1 = 2 - 1; this adds at most one prime. The definition of
+    S is copied from ArtinPrimitiveRootsConjecture.S in Formal Conjectures
+    (FormalConjectures/Wikipedia/ArtinPrimitiveRootsConjecture.lean, commit
+    9d259649abe0b02d7a25f7589b872db679b35e21), which states only the
+    density forms.
+
+review:
+  status: "agent-reviewed"
+  reviewers: []
+  notes: >-
+    The release commit builds; #print axioms on
+    ArtinPrimitiveRootsConjecture.artin_primitive_roots_infinite shows only
+    propext, Classical.choice and Quot.sound (scripts/verify.sh). The
+    theorem's statement has the same text as Challenge.lean
+    (scripts/check_statement_text.py) and is checked against it by
+    definitional equality with a displayed statement in
+    Verification/ChallengeStatement.lean and Verification/MainStatement.lean;
+    Challenge.lean is unchanged since the target was reviewed. Every
+    intermediate statement was frozen with a hash of its elaborated type
+    before its proof, and each proof was accepted against the frozen
+    statements. No independent human expert has reviewed the
+    formalization.
+
+alignment:
+  namespace: "ArtinPrimitiveRootsConjecture"
+  statements:
+    - source: "OpenAI (2026), Theorem 1.1, infinitude assertion"
+      lean: "ArtinPrimitiveRootsConjecture.artin_primitive_roots_infinite"
+      module: "ArtinPrimitiveRoots/Target.lean"
+      status: "proved"
+    - source: "OpenAI (2026), Theorem 1.1"
+      lean: "ArtinPrimitiveRoots.thm_main"
+      module: "ArtinPrimitiveRoots/Reduction.lean"
+      status: "proved"
+    - source: "OpenAI (2026), Proposition prop:controlled"
+      lean: "ArtinPrimitiveRoots.prop_controlled"
+      module: "ArtinPrimitiveRoots/Controlled.lean"
+      status: "proved"
+    - source: "OpenAI (2026), Proposition prop:splitting"
+      lean: "ArtinPrimitiveRoots.prop_splitting"
+      module: "ArtinPrimitiveRoots/Splitting.lean"
+      status: "proved"
+    - source: "OpenAI (2026), Theorem thm:hecke-zero-free"
+      lean: "ArtinPrimitiveRoots.HeckeBoundary.thm_hecke_zero_free"
+      module: "ArtinPrimitiveRoots/Hecke/Boundary.lean"
+      status: "proved"
+
+acknowledgements: >-
+  Mathlib, OpenAI's openai/math library, and ClassFieldTheory, TauCeti,
+  AINTLIB, PrimeNumberTheoremAnd and rellich-kondrachov (as pinned by
+  openai/math) supply the underlying theories.

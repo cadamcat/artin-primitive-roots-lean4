@@ -1,0 +1,16 @@
+{
+  "challenge_module": "Challenge",
+  "solution_module": "ArtinPrimitiveRoots.Target",
+  "theorem_names": [
+    "ArtinPrimitiveRootsConjecture.artin_primitive_roots_infinite"
+  ],
+  "definition_names": [
+    "ArtinPrimitiveRootsConjecture.S"
+  ],
+  "permitted_axioms": [
+    "propext",
+    "Quot.sound",
+    "Classical.choice"
+  ],
+  "enable_nanoda": false
+}

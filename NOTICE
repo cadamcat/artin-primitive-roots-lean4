@@ -1,0 +1,21 @@
+artin-primitive-roots-lean4
+Copyright 2026 Yao Xu
+
+This project uses and includes Lean source adapted from the following
+libraries, each licensed under the Apache License, Version 2.0:
+
+- OpenAI's openai/math library (https://github.com/openai/math), commit
+  adc7f1241b42e322a6451854ab7e4b4c146bf78a, lean/ directory;
+- PrimeNumberTheoremAnd
+  (https://github.com/AlexKontorovich/PrimeNumberTheoremAnd), commit
+  c39a751132c88b6e8080b74c74023fd95b3d8be0;
+- TauCeti (https://github.com/TauCetiProject/TauCeti), commit
+  3bed7e37f3c504a99e8c07e9f309540812a7aa90;
+- ClassFieldTheory (https://github.com/n-yamaguchi-0729/ClassFieldTheory),
+  commit 2eb22d6485af45f29c5219de6c49f196a61c4f49;
+- AINTLIB (https://github.com/CBirkbeck/AINTLIB), commit
+  160e446617a2168c34c95bbe7a76c4105b392434.
+
+Adapted files keep their upstream copyright headers or name their upstream
+path in a comment; THIRD_PARTY.md lists the files. None of these upstream
+repositories has a NOTICE file.

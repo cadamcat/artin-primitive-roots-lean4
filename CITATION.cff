@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this formalization, please cite it using the metadata from this file."
+type: software
+title: "Artin's primitive roots in Lean 4"
+abstract: >-
+  A Lean 4 formalization of the infinitude assertion of Artin's primitive
+  root conjecture: every integer other than -1 that is not a perfect square
+  is a primitive root modulo infinitely many primes.
+authors:
+  - family-names: Xu
+    given-names: Yao
+    alias: cadamcat
+repository-code: "https://github.com/cadamcat/artin-primitive-roots-lean4"
+url: "https://github.com/cadamcat/artin-primitive-roots-lean4"
+license: Apache-2.0
+version: v1.0.0
+keywords:
+  - Lean 4
+  - formalization
+  - Artin's conjecture
+  - primitive roots
+  - Hecke L-functions
+  - analytic number theory
+references:
+  - type: article
+    authors:
+      - name: OpenAI
+    title: "Primitive roots for every admissible integer base"
+    url: "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Primitive-roots-for-every-admissible-integer-base-October-4-2026/primitive-roots-all-integer-bases.pdf"
