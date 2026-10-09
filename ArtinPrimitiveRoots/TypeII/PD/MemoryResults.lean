@@ -84,6 +84,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.PadCoordinates
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.TupleMinor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ProjectivePad
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SlopeCells
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanPadFacts
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
@@ -11146,6 +11147,147 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.common_projective_cell_lattic
     simpa only [Φ, hh, hl'] using hbounds
   have hpad := pad_lattice_coordinate_embedding z D hDpos hzprim a b c d hmat T hdiv
   exact ⟨hpad.1, hcoord, hpad.2⟩
+
+private theorem pd4d_minor_arc_set_measurable (x Y A₀ : ℝ) :
+    MeasurableSet {θ : ℝ | ¬ majorArc x Y A₀ θ} := by
+  have hmajor : MeasurableSet {θ : ℝ | majorArc x Y A₀ θ} := by
+    unfold majorArc
+    measurability
+  exact hmajor.compl
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Common projective-cell blocks satisfy the weighted physical clean-kernel bound. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_block_bound (C : ℝ) (hC : 0 ≤ C) :
+    ∃ Cbox Y₀ : ℝ, 0 < Cbox ∧ 1 ≤ Y₀ ∧
+      ∀ (K : ℕ) (F : PDFix K) (S : PDScale), Y₀ ≤ S.Y →
+      (∀ i j : Fin K, i ≠ j → Disjoint (primeBand S.x (F.a i)) (primeBand S.x (F.a j))) →
+      (∀ i : Fin K, Real.log 2/2 ≤ bandMass S.x (F.a i)) →
+      (∀ i : Fin K, ∀ p ∈ primeBand S.x (F.a i), (1/2 : ℝ) ≤ memoryBPrime S.x F.q_d p) →
+      ∀ w : ArchRoot, w.InRegion S → 0 < S.U → 0 < S.d₀ →
+      ∀ z : ℤ × ℤ, envBox S w z → Int.gcd z.1 z.2 = 1 →
+      ∀ p : PrimeLists S.x K, ValidPrimeLists S.x K F.a p →
+      goodTestOne S.x S.Y (S.d₀ : ℝ) p (transportedRatio w z) →
+      ((S.d₀ : ℝ) ≤ (sharedProduct p : ℝ) ∧ (sharedProduct p : ℝ) < 2*(S.d₀ : ℝ)) →
+      ∀ T : Finset ((ℤ × ℤ) × (Fin K → ℕ)),
+      (∀ u ∈ T, IsMarkedPrimeTuple S.x K F.a u.2 ∧ S.Y ≤ (tupleProduct u.2 : ℝ) ∧
+        envBox S w u.1 ∧
+        (∀ q : ℕ, q.Prime → q ∣ sharedProduct p → projLine q z = projLine q u.1) ∧
+        |((⌊((u.1.2 : ℝ)/w.tau u.1)/((S.d₀ : ℝ)*S.Y)⌋-
+          ⌊((z.2 : ℝ)/w.tau z)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ C) →
+      ∀ r : ℝ, 0 ≤ r →
+      (∀ θ : ℝ, ¬ majorArc S.x S.Y F.A₀ θ →
+        ∀ M N : ℕ, (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y →
+          (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) →
+        ∀ a b s t : ℝ, ∀ g : ℕ × ℕ → ℂ,
+        let I := (Finset.range M).product (Finset.range N)
+        let Δ := fun i j : ℕ × ℕ =>
+          (a+(i.1 : ℝ))*(t+(j.2 : ℝ))-(b+(i.2 : ℝ))*(s+(j.1 : ℝ))
+        (∑ i ∈ I, ‖∑ j ∈ I,
+          (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2)) →
+      ∀ Ceta : ℝ, 0 ≤ Ceta →
+      ∀ d e : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      (∀ u ∈ T, ‖d u‖ ≤ Ceta) → (∀ u ∈ T, ‖e u‖ ≤ Ceta) →
+      ∀ f : ((ℤ × ℤ) × (Fin K → ℕ)) → ℂ,
+      let μ := fun u : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (u.2 i)
+      let t := fun u v : ((ℤ × ℤ) × (Fin K → ℕ)) =>
+        ((det2 u.1 v.1/(sharedProduct p : ℤ) : ℤ) : ℝ)
+      (∑ u ∈ T, μ u*‖d u*(∑ v ∈ T,
+        ((F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1, if ¬ majorArc S.x S.Y F.A₀ θ then
+          additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ)))
+            else 0))*(μ v : ℂ)*e v*f v)‖^2) ≤
+        (Ceta^2*(4/Real.log 2)^K*r)^2*(∑ v ∈ T, μ v*‖f v‖^2) := by
+  obtain ⟨Cgeom, Y₀, hCgeom, hY₀, hgeom⟩ := common_projective_cell_lattice_box C hC
+  let Cbox : ℝ := max (9*Cgeom) 6
+  have hCbox : 0 < Cbox := (by norm_num : (0 : ℝ) < 6).trans_le (le_max_right _ _)
+  refine ⟨Cbox, Y₀, hCbox, hY₀, ?_⟩
+  intro K F S hY hbands hV hb w hw hU hd₀ z hz hzprim p hp hgood hpad T hT r hr hfibre
+  intro Ceta hCeta d e hd he f
+  have hYone : 1 ≤ S.Y := hY₀.trans hY
+  have hYpos : 0 < S.Y := zero_lt_one.trans_le hYone
+  have hsource := clean_shared_pad_facts S.x S.Y (S.d₀ : ℝ)
+    (transportedRatio w z) F.a p hp hbands hgood hpad
+  let Tpos : Finset (ℤ × ℤ) := T.image Prod.fst
+  have hTpos (u : ℤ × ℤ) (hu : u ∈ Tpos) :
+      envBox S w u ∧
+        (∀ q : ℕ, q.Prime → q ∣ sharedProduct p → projLine q z = projLine q u) ∧
+        |((⌊((u.2 : ℝ)/w.tau u)/((S.d₀ : ℝ)*S.Y)⌋-
+          ⌊((z.2 : ℝ)/w.tau z)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ C := by
+    obtain ⟨v, hv, rfl⟩ := Finset.mem_image.mp hu
+    exact (hT v hv).2.2
+  obtain ⟨a, b, c, d₀, A, B, hmat, hAB, hAl, hAu, hBl, hBu, hΦ, hbox, hdet⟩ :=
+    hgeom S hY w hw hU z hz hzprim (sharedProduct p) hsource.1 hd₀ hpad.1
+      hsource.2 Tpos hTpos
+  let Φ : (ℤ × ℤ) → (ℤ × ℤ) := fun u =>
+    (d₀*det2 u (complementVec z)-b*(det2 z u/(sharedProduct p : ℤ)),
+      a*(det2 z u/(sharedProduct p : ℤ))-c*det2 u (complementVec z))
+  change Set.InjOn Φ (Tpos : Set (ℤ × ℤ)) at hΦ
+  change ∀ u ∈ Tpos, |((Φ u).1 : ℝ)| ≤ A ∧ |((Φ u).2 : ℝ)| ≤ B at hbox
+  change ∀ u ∈ Tpos, ∀ v ∈ Tpos,
+    det2 u v/(sharedProduct p : ℤ) = det2 (Φ u) (Φ v) at hdet
+  have hA : 1 ≤ A := (Real.one_le_rpow hYone (by norm_num : (0 : ℝ) ≤ 1/10)).trans hAl
+  have hB : 1 ≤ B := (Real.one_le_rpow hYone (by norm_num : (0 : ℝ) ≤ 1/10)).trans hBl
+  have hmem (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) : u.1 ∈ Tpos :=
+    Finset.mem_image.mpr ⟨u, hu, rfl⟩
+  have hphysicalbox (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T) :
+      |((Φ u.1).1 : ℝ)| ≤ A ∧ |((Φ u.1).2 : ℝ)| ≤ B := hbox u.1 (hmem u hu)
+  have hphysicaldet (u : (ℤ × ℤ) × (Fin K → ℕ)) (hu : u ∈ T)
+      (v : (ℤ × ℤ) × (Fin K → ℕ)) (hv : v ∈ T) :
+      ((det2 u.1 v.1/(sharedProduct p : ℤ) : ℤ) : ℝ) =
+        (det2 (Φ u.1) (Φ v.1) : ℝ) :=
+    congrArg (fun n : ℤ => (n : ℝ)) (hdet u.1 (hmem u hu) v.1 (hmem v hv))
+  let M := (2*⌊A⌋+1).toNat
+  let N := (2*⌊B⌋+1).toNat
+  have hemb := position_prime_tuple_box_embedding S.x F.a hbands T
+    (fun u hu => (hT u hu).1) Φ hΦ A B hA hB hphysicalbox
+  have hM : (M : ℝ) ≤ 3*A := hemb.1
+  have hN : (N : ℝ) ≤ 3*B := hemb.2.1
+  have harea : (M : ℝ)*(N : ℝ) ≤ Cbox*S.Y := by
+    calc
+      _ ≤ (3*A)*(3*B) := mul_le_mul hM hN (Nat.cast_nonneg _) (by linarith only [hA])
+      _ = 9*(A*B) := by ring
+      _ ≤ 9*(Cgeom*S.Y) := mul_le_mul_of_nonneg_left hAB (by norm_num)
+      _ = (9*Cgeom)*S.Y := by ring
+      _ ≤ Cbox*S.Y := mul_le_mul_of_nonneg_right (le_max_left _ _) hYpos.le
+  have haspect : (M : ℝ)+(N : ℝ) ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) := by
+    calc
+      _ ≤ 3*A+3*B := add_le_add hM hN
+      _ ≤ 3*Real.rpow S.Y (9/10 : ℝ)+3*Real.rpow S.Y (9/10 : ℝ) :=
+        add_le_add (mul_le_mul_of_nonneg_left hAu (by norm_num))
+          (mul_le_mul_of_nonneg_left hBu (by norm_num))
+      _ = 6*Real.rpow S.Y (9/10 : ℝ) := by ring
+      _ ≤ Cbox*Real.rpow S.Y (9/10 : ℝ) :=
+        mul_le_mul_of_nonneg_right (le_max_right _ _) (Real.rpow_nonneg hYpos.le _)
+  let P : Set ℝ := {θ | ¬ majorArc S.x S.Y F.A₀ θ}
+  have hP : MeasurableSet P := pd4d_minor_arc_set_measurable S.x S.Y F.A₀
+  have hfib (θ : ℝ) (hθ : θ ∈ Set.Icc (0 : ℝ) 1 ∩ P) (g : ℕ × ℕ → ℂ) :
+      let I := (Finset.range M).product (Finset.range N)
+      let Δ := fun i j : ℕ × ℕ =>
+        (-(⌊A⌋ : ℝ)+(i.1 : ℝ))*(-(⌊B⌋ : ℝ)+(j.2 : ℝ))-
+          (-(⌊B⌋ : ℝ)+(i.2 : ℝ))*(-(⌊A⌋ : ℝ)+(j.1 : ℝ))
+      (∑ i ∈ I, ‖∑ j ∈ I,
+        (F.psi (Δ i j/S.Y) : ℂ)*additiveCharacter (θ*Δ i j)*g j‖^2) ≤
+          (S.Y*r)^2*(∑ j ∈ I, ‖g j‖^2) :=
+    hfibre θ hθ.2 M N harea haspect (-(⌊A⌋ : ℝ)) (-(⌊B⌋ : ℝ))
+      (-(⌊A⌋ : ℝ)) (-(⌊B⌋ : ℝ)) g
+  let t := fun u v : (ℤ × ℤ) × (Fin K → ℕ) =>
+    ((det2 u.1 v.1/(sharedProduct p : ℤ) : ℤ) : ℝ)
+  let k := fun u v : (ℤ × ℤ) × (Fin K → ℕ) =>
+    (F.psi (t u v/S.Y) : ℂ)*(∫ θ in (0 : ℝ)..1, if θ ∈ P then
+      additiveCharacter (θ*(t u v-(tupleProduct u.2 : ℝ)+(tupleProduct v.2 : ℝ))) else 0)
+  have hk (g : (ℤ × ℤ) × (Fin K → ℕ) → ℂ) :
+      (∑ u ∈ T, ‖∑ v ∈ T, k u v*g v‖^2) ≤ (S.Y*r)^2*(∑ v ∈ T, ‖g v‖^2) := by
+    simpa only [k, t] using
+      prime_tuple_minor_counting_bound S.x F.a hbands T (fun u hu => (hT u hu).1)
+        Φ hΦ A B hA hB hphysicalbox (sharedProduct p) hphysicaldet F.psi S.Y (S.Y*r)
+        (mul_nonneg hYpos.le hr) P hP hfib g
+  have hbound := prime_tuple_weighted_kernel_bound S.x F.a F.q_d S.Y Ceta (S.Y*r)
+    hYpos hCeta hV hb T (fun u hu => ⟨(hT u hu).1, (hT u hu).2.1⟩) k d e hd he hk f
+  have hconst : (Ceta^2*(4/Real.log 2)^K/S.Y)*(S.Y*r) = Ceta^2*(4/Real.log 2)^K*r := by
+    field_simp [hYpos.ne']
+  rw [hconst] at hbound
+  exact hbound
 
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
