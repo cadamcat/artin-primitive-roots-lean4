@@ -2483,6 +2483,106 @@ private theorem ppPrimeSmoothing_error_log_bound
         _ = 40 * Real.rpow L (-A - 3) + 80 * Real.rpow L (-A - 2) := by rw [hLmul]
     _ ≤ 120 * Real.rpow L (-A - 2) := by nlinarith
 
+private theorem ppPrimeIntegral_largeSet_norm_bound
+    {F : ℝ → ℂ} {S : Set ℝ} {M H : ℝ}
+    (hM : 0 ≤ M) (hH : 0 < H) (hS : MeasurableSet S)
+    (hFint : Integrable F)
+    (hdecay : ∀ v : ℝ,
+      ‖F v‖ ≤ M * Real.rpow (1 + |v|) (-4 : ℝ))
+    (hlarge : ∀ v ∈ S, H ≤ |v|) :
+    ‖∫ v in S, F v‖ ≤
+      (M * Real.rpow H (-2 : ℝ)) *
+        ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+  have hbase : Integrable (fun v : ℝ => Real.rpow (1 + ‖v‖) (-2 : ℝ)) :=
+    integrable_one_add_norm (E := ℝ) (by norm_num)
+  let K : ℝ := M * Real.rpow H (-2 : ℝ)
+  have hK : 0 ≤ K := by
+    dsimp [K]
+    exact mul_nonneg hM (Real.rpow_nonneg hH.le _)
+  have hmajor : Integrable (fun v : ℝ => K * Real.rpow (1 + ‖v‖) (-2 : ℝ)) :=
+    hbase.const_mul K
+  have hpoint : ∀ v ∈ S,
+      ‖F v‖ ≤ K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+    intro v hv
+    have hvlarge := hlarge v hv
+    have hvnorm : ‖v‖ = |v| := Real.norm_eq_abs v
+    have hvbase : 1 ≤ 1 + |v| := by linarith [abs_nonneg v]
+    have hsplit : Real.rpow (1 + |v|) (-4 : ℝ) =
+        Real.rpow (1 + |v|) (-2 : ℝ) * Real.rpow (1 + |v|) (-2 : ℝ) := by
+      calc
+        _ = Real.rpow (1 + |v|) ((-2 : ℝ) + (-2 : ℝ)) := by congr 1 <;> ring
+        _ = _ := Real.rpow_add (by positivity) _ _
+    have hHbase : H ≤ 1 + |v| := by linarith [hvlarge, abs_nonneg v]
+    have hpower : Real.rpow (1 + |v|) (-2 : ℝ) ≤ Real.rpow H (-2 : ℝ) :=
+      Real.rpow_le_rpow_of_nonpos hH hHbase (by norm_num)
+    have hbound : M * Real.rpow (1 + |v|) (-4 : ℝ) ≤
+        K * Real.rpow (1 + |v|) (-2 : ℝ) := by
+      rw [hsplit]
+      dsimp [K]
+      calc
+        M * (Real.rpow (1 + |v|) (-2 : ℝ) * Real.rpow (1 + |v|) (-2 : ℝ)) ≤
+            M * (Real.rpow H (-2 : ℝ) * Real.rpow (1 + |v|) (-2 : ℝ)) := by
+          exact mul_le_mul_of_nonneg_left
+            (mul_le_mul_of_nonneg_right hpower
+              (Real.rpow_nonneg (by positivity) _)) hM
+        _ = M * Real.rpow H (-2 : ℝ) * Real.rpow (1 + |v|) (-2 : ℝ) := by ring
+    rw [hvnorm]
+    exact (hdecay v).trans hbound
+  have hnorm : ‖∫ v in S, F v‖ ≤ ∫ v in S, ‖F v‖ := by
+    simpa only [integral] using
+      (norm_integral_le_integral_norm (μ := volume.restrict S) F)
+  have hmono := setIntegral_mono_on hFint.norm.integrableOn hmajor.integrableOn hS hpoint
+  have htotal :
+      (∫ v in S, K * Real.rpow (1 + ‖v‖) (-2 : ℝ)) ≤
+        ∫ v : ℝ, K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+    exact setIntegral_le_integral hmajor (ae_of_all _ fun v =>
+      mul_nonneg hK (Real.rpow_nonneg (by positivity) _))
+  calc
+    _ ≤ ∫ v in S, ‖F v‖ := hnorm
+    _ ≤ ∫ v in S, K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := hmono
+    _ ≤ ∫ v : ℝ, K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := htotal
+    _ = K * ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ) := by rw [integral_const_mul]
+
+private theorem ppPrimeIntegral_truncate_norm_bound
+    {F : ℝ → ℂ} {M H : ℝ}
+    (hM : 0 ≤ M) (hH : 1 ≤ H) (hFint : Integrable F)
+    (hdecay : ∀ v : ℝ,
+      ‖F v‖ ≤ M * Real.rpow (1 + |v|) (-4 : ℝ)) :
+    ‖(∫ v : ℝ, F v) - ∫ v : ℝ in (-H)..H, F v‖ ≤
+      2 * (M * Real.rpow H (-2 : ℝ)) *
+        ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+  have hHpos : 0 < H := lt_of_lt_of_le (by norm_num) hH
+  have hleft := ppPrimeIntegral_largeSet_norm_bound hM hHpos measurableSet_Iic
+    hFint hdecay (by
+      intro v hv
+      change v ≤ -H at hv
+      have hvneg : v ≤ 0 := le_trans hv (neg_nonpos.mpr hHpos.le)
+      rw [abs_of_nonpos hvneg]
+      linarith)
+  have hright := ppPrimeIntegral_largeSet_norm_bound hM hHpos measurableSet_Ioi
+    hFint hdecay (by
+      intro v hv
+      change H < v at hv
+      rw [abs_of_pos (lt_trans hHpos hv)]
+      linarith)
+  have hsplitLeft := intervalIntegral.integral_Iic_add_Ioi (f := F) (b := -H)
+    hFint.integrableOn hFint.integrableOn
+  have hsplitRight := intervalIntegral.integral_interval_add_Ioi
+    (f := F) (a := -H) (b := H) hFint.integrableOn hFint.integrableOn
+  have hdecomp : (∫ v : ℝ, F v) - ∫ v : ℝ in (-H)..H, F v =
+      (∫ v in Set.Iic (-H), F v) + ∫ v in Set.Ioi H, F v := by
+    rw [← hsplitLeft, ← hsplitRight]
+    ring
+  let E : ℝ := (M * Real.rpow H (-2 : ℝ)) *
+    ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ)
+  calc
+    _ = ‖(∫ v in Set.Iic (-H), F v) + ∫ v in Set.Ioi H, F v‖ := by rw [hdecomp]
+    _ ≤ ‖∫ v in Set.Iic (-H), F v‖ + ‖∫ v in Set.Ioi H, F v‖ := norm_add_le _ _
+    _ ≤ E + E := add_le_add (by simpa [E, mul_assoc] using hleft)
+      (by simpa [E, mul_assoc] using hright)
+    _ = 2 * E := by ring
+    _ = _ := by dsimp [E]; ring
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
     (hzeta : ppPrimeZetaLogDerivBound) :
