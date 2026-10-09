@@ -13010,6 +13010,49 @@ private theorem rf_pairing_active_component_summable
   exact Summable.of_norm
     (Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hle hs.norm)
 
+private theorem rf_pairing_rotated_pullback_integrable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) (ν : Fˣ) (l : ℝ) (hl : 0 < l) :
+    Integrable (onUnits (fun y => rotated R u (S.diagU ν / y)))
+      (R.sheets.sheet l) := by
+  classical
+  have hRot (x : ℝ) (hx : 0 < x) :
+      Integrable (onUnits (rotated R u)) (R.sheets.sheet x) := by
+    let m : S.FSˣ → ℂ := fun _ => 1
+    have hm : Theta.SheetMultiplier S (onUnits m) := by
+      refine ⟨R.chars.L u, 0, (fun _ => 1), ⟨1, ?_⟩, ?_⟩
+      · intro κ
+        simp
+      · intro y
+        simp only [onUnits, dif_pos (Units.isUnit y), m, zpow_zero, mul_one]
+    let tensor : Fin (R.rotated u).J → S.FSˣ → ℂ := fun ℓ y =>
+      (∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+        ∏ w : InfinitePlace F, (R.rotated u).fc ℓ w ((y : S.FS).2 w)
+    have hTensor (ℓ : Fin (R.rotated u).J) :
+        Integrable (onUnits (tensor ℓ)) (R.sheets.sheet x) := by
+      simpa only [tensor, m, one_mul] using
+        a2_bridge_ANALYSIS_tensor (G := R.sheets) R.T.δ R.T.δ_pos
+          (R.rotated u).J (R.rotated u).ff (R.rotated u).fc
+          (R.rotated u).finite_bound (R.rotated u).complex_bound m hm ℓ x hx
+    have hSum : onUnits (rotated R u) =
+        fun y => ∑ ℓ : Fin (R.rotated u).J, onUnits (tensor ℓ) y := by
+      funext y
+      by_cases hy : IsUnit y
+      · simp only [onUnits, dif_pos hy, tensor]
+        exact R.rotated_eq u hy.unit
+      · simp [onUnits, hy]
+    rw [hSum]
+    exact integrable_finsetSum Finset.univ (fun ℓ _ => hTensor ℓ)
+  have hnorm : 0 < S.absS (S.diagU ν : S.FS) :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU ν)
+  have htranslate := a2_bridge_SHEET_transport (G := R.sheets)
+    l⁻¹ (inv_pos.mpr hl) (S.diagU ν) (rotated R u)
+      (by simpa only [div_eq_mul_inv] using (hRot
+        (S.absS (S.diagU ν : S.FS) / l) (div_pos hnorm hl)))
+  have hinvert := a2_bridge_SHEET_inversion (G := R.sheets) l hl
+    (fun y => rotated R u (S.diagU ν * y)) htranslate.1
+  simpa only [div_eq_mul_inv] using hinvert.1
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
