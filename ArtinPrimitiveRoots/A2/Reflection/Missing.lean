@@ -16303,6 +16303,116 @@ private theorem rf_pairing_chiIdealPow_zero
   apply Multiset.prod_eq_zero
   exact Multiset.mem_map.mpr ⟨M, hmem, hfactor⟩
 
+private theorem rf_pairing_grouped_kernel_reflected_term
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (q : FrozenIndex R r.h × S.SqfExtIdeal)
+    (Z : ℝ) (hZ : 0 < Z) :
+    (∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T) =
+      ∑' sd : Bd.B, ∑' sc : Bd.B,
+        reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2) := by
+  classical
+  letI : Fintype S.V := R.sheets.classFinite
+  let rt (sd sc : Bd.B) : ℂ :=
+    reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2)
+  let sd0 : Bd.B := ⟨cls (S.diagU (bc.gen r.d)), (bc.gen_spec r.d).2⟩
+  let sc0 : Bd.B := ⟨cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))),
+    (bc.gen_spec (R.exterior.ofSqf q.2)).2⟩
+  have hSd (sd sc : Bd.B) (hne : sd ≠ sd0) : rt sd sc = 0 := by
+    have hNo : ¬ (Squarefree r.d.1 ∧ IsCoprime r.d.1 (r.h.1 * q.1.n.1) ∧
+        cls (S.diagU (bc.gen r.d)) = sd.1) := by
+      intro h
+      exact hne (Subtype.ext h.2.2.symm)
+    dsimp only [rt, reflectedTerm]
+    rw [frozenRho, if_neg hNo]
+    simp only [mul_zero, zero_mul]
+  have hSc (sc : Bd.B) (hne : sc ≠ sc0) : rt sd0 sc = 0 := by
+    have hNo : ¬ (IsCoprime q.2.1 q.1.f.1 ∧
+        cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))) = sc.1) := by
+      intro h
+      exact hne (Subtype.ext h.2.symm)
+    dsimp only [rt, reflectedTerm]
+    rw [frozenLambda, if_neg hNo]
+    simp only [mul_zero, zero_mul]
+  have hSum : (∑' sd : Bd.B, ∑' sc : Bd.B, rt sd sc) = rt sd0 sc0 := by
+    simp_rw [tsum_fintype]
+    calc
+      _ = ∑ sc : Bd.B, rt sd0 sc := by
+        apply Finset.sum_eq_single sd0
+        · intro sd hsd hne
+          exact Finset.sum_eq_zero (fun sc hsc => hSd sd sc hne)
+        · intro hsd
+          exact (hsd (Finset.mem_univ sd0)).elim
+      _ = rt sd0 sc0 := by
+        apply Finset.sum_eq_single sc0
+        · intro sc hsc hne
+          exact hSc sc hne
+        · intro hsc
+          exact (hsc (Finset.mem_univ sc0)).elim
+  have hInt := (rf_pairing_grouped_kernel_integral R r q Z hZ).2
+  change (∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T) =
+    ∑' sd : Bd.B, ∑' sc : Bd.B, rt sd sc
+  by_cases hcf : IsCoprime q.2.1 q.1.f.1
+  · by_cases hdn : IsCoprime r.d.1 q.1.n.1
+    · by_cases hdc : IsCoprime r.d.1 q.2.1
+      · have hGuard : IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) :=
+          (hdc.symm.mul_right hcf).mul_left (hdn.symm.mul_right q.1.coprime)
+        have hNC := rf_pairing_frequency_norm_class R r.h q.1 r.d q.2 sd0 sc0 rfl rfl
+        have hArg : Z * S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) =
+            Z * qI q.1.a.1 * qI q.2.1 * qI q.1.n.1 ^ 3 /
+              (qI r.d.1 ^ 2 * qI q.1.f.1 ^ 2) := by
+          rw [hNC.1]
+          ring
+        have hFactor := (rf_exterior_factorization R).2 (rowClass R r) r.h q.1
+          sd0 sc0 r.d q.2 r.d_squarefree (r.coprime.symm.mul_right hdn) hcf hdc rfl rfl
+        rw [hSum]
+        calc
+          _ = groupedExterior R q.1 r.d (frozenFrequency R q.1 r.d q.2) *
+              (Lvalue R (rowClass R r) (S.diagU (frozenFrequency R q.1 r.d q.2)))⁻¹ *
+              profilePhi R (rowClass R r) (kappaSix R q.1 sd0 sc0)
+                (Z * qI q.1.a.1 * qI q.2.1 * qI q.1.n.1 ^ 3 /
+                  (qI r.d.1 ^ 2 * qI q.1.f.1 ^ 2)) := by
+            rw [hInt, if_pos hGuard, hNC.2, hArg]
+          _ = rt sd0 sc0 := by
+            dsimp only [rt, reflectedTerm]
+            rw [hFactor]
+      · have hGuard : ¬ IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) := by
+          intro h
+          exact hdc h.of_mul_left_left.of_mul_right_left.symm
+        have hChi : chiIdealPow D r.d.1 (cgen R q.2) 3 = 0 :=
+          rf_pairing_chiIdealPow_zero R r.d q.2 hdc
+        have hAll (sd sc : Bd.B) : rt sd sc = 0 := by
+          dsimp only [rt, reflectedTerm]
+          rw [hChi]
+          simp only [mul_zero, zero_mul]
+        rw [hInt, if_neg hGuard]
+        simp only [hAll, tsum_zero]
+    · have hGuard : ¬ IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) := by
+        intro h
+        exact hdn h.of_mul_left_right.of_mul_right_left.symm
+      have hAll (sd sc : Bd.B) : rt sd sc = 0 := by
+        have hNo : ¬ (Squarefree r.d.1 ∧ IsCoprime r.d.1 (r.h.1 * q.1.n.1) ∧
+            cls (S.diagU (bc.gen r.d)) = sd.1) := by
+          intro h
+          exact hdn h.2.1.of_mul_right_right
+        dsimp only [rt, reflectedTerm]
+        rw [frozenRho, if_neg hNo]
+        simp only [mul_zero, zero_mul]
+      rw [hInt, if_neg hGuard]
+      simp only [hAll, tsum_zero]
+  · have hGuard : ¬ IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) := by
+      intro h
+      exact hcf h.of_mul_left_left.of_mul_right_right
+    have hAll (sd sc : Bd.B) : rt sd sc = 0 := by
+      have hNo : ¬ (IsCoprime q.2.1 q.1.f.1 ∧
+          cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))) = sc.1) := by
+        intro h
+        exact hcf h.1
+      dsimp only [rt, reflectedTerm]
+      rw [frozenLambda, if_neg hNo]
+      simp only [mul_zero, zero_mul]
+    rw [hInt, if_neg hGuard]
+    simp only [hAll, tsum_zero]
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
