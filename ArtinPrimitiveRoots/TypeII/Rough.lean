@@ -3462,6 +3462,105 @@ private theorem nonprincipal_prime_tuple_count (γ : ℝ) (hγ : 0 < γ) :
     hM hl hlr hr hB hY (by positivity) (by linarith)
     (by linarith) hD hCsw.le hclosed
 
+private theorem roughPrimeTuple_count_reindex
+    (x γ M l r : ℝ) (j k : ℕ) (χ : DirichletCharacter ℂ k)
+    (hr : 0 ≤ r) :
+    (∑ m ∈ (Finset.range (⌊r⌋₊ + 1)).filter (fun m : ℕ =>
+        l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r),
+      (roughConvolutionTerm x γ M j m : ℂ) *
+        χ (m : ZMod k)) =
+      (1 / (j.factorial : ℂ)) *
+        ∑ t ∈ (boundedTuples j (⌊2 * M⌋₊ + 1)).filter (fun t =>
+          (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+          l ≤ (∏ i : Fin j, t i : ℕ) ∧
+          ((∏ i : Fin j, t i : ℕ) : ℝ) ≤ r),
+          χ ((∏ i : Fin j, t i : ℕ) : ZMod k) := by
+  classical
+  let S : Finset ℕ := (Finset.range (⌊r⌋₊ + 1)).filter
+    (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r)
+  let T : Finset (Fin j → ℕ) := boundedTuples j (⌊2 * M⌋₊ + 1)
+  let factors (t : Fin j → ℕ) : Prop :=
+    ∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)
+  let prodN (t : Fin j → ℕ) : ℕ := ∏ i : Fin j, t i
+  let c : ℂ := 1 / (j.factorial : ℂ)
+  let z (m : ℕ) : ℂ := χ (m : ZMod k)
+  have hterm (m : ℕ) : (roughConvolutionTerm x γ M j m : ℂ) =
+      c * ∑ t ∈ T, if factors t ∧ prodN t = m then (1 : ℂ) else 0 := by
+    simp [roughConvolutionTerm, c, T, factors, prodN, map_sum,
+      Complex.ofReal_mul]
+  have hrewrite :
+      (∑ m ∈ S, (roughConvolutionTerm x γ M j m : ℂ) * z m) =
+        c * ∑ t ∈ T, ∑ m ∈ S,
+          if factors t ∧ prodN t = m then z m else 0 := by
+    calc
+      _ = ∑ m ∈ S, c *
+          (∑ t ∈ T, if factors t ∧ prodN t = m then (1 : ℂ) else 0) * z m := by
+        apply Finset.sum_congr rfl
+        intro m hm
+        exact congrArg (fun w : ℂ => w * z m) (hterm m)
+      _ = ∑ m ∈ S, c * ∑ t ∈ T,
+          (if factors t ∧ prodN t = m then z m else 0) := by
+        apply Finset.sum_congr rfl
+        intro m hm
+        calc
+          c * (∑ t ∈ T, if factors t ∧ prodN t = m then (1 : ℂ) else 0) * z m =
+              c * ((∑ t ∈ T, if factors t ∧ prodN t = m then (1 : ℂ) else 0) * z m) := by ring
+          _ = c * ∑ t ∈ T, (if factors t ∧ prodN t = m then (1 : ℂ) else 0) * z m := by
+            rw [Finset.sum_mul]
+          _ = c * ∑ t ∈ T, (if factors t ∧ prodN t = m then z m else 0) := by
+            congr 1
+            apply Finset.sum_congr rfl
+            intro t ht
+            split_ifs <;> simp
+      _ = c * ∑ m ∈ S, ∑ t ∈ T,
+          (if factors t ∧ prodN t = m then z m else 0) := by
+        rw [← Finset.mul_sum]
+      _ = c * ∑ t ∈ T, ∑ m ∈ S,
+          (if factors t ∧ prodN t = m then z m else 0) := by rw [Finset.sum_comm]
+  have hcollapse (t : Fin j → ℕ) :
+      (∑ m ∈ S, if factors t ∧ prodN t = m then z m else 0) =
+        if factors t ∧ prodN t ∈ S then z (prodN t) else 0 := by
+    by_cases hf : factors t
+    · simp only [hf, true_and]
+      rw [Finset.sum_ite_eq]
+    · simp [hf]
+  have hS (t : Fin j → ℕ) :
+      prodN t ∈ S ↔ l ≤ (prodN t : ℝ) ∧ (prodN t : ℝ) ≤ r := by
+    constructor
+    · intro ht
+      exact (Finset.mem_filter.mp ht).2
+    · intro h
+      have hfloor : prodN t ≤ ⌊r⌋₊ := Nat.le_floor h.2
+      exact Finset.mem_filter.mpr ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le hfloor), h⟩
+  have hfilters : T.filter (fun t => factors t ∧ prodN t ∈ S) =
+      T.filter (fun t => factors t ∧ l ≤ (prodN t : ℝ) ∧ (prodN t : ℝ) ≤ r) := by
+    ext t
+    simp only [Finset.mem_filter]
+    constructor
+    · rintro ⟨ht, hf, hmem⟩
+      exact ⟨ht, hf, (hS t).mp hmem⟩
+    · rintro ⟨ht, hf, hbounds⟩
+      exact ⟨ht, hf, (hS t).mpr hbounds⟩
+  have hrewriteCollapsed :
+      (∑ m ∈ S, (roughConvolutionTerm x γ M j m : ℂ) * z m) =
+        c * ∑ t ∈ T,
+          (if factors t ∧ prodN t ∈ S then z (prodN t) else 0) := by
+    rw [hrewrite]
+    congr 1
+    apply Finset.sum_congr rfl
+    intro t ht
+    exact hcollapse t
+  calc
+    _ = ∑ m ∈ S, (roughConvolutionTerm x γ M j m : ℂ) * z m := by rfl
+    _ = c * ∑ t ∈ T,
+          (if factors t ∧ prodN t ∈ S then z (prodN t) else 0) := hrewriteCollapsed
+    _ = c * ∑ t ∈ T.filter (fun t => factors t ∧ prodN t ∈ S), z (prodN t) := by
+      rw [← Finset.sum_filter]
+    _ = c * ∑ t ∈ T.filter
+          (fun t => factors t ∧ l ≤ (prodN t : ℝ) ∧ (prodN t : ℝ) ≤ r),
+          z (prodN t) := by rw [hfilters]
+    _ = _ := by simp [c, z, T, factors, prodN]
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
