@@ -1,0 +1,2 @@
+import ArtinPrimitiveRoots.A2.Proofs.ZF_CONVEXITY.GammaReal
+#print axioms ArtinPrimitiveRoots.Proofs.zf_conv_sol.gammaR_left_ratio
