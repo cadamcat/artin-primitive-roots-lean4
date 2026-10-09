@@ -2574,13 +2574,6 @@ theorem phase_from_regimes (hMV : phaseMeanValueInput)
         _ = max C₀L C₀H * (N' / q) * Real.exp
               (-Real.log x / Real.rpow (Real.log (Real.log x)) 11) := by ring
 
-/-- Low frequencies use the first-derivative estimate and quotient reindexing. -/
-theorem phase_low_regime_bound :
-    ∀ C : ℝ, 0 < C →
-      ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 < x₀ ∧
-        phaseWindowBound (fun H v => |v| < Real.rpow H (4 / 5)) C C₀ x₀ := by
-  sorry
-
 private theorem phase_boxExponent_eq_half (k : ℕ) :
     (phaseBoxExponent k : ℝ) = (k : ℝ) * ((k : ℝ) + 1) / 2 := by
   induction k with
@@ -3365,6 +3358,80 @@ private theorem phase_high_growth_threshold (C C₁ C₂ : ℝ)
     nlinarith [hlog16sq]
   dsimp [c] at hcT
   refine ⟨hTtwo, hCT, hlog16, hcT, hhigherror⟩
+
+private theorem phase_low_first_derivative_abs
+    {H θ v : ℝ} {l u : ℕ}
+    (hH : 1 ≤ H) (hv : 0 < |v|) (hvH : |v| ≤ H)
+    (hinterval : ∀ b ∈ Finset.Icc l u,
+      H ≤ (b : ℝ) + θ ∧ (b : ℝ) + θ ≤ 2 * H) :
+    ‖∑ b ∈ Finset.Icc l u,
+      Complex.exp (Complex.I * v * Real.log ((b : ℝ) + θ))‖ ≤
+      32 * Real.pi * H / |v| := by
+  by_cases hlu : l ≤ u
+  · have hL : H ≤ (l : ℝ) + θ :=
+      (hinterval l (Finset.mem_Icc.mpr ⟨le_rfl, hlu⟩)).1
+    have hR : (u : ℝ) + θ ≤ 2 * H :=
+      (hinterval u (Finset.mem_Icc.mpr ⟨hlu, le_rfl⟩)).2
+    by_cases hvnonneg : 0 ≤ v
+    · have hvabs : |v| = v := abs_of_nonneg hvnonneg
+      have hvpos : 0 < v := by simpa [hvabs] using hv
+      have hvle : v ≤ H := by simpa [hvabs] using hvH
+      have hpositive := logPhase_first_derivative_interval
+        (U := H) (θ := θ) (Z := v) hH hvpos hvle l u hL hR
+      simpa [hvabs] using hpositive
+    · have hvneg : v < 0 := lt_of_not_ge hvnonneg
+      have hvEq : v = -|v| := by rw [abs_of_neg hvneg]; ring
+      have hpositive := logPhase_first_derivative_interval
+        (U := H) (θ := θ) (Z := |v|) hH hv hvH l u hL hR
+      have hnegativePhase (w d : ℝ) :
+        star (Complex.exp (Complex.I * ((-w : ℝ) : ℂ) * (d : ℂ))) =
+          Complex.exp (Complex.I * (w : ℂ) * (d : ℂ)) := by
+        change starRingEnd ℂ (Complex.exp _) = _
+        rw [← Complex.exp_conj]
+        congr 1
+        simp only [map_mul, map_neg, Complex.conj_I, Complex.conj_ofReal,
+          Complex.ofReal_neg]
+        ring
+      have hnegativePhase' (w d : ℝ) :
+        Complex.exp (Complex.I * ((-w : ℝ) : ℂ) * (d : ℂ)) =
+          star (Complex.exp (Complex.I * (w : ℂ) * (d : ℂ))) := by
+        have h := congrArg star (hnegativePhase w d)
+        simpa only [star_star] using h
+      have hterm (b : ℕ) :
+        Complex.exp (Complex.I * (v : ℂ) *
+            (Real.log ((b : ℝ) + θ) : ℂ)) =
+          star (Complex.exp (Complex.I * ((|v| : ℝ) : ℂ) *
+            (Real.log ((b : ℝ) + θ) : ℂ))) := by
+        rw [show (v : ℂ) = ((-|v| : ℝ) : ℂ) by exact_mod_cast hvEq]
+        exact hnegativePhase' |v| (Real.log ((b : ℝ) + θ))
+      have hsum :
+        (∑ b ∈ Finset.Icc l u,
+          Complex.exp (Complex.I * (v : ℂ) *
+            (Real.log ((b : ℝ) + θ) : ℂ))) =
+          star (∑ b ∈ Finset.Icc l u,
+            Complex.exp (Complex.I * ((|v| : ℝ) : ℂ) *
+              (Real.log ((b : ℝ) + θ) : ℂ))) := by
+        calc
+          _ = ∑ b ∈ Finset.Icc l u,
+              star (Complex.exp (Complex.I * ((|v| : ℝ) : ℂ) *
+                (Real.log ((b : ℝ) + θ) : ℂ))) := by
+            apply Finset.sum_congr rfl
+            intro b hb
+            exact hterm b
+          _ = _ := by simp only [star_sum]
+      rw [hsum, norm_star]
+      exact hpositive
+  · have hempty : Finset.Icc l u = ∅ :=
+      Finset.Icc_eq_empty_of_lt (Nat.lt_of_not_ge hlu)
+    simp [hempty]
+    positivity
+
+/-- Low frequencies use the first-derivative estimate and quotient reindexing. -/
+theorem phase_low_regime_bound :
+    ∀ C : ℝ, 0 < C →
+      ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 < x₀ ∧
+        phaseWindowBound (fun H v => |v| < Real.rpow H (4 / 5)) C C₀ x₀ := by
+  sorry
 
 set_option maxHeartbeats 400000 in
 /-- High frequencies use the Taylor polynomial and Vinogradov mean value. -/
