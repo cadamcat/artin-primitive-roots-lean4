@@ -5250,6 +5250,61 @@ theorem whit_arch_integral_product_lifts
       _ = _ := by
         rw [integral_fintype_prod_volume_eq_prod (fun w (z : ℂ) => ‖fc w z‖)]
 
+/-- An identically zero scalar section has zero Whittaker summands at every lift. -/
+theorem whitLiftTerm_eq_zero_of_scalarOf_eq_zero
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
+    (Fs : GlobalSection P G s)
+    (hzero : ∀ g : P.tc.G, scalarOf P G Fs.f Fs.fC g = 0)
+    (x : P.RP) (δ : Fˣ ⧸ G.Δ) : whitLiftTerm P G μ Fs x δ = 0 := by
+  classical
+  have hs0 : 0 < s.re := by linarith
+  unfold whitLiftTerm
+  rcases scalarOf_zero_has_zero_factor P G Fs hzero with ⟨v, hv, hlocal⟩ | ⟨w, harch⟩
+  · let b : (v.adicCompletion F)ˣ := toLoc v (Quotient.out δ)
+    let c : ℂ := (absFin v b : ℂ) ^ ((1 : ℂ) / 2 + s)
+    have hb : (absFin v b : ℂ) ≠ 0 := by
+      exact_mod_cast (absFin_pos b.ne_zero).ne'
+    have hc : c ≠ 0 := Complex.cpow_ne_zero_iff.mpr (Or.inl hb)
+    have htwisted (k : (P.loc v).L) :
+        G.lam v ((G.T v).σa b (Fs.f v k)) = 0 := by
+      have h := congrArg (G.lam v) ((Fs.f_sec v).1 0 b k)
+      have hrel : c * G.lam v ((G.T v).σa b (Fs.f v k)) = 0 := by
+        simpa [c, hlocal] using h.symm
+      exact (mul_eq_zero.mp hrel).resolve_left hc
+    let lam : (G.T v).V →L[ℂ] ℂ :=
+      LinearMap.toContinuousLinearMap ((G.lam v).comp ((G.T v).σa b))
+    let f : (P.loc v).L → (G.T v).V := rtr (P.compF v x) (Fs.f v)
+    have hJ := whit_local_jacquet_integral (P.loc v) (G.T v) A (μ v) hs0 f
+      ((Fs.f_sec v).rtr (P.compF v x))
+    have hfun : (fun u : v.adicCompletion F =>
+        lam (A.ψ v (-u) • f ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd u)))) =
+          fun _ => (0 : ℂ) := by
+      funext u
+      change G.lam v ((G.T v).σa b (A.ψ v (-u) • Fs.f v
+        (((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd u)) * P.compF v x))) = 0
+      simp only [map_smul, htwisted, smul_zero]
+    have hfactor : G.lam v ((G.T v).σa (toLoc v (Quotient.out δ))
+        (jacquet (P.loc v) A (μ v) (rtr (P.compF v x) (Fs.f v)))) = 0 := by
+      change lam (jacquet (P.loc v) A (μ v) f) = 0
+      rw [hJ.2]
+      calc
+        _ = ∫ u, lam (A.ψ v (-u) •
+            f ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd u))) ∂(μ v).μ :=
+          (ContinuousLinearMap.integral_comp_comm lam hJ.1).symm
+        _ = 0 := by rw [hfun, integral_zero]
+    rw [finprod_eq_zero _ v hfactor
+      (whit_finite_mulSupport P G μ Fs x (Quotient.out δ)), zero_mul]
+  · have hfun : (fun u : ℂ => psiC (-u) *
+        rtr (P.compC w x) (Fs.fC w) (wC * nC u)) = fun _ => (0 : ℂ) := by
+      funext u
+      simp only [rtr, harch, mul_zero]
+    have hfactor : jacquetC (rtr (P.compC w x) (Fs.fC w)) = 0 := by
+      rw [jacquetC, hfun, integral_zero]
+    have hprod : (∏ w, jacquetC (rtr (P.compC w x) (Fs.fC w))) = 0 :=
+      Finset.prod_eq_zero (Finset.mem_univ w) hfactor
+    rw [hprod, mul_zero]
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
@@ -5267,7 +5322,15 @@ theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
         (P.tc.rat (diagGL (Quotient.out p.1) * weylGL * upperGL p.2) * nInf P u * g) *
           psiInf (-(ν : F)) u =
       (κF F)⁻¹ * ∑' δ, whitLiftTerm P G μ Fs x δ := by
-  sorry
+  classical
+  by_cases hΦ : ∃ h : P.tc.G, scalarOf P G Fs.f Fs.fC h ≠ 0
+  · sorry
+  · have hzero : ∀ h : P.tc.G, scalarOf P G Fs.f Fs.fC h = 0 := by
+      push_neg at hΦ
+      exact hΦ
+    have hW (δ : Fˣ ⧸ G.Δ) : whitLiftTerm P G μ Fs x δ = 0 :=
+      whitLiftTerm_eq_zero_of_scalarOf_eq_zero P G μ hs Fs hzero x δ
+    simp only [hzero, zero_mul, integral_zero, tsum_zero, mul_zero, hW]
 
 /-- The small cell vanishes and the big cell tiles the archimedean integral. -/
 theorem whit_unfold_integral (P : CoverPackage D S H A) (G : GlobalDatum P)
