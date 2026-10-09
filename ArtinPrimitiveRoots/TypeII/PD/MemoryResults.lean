@@ -12255,6 +12255,78 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_fresh_collision_mass_ev
         (mul_le_mul_of_nonneg_right (by linarith) hε) (pow_nonneg (by norm_num) K)
     _ = C*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by dsimp only [C, ε, T]; ring
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- The unbanned raw kernel has a uniform finite-position row envelope. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_unbanned_raw_position_sum_le
+    {K : ℕ} (δ c₁ c₂ : ℝ) (F : PDFix K) (S : PDScale)
+    (hS : S.Valid K δ c₁ c₂) (w : ArchRoot) (hw : w.InRegion S)
+    (forward : Bool) (p q : PrimeLists S.x K) (z : ℤ × ℤ)
+    (hz : Int.gcd z.1 z.2 = 1) (hbox : envBox S w z)
+    (Ceta Cpsi : ℝ) (hCeta : 0 ≤ Ceta) (hCpsi : 0 ≤ Cpsi)
+    (hEta : ∀ u, ‖(F.eta u : ℂ)‖ ≤ Ceta)
+    (hPsi : ∀ u, ‖(F.psi u : ℂ)‖ ≤ Cpsi)
+    (Z : Finset (ℤ × ℤ)) :
+    (∑ z' ∈ Z, if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+      then ‖edgeMultiplier F S forward true p q z z'‖ else 0) ≤
+      34*Ceta^2*Cpsi := by
+  classical
+  obtain ⟨hU, _⟩ := pd4c_scale_pos δ c₁ c₂ S hS
+  obtain ⟨_, hd₀⟩ := pd4c_scale_Y_pad_pos δ c₁ c₂ S hS
+  let A := Z.filter fun z' =>
+    (IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z') ∧
+      edgeMultiplier F S forward true p q z z' ≠ 0
+  let d := (sharedProduct p : ℤ)*((lastProduct p : ℤ)-lastProduct q)
+  let E : Set (ℤ × ℤ) := {z' | envBox S w z' ∧ det2 z z' = d}
+  have hEfinite : E.Finite :=
+    (envBox_finite δ c₁ c₂ S w hS hw).subset (fun z' hz' => hz'.1)
+  have hsub : (A : Set (ℤ × ℤ)) ⊆ E := by
+    intro z' hz'
+    obtain ⟨_, ⟨hpad, hbox'⟩, hraw⟩ :=
+      Finset.mem_filter.mp (Finset.mem_coe.mp hz')
+    exact ⟨hbox', pd4c_raw_edge_det F S forward p q z z' hpad.2.2 hraw⟩
+  have hcard : (A.card : ℝ) ≤ 34 := by
+    have hc : A.card ≤ E.ncard := by
+      simpa using Set.ncard_le_ncard hsub hEfinite
+    have hc' : (A.card : ℝ) ≤ (E.ncard : ℝ) := by exact_mod_cast hc
+    exact hc'.trans (pd4c_env_fixed_det_count S w z d hU hw hz hbox)
+  have hsum :
+      (∑ z' ∈ Z, if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+        then ‖edgeMultiplier F S forward true p q z z'‖ else 0) =
+      ∑ z' ∈ A, ‖edgeMultiplier F S forward true p q z z'‖ := by
+    dsimp only [A]
+    rw [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro z' hz'
+    by_cases hgood : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+    · by_cases hzero : edgeMultiplier F S forward true p q z z' = 0
+      · simp only [hgood, true_and, hzero, ne_eq, not_true_eq_false, if_true, if_false, norm_zero]
+      · simp only [hgood, true_and, hzero, ne_eq, not_false_eq_true, if_true]
+    · simp only [hgood, false_and, if_false]
+  have hgeom (z' : ℤ × ℤ) (hz' : z' ∈ A) :
+      ‖edgeMultiplier F S forward true p q z z'‖ ≤ Ceta^2*Cpsi := by
+    have hpad : IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') :=
+      (Finset.mem_filter.mp hz').2.1.1
+    cases forward with
+    | true =>
+        change ‖rawMultiplier F S (sharedProduct p) (lastProduct q) (lastProduct p)
+          (det2 z z'/(sharedProduct p : ℤ))‖ ≤ _
+        exact pd4c_rawMultiplier_bound F S _ _ _ _ (det2 z z') Ceta Cpsi
+          hpad hd₀ hCeta hCpsi hEta hPsi
+    | false =>
+        change ‖star (rawMultiplier F S (sharedProduct p) (lastProduct p) (lastProduct q)
+          (det2 z' z/(sharedProduct p : ℤ)))‖ ≤ _
+        rw [norm_star]
+        exact pd4c_rawMultiplier_bound F S _ _ _ _ (det2 z z') Ceta Cpsi
+          hpad hd₀ hCeta hCpsi hEta hPsi
+  calc
+    _ = ∑ z' ∈ A, ‖edgeMultiplier F S forward true p q z z'‖ := hsum
+    _ ≤ ∑ z' ∈ A, Ceta^2*Cpsi := Finset.sum_le_sum (fun z' hz' => hgeom z' hz')
+    _ = (A.card : ℝ)*(Ceta^2*Cpsi) := by
+      simp only [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ 34*(Ceta^2*Cpsi) :=
+      mul_le_mul_of_nonneg_right hcard (mul_nonneg (sq_nonneg _) hCpsi)
+    _ = _ := by ring
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
