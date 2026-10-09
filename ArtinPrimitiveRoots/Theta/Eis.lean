@@ -5305,6 +5305,109 @@ theorem whitLiftTerm_eq_zero_of_scalarOf_eq_zero
       Finset.prod_eq_zero (Finset.mem_univ w) hfactor
     rw [hprod, mul_zero]
 
+/-- Weighted local ideal-coset sums give the Fourier integral at a rational frequency. -/
+theorem whit_local_bruhat_coset_hasSum
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 0 < s.re)
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      scalarOf P G Fs.f Fs.fC
+        (h * ((P.q r)⁻¹ * nFin P ξ * P.q r)) = scalarOf P G Fs.f Fs.fC h)
+    (hΦ : ∃ g : P.tc.G, scalarOf P G Fs.f Fs.fC g ≠ 0)
+    (ν : Fˣ) (hν : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F),
+      psiInf (ν : F) (infEmbA ξ) = 1)
+    (v : FinPlace F) (u : (v.adicCompletion F)ˣ) :
+    let Hfn : v.adicCompletion F → ℂ := fun y =>
+      A.ψ v (-((toLoc v ν : v.adicCompletion F) * y)) *
+        G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+          (P.loc v).n (Multiplicative.ofAdd y) * P.compF v r))
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        ((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) • Hfn (Quotient.out η))
+      (((absFin v u : ℂ) ^ ((1 : ℂ) / 2 + s)) *
+        ((absFin v (toLoc v ν) : ℂ) ^ (s - (1 : ℂ) / 2)) *
+          G.lam v ((G.T v).σa u ((G.T v).σa (toLoc v ν)
+            (jacquet (P.loc v) A (μ v)
+              (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v)))))) ∧
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        (qv v) ^ (-FractionalIdeal.count F v 𝔞) * ‖Hfn (Quotient.out η)‖)
+      (∫ y, ‖Hfn y‖ ∂(μ v).μ) := by
+  classical
+  let b : (v.adicCompletion F)ˣ := toLoc v ν
+  let Hfn : v.adicCompletion F → ℂ := fun y =>
+    A.ψ v (-((b : v.adicCompletion F) * y)) *
+      G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd y) * P.compF v r))
+  let F0 : v.adicCompletion F → (G.T v).V := fun y =>
+    A.ψ v (-((b : v.adicCompletion F) * y)) •
+      Fs.f v ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd y) * P.compF v r)
+  let lamU : (G.T v).V →L[ℂ] ℂ :=
+    LinearMap.toContinuousLinearMap ((G.lam v).comp ((G.T v).σa u))
+  let c : ℂ := (absFin v u : ℂ) ^ ((1 : ℂ) / 2 + s)
+  let d : ℂ := (absFin v b : ℂ) ^ (s - (1 : ℂ) / 2)
+  change HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        ((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) • Hfn (Quotient.out η))
+      (c * d * lamU ((G.T v).σa b (jacquet (P.loc v) A (μ v)
+        (rtr ((P.loc v).a b * P.compF v r) (Fs.f v))))) ∧
+    HasSum
+      (fun η : (v.adicCompletion F) ⧸ idealLocalPeriods 𝔞 v =>
+        (qv v) ^ (-FractionalIdeal.count F v 𝔞) * ‖Hfn (Quotient.out η)‖)
+      (∫ y, ‖Hfn y‖ ∂(μ v).μ)
+  have hFourier := whit_local_fourier_dilation (P.loc v) (G.T v) A (μ v) hs
+    (Fs.f v) (Fs.f_sec v) b (P.compF v r)
+  have hF0 : Integrable F0 (μ v).μ := hFourier.1
+  have hpoint (y : v.adicCompletion F) : Hfn y = c * lamU (F0 y) := by
+    have hvec := (Fs.f_sec v).1 0 u
+      ((P.loc v).w * (P.loc v).n (Multiplicative.ofAdd y) * P.compF v r)
+    have hscalar : G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd y) * P.compF v r)) =
+          c * lamU (Fs.f v ((P.loc v).w *
+            (P.loc v).n (Multiplicative.ofAdd y) * P.compF v r)) := by
+      simpa [c, lamU, mul_assoc] using congrArg (G.lam v) hvec
+    dsimp only [Hfn, F0]
+    rw [hscalar, map_smul, smul_eq_mul]
+    ring
+  have hH : Hfn = fun y => c * lamU (F0 y) := funext hpoint
+  have hint : Integrable Hfn (μ v).μ := by
+    rw [hH]
+    exact (lamU.integrable_comp hF0).const_mul c
+  have hperiod (x y : v.adicCompletion F) (hy : y ∈ idealLocalPeriods 𝔞 v) :
+      Hfn (x + y) = Hfn x := by
+    have hψy : A.ψ v (-((b : v.adicCompletion F) * y)) = 1 :=
+      whit_local_ideal_character D A 𝔞 h𝔞 ν hν v y hy
+    have harg : -((b : v.adicCompletion F) * (x + y)) =
+        -((b : v.adicCompletion F) * x) + -((b : v.adicCompletion F) * y) := by ring
+    have hψ : A.ψ v (-((b : v.adicCompletion F) * (x + y))) =
+        A.ψ v (-((b : v.adicCompletion F) * x)) := by
+      rw [harg, (A.ψ v).map_add_eq_mul, hψy, mul_one]
+    have hn : (P.loc v).n (Multiplicative.ofAdd (x + y)) =
+        (P.loc v).n (Multiplicative.ofAdd x) * (P.loc v).n (Multiplicative.ofAdd y) := by
+      rw [ofAdd_add, map_mul]
+    have hp := local_scalar_ideal_periods_of_nonzero P G Fs r 𝔞 h𝔞 hfix hΦ v
+      ((P.loc v).a u * (P.loc v).w * (P.loc v).n (Multiplicative.ofAdd x)) y hy
+    have hscalar : G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+        (P.loc v).n (Multiplicative.ofAdd (x + y)) * P.compF v r)) =
+          G.lam v (Fs.f v ((P.loc v).a u * (P.loc v).w *
+            (P.loc v).n (Multiplicative.ofAdd x) * P.compF v r)) := by
+      rw [hn]
+      simpa only [mul_assoc] using hp
+    dsimp only [Hfn]
+    rw [hψ, hscalar]
+  obtain ⟨hsum, hnorm⟩ := idealLocalPeriods_integral_cosets 𝔞 v (μ v) Hfn hint hperiod
+  have hFint : (∫ y, F0 y ∂(μ v).μ) =
+      d • (G.T v).σa b (jacquet (P.loc v) A (μ v)
+        (rtr ((P.loc v).a b * P.compF v r) (Fs.f v))) := hFourier.2
+  have hIntegral : (∫ y, Hfn y ∂(μ v).μ) =
+      c * d * lamU ((G.T v).σa b (jacquet (P.loc v) A (μ v)
+        (rtr ((P.loc v).a b * P.compF v r) (Fs.f v)))) := by
+    rw [hH, integral_const_mul, ContinuousLinearMap.integral_comp_comm lamU hF0,
+      hFint, map_smul, smul_eq_mul, mul_assoc]
+  rw [hIntegral] at hsum
+  exact ⟨hsum, hnorm⟩
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
