@@ -21,6 +21,9 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ExteriorGenerator
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.CubeIndex
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteFourier
 import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.OrbitSeries
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.FiniteFactor
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.UnitCompact
+import ArtinPrimitiveRoots.A2.Proofs.A2_RF_FORWARD.ExteriorFactors
 import ArtinPrimitiveRoots.A1.ThetaInterfaceMain
 import Mathlib.Analysis.Asymptotics.Basic
 
@@ -4549,6 +4552,914 @@ private theorem rf_forward_series_summable (r : ReflectionRow S) (l : ℝ)
         (mul_nonneg hC.le (Real.rpow_nonneg hl.le _))
   exact Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hle hd
 
+private theorem rf_forward_kernel_integral (r : ReflectionRow S) (Z : ℝ)
+    (hZ : 0 < Z) :
+    IntegrableOn (fun t : ℝ => R.K t *
+      (∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)) /
+          (t : ℂ)) (Set.Ioi 0) ∧
+    (∫ t in Set.Ioi (0 : ℝ), R.K t *
+      (∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)) /
+          (t : ℂ)) =
+      ∑' p : S.SqfExtIdeal × S.ExtIdeal,
+        forwardCoeff R r p * (PG (qI (Aideal R p.1 p.2).1 / Z) : ℂ) := by
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable (𝓞 F) := inferInstance
+  have hspan : Function.Surjective
+      (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+    intro I
+    exact Ideal.fg_of_isNoetherianRing I
+  letI : Countable (Ideal (𝓞 F)) := hspan.countable
+  letI : Countable S.ExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+  letI : Countable S.SqfExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+  let q : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => qI (Aideal R p.1 p.2).1
+  have hq (p : S.SqfExtIdeal × S.ExtIdeal) : 0 < q p := by
+    dsimp [q, qI]
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h =>
+      (Aideal R p.1 p.2).property.1 (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hV : Measurable (Theta.thetaV S μ v0 R.T.U R.T.cS) :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.thetaV_measurable
+      S μ v0 R.T.U R.T.U_spec.1.measurableSet R.T.cS
+  have hK : AEStronglyMeasurable R.K (volume.restrict (Set.Ioi (0 : ℝ))) :=
+    R.K_smooth.continuousOn.aestronglyMeasurable measurableSet_Ioi
+  obtain ⟨C, hC, hAbs⟩ := ((rf_forward_assembly R).2 1 (by norm_num)).2
+  have hSeries (l : ℝ) (hl : 0 < l) := rf_forward_series_summable R r l hl
+  exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_kernel_series
+    q hq (forwardCoeff R r) (Theta.thetaV S μ v0 R.T.U R.T.cS) hV
+    R.K hK hSeries (fun u => (PG u : ℂ)) R.K_gaussian Z hZ (hAbs r Z hZ).1
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_Bm_series (r : ReflectionRow S) (Z : ℝ)
+    (hZ : 0 < Z) :
+    Bm D S A ϑ (cgen R) (r.m : F) Z =
+      ∑' p : S.SqfExtIdeal × S.ExtIdeal,
+        forwardCoeff R r p * (PG (qI (Aideal R p.1 p.2).1 / Z) : ℂ) := by
+  classical
+  have hRow : R.chars.rowEps r = rowEpsilon S bc r := by
+    apply Subtype.ext
+    have h1 := R.chars.rowEps_spec r
+    have h2 := Classical.choose_spec (exists_rowUnit S bc r)
+    exact mul_right_cancel (h1.symm.trans h2)
+  have hClass : unitSixClass S (R.chars.eps (rowClass R r)) =
+      unitSixClass S (rowEpsilon S bc r) := by
+    rw [R.chars.eps_class]
+    dsimp only [rowClass]
+    rw [hRow]
+  have hExp (v : FinPlace F) :
+      rowPrimeExponent S r v = ((digitExponent r v).1 : ℤ) := by
+    unfold rowPrimeExponent rowExponentModSix
+    rw [FractionalIdeal.count_coe F v
+      (by simpa only [Ideal.zero_eq_bot] using r.ideal.property.1)]
+    change (idealExp v r.ideal.1 : ℤ) % 6 = ((idealExp v r.ideal.1 % 6 : ℕ) : ℤ)
+    norm_cast
+  unfold Bm
+  apply tsum_congr
+  intro p
+  let a := Agen R p.1 p.2
+  let I := Aideal R p.1 p.2
+  have ha : S.IsGen (a : F) I.1 ∧ Bd.Allowed a :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_generator D S H Bd bc
+      R.exterior p.1 p.2
+  have hL : Lvalue R (rowClass R r) (S.diagU a) =
+      ϑ.idealValue I.1 * chiIdealPow D I.1 ((rowEpsilon S bc r : Fˣ) : F) 1 := by
+    unfold Lvalue
+    rw [R.chars.L_value]
+    exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.rfSCharacter_generator_class
+      D S H Bd ϑ R.vartheta_unramified
+      (R.chars.eps (rowClass R r)) (rowEpsilon S bc r) hClass
+      I.1 I.property a ha
+  have hProd : (∏ᶠ v : FinPlace F, if v.asIdeal ∣ r.ideal.1 then
+      chiPow D v (a : F) (rowPrimeExponent S r v) else 1) =
+      ∏ v ∈ R.exterior.support r.ideal,
+        chiPow D v (a : F) (digitExponent r v).1 := by
+    let f : FinPlace F → ℂ := fun v => if v.asIdeal ∣ r.ideal.1 then
+      chiPow D v (a : F) (rowPrimeExponent S r v) else 1
+    have hSupport : Function.mulSupport f ⊆ R.exterior.support r.ideal := by
+      intro v hv
+      apply (R.exterior.mem_support r.ideal v).mpr
+      by_contra hn
+      exact hv (by simp [f, hn])
+    calc
+      _ = ∏ v ∈ R.exterior.support r.ideal, f v :=
+        finprod_eq_prod_of_mulSupport_subset f hSupport
+      _ = _ := by
+        apply Finset.prod_congr rfl
+        intro v hv
+        dsimp only [f]
+        rw [if_pos ((R.exterior.mem_support r.ideal v).mp hv), hExp]
+  have hTwist := rf_moving_twist D S H Bd bc r I.1 I.property a ha
+  rw [hProd] at hTwist
+  have hI : I.1 = p.1.1 * p.2.1 ^ (3 : ℕ) := by
+    simp only [I, Aideal, R.exterior.mul_val, R.exterior.ofSqf_val, R.exterior.pow_val]
+  have hm : (r.m : F) = ((rowElement S r : Fˣ) : F) := rfl
+  rw [← hI, hm, hTwist]
+  dsimp only [forwardCoeff]
+  rw [hL]
+  simp only [qI, div_eq_mul_inv, Complex.ofReal_mul, Complex.ofReal_inv]
+  ring
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_constant_integrable (r : ReflectionRow S) (l : ℝ)
+    (hl : 0 < l) :
+    IntegrableOn (onUnits (fun y : S.FSˣ => bCut (Bd := Bd) y *
+      (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r false true y))
+      (omegaAt R l) (R.sheets.sheet l) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  letI : ∀ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+      Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let L := R.chars.L (rowClass R r)
+  let nd (d : Digits R r) : R.C.G :=
+    ((R.exterior.support r.ideal).attach.toList.map (fun v =>
+      R.C.n v.1 (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))))).prod
+  have hN (d : Digits R r) :
+      Continuous (fun y : S.FSˣ => R.T.θN L (R.C.aS y * nd d)) := by
+    simpa only [one_mul] using
+      R.T.cont_N L (R.mem_family (rowClass R r)) 1 (nd d)
+  have hSum : Continuous (fun y : S.FSˣ =>
+      ∑ d : Digits R r, digitAlpha R r d * R.T.θN L (R.C.aS y * nd d)) := by
+    apply continuous_finsetSum Finset.univ
+    intro d hd
+    exact continuous_const.mul (hN d)
+  have hDigitCont : Continuous (fun y : S.FSˣ => digitSum R r false true y) := by
+    simpa [digitSum, digitPoint, L, nd, finsum_eq_sum_of_fintype] using hSum
+  have hLcont : Continuous (fun y : S.FSˣ => Lvalue R (rowClass R r) y) := by
+    simpa [Lvalue] using L.cont
+  let f : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y *
+    (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r false true y
+  have hfMeas : Measurable f :=
+    ((rf_bCut_measurable R).mul (measurable_inv.comp hLcont.measurable)).mul
+      hDigitCont.measurable
+  have hAES : AEStronglyMeasurable (onUnits f)
+      ((R.sheets.sheet l).restrict (omegaAt R l)) :=
+    (rf_onUnits_measurable f hfMeas).aestronglyMeasurable
+  have hData := a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl
+  have hOmegaMeas : MeasurableSet (omegaAt R l) := hData.1.1
+  have hOmegaUnit : ∀ y ∈ omegaAt R l, IsUnit y ∧ S.absS y = l := hData.1.2.1
+  have hMass : R.sheets.sheet l (omegaAt R l) < ⊤ := hData.2.1
+  obtain ⟨K, hK, hOmegaK⟩ := R.sheets.omega_bounded
+  let a := (R.sheets.ellU l : S.FS)
+  let Kl : Set S.FS := (fun y : S.FS => a * y) '' K
+  have hMul : Continuous (fun y : S.FS => a * y) :=
+    continuous_const.mul continuous_id
+  have hKl : IsCompact Kl := hK.image hMul
+  have hOmegaKl : omegaAt R l ⊆ Kl := by
+    intro y hy
+    rcases hy with ⟨x, hx, hxy⟩
+    exact ⟨x, hOmegaK hx, hxy.symm⟩
+  obtain ⟨C, hC⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.continuous_unit_function_bound_on_sheet
+      S Kl hKl l hl (fun y => digitSum R r false true y) hDigitCont
+  have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+    unfold bCut
+    split_ifs <;> simp
+  have hLinvNorm (y : S.FSˣ) : ‖(Lvalue R (rowClass R r) y)⁻¹‖ = 1 := by
+    rw [norm_inv]
+    have hLnorm : ‖Lvalue R (rowClass R r) y‖ = 1 := by
+      simpa [Lvalue] using L.unitary y
+    rw [hLnorm]
+    norm_num
+  have hBound : ∀ᵐ y ∂((R.sheets.sheet l).restrict (omegaAt R l)),
+      ‖onUnits f y‖ ≤ C := by
+    filter_upwards [ae_restrict_mem hOmegaMeas] with y hy
+    obtain ⟨hyUnit, hyNorm⟩ := hOmegaUnit y hy
+    let u : S.FSˣ := hyUnit.unit
+    have hval : (u : S.FS) = y := hyUnit.unit_spec
+    have hleft : onUnits f y = f u := by simp [onUnits, hyUnit, u]
+    rw [hleft]
+    have hD : ‖digitSum R r false true u‖ ≤ C :=
+      hC u (by rw [hval]; exact hOmegaKl hy) (by rw [hval]; exact hyNorm)
+    calc
+      ‖f u‖ = ‖bCut (Bd := Bd) u‖ * ‖digitSum R r false true u‖ := by
+        simp only [f, norm_mul, hLinvNorm, mul_one]
+      _ ≤ 1 * ‖digitSum R r false true u‖ :=
+        mul_le_mul_of_nonneg_right (hBnorm u) (norm_nonneg _)
+      _ ≤ C := by simpa only [one_mul] using hD
+  exact IntegrableOn.of_bound hMass hAES C hBound
+
+private theorem rf_forward_generator_shift (p : S.SqfExtIdeal × S.ExtIdeal) :
+    ∃ γ : Gamma S, Agen R p.1 p.2 =
+      (γ.1 : Fˣ) * bc.gen (Aideal R p.1 p.2) := by
+  have hA := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_generator
+    D S H Bd bc R.exterior p.1 p.2
+  obtain ⟨ε, hε, hEq⟩ := Bd.allowed_unique (Aideal R p.1 p.2).1
+    (Agen R p.1 p.2) (bc.gen (Aideal R p.1 p.2))
+    hA (bc.gen_spec (Aideal R p.1 p.2))
+  let εu : S.US := ⟨ε, hε⟩
+  let γ : Gamma S := ⟨εu ^ 6, MonoidHom.mem_range.mpr ⟨εu, rfl⟩⟩
+  refine ⟨γ, ?_⟩
+  simpa only [γ, εu, Subgroup.coe_pow] using hEq
+
+private theorem rf_forward_frequency_injective :
+    Function.Injective (fun q : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S =>
+      (q.2.1 : Fˣ) * Agen R q.1.1 q.1.2) := by
+  intro p q hpq
+  obtain ⟨δp, hp⟩ := rf_forward_generator_shift R p.1
+  obtain ⟨δq, hq⟩ := rf_forward_generator_shift R q.1
+  have hCanonical :
+      ((p.2 * δp).1 : Fˣ) * bc.gen (Aideal R p.1.1 p.1.2) =
+        ((q.2 * δq).1 : Fˣ) * bc.gen (Aideal R q.1.1 q.1.2) := by
+    simpa only [Subgroup.coe_mul, mul_assoc, ← hp, ← hq] using hpq
+  have hIndex := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.generator_orbit_injective
+    D S H Bd bc
+    (show (fun a : S.ExtIdeal × Gamma S => (a.2.1 : Fˣ) * bc.gen a.1)
+      (Aideal R p.1.1 p.1.2, p.2 * δp) =
+      (fun a : S.ExtIdeal × Gamma S => (a.2.1 : Fˣ) * bc.gen a.1)
+      (Aideal R q.1.1 q.1.2, q.2 * δq) from hCanonical)
+  have hCube : p.1.1.1 * p.1.2.1 ^ (3 : ℕ) =
+      q.1.1.1 * q.1.2.1 ^ (3 : ℕ) := by
+    have hIdeal := congrArg (fun a : S.ExtIdeal × Gamma S => a.1.1) hIndex
+    simpa only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+      R.exterior.pow_val] using hIdeal
+  have hPair : p.1 = q.1 :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.squarefree_cube_injective S hCube
+  have hGamma : p.2 = q.2 := by
+    apply Subtype.ext
+    apply Subtype.ext
+    apply mul_right_cancel (b := Agen R q.1.1 q.1.2)
+    simpa only [hPair] using hpq
+  exact Prod.ext hPair hGamma
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_term_factor (r : ReflectionRow S) (ν : Fˣ)
+    (y : S.FSˣ) (hνR : (ν : F) ∈ S.R)
+    (hFinite : (Function.mulSupport fun v : {v : FinPlace F // v ∉ S.Sf} =>
+      R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν))).Finite) :
+    forwardTerm R r ν y =
+      (∏ v ∈ R.exterior.support r.ideal,
+        chiPow D v (ν : F) (digitExponent r v).1) *
+      (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf},
+        R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν))) *
+      (bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y)) := by
+  classical
+  let T0 := R.exterior.support r.ideal
+  let V := {v : FinPlace F // v ∈ T0}
+  letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let w : FinPlace F → ℂ := fun v => R.T.Wv v (R.C.a v (toLoc v ν))
+  let s : Set (FinPlace F) := {v | v ∉ S.Sf}
+  have hFin : (s ∩ Function.mulSupport w).Finite := by
+    apply (hFinite.image (fun v : {v : FinPlace F // v ∉ S.Sf} => v.1)).subset
+    intro v hv
+    exact ⟨⟨v, hv.1⟩, hv.2, rfl⟩
+  have hT0 : (T0 : Set (FinPlace F)) ⊆ s :=
+    fun v hv => R.exterior.support_exterior r.ideal v hv
+  have hSplit :
+      (∏ v ∈ T0, w v) * (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0), w v) =
+        ∏ᶠ v : {v : FinPlace F // v ∉ S.Sf}, w v.1 := by
+    have h := finprod_mem_mul_sdiff' (f := w) hT0 hFin
+    rw [finprod_mem_coe_finset] at h
+    simpa only [s, Set.mem_setOf_eq, Set.mem_sdiff, Finset.mem_coe,
+      ← finprod_subtype_eq_finprod_cond] using h
+  let phase : Digits R r → ℂ := fun d =>
+    ∏ v : V, A.ψ v.1 (algebraMap F _
+      ((ν : F) * algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))
+  let WS := R.T.WS (R.chars.L (rowClass R r))
+    (R.C.aS (S.diagU ν) * R.C.aS y)
+  let head := ∏ v ∈ T0, w v
+  let tail := ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0), w v
+  have hFactor (d : Digits R r) :
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * digitPoint R r y d) = WS * phase d * head * tail := by
+    let x : (v : V) → v.1.adicCompletion F := fun v => algebraMap F _
+      (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F))
+    have hPhase : (∏ v : V, A.ψ v.1 (x v * (toLoc v.1 ν : v.1.adicCompletion F))) =
+        phase d := by
+      apply Finset.prod_congr rfl
+      intro v hv
+      congr 1
+      change algebraMap F (v.1.adicCompletion F)
+        (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)) *
+        algebraMap F (v.1.adicCompletion F) (ν : F) =
+        algebraMap F (v.1.adicCompletion F)
+          ((ν : F) * algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F))
+      rw [← map_mul]
+      congr 1
+      ring
+    have h := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.finite_digit_factorization
+      R.T (R.chars.L (rowClass R r)) (R.mem_family (rowClass R r)) T0
+      (fun v hv => R.exterior.support_exterior r.ideal v hv) ν y x
+    rw [hPhase] at h
+    exact h
+  have hSum :
+      (∑ᶠ d : Digits R r, digitAlpha R r d * R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * digitPoint R r y d)) =
+        WS * (∑ᶠ d : Digits R r, digitAlpha R r d * phase d) * head * tail := by
+    simp only [finsum_eq_sum_of_fintype, Finset.mul_sum, Finset.sum_mul]
+    apply Finset.sum_congr rfl
+    intro d hd
+    rw [hFactor]
+    ring
+  have hDigit : (∑ᶠ d : Digits R r, digitAlpha R r d * phase d) =
+      ∏ v ∈ T0, chiPow D v (ν : F) (digitExponent r v).1 :=
+    (rf_forward_frequencies R).2.1 r ν hνR
+  have hWS : WS = sCocycle (D := D) (H := H) (S.diagU ν) y *
+      unrotated R (rowClass R r) (S.diagU ν * y) := by
+    dsimp only [WS]
+    rw [R.C.aS_mul, R.T.WS_genuine (R.chars.L (rowClass R r))
+      (R.mem_family (rowClass R r))]
+    simp [sCocycle, unrotated, muThree, map_pow]
+  have hWeighted : bCut (Bd := Bd) y * WS =
+      bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y) := by
+    rw [hWS]
+    by_cases hz : bCut (Bd := Bd) y *
+        unrotated R (rowClass R r) (S.diagU ν * y) = 0
+    · rw [mul_left_comm, hz, mul_zero]
+    · rw [(rf_forward_frequencies R).2.2 (rowClass R r) ν y hz, one_mul]
+  unfold forwardTerm
+  rw [hSum, hDigit]
+  calc
+    _ = (∏ v ∈ T0, chiPow D v (ν : F) (digitExponent r v).1) *
+        (head * tail) * (bCut (Bd := Bd) y * WS) := by ring
+    _ = _ := by
+      rw [hWeighted]
+      exact congrArg
+        (fun a : ℂ => (∏ v ∈ T0, chiPow D v (ν : F) (digitExponent r v).1) * a *
+          (bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y))) hSplit
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_indexed_term (r : ReflectionRow S)
+    (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) (y : S.FSˣ) :
+    forwardTerm R r ((γ.1 : Fˣ) * Agen R p.1 p.2) y =
+      (forwardCoeff R r p *
+        (Lvalue R (rowClass R r) (S.diagU (Agen R p.1 p.2)))⁻¹) *
+      (bCut (Bd := Bd) y * unrotated R (rowClass R r)
+        (S.diagU ((γ.1 : Fˣ) * Agen R p.1 p.2) * y)) := by
+  classical
+  let a := Agen R p.1 p.2
+  let ν := (γ.1 : Fˣ) * a
+  let I := Aideal R p.1 p.2
+  let SB := a2_bridge_SYMBOL D S
+  have hA : S.IsGen (a : F) I.1 ∧ Bd.Allowed a :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_generator
+      D S H Bd bc R.exterior p.1 p.2
+  have hGen : S.IsGen (ν : F) I.1 :=
+    ArtinPrimitiveRoots.Proofs.A1Generators.isGen_mul_sUnit S γ.1 a hA.1
+  have hMem {b : Fˣ} {J : S.ExtIdeal} (hJ : S.IsGen (b : F) J.1) :
+      (b : F) ∈ S.R := by
+    intro v hv
+    have hJ0 : J.1 ≠ 0 := by simpa only [Ideal.zero_eq_bot] using J.property.1
+    have hNonneg : 0 ≤ FractionalIdeal.count F v
+        (J.1 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+      rw [FractionalIdeal.count_coe F v hJ0]
+      positivity
+    have hCount := hJ.2.2 v hv
+    rw [rf_count_spanSingleton_eq_neg_log_valuation v (b : F) b.ne_zero] at hCount
+    have hLog : WithZero.log (HeightOneSpectrum.valuation F v (b : F)) ≤ 0 := by
+      linarith
+    by_contra hnot
+    have hvalne : HeightOneSpectrum.valuation F v (b : F) ≠ 0 :=
+      (v.valuation F).ne_zero_iff.mpr b.ne_zero
+    have hgt := (WithZero.log_lt_log (x := (1 : WithZero (Multiplicative ℤ)))
+      one_ne_zero hvalne).2 (lt_of_not_ge hnot)
+    have hpos : 0 < WithZero.log (HeightOneSpectrum.valuation F v (b : F)) := by
+      simpa only [WithZero.log_one] using hgt
+    linarith
+  have hνR : (ν : F) ∈ S.R := hMem hGen
+  have haR : (a : F) ∈ S.R := hMem hA.1
+  have hAllowed : Bd.Allowed ν := by
+    obtain ⟨ε, hε⟩ := MonoidHom.mem_range.mp γ.2
+    have hpow : S.diagU (γ.1 : Fˣ) = S.diagU (ε : Fˣ) ^ 6 := by
+      change ε ^ 6 = γ.1 at hε
+      have hε' : (γ.1 : Fˣ) = ((ε ^ 6 : S.US) : Fˣ) :=
+        congrArg (fun z : S.US => (z : Fˣ)) hε.symm
+      rw [hε']
+      exact map_pow S.diagU (ε : Fˣ) 6
+    have hdiag : cls (S.diagU (γ.1 : Fˣ)) = 1 := by
+      change (QuotientGroup.mk (S.diagU (γ.1 : Fˣ)) : S.V) = 1
+      rw [QuotientGroup.eq_one_iff]
+      exact MonoidHom.mem_range.mpr ⟨S.diagU (ε : Fˣ), hpow.symm⟩
+    change cls (S.diagU ν) ∈ Bd.B
+    dsimp only [ν]
+    rw [map_mul]
+    change cls (S.diagU (γ.1 : Fˣ)) * cls (S.diagU a) ∈ Bd.B
+    rw [hdiag]
+    exact Bd.B.mul_mem Bd.B.one_mem hA.2
+  have hTable := ArtinPrimitiveRoots.A1.Theta.theta_exterior_coefficient
+    R.T Bd I.1 I.property ν ⟨hGen, hAllowed⟩
+  have hI : I.1 = p.1.1 * p.2.1 ^ (3 : ℕ) := by
+    simp only [I, Aideal, R.exterior.mul_val, R.exterior.ofSqf_val, R.exterior.pow_val]
+  have hC : S.IsGen (bc.gen (R.exterior.ofSqf p.1) : F) p.1.1 ∧
+      Bd.Allowed (bc.gen (R.exterior.ofSqf p.1)) := by
+    simpa only [R.exterior.ofSqf_val] using bc.gen_spec (R.exterior.ofSqf p.1)
+  have hExterior := hTable.2.1 p.1.1 p.2.1 (bc.gen (R.exterior.ofSqf p.1))
+    p.1.property.2 hI hC
+  let k : ℂ := gamma D S A 2 p.1.1 (cgen R p.1) *
+    (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1 : ℝ)
+  have hExt : (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf},
+      R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν))) = k := by
+    rw [hExterior]
+    simp only [k, cgen, qI, div_eq_mul_inv, Complex.ofReal_mul, Complex.ofReal_inv]
+    ring
+  have hMask : (∏ v ∈ R.exterior.support r.ideal,
+      chiPow D v (ν : F) (digitExponent r v).1) =
+      ∏ v ∈ R.exterior.support r.ideal, chiPow D v (a : F) (digitExponent r v).1 := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    have hvS := R.exterior.support_exterior r.ideal v hv
+    have hγval : HeightOneSpectrum.valuation F v ((γ.1 : Fˣ) : F) = 1 :=
+      Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) γ.1 hvS
+    have hγres : residue v ((γ.1 : Fˣ) : F) ≠ 0 :=
+      (SB.residue_ne_zero v _ hγval.le).2 hγval
+    have hres : residue v (ν : F) = residue v ((γ.1 : Fˣ) : F) * residue v (a : F) := by
+      exact SB.residue_mul v _ _ hγval.le (haR v hvS)
+    have hzero : residue v (ν : F) = 0 ↔ residue v (a : F) = 0 := by
+      rw [hres]
+      exact mul_eq_zero_iff_left hγres
+    have hchi : chi D v (ν : F) = chi D v (a : F) := by
+      rw [show (ν : F) = ((γ.1 : Fˣ) : F) * (a : F) from rfl,
+        SB.chi_mul v hvS _ _ hγval.le (haR v hvS), rf_gamma_chi_one D γ v hvS, one_mul]
+    by_cases hz : residue v (a : F) = 0
+    · simp only [chiPow, hz, hzero.mpr hz, if_true]
+    · have hn : residue v (ν : F) ≠ 0 := mt hzero.mp hz
+      simp only [chiPow, hz, hn, if_false, hchi]
+  have hL : Lvalue R (rowClass R r) (S.diagU a) ≠ 0 :=
+    Units.ne_zero ((R.chars.L (rowClass R r)).L (S.diagU a))
+  have hCoeff : forwardCoeff R r p * (Lvalue R (rowClass R r) (S.diagU a))⁻¹ =
+      k * ∏ v ∈ R.exterior.support r.ideal, chiPow D v (a : F) (digitExponent r v).1 := by
+    calc
+      _ = (k * ∏ v ∈ R.exterior.support r.ideal,
+          chiPow D v (a : F) (digitExponent r v).1) *
+          (Lvalue R (rowClass R r) (S.diagU a) *
+            (Lvalue R (rowClass R r) (S.diagU a))⁻¹) := by
+        dsimp only [forwardCoeff, k, a]
+        ring
+      _ = _ := by rw [mul_inv_cancel₀ hL, mul_one]
+  change forwardTerm R r ν y =
+    (forwardCoeff R r p * (Lvalue R (rowClass R r) (S.diagU a))⁻¹) *
+      (bCut (Bd := Bd) y * unrotated R (rowClass R r) (S.diagU ν * y))
+  rw [rf_forward_term_factor R r ν y hνR hTable.1, hMask, hExt, hCoeff]
+  ring
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_support (r : ReflectionRow S) (ν : Fˣ)
+    (y : S.FSˣ) (hTerm : forwardTerm R r ν y ≠ 0) :
+    ∃ p : S.SqfExtIdeal × S.ExtIdeal, ∃ γ : Gamma S,
+      ν = (γ.1 : Fˣ) * Agen R p.1 p.2 := by
+  classical
+  rcases (rf_forward_frequencies R).1 r ν y hTerm with
+    ⟨hνR, hAllowed, I, hGen, γ0, hγ0⟩
+  have hTable := ArtinPrimitiveRoots.A1.Theta.theta_exterior_coefficient
+    R.T Bd I.1 I.property ν ⟨hGen, hAllowed⟩
+  have hExt : (∏ᶠ v : {v : FinPlace F // v ∉ S.Sf},
+      R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν))) ≠ 0 := by
+    intro hz
+    apply hTerm
+    rw [rf_forward_term_factor R r ν y hνR hTable.1, hz, mul_zero, zero_mul]
+  have hExists : ∃ c n : Ideal (𝓞 F), Squarefree c ∧ I.1 = c * n ^ (3 : ℕ) := by
+    by_contra hn
+    push_neg at hn
+    exact hExt (hTable.2.2 hn)
+  obtain ⟨c, n, hc, hI⟩ := hExists
+  have hCN := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_factors
+    S I.1 c n I.property hI
+  let C : S.SqfExtIdeal := ⟨c, hCN.1, hc⟩
+  let N : S.ExtIdeal := ⟨n, hCN.2⟩
+  have hAI : Aideal R C N = I := by
+    apply Subtype.ext
+    dsimp only [Aideal]
+    rw [R.exterior.mul_val, R.exterior.ofSqf_val, R.exterior.pow_val]
+    exact hI.symm
+  have hA : S.IsGen (Agen R C N : F) I.1 ∧ Bd.Allowed (Agen R C N) := by
+    have h := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.exterior_cube_generator
+      D S H Bd bc R.exterior C N
+    change S.IsGen (Agen R C N : F) (Aideal R C N).1 ∧ Bd.Allowed (Agen R C N) at h
+    rw [hAI] at h
+    exact h
+  obtain ⟨ε, hε, hEq⟩ := Bd.allowed_unique I.1 ν (Agen R C N) ⟨hGen, hAllowed⟩ hA
+  let εu : S.US := ⟨ε, hε⟩
+  let δ : Gamma S := ⟨εu ^ 6, MonoidHom.mem_range.mpr ⟨εu, rfl⟩⟩
+  refine ⟨(C, N), δ, ?_⟩
+  simpa only [δ, εu, Subgroup.coe_pow] using hEq
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_Agen_unfolding :
+  ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧
+    ∀ u (p : S.SqfExtIdeal × S.ExtIdeal) l, 0 < l →
+    let a := S.diagU (Agen R p.1 p.2)
+    let f := fun γ : Gamma S => fun y : S.FSˣ =>
+      unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+    (∀ γ, IntegrableOn (onUnits (f γ)) (omegaAt R l) (R.sheets.sheet l)) ∧
+    Summable (fun γ => (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) ∧
+    (∑' γ, (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) =
+      (sheetIntegral R (qI (Aideal R p.1 p.2).1 * l)
+        (fun y => (‖unrotated R u y‖ : ℂ))).re ∧
+    (sheetIntegral R (qI (Aideal R p.1 p.2).1 * l)
+        (fun y => (‖unrotated R u y‖ : ℂ))).re ≤
+      C * (qI (Aideal R p.1 p.2).1 * l) ^ (-σ) ∧
+    Summable (fun γ => omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) ∧
+    (∑' γ, omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
+      Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS
+        (qI (Aideal R p.1 p.2).1 * l) := by
+  intro σ hσ
+  obtain ⟨C, hC, hUnfold⟩ := rf_forward_unfolding R σ hσ
+  refine ⟨C, hC, ?_⟩
+  intro u p l hl
+  dsimp only
+  let I := Aideal R p.1 p.2
+  let a0 := S.diagU (bc.gen I)
+  let f0 := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * a0 * y)
+  let f := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2) * y)
+  have hData := hUnfold u I l hl
+  obtain ⟨ζ, hζ⟩ := rf_forward_generator_shift R p
+  let e : Gamma S ≃ Gamma S := Equiv.mulRight ζ
+  have hOrbit (γ : Gamma S) : f γ = f0 (e γ) := by
+    funext y
+    change unrotated R u (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2) * y) =
+      unrotated R u (S.diagU ((γ * ζ).1 : Fˣ) * S.diagU (bc.gen I) * y)
+    rw [hζ]
+    simp only [I, map_mul, Subgroup.coe_mul, mul_assoc]
+  have hL : Lvalue R u (S.diagU (Agen R p.1 p.2)) = Lvalue R u a0 := by
+    have hOne := (rf_descent R).2.2.2 u ζ
+    dsimp only [Lvalue]
+    rw [hζ, map_mul, map_mul, Units.val_mul]
+    change Lvalue R u (S.diagU (ζ.1 : Fˣ)) * Lvalue R u a0 = Lvalue R u a0
+    rw [hOne, one_mul]
+  have hIntegral (γ : Gamma S) :
+      IntegrableOn (onUnits (f γ)) (omegaAt R l) (R.sheets.sheet l) := by
+    rw [hOrbit]
+    exact hData.1 (e γ)
+  have hNorm0 : Summable (fun γ : Gamma S =>
+      (omegaInt R l (fun y => (‖f0 γ y‖ : ℂ))).re) := hData.2.1
+  have hNorm : Summable (fun γ : Gamma S =>
+      (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) := by
+    simpa only [hOrbit, Function.comp_def] using
+      (e.summable_iff (f := fun γ : Gamma S =>
+        (omegaInt R l (fun y => (‖f0 γ y‖ : ℂ))).re)).2 hNorm0
+  have hNormSum : (∑' γ : Gamma S,
+      (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) =
+      (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re := by
+    calc
+      _ = ∑' γ : Gamma S, (omegaInt R l (fun y => (‖f0 (e γ) y‖ : ℂ))).re := by
+        apply tsum_congr
+        intro γ
+        rw [hOrbit]
+      _ = ∑' γ : Gamma S, (omegaInt R l (fun y => (‖f0 γ y‖ : ℂ))).re :=
+        e.tsum_eq (fun γ : Gamma S => (omegaInt R l (fun y => (‖f0 γ y‖ : ℂ))).re)
+      _ = _ := hData.2.2.1
+  have hSign0 : Summable (fun γ : Gamma S => omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 γ y)) := hData.2.2.2.2.1
+  have hSign : Summable (fun γ : Gamma S => omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) := by
+    simpa only [hOrbit, Function.comp_def] using
+      (e.summable_iff (f := fun γ : Gamma S => omegaInt R l
+        (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 γ y))).2 hSign0
+  have hSignSum : (∑' γ : Gamma S, omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
+      Lvalue R u (S.diagU (Agen R p.1 p.2)) *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) := by
+    calc
+      _ = ∑' γ : Gamma S, omegaInt R l
+          (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 (e γ) y) := by
+        apply tsum_congr
+        intro γ
+        rw [hOrbit]
+      _ = ∑' γ : Gamma S, omegaInt R l
+          (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 γ y) :=
+        e.tsum_eq (fun γ : Gamma S => omegaInt R l
+          (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 γ y))
+      _ = Lvalue R u a0 * Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) :=
+        hData.2.2.2.2.2
+      _ = _ := by rw [hL]
+  exact ⟨hIntegral, hNorm, hNormSum, hData.2.2.2.1, hSign, hSignSum⟩
+
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_indexed_fourier (r : ReflectionRow S) (y : S.FSˣ) :
+    let f := fun q : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S =>
+      (Lvalue R (rowClass R r) y)⁻¹ *
+        forwardTerm R r ((q.2.1 : Fˣ) * Agen R q.1.1 q.1.2) y
+    Summable (fun q => ‖f q‖) ∧
+    bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r false false y =
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r false true y + ∑' q, f q := by
+  classical
+  dsimp only
+  let V := {v : FinPlace F // v ∈ R.exterior.support r.ideal}
+  letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let g : Fˣ → ℂ := fun ν =>
+    (Lvalue R (rowClass R r) y)⁻¹ * forwardTerm R r ν y
+  let idx : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → Fˣ :=
+    fun q => (q.2.1 : Fˣ) * Agen R q.1.1 q.1.2
+  have hFourier := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.finite_weighted_fourier
+    R.T (R.chars.L (rowClass R r)) (R.mem_family (rowClass R r))
+    (digitAlpha R r) (digitPoint R r y)
+    (bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹)
+  have hEq (ν : Fˣ) :
+      (bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹) *
+        ∑ d : Digits R r, digitAlpha R r d *
+          R.T.W (R.chars.L (rowClass R r))
+            (R.C.rat (diagGL ν) * digitPoint R r y d) = g ν := by
+    simp only [g, forwardTerm, finsum_eq_sum_of_fintype]
+    ring
+  have hSummable : Summable g := hFourier.1.congr hEq
+  have hSupport : Function.support g ⊆ Set.range idx := by
+    intro ν hν
+    have hTerm : forwardTerm R r ν y ≠ 0 := by
+      intro hz
+      exact hν (by simp only [g, hz, mul_zero])
+    obtain ⟨p, γ, hνEq⟩ := rf_forward_support R r ν y hTerm
+    exact ⟨(p, γ), hνEq.symm⟩
+  have hInjective : Function.Injective idx := rf_forward_frequency_injective R
+  have hIndexed : Summable (g ∘ idx) :=
+    (hInjective.summable_iff (f := g) (fun ν hν => by
+      by_contra hn
+      exact hν (hSupport hn))).2 hSummable
+  have hTsum : (∑' q, g (idx q)) = ∑' ν, g ν := hInjective.tsum_eq (f := g) hSupport
+  have hExpansion :
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+          digitSum R r false false y =
+        bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+          digitSum R r false true y + ∑' ν, g ν := by
+    have h := hFourier.2
+    simp only [hEq] at h
+    simpa [digitSum, finsum_eq_sum_of_fintype] using h
+  constructor
+  · simpa only [g, idx, Function.comp_def] using hIndexed.norm
+  · calc
+      _ = bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+          digitSum R r false true y + ∑' ν, g ν := hExpansion
+      _ = _ := congrArg
+        (fun z : ℂ => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+          digitSum R r false true y + z) hTsum.symm
+
+set_option maxHeartbeats 1500000 in
+private theorem rf_forward_indexed_absolute (r : ReflectionRow S) (l : ℝ)
+    (hl : 0 < l) :
+    let f := fun q : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S =>
+      fun y : S.FSˣ => (Lvalue R (rowClass R r) y)⁻¹ *
+        forwardTerm R r ((q.2.1 : Fˣ) * Agen R q.1.1 q.1.2) y
+    (∀ q, IntegrableOn (onUnits (f q)) (omegaAt R l) (R.sheets.sheet l)) ∧
+    Summable (fun q => ∫ y in omegaAt R l,
+      ‖onUnits (f q) y‖ ∂(R.sheets.sheet l)) := by
+  classical
+  dsimp only
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let σ : ℝ := 1
+  have hσ : 1 / 2 < σ := by norm_num [σ]
+  obtain ⟨C, hC, hUnfold⟩ := rf_forward_Agen_unfolding R σ hσ
+  let ν : Measure S.FS := (R.sheets.sheet l).restrict (omegaAt R l)
+  let u := rowClass R r
+  let f : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → S.FSˣ → ℂ := fun z y =>
+    (Lvalue R u y)⁻¹ * forwardTerm R r ((z.2.1 : Fˣ) * Agen R z.1.1 z.1.2) y
+  let g : (S.SqfExtIdeal × S.ExtIdeal) → Gamma S → S.FSˣ → ℂ := fun p γ y =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2) * y)
+  let k : (S.SqfExtIdeal × S.ExtIdeal) → ℂ := fun p =>
+    forwardCoeff R r p * (Lvalue R u (S.diagU (Agen R p.1 p.2)))⁻¹
+  have hF (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) (y : S.FSˣ) :
+      f z y = k z.1 * (bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * g z.1 z.2 y) := by
+    dsimp only [f, k, g, u]
+    rw [rf_forward_indexed_term R r z.1 z.2 y, map_mul]
+    ring
+  have hLnorm (y : S.FSˣ) : ‖Lvalue R u y‖ = 1 := by
+    simpa [Lvalue] using (R.chars.L u).unitary y
+  have hKnorm (p : S.SqfExtIdeal × S.ExtIdeal) : ‖k p‖ = ‖forwardCoeff R r p‖ := by
+    dsimp only [k]
+    rw [norm_mul, norm_inv, hLnorm, inv_one, mul_one]
+  have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+    unfold bCut
+    split_ifs <;> simp
+  have hNorm (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) (y : S.FSˣ) :
+      ‖f z y‖ ≤ ‖forwardCoeff R r z.1‖ * ‖g z.1 z.2 y‖ := by
+    rw [hF]
+    simp only [norm_mul, hKnorm, norm_inv, hLnorm, inv_one, mul_one]
+    calc
+      _ ≤ ‖forwardCoeff R r z.1‖ * (1 * ‖g z.1 z.2 y‖) :=
+        mul_le_mul_of_nonneg_left
+          (mul_le_mul_of_nonneg_right (hBnorm y) (norm_nonneg _)) (norm_nonneg _)
+      _ = _ := by rw [one_mul]
+  have hDom (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) (x : S.FS) :
+      ‖onUnits (f z) x‖ ≤ ‖forwardCoeff R r z.1‖ * ‖onUnits (g z.1 z.2) x‖ := by
+    by_cases hx : IsUnit x
+    · simpa only [onUnits, dif_pos hx] using hNorm z hx.unit
+    · simp [onUnits, hx]
+  have hLmeas : Measurable (fun y : S.FSˣ => (Lvalue R u y)⁻¹) := by
+    have hc : Continuous (fun y : S.FSˣ => Lvalue R u y) := by
+      simpa [Lvalue] using (R.chars.L u).cont
+    exact measurable_inv.comp hc.measurable
+  have hGmeas (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) : Measurable (g p γ) :=
+    (rf_t5_unrotated_measurable R u).comp
+      (rf_unit_mul_measurable (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2)))
+  have hFmeas (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) : Measurable (f z) := by
+    have heq : f z = fun y => k z.1 *
+        (bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * g z.1 z.2 y) := funext (hF z)
+    rw [heq]
+    exact (((rf_bCut_measurable R).mul hLmeas).mul (hGmeas z.1 z.2)).const_mul _
+  have hBaseInt (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) :
+      Integrable (onUnits (g p γ)) ν := (hUnfold u p l hl).1 γ
+  have hInt (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) :
+      Integrable (onUnits (f z)) ν :=
+    ((hBaseInt z.1 z.2).norm.const_mul ‖forwardCoeff R r z.1‖).mono'
+      (rf_onUnits_measurable (f z) (hFmeas z)).aestronglyMeasurable
+      (Filter.Eventually.of_forall (hDom z))
+  let B : (S.SqfExtIdeal × S.ExtIdeal) → Gamma S → ℝ := fun p γ =>
+    ∫ x, ‖onUnits (g p γ) x‖ ∂ν
+  have hOrbitEq (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) :
+      (omegaInt R l (fun y => (‖g p γ y‖ : ℂ))).re = B p γ := by
+    have heq : onUnits (fun y => (‖g p γ y‖ : ℂ)) =
+        fun x : S.FS => (‖onUnits (g p γ) x‖ : ℂ) := by
+      funext x
+      by_cases hx : IsUnit x
+      · simp [onUnits, hx]
+      · simp [onUnits, hx]
+    change (∫ x, onUnits (fun y => (‖g p γ y‖ : ℂ)) x ∂ν).re = B p γ
+    rw [heq, integral_complex_ofReal]
+    rfl
+  have hGammaSum (p : S.SqfExtIdeal × S.ExtIdeal) : Summable (B p) :=
+    (hUnfold u p l hl).2.1.congr (hOrbitEq p)
+  have hGammaBound (p : S.SqfExtIdeal × S.ExtIdeal) :
+      (∑' γ, B p γ) ≤ C * (qI (Aideal R p.1 p.2).1 * l) ^ (-σ) := by
+    calc
+      _ = ∑' γ, (omegaInt R l (fun y => (‖g p γ y‖ : ℂ))).re :=
+        tsum_congr (fun γ => (hOrbitEq p γ).symm)
+      _ = (sheetIntegral R (qI (Aideal R p.1 p.2).1 * l)
+          (fun y => (‖unrotated R u y‖ : ℂ))).re := (hUnfold u p l hl).2.2.1
+      _ ≤ _ := (hUnfold u p l hl).2.2.2.1
+  let J : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → ℝ := fun z =>
+    ∫ x, ‖onUnits (f z) x‖ ∂ν
+  have hJpos (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) : 0 ≤ J z :=
+    integral_nonneg (fun x => norm_nonneg _)
+  have hJbound (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) :
+      J z ≤ ‖forwardCoeff R r z.1‖ * B z.1 z.2 := by
+    calc
+      _ ≤ ∫ x, ‖forwardCoeff R r z.1‖ * ‖onUnits (g z.1 z.2) x‖ ∂ν :=
+        integral_mono_ae (hInt z).norm
+          ((hBaseInt z.1 z.2).norm.const_mul _) (Filter.Eventually.of_forall (hDom z))
+      _ = _ := integral_const_mul _ _
+  have hFiber (p : S.SqfExtIdeal × S.ExtIdeal) : Summable (fun γ => J (p, γ)) :=
+    Summable.of_nonneg_of_le (fun γ => hJpos (p, γ))
+      (fun γ => hJbound (p, γ)) ((hGammaSum p).mul_left ‖forwardCoeff R r p‖)
+  let w : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p =>
+    qI p.1.1 ^ (-1 / 2 - σ) * qI p.2.1 ^ (-1 - 3 * σ)
+  have hSum : Summable w := ((rf_forward_assembly R).2 σ hσ).1
+  let q : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => qI (Aideal R p.1 p.2).1
+  have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+    unfold qI
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hq (p : S.SqfExtIdeal × S.ExtIdeal) : 0 < q p :=
+    hpos (Aideal R p.1 p.2).1 (Aideal R p.1 p.2).property.1
+  have hqA (c : S.SqfExtIdeal) (n : S.ExtIdeal) :
+      qI (Aideal R c n).1 = qI c.1 * qI n.1 ^ (3 : ℕ) := by
+    simp only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+      R.exterior.pow_val, qI, map_mul, map_pow, Nat.cast_mul, Nat.cast_pow]
+  have hWeight (p : S.SqfExtIdeal × S.ExtIdeal) :
+      ‖forwardCoeff R r p‖ * q p ^ (-σ) ≤ w p := by
+    have hc : 0 < qI p.1.1 := hpos p.1.1 p.1.property.1.1
+    have hn : 0 < qI p.2.1 := hpos p.2.1 p.2.property.1
+    have hn3 : (qI p.2.1 ^ (3 : ℕ)) ^ (-σ) = qI p.2.1 ^ (-3 * σ) := by
+      rw [← Real.rpow_natCast, ← Real.rpow_mul hn.le]
+      congr 1
+      ring
+    have hcAdd : qI p.1.1 ^ (-(1 / 2 : ℝ)) * qI p.1.1 ^ (-σ) =
+        qI p.1.1 ^ (-1 / 2 - σ) := by
+      rw [← Real.rpow_add hc]
+      congr 1
+      ring
+    have hnAdd : (qI p.2.1)⁻¹ * qI p.2.1 ^ (-3 * σ) =
+        qI p.2.1 ^ (-1 - 3 * σ) := by
+      rw [← Real.rpow_neg_one, ← Real.rpow_add hn]
+      congr 1
+      ring
+    calc
+      _ ≤ (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) * q p ^ (-σ) :=
+        mul_le_mul_of_nonneg_right (rf_forwardCoeff_norm R r p)
+          (Real.rpow_nonneg (hq p).le _)
+      _ = w p := by
+        dsimp only [q, w]
+        rw [hqA, Real.mul_rpow hc.le (pow_nonneg hn.le 3), hn3,
+          ← hcAdd, ← hnAdd, div_eq_mul_inv]
+        ring
+  let d : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => (C * l ^ (-σ)) * w p
+  have hd : Summable d := hSum.mul_left (C * l ^ (-σ))
+  have hTotalBound (p : S.SqfExtIdeal × S.ExtIdeal) : (∑' γ, J (p, γ)) ≤ d p := by
+    calc
+      _ ≤ ∑' γ, ‖forwardCoeff R r p‖ * B p γ :=
+        (hFiber p).tsum_le_tsum (fun γ => hJbound (p, γ))
+          ((hGammaSum p).mul_left ‖forwardCoeff R r p‖)
+      _ = ‖forwardCoeff R r p‖ * ∑' γ, B p γ := tsum_mul_left
+      _ ≤ ‖forwardCoeff R r p‖ * (C * (q p * l) ^ (-σ)) :=
+        mul_le_mul_of_nonneg_left (hGammaBound p) (norm_nonneg _)
+      _ = (C * l ^ (-σ)) * (‖forwardCoeff R r p‖ * q p ^ (-σ)) := by
+        rw [Real.mul_rpow (hq p).le hl.le]
+        ring
+      _ ≤ d p := mul_le_mul_of_nonneg_left (hWeight p)
+        (mul_nonneg hC.le (Real.rpow_nonneg hl.le _))
+  have hOuter : Summable (fun p => ∑' γ, J (p, γ)) :=
+    Summable.of_nonneg_of_le (fun p => tsum_nonneg (fun γ => hJpos (p, γ))) hTotalBound hd
+  have hJ : Summable J := (summable_prod_of_nonneg hJpos).2 ⟨hFiber, hOuter⟩
+  exact ⟨hInt, hJ⟩
+
+set_option maxHeartbeats 1500000 in
+private theorem rf_forward_average_series (r : ReflectionRow S) (l : ℝ)
+    (hl : 0 < l) :
+    thetaAverage R r l =
+      ∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * l) := by
+  classical
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable Fˣ :=
+    (show Function.Injective (fun x : Fˣ => (x : F)) from Units.val_injective).countable
+  letI : Countable ((S.SqfExtIdeal × S.ExtIdeal) × Gamma S) :=
+    (rf_forward_frequency_injective R).countable
+  let ν : Measure S.FS := (R.sheets.sheet l).restrict (omegaAt R l)
+  let u := rowClass R r
+  let f : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → S.FSˣ → ℂ := fun z y =>
+    (Lvalue R u y)⁻¹ * forwardTerm R r ((z.2.1 : Fˣ) * Agen R z.1.1 z.1.2) y
+  let c : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y *
+    (Lvalue R u y)⁻¹ * digitSum R r false true y
+  let a : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y *
+    (Lvalue R u y)⁻¹ * digitSum R r false false y
+  have hAbs := rf_forward_indexed_absolute R r l hl
+  have hInt (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) :
+      Integrable (onUnits (f z)) ν := hAbs.1 z
+  have hPoint : ∀ x : S.FS, Summable (fun z => ‖onUnits (f z) x‖) := by
+    intro x
+    by_cases hx : IsUnit x
+    · simpa only [onUnits, dif_pos hx, f, u] using
+        (rf_forward_indexed_fourier R r hx.unit).1
+    · simp only [onUnits, dif_neg hx, norm_zero]
+      exact summable_zero
+  have hExpansion : onUnits a = fun x => onUnits c x + ∑' z, onUnits (f z) x := by
+    funext x
+    by_cases hx : IsUnit x
+    · simpa only [onUnits, dif_pos hx, a, c, f, u] using
+        (rf_forward_indexed_fourier R r hx.unit).2
+    · simp [onUnits, hx]
+  have hNorm : Integrable (fun x => ∑' z, ‖onUnits (f z) x‖) ν :=
+    ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.norm_series_integrable_of_integral_norm
+      ν (fun z => onUnits (f z)) hInt (Eventually.of_forall hPoint) hAbs.2
+  have hExchange := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_tsum_of_norm_sum
+    ν (fun z => onUnits (f z)) (fun z => (hInt z).1)
+    (Eventually.of_forall hPoint) hNorm
+  have hConstInt : Integrable (onUnits c) ν := rf_forward_constant_integrable R r l hl
+  have hConstZero : (∫ x, onUnits c x ∂ν) = 0 :=
+    (rf_angular_cancellation R r l hl).1 false
+  let J : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → ℂ := fun z =>
+    ∫ x, onUnits (f z) x ∂ν
+  have hISum : Summable J := Summable.of_norm_bounded hAbs.2
+    (fun z => norm_integral_le_integral_norm (onUnits (f z)))
+  have hAverage : thetaAverage R r l = ∑' z, J z := by
+    change (∫ x, onUnits a x ∂ν) = ∑' z, J z
+    rw [hExpansion, integral_add hConstInt hExchange.1, hConstZero, zero_add]
+    exact hExchange.2
+  obtain ⟨C, hC, hUnfold⟩ := rf_forward_Agen_unfolding R 1 (by norm_num)
+  let g : (S.SqfExtIdeal × S.ExtIdeal) → Gamma S → S.FSˣ → ℂ := fun p γ y =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2) * y)
+  let k : (S.SqfExtIdeal × S.ExtIdeal) → ℂ := fun p =>
+    forwardCoeff R r p * (Lvalue R u (S.diagU (Agen R p.1 p.2)))⁻¹
+  let b : (S.SqfExtIdeal × S.ExtIdeal) → Gamma S → S.FSˣ → ℂ := fun p γ y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * g p γ y
+  have hF (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) (y : S.FSˣ) :
+      f (p, γ) y = k p * b p γ y := by
+    dsimp only [f, k, b, g, u]
+    rw [rf_forward_indexed_term R r p γ y, map_mul]
+    ring
+  have hJ (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) :
+      J (p, γ) = k p * omegaInt R l (b p γ) := by
+    have heq : onUnits (f (p, γ)) = fun x => k p * onUnits (b p γ) x := by
+      funext x
+      by_cases hx : IsUnit x
+      · simpa only [onUnits, dif_pos hx] using hF p γ hx.unit
+      · simp [onUnits, hx]
+    change (∫ x, onUnits (f (p, γ)) x ∂ν) = k p * omegaInt R l (b p γ)
+    rw [heq, integral_const_mul]
+    rfl
+  have hFiber (p : S.SqfExtIdeal × S.ExtIdeal) : Summable (fun γ => J (p, γ)) :=
+    ((hUnfold u p l hl).2.2.2.2.1.mul_left (k p)).congr
+      (fun γ => (hJ p γ).symm)
+  have hFiberEq (p : S.SqfExtIdeal × S.ExtIdeal) :
+      (∑' γ, J (p, γ)) = forwardCoeff R r p *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * l) := by
+    have hLne : Lvalue R u (S.diagU (Agen R p.1 p.2)) ≠ 0 :=
+      ((R.chars.L u).L (S.diagU (Agen R p.1 p.2))).ne_zero
+    calc
+      _ = ∑' γ, k p * omegaInt R l (b p γ) := tsum_congr (hJ p)
+      _ = k p * ∑' γ, omegaInt R l (b p γ) := tsum_mul_left
+      _ = k p * (Lvalue R u (S.diagU (Agen R p.1 p.2)) *
+          Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * l)) :=
+        congrArg (fun z : ℂ => k p * z) (hUnfold u p l hl).2.2.2.2.2
+      _ = _ := by
+        dsimp only [k]
+        rw [mul_assoc, ← mul_assoc
+          (Lvalue R u (S.diagU (Agen R p.1 p.2)))⁻¹,
+          inv_mul_cancel₀ hLne, one_mul]
+  calc
+    _ = ∑' z, J z := hAverage
+    _ = ∑' p, ∑' γ, J (p, γ) := hISum.tsum_prod' hFiber
+    _ = _ := tsum_congr hFiberEq
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
@@ -4558,7 +5469,29 @@ theorem lem_reflection_theta_representation :
     IntegrableOn (fun t => R.K t * thetaAverage R r (t / Z) / (t : ℂ)) (Set.Ioi 0) ∧
     Bm D S A ϑ (cgen R) (r.m : F) Z =
       ∫ t in Set.Ioi (0 : ℝ), R.K t * thetaAverage R r (t / Z) / (t : ℂ) := by
-  sorry
+  intro r l Z hl hZ
+  dsimp only
+  have hKernel := rf_forward_kernel_integral R r Z hZ
+  have hEq : (fun t : ℝ => R.K t * thetaAverage R r (t / Z) / (t : ℂ))
+      =ᵐ[volume.restrict (Set.Ioi (0 : ℝ))]
+      (fun t : ℝ => R.K t *
+        (∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+          Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)) /
+            (t : ℂ)) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with t ht
+    rw [rf_forward_average_series R r (t / Z) (div_pos ht hZ)]
+    simp only [mul_div_assoc]
+  refine ⟨rf_forward_series_summable R r l hl, rf_forward_average_series R r l hl,
+    hKernel.1.congr hEq.symm, ?_⟩
+  calc
+    _ = ∑' p : S.SqfExtIdeal × S.ExtIdeal,
+        forwardCoeff R r p * (PG (qI (Aideal R p.1 p.2).1 / Z) : ℂ) :=
+      rf_forward_Bm_series R r Z hZ
+    _ = ∫ t in Set.Ioi (0 : ℝ), R.K t *
+        (∑' p : S.SqfExtIdeal × S.ExtIdeal, forwardCoeff R r p *
+          Theta.thetaV S μ v0 R.T.U R.T.cS (qI (Aideal R p.1 p.2).1 * t / Z)) /
+            (t : ℂ) := hKernel.2.symm
+    _ = _ := integral_congr_ae hEq.symm
 /-- lem:reflection-local-Weyl, 04:339–431. Use actual local units, not arbitrary elements. -/
 def localR (v : FinPlace F) (j : Fin 6) (e : ℤ) (t : (v.adicCompletion F)ˣ) : ℂ :=
   ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else
@@ -13643,11 +14576,2825 @@ private theorem rf_pairing_minus_fourier
             ∑' ν, ∑ d : Digits R r, digitAlpha R r d * W d ν := by
         rw [Finset.sum_add_distrib, Summable.tsum_finsetSum (fun d _ => hA d)]
 
+private theorem rf_pairing_masked_factorization
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (y : S.FSˣ) :
+    (∑ᶠ d : Digits R r, digitAlpha R r d *
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)) =
+      sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+        rotated R (rowClass R r) (S.diagU ν / y) *
+        (∏ v ∈ R.exterior.support r.ideal,
+          ∑ᶠ x : 𝓞 F ⧸ v.asIdeal,
+            maskAlpha D A v (primeGen R v) (digitExponent r v) x *
+              R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+                R.C.n v (Multiplicative.ofAdd (algebraMap F _
+                  (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))) *
+        (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+          R.T.Wv v (R.C.a v (toLoc v ν))) := by
+  classical
+  let T0 := R.exterior.support r.ideal
+  let V := {v : FinPlace F // v ∈ T0}
+  letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let sPart : ℂ := sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+    rotated R (rowClass R r) (S.diagU ν / y)
+  let tail : ℂ :=
+    ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0),
+      R.T.Wv v (R.C.a v (toLoc v ν))
+  let localWeyl (v : FinPlace F) (x : 𝓞 F ⧸ v.asIdeal) : ℂ :=
+    R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))
+  let masked (v : FinPlace F) (x : 𝓞 F ⧸ v.asIdeal) : ℂ :=
+    maskAlpha D A v (primeGen R v) (digitExponent r v) x * localWeyl v x
+  have hw : R.C.wS * R.C.aS y = R.C.aS y⁻¹ * R.C.wS := by
+    calc
+      R.C.wS * R.C.aS y = (R.C.wS * R.C.aS y * R.C.wS⁻¹) * R.C.wS := by group
+      _ = R.C.aS y⁻¹ * R.C.wS := by rw [R.C.liftS_wa]
+  have hS : R.T.WS (R.chars.L (rowClass R r))
+      (R.C.aS (S.diagU ν) * R.C.wS * R.C.aS y) = sPart := by
+    rw [mul_assoc, hw, ← mul_assoc, R.C.aS_mul, mul_assoc,
+      R.T.WS_genuine (R.chars.L (rowClass R r)) (R.mem_family (rowClass R r))]
+    simp [sPart, rotated, sCocycle, muThree, map_pow, div_eq_mul_inv]
+  have hFactor (d : Digits R r) :
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+      sPart * (∏ v : V, localWeyl v.1 (d v)) * tail := by
+    let g : FinPlace F → R.C.G := fun v =>
+      if hv : v ∈ T0 then
+        R.C.n v (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F)
+          (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F))))
+      else 1
+    have hg : ∀ v ∈ T0, g v ∈ R.C.Gloc v := by
+      intro v hv
+      simp [g, hv]
+      exact R.C.n_mem v _
+    have hT0ext : ∀ v ∈ T0, v ∉ S.Sf :=
+      fun v hv => R.exterior.support_exterior r.ideal v hv
+    have hmapDigit : T0.attach.toList.map (fun v =>
+        R.C.n v.1 (Multiplicative.ofAdd (algebraMap F (v.1.adicCompletion F)
+          (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F))))) =
+        T0.attach.toList.map (fun v => g v.1) := by
+      apply List.map_congr_left
+      intro v hv
+      simp [g, v.2]
+    have hperm0 : (T0.attach.toList.map Subtype.val).Perm T0.toList := by
+      apply List.perm_of_nodup_nodup_toFinset_eq
+      · exact (T0.attach.nodup_toList).map Subtype.val_injective
+      · exact T0.nodup_toList
+      · ext v
+        simp
+    have hpermG :
+        (T0.attach.toList.map (fun v => g v.1)).Perm (T0.toList.map g) := by
+      change List.Perm (List.map (g ∘ Subtype.val) T0.attach.toList) (List.map g T0.toList)
+      simpa only [List.map_map] using hperm0.map g
+    have hpairNe : (T0.attach.toList).Pairwise (· ≠ ·) :=
+      List.nodup_iff_pairwise_ne.mp T0.attach.nodup_toList
+    have hpairG : (T0.attach.toList.map (fun v => g v.1)).Pairwise Commute := by
+      exact List.Pairwise.map (fun v : {v // v ∈ T0} => g v.1)
+        (by
+          intro v w hne
+          have hplaces : v.1 ≠ w.1 := by
+            intro heq
+            apply hne
+            exact Subtype.ext heq
+          exact R.C.comm_loc v.1 w.1 hplaces (g v.1) (hg v.1 v.2)
+            (g w.1) (hg w.1 w.2))
+        hpairNe
+    have harg : R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d =
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * R.C.aS y) *
+          (T0.toList.map g).prod := by
+      rw [digitPoint, hmapDigit]
+      calc
+        (R.C.rat (diagGL ν) * R.C.rat weylGL) *
+            (R.C.aS y * (T0.attach.toList.map (fun v => g v.1)).prod) =
+            (R.C.rat (diagGL ν) * R.C.rat weylGL * R.C.aS y) *
+              (T0.attach.toList.map (fun v => g v.1)).prod := by simp only [mul_assoc]
+        _ = _ := by rw [List.Perm.prod_eq' hpermG hpairG]
+    have hProduct :
+        (∏ v ∈ T0, R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v * g v)) =
+          ∏ v : V, localWeyl v.1 (d v) := by
+      rw [← Finset.prod_coe_sort T0]
+      apply Finset.prod_congr rfl
+      intro v hv
+      simp [g, v.2, localWeyl]
+    have h := R.T.factor (R.chars.L (rowClass R r))
+      (R.mem_family (rowClass R r)) ν true (R.C.aS y) (R.C.aS_mem y)
+      T0 hT0ext g hg
+    simp only [↓reduceIte] at h
+    rw [← harg, hS, hProduct] at h
+    exact h
+  have hWeighted (d : Digits R r) :
+      digitAlpha R r d * R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+      sPart * (∏ v : V, masked v.1 (d v)) * tail := by
+    rw [hFactor]
+    change (∏ v : V, maskAlpha D A v.1 (primeGen R v.1) (digitExponent r v.1) (d v)) *
+        (sPart * (∏ v : V, localWeyl v.1 (d v)) * tail) =
+      sPart * (∏ v : V,
+        maskAlpha D A v.1 (primeGen R v.1) (digitExponent r v.1) (d v) *
+          localWeyl v.1 (d v)) * tail
+    rw [Finset.prod_mul_distrib]
+    ring
+  have hMass : (∑ d : Digits R r, ∏ v : V, masked v.1 (d v)) =
+      ∏ v ∈ T0, ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, masked v x := by
+    rw [← Finset.prod_coe_sort T0]
+    simp only [finsum_eq_sum_of_fintype]
+    exact (Fintype.prod_sum (fun v : V => masked v.1)).symm
+  change (∑ᶠ d : Digits R r, digitAlpha R r d *
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)) =
+    sPart * (∏ v ∈ T0, ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, masked v x) * tail
+  calc
+    (∑ᶠ d : Digits R r, digitAlpha R r d *
+        R.T.W (R.chars.L (rowClass R r))
+          (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)) =
+      ∑ d : Digits R r, sPart * (∏ v : V, masked v.1 (d v)) * tail := by
+        rw [finsum_eq_sum_of_fintype]
+        exact Finset.sum_congr rfl (fun d _ => hWeighted d)
+    _ = sPart * (∑ d : Digits R r, ∏ v : V, masked v.1 (d v)) * tail := by
+      rw [Finset.mul_sum, Finset.sum_mul]
+    _ = sPart * (∏ v ∈ T0, ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, masked v x) * tail := by
+      rw [hMass]
+
+private theorem rf_pairing_local_mask_split
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (j : Fin 6) (ν : Fˣ) (e : ℤ) :
+    (∑ᶠ x : 𝓞 F ⧸ v.asIdeal,
+      maskAlpha D A v (primeGen R v) j x *
+        R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+          R.C.n v (Multiplicative.ofAdd (algebraMap F _
+            (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))) =
+      localR R v j e (toLoc v ν * toLoc v (primeGen R v) ^ (2 - e)) +
+      (if j = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 0) := by
+  classical
+  letI := bridgeResidueFintype v
+  let p : Fˣ := primeGen R v
+  let m (x : 𝓞 F ⧸ v.asIdeal) : ℂ :=
+    maskAlpha D A v p j x *
+      R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+        R.C.n v (Multiplicative.ofAdd (algebraMap F _
+          (algebraMap (𝓞 F) F x.out / (p : F)))))
+  have hcancel : toLoc v p ^ (e - 2) *
+      (toLoc v ν * toLoc v p ^ (2 - e)) = toLoc v ν := by
+    calc
+      _ = toLoc v ν * (toLoc v p ^ (e - 2) * toLoc v p ^ (2 - e)) := by
+        ac_rfl
+      _ = toLoc v ν := by
+        rw [← zpow_add, show e - 2 + (2 - e) = 0 by omega]
+        simp
+  have hnonzero :
+      localR R v j e (toLoc v ν * toLoc v p ^ (2 - e)) =
+        ∑ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else m x := by
+    simp only [localR, finsum_eq_sum_of_fintype]
+    have harg : toLoc v (primeGen R v) ^ (e - 2) *
+        (toLoc v ν * toLoc v p ^ (2 - e)) = toLoc v ν := hcancel
+    rw [harg]
+  have hpgen : S.IsGen (p : F) v.asIdeal := by
+    have h := bc.gen_spec (R.exterior.prime v hv)
+    simpa [p, primeGen, hv, R.exterior.prime_val] using h.1
+  have hres0 : residue v (0 : F) = (0 : 𝓞 F ⧸ v.asIdeal) := by
+    simpa using (a2_bridge_SYMBOL D S).residue_algebraMap v (0 : 𝓞 F)
+  have hquot := rf_residue_div_prime_integral v hv p hpgen (0 : F)
+    (by simp) (0 : 𝓞 F ⧸ v.asIdeal) hres0
+  have hquotVal : HeightOneSpectrum.valuation F v
+      (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ v.asIdeal).out / (p : F)) ≤ 1 := by
+    simpa only [zero_sub, neg_div, Valuation.map_neg] using hquot
+  have hquotInt : algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ v.asIdeal).out / (p : F)) ∈
+        v.adicCompletionIntegers F := by
+    rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+      HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation']
+    exact hquotVal
+  have hzero : m 0 =
+      if j = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 0 := by
+    dsimp only [m]
+    rw [R.T.Wv_right v hv (R.C.a v (toLoc v ν) * R.C.w v)
+      (R.C.n v (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F (0 : 𝓞 F ⧸ v.asIdeal).out / (p : F)))))
+      (R.C.n_Kext v hv _ hquotInt) (R.C.n_mem v _)]
+    by_cases hj : j = 0
+    · subst j
+      simpa [p] using rf_local_zero_digit R v hv ν
+    · simp [maskAlpha, hj]
+  have hsplit : (∑ x : 𝓞 F ⧸ v.asIdeal, m x) =
+      (∑ x : 𝓞 F ⧸ v.asIdeal, if x = 0 then 0 else m x) + m 0 := by
+    calc
+      _ = ∑ x : 𝓞 F ⧸ v.asIdeal,
+          ((if x = 0 then 0 else m x) + (if x = 0 then m 0 else 0)) := by
+        apply Finset.sum_congr rfl
+        intro x hx
+        by_cases h : x = 0 <;> simp [h]
+      _ = _ := by rw [Finset.sum_add_distrib]; simp
+  change (∑ᶠ x : 𝓞 F ⧸ v.asIdeal, m x) =
+    localR R v j e (toLoc v ν * toLoc v p ^ (2 - e)) +
+      (if j = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 0)
+  rw [finsum_eq_sum_of_fintype, hnonzero, hsplit, hzero]
+
+private theorem rf_pairing_row_support
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S) :
+    R.exterior.support r.ideal = R.exterior.support r.d ∪ R.exterior.support r.h ∧
+      Disjoint (R.exterior.support r.d) (R.exterior.support r.h) ∧
+      (∀ v ∈ R.exterior.support r.d, digitExponent r v = 1) ∧
+      (∀ v ∈ R.exterior.support r.h,
+        (digitExponent r v).val = idealExp v r.h.1 % 6) := by
+  classical
+  have hexp (v : FinPlace F) :
+      idealExp v r.ideal.1 = idealExp v r.h.1 + idealExp v r.d.1 := by
+    rw [r.factorization, rf_idealExp_mul v r.h.1 r.d.1 r.h.property.1 r.d.property.1]
+  have hdis : Disjoint (R.exterior.support r.d) (R.exterior.support r.h) := by
+    apply Finset.disjoint_left.mpr
+    intro v hvd hvh
+    exact rf_no_common_prime v r.h.1 r.d.1 r.coprime
+      ((R.exterior.mem_support r.h v).mp hvh)
+      ((R.exterior.mem_support r.d v).mp hvd)
+  have hunion : R.exterior.support r.ideal =
+      R.exterior.support r.d ∪ R.exterior.support r.h := by
+    ext v
+    simp only [Finset.mem_union]
+    rw [← rf_idealExp_ne_zero_iff_support R v r.ideal,
+      ← rf_idealExp_ne_zero_iff_support R v r.d,
+      ← rf_idealExp_ne_zero_iff_support R v r.h, hexp v]
+    omega
+  refine ⟨hunion, hdis, ?_, ?_⟩
+  · intro v hvd
+    have hnotH : v ∉ R.exterior.support r.h := by
+      intro hvh
+      exact Finset.disjoint_left.mp hdis hvd hvh
+    have hzero := rf_idealExp_zero_of_not_support R v r.h hnotH
+    have hone := rf_idealExp_eq_one_of_squarefree_support R v r.d r.d_squarefree hvd
+    apply Fin.ext
+    change idealExp v r.ideal.1 % 6 = 1
+    norm_num [hexp v, hzero, hone]
+  · intro v hvh
+    have hnotD : v ∉ R.exterior.support r.d := by
+      intro hvd
+      exact Finset.disjoint_left.mp hdis hvd hvh
+    have hzero := rf_idealExp_zero_of_not_support R v r.d hnotD
+    change idealExp v r.ideal.1 % 6 = idealExp v r.h.1 % 6
+    rw [hexp v, hzero, Nat.add_zero]
+
+private theorem rf_pairing_sqf_support_exists
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (s : Finset (FinPlace F)) (hgood : ∀ v ∈ s, v ∉ S.Sf) :
+    ∃ f : S.ExtIdeal, Squarefree f.1 ∧ R.exterior.support f = s := by
+  classical
+  obtain ⟨f, hf, _, _⟩ := rf_prime_product_ext R s hgood
+  refine ⟨f, ?_, ?_⟩
+  · rw [hf]
+    apply Finset.squarefree_prod_of_pairwise_isCoprime
+    · intro v hv w hw hne
+      exact (v.isCoprime_of_ne w hne).isRelPrime
+    · intro v hv
+      exact v.prime.squarefree
+  · ext v
+    constructor
+    · intro hv
+      by_contra hvs
+      have hle : (∏ w ∈ s, w.asIdeal) ≤ v.asIdeal := by
+        rw [← hf]
+        exact Ideal.dvd_iff_le.mp ((R.exterior.mem_support f v).mp hv)
+      exact rf_prime_product_not_le v s (fun w hw heq => hvs (heq ▸ hw)) hle
+    · intro hv
+      rw [R.exterior.mem_support f v, hf]
+      exact Finset.dvd_prod_of_mem (fun w : FinPlace F => w.asIdeal) hv
+
+private theorem rf_pairing_active_support_equiv
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (h : S.ExtIdeal) :
+    ∃ e :
+      {s : Finset (FinPlace F) // s ⊆ R.exterior.support h ∧
+        ∀ v ∈ R.exterior.support h, idealExp v h.1 % 6 ≠ 0 → v ∈ s} ≃
+      {f : S.ExtIdeal // activeFactor R h f},
+      ∀ s, R.exterior.support (e s).1 = s.1 := by
+  classical
+  let SS := {s : Finset (FinPlace F) // s ⊆ R.exterior.support h ∧
+    ∀ v ∈ R.exterior.support h, idealExp v h.1 % 6 ≠ 0 → v ∈ s}
+  let AF := {f : S.ExtIdeal // activeFactor R h f}
+  let φ : AF → SS := fun f => ⟨R.exterior.support f.1, f.2.2.1, f.2.2.2⟩
+  have hfactor (f : AF) : f.1.1 = ∏ v ∈ R.exterior.support f.1, v.asIdeal := by
+    let c : S.SqfExtIdeal := ⟨f.1.1, f.1.property, f.2.1⟩
+    have hof : R.exterior.ofSqf c = f.1 := Subtype.ext (R.exterior.ofSqf_val c)
+    simpa only [hof] using rf_sqfIdeal_factorization R c
+  have hinj : Function.Injective φ := by
+    intro f g heq
+    have hs : R.exterior.support f.1 = R.exterior.support g.1 :=
+      congrArg (fun s : SS => s.1) heq
+    apply Subtype.ext
+    apply Subtype.ext
+    rw [hfactor f, hfactor g, hs]
+  have hsurj : Function.Surjective φ := by
+    intro s
+    have hgood : ∀ v ∈ s.1, v ∉ S.Sf := fun v hv =>
+      R.exterior.support_exterior h v (s.2.1 hv)
+    obtain ⟨f, hfsq, hs⟩ := rf_pairing_sqf_support_exists R s.1 hgood
+    have hfactive : activeFactor R h f := by
+      refine ⟨hfsq, ?_, ?_⟩
+      · intro v hv
+        exact s.2.1 (hs ▸ hv)
+      · intro v hv hnon
+        rw [hs]
+        exact s.2.2 v hv hnon
+    refine ⟨⟨f, hfactive⟩, ?_⟩
+    apply Subtype.ext
+    exact hs
+  let E : AF ≃ SS := Equiv.ofBijective φ ⟨hinj, hsurj⟩
+  refine ⟨E.symm, ?_⟩
+  intro s
+  have hs : φ (E.symm s) = s := E.apply_symm_apply s
+  exact congrArg (fun s : SS => s.1) hs
+
+private theorem rf_pairing_spherical_support_finite
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (ν : Fˣ) :
+    (fun v : FinPlace F =>
+      if v ∉ S.Sf then R.T.Wv v (R.C.a v (toLoc v ν)) else 1).HasFiniteMulSupport := by
+  classical
+  let a := IsDedekindDomain.FiniteAdeleRing.unitEmbedding (𝓞 F) F ν
+  have hfinite := IsDedekindDomain.FiniteAdeleRing.hasFiniteMulSupport_valued a
+  have hval (v : FinPlace F) :
+      Valued.v (a.1 v) = HeightOneSpectrum.valuation F v (ν : F) := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (ν : F)) = _
+    simp only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation']
+  apply Set.Finite.subset hfinite
+  intro v hv
+  simp only [Function.mem_mulSupport] at hv ⊢
+  intro hv1
+  by_cases hvS : v ∉ S.Sf
+  · have hν : HeightOneSpectrum.valuation F v (ν : F) = 1 := by
+      rw [← hval v]
+      exact hv1
+    have hW := rf_Wv_one_of_valuation_one R v hvS ν hν
+    exact hv (by simp only [if_pos hvS, hW])
+  · exact hv (by simp only [if_neg hvS])
+
+private theorem rf_pairing_spherical_tail_split
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (s : Finset (FinPlace F))
+    (hs : s ⊆ R.exterior.support r.h) :
+    (∏ v ∈ R.exterior.support r.h \ s, R.T.Wv v (R.C.a v (toLoc v ν))) *
+      (∏ᶠ v : FinPlace F, if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 1) =
+    ∏ᶠ v : FinPlace F, if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1 := by
+  classical
+  let inactive (v : FinPlace F) : ℂ :=
+    if v ∈ R.exterior.support r.h \ s then R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  let tail (v : FinPlace F) : ℂ :=
+    if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  have hInactiveSubset : Function.mulSupport inactive ⊆
+      (R.exterior.support r.h \ s : Finset (FinPlace F)) := by
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv
+    by_contra hvnot
+    change v ∉ R.exterior.support r.h \ s at hvnot
+    exact hv (by simp only [inactive, if_neg hvnot])
+  have hInactive : inactive.HasFiniteMulSupport :=
+    (R.exterior.support r.h \ s).finite_toSet.subset hInactiveSubset
+  have hTail : tail.HasFiniteMulSupport := by
+    apply (rf_pairing_spherical_support_finite R ν).subset
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv ⊢
+    by_cases ht : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal
+    · simpa only [tail, if_pos ht, if_pos ht.1] using hv
+    · exact (hv (by simp only [tail, if_neg ht])).elim
+  obtain ⟨hrow, hdis, _, _⟩ := rf_pairing_row_support R r
+  have hFactor (v : FinPlace F) : inactive v * tail v =
+      if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s then
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 1 := by
+    by_cases hi : v ∈ R.exterior.support r.h \ s
+    · have hvh := (Finset.mem_sdiff.mp hi).1
+      have hvs := (Finset.mem_sdiff.mp hi).2
+      have hvD : v ∉ R.exterior.support r.d := by
+        intro hvd
+        exact Finset.disjoint_left.mp hdis hvd hvh
+      have hvS := R.exterior.support_exterior r.h v hvh
+      have hvI : v ∈ R.exterior.support r.ideal := by
+        rw [hrow]
+        exact Finset.mem_union.mpr (Or.inr hvh)
+      have hsmall : v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s :=
+        ⟨hvS, hvD, hvs⟩
+      simp only [inactive, if_pos hi, tail, not_not.mpr hvI,
+        and_false, if_false, mul_one, if_pos hsmall]
+    · by_cases ht : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal
+      · have hvD : v ∉ R.exterior.support r.d := by
+          intro hvd
+          apply ht.2
+          rw [hrow]
+          exact Finset.mem_union.mpr (Or.inl hvd)
+        have hvs : v ∉ s := by
+          intro hvs
+          apply ht.2
+          rw [hrow]
+          exact Finset.mem_union.mpr (Or.inr (hs hvs))
+        have hsmall : v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s :=
+          ⟨ht.1, hvD, hvs⟩
+        simp only [inactive, if_neg hi, tail, if_pos ht, one_mul, if_pos hsmall]
+      · have hsmall : ¬(v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ s) := by
+          intro h
+          apply ht
+          refine ⟨h.1, ?_⟩
+          intro hvI
+          rw [hrow] at hvI
+          rcases Finset.mem_union.mp hvI with hvd | hvh
+          · exact h.2.1 hvd
+          · exact hi (Finset.mem_sdiff.mpr ⟨hvh, h.2.2⟩)
+        simp only [inactive, if_neg hi, tail, if_neg ht, one_mul, if_neg hsmall]
+  have hInactiveProd : (∏ᶠ v, inactive v) =
+      ∏ v ∈ R.exterior.support r.h \ s, R.T.Wv v (R.C.a v (toLoc v ν)) := by
+    rw [finprod_eq_prod_of_mulSupport_subset inactive hInactiveSubset]
+    apply Finset.prod_congr rfl
+    intro v hv
+    simp only [inactive, if_pos hv]
+  change _ * (∏ᶠ v, tail v) = _
+  rw [← hInactiveProd, ← finprod_mul_distrib hInactive hTail]
+  exact finprod_congr hFactor
+
+private theorem rf_pairing_active_product_partition
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) :
+    (∏ v ∈ R.exterior.support r.h,
+      (localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+        (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))) +
+      (if digitExponent r v = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 0))) *
+      (∏ᶠ v : FinPlace F, if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 1) =
+    ∑ᶠ f : {f : S.ExtIdeal // activeFactor R r.h f},
+      inactiveScalar R r.h f.1 *
+        (∏ v ∈ R.exterior.support f.1,
+          localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+            (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))) *
+        ∏ᶠ v : FinPlace F,
+          if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f.1 then
+            R.T.Wv v (R.C.a v (toLoc v ν)) else 1 := by
+  classical
+  let H0 := R.exterior.support r.h
+  let A0 (v : FinPlace F) : ℂ :=
+    localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+      (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))
+  let G0 (v : FinPlace F) : ℂ :=
+    if digitExponent r v = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 0
+  let tail : ℂ := ∏ᶠ v : FinPlace F,
+    if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  let mandatory (s : Finset (FinPlace F)) : Prop :=
+    ∀ v ∈ H0, idealExp v r.h.1 % 6 ≠ 0 → v ∈ s
+  let subs := H0.powerset.filter mandatory
+  let SS := {s : Finset (FinPlace F) // s ⊆ H0 ∧ mandatory s}
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  have hmem (s : Finset (FinPlace F)) :
+      s ∈ subs ↔ s ⊆ H0 ∧ mandatory s := by
+    simp only [subs, Finset.mem_filter, Finset.mem_powerset]
+  letI : Fintype SS := Fintype.ofFinset subs hmem
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  obtain ⟨e, he⟩ := rf_pairing_active_support_equiv R r.h
+  have hdigit := (rf_pairing_row_support R r).2.2.2
+  let poly (s : Finset (FinPlace F)) : ℂ :=
+    (∏ v ∈ s, A0 v) * ∏ v ∈ H0 \ s, G0 v
+  let activeTerm (f : AF) : ℂ :=
+    inactiveScalar R r.h f.1 * (∏ v ∈ R.exterior.support f.1, A0 v) *
+      ∏ᶠ v : FinPlace F,
+        if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f.1 then
+          R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  have hrestrict : (∑ s ∈ subs, poly s) = ∑ s ∈ H0.powerset, poly s := by
+    apply Finset.sum_subset (Finset.filter_subset _ _)
+    intro s hs hn
+    have hsH : s ⊆ H0 := Finset.mem_powerset.mp hs
+    have hmiss : ¬mandatory s := by
+      intro hc
+      exact hn ((hmem s).mpr ⟨hsH, hc⟩)
+    simp only [mandatory, not_forall, not_imp] at hmiss
+    obtain ⟨v, hv, hnonzero, hvs⟩ := hmiss
+    have hj : digitExponent r v ≠ 0 := by
+      intro hj0
+      apply hnonzero
+      exact (hdigit v hv).symm.trans (congrArg (fun j : Fin 6 => j.val) hj0)
+    have hG : (∏ w ∈ H0 \ s, G0 w) = 0 :=
+      Finset.prod_eq_zero (Finset.mem_sdiff.mpr ⟨hv, hvs⟩)
+        (by simp only [G0, if_neg hj])
+    simp only [poly, hG, mul_zero]
+  have hterm (s : SS) : poly s.1 * tail = activeTerm (e s) := by
+    have hj0 (v : FinPlace F) (hv : v ∈ H0 \ s.1) : digitExponent r v = 0 := by
+      apply Fin.ext
+      change (digitExponent r v).val = 0
+      rw [hdigit v (Finset.mem_sdiff.mp hv).1]
+      by_contra hnonzero
+      exact (Finset.mem_sdiff.mp hv).2
+        (s.2.2 v (Finset.mem_sdiff.mp hv).1 hnonzero)
+    have hG : (∏ v ∈ H0 \ s.1, G0 v) =
+        (∏ v ∈ H0 \ s.1, (1 - (qI v.asIdeal : ℂ)⁻¹)) *
+          ∏ v ∈ H0 \ s.1, R.T.Wv v (R.C.a v (toLoc v ν)) := by
+      rw [← Finset.prod_mul_distrib]
+      apply Finset.prod_congr rfl
+      intro v hv
+      simp only [G0, if_pos (hj0 v hv)]
+    have hfilter : H0.filter (fun v => v ∉ s.1) = H0 \ s.1 := by
+      ext v
+      simp only [Finset.mem_filter, Finset.mem_sdiff]
+    have hscalar : (∏ v ∈ H0 \ s.1, (1 - (qI v.asIdeal : ℂ)⁻¹)) =
+        inactiveScalar R r.h (e s).1 := by
+      simp only [inactiveScalar, he s]
+      exact congrArg (fun t : Finset (FinPlace F) =>
+        ∏ v ∈ t, (1 - (qI v.asIdeal : ℂ)⁻¹)) hfilter.symm
+    have htail := rf_pairing_spherical_tail_split R r ν s.1 s.2.1
+    change (∏ v ∈ H0 \ s.1, R.T.Wv v (R.C.a v (toLoc v ν))) * tail = _ at htail
+    dsimp only [poly, activeTerm]
+    rw [hG, hscalar, he s, ← htail]
+    ring
+  change (∏ v ∈ H0, (A0 v + G0 v)) * tail = ∑ᶠ f : AF, activeTerm f
+  calc
+    _ = (∑ s ∈ H0.powerset, poly s) * tail := by
+      rw [Finset.prod_add]
+    _ = (∑ s ∈ subs, poly s) * tail := by rw [hrestrict]
+    _ = ∑ s ∈ subs, poly s * tail := Finset.sum_mul _ _ _
+    _ = ∑ s : SS, poly s.1 * tail :=
+      Finset.sum_subtype subs hmem (fun s => poly s * tail)
+    _ = ∑ᶠ s : SS, poly s.1 * tail := (finsum_eq_sum_of_fintype _).symm
+    _ = ∑ᶠ f : AF, activeTerm f := finsum_eq_of_bijective e e.bijective hterm
+
+private def rf_pairing_active_coefficient
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (ν : Fˣ) : ℂ :=
+  inactiveScalar R r.h f *
+    (∏ v ∈ R.exterior.support r.d,
+      localR R v 1 0 (toLoc v ν * toLoc v (primeGen R v) ^ 2)) *
+    (∏ v ∈ R.exterior.support f,
+      localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+        (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))) *
+    ∏ᶠ v : FinPlace F,
+      if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f then
+        R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+
+private theorem rf_pairing_digit_active_partition
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (y : S.FSˣ) :
+    (∑ᶠ d : Digits R r, digitAlpha R r d *
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)) =
+      sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+        rotated R (rowClass R r) (S.diagU ν / y) *
+        ∑ᶠ f : {f : S.ExtIdeal // activeFactor R r.h f},
+          rf_pairing_active_coefficient R r f.1 ν := by
+  classical
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let rowLocal (v : FinPlace F) : ℂ :=
+    ∑ᶠ x : 𝓞 F ⧸ v.asIdeal,
+      maskAlpha D A v (primeGen R v) (digitExponent r v) x *
+        R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+          R.C.n v (Multiplicative.ofAdd (algebraMap F _
+            (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))
+  let hLocal (v : FinPlace F) : ℂ :=
+    localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+      (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))) +
+    (if digitExponent r v = 0 then (1 - (qI v.asIdeal : ℂ)⁻¹) *
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 0)
+  let dProd : ℂ := ∏ v ∈ R.exterior.support r.d,
+    localR R v 1 0 (toLoc v ν * toLoc v (primeGen R v) ^ 2)
+  let tail : ℂ := ∏ᶠ v : FinPlace F,
+    if v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal then
+      R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  let sPart : ℂ := sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+    rotated R (rowClass R r) (S.diagU ν / y)
+  let activeTerm (f : AF) : ℂ :=
+    inactiveScalar R r.h f.1 *
+      (∏ v ∈ R.exterior.support f.1,
+        localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+          (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))) *
+      ∏ᶠ v : FinPlace F,
+        if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f.1 then
+          R.T.Wv v (R.C.a v (toLoc v ν)) else 1
+  obtain ⟨hrow, hdis, hdigit, _⟩ := rf_pairing_row_support R r
+  have hD (v : FinPlace F) (hv : v ∈ R.exterior.support r.d) :
+      rowLocal v = localR R v 1 0 (toLoc v ν * toLoc v (primeGen R v) ^ 2) := by
+    have h := rf_pairing_local_mask_split R v
+      (R.exterior.support_exterior r.d v hv) (digitExponent r v) ν 0
+    simpa [rowLocal, hdigit v hv] using h
+  have hH (v : FinPlace F) (hv : v ∈ R.exterior.support r.h) :
+      rowLocal v = hLocal v := by
+    have h := rf_pairing_local_mask_split R v
+      (R.exterior.support_exterior r.h v hv) (digitExponent r v) ν
+      (ordv v (toLoc v ν) + 2)
+    have he : 2 - (ordv v (toLoc v ν) + 2) = -ordv v (toLoc v ν) := by ring
+    simpa only [rowLocal, hLocal, he] using h
+  have hProd : (∏ v ∈ R.exterior.support r.ideal, rowLocal v) =
+      dProd * ∏ v ∈ R.exterior.support r.h, hLocal v := by
+    rw [hrow, Finset.prod_union hdis]
+    apply congrArg₂ (· * ·)
+    · apply Finset.prod_congr rfl
+      exact hD
+    · apply Finset.prod_congr rfl
+      exact hH
+  have hmasked := rf_pairing_masked_factorization R r ν y
+  simp_rw [finprod_eq_if] at hmasked
+  change (∑ᶠ d : Digits R r, digitAlpha R r d *
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)) =
+      sPart * (∏ v ∈ R.exterior.support r.ideal, rowLocal v) * tail at hmasked
+  have hpartition := rf_pairing_active_product_partition R r ν
+  change (∏ v ∈ R.exterior.support r.h, hLocal v) * tail =
+    ∑ᶠ f : AF, activeTerm f at hpartition
+  have hsum : dProd * (∑ᶠ f : AF, activeTerm f) =
+      ∑ᶠ f : AF, rf_pairing_active_coefficient R r f.1 ν := by
+    rw [finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype, Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro f hf
+    dsimp only [activeTerm, dProd, rf_pairing_active_coefficient]
+    ring
+  change _ = sPart * ∑ᶠ f : AF, rf_pairing_active_coefficient R r f.1 ν
+  rw [hmasked, hProd]
+  calc
+    sPart * (dProd * ∏ v ∈ R.exterior.support r.h, hLocal v) * tail =
+        sPart * (dProd * ((∏ v ∈ R.exterior.support r.h, hLocal v) * tail)) := by ring
+    _ = _ := by rw [hpartition, hsum]
+
+private theorem rf_pairing_active_coefficient_gamma
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (γ : Gamma S) (ν : Fˣ) :
+    rf_pairing_active_coefficient R r f ((γ.1 : Fˣ) * ν) =
+      rf_pairing_active_coefficient R r f ν := by
+  classical
+  have localVal (v : FinPlace F) (hv : v ∉ S.Sf) :
+      Valued.v (toLoc v (γ.1 : Fˣ) : v.adicCompletion F) = 1 := by
+    have hglobal : HeightOneSpectrum.valuation F v ((γ.1 : Fˣ) : F) = 1 :=
+      Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) γ.1 hv
+    change Valued.v (algebraMap F (v.adicCompletion F) ((γ.1 : Fˣ) : F)) = 1
+    simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using hglobal
+  have localOrd (v : FinPlace F) (hv : v ∉ S.Sf) :
+      ordv v (toLoc v (γ.1 : Fˣ)) = 0 := by
+    rw [rf_ordv_local_log, localVal v hv]
+    simp
+  have ordMul (v : FinPlace F) (hv : v ∉ S.Sf) (ξ : Fˣ) :
+      ordv v (toLoc v ((γ.1 : Fˣ) * ξ)) = ordv v (toLoc v ξ) := by
+    rw [map_mul, rf_ordv_mul, localOrd v hv, zero_add]
+  have hlocal (v : FinPlace F) (hv : v ∉ S.Sf) :
+      R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) =
+        R.T.Wv v (R.C.a v (toLoc v ν)) ∧
+      ∀ (j : Fin 6) (e : ℤ),
+        localR R v j e
+          (toLoc v ((γ.1 : Fˣ) * ν) * toLoc v (primeGen R v) ^ (2 - e)) =
+        localR R v j e (toLoc v ν * toLoc v (primeGen R v) ^ (2 - e)) := by
+    let g : (v.adicCompletion F)ˣ := toLoc v (γ.1 : Fˣ)
+    have hgval : Valued.v (g : v.adicCompletion F) = 1 := localVal v hv
+    have hgord : ordv v g = 0 := localOrd v hv
+    have hgchi : localChi D v g = 1 := by
+      have hglobal : HeightOneSpectrum.valuation F v ((γ.1 : Fˣ) : F) = 1 :=
+        Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) γ.1 hv
+      rw [show g = toLoc v (γ.1 : Fˣ) by rfl,
+        rf_localChi_toLoc v hv (γ.1 : Fˣ) hglobal, rf_gamma_chi_one D γ v hv]
+    have isUnitLoc (x : (v.adicCompletion F)ˣ)
+        (hx : Valued.v (x : v.adicCompletion F) = 1) :
+        ArtinPrimitiveRoots.A1.Theta.IsLocUnit v x := by
+      constructor
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hx]
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        simp only [Units.val_inv_eq_inv_val, map_inv₀, hx, inv_one, le_refl]
+    have hgunit := isUnitLoc g hgval
+    have hunitPart : unitPart v g = g := by simp [unitPart, hgord]
+    have hcright (x : (v.adicCompletion F)ˣ) : extCocycle D v x g = 1 := by
+      simp [extCocycle, hunitPart, hgchi, hgord]
+    have har (x : (v.adicCompletion F)ˣ) :
+        R.C.a v x * R.C.a v g = R.C.a v (x * g) := by
+      obtain ⟨ζ, hζval, hmul⟩ := R.C.a_mul v hv x g
+      have hζ : ζ = 1 := by
+        apply Subtype.ext
+        apply Units.ext
+        exact hζval.trans (hcright x)
+      simpa [hζ] using hmul
+    constructor
+    · have hK : R.C.a v g ∈ R.C.Kext :=
+        R.C.a_Kext v hv g hgunit.1 hgunit.2
+      calc
+        R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) =
+            R.T.Wv v (R.C.a v (toLoc v ν) * R.C.a v g) := by
+              rw [map_mul, mul_comm g (toLoc v ν)]
+              exact congrArg (R.T.Wv v) (har (toLoc v ν)).symm
+        _ = R.T.Wv v (R.C.a v (toLoc v ν)) :=
+          R.T.Wv_right v hv (R.C.a v (toLoc v ν)) (R.C.a v g) hK (R.C.a_mem v g)
+    · intro j e
+      have hnormal (ξ : Fˣ) (k : ℤ) :
+          localR R v j k (toLoc v ξ * toLoc v (primeGen R v) ^ (2 - k)) =
+            localR R v j (ordv v (toLoc v ξ) + 2)
+              (toLoc v ξ * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ξ))) := by
+        have ha := rf_pairing_local_mask_split R v hv j ξ k
+        have hb := rf_pairing_local_mask_split R v hv j ξ (ordv v (toLoc v ξ) + 2)
+        have he : 2 - (ordv v (toLoc v ξ) + 2) = -ordv v (toLoc v ξ) := by ring
+        rw [he] at hb
+        exact add_right_cancel (ha.symm.trans hb)
+      have hpgen : S.IsGen (primeGen R v : F) (R.exterior.prime v hv).1 := by
+        simpa [primeGen, hv] using (bc.gen_spec (R.exterior.prime v hv)).1
+      have hpsq : Squarefree (R.exterior.prime v hv).1 := by
+        rw [R.exterior.prime_val]
+        exact v.prime.squarefree
+      have hpmem : v ∈ R.exterior.support (R.exterior.prime v hv) := by
+        apply (R.exterior.mem_support (R.exterior.prime v hv) v).mpr
+        simpa only [R.exterior.prime_val] using (dvd_refl v.asIdeal)
+      have hpord : ordv v (toLoc v (primeGen R v)) = 1 :=
+        (rf_ordv_toLoc_ofGen v hv (R.exterior.prime v hv) (primeGen R v) hpgen).trans
+          (congrArg (fun n : ℕ => (n : ℤ))
+            (rf_idealExp_eq_one_of_squarefree_support R v (R.exterior.prime v hv) hpsq hpmem))
+      let x : (v.adicCompletion F)ˣ :=
+        toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))
+      have hxord : ordv v x = 0 := by
+        dsimp only [x]
+        rw [rf_ordv_mul, rf_ordv_zpow, hpord]
+        ring
+      have hxval := rf_localVal_one_of_ordv_zero v x hxord
+      have hgxval : Valued.v ((g * x : (v.adicCompletion F)ˣ) : v.adicCompletion F) = 1 := by
+        simp only [Units.val_mul, map_mul, hgval, hxval, one_mul]
+      have hxunit := isUnitLoc x hxval
+      have hgxunit := isUnitLoc (g * x) hgxval
+      have hv6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+      have hχgx : localChi D v (g * x) = localChi D v x := by
+        rw [(ArtinPrimitiveRoots.A1.Theta.localChi_basic (D := D) hv6).2.2.1
+          g x hgunit hxunit, hgchi, one_mul]
+      have harg : toLoc v ((γ.1 : Fˣ) * ν) *
+          toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)) = g * x := by
+        simp only [map_mul, g, x, mul_assoc]
+      rw [hnormal ((γ.1 : Fˣ) * ν) e, hnormal ν e, ordMul v hv ν, harg]
+      change localR R v j (ordv v (toLoc v ν) + 2) (g * x) =
+        localR R v j (ordv v (toLoc v ν) + 2) x
+      obtain ⟨hnegx, _, _, _, _, _, _, hscalex, _, _⟩ :=
+        lem_reflection_local_Weyl R v hv j (ordv v (toLoc v ν) + 2) x hxunit.1 hxunit.2
+      obtain ⟨hneggx, _, _, _, _, _, _, hscalegx, _, _⟩ :=
+        lem_reflection_local_Weyl R v hv j (ordv v (toLoc v ν) + 2) (g * x)
+          hgxunit.1 hgxunit.2
+      by_cases hn : ordv v (toLoc v ν) + 2 < 0
+      · rw [hnegx hn, hneggx hn]
+      · have he : 0 ≤ ordv v (toLoc v ν) + 2 := by omega
+        rw [hscalex he, hscalegx he, hχgx]
+  have hD : (∏ v ∈ R.exterior.support r.d,
+      localR R v 1 0 (toLoc v ((γ.1 : Fˣ) * ν) * toLoc v (primeGen R v) ^ 2)) =
+      ∏ v ∈ R.exterior.support r.d,
+        localR R v 1 0 (toLoc v ν * toLoc v (primeGen R v) ^ 2) := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    simpa using (hlocal v (R.exterior.support_exterior r.d v hv)).2 1 0
+  have hF : (∏ v ∈ R.exterior.support f,
+      localR R v (digitExponent r v) (ordv v (toLoc v ((γ.1 : Fˣ) * ν)) + 2)
+        (toLoc v ((γ.1 : Fˣ) * ν) *
+          toLoc v (primeGen R v) ^ (-ordv v (toLoc v ((γ.1 : Fˣ) * ν))))) =
+      ∏ v ∈ R.exterior.support f,
+        localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+          (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))) := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    have hvS := R.exterior.support_exterior f v hv
+    rw [ordMul v hvS ν]
+    have he : 2 - (ordv v (toLoc v ν) + 2) = -ordv v (toLoc v ν) := by ring
+    simpa only [he] using (hlocal v hvS).2 (digitExponent r v) (ordv v (toLoc v ν) + 2)
+  have hTail : (∏ᶠ v : FinPlace F,
+      if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f then
+        R.T.Wv v (R.C.a v (toLoc v ((γ.1 : Fˣ) * ν))) else 1) =
+      ∏ᶠ v : FinPlace F,
+        if v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f then
+          R.T.Wv v (R.C.a v (toLoc v ν)) else 1 := by
+    apply finprod_congr
+    intro v
+    by_cases hv : v ∉ S.Sf ∧ v ∉ R.exterior.support r.d ∧ v ∉ R.exterior.support f
+    · simp only [if_pos hv, (hlocal v hv.1).1]
+    · simp only [if_neg hv]
+  unfold rf_pairing_active_coefficient
+  rw [hD, hF, hTail]
+
+private theorem rf_pairing_active_coefficient_frozen
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (t : FrozenIndex R r.h) (c : S.SqfExtIdeal)
+    (hcf : IsCoprime c.1 t.f.1) :
+    rf_pairing_active_coefficient R r t.f (frozenFrequency R t r.d c) =
+      groupedExterior R t r.d (frozenFrequency R t r.d c) := by
+  classical
+  let ν : Fˣ := frozenFrequency R t r.d c
+  have hrow := rf_pairing_row_support R r
+  have hOrdInv (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+      ordv v x⁻¹ = -ordv v x := by
+    have hm := rf_ordv_mul v x x⁻¹
+    have hone : ordv v (1 : (v.adicCompletion F)ˣ) = 0 := by
+      simp [ordv]
+      rfl
+    rw [mul_inv_cancel, hone] at hm
+    linarith
+  have hOrdDiv (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+      ordv v (x / y) = ordv v x - ordv v y := by
+    rw [div_eq_mul_inv, rf_ordv_mul, hOrdInv]
+    ring
+  have hOrdPow (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (n : ℕ) :
+      ordv v (x ^ n) = (n : ℤ) * ordv v x := by
+    simpa only [zpow_natCast] using rf_ordv_zpow v x (n : ℤ)
+  have horder (v : FinPlace F) (hvf : v ∈ R.exterior.support t.f) :
+      ordv v (toLoc v ν) = (idealExp v t.a.1 : ℤ) - 2 := by
+    have hv := R.exterior.support_exterior t.f v hvf
+    have hvh := t.active.2.1 v hvf
+    have hnotD : v ∉ R.exterior.support r.d := by
+      intro hvd
+      exact Finset.disjoint_left.mp hrow.2.1 hvd hvh
+    have hnotC : v ∉ R.exterior.support (R.exterior.ofSqf c) := by
+      intro hvc
+      apply rf_no_common_prime v c.1 t.f.1 hcf
+      · simpa only [R.exterior.ofSqf_val] using
+          (R.exterior.mem_support (R.exterior.ofSqf c) v).mp hvc
+      · exact (R.exterior.mem_support t.f v).mp hvf
+    have hnotN : v ∉ R.exterior.support t.n := by
+      intro hvn
+      exact rf_no_common_prime v t.n.1 t.f.1 t.coprime
+        ((R.exterior.mem_support t.n v).mp hvn)
+        ((R.exterior.mem_support t.f v).mp hvf)
+    have heps : ordv v (toLoc v (R.sheets.eps t.u : Fˣ)) = 0 := by
+      have hglobal : HeightOneSpectrum.valuation F v
+          ((R.sheets.eps t.u : Fˣ) : F) = 1 :=
+        Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F)
+          (R.sheets.eps t.u) hv
+      have hloc : Valued.v (toLoc v (R.sheets.eps t.u : Fˣ) : v.adicCompletion F) = 1 := by
+        change Valued.v (algebraMap F (v.adicCompletion F)
+          ((R.sheets.eps t.u : Fˣ) : F)) = 1
+        simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+          Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using hglobal
+      rw [rf_ordv_local_log, hloc]
+      simp
+    have hgen (I : S.ExtIdeal) :
+        ordv v (toLoc v (bc.gen I)) = (idealExp v I.1 : ℤ) :=
+      rf_ordv_toLoc_ofGen v hv I (bc.gen I) (bc.gen_spec I).1
+    have hc := rf_idealExp_zero_of_not_support R v (R.exterior.ofSqf c) hnotC
+    have hn := rf_idealExp_zero_of_not_support R v t.n hnotN
+    have hd := rf_idealExp_zero_of_not_support R v r.d hnotD
+    have hf := rf_idealExp_eq_one_of_squarefree_support R v t.f t.active.1 hvf
+    dsimp only [ν, frozenFrequency]
+    rw [map_div, map_mul, map_mul, map_mul, map_pow, map_pow, map_mul,
+      hOrdDiv, rf_ordv_mul, rf_ordv_mul, rf_ordv_mul, hOrdPow, hOrdPow,
+      rf_ordv_mul, heps, hgen t.a, hgen (R.exterior.ofSqf c), hgen t.n,
+      hgen r.d, hgen t.f, hc, hn, hd, hf]
+    norm_num
+  have hprod :
+      (∏ v ∈ R.exterior.support t.f,
+        localR R v (digitExponent r v) (ordv v (toLoc v ν) + 2)
+          (toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν)))) =
+      ∏ v ∈ R.exterior.support t.f,
+        localR R v (frozenJ t v) (idealExp v t.a.1)
+          (toLoc v ν * toLoc v (primeGen R v) ^ (2 - (idealExp v t.a.1 : ℤ))) := by
+    apply Finset.prod_congr rfl
+    intro v hvf
+    have hj : digitExponent r v = frozenJ t v := by
+      apply Fin.ext
+      exact hrow.2.2.2 v (t.active.2.1 v hvf)
+    rw [hj, horder v hvf]
+    have he : (idealExp v t.a.1 : ℤ) - 2 + 2 = (idealExp v t.a.1 : ℤ) := by ring
+    have ht : -((idealExp v t.a.1 : ℤ) - 2) = 2 - (idealExp v t.a.1 : ℤ) := by ring
+    rw [he, ht]
+  unfold rf_pairing_active_coefficient groupedExterior
+  rw [hprod]
+
+private theorem rf_pairing_frequency_indices
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (hf : activeFactor R r.h f) (ν : Fˣ)
+    (hν : rf_pairing_active_coefficient R r f ν ≠ 0) :
+    ∃! p : {t : FrozenIndex R r.h // t.f = f} × S.SqfExtIdeal × Gamma S,
+      IsCoprime (p.2.1.1 * p.1.1.n.1) (r.d.1 * f.1) ∧
+        ν = (p.2.2.1 : Fˣ) * frozenFrequency R p.1.1 r.d p.2.1 := by
+  classical
+  have hmulDiv (g ε a c n d f : Fˣ) :
+      g * (ε * a * c * n ^ 3 / (d * f) ^ 2) =
+        g * ε * a * c * n ^ 3 / (d * f) ^ 2 := by
+    rw [← mul_div_assoc]
+    congr 1
+    ac_rfl
+  obtain ⟨acn, hacn, hacnUnique⟩ := rf_active_support_frequencies R r f hf ν hν
+  let t0 : FrozenIndex R r.h :=
+    { f := f
+      a := acn.1
+      n := acn.2.2
+      u := 1
+      active := hf
+      numerator := hacn.1
+      coprime := hacn.2.1.of_mul_left_right.of_mul_right_right }
+  obtain ⟨ug, hug, hugUnique⟩ :=
+    rf_pairing_unit_orbit R r.h t0 r.d acn.2.1 ν hacn.2.2
+  let t : FrozenIndex R r.h := { t0 with u := ug.1 }
+  refine ⟨(⟨t, rfl⟩, acn.2.1, ug.2), ⟨hacn.2.1, ?_⟩, ?_⟩
+  · calc
+      ν = (ug.2.1 : Fˣ) * (R.sheets.eps ug.1 : Fˣ) * bc.gen acn.1 *
+          bc.gen (R.exterior.ofSqf acn.2.1) * bc.gen acn.2.2 ^ 3 /
+            (bc.gen r.d * bc.gen f) ^ 2 := hug
+      _ = (ug.2.1 : Fˣ) * frozenFrequency R t r.d acn.2.1 := by
+        dsimp [frozenFrequency, t, t0]
+        exact (hmulDiv (ug.2.1 : Fˣ) (R.sheets.eps ug.1 : Fˣ)
+          (bc.gen acn.1) (bc.gen (R.exterior.ofSqf acn.2.1))
+          (bc.gen acn.2.2) (bc.gen r.d) (bc.gen f)).symm
+  · intro p' hp'
+    rcases p' with ⟨⟨t', ht'f⟩, c', γ'⟩
+    rcases hp' with ⟨hcp', hfreq'⟩
+    have hdecomp' : ∃ ε : S.US,
+        ν = (ε : Fˣ) * bc.gen t'.a * bc.gen (R.exterior.ofSqf c') *
+          bc.gen t'.n ^ 3 / (bc.gen r.d * bc.gen f) ^ 2 := by
+      refine ⟨γ'.1 * R.sheets.eps t'.u, ?_⟩
+      rw [hfreq']
+      dsimp [frozenFrequency]
+      rw [ht'f]
+      change (γ'.1 : Fˣ) *
+        ((R.sheets.eps t'.u : Fˣ) * bc.gen t'.a * bc.gen (R.exterior.ofSqf c') *
+          bc.gen t'.n ^ 3 / (bc.gen r.d * bc.gen f) ^ 2) =
+        ((γ'.1 : Fˣ) * (R.sheets.eps t'.u : Fˣ)) * bc.gen t'.a *
+          bc.gen (R.exterior.ofSqf c') * bc.gen t'.n ^ 3 /
+            (bc.gen r.d * bc.gen f) ^ 2
+      exact hmulDiv (γ'.1 : Fˣ) (R.sheets.eps t'.u : Fˣ)
+        (bc.gen t'.a) (bc.gen (R.exterior.ofSqf c')) (bc.gen t'.n)
+        (bc.gen r.d) (bc.gen f)
+    have hnum' : activeNumerator R f t'.a := by
+      simpa only [ht'f] using t'.numerator
+    have hacn' : (t'.a, c', t'.n) = acn :=
+      hacnUnique (t'.a, c', t'.n) ⟨hnum', hcp', hdecomp'⟩
+    have ha' : t'.a = acn.1 := congrArg Prod.fst hacn'
+    have hc' : c' = acn.2.1 := congrArg (fun q => q.2.1) hacn'
+    have hn' : t'.n = acn.2.2 := congrArg (fun q => q.2.2) hacn'
+    have hug' :
+        ν = (γ'.1 : Fˣ) * (R.sheets.eps t'.u : Fˣ) * bc.gen t0.a *
+          bc.gen (R.exterior.ofSqf acn.2.1) * bc.gen t0.n ^ 3 /
+            (bc.gen r.d * bc.gen t0.f) ^ 2 := by
+      rw [hfreq']
+      dsimp [frozenFrequency, t0]
+      rw [ha', hc', hn', ht'f]
+      exact hmulDiv (γ'.1 : Fˣ) (R.sheets.eps t'.u : Fˣ)
+        (bc.gen acn.1) (bc.gen (R.exterior.ofSqf acn.2.1))
+        (bc.gen acn.2.2) (bc.gen r.d) (bc.gen f)
+    have huγ' : (t'.u, γ') = ug := hugUnique (t'.u, γ') hug'
+    have hu' : t'.u = ug.1 := congrArg Prod.fst huγ'
+    have hγ' : γ' = ug.2 := congrArg Prod.snd huγ'
+    have ht' : t' = t := by
+      have hExt (x y : FrozenIndex R r.h)
+          (hfx : x.f = y.f) (hax : x.a = y.a) (hnx : x.n = y.n) (hux : x.u = y.u) :
+          x = y := by
+        cases x
+        cases y
+        cases hfx
+        cases hax
+        cases hnx
+        cases hux
+        rfl
+      exact hExt t' t ht'f ha' hn' hu'
+    apply Prod.ext
+    · exact Subtype.ext ht'
+    · exact Prod.ext hc' hγ'
+
+private theorem rf_pairing_frequency_reindex
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (hf : activeFactor R r.h f)
+    (g : Fˣ → ℂ)
+    (hs : Summable (fun ν => rf_pairing_active_coefficient R r f ν * g ν)) :
+    let term : {t : FrozenIndex R r.h // t.f = f} × S.SqfExtIdeal × Gamma S → ℂ :=
+      fun p => if IsCoprime (p.2.1.1 * p.1.1.n.1) (r.d.1 * f.1) then
+        groupedExterior R p.1.1 r.d (frozenFrequency R p.1.1 r.d p.2.1) *
+          g ((p.2.2.1 : Fˣ) * frozenFrequency R p.1.1 r.d p.2.1) else 0
+    Summable term ∧
+      (∑' ν, rf_pairing_active_coefficient R r f ν * g ν) = ∑' p, term p := by
+  classical
+  let P := {t : FrozenIndex R r.h // t.f = f} × S.SqfExtIdeal × Gamma S
+  let freq (p : P) : Fˣ := (p.2.2.1 : Fˣ) * frozenFrequency R p.1.1 r.d p.2.1
+  let src (ν : Fˣ) : ℂ := rf_pairing_active_coefficient R r f ν * g ν
+  let cp (p : P) : Prop := IsCoprime (p.2.1.1 * p.1.1.n.1) (r.d.1 * f.1)
+  let term (p : P) : ℂ := if cp p then
+    groupedExterior R p.1.1 r.d (frozenFrequency R p.1.1 r.d p.2.1) * g (freq p) else 0
+  change Summable term ∧ (∑' ν, src ν) = ∑' p, term p
+  have coeffEq (p : P) (hp : cp p) :
+      rf_pairing_active_coefficient R r f (freq p) =
+        groupedExterior R p.1.1 r.d (frozenFrequency R p.1.1 r.d p.2.1) := by
+    have hcf : IsCoprime p.2.1.1 p.1.1.f.1 := by
+      rw [p.1.property]
+      exact hp.of_mul_left_left.of_mul_right_right
+    dsimp only [freq]
+    rw [rf_pairing_active_coefficient_gamma R r f]
+    exact (congrArg (fun I : S.ExtIdeal => rf_pairing_active_coefficient R r I
+      (frozenFrequency R p.1.1 r.d p.2.1)) p.1.property.symm).trans
+        (rf_pairing_active_coefficient_frozen R r p.1.1 p.2.1 hcf)
+  have valueEq (p : P) (hp : cp p) : src (freq p) = term p := by
+    dsimp only [src, term]
+    rw [if_pos hp, coeffEq p hp]
+  have cpOfNonzero (p : P) (hp : term p ≠ 0) : cp p := by
+    by_contra hcp
+    exact hp (by simp only [term, if_neg hcp])
+  have coeffOfNonzero (p : P) (hp : term p ≠ 0) :
+      rf_pairing_active_coefficient R r f (freq p) ≠ 0 := by
+    have hn : src (freq p) ≠ 0 := by
+      rw [valueEq p (cpOfNonzero p hp)]
+      exact hp
+    exact (mul_ne_zero_iff.mp hn).1
+  let i : Function.support term → Fˣ := fun p => freq p.1
+  have hi : Function.Injective i := by
+    intro x y hxy
+    have hxcp := cpOfNonzero x.1 x.property
+    have hycp := cpOfNonzero y.1 y.property
+    obtain ⟨p, hp, hpUnique⟩ :=
+      rf_pairing_frequency_indices R r f hf (freq x.1) (coeffOfNonzero x.1 x.property)
+    have hx : x.1 = p := hpUnique x.1 ⟨hxcp, rfl⟩
+    have hy : y.1 = p := hpUnique y.1 ⟨hycp, hxy⟩
+    exact Subtype.ext (hx.trans hy.symm)
+  have hcover : Function.support src ⊆ Set.range i := by
+    intro ν hν
+    have hcoeff : rf_pairing_active_coefficient R r f ν ≠ 0 :=
+      (mul_ne_zero_iff.mp hν).1
+    obtain ⟨p, hp, _⟩ := rf_pairing_frequency_indices R r f hf ν hcoeff
+    have heq : src ν = term p := by
+      rw [hp.2]
+      exact valueEq p hp.1
+    have hpnz : term p ≠ 0 := by
+      rw [← heq]
+      exact hν
+    exact ⟨⟨p, hpnz⟩, hp.2.symm⟩
+  have hvalue (p : Function.support term) : src (i p) = term p.1 :=
+    valueEq p.1 (cpOfNonzero p.1 p.property)
+  have hterm : HasSum term (∑' ν, src ν) :=
+    (hasSum_iff_hasSum_of_ne_zero_bij i hi hcover hvalue).mp hs.hasSum
+  exact ⟨hterm.summable, hterm.tsum_eq.symm⟩
+
+private theorem rf_pairing_active_coefficient_unique
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (f₁ f₂ : S.ExtIdeal)
+    (hf₁ : activeFactor R r.h f₁) (hf₂ : activeFactor R r.h f₂)
+    (hn₁ : rf_pairing_active_coefficient R r f₁ ν ≠ 0)
+    (hn₂ : rf_pairing_active_coefficient R r f₂ ν ≠ 0) :
+    f₁ = f₂ := by
+  classical
+  have hrow := rf_pairing_row_support R r
+  have hOrdInv (v : FinPlace F) (x : (v.adicCompletion F)ˣ) :
+      ordv v x⁻¹ = -ordv v x := by
+    have hm := rf_ordv_mul v x x⁻¹
+    have hone : ordv v (1 : (v.adicCompletion F)ˣ) = 0 := by
+      simp [ordv]
+      rfl
+    rw [mul_inv_cancel, hone] at hm
+    linarith
+  have hOrdDiv (v : FinPlace F) (x y : (v.adicCompletion F)ˣ) :
+      ordv v (x / y) = ordv v x - ordv v y := by
+    rw [div_eq_mul_inv, rf_ordv_mul, hOrdInv]
+    ring
+  have hOrdPow (v : FinPlace F) (x : (v.adicCompletion F)ˣ) (n : ℕ) :
+      ordv v (x ^ n) = (n : ℤ) * ordv v x := by
+    simpa only [zpow_natCast] using rf_ordv_zpow v x (n : ℤ)
+  have hsub (fa fb : S.ExtIdeal)
+      (hfa : activeFactor R r.h fa) (hfb : activeFactor R r.h fb)
+      (hna : rf_pairing_active_coefficient R r fa ν ≠ 0)
+      (hnb : rf_pairing_active_coefficient R r fb ν ≠ 0) :
+      R.exterior.support fb ⊆ R.exterior.support fa := by
+    intro v hvb
+    by_contra hva
+    have hvS := R.exterior.support_exterior fb v hvb
+    have hvh := hfb.2.1 v hvb
+    have hvd : v ∉ R.exterior.support r.d := by
+      intro h
+      exact Finset.disjoint_left.mp hrow.2.1 h hvh
+    have hjh : idealExp v r.h.1 % 6 = 0 := by
+      by_contra h
+      exact hva (hfa.2.2 v hvh h)
+    have hj : digitExponent r v = 0 := by
+      apply Fin.ext
+      exact (hrow.2.2.2 v hvh).trans hjh
+    obtain ⟨acn, hacn, _⟩ := rf_active_support_frequencies R r fa hfa ν hna
+    obtain ⟨ε, hν⟩ := hacn.2.2
+    have hvaa : v ∉ R.exterior.support acn.1 := by
+      intro h
+      exact hva (hacn.1.1 v h)
+    have hgen (I : S.ExtIdeal) :
+        ordv v (toLoc v (bc.gen I)) = (idealExp v I.1 : ℤ) :=
+      rf_ordv_toLoc_ofGen v hvS I (bc.gen I) (bc.gen_spec I).1
+    have hgenZero (I : S.ExtIdeal) (hI : v ∉ R.exterior.support I) :
+        ordv v (toLoc v (bc.gen I)) = 0 := by
+      rw [hgen, rf_idealExp_zero_of_not_support R v I hI]
+      norm_num
+    have heps : ordv v (toLoc v (ε : Fˣ)) = 0 := by
+      have hglobal : HeightOneSpectrum.valuation F v ((ε : Fˣ) : F) = 1 :=
+        Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) ε hvS
+      have hloc : Valued.v (toLoc v (ε : Fˣ) : v.adicCompletion F) = 1 := by
+        change Valued.v (algebraMap F (v.adicCompletion F) ((ε : Fˣ) : F)) = 1
+        simpa only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+          Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation'] using hglobal
+      rw [rf_ordv_local_log, hloc]
+      simp
+    have hνord : ordv v (toLoc v ν) =
+        (idealExp v (R.exterior.ofSqf acn.2.1).1 : ℤ) + 3 * (idealExp v acn.2.2.1 : ℤ) := by
+      rw [hν, map_div, map_mul, map_mul, map_mul, map_pow, map_pow, map_mul,
+        hOrdDiv, rf_ordv_mul, rf_ordv_mul, rf_ordv_mul, hOrdPow, hOrdPow,
+        rf_ordv_mul, heps, hgenZero acn.1 hvaa, hgenZero r.d hvd, hgenZero fa hva,
+        hgen (R.exterior.ofSqf acn.2.1), hgen acn.2.2]
+      ring
+    have hnonneg : 0 ≤ ordv v (toLoc v ν) := by
+      rw [hνord]
+      positivity
+    let x : (v.adicCompletion F)ˣ :=
+      toLoc v ν * toLoc v (primeGen R v) ^ (-ordv v (toLoc v ν))
+    have hxord : ordv v x = 0 := by
+      dsimp only [x]
+      rw [rf_ordv_mul, rf_ordv_zpow, rf_local_primeGen_ord R v hvS]
+      ring
+    have hxval := rf_localVal_one_of_ordv_zero v x hxord
+    have hxunit : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v x := by
+      constructor
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hxval]
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        simp only [Units.val_inv_eq_inv_val, map_inv₀, hxval, inv_one, le_refl]
+    obtain ⟨_, _, _, _, _, _, _, hscale, hzero, _⟩ :=
+      lem_reflection_local_Weyl R v hvS 0 (ordv v (toLoc v ν) + 2) x hxunit.1 hxunit.2
+    have hpos : 0 < ordv v (toLoc v ν) + 2 := by omega
+    have hfactorZero : localR R v 0 (ordv v (toLoc v ν) + 2) x = 0 := by
+      rw [hscale hpos.le, hzero hpos (by norm_num : (0 : Fin 6) ≠ 4), zero_mul]
+    have hbProd :
+        (∏ w ∈ R.exterior.support fb,
+          localR R w (digitExponent r w) (ordv w (toLoc w ν) + 2)
+            (toLoc w ν * toLoc w (primeGen R w) ^ (-ordv w (toLoc w ν)))) ≠ 0 :=
+      (mul_ne_zero_iff.mp ((mul_ne_zero_iff.mp hnb).1)).2
+    have hvNonzero := (Finset.prod_ne_zero_iff.mp hbProd) v hvb
+    apply hvNonzero
+    rw [hj]
+    exact hfactorZero
+  have hs : R.exterior.support f₁ = R.exterior.support f₂ :=
+    Finset.Subset.antisymm (hsub f₂ f₁ hf₂ hf₁ hn₂ hn₁) (hsub f₁ f₂ hf₁ hf₂ hn₁ hn₂)
+  have hfactor (f : S.ExtIdeal) (hf : activeFactor R r.h f) :
+      f.1 = ∏ v ∈ R.exterior.support f, v.asIdeal := by
+    let c : S.SqfExtIdeal := ⟨f.1, f.property, hf.1⟩
+    have hof : R.exterior.ofSqf c = f := Subtype.ext (R.exterior.ofSqf_val c)
+    simpa only [hof] using rf_sqfIdeal_factorization R c
+  apply Subtype.ext
+  rw [hfactor f₁ hf₁, hfactor f₂ hf₂, hs]
+
+private theorem rf_pairing_active_component_summable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (f : S.ExtIdeal) (hf : activeFactor R r.h f)
+    (g : Fˣ → ℂ)
+    (hs : Summable (fun ν =>
+      (∑ᶠ k : {k : S.ExtIdeal // activeFactor R r.h k},
+        rf_pairing_active_coefficient R r k.1 ν) * g ν)) :
+    Summable (fun ν => rf_pairing_active_coefficient R r f ν * g ν) := by
+  classical
+  let AF := {k : S.ExtIdeal // activeFactor R r.h k}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let f0 : AF := ⟨f, hf⟩
+  have hsingle (ν : Fˣ) (hν : rf_pairing_active_coefficient R r f ν ≠ 0) :
+      (∑ k : AF, rf_pairing_active_coefficient R r k.1 ν) =
+        rf_pairing_active_coefficient R r f ν := by
+    apply Finset.sum_eq_single f0
+    · intro k hk hkne
+      by_contra hkn
+      have heq : k.1 = f :=
+        rf_pairing_active_coefficient_unique R r ν k.1 f k.property hf hkn hν
+      exact hkne (Subtype.ext heq)
+    · intro hn
+      exact (hn (Finset.mem_univ f0)).elim
+  have hle (ν : Fˣ) :
+      ‖rf_pairing_active_coefficient R r f ν * g ν‖ ≤
+        ‖(∑ᶠ k : AF, rf_pairing_active_coefficient R r k.1 ν) * g ν‖ := by
+    by_cases hν : rf_pairing_active_coefficient R r f ν = 0
+    · rw [hν, zero_mul, norm_zero]
+      exact norm_nonneg _
+    · rw [finsum_eq_sum_of_fintype, hsingle ν hν]
+  exact Summable.of_norm
+    (Summable.of_nonneg_of_le (fun _ => norm_nonneg _) hle hs.norm)
+
+private theorem rf_pairing_rotated_pullback_integrable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) (ν : Fˣ) (l : ℝ) (hl : 0 < l) :
+    Integrable (onUnits (fun y => rotated R u (S.diagU ν / y)))
+      (R.sheets.sheet l) := by
+  classical
+  have hRot (x : ℝ) (hx : 0 < x) :
+      Integrable (onUnits (rotated R u)) (R.sheets.sheet x) := by
+    let m : S.FSˣ → ℂ := fun _ => 1
+    have hm : Theta.SheetMultiplier S (onUnits m) := by
+      refine ⟨R.chars.L u, 0, (fun _ => 1), ⟨1, ?_⟩, ?_⟩
+      · intro κ
+        simp
+      · intro y
+        simp only [onUnits, dif_pos (Units.isUnit y), m, zpow_zero, mul_one]
+    let tensor : Fin (R.rotated u).J → S.FSˣ → ℂ := fun ℓ y =>
+      (∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+        ∏ w : InfinitePlace F, (R.rotated u).fc ℓ w ((y : S.FS).2 w)
+    have hTensor (ℓ : Fin (R.rotated u).J) :
+        Integrable (onUnits (tensor ℓ)) (R.sheets.sheet x) := by
+      simpa only [tensor, m, one_mul] using
+        a2_bridge_ANALYSIS_tensor (G := R.sheets) R.T.δ R.T.δ_pos
+          (R.rotated u).J (R.rotated u).ff (R.rotated u).fc
+          (R.rotated u).finite_bound (R.rotated u).complex_bound m hm ℓ x hx
+    have hSum : onUnits (rotated R u) =
+        fun y => ∑ ℓ : Fin (R.rotated u).J, onUnits (tensor ℓ) y := by
+      funext y
+      by_cases hy : IsUnit y
+      · simp only [onUnits, dif_pos hy, tensor]
+        exact R.rotated_eq u hy.unit
+      · simp [onUnits, hy]
+    rw [hSum]
+    exact integrable_finsetSum Finset.univ (fun ℓ _ => hTensor ℓ)
+  have hnorm : 0 < S.absS (S.diagU ν : S.FS) :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU ν)
+  have htranslate := a2_bridge_SHEET_transport (G := R.sheets)
+    l⁻¹ (inv_pos.mpr hl) (S.diagU ν) (rotated R u)
+      (by simpa only [div_eq_mul_inv] using (hRot
+        (S.absS (S.diagU ν : S.FS) / l) (div_pos hnorm hl)))
+  have hinvert := a2_bridge_SHEET_inversion (G := R.sheets) l hl
+    (fun y => rotated R u (S.diagU ν * y)) htranslate.1
+  simpa only [div_eq_mul_inv] using hinvert.1
+
+private theorem rf_pairing_masked_whittaker_factorization
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (y : S.FSˣ) (d : Digits R r) :
+    R.T.W (R.chars.L (rowClass R r))
+      (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+      sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+        rotated R (rowClass R r) (S.diagU ν / y) *
+        (∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+          R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν) * R.C.w v.1 *
+            R.C.n v.1 (Multiplicative.ofAdd (algebraMap F _
+              (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))))) *
+        (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+          R.T.Wv v (R.C.a v (toLoc v ν))) := by
+  classical
+  let T0 := R.exterior.support r.ideal
+  let V := {v : FinPlace F // v ∈ T0}
+  let sPart : ℂ := sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+    rotated R (rowClass R r) (S.diagU ν / y)
+  let tail : ℂ :=
+    ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0),
+      R.T.Wv v (R.C.a v (toLoc v ν))
+  let localWeyl (v : FinPlace F) (x : 𝓞 F ⧸ v.asIdeal) : ℂ :=
+    R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))
+  have hw : R.C.wS * R.C.aS y = R.C.aS y⁻¹ * R.C.wS := by
+    calc
+      R.C.wS * R.C.aS y = (R.C.wS * R.C.aS y * R.C.wS⁻¹) * R.C.wS := by group
+      _ = R.C.aS y⁻¹ * R.C.wS := by rw [R.C.liftS_wa]
+  have hS : R.T.WS (R.chars.L (rowClass R r))
+      (R.C.aS (S.diagU ν) * R.C.wS * R.C.aS y) = sPart := by
+    rw [mul_assoc, hw, ← mul_assoc, R.C.aS_mul, mul_assoc,
+      R.T.WS_genuine (R.chars.L (rowClass R r)) (R.mem_family (rowClass R r))]
+    simp [sPart, rotated, sCocycle, muThree, map_pow, div_eq_mul_inv]
+  have hFactor (d : Digits R r) :
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+      sPart * (∏ v : V, localWeyl v.1 (d v)) * tail := by
+    let g : FinPlace F → R.C.G := fun v =>
+      if hv : v ∈ T0 then
+        R.C.n v (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F)
+          (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F))))
+      else 1
+    have hg : ∀ v ∈ T0, g v ∈ R.C.Gloc v := by
+      intro v hv
+      simp [g, hv]
+      exact R.C.n_mem v _
+    have hT0ext : ∀ v ∈ T0, v ∉ S.Sf :=
+      fun v hv => R.exterior.support_exterior r.ideal v hv
+    have hmapDigit : T0.attach.toList.map (fun v =>
+        R.C.n v.1 (Multiplicative.ofAdd (algebraMap F (v.1.adicCompletion F)
+          (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F))))) =
+        T0.attach.toList.map (fun v => g v.1) := by
+      apply List.map_congr_left
+      intro v hv
+      simp [g, v.2]
+    have hperm0 : (T0.attach.toList.map Subtype.val).Perm T0.toList := by
+      apply List.perm_of_nodup_nodup_toFinset_eq
+      · exact (T0.attach.nodup_toList).map Subtype.val_injective
+      · exact T0.nodup_toList
+      · ext v
+        simp
+    have hpermG :
+        (T0.attach.toList.map (fun v => g v.1)).Perm (T0.toList.map g) := by
+      change List.Perm (List.map (g ∘ Subtype.val) T0.attach.toList) (List.map g T0.toList)
+      simpa only [List.map_map] using hperm0.map g
+    have hpairNe : (T0.attach.toList).Pairwise (· ≠ ·) :=
+      List.nodup_iff_pairwise_ne.mp T0.attach.nodup_toList
+    have hpairG : (T0.attach.toList.map (fun v => g v.1)).Pairwise Commute := by
+      exact List.Pairwise.map (fun v : {v // v ∈ T0} => g v.1)
+        (by
+          intro v w hne
+          have hplaces : v.1 ≠ w.1 := by
+            intro heq
+            apply hne
+            exact Subtype.ext heq
+          exact R.C.comm_loc v.1 w.1 hplaces (g v.1) (hg v.1 v.2)
+            (g w.1) (hg w.1 w.2))
+        hpairNe
+    have harg : R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d =
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * R.C.aS y) *
+          (T0.toList.map g).prod := by
+      rw [digitPoint, hmapDigit]
+      calc
+        (R.C.rat (diagGL ν) * R.C.rat weylGL) *
+            (R.C.aS y * (T0.attach.toList.map (fun v => g v.1)).prod) =
+            (R.C.rat (diagGL ν) * R.C.rat weylGL * R.C.aS y) *
+              (T0.attach.toList.map (fun v => g v.1)).prod := by simp only [mul_assoc]
+        _ = _ := by rw [List.Perm.prod_eq' hpermG hpairG]
+    have hProduct :
+        (∏ v ∈ T0, R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v * g v)) =
+          ∏ v : V, localWeyl v.1 (d v) := by
+      rw [← Finset.prod_coe_sort T0]
+      apply Finset.prod_congr rfl
+      intro v hv
+      simp [g, v.2, localWeyl]
+    have h := R.T.factor (R.chars.L (rowClass R r))
+      (R.mem_family (rowClass R r)) ν true (R.C.aS y) (R.C.aS_mem y)
+      T0 hT0ext g hg
+    simp only [↓reduceIte] at h
+    rw [← harg, hS, hProduct] at h
+    exact h
+  change R.T.W (R.chars.L (rowClass R r))
+      (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+    sPart * (∏ v : V, localWeyl v.1 (d v)) * tail
+  exact hFactor d
+
+private theorem rf_pairing_masked_integrable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (d : Digits R r) (ν : Fˣ)
+    (l : ℝ) (hl : 0 < l) :
+    let W : S.FSˣ → ℂ := fun y =>
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+    Integrable (fun y : S.FS => ‖onUnits W y‖) (R.sheets.sheet l) ∧
+      Integrable (onUnits (fun y => bCut (Bd := Bd) y *
+        (Lvalue R (rowClass R r) y)⁻¹ * W y)) (R.sheets.sheet l) := by
+  classical
+  let u := rowClass R r
+  let W : S.FSˣ → ℂ := fun y => R.T.W (R.chars.L u)
+    (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+  let rot : S.FSˣ → ℂ := fun y => rotated R u (S.diagU ν / y)
+  let cext : ℂ :=
+    (∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+      R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν) * R.C.w v.1 *
+        R.C.n v.1 (Multiplicative.ofAdd (algebraMap F _
+          (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))))) *
+    (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+      R.T.Wv v (R.C.a v (toLoc v ν)))
+  change Integrable (fun y : S.FS => ‖onUnits W y‖) (R.sheets.sheet l) ∧
+    Integrable (onUnits (fun y => bCut (Bd := Bd) y *
+      (Lvalue R u y)⁻¹ * W y)) (R.sheets.sheet l)
+  have hW (y : S.FSˣ) : W y =
+      sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ * rot y * cext := by
+    dsimp only [W, u, rot, cext]
+    rw [rf_pairing_masked_whittaker_factorization R r ν y d]
+    ac_rfl
+  have hCocNorm (y : S.FSˣ) :
+      ‖sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹‖ = 1 := by
+    unfold sCocycle
+    rw [← R.pairing.pair_eq, norm_pow, R.pairing.unitary]
+    norm_num
+  have hNormEq : (fun y : S.FS => ‖onUnits W y‖) =
+      fun y => ‖cext‖ * ‖onUnits rot y‖ := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, hW, norm_mul, hCocNorm, one_mul]
+      ac_rfl
+    · simp [onUnits, hy]
+  have hRot := rf_pairing_rotated_pullback_integrable R u ν l hl
+  change Integrable (onUnits rot) (R.sheets.sheet l) at hRot
+  constructor
+  · rw [hNormEq]
+    exact hRot.norm.const_mul ‖cext‖
+  · let κ : S.V := cls (S.diagU ν)
+    let g : S.FSˣ → ℂ := fun y =>
+      (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+        R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y * rotated R u y
+    let z : ℂ := (Lvalue R u (S.diagU ν))⁻¹
+    let signed : S.FSˣ → ℂ := fun y =>
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ * rot y
+    have hSigned (y : S.FSˣ) : signed y = z * g (S.diagU ν / y) := by
+      have hm := rf_S_orbit_multiplier R u (1 : Gamma S) ν y
+      have hOne : ((1 : Gamma S).1 : Fˣ) = 1 := rfl
+      rw [hOne, one_mul] at hm
+      dsimp only [signed, rot, g, z, κ]
+      rw [hm]
+      ring
+    have hProfile := (rf_S_profile_pullback R u ν l hl).1
+    change Integrable (onUnits (fun y => g (S.diagU ν / y)))
+      (R.sheets.sheet l) at hProfile
+    have hSignedEq : onUnits signed =
+        fun y : S.FS => z * onUnits (fun x => g (S.diagU ν / x)) y := by
+      funext y
+      by_cases hy : IsUnit y
+      · simp only [onUnits, dif_pos hy, hSigned]
+      · simp [onUnits, hy]
+    have hSignedInt : Integrable (onUnits signed) (R.sheets.sheet l) := by
+      rw [hSignedEq]
+      exact hProfile.const_mul z
+    have hWeightedEq : onUnits (fun y => bCut (Bd := Bd) y *
+        (Lvalue R u y)⁻¹ * W y) =
+        fun y : S.FS => cext * onUnits signed y := by
+      funext y
+      by_cases hy : IsUnit y
+      · simp only [onUnits, dif_pos hy, hW, signed]
+        ring
+      · simp [onUnits, hy]
+    rw [hWeightedEq]
+    exact hSignedInt.const_mul cext
+
+private theorem rf_pairing_masked_norm_integral_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (d : Digits R r) (ν : Fˣ)
+    (l : ℝ) (hl : 0 < l) :
+    let W : S.FSˣ → ℂ := fun y =>
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+    (∫ y in omegaAt R l,
+      ‖onUnits (fun x => digitAlpha R r d * bCut (Bd := Bd) x *
+        (Lvalue R (rowClass R r) x)⁻¹ * W x) y‖ ∂(R.sheets.sheet l)) ≤
+      ‖digitAlpha R r d‖ *
+        (omegaInt R l (fun y => (‖W y‖ : ℂ))).re := by
+  classical
+  let u := rowClass R r
+  let W : S.FSˣ → ℂ := fun y => R.T.W (R.chars.L u)
+    (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+  let w : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * W y
+  let g : S.FSˣ → ℂ := fun y =>
+    digitAlpha R r d * bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * W y
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  change (∫ y, ‖onUnits g y‖ ∂m) ≤
+    ‖digitAlpha R r d‖ * (omegaInt R l (fun y => (‖W y‖ : ℂ))).re
+  have hData := rf_pairing_masked_integrable R r d ν l hl
+  change Integrable (fun y : S.FS => ‖onUnits W y‖) (R.sheets.sheet l) ∧
+    Integrable (onUnits w) (R.sheets.sheet l) at hData
+  have hConst : onUnits g = fun y : S.FS => digitAlpha R r d * onUnits w y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, g, w, mul_assoc]
+    · simp [onUnits, hy]
+  have hG : Integrable (onUnits g) m := by
+    rw [hConst]
+    exact (hData.2.const_mul (digitAlpha R r d)).restrict
+  have hNorm : Integrable (fun y : S.FS => ‖onUnits W y‖) m := hData.1.restrict
+  have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+    unfold bCut
+    split_ifs <;> simp
+  have hLinvNorm (y : S.FSˣ) : ‖(Lvalue R u y)⁻¹‖ = 1 := by
+    rw [norm_inv]
+    have hLnorm : ‖Lvalue R u y‖ = 1 := by
+      simpa only [Lvalue] using (R.chars.L u).unitary y
+    rw [hLnorm, inv_one]
+  have hDom (y : S.FS) : ‖onUnits g y‖ ≤
+      ‖digitAlpha R r d‖ * ‖onUnits W y‖ := by
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, g, norm_mul, hLinvNorm, mul_one]
+      calc
+        ‖digitAlpha R r d‖ * ‖bCut (Bd := Bd) hy.unit‖ * ‖W hy.unit‖ =
+            ‖digitAlpha R r d‖ * (‖bCut (Bd := Bd) hy.unit‖ * ‖W hy.unit‖) :=
+          mul_assoc _ _ _
+        _ ≤ ‖digitAlpha R r d‖ * ‖W hy.unit‖ :=
+          mul_le_mul_of_nonneg_left
+            (by simpa only [one_mul] using
+              mul_le_mul_of_nonneg_right (hBnorm hy.unit) (norm_nonneg (W hy.unit)))
+            (norm_nonneg _)
+    · simp [onUnits, hy]
+  have hLift : onUnits (fun y => (‖W y‖ : ℂ)) =
+      fun y : S.FS => (‖onUnits W y‖ : ℂ) := by
+    funext y
+    by_cases hy : IsUnit y <;> simp [onUnits, hy]
+  have hRe : (omegaInt R l (fun y => (‖W y‖ : ℂ))).re =
+      ∫ y, ‖onUnits W y‖ ∂m := by
+    change (∫ y, onUnits (fun x => (‖W x‖ : ℂ)) y ∂m).re = _
+    rw [hLift, integral_complex_ofReal, Complex.ofReal_re]
+  rw [hRe, ← integral_const_mul]
+  exact integral_mono_ae hG.norm (hNorm.const_mul ‖digitAlpha R r d‖)
+    (Filter.Eventually.of_forall hDom)
+
+private theorem rf_pairing_orbit_norm_integrals
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) (ν : Fˣ) (l : ℝ) (hl : 0 < l) :
+    let w : Gamma S → S.FSˣ → ℂ := fun γ y =>
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+          rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y)
+    (∀ γ, IntegrableOn (onUnits (w γ)) (omegaAt R l) (R.sheets.sheet l)) ∧
+      Summable (fun γ => ∫ y in omegaAt R l, ‖onUnits (w γ) y‖
+        ∂(R.sheets.sheet l)) ∧
+      (∑' γ, ∫ y in omegaAt R l, ‖onUnits (w γ) y‖ ∂(R.sheets.sheet l)) ≤
+        profileAbs R u (S.absS (S.diagU ν : S.FS) / l) := by
+  classical
+  let w : Gamma S → S.FSˣ → ℂ := fun γ y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+      sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+        rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y)
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let major : Gamma S → S.FSˣ → ℂ := fun γ y =>
+    (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ)
+  change (∀ γ, Integrable (onUnits (w γ)) m) ∧
+    Summable (fun γ => ∫ y, ‖onUnits (w γ) y‖ ∂m) ∧
+    (∑' γ, ∫ y, ‖onUnits (w γ) y‖ ∂m) ≤
+      profileAbs R u (S.absS (S.diagU ν : S.FS) / l)
+  obtain ⟨C, hC, hRef⟩ := rf_reflected_absolute R 1 (by norm_num)
+  have hAbs := hRef u ν l hl
+  change (∀ γ, Integrable (onUnits (major γ)) m) ∧
+    Summable (fun γ => (∫ y, onUnits (major γ) y ∂m).re) ∧
+    (∑' γ, (∫ y, onUnits (major γ) y ∂m).re) =
+      profileAbs R u (S.absS (S.diagU ν : S.FS) / l) ∧
+    profileAbs R u (S.absS (S.diagU ν : S.FS) / l) ≤
+      C * (S.absS (S.diagU ν : S.FS) / l) ^ (-1 : ℝ) at hAbs
+  have hSignedInt (γ : Gamma S) : Integrable (onUnits (w γ)) (R.sheets.sheet l) := by
+    let ν0 : Fˣ := (γ.1 : Fˣ) * ν
+    let κ : S.V := cls (S.diagU ν0)
+    let g : S.FSˣ → ℂ := fun y =>
+      (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+        R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y * rotated R u y
+    let z : ℂ := (Lvalue R u (S.diagU ν0))⁻¹
+    have hSigned (y : S.FSˣ) : w γ y = z * g (S.diagU ν0 / y) := by
+      have hm := rf_S_orbit_multiplier R u (1 : Gamma S) ν0 y
+      have hOne : ((1 : Gamma S).1 : Fˣ) = 1 := rfl
+      rw [hOne, one_mul] at hm
+      change bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ν0) y⁻¹ *
+          rotated R u (S.diagU ν0 / y) = z * g (S.diagU ν0 / y)
+      dsimp only [g, z, κ]
+      rw [hm]
+      ring
+    have hProfile := (rf_S_profile_pullback R u ν0 l hl).1
+    change Integrable (onUnits (fun y => g (S.diagU ν0 / y)))
+      (R.sheets.sheet l) at hProfile
+    have hEq : onUnits (w γ) = fun y : S.FS =>
+        z * onUnits (fun x => g (S.diagU ν0 / x)) y := by
+      funext y
+      by_cases hy : IsUnit y
+      · simp only [onUnits, dif_pos hy, hSigned]
+      · simp [onUnits, hy]
+    rw [hEq]
+    exact hProfile.const_mul z
+  have hInt (γ : Gamma S) : Integrable (onUnits (w γ)) m := (hSignedInt γ).restrict
+  have hRotNorm (y : S.FSˣ) : ‖rotated R u y‖ ≤ rotatedAbs R u y := by
+    calc
+      ‖rotated R u y‖ =
+          ‖∑ ℓ : Fin (R.rotated u).J,
+            (∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+              ∏ a : InfinitePlace F, (R.rotated u).fc ℓ a ((y : S.FS).2 a)‖ := by
+        simpa only [rotated, Theta.sumProd] using congrArg norm (R.rotated_eq u y)
+      _ ≤ ∑ ℓ : Fin (R.rotated u).J,
+          ‖(∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+            ∏ a : InfinitePlace F, (R.rotated u).fc ℓ a ((y : S.FS).2 a)‖ :=
+        norm_sum_le _ _
+      _ = rotatedAbs R u y := by simp only [rotatedAbs, norm_mul, norm_prod]
+  have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+    unfold bCut
+    split_ifs <;> simp
+  have hLinvNorm (y : S.FSˣ) : ‖(Lvalue R u y)⁻¹‖ = 1 := by
+    rw [norm_inv]
+    have hLnorm : ‖Lvalue R u y‖ = 1 := by
+      simpa only [Lvalue] using (R.chars.L u).unitary y
+    rw [hLnorm, inv_one]
+  have hCocNorm (γ : Gamma S) (y : S.FSˣ) :
+      ‖sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹‖ = 1 := by
+    unfold sCocycle
+    rw [← R.pairing.pair_eq, norm_pow, R.pairing.unitary]
+    norm_num
+  have hDom (γ : Gamma S) (y : S.FS) :
+      ‖onUnits (w γ) y‖ ≤ (onUnits (major γ) y).re := by
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, w, major, norm_mul,
+        hLinvNorm, hCocNorm, mul_one, Complex.ofReal_re]
+      calc
+        ‖bCut (Bd := Bd) hy.unit‖ *
+            ‖rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / hy.unit)‖ ≤
+            1 * ‖rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / hy.unit)‖ :=
+          mul_le_mul_of_nonneg_right (hBnorm hy.unit) (norm_nonneg _)
+        _ = ‖rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / hy.unit)‖ := one_mul _
+        _ ≤ rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / hy.unit) := hRotNorm _
+    · simp [onUnits, hy]
+  have hLe (γ : Gamma S) :
+      (∫ y, ‖onUnits (w γ) y‖ ∂m) ≤ (∫ y, onUnits (major γ) y ∂m).re := by
+    calc
+      _ ≤ ∫ y, (onUnits (major γ) y).re ∂m :=
+        integral_mono_ae (hInt γ).norm (hAbs.1 γ).re
+          (Filter.Eventually.of_forall (hDom γ))
+      _ = _ := integral_re (hAbs.1 γ)
+  have hNonneg (γ : Gamma S) : 0 ≤ ∫ y, ‖onUnits (w γ) y‖ ∂m :=
+    integral_nonneg (fun y => norm_nonneg _)
+  have hs : Summable (fun γ => ∫ y, ‖onUnits (w γ) y‖ ∂m) :=
+    Summable.of_nonneg_of_le hNonneg hLe hAbs.2.1
+  refine ⟨hInt, hs, ?_⟩
+  calc
+    _ ≤ ∑' γ, (∫ y, onUnits (major γ) y ∂m).re := hs.tsum_le_tsum hLe hAbs.2.1
+    _ = _ := hAbs.2.2.1
+
+private theorem rf_pairing_grouped_orbit_integrals
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (t : FrozenIndex R r.h) (c : S.SqfExtIdeal)
+    (l : ℝ) (hl : 0 < l) :
+    let ν := frozenFrequency R t r.d c
+    let w : Gamma S → S.FSˣ → ℂ := fun γ y =>
+      if IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1) then
+        groupedExterior R t r.d ν *
+          (bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+            sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+              rotated R (rowClass R r) (S.diagU ((γ.1 : Fˣ) * ν) / y))
+      else 0
+    (∀ γ, IntegrableOn (onUnits (w γ)) (omegaAt R l) (R.sheets.sheet l)) ∧
+      Summable (fun γ => ∫ y in omegaAt R l, ‖onUnits (w γ) y‖
+        ∂(R.sheets.sheet l)) ∧
+      (∑' γ, ∫ y in omegaAt R l, ‖onUnits (w γ) y‖ ∂(R.sheets.sheet l)) ≤
+        (betaIdeal R t.f t.a * qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1) *
+          profileAbs R (rowClass R r) (S.absS (S.diagU ν : S.FS) / l) := by
+  classical
+  let u := rowClass R r
+  let ν := frozenFrequency R t r.d c
+  let z : ℂ := if IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1) then
+    groupedExterior R t r.d ν else 0
+  let orbit : Gamma S → S.FSˣ → ℂ := fun γ y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+      sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+        rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y)
+  let w : Gamma S → S.FSˣ → ℂ := fun γ y =>
+    if IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1) then
+      groupedExterior R t r.d ν * orbit γ y else 0
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let weight : ℝ := betaIdeal R t.f t.a * qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1
+  change (∀ γ, Integrable (onUnits (w γ)) m) ∧
+    Summable (fun γ => ∫ y, ‖onUnits (w γ) y‖ ∂m) ∧
+    (∑' γ, ∫ y, ‖onUnits (w γ) y‖ ∂m) ≤
+      weight * profileAbs R u (S.absS (S.diagU ν : S.FS) / l)
+  have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+    unfold qI
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hc := hpos c.1 c.property.1.1
+  have hn := hpos t.n.1 t.n.property.1
+  have hβ : 0 ≤ betaIdeal R t.f t.a := rf_betaIdeal_nonneg R t.f t.a
+  have hWeight : 0 ≤ weight := div_nonneg
+    (mul_nonneg hβ (Real.rpow_nonneg hc.le _)) hn.le
+  have hCoeff : ‖z‖ ≤ weight := by
+    by_cases hcp : IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1)
+    · let sd : Bd.B := ⟨cls (S.diagU (bc.gen r.d)), (bc.gen_spec r.d).2⟩
+      let sc : Bd.B := ⟨cls (S.diagU (bc.gen (R.exterior.ofSqf c))),
+        (bc.gen_spec (R.exterior.ofSqf c)).2⟩
+      have hdn : IsCoprime r.d.1 t.n.1 :=
+        hcp.of_mul_left_right.of_mul_right_left.symm
+      have hcf : IsCoprime c.1 t.f.1 := hcp.of_mul_left_left.of_mul_right_right
+      have hdc : IsCoprime r.d.1 c.1 :=
+        hcp.of_mul_left_left.of_mul_right_left.symm
+      have hfactor := (rf_exterior_factorization R).2 u r.h t sd sc r.d c
+        r.d_squarefree (r.coprime.symm.mul_right hdn) hcf hdc rfl rfl
+      have hLinv : ‖(Lvalue R u (S.diagU ν))⁻¹‖ = 1 := by
+        rw [norm_inv]
+        have hL : ‖Lvalue R u (S.diagU ν)‖ = 1 := by
+          simpa only [Lvalue] using (R.chars.L u).unitary (S.diagU ν)
+        rw [hL, inv_one]
+      let w0 : ℝ := qI c.1 ^ (-(1 / 2 : ℝ)) / qI t.n.1
+      have hw0 : 0 ≤ w0 := div_nonneg (Real.rpow_nonneg hc.le _) hn.le
+      have hnorm : ‖groupedExterior R t r.d ν‖ =
+          ‖frozenOmega R u t * frozenRho R u t sd r.d * frozenLambda R u t sc c *
+            (w0 : ℂ) * chiIdealPow D r.d.1 (cgen R c) 3‖ := by
+        calc
+          _ = ‖groupedExterior R t r.d ν * (Lvalue R u (S.diagU ν))⁻¹‖ := by
+            rw [norm_mul, hLinv, mul_one]
+          _ = _ := congrArg norm hfactor
+      have hb := (rf_exterior_factorization R).1 u r.h t
+      have hχ := (a2_bridge_SYMBOL D S).ideal_norm_le r.d.1 (cgen R c) 3
+      simp only [z, if_pos hcp]
+      rw [hnorm]
+      simp only [norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hw0]
+      calc
+        ‖frozenOmega R u t‖ * ‖frozenRho R u t sd r.d‖ * ‖frozenLambda R u t sc c‖ *
+            w0 * ‖chiIdealPow D r.d.1 (cgen R c) 3‖ ≤
+            betaIdeal R t.f t.a * 1 * 1 * w0 * 1 := by
+          gcongr
+          · exact hb.1
+          · exact hb.2.1 sd r.d
+          · exact hb.2.2 sc c
+        _ = weight := by dsimp only [weight, w0]; ring
+    · simpa only [z, if_neg hcp, norm_zero] using hWeight
+  have hOrbit := rf_pairing_orbit_norm_integrals R u ν l hl
+  change (∀ γ, Integrable (onUnits (orbit γ)) m) ∧
+    Summable (fun γ => ∫ y, ‖onUnits (orbit γ) y‖ ∂m) ∧
+    (∑' γ, ∫ y, ‖onUnits (orbit γ) y‖ ∂m) ≤
+      profileAbs R u (S.absS (S.diagU ν : S.FS) / l) at hOrbit
+  have hOn (γ : Gamma S) : onUnits (w γ) =
+      fun y : S.FS => z * onUnits (orbit γ) y := by
+    funext y
+    by_cases hy : IsUnit y
+    · by_cases hcp : IsCoprime (c.1 * t.n.1) (r.d.1 * t.f.1) <;>
+        simp [onUnits, hy, w, z, hcp]
+    · simp [onUnits, hy]
+  have hInt (γ : Gamma S) : Integrable (onUnits (w γ)) m := by
+    rw [hOn γ]
+    exact (hOrbit.1 γ).const_mul z
+  have hNorm (γ : Gamma S) : (∫ y, ‖onUnits (w γ) y‖ ∂m) =
+      ‖z‖ * ∫ y, ‖onUnits (orbit γ) y‖ ∂m := by
+    rw [hOn γ]
+    simp_rw [norm_mul]
+    exact integral_const_mul _ _
+  have hs : Summable (fun γ => ∫ y, ‖onUnits (w γ) y‖ ∂m) :=
+    (hOrbit.2.1.mul_left ‖z‖).congr (fun γ => (hNorm γ).symm)
+  have hProfile : 0 ≤ profileAbs R u (S.absS (S.diagU ν : S.FS) / l) :=
+    (rf_profile_abs_analysis R u).1 _
+      (div_pos ((a2_bridge_NORM D S).2.2.1 (S.diagU ν)) hl)
+  refine ⟨hInt, hs, ?_⟩
+  calc
+    _ = ∑' γ, ‖z‖ * ∫ y, ‖onUnits (orbit γ) y‖ ∂m := tsum_congr hNorm
+    _ = ‖z‖ * ∑' γ, ∫ y, ‖onUnits (orbit γ) y‖ ∂m := hOrbit.2.1.tsum_mul_left _
+    _ ≤ ‖z‖ * profileAbs R u (S.absS (S.diagU ν : S.FS) / l) :=
+      mul_le_mul_of_nonneg_left hOrbit.2.2 (norm_nonneg _)
+    _ ≤ weight * profileAbs R u (S.absS (S.diagU ν : S.FS) / l) :=
+      mul_le_mul_of_nonneg_right hCoeff hProfile
+
+private def rf_pairing_grouped_fourier_term
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S) (y : S.FSˣ) : ℂ :=
+  let ν := frozenFrequency R p.1 r.d p.2.1
+  if IsCoprime (p.2.1.1 * p.1.n.1) (r.d.1 * p.1.f.1) then
+    groupedExterior R p.1 r.d ν *
+      (bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ((p.2.2.1 : Fˣ) * ν)) y⁻¹ *
+          rotated R (rowClass R r) (S.diagU ((p.2.2.1 : Fˣ) * ν) / y))
+  else 0
+
+private theorem rf_pairing_grouped_integral_norm_summable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    (∀ p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+      IntegrableOn (onUnits (rf_pairing_grouped_fourier_term R r p))
+        (omegaAt R l) (R.sheets.sheet l)) ∧
+      Summable (fun p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S =>
+        ∫ y in omegaAt R l, ‖onUnits (rf_pairing_grouped_fourier_term R r p) y‖
+          ∂(R.sheets.sheet l)) := by
+  classical
+  let u := rowClass R r
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let N : J × Gamma S → ℝ := fun p =>
+    ∫ y, ‖onUnits (rf_pairing_grouped_fourier_term R r (p.1.1, p.1.2, p.2)) y‖ ∂m
+  let weight : J → ℝ := fun q =>
+    betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1
+  let profile : J → ℝ := fun q => profileAbs R u
+    (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / l)
+  let Q : J → ℝ := fun q => qI q.1.a.1 * qI q.2.1 * qI q.1.n.1 ^ 3
+  let den : J → ℝ := fun q => qI r.d.1 ^ 2 * qI q.1.f.1 ^ 2
+  have hEach (q : J) :
+      (∀ γ, Integrable (onUnits (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ))) m) ∧
+      Summable (fun γ => N (q, γ)) ∧
+      (∑' γ, N (q, γ)) ≤ weight q * profile q := by
+    dsimp only [N, weight, profile, u, m, rf_pairing_grouped_fourier_term]
+    exact rf_pairing_grouped_orbit_integrals R r q.1 q.2 l hl
+  have hNnonneg (p : J × Gamma S) : 0 ≤ N p := integral_nonneg (fun y => norm_nonneg _)
+  constructor
+  · intro p
+    exact (hEach (p.1, p.2.1)).1 p.2.2
+  · obtain ⟨C, hC, hProfile⟩ := (rf_profile_bound R).2.2 1 (by norm_num)
+    have hq (I : Ideal (𝓞 F)) : 0 ≤ qI I := by
+      unfold qI
+      exact Nat.cast_nonneg _
+    have hWeight (q : J) : 0 ≤ weight q := div_nonneg
+      (mul_nonneg (rf_betaIdeal_nonneg R q.1.f q.1.a)
+        (Real.rpow_nonneg (hq q.2.1) _)) (hq q.1.n.1)
+    have hMassBound (q : J) : (∑' γ, N (q, γ)) ≤
+        C * (den q * l) *
+          reflectedDirichletTerm R q.1.f 1 (⟨q.1.a, q.1.numerator⟩, q.2, q.1.n) := by
+      let sd : Bd.B := ⟨cls (S.diagU (bc.gen r.d)), (bc.gen_spec r.d).2⟩
+      let sc : Bd.B := ⟨cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))),
+        (bc.gen_spec (R.exterior.ofSqf q.2)).2⟩
+      have hNorm : S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) =
+          Q q / den q :=
+        (rf_pairing_frequency_norm_class R r.h q.1 r.d q.2 sd sc rfl rfl).1
+      have hArg : 0 < S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / l :=
+        div_pos ((a2_bridge_NORM D S).2.2.1
+          (S.diagU (frozenFrequency R q.1 r.d q.2))) hl
+      have hPower : (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / l) ^
+          (-1 : ℝ) = (den q * l) * (Q q) ^ (-1 : ℝ) := by
+        rw [hNorm]
+        simp only [Real.rpow_neg_one, div_eq_mul_inv, mul_inv_rev, inv_inv]
+        ring
+      calc
+        _ ≤ weight q * profile q := (hEach q).2.2
+        _ ≤ weight q * (C *
+            (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / l) ^ (-1 : ℝ)) :=
+          mul_le_mul_of_nonneg_left (hProfile u _ hArg) (hWeight q)
+        _ = _ := by
+          rw [hPower]
+          dsimp only [weight, Q, den, reflectedDirichletTerm]
+          ring
+    letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+    let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+    letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+    let I := Σ f : AF, UnitSix S ×
+      ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal)
+    let e : J → I := fun q =>
+      ⟨⟨q.1.f, q.1.active⟩, (q.1.u, (⟨q.1.a, q.1.numerator⟩, q.2, q.1.n))⟩
+    let M : I → ℝ := fun p =>
+      C * (qI r.d.1 ^ 2 * qI p.1.1.1 ^ 2 * l) *
+        reflectedDirichletTerm R p.1.1 1 p.2.2
+    have he : Function.Injective e := by
+      intro p q hpq
+      have hf : p.1.f = q.1.f := congrArg (fun z : I => z.1.1) hpq
+      have ha : p.1.a = q.1.a := congrArg (fun z : I => z.2.2.1.1) hpq
+      have hn : p.1.n = q.1.n := congrArg (fun z : I => z.2.2.2.2) hpq
+      have hu : p.1.u = q.1.u := congrArg (fun z : I => z.2.1) hpq
+      have hc : p.2 = q.2 := congrArg (fun z : I => z.2.2.2.1) hpq
+      rcases p with ⟨⟨pf, pa, pn, pu, pactive, pnum, pcop⟩, pc⟩
+      rcases q with ⟨⟨qf, qa, qn, qu, qactive, qnum, qcop⟩, qc⟩
+      dsimp only at hf ha hn hu hc
+      cases hf
+      cases ha
+      cases hn
+      cases hu
+      cases hc
+      rfl
+    have hDirNonneg (f : S.ExtIdeal)
+        (p : {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal) :
+        0 ≤ reflectedDirichletTerm R f 1 p := by
+      unfold reflectedDirichletTerm
+      exact mul_nonneg
+        (div_nonneg
+          (mul_nonneg (rf_betaIdeal_nonneg R f p.1) (Real.rpow_nonneg (hq p.2.1.1) _))
+          (hq p.2.2.1))
+        (Real.rpow_nonneg
+          (mul_nonneg (mul_nonneg (hq p.1.1.1) (hq p.2.1.1))
+            (pow_nonneg (hq p.2.2.1) 3)) _)
+    have hMnonneg (p : I) : 0 ≤ M p :=
+      mul_nonneg
+        (mul_nonneg hC.le
+          (mul_nonneg (mul_nonneg (sq_nonneg _) (sq_nonneg _)) hl.le))
+        (hDirNonneg p.1.1 p.2.2)
+    have hfiber (f : AF) : Summable (fun q : UnitSix S ×
+        ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal) => M ⟨f, q⟩) := by
+      apply (summable_prod_of_nonneg (fun q => hMnonneg ⟨f, q⟩)).2
+      refine ⟨?_, Summable.of_finite⟩
+      intro k
+      exact (rf_reflected_dirichlet_mass R f.1 1 (by norm_num)).1.mul_left
+        (C * (qI r.d.1 ^ 2 * qI f.1.1 ^ 2 * l))
+    have hM : Summable M :=
+      (summable_sigma_of_nonneg hMnonneg).2 ⟨hfiber, Summable.of_finite⟩
+    have hsMass : Summable (fun q : J => ∑' γ, N (q, γ)) := by
+      apply Summable.of_nonneg_of_le (fun q => tsum_nonneg (fun γ => hNnonneg (q, γ)))
+        ?_ (hM.comp_injective he)
+      intro q
+      exact hMassBound q
+    have hsJG : Summable N :=
+      (summable_prod_of_nonneg hNnonneg).2 ⟨fun q => (hEach q).2.1, hsMass⟩
+    let eP : J × Gamma S ≃ P :=
+      Equiv.prodAssoc (FrozenIndex R r.h) S.SqfExtIdeal (Gamma S)
+    have hsComp : Summable ((fun p : P =>
+        ∫ y, ‖onUnits (rf_pairing_grouped_fourier_term R r p) y‖ ∂m) ∘ eP) := hsJG
+    exact (eP.summable_iff).1 hsComp
+
+private theorem rf_pairing_grouped_pointwise
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (y : S.FSˣ) :
+    Summable (fun p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S =>
+      rf_pairing_grouped_fourier_term R r p y) ∧
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r true false y =
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r true true y +
+          ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+            rf_pairing_grouped_fourier_term R r p y := by
+  classical
+  let u := rowClass R r
+  let α : ℂ := bCut (Bd := Bd) y * (Lvalue R u y)⁻¹
+  let g : Fˣ → ℂ := fun ν => α *
+    sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ * rotated R u (S.diagU ν / y)
+  let Fterm : Fˣ → ℂ := fun ν =>
+    ∑ᶠ d : Digits R r, digitAlpha R r d *
+      R.T.W (R.chars.L u)
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let src : Fˣ → ℂ := fun ν =>
+    (∑ᶠ f : AF, rf_pairing_active_coefficient R r f.1 ν) * g ν
+  let component : AF → Fˣ → ℂ := fun f ν =>
+    rf_pairing_active_coefficient R r f.1 ν * g ν
+  let K : AF → Type := fun f =>
+    {t : FrozenIndex R r.h // t.f = f.1} × S.SqfExtIdeal × Gamma S
+  let fiberTerm (f : AF) (p : K f) : ℂ :=
+    rf_pairing_grouped_fourier_term R r (p.1.1, p.2.1, p.2.2) y
+  let reindexTerm (f : AF) (p : K f) : ℂ :=
+    if IsCoprime (p.2.1.1 * p.1.1.n.1) (r.d.1 * f.1.1) then
+      groupedExterior R p.1.1 r.d (frozenFrequency R p.1.1 r.d p.2.1) *
+        g ((p.2.2.1 : Fˣ) * frozenFrequency R p.1.1 r.d p.2.1) else 0
+  have hFourier := rf_pairing_minus_fourier R r y
+  change Summable Fterm ∧
+    digitSum R r true false y = digitSum R r true true y + ∑' ν, Fterm ν at hFourier
+  have hSourcePoint (ν : Fˣ) : α * Fterm ν = src ν := by
+    dsimp only [Fterm, src, u]
+    rw [rf_pairing_digit_active_partition R r ν y]
+    dsimp only [g, u]
+    ring
+  have hSource : Summable src := (hFourier.1.mul_left α).congr hSourcePoint
+  have hComponent (f : AF) : Summable (component f) :=
+    rf_pairing_active_component_summable R r f.1 f.property g hSource
+  have hTermEq (f : AF) (p : K f) : reindexTerm f p = fiberTerm f p := by
+    dsimp only [reindexTerm, fiberTerm, rf_pairing_grouped_fourier_term, g, α, u]
+    rw [p.1.property]
+  have hReindex (f : AF) : Summable (fiberTerm f) ∧
+      (∑' ν, component f ν) = ∑' p : K f, fiberTerm f p := by
+    have h := rf_pairing_frequency_reindex R r f.1 f.property g (hComponent f)
+    change Summable (reindexTerm f) ∧
+      (∑' ν, component f ν) = ∑' p : K f, reindexTerm f p at h
+    exact ⟨h.1.congr (hTermEq f), h.2.trans (tsum_congr (hTermEq f))⟩
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let I := Σ f : AF, K f
+  let termI (p : I) : ℂ := fiberTerm p.1 p.2
+  let e : P ≃ I := {
+    toFun := fun p =>
+      ⟨⟨p.1.f, p.1.active⟩, (⟨p.1, rfl⟩, p.2.1, p.2.2)⟩
+    invFun := fun p => (p.2.1.1, p.2.2.1, p.2.2.2)
+    left_inv := by
+      intro p
+      rcases p with ⟨t, c, γ⟩
+      rfl
+    right_inv := by
+      intro p
+      rcases p with ⟨⟨f, hf⟩, ⟨⟨t, ht⟩, c, γ⟩⟩
+      cases ht
+      rfl }
+  have hsINorm : Summable (fun p : I => ‖termI p‖) :=
+    (summable_sigma_of_nonneg (fun p : I => norm_nonneg (termI p))).2
+      ⟨fun f => (hReindex f).1.norm, Summable.of_finite⟩
+  have hsI : Summable termI := Summable.of_norm hsINorm
+  have hsP : Summable (fun p : P => rf_pairing_grouped_fourier_term R r p y) :=
+    (e.summable_iff).2 hsI
+  have hFullSum : (∑' p : P, rf_pairing_grouped_fourier_term R r p y) =
+      ∑ f : AF, ∑' p : K f, fiberTerm f p := by
+    calc
+      _ = ∑' p : I, termI p := e.tsum_eq termI
+      _ = ∑' f : AF, ∑' p : K f, fiberTerm f p := hsI.tsum_sigma
+      _ = _ := tsum_fintype _
+  have hSourceAt (ν : Fˣ) : src ν = ∑ f : AF, component f ν := by
+    dsimp only [src, component]
+    rw [finsum_eq_sum_of_fintype, Finset.sum_mul]
+  have hSourceSum : (∑' ν, src ν) = ∑ f : AF, ∑' ν, component f ν := by
+    calc
+      _ = ∑' ν, ∑ f : AF, component f ν := tsum_congr hSourceAt
+      _ = _ := Summable.tsum_finsetSum (fun f _ => hComponent f)
+  have hSums : (∑' ν, src ν) = ∑' p : P, rf_pairing_grouped_fourier_term R r p y := by
+    rw [hSourceSum, hFullSum]
+    apply Finset.sum_congr rfl
+    intro f hf
+    exact (hReindex f).2
+  have hWeighted : α * (∑' ν, Fterm ν) = ∑' ν, src ν := by
+    rw [← hFourier.1.tsum_mul_left α]
+    exact tsum_congr hSourcePoint
+  change Summable (fun p : P => rf_pairing_grouped_fourier_term R r p y) ∧
+    α * digitSum R r true false y =
+      α * digitSum R r true true y + ∑' p : P, rf_pairing_grouped_fourier_term R r p y
+  refine ⟨hsP, ?_⟩
+  rw [hFourier.2, mul_add, hWeighted, hSums]
+
+private theorem rf_pairing_grouped_sheet_exchange
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    IntegrableOn (onUnits (fun y =>
+      ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+        rf_pairing_grouped_fourier_term R r p y))
+      (omegaAt R l) (R.sheets.sheet l) ∧
+      (∫ y in omegaAt R l, onUnits (fun y =>
+        ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+          rf_pairing_grouped_fourier_term R r p y) y ∂(R.sheets.sheet l)) =
+        ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+          ∫ y in omegaAt R l,
+            onUnits (rf_pairing_grouped_fourier_term R r p) y ∂(R.sheets.sheet l) := by
+  classical
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable (𝓞 F) := inferInstance
+  have hspan : Function.Surjective
+      (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+    intro I
+    exact Ideal.fg_of_isNoetherianRing I
+  letI : Countable (Ideal (𝓞 F)) := hspan.countable
+  letI : Countable S.ExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+  letI : Countable S.SqfExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  let i : FrozenIndex R r.h → S.ExtIdeal × S.ExtIdeal × S.ExtIdeal × UnitSix S :=
+    fun t => (t.f, t.a, t.n, t.u)
+  have hi : Function.Injective i := by
+    intro t s h
+    have hf : t.f = s.f := congrArg (fun p => p.1) h
+    have ha : t.a = s.a := congrArg (fun p => p.2.1) h
+    have hn : t.n = s.n := congrArg (fun p => p.2.2.1) h
+    have hu : t.u = s.u := congrArg (fun p => p.2.2.2) h
+    rcases t with ⟨tf, ta, tn, tu, tactive, tnum, tcop⟩
+    rcases s with ⟨sf, sa, sn, su, sactive, snum, scop⟩
+    dsimp only at hf ha hn hu
+    cases hf
+    cases ha
+    cases hn
+    cases hu
+    rfl
+  letI : Countable (FrozenIndex R r.h) := hi.countable
+  letI : Countable (Gamma S) :=
+    (a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl).2.2
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let term (p : P) : S.FS → ℂ := onUnits (rf_pairing_grouped_fourier_term R r p)
+  have hBase := rf_pairing_grouped_integral_norm_summable R r l hl
+  change (∀ p : P, Integrable (term p) m) ∧
+    Summable (fun p : P => ∫ y, ‖term p y‖ ∂m) at hBase
+  have hPoint : ∀ᵐ y ∂m, Summable (fun p : P => ‖term p y‖) := by
+    apply Filter.Eventually.of_forall
+    intro y
+    by_cases hy : IsUnit y
+    · simpa only [term, onUnits, dif_pos hy] using
+        (rf_pairing_grouped_pointwise R r hy.unit).1.norm
+    · simp only [term, onUnits, dif_neg hy, norm_zero]
+      exact summable_zero
+  have hNorm := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.norm_series_integrable_of_integral_norm
+    m term hBase.1 hPoint hBase.2
+  have hExchange := ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_tsum_of_norm_sum
+    m term (fun p => (hBase.1 p).1) hPoint hNorm
+  have hEq : onUnits (fun y => ∑' p : P, rf_pairing_grouped_fourier_term R r p y) =
+      fun y => ∑' p : P, term p y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, term]
+    · simp [onUnits, hy, term]
+  change Integrable (onUnits (fun y =>
+    ∑' p : P, rf_pairing_grouped_fourier_term R r p y)) m ∧
+      (∫ y, onUnits (fun y =>
+        ∑' p : P, rf_pairing_grouped_fourier_term R r p y) y ∂m) =
+          ∑' p : P, ∫ y, term p y ∂m
+  rw [hEq]
+  exact hExchange
+
+private theorem rf_pairing_units_compact_lift
+    (K : Set S.FS) (hK : IsCompact K)
+    (hunit : ∀ y ∈ K, IsUnit y) :
+    IsCompact ((Units.val : S.FSˣ → S.FS) ⁻¹' K) := by
+  have hInv : ContinuousOn (fun y : S.FS => y⁻¹) K := by
+    apply ContinuousOn.prodMk
+    · apply continuousOn_pi.mpr
+      intro v
+      exact ((continuous_apply v).comp continuous_fst).continuousOn.inv₀
+        (fun y hy => isUnit_iff_ne_zero.mp
+          ((Pi.isUnit_iff.mp (Prod.isUnit_iff.mp (hunit y hy)).1) v))
+    · apply continuousOn_pi.mpr
+      intro w
+      exact ((continuous_apply w).comp continuous_snd).continuousOn.inv₀
+        (fun y hy => isUnit_iff_ne_zero.mp
+          ((Pi.isUnit_iff.mp (Prod.isUnit_iff.mp (hunit y hy)).2) w))
+  let graph : S.FS → S.FS × S.FSᵐᵒᵖ := fun y => (y, MulOpposite.op y⁻¹)
+  have hgraph : ContinuousOn graph K :=
+    continuous_id.continuousOn.prodMk
+      ((MulOpposite.opHomeomorph : S.FS ≃ₜ S.FSᵐᵒᵖ).continuous.comp_continuousOn hInv)
+  have hCompact : IsCompact ((Units.embedProduct S.FS) ⁻¹' (graph '' K)) :=
+    Units.isClosedEmbedding_embedProduct.isCompact_preimage
+      (hK.image_of_continuousOn hgraph)
+  have hEq : (Units.embedProduct S.FS) ⁻¹' (graph '' K) =
+      (Units.val : S.FSˣ → S.FS) ⁻¹' K := by
+    ext z
+    constructor
+    · rintro ⟨y, hy, heq⟩
+      have hval : y = (z : S.FS) := congrArg Prod.fst heq
+      simpa only [Set.mem_preimage, hval] using hy
+    · intro hz
+      refine ⟨(z : S.FS), hz, ?_⟩
+      simp [graph, Units.embedProduct]
+  rwa [hEq] at hCompact
+
+private theorem rf_pairing_constant_integrable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    IntegrableOn (onUnits (fun y =>
+      bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
+        digitSum R r true true y))
+      (omegaAt R l) (R.sheets.sheet l) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let V := {v : FinPlace F // v ∈ R.exterior.support r.ideal}
+  letI : ∀ v : V, Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  let u := rowClass R r
+  let c : S.FSˣ → ℂ := digitSum R r true true
+  let tail (d : Digits R r) : R.C.G :=
+    ((R.exterior.support r.ideal).attach.toList.map (fun v =>
+      R.C.n v.1 (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))))).prod
+  have hDigit (d : Digits R r) : Continuous (fun y : S.FSˣ =>
+      R.T.θN (R.chars.L u) (R.C.rat weylGL * digitPoint R r y d)) := by
+    simpa only [u, tail, digitPoint, mul_assoc] using
+      R.T.cont_N (R.chars.L u) (R.mem_family u) (R.C.rat weylGL) (tail d)
+  have hc : Continuous c := by
+    have hsum : Continuous (fun y : S.FSˣ =>
+        ∑ d : Digits R r, digitAlpha R r d *
+          R.T.θN (R.chars.L u) (R.C.rat weylGL * digitPoint R r y d)) :=
+      continuous_finsetSum Finset.univ (fun d _ => continuous_const.mul (hDigit d))
+    change Continuous (fun y : S.FSˣ => digitSum R r true true y)
+    simpa [u, digitSum, finsum_eq_sum_of_fintype] using hsum
+  have hAbs : Continuous S.absS := by
+    unfold SData.absS
+    apply Continuous.mul
+    · apply continuous_finsetProd Finset.univ
+      intro v hv
+      have ha : Continuous (absFin v.1) := by
+        convert (continuous_norm : Continuous fun x : v.1.adicCompletion F => ‖x‖) using 1
+        ext x
+        exact A1.Theta.absFin_eq_norm v.1 x
+      exact ha.comp ((continuous_apply v).comp continuous_fst)
+    · apply continuous_finsetProd Finset.univ
+      intro w hw
+      exact Complex.continuous_normSq.comp ((continuous_apply w).comp continuous_snd)
+  have hUnit1 (y : S.FS) (hy : S.absS y = 1) : IsUnit y := by
+    have hfin (v : S.Sf) : absFin v.1 (y.1 v) ≠ 0 := by
+      intro hv
+      have hp : (∏ v' : S.Sf, absFin v'.1 (y.1 v')) = 0 :=
+        Finset.prod_eq_zero (Finset.mem_univ v) hv
+      have hz : S.absS y = 0 := by
+        unfold SData.absS
+        rw [hp]
+        simp
+      rw [hy] at hz
+      exact one_ne_zero hz
+    have harch (w : InfinitePlace F) : Complex.normSq (y.2 w) ≠ 0 := by
+      intro hw
+      have hp : (∏ w' : InfinitePlace F, Complex.normSq (y.2 w')) = 0 :=
+        Finset.prod_eq_zero (Finset.mem_univ w) hw
+      have hz : S.absS y = 0 := by
+        unfold SData.absS
+        rw [hp]
+        simp
+      rw [hy] at hz
+      exact one_ne_zero hz
+    rw [Prod.isUnit_iff, Pi.isUnit_iff, Pi.isUnit_iff]
+    constructor
+    · intro v
+      apply isUnit_iff_ne_zero.mpr
+      intro hv
+      apply hfin v
+      rw [hv, A1.Theta.absFin_eq_norm]
+      simp
+    · intro w
+      apply isUnit_iff_ne_zero.mpr
+      intro hw
+      apply harch w
+      simp [hw]
+  obtain ⟨K, hK, hOmegaK⟩ := R.sheets.omega_bounded
+  let K1 := K ∩ {y : S.FS | S.absS y = 1}
+  have hK1 : IsCompact K1 :=
+    hK.inter_right (isClosed_singleton.preimage hAbs)
+  let Kl := (fun y : S.FS => (R.sheets.ellU l : S.FS) * y) '' K1
+  have hKl : IsCompact Kl := hK1.image (continuous_const.mul continuous_id)
+  have hUnitL : ∀ y ∈ Kl, IsUnit y := by
+    rintro y ⟨x, hx, rfl⟩
+    exact (R.sheets.ellU l).isUnit.mul (hUnit1 x hx.2)
+  have hOmegaL : omegaAt R l ⊆ Kl := by
+    rintro y ⟨x, hx, rfl⟩
+    exact ⟨x, ⟨hOmegaK hx, (R.sheets.omega_norm x hx).2⟩, rfl⟩
+  let U := (Units.val : S.FSˣ → S.FS) ⁻¹' Kl
+  have hU : IsCompact U := rf_pairing_units_compact_lift Kl hKl hUnitL
+  obtain ⟨M, hM⟩ := (hU.image hc.norm).bddAbove
+  have hBound (y : S.FSˣ) (hy : y ∈ U) : ‖c y‖ ≤ M := hM ⟨y, hy, rfl⟩
+  let weighted : S.FSˣ → ℂ := fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * c y
+  have hInvMeas : Measurable (fun y : S.FSˣ => (Lvalue R u y)⁻¹) := by
+    have hcont : Continuous (fun y : S.FSˣ => Lvalue R u y) := by
+      simpa only [Lvalue] using (R.chars.L u).cont
+    exact measurable_inv.comp hcont.measurable
+  have hWeightedMeas : Measurable weighted :=
+    ((rf_bCut_measurable R).mul hInvMeas).mul hc.measurable
+  have hBridge := a2_bridge_SHEET (D := D) (S := S) (G := R.sheets) l hl
+  have hOmegaMeas : MeasurableSet (omegaAt R l) := hBridge.1.1
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  letI : IsFiniteMeasure m := ⟨by
+    simpa only [m, Measure.restrict_apply_univ, bridgeOmegaAt, omegaAt] using hBridge.2.1⟩
+  have hConst : Integrable (fun _ : S.FS => M) m := integrable_const M
+  have hInt : Integrable (onUnits weighted) m := by
+    apply hConst.mono' (rf_onUnits_measurable weighted hWeightedMeas).aestronglyMeasurable
+    filter_upwards [ae_restrict_mem hOmegaMeas] with y hy
+    have hyu : IsUnit y := hUnitL y (hOmegaL hy)
+    have hyU : hyu.unit ∈ U := by
+      change (hyu.unit : S.FS) ∈ Kl
+      rw [hyu.unit_spec]
+      exact hOmegaL hy
+    have hB : ‖bCut (Bd := Bd) hyu.unit‖ ≤ 1 := by
+      unfold bCut
+      split_ifs <;> simp
+    have hInv : ‖(Lvalue R u hyu.unit)⁻¹‖ = 1 := by
+      rw [norm_inv]
+      have hL : ‖Lvalue R u hyu.unit‖ = 1 := by
+        simpa only [Lvalue] using (R.chars.L u).unitary hyu.unit
+      rw [hL, inv_one]
+    rw [onUnits, dif_pos hyu]
+    dsimp only [weighted]
+    calc
+      _ = ‖bCut (Bd := Bd) hyu.unit‖ * ‖c hyu.unit‖ := by
+        simp only [norm_mul, hInv, mul_one]
+      _ ≤ 1 * ‖c hyu.unit‖ := mul_le_mul_of_nonneg_right hB (norm_nonneg _)
+      _ = ‖c hyu.unit‖ := one_mul _
+      _ ≤ M := hBound hyu.unit hyU
+  exact hInt
+
+private theorem rf_pairing_thetaAverage_series
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    thetaAverage R r l =
+      ∑' p : FrozenIndex R r.h × S.SqfExtIdeal × Gamma S,
+        omegaInt R l (rf_pairing_grouped_fourier_term R r p) := by
+  classical
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let full : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r true false y
+  let c : S.FSˣ → ℂ := fun y =>
+    bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ * digitSum R r true true y
+  let s : S.FSˣ → ℂ := fun y => ∑' p : P, rf_pairing_grouped_fourier_term R r p y
+  have hSheet := rf_pairing_grouped_sheet_exchange R r l hl
+  change Integrable (onUnits s) m ∧
+    (∫ y, onUnits s y ∂m) =
+      ∑' p : P, ∫ y, onUnits (rf_pairing_grouped_fourier_term R r p) y ∂m at hSheet
+  have hConst : Integrable (onUnits c) m := rf_pairing_constant_integrable R r l hl
+  have hEq : onUnits full = onUnits c + onUnits s := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [Pi.add_apply, onUnits, dif_pos hy]
+      exact (rf_pairing_grouped_pointwise R r hy.unit).2
+    · simp only [Pi.add_apply, onUnits, dif_neg hy, zero_add]
+  have hIntegral : (∫ y, onUnits full y ∂m) =
+      (∫ y, onUnits c y ∂m) +
+        ∑' p : P, ∫ y, onUnits (rf_pairing_grouped_fourier_term R r p) y ∂m := by
+    rw [hEq]
+    simp only [Pi.add_apply]
+    rw [integral_add hConst hSheet.1, hSheet.2]
+  change omegaInt R l full = omegaInt R l c +
+    ∑' p : P, omegaInt R l (rf_pairing_grouped_fourier_term R r p) at hIntegral
+  have hAngular := rf_angular_cancellation R r l hl
+  have hZero : omegaInt R l c = 0 := hAngular.1 true
+  calc
+    thetaAverage R r l = omegaInt R l full := hAngular.2
+    _ = omegaInt R l c +
+        ∑' p : P, omegaInt R l (rf_pairing_grouped_fourier_term R r p) := hIntegral
+    _ = _ := by rw [hZero, zero_add]
+
+private theorem rf_pairing_thetaAverage_grouped_series
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (l : ℝ) (hl : 0 < l) :
+    Summable (fun q : FrozenIndex R r.h × S.SqfExtIdeal =>
+      ∑' γ : Gamma S, omegaInt R l
+        (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ))) ∧
+      thetaAverage R r l =
+        ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+          ∑' γ : Gamma S, omegaInt R l
+            (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ)) := by
+  classical
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let P := FrozenIndex R r.h × S.SqfExtIdeal × Gamma S
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let f : P → ℂ := fun p => omegaInt R l (rf_pairing_grouped_fourier_term R r p)
+  let N : P → ℝ := fun p =>
+    ∫ y, ‖onUnits (rf_pairing_grouped_fourier_term R r p) y‖ ∂m
+  have hBase := rf_pairing_grouped_integral_norm_summable R r l hl
+  change (∀ p : P, Integrable (onUnits (rf_pairing_grouped_fourier_term R r p)) m) ∧
+    Summable N at hBase
+  have hsNorm : Summable (fun p : P => ‖f p‖) :=
+    Summable.of_nonneg_of_le (fun p => norm_nonneg (f p))
+      (fun p => norm_integral_le_integral_norm _) hBase.2
+  have hs : Summable f := Summable.of_norm hsNorm
+  let e : J × Gamma S ≃ P :=
+    Equiv.prodAssoc (FrozenIndex R r.h) S.SqfExtIdeal (Gamma S)
+  have hsReindex : Summable (f ∘ e) := (e.summable_iff).2 hs
+  refine ⟨hsReindex.prod, ?_⟩
+  calc
+    thetaAverage R r l = ∑' p : P, f p := rf_pairing_thetaAverage_series R r l hl
+    _ = ∑' p : J × Gamma S, (f ∘ e) p := (e.tsum_eq f).symm
+    _ = _ := hsReindex.tsum_prod
+
+private theorem rf_pairing_frequency_weight_summable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) :
+    Summable (fun q : FrozenIndex R r.h × S.SqfExtIdeal =>
+      (betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1) *
+        S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) ^ (-1 : ℝ)) := by
+  classical
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let weight : J → ℝ := fun q =>
+    betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1
+  let Q : J → ℝ := fun q => qI q.1.a.1 * qI q.2.1 * qI q.1.n.1 ^ 3
+  let den : J → ℝ := fun q => qI r.d.1 ^ 2 * qI q.1.f.1 ^ 2
+  have hq (I : Ideal (𝓞 F)) : 0 ≤ qI I := by
+    unfold qI
+    exact Nat.cast_nonneg _
+  have hEq (q : J) : weight q *
+      S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) ^ (-1 : ℝ) =
+        den q * reflectedDirichletTerm R q.1.f 1
+          (⟨q.1.a, q.1.numerator⟩, q.2, q.1.n) := by
+    let sd : Bd.B := ⟨cls (S.diagU (bc.gen r.d)), (bc.gen_spec r.d).2⟩
+    let sc : Bd.B := ⟨cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))),
+      (bc.gen_spec (R.exterior.ofSqf q.2)).2⟩
+    have hNorm : S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) =
+        Q q / den q :=
+      (rf_pairing_frequency_norm_class R r.h q.1 r.d q.2 sd sc rfl rfl).1
+    rw [hNorm]
+    dsimp only [weight, Q, den, reflectedDirichletTerm]
+    simp only [Real.rpow_neg_one, div_eq_mul_inv, mul_inv_rev, inv_inv]
+    ring
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  let AF := {f : S.ExtIdeal // activeFactor R r.h f}
+  letI : Fintype AF := (rf_pairing_activeFactor_finite R r.h).fintype
+  let I := Σ f : AF, UnitSix S ×
+    ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal)
+  let e : J → I := fun q =>
+    ⟨⟨q.1.f, q.1.active⟩, (q.1.u, (⟨q.1.a, q.1.numerator⟩, q.2, q.1.n))⟩
+  let M : I → ℝ := fun p =>
+    (qI r.d.1 ^ 2 * qI p.1.1.1 ^ 2) *
+      reflectedDirichletTerm R p.1.1 1 p.2.2
+  have he : Function.Injective e := by
+    intro p q hpq
+    have hf : p.1.f = q.1.f := congrArg (fun z : I => z.1.1) hpq
+    have ha : p.1.a = q.1.a := congrArg (fun z : I => z.2.2.1.1) hpq
+    have hn : p.1.n = q.1.n := congrArg (fun z : I => z.2.2.2.2) hpq
+    have hu : p.1.u = q.1.u := congrArg (fun z : I => z.2.1) hpq
+    have hc : p.2 = q.2 := congrArg (fun z : I => z.2.2.2.1) hpq
+    rcases p with ⟨⟨pf, pa, pn, pu, pactive, pnum, pcop⟩, pc⟩
+    rcases q with ⟨⟨qf, qa, qn, qu, qactive, qnum, qcop⟩, qc⟩
+    dsimp only at hf ha hn hu hc
+    cases hf
+    cases ha
+    cases hn
+    cases hu
+    cases hc
+    rfl
+  have hDirNonneg (f : S.ExtIdeal)
+      (p : {a : S.ExtIdeal // activeNumerator R f a} × S.SqfExtIdeal × S.ExtIdeal) :
+      0 ≤ reflectedDirichletTerm R f 1 p := by
+    unfold reflectedDirichletTerm
+    exact mul_nonneg
+      (div_nonneg
+        (mul_nonneg (rf_betaIdeal_nonneg R f p.1) (Real.rpow_nonneg (hq p.2.1.1) _))
+        (hq p.2.2.1))
+      (Real.rpow_nonneg
+        (mul_nonneg (mul_nonneg (hq p.1.1.1) (hq p.2.1.1))
+          (pow_nonneg (hq p.2.2.1) 3)) _)
+  have hMnonneg (p : I) : 0 ≤ M p :=
+    mul_nonneg (mul_nonneg (sq_nonneg _) (sq_nonneg _))
+      (hDirNonneg p.1.1 p.2.2)
+  have hfiber (f : AF) : Summable (fun q : UnitSix S ×
+      ({a : S.ExtIdeal // activeNumerator R f.1 a} × S.SqfExtIdeal × S.ExtIdeal) => M ⟨f, q⟩) := by
+    apply (summable_prod_of_nonneg (fun q => hMnonneg ⟨f, q⟩)).2
+    refine ⟨?_, Summable.of_finite⟩
+    intro k
+    exact (rf_reflected_dirichlet_mass R f.1 1 (by norm_num)).1.mul_left
+      (qI r.d.1 ^ 2 * qI f.1.1 ^ 2)
+  have hM : Summable M :=
+    (summable_sigma_of_nonneg hMnonneg).2 ⟨hfiber, Summable.of_finite⟩
+  have hs : Summable (fun q : J => M (e q)) := hM.comp_injective he
+  exact hs.congr (fun q => (hEq q).symm)
+
+private def rf_pairing_grouped_kernel_term
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (q : FrozenIndex R r.h × S.SqfExtIdeal) (Z T : ℝ) : ℂ :=
+  R.K T * (∑' γ : Gamma S, omegaInt R (T / Z)
+    (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ))) / (T : ℂ)
+
+private theorem rf_pairing_grouped_kernel_integral
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (q : FrozenIndex R r.h × S.SqfExtIdeal)
+    (Z : ℝ) (hZ : 0 < Z) :
+    IntegrableOn (rf_pairing_grouped_kernel_term R r q Z) (Set.Ioi 0) ∧
+      (∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T) =
+        if IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) then
+          groupedExterior R q.1 r.d (frozenFrequency R q.1 r.d q.2) *
+            (Lvalue R (rowClass R r)
+              (S.diagU (frozenFrequency R q.1 r.d q.2)))⁻¹ *
+            profilePhi R (rowClass R r)
+              (cls (S.diagU (frozenFrequency R q.1 r.d q.2)))
+              (Z * S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS))
+        else 0 := by
+  classical
+  let u := rowClass R r
+  let ν := frozenFrequency R q.1 r.d q.2
+  let z : ℂ := if IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) then
+    groupedExterior R q.1 r.d ν else 0
+  let orbit (γ : Gamma S) (y : S.FSˣ) : ℂ :=
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+      sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+        rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y)
+  let g (T : ℝ) : ℂ := R.K T *
+    (∑' γ : Gamma S, omegaInt R (T / Z) (orbit γ)) / (T : ℂ)
+  have hPoint (γ : Gamma S) (y : S.FSˣ) :
+      rf_pairing_grouped_fourier_term R r (q.1, q.2, γ) y = z * orbit γ y := by
+    dsimp only [rf_pairing_grouped_fourier_term, z, orbit, u, ν]
+    split_ifs <;> simp
+  have hOnUnits (γ : Gamma S) :
+      onUnits (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ)) =
+        fun y => z * onUnits (orbit γ) y := by
+    funext y
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, hPoint]
+    · simp only [onUnits, dif_neg hy, mul_zero]
+  have hOmega (γ : Gamma S) (l : ℝ) :
+      omegaInt R l (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ)) =
+        z * omegaInt R l (orbit γ) := by
+    unfold omegaInt
+    rw [hOnUnits γ, integral_const_mul]
+  have hCurve : rf_pairing_grouped_kernel_term R r q Z = fun T => z * g T := by
+    funext T
+    dsimp only [rf_pairing_grouped_kernel_term, g]
+    simp_rw [hOmega]
+    rw [tsum_mul_left]
+    ring
+  have hAvg := rf_pairing_S_averaged R u ν Z hZ
+  change IntegrableOn g (Set.Ioi 0) ∧
+    (∫ T in Set.Ioi (0 : ℝ), g T) =
+      (Lvalue R u (S.diagU ν))⁻¹ *
+        profilePhi R u (cls (S.diagU ν)) (Z * S.absS (S.diagU ν : S.FS)) at hAvg
+  rw [hCurve]
+  refine ⟨hAvg.1.const_mul z, ?_⟩
+  rw [integral_const_mul, hAvg.2]
+  dsimp only [z, u, ν]
+  split_ifs <;> ring
+
+private theorem rf_pairing_grouped_kernel_norm_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (q : FrozenIndex R r.h × S.SqfExtIdeal)
+    (Z : ℝ) (hZ : 0 < Z) (T : ℝ) (hT : 0 < T) :
+    ‖rf_pairing_grouped_kernel_term R r q Z T‖ ≤
+      ‖R.K T‖ *
+        ((betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1) *
+          profileAbs R (rowClass R r)
+            (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / (T / Z))) / T := by
+  classical
+  let m := (R.sheets.sheet (T / Z)).restrict (omegaAt R (T / Z))
+  let f : Gamma S → S.FS → ℂ := fun γ =>
+    onUnits (rf_pairing_grouped_fourier_term R r (q.1, q.2, γ))
+  let v : Gamma S → ℂ := fun γ => ∫ y, f γ y ∂m
+  let N : Gamma S → ℝ := fun γ => ∫ y, ‖f γ y‖ ∂m
+  let weight := betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1
+  let profile := profileAbs R (rowClass R r)
+    (S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) / (T / Z))
+  have hBase := rf_pairing_grouped_orbit_integrals R r q.1 q.2 (T / Z) (div_pos hT hZ)
+  change (∀ γ, Integrable (f γ) m) ∧ Summable N ∧
+    (∑' γ, N γ) ≤ weight * profile at hBase
+  have hLe (γ : Gamma S) : ‖v γ‖ ≤ N γ := norm_integral_le_integral_norm _
+  have hsNorm : Summable (fun γ => ‖v γ‖) :=
+    Summable.of_nonneg_of_le (fun γ => norm_nonneg (v γ)) hLe hBase.2.1
+  have hSeries : ‖∑' γ, v γ‖ ≤ weight * profile := by
+    calc
+      _ ≤ ∑' γ, ‖v γ‖ := norm_tsum_le_tsum_norm hsNorm
+      _ ≤ ∑' γ, N γ := hsNorm.tsum_le_tsum hLe hBase.2.1
+      _ ≤ weight * profile := hBase.2.2
+  change ‖R.K T * (∑' γ, v γ) / (T : ℂ)‖ ≤ ‖R.K T‖ * (weight * profile) / T
+  rw [norm_div, norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_pos hT]
+  exact div_le_div_of_nonneg_right
+    (mul_le_mul_of_nonneg_left hSeries (norm_nonneg _)) hT.le
+
+private theorem rf_pairing_grouped_kernel_exchange
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (Z : ℝ) (hZ : 0 < Z) :
+    IntegrableOn (fun T =>
+      ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+        rf_pairing_grouped_kernel_term R r q Z T) (Set.Ioi 0) ∧
+      (∫ T in Set.Ioi (0 : ℝ),
+        ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+          rf_pairing_grouped_kernel_term R r q Z T) =
+        ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+          ∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T := by
+  classical
+  letI : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  letI : Countable (𝓞 F) := inferInstance
+  have hspan : Function.Surjective
+      (fun s : Finset (𝓞 F) => Ideal.span (s : Set (𝓞 F))) := by
+    intro I
+    exact Ideal.fg_of_isNoetherianRing I
+  letI : Countable (Ideal (𝓞 F)) := hspan.countable
+  letI : Countable S.ExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I})
+  letI : Countable S.SqfExtIdeal :=
+    inferInstanceAs (Countable {I : Ideal (𝓞 F) // S.IsExterior I ∧ Squarefree I})
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  let i : FrozenIndex R r.h → S.ExtIdeal × S.ExtIdeal × S.ExtIdeal × UnitSix S :=
+    fun t => (t.f, t.a, t.n, t.u)
+  have hi : Function.Injective i := by
+    intro t s h
+    have hf : t.f = s.f := congrArg (fun p => p.1) h
+    have ha : t.a = s.a := congrArg (fun p => p.2.1) h
+    have hn : t.n = s.n := congrArg (fun p => p.2.2.1) h
+    have hu : t.u = s.u := congrArg (fun p => p.2.2.2) h
+    rcases t with ⟨tf, ta, tn, tu, tactive, tnum, tcop⟩
+    rcases s with ⟨sf, sa, sn, su, sactive, snum, scop⟩
+    dsimp only at hf ha hn hu
+    cases hf
+    cases ha
+    cases hn
+    cases hu
+    rfl
+  letI : Countable (FrozenIndex R r.h) := hi.countable
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let m := volume.restrict (Set.Ioi (0 : ℝ))
+  let f : J → ℝ → ℂ := fun q => rf_pairing_grouped_kernel_term R r q Z
+  let qval : J → ℝ := fun q =>
+    S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS)
+  let a : J → ℝ := fun q =>
+    betaIdeal R q.1.f q.1.a * qI q.2.1 ^ (-(1 / 2 : ℝ)) / qI q.1.n.1
+  let u := rowClass R r
+  let t := 1 / Z
+  have ht : 0 < t := div_pos zero_lt_one hZ
+  have hArg (T : ℝ) : t * T = T / Z := by
+    dsimp only [t]
+    simp only [one_div, div_eq_mul_inv]
+    ac_rfl
+  have hq (q : J) : 0 < qval q :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU (frozenFrequency R q.1 r.d q.2))
+  have hqI (I : Ideal (𝓞 F)) : 0 ≤ qI I := by
+    unfold qI
+    exact Nat.cast_nonneg _
+  have ha (q : J) : 0 ≤ a q := div_nonneg
+    (mul_nonneg (rf_betaIdeal_nonneg R q.1.f q.1.a)
+      (Real.rpow_nonneg (hqI q.2.1) _)) (hqI q.1.n.1)
+  have hsWeight : Summable (fun q : J => a q * qval q ^ (-1 : ℝ)) :=
+    rf_pairing_frequency_weight_summable R r
+  have hEach (q : J) : Integrable (f q) m :=
+    (rf_pairing_grouped_kernel_integral R r q Z hZ).1
+  let major : ℝ → ℝ := fun T => ‖R.K T‖ *
+    (∑' q : J, a q * profileAbs R u (qval q / (t * T))) / T
+  obtain ⟨C0, hC0, hMajor⟩ := rf_profile_absolute_series R 1 (by norm_num)
+  have hMajorInt : Integrable major m :=
+    (hMajor J qval a hq ha hsWeight u t ht).1
+  obtain ⟨C, hC, hProfile⟩ := (rf_profile_bound R).2.2 1 (by norm_num)
+  have hDom (q : J) (T : ℝ) (hT : 0 < T) :
+      ‖f q T‖ ≤ (‖R.K T‖ / T) *
+        (a q * profileAbs R u (qval q / (t * T))) := by
+    have h := rf_pairing_grouped_kernel_norm_bound R r q Z hZ T hT
+    change ‖f q T‖ ≤ ‖R.K T‖ *
+      (a q * profileAbs R u (qval q / (T / Z))) / T at h
+    rw [← hArg T] at h
+    convert h using 1 <;> ring
+  have hControl (T : ℝ) (hT : 0 < T) :
+      Summable (fun q : J => ‖f q T‖) ∧
+        ‖∑' q : J, ‖f q T‖‖ ≤ major T := by
+    let b : J → ℝ := fun q => (C * (t * T)) * (a q * qval q ^ (-1 : ℝ))
+    have hb : Summable b := hsWeight.mul_left (C * (t * T))
+    have hpos (q : J) : 0 < qval q / (t * T) := div_pos (hq q) (mul_pos ht hT)
+    have hProfileNonneg (q : J) : 0 ≤ a q * profileAbs R u (qval q / (t * T)) :=
+      mul_nonneg (ha q) ((rf_profile_abs_analysis R u).1 _ (hpos q))
+    have hProfileLe (q : J) : a q * profileAbs R u (qval q / (t * T)) ≤ b q := by
+      calc
+        _ ≤ a q * (C * (qval q / (t * T)) ^ (-1 : ℝ)) :=
+          mul_le_mul_of_nonneg_left (hProfile u _ (hpos q)) (ha q)
+        _ = b q := by
+          dsimp only [b]
+          simp only [Real.rpow_neg_one, div_eq_mul_inv, mul_inv_rev, inv_inv]
+          ring
+    have hsProfile : Summable (fun q : J => a q * profileAbs R u (qval q / (t * T))) :=
+      Summable.of_nonneg_of_le hProfileNonneg hProfileLe hb
+    let scaled : J → ℝ := fun q => (‖R.K T‖ / T) *
+      (a q * profileAbs R u (qval q / (t * T)))
+    have hsScaled : Summable scaled := hsProfile.mul_left (‖R.K T‖ / T)
+    have hsNorm : Summable (fun q : J => ‖f q T‖) :=
+      Summable.of_nonneg_of_le (fun q => norm_nonneg _) (fun q => hDom q T hT) hsScaled
+    refine ⟨hsNorm, ?_⟩
+    calc
+      _ = ∑' q : J, ‖f q T‖ :=
+        Real.norm_of_nonneg (tsum_nonneg (fun q => norm_nonneg _))
+      _ ≤ ∑' q : J, scaled q :=
+        hsNorm.tsum_le_tsum (fun q => hDom q T hT) hsScaled
+      _ = major T := by
+        dsimp only [scaled, major]
+        rw [tsum_mul_left]
+        ring
+  have hPoint : ∀ᵐ T ∂m, Summable (fun q : J => ‖f q T‖) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    exact (hControl T hT).1
+  have hNorm : Integrable (fun T => ∑' q : J, ‖f q T‖) m := by
+    apply hMajorInt.mono'
+      (AEStronglyMeasurable.tsum (fun q => (hEach q).norm.aestronglyMeasurable))
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    exact (hControl T hT).2
+  exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_tsum_of_norm_sum
+    m f (fun q => (hEach q).aestronglyMeasurable) hPoint hNorm
+
+private theorem rf_pairing_Bm_grouped_kernel_integrals
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (Z : ℝ) (hZ : 0 < Z) :
+    Bm D S A ϑ (cgen R) (r.m : F) Z =
+      ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+        ∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T := by
+  classical
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  have hRep := lem_reflection_theta_representation R r 1 Z zero_lt_one hZ
+  have hBm : Bm D S A ϑ (cgen R) (r.m : F) Z =
+      ∫ T in Set.Ioi (0 : ℝ), R.K T * thetaAverage R r (T / Z) / (T : ℂ) := hRep.2.2.2
+  have hEq : (fun T => R.K T * thetaAverage R r (T / Z) / (T : ℂ)) =ᵐ[
+      volume.restrict (Set.Ioi (0 : ℝ))]
+      fun T => ∑' q : J, rf_pairing_grouped_kernel_term R r q Z T := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    rw [(rf_pairing_thetaAverage_grouped_series R r (T / Z) (div_pos hT hZ)).2]
+    simp only [rf_pairing_grouped_kernel_term, tsum_div_const, tsum_mul_left]
+    rfl
+  calc
+    _ = ∫ T in Set.Ioi (0 : ℝ), R.K T * thetaAverage R r (T / Z) / (T : ℂ) := hBm
+    _ = ∫ T in Set.Ioi (0 : ℝ), ∑' q : J, rf_pairing_grouped_kernel_term R r q Z T :=
+      integral_congr_ae hEq
+    _ = _ := (rf_pairing_grouped_kernel_exchange R r Z hZ).2
+
+private theorem rf_pairing_chiIdealPow_zero
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (d : S.ExtIdeal) (c : S.SqfExtIdeal)
+    (h : ¬ IsCoprime d.1 c.1) :
+    chiIdealPow D d.1 (cgen R c) 3 = 0 := by
+  classical
+  have hsup : d.1 ⊔ c.1 ≠ ⊤ := fun ht => h (Ideal.isCoprime_iff_sup_eq.mpr ht)
+  obtain ⟨M, hM, hle⟩ := Ideal.exists_le_maximal _ hsup
+  have hdM : d.1 ≤ M := le_trans le_sup_left hle
+  have hcM : c.1 ≤ M := le_trans le_sup_right hle
+  have hM0 : M ≠ ⊥ := by
+    intro hbot
+    exact d.property.1 (bot_unique (hbot ▸ hdM))
+  let v : FinPlace F := ⟨M, hM.isPrime, hM0⟩
+  have hvC : v ∈ R.exterior.support (R.exterior.ofSqf c) := by
+    rw [R.exterior.mem_support, R.exterior.ofSqf_val]
+    exact Ideal.dvd_iff_le.mpr hcM
+  have hvS : v ∉ S.Sf := R.exterior.support_exterior _ v hvC
+  have he : idealExp v c.1 = 1 := by
+    simpa only [R.exterior.ofSqf_val] using
+      rf_idealExp_eq_one_of_squarefree_support R v
+        (R.exterior.ofSqf c) (by simpa only [R.exterior.ofSqf_val] using c.property.2) hvC
+  have hgen : S.IsGen (cgen R c) c.1 := by
+    simpa only [cgen, R.exterior.ofSqf_val] using (bc.gen_spec (R.exterior.ofSqf c)).1
+  have hcount : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (cgen R c)) = 1 := by
+    rw [hgen.2.2 v hvS, ← rf_idealExp_eq_count v c.1 c.property.1.1, he]
+    norm_num
+  have hlog := rfpair_sol_count_spanSingleton_eq_neg_log_valuation
+    v (cgen R c) hgen.2.1
+  have hlog' : WithZero.log (HeightOneSpectrum.valuation F v (cgen R c)) = -1 := by
+    rw [hcount] at hlog
+    omega
+  have hvalne : HeightOneSpectrum.valuation F v (cgen R c) ≠ 0 :=
+    (v.valuation F).ne_zero_iff.mpr hgen.2.1
+  have hval : HeightOneSpectrum.valuation F v (cgen R c) = WithZero.exp (-1 : ℤ) := by
+    rw [← WithZero.exp_log hvalne, hlog']
+  have hvalLt : HeightOneSpectrum.valuation F v (cgen R c) < 1 := by
+    rw [hval, WithZero.exp_lt_one_iff]
+    norm_num
+  have hres : residue v (cgen R c) = 0 := by
+    by_contra hres
+    exact hvalLt.ne ((a2_bridge_SYMBOL D S).residue_ne_zero v _ hvalLt.le |>.mp hres)
+  have hmem : M ∈ UniqueFactorizationMonoid.normalizedFactors d.1 :=
+    (Ideal.mem_normalizedFactors_iff d.property.1).mpr ⟨hM.isPrime, hdM⟩
+  have hprime : M.IsPrime ∧ M ≠ ⊥ := ⟨hM.isPrime, hM0⟩
+  have hfactor : (if h' : M.IsPrime ∧ M ≠ ⊥ then
+      chiPow D ⟨M, h'.1, h'.2⟩ (cgen R c) 3 else 1) = 0 := by
+    rw [dif_pos hprime]
+    change chiPow D v (cgen R c) 3 = 0
+    simp [chiPow, hres]
+  unfold chiIdealPow
+  apply Multiset.prod_eq_zero
+  exact Multiset.mem_map.mpr ⟨M, hmem, hfactor⟩
+
+private theorem rf_pairing_grouped_kernel_reflected_term
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (q : FrozenIndex R r.h × S.SqfExtIdeal)
+    (Z : ℝ) (hZ : 0 < Z) :
+    (∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T) =
+      ∑' sd : Bd.B, ∑' sc : Bd.B,
+        reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2) := by
+  classical
+  letI : Fintype S.V := R.sheets.classFinite
+  let rt (sd sc : Bd.B) : ℂ :=
+    reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2)
+  let sd0 : Bd.B := ⟨cls (S.diagU (bc.gen r.d)), (bc.gen_spec r.d).2⟩
+  let sc0 : Bd.B := ⟨cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))),
+    (bc.gen_spec (R.exterior.ofSqf q.2)).2⟩
+  have hSd (sd sc : Bd.B) (hne : sd ≠ sd0) : rt sd sc = 0 := by
+    have hNo : ¬ (Squarefree r.d.1 ∧ IsCoprime r.d.1 (r.h.1 * q.1.n.1) ∧
+        cls (S.diagU (bc.gen r.d)) = sd.1) := by
+      intro h
+      exact hne (Subtype.ext h.2.2.symm)
+    dsimp only [rt, reflectedTerm]
+    rw [frozenRho, if_neg hNo]
+    simp only [mul_zero, zero_mul]
+  have hSc (sc : Bd.B) (hne : sc ≠ sc0) : rt sd0 sc = 0 := by
+    have hNo : ¬ (IsCoprime q.2.1 q.1.f.1 ∧
+        cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))) = sc.1) := by
+      intro h
+      exact hne (Subtype.ext h.2.symm)
+    dsimp only [rt, reflectedTerm]
+    rw [frozenLambda, if_neg hNo]
+    simp only [mul_zero, zero_mul]
+  have hSum : (∑' sd : Bd.B, ∑' sc : Bd.B, rt sd sc) = rt sd0 sc0 := by
+    simp_rw [tsum_fintype]
+    calc
+      _ = ∑ sc : Bd.B, rt sd0 sc := by
+        apply Finset.sum_eq_single sd0
+        · intro sd hsd hne
+          exact Finset.sum_eq_zero (fun sc hsc => hSd sd sc hne)
+        · intro hsd
+          exact (hsd (Finset.mem_univ sd0)).elim
+      _ = rt sd0 sc0 := by
+        apply Finset.sum_eq_single sc0
+        · intro sc hsc hne
+          exact hSc sc hne
+        · intro hsc
+          exact (hsc (Finset.mem_univ sc0)).elim
+  have hInt := (rf_pairing_grouped_kernel_integral R r q Z hZ).2
+  change (∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T) =
+    ∑' sd : Bd.B, ∑' sc : Bd.B, rt sd sc
+  by_cases hcf : IsCoprime q.2.1 q.1.f.1
+  · by_cases hdn : IsCoprime r.d.1 q.1.n.1
+    · by_cases hdc : IsCoprime r.d.1 q.2.1
+      · have hGuard : IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) :=
+          (hdc.symm.mul_right hcf).mul_left (hdn.symm.mul_right q.1.coprime)
+        have hNC := rf_pairing_frequency_norm_class R r.h q.1 r.d q.2 sd0 sc0 rfl rfl
+        have hArg : Z * S.absS (S.diagU (frozenFrequency R q.1 r.d q.2) : S.FS) =
+            Z * qI q.1.a.1 * qI q.2.1 * qI q.1.n.1 ^ 3 /
+              (qI r.d.1 ^ 2 * qI q.1.f.1 ^ 2) := by
+          rw [hNC.1]
+          ring
+        have hFactor := (rf_exterior_factorization R).2 (rowClass R r) r.h q.1
+          sd0 sc0 r.d q.2 r.d_squarefree (r.coprime.symm.mul_right hdn) hcf hdc rfl rfl
+        rw [hSum]
+        calc
+          _ = groupedExterior R q.1 r.d (frozenFrequency R q.1 r.d q.2) *
+              (Lvalue R (rowClass R r) (S.diagU (frozenFrequency R q.1 r.d q.2)))⁻¹ *
+              profilePhi R (rowClass R r) (kappaSix R q.1 sd0 sc0)
+                (Z * qI q.1.a.1 * qI q.2.1 * qI q.1.n.1 ^ 3 /
+                  (qI r.d.1 ^ 2 * qI q.1.f.1 ^ 2)) := by
+            rw [hInt, if_pos hGuard, hNC.2, hArg]
+          _ = rt sd0 sc0 := by
+            dsimp only [rt, reflectedTerm]
+            rw [hFactor]
+      · have hGuard : ¬ IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) := by
+          intro h
+          exact hdc h.of_mul_left_left.of_mul_right_left.symm
+        have hChi : chiIdealPow D r.d.1 (cgen R q.2) 3 = 0 :=
+          rf_pairing_chiIdealPow_zero R r.d q.2 hdc
+        have hAll (sd sc : Bd.B) : rt sd sc = 0 := by
+          dsimp only [rt, reflectedTerm]
+          rw [hChi]
+          simp only [mul_zero, zero_mul]
+        rw [hInt, if_neg hGuard]
+        simp only [hAll, tsum_zero]
+    · have hGuard : ¬ IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) := by
+        intro h
+        exact hdn h.of_mul_left_right.of_mul_right_left.symm
+      have hAll (sd sc : Bd.B) : rt sd sc = 0 := by
+        have hNo : ¬ (Squarefree r.d.1 ∧ IsCoprime r.d.1 (r.h.1 * q.1.n.1) ∧
+            cls (S.diagU (bc.gen r.d)) = sd.1) := by
+          intro h
+          exact hdn h.2.1.of_mul_right_right
+        dsimp only [rt, reflectedTerm]
+        rw [frozenRho, if_neg hNo]
+        simp only [mul_zero, zero_mul]
+      rw [hInt, if_neg hGuard]
+      simp only [hAll, tsum_zero]
+  · have hGuard : ¬ IsCoprime (q.2.1 * q.1.n.1) (r.d.1 * q.1.f.1) := by
+      intro h
+      exact hcf h.of_mul_left_left.of_mul_right_right
+    have hAll (sd sc : Bd.B) : rt sd sc = 0 := by
+      have hNo : ¬ (IsCoprime q.2.1 q.1.f.1 ∧
+          cls (S.diagU (bc.gen (R.exterior.ofSqf q.2))) = sc.1) := by
+        intro h
+        exact hcf h.1
+      dsimp only [rt, reflectedTerm]
+      rw [frozenLambda, if_neg hNo]
+      simp only [mul_zero, zero_mul]
+    rw [hInt, if_neg hGuard]
+    simp only [hAll, tsum_zero]
+
+private theorem rf_pairing_reflected_term_reindex
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (Z : ℝ) (hZ : 0 < Z) :
+    (∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+      ∑' sd : Bd.B, ∑' sc : Bd.B,
+        reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2)) =
+      ∑' p : FrozenIndex R r.h × Bd.B × Bd.B × S.SqfExtIdeal,
+        reflectedTerm R (rowClass R r) r.h r.d Z p := by
+  classical
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  let I := J × Bd.B × Bd.B
+  let P := FrozenIndex R r.h × Bd.B × Bd.B × S.SqfExtIdeal
+  let f : P → ℂ := reflectedTerm R (rowClass R r) r.h r.d Z
+  let e : I ≃ P := {
+    toFun := fun p => (p.1.1, p.2.1, p.2.2, p.1.2)
+    invFun := fun p => ((p.1, p.2.2.2), p.2.1, p.2.2.1)
+    left_inv := by
+      rintro ⟨⟨t, c⟩, sd, sc⟩
+      rfl
+    right_inv := by
+      rintro ⟨t, sd, sc, c⟩
+      rfl }
+  have hs : Summable f := Summable.of_norm (rf_reflected_row_summable R r Z hZ)
+  have hsI : Summable (f ∘ e) := (e.summable_iff).2 hs
+  have hNested : (∑' p : I, (f ∘ e) p) =
+      ∑' q : J, ∑' sd : Bd.B, ∑' sc : Bd.B,
+        reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2) := by
+    calc
+      _ = ∑' q : J, ∑' s : Bd.B × Bd.B, (f ∘ e) (q, s) := hsI.tsum_prod
+      _ = _ := tsum_congr (fun q => (hsI.prod_factor q).tsum_prod)
+  exact hNested.symm.trans (e.tsum_eq f)
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
   Bm D S A ϑ (cgen R) (r.m : F) Z = ∑' p, reflectedTerm R (rowClass R r) r.h r.d Z p := by
-  sorry
+  intro r Z hZ
+  refine ⟨rf_reflected_row_summable R r Z hZ, ?_⟩
+  calc
+    Bm D S A ϑ (cgen R) (r.m : F) Z =
+        ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+          ∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T :=
+      rf_pairing_Bm_grouped_kernel_integrals R r Z hZ
+    _ = ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+        ∑' sd : Bd.B, ∑' sc : Bd.B,
+          reflectedTerm R (rowClass R r) r.h r.d Z (q.1, sd, sc, q.2) :=
+      tsum_congr (fun q => rf_pairing_grouped_kernel_reflected_term R r q Z hZ)
+    _ = ∑' p, reflectedTerm R (rowClass R r) r.h r.d Z p :=
+      rf_pairing_reflected_term_reindex R r Z hZ
 /-- Retained and discarded masses use the same dyadic threshold, with the row support explicit. -/
 def splitReflection (retained : Bool) (υ : UnitSix S) (h d : S.ExtIdeal) (Z R0 : ℝ) : ℂ :=
   if Squarefree d.1 ∧ IsCoprime d.1 h.1 then
