@@ -2043,17 +2043,19 @@ private theorem cont_partial_sum_split {q : ℕ} (χ : DirichletCharacter ℂ q)
     hY0_filter, hY_filter]
   rw [hsplit, Finset.sum_union hdisj]
 
-private theorem cont_high_growth_threshold (C Cφ : ℝ)
+private theorem cont_high_growth_threshold (C Cφ C₃ : ℝ)
     (hC : 0 < C) (hCφ : 0 < Cφ) :
     ∃ x₀ : ℝ, 2 < x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
       let L := Real.log x
       let T := Real.log L
       1 ≤ T ∧
-      (50 + C) * T ^ 4 ≤ L ∧
+      (150 + C) * T ^ 4 ≤ L ∧
       100 * T ^ 6 ≤ L ∧
-      (63 + 2 * Cφ) * T ^ 15 ≤ L := by
-  let A₄ : ℝ := 50 + C
+      (63 + 2 * Cφ) * T ^ (⌈C₃⌉₊ + 15) ≤ L := by
+  let A₄ : ℝ := 150 + C
   let A₁₅ : ℝ := 63 + 2 * Cφ
+  let d : ℕ := ⌈C₃⌉₊
+  let m : ℕ := d + 15
   have hA₄ : 0 < A₄ := by dsimp [A₄]; linarith
   have hA₁₅ : 0 < A₁₅ := by dsimp [A₁₅]; positivity
   have hTlim : Tendsto (fun x : ℝ => Real.log (Real.log x)) atTop atTop :=
@@ -2072,30 +2074,30 @@ private theorem cont_high_growth_threshold (C Cφ : ℝ)
   have hsmall₆ : ∀ᶠ x : ℝ in atTop,
       Real.log (Real.log x) ^ 6 / Real.log x < 1 / 100 :=
     (hlogpow 6).eventually (gt_mem_nhds (by norm_num))
-  have hsmall₁₅ : ∀ᶠ x : ℝ in atTop,
-      Real.log (Real.log x) ^ 15 / Real.log x < 1 / A₁₅ :=
-    (hlogpow 15).eventually (gt_mem_nhds (by positivity))
+  have hsmallm : ∀ᶠ x : ℝ in atTop,
+      Real.log (Real.log x) ^ m / Real.log x < 1 / A₁₅ :=
+    (hlogpow m).eventually (gt_mem_nhds (by positivity))
   have hEventually : ∀ᶠ x : ℝ in atTop,
       1 ≤ Real.log x ∧ 1 ≤ Real.log (Real.log x) ∧
         Real.log (Real.log x) ^ 4 / Real.log x < 1 / A₄ ∧
         Real.log (Real.log x) ^ 6 / Real.log x < 1 / 100 ∧
-        Real.log (Real.log x) ^ 15 / Real.log x < 1 / A₁₅ := by
+        Real.log (Real.log x) ^ m / Real.log x < 1 / A₁₅ := by
     filter_upwards [Real.tendsto_log_atTop.eventually_ge_atTop 1,
-      hTlim.eventually_ge_atTop 1, hsmall₄, hsmall₆, hsmall₁₅]
-      with x hL hT h₄ h₆ h₁₅
-    exact ⟨hL, hT, h₄, h₆, h₁₅⟩
+      hTlim.eventually_ge_atTop 1, hsmall₄, hsmall₆, hsmallm]
+      with x hL hT h₄ h₆ hm
+    exact ⟨hL, hT, h₄, h₆, hm⟩
   obtain ⟨X, hX⟩ := eventually_atTop.1 hEventually
   refine ⟨max 3 X, lt_of_lt_of_le (by norm_num) (le_max_left _ _), ?_⟩
   intro x hx
   have hxX : X ≤ x := (le_max_right _ _).trans hx
-  rcases hX x hxX with ⟨hLone, hTone, h₄, h₆, h₁₅⟩
+  rcases hX x hxX with ⟨hLone, hTone, h₄, h₆, hm⟩
   let L : ℝ := Real.log x
   let T : ℝ := Real.log L
   have hLpos : 0 < L := by dsimp [L]; linarith
   have hTpos : 0 < T := by dsimp [T]; linarith
   have h₄' : T ^ 4 / L < 1 / A₄ := by simpa [L, T] using h₄
   have h₆' : T ^ 6 / L < 1 / 100 := by simpa [L, T] using h₆
-  have h₁₅' : T ^ 15 / L < 1 / A₁₅ := by simpa [L, T] using h₁₅
+  have hm' : T ^ m / L < 1 / A₁₅ := by simpa [L, T] using hm
   have hbound₄lt : A₄ * T ^ 4 < L := by
     calc
       A₄ * T ^ 4 = (T ^ 4 / L) * (L * A₄) := by
@@ -2112,17 +2114,17 @@ private theorem cont_high_growth_threshold (C Cφ : ℝ)
         mul_lt_mul_of_pos_right h₆' (mul_pos hLpos (by norm_num))
       _ = L := by ring
   have hbound₆ : 100 * T ^ 6 ≤ L := hbound₆lt.le
-  have hbound₁₅lt : A₁₅ * T ^ 15 < L := by
+  have hbound₁₅lt : A₁₅ * T ^ m < L := by
     calc
-      A₁₅ * T ^ 15 = (T ^ 15 / L) * (L * A₁₅) := by
+      A₁₅ * T ^ m = (T ^ m / L) * (L * A₁₅) := by
         field_simp [ne_of_gt hLpos]
       _ < (1 / A₁₅) * (L * A₁₅) :=
-        mul_lt_mul_of_pos_right h₁₅' (mul_pos hLpos hA₁₅)
+        mul_lt_mul_of_pos_right hm' (mul_pos hLpos hA₁₅)
       _ = L := by field_simp [ne_of_gt hA₁₅]
-  have hbound₁₅ : A₁₅ * T ^ 15 ≤ L := hbound₁₅lt.le
+  have hbound₁₅ : A₁₅ * T ^ m ≤ L := hbound₁₅lt.le
   dsimp only
   exact ⟨hTone, by simpa [A₄] using hbound₄, hbound₆,
-    by simpa [A₁₅] using hbound₁₅⟩
+    by simpa [A₁₅, m, d] using hbound₁₅⟩
 
 private theorem cont_growth_high_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
