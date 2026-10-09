@@ -4092,6 +4092,90 @@ private theorem principal_prime_slice_count (γ : ℝ) (hγ : 0 < γ)
         rw [hemptyT, hint0, Finset.card_empty, Nat.cast_zero, sub_zero, abs_zero]
       _ ≤ C * (M / Q) * D := hRHS
 
+set_option maxHeartbeats 1000000 in
+private theorem principal_tuple_kernel_integrable {n : ℕ} {A l r : ℝ}
+    (hA1 : 1 < A) :
+    IntegrableOn (fun t : Fin (n + 1) → ℝ => ∏ i, 1 / Real.log (t i))
+      (roughTupleSource (n := n) A l r) volume := by
+  classical
+  let K : Set (Fin (n + 1) → ℝ) := Set.univ.pi fun _ => Set.Icc A r
+  have hK : IsCompact K := by
+    exact isCompact_univ_pi fun _ => isCompact_Icc
+  have hsubset : roughTupleSource (n := n) A l r ⊆ K := by
+    intro t ht
+    simp only [K, Set.mem_pi, Set.mem_univ, true_implies]
+    intro i
+    refine ⟨ht.1 i, ?_⟩
+    have hprodOne (s : Finset (Fin (n + 1))) : 1 ≤ ∏ k ∈ s, t k := by
+      induction s using Finset.induction_on with
+      | empty => simp
+      | @insert k s hks ih =>
+        rw [Finset.prod_insert hks]
+        have hk1 : 1 ≤ t k := le_trans hA1.le (ht.1 k)
+        have hA0 : 0 ≤ A := by linarith
+        have hs0 : 0 ≤ ∏ q ∈ s, t q :=
+          Finset.prod_nonneg fun q _ => le_trans hA0 (ht.1 q)
+        nlinarith [mul_le_mul_of_nonneg_left hk1 hs0]
+    have hrest : 1 ≤ ∏ k ∈ Finset.univ.erase i, t k := hprodOne _
+    have hprodEq : t i * ∏ k ∈ Finset.univ.erase i, t k =
+        ∏ k : Fin (n + 1), t k :=
+      Finset.mul_prod_erase Finset.univ t (Finset.mem_univ i)
+    have hsingle : t i ≤ ∏ k : Fin (n + 1), t k := by
+      calc
+        t i = t i * 1 := by ring
+        _ ≤ t i * ∏ k ∈ Finset.univ.erase i, t k :=
+          mul_le_mul_of_nonneg_left hrest
+            (le_trans (by norm_num : 0 ≤ (1 : ℝ)) (le_trans hA1.le (ht.1 i)))
+        _ = ∏ k : Fin (n + 1), t k := hprodEq
+    exact hsingle.trans ht.2.2
+  have hlogA : 0 < Real.log A := Real.log_pos hA1
+  let F : (Fin (n + 1) → ℝ) → ℝ := fun t =>
+    ∏ i : Fin (n + 1), (max (Real.log A) (Real.log (max A (t i))))⁻¹
+  have hF : Continuous F := by
+    unfold F
+    apply continuous_finsetProd Finset.univ
+    intro i hi
+    have hlog : Continuous (fun t : Fin (n + 1) → ℝ => Real.log (max A (t i))) := by
+      apply continuous_iff_continuousAt.mpr
+      intro t
+      have hmaxAt : ContinuousAt (fun u : ℝ => max A u) (t i) :=
+        (continuous_const.max continuous_id).continuousAt
+      have hlogAt : ContinuousAt (fun u : ℝ => Real.log (max A u)) (t i) := by
+        have hlogAt' : ContinuousAt Real.log (max A (t i)) :=
+          Real.continuousAt_log
+            (ne_of_gt (lt_of_lt_of_le (lt_trans zero_lt_one hA1) (le_max_left A (t i))))
+        exact ContinuousAt.comp (f := fun u : ℝ => max A u) (g := Real.log)
+          (x := t i) hlogAt' hmaxAt
+      have happly : ContinuousAt (fun u : Fin (n + 1) → ℝ => u i) t :=
+        (continuous_apply i).continuousAt
+      exact ContinuousAt.comp (f := fun u : Fin (n + 1) → ℝ => u i)
+        (g := fun u : ℝ => Real.log (max A u)) (x := t) hlogAt happly
+    have hden : Continuous (fun t : Fin (n + 1) → ℝ =>
+        max (Real.log A) (Real.log (max A (t i)))) := continuous_const.max hlog
+    apply hden.inv₀
+    intro t
+    exact ne_of_gt (lt_of_lt_of_le hlogA (le_max_left _ _))
+  have hFeq : ∀ t ∈ K, F t = ∏ i : Fin (n + 1), 1 / Real.log (t i) := by
+    intro t ht
+    have htcoord : ∀ i, A ≤ t i := by
+      have hti : ∀ i, t i ∈ Set.Icc A r := by
+        simpa only [K, Set.mem_pi, Set.mem_univ, true_implies] using ht
+      intro i
+      exact (hti i).1
+    unfold F
+    apply Finset.prod_congr rfl
+    intro i hi
+    have hlog : Real.log A ≤ Real.log (t i) :=
+      Real.log_le_log (lt_trans zero_lt_one hA1) (htcoord i)
+    simp [max_eq_right (htcoord i), max_eq_right hlog]
+  have hf : ContinuousOn
+      (fun t : Fin (n + 1) → ℝ => ∏ i, 1 / Real.log (t i)) K :=
+    hF.continuousOn.congr fun t ht => (hFeq t ht).symm
+  have hsfinite : volume (roughTupleSource (n := n) A l r) ≠ ⊤ :=
+    ne_of_lt (lt_of_le_of_lt (measure_mono hsubset) hK.measure_lt_top)
+  exact hf.integrableOn_of_subset_isCompact hK
+    (measurableSet_roughTupleSource A l r) hsubset hsfinite
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
