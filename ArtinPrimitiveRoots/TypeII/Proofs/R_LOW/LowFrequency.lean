@@ -1209,4 +1209,22 @@ theorem box_product_bound {j : ℕ} (P y : Fin j → ℝ) (M : ℝ) (hM : 0 < M)
   rw [div_le_iff₀ h2pos, mul_comm]
   exact hMle
 
+/-- Dropping at most two points of norm `≤ B` changes a finite sum by at most `2*B`.
+Endpoint-removal step for the `sw_slot_clipped` adapter. -/
+theorem sum_subset_diff_bound (s t : Finset ℕ) (f : ℕ → ℂ) (B : ℝ) (hB : 0 ≤ B)
+    (hts : t ⊆ s) (hf : ∀ n ∈ s \ t, ‖f n‖ ≤ B) (hcard : (s \ t).card ≤ 2) :
+    ‖∑ n ∈ s, f n - ∑ n ∈ t, f n‖ ≤ 2 * B := by
+  have hadd : ∑ n ∈ s \ t, f n + ∑ n ∈ t, f n = ∑ n ∈ s, f n :=
+    Finset.sum_sdiff hts
+  have hsd : ∑ n ∈ s, f n - ∑ n ∈ t, f n = ∑ n ∈ s \ t, f n :=
+    (eq_sub_of_add_eq hadd).symm
+  rw [hsd]
+  have hsum : ∑ n ∈ s \ t, ‖f n‖ ≤ (s \ t).card * B := by
+    calc ∑ n ∈ s \ t, ‖f n‖ ≤ ∑ _n ∈ s \ t, B := Finset.sum_le_sum hf
+      _ = (s \ t).card * B := by rw [Finset.sum_const, nsmul_eq_mul]
+  have hcardR : ((s \ t).card : ℝ) ≤ 2 := Nat.cast_le.mpr hcard
+  calc ‖∑ n ∈ s \ t, f n‖ ≤ ∑ n ∈ s \ t, ‖f n‖ := norm_sum_le _ _
+    _ ≤ (s \ t).card * B := hsum
+    _ ≤ 2 * B := mul_le_mul_of_nonneg_right hcardR hB
+
 end ArtinPrimitiveRoots.Proofs.r_impl_muse
