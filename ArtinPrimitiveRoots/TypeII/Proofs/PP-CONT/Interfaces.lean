@@ -1644,6 +1644,102 @@ private theorem cont_weighted_dyad_bound
       nlinarith [mul_nonneg hB ha0]
     _ = 2 * B * Real.rpow (N : ℝ) (-σ) := by simp [a]
 
+private theorem cont_sum_Icc_dyadic_prefix {α : Type*}
+    [AddCommMonoid α] (f : ℕ → α) (N X m : ℕ) (hN : 0 < N) :
+    (∑ n ∈ Finset.Icc N (min (N * 2 ^ m - 1) X), f n) =
+      ∑ k ∈ Finset.range m,
+        ∑ n ∈ Finset.Icc (N * 2 ^ k)
+          (min (N * 2 ^ (k + 1) - 1) X), f n := by
+  classical
+  induction m with
+  | zero =>
+      have hempty : Finset.Icc N (min (N * 2 ^ 0 - 1) X) = ∅ := by
+        have hlt : N * 2 ^ 0 - 1 < N := by simp; omega
+        ext n
+        simp only [Finset.mem_Icc, Finset.notMem_empty]
+        constructor
+        · rintro ⟨hnN, hnEnd⟩
+          have hnC : n ≤ N * 2 ^ 0 - 1 := hnEnd.trans (Nat.min_le_left _ _)
+          exact (not_le_of_gt hlt) (hnN.trans hnC)
+        · intro hfalse
+          cases hfalse
+      rw [hempty]
+      simp
+  | succ m ih =>
+      let S : ℕ := N * 2 ^ m
+      have hSpos : 0 < S := by dsimp [S]; positivity
+      have hpow : N * 2 ^ (m + 1) = 2 * S := by
+        dsimp [S]
+        rw [pow_succ]
+        ring
+      by_cases hSX : S ≤ X
+      · have hprev : min (S - 1) X = S - 1 := by omega
+        have hSupper : S ≤ N * 2 ^ (m + 1) - 1 := by rw [hpow]; omega
+        have hR : S ≤ min (N * 2 ^ (m + 1) - 1) X := le_min hSupper hSX
+        have hNS : N ≤ S := by
+          dsimp [S]
+          calc
+            N = N * 1 := by simp
+            _ ≤ N * 2 ^ m := Nat.mul_le_mul_left N (Nat.one_le_pow _ _ (by decide))
+        have hsplit : Finset.Icc N (min (N * 2 ^ (m + 1) - 1) X) =
+            Finset.Icc N (S - 1) ∪
+              Finset.Icc S (min (N * 2 ^ (m + 1) - 1) X) := by
+          ext n
+          simp only [Finset.mem_union, Finset.mem_Icc]
+          constructor
+          · rintro ⟨hnN, hnR⟩
+            by_cases hnS : n < S
+            · exact Or.inl ⟨hnN, by omega⟩
+            · exact Or.inr ⟨le_of_not_gt hnS, hnR⟩
+          · rintro (⟨hnN, hnEnd⟩ | ⟨hnS, hnEnd⟩)
+            · exact ⟨hnN, hnEnd.trans ((Nat.sub_le S 1).trans hR)⟩
+            · exact ⟨hNS.trans hnS, hnEnd⟩
+        have hdisj : Disjoint (Finset.Icc N (S - 1))
+            (Finset.Icc S (min (N * 2 ^ (m + 1) - 1) X)) := by
+          apply Finset.disjoint_left.mpr
+          intro n hn₁ hn₂
+          simp only [Finset.mem_Icc] at hn₁ hn₂
+          omega
+        have ih' : (∑ n ∈ Finset.Icc N (S - 1), f n) =
+            ∑ k ∈ Finset.range m,
+              ∑ n ∈ Finset.Icc (N * 2 ^ k)
+                (min (N * 2 ^ (k + 1) - 1) X), f n := by
+          simpa [S, hprev] using ih
+        calc
+          _ = ∑ n ∈ Finset.Icc N (S - 1) ∪
+                Finset.Icc S (min (N * 2 ^ (m + 1) - 1) X), f n := by rw [hsplit]
+          _ = (∑ n ∈ Finset.Icc N (S - 1), f n) +
+                ∑ n ∈ Finset.Icc S (min (N * 2 ^ (m + 1) - 1) X), f n :=
+              Finset.sum_union hdisj
+          _ = (∑ k ∈ Finset.range m,
+                ∑ n ∈ Finset.Icc (N * 2 ^ k)
+                  (min (N * 2 ^ (k + 1) - 1) X), f n) +
+                ∑ n ∈ Finset.Icc S (min (N * 2 ^ (m + 1) - 1) X), f n := by rw [ih']
+          _ = ∑ k ∈ Finset.range (m + 1),
+                ∑ n ∈ Finset.Icc (N * 2 ^ k)
+                  (min (N * 2 ^ (k + 1) - 1) X), f n := by
+              rw [Finset.sum_range_succ]
+      · have hXprev : X ≤ S - 1 := by omega
+        have hprev : min (S - 1) X = X := min_eq_right hXprev
+        have hSnext : S ≤ N * 2 ^ (m + 1) - 1 := by rw [hpow]; omega
+        have hnext : min (N * 2 ^ (m + 1) - 1) X = X :=
+          min_eq_right (hXprev.trans ((Nat.sub_le S 1).trans hSnext))
+        have hblock : Finset.Icc (N * 2 ^ m) X = ∅ := by
+          have hlt : X < N * 2 ^ m := lt_of_not_ge (by simpa [S] using hSX)
+          ext n
+          have hnocontra : ¬ (N * 2 ^ m ≤ n ∧ n ≤ X) := by
+            intro h
+            exact (not_le_of_gt hlt) (h.1.trans h.2)
+          simp only [Finset.mem_Icc, Finset.notMem_empty]
+          constructor
+          · exact hnocontra
+          · intro hfalse
+            cases hfalse
+        rw [Finset.sum_range_succ, hnext]
+        rw [hblock, Finset.sum_empty, add_zero]
+        have hprev' : min (N * 2 ^ m - 1) X = X := by simpa [S] using hprev
+        simpa [hprev'] using ih
+
 private theorem cont_growth_low_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
