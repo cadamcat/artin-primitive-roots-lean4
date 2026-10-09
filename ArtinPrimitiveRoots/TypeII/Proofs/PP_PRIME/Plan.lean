@@ -2619,6 +2619,46 @@ private theorem ppPrimeIntegral_largeSet_rpow_bound
     _ = K * ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ) := by rw [integral_const_mul]
     _ = _ := by dsimp [K]
 
+private theorem ppPrimeIntegral_truncate_rpow_bound
+    {F : ℝ → ℂ} {M H j : ℝ}
+    (hM : 0 ≤ M) (hH : 1 ≤ H) (hj : 2 ≤ j) (hFint : Integrable F)
+    (hdecay : ∀ v : ℝ,
+      ‖F v‖ ≤ M * Real.rpow (1 + |v|) (-j)) :
+    ‖(∫ v : ℝ, F v) - ∫ v : ℝ in (-H)..H, F v‖ ≤
+      2 * (M * Real.rpow H (2 - j)) *
+        ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+  have hHpos : 0 < H := lt_of_lt_of_le (by norm_num) hH
+  have hleft := ppPrimeIntegral_largeSet_rpow_bound hM hHpos hj measurableSet_Iic
+    hFint hdecay (by
+      intro v hv
+      change v ≤ -H at hv
+      have hvneg : v ≤ 0 := le_trans hv (neg_nonpos.mpr hHpos.le)
+      rw [abs_of_nonpos hvneg]
+      linarith)
+  have hright := ppPrimeIntegral_largeSet_rpow_bound hM hHpos hj measurableSet_Ioi
+    hFint hdecay (by
+      intro v hv
+      change H < v at hv
+      rw [abs_of_pos (lt_trans hHpos hv)]
+      linarith)
+  have hsplitLeft := intervalIntegral.integral_Iic_add_Ioi (f := F) (b := -H)
+    hFint.integrableOn hFint.integrableOn
+  have hsplitRight := intervalIntegral.integral_interval_add_Ioi
+    (f := F) (a := -H) (b := H) hFint.integrableOn hFint.integrableOn
+  have hdecomp : (∫ v : ℝ, F v) - ∫ v : ℝ in (-H)..H, F v =
+      (∫ v in Set.Iic (-H), F v) + ∫ v in Set.Ioi H, F v := by
+    rw [← hsplitLeft, ← hsplitRight]
+    ring
+  let E : ℝ := (M * Real.rpow H (2 - j)) *
+    ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ)
+  calc
+    _ = ‖(∫ v in Set.Iic (-H), F v) + ∫ v in Set.Ioi H, F v‖ := by rw [hdecomp]
+    _ ≤ ‖∫ v in Set.Iic (-H), F v‖ + ‖∫ v in Set.Ioi H, F v‖ := norm_add_le _ _
+    _ ≤ E + E := add_le_add (by simpa [E, mul_assoc] using hleft)
+      (by simpa [E, mul_assoc] using hright)
+    _ = 2 * E := by ring
+    _ = _ := by dsimp [E]; ring
+
 private theorem ppPrimeIntegral_largeSet_norm_bound
     {F : ℝ → ℂ} {S : Set ℝ} {M H : ℝ}
     (hM : 0 ≤ M) (hH : 0 < H) (hS : MeasurableSet S)
