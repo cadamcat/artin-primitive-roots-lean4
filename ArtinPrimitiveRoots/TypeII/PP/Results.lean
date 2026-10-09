@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pp1.HalaszMeanValue
 import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.LogPhaseLow
 import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.PhaseReindex
 import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.Interfaces
+import ArtinPrimitiveRoots.TypeII.Proofs.«PP-CONT».Interfaces
 
 /-! Statements in the Prime Predecessors long-prime chain, PP
 `02-long-prime.tex:8-579`. -/
@@ -72,7 +73,41 @@ theorem L_upper :
                 (1 / 2 : ℝ) ≤ |v| → |v| ≤ 3 * Real.rpow x 3 →
                       ‖dirichletLValue q hq χ (⟨σ, v⟩ : ℂ)‖ ≤
                     Real.exp (C₀ * T ^ 2)) := by
-  sorry
+  classical
+  intro C hC
+  have hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement := by
+    simpa [ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement] using log_phase
+  obtain ⟨C₀g, x₀g, hC₀g, hx₀g, hg⟩ :=
+    ArtinPrimitiveRoots.Proofs.pp_cont_p.cont_growth_bound hLog C hC
+  refine ⟨max 4 C₀g, x₀g, lt_of_lt_of_le (by norm_num) (le_max_left _ _),
+    hx₀g, ?_⟩
+  intro x hx
+  dsimp only
+  intro q hq hqC hqpos χ
+  refine ⟨?_, ?_⟩
+  · intro s hσlo hσhi him Y hY
+    have hApprox := ArtinPrimitiveRoots.Proofs.pp_cont_p.cont_approximation
+      hqpos χ s hσlo hσhi him hY
+    have hfac : 0 ≤ (q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-s.re) := by
+      have hqnonneg : 0 ≤ (q : ℝ) := by positivity
+      have hYnonneg : 0 ≤ Y := by linarith
+      have hpow : 0 ≤ Real.rpow Y (-s.re) := Real.rpow_nonneg hYnonneg _
+      have hsnonneg : 0 ≤ 1 + ‖s‖ := by positivity
+      exact mul_nonneg (mul_nonneg hqnonneg hsnonneg) hpow
+    calc
+      _ ≤ 4 * (q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-s.re) := hApprox
+      _ = 4 * ((q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-s.re)) := by ring
+      _ ≤ max 4 C₀g *
+          ((q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-s.re)) :=
+        mul_le_mul_of_nonneg_right (le_max_left _ _) hfac
+      _ = max 4 C₀g * (q : ℝ) * (1 + ‖s‖) * Real.rpow Y (-s.re) := by ring
+  · intro σ v hσ him hv
+    have hg' := hg x hx q hq hqC hqpos χ σ v hσ him hv
+    have hTnonneg : 0 ≤ Real.log (Real.log x) ^ 2 := sq_nonneg _
+    calc
+      _ ≤ Real.exp (C₀g * Real.log (Real.log x) ^ 2) := hg'
+      _ ≤ Real.exp (max 4 C₀g * Real.log (Real.log x) ^ 2) :=
+        Real.exp_le_exp.mpr <| mul_le_mul_of_nonneg_right (le_max_right _ _) hTnonneg
 
 private theorem norm_LFunctionTrivChar_le_of_zeta₀_bound (q : ℕ) [NeZero q] (hq : 0 < q)
     {r K : ℝ} (hr : 0 < r) (hK : 0 ≤ K)
