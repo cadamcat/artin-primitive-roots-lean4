@@ -85,6 +85,7 @@ import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.TupleMinor
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.ProjectivePad
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SlopeCells
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.CleanPadFacts
+import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.SupportCells
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Density
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Damping
 import ArtinPrimitiveRoots.TypeII.Proofs.pd4c.Adjoint
@@ -11288,6 +11289,27 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_prime_tuple_block_bound
     field_simp [hYpos.ne']
   rw [hconst] at hbound
   exact hbound
+
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Supported primitive clean pad edges preserve projective lines and have bounded cell shifts. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_pad_kernel_projective_cell_support {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ Ccell : ℝ, 0 ≤ Ccell ∧
+      ∀ (S : PDScale) (w : ArchRoot) (z z' : ℤ × ℤ) (D aa bb : ℕ),
+      0 < S.U → w.InRegion S → envBox S w z → envBox S w z' →
+      0 < S.Y → 0 < S.d₀ →
+      Int.gcd z.1 z.2 = 1 → Int.gcd z'.1 z'.2 = 1 →
+      IsPadAdmissible S.d₀ D (det2 z z') →
+      geometricMultiplier F S D aa bb (det2 z z'/(D : ℤ)) ≠ 0 →
+      (∀ q : ℕ, q.Prime → q ∣ D → projLine q z = projLine q z') ∧
+        |((⌊((z'.2 : ℝ)/w.tau z')/((S.d₀ : ℝ)*S.Y)⌋-
+            ⌊((z.2 : ℝ)/w.tau z)/((S.d₀ : ℝ)*S.Y)⌋ : ℤ) : ℝ)| ≤ Ccell := by
+  obtain ⟨Ccell, hCcell, hcell⟩ := geometric_multiplier_cell_distance_bound F hF
+  refine ⟨Ccell, hCcell, ?_⟩
+  intro S w z z' D aa bb hU hw hz hz' hY hd₀ hzprim hz'prim hpad hne
+  refine ⟨?_, hcell S w z z' D aa bb hU hw hz hz' hY hd₀ hpad hne⟩
+  intro q hqprime hqD
+  have hqDz : (q : ℤ) ∣ (D : ℤ) := by exact_mod_cast hqD
+  exact projLine_eq_of_det_dvd q hqprime z z' hzprim hz'prim (hqDz.trans hpad.2.2)
 
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
