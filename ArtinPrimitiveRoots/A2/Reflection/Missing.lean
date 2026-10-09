@@ -14077,7 +14077,2125 @@ theorem rf_forward_frequency_factors :
     by_cases hv : v ∉ S.Sf
     · simpa [forwardExterior, hv] using hlocal v hv
     · simp [forwardExterior, hv]
+private theorem rf_localW_norm_formula (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (e : ℕ) :
+    ‖localW R v (e : ℤ)‖ =
+      if e % 3 = 0 then qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ))
+      else if e % 3 = 1 then
+        qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ) - 1 / 2) else 0 := by
+  classical
+  by_cases he0 : e = 0
+  · subst e
+    have hW : localW R v (0 : ℤ) = 1 := by
+      rw [rf_localW_table R v hv 0]
+      simp [sphericalTable]
+    simp [hW]
+  · have hpos : 0 < e := Nat.pos_of_ne_zero he0
+    let pLoc := toLoc v (primeGen R v)
+    let πLoc := toLoc v (Units.mk0 (unif v) (unif_ne_zero v))
+    let bLoc : (v.adicCompletion F)ˣ := pLoc / πLoc
+    have hbData := rf_local_primeGen_ratio_isLocUnit R v hv
+    have hbLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v bLoc := by
+      simpa [bLoc, pLoc, πLoc] using hbData.2
+    have hbPowLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (bLoc ^ (e : ℤ)) := by
+      change bLoc ^ (e : ℤ) ∈ rf_localUnitSubgroup v
+      exact (rf_localUnitSubgroup v).zpow_mem hbLoc _
+    have hlocalChiNorm := (a2_bridge_SYMBOL D S).localChi_norm v hv
+      (bLoc ^ (e : ℤ)) hbPowLoc
+    have hchiNorm : ‖localChi D v (bLoc ^ (e : ℤ)) ^ (2 * (e : ℤ))‖ = 1 := by
+      rw [norm_zpow, hlocalChiNorm]
+      norm_num
+    have hg2Norm := rf_local_g2_norm_one R v hv
+    have hdivZ : (e : ℤ) / 3 = ((e / 3 : ℕ) : ℤ) := by omega
+    have hdivR : (((e : ℤ) / 3 : ℤ) : ℝ) = ((e / 3 : ℕ) : ℝ) := by
+      rw [hdivZ]
+      rfl
+    have hneg : ¬ (e : ℤ) < 0 := by omega
+    by_cases hm2 : e % 3 = 2
+    · have hm2Z : (e : ℤ) % 3 = 2 := by omega
+      have hW : localW R v (e : ℤ) = 0 := by
+        rw [rf_localW_table R v hv (e : ℤ)]
+        simp [sphericalTable, hneg, hm2Z]
+      simp [hW, hm2]
+    · by_cases hm0 : e % 3 = 0
+      · have hm0Z : (e : ℤ) % 3 = 0 := by omega
+        have hWnorm : ‖localW R v (e : ℤ)‖ =
+            qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ)) := by
+          rw [rf_localW_table R v hv (e : ℤ), sphericalTable]
+          rw [if_neg hneg, if_pos hm0Z]
+          rw [norm_mul, hchiNorm]
+          simp only [one_mul]
+          rw [Complex.norm_real, Real.norm_eq_abs, hdivR]
+          rw [abs_of_nonneg (Real.rpow_nonneg (by positivity) _)]
+          simp [qI, idealNorm]
+        simpa [hm0, hm2] using hWnorm
+      · have hm1 : e % 3 = 1 := by omega
+        have hm1Z : (e : ℤ) % 3 = 1 := by omega
+        have hWnorm : ‖localW R v (e : ℤ)‖ =
+            qI v.asIdeal ^ (-((e / 3 : ℕ) : ℝ) - 1 / 2) := by
+          rw [rf_localW_table R v hv (e : ℤ), sphericalTable]
+          rw [if_neg hneg, if_neg (by omega : (e : ℤ) % 3 ≠ 0), if_pos hm1Z]
+          rw [norm_mul, hchiNorm, norm_mul, hg2Norm]
+          simp only [one_mul, mul_one]
+          rw [Complex.norm_real, Real.norm_eq_abs, hdivR]
+          rw [abs_of_nonneg (Real.rpow_nonneg (by positivity) _)]
+          simp [qI, idealNorm]
+        simpa [hm1, hm2] using hWnorm
+
 /-- rf:reflected-absolute: spherical series and convergence BEFORE digit evaluation. -/
+private theorem rf_S_weyl_norm (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) (ν : Fˣ) (y : S.FSˣ) :
+    ‖R.T.WS (R.chars.L u)
+        (R.C.aS (S.diagU ν) * R.C.wS * R.C.aS y)‖ =
+      ‖rotated R u (S.diagU ν / y)‖ := by
+  let x : S.FSˣ := S.diagU ν
+  let ζ : rootsOfUnity 3 ℂ := muThree D (S.HS H x y⁻¹)
+  have hwa : R.C.wS * R.C.aS y = R.C.aS y⁻¹ * R.C.wS := by
+    calc
+      R.C.wS * R.C.aS y =
+          (R.C.wS * R.C.aS y * R.C.wS⁻¹) * R.C.wS := by group
+      _ = R.C.aS y⁻¹ * R.C.wS := by rw [R.C.liftS_wa]
+  have hprod : R.C.aS x * R.C.wS * R.C.aS y =
+      R.C.z ζ * (R.C.aS (x / y) * R.C.wS) := by
+    calc
+      R.C.aS x * R.C.wS * R.C.aS y = R.C.aS x * (R.C.wS * R.C.aS y) := by group
+      _ = R.C.aS x * (R.C.aS y⁻¹ * R.C.wS) := by rw [hwa]
+      _ = (R.C.aS x * R.C.aS y⁻¹) * R.C.wS := by group
+      _ = (R.C.z ζ * R.C.aS (x / y)) * R.C.wS := by
+        rw [show ζ = muThree D (S.HS H x y⁻¹) by rfl, R.C.aS_mul]
+        simp [div_eq_mul_inv]
+      _ = R.C.z ζ * (R.C.aS (x / y) * R.C.wS) := by group
+  have hWS := R.T.WS_genuine (R.chars.L u) (R.mem_family u) ζ
+    (R.C.aS (x / y) * R.C.wS)
+  have hζpow : (((ζ : ℂˣ) : ℂ) ^ (3 : ℕ)) = 1 := by
+    have h := congrArg (fun z : ℂˣ => (z : ℂ)) ζ.property
+    simpa using h
+  have hζnorm : ‖((ζ : ℂˣ) : ℂ)‖ = 1 :=
+    Complex.norm_eq_one_of_pow_eq_one hζpow (by norm_num)
+  calc
+    ‖R.T.WS (R.chars.L u)
+        (R.C.aS x * R.C.wS * R.C.aS y)‖ =
+        ‖((ζ : ℂˣ) : ℂ) *
+          R.T.WS (R.chars.L u) (R.C.aS (x / y) * R.C.wS)‖ := by
+            rw [hprod, hWS]
+    _ = ‖R.T.WS (R.chars.L u) (R.C.aS (x / y) * R.C.wS)‖ := by
+      rw [norm_mul, hζnorm, one_mul]
+    _ = ‖rotated R u (S.diagU ν / y)‖ := by
+      simp [rotated, x]
+
+private theorem rf_finite_addChar_norm_one {Q : Type} [AddGroup Q] [Fintype Q]
+    (ψ : AddChar Q ℂ) (x : Q) : ‖ψ x‖ = 1 := by
+  classical
+  let z : Multiplicative Q := Multiplicative.ofAdd x
+  have hn : orderOf z ≠ 0 := Nat.ne_of_gt (orderOf_pos z)
+  have hpow : z ^ orderOf z = 1 := pow_orderOf_eq_one z
+  have hxzero : (orderOf z : ℕ) • x = 0 := by
+    have h := congrArg Multiplicative.toAdd hpow
+    simpa [z] using h
+  have hψpow : ψ x ^ orderOf z = 1 := by
+    calc
+      ψ x ^ orderOf z = ψ ((orderOf z : ℕ) • x) :=
+        (ψ.map_nsmul_eq_pow (orderOf z) x).symm
+      _ = ψ 0 := by rw [hxzero]
+      _ = 1 := ψ.map_zero_eq_one
+  exact Complex.norm_eq_one_of_pow_eq_one hψpow hn
+
+private theorem rf_localWeyl_nonzero_norm
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (he : 0 ≤ e) (t : (v.adicCompletion F)ˣ)
+    (ht : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t)
+    (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+    ‖R.T.Wv v (R.C.a v (toLoc v (primeGen R v) ^ (e - 2) * t) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))‖ =
+      ‖localW R v e‖ := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  let SB := a2_bridge_SYMBOL D S
+  have hpgen : S.IsGen (primeGen R v : F) v.asIdeal := by
+    simpa [primeGen, hv, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime v hv)).1
+  obtain ⟨_, ⟨χ, hχorder, hχval⟩, ⟨ψ, hψprim, hψval⟩⟩ :=
+    a2_bridge_FINITE_CHAR D S A v hv (primeGen R v) hpgen
+  let xF : F := algebraMap (𝓞 F) F x.out
+  have hxres : residue v xF = x := by
+    simpa [xF] using SB.residue_algebraMap v x.out
+  have hxval : v.valuation F xF = 1 := by
+    exact rf_local_residue_val_one D S v x hx
+  have hxFne : xF ≠ 0 := by
+    intro hz
+    have hzero : residue v (0 : F) = 0 := by
+      have h := SB.residue_algebraMap v (0 : 𝓞 F)
+      simpa using h
+    apply hx
+    calc
+      x = residue v xF := hxres.symm
+      _ = residue v 0 := by rw [hz]
+      _ = 0 := hzero
+  let xUnit : Fˣ := Units.mk0 xF hxFne
+  let xLoc : (v.adicCompletion F)ˣ := toLoc v xUnit
+  have hxLocVal : Valued.v (xLoc : v.adicCompletion F) = 1 := by
+    change Valued.v (algebraMap F (v.adicCompletion F) xF) = 1
+    calc
+      _ = v.valuation F xF := v.valuedAdicCompletion_eq_valuation' xF
+      _ = 1 := hxval
+  have hxLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v xLoc := by
+    constructor
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers, hxLocVal]
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      have hi : Valued.v (((xLoc⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+        simp [Units.val_inv_eq_inv_val, hxLocVal]
+      rw [hi]
+  have hlocalChiNorm : ‖localChi D v t‖ = 1 := SB.localChi_norm v hv t ht
+  have hxresne : residue v xF ≠ 0 := by rw [hxres]; exact hx
+  have hchiNorm : ‖chi D v xF‖ = 1 := SB.chi_norm v xF hxresne
+  have hchiPowNorm : ‖chi D v xF ^ (4 : ℕ)‖ = 1 := by
+    rw [norm_pow, hchiNorm]
+    norm_num
+  have hphaseNorm :
+      ‖A.ψ v (((toLoc v (primeGen R v) ^ (e - 1) * t :
+        (v.adicCompletion F)ˣ) : v.adicCompletion F) /
+          algebraMap F (v.adicCompletion F) xF)‖ = 1 := by
+    by_cases hepos : 0 < e
+    · rw [rf_localWeyl_positive_phase R v hv e hepos t ht x hx]
+      simp
+    · have hezero : e = 0 := by omega
+      subst e
+      let u : (v.adicCompletion F)ˣ := t / xLoc
+      have huLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v u := by
+        change u ∈ rf_localUnitSubgroup v
+        exact (rf_localUnitSubgroup v).div_mem ht hxLoc
+      have hv6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+      obtain ⟨a, ha, hclose⟩ := rf_localChi_has_approximant D v hv6 u huLoc
+      have happrox := rf_local_phase_approximant R v hv u a ha hclose
+      have hfinite := rf_local_addchar_out_phase R v hv ψ hψval a ha
+      have hphaseUnit : A.ψ v ((toLoc v (primeGen R v))⁻¹ * (u : v.adicCompletion F)) =
+          ψ (Ideal.Quotient.mk v.asIdeal a) := happrox.trans hfinite.symm
+      have hxLocMap : (xLoc : v.adicCompletion F) =
+          algebraMap F (v.adicCompletion F) xF := by
+        change algebraMap F (v.adicCompletion F) (xUnit : F) = _
+        simp [xUnit]
+      have hphaseArg :
+          (((toLoc v (primeGen R v) ^ ((0 : ℤ) - 1) * t :
+            (v.adicCompletion F)ˣ) : v.adicCompletion F) /
+              algebraMap F (v.adicCompletion F) xF) =
+          ((toLoc v (primeGen R v))⁻¹ * (u : v.adicCompletion F)) := by
+        simp only [show (0 : ℤ) - 1 = -1 by norm_num,
+          Units.val_zpow_eq_zpow_val, zpow_neg_one,
+          Units.val_mul, Units.val_div_eq_div_val]
+        dsimp [u]
+        rw [Units.val_div_eq_div_val]
+        rw [hxLocMap]
+        field_simp [Units.ne_zero (toLoc v (primeGen R v)), Units.ne_zero xLoc]
+      rw [hphaseArg, hphaseUnit]
+      exact rf_finite_addChar_norm_one ψ (Ideal.Quotient.mk v.asIdeal a)
+  rw [rf_localWeyl_nonzero_summand R v hv e t ht x hx]
+  rw [norm_mul, norm_mul, norm_mul, norm_zpow, hlocalChiNorm,
+    hchiPowNorm, hphaseNorm]
+  norm_num
+
+private theorem rf_localWeyl_nonzero_norm_any
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (t : (v.adicCompletion F)ˣ)
+    (ht : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t)
+    (x : 𝓞 F ⧸ v.asIdeal) (hx : x ≠ 0) :
+    ‖R.T.Wv v (R.C.a v (toLoc v (primeGen R v) ^ (e - 2) * t) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))‖ =
+      ‖localW R v e‖ := by
+  by_cases he : e < 0
+  · rw [rf_localWeyl_nonzero_summand R v hv e t ht x hx,
+      rf_localW_zero_of_negative R v hv e he]
+    simp
+  · exact rf_localWeyl_nonzero_norm R v hv e (by omega) t ht x hx
+
+private theorem rf_sphericalTable_norm_mul
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (uρ u : (v.adicCompletion F)ˣ)
+    (hρ : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v uρ)
+    (hu : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v u) :
+    ‖sphericalTable D A v e (uρ * u)‖ = ‖sphericalTable D A v e u‖ := by
+  have hχ := (a2_bridge_SYMBOL D S).localChi_norm v hv uρ hρ
+  rw [rf_sphericalTable_unit_mul v hv e uρ u hρ hu]
+  simp [norm_mul, norm_zpow, hχ]
+
+private theorem rf_Wv_norm_eq_localW
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (x : (v.adicCompletion F)ˣ) :
+    ‖R.T.Wv v (R.C.a v x)‖ = ‖localW R v (ordv v x)‖ := by
+  let e := ordv v x
+  let pLoc := toLoc v (primeGen R v)
+  let πLoc := toLoc v (Units.mk0 (unif v) (unif_ne_zero v))
+  let bLoc : (v.adicCompletion F)ˣ := pLoc / πLoc
+  let t : (v.adicCompletion F)ˣ := pLoc ^ (-e) * x
+  have hpOrd : ordv v pLoc = 1 := by simpa [pLoc] using rf_local_primeGen_ord R v hv
+  have hOrdX : ordv v x = e := rfl
+  have htOrd : ordv v t = 0 := by
+    dsimp [t]
+    rw [rf_local_ordv_mul, rf_local_ordv_zpow, hpOrd, hOrdX]
+    ring
+  have htVal : Valued.v (t : v.adicCompletion F) = 1 :=
+    rf_localVal_one_of_ordv_zero v t htOrd
+  have htLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t := by
+    constructor
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers, htVal]
+    · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      have hi : Valued.v (((t⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+        simp [Units.val_inv_eq_inv_val, htVal]
+      rw [hi]
+  have hOneLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (1 : (v.adicCompletion F)ˣ) := by
+    constructor <;> simp [HeightOneSpectrum.mem_adicCompletionIntegers]
+  have hpow : pLoc ^ e * t = x := by
+    dsimp [t]
+    calc
+      pLoc ^ e * (pLoc ^ (-e) * x) = (pLoc ^ e * pLoc ^ (-e)) * x := by group
+      _ = x := by rw [← zpow_add]; simp
+  have hunit : unitPart v x = bLoc ^ e * t := by
+    rw [← hpow]
+    simpa [bLoc, pLoc, πLoc] using rf_local_unitPart_primePower R v hv e t htLoc
+  have hWv := rf_Wv_sphericalTable R v hv x
+  have hLocalW : localW R v e = sphericalTable D A v e (bLoc ^ e) := by
+    rw [rf_localW_table R v hv e]
+  have hNormT : ‖sphericalTable D A v e t‖ =
+      ‖sphericalTable D A v e (1 : (v.adicCompletion F)ˣ)‖ := by
+    simpa using rf_sphericalTable_norm_mul R v hv e t 1 htLoc hOneLoc
+  have hbLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v bLoc := by
+    simpa [bLoc, pLoc, πLoc] using (rf_local_primeGen_ratio_isLocUnit R v hv).2
+  have hbPowLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v (bLoc ^ e) := by
+    change bLoc ^ e ∈ rf_localUnitSubgroup v
+    exact (rf_localUnitSubgroup v).zpow_mem hbLoc _
+  have hNormB : ‖sphericalTable D A v e (bLoc ^ e)‖ =
+      ‖sphericalTable D A v e (1 : (v.adicCompletion F)ˣ)‖ := by
+    simpa using rf_sphericalTable_norm_mul R v hv e (bLoc ^ e) 1 hbPowLoc hOneLoc
+  calc
+    ‖R.T.Wv v (R.C.a v x)‖ = ‖sphericalTable D A v e (unitPart v x)‖ :=
+      congrArg norm hWv
+    _ = ‖sphericalTable D A v e (bLoc ^ e * t)‖ := by rw [hunit]
+    _ = ‖sphericalTable D A v e t‖ := by
+      simpa using rf_sphericalTable_norm_mul R v hv e (bLoc ^ e) t hbPowLoc htLoc
+    _ = ‖sphericalTable D A v e (1 : (v.adicCompletion F)ˣ)‖ := hNormT
+    _ = ‖sphericalTable D A v e (bLoc ^ e)‖ := hNormB.symm
+    _ = ‖localW R v e‖ := congrArg norm hLocalW.symm
+
+private theorem rf_preDigit_row_factor_norm
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (v : FinPlace F) (hv : v ∈ R.exterior.support r.ideal)
+    (ν : Fˣ) :
+    let k := ordv v (toLoc v ν)
+    let arg := algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F))
+    ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd arg))‖ =
+      if d ⟨v, hv⟩ = 0 then ‖localW R v k‖ else ‖localW R v (k + 2)‖ := by
+  classical
+  let pLoc := toLoc v (primeGen R v)
+  let x := d ⟨v, hv⟩
+  let arg : v.adicCompletion F := algebraMap F (v.adicCompletion F)
+    (algebraMap (𝓞 F) F x.out / (primeGen R v : F))
+  change ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd arg))‖ =
+    if x = 0 then ‖localW R v (ordv v (toLoc v ν))‖
+    else ‖localW R v (ordv v (toLoc v ν) + 2)‖
+  by_cases hx : x = 0
+  · let SB := a2_bridge_SYMBOL D S
+    let xF : F := algebraMap (𝓞 F) F x.out
+    have hres0 : residue v xF = 0 := by
+      have h := SB.residue_algebraMap v x.out
+      simpa [xF, x, hx] using h
+    have hxle : v.valuation F xF ≤ 1 := by
+      simpa [xF] using v.valuation_le_one x.out
+    have hxnotone : v.valuation F xF ≠ 1 := by
+      intro hval
+      have hresne := (SB.residue_ne_zero v xF hxle).mpr hval
+      rw [hres0] at hresne
+      exact hresne rfl
+    have hxlt : v.valuation F xF < 1 := lt_of_le_of_ne hxle hxnotone
+    have hxVal : Valued.v (algebraMap F (v.adicCompletion F) xF) < 1 := by
+      calc
+        _ = v.valuation F xF := v.valuedAdicCompletion_eq_valuation' xF
+        _ < 1 := hxlt
+    have hnumVal : Valued.v (algebraMap F (v.adicCompletion F) xF) ≤
+        WithZero.exp (-1 : ℤ) := rf_valued_lt_one_le_exp_neg_one v _ hxVal
+    have hpVal : Valued.v (toLoc v (primeGen R v) : v.adicCompletion F) =
+        WithZero.exp (-1 : ℤ) := by
+      change Valued.v (algebraMap F (v.adicCompletion F) (primeGen R v : F)) = _
+      calc
+        _ = v.valuation F (primeGen R v : F) :=
+          v.valuedAdicCompletion_eq_valuation' (primeGen R v : F)
+        _ = WithZero.exp (-1 : ℤ) :=
+          rf_local_primeGen_valuation R v (R.exterior.support_exterior r.ideal v hv)
+    have hargMap : algebraMap F (v.adicCompletion F)
+        (xF / (primeGen R v : F)) =
+          algebraMap F (v.adicCompletion F) xF /
+            algebraMap F (v.adicCompletion F) (primeGen R v : F) := map_div₀ _ _ _
+    have hargVal : Valued.v arg ≤ 1 := by
+      dsimp [arg]
+      rw [hargMap, map_div₀]
+      change Valued.v (algebraMap F (v.adicCompletion F) xF) /
+        Valued.v (toLoc v (primeGen R v) : v.adicCompletion F) ≤ 1
+      rw [hpVal]
+      have hpPos : 0 < WithZero.exp (-1 : ℤ) :=
+        lt_of_le_of_ne zero_le (Ne.symm WithZero.exp_ne_zero)
+      exact (div_le_one₀ hpPos).2 hnumVal
+    have hargInt : arg ∈ v.adicCompletionIntegers F := by
+      rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+      exact hargVal
+    have hNcompact : R.C.n v (Multiplicative.ofAdd arg) ∈ R.C.Kext :=
+      R.C.n_Kext v (R.exterior.support_exterior r.ideal v hv) arg hargInt
+    have hNloc : R.C.n v (Multiplicative.ofAdd arg) ∈ R.C.Gloc v := R.C.n_mem v _
+    have hrightN : R.T.Wv v
+        ((R.C.a v (toLoc v ν) * R.C.w v) * R.C.n v (Multiplicative.ofAdd arg)) =
+          R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v) :=
+      R.T.Wv_right v (R.exterior.support_exterior r.ideal v hv)
+        (R.C.a v (toLoc v ν) * R.C.w v) (R.C.n v (Multiplicative.ofAdd arg)) hNcompact hNloc
+    have hright : R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v) =
+        R.T.Wv v (R.C.a v (toLoc v ν)) := by
+      exact R.T.Wv_right v (R.exterior.support_exterior r.ideal v hv)
+        (R.C.a v (toLoc v ν)) (R.C.w v) (R.C.w_Kext v (R.exterior.support_exterior r.ideal v hv))
+        (R.C.w_mem v)
+    have hargEq : R.C.a v (toLoc v ν) * R.C.w v *
+        R.C.n v (Multiplicative.ofAdd arg) =
+          (R.C.a v (toLoc v ν) * R.C.w v) * R.C.n v (Multiplicative.ofAdd arg) := by
+      group
+    rw [hrightN, hright, if_pos hx]
+    simp [x, arg, rf_Wv_norm_eq_localW R v
+      (R.exterior.support_exterior r.ideal v hv) (toLoc v ν)]
+  · let k : ℤ := ordv v (toLoc v ν)
+    let t : (v.adicCompletion F)ˣ := toLoc v ν * pLoc ^ (-k)
+    have htOrd : ordv v t = 0 := by
+      dsimp [t, k]
+      rw [rf_local_ordv_mul, rf_local_ordv_zpow,
+        rf_local_primeGen_ord R v (R.exterior.support_exterior r.ideal v hv)]
+      ring
+    have htVal : Valued.v (t : v.adicCompletion F) = 1 :=
+      rf_localVal_one_of_ordv_zero v t htOrd
+    have htLoc : ArtinPrimitiveRoots.A1.Theta.IsLocUnit v t := by
+      constructor
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers, htVal]
+      · rw [HeightOneSpectrum.mem_adicCompletionIntegers]
+        have hi : Valued.v (((t⁻¹ : (v.adicCompletion F)ˣ) : v.adicCompletion F)) = 1 := by
+          simp [Units.val_inv_eq_inv_val, htVal]
+        rw [hi]
+    let e : ℤ := k + 2
+    have hrep : pLoc ^ (e - 2) * t = toLoc v ν := by
+      dsimp [e, k, t]
+      have he : (ordv v (toLoc v ν) + 2) - 2 = ordv v (toLoc v ν) := by ring
+      rw [he]
+      calc
+        pLoc ^ ordv v (toLoc v ν) *
+            (toLoc v ν * pLoc ^ (-ordv v (toLoc v ν))) =
+            (pLoc ^ ordv v (toLoc v ν) * pLoc ^ (-ordv v (toLoc v ν))) *
+              toLoc v ν := by
+                rw [mul_comm (toLoc v ν) (pLoc ^ (-ordv v (toLoc v ν)))]
+                rw [← mul_assoc]
+        _ = toLoc v ν := by
+          rw [← zpow_add]
+          simp
+    have hnorm := rf_localWeyl_nonzero_norm_any R v
+      (R.exterior.support_exterior r.ideal v hv) e t htLoc x hx
+    have hinput : R.C.a v (toLoc v ν) * R.C.w v * R.C.n v (Multiplicative.ofAdd arg) =
+        R.C.a v (pLoc ^ (e - 2) * t) * R.C.w v *
+          R.C.n v (Multiplicative.ofAdd arg) := by rw [hrep]
+    have hnorm' := congrArg norm (congrArg (R.T.Wv v) hinput)
+    simpa [x, arg, hx, e, k, pLoc] using hnorm'.trans hnorm
+
+private theorem rf_preDigit_factorization
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ) (y : S.FSˣ) :
+    R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+      R.T.WS (R.chars.L (rowClass R r))
+          (R.C.aS (S.diagU ν) * R.C.wS * R.C.aS y) *
+        (∏ v ∈ R.exterior.support r.ideal,
+          R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+            if hv : v ∈ R.exterior.support r.ideal then
+              R.C.n v (Multiplicative.ofAdd (algebraMap F _
+                (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F))))
+            else 1)) *
+        ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+          R.T.Wv v (R.C.a v (toLoc v ν)) := by
+  classical
+  let T0 := R.exterior.support r.ideal
+  let g : FinPlace F → R.C.G := fun v =>
+    if hv : v ∈ T0 then
+      R.C.n v (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F)
+        (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F))))
+    else 1
+  have hg : ∀ v ∈ T0, g v ∈ R.C.Gloc v := by
+    intro v hv
+    simp [g, hv]
+    exact R.C.n_mem v _
+  have hT0ext : ∀ v ∈ T0, v ∉ S.Sf :=
+    fun v hv => R.exterior.support_exterior r.ideal v hv
+  have hmapDigit : T0.attach.toList.map (fun v =>
+        R.C.n v.1 (Multiplicative.ofAdd (algebraMap F (v.1.adicCompletion F)
+          (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F))))) =
+      T0.attach.toList.map (fun v => g v.1) := by
+    apply List.map_congr_left
+    intro v hv
+    simp [g, v.2]
+  have hperm0 : (T0.attach.toList.map Subtype.val).Perm T0.toList := by
+    apply List.perm_of_nodup_nodup_toFinset_eq
+    · exact (T0.attach.nodup_toList).map Subtype.val_injective
+    · exact T0.nodup_toList
+    · ext v
+      simp
+  have hpermG :
+      (T0.attach.toList.map (fun v => g v.1)).Perm (T0.toList.map g) := by
+    change List.Perm (List.map (g ∘ Subtype.val) T0.attach.toList) (List.map g T0.toList)
+    simpa only [List.map_map] using hperm0.map g
+  have hpairNe : (T0.attach.toList).Pairwise (· ≠ ·) :=
+    List.nodup_iff_pairwise_ne.mp T0.attach.nodup_toList
+  have hpairG : (T0.attach.toList.map (fun v => g v.1)).Pairwise Commute := by
+    exact List.Pairwise.map (fun v : {v // v ∈ T0} => g v.1)
+      (by
+        intro v w hne
+        have hplaces : v.1 ≠ w.1 := by
+          intro heq
+          apply hne
+          exact Subtype.ext heq
+        exact R.C.comm_loc v.1 w.1 hplaces (g v.1) (hg v.1 v.2)
+          (g w.1) (hg w.1 w.2)) hpairNe
+  have harg : R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d =
+      (R.C.rat (diagGL ν) * R.C.rat weylGL * R.C.aS y) *
+        (T0.toList.map g).prod := by
+    rw [digitPoint, hmapDigit]
+    calc
+      R.C.rat (diagGL ν) * R.C.rat weylGL *
+          (R.C.aS y * (T0.attach.toList.map (fun v => g v.1)).prod) =
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * R.C.aS y) *
+          (T0.attach.toList.map (fun v => g v.1)).prod := by group
+      _ = _ := by rw [List.Perm.prod_eq' hpermG hpairG]
+  have hFactor := R.T.factor (R.chars.L (rowClass R r))
+    (R.mem_family (rowClass R r)) ν true (R.C.aS y) (R.C.aS_mem y)
+    T0 hT0ext g hg
+  simp only [if_true, one_mul] at hFactor
+  rw [← harg] at hFactor
+  simpa [T0, g] using hFactor
+
+private theorem rf_rotated_norm_le_abs
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (u : UnitSix S) (y : S.FSˣ) :
+    ‖rotated R u y‖ ≤ rotatedAbs R u y := by
+  classical
+  unfold rotated rotatedAbs
+  rw [R.rotated_eq]
+  simp only [Theta.sumProd]
+  calc
+    ‖∑ ℓ : Fin (R.rotated u).J,
+        (∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+          ∏ w : InfinitePlace F, (R.rotated u).fc ℓ w ((y : S.FS).2 w)‖ ≤
+        ∑ ℓ : Fin (R.rotated u).J,
+          ‖(∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+            ∏ w : InfinitePlace F, (R.rotated u).fc ℓ w ((y : S.FS).2 w)‖ :=
+          norm_sum_le _ _
+    _ = ∑ ℓ : Fin (R.rotated u).J,
+          (∏ v : S.Sf, ‖(R.rotated u).ff ℓ v ((y : S.FS).1 v)‖) *
+            ∏ w : InfinitePlace F, ‖(R.rotated u).fc ℓ w ((y : S.FS).2 w)‖ := by
+          apply Finset.sum_congr rfl
+          intro ℓ hℓ
+          simp only [norm_mul, norm_prod]
+
+private theorem rf_rotated_measurable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) : Measurable (fun y : S.FSˣ => rotated R u y) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let J := (R.rotated u).J
+  let ff := (R.rotated u).ff
+  let fc := (R.rotated u).fc
+  have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ (ff ℓ v) := by
+    simpa [ff] using (R.rotated u).finite_bound
+  have hfc : ∀ ℓ w, SheetHypC R.T.δ (fc ℓ w) := by
+    simpa [fc] using (R.rotated u).complex_bound
+  have hcoordFin (v : S.Sf) : Measurable (fun y : S.FSˣ => (y : S.FS).1 v) :=
+    (measurable_pi_apply v).comp (measurable_fst.comp (comap_measurable Units.val))
+  have hcoordArch (w : InfinitePlace F) : Measurable
+      (fun y : S.FSˣ => (y : S.FS).2 w) :=
+    (measurable_pi_apply w).comp (measurable_snd.comp (comap_measurable Units.val))
+  let term (ℓ : Fin J) (y : S.FSˣ) : ℂ :=
+    (∏ v : S.Sf, ff ℓ v ((y : S.FS).1 v)) *
+      ∏ w : InfinitePlace F, fc ℓ w ((y : S.FS).2 w)
+  have hterm (ℓ : Fin J) : Measurable (term ℓ) := by
+    apply Measurable.mul
+    · apply Finset.univ.measurable_fun_prod
+      intro v hv
+      exact (bridgeSheetHypFin_measurable v.1 R.T.δ (ff ℓ v) (hff ℓ v)).comp
+        (hcoordFin v)
+    · apply Finset.univ.measurable_fun_prod
+      intro w hw
+      exact (bridgeSheetHypC_measurable R.T.δ (fc ℓ w) (hfc ℓ w)).comp
+        (hcoordArch w)
+  have hsum : Measurable (fun y : S.FSˣ => ∑ ℓ : Fin J, term ℓ y) := by
+    apply Finset.univ.measurable_fun_sum
+    intro ℓ hℓ
+    exact hterm ℓ
+  have hEq : (fun y : S.FSˣ => rotated R u y) =
+      fun y : S.FSˣ => ∑ ℓ : Fin J,
+        (∏ v : S.Sf, ff ℓ v ((y : S.FS).1 v)) *
+          ∏ w : InfinitePlace F, fc ℓ w ((y : S.FS).2 w) := by
+    funext y
+    simpa [rotated, J, ff, fc, Theta.sumProd] using R.rotated_eq u y
+  rw [hEq]
+  simpa only [term] using hsum
+
+private theorem rf_rotatedAbs_measurable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (u : UnitSix S) :
+    Measurable (fun y : S.FSˣ => rotatedAbs R u y) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let J := (R.rotated u).J
+  let ff := (R.rotated u).ff
+  let fc := (R.rotated u).fc
+  have hff : ∀ ℓ v, SheetHypFin v.1 R.T.δ (ff ℓ v) := by
+    simpa [ff] using (R.rotated u).finite_bound
+  have hfc : ∀ ℓ w, SheetHypC R.T.δ (fc ℓ w) := by
+    simpa [fc] using (R.rotated u).complex_bound
+  have hcoordFin (v : S.Sf) : Measurable (fun y : S.FSˣ => (y : S.FS).1 v) :=
+    (measurable_pi_apply v).comp (measurable_fst.comp (comap_measurable Units.val))
+  have hcoordArch (w : InfinitePlace F) : Measurable
+      (fun y : S.FSˣ => (y : S.FS).2 w) :=
+    (measurable_pi_apply w).comp (measurable_snd.comp (comap_measurable Units.val))
+  let term (ℓ : Fin J) (y : S.FSˣ) : ℝ :=
+    (∏ v : S.Sf, ‖ff ℓ v ((y : S.FS).1 v)‖) *
+      ∏ w : InfinitePlace F, ‖fc ℓ w ((y : S.FS).2 w)‖
+  have hterm (ℓ : Fin J) : Measurable (term ℓ) := by
+    apply Measurable.mul
+    · apply Finset.univ.measurable_fun_prod
+      intro v hv
+      exact (continuous_norm.measurable.comp
+        (bridgeSheetHypFin_measurable v.1 R.T.δ (ff ℓ v) (hff ℓ v))).comp
+          (hcoordFin v)
+    · apply Finset.univ.measurable_fun_prod
+      intro w hw
+      exact (continuous_norm.measurable.comp
+        (bridgeSheetHypC_measurable R.T.δ (fc ℓ w) (hfc ℓ w))).comp
+          (hcoordArch w)
+  change Measurable (fun y : S.FSˣ => ∑ ℓ : Fin J, term ℓ y)
+  apply Finset.univ.measurable_fun_sum
+  intro ℓ hℓ
+  exact hterm ℓ
+
+private def rf_preDigit_localMass
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ) : ℝ :=
+  (∏ v ∈ R.exterior.support r.ideal,
+      ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+        if hv : v ∈ R.exterior.support r.ideal then
+          R.C.n v (Multiplicative.ofAdd (algebraMap F _
+            (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F)))) else 1)‖) *
+    ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+      ‖R.T.Wv v (R.C.a v (toLoc v ν))‖
+
+private theorem rf_preDigit_pointwise_norm_eq
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ) (y : S.FSˣ) :
+    (‖R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ =
+      ‖rotated R (rowClass R r) (S.diagU ν / y)‖ *
+        rf_preDigit_localMass R r d ν) ∧ 0 ≤ rf_preDigit_localMass R r d ν := by
+  classical
+  let wbase : FinPlace F → ℂ := fun v => R.T.Wv v (R.C.a v (toLoc v ν))
+  let V := (finitePlace_mk_hasFiniteMulSupport (x := (ν : F)) (Units.ne_zero ν)).toFinset
+  have hvaluation_one (v : FinPlace F) (hvV : v ∉ V) :
+      HeightOneSpectrum.valuation F v (ν : F) = 1 := by
+    have hnorm : FinitePlace.mk v (ν : F) = 1 := by
+      by_contra hne
+      apply hvV
+      exact (finitePlace_mk_hasFiniteMulSupport (x := (ν : F))
+        (Units.ne_zero ν)).mem_toFinset.mpr (by
+          simpa only [Function.mem_mulSupport] using hne)
+    have hnorm' : ‖FinitePlace.embedding v (ν : F)‖ = 1 := by
+      simpa only [FinitePlace.mk_apply] using hnorm
+    have hnn : WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+        (HeightOneSpectrum.valuation F v (ν : F)) = 1 := by
+      apply NNReal.coe_injective
+      simpa only [FinitePlace.norm_embedding', NNReal.coe_one] using hnorm'
+    have hq : (Ideal.absNorm v.asIdeal : NNReal) ≠ 1 := by
+      intro h
+      have hn : Ideal.absNorm v.asIdeal = 1 := by exact_mod_cast h
+      have hlt := HeightOneSpectrum.one_lt_absNorm v
+      omega
+    exact (WithZeroMulInt.toNNReal_eq_one_iff _
+      (HeightOneSpectrum.absNorm_ne_zero v) hq).mp hnn
+  let tailCond : FinPlace F → Prop := fun v => v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal
+  let tailC : FinPlace F → ℂ := fun v => if tailCond v then wbase v else 1
+  let tailR : FinPlace F → ℝ := fun v => if tailCond v then ‖wbase v‖ else 1
+  have htailCSupp : Function.mulSupport tailC ⊆ V := by
+    intro v hv
+    by_contra hvV
+    by_cases hcond : tailCond v
+    · have hwone := rf_Wv_one_of_valuation_one R v hcond.1 ν (hvaluation_one v hvV)
+      have hEq : tailC v = 1 := by simp [tailC, hcond, wbase, hwone]
+      simpa only [Function.mem_mulSupport] using hv hEq
+    · simp [tailC, hcond] at hv
+  have htailRSupp : Function.mulSupport tailR ⊆ V := by
+    intro v hv
+    by_contra hvV
+    by_cases hcond : tailCond v
+    · have hwone := rf_Wv_one_of_valuation_one R v hcond.1 ν (hvaluation_one v hvV)
+      have hEq : tailR v = 1 := by simp [tailR, hcond, wbase, hwone]
+      simpa only [Function.mem_mulSupport] using hv hEq
+    · simp [tailR, hcond] at hv
+  have htailEq :
+      (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal), wbase v) =
+        ∏ v ∈ V, tailC v := by
+    calc
+      _ = ∏ᶠ v : FinPlace F, tailC v := by
+        calc
+          _ = ∏ᶠ v : FinPlace F, Set.mulIndicator
+                {v : FinPlace F | tailCond v} wbase v :=
+              finprod_mem_def {v : FinPlace F | tailCond v} wbase
+          _ = _ := by
+            have hfun : (fun v : FinPlace F =>
+                Set.mulIndicator {v : FinPlace F | tailCond v} wbase v) = tailC := by
+              funext v
+              simp [Set.mulIndicator, tailCond, tailC]
+            exact congrArg (fun f : FinPlace F → ℂ => ∏ᶠ v, f v) hfun
+      _ = _ := finprod_eq_prod_of_mulSupport_subset tailC htailCSupp
+  have htailNormEq :
+      (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+          ‖wbase v‖) =
+        ∏ v ∈ V, tailR v := by
+    calc
+      _ = ∏ᶠ v : FinPlace F, tailR v := by
+        calc
+          _ = ∏ᶠ v : FinPlace F, Set.mulIndicator
+                {v : FinPlace F | tailCond v} (fun v => ‖wbase v‖) v :=
+              finprod_mem_def {v : FinPlace F | tailCond v} (fun v => ‖wbase v‖)
+          _ = _ := by
+            have hfun : (fun v : FinPlace F =>
+                Set.mulIndicator {v : FinPlace F | tailCond v}
+                  (fun v => ‖wbase v‖) v) = tailR := by
+              funext v
+              simp [Set.mulIndicator, tailCond, tailR]
+            exact congrArg (fun f : FinPlace F → ℝ => ∏ᶠ v, f v) hfun
+      _ = _ := finprod_eq_prod_of_mulSupport_subset tailR htailRSupp
+  have htailNorm :
+      ‖∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal), wbase v‖ =
+        ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal), ‖wbase v‖ := by
+    rw [htailEq, htailNormEq, norm_prod]
+    apply Finset.prod_congr rfl
+    intro v hv
+    by_cases hcond : tailCond v
+    · simp [tailC, tailR, hcond]
+    · simp [tailC, tailR, hcond]
+  have hFactor := rf_preDigit_factorization R r d ν y
+  have hSNorm := rf_S_weyl_norm R (rowClass R r) ν y
+  let rowNorm : ℝ := ∏ v ∈ R.exterior.support r.ideal,
+    ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+      if hv : v ∈ R.exterior.support r.ideal then
+        R.C.n v (Multiplicative.ofAdd (algebraMap F _
+          (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F)))) else 1)‖
+  let tailNorm : ℝ :=
+    ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal), ‖wbase v‖
+  have hnormFact :
+      ‖R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ =
+      ‖R.T.WS (R.chars.L (rowClass R r))
+        (R.C.aS (S.diagU ν) * R.C.wS * R.C.aS y)‖ * rowNorm * tailNorm := by
+    dsimp [rowNorm, tailNorm]
+    rw [hFactor, norm_mul, norm_mul, norm_prod, htailNorm]
+  have hLocalNonneg : 0 ≤
+      ∏ v ∈ R.exterior.support r.ideal,
+        ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+          if hv : v ∈ R.exterior.support r.ideal then
+            R.C.n v (Multiplicative.ofAdd (algebraMap F _
+              (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F)))) else 1)‖ := by
+    apply Finset.prod_nonneg
+    intro v hv
+    exact norm_nonneg _
+  have hTailNonneg : 0 ≤
+      ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal), ‖wbase v‖ := by
+    rw [← htailNorm]
+    exact norm_nonneg _
+  constructor
+  · calc
+      _ = ‖R.T.WS (R.chars.L (rowClass R r))
+            (R.C.aS (S.diagU ν) * R.C.wS * R.C.aS y)‖ * rowNorm * tailNorm := hnormFact
+      _ = ‖rotated R (rowClass R r) (S.diagU ν / y)‖ *
+            rf_preDigit_localMass R r d ν := by
+        rw [hSNorm]
+        dsimp [rf_preDigit_localMass, rowNorm, tailNorm]
+        ring
+  · unfold rf_preDigit_localMass
+    exact mul_nonneg hLocalNonneg hTailNonneg
+
+private theorem rf_preDigit_pointwise_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ) (y : S.FSˣ) :
+    ‖R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ ≤
+      rotatedAbs R (rowClass R r) (S.diagU ν / y) * rf_preDigit_localMass R r d ν := by
+  have h := rf_preDigit_pointwise_norm_eq R r d ν y
+  calc
+    _ = ‖rotated R (rowClass R r) (S.diagU ν / y)‖ *
+        rf_preDigit_localMass R r d ν := h.1
+    _ ≤ rotatedAbs R (rowClass R r) (S.diagU ν / y) *
+        rf_preDigit_localMass R r d ν :=
+      mul_le_mul_of_nonneg_right
+        (rf_rotated_norm_le_abs R (rowClass R r) (S.diagU ν / y)) h.2
+
+private theorem rf_preDigit_orbit_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) :
+    ∃ C : ℝ, 0 < C ∧ ∀ r (d : Digits R r) ν l, 0 < l →
+      IntegrableOn (onUnits (fun y =>
+        (‖R.T.W (R.chars.L (rowClass R r))
+          (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ : ℂ)))
+        (omegaAt R l) (R.sheets.sheet l) ∧
+      (omegaInt R l (fun y =>
+        (‖R.T.W (R.chars.L (rowClass R r))
+          (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ : ℂ))).re ≤
+        rf_preDigit_localMass R r d ν *
+          (omegaInt R l (fun y =>
+            (rotatedAbs R (rowClass R r) (S.diagU ν / y) : ℂ))).re ∧
+      (omegaInt R l (fun y =>
+        (‖R.T.W (R.chars.L (rowClass R r))
+          (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ : ℂ))).re ≤
+        C * rf_preDigit_localMass R r d ν *
+          (S.absS (S.diagU ν : S.FS) / l) ^ (-1 : ℝ) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  obtain ⟨C, hC, hRef⟩ := rf_reflected_absolute R 1 (by norm_num)
+  refine ⟨C, hC, ?_⟩
+  intro r d ν l hl
+  let u : UnitSix S := rowClass R r
+  let mass : ℝ := rf_preDigit_localMass R r d ν
+  let baseRot : S.FSˣ → ℂ := fun y =>
+    (rotatedAbs R u (S.diagU ν / y) : ℂ)
+  let target : S.FSˣ → ℂ := fun y =>
+    (‖R.T.W (R.chars.L u)
+      (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ : ℂ)
+  let major : S.FSˣ → ℂ := fun y =>
+    (mass * rotatedAbs R u (S.diagU ν / y) : ℂ)
+  have hRefData := hRef u ν l hl
+  have hBaseInt : IntegrableOn (onUnits baseRot) (omegaAt R l) (R.sheets.sheet l) := by
+    simpa [baseRot, u] using hRefData.1 1
+  have hInvUnits : Measurable (fun y : S.FSˣ => y⁻¹) := by
+    change Measurable[MeasurableSpace.comap Units.val
+      (inferInstance : MeasurableSpace S.FS)] (fun y : S.FSˣ => y⁻¹)
+    rw [measurable_comap_iff]
+    have h := (rf_FS_measurable_inv (S := S)).comp (comap_measurable Units.val)
+    convert h using 1
+    funext y
+    simp
+  have hDivMeas : Measurable (fun y : S.FSˣ => S.diagU ν / y) := by
+    change Measurable (fun y : S.FSˣ => S.diagU ν * y⁻¹)
+    exact (rf_unit_mul_measurable (S.diagU ν)).comp hInvUnits
+  have hNormRotMeas : Measurable (fun y : S.FSˣ =>
+      ‖rotated R u (S.diagU ν / y)‖) :=
+    (continuous_norm.measurable.comp (rf_rotated_measurable R u)).comp hDivMeas
+  have htargetNormMeas : Measurable (fun y : S.FSˣ =>
+      ‖R.T.W (R.chars.L u)
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖) := by
+    have hEq : (fun y : S.FSˣ =>
+        ‖R.T.W (R.chars.L u)
+          (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖) =
+        fun y => ‖rotated R u (S.diagU ν / y)‖ * mass := by
+      funext y
+      simpa [mass, u] using (rf_preDigit_pointwise_norm_eq R r d ν y).1
+    rw [hEq]
+    exact hNormRotMeas.mul_const _
+  have hTargetMeas : Measurable (onUnits target) := by
+    apply rf_onUnits_measurable target
+    exact Complex.continuous_ofReal.measurable.comp htargetNormMeas
+  have hTargetAEStrong : AEStronglyMeasurable (onUnits target)
+      ((R.sheets.sheet l).restrict (omegaAt R l)) :=
+    hTargetMeas.aestronglyMeasurable
+  have hMassNonneg : 0 ≤ mass := by
+    exact (rf_preDigit_pointwise_norm_eq R r d ν 1).2
+  have hRotAbsNonneg (y : S.FSˣ) : 0 ≤ rotatedAbs R u y := by
+    unfold rotatedAbs
+    apply Finset.sum_nonneg
+    intro ℓ hℓ
+    exact mul_nonneg
+      (Finset.prod_nonneg (fun v _ => norm_nonneg _))
+      (Finset.prod_nonneg (fun w _ => norm_nonneg _))
+  have hMajorUnits : onUnits major = fun z : S.FS =>
+      (mass : ℂ) * onUnits baseRot z := by
+    funext z
+    by_cases hz : IsUnit z
+    · simp [onUnits, major, baseRot, hz, mul_assoc]
+    · simp [onUnits, major, baseRot, hz]
+  have hMajorInt : IntegrableOn (onUnits major) (omegaAt R l) (R.sheets.sheet l) := by
+    rw [hMajorUnits]
+    exact hBaseInt.const_mul (mass : ℂ)
+  have hPointNorm (y : S.FSˣ) :
+      ‖R.T.W (R.chars.L u)
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ ≤
+          mass * rotatedAbs R u (S.diagU ν / y) := by
+    simpa [mass, u, mul_comm] using rf_preDigit_pointwise_bound R r d ν y
+  have hdom : ∀ᵐ z ∂((R.sheets.sheet l).restrict (omegaAt R l)),
+      ‖onUnits target z‖ ≤ ‖onUnits major z‖ := by
+    filter_upwards with z
+    by_cases hz : IsUnit z
+    · simp only [onUnits, dif_pos hz, target, major]
+      simp only [norm_mul, Complex.norm_real, Real.norm_eq_abs]
+      rw [abs_of_nonneg (norm_nonneg _), abs_of_nonneg hMassNonneg,
+        abs_of_nonneg (hRotAbsNonneg (S.diagU ν / hz.unit))]
+      exact hPointNorm hz.unit
+    · simp [onUnits, hz]
+  have hTargetInt : IntegrableOn (onUnits target) (omegaAt R l) (R.sheets.sheet l) := by
+    have hInt := hMajorInt.norm.mono' hTargetAEStrong hdom
+    exact hInt
+  have hRealW :
+      (omegaInt R l (fun y =>
+        (‖R.T.W (R.chars.L u)
+          (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ : ℂ))).re =
+        ∫ z in omegaAt R l, (onUnits target z).re ∂(R.sheets.sheet l) := by
+    unfold omegaInt
+    exact (integral_re hTargetInt).symm
+  have hRealMajor :
+      (omegaInt R l major).re =
+        ∫ z in omegaAt R l, (onUnits major z).re ∂(R.sheets.sheet l) := by
+    unfold omegaInt
+    exact (integral_re hMajorInt).symm
+  have hRealPoint (z : S.FS) : (onUnits target z).re ≤ (onUnits major z).re := by
+    by_cases hz : IsUnit z
+    · have hpt := hPointNorm hz.unit
+      simp [onUnits, target, major, baseRot, hz, Complex.ofReal_re] at hpt ⊢
+      exact hpt
+    · simp [onUnits, hz]
+  have hIntegralLe :
+      (∫ z in omegaAt R l, (onUnits target z).re ∂(R.sheets.sheet l)) ≤
+        (∫ z in omegaAt R l, (onUnits major z).re ∂(R.sheets.sheet l)) :=
+    integral_mono_ae hTargetInt.re hMajorInt.re (Filter.Eventually.of_forall hRealPoint)
+  let orbitTerm : Gamma S → ℝ := fun γ =>
+    (omegaInt R l (fun y =>
+      (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ))).re
+  have hOrbitNonneg (γ : Gamma S) : 0 ≤ orbitTerm γ := by
+    have hIntγ := hRefData.1 γ
+    have hReγ : orbitTerm γ =
+        ∫ z in omegaAt R l,
+          (onUnits (fun y =>
+            (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ)) z).re
+            ∂(R.sheets.sheet l) := by
+      simp only [orbitTerm, omegaInt]
+      exact (integral_re hIntγ).symm
+    rw [hReγ]
+    apply integral_nonneg
+    intro z
+    by_cases hz : IsUnit z
+    · simp [onUnits, hz, Complex.ofReal_re]
+      exact hRotAbsNonneg
+        (S.diagU (γ.1 : Fˣ) * S.diagU ν / hz.unit)
+    · simp [onUnits, hz]
+  have hOneLe : orbitTerm 1 ≤ ∑' γ : Gamma S, orbitTerm γ := by
+    have h := hRefData.2.1.sum_le_tsum ({1} : Finset (Gamma S))
+      (fun γ hγ => hOrbitNonneg γ)
+    simpa [orbitTerm] using h
+  have hOrbitSum : (∑' γ : Gamma S, orbitTerm γ) =
+      profileAbs R u (S.absS (S.diagU ν : S.FS) / l) := by
+    simpa [orbitTerm] using hRefData.2.2.1
+  have hOrbitBound : profileAbs R u (S.absS (S.diagU ν : S.FS) / l) ≤
+      C * (S.absS (S.diagU ν : S.FS) / l) ^ (-1 : ℝ) := by
+    simpa using hRefData.2.2.2
+  have hMajorEq : omegaInt R l major = (mass : ℂ) *
+      omegaInt R l baseRot := by
+    unfold omegaInt
+    rw [hMajorUnits, integral_const_mul]
+  have hSingle :
+      (omegaInt R l (fun y =>
+        (‖R.T.W (R.chars.L u)
+          (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ : ℂ))).re ≤
+        mass * orbitTerm 1 := by
+    calc
+      _ ≤ (omegaInt R l major).re := by rw [hRealW, hRealMajor]; exact hIntegralLe
+      _ = mass * orbitTerm 1 := by simp [hMajorEq, orbitTerm, baseRot, u]
+  refine ⟨hTargetInt, ?_, ?_⟩
+  · simpa [orbitTerm, baseRot, u, mass] using hSingle
+  · calc
+      _ ≤ mass * orbitTerm 1 := hSingle
+      _ ≤ mass * profileAbs R u (S.absS (S.diagU ν : S.FS) / l) :=
+        mul_le_mul_of_nonneg_left (hOneLe.trans_eq hOrbitSum) hMassNonneg
+      _ ≤ mass * (C * (S.absS (S.diagU ν : S.FS) / l) ^ (-1 : ℝ)) :=
+        mul_le_mul_of_nonneg_left hOrbitBound hMassNonneg
+      _ = C * mass * (S.absS (S.diagU ν : S.FS) / l) ^ (-1 : ℝ) := by ring
+
+private theorem rf_preDigit_generator_decomp
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (μ₀ : Fˣ)
+    (hμ₀ : (μ₀ : F) ∈ S.R) :
+    ∃ I : S.ExtIdeal, ∃ ε : S.US, μ₀ = (ε : Fˣ) * bc.gen I := by
+  classical
+  let V := (finitePlace_mk_hasFiniteMulSupport (x := (μ₀ : F)) (Units.ne_zero μ₀)).toFinset
+  let principalCount : FinPlace F → ℤ := fun v =>
+    FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (μ₀ : F))
+  have hvaluation_one (v : FinPlace F) (hvV : v ∉ V) :
+      HeightOneSpectrum.valuation F v (μ₀ : F) = 1 := by
+    have hnorm : FinitePlace.mk v (μ₀ : F) = 1 := by
+      by_contra hne
+      apply hvV
+      exact (finitePlace_mk_hasFiniteMulSupport (x := (μ₀ : F))
+        (Units.ne_zero μ₀)).mem_toFinset.mpr (by
+          simpa only [Function.mem_mulSupport] using hne)
+    have hnorm' : ‖FinitePlace.embedding v (μ₀ : F)‖ = 1 := by
+      simpa only [FinitePlace.mk_apply] using hnorm
+    have hnn : WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero v)
+        (HeightOneSpectrum.valuation F v (μ₀ : F)) = 1 := by
+      apply NNReal.coe_injective
+      simpa only [FinitePlace.norm_embedding', NNReal.coe_one] using hnorm'
+    have hq : (Ideal.absNorm v.asIdeal : NNReal) ≠ 1 := by
+      intro h
+      have hn : Ideal.absNorm v.asIdeal = 1 := by exact_mod_cast h
+      have hlt := HeightOneSpectrum.one_lt_absNorm v
+      omega
+    exact (WithZeroMulInt.toNNReal_eq_one_iff _
+      (HeightOneSpectrum.absNorm_ne_zero v) hq).mp hnn
+  have hcountZero (v : FinPlace F) (hvV : v ∉ V) : principalCount v = 0 := by
+    dsimp [principalCount]
+    rw [rf_count_spanSingleton_eq_neg_log_valuation v (μ₀ : F) (Units.ne_zero μ₀),
+      hvaluation_one v hvV]
+    simp
+  let exponentFun : FinPlace F → ℤ := fun v => if v ∉ S.Sf then principalCount v else 0
+  have hexponentSupport : ∀ v, exponentFun v ≠ 0 → v ∈ V := by
+    intro v hv
+    by_cases hvS : v ∈ S.Sf
+    · simp [exponentFun, hvS] at hv
+    · by_contra hvV
+      have hzero := hcountZero v hvV
+      simp [exponentFun, hvS, hzero] at hv
+  let exponent : FinPlace F →₀ ℤ := Finsupp.onFinset V exponentFun hexponentSupport
+  have hexponent_nonneg (v : FinPlace F) : 0 ≤ exponent v := by
+    rw [Finsupp.onFinset_apply]
+    by_cases hvS : v ∈ S.Sf
+    · simp [exponentFun, hvS]
+    · have hlog : WithZero.log (HeightOneSpectrum.valuation F v (μ₀ : F)) ≤ 0 := by
+        apply (WithZero.log_le_iff_le_exp
+          ((v.valuation F).ne_zero_iff.mpr (Units.ne_zero μ₀))).2
+        simpa using hμ₀ v hvS
+      change 0 ≤ exponentFun v
+      simp only [exponentFun, if_pos hvS]
+      dsimp [principalCount]
+      rw [rf_count_spanSingleton_eq_neg_log_valuation v (μ₀ : F) (Units.ne_zero μ₀)]
+      linarith
+  let Jfrac : FractionalIdeal (nonZeroDivisors (𝓞 F)) F :=
+    exponent.prod (HeightOneSpectrum.asIdeal · ^ ·)
+  have hJle : Jfrac ≤ 1 := by
+    dsimp [Jfrac]
+    rw [Finsupp.prod]
+    apply Finset.prod_le_one
+    intro v hv
+    obtain ⟨n, hn⟩ := Int.eq_ofNat_of_zero_le (hexponent_nonneg v)
+    rw [hn, zpow_natCast]
+    exact Left.pow_le_one_of_le FractionalIdeal.coeIdeal_le_one _
+  have hJne : Jfrac ≠ 0 := by
+    dsimp [Jfrac]
+    rw [Finsupp.prod]
+    apply Finset.prod_ne_zero_iff.mpr
+    intro v hv
+    exact zpow_ne_zero _ (FractionalIdeal.coeIdeal_ne_zero.mpr v.ne_bot)
+  have hcountJ (v : FinPlace F) : FractionalIdeal.count F v Jfrac = exponent v := by
+    simpa [Jfrac] using FractionalIdeal.count_finsuppProd F v exponent
+  obtain ⟨I, hIco⟩ := (FractionalIdeal.le_one_iff_exists_coeIdeal).mp hJle
+  have hIne : I ≠ ⊥ := by
+    intro h
+    apply hJne
+    rw [← hIco, h, FractionalIdeal.coeIdeal_bot]
+  have hIexterior : S.IsExterior I := by
+    refine ⟨hIne, ?_⟩
+    intro v hvS hle
+    have hleFrac : Jfrac ≤ (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+      rw [← hIco]
+      exact (FractionalIdeal.coeIdeal_le_coeIdeal F).2 hle
+    have hmono := FractionalIdeal.count_mono (K := F) (v := v) hJne hleFrac
+    have hexpZero : exponent v = 0 := by simp [exponent, exponentFun, hvS]
+    have hbad : (1 : ℤ) ≤ 0 := by
+      calc
+        1 = FractionalIdeal.count F v
+            (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) :=
+          (FractionalIdeal.count_self F v).symm
+        _ ≤ FractionalIdeal.count F v Jfrac := hmono
+        _ = exponent v := hcountJ v
+        _ = 0 := hexpZero
+    norm_num at hbad
+  have hgenI : S.IsGen (μ₀ : F) I := by
+    refine ⟨hIexterior, Units.ne_zero μ₀, ?_⟩
+    intro v hvS
+    have hexp : exponent v = principalCount v := by simp [exponent, exponentFun, hvS]
+    calc
+      FractionalIdeal.count F v
+          (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (μ₀ : F)) =
+          principalCount v := rfl
+      _ = exponent v := hexp.symm
+      _ = FractionalIdeal.count F v Jfrac := (hcountJ v).symm
+      _ = FractionalIdeal.count F v (I : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
+        rw [← hIco]
+  let Iext : S.ExtIdeal := ⟨I, hIexterior⟩
+  let epsF : Fˣ := μ₀ / bc.gen Iext
+  have hepsOrd (v : FinPlace F) (hv : v ∉ S.Sf) :
+      ordv v (toLoc v epsF) = 0 := by
+    have hμOrd := rf_ordv_toLoc_ofGen v hv Iext μ₀ hgenI
+    have hgenOrd := rf_ordv_toLoc_ofGen v hv Iext (bc.gen Iext)
+      (bc.gen_spec Iext).1
+    dsimp [epsF]
+    rw [map_div, div_eq_mul_inv, rf_local_ordv_mul]
+    have hinv : ordv v ((toLoc v (bc.gen Iext))⁻¹) =
+        -ordv v (toLoc v (bc.gen Iext)) := by
+      calc
+        ordv v ((toLoc v (bc.gen Iext))⁻¹) =
+            ordv v ((toLoc v (bc.gen Iext)) ^ (-1 : ℤ)) := by
+              rw [zpow_neg_one]
+        _ = (-1 : ℤ) * ordv v (toLoc v (bc.gen Iext)) :=
+          rf_ordv_zpow v (toLoc v (bc.gen Iext)) (-1)
+        _ = -ordv v (toLoc v (bc.gen Iext)) := by ring
+    rw [hinv, hμOrd, hgenOrd]
+    ring
+  let eps : S.US := ⟨epsF, fun v hv => rf_globalVal_one_of_ordv_zero v epsF (hepsOrd v hv)⟩
+  have hμEq : μ₀ = (eps : Fˣ) * bc.gen Iext := by
+    calc
+      μ₀ = (μ₀ / bc.gen Iext) * bc.gen Iext := (div_mul_cancel _ _).symm
+      _ = (eps : Fˣ) * bc.gen Iext := rfl
+  exact ⟨Iext, eps, hμEq⟩
+
+private theorem rf_preDigit_Sunit_orbit
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (ε : S.US) :
+    ∃ u : UnitSix S, ∃ γ : Gamma S,
+      (ε : Fˣ) = (γ.1 : Fˣ) * (R.sheets.eps u : Fˣ) := by
+  let u : UnitSix S := unitSixClass S ε
+  have hepsClass : unitSixClass S (R.sheets.eps u) = unitSixClass S ε := by
+    simpa [u] using R.sheets.eps_class u
+  have hclass : unitSixClass S ε = unitSixClass S (R.sheets.eps u) := hepsClass.symm
+  have hmem : ε / R.sheets.eps u ∈ Gamma S :=
+    (QuotientGroup.eq_iff_div_mem).mp (by simpa [unitSixClass] using hclass)
+  let γ : Gamma S := ⟨ε / R.sheets.eps u, hmem⟩
+  have hεUS : ε = γ.1 * R.sheets.eps u := by
+    dsimp [γ]
+    exact (div_mul_cancel _ _).symm
+  refine ⟨u, γ, ?_⟩
+  exact congrArg (fun e : S.US => (e : Fˣ)) hεUS
+
+private theorem rf_ordv_toLoc_of_valuation_one
+    (v : FinPlace F) (x : Fˣ)
+    (hx : HeightOneSpectrum.valuation F v (x : F) = 1) :
+    ordv v (toLoc v x) = 0 := by
+  have hlocVal : Valued.v (toLoc v x : v.adicCompletion F) = 1 := by
+    change Valued.v (algebraMap F (v.adicCompletion F) (x : F)) = 1
+    simp only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+      Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation', hx]
+  have hexp := rf_valued_eq_exp_neg_ordv v (toLoc v x)
+  rw [hlocVal] at hexp
+  have heq : WithZero.exp (-ordv v (toLoc v x)) = WithZero.exp (0 : ℤ) := by
+    simpa using hexp.symm
+  have hle : -ordv v (toLoc v x) ≤ 0 :=
+    (WithZero.exp_le_exp).mp (le_of_eq heq)
+  have hge : 0 ≤ -ordv v (toLoc v x) :=
+    (WithZero.exp_le_exp).mp (le_of_eq heq.symm)
+  omega
+
+private theorem rf_preDigit_localMass_sunit_invariant
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ) (ε : S.US) :
+    rf_preDigit_localMass R r d ((ε : Fˣ) * ν) = rf_preDigit_localMass R r d ν := by
+  classical
+  have hOrdε (v : FinPlace F) (hv : v ∉ S.Sf) :
+      ordv v (toLoc v (ε : Fˣ)) = 0 := by
+    exact rf_ordv_toLoc_of_valuation_one v (ε : Fˣ)
+      (Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F) ε hv)
+  have hOrdMul (v : FinPlace F) (hv : v ∉ S.Sf) :
+      ordv v (toLoc v ((ε : Fˣ) * ν)) = ordv v (toLoc v ν) := by
+    rw [map_mul, rf_local_ordv_mul, hOrdε v hv]
+    simp
+  unfold rf_preDigit_localMass
+  have hrow :
+      (∏ v ∈ R.exterior.support r.ideal,
+        ‖R.T.Wv v (R.C.a v (toLoc v ((ε : Fˣ) * ν)) * R.C.w v *
+          if hv : v ∈ R.exterior.support r.ideal then
+            R.C.n v (Multiplicative.ofAdd (algebraMap F _
+              (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F)))) else 1)‖) =
+      ∏ v ∈ R.exterior.support r.ideal,
+        ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+          if hv : v ∈ R.exterior.support r.ideal then
+            R.C.n v (Multiplicative.ofAdd (algebraMap F _
+              (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F)))) else 1)‖ := by
+    apply Finset.prod_congr rfl
+    intro v hv
+    have hL := rf_preDigit_row_factor_norm R r d v hv ((ε : Fˣ) * ν)
+    have hR := rf_preDigit_row_factor_norm R r d v hv ν
+    calc
+      _ = if d ⟨v, hv⟩ = 0 then
+          ‖localW R v (ordv v (toLoc v ((ε : Fˣ) * ν)))‖ else
+          ‖localW R v (ordv v (toLoc v ((ε : Fˣ) * ν)) + 2)‖ := by
+            simpa [hv] using hL
+      _ = if d ⟨v, hv⟩ = 0 then
+          ‖localW R v (ordv v (toLoc v ν))‖ else
+          ‖localW R v (ordv v (toLoc v ν) + 2)‖ := by rw [hOrdMul v
+            (R.exterior.support_exterior r.ideal v hv)]
+      _ = _ := by simpa [hv] using hR.symm
+  have htail :
+      (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+        ‖R.T.Wv v (R.C.a v (toLoc v ((ε : Fˣ) * ν)) )‖) =
+      ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+        ‖R.T.Wv v (R.C.a v (toLoc v ν))‖ := by
+    apply finprod_mem_congr rfl
+    intro v hv
+    rw [rf_Wv_norm_eq_localW R v hv.1 (toLoc v ((ε : Fˣ) * ν)),
+      rf_Wv_norm_eq_localW R v hv.1 (toLoc v ν), hOrdMul v hv.1]
+  rw [hrow, htail]
+
+private theorem rf_ordv_finset_prod
+    (v : FinPlace F) (s : Finset (FinPlace F)) (f : FinPlace F → Fˣ) :
+    ordv v (toLoc v (∏ w ∈ s, f w)) =
+      ∑ w ∈ s, ordv v (toLoc v (f w)) := by
+  classical
+  induction s using Finset.induction_on with
+  | empty =>
+      simp only [Finset.prod_empty, Finset.sum_empty, map_one]
+      change ordv v (1 : (v.adicCompletion F)ˣ) = 0
+      rw [rf_ordv_local_log]
+      simp
+  | @insert w s hws ih =>
+      rw [Finset.prod_insert hws, map_mul, rf_local_ordv_mul,
+        Finset.sum_insert hws, ih]
+
+private def rf_preDigit_rowShift
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S) : Fˣ :=
+  (∏ v ∈ R.exterior.support r.ideal, primeGen R v) ^ 2
+
+private theorem rf_preDigit_rowShift_ord
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (v : FinPlace F) (hv : v ∉ S.Sf) :
+    ordv v (toLoc v (rf_preDigit_rowShift R r)) =
+      if v ∈ R.exterior.support r.ideal then 2 else 0 := by
+  classical
+  let T0 := R.exterior.support r.ideal
+  have hterm (w : FinPlace F) (hw : w ∈ T0) :
+      ordv v (toLoc v (primeGen R w)) = if w = v then 1 else 0 := by
+    by_cases hEq : w = v
+    · subst w
+      simp [rf_local_primeGen_ord R v hv]
+    · have hglobal : HeightOneSpectrum.valuation F v (primeGen R w : F) = 1 :=
+        rf_primeGen_globalVal_one_of_ne R w v
+          (R.exterior.support_exterior r.ideal w hw) hv hEq
+      have hzero := rf_ordv_toLoc_of_valuation_one v (primeGen R w) hglobal
+      simp [hEq, hzero]
+  have hsum :
+      (∑ w ∈ T0, ordv v (toLoc v (primeGen R w))) =
+        if v ∈ T0 then 1 else 0 := by
+    calc
+      (∑ w ∈ T0, ordv v (toLoc v (primeGen R w))) =
+          ∑ w ∈ T0, (if w = v then 1 else 0) := by
+        exact Finset.sum_congr (s₁ := T0) (s₂ := T0)
+          (f := fun w : FinPlace F => ordv v (toLoc v (primeGen R w)))
+          (g := fun w : FinPlace F => if w = v then 1 else 0) rfl
+          (fun w hw => hterm w (by simpa [T0] using hw))
+      _ = if v ∈ T0 then 1 else 0 := by simp [T0]
+  have hprodOrd :
+      ordv v (toLoc v (∏ w ∈ T0, primeGen R w)) =
+        if v ∈ T0 then 1 else 0 := by
+    rw [rf_ordv_finset_prod]
+    exact hsum
+  change ordv v (toLoc v ((∏ w ∈ T0, primeGen R w) ^ 2)) = _
+  rw [map_pow, pow_two, rf_local_ordv_mul, hprodOrd]
+  split_ifs <;> norm_num
+
+private theorem rf_localW_norm_qQuarter
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (he : 0 ≤ e) :
+    ‖localW R v e‖ ≤ qI v.asIdeal ^ (-(e : ℝ) / 4) := by
+  let n : ℕ := Int.toNat e
+  have heNat : e = (n : ℤ) := by dsimp [n]; omega
+  have heReal : (e : ℝ) = (n : ℝ) := by exact_mod_cast heNat
+  have hnormEq : ‖localW R v e‖ = ‖localW R v (n : ℤ)‖ := by rw [heNat]
+  rw [hnormEq]
+  have hform := rf_localW_norm_formula R v hv n
+  have hqone : 1 < qI v.asIdeal := qI_prime_gt_one v
+  by_cases hm0 : n % 3 = 0
+  · rw [hform, if_pos hm0, heReal]
+    have hdecomp : n = 3 * (n / 3) := by omega
+    have hdecompR : (n : ℝ) = 3 * ((n / 3 : ℕ) : ℝ) := by exact_mod_cast hdecomp
+    apply Real.rpow_le_rpow_of_exponent_le hqone.le
+    rw [hdecompR]
+    push_cast
+    nlinarith
+  · by_cases hm1 : n % 3 = 1
+    · rw [hform, if_neg hm0, if_pos hm1, heReal]
+      have hdecomp : n = 3 * (n / 3) + 1 := by omega
+      have hdecompR : (n : ℝ) = 3 * ((n / 3 : ℕ) : ℝ) + 1 := by exact_mod_cast hdecomp
+      apply Real.rpow_le_rpow_of_exponent_le hqone.le
+      rw [hdecompR]
+      push_cast
+      nlinarith
+    · have hm2 : n % 3 = 2 := by omega
+      rw [hform, if_neg hm0, if_neg hm1]
+      exact Real.rpow_nonneg (le_of_lt (lt_trans zero_lt_one hqone)) _
+
+private theorem rf_localW_norm_qQuarter_shift
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (he : 0 ≤ e) :
+    ‖localW R v (e - 2)‖ ≤ qI v.asIdeal ^ (1 / 2 : ℝ) *
+      qI v.asIdeal ^ (-(e : ℝ) / 4) := by
+  have hqpos : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  by_cases hk : e - 2 < 0
+  · rw [rf_localW_zero_of_negative R v hv (e - 2) hk]
+    simp only [norm_zero]
+    exact mul_nonneg
+      (Real.rpow_nonneg (le_of_lt hqpos) _)
+      (Real.rpow_nonneg (le_of_lt hqpos) _)
+  · have hk0 : 0 ≤ e - 2 := by omega
+    have hlocal := rf_localW_norm_qQuarter R v hv (e - 2) hk0
+    calc
+      ‖localW R v (e - 2)‖ ≤ qI v.asIdeal ^ (-((e - 2 : ℤ) : ℝ) / 4) := hlocal
+      _ = qI v.asIdeal ^ (1 / 2 : ℝ) * qI v.asIdeal ^ (-(e : ℝ) / 4) := by
+        rw [show -((e - 2 : ℤ) : ℝ) / 4 = (1 / 2 : ℝ) + (-(e : ℝ) / 4) by push_cast <;> ring,
+          Real.rpow_add hqpos]
+
+private theorem rf_preDigit_ideal_norm
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (I : S.ExtIdeal) :
+    qI I.1 = ∏ v ∈ R.exterior.support I,
+      qI v.asIdeal ^ idealExp v I.1 := by
+  classical
+  have hI0 : I.1 ≠ 0 := by simpa [Ideal.zero_eq_bot] using I.property.1
+  let s := R.exterior.support I
+  have hsupp : Function.mulSupport (fun v : FinPlace F => v.maxPowDividing I.1) ⊆ s := by
+    intro v hv
+    simp only [Function.mem_mulSupport] at hv
+    by_contra hnot
+    have he0 : idealExp v I.1 = 0 := by
+      by_contra hne
+      exact hnot ((rf_idealExp_ne_zero_iff_support R v I).mp hne)
+    have htop : v.maxPowDividing I.1 = ⊤ := by
+      rw [show v.maxPowDividing I.1 = v.asIdeal ^ idealExp v I.1 by rfl, he0]
+      simp
+    simp [htop] at hv
+  have hfac : I.1 = ∏ v ∈ s, v.asIdeal ^ idealExp v I.1 := by
+    calc
+      I.1 = ∏ᶠ v : FinPlace F, v.maxPowDividing I.1 :=
+        (Ideal.finprod_heightOneSpectrum_factorization hI0).symm
+      _ = ∏ v ∈ s, v.maxPowDividing I.1 := finprod_eq_prod_of_mulSupport_subset _ hsupp
+      _ = ∏ v ∈ s, v.asIdeal ^ idealExp v I.1 := rfl
+  have hnorm := congrArg (fun J : Ideal (𝓞 F) => (Ideal.absNorm J : ℝ)) hfac
+  simpa only [qI, map_prod, map_pow, Nat.cast_prod, Nat.cast_pow] using hnorm
+
+private theorem rf_preDigit_row_factor_ne_zero_of_mass
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ) (hMass : rf_preDigit_localMass R r d ν ≠ 0)
+    (v : FinPlace F) (hv : v ∈ R.exterior.support r.ideal) :
+    ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F)
+        (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F)))))‖ ≠ 0 := by
+  have hmass' :
+      (∏ w ∈ R.exterior.support r.ideal,
+        ‖R.T.Wv w (R.C.a w (toLoc w ν) * R.C.w w *
+          if hw : w ∈ R.exterior.support r.ideal then
+            R.C.n w (Multiplicative.ofAdd (algebraMap F (w.adicCompletion F)
+              (algebraMap (𝓞 F) F (d ⟨w, hw⟩).out / (primeGen R w : F)))) else 1)‖) *
+      ∏ᶠ (w : FinPlace F) (_ : w ∉ S.Sf ∧ w ∉ R.exterior.support r.ideal),
+        ‖R.T.Wv w (R.C.a w (toLoc w ν))‖ ≠ 0 := by
+    simpa [rf_preDigit_localMass] using hMass
+  have hrow :
+      (∏ w ∈ R.exterior.support r.ideal,
+        ‖R.T.Wv w (R.C.a w (toLoc w ν) * R.C.w w *
+          if hw : w ∈ R.exterior.support r.ideal then
+            R.C.n w (Multiplicative.ofAdd (algebraMap F (w.adicCompletion F)
+              (algebraMap (𝓞 F) F (d ⟨w, hw⟩).out / (primeGen R w : F)))) else 1)‖) ≠ 0 :=
+    (mul_ne_zero_iff.mp hmass').1
+  have hfactor := (Finset.prod_ne_zero_iff.mp hrow) v hv
+  simpa [hv] using hfactor
+
+private theorem rf_preDigit_tail_factor_ne_zero_of_mass
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ) (hMass : rf_preDigit_localMass R r d ν ≠ 0)
+    (v : FinPlace F) (hvS : v ∉ S.Sf) (hvT : v ∉ R.exterior.support r.ideal) :
+    ‖R.T.Wv v (R.C.a v (toLoc v ν))‖ ≠ 0 := by
+  classical
+  have hmass' :
+      (∏ w ∈ R.exterior.support r.ideal,
+        ‖R.T.Wv w (R.C.a w (toLoc w ν) * R.C.w w *
+          if hw : w ∈ R.exterior.support r.ideal then
+            R.C.n w (Multiplicative.ofAdd (algebraMap F (w.adicCompletion F)
+              (algebraMap (𝓞 F) F (d ⟨w, hw⟩).out / (primeGen R w : F)))) else 1)‖) *
+      ∏ᶠ (w : FinPlace F) (_ : w ∉ S.Sf ∧ w ∉ R.exterior.support r.ideal),
+        ‖R.T.Wv w (R.C.a w (toLoc w ν))‖ ≠ 0 := by
+    simpa [rf_preDigit_localMass] using hMass
+  have htail :
+      (∏ᶠ (w : FinPlace F) (_ : w ∉ S.Sf ∧ w ∉ R.exterior.support r.ideal),
+        ‖R.T.Wv w (R.C.a w (toLoc w ν))‖) ≠ 0 :=
+    (mul_ne_zero_iff.mp hmass').2
+  let V := (finitePlace_mk_hasFiniteMulSupport (x := (ν : F)) (Units.ne_zero ν)).toFinset
+  have hvaluation_one (w : FinPlace F) (hwV : w ∉ V) :
+      HeightOneSpectrum.valuation F w (ν : F) = 1 := by
+    have hnorm : FinitePlace.mk w (ν : F) = 1 := by
+      by_contra hne
+      apply hwV
+      exact (finitePlace_mk_hasFiniteMulSupport (x := (ν : F))
+        (Units.ne_zero ν)).mem_toFinset.mpr (by
+          simpa only [Function.mem_mulSupport] using hne)
+    have hnorm' : ‖FinitePlace.embedding w (ν : F)‖ = 1 := by
+      simpa only [FinitePlace.mk_apply] using hnorm
+    have hnn : WithZeroMulInt.toNNReal (HeightOneSpectrum.absNorm_ne_zero w)
+        (HeightOneSpectrum.valuation F w (ν : F)) = 1 := by
+      apply NNReal.coe_injective
+      simpa only [FinitePlace.norm_embedding', NNReal.coe_one] using hnorm'
+    have hq : (Ideal.absNorm w.asIdeal : NNReal) ≠ 1 := by
+      intro h
+      have hn : Ideal.absNorm w.asIdeal = 1 := by exact_mod_cast h
+      have hlt := HeightOneSpectrum.one_lt_absNorm w
+      omega
+    exact (WithZeroMulInt.toNNReal_eq_one_iff _
+      (HeightOneSpectrum.absNorm_ne_zero w) hq).mp hnn
+  let tailCond : FinPlace F → Prop :=
+    fun w => w ∉ S.Sf ∧ w ∉ R.exterior.support r.ideal
+  let wbase : FinPlace F → ℝ := fun w => ‖R.T.Wv w (R.C.a w (toLoc w ν))‖
+  let tailC : FinPlace F → ℝ := fun w => if tailCond w then wbase w else 1
+  have htailCSupp : Function.mulSupport tailC ⊆ V := by
+    intro w hw
+    by_contra hwV
+    by_cases hcond : tailCond w
+    · have hwone := rf_Wv_one_of_valuation_one R w hcond.1 ν (hvaluation_one w hwV)
+      have hEq : tailC w = 1 := by simp [tailC, hcond, wbase, hwone]
+      simpa only [Function.mem_mulSupport] using hw hEq
+    · simp [tailC, hcond] at hw
+  have htailEq :
+      (∏ᶠ (w : FinPlace F) (_ : w ∉ S.Sf ∧ w ∉ R.exterior.support r.ideal), wbase w) =
+        ∏ w ∈ V, tailC w := by
+    calc
+      _ = ∏ᶠ w : FinPlace F,
+          Set.mulIndicator {w : FinPlace F | tailCond w} wbase w :=
+        finprod_mem_def {w : FinPlace F | tailCond w} wbase
+      _ = ∏ᶠ w : FinPlace F, tailC w := by
+        congr 1
+        funext w
+        simp [Set.mulIndicator, tailCond, tailC]
+      _ = _ := finprod_eq_prod_of_mulSupport_subset tailC htailCSupp
+  have hprod : (∏ w ∈ V, tailC w) ≠ 0 := by rw [← htailEq]; exact htail
+  by_cases hvV : v ∈ V
+  · have hfactor := (Finset.prod_ne_zero_iff.mp hprod) v hvV
+    simpa [tailC, tailCond, hvS, hvT, wbase] using hfactor
+  · have hval := hvaluation_one v hvV
+    have hWone := rf_Wv_one_of_valuation_one R v hvS ν hval
+    simp [hWone]
+
+private theorem rf_localW_norm_nonzero_nonneg
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (hW : ‖localW R v e‖ ≠ 0) : 0 ≤ e := by
+  by_contra h
+  have he : e < 0 := by omega
+  have hzero := rf_localW_zero_of_negative R v hv e he
+  apply hW
+  simp [hzero]
+
+private theorem rf_preDigit_shifted_mem_sInteger
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ)
+    (hMass : rf_preDigit_localMass R r d ν ≠ 0) :
+    ((ν * rf_preDigit_rowShift R r : Fˣ) : F) ∈ S.R := by
+  classical
+  let T0 := R.exterior.support r.ideal
+  let νshift : Fˣ := ν * rf_preDigit_rowShift R r
+  have hOrdShift (v : FinPlace F) (hvS : v ∉ S.Sf) :
+      ordv v (toLoc v νshift) = ordv v (toLoc v ν) +
+        (if v ∈ T0 then 2 else 0) := by
+    dsimp [νshift]
+    rw [map_mul, rf_local_ordv_mul, rf_preDigit_rowShift_ord R r v hvS]
+  have horder (v : FinPlace F) (hvS : v ∉ S.Sf) :
+      0 ≤ ordv v (toLoc v νshift) := by
+    by_cases hvT : v ∈ T0
+    · have hrowNZ := rf_preDigit_row_factor_ne_zero_of_mass R r d ν hMass v hvT
+      let k : ℤ := ordv v (toLoc v ν)
+      have hlocal := rf_preDigit_row_factor_norm R r d v hvT ν
+      have hlocal' :
+          ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+            R.C.n v (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F)
+              (algebraMap (𝓞 F) F (d ⟨v, hvT⟩).out / (primeGen R v : F)))))‖ =
+            if d ⟨v, hvT⟩ = 0 then ‖localW R v k‖ else ‖localW R v (k + 2)‖ := by
+        simpa [k] using hlocal
+      have hcase : (if d ⟨v, hvT⟩ = 0 then ‖localW R v k‖ else
+          ‖localW R v (k + 2)‖) ≠ 0 := by
+        rw [← hlocal']
+        exact hrowNZ
+      have hlocalOrder : 0 ≤ k + 2 := by
+        by_cases hd0 : d ⟨v, hvT⟩ = 0
+        · have hW : ‖localW R v k‖ ≠ 0 := by simpa [hd0] using hcase
+          have hk := rf_localW_norm_nonzero_nonneg R v hvS k hW
+          omega
+        · have hW : ‖localW R v (k + 2)‖ ≠ 0 := by simpa [hd0] using hcase
+          exact rf_localW_norm_nonzero_nonneg R v hvS (k + 2) hW
+      rw [hOrdShift v hvS]
+      simpa [T0, k, hvT] using hlocalOrder
+    · have htailNZ := rf_preDigit_tail_factor_ne_zero_of_mass R r d ν hMass v hvS hvT
+      have hWv := rf_Wv_norm_eq_localW R v hvS (toLoc v ν)
+      have hW : ‖localW R v (ordv v (toLoc v ν))‖ ≠ 0 := by
+        rw [← hWv]
+        exact htailNZ
+      have hk := rf_localW_norm_nonzero_nonneg R v hvS (ordv v (toLoc v ν)) hW
+      rw [hOrdShift v hvS]
+      simp [T0, hvT]
+      exact hk
+  have hval : ∀ v : FinPlace F, v ∉ S.Sf →
+      HeightOneSpectrum.valuation F v (νshift : F) ≤ 1 := by
+    intro v hvS
+    have hlocExp : Valued.v (toLoc v νshift : v.adicCompletion F) =
+        WithZero.exp (-ordv v (toLoc v νshift)) :=
+      rf_valued_eq_exp_neg_ordv v (toLoc v νshift)
+    have hmap : Valued.v (toLoc v νshift : v.adicCompletion F) =
+        HeightOneSpectrum.valuation F v (νshift : F) := by
+      change Valued.v (algebraMap F (v.adicCompletion F) (νshift : F)) = _
+      simp only [HeightOneSpectrum.algebraMap_adicCompletion, Function.comp_apply,
+        Algebra.algebraMap_self, RingHom.id_apply, v.valuedAdicCompletion_eq_valuation']
+    rw [← hmap, hlocExp]
+    exact WithZero.exp_le_one_iff.mpr (by linarith [horder v hvS])
+  change ∀ v : FinPlace F, v ∉ S.Sf →
+    HeightOneSpectrum.valuation F v (νshift : F) ≤ 1
+  exact hval
+
+private def rf_preDigit_baseFrequency
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (u : UnitSix S) (I : S.ExtIdeal) : Fˣ :=
+  (R.sheets.eps u : Fˣ) * bc.gen I / rf_preDigit_rowShift R r
+
+private theorem rf_preDigit_baseFrequency_ord
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (u : UnitSix S) (I : S.ExtIdeal) (v : FinPlace F) (hvS : v ∉ S.Sf) :
+    ordv v (toLoc v (rf_preDigit_baseFrequency R r u I)) =
+      (idealExp v I.1 : ℤ) -
+        (if v ∈ R.exterior.support r.ideal then 2 else 0) := by
+  have hepsOrd : ordv v (toLoc v (R.sheets.eps u : Fˣ)) = 0 :=
+    rf_ordv_toLoc_of_valuation_one v (R.sheets.eps u : Fˣ)
+      (Set.unit_valuation_eq_one (S := (S.Sf : Set (FinPlace F))) (K := F)
+        (R.sheets.eps u) hvS)
+  have hgenOrd : ordv v (toLoc v (bc.gen I)) = idealExp v I.1 :=
+    rf_ordv_toLoc_ofGen v hvS I (bc.gen I) (bc.gen_spec I).1
+  have hshiftOrd := rf_preDigit_rowShift_ord R r v hvS
+  have hInv : ordv v ((toLoc v (rf_preDigit_rowShift R r))⁻¹) =
+      -ordv v (toLoc v (rf_preDigit_rowShift R r)) := by
+    calc
+      ordv v ((toLoc v (rf_preDigit_rowShift R r))⁻¹) =
+          ordv v (toLoc v (rf_preDigit_rowShift R r) ^ (-1 : ℤ)) := by
+            rw [zpow_neg_one]
+      _ = (-1 : ℤ) * ordv v (toLoc v (rf_preDigit_rowShift R r)) :=
+        rf_ordv_zpow v (toLoc v (rf_preDigit_rowShift R r)) (-1)
+      _ = -ordv v (toLoc v (rf_preDigit_rowShift R r)) := by ring
+  dsimp [rf_preDigit_baseFrequency]
+  rw [map_div, div_eq_mul_inv, map_mul, rf_local_ordv_mul,
+    rf_local_ordv_mul, hInv, hepsOrd, hgenOrd, hshiftOrd]
+  ring
+
+private theorem rf_preDigit_frequency_decomp
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (ν : Fˣ)
+    (hMass : rf_preDigit_localMass R r d ν ≠ 0) :
+    ∃ o : UnitSix S × (S.ExtIdeal × Gamma S),
+      ν = (o.2.2.1 : Fˣ) * rf_preDigit_baseFrequency R r o.1 o.2.1 := by
+  obtain ⟨I, ε, hgen⟩ :=
+    rf_preDigit_generator_decomp R (ν * rf_preDigit_rowShift R r)
+      (rf_preDigit_shifted_mem_sInteger R r d ν hMass)
+  obtain ⟨u, γ, hunit⟩ := rf_preDigit_Sunit_orbit R ε
+  have hshift : ν * rf_preDigit_rowShift R r =
+      (γ.1 : Fˣ) * (R.sheets.eps u : Fˣ) * bc.gen I := by
+    calc
+      ν * rf_preDigit_rowShift R r = (ε : Fˣ) * bc.gen I := hgen
+      _ = (γ.1 : Fˣ) * (R.sheets.eps u : Fˣ) * bc.gen I := by rw [hunit]
+  refine ⟨(u, (I, γ)), ?_⟩
+  change ν = (γ.1 : Fˣ) * rf_preDigit_baseFrequency R r u I
+  calc
+    ν = (ν * rf_preDigit_rowShift R r) / rf_preDigit_rowShift R r := by simp
+    _ = ((γ.1 : Fˣ) * (R.sheets.eps u : Fˣ) * bc.gen I) /
+          rf_preDigit_rowShift R r := congrArg
+            (fun z : Fˣ => z / rf_preDigit_rowShift R r) hshift
+    _ = (γ.1 : Fˣ) * rf_preDigit_baseFrequency R r u I := by
+      dsimp [rf_preDigit_baseFrequency]
+      simp only [div_eq_mul_inv]
+      ac_rfl
+
+private theorem rf_preDigit_maskAlpha_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (v : FinPlace F) (hv : v ∉ S.Sf) (x : 𝓞 F ⧸ v.asIdeal) :
+    ‖maskAlpha D A v (primeGen R v) (digitExponent r v) x‖ ≤ 2 * qI v.asIdeal := by
+  classical
+  letI := bridgeResidueFintype v
+  let j := digitExponent r v
+  have hparts := (rf_forward_assembly R).1 v hv j
+  change (j ≠ 0 →
+      (∑ᶠ z : 𝓞 F ⧸ v.asIdeal,
+        ‖maskAlpha D A v (primeGen R v) j z‖) ≤ qI v.asIdeal ^ (1 / 2 : ℝ)) ∧
+    (j = 0 →
+      (∑ᶠ z : 𝓞 F ⧸ v.asIdeal,
+        ‖maskAlpha D A v (primeGen R v) j z‖) < 2) at hparts
+  have hqone : 1 ≤ qI v.asIdeal := le_of_lt (qI_prime_gt_one v)
+  have hmass :
+      (∑ᶠ z : 𝓞 F ⧸ v.asIdeal,
+        ‖maskAlpha D A v (primeGen R v) j z‖) ≤ 2 * qI v.asIdeal := by
+    by_cases hj : j = 0
+    · have hm := hparts.2 hj
+      nlinarith
+    · have hm := hparts.1 hj
+      have hsqrt : qI v.asIdeal ^ (1 / 2 : ℝ) ≤ qI v.asIdeal := by
+        rw [← Real.sqrt_eq_rpow]
+        exact (Real.sqrt_le_self_iff).2 (Or.inr hqone)
+      have htwo : qI v.asIdeal ≤ 2 * qI v.asIdeal := by nlinarith
+      exact hm.trans (hsqrt.trans htwo)
+  have hsumEq :
+      (∑ᶠ z : 𝓞 F ⧸ v.asIdeal,
+        ‖maskAlpha D A v (primeGen R v) j z‖) =
+      ∑ z : 𝓞 F ⧸ v.asIdeal,
+        ‖maskAlpha D A v (primeGen R v) j z‖ := by
+    rw [finsum_eq_sum_of_fintype]
+  have hsingle :
+      ‖maskAlpha D A v (primeGen R v) j x‖ ≤
+        ∑ z : 𝓞 F ⧸ v.asIdeal,
+          ‖maskAlpha D A v (primeGen R v) j z‖ :=
+    Finset.single_le_sum (fun z hz => norm_nonneg _) (Finset.mem_univ x)
+  have hmass' := hmass
+  simpa [j] using hsingle.trans (hsumEq.symm ▸ hmass')
+
+private theorem rf_preDigit_digitAlpha_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) :
+    ‖digitAlpha R r d‖ ≤
+      ∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+        2 * qI v.1.asIdeal := by
+  classical
+  letI : ∀ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+      Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  rw [digitAlpha, norm_prod]
+  apply Finset.prod_le_prod₀
+  · intro v hv
+    exact norm_nonneg _
+  · intro v hv
+    exact rf_preDigit_maskAlpha_bound R r v.1
+      (R.exterior.support_exterior r.ideal v.1 v.2) (d v)
+
+private theorem rf_preDigit_tail_base_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (u : UnitSix S) (I : S.ExtIdeal) :
+    (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+      ‖R.T.Wv v (R.C.a v (toLoc v (rf_preDigit_baseFrequency R r u I)))‖) ≤
+      ∏ v ∈ (R.exterior.support I).filter
+          (fun v => v ∉ R.exterior.support r.ideal),
+        qI v.asIdeal ^ (-(idealExp v I.1 : ℝ) / 4) := by
+  classical
+  let ν : Fˣ := rf_preDigit_baseFrequency R r u I
+  let s := R.exterior.support I
+  let T0 := R.exterior.support r.ideal
+  let sout := s.filter (fun v => v ∉ T0)
+  let tailCond : FinPlace F → Prop := fun v => v ∉ S.Sf ∧ v ∉ T0
+  let wbase : FinPlace F → ℝ := fun v =>
+    ‖R.T.Wv v (R.C.a v (toLoc v ν))‖
+  let tailC : FinPlace F → ℝ := fun v => if tailCond v then wbase v else 1
+  have hOrd (v : FinPlace F) (hvS : v ∉ S.Sf) :
+      ordv v (toLoc v ν) = (idealExp v I.1 : ℤ) -
+        (if v ∈ T0 then 2 else 0) := by
+    simpa [ν, T0] using rf_preDigit_baseFrequency_ord R r u I v hvS
+  have htailCSupp : Function.mulSupport tailC ⊆ sout := by
+    intro v hv
+    by_contra hvout
+    by_cases hc : tailCond v
+    · have hvnotS : v ∉ s := by
+        intro hvs
+        apply hvout
+        exact Finset.mem_filter.mpr ⟨hvs, hc.2⟩
+      have hExp0 : idealExp v I.1 = 0 :=
+        rf_idealExp_zero_of_not_support R v I hvnotS
+      have hOrd0 : ordv v (toLoc v ν) = 0 := by
+        have h := hOrd v hc.1
+        rw [hExp0] at h
+        simp [hc.2] at h
+        exact h
+      have hlocalW0 : ‖localW R v (0 : ℤ)‖ = 1 := by
+        simpa using rf_localW_norm_formula R v hc.1 0
+      have hWone : wbase v = 1 := by
+        dsimp [wbase]
+        rw [rf_Wv_norm_eq_localW R v hc.1 (toLoc v ν), hOrd0]
+        exact hlocalW0
+      have hEq : tailC v = 1 := by simp [tailC, hc, wbase, hWone]
+      simpa only [Function.mem_mulSupport] using hv hEq
+    · simp [tailC, hc] at hv
+  have htailEq :
+      (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0), wbase v) =
+        ∏ v ∈ sout, tailC v := by
+    calc
+      _ = ∏ᶠ v : FinPlace F,
+          Set.mulIndicator {v : FinPlace F | tailCond v} wbase v :=
+        finprod_mem_def {v : FinPlace F | tailCond v} wbase
+      _ = ∏ᶠ v : FinPlace F, tailC v := by
+        congr 1
+        funext v
+        simp [Set.mulIndicator, tailCond, tailC]
+      _ = _ := finprod_eq_prod_of_mulSupport_subset tailC htailCSupp
+  have hprodLe : (∏ v ∈ sout, tailC v) ≤
+      ∏ v ∈ sout, qI v.asIdeal ^ (-(idealExp v I.1 : ℝ) / 4) := by
+    apply Finset.prod_le_prod₀
+    · intro v hv
+      by_cases hc : tailCond v <;> simp [tailC, hc] <;> positivity
+    · intro v hv
+      have hvs : v ∈ s := (Finset.mem_filter.mp hv).1
+      have hvT : v ∉ T0 := (Finset.mem_filter.mp hv).2
+      have hvS : v ∉ S.Sf := R.exterior.support_exterior I v hvs
+      have hOrdEq : ordv v (toLoc v ν) = (idealExp v I.1 : ℤ) := by
+        simpa [hvT] using hOrd v hvS
+      have hlocalEq : tailC v = ‖localW R v (idealExp v I.1 : ℤ)‖ := by
+        have hcond : tailCond v := ⟨hvS, hvT⟩
+        change (if tailCond v then wbase v else 1) = _
+        rw [if_pos hcond]
+        change ‖R.T.Wv v (R.C.a v (toLoc v ν))‖ = _
+        rw [rf_Wv_norm_eq_localW R v hvS (toLoc v ν), hOrdEq]
+      have he : 0 ≤ (idealExp v I.1 : ℤ) := by exact_mod_cast Nat.zero_le (idealExp v I.1)
+      have hq := rf_localW_norm_qQuarter R v hvS (idealExp v I.1 : ℤ) he
+      calc
+        tailC v = ‖localW R v (idealExp v I.1 : ℤ)‖ := hlocalEq
+        _ ≤ qI v.asIdeal ^ (-(idealExp v I.1 : ℝ) / 4) := by
+          simpa only [Int.cast_natCast] using hq
+  simpa [ν, wbase, sout, tailCond, rf_preDigit_baseFrequency] using
+    htailEq.le.trans hprodLe
+
+private theorem rf_preDigit_localMass_base_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (u : UnitSix S) (I : S.ExtIdeal) :
+    rf_preDigit_localMass R r d (rf_preDigit_baseFrequency R r u I) ≤
+      (∏ v ∈ R.exterior.support r.ideal,
+        (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)) * qI I.1 ^ (-(1 / 4 : ℝ)) := by
+  classical
+  let ν : Fˣ := rf_preDigit_baseFrequency R r u I
+  let T0 := R.exterior.support r.ideal
+  let s := R.exterior.support I
+  let sRow := s.filter (fun v => v ∈ T0)
+  let sOut := s.filter (fun v => v ∉ T0)
+  let qweight : FinPlace F → ℝ := fun v =>
+    qI v.asIdeal ^ (-(idealExp v I.1 : ℝ) / 4)
+  let rowFactor : FinPlace F → ℝ := fun v =>
+    ‖R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+      if hv : v ∈ T0 then
+        R.C.n v (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F)
+          (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F)))) else 1)‖
+  have hrowPoint (v : FinPlace F) (hv : v ∈ T0) :
+      rowFactor v ≤ (qI v.asIdeal ^ (1 / 2 : ℝ) + 1) * qweight v := by
+    have hvS : v ∉ S.Sf := R.exterior.support_exterior r.ideal v hv
+    let e : ℤ := idealExp v I.1
+    have he : 0 ≤ e := by dsimp [e]; exact_mod_cast Nat.zero_le (idealExp v I.1)
+    have hOrd := rf_preDigit_baseFrequency_ord R r u I v hvS
+    have hk : ordv v (toLoc v ν) = e - 2 := by
+      simpa [ν, e, T0, hv] using hOrd
+    have hlocal := rf_preDigit_row_factor_norm R r d v hv ν
+    have hrowEq : rowFactor v =
+        if d ⟨v, hv⟩ = 0 then ‖localW R v (e - 2)‖ else ‖localW R v e‖ := by
+      calc
+        rowFactor v =
+            if d ⟨v, hv⟩ = 0 then
+              ‖localW R v (ordv v (toLoc v ν))‖ else
+              ‖localW R v (ordv v (toLoc v ν) + 2)‖ := by
+          simpa [rowFactor, hv] using hlocal
+        _ = if d ⟨v, hv⟩ = 0 then ‖localW R v (e - 2)‖ else
+              ‖localW R v e‖ := by rw [hk]; simp
+    have hweightNonneg : 0 ≤ qweight v := by
+      dsimp [qweight]
+      exact Real.rpow_nonneg (le_trans zero_le_one (qI_prime_gt_one v).le) _
+    have hroot : 0 ≤ qI v.asIdeal ^ (1 / 2 : ℝ) :=
+      Real.rpow_nonneg (le_trans zero_le_one (qI_prime_gt_one v).le) _
+    have hweight' := hweightNonneg
+    by_cases hd0 : d ⟨v, hv⟩ = 0
+    · have hshift := rf_localW_norm_qQuarter_shift R v hvS e he
+      have hqShift : ‖localW R v (e - 2)‖ ≤
+          qI v.asIdeal ^ (1 / 2 : ℝ) * qweight v := by
+        simpa [qweight, e] using hshift
+      calc
+        rowFactor v = ‖localW R v (e - 2)‖ := by rw [hrowEq, if_pos hd0]
+        _ ≤ qI v.asIdeal ^ (1 / 2 : ℝ) * qweight v := hqShift
+        _ ≤ (qI v.asIdeal ^ (1 / 2 : ℝ) + 1) * qweight v := by
+          exact mul_le_mul_of_nonneg_right (by linarith) hweightNonneg
+    · have hquarter := rf_localW_norm_qQuarter R v hvS e he
+      calc
+        rowFactor v = ‖localW R v e‖ := by rw [hrowEq, if_neg hd0]
+        _ ≤ qweight v := by simpa [qweight, e] using hquarter
+        _ ≤ (qI v.asIdeal ^ (1 / 2 : ℝ) + 1) * qweight v := by
+          calc
+            qweight v = 1 * qweight v := by simp
+            _ ≤ (qI v.asIdeal ^ (1 / 2 : ℝ) + 1) * qweight v :=
+              mul_le_mul_of_nonneg_right (by linarith) hweightNonneg
+  have hrowBound :
+      (∏ v ∈ T0, rowFactor v) ≤
+        (∏ v ∈ T0, (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)) *
+          ∏ v ∈ T0, qweight v := by
+    calc
+      (∏ v ∈ T0, rowFactor v) ≤
+          ∏ v ∈ T0, (qI v.asIdeal ^ (1 / 2 : ℝ) + 1) * qweight v := by
+        apply Finset.prod_le_prod₀
+        · intro v hv
+          exact norm_nonneg _
+        · intro v hv
+          exact hrowPoint v hv
+      _ = (∏ v ∈ T0, (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)) *
+            ∏ v ∈ T0, qweight v := by
+        induction T0 using Finset.induction_on with
+        | empty => simp
+        | @insert v T0 hvT ih =>
+            simp only [Finset.prod_insert hvT]
+            rw [ih]
+            ring
+  have htailBound := rf_preDigit_tail_base_bound R r u I
+  have hrowWeightRestriction :
+      (∏ v ∈ T0, qweight v) = ∏ v ∈ sRow, qweight v := by
+    let tIn := T0.filter (fun v => v ∈ sRow)
+    let tOut := T0.filter (fun v => v ∉ sRow)
+    have htIn : tIn = sRow := by
+      ext v
+      simp [tIn, sRow]
+    have htOut : ∏ v ∈ tOut, qweight v = 1 := by
+      apply Finset.prod_eq_one
+      intro v hv
+      have hvT : v ∈ T0 := (Finset.mem_filter.mp hv).1
+      have hvnot : v ∉ sRow := (Finset.mem_filter.mp hv).2
+      have hvnotS : v ∉ s := by
+        intro hvs
+        exact hvnot (Finset.mem_filter.mpr ⟨hvs, hvT⟩)
+      have hzero := rf_idealExp_zero_of_not_support R v I hvnotS
+      simp [qweight, hzero]
+    calc
+      (∏ v ∈ T0, qweight v) =
+          (∏ v ∈ tIn, qweight v) * (∏ v ∈ tOut, qweight v) := by
+        simpa [tIn, tOut] using
+          (Finset.prod_filter_mul_prod_filter_not (s := T0)
+            (p := fun v => v ∈ sRow) (f := qweight)).symm
+      _ = ∏ v ∈ sRow, qweight v := by rw [htIn, htOut, mul_one]
+  have hdisj : Disjoint sRow sOut := by
+    apply Finset.disjoint_left.mpr
+    intro v hv1 hv2
+    exact (Finset.mem_filter.mp hv2).2 (Finset.mem_filter.mp hv1).2
+  have hunion : sRow ∪ sOut = s := by
+    ext v
+    by_cases hvT : v ∈ T0 <;> simp [sRow, sOut, hvT]
+  have hweightSplit :
+      (∏ v ∈ T0, qweight v) * (∏ v ∈ sOut, qweight v) =
+        ∏ v ∈ s, qweight v := by
+    calc
+      _ = (∏ v ∈ sRow, qweight v) * (∏ v ∈ sOut, qweight v) := by
+        rw [hrowWeightRestriction]
+      _ = ∏ v ∈ sRow ∪ sOut, qweight v := (Finset.prod_union hdisj).symm
+      _ = ∏ v ∈ s, qweight v := by rw [hunion]
+  have hnormWeight :
+      qI I.1 ^ (-(1 / 4 : ℝ)) = ∏ v ∈ s, qweight v := by
+    rw [rf_preDigit_ideal_norm R I]
+    calc
+      (∏ v ∈ s, qI v.asIdeal ^ idealExp v I.1) ^ (-(1 / 4 : ℝ)) =
+          ∏ v ∈ s, (qI v.asIdeal ^ idealExp v I.1) ^ (-(1 / 4 : ℝ)) := by
+        exact (Real.finsetProd_rpow s
+          (fun v => qI v.asIdeal ^ idealExp v I.1)
+          (fun v _ => pow_nonneg (le_trans zero_le_one (qI_prime_gt_one v).le) _)
+          (-(1 / 4 : ℝ))).symm
+      _ = ∏ v ∈ s, qweight v := by
+        apply Finset.prod_congr rfl
+        intro v hv
+        dsimp [qweight]
+        rw [← Real.rpow_natCast, ← Real.rpow_mul
+          (le_trans zero_le_one (qI_prime_gt_one v).le)]
+        congr 1
+        ring
+  have hrowNonneg : 0 ≤ ∏ v ∈ T0, rowFactor v :=
+    Finset.prod_nonneg (fun v hv => norm_nonneg _)
+  have htailMajorNonneg : 0 ≤ ∏ v ∈ sOut, qweight v :=
+    Finset.prod_nonneg (fun v hv => Real.rpow_nonneg (le_trans zero_le_one (qI_prime_gt_one v).le) _)
+  change (∏ v ∈ T0, rowFactor v) *
+      (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0),
+        ‖R.T.Wv v (R.C.a v (toLoc v ν))‖) ≤ _
+  calc
+    _ ≤ (∏ v ∈ T0, rowFactor v) * (∏ v ∈ sOut, qweight v) :=
+      mul_le_mul_of_nonneg_left htailBound hrowNonneg
+    _ ≤ ((∏ v ∈ T0, (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)) *
+          ∏ v ∈ T0, qweight v) * (∏ v ∈ sOut, qweight v) :=
+      mul_le_mul_of_nonneg_right hrowBound htailMajorNonneg
+    _ = (∏ v ∈ T0, (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)) *
+          (qI I.1 ^ (-(1 / 4 : ℝ))) := by
+        rw [mul_assoc, hweightSplit, hnormWeight]
+
+private theorem rf_preDigit_baseFrequency_abs
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (u : UnitSix S) (I : S.ExtIdeal) :
+    S.absS (S.diagU (rf_preDigit_baseFrequency R r u I) : S.FS) =
+      qI I.1 / S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) := by
+  let ε : Fˣ := R.sheets.eps u
+  let ρ : Fˣ := rf_preDigit_rowShift R r
+  have hdiag : S.diagU (rf_preDigit_baseFrequency R r u I) =
+      (S.diagU ε * S.diagU (bc.gen I)) / S.diagU ρ := by
+    dsimp [ε, ρ, rf_preDigit_baseFrequency]
+    rw [map_div, map_mul]
+  have hunit : S.absS (S.diagU ε : S.FS) = 1 :=
+    (a2_bridge_NORM D S).2.2.2.1 (R.sheets.eps u)
+  have hgen : S.absS (S.diagU (bc.gen I) : S.FS) = qI I.1 := by
+    simpa [qI, idealNorm] using a2_bridge_NORM_gen D S H Bd bc I
+  have hnormDiv := (a2_bridge_NORM D S).2.2.2.2.1
+  have hnormMul := (a2_bridge_NORM D S).2.1
+  calc
+    S.absS (S.diagU (rf_preDigit_baseFrequency R r u I) : S.FS) =
+        S.absS (((S.diagU ε * S.diagU (bc.gen I)) / S.diagU ρ : S.FSˣ) : S.FS) :=
+      congrArg (fun x : S.FSˣ => S.absS (x : S.FS)) hdiag
+    _ = S.absS ((S.diagU ε * S.diagU (bc.gen I) : S.FSˣ) : S.FS) /
+          S.absS (S.diagU ρ : S.FS) := hnormDiv _ _
+    _ = (S.absS (S.diagU ε : S.FS) *
+          S.absS (S.diagU (bc.gen I) : S.FS)) /
+          S.absS (S.diagU ρ : S.FS) := by
+      exact congrArg (fun x : ℝ => x / S.absS (S.diagU ρ : S.FS))
+        (hnormMul (S.diagU ε : S.FS) (S.diagU (bc.gen I) : S.FS))
+    _ = qI I.1 / S.absS (S.diagU ρ : S.FS) := by rw [hunit, hgen]; simp
+
+private theorem rf_preDigit_digitMass_base_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (u : UnitSix S) (I : S.ExtIdeal) :
+    ‖digitAlpha R r d‖ *
+      rf_preDigit_localMass R r d (rf_preDigit_baseFrequency R r u I) ≤
+      (∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+        2 * qI v.1.asIdeal) *
+      (∏ v ∈ R.exterior.support r.ideal,
+        (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)) *
+      qI I.1 ^ (-(1 / 4 : ℝ)) := by
+  have hAlpha := rf_preDigit_digitAlpha_bound R r d
+  have hMass := rf_preDigit_localMass_base_bound R r d u I
+  have hMassNonneg : 0 ≤ rf_preDigit_localMass R r d
+      (rf_preDigit_baseFrequency R r u I) :=
+    (rf_preDigit_pointwise_norm_eq R r d (rf_preDigit_baseFrequency R r u I) 1).2
+  have hAlphaNonneg : 0 ≤
+      ∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+        2 * qI v.1.asIdeal := by
+    apply Finset.prod_nonneg
+    intro v hv
+    exact mul_nonneg (by norm_num) (le_trans zero_le_one (qI_prime_gt_one v.1).le)
+  calc
+    _ ≤ (∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+          2 * qI v.1.asIdeal) *
+          rf_preDigit_localMass R r d (rf_preDigit_baseFrequency R r u I) :=
+      mul_le_mul_of_nonneg_right hAlpha hMassNonneg
+    _ ≤ (∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+          2 * qI v.1.asIdeal) *
+          ((∏ v ∈ R.exterior.support r.ideal,
+              (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)) *
+            qI I.1 ^ (-(1 / 4 : ℝ))) :=
+      mul_le_mul_of_nonneg_left hMass hAlphaNonneg
+    _ = _ := by ring
+
+private theorem rf_preDigit_profile_base_bound
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (profileU baseU : UnitSix S) (I : S.ExtIdeal) (l C : ℝ) (hl : 0 < l)
+    (hProfile : profileAbs R profileU
+      (S.absS (S.diagU (rf_preDigit_baseFrequency R r baseU I) : S.FS) / l) ≤
+        C * (S.absS (S.diagU (rf_preDigit_baseFrequency R r baseU I) : S.FS) / l) ^ (-1 : ℝ)) :
+    profileAbs R profileU
+      (S.absS (S.diagU (rf_preDigit_baseFrequency R r baseU I) : S.FS) / l) ≤
+      C * S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) * l * qI I.1 ^ (-1 : ℝ) := by
+  have hq : 0 < qI I.1 := by
+    have h := (a2_bridge_NORM D S).1 I
+    simpa [qI, idealNorm] using h.1
+  have hρ : 0 < S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU (rf_preDigit_rowShift R r))
+  have hArg :
+      S.absS (S.diagU (rf_preDigit_baseFrequency R r baseU I) : S.FS) / l =
+        qI I.1 / (S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) * l) := by
+    rw [rf_preDigit_baseFrequency_abs, div_div]
+  have hInv :
+      (qI I.1 / (S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) * l)) ^ (-1 : ℝ) =
+        (S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) * l) / qI I.1 := by
+    rw [Real.rpow_neg_one]
+    field_simp [ne_of_gt hq, ne_of_gt (mul_pos hρ hl)]
+  calc
+    _ ≤ C * (S.absS (S.diagU (rf_preDigit_baseFrequency R r baseU I) : S.FS) / l) ^ (-1 : ℝ) := hProfile
+    _ = C * S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) * l * qI I.1 ^ (-1 : ℝ) := by
+      rw [hArg, hInv, Real.rpow_neg_one]
+      ring
+
+private def rf_preDigit_baseScale
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (d : Digits R r) (u : UnitSix S) (I : S.ExtIdeal) : ℝ :=
+  ‖digitAlpha R r d‖ * rf_preDigit_localMass R r d
+    (rf_preDigit_baseFrequency R r u I)
+
+private def rf_preDigit_absOrbitTerm
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S) (l : ℝ)
+    (u : UnitSix S) (I : S.ExtIdeal) (γ : Gamma S) : ℝ :=
+  (omegaInt R l (fun y =>
+    (rotatedAbs R (rowClass R r)
+      (S.diagU ((γ.1 : Fˣ) * rf_preDigit_baseFrequency R r u I) / y) : ℂ))).re
+
+private theorem rf_preDigit_rotatedAbs_nonneg
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (u : UnitSix S) (y : S.FSˣ) :
+    0 ≤ rotatedAbs R u y := by
+  unfold rotatedAbs
+  apply Finset.sum_nonneg
+  intro ℓ hℓ
+  exact mul_nonneg
+    (Finset.prod_nonneg (fun v _ => norm_nonneg _))
+    (Finset.prod_nonneg (fun w _ => norm_nonneg _))
+
+private theorem rf_preDigit_orbit_majorant_summable
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (r : ReflectionRow S)
+    (l : ℝ) (hl : 0 < l) :
+    Summable (fun p : (((Digits R r × UnitSix S) × S.ExtIdeal) × Gamma S) =>
+      rf_preDigit_baseScale R r p.1.1.1 p.1.1.2 p.1.2 *
+        rf_preDigit_absOrbitTerm R r l p.1.1.2 p.1.2 p.2) := by
+  classical
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  letI : ∀ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+      Fintype (𝓞 F ⧸ v.1.asIdeal) := fun v => bridgeResidueFintype v.1
+  letI : Fintype (Digits R r) := inferInstance
+  letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+  let Base := (Digits R r × UnitSix S) × S.ExtIdeal
+  let Out := Base × Gamma S
+  let G : Out → ℝ := fun p =>
+    rf_preDigit_baseScale R r p.1.1.1 p.1.1.2 p.1.2 *
+      rf_preDigit_absOrbitTerm R r l p.1.1.2 p.1.2 p.2
+  obtain ⟨Cprof, hCprof, hRef⟩ := rf_reflected_absolute R 1 (by norm_num)
+  have hGnonneg (p : Out) : 0 ≤ G p := by
+    apply mul_nonneg
+    · have hMass := (rf_preDigit_pointwise_norm_eq R r p.1.1.1
+          (rf_preDigit_baseFrequency R r p.1.1.2 p.1.2) 1).2
+      exact mul_nonneg (norm_nonneg _) hMass
+    · have hData := hRef (rowClass R r)
+          (rf_preDigit_baseFrequency R r p.1.1.2 p.1.2) l hl
+      have hInt := hData.1 p.2
+      have hRe : rf_preDigit_absOrbitTerm R r l p.1.1.2 p.1.2 p.2 =
+          ∫ z in omegaAt R l,
+            (onUnits (fun y =>
+              (rotatedAbs R (rowClass R r)
+                (S.diagU ((p.2.1 : Fˣ) *
+                  rf_preDigit_baseFrequency R r p.1.1.2 p.1.2) / y) : ℂ)) z).re
+              ∂(R.sheets.sheet l) := by
+        unfold rf_preDigit_absOrbitTerm omegaInt
+        exact (integral_re hInt).symm
+      rw [hRe]
+      apply integral_nonneg
+      intro z
+      by_cases hz : IsUnit z
+      · simp [onUnits, hz, Complex.ofReal_re]
+        simpa only [map_mul] using rf_preDigit_rotatedAbs_nonneg R (rowClass R r)
+          (S.diagU ((p.2.1 : Fˣ) *
+            rf_preDigit_baseFrequency R r p.1.1.2 p.1.2) / hz.unit)
+      · simp [onUnits, hz]
+  have hFiber (b : Base) : Summable (fun γ : Gamma S => G (b, γ)) := by
+    let u := b.1.2
+    let I := b.2
+    let base := rf_preDigit_baseFrequency R r u I
+    let scale := rf_preDigit_baseScale R r b.1.1 u I
+    have hData := hRef (rowClass R r) base l hl
+    have hOrbit : Summable (fun γ : Gamma S => rf_preDigit_absOrbitTerm R r l u I γ) := by
+      simpa [rf_preDigit_absOrbitTerm, base] using hData.2.1
+    have h := hOrbit.mul_left scale
+    simpa [G, scale, rf_preDigit_baseScale, u, I, base] using h
+  have hOrbitTsum (b : Base) :
+      (∑' γ : Gamma S, G (b, γ)) =
+        rf_preDigit_baseScale R r b.1.1 b.1.2 b.2 *
+          profileAbs R (rowClass R r)
+            (S.absS (S.diagU
+              (rf_preDigit_baseFrequency R r b.1.2 b.2) : S.FS) / l) := by
+    let d := b.1.1
+    let u := b.1.2
+    let I := b.2
+    let base := rf_preDigit_baseFrequency R r u I
+    let orbit : Gamma S → ℝ := fun γ => rf_preDigit_absOrbitTerm R r l u I γ
+    let scale : ℝ := rf_preDigit_baseScale R r d u I
+    have hData := hRef (rowClass R r) base l hl
+    have hOrbit : Summable orbit := by simpa [orbit, rf_preDigit_absOrbitTerm] using hData.2.1
+    have hOrbitSum : (∑' γ : Gamma S, orbit γ) =
+        profileAbs R (rowClass R r) (S.absS (S.diagU base : S.FS) / l) := by
+      simpa [orbit, rf_preDigit_absOrbitTerm] using hData.2.2.1
+    calc
+      (∑' γ : Gamma S, G (b, γ)) = scale * ∑' γ : Gamma S, orbit γ := by
+        change (∑' γ : Gamma S, scale * orbit γ) = _
+        exact hOrbit.tsum_mul_left scale
+      _ = scale * profileAbs R (rowClass R r) (S.absS (S.diagU base : S.FS) / l) :=
+        congrArg (fun x : ℝ => scale * x) hOrbitSum
+      _ = _ := by rfl
+  have hCouter :
+      0 <
+        (∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+          2 * qI v.1.asIdeal) *
+          (∏ v ∈ R.exterior.support r.ideal,
+            (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)) * Cprof *
+          S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) * l := by
+    have hA : 0 <
+        ∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+          2 * qI v.1.asIdeal := by
+      apply Finset.prod_pos
+      intro v hv
+      exact mul_pos (by norm_num) (lt_trans zero_lt_one (qI_prime_gt_one v.1))
+    have hW : 0 <
+        ∏ v ∈ R.exterior.support r.ideal,
+          (qI v.asIdeal ^ (1 / 2 : ℝ) + 1) := by
+      apply Finset.prod_pos
+      intro v hv
+      exact add_pos_of_nonneg_of_pos
+        (Real.rpow_nonneg (le_trans zero_le_one (qI_prime_gt_one v).le) _) zero_lt_one
+    have hρ : 0 < S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS) :=
+      (a2_bridge_NORM D S).2.2.1 (S.diagU (rf_preDigit_rowShift R r))
+    positivity
+  let Arow : ℝ :=
+    ∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal}, 2 * qI v.1.asIdeal
+  let Wrow : ℝ :=
+    ∏ v ∈ R.exterior.support r.ideal, (qI v.asIdeal ^ (1 / 2 : ℝ) + 1)
+  let ρnorm : ℝ := S.absS (S.diagU (rf_preDigit_rowShift R r) : S.FS)
+  have hρnorm : 0 < ρnorm :=
+    (a2_bridge_NORM D S).2.2.1 (S.diagU (rf_preDigit_rowShift R r))
+  let Couter : ℝ := Arow * Wrow * Cprof * ρnorm * l
+  have hOuterBound (b : Base) :
+      (∑' γ : Gamma S, G (b, γ)) ≤ Couter * qI b.2.1 ^ (-(5 / 4 : ℝ)) := by
+    let d := b.1.1
+    let u := b.1.2
+    let I := b.2
+    have hScale := rf_preDigit_digitMass_base_bound R r d u I
+    have hScaleNonneg : 0 ≤ rf_preDigit_baseScale R r d u I := by
+      have hMass := (rf_preDigit_pointwise_norm_eq R r d
+        (rf_preDigit_baseFrequency R r u I) 1).2
+      exact mul_nonneg (norm_nonneg _) hMass
+    have hData := hRef (rowClass R r) (rf_preDigit_baseFrequency R r u I) l hl
+    have hProfile := rf_preDigit_profile_base_bound R r (rowClass R r) u I l Cprof hl hData.2.2.2
+    have hq : 0 < qI I.1 := by
+      have h := (a2_bridge_NORM D S).1 I
+      simpa [qI, idealNorm] using h.1
+    have hProfileFactorNonneg :
+        0 ≤ Cprof * ρnorm * l * qI I.1 ^ (-1 : ℝ) := by
+      exact mul_nonneg (mul_nonneg (mul_nonneg hCprof.le hρnorm.le) hl.le)
+        (Real.rpow_nonneg (le_of_lt hq) _)
+    have hPow : qI I.1 ^ (-(1 / 4 : ℝ)) * qI I.1 ^ (-1 : ℝ) =
+        qI I.1 ^ (-(5 / 4 : ℝ)) := by
+      rw [← Real.rpow_add hq]
+      congr 1
+      ring
+    calc
+      (∑' γ : Gamma S, G (b, γ)) =
+          rf_preDigit_baseScale R r d u I *
+            profileAbs R (rowClass R r)
+              (S.absS (S.diagU (rf_preDigit_baseFrequency R r u I) : S.FS) / l) := by
+        simpa [d, u, I, rf_preDigit_baseScale] using hOrbitTsum b
+      _ ≤ rf_preDigit_baseScale R r d u I *
+            (Cprof * ρnorm * l * qI I.1 ^ (-1 : ℝ)) :=
+        mul_le_mul_of_nonneg_left hProfile hScaleNonneg
+      _ ≤ (Arow * Wrow * qI I.1 ^ (-(1 / 4 : ℝ))) *
+            (Cprof * ρnorm * l * qI I.1 ^ (-1 : ℝ)) :=
+        mul_le_mul_of_nonneg_right hScale hProfileFactorNonneg
+      _ = Couter * qI I.1 ^ (-(5 / 4 : ℝ)) := by
+        calc
+          (Arow * Wrow * qI I.1 ^ (-(1 / 4 : ℝ))) *
+              (Cprof * ρnorm * l * qI I.1 ^ (-1 : ℝ)) =
+              (Arow * Wrow) * (Cprof * ρnorm * l) *
+                (qI I.1 ^ (-(1 / 4 : ℝ)) * qI I.1 ^ (-1 : ℝ)) := by ring
+          _ = (Arow * Wrow) * (Cprof * ρnorm * l) *
+                qI I.1 ^ (-(5 / 4 : ℝ)) := by rw [hPow]
+          _ = Couter * qI I.1 ^ (-(5 / 4 : ℝ)) := by
+                dsimp [Couter]
+                ring
+  have hZeta : Summable (fun I : S.ExtIdeal => qI I.1 ^ (-(5 / 4 : ℝ))) := by
+    have h := a2_bridge_COUNT_summable (S := S) (5 / 4 : ℝ) (by norm_num)
+    simpa [qI, idealNorm] using h
+  have hMajor : Summable (fun b : Base => Couter * qI b.2.1 ^ (-(5 / 4 : ℝ))) := by
+    let DU := Digits R r × UnitSix S
+    haveI : Fintype DU := inferInstance
+    have hFinite : Summable (fun _ : DU => Couter) := Summable.of_finite
+    have hCouterNonneg (_ : DU) : 0 ≤ Couter := le_of_lt hCouter
+    have hPowerNonneg (I : S.ExtIdeal) : 0 ≤ qI I.1 ^ (-(5 / 4 : ℝ)) := by
+      have hIpos : 0 < qI I.1 := by
+        have h := (a2_bridge_NORM D S).1 I
+        simpa [qI, idealNorm] using h.1
+      exact Real.rpow_nonneg hIpos.le _
+    have h := hFinite.mul_of_nonneg hZeta hCouterNonneg hPowerNonneg
+    simpa [Base, DU] using h
+  have hOuterNonneg (b : Base) : 0 ≤ ∑' γ : Gamma S, G (b, γ) :=
+    tsum_nonneg (fun γ => hGnonneg (b, γ))
+  have hOuter : Summable (fun b : Base => ∑' γ : Gamma S, G (b, γ)) :=
+    Summable.of_nonneg_of_le hOuterNonneg hOuterBound hMajor
+  have hG : Summable (fun p : Out => G p) := by
+    apply (summable_prod_of_nonneg hGnonneg).2
+    exact ⟨hFiber, hOuter⟩
+  exact hG
+
 theorem rf_reflected_pre_digit_absolute :
   (∀ v, v ∉ S.Sf → ∀ σ : ℝ, 1 / 2 < σ →
     Summable (fun e : ℕ => ‖localW R v e‖ * qI v.asIdeal ^ (-σ * (e : ℝ))) ∧
@@ -14087,7 +16205,341 @@ theorem rf_reflected_pre_digit_absolute :
     ‖digitAlpha R r p.1‖ * (omegaInt R l (fun y =>
       (‖R.T.W (R.chars.L (rowClass R r))
         (R.C.rat (diagGL p.2) * R.C.rat weylGL * digitPoint R r y p.1)‖ : ℂ))).re) := by
-  sorry
+  classical
+  refine ⟨?_, ?_⟩
+  · intro v hv σ hσ
+    let q : ℝ := qI v.asIdeal
+    let b : ℕ → ℝ := fun e =>
+      betaPrime q (qI_prime_gt_one v) e * q ^ (-σ * (e : ℝ))
+    let g : ℕ → ℝ := fun e =>
+      ‖localW R v (e : ℤ)‖ * q ^ (-σ * (e : ℝ))
+    have hqpos : 0 < q := lt_trans zero_lt_one (qI_prime_gt_one v)
+    have hEuler := rf_local_euler_data v hv σ (by linarith)
+    have hbSummable : Summable b := by
+      simpa only [b, q] using hEuler.1
+    have hdelta : Summable (fun e : ℕ => if e = 0 then 1 - q ^ (-(1 / 2 : ℝ)) else 0) := by
+      exact (hasSum_ite_eq 0 (1 - q ^ (-(1 / 2 : ℝ)))).summable
+    have hmainSummable : Summable (fun e : ℕ =>
+        q ^ (-(1 / 2 : ℝ)) * b e +
+          (if e = 0 then 1 - q ^ (-(1 / 2 : ℝ)) else 0)) :=
+      (hbSummable.mul_left (q ^ (-(1 / 2 : ℝ)))).add hdelta
+    have hterm (e : ℕ) : g e =
+        q ^ (-(1 / 2 : ℝ)) * b e +
+          (if e = 0 then 1 - q ^ (-(1 / 2 : ℝ)) else 0) := by
+      by_cases he0 : e = 0
+      · subst e
+        have hW0 : ‖localW R v (0 : ℤ)‖ = 1 := by
+          simpa using rf_localW_norm_formula R v hv 0
+        simp [g, b, betaPrime, q, hW0]
+      · have hepos : 0 < e := Nat.pos_of_ne_zero he0
+        have hnorm := rf_localW_norm_formula R v hv e
+        by_cases hm1 : e % 3 = 1
+        · have hBeta : betaPrime q (qI_prime_gt_one v) e =
+              q ^ (-((e / 3 : ℕ) : ℝ)) := by
+            simp [betaPrime, he0, hm1, q]
+          have hparts : ‖localW R v (e : ℤ)‖ =
+              q ^ (-((e / 3 : ℕ) : ℝ) - 1 / 2) := by
+            simpa [hm1, q] using hnorm
+          dsimp only [g, b]
+          rw [hparts, hBeta]
+          simp only [if_neg he0, add_zero]
+          have hpow : q ^ (-((e / 3 : ℕ) : ℝ) - 1 / 2) =
+              q ^ (-(1 / 2 : ℝ)) * q ^ (-((e / 3 : ℕ) : ℝ)) := by
+            calc
+              _ = q ^ (-(1 / 2 : ℝ) + -((e / 3 : ℕ) : ℝ)) := by congr 1 <;> ring
+              _ = _ := Real.rpow_add hqpos _ _
+          rw [hpow]
+          ring
+        · by_cases hm0 : e % 3 = 0
+          · have hBeta : betaPrime q (qI_prime_gt_one v) e =
+                q ^ (1 / 2 - ((e / 3 : ℕ) : ℝ)) := by
+              simp [betaPrime, he0, hm1, hm0, q]
+            have hparts : ‖localW R v (e : ℤ)‖ =
+                q ^ (-((e / 3 : ℕ) : ℝ)) := by
+              simpa [hm1, hm0, q] using hnorm
+            dsimp only [g, b]
+            rw [hparts, hBeta]
+            simp only [if_neg he0, add_zero]
+            have hpow : q ^ (-((e / 3 : ℕ) : ℝ)) =
+                q ^ (-(1 / 2 : ℝ)) * q ^ (1 / 2 - ((e / 3 : ℕ) : ℝ)) := by
+              calc
+                _ = q ^ (-(1 / 2 : ℝ) + (1 / 2 - ((e / 3 : ℕ) : ℝ))) := by
+                  congr 1 <;> ring
+                _ = _ := Real.rpow_add hqpos _ _
+            rw [hpow]
+            ring
+          · have hm2 : e % 3 = 2 := by omega
+            have hBeta : betaPrime q (qI_prime_gt_one v) e = 0 := by
+              simp [betaPrime, he0, hm1, hm0, q]
+            have hparts : ‖localW R v (e : ℤ)‖ = 0 := by
+              simpa [hm1, hm0, hm2, q] using hnorm
+            simp [g, b, hparts, hBeta, he0]
+    have hgSummable : Summable g := hmainSummable.congr fun e => (hterm e).symm
+    have hsum : (∑' e : ℕ, g e) =
+        1 + q ^ (-(1 / 2 : ℝ)) * (Eprime v σ - 1) := by
+      calc
+        (∑' e : ℕ, g e) =
+            ∑' e : ℕ, (q ^ (-(1 / 2 : ℝ)) * b e +
+              (if e = 0 then 1 - q ^ (-(1 / 2 : ℝ)) else 0)) :=
+          tsum_congr hterm
+        _ = q ^ (-(1 / 2 : ℝ)) * (∑' e : ℕ, b e) +
+              (1 - q ^ (-(1 / 2 : ℝ))) := by
+          calc
+            _ = (∑' e : ℕ, q ^ (-(1 / 2 : ℝ)) * b e) +
+                (∑' e : ℕ, if e = 0 then 1 - q ^ (-(1 / 2 : ℝ)) else 0) :=
+                  (hbSummable.mul_left (q ^ (-(1 / 2 : ℝ)))).tsum_add hdelta
+            _ = q ^ (-(1 / 2 : ℝ)) * (∑' e : ℕ, b e) +
+                (∑' e : ℕ, if e = 0 then 1 - q ^ (-(1 / 2 : ℝ)) else 0) := by
+                  rw [hbSummable.tsum_mul_left]
+            _ = _ := by
+              rw [(hasSum_ite_eq 0 (1 - q ^ (-(1 / 2 : ℝ)))).tsum_eq]
+        _ = 1 + q ^ (-(1 / 2 : ℝ)) * (Eprime v σ - 1) := by
+          have hE : (∑' e : ℕ, b e) = Eprime v σ := by
+            simp [b, Eprime, q]
+          rw [hE]
+          ring
+    have hnumA : q ^ (-(1 / 2 : ℝ)) * q ^ (-σ) = q ^ (-1 / 2 - σ) := by
+      rw [← Real.rpow_add hqpos]
+      congr 1 <;> ring
+    have hnumB : q ^ (-(1 / 2 : ℝ)) * q ^ (-1 / 2 - 3 * σ) =
+        q ^ (-1 - 3 * σ) := by
+      rw [← Real.rpow_add hqpos]
+      congr 1 <;> ring
+    have hden : q ^ (-1 - 3 * σ) = q ^ (-(1 + 3 * σ)) := by
+      congr 1 <;> ring
+    have hEulerFormula : Eprime v σ =
+        1 + (q ^ (-σ) + q ^ (-1 / 2 - 3 * σ)) /
+          (1 - q ^ (-1 - 3 * σ)) := by
+      simpa [q] using hEuler.2.1
+    have hqone : 1 < q := by simpa [q] using qI_prime_gt_one v
+    have hrpow : q ^ (-1 - 3 * σ) < 1 := by
+      apply Real.rpow_lt_one_of_one_lt_of_neg hqone
+      linarith
+    have hdenNe : 1 - q ^ (-1 - 3 * σ) ≠ 0 := ne_of_gt (sub_pos.mpr hrpow)
+    refine ⟨?_, ?_⟩
+    · simpa only [g] using hgSummable
+    · calc
+        (∑' e : ℕ, g e) = 1 + q ^ (-(1 / 2 : ℝ)) * (Eprime v σ - 1) := hsum
+        _ = 1 + q ^ (-(1 / 2 : ℝ)) *
+              ((q ^ (-σ) + q ^ (-1 / 2 - 3 * σ)) /
+                (1 - q ^ (-1 - 3 * σ))) := by rw [hEulerFormula]; ring
+        _ = (1 + q ^ (-1 / 2 - σ)) / (1 - q ^ (-1 - 3 * σ)) := by
+          rw [mul_div, mul_add, hnumA, hnumB]
+          calc
+            _ = ((1 - q ^ (-1 - 3 * σ)) / (1 - q ^ (-1 - 3 * σ))) +
+                (q ^ (-1 / 2 - σ) + q ^ (-1 - 3 * σ)) /
+                  (1 - q ^ (-1 - 3 * σ)) :=
+                    congrArg (fun x : ℝ => x +
+                      (q ^ (-1 / 2 - σ) + q ^ (-1 - 3 * σ)) /
+                        (1 - q ^ (-1 - 3 * σ))) (div_self hdenNe).symm
+            _ = (1 - q ^ (-1 - 3 * σ) + q ^ (-1 / 2 - σ) +
+                  q ^ (-1 - 3 * σ)) / (1 - q ^ (-1 - 3 * σ)) := by
+                    simpa [add_assoc] using
+                      (add_div (1 - q ^ (-1 - 3 * σ))
+                        (q ^ (-1 / 2 - σ) + q ^ (-1 - 3 * σ))
+                        (1 - q ^ (-1 - 3 * σ))).symm
+            _ = _ := by congr 1 <;> ring
+        _ = (1 + qI v.asIdeal ^ (-1 / 2 - σ)) /
+              (1 - qI v.asIdeal ^ (-1 - 3 * σ)) := by simp [q]
+  · intro r l hl
+    letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+    letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+    let T0 := R.exterior.support r.ideal
+    letI : ∀ v : {v : FinPlace F // v ∈ T0}, Fintype (𝓞 F ⧸ v.1.asIdeal) :=
+      fun v => bridgeResidueFintype v.1
+    letI : Fintype (Digits R r) := inferInstance
+    letI : Fintype (UnitSix S) := R.sheets.unitSixFinite
+    let Source := Digits R r × Fˣ
+    let f : Source → ℝ := fun p =>
+      ‖digitAlpha R r p.1‖ *
+        (omegaInt R l (fun y =>
+          (‖R.T.W (R.chars.L (rowClass R r))
+            (R.C.rat (diagGL p.2) * R.C.rat weylGL * digitPoint R r y p.1)‖ : ℂ))).re
+    let good : Source → Prop := fun p =>
+      ‖digitAlpha R r p.1‖ ≠ 0 ∧
+        rf_preDigit_localMass R r p.1 p.2 ≠ 0
+    let Good := {p : Source // good p}
+    let Bad := {p : Source // ¬ good p}
+    obtain ⟨COrbit, hCOrbit, hOrbit⟩ := rf_preDigit_orbit_bound R
+    have hTermNonneg (p : Source) : 0 ≤ f p := by
+      have hInt := (hOrbit r p.1 p.2 l hl).1
+      have hRe :
+          (omegaInt R l (fun y =>
+            (‖R.T.W (R.chars.L (rowClass R r))
+              (R.C.rat (diagGL p.2) * R.C.rat weylGL * digitPoint R r y p.1)‖ : ℂ))).re =
+            ∫ z in omegaAt R l,
+              (onUnits (fun y =>
+                (‖R.T.W (R.chars.L (rowClass R r))
+                  (R.C.rat (diagGL p.2) * R.C.rat weylGL * digitPoint R r y p.1)‖ : ℂ)) z).re
+                ∂(R.sheets.sheet l) := by
+        unfold omegaInt
+        exact (integral_re hInt).symm
+      have hOmega : 0 ≤
+          (omegaInt R l (fun y =>
+            (‖R.T.W (R.chars.L (rowClass R r))
+              (R.C.rat (diagGL p.2) * R.C.rat weylGL * digitPoint R r y p.1)‖ : ℂ))).re := by
+        rw [hRe]
+        apply integral_nonneg
+        intro z
+        by_cases hz : IsUnit z
+        · simp only [onUnits, dif_pos hz, Complex.ofReal_re]
+          exact norm_nonneg _
+        · simp [onUnits, hz]
+      exact mul_nonneg (norm_nonneg _) hOmega
+    have hTermZero (p : Source) (hp : ¬ good p) : f p = 0 := by
+      by_cases hα : ‖digitAlpha R r p.1‖ = 0
+      · simp [f, hα]
+      · have hMass : rf_preDigit_localMass R r p.1 p.2 = 0 := by
+          by_contra hne
+          exact hp ⟨hα, hne⟩
+        have hpoint (y : S.FSˣ) :
+            ‖R.T.W (R.chars.L (rowClass R r))
+              (R.C.rat (diagGL p.2) * R.C.rat weylGL * digitPoint R r y p.1)‖ = 0 := by
+          have h := (rf_preDigit_pointwise_norm_eq R r p.1 p.2 y).1
+          rw [hMass, mul_zero] at h
+          exact h
+        have hfun : (fun y : S.FSˣ =>
+            (‖R.T.W (R.chars.L (rowClass R r))
+              (R.C.rat (diagGL p.2) * R.C.rat weylGL * digitPoint R r y p.1)‖ : ℂ)) =
+            fun _ => 0 := by
+          funext y
+          simp [hpoint y]
+        have hOmega :
+            (omegaInt R l (fun y =>
+              (‖R.T.W (R.chars.L (rowClass R r))
+                (R.C.rat (diagGL p.2) * R.C.rat weylGL * digitPoint R r y p.1)‖ : ℂ))).re = 0 := by
+          have hOnZero : onUnits (fun _ : S.FSˣ => (0 : ℂ)) = fun _ => 0 := by
+            funext z
+            by_cases hz : IsUnit z <;> simp [onUnits, hz]
+          unfold omegaInt
+          rw [hfun, hOnZero]
+          simp
+        simp [f, hα, hOmega]
+    let Base := (Digits R r × UnitSix S) × S.ExtIdeal
+    let Out := Base × Gamma S
+    let G : Out → ℝ := fun p =>
+      rf_preDigit_baseScale R r p.1.1.1 p.1.1.2 p.1.2 *
+        rf_preDigit_absOrbitTerm R r l p.1.1.2 p.1.2 p.2
+    have hG : Summable (fun p : Out => G p) := by
+      change Summable (fun p : (((Digits R r × UnitSix S) × S.ExtIdeal) × Gamma S) =>
+        rf_preDigit_baseScale R r p.1.1.1 p.1.1.2 p.1.2 *
+          rf_preDigit_absOrbitTerm R r l p.1.1.2 p.1.2 p.2)
+      exact rf_preDigit_orbit_majorant_summable R r l hl
+    let orbitCode : Good → UnitSix S × (S.ExtIdeal × Gamma S) := fun p =>
+      Classical.choose (rf_preDigit_frequency_decomp R r p.1.1 p.1.2 p.2.2)
+    have hOrbitCode (p : Good) :
+        p.1.2 = ((orbitCode p).2.2.1 : Fˣ) *
+          rf_preDigit_baseFrequency R r (orbitCode p).1 (orbitCode p).2.1 :=
+      Classical.choose_spec (rf_preDigit_frequency_decomp R r p.1.1 p.1.2 p.2.2)
+    let encode : Good → Out := fun p =>
+      (((p.1.1, (orbitCode p).1), (orbitCode p).2.1), (orbitCode p).2.2)
+    have hEncode : Function.Injective encode := by
+      intro p q hpq
+      have hpq' := hpq
+      change
+          (((p.1.1, (orbitCode p).1), (orbitCode p).2.1), (orbitCode p).2.2) =
+            (((q.1.1, (orbitCode q).1), (orbitCode q).2.1), (orbitCode q).2.2) at hpq'
+      have hd := congrArg (fun z : Out => z.1.1.1) hpq'
+      have hu := congrArg (fun z : Out => z.1.1.2) hpq'
+      have hI := congrArg (fun z : Out => z.1.2) hpq'
+      have hγ := congrArg (fun z : Out => z.2) hpq'
+      have hoEq : orbitCode p = orbitCode q := by
+        apply Prod.ext
+        · exact hu
+        · apply Prod.ext
+          · exact hI
+          · exact hγ
+      apply Subtype.ext
+      apply Prod.ext
+      · exact hd
+      · calc
+          p.1.2 = ((orbitCode p).2.2.1 : Fˣ) *
+              rf_preDigit_baseFrequency R r (orbitCode p).1 (orbitCode p).2.1 := hOrbitCode p
+          _ = ((orbitCode q).2.2.1 : Fˣ) *
+              rf_preDigit_baseFrequency R r (orbitCode q).1 (orbitCode q).2.1 := by
+                rw [hoEq]
+          _ = q.1.2 := (hOrbitCode q).symm
+    have hGoodBound (p : Good) : f p.1 ≤ G (encode p) := by
+      let d := p.1.1
+      let ν := p.1.2
+      let o := orbitCode p
+      let u := o.1
+      let I := o.2.1
+      let γ := o.2.2
+      have hRep := hOrbitCode p
+      have hMassEq :
+          rf_preDigit_localMass R r d ν =
+            rf_preDigit_localMass R r d (rf_preDigit_baseFrequency R r u I) := by
+        change rf_preDigit_localMass R r d p.1.2 =
+          rf_preDigit_localMass R r d (rf_preDigit_baseFrequency R r u I)
+        calc
+          rf_preDigit_localMass R r d p.1.2 =
+              rf_preDigit_localMass R r d ((γ.1 : Fˣ) *
+                rf_preDigit_baseFrequency R r u I) := by rw [hRep]
+          _ = rf_preDigit_localMass R r d
+                (rf_preDigit_baseFrequency R r u I) :=
+            rf_preDigit_localMass_sunit_invariant R r d
+              (rf_preDigit_baseFrequency R r u I) γ.1
+      have hOrbitEq :
+          (omegaInt R l (fun y =>
+            (rotatedAbs R (rowClass R r) (S.diagU ν / y) : ℂ))).re =
+              rf_preDigit_absOrbitTerm R r l u I γ := by
+        simp [rf_preDigit_absOrbitTerm, hRep, d, ν, o, u, I, γ]
+      have hSingle := (hOrbit r d ν l hl).2.1
+      change ‖digitAlpha R r d‖ *
+          (omegaInt R l (fun y =>
+            (‖R.T.W (R.chars.L (rowClass R r))
+              (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d)‖ : ℂ))).re ≤
+        rf_preDigit_baseScale R r d u I *
+          rf_preDigit_absOrbitTerm R r l u I γ
+      calc
+        _ ≤ ‖digitAlpha R r d‖ *
+            (rf_preDigit_localMass R r d ν *
+              (omegaInt R l (fun y =>
+                (rotatedAbs R (rowClass R r) (S.diagU ν / y) : ℂ))).re) :=
+          mul_le_mul_of_nonneg_left hSingle (norm_nonneg _)
+        _ = _ := by
+          dsimp [rf_preDigit_baseScale]
+          rw [hMassEq, hOrbitEq]
+          ring
+    have hGoodSummable : Summable (fun p : Good => f p.1) := by
+      have hComp : Summable (fun p : Good => G (encode p)) := hG.comp_injective hEncode
+      exact Summable.of_nonneg_of_le (fun p => hTermNonneg p.1) hGoodBound hComp
+    let Bad := {p : Source // ¬ good p}
+    have hBadZero (p : Bad) : f p.1 = 0 := hTermZero p.1 p.2
+    have hBadSummable : Summable (fun p : Bad => f p.1) := by
+      exact (summable_zero : Summable (fun _ : Bad => (0 : ℝ))).congr
+        (fun p => (hBadZero p).symm)
+    let Fiber : Bool → Type := fun
+      | true => Good
+      | false => Bad
+    let Sigma := Σ b : Bool, Fiber b
+    let splitEquiv : Sigma ≃ Source :=
+      { toFun := fun z =>
+          match z with
+          | ⟨true, p⟩ => p.1
+          | ⟨false, p⟩ => p.1
+        invFun := fun p => if hp : good p then ⟨true, ⟨p, hp⟩⟩ else ⟨false, ⟨p, hp⟩⟩
+        left_inv := by
+          intro z
+          rcases z with ⟨b, p⟩
+          cases b
+          · rcases p with ⟨p, hp⟩
+            simp [Fiber, hp]
+          · rcases p with ⟨p, hp⟩
+            simp [Fiber, hp]
+        right_inv := by
+          intro p
+          by_cases hp : good p <;> simp [Fiber, hp] }
+    have hSplitSummable : Summable (fun z : Sigma => f (splitEquiv z)) := by
+      apply (summable_sigma_of_nonneg (fun z => hTermNonneg (splitEquiv z))).2
+      constructor
+      · intro b
+        cases b
+        · simpa [Fiber, splitEquiv] using hBadSummable
+        · simpa [Fiber, splitEquiv] using hGoodSummable
+      · exact Summable.of_finite
+    exact (Equiv.summable_iff splitEquiv).mp hSplitSummable
 /-- rf:grouped-absolute: explicit incomplete zeta majorant. -/
 def exteriorZeta (σ : ℝ) : ℝ := ∑' I : S.ExtIdeal, qI I.1 ^ (-σ)
 /-- rf:grouped-absolute, 04:659-706. The original incomplete zeta majorant is explicit. -/
