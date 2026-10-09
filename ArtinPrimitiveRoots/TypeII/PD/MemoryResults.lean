@@ -12430,6 +12430,121 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_unbanned_comparison_pos
       field_simp [hYpos.ne']
       <;> ring
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Fresh-label collisions have an exponentially small weighted raw or comparison row. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_fresh_collision_row_eventually
+    {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C x₀ Y₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧ 1 ≤ Y₀ ∧
+      ∀ (δ c₁ c₂ : ℝ) (S : PDScale), S.Valid K δ c₁ c₂ →
+      x₀ ≤ S.x → Y₀ ≤ S.Y → 1 ≤ S.L →
+      ∀ w : ArchRoot, w.InRegion S →
+      ∀ (forward raw : Bool) (p : PrimeLists S.x K) (z : ℤ × ℤ),
+      Int.gcd z.1 z.2 = 1 → envBox S w z →
+      goodTestOne S.x S.Y (S.d₀ : ℝ) p (transportedRatio w z) →
+      ∀ (b : Fin K → ℕ)
+        (q : ((i : Fin K) → primeBand S.x (F.a i)) → PrimeLists S.x K)
+        (Z : Finset (ℤ × ℤ)),
+      (∑ a : (i : Fin K) → primeBand S.x (F.a i),
+        if ∃ i : Fin K, (a i : ℕ) = b i then
+          (∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i))*
+            (∑ z' ∈ Z,
+              if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+              then ‖edgeMultiplier F S forward raw p (q a) z z'‖ else 0)
+        else 0) ≤
+        C*(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by
+  classical
+  obtain ⟨Ceta, hCeta, hEta⟩ := exists_eta_norm_bound F hF
+  obtain ⟨Cpsi, hCpsi, hPsi⟩ := exists_psi_norm_bound F hF
+  obtain ⟨R, hR, hRadius⟩ := pd4c_exists_psi_radius F hF
+  obtain ⟨Ccmp, Y₀, hCcmp, hY₀, hcmp⟩ := clean_unbanned_comparison_position_sum_le R hR
+  obtain ⟨Cmass, xmass, hCmass, hxmass, hmass⟩ := clean_fresh_collision_mass_eventually F hF
+  obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+  let E := Ceta^2*Cpsi
+  have hE : 0 ≤ E := mul_nonneg (sq_nonneg _) hCpsi
+  let C := (34+Ccmp)*(E+1)*Cmass
+  have hC : 0 < C := by dsimp only [C]; positivity
+  let x₀ := max 2 (max xmass (max xV xB))
+  refine ⟨C, x₀, Y₀, hC, le_max_left _ _, hY₀, ?_⟩
+  intro δ c₁ c₂ S hS hx hY hL w hw forward raw p z hz hbox hgood b q Z
+  have hxmass' : xmass ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxV' : xV ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxB' : xB ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hν (i : Fin K) (a : primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i a := by
+    have hVlower := (hVbounds S.x hxV' i).1
+    have hVpos : 0 < bandMass S.x (F.a i) :=
+      lt_of_lt_of_le (div_pos (Real.log_pos (by norm_num)) (by norm_num)) hVlower
+    have hpmark : (a : ℕ) ∈ markedPrimes S.x K F.a :=
+      Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, a.property⟩
+    exact (pd4c_memoryNu_le_twice_mu F.q_d i a
+      (Finset.mem_filter.mp a.property).2.1.pos hVpos
+      (hBbounds S.x hxB' a hpmark)).1
+  let X := (i : Fin K) → primeBand S.x (F.a i)
+  let T := Real.rpow S.L F.A₀^3
+  have hT : 0 ≤ T := pow_nonneg (Real.rpow_pos_of_pos (by linarith : 0 < S.L) _).le _
+  let Rpos := (34+Ccmp)*E*(1+T)
+  have hRpos : 0 ≤ Rpos :=
+    mul_nonneg (mul_nonneg (by linarith) hE) (by linarith)
+  have hpos (a : X) :
+      (∑ z' ∈ Z,
+        if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+        then ‖edgeMultiplier F S forward raw p (q a) z z'‖ else 0) ≤ Rpos := by
+    cases raw with
+    | true =>
+        calc
+          _ ≤ 34*E := by
+            simpa only [E, mul_assoc] using clean_unbanned_raw_position_sum_le
+              δ c₁ c₂ F S hS w hw forward p (q a) z hz hbox
+              Ceta Cpsi hCeta hCpsi hEta hPsi Z
+          _ ≤ (34+Ccmp)*E := mul_le_mul_of_nonneg_right (by linarith) hE
+          _ ≤ Rpos := le_mul_of_one_le_right (mul_nonneg (by linarith) hE) (by linarith)
+    | false =>
+        calc
+          _ ≤ Ccmp*E*T := by
+            simpa only [E, T, mul_assoc] using hcmp K δ c₁ c₂ F S hS w hw hY hL
+              hF.2.2.2.1.le hRadius forward p (q a) z hz hbox hgood
+              Ceta Cpsi hCeta hCpsi hEta hPsi Z
+          _ ≤ Rpos := mul_le_mul
+            (mul_le_mul_of_nonneg_right (by linarith : Ccmp ≤ 34+Ccmp) hE)
+            (by linarith : T ≤ 1+T) hT (mul_nonneg (by linarith) hE)
+  have hweight (a : X) : 0 ≤ ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i) :=
+    Finset.prod_nonneg (fun i hi => hν i (a i))
+  have hrow :
+      (∑ a : X, if ∃ i : Fin K, (a i : ℕ) = b i then
+        (∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i))*
+          (∑ z' ∈ Z,
+            if IsPadAdmissible S.d₀ (sharedProduct p) (det2 z z') ∧ envBox S w z'
+            then ‖edgeMultiplier F S forward raw p (q a) z z'‖ else 0)
+        else 0) ≤
+      (∑ a : X, if ∃ i : Fin K, (a i : ℕ) = b i then
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i) else 0)*Rpos := by
+    rw [Finset.sum_mul]
+    apply Finset.sum_le_sum
+    intro a ha
+    by_cases hcoll : ∃ i : Fin K, (a i : ℕ) = b i
+    · simp only [if_pos hcoll]
+      exact mul_le_mul_of_nonneg_left (hpos a) (hweight a)
+    · simp only [if_neg hcoll, zero_mul, le_refl]
+  have hcoef : (34+Ccmp)*E*Cmass ≤ C :=
+    mul_le_mul_of_nonneg_right
+      (mul_le_mul_of_nonneg_left (by linarith : E ≤ E+1) (by linarith)) hCmass.le
+  calc
+    _ ≤ (∑ a : X, if ∃ i : Fin K, (a i : ℕ) = b i then
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i) else 0)*Rpos := hrow
+    _ ≤ (Cmass*Real.exp (-Real.rpow S.L (1/10 : ℝ)))*Rpos :=
+      mul_le_mul_of_nonneg_right (hmass S hxmass' b) hRpos
+    _ = ((34+Ccmp)*E*Cmass)*(1+T)*Real.exp (-Real.rpow S.L (1/10 : ℝ)) := by
+      dsimp only [Rpos]
+      ring
+    _ ≤ C*(1+T)*Real.exp (-Real.rpow S.L (1/10 : ℝ)) :=
+      mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_right hcoef (by linarith)) (Real.exp_pos _).le
+    _ = _ := rfl
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
