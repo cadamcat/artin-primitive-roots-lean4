@@ -2483,6 +2483,65 @@ private theorem ppPrimeSmoothing_error_log_bound
         _ = 40 * Real.rpow L (-A - 3) + 80 * Real.rpow L (-A - 2) := by rw [hLmul]
     _ ≤ 120 * Real.rpow L (-A - 2) := by nlinarith
 
+private theorem ppPrimeIntegral_largeSet_rpow_bound
+    {F : ℝ → ℂ} {S : Set ℝ} {M H j : ℝ}
+    (hM : 0 ≤ M) (hH : 0 < H) (hj : 2 ≤ j)
+    (hS : MeasurableSet S) (hFint : Integrable F)
+    (hdecay : ∀ v : ℝ,
+      ‖F v‖ ≤ M * Real.rpow (1 + |v|) (-j))
+    (hlarge : ∀ v ∈ S, H ≤ |v|) :
+    ‖∫ v in S, F v‖ ≤
+      (M * Real.rpow H (2 - j)) *
+        ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+  have hbase : Integrable (fun v : ℝ => Real.rpow (1 + ‖v‖) (-2 : ℝ)) := by
+    exact integrable_one_add_norm (E := ℝ) (by norm_num)
+  let K : ℝ := M * Real.rpow H (2 - j)
+  have hK : 0 ≤ K := by
+    dsimp [K]
+    exact mul_nonneg hM (Real.rpow_nonneg hH.le _)
+  have hmajor : Integrable (fun v : ℝ => K * Real.rpow (1 + ‖v‖) (-2 : ℝ)) :=
+    hbase.const_mul K
+  have hpoint : ∀ v ∈ S,
+      ‖F v‖ ≤ K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+    intro v hv
+    have hvlarge := hlarge v hv
+    have hvnorm : ‖v‖ = |v| := Real.norm_eq_abs v
+    have hbaseV : 0 < 1 + |v| := by positivity
+    have hHle : H ≤ 1 + |v| := by linarith [abs_nonneg v]
+    have hpow : Real.rpow (1 + |v|) (2 - j) ≤ Real.rpow H (2 - j) :=
+      Real.rpow_le_rpow_of_nonpos hH hHle (by linarith)
+    have hsplit : Real.rpow (1 + |v|) (-j) =
+        Real.rpow (1 + |v|) (-2) * Real.rpow (1 + |v|) (2 - j) := by
+      calc
+        _ = Real.rpow (1 + |v|) ((-2) + (2 - j)) := by congr 1 <;> ring
+        _ = _ := Real.rpow_add hbaseV (-2) (2 - j)
+    calc
+      ‖F v‖ ≤ M * Real.rpow (1 + |v|) (-j) := hdecay v
+      _ = M * (Real.rpow (1 + |v|) (-2) *
+          Real.rpow (1 + |v|) (2 - j)) := by rw [hsplit]
+      _ ≤ M * (Real.rpow (1 + |v|) (-2) * Real.rpow H (2 - j)) :=
+        mul_le_mul_of_nonneg_left
+          (mul_le_mul_of_nonneg_left hpow
+            (Real.rpow_nonneg hbaseV.le _)) hM
+      _ = K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+        dsimp [K]
+        ring
+  have hnorm : ‖∫ v in S, F v‖ ≤ ∫ v in S, ‖F v‖ := by
+    simpa only [integral] using
+      (norm_integral_le_integral_norm (μ := volume.restrict S) F)
+  have hmono := setIntegral_mono_on hFint.norm.integrableOn hmajor.integrableOn hS hpoint
+  have htotal :
+      (∫ v in S, K * Real.rpow (1 + ‖v‖) (-2 : ℝ)) ≤
+        ∫ v : ℝ, K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := by
+    exact setIntegral_le_integral hmajor (ae_of_all _ fun v =>
+      mul_nonneg hK (Real.rpow_nonneg (by positivity) _))
+  calc
+    _ ≤ ∫ v in S, ‖F v‖ := hnorm
+    _ ≤ ∫ v in S, K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := hmono
+    _ ≤ ∫ v : ℝ, K * Real.rpow (1 + ‖v‖) (-2 : ℝ) := htotal
+    _ = K * ∫ v : ℝ, Real.rpow (1 + ‖v‖) (-2 : ℝ) := by rw [integral_const_mul]
+    _ = _ := by dsimp [K]
+
 private theorem ppPrimeIntegral_largeSet_norm_bound
     {F : ℝ → ℂ} {S : Set ℝ} {M H : ℝ}
     (hM : 0 ≤ M) (hH : 0 < H) (hS : MeasurableSet S)
@@ -2718,6 +2777,26 @@ private theorem ppPrimeContourGrowth
     hxheight, hxSquare, hxroot, hxgauss⟩
   exact ⟨hxZ, hxL₀, hx4, hx8, hxlogLow, hxlogPow, hxheight,
     hxSquare, hxroot, hxgauss⟩
+
+/-- Uniform contour estimate for the endpoint cutoff, before removing smoothing. -/
+private theorem ppPrimeSmoothedCutoff_uniform_bound
+    (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
+    (hzeta : ppPrimeZetaLogDerivBound) :
+    ∀ τ η C A : ℝ, 0 < τ → τ < η → η < 1 → 0 < C → 0 < A →
+      ∃ B₀ K x₀ : ℝ, 0 < B₀ ∧ 0 < K ∧ 2 < x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          let L := Real.log x
+          ∀ N : ℝ, Real.rpow x τ / 2 ≤ N → N ≤ Real.rpow x η →
+            ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
+              ∀ χ : DirichletCharacter ℂ q, ∀ t : ℝ,
+                Real.rpow L B₀ ≤ |t| → |t| ≤ Real.rpow x 2 →
+                  ∀ m u : ℕ, N ≤ (m : ℝ) → (m : ℝ) ≤ u →
+                    (u : ℝ) ≤ 2 * N →
+                      ‖smoothedMangoldtPolynomial N q χ t
+                        (ppPrimePositiveCutoff ((m : ℝ) / N) ((u : ℝ) / N)
+                          (Real.rpow L (-A - 4)))‖ ≤
+                        K * Real.rpow L (-A - 2) := by
+  sorry
 
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
