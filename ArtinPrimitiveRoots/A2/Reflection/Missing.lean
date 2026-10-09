@@ -5037,6 +5037,101 @@ private theorem rf_forward_support (r : ReflectionRow S) (ν : Fˣ)
   refine ⟨(C, N), δ, ?_⟩
   simpa only [δ, εu, Subgroup.coe_pow] using hEq
 
+set_option maxHeartbeats 1000000 in
+private theorem rf_forward_Agen_unfolding :
+  ∀ σ : ℝ, 1 / 2 < σ → ∃ C : ℝ, 0 < C ∧
+    ∀ u (p : S.SqfExtIdeal × S.ExtIdeal) l, 0 < l →
+    let a := S.diagU (Agen R p.1 p.2)
+    let f := fun γ : Gamma S => fun y : S.FSˣ =>
+      unrotated R u (S.diagU (γ.1 : Fˣ) * a * y)
+    (∀ γ, IntegrableOn (onUnits (f γ)) (omegaAt R l) (R.sheets.sheet l)) ∧
+    Summable (fun γ => (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) ∧
+    (∑' γ, (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) =
+      (sheetIntegral R (qI (Aideal R p.1 p.2).1 * l)
+        (fun y => (‖unrotated R u y‖ : ℂ))).re ∧
+    (sheetIntegral R (qI (Aideal R p.1 p.2).1 * l)
+        (fun y => (‖unrotated R u y‖ : ℂ))).re ≤
+      C * (qI (Aideal R p.1 p.2).1 * l) ^ (-σ) ∧
+    Summable (fun γ => omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) ∧
+    (∑' γ, omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
+      Lvalue R u a * Theta.thetaV S μ v0 R.T.U R.T.cS
+        (qI (Aideal R p.1 p.2).1 * l) := by
+  intro σ hσ
+  obtain ⟨C, hC, hUnfold⟩ := rf_forward_unfolding R σ hσ
+  refine ⟨C, hC, ?_⟩
+  intro u p l hl
+  dsimp only
+  let I := Aideal R p.1 p.2
+  let a0 := S.diagU (bc.gen I)
+  let f0 := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * a0 * y)
+  let f := fun γ : Gamma S => fun y : S.FSˣ =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2) * y)
+  have hData := hUnfold u I l hl
+  obtain ⟨ζ, hζ⟩ := rf_forward_generator_shift R p
+  let e : Gamma S ≃ Gamma S := Equiv.mulRight ζ
+  have hOrbit (γ : Gamma S) : f γ = f0 (e γ) := by
+    funext y
+    change unrotated R u (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2) * y) =
+      unrotated R u (S.diagU ((γ * ζ).1 : Fˣ) * S.diagU (bc.gen I) * y)
+    rw [hζ]
+    simp only [I, map_mul, Subgroup.coe_mul, mul_assoc]
+  have hL : Lvalue R u (S.diagU (Agen R p.1 p.2)) = Lvalue R u a0 := by
+    have hOne := (rf_descent R).2.2.2 u ζ
+    dsimp only [Lvalue]
+    rw [hζ, map_mul, map_mul, Units.val_mul]
+    change Lvalue R u (S.diagU (ζ.1 : Fˣ)) * Lvalue R u a0 = Lvalue R u a0
+    rw [hOne, one_mul]
+  have hIntegral (γ : Gamma S) :
+      IntegrableOn (onUnits (f γ)) (omegaAt R l) (R.sheets.sheet l) := by
+    rw [hOrbit]
+    exact hData.1 (e γ)
+  have hNorm0 : Summable (fun γ : Gamma S =>
+      (omegaInt R l (fun y => (‖f0 γ y‖ : ℂ))).re) := hData.2.1
+  have hNorm : Summable (fun γ : Gamma S =>
+      (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) := by
+    simpa only [hOrbit, Function.comp_def] using
+      (e.summable_iff (f := fun γ : Gamma S =>
+        (omegaInt R l (fun y => (‖f0 γ y‖ : ℂ))).re)).2 hNorm0
+  have hNormSum : (∑' γ : Gamma S,
+      (omegaInt R l (fun y => (‖f γ y‖ : ℂ))).re) =
+      (sheetIntegral R (qI I.1 * l) (fun y => (‖unrotated R u y‖ : ℂ))).re := by
+    calc
+      _ = ∑' γ : Gamma S, (omegaInt R l (fun y => (‖f0 (e γ) y‖ : ℂ))).re := by
+        apply tsum_congr
+        intro γ
+        rw [hOrbit]
+      _ = ∑' γ : Gamma S, (omegaInt R l (fun y => (‖f0 γ y‖ : ℂ))).re :=
+        e.tsum_eq (fun γ : Gamma S => (omegaInt R l (fun y => (‖f0 γ y‖ : ℂ))).re)
+      _ = _ := hData.2.2.1
+  have hSign0 : Summable (fun γ : Gamma S => omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 γ y)) := hData.2.2.2.2.1
+  have hSign : Summable (fun γ : Gamma S => omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) := by
+    simpa only [hOrbit, Function.comp_def] using
+      (e.summable_iff (f := fun γ : Gamma S => omegaInt R l
+        (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 γ y))).2 hSign0
+  have hSignSum : (∑' γ : Gamma S, omegaInt R l
+      (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f γ y)) =
+      Lvalue R u (S.diagU (Agen R p.1 p.2)) *
+        Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) := by
+    calc
+      _ = ∑' γ : Gamma S, omegaInt R l
+          (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 (e γ) y) := by
+        apply tsum_congr
+        intro γ
+        rw [hOrbit]
+      _ = ∑' γ : Gamma S, omegaInt R l
+          (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 γ y) :=
+        e.tsum_eq (fun γ : Gamma S => omegaInt R l
+          (fun y => bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * f0 γ y))
+      _ = Lvalue R u a0 * Theta.thetaV S μ v0 R.T.U R.T.cS (qI I.1 * l) :=
+        hData.2.2.2.2.2
+      _ = _ := by rw [hL]
+  exact ⟨hIntegral, hNorm, hNormSum, hData.2.2.2.1, hSign, hSignSum⟩
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
