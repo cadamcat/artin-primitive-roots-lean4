@@ -5898,6 +5898,83 @@ theorem whit_bruhat_product_normalization
       hasProd_finite_factor_tprod a (fun _ => 1) hafinite hz'
     _ = _ := by rw [tprod_one, mul_one, haprod]; ac_rfl
 
+/-- Cancel complex Fourier dilation factors against the rational absolute-value products. -/
+theorem whit_arch_jacquet_product
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    {s : ℂ} (Fs : GlobalSection P G s) (r : P.RP) (ν δ : Fˣ) :
+    (∏ᶠ v : FinPlace F,
+      (absFin v (toLoc v δ) : ℂ) ^ ((1 : ℂ) / 2 + s)) *
+      (∏ᶠ v : FinPlace F,
+        (absFin v (toLoc v ν) : ℂ) ^ (s - (1 : ℂ) / 2)) *
+      (∏ w : InfinitePlace F, ∫ z : ℂ,
+        psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+          (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)) =
+      ∏ w : InfinitePlace F,
+        jacquetC (rtr (aC (Units.map w.embedding.toMonoidHom ν) * P.compC w r) (Fs.fC w)) := by
+  classical
+  let p : ℂ := (1 : ℂ) / 2 + s
+  let q : ℂ := s - (1 : ℂ) / 2
+  let C₁ : InfinitePlace F → ℂ := fun w =>
+    (Complex.normSq (w.embedding (δ : F)) : ℂ) ^ p
+  let C₂ : InfinitePlace F → ℂ := fun w =>
+    (Complex.normSq (w.embedding (ν : F)) : ℂ) ^ q
+  let J : InfinitePlace F → ℂ := fun w =>
+    jacquetC (rtr (aC (Units.map w.embedding.toMonoidHom ν) * P.compC w r) (Fs.fC w))
+  let d : ℂ := ∏ᶠ v : FinPlace F, (absFin v (toLoc v δ) : ℂ) ^ p
+  let n : ℂ := ∏ᶠ v : FinPlace F, (absFin v (toLoc v ν) : ℂ) ^ q
+  have hsection (w : InfinitePlace F) (h : PGL2 ℂ) :
+      Fs.fC w (aC (Units.map w.embedding.toMonoidHom δ) * h) = C₁ w * Fs.fC w h := by
+    have hs := (Fs.fC_sec w).1 0 (Units.map w.embedding.toMonoidHom δ) h
+    change Fs.fC w (QuotientGroup.mk (upperM ℂ 0) *
+      aC (Units.map w.embedding.toMonoidHom δ) * h) = _ at hs
+    simpa only [scalar_upperM_zero, QuotientGroup.mk_one, one_mul,
+      C₁, p, Units.coe_map, RingHom.toMonoidHom_eq_coe, MonoidHom.coe_coe] using hs
+  have hlocal (w : InfinitePlace F) :
+      (∫ z : ℂ, psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+        (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)) =
+        C₁ w * C₂ w * J w := by
+    have hpoint (z : ℂ) :
+        psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+          (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r) =
+        C₁ w * (psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+          (wC * nC z * P.compC w r)) := by
+      rw [show aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r =
+        aC (Units.map w.embedding.toMonoidHom δ) * (wC * nC z * P.compC w r) by group,
+        hsection]
+      ring
+    have hfourier := whit_complex_fourier_dilation s (Fs.fC w) (Fs.fC_sec w).1
+      (Units.map w.embedding.toMonoidHom ν) (P.compC w r)
+    have hfourier' :
+        (∫ z : ℂ, psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+          (wC * nC z * P.compC w r)) = C₂ w * J w := by
+      simpa only [C₂, q, J, Units.coe_map, RingHom.toMonoidHom_eq_coe,
+        MonoidHom.coe_coe] using hfourier
+    calc
+      _ = ∫ z : ℂ, C₁ w * (psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+          (wC * nC z * P.compC w r)) := by
+        apply integral_congr_ae
+        exact Filter.Eventually.of_forall hpoint
+      _ = C₁ w * ∫ z : ℂ, psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+          (wC * nC z * P.compC w r) := integral_const_mul _ _
+      _ = _ := by rw [hfourier']; ring
+  have hδ : d * (∏ w : InfinitePlace F, C₁ w) = 1 := by
+    simpa only [d, C₁] using scalar_abs_cpow_product D δ p
+  have hν : n * (∏ w : InfinitePlace F, C₂ w) = 1 := by
+    simpa only [n, C₂] using scalar_abs_cpow_product D ν q
+  change d * n *
+      (∏ w : InfinitePlace F, ∫ z : ℂ,
+        psiC (-(w.embedding (ν : F) * z)) * Fs.fC w
+          (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC z * P.compC w r)) =
+    ∏ w : InfinitePlace F, J w
+  calc
+    _ = d * n * (∏ w : InfinitePlace F, C₁ w * C₂ w * J w) := by
+      simp_rw [hlocal]
+    _ = (d * ∏ w : InfinitePlace F, C₁ w) *
+        (n * ∏ w : InfinitePlace F, C₂ w) * (∏ w : InfinitePlace F, J w) := by
+      simp only [Finset.prod_mul_distrib]
+      ac_rfl
+    _ = _ := by rw [hδ, hν, one_mul, one_mul]
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
