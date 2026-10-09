@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_HILBERT.Core
 import ValuedFieldTheory.LocalField.NonarchimedeanLocalField.PowerClassFiniteness
 import Mathlib.MeasureTheory.Function.SpecialFunctions.Basic
 import Mathlib.Analysis.SpecificLimits.Normed
+import Mathlib.MeasureTheory.Integral.Prod
 
 set_option autoImplicit false
 
@@ -386,5 +387,85 @@ theorem local_ball_character_orthogonality (A : AddCharData F)
       map_add_eq_mul' := fun t u => by rw [add_mul, AddChar.map_add_eq_mul] }
   exact integral_addChar_addSubgroup μ (localBallAddSubgroup v M)
     (integer_radius_ball_compact v M).measurableSet χ
+
+/-- A finite Gaussian Fourier test is exactly a quadratic preimage measure.
+Both integration domains are compact, and character regularity gives product
+integrability before Fubini. The local-ball orthogonality identity then evaluates
+the inner character integral. Guide: PROOFS.md:468–475. -/
+theorem finite_gaussian_fourier_test (A : AddCharData F) (v : FinPlace F)
+    (μ : Measure (v.adicCompletion F)) (hμ : Measure.IsAddHaarMeasure μ)
+    (hregular : LocalCharacterRegular A v)
+    (a : (v.adicCompletion F)ˣ) (M : ℤ) (N : ℕ) :
+    (∫ t in localBallInt v M, A.ψ v (-t) *
+      (∫ x in localBall v N, A.ψ v ((a : v.adicCompletion F) * t * x ^ 2) ∂μ) ∂μ) =
+      ((μ (localBallInt v M)).toReal : ℂ) *
+        ((μ {x | x ∈ localBall v N ∧ ∀ t ∈ localBallInt v M,
+          A.ψ v (t * ((a : v.adicCompletion F) * x ^ 2 - 1)) = 1}).toReal : ℂ) := by
+  have : Measure.IsAddHaarMeasure μ := hμ
+  let T := localBallInt v M
+  let B := localBall v N
+  have hTmeas : MeasurableSet T := (integer_radius_ball_compact v M).measurableSet
+  have hBmeas : MeasurableSet B := (integer_radius_ball_compact v (N : ℤ)).measurableSet
+  have hTfinite : μ T < ⊤ := (integer_radius_ball_compact v M).measure_lt_top
+  have hBfinite : μ B < ⊤ := (integer_radius_ball_compact v (N : ℤ)).measure_lt_top
+  have : IsFiniteMeasure (μ.restrict T) := isFiniteMeasure_restrict.mpr hTfinite.ne
+  have : IsFiniteMeasure (μ.restrict B) := isFiniteMeasure_restrict.mpr hBfinite.ne
+  let g := fun (t x : v.adicCompletion F) =>
+    A.ψ v (t * ((a : v.adicCompletion F) * x ^ 2 - 1))
+  have hcont : Continuous (Function.uncurry g) :=
+    hregular.1.comp (continuous_fst.mul
+      ((continuous_const.mul (continuous_snd.pow 2)).sub continuous_const))
+  have hgint : Integrable (Function.uncurry g) ((μ.restrict T).prod (μ.restrict B)) :=
+    (integrable_const (1 : ℝ)).mono' hcont.stronglyMeasurable.aestronglyMeasurable
+      (Filter.Eventually.of_forall fun p => (hregular.2.2
+        (p.1 * ((a : v.adicCompletion F) * p.2 ^ 2 - 1))).le)
+  let S : Set (v.adicCompletion F) :=
+    {x | ∀ t ∈ T, A.ψ v (t * ((a : v.adicCompletion F) * x ^ 2 - 1)) = 1}
+  have hSclosed : IsClosed S := by
+    have hsets : S = ⋂ t ∈ T,
+        {x : v.adicCompletion F | A.ψ v (t * ((a : v.adicCompletion F) * x ^ 2 - 1)) = 1} := by
+      ext x
+      simp only [S, Set.mem_iInter, Set.mem_ofPred_eq]
+    rw [hsets]
+    apply isClosed_biInter
+    intro t _ht
+    exact isClosed_eq (hregular.1.comp (continuous_const.mul
+      ((continuous_const.mul (continuous_id.pow 2)).sub continuous_const))) continuous_const
+  have hproduct : ∀ t x : v.adicCompletion F,
+      A.ψ v (-t) * A.ψ v ((a : v.adicCompletion F) * t * x ^ 2) = g t x := by
+    intro t x
+    dsimp [g]
+    rw [← AddChar.map_add_eq_mul]
+    congr 1
+    ring
+  calc
+    (∫ t in localBallInt v M, A.ψ v (-t) *
+      (∫ x in localBall v N, A.ψ v ((a : v.adicCompletion F) * t * x ^ 2) ∂μ) ∂μ) =
+        ∫ t in T, ∫ x in B, g t x ∂μ ∂μ := by
+      apply setIntegral_congr_fun hTmeas
+      intro t _ht
+      change A.ψ v (-t) *
+        (∫ x in B, A.ψ v ((a : v.adicCompletion F) * t * x ^ 2) ∂μ) =
+          ∫ x in B, g t x ∂μ
+      rw [← integral_const_mul]
+      exact setIntegral_congr_fun hBmeas fun x _hx => hproduct t x
+    _ = ∫ x in B, ∫ t in T, g t x ∂μ ∂μ := integral_integral_swap hgint
+    _ = ∫ x in B, ((μ T).toReal : ℂ) * S.indicator (fun _ => (1 : ℂ)) x ∂μ := by
+      apply setIntegral_congr_fun hBmeas
+      intro x _hx
+      change (∫ t in localBallInt v M,
+        A.ψ v (t * ((a : v.adicCompletion F) * x ^ 2 - 1)) ∂μ) = _
+      rw [local_ball_character_orthogonality A v μ hμ M]
+      change (if x ∈ S then ((μ T).toReal : ℂ) else 0) =
+        ((μ T).toReal : ℂ) * S.indicator (fun _ => (1 : ℂ)) x
+      by_cases hx : x ∈ S
+      · rw [ite_eq_left hx, Set.indicator_of_mem hx, mul_one]
+      · rw [ite_eq_right hx, Set.indicator_of_notMem hx, mul_zero]
+    _ = ((μ T).toReal : ℂ) * ∫ x in B, S.indicator (fun _ => (1 : ℂ)) x ∂μ :=
+      integral_const_mul _ _
+    _ = ((μ T).toReal : ℂ) * ((μ (B ∩ S)).toReal : ℂ) := by
+      rw [setIntegral_indicator hSclosed.measurableSet, setIntegral_const]
+      simp only [measureReal_def, Complex.real_smul, mul_one]
+    _ = _ := rfl
 
 end ArtinPrimitiveRoots.Proofs.a1_weil_sol
