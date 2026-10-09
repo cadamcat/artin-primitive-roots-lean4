@@ -23,6 +23,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Finite
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Exist
+import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Witness
 import ArtinPrimitiveRoots.A2.Proofs.«A2-QS-POISSON».P0
 import ArtinPrimitiveRoots.A2.Interface
 import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
