@@ -1851,6 +1851,149 @@ private theorem cont_weighted_dyad_Icc_bound
     _ ≤ 2 * Cφ * N * Real.exp (-L / Real.rpow T C₃) *
           Real.rpow (N : ℝ) (-σ) := hweighted
 
+private theorem cont_high_dyadic_tail_bound
+    {q : ℕ} [NeZero q] (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    {x L T Cφ C₃ σ v : ℝ} {N X : ℕ}
+    (hCφ : 0 < Cφ) (hN : 0 < N) (hNX : N ≤ X)
+    (hY0 : Real.exp (L / T ^ 2) ≤ (N : ℝ))
+    (hX : (X : ℝ) ≤ Real.rpow x 5) (hσ : 0 ≤ σ)
+    (hPhaseAtX : ∀ N' : ℝ, Real.exp (L / T ^ 2) ≤ N' →
+      N' ≤ 2 * Real.rpow x 5 → ∀ a : ZMod q, ∀ N₁ N₂ : ℝ,
+        N' ≤ N₁ → N₂ ≤ 2 * N' →
+          ‖residuePhaseSum N' q a (-v)
+            {n : ℕ | N₁ ≤ (n : ℝ) ∧ (n : ℝ) ≤ N₂}‖ ≤
+            Cφ * (N' / q) * Real.exp (-L / Real.rpow T C₃))
+    (hweight : ∀ n : ℕ, N ≤ n → n ≤ X →
+      (n : ℝ) * Real.rpow (n : ℝ) (-σ) ≤ Real.exp (50 * T ^ 4)) :
+    ‖∑ n ∈ Finset.Icc N X,
+      χ (n : ZMod q) *
+        Complex.exp (-⟨σ, v⟩ * Real.log (n : ℝ))‖ ≤
+      2 * Cφ * ((Nat.log 2 X + 1 : ℕ) : ℝ) *
+        Real.exp (-L / Real.rpow T C₃ + 50 * T ^ 4) := by
+  classical
+  let m : ℕ := Nat.log 2 X + 1
+  let f : ℕ → ℂ := fun n => χ (n : ZMod q) *
+    Complex.exp (-⟨σ, v⟩ * Real.log (n : ℝ))
+  have hXne : X ≠ 0 := by omega
+  have hmX : Nat.log 2 X < m := by dsimp [m]; omega
+  have hpow : X < 2 ^ m :=
+    (Nat.log_lt_iff_lt_pow (by decide) hXne).mp hmX
+  have hNle : 1 ≤ N := Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hN)
+  have hNpow : 2 ^ m ≤ N * 2 ^ m := by
+    calc
+      2 ^ m = 1 * 2 ^ m := by simp
+      _ ≤ N * 2 ^ m := Nat.mul_le_mul_right _ hNle
+  have hlarge : X < N * 2 ^ m := lt_of_lt_of_le hpow hNpow
+  have htop : min (N * 2 ^ m - 1) X = X :=
+    min_eq_right (by omega)
+  have hdecomp :
+      (∑ n ∈ Finset.Icc N X, f n) =
+        ∑ k ∈ Finset.range m,
+          ∑ n ∈ Finset.Icc (N * 2 ^ k)
+            (min (N * 2 ^ (k + 1) - 1) X), f n := by
+    simpa [htop] using cont_sum_Icc_dyadic_prefix f N X m hN
+  let B : ℝ := 2 * Cφ * Real.exp (-L / Real.rpow T C₃) *
+    Real.exp (50 * T ^ 4)
+  have hblock (k : ℕ) (hk : k ∈ Finset.range m) :
+      ‖∑ n ∈ Finset.Icc (N * 2 ^ k)
+          (min (N * 2 ^ (k + 1) - 1) X), f n‖ ≤ B := by
+    let Nk := N * 2 ^ k
+    by_cases hNkX : Nk ≤ X
+    · have hNkpos : 0 < Nk := by dsimp [Nk]; positivity
+      have hNleNk : N ≤ Nk := by
+        dsimp [Nk]
+        calc
+          N = N * 1 := by simp
+          _ ≤ N * 2 ^ k := Nat.mul_le_mul_left N (Nat.one_le_pow k 2 (by decide))
+      have hNkY0 : Real.exp (L / T ^ 2) ≤ (Nk : ℝ) := by
+        exact le_trans hY0 (by exact_mod_cast hNleNk)
+      have hNkUpper : (Nk : ℝ) ≤ 2 * Real.rpow x 5 := by
+        have hNkX' : (Nk : ℝ) ≤ (X : ℝ) := by exact_mod_cast hNkX
+        have hNreal : 0 < (N : ℝ) := by exact_mod_cast hN
+        have hXlower : (N : ℝ) ≤ (X : ℝ) := by exact_mod_cast hNX
+        have hxpos : 0 < Real.rpow x 5 := lt_of_lt_of_le hNreal (le_trans hXlower hX)
+        linarith
+      let j := min (Nk - 1) (X - Nk)
+      have hphase : ∀ t ≤ j, ∀ a : ZMod q,
+          ‖residuePhaseSum (Nk : ℝ) q a (-v)
+            (Finset.Icc Nk (Nk + t) : Set ℕ)‖ ≤
+              Cφ * ((Nk : ℝ) / q) * Real.exp (-L / Real.rpow T C₃) := by
+        intro t ht a
+        have htNk : t ≤ Nk := by
+          have hj' : j ≤ Nk - 1 := by dsimp [j]; exact Nat.min_le_left _ _
+          omega
+        have hN₂nat : Nk + t ≤ 2 * Nk := by omega
+        have hN₂ : ((Nk + t : ℕ) : ℝ) ≤ 2 * (Nk : ℝ) := by exact_mod_cast hN₂nat
+        have hraw := hPhaseAtX (Nk : ℝ) hNkY0 hNkUpper a
+          (Nk : ℝ) ((Nk + t : ℕ) : ℝ) le_rfl hN₂
+        have hset : (Finset.Icc Nk (Nk + t) : Set ℕ) =
+            {n : ℕ | (Nk : ℝ) ≤ (n : ℝ) ∧
+              (n : ℝ) ≤ ((Nk + t : ℕ) : ℝ)} := by
+          ext n
+          simp only [Finset.mem_coe, Finset.mem_Icc, Set.mem_setOf_eq]
+          constructor <;> intro hn
+          · exact ⟨by exact_mod_cast hn.1, by exact_mod_cast hn.2⟩
+          · exact ⟨by exact_mod_cast hn.1, by exact_mod_cast hn.2⟩
+        simpa only [hset] using hraw
+      have hinterval := cont_weighted_dyad_Icc_bound hq χ hNkpos hNkX hσ hphase
+      have hend : N * 2 ^ (k + 1) = 2 * Nk := by
+        dsimp [Nk]
+        rw [pow_succ]
+        ring
+      have hblock' :
+          ‖∑ n ∈ Finset.Icc (N * 2 ^ k)
+              (min (N * 2 ^ (k + 1) - 1) X), f n‖ ≤
+            2 * Cφ * (Nk : ℝ) * Real.exp (-L / Real.rpow T C₃) *
+              Real.rpow (Nk : ℝ) (-σ) := by
+        rw [hend]
+        simpa [f] using hinterval
+      have hweight' := hweight Nk hNleNk hNkX
+      have hweightB :
+          2 * Cφ * (Nk : ℝ) * Real.exp (-L / Real.rpow T C₃) *
+              Real.rpow (Nk : ℝ) (-σ) ≤
+            2 * Cφ * Real.exp (-L / Real.rpow T C₃) *
+              Real.exp (50 * T ^ 4) := by
+        calc
+          _ = (2 * Cφ * Real.exp (-L / Real.rpow T C₃)) *
+                ((Nk : ℝ) * Real.rpow (Nk : ℝ) (-σ)) := by ac_rfl
+          _ ≤ _ := mul_le_mul_of_nonneg_left hweight' (by positivity)
+      calc
+        _ ≤ 2 * Cφ * (Nk : ℝ) * Real.exp (-L / Real.rpow T C₃) *
+              Real.rpow (Nk : ℝ) (-σ) := hblock'
+        _ ≤ B := by simpa only [B] using hweightB
+    · have hupper : min (N * 2 ^ (k + 1) - 1) X < Nk :=
+        (Nat.min_le_right _ _).trans_lt (lt_of_not_ge hNkX)
+      have hempty : Finset.Icc (N * 2 ^ k)
+          (min (N * 2 ^ (k + 1) - 1) X) = ∅ := by
+        ext n
+        simp only [Finset.mem_Icc, Finset.notMem_empty]
+        constructor
+        · rintro ⟨hnlo, hnhi⟩
+          exact (not_le_of_gt hupper) (hnlo.trans hnhi)
+        · intro hn
+          cases hn
+      rw [hempty]
+      simp only [Finset.sum_empty, norm_zero]
+      positivity
+  rw [hdecomp]
+  calc
+    _ ≤ ∑ k ∈ Finset.range m,
+          ‖∑ n ∈ Finset.Icc (N * 2 ^ k)
+              (min (N * 2 ^ (k + 1) - 1) X), f n‖ := norm_sum_le _ _
+    _ ≤ ∑ _k ∈ Finset.range m, B := by
+      apply Finset.sum_le_sum
+      intro k hk
+      exact hblock k hk
+    _ = (m : ℝ) * B := by simp
+    _ = 2 * Cφ * ((Nat.log 2 X + 1 : ℕ) : ℝ) *
+          Real.exp (-L / Real.rpow T C₃) * Real.exp (50 * T ^ 4) := by
+      dsimp [B, m]
+      ring
+    _ = 2 * Cφ * ((Nat.log 2 X + 1 : ℕ) : ℝ) *
+          Real.exp (-L / Real.rpow T C₃ + 50 * T ^ 4) := by
+      rw [Real.exp_add]
+      simp [B, m, mul_assoc, mul_left_comm, mul_comm]
+
 private theorem cont_growth_high_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
