@@ -16224,6 +16224,30 @@ private theorem rf_pairing_grouped_kernel_exchange
   exact ArtinPrimitiveRoots.Proofs.a2_rffwd_sol.integral_tsum_of_norm_sum
     m f (fun q => (hEach q).aestronglyMeasurable) hPoint hNorm
 
+private theorem rf_pairing_Bm_grouped_kernel_integrals
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (Z : ℝ) (hZ : 0 < Z) :
+    Bm D S A ϑ (cgen R) (r.m : F) Z =
+      ∑' q : FrozenIndex R r.h × S.SqfExtIdeal,
+        ∫ T in Set.Ioi (0 : ℝ), rf_pairing_grouped_kernel_term R r q Z T := by
+  classical
+  let J := FrozenIndex R r.h × S.SqfExtIdeal
+  have hRep := lem_reflection_theta_representation R r 1 Z zero_lt_one hZ
+  have hBm : Bm D S A ϑ (cgen R) (r.m : F) Z =
+      ∫ T in Set.Ioi (0 : ℝ), R.K T * thetaAverage R r (T / Z) / (T : ℂ) := hRep.2.2.2
+  have hEq : (fun T => R.K T * thetaAverage R r (T / Z) / (T : ℂ)) =ᵐ[
+      volume.restrict (Set.Ioi (0 : ℝ))]
+      fun T => ∑' q : J, rf_pairing_grouped_kernel_term R r q Z T := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    rw [(rf_pairing_thetaAverage_grouped_series R r (T / Z) (div_pos hT hZ)).2]
+    simp only [rf_pairing_grouped_kernel_term, tsum_div_const, tsum_mul_left]
+    rfl
+  calc
+    _ = ∫ T in Set.Ioi (0 : ℝ), R.K T * thetaAverage R r (T / Z) / (T : ℂ) := hBm
+    _ = ∫ T in Set.Ioi (0 : ℝ), ∑' q : J, rf_pairing_grouped_kernel_term R r q Z T :=
+      integral_congr_ae hEq
+    _ = _ := (rf_pairing_grouped_kernel_exchange R r Z hZ).2
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
