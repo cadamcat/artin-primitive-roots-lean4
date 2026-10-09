@@ -2644,7 +2644,33 @@ private theorem phase_high_box_value_le_sup {k M : ℕ}
     ‖phaseWeylSum k M a‖ ≤
       sSup {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
         z = ‖phaseWeylSum k M a‖} := by
-  sorry
+  classical
+  let S : Set ℝ := {z : ℝ | ∃ a : Fin k → ℝ, a ∈ phaseClosedBox r ∧
+    z = ‖phaseWeylSum k M a‖}
+  have hboxEq : phaseClosedBox r = Set.univ.pi (fun j : Fin k =>
+      Set.Icc (((r j).val : ℝ) / (M : ℝ) ^ (j.val + 1))
+        ((((r j).val + 1 : ℕ) : ℝ) / (M : ℝ) ^ (j.val + 1))) := by
+    ext x
+    simp [phaseClosedBox, Set.mem_Icc, Pi.le_def, forall_and]
+  have hboxCompact : IsCompact (phaseClosedBox r) := by
+    rw [hboxEq]
+    exact isCompact_univ_pi fun j => isCompact_Icc
+  have hcont : Continuous (fun a : Fin k → ℝ => ‖phaseWeylSum k M a‖) := by
+    dsimp [phaseWeylSum, additiveCharacter]
+    fun_prop
+  have hvalueSet : S =
+      (fun a : Fin k → ℝ => ‖phaseWeylSum k M a‖) '' phaseClosedBox r := by
+    ext z
+    constructor
+    · rintro ⟨a, ha, rfl⟩
+      exact ⟨a, ha, rfl⟩
+    · rintro ⟨a, ha, rfl⟩
+      exact ⟨a, ha, rfl⟩
+  have hSbdd : BddAbove S := by
+    rw [hvalueSet]
+    exact (hboxCompact.image hcont).bddAbove
+  apply le_csSup hSbdd
+  exact ⟨a, ha, rfl⟩
 
 private theorem phase_high_translate_box_sup {H y θ V : ℝ} {k M : ℕ}
     (r : PhaseBoxIndex k M) (b : ℕ) (hM : 0 < M)
