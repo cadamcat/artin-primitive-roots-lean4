@@ -27,6 +27,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».residue_right_infCompa
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».scalar_section_affine
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».scalar_section_translate
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».family_series_linear_translate
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».residue_affine
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_automorphic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_ideal_period
 import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».automorphic_ideal_period
