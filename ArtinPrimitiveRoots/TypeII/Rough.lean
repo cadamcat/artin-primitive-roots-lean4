@@ -4889,6 +4889,264 @@ private theorem principal_tuple_continuous_slot_integral (n : ℕ) (x γ a b B :
     (1 / ((n + 1).factorial : ℝ)) * ∫ s in W, J s
   rw [← mul_assoc, hcoef, hSource, hPair]
 
+set_option maxHeartbeats 1000000 in
+/-- Replacing a prime slot by its continuous measure costs a logarithmic saving. -/
+private theorem principal_tuple_prime_replacement (γ : ℝ) (hγ : 0 < γ)
+    (n : ℕ) (A : ℝ) (hA : 0 < A) :
+    ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        ∀ M : ℝ, 0 < M → 2 * M ≤ x →
+          ∀ Q : ℝ, 1 ≤ Q → ∀ l r : ℝ,
+            M ≤ l → l ≤ r → r ≤ 2 * M →
+              |(∑ p ∈ (Finset.range ((⌊2 * M⌋₊ + 1) + 1)).filter
+                    (fun p : ℕ => p.Prime ∧ Real.rpow x γ < (p : ℝ)),
+                  roughTupleIntegral x γ (l / (Q * (p : ℝ)))
+                    (r / (Q * (p : ℝ))) (n + 1)) -
+                ((n + 2 : ℕ) : ℝ) *
+                  roughTupleIntegral x γ (l / Q) (r / Q) (n + 2)| ≤
+                C * (M / Q) * Real.rpow (Real.log x) (-A) := by
+  classical
+  let Ap : ℝ := A + ((n + 1 : ℕ) : ℝ)
+  have hAp : 0 < Ap := by dsimp [Ap]; positivity
+  obtain ⟨Cs, xs, hCs, hxs, hslot⟩ := principal_prime_slice_count γ hγ Ap hAp
+  let c : ℝ := 1 / ((n + 1).factorial : ℝ)
+  let kappa : ℝ := 2 / Real.log 2
+  let C : ℝ := c * Cs * kappa ^ (n + 1)
+  let xY : ℝ := Real.rpow 2 (1 / γ)
+  let x₀ : ℝ := max xs (max (Real.exp 1) xY)
+  have hc : 0 < c := by dsimp [c]; positivity
+  have hlog2 : 0 < Real.log (2 : ℝ) := Real.log_pos (by norm_num)
+  have hkappa : 0 < kappa := div_pos (by norm_num) hlog2
+  have hC : 0 < C := by dsimp [C]; positivity
+  have hx₀ : 2 ≤ x₀ := hxs.trans (le_max_left _ _)
+  refine ⟨C, x₀, hC, hx₀, ?_⟩
+  intro x hx M hM hMx Q hQ l r hl hlr hr
+  let L := Real.log x
+  let Y := Real.rpow x γ
+  let B : ℕ := ⌊2 * M⌋₊ + 1
+  let W : Set (Fin (n + 1) → ℝ) := Set.univ.pi fun _ => Set.Icc Y (B : ℝ)
+  let P := (Finset.range (B + 1)).filter (fun p : ℕ => p.Prime ∧ Y < (p : ℝ))
+  let T : (Fin (n + 1) → ℝ) → ℝ := fun t => ∏ i, t i
+  let H : (Fin (n + 1) → ℝ) → ℝ := fun t => ∏ i, 1 / Real.log (t i)
+  let R : (Fin (n + 1) → ℝ) → ℝ := fun t => ∏ i, 1 / (t i * Real.log (t i))
+  let N : (Fin (n + 1) → ℝ) → ℝ := fun t =>
+    ((P.filter (fun p : ℕ => l / Q ≤ (p : ℝ) * T t ∧
+      (p : ℝ) * T t ≤ r / Q)).card : ℝ)
+  let I : (Fin (n + 1) → ℝ) → ℝ := fun t =>
+    roughTupleIntegral x γ ((l / Q) / T t) ((r / Q) / T t) 1
+  let D : ℝ := Cs * (M / Q) * Real.rpow L (-Ap)
+  have hx2 : 2 ≤ x := hx₀.trans hx
+  have hxpos : 0 < x := lt_of_lt_of_le (by norm_num) hx2
+  have hxs' : xs ≤ x := (le_max_left _ _).trans hx
+  have hxExp : Real.exp 1 ≤ x := (le_max_left _ _).trans ((le_max_right _ _).trans hx)
+  have hxY : xY ≤ x := (le_max_right _ _).trans ((le_max_right _ _).trans hx)
+  have hL1 : 1 ≤ L := by
+    have h := Real.log_le_log (Real.exp_pos 1) hxExp
+    simpa only [Real.log_exp] using h
+  have hLpos : 0 < L := lt_of_lt_of_le zero_lt_one hL1
+  have hYroot : Real.rpow xY γ = 2 := by
+    dsimp [xY]
+    rw [← Real.rpow_mul (by norm_num : (0 : ℝ) ≤ 2)]
+    rw [div_mul_cancel₀ 1 (ne_of_gt hγ), Real.rpow_one]
+  have hY2 : 2 ≤ Y := by
+    calc
+      2 = Real.rpow xY γ := hYroot.symm
+      _ ≤ Real.rpow x γ := Real.rpow_le_rpow (by dsimp [xY]; positivity) hxY hγ.le
+  have hY1 : 1 < Y := by linarith
+  have hYpos : 0 < Y := by linarith
+  have hQpos : 0 < Q := lt_of_lt_of_le zero_lt_one hQ
+  have hrpos : 0 < r := hM.trans_le (hl.trans hlr)
+  have hB1 : (1 : ℝ) ≤ (B : ℝ) := by
+    dsimp [B]
+    push_cast
+    linarith [show (0 : ℝ) ≤ (⌊2 * M⌋₊ : ℝ) from Nat.cast_nonneg _]
+  have hBLo : 2 * M ≤ (B : ℝ) := by
+    dsimp [B]
+    push_cast
+    exact le_of_lt (Nat.lt_floor_add_one (2 * M))
+  have hBHi : (B : ℝ) ≤ 2 * x := by
+    have hf : (⌊2 * M⌋₊ : ℝ) ≤ 2 * M := Nat.floor_le (by positivity)
+    dsimp [B]
+    push_cast
+    linarith
+  have hlog2le : Real.log (2 : ℝ) ≤ 1 := by
+    have h := Real.log_le_sub_one_of_pos (by norm_num : (0 : ℝ) < 2)
+    linarith
+  have hlogB : Real.log (B : ℝ) ≤ 2 * L := by
+    calc
+      _ ≤ Real.log (2 * x) := Real.log_le_log (lt_of_lt_of_le zero_lt_one hB1) hBHi
+      _ = Real.log 2 + L := Real.log_mul (by norm_num) (ne_of_gt hxpos)
+      _ ≤ 2 * L := by linarith
+  have hWcompact : IsCompact W := isCompact_univ_pi fun _ => isCompact_Icc
+  have hWmeas : MeasurableSet W := hWcompact.isClosed.measurableSet
+  have hcoord (t : Fin (n + 1) → ℝ) (ht : t ∈ W) (i : Fin (n + 1)) : Y ≤ t i := by
+    have ht' : ∀ i, t i ∈ Set.Icc Y (B : ℝ) := by
+      simpa only [W, Set.mem_pi, Set.mem_univ, true_implies] using ht
+    exact (ht' i).1
+  have htpos (t : Fin (n + 1) → ℝ) (ht : t ∈ W) (i : Fin (n + 1)) : 0 < t i :=
+    lt_of_lt_of_le hYpos (hcoord t ht i)
+  have hlogpos (t : Fin (n + 1) → ℝ) (ht : t ∈ W) (i : Fin (n + 1)) :
+      0 < Real.log (t i) := Real.log_pos (lt_of_lt_of_le hY1 (hcoord t ht i))
+  have hT1 (t : Fin (n + 1) → ℝ) (ht : t ∈ W) : 1 ≤ T t :=
+    Finset.one_le_prod₀ fun i _ => hY1.le.trans (hcoord t ht i)
+  have hTpos (t : Fin (n + 1) → ℝ) (ht : t ∈ W) : 0 < T t :=
+    lt_of_lt_of_le zero_lt_one (hT1 t ht)
+  have hQT1 (t : Fin (n + 1) → ℝ) (ht : t ∈ W) : 1 ≤ Q * T t := by
+    calc
+      1 = (1 : ℝ) * 1 := by ring
+      _ ≤ Q * T t := mul_le_mul hQ (hT1 t ht) zero_le_one hQpos.le
+  have hHnonneg (t : Fin (n + 1) → ℝ) (ht : t ∈ W) : 0 ≤ H t :=
+    Finset.prod_nonneg fun i _ => (one_div_pos.mpr (hlogpos t ht i)).le
+  have hHcont : ContinuousOn H W := by
+    dsimp [H]
+    apply continuousOn_finsetProd Finset.univ
+    intro i hi
+    exact continuousOn_const.div
+      ((continuous_apply i).continuousOn.log (fun t ht => ne_of_gt (htpos t ht i)))
+      (fun t ht => ne_of_gt (hlogpos t ht i))
+  have hRcont : ContinuousOn R W := by
+    dsimp [R]
+    apply continuousOn_finsetProd Finset.univ
+    intro i hi
+    exact continuousOn_const.div
+      ((continuous_apply i).continuousOn.mul
+        ((continuous_apply i).continuousOn.log (fun t ht => ne_of_gt (htpos t ht i))))
+      (fun t ht => ne_of_gt (mul_pos (htpos t ht i) (hlogpos t ht i)))
+  have hHint : IntegrableOn H W volume := hHcont.integrableOn_compact hWcompact
+  have hRint : IntegrableOn R W volume := hRcont.integrableOn_compact hWcompact
+  let E (p : ℕ) : Set (Fin (n + 1) → ℝ) :=
+    {t | l / Q ≤ (p : ℝ) * T t ∧ (p : ℝ) * T t ≤ r / Q}
+  have hEmeas (p : ℕ) : MeasurableSet (E p) := by
+    have hm : Measurable (fun t : Fin (n + 1) → ℝ => (p : ℝ) * T t) := by
+      dsimp [T]
+      fun_prop
+    simpa only [E, Set.setOf_and] using
+      (measurableSet_le measurable_const hm).inter (measurableSet_le hm measurable_const)
+  have hNfun : N = fun t => ∑ p ∈ P, (E p).indicator (fun _ => (1 : ℝ)) t := by
+    funext t
+    simp only [Set.indicator, E, Set.mem_setOf_eq]
+    rw [← Finset.sum_filter]
+    simp only [Finset.sum_const, nsmul_eq_mul, mul_one, N]
+  have hNmeas : Measurable N := by
+    rw [hNfun]
+    apply Finset.measurable_sum
+    intro p hp
+    exact measurable_const.indicator (hEmeas p)
+  have hNbound (t : Fin (n + 1) → ℝ) : ‖N t‖ ≤ (P.card : ℝ) := by
+    have hN0 : (0 : ℝ) ≤ N t := by dsimp [N]; exact Nat.cast_nonneg _
+    rw [Real.norm_eq_abs, abs_of_nonneg hN0]
+    dsimp [N]
+    exact_mod_cast Finset.card_le_card (Finset.filter_subset _ P)
+  have hNint : IntegrableOn (fun t => H t * N t) W volume :=
+    hHint.mul_bdd hNmeas.aestronglyMeasurable (Filter.Eventually.of_forall hNbound)
+  have hPcut (p : ℕ) (hp : p ∈ P) : Y < (p : ℝ) := (Finset.mem_filter.mp hp).2.2
+  have hb : 0 ≤ r / Q := (div_pos hrpos hQpos).le
+  have hbB : r / Q ≤ (B : ℝ) :=
+    (div_le_self hrpos.le hQ).trans (hr.trans hBLo)
+  have hSum :
+      (∑ p ∈ P, roughTupleIntegral x γ (l / (Q * (p : ℝ)))
+        (r / (Q * (p : ℝ))) (n + 1)) = c * ∫ t in W, H t * N t := by
+    have h := principal_tuple_prime_sum_integral n x γ (l / Q) (r / Q) (B : ℝ)
+      P hx2 hγ hb hbB hPcut
+    simpa only [div_div] using h
+  have hContinuous := principal_tuple_continuous_slot_integral n x γ
+    (l / Q) (r / Q) (B : ℝ) hx2 hγ hb hbB
+  have hIint : IntegrableOn (fun t => H t * I t) W volume := hContinuous.1
+  have hMain : ((n + 2 : ℕ) : ℝ) * roughTupleIntegral x γ (l / Q) (r / Q) (n + 2) =
+      c * ∫ t in W, H t * I t := hContinuous.2
+  have hFilter (t : Fin (n + 1) → ℝ) (ht : t ∈ W) :
+      P.filter (fun p : ℕ => l / Q ≤ (p : ℝ) * T t ∧ (p : ℝ) * T t ≤ r / Q) =
+        (primesInInterval (l / (Q * T t)) (r / (Q * T t))).filter (fun p : ℕ => Y < (p : ℝ)) := by
+    ext p
+    constructor
+    · intro hp
+      rcases Finset.mem_filter.mp hp with ⟨hpP, hlo, hhi⟩
+      rcases (Finset.mem_filter.mp hpP).2 with ⟨hprime, hYp⟩
+      have hlo' : l / (Q * T t) ≤ (p : ℝ) := by
+        rw [← div_div]
+        exact (div_le_iff₀ (hTpos t ht)).2 hlo
+      have hhi' : (p : ℝ) ≤ r / (Q * T t) := by
+        rw [← div_div]
+        exact (le_div_iff₀ (hTpos t ht)).2 hhi
+      refine Finset.mem_filter.mpr ⟨?_, hYp⟩
+      apply Finset.mem_filter.mpr
+      exact ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le (Nat.le_floor hhi')),
+        hprime, hlo', hhi'⟩
+    · intro hp
+      rcases Finset.mem_filter.mp hp with ⟨hpInt, hYp⟩
+      rcases (Finset.mem_filter.mp hpInt).2 with ⟨hprime, hlo, hhi⟩
+      have hupper : r / (Q * T t) ≤ (B : ℝ) :=
+        (div_le_self hrpos.le (hQT1 t ht)).trans (hr.trans hBLo)
+      have hpB : p ≤ B := by exact_mod_cast hhi.trans hupper
+      have hpP : p ∈ P := Finset.mem_filter.mpr
+        ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le hpB), hprime, hYp⟩
+      refine Finset.mem_filter.mpr ⟨hpP, ?_, ?_⟩
+      · apply (div_le_iff₀ (hTpos t ht)).mp
+        simpa only [div_div] using hlo
+      · apply (le_div_iff₀ (hTpos t ht)).mp
+        simpa only [div_div] using hhi
+  have hSlot (t : Fin (n + 1) → ℝ) (ht : t ∈ W) :
+      |N t - I t| ≤ Cs * (M / (Q * T t)) * Real.rpow L (-Ap) := by
+    have h := hslot x hxs' M hM hMx (Q * T t) (hQT1 t ht) l r hl hlr hr
+    rw [← roughTupleIntegral_one_support x γ (l / (Q * T t)) (r / (Q * T t)) hx2 hγ,
+      ← hFilter t ht] at h
+    simpa only [I, div_div] using h
+  have hRecip (t : Fin (n + 1) → ℝ) : H t / T t = R t := by
+    dsimp [H, T, R]
+    rw [← Finset.prod_div_distrib]
+    apply Finset.prod_congr rfl
+    intro i hi
+    simp only [div_eq_mul_inv, mul_inv_rev, one_mul]
+  have hD : 0 ≤ D := by dsimp [D]; positivity
+  have hBound (t : Fin (n + 1) → ℝ) (ht : t ∈ W) :
+      ‖H t * N t - H t * I t‖ ≤ D * R t := by
+    rw [← mul_sub, Real.norm_eq_abs, abs_mul, abs_of_nonneg (hHnonneg t ht)]
+    calc
+      H t * |N t - I t| ≤ H t * (Cs * (M / (Q * T t)) * Real.rpow L (-Ap)) :=
+        mul_le_mul_of_nonneg_left (hSlot t ht) (hHnonneg t ht)
+      _ = D * (H t / T t) := by
+        dsimp [D]
+        simp only [div_eq_mul_inv, mul_inv_rev]
+        ring
+      _ = D * R t := by rw [hRecip]
+  have hIntegralBound :
+      |∫ t in W, H t * N t - H t * I t| ≤ D * ∫ t in W, R t := by
+    have h := norm_integral_le_of_norm_le (f := fun t => H t * N t - H t * I t)
+      (hRint.const_mul D) (by
+      filter_upwards [ae_restrict_mem hWmeas] with t ht
+      exact hBound t ht)
+    simpa only [Real.norm_eq_abs, integral_const_mul] using h
+  have hMass : (∫ t in W, R t) ≤ kappa ^ (n + 1) * L ^ (n + 1) := by
+    have h := ArtinPrimitiveRoots.Proofs.r_impl_muse.continuous_reciprocal_box_mass
+      (n + 1) Y (B : ℝ) hY2 hB1
+    calc
+      _ ≤ (Real.log (B : ℝ) / Real.log 2) ^ (n + 1) := h
+      _ ≤ ((2 * L) / Real.log 2) ^ (n + 1) :=
+        pow_le_pow_left₀ (div_nonneg (Real.log_nonneg hB1) hlog2.le)
+          (div_le_div_of_nonneg_right hlogB hlog2.le) (n + 1)
+      _ = kappa ^ (n + 1) * L ^ (n + 1) := by
+        rw [show (2 * L) / Real.log 2 = kappa * L by dsimp [kappa]; ring, mul_pow]
+  have hPowers : Real.rpow L (-Ap) * L ^ (n + 1) = Real.rpow L (-A) := by
+    calc
+      _ = Real.rpow L (-Ap) * Real.rpow L ((n + 1 : ℕ) : ℝ) := by
+        congr 1
+        exact (Real.rpow_natCast L (n + 1)).symm
+      _ = Real.rpow L (-Ap + ((n + 1 : ℕ) : ℝ)) := (Real.rpow_add hLpos _ _).symm
+      _ = Real.rpow L (-A) := by congr 1; dsimp [Ap]; ring
+  change |(∑ p ∈ P, roughTupleIntegral x γ (l / (Q * (p : ℝ)))
+      (r / (Q * (p : ℝ))) (n + 1)) -
+      ((n + 2 : ℕ) : ℝ) * roughTupleIntegral x γ (l / Q) (r / Q) (n + 2)| ≤
+    C * (M / Q) * Real.rpow L (-A)
+  rw [hSum, hMain, ← mul_sub, ← integral_sub hNint hIint, abs_mul, abs_of_nonneg hc.le]
+  calc
+    c * |∫ t in W, H t * N t - H t * I t| ≤ c * (D * ∫ t in W, R t) :=
+      mul_le_mul_of_nonneg_left hIntegralBound hc.le
+    _ ≤ c * (D * (kappa ^ (n + 1) * L ^ (n + 1))) :=
+      mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_left hMass hD) hc.le
+    _ = (c * Cs * kappa ^ (n + 1)) * (M / Q) *
+        (Real.rpow L (-Ap) * L ^ (n + 1)) := by dsimp [D]; ring
+    _ = C * (M / Q) * Real.rpow L (-A) := by rw [hPowers]
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
