@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.Ext.SplittingInputs
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.FunctionalEquation
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.GammaLines
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.ZeroSum
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».Boundary
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroEndpoint
