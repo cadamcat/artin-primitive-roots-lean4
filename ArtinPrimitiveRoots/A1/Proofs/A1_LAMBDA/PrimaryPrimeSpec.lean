@@ -14,6 +14,23 @@ Guide: sol-thin-a1/PROOFS.md:428-439. Uses: Definitions. -/
 theorem primary_prime_spec (v : FinPlace E) (hv : lambda ∉ v.asIdeal) :
     primary v.asIdeal ≠ 0 ∧ v.asIdeal = Ideal.span {primary v.asIdeal} ∧
       lambda ^ 2 ∣ primary v.asIdeal - 1 := by
-  sorry
+  letI : v.asIdeal.IsMaximal := v.isMaximal
+  have hP : Prime v.asIdeal := (Ideal.prime_iff_isPrime v.ne_bot).2 v.isPrime
+  have hfac : UniqueFactorizationMonoid.normalizedFactors v.asIdeal = {v.asIdeal} := by
+    rw [UniqueFactorizationMonoid.normalizedFactors_irreducible hP.irreducible]
+    simp
+  have hprimary : primary v.asIdeal = OAI.CompletedGauss.primaryPrime v.asIdeal := by
+    change OAI.CompletedGauss.primaryGenerator v.asIdeal = _
+    rw [OAI.CompletedGauss.primaryGenerator]
+    simp [v.ne_bot, hfac]
+  have hp0 : OAI.CompletedGauss.primaryPrime v.asIdeal ≠ 0 :=
+    OAI.CompletedGauss.primaryPrime_ne_zero v.asIdeal hv
+  have hspec := OAI.CompletedGauss.primaryPrime_spec v.asIdeal hp0
+  refine ⟨?_, ?_, ?_⟩
+  · simpa only [hprimary] using hp0
+  · rw [hprimary]
+    exact hspec.2.2.1.symm
+  · rw [hprimary]
+    exact hspec.2.2.2
 
 end ArtinPrimitiveRoots.Proofs.a1_lambda_sol
