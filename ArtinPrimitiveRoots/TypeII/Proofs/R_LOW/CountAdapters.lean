@@ -1,9 +1,11 @@
 import ArtinPrimitiveRoots.TypeII.Marked
 import ArtinPrimitiveRoots.TypeII.PP.Defs
+import ArtinPrimitiveRoots.TypeII.Proofs.«R-PRIME».PrimeAdapters
 
 namespace ArtinPrimitiveRoots.Proofs.r_impl_muse
 
 open Classical ArtinPrimitiveRoots.TypeII
+open ArtinPrimitiveRoots.TypeII.PP
 open scoped BigOperators
 
 theorem prime_interval_bound_of_closed (N B : ℝ) (q : ℕ)
@@ -64,5 +66,37 @@ theorem prime_interval_bound_of_closed (N B : ℝ) (q : ℕ)
       intro p hp
       exact hTne ⟨p, (hT p).mpr hp⟩
     simpa [PP.primePhaseSum, hIempty] using hB
+
+theorem prime_tuple_product_interval_character_bound
+    (M l r Y Nlow Nup D Cp : ℝ) (n B k : ℕ)
+    (χ : DirichletCharacter ℂ k)
+    (hM : 0 ≤ M) (hlM : M ≤ l) (hlr : l ≤ r) (hrM : r ≤ 2 * M)
+    (hB : 2 * M ≤ (B : ℝ)) (hY : 0 < Y)
+    (hNlow0 : 0 ≤ Nlow) (hNlow : Nlow ≤ Y)
+    (hNup : 2 * M ≤ Nup) (hD : 0 ≤ D) (hCp : 0 ≤ Cp)
+    (hclosed : ∀ N : ℝ, Nlow ≤ N → N ≤ Nup →
+      ∀ a b : ℝ, N ≤ a → a ≤ b → b ≤ 2 * N →
+        ‖∑ p ∈ (Finset.range (⌊b⌋₊ + 1)).filter
+            (fun p : ℕ => p.Prime ∧ a ≤ (p : ℝ) ∧ (p : ℝ) ≤ b),
+          χ (p : ZMod k)‖ ≤ 6 * N * Cp * D) :
+    ‖∑ t ∈ (boundedTuples (n + 1) B).filter (fun t =>
+        (∀ i, (t i).Prime ∧ Y < (t i : ℝ)) ∧
+        l ≤ ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ∧
+        ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ≤ r),
+      χ ((∏ i : Fin (n + 1), t i : ℕ) : ZMod k)‖ ≤
+      12 * Cp * M * D * (harmonic B : ℝ) ^ n := by
+  have hslot : ∀ N : ℝ, Nlow ≤ N → N ≤ Nup →
+      ∀ I : Set ℕ, IsNatInterval I →
+        I ⊆ {p : ℕ | N ≤ (p : ℝ) ∧ (p : ℝ) ≤ 2 * N} →
+          ‖PP.primePhaseSum N k χ 0 I‖ ≤ 6 * N * Cp * D := by
+    intro N hNlo hNup I hinterval hI
+    have hN : 0 ≤ N := hNlow0.trans hNlo
+    exact prime_interval_bound_of_closed N (6 * N * Cp * D) k χ I
+      hN (by positivity) hinterval hI (hclosed N hNlo hNup)
+  have hbound := RImplP.RPrime.prime_tuple_product_interval_phase_bound
+    M l r Y Nlow Nup D Cp n B k χ 0
+    hM hlM hlr hrM hB hY hNlow hNup hD hCp hslot
+  simpa only [RImplP.RPrime.phaseNat, Complex.ofReal_zero, mul_zero,
+    zero_mul, Complex.exp_zero, mul_one] using hbound
 
 end ArtinPrimitiveRoots.Proofs.r_impl_muse
