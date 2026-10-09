@@ -2,6 +2,8 @@ import ArtinPrimitiveRoots.Hecke.Defs
 import ArtinPrimitiveRoots.Hecke.Continuation
 import ArtinPrimitiveRoots.Hecke.Proofs.«HK-ANALYTIC».Growth
 import ArtinPrimitiveRoots.Hecke.Proofs.«HK-ANALYTIC».EulerBound
+import ArtinPrimitiveRoots.Hecke.Proofs.HK_H3.Primitive
+import ArtinPrimitiveRoots.Hecke.Proofs.HK_H3.Uniqueness
 
 /-!
 # Hecke L-function package: uniform convexity (H3, H3')
@@ -41,7 +43,91 @@ theorem LSeriesRay_convexity [IsTotallyComplex K] :
       ∀ Λ : ℂ → ℂ, Differentiable ℂ Λ → (∀ s : ℂ, 1 < s.re → Λ s = LSeriesRay η s) →
       ∀ s : ℂ, σ₀ ≤ s.re → s.re ≤ 4 →
         ‖Λ s‖ ≤ C * (conductorNorm η : ℝ) ^ ((1 : ℝ) / 2 + ε) *
-          (modulusNorm m : ℝ) ^ ε * (2 + |s.im|) ^ A := sorry
+          (modulusNorm m : ℝ) ^ ε * (2 + |s.im|) ^ A := by
+  classical
+  let d : ℕ := Module.finrank ℚ K
+  let A : ℝ := (d + 2 : ℕ)
+  have hA : 0 ≤ A := by dsimp [A]; positivity
+  refine ⟨A, hA, ?_⟩
+  intro ε hε σ₀ hσ₀
+  let δ : ℝ := min ε (1 / 4)
+  have hδ : 0 < δ := lt_min hε (by norm_num)
+  have hδ4 : δ ≤ 1 / 4 := min_le_right _ _
+  have hδε : δ ≤ ε := min_le_left _ _
+  obtain ⟨Cprim, hCprim, hPrim⟩ :=
+    ArtinPrimitiveRoots.Proofs.hk_misc_muse.exists_hk_primitive_uniform_bound
+      (K := K) δ hδ hδ4
+  obtain ⟨B, hB, hEulerBound⟩ :=
+    ArtinPrimitiveRoots.Proofs.HK_MISC_P.exists_omittedEuler_bound (K := K) ε hε
+  refine ⟨Cprim * B, mul_pos hCprim hB, ?_⟩
+  intro m η hη Λ hΛdiff hΛeq s hs₀ hs₄
+  obtain ⟨f, ψ, hfm, hfnorm, hagree, hprim, hψ⟩ :=
+    ArtinPrimitiveRoots.Proofs.hk_misc_muse.hk_descent_to_primitive η hη
+  have hprimHK : HKPrimitive ψ := hprim
+  obtain ⟨hLdiff, hLright, hLbound⟩ := hPrim f ψ hprimHK hψ
+  let E : ℂ → ℂ := ArtinPrimitiveRoots.Proofs.HK_MISC_P.omittedEuler m ψ
+  let LψE : ℂ → ℂ := fun z => hkEntireL ψ z * E z
+  have hEdiff : Differentiable ℂ E := by
+    simpa [E] using
+      ArtinPrimitiveRoots.Proofs.HK_MISC_P.omittedEuler_differentiable m ψ
+  have hLψEdiff : Differentiable ℂ LψE := by
+    dsimp [LψE]
+    exact hLdiff.mul hEdiff
+  have hEeq (z : ℂ) : E z = ∏ v ∈ m.finitePart.support,
+      (1 - charValue ψ v.asIdeal *
+        ((Ideal.absNorm v.asIdeal : ℕ) : ℂ) ^ (-z)) := rfl
+  have hchange (z : ℂ) (hz : 1 < z.re) : LSeriesRay η z = LψE z := by
+    have h := LSeriesRay_change_modulus (η := η) (η' := ψ) hagree hz
+    dsimp [LψE]
+    rw [h, ← hLright z hz, hEeq z]
+  have hΛEeq (z : ℂ) (hz : 1 < z.re) : Λ z = LψE z := by
+    rw [hΛeq z hz, hchange z hz]
+  have hopen : IsOpen {z : ℂ | 1 < z.re} :=
+    isOpen_lt continuous_const Complex.continuous_re
+  have h2mem : (2 : ℂ) ∈ {z : ℂ | 1 < z.re} := by norm_num
+  have hEqOn : Set.EqOn Λ LψE {z : ℂ | 1 < z.re} := fun z hz => hΛEeq z hz
+  have hEqual : ∀ z : ℂ, Λ z = LψE z := by
+    have hagreeU := AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq
+      (𝕜 := ℂ) (f := Λ) (g := LψE)
+      (Complex.analyticOnNhd_univ_iff_differentiable.mpr hΛdiff)
+      (Complex.analyticOnNhd_univ_iff_differentiable.mpr hLψEdiff)
+      isPreconnected_univ (Set.mem_univ (2 : ℂ))
+      (hEqOn.eventuallyEq_of_mem (hopen.mem_nhds h2mem))
+    intro z
+    exact hagreeU (Set.mem_univ z)
+  have hImNonneg : 0 ≤ s.re := le_trans (le_of_lt hσ₀) hs₀
+  have hLs := hLbound s hImNonneg hs₄
+  have hEs := hEulerBound m f ψ s hImNonneg
+  have hcast : ((modulusNorm f : ℕ) : ℝ) = ((conductorNorm η : ℕ) : ℝ) := by
+    exact_mod_cast hfnorm
+  rw [hcast] at hLs
+  have hqf1 : 1 ≤ (conductorNorm η : ℝ) := by
+    rw [← hcast]
+    exact_mod_cast ArtinPrimitiveRoots.Dictionary.HKDICTRay.modulusNorm_one_le f
+  have hexp : (conductorNorm η : ℝ) ^ ((1 : ℝ) / 2 + δ) ≤
+      (conductorNorm η : ℝ) ^ ((1 : ℝ) / 2 + ε) :=
+    Real.rpow_le_rpow_of_exponent_le hqf1 (by linarith)
+  have hprime : ‖hkEntireL ψ s‖ ≤ Cprim * (conductorNorm η : ℝ) ^ ((1 : ℝ) / 2 + ε) *
+      (2 + |s.im|) ^ (d + 2 : ℕ) := by
+    calc
+      ‖hkEntireL ψ s‖ ≤ Cprim * (conductorNorm η : ℝ) ^ ((1 : ℝ) / 2 + δ) *
+          (2 + |s.im|) ^ (d + 2 : ℕ) := hLs
+      _ ≤ Cprim * (conductorNorm η : ℝ) ^ ((1 : ℝ) / 2 + ε) *
+          (2 + |s.im|) ^ (d + 2 : ℕ) := by
+        apply mul_le_mul_of_nonneg_right _ (by positivity)
+        exact mul_le_mul_of_nonneg_left hexp hCprim.le
+  have hEs' : ‖E s‖ ≤ B * (modulusNorm m : ℝ) ^ ε := hEs
+  calc
+    ‖Λ s‖ = ‖LψE s‖ := by rw [hEqual s]
+    _ = ‖hkEntireL ψ s‖ * ‖E s‖ := by dsimp [LψE]; rw [norm_mul]
+    _ ≤ (Cprim * (conductorNorm η : ℝ) ^ ((1 : ℝ) / 2 + ε) * (2 + |s.im|) ^ (d + 2 : ℕ)) *
+        (B * (modulusNorm m : ℝ) ^ ε) :=
+      mul_le_mul hprime hEs' (norm_nonneg _) (by positivity)
+    _ = (Cprim * B) * (conductorNorm η : ℝ) ^ ((1 : ℝ) / 2 + ε) *
+        (modulusNorm m : ℝ) ^ ε * (2 + |s.im|) ^ A := by
+      dsimp [A, d]
+      simp only [Real.rpow_natCast]
+      ring
 
 private theorem isCoprimeTo_prime_of_not_mem (m : RayClassModulus K)
     (v : HeightOneSpectrum (𝓞 K)) (hv : v ∉ m.finitePart.support) :
