@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.GammaLines
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.PrefactorReflection
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.PrimeNormSum
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.Flatness
+import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.EulerStep
 import ArtinPrimitiveRoots.Splitting.Proofs.S7_MELLIN.ZeroSum
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».Boundary
 import ArtinPrimitiveRoots.Splitting.Proofs.«S7-CONTOUR».ZeroEndpoint
