@@ -13,7 +13,31 @@ variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
   {Bd : BData S H} {A : AddCharData F} {ϑ : HeckeChar F}
   {bc : BalancedChoices D S H Bd} {μ : ∀ v : FinPlace F, Theta.LocHaar v}
   {v0 : InfinitePlace F}
-variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (sd : S.SelfDualMeasure A)
+
+/-- def:po-weights, 05:24–36,84–90. Support is compact inside the unit locus, not merely away
+from the single zero point of the product ring. -/
+structure PoissonWeights where
+  W1 : ℝ → ℂ
+  W1_smooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) W1
+  W1_compact : HasCompactSupport W1
+  W1_positive_support : tsupport W1 ⊆ Set.Ioi 0
+  W1_nonnegative : ∀ t, (W1 t).im = 0 ∧ 0 ≤ (W1 t).re
+  W1_nonzero : ∃ t, W1 t ≠ 0
+  arch : InfinitePlace F → SchwartzMap ℂ ℂ
+  finite : ∀ v : S.Sf, S.FiniteTest v
+  W0 : S.FS → ℂ
+  W0_tensor : ∀ y, W0 y = (∏ v : S.Sf, (finite v).1 (y.1 v)) * ∏ w : InfinitePlace F, arch w (y.2 w)
+  W0_Bruhat : W0 ∈ S.BruhatSchwartz
+  W0_compact : HasCompactSupport W0
+  W0_units : ∀ y ∈ tsupport W0, IsUnit y
+
+variable (W : PoissonWeights (S := S))
+def weightFourier : S.FS → ℂ := S.fourier A sd.measure W.W0
+def weightM (z : ℂ) : ℂ := ∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.mul)
+
+def WeightSpec : Prop := weightFourier sd W 0 = 0 ∧ weightM R sd W (1 / 6) ≠ 0
+
 /-- def:po-finite-factor: Gauss sum over the actual R/(I), with an explicit allowed generator. -/
 def finiteGaussAt (I : S.ExtIdeal) (a : Fˣ) (k : F) : ℂ :=
   ∑ᶠ x : ResidueRing R.exterior I, chiIdealPow D I.1 (x.out : F) 1 * S.e A (S.diag (k * (x.out : F) / (a : F)))
@@ -24,6 +48,14 @@ def finiteFactor (s I : S.ExtIdeal) (a : Fˣ) (h : F) : ℂ :=
     if ∃ x : S.R, h - (a : F) * (d.out : F) = (bc.gen s : F) * (x : F) then
       chiIdealPow D s.1 (d.out : F) 1 * finiteGaussAt R I a ((h - (a : F) * (d.out : F)) / (bc.gen s : F))
     else 0
+
+/-- def:po-probe, 05:77–101. Quotient integration is implemented by the fixed Ω₁. -/
+def probeIntegrand (X Y Z : ℝ) (t : S.FSˣ) : ℂ :=
+  (Y : ℂ)⁻¹ * ∑' s : S.ExtIdeal, W.W1 (qI s.1 / Y) * ((qI s.1 * X) ^ (-(1 / 2 : ℝ)) : ℝ) *
+    ∑' m : S.R, (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+      W.W0 (S.diag (m : F) * ((t * R.sheets.ellU (qI s.1 * X))⁻¹ : S.FSˣ).val) *
+        Bm D S A ϑ (cgen R) (m : F) Z
+
 
 variable (η : HeckeChar F) (U : FrequencyData S D η)
 

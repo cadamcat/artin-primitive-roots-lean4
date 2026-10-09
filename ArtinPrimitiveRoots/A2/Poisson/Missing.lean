@@ -1,3 +1,4 @@
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.PreserveClosedProofs
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.GammaSquarefree
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.GlobalAbsolute
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.IdealTupleBridge
@@ -54,6 +55,9 @@ open scoped Classical
 open scoped Topology
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
+
+-- Reuse the imported closed proofs that the original definition order shared.
+run_cmd Lean.Elab.Command.liftCoreM (ArtinPrimitiveRoots.Proofs.a2_euler_sol.seedImportedClosedProofs #[`ArtinPrimitiveRoots.A2.WeightSpec._proof_1, `ArtinPrimitiveRoots.A2.probeIntegrand._proof_1, `ArtinPrimitiveRoots.A2.calFTerm._proof_1, `ArtinPrimitiveRoots.A2.EulerHypotheses._proof_1])
 open ArtinPrimitiveRoots A1 A2 ArtinPrimitiveRoots.Proofs.a2_euler_sol
 variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
@@ -65,31 +69,11 @@ variable {D : FieldData F} {S : SData F CE condη} {H : HilbertData F}
   {v0 : InfinitePlace F}
 variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (sd : S.SelfDualMeasure A)
 
-/-- def:po-weights, 05:24–36,84–90. Support is compact inside the unit locus, not merely away
-from the single zero point of the product ring. -/
-structure PoissonWeights where
-  W1 : ℝ → ℂ
-  W1_smooth : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) W1
-  W1_compact : HasCompactSupport W1
-  W1_positive_support : tsupport W1 ⊆ Set.Ioi 0
-  W1_nonnegative : ∀ t, (W1 t).im = 0 ∧ 0 ≤ (W1 t).re
-  W1_nonzero : ∃ t, W1 t ≠ 0
-  arch : InfinitePlace F → SchwartzMap ℂ ℂ
-  finite : ∀ v : S.Sf, S.FiniteTest v
-  W0 : S.FS → ℂ
-  W0_tensor : ∀ y, W0 y = (∏ v : S.Sf, (finite v).1 (y.1 v)) * ∏ w : InfinitePlace F, arch w (y.2 w)
-  W0_Bruhat : W0 ∈ S.BruhatSchwartz
-  W0_compact : HasCompactSupport W0
-  W0_units : ∀ y ∈ tsupport W0, IsUnit y
-
 variable (W : PoissonWeights (S := S))
-def weightFourier : S.FS → ℂ := S.fourier A sd.measure W.W0
-def weightM (z : ℂ) : ℂ := ∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.mul)
 def weightW1hat (w : ℂ) : ℂ := ∫ t in Set.Ioi (0 : ℝ), W.W1 t * (t : ℂ) ^ w / (t : ℂ)
 def weightV0 (T : ℝ) : ℂ :=
   ∫ y, weightFourier sd W y ∂(R.sheets.sheet T)
 
-def WeightSpec : Prop := weightFourier sd W 0 = 0 ∧ weightM R sd W (1 / 6) ≠ 0
 
 def WeightDecay : Prop :=
   DifferentiableOn ℂ (weightM R sd W) {z | 0 < z.re} ∧ Differentiable ℂ (weightW1hat W) ∧
@@ -130,13 +114,6 @@ theorem ext_tate_local_FE_complex :
     ArtinPrimitiveRoots.Proofs.a2_weights.complexTateFactor_sixth_ne_zero, ?_⟩
   intro f s hs hs1
   exact ArtinPrimitiveRoots.Proofs.a2_weights.complexLocalTateEquation f s hs hs1
-/-- def:po-probe, 05:77–101. Quotient integration is implemented by the fixed Ω₁. -/
-def probeIntegrand (X Y Z : ℝ) (t : S.FSˣ) : ℂ :=
-  (Y : ℂ)⁻¹ * ∑' s : S.ExtIdeal, W.W1 (qI s.1 / Y) * ((qI s.1 * X) ^ (-(1 / 2 : ℝ)) : ℝ) *
-    ∑' m : S.R, (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
-      W.W0 (S.diag (m : F) * ((t * R.sheets.ellU (qI s.1 * X))⁻¹ : S.FSˣ).val) *
-        Bm D S A ϑ (cgen R) (m : F) Z
-
 def probe (X Y Z : ℝ) : ℂ := omegaInt R 1 (probeIntegrand R W X Y Z)
 
 private theorem po_probe_weight_zero : W.W0 0 = 0 := by
