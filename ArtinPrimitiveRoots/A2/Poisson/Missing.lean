@@ -18,6 +18,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueMask
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeSheetProfile
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ReflectionRowLift
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.SchwartzAffine
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.SchwartzRadial
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.TensorFourier
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.TensorSheetDecay
