@@ -1794,6 +1794,63 @@ private theorem cont_growth_low_height_bound
                     Real.exp (C₀ * T ^ 2) := by
   sorry
 
+private theorem cont_weighted_dyad_Icc_bound
+    {q : ℕ} [NeZero q] (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    {N X : ℕ} {σ v L T Cφ C₃ : ℝ}
+    (hN : 0 < N) (hNX : N ≤ X) (hσ : 0 ≤ σ)
+    (hPhase : ∀ m ≤ min (N - 1) (X - N), ∀ a : ZMod q,
+      ‖residuePhaseSum (N : ℝ) q a (-v)
+        (Finset.Icc N (N + m) : Set ℕ)‖ ≤
+          Cφ * ((N : ℝ) / q) * Real.exp (-L / Real.rpow T C₃)) :
+    ‖∑ n ∈ Finset.Icc N (min (2 * N - 1) X),
+      χ (n : ZMod q) *
+        Complex.exp (-⟨σ, v⟩ * Real.log (n : ℝ))‖ ≤
+      2 * Cφ * N * Real.exp (-L / Real.rpow T C₃) *
+        Real.rpow (N : ℝ) (-σ) := by
+  classical
+  let j := min (N - 1) (X - N)
+  have hj : j ≤ N := by dsimp [j]; omega
+  have hend : N + j = min (2 * N - 1) X := by
+    dsimp [j]
+    simp only [Nat.min_def]
+    split_ifs <;> omega
+  have hPhase' : ∀ m ≤ j, ∀ a : ZMod q,
+      ‖residuePhaseSum (N : ℝ) q a (-v)
+        (Finset.Icc N (N + m) : Set ℕ)‖ ≤
+          Cφ * ((N : ℝ) / q) * Real.exp (-L / Real.rpow T C₃) := by
+    intro m hm a
+    exact hPhase m (by simpa [j] using hm) a
+  have hweighted := cont_weighted_dyad_phase_bound hq χ hN hj hσ hPhase'
+  have hsum :
+      (∑ k ∈ Finset.range (j + 1),
+        χ ((N + k : ℕ) : ZMod q) *
+          Complex.exp (-⟨σ, v⟩ * Real.log ((N + k : ℕ) : ℝ))) =
+        ∑ n ∈ Finset.Icc N (N + j),
+          χ (n : ZMod q) * Complex.exp (-⟨σ, v⟩ * Real.log (n : ℝ)) := by
+    refine Finset.sum_bij (fun k _ => N + k) ?_ ?_ ?_ ?_
+    · intro k hk
+      simp only [Finset.mem_range] at hk
+      simp only [Finset.mem_Icc]
+      omega
+    · intro k hk k' hk' heq
+      omega
+    · intro n hn
+      simp only [Finset.mem_Icc] at hn
+      refine ⟨n - N, ?_, Nat.add_sub_of_le hn.1⟩
+      simp only [Finset.mem_range]
+      omega
+    · intro k hk
+      rfl
+  have hinterval : Finset.Icc N (N + j) = Finset.Icc N (min (2 * N - 1) X) := by
+    rw [hend]
+  calc
+    _ = ‖∑ k ∈ Finset.range (j + 1),
+          χ ((N + k : ℕ) : ZMod q) *
+            Complex.exp (-⟨σ, v⟩ * Real.log ((N + k : ℕ) : ℝ))‖ := by
+            rw [← hinterval, ← hsum]
+    _ ≤ 2 * Cφ * N * Real.exp (-L / Real.rpow T C₃) *
+          Real.rpow (N : ℝ) (-σ) := hweighted
+
 private theorem cont_growth_high_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
