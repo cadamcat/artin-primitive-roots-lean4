@@ -90,7 +90,114 @@ theorem reflected_line_bound :
         ‖dedekindZetaLogDerivative K ((3 / 2 : ℝ) + (-t) * Complex.I)‖ +
           Real.log (absoluteDiscriminant K) +
           A * Module.finrank ℚ K * Real.log (2 + |t|) := by
-  sorry
+  obtain ⟨A, hA, hpref⟩ := prefactor_reflection_bound
+  refine ⟨A, hA, ?_⟩
+  intro K _ _ t
+  have hgood (u : ℝ) (hu : u ≠ 0) :
+      ‖dedekindZetaLogDerivative K ((-1 / 2 : ℝ) + u * Complex.I)‖ ≤
+        ‖dedekindZetaLogDerivative K ((3 / 2 : ℝ) + (-u) * Complex.I)‖ +
+          Real.log (absoluteDiscriminant K) +
+          A * Module.finrank ℚ K * Real.log (2 + |u|) := by
+    let s : ℂ := (-1 / 2 : ℝ) + u * Complex.I
+    let s' : ℂ := (3 / 2 : ℝ) + (-u) * Complex.I
+    let P : ℂ → ℂ := fun z => deriv (ArtinPrimitiveRoots.Hecke.dedekindPrefactor K) z /
+      ArtinPrimitiveRoots.Hecke.dedekindPrefactor K z
+    have hre : s.re = (-1 / 2 : ℝ) := by simp [s]
+    have hsim : s.im ≠ 0 := by simpa [s] using hu
+    have hxi : dedekindXi K s ≠ 0 := by
+      intro hz
+      have hpos := (((xi_zero_dictionary K).1 s).mp hz).1
+      rw [hre] at hpos
+      norm_num at hpos
+    have hreflect : 1 - s = s' := by
+      dsimp only [s, s']
+      apply Complex.ext <;> simp <;> ring
+    have heq : dedekindZetaLogDerivative K s =
+        -dedekindZetaLogDerivative K s' + P s + P s' := by
+      have h := sharp_functional_logderiv K hsim hxi
+      rw [hreflect] at h
+      exact h
+    have hp : ‖P s‖ + ‖P s'‖ ≤ Real.log (absoluteDiscriminant K) +
+        A * Module.finrank ℚ K * Real.log (2 + |u|) := hpref K u hu
+    calc
+      _ = ‖-dedekindZetaLogDerivative K s' + P s + P s'‖ := congrArg norm heq
+      _ ≤ (‖-dedekindZetaLogDerivative K s'‖ + ‖P s‖) + ‖P s'‖ :=
+        (norm_add_le (-dedekindZetaLogDerivative K s' + P s) (P s')).trans
+          (add_le_add (norm_add_le (-dedekindZetaLogDerivative K s') (P s)) le_rfl)
+      _ = ‖dedekindZetaLogDerivative K s'‖ + ‖P s‖ + ‖P s'‖ := by rw [norm_neg]
+      _ ≤ ‖dedekindZetaLogDerivative K s'‖ + Real.log (absoluteDiscriminant K) +
+          A * Module.finrank ℚ K * Real.log (2 + |u|) := by linarith only [hp]
+  have hcont (σ : ℝ) (hσ : σ = (-1 / 2 : ℝ) ∨ σ = (3 / 2 : ℝ)) :
+      Continuous (fun u : ℝ => dedekindZetaLogDerivative K ((σ : ℂ) + u * Complex.I)) := by
+    let line : ℝ → ℂ := fun u => (σ : ℂ) + u * Complex.I
+    have hre (u : ℝ) : (line u).re = σ := by simp [line]
+    have hfacts : -1 < σ ∧ σ ≠ 0 ∧ σ ≠ 1 := by
+      rcases hσ with h | h <;> norm_num [h]
+    have hxi (u : ℝ) : dedekindXi K (line u) ≠ 0 := by
+      intro hz
+      have hmem := ((xi_zero_dictionary K).1 (line u)).mp hz
+      have hpos := hmem.1
+      have hlt := hmem.2.1
+      rw [hre] at hpos hlt
+      rcases hσ with h | h
+      · rw [h] at hpos
+        norm_num at hpos
+      · rw [h] at hlt
+        norm_num at hlt
+    have han (u : ℝ) : AnalyticAt ℂ (dedekindZetaLogDerivative K) (line u) := by
+      refine (sharp_regular_of_re_gt_neg_one K (line u)
+        (by rw [hre]; exact hfacts.1) ?_ ?_ (hxi u)).2.2
+      · intro hz
+        have h := congrArg Complex.re hz
+        simp only [hre, Complex.zero_re] at h
+        exact hfacts.2.1 h
+      · intro hz
+        have h := congrArg Complex.re hz
+        simp only [hre, Complex.one_re] at h
+        exact hfacts.2.2 h
+    have hline : Continuous line :=
+      continuous_const.add (Complex.continuous_ofReal.mul continuous_const)
+    exact continuous_iff_continuousAt.mpr fun u =>
+      (han u).continuousAt.comp hline.continuousAt
+  have hcLeft : Continuous (fun u : ℝ =>
+      ‖dedekindZetaLogDerivative K ((-1 / 2 : ℝ) + u * Complex.I)‖) :=
+    (hcont (-1 / 2) (Or.inl rfl)).norm
+  have hcRight : Continuous (fun u : ℝ =>
+      ‖dedekindZetaLogDerivative K ((3 / 2 : ℝ) + (-u) * Complex.I)‖) := by
+    simpa only [Function.comp_def, Complex.ofReal_neg] using
+      ((hcont (3 / 2) (Or.inr rfl)).comp continuous_neg).norm
+  have hlog : Continuous (fun u : ℝ => Real.log (2 + |u|)) := by
+    have harg : Continuous (fun u : ℝ => (2 : ℝ) + |u|) :=
+      continuous_const.add continuous_abs
+    refine continuous_iff_continuousAt.mpr fun u => ?_
+    exact (Real.continuousAt_log (by positivity : 2 + |u| ≠ 0)).comp
+      (f := fun v : ℝ => 2 + |v|) (x := u) harg.continuousAt
+  have hcRhs : Continuous (fun u : ℝ =>
+      ‖dedekindZetaLogDerivative K ((3 / 2 : ℝ) + (-u) * Complex.I)‖ +
+        Real.log (absoluteDiscriminant K) +
+        A * Module.finrank ℚ K * Real.log (2 + |u|)) :=
+    (hcRight.add continuous_const).add (continuous_const.mul hlog)
+  by_cases ht : t ≠ 0
+  · exact hgood t ht
+  · have ht0 : t = 0 := Classical.not_not.mp ht
+    subst t
+    have hl : Tendsto (fun u : ℝ =>
+        ‖dedekindZetaLogDerivative K ((-1 / 2 : ℝ) + u * Complex.I)‖)
+        (𝓝[>] (0 : ℝ))
+        (𝓝 ‖dedekindZetaLogDerivative K ((-1 / 2 : ℝ) + (0 : ℝ) * Complex.I)‖) :=
+      hcLeft.continuousAt.tendsto.mono_left nhdsWithin_le_nhds
+    have hr : Tendsto (fun u : ℝ =>
+        ‖dedekindZetaLogDerivative K ((3 / 2 : ℝ) + (-u) * Complex.I)‖ +
+          Real.log (absoluteDiscriminant K) +
+          A * Module.finrank ℚ K * Real.log (2 + |u|))
+        (𝓝[>] (0 : ℝ))
+        (𝓝 (‖dedekindZetaLogDerivative K ((3 / 2 : ℝ) + (-(0 : ℝ)) * Complex.I)‖ +
+          Real.log (absoluteDiscriminant K) +
+          A * Module.finrank ℚ K * Real.log (2 + |(0 : ℝ)|))) :=
+      hcRhs.continuousAt.tendsto.mono_left nhdsWithin_le_nhds
+    exact le_of_tendsto_of_tendsto hl hr (by
+      filter_upwards [self_mem_nhdsWithin] with u (hu : 0 < u)
+      exact hgood u (ne_of_gt hu))
 
 theorem zero_family_summable (f : ℝ → ℝ)
     (hdecay : ∀ (A : ℕ) (a b : ℝ), a ≤ b →
