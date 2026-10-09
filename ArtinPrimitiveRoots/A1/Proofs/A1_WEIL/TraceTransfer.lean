@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceCharacter
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.LatticeGaussian
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceTransfer.PadicGaussian
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceTransfer.Coordinates
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceTransfer.FiberGaussian
 
 set_option autoImplicit false
 
