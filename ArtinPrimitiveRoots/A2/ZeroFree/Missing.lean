@@ -4020,9 +4020,8 @@ private theorem rows_principal_kernel_control (hEuler : EulerHypotheses R η) :
           mul_le_mul_of_nonneg_right hCbasele htargetNonneg
     _ = _ := by ring
 
-private theorem rows_principalRw_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
-    (hZ : 2 ≤ Z) :
-    ∃ C : ℝ, 0 < C ∧
+private theorem rows_sol_principalRw_uniform (hEuler : EulerHypotheses R η) :
+    ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
       ‖principalRw R sd W η U HA HC Z‖ ≤ C * Z ^ (7 / 15 - 5 / 10000 : ℝ) := by
   obtain ⟨AF, Aconv, C0, Cconv, hAF, hAconv, hC0, hCconv, hconv, hcontrol⟩ :=
     rows_principal_kernel_control R sd W η U HA HC hEuler
@@ -4030,6 +4029,12 @@ private theorem rows_principalRw_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
   have hIint : Integrable (fun t : ℝ => (1 + |t|) ^ (-2 : ℝ)) :=
     rows_integrable_poly_decay (p := (2 : ℝ)) (by norm_num)
   have hI0 : 0 ≤ I := by dsimp [I]; exact integral_nonneg fun t => by positivity
+  let Cpre : ℝ := C0 * Cconv * I * I
+  let C : ℝ := Cpre + 1
+  have hCpre : 0 ≤ Cpre := by dsimp [Cpre]; positivity
+  have hC : 0 < C := by dsimp [C]; linarith
+  refine ⟨C, hC, ?_⟩
+  intro Z hZ
   have hZpos : 0 < Z := by linarith
   let M : ℝ := C0 * Z ^ Estar (1 + δ1) (95 / 100) (1 / 6 + δ1)
   have hM : 0 ≤ M := by dsimp [M]; positivity
@@ -4131,10 +4136,6 @@ private theorem rows_principalRw_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
         dsimp [gξ, I]
         rw [integral_const_mul]
       _ = M * Cconv * I * I := by ring
-  let Cpre : ℝ := C0 * Cconv * I * I
-  let C : ℝ := Cpre + 1
-  have hCpre : 0 ≤ Cpre := by dsimp [Cpre]; positivity
-  have hC : 0 < C := by dsimp [C]; linarith
   have hscale : M * Cconv * I * I =
       Cpre * Z ^ Estar (1 + δ1) (95 / 100) (1 / 6 + δ1) := by
     dsimp [M, Cpre]
@@ -4142,7 +4143,6 @@ private theorem rows_principalRw_bound (hEuler : EulerHypotheses R η) (Z : ℝ)
   have htarget : 0 ≤ Z ^ (7 / 15 - 5 / 10000 : ℝ) :=
     Real.rpow_nonneg (by linarith : 0 ≤ Z) _
   have hCprele : Cpre ≤ C := by dsimp [C]; linarith
-  refine ⟨C, hC, ?_⟩
   unfold principalRw
   change ‖tripleVertical (1 + δ1) (95 / 100) (1 / 6 + δ1) K‖ ≤
     C * Z ^ (7 / 15 - 5 / 10000 : ℝ)
