@@ -1,5 +1,6 @@
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.BridgeDefinitions
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Definitions
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.e_b.IdealFactors
 
 set_option autoImplicit false
 set_option maxHeartbeats 800000
@@ -18,6 +19,6 @@ variable (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
   (η : HeckeChar F) (U : FrequencyData S D η)
 
 theorem ideal_tuple_bridge : Nonempty (PrimeTupleBridge S) := by
-  sorry
+  exact ⟨⟨e_b.tupleEquiv S, e_b.tupleEquiv_counts S⟩⟩
 
 end ArtinPrimitiveRoots.Proofs.a2_euler_sol
