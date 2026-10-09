@@ -1328,6 +1328,115 @@ theorem cont_partial_sum_bound (q : ℕ) (χ : DirichletCharacter ℂ q)
           Real.rpow (n : ℝ) (-σ) := hnormSum
     _ ≤ (1 + Real.log Y) * max 1 (Real.rpow Y (1 - σ)) := hsumBound
 
+private theorem cont_character_phase_interval_bound {q : ℕ} [NeZero q]
+    (hq : 1 ≤ q) (χ : DirichletCharacter ℂ q)
+    {N' v L T Cφ C₃ : ℝ} (hN' : 0 < N')
+    (I : Finset ℕ)
+    (hPhase : ∀ a : ZMod q,
+      ‖residuePhaseSum N' q a (-v) (I : Set ℕ)‖ ≤
+        Cφ * (N' / q) * Real.exp (-L / Real.rpow T C₃)) :
+    ‖∑ n ∈ (Finset.range (⌊2 * N'⌋₊ + 1)).filter
+        (fun n : ℕ => N' ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N' ∧ n ∈ I),
+      χ (n : ZMod q) *
+      Complex.exp (Complex.I * (-v) * (Real.log (n : ℝ) : ℂ))‖ ≤
+      Cφ * N' * Real.exp (-L / Real.rpow T C₃) := by
+  classical
+  let S : Finset ℕ := (Finset.range (⌊2 * N'⌋₊ + 1)).filter
+    (fun n : ℕ => N' ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N' ∧ n ∈ I)
+  let f : ℕ → ℂ := fun n => χ (n : ZMod q) *
+    Complex.exp (Complex.I * (-v) * (Real.log (n : ℝ) : ℂ))
+  have hpartition :
+      (∑ a : ZMod q,
+        ∑ n ∈ S.filter (fun n : ℕ => (n : ZMod q) = a), f n) =
+        ∑ n ∈ S, f n := by
+    exact Finset.sum_fiberwise S (fun n : ℕ => (n : ZMod q)) f
+  have hinner (a : ZMod q) :
+      (∑ n ∈ S.filter (fun n : ℕ => (n : ZMod q) = a), f n) =
+        χ a * residuePhaseSum N' q a (-v) (I : Set ℕ) := by
+    calc
+      _ = ∑ n ∈ S.filter (fun n : ℕ => (n : ZMod q) = a),
+          χ a * Complex.exp (Complex.I * (-v) * (Real.log (n : ℝ) : ℂ)) := by
+        apply Finset.sum_congr rfl
+        intro n hn
+        have hna : (n : ZMod q) = a := (Finset.mem_filter.mp hn).2
+        dsimp [f]
+        rw [hna]
+      _ = χ a *
+          ∑ n ∈ S.filter (fun n : ℕ => (n : ZMod q) = a),
+            Complex.exp (Complex.I * (-v) * (Real.log (n : ℝ) : ℂ)) := by
+        rw [← Finset.mul_sum]
+      _ = χ a * residuePhaseSum N' q a (-v) (I : Set ℕ) := by
+        congr 1
+        simp [residuePhaseSum, S, Finset.filter_filter, Finset.mem_coe,
+          and_assoc, and_left_comm, and_comm]
+  have hsum :
+      (∑ n ∈ S, f n) =
+        ∑ a ∈ (Finset.univ : Finset (ZMod q)),
+          χ a * residuePhaseSum N' q a (-v) (I : Set ℕ) := by
+    calc
+      _ = ∑ a : ZMod q,
+          ∑ n ∈ S.filter (fun n : ℕ => (n : ZMod q) = a), f n := hpartition.symm
+      _ = _ := Finset.sum_congr rfl (fun a _ => hinner a)
+  have hqR : 0 < (q : ℝ) := by exact_mod_cast (show 0 < q by omega)
+  have hqne : (q : ℝ) ≠ 0 := hqR.ne'
+  calc
+    ‖∑ n ∈ (Finset.range (⌊2 * N'⌋₊ + 1)).filter
+        (fun n : ℕ => N' ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * N' ∧ n ∈ I), f n‖ =
+      ‖∑ n ∈ S, f n‖ := by rfl
+    _ = ‖∑ a ∈ (Finset.univ : Finset (ZMod q)),
+          χ a * residuePhaseSum N' q a (-v) (I : Set ℕ)‖ := by rw [hsum]
+    _ ≤ ∑ a ∈ (Finset.univ : Finset (ZMod q)),
+          ‖χ a * residuePhaseSum N' q a (-v) (I : Set ℕ)‖ := norm_sum_le _ _
+    _ ≤ ∑ _a : ZMod q, Cφ * (N' / (q : ℝ)) *
+          Real.exp (-L / Real.rpow T C₃) := by
+      apply Finset.sum_le_sum
+      intro a ha
+      rw [norm_mul]
+      calc
+        ‖χ a‖ * ‖residuePhaseSum N' q a (-v) (I : Set ℕ)‖ ≤
+            1 * ‖residuePhaseSum N' q a (-v) (I : Set ℕ)‖ :=
+          mul_le_mul_of_nonneg_right (χ.norm_le_one _) (norm_nonneg _)
+        _ = ‖residuePhaseSum N' q a (-v) (I : Set ℕ)‖ := one_mul _
+        _ ≤ Cφ * (N' / (q : ℝ)) * Real.exp (-L / Real.rpow T C₃) := hPhase a
+    _ = (q : ℝ) * (Cφ * (N' / (q : ℝ)) *
+          Real.exp (-L / Real.rpow T C₃)) := by simp [ZMod.card]
+    _ = Cφ * N' * Real.exp (-L / Real.rpow T C₃) := by
+      field_simp [hqne]
+
+private theorem cont_growth_low_height_bound
+    (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
+    ∀ C : ℝ, 0 < C →
+      ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 < x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          let L := Real.log x
+          let T := Real.log L
+          let rstar := T ^ 4 / L
+          ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
+            ∀ hq : 0 < q, ∀ χ : DirichletCharacter ℂ q,
+              ∀ σ v : ℝ, |σ - 1| ≤ 10 * rstar →
+                1 / 2 ≤ |v| → |v| ≤ 3 * Real.rpow x 3 →
+                |v| ≤ Real.exp (L / (2 * T ^ 2)) →
+                  ‖dirichletLValue q hq χ (⟨σ, v⟩ : ℂ)‖ ≤
+                    Real.exp (C₀ * T ^ 2) := by
+  sorry
+
+private theorem cont_growth_high_height_bound
+    (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
+    ∀ C : ℝ, 0 < C →
+      ∃ C₀ x₀ : ℝ, 0 < C₀ ∧ 2 < x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          let L := Real.log x
+          let T := Real.log L
+          let rstar := T ^ 4 / L
+          ∀ q : ℕ, 1 ≤ q → (q : ℝ) ≤ Real.rpow L C →
+            ∀ hq : 0 < q, ∀ χ : DirichletCharacter ℂ q,
+              ∀ σ v : ℝ, |σ - 1| ≤ 10 * rstar →
+                1 / 2 ≤ |v| → |v| ≤ 3 * Real.rpow x 3 →
+                Real.exp (L / (2 * T ^ 2)) ≤ |v| →
+                  ‖dirichletLValue q hq χ (⟨σ, v⟩ : ℂ)‖ ≤
+                    Real.exp (C₀ * T ^ 2) := by
+  sorry
+
 theorem cont_growth_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
@@ -1342,6 +1451,34 @@ theorem cont_growth_bound
                 1 / 2 ≤ |v| → |v| ≤ 3 * Real.rpow x 3 →
                   ‖dirichletLValue q hq χ (⟨σ, v⟩ : ℂ)‖ ≤
                     Real.exp (C₀ * T ^ 2) := by
-  sorry
+  intro C hC
+  obtain ⟨C₀L, x₀L, hC₀L, hx₀L, hLow⟩ := cont_growth_low_height_bound hLog C hC
+  obtain ⟨C₀H, x₀H, hC₀H, hx₀H, hHigh⟩ := cont_growth_high_height_bound hLog C hC
+  refine ⟨max C₀L C₀H, max x₀L x₀H,
+    lt_of_lt_of_le hC₀L (le_max_left _ _),
+    lt_of_lt_of_le hx₀L (le_max_left _ _), ?_⟩
+  intro x hx
+  dsimp only
+  intro q hq hqC hqpos χ σ v hσ hvlo hvhi
+  by_cases hlow : |v| ≤ Real.exp (Real.log x / (2 * Real.log (Real.log x) ^ 2))
+  · have hbound := hLow x (le_trans (le_max_left _ _) hx) q hq hqC hqpos χ
+      σ v hσ hvlo hvhi hlow
+    have hT : 0 ≤ Real.log (Real.log x) ^ 2 := sq_nonneg _
+    calc
+      _ ≤ Real.exp (C₀L * Real.log (Real.log x) ^ 2) := hbound
+      _ ≤ Real.exp (max C₀L C₀H * Real.log (Real.log x) ^ 2) :=
+        Real.exp_le_exp.mpr <|
+          mul_le_mul_of_nonneg_right (le_max_left _ _) hT
+  · have hhigh :
+        Real.exp (Real.log x / (2 * Real.log (Real.log x) ^ 2)) ≤ |v| :=
+      (not_le.mp hlow).le
+    have hbound := hHigh x (le_trans (le_max_right _ _) hx) q hq hqC hqpos χ
+      σ v hσ hvlo hvhi hhigh
+    have hT : 0 ≤ Real.log (Real.log x) ^ 2 := sq_nonneg _
+    calc
+      _ ≤ Real.exp (C₀H * Real.log (Real.log x) ^ 2) := hbound
+      _ ≤ Real.exp (max C₀L C₀H * Real.log (Real.log x) ^ 2) :=
+        Real.exp_le_exp.mpr <|
+          mul_le_mul_of_nonneg_right (le_max_right _ _) hT
 
 end ArtinPrimitiveRoots.Proofs.pp_cont_p
