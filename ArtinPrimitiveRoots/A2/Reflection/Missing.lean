@@ -13053,6 +13053,113 @@ private theorem rf_pairing_rotated_pullback_integrable
     (fun y => rotated R u (S.diagU ν * y)) htranslate.1
   simpa only [div_eq_mul_inv] using hinvert.1
 
+private theorem rf_pairing_masked_whittaker_factorization
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (r : ReflectionRow S) (ν : Fˣ) (y : S.FSˣ) (d : Digits R r) :
+    R.T.W (R.chars.L (rowClass R r))
+      (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+      sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+        rotated R (rowClass R r) (S.diagU ν / y) *
+        (∏ v : {v : FinPlace F // v ∈ R.exterior.support r.ideal},
+          R.T.Wv v.1 (R.C.a v.1 (toLoc v.1 ν) * R.C.w v.1 *
+            R.C.n v.1 (Multiplicative.ofAdd (algebraMap F _
+              (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F)))))) *
+        (∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ R.exterior.support r.ideal),
+          R.T.Wv v (R.C.a v (toLoc v ν))) := by
+  classical
+  let T0 := R.exterior.support r.ideal
+  let V := {v : FinPlace F // v ∈ T0}
+  let sPart : ℂ := sCocycle (D := D) (H := H) (S.diagU ν) y⁻¹ *
+    rotated R (rowClass R r) (S.diagU ν / y)
+  let tail : ℂ :=
+    ∏ᶠ (v : FinPlace F) (_ : v ∉ S.Sf ∧ v ∉ T0),
+      R.T.Wv v (R.C.a v (toLoc v ν))
+  let localWeyl (v : FinPlace F) (x : 𝓞 F ⧸ v.asIdeal) : ℂ :=
+    R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v *
+      R.C.n v (Multiplicative.ofAdd (algebraMap F _
+        (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))))
+  have hw : R.C.wS * R.C.aS y = R.C.aS y⁻¹ * R.C.wS := by
+    calc
+      R.C.wS * R.C.aS y = (R.C.wS * R.C.aS y * R.C.wS⁻¹) * R.C.wS := by group
+      _ = R.C.aS y⁻¹ * R.C.wS := by rw [R.C.liftS_wa]
+  have hS : R.T.WS (R.chars.L (rowClass R r))
+      (R.C.aS (S.diagU ν) * R.C.wS * R.C.aS y) = sPart := by
+    rw [mul_assoc, hw, ← mul_assoc, R.C.aS_mul, mul_assoc,
+      R.T.WS_genuine (R.chars.L (rowClass R r)) (R.mem_family (rowClass R r))]
+    simp [sPart, rotated, sCocycle, muThree, map_pow, div_eq_mul_inv]
+  have hFactor (d : Digits R r) :
+      R.T.W (R.chars.L (rowClass R r))
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+      sPart * (∏ v : V, localWeyl v.1 (d v)) * tail := by
+    let g : FinPlace F → R.C.G := fun v =>
+      if hv : v ∈ T0 then
+        R.C.n v (Multiplicative.ofAdd (algebraMap F (v.adicCompletion F)
+          (algebraMap (𝓞 F) F (d ⟨v, hv⟩).out / (primeGen R v : F))))
+      else 1
+    have hg : ∀ v ∈ T0, g v ∈ R.C.Gloc v := by
+      intro v hv
+      simp [g, hv]
+      exact R.C.n_mem v _
+    have hT0ext : ∀ v ∈ T0, v ∉ S.Sf :=
+      fun v hv => R.exterior.support_exterior r.ideal v hv
+    have hmapDigit : T0.attach.toList.map (fun v =>
+        R.C.n v.1 (Multiplicative.ofAdd (algebraMap F (v.1.adicCompletion F)
+          (algebraMap (𝓞 F) F (d v).out / (primeGen R v.1 : F))))) =
+        T0.attach.toList.map (fun v => g v.1) := by
+      apply List.map_congr_left
+      intro v hv
+      simp [g, v.2]
+    have hperm0 : (T0.attach.toList.map Subtype.val).Perm T0.toList := by
+      apply List.perm_of_nodup_nodup_toFinset_eq
+      · exact (T0.attach.nodup_toList).map Subtype.val_injective
+      · exact T0.nodup_toList
+      · ext v
+        simp
+    have hpermG :
+        (T0.attach.toList.map (fun v => g v.1)).Perm (T0.toList.map g) := by
+      change List.Perm (List.map (g ∘ Subtype.val) T0.attach.toList) (List.map g T0.toList)
+      simpa only [List.map_map] using hperm0.map g
+    have hpairNe : (T0.attach.toList).Pairwise (· ≠ ·) :=
+      List.nodup_iff_pairwise_ne.mp T0.attach.nodup_toList
+    have hpairG : (T0.attach.toList.map (fun v => g v.1)).Pairwise Commute := by
+      exact List.Pairwise.map (fun v : {v // v ∈ T0} => g v.1)
+        (by
+          intro v w hne
+          have hplaces : v.1 ≠ w.1 := by
+            intro heq
+            apply hne
+            exact Subtype.ext heq
+          exact R.C.comm_loc v.1 w.1 hplaces (g v.1) (hg v.1 v.2)
+            (g w.1) (hg w.1 w.2))
+        hpairNe
+    have harg : R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d =
+        (R.C.rat (diagGL ν) * R.C.rat weylGL * R.C.aS y) *
+          (T0.toList.map g).prod := by
+      rw [digitPoint, hmapDigit]
+      calc
+        (R.C.rat (diagGL ν) * R.C.rat weylGL) *
+            (R.C.aS y * (T0.attach.toList.map (fun v => g v.1)).prod) =
+            (R.C.rat (diagGL ν) * R.C.rat weylGL * R.C.aS y) *
+              (T0.attach.toList.map (fun v => g v.1)).prod := by simp only [mul_assoc]
+        _ = _ := by rw [List.Perm.prod_eq' hpermG hpairG]
+    have hProduct :
+        (∏ v ∈ T0, R.T.Wv v (R.C.a v (toLoc v ν) * R.C.w v * g v)) =
+          ∏ v : V, localWeyl v.1 (d v) := by
+      rw [← Finset.prod_coe_sort T0]
+      apply Finset.prod_congr rfl
+      intro v hv
+      simp [g, v.2, localWeyl]
+    have h := R.T.factor (R.chars.L (rowClass R r))
+      (R.mem_family (rowClass R r)) ν true (R.C.aS y) (R.C.aS_mem y)
+      T0 hT0ext g hg
+    simp only [↓reduceIte] at h
+    rw [← harg, hS, hProduct] at h
+    exact h
+  change R.T.W (R.chars.L (rowClass R r))
+      (R.C.rat (diagGL ν) * R.C.rat weylGL * digitPoint R r y d) =
+    sPart * (∏ v : V, localWeyl v.1 (d v)) * tail
+  exact hFactor d
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
