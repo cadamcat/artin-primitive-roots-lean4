@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Definitions
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.e_c.CoefficientAssembly
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.e_c.CharacterProducts
 import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.e_c.LocalNormalization
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.e_c.ArithmeticCore
 
 set_option autoImplicit false
 set_option maxHeartbeats 800000
@@ -26,6 +27,6 @@ theorem prime_coefficient (B : PrimeTupleBridge S) (u : U.U) (ξ w z : ℂ)
       ∏ v ∈ (B.equiv p).support,
         localEulerTerm R η U u v.1 v.2 ξ w z (B.equiv p v) := by
   apply ArtinPrimitiveRoots.Proofs.e_c.coefficient_of_core R η U B u ξ w z p
-  sorry
+  exact ArtinPrimitiveRoots.Proofs.e_c.tuple_arithmetic_core R η U B u p
 
 end ArtinPrimitiveRoots.Proofs.a2_euler_sol
