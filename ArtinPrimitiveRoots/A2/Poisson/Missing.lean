@@ -20,6 +20,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeSheetProfile
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ReflectionRowLift
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.SchwartzRadial
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.TensorFourier
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.TensorSheetDecay
 import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.TensorSheetIntegrable
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
