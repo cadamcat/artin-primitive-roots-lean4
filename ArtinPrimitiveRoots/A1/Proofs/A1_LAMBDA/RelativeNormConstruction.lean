@@ -1,4 +1,4 @@
-import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.IdeleNormTransport
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.FiniteNormTransport
 
 set_option autoImplicit false
 open NumberField IsDedekindDomain
