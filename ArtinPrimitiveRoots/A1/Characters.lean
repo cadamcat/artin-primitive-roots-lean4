@@ -4,8 +4,8 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueCharacter
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueAdditive
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.Gamma
 import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.NormTransport
-import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.SignCharacter
 import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.LambdaData
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.SignCharacter
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.Equality
 import ArtinPrimitiveRoots.Hecke.Dict.IdeleCoordinates
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
@@ -2216,21 +2216,6 @@ theorem gauss_correction_data (D : FieldData F) (S : SData F CE condη)
 
 end a1_gauss_sol
 
-namespace a1_weil_sol
-
-/-- The quadratic sign-character glue is below the Gauss theorem and uses no Plan import.
-Guide: PROOFS.md:487–489. The Weil lead owns this glue; the Lambda lead owns its own interface. -/
-theorem quadratic_sign_character_data (D : FieldData F) (S : SData F CE condη)
-    (A : AddCharData F) (H : HilbertData F) (Bd : BData S H) :
-    ∃ θB : Bd.B →* ℂˣ, ∀ v : FinPlace F, v ∉ S.Sf →
-      ∀ p : Fˣ, ∀ (hpgen : S.IsGen (p : F) v.asIdeal),
-        ∀ (hpAllowed : Bd.Allowed p),
-        gamma D S A 3 v.asIdeal (p : F) =
-          ((θB ⟨(QuotientGroup.mk (S.diagU p) : S.V), hpAllowed⟩ : ℂˣ) : ℂ) := by
-  exact ArtinPrimitiveRoots.Proofs.a1_weil_sol.quadratic_sign_character_data D S A H Bd
-
-end a1_weil_sol
-
 namespace a1_lambda_sol
 
 /-- The A1-LAMBDA endpoint, integrated below the frozen Gauss-character theorem.
@@ -2249,6 +2234,20 @@ theorem lambda_data (D : FieldData F) (S : SData F CE condη) (A : AddCharData F
   exact ⟨(hΛ v hv).1, fun p hp _ => (hΛ v hv).2 (p : F) hp⟩
 
 end a1_lambda_sol
+namespace a1_weil_sol
+
+/-- The quadratic sign-character glue is below the Gauss theorem and uses no Plan import.
+Guide: PROOFS.md:487–489. The Weil lead owns this glue; the Lambda lead owns its own interface. -/
+theorem quadratic_sign_character_data (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (H : HilbertData F) (Bd : BData S H) :
+    ∃ θB : Bd.B →* ℂˣ, ∀ v : FinPlace F, v ∉ S.Sf →
+      ∀ p : Fˣ, ∀ (hpgen : S.IsGen (p : F) v.asIdeal),
+        ∀ (hpAllowed : Bd.Allowed p),
+        gamma D S A 3 v.asIdeal (p : F) =
+          ((θB ⟨(QuotientGroup.mk (S.diagU p) : S.V), hpAllowed⟩ : ℂˣ) : ℂ) := by
+  exact ArtinPrimitiveRoots.Proofs.a1_weil_sol.quadratic_sign_character_data D S A H Bd
+
+end a1_weil_sol
 
 /-- lem:gauss-characters (02:411–436): `Λ` unitary, `G` finite order, both unramified at `v ∉ S`,
 with `γ_2(𝔭)³ = -Λ(𝔭)`, `G(𝔭) = conj(χ_𝔭(4))γ_3(𝔭)`, `γ_1(𝔭)γ_2(𝔭) = -Λ(𝔭)G(𝔭)` for every exterior
