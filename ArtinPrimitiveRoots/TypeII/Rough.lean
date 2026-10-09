@@ -5147,6 +5147,194 @@ private theorem principal_tuple_prime_replacement (γ : ℝ) (hγ : 0 < γ)
         (Real.rpow L (-Ap) * L ^ (n + 1)) := by dsimp [D]; ring
     _ = C * (M / Q) * Real.rpow L (-A) := by rw [hPowers]
 
+set_option maxHeartbeats 1000000 in
+/-- Ordered tuple counts approximate their supported integrals at every tail scale. -/
+private theorem principal_tuple_count_scaled (γ : ℝ) (hγ : 0 < γ) :
+    ∀ n : ℕ, ∀ A : ℝ, 0 < A →
+      ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          ∀ M : ℝ, 0 < M → 2 * M ≤ x →
+            ∀ Q : ℝ, 1 ≤ Q → ∀ l r : ℝ,
+              M ≤ l → l ≤ r → r ≤ 2 * M →
+                |(1 / ((n + 1).factorial : ℝ)) *
+                    (((boundedTuples (n + 1) (⌊2 * M⌋₊ + 1)).filter (fun t =>
+                      (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+                        l / Q ≤ ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ∧
+                        ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ≤ r / Q)).card : ℝ) -
+                    roughTupleIntegral x γ (l / Q) (r / Q) (n + 1)| ≤
+                  C * (M / Q) * Real.rpow (Real.log x) (-A) := by
+  classical
+  intro n
+  induction n with
+  | zero =>
+      intro A hA
+      simpa only [Nat.zero_add] using principal_tuple_count_one_scaled γ hγ A hA
+  | succ n ih =>
+      intro A hA
+      obtain ⟨Ci, xi, hCi, hxi, hInd⟩ := ih (A + 1) (by linarith)
+      obtain ⟨Cs, xs, hCs, hxs, hReplace⟩ :=
+        principal_tuple_prime_replacement γ hγ n A hA
+      let d : ℝ := 1 / ((n + 2 : ℕ) : ℝ)
+      let C : ℝ := (3 * Ci + Cs) / ((n + 2 : ℕ) : ℝ)
+      let x₀ : ℝ := max xi (max xs (Real.exp 1))
+      have hd : 0 < d := by dsimp [d]; positivity
+      have hC : 0 < C := by dsimp [C]; positivity
+      have hx₀ : 2 ≤ x₀ := hxi.trans (le_max_left _ _)
+      refine ⟨C, x₀, hC, hx₀, ?_⟩
+      intro x hx M hM hMx Q hQ l r hl hlr hr
+      let L := Real.log x
+      let Y := Real.rpow x γ
+      let B : ℕ := ⌊2 * M⌋₊ + 1
+      let P := (Finset.range (B + 1)).filter (fun p : ℕ => p.Prime ∧ Y < (p : ℝ))
+      let F (p : ℕ) : ℝ := (1 / ((n + 1).factorial : ℝ)) *
+        (((boundedTuples (n + 1) B).filter (fun t =>
+          (∀ i, (t i).Prime ∧ Y < (t i : ℝ)) ∧
+            l / (Q * (p : ℝ)) ≤ ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ∧
+            ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ≤ r / (Q * (p : ℝ)))).card : ℝ)
+      let G (p : ℕ) : ℝ :=
+        roughTupleIntegral x γ (l / (Q * (p : ℝ))) (r / (Q * (p : ℝ))) (n + 1)
+      let K : ℝ := (1 / ((n + 2).factorial : ℝ)) *
+        (((boundedTuples (n + 2) B).filter (fun t =>
+          (∀ i, (t i).Prime ∧ Y < (t i : ℝ)) ∧
+            l / Q ≤ ((∏ i : Fin (n + 2), t i : ℕ) : ℝ) ∧
+            ((∏ i : Fin (n + 2), t i : ℕ) : ℝ) ≤ r / Q)).card : ℝ)
+      let I := roughTupleIntegral x γ (l / Q) (r / Q) (n + 2)
+      have hx2 : 2 ≤ x := hx₀.trans hx
+      have hxpos : 0 < x := lt_of_lt_of_le (by norm_num) hx2
+      have hxi' : xi ≤ x := (le_max_left _ _).trans hx
+      have hxs' : xs ≤ x := (le_max_left _ _).trans ((le_max_right _ _).trans hx)
+      have hxExp : Real.exp 1 ≤ x :=
+        (le_max_right _ _).trans ((le_max_right _ _).trans hx)
+      have hL1 : 1 ≤ L := by
+        have h := Real.log_le_log (Real.exp_pos 1) hxExp
+        simpa only [Real.log_exp] using h
+      have hLpos : 0 < L := lt_of_lt_of_le zero_lt_one hL1
+      have hQpos : 0 < Q := lt_of_lt_of_le zero_lt_one hQ
+      have hp1 (p : ℕ) (hp : p ∈ P) : (1 : ℝ) ≤ (p : ℝ) := by
+        have hprime := (Finset.mem_filter.mp hp).2.1
+        exact_mod_cast (Nat.one_le_iff_ne_zero.mpr hprime.ne_zero)
+      have hp0 (p : ℕ) (hp : p ∈ P) : 0 < (p : ℝ) :=
+        lt_of_lt_of_le zero_lt_one (hp1 p hp)
+      have hQp (p : ℕ) (hp : p ∈ P) : 1 ≤ Q * (p : ℝ) := by
+        calc
+          1 = (1 : ℝ) * 1 := by ring
+          _ ≤ Q * (p : ℝ) := mul_le_mul hQ (hp1 p hp) zero_le_one hQpos.le
+      have hB1 : (1 : ℝ) ≤ (B : ℝ) := by
+        dsimp [B]
+        push_cast
+        linarith [show (0 : ℝ) ≤ (⌊2 * M⌋₊ : ℝ) from Nat.cast_nonneg _]
+      have hBHi : (B : ℝ) ≤ 2 * x := by
+        have hf : (⌊2 * M⌋₊ : ℝ) ≤ 2 * M := Nat.floor_le (by positivity)
+        dsimp [B]
+        push_cast
+        linarith
+      have hlog2le : Real.log (2 : ℝ) ≤ 1 := by
+        have h := Real.log_le_sub_one_of_pos (by norm_num : (0 : ℝ) < 2)
+        linarith
+      have hlogB : Real.log (B : ℝ) ≤ 2 * L := by
+        calc
+          _ ≤ Real.log (2 * x) :=
+            Real.log_le_log (lt_of_lt_of_le zero_lt_one hB1) hBHi
+          _ = Real.log 2 + L := Real.log_mul (by norm_num) (ne_of_gt hxpos)
+          _ ≤ 2 * L := by linarith
+      have hPsub : P ⊆ Finset.Icc 1 B := by
+        intro p hp
+        have hmem := Finset.mem_filter.mp hp
+        refine Finset.mem_Icc.mpr ⟨?_, ?_⟩
+        · exact Nat.one_le_iff_ne_zero.mpr hmem.2.1.ne_zero
+        · exact Nat.le_of_lt_succ (Finset.mem_range.mp hmem.1)
+      have hMass : (∑ p ∈ P, 1 / (p : ℝ)) ≤ 3 * L := by
+        calc
+          _ ≤ ∑ p ∈ Finset.Icc 1 B, 1 / (p : ℝ) :=
+            Finset.sum_le_sum_of_subset_of_nonneg hPsub (by intro p hp hnot; positivity)
+          _ = (harmonic B : ℝ) := by
+            simp only [harmonic_eq_sum_Icc, Rat.cast_sum, Rat.cast_inv,
+              Rat.cast_natCast, one_div]
+          _ ≤ 1 + Real.log (B : ℝ) := harmonic_le_one_add_log B
+          _ ≤ 3 * L := by linarith
+      have hFilter (p : ℕ) (hp : p ∈ P) :
+          (boundedTuples (n + 1) B).filter (fun t =>
+            (∀ i, (t i).Prime ∧ Y < (t i : ℝ)) ∧
+              l / Q ≤ (p : ℝ) * ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ∧
+              (p : ℝ) * ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ≤ r / Q) =
+          (boundedTuples (n + 1) B).filter (fun t =>
+            (∀ i, (t i).Prime ∧ Y < (t i : ℝ)) ∧
+              l / (Q * (p : ℝ)) ≤ ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ∧
+              ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ≤ r / (Q * (p : ℝ))) := by
+        ext t
+        simp only [Finset.mem_filter]
+        rw [← div_div l Q (p : ℝ), ← div_div r Q (p : ℝ),
+          div_le_iff₀ (hp0 p hp), le_div_iff₀ (hp0 p hp)]
+        simp only [mul_comm]
+      have hcoef : (1 / ((n + 2).factorial : ℝ)) =
+          d * (1 / ((n + 1).factorial : ℝ)) := by
+        rw [Nat.factorial_succ, Nat.cast_mul]
+        dsimp [d]
+        simp only [one_div, mul_inv_rev]
+        ring
+      have hK : K = d * ∑ p ∈ P, F p := by
+        dsimp only [K]
+        rw [principal_tuple_card_fiber (n + 1) B Y (l / Q) (r / Q)]
+        change (1 / ((n + 2).factorial : ℝ)) * (∑ p ∈ P, _) = _
+        rw [hcoef, mul_assoc, Finset.mul_sum]
+        congr 1
+        apply Finset.sum_congr rfl
+        intro p hp
+        dsimp only [F]
+        rw [hFilter p hp]
+      have hEach (p : ℕ) (hp : p ∈ P) :
+          |F p - G p| ≤ Ci * (M / (Q * (p : ℝ))) * Real.rpow L (-(A + 1)) :=
+        hInd x hxi' M hM hMx (Q * (p : ℝ)) (hQp p hp) l r hl hlr hr
+      have hPowers : Real.rpow L (-(A + 1)) * L = Real.rpow L (-A) := by
+        calc
+          _ = Real.rpow L (-(A + 1)) * Real.rpow L 1 := by
+            congr 1
+            exact (Real.rpow_one L).symm
+          _ = Real.rpow L (-(A + 1) + 1) := (Real.rpow_add hLpos _ _).symm
+          _ = Real.rpow L (-A) := by congr 1; ring
+      have hCoeffNonneg : 0 ≤ Ci * (M / Q) * Real.rpow L (-(A + 1)) :=
+        mul_nonneg (mul_nonneg hCi.le (div_pos hM hQpos).le)
+          (Real.rpow_pos_of_pos hLpos _).le
+      have hDiscrete : |(∑ p ∈ P, F p) - (∑ p ∈ P, G p)| ≤
+          3 * Ci * (M / Q) * Real.rpow L (-A) := by
+        calc
+          _ = |∑ p ∈ P, (F p - G p)| := by rw [Finset.sum_sub_distrib]
+          _ ≤ ∑ p ∈ P, |F p - G p| := Finset.abs_sum_le_sum_abs _ _
+          _ ≤ ∑ p ∈ P, Ci * (M / (Q * (p : ℝ))) * Real.rpow L (-(A + 1)) :=
+            Finset.sum_le_sum hEach
+          _ = (Ci * (M / Q) * Real.rpow L (-(A + 1))) * (∑ p ∈ P, 1 / (p : ℝ)) := by
+            rw [Finset.mul_sum]
+            apply Finset.sum_congr rfl
+            intro p hp
+            simp only [div_eq_mul_inv, mul_inv_rev]
+            ring
+          _ ≤ (Ci * (M / Q) * Real.rpow L (-(A + 1))) * (3 * L) :=
+            mul_le_mul_of_nonneg_left hMass hCoeffNonneg
+          _ = 3 * Ci * (M / Q) * (Real.rpow L (-(A + 1)) * L) := by ring
+          _ = 3 * Ci * (M / Q) * Real.rpow L (-A) := by rw [hPowers]
+      have hContinuous : |(∑ p ∈ P, G p) - ((n + 2 : ℕ) : ℝ) * I| ≤
+          Cs * (M / Q) * Real.rpow L (-A) :=
+        hReplace x hxs' M hM hMx Q hQ l r hl hlr hr
+      have hcancel : d * ((n + 2 : ℕ) : ℝ) = 1 := by
+        dsimp [d]
+        exact one_div_mul_cancel (by positivity : ((n + 2 : ℕ) : ℝ) ≠ 0)
+      have hsplit : K - I = d * (((∑ p ∈ P, F p) - (∑ p ∈ P, G p)) +
+          ((∑ p ∈ P, G p) - ((n + 2 : ℕ) : ℝ) * I)) := by
+        rw [show (((∑ p ∈ P, F p) - (∑ p ∈ P, G p)) +
+          ((∑ p ∈ P, G p) - ((n + 2 : ℕ) : ℝ) * I)) =
+          (∑ p ∈ P, F p) - ((n + 2 : ℕ) : ℝ) * I by ring]
+        rw [mul_sub, ← mul_assoc, hcancel, one_mul, hK]
+      change |K - I| ≤ C * (M / Q) * Real.rpow L (-A)
+      rw [hsplit, abs_mul, abs_of_nonneg hd.le]
+      calc
+        _ ≤ d * (|(∑ p ∈ P, F p) - (∑ p ∈ P, G p)| +
+            |(∑ p ∈ P, G p) - ((n + 2 : ℕ) : ℝ) * I|) :=
+          mul_le_mul_of_nonneg_left (abs_add_le _ _) hd.le
+        _ ≤ d * (3 * Ci * (M / Q) * Real.rpow L (-A) +
+            Cs * (M / Q) * Real.rpow L (-A)) :=
+          mul_le_mul_of_nonneg_left (add_le_add hDiscrete hContinuous) hd.le
+        _ = C * (M / Q) * Real.rpow L (-A) := by dsimp [C, d]; ring
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
