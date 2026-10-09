@@ -8384,6 +8384,108 @@ private theorem po_weightFourier_sheet_norm_decay_two :
     _ ≤ (‖c‖ * C0 + 1) / T ^ 2 :=
       div_le_div_of_nonneg_right (by linarith) (sq_nonneg T)
 
+include R in
+private theorem po_weight_coset_poisson (I : S.ExtIdeal)
+    (a : Fˣ) (ha : S.IsGen (a : F) I.1) (b : S.R) (k : S.FSˣ) :
+    Summable (fun m : S.R =>
+      ‖W.W0 (S.diag ((b : F) + (a : F) * (m : F)) * (k⁻¹ : S.FSˣ).val)‖) ∧
+    Summable (fun h : S.R =>
+      ‖weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F)))‖) ∧
+    (∑' m : S.R,
+      W.W0 (S.diag ((b : F) + (a : F) * (m : F)) * (k⁻¹ : S.FSˣ).val)) =
+      ((S.absS (k : S.FS) / qI I.1 : ℝ) : ℂ) *
+        ∑' h : S.R, S.e A (S.diag ((b : F) * (h : F) / (a : F))) *
+          weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F))) := by
+  let f : S.BruhatSchwartz := ⟨W.W0, W.W0_Bruhat⟩
+  let bp : S.FS := S.diag ((b : F) / (a : F))
+  let kp : S.FSˣ := k / S.diagU a
+  let g : S.BruhatSchwartz :=
+    ⟨fun x => (f : S.FS → ℂ) ((bp + x) * (kp⁻¹ : S.FSˣ).val),
+      ArtinPrimitiveRoots.Proofs.a2_probe_sol.bruhatSchwartz_affine S f bp kp⟩
+  have hnorm : S.absS (S.diagU a : S.FS) = qI I.1 := by
+    change S.absS (S.diag (a : F)) = _
+    simpa only [qI] using
+      S.absS_diag_eq_norm_ofFieldData D (a : F) I.1 I.property ha
+  have hcoef : S.absS (kp : S.FS) = S.absS (k : S.FS) / qI I.1 := by
+    have hdiv := (a2_bridge_NORM D S).2.2.2.2.1 k (S.diagU a)
+    rw [hnorm] at hdiv
+    exact hdiv
+  have hcoefpos : 0 < S.absS (k : S.FS) / qI I.1 := by
+    rw [← hcoef]
+    exact (a2_bridge_NORM D S).2.2.1 kp
+  have hkinv : (kp⁻¹ : S.FSˣ).val = S.diag (a : F) * (k⁻¹ : S.FSˣ).val := by
+    simp [kp, div_eq_mul_inv, SData.diagU]
+  have hkval : (kp : S.FS) = (k : S.FS) * S.diag ((a : F)⁻¹) := by
+    dsimp only [kp]
+    rw [div_eq_mul_inv, Units.val_mul, ← map_inv S.diagU a]
+    change (k : S.FS) * S.diag ((a⁻¹ : Fˣ).val) = _
+    rw [Units.val_inv_eq_inv_val]
+  have hvalue (m : S.R) : (g : S.FS → ℂ) (S.diag (m : F)) =
+      W.W0 (S.diag ((b : F) + (a : F) * (m : F)) * (k⁻¹ : S.FSˣ).val) := by
+    change W.W0 ((bp + S.diag (m : F)) * (kp⁻¹ : S.FSˣ).val) = _
+    rw [hkinv]
+    congr 1
+    change (S.diag ((b : F) / (a : F)) + S.diag (m : F)) *
+        (S.diag (a : F) * (k⁻¹ : S.FSˣ).val) = _
+    calc
+      _ = S.diag (((b : F) / (a : F) + (m : F)) * (a : F)) *
+          (k⁻¹ : S.FSˣ).val := by
+        rw [map_mul, map_add]
+        ring
+      _ = _ := by
+        congr 2
+        field_simp [a.ne_zero]
+  have hfreq (h : S.R) : (kp : S.FS) * S.diag (h : F) =
+      (k : S.FS) * S.diag ((h : F) / (a : F)) := by
+    rw [hkval, mul_assoc, ← map_mul]
+    congr 2
+    rw [div_eq_mul_inv]
+    ring
+  have hpair (h : S.R) : bp * S.diag (h : F) =
+      S.diag ((b : F) * (h : F) / (a : F)) := by
+    change S.diag ((b : F) / (a : F)) * S.diag (h : F) = _
+    rw [← map_mul]
+    congr 1
+    ring
+  have hfourier (h : S.R) : S.fourier A sd.measure (g : S.FS → ℂ) (S.diag (h : F)) =
+      ((S.absS (k : S.FS) / qI I.1 : ℝ) : ℂ) *
+        S.e A (S.diag ((b : F) * (h : F) / (a : F))) *
+          weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F))) := by
+    change S.fourier A sd.measure
+      (fun x : S.FS => (f : S.FS → ℂ) ((bp + x) * (kp⁻¹ : S.FSˣ).val))
+        (S.diag (h : F)) = _
+    simpa only [hcoef, hpair, hfreq, weightFourier, f] using
+      ArtinPrimitiveRoots.Proofs.a2_probe_sol.bruhat_fourier_affine S A sd μ f bp kp
+        (S.diag (h : F))
+  have hphase (h : S.R) : ‖S.e A (S.diag ((b : F) * (h : F) / (a : F)))‖ = 1 := by
+    simpa using po_e_residue_norm_one I a ha (b * h) R
+  have hfouriernorm (h : S.R) :
+      ‖S.fourier A sd.measure (g : S.FS → ℂ) (S.diag (h : F))‖ =
+        (S.absS (k : S.FS) / qI I.1) *
+          ‖weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F)))‖ := by
+    rw [hfourier, norm_mul, norm_mul, hphase, mul_one, Complex.norm_real,
+      Real.norm_eq_abs, abs_of_pos hcoefpos]
+  have hpoisson := S.poisson D A sd g
+  have hprimal : Summable (fun m : S.R =>
+      ‖W.W0 (S.diag ((b : F) + (a : F) * (m : F)) * (k⁻¹ : S.FSˣ).val)‖) :=
+    hpoisson.1.congr fun m => congrArg norm (hvalue m)
+  have hdual : Summable (fun h : S.R =>
+      ‖weightFourier sd W ((k : S.FS) * S.diag ((h : F) / (a : F)))‖) := by
+    have hs := hpoisson.2.1.mul_left (S.absS (k : S.FS) / qI I.1)⁻¹
+    apply hs.congr
+    intro h
+    rw [hfouriernorm]
+    rw [← mul_assoc, inv_mul_cancel₀ hcoefpos.ne', one_mul]
+  refine ⟨hprimal, hdual, ?_⟩
+  calc
+    _ = ∑' m : S.R, (g : S.FS → ℂ) (S.diag (m : F)) :=
+      tsum_congr fun m => (hvalue m).symm
+    _ = ∑' h : S.R, S.fourier A sd.measure (g : S.FS → ℂ) (S.diag (h : F)) :=
+      hpoisson.2.2
+    _ = _ := by
+      simp_rw [hfourier, mul_assoc]
+      rw [tsum_mul_left]
+
 /-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
 theorem po_poisson_orbits : WeightSpec R sd W →
   (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
