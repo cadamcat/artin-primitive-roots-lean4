@@ -524,6 +524,51 @@ private theorem po_weightW1hat_verticalDecay (W : PoissonWeights (S := S))
       (Real.rpow_nonneg (by positivity : 0 ≤ 1 + |τ|) (-A0))
     simpa [hsEq] using hlarge''.trans hcoef
 
+private theorem po_weights_decay (W : PoissonWeights (S := S)) :
+    WeightDecay R sd W := by
+  classical
+  unfold WeightDecay
+  by_cases hW0ne : ∃ y, W.W0 y ≠ 0
+  · refine ⟨po_weightM_differentiable (R := R) (sd := sd) W hW0ne,
+      po_weightW1hat_differentiable W,
+      po_weightM_verticalDecay (R := R) (sd := sd) W hW0ne,
+      po_weightW1hat_verticalDecay W, ?_⟩
+    intro σ hσ
+    have hInt := (po_weightM_factorization (R := R) (sd := sd)
+      W hW0ne (σ : ℂ) (by simpa only [Complex.ofReal_re] using hσ)).1.norm
+    have hAbs (y : S.FS) : 0 ≤ S.absS y := by
+      unfold SData.absS
+      refine mul_nonneg (Finset.prod_nonneg fun v _ => ?_)
+        (Finset.prod_nonneg fun w _ => Complex.normSq_nonneg (y.2 w))
+      rw [Theta.absFin_eq_norm]
+      exact norm_nonneg _
+    apply hInt.congr
+    filter_upwards [] with y
+    rw [norm_mul, Complex.norm_cpow_eq_rpow_re_of_nonneg
+      (y := (σ : ℂ)) (hAbs y) (by simpa only [Complex.ofReal_re] using hσ.ne'),
+      Complex.ofReal_re]
+  · have hW0zero (y : S.FS) : W.W0 y = 0 := by
+      by_contra h
+      exact hW0ne ⟨y, h⟩
+    have hFourier (y : S.FS) : weightFourier sd W y = 0 := by
+      simp only [weightFourier, SData.fourier, hW0zero, zero_mul, integral_zero]
+    have hM : weightM R sd W = fun _ : ℂ => 0 := by
+      funext z
+      simp only [weightM, hFourier, zero_mul, integral_zero]
+    refine ⟨?_, po_weightW1hat_differentiable W, ?_,
+      po_weightW1hat_verticalDecay W, ?_⟩
+    · rw [hM]
+      exact (differentiable_const (0 : ℂ)).differentiableOn
+    · intro l r A0 hl hlr hA0
+      refine ⟨1, zero_lt_one, ?_⟩
+      intro σ τ hσl hσr
+      rw [hM]
+      simp only [norm_zero, one_mul]
+      exact Real.rpow_nonneg (by positivity : 0 ≤ 1 + |τ|) (-A0)
+    · intro σ hσ
+      simp only [hFourier, norm_zero, zero_mul]
+      exact ⟨aestronglyMeasurable_const, by simp [HasFiniteIntegral]⟩
+
 /-- po:weights-exist, 05:37–75. The existence and universal analytic conclusions are separate. -/
 theorem po_weights_exist :
   (∃ W : PoissonWeights (S := S), WeightSpec R sd W) ∧
