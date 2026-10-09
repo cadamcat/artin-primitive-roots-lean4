@@ -464,9 +464,8 @@ private theorem po_weightW1hat_verticalDecay (W : PoissonWeights (S := S))
   · have hbase := hsmall σ τ hσl hσr hτ
     have hdec : 0 < (1 + |τ|) ^ (-A0) := Real.rpow_pos_of_pos (by positivity) _
     have hle : (1 + |τ|) ^ (-A0) ≥ (1 + 2 * Real.pi) ^ (-A0) := by
-      have hanti := Real.antitoneOn_rpow_Ioi_of_exponent_nonpos
-        (show -A0 ≤ 0 by linarith)
-      exact hanti (by positivity) (by linarith)
+      exact Real.rpow_le_rpow_of_nonpos (by positivity)
+        (by linarith) (by linarith)
     have hscale : Csmall ≤ C * (1 + 2 * Real.pi) ^ (-A0) := by
       let a : ℝ := 1 + 2 * Real.pi
       let x : ℝ := C0 + Csmall + 1
@@ -490,14 +489,16 @@ private theorem po_weightW1hat_verticalDecay (W : PoissonWeights (S := S))
     have hτone : 1 ≤ |τ| := by nlinarith [Real.pi_gt_three]
     have hpow : |τ| ^ (-N : ℝ) ≤ (1 + |τ|) ^ (-A0) := by
       have hbase : 1 + |τ| ≤ |τ| ^ 2 := by
-        nlinarith [sq_nonneg (|τ| - 2)]
+        nlinarith [Real.pi_gt_three, sq_nonneg (|τ| - 2)]
       have hposPow : (1 + |τ|) ^ A0 ≤ |τ| ^ (2 * A0) :=
-        Real.rpow_le_rpow (by positivity) hbase hA0.le
+        by
+          have h := Real.rpow_le_rpow (by positivity) hbase hA0.le
+          simpa only [← Real.rpow_natCast, ← Real.rpow_mul (abs_nonneg τ), Nat.cast_ofNat] using h
       have hpowN : |τ| ^ (2 * A0) ≤ |τ| ^ (N : ℝ) :=
         Real.rpow_le_rpow_of_exponent_le hτone (by linarith [hN2])
       rw [Real.rpow_neg (by positivity) (N : ℝ),
         Real.rpow_neg (by positivity) A0]
-      exact one_div_le_one_div_of_le
+      simpa only [one_div] using one_div_le_one_div_of_le
         (Real.rpow_pos_of_pos (by positivity) A0) (hposPow.trans hpowN)
     have hlarge'' : ‖mellin W.W1
         ((σ : ℂ) + (τ : ℂ) * Complex.I)‖ ≤ C0 * (1 + |τ|) ^ (-A0) := by
@@ -510,9 +511,17 @@ private theorem po_weightW1hat_verticalDecay (W : PoissonWeights (S := S))
                 ← Real.rpow_neg (by positivity : 0 ≤ |τ|)]
         _ ≤ C0 * (1 + |τ|) ^ (-A0) := mul_le_mul_of_nonneg_left hpow hC0
     rw [po_weightW1hat_eq_mellin W (σ + τ * Complex.I)]
-    have hC0C : C0 ≤ C := by dsimp [C]; positivity
+    have hC0C : C0 ≤ C := by
+      have hp : 1 ≤ (1 + 2 * Real.pi) ^ A0 :=
+        Real.one_le_rpow (by linarith [Real.pi_pos]) hA0.le
+      have hx : 0 ≤ C0 + Csmall + 1 := by positivity
+      calc
+        C0 ≤ C0 + Csmall + 1 := by linarith
+        _ ≤ (C0 + Csmall + 1) * (1 + 2 * Real.pi) ^ A0 := by
+          simpa only [mul_one] using mul_le_mul_of_nonneg_left hp hx
+        _ ≤ C := by dsimp [C]; linarith
     have hcoef := mul_le_mul_of_nonneg_right hC0C
-      (Real.rpow_nonneg (by positivity) (-A0))
+      (Real.rpow_nonneg (by positivity : 0 ≤ 1 + |τ|) (-A0))
     simpa [hsEq] using hlarge''.trans hcoef
 
 /-- po:weights-exist, 05:37–75. The existence and universal analytic conclusions are separate. -/
