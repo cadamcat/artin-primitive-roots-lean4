@@ -1,5 +1,6 @@
 import Mathlib.Analysis.SpecialFunctions.Complex.Circle
 import Mathlib.MeasureTheory.Integral.IntervalIntegral.Periodic
+import Mathlib.MeasureTheory.Measure.Haar.Unique
 
 set_option autoImplicit false
 open MeasureTheory
@@ -49,6 +50,50 @@ theorem angle_translate (c : ℝ) :
     _ = Measure.map E (Measure.map (tr ∘ mk) ν) :=
       (Measure.map_map hE (ht.measurable.comp hm.measurable)).symm
     _ = Measure.map E volume := by rw [(ht.comp hm).map_eq]
+    _ = _ := hright.symm
+
+theorem angle_neg :
+    Measure.map (fun θ : ℝ => Complex.exp (2 * Real.pi * Complex.I * (-θ)))
+      (volume.restrict (Set.Ioc (0 : ℝ) 1)) =
+    Measure.map (fun θ : ℝ => Complex.exp (2 * Real.pi * Complex.I * θ))
+      (volume.restrict (Set.Ioc (0 : ℝ) 1)) := by
+  have : Fact (0 < (1 : ℝ)) := ⟨zero_lt_one⟩
+  let ν : Measure ℝ := volume.restrict (Set.Ioc (0 : ℝ) 1)
+  let mk : ℝ → UnitAddCircle := fun x => (x : UnitAddCircle)
+  let E : UnitAddCircle → ℂ := fun x => (AddCircle.toCircle x : ℂ)
+  let ng : UnitAddCircle → UnitAddCircle := fun x => -x
+  have hE : Measurable E :=
+    (continuous_subtype_val.comp AddCircle.continuous_toCircle).measurable
+  have hm : MeasurePreserving mk ν (volume : Measure UnitAddCircle) := by
+    simpa only [ν, mk, zero_add] using UnitAddCircle.measurePreserving_mk 0
+  have hn : MeasurePreserving ng (volume : Measure UnitAddCircle) volume :=
+    Measure.measurePreserving_neg volume
+  have hexp (x : ℝ) : E (mk x) = Complex.exp (2 * Real.pi * Complex.I * x) := by
+    dsimp only [E, mk]
+    rw [AddCircle.toCircle_apply_mk, Circle.coe_exp]
+    congr 1
+    push_cast
+    ring
+  have hexp_ng (x : ℝ) :
+      E (ng (mk x)) = Complex.exp (2 * Real.pi * Complex.I * (-x)) := by
+    change E (-(x : UnitAddCircle)) = _
+    rw [← AddCircle.coe_neg]
+    simpa only [mk, Complex.ofReal_neg] using hexp (-x)
+  have hright :
+      Measure.map (fun x : ℝ => Complex.exp (2 * Real.pi * Complex.I * x)) ν =
+        Measure.map E (volume : Measure UnitAddCircle) := by
+    calc
+      _ = Measure.map (E ∘ mk) ν :=
+        Measure.map_congr (Filter.Eventually.of_forall fun x => (hexp x).symm)
+      _ = Measure.map E (Measure.map mk ν) :=
+        (Measure.map_map hE hm.measurable).symm
+      _ = Measure.map E volume := by rw [hm.map_eq]
+  calc
+    _ = Measure.map (E ∘ (ng ∘ mk)) ν :=
+      Measure.map_congr (Filter.Eventually.of_forall fun x => (hexp_ng x).symm)
+    _ = Measure.map E (Measure.map (ng ∘ mk) ν) :=
+      (Measure.map_map hE (hn.measurable.comp hm.measurable)).symm
+    _ = Measure.map E volume := by rw [(hn.comp hm).map_eq]
     _ = _ := hright.symm
 
 end ArtinPrimitiveRoots.Proofs.a2_prod_sol
