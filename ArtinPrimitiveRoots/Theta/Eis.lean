@@ -5975,6 +5975,71 @@ theorem whit_arch_jacquet_product
       ac_rfl
     _ = _ := by rw [hδ, hν, one_mul, one_mul]
 
+/-- Normalize the weighted Jacquet product by the ideal-domain covolume. -/
+theorem whit_jacquet_product_normalization
+    (P : CoverPackage D S H A) (G : GlobalDatum P)
+    (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ}
+    (Fs : GlobalSection P G s) (r : P.RP)
+    (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) (h𝔞 : 𝔞 ≠ 0)
+    (ν δ : Fˣ) {z : ℂ}
+    (hz : HasProd (fun v : FinPlace F =>
+      ((((qv v) ^ (-FractionalIdeal.count F v 𝔞) : ℝ) : ℂ)⁻¹) *
+        (((absFin v (toLoc v δ) : ℂ) ^ ((1 : ℂ) / 2 + s)) *
+          ((absFin v (toLoc v ν) : ℂ) ^ (s - (1 : ℂ) / 2)) *
+            G.lam v ((G.T v).σa (toLoc v δ) ((G.T v).σa (toLoc v ν)
+              (jacquet (P.loc v) A (μ v)
+                (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))))) z)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume) :
+    ((volume Pd).toReal)⁻¹ *
+      (z * ∏ w : InfinitePlace F, ∫ u : ℂ,
+        psiC (-(w.embedding (ν : F) * u)) * Fs.fC w
+          (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC u * P.compC w r)) =
+      (κF F)⁻¹ *
+        ((∏ᶠ v : FinPlace F, G.lam v ((G.T v).σa (toLoc v (δ * ν))
+          (jacquet (P.loc v) A (μ v)
+            (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))) *
+          ∏ w : InfinitePlace F,
+            jacquetC (rtr (aC (Units.map w.embedding.toMonoidHom ν) * P.compC w r) (Fs.fC w))) := by
+  classical
+  let N : ℂ := ((FractionalIdeal.absNorm 𝔞 : ℝ) : ℂ)
+  let d : ℂ := ∏ᶠ v : FinPlace F,
+    (absFin v (toLoc v δ) : ℂ) ^ ((1 : ℂ) / 2 + s)
+  let n : ℂ := ∏ᶠ v : FinPlace F,
+    (absFin v (toLoc v ν) : ℂ) ^ (s - (1 : ℂ) / 2)
+  let B : ℂ := ∏ᶠ v : FinPlace F, G.lam v ((G.T v).σa (toLoc v (δ * ν))
+    (jacquet (P.loc v) A (μ v)
+      (rtr ((P.loc v).a (toLoc v ν) * P.compF v r) (Fs.f v))))
+  let C : ℂ := ∏ w : InfinitePlace F, ∫ u : ℂ,
+    psiC (-(w.embedding (ν : F) * u)) * Fs.fC w
+      (aC (Units.map w.embedding.toMonoidHom δ) * wC * nC u * P.compC w r)
+  let J : ℂ := ∏ w : InfinitePlace F,
+    jacquetC (rtr (aC (Units.map w.embedding.toMonoidHom ν) * P.compC w r) (Fs.fC w))
+  change ((volume Pd).toReal)⁻¹ * (z * C) = (κF F)⁻¹ * (B * J)
+  have hnorm : z = N * d * n * B := by
+    simpa only [N, d, n, B] using
+      whit_bruhat_product_normalization P G μ Fs r 𝔞 h𝔞 ν δ hz
+  have harch : d * n * C = J := by
+    simpa only [d, n, C, J] using whit_arch_jacquet_product P G Fs r ν δ
+  have hN : N ≠ 0 := by
+    have hn : FractionalIdeal.absNorm 𝔞 ≠ 0 :=
+      FractionalIdeal.absNorm_eq_zero_iff.not.mpr h𝔞
+    dsimp only [N]
+    exact_mod_cast hn
+  have hvol : ((volume Pd).toReal : ℂ) = (κF F : ℂ) * N := by
+    rw [ideal_domain_covolume D 𝔞 h𝔞 Pd hPd, Complex.ofReal_mul]
+  calc
+    ((volume Pd).toReal)⁻¹ * (z * C) =
+        (κF F : ℂ)⁻¹ * (N⁻¹ * N) * (B * (d * n * C)) := by
+      simp only [Complex.ofReal_inv]
+      change ((volume Pd).toReal : ℂ)⁻¹ * (z * C) = _
+      rw [hvol, hnorm, mul_inv_rev]
+      ac_rfl
+    _ = (κF F : ℂ)⁻¹ * (B * J) := by
+      rw [inv_mul_cancel₀ hN, mul_one, harch]
+    _ = _ := by simp only [Complex.ofReal_inv]
+
 /-- Period tiling and local Fourier integrals evaluate the weighted big-cell sum. -/
 theorem whit_bigCell_jacquet (P : CoverPackage D S H A) (G : GlobalDatum P)
     (μ : ∀ v : FinPlace F, LocHaar v) {s : ℂ} (hs : 1 / 2 < s.re)
