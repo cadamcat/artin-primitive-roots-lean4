@@ -8342,6 +8342,45 @@ private theorem po_weightV0_smooth (hSpec : WeightSpec R sd W) :
       rw [hEq]
       simp only [Theta.sheetInt, integral_const_mul]
 
+private theorem po_weightFourier_sheet_norm_decay_two :
+    ∃ C : ℝ, 0 < C ∧ ∀ T : ℝ, 0 < T →
+      (∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T)) ≤ C / T ^ 2 := by
+  let ff : ∀ v : S.Sf, v.1.adicCompletion F → ℂ := fun v =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier v.1 A (μ v.1) (W.finite v).1
+  let fc : InfinitePlace F → SchwartzMap ℂ ℂ := fun w =>
+    ArtinPrimitiveRoots.Proofs.a2_weights.complexFourierSchwartz (W.arch w)
+  have hffcont (v : S.Sf) : Continuous (ff v) :=
+    (ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_isLocallyConstant
+      v.1 A (μ v.1) (W.finite v).1 (W.finite v).2.2.1).continuous
+  have hffcompact (v : S.Sf) : HasCompactSupport (ff v) := by
+    obtain ⟨k, hk⟩ := ArtinPrimitiveRoots.Proofs.a2_weights.finiteTest_exists_period_ball
+      v.1 (W.finite v).1 (W.finite v).2.2.2 (W.finite v).2.2.1
+    exact ArtinPrimitiveRoots.Proofs.a2_weights.finiteFourier_hasCompactSupport_of_period
+      v.1 A (μ v.1) (W.finite v).1 k hk
+  let g : S.FS → ℂ := fun y =>
+    (∏ v : S.Sf, ff v (y.1 v)) * ∏ w : InfinitePlace F, fc w (y.2 w)
+  obtain ⟨c, hFourier⟩ := ArtinPrimitiveRoots.Proofs.a2_probe_sol.schwartz_tensor_fourier
+    S A sd μ W.finite W.arch
+  have hW0 : W.W0 = fun y : S.FS =>
+      (∏ v : S.Sf, (W.finite v).1 (y.1 v)) *
+        ∏ w : InfinitePlace F, W.arch w (y.2 w) := funext W.W0_tensor
+  have hEq : weightFourier sd W = fun y : S.FS => c * g y := by
+    funext y
+    simpa only [weightFourier, hW0, g, ff, fc] using hFourier y
+  obtain ⟨C0, hC0, hBound⟩ := ArtinPrimitiveRoots.Proofs.a2_probe_sol.tensor_sheet_norm_decay_two
+    D S μ v0 R.sheets ff fc hffcont hffcompact
+  refine ⟨‖c‖ * C0 + 1, by positivity, ?_⟩
+  intro T hT
+  rw [hEq]
+  simp only [norm_mul]
+  rw [integral_const_mul]
+  calc
+    _ ≤ ‖c‖ * (C0 / T ^ 2) :=
+      mul_le_mul_of_nonneg_left (hBound T hT) (norm_nonneg c)
+    _ = (‖c‖ * C0) / T ^ 2 := by ring
+    _ ≤ (‖c‖ * C0 + 1) / T ^ 2 :=
+      div_le_div_of_nonneg_right (by linarith) (sq_nonneg T)
+
 /-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
 theorem po_poisson_orbits : WeightSpec R sd W →
   (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
