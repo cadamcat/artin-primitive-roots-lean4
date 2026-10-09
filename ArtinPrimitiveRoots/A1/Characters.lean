@@ -2234,6 +2234,7 @@ theorem lambda_data (D : FieldData F) (S : SData F CE condη) (A : AddCharData F
   exact ⟨(hΛ v hv).1, fun p hp _ => (hΛ v hv).2 (p : F) hp⟩
 
 end a1_lambda_sol
+
 namespace a1_weil_sol
 
 /-- The quadratic sign-character glue is below the Gauss theorem and uses no Plan import.

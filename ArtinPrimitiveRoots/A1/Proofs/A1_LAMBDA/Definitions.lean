@@ -14,6 +14,9 @@ open scoped Classical Topology
 
 noncomputable section
 
+-- Preserve the cyclotomic instance used by the frozen Eisenstein interfaces.
+attribute [local instance 2000] CyclotomicField.instNumberField
+
 namespace ArtinPrimitiveRoots.Proofs.a1_lambda_sol
 
 open ArtinPrimitiveRoots.A1
@@ -120,7 +123,7 @@ structure LocalCharacterData (F : Type) [Field F] [NumberField F] where
     ‖((infinite w u : ℂˣ) : ℂ)‖ = 1
   principal_product : ∀ a : Fˣ,
     (∏ w : InfinitePlace F, infinite w (Dictionary.ideleInfiniteCoordUnit w
-      (IdeleGroup.unitEmbedding (𝓞 F) F a))) *
+      (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a))) *
       (∏ᶠ v : FinPlace F, finite v (toLoc v a)) = 1
 
 /-- The base primary character's local data, including its exterior values.
@@ -142,26 +145,26 @@ structure BaseLocalData (σ : E →+* ℂ) extends LocalCharacterData E where
 degree normalization. The norm is built from completion norms. Guide: 428-439. -/
 structure RelativeNormData {F : Type} [Field F] [NumberField F]
     (D : FieldData F) (ι : E →ₐ[ℚ] F) where
-  norm : IdeleGroup (𝓞 F) F →* IdeleGroup OE E
+  norm : NumberField.IdeleGroup (𝓞 F) F →* NumberField.IdeleGroup OE E
   continuous_norm : Continuous norm
   principal_norm : ∀ a : Fˣ,
     letI : Algebra E F := ι.toRingHom.toAlgebra
-    norm (IdeleGroup.unitEmbedding (𝓞 F) F a) =
-      IdeleGroup.unitEmbedding OE E (Units.map (Algebra.norm E) a)
+    norm (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
+      NumberField.IdeleGroup.unitEmbedding OE E (Units.map (Algebra.norm E) a)
   unit_norm : ∀ (v : FinPlace F) (u : (v.adicCompletion F)ˣ), localUnit v u →
     ∃ b : ((basePlace ι v).adicCompletion E)ˣ, localUnit (basePlace ι v) b ∧
-      norm (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) =
-        IdeleGroup.ofAdicCompletion OE E (basePlace ι v) b
+      norm (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u) =
+        NumberField.IdeleGroup.ofAdicCompletion OE E (basePlace ι v) b
   uniformizer_norm : ∀ v : FinPlace F,
     ∃ b : ((basePlace ι v).adicCompletion E)ˣ, localUnit (basePlace ι v) b ∧
-      norm (IdeleGroup.ofAdicCompletion (𝓞 F) F v
+      norm (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v
         (toLoc v (KummerProofs.uniformizerUnit v))) =
-      IdeleGroup.ofAdicCompletion OE E (basePlace ι v)
+      NumberField.IdeleGroup.ofAdicCompletion OE E (basePlace ι v)
         (toLoc (basePlace ι v) (KummerProofs.uniformizerUnit (basePlace ι v)) ^
           residueDegree ι v * b)
   angular_norm : ∀ χ : LambdaChar E, simpleAngularType χ →
     ∀ w : InfinitePlace F, ∃ m : ℤ, (m = 1 ∨ m = -1) ∧ ∀ z : ℂˣ,
-      ((χ (QuotientGroup.mk (norm (IdeleGroup.ofCompletion (𝓞 F) F w
+      ((χ (QuotientGroup.mk (norm (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w
         (Units.map (InfinitePlace.Completion.ringEquivComplexOfIsComplex
           (D.isTotallyComplex.isComplex w)).symm.toMonoidHom z)))) : ℂˣ) : ℂ) =
         ((z : ℂ) / ‖(z : ℂ)‖) ^ m

@@ -162,6 +162,7 @@ theorem endpointAssemblyData_nonempty
     fun v => Classical.choice (LocHaar.nonempty v)
   let U : FrequencyData S D χ :=
     Classical.choice (FrequencyData.nonempty S D χ hχfinite)
+  haveI : IsTotallyComplex (CyclotomicField n ℚ) := D.isTotallyComplex
   let HA : HeckeAnalysis (CyclotomicField n ℚ) :=
     Classical.choice (ArtinPrimitiveRoots.A2.heckeAnalysis_exists _)
   let HC : EulerCorrection R χ U := canonicalEulerCorrection R χ U
