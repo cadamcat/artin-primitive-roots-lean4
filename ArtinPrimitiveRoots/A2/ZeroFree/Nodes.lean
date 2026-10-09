@@ -5,6 +5,7 @@ import ArtinPrimitiveRoots.A2.Proofs.A2_ZERO_DETECT.Detect
 import ArtinPrimitiveRoots.A2.Proofs.«A2-FE-GLUE».CharacterBridge
 import ArtinPrimitiveRoots.A2.Proofs.«A2-FE-GLUE».GammaRatio
 import ArtinPrimitiveRoots.A2.Proofs.«A2-FE-GLUE».ConvexityPartial
+import ArtinPrimitiveRoots.A2.Proofs.ZF_CONVEXITY.GammaReal
 import ArtinPrimitiveRoots.Hecke.Dedekind
 import ArtinPrimitiveRoots.Hecke.Convexity
 import ArtinPrimitiveRoots.Hecke.Proofs.«HK-FE».hk_fe_export_to_ext_hecke_continuation
