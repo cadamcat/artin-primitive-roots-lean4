@@ -191,6 +191,23 @@ private theorem integral_addChar_zero_on_ball (A : AddCharData F) (v : FinPlace 
     simpa [I, f] using hI0
   exact hmass
 
+theorem ballZ_compact_api (v : FinPlace F) (π : (v.adicCompletion F)ˣ)
+    (hπ : Valued.v (π : v.adicCompletion F) = WithZero.exp (-1 : ℤ)) (n : ℤ) :
+    IsCompact {x : v.adicCompletion F | Valued.v x ≤ WithZero.exp n} := by
+  change IsCompact (ballZ v n)
+  exact ballZ_compact v π hπ n
+
+theorem integral_addChar_zero_on_ball_api (A : AddCharData F) (v : FinPlace F)
+    (μ : Measure (v.adicCompletion F)) [Measure.IsAddHaarMeasure μ]
+    (m : ℤ) (k b : v.adicCompletion F)
+    (hb : b ∈ {x : v.adicCompletion F | Valued.v x ≤ WithZero.exp m})
+    (hψ : A.ψ v (k * b) ≠ 1) :
+    ∫ x in {x : v.adicCompletion F | Valued.v x ≤ WithZero.exp m},
+      A.ψ v (k * x) ∂μ = 0 := by
+  change ∫ x in ballZ v m, A.ψ v (k * x) ∂μ = 0
+  apply integral_addChar_zero_on_ball A v μ m k b ?_ hψ
+  simpa [ballZ] using hb
+
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
 private theorem exterior_two_valuation (S : SData F CE condη) (v : FinPlace F)
