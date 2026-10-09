@@ -1473,6 +1473,83 @@ private theorem cont_norm_sum_mul_le_of_prefix_bound
           rw [← Finset.mul_sum]
           ring
 
+private theorem cont_character_dyad_prefix_bound
+    {q : ℕ} [NeZero q] (hq : 0 < q) (χ : DirichletCharacter ℂ q)
+    {N j : ℕ} (hN : 0 < N) (hj : j ≤ N)
+    {v L T Cφ C₃ : ℝ}
+    (hPhase : ∀ a : ZMod q,
+      ‖residuePhaseSum (N : ℝ) q a
+        (-v) (Finset.Icc N (N + j) : Set ℕ)‖ ≤
+        Cφ * ((N : ℝ) / q) * Real.exp (-L / Real.rpow T C₃)) :
+    ‖∑ k ∈ Finset.range (j + 1),
+      χ ((N + k : ℕ) : ZMod q) *
+        Complex.exp (Complex.I * (-v) * Real.log ((N + k : ℕ) : ℝ))‖ ≤
+      Cφ * N * Real.exp (-L / Real.rpow T C₃) := by
+  classical
+  let I : Finset ℕ := Finset.Icc N (N + j)
+  let S : Finset ℕ := (Finset.range (⌊2 * (N : ℝ)⌋₊ + 1)).filter
+    (fun n : ℕ => (N : ℝ) ≤ (n : ℝ) ∧ (n : ℝ) ≤ 2 * (N : ℝ) ∧ n ∈ I)
+  let f : ℕ → ℂ := fun k =>
+    χ ((N + k : ℕ) : ZMod q) *
+      Complex.exp (Complex.I * (-v) * Real.log ((N + k : ℕ) : ℝ))
+  have hfloor : ⌊2 * (N : ℝ)⌋₊ = 2 * N := by
+    have hcast : 2 * (N : ℝ) = ((2 * N : ℕ) : ℝ) := by push_cast; ring
+    rw [hcast, Nat.floor_natCast]
+  have hS : S = Finset.Icc N (N + j) := by
+    ext n
+    simp only [S, Finset.mem_filter, Finset.mem_range, Finset.mem_Icc, hfloor, I]
+    constructor
+    · rintro ⟨hnlt, hnlo, hnhi, hnIlo, hnIhi⟩
+      exact ⟨by exact_mod_cast hnlo, by exact_mod_cast hnIhi⟩
+    · rintro ⟨hnlo, hnhi⟩
+      refine ⟨?_, ?_, ?_, ?_⟩
+      · omega
+      · exact_mod_cast hnlo
+      · exact_mod_cast (hnhi.trans (by omega : N + j ≤ 2 * N))
+      · exact ⟨by exact_mod_cast hnlo, by exact_mod_cast hnhi⟩
+  have hsum :
+      (∑ k ∈ Finset.range (j + 1), f k) =
+        ∑ n ∈ Finset.Icc N (N + j),
+          χ (n : ZMod q) *
+            Complex.exp (Complex.I * (-v) * Real.log (n : ℝ)) := by
+    refine Finset.sum_bij (fun k _ => N + k) ?_ ?_ ?_ ?_
+    · intro k hk
+      simp only [Finset.mem_range] at hk
+      simp only [Finset.mem_Icc]
+      constructor
+      · omega
+      · omega
+    · intro k hk k' hk' hEq
+      omega
+    · intro n hn
+      simp only [Finset.mem_Icc] at hn
+      refine ⟨n - N, ?_, Nat.add_sub_of_le hn.1⟩
+      simp only [Finset.mem_range]
+      omega
+    · intro k hk
+      simp only [Finset.mem_range] at hk
+      rfl
+  have hNpos : 0 < (N : ℝ) := by exact_mod_cast hN
+  have hB := cont_character_phase_interval_bound (q := q) (χ := χ)
+    (N' := (N : ℝ)) (v := v) (L := L) (T := T) (Cφ := Cφ) (C₃ := C₃)
+    (by omega : 1 ≤ q) hNpos I hPhase
+  have hB' :
+      ‖∑ n ∈ Finset.Icc N (N + j),
+        χ (n : ZMod q) *
+          Complex.exp (Complex.I * (-v) * Real.log (n : ℝ))‖ ≤
+        Cφ * N * Real.exp (-L / Real.rpow T C₃) := by
+    have hBS :
+        ‖∑ n ∈ S,
+          χ (n : ZMod q) * Complex.exp (Complex.I * (-v) * Real.log (n : ℝ))‖ ≤
+          Cφ * N * Real.exp (-L / Real.rpow T C₃) := by
+      simpa [S] using hB
+    simpa [hS] using hBS
+  calc
+    _ = ‖∑ n ∈ Finset.Icc N (N + j),
+          χ (n : ZMod q) * Complex.exp (Complex.I * (-v) * Real.log (n : ℝ))‖ := by
+            rw [hsum]
+    _ ≤ Cφ * N * Real.exp (-L / Real.rpow T C₃) := hB'
+
 private theorem cont_growth_low_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
