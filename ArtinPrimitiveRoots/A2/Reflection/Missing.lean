@@ -5194,6 +5194,173 @@ private theorem rf_forward_indexed_fourier (r : ReflectionRow S) (y : S.FSˣ) :
         (fun z : ℂ => bCut (Bd := Bd) y * (Lvalue R (rowClass R r) y)⁻¹ *
           digitSum R r false true y + z) hTsum.symm
 
+set_option maxHeartbeats 1500000 in
+private theorem rf_forward_indexed_absolute (r : ReflectionRow S) (l : ℝ)
+    (hl : 0 < l) :
+    let f := fun q : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S =>
+      fun y : S.FSˣ => (Lvalue R (rowClass R r) y)⁻¹ *
+        forwardTerm R r ((q.2.1 : Fˣ) * Agen R q.1.1 q.1.2) y
+    (∀ q, IntegrableOn (onUnits (f q)) (omegaAt R l) (R.sheets.sheet l)) ∧
+    Summable (fun q => ∫ y in omegaAt R l,
+      ‖onUnits (f q) y‖ ∂(R.sheets.sheet l)) := by
+  classical
+  dsimp only
+  letI : MeasurableSpace S.FSˣ := Units.instMeasurableSpace
+  letI : OpensMeasurableSpace S.FSˣ := rf_FS_units_opensMeasurable
+  let σ : ℝ := 1
+  have hσ : 1 / 2 < σ := by norm_num [σ]
+  obtain ⟨C, hC, hUnfold⟩ := rf_forward_Agen_unfolding R σ hσ
+  let ν : Measure S.FS := (R.sheets.sheet l).restrict (omegaAt R l)
+  let u := rowClass R r
+  let f : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → S.FSˣ → ℂ := fun z y =>
+    (Lvalue R u y)⁻¹ * forwardTerm R r ((z.2.1 : Fˣ) * Agen R z.1.1 z.1.2) y
+  let g : (S.SqfExtIdeal × S.ExtIdeal) → Gamma S → S.FSˣ → ℂ := fun p γ y =>
+    unrotated R u (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2) * y)
+  let k : (S.SqfExtIdeal × S.ExtIdeal) → ℂ := fun p =>
+    forwardCoeff R r p * (Lvalue R u (S.diagU (Agen R p.1 p.2)))⁻¹
+  have hF (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) (y : S.FSˣ) :
+      f z y = k z.1 * (bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * g z.1 z.2 y) := by
+    dsimp only [f, k, g, u]
+    rw [rf_forward_indexed_term R r z.1 z.2 y, map_mul]
+    ring
+  have hLnorm (y : S.FSˣ) : ‖Lvalue R u y‖ = 1 := by
+    simpa [Lvalue] using (R.chars.L u).unitary y
+  have hKnorm (p : S.SqfExtIdeal × S.ExtIdeal) : ‖k p‖ = ‖forwardCoeff R r p‖ := by
+    dsimp only [k]
+    rw [norm_mul, norm_inv, hLnorm, inv_one, mul_one]
+  have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+    unfold bCut
+    split_ifs <;> simp
+  have hNorm (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) (y : S.FSˣ) :
+      ‖f z y‖ ≤ ‖forwardCoeff R r z.1‖ * ‖g z.1 z.2 y‖ := by
+    rw [hF]
+    simp only [norm_mul, hKnorm, norm_inv, hLnorm, inv_one, mul_one]
+    calc
+      _ ≤ ‖forwardCoeff R r z.1‖ * (1 * ‖g z.1 z.2 y‖) :=
+        mul_le_mul_of_nonneg_left
+          (mul_le_mul_of_nonneg_right (hBnorm y) (norm_nonneg _)) (norm_nonneg _)
+      _ = _ := by rw [one_mul]
+  have hDom (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) (x : S.FS) :
+      ‖onUnits (f z) x‖ ≤ ‖forwardCoeff R r z.1‖ * ‖onUnits (g z.1 z.2) x‖ := by
+    by_cases hx : IsUnit x
+    · simpa only [onUnits, dif_pos hx] using hNorm z hx.unit
+    · simp [onUnits, hx]
+  have hLmeas : Measurable (fun y : S.FSˣ => (Lvalue R u y)⁻¹) := by
+    have hc : Continuous (fun y : S.FSˣ => Lvalue R u y) := by
+      simpa [Lvalue] using (R.chars.L u).cont
+    exact measurable_inv.comp hc.measurable
+  have hGmeas (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) : Measurable (g p γ) :=
+    (rf_t5_unrotated_measurable R u).comp
+      (rf_unit_mul_measurable (S.diagU (γ.1 : Fˣ) * S.diagU (Agen R p.1 p.2)))
+  have hFmeas (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) : Measurable (f z) := by
+    have heq : f z = fun y => k z.1 *
+        (bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ * g z.1 z.2 y) := funext (hF z)
+    rw [heq]
+    exact (((rf_bCut_measurable R).mul hLmeas).mul (hGmeas z.1 z.2)).const_mul _
+  have hBaseInt (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) :
+      Integrable (onUnits (g p γ)) ν := (hUnfold u p l hl).1 γ
+  have hInt (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) :
+      Integrable (onUnits (f z)) ν :=
+    ((hBaseInt z.1 z.2).norm.const_mul ‖forwardCoeff R r z.1‖).mono'
+      (rf_onUnits_measurable (f z) (hFmeas z)).aestronglyMeasurable
+      (Filter.Eventually.of_forall (hDom z))
+  let B : (S.SqfExtIdeal × S.ExtIdeal) → Gamma S → ℝ := fun p γ =>
+    ∫ x, ‖onUnits (g p γ) x‖ ∂ν
+  have hOrbitEq (p : S.SqfExtIdeal × S.ExtIdeal) (γ : Gamma S) :
+      (omegaInt R l (fun y => (‖g p γ y‖ : ℂ))).re = B p γ := by
+    have heq : onUnits (fun y => (‖g p γ y‖ : ℂ)) =
+        fun x : S.FS => (‖onUnits (g p γ) x‖ : ℂ) := by
+      funext x
+      by_cases hx : IsUnit x
+      · simp [onUnits, hx]
+      · simp [onUnits, hx]
+    change (∫ x, onUnits (fun y => (‖g p γ y‖ : ℂ)) x ∂ν).re = B p γ
+    rw [heq, integral_complex_ofReal]
+    rfl
+  have hGammaSum (p : S.SqfExtIdeal × S.ExtIdeal) : Summable (B p) :=
+    (hUnfold u p l hl).2.1.congr (hOrbitEq p)
+  have hGammaBound (p : S.SqfExtIdeal × S.ExtIdeal) :
+      (∑' γ, B p γ) ≤ C * (qI (Aideal R p.1 p.2).1 * l) ^ (-σ) := by
+    calc
+      _ = ∑' γ, (omegaInt R l (fun y => (‖g p γ y‖ : ℂ))).re :=
+        tsum_congr (fun γ => (hOrbitEq p γ).symm)
+      _ = (sheetIntegral R (qI (Aideal R p.1 p.2).1 * l)
+          (fun y => (‖unrotated R u y‖ : ℂ))).re := (hUnfold u p l hl).2.2.1
+      _ ≤ _ := (hUnfold u p l hl).2.2.2.1
+  let J : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S → ℝ := fun z =>
+    ∫ x, ‖onUnits (f z) x‖ ∂ν
+  have hJpos (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) : 0 ≤ J z :=
+    integral_nonneg (fun x => norm_nonneg _)
+  have hJbound (z : (S.SqfExtIdeal × S.ExtIdeal) × Gamma S) :
+      J z ≤ ‖forwardCoeff R r z.1‖ * B z.1 z.2 := by
+    calc
+      _ ≤ ∫ x, ‖forwardCoeff R r z.1‖ * ‖onUnits (g z.1 z.2) x‖ ∂ν :=
+        integral_mono_ae (hInt z).norm
+          ((hBaseInt z.1 z.2).norm.const_mul _) (Filter.Eventually.of_forall (hDom z))
+      _ = _ := integral_const_mul _ _
+  have hFiber (p : S.SqfExtIdeal × S.ExtIdeal) : Summable (fun γ => J (p, γ)) :=
+    Summable.of_nonneg_of_le (fun γ => hJpos (p, γ))
+      (fun γ => hJbound (p, γ)) ((hGammaSum p).mul_left ‖forwardCoeff R r p‖)
+  let w : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p =>
+    qI p.1.1 ^ (-1 / 2 - σ) * qI p.2.1 ^ (-1 - 3 * σ)
+  have hSum : Summable w := ((rf_forward_assembly R).2 σ hσ).1
+  let q : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => qI (Aideal R p.1 p.2).1
+  have hpos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+    unfold qI
+    exact_mod_cast (Nat.pos_of_ne_zero (fun h => hI (Ideal.absNorm_eq_zero_iff.mp h)))
+  have hq (p : S.SqfExtIdeal × S.ExtIdeal) : 0 < q p :=
+    hpos (Aideal R p.1 p.2).1 (Aideal R p.1 p.2).property.1
+  have hqA (c : S.SqfExtIdeal) (n : S.ExtIdeal) :
+      qI (Aideal R c n).1 = qI c.1 * qI n.1 ^ (3 : ℕ) := by
+    simp only [Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+      R.exterior.pow_val, qI, map_mul, map_pow, Nat.cast_mul, Nat.cast_pow]
+  have hWeight (p : S.SqfExtIdeal × S.ExtIdeal) :
+      ‖forwardCoeff R r p‖ * q p ^ (-σ) ≤ w p := by
+    have hc : 0 < qI p.1.1 := hpos p.1.1 p.1.property.1.1
+    have hn : 0 < qI p.2.1 := hpos p.2.1 p.2.property.1
+    have hn3 : (qI p.2.1 ^ (3 : ℕ)) ^ (-σ) = qI p.2.1 ^ (-3 * σ) := by
+      rw [← Real.rpow_natCast, ← Real.rpow_mul hn.le]
+      congr 1
+      ring
+    have hcAdd : qI p.1.1 ^ (-(1 / 2 : ℝ)) * qI p.1.1 ^ (-σ) =
+        qI p.1.1 ^ (-1 / 2 - σ) := by
+      rw [← Real.rpow_add hc]
+      congr 1
+      ring
+    have hnAdd : (qI p.2.1)⁻¹ * qI p.2.1 ^ (-3 * σ) =
+        qI p.2.1 ^ (-1 - 3 * σ) := by
+      rw [← Real.rpow_neg_one, ← Real.rpow_add hn]
+      congr 1
+      ring
+    calc
+      _ ≤ (qI p.1.1 ^ (-(1 / 2 : ℝ)) / qI p.2.1) * q p ^ (-σ) :=
+        mul_le_mul_of_nonneg_right (rf_forwardCoeff_norm R r p)
+          (Real.rpow_nonneg (hq p).le _)
+      _ = w p := by
+        dsimp only [q, w]
+        rw [hqA, Real.mul_rpow hc.le (pow_nonneg hn.le 3), hn3,
+          ← hcAdd, ← hnAdd, div_eq_mul_inv]
+        ring
+  let d : S.SqfExtIdeal × S.ExtIdeal → ℝ := fun p => (C * l ^ (-σ)) * w p
+  have hd : Summable d := hSum.mul_left (C * l ^ (-σ))
+  have hTotalBound (p : S.SqfExtIdeal × S.ExtIdeal) : (∑' γ, J (p, γ)) ≤ d p := by
+    calc
+      _ ≤ ∑' γ, ‖forwardCoeff R r p‖ * B p γ :=
+        (hFiber p).tsum_le_tsum (fun γ => hJbound (p, γ))
+          ((hGammaSum p).mul_left ‖forwardCoeff R r p‖)
+      _ = ‖forwardCoeff R r p‖ * ∑' γ, B p γ := tsum_mul_left
+      _ ≤ ‖forwardCoeff R r p‖ * (C * (q p * l) ^ (-σ)) :=
+        mul_le_mul_of_nonneg_left (hGammaBound p) (norm_nonneg _)
+      _ = (C * l ^ (-σ)) * (‖forwardCoeff R r p‖ * q p ^ (-σ)) := by
+        rw [Real.mul_rpow (hq p).le hl.le]
+        ring
+      _ ≤ d p := mul_le_mul_of_nonneg_left (hWeight p)
+        (mul_nonneg hC.le (Real.rpow_nonneg hl.le _))
+  have hOuter : Summable (fun p => ∑' γ, J (p, γ)) :=
+    Summable.of_nonneg_of_le (fun p => tsum_nonneg (fun γ => hJpos (p, γ))) hTotalBound hd
+  have hJ : Summable J := (summable_prod_of_nonneg hJpos).2 ⟨hFiber, hOuter⟩
+  exact ⟨hInt, hJ⟩
+
 /-- lem:reflection-theta-representation, 04:222–328: both series and averaged integral are absolute. -/
 theorem lem_reflection_theta_representation :
   ∀ r l Z, 0 < l → 0 < Z →
