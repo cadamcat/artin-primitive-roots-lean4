@@ -1,4 +1,10 @@
 import ArtinPrimitiveRoots.A1.AddChar
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.FiniteField
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueCharacter
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueAdditive
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.Gamma
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.NormTransport
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.LambdaData
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.Equality
 import ArtinPrimitiveRoots.Hecke.Dict.IdeleCoordinates
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
@@ -2136,6 +2142,97 @@ def HeckeChar.HasAngularType (D : FieldData F) (χ : HeckeChar F) : Prop :=
         (InfinitePlace.Completion.ringEquivComplexOfIsComplex
           (D.isTotallyComplex.isComplex w)).symm.toMonoidHom z) : ℂˣ) : ℂ) =
         ((z : ℂ) / ‖(z : ℂ)‖) ^ m
+
+namespace a1_gauss_sol
+
+open ArtinPrimitiveRoots.Proofs.a1_gauss_sol
+
+theorem gauss_correction_data (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (H : HilbertData F) (Bd : BData S H)
+    (θB : Bd.B →* ℂˣ)
+    (hθ : ∀ v : FinPlace F, v ∉ S.Sf → ∀ p : Fˣ,
+      ∀ (hpgen : S.IsGen (p : F) v.asIdeal), ∀ (hpAllowed : Bd.Allowed p),
+      gamma D S A 3 v.asIdeal (p : F) =
+        ((θB ⟨(QuotientGroup.mk (S.diagU p) : S.V), hpAllowed⟩ : ℂˣ) : ℂ)) :
+    ∃ G : HeckeChar F, IsOfFinOrder G ∧
+      ∀ v : FinPlace F, v ∉ S.Sf → G.UnramifiedAt v ∧
+        ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+          G.primeValue v = (starRingEnd ℂ) (chi D v 4) *
+            gamma D S A 3 v.asIdeal (p : F) := by
+  classical
+  obtain ⟨θ, hθfin, hθram, hθideal⟩ := class_character_extension D S H Bd θB
+  let four : Fˣ := Units.mk0 (4 : F) (by norm_num)
+  obtain ⟨κ, hκfin, hκ⟩ := kummer_exists D S four
+  let G : HeckeChar F := θ * κ⁻¹
+  refine ⟨G, hθfin.mul hκfin.inv, ?_⟩
+  intro v hv
+  have h6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  have hr4 : residue v (4 : F) = Ideal.Quotient.mk v.asIdeal (4 : 𝓞 F) := by
+    simpa only [map_ofNat] using
+      ArtinPrimitiveRoots.A2.qs_nq0_residue_algebraMap v (4 : 𝓞 F)
+  have hres4 : residue v (4 : F) ≠ 0 := by
+    intro hz
+    have h4 : (4 : 𝓞 F) ∈ v.asIdeal :=
+      Ideal.Quotient.eq_zero_iff_mem.mp (hr4.symm.trans hz)
+    have h2 : (2 : 𝓞 F) ∈ v.asIdeal :=
+      v.isPrime.mem_of_pow_mem 2 (by
+        simpa only [show (2 : 𝓞 F) ^ 2 = 4 by norm_num] using h4)
+    apply h6
+    simpa only [show (3 : 𝓞 F) * 2 = 6 by norm_num] using
+      v.asIdeal.mul_mem_left (3 : 𝓞 F) h2
+  have hκv := hκ v hv hres4
+  change κ.UnramifiedAt v ∧ κ.primeValue v = chi D v 4 at hκv
+  have hroot : chi D v 4 ^ 6 = 1 := by
+    rw [chi, if_neg hres4]
+    have hμ : (((chiAlg v (4 : F) : (𝓞 F)ˣ) : 𝓞 F)) ^ 6 = 1 :=
+      (mem_rootsOfUnity' 6 _).mp (chiAlg v (4 : F)).property
+    rw [← map_pow, ← map_pow, hμ, map_one, map_one]
+  have hinv : (chi D v 4)⁻¹ = (starRingEnd ℂ) (chi D v 4) :=
+    Complex.inv_eq_conj (Complex.norm_eq_one_of_pow_eq_one hroot (by decide))
+  have hloc (u : (v.adicCompletion F)ˣ) :
+      G.loc v u = θ.loc v u * (κ.loc v u)⁻¹ := rfl
+  have hGram : G.UnramifiedAt v := by
+    intro u hu huinv
+    rw [hloc, hθram v hv u hu huinv, hκv.1 u hu huinv, inv_one, mul_one]
+  have hprime : G.primeValue v = θ.primeValue v * (κ.primeValue v)⁻¹ := by
+    unfold HeckeChar.primeValue
+    rw [if_pos hGram, if_pos (hθram v hv), if_pos hκv.1, hloc,
+      Units.val_mul, Units.val_inv_eq_inv_val]
+  refine ⟨hGram, ?_⟩
+  intro p hp ha
+  have hfac : UniqueFactorizationMonoid.normalizedFactors v.asIdeal = {v.asIdeal} := by
+    simpa only [normalize_eq] using
+      UniqueFactorizationMonoid.normalizedFactors_irreducible v.irreducible
+  have hideal : θ.idealValue v.asIdeal = θ.primeValue v := by
+    unfold HeckeChar.idealValue
+    rw [hfac, Multiset.map_singleton, Multiset.prod_singleton,
+      dif_pos ⟨v.isPrime, v.ne_bot⟩]
+  have hθvalue : θ.primeValue v = gamma D S A 3 v.asIdeal (p : F) := by
+    rw [← hideal]
+    exact (hθideal v.asIdeal p hp.1 hp ha).trans (hθ v hv p hp ha).symm
+  rw [hprime, hθvalue, hκv.2, hinv]
+  exact mul_comm _ _
+
+end a1_gauss_sol
+
+namespace a1_lambda_sol
+
+/-- The A1-LAMBDA endpoint, integrated below the frozen Gauss-character theorem.
+The lower-level proof files unfold the Hecke and angular interfaces to avoid an import cycle. -/
+theorem lambda_data (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (H : HilbertData F) (Bd : BData S H) :
+    ∃ Λ : HeckeChar F, (∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1) ∧
+      HeckeChar.HasAngularType D Λ ∧
+      ∀ v : FinPlace F, v ∉ S.Sf → Λ.UnramifiedAt v ∧
+        ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+          gamma D S A 2 v.asIdeal (p : F) ^ 3 = -Λ.primeValue v := by
+  obtain ⟨Λ, hu, ha, hΛ⟩ :=
+    ArtinPrimitiveRoots.Proofs.a1_lambda_sol.lambda_data_below D S A
+  refine ⟨Λ, hu, ha, ?_⟩
+  intro v hv
+  exact ⟨(hΛ v hv).1, fun p hp _ => (hΛ v hv).2 (p : F) hp⟩
+
+end a1_lambda_sol
 
 /-- lem:gauss-characters (02:411–436): `Λ` unitary, `G` finite order, both unramified at `v ∉ S`,
 with `γ_2(𝔭)³ = -Λ(𝔭)`, `G(𝔭) = conj(χ_𝔭(4))γ_3(𝔭)`, `γ_1(𝔭)γ_2(𝔭) = -Λ(𝔭)G(𝔭)` for every exterior
