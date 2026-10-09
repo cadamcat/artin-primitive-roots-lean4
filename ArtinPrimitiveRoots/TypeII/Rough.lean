@@ -5447,6 +5447,273 @@ private theorem principal_tuple_density_sum (x γ l r W : ℝ)
       intro y hy
       exact (hDensity y (by simpa only [Set.uIcc_of_le hlr] using hy)).symm
 
+set_option maxHeartbeats 2000000 in
+/-- Principal rough counts have the density main term on the fixed exponent window. -/
+private theorem principal_low_count (γ : ℝ) (hγ : 0 < γ) :
+    ∀ wMin wMax : ℝ, γ < wMin → wMin < wMax → wMax < 1 →
+      ∀ A₀ A₁ : ℝ, 0 < A₀ → 0 < A₁ →
+      ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          ∀ M : ℝ, Real.rpow x γ ≤ M →
+            Real.log M / Real.log x ∈ Set.Icc wMin wMax →
+              Real.log (2 * M) / Real.log x ∈ Set.Icc wMin wMax →
+                ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
+                  ∀ χ : DirichletCharacter ℂ k, χ = 1 → ∀ l r : ℝ,
+                    M ≤ l → l ≤ r → r ≤ 2 * M →
+                      ‖(∑ m ∈ (Finset.range (⌊r⌋₊ + 1)).filter (fun m : ℕ =>
+                            l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r),
+                          (roughIndicator x γ m : ℂ) * χ (m : ZMod k)) -
+                        (((1 / Real.log x) *
+                          ∫ y in l..r, ArtinPrimitiveRoots.Sieve.roughDensity γ
+                            (Real.log y / Real.log x) : ℝ) : ℂ)‖ ≤
+                        C * M * Real.rpow (Real.log x) (-A₁) := by
+  intro wMin wMax hγwMin hww hw A₀ A₁ hA₀ hA₁
+  have hγwMax : γ < wMax := hγwMin.trans hww
+  let J : ℕ := ⌊wMax / γ⌋₊
+  obtain ⟨Ct, xt, hCt, hxt, hTuples⟩ :=
+    principal_tuple_count_comparison γ hγ A₁ hA₁ J
+  obtain ⟨Csq, xSq, hCsq, hxSq, hSquare⟩ :=
+    square_error γ wMax γ hγ hγ hγwMax
+  obtain ⟨xLogBase, hLogBase⟩ := Filter.eventually_atTop.mp (eventually_log_ge_const 1)
+  obtain ⟨xLogPow, hLogPow⟩ := Filter.eventually_atTop.mp
+    (eventually_log_rpow_le_rpow A₁ γ hγ)
+  obtain ⟨xMod, hMod⟩ := Filter.eventually_atTop.mp
+    (eventually_log_rpow_le_rpow A₀ (γ / 2) (by linarith))
+  let xTail₀ := max xLogPow xMod
+  let xTail₁ := max xLogBase xTail₀
+  let xTail₂ := max xSq xTail₁
+  let xTail₃ := max xt xTail₂
+  let x₀ := max 2 xTail₃
+  let Cconv := Ct * ((J + 1 : ℕ) : ℝ)
+  let C₀ := Csq + Cconv
+  have hCconv : 0 < Cconv := by dsimp [Cconv]; positivity
+  have hC₀ : 0 < C₀ := by dsimp [C₀]; positivity
+  refine ⟨C₀, x₀, hC₀, le_max_left _ _, ?_⟩
+  intro x hx M hMlower hMwindow h2Mwindow k hk hmod χ hχ l r hl hlr hr
+  classical
+  let L := Real.log x
+  let B : ℕ := ⌊2 * M⌋₊ + 1
+  let Jset : Finset ℕ := Finset.Icc 1 J
+  let D : ℝ := Real.rpow L (-A₁)
+  let S : Finset ℕ := (Finset.range (⌊r⌋₊ + 1)).filter
+    (fun m : ℕ => l ≤ (m : ℝ) ∧ (m : ℝ) ≤ r)
+  let z : ℕ → ℂ := fun m => χ (m : ZMod k)
+  let T (j : ℕ) := (boundedTuples j B).filter (fun t =>
+    (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+      l ≤ ((∏ i : Fin j, t i : ℕ) : ℝ) ∧
+      ((∏ i : Fin j, t i : ℕ) : ℝ) ≤ r)
+  let K (j : ℕ) : ℝ := (1 / (j.factorial : ℝ)) * ((T j).card : ℝ)
+  let I (j : ℕ) : ℝ := roughTupleIntegral x γ l r j
+  let tupleSum (j : ℕ) : ℂ := ∑ t ∈ T j, χ ((∏ i : Fin j, t i : ℕ) : ZMod k)
+  let main : ℝ := (1 / L) * ∫ y in l..r,
+    ArtinPrimitiveRoots.Sieve.roughDensity γ (Real.log y / L)
+  have hx₂ : 2 ≤ x := (le_max_left 2 xTail₃).trans hx
+  have hxpos : 0 < x := by linarith
+  have hxone : 1 ≤ x := by linarith
+  have hxTail₃ : xTail₃ ≤ x := (le_max_right 2 xTail₃).trans hx
+  have hxt' : xt ≤ x := (le_max_left xt xTail₂).trans hxTail₃
+  have hxTail₂ : xTail₂ ≤ x := (le_max_right xt xTail₂).trans hxTail₃
+  have hxSq' : xSq ≤ x := (le_max_left xSq xTail₁).trans hxTail₂
+  have hxTail₁ : xTail₁ ≤ x := (le_max_right xSq xTail₁).trans hxTail₂
+  have hxLogBase' : xLogBase ≤ x := (le_max_left xLogBase xTail₀).trans hxTail₁
+  have hxTail₀ : xTail₀ ≤ x := (le_max_right xLogBase xTail₀).trans hxTail₁
+  have hxLogPow' : xLogPow ≤ x := (le_max_left xLogPow xMod).trans hxTail₀
+  have hxMod : xMod ≤ x := (le_max_right xLogPow xMod).trans hxTail₀
+  have hLone : 1 ≤ L := hLogBase x hxLogBase'
+  have hLpos : 0 < L := by linarith
+  have hDpos : 0 < D := Real.rpow_pos_of_pos hLpos _
+  have hMone : 1 ≤ M := (Real.one_le_rpow hxone hγ.le).trans hMlower
+  have hMpos : 0 < M := by linarith
+  have hMLogStrict : γ * L < Real.log M :=
+    (mul_lt_mul_of_pos_right hγwMin hLpos).trans_le
+      ((le_div_iff₀ hLpos).mp hMwindow.1)
+  have hYM : Real.rpow x γ < M := by
+    have hExp := Real.exp_lt_exp.mpr hMLogStrict
+    rw [Real.exp_log hMpos] at hExp
+    rw [Real.rpow_eq_pow, Real.rpow_def_of_pos hxpos]
+    simpa only [L, mul_comm] using hExp
+  have hYl : Real.rpow x γ < l := hYM.trans_le hl
+  have hscaleMax : 2 * M ≤ Real.rpow x wMax := by
+    have hLog : Real.log (2 * M) ≤ wMax * L :=
+      (div_le_iff₀ hLpos).mp h2Mwindow.2
+    have hExp := Real.exp_le_exp.mpr hLog
+    rw [Real.exp_log (by positivity : 0 < 2 * M)] at hExp
+    rw [Real.rpow_eq_pow, Real.rpow_def_of_pos hxpos]
+    simpa only [L, mul_comm] using hExp
+  have h2Mx : 2 * M ≤ x := by
+    calc
+      2 * M ≤ Real.rpow x wMax := hscaleMax
+      _ ≤ Real.rpow x 1 := Real.rpow_le_rpow_of_exponent_le hxone hw.le
+      _ = x := Real.rpow_one x
+  have hkY : (k : ℝ) < Real.rpow x γ := by
+    have hSmall : Real.rpow x (γ / 2) < Real.rpow x γ := by
+      simpa only [Real.rpow_eq_pow] using
+        Real.rpow_lt_rpow_of_exponent_lt (by linarith : 1 < x)
+          (by linarith : γ / 2 < γ)
+    exact (hmod.trans (hMod x hxMod)).trans_lt hSmall
+  have hLogPow : Real.rpow L A₁ ≤ Real.rpow x γ := by
+    simpa only [L] using hLogPow x hxLogPow'
+  have hDecay : Real.rpow x (-γ) ≤ Real.rpow L (-A₁) := by
+    have hnegx : Real.rpow x (-γ) = (Real.rpow x γ)⁻¹ :=
+      Real.rpow_neg (by positivity : 0 ≤ x) γ
+    have hnegL : Real.rpow L (-A₁) = (Real.rpow L A₁)⁻¹ :=
+      Real.rpow_neg (by positivity : 0 ≤ L) A₁
+    rw [hnegx, hnegL]
+    exact (inv_le_inv₀ (Real.rpow_pos_of_pos hxpos γ)
+      (Real.rpow_pos_of_pos hLpos A₁)).2 hLogPow
+  have hSq := hSquare x hxSq' M hMone hMlower hscaleMax
+  have hSqL1 :
+      (∑ m ∈ dyadicIntegers M,
+        |roughIndicator x γ m - roughConvolution x γ wMax M m|) ≤
+          Csq * M * Real.rpow x (-γ) := by
+    have hSq' := hSq
+    simp only [Nat.cast_sum] at hSq'
+    exact hSq'.1.trans hSq'.2
+  have hSsubset : S ⊆ dyadicIntegers M := by
+    intro m hm
+    rcases Finset.mem_filter.mp hm with ⟨_, ⟨hlm, hmr⟩⟩
+    have hmUpper : (m : ℝ) ≤ 2 * M := hmr.trans hr
+    have hmFloor : m ≤ ⌊2 * M⌋₊ := Nat.le_floor hmUpper
+    change m ∈ (Finset.range (⌊2 * M⌋₊ + 1) : Finset ℕ).filter
+      (fun q : ℕ => M ≤ (q : ℝ) ∧ (q : ℝ) ≤ 2 * M)
+    exact Finset.mem_filter.mpr
+      ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le hmFloor), ⟨hl.trans hlm, hmUpper⟩⟩
+  have hzNorm (m : ℕ) : ‖z m‖ ≤ 1 := χ.norm_le_one _
+  have hErr :
+      ‖∑ m ∈ S, (((roughIndicator x γ m - roughConvolution x γ wMax M m : ℝ) : ℂ) * z m)‖ ≤
+        Csq * M * Real.rpow (Real.log x) (-A₁) := by
+    calc
+      _ ≤ ∑ m ∈ S,
+          ‖((roughIndicator x γ m - roughConvolution x γ wMax M m : ℝ) : ℂ) * z m‖ := norm_sum_le _ _
+      _ ≤ ∑ m ∈ S, |roughIndicator x γ m - roughConvolution x γ wMax M m| := by
+        apply Finset.sum_le_sum
+        intro m hm
+        rw [norm_mul, Complex.norm_real, Real.norm_eq_abs]
+        exact mul_le_of_le_one_right (abs_nonneg _) (hzNorm m)
+      _ ≤ ∑ m ∈ dyadicIntegers M,
+          |roughIndicator x γ m - roughConvolution x γ wMax M m| :=
+        Finset.sum_le_sum_of_subset_of_nonneg hSsubset (by intro m hm hmd; positivity)
+      _ ≤ Csq * M * Real.rpow x (-γ) := hSqL1
+      _ ≤ Csq * M * Real.rpow (Real.log x) (-A₁) := by
+        exact mul_le_mul_of_nonneg_left hDecay (by positivity)
+  have hRnonneg : 0 ≤ r := by linarith [hMone, hl, hlr]
+  have hConvReindex :
+      (∑ m ∈ S, (roughConvolution x γ wMax M m : ℂ) * z m) =
+        ∑ j ∈ Jset, (1 / (j.factorial : ℂ)) * tupleSum j := by
+    have hcastConv (m : ℕ) : (roughConvolution x γ wMax M m : ℂ) =
+        ∑ j ∈ Jset, (roughConvolutionTerm x γ M j m : ℂ) := by
+      simp [roughConvolution, Jset, J]
+    calc
+      _ = ∑ m ∈ S,
+          (∑ j ∈ Jset, (roughConvolutionTerm x γ M j m : ℂ)) * z m := by
+        apply Finset.sum_congr rfl
+        intro m hm
+        exact congrArg (fun w : ℂ => w * z m) (hcastConv m)
+      _ = ∑ m ∈ S, ∑ j ∈ Jset,
+          (roughConvolutionTerm x γ M j m : ℂ) * z m := by
+        apply Finset.sum_congr rfl
+        intro m hm
+        rw [Finset.sum_mul]
+      _ = ∑ j ∈ Jset, ∑ m ∈ S,
+          (roughConvolutionTerm x γ M j m : ℂ) * z m := by rw [Finset.sum_comm]
+      _ = _ := by
+        apply Finset.sum_congr rfl
+        intro j hj
+        cases j with
+        | zero =>
+          change 0 ∈ Finset.Icc 1 J at hj
+          have h := (Finset.mem_Icc.mp hj).1
+          omega
+        | succ n =>
+          have hRe := roughPrimeTuple_count_reindex x γ M l r (n + 1) k χ hRnonneg
+          simpa only [tupleSum, T, B, z, Nat.succ_sub_one, mul_assoc] using hRe
+  have hCharTuple (j : ℕ) (t : Fin j → ℕ) (ht : t ∈ T j) :
+      χ ((∏ i : Fin j, t i : ℕ) : ZMod k) = 1 := by
+    have hcop : Nat.Coprime (∏ i : Fin j, t i) k := by
+      apply Nat.coprime_prod_left_iff.mpr
+      intro i hi
+      have hti := (Finset.mem_filter.mp ht).2.1 i
+      have hkp : k < t i := by exact_mod_cast hkY.trans hti.2
+      exact ArtinPrimitiveRoots.Proofs.RImplP.RLow.prime_coprime_of_lt hti.1 hk hkp
+    rw [hχ]
+    exact MulChar.one_apply ((ZMod.isUnit_iff_coprime _ _).mpr hcop)
+  have hTuplePrincipal (j : ℕ) : tupleSum j = ((T j).card : ℂ) := by
+    calc
+      _ = ∑ t ∈ T j, (1 : ℂ) := by
+        apply Finset.sum_congr rfl
+        intro t ht
+        exact hCharTuple j t ht
+      _ = _ := by simp
+  have hCoeffCast (j : ℕ) : (1 / (j.factorial : ℂ)) * tupleSum j = (K j : ℂ) := by
+    simp [K, hTuplePrincipal]
+  have hConvReal : (∑ m ∈ S, (roughConvolution x γ wMax M m : ℂ) * z m) =
+      ((∑ j ∈ Jset, K j : ℝ) : ℂ) := by
+    calc
+      _ = ∑ j ∈ Jset, (1 / (j.factorial : ℂ)) * tupleSum j := hConvReindex
+      _ = ∑ j ∈ Jset, (K j : ℂ) :=
+        Finset.sum_congr rfl (fun j hj => hCoeffCast j)
+      _ = _ := by simp
+  have hrpos : 0 < r := hMpos.trans_le (hl.trans hlr)
+  have hrW : Real.log r / Real.log x ≤ wMax :=
+    (div_le_div_of_nonneg_right (Real.log_le_log hrpos hr) hLpos.le).trans h2Mwindow.2
+  have hMain : (∑ j ∈ Jset, I j) = main :=
+    principal_tuple_density_sum x γ l r wMax hx₂ hγ hγwMax hYl hlr hrW
+  have hOneJ (j : ℕ) (hj : j ∈ Jset) : |K j - I j| ≤ Ct * M * D := by
+    rcases Finset.mem_Icc.mp hj with ⟨hj1, hjJ⟩
+    exact hTuples x hxt' M hMpos h2Mx j hj1 hjJ l r hl hlr hr
+  have hCard : (Jset.card : ℝ) ≤ ((J + 1 : ℕ) : ℝ) := by
+    have hsubset : Jset ⊆ Finset.range (J + 1) := by
+      intro j hj
+      rcases Finset.mem_Icc.mp hj with ⟨hj1, hjJ⟩
+      exact Finset.mem_range.mpr (by omega)
+    have hcard : Jset.card ≤ J + 1 := by
+      calc
+        Jset.card ≤ (Finset.range (J + 1)).card := Finset.card_le_card hsubset
+        _ = J + 1 := Finset.card_range _
+    exact_mod_cast hcard
+  have hRealBound : |(∑ j ∈ Jset, K j) - main| ≤ Cconv * M * D := by
+    rw [← hMain, ← Finset.sum_sub_distrib]
+    calc
+      _ ≤ ∑ j ∈ Jset, |K j - I j| := Finset.abs_sum_le_sum_abs _ _
+      _ ≤ (Jset.card : ℝ) * (Ct * M * D) := by
+        simpa [nsmul_eq_mul] using
+          (Finset.sum_le_card_nsmul Jset (fun j => |K j - I j|)
+            (Ct * M * D) (fun j hj => hOneJ j hj))
+      _ ≤ ((J + 1 : ℕ) : ℝ) * (Ct * M * D) :=
+        mul_le_mul_of_nonneg_right hCard (by positivity)
+      _ = Cconv * M * D := by dsimp [Cconv]; ring
+  have hconvBound :
+      ‖(∑ m ∈ S, (roughConvolution x γ wMax M m : ℂ) * z m) - (main : ℂ)‖ ≤
+        Cconv * M * D := by
+    rw [hConvReal, ← Complex.ofReal_sub, Complex.norm_real, Real.norm_eq_abs]
+    exact hRealBound
+  have hsumIdentity :
+      (∑ m ∈ S, (roughIndicator x γ m : ℂ) * z m) =
+        (∑ m ∈ S, (roughConvolution x γ wMax M m : ℂ) * z m) +
+          ∑ m ∈ S, (((roughIndicator x γ m - roughConvolution x γ wMax M m : ℝ) : ℂ) * z m) := by
+    rw [← Finset.sum_add_distrib]
+    apply Finset.sum_congr rfl
+    intro m hm
+    simp only [Complex.ofReal_sub]
+    ring
+  have hCentered :
+      (∑ m ∈ S, (roughIndicator x γ m : ℂ) * z m) - (main : ℂ) =
+        ((∑ m ∈ S, (roughConvolution x γ wMax M m : ℂ) * z m) - (main : ℂ)) +
+          ∑ m ∈ S, (((roughIndicator x γ m - roughConvolution x γ wMax M m : ℝ) : ℂ) * z m) := by
+    rw [hsumIdentity]
+    ring
+  have htotal :
+      ‖(∑ m ∈ S, (roughIndicator x γ m : ℂ) * z m) - (main : ℂ)‖ ≤
+        C₀ * M * D := by
+    rw [hCentered]
+    calc
+      _ ≤ ‖(∑ m ∈ S, (roughConvolution x γ wMax M m : ℂ) * z m) - (main : ℂ)‖ +
+          ‖∑ m ∈ S,
+            (((roughIndicator x γ m - roughConvolution x γ wMax M m : ℝ) : ℂ) * z m)‖ := norm_add_le _ _
+      _ ≤ Cconv * M * D + Csq * M * D := add_le_add hconvBound hErr
+      _ = C₀ * M * D := by dsimp [C₀]; ring
+  simpa only [S, z, main, L, D] using htotal
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
