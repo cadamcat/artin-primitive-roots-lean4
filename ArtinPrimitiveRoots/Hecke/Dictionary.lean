@@ -242,7 +242,7 @@ theorem conductorNorm_le_modulusNorm {m : RayClassModulus F} (η : RayClassGroup
 /-! ## §1 Ray class → idelic -/
 
 private def d1IdeleCongrOneSubgroup (m : RayClassModulus F) :
-    Subgroup (IdeleGroup (𝓞 F) F) where
+    Subgroup (NumberField.IdeleGroup (𝓞 F) F) where
   carrier := {x |
     (∀ v : FinPlace F, v ∈ m.finitePart.support →
       ideleFiniteCoord v x ∈ rayLocalHigherUnitGroup v (m.finitePart v)) ∧
@@ -276,7 +276,7 @@ private def d1IdeleCongrOneSubgroup (m : RayClassModulus F) :
       exact inv_pos.mpr (hxinf w hw)
 
 private theorem d1_ideleFiniteCoord_unitEmbedding (v : FinPlace F) (a : Fˣ) :
-    ideleFiniteCoord v (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+    ideleFiniteCoord v (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
       finitePlaceUnitEmbedding v a := by
   apply Units.ext
   rfl
@@ -296,8 +296,8 @@ private theorem d1_valued_eq_one_of_bound (v : FinPlace F) (n : ℕ) (hn : 0 < n
 
 set_option maxHeartbeats 1000000 in
 private theorem d1_exists_adjusted_idele (m : RayClassModulus F)
-    (x : IdeleGroup (𝓞 F) F) :
-    ∃ a : Fˣ, IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m := by
+    (x : NumberField.IdeleGroup (𝓞 F) F) :
+    ∃ a : Fˣ, NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m := by
   classical
   let r : m.infinitePart → ℝ := fun w =>
     InfinitePlace.Completion.extensionEmbeddingOfIsReal w.1.2
@@ -340,7 +340,7 @@ private theorem d1_exists_adjusted_idele (m : RayClassModulus F)
             WithZero.exp (-(m.finitePart v.1 : ℤ)))
       (hinf : ∀ w : m.infinitePart,
         0 < w.1.1.embedding_of_isReal w.1.2 (a : F) * r w) :
-      IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m := by
+      NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m := by
     refine ⟨fun v hv => ?_, fun w hw => ?_⟩
     · have he : 0 < m.finitePart v := Nat.pos_of_ne_zero
         (Finsupp.mem_support_iff.mp hv)
@@ -360,11 +360,11 @@ private theorem d1_exists_adjusted_idele (m : RayClassModulus F)
       have hloc := ArtinPrimitiveRoots.Proofs.hk_misc_p.d1_mem_rayLocalHigherUnitGroup_iff
         v (m.finitePart v) u
       have hloc' := hloc.mpr ⟨huInt, huInvInt, hu⟩
-      change ideleFiniteCoord v (IdeleGroup.unitEmbedding (𝓞 F) F a * x) ∈ _
+      change ideleFiniteCoord v (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x) ∈ _
       rw [map_mul, d1_ideleFiniteCoord_unitEmbedding]
       exact hloc'
     · change 0 < InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
-        (ideleInfiniteCoord w.1 (IdeleGroup.unitEmbedding (𝓞 F) F a * x))
+        (ideleInfiniteCoord w.1 (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x))
       rw [ideleInfiniteCoord_mul, ideleInfiniteCoord_unitEmbedding, map_mul]
       have hglobal : InfinitePlace.Completion.extensionEmbeddingOfIsReal w.2
           (a : w.1.Completion) = w.1.embedding_of_isReal w.2 (a : F) :=
@@ -398,12 +398,12 @@ private theorem d1_exists_adjusted_idele (m : RayClassModulus F)
         simpa using hx
   · exact ⟨Units.mk0 α hα, hkey (Units.mk0 α hα) hαf hαi⟩
 
-private def d1IdeleIdealHom : IdeleGroup (𝓞 F) F →*
+private def d1IdeleIdealHom : NumberField.IdeleGroup (𝓞 F) F →*
     NumberFieldFractionalIdealGroup F :=
-  Dictionary.toFractionalIdeal.comp (IdeleGroup.toFiniteIdele (𝓞 F) F)
+  Dictionary.toFractionalIdeal.comp (NumberField.IdeleGroup.toFiniteIdele (𝓞 F) F)
 
 private theorem d1IdeleIdealPrimeTo (m : RayClassModulus F)
-    (x : IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleCongrOneSubgroup m) :
+    (x : NumberField.IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleCongrOneSubgroup m) :
     d1IdeleIdealHom x ∈ rayClassPrimeToIdeals m := by
   intro v hv
   have hlocal := ArtinPrimitiveRoots.Proofs.hk_misc_p.d1_mem_rayLocalHigherUnitGroup_iff
@@ -416,9 +416,9 @@ private theorem d1IdeleIdealPrimeTo (m : RayClassModulus F)
   change FractionalIdeal.count F v
     (d1IdeleIdealHom x : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0
   rw [d1IdeleIdealHom, MonoidHom.comp_apply, Dictionary.count_coe_toFractionalIdeal]
-  have hord : Dictionary.adicOrd (IdeleGroup.toFiniteIdele (𝓞 F) F x) v = 0 := by
+  have hord : Dictionary.adicOrd (NumberField.IdeleGroup.toFiniteIdele (𝓞 F) F x) v = 0 := by
     rw [Dictionary.adicOrd_eq_zero_iff]
-    simpa only [IdeleGroup.coe_toFiniteIdele, ← Dictionary.ideleFiniteCoord_apply] using hval
+    simpa only [NumberField.IdeleGroup.coe_toFiniteIdele, ← Dictionary.ideleFiniteCoord_apply] using hval
   exact hord
 
 private def d1IdeleRayClass (m : RayClassModulus F) :
@@ -444,7 +444,7 @@ private theorem d1IdeleRayClass_one_of_ideal_one (m : RayClassModulus F)
   exact one_mem _
 
 private theorem d1_ideleUnitEmbedding_mem_rayCongruent (m : RayClassModulus F)
-    (a : Fˣ) (ha : IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m) :
+    (a : Fˣ) (ha : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m) :
     IsRayCongruent m a := by
   refine ⟨fun v hv => ?_, fun w hw => ?_⟩
   · simpa only [d1_ideleFiniteCoord_unitEmbedding] using ha.1 v hv
@@ -457,70 +457,70 @@ private theorem d1_ideleUnitEmbedding_mem_rayCongruent (m : RayClassModulus F)
     exact hglobal ▸ h
 
 private theorem d1IdeleIdealHom_unitEmbedding (a : Fˣ) :
-    d1IdeleIdealHom (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+    d1IdeleIdealHom (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
       toPrincipalIdeal (𝓞 F) F a := by
-  simp [d1IdeleIdealHom, IdeleGroup.toFiniteIdele_unitEmbedding,
+  simp [d1IdeleIdealHom, NumberField.IdeleGroup.toFiniteIdele_unitEmbedding,
     Dictionary.toFractionalIdeal_unitEmbedding]
 
 private theorem d1IdeleRayClass_unitEmbedding (m : RayClassModulus F) (a : Fˣ)
-    (ha : IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m) :
-    d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F a, ha⟩ = 1 := by
+    (ha : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m) :
+    d1IdeleRayClass m ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a, ha⟩ = 1 := by
   rw [d1IdeleRayClass_apply]
   have hprincipal : toPrincipalIdeal (𝓞 F) F a ∈ rayPrincipalIdealSubgroup m :=
     Subgroup.subset_closure ⟨a, d1_ideleUnitEmbedding_mem_rayCongruent m a ha, rfl⟩
-  have hmem : (⟨d1IdeleIdealHom (IdeleGroup.unitEmbedding (𝓞 F) F a),
-      d1IdeleIdealPrimeTo m (IdeleGroup.unitEmbedding (𝓞 F) F a) ha⟩ :
+  have hmem : (⟨d1IdeleIdealHom (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a),
+      d1IdeleIdealPrimeTo m (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) ha⟩ :
         rayClassPrimeToIdeals m) ∈ rayPrincipalIdealSubgroupInPrimeTo m := by
     apply Subgroup.mem_comap.mpr
-    change d1IdeleIdealHom (IdeleGroup.unitEmbedding (𝓞 F) F a) ∈
+    change d1IdeleIdealHom (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) ∈
       rayPrincipalIdealSubgroup m
     rw [d1IdeleIdealHom_unitEmbedding]
     exact hprincipal
   exact (QuotientGroup.eq_one_iff _).2 hmem
 
 private theorem d1IdeleRayClass_eq_adjusted (m : RayClassModulus F)
-    (x : IdeleGroup (𝓞 F) F) (a b : Fˣ)
-    (ha : IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m)
-    (hb : IdeleGroup.unitEmbedding (𝓞 F) F b * x ∈ d1IdeleCongrOneSubgroup m) :
-    d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ =
-      d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩ := by
+    (x : NumberField.IdeleGroup (𝓞 F) F) (a b : Fˣ)
+    (ha : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m)
+    (hb : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F b * x ∈ d1IdeleCongrOneSubgroup m) :
+    d1IdeleRayClass m ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ =
+      d1IdeleRayClass m ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩ := by
   let c : Fˣ := a * b⁻¹
-  have hc : IdeleGroup.unitEmbedding (𝓞 F) F c ∈ d1IdeleCongrOneSubgroup m := by
+  have hc : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F c ∈ d1IdeleCongrOneSubgroup m := by
     have h := (d1IdeleCongrOneSubgroup m).mul_mem ha
       ((d1IdeleCongrOneSubgroup m).inv_mem hb)
     convert h using 1
     simp only [c, map_mul, map_inv]
     group
-  have hsplit : (⟨IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ :
+  have hsplit : (⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ :
       d1IdeleCongrOneSubgroup m) =
-        ⟨IdeleGroup.unitEmbedding (𝓞 F) F c, hc⟩ *
-          ⟨IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩ := by
+        ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F c, hc⟩ *
+          ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩ := by
     apply Subtype.ext
     simp only [Subgroup.coe_mul]
     simp only [c, map_mul, map_inv]
     group
   rw [hsplit, map_mul, d1IdeleRayClass_unitEmbedding m c hc]
   exact one_mul (d1IdeleRayClass m
-    ⟨IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩)
+    ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F b * x, hb⟩)
 
 private noncomputable def d1IdeleToRayClassFun (m : RayClassModulus F)
-    (x : IdeleGroup (𝓞 F) F) : RayClassGroup m :=
+    (x : NumberField.IdeleGroup (𝓞 F) F) : RayClassGroup m :=
   let a := Classical.choose (d1_exists_adjusted_idele m x)
-  d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F a * x,
+  d1IdeleRayClass m ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x,
     Classical.choose_spec (d1_exists_adjusted_idele m x)⟩
 
 private theorem d1IdeleToRayClassFun_eq (m : RayClassModulus F)
-    (x : IdeleGroup (𝓞 F) F) (a : Fˣ)
-    (ha : IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m) :
+    (x : NumberField.IdeleGroup (𝓞 F) F) (a : Fˣ)
+    (ha : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x ∈ d1IdeleCongrOneSubgroup m) :
     d1IdeleToRayClassFun m x =
-      d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ := by
+      d1IdeleRayClass m ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x, ha⟩ := by
   exact d1IdeleRayClass_eq_adjusted m x
     (Classical.choose (d1_exists_adjusted_idele m x)) a
     (Classical.choose_spec (d1_exists_adjusted_idele m x)) ha
 
 set_option maxHeartbeats 1000000 in
 private noncomputable def d1IdeleToRayClass (m : RayClassModulus F) :
-    IdeleGroup (𝓞 F) F →* RayClassGroup m where
+    NumberField.IdeleGroup (𝓞 F) F →* RayClassGroup m where
   toFun := d1IdeleToRayClassFun m
   map_one' := by
     rw [d1IdeleToRayClassFun_eq m 1 1 (by simp)]
@@ -528,11 +528,11 @@ private noncomputable def d1IdeleToRayClass (m : RayClassModulus F) :
   map_mul' x y := by
     obtain ⟨a, ha⟩ := d1_exists_adjusted_idele m x
     obtain ⟨b, hb⟩ := d1_exists_adjusted_idele m y
-    have hmul : IdeleGroup.unitEmbedding (𝓞 F) F (a * b) * (x * y) =
-        IdeleGroup.unitEmbedding (𝓞 F) F a * x *
-          (IdeleGroup.unitEmbedding (𝓞 F) F b * y) := by
+    have hmul : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F (a * b) * (x * y) =
+        NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a * x *
+          (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F b * y) := by
       rw [map_mul, mul_mul_mul_comm]
-    have hab : IdeleGroup.unitEmbedding (𝓞 F) F (a * b) * (x * y) ∈
+    have hab : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F (a * b) * (x * y) ∈
         d1IdeleCongrOneSubgroup m := by
       rw [hmul]
       exact (d1IdeleCongrOneSubgroup m).mul_mem ha hb
@@ -542,12 +542,12 @@ private noncomputable def d1IdeleToRayClass (m : RayClassModulus F) :
     exact congrArg (d1IdeleRayClass m) (Subtype.ext hmul)
 
 private theorem d1IdeleToRayClass_unitEmbedding (m : RayClassModulus F) (a : Fˣ) :
-    d1IdeleToRayClass m (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
-  change d1IdeleToRayClassFun m (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
-  have ha : IdeleGroup.unitEmbedding (𝓞 F) F (a⁻¹) *
-      IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m := by
+    d1IdeleToRayClass m (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
+  change d1IdeleToRayClassFun m (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
+  have ha : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F (a⁻¹) *
+      NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a ∈ d1IdeleCongrOneSubgroup m := by
     simp
-  rw [d1IdeleToRayClassFun_eq m (IdeleGroup.unitEmbedding (𝓞 F) F a) a⁻¹ ha]
+  rw [d1IdeleToRayClassFun_eq m (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) a⁻¹ ha]
   simpa using d1IdeleRayClass_unitEmbedding m 1 (by simp)
 
 private noncomputable def d1RayClassQuotient (m : RayClassModulus F) :
@@ -558,7 +558,7 @@ private noncomputable def d1RayClassQuotient (m : RayClassModulus F) :
       exact MonoidHom.mem_ker.mpr (d1IdeleToRayClass_unitEmbedding m a))
 
 private theorem d1RayClassQuotient_mk (m : RayClassModulus F)
-    (x : IdeleGroup (𝓞 F) F) :
+    (x : NumberField.IdeleGroup (𝓞 F) F) :
     d1RayClassQuotient m (QuotientGroup.mk x) = d1IdeleToRayClass m x := by
   simp [d1RayClassQuotient]
 
@@ -630,19 +630,19 @@ private theorem d1AdeleRayOpenSet_isOpen (m : RayClassModulus F) :
   exact hInt.inter (hBound.inter hPos)
 
 private def d1IdeleOpenNeighborhood (m : RayClassModulus F) :
-    Set (IdeleGroup (𝓞 F) F) :=
-  (fun x : IdeleGroup (𝓞 F) F => (x : AdeleRing (𝓞 F) F)) ⁻¹'
+    Set (NumberField.IdeleGroup (𝓞 F) F) :=
+  (fun x : NumberField.IdeleGroup (𝓞 F) F => (x : AdeleRing (𝓞 F) F)) ⁻¹'
       d1AdeleRayOpenSet m ∩
-    (fun x : IdeleGroup (𝓞 F) F =>
-      ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) ⁻¹' d1AdeleRayOpenSet m
+    (fun x : NumberField.IdeleGroup (𝓞 F) F =>
+      ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) ⁻¹' d1AdeleRayOpenSet m
 
 set_option maxHeartbeats 1000000 in
 private theorem d1IdeleOpenNeighborhood_isOpen (m : RayClassModulus F) :
     IsOpen (d1IdeleOpenNeighborhood m) := by
-  have hcoe : Continuous fun x : IdeleGroup (𝓞 F) F => (x : AdeleRing (𝓞 F) F) :=
+  have hcoe : Continuous fun x : NumberField.IdeleGroup (𝓞 F) F => (x : AdeleRing (𝓞 F) F) :=
     Units.continuous_val
-  have hcoeInv : Continuous fun x : IdeleGroup (𝓞 F) F =>
-      ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F) :=
+  have hcoeInv : Continuous fun x : NumberField.IdeleGroup (𝓞 F) F =>
+      ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F) :=
     Units.continuous_val.comp continuous_inv
   exact (d1AdeleRayOpenSet_isOpen m).preimage hcoe |>.inter
     ((d1AdeleRayOpenSet_isOpen m).preimage hcoeInv)
@@ -664,10 +664,10 @@ private theorem d1_local_unit_valued_eq_one (v : FinPlace F)
   exact le_antisymm huVal ((inv_le_one₀ hpos).mp hinvVal)
 
 private theorem d1IdeleOpenNeighborhood_data (m : RayClassModulus F)
-    (x : IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleOpenNeighborhood m) :
+    (x : NumberField.IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleOpenNeighborhood m) :
     x ∈ d1IdeleCongrOneSubgroup m ∧ d1IdeleIdealHom x = 1 := by
   change ((x : AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m) ∧
-    (((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m) at hx
+    (((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m) at hx
   rcases hx with ⟨hx, hxi⟩
   rcases hx with ⟨hxInt, hxBound, hxPos⟩
   rcases hxi with ⟨hxiInt, hxiBound, hxiPos⟩
@@ -688,23 +688,23 @@ private theorem d1IdeleOpenNeighborhood_data (m : RayClassModulus F)
           ⟨huInt v, huInvInt v, hxBound v hv⟩
     · simpa [ideleInfiniteCoord] using hxPos w hw
   have horder (v : FinPlace F) :
-      Dictionary.adicOrd (IdeleGroup.toFiniteIdele (𝓞 F) F x) v = 0 := by
+      Dictionary.adicOrd (NumberField.IdeleGroup.toFiniteIdele (𝓞 F) F x) v = 0 := by
     rw [Dictionary.adicOrd_eq_zero_iff]
-    simpa only [IdeleGroup.coe_toFiniteIdele, ← ideleFiniteCoord_apply] using hlocal v
+    simpa only [NumberField.IdeleGroup.coe_toFiniteIdele, ← ideleFiniteCoord_apply] using hlocal v
   have hI : d1IdeleIdealHom x = 1 := by
-    change Dictionary.toFractionalIdeal (IdeleGroup.toFiniteIdele (𝓞 F) F x) = 1
+    change Dictionary.toFractionalIdeal (NumberField.IdeleGroup.toFiniteIdele (𝓞 F) F x) = 1
     exact (Dictionary.toFractionalIdeal_eq_one_iff).2 horder
   exact ⟨hxSub, hI⟩
 
 private theorem d1IdeleToRayClass_one_of_openNeighborhood (m : RayClassModulus F)
-    (x : IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleOpenNeighborhood m) :
+    (x : NumberField.IdeleGroup (𝓞 F) F) (hx : x ∈ d1IdeleOpenNeighborhood m) :
     d1IdeleToRayClass m x = 1 := by
   obtain ⟨hxSub, hI⟩ := d1IdeleOpenNeighborhood_data m x hx
-  have hOneSub : IdeleGroup.unitEmbedding (𝓞 F) F 1 * x ∈
+  have hOneSub : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F 1 * x ∈
       d1IdeleCongrOneSubgroup m := by simpa using hxSub
-  have hrep : d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F 1 * x, hOneSub⟩ =
+  have hrep : d1IdeleRayClass m ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F 1 * x, hOneSub⟩ =
       d1IdeleRayClass m ⟨x, hxSub⟩ := by
-    have heq : (⟨IdeleGroup.unitEmbedding (𝓞 F) F 1 * x, hOneSub⟩ :
+    have heq : (⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F 1 * x, hOneSub⟩ :
         d1IdeleCongrOneSubgroup m) = ⟨x, hxSub⟩ := by
       apply Subtype.ext
       simp
@@ -732,7 +732,7 @@ private theorem d1RayClassPullback_continuous (m : RayClassModulus F)
     Continuous (η.comp (d1RayClassQuotient m)) := by
   classical
   let N := NumberField.IdeleGroup.principalSubgroup (𝓞 F) F
-  let q : IdeleGroup (𝓞 F) F → IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' N
+  let q : NumberField.IdeleGroup (𝓞 F) F → IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' N
   let ψ := η.comp (d1RayClassQuotient m)
   have hUOpen : IsOpen (Set.image q (d1IdeleOpenNeighborhood m)) := by
     exact QuotientGroup.isOpenMap_coe (d1IdeleOpenNeighborhood m)
@@ -756,9 +756,9 @@ private theorem d1RayClassPullback_continuous (m : RayClassModulus F)
         have hone : (1 : InfiniteAdeleRing F) w.1 = 1 := rfl
         rw [hone]
         norm_num
-  have hOneU : (1 : IdeleGroup (𝓞 F) F) ∈ d1IdeleOpenNeighborhood m := by
+  have hOneU : (1 : NumberField.IdeleGroup (𝓞 F) F) ∈ d1IdeleOpenNeighborhood m := by
     change (1 : AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m ∧
-      (((1 : IdeleGroup (𝓞 F) F)⁻¹ : IdeleGroup (𝓞 F) F) :
+      (((1 : NumberField.IdeleGroup (𝓞 F) F)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) :
         AdeleRing (𝓞 F) F) ∈ d1AdeleRayOpenSet m
     simp only [inv_one]
     exact ⟨hAone, hAone⟩
@@ -784,8 +784,8 @@ private theorem d1_localIdele_rayClass_one (m : RayClassModulus F) (v : FinPlace
       v.adicCompletionIntegers F)
     (hbound : Valued.v ((u : v.adicCompletion F) - 1) ≤
       WithZero.exp (-(m.finitePart v : ℤ))) :
-    d1IdeleToRayClass m (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = 1 := by
-  let y := IdeleGroup.ofAdicCompletion (𝓞 F) F v u
+    d1IdeleToRayClass m (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = 1 := by
+  let y := NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u
   have hySub : y ∈ d1IdeleCongrOneSubgroup m := by
     refine ⟨fun w hw => ?_, fun w hw => ?_⟩
     · by_cases hEq : w = v
@@ -806,17 +806,17 @@ private theorem d1_localIdele_rayClass_one (m : RayClassModulus F) (v : FinPlace
       simpa [y] using d1_local_unit_valued_eq_one v u hu huinv
     · simp [y, ideleFiniteCoord_ofAdicCompletion_of_ne w v hEq]
   have horder (w : FinPlace F) :
-      Dictionary.adicOrd (IdeleGroup.toFiniteIdele (𝓞 F) F y) w = 0 := by
+      Dictionary.adicOrd (NumberField.IdeleGroup.toFiniteIdele (𝓞 F) F y) w = 0 := by
     rw [Dictionary.adicOrd_eq_zero_iff]
-    simpa only [IdeleGroup.coe_toFiniteIdele, ← ideleFiniteCoord_apply] using hval w
+    simpa only [NumberField.IdeleGroup.coe_toFiniteIdele, ← ideleFiniteCoord_apply] using hval w
   have hI : d1IdeleIdealHom y = 1 := by
-    change Dictionary.toFractionalIdeal (IdeleGroup.toFiniteIdele (𝓞 F) F y) = 1
+    change Dictionary.toFractionalIdeal (NumberField.IdeleGroup.toFiniteIdele (𝓞 F) F y) = 1
     exact (Dictionary.toFractionalIdeal_eq_one_iff).2 horder
-  have h1Sub : IdeleGroup.unitEmbedding (𝓞 F) F 1 * y ∈ d1IdeleCongrOneSubgroup m := by
+  have h1Sub : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F 1 * y ∈ d1IdeleCongrOneSubgroup m := by
     simpa using hySub
   change d1IdeleToRayClassFun m y = 1
   rw [d1IdeleToRayClassFun_eq m y 1 h1Sub]
-  have hrep : d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F 1 * y, h1Sub⟩ =
+  have hrep : d1IdeleRayClass m ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F 1 * y, h1Sub⟩ =
       d1IdeleRayClass m ⟨y, hySub⟩ := by
     apply congrArg (d1IdeleRayClass m)
     apply Subtype.ext
@@ -832,7 +832,7 @@ private theorem d1_localIdele_rayClassQuotient_one (m : RayClassModulus F) (v : 
     (hbound : Valued.v ((u : v.adicCompletion F) - 1) ≤
       WithZero.exp (-(m.finitePart v : ℤ))) :
     d1RayClassQuotient m
-      (QuotientGroup.mk (IdeleGroup.ofAdicCompletion (𝓞 F) F v u)) = 1 := by
+      (QuotientGroup.mk (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u)) = 1 := by
   rw [d1RayClassQuotient_mk]
   exact d1_localIdele_rayClass_one m v u hu huinv hbound
 
@@ -904,16 +904,16 @@ private theorem d1UniformizerUnit_valued (v : FinPlace F) :
     (HeightOneSpectrum.valuation_exists_uniformizer F v).choose_spec
 
 private theorem d1IdeleIdealHom_uniformizer (v : FinPlace F) :
-    d1IdeleIdealHom (IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
+    d1IdeleIdealHom (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
       finitePrimeFractionalIdeal v := by
-  let y := IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)
+  let y := NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)
   have hcount (w : FinPlace F) :
       FractionalIdeal.count F w (d1IdeleIdealHom y :
         FractionalIdeal (nonZeroDivisors (𝓞 F)) F) =
         FractionalIdeal.count F w
           (finitePrimeFractionalIdeal v : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) := by
     rw [d1IdeleIdealHom, MonoidHom.comp_apply, Dictionary.count_coe_toFractionalIdeal]
-    rw [Dictionary.adicOrd_def, IdeleGroup.coe_toFiniteIdele,
+    rw [Dictionary.adicOrd_def, NumberField.IdeleGroup.coe_toFiniteIdele,
       ← ideleFiniteCoord_apply]
     by_cases hw : w = v
     · subst w
@@ -939,9 +939,9 @@ private theorem d1IdeleIdealHom_uniformizer (v : FinPlace F) :
 private theorem d1IdeleToRayClass_uniformizer (m : RayClassModulus F) (v : FinPlace F)
     (hv : v ∉ m.finitePart.support) :
     d1IdeleToRayClass m
-        (IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
+        (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
       rayClassOfFinitePrime m v hv := by
-  let y := IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)
+  let y := NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)
   have hySub : y ∈ d1IdeleCongrOneSubgroup m := by
     refine ⟨fun w hw => ?_, fun w hw => ?_⟩
     · have hne : w ≠ v := by
@@ -954,11 +954,11 @@ private theorem d1IdeleToRayClass_uniformizer (m : RayClassModulus F) (v : FinPl
         simp
       rw [hcoord]
       simp
-  have h1Sub : IdeleGroup.unitEmbedding (𝓞 F) F 1 * y ∈ d1IdeleCongrOneSubgroup m := by
+  have h1Sub : NumberField.IdeleGroup.unitEmbedding (𝓞 F) F 1 * y ∈ d1IdeleCongrOneSubgroup m := by
     simpa using hySub
   change d1IdeleToRayClassFun m y = _
   rw [d1IdeleToRayClassFun_eq m y 1 h1Sub]
-  have hrep : d1IdeleRayClass m ⟨IdeleGroup.unitEmbedding (𝓞 F) F 1 * y, h1Sub⟩ =
+  have hrep : d1IdeleRayClass m ⟨NumberField.IdeleGroup.unitEmbedding (𝓞 F) F 1 * y, h1Sub⟩ =
       d1IdeleRayClass m ⟨y, hySub⟩ := by
     apply congrArg (d1IdeleRayClass m)
     apply Subtype.ext
@@ -1004,10 +1004,10 @@ private theorem d1_rayClassCharacter_primeValue (m : RayClassModulus F)
       d1RayClassQuotient m
           (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) =
           d1IdeleToRayClass m
-            (IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) := by
+            (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v)) := by
               simpa only [IdeleClassGroup.ofAdicCompletion, MonoidHom.comp_apply] using
                 DFunLike.congr_fun (d1RayClassQuotient_comp_mk m)
-                  (IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v))
+                  (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (d1UniformizerUnit v))
       _ = rayClassOfFinitePrime m v hv := d1IdeleToRayClass_uniformizer m v hv
       _ = rayClass m v.asIdeal hcop :=
         d1_rayClassOfFinitePrime_eq_rayClass m v hv hcop
@@ -1401,8 +1401,8 @@ private theorem valued_sub_one_le_of_mem_rayLocalHigherUnitGroup (v : FinPlace F
   · rw [← hyval]
     simpa using hboundA
 
-private def d2LocalUniformizerIdele (v : FinPlace F) : IdeleGroup (𝓞 F) F :=
-  IdeleGroup.ofAdicCompletion (𝓞 F) F v
+private def d2LocalUniformizerIdele (v : FinPlace F) : NumberField.IdeleGroup (𝓞 F) F :=
+  NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v
     (toLoc v (Units.mk0 (ArtinPrimitiveRoots.A1.unif (F := F) v)
       (ArtinPrimitiveRoots.A1.unif_ne_zero (F := F) v)))
 
@@ -1435,7 +1435,7 @@ private theorem d2IdealIdelFactor_hasFiniteMulSupport
   exact Filter.eventually_cofinite.mp hFactor
 
 private noncomputable def d2IdealIdelHom :
-    NumberFieldFractionalIdealGroup F →* IdeleGroup (𝓞 F) F where
+    NumberFieldFractionalIdealGroup F →* NumberField.IdeleGroup (𝓞 F) F where
   toFun I := ∏ᶠ v : FinPlace F,
     d2LocalUniformizerIdele v ^ d2IdealExponent I v
   map_one' := by
@@ -1698,12 +1698,12 @@ private theorem d2IdealHeckeHom_one_of_ray
     d2IdealHeckeHom χ (toPrincipalIdeal (𝓞 F) F x) = 1 := by
   classical
   let I : NumberFieldFractionalIdealGroup F := toPrincipalIdeal (𝓞 F) F x
-  let p : IdeleGroup (𝓞 F) F := IdeleGroup.unitEmbedding (𝓞 F) F x
-  let i : IdeleGroup (𝓞 F) F := d2IdealIdelHom I
-  let r : IdeleGroup (𝓞 F) F := i * p⁻¹
-  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F :=
+  let p : NumberField.IdeleGroup (𝓞 F) F := NumberField.IdeleGroup.unitEmbedding (𝓞 F) F x
+  let i : NumberField.IdeleGroup (𝓞 F) F := d2IdealIdelHom I
+  let r : NumberField.IdeleGroup (𝓞 F) F := i * p⁻¹
+  let q : NumberField.IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F :=
     QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F)
-  let θ : IdeleGroup (𝓞 F) F →* ℂˣ := (χ : IdeleClassGroup (𝓞 F) F →* ℂˣ).comp q
+  let θ : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ := (χ : IdeleClassGroup (𝓞 F) F →* ℂˣ).comp q
   have hθContinuous : Continuous θ := χ.continuous.comp QuotientGroup.continuous_mk
   have hToLocVal (v : FinPlace F) :
       Valued.v (toLoc v x : v.adicCompletion F) = v.valuation F (x : F) := by
@@ -1864,22 +1864,22 @@ private theorem d2IdealHeckeHom_one_of_ray
       simpa using congrArg (fun ψ : w.Completionˣ →* ℂˣ =>
         ψ (Units.map (algebraMap F w.Completion).toMonoidHom (x⁻¹))) hcomplex'
   have hθInfinite (w : InfinitePlace F) :
-      θ (IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r)) = 1 :=
+      θ (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r)) = 1 :=
     hInfiniteChar w
   have hθFinite (v : FinPlace F) :
-      θ (IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r)) = 1 :=
+      θ (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r)) = 1 :=
     hLocalChar v
   have htrunc (S : Finset (FinPlace F)) :
       θ (ArtinPrimitiveRoots.Proofs.hk_misc_p.d2IdeleSupportTrunc r S) = 1 := by
     change θ ((∏ w ∈ Finset.univ,
-      IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r)) *
-      ∏ v ∈ S, IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r)) = 1
+      NumberField.IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r)) *
+      ∏ v ∈ S, NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r)) = 1
     rw [map_mul, map_prod, map_prod]
     have harch : (∏ w ∈ Finset.univ,
-        θ (IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r))) = 1 :=
+        θ (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w r))) = 1 :=
       Finset.prod_eq_one (fun w _ => hθInfinite w)
     have hfinite : (∏ v ∈ S,
-        θ (IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r))) = 1 :=
+        θ (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v r))) = 1 :=
       Finset.prod_eq_one (fun v _ => hθFinite v)
     rw [harch, hfinite]
     simp
@@ -2051,7 +2051,7 @@ theorem heckeChar_eq_of_primeValue (χ χ' : HeckeChar F) (T : Finset (FinPlace 
       exact (δ.continuous.comp
         (IdeleClassGroup.continuous_ofCompletion (𝓞 F) F w.1)).comp
           ((continuous_apply w).comp continuous_snd)
-  let ρ : IdeleGroup (𝓞 F) F → U := fun x =>
+  let ρ : NumberField.IdeleGroup (𝓞 F) F → U := fun x =>
     (fun P => Dictionary.ideleFiniteCoord P.1 x,
       fun w => Dictionary.ideleInfiniteCoordUnit w.1 x)
   have hρ : Continuous ρ := by
@@ -2068,17 +2068,17 @@ theorem heckeChar_eq_of_primeValue (χ χ' : HeckeChar F) (T : Finset (FinPlace 
       apply Units.continuous_iff.mpr
       exact ⟨((continuous_apply w.1).comp continuous_fst).comp Units.continuous_val,
         ((continuous_apply w.1).comp continuous_fst).comp Units.continuous_coe_inv⟩
-  let g : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+  let g : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ :=
     ⟨MonoidHom.mk' (fun x => φ (ρ x)) (fun x y => by
       simp only [φ, ρ, map_mul, Finset.prod_mul_distrib]
       ac_rfl), hφ.comp hρ⟩
-  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' _
-  let f : ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ :=
+  let q : NumberField.IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F := QuotientGroup.mk' _
+  let f : ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ :=
     ⟨δ.toMonoidHom.comp q, δ.continuous.comp QuotientGroup.continuous_mk⟩
   have hfg : f = g := by
     apply ArtinPrimitiveRoots.Proofs.a1_kummer_sol.idele_hom_ext
     · intro w x
-      change δ.locInf w x = φ (ρ (IdeleGroup.ofCompletion (𝓞 F) F w x))
+      change δ.locInf w x = φ (ρ (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w x))
       dsimp only [φ, ρ]
       simp only [Dictionary.ideleFiniteCoord_ofCompletion, map_one,
         Finset.prod_const_one, one_mul]
@@ -2090,7 +2090,7 @@ theorem heckeChar_eq_of_primeValue (χ χ' : HeckeChar F) (T : Finset (FinPlace 
         rw [Dictionary.ideleInfiniteCoordUnit_ofCompletion_of_ne v.1 w hvw, map_one]
       · simp
     · intro P x
-      change δ.loc P x = φ (ρ (IdeleGroup.ofAdicCompletion (𝓞 F) F P x))
+      change δ.loc P x = φ (ρ (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F P x))
       dsimp only [φ, ρ]
       simp only [Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion, map_one,
         Finset.prod_const_one, mul_one]
@@ -2146,7 +2146,7 @@ theorem heckeChar_eq_of_primeValue (χ χ' : HeckeChar F) (T : Finset (FinPlace 
         exact (congrArg (fun t : R => t.2 w) hza).symm
     exact ⟨du au, heq ▸ hzV, au, rfl⟩
   have hprincipal (a : Fˣ) : φ (du a) = 1 := by
-    have hr : ρ (IdeleGroup.unitEmbedding (𝓞 F) F a) = du a := by
+    have hr : ρ (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = du a := by
       apply Prod.ext
       · funext P
         apply Units.ext
@@ -2155,10 +2155,10 @@ theorem heckeChar_eq_of_primeValue (χ χ' : HeckeChar F) (T : Finset (FinPlace 
         apply Units.ext
         rfl
     rw [← hr]
-    change g (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
+    change g (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
     rw [← hfg]
-    change δ (q (IdeleGroup.unitEmbedding (𝓞 F) F a)) = 1
-    have hq : q (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 :=
+    change δ (q (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)) = 1
+    have hq : q (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 :=
       (QuotientGroup.eq_one_iff _).mpr ⟨a, rfl⟩
     rw [hq, map_one]
   have hφone : φ = fun _ => (1 : ℂˣ) :=
