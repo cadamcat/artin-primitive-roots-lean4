@@ -4570,6 +4570,71 @@ private theorem principal_tuple_integral_fiber (x γ l r : ℝ) (n : ℕ)
   rw [hSource, hPair, hcoef, hNormalize]
   ring
 
+/-- One-factor tuple counts retain the global truncation under a tail scale. -/
+private theorem principal_tuple_count_one_scaled (γ : ℝ) (hγ : 0 < γ)
+    (A : ℝ) (hA : 0 < A) :
+    ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+      ∀ x : ℝ, x₀ ≤ x →
+        ∀ M : ℝ, 0 < M → 2 * M ≤ x →
+          ∀ Q : ℝ, 1 ≤ Q → ∀ l r : ℝ,
+            M ≤ l → l ≤ r → r ≤ 2 * M →
+              |((1 / ((1 : ℕ).factorial : ℝ)) *
+                  (((boundedTuples 1 (⌊2 * M⌋₊ + 1)).filter (fun t =>
+                    (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+                      l / Q ≤ ((∏ i : Fin 1, t i : ℕ) : ℝ) ∧
+                      ((∏ i : Fin 1, t i : ℕ) : ℝ) ≤ r / Q)).card : ℝ)) -
+                roughTupleIntegral x γ (l / Q) (r / Q) 1| ≤
+                C * (M / Q) * Real.rpow (Real.log x) (-A) := by
+  obtain ⟨C, x₀, hC, hx₀, hCount⟩ := principal_tuple_count_one γ hγ A hA
+  refine ⟨C, x₀, hC, hx₀, ?_⟩
+  intro x hx M hM hMx Q hQ l r hl hlr hr
+  classical
+  have hQ0 : 0 < Q := lt_of_lt_of_le zero_lt_one hQ
+  have hMQ : 0 < M / Q := div_pos hM hQ0
+  have hScale : 2 * (M / Q) ≤ 2 * M := by
+    calc
+      2 * (M / Q) = (2 * M) / Q := by ring
+      _ ≤ 2 * M := div_le_self (by positivity) hQ
+  have hLo : M / Q ≤ l / Q := div_le_div_of_nonneg_right hl hQ0.le
+  have hLr : l / Q ≤ r / Q := div_le_div_of_nonneg_right hlr hQ0.le
+  have hHi : r / Q ≤ 2 * (M / Q) := by
+    calc
+      r / Q ≤ (2 * M) / Q := div_le_div_of_nonneg_right hr hQ0.le
+      _ = 2 * (M / Q) := by ring
+  have hprod (t : Fin 1 → ℕ) : ∏ i : Fin 1, t i = t 0 := by
+    rw [Finset.univ_unique, Finset.prod_singleton, Fin.eq_zero (default : Fin 1)]
+  have hBounded (t : Fin 1 → ℕ) (R : ℝ)
+      (ht : ((∏ i : Fin 1, t i : ℕ) : ℝ) ≤ R) :
+      t ∈ boundedTuples 1 (⌊R⌋₊ + 1) := by
+    apply ArtinPrimitiveRoots.TypeII.RoughProofs.mem_boundedTuples_of_forall_le
+    intro i
+    rw [Fin.eq_zero i]
+    rw [hprod t] at ht
+    exact (Nat.le_floor ht).trans (Nat.le_succ _)
+  let P (t : Fin 1 → ℕ) :=
+    (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+      l / Q ≤ ((∏ i : Fin 1, t i : ℕ) : ℝ) ∧
+      ((∏ i : Fin 1, t i : ℕ) : ℝ) ≤ r / Q
+  have hFilters :
+      (boundedTuples 1 (⌊2 * M⌋₊ + 1)).filter P =
+        (boundedTuples 1 (⌊2 * (M / Q)⌋₊ + 1)).filter P := by
+    ext t
+    constructor
+    · intro ht
+      rcases Finset.mem_filter.mp ht with ⟨_, htP⟩
+      exact Finset.mem_filter.mpr ⟨hBounded t _ (htP.2.2.trans hHi), htP⟩
+    · intro ht
+      rcases Finset.mem_filter.mp ht with ⟨_, htP⟩
+      exact Finset.mem_filter.mpr ⟨hBounded t _ (htP.2.2.trans (hHi.trans hScale)), htP⟩
+  have h := hCount x hx (M / Q) hMQ (hScale.trans hMx)
+    (l / Q) (r / Q) hLo hLr hHi
+  change |((1 / ((1 : ℕ).factorial : ℝ)) *
+      (((boundedTuples 1 (⌊2 * (M / Q)⌋₊ + 1)).filter P).card : ℝ)) -
+      roughTupleIntegral x γ (l / Q) (r / Q) 1| ≤
+        C * (M / Q) * Real.rpow (Real.log x) (-A) at h
+  rw [← hFilters] at h
+  exact h
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
