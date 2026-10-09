@@ -6047,6 +6047,138 @@ private theorem rows_sol_principal_double_residue_eq
   unfold principalConstant amplitude Heta
   ring
 
+private theorem rows_sol_principal_signal_xi_shift
+    (hEuler : EulerHypotheses R η) (Z : ℝ) (hZ : 2 ≤ Z) :
+    vertical (1 + δ1) (fun ξ =>
+      (Z : ℂ) ^ Cstar ξ * amplitude (Heta R η U HC) (HA.LS S η) ξ) =
+        principalSignal R η U HA HC Z := by
+  have hZpos : 0 < Z := by linarith
+  have hZbase : (Z : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hZpos.ne'
+  let G : ℂ → ℂ := fun ξ =>
+    (Z : ℂ) ^ Cstar ξ * amplitude (Heta R η U HC) (HA.LS S η) ξ
+  let strip : Set ℂ := {ξ | 1 + δ1 ≤ ξ.re ∧ ξ.re ≤ 2}
+  have hStripRight : strip ⊆ {s : ℂ | 1 < s.re} := by
+    intro ξ hξ
+    change 1 + δ1 ≤ ξ.re ∧ ξ.re ≤ 2 at hξ
+    change 1 < ξ.re
+    have hδ : 0 < δ1 := by norm_num [δ1]
+    linarith [hξ.1]
+  have hHP : HasPoHProduct R η U HC := po_H_product R η U HC hEuler
+  let pmap : ℂ → Triple := fun ξ => ![ξ, 1, 1 / 6]
+  have hpmap : Differentiable ℂ pmap := by
+    intro ξ
+    apply differentiableAt_pi.2
+    intro j
+    fin_cases j <;> simp [pmap] <;> fun_prop
+  have hMaps : MapsTo pmap strip {p | eulerNeighborhood p} := by
+    intro ξ hξ
+    change 1 + δ1 ≤ ξ.re ∧ ξ.re ≤ 2 at hξ
+    right
+    change 998 / 1000 - 1 / 100000 < ξ.re ∧
+      95 / 100 - 1 / 100000 < (1 : ℂ).re ∧
+      16 / 100 - 1 / 100000 < (1 / 6 : ℂ).re
+    refine ⟨?_, by norm_num, by norm_num⟩
+    have hδ : 0 < δ1 := by norm_num [δ1]
+    linarith [hξ.1]
+  have hHdiff : DifferentiableOn ℂ
+      (fun ξ => HC.H U.one ![ξ, 1, 1 / 6]) strip := by
+    have h := (hHP.2.1 U.one).comp hpmap.differentiableOn hMaps
+    simpa only [pmap, Function.comp_def] using h
+  obtain ⟨fη, hfη⟩ := rows_eta_primitive_conductor R η U hEuler
+  have hLdiff : DifferentiableOn ℂ (HA.LS S η) {s | 1 < s.re} :=
+    rows_small_LS_differentiableOn (HA := HA) (S := S) η hEuler.1
+  have hInvRight : DifferentiableOn ℂ (fun ξ => (HA.LS S η ξ)⁻¹) {s | 1 < s.re} := by
+    apply hLdiff.inv
+    intro ξ hξ
+    exact (rows_LS_inverse_bound HA S η hEuler.1 fη hfη hξ).1
+  have hInvDiff : DifferentiableOn ℂ (fun ξ => (HA.LS S η ξ)⁻¹) strip :=
+    hInvRight.mono hStripRight
+  have hPowDiff : Differentiable ℂ (fun ξ => (Z : ℂ) ^ Cstar ξ) := by
+    have hExp : Differentiable ℂ Cstar := by unfold Cstar; fun_prop
+    intro ξ
+    exact (hExp ξ).const_cpow (Or.inl hZbase)
+  have hGaussDiff : Differentiable ℂ (fun ξ : ℂ => Complex.exp ((ξ - 5 / 6) ^ 2)) := by
+    fun_prop
+  have hGdiff : DifferentiableOn ℂ G strip := by
+    change DifferentiableOn ℂ (fun ξ =>
+      (Z : ℂ) ^ Cstar ξ * (Complex.exp ((ξ - 5 / 6) ^ 2) *
+        HC.H U.one ![ξ, 1, 1 / 6] / HA.LS S η ξ)) strip
+    simp only [div_eq_mul_inv]
+    exact hPowDiff.differentiableOn.mul
+      ((hGaussDiff.differentiableOn.mul hHdiff).mul hInvDiff)
+  obtain ⟨CH, hCH, hHbound⟩ := hHP.2.2.2 (1 : ℝ) (by norm_num)
+  let CI : ℝ := (NumberField.dedekindZeta F ((1 + δ1 : ℝ) : ℂ)).re * 2 ^ S.Sf.card
+  have hCI : 0 ≤ CI := by
+    exact mul_nonneg
+      (rows_small_dedekindZeta_real_nonneg (F := F) (1 + δ1) (by norm_num [δ1]))
+      (by positivity)
+  have hInv (ξ : ℂ) (hξ : 1 + δ1 ≤ ξ.re) : ‖(HA.LS S η ξ)⁻¹‖ ≤ CI := by
+    have hs : 1 < ξ.re := lt_of_lt_of_le (by norm_num [δ1]) hξ
+    have hrecip := (rows_LS_inverse_bound HA S η hEuler.1 fη hfη hs).2
+    have hmono := rows_small_dedekindZeta_real_antitone (F := F)
+      (by norm_num [δ1] : 1 < 1 + δ1) hξ
+    calc
+      _ ≤ (NumberField.dedekindZeta F (ξ.re : ℂ)).re * 2 ^ S.Sf.card := hrecip
+      _ ≤ (NumberField.dedekindZeta F ((1 + δ1 : ℝ) : ℂ)).re * 2 ^ S.Sf.card :=
+        mul_le_mul_of_nonneg_right hmono (by positivity)
+      _ = CI := rfl
+  have hPowerLine (x t : ℝ) (hx : x ∈ Set.Icc (1 + δ1 : ℝ) 2) :
+      ‖(Z : ℂ) ^ Cstar ((x : ℂ) + t * Complex.I)‖ ≤ Z ^ (2 - 8 / 15 : ℝ) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hZpos]
+    have hre : (Cstar ((x : ℂ) + t * Complex.I)).re = x - 8 / 15 := by
+      simp [Cstar]
+    rw [hre]
+    exact Real.rpow_le_rpow_of_exponent_le (by linarith : 1 ≤ Z) (by linarith [hx.2])
+  have hGaussLine (x t : ℝ) (hx : x ∈ Set.Icc (1 + δ1 : ℝ) 2) :
+      ‖Complex.exp ((((x : ℂ) + t * Complex.I) - 5 / 6) ^ 2)‖ ≤
+        Real.exp ((2 - 5 / 6 : ℝ) ^ 2) * Real.exp (-t ^ 2) := by
+    have hsq : ((((x : ℂ) + t * Complex.I) - 5 / 6) ^ 2).re =
+        (x - 5 / 6) ^ 2 - t ^ 2 := by
+      rw [pow_two, Complex.mul_re]
+      simp
+      ring
+    have hsqle : (x - 5 / 6) ^ 2 ≤ (2 - 5 / 6 : ℝ) ^ 2 := by
+      have hδ : 0 < δ1 := by norm_num [δ1]
+      have hlo : 0 ≤ x - 5 / 6 := by linarith [hx.1]
+      nlinarith [hx.2]
+    rw [Complex.norm_exp, hsq, sub_eq_add_neg, Real.exp_add]
+    exact mul_le_mul_of_nonneg_right (Real.exp_le_exp.mpr hsqle) (Real.exp_pos _).le
+  have hHline (x t : ℝ) (hx : x ∈ Set.Icc (1 + δ1 : ℝ) 2) :
+      ‖HC.H U.one ![(x : ℂ) + t * Complex.I, 1, 1 / 6]‖ ≤ CH := by
+    have hp : eulerNeighborhood (pmap ((x : ℂ) + t * Complex.I)) :=
+      hMaps (by simpa [strip] using hx)
+    simpa [pmap, U.q_one] using hHbound U.one (pmap ((x : ℂ) + t * Complex.I)) hp
+  let C : ℝ := Z ^ (2 - 8 / 15 : ℝ) * Real.exp ((2 - 5 / 6 : ℝ) ^ 2) * CH * CI
+  have hGbound : ∀ x ∈ Set.Icc (1 + δ1 : ℝ) 2, ∀ t : ℝ,
+      ‖G ((x : ℂ) + t * Complex.I)‖ ≤ C * Real.exp (-t ^ 2) := by
+    intro x hx t
+    have hp := hPowerLine x t hx
+    have hg := hGaussLine x t hx
+    have hh := hHline x t hx
+    have hi := hInv ((x : ℂ) + t * Complex.I) (by simpa using hx.1)
+    calc
+      ‖G ((x : ℂ) + t * Complex.I)‖ =
+          ‖(Z : ℂ) ^ Cstar ((x : ℂ) + t * Complex.I)‖ *
+            (‖Complex.exp ((((x : ℂ) + t * Complex.I) - 5 / 6) ^ 2)‖ *
+              ‖HC.H U.one ![(x : ℂ) + t * Complex.I, 1, 1 / 6]‖ *
+                ‖(HA.LS S η ((x : ℂ) + t * Complex.I))⁻¹‖) := by
+        simp only [G, amplitude, Heta, div_eq_mul_inv, norm_mul]
+      _ ≤ Z ^ (2 - 8 / 15 : ℝ) *
+          ((Real.exp ((2 - 5 / 6 : ℝ) ^ 2) * Real.exp (-t ^ 2)) * CH * CI) := by
+        gcongr
+      _ = C * Real.exp (-t ^ 2) := by dsimp [C]; ring
+  have hcontour := OAI.SevenEighths.Continuation.vertical_integral_eq_of_gaussian_bound
+    G (a := 1 + δ1) (b := 2) (C := C) (by norm_num [δ1]) hGdiff hGbound
+  have hshiftV : vertical (1 + δ1) G = vertical 2 G := by
+    unfold vertical
+    rw [hcontour]
+  calc
+    vertical (1 + δ1) (fun ξ =>
+        (Z : ℂ) ^ Cstar ξ * amplitude (Heta R η U HC) (HA.LS S η) ξ) =
+          vertical 2 G := hshiftV
+    _ = principalSignal R η U HA HC Z := by
+      simp only [vertical, principalSignal, fEta, G, Complex.ofReal_ofNat]
+
 /-- zf:principal-row, 06:413–477. The residue at z=1/6 carries R_S/6, accounted for in c₀. -/
 theorem zf_principal_row : EulerHypotheses R η → (∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) → WeightSpec R sd W →
