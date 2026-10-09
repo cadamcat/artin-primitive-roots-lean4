@@ -7,6 +7,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.NormCoset
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.NormIndex
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.QuadraticNorm
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.QuadraticSupport
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianFiniteScale
 
 set_option autoImplicit false
 
