@@ -2583,6 +2583,72 @@ private theorem ppPrimeIntegral_truncate_norm_bound
     _ = 2 * E := by ring
     _ = _ := by dsimp [E]; ring
 
+private theorem ppPrimeMellinContourRectangle_norm_bound
+    {F : ℂ → ℂ} {a b c d Mleft Mbottom Mtop : ℝ}
+    (hab : a ≤ b) (hcd : c ≤ d)
+    (hF : AnalyticOnNhd ℂ F (Set.Icc a b ×ℂ Set.Icc c d))
+    (hleft : ∀ v ∈ Set.Icc c d, ‖F (a + v * Complex.I)‖ ≤ Mleft)
+    (hbottom : ∀ u ∈ Set.Icc a b, ‖F (u + c * Complex.I)‖ ≤ Mbottom)
+    (htop : ∀ u ∈ Set.Icc a b, ‖F (u + d * Complex.I)‖ ≤ Mtop) :
+    ‖∫ v : ℝ in c..d, F (b + v * Complex.I)‖ ≤
+      Mleft * (d - c) + (Mbottom + Mtop) * (b - a) := by
+  have hrect := ppPrimeMellinContourRectangle_shift hab hcd hF
+  have hEq : (∫ v : ℝ in c..d, F (b + v * Complex.I)) =
+      (∫ v : ℝ in c..d, F (a + v * Complex.I)) +
+        Complex.I • (∫ u : ℝ in a..b, F (u + c * Complex.I)) -
+          Complex.I • (∫ u : ℝ in a..b, F (u + d * Complex.I)) := by
+    simp only [smul_eq_mul] at hrect
+    have hmul := congrArg (fun z : ℂ => Complex.I * z) hrect
+    simp only [mul_add, mul_sub, ← mul_assoc, Complex.I_mul_I, neg_mul, one_mul] at hmul
+    linear_combination -hmul
+  have hleftNorm :
+      ‖∫ v : ℝ in c..d, F (a + v * Complex.I)‖ ≤ Mleft * (d - c) := by
+    calc
+      _ ≤ Mleft * |d - c| :=
+        intervalIntegral.norm_integral_le_of_norm_le_const (by
+          intro v hv
+          have hv' : v ∈ Set.Icc c d := by
+            have hv'' : c < v ∧ v ≤ d := by simpa [Set.uIoc_of_le hcd] using hv
+            exact ⟨le_of_lt hv''.1, hv''.2⟩
+          exact hleft v hv')
+      _ = Mleft * (d - c) := by rw [abs_of_nonneg (sub_nonneg.mpr hcd)]
+  have hbottomNorm :
+      ‖∫ u : ℝ in a..b, F (u + c * Complex.I)‖ ≤ Mbottom * (b - a) := by
+    calc
+      _ ≤ Mbottom * |b - a| :=
+        intervalIntegral.norm_integral_le_of_norm_le_const (by
+          intro u hu
+          have hu' : u ∈ Set.Icc a b := by
+            have hu'' : a < u ∧ u ≤ b := by simpa [Set.uIoc_of_le hab] using hu
+            exact ⟨le_of_lt hu''.1, hu''.2⟩
+          exact hbottom u hu')
+      _ = Mbottom * (b - a) := by rw [abs_of_nonneg (sub_nonneg.mpr hab)]
+  have htopNorm :
+      ‖∫ u : ℝ in a..b, F (u + d * Complex.I)‖ ≤ Mtop * (b - a) := by
+    calc
+      _ ≤ Mtop * |b - a| :=
+        intervalIntegral.norm_integral_le_of_norm_le_const (by
+          intro u hu
+          have hu' : u ∈ Set.Icc a b := by
+            have hu'' : a < u ∧ u ≤ b := by simpa [Set.uIoc_of_le hab] using hu
+            exact ⟨le_of_lt hu''.1, hu''.2⟩
+          exact htop u hu')
+      _ = Mtop * (b - a) := by rw [abs_of_nonneg (sub_nonneg.mpr hab)]
+  calc
+    _ = ‖(∫ v : ℝ in c..d, F (a + v * Complex.I)) +
+          Complex.I • (∫ u : ℝ in a..b, F (u + c * Complex.I)) -
+            Complex.I • (∫ u : ℝ in a..b, F (u + d * Complex.I))‖ := by rw [hEq]
+    _ ≤ ‖(∫ v : ℝ in c..d, F (a + v * Complex.I)) +
+          Complex.I • (∫ u : ℝ in a..b, F (u + c * Complex.I))‖ +
+          ‖Complex.I • (∫ u : ℝ in a..b, F (u + d * Complex.I))‖ := norm_sub_le _ _
+    _ ≤ ‖∫ v : ℝ in c..d, F (a + v * Complex.I)‖ +
+          ‖Complex.I • (∫ u : ℝ in a..b, F (u + c * Complex.I))‖ +
+          ‖Complex.I • (∫ u : ℝ in a..b, F (u + d * Complex.I))‖ := by
+        exact add_le_add (norm_add_le _ _) (le_refl _)
+    _ ≤ Mleft * (d - c) + (Mbottom + Mtop) * (b - a) := by
+        simpa [norm_smul, Complex.norm_I, one_mul, add_mul, add_assoc] using
+          add_le_add (add_le_add hleftNorm hbottomNorm) htopNorm
+
 /-- The sharp von Mangoldt polynomial has uniform cancellation in every natural interval. -/
 theorem prime_mangoldt_interval_bound (hzeroFree : ∀ C : ℝ, ppPrimeZeroFree C)
     (hzeta : ppPrimeZetaLogDerivBound) :
