@@ -1403,6 +1403,76 @@ private theorem cont_character_phase_interval_bound {q : ℕ} [NeZero q]
     _ = Cφ * N' * Real.exp (-L / Real.rpow T C₃) := by
       field_simp [hqne]
 
+private noncomputable def contPrefixSum (f : ℕ → ℂ) (n : ℕ) : ℂ :=
+  ∑ k ∈ Finset.range (n + 1), f k
+
+private theorem contPrefixSum_succ (f : ℕ → ℂ) (n : ℕ) :
+    contPrefixSum f (n + 1) = contPrefixSum f n + f (n + 1) := by
+  unfold contPrefixSum
+  rw [Finset.sum_range_succ]
+
+private theorem cont_abel_sum_range (f g : ℕ → ℂ) (n : ℕ) :
+    (∑ k ∈ Finset.range (n + 1), f k * g k) =
+      contPrefixSum f n * g n +
+        ∑ k ∈ Finset.range n,
+          contPrefixSum f k * (g k - g (k + 1)) := by
+  induction n with
+  | zero => simp [contPrefixSum]
+  | succ n ih =>
+      calc
+        _ = (∑ k ∈ Finset.range (n + 1), f k * g k) +
+              f (n + 1) * g (n + 1) := by rw [Finset.sum_range_succ]
+        _ = (contPrefixSum f n * g n +
+              ∑ k ∈ Finset.range n,
+                contPrefixSum f k * (g k - g (k + 1))) +
+              f (n + 1) * g (n + 1) := by rw [ih]
+        _ = contPrefixSum f (n + 1) * g (n + 1) +
+              ∑ k ∈ Finset.range (n + 1),
+                contPrefixSum f k * (g k - g (k + 1)) := by
+          rw [Finset.sum_range_succ, contPrefixSum_succ]
+          ring
+
+private theorem cont_norm_sum_mul_le_of_prefix_bound
+    {f g : ℕ → ℂ} {N : ℕ} {B : ℝ}
+    (hprefix : ∀ n ≤ N, ‖contPrefixSum f n‖ ≤ B) :
+    ‖∑ k ∈ Finset.range (N + 1), f k * g k‖ ≤
+      B * (‖g N‖ +
+        ∑ k ∈ Finset.range N, ‖g k - g (k + 1)‖) := by
+  rw [cont_abel_sum_range]
+  calc
+    _ ≤ ‖contPrefixSum f N * g N‖ +
+        ‖∑ k ∈ Finset.range N,
+          contPrefixSum f k * (g k - g (k + 1))‖ := norm_add_le _ _
+    _ = ‖contPrefixSum f N‖ * ‖g N‖ +
+        ‖∑ k ∈ Finset.range N,
+          contPrefixSum f k * (g k - g (k + 1))‖ := by rw [norm_mul]
+    _ ≤ ‖contPrefixSum f N‖ * ‖g N‖ +
+        ∑ k ∈ Finset.range N,
+          ‖contPrefixSum f k‖ * ‖g k - g (k + 1)‖ := by
+          have hsum :
+              ‖∑ k ∈ Finset.range N,
+                contPrefixSum f k * (g k - g (k + 1))‖ ≤
+              ∑ k ∈ Finset.range N,
+                ‖contPrefixSum f k‖ * ‖g k - g (k + 1)‖ := by
+            calc
+              _ ≤ ∑ k ∈ Finset.range N,
+                  ‖contPrefixSum f k * (g k - g (k + 1))‖ := norm_sum_le _ _
+              _ = _ := by simp [norm_mul]
+          linarith
+    _ ≤ B * ‖g N‖ +
+        ∑ k ∈ Finset.range N, B * ‖g k - g (k + 1)‖ := by
+          apply add_le_add
+          · exact mul_le_mul_of_nonneg_right (hprefix N le_rfl) (norm_nonneg _)
+          · apply Finset.sum_le_sum
+            intro k hk
+            exact mul_le_mul_of_nonneg_right
+              (hprefix k (Nat.le_of_lt (Finset.mem_range.mp hk)))
+              (norm_nonneg _)
+    _ = B * (‖g N‖ +
+        ∑ k ∈ Finset.range N, ‖g k - g (k + 1)‖) := by
+          rw [← Finset.mul_sum]
+          ring
+
 private theorem cont_growth_low_height_bound
     (hLog : ArtinPrimitiveRoots.Proofs.pp_phase_p.phaseLogPhaseStatement) :
     ∀ C : ℝ, 0 < C →
