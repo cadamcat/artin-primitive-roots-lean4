@@ -8,9 +8,10 @@ import ArtinPrimitiveRoots.TypeII.Proofs.PP_PHASE.TorusMoment
 namespace ArtinPrimitiveRoots.Proofs.pp_phase_p
 
 open MeasureTheory
+open Filter
 open ArtinPrimitiveRoots.TypeII
 open ArtinPrimitiveRoots.TypeII.PP
-open scoped ComplexConjugate ENNReal
+open scoped ComplexConjugate ENNReal Topology
 
 def phaseMeanValueInput : Prop :=
   ∃ C₁ C₂ : ℝ, 0 < C₁ ∧ 0 < C₂ ∧
@@ -3197,6 +3198,173 @@ private theorem phase_reindex_filter_eq_Icc
     · linarith [hhigh, hN₂]
     · exact hlow
     · exact hhigh
+
+private theorem phase_high_growth_threshold (C C₁ C₂ : ℝ)
+    (hC : 0 < C) (hC₁ : 0 < C₁) (hC₂ : 0 < C₂) :
+    ∃ x₀ : ℝ, 2 < x₀ ∧ ∀ x : ℝ, x₀ ≤ x →
+      let L := Real.log x
+      let T := Real.log L
+      2 ≤ T ∧ C * T ≤ L / (2 * T ^ 2) ∧
+        Real.log 16 ≤ L / (2 * T ^ 2) ∧
+        (77 / (3200 * C₁ * 50 ^ 4)) * T ≥ 2 ∧
+        10 * (50 * T ^ 2) +
+            2 * (C₁ * 50 ^ 4 * T ^ 8) * (50 * T ^ 2) *
+              Real.log (4 * Real.pi) +
+            C₁ * Real.rpow (50 * T ^ 2) C₂ ≤
+          (77 / 800) * (L / (2 * T ^ 2)) := by
+  let n : ℕ := ⌈C₂⌉₊
+  let d : ℕ := max 12 (2 * n + 2)
+  let B : ℝ := 2 * C₁ * 50 ^ 5 * Real.log (4 * Real.pi)
+  let D : ℝ := C₁ * 50 ^ n
+  let A : ℝ := 500 + B + D
+  let c : ℝ := 77 / (3200 * C₁ * 50 ^ 4)
+  have hn : C₂ ≤ (n : ℝ) := by
+    dsimp [n]
+    exact Nat.le_ceil _
+  have hlog16 : 0 < Real.log 16 := Real.log_pos (by norm_num)
+  have h4pi : 1 < 4 * Real.pi := by nlinarith [Real.pi_gt_three]
+  have hlog4pi : 0 < Real.log (4 * Real.pi) := Real.log_pos h4pi
+  have hB : 0 < B := by dsimp [B]; positivity
+  have hD : 0 < D := by dsimp [D]; positivity
+  have hA : 0 < A := by dsimp [A]; linarith
+  have hc : 0 < c := by dsimp [c]; positivity
+  have hTlim : Tendsto (fun x : ℝ => Real.log (Real.log x)) atTop atTop :=
+    Real.tendsto_log_atTop.comp Real.tendsto_log_atTop
+  have hlogpow (m : ℕ) :
+      Tendsto (fun x : ℝ => Real.log (Real.log x) ^ m / Real.log x)
+        atTop (𝓝 0) := by
+    change Tendsto ((fun z : ℝ => Real.log z ^ m / z) ∘ Real.log)
+      atTop (𝓝 0)
+    simpa [one_mul, add_zero] using
+      (Real.tendsto_pow_log_div_mul_add_atTop 1 0 m one_ne_zero).comp
+        Real.tendsto_log_atTop
+  have hsmall3 : ∀ᶠ x : ℝ in atTop,
+      Real.log (Real.log x) ^ 3 / Real.log x < 1 / (2 * C) :=
+    (hlogpow 3).eventually (gt_mem_nhds (by positivity))
+  have hsmall2 : ∀ᶠ x : ℝ in atTop,
+      Real.log (Real.log x) ^ 2 / Real.log x < 1 / (2 * Real.log 16) :=
+    (hlogpow 2).eventually (gt_mem_nhds (by positivity))
+  have hsmallD : ∀ᶠ x : ℝ in atTop,
+      Real.log (Real.log x) ^ d / Real.log x < 77 / (1600 * A) :=
+    (hlogpow d).eventually (gt_mem_nhds (by positivity))
+  have hEventually : ∀ᶠ x : ℝ in atTop,
+      1 ≤ Real.log x ∧ 2 ≤ Real.log (Real.log x) ∧
+        2 / c ≤ Real.log (Real.log x) ∧
+        Real.log (Real.log x) ^ 3 / Real.log x < 1 / (2 * C) ∧
+        Real.log (Real.log x) ^ 2 / Real.log x < 1 / (2 * Real.log 16) ∧
+        Real.log (Real.log x) ^ d / Real.log x < 77 / (1600 * A) := by
+    filter_upwards [Real.tendsto_log_atTop.eventually_ge_atTop 1,
+      hTlim.eventually_ge_atTop 2, hTlim.eventually_ge_atTop (2 / c),
+      hsmall3, hsmall2, hsmallD] with x hL hT hTc h3 h2 hd
+    exact ⟨hL, hT, hTc, h3, h2, hd⟩
+  obtain ⟨X, hX⟩ := eventually_atTop.1 hEventually
+  refine ⟨max 3 X, lt_of_lt_of_le (by norm_num) (le_max_left _ _), ?_⟩
+  intro x hx
+  have hxX : X ≤ x := (le_max_right _ _).trans hx
+  rcases hX x hxX with ⟨hLone, hTtwo, hTlarge, hratio3, hratio2, hratioD⟩
+  let L : ℝ := Real.log x
+  let T : ℝ := Real.log L
+  have hLpos : 0 < L := by dsimp [L]; linarith
+  have hTpos : 0 < T := by dsimp [T]; linarith
+  have hTone : 1 ≤ T := by dsimp [T]; linarith
+  have hratio3' : T ^ 3 / L < 1 / (2 * C) := by simpa [L, T] using hratio3
+  have hratio2' : T ^ 2 / L < 1 / (2 * Real.log 16) := by
+    simpa [L, T] using hratio2
+  have hratioD' : T ^ d / L < 77 / (1600 * A) := by
+    simpa [L, T] using hratioD
+  have hCcube : 2 * C * T ^ 3 < L := by
+    calc
+      2 * C * T ^ 3 = (T ^ 3 / L) * (L * (2 * C)) := by
+        field_simp [ne_of_gt hLpos]
+      _ < (1 / (2 * C)) * (L * (2 * C)) :=
+        mul_lt_mul_of_pos_right hratio3' (mul_pos hLpos (by positivity))
+      _ = L := by field_simp [ne_of_gt hC]
+  have hlog16sq : 2 * Real.log 16 * T ^ 2 < L := by
+    calc
+      2 * Real.log 16 * T ^ 2 = (T ^ 2 / L) * (L * (2 * Real.log 16)) := by
+        field_simp [ne_of_gt hLpos]
+      _ < (1 / (2 * Real.log 16)) * (L * (2 * Real.log 16)) :=
+        mul_lt_mul_of_pos_right hratio2' (mul_pos hLpos (by positivity))
+      _ = L := by field_simp [ne_of_gt hlog16]
+  have hbase : 1 ≤ 50 * T ^ 2 := by nlinarith [hTtwo]
+  have hpow : Real.rpow (50 * T ^ 2) C₂ ≤ (50 * T ^ 2) ^ n := by
+    rw [← Real.rpow_natCast (50 * T ^ 2) n]
+    exact Real.rpow_le_rpow_of_exponent_le hbase hn
+  have hpowexpand : (50 * T ^ 2) ^ n * T ^ 2 =
+      50 ^ n * T ^ (2 * n + 2) := by
+    rw [mul_pow, ← pow_mul, mul_assoc, ← pow_add]
+  have hthird : C₁ * Real.rpow (50 * T ^ 2) C₂ * T ^ 2 ≤
+      D * T ^ (2 * n + 2) := by
+    calc
+      _ = C₁ * (Real.rpow (50 * T ^ 2) C₂ * T ^ 2) := by ring
+      _ ≤ C₁ * ((50 * T ^ 2) ^ n * T ^ 2) :=
+        mul_le_mul_of_nonneg_left
+          (mul_le_mul_of_nonneg_right hpow (sq_nonneg T)) hC₁.le
+      _ = D * T ^ (2 * n + 2) := by dsimp [D]; rw [hpowexpand]; ring
+  have hd4 : 4 ≤ d := by dsimp [d]; omega
+  have hd12 : 12 ≤ d := by dsimp [d]; omega
+  have hdn : 2 * n + 2 ≤ d := by dsimp [d]; omega
+  have hT4 : T ^ 4 ≤ T ^ d := pow_le_pow_right₀ hTone hd4
+  have hT12 : T ^ 12 ≤ T ^ d := pow_le_pow_right₀ hTone hd12
+  have hTdn : T ^ (2 * n + 2) ≤ T ^ d := pow_le_pow_right₀ hTone hdn
+  have hpoly :
+      (10 * (50 * T ^ 2) +
+        2 * (C₁ * 50 ^ 4 * T ^ 8) * (50 * T ^ 2) * Real.log (4 * Real.pi) +
+        C₁ * Real.rpow (50 * T ^ 2) C₂) * T ^ 2 ≤ A * T ^ d := by
+    calc
+      _ ≤ 500 * T ^ 4 + B * T ^ 12 + D * T ^ (2 * n + 2) := by
+        have hiden :
+            (10 * (50 * T ^ 2) +
+              2 * (C₁ * 50 ^ 4 * T ^ 8) * (50 * T ^ 2) *
+                Real.log (4 * Real.pi) +
+              C₁ * Real.rpow (50 * T ^ 2) C₂) * T ^ 2 =
+              500 * T ^ 4 + B * T ^ 12 +
+                C₁ * Real.rpow (50 * T ^ 2) C₂ * T ^ 2 := by
+          dsimp [B]
+          ring
+        rw [hiden]
+        exact add_le_add (add_le_add le_rfl le_rfl) hthird
+      _ ≤ 500 * T ^ d + B * T ^ d + D * T ^ d := by
+        exact add_le_add
+          (add_le_add (mul_le_mul_of_nonneg_left hT4 (by norm_num))
+            (mul_le_mul_of_nonneg_left hT12 hB.le))
+          (mul_le_mul_of_nonneg_left hTdn hD.le)
+      _ = A * T ^ d := by dsimp [A]; ring
+  have hAterm : A * T ^ d < (77 / 1600) * L := by
+    calc
+      A * T ^ d = (T ^ d / L) * (L * A) := by field_simp [ne_of_gt hLpos]
+      _ < (77 / (1600 * A)) * (L * A) :=
+        mul_lt_mul_of_pos_right hratioD' (mul_pos hLpos hA)
+      _ = (77 / 1600) * L := by field_simp [ne_of_gt hA]
+  have hhigherror :
+      10 * (50 * T ^ 2) +
+          2 * (C₁ * 50 ^ 4 * T ^ 8) * (50 * T ^ 2) * Real.log (4 * Real.pi) +
+          C₁ * Real.rpow (50 * T ^ 2) C₂ ≤
+        (77 / 800) * (L / (2 * T ^ 2)) := by
+    have hdiv :
+        10 * (50 * T ^ 2) +
+            2 * (C₁ * 50 ^ 4 * T ^ 8) * (50 * T ^ 2) * Real.log (4 * Real.pi) +
+            C₁ * Real.rpow (50 * T ^ 2) C₂ ≤
+          ((77 / 1600) * L) / T ^ 2 := by
+      apply (le_div_iff₀ (pow_pos hTpos 2)).2
+      exact le_of_lt (hpoly.trans_lt hAterm)
+    calc
+      _ ≤ ((77 / 1600) * L) / T ^ 2 := hdiv
+      _ = (77 / 800) * (L / (2 * T ^ 2)) := by
+        field_simp [ne_of_gt hTpos]
+        <;> ring
+  have hcT : 2 ≤ c * T := by
+    have hmul := mul_le_mul_of_nonneg_left hTlarge hc.le
+    have hcancel : c * (2 / c) = 2 := by field_simp [ne_of_gt hc]
+    linarith
+  have hCT : C * T ≤ L / (2 * T ^ 2) := by
+    rw [le_div_iff₀ (by positivity : 0 < 2 * T ^ 2)]
+    nlinarith [hCcube]
+  have hlog16 : Real.log 16 ≤ L / (2 * T ^ 2) := by
+    rw [le_div_iff₀ (by positivity : 0 < 2 * T ^ 2)]
+    nlinarith [hlog16sq]
+  dsimp [c] at hcT
+  refine ⟨hTtwo, hCT, hlog16, hcT, hhigherror⟩
 
 /-- High frequencies use the Taylor polynomial and Vinogradov mean value. -/
 theorem phase_high_regime_bound (hMV : phaseMeanValueInput) :
