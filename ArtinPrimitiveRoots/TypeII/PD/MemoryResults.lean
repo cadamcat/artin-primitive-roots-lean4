@@ -12546,6 +12546,214 @@ theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_fresh_collision_row_eve
         (mul_le_mul_of_nonneg_right hcoef (by linarith)) (Real.exp_pos _).le
     _ = _ := rfl
 
+open ArtinPrimitiveRoots.Proofs.pd4d_sol in
+/-- Finite collision errors retain the exponential rate with endpoint masks and hit damping. -/
+theorem _root_.ArtinPrimitiveRoots.Proofs.pd4d_sol.clean_collision_masks_bound
+    {K : ℕ} (F : PDFix K) (hF : F.Valid) :
+    ∃ C x₀ Y₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧ 1 ≤ Y₀ ∧
+      ∀ (δ c₁ c₂ : ℝ) (S : PDScale), S.Valid K δ c₁ c₂ →
+      x₀ ≤ S.x → Y₀ ≤ S.Y → 1 ≤ S.L →
+      ∀ w : ArchRoot, w.InRegion S →
+      ∀ T : Finset (MemPoint S.x K),
+      (∀ s ∈ T, MemValid F S s ∧ envBox S w s.1 ∧
+        goodTestOne S.x S.Y (S.d₀ : ℝ) s.2.1 (transportedRatio w s.1)) →
+      ∀ ρ : ℝ, 0 ≤ ρ → ρ ≤ 1 →
+      ∀ I O : Finset (MemPoint S.x K), I ⊆ T → O ⊆ T →
+      ∀ (forward raw : Bool) (f : MemPoint S.x K → ℂ),
+      let μ := fun s : MemPoint S.x K =>
+        ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+      let adm := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+        (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+          j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+        (∃ i : Fin K, t.2.1 i (lastSlot S.x) = s.2.1 i (lastSlot S.x)) ∧
+        IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1)
+      (∑ s ∈ O, memMeasure F S s*‖(ρ^(∑ i : Fin K, hitCount (s.2.2 i) s.1) : ℂ)*
+        (∑ t ∈ I, if adm s t then
+          edgeMultiplier F S forward raw s.2.1 t.2.1 s.1 t.1*(μ t : ℂ)*
+            (ρ^(∑ i : Fin K, hitCount (t.2.2 i) t.1) : ℂ)*f t
+        else 0)‖^2) ≤
+        (C*(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ)))^2*
+          (∑ t ∈ I, memMeasure F S t*‖f t‖^2) := by
+  classical
+  obtain ⟨C, xrow, Y₀, hC, hxrow, hY₀, hrows⟩ := clean_fresh_collision_row_eventually F hF
+  obtain ⟨xV, hxV, hVbounds⟩ := pd4c_bandMass_large_bounds F hF
+  obtain ⟨xB, hxB, hBbounds⟩ := memoryBPrime_half_of_large_x F hF
+  let x₀ := max 2 (max xrow (max xV xB))
+  refine ⟨C, x₀, Y₀, hC, le_max_left _ _, hY₀, ?_⟩
+  intro δ c₁ c₂ S hS hx hY hL w hw T hT ρ hρ0 hρ1 I O hI hO forward raw f
+  have hxrow' : xrow ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_max_right _ _)) hx
+  have hxV' : xV ≤ S.x := le_trans
+    (le_trans (le_max_left _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hxB' : xB ≤ S.x := le_trans
+    (le_trans (le_max_right _ _) (le_trans (le_max_right _ _) (le_max_right _ _))) hx
+  have hν (i : Fin K) (p : ℕ) (hp : p ∈ primeBand S.x (F.a i)) :
+      0 ≤ memoryNu S.x K F.a F.q_d i p := by
+    have hVpos : 0 < bandMass S.x (F.a i) :=
+      lt_of_lt_of_le (div_pos (Real.log_pos (by norm_num)) (by norm_num))
+        (hVbounds S.x hxV' i).1
+    have hpmark : p ∈ markedPrimes S.x K F.a :=
+      Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, hp⟩
+    exact (pd4c_memoryNu_le_twice_mu F.q_d i p (Finset.mem_filter.mp hp).2.1.pos
+      hVpos (hBbounds S.x hxB' p hpmark)).1
+  have hm : ∀ s : MemPoint S.x K, 0 ≤ memMeasure F S s :=
+    pd4c_memMeasure_nonneg_of_nu F S hν
+  let μ := fun s : MemPoint S.x K =>
+    ∏ i : Fin K, memoryNu S.x K F.a F.q_d i (s.2.1 i (lastSlot S.x))
+  let base := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+    (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+      j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+    (∃ i : Fin K, t.2.1 i (lastSlot S.x) = s.2.1 i (lastSlot S.x))
+  let adm := fun s t : MemPoint S.x K => s.2.2 = t.2.2 ∧
+    (∀ (i : Fin K) (j : Fin (slotCount S.x)),
+      j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) ∧
+    (∃ i : Fin K, t.2.1 i (lastSlot S.x) = s.2.1 i (lastSlot S.x)) ∧
+    IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1)
+  let k := fun (forward raw : Bool) (s t : MemPoint S.x K) =>
+    if adm s t then edgeMultiplier F S forward raw s.2.1 t.2.1 s.1 t.1 else 0
+  let R := C*(1+Real.rpow S.L F.A₀^3)*Real.exp (-Real.rpow S.L (1/10 : ℝ))
+  have hLpos : 0 < S.L := by linarith
+  have hR : 0 ≤ R := by
+    dsimp only [R]
+    exact mul_nonneg
+      (mul_nonneg hC.le (add_nonneg (by norm_num)
+        (pow_nonneg (Real.rpow_pos_of_pos hLpos _).le _))) (Real.exp_pos _).le
+  have hμ (s : MemPoint S.x K) (hs : s ∈ T) : 0 ≤ μ s :=
+    Finset.prod_nonneg (fun i hi => hν i _ ((hT s hs).1.2.1 i (lastSlot S.x)))
+  have hrow (forward raw : Bool) (s : MemPoint S.x K) (hs : s ∈ T) :
+      (∑ t ∈ T, ‖k forward raw s t‖*μ t) ≤ R := by
+    let g := fun (p : PrimeLists S.x K) (z : ℤ × ℤ) =>
+      if IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 z) ∧ envBox S w z then
+        ‖edgeMultiplier F S forward raw s.2.1 p s.1 z‖ else 0
+    have hg : ∀ p z, 0 ≤ g p z := by
+      intro p z
+      dsimp only [g]
+      split_ifs
+      · exact norm_nonneg _
+      · exact le_rfl
+    let q : ((i : Fin K) → primeBand S.x (F.a i)) → PrimeLists S.x K :=
+      fun a i j => if j.val < momentJ S.x then s.2.1 i j else (a i : ℕ)
+    have hrowfresh :
+        (∑ a : (i : Fin K) → primeBand S.x (F.a i),
+          if ∃ i : Fin K, (a i : ℕ) = s.2.1 i (lastSlot S.x) then
+            (∏ i : Fin K, memoryNu S.x K F.a F.q_d i (a i))*
+              (∑ z ∈ T.image (fun t => t.1), g (q a) z) else 0) ≤ R := by
+      have hphysical := hrows δ c₁ c₂ S hS hxrow' hY hL w hw forward raw s.2.1 s.1
+        (hT s hs).1.1 (hT s hs).2.1 (hT s hs).2.2
+        (fun i => s.2.1 i (lastSlot S.x)) q (T.image (fun t => t.1))
+      simpa only [g, R] using hphysical
+    have htransfer := clean_finite_collision_state_row_le F S s T
+      (fun t ht => (hT t ht).1) hν g hg R hrowfresh
+    change (∑ t ∈ T, if base s t then μ t*g t.2.1 t.1 else 0) ≤ R at htransfer
+    calc
+      _ = ∑ t ∈ T, if base s t then μ t*g t.2.1 t.1 else 0 := by
+        apply Finset.sum_congr rfl
+        intro t ht
+        by_cases ha : adm s t
+        · have hb : base s t := ⟨ha.1, ha.2.1, ha.2.2.1⟩
+          have hp : IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1) := ha.2.2.2
+          have hgeom : IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1) ∧
+              envBox S w t.1 := ⟨hp, (hT t ht).2.1⟩
+          simp only [k, if_pos ha, if_pos hb, g, if_pos hgeom]
+          ring
+        · by_cases hb : base s t
+          · have hn : ¬ (IsPadAdmissible S.d₀ (sharedProduct s.2.1) (det2 s.1 t.1) ∧
+                envBox S w t.1) := fun h => ha ⟨hb.1, hb.2.1, hb.2.2, h.1⟩
+            simp only [k, if_neg ha, norm_zero, zero_mul, if_pos hb, g, if_neg hn, mul_zero]
+          · simp only [k, if_neg ha, norm_zero, zero_mul, if_neg hb]
+      _ ≤ R := htransfer
+  have hD (s t : MemPoint S.x K)
+      (hcopy : ∀ (i : Fin K) (j : Fin (slotCount S.x)),
+        j.val < momentJ S.x → s.2.1 i j = t.2.1 i j) :
+      sharedProduct s.2.1 = sharedProduct t.2.1 := by
+    unfold sharedProduct
+    apply Finset.prod_congr rfl
+    intro i hi
+    apply Finset.prod_congr rfl
+    intro j hj
+    by_cases hshared : j.val < momentJ S.x
+    · simp only [if_pos hshared, hcopy i j hshared]
+    · simp only [if_neg hshared]
+  have hreverse (s t : MemPoint S.x K) (ha : adm s t) : adm t s := by
+    have hD' := hD s t ha.2.1
+    have hdet : det2 t.1 s.1 = -det2 s.1 t.1 := by dsimp only [det2]; ring
+    have hp : IsPadAdmissible S.d₀ (sharedProduct t.2.1) (det2 t.1 s.1) := by
+      rw [← hD', hdet]
+      exact ⟨ha.2.2.2.1, ha.2.2.2.2.1, dvd_neg.mpr ha.2.2.2.2.2⟩
+    obtain ⟨i, hi⟩ := ha.2.2.1
+    exact ⟨ha.1.symm, fun i j hj => (ha.2.1 i j hj).symm, ⟨i, hi.symm⟩, hp⟩
+  have hbalance (forward raw : Bool) (s t : MemPoint S.x K) (hs : s ∈ T) (ht : t ∈ T) :
+      memMeasure F S s*‖k forward raw s t‖*μ t =
+        memMeasure F S t*‖k (Bool.not forward) raw t s‖*μ s := by
+    by_cases ha : adm s t
+    · have hb := hreverse s t ha
+      have hD' := hD s t ha.2.1
+      have hn : ‖edgeMultiplier F S forward raw s.2.1 t.2.1 s.1 t.1‖ =
+          ‖edgeMultiplier F S (Bool.not forward) raw t.2.1 s.2.1 t.1 s.1‖ := by
+        cases forward <;> cases raw <;> simp only [edgeMultiplier, hD', Bool.not_false,
+          Bool.not_true, Bool.false_eq_true, if_false, if_true, norm_star]
+      have hmμ : memMeasure F S s*μ t = memMeasure F S t*μ s :=
+        clean_common_memory_measure_balance F S s t (hT s hs).1 (hT t ht).1 ha.1 ha.2.1
+      simp only [k, if_pos ha, if_pos hb]
+      calc
+        _ = (memMeasure F S s*μ t)*
+            ‖edgeMultiplier F S forward raw s.2.1 t.2.1 s.1 t.1‖ := by ring
+        _ = (memMeasure F S t*μ s)*
+            ‖edgeMultiplier F S (Bool.not forward) raw t.2.1 s.2.1 t.1 s.1‖ := by rw [hmμ, hn]
+        _ = _ := by ring
+    · have hb : ¬ adm t s := fun h => ha (hreverse t s h)
+      simp only [k, if_neg ha, if_neg hb, norm_zero, mul_zero, zero_mul]
+  have hk (d e : MemPoint S.x K → ℂ) (hd : ∀ s ∈ T, ‖d s‖ ≤ 1)
+      (he : ∀ s ∈ T, ‖e s‖ ≤ 1) (g : MemPoint S.x K → ℂ) :
+      (∑ s ∈ T, memMeasure F S s*‖d s*
+        (∑ t ∈ T, k forward raw s t*(μ t : ℂ)*e t*g t)‖^2) ≤
+        R^2*(∑ t ∈ T, memMeasure F S t*‖g t‖^2) := by
+    let a := fun s t : MemPoint S.x K => d s*k forward raw s t*(μ t : ℂ)*e t
+    have hnorm (s t : MemPoint S.x K) (hs : s ∈ T) (ht : t ∈ T) :
+        ‖a s t‖ ≤ ‖k forward raw s t‖*μ t := by
+      have hμt := hμ t ht
+      calc
+        _ = ‖d s‖*‖k forward raw s t‖*μ t*‖e t‖ := by
+          simp only [a, norm_mul, Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hμt]
+        _ ≤ 1*‖k forward raw s t‖*μ t*1 := by
+          gcongr
+          · exact hd s hs
+          · exact he t ht
+        _ = _ := by ring
+    have hrowa (s : MemPoint S.x K) (hs : s ∈ T) :
+        (∑ t ∈ T, ‖a s t‖*1) ≤ R*1 := by
+      simp only [mul_one]
+      exact (Finset.sum_le_sum (fun t ht => hnorm s t hs ht)).trans (hrow forward raw s hs)
+    have hcola (t : MemPoint S.x K) (ht : t ∈ T) :
+        (∑ s ∈ T, memMeasure F S s*‖a s t‖*1) ≤ R*memMeasure F S t*1 := by
+      simp only [mul_one]
+      calc
+        _ ≤ ∑ s ∈ T, memMeasure F S s*(‖k forward raw s t‖*μ t) :=
+          Finset.sum_le_sum (fun s hs => mul_le_mul_of_nonneg_left (hnorm s t hs ht) (hm s))
+        _ = memMeasure F S t*(∑ s ∈ T, ‖k (Bool.not forward) raw t s‖*μ s) := by
+          rw [Finset.mul_sum]
+          apply Finset.sum_congr rfl
+          intro s hs
+          simpa only [mul_assoc] using hbalance forward raw s t hs ht
+        _ ≤ memMeasure F S t*R :=
+          mul_le_mul_of_nonneg_left (hrow (Bool.not forward) raw t ht) (hm t)
+        _ = R*memMeasure F S t := mul_comm _ _
+    have hSchur := pd4c_finite_weighted_schur_norm (memMeasure F S)
+      (fun _ => (1 : ℝ)) a g T T R R hm (fun _ => by norm_num) hR hR hrowa hcola
+    have hrep (s : MemPoint S.x K) :
+        (∑ t ∈ T, a s t*g t) = d s*(∑ t ∈ T, k forward raw s t*(μ t : ℂ)*e t*g t) := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro t ht
+      dsimp only [a]
+      ring
+    simp_rw [hrep] at hSchur
+    simpa only [pow_two] using hSchur
+  have hbound := finite_weighted_damped_rectangular_bound T I O hI hO
+    (memMeasure F S) μ (fun s hs => hm s) (k forward raw) ρ R hρ0 hρ1
+    (fun s => ∑ i : Fin K, hitCount (s.2.2 i) s.1) hk f
+  simpa only [k, ite_mul, zero_mul] using hbound
+
 /-- `t2:pd.lattice-clean` (b) — PD 04:499-603.  REPLACES the frozen `lattice_clean`.  For every
 `G` there is `A₀` with `‖ℰ_j^{clean}‖_{ℋ_B} ≤ L^{-G}` (mem:clean-bound): condition on shared list
 and memory, drop the extra ban (cost `C_K M sup ν`), reduce by `lattice_shape` to the
