@@ -813,8 +813,8 @@ private theorem po_weights_witness :
 /-- po:weights-exist, 05:37–75. The existence and universal analytic conclusions are separate. -/
 theorem po_weights_exist :
   (∃ W : PoissonWeights (S := S), WeightSpec R sd W) ∧
-    ∀ W : PoissonWeights (S := S), WeightDecay R sd W := by
-  sorry
+    ∀ W : PoissonWeights (S := S), WeightDecay R sd W :=
+  ⟨po_weights_witness R sd, po_weights_decay R sd⟩
 /-- ext:tate-local-FE, finite-place version at the actual completion and frozen additive sign.
 A scalar c_v(s) is independent of the test function; the strip is open. -/
 theorem ext_tate_local_FE_fin (v : FinPlace F) :
