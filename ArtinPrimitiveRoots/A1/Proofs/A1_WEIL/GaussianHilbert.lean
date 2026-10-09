@@ -3,6 +3,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianBinary
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianSign
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianSquare
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.GaussianOne
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.NormCoset
 
 set_option autoImplicit false
 
