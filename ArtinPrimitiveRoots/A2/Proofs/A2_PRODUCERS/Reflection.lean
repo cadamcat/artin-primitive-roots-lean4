@@ -165,7 +165,7 @@ private theorem continuousIdeleClass_ofAdicCompletion (v : FinPlace F) :
   have hAdele : Continuous (AdeleRing.ofAdicCompletion (𝓞 F) F v) := by
     unfold AdeleRing.ofAdicCompletion
     exact continuous_prodMk.mpr ⟨continuous_const, continuousFiniteAdele_ofAdicCompletion v⟩
-  have hIdele : Continuous (IdeleGroup.ofAdicCompletion (𝓞 F) F v) := by
+  have hIdele : Continuous (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v) := by
     change Continuous (Units.map (AdeleRing.ofAdicCompletion (𝓞 F) F v))
     exact Units.continuous_map hAdele
   unfold IdeleClassGroup.ofAdicCompletion
@@ -189,7 +189,7 @@ private theorem continuousIdeleClass_ofCompletion (w : InfinitePlace F) :
         funext x
         exact Pi.mulSingle_eq_of_ne hw x
       exact hfun ▸ continuous_const
-  have hIdele : Continuous (IdeleGroup.ofCompletion (𝓞 F) F w) := by
+  have hIdele : Continuous (NumberField.IdeleGroup.ofCompletion (𝓞 F) F w) := by
     change Continuous (Units.map (AdeleRing.ofCompletion (𝓞 F) F w))
     exact Units.continuous_map hAdele
   unfold IdeleClassGroup.ofCompletion
