@@ -245,6 +245,101 @@ theorem left_integral_bound (f : ℝ → ℝ)
         Complex.cpow (x : ℂ) s * mellinTransform f s) (-1 / 2)‖ ≤
       C * Real.rpow x (-1 / 2 : ℝ) *
         (Real.log (absoluteDiscriminant K) + Module.finrank ℚ K) := by
-  sorry
+  obtain ⟨CΦ, hCΦ, hΦ⟩ := hdecay 3 (-1 / 2) (-1 / 2) le_rfl
+  obtain ⟨CL, hCL, hL⟩ := hleft
+  refine ⟨CL * CΦ / 2, by positivity, ?_⟩
+  intro K _ _ x hx
+  have hxpos : 0 < x := by linarith
+  have hdisc : 1 ≤ absoluteDiscriminant K := by
+    have hNat : 1 ≤ (NumberField.discr K).natAbs :=
+      Nat.one_le_iff_ne_zero.mpr (Int.natAbs_ne_zero.mpr (NumberField.discr_ne_zero K))
+    simpa [absoluteDiscriminant, Nat.cast_natAbs] using
+      (show (1 : ℝ) ≤ ((NumberField.discr K).natAbs : ℝ) by exact_mod_cast hNat)
+  let d : ℝ := Real.log (absoluteDiscriminant K)
+  let n : ℝ := Module.finrank ℚ K
+  let X : ℝ := Real.rpow x (-1 / 2 : ℝ)
+  let A : ℝ := CL * CΦ * X * (d + n)
+  let H : ℂ → ℂ := fun s => dedekindZetaLogDerivative K s *
+    Complex.cpow (x : ℂ) s * mellinTransform f s
+  let line : ℝ → ℂ := fun t => (((-1 / 2 : ℝ) : ℂ) + t * Complex.I)
+  have hd : 0 ≤ d := Real.log_nonneg hdisc
+  have hn : 0 ≤ n := Nat.cast_nonneg _
+  have hX : 0 < X := Real.rpow_pos_of_pos hxpos _
+  have hA : 0 ≤ A := by dsimp [A]; positivity
+  have hbound (t : ℝ) : ‖H (line t)‖ ≤ A * (1 + t ^ 2)⁻¹ := by
+    let u : ℝ := 1 + |t|
+    have huone : 1 ≤ u := by dsimp [u]; linarith [abs_nonneg t]
+    have hu : 0 < u := lt_of_lt_of_le (by norm_num : (0 : ℝ) < 1) huone
+    have hlog : Real.log (2 + |t|) ≤ u := by
+      have h := Real.log_le_sub_one_of_pos (by positivity : 0 < 2 + |t|)
+      dsimp [u]
+      linarith
+    have hdgrow : d ≤ d * u := by nlinarith
+    have hweight : d + n * Real.log (2 + |t|) ≤ (d + n) * u := by
+      calc
+        _ ≤ d + n * u := add_le_add le_rfl (mul_le_mul_of_nonneg_left hlog hn)
+        _ ≤ d * u + n * u := add_le_add hdgrow le_rfl
+        _ = _ := by ring
+    have hLbound : ‖dedekindZetaLogDerivative K (line t)‖ ≤ CL * ((d + n) * u) := by
+      exact (hL K t).trans (mul_le_mul_of_nonneg_left hweight hCL.le)
+    have hM : ‖mellinTransform f (line t)‖ ≤ CΦ * Real.rpow u (-3 : ℝ) := by
+      simpa [line, u] using hΦ (line t) (by simp [line]) (by simp [line])
+    have hcpow : ‖Complex.cpow (x : ℂ) (line t)‖ = X := by
+      have hnorm : ‖Complex.cpow (x : ℂ) (line t)‖ = Real.rpow x (line t).re :=
+        Complex.norm_cpow_eq_rpow_re_of_pos hxpos (line t)
+      have hre : (line t).re = (-1 / 2 : ℝ) := by simp [line]
+      exact hnorm.trans (congrArg (Real.rpow x) hre)
+    have hpow : u * Real.rpow u (-3 : ℝ) = Real.rpow u (-2 : ℝ) := by
+      calc
+        _ = Real.rpow u (1 : ℝ) * Real.rpow u (-3 : ℝ) := by
+          exact congrArg (fun z : ℝ => z * Real.rpow u (-3 : ℝ)) (Real.rpow_one u).symm
+        _ = Real.rpow u ((1 : ℝ) + (-3 : ℝ)) := (Real.rpow_add hu _ _).symm
+        _ = _ := by norm_num
+    have hinv : Real.rpow u (-2 : ℝ) = (u ^ 2)⁻¹ :=
+      (Real.rpow_neg hu.le (2 : ℝ)).trans
+        (congrArg (fun z : ℝ => z⁻¹) (Real.rpow_two u))
+    have hsq : 1 + t ^ 2 ≤ u ^ 2 := by
+      dsimp [u]
+      nlinarith [abs_nonneg t, sq_abs t]
+    have hcompare : Real.rpow u (-2 : ℝ) ≤ (1 + t ^ 2)⁻¹ := by
+      rw [hinv]
+      simpa only [one_div] using
+        one_div_le_one_div_of_le (by positivity : 0 < 1 + t ^ 2) hsq
+    calc
+      ‖H (line t)‖ = ‖dedekindZetaLogDerivative K (line t)‖ * X *
+          ‖mellinTransform f (line t)‖ := by
+        change ‖dedekindZetaLogDerivative K (line t) *
+          Complex.cpow (x : ℂ) (line t) * mellinTransform f (line t)‖ = _
+        rw [norm_mul, norm_mul, hcpow]
+      _ ≤ (CL * ((d + n) * u)) * X * (CΦ * Real.rpow u (-3 : ℝ)) := by
+        apply mul_le_mul
+        · exact mul_le_mul_of_nonneg_right hLbound hX.le
+        · exact hM
+        · exact norm_nonneg _
+        · positivity
+      _ = A * (u * Real.rpow u (-3 : ℝ)) := by dsimp [A]; ring
+      _ = A * Real.rpow u (-2 : ℝ) := by rw [hpow]
+      _ ≤ A * (1 + t ^ 2)⁻¹ := mul_le_mul_of_nonneg_left hcompare hA
+  have hmajor : Integrable (fun t : ℝ => A * (1 + t ^ 2)⁻¹) :=
+    integrable_inv_one_add_sq.const_mul A
+  have hint : ‖∫ t : ℝ, H (line t)‖ ≤ A * Real.pi := by
+    calc
+      _ ≤ ∫ t : ℝ, A * (1 + t ^ 2)⁻¹ :=
+        MeasureTheory.norm_integral_le_of_norm_le hmajor (Filter.Eventually.of_forall hbound)
+      _ = _ := by
+        rw [MeasureTheory.integral_const_mul, integral_univ_inv_one_add_sq]
+  have hcoef : ‖((2 * Real.pi : ℝ) : ℂ)⁻¹‖ = (2 * Real.pi)⁻¹ := by
+    rw [norm_inv, Complex.norm_real, Real.norm_eq_abs,
+      abs_of_pos (mul_pos (by norm_num) Real.pi_pos)]
+  change ‖verticalLineIntegral H (-1 / 2)‖ ≤ CL * CΦ / 2 * X * (d + n)
+  calc
+    ‖verticalLineIntegral H (-1 / 2)‖ = (2 * Real.pi)⁻¹ * ‖∫ t : ℝ, H (line t)‖ := by
+      rw [verticalLineIntegral, norm_mul, hcoef]
+    _ ≤ (2 * Real.pi)⁻¹ * (A * Real.pi) :=
+      mul_le_mul_of_nonneg_left hint (by positivity)
+    _ = CL * CΦ / 2 * X * (d + n) := by
+      dsimp [A]
+      field_simp [Real.pi_ne_zero]
+      <;> ring
 
 end ArtinPrimitiveRoots.Proofs.s7sol_mellin
