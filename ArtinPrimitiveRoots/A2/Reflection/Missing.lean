@@ -13314,6 +13314,121 @@ private theorem rf_pairing_masked_norm_integral_bound
   exact integral_mono_ae hG.norm (hNorm.const_mul ‖digitAlpha R r d‖)
     (Filter.Eventually.of_forall hDom)
 
+private theorem rf_pairing_orbit_norm_integrals
+    (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
+    (u : UnitSix S) (ν : Fˣ) (l : ℝ) (hl : 0 < l) :
+    let w : Gamma S → S.FSˣ → ℂ := fun γ y =>
+      bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+          rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y)
+    (∀ γ, IntegrableOn (onUnits (w γ)) (omegaAt R l) (R.sheets.sheet l)) ∧
+      Summable (fun γ => ∫ y in omegaAt R l, ‖onUnits (w γ) y‖
+        ∂(R.sheets.sheet l)) ∧
+      (∑' γ, ∫ y in omegaAt R l, ‖onUnits (w γ) y‖ ∂(R.sheets.sheet l)) ≤
+        profileAbs R u (S.absS (S.diagU ν : S.FS) / l) := by
+  classical
+  let w : Gamma S → S.FSˣ → ℂ := fun γ y =>
+    bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+      sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹ *
+        rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / y)
+  let m := (R.sheets.sheet l).restrict (omegaAt R l)
+  let major : Gamma S → S.FSˣ → ℂ := fun γ y =>
+    (rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / y) : ℂ)
+  change (∀ γ, Integrable (onUnits (w γ)) m) ∧
+    Summable (fun γ => ∫ y, ‖onUnits (w γ) y‖ ∂m) ∧
+    (∑' γ, ∫ y, ‖onUnits (w γ) y‖ ∂m) ≤
+      profileAbs R u (S.absS (S.diagU ν : S.FS) / l)
+  obtain ⟨C, hC, hRef⟩ := rf_reflected_absolute R 1 (by norm_num)
+  have hAbs := hRef u ν l hl
+  change (∀ γ, Integrable (onUnits (major γ)) m) ∧
+    Summable (fun γ => (∫ y, onUnits (major γ) y ∂m).re) ∧
+    (∑' γ, (∫ y, onUnits (major γ) y ∂m).re) =
+      profileAbs R u (S.absS (S.diagU ν : S.FS) / l) ∧
+    profileAbs R u (S.absS (S.diagU ν : S.FS) / l) ≤
+      C * (S.absS (S.diagU ν : S.FS) / l) ^ (-1 : ℝ) at hAbs
+  have hSignedInt (γ : Gamma S) : Integrable (onUnits (w γ)) (R.sheets.sheet l) := by
+    let ν0 : Fˣ := (γ.1 : Fˣ) * ν
+    let κ : S.V := cls (S.diagU ν0)
+    let g : S.FSˣ → ℂ := fun y =>
+      (if κ * (cls y)⁻¹ ∈ Bd.B then 1 else 0) *
+        R.pairing.pair κ (cls y) ^ 2 * Lvalue R u y * rotated R u y
+    let z : ℂ := (Lvalue R u (S.diagU ν0))⁻¹
+    have hSigned (y : S.FSˣ) : w γ y = z * g (S.diagU ν0 / y) := by
+      have hm := rf_S_orbit_multiplier R u (1 : Gamma S) ν0 y
+      have hOne : ((1 : Gamma S).1 : Fˣ) = 1 := rfl
+      rw [hOne, one_mul] at hm
+      change bCut (Bd := Bd) y * (Lvalue R u y)⁻¹ *
+        sCocycle (D := D) (H := H) (S.diagU ν0) y⁻¹ *
+          rotated R u (S.diagU ν0 / y) = z * g (S.diagU ν0 / y)
+      dsimp only [g, z, κ]
+      rw [hm]
+      ring
+    have hProfile := (rf_S_profile_pullback R u ν0 l hl).1
+    change Integrable (onUnits (fun y => g (S.diagU ν0 / y)))
+      (R.sheets.sheet l) at hProfile
+    have hEq : onUnits (w γ) = fun y : S.FS =>
+        z * onUnits (fun x => g (S.diagU ν0 / x)) y := by
+      funext y
+      by_cases hy : IsUnit y
+      · simp only [onUnits, dif_pos hy, hSigned]
+      · simp [onUnits, hy]
+    rw [hEq]
+    exact hProfile.const_mul z
+  have hInt (γ : Gamma S) : Integrable (onUnits (w γ)) m := (hSignedInt γ).restrict
+  have hRotNorm (y : S.FSˣ) : ‖rotated R u y‖ ≤ rotatedAbs R u y := by
+    calc
+      ‖rotated R u y‖ =
+          ‖∑ ℓ : Fin (R.rotated u).J,
+            (∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+              ∏ a : InfinitePlace F, (R.rotated u).fc ℓ a ((y : S.FS).2 a)‖ := by
+        simpa only [rotated, Theta.sumProd] using congrArg norm (R.rotated_eq u y)
+      _ ≤ ∑ ℓ : Fin (R.rotated u).J,
+          ‖(∏ v : S.Sf, (R.rotated u).ff ℓ v ((y : S.FS).1 v)) *
+            ∏ a : InfinitePlace F, (R.rotated u).fc ℓ a ((y : S.FS).2 a)‖ :=
+        norm_sum_le _ _
+      _ = rotatedAbs R u y := by simp only [rotatedAbs, norm_mul, norm_prod]
+  have hBnorm (y : S.FSˣ) : ‖bCut (Bd := Bd) y‖ ≤ 1 := by
+    unfold bCut
+    split_ifs <;> simp
+  have hLinvNorm (y : S.FSˣ) : ‖(Lvalue R u y)⁻¹‖ = 1 := by
+    rw [norm_inv]
+    have hLnorm : ‖Lvalue R u y‖ = 1 := by
+      simpa only [Lvalue] using (R.chars.L u).unitary y
+    rw [hLnorm, inv_one]
+  have hCocNorm (γ : Gamma S) (y : S.FSˣ) :
+      ‖sCocycle (D := D) (H := H) (S.diagU ((γ.1 : Fˣ) * ν)) y⁻¹‖ = 1 := by
+    unfold sCocycle
+    rw [← R.pairing.pair_eq, norm_pow, R.pairing.unitary]
+    norm_num
+  have hDom (γ : Gamma S) (y : S.FS) :
+      ‖onUnits (w γ) y‖ ≤ (onUnits (major γ) y).re := by
+    by_cases hy : IsUnit y
+    · simp only [onUnits, dif_pos hy, w, major, norm_mul,
+        hLinvNorm, hCocNorm, mul_one, Complex.ofReal_re]
+      calc
+        ‖bCut (Bd := Bd) hy.unit‖ *
+            ‖rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / hy.unit)‖ ≤
+            1 * ‖rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / hy.unit)‖ :=
+          mul_le_mul_of_nonneg_right (hBnorm hy.unit) (norm_nonneg _)
+        _ = ‖rotated R u (S.diagU ((γ.1 : Fˣ) * ν) / hy.unit)‖ := one_mul _
+        _ ≤ rotatedAbs R u (S.diagU ((γ.1 : Fˣ) * ν) / hy.unit) := hRotNorm _
+    · simp [onUnits, hy]
+  have hLe (γ : Gamma S) :
+      (∫ y, ‖onUnits (w γ) y‖ ∂m) ≤ (∫ y, onUnits (major γ) y ∂m).re := by
+    calc
+      _ ≤ ∫ y, (onUnits (major γ) y).re ∂m :=
+        integral_mono_ae (hInt γ).norm (hAbs.1 γ).re
+          (Filter.Eventually.of_forall (hDom γ))
+      _ = _ := integral_re (hAbs.1 γ)
+  have hNonneg (γ : Gamma S) : 0 ≤ ∫ y, ‖onUnits (w γ) y‖ ∂m :=
+    integral_nonneg (fun y => norm_nonneg _)
+  have hs : Summable (fun γ => ∫ y, ‖onUnits (w γ) y‖ ∂m) :=
+    Summable.of_nonneg_of_le hNonneg hLe hAbs.2.1
+  refine ⟨hInt, hs, ?_⟩
+  calc
+    _ ≤ ∑' γ, (∫ y, onUnits (major γ) y ∂m).re := hs.tsum_le_tsum hLe hAbs.2.1
+    _ = _ := hAbs.2.2.1
+
 /-- lem:reflection-quadratic-pairing, 04:625–657. -/
 theorem lem_reflection_quadratic_pairing : ∀ r Z, 0 < Z →
   Summable (fun p => ‖reflectedTerm R (rowClass R r) r.h r.d Z p‖) ∧
