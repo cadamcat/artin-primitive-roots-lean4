@@ -3409,6 +3409,59 @@ private theorem sw_slot_clipped (γ : ℝ) (hγ : 0 < γ) (A₀ A₂ : ℝ) (hA�
         add_le_add hdiff hclosed
     _ = C * P * Real.rpow (Real.log x) (-A₂) + 2 := add_comm _ _
 
+private theorem nonprincipal_prime_tuple_count (γ : ℝ) (hγ : 0 < γ) :
+    ∀ A₀ A₂ : ℝ, 0 < A₀ → 0 < A₂ →
+      ∃ C x₀ : ℝ, 0 < C ∧ 2 ≤ x₀ ∧
+        ∀ x : ℝ, x₀ ≤ x →
+          ∀ M : ℝ, 0 ≤ M → 2 * M ≤ x →
+            ∀ k : ℕ, 1 ≤ k → (k : ℝ) ≤ Real.rpow (Real.log x) A₀ →
+              ∀ χ : DirichletCharacter ℂ k, χ ≠ 1 →
+                ∀ n : ℕ, ∀ l r : ℝ,
+                  M ≤ l → l ≤ r → r ≤ 2 * M →
+                    ‖∑ t ∈ (boundedTuples (n + 1) (⌊2 * M⌋₊ + 1)).filter
+                        (fun t =>
+                          (∀ i, (t i).Prime ∧ Real.rpow x γ < (t i : ℝ)) ∧
+                          l ≤ ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ∧
+                          ((∏ i : Fin (n + 1), t i : ℕ) : ℝ) ≤ r),
+                      χ ((∏ i : Fin (n + 1), t i : ℕ) : ZMod k)‖ ≤
+                      C * M * Real.rpow (Real.log x) (-A₂) *
+                        (harmonic (⌊2 * M⌋₊ + 1) : ℝ) ^ n := by
+  intro A₀ A₂ hA₀ hA₂
+  obtain ⟨Csw, x₀, hCsw, hx₀, hSW⟩ := sw_slot γ hγ A₀ A₂ hA₀ hA₂
+  refine ⟨12 * Csw, x₀, by positivity, hx₀, ?_⟩
+  intro x hx M hM hMx k hk hkLog χ hχ n l r hl hlr hr
+  have hx2 : 2 ≤ x := hx₀.trans hx
+  have hxpos : 0 < x := by linarith
+  have hY : 0 < Real.rpow x γ := Real.rpow_pos_of_pos hxpos _
+  have hD : 0 ≤ Real.rpow (Real.log x) (-A₂) :=
+    Real.rpow_nonneg (Real.log_nonneg (by linarith)) _
+  have hB : 2 * M ≤ ((⌊2 * M⌋₊ + 1 : ℕ) : ℝ) := by
+    simpa only [Nat.cast_add, Nat.cast_one] using
+      le_of_lt (Nat.lt_floor_add_one (2 * M))
+  have hclosed : ∀ N : ℝ, Real.rpow x γ / 2 ≤ N → N ≤ 2 * x →
+      ∀ a b : ℝ, N ≤ a → a ≤ b → b ≤ 2 * N →
+        ‖∑ p ∈ (Finset.range (⌊b⌋₊ + 1)).filter
+            (fun p : ℕ => p.Prime ∧ a ≤ (p : ℝ) ∧ (p : ℝ) ≤ b),
+          χ (p : ZMod k)‖ ≤ 6 * N * Csw * Real.rpow (Real.log x) (-A₂) := by
+    intro N hNlo hNup a b hNa hab hbN
+    have hN : 0 ≤ N := (by positivity : 0 ≤ Real.rpow x γ / 2).trans hNlo
+    have hbase : ‖∑ p ∈ (Finset.range (⌊b⌋₊ + 1)).filter
+        (fun p : ℕ => p.Prime ∧ a ≤ (p : ℝ) ∧ (p : ℝ) ≤ b),
+      χ (p : ZMod k)‖ ≤ Csw * N * Real.rpow (Real.log x) (-A₂) := by
+      simpa only [primesInInterval, if_neg hχ, zero_mul, sub_zero] using
+        hSW x hx N hNlo hNup k hk hkLog χ a b hNa hab hbN
+    have hnonneg : 0 ≤ Csw * N * Real.rpow (Real.log x) (-A₂) :=
+      mul_nonneg (mul_nonneg hCsw.le hN) hD
+    calc
+      _ ≤ Csw * N * Real.rpow (Real.log x) (-A₂) := hbase
+      _ ≤ 6 * (Csw * N * Real.rpow (Real.log x) (-A₂)) := by linarith
+      _ = 6 * N * Csw * Real.rpow (Real.log x) (-A₂) := by ring
+  exact ArtinPrimitiveRoots.Proofs.r_impl_muse.prime_tuple_product_interval_character_bound
+    M l r (Real.rpow x γ) (Real.rpow x γ / 2) (2 * x)
+    (Real.rpow (Real.log x) (-A₂)) Csw n (⌊2 * M⌋₊ + 1) k χ
+    hM hl hlr hr hB hY (by positivity) (by linarith)
+    (by linarith) hD hCsw.le hclosed
+
 /-- `t2:low-count` — 08-type-ii.tex:373-427, `eq:rough-convolution-low-count`. Correction 4
 from review lane `rev-b` restricts uniformity to its fixed exponent window. -/
 theorem low_count (γ : ℝ) (hγ : 0 < γ) :
