@@ -274,7 +274,159 @@ theorem contDiscrepancy_aestronglyMeasurable (q : ℕ)
 theorem contTail_differentiableAt {q : ℕ} (hq : 0 < q)
     (χ : DirichletCharacter ℂ q) {Y : ℝ} (hY : 1 ≤ Y) {s : ℂ}
     (hs : 0 < s.re) : DifferentiableAt ℂ (contTail q χ Y) s := by
-  sorry
+  let μ : Measure ℝ := volume.restrict (Set.Ioi Y)
+  let δ : ℝ := s.re / 4
+  let U : Set ℂ := Metric.ball s (s.re / 2)
+  let C : ℝ := (2 * (q : ℝ)) / δ
+  let F : ℂ → ℝ → ℂ := fun z u =>
+    contDiscrepancy q χ u * Complex.exp (-(z + 1) * (Real.log u : ℂ))
+  let F' : ℂ → ℝ → ℂ := fun z u =>
+    contDiscrepancy q χ u *
+      (Complex.exp (-(z + 1) * (Real.log u : ℂ)) * (-(Real.log u : ℂ)))
+  have hYpos : 0 < Y := by linarith
+  have hδpos : 0 < δ := by dsimp [δ]; linarith
+  have hrad : 0 < s.re / 2 := by positivity
+  have hE : AEStronglyMeasurable (contDiscrepancy q χ) μ := by
+    dsimp [μ]
+    exact (contDiscrepancy_aestronglyMeasurable q χ).restrict
+  have hlogMeas : Measurable (fun u : ℝ => (Real.log u : ℂ)) :=
+    Complex.measurable_ofReal.comp Real.measurable_log
+  have hexpMeas (z : ℂ) : Measurable (fun u : ℝ =>
+      Complex.exp (-(z + 1) * (Real.log u : ℂ))) :=
+    Complex.measurable_exp.comp (measurable_const.mul hlogMeas)
+  have hFmeas : ∀ᶠ z : ℂ in nhds s, AEStronglyMeasurable (F z) μ := by
+    filter_upwards [] with z
+    dsimp [F]
+    exact hE.mul (hexpMeas z).aestronglyMeasurable
+  have hFint : Integrable (F s) μ := by
+    change Integrable (fun u : ℝ => contDiscrepancy q χ u *
+      Complex.exp (-(s + 1) * (Real.log u : ℂ)))
+      (volume.restrict (Set.Ioi Y))
+    exact cont_tail_integrable hq χ hY s hs
+  have hF'meas : AEStronglyMeasurable (F' s) μ := by
+    dsimp [F']
+    exact hE.mul (((hexpMeas s).mul hlogMeas.neg).aestronglyMeasurable)
+  have hboundInt : Integrable (fun u : ℝ => C *
+      Real.rpow u (-(s.re / 4 + 1))) μ := by
+    dsimp [μ, C, δ]
+    exact (integrableOn_Ioi_rpow_of_lt
+      (a := -(s.re / 4 + 1)) (c := Y) (by linarith) hYpos).const_mul
+        (2 * (q : ℝ) / (s.re / 4))
+  have hbound : ∀ᵐ u ∂μ, ∀ z ∈ U, ‖F' z u‖ ≤ C *
+      Real.rpow u (-(s.re / 4 + 1)) := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with u hu
+    have huY : Y < u := Set.mem_Ioi.mp hu
+    have hu1 : 1 ≤ u := by linarith [hY]
+    have hu0 : 0 < u := by linarith
+    have hlog0 : 0 ≤ Real.log u := Real.log_nonneg hu1
+    have hlogPower : Real.log u ≤ Real.rpow u δ / δ := by
+      have hlogPow := Real.log_le_sub_one_of_pos (Real.rpow_pos_of_pos hu0 δ)
+      rw [Real.log_rpow hu0 δ] at hlogPow
+      have hlogPow' : δ * Real.log u ≤ Real.rpow u δ - 1 := by
+        simpa only [Real.rpow_eq_pow] using hlogPow
+      have hpowLog : Real.log u * δ ≤ Real.rpow u δ := by
+        nlinarith [hlogPow']
+      exact (le_div_iff₀ hδpos).2 hpowLog
+    have hlogProduct :
+        Real.rpow u (-(s.re / 2 + 1)) * Real.log u ≤
+          (1 / δ) * Real.rpow u (-(s.re / 4 + 1)) := by
+      calc
+        _ ≤ Real.rpow u (-(s.re / 2 + 1)) *
+            (Real.rpow u δ / δ) :=
+          mul_le_mul_of_nonneg_left hlogPower
+            (Real.rpow_nonneg hu0.le _)
+        _ = (1 / δ) * (Real.rpow u (-(s.re / 2 + 1)) *
+              Real.rpow u δ) := by ring
+        _ = (1 / δ) * Real.rpow u (-(s.re / 2 + 1) + δ) := by
+          have hadd : Real.rpow u (-(s.re / 2 + 1) + δ) =
+              Real.rpow u (-(s.re / 2 + 1)) * Real.rpow u δ := by
+            simpa only [Real.rpow_eq_pow] using
+              (Real.rpow_add hu0 (-(s.re / 2 + 1)) δ)
+          rw [← hadd]
+        _ = (1 / δ) * Real.rpow u (-(s.re / 4 + 1)) := by
+          congr 1
+          dsimp [δ]
+          ring
+    intro z hz
+    have hzDist : dist z s < s.re / 2 := by simpa [U] using hz
+    have hzNorm : ‖z - s‖ < s.re / 2 := by
+      simpa [dist_eq_norm] using hzDist
+    have hzReAbs : |(z - s).re| < s.re / 2 :=
+      (Complex.abs_re_le_norm (z - s)).trans_lt hzNorm
+    have hzReLow : s.re / 2 < z.re := by
+      have hlow := (abs_lt.mp hzReAbs).1
+      have hlow' : -(s.re / 2) < z.re - s.re := by
+        simpa only [Complex.sub_re] using hlow
+      linarith
+    have hpow : Real.rpow u (-(z.re + 1)) ≤
+        Real.rpow u (-(s.re / 2 + 1)) :=
+      Real.rpow_le_rpow_of_exponent_le hu1 (by linarith)
+    have hdisc := cont_discrepancy_bound hq χ hu0.le
+    have hnormExp : ‖Complex.exp (-(z + 1) * (Real.log u : ℂ))‖ =
+        Real.rpow u (-(z.re + 1)) := by
+      rw [Complex.norm_exp, Complex.mul_re, Complex.neg_re]
+      simp only [Complex.ofReal_re, Complex.ofReal_im, mul_zero, sub_zero,
+        Complex.add_re, Complex.one_re, add_zero]
+      calc
+        Real.exp (-(z.re + 1) * Real.log u) =
+            Real.exp (Real.log u * (-(z.re + 1))) := by congr 1 <;> ring
+        _ = Real.rpow u (-(z.re + 1)) :=
+          (Real.rpow_def_of_pos hu0 _).symm
+    have hnormF' : ‖F' z u‖ = ‖contDiscrepancy q χ u‖ *
+        (Real.rpow u (-(z.re + 1)) * Real.log u) := by
+      calc
+        ‖F' z u‖ = ‖contDiscrepancy q χ u‖ *
+            (‖Complex.exp (-(z + 1) * (Real.log u : ℂ))‖ *
+              ‖-(Real.log u : ℂ)‖) := by
+                dsimp [F']
+                rw [norm_mul, norm_mul]
+        _ = ‖contDiscrepancy q χ u‖ *
+            (Real.rpow u (-(z.re + 1)) * Real.log u) := by
+              rw [norm_neg, Complex.norm_real, Real.norm_eq_abs,
+                abs_of_nonneg hlog0, hnormExp]
+    calc
+      ‖F' z u‖ = ‖contDiscrepancy q χ u‖ *
+          (Real.rpow u (-(z.re + 1)) * Real.log u) := hnormF'
+      _ ≤ ‖contDiscrepancy q χ u‖ *
+          (Real.rpow u (-(s.re / 2 + 1)) * Real.log u) := by
+        apply mul_le_mul_of_nonneg_left
+        · exact mul_le_mul_of_nonneg_right hpow hlog0
+        · exact norm_nonneg _
+      _ ≤ (2 * (q : ℝ)) *
+          (Real.rpow u (-(s.re / 2 + 1)) * Real.log u) :=
+        mul_le_mul_of_nonneg_right hdisc
+          (mul_nonneg (Real.rpow_nonneg hu0.le _) hlog0)
+      _ ≤ (2 * (q : ℝ)) *
+          ((1 / δ) * Real.rpow u (-(s.re / 4 + 1))) :=
+        mul_le_mul_of_nonneg_left hlogProduct (by positivity)
+      _ = C * Real.rpow u (-(s.re / 4 + 1)) := by
+        dsimp [C]
+        ring
+  have hdiff : ∀ᵐ u ∂μ, ∀ z ∈ U,
+      HasDerivAt (F · u) (F' z u) z := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with u hu z hz
+    let L : ℂ := (Real.log u : ℂ)
+    have hlin : HasDerivAt (fun w : ℂ => -(w + 1) * L) (-L) z := by
+      simpa [L] using ((hasDerivAt_id z).add_const (1 : ℂ)).neg.mul_const L
+    simpa [F, F', L] using
+      (hlin.cexp).const_mul (contDiscrepancy q χ u)
+  have hparam := hasDerivAt_integral_of_dominated_loc_of_deriv_le
+    (μ := μ) (F := F) (F' := F') (x₀ := s) (s := U) (bound := fun u =>
+      C * Real.rpow u (-(s.re / 4 + 1)))
+    (Metric.ball_mem_nhds _ hrad) hFmeas hFint hF'meas hbound hboundInt hdiff
+  have hI : DifferentiableAt ℂ (fun z : ℂ =>
+      ∫ u : ℝ in Set.Ioi Y, contDiscrepancy q χ u *
+        Complex.exp (-(z + 1) * (Real.log u : ℂ))) s := by
+    simpa [F, μ] using hparam.2.differentiableAt
+  have hfirst : DifferentiableAt ℂ (fun z : ℂ =>
+      -contDiscrepancy q χ Y * Complex.exp (-z * (Real.log Y : ℂ))) s := by
+    fun_prop
+  have hsecond : DifferentiableAt ℂ (fun z : ℂ =>
+      z * ∫ u : ℝ in Set.Ioi Y, contDiscrepancy q χ u *
+        Complex.exp (-(z + 1) * (Real.log u : ℂ))) s :=
+    (differentiableAt_id).mul hI
+  unfold contTail
+  exact hfirst.add hsecond
 
 theorem cont_tail_bound {q : ℕ} (hq : 0 < q)
     (χ : DirichletCharacter ℂ q) {Y : ℝ} (hY : 1 ≤ Y) (s : ℂ)
