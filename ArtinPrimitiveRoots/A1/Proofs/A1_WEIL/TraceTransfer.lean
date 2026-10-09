@@ -4,6 +4,7 @@ import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.RationalOddGauss
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.RationalDyadicGauss
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.CharacterUniqueness
 import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.TraceCharacter
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.LatticeGaussian
 
 set_option autoImplicit false
 
