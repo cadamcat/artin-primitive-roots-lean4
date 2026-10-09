@@ -18,6 +18,13 @@ theorem lambda_data_below (D : FieldData F) (S : SData F CE condη)
       ∀ v : FinPlace F, v ∉ S.Sf → unramifiedAt Λ v ∧
         ∀ c : F, S.IsGen c v.asIdeal →
           gamma D S A 2 v.asIdeal c ^ 3 = -primeValue Λ v := by
-  sorry
+  obtain ⟨ι, hι, Λ, hΛ_unit, hΛ_ang, hΛ_vals⟩ := lambda_pullback_data D S
+  refine ⟨Λ, hΛ_unit, hΛ_ang, ?_⟩
+  intro v hv
+  have hbase := hΛ_vals v hv
+  refine ⟨hbase.1, ?_⟩
+  intro c hc
+  have hgam := local_cubic_gamma_transport D S A ι hι v hv c hc
+  rw [hgam, hbase.2]
 
 end ArtinPrimitiveRoots.Proofs.a1_lambda_sol
