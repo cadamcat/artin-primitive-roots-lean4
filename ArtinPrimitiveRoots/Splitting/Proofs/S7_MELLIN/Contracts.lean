@@ -50,7 +50,34 @@ theorem mellin_entire (f : ℝ → ℝ)
     (hf : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f ∧ HasCompactSupport f ∧
       Function.support f ⊆ Set.Ioi 0) :
     Differentiable ℂ (mellinTransform f) := by
-  sorry
+  let fc : ℝ → ℂ := fun t => (f t : ℂ)
+  have hcont : Continuous fc := Complex.continuous_ofReal.comp hf.1.continuous
+  have hloc : LocallyIntegrableOn fc (Set.Ioi 0) :=
+    hcont.continuousOn.locallyIntegrableOn measurableSet_Ioi
+  obtain ⟨R, hR⟩ := hf.2.1.isCompact.bddAbove
+  have hz : ∀ᶠ t : ℝ in atTop, f t = 0 := by
+    refine eventually_atTop.mpr ⟨R + 1, ?_⟩
+    intro t ht
+    by_contra hft
+    have htR : t ≤ R := hR (subset_tsupport f (show t ∈ Function.support f from hft))
+    linarith
+  intro s
+  obtain ⟨N, hN⟩ := exists_nat_gt (-s.re)
+  obtain ⟨B, hB, hbound⟩ := test_flat_bound f hf 0 N
+  have htop : fc =O[atTop] (fun t : ℝ => t ^ (-(s.re + 1))) := by
+    refine Asymptotics.isBigO_iff.mpr ⟨0, ?_⟩
+    filter_upwards [hz] with t ht
+    simp [fc, ht]
+  have hIoc : Set.Ioc (0 : ℝ) 1 ∈ 𝓝[>] (0 : ℝ) :=
+    mem_nhdsGT_iff_exists_Ioc_subset.mpr ⟨1, by norm_num, Set.Subset.rfl⟩
+  have hbot : fc =O[𝓝[>] (0 : ℝ)] (fun t : ℝ => t ^ (-(-(N : ℝ)))) := by
+    refine Asymptotics.isBigO_iff.mpr ⟨B, ?_⟩
+    filter_upwards [hIoc] with t ht
+    have h := hbound t ⟨ht.1.le, ht.2⟩
+    simpa only [fc, iteratedDeriv_zero, neg_neg, Real.rpow_natCast,
+      Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg (pow_nonneg ht.1.le N)] using h
+  change DifferentiableAt ℂ (mellin fc) s
+  exact mellin_differentiableAt_of_isBigO_rpow hloc htop (by linarith) hbot (by linarith)
 
 theorem mellin_decay (f : ℝ → ℝ)
     (hf : ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) f ∧ HasCompactSupport f ∧
