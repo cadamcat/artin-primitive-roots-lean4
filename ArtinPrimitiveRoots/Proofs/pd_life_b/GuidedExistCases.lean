@@ -578,6 +578,123 @@ theorem alive_ghost (E : StepEnv F S γ j σ g τ π π' c H') (i : Fin K)
           simp only [Prod.mk.injEq, Option.some.injEq] at h
           exact ⟨a, c', rfl, lt_of_le_of_lt ha (hlt m hm), h.2 ▸ h2⟩
 
+theorem case_kept (hR : ExistRec F S γ j.castSucc σ)
+    (E : StepEnv F S γ j σ g τ π π' c H') (i : Fin K) (p : primeBand S.x (F.a i))
+    (q : Particle) (hq : q ∈ σ.1.2.2 i) (hq1 : q.1 = p.1) (r : Fin (σ.1.2.2 i).length)
+    (hr : (σ.1.2.2 i).get r = q) (hrD : r ∉ g.1 i) :
+    ∃ e : PrimeLife S γ p.1, PrimeOK F S γ j.castSucc σ g i p e ∧
+      FutPrime S γ j.succ p.1 e (H' i p) := by
+  have hlog : p.1 ∈ σ.2.map Prod.snd := hq1 ▸ hR.memLog i q hq
+  have hna : ¬ IsActiveAt γ p.1 j.castSucc := hq1 ▸ (hR.memRec i q hq).1
+  have huniq : ∀ q' ∈ σ.1.2.2 i, q'.1 = p.1 → q' = q := by
+    intro q' hq' hq'1
+    obtain ⟨r', hr'⟩ := List.mem_iff_get.mp hq'
+    have : r' = r := index_inj_of_nodup _ (hR.memNodup i) r' r (by rw [hr', hr, hq'1, hq1])
+    rw [← hr', ← hr, this]
+  have hτq : q ∈ τ.1.2.2 i := (E.hτmem i q).mpr (Or.inl ⟨r, hrD, hr⟩)
+  have hnoborn : p.1 ∉ (g.2 i).1 := fun h => E.hborn i _ h hlog
+  have hnodeath : ¬ ∃ r' ∈ g.1 i, ((σ.1.2.2 i).get r').1 = p.1 := by
+    rintro ⟨r', hr'D, hr'⟩
+    have : r' = r := index_inj_of_nodup _ (hR.memNodup i) r' r (by rw [hr', hr, hq1])
+    exact hrD (this ▸ hr'D)
+  rcases (hR.memRec i q hq).2 with ⟨⟨a, ha, hla⟩, hno⟩ | ⟨m₀, hm₀, hact₀, hl₀⟩
+  · rw [hq1] at hla hno
+    obtain ⟨e, he1, hpend, hline, hdel, hfut⟩ :=
+      alive_ghost F S γ j σ g τ π π' c H' E i p q hτq hq1 a (le_of_lt ha) hla hno
+    refine ⟨e, ⟨?_, ?_, ?_, ?_, ?_, ?_⟩, hfut⟩
+    · exact ⟨fun _ => ⟨q, hq, hq1⟩, fun _ => hpend.mpr ha⟩
+    · intro q' hq' hq'1; rw [huniq q' hq' hq'1]; exact hline.symm
+    · intro _ _ _; exact hlog
+    · intro _; exact Or.inr ⟨a, by rw [he1], ha⟩
+    · constructor
+      · intro h; rw [he1] at h; exact absurd (Option.some.inj h) (ne_of_lt ha)
+      · intro h; exact absurd h hnoborn
+    · exact ⟨fun h => absurd h hdel, fun h => absurd h hnodeath⟩
+  · rw [hq1] at hact₀ hl₀
+    obtain ⟨hpendυ, -, -⟩ := prime_next_facts F S γ j σ g τ π π' c H' E i p
+    have hA : (pdLifeActive S γ p.1).Nonempty := ⟨m₀, (mem_active_iff S γ p.1 m₀).mpr hact₀⟩
+    have hαact : IsActiveAt γ p.1 ((pdLifeActive S γ p.1).min' hA) :=
+      (Finset.mem_filter.mp (Finset.min'_mem _ hA)).2
+    obtain ⟨hAJ, hB, hC, -⟩ := life_active_facts S γ p.1 (H' i p) hA
+    have hsurv := survivor_alive F S γ j σ g τ π π' c H' E i p q hτq hq1
+    have halive' : pdLifePending S γ p.1 (H' i p) false j.succ ∨ IsActiveAt γ p.1 j.succ := by
+      rcases hsurv with ⟨h, -⟩ | h
+      · exact Or.inr h
+      · exact Or.inl (hpendυ.mpr ⟨q, h, hq1⟩)
+    have alive := alive_at S γ p.1 (H' i p) j.succ halive'
+    have hα : (pdLifeActive S γ p.1).min' hA < j.castSucc :=
+      lt_of_le_of_lt (Finset.min'_le _ _ ((mem_active_iff S γ p.1 m₀).mpr hact₀)) hm₀
+    refine ⟨H' i p, ⟨?_, ?_, ?_, ?_, ?_, ?_⟩, fun m _ => ⟨Iff.rfl, Iff.rfl, Iff.rfl⟩⟩
+    · refine ⟨fun _ => ⟨q, hq, hq1⟩, fun _ => ?_⟩
+      rw [pend_active_iff S γ p.1 _ hA]
+      refine ⟨hna, Or.inr hα, ?_⟩
+      rcases halive' with hp | hact
+      · rw [pend_active_iff S γ p.1 _ hA] at hp
+        rcases hp.2.2 with ⟨c', hc', h'⟩ | hω
+        · exact Or.inl ⟨c', hc', le_trans (le_of_lt Fin.castSucc_lt_succ) h'⟩
+        · exact Or.inr (lt_trans Fin.castSucc_lt_succ hω)
+      · exact Or.inr (lt_of_lt_of_le Fin.castSucc_lt_succ (hAJ _ hact).2)
+    · intro q' hq' hq'1
+      rw [huniq q' hq' hq'1, lifeLine_active S γ p.1 _ hA, ← hl₀,
+        active_lines_of_life S γ p.1 (H' i p) m₀ _ hact₀ hαact]
+    · intro _ _ _; exact hlog
+    · intro _; exact Or.inl ⟨m₀, le_of_lt hm₀, hact₀⟩
+    · constructor
+      · intro h; exact absurd (lt_trans (hB _ h).1 hα) (lt_irrefl _)
+      · intro h; exact absurd h hnoborn
+    · constructor
+      · intro h; exact absurd (alive.2 _ h) (not_le.mpr Fin.castSucc_lt_succ)
+      · intro h; exact absurd h hnodeath
+
+theorem case_born (hR : ExistRec F S γ j.castSucc σ)
+    (E : StepEnv F S γ j σ g τ π π' c H') (i : Fin K) (p : primeBand S.x (F.a i))
+    (hlog : p.1 ∉ σ.2.map Prod.snd) (hb : p.1 ∈ (g.2 i).1) :
+    ∃ e : PrimeLife S γ p.1, PrimeOK F S γ j.castSucc σ g i p e ∧
+      FutPrime S γ j.succ p.1 e (H' i p) := by
+  have hτq : anchorAt p.1 σ.1.1 ∈ τ.1.2.2 i := (E.hτmem i _).mpr (Or.inr ⟨hb, rfl⟩)
+  have hno : ∀ m, m ≤ j.castSucc → ¬ IsActiveAt γ p.1 m :=
+    fun m hm hact => hlog (hR.actLog _ m hm hact)
+  have hla : (projLine p.1 (γ j.castSucc).1).val = (anchorAt p.1 σ.1.1).2 := by
+    show _ = (projLine p.1 σ.1.1).val; rw [E.hz]
+  obtain ⟨e, he1, hpend, -, hdel, hfut⟩ :=
+    alive_ghost F S γ j σ g τ π π' c H' E i p _ hτq rfl j.castSucc le_rfl hla hno
+  have hnopend : ¬ ∃ q ∈ σ.1.2.2 i, q.1 = p.1 :=
+    fun ⟨q, hq, hq1⟩ => hlog (hq1 ▸ hR.memLog i q hq)
+  refine ⟨e, ⟨?_, ?_, ?_, ?_, ?_, ?_⟩, hfut⟩
+  · exact ⟨fun h => absurd (hpend.mp h) (lt_irrefl _), fun h => absurd h hnopend⟩
+  · intro q hq hq1; exact absurd ⟨q, hq, hq1⟩ hnopend
+  · intro a ha hlt
+    rw [he1] at ha
+    simp only [Option.some.injEq] at ha
+    rw [← ha] at hlt
+    exact absurd hlt (lt_irrefl _)
+  · intro h; exact absurd h hlog
+  · exact ⟨fun _ => hb, fun _ => by rw [he1]⟩
+  · constructor
+    · intro h; exact absurd h hdel
+    · rintro ⟨r, -, hr⟩; exact absurd ⟨_, List.get_mem _ r, hr⟩ hnopend
+
+/-- **Per-prime existence step.** -/
+theorem exist_step_prime (hR : ExistRec F S γ j.castSucc σ)
+    (hS : StepFacts F S w γ j σ g τ π π' c)
+    (E : StepEnv F S γ j σ g τ π π' c H') (i : Fin K) (p : primeBand S.x (F.a i)) :
+    ∃ e : PrimeLife S γ p.1, PrimeOK F S γ j.castSucc σ g i p e ∧
+      FutPrime S γ j.succ p.1 e (H' i p) := by
+  by_cases hact : IsActiveAt γ p.1 j.castSucc
+  · exact case_active F S γ j σ g τ π π' c H' hR E i p hact
+  by_cases hmem : ∃ q ∈ σ.1.2.2 i, q.1 = p.1
+  · obtain ⟨q, hq, hq1⟩ := hmem
+    obtain ⟨r, hr⟩ := List.mem_iff_get.mp hq
+    by_cases hrD : r ∈ g.1 i
+    · exact case_deleted F S w γ j σ g τ π π' c H' hR hS E i p q hq hq1 r hr hrD
+    · exact case_kept F S γ j σ g τ π π' c H' hR E i p q hq hq1 r hr hrD
+  push_neg at hmem
+  by_cases hlog : p.1 ∈ σ.2.map Prod.snd
+  · exact case_dead F S γ j σ g τ π π' c H' hR E i p hlog hmem hact
+  by_cases hb : p.1 ∈ (g.2 i).1
+  · exact case_born F S γ j σ g τ π π' c H' hR E i p hlog hb
+  · exact case_unborn F S γ j σ g τ π π' c H' hR E i p hlog hb
+
 end
 
 end ArtinPrimitiveRoots.Proofs.pd_birth_opus
