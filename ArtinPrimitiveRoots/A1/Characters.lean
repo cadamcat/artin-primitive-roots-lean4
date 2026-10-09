@@ -1,4 +1,11 @@
 import ArtinPrimitiveRoots.A1.AddChar
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.FiniteField
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueCharacter
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.ResidueAdditive
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.Gamma
+import ArtinPrimitiveRoots.A1.Proofs.A1_GAUSS.NormTransport
+import ArtinPrimitiveRoots.A1.Proofs.A1_LAMBDA.LambdaData
+import ArtinPrimitiveRoots.A1.Proofs.A1_WEIL.SignCharacter
 import ArtinPrimitiveRoots.A1.Proofs.A1_KUMMER.Equality
 import ArtinPrimitiveRoots.Hecke.Dict.IdeleCoordinates
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
@@ -467,17 +474,17 @@ private def conductor_finiteUnitPairOneHom :
     simp
 
 private def conductor_finiteUnitToIdele :
-    (FiniteAdeleRing (𝓞 F) F)ˣ →* IdeleGroup (𝓞 F) F :=
+    (FiniteAdeleRing (𝓞 F) F)ˣ →* NumberField.IdeleGroup (𝓞 F) F :=
   (MulEquiv.prodUnits (M := InfiniteAdeleRing F)
     (N := FiniteAdeleRing (𝓞 F) F)).symm.toMonoidHom.comp
     conductor_finiteUnitPairOneHom
 
 private def conductor_integralUnitIdeleHom :
-    conductor_localUnitProduct F →* IdeleGroup (𝓞 F) F :=
+    conductor_localUnitProduct F →* NumberField.IdeleGroup (𝓞 F) F :=
   conductor_finiteUnitToIdele.comp conductor_finiteAdeleUnitHom
 
 private noncomputable def conductor_integralUnitIdele (x : conductor_localUnitProduct F) :
-    IdeleGroup (𝓞 F) F :=
+    NumberField.IdeleGroup (𝓞 F) F :=
   conductor_integralUnitIdeleHom x
 
 private theorem conductor_integralUnitIdele_continuous :
@@ -490,9 +497,9 @@ private theorem conductor_integralUnitIdele_continuous :
     (continuous_const.prodMk (conductor_finiteAdeleUnit_continuous (F := F)))
 
 private def conductor_ideleCharacter (χ : HeckeChar F) :
-    ContinuousMonoidHom (IdeleGroup (𝓞 F) F) ℂˣ where
+    ContinuousMonoidHom (NumberField.IdeleGroup (𝓞 F) F) ℂˣ where
   toMonoidHom := χ.toMonoidHom.comp
-    (QuotientGroup.mk' (IdeleGroup.principalSubgroup (𝓞 F) F))
+    (QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F))
   continuous_toFun := χ.continuous.comp QuotientGroup.continuous_mk
 
 private def conductor_heckeOnUnitProduct (χ : HeckeChar F) :
@@ -524,7 +531,7 @@ private noncomputable def conductor_localUnitSpike (v : FinPlace F)
 private theorem conductor_integralUnitIdeleHom_spike (v : FinPlace F)
     (u : (v.adicCompletionIntegers F).unitGroup) :
     conductor_integralUnitIdeleHom (conductor_localUnitSpike v u) =
-      IdeleGroup.ofAdicCompletion (𝓞 F) F v (u : (v.adicCompletion F)ˣ) := by
+      NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (u : (v.adicCompletion F)ˣ) := by
   apply Units.ext
   apply Prod.ext
   · rfl
@@ -1429,7 +1436,7 @@ private theorem conductor_localOrder_toLoc (v : FinPlace F) (a : Fˣ) :
   simp [conductor_localOrder, conductor_globalOrder, hval]
 
 private noncomputable def conductor_ideleSCoord (D : FieldData F)
-    (S : SData F CE condη) : IdeleGroup (𝓞 F) F →* S.FSˣ where
+    (S : SData F CE condη) : NumberField.IdeleGroup (𝓞 F) F →* S.FSˣ where
   toFun x := {
     val := (fun v => (Dictionary.ideleFiniteCoord v.1 x : v.1.adicCompletion F),
       fun w => (Units.map
@@ -1478,13 +1485,13 @@ private noncomputable def conductor_ideleSCoord (D : FieldData F)
 private theorem conductor_ideleSCoord_continuous (D : FieldData F)
     (S : SData F CE condη) : Continuous (conductor_ideleSCoord D S) := by
   have hFinCoord (v : FinPlace F) :
-      Continuous (Dictionary.ideleFiniteCoord v : IdeleGroup (𝓞 F) F →* (v.adicCompletion F)ˣ) := by
+      Continuous (Dictionary.ideleFiniteCoord v : NumberField.IdeleGroup (𝓞 F) F →* (v.adicCompletion F)ˣ) := by
     apply Units.continuous_iff.mpr
     exact ⟨((RestrictedProduct.continuous_eval v).comp continuous_snd).comp Units.continuous_val,
       ((RestrictedProduct.continuous_eval v).comp continuous_snd).comp Units.continuous_coe_inv⟩
   have hInfCoord (w : InfinitePlace F) :
       Continuous (Dictionary.ideleInfiniteCoordUnit w :
-        IdeleGroup (𝓞 F) F →* w.Completionˣ) := by
+        NumberField.IdeleGroup (𝓞 F) F →* w.Completionˣ) := by
     apply Units.continuous_iff.mpr
     exact ⟨((continuous_apply w).comp continuous_fst).comp Units.continuous_val,
       ((continuous_apply w).comp continuous_fst).comp Units.continuous_coe_inv⟩
@@ -1512,7 +1519,7 @@ private theorem conductor_ideleSCoord_continuous (D : FieldData F)
 
 private theorem conductor_ideleSCoord_principal (D : FieldData F)
     (S : SData F CE condη) (a : Fˣ) :
-    conductor_ideleSCoord D S (IdeleGroup.unitEmbedding (𝓞 F) F a) = S.diagU a := by
+    conductor_ideleSCoord D S (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = S.diagU a := by
   apply Units.ext
   apply Prod.ext
   · funext v
@@ -1521,13 +1528,13 @@ private theorem conductor_ideleSCoord_principal (D : FieldData F)
     let e := InfinitePlace.Completion.ringEquivComplexOfIsComplex
       (D.isTotallyComplex.isComplex w)
     have hu : Units.map e.toMonoidHom
-        (Dictionary.ideleInfiniteCoordUnit w (IdeleGroup.unitEmbedding (𝓞 F) F a)) =
+        (Dictionary.ideleInfiniteCoordUnit w (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)) =
       S.compC w (S.diagU a) := by
       have hcomp : S.compC w (S.diagU a) = Units.map w.embedding.toMonoidHom a := by
         apply Units.ext
         rfl
       have hprincipal : Dictionary.ideleInfiniteCoordUnit w
-          (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+          (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
             Units.map (algebraMap F w.Completion).toMonoidHom a := by
         apply Units.ext
         rfl
@@ -1742,26 +1749,26 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
   have hg : Continuous g := by
     apply continuous_of_tendsto_nhds_one g
     exact (Filter.tendsto_congr' heqg).mpr tendsto_const_nhds
-  let adeleProjection : IdeleGroup (𝓞 F) F →* Aˣ :=
+  let adeleProjection : NumberField.IdeleGroup (𝓞 F) F →* Aˣ :=
     Units.map (MonoidHom.snd (InfiniteAdeleRing F) A)
   have hadeleProjection : Continuous adeleProjection := by
     apply Units.continuous_iff.mpr
     exact ⟨continuous_snd.comp Units.continuous_val,
       continuous_snd.comp Units.continuous_coe_inv⟩
-  let α : IdeleGroup (𝓞 F) F →* ℂˣ :=
+  let α : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ :=
     ψ⁻¹ |>.comp (conductor_ideleSCoord D S)
-  let β : IdeleGroup (𝓞 F) F →* ℂˣ := g.comp adeleProjection
-  let G : IdeleGroup (𝓞 F) F →* ℂˣ := α * β
+  let β : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ := g.comp adeleProjection
+  let G : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ := α * β
   have hψinv : Continuous (ψ⁻¹) := by
     change Continuous (fun x : S.FSˣ => (ψ x)⁻¹)
     exact continuous_inv.comp hψcont
   have hα : Continuous α := hψinv.comp (conductor_ideleSCoord_continuous D S)
   have hβ : Continuous β := hg.comp hadeleProjection
   have hG : Continuous G := by
-    change Continuous (fun x : IdeleGroup (𝓞 F) F => α x * β x)
+    change Continuous (fun x : NumberField.IdeleGroup (𝓞 F) F => α x * β x)
     exact hα.mul hβ
   have hprincipalData (a : Fˣ) :
-      G (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 ∧
+      G (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 ∧
         ψ (S.diagU a) = ∏ v ∈ (KummerProofs.residue_zero_finite a).toFinset,
           primeClassValue v ^ conductor_globalOrder v a := by
     let T : Finset (FinPlace F) := (KummerProofs.residue_zero_finite a).toFinset
@@ -1857,11 +1864,11 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
         _ = ψ (S.diagU ε) * ψ (S.diagU primeProduct) := map_mul ψ _ _
         _ = _ := by rw [hεψ, hproduct]; simp
     have hcoordPrincipal (v : FinPlace F) :
-        coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a)) = toLoc v a := by
+        coord v (adeleProjection (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)) = toLoc v a := by
       apply Units.ext
       rfl
     have hlocalPrincipal (v : FinPlace F) :
-        localChar v (coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a))) =
+        localChar v (coord v (adeleProjection (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a))) =
           primeClassValue v ^ n v := by
       rw [hcoordPrincipal v]
       by_cases hv : v ∈ S.Sf
@@ -1871,39 +1878,39 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
           conductor_localOrder_toLoc, primeClassValue, n]
     have hsupportPrincipal :
         Function.mulSupport (fun v => localChar v
-          (coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a)))) ⊆ T := by
+          (coord v (adeleProjection (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)))) ⊆ T := by
       intro v hv
       by_contra hvT
       have hzero := hzeroOrder v hvT
       apply hv
       change localChar v
-        (coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a))) = 1
+        (coord v (adeleProjection (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a))) = 1
       rw [hlocalPrincipal v]
       have hn : n v = 0 := by simpa [n] using hzero
       rw [hn]
       simp
-    have hβprincipal : β (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+    have hβprincipal : β (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
         ∏ v ∈ T, primeClassValue v ^ n v := by
-      change g (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a)) = _
+      change g (adeleProjection (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)) = _
       change (∏ᶠ v : FinPlace F, localChar v
-        (coord v (adeleProjection (IdeleGroup.unitEmbedding (𝓞 F) F a)))) = _
+        (coord v (adeleProjection (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)))) = _
       rw [finprod_eq_prod_of_mulSupport_subset _ hsupportPrincipal]
       apply Finset.prod_congr rfl
       intro v hv
       exact hlocalPrincipal v
-    have hαprincipal : α (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+    have hαprincipal : α (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
         (ψ (S.diagU a))⁻¹ := by
-      change (ψ (conductor_ideleSCoord D S (IdeleGroup.unitEmbedding (𝓞 F) F a)))⁻¹ = _
+      change (ψ (conductor_ideleSCoord D S (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a)))⁻¹ = _
       rw [conductor_ideleSCoord_principal]
-    have hGprincipal : G (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
-      change α (IdeleGroup.unitEmbedding (𝓞 F) F a) *
-        β (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
+    have hGprincipal : G (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 := by
+      change α (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) *
+        β (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1
       rw [hαprincipal, hβprincipal, hψfactor]
       simp
     exact ⟨hGprincipal, by simpa [T, n] using hψfactor⟩
-  have hprincipal (a : Fˣ) : G (IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 :=
+  have hprincipal (a : Fˣ) : G (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) = 1 :=
     (hprincipalData a).1
-  let N := IdeleGroup.principalSubgroup (𝓞 F) F
+  let N := NumberField.IdeleGroup.principalSubgroup (𝓞 F) F
   have hN : N ≤ G.ker := by
     intro x hx
     obtain ⟨a, rfl⟩ := hx
@@ -1922,7 +1929,7 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
     · have hc : (primeClassValue v) ^ 6 = 1 := hψval6 (S.diagU (p v))
       simp only [localChar, dif_neg hv, conductor_localUnramifiedCharacter]
       exact conductor_zpow_sixth_eq_one (primeClassValue v) hc (conductor_localOrder v u)
-  have hβpow (x : IdeleGroup (𝓞 F) F) : (β x) ^ 6 = 1 := by
+  have hβpow (x : NumberField.IdeleGroup (𝓞 F) F) : (β x) ^ 6 = 1 := by
     change (g (adeleProjection x)) ^ 6 = 1
     let y : Aˣ := adeleProjection x
     change (∏ᶠ v : FinPlace F, localChar v (coord v y)) ^ 6 = 1
@@ -1930,11 +1937,11 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
     apply finprod_eq_one_of_forall_eq_one
     intro v
     exact hlocalpow v (coord v y)
-  have hαpow (x : IdeleGroup (𝓞 F) F) : (α x) ^ 6 = 1 := by
+  have hαpow (x : NumberField.IdeleGroup (𝓞 F) F) : (α x) ^ 6 = 1 := by
     change ((ψ (conductor_ideleSCoord D S x))⁻¹) ^ 6 = 1
     have hc := hψval6 (conductor_ideleSCoord D S x)
     simp [hc]
-  have hGpow (x : IdeleGroup (𝓞 F) F) : (G x) ^ 6 = 1 := by
+  have hGpow (x : NumberField.IdeleGroup (𝓞 F) F) : (G x) ^ 6 = 1 := by
     change (α x * β x) ^ 6 = 1
     rw [mul_pow, hαpow x, hβpow x]
     simp
@@ -1949,7 +1956,7 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
     isOfFinOrder_iff_pow_eq_one.mpr ⟨6, by decide, hθpow⟩
   have hθram (v : FinPlace F) (hv : v ∉ S.Sf) : θ.UnramifiedAt v := by
     intro u hu huinv
-    let x := IdeleGroup.ofAdicCompletion (𝓞 F) F v u
+    let x := NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u
     have hScoord : conductor_ideleSCoord D S x = 1 := by
       apply Units.ext
       apply Prod.ext
@@ -1989,11 +1996,11 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
       rw [hScoord, hβone]
       simp
     change C (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v u) = 1
-    change G (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = 1
+    change G (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = 1
     exact hGone
   have hθlocOutside (v : FinPlace F) (hv : v ∉ S.Sf)
       (u : (v.adicCompletion F)ˣ) : θ.loc v u = localChar v u := by
-    let x := IdeleGroup.ofAdicCompletion (𝓞 F) F v u
+    let x := NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u
     have hScoord : conductor_ideleSCoord D S x = 1 := by
       apply Units.ext
       apply Prod.ext
@@ -2031,7 +2038,7 @@ theorem class_character_extension (D : FieldData F) (S : SData F CE condη) (H :
       rw [hαloc, hβloc]
       simp
     change C (IdeleClassGroup.ofAdicCompletion (𝓞 F) F v u) = localChar v u
-    change G (IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = localChar v u
+    change G (NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v u) = localChar v u
     exact hGloc
   have hθprime (v : FinPlace F) (hv : v ∉ S.Sf) :
       θ.primeValue v = (primeClassValue v : ℂ) := by
@@ -2136,6 +2143,112 @@ def HeckeChar.HasAngularType (D : FieldData F) (χ : HeckeChar F) : Prop :=
         (InfinitePlace.Completion.ringEquivComplexOfIsComplex
           (D.isTotallyComplex.isComplex w)).symm.toMonoidHom z) : ℂˣ) : ℂ) =
         ((z : ℂ) / ‖(z : ℂ)‖) ^ m
+
+namespace a1_gauss_sol
+
+open ArtinPrimitiveRoots.Proofs.a1_gauss_sol
+
+theorem gauss_correction_data (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (H : HilbertData F) (Bd : BData S H)
+    (θB : Bd.B →* ℂˣ)
+    (hθ : ∀ v : FinPlace F, v ∉ S.Sf → ∀ p : Fˣ,
+      ∀ (hpgen : S.IsGen (p : F) v.asIdeal), ∀ (hpAllowed : Bd.Allowed p),
+      gamma D S A 3 v.asIdeal (p : F) =
+        ((θB ⟨(QuotientGroup.mk (S.diagU p) : S.V), hpAllowed⟩ : ℂˣ) : ℂ)) :
+    ∃ G : HeckeChar F, IsOfFinOrder G ∧
+      ∀ v : FinPlace F, v ∉ S.Sf → G.UnramifiedAt v ∧
+        ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+          G.primeValue v = (starRingEnd ℂ) (chi D v 4) *
+            gamma D S A 3 v.asIdeal (p : F) := by
+  classical
+  obtain ⟨θ, hθfin, hθram, hθideal⟩ := class_character_extension D S H Bd θB
+  let four : Fˣ := Units.mk0 (4 : F) (by norm_num)
+  obtain ⟨κ, hκfin, hκ⟩ := kummer_exists D S four
+  let G : HeckeChar F := θ * κ⁻¹
+  refine ⟨G, hθfin.mul hκfin.inv, ?_⟩
+  intro v hv
+  have h6 : (6 : 𝓞 F) ∉ v.asIdeal := fun h => hv (S.over6 v h)
+  have hr4 : residue v (4 : F) = Ideal.Quotient.mk v.asIdeal (4 : 𝓞 F) := by
+    simpa only [map_ofNat] using
+      ArtinPrimitiveRoots.A2.qs_nq0_residue_algebraMap v (4 : 𝓞 F)
+  have hres4 : residue v (4 : F) ≠ 0 := by
+    intro hz
+    have h4 : (4 : 𝓞 F) ∈ v.asIdeal :=
+      Ideal.Quotient.eq_zero_iff_mem.mp (hr4.symm.trans hz)
+    have h2 : (2 : 𝓞 F) ∈ v.asIdeal :=
+      v.isPrime.mem_of_pow_mem 2 (by
+        simpa only [show (2 : 𝓞 F) ^ 2 = 4 by norm_num] using h4)
+    apply h6
+    simpa only [show (3 : 𝓞 F) * 2 = 6 by norm_num] using
+      v.asIdeal.mul_mem_left (3 : 𝓞 F) h2
+  have hκv := hκ v hv hres4
+  change κ.UnramifiedAt v ∧ κ.primeValue v = chi D v 4 at hκv
+  have hroot : chi D v 4 ^ 6 = 1 := by
+    rw [chi, if_neg hres4]
+    have hμ : (((chiAlg v (4 : F) : (𝓞 F)ˣ) : 𝓞 F)) ^ 6 = 1 :=
+      (mem_rootsOfUnity' 6 _).mp (chiAlg v (4 : F)).property
+    rw [← map_pow, ← map_pow, hμ, map_one, map_one]
+  have hinv : (chi D v 4)⁻¹ = (starRingEnd ℂ) (chi D v 4) :=
+    Complex.inv_eq_conj (Complex.norm_eq_one_of_pow_eq_one hroot (by decide))
+  have hloc (u : (v.adicCompletion F)ˣ) :
+      G.loc v u = θ.loc v u * (κ.loc v u)⁻¹ := rfl
+  have hGram : G.UnramifiedAt v := by
+    intro u hu huinv
+    rw [hloc, hθram v hv u hu huinv, hκv.1 u hu huinv, inv_one, mul_one]
+  have hprime : G.primeValue v = θ.primeValue v * (κ.primeValue v)⁻¹ := by
+    unfold HeckeChar.primeValue
+    rw [if_pos hGram, if_pos (hθram v hv), if_pos hκv.1, hloc,
+      Units.val_mul, Units.val_inv_eq_inv_val]
+  refine ⟨hGram, ?_⟩
+  intro p hp ha
+  have hfac : UniqueFactorizationMonoid.normalizedFactors v.asIdeal = {v.asIdeal} := by
+    simpa only [normalize_eq] using
+      UniqueFactorizationMonoid.normalizedFactors_irreducible v.irreducible
+  have hideal : θ.idealValue v.asIdeal = θ.primeValue v := by
+    unfold HeckeChar.idealValue
+    rw [hfac, Multiset.map_singleton, Multiset.prod_singleton,
+      dif_pos ⟨v.isPrime, v.ne_bot⟩]
+  have hθvalue : θ.primeValue v = gamma D S A 3 v.asIdeal (p : F) := by
+    rw [← hideal]
+    exact (hθideal v.asIdeal p hp.1 hp ha).trans (hθ v hv p hp ha).symm
+  rw [hprime, hθvalue, hκv.2, hinv]
+  exact mul_comm _ _
+
+end a1_gauss_sol
+
+namespace a1_lambda_sol
+
+/-- The A1-LAMBDA endpoint, integrated below the frozen Gauss-character theorem.
+The lower-level proof files unfold the Hecke and angular interfaces to avoid an import cycle. -/
+theorem lambda_data (D : FieldData F) (S : SData F CE condη) (A : AddCharData F)
+    (H : HilbertData F) (Bd : BData S H) :
+    ∃ Λ : HeckeChar F, (∀ x, ‖((Λ x : ℂˣ) : ℂ)‖ = 1) ∧
+      HeckeChar.HasAngularType D Λ ∧
+      ∀ v : FinPlace F, v ∉ S.Sf → Λ.UnramifiedAt v ∧
+        ∀ p : Fˣ, S.IsGen (p : F) v.asIdeal → Bd.Allowed p →
+          gamma D S A 2 v.asIdeal (p : F) ^ 3 = -Λ.primeValue v := by
+  obtain ⟨Λ, hu, ha, hΛ⟩ :=
+    ArtinPrimitiveRoots.Proofs.a1_lambda_sol.lambda_data_below D S A
+  refine ⟨Λ, hu, ha, ?_⟩
+  intro v hv
+  exact ⟨(hΛ v hv).1, fun p hp _ => (hΛ v hv).2 (p : F) hp⟩
+
+end a1_lambda_sol
+
+namespace a1_weil_sol
+
+/-- The quadratic sign-character glue is below the Gauss theorem and uses no Plan import.
+Guide: PROOFS.md:487–489. The Weil lead owns this glue; the Lambda lead owns its own interface. -/
+theorem quadratic_sign_character_data (D : FieldData F) (S : SData F CE condη)
+    (A : AddCharData F) (H : HilbertData F) (Bd : BData S H) :
+    ∃ θB : Bd.B →* ℂˣ, ∀ v : FinPlace F, v ∉ S.Sf →
+      ∀ p : Fˣ, ∀ (hpgen : S.IsGen (p : F) v.asIdeal),
+        ∀ (hpAllowed : Bd.Allowed p),
+        gamma D S A 3 v.asIdeal (p : F) =
+          ((θB ⟨(QuotientGroup.mk (S.diagU p) : S.V), hpAllowed⟩ : ℂˣ) : ℂ) := by
+  exact ArtinPrimitiveRoots.Proofs.a1_weil_sol.quadratic_sign_character_data D S A H Bd
+
+end a1_weil_sol
 
 /-- lem:gauss-characters (02:411–436): `Λ` unitary, `G` finite order, both unramified at `v ∉ S`,
 with `γ_2(𝔭)³ = -Λ(𝔭)`, `G(𝔭) = conj(χ_𝔭(4))γ_3(𝔭)`, `γ_1(𝔭)γ_2(𝔭) = -Λ(𝔭)G(𝔭)` for every exterior
@@ -2315,14 +2428,14 @@ private theorem conductor_idele_inf_comp
     Units.map
         (InfinitePlace.Completion.ringEquivComplexOfIsComplex
           (D.isTotallyComplex.isComplex w)).symm.toMonoidHom (S.compC w (S.diagU a)) =
-      Dictionary.ideleInfiniteCoordUnit w (IdeleGroup.unitEmbedding (𝓞 F) F a) := by
+      Dictionary.ideleInfiniteCoordUnit w (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) := by
   let e := InfinitePlace.Completion.ringEquivComplexOfIsComplex
     (D.isTotallyComplex.isComplex w)
   have hcomp : S.compC w (S.diagU a) = Units.map w.embedding.toMonoidHom a := by
     apply Units.ext
     rfl
   have hprincipal : Dictionary.ideleInfiniteCoordUnit w
-      (IdeleGroup.unitEmbedding (𝓞 F) F a) =
+      (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a) =
         Units.map (algebraMap F w.Completion).toMonoidHom a := by
     apply Units.ext
     rfl
@@ -2417,7 +2530,7 @@ private theorem conductor_rp_truncate
   rw [← hnhds]
   exact hinc
 
-private def conductor_finiteSupportTrunc (x : IdeleGroup (𝓞 F) F)
+private def conductor_finiteSupportTrunc (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) : FiniteAdeleRing (𝓞 F) F :=
   ⟨fun v => if v ∈ T then
       (Dictionary.ideleFiniteCoord v x : v.adicCompletion F) else 1,
@@ -2426,13 +2539,13 @@ private def conductor_finiteSupportTrunc (x : IdeleGroup (𝓞 F) F)
       have hv' : v ∉ T := by simpa using hv
       simp [hv']⟩
 
-private def conductor_ideleSupportTrunc (x : IdeleGroup (𝓞 F) F)
-    (T : Finset (HeightOneSpectrum (𝓞 F))) : IdeleGroup (𝓞 F) F :=
+private def conductor_ideleSupportTrunc (x : NumberField.IdeleGroup (𝓞 F) F)
+    (T : Finset (HeightOneSpectrum (𝓞 F))) : NumberField.IdeleGroup (𝓞 F) F :=
   (∏ w ∈ Finset.univ,
-      IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w x)) *
-    ∏ v ∈ T, IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v x)
+      NumberField.IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w x)) *
+    ∏ v ∈ T, NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v (Dictionary.ideleFiniteCoord v x)
 
-private theorem conductor_ideleSupportTrunc_infiniteCoord (x : IdeleGroup (𝓞 F) F)
+private theorem conductor_ideleSupportTrunc_infiniteCoord (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) (w : InfinitePlace F) :
     Dictionary.ideleInfiniteCoord w (conductor_ideleSupportTrunc x T) =
       Dictionary.ideleInfiniteCoord w x := by
@@ -2443,9 +2556,9 @@ private theorem conductor_ideleSupportTrunc_infiniteCoord (x : IdeleGroup (𝓞 
     simp [Dictionary.ideleInfiniteCoordUnit_ofAdicCompletion]
   exact congrArg Units.val hunit
 
-private theorem conductor_ideleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 F) F)
+private theorem conductor_ideleSupportTrunc_finiteCoord (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) (v : HeightOneSpectrum (𝓞 F)) :
-    (((conductor_ideleSupportTrunc x T : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F).2 v) =
+    (((conductor_ideleSupportTrunc x T : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F).2 v) =
       conductor_finiteSupportTrunc x T v := by
   classical
   have hcoord : Dictionary.ideleFiniteCoord v (conductor_ideleSupportTrunc x T) =
@@ -2454,11 +2567,11 @@ private theorem conductor_ideleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 F)
     rw [map_mul]
     have hleft : Dictionary.ideleFiniteCoord v
         (∏ w ∈ Finset.univ,
-          IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w x)) = 1 := by
+          NumberField.IdeleGroup.ofCompletion (𝓞 F) F w (Dictionary.ideleInfiniteCoordUnit w x)) = 1 := by
       simp [Dictionary.ideleFiniteCoord_ofCompletion]
     rw [hleft, one_mul, Dictionary.ideleFiniteCoord_finsetProduct]
   calc
-    (((conductor_ideleSupportTrunc x T : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F).2 v) =
+    (((conductor_ideleSupportTrunc x T : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F).2 v) =
         ((Dictionary.ideleFiniteCoord v (conductor_ideleSupportTrunc x T) :
           (v.adicCompletion F)ˣ) : v.adicCompletion F) :=
       (Dictionary.ideleFiniteCoord_apply v _).symm
@@ -2472,7 +2585,7 @@ private theorem conductor_ideleSupportTrunc_finiteCoord (x : IdeleGroup (𝓞 F)
       rw [heval]
       by_cases h : v ∈ T <;> simp [h]
 
-private theorem conductor_ideleSupportTrunc_coe (x : IdeleGroup (𝓞 F) F)
+private theorem conductor_ideleSupportTrunc_coe (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) :
     (conductor_ideleSupportTrunc x T : AdeleRing (𝓞 F) F) =
       ((x : AdeleRing (𝓞 F) F).1, conductor_finiteSupportTrunc x T) := by
@@ -2483,7 +2596,7 @@ private theorem conductor_ideleSupportTrunc_coe (x : IdeleGroup (𝓞 F) F)
     intro v
     exact conductor_ideleSupportTrunc_finiteCoord x T v
 
-private theorem conductor_finiteSupportTrunc_tendsto (x : IdeleGroup (𝓞 F) F) :
+private theorem conductor_finiteSupportTrunc_tendsto (x : NumberField.IdeleGroup (𝓞 F) F) :
     Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) => conductor_finiteSupportTrunc x T)
       atTop (𝓝 ((x : AdeleRing (𝓞 F) F).2)) := by
   change Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
@@ -2502,14 +2615,14 @@ private theorem conductor_finiteSupportTrunc_tendsto (x : IdeleGroup (𝓞 F) F)
   exact conductor_rp_truncate (hA := fun v => by simp)
     ((x : AdeleRing (𝓞 F) F).2)
 
-private theorem conductor_ideleSupportTrunc_inv (x : IdeleGroup (𝓞 F) F)
+private theorem conductor_ideleSupportTrunc_inv (x : NumberField.IdeleGroup (𝓞 F) F)
     (T : Finset (HeightOneSpectrum (𝓞 F))) :
     (conductor_ideleSupportTrunc x T)⁻¹ = conductor_ideleSupportTrunc x⁻¹ T := by
   classical
   simp [conductor_ideleSupportTrunc, map_inv, Finset.prod_inv_distrib]
   ac_rfl
 
-private theorem conductor_ideleSupportTrunc_coe_tendsto (x : IdeleGroup (𝓞 F) F) :
+private theorem conductor_ideleSupportTrunc_coe_tendsto (x : NumberField.IdeleGroup (𝓞 F) F) :
     Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
       (conductor_ideleSupportTrunc x T : AdeleRing (𝓞 F) F)) atTop
       (𝓝 ((x : AdeleRing (𝓞 F) F))) := by
@@ -2530,31 +2643,31 @@ private theorem conductor_ideleSupportTrunc_coe_tendsto (x : IdeleGroup (𝓞 F)
   rw [hxpair]
   exact hprod
 
-private theorem conductor_tendsto_ideleSupportTrunc (x : IdeleGroup (𝓞 F) F) :
+private theorem conductor_tendsto_ideleSupportTrunc (x : NumberField.IdeleGroup (𝓞 F) F) :
     Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) => conductor_ideleSupportTrunc x T)
       atTop (𝓝 x) := by
   classical
   have hval := conductor_ideleSupportTrunc_coe_tendsto x
   have hvalInv : Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
-      (((conductor_ideleSupportTrunc x T)⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F))
-      atTop (𝓝 ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) := by
+      (((conductor_ideleSupportTrunc x T)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F))
+      atTop (𝓝 ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)) := by
     simpa only [conductor_ideleSupportTrunc_inv] using
       conductor_ideleSupportTrunc_coe_tendsto (x⁻¹)
   have hvalInvOp : Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
-      MulOpposite.op (((conductor_ideleSupportTrunc x T)⁻¹ : IdeleGroup (𝓞 F) F) :
+      MulOpposite.op (((conductor_ideleSupportTrunc x T)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) :
         AdeleRing (𝓞 F) F)) atTop
-      (𝓝 (MulOpposite.op ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F))) :=
+      (𝓝 (MulOpposite.op ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F))) :=
     (MulOpposite.opHomeomorph.continuous.tendsto
-      ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)).comp hvalInv
+      ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)).comp hvalInv
   have hEmbed : Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
       Units.embedProduct (AdeleRing (𝓞 F) F) (conductor_ideleSupportTrunc x T)) atTop
       (𝓝 (Units.embedProduct (AdeleRing (𝓞 F) F) x)) := by
     change Tendsto (fun T : Finset (HeightOneSpectrum (𝓞 F)) =>
       ((conductor_ideleSupportTrunc x T : AdeleRing (𝓞 F) F),
-        MulOpposite.op (((conductor_ideleSupportTrunc x T)⁻¹ : IdeleGroup (𝓞 F) F) :
+        MulOpposite.op (((conductor_ideleSupportTrunc x T)⁻¹ : NumberField.IdeleGroup (𝓞 F) F) :
           AdeleRing (𝓞 F) F))) atTop
       (𝓝 ((x : AdeleRing (𝓞 F) F),
-        MulOpposite.op ((x⁻¹ : IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)))
+        MulOpposite.op ((x⁻¹ : NumberField.IdeleGroup (𝓞 F) F) : AdeleRing (𝓞 F) F)))
     rw [Prod.tendsto_iff]
     exact ⟨hval, hvalInvOp⟩
   exact Units.isEmbedding_embedProduct.tendsto_nhds_iff.mpr hEmbed
@@ -2566,10 +2679,10 @@ private theorem conductor_heckeChar_idealValue_eq_LS_of_gen
     χ.idealValue I = S.LS χ (S.diagU a) := by
   classical
   let T : Finset (HeightOneSpectrum (𝓞 F)) := S.Sf ∪ conductor_factorPlaces I
-  let x : IdeleGroup (𝓞 F) F := IdeleGroup.unitEmbedding (𝓞 F) F a
-  let q : IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F :=
-    QuotientGroup.mk' (IdeleGroup.principalSubgroup (𝓞 F) F)
-  let ψ : IdeleGroup (𝓞 F) F →* ℂˣ :=
+  let x : NumberField.IdeleGroup (𝓞 F) F := NumberField.IdeleGroup.unitEmbedding (𝓞 F) F a
+  let q : NumberField.IdeleGroup (𝓞 F) F →* IdeleClassGroup (𝓞 F) F :=
+    QuotientGroup.mk' (NumberField.IdeleGroup.principalSubgroup (𝓞 F) F)
+  let ψ : NumberField.IdeleGroup (𝓞 F) F →* ℂˣ :=
     (χ : IdeleClassGroup (𝓞 F) F →* ℂˣ).comp q
   let locLocal (v : FinPlace F) : ℂˣ := χ.loc v (toLoc v a)
   let infLocal (w : InfinitePlace F) : ℂˣ :=
@@ -2580,15 +2693,15 @@ private theorem conductor_heckeChar_idealValue_eq_LS_of_gen
     ∏ v ∈ conductor_factorPlaces I,
       χ.loc v (toLoc v (Units.mk0 (unif v) (unif_ne_zero v))) ^ idealExp v I
   have hprincipalClass : q x = 1 := by
-    change (x : IdeleGroup (𝓞 F) F ⧸ IdeleGroup.principalSubgroup (𝓞 F) F) = 1
+    change (x : NumberField.IdeleGroup (𝓞 F) F ⧸ NumberField.IdeleGroup.principalSubgroup (𝓞 F) F) = 1
     exact (QuotientGroup.eq_one_iff
-      (N := IdeleGroup.principalSubgroup (𝓞 F) F) x).mpr (by
-        change x ∈ (IdeleGroup.unitEmbedding (𝓞 F) F).range
+      (N := NumberField.IdeleGroup.principalSubgroup (𝓞 F) F) x).mpr (by
+        change x ∈ (NumberField.IdeleGroup.unitEmbedding (𝓞 F) F).range
         exact ⟨a, rfl⟩)
   have hprincipal : ψ x = 1 := by
     change χ (q x) = 1
     rw [hprincipalClass, map_one]
-  have hψcont : Continuous (fun z : IdeleGroup (𝓞 F) F => ψ z) := by
+  have hψcont : Continuous (fun z : NumberField.IdeleGroup (𝓞 F) F => ψ z) := by
     dsimp [ψ, q]
     exact χ.continuous.comp continuous_quotient_mk'
   have hcoord : ∀ v : FinPlace F,
@@ -2602,14 +2715,14 @@ private theorem conductor_heckeChar_idealValue_eq_LS_of_gen
     calc
       ψ (conductor_ideleSupportTrunc x U) =
           ψ ((∏ w ∈ Finset.univ,
-            IdeleGroup.ofCompletion (𝓞 F) F w
+            NumberField.IdeleGroup.ofCompletion (𝓞 F) F w
               (Dictionary.ideleInfiniteCoordUnit w x)) *
-            ∏ v ∈ U, IdeleGroup.ofAdicCompletion (𝓞 F) F v
+            ∏ v ∈ U, NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v
               (Dictionary.ideleFiniteCoord v x)) := rfl
       _ = ψ (∏ w ∈ Finset.univ,
-            IdeleGroup.ofCompletion (𝓞 F) F w
+            NumberField.IdeleGroup.ofCompletion (𝓞 F) F w
               (Dictionary.ideleInfiniteCoordUnit w x)) *
-          ψ (∏ v ∈ U, IdeleGroup.ofAdicCompletion (𝓞 F) F v
+          ψ (∏ v ∈ U, NumberField.IdeleGroup.ofAdicCompletion (𝓞 F) F v
               (Dictionary.ideleFiniteCoord v x)) := map_mul ψ _ _
       _ = (∏ w : InfinitePlace F, infLocal w) *
           ∏ v ∈ U, χ.loc v (Dictionary.ideleFiniteCoord v x) := by

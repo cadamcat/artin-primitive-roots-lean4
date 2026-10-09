@@ -1,10 +1,13 @@
 import ArtinPrimitiveRoots.A2.Reflection.Nodes
 import ArtinPrimitiveRoots.A2.Proofs.A2_PRODUCERS.Reflection
+import ArtinPrimitiveRoots.A2.Proofs.A2_PRODUCERS.Angles
+import ArtinPrimitiveRoots.A2.Proofs.A2_PRODUCERS.Sheet
 import ArtinPrimitiveRoots.A1.SLattice
 import ArtinPrimitiveRoots.Theta.AnalysisS
 import ArtinPrimitiveRoots.A2.ZeroFree.Results
 import ArtinPrimitiveRoots.A2.Proofs.A2_CONDUCTOR_SIEVE.conductor_residues_exists
 import ArtinPrimitiveRoots.Proofs.qs_nq0_sol.ResidueUnits
+import ArtinPrimitiveRoots.A2.Proofs.A2_FREQUENCY.ZfConvOpus.HeckeAnalysisTC
 
 /-!
 Producer interfaces consumed by A2 §§4–6. New records name their producing package and TeX
@@ -381,7 +384,67 @@ structure SheetGeometry (D : FieldData F) (S : SData F CE condη)
 theorem sheetGeometry_exists (D : FieldData F) (S : SData F CE condη)
     (μ : ∀ v : FinPlace F, Theta.LocHaar v) (v0 : InfinitePlace F) :
     Nonempty (SheetGeometry D S μ v0) := by
-  sorry
+  classical
+  let ellU : ℝ → S.FSˣ := fun T =>
+    if hT : 0 < T then ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheetEllUnit D S T hT else 1
+  let sheet : ℝ → Measure S.FS :=
+    ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheetMeasure S μ v0
+  let mul : Measure S.FS := (ENNReal.ofReal Real.pi)⁻¹ • Theta.mulHaarS S μ
+  obtain ⟨omega, K, hOmegaMeas, hKcompact, hOmegaK, hOmegaNorm, hOmegaPartition⟩ :=
+    ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheetOmega_exists D S
+  let eps : UnitSix S → S.US := fun u => Classical.choose (QuotientGroup.mk_surjective u)
+  refine ⟨{
+    ellU := ellU
+    ellU_val := by
+      intro T hT
+      simp [ellU, hT, ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheetEllUnit]
+    ellU_norm := by
+      intro T hT
+      simpa [ellU, hT, ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheetEllUnit] using
+        ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheet_absS_ell D S T hT
+    sheet := sheet
+    sheet_support := by
+      intro T hT
+      simpa [sheet] using
+        ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheetMeasure_support S μ v0 T hT
+    sheetInt_eq := by
+      intro T hT f hf
+      simpa [sheet] using
+        ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.integral_sheetMeasure_eq_sheetInt
+          S μ v0 T f hf
+    mul := mul
+    mul_eq := rfl
+    disintegrate := by
+      intro f hf
+      simpa [sheet, mul] using
+        ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheet_measure_disintegrate D S μ v0 f hf
+    omega := omega
+    omega_measurable := hOmegaMeas
+    omega_norm := hOmegaNorm
+    omega_partition := by
+      simpa [ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.sheetGammaAction] using hOmegaPartition
+    omega_bounded := ⟨K, hKcompact, hOmegaK⟩
+    sheet_translate := by
+      intro a T hT
+      simpa [sheet] using
+        ArtinPrimitiveRoots.Proofs.a2_prod_sol.sheetMeasure_translate S μ v0 a T hT
+    sheet_inversion := by
+      intro T hT
+      simpa [sheet] using
+        ArtinPrimitiveRoots.Proofs.a2_prod_sol.sheetMeasure_inversion S μ v0 T hT
+    unitSixFinite := by
+      letI : Finite (UnitSix S) :=
+        ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.unitSixFinite D S
+      exact Fintype.ofFinite (UnitSix S)
+    classFinite := by
+      letI : Finite S.V := ArtinPrimitiveRoots.Proofs.A2_PRODUCERS.classVFinite S
+      exact Fintype.ofFinite S.V
+    eps := eps
+    eps_class := by
+      intro u
+      simpa [unitSixClass, eps] using
+        (Classical.choose_spec (QuotientGroup.mk_surjective u))
+  }⟩
 
 /-- Turn the row characters into the frozen admissible `SChar` type, with no new analytic
 conclusion assumed. Consumers: def:rf-digit-sums, def:rf-profiles, lem:reflection-theta-representation.
@@ -624,8 +687,9 @@ end HeckeAnalysis
 
 /-- Hecke producer obligation for the existing per-character continuations and principal
 regularization (06:37-73, 139-153, 413-477). -/
-theorem heckeAnalysis_exists (F : Type) [Field F] [NumberField F] :
-    Nonempty (HeckeAnalysis F) := by
-  sorry
+theorem heckeAnalysis_exists (F : Type) [Field F] [NumberField F] [IsTotallyComplex F] :
+    Nonempty (HeckeAnalysis F) :=
+  let ⟨A, hA⟩ := ArtinPrimitiveRoots.Proofs.zf_conv_opus.heckeAnalysis_totallyComplex F
+  ⟨⟨A, hA⟩⟩
 
 end ArtinPrimitiveRoots.A2

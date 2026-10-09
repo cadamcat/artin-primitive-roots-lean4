@@ -1,17 +1,60 @@
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.GammaSquarefree
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.GlobalAbsolute
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.IdealTupleBridge
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.PrimeCoefficient
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.FiniteExpansion
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.ProductLimit
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.LocalNormGuards
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.GoodRationalError
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.BadSupport
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.BadSeriesDeviation
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.NormalizeBad
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.LocalAnalytic
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.DeviationSummable
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.ProductCompact
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.ProductAnalytic
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.ProductGrowth
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.DeletedIdentity
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.PrincipalNonzero
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Parts.LocalParameterNorms
+import ArtinPrimitiveRoots.A2.Proofs.A2_EULER.Definitions
 import ArtinPrimitiveRoots.A2.Reflection.Missing
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FiniteRowL2
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierCoefficients
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.FourierFamily
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LabeledAdditiveSieve
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LocalRadialIntegral
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogArchKernel
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.LogFamilyRegularity
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeAdditiveCandidates
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeAdditiveMass
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeDenominators
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeFrequencySeparation
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogFamily
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeLogRegularity
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueAdditiveSieve
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueLift
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeResidueMask
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeRowWindow
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ProbeSheetProfile
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.ReflectionRowLift
+import ArtinPrimitiveRoots.A2.Proofs.A2_PROBE.SchwartzRadial
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Complex
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.ComplexFE
 import ArtinPrimitiveRoots.A2.Proofs.A2_WEIGHTS.Finite
 import ArtinPrimitiveRoots.A2.Interface
+import Mathlib.MeasureTheory.Measure.Lebesgue.EqHaar
+import Mathlib.MeasureTheory.Measure.Haar.InnerProductSpace
 
 /-! A2 statement interfaces derived from the design lane. -/
 set_option autoImplicit false
 set_option maxHeartbeats 800000
 open NumberField IsDedekindDomain MeasureTheory
 open scoped Classical
+open scoped Topology
 noncomputable section
 namespace ArtinPrimitiveRoots.A2
-open ArtinPrimitiveRoots A1 A2
+open ArtinPrimitiveRoots A1 A2 ArtinPrimitiveRoots.Proofs.a2_euler_sol
 variable {F : Type} [Field F] [NumberField F]
 variable {CE : ℕ} {condη : Ideal (𝓞 F)}
 
@@ -87,17 +130,6 @@ theorem ext_tate_local_FE_complex :
     ArtinPrimitiveRoots.Proofs.a2_weights.complexTateFactor_sixth_ne_zero, ?_⟩
   intro f s hs hs1
   exact ArtinPrimitiveRoots.Proofs.a2_weights.complexLocalTateEquation f s hs hs1
-/-- def:po-finite-factor: Gauss sum over the actual R/(I), with an explicit allowed generator. -/
-def finiteGaussAt (I : S.ExtIdeal) (a : Fˣ) (k : F) : ℂ :=
-  ∑ᶠ x : ResidueRing R.exterior I, chiIdealPow D I.1 (x.out : F) 1 * S.e A (S.diag (k * (x.out : F) / (a : F)))
-def finiteGauss (I : S.ExtIdeal) (k : F) : ℂ := finiteGaussAt R I (bc.gen I) k
-
-def finiteFactor (s I : S.ExtIdeal) (a : Fˣ) (h : F) : ℂ :=
-  ∑ᶠ d : ResidueRing R.exterior s,
-    if ∃ x : S.R, h - (a : F) * (d.out : F) = (bc.gen s : F) * (x : F) then
-      chiIdealPow D s.1 (d.out : F) 1 * finiteGaussAt R I a ((h - (a : F) * (d.out : F)) / (bc.gen s : F))
-    else 0
-
 /-- def:po-probe, 05:77–101. Quotient integration is implemented by the fixed Ω₁. -/
 def probeIntegrand (X Y Z : ℝ) (t : S.FSˣ) : ℂ :=
   (Y : ℂ)⁻¹ * ∑' s : S.ExtIdeal, W.W1 (qI s.1 / Y) * ((qI s.1 * X) ^ (-(1 / 2 : ℝ)) : ℝ) *
@@ -140,6 +172,105 @@ private theorem po_absS_continuous (S : SData F CE condη) : Continuous S.absS :
   · apply continuous_finsetProd Finset.univ
     intro w hw
     exact Complex.continuous_normSq.comp ((continuous_apply w).comp continuous_snd)
+
+private theorem po_addChar_continuous (v : FinPlace F) : Continuous (A.ψ v) := by
+  apply continuous_iff_continuousAt.mpr
+  intro x
+  change Filter.Tendsto (A.ψ v) (𝓝 x) (𝓝 (A.ψ v x))
+  let O : Set (v.adicCompletion F) := v.adicCompletionIntegers F
+  have hO : IsOpen O := Valued.isOpen_valuationSubring (v.adicCompletion F)
+  let U : Set (v.adicCompletion F) := {y | y - x ∈ O}
+  have hU : IsOpen U := by
+    exact hO.preimage (continuous_id.sub continuous_const)
+  have hxU : x ∈ U := by simp [U, O]
+  have hloc : ∀ y ∈ U, A.ψ v y = A.ψ v x := by
+    intro y hy
+    calc
+      A.ψ v y = A.ψ v (x + (y - x)) := by congr 1 <;> abel
+      _ = A.ψ v x * A.ψ v (y - x) := AddChar.map_add_eq_mul _ _ _
+      _ = A.ψ v x := by rw [A.integral v (y - x) hy, mul_one]
+  have hEq : (A.ψ v) =ᶠ[𝓝 x] fun _ => A.ψ v x := by
+    filter_upwards [IsOpen.mem_nhds hU hxU] with y hy
+    exact hloc y hy
+  exact (Filter.tendsto_congr' hEq).mpr tendsto_const_nhds
+
+private theorem po_e_continuous : Continuous (S.e A) := by
+  unfold SData.e
+  apply Continuous.mul
+  · apply continuous_finsetProd Finset.univ
+    intro v hv
+    exact (po_addChar_continuous (A := A) v.1).comp
+      ((continuous_apply v).comp continuous_fst)
+  · apply continuous_finsetProd Finset.univ
+    intro w hw
+    fun_prop [psiC]
+
+private theorem po_weightFourier_continuous : Continuous (weightFourier sd W) := by
+  letI : MeasurableSpace S.FS := borel S.FS
+  letI : BorelSpace S.FS := ⟨rfl⟩
+  letI := sd.isHaar
+  letI : SigmaFinite sd.measure := by infer_instance
+  letI : SFinite sd.measure := by infer_instance
+  let kernel : S.FS → S.FS → ℂ := fun x y => W.W0 x * S.e A (-(x * y))
+  have hWcont : Continuous W.W0 := po_probe_weight_continuous (W := W)
+  have hWint : Integrable W.W0 sd.measure :=
+    hWcont.integrable_of_hasCompactSupport W.W0_compact
+  have hecont : Continuous (fun p : S.FS × S.FS => S.e A (-(p.1 * p.2))) :=
+    (po_e_continuous (A := A)).comp
+      (continuous_neg.comp (continuous_fst.mul continuous_snd))
+  have hkernel : Continuous (fun p : S.FS × S.FS => kernel p.1 p.2) :=
+    hWcont.comp continuous_fst |>.mul hecont
+  have hparam (y : S.FS) : Continuous (fun x : S.FS => kernel x y) := by
+    convert hkernel.comp (continuous_id.prodMk continuous_const) using 1
+    rfl
+  apply continuous_iff_continuousAt.mpr
+  intro y0
+  obtain ⟨L, hLcompact, hLnhds⟩ := exists_compact_mem_nhds y0
+  let K : Set S.FS := tsupport W.W0
+  have hKcompact : IsCompact K := W.W0_compact
+  have hKLcompact : IsCompact (K ×ˢ L) := hKcompact.prod hLcompact
+  obtain ⟨C, hC⟩ := hKLcompact.exists_bound_of_continuousOn hecont.continuousOn
+  let B : ℝ := max C 0
+  have hB : 0 ≤ B := le_max_right _ _
+  let bound : S.FS → ℝ := fun x => B * ‖W.W0 x‖
+  have hbound_each (y : S.FS) (hy : y ∈ L) (x : S.FS) :
+      ‖kernel x y‖ ≤ bound x := by
+    by_cases hx : x ∈ K
+    · change ‖W.W0 x * S.e A (-(x * y))‖ ≤ B * ‖W.W0 x‖
+      rw [norm_mul]
+      calc
+        ‖W.W0 x‖ * ‖S.e A (-(x * y))‖ ≤ ‖W.W0 x‖ * B :=
+          mul_le_mul_of_nonneg_left (hC (x, y) ⟨hx, hy⟩ |>.trans (le_max_left _ _))
+            (norm_nonneg _)
+        _ = bound x := by simp [bound, B, mul_comm]
+    · have hxzero : W.W0 x = 0 := by
+        by_contra hne
+        have hmem : x ∈ Function.support W.W0 := Function.mem_support.mpr hne
+        exact hx (subset_closure hmem)
+      simp [kernel, hxzero, bound]
+  have hbound_integrable : Integrable bound sd.measure := by
+    simpa [bound, mul_comm] using hWint.norm.const_mul B
+  have hmeas : ∀ᶠ y in 𝓝 y0, AEStronglyMeasurable (fun x => kernel x y) sd.measure := by
+    filter_upwards with y
+    exact (hparam y).stronglyMeasurable.aestronglyMeasurable
+  have hbound : ∀ᶠ y in 𝓝 y0, ∀ᵐ x ∂sd.measure, ‖kernel x y‖ ≤ bound x := by
+    filter_upwards [hLnhds] with y hy
+    exact Filter.Eventually.of_forall (hbound_each y hy)
+  have hlim : ∀ᵐ x ∂sd.measure,
+      Filter.Tendsto (fun y => kernel x y) (𝓝 y0) (𝓝 (kernel x y0)) := by
+    filter_upwards with x
+    exact (hkernel.comp (continuous_const.prodMk continuous_id)).continuousAt
+  have hDCT := MeasureTheory.tendsto_integral_filter_of_dominated_convergence
+    (μ := sd.measure) (l := 𝓝 y0) (F := fun y x => kernel x y)
+    (f := fun x => kernel x y0) bound hmeas hbound hbound_integrable hlim
+  change Filter.Tendsto
+    (fun y : S.FS => ∫ x, W.W0 x * S.e A (-(x * y)) ∂sd.measure) (𝓝 y0)
+    (𝓝 (∫ x, W.W0 x * S.e A (-(x * y0)) ∂sd.measure))
+  exact hDCT
+
+private theorem po_weightFourier_aestronglyMeasurable :
+    AEStronglyMeasurable (weightFourier sd W) R.sheets.mul :=
+  po_weightFourier_continuous (sd := sd) (W := W) |>.aestronglyMeasurable
 
 private theorem po_absS_one_isUnit (S : SData F CE condη) (y : S.FS)
     (hy : S.absS y = 1) : IsUnit y := by
@@ -1209,12 +1340,749 @@ def probeLowStatement (η : HeckeChar F) : Prop :=
     ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
     ‖probe R W (Z ^ a) (Z ^ b) Z‖ ≤ C * Z ^ (933 / 2000 + ε)
 
+private theorem po_probe_low_row_window :
+    ∃ K : Set S.FSˣ, IsCompact K ∧
+      ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ t : S.FSˣ, ∀ s : S.ExtIdeal,
+        W.W1 (qI s.1 / (Z ^ b)) ≠ 0 → ∀ m : S.R,
+        W.W0 (S.diag (m : F) *
+          ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val) ≠ 0 →
+        ∃ y ∈ K, S.diag (m : F) =
+          S.ell D (Z ^ M0) (Real.rpow_pos_of_pos (by linarith) M0) *
+            ((t * y : S.FSˣ) : S.FS) := by
+  obtain ⟨K, hK, hwindow⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_row_window D S R.sheets
+      W.W0 W.W1 W.W0_compact W.W0_units W.W1_compact W.W1_positive_support
+      W.W1_smooth.continuous W.W1_nonzero
+  refine ⟨K, hK, ?_⟩
+  intro Z hZ t s hs m hm
+  exact hwindow Z hZ t (qI s.1) hs (S.diag (m : F)) hm
+
+private def po_probe_low_log_kernel (u : ℝ) (x : S.FS) : ℂ :=
+  ((Real.exp u ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * W.W1 (Real.exp u) *
+    W.W0 (x * ((R.sheets.ellU (Real.exp u))⁻¹ : S.FSˣ).val)
+
+private theorem po_probe_low_log_regular :
+    (∀ x : S.FS, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (fun u : ℝ => po_probe_low_log_kernel R W u x)) ∧
+      ∀ n : ℕ, Continuous (fun p : ℝ × S.FS =>
+        iteratedDeriv n (fun u : ℝ => po_probe_low_log_kernel R W u p.2) p.1) := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_log_regular D S R.sheets
+    W.W0 W.W1 W.arch W.finite W.W1_smooth W.W0_tensor
+
+private theorem po_probe_low_log_family :
+    ∃ lo hi C0 C2 : ℝ, lo < hi ∧ 0 < C0 ∧ 0 < C2 ∧
+      ∃ K : Set S.FSˣ, IsCompact K ∧
+        (∀ v ∈ tsupport W.W1, Real.log v ∈ Set.Ioo lo hi) ∧
+        (∀ x : S.FS, ContDiff ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+          (fun u => po_probe_low_log_kernel R W u x)) ∧
+        Continuous (fun p : ℝ × S.FS => po_probe_low_log_kernel R W p.1 p.2) ∧
+        Continuous (fun p : ℝ × S.FS =>
+          iteratedDeriv 2 (fun u => po_probe_low_log_kernel R W u p.2) p.1) ∧
+        (∀ x u, u ∈ Set.Icc lo hi →
+          ‖po_probe_low_log_kernel R W u x‖ ≤ C0 ∧
+          ‖iteratedDeriv 2 (fun v => po_probe_low_log_kernel R W v x) u‖ ≤ C2) ∧
+        (∀ x, po_probe_low_log_kernel R W lo x = 0 ∧
+          po_probe_low_log_kernel R W hi x = 0 ∧
+          deriv (fun u => po_probe_low_log_kernel R W u x) lo = 0 ∧
+          deriv (fun u => po_probe_low_log_kernel R W u x) hi = 0) ∧
+        (∀ x, x ∉ (Units.val : S.FSˣ → S.FS) '' K →
+          ∀ u, po_probe_low_log_kernel R W u x = 0) := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_log_family D S R.sheets W.W0 W.W1
+    W.W0_compact W.W0_units W.W1_compact W.W1_positive_support W.W1_smooth.continuous
+    W.W1_nonzero (po_probe_low_log_regular R W)
+
+private theorem po_probe_low_fourier :
+    ∃ T : ℝ, 0 < T ∧ ∃ K : Set S.FSˣ, IsCompact K ∧
+      ∃ c : ℤ → S.FS → ℂ, ∃ bound : ℤ → ℝ,
+        (∀ j, 0 ≤ bound j) ∧ Summable bound ∧
+        (∀ j, Continuous (c j)) ∧
+        (∀ j x, ‖c j x‖ ≤ bound j) ∧
+        (∀ j x, x ∉ (Units.val : S.FSˣ → S.FS) '' K → c j x = 0) ∧
+        ∀ v ∈ tsupport W.W1, ∀ x : S.FS,
+          ((v ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * W.W1 v *
+              W.W0 (x * ((R.sheets.ellU v)⁻¹ : S.FSˣ).val) =
+            ∑' j : ℤ, c j x * Complex.exp
+              (((2 * Real.pi : ℝ) : ℂ) * Complex.I * (j : ℂ) *
+                (Real.log v : ℂ) / (T : ℂ)) := by
+  obtain ⟨lo, hi, C0, C2, hlohi, hC0, hC2, K, hK, hlog, hsmooth,
+    hcontinuous, hcontinuous2, hbound, hend, hzero⟩ := po_probe_low_log_family R W
+  obtain ⟨bound, hnonneg, hsum, hcoeffContinuous, hcoeffBound, hcoeffZero, hreconstruct⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.fourierCoeffOn_smooth_family lo hi hlohi
+      (po_probe_low_log_kernel R W) C0 C2 hC0.le hC2.le hsmooth hcontinuous hcontinuous2
+      hbound hend ((Units.val : S.FSˣ → S.FS) '' K) hzero
+  refine ⟨hi - lo, sub_pos.mpr hlohi, K, hK,
+    (fun j x => fourierCoeffOn hlohi (fun u => po_probe_low_log_kernel R W u x) j),
+    bound, hnonneg, hsum, hcoeffContinuous, hcoeffBound, hcoeffZero, ?_⟩
+  intro v hv x
+  have hvpos : 0 < v := W.W1_positive_support hv
+  have hlogv := hlog v hv
+  have hs := hreconstruct x (Real.log v) ⟨hlogv.1.le, hlogv.2.le⟩
+  simpa [po_probe_low_log_kernel, Real.exp_log hvpos] using hs.tsum_eq.symm
+
+private theorem po_probe_low_additive_mass :
+    ∃ C : ℝ, 0 < C ∧ ∀ Y : ℝ, 1 ≤ Y →
+      ∃ P : Finset S.ExtIdeal,
+        (∀ s : S.ExtIdeal, s ∈ P ↔ W.W1 (qI s.1 / Y) ≠ 0) ∧
+        ∀ ρ : ∀ s : S.ExtIdeal, ResidueRing R.exterior s → ℂ,
+          (∀ s d, ‖ρ s d‖ ≤ 1) →
+          (∑ s ∈ P, ∑ᶠ d : ResidueRing R.exterior s,
+            ‖(Y : ℂ)⁻¹ * ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ρ s d‖ ^ 2)
+            ≤ C / Y := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_additive_mass R.exterior W.W1
+    W.W1_compact W.W1_positive_support W.W1_smooth.continuous W.W1_nonzero
+
+private theorem po_probe_low_residue_lift :
+    ∀ s : S.ExtIdeal, ∀ d : ResidueRing R.exterior s, IsUnit d →
+      ∃ c : 𝓞 F, IsCoprime (Ideal.span {c}) s.1 ∧
+        ∃ r : S.R, (d.out : F) - algebraMap (𝓞 F) F c =
+          (bc.gen s : F) * (r : F) := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_residue_lift R.exterior
+
+private theorem po_probe_low_residue_frequencies_separated :
+    ∀ s t : S.ExtIdeal, ∀ d : ResidueRing R.exterior s, ∀ e : ResidueRing R.exterior t,
+      IsUnit d → IsUnit e →
+      (d.out : F) / (bc.gen s : F) - (e.out : F) / (bc.gen t : F) ∈ S.R →
+      s = t ∧ HEq d e := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_residue_frequencies_separated R.exterior
+
+private theorem po_probe_low_nonzero_residue_symbol_isUnit :
+    ∀ s : S.ExtIdeal, ∀ d : ResidueRing R.exterior s,
+      chiIdealPow D s.1 (d.out : F) 1 ≠ 0 → IsUnit d := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_nonzero_residue_symbol_isUnit R.exterior
+
+private theorem po_probe_low_additive_candidates (P : Finset S.ExtIdeal) (V : ℝ)
+    (hcutoff : ∀ s ∈ P, idealNorm s.1 ≤ V) :
+    let L := Σ s : {s : S.ExtIdeal // s ∈ P},
+      {d : ResidueRing R.exterior s.1 // IsUnit d}
+    ∃ α : L → S.FS, Function.Injective α ∧
+      (∀ p, α p ∈ AdditiveCandidates D S bc V) ∧
+      (∀ p, SameModuloSIntegers S (α p)
+        (S.diag ((p.2.1.out : F) / (bc.gen p.1.1 : F)))) ∧
+      ∃ Q : Finset S.FS,
+        (∀ x, x ∈ Q ↔ ∃ p, α p = x) ∧
+        ∀ x ∈ Q, ∀ y ∈ Q, x ≠ y → ¬ SameModuloSIntegers S x y := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_additive_candidates
+    R.exterior P V hcutoff
+
+private theorem po_probe_low_labeled_sieve (K : Set S.FS) (hK : IsCompact K) :
+    ∃ C : ℝ, 0 < C ∧ ∀ N V : ℝ, (hN : 2 ≤ N) → (hV : 2 ≤ V) →
+      ∀ (L : Type) [Fintype L] (α : L → S.FS),
+        (∀ p, α p ∈ AdditiveCandidates D S bc V) →
+        (∀ p q, p ≠ q → ¬ SameModuloSIntegers S (α p) (α q)) →
+        ∀ c : L → ℂ,
+          (∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+            ‖∑ p : L, c p * additivePhase S A m.1 (α p)‖ ^ 2) ≤
+            C * (N + V ^ 2) * ∑ p : L, ‖c p‖ ^ 2 := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.additive_sieve_labeled D S H A Bd bc K hK
+
+private theorem po_probe_low_residue_additive_sieve (K : Set S.FS) (hK : IsCompact K) :
+    ∃ B C : ℝ, 2 ≤ B ∧ 0 < C ∧ ∀ Y N : ℝ, 1 ≤ Y → (hN : 2 ≤ N) →
+      ∃ P : Finset S.ExtIdeal,
+        (∀ s : S.ExtIdeal, s ∈ P ↔ W.W1 (qI s.1 / Y) ≠ 0) ∧
+        ∀ ρ : ∀ s : S.ExtIdeal, ResidueRing R.exterior s → ℂ,
+          (∀ s d, ‖ρ s d‖ ≤ 1) →
+          (∀ s d, ¬ IsUnit d → ρ s d = 0) →
+          (∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+            ‖∑ s ∈ P, ∑ᶠ d : ResidueRing R.exterior s,
+              (Y : ℂ)⁻¹ * ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ρ s d *
+                S.e A (S.diag (-(m.1 : F) * (d.out : F) / (bc.gen s : F)))‖ ^ 2) ≤
+            C * (N + (B * Y) ^ 2) / Y := by
+  exact ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_residue_additive_sieve
+    A R.exterior K hK W.W1 W.W1_compact W.W1_positive_support
+    W.W1_smooth.continuous W.W1_nonzero
+
+private theorem po_probe_low_gauss_sieve (K : Set S.FS) (hK : IsCompact K) :
+    ∃ B C : ℝ, 2 ≤ B ∧ 0 < C ∧ ∀ Y N : ℝ, 1 ≤ Y → (hN : 2 ≤ N) →
+      ∃ P : Finset S.ExtIdeal,
+        (∀ s : S.ExtIdeal, s ∈ P ↔ W.W1 (qI s.1 / Y) ≠ 0) ∧
+        ∀ ψ : S.ExtIdeal → ℂ, (∀ s, ‖ψ s‖ ≤ 1) →
+          (∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+            ‖(Y : ℂ)⁻¹ * ∑ s ∈ P,
+              ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ψ s *
+                finiteGauss R s (-(m.1 : F))‖ ^ 2) ≤
+            C * (N + (B * Y) ^ 2) / Y := by
+  obtain ⟨B, C, hB, hC, hsieve⟩ := po_probe_low_residue_additive_sieve R W K hK
+  refine ⟨B, C, hB, hC, ?_⟩
+  intro Y N hY hN
+  obtain ⟨P, hP, hbound⟩ := hsieve Y N hY hN
+  refine ⟨P, hP, ?_⟩
+  intro ψ hψ
+  let ρ (s : S.ExtIdeal) (d : ResidueRing R.exterior s) : ℂ :=
+    ψ s * chiIdealPow D s.1 (d.out : F) 1
+  have hρ (s : S.ExtIdeal) (d : ResidueRing R.exterior s) : ‖ρ s d‖ ≤ 1 := by
+    have hchi := (a2_bridge_SYMBOL D S).ideal_norm_le s.1 (d.out : F) 1
+    calc
+      _ = ‖ψ s‖ * ‖chiIdealPow D s.1 (d.out : F) 1‖ := norm_mul _ _
+      _ ≤ 1 * 1 := mul_le_mul (hψ s) hchi (norm_nonneg _) (by norm_num)
+      _ = _ := one_mul _
+  have hmask (s : S.ExtIdeal) (d : ResidueRing R.exterior s)
+      (hd : ¬ IsUnit d) : ρ s d = 0 := by
+    have hchi : chiIdealPow D s.1 (d.out : F) 1 = 0 := by
+      by_contra hne
+      exact hd (po_probe_low_nonzero_residue_symbol_isUnit R s d hne)
+    simp only [ρ, hchi, mul_zero]
+  have hrow (m : S.R) :
+      (Y : ℂ)⁻¹ * (∑ s ∈ P,
+        ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ψ s * finiteGauss R s (-(m : F))) =
+      ∑ s ∈ P, ∑ᶠ d : ResidueRing R.exterior s,
+        (Y : ℂ)⁻¹ * ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ρ s d *
+          S.e A (S.diag (-(m : F) * (d.out : F) / (bc.gen s : F))) := by
+    rw [Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro s hs
+    let : Fintype (ResidueRing R.exterior s) := R.exterior.residueFinite s
+    simp only [finiteGauss, finiteGaussAt, finsum_eq_sum_of_fintype, Finset.mul_sum]
+    apply Finset.sum_congr rfl
+    intro d hd
+    dsimp only [ρ]
+    ring
+  calc
+    _ = ∑' m : {m : S.R // InAdditiveWindow D S K N (by linarith [hN]) m},
+        ‖∑ s ∈ P, ∑ᶠ d : ResidueRing R.exterior s,
+          (Y : ℂ)⁻¹ * ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ρ s d *
+            S.e A (S.diag (-(m.1 : F) * (d.out : F) / (bc.gen s : F)))‖ ^ 2 := by
+      apply tsum_congr
+      intro m
+      rw [hrow]
+    _ ≤ _ := hbound ρ hρ hmask
+
+private theorem po_probe_low_additive_row_bound :
+    ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z → ∀ t : S.FSˣ,
+      (t : S.FS) ∈ omegaAt R 1 →
+      (∑' m : S.R,
+        ‖((Z ^ b : ℝ) : ℂ)⁻¹ * ∑' s : S.ExtIdeal,
+          W.W1 (qI s.1 / (Z ^ b)) *
+            ((qI s.1 * (Z ^ a)) ^ (-(1 / 2 : ℝ)) : ℝ) *
+            (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+            W.W0 (S.diag (m : F) *
+              ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val)‖ ^ 2) ≤
+        C / (Z ^ b) := by
+  obtain ⟨T, hT, K, hK, c, bound, hb, hsum, _, hc, hczero, hrec⟩ :=
+    po_probe_low_fourier R W
+  obtain ⟨KO, hKO, hOmega⟩ := R.sheets.omega_bounded
+  let KT : Set S.FS := (fun x : S.FS => (R.sheets.ellU 1 : S.FS) * x) '' KO
+  have hKT : IsCompact KT := hKO.image (continuous_const.mul continuous_id)
+  have hKval : IsCompact ((Units.val : S.FSˣ → S.FS) '' K) :=
+    hK.image Units.continuous_val
+  let Kall : Set S.FS := (fun p : S.FS × S.FS => p.1 * p.2) ''
+    (KT ×ˢ ((Units.val : S.FSˣ → S.FS) '' K))
+  have hKall : IsCompact Kall :=
+    (hKT.prod hKval).image (continuous_fst.mul continuous_snd)
+  obtain ⟨B, Cs, hB, hCs, hsieve⟩ := po_probe_low_gauss_sieve R W Kall hKall
+  let C0 : ℝ := (∑' j : ℤ, bound j) ^ 2 * Cs * (1 + B ^ 2)
+  have hC0 : 0 ≤ C0 := by dsimp only [C0]; positivity
+  refine ⟨C0 + 1, by linarith, ?_⟩
+  intro Z hZ t ht
+  have hZpos : 0 < Z := by linarith
+  have hZ1 : 1 ≤ Z := by linarith
+  let Y : ℝ := Z ^ b
+  let N : ℝ := Z ^ M0
+  have hYpos : 0 < Y := Real.rpow_pos_of_pos hZpos _
+  have hNpos : 0 < N := Real.rpow_pos_of_pos hZpos _
+  have hY1 : 1 ≤ Y := Real.one_le_rpow hZ1 (by norm_num [b])
+  have hN2 : 2 ≤ N := by
+    calc
+      2 ≤ Z := hZ
+      _ = Z ^ (1 : ℝ) := (Real.rpow_one _).symm
+      _ ≤ N := Real.rpow_le_rpow_of_exponent_le hZ1 (by norm_num [M0, a, b])
+  have hYsquare : Y ^ 2 ≤ N := by
+    calc
+      _ = Z ^ (b * 2) := by rw [Real.rpow_mul hZpos.le, Real.rpow_two]
+      _ ≤ N := Real.rpow_le_rpow_of_exponent_le hZ1 (by norm_num [M0, a, b])
+  have htKT : (t : S.FS) ∈ KT := by
+    obtain ⟨x, hx, htx⟩ := ht
+    exact ⟨x, hOmega hx, htx.symm⟩
+  let Row := {m : S.R // InAdditiveWindow D S Kall N hNpos m}
+  let Kscaled : Set S.FS := (fun x : S.FS => S.ell D N hNpos * x) '' Kall
+  have hKscaled : IsCompact Kscaled := hKall.image (continuous_const.mul continuous_id)
+  have hfinite := po_finite_diagR_inter_compact (S := S) D Kscaled hKscaled
+  have hrows : {m : S.R | InAdditiveWindow D S Kall N hNpos m}.Finite := by
+    apply Set.Finite.of_injOn (f := fun m : S.R => S.diag (m : F))
+      (t := Kscaled ∩ S.diagR) ?_ ?_ hfinite
+    · intro m hm
+      obtain ⟨x, hx, hm⟩ := hm
+      exact ⟨⟨x, hx, hm.symm⟩, ⟨m, rfl⟩⟩
+    · intro m hm n hn hmn
+      exact Subtype.ext (S.diag.injective hmn)
+  let : Fintype Row := hrows.fintype
+  obtain ⟨P, hP, hgauss⟩ := hsieve Y N hY1 hN2
+  let ψ (j : ℤ) (s : S.ExtIdeal) : ℂ := Complex.exp
+    (((2 * Real.pi : ℝ) : ℂ) * Complex.I * (j : ℂ) *
+      (Real.log (qI s.1 / Y) : ℂ) / (T : ℂ))
+  have hψ (j : ℤ) (s : S.ExtIdeal) : ‖ψ j s‖ = 1 := by
+    dsimp only [ψ]
+    rw [Complex.norm_exp]
+    norm_num [Complex.mul_re, Complex.mul_im, Complex.div_re]
+  let y (m : S.R) : S.FS := S.diag (m : F) * ((t * R.sheets.ellU N)⁻¹ : S.FSˣ).val
+  let rN : ℂ := ((N ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ)
+  have hrNsquare : ‖rN‖ ^ 2 = N⁻¹ := by
+    dsimp only [rN]
+    rw [Complex.norm_real, Real.norm_eq_abs,
+      abs_of_pos (Real.rpow_pos_of_pos hNpos _)]
+    calc
+      _ = N ^ ((-(1 / 2 : ℝ)) * 2) := by rw [Real.rpow_mul hNpos.le, Real.rpow_two]
+      _ = _ := by norm_num [Real.rpow_neg_one]
+  let grow (j : ℤ) (m : S.R) : ℂ := (Y : ℂ)⁻¹ * ∑ s ∈ P,
+    ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ψ j s * finiteGauss R s (-(m : F))
+  let g (j : ℤ) (m : S.R) : ℂ := rN * c j (y m) * grow j m
+  let V : ℝ := Cs * (N + (B * Y) ^ 2) / Y
+  let R0 : ℝ := Cs * (1 + B ^ 2) / Y
+  have hR0 : 0 ≤ R0 := by dsimp only [R0]; positivity
+  have hnormalized : ‖rN‖ ^ 2 * V ≤ R0 := by
+    have hratio : (N + (B * Y) ^ 2) / N ≤ 1 + B ^ 2 := by
+      apply (div_le_iff₀ hNpos).mpr
+      nlinarith [mul_le_mul_of_nonneg_left hYsquare (sq_nonneg B)]
+    rw [hrNsquare]
+    calc
+      _ = (Cs / Y) * ((N + (B * Y) ^ 2) / N) := by dsimp only [V]; ring
+      _ ≤ (Cs / Y) * (1 + B ^ 2) :=
+        mul_le_mul_of_nonneg_left hratio (by positivity)
+      _ = R0 := by dsimp only [R0]; ring
+  have hmode (j : ℤ) : (∑ m : Row, ‖g j m.1‖ ^ 2) ≤ (bound j) ^ 2 * R0 := by
+    have hGauss : (∑ m : Row, ‖grow j m.1‖ ^ 2) ≤ V := by
+      simpa only [tsum_fintype, grow, V] using hgauss (ψ j) (fun s => (hψ j s).le)
+    calc
+      _ ≤ ∑ m : Row, ‖rN‖ ^ 2 * (bound j) ^ 2 * ‖grow j m.1‖ ^ 2 := by
+        apply Finset.sum_le_sum
+        intro m hm
+        dsimp only [g]
+        rw [norm_mul, norm_mul, mul_pow, mul_pow]
+        have hcoeff : ‖c j (y m.1)‖ ^ 2 ≤ (bound j) ^ 2 :=
+          (sq_le_sq₀ (norm_nonneg _) (hb j)).mpr (hc j (y m.1))
+        exact mul_le_mul_of_nonneg_right
+          (mul_le_mul_of_nonneg_left hcoeff (sq_nonneg _)) (sq_nonneg _)
+      _ = ‖rN‖ ^ 2 * (bound j) ^ 2 * ∑ m : Row, ‖grow j m.1‖ ^ 2 := by
+        rw [Finset.mul_sum]
+      _ ≤ ‖rN‖ ^ 2 * (bound j) ^ 2 * V :=
+        mul_le_mul_of_nonneg_left hGauss (by positivity)
+      _ = (bound j) ^ 2 * (‖rN‖ ^ 2 * V) := by ring
+      _ ≤ (bound j) ^ 2 * R0 :=
+        mul_le_mul_of_nonneg_left hnormalized (sq_nonneg _)
+  obtain ⟨hmodeSum, hmodeMass⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.finite_row_tsum_l2
+      (fun j (m : Row) => g j m.1) bound R0 hR0 hb hsum hmode
+  let f (m : S.R) : ℂ := (Y : ℂ)⁻¹ * ∑ s ∈ P,
+    W.W1 (qI s.1 / Y) * (((qI s.1 * (Z ^ a)) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) *
+      ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * finiteGauss R s (-(m : F)) *
+        W.W0 (S.diag (m : F) *
+          ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val)
+  have hreconstruct (m : S.R) : f m = ∑' j : ℤ, g j m := by
+    let ascale (s : S.ExtIdeal) : ℂ := (Y : ℂ)⁻¹ * rN *
+      ((qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * finiteGauss R s (-(m : F))
+    have hbase (s : S.ExtIdeal) : Summable (fun j : ℤ => c j (y m) * ψ j s) := by
+      apply hsum.of_norm_bounded
+      intro j
+      rw [norm_mul, hψ, mul_one]
+      exact hc j (y m)
+    have hterms (s : S.ExtIdeal) :
+        Summable (fun j : ℤ => ascale s * (c j (y m) * ψ j s)) :=
+      (hbase s).mul_left _
+    have hexpand (j : ℤ) : g j m = ∑ s ∈ P, ascale s * (c j (y m) * ψ j s) := by
+      dsimp only [g, grow]
+      simp only [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro s hs
+      dsimp only [ascale]
+      ring
+    calc
+      f m = ∑ s ∈ P, ascale s * (∑' j : ℤ, c j (y m) * ψ j s) := by
+        dsimp only [f]
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro s hs
+        have hvSupport : qI s.1 / Y ∈ tsupport W.W1 :=
+          subset_closure (Function.mem_support.mpr ((hP s).mp hs))
+        have hv : 0 < qI s.1 / Y := W.W1_positive_support hvSupport
+        have hscale : qI s.1 * (Z ^ a) = N * (qI s.1 / Y) := by
+          dsimp only [N, Y]
+          rw [M0, Real.rpow_add hZpos]
+          field_simp
+        have hqScale : 0 < qI s.1 * (Z ^ a) := by
+          rw [hscale]
+          exact mul_pos hNpos hv
+        have hellScale : R.sheets.ellU (qI s.1 * (Z ^ a)) =
+            R.sheets.ellU N * R.sheets.ellU (qI s.1 / Y) := by
+          apply Units.ext
+          rw [Units.val_mul, R.sheets.ellU_val _ hqScale,
+            R.sheets.ellU_val _ hNpos, R.sheets.ellU_val _ hv]
+          simp only [SData.ell, hscale, Real.mul_rpow hNpos.le hv.le]
+          ext k <;> simp
+        have harg : y m * ((R.sheets.ellU (qI s.1 / Y))⁻¹ : S.FSˣ).val =
+            S.diag (m : F) *
+              ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val := by
+          rw [hellScale]
+          dsimp only [y]
+          simp only [mul_inv_rev, Units.val_mul]
+          ac_rfl
+        have hrpow : ((qI s.1 * (Z ^ a)) ^ (-(1 / 2 : ℝ)) : ℝ) =
+            N ^ (-(1 / 2 : ℝ)) * (qI s.1 / Y) ^ (-(1 / 2 : ℝ)) := by
+          rw [hscale, Real.mul_rpow hNpos.le hv.le]
+        have hFourier := hrec (qI s.1 / Y) hvSupport (y m)
+        change ((qI s.1 / Y) ^ (-(1 / 2 : ℝ)) : ℝ) * W.W1 (qI s.1 / Y) *
+          W.W0 (y m * ((R.sheets.ellU (qI s.1 / Y))⁻¹ : S.FSˣ).val) =
+            ∑' j : ℤ, c j (y m) * ψ j s at hFourier
+        rw [← hFourier, harg, hrpow, Complex.ofReal_mul]
+        dsimp only [ascale, rN]
+        ring
+      _ = ∑ s ∈ P, ∑' j : ℤ, ascale s * (c j (y m) * ψ j s) := by
+        apply Finset.sum_congr rfl
+        intro s hs
+        rw [tsum_mul_left]
+      _ = ∑' j : ℤ, ∑ s ∈ P, ascale s * (c j (y m) * ψ j s) :=
+        (Summable.tsum_finsetSum (fun s hs => hterms s)).symm
+      _ = _ := tsum_congr (fun j => (hexpand j).symm)
+  have hzero (j : ℤ) (m : S.R) (hm : ¬ InAdditiveWindow D S Kall N hNpos m) : g j m = 0 := by
+    have hcy : c j (y m) = 0 := by
+      apply hczero
+      intro hy
+      obtain ⟨u, hu, hyu⟩ := hy
+      have htu : ((t * u : S.FSˣ) : S.FS) ∈ Kall := by
+        refine ⟨⟨(t : S.FS), (u : S.FS)⟩, ⟨htKT, ⟨u, hu, rfl⟩⟩, ?_⟩
+        exact (Units.val_mul _ _).symm
+      apply hm
+      refine ⟨((t * u : S.FSˣ) : S.FS), htu, ?_⟩
+      calc
+        S.diag (m : F) = y m * ((t * R.sheets.ellU N : S.FSˣ) : S.FS) := by
+          simp [y, mul_assoc, ← Units.val_mul]
+        _ = S.ell D N hNpos * ((t * u : S.FSˣ) : S.FS) := by
+          rw [← hyu, Units.val_mul, Units.val_mul, R.sheets.ellU_val _ hNpos]
+          ac_rfl
+    simp only [g, hcy, mul_zero, zero_mul]
+  have hsupport : Function.support (fun m : S.R => ‖f m‖ ^ 2) ⊆
+      {m : S.R | InAdditiveWindow D S Kall N hNpos m} := by
+    intro m hm
+    by_contra hnot
+    have hfzero : f m = 0 := by
+      rw [hreconstruct]
+      calc
+        _ = ∑' j : ℤ, (0 : ℂ) := tsum_congr (fun j => hzero j m hnot)
+        _ = 0 := tsum_zero
+    apply hm
+    simp only [hfzero, norm_zero, zero_pow (by decide : 2 ≠ 0)]
+  have hfull (m : S.R) :
+      ((Z ^ b : ℝ) : ℂ)⁻¹ * (∑' s : S.ExtIdeal,
+        W.W1 (qI s.1 / (Z ^ b)) * ((qI s.1 * (Z ^ a)) ^ (-(1 / 2 : ℝ)) : ℝ) *
+          (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+            W.W0 (S.diag (m : F) *
+              ((t * R.sheets.ellU (qI s.1 * (Z ^ a)))⁻¹ : S.FSˣ).val)) = f m := by
+    dsimp only [f, Y]
+    congr 1
+    apply tsum_eq_sum
+    intro s hs
+    have hz : W.W1 (qI s.1 / Y) = 0 := by
+      by_contra hne
+      exact hs ((hP s).mpr hne)
+    simp only [← show Y = Z ^ b from rfl, hz, zero_mul]
+  calc
+    _ = ∑' m : S.R, ‖f m‖ ^ 2 := tsum_congr (fun m => by rw [hfull])
+    _ = ∑ m : Row, ‖∑' j : ℤ, g j m.1‖ ^ 2 := by
+      rw [← tsum_subtype_eq_of_support_subset hsupport]
+      change (∑' m : Row, ‖f m.1‖ ^ 2) = _
+      rw [tsum_fintype]
+      exact Finset.sum_congr rfl fun m hm => by rw [hreconstruct]
+    _ ≤ (∑' j : ℤ, bound j) ^ 2 * R0 := hmodeMass
+    _ = C0 / Y := by dsimp only [R0, C0]; ring
+    _ ≤ (C0 + 1) / (Z ^ b) := by
+      change C0 / Y ≤ (C0 + 1) / Y
+      exact div_le_div_of_nonneg_right (by linarith) hYpos.le
+
+private theorem po_probe_low_reflection_rows (K : Set S.FSˣ) (hK : IsCompact K) :
+    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ Z : ℝ, ∀ hZ : 2 ≤ Z, ∀ t : S.FSˣ,
+        (t : S.FS) ∈ omegaAt R 1 → ∀ P : Finset S.R,
+        (∀ m ∈ P, ∃ y ∈ K, S.diag (m : F) =
+          S.ell D (Z ^ M0) (Real.rpow_pos_of_pos (by linarith) M0) *
+            ((t * y : S.FSˣ) : S.FS)) →
+        (∑ m ∈ P, ‖Bm D S A ϑ (cgen R) (m : F) Z‖ ^ 2) ≤
+          C * Z ^ (2 * M0 - 1 + ε) := by
+  have hTproducer : ∃ T : Set S.FSˣ, IsCompact T ∧
+      (∀ t ∈ T, S.absS (t : S.FS) = 1) ∧
+      (∀ t : S.FSˣ, (t : S.FS) ∈ omegaAt R 1 → t ∈ T) := by
+    obtain ⟨KO, hKO, hOmega⟩ := R.sheets.omega_bounded
+    let K1 : Set S.FS := KO ∩ {y | S.absS y = 1}
+    have hK1 : IsCompact K1 :=
+      hKO.inter_right (isClosed_singleton.preimage (po_absS_continuous S))
+    have hK1unit (x : S.FS) (hx : x ∈ K1) : IsUnit x :=
+      po_absS_one_isUnit S x hx.2
+    let X := {x : S.FS // x ∈ K1}
+    let lift : X → S.FSˣ := fun x => (hK1unit x.1 x.2).unit
+    have hval (x : X) : (lift x : S.FS) = x.1 := (hK1unit x.1 x.2).unit_spec
+    have hvalCont : Continuous (fun x : X => (lift x : S.FS)) :=
+      continuous_subtype_val.congr fun x => (hval x).symm
+    have hlift : Continuous lift := by
+      apply Units.continuous_iff.mpr
+      refine ⟨hvalCont, ?_⟩
+      have hfin (v : S.Sf) :
+          Continuous (fun x : X => (Ring.inverse (lift x : S.FS)).1 v) := by
+        have hcoord := (continuous_apply v).comp (continuous_fst.comp hvalCont)
+        have hnz (x : X) : (lift x : S.FS).1 v ≠ 0 :=
+          (Pi.isUnit_iff.mp (Prod.isUnit_iff.mp (lift x).isUnit).1 v).ne_zero
+        apply (hcoord.inv₀ hnz).congr
+        intro x
+        simp [Ring.inverse, (lift x).isUnit]
+      have harch (w : InfinitePlace F) :
+          Continuous (fun x : X => (Ring.inverse (lift x : S.FS)).2 w) := by
+        have hcoord := (continuous_apply w).comp (continuous_snd.comp hvalCont)
+        have hnz (x : X) : (lift x : S.FS).2 w ≠ 0 :=
+          (Pi.isUnit_iff.mp (Prod.isUnit_iff.mp (lift x).isUnit).2 w).ne_zero
+        apply (hcoord.inv₀ hnz).congr
+        intro x
+        simp [Ring.inverse, (lift x).isUnit]
+      have hi : Continuous (fun x : X => Ring.inverse (lift x : S.FS)) :=
+        (continuous_pi hfin).prodMk (continuous_pi harch)
+      exact hi.congr fun x => Ring.inverse_unit (lift x)
+    let T : Set S.FSˣ := (fun x : X => R.sheets.ellU 1 * lift x) '' Set.univ
+    have hT : IsCompact T :=
+      (isCompact_iff_isCompact_univ.mp hK1).image (continuous_const.mul hlift)
+    refine ⟨T, hT, ?_, ?_⟩
+    · rintro t ⟨x, hx, rfl⟩
+      rw [Units.val_mul, (a2_bridge_NORM D S).2.1,
+        R.sheets.ellU_norm 1 one_pos, hval x, x.property.2, one_mul]
+    · intro t ht
+      obtain ⟨x, hx, htx⟩ := ht
+      have hxK1 : x ∈ K1 := ⟨hOmega hx, (R.sheets.omega_norm x hx).2⟩
+      refine ⟨⟨x, hxK1⟩, Set.mem_univ _, ?_⟩
+      apply Units.ext
+      rw [Units.val_mul, hval]
+      exact htx.symm
+  obtain ⟨T, hT, hTnorm, hOmegaT⟩ := hTproducer
+  intro ε hε
+  obtain ⟨C, hC, hmoment⟩ := rf_reflection_assembly R K T hK hT hTnorm ε hε
+  refine ⟨C, hC, ?_⟩
+  intro Z hZ t ht P hP
+  have hmne (m : S.R) (hm : m ∈ P) : m ≠ 0 := by
+    obtain ⟨y, hy, hshape⟩ := hP m hm
+    have hN : 0 < Z ^ M0 := Real.rpow_pos_of_pos (by linarith) _
+    have hunit : IsUnit (S.diag (m : F)) := by
+      rw [hshape, ← R.sheets.ellU_val _ hN]
+      exact (R.sheets.ellU _).isUnit.mul (t * y).isUnit
+    intro hz
+    have hbad : IsUnit (0 : S.FS) := by simpa [hz] using hunit
+    exact not_isUnit_zero hbad
+  let row : {m : S.R // m ∈ P} → ReflectionRow S := fun m =>
+    Classical.choose (ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_reflection_row_lift
+      S m.1 (hmne m.1 m.2))
+  have hrow (m : {m : S.R // m ∈ P}) : (row m).m = m.1 :=
+    Classical.choose_spec (ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_reflection_row_lift
+      S m.1 (hmne m.1 m.2))
+  have hrowInj : Function.Injective row := by
+    intro m n hmn
+    apply Subtype.ext
+    simpa only [hrow] using congrArg ReflectionRow.m hmn
+  let rows : Finset (ReflectionRow S) := P.attach.image row
+  have hinj : Set.InjOn (fun r : ReflectionRow S => (r.m : F))
+      (↑rows : Set (ReflectionRow S)) := by
+    intro r hr s hs hrs
+    obtain ⟨m, hm, rfl⟩ := Finset.mem_image.mp hr
+    obtain ⟨n, hn, rfl⟩ := Finset.mem_image.mp hs
+    apply congrArg row
+    apply Subtype.ext
+    apply Subtype.ext
+    simpa only [hrow] using hrs
+  have hbox : ∀ r ∈ rows, InReflectionBox D S K t Z (by linarith) r := by
+    intro r hr
+    obtain ⟨m, hm, rfl⟩ := Finset.mem_image.mp hr
+    simpa only [InReflectionBox, hrow, Real.rpow_eq_pow] using hP m.1 m.2
+  have hsum : (∑ r ∈ rows, ‖Bm D S A ϑ (cgen R) (r.m : F) Z‖ ^ 2) =
+      ∑ m ∈ P, ‖Bm D S A ϑ (cgen R) (m : F) Z‖ ^ 2 := by
+    dsimp only [rows]
+    rw [Finset.sum_image (fun m hm n hn hmn => hrowInj hmn)]
+    simp only [hrow]
+    exact Finset.sum_attach P (fun m : S.R => ‖Bm D S A ϑ (cgen R) (m : F) Z‖ ^ 2)
+  rw [← hsum]
+  exact hmoment Z hZ t (hOmegaT t ht) rows hinj hbox
+
+private theorem po_probe_low_pointwise :
+    ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧
+      ∀ Z : ℝ, 2 ≤ Z → ∀ t : S.FSˣ,
+        (t : S.FS) ∈ omegaAt R 1 →
+        ‖probeIntegrand R W (Z ^ a) (Z ^ b) Z t‖ ≤
+          C * Z ^ (933 / 2000 + ε) := by
+  obtain ⟨K, hK, hwindow⟩ := po_probe_low_row_window R W
+  obtain ⟨CA, hCA, hAdditive⟩ := po_probe_low_additive_row_bound R W
+  obtain ⟨L, B, CD, hL, hB, hCD, hinterval, hden⟩ :=
+    ArtinPrimitiveRoots.Proofs.a2_probe_sol.probe_denominator_control
+      S W.W1 W.W1_compact W.W1_positive_support W.W1_smooth.continuous W.W1_nonzero
+  intro ε hε
+  obtain ⟨CB, hCB, hReflection⟩ := po_probe_low_reflection_rows R K hK (2 * ε) (by positivity)
+  refine ⟨Real.sqrt (CA * CB), Real.sqrt_pos.mpr (mul_pos hCA hCB), ?_⟩
+  intro Z hZ t ht
+  have hZpos : 0 < Z := by linarith
+  let X : ℝ := Z ^ a
+  let Y : ℝ := Z ^ b
+  let N : ℝ := Z ^ M0
+  have hYpos : 0 < Y := Real.rpow_pos_of_pos hZpos _
+  have hY1 : 1 ≤ Y := Real.one_le_rpow (by linarith) (by norm_num [b])
+  have hNpos : 0 < N := Real.rpow_pos_of_pos hZpos _
+  obtain ⟨Q, hQ0, hQcard, hQmass⟩ := hden Y hY1
+  have hQ (s : S.ExtIdeal) : s ∈ Q ↔ W.W1 (qI s.1 / Y) ≠ 0 := by
+    simpa only [idealNorm, qI] using hQ0 s
+  have hW1zero (s : S.ExtIdeal) (hs : s ∉ Q) : W.W1 (qI s.1 / Y) = 0 := by
+    by_contra hne
+    exact hs ((hQ s).mpr hne)
+  let Kscaled : Set S.FS :=
+    (fun y : S.FSˣ => S.ell D N hNpos * ((t * y : S.FSˣ) : S.FS)) '' K
+  have hKscaled : IsCompact Kscaled :=
+    hK.image (continuous_const.mul (Units.continuous_val.comp
+      (continuous_const.mul continuous_id)))
+  let rowSet : Set S.R := {m | ∃ y ∈ K, S.diag (m : F) =
+    S.ell D N hNpos * ((t * y : S.FSˣ) : S.FS)}
+  have hrowFinite : rowSet.Finite := by
+    apply Set.Finite.of_injOn (f := fun m : S.R => S.diag (m : F))
+      (t := Kscaled ∩ S.diagR) ?_ ?_
+      (po_finite_diagR_inter_compact (S := S) D Kscaled hKscaled)
+    · intro m hm
+      obtain ⟨y, hy, hmy⟩ := hm
+      exact ⟨⟨y, hy, hmy.symm⟩, ⟨m, rfl⟩⟩
+    · intro m hm n hn hmn
+      exact Subtype.ext (S.diag.injective hmn)
+  let P : Finset S.R := hrowFinite.toFinset
+  have hP (m : S.R) : m ∈ P ↔ ∃ y ∈ K, S.diag (m : F) =
+      S.ell D N hNpos * ((t * y : S.FSˣ) : S.FS) := hrowFinite.mem_toFinset
+  have hW0zero (s : S.ExtIdeal) (hs : s ∈ Q) (m : S.R) (hm : m ∉ P) :
+      W.W0 (S.diag (m : F) *
+        ((t * R.sheets.ellU (qI s.1 * X))⁻¹ : S.FSˣ).val) = 0 := by
+    by_contra hne
+    apply hm
+    apply (hP m).mpr
+    exact hwindow Z hZ t s ((hQ s).mp hs) m hne
+  let outer (s : S.ExtIdeal) : ℂ :=
+    W.W1 (qI s.1 / Y) * ((qI s.1 * X) ^ (-(1 / 2 : ℝ)) : ℝ)
+  let inner (s : S.ExtIdeal) (m : S.R) : ℂ :=
+    (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+      W.W0 (S.diag (m : F) *
+        ((t * R.sheets.ellU (qI s.1 * X))⁻¹ : S.FSˣ).val)
+  let c (s : S.ExtIdeal) (m : S.R) : ℂ :=
+    W.W1 (qI s.1 / Y) * ((qI s.1 * X) ^ (-(1 / 2 : ℝ)) : ℝ) *
+      (qI s.1 ^ (-(1 / 2 : ℝ)) : ℝ) * finiteGauss R s (-(m : F)) *
+        W.W0 (S.diag (m : F) *
+          ((t * R.sheets.ellU (qI s.1 * X))⁻¹ : S.FSˣ).val)
+  let add (m : S.R) : ℂ := (Y : ℂ)⁻¹ * ∑ s ∈ Q, c s m
+  let bm (m : S.R) : ℂ := Bm D S A ϑ (cgen R) (m : F) Z
+  have hcOuterZero (s : S.ExtIdeal) (hs : s ∉ Q) (m : S.R) : c s m = 0 := by
+    simp only [c, hW1zero s hs, zero_mul]
+  have hcRowZero (s : S.ExtIdeal) (hs : s ∈ Q) (m : S.R) (hm : m ∉ P) :
+      c s m = 0 := by
+    simp only [c, hW0zero s hs m hm, mul_zero]
+  have haddzero (m : S.R) (hm : m ∉ P) : add m = 0 := by
+    dsimp only [add]
+    rw [Finset.sum_eq_zero (fun s hs => hcRowZero s hs m hm), mul_zero]
+  have haddFull (m : S.R) : (Y : ℂ)⁻¹ * (∑' s : S.ExtIdeal, c s m) = add m := by
+    dsimp only [add]
+    congr 1
+    exact tsum_eq_sum (fun s hs => hcOuterZero s hs m)
+  have hAmass : (∑ m ∈ P, ‖add m‖ ^ 2) ≤ CA / Y := by
+    calc
+      _ = ∑' m : S.R, ‖add m‖ ^ 2 :=
+        (tsum_eq_sum (fun m hm => by simp only [haddzero m hm, norm_zero, zero_pow
+          (by decide : 2 ≠ 0)])).symm
+      _ = ∑' m : S.R, ‖(Y : ℂ)⁻¹ * (∑' s : S.ExtIdeal, c s m)‖ ^ 2 :=
+        tsum_congr (fun m => by rw [haddFull])
+      _ ≤ CA / Y := by simpa only [Y, X, c] using hAdditive Z hZ t ht
+  have hBmass : (∑ m ∈ P, ‖bm m‖ ^ 2) ≤ CB * Z ^ (2 * M0 - 1 + 2 * ε) := by
+    apply hReflection Z hZ t ht P
+    intro m hm
+    exact (hP m).mp hm
+  have hProbe : probeIntegrand R W X Y Z t = ∑ m ∈ P, add m * bm m := by
+    change (Y : ℂ)⁻¹ * (∑' s : S.ExtIdeal, outer s *
+      ∑' m : S.R, inner s m * bm m) = _
+    have hOuterFinite :
+        (∑' s : S.ExtIdeal, outer s * ∑' m : S.R, inner s m * bm m) =
+          ∑ s ∈ Q, outer s * ∑' m : S.R, inner s m * bm m := by
+      apply tsum_eq_sum
+      intro s hs
+      simp only [outer, hW1zero s hs, zero_mul]
+    rw [hOuterFinite]
+    calc
+      _ = (Y : ℂ)⁻¹ * ∑ s ∈ Q, ∑ m ∈ P, c s m * bm m := by
+        congr 1
+        apply Finset.sum_congr rfl
+        intro s hs
+        have hInnerFinite : (∑' m : S.R, inner s m * bm m) =
+            ∑ m ∈ P, inner s m * bm m := by
+          apply tsum_eq_sum
+          intro m hm
+          simp only [inner, hW0zero s hs m hm, mul_zero, zero_mul]
+        rw [hInnerFinite, Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro m hm
+        dsimp only [c, outer, inner]
+        ring
+      _ = (Y : ℂ)⁻¹ * ∑ m ∈ P, ∑ s ∈ Q, c s m * bm m := by
+        rw [Finset.sum_comm]
+      _ = ∑ m ∈ P, add m * bm m := by
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl
+        intro m hm
+        rw [← Finset.sum_mul]
+        dsimp only [add]
+        ring
+  have hNorm : ‖probeIntegrand R W X Y Z t‖ ≤ ∑ m ∈ P, ‖add m‖ * ‖bm m‖ := by
+    rw [hProbe]
+    calc
+      _ ≤ ∑ m ∈ P, ‖add m * bm m‖ := norm_sum_le _ _
+      _ = _ := Finset.sum_congr rfl fun m hm => norm_mul _ _
+  have hSq : ‖probeIntegrand R W X Y Z t‖ ^ 2 ≤
+      (CA * CB) * (Z ^ (2 * M0 - 1 + 2 * ε) / Y) := by
+    calc
+      _ ≤ (∑ m ∈ P, ‖add m‖ * ‖bm m‖) ^ 2 :=
+        (sq_le_sq₀ (norm_nonneg _) (Finset.sum_nonneg
+          (fun m hm => mul_nonneg (norm_nonneg _) (norm_nonneg _)))).mpr hNorm
+      _ ≤ (∑ m ∈ P, ‖add m‖ ^ 2) * ∑ m ∈ P, ‖bm m‖ ^ 2 :=
+        Finset.sum_mul_sq_le_sq_mul_sq P (fun m => ‖add m‖) (fun m => ‖bm m‖)
+      _ ≤ (CA / Y) * (CB * Z ^ (2 * M0 - 1 + 2 * ε)) :=
+        mul_le_mul hAmass hBmass (Finset.sum_nonneg (fun m hm => sq_nonneg _))
+          (div_nonneg hCA.le hYpos.le)
+      _ = _ := by ring
+  have hExponent : 2 * M0 - 1 + 2 * ε - b = (933 / 2000 + ε) * 2 := by
+    linarith [probe_exponent.1]
+  have hScale : Z ^ (2 * M0 - 1 + 2 * ε) / Y = (Z ^ (933 / 2000 + ε)) ^ 2 := by
+    dsimp only [Y]
+    rw [← Real.rpow_sub hZpos, hExponent, Real.rpow_mul hZpos.le, Real.rpow_two]
+  have hFinalSq : ‖probeIntegrand R W X Y Z t‖ ^ 2 ≤
+      (Real.sqrt (CA * CB) * Z ^ (933 / 2000 + ε)) ^ 2 := by
+    rw [mul_pow, Real.sq_sqrt (mul_nonneg hCA.le hCB.le)]
+    exact hSq.trans_eq (by rw [hScale])
+  exact (sq_le_sq₀ (norm_nonneg _) (by positivity)).mp hFinalSq
+
 /-- `prop:probe-low`, 05:194–246, with the corrected split-character input from `sol-gate-a2b`. -/
 theorem prop_probe_low (η : HeckeChar F)
     (hSplit : GaussSplit (D := D) (S := S) (H := H) (Bd := Bd) (A := A) (ϑ := ϑ) η) :
   ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ Z : ℝ, 2 ≤ Z →
     ‖probe R W (Z ^ a) (Z ^ b) Z‖ ≤ C * Z ^ (933 / 2000 + ε) := by
-  sorry
+  intro ε hε
+  obtain ⟨Cp, hCp, hpoint⟩ := po_probe_low_pointwise R W ε hε
+  have hMass : R.sheets.sheet 1 (omegaAt R 1) < ⊤ := by
+    simpa only [omegaAt, bridgeOmegaAt] using (a2_bridge_SHEET R.sheets 1 one_pos).2.1
+  let V : ℝ := (R.sheets.sheet 1).real (omegaAt R 1)
+  have hV : 0 ≤ V := ENNReal.toReal_nonneg
+  refine ⟨Cp * (V + 1), mul_pos hCp (by linarith), ?_⟩
+  intro Z hZ
+  have hZpos : 0 < Z := by linarith
+  have hOnUnits : ∀ y ∈ omegaAt R 1,
+      ‖onUnits (probeIntegrand R W (Z ^ a) (Z ^ b) Z) y‖ ≤
+        Cp * Z ^ (933 / 2000 + ε) := by
+    intro y hy
+    by_cases hu : IsUnit y
+    · have hmem : (hu.unit : S.FS) ∈ omegaAt R 1 := by
+        rw [hu.unit_spec]
+        exact hy
+      simpa only [onUnits, dite_eq_left hu] using hpoint Z hZ hu.unit hmem
+    · simp only [onUnits, dite_eq_right hu, norm_zero]
+      exact mul_nonneg hCp.le (Real.rpow_nonneg hZpos.le _)
+  have hIntegral :
+      ‖∫ y in omegaAt R 1, onUnits (probeIntegrand R W (Z ^ a) (Z ^ b) Z) y
+          ∂(R.sheets.sheet 1)‖ ≤ (Cp * Z ^ (933 / 2000 + ε)) * V :=
+    norm_setIntegral_le_of_norm_le_const hMass hOnUnits
+  calc
+    ‖probe R W (Z ^ a) (Z ^ b) Z‖ =
+        ‖∫ y in omegaAt R 1, onUnits (probeIntegrand R W (Z ^ a) (Z ^ b) Z) y
+          ∂(R.sheets.sheet 1)‖ := rfl
+    _ ≤ (Cp * Z ^ (933 / 2000 + ε)) * V := hIntegral
+    _ = (Cp * V) * Z ^ (933 / 2000 + ε) := by ring
+    _ ≤ (Cp * (V + 1)) * Z ^ (933 / 2000 + ε) :=
+      mul_le_mul_of_nonneg_right
+        (mul_le_mul_of_nonneg_left (by linarith) hCp.le) (Real.rpow_nonneg hZpos.le _)
 
 set_option maxHeartbeats 10000000 in
 private theorem po_e_residue_norm_one (I : S.ExtIdeal) (a : Fˣ)
@@ -2792,80 +3660,319 @@ def vertical (σ : ℝ) (f : ℂ → ℂ) : ℂ :=
   (1 / (2 * Real.pi) : ℂ) * ∫ t : ℝ, f (σ + t * Complex.I)
 def tripleVertical (σξ σw σz : ℝ) (f : ℂ → ℂ → ℂ → ℂ) : ℂ :=
   vertical σξ (fun ξ => vertical σw (fun w => vertical σz (fun z => f ξ w z)))
-/-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
-theorem po_poisson_orbits : WeightSpec R sd W →
-  (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
-  (∀ z : ℂ, 0 < z.re → mellin (weightV0 R sd W) z = weightM R sd W z) ∧
-  (∀ σ T : ℝ, 0 < σ → 0 < T →
-    weightV0 R sd W T = vertical σ (fun z => weightM R sd W z * (T : ℂ) ^ (-z))) ∧
-  ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
-    Summable (fun p => ‖poissonOrbitTerm R sd W η U X Y Z p‖) ∧
-    probe R W X Y Z = ((X ^ (1 / 2 : ℝ) / Y : ℝ) : ℂ) * ∑' p, poissonOrbitTerm R sd W η U X Y Z p := by
-  sorry
-/-- def:calF within po:mellin-triple, 05:353–389; all four ideal indices are actual exterior ideals. -/
-def calFTerm (u : U.U) (ξ w z : ℂ) (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) : ℂ :=
-  let c := p.1
-  let n := p.2.1
-  let s := p.2.2.1
-  let r := p.2.2.2
-  gamma D S A 2 c.1 (cgen R c) * ϑ.idealValue (Aideal R c n).1 *
-    finiteFactor R s (Aideal R c n) (Agen R c n) ((U.repr u : F) * (bc.gen r : F) ^ 6) *
-      (qI c.1 : ℂ) ^ (-1 / 2 - ξ) * (qI n.1 : ℂ) ^ (-1 - 3 * ξ) *
-        (qI s.1 : ℂ) ^ (-w) * (qI r.1 : ℂ) ^ (-6 * z)
-def calF (u : U.U) (ξ w z : ℂ) : ℂ := ∑' p, calFTerm R η U u ξ w z p
+
+private theorem po_weightFourier_cpow_sheet_integral (T : ℝ) (hT : 0 < T) (z : ℂ) :
+    (∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.sheet T)) =
+      (T : ℂ) ^ z * weightV0 R sd W T := by
+  have hEq : (fun y : S.FS =>
+      weightFourier sd W y * (S.absS y : ℂ) ^ z) =ᵐ[R.sheets.sheet T]
+      fun y => (T : ℂ) ^ z * weightFourier sd W y := by
+    filter_upwards [R.sheets.sheet_support T hT] with y hy
+    rw [hy.2]
+    ring
+  calc
+    (∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.sheet T)) =
+        ∫ y, (T : ℂ) ^ z * weightFourier sd W y ∂(R.sheets.sheet T) :=
+      integral_congr_ae hEq
+    _ = (T : ℂ) ^ z * weightV0 R sd W T := by
+      rw [integral_const_mul]
+      rfl
+
+private theorem po_weightM_eq_mellin_of_integrable (z : ℂ)
+    (hF : Integrable (fun y : S.FS =>
+      weightFourier sd W y * (S.absS y : ℂ) ^ z) R.sheets.mul) :
+    weightM R sd W z = mellin (weightV0 R sd W) z := by
+  have hdis := R.sheets.disintegrate
+    (fun y : S.FS => weightFourier sd W y * (S.absS y : ℂ) ^ z) hF
+  have hline : ∀ T ∈ Set.Ioi (0 : ℝ),
+      (∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.sheet T)) /
+        (T : ℂ) = (T : ℂ) ^ (z - 1) * weightV0 R sd W T := by
+    intro T hT
+    have hT' : 0 < T := hT
+    rw [po_weightFourier_cpow_sheet_integral (R := R) (sd := sd) (W := W) T hT' z]
+    have hpow : (T : ℂ) ^ (z - 1) = (T : ℂ) ^ z / (T : ℂ) := by
+      rw [Complex.cpow_sub z 1 (Complex.ofReal_ne_zero.mpr hT.ne'), Complex.cpow_one]
+    rw [hpow]
+    ring
+  calc
+    weightM R sd W z =
+        ∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.mul) := rfl
+    _ = ∫ T in Set.Ioi (0 : ℝ),
+          (∫ y, weightFourier sd W y * (S.absS y : ℂ) ^ z ∂(R.sheets.sheet T)) /
+            (T : ℂ) := hdis
+    _ = mellin (weightV0 R sd W) z := by
+      unfold mellin
+      apply integral_congr_ae
+      filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+      simpa only [smul_eq_mul] using hline T hT
+
+private theorem po_weightM_integrand_integrable (z : ℂ) (hz : 0 < z.re)
+    (hdecay : WeightDecay R sd W)
+    (hFour : AEStronglyMeasurable (weightFourier sd W) R.sheets.mul) :
+    Integrable (fun y : S.FS =>
+      weightFourier sd W y * (S.absS y : ℂ) ^ z) R.sheets.mul := by
+  rcases hdecay with ⟨_, _, _, _, hMoment⟩
+  have hMajorant : Integrable
+      (fun y : S.FS => ‖weightFourier sd W y‖ * S.absS y ^ z.re) R.sheets.mul :=
+    hMoment z.re hz
+  have hAbsS (y : S.FS) : 0 ≤ S.absS y := by
+    rw [SData.absS]
+    apply mul_nonneg
+    · apply Finset.prod_nonneg
+      intro v hv
+      unfold absFin
+      split_ifs <;> positivity
+    · apply Finset.prod_nonneg
+      intro w hw
+      exact Complex.normSq_nonneg _
+  have hPowerCont : Continuous (fun y : S.FS => (S.absS y : ℂ) ^ z) := by
+    apply continuous_iff_continuousAt.mpr
+    intro y
+    have hbase : 0 ≤ (S.absS y : ℂ).re := by simpa using hAbsS y
+    exact (Complex.continuousAt_cpow_of_re_pos (Or.inl hbase) hz).comp
+      (((Complex.continuous_ofReal.comp (po_absS_continuous S)).continuousAt).prodMk
+        continuousAt_const)
+  have hPower : Measurable (fun y : S.FS => (S.absS y : ℂ) ^ z) := hPowerCont.measurable
+  refine Integrable.mono' hMajorant (hFour.mul hPower.aestronglyMeasurable) ?_
+  filter_upwards with y
+  rw [norm_mul, Complex.norm_cpow_eq_rpow_re_of_nonneg (hAbsS y) (ne_of_gt hz)]
+
+private theorem po_weightM_eq_mellin (z : ℂ) (hz : 0 < z.re)
+    (hdecay : WeightDecay R sd W) :
+    weightM R sd W z = mellin (weightV0 R sd W) z := by
+  have hF := po_weightM_integrand_integrable (R := R) (sd := sd) (W := W) z hz hdecay
+    (po_weightFourier_aestronglyMeasurable (R := R) (sd := sd) (W := W))
+  exact po_weightM_eq_mellin_of_integrable (R := R) (sd := sd) (W := W) z hF
+
+private theorem po_weightV0_vertical_integrable (σ : ℝ) (hσ : 0 < σ)
+    (hdecay : WeightDecay R sd W) :
+    Complex.VerticalIntegrable (mellin (weightV0 R sd W)) σ := by
+  have hdecay0 := hdecay
+  rcases hdecay with ⟨hDiffM, _, hMDecay, _, _⟩
+  obtain ⟨C, hC, hMbound⟩ := hMDecay σ σ 2 hσ le_rfl (by norm_num)
+  let line : ℝ → ℂ := fun t => (σ : ℂ) + (t : ℂ) * Complex.I
+  have hline : Continuous (fun t : ℝ => (σ : ℂ) + (t : ℂ) * Complex.I) := by fun_prop
+  have hmaps : Set.MapsTo line Set.univ {z : ℂ | 0 < z.re} := by
+    intro t ht
+    simp [line, hσ]
+  have hcontM : Continuous (fun t : ℝ => weightM R sd W (line t)) := by
+    apply continuousOn_univ.mp
+    exact hDiffM.continuousOn.comp hline.continuousOn hmaps
+  have hEqFun : (fun t : ℝ => mellin (weightV0 R sd W) (line t)) =
+      fun t => weightM R sd W (line t) := by
+    funext t
+    have ht : 0 < (line t).re := by simp [line, hσ]
+    exact (po_weightM_eq_mellin (R := R) (sd := sd) (W := W) (line t) ht hdecay0).symm
+  change Integrable (fun t : ℝ => mellin (weightV0 R sd W) (line t)) volume
+  rw [hEqFun]
+  have hpow (t : ℝ) : (1 + |t|) ^ (-(2 : ℝ)) ≤ (1 + t ^ 2)⁻¹ := by
+    have hsq : 1 + t ^ 2 ≤ (1 + |t|) ^ 2 := by
+      calc
+        1 + t ^ 2 = 1 + |t| ^ 2 := by rw [sq_abs]
+        _ ≤ (1 + |t|) ^ 2 := by nlinarith [abs_nonneg t]
+    calc
+      (1 + |t|) ^ (-(2 : ℝ)) = ((1 + |t|) ^ 2)⁻¹ := by
+        rw [Real.rpow_neg (by positivity) 2, Real.rpow_two]
+      _ ≤ (1 + t ^ 2)⁻¹ := by
+        simpa only [one_div] using
+          (one_div_le_one_div_of_le (a := 1 + t ^ 2) (b := (1 + |t|) ^ 2)
+            (by positivity) hsq)
+  have hBound (t : ℝ) : ‖weightM R sd W (line t)‖ ≤ C * (1 + t ^ 2)⁻¹ := by
+    have h := hMbound σ t le_rfl le_rfl
+    simpa [line] using h.trans
+      (mul_le_mul_of_nonneg_left (hpow t) (le_of_lt hC))
+  have hmajor : Integrable (fun t : ℝ => C * (1 + t ^ 2)⁻¹) volume := by
+    simpa [mul_comm] using integrable_inv_one_add_sq.const_mul C
+  refine Integrable.mono' hmajor hcontM.stronglyMeasurable.aestronglyMeasurable ?_
+  filter_upwards with t
+  exact hBound t
+
+private theorem po_weightFourier_moment_pos (σ : ℝ) (hσ : 0 < σ)
+    (hSpec : WeightSpec R sd W) (hdecay : WeightDecay R sd W) :
+    0 < ∫ y, (‖weightFourier sd W y‖ * S.absS y ^ σ) ∂(R.sheets.mul) := by
+  rcases hdecay with ⟨_, _, _, _, hMoment⟩
+  have hInt := hMoment σ hσ
+  have hnonneg : ∀ y, 0 ≤ ‖weightFourier sd W y‖ * S.absS y ^ σ := by
+    intro y
+    have hS : 0 ≤ S.absS y := by
+      rw [SData.absS]
+      apply mul_nonneg
+      · apply Finset.prod_nonneg
+        intro v hv
+        unfold absFin
+        split_ifs <;> positivity
+      · apply Finset.prod_nonneg
+        intro w hw
+        exact Complex.normSq_nonneg _
+    exact mul_nonneg (norm_nonneg _) (Real.rpow_nonneg hS _)
+  by_contra hpos
+  have hzero : (∫ y, (‖weightFourier sd W y‖ * S.absS y ^ σ) ∂(R.sheets.mul)) = 0 := by
+    have hle : (∫ y, (‖weightFourier sd W y‖ * S.absS y ^ σ) ∂(R.sheets.mul)) ≤ 0 :=
+      le_of_not_gt hpos
+    exact le_antisymm hle (integral_nonneg_of_ae (Filter.Eventually.of_forall hnonneg))
+  have hzeroAE :=
+    (integral_eq_zero_iff_of_nonneg_ae (Filter.Eventually.of_forall hnonneg) hInt).mp hzero
+  have hpowZero :
+      (fun y : S.FS => weightFourier sd W y * (S.absS y : ℂ) ^ (1 / 6 : ℂ)) =ᵐ[R.sheets.mul]
+        0 := by
+    filter_upwards [hzeroAE] with y hy
+    by_cases hy0 : S.absS y = 0
+    · simp [hy0, Complex.zero_cpow (by norm_num : (1 / 6 : ℂ) ≠ 0)]
+    · have hyPos : 0 < S.absS y := lt_of_le_of_ne (by
+        rw [SData.absS]
+        apply mul_nonneg
+        · apply Finset.prod_nonneg
+          intro v hv
+          unfold absFin
+          split_ifs <;> positivity
+        · apply Finset.prod_nonneg
+          intro w hw
+          exact Complex.normSq_nonneg _) (Ne.symm hy0)
+      have hpow : 0 < S.absS y ^ σ := Real.rpow_pos_of_pos hyPos σ
+      have hnorm : ‖weightFourier sd W y‖ = 0 := by
+        have hprod := mul_eq_zero.mp hy
+        rcases hprod with hprod | hprod
+        · exact hprod
+        · exact (hpow.ne' hprod).elim
+      have hFour : weightFourier sd W y = 0 := norm_eq_zero.mp hnorm
+      simp [hFour]
+  have hMzero : weightM R sd W (1 / 6) = 0 := by
+    unfold weightM
+    rw [integral_congr_ae hpowZero]
+    simp
+  exact hSpec.2 hMzero
+
+private theorem po_weightV0_mellin_convergent (σ : ℝ) (hσ : 0 < σ)
+    (hSpec : WeightSpec R sd W) (hdecay : WeightDecay R sd W)
+    (hSmooth : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (weightV0 R sd W) (Set.Ioi 0)) :
+    MellinConvergent (weightV0 R sd W) (σ : ℂ) := by
+  have hdecay0 := hdecay
+  let g : S.FS → ℝ := fun y => ‖weightFourier sd W y‖ * S.absS y ^ σ
+  rcases hdecay with ⟨_, _, _, _, hMoment⟩
+  have hMomentσ : Integrable g R.sheets.mul := hMoment σ hσ
+  have hMomentσpos : 0 < ∫ y, g y ∂(R.sheets.mul) :=
+    po_weightFourier_moment_pos (R := R) (sd := sd) (W := W) σ hσ hSpec hdecay0
+  have hGcomplex : Integrable (fun y : S.FS => (g y : ℂ)) R.sheets.mul := hMomentσ.ofReal
+  let kfun : ℝ → ℂ := fun T =>
+    (∫ y, (g y : ℂ) ∂(R.sheets.sheet T)) / (T : ℂ)
+  have hDis := R.sheets.disintegrate (fun y : S.FS => (g y : ℂ)) hGcomplex
+  have hLeftRe : Complex.re (∫ y, (g y : ℂ) ∂(R.sheets.mul)) =
+      ∫ y, g y ∂(R.sheets.mul) := by
+    calc
+      _ = ∫ y, Complex.re (g y : ℂ) ∂(R.sheets.mul) := (integral_re hGcomplex).symm
+      _ = ∫ y, g y ∂(R.sheets.mul) := by simp
+  have hLeftNe : (∫ y, (g y : ℂ) ∂(R.sheets.mul)) ≠ 0 := by
+    intro hz
+    have hz' := congrArg Complex.re hz
+    rw [hLeftRe] at hz'
+    simp at hz'
+    linarith
+  have hkIntegrable : IntegrableOn kfun (Set.Ioi (0 : ℝ)) := by
+    by_contra hk
+    have hzero : (∫ T in Set.Ioi (0 : ℝ), kfun T ∂volume) = 0 := integral_undef hk
+    apply hLeftNe
+    calc
+      (∫ y, (g y : ℂ) ∂(R.sheets.mul)) =
+          ∫ T in Set.Ioi (0 : ℝ), kfun T ∂volume := hDis
+      _ = 0 := hzero
+  have hprofile (T : ℝ) (hT : 0 < T) :
+      ‖(T : ℂ) ^ ((σ : ℂ) - 1) • weightV0 R sd W T‖ ≤ ‖kfun T‖ := by
+    by_cases hFourInt : Integrable (weightFourier sd W) (R.sheets.sheet T)
+    · have hNormInt := hFourInt.norm
+      have hSupport : ∀ᵐ y ∂(R.sheets.sheet T), S.absS y = T := by
+        filter_upwards [R.sheets.sheet_support T hT] with y hy
+        exact hy.2
+      have hGae : g =ᵐ[R.sheets.sheet T] fun y => T ^ σ * ‖weightFourier sd W y‖ := by
+        filter_upwards [hSupport] with y hy
+        simp [g, hy, mul_comm]
+      have hGInt : Integrable g (R.sheets.sheet T) := by
+        have hConst := hNormInt.const_mul (T ^ σ)
+        have hConst' : Integrable (fun y => T ^ σ * ‖weightFourier sd W y‖)
+            (R.sheets.sheet T) := by simpa [mul_comm] using hConst
+        exact hConst'.congr hGae.symm
+      have hGval : (∫ y, g y ∂(R.sheets.sheet T)) =
+          T ^ σ * ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) := by
+        calc
+          _ = ∫ y, T ^ σ * ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) :=
+            integral_congr_ae hGae
+          _ = T ^ σ * ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) := by
+            rw [integral_const_mul]
+      have hGcomplexVal : (∫ y, (g y : ℂ) ∂(R.sheets.sheet T)) =
+          ((∫ y, g y ∂(R.sheets.sheet T) : ℝ) : ℂ) := by
+        exact integral_ofReal
+      have hkval : kfun T =
+          (((T ^ σ * ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T)) / T : ℝ) : ℂ) := by
+        dsimp [kfun]
+        rw [hGcomplexVal, hGval, Complex.ofReal_div]
+      have hnorm : ‖weightV0 R sd W T‖ ≤
+          ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) := by
+        unfold weightV0
+        exact norm_integral_le_integral_norm (weightFourier sd W)
+      calc
+        _ = T ^ (σ - 1) * ‖weightV0 R sd W T‖ := by
+          rw [norm_smul, Complex.norm_cpow_eq_rpow_re_of_pos hT]
+          simp [Complex.sub_re]
+        _ ≤ T ^ (σ - 1) *
+              ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T) :=
+          mul_le_mul_of_nonneg_left hnorm (Real.rpow_nonneg hT.le _)
+        _ = (T ^ σ * ∫ y, ‖weightFourier sd W y‖ ∂(R.sheets.sheet T)) / T := by
+          rw [Real.rpow_sub hT σ 1, Real.rpow_one]
+          ring
+        _ = ‖kfun T‖ := by
+          rw [hkval]
+          rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg]
+          positivity
+    · have hVzero : weightV0 R sd W T = 0 := by
+        unfold weightV0
+        exact integral_undef hFourInt
+      simp [hVzero]
+  have hpowCont : ContinuousOn (fun T : ℝ =>
+      (T : ℂ) ^ ((σ : ℂ) - 1)) (Set.Ioi (0 : ℝ)) := by
+    exact continuousOn_of_forall_continuousAt fun T hT =>
+      Complex.continuousAt_ofReal_cpow_const _ _ (Or.inr (ne_of_gt hT))
+  have hMellinAES : AEStronglyMeasurable
+      (fun T : ℝ => (T : ℂ) ^ ((σ : ℂ) - 1) • weightV0 R sd W T)
+      (volume.restrict (Set.Ioi (0 : ℝ))) := by
+    exact (hpowCont.mul hSmooth.continuousOn).aestronglyMeasurable measurableSet_Ioi
+  have hBound : ∀ᵐ (T : ℝ) ∂(volume.restrict (Set.Ioi (0 : ℝ))),
+      ‖(T : ℂ) ^ ((σ : ℂ) - 1) • weightV0 R sd W T‖ ≤ ‖kfun T‖ := by
+    filter_upwards [ae_restrict_mem measurableSet_Ioi] with T hT
+    exact hprofile T hT
+  change IntegrableOn (fun T : ℝ =>
+    (T : ℂ) ^ ((σ : ℂ) - 1) • weightV0 R sd W T) (Set.Ioi 0)
+  exact Integrable.mono' hkIntegrable.norm hMellinAES hBound
+
+private theorem po_weightV0_inversion (σ T : ℝ) (hσ : 0 < σ) (hT : 0 < T)
+    (hdecay : WeightDecay R sd W)
+    (hconv : MellinConvergent (weightV0 R sd W) (σ : ℂ))
+    (hVert : Complex.VerticalIntegrable (mellin (weightV0 R sd W)) σ)
+    (hcont : ContinuousAt (weightV0 R sd W) T) :
+    weightV0 R sd W T = vertical σ (fun z => weightM R sd W z * (T : ℂ) ^ (-z)) := by
+  have hInv := mellinInv_mellin_eq σ (weightV0 R sd W) hT hconv hVert hcont
+  symm
+  calc
+    vertical σ (fun z => weightM R sd W z * (T : ℂ) ^ (-z)) =
+        mellinInv σ (mellin (weightV0 R sd W)) T := by
+      unfold vertical mellinInv
+      simp only [RCLike.real_smul_eq_coe_mul, smul_eq_mul]
+      have hCoeff : (1 / (2 * Real.pi) : ℂ) =
+          ((1 / (2 * Real.pi) : ℝ) : ℂ) := by
+        norm_cast
+      rw [hCoeff]
+      congr 1
+      apply integral_congr_ae
+      filter_upwards with t
+      have hz : 0 < (σ + t * Complex.I).re := by simpa using hσ
+      rw [po_weightM_eq_mellin (R := R) (sd := sd) (W := W)
+        (σ + t * Complex.I) hz hdecay]
+      ring
+    _ = weightV0 R sd W T := hInv
 
 def mellinWeight (X Y Z : ℝ) (ξ w z : ℂ) : ℂ :=
   (X : ℂ) ^ (1 / 2 - z) * (Z : ℂ) ^ (ξ + z - 1) * (Y : ℂ) ^ (w - 1) *
     Complex.exp ((ξ + z - 1) ^ 2) * weightM R sd W z * weightW1hat W w
 
-/-- po:mellin-triple, 05:353–389. `Summable` prevents interpreting a divergent total tsum as 0. -/
-theorem po_mellin_triple : WeightSpec R sd W → ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
-  (∀ ξ w z : ℂ, ξ.re = 4 → w.re = 4 → z.re = 2 →
-    (∀ u, Summable (fun p => ‖calFTerm R η U u ξ w z p‖)) ∧
-      Summable (fun u => ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖)) ∧
-  Integrable (fun t : ℝ × ℝ × ℝ =>
-    mellinWeight R sd W X Y Z (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) *
-      ∑' u, (U.q u : ℂ) ^ (-(2 + t.2.2 * Complex.I)) * calF R η U u
-        (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)) ∧
-  probe R W X Y Z = tripleVertical 4 4 2 (fun ξ w z =>
-    mellinWeight R sd W X Y Z ξ w z * ∑' u, (U.q u : ℂ) ^ (-z) * calF R η U u ξ w z) := by
-  sorry
-/-- Stripped local C uses the negative exterior additive sign (05:444–550). -/
-def localC (v : FinPlace F) (hv : v ∉ S.Sf) (t k J : ℕ) : ℂ :=
-  let pi := R.exterior.prime v hv
-  ∑ᶠ d : ResidueRing R.exterior (R.exterior.pow pi k),
-    if ∃ x : S.R, (primeGen R v : F) ^ J - (primeGen R v : F) ^ t * (d.out : F) =
-      (primeGen R v : F) ^ k * (x : F) then
-      (if k = 0 then 1 else chiPow D v (d.out : F) k) *
-      ∑ᶠ x : ResidueRing R.exterior (R.exterior.pow pi t),
-        (if t = 0 then 1 else chiPow D v (x.out : F) t) * A.ψ v (algebraMap F _
-          (-(((primeGen R v : F) ^ J - (primeGen R v : F) ^ t * (d.out : F)) *
-            (x.out : F) / (primeGen R v : F) ^ (k + t))))
-    else 0
-
-def localT (v : FinPlace F) (e : ℤ) (y : F) : ℂ :=
-  ∑ᶠ x : 𝓞 F ⧸ v.asIdeal, chiPow D v (algebraMap (𝓞 F) F x.out) e *
-    A.ψ v (algebraMap F _ (-(y * algebraMap (𝓞 F) F x.out / (primeGen R v : F))))
-
-def frequencyValuation (u : U.U) (v : FinPlace F) : ℕ :=
-  (FractionalIdeal.count F v (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (U.repr u : F))).toNat
-
-def localEulerTerm (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ)
-    (i : Fin 2 × ℕ × ℕ × ℕ) : ℂ :=
-  let e := i.1.1
-  let l := i.2.1
-  let k := i.2.2.1
-  let m := i.2.2.2
-  let j := frequencyValuation η U u v
-  gamma D S A 2 v.asIdeal (primeGen R v : F) ^ e * ϑ.primeValue v ^ (e + 3 * l) *
-    chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^ ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ)) *
-      localC R v hv (e + 3 * l) k (j + 6 * m) *
-        (qI v.asIdeal : ℂ) ^ (-(e : ℂ) * (1 / 2 + ξ) - (l : ℂ) * (1 + 3 * ξ) - (k : ℂ) * w - 6 * (m : ℂ) * z)
-
-def localEuler (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ) : ℂ :=
-  ∑' i, localEulerTerm R η U u v hv ξ w z i
-
-def initialRegion (ξ w z : ℂ) : Prop := 3 / 2 < ξ.re ∧ 2 < w.re ∧ 1 / 6 < z.re
 
 end Poisson
 
@@ -6891,79 +7998,1831 @@ private theorem euler_localEuler_summable (u : U.U) (v : FinPlace F)
     _ = g l * (g k * g m) := hgeomEq l k m
     _ = 1 * (g l * (g k * g m)) := by ring
 
+private theorem po_Agen_isGen (c : S.SqfExtIdeal) (n : S.ExtIdeal) :
+    S.IsGen (Agen R c n : F) (Aideal R c n).1 := by
+  have hc := (bc.gen_spec (R.exterior.ofSqf c)).1
+  have hn := (bc.gen_spec n).1
+  have hn2 : S.IsGen ((bc.gen n * bc.gen n : Fˣ) : F) (n.1 * n.1) :=
+    po_isGen_mul n.1 n.1 (bc.gen n) (bc.gen n) hn hn
+  have hn3 : S.IsGen ((bc.gen n ^ 3 : Fˣ) : F) (n.1 ^ 3) := by
+    have h := po_isGen_mul (n.1 * n.1) n.1 (bc.gen n * bc.gen n) (bc.gen n) hn2 hn
+    simpa [pow_succ, pow_two, mul_assoc] using h
+  have h := po_isGen_mul (R.exterior.ofSqf c).1 (n.1 ^ 3)
+    (bc.gen (R.exterior.ofSqf c)) (bc.gen n ^ 3) hc hn3
+  simpa [Agen, Aideal, R.exterior.mul_val, R.exterior.ofSqf_val,
+    R.exterior.pow_val, mul_assoc] using h
+
 theorem po_euler_local_factorization : ∀ u ξ w z, initialRegion ξ w z →
   Summable (fun p => ‖calFTerm R η U u ξ w z p‖) ∧
   (∀ v hv, Summable (fun i => ‖localEulerTerm R η U u v hv ξ w z i‖)) ∧
   HasProd (fun v : {v : FinPlace F // v ∉ S.Sf} => localEuler R η U u v.1 v.2 ξ w z) (calF R η U u ξ w z) := by
-  sorry
+  intro u ξ w z hreg
+  have hs := global_absolute R η U u ξ w z hreg (gamma_squarefree_norm_le_one R)
+    (fun p => po_finiteFactor_norm_le R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+      (po_Agen_isGen R p.1 p.2.1) ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6))
+  have hl := fun v hv => euler_localEuler_summable R η U u v hv ξ w z hreg
+  let B := Classical.choice (ideal_tuple_bridge (S := S))
+  have hc := prime_coefficient R η U B u ξ w z
+  exact ⟨hs, hl, product_limit R η U B u ξ w z hs (finite_expansion R η U B u ξ w z hl hc)⟩
 /-- Exact arithmetic input from A1 gauss-characters/vartheta-S, including finite order of η. -/
-def EulerHypotheses : Prop := IsOfFinOrder η ∧ (∀ v, v ∉ S.Sf → η.UnramifiedAt v) ∧
-  ∀ v, v ∉ S.Sf → gamma D S A 1 v.asIdeal (primeGen R v : F) *
-    gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v = -η.primeValue v
+private theorem euler_trace_eq_pair_sum_re [IsTotallyComplex F] (z : F) :
+    (Algebra.trace ℚ F z : ℂ) =
+      ∑ w : InfinitePlace F, (w.embedding z + ComplexEmbedding.conjugate w.embedding z) := by
+  classical
+  have htrace := trace_eq_sum_embeddings (K := ℚ) (L := F) (E := ℂ) (x := z)
+  have hring : (∑ φ : F →+* ℂ, φ z) = ∑ σ : F →ₐ[ℚ] ℂ, σ z := by
+    exact Fintype.sum_equiv (RingHom.equivRatAlgHom F ℂ) _ _ (fun _ => rfl)
+  have hall : (Algebra.trace ℚ F z : ℂ) = ∑ φ : F →+* ℂ, φ z := by
+    rw [hring.symm] at htrace
+    exact htrace
+  rw [hall]
+  rw [← Finset.sum_fiberwise (s := Finset.univ)
+    (g := fun φ : F →+* ℂ => InfinitePlace.mk φ) (f := fun φ => φ z)]
+  apply Finset.sum_congr rfl
+  intro w hw
+  have hmk (φ : F →+* ℂ) : InfinitePlace.mk φ = w ↔
+      φ = w.embedding ∨ φ = ComplexEmbedding.conjugate w.embedding := by
+    constructor
+    · intro h
+      rw [← InfinitePlace.mk_embedding w] at h
+      have h' := InfinitePlace.mk_eq_iff.mp h
+      rcases h' with h' | h'
+      · exact Or.inl (by simpa using h')
+      · right
+        have hc := congrArg ComplexEmbedding.conjugate h'
+        simpa using hc
+    · intro h
+      rw [← InfinitePlace.mk_embedding w]
+      apply InfinitePlace.mk_eq_iff.mpr
+      rcases h with h | h
+      · exact Or.inl (by simpa using h)
+      · right
+        have hc := congrArg ComplexEmbedding.conjugate h
+        simpa using hc
+  have hneq : w.embedding ≠ ComplexEmbedding.conjugate w.embedding := by
+    intro h
+    apply (IsTotallyComplex.complexEmbedding_not_isReal w.embedding)
+    rw [ComplexEmbedding.isReal_iff]
+    exact h.symm
+  have hset : Finset.univ.filter (fun φ : F →+* ℂ => InfinitePlace.mk φ = w) =
+      ({w.embedding, ComplexEmbedding.conjugate w.embedding} : Finset (F →+* ℂ)) := by
+    ext φ
+    simp [hmk]
+  change (∑ φ ∈ Finset.univ.filter (fun φ : F →+* ℂ => InfinitePlace.mk φ = w), φ z) = _
+  rw [hset, Finset.sum_pair hneq]
 
-def localV (v : FinPlace F) (z : ℂ) : ℂ := (qI v.asIdeal : ℂ) ^ (-6 * z)
-def localWvar (u : U.U) (v : FinPlace F) (w : ℂ) : ℂ := chi D v (U.repr u : F) * (qI v.asIdeal : ℂ) ^ (-w)
-def localDvar (u : U.U) (v : FinPlace F) (ξ : ℂ) : ℂ :=
-  η.primeValue v * star (chi D v (U.repr u : F)) * (qI v.asIdeal : ℂ) ^ (-ξ)
-def localEvar (v : FinPlace F) (ξ z : ℂ) : ℂ :=
-  ϑ.primeValue v ^ 6 * (qI v.asIdeal : ℂ) ^ (4 - 6 * ξ) * localV v z
+private theorem euler_trace_eq_two_real_sum [IsTotallyComplex F] (z : F) :
+    (Algebra.trace ℚ F z : ℂ) =
+      (2 : ℂ) * ∑ w : InfinitePlace F, ((w.embedding z).re : ℂ) := by
+  rw [euler_trace_eq_pair_sum_re]
+  simp only [ComplexEmbedding.conjugate_coe_eq, Complex.add_conj,
+    Complex.ofReal_mul, Complex.ofReal_ofNat]
+  rw [Finset.mul_sum]
 
-def normalizedLocal (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ) : ℂ :=
-  (1 - localV v z) * (1 - localWvar η U u v w) / (1 - localDvar η U u v ξ) *
-    localEuler R η U u v hv ξ w z
+private theorem euler_arch_exp_eq_trace [IsTotallyComplex F] (z : F) :
+    (∏ w : InfinitePlace F, psiC (w.embedding z)) =
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) := by
+  change (∏ w : InfinitePlace F,
+      Complex.exp (-(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)))) = _
+  rw [← Complex.exp_sum]
+  apply congrArg Complex.exp
+  calc
+    ∑ w : InfinitePlace F, -(4 * Real.pi * Complex.I * ((w.embedding z).re : ℂ)) =
+        -(4 * Real.pi * Complex.I * ∑ w : InfinitePlace F, ((w.embedding z).re : ℂ)) := by
+          rw [Finset.sum_neg_distrib, Finset.mul_sum]
+    _ = -(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)) := by
+          rw [euler_trace_eq_two_real_sum]
+          ring
+
+private theorem euler_primeGen_isGen (v : FinPlace F) (hv : v ∉ S.Sf) :
+    S.IsGen (primeGen R v : F) v.asIdeal := by
+  have h := (bc.gen_spec (R.exterior.prime v hv)).1
+  simpa [primeGen, hv, R.exterior.prime_val] using h
+
+private theorem euler_primeGen_other_valuation (v : FinPlace F) (hv : v ∉ S.Sf)
+    (w : FinPlace F) (hw : w ∉ S.Sf) (hwv : w ≠ v) :
+    HeightOneSpectrum.valuation F w (primeGen R v : F) = 1 := by
+  have hpGen := euler_primeGen_isGen R v hv
+  have hnotdvd : ¬ w.asIdeal ∣ v.asIdeal := by
+    intro hdiv
+    have hle : v.asIdeal ≤ w.asIdeal := Ideal.le_of_dvd hdiv
+    have heq : v.asIdeal = w.asIdeal := v.isMaximal.eq_of_le w.isPrime.ne_top hle
+    exact hwv (HeightOneSpectrum.ext heq.symm)
+  have hcountNat : (Associates.mk w.asIdeal).count (Associates.mk v.asIdeal).factors = 0 := by
+    apply Nat.eq_zero_of_not_pos
+    intro hpos
+    exact hnotdvd ((Associates.count_ne_zero_iff_dvd v.ne_bot w.irreducible).mp
+      (Nat.ne_of_gt hpos))
+  have hcount0 : FractionalIdeal.count F w
+      (v.asIdeal : FractionalIdeal (nonZeroDivisors (𝓞 F)) F) = 0 := by
+    rw [FractionalIdeal.count_coe F w v.ne_bot]
+    exact_mod_cast hcountNat
+  have hcountp := hpGen.2.2 w hw
+  rw [hcount0] at hcountp
+  have hlog := euler_count_spanSingleton_eq_neg_log_valuation w
+    (primeGen R v : F) hpGen.2.1
+  rw [hcountp] at hlog
+  have hlog0 : WithZero.log (HeightOneSpectrum.valuation F w (primeGen R v : F)) = 0 := by
+    linarith
+  have hvalne : HeightOneSpectrum.valuation F w (primeGen R v : F) ≠ 0 :=
+    (w.valuation F).ne_zero_iff.mpr hpGen.2.1
+  calc
+    HeightOneSpectrum.valuation F w (primeGen R v : F) =
+        WithZero.exp (WithZero.log (HeightOneSpectrum.valuation F w (primeGen R v : F))) :=
+      (WithZero.exp_log hvalne).symm
+    _ = 1 := by rw [hlog0, WithZero.exp_zero]
+
+private theorem euler_additive_phase_at_prime (v : FinPlace F) (hv : v ∉ S.Sf)
+    (x : 𝓞 F ⧸ v.asIdeal) :
+    S.e A (S.diag (algebraMap (𝓞 F) F x.out / (primeGen R v : F))) =
+      A.ψ v (algebraMap F (v.adicCompletion F)
+        (-(algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) := by
+  classical
+  let z : F := algebraMap (𝓞 F) F x.out / (primeGen R v : F)
+  let f : FinPlace F → ℂ := fun w => A.ψ w (algebraMap F (w.adicCompletion F) z)
+  have hvalz (w : FinPlace F) (hw : w ∉ S.Sf) (hwv : w ≠ v) :
+      HeightOneSpectrum.valuation F w z ≤ 1 := by
+    by_cases hx : x.out = 0
+    · simp [z, hx]
+    have hvalx : HeightOneSpectrum.valuation F w (algebraMap (𝓞 F) F x.out) ≤ 1 :=
+      w.valuation_le_one x.out
+    calc
+      HeightOneSpectrum.valuation F w z =
+          HeightOneSpectrum.valuation F w (algebraMap (𝓞 F) F x.out) /
+            HeightOneSpectrum.valuation F w (primeGen R v : F) := by
+              dsimp [z]
+              rw [map_div₀]
+      _ = HeightOneSpectrum.valuation F w (algebraMap (𝓞 F) F x.out) := by
+            rw [euler_primeGen_other_valuation R v hv w hw hwv, div_one]
+      _ ≤ 1 := hvalx
+  have hsupport : Function.mulSupport f ⊆
+      ((insert v S.Sf : Finset (FinPlace F)) : Set (FinPlace F)) := by
+    intro w hw
+    change f w ≠ 1 at hw
+    by_cases hws : w ∈ S.Sf
+    · exact Finset.mem_insert_of_mem hws
+    · by_cases hwv : w = v
+      · simp [hwv]
+      · have hmem : (algebraMap F (w.adicCompletion F) z) ∈
+          w.adicCompletionIntegers F := by
+          change ((z : F) : w.adicCompletion F) ∈ w.adicCompletionIntegers F
+          rw [HeightOneSpectrum.mem_adicCompletionIntegers,
+            HeightOneSpectrum.valuedAdicCompletion_eq_valuation']
+          exact hvalz w hws hwv
+        exact (hw (A.integral w _ hmem)).elim
+  have hfinprod : (∏ᶠ w : FinPlace F, f w) = ∏ w ∈ insert v S.Sf, f w :=
+    finprod_eq_prod_of_mulSupport_subset f hsupport
+  have hattach : (∏ w : S.Sf, f w) = ∏ w ∈ S.Sf, f w := by
+    simp [Finset.prod_attach]
+  have hglobal := (A.trivial_on_F z).2
+  have hglobal' : f v * ((∏ w : S.Sf, f w) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)))) = 1 := by
+    rw [hfinprod, Finset.prod_insert (by simpa using hv)] at hglobal
+    rw [← hattach] at hglobal
+    simpa [f, z, mul_assoc] using hglobal
+  have hSprod : (∏ w : S.Sf, f w) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) = (f v)⁻¹ := by
+    have hcomm : ((∏ w : S.Sf, f w) *
+        Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ)))) * f v = 1 := by
+      simpa [mul_comm, mul_left_comm, mul_assoc] using hglobal'
+    exact eq_inv_of_mul_eq_one_left hcomm
+  have hE : S.e A (S.diag z) = (∏ w : S.Sf, f w) *
+      Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) := by
+    letI : IsTotallyComplex F := D.isTotallyComplex
+    change (∏ w : S.Sf, A.ψ w.1 (algebraMap F (w.1.adicCompletion F) z)) *
+      ∏ w : InfinitePlace F, psiC (w.embedding z) = _
+    rw [euler_arch_exp_eq_trace]
+  calc
+    S.e A (S.diag z) = (∏ w : S.Sf, f w) *
+        Complex.exp (-(2 * Real.pi * Complex.I * (Algebra.trace ℚ F z : ℂ))) := hE
+    _ = (f v)⁻¹ := hSprod
+    _ = A.ψ v (algebraMap F (v.adicCompletion F) (-z)) := by
+      change (A.ψ v (algebraMap F (v.adicCompletion F) z))⁻¹ = _
+      rw [← AddChar.inv_apply' (A.ψ v) (algebraMap F (v.adicCompletion F) z)]
+      rw [AddChar.inv_apply]
+      simp
+
+private theorem euler_gamma_localT (v : FinPlace F) (hv : v ∉ S.Sf) (e : ℤ) :
+    gamma D S A e v.asIdeal (primeGen R v : F) =
+      (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * localT R v e 1 := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  let Q := 𝓞 F ⧸ v.asIdeal
+  have hvprime : Prime v.asIdeal := (Ideal.prime_iff_isPrime v.ne_bot).2 v.isPrime
+  have hIdealPow (x : Q) :
+      chiIdealPow D v.asIdeal (algebraMap (𝓞 F) F x.out) e =
+        chiPow D v (algebraMap (𝓞 F) F x.out) e := by
+    unfold chiIdealPow
+    rw [UniqueFactorizationMonoid.normalizedFactors_irreducible hvprime.irreducible]
+    simp [v.isPrime, v.ne_bot]
+  have hsum :
+      (∑ x : Q, chiIdealPow D v.asIdeal (algebraMap (𝓞 F) F x.out) e *
+        S.e A (S.diag (algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) =
+      ∑ x : Q, chiPow D v (algebraMap (𝓞 F) F x.out) e *
+        A.ψ v (algebraMap F (v.adicCompletion F)
+          (-(algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) := by
+    apply Finset.sum_congr rfl
+    intro x hx
+    rw [hIdealPow x, euler_additive_phase_at_prime R v hv x]
+  unfold gamma localT
+  simp only [qI, one_mul]
+  rw [finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype]
+  congr 1
+
+private theorem euler_bridge_additive_shift (D0 : FieldData F)
+    (v : FinPlace F) (hv : v ∉ S.Sf)
+    (p : Fˣ) (hpVal : HeightOneSpectrum.valuation F v (p : F) = WithZero.exp (-1 : ℤ))
+    (ψ : AddChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hψspec : ∀ t x, ψ (t * x) = A.ψ v (algebraMap F (v.adicCompletion F)
+      (algebraMap (𝓞 F) F x.out * algebraMap (𝓞 F) F t.out / (p : F))))
+    (x : 𝓞 F ⧸ v.asIdeal) :
+    A.ψ v (algebraMap F (v.adicCompletion F)
+      (-(algebraMap (𝓞 F) F x.out / (p : F)))) = ψ ((-1 : 𝓞 F ⧸ v.asIdeal) * x) := by
+  classical
+  let SB : SymbolBridge D0 S := a2_bridge_SYMBOL D0 S
+  let a : 𝓞 F := x.out * (-1 : 𝓞 F ⧸ v.asIdeal).out
+  let b : 𝓞 F := -x.out
+  have hres : residue v (algebraMap (𝓞 F) F (a : 𝓞 F)) =
+      residue v (algebraMap (𝓞 F) F (b : 𝓞 F)) := by
+    rw [SB.residue_algebraMap, SB.residue_algebraMap]
+    change Ideal.Quotient.mk v.asIdeal a = Ideal.Quotient.mk v.asIdeal b
+    dsimp [a, b]
+    rw [map_mul]
+    simp
+  let aR : S.R := ⟨algebraMap (𝓞 F) F a, fun w hw => w.valuation_le_one a⟩
+  let bR : S.R := ⟨algebraMap (𝓞 F) F b, fun w hw => w.valuation_le_one b⟩
+  have hcmp := euler_addchar_div_residue_congr D0 A v hv p hpVal aR bR (by
+    simpa [aR, bR] using hres)
+  have hψ := hψspec (-1 : 𝓞 F ⧸ v.asIdeal) x
+  calc
+    A.ψ v (algebraMap F (v.adicCompletion F) (-(algebraMap (𝓞 F) F x.out / (p : F)))) =
+        A.ψ v (algebraMap F (v.adicCompletion F) ((algebraMap (𝓞 F) F b : F) / (p : F))) := by
+          congr 2
+          simp [b, map_neg, neg_div]
+    _ = A.ψ v (algebraMap F (v.adicCompletion F) ((a : F) / (p : F))) := hcmp.symm
+    _ = ψ ((-1 : 𝓞 F ⧸ v.asIdeal) * x) := hψ.symm
+
+private theorem euler_localT_gaussSum (v : FinPlace F) (hv : v ∉ S.Sf) (e : ℤ)
+    [Fintype (𝓞 F ⧸ v.asIdeal)]
+    (χ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ) (ψ : AddChar (𝓞 F ⧸ v.asIdeal) ℂ)
+    (hχeval : ∀ x, chiPow D v (algebraMap (𝓞 F) F x.out) e = χ x)
+    (hψeval : ∀ x, A.ψ v (algebraMap F (v.adicCompletion F)
+      (-(algebraMap (𝓞 F) F x.out / (primeGen R v : F)))) =
+        ψ ((-1 : 𝓞 F ⧸ v.asIdeal) * x))
+    (hχminus : χ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1) :
+    localT R v e 1 = gaussSum χ ψ := by
+  classical
+  have hsum : localT R v e 1 = gaussSum χ (ψ.mulShift (-1)) := by
+    unfold localT
+    simp only [one_mul]
+    rw [finsum_eq_sum_of_fintype]
+    simp only [gaussSum, AddChar.mulShift_apply]
+    apply Finset.sum_congr rfl
+    intro x hx
+    rw [hχeval x, hψeval x]
+  have hinv : χ⁻¹ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+    rw [MulChar.inv_apply_eq_inv', hχminus]
+    simp
+  have hsumU : localT R v e 1 =
+      gaussSum χ (ψ.mulShift (-1 : (𝓞 F ⧸ v.asIdeal)ˣ)) := by
+    simpa using hsum
+  have hshift : gaussSum χ (ψ.mulShift (-1 : (𝓞 F ⧸ v.asIdeal)ˣ)) =
+      gaussSum χ ψ := by
+    rw [gaussSum_mulShift_eq χ ψ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ)]
+    simpa only [hinv, one_mul]
+  exact hsumU.trans hshift
+
+private theorem euler_localT_inverse_product (v : FinPlace F) (hv : v ∉ S.Sf) :
+    localT R v 1 1 * localT R v (-1) 1 = (qI v.asIdeal : ℂ) := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  let p : Fˣ := primeGen R v
+  have hp : S.IsGen (p : F) v.asIdeal := by
+    simpa [p, primeGen, hv, R.exterior.prime_val] using
+      (bc.gen_spec (R.exterior.prime v hv)).1
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  obtain ⟨χ, hχorder, hχeval⟩ :=
+    ((a2_bridge_FINITE_CHAR D S A v hv p hp).2.1)
+  obtain ⟨ψ, hψprim, hψspec⟩ :=
+    ((a2_bridge_FINITE_CHAR D S A v hv p hp).2.2)
+  have hresAlg (x : 𝓞 F ⧸ v.asIdeal) :
+      residue v (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  have hresMinus : residue v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) = -1 := by
+    simpa [hresAlg] using hresAlg (-1 : 𝓞 F ⧸ v.asIdeal)
+  have hresNeg : residue v (-1 : F) = -1 := by
+    simpa using SB.residue_algebraMap v (-1 : 𝓞 F)
+  have hχminus : χ (-1 : 𝓞 F ⧸ v.asIdeal) = 1 := by
+    calc
+      χ (-1 : 𝓞 F ⧸ v.asIdeal) =
+          chiPow D v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) 1 := hχeval _
+      _ = chi D v (algebraMap (𝓞 F) F ((-1 : 𝓞 F ⧸ v.asIdeal).out)) := by
+          simpa [pow_one] using SB.chiPow_nonzero v _ 1
+            (by rw [hresMinus]; exact neg_ne_zero.mpr one_ne_zero)
+      _ = chi D v (-1 : F) := SB.chi_congr v _ _ (hresMinus.trans hresNeg.symm)
+      _ = 1 := SB.chi_minus_one v hv
+  have hχunit : χ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+    simpa using hχminus
+  have hχinvUnit : χ⁻¹ (-1 : (𝓞 F ⧸ v.asIdeal)ˣ) = 1 := by
+    rw [MulChar.inv_apply_eq_inv', hχunit]
+    simp
+  have hχinvEval (x : 𝓞 F ⧸ v.asIdeal) :
+      chiPow D v (algebraMap (𝓞 F) F x.out) (-1) = χ⁻¹ x := by
+    by_cases hx : x = 0
+    · subst x
+      have hzero : residue v (algebraMap (𝓞 F) F (Quotient.out (0 : 𝓞 F ⧸ v.asIdeal))) = 0 :=
+        hresAlg 0
+      have hχzero : χ (0 : 𝓞 F ⧸ v.asIdeal) = 0 := by
+        rw [hχeval 0, SB.chiPow_zero v _ 1 hzero]
+      rw [SB.chiPow_zero v _ (-1) hzero]
+      rw [MulChar.inv_apply_eq_inv', hχzero, inv_zero]
+    · have hresx : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+        simpa [hresAlg] using hx
+      rw [SB.chiPow_nonzero v _ (-1) hresx,
+        MulChar.inv_apply_eq_inv', hχeval x,
+        SB.chiPow_nonzero v _ 1 hresx]
+      simp
+  have hphase (x : 𝓞 F ⧸ v.asIdeal) :
+      A.ψ v (algebraMap F (v.adicCompletion F)
+          (-(algebraMap (𝓞 F) F x.out / (p : F)))) =
+        ψ ((-1 : 𝓞 F ⧸ v.asIdeal) * x) := by
+    exact euler_bridge_additive_shift D v hv p
+      (euler_primeGen_valuation R v hv) ψ hψspec x
+  have hT1 := euler_localT_gaussSum R v hv 1 χ ψ
+    (fun x => (hχeval x).symm) hphase hχunit
+  have hTneg := euler_localT_gaussSum R v hv (-1) χ⁻¹ ψ
+    hχinvEval hphase hχinvUnit
+  have hχne : χ ≠ 1 := by
+    intro h
+    rw [h] at hχorder
+    simp at hχorder
+  have hpowInv : χ ^ (orderOf χ - 1) = χ⁻¹ := by
+    have hmul : χ ^ (orderOf χ - 1) * χ = 1 := by
+      have horder : 1 ≤ orderOf χ := Nat.succ_le_of_lt χ.orderOf_pos
+      rw [← pow_succ, Nat.sub_add_cancel horder]
+      exact pow_orderOf_eq_one χ
+    simpa using congrArg Inv.inv (inv_eq_of_mul_eq_one_right hmul)
+  have hGauss := gaussSum_mul_gaussSum_pow_orderOf_sub_one hχne hψprim
+  have hGauss' : gaussSum χ ψ * gaussSum χ⁻¹ ψ =
+      (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := by
+    calc
+      gaussSum χ ψ * gaussSum χ⁻¹ ψ =
+          gaussSum χ ψ * gaussSum (χ ^ (orderOf χ - 1)) ψ := by
+            congr 1
+            exact congrArg (fun θ : MulChar (𝓞 F ⧸ v.asIdeal) ℂ => gaussSum θ ψ)
+              hpowInv.symm
+      _ = χ (-1) * (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := hGauss
+      _ = (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := by rw [hχminus]; ring
+  have hcard : Fintype.card (𝓞 F ⧸ v.asIdeal) = Ideal.absNorm v.asIdeal := by
+    rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  calc
+    localT R v 1 1 * localT R v (-1) 1 = gaussSum χ ψ * gaussSum χ⁻¹ ψ := by
+      rw [hT1, hTneg]
+    _ = (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) := hGauss'
+    _ = (qI v.asIdeal : ℂ) := by
+      change (Fintype.card (𝓞 F ⧸ v.asIdeal) : ℂ) =
+        ((Ideal.absNorm v.asIdeal : ℝ) : ℂ)
+      exact_mod_cast hcard
+
+private theorem euler_residue_primeGen_pow_zero (v : FinPlace F) (hv : v ∉ S.Sf)
+    (n : ℕ) (hn : 0 < n) :
+    residue v ((primeGen R v : F) ^ n) = 0 := by
+  classical
+  letI := bridgeResidueField v
+  let p : Fˣ := primeGen R v
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  have hpVal : HeightOneSpectrum.valuation F v (p : F) = WithZero.exp (-1 : ℤ) := by
+    simpa [p] using euler_primeGen_valuation R v hv
+  have hpValLt : HeightOneSpectrum.valuation F v (p : F) < 1 := by
+    rw [hpVal]
+    simp
+  have hpValLe : HeightOneSpectrum.valuation F v (p : F) ≤ 1 := hpValLt.le
+  have hvalPowLe (m : ℕ) : HeightOneSpectrum.valuation F v ((p : F) ^ m) ≤ 1 := by
+    obtain ⟨_, _, pR, hpR, _⟩ := euler_prime_power_quotient_generator R v hv m
+    rw [hpR]
+    exact pR.property v hv
+  have hvalPowLt : HeightOneSpectrum.valuation F v ((p : F) ^ n) < 1 := by
+    rw [(v.valuation F).map_pow]
+    exact pow_lt_one₀ zero_le hpValLt hn.ne'
+  have hresOne : residue v (1 : F) = 1 := by
+    simpa using SB.residue_algebraMap v (1 : 𝓞 F)
+  have hresPow : ∀ m : ℕ, residue v ((p : F) ^ m) = residue v (p : F) ^ m := by
+    intro m
+    induction m with
+    | zero => simp [hresOne]
+    | succ m ih =>
+      calc
+        residue v ((p : F) ^ (m + 1)) = residue v ((p : F) ^ m * (p : F)) := by rw [pow_succ]
+        _ = residue v ((p : F) ^ m) * residue v (p : F) :=
+          SB.residue_mul v _ _ (hvalPowLe m) hpValLe
+        _ = residue v (p : F) ^ m * residue v (p : F) := by rw [ih]
+        _ = residue v (p : F) ^ (m + 1) := by rw [pow_succ]
+  have hresPzero : residue v (p : F) = 0 := by
+    by_contra hne
+    have hvalOne := (SB.residue_ne_zero v (p : F) hpValLe).mp hne
+    have hexpOne : WithZero.exp (-1 : ℤ) = 1 := hpVal.symm.trans hvalOne
+    have hlog := congrArg WithZero.log hexpOne
+    simp at hlog
+  rw [hresPow, hresPzero]
+  simp [hn.ne']
+
+private theorem euler_localT_primeGen_pow (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (n : ℕ) :
+    localT R v e ((primeGen R v : F) ^ n) =
+      if n = 0 then localT R v e 1 else if e % 6 = 0 then qI v.asIdeal - 1 else 0 := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  by_cases hn : n = 0
+  · subst n
+    simp
+  · obtain ⟨_, _, pR, hpR, _⟩ := euler_prime_power_quotient_generator R v hv n
+    have hres : residue v (pR : F) = 0 := by
+      rw [← hpR]
+      exact euler_residue_primeGen_pow_zero R v hv n (Nat.pos_of_ne_zero hn)
+    have hT := (po_C_local_T_values R v hv e pR).1
+    rw [hres] at hT
+    simpa [hn, hpR] using hT
+
+private theorem euler_localT_periodic_six (v : FinPlace F) (hv : v ∉ S.Sf)
+    (e : ℤ) (d : ℕ) : localT R v (e + 6 * (d : ℤ)) 1 = localT R v e 1 := by
+  classical
+  letI := bridgeResidueField v
+  letI := bridgeResidueFintype v
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  unfold localT
+  rw [finsum_eq_sum_of_fintype, finsum_eq_sum_of_fintype]
+  apply Finset.sum_congr rfl
+  intro x hx
+  have hres : residue v (algebraMap (𝓞 F) F x.out) = x := by
+    simpa using SB.residue_algebraMap v x.out
+  by_cases hx0 : x = 0
+  · have hzero : residue v (algebraMap (𝓞 F) F x.out) = 0 := by simpa [hx0] using hres
+    simp [chiPow, hzero]
+  · have hxres : residue v (algebraMap (𝓞 F) F x.out) ≠ 0 := by simpa [hres] using hx0
+    have hchi6 : chi D v (algebraMap (𝓞 F) F x.out) ^ (6 : ℕ) = 1 :=
+      SB.chi_six v _ hxres
+    have hchi0 : chi D v (algebraMap (𝓞 F) F x.out) ≠ 0 := by
+      have hnorm := SB.chi_norm v _ hxres
+      exact norm_ne_zero_iff.mp (by rw [hnorm]; norm_num)
+    have hchi6z : chi D v (algebraMap (𝓞 F) F x.out) ^ (6 : ℤ) = 1 := by
+      simpa using hchi6
+    have hpow6d : chi D v (algebraMap (𝓞 F) F x.out) ^ (6 * (d : ℤ)) = 1 := by
+      rw [zpow_mul, hchi6z]
+      simp
+    have hpow : chi D v (algebraMap (𝓞 F) F x.out) ^ (e + 6 * (d : ℤ)) =
+        chi D v (algebraMap (𝓞 F) F x.out) ^ e := by
+      rw [zpow_add₀ hchi0, hpow6d, mul_one]
+    simp only [chiPow, if_neg hxres]
+    rw [hpow]
+
+private theorem euler_frequency_zero_residue (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (hfreq : frequencyValuation η U u v = 0) :
+    residue v (U.repr u : F) ≠ 0 := by
+  classical
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  let x : S.R := U.repr u
+  have hcountNonneg := (U.sixth_power_free u v hv).1
+  have htoNat :
+      (FractionalIdeal.count F v
+        (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x : F))).toNat = 0 := by
+    simpa [frequencyValuation, x] using hfreq
+  have hcount : FractionalIdeal.count F v
+      (FractionalIdeal.spanSingleton (nonZeroDivisors (𝓞 F)) (x : F)) = 0 := by
+    have h := Int.toNat_of_nonneg hcountNonneg
+    rw [htoNat] at h
+    exact h.symm
+  have hx : (x : F) ≠ 0 := U.repr_nonzero u
+  have hcountLog := euler_count_spanSingleton_eq_neg_log_valuation v (x : F) hx
+  rw [hcount] at hcountLog
+  have hlog : WithZero.log (HeightOneSpectrum.valuation F v (x : F)) = 0 := by
+    linarith
+  have hvalne : HeightOneSpectrum.valuation F v (x : F) ≠ 0 :=
+    (v.valuation F).ne_zero_iff.mpr hx
+  have hvalOne : HeightOneSpectrum.valuation F v (x : F) = 1 := by
+    calc
+      HeightOneSpectrum.valuation F v (x : F) =
+          WithZero.exp (WithZero.log (HeightOneSpectrum.valuation F v (x : F))) :=
+        (WithZero.exp_log hvalne).symm
+      _ = 1 := by rw [hlog, WithZero.exp_zero]
+  have hxval : HeightOneSpectrum.valuation F v (x : F) ≤ 1 := x.property v hv
+  exact (SB.residue_ne_zero v (x : F) hxval).mpr hvalOne
+
+private theorem euler_good_t_zero_term (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (k m : ℕ) :
+    localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 0, k, m) =
+      if k = 0 then localV v z ^ m else if m = 0 then
+        localWvar η U u v w ^ k else 0 := by
+  classical
+  have hCbase := po_C_local_values R v hv (6 * m)
+  have hC : localC R v hv 0 k (6 * m) =
+      if k = 0 then 1 else if m = 0 then 1 else 0 := by
+    by_cases hk : k = 0
+    · subst k
+      simpa using hCbase.1
+    · have hkpos : 0 < k := Nat.pos_of_ne_zero hk
+      have hCk := hCbase.2.1 k hkpos
+      by_cases hm : m = 0
+      · subst m
+        simpa using hCk
+      · have hJ : 6 * m ≠ 0 := by omega
+        simpa [hJ, hk, hm] using hCk
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  have hWpow : localWvar η U u v w ^ k =
+      chi D v (U.repr u : F) ^ k * Q ^ (-(k : ℂ) * w) := by
+    dsimp [localWvar, Q]
+    calc
+      (chi D v (U.repr u : F) * (qI v.asIdeal : ℂ) ^ (-w)) ^ k =
+          chi D v (U.repr u : F) ^ k * ((qI v.asIdeal : ℂ) ^ (-w)) ^ k := mul_pow _ _ _
+      _ = chi D v (U.repr u : F) ^ k * (qI v.asIdeal : ℂ) ^ ((-w) * (k : ℂ)) := by
+          rw [← Complex.cpow_mul_nat]
+      _ = chi D v (U.repr u : F) ^ k * (qI v.asIdeal : ℂ) ^ (-(k : ℂ) * w) := by
+          congr 2
+          ring
+  by_cases hk : k = 0
+  · subst k
+    have hVpow : localV v z ^ m = Q ^ (-(6 : ℂ) * (m : ℂ) * z) := by
+      dsimp [localV, Q]
+      calc
+        ((qI v.asIdeal : ℂ) ^ (-(6 : ℂ) * z)) ^ m =
+            (qI v.asIdeal : ℂ) ^ ((-(6 : ℂ) * z) * (m : ℂ)) := by
+              rw [Complex.cpow_mul_nat]
+        _ = (qI v.asIdeal : ℂ) ^ (-(6 : ℂ) * (m : ℂ) * z) := by
+              congr 1
+              ring
+    simpa [localEulerTerm, hC, localV, Q, hfreq] using hVpow.symm
+  · by_cases hm : m = 0
+    · subst m
+      simpa [localEulerTerm, hC, localWvar, Q, hfreq, hk] using hWpow.symm
+    · simp [localEulerTerm, hC, hk, hm, hfreq]
+
+private theorem euler_good_k_ge_two_term_zero (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (e : Fin 2) (l k m : ℕ) (ht : 0 < (e : ℕ) + 3 * l) (hk : 2 ≤ k) :
+    localEulerTerm R η U u v hv ξ w z (e, l, k, m) = 0 := by
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 ((e : ℕ) + 3 * l) ht
+  have hCzero : localC R v hv ((e : ℕ) + 3 * l) k (6 * m) = 0 := hC.2.2.1 k hk
+  simp [localEulerTerm, hCzero, hfreq]
+
+private theorem euler_good_odd_l_term_zero (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (e : Fin 2) (l k m : ℕ) (hlmod : l % 2 = 1) :
+    localEulerTerm R η U u v hv ξ w z (e, l, k, m) = 0 := by
+  classical
+  let d : ℕ := l / 2
+  have hldecomp : l = 2 * d + 1 := by
+    have h := Nat.mod_add_div l 2
+    rw [hlmod] at h
+    omega
+  have htpos : 0 < (e : ℕ) + 3 * l := by omega
+  have hCT := po_C_local_values R v hv (6 * m)
+  have hCpos := hCT.2.2 ((e : ℕ) + 3 * l) htpos
+  by_cases hk2 : 2 ≤ k
+  · exact euler_good_k_ge_two_term_zero R η U u v hv ξ w z hfreq e l k m htpos hk2
+  · have hkeq : k = 0 ∨ k = 1 := by omega
+    rcases hkeq with rfl | rfl
+    · have hCzero : localC R v hv ((e : ℕ) + 3 * l) 0 (6 * m) = 0 := by
+        by_cases he0 : (e : ℕ) = 0
+        · have ht : (e : ℕ) + 3 * l = 6 * d + 3 := by rw [he0, hldecomp]; omega
+          have hmod : ¬ (6 : ℤ) ∣ ((6 * d + 3 : ℕ) : ℤ) := by omega
+          have hCformula := hCpos.1
+          by_cases hcond : (6 * d + 3) - 1 ≤ 6 * m
+          · have hn : 0 < 6 * m + 1 - (6 * d + 3) := by omega
+            have hT := euler_localT_primeGen_pow R v hv ((6 * d + 3 : ℕ) : ℤ)
+              (6 * m + 1 - (6 * d + 3))
+            have hTzero : localT R v ((6 * d + 3 : ℕ) : ℤ)
+                ((primeGen R v : F) ^ (6 * m + 1 - (6 * d + 3))) = 0 := by
+              have hne : 6 * m - (6 * d + 2) ≠ 0 := by omega
+              simpa [hne, hmod] using hT
+            rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            rw [hTzero]
+            simp [hcond]
+          · rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            have hfalse : ¬ 6 * d + 2 ≤ 6 * m := by omega
+            simp [hcond, hfalse]
+        · have ht : (e : ℕ) + 3 * l = 6 * d + 4 := by
+            have he1 : (e : ℕ) = 1 := by have := e.isLt; omega
+            rw [he1, hldecomp]
+            omega
+          have hmod : ¬ (6 : ℤ) ∣ ((6 * d + 4 : ℕ) : ℤ) := by omega
+          have hCformula := hCpos.1
+          by_cases hcond : (6 * d + 4) - 1 ≤ 6 * m
+          · have hn : 0 < 6 * m + 1 - (6 * d + 4) := by omega
+            have hT := euler_localT_primeGen_pow R v hv ((6 * d + 4 : ℕ) : ℤ)
+              (6 * m + 1 - (6 * d + 4))
+            have hTzero : localT R v ((6 * d + 4 : ℕ) : ℤ)
+                ((primeGen R v : F) ^ (6 * m + 1 - (6 * d + 4))) = 0 := by
+              have hne : 6 * m - (6 * d + 3) ≠ 0 := by omega
+              simpa [hne, hmod] using hT
+            rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            rw [hTzero]
+            simp [hcond]
+          · rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            have hfalse : ¬ 6 * d + 3 ≤ 6 * m := by omega
+            simp [hcond, hfalse]
+      simp [localEulerTerm, hfreq, hCzero]
+
+    · have hCzero : localC R v hv ((e : ℕ) + 3 * l) 1 (6 * m) = 0 := by
+        by_cases he0 : (e : ℕ) = 0
+        · have ht : (e : ℕ) + 3 * l = 6 * d + 3 := by rw [he0, hldecomp]; omega
+          have hmod : ¬ (6 : ℤ) ∣ (6 * (d : ℤ) + 2) := by omega
+          have htInt : (((6 * d + 3 : ℕ) : ℤ) - 1) = 6 * (d : ℤ) + 2 := by omega
+          have hCformula := hCpos.2.1
+          by_cases hcond : 6 * d + 3 ≤ 6 * m
+          · have hn : 0 < 6 * m - (6 * d + 3) := by omega
+            have hT := euler_localT_primeGen_pow R v hv (6 * (d : ℤ) + 2)
+              (6 * m - (6 * d + 3))
+            have hTzero : localT R v (6 * (d : ℤ) + 2)
+                ((primeGen R v : F) ^ (6 * m - (6 * d + 3))) = 0 := by
+              have hne : 6 * m - (6 * d + 3) ≠ 0 := by omega
+              simpa [hne, hmod] using hT
+            have hTzeroRaw : localT R v (((6 * d + 3 : ℕ) : ℤ) - 1)
+                ((primeGen R v : F) ^ (6 * m - (6 * d + 3))) = 0 := by
+              rw [htInt]
+              exact hTzero
+            rw [ht]
+            rw [ht] at hCformula
+            rw [hCformula]
+            rw [hTzeroRaw]
+            simp [hcond]
+          · rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            have hfalse : ¬ 6 * d + 3 ≤ 6 * m := by omega
+            simp [hcond, hfalse]
+        · have ht : (e : ℕ) + 3 * l = 6 * d + 4 := by
+            have he1 : (e : ℕ) = 1 := by have := e.isLt; omega
+            rw [he1, hldecomp]
+            omega
+          have hmod : ¬ (6 : ℤ) ∣ (6 * (d : ℤ) + 3) := by omega
+          have htInt : (((6 * d + 4 : ℕ) : ℤ) - 1) = 6 * (d : ℤ) + 3 := by omega
+          have hCformula := hCpos.2.1
+          by_cases hcond : 6 * d + 4 ≤ 6 * m
+          · have hn : 0 < 6 * m - (6 * d + 4) := by omega
+            have hT := euler_localT_primeGen_pow R v hv (6 * (d : ℤ) + 3)
+              (6 * m - (6 * d + 4))
+            have hTzero : localT R v (6 * (d : ℤ) + 3)
+                ((primeGen R v : F) ^ (6 * m - (6 * d + 4))) = 0 := by
+              have hne : 6 * m - (6 * d + 4) ≠ 0 := by omega
+              simpa [hne, hmod] using hT
+            have hTzeroRaw : localT R v (((6 * d + 4 : ℕ) : ℤ) - 1)
+                ((primeGen R v : F) ^ (6 * m - (6 * d + 4))) = 0 := by
+              rw [htInt]
+              exact hTzero
+            rw [ht]
+            rw [ht] at hCformula
+            rw [hCformula]
+            rw [hTzeroRaw]
+            simp [hcond]
+          · rw [ht] at hCformula
+            rw [ht]
+            rw [hCformula]
+            have hfalse : ¬ 6 * d + 4 ≤ 6 * m := by omega
+            simp [hcond, hfalse]
+      simp [localEulerTerm, hfreq, hCzero]
+
+private theorem euler_good_localC_e0_even_k0 (v : FinPlace F) (hv : v ∉ S.Sf)
+    (d : ℕ) (hd : 0 < d) (m : ℕ) :
+    localC R v hv (6 * d) 0 (6 * m) =
+      if d ≤ m then (qI v.asIdeal : ℂ) ^ (6 * d - 1) *
+        ((qI v.asIdeal : ℂ) - 1) else 0 := by
+  classical
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 (6 * d) (by omega)
+  have hCformula := hC.1
+  by_cases hdm : d ≤ m
+  · have hcond : 6 * d - 1 ≤ 6 * m := by omega
+    let n : ℕ := 6 * m + 1 - 6 * d
+    have hn : 0 < n := by dsimp [n]; omega
+    have hdiv : (6 : ℤ) ∣ (6 * (d : ℤ)) := ⟨(d : ℤ), by ring⟩
+    have hmod : (6 * (d : ℤ)) % 6 = 0 := Int.dvd_iff_emod_eq_zero.mp hdiv
+    have hT := euler_localT_primeGen_pow R v hv (6 * (d : ℤ)) n
+    have hTval : localT R v (6 * (d : ℤ)) ((primeGen R v : F) ^ n) =
+        (qI v.asIdeal : ℂ) - 1 := by
+      simpa [n, hn.ne', hmod] using hT
+    have hcast : ((6 * d : ℕ) : ℤ) = 6 * (d : ℤ) := by push_cast; ring
+    have hTval' : localT R v ((6 * d : ℕ) : ℤ) ((primeGen R v : F) ^ n) =
+        (qI v.asIdeal : ℂ) - 1 := by
+      rw [hcast]
+      exact hTval
+    rw [hCformula]
+    rw [if_pos hcond]
+    rw [if_pos hdm]
+    rw [show 6 * m + 1 - 6 * d = n by rfl]
+    rw [hTval']
+  · have hcond : ¬ 6 * d - 1 ≤ 6 * m := by omega
+    simp [hCformula, hdm, hcond]
+
+private theorem euler_good_localC_e0_even_k1 (v : FinPlace F) (hv : v ∉ S.Sf)
+    (d : ℕ) (hd : 0 < d) (m : ℕ) :
+    localC R v hv (6 * d) 1 (6 * m) =
+      if m = d then (qI v.asIdeal : ℂ) ^ (6 * d) else 0 := by
+  classical
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 (6 * d) (by omega)
+  have hCformula := hC.2.1
+  have hExp : (((6 * d : ℕ) : ℤ) - 1) = -1 + 6 * (d : ℤ) := by push_cast; ring
+  have hTperiod : localT R v (((6 * d : ℕ) : ℤ) - 1) 1 = localT R v (-1) 1 := by
+    calc
+      localT R v (((6 * d : ℕ) : ℤ) - 1) 1 = localT R v (-1 + 6 * (d : ℤ)) 1 := by
+        rw [hExp]
+      _ = localT R v (-1) 1 := euler_localT_periodic_six R v hv (-1) d
+  have hTprod := euler_localT_inverse_product R v hv
+  by_cases hdm : d ≤ m
+  · by_cases hmeq : m = d
+    · subst m
+      have hE : localT R v 1 1 * (qI v.asIdeal : ℂ) ^ (6 * d - 1) *
+          localT R v (-1) 1 = (qI v.asIdeal : ℂ) ^ (6 * d) := by
+        calc
+          _ = (qI v.asIdeal : ℂ) ^ (6 * d - 1) *
+              (localT R v 1 1 * localT R v (-1) 1) := by ring
+          _ = (qI v.asIdeal : ℂ) ^ (6 * d - 1) * (qI v.asIdeal : ℂ) := by rw [hTprod]
+          _ = (qI v.asIdeal : ℂ) ^ (6 * d) := by
+            have hpow : 6 * d - 1 + 1 = 6 * d := by omega
+            rw [← pow_succ, hpow]
+      rw [hCformula, if_pos (by omega), Nat.sub_self, pow_zero, hTperiod]
+      simpa using hE
+    · have hlt : d < m := lt_of_le_of_ne hdm (Ne.symm hmeq)
+      have hn : 0 < 6 * m - 6 * d := by omega
+      have hmod : ¬ (6 : ℤ) ∣ (((6 * d : ℕ) : ℤ) - 1) := by omega
+      have hT := euler_localT_primeGen_pow R v hv (((6 * d : ℕ) : ℤ) - 1)
+        (6 * m - 6 * d)
+      have hTzero : localT R v (((6 * d : ℕ) : ℤ) - 1)
+          ((primeGen R v : F) ^ (6 * m - 6 * d)) = 0 := by
+        have hne : 6 * m - 6 * d ≠ 0 := by omega
+        simpa [hne, hmod] using hT
+      rw [hCformula, if_pos (by omega), hTzero]
+      simp [hmeq]
+  · have hcond : ¬ 6 * d ≤ 6 * m := by omega
+    rw [hCformula, if_neg hcond]
+    have hmeq : m ≠ d := by omega
+    simp [hmeq]
+
+private theorem euler_good_localC_e1_even_k0 (v : FinPlace F) (hv : v ∉ S.Sf)
+    (d m : ℕ) :
+    localC R v hv (6 * d + 1) 0 (6 * m) =
+      if m = d then (qI v.asIdeal : ℂ) ^ (6 * d) * localT R v 1 1 else 0 := by
+  classical
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 (6 * d + 1) (by omega)
+  have hCformula := hC.1
+  have hExp : ((6 * d + 1 : ℕ) : ℤ) = 1 + 6 * (d : ℤ) := by push_cast; ring
+  have hTperiod : localT R v ((6 * d + 1 : ℕ) : ℤ) 1 = localT R v 1 1 := by
+    calc
+      localT R v ((6 * d + 1 : ℕ) : ℤ) 1 = localT R v (1 + 6 * (d : ℤ)) 1 := by
+        rw [hExp]
+      _ = localT R v 1 1 := euler_localT_periodic_six R v hv 1 d
+  by_cases hdm : d ≤ m
+  · by_cases hmeq : m = d
+    · subst m
+      rw [hCformula, if_pos (by omega)]
+      rw [show 6 * d + 1 - (6 * d + 1) = 0 by omega, pow_zero, hTperiod]
+      simp
+    · have hlt : d < m := lt_of_le_of_ne hdm (Ne.symm hmeq)
+      have hn : 0 < 6 * m - 6 * d := by omega
+      have hmod : ¬ (6 : ℤ) ∣ ((6 * d + 1 : ℕ) : ℤ) := by omega
+      have hT := euler_localT_primeGen_pow R v hv ((6 * d + 1 : ℕ) : ℤ)
+        (6 * m - 6 * d)
+      have hTzero : localT R v ((6 * d + 1 : ℕ) : ℤ)
+          ((primeGen R v : F) ^ (6 * m - 6 * d)) = 0 := by
+        have hne : 6 * m - 6 * d ≠ 0 := by omega
+        simpa [hne, hmod] using hT
+      rw [hCformula, if_pos (by omega)]
+      rw [show 6 * m + 1 - (6 * d + 1) = 6 * m - 6 * d by omega]
+      rw [hTzero]
+      simp [hmeq]
+  · have hcond : ¬ (6 * d + 1) - 1 ≤ 6 * m := by omega
+    rw [hCformula, if_neg hcond]
+    have hmeq : m ≠ d := by omega
+    simp [hmeq]
+
+private theorem euler_good_localC_e1_even_k1 (v : FinPlace F) (hv : v ∉ S.Sf)
+    (d m : ℕ) :
+    localC R v hv (6 * d + 1) 1 (6 * m) =
+      if d < m then localT R v 1 1 * (qI v.asIdeal : ℂ) ^ (6 * d) *
+        ((qI v.asIdeal : ℂ) - 1) else 0 := by
+  classical
+  have hC := (po_C_local_values R v hv (6 * m)).2.2 (6 * d + 1) (by omega)
+  have hCformula := hC.2.1
+  by_cases hdm : d < m
+  · have hdm' : d + 1 ≤ m := Nat.succ_le_of_lt hdm
+    have hcond : 6 * d + 1 ≤ 6 * m := by omega
+    have hn : 0 < 6 * m - (6 * d + 1) := by omega
+    have hdiv : (6 : ℤ) ∣ (6 * (d : ℤ)) := ⟨(d : ℤ), by ring⟩
+    have hmod : (6 * (d : ℤ)) % 6 = 0 := Int.dvd_iff_emod_eq_zero.mp hdiv
+    have hT := euler_localT_primeGen_pow R v hv (6 * (d : ℤ)) (6 * m - (6 * d + 1))
+    have hTval : localT R v (6 * (d : ℤ))
+        ((primeGen R v : F) ^ (6 * m - (6 * d + 1))) =
+        (qI v.asIdeal : ℂ) - 1 := by
+      have hne : 6 * m - (6 * d + 1) ≠ 0 := by omega
+      simpa [hne, hmod] using hT
+    have htInt : ((6 * d + 1 : ℕ) : ℤ) - 1 = 6 * (d : ℤ) := by omega
+    have hTvalRaw : localT R v (((6 * d + 1 : ℕ) : ℤ) - 1)
+        ((primeGen R v : F) ^ (6 * m - (6 * d + 1))) = (qI v.asIdeal : ℂ) - 1 := by
+      rw [htInt]
+      exact hTval
+    rw [hCformula, if_pos hcond, hTvalRaw]
+    have hnot : ¬ m ≤ d := by omega
+    simp [hdm, hnot]
+  · have hcond : ¬ 6 * d + 1 ≤ 6 * m := by omega
+    rw [hCformula, if_neg hcond]
+    simp [hdm]
+
+private theorem euler_good_E1_pow (v : FinPlace F) (ξ z : ℂ) (d : ℕ) :
+    localEvar (ϑ := ϑ) v ξ z ^ d =
+      ϑ.primeValue v ^ (6 * d) * (qI v.asIdeal : ℂ) ^
+        ((4 - 6 * ξ) * (d : ℂ)) * localV v z ^ d := by
+  classical
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  calc
+    localEvar (ϑ := ϑ) v ξ z ^ d =
+        (ϑ.primeValue v ^ 6 * Q ^ (4 - 6 * ξ) * localV v z) ^ d := by
+          rfl
+    _ = (ϑ.primeValue v ^ 6) ^ d * (Q ^ (4 - 6 * ξ)) ^ d * localV v z ^ d := by
+          rw [mul_pow, mul_pow]
+    _ = ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * localV v z ^ d := by
+          rw [← pow_mul, ← Complex.cpow_mul_nat]
+
+private theorem euler_good_chi_norm_facts (u : U.U) (v : FinPlace F)
+    (hv : v ∉ S.Sf) (hfreq : frequencyValuation η U u v = 0) :
+    chi D v (U.repr u : F) ^ (6 : ℕ) = 1 ∧
+      chi D v (U.repr u : F) ≠ 0 ∧
+      star (chi D v (U.repr u : F)) = (chi D v (U.repr u : F))⁻¹ := by
+  let SB : SymbolBridge D S := a2_bridge_SYMBOL D S
+  have hres := euler_frequency_zero_residue η U u v hv hfreq
+  have h6 := SB.chi_six v (U.repr u : F) hres
+  have hnorm := SB.chi_norm v (U.repr u : F) hres
+  have hne : chi D v (U.repr u : F) ≠ 0 := by
+    exact norm_ne_zero_iff.mp (by rw [hnorm]; norm_num)
+  exact ⟨h6, hne, (Complex.inv_eq_conj hnorm).symm⟩
+
+private theorem euler_good_gammaTheta_localT (hE : EulerHypotheses R η)
+    (v : FinPlace F) (hv : v ∉ S.Sf) :
+    gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v *
+        (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * localT R v 1 1 =
+      -η.primeValue v := by
+  have hEuler := hE.2.2 v hv
+  have hgamma := euler_gamma_localT R v hv 1
+  calc
+    gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v *
+        (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * localT R v 1 1 =
+        (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * localT R v 1 1 *
+          gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v := by ring
+    _ = gamma D S A 1 v.asIdeal (primeGen R v : F) *
+          gamma D S A 2 v.asIdeal (primeGen R v : F) * ϑ.primeValue v := by
+        rw [← hgamma]
+    _ = -η.primeValue v := hEuler
+
+private theorem euler_good_even_e0_k0_term (hE : EulerHypotheses R η)
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (d : ℕ) (hd : 0 < d) (m : ℕ) (hdm : d ≤ m) :
+    localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 0, m) =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        0 (2 * d) 0 m := by
+  classical
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  let V : ℂ := localV v z
+  let E1 : ℂ := localEvar (ϑ := ϑ) v ξ z
+  let c : ℂ := chi D v (U.repr u : F)
+  have hqreal : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hqne : qI v.asIdeal ≠ 0 := ne_of_gt hqreal
+  have hQ : Q ≠ 0 := by
+    dsimp [Q]
+    exact_mod_cast hqreal.ne'
+  have hχ := euler_good_chi_norm_facts η U u v hv hfreq
+  have hχ6z : c ^ (6 : ℤ) = 1 := by
+    dsimp [c]
+    simpa using hχ.1
+  have hχpow6d : c ^ (6 * (d : ℤ)) = 1 := by
+    rw [zpow_mul, hχ6z]
+    simp
+  have hχpowNeg6d : c ^ (-(6 * (d : ℤ))) = 1 := by
+    rw [zpow_neg, hχpow6d]
+    simp
+  have hexpχ : (0 : ℤ) - 0 - 3 * ((2 * d : ℕ) : ℤ) = -(6 * (d : ℤ)) := by
+    push_cast
+    ring
+  have hχeval : c ^ ((0 : ℤ) - 0 - 3 * ((2 * d : ℕ) : ℤ)) = 1 := by
+    rw [hexpχ]
+    exact hχpowNeg6d
+  have hχpow6dNat : c ^ (6 * d) = 1 := by
+    rw [pow_mul, hχ.1]
+    simp
+  have hχpowTerm : c ^ (3 * (2 * (d : ℤ))) = 1 := by
+    have he : 3 * (2 * (d : ℤ)) = 6 * (d : ℤ) := by ring
+    rw [he, hχpow6d]
+  have hC := euler_good_localC_e0_even_k0 R v hv d hd m
+  have hCval : localC R v hv (6 * d) 0 (6 * m) =
+      (qI v.asIdeal : ℂ) ^ (6 * d - 1) * ((qI v.asIdeal : ℂ) - 1) := by
+    simpa [hdm] using hC
+  have htNat : 3 * (2 * d) = 6 * d := by omega
+  have hterm : localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 0, m) =
+      ϑ.primeValue v ^ (6 * d) * Q ^ (6 * d - 1) * (Q - 1) *
+        Q ^ (-(2 * (d : ℂ)) * (1 + 3 * ξ) - 6 * (m : ℂ) * z) := by
+    simp [localEulerTerm, hfreq, hCval, Q, c, htNat, hχpowTerm, hqne]
+    ring
+  let B : ℂ := (4 - 6 * ξ) * (d : ℂ) - 6 * z * (m : ℂ)
+  let A : ℂ := -(2 * (d : ℂ)) * (1 + 3 * ξ) - 6 * (m : ℂ) * z
+  have hcastNat : ((6 * d - 1 : ℕ) : ℂ) = (6 * d : ℂ) - 1 := by
+    rw [Nat.cast_sub (by omega : 1 ≤ 6 * d)]
+    simp
+  have hqexp : Q ^ (6 * d - 1) * Q ^ A = Q ^ (B - 1) := by
+    rw [← Complex.cpow_natCast, ← Complex.cpow_add _ _ hQ]
+    congr 1
+    rw [hcastNat]
+    dsimp [A, B]
+    push_cast
+    ring
+  have hqfactor : Q ^ (B - 1) * (Q - 1) = Q ^ B * (1 - Q⁻¹) := by
+    rw [Complex.cpow_sub _ _ hQ]
+    field_simp [hQ]
+    simp only [Complex.cpow_one]
+  have hEpow : E1 ^ d =
+      ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d := by
+    simpa [E1, V, Q] using euler_good_E1_pow v ξ z d
+  have hVtail : V ^ d * V ^ (m - d) = Q ^ (-6 * z * (m : ℂ)) := by
+    calc
+      V ^ d * V ^ (m - d) = V ^ (d + (m - d)) := by rw [← pow_add]
+      _ = V ^ m := by rw [Nat.add_sub_of_le hdm]
+      _ = Q ^ (-6 * z * (m : ℂ)) := by
+        dsimp [V, localV, Q]
+        exact (Complex.cpow_mul_nat (qI v.asIdeal : ℂ) (-6 * z) m).symm
+  have hQrest : Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * V ^ (m - d) = Q ^ B := by
+    calc
+      Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * V ^ (m - d) =
+          Q ^ ((4 - 6 * ξ) * (d : ℂ)) * Q ^ (-6 * z * (m : ℂ)) := by
+            rw [mul_assoc, hVtail]
+      _ = Q ^ (((4 - 6 * ξ) * (d : ℂ)) + (-6 * z * (m : ℂ))) := by
+            rw [← Complex.cpow_add _ _ hQ]
+      _ = Q ^ B := by congr 1 <;> dsimp [B] <;> ring
+  have hmonomial : ϑ.primeValue v ^ (6 * d) * Q ^ (6 * d - 1) *
+      (Q - 1) * Q ^ A =
+      E1 ^ d * (1 - Q⁻¹) * V ^ (m - d) := by
+    calc
+      ϑ.primeValue v ^ (6 * d) * Q ^ (6 * d - 1) * (Q - 1) * Q ^ A =
+          ϑ.primeValue v ^ (6 * d) * Q ^ B * (1 - Q⁻¹) := by
+        calc
+          _ = ϑ.primeValue v ^ (6 * d) *
+              (Q ^ (6 * d - 1) * Q ^ A) * (Q - 1) := by ring
+          _ = ϑ.primeValue v ^ (6 * d) * Q ^ (B - 1) * (Q - 1) := by rw [hqexp]
+          _ = ϑ.primeValue v ^ (6 * d) * (Q ^ (B - 1) * (Q - 1)) := by ring
+          _ = ϑ.primeValue v ^ (6 * d) * (Q ^ B * (1 - Q⁻¹)) := by rw [hqfactor]
+          _ = ϑ.primeValue v ^ (6 * d) * Q ^ B * (1 - Q⁻¹) := by ring
+      _ = E1 ^ d * (1 - Q⁻¹) * V ^ (m - d) := by
+        rw [hEpow]
+        calc
+          ϑ.primeValue v ^ (6 * d) * Q ^ B * (1 - Q⁻¹) =
+              ϑ.primeValue v ^ (6 * d) *
+                (Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * V ^ (m - d)) *
+                (1 - Q⁻¹) := by rw [hQrest]
+          _ = ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) *
+                V ^ d * (1 - Q⁻¹) * V ^ (m - d) := by ring
+  calc
+    localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 0, m) =
+        ϑ.primeValue v ^ (6 * d) * Q ^ (6 * d - 1) * (Q - 1) *
+          Q ^ (-(2 * (d : ℂ)) * (1 + 3 * ξ) - 6 * (m : ℂ) * z) := hterm
+    _ = E1 ^ d * (1 - Q⁻¹) * V ^ (m - d) := hmonomial
+    _ = eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        0 (2 * d) 0 m := by
+      simp [eulerGoodTermModel, V, E1, Q, hdm, hd.ne']
+
+private theorem euler_good_even_e0_k1_term
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (d : ℕ) (hd : 0 < d) (m : ℕ) :
+    localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 1, m) =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        0 (2 * d) 1 m := by
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  let V : ℂ := localV v z
+  let E1 : ℂ := localEvar (ϑ := ϑ) v ξ z
+  let c : ℂ := chi D v (U.repr u : F)
+  have hqreal : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hqne : qI v.asIdeal ≠ 0 := hqreal.ne'
+  have hQ : Q ≠ 0 := by dsimp [Q]; exact_mod_cast hqne
+  have htNat : 3 * (2 * d) = 6 * d := by omega
+  have hC := euler_good_localC_e0_even_k1 R v hv d hd m
+  by_cases hm : m = d
+  · subst m
+    have hCval : localC R v hv (6 * d) 1 (6 * d) = Q ^ (6 * d) := by
+      simpa [Q] using hC
+    have hχ := euler_good_chi_norm_facts η U u v hv hfreq
+    have hχ6z : c ^ (6 : ℤ) = 1 := by simpa [c] using hχ.1
+    have hχpow6d : c ^ (6 * (d : ℤ)) = 1 := by
+      rw [zpow_mul, hχ6z]
+      simp
+    have hχterm : c ^ (1 - 3 * (2 * (d : ℤ))) = c := by
+      have hexp : 1 - 3 * (2 * (d : ℤ)) = 1 - 6 * (d : ℤ) := by ring
+      rw [hexp, zpow_sub₀ hχ.2.1, zpow_one, hχpow6d, div_one]
+    let E : ℂ := -(2 * (d : ℂ)) * (1 + 3 * ξ) - w - 6 * (d : ℂ) * z
+    let B : ℂ := (4 - 6 * ξ) * (d : ℂ) - 6 * z * (d : ℂ)
+    have hterm : localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 1, d) =
+        ϑ.primeValue v ^ (6 * d) * c * Q ^ (6 * d) * Q ^ E := by
+      simp [localEulerTerm, hfreq, hCval, Q, c, htNat, hχterm, E]
+    have hqexp : Q ^ (6 * d) * Q ^ E = Q ^ (B - w) := by
+      rw [← Complex.cpow_natCast, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [E, B]
+      push_cast
+      ring
+    have hEpow : E1 ^ d =
+        ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d := by
+      simpa [E1, V, Q] using euler_good_E1_pow v ξ z d
+    have hVpow : V ^ d = Q ^ (-6 * z * (d : ℂ)) := by
+      dsimp [V, localV, Q]
+      exact (Complex.cpow_mul_nat (qI v.asIdeal : ℂ) (-6 * z) d).symm
+    have hQrest : Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * Q ^ (-w) =
+        Q ^ (B - w) := by
+      rw [hVpow, ← Complex.cpow_add _ _ hQ, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [B]
+      ring
+    have hmonomial : ϑ.primeValue v ^ (6 * d) * c * Q ^ (6 * d) * Q ^ E =
+        E1 ^ d * localWvar η U u v w := by
+      calc
+        _ = ϑ.primeValue v ^ (6 * d) * c * (Q ^ (6 * d) * Q ^ E) := by ring
+        _ = ϑ.primeValue v ^ (6 * d) * c * Q ^ (B - w) := by rw [hqexp]
+        _ = ϑ.primeValue v ^ (6 * d) * c *
+            (Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * Q ^ (-w)) := by rw [hQrest]
+        _ = E1 ^ d * localWvar η U u v w := by
+          rw [hEpow]
+          change ϑ.primeValue v ^ (6 * d) * c *
+              (Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * Q ^ (-w)) =
+            (ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d) *
+              (c * Q ^ (-w))
+          ring
+    calc
+      _ = ϑ.primeValue v ^ (6 * d) * c * Q ^ (6 * d) * Q ^ E := hterm
+      _ = E1 ^ d * localWvar η U u v w := hmonomial
+      _ = _ := by simp [eulerGoodTermModel, E1, hd.ne']
+  · have hCzero : localC R v hv (6 * d) 1 (6 * m) = 0 := by
+      simpa [hm] using hC
+    have hzero : localEulerTerm R η U u v hv ξ w z ((0 : Fin 2), 2 * d, 1, m) = 0 := by
+      simp [localEulerTerm, hfreq, htNat, hCzero]
+    rw [hzero]
+    simp [eulerGoodTermModel, hm, hd.ne']
+
+private theorem euler_good_even_e1_k0_term (hE : EulerHypotheses R η)
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0) (d m : ℕ) :
+    localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 0, m) =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        1 (2 * d) 0 m := by
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  let V : ℂ := localV v z
+  let E1 : ℂ := localEvar (ϑ := ϑ) v ξ z
+  let c : ℂ := chi D v (U.repr u : F)
+  let G : ℂ := gamma D S A 2 v.asIdeal (primeGen R v : F)
+  have hqreal : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hQ : Q ≠ 0 := by dsimp [Q]; exact_mod_cast hqreal.ne'
+  have htNat : 1 + 3 * (2 * d) = 6 * d + 1 := by omega
+  have hC := euler_good_localC_e1_even_k0 R v hv d m
+  by_cases hm : m = d
+  · subst m
+    have hCval : localC R v hv (6 * d + 1) 0 (6 * d) =
+        Q ^ (6 * d) * localT R v 1 1 := by
+      simpa [Q] using hC
+    have hχ := euler_good_chi_norm_facts η U u v hv hfreq
+    have hχ6z : c ^ (6 : ℤ) = 1 := by simpa [c] using hχ.1
+    have hχpow6d : c ^ (6 * (d : ℤ)) = 1 := by
+      rw [zpow_mul, hχ6z]
+      simp
+    have hχpos : c ^ (1 + 3 * (2 * (d : ℤ))) = c := by
+      have hexp : 1 + 3 * (2 * (d : ℤ)) = 1 + 6 * (d : ℤ) := by ring
+      rw [hexp, zpow_add₀ hχ.2.1, zpow_one, hχpow6d, mul_one]
+    have hχstar : c⁻¹ = star c := hχ.2.2.symm
+    have hχterm : c ^ (-1 - 3 * (2 * (d : ℤ))) = star c := by
+      have hexp : -1 - 3 * (2 * (d : ℤ)) = -(1 + 3 * (2 * (d : ℤ))) := by ring
+      rw [hexp, zpow_neg, hχpos, hχstar]
+    have hscale : (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) =
+        Q ^ (-(1 / 2 : ℂ)) := by
+      simpa [Q] using Complex.ofReal_cpow hqreal.le (-(1 / 2 : ℝ))
+    have hγ : G * ϑ.primeValue v * Q ^ (-(1 / 2 : ℂ)) * localT R v 1 1 =
+        -η.primeValue v := by
+      dsimp only [G]
+      rw [← hscale]
+      exact euler_good_gammaTheta_localT R η hE v hv
+    let E : ℂ := -(1 / 2 + ξ) - (2 * (d : ℂ)) * (1 + 3 * ξ) - 6 * (d : ℂ) * z
+    let B : ℂ := (4 - 6 * ξ) * (d : ℂ) - 6 * z * (d : ℂ)
+    have hterm : localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 0, d) =
+        G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+          Q ^ (6 * d) * localT R v 1 1 * Q ^ E := by
+      simp [localEulerTerm, hfreq, hCval, G, Q, c, htNat, hχpos, hχterm, hχstar,
+        E, pow_add] <;> ring_nf <;> simp
+    have hqexp : Q ^ (6 * d) * Q ^ E =
+        Q ^ (-(1 / 2 : ℂ)) * Q ^ B * Q ^ (-ξ) := by
+      rw [← Complex.cpow_natCast, ← Complex.cpow_add _ _ hQ,
+        ← Complex.cpow_add _ _ hQ, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [E, B]
+      push_cast
+      ring
+    have hEpow : E1 ^ d =
+        ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d := by
+      simpa [E1, V, Q] using euler_good_E1_pow v ξ z d
+    have hVpow : V ^ d = Q ^ (-6 * z * (d : ℂ)) := by
+      dsimp [V, localV, Q]
+      exact (Complex.cpow_mul_nat (qI v.asIdeal : ℂ) (-6 * z) d).symm
+    have hQrest : Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d = Q ^ B := by
+      rw [hVpow, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [B]
+      ring
+    have hEpowB : E1 ^ d = ϑ.primeValue v ^ (6 * d) * Q ^ B := by
+      rw [hEpow, mul_assoc, hQrest]
+    have hmonomial : G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+        Q ^ (6 * d) * localT R v 1 1 * Q ^ E =
+        -localDvar η U u v ξ * E1 ^ d := by
+      calc
+        _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+            localT R v 1 1 * (Q ^ (6 * d) * Q ^ E) := by ring
+        _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+            localT R v 1 1 * (Q ^ (-(1 / 2 : ℂ)) * Q ^ B * Q ^ (-ξ)) := by rw [hqexp]
+        _ = (G * ϑ.primeValue v * Q ^ (-(1 / 2 : ℂ)) * localT R v 1 1) *
+            ϑ.primeValue v ^ (6 * d) * star c * Q ^ B * Q ^ (-ξ) := by ring
+        _ = (-η.primeValue v) * ϑ.primeValue v ^ (6 * d) * star c * Q ^ B *
+            Q ^ (-ξ) := by rw [hγ]
+        _ = -localDvar η U u v ξ * E1 ^ d := by
+          rw [hEpowB]
+          change (-η.primeValue v) * ϑ.primeValue v ^ (6 * d) * star c * Q ^ B *
+              Q ^ (-ξ) = -(η.primeValue v * star c * Q ^ (-ξ)) *
+                (ϑ.primeValue v ^ (6 * d) * Q ^ B)
+          ring
+    calc
+      _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * star c *
+          Q ^ (6 * d) * localT R v 1 1 * Q ^ E := hterm
+      _ = -localDvar η U u v ξ * E1 ^ d := hmonomial
+      _ = _ := by simp [eulerGoodTermModel, E1]
+  · have hCzero : localC R v hv (6 * d + 1) 0 (6 * m) = 0 := by
+      simpa [hm] using hC
+    have hzero : localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 0, m) = 0 := by
+      simp [localEulerTerm, hfreq, htNat, hCzero]
+    rw [hzero]
+    simp [eulerGoodTermModel, hm]
+
+private theorem euler_good_even_e1_k1_term (hE : EulerHypotheses R η)
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0) (d m : ℕ) :
+    localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 1, m) =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        1 (2 * d) 1 m := by
+  let Q : ℂ := (qI v.asIdeal : ℂ)
+  let V : ℂ := localV v z
+  let E1 : ℂ := localEvar (ϑ := ϑ) v ξ z
+  let c : ℂ := chi D v (U.repr u : F)
+  let G : ℂ := gamma D S A 2 v.asIdeal (primeGen R v : F)
+  have hqreal : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hQ : Q ≠ 0 := by dsimp [Q]; exact_mod_cast hqreal.ne'
+  have htNat : 1 + 3 * (2 * d) = 6 * d + 1 := by omega
+  have hC := euler_good_localC_e1_even_k1 R v hv d m
+  by_cases hm : d < m
+  · have hdm : d ≤ m := hm.le
+    have hCval : localC R v hv (6 * d + 1) 1 (6 * m) =
+        localT R v 1 1 * Q ^ (6 * d) * (Q - 1) := by
+      simpa [Q, hm] using hC
+    have hχ := euler_good_chi_norm_facts η U u v hv hfreq
+    have hχ6z : c ^ (6 : ℤ) = 1 := by simpa [c] using hχ.1
+    have hχpow6d : c ^ (6 * (d : ℤ)) = 1 := by
+      rw [zpow_mul, hχ6z]
+      simp
+    have hχpos : c ^ (3 * (2 * (d : ℤ))) = 1 := by
+      have hexp : 3 * (2 * (d : ℤ)) = 6 * (d : ℤ) := by ring
+      rw [hexp, hχpow6d]
+    have hχterm : c ^ (-(3 * (2 * (d : ℤ)))) = 1 := by
+      rw [zpow_neg, hχpos]
+      simp
+    have hscale : (((qI v.asIdeal) ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) =
+        Q ^ (-(1 / 2 : ℂ)) := by
+      simpa [Q] using Complex.ofReal_cpow hqreal.le (-(1 / 2 : ℝ))
+    have hγ : G * ϑ.primeValue v * Q ^ (-(1 / 2 : ℂ)) * localT R v 1 1 =
+        -η.primeValue v := by
+      dsimp only [G]
+      rw [← hscale]
+      exact euler_good_gammaTheta_localT R η hE v hv
+    let E : ℂ := -(1 / 2 + ξ) - (2 * (d : ℂ)) * (1 + 3 * ξ) - w - 6 * (m : ℂ) * z
+    let B : ℂ := (4 - 6 * ξ) * (d : ℂ) - 6 * z * (m : ℂ)
+    have hterm : localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 1, m) =
+        G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * localT R v 1 1 *
+          Q ^ (6 * d) * (Q - 1) * Q ^ E := by
+      simp [localEulerTerm, hfreq, hCval, G, Q, c, htNat, hχterm,
+        E, pow_add] <;> ring_nf <;> simp
+    have hqexp : Q ^ (6 * d) * Q ^ E =
+        Q ^ (-(1 / 2 : ℂ)) * Q ^ B * Q ^ (-ξ) * Q ^ (-w) := by
+      rw [← Complex.cpow_natCast, ← Complex.cpow_add _ _ hQ,
+        ← Complex.cpow_add _ _ hQ, ← Complex.cpow_add _ _ hQ,
+        ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [E, B]
+      push_cast
+      ring
+    have hEpow : E1 ^ d =
+        ϑ.primeValue v ^ (6 * d) * Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d := by
+      simpa [E1, V, Q] using euler_good_E1_pow v ξ z d
+    have hVtail : V ^ d * V ^ (m - d) = Q ^ (-6 * z * (m : ℂ)) := by
+      calc
+        V ^ d * V ^ (m - d) = V ^ (d + (m - d)) := by rw [← pow_add]
+        _ = V ^ m := by rw [Nat.add_sub_of_le hdm]
+        _ = Q ^ (-6 * z * (m : ℂ)) := by
+          dsimp [V, localV, Q]
+          exact (Complex.cpow_mul_nat (qI v.asIdeal : ℂ) (-6 * z) m).symm
+    have hQrest : Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * V ^ (m - d) =
+        Q ^ B := by
+      rw [mul_assoc, hVtail, ← Complex.cpow_add _ _ hQ]
+      congr 1
+      dsimp [B]
+      ring
+    have hEpowTail : E1 ^ d * V ^ (m - d) =
+        ϑ.primeValue v ^ (6 * d) * Q ^ B := by
+      rw [hEpow]
+      calc
+        _ = ϑ.primeValue v ^ (6 * d) *
+            (Q ^ ((4 - 6 * ξ) * (d : ℂ)) * V ^ d * V ^ (m - d)) := by ring
+        _ = ϑ.primeValue v ^ (6 * d) * Q ^ B := by rw [hQrest]
+    have hDmulW : localDvar η U u v ξ * localWvar η U u v w =
+        η.primeValue v * Q ^ (-ξ) * Q ^ (-w) := by
+      have hχcancel : star c * c = 1 := by
+        rw [hχ.2.2, inv_mul_cancel₀ hχ.2.1]
+      change (η.primeValue v * star c * Q ^ (-ξ)) * (c * Q ^ (-w)) = _
+      calc
+        _ = η.primeValue v * (star c * c) * Q ^ (-ξ) * Q ^ (-w) := by ring
+        _ = η.primeValue v * Q ^ (-ξ) * Q ^ (-w) := by rw [hχcancel, mul_one]
+    have hmonomial : G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) *
+        localT R v 1 1 * Q ^ (6 * d) * (Q - 1) * Q ^ E =
+        -(Q - 1) * localDvar η U u v ξ * E1 ^ d *
+          localWvar η U u v w * V ^ (m - d) := by
+      calc
+        _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) *
+            localT R v 1 1 * (Q - 1) * (Q ^ (6 * d) * Q ^ E) := by ring
+        _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) *
+            localT R v 1 1 * (Q - 1) *
+              (Q ^ (-(1 / 2 : ℂ)) * Q ^ B * Q ^ (-ξ) * Q ^ (-w)) := by rw [hqexp]
+        _ = (G * ϑ.primeValue v * Q ^ (-(1 / 2 : ℂ)) * localT R v 1 1) *
+            ϑ.primeValue v ^ (6 * d) * (Q - 1) * Q ^ B * Q ^ (-ξ) * Q ^ (-w) := by ring
+        _ = (-η.primeValue v) * ϑ.primeValue v ^ (6 * d) * (Q - 1) *
+            Q ^ B * Q ^ (-ξ) * Q ^ (-w) := by rw [hγ]
+        _ = -(Q - 1) * (localDvar η U u v ξ * localWvar η U u v w) *
+            (E1 ^ d * V ^ (m - d)) := by
+          rw [hDmulW, hEpowTail]
+          ring
+        _ = -(Q - 1) * localDvar η U u v ξ * E1 ^ d *
+            localWvar η U u v w * V ^ (m - d) := by ring
+    calc
+      _ = G * ϑ.primeValue v * ϑ.primeValue v ^ (6 * d) * localT R v 1 1 *
+          Q ^ (6 * d) * (Q - 1) * Q ^ E := hterm
+      _ = -(Q - 1) * localDvar η U u v ξ * E1 ^ d *
+          localWvar η U u v w * V ^ (m - d) := hmonomial
+      _ = _ := by simp [eulerGoodTermModel, Q, E1, V, hm]
+  · have hCzero : localC R v hv (6 * d + 1) 1 (6 * m) = 0 := by
+      simpa [hm] using hC
+    have hzero : localEulerTerm R η U u v hv ξ w z ((1 : Fin 2), 2 * d, 1, m) = 0 := by
+      simp [localEulerTerm, hfreq, htNat, hCzero]
+    rw [hzero]
+    simp [eulerGoodTermModel, hm]
+
+private theorem euler_good_term_model (hE : EulerHypotheses R η)
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hfreq : frequencyValuation η U u v = 0)
+    (i : Fin 2 × ℕ × ℕ × ℕ) :
+    localEulerTerm R η U u v hv ξ w z i =
+      eulerGoodTermModel (qI v.asIdeal) (localV v z)
+        (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        i.1.1 i.2.1 i.2.2.1 i.2.2.2 := by
+  classical
+  rcases i with ⟨e, l, k, m⟩
+  change localEulerTerm R η U u v hv ξ w z (e, l, k, m) =
+    eulerGoodTermModel (qI v.asIdeal) (localV v z)
+      (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+      e.1 l k m
+  by_cases hl : l % 2 = 0
+  · obtain ⟨d, rfl⟩ : ∃ d : ℕ, l = 2 * d := by
+      have hdecomp := Nat.mod_add_div l 2
+      exact ⟨l / 2, by omega⟩
+    fin_cases e
+    · by_cases hd : d = 0
+      · subst d
+        simpa [eulerGoodTermModel] using euler_good_t_zero_term R η U u v hv ξ w z hfreq k m
+      · have hdpos : 0 < d := Nat.pos_of_ne_zero hd
+        by_cases hk0 : k = 0
+        · subst k
+          by_cases hdm : d ≤ m
+          · exact euler_good_even_e0_k0_term R η U hE u v hv ξ w z hfreq d hdpos m hdm
+          · have hCzero : localC R v hv (6 * d) 0 (6 * m) = 0 := by
+              simpa [hdm] using euler_good_localC_e0_even_k0 R v hv d hdpos m
+            have htNat : 3 * (2 * d) = 6 * d := by omega
+            simp [localEulerTerm, hfreq, htNat, hCzero, eulerGoodTermModel, hd, hdm]
+        · by_cases hk1 : k = 1
+          · subst k
+            exact euler_good_even_e0_k1_term R η U u v hv ξ w z hfreq d hdpos m
+          · have hk2 : 2 ≤ k := by omega
+            have hzero := euler_good_k_ge_two_term_zero R η U u v hv ξ w z hfreq
+              (0 : Fin 2) (2 * d) k m (by change 0 < 0 + 3 * (2 * d); omega) hk2
+            simpa [eulerGoodTermModel, hd, hk0, hk1] using hzero
+    · by_cases hk0 : k = 0
+      · subst k
+        exact euler_good_even_e1_k0_term R η U hE u v hv ξ w z hfreq d m
+      · by_cases hk1 : k = 1
+        · subst k
+          exact euler_good_even_e1_k1_term R η U hE u v hv ξ w z hfreq d m
+        · have hk2 : 2 ≤ k := by omega
+          have hzero := euler_good_k_ge_two_term_zero R η U u v hv ξ w z hfreq
+            (1 : Fin 2) (2 * d) k m (by change 0 < 1 + 3 * (2 * d); omega) hk2
+          simpa [eulerGoodTermModel, hk0, hk1] using hzero
+  · have hlodd : l % 2 = 1 := by omega
+    have hlne : l ≠ 0 := by omega
+    have hzero := euler_good_odd_l_term_zero R η U u v hv ξ w z hfreq e l k m hlodd
+    rw [hzero]
+    simp [eulerGoodTermModel, hlne, hl]
+
+private theorem euler_good_model_tsum (Q V W D1 E1 : ℂ)
+    (hV : ‖V‖ < 1) (hW : ‖W‖ < 1) (hE1 : ‖E1‖ < 1)
+    (hs : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      eulerGoodTermModel Q V W D1 E1 i.1.1 i.2.1 i.2.2.1 i.2.2.2)) :
+    (∑' i : Fin 2 × ℕ × ℕ × ℕ,
+      eulerGoodTermModel Q V W D1 E1 i.1.1 i.2.1 i.2.2.1 i.2.2.2) =
+      eulerGoodClosed Q V W D1 E1 := by
+  classical
+  let M : ℕ → ℕ → ℕ → ℕ → ℂ := eulerGoodTermModel Q V W D1 E1
+  let F : ℕ → ℕ → ℂ := fun e l => ∑' k, ∑' m, M e l k m
+  let A0 : ℂ := (1 - Q⁻¹) * (1 - V)⁻¹ + W
+  let A1 : ℂ := 1 + (Q - 1) * W * V * (1 - V)⁻¹
+  have hsm : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      M i.1.1 i.2.1 i.2.2.1 i.2.2.2) := hs
+  have hVG : (∑' n : ℕ, V ^ n) = (1 - V)⁻¹ := tsum_geometric_of_norm_lt_one hV
+  have hWG : (∑' n : ℕ, W ^ n) = (1 - W)⁻¹ := tsum_geometric_of_norm_lt_one hW
+  have hEG : (∑' n : ℕ, E1 ^ n) = (1 - E1)⁻¹ := tsum_geometric_of_norm_lt_one hE1
+  have htail (A : ℂ) (d : ℕ) :
+      (∑' m : ℕ, if d ≤ m then A * V ^ (m - d) else 0) = A * (1 - V)⁻¹ := by
+    let f : ℕ → ℂ := fun m => if d ≤ m then A * V ^ (m - d) else 0
+    have hg : Function.Injective (fun n : ℕ => n + d) := by
+      intro x y h
+      change x + d = y + d at h
+      omega
+    have hsupport : Function.support f ⊆ Set.range (fun n : ℕ => n + d) := by
+      intro m hm
+      change f m ≠ 0 at hm
+      have hdm : d ≤ m := by
+        by_contra h
+        exact hm (by simp [f, h])
+      exact ⟨m - d, by change (m - d) + d = m; omega⟩
+    calc
+      _ = ∑' n : ℕ, f (n + d) := (hg.tsum_eq hsupport).symm
+      _ = ∑' n : ℕ, A * V ^ n := by
+        apply tsum_congr
+        intro n
+        simp [f]
+      _ = A * (1 - V)⁻¹ := by rw [tsum_mul_left, hVG]
+  have htailStrict (A : ℂ) (d : ℕ) :
+      (∑' m : ℕ, if d < m then A * V ^ (m - d) else 0) =
+        A * V * (1 - V)⁻¹ := by
+    calc
+      _ = ∑' m : ℕ, if d + 1 ≤ m then (A * V) * V ^ (m - (d + 1)) else 0 := by
+        apply tsum_congr
+        intro m
+        by_cases hdm : d < m
+        · have hdm' : d + 1 ≤ m := by omega
+          have hexp : m - d = (m - (d + 1)) + 1 := by omega
+          simp only [if_pos hdm, if_pos hdm', hexp, pow_succ]
+          ring
+        · have hdm' : ¬ d + 1 ≤ m := by omega
+          simp [hdm, hdm']
+      _ = _ := htail (A * V) (d + 1)
+  have htwo (e l : ℕ) (ht : e ≠ 0 ∨ l ≠ 0) :
+      F e l = (∑' m, M e l 0 m) + (∑' m, M e l 1 m) := by
+    have hzero (k : ℕ) (hk : k ∉ ({0, 1} : Finset ℕ)) :
+        (∑' m, M e l k m) = 0 := by
+      have hk0 : k ≠ 0 := by simpa using (fun h : k = 0 => hk (by simp [h]))
+      have hk1 : k ≠ 1 := by simpa using (fun h : k = 1 => hk (by simp [h]))
+      rcases ht with he | hl
+      · simp [M, eulerGoodTermModel, he, hk0, hk1]
+      · by_cases he : e = 0
+        · simp [M, eulerGoodTermModel, he, hl, hk0, hk1]
+        · simp [M, eulerGoodTermModel, he, hk0, hk1]
+    change (∑' k, ∑' m, M e l k m) = _
+    rw [tsum_eq_sum (s := {0, 1}) hzero]
+    simp
+  have hcolumn (e : Fin 2) :
+      (∑' lkm : ℕ × ℕ × ℕ, M e.1 lkm.1 lkm.2.1 lkm.2.2) = ∑' l, F e.1 l := by
+    rw [(hsm.prod_factor e).tsum_prod]
+    apply tsum_congr
+    intro l
+    exact ((hsm.prod_factor e).prod_factor l).tsum_prod
+  have hsF (e : Fin 2) : Summable (F e.1) := by
+    apply ((hsm.prod_factor e).prod).congr
+    intro l
+    exact ((hsm.prod_factor e).prod_factor l).tsum_prod
+  have hbaseK (k : ℕ) :
+      (∑' m, M 0 0 k m) = if k = 0 then (1 - V)⁻¹ else W ^ k := by
+    by_cases hk : k = 0
+    · subst k
+      simpa [M, eulerGoodTermModel] using hVG
+    · simp [M, eulerGoodTermModel, hk, tsum_ite_eq]
+  have hbase : F 0 0 = (1 - V)⁻¹ + W * (1 - W)⁻¹ := by
+    have hsk : Summable (fun k : ℕ => if k = 0 then (1 - V)⁻¹ else W ^ k) := by
+      apply (((hsm.prod_factor (0 : Fin 2)).prod_factor 0).prod).congr
+      intro k
+      exact hbaseK k
+    calc
+      F 0 0 = ∑' k : ℕ, if k = 0 then (1 - V)⁻¹ else W ^ k :=
+        tsum_congr hbaseK
+      _ = (1 - V)⁻¹ + ∑' k : ℕ, W ^ (k + 1) := by
+        simpa using hsk.tsum_eq_zero_add
+      _ = (1 - V)⁻¹ + W * (1 - W)⁻¹ := by
+        simp_rw [pow_succ]
+        rw [tsum_mul_right, hWG]
+        ring
+  have heven0 (d : ℕ) (hd : 0 < d) : F 0 (2 * d) = E1 ^ d * A0 := by
+    have hzero : (∑' m, M 0 (2 * d) 0 m) =
+        E1 ^ d * (1 - Q⁻¹) * (1 - V)⁻¹ := by
+      simpa [M, eulerGoodTermModel, hd.ne'] using htail (E1 ^ d * (1 - Q⁻¹)) d
+    have hone : (∑' m, M 0 (2 * d) 1 m) = E1 ^ d * W := by
+      simp [M, eulerGoodTermModel, hd.ne', tsum_ite_eq]
+    rw [htwo 0 (2 * d) (Or.inr (by omega)), hzero, hone]
+    dsimp [A0]
+    ring
+  have heven1 (d : ℕ) : F 1 (2 * d) = -D1 * E1 ^ d * A1 := by
+    have hzero : (∑' m, M 1 (2 * d) 0 m) = -D1 * E1 ^ d := by
+      simp [M, eulerGoodTermModel, tsum_ite_eq]
+    have hone : (∑' m, M 1 (2 * d) 1 m) =
+        (-(Q - 1) * D1 * E1 ^ d * W) * V * (1 - V)⁻¹ := by
+      simpa [M, eulerGoodTermModel] using htailStrict (-(Q - 1) * D1 * E1 ^ d * W) d
+    rw [htwo 1 (2 * d) (Or.inl (by norm_num)), hzero, hone]
+    dsimp [A1]
+    ring
+  have hodd (e l : ℕ) (hl : l % 2 ≠ 0) : F e l = 0 := by
+    have hlne : l ≠ 0 := by omega
+    simp [F, M, eulerGoodTermModel, hl, hlne]
+  have hg : Function.Injective (fun d : ℕ => 2 * d) := by
+    intro x y h
+    change 2 * x = 2 * y at h
+    omega
+  have hevenSum (e : ℕ) : (∑' l, F e l) = ∑' d, F e (2 * d) := by
+    have hsupport : Function.support (F e) ⊆ Set.range (fun d : ℕ => 2 * d) := by
+      intro l hl
+      change F e l ≠ 0 at hl
+      have hmod : l % 2 = 0 := by
+        by_contra h
+        exact hl (hodd e l h)
+      have hdecomp := Nat.mod_add_div l 2
+      exact ⟨l / 2, by change 2 * (l / 2) = l; omega⟩
+    exact (hg.tsum_eq hsupport).symm
+  have hsum0 : (∑' l, F 0 l) =
+      (1 - V)⁻¹ + W * (1 - W)⁻¹ + E1 * (1 - E1)⁻¹ * A0 := by
+    have hse : Summable (fun d : ℕ => F 0 (2 * d)) :=
+      (hsF (0 : Fin 2)).comp_injective hg
+    calc
+      _ = ∑' d, F 0 (2 * d) := hevenSum 0
+      _ = F 0 0 + ∑' d, F 0 (2 * (d + 1)) := by
+        simpa using hse.tsum_eq_zero_add
+      _ = (1 - V)⁻¹ + W * (1 - W)⁻¹ + ∑' d, E1 ^ (d + 1) * A0 := by
+        rw [hbase]
+        congr 1
+        apply tsum_congr
+        intro d
+        exact heven0 (d + 1) (by omega)
+      _ = (1 - V)⁻¹ + W * (1 - W)⁻¹ + E1 * (1 - E1)⁻¹ * A0 := by
+        simp_rw [pow_succ]
+        rw [tsum_mul_right, tsum_mul_right, hEG]
+        ring
+  have hsum1 : (∑' l, F 1 l) = -D1 * (1 - E1)⁻¹ * A1 := by
+    calc
+      _ = ∑' d, F 1 (2 * d) := hevenSum 1
+      _ = ∑' d, -D1 * E1 ^ d * A1 := tsum_congr heven1
+      _ = _ := by rw [tsum_mul_right, tsum_mul_left, hEG]
+  have hmain : (∑' i : Fin 2 × ℕ × ℕ × ℕ, M i.1.1 i.2.1 i.2.2.1 i.2.2.2) =
+      (∑' l, F 0 l) + (∑' l, F 1 l) := by
+    calc
+      _ = ∑' e : Fin 2, ∑' lkm : ℕ × ℕ × ℕ, M e.1 lkm.1 lkm.2.1 lkm.2.2 :=
+        hsm.tsum_prod
+      _ = ∑' e : Fin 2, ∑' l, F e.1 l := tsum_congr hcolumn
+      _ = _ := by simp [tsum_fintype, Fin.sum_univ_two]
+  change (∑' i : Fin 2 × ℕ × ℕ × ℕ, M i.1.1 i.2.1 i.2.2.1 i.2.2.2) = _
+  rw [hmain, hsum0, hsum1]
+  dsimp only [A0, A1]
+  simp only [eulerGoodClosed, div_eq_mul_inv]
+  ring
+
+private theorem po_H_absolute_gamma_norm_one
+    (v : FinPlace F) (hv : v ∉ S.Sf) (e : ℤ) (he : e % 6 ≠ 0) :
+    ‖gamma D S A e v.asIdeal (primeGen R v : F)‖ = 1 := by
+  have hq : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hT := (po_C_local_T_values R v hv e (1 : S.R)).2.1 he
+  rw [euler_gamma_localT R v hv e, norm_mul,
+    Complex.norm_real, Real.norm_of_nonneg (Real.rpow_nonneg hq.le _)]
+  rw [hT, ← Real.rpow_add hq]
+  norm_num
+
+private theorem po_H_absolute_region_margins (p : Triple)
+    (hp : eulerNeighborhood p) :
+    2 / 3 < (p 0).re ∧ 0 < (p 1).re ∧ 0 < (p 2).re ∧
+    1 / 4000 < (p 0).re + (p 1).re - 1 ∧
+    1 + 1 / 4000 < (p 0).re + 6 * (p 2).re ∧
+    1 + 1 / 4000 < (p 0).re + (p 1).re ∧
+    1 + 1 / 4000 < (p 1).re + 6 * (p 2).re ∧
+    1 + 1 / 4000 < 6 * (p 0).re + 6 * (p 2).re - 4 ∧
+    1 + 1 / 4000 < (p 0).re + (p 1).re + 6 * (p 2).re - 1 := by
+  rcases hp with ⟨hξ, hw, hz⟩ | ⟨hξ, hw, hz⟩ <;>
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+    linarith only [hξ, hw, hz]
+
+private theorem po_H_absolute_positive_term_norm_le
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ)
+    (i : Fin 2 × ℕ × ℕ × ℕ)
+    (ht : 0 < i.1.1 + 3 * i.2.1) (hk : i.2.2.1 ≤ 1) :
+    ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+      qI v.asIdeal ^
+        ((i.1.1 : ℝ) * (1 / 2 - ξ.re) +
+          (i.2.1 : ℝ) * (2 - 3 * ξ.re) +
+          (i.2.2.1 : ℝ) * (1 / 2 - w.re) -
+          6 * (i.2.2.2 : ℝ) * z.re) := by
+  let e : ℕ := i.1.1
+  let l : ℕ := i.2.1
+  let k : ℕ := i.2.2.1
+  let m : ℕ := i.2.2.2
+  let j : ℕ := frequencyValuation η U u v
+  let E : ℂ := -(e : ℂ) * (1 / 2 + ξ) - (l : ℂ) * (1 + 3 * ξ) -
+    (k : ℂ) * w - 6 * (m : ℂ) * z
+  have hqpos : 0 < qI v.asIdeal := lt_trans zero_lt_one (qI_prime_gt_one v)
+  have hgamma : ‖gamma D S A 2 v.asIdeal (primeGen R v : F) ^ e‖ = 1 := by
+    rw [norm_pow, po_H_absolute_gamma_norm_one R v hv 2 (by norm_num), one_pow]
+  have htheta : ‖ϑ.primeValue v ^ (e + 3 * l)‖ ≤ 1 := by
+    rw [norm_pow]
+    exact pow_le_one₀ (norm_nonneg _) (euler_hecke_prime_norm_le R v)
+  have hchi := euler_chi_zpow_norm_le_one (D := D) v
+    ((U.repr u : F) / (primeGen R v : F) ^ j)
+    ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ))
+  have hCT := (po_C_local_values R v hv (j + 6 * m)).2.2 (e + 3 * l) ht
+  have hC : ‖localC R v hv (e + 3 * l) k (j + 6 * m)‖ ≤
+      qI v.asIdeal ^ (((e + 3 * l : ℕ) : ℝ) + (k : ℝ) / 2) := by
+    by_cases hk0 : k = 0
+    · simpa [hk0, Real.rpow_natCast] using hCT.2.2.2.1
+    · have hk1 : k = 1 := by change i.2.2.1 = 1; omega
+      simpa [hk1] using hCT.2.2.2.2
+  have hpow : ‖(qI v.asIdeal : ℂ) ^ E‖ = qI v.asIdeal ^ E.re :=
+    Complex.norm_cpow_eq_rpow_re_of_pos hqpos E
+  have hEre : E.re =
+      -(e : ℝ) * (1 / 2 + ξ.re) - (l : ℝ) * (1 + 3 * ξ.re) -
+        (k : ℝ) * w.re - 6 * (m : ℝ) * z.re := by
+    simp [E, Complex.mul_re] <;> ring
+  have htotal : ((e + 3 * l : ℕ) : ℝ) + (k : ℝ) / 2 + E.re =
+      (e : ℝ) * (1 / 2 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+        (k : ℝ) * (1 / 2 - w.re) - 6 * (m : ℝ) * z.re := by
+    rw [hEre]
+    push_cast
+    ring
+  change ‖gamma D S A 2 v.asIdeal (primeGen R v : F) ^ e *
+      ϑ.primeValue v ^ (e + 3 * l) *
+      chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^
+        ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ)) *
+      localC R v hv (e + 3 * l) k (j + 6 * m) *
+      (qI v.asIdeal : ℂ) ^ E‖ ≤
+    qI v.asIdeal ^ ((e : ℝ) * (1 / 2 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+      (k : ℝ) * (1 / 2 - w.re) - 6 * (m : ℝ) * z.re)
+  calc
+    _ = 1 * ‖ϑ.primeValue v ^ (e + 3 * l)‖ *
+        ‖chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^
+          ((k : ℤ) - (e : ℤ) - 3 * (l : ℤ))‖ *
+        ‖localC R v hv (e + 3 * l) k (j + 6 * m)‖ *
+        qI v.asIdeal ^ E.re := by rw [norm_mul, norm_mul, norm_mul, norm_mul, hgamma, hpow]
+    _ ≤ 1 * 1 * 1 *
+        qI v.asIdeal ^ (((e + 3 * l : ℕ) : ℝ) + (k : ℝ) / 2) *
+        qI v.asIdeal ^ E.re := by gcongr
+    _ = qI v.asIdeal ^ (((e + 3 * l : ℕ) : ℝ) + (k : ℝ) / 2 + E.re) := by
+      simp only [one_mul]
+      rw [← Real.rpow_add hqpos]
+    _ = _ := by rw [htotal]
+
+private theorem po_H_absolute_local_summable
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf)
+    (ξ w z : ℂ) (hξ : 2 / 3 < ξ.re) (hw : 0 < w.re) (hz : 0 < z.re) :
+    Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      ‖localEulerTerm R η U u v hv ξ w z i‖) := by
+  let q : ℝ := qI v.asIdeal
+  have hq : 1 < q := qI_prime_gt_one v
+  have hqpos : 0 < q := lt_trans zero_lt_one hq
+  have hgeom (a : ℝ) (ha : a < 0) :
+      Summable (fun n : ℕ => q ^ ((n : ℝ) * a)) := by
+    have h := summable_geometric_of_lt_one (Real.rpow_nonneg hqpos.le a)
+      (Real.rpow_lt_one_of_one_lt_of_neg hq ha)
+    apply h.congr
+    intro n
+    calc
+      (q ^ a) ^ n = q ^ (a * (n : ℝ)) :=
+        (Real.rpow_mul_natCast hqpos.le a n).symm
+      _ = _ := by congr 1; ring
+  let gL : ℕ → ℝ := fun l => q ^ ((l : ℝ) * (2 - 3 * ξ.re))
+  let gK : ℕ → ℝ := fun k => q ^ ((k : ℝ) * (-w.re))
+  let gM : ℕ → ℝ := fun m => q ^ ((m : ℝ) * (-6 * z.re))
+  have hL : Summable gL := hgeom _ (by linarith)
+  have hK : Summable gK := hgeom _ (by linarith)
+  have hM : Summable gM := hgeom _ (by linarith)
+  have hLn (l : ℕ) : 0 ≤ gL l := Real.rpow_nonneg hqpos.le _
+  have hKn (k : ℕ) : 0 ≤ gK k := Real.rpow_nonneg hqpos.le _
+  have hMn (m : ℕ) : 0 ≤ gM m := Real.rpow_nonneg hqpos.le _
+  have hKM : Summable (fun km : ℕ × ℕ => gK km.1 * gM km.2) :=
+    hK.mul_of_nonneg hM hKn hMn
+  have hLKM : Summable (fun lkm : ℕ × ℕ × ℕ =>
+      gL lkm.1 * (gK lkm.2.1 * gM lkm.2.2)) :=
+    hL.mul_of_nonneg hKM hLn (fun km => mul_nonneg (hKn km.1) (hMn km.2))
+  have hfin : Summable (fun _ : Fin 2 => q ^ (1 / 2 : ℝ)) := Summable.of_finite
+  have hmajor : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      q ^ (1 / 2 : ℝ) * (gL i.2.1 * (gK i.2.2.1 * gM i.2.2.2))) :=
+    hfin.mul_of_nonneg hLKM (fun _ => Real.rpow_nonneg hqpos.le _)
+      (fun lkm => mul_nonneg (hLn lkm.1)
+        (mul_nonneg (hKn lkm.2.1) (hMn lkm.2.2)))
+  have hterm (i : Fin 2 × ℕ × ℕ × ℕ) :
+      ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+        q ^ (1 / 2 + (i.2.1 : ℝ) * (2 - 3 * ξ.re) -
+          (i.2.2.1 : ℝ) * w.re - 6 * (i.2.2.2 : ℝ) * z.re) := by
+    let e : ℕ := i.1.1
+    let l : ℕ := i.2.1
+    let k : ℕ := i.2.2.1
+    let m : ℕ := i.2.2.2
+    let j : ℕ := frequencyValuation η U u v
+    change ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+      q ^ (1 / 2 + (l : ℝ) * (2 - 3 * ξ.re) - (k : ℝ) * w.re -
+        6 * (m : ℝ) * z.re)
+    by_cases ht : e + 3 * l = 0
+    · have he : e = 0 := by omega
+      have hl : l = 0 := by omega
+      have hC : ‖localC R v hv 0 k (j + 6 * m)‖ ≤ 1 := by
+        by_cases hk : k = 0
+        · simp [hk, (po_C_local_values R v hv (j + 6 * m)).1]
+        · rw [(po_C_local_values R v hv (j + 6 * m)).2.1 k
+            (Nat.pos_of_ne_zero hk)]
+          split_ifs <;> simp
+      have hchi := euler_chi_zpow_norm_le_one (D := D) v
+        ((U.repr u : F) / (primeGen R v : F) ^ j) (k : ℤ)
+      let E : ℂ := -(k : ℂ) * w - 6 * (m : ℂ) * z
+      have hpow : ‖(q : ℂ) ^ E‖ = q ^ E.re :=
+        Complex.norm_cpow_eq_rpow_re_of_pos hqpos E
+      have hEre : E.re = -(k : ℝ) * w.re - 6 * (m : ℝ) * z.re := by
+        simp [E, Complex.mul_re] <;> ring
+      have hn :
+          ‖chi D v ((U.repr u : F) / (primeGen R v : F) ^ j) ^ (k : ℤ) *
+            localC R v hv 0 k (j + 6 * m) * (q : ℂ) ^ E‖ ≤ q ^ E.re := by
+        rw [norm_mul, norm_mul, hpow]
+        calc
+          _ ≤ 1 * 1 * q ^ E.re := by gcongr
+          _ = _ := by ring
+      rw [hEre] at hn
+      have he' : i.1.1 = 0 := he
+      have hl' : i.2.1 = 0 := hl
+      have hn' : ‖localEulerTerm R η U u v hv ξ w z i‖ ≤
+          q ^ (-(k : ℝ) * w.re - 6 * (m : ℝ) * z.re) := by
+        simpa [localEulerTerm, he', hl', q, j, k, m, E] using hn
+      refine hn'.trans (Real.rpow_le_rpow_of_exponent_le hq.le ?_)
+      rw [hl]
+      simp
+    · have htpos : 0 < e + 3 * l := Nat.pos_of_ne_zero ht
+      by_cases hk : k ≤ 1
+      · have hs := po_H_absolute_positive_term_norm_le R η U u v hv ξ w z i htpos hk
+        have hepart : (e : ℝ) * (1 / 2 - ξ.re) ≤ 0 :=
+          mul_nonpos_of_nonneg_of_nonpos (Nat.cast_nonneg e) (by linarith)
+        have hkcast : (k : ℝ) ≤ 1 := by exact_mod_cast hk
+        have hexp : (e : ℝ) * (1 / 2 - ξ.re) + (l : ℝ) * (2 - 3 * ξ.re) +
+            (k : ℝ) * (1 / 2 - w.re) - 6 * (m : ℝ) * z.re ≤
+            1 / 2 + (l : ℝ) * (2 - 3 * ξ.re) - (k : ℝ) * w.re -
+              6 * (m : ℝ) * z.re := by
+          nlinarith only [hepart, hkcast]
+        exact hs.trans (Real.rpow_le_rpow_of_exponent_le hq.le hexp)
+      · have hkge : 2 ≤ k := by omega
+        have hCzero := ((po_C_local_values R v hv (j + 6 * m)).2.2
+          (e + 3 * l) htpos).2.2.1 k hkge
+        have hzero : localEulerTerm R η U u v hv ξ w z i = 0 := by
+          simp [localEulerTerm, hCzero, e, l, k, m, j]
+        rw [hzero, norm_zero]
+        exact Real.rpow_nonneg hqpos.le _
+  refine Summable.of_nonneg_of_le (fun i => norm_nonneg _) ?_ hmajor
+  intro i
+  refine (hterm i).trans_eq ?_
+  dsimp [gL, gK, gM]
+  rw [← Real.rpow_add hqpos, ← Real.rpow_add hqpos, ← Real.rpow_add hqpos]
+  congr 1
+  ring
+
+private theorem euler_good_closed_of_summable (hE : EulerHypotheses R η)
+    (u : U.U) (v : FinPlace F) (hv : v ∉ S.Sf) (ξ w z : ℂ)
+    (hξ : 2 / 3 < ξ.re) (hw : 0 < w.re) (hz : 0 < z.re)
+    (hfreq : frequencyValuation η U u v = 0)
+    (hs : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      ‖localEulerTerm R η U u v hv ξ w z i‖)) :
+    localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal)
+      (localV v z) (localWvar η U u v w) (localDvar η U u v ξ)
+      (localEvar (ϑ := ϑ) v ξ z) := by
+  obtain ⟨hV, hW, hE1⟩ := local_norm_guards η U u v hv ξ w z
+    (euler_hecke_prime_norm_le R v) hξ hw hz
+  have hm := euler_good_term_model R η U hE u v hv ξ w z hfreq
+  have hmodel : Summable (fun i : Fin 2 × ℕ × ℕ × ℕ =>
+      eulerGoodTermModel (qI v.asIdeal) (localV v z) (localWvar η U u v w)
+        (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z)
+        i.1.1 i.2.1 i.2.2.1 i.2.2.2) := hs.of_norm.congr hm
+  unfold localEuler
+  simp_rw [hm]
+  exact euler_good_model_tsum _ _ _ _ _ hV hW hE1 hmodel
+
+private theorem euler_absolute_local_bounds (hE : EulerHypotheses R η) :
+    HasPoHLocalBounds R η U 128 ((2 : ℝ) ^ (2000 : ℕ)) := by
+  refine ⟨by norm_num, by exact one_lt_pow₀ (by norm_num : (1 : ℝ) < 2) (by decide : (2000 : ℕ) ≠ 0), ?_⟩
+  intro u v hv p hQ hp
+  have margins := po_H_absolute_region_margins p hp
+  have hs := po_H_absolute_local_summable R η U u v hv (p 0) (p 1) (p 2)
+    margins.1 margins.2.1 margins.2.2.1
+  refine ⟨hs, ?_⟩
+  by_cases hfreq : frequencyValuation η U u v = 0
+  · rw [if_pos hfreq]
+    have hclosed := euler_good_closed_of_summable R η U hE u v hv (p 0) (p 1) (p 2)
+      margins.1 margins.2.1 margins.2.2.1 hfreq hs
+    obtain ⟨hV, hW, hD, hE1⟩ := local_parameter_norms R η U hE u v hv (p 0) (p 1) (p 2)
+    have hvec : (![p 0, p 1, p 2] : Triple) = p := by ext i; fin_cases i <;> rfl
+    have hbound := good_rational_error (qI v.asIdeal) (p 0) (p 1) (p 2)
+      (localV v (p 2)) (localWvar η U u v (p 1)) (localDvar η U u v (p 0))
+      (localEvar (ϑ := ϑ) v (p 0) (p 2)) hQ (by simpa [hvec] using hp) hV hW hD hE1
+    simpa [normalizedLocal, hclosed] using hbound
+  · rw [if_neg hfreq]
+    have hC0 : ∀ k J, localC R v hv 0 k J = if k = 0 then 1 else if J = 0 then 1 else 0 := by
+      intro k J
+      by_cases hk : k = 0
+      · simpa [hk] using (po_C_local_values R v hv J).1
+      · simpa [hk] using (po_C_local_values R v hv J).2.1 k (Nat.pos_of_ne_zero hk)
+    have hC1 : ∀ J, 0 < J → localC R v hv 1 0 J = 0 := by
+      intro J hJ
+      have h := ((po_C_local_values R v hv J).2.2 1 (by omega)).1
+      have hT := euler_localT_primeGen_pow R v hv 1 J
+      simpa [Nat.ne_of_gt hJ] using h.trans (by simpa [Nat.ne_of_gt hJ] using hT)
+    obtain ⟨hbase, ht0, ht1⟩ := bad_support R η U u v hv (p 0) (p 1) (p 2) hfreq hC0 hC1
+    have hVtail : ∀ m, localEulerTerm R η U u v hv (p 0) (p 1) (p 2) (0, 0, 0, m) =
+        localV v (p 2) ^ m := by
+      intro m
+      have hC := (po_C_local_values R v hv (frequencyValuation η U u v + 6 * m)).1
+      have hpow : localV v (p 2) ^ m =
+          (qI v.asIdeal : ℂ) ^ (-(6 : ℂ) * (m : ℂ) * p 2) := by
+        dsimp [localV]
+        rw [← Complex.cpow_mul_nat]
+        congr 1
+        ring
+      simpa [localEulerTerm, hC] using hpow.symm
+    have hk2 : ∀ i : Fin 2 × ℕ × ℕ × ℕ, 0 < i.1.1 + 3 * i.2.1 → 2 ≤ i.2.2.1 →
+        localEulerTerm R η U u v hv (p 0) (p 1) (p 2) i = 0 := by
+      intro i ht hk
+      have hC := (((po_C_local_values R v hv (frequencyValuation η U u v + 6 * i.2.2.2)).2.2
+        (i.1.1 + 3 * i.2.1) ht).2.2.1) i.2.2.1 hk
+      simp [localEulerTerm, hC]
+    have hdev := bad_series_deviation R η U u v hv p hp hQ hs hVtail
+      (po_H_absolute_positive_term_norm_le R η U u v hv (p 0) (p 1) (p 2)) hbase ht0 ht1 hk2
+    exact normalize_bad R η U u v hv p hE hp hQ hdev
 
 /-- po:euler-good-closed, 05:596-659. The zero-valuation local series is the frozen closed factor. -/
 theorem po_euler_good_closed : EulerHypotheses R η → ∀ u v hv ξ w z, initialRegion ξ w z → frequencyValuation η U u v = 0 →
   localEuler R η U u v hv ξ w z = eulerGoodClosed (qI v.asIdeal) (localV v z)
     (localWvar η U u v w) (localDvar η U u v ξ) (localEvar (ϑ := ϑ) v ξ z) := by
-  sorry
-abbrev Triple := Fin 3 → ℂ
-
-def eulerNeighborhood (p : Triple) : Prop :=
-  (998 / 1000 - 1 / 100000 < (p 0).re ∧ 3 / 1000 - 1 / 100000 < (p 1).re ∧
-    4 / 10 - 1 / 100000 < (p 2).re) ∨
-  (998 / 1000 - 1 / 100000 < (p 0).re ∧ 95 / 100 - 1 / 100000 < (p 1).re ∧
-    16 / 100 - 1 / 100000 < (p 2).re)
-
-/-- po:H-local-bounds, 05:660–729, for supplied numerical constants. The separate absolute
-uniformity obligation below places those constants before all arithmetic data. -/
-def HasPoHLocalBounds (R : ReflectionSetup D S H Bd A ϑ bc μ v0)
-    (η : HeckeChar F) (U : FrequencyData S D η) (C Q0 : ℝ) : Prop :=
-  0 < C ∧ 1 < Q0 ∧ ∀ u v hv p,
-  Q0 < qI v.asIdeal → eulerNeighborhood p →
-  Summable (fun i => ‖localEulerTerm R η U u v hv (p 0) (p 1) (p 2) i‖) ∧
-  ‖normalizedLocal R η U u v hv (p 0) (p 1) (p 2) - 1‖ ≤
-    C * qI v.asIdeal ^ (if frequencyValuation η U u v = 0 then (-1 - 1 / 4000 : ℝ) else (-1 / 4000 : ℝ))
-
+  intro hE u v hv ξ w z hreg hfreq
+  exact euler_good_closed_of_summable R η U hE u v hv ξ w z
+    (by linarith [hreg.1]) (by linarith [hreg.2.1]) (by linarith [hreg.2.2])
+    hfreq (euler_localEuler_summable R η U u v hv ξ w z hreg)
 /-- Corrected by `sol-gate-a2b`: the constants are outputs of the local estimate, not arbitrary
 inputs (`po:H-local-bounds`, 05:660–729). -/
 theorem po_H_local_bounds :
   EulerHypotheses R η → ∃ C Q0 : ℝ, 0 < C ∧ 1 < Q0 ∧ HasPoHLocalBounds R η U C Q0 := by
-  sorry
-/-- H_u is a proposed limit object; its HasProd law is an explicit node conclusion below. -/
-structure EulerCorrection (η : HeckeChar F) (U : FrequencyData S D η) where
-  H : U.U → Triple → ℂ
-  H_eq : ∀ u p, H u p = ∏' v : {v : FinPlace F // v ∉ S.Sf},
-    normalizedLocal R η U u v.1 v.2 (p 0) (p 1) (p 2)
-
+  intro hE
+  exact ⟨128, (2 : ℝ) ^ (2000 : ℕ), by norm_num, by exact one_lt_pow₀ (by norm_num : (1 : ℝ) < 2) (by decide : (2000 : ℕ) ≠ 0),
+    euler_absolute_local_bounds R η U hE⟩
 variable (HC : EulerCorrection R η U)
 def Heta (s : ℂ) : ℂ := HC.H U.one ![s, 1, 1 / 6]
 
 /-- po:H-product, 05:731–755: normal convergence and holomorphy in three complex variables. -/
-def HasPoHProduct (R : ReflectionSetup D S H Bd A ϑ bc μ v0) (η : HeckeChar F)
-    (U : FrequencyData S D η) (HC : EulerCorrection R η U) : Prop :=
-  (∀ u p, eulerNeighborhood p →
-    HasProd (fun v : {v : FinPlace F // v ∉ S.Sf} =>
-      normalizedLocal R η U u v.1 v.2 (p 0) (p 1) (p 2)) (HC.H u p)) ∧
-  (∀ u, DifferentiableOn ℂ (HC.H u) {p | eulerNeighborhood p}) ∧
-  (∀ u (K : Set Triple), IsCompact K → K ⊆ {p | eulerNeighborhood p} →
-    ∀ ε : ℝ, 0 < ε → ∃ V : Finset (FinPlace F), ∀ V' : Finset (FinPlace F), V ⊆ V' →
-      ∀ p ∈ K, ‖(∏ v ∈ V'.attach, if hv : v.1 ∉ S.Sf then
-        normalizedLocal R η U u v.1 hv (p 0) (p 1) (p 2) else 1) - HC.H u p‖ < ε) ∧
-  ∀ ε : ℝ, 0 < ε → ∃ C : ℝ, 0 < C ∧ ∀ u p, eulerNeighborhood p → ‖HC.H u p‖ ≤ C * U.q u ^ ε
-
 theorem po_H_product : EulerHypotheses R η → HasPoHProduct R η U HC := by
-  sorry
+  intro hE
+  obtain ⟨C, Q0, _, _, hb⟩ := po_H_local_bounds R η U hE
+  have hs := deviation_summable R η U C Q0 hb
+  have hl : ∀ u v hv, DifferentiableOn ℂ (fun p : Triple =>
+      normalizedLocal R η U u v hv (p 0) (p 1) (p 2)) {p | eulerNeighborhood p} := by
+    intro u v hv
+    apply local_analytic R η U u v hv hE
+    intro p hp
+    have hm := po_H_absolute_region_margins p hp
+    exact po_H_absolute_local_summable R η U u v hv (p 0) (p 1) (p 2) hm.1 hm.2.1 hm.2.2.1
+  have hcompact := product_compact R η U HC C Q0 hE hb hl
+  refine ⟨?_, product_analytic R η U HC hl hcompact, hcompact,
+    product_growth R η U HC C Q0 hE hb hs⟩
+  intro u p hp
+  rw [HC.H_eq]
+  have hm := multipliable_one_add_of_summable (hs u p hp)
+  have heq (a : ℂ) : 1 + (a - 1) = a := by ring
+  simpa only [heq] using hm.hasProd
 variable (HA : HeckeAnalysis F)
 /-- prop:euler-product, 05:407–433: analytic continuations, masked exterior values retained. -/
 theorem prop_euler_product : EulerHypotheses R η →
@@ -6973,7 +9832,13 @@ theorem prop_euler_product : EulerHypotheses R η →
   ((∀ v hv p, eulerNeighborhood p →
     ‖normalizedLocal R η U U.one v hv (p 0) (p 1) (p 2) - 1‖ < 1 / 2) →
       ∀ p, eulerNeighborhood p → HC.H U.one p ≠ 0) := by
-  sorry
+  intro hE
+  have hH := po_H_product R η U HC hE
+  refine ⟨hH, deleted_identity R η U HC HA hE
+    (fun u ξ w z hr => (po_euler_local_factorization R η U u ξ w z hr).2.2) hH.1, ?_⟩
+  intro hsmall
+  obtain ⟨C, Q0, _, _, hb⟩ := po_H_local_bounds R η U hE
+  exact principal_nonzero R η U HC (deviation_summable R η U C Q0 hb U.one) hsmall
 /-- def:po-H-eta, 05:757–765: the larger open half-plane includes the closed .998 boundary. -/
 private lemma euler_frequency_valuation_one_eq_zero (v : FinPlace F) (hv : v ∉ S.Sf)
     (hcount : 0 ≤ FractionalIdeal.count F v
@@ -7094,6 +9959,7 @@ theorem po_H_eta_properties : EulerHypotheses R η →
   intro hEuler hloc
   have hProduct := po_H_product R η U HC hEuler
   rcases hProduct with ⟨_, hDiff, _, hBound⟩
+  haveI : IsTotallyComplex F := D.isTotallyComplex
   let HA0 : HeckeAnalysis F := Classical.choice (heckeAnalysis_exists F)
   obtain ⟨_, _, hNonzero⟩ := prop_euler_product R η U HC HA0 hEuler
   have hMaps : Set.MapsTo (fun s : ℂ => ![s, 1, 1 / 6])
@@ -7124,6 +9990,863 @@ theorem po_H_eta_properties : EulerHypotheses R η →
     simpa [Heta, U.q_one] using h
 
 
+/-- po:poisson-orbits, 05:284–350, including the V₀ Mellin dictionary. -/
+theorem po_poisson_orbits : WeightSpec R sd W →
+  (ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞) (weightV0 R sd W) (Set.Ioi 0)) ∧
+  (∀ z : ℂ, 0 < z.re → mellin (weightV0 R sd W) z = weightM R sd W z) ∧
+  (∀ σ T : ℝ, 0 < σ → 0 < T →
+    weightV0 R sd W T = vertical σ (fun z => weightM R sd W z * (T : ℂ) ^ (-z))) ∧
+  ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
+    Summable (fun p => ‖poissonOrbitTerm R sd W η U X Y Z p‖) ∧
+    probe R W X Y Z = ((X ^ (1 / 2 : ℝ) / Y : ℝ) : ℂ) * ∑' p, poissonOrbitTerm R sd W η U X Y Z p := by
+  intro hSpec
+  have hdecay : WeightDecay R sd W := (po_weights_exist R sd).2 W
+  have hSmooth : ContDiffOn ℝ ((⊤ : ℕ∞) : WithTop ℕ∞)
+      (weightV0 R sd W) (Set.Ioi 0) := by
+    sorry
+  refine ⟨hSmooth, ?_, ?_, ?_⟩
+  · intro z hz
+    exact (po_weightM_eq_mellin (R := R) (sd := sd) (W := W) z hz hdecay).symm
+  · intro σ T hσ hT
+    have hconv := po_weightV0_mellin_convergent (R := R) (sd := sd) (W := W)
+      σ hσ hSpec hdecay hSmooth
+    have hVert := po_weightV0_vertical_integrable (R := R) (sd := sd) (W := W)
+      σ hσ hdecay
+    have hcont : ContinuousAt (weightV0 R sd W) T :=
+      hSmooth.continuousOn.continuousAt (isOpen_Ioi.mem_nhds hT)
+    exact po_weightV0_inversion (R := R) (sd := sd) (W := W)
+      σ T hσ hT hdecay hconv hVert hcont
+  · sorry
+
+private theorem po_gamma_norm_le_sqrt (c : S.SqfExtIdeal) :
+    ‖gamma D S A 2 c.1 (cgen R c)‖ ≤ qI c.1 ^ ((1 : ℝ) / 2) := by
+  classical
+  let I : S.ExtIdeal := R.exterior.ofSqf c
+  let a : Fˣ := bc.gen I
+  have hIext : S.IsExterior c.1 := c.2.1
+  have ha : S.IsGen (a : F) I.1 := by
+    simpa [I, a, R.exterior.ofSqf_val] using (bc.gen_spec (R.exterior.ofSqf c)).1
+  have hqpos : 0 < Ideal.absNorm c.1 :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨c.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by
+        simpa [Ideal.zero_eq_bot] using hIext.1)⟩
+  let Q : Type := 𝓞 F ⧸ c.1
+  letI : Finite Q := (Ideal.absNorm_ne_zero_iff c.1).mp hqpos.ne'
+  letI : Fintype Q := Fintype.ofFinite Q
+  let g (x : Q) : ℂ :=
+    chiIdealPow D c.1 (algebraMap (𝓞 F) F x.out) 2 *
+      S.e A (S.diag (algebraMap (𝓞 F) F x.out / (a : F)))
+  have hg (x : Q) : ‖g x‖ ≤ 1 := by
+    dsimp [g]
+    have hχ : ‖chiIdealPow D c.1 (algebraMap (𝓞 F) F x.out) 2‖ ≤ 1 :=
+      po_chiIdealPow_norm_le_one D c.1 (algebraMap (𝓞 F) F x.out) 2
+    let xr : S.R := algebraMap (𝓞 F) S.R x.out
+    have hphase := po_e_residue_norm_one I a ha xr R
+    have harg : ((xr : F) : F) / (a : F) =
+        algebraMap (𝓞 F) F x.out / (a : F) := by
+      simp [xr]
+    rw [harg] at hphase
+    rw [norm_mul]
+    exact mul_le_one₀ hχ (norm_nonneg _) hphase.le
+  have hsum : ‖∑ᶠ x : Q, g x‖ ≤ (Ideal.absNorm c.1 : ℝ) := by
+    calc
+      _ = ‖∑ x : Q, g x‖ := by
+        congr 1
+        exact finsum_eq_finsetSum_of_support_subset g (s := Finset.univ)
+          (by intro x hx; simp)
+      _ ≤ ∑ x : Q, ‖g x‖ := norm_sum_le _ _
+      _ ≤ ∑ _x : Q, (1 : ℝ) := Finset.sum_le_sum fun x _ => hg x
+      _ = (Fintype.card Q : ℝ) := by simp
+      _ = (Ideal.absNorm c.1 : ℝ) := by
+        rw [Ideal.absNorm_apply, Submodule.cardQuot_apply, Nat.card_eq_fintype_card]
+  let q : ℝ := Ideal.absNorm c.1
+  have hq : 0 < q := Nat.cast_pos.mpr hqpos
+  have hscale : 0 ≤ q ^ (-(1 / 2 : ℝ)) := Real.rpow_nonneg hq.le _
+  have hgammaEq : gamma D S A 2 c.1 (cgen R c) =
+      ((q ^ (-(1 / 2 : ℝ)) : ℝ) : ℂ) * ∑ᶠ x : Q, g x := by
+    simp [gamma, q, g, I, a, cgen, Q, hqpos.ne']
+  rw [hgammaEq, norm_mul, Complex.norm_real, Real.norm_of_nonneg hscale]
+  calc
+    q ^ (-(1 / 2 : ℝ)) * ‖∑ᶠ x : Q, g x‖ ≤
+        q ^ (-(1 / 2 : ℝ)) * q := mul_le_mul_of_nonneg_left (by simpa [q] using hsum) hscale
+    _ = q ^ ((1 : ℝ) / 2) := by
+      calc
+        q ^ (-(1 / 2 : ℝ)) * q = q ^ (-(1 / 2 : ℝ)) * q ^ (1 : ℝ) := by
+          congr 1
+          exact (Real.rpow_one q).symm
+        _ = q ^ (-(1 / 2 : ℝ) + 1) := by rw [← Real.rpow_add hq]
+        _ = q ^ ((1 : ℝ) / 2) := by congr 1 <;> ring
+    _ = qI c.1 ^ ((1 : ℝ) / 2) := by simp [q, qI]
+
+private theorem po_qI_ext_pos (I : S.ExtIdeal) : 0 < qI I.1 := by
+  unfold qI
+  have h := Ideal.absNorm_pos_of_nonZeroDivisors
+    ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by
+      simpa [Ideal.zero_eq_bot] using I.2.1)⟩
+  exact_mod_cast h
+
+private theorem po_qI_sqf_pos (c : S.SqfExtIdeal) : 0 < qI c.1 := by
+  unfold qI
+  have h := Ideal.absNorm_pos_of_nonZeroDivisors
+    ⟨c.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by
+      simpa [Ideal.zero_eq_bot] using c.2.1.1)⟩
+  exact_mod_cast h
+
+private theorem po_ideal_norm_pos (I : Ideal (𝓞 F)) (hI : I ≠ ⊥) : 0 < qI I := by
+  unfold qI
+  have h := Ideal.absNorm_pos_of_nonZeroDivisors
+    ⟨I, mem_nonZeroDivisors_iff_ne_zero.mpr (by simpa [Ideal.zero_eq_bot] using hI)⟩
+  exact_mod_cast h
+
+private theorem po_qI_ext_ge_one (I : S.ExtIdeal) : 1 ≤ qI I.1 := by
+  unfold qI
+  have hpos : 0 < Ideal.absNorm I.1 :=
+    Ideal.absNorm_pos_of_nonZeroDivisors
+      ⟨I.1, mem_nonZeroDivisors_iff_ne_zero.mpr (by
+        simpa [Ideal.zero_eq_bot] using I.2.1)⟩
+  have hNat : 1 ≤ Ideal.absNorm I.1 := Nat.one_le_iff_ne_zero.mpr hpos.ne'
+  exact_mod_cast hNat
+
+private theorem po_HeckeChar_idealValue_norm_le_one (χ : HeckeChar F)
+    (hχ : ∀ x, ‖((χ x : ℂˣ) : ℂ)‖ = 1) (I : Ideal (𝓞 F)) :
+    ‖χ.idealValue I‖ ≤ 1 := by
+  classical
+  unfold HeckeChar.idealValue
+  apply po_multiset_map_prod_norm_le_one
+  intro P hP
+  by_cases h : P.IsPrime ∧ P ≠ ⊥
+  · unfold HeckeChar.primeValue
+    split_ifs with hUnram
+    · have hχ' := hχ (IdeleClassGroup.ofAdicCompletion (𝓞 F) F ⟨P, h.1, h.2⟩
+        (toLoc ⟨P, h.1, h.2⟩ (Units.mk0 (unif ⟨P, h.1, h.2⟩)
+          (unif_ne_zero ⟨P, h.1, h.2⟩))))
+      have hnorm : ‖((χ.loc ⟨P, h.1, h.2⟩
+          (toLoc ⟨P, h.1, h.2⟩ (Units.mk0 (unif ⟨P, h.1, h.2⟩)
+            (unif_ne_zero ⟨P, h.1, h.2⟩))) : ℂˣ) : ℂ)‖ = 1 := by
+        simpa [HeckeChar.loc] using hχ'
+      simpa [h, HeckeChar.primeValue, hUnram] using hnorm.le
+    · simp [h, hUnram]
+  · simp [h]
+
+set_option maxHeartbeats 5000000 in
+private theorem po_calFTerm_norm_bound (u : U.U) (ξ w z : ℂ)
+    (hξ : ξ.re = 4) (hw : w.re = 4) (hz : z.re = 2)
+    (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) :
+    ‖calFTerm R η U u ξ w z p‖ ≤
+      qI p.1.1 ^ (-3 : ℝ) * qI p.2.1.1 ^ (-10 : ℝ) *
+        qI p.2.2.1.1 ^ (-3 : ℝ) * qI p.2.2.2.1 ^ (-12 : ℝ) := by
+  let qC : ℝ := qI (p.1.1)
+  let qN : ℝ := qI (p.2.1.1)
+  let qS : ℝ := qI (p.2.2.1.1)
+  let qR : ℝ := qI (p.2.2.2.1)
+  have hγ : ‖gamma D S A 2 (p.1.1) (cgen R p.1)‖ ≤ qC ^ (1 / 2 : ℝ) := by
+    simpa [qC] using po_gamma_norm_le_sqrt R p.1
+  have hθ : ‖ϑ.idealValue (Aideal R p.1 p.2.1).1‖ ≤ 1 :=
+    po_HeckeChar_idealValue_norm_le_one ϑ R.vartheta_unitary (Aideal R p.1 p.2.1).1
+  have hFF : ‖finiteFactor R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+      ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6)‖ ≤
+      qS * qI (Aideal R p.1 p.2.1).1 :=
+    po_finiteFactor_norm_le R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+      (po_Agen_isGen R p.1 p.2.1)
+      ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6)
+  have hcpos : 0 < qC := by dsimp [qC]; exact po_ideal_norm_pos p.1.1 p.1.2.1.1
+  have hnpos : 0 < qN := by dsimp [qN]; exact po_ideal_norm_pos p.2.1.1 p.2.1.2.1
+  have hspos : 0 < qS := by dsimp [qS]; exact po_ideal_norm_pos p.2.2.1.1 p.2.2.1.2.1
+  have hrpos : 0 < qR := by dsimp [qR]; exact po_ideal_norm_pos p.2.2.2.1 p.2.2.2.2.1
+  have hAq : qI (Aideal R p.1 p.2.1).1 = qC * qN ^ 3 := by
+    simp [qC, qN, Aideal, qI, R.exterior.mul_val, R.exterior.ofSqf_val,
+      R.exterior.pow_val]
+  have hcPow : ‖(qC : ℂ) ^ ((-1 / 2 : ℂ) - ξ)‖ =
+      qC ^ (-1 / 2 - ξ.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hcpos]
+    simp
+  have hnPow : ‖(qN : ℂ) ^ ((-1 : ℂ) - 3 * ξ)‖ =
+      qN ^ (-1 - 3 * ξ.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hnpos]
+    simp
+  have hsPow : ‖(qS : ℂ) ^ (-w)‖ = qS ^ (-w.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hspos]
+    simp
+  have hrPow : ‖(qR : ℂ) ^ (-6 * z)‖ = qR ^ (-6 * z.re) := by
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hrpos]
+    simp
+  have hnorm : ‖calFTerm R η U u ξ w z p‖ =
+      ‖gamma D S A 2 p.1.1 (cgen R p.1)‖ *
+        ‖ϑ.idealValue (Aideal R p.1 p.2.1).1‖ *
+          ‖finiteFactor R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+            ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6)‖ *
+              ‖(qC : ℂ) ^ ((-1 / 2 : ℂ) - ξ)‖ *
+                  ‖(qN : ℂ) ^ ((-1 : ℂ) - 3 * ξ)‖ *
+                  ‖(qS : ℂ) ^ (-w)‖ * ‖(qR : ℂ) ^ (-6 * z)‖ := by
+    simp [calFTerm, qC, qN, qS, qR, norm_mul]
+  have hFF' : ‖finiteFactor R p.2.2.1 (Aideal R p.1 p.2.1) (Agen R p.1 p.2.1)
+      ((U.repr u : F) * (bc.gen p.2.2.2 : F) ^ 6)‖ ≤
+      qS * (qC * qN ^ 3) := by
+    calc
+      _ ≤ qS * qI (Aideal R p.1 p.2.1).1 := hFF
+      _ = qS * (qC * qN ^ 3) := by rw [hAq]
+  have hmajor : ‖calFTerm R η U u ξ w z p‖ ≤
+      qC ^ (1 / 2 : ℝ) * 1 * (qS * (qC * qN ^ 3)) *
+        qC ^ ((-1 / 2 - 4 : ℝ)) * qN ^ ((-1 - 3 * 4 : ℝ)) *
+          qS ^ (-4 : ℝ) * qR ^ (-12 : ℝ) := by
+    calc
+      _ = _ := hnorm
+      _ ≤ _ := by
+        rw [hcPow, hnPow, hsPow, hrPow, hξ, hw, hz]
+        gcongr
+        all_goals first
+        | exact hFF'
+        | exact po_qI_ext_ge_one (S := S) p.2.2.2
+        | norm_num
+  have hcGroup : qC ^ (1 / 2 : ℝ) * qC * qC ^ ((-1 / 2 - 4 : ℝ)) =
+      qC ^ (-3 : ℝ) := by
+    calc
+      qC ^ (1 / 2 : ℝ) * qC * qC ^ ((-1 / 2 - 4 : ℝ)) =
+          qC ^ ((1 / 2 : ℝ) + 1) * qC ^ ((-1 / 2 - 4 : ℝ)) := by
+        rw [← Real.rpow_add_one hcpos.ne' (1 / 2 : ℝ)]
+      _ = qC ^ ((1 / 2 : ℝ) + 1 + (-1 / 2 - 4)) := by rw [← Real.rpow_add hcpos]
+      _ = qC ^ (-3 : ℝ) := by congr 1 <;> ring
+  have hnGroup : qN ^ (3 : ℝ) * qN ^ ((-1 - 3 * 4 : ℝ)) = qN ^ (-10 : ℝ) := by
+    rw [← Real.rpow_add hnpos]
+    congr 1 <;> ring
+  have hsGroup : qS * qS ^ (-4 : ℝ) = qS ^ (-3 : ℝ) := by
+    calc
+      qS * qS ^ (-4 : ℝ) = qS ^ ((0 : ℝ) + 1) * qS ^ (-4 : ℝ) := by
+        rw [Real.rpow_add_one hspos.ne' 0, Real.rpow_zero]
+        simp
+      _ = qS ^ ((0 : ℝ) + 1 + (-4 : ℝ)) := by rw [← Real.rpow_add hspos]
+      _ = qS ^ (-3 : ℝ) := by congr 1 <;> ring
+  have hRegroup :
+      qC ^ (1 / 2 : ℝ) * 1 * (qS * (qC * qN ^ 3)) *
+        qC ^ ((-1 / 2 - 4 : ℝ)) * qN ^ ((-1 - 3 * 4 : ℝ)) *
+          qS ^ (-4 : ℝ) * qR ^ (-12 : ℝ) =
+      (qC ^ (1 / 2 : ℝ) * qC * qC ^ ((-1 / 2 - 4 : ℝ))) *
+        (qN ^ (3 : ℝ) * qN ^ ((-1 - 3 * 4 : ℝ))) *
+          (qS * qS ^ (-4 : ℝ)) * qR ^ (-12 : ℝ) := by
+    rw [← Real.rpow_natCast qN 3]
+    ring
+  calc
+    _ ≤ qC ^ (1 / 2 : ℝ) * 1 * (qS * (qC * qN ^ 3)) *
+        qC ^ ((-1 / 2 - 4 : ℝ)) * qN ^ ((-1 - 3 * 4 : ℝ)) *
+          qS ^ (-4 : ℝ) * qR ^ (-12 : ℝ) := hmajor
+    _ = qC ^ (-3 : ℝ) * qN ^ (-10 : ℝ) * qS ^ (-3 : ℝ) * qR ^ (-12 : ℝ) := by
+      rw [hRegroup, hcGroup, hnGroup, hsGroup]
+    _ = qI p.1.1 ^ (-3 : ℝ) * qI p.2.1.1 ^ (-10 : ℝ) *
+        qI p.2.2.1.1 ^ (-3 : ℝ) * qI p.2.2.2.1 ^ (-12 : ℝ) := by
+      simp [qC, qN, qS, qR]
+
+private theorem po_real_summable_product {α β : Type*} (f : α → ℝ) (g : β → ℝ)
+    (hf : Summable f) (hg : Summable g)
+    (hf0 : ∀ x, 0 ≤ f x) (hg0 : ∀ y, 0 ≤ g y) :
+    Summable (fun p : α × β => f p.1 * g p.2) := by
+  apply (summable_prod_of_nonneg (fun p : α × β => mul_nonneg (hf0 p.1) (hg0 p.2))).2
+  constructor
+  · intro x
+    exact hg.mul_left (f x)
+  · have hpoint : (fun x : α => ∑' y : β, f x * g y) =
+        fun x => f x * ∑' y, g y := by
+      funext x
+      exact hg.tsum_mul_left (f x)
+    rw [hpoint]
+    exact hf.mul_right (∑' y, g y)
+
+private theorem po_real_summable_product4
+    {α β γ δ : Type*} (f : α → ℝ) (g : β → ℝ) (h : γ → ℝ) (k : δ → ℝ)
+    (hf : Summable f) (hg : Summable g) (hh : Summable h) (hk : Summable k)
+    (hf0 : ∀ x, 0 ≤ f x) (hg0 : ∀ x, 0 ≤ g x)
+    (hh0 : ∀ x, 0 ≤ h x) (hk0 : ∀ x, 0 ≤ k x) :
+    Summable (fun p : α × β × γ × δ =>
+      f p.1 * g p.2.1 * h p.2.2.1 * k p.2.2.2) := by
+  have hhk := po_real_summable_product h k hh hk hh0 hk0
+  have hghk := po_real_summable_product g (fun p : γ × δ => h p.1 * k p.2)
+    hg hhk hg0 (fun p => mul_nonneg (hh0 p.1) (hk0 p.2))
+  have hfghk := po_real_summable_product f
+    (fun p : β × γ × δ => g p.1 * (h p.2.1 * k p.2.2))
+    hf hghk hf0 (fun p => mul_nonneg (hg0 p.1)
+      (mul_nonneg (hh0 p.2.1) (hk0 p.2.2)))
+  refine hfghk.congr ?_
+  intro p
+  ring
+
+private theorem po_ext_ideal_rpow_summable (s : ℝ) (hs : 1 < s) :
+    Summable (fun I : S.ExtIdeal => qI I.1 ^ (-s)) := by
+  simpa [qI, idealNorm] using a2_bridge_COUNT_summable S s hs
+
+private theorem po_sqf_ideal_rpow_summable
+    (R0 : ReflectionSetup D S H Bd A ϑ bc μ v0) (s : ℝ) (hs : 1 < s) :
+    Summable (fun c : S.SqfExtIdeal => qI c.1 ^ (-s)) := by
+  have hExt := po_ext_ideal_rpow_summable (S := S) s hs
+  let e : S.SqfExtIdeal → S.ExtIdeal := R0.exterior.ofSqf
+  have he : Function.Injective e := by
+    intro c d h
+    apply Subtype.ext
+    have hval := congrArg Subtype.val h
+    simpa [e, R0.exterior.ofSqf_val] using hval
+  have h := hExt.comp_injective he
+  change Summable (fun c : S.SqfExtIdeal => qI (e c).1 ^ (-s)) at h
+  simpa [e, qI, R0.exterior.ofSqf_val] using h
+
+private def po_frequencyShell (k : ℕ) : Set U.U :=
+  {u | ((2 ^ k : ℕ) : ℝ) ≤ U.q u ∧ U.q u < ((2 ^ (k + 1) : ℕ) : ℝ)}
+
+private theorem po_frequencyShell_partition : ∀ u : U.U, ∃! k : ℕ, u ∈ po_frequencyShell η U k := by
+  intro u
+  have hq := U.q_ge_one u
+  let n : ℕ := Nat.floor (U.q u)
+  have hn : n ≠ 0 := by
+    intro hn
+    have hfloorLt : U.q u < (n + 1 : ℕ) := by
+      exact_mod_cast (Nat.lt_floor_add_one (U.q u))
+    rw [hn] at hfloorLt
+    norm_num at hfloorLt
+    linarith [hq]
+  let k : ℕ := Nat.log 2 n
+  have hloNat : 2 ^ k ≤ n := Nat.pow_log_le_self 2 hn
+  have hhiNat : n < 2 ^ (k + 1) := by
+    simpa [k, Nat.succ_eq_add_one] using
+      Nat.lt_pow_succ_log_self (by norm_num : 1 < 2) n
+  have hlo : ((2 ^ k : ℕ) : ℝ) ≤ U.q u := by
+    calc
+      _ ≤ (n : ℝ) := by exact_mod_cast hloNat
+      _ ≤ U.q u := Nat.floor_le (by linarith)
+  have hfloorLt : U.q u < (n + 1 : ℕ) := by
+    exact_mod_cast (Nat.lt_floor_add_one (U.q u))
+  have hsuccNat : n + 1 ≤ 2 ^ (k + 1) := Nat.succ_le_iff.mpr hhiNat
+  have hhi : U.q u < ((2 ^ (k + 1) : ℕ) : ℝ) := by
+    exact hfloorLt.trans_le (by exact_mod_cast hsuccNat)
+  refine ⟨k, ⟨hlo, hhi⟩, ?_⟩
+  intro j hj
+  by_contra hne
+  rcases lt_or_gt_of_ne hne with hjk | hkj
+  · have hpow : 2 ^ (j + 1) ≤ 2 ^ k :=
+      Nat.pow_le_pow_right (by norm_num : 0 < 2) (Nat.succ_le_iff.mpr hjk)
+    have hpowR : ((2 ^ (j + 1) : ℕ) : ℝ) ≤ ((2 ^ k : ℕ) : ℝ) := by exact_mod_cast hpow
+    linarith [hj.2, hlo]
+  · have hpow : 2 ^ (k + 1) ≤ 2 ^ j :=
+      Nat.pow_le_pow_right (by norm_num : 0 < 2) (Nat.succ_le_iff.mpr hkj)
+    have hpowR : ((2 ^ (k + 1) : ℕ) : ℝ) ≤ ((2 ^ j : ℕ) : ℝ) := by exact_mod_cast hpow
+    linarith [hj.1, hhi]
+
+private theorem po_frequency_q_inv_sq_summable :
+    Summable (fun u : U.U => U.q u ^ (-2 : ℝ)) := by
+  classical
+  obtain ⟨Cdyad, hCdyad, hdyad⟩ := U.dyadic_count
+  obtain ⟨Clow, hClow, hlowFinite, hlowBound⟩ := U.low_shell_bound
+  let C : ℝ := max Cdyad Clow
+  have hC : 0 < C := lt_of_lt_of_le hCdyad (le_max_left _ _)
+  have hShellFinite (k : ℕ) : (po_frequencyShell η U k).Finite := by
+    by_cases hk : k = 0
+    · subst k
+      apply hlowFinite.subset
+      intro u hu
+      constructor
+      · simpa using hu.1
+      · exact lt_trans hu.2 (by norm_num)
+    · have hkpos : 1 ≤ k := Nat.one_le_iff_ne_zero.mpr hk
+      have hX : 2 ≤ ((2 ^ k : ℕ) : ℝ) := by
+        have : 2 ≤ 2 ^ k := Nat.pow_le_pow_right (by norm_num : 0 < 2) hkpos
+        exact_mod_cast this
+      obtain ⟨hfin, _⟩ := hdyad ((2 ^ k : ℕ) : ℝ) hX
+      refine hfin.subset ?_
+      intro u hu
+      exact ⟨hu.1, hu.2.trans_eq (by
+        rw [pow_succ]
+        push_cast
+        ring)⟩
+  have hCount (k : ℕ) :
+      (po_frequencyShell η U k).ncard ≤ C * ((2 ^ k : ℕ) : ℝ) := by
+    by_cases hk : k = 0
+    · subst k
+      have hsub : po_frequencyShell η U 0 ⊆ {u | 1 ≤ U.q u ∧ U.q u < 4} := by
+        intro u hu
+        exact ⟨by simpa using hu.1, lt_trans hu.2 (by norm_num)⟩
+      have hcard := Set.ncard_le_ncard hsub hlowFinite
+      calc
+        (po_frequencyShell η U 0).ncard ≤ ({u | 1 ≤ U.q u ∧ U.q u < 4}.ncard : ℝ) := by
+          exact_mod_cast hcard
+        _ ≤ Clow := hlowBound
+        _ ≤ C := le_max_right _ _
+        _ = C * ((2 ^ 0 : ℕ) : ℝ) := by simp [C]
+    · have hkpos : 1 ≤ k := Nat.one_le_iff_ne_zero.mpr hk
+      have hX : 2 ≤ ((2 ^ k : ℕ) : ℝ) := by
+        have : 2 ≤ 2 ^ k := Nat.pow_le_pow_right (by norm_num : 0 < 2) hkpos
+        exact_mod_cast this
+      obtain ⟨hfin, hbound⟩ := hdyad ((2 ^ k : ℕ) : ℝ) hX
+      have hsub : po_frequencyShell η U k ⊆ {u | ((2 ^ k : ℕ) : ℝ) ≤ U.q u ∧
+          U.q u < 2 * ((2 ^ k : ℕ) : ℝ)} := by
+        intro u hu
+        exact ⟨hu.1, hu.2.trans_eq (by
+          rw [pow_succ]
+          push_cast
+          ring)⟩
+      have hcard := Set.ncard_le_ncard hsub hfin
+      calc
+        (po_frequencyShell η U k).ncard ≤
+            ({u | ((2 ^ k : ℕ) : ℝ) ≤ U.q u ∧ U.q u < 2 * ((2 ^ k : ℕ) : ℝ)}.ncard : ℝ) := by
+          exact_mod_cast hcard
+        _ ≤ Cdyad * ((2 ^ k : ℕ) : ℝ) := hbound
+        _ ≤ C * ((2 ^ k : ℕ) : ℝ) := by
+          dsimp [C]
+          gcongr
+          exact le_max_left _ _
+  have hInner (k : ℕ) :
+      Summable (fun u : po_frequencyShell η U k => U.q u.1 ^ (-2 : ℝ)) := by
+    letI := (hShellFinite k).fintype
+    exact Summable.of_finite
+  have hMass (k : ℕ) :
+      (∑' u : po_frequencyShell η U k, U.q u.1 ^ (-2 : ℝ)) ≤
+        C * (1 / 2 : ℝ) ^ k := by
+    let X : ℝ := ((2 ^ k : ℕ) : ℝ)
+    have hX : 0 < X := by positivity
+    have hterm (u : po_frequencyShell η U k) : U.q u.1 ^ (-2 : ℝ) ≤ X ^ (-2 : ℝ) :=
+      Real.rpow_le_rpow_of_nonpos hX (by simpa [X] using u.2.1) (by norm_num)
+    letI := (hShellFinite k).fintype
+    calc
+      _ ≤ ∑' u : po_frequencyShell η U k, X ^ (-2 : ℝ) :=
+        (hInner k).tsum_le_tsum (fun u => hterm u) (by
+          letI := (hShellFinite k).fintype
+          exact Summable.of_finite)
+      _ = (Fintype.card (po_frequencyShell η U k) : ℝ) * X ^ (-2 : ℝ) := by simp
+      _ = ((po_frequencyShell η U k).ncard : ℝ) * X ^ (-2 : ℝ) := by simp
+      _ ≤ (C * X) * X ^ (-2 : ℝ) := by
+        gcongr
+        exact hCount k
+      _ = C * (1 / 2 : ℝ) ^ k := by
+        have hXcast : X = (2 : ℝ) ^ k := by
+          dsimp [X]
+          norm_cast
+        rw [hXcast, Real.rpow_neg (by positivity : 0 ≤ (2 : ℝ) ^ k) 2,
+          Real.rpow_two]
+        simp only [one_div_pow, one_pow]
+        field_simp
+  have hOuter : Summable (fun k : ℕ => ∑' u : po_frequencyShell η U k, U.q u.1 ^ (-2 : ℝ)) := by
+    have hgeom : Summable (fun k : ℕ => C * (1 / 2 : ℝ) ^ k) :=
+      (summable_geometric_of_lt_one (by norm_num : (0 : ℝ) ≤ 1 / 2)
+        (by norm_num : (1 / 2 : ℝ) < 1)).mul_left C
+    refine Summable.of_nonneg_of_le (fun k => tsum_nonneg fun u => ?_) hMass hgeom
+    exact Real.rpow_nonneg (U.q_pos u.1).le _
+  have hpart : ∀ u : U.U, ∃! k : ℕ, u ∈ po_frequencyShell η U k :=
+    po_frequencyShell_partition η U
+  have hf0 : ∀ u : U.U, 0 ≤ U.q u ^ (-2 : ℝ) :=
+    fun u => Real.rpow_nonneg (U.q_pos u).le _
+  exact (summable_partition hf0 hpart).2 ⟨hInner, hOuter⟩
+
+private theorem po_frequency_type_countable : Countable U.U := by
+  classical
+  obtain ⟨_, _, hdyad⟩ := U.dyadic_count
+  obtain ⟨_, _, hlowFinite, _⟩ := U.low_shell_bound
+  have hShellFinite (k : ℕ) : (po_frequencyShell η U k).Finite := by
+    by_cases hk : k = 0
+    · subst k
+      apply hlowFinite.subset
+      intro u hu
+      constructor
+      · simpa using hu.1
+      · exact lt_trans hu.2 (by norm_num)
+    · have hkpos : 1 ≤ k := Nat.one_le_iff_ne_zero.mpr hk
+      have hX : 2 ≤ ((2 ^ k : ℕ) : ℝ) := by
+        have hn : 2 ≤ 2 ^ k := Nat.pow_le_pow_right (by norm_num : 0 < 2) hkpos
+        exact_mod_cast hn
+      obtain ⟨hfin, _⟩ := hdyad ((2 ^ k : ℕ) : ℝ) hX
+      apply hfin.subset
+      intro u hu
+      refine ⟨hu.1, hu.2.trans_eq ?_⟩
+      rw [pow_succ]
+      push_cast
+      ring
+  have hcover : (Set.univ : Set U.U) = ⋃ k : ℕ, po_frequencyShell η U k := by
+    ext u
+    simp only [Set.mem_univ, true_iff, Set.mem_iUnion]
+    obtain ⟨k, hk, _⟩ := po_frequencyShell_partition η U u
+    exact ⟨k, hk⟩
+  apply Set.countable_univ_iff.mp
+  rw [hcover]
+  exact Set.countable_iUnion (fun k => (hShellFinite k).countable)
+
+private theorem po_calFTerm_abs_summable (u : U.U) (ξ w z : ℂ)
+    (hξ : ξ.re = 4) (hw : w.re = 4) (hz : z.re = 2) :
+    Summable (fun p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal =>
+      ‖calFTerm R η U u ξ w z p‖) := by
+  let fC : S.SqfExtIdeal → ℝ := fun c => qI c.1 ^ (-3 : ℝ)
+  let fN : S.ExtIdeal → ℝ := fun n => qI n.1 ^ (-10 : ℝ)
+  let fS : S.ExtIdeal → ℝ := fun s => qI s.1 ^ (-3 : ℝ)
+  let fR : S.ExtIdeal → ℝ := fun r => qI r.1 ^ (-12 : ℝ)
+  have hC := po_sqf_ideal_rpow_summable R 3 (by norm_num)
+  have hN := po_ext_ideal_rpow_summable (S := S) 10 (by norm_num)
+  have hS := po_ext_ideal_rpow_summable (S := S) 3 (by norm_num)
+  have hR := po_ext_ideal_rpow_summable (S := S) 12 (by norm_num)
+  have hProd := po_real_summable_product4 fC fN fS fR hC hN hS hR
+    (fun c => Real.rpow_nonneg (po_qI_sqf_pos (S := S) c).le _)
+    (fun n => Real.rpow_nonneg (po_qI_ext_pos (S := S) n).le _)
+    (fun s => Real.rpow_nonneg (po_qI_ext_pos (S := S) s).le _)
+    (fun r => Real.rpow_nonneg (po_qI_ext_pos (S := S) r).le _)
+  refine hProd.of_norm_bounded_eventually ?_
+  exact Filter.Eventually.of_forall fun p => by
+    simpa [fC, fN, fS, fR] using po_calFTerm_norm_bound R η U u ξ w z hξ hw hz p
+
+private theorem po_calF_frequency_summable (ξ w z : ℂ)
+    (hξ : ξ.re = 4) (hw : w.re = 4) (hz : z.re = 2) :
+    Summable (fun u : U.U => ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖) ∧
+      (∑' u : U.U, ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖) ≤
+        (∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+          qI p.1.1 ^ (-3 : ℝ) * qI p.2.1.1 ^ (-10 : ℝ) *
+            qI p.2.2.1.1 ^ (-3 : ℝ) * qI p.2.2.2.1 ^ (-12 : ℝ)) *
+          ∑' u : U.U, U.q u ^ (-2 : ℝ) := by
+  let fC : S.SqfExtIdeal → ℝ := fun c => qI c.1 ^ (-3 : ℝ)
+  let fN : S.ExtIdeal → ℝ := fun n => qI n.1 ^ (-10 : ℝ)
+  let fS : S.ExtIdeal → ℝ := fun s => qI s.1 ^ (-3 : ℝ)
+  let fR : S.ExtIdeal → ℝ := fun r => qI r.1 ^ (-12 : ℝ)
+  have hC := po_sqf_ideal_rpow_summable R 3 (by norm_num)
+  have hN := po_ext_ideal_rpow_summable (S := S) 10 (by norm_num)
+  have hS := po_ext_ideal_rpow_summable (S := S) 3 (by norm_num)
+  have hR := po_ext_ideal_rpow_summable (S := S) 12 (by norm_num)
+  have hfC0 : ∀ c, 0 ≤ fC c := fun c => Real.rpow_nonneg (po_qI_sqf_pos (S := S) c).le _
+  have hfN0 : ∀ n, 0 ≤ fN n := fun n => Real.rpow_nonneg (po_qI_ext_pos (S := S) n).le _
+  have hfS0 : ∀ s, 0 ≤ fS s := fun s => Real.rpow_nonneg (po_qI_ext_pos (S := S) s).le _
+  have hfR0 : ∀ r, 0 ≤ fR r := fun r => Real.rpow_nonneg (po_qI_ext_pos (S := S) r).le _
+  have hProd := po_real_summable_product4 fC fN fS fR hC hN hS hR
+    hfC0 hfN0 hfS0 hfR0
+  let C0 : ℝ := ∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+    fC p.1 * fN p.2.1 * fS p.2.2.1 * fR p.2.2.2
+  have hC0 : 0 ≤ C0 := by
+    dsimp [C0]
+    apply tsum_nonneg
+    intro p
+    exact mul_nonneg (mul_nonneg (mul_nonneg (hfC0 p.1) (hfN0 p.2.1))
+      (hfS0 p.2.2.1)) (hfR0 p.2.2.2)
+  have hmajor (u : U.U) (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) :
+      ‖calFTerm R η U u ξ w z p‖ ≤
+        fC p.1 * fN p.2.1 * fS p.2.2.1 * fR p.2.2.2 := by
+    simpa [fC, fN, fS, fR] using po_calFTerm_norm_bound R η U u ξ w z hξ hw hz p
+  have hcalF (u : U.U) : ‖calF R η U u ξ w z‖ ≤ C0 := by
+    have hrow := po_calFTerm_abs_summable R η U u ξ w z hξ hw hz
+    calc
+      _ = ‖∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+          calFTerm R η U u ξ w z p‖ := rfl
+      _ ≤ ∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+          ‖calFTerm R η U u ξ w z p‖ :=
+        norm_tsum_le_tsum_norm hrow
+      _ ≤ C0 := by
+        dsimp [C0]
+        exact hrow.tsum_le_tsum (hmajor u) hProd
+  have hpoint (u : U.U) :
+      ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖ ≤ C0 * U.q u ^ (-2 : ℝ) := by
+    have hcpow : ‖(U.q u : ℂ) ^ (-z)‖ = U.q u ^ (-2 : ℝ) := by
+      rw [Complex.norm_cpow_eq_rpow_re_of_pos (U.q_pos u)]
+      simp [hz]
+    calc
+      _ = U.q u ^ (-2 : ℝ) * ‖calF R η U u ξ w z‖ := by rw [norm_mul, hcpow]
+      _ ≤ U.q u ^ (-2 : ℝ) * C0 :=
+        mul_le_mul_of_nonneg_left (hcalF u) (Real.rpow_nonneg (U.q_pos u).le _)
+      _ = C0 * U.q u ^ (-2 : ℝ) := by ring
+  have hmajorSummable : Summable (fun u : U.U => C0 * U.q u ^ (-2 : ℝ)) :=
+    (po_frequency_q_inv_sq_summable η U).mul_left C0
+  have hfreq := po_frequency_q_inv_sq_summable η U
+  have hsum : Summable (fun u : U.U =>
+      ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖) :=
+    Summable.of_nonneg_of_le (fun u => norm_nonneg _) hpoint hmajorSummable
+  refine ⟨hsum, ?_⟩
+  calc
+    _ ≤ ∑' u : U.U, C0 * U.q u ^ (-2 : ℝ) := hsum.tsum_le_tsum hpoint hmajorSummable
+    _ = C0 * ∑' u : U.U, U.q u ^ (-2 : ℝ) := hfreq.tsum_mul_left C0
+    _ = _ := by simp [C0, fC, fN, fS, fR]
+
+private theorem po_gaussian_shear_majorant_integrable (C : ℝ) :
+    Integrable (fun t : ℝ × ℝ × ℝ => C * Real.exp (-(t.1 + t.2.2) ^ 2) *
+      (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ)) volume := by
+  let tail : ℝ → ℝ := fun x => (1 + |x|) ^ (-2 : ℝ)
+  let gauss : ℝ → ℝ := fun x => Real.exp (-x ^ 2)
+  have htail : Integrable tail volume := by
+    simpa [tail, Real.norm_eq_abs] using
+      (integrable_one_add_norm (E := ℝ) (μ := volume)
+        (by norm_num : (Module.finrank ℝ ℝ : ℝ) < 2))
+  have hgauss : Integrable gauss volume := by
+    simpa [gauss] using
+      (integrable_exp_neg_mul_sq (b := 1) (by norm_num : (0 : ℝ) < 1))
+  let E := ℝ × ℝ × ℝ
+  let μ : Measure E := volume
+  let f : Module.Dual ℝ E :=
+    (LinearMap.snd ℝ ℝ ℝ).comp (LinearMap.snd ℝ ℝ (ℝ × ℝ))
+  let v : E := (1, (0, 0))
+  have hfv : f v = 0 := by rfl
+  let L : E ≃ₗ[ℝ] E := LinearEquiv.transvection hfv
+  letI : BorelSpace E := by infer_instance
+  letI : Measure.IsAddHaarMeasure (volume : Measure ℝ) := by infer_instance
+  letI : Measure.IsAddHaarMeasure (volume : Measure (ℝ × ℝ)) := by
+    rw [Measure.volume_eq_prod ℝ ℝ]
+    infer_instance
+  have hdetUnit : LinearEquiv.det L = 1 := by
+    simp [L, LinearEquiv.transvection.det_eq_one]
+  have hdet : LinearMap.det L.toLinearMap = 1 := by
+    rw [← LinearEquiv.coe_det]
+    exact congrArg (fun u : ℝˣ => (u : ℝ)) hdetUnit
+  have hdet0 : LinearMap.det L.toLinearMap ≠ 0 := by
+    rw [hdet]
+    norm_num
+  letI : Measure.IsAddHaarMeasure μ := by
+    dsimp [μ, E]
+    rw [Measure.volume_eq_prod ℝ (ℝ × ℝ)]
+    infer_instance
+  have hmap : Measure.map L.toLinearMap μ = μ := by
+    rw [MeasureTheory.Measure.map_linearMap_addHaar_eq_smul_addHaar
+      (μ := μ) (f := L.toLinearMap) hdet0]
+    simp [hdet]
+  have hL_apply (t : E) : L t = (t.1 + t.2.2, t.2) := by
+    rw [LinearEquiv.transvection.apply hfv t]
+    change t + t.2.2 • (1, (0, 0)) = (t.1 + t.2.2, t.2)
+    apply Prod.ext
+    · change t.1 + t.2.2 • (1 : ℝ) = _
+      simp
+    · apply Prod.ext
+      · change t.2.1 + t.2.2 • (0 : ℝ) = _
+        simp
+      · change t.2.2 + t.2.2 • (0 : ℝ) = _
+        simp
+  have hLfun : (fun t : E => L t) = fun t => (t.1 + t.2.2, t.2) :=
+    funext hL_apply
+  have hLmeas : Measurable L.toLinearMap := by
+    change Measurable (fun t : E => L t)
+    rw [hLfun]
+    fun_prop
+  have hMP : MeasurePreserving L.toLinearMap μ μ := ⟨hLmeas, hmap⟩
+  have hbaseProd : Integrable (fun t : E => gauss t.1 * (tail t.2.1 * tail t.2.2))
+      (volume.prod (volume.prod volume)) :=
+    hgauss.mul_prod (htail.mul_prod htail)
+  have hbase : Integrable (fun t : E => gauss t.1 * (tail t.2.1 * tail t.2.2)) μ := by
+    dsimp [μ, E]
+    rw [Measure.volume_eq_prod ℝ (ℝ × ℝ), Measure.volume_eq_prod ℝ ℝ]
+    exact hbaseProd
+  have hshear : Integrable (fun t : E =>
+      gauss (t.1 + t.2.2) * (tail t.2.1 * tail t.2.2)) μ := by
+    have hcomp := hMP.integrable_comp_of_integrable hbase
+    convert hcomp using 1
+    ext t
+    simp [Function.comp_apply, hL_apply, gauss, tail]
+  simpa [gauss, tail, mul_assoc, mul_left_comm, mul_comm] using hshear.const_mul C
+
+private theorem po_ideal_countable : Countable (Ideal (𝓞 F)) := by
+  have hcover : (Set.univ : Set (Ideal (𝓞 F))) =
+      ⋃ n : ℕ, {I | Ideal.absNorm I ≤ n} := by
+    ext I
+    simp only [Set.mem_univ, Set.mem_iUnion, Set.mem_setOf_eq, true_iff]
+    exact ⟨Ideal.absNorm I, le_rfl⟩
+  have hcount : (Set.univ : Set (Ideal (𝓞 F))).Countable := by
+    rw [hcover]
+    exact Set.countable_iUnion (fun n => (Ideal.finite_setOfPred_absNorm_le n).countable)
+  exact Set.countable_univ_iff.mp hcount
+
+private theorem po_mellin_triple_integrable (hdecay : WeightDecay R sd W)
+    (X Y Z : ℝ) (hX : 0 < X) (hY : 0 < Y) (hZ : 0 < Z) :
+    Integrable (fun t : ℝ × ℝ × ℝ =>
+      mellinWeight R sd W X Y Z (4 + t.1 * Complex.I)
+        (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) *
+        ∑' u : U.U, (U.q u : ℂ) ^ (-(2 + t.2.2 * Complex.I)) *
+          calF R η U u (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I)
+            (2 + t.2.2 * Complex.I)) volume := by
+  classical
+  let ξ : ℝ × ℝ × ℝ → ℂ := fun t => 4 + t.1 * Complex.I
+  let w : ℝ × ℝ × ℝ → ℂ := fun t => 4 + t.2.1 * Complex.I
+  let z : ℝ × ℝ × ℝ → ℂ := fun t => 2 + t.2.2 * Complex.I
+  rcases hdecay with ⟨hDM, hDW, hMDecay, hWDecay, _⟩
+  obtain ⟨CM, hCM, hMbound⟩ := hMDecay 2 2 2 (by norm_num) (by norm_num) (by norm_num)
+  obtain ⟨CW, hCW, hWbound⟩ := hWDecay 4 4 2 le_rfl (by norm_num)
+  let B : ℝ :=
+    (∑' p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal,
+      qI p.1.1 ^ (-3 : ℝ) * qI p.2.1.1 ^ (-10 : ℝ) *
+        qI p.2.2.1.1 ^ (-3 : ℝ) * qI p.2.2.2.1 ^ (-12 : ℝ)) *
+      ∑' u : U.U, U.q u ^ (-2 : ℝ)
+  have hB0 : 0 ≤ B := by
+    apply mul_nonneg
+    · apply tsum_nonneg
+      intro p
+      have hC : 0 ≤ qI p.1.1 ^ (-3 : ℝ) :=
+        Real.rpow_nonneg (po_ideal_norm_pos p.1.1 p.1.2.1.1).le _
+      have hN : 0 ≤ qI p.2.1.1 ^ (-10 : ℝ) :=
+        Real.rpow_nonneg (po_ideal_norm_pos p.2.1.1 p.2.1.2.1).le _
+      have hS : 0 ≤ qI p.2.2.1.1 ^ (-3 : ℝ) :=
+        Real.rpow_nonneg (po_ideal_norm_pos p.2.2.1.1 p.2.2.1.2.1).le _
+      have hR : 0 ≤ qI p.2.2.2.1 ^ (-12 : ℝ) :=
+        Real.rpow_nonneg (po_ideal_norm_pos p.2.2.2.1 p.2.2.2.2.1).le _
+      exact mul_nonneg (mul_nonneg (mul_nonneg hC hN) hS) hR
+    · apply tsum_nonneg
+      intro u
+      exact Real.rpow_nonneg (U.q_pos u).le _
+  have hξre (t : ℝ × ℝ × ℝ) : (ξ t).re = 4 := by simp [ξ]
+  have hwre (t : ℝ × ℝ × ℝ) : (w t).re = 4 := by simp [w]
+  have hzre (t : ℝ × ℝ × ℝ) : (z t).re = 2 := by simp [z]
+  have hMline : Continuous (fun t : ℝ × ℝ × ℝ => weightM R sd W (z t)) := by
+    apply continuousOn_univ.mp
+    apply hDM.continuousOn.comp
+    · fun_prop
+    · intro t ht
+      simp [z]
+  have hWline : Continuous (fun t : ℝ × ℝ × ℝ => weightW1hat W (w t)) := by
+    exact hDW.continuous.comp (by fun_prop)
+  letI : Countable (Ideal (𝓞 F)) := po_ideal_countable
+  letI : Countable S.ExtIdeal :=
+    Function.Injective.countable (f := fun I : S.ExtIdeal => I.1)
+      Subtype.val_injective
+  letI : Countable S.SqfExtIdeal :=
+    Function.Injective.countable (f := fun I : S.SqfExtIdeal => I.1)
+      Subtype.val_injective
+  have hWeightMeas : Measurable (fun t : ℝ × ℝ × ℝ =>
+      mellinWeight R sd W X Y Z (ξ t) (w t) (z t)) := by
+    have hXpart : Measurable (fun t : ℝ × ℝ × ℝ => (X : ℂ) ^ ((1 / 2 : ℂ) - z t)) := by
+      fun_prop (disch := positivity)
+    have hZpart : Measurable (fun t : ℝ × ℝ × ℝ => (Z : ℂ) ^ (ξ t + z t - 1)) := by
+      fun_prop (disch := positivity)
+    have hYpart : Measurable (fun t : ℝ × ℝ × ℝ => (Y : ℂ) ^ (w t - 1)) := by
+      fun_prop (disch := positivity)
+    have hExppart : Measurable (fun t : ℝ × ℝ × ℝ =>
+        Complex.exp ((ξ t + z t - 1) ^ 2)) := by fun_prop
+    unfold mellinWeight
+    exact (((((hXpart.mul hZpart).mul hYpart).mul hExppart).mul hMline.measurable).mul
+      hWline.measurable)
+  letI : Countable (Ideal (𝓞 F)) := po_ideal_countable
+  letI : Countable (S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) := inferInstance
+  letI : Countable U.U := po_frequency_type_countable η U
+  have hcalFTermMeas (u : U.U) (p : S.SqfExtIdeal × S.ExtIdeal × S.ExtIdeal × S.ExtIdeal) :
+      Measurable (fun t : ℝ × ℝ × ℝ => calFTerm R η U u (ξ t) (w t) (z t) p) := by
+    dsimp [calFTerm]
+    fun_prop (disch := positivity)
+  have hcalFMeas (u : U.U) :
+      Measurable (fun t : ℝ × ℝ × ℝ => calF R η U u (ξ t) (w t) (z t)) := by
+    unfold calF
+    apply Measurable.tsum
+    intro p
+    exact hcalFTermMeas u p
+  have hqPowMeas (u : U.U) :
+      Measurable (fun t : ℝ × ℝ × ℝ => (U.q u : ℂ) ^ (-z t)) := by
+    fun_prop (disch := positivity)
+  have hseriesMeas : Measurable (fun t : ℝ × ℝ × ℝ =>
+      ∑' u : U.U, (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)) := by
+    apply Measurable.tsum
+    intro u
+    exact (hqPowMeas u).mul (hcalFMeas u)
+  have hMpow (t : ℝ × ℝ × ℝ) :
+      ‖(X : ℂ) ^ ((1 / 2 : ℂ) - z t)‖ = X ^ (-(3 / 2 : ℝ)) := by
+    have hre : ((1 / 2 : ℂ) - z t).re = -(3 / 2 : ℝ) := by
+      simp [z]
+      norm_num
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hX, hre]
+  have hZpow (t : ℝ × ℝ × ℝ) :
+      ‖(Z : ℂ) ^ (ξ t + z t - 1)‖ = Z ^ (5 : ℝ) := by
+    have hre : (ξ t + z t - 1).re = 5 := by
+      simp [ξ, z]
+      norm_num
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hZ, hre]
+  have hYpow (t : ℝ × ℝ × ℝ) :
+      ‖(Y : ℂ) ^ (w t - 1)‖ = Y ^ (3 : ℝ) := by
+    have hre : (w t - 1).re = 3 := by
+      simp [w]
+      norm_num
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos hY, hre]
+  have hExp (t : ℝ × ℝ × ℝ) :
+      ‖Complex.exp ((ξ t + z t - 1) ^ 2)‖ =
+        Real.exp (25 - (t.1 + t.2.2) ^ 2) := by
+    rw [Complex.norm_exp]
+    have harg : ξ t + z t - 1 = (5 : ℂ) + ((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I := by
+      simp [ξ, z]
+      ring
+    rw [harg]
+    have hsq : ((5 : ℂ) + ((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I) ^ 2 =
+        ((25 - (t.1 + t.2.2) ^ 2 : ℝ) : ℂ) +
+          ((10 * (t.1 + t.2.2) : ℝ) : ℂ) * Complex.I := by
+      calc
+        _ = 25 + 10 * ((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I +
+            (((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I) ^ 2 := by ring
+        _ = 25 + 10 * ((t.1 + t.2.2 : ℝ) : ℂ) * Complex.I +
+            ((t.1 + t.2.2 : ℝ) : ℂ) ^ 2 * Complex.I ^ 2 := by rw [mul_pow]
+        _ = _ := by rw [Complex.I_sq]; push_cast; ring
+    rw [hsq]
+    simp
+    norm_cast
+  have hMdecay (t : ℝ × ℝ × ℝ) :
+      ‖weightM R sd W (z t)‖ ≤ CM * (1 + |t.2.2|) ^ (-2 : ℝ) := by
+    simpa [z] using hMbound 2 t.2.2 (by norm_num) (by norm_num)
+  have hWdecay (t : ℝ × ℝ × ℝ) :
+      ‖weightW1hat W (w t)‖ ≤ CW * (1 + |t.2.1|) ^ (-2 : ℝ) := by
+    simpa [w] using hWbound 4 t.2.1 (by norm_num) (by norm_num)
+  let A0 : ℝ := X ^ (-(3 / 2 : ℝ)) * Z ^ (5 : ℝ) * Y ^ (3 : ℝ) *
+    Real.exp 25 * CM * CW
+  have hA0 : 0 ≤ A0 := by positivity
+  have hWeightBound (t : ℝ × ℝ × ℝ) :
+      ‖mellinWeight R sd W X Y Z (ξ t) (w t) (z t)‖ ≤
+        A0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+          (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ) := by
+    have hexp : Real.exp (25 - (t.1 + t.2.2) ^ 2) =
+        Real.exp 25 * Real.exp (-(t.1 + t.2.2) ^ 2) := by
+      rw [show 25 - (t.1 + t.2.2) ^ 2 = 25 + (-(t.1 + t.2.2) ^ 2) by ring,
+        Real.exp_add]
+    simp only [mellinWeight, norm_mul, hMpow t, hZpow t, hYpow t, hExp t]
+    calc
+      _ ≤ X ^ (-(3 / 2 : ℝ)) * Z ^ (5 : ℝ) * Y ^ (3 : ℝ) *
+          (Real.exp 25 * Real.exp (-(t.1 + t.2.2) ^ 2)) *
+            (CM * (1 + |t.2.2|) ^ (-2 : ℝ)) * (CW * (1 + |t.2.1|) ^ (-2 : ℝ)) := by
+        rw [hexp]
+        gcongr
+        exact hMdecay t
+        exact hWdecay t
+      _ = A0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+            (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ) := by
+        dsimp [A0]
+        ring
+  let C0 : ℝ := A0 * B
+  have hC00 : 0 ≤ C0 := mul_nonneg hA0 hB0
+  have hbound (t : ℝ × ℝ × ℝ) :
+      ‖mellinWeight R sd W X Y Z (ξ t) (w t) (z t) *
+          ∑' u : U.U, (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)‖ ≤
+        C0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+          (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ) := by
+    have hsum := po_calF_frequency_summable R η U (ξ t) (w t) (z t)
+      (hξre t) (hwre t) (hzre t)
+    have hseries : Summable (fun u : U.U =>
+        (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)) := hsum.1.of_norm
+    have hseriesNorm : ‖∑' u : U.U,
+        (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)‖ ≤ B := by
+      calc
+        _ ≤ ∑' u : U.U, ‖(U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)‖ :=
+          norm_tsum_le_tsum_norm hsum.1
+        _ ≤ B := by simpa [B] using hsum.2
+    rw [norm_mul]
+    have hmajorNonneg : 0 ≤ A0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+        (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ) := by positivity
+    calc
+      _ ≤ (A0 * Real.exp (-(t.1 + t.2.2) ^ 2) *
+          (1 + |t.2.2|) ^ (-2 : ℝ) * (1 + |t.2.1|) ^ (-2 : ℝ)) * B :=
+        mul_le_mul (hWeightBound t) hseriesNorm (norm_nonneg _) hmajorNonneg
+      _ = _ := by dsimp [C0]; ring
+  have hmajor := po_gaussian_shear_majorant_integrable C0
+  have htargetMeas : Measurable (fun t : ℝ × ℝ × ℝ =>
+      mellinWeight R sd W X Y Z (ξ t) (w t) (z t) *
+        ∑' u : U.U, (U.q u : ℂ) ^ (-z t) * calF R η U u (ξ t) (w t) (z t)) :=
+    hWeightMeas.mul hseriesMeas
+  apply Integrable.mono' hmajor htargetMeas.aestronglyMeasurable
+  filter_upwards with t
+  simpa [C0, ξ, w, z] using hbound t
+
+/-- po:mellin-triple, 05:353–389. `Summable` prevents interpreting a divergent total tsum as 0. -/
+theorem po_mellin_triple : WeightSpec R sd W → ∀ X Y Z, 0 < X → 0 < Y → 0 < Z →
+  (∀ ξ w z : ℂ, ξ.re = 4 → w.re = 4 → z.re = 2 →
+    (∀ u, Summable (fun p => ‖calFTerm R η U u ξ w z p‖)) ∧
+      Summable (fun u => ‖(U.q u : ℂ) ^ (-z) * calF R η U u ξ w z‖)) ∧
+  Integrable (fun t : ℝ × ℝ × ℝ =>
+    mellinWeight R sd W X Y Z (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I) *
+      ∑' u, (U.q u : ℂ) ^ (-(2 + t.2.2 * Complex.I)) * calF R η U u
+        (4 + t.1 * Complex.I) (4 + t.2.1 * Complex.I) (2 + t.2.2 * Complex.I)) ∧
+  probe R W X Y Z = tripleVertical 4 4 2 (fun ξ w z =>
+    mellinWeight R sd W X Y Z ξ w z * ∑' u, (U.q u : ℂ) ^ (-z) * calF R η U u ξ w z) := by
+  intro hSpec X Y Z hX hY hZ
+  have hdecay : WeightDecay R sd W := (po_weights_exist R sd).2 W
+  refine ⟨?_, ?_, ?_⟩
+  · intro ξ w z hξ hw hz
+    constructor
+    · intro u
+      exact po_calFTerm_abs_summable R η U u ξ w z hξ hw hz
+    · exact (po_calF_frequency_summable R η U ξ w z hξ hw hz).1
+  · exact po_mellin_triple_integrable R sd W η U hdecay X Y Z hX hY hZ
+  · sorry
+
 /-- po:H-local-bounds: C,Q0 chosen before the field, set S, phases, or frequency.
 This is the absolute-cutoff obligation used when choosing S in A1. -/
 theorem po_H_local_bounds_absolute :
@@ -7135,7 +10858,9 @@ theorem po_H_local_bounds_absolute :
     (R' : ReflectionSetup D' S' H' Bd' A' ϑ' bc' μ' v0') (η' : HeckeChar F')
     (U' : FrequencyData S' D' η'),
       EulerHypotheses R' η' → HasPoHLocalBounds R' η' U' C Q0 := by
-  sorry
+  refine ⟨128, (2 : ℝ) ^ (2000 : ℕ), by norm_num, by exact one_lt_pow₀ (by norm_num : (1 : ℝ) < 2) (by decide : (2000 : ℕ) ≠ 0), ?_⟩
+  intro F' instF instNF CE' cond' D' S' H' Bd' A' ϑ' bc' μ' v0' R' η' U' hE
+  exact euler_absolute_local_bounds R' η' U' hE
 /-- po:H-local-bounds, 05:660-729. The numerical Q1 cutoff is fixed independently of arithmetic data. -/
 theorem po_H_cutoff_from_constants (C Q0 : ℝ) : ∃ Q1 : ℕ,
   Q0 < (Q1 : ℝ) ∧ ∀ Q : ℝ, (Q1 : ℝ) < Q → C * Q ^ (-(1 + 1 / 4000 : ℝ)) < 1 / 2 := by

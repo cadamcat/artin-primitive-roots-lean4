@@ -6,6 +6,45 @@ import ArtinPrimitiveRoots.Theta.Reduction
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.square_pairing_nontrivial
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_square_lift
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_square_commutator
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.root_invariant_genuine_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_genuine
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.unitTorus_constant_of_nonzero_fourier_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.totallyComplexMixedEquiv_embedding
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.mem_span_idealArchBasis
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.archimedean_trace_sum
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_pairing
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_ne_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_coordinate_sum
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_fourier_character
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_period
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.unitTorus_lift_of_int_periodic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_normalized_integral
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».ideal_periodic_normalized_integrals_eq
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_fourierCoeff_eq
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_constant_of_nonzero_fourier_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_right_of_scalar_invariant
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».residue_right_infCompact
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».scalar_section_affine
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_automorphic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_ideal_period
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».automorphic_ideal_period
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_arch_invariant_of_nonzero_coeff_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_exterior_upper_invariant_of_arch_invariant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_exterior_lower_invariant_of_upper_invariant
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.exists_exterior_finPlace
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.lagrangian_vector_selector
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.bigCell_normalized_intertwine
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.tame_lagrangian_vector_selector
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.sphWeyl_lam_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.sphC_right_root_smooth
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.spherical_section_param_analytic
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.zero_seed_analyticFamily
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.replace_at_S_bigCell
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.intertwined_scalar_q
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.lam_torus_nonzero_iff_mem_alag
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.rat_intertwined_scalar_nonzero_iff_mem_delta
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.normalized_intertwined_torus_sum_ne_zero
+import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.normalized_bigCell_family
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_descent
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.theta_lambda_whittaker
 import ArtinPrimitiveRoots.Theta.Proofs.TH_RES_WHIT.thetaWhit_section_multilinear
@@ -548,6 +587,518 @@ theorem thetaWhit_equiv {P : CoverPackage D S H A} {G : GlobalDatum P}
         A.ψ v x * fourierFirstCoeff C.fourierData g)
   exact thetaWhit_equiv_assembly Fam.fourierHyp C.fourierData
 
+/-- Equal local intertwiner data gives equal adapted constant torus coefficients. -/
+theorem theta_constantCoeff_eq_of_M {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (C : ContinuedEis Fam) (C' : ContinuedEis Fam') (hT : Fam.T0 = Fam'.T0)
+    (hM : ∀ v ∈ Fam.T0, intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) =
+      intertwine (P.loc v) (μ v) ((Fam'.sec (1 / 6)).f v))
+    (g : P.tc.G) (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (h𝔞 : 𝔞 ≠ 0) (hfix : FourierIdealFix Fam.sec g 𝔞)
+    (hfix' : FourierIdealFix Fam'.sec g 𝔞)
+    (Pd : Set (InfinitePlace F → ℂ))
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume)
+    (hb : Bornology.IsBounded Pd) :
+    torusCoeff P C.theta g Pd 0 = torusCoeff P C'.theta g Pd 0 := by
+  have hMf : famM Fam = famM Fam' := by
+    funext v
+    by_cases hv : v ∈ Fam.T0
+    · have hv' : v ∈ Fam'.T0 := hT ▸ hv
+      simpa only [famM, dite_eq_left hv, dite_eq_left hv'] using hM v hv
+    · have hv' : v ∉ Fam'.T0 := hT ▸ hv
+      simp only [famM, dite_eq_right hv, dite_eq_right hv']
+  rw [theta_constantTerm Fam C g 𝔞 h𝔞 hfix Pd hPd hb,
+    theta_constantTerm Fam' C' g 𝔞 h𝔞 hfix' Pd hPd hb, hT, hMf]
+
+/-- Families with common support admit a common uniform level at each supported place. -/
+theorem family_pair_common_local_level {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (hT : Fam.T0 = Fam'.T0) :
+    ∀ v ∈ Fam.T0, ∃ m, (P.loc v).m0 ≤ m ∧
+      (∀ s g, ∀ k ∈ (P.loc v).Kc m, (Fam.sec s).f v (g * k) = (Fam.sec s).f v g) ∧
+      (∀ s g, ∀ k ∈ (P.loc v).Kc m, (Fam'.sec s).f v (g * k) = (Fam'.sec s).f v g) := by
+  intro v hv
+  obtain ⟨m₁, hm₁, hlevel₁⟩ := Fam.level v hv
+  obtain ⟨m₂, hm₂, hlevel₂⟩ := Fam'.level v (hT ▸ hv)
+  refine ⟨max m₁ m₂, hm₁.trans (Nat.le_max_left _ _), ?_, ?_⟩
+  · intro s g k hk
+    exact hlevel₁ s g k
+      ((P.loc v).Kc_anti m₁ (max m₁ m₂) hm₁ (Nat.le_max_left _ _) hk)
+  · intro s g k hk
+    exact hlevel₂ s g k
+      ((P.loc v).Kc_anti m₂ (max m₁ m₂) hm₂ (Nat.le_max_right _ _) hk)
+
+/-- Common local levels give uniform scalar invariance under one finite adelic level. -/
+theorem family_pair_common_level_set {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (hT : Fam.T0 = Fam'.T0) (hsub : S.Sf ⊆ Fam.T0) :
+    ∃ m : FinPlace F → ℕ, (∀ v ∈ Fam.T0, (P.loc v).m0 ≤ m v) ∧
+      (∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+        scalarOf P G (Fam.sec s).f (Fam.sec s).fC (g * k) =
+          scalarOf P G (Fam.sec s).f (Fam.sec s).fC g) ∧
+      (∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+        scalarOf P G (Fam'.sec s).f (Fam'.sec s).fC (g * k) =
+          scalarOf P G (Fam'.sec s).f (Fam'.sec s).fC g) := by
+  classical
+  have hpair := family_pair_common_local_level Fam Fam' hT
+  let m : FinPlace F → ℕ := fun v =>
+    if hv : v ∈ Fam.T0 then Classical.choose (hpair v hv) else (P.loc v).m0
+  have hm : ∀ v ∈ Fam.T0, (P.loc v).m0 ≤ m v := by
+    intro v hv
+    simpa only [m, dite_eq_left hv] using (Classical.choose_spec (hpair v hv)).1
+  have hboth (v : FinPlace F) (hv : v ∈ Fam.T0) (s : ℂ) (g k : (P.loc v).L)
+      (hk : k ∈ (P.loc v).Kc (m v)) :
+      (Fam.sec s).f v (g * k) = (Fam.sec s).f v g ∧
+        (Fam'.sec s).f v (g * k) = (Fam'.sec s).f v g := by
+    have hk' : k ∈ (P.loc v).Kc (Classical.choose (hpair v hv)) := by
+      simpa only [m, dite_eq_left hv] using hk
+    exact ⟨(Classical.choose_spec (hpair v hv)).2.1 s g k hk',
+      (Classical.choose_spec (hpair v hv)).2.2 s g k hk'⟩
+  have hlevel (R : AnalyticFamily P G μ) (hRT : R.T0 = Fam.T0)
+      (hRlocal : ∀ v ∈ Fam.T0, ∀ s g, ∀ k ∈ (P.loc v).Kc (m v),
+        (R.sec s).f v (g * k) = (R.sec s).f v g) :
+      ∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+        scalarOf P G (R.sec s).f (R.sec s).fC (g * k) =
+          scalarOf P G (R.sec s).f (R.sec s).fC g := by
+    intro s g k hk
+    rcases hk with ⟨xk, hqk, hc, hf, ho⟩
+    obtain ⟨xg, hqg⟩ := P.q_surj g
+    have hlocal : ∀ v,
+        G.lam v ((R.sec s).f v (P.compF v (xg * xk))) =
+          G.lam v ((R.sec s).f v (P.compF v xg)) := by
+      intro v
+      rw [(P.compF v).map_mul]
+      by_cases hv : v ∈ Fam.T0
+      · exact congrArg (G.lam v)
+          (hRlocal v hv s (P.compF v xg) (P.compF v xk) (hf v hv))
+      · apply congrArg (G.lam v)
+        have hv' : v ∉ (R.sec s).T0 := by rw [R.T0_eq s, hRT]; exact hv
+        exact ((R.sec s).f_sph v hv').2 (P.compF v xg) (P.compF v xk) (ho v hv)
+    calc
+      scalarOf P G (R.sec s).f (R.sec s).fC (g * k) =
+          scalarOf P G (R.sec s).f (R.sec s).fC (P.q (xg * xk)) := by
+            rw [P.q.map_mul, hqg, hqk]
+      _ = (∏ᶠ v, G.lam v ((R.sec s).f v (P.compF v (xg * xk)))) *
+            ∏ w, (R.sec s).fC w (P.compC w (xg * xk)) :=
+          (scalarOf_q P G (R.sec s) (xg * xk)).2
+      _ = (∏ᶠ v, G.lam v ((R.sec s).f v (P.compF v xg))) *
+            ∏ w, (R.sec s).fC w (P.compC w xg) := by
+          congr 1
+          · exact finprod_congr hlocal
+          · apply Finset.prod_congr rfl
+            intro w hw
+            rw [(P.compC w).map_mul, hc w, mul_one]
+      _ = scalarOf P G (R.sec s).f (R.sec s).fC (P.q xg) :=
+          ((scalarOf_q P G (R.sec s) xg).2).symm
+      _ = scalarOf P G (R.sec s).f (R.sec s).fC g := by rw [hqg]
+  exact ⟨m, hm,
+    hlevel Fam rfl (fun v hv s g k hk => (hboth v hv s g k hk).1),
+    hlevel Fam' hT.symm (fun v hv s g k hk => (hboth v hv s g k hk).2)⟩
+
+/-- Both theta residues admit expansions in one finite classical residue basis. -/
+theorem family_pair_common_classical_residues [IsTotallyComplex F]
+    {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (C : ContinuedEis Fam) (C' : ContinuedEis Fam') (hT : Fam.T0 = Fam'.T0)
+    (hsub : S.Sf ⊆ Fam.T0) (m : FinPlace F → ℕ)
+    (hm : ∀ v ∈ Fam.T0, (P.loc v).m0 ≤ m v)
+    (hlevel : ∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+      scalarOf P G (Fam.sec s).f (Fam.sec s).fC (g * k) =
+        scalarOf P G (Fam.sec s).f (Fam.sec s).fC g)
+    (hlevel' : ∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+      scalarOf P G (Fam'.sec s).f (Fam'.sec s).fC (g * k) =
+        scalarOf P G (Fam'.sec s).f (Fam'.sec s).fC g)
+    (gj : P.tc.G) (hgj : ∃ x : P.RP, P.q x = gj ∧ ∀ w, P.compC w x = 1) :
+    ∃ (Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))) (n : ℕ)
+      (σ : Fin n → Matrix.SpecialLinearGroup (Fin 2) F)
+      (d : ∀ i, Spec.ContinuedEisenstein F Γ (σ i) (1 / 6)),
+      Γ.FiniteIndex ∧ Spec.FreeAction F Γ ∧ ∃ c c' : Fin n → ℂ,
+        (∀ z, classicalOf P C.theta gj z = ∑ i, c i * (d i).res z) ∧
+        (∀ z, classicalOf P C'.theta gj z = ∑ i, c' i * (d i).res z) := by
+  classical
+  have hgood := exists_good_subgroup P Fam.T0 hsub m hm gj hgj
+  obtain ⟨geom⟩ := red_decompose_part1 P G (aInf P) rfl Fam.T0 hsub m hm gj hgj
+    (by simpa only [redLevel, levelSet, redCompact, infCompact] using hgood)
+  letI := geom.fintype
+  letI := geom.hfinite
+  have hcoeff (R : AnalyticFamily P G μ) (hRT : R.T0 = Fam.T0)
+      (hRL : ∀ s g, ∀ k ∈ levelSet P Fam.T0 hsub m,
+        scalarOf P G (R.sec s).f (R.sec s).fC (g * k) =
+          scalarOf P G (R.sec s).f (R.sec s).fC g) :
+      ∃ b : geom.ι → ℂ → ℂ, (∀ i, AnalyticOnNhd ℂ (b i) {s | 0 < s.re}) ∧
+        ∀ s : ℂ, 1 / 2 < s.re → ∀ z : Spec.X F,
+          classicalOf P (eisenstein P G (R.sec s)) gj z =
+            ∑ i, b i s * Spec.eisSeries F geom.Γ (geom.σ i) s z := by
+    obtain ⟨Ds, b, hb, hzero, hterm⟩ := th_decompose_part2 P G R.sec Fam.T0
+      (fun s => (R.T0_eq s).trans hRT) hsub R.fC_sph m hm
+      (by simpa only [redLevel, levelSet] using hRL) R.f_analytic
+      (aInf P) rfl gj hgj geom
+    refine ⟨fun i s => ∑ δ ∈ Ds i, b i δ s, ?_, ?_⟩
+    · intro i
+      exact Finset.analyticOnNhd_fun_sum (Ds i) (fun δ _ => hb i δ)
+    · intro s hs z
+      let x : InfinitePlace F → ℂ := fun w => Spec.horiz (z w)
+      let y : InfinitePlace F → ℝ := fun w => Spec.height (z w)
+      have hy : ∀ w, 0 < y w := by
+        intro w
+        change 0 < Spec.height (z w)
+        rw [Spec.height_eq_hyperbolicHeight]
+        exact OAI.CubicEisenstein.hyperbolicHeight_pos (z w)
+      have hpt : Spec.ptX' F x y = z := by
+        funext w
+        exact Spec.pt_horiz_height (z w)
+      have hsum := th_decompose_part3 geom.Γ geom.σ geom.e Ds (fun i δ => b i δ s)
+        (fun q => scalarOf P G (R.sec s).f (R.sec s).fC
+          (P.tc.rat (Quotient.out q) * (nInf P x * aInf P y * gj)))
+        s hs (Spec.ptX' F x y) (fun i δ hδ => hzero i δ hδ s)
+        (hterm s hs x y hy)
+      simpa only [classicalOf, eisenstein, x, y, hpt] using hsum.2
+  obtain ⟨b, hb, hseries⟩ := hcoeff Fam rfl hlevel
+  obtain ⟨b', hb', hseries'⟩ := hcoeff Fam' hT.symm hlevel'
+  let n := Fintype.card geom.ι
+  let e : geom.ι ≃ Fin n := Fintype.equivFin geom.ι
+  let σ : Fin n → Matrix.SpecialLinearGroup (Fin 2) F := geom.σ ∘ e.symm
+  have hfinseries (R : AnalyticFamily P G μ) (b₀ : geom.ι → ℂ → ℂ)
+      (hs₀ : ∀ s : ℂ, 1 / 2 < s.re → ∀ z : Spec.X F,
+        classicalOf P (eisenstein P G (R.sec s)) gj z =
+          ∑ i, b₀ i s * Spec.eisSeries F geom.Γ (geom.σ i) s z) :
+      ∀ s : ℂ, 1 / 2 < s.re → ∀ z : Spec.X F,
+        classicalOf P (eisenstein P G (R.sec s)) gj z =
+          ∑ i : Fin n, b₀ (e.symm i) s * Spec.eisSeries F geom.Γ (σ i) s z := by
+    intro s hs z
+    refine (hs₀ s hs z).trans ?_
+    simpa [σ, Function.comp_apply] using
+      Equiv.sum_comp e (fun i : Fin n =>
+        b₀ (e.symm i) s * Spec.eisSeries F geom.Γ (σ i) s z)
+  let d₀ : ∀ i : Fin n, Spec.ContinuedEisenstein F geom.Γ (σ i) (1 / 6 : ℝ) :=
+    fun i => Classical.choice (Spec.exists_continuedEisenstein F geom.Γ geom.hfree
+      (σ i) (1 / 6 : ℝ) (by norm_num) (by norm_num))
+  let epsFn : Option (Fin n) → ℝ := fun q =>
+    match q with
+    | none => (1 / 12 : ℝ)
+    | some i => (d₀ i).ε
+  have hidx : (Finset.univ : Finset (Option (Fin n))).Nonempty :=
+    ⟨none, Finset.mem_univ _⟩
+  let ε : ℝ := Finset.univ.inf' hidx epsFn
+  have hεpos : 0 < ε := by
+    dsimp [ε]
+    rw [Finset.lt_inf'_iff]
+    intro q hq
+    cases q with
+    | none => norm_num [epsFn]
+    | some i => exact (d₀ i).ε_pos
+  have hεle (i : Fin n) : ε ≤ (d₀ i).ε := by
+    change Finset.univ.inf' hidx epsFn ≤ epsFn (some i)
+    exact Finset.inf'_le epsFn (Finset.mem_univ (some i))
+  have hεle12 : ε ≤ (1 / 12 : ℝ) := by
+    change Finset.univ.inf' hidx epsFn ≤ epsFn none
+    exact Finset.inf'_le epsFn (Finset.mem_univ (none : Option (Fin n)))
+  let restrictSpec (i : Fin n) := Spec.ContinuedEisenstein.exists_restrict (F := F)
+    (d₀ i) ε hεpos (hεle i)
+  let d : ∀ i : Fin n, Spec.ContinuedEisenstein F geom.Γ (σ i) (1 / 6 : ℝ) :=
+    fun i => Classical.choose (restrictSpec i)
+  have hd_radius (i : Fin n) : (d i).ε = ε :=
+    (Classical.choose_spec (restrictSpec i)).1
+
+  have hdom_pos (ε : ℝ) (hε : ε ≤ (1 / 12 : ℝ)) :
+      ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) ε ⊆ {s : ℂ | 0 < s.re} := by
+    intro s hs
+    simp only [ArtinPrimitiveRoots.A1.Spec.contDomain, Set.mem_union] at hs
+    rcases hs with (hs | hs) | hs
+    · exact hs.1
+    · have hb := Metric.mem_ball.mp hs
+      have habs : |s.re - (5 / 2 : ℝ)| < (1 / 2 : ℝ) := by
+        have hle := Complex.abs_re_le_norm (s - (5 / 2 : ℂ))
+        rw [dist_eq_norm] at hb
+        simpa [Complex.sub_re] using lt_of_le_of_lt hle hb
+      have hlow := (abs_lt.mp habs).1
+      change 0 < s.re
+      nlinarith [hlow]
+    · have hb := Metric.mem_ball.mp hs.1
+      have habs : |s.re - (1 / 6 : ℝ)| < (1 / 12 : ℝ) := by
+        have hle := Complex.abs_re_le_norm (s - (1 / 6 : ℂ))
+        rw [dist_eq_norm] at hb
+        exact lt_of_le_of_lt (by simpa [Complex.sub_re] using hle)
+          (lt_of_lt_of_le hb hε)
+      have hlow := (abs_lt.mp habs).1
+      change 0 < s.re
+      nlinarith [hlow]
+
+  have hball_pos (ε : ℝ) (hε : ε ≤ (1 / 12 : ℝ)) :
+      Metric.ball (1 / 6 : ℂ) ε ⊆ {s : ℂ | 0 < s.re} := by
+    intro s hs
+    have hb := Metric.mem_ball.mp hs
+    have habs : |s.re - (1 / 6 : ℝ)| < (1 / 12 : ℝ) := by
+      have hle := Complex.abs_re_le_norm (s - (1 / 6 : ℂ))
+      rw [dist_eq_norm] at hb
+      exact lt_of_le_of_lt (by simpa [Complex.sub_re] using hle) (lt_of_lt_of_le hb hε)
+    have hlow := (abs_lt.mp habs).1
+    change 0 < s.re
+    nlinarith [hlow]
+
+  have hpoint_data
+      {Γ : Subgroup (Matrix.SpecialLinearGroup (Fin 2) (𝓞 F))}
+      {σ : Matrix.SpecialLinearGroup (Fin 2) F}
+      (d : ArtinPrimitiveRoots.A1.Spec.ContinuedEisenstein F Γ σ (1 / 6 : ℝ))
+      (z : ArtinPrimitiveRoots.A1.Spec.X F) :
+      AnalyticOnNhd ℂ (fun s => d.E s z)
+          (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) d.ε) ∧
+        ∃ Ψ : ℂ → ℂ,
+          AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) d.ε) ∧
+          Ψ (1 / 6) = d.res z ∧
+          ∀ s ∈ Metric.ball (1 / 6 : ℂ) d.ε, s ≠ 1 / 6 →
+            Ψ s = (s - 1 / 6) * d.E s z := by
+    classical
+    let K : Set (ArtinPrimitiveRoots.A1.Spec.Coord F) :=
+      {ArtinPrimitiveRoots.A1.Spec.coordsX F z}
+    have hK : IsCompact K := isCompact_singleton
+    have hpos : ArtinPrimitiveRoots.A1.Spec.coordsX F z ∈
+        ArtinPrimitiveRoots.A1.Spec.posSet F := by
+      intro w
+      change 0 < ArtinPrimitiveRoots.A1.Spec.height (z w)
+      rw [ArtinPrimitiveRoots.A1.Spec.height_eq_hyperbolicHeight]
+      exact OAI.CubicEisenstein.hyperbolicHeight_pos (z w)
+    have hKP : K ⊆ ArtinPrimitiveRoots.A1.Spec.posSet F := by
+      intro p hp
+      have : p = ArtinPrimitiveRoots.A1.Spec.coordsX F z := by simpa [K] using hp
+      rw [this]
+      exact hpos
+    let p : K := ⟨ArtinPrimitiveRoots.A1.Spec.coordsX F z, by simp [K]⟩
+    have hpt : ArtinPrimitiveRoots.A1.Spec.ptX F (ArtinPrimitiveRoots.A1.Spec.coordsX F z) = z := by
+      funext w
+      exact ArtinPrimitiveRoots.A1.Spec.pt_horiz_height (z w)
+    obtain ⟨Φ, hΦ, hΦvalue⟩ := d.E_analytic K hK hKP 0 Fin.elim0
+    have hEval : AnalyticOnNhd ℂ (fun s => BoundedContinuousFunction.evalCLM ℂ p (Φ s))
+        (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) d.ε) := by
+      change AnalyticOnNhd ℂ ((BoundedContinuousFunction.evalCLM ℂ p) ∘ Φ)
+        (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) d.ε)
+      exact (BoundedContinuousFunction.evalCLM ℂ p).comp_analyticOnNhd hΦ
+    have hEq : (ArtinPrimitiveRoots.A1.Spec.contDomain (1 / 6) d.ε).EqOn
+        (fun s => BoundedContinuousFunction.evalCLM ℂ p (Φ s)) (fun s => d.E s z) := by
+      intro s hs
+      have h := hΦvalue s hs p
+      simpa [p, hpt] using h
+    have hEanalytic := hEval.congr
+      (ArtinPrimitiveRoots.A1.Spec.isOpen_contDomain (1 / 6) d.ε) hEq
+    obtain ⟨Ψ, hΨ, hcenter, hpunct⟩ := d.laurent K hK hKP 0 Fin.elim0
+    let ψ : ℂ → ℂ := fun s => BoundedContinuousFunction.evalCLM ℂ p (Ψ s)
+    have hψanalytic : AnalyticOnNhd ℂ ψ (Metric.ball (1 / 6 : ℂ) d.ε) := by
+      convert (BoundedContinuousFunction.evalCLM ℂ p).comp_analyticOnNhd hΨ using 1 <;>
+        norm_num <;> rfl
+    have hψcenter : ψ (1 / 6) = d.res z := by
+      have h := hcenter p
+      simpa [ψ, p, hpt] using h
+    refine ⟨hEanalytic, ⟨ψ, hψanalytic, hψcenter, ?_⟩⟩
+    intro s hs hne
+    have hne' : s ≠ ((1 / 6 : ℝ) : ℂ) := by simpa using hne
+    have h := hpunct s (by simpa using hs) hne' p
+    simpa [ψ, p, hpt] using h
+  have hmatch (R : AnalyticFamily P G μ) (CR : ContinuedEis R) (a : Fin n → ℂ → ℂ)
+      (ha : ∀ i, AnalyticOnNhd ℂ (a i) {s | 0 < s.re})
+      (hsR : ∀ s : ℂ, 1 / 2 < s.re → ∀ z : Spec.X F,
+        classicalOf P (eisenstein P G (R.sec s)) gj z =
+          ∑ i, a i s * Spec.eisSeries F geom.Γ (σ i) s z) :
+      ∀ z, classicalOf P CR.theta gj z = ∑ i, a i (1 / 6) * (d i).res z := by
+    intro z
+    let u := nInf P (fun w => Spec.horiz (z w)) *
+      aInf P (fun w => Spec.height (z w)) * gj
+    have hEpoint (i : Fin n) : AnalyticOnNhd ℂ (fun s => (d i).E s z)
+        (Spec.contDomain (1 / 6) ε) := by
+      simpa only [hd_radius i] using (hpoint_data (d i) z).1
+    have hpsiExist (i : Fin n) : ∃ ψ : ℂ → ℂ,
+        AnalyticOnNhd ℂ ψ (Metric.ball (1 / 6 : ℂ) ε) ∧
+        ψ (1 / 6) = (d i).res z ∧
+        ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 →
+          ψ s = (s - 1 / 6) * (d i).E s z := by
+      obtain ⟨ψ, hψ, hcenter, hpunct⟩ := (hpoint_data (d i) z).2
+      refine ⟨ψ, ?_, hcenter, ?_⟩
+      · simpa only [hd_radius i] using hψ
+      · intro s hs hne
+        exact hpunct s (by simpa only [hd_radius i] using hs) hne
+    let ψ : Fin n → ℂ → ℂ := fun i => Classical.choose (hpsiExist i)
+    have hψspec (i : Fin n) := Classical.choose_spec (hpsiExist i)
+    have hEanalytic : AnalyticOnNhd ℂ (fun s => ∑ i, a i s * (d i).E s z)
+        (Spec.contDomain (1 / 6) ε) := by
+      apply Finset.analyticOnNhd_fun_sum
+      intro i hi
+      exact (ha i).mono (hdom_pos ε hεle12) |>.mul (hEpoint i)
+    let Ψ : ℂ → ℂ := fun s => ∑ i, a i s * ψ i s
+    have hΨanalytic : AnalyticOnNhd ℂ Ψ (Metric.ball (1 / 6 : ℂ) ε) := by
+      apply Finset.analyticOnNhd_fun_sum
+      intro i hi
+      exact (ha i).mono (hball_pos ε hεle12) |>.mul (hψspec i).1
+    have hΨcenter : Ψ (1 / 6) = ∑ i, a i (1 / 6) * (d i).res z := by
+      change (∑ i, a i (1 / 6) * ψ i (1 / 6)) = _
+      apply Finset.sum_congr rfl
+      intro i hi
+      change a i (1 / 6) * Classical.choose (hpsiExist i) (1 / 6) = _
+      rw [(hψspec i).2.1]
+    have hΨpunct : ∀ s ∈ Metric.ball (1 / 6 : ℂ) ε, s ≠ 1 / 6 →
+        Ψ s = (s - 1 / 6) * ∑ i, a i s * (d i).E s z := by
+      intro s hs hne
+      change (∑ i, a i s * ψ i s) = _
+      calc
+        (∑ i, a i s * ψ i s) =
+            ∑ i, (s - 1 / 6) * (a i s * (d i).E s z) := by
+              apply Finset.sum_congr rfl
+              intro i hi
+              change a i s * Classical.choose (hpsiExist i) s = _
+              rw [(hψspec i).2.2 s hs hne]
+              ring
+        _ = _ := by rw [Finset.mul_sum]
+    have hser : Set.EqOn (fun s => CR.E s u) (fun s => ∑ i, a i s * (d i).E s z)
+        (Metric.ball (5 / 2 : ℂ) (1 / 2)) := by
+      intro s hs
+      have hb := Metric.mem_ball.mp hs
+      have habs : |s.re - (5 / 2 : ℝ)| < (1 / 2 : ℝ) := by
+        have hle := Complex.abs_re_le_norm (s - (5 / 2 : ℂ))
+        rw [dist_eq_norm] at hb
+        simpa [Complex.sub_re] using lt_of_le_of_lt hle hb
+      have hsre : 1 / 2 < s.re := by
+        have hlow := (abs_lt.mp habs).1
+        linarith
+      change CR.E s u = ∑ i, a i s * (d i).E s z
+      rw [CR.E_series s hs u]
+      calc
+        eisenstein P G (R.sec s) u =
+            ∑ i, a i s * Spec.eisSeries F geom.Γ (σ i) s z := hsR s hsre z
+        _ = _ := by
+          apply Finset.sum_congr rfl
+          intro i hi
+          rw [(d i).E_series s hs z]
+    have hres := (continuedEis_component_unique CR.ε ε CR.ε_pos hεpos
+      (fun s => CR.E s u) (fun s => ∑ i, a i s * (d i).E s z)
+      (CR.theta u) (∑ i, a i (1 / 6) * (d i).res z)
+      (CR.E_analytic u) hEanalytic hser (CR.laurent u)
+      ⟨Ψ, hΨanalytic, hΨcenter, hΨpunct⟩).2
+    simpa only [classicalOf, u] using hres
+  refine ⟨geom.Γ, n, σ, d, geom.hfinite, geom.hfree,
+    (fun i => b (e.symm i) (1 / 6)), (fun i => b' (e.symm i) (1 / 6)), ?_, ?_⟩
+  · exact hmatch Fam C (fun i => b (e.symm i)) (fun i => hb (e.symm i))
+      (hfinseries Fam b hseries)
+  · exact hmatch Fam' C' (fun i => b' (e.symm i)) (fun i => hb' (e.symm i))
+      (hfinseries Fam' b' hseries')
+
+/-- Two section families admit the same bounded measurable adapted domain at every point. -/
+theorem family_pair_common_adapted_domain {P : CoverPackage D S H A} {G : GlobalDatum P}
+    {μ : ∀ v : FinPlace F, LocHaar v} (Fam Fam' : AnalyticFamily P G μ)
+    (g : P.tc.G) :
+    ∃ (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (Pd : Set (InfinitePlace F → ℂ)),
+      FourierAdaptedDomain Fam.sec g 𝔞 Pd 1 ∧
+      FourierAdaptedDomain Fam'.sec g 𝔞 Pd 1 ∧ MeasurableSet Pd := by
+  obtain ⟨𝔞₁, _, hdom₁, _⟩ := theta_adapted_domain_exists Fam.fourierHyp g
+  obtain ⟨𝔞₂, _, hdom₂, _⟩ := theta_adapted_domain_exists Fam'.fourierHyp g
+  have hnum₁ : 𝔞₁.num ≠ ⊥ := fun h =>
+    hdom₁.1 (FractionalIdeal.zero_of_num_eq_bot (by simp) h)
+  have hnum₂ : 𝔞₂.num ≠ ⊥ := fun h =>
+    hdom₂.1 (FractionalIdeal.zero_of_num_eq_bot (by simp) h)
+  let J : Ideal (𝓞 F) := 𝔞₁.num * 𝔞₂.num
+  have hJ : J ≠ ⊥ := by
+    intro h
+    exact (Ideal.mul_eq_bot.mp h).elim hnum₁ hnum₂
+  let 𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F := J
+  have h𝔞 : 𝔞 ≠ 0 :=
+    (FractionalIdeal.coeIdeal_ne_zero' (le_refl (nonZeroDivisors (𝓞 F)))).mpr hJ
+  have hle₁ : 𝔞 ≤ 𝔞₁ := by
+    exact ((FractionalIdeal.coeIdeal_le_coeIdeal F).mpr
+      (show J ≤ 𝔞₁.num from Ideal.mul_le_left)).trans (FractionalIdeal.num_le 𝔞₁)
+  have hle₂ : 𝔞 ≤ 𝔞₂ := by
+    exact ((FractionalIdeal.coeIdeal_le_coeIdeal F).mpr
+      (show J ≤ 𝔞₂.num from Ideal.mul_le_right)).trans (FractionalIdeal.num_le 𝔞₂)
+  let I := Units.mk0 𝔞 h𝔞
+  obtain ⟨Pd, hPd, hb, hm⟩ := bounded_measurable_ideal_domain D I
+  have hfix : FourierIdealFix Fam.sec g 𝔞 := by
+    intro s ξ hξ h
+    exact hdom₁.2.1 s ξ (hle₁ hξ) h
+  have hfix' : FourierIdealFix Fam'.sec g 𝔞 := by
+    intro s ξ hξ h
+    exact hdom₂.2.1 s ξ (hle₂ hξ) h
+  have hdual : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), psiInf 1 (infEmbA ξ) = 1 := by
+    intro ξ hξ
+    exact hdom₁.2.2.2.2 ξ (hle₁ hξ)
+  exact ⟨𝔞, Pd, ⟨h𝔞, hfix, hPd, hb, hdual⟩,
+    ⟨h𝔞, hfix', hPd, hb, hdual⟩, hm⟩
+
+/-- Equal intertwiner data gives zero constant coefficients over every bounded
+ideal period domain of the residue difference. -/
+theorem residue_difference_constantCoeff_eq_zero
+    {P : CoverPackage D S H A} {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
+    (Fam Fam' : AnalyticFamily P G μ) (C : ContinuedEis Fam) (C' : ContinuedEis Fam')
+    (hT : Fam.T0 = Fam'.T0)
+    (hM : ∀ v ∈ Fam.T0, intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) =
+      intertwine (P.loc v) (μ v) ((Fam'.sec (1 / 6)).f v))
+    (g : P.tc.G) (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+    (Pd : Set (InfinitePlace F → ℂ)) (_h𝔞 : 𝔞 ≠ 0)
+    (hfix : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+      C.theta (h * (g⁻¹ * nFin P ξ * g)) - C'.theta (h * (g⁻¹ * nFin P ξ * g)) =
+        C.theta h - C'.theta h)
+    (hPd : IsAddFundamentalDomain
+      ((𝔞 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Pd volume)
+    (hb : Bornology.IsBounded Pd) :
+    torusCoeff P (fun h => C.theta h - C'.theta h) g Pd 0 = 0 := by
+  let : Countable F := Finsupp.Countable.of_moduleFinite (R := ℚ)
+  let Ψ : P.tc.G → ℂ := fun h => C.theta h - C'.theta h
+  let f : (InfinitePlace F → ℂ) → ℂ := fun x => Ψ (nInf P x * g)
+  have hnzero : nInf P 0 = 1 := by
+    change P.tc.nS 1 = 1
+    exact P.tc.nS.map_one
+  have hcont {Fr : AnalyticFamily P G μ} (CR : ContinuedEis Fr) :
+      Continuous (fun x : InfinitePlace F → ℂ => CR.theta (nInf P x * g)) := by
+    have h := (CR.jointRoots g).continuous.comp
+      (continuous_id.prodMk (continuous_const (y := (0 : InfinitePlace F → ℂ))))
+    simpa only [Function.comp_def, id_eq, hnzero, mul_one] using h
+  have hf : Continuous f := (hcont C).sub (hcont C')
+  have hAut : ∀ γ h, Ψ (P.tc.rat γ * h) = Ψ h := by
+    intro γ h
+    dsimp [Ψ]
+    rw [residue_automorphic Fam C γ h, residue_automorphic Fam' C' γ h]
+  have hperP : ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ x, f (x + infEmbA ξ) = f x :=
+    automorphic_ideal_period P Ψ g 𝔞 hAut hfix
+  obtain ⟨𝔟, Rd, hdom, hdom', _⟩ := family_pair_common_adapted_domain Fam Fam' g
+  have hperR : ∀ ξ ∈ (𝔟 : Submodule (𝓞 F) F), ∀ x, f (x + infEmbA ξ) = f x := by
+    intro ξ hξ x
+    dsimp [f, Ψ]
+    rw [residue_ideal_period Fam C g 𝔟 hdom.2.1 ξ hξ x,
+      residue_ideal_period Fam' C' g 𝔟 hdom'.2.1 ξ hξ x]
+  have hint : IntegrableOn (fun x => C.theta (nInf P x * g)) Rd volume :=
+    ((hcont C).continuousOn.integrableOn_compact
+      hdom.2.2.2.1.isCompact_closure).mono_set subset_closure
+  have hint' : IntegrableOn (fun x => C'.theta (nInf P x * g)) Rd volume :=
+    ((hcont C').continuousOn.integrableOn_compact
+      hdom.2.2.2.1.isCompact_closure).mono_set subset_closure
+  have hcmp : ((volume Rd).toReal : ℂ)⁻¹ * (∫ x in Rd, C.theta (nInf P x * g)) =
+      ((volume Rd).toReal : ℂ)⁻¹ * (∫ x in Rd, C'.theta (nInf P x * g)) := by
+    simpa [torusCoeff, psiInf, psiC] using
+      theta_constantCoeff_eq_of_M Fam Fam' C C' hT hM g 𝔟 hdom.1
+        hdom.2.1 hdom'.2.1 Rd hdom.2.2.1 hdom.2.2.2.1
+  have hzero : ((volume Rd).toReal : ℂ)⁻¹ * (∫ x in Rd, f x) = 0 := by
+    change ((volume Rd).toReal : ℂ)⁻¹ *
+      (∫ x in Rd, C.theta (nInf P x * g) - C'.theta (nInf P x * g)) = 0
+    rw [integral_sub hint hint', mul_sub]
+    exact sub_eq_zero.mpr hcmp
+  have hvol (𝔠 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (Qd : Set (InfinitePlace F → ℂ))
+      (hQd : IsAddFundamentalDomain
+        ((𝔠 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom) Qd volume)
+      (hbQ : Bornology.IsBounded Qd) : (volume Qd).toReal ≠ 0 := by
+    let L := (𝔠 : Submodule (𝓞 F) F).toAddSubgroup.map infEmbA.toAddMonoidHom
+    have hcount : (L : Set (InfinitePlace F → ℂ)).Countable := by
+      change (↑((𝔠 : Submodule (𝓞 F) F).toAddSubgroup.map
+        infEmbA.toAddMonoidHom) : Set (InfinitePlace F → ℂ)).Countable
+      rw [AddSubgroup.coe_map]
+      exact (Set.to_countable _).image _
+    let : Countable L := hcount.to_subtype
+    have hv : volume Qd ≠ 0 :=
+      hQd.measure_ne_zero (NeZero.ne (volume : Measure (InfinitePlace F → ℂ)))
+    exact ENNReal.toReal_ne_zero.mpr ⟨hv, (hbQ.measure_lt_top (μ := volume)).ne⟩
+  have havg := ideal_periodic_normalized_integrals_eq f hf 𝔞 𝔟 Pd Rd hPd hdom.2.2.1
+    hb hdom.2.2.2.1 (hvol 𝔞 Pd hPd hb) (hvol 𝔟 Rd hdom.2.2.1 hdom.2.2.2.1)
+    hperP hperR
+  rw [hzero] at havg
+  simpa [torusCoeff, psiInf, psiC, f, Ψ] using havg
+
 /-- **res:depends-on-M** (via P-REDUCTION and P-SPEC `res_lincomb_eq_zero` only): `θ` depends only on
 the `M(1/6)`-data. -/
 theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
@@ -556,7 +1107,71 @@ theorem theta_depends_on_M {P : CoverPackage D S H A} {G : GlobalDatum P}
     (hM : ∀ v ∈ Fam.T0, intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) =
       intertwine (P.loc v) (μ v) ((Fam'.sec (1 / 6)).f v)) :
     C.theta = C'.theta := by
-  sorry
+  letI : IsTotallyComplex F := D.isTotallyComplex
+  have hInf : ∀ g, ∀ k ∈ infCompact P,
+      C.theta (g * k) - C'.theta (g * k) = C.theta g - C'.theta g := by
+    intro g k hk
+    rw [residue_right_infCompact Fam C g k hk,
+      residue_right_infCompact Fam' C' g k hk]
+  have hsub : S.Sf ⊆ Fam.T0 := by
+    simpa only [Fam.T0_eq (1 / 6)] using (Fam.sec (1 / 6)).sub
+  obtain ⟨m, hm, hL, hL'⟩ := family_pair_common_level_set Fam Fam' hT hsub
+  let Ψ : P.tc.G → ℂ := fun g => C.theta g - C'.theta g
+  have hAut : ∀ γ g, Ψ (P.tc.rat γ * g) = Ψ g := by
+    intro γ g
+    dsimp [Ψ]
+    rw [residue_automorphic Fam C γ g, residue_automorphic Fam' C' γ g]
+  have hLevel : ∀ g, ∀ k ∈ levelSet P Fam.T0 hsub m, Ψ (g * k) = Ψ g := by
+    intro g k hk
+    dsimp [Ψ]
+    rw [residue_right_of_scalar_invariant Fam C k (fun s h => hL s h k hk) g,
+      residue_right_of_scalar_invariant Fam' C' k (fun s h => hL' s h k hk) g]
+  have hperiod : ∀ g : P.tc.G, ∃ 𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F,
+      𝔞 ≠ 0 ∧ ∀ ξ ∈ (𝔞 : Submodule (𝓞 F) F), ∀ h,
+        Ψ (h * (g⁻¹ * nFin P ξ * g)) = Ψ h := by
+    intro g
+    obtain ⟨𝔞, Pd, hdom, hdom', _⟩ := family_pair_common_adapted_domain Fam Fam' g
+    refine ⟨𝔞, hdom.1, ?_⟩
+    intro ξ hξ h
+    dsimp [Ψ]
+    rw [residue_right_of_scalar_invariant Fam C (g⁻¹ * nFin P ξ * g)
+        (fun s y => hdom.2.1 s ξ hξ y) h,
+      residue_right_of_scalar_invariant Fam' C' (g⁻¹ * nFin P ξ * g)
+        (fun s y => hdom'.2.1 s ξ hξ y) h]
+  obtain ⟨J, hJ, hdetect⟩ := exists_classical_components P Fam.T0 hsub m hm
+  have hzero : ∀ gj ∈ J, ∀ z, classicalOf P Ψ gj z = 0 := by
+    intro gj hgj
+    obtain ⟨Γ, n, σ, d, hfinite, hfree, c, c', hθ, hθ'⟩ :=
+      family_pair_common_classical_residues Fam Fam' C C' hT hsub m hm hL hL'
+        gj (hJ gj hgj)
+    letI := hfinite
+    have hclass : ∀ z, classicalOf P Ψ gj z = ∑ i, (c i - c' i) * (d i).res z := by
+      intro z
+      change classicalOf P C.theta gj z - classicalOf P C'.theta gj z = _
+      rw [hθ z, hθ' z, ← Finset.sum_sub_distrib]
+      apply Finset.sum_congr rfl
+      intro i hi
+      ring
+    have hΓ : ∀ γ ∈ Γ, ∀ z, classicalOf P Ψ gj (γ • z) = classicalOf P Ψ gj z := by
+      intro γ hγ z
+      rw [hclass, hclass]
+      apply Finset.sum_congr rfl
+      intro i hi
+      rw [(d i).res_invariant γ hγ z]
+    have hct := classical_constTerm_eq_zero P Ψ gj (hJ gj hgj) hAut hInf Γ hfinite
+      hperiod hΓ (fun g 𝔞 Pd h𝔞 hfix hPd hb =>
+        residue_difference_constantCoeff_eq_zero Fam Fam' C C' hT hM
+          g 𝔞 Pd h𝔞 hfix hPd hb)
+    have hz := Spec.res_lincomb_eq_zero F Γ hfree (1 / 6) (by norm_num) (by norm_num)
+      σ d (fun i => c i - c' i) (by
+        intro τ y hy
+        obtain ⟨Pd, hPd, hi⟩ := hct τ y hy
+        refine ⟨Pd, hPd, ?_⟩
+        simpa only [hclass] using hi)
+    intro z
+    exact (hclass z).trans (hz z)
+  funext g
+  exact sub_eq_zero.mp (hdetect Ψ hAut hLevel hInf hzero g)
 
 /-- **res:linear-translate**: `θ` is linear in the section at one place and right translation of
 that section translates `θ`. -/
@@ -607,7 +1222,60 @@ theorem center_mem_root_closure {D : FieldData F} {H : HilbertData F} {v : FinPl
 theorem thetaWhit_ne_zero {P : CoverPackage D S H A} {G : GlobalDatum P}
     {μ : ∀ v : FinPlace F, LocHaar v} (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
     (hθ : ∃ g, C.theta g ≠ 0) : ∃ g, thetaWhit C g ≠ 0 := by
-  sorry
+  classical
+  by_contra h
+  have hW : ∀ g, thetaWhit C g = 0 := by simpa only [not_exists, not_not] using h
+  have hcoeff : ∀ (g : P.tc.G)
+      (𝔞 : FractionalIdeal (nonZeroDivisors (𝓞 F)) F)
+      (Pd : Set (InfinitePlace F → ℂ)) (ν : Fˣ),
+      FourierAdaptedDomain Fam.sec g 𝔞 Pd (ν : F) →
+        torusCoeff P C.theta g Pd (ν : F) = 0 := by
+    intro g 𝔞 Pd ν hdom
+    exact (theta_fourierCoeff Fam C g 𝔞 hdom.1 hdom.2.1 Pd hdom.2.2.1
+      hdom.2.2.2.1 ν hdom.2.2.2.2).trans (hW _)
+  have harch := residue_arch_invariant_of_nonzero_coeff_zero Fam C Fam.fourierHyp hcoeff
+  obtain ⟨v, hv⟩ := exists_exterior_finPlace S
+  have hn := residue_exterior_upper_invariant_of_arch_invariant Fam C harch v hv
+  have hnbar := residue_exterior_lower_invariant_of_upper_invariant Fam C v hv hn
+  obtain ⟨g, hg⟩ := hθ
+  exact hg (root_invariant_genuine_zero (P := P) v hv C.theta (residue_genuine Fam C)
+    (fun t g => hn (Multiplicative.toAdd t) g)
+    (fun t g => hnbar (Multiplicative.toAdd t) g) g)
+
+/-- Normalized exceptional sections give a nonzero constant torus coefficient. -/
+theorem normalized_family_constantCoeff_ne_zero {P : CoverPackage D S H A}
+    {G : GlobalDatum P} {μ : ∀ v : FinPlace F, LocHaar v}
+    (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam)
+    (hT : Fam.T0 = S.Sf)
+    (h1 : ∀ v ∈ S.Sf,
+      G.lam v (intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) 1) = 1)
+    (hzero : ∀ v ∈ S.Sf, ∀ y : (v.adicCompletion F)ˣ, y ∉ G.Alag v →
+      G.lam v ((G.T v).σa y
+        (intertwine (P.loc v) (μ v) ((Fam.sec (1 / 6)).f v) 1)) = 0) :
+    ∃ Pd : Set (InfinitePlace F → ℂ), torusCoeff P C.theta 1 Pd 0 ≠ 0 := by
+  obtain ⟨𝔞, Pd, hdom, _⟩ := theta_adapted_domain_exists Fam.fourierHyp 1
+  refine ⟨Pd, ?_⟩
+  rw [theta_constantTerm Fam C 1 𝔞 hdom.1 hdom.2.1 Pd hdom.2.2.1 hdom.2.2.2.1]
+  have hM : fourierRawM μ Fam.sec (1 / 6) =
+      scalarOf P G (famM Fam) (fun _ => intertwineC (sphC (1 / 6))) := by
+    funext h
+    unfold fourierRawM
+    congr 1
+    · funext v
+      unfold famM
+      simp only [Fam.T0_eq]
+    · funext w
+      rw [Fam.fC_sph]
+  have hsum := normalized_intertwined_torus_sum_ne_zero G μ Fam hT h1 hzero
+  have hd : (NumberField.discr F : ℝ) ≠ 0 := by
+    exact_mod_cast NumberField.discr_ne_zero F
+  have hkpos : 0 < κF F := by
+    exact mul_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)
+      (Real.sqrt_pos.2 (abs_pos.2 hd))
+  have hk : (((κF F)⁻¹ : ℝ) : ℂ) ≠ 0 := by
+    exact_mod_cast inv_ne_zero (ne_of_gt hkpos)
+  apply mul_ne_zero (mul_ne_zero hk (resCprod_ne_zero Fam.T0))
+  simpa only [hM, mul_one] using hsum
 
 /-- **res:theta-exists**: big-cell sections at `S_f` and spherical sections elsewhere give `θ ≠ 0`.
 C6 of `sol-gate-theta` requires the cube-containing Lagrangian global datum. -/
@@ -616,7 +1284,15 @@ theorem exists_theta_ne_zero (P : CoverPackage D S H A) (G : GlobalDatum P)
     ∃ (Fam : AnalyticFamily P G μ) (C : ContinuedEis Fam), Fam.T0 = S.Sf ∧
       (∀ v ∈ S.Sf, ∃ φ : v.adicCompletion F → (G.T v).V, IsLocallyConstant φ ∧ HasCompactSupport φ ∧
         ∀ s, (Fam.sec s).f v = bigCell (P.loc v) (G.T v) s φ) ∧ ∃ g, C.theta g ≠ 0 := by
-  sorry
+  obtain ⟨Fam, hT, hcell, h1, hzero⟩ := normalized_bigCell_family P G μ
+  obtain ⟨C⟩ := exists_continuedEis Fam
+  obtain ⟨Pd, hcoeff⟩ := normalized_family_constantCoeff_ne_zero Fam C hT h1 hzero
+  have htheta : ∃ g, C.theta g ≠ 0 := by
+    by_contra h
+    have hz : ∀ g, C.theta g = 0 := by simpa only [not_exists, not_not] using h
+    apply hcoeff
+    simp [torusCoeff, hz]
+  exact ⟨Fam, C, hT, hcell, htheta⟩
 
 /-- **res:theta-multilinear**: with the data outside `S_f` fixed, `W_θ(g)` is a multilinear form in
 the local Jacquet vectors at `S_f` at `s0`, times the complex spherical Jacquet values. -/
