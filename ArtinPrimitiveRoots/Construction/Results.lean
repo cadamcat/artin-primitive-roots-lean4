@@ -4596,7 +4596,46 @@ theorem bin_cost (M c : ℕ) (u : ℤ) (κ b : ℝ)
               T ≤ (singularProduct M * conTotalMass x M c u K a Ψ / Real.log x) *
                 (sSup ((fun t : ℝ => roughDensity γ (1 - t)) '' Set.Icc γ γ') *
                   Real.log (γ' / γ) + η) := by
-  sorry
+  classical
+  by_cases hBad : 1 / 2 - κ ≤ b
+  · refine ⟨0, ?_⟩
+    intro K hK a ha Ψ hΨ γ γ' hγlo hγγ' hγhi η hη
+    exfalso
+    linarith only [hBad, hγlo, hγγ', hγhi]
+  · have hbhi : b < 1 / 2 - κ := lt_of_not_ge hBad
+    have hs : 1 / 2 + κ / 2 < 1 - b / 2 := by linarith
+    obtain ⟨K₀, hUniform⟩ :=
+      ArtinPrimitiveRoots.Proofs.c_bins_sol.twisted_rough_type_ii_uniform_gamma
+        (b / 2) (1 / 2 + κ / 2) (1 - b / 2) (1 / 4) 2
+        (by positivity) (by positivity) hs (by linarith)
+        (by norm_num) (by norm_num) (by norm_num)
+    refine ⟨K₀, ?_⟩
+    intro K hK a ha Ψ hΨ γ γ' hγlo hγγ' hγhi
+    have htw := hUniform K hK M hM a ha γ (hb.trans_le hγlo) (by linarith)
+    obtain ⟨c₀, C₀, hc₀, hC₀, hDistribution⟩ := con_distribution M Ψ hM hΨ
+    obtain ⟨xDist, hxDist, hError, hMassBounds⟩ :=
+      hDistribution c hc24 hcM u hu hcu hcu' K a ha (κ / 2) κ
+        (by positivity) (by linarith) hκsmall
+    have hcpos : 0 < c := by rcases hc24 with h | h <;> omega
+    obtain ⟨CH, xH, hCH, hxH, hHarmonic⟩ :=
+      con_harmonic M c u Ψ K a hM hcpos ha hΨ
+    obtain ⟨Bsupport, xSupport, hBsupport, hxSupport, hSupportAll⟩ :=
+      support M c u K a Ψ hM hc24 ha hΨ.2.2.1 hΨ.2.2.2.1 hΨ.2.1
+    apply ArtinPrimitiveRoots.Proofs.c_bins_sol.bin_cost_of_estimates
+      M c K u a Ψ b κ γ γ' hM hc24 hu ha hΨ hb hκ hκsmall
+        hγlo hγγ' hγhi htw c₀ xDist xSupport xH hc₀
+    · intro x hx
+      exact (hMassBounds x hx).1
+    · intro x hx d
+      refine ⟨?_, ((hSupportAll x hx).2.2 d).1⟩
+      intro hd
+      have h := (hSupportAll x hx).2.1 d hd
+      exact ⟨h.1, h.2.1⟩
+    · intro x hx
+      exact (hHarmonic x hx).2.1
+    · exact con_bin_mass M c u K a Ψ b κ (κ / 2) hM hc24 hcM
+        hb hκ hκsmall (by positivity) (by linarith) ha hΨ hu hcu hcu'
+        γ γ' hγlo hγγ' hγhi
 
 /-- `co:density-partition`, 12-construction.tex:563-592. -/
 theorem density_partition :
