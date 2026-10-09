@@ -2582,7 +2582,15 @@ theorem phase_low_regime_bound :
 
 private theorem phase_boxExponent_eq_half (k : ℕ) :
     (phaseBoxExponent k : ℝ) = (k : ℝ) * ((k : ℝ) + 1) / 2 := by
-  sorry
+  induction k with
+  | zero => simp [phaseBoxExponent]
+  | succ k ih =>
+      have hstep : phaseBoxExponent (k + 1) = phaseBoxExponent k + (k + 1) := by
+        simp [phaseBoxExponent, Fin.sum_univ_castSucc]
+      rw [hstep]
+      push_cast
+      rw [ih]
+      ring
 
 private theorem phase_high_box_cover {H y θ : ℝ} {k M : ℕ}
     (B : Finset ℕ) (hM : 0 < M) :
