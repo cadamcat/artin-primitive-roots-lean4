@@ -19,6 +19,7 @@ import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_fourier_c
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTraceFrequency_period
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.unitTorus_lift_of_int_periodic
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_normalized_integral
+import ArtinPrimitiveRoots.Theta.Proofs.«TH-RES-ACTION».ideal_periodic_normalized_integrals_eq
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_fourierCoeff_eq
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.idealTorus_constant_of_nonzero_fourier_zero
 import ArtinPrimitiveRoots.Theta.Proofs.TH_NONZERO.residue_right_of_scalar_invariant
